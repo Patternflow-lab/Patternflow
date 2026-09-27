@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import { PUBLIC_DECKS_MAX, type CollectedPattern } from "@/lib/community/deck";
 import { DESCRIPTION_MAX, TITLE_MAX } from "@/lib/community/validate";
 import {
@@ -37,6 +38,8 @@ export default function ShareDeckModal({
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One request per press, decided in the click's own tick (#455).
+  const latch = useSubmitLatch();
 
   const share = async () => {
     const trimmed = title.trim();
@@ -45,6 +48,7 @@ export default function ShareDeckModal({
       setError(`Title is required (max ${TITLE_MAX} characters).`);
       return;
     }
+    if (!latch.take()) return;
     setBusy(true);
     try {
       const response = await fetch(communityApiUrl("/api/community/decks"), {
@@ -73,6 +77,7 @@ export default function ShareDeckModal({
     } catch {
       setError("Network error — is the community server reachable?");
     } finally {
+      latch.release();
       setBusy(false);
     }
   };

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import BodyComposer from "./BodyComposer";
 import { deckItems } from "@/lib/community/deck";
 import { communityPatternUrl } from "@/lib/community/license";
@@ -46,6 +47,10 @@ export default function NewThreadModal({
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const latch = useSubmitLatch();
+  // Set when the thread went up but its files did not: the form has nothing
+  // left to post, and its button becomes the way to the thread.
+  const [postedId, setPostedId] = useState<string | null>(null);
 
   // Whatever this person has collected — the working deck is the only pattern
   // index the browser has without a round trip.
@@ -65,10 +70,23 @@ export default function NewThreadModal({
     setPicking(false);
   };
 
+  const threadHref = (id: string) => `/community/workshop/${code.toLowerCase()}/t/${id}`;
+
   const submit = async () => {
-    if (!canSubmit) return;
+    // Decided in the click's own tick — a double-click must not post the
+    // thread twice (#455).
+    if (!canSubmit || !latch.take()) return;
     setBusy(true);
     setError(null);
+    const outcome = await post();
+    // Once the thread exists the latch stays held, whatever happened to its
+    // files: pressing again would only post it a second time.
+    if (outcome === "failed") latch.release();
+    // Navigating keeps "Posting…" up until the page changes.
+    if (outcome !== "navigating") setBusy(false);
+  };
+
+  const post = async (): Promise<"failed" | "posted" | "navigating"> => {
     try {
       const response = await fetch(communityApiUrl("/api/community/posts"), {
         method: "POST",
@@ -84,7 +102,7 @@ export default function NewThreadModal({
       const payload = (await response.json()) as { error?: string; id?: string };
       if (!response.ok || !payload.id) {
         setError(payload.error ?? "Could not post.");
-        return;
+        return "failed";
       }
 
       if (files.length > 0) {
@@ -102,17 +120,17 @@ export default function NewThreadModal({
           setError(
             `Thread posted, but the files did not attach: ${detail.error ?? "upload failed"}. Open it and try again.`,
           );
-          setBusy(false);
-          return;
+          setPostedId(payload.id);
+          return "posted";
         }
       }
 
-      router.push(`/community/workshop/${code.toLowerCase()}/t/${payload.id}`);
+      router.push(threadHref(payload.id));
       router.refresh();
+      return "navigating";
     } catch {
       setError("Network error.");
-    } finally {
-      setBusy(false);
+      return "failed";
     }
   };
 
@@ -245,14 +263,27 @@ export default function NewThreadModal({
           <button type="button" className={styles.mapGhostBtn} onClick={onClose}>
             Cancel
           </button>
-          <button
-            type="button"
-            className={styles.btnAccent}
-            disabled={busy || !canSubmit}
-            onClick={() => void submit()}
-          >
-            {busy ? "Posting…" : `Post to ${code}`}
-          </button>
+          {postedId ? (
+            <button
+              type="button"
+              className={styles.btnAccent}
+              onClick={() => {
+                router.push(threadHref(postedId));
+                router.refresh();
+              }}
+            >
+              Open the thread
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.btnAccent}
+              disabled={busy || !canSubmit}
+              onClick={() => void submit()}
+            >
+              {busy ? "Posting…" : `Post to ${code}`}
+            </button>
+          )}
         </div>
       </div>
     </div>

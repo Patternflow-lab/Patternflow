@@ -6,6 +6,7 @@ import Link from "next/link";
 import { captureEvent } from "@/lib/posthogEvents";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
 
@@ -51,10 +52,13 @@ export default function AddHeaderModal({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One request per press, decided in the click's own tick (#455).
+  const latch = useSubmitLatch();
 
   const moderating = mode === "moderate" || mode === "moderate-port";
 
   const save = async (next: string) => {
+    if (!latch.take()) return;
     setBusy(true);
     setError(null);
     try {
@@ -103,6 +107,7 @@ export default function AddHeaderModal({
     } catch {
       setError("Network error.");
     } finally {
+      latch.release();
       setBusy(false);
     }
   };
