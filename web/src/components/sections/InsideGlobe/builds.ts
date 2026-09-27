@@ -304,6 +304,22 @@ export const builds: Build[] = [
       { src: '/builds/slowrush/clock.jpg', alt: "slowrush's Patternflow on its side on a shelf at night, the clock showing 10:15 cut out of a pattern" },
     ],
   },
+  {
+    id: 'uk-saladman',
+    title: 'Pastel, among the boomboxes',
+    category: 'builds',
+    slug: 'saladman-uk',
+    kind: 'build',
+    location: { lat: 53.8008, lng: -1.5491, label: 'Leeds, UK' },
+    maker: 'saladman',
+    date: '2026-09',
+    description:
+      '"Patternflow is such a crazy, cool and unique thing I had to build one for me and my kids to jam with. This is the start of a beautiful journey 🙂"',
+    images: [
+      { src: '/builds/saladman/boomboxes.jpg', alt: "saladman's pastel Patternflow on a shelf beneath a row of vintage boomboxes, a white and orange block pattern on the panel" },
+      { src: '/builds/saladman/wall.jpg', alt: "A whole wall of shelves full of boomboxes, toys and model cars, with saladman's pastel Patternflow on the lower shelf" },
+    ],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.
