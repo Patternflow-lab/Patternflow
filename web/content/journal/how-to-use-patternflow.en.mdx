@@ -1,0 +1,63 @@
+---
+title: "How to Use Patternflow"
+date: "2026-09-27T21:50:00+09:00"
+excerpt: "Whatever comes to mind"
+cover: "/journal/how-to-use-patternflow/gwangju-biennale.jpg"
+coverCaption: "Gwangju Biennale"
+hideCover: true
+highlight: true
+draft: false
+---
+
+I spent the Chuseok holiday at my parents' place and rested a lot. Tomorrow it's back to the everyday. Not that there's much of a difference, honestly… The Patternflow I sent to San Francisco arrived safely, and a new chance to show it to people from all sorts of fields has come up. It's about three weeks out, so I'll mention it again around then. While I was home, I finished preparing for the upcoming exhibition with visually impaired artists. I can't wait to see how people react when they try Patternflow for the first time.
+
+<figure className="journal-md-figure">
+  <img src="/journal/how-to-use-patternflow/gwangju-biennale.jpg" alt="The 'You Must Change Your Life' banner on the Gwangju Biennale Exhibition Hall" />
+  <figcaption>Went home and saw the Gwangju Biennale. Plenty to see this time!</figcaption>
+</figure>
+
+There's a change on the funding front. Instead of leaving all of production to PCBway, I'm going to order only the boards and do the 3D printing and assembly here in Korea. The surface reasons are obviously cost and buying equipment, but the real reason behind the decision is something else. With the money from the first sale as an artwork, I built three new Patternflows. That time turned out to be more fun than I expected. The reason I'd wanted to hand everything to a factory was that building hundreds myself seemed like too much. Looking at the funding, it won't go past 100 units, and the building time, far from being hard, was fun.
+
+Of course three and a hundred are very different, but I don't have to build them all in a week, so I think it'll be fine. Assembling what's in front of me by hand, one piece at a time, without thinking about anything, was calming. Probably all the more so because my head was so crowded right then, with the video production, the funding, the trademark, the exhibitions, collecting use cases and so on. And it'll be the same going forward, so it'd be nice to keep an hour or two a day as assembly time.
+
+Doing the assembly myself and cutting costs a lot means I can do more. For one, I'm thinking of signing the Patternflows produced through this funding. A certificate like the one for the piece I sold might be too much, but a signature isn't hard, and more than anything, I want to. Honestly, the price was high for a product made identically in a factory, and that made me uncomfortable, but if I sell them more like artworks, it feels pretty reasonable. Somewhere between a manufactured good and an artwork… quasi-artwork Patternflows! Later I'll make them an early limited batch, so the price goes up.
+
+Soon, to make the Patternflow video, I'll probably ask various people to film their own use cases and send them over. I hope that turns into a fun project video. Just from what I've seen, there are so many different uses that I think it'll be plenty.
+
+If I'd launched the funding just a week later, I'd have been at ease. I want to try advertising once through an Instagram influencer, but the timing is really tricky. I have to prepare materials, build it, and ship it internationally, and now that I'm using grant money instead of my own, there's extra hassle. And the grant hasn't even come in yet. It's irritating. I hate situations where all I can do is wait for someone else to do something.
+
+I also need to make proper material on how to use Patternflow. Right now there's only the detailed method for building the device and short demo videos of the various features. Material on how to actually do those things is very lacking. Even the guide for making patterns was thrown together, so I need to start over from there. AI is amazing at making motion graphics videos these days; maybe I'll try that. Not sure it's needed, though. Either way it's good to organize it in text once, so let me just write down everything that comes to mind…
+
+Before that, I'm going for a run. Over the holiday I didn't exercise and just ate, lay down, and slept on repeat, so I think I've put on two kilos. Back, and good news! Very early on I sent a Patternflow to Paris, and the collaborator there says they'll be putting it in Paris fashion Week soon. So in early October, Patternflow will be shown to people from different fields in three countries: Seoul in Korea, San Francisco in the US, and Paris in France. Nice.
+
+It seems people haven't left Patternflow just because they've gone quiet. The person who makes lots of patterns recently started making them again too. Guess everyone's lives just got busy. Anyway, the point is I don't need to be impatient; I just need to focus on what I'm doing.
+
+Let's go to the moment you've built a Patternflow from the build guide, or received one as a gift or purchase. Turn it over, open the slider on the back, and you'll see the circuit board and the ESP32. Or maybe it isn't assembled yet. I pick up just the ESP32. The square antenna is at the top, and the two USB-C connectors face me. I plug a USB cable into the left connector and connect it to the computer.
+
+I open the Patternflow website and click Pattern, the middle of the three columns running down the center. Related content appears on the right, and scrolling down a bit there's a button called Upload Patternflow. Clicking it brings up a window at the top left for choosing a connected device. If there's nothing there, I look at the two buttons in the middle of the ESP. There's BOOT and RST. Hold BOOT, press RST, then release BOOT. Open the web flasher again and one appears.
+
+I follow the prompts to upload. It asks whether to erase everything left on the board, and I'm not sure whether it matters. Afterward some boards immediately ask whether to set up WiFi, and sometimes it just ends. WiFi does need setting up. Without unplugging the cable from the ESP board, I press the board's RST button once. Then I click the web flasher again and select the device. Unlike before, a WiFi setup button appears in the middle. I click it and connect to my home WiFi. Actually I've since added a way to set up WiFi through the device's own hotspot, but I haven't used it much myself and haven't polished its usability yet, so I'm not writing that one up, nope.
+
+Now it's time to enjoy Patternflow. I detach the ESP from the computer and mount it on the Patternflow board. Close the slider, turn it to the front, and connect a USB cable to a power bank. It turns on. A red, blocky pattern appears. I turn all four knobs. One is speed, one is color, one is density? One I can't tell yet. Ah, I can see a difference when the density is high. Too lazy to explain. Now I want to load some of the patterns I saw on Instagram, but how do I do that?
+
+These knobs are rotary encoders, and apparently you can click them too. I click one. Hm… some value changes, but I don't see any way to get to another pattern. I try a long press. Long-pressing the top-left knob brings up some odd network-something screen. There are numbers too. I press the top-right one and this time I can change the overall brightness. The bottom-right shows circles and numbers at the corners of the screen. Ah, turning the knobs changes the colors; so these are the knob numbers. It's a bit odd. Normally it'd be 1, 2, 3, 4 starting from the top left, but it starts from the top right. Why? You can guess if you think about how it was built (it wasn't intentional)… figure it out! I was too lazy to fix it, so I left it.
+
+The long-awaited knob 4, bottom left. I long-press it. A "1/1" appears at the top… what's that? Ah! I haven't uploaded any other patterns yet. I go to the Patternflow website. Rereading the description on the Pattern tab, it tells me to go to the community. Oh, what's this, a website with a very different vibe opens up. There are lots of patterns. How do I upload these? The build guide said to install the Basic Deck; what's that?
+
+Looking at the navigation bar at the top, I see the word Deck. Opening it, there are decks. Ah, a set of patterns bundled together is called a deck. Like a card game. Seeing that other people have made and posted their own, I guess I can share my own deck too. Anyway, I should upload the Basic Deck to my Patternflow. I click through the buttons that obviously look clickable. A new window pops up. patternflow.local? What's this. Ah, a mosquito bit my elbow. Argh…
+
+There's a notice telling me to format something; I'll click it. After a short wait it says the format succeeded and a list rolls out on the left. They upload quickly, one by one. That's a lot… Finally done! Took about ten seconds? Now how do I switch patterns? Long-pressing knob 4 at the bottom left again, this time it shows 1/33. (Is it 33? Hm…) Turning it brings up other patterns! Oh… are these the really early ones, a lot of them look dated. Does that list on the website do anything? Let's try. Oh, I can change patterns from the web too. Neat.
+
+This patternflow.local site must be the web console or whatever it's called. On the main page I can see the current pattern and Patternflow's status. I can change knob values here too? Must be over WiFi. There's a lot here. Looks like I can add WiFi settings, and change the knobs' direction or sensitivity. Can I open it on my phone? It's WiFi, after all! That'd be even more convenient. Hm, I typed the address as-is and it won't open. I asked, and apparently mDNS-something doesn't work on Android, so you type the IP address directly. Supposedly it shows up when you long-press the top-left knob, number 2? Ah, so that number is the IP address. Wasn't it on the web console's main page too? Anyway, opening it on my phone works! Nice~
+
+What's Edition? Clicking it opens a new window. Patternflow… Performance? Audio? What are these. Opening the details, each seems to carry different extra features. The clock, MQTT, and audio sync I saw on Instagram come from installing these editions. It'd be fun to add mine here later. Clicking Features at the top shows a short description of each feature with demo reels.
+
+I'll watch those in a bit; I want to make a pattern. Lots of people seem to make and upload their own, so where do they do it? There's a create-and-share button at the top right, is that it? Oh, what's this. Pattern Lab? It looks really complicated. The left seems to be a preview, and the middle is where you type code. On the right, the knob values are adjustable with sliders instead of turning. At the bottom right, a color ramp? What's that. And what's the layer thing at the bottom left… it feels a lot like a graphics tool.
+
+Hm, above the code input there's a Copy Prompt button. Apparently you paste it into an AI. Claude eats tokens, so I'll try Gemini. Paste, hit enter, and out come five patterns in an easy-to-copy format. Copy, paste, and the preview changes. Ah, so this is how you use it. But it's black and white. Can't I add some color? That color ramp at the bottom right, is that what it's for? Let's hit Random Ramp. Whoa, the colors changed. Keep pressing and they change again. Ah, so that's what a color ramp is. Can I pick them myself? Oh, I can. I like this kind of palette.
+
+But I wish moving the knob sliders changed things more. I can edit the numbers at both ends? Must be the min and max. Raising them changes it dramatically. Now how do I put this on my device? There's a To Hardware button at the top right; that must be it! There's a button to copy a prompt and a box for code. Same thing, give it to the AI and paste the answer in, I guess. Hit Next… hit it again and something is being baked. Done quickly, and there's an Upload over WiFi button. Clicking it opens the web console from before, and the pattern uploads on its own. I select it, and the pattern I just made is running on the device right away! Amazing.
+
+I can share it straight to the community too. Obviously I have to~
+
+Hm… writing this is tiring. It doesn't feel like I've written that much, but I can't be bothered. There are still way more features left, audio, clock, performance, MQTT and so on, but I've written plenty for today, so I'll pick it up next time.
