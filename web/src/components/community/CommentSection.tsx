@@ -6,6 +6,7 @@ import BodyComposer from "./BodyComposer";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import {
   ATTACHMENT_EXTENSIONS,
   ATTACHMENT_MAX_PER_PARENT,
@@ -60,6 +61,8 @@ export default function CommentSection({
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One reply per press, decided in the click's own tick (#455).
+  const latch = useSubmitLatch();
   const [authOpen, setAuthOpen] = useState(false);
   // Files waiting to ride on the next reply. Workshop threads only — pattern
   // comments have no attachment table, and test results live in replies.
@@ -132,6 +135,7 @@ export default function CommentSection({
   const submit = async () => {
     const text = body.trim();
     if (text.length === 0) return;
+    if (!latch.take()) return;
     setBusy(true);
     setError(null);
     try {
@@ -183,6 +187,7 @@ export default function CommentSection({
     } catch {
       setError("Network error.");
     } finally {
+      latch.release();
       setBusy(false);
     }
   };

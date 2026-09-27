@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import {
   REPORT_DETAIL_MAX,
   REPORT_REASONS,
@@ -35,9 +36,12 @@ export default function ReportModal({
   const [detail, setDetail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One request per press, decided in the click's own tick (#455).
+  const latch = useSubmitLatch();
   const [sent, setSent] = useState(false);
 
   const submit = async () => {
+    if (!latch.take()) return;
     setError(null);
     setBusy(true);
     try {
@@ -57,6 +61,7 @@ export default function ReportModal({
     } catch {
       setError("Network error — is the community server reachable?");
     } finally {
+      latch.release();
       setBusy(false);
     }
   };

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import {
   DESCRIPTION_MAX,
   MADE_HOW_LABELS,
@@ -116,6 +117,7 @@ export default function PublishModal({
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const latch = useSubmitLatch();
   const [includeShow, setIncludeShow] = useState(true);
 
   const licenseChoices = parentLicense ? forkLicenseOptions(parentLicense) : LICENSE_OPTIONS;
@@ -127,6 +129,24 @@ export default function PublishModal({
   );
 
   const publish = async () => {
+    // Decided before anything else: a second click that lands before the
+    // button re-renders as disabled must not become a second post (#455).
+    if (!latch.take()) return;
+    let published = false;
+    try {
+      published = await send();
+    } finally {
+      // A published pattern keeps the button down and the latch held: the
+      // page is on its way, and a press in that gap would publish it again.
+      if (!published) {
+        latch.release();
+        setBusy(false);
+      }
+    }
+  };
+
+  /** True once the pattern is live and the page is navigating to it. */
+  const send = async (): Promise<boolean> => {
     const trimmed = title.trim();
     setError(null);
     if (code.length > CODE_MAX) {
@@ -137,15 +157,15 @@ export default function PublishModal({
           CODE_MAX / 1000
         } KB. Imported images as pixel layers are the usual reason — hide or delete one and share again.`,
       );
-      return;
+      return false;
     }
     if (trimmed.length === 0 || trimmed.length > TITLE_MAX) {
       setError(`Title is required (max ${TITLE_MAX} characters).`);
-      return;
+      return false;
     }
     if (description.length > DESCRIPTION_MAX) {
       setError(`Description is too long (max ${DESCRIPTION_MAX} characters).`);
-      return;
+      return false;
     }
 
     setBusy(true);
@@ -190,7 +210,7 @@ export default function PublishModal({
           payload.error ??
             `${editOf ? "Updating" : "Publishing"} failed (HTTP ${response.status}).`,
         );
-        return;
+        return false;
       }
       // The show rides along on the pattern-page rail. Best effort: the
       // pattern is already live, and the page's "Publish a performance"
@@ -217,10 +237,10 @@ export default function PublishModal({
       // The page is server-rendered, so an update lands on a cached copy of
       // what it just replaced without this.
       if (editOf) router.refresh();
+      return true;
     } catch {
       setError("Network error — is the community server reachable?");
-    } finally {
-      setBusy(false);
+      return false;
     }
   };
 

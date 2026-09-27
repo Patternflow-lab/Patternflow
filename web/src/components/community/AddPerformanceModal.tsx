@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { captureEvent } from "@/lib/posthogEvents";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { useSubmitLatch } from "@/lib/community/submitLatch";
 import { readPerformanceFile } from "@/lib/community/performanceFile";
 import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
@@ -29,6 +30,8 @@ export default function AddPerformanceModal({
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // One request per press, decided in the click's own tick (#455).
+  const latch = useSubmitLatch();
 
   // The Director saves .pfs and the panel plays it, so that is what people
   // have. It is decoded here into the canonical form the site stores, which
@@ -44,6 +47,7 @@ export default function AddPerformanceModal({
   };
 
   const save = async () => {
+    if (!latch.take()) return;
     setBusy(true);
     setError(null);
     try {
@@ -67,6 +71,7 @@ export default function AddPerformanceModal({
     } catch {
       setError("Network error.");
     } finally {
+      latch.release();
       setBusy(false);
     }
   };

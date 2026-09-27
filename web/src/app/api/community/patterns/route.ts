@@ -1,3 +1,4 @@
+import { and, eq, gte } from "drizzle-orm";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
@@ -51,6 +52,21 @@ export async function GET(request: Request) {
 }
 
 export const OPTIONS = preflight;
+
+// ── The same submission twice (#455) ──
+// A double-click, a mouse switch that bounces, or a retry after a response
+// that never arrived sends the identical publish twice — and each used to
+// become its own post: the same pattern side by side on the wall, created in
+// the same second. So an identical submission from the same account inside
+// this window is answered with the post it already made.
+//
+// "Identical" is every field the author sent: title, description, the code
+// with its licence wrapping off (the header is rebuilt per request and
+// carries a date), the header, licence, "made how", visibility and parent.
+// Change any one of them and it is a new post, however quickly it follows.
+// A minute is long enough for a retry and too short for anything anybody
+// would mean as a second post of the same thing.
+const DUPLICATE_WINDOW_MS = 60_000;
 
 function clampInt(raw: string | null, fallback: number, min: number, max: number) {
   // Absent is not zero. Number(null) and Number("") are both 0, a finite
@@ -198,36 +214,88 @@ async function handlePost(request: Request) {
   }
 
   const now = new Date();
-  const id = newId();
   const handle =
     (session.user as { username?: string | null; displayUsername?: string | null }).displayUsername ??
     (session.user as { username?: string | null }).username ??
     null;
-
-  await getDb().insert(patterns).values({
-    id,
-    userId: session.user.id,
+  // Licence header + attribution are baked into the stored source, so anyone
+  // who copies the code out of the page takes the terms and the credit with
+  // it — not just people who download the file. On a fork that includes the
+  // upstream credit, which both CC licences require a derivative to keep.
+  const storedCode = buildStoredPatternCode(code, {
     title,
-    description,
-    // Licence header + attribution are baked into the stored source, so anyone
-    // who copies the code out of the page takes the terms and the credit with
-    // it — not just people who download the file. On a fork that includes the
-    // upstream credit, which both CC licences require a derivative to keep.
-    code: buildStoredPatternCode(code, {
-      title,
-      license,
-      handle,
-      date: now,
-      basedOn: lineageFrom(parent),
-    }),
-    codeCpp,
     license,
-    madeHow,
-    parentId,
-    visibility,
-    createdAt: now,
-    updatedAt: now,
+    handle,
+    date: now,
+    basedOn: lineageFrom(parent),
   });
+  const bareCode = stripShareWrapping(storedCode);
+
+  // Looking for the twin and inserting are one synchronous IMMEDIATE
+  // transaction. With an await between them, two requests arriving together
+  // would each look, each find nothing and each insert — the very race this
+  // guards against. Synchronous, nothing else in this process runs in
+  // between; IMMEDIATE takes the write lock up front, so neither can anything
+  // in another process.
+  const { id, created } = getDb().transaction(
+    (tx) => {
+      const recent = tx
+        .select({
+          id: patterns.id,
+          description: patterns.description,
+          code: patterns.code,
+          codeCpp: patterns.codeCpp,
+          license: patterns.license,
+          madeHow: patterns.madeHow,
+          visibility: patterns.visibility,
+          parentId: patterns.parentId,
+        })
+        .from(patterns)
+        .where(
+          and(
+            eq(patterns.userId, session.user.id),
+            eq(patterns.title, title),
+            gte(patterns.createdAt, new Date(now.getTime() - DUPLICATE_WINDOW_MS)),
+          ),
+        )
+        .all();
+      const twin = recent.find(
+        (row) =>
+          row.description === description &&
+          row.codeCpp === codeCpp &&
+          row.license === license &&
+          row.madeHow === madeHow &&
+          row.visibility === visibility &&
+          row.parentId === parentId &&
+          stripShareWrapping(row.code) === bareCode,
+      );
+      if (twin) return { id: twin.id, created: false };
+
+      const fresh = newId();
+      tx.insert(patterns)
+        .values({
+          id: fresh,
+          userId: session.user.id,
+          title,
+          description,
+          code: storedCode,
+          codeCpp,
+          license,
+          madeHow,
+          parentId,
+          visibility,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+      return { id: fresh, created: true };
+    },
+    { behavior: "immediate" },
+  );
+
+  // The same answer the first request got, minus everything it already did:
+  // the fork was announced and the header queued when the post was made.
+  if (!created) return Response.json({ id }, { status: 200 });
 
   if (parent) {
     await notifyForkPublished({
