@@ -249,20 +249,6 @@
     margin-bottom: 14px;
     text-wrap: pretty;
   }
-  /* Why it exists, in one line — the manifesto's §1 sentence, see manifesto
-     §11. Mono and small on purpose: it sits between the facts and the buttons
-     without competing with either. It fits one line at this width; a second
-     line would push the buttons below the fold on a laptop. */
-  .hero-why {
-    font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    line-height: 1.6;
-    color: var(--ink-muted);
-    margin: 0 0 22px;
-    max-width: 580px;
-  }
   /* Grid, not flex, so the note can be pinned to column 1 — under Get One
      alone. As a flex row it sat under both buttons and read as a condition on
      whichever one the eye landed on last. */
@@ -272,6 +258,7 @@
     justify-content: start;
     align-items: stretch;
     gap: 10px;
+    margin-top: 22px;
   }
   /* Expectation-setting line that replaced the Crowd Supply interstitial modal:
      "Get One" now links straight out, so the "subscribe, not buy" framing lives here. */
@@ -324,11 +311,10 @@
     border-color: var(--ink);
     text-decoration: none;
   }
-  /* At laptop height the column — wordmark, video, the two facts, the why
-     line, the buttons — is taller than the window with the full 80px above it,
-     and the buttons' note falls below the fold (820px tall: by 25px). Take the
-     difference from the top; the whole button block then ends at 813. The nav
-     is out of flow, top-right, and keeps clear of the wordmark. */
+  /* At laptop height the column — wordmark, video, the two facts, the buttons —
+     can be taller than the window with the full 80px above it, and the buttons'
+     note falls below the fold. Take the difference from the top. The nav is out
+     of flow, top-right, and keeps clear of the wordmark. */
   @media (min-width: 901px) and (max-height: 860px) {
     .hero { padding-top: 48px; }
   }
@@ -357,10 +343,9 @@
     .hero-copy .kicker { font-size: 20px; margin-bottom: 8px; }
     .hero-spec { font-size: 14.5px; margin: 0 0 20px; }
     .hero-copy p.lede { font-size: 17.5px; margin-bottom: 12px; }
-    .hero-why { font-size: 10px; margin: 0 0 20px; }
     /* Single column — keep the note directly under Get One rather than letting
        it fall to the bottom of the stack. */
-    .hero-cta-row { gap: 8px; grid-template-columns: 1fr; }
+    .hero-cta-row { gap: 8px; grid-template-columns: 1fr; margin-top: 20px; }
     .hero-cta-primary { grid-row: 1; }
     .hero-cta-note { grid-row: 2; }
     .hero-cta-secondary { grid-row: 3; }

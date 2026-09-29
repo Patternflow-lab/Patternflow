@@ -89,14 +89,6 @@ export default function Hero() {
         <p className="lede">Every Patternflow plays every pattern we make.</p>
         {/* The second fact, in the same voice as the first: how many have. */}
         <p className="lede">Around {PEOPLE_WHO_MADE_ONE} people have made one so far.</p>
-        {/* Why it exists, in the manifesto's own words: §1's closing line, which
-            §4 names as the one sentence that carries the idea of bringing
-            interactive art within reach - and says why it is not worded as
-            "popularizing" (that lowers the cost of watching; this lowers the
-            cost of making). It replaces the signpost to L5, the Paik line the
-            manifesto keeps off headline surfaces. Plain text: nothing here to
-            follow, the buttons below are the way on. */}
-        <p className="hero-why">We&apos;re not making art easier to watch. We&apos;re making it easier to make.</p>
         {/* Get One leads: it is the action that costs the reader something, so
             it takes the solid weight. The note sits under it — not under both —
             so it is unambiguous which button ships worldwide. */}
