@@ -50,6 +50,13 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "/*": ["public/**/*"],
   },
+  // Turbopack's build cache has been on by default since 16.3.0, and Vercel
+  // restores .next/cache before each build. The production build of 2026-09-29
+  // shipped the previous build's globals.css under the new page: the new hero
+  // markup, and none of its rules. A cold build is slower and cannot do that.
+  experimental: {
+    turbopackFileSystemCacheForBuild: false,
+  },
   // Testing anything touch-shaped means opening `next dev` from a phone, at
   // this machine's address on the network rather than at localhost. Next
   // blocks cross-origin requests to /_next/* by default, and the symptom is
