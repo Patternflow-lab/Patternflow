@@ -377,13 +377,15 @@ it reaches. L3 lands after the video, once the device has been seen moving.
 
 **L5 does not run in the hero.** §2 keeps it out of headline surfaces, and the
 hero is the most headline-like surface we have — running it there was this
-document contradicting itself. A one-line mono footnote points to it instead:
+document contradicting itself. It carries no signpost to it either. The one-line
+mono footnote above the buttons is the sentence §1 ends on, the reason the
+project exists, said without asking the reader to know who Paik is:
 
-> After Nam June Paik's *Participation TV*, 1963 — read why ↗
+> We're not making art easier to watch. We're making it easier to make.
 
-That is a signpost, not a shortened L5. L5 itself is unchanged and still runs in
-full everywhere §2 sends it. Every hero paragraph should map to a layer; if it
-maps to none, it is probably restating a button.
+L5 itself is unchanged and still runs in full everywhere §2 sends it. Every hero
+paragraph should map to a layer, or to that closing line of §1; if it maps to
+none, it is probably restating a button.
 
 **README opening** — L1 + L2 + L3, with L5 in the section explaining the idea.
 
