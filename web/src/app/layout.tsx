@@ -112,7 +112,7 @@ const structuredData = {
       url: siteUrl,
       logo: `${siteUrl}/apple-touch-icon.png`,
       description:
-        "Patternflow is an open-source LED synthesizer. Play light patterns with your fingertips — a contemporary reinterpretation of Nam June Paik's Participation TV (1963).",
+        "Patternflow is an open-source LED synthesizer. Play light patterns with your fingertips — and every Patternflow plays every pattern we make.",
       founder: { "@id": `${siteUrl}/#person` },
       sameAs: [
         "https://github.com/engmung/Patternflow",
@@ -154,7 +154,7 @@ const structuredData = {
       publisher: { "@id": `${siteUrl}/#organization` },
       genre: "Interactive media art",
       keywords:
-        "LED synthesizer, generative art, creative coding, ESP32, ESP32-S3, HUB75 LED matrix, open-source hardware, interactive media art, reactive light, Nam June Paik",
+        "LED synthesizer, generative art, creative coding, ESP32, ESP32-S3, HUB75 LED matrix, open-source hardware, interactive media art, reactive light",
       license: "https://creativecommons.org/licenses/by-sa/4.0/",
       isAccessibleForFree: true,
       inLanguage: "en",

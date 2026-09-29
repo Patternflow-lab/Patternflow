@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import HeroJournalLink from "@/components/journal/HeroJournalLink";
 import { captureEvent } from "@/lib/posthogEvents";
+import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
 
 // How many people have made a Patternflow, by the nearest thing to a count
 // there is: the community's membership, which tracks it closely. Rounded and
@@ -89,27 +89,45 @@ export default function Hero() {
         <p className="lede">Every Patternflow plays every pattern we make.</p>
         {/* The second fact, in the same voice as the first: how many have. */}
         <p className="lede">Around {PEOPLE_WHO_MADE_ONE} people have made one so far.</p>
-        {/* L5 does not run in the hero (manifesto §2: depth, not headline, and
-            this is the most headline-like surface on the site). This is a
-            signpost to it, not a shortened version of it — the line itself is
-            unchanged and still runs in full in the README and the journal. */}
-        {/* One link, one target: the journal post about Paik is the "why", so
-            pointing the work title at an external museum page and the call to
-            action at the journal index just split the same destination in two. */}
-        <p className="hero-footnote">
-          <Link
-            href="/journal/nam-june-paik-me-patternflow/en"
-            onClick={() => captureEvent('hero_footnote_clicked', {
+        {/* Why it exists, in the manifesto's own words: §1's closing line, which
+            §4 names as the one sentence that carries the idea of bringing
+            interactive art within reach - and says why it is not worded as
+            "popularizing" (that lowers the cost of watching; this lowers the
+            cost of making). It replaces the signpost to L5, the Paik line the
+            manifesto keeps off headline surfaces. Plain text: nothing here to
+            follow, the buttons below are the way on. */}
+        <p className="hero-why">We&apos;re not making art easier to watch. We&apos;re making it easier to make.</p>
+        {/* Get One leads: it is the action that costs the reader something, so
+            it takes the solid weight. The note sits under it — not under both —
+            so it is unambiguous which button ships worldwide. */}
+        <div className="hero-cta-row" aria-label="Patternflow actions">
+          <a
+            className="hero-cta hero-cta-primary"
+            href={CROWD_SUPPLY_URL}
+            target="_blank"
+            rel="noopener"
+            onClick={() => captureEvent('crowd_supply_clicked', {
               surface: 'hero',
-              destination: 'journal_nam_june_paik',
+              destination: 'crowd_supply',
+              via: 'direct',
             })}
           >
-            After Nam June Paik&apos;s <em>Participation TV</em>, 1963 — read why ↗
-          </Link>
-        </p>
-        {/* No buttons. Get One went when the campaign had funded and there
-            was nothing left to ask for; Build It lives on the Build tab; the
-            globe those buttons used to point at is the left pane itself. */}
+            Get One
+          </a>
+          <a
+            className="hero-cta hero-cta-secondary"
+            href="https://github.com/engmung/Patternflow"
+            target="_blank"
+            rel="noopener"
+            onClick={() => captureEvent('github_cta_clicked', {
+              surface: 'hero',
+              destination: 'github_repository',
+            })}
+          >
+            Build it — GitHub
+          </a>
+          <p className="hero-cta-note">Crowd Supply · ships worldwide</p>
+        </div>
       </div>
     </section>
   );
