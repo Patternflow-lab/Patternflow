@@ -195,10 +195,20 @@
     bottom: 0; left: 0;
     display: flex; gap: 24px;
   }
-  .hero-copy { max-width: 580px; }
+  /* A named container, so the wordmark and the buttons can size to the column
+     they are actually in. The column is a flex item, and a flex item will not
+     shrink below its widest unbreakable content - here the wordmark, 449px
+     across - so as the window narrowed it stopped at that width and ran off the
+     right edge. Containment takes that minimum away; width: 100% is what stops
+     a contained item collapsing to nothing, and max-width still holds it at 580. */
+  .hero-copy { max-width: 580px; width: 100%; container: hero-copy / inline-size; }
   .hero-copy h1 {
     font-weight: 500;
     font-size: 88px;
+    /* The widest the wordmark can be and still fit its column (it is about 5.1
+       em across), 88px wherever the column has the room. The line above is the
+       fallback for a browser without container units. */
+    font-size: min(88px, 19cqi);
     line-height: 1;
     letter-spacing: -0.035em;
     margin-bottom: 20px;
@@ -321,6 +331,16 @@
      is out of flow, top-right, and keeps clear of the wordmark. */
   @media (min-width: 901px) and (max-height: 860px) {
     .hero { padding-top: 48px; }
+  }
+  /* Side by side, the two buttons need about 420px (the note under Get One
+     sets the first column). In a column narrower than that they stack, the way
+     they do on a phone. */
+  @container hero-copy (max-width: 420px) {
+    .hero-cta-row { gap: 8px; grid-template-columns: 1fr; }
+    .hero-cta-primary { grid-row: 1; }
+    .hero-cta-note { grid-row: 2; }
+    .hero-cta-secondary { grid-row: 3; }
+    .hero-cta { width: 100%; }
   }
   @media (max-width: 900px) {
     .hero {
