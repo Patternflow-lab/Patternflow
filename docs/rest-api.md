@@ -358,7 +358,7 @@ toggles — from the console's `/audio-in` bar.
 | `GET /api/audio` | `audioRuntime` (the switch) and `audioClients` (WebSocket senders connected on :81). |
 | `POST /api/audio` | `on=0/1`. Persisted in NVS; answers with the new state. |
 
-## Clock (Clock edition)
+## Clock (Performance edition)
 
 Gated on `"clock"` in `caps`; the page is `/clock`. Settings persist in NVS
 under the feature's own namespace, and `/api/status` carries a `clock` block

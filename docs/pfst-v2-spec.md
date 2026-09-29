@@ -16,7 +16,7 @@ layout, which is why v1 tables still load unchanged.
 **Status:** shipped in Patternflow firmware v3.6.3
 (`firmware/patternflow/features/show/core_show.h`) and in the site's
 encoder/decoder
-(`web/src/lib/community/performance.ts`). v1 tables are byte-identical to
+(`web/src/lib/pattern/pfst.ts`). v1 tables are byte-identical to
 what they always were.
 
 ---

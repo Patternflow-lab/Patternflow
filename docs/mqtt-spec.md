@@ -68,7 +68,7 @@ mqtt:
 
 Node-RED, driving knob 2 of an `absoluteReady` pattern from a slider: an `mqtt out` node on topic `patternflow/param/2` with the slider's `0`–`1000` value; put the panel on Broadcast in Subscriber role first.
 
-Two panels following each other: point both at the same broker, same prefix on a show channel (`patternflow1`), one as Publisher and the other as Subscriber.
+Two panels following each other: point both at the same broker, same prefix on Live (`patternflow5`), one as Publisher and the other as Subscriber. Not channels 1–4: they force every panel on them to Subscriber, so neither would lead.
 
 ## Version history
 

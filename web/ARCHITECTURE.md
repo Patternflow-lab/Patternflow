@@ -41,7 +41,7 @@ HomeView (src/components/HomeView.tsx)
 └── RightPanel (components/sections/)    ← tabbed content panel
     ├── Hero.tsx / Deck.tsx              ← hero copy + panel open/close orchestration
     ├── BuildPanel.tsx                   ← build paths, flasher entry
-    ├── PatternPanel.tsx                 ← preset browser + knobs; every CTA leads to /pattern-lab
+    ├── PatternPanel.tsx                 ← preset browser + code editor; every CTA leads to /pattern-lab
     ├── InsidePanel.tsx + InsideGlobe/   ← concept content + community builds globe
     └── Sponsor.tsx
 ```
@@ -114,7 +114,7 @@ PostHog (`src/providers/PostHogProvider.tsx`, event helpers in `src/lib/posthogE
 
 - Styling: Tailwind v4 (`@import "tailwindcss"` in `globals.css`) + global custom CSS; larger components use CSS Modules (`*.module.css`).
 - **Layering:** `lib/` is the bottom. `app/` and `components/` import from it; it never imports from them (ESLint enforces it). A type a component and a serializer share belongs in `lib/` — `lib/community/cardTypes.ts` is the precedent.
-- Adding a preset: add the JS file under `src/lib/presets/`, register it in `index.ts`, then generate the firmware `.h` with the Pattern Lab "Copy C++ prompt" flow.
+- Adding a preset: add the JS file under `src/lib/presets/`, register it in `index.ts`, then generate the firmware `.h` with the Pattern Lab's **To hardware** → *Copy the conversion prompt* flow.
 - Tests are the `check:*` scripts in `package.json` — bespoke smoke suites under `scripts/*-smoke.ts`, one per subsystem — plus `check:panels`, a Vitest + jsdom + Testing Library harness (`vitest.config.ts`, `test/setup.ts`) for the Pattern Lab panels, where pointer gestures, keyboard shortcuts, undo and the Director's keyframes need a DOM. Those tests live beside the panels (`panels/*.test.tsx`) and read the store's buffers rather than the canvas, which jsdom does not have. `npm run check:ci` runs every one that needs nothing a CI runner lacks; `check:module` wants the Xtensa toolchain and stays local.
 - CI (`.github/workflows/web-ci.yml`) lints, typechecks (`npm run typecheck`), builds and runs `check:ci` on every PR touching `web/`.
 - **Deployment weight:** Vercel meters storage per *retained deployment* — every one counts at its full output size, static files and function bundles both, with nothing shared between deployments — so size × push count is what the Hobby allowance (10 GB each) is spent on. Only `main` deploys: `vercel.json` turns deployments off for `dev`, which was three quarters of them and whose previews nobody opened. `public/` is ~90 % of a deployment's static weight (journal and build-map photos). Server functions must carry none of it: `outputFileTracingExcludes` in `next.config.ts` keeps `public/` out of every function, and a build that prints "Dynamic filesystem access causes tracing of the whole project" has found a new way in — the comment there has the history.

@@ -48,7 +48,7 @@ the active tab) → enter your panel's address (`patternflow.local` or its IP)
 → the knobs move with the music. (Make sure **Audio-React (AUD)** is turned on
 at the top of the console's **Audio** page or via the panel's NETWORK screen.)
 
-**Then open the editor** (*Editor ↗* in the popup) — this is where it gets
+**Then open the editor** (*Mapping editor ↗* in the popup) — this is where it gets
 good. Each of the four knobs is a **box drawn on the live spectrum**: the
 box's width is the frequencies it listens to, its height the loudness window
 it maps. Drag a box over the bass and knob 1 becomes a bass knob. Inside
@@ -67,7 +67,7 @@ Boxes map to knobs 1:1 and that's fixed on purpose — box 2 *is* knob 2.
 A small PDM microphone soldered to the DevKit lets the panel react to the
 room itself — no browser, no phone, nothing else running. This is an
 optional add-on: the firmware ships with the mic **off** and costs nothing
-until you build and enable it.
+until you solder one on and switch it on.
 
 ### What to buy
 
@@ -125,7 +125,7 @@ Stick the mic wherever sound reaches it. Done.
 
 ### Turn it on
 
-Console → **Audio** page (`/audio-in`) → flip **Microphone** or **Audio-React (AUD)** on. That's the
+Console → **Audio** page (`/audio-in`) → flip **Microphone** on. (**Audio-React (AUD)** beside it is the other input, the extension and the phone app.) That's the
 whole switch: on means listening and driving the knobs, off releases the
 hardware completely. The **gain** slider (1–16, default 8) is there if your
 room runs quiet — PDM mics on this chip are famously low-amplitude, and gain
@@ -175,8 +175,8 @@ computer's address so it reconnects itself after a reboot — is
 This is the missing half of [`docs/director-midi.md`](docs/director-midi.md):
 the Director's `.mid` export writes CC 20–23, so drop the clip on a MIDI
 track, set the track's output to the panel's port, and the show plays on the
-panel from Live's transport. The `MIDI` row on the panel's NETWORK screen
-switches it off without reflashing; `/api/status` reports the session,
+panel from Live's transport. The switch on the console's **MIDI** page turns it
+off without reflashing; `/api/status` reports the session,
 sensitivity and message counts under `midi`.
 
 ## OSC — Ableton today, anything tomorrow
