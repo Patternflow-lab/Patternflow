@@ -81,6 +81,8 @@ export type GuideCopy = {
   next: ClosingCopy;
   ui: {
     noteBy: string;
+    /** The WIP chip's tooltip, beside the brand. */
+    wip: string;
     /** The "Stuck here?" links (report.ts). */
     report: { step: string; hint: string; general: string; generalTitle: string; generalWhere: string };
     flashUnsupported: string;
@@ -321,6 +323,7 @@ const en: GuideCopy = {
   },
   ui: {
     noteBy: "From the maker",
+    wip: "Work in progress: this guide is still being written and will keep changing",
     report: {
       step: "Stuck here? Tell us",
       hint: "Opens a GitHub issue with this step already filled in",
@@ -557,6 +560,7 @@ const ko: GuideCopy = {
   },
   ui: {
     noteBy: "만든 사람의 한마디",
+    wip: "작업 중이에요. 가이드는 아직 쓰는 중이라 계속 바뀌어요",
     report: {
       step: "여기서 막혔나요? 알려 주세요",
       hint: "이 단계가 채워진 GitHub 이슈가 열려요",

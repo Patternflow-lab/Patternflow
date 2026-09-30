@@ -171,6 +171,23 @@
 .top > * {
   pointer-events: auto;
 }
+.brandRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+.wip {
+  font-family: var(--g-pixel);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--g-led);
+  border: 1px solid rgba(255, 106, 61, 0.55);
+  border-radius: 999px;
+  padding: 3px 8px 2px;
+  line-height: 1;
+  cursor: default;
+}
 .brand,
 .lang {
   font-family: var(--pf-mono);

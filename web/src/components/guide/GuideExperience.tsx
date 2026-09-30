@@ -237,9 +237,15 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
       </div>
 
       <header className={styles.top}>
-        <Link href="/" className={styles.brand}>
-          {copy.brand}
-        </Link>
+        <div className={styles.brandRow}>
+          <Link href="/" className={styles.brand}>
+            {copy.brand}
+          </Link>
+          {/* The guide is shipped while it is still being written. */}
+          <span className={styles.wip} title={copy.ui.wip}>
+            WIP
+          </span>
+        </div>
         <ChapterRail chapters={chapters} />
         <Link href={pagePath(page, other)} className={styles.lang} hrefLang={other}>
           {copy.langSwitch.label}
