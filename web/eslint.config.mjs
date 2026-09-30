@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The guide's console demo is generated, not written: the core's console
+    // pages plus a simulated board, by firmware/toolchain/console_demo.py, with
+    // fflate vendored beside them. `console_demo.py --check` keeps it in step
+    // with the firmware; lint rules for hand-written code don't apply.
+    "public/guide/console-demo/**",
   ]),
   // Layering: lib/ is the bottom. It is imported by app/ and components/ and
   // must not import from them — a type it needs from a component belongs in
