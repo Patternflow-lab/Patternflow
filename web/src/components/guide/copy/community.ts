@@ -15,7 +15,8 @@ import type { GuideLang } from "../store";
 //   1 .h                what can go on a board: .h, Flashable now, ports
 //   2 one pattern       ↗ Send to my Patternflow → Send over Wi-Fi (no account)
 //   3 your deck         the bar at the bottom: +, order, ✕, Send to my board
-//                       (Send over Wi-Fi drops the order today; ↓ .zip keeps it)
+//                       (Send over Wi-Fi drops the order up to firmware v3.10.4;
+//                       the next firmware keeps it; ↓ .zip always has)
 //   4 other decks       the Decks page: Install to my board, Copy into my deck
 //   5 open in the Lab   a copy, marked as a fork — which is 06
 
@@ -60,7 +61,7 @@ const en: SceneCopy = {
         "A deck is a running order. Press + on a card with a .h, or drag the card down onto the bar at the bottom: up to 20, kept in this browser. On a phone, the ▦ chip at the top holds it.",
         "Drag a slot to move it, or onto ✕ to take it out. Send to my board builds the deck (you need an account), then Send over Wi-Fi puts it on your board.",
       ],
-      warn: "Send over Wi-Fi doesn't keep this order yet. For that, drop the ↓ .zip on the board's Patterns page instead.",
+      warn: "Up to firmware v3.10.4, Send over Wi-Fi drops this order; the next firmware keeps it. Until your board has it, drop the ↓ .zip on the board's Patterns page instead.",
       extra: "communityShots",
     },
     {
@@ -126,7 +127,7 @@ const ko: SceneCopy = {
         "덱은 재생 순서예요. .h가 있는 카드의 +를 누르거나, 카드를 아래 바로 끌어다 놓아요. 20개까지, 이 브라우저에 담겨요. 폰에선 위쪽의 ▦ 칩이 그 바 역할이에요.",
         "칸을 끌면 자리가 바뀌고, ✕ 위에 놓으면 빠져요. Send to my board가 덱을 빌드하고(계정이 필요해요), 이어서 Send over Wi-Fi가 보드로 넘겨요.",
       ],
-      warn: "Send over Wi-Fi로는 이 순서가 아직 안 따라가요. 순서까지 넣으려면 대신 ↓ .zip을 보드의 Patterns 페이지에 올려요.",
+      warn: "펌웨어 v3.10.4까지는 Send over Wi-Fi로 보내면 이 순서가 빠져요. 다음 펌웨어부터는 따라가요. 그전까진 ↓ .zip을 보드의 Patterns 페이지에 올리면 순서까지 들어가요.",
       extra: "communityShots",
     },
     {
