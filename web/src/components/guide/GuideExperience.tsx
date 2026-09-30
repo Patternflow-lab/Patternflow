@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import styles from "./Guide.module.css";
 import { COPY, type SceneCopy, type StepCopy } from "./copy";
-import { SCENES } from "./scenes";
+import { SCENES, sceneById } from "./scenes";
 import { useGuideStore, type GuideLang } from "./store";
 import Extras from "./Extras";
 
@@ -71,9 +71,18 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
   }, [root]);
 }
 
-function Step({ copy, index, lang, noteBy }: { copy: StepCopy; index: number; lang: GuideLang; noteBy: string }) {
+function Step({ scene, copy, index, lang, noteBy }: { scene: string; copy: StepCopy; index: number; lang: GuideLang; noteBy: string }) {
+  // A step the reader has to watch loop (BOOT and RST) gets a longer block,
+  // and its card holds still inside it (Guide.module.css, .step[data-dwell]).
+  const dwell = sceneById(scene)?.steps[index]?.dwell;
   return (
-    <article className={styles.step} data-step={index} data-on="0">
+    <article
+      className={styles.step}
+      data-step={index}
+      data-on="0"
+      data-dwell={dwell ? "1" : undefined}
+      style={dwell ? ({ "--dwell": dwell } as React.CSSProperties) : undefined}
+    >
       <div className={styles.card}>
         <p className={styles.kicker}>
           <span className={styles.kickerDot} aria-hidden="true" />
@@ -109,7 +118,7 @@ function Chapter({ id, copy, lang, noteBy }: { id: string; copy: SceneCopy; lang
         <p className={styles.chapterLede}>{copy.lede}</p>
       </header>
       {copy.steps.map((step, i) => (
-        <Step key={i} copy={step} index={i} lang={lang} noteBy={noteBy} />
+        <Step key={i} scene={id} copy={step} index={i} lang={lang} noteBy={noteBy} />
       ))}
     </section>
   );

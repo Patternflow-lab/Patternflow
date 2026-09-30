@@ -106,6 +106,29 @@ export type SimSnapshot = {
   down: [boolean, boolean, boolean, boolean];
 };
 
+/** What the device console reads off the board (ConsoleWindow's bridge). */
+export type SimConsoleState = {
+  /** The running pattern — not SELECT's cursor, which has not loaded yet. */
+  patternIndex: number;
+  patternName: string;
+  patternSlug: string;
+  /** The brightness byte, 5..255, and the percent the panel prints for it. */
+  level: number;
+  brightness: number;
+  sleeping: boolean;
+  /** No power: nothing answers. */
+  off: boolean;
+  /** Detents each encoder has turned since load, clockwise positive. */
+  knobs: [number, number, number, number];
+};
+
+// The absolute parameter bus (src/core_bus.h): what the console's sliders
+// write. A channel is held once written; a change of the held value reaches
+// a pattern as clicks, ten bus units each, the remainder carried; a hand on
+// that encoder takes it back after a grace.
+const BUS_UNITS_PER_CLICK = 10;
+const BUS_RELEASE_GRACE_MS = 250;
+
 export class DeviceSim {
   /** 128×64 RGBA, landscape, y = 0 at the top — what the panel shows. */
   readonly frame = new Uint8ClampedArray(PANEL_W * PANEL_H * 4);
@@ -144,7 +167,20 @@ export class DeviceSim {
   /** When each knob last moved a detent — KNOB MAP lights it for a while. */
   private litAt = [-1e9, -1e9, -1e9, -1e9];
   private bootAt = -1;
+  /** Until when the name card of a console pick stays up (patternflow.ino contentNoticeTimer). */
+  private noticeUntil = -1;
   private turns: [number, number, number, number] = [0, 0, 0, 0];
+
+  // The console's side of the board, all neutral until a console sets them.
+  /** The installed modules when the console has changed them from the pack; null = the pack as shipped. */
+  private moduleSlugs: string[] | null = null;
+  /** Clicks per detent, signed: the /knobs page's direction and edges per click (4 edges a detent). */
+  private clickScale = [1, 1, 1, 1];
+  private busHeld = [false, false, false, false];
+  private busHeldAt = [0, 0, 0, 0];
+  private busValue = [500, 500, 500, 500];
+  private busResidual = [0, 0, 0, 0];
+  private busPending = [0, 0, 0, 0];
 
   /** Called with the new mode whenever it changes. */
   onModeChange: ((mode: SimMode) => void) | null = null;
@@ -179,7 +215,7 @@ export class DeviceSim {
     if (pack === this.pack) return;
     this.pack = pack;
     const runningSlug = this.patterns[this.active]?.slug;
-    this.patterns = pack === "basics" ? basicsPatterns() : [ORIGIN];
+    this.patterns = pack === "basics" ? this.installed() : [ORIGIN];
     const keep = this.patterns.findIndex((p) => p.slug === runningSlug);
     this.cursor = this.active = keep >= 0 ? keep : 0;
     if (keep < 0) this.load(0);
@@ -207,8 +243,11 @@ export class DeviceSim {
   /** Encoder detents, clockwise positive. */
   turn(knob: number, detents: number) {
     if (!Number.isFinite(detents) || detents === 0) return;
-    this.pendingDetents[knob] += detents;
+    // clickScale is 1 unless a console changed the knob's settings.
+    this.pendingDetents[knob] += detents * this.clickScale[knob];
     this.turns[knob] += detents;
+    // Physical motion takes a held bus channel back (PatternflowBus::releaseAbsolute).
+    if (this.busHeld[knob] && this.now - this.busHeldAt[knob] >= BUS_RELEASE_GRACE_MS) this.releaseBus(knob);
     this.activeKnob = knob;
     this.activeKnobAt = this.now;
   }
@@ -282,7 +321,128 @@ export class DeviceSim {
     this.pendingDetents = [0, 0, 0, 0];
 
     const toPattern = this.handle(input);
+    if (this.busPending.some((d) => d !== 0)) this.applyBus(toPattern.detents);
     this.render(step, toPattern);
+  }
+
+  // ── the console (ConsoleWindow bridges the demo console to these) ──────────
+
+  /** What /api/status would say about the board right now. */
+  consoleState(): SimConsoleState {
+    const p = this.patterns[this.active];
+    return {
+      patternIndex: this.active,
+      patternName: p?.name ?? "",
+      patternSlug: p?.slug ?? "origin",
+      level: this.level,
+      brightness: brightnessPercent(this.level),
+      sleeping: this.mode === "sleep",
+      off: this.mode === "off",
+      knobs: [...this.turns] as SimConsoleState["knobs"],
+    };
+  }
+
+  /**
+   * GET /api/patterns/select: switch to a pattern by slug, as the console
+   * does. The board goes back to running it, closing any screen, and shows
+   * its name upright for a second (patternflow.ino:1798-1808, :1891-1893).
+   * False if the board cannot run it here.
+   */
+  selectPattern(slug: string): boolean {
+    if (this.mode === "off") return false;
+    if (slug !== "origin" && this.pack !== "basics") this.setPack("basics");
+    const index = this.patterns.findIndex((p) => p.slug === slug);
+    if (index < 0) return false;
+    this.showPattern(index);
+    if (this.mode !== "sleep" && this.mode !== "run") this.enter("run");
+    this.noticeUntil = this.now + FIRMWARE.contentNoticeMs;
+    return true;
+  }
+
+  /** GET /api/display?brightness=: the byte, 5..255, the same one K1's screen moves. */
+  setBrightnessLevel(level: number) {
+    if (!Number.isFinite(level)) return;
+    this.level = clamp(Math.round(level), FIRMWARE.brightnessMin, FIRMWARE.brightnessMax);
+  }
+
+  /** POST /api/sleep: the panel goes dark (or wakes) without a knob being touched. */
+  setSleeping(on: boolean) {
+    if (this.mode === "off") return;
+    if (on && this.mode !== "sleep") {
+      this.sleptAt = this.now;
+      this.enter("sleep");
+    } else if (!on && this.mode === "sleep") {
+      this.enter("run");
+    }
+  }
+
+  /**
+   * POST /api/params pN: a console slider, 0..1000. The first write only holds
+   * the channel; every later change moves a pattern by one click per ten units
+   * (core_bus.h applyRemoteParam). The 3D knob does not turn — nothing did.
+   */
+  applyRemoteParam(knob: number, value: number) {
+    if (knob < 0 || knob > 3 || !Number.isFinite(value)) return;
+    const v = clamp(Math.round(value), 0, 1000);
+    if (this.busHeld[knob]) {
+      const acc = this.busResidual[knob] + (v - this.busValue[knob]);
+      const d = Math.trunc(acc / BUS_UNITS_PER_CLICK);
+      this.busResidual[knob] = acc - d * BUS_UNITS_PER_CLICK;
+      this.busPending[knob] += d;
+    }
+    this.busHeld[knob] = true;
+    this.busValue[knob] = v;
+    this.busHeldAt[knob] = this.now;
+  }
+
+  /** The /knobs page: which way each encoder counts and how many of its 4 edges make a click. */
+  setKnobSettings(invert: boolean[], edgesPerClick: number[]) {
+    for (let i = 0; i < 4; i++) {
+      const sub = [1, 2, 4].includes(edgesPerClick[i]) ? edgesPerClick[i] : 4;
+      this.clickScale[i] = (invert[i] ? -1 : 1) * (4 / sub);
+    }
+  }
+
+  /** The modules installed, in device order, when a console changed them; null puts the pack back as shipped. */
+  setModules(slugs: string[] | null) {
+    const next = slugs && slugs.join("\n") !== BASICS_PACK.order.join("\n") ? [...slugs] : null;
+    if ((next?.join("\n") ?? null) === (this.moduleSlugs?.join("\n") ?? null)) return;
+    this.moduleSlugs = next;
+    if (this.pack !== "basics") return;
+    const runningSlug = this.patterns[this.active]?.slug;
+    this.patterns = this.installed();
+    const keep = this.patterns.findIndex((p) => p.slug === runningSlug);
+    this.cursor = this.active = keep >= 0 ? keep : 0;
+    if (keep < 0) this.load(0);
+  }
+
+  /** Origin, then the pack's modules — or the console's list of them — that have a JS twin to run. */
+  private installed(): SimPattern[] {
+    if (!this.moduleSlugs) return basicsPatterns();
+    const all = basicsPatterns();
+    const list: SimPattern[] = [ORIGIN];
+    for (const slug of this.moduleSlugs) {
+      const p = all.find((x) => x.slug === slug);
+      if (p) list.push(p);
+    }
+    return list;
+  }
+
+  private releaseBus(knob: number) {
+    this.busHeld[knob] = false;
+    this.busPending[knob] = 0;
+    this.busResidual[knob] = 0;
+  }
+
+  /** The bus's clicks reach the pattern where a turn of that knob would. */
+  private applyBus(detents: number[]) {
+    const knobs = this.mode === "run" ? [0, 1, 2, 3] : this.mode === "brightness" ? [1, 2, 3] : [];
+    const moved = [0, 0, 0, 0];
+    for (const i of knobs) moved[i] = this.busPending[i];
+    this.busPending = [0, 0, 0, 0];
+    if (!knobs.length) return;
+    this.moveValues(moved, knobs);
+    for (const i of knobs) detents[i] += moved[i];
   }
 
   // ── firmware rules (patternflow.ino; see panelScreens.ts FIRMWARE) ──────────
@@ -409,6 +569,10 @@ export class DeviceSim {
 
   private enter(mode: SimMode) {
     if (mode === this.mode) return;
+    // SELECT clears the name card (patternflow.ino:1731).
+    if (mode === "select") this.noticeUntil = -1;
+    // SELECT drops every held bus channel, so browsing never fights one (patternflow.ino).
+    if (mode === "select") for (let i = 0; i < 4; i++) if (this.busHeld[i]) this.releaseBus(i);
     this.mode = mode;
     this.idleAt = this.now;
     this.onModeChange?.(mode);
@@ -420,7 +584,8 @@ export class DeviceSim {
 
   private boardCount() {
     // A pack module without a JS twin is still on the board.
-    return this.pack === "basics" ? BASICS_BOARD_COUNT : 1;
+    if (this.pack !== "basics") return 1;
+    return this.moduleSlugs ? 1 + this.moduleSlugs.length : BASICS_BOARD_COUNT;
   }
 
   // ── patterns ───────────────────────────────────────────────────────────────
@@ -523,6 +688,8 @@ export class DeviceSim {
           count: this.boardCount(),
           name: this.patterns[this.cursor]?.name ?? "",
         };
+      case "run":
+        return this.now < this.noticeUntil ? { kind: "content", name: this.patterns[this.active]?.name ?? "" } : null;
       default:
         return null;
     }

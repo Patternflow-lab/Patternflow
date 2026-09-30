@@ -4,7 +4,7 @@
    Three.js objects (materials, textures, meshes) are imperative; mutating them
    per frame is their API and never feeds back into React rendering. */
 
-import { createPortal, useFrame, type ThreeEvent } from "@react-three/fiber";
+import { createPortal, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Html, useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -13,17 +13,42 @@ import { PATTERN_DETENTS_PER_TURN } from "@/lib/pattern/harness";
 import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
-import { KNOB_MESH_TO_LOGICAL, knobWorldCenter, MODEL_URL, DRACO_URL } from "./geometry";
-import { DEVKIT_SEAT, DEVKIT_URL, devkitPose, M_TO_MODEL, PCB_PLACEMENT, PCB_URL } from "./parts";
+import {
+  DRACO_URL,
+  modelToWorld,
+  KNOB_BASE_Z,
+  KNOB_MESH_TO_LOGICAL,
+  KNOB_PRESS,
+  KNOB_TOP_Z,
+  knobWorldCenter,
+  MODEL_SCALE,
+  MODEL_URL,
+} from "./geometry";
+import {
+  CASE_URL,
+  DEVKIT_LIFT_END,
+  DEVKIT_SEAT,
+  DEVKIT_URL,
+  devkitPose,
+  M_TO_MODEL,
+  PCB_PLACEMENT,
+  PCB_URL,
+  SLIDER_OFF,
+  SLIDER_SECONDS,
+  sliderPose,
+} from "./parts";
 import KitFx from "./KitFx";
+import { devkitMaterials } from "./kitMaterials";
+import { NO_POINTER, placeTag } from "./tags";
 
-// The Patternflow in the guide, put together from three files (parts.ts):
-// the landing page's case, knobs and LED panel, the v3.9 board exported from
-// KiCad in place of the model's old one, and the ESP32 DevKit on its sockets.
-// Its LED mesh shows the simulated board's frame, its knobs turn, press and
-// hold like the real encoders, and the back opens for the DevKit. The case
-// GLB is shared with the landing page's HeroScene through drei's cache, so
-// this works on a deep clone and never touches the cached scene.
+// The Patternflow in the guide, put together from four files (parts.ts): the
+// v3.9 enclosure and knobs from the case's Blender source, the landing page
+// model's LED panel (nothing else of that model is used), the v3.9 board
+// exported from KiCad, and the ESP32 DevKit on its sockets. Its LED mesh
+// shows the simulated board's frame, its knobs turn, press and hold like the
+// real encoders, and the back slider comes off for the DevKit to come out.
+// The landing model's GLB is shared with the landing page's HeroScene through
+// drei's cache, so this works on clones and never touches a cached scene.
 
 const ledFragment = `
 uniform sampler2D uTex;
@@ -81,39 +106,89 @@ type Parts = {
   devkit: Kit;
   led: THREE.Mesh | null;
   knobs: (THREE.Mesh | null)[]; // by logical index
-  backPlates: THREE.Mesh[];
+  slider: THREE.Mesh | null;
   all: THREE.Mesh[];
 };
 
 const LABELS = ["K1", "K2", "K3", "K4"];
+const CASE_NODES = ["body", "back_slider", "back_plate", "top_lid"];
+const KNOB_H = KNOB_TOP_Z - KNOB_BASE_Z;
+/** The knobs' radius (case-v39.glb c1..c4: 16.3 mm across), model units. */
+const KNOB_R = 0.813;
+/**
+ * What a finger or pointer can take hold of: a disc over each knob's top,
+ * nearly half the 31 mm between knob axes. On a phone a knob is 15 px across,
+ * too small to find by touch.
+ */
+const KNOB_HIT_R = 1.45;
+
+/**
+ * How much faster than its own pace the back cover and the DevKit move.
+ * They keep their pace only on the way out in chapter one's first two steps,
+ * which are about taking them out; putting them back ("Back in. Power on.")
+ * is quicker, and anything else — scrolling back up, a jump from the chapter
+ * list — is a scene change and gets it done quickly.
+ */
+function choreoSpeed(scene: string, step: number, outward: boolean) {
+  if (scene === "flash" && step <= 1 && outward) return 1;
+  if (scene === "flash" && step === 6) return 1.8;
+  return 2.6;
+}
+
+// Warm white PLA, and the knobs' matte black.
+const caseMaterial = () => new THREE.MeshStandardMaterial({ color: "#eceae4", roughness: 0.55, metalness: 0 });
+const knobMaterial = () => new THREE.MeshStandardMaterial({ color: "#161616", roughness: 0.82, metalness: 0 });
 
 export default function Device() {
-  const [caseGltf, pcbGltf, kitGltf] = useGLTF([MODEL_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
-  const cached = caseGltf.scene;
+  const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
   const scene = useMemo(() => {
-    const clone = cached.clone(true);
-    // The case model's own PCB is the old board; the v3.9 one goes in its place.
-    const oldBoard = clone.getObjectByName("p");
-    oldBoard?.parent?.remove(oldBoard);
+    const root = new THREE.Group();
+    root.name = "patternflow";
+    // Of the landing page's model only the LED panel stays: its case, knobs
+    // and board are older than v3.9.
+    const ledSrc = ledGltf.scene.getObjectByName("l");
+    if (ledSrc) {
+      const led = ledSrc.clone(true);
+      // Start from the model's own pose even if the landing page left it mid-animation.
+      if (led.userData.originalX !== undefined) led.position.set(led.userData.originalX, led.userData.originalY, led.userData.originalZ);
+      if (led.userData.originalScale) led.scale.copy(led.userData.originalScale);
+      root.add(led);
+    }
+    const shell = caseGltf.scene.clone(true);
+    shell.name = "case_v39";
+    shell.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      if (CASE_NODES.includes(m.name)) m.material = caseMaterial();
+      else if (m.name in KNOB_MESH_TO_LOGICAL) m.material = knobMaterial();
+    });
+    root.add(shell);
+    // The back plate's snap notch (where the cover's flex tab clicks in, at
+    // its edge by the pocket) is cut through the plate: with the cover off it
+    // looked straight into the unlit inside of the case, a black block at the
+    // pocket's edge. A floor at the plate's inner face makes it read as the
+    // recess it is.
+    const notchFloor = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 3.2), caseMaterial());
+    notchFloor.name = "notch_floor";
+    notchFloor.position.set(2.93, 23.715, -1.395);
+    notchFloor.rotation.y = Math.PI;
+    shell.add(notchFloor);
     const pcb = pcbGltf.scene.clone(true);
     pcb.name = "pcb_v39";
     pcb.position.copy(PCB_PLACEMENT.position);
     pcb.quaternion.copy(PCB_PLACEMENT.quaternion);
     pcb.scale.setScalar(PCB_PLACEMENT.scale);
-    clone.add(pcb);
-    clone.traverse((o) => {
+    root.add(pcb);
+    root.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
-      // Start from the model's own pose even if the landing page left it mid-animation.
-      if (m.userData.originalX !== undefined) m.position.set(m.userData.originalX, m.userData.originalY, m.userData.originalZ);
-      if (m.userData.originalScale) m.scale.copy(m.userData.originalScale);
       m.visible = true;
       m.material = Array.isArray(m.material) ? m.material.map((x) => x.clone()) : m.material.clone();
       m.castShadow = true;
       m.receiveShadow = true;
     });
-    return clone;
-  }, [cached, pcbGltf]);
+    return root;
+  }, [ledGltf, caseGltf, pcbGltf]);
 
   // The DevKit, in its own group so it can come out of the device.
   const kit = useMemo<Kit>(() => {
@@ -123,10 +198,12 @@ export default function Device() {
     pivot.position.copy(DEVKIT_SEAT.position);
     pivot.quaternion.copy(DEVKIT_SEAT.quaternion);
     const model = kitGltf.scene.clone(true);
+    const mats = devkitMaterials();
     model.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
-      m.material = Array.isArray(m.material) ? m.material.map((x) => x.clone()) : m.material.clone();
+      const own = Array.isArray(m.material) ? m.material[0] : m.material;
+      m.material = mats.forName(own.name) ?? own.clone();
       m.castShadow = true;
       m.receiveShadow = true;
     });
@@ -159,7 +236,7 @@ export default function Device() {
   );
 
   const parts = useMemo<Parts>(() => {
-    const p: Parts = { devkit: kit, led: null, knobs: [null, null, null, null], backPlates: [], all: [] };
+    const p: Parts = { devkit: kit, led: null, knobs: [null, null, null, null], slider: null, all: [] };
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -170,10 +247,25 @@ export default function Device() {
         p.led = m;
       } else if (m.name in KNOB_MESH_TO_LOGICAL) {
         p.knobs[KNOB_MESH_TO_LOGICAL[m.name]] = m;
-        m.userData.baseRotY = m.rotation.y;
-      } else if (m.name === "b_b" || m.name === "t_b") {
-        p.backPlates.push(m);
+        m.userData.baseRotZ = m.rotation.z;
+      } else if (m.name === "back_slider") {
+        p.slider = m;
+        // It fades where it is laid down (sliderPose): transparent from the
+        // start, because turning that on later would build a new shader in
+        // the middle of the move.
+        const mat = m.material as THREE.MeshStandardMaterial;
+        mat.transparent = true;
       }
+    });
+    // The knobs' hit discs, children of the knobs so a hit finds its knob.
+    const hitGeo = new THREE.CircleGeometry(KNOB_HIT_R, 32);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    p.knobs.forEach((k) => {
+      if (!k) return;
+      const disc = new THREE.Mesh(hitGeo, hitMat);
+      disc.name = "knob_hit";
+      disc.position.z = KNOB_H + 0.02;
+      k.add(disc);
     });
     return p;
   }, [scene, ledMat, kit]);
@@ -182,7 +274,7 @@ export default function Device() {
     if (process.env.NODE_ENV !== "production") (window as unknown as { __pfGuideScene?: THREE.Object3D }).__pfGuideScene = scene;
   }, [scene]);
 
-  // Focus / hold rings, one per knob, sitting on the knob's top face.
+  // Focus / hold rings, one per knob, just above the knob's top face.
   const rings = useMemo(
     () =>
       [0, 1, 2, 3].map(() => {
@@ -257,13 +349,31 @@ export default function Device() {
       drag.current = null;
       document.body.style.cursor = "";
     };
+    // A gesture the browser took over (a scroll, say) was never a click.
+    const onCancel = () => {
+      const d = drag.current;
+      if (!d) return;
+      sim.cancel(d.knob);
+      drag.current = null;
+      document.body.style.cursor = "";
+    };
+    // The page scrolls under a finger (the canvas is touch-action: pan-y);
+    // a touch that landed on a knob is the knob's. Pointer events come before
+    // their touch events, so by touchstart the knob has already been taken.
+    const holdTouch = (e: TouchEvent) => {
+      if (drag.current && e.cancelable) e.preventDefault();
+    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("touchstart", holdTouch, { passive: false });
+    window.addEventListener("touchmove", holdTouch, { passive: false });
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("touchstart", holdTouch);
+      window.removeEventListener("touchmove", holdTouch);
     };
   }, []);
 
@@ -273,8 +383,9 @@ export default function Device() {
     if (!o) return;
     e.stopPropagation();
     const knob = KNOB_MESH_TO_LOGICAL[o.name];
-    const world = new THREE.Vector3();
-    o.getWorldPosition(world);
+    // The drag turns about the centre of the knob's top face as it lies on
+    // screen (the node's origin is at the knob's base).
+    const world = o.localToWorld(new THREE.Vector3(0, 0, KNOB_H));
     world.project(e.camera);
     const rect = (e.nativeEvent.target as HTMLElement).getBoundingClientRect();
     const cx = (world.x * 0.5 + 0.5) * rect.width + rect.left;
@@ -302,11 +413,19 @@ export default function Device() {
   };
 
   // ── the frame ──────────────────────────────────────────────────────────────
+  // back: sliderPose's travel (0 shut, SLIDER_OFF off its rails, 1 laid
+  // down); esp: devkitPose's travel (0 seated, 1 presented).
   const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const size = useThree((st) => st.size);
+  // The knobs' top centres, world units (the stage's model group: geometry.ts).
+  const knobTops = useMemo(() => [0, 1, 2, 3].map((i) => modelToWorld(knobWorldCenter(i, "model"))), []);
 
-  useFrame((state, dt) => {
+  useFrame((state, rawDt) => {
+    // A tab coming back from the background hands over one long frame; don't
+    // let the timed motions below jump on it.
+    const dt = Math.min(rawDt, 0.1);
     const sim = getSim();
     const { scene: sceneId, step } = useGuideStore.getState();
     const s = stepOf(sceneId, step);
@@ -324,57 +443,97 @@ export default function Device() {
     shown.current.power += (powerTarget - shown.current.power) * Math.min(1, dt * 6);
     ledMat.uniforms.uPower.value = shown.current.power;
 
-    // Knobs: rotation follows the detents, a press pushes the cap in.
+    // Knobs: rotation about their own axis follows the detents, a press
+    // pushes the cap in along it.
     const t = state.clock.elapsedTime;
     parts.knobs.forEach((m, i) => {
       if (!m) return;
       const target = snap.turns[i];
       shown.current.turns[i] += (target - shown.current.turns[i]) * Math.min(1, dt * 14);
-      m.rotation.y = m.userData.baseRotY - (shown.current.turns[i] / PATTERN_DETENTS_PER_TURN) * Math.PI * 2;
+      m.rotation.z = m.userData.baseRotZ - (shown.current.turns[i] / PATTERN_DETENTS_PER_TURN) * Math.PI * 2;
       const pressTarget = snap.down[i] ? 1 : 0;
       shown.current.press[i] += (pressTarget - shown.current.press[i]) * Math.min(1, dt * 20);
       const home = m.userData.home as THREE.Vector3;
-      m.position.z = home.z - shown.current.press[i] * 0.45;
+      m.position.z = home.z - shown.current.press[i] * KNOB_PRESS;
 
       const ring = rings[i].material as THREE.ShaderMaterial;
       ring.uniforms.uTime.value = t;
       ring.uniforms.uFill.value = snap.hold[i] > 0.04 ? snap.hold[i] : 0;
       const focusTarget = s.focus === i ? 1 : 0;
       ring.uniforms.uFocus.value += (focusTarget - ring.uniforms.uFocus.value) * Math.min(1, dt * 5);
-      rings[i].position.z = home.z + 0.08 - shown.current.press[i] * 0.45;
+      rings[i].position.z = KNOB_TOP_Z + 0.08 - shown.current.press[i] * KNOB_PRESS;
 
       const label = labelRefs.current[i];
       if (label) {
         const on = Boolean(s.labels) || s.focus === i || snap.mode === "knobmap";
         label.dataset.on = on ? "1" : "0";
         label.dataset.active = snap.activeKnob === i || snap.down[i] ? "1" : "0";
+        // Beside its knob at a fixed gap in screen pixels, whatever the
+        // zoom: K1/K3 to the right, over the case's margin. Left of K2/K4 is
+        // the panel's edge, where the screens print their headings and
+        // SELECT its bar, so K2's goes above and K4's below.
+        const side = i === 0 || i === 2 ? "right" : i === 1 ? "up" : "down";
+        if (on) placeTag(label, state.camera, size, knobTops[i], KNOB_R * MODEL_SCALE, side, 7);
       }
     });
 
-    // The ESP32 DevKit: seated, or lifted out and held up in front.
+    // The back slider and the ESP32 DevKit, in the order hands do it: the
+    // slider slides off its rails, then — while it is laid down behind the
+    // case — the DevKit comes straight off its pins; it is carried round to
+    // the front only once the slider is down. Going back: the DevKit comes
+    // back behind the opening, the slider is picked up while it seats, and
+    // the slider slides shut once the DevKit is home.
     {
-      const kit = parts.devkit;
+      const sh = shown.current;
       const espTarget = s.esp ?? 0;
-      // Out quicker than back in, so returning it never lags the next scene.
-      const rate = espTarget > shown.current.esp ? 0.9 : 1.6;
-      const step = Math.sign(espTarget - shown.current.esp) * Math.min(Math.abs(espTarget - shown.current.esp), dt * rate);
-      shown.current.esp += step;
-      devkitPose(shown.current.esp, tmp.pos, tmp.quat);
-      kit.pivot.position.copy(tmp.pos);
-      kit.pivot.quaternion.copy(tmp.quat);
-    }
+      // How far each may go given where the other is.
+      const espCap = sh.back >= 1 ? 1 : sh.back >= SLIDER_OFF ? DEVKIT_LIFT_END : 0;
+      const backFloor = sh.esp > DEVKIT_LIFT_END ? 1 : sh.esp > 0 ? SLIDER_OFF : 0;
 
-    // The back opens while the ESP32 is out.
-    const backTarget = (s.esp ?? 0) > 0 ? 1 : 0;
-    shown.current.back += (backTarget - shown.current.back) * Math.min(1, dt * 2.5);
-    // The back slides down and away, and is gone once it is out of frame.
-    parts.backPlates.forEach((m) => {
-      const home = m.userData.home as THREE.Vector3;
-      const b = shown.current.back;
-      m.position.y = home.y - b * 26;
-      m.position.z = home.z - b * 6;
-      m.visible = b < 0.98;
-    });
+      const backTarget = espTarget > 0 ? 1 : backFloor;
+      if (backTarget !== sh.back) {
+        const inSlide = backTarget > sh.back ? sh.back < SLIDER_OFF : sh.back <= SLIDER_OFF;
+        const speed = choreoSpeed(sceneId, step, backTarget > sh.back);
+        const rate = (SLIDER_OFF / SLIDER_SECONDS.slide) * speed;
+        const rateDown = ((1 - SLIDER_OFF) / SLIDER_SECONDS.setDown) * speed;
+        const db = backTarget - sh.back;
+        let next = sh.back + Math.sign(db) * Math.min(Math.abs(db), dt * (inSlide ? rate : rateDown));
+        if ((sh.back - SLIDER_OFF) * (next - SLIDER_OFF) < 0) next = SLIDER_OFF;
+        sh.back = next;
+      }
+
+      const espGoal = Math.min(espTarget, espCap);
+      if (espGoal !== sh.esp) {
+        // Out, the lift takes ~0.75 s and the carry ~1.3 s (choreoSpeed).
+        const out = espGoal > sh.esp;
+        const lifting = out ? sh.esp < DEVKIT_LIFT_END : sh.esp <= DEVKIT_LIFT_END;
+        const rate = (lifting ? DEVKIT_LIFT_END / 0.75 : (1 - DEVKIT_LIFT_END) / 1.3) * choreoSpeed(sceneId, step, out);
+        const d = espGoal - sh.esp;
+        let next = sh.esp + Math.sign(d) * Math.min(Math.abs(d), dt * rate);
+        // One frame never steps across the lift/carry boundary, so each leg
+        // keeps its own rate.
+        if ((sh.esp - DEVKIT_LIFT_END) * (next - DEVKIT_LIFT_END) < 0) next = DEVKIT_LIFT_END;
+        sh.esp = next;
+      }
+
+      devkitPose(sh.esp, tmp.pos, tmp.quat);
+      parts.devkit.pivot.position.copy(tmp.pos);
+      parts.devkit.pivot.quaternion.copy(tmp.quat);
+
+      const slider = parts.slider;
+      if (slider) {
+        sliderPose(sh.back, tmp.pos, tmp.quat);
+        slider.position.copy(tmp.pos);
+        slider.quaternion.copy(tmp.quat);
+        // Set down out of the way, it fades: a white slab lying on the floor
+        // crossed the edge of every camera move in the chapter. It comes back
+        // as it is picked up.
+        const fade = 1 - smoothstep(sh.back, 0.8, 0.97);
+        (slider.material as THREE.MeshStandardMaterial).opacity = fade;
+        slider.visible = fade > 0.01;
+        slider.castShadow = fade > 0.5;
+      }
+    }
   });
 
   return (
@@ -388,17 +547,15 @@ export default function Device() {
       {createPortal(<KitFx boot={kit.boot} rst={kit.rst} />, kit.pivot)}
       {[0, 1, 2, 3].map((i) => {
         const c = knobWorldCenter(i, "model");
-        // K1/K3 are the right-hand column: their tags sit to the right.
-        const right = i === 0 || i === 2;
+        // Anchored on the knob's axis; placeTag pushes the pill out beside it.
         return (
-          <Html key={i} position={[c.x + (right ? 2.2 : -2.2), c.y, c.z]} center zIndexRange={[20, 0]}>
+          <Html key={i} position={[c.x, c.y, c.z]} center zIndexRange={[20, 0]} style={NO_POINTER}>
             <div
               ref={(el) => {
                 labelRefs.current[i] = el;
               }}
               className="guide-knob-tag"
               data-on="0"
-              data-side={right ? "right" : "left"}
             >
               {LABELS[i]}
             </div>
@@ -409,4 +566,9 @@ export default function Device() {
   );
 }
 
-useGLTF.preload([MODEL_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
+function smoothstep(x: number, e0: number, e1: number) {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+}
+
+useGLTF.preload([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);

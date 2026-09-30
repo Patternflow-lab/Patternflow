@@ -16,6 +16,7 @@ import { LED_CENTER_WORLD, MODEL_OFFSET, MODEL_SCALE } from "./geometry";
 import { VIEWS } from "./views";
 import { getSim, useGuideStore } from "../store";
 import { stepOf, type DemoAction } from "../scenes";
+import { kitState } from "../timing";
 
 // The stage: one canvas behind the whole page. It never scrolls; the page
 // scrolls over it and the Director below turns the scroll position into
@@ -75,6 +76,11 @@ function Director() {
 // azimuth the short way round, elevation, distance — each on a critically
 // damped spring, and it backs off while it swings so a big turn reads as a
 // camera move rather than a cut.
+//
+// How far away it stands is worked out, not written down: each view names
+// what must be on screen (views.ts), and the rig finds the distance at which
+// that fits the part of the screen the copy leaves free — left of the card
+// on a wide screen, above it on a narrow one — at this screen's aspect.
 
 type Damp = { v: number };
 
@@ -95,6 +101,73 @@ function wrapAngle(a: number) {
 // The device's box in world units; the camera keeps a margin from it.
 const DEVICE_BOX = new THREE.Box3(new THREE.Vector3(-1.3, -1.7, -0.3), new THREE.Vector3(1.3, 1.75, 0.45));
 
+/** The free part of the screen, in CSS px. */
+type Free = { l: number; r: number; t: number; b: number };
+
+// Where the step's card is when the reader is on that step (its block
+// centred; the opening at the top of the page), and so what it leaves free.
+function freeArea(scene: string, step: number, w: number, h: number, narrow: boolean): Free {
+  const fallback: Free = narrow ? { l: 12, r: w - 12, t: 56, b: h * 0.5 } : { l: 24, r: w * 0.6, t: 64, b: h - 32 };
+  const art = document.querySelector<HTMLElement>(`[data-scene="${scene}"] [data-step="${step}"]`);
+  if (!art) return fallback;
+  // A chapter step's block holds its card; the opening and the end are their own card.
+  const card = art.children.length === 1 ? (art.firstElementChild as HTMLElement) : art;
+  const ar = art.getBoundingClientRect();
+  const docTop = ar.top + window.scrollY;
+  const maxScroll = Math.max(0, document.documentElement.scrollHeight - h);
+  const at = scene === "opening" ? 0 : THREE.MathUtils.clamp(docTop + ar.height / 2 - h / 2, 0, maxScroll);
+  // A dwell step's card is sticky (Guide.module.css): on a narrow screen it
+  // rests 6vh above the bottom while its long block is centred, and its
+  // offsetTop follows the scroll, so it can't be read from the layout.
+  const cardTop =
+    narrow && art.dataset.dwell && card !== art
+      ? h * 0.94 - card.offsetHeight
+      : docTop + (card === art ? 0 : card.offsetTop - art.offsetTop) - at;
+  const cardLeft = ar.left + (card === art ? 0 : card.offsetLeft - art.offsetLeft);
+  if (narrow) return { l: 12, r: w - 12, t: 56, b: THREE.MathUtils.clamp(cardTop - 14, h * 0.36, h - 12) };
+  return { l: 24, r: THREE.MathUtils.clamp(cardLeft - 32, w * 0.35, w - 24), t: 64, b: h - 32 };
+}
+
+type FitTmp = { f: THREE.Vector3; r: THREE.Vector3; u: THREE.Vector3; p: THREE.Vector3; cam: THREE.Vector3 };
+
+/**
+ * The distance along `dir` from `target` at which every point of `frame`
+ * projects inside ±hx, ±hy of the unshifted frustum (the fov is vertical).
+ */
+function fitDistance(
+  target: THREE.Vector3,
+  dir: THREE.Vector3,
+  frame: THREE.Vector3[],
+  tanHalf: number,
+  aspect: number,
+  hx: number,
+  hy: number,
+  t: FitTmp,
+) {
+  t.f.copy(dir).negate();
+  t.r.crossVectors(t.f, THREE.Object3D.DEFAULT_UP).normalize();
+  t.u.crossVectors(t.r, t.f);
+  const fits = (d: number) => {
+    t.cam.copy(dir).multiplyScalar(d).add(target);
+    for (const q of frame) {
+      t.p.subVectors(q, t.cam);
+      const z = t.p.dot(t.f);
+      if (z < 0.05) return false;
+      if (Math.abs(t.p.dot(t.r)) > hx * z * tanHalf * aspect) return false;
+      if (Math.abs(t.p.dot(t.u)) > hy * z * tanHalf) return false;
+    }
+    return true;
+  };
+  let lo = 0.2;
+  let hi = 80;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (fits(mid)) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+}
+
 type RigState = {
   init: boolean;
   target: THREE.Vector3;
@@ -108,6 +181,9 @@ type RigState = {
   ox: Damp;
   oy: Damp;
   offset: { x: number; y: number };
+  free: Free;
+  freeKey: string;
+  freeAge: number;
 };
 
 function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
@@ -125,10 +201,19 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     ox: { v: 0 },
     oy: { v: 0 },
     offset: { x: 0, y: 0 },
+    free: { l: 0, r: 1, t: 0, b: 1 },
+    freeKey: "",
+    freeAge: 0,
   });
   const pointer = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
   const tmp = useMemo(
-    () => ({ d: new THREE.Vector3(), p: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3() }),
+    () => ({
+      d: new THREE.Vector3(),
+      p: new THREE.Vector3(),
+      right: new THREE.Vector3(),
+      up: new THREE.Vector3(),
+      fit: { f: new THREE.Vector3(), r: new THREE.Vector3(), u: new THREE.Vector3(), p: new THREE.Vector3(), cam: new THREE.Vector3() },
+    }),
     [],
   );
 
@@ -145,15 +230,43 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     const dt = Math.min(rawDt, 1 / 20);
     const { scene, step, narrow, handsOn } = useGuideStore.getState();
     const s = stepOf(scene, step);
-    const view = VIEWS[s.view];
+    // A DevKit view before the DevKit is out from behind the case (scrolling
+    // back up into chapter one, say) would stare at empty air while the back
+    // cover comes off; it watches from behind, as the chapter's first step
+    // does, and follows the DevKit round once it clears the case's side.
+    const devkitView = s.view === "esp" || s.view === "espPorts" || s.view === "espButtons";
+    // "Back in. Power on.": while the DevKit goes back on its pins and the
+    // cover slides shut, the camera watches that from behind — the order the
+    // copy gives — and comes round to the front once the device is whole,
+    // as the panel powers on (KitFx holds the power until then).
+    const reassembling = scene === "flash" && step === 6 && !kitState.home;
+    const view = VIEWS[(devkitView && !kitState.out) || reassembling ? "back" : s.view];
     const c = st.current;
+    const cam = camera as THREE.PerspectiveCamera;
+    const w = size.width;
+    const h = size.height;
+
+    // What the copy leaves free: measured when the step or the screen
+    // changes, and now and then in case the card grew (fonts, images).
+    const key = `${scene}.${step}.${w}x${h}.${narrow ? 1 : 0}`;
+    if (key !== c.freeKey || ++c.freeAge > 45) {
+      c.free = freeArea(scene, step, w, h, narrow);
+      c.freeKey = key;
+      c.freeAge = 0;
+    }
+    const free = c.free;
 
     // Where this step wants the camera, in spherical terms around its target.
-    tmp.d.subVectors(view.pos, view.target);
-    const wantR = tmp.d.length();
-    let wantAz = Math.atan2(tmp.d.x, tmp.d.z);
-    const wantEl = Math.asin(THREE.MathUtils.clamp(tmp.d.y / wantR, -1, 1));
+    let wantAz = Math.atan2(view.dir.x, view.dir.z);
+    const wantEl = Math.asin(THREE.MathUtils.clamp(view.dir.y, -1, 1));
     if (s.spin && !reducedMotion) wantAz += Math.sin(state.clock.elapsedTime * s.spin) * 0.5;
+    const cosWantEl = Math.cos(wantEl);
+    tmp.d.set(Math.sin(wantAz) * cosWantEl, Math.sin(wantEl), Math.cos(wantAz) * cosWantEl);
+    // Back off along that line until the view's frame fits the free area.
+    const tanHalf = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    const hx = ((free.r - free.l) / w) * view.fill;
+    const hy = ((free.b - free.t) / h) * view.fill;
+    const wantR = Math.max(view.minR, fitDistance(view.target, tmp.d, view.frame, tanHalf, w / h, hx, hy, tmp.fit));
 
     if (!c.init) {
       // Arrive from a little further out and round, once, on load.
@@ -174,8 +287,14 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     c.el = smoothDamp(c.el, wantEl, c.vel, smooth, dt);
     // Back off while swinging round: the further there is to turn, the wider the orbit.
     const swing = Math.min(Math.PI, Math.abs(dAz) + Math.abs(wantEl - c.el));
-    const bulge = reducedMotion ? 0 : swing * 0.32 * wantR;
-    c.r = smoothDamp(c.r, wantR + bulge, c.vr, smooth, dt);
+    // Close-ups (the DevKit, ~3 away) swing on at least a device-sized orbit,
+    // or a turn round the case passes its side at arm's length.
+    const bulge = reducedMotion ? 0 : swing * 0.32 * Math.max(wantR, 7);
+    // Backing out (from the DevKit held up close to the whole device, say),
+    // the orbit widens ahead of the target's move, so the camera never sweeps
+    // past the case at arm's length on the way.
+    const outward = wantR + bulge > c.r;
+    c.r = smoothDamp(c.r, wantR + bulge, c.vr, outward ? smooth * 0.55 : smooth, dt);
 
     const cosEl = Math.cos(c.el);
     tmp.p.set(Math.sin(c.az) * cosEl, Math.sin(c.el), Math.cos(c.az) * cosEl).multiplyScalar(c.r).add(c.target);
@@ -205,15 +324,49 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     camera.lookAt(c.target);
 
     // Composition: the copy takes the right side on a wide screen and the
-    // bottom on a narrow one, so the subject moves out of its way.
-    const cam = camera as THREE.PerspectiveCamera;
-    const wantX = narrow ? 0 : size.width * 0.2;
-    const wantY = narrow ? size.height * 0.2 : 0;
+    // bottom on a narrow one, so the target moves to the middle of what it
+    // leaves free — which is where the fit above assumed it would be.
+    const wantX = w / 2 - (free.l + free.r) / 2;
+    const wantY = h / 2 - (free.t + free.b) / 2;
     c.offset.x = smoothDamp(c.offset.x, wantX, c.ox, 0.5, dt);
     c.offset.y = smoothDamp(c.offset.y, wantY, c.oy, 0.5, dt);
-    cam.setViewOffset(size.width, size.height, c.offset.x, c.offset.y, size.width, size.height);
+    cam.setViewOffset(w, h, c.offset.x, c.offset.y, w, h);
   });
 
+  return null;
+}
+
+// ── shaders before they are needed ─────────────────────────────────────────
+//
+// Much of the stage starts hidden: the USB-C cable and plug, the packets on
+// it, the rings and tags, the flashing sweep, the stream and the Wi-Fi. three
+// builds a material's shader the first time it draws it, and a first draw in
+// the middle of a camera move (the cable arriving) froze the page for up to
+// half a second. Once everything has loaded, every material in the scene is
+// compiled — in the background where the browser can (compileAsync, parallel
+// shader compile) — for the render target the frame is really drawn into:
+// the effects composer's buffer, whose linear colour space is part of the
+// shader.
+
+function Warmup() {
+  const { gl, scene, camera } = useThree();
+  const done = useRef(0);
+  useFrame(() => {
+    // A couple of frames in, so the device has mounted and the lights are placed.
+    if (done.current > 2) return;
+    if (++done.current < 2) return;
+    done.current = 3;
+    const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+    const prev = gl.getRenderTarget();
+    gl.setRenderTarget(target);
+    const finish = () => target.dispose();
+    try {
+      gl.compileAsync(scene, camera).then(finish, finish);
+    } catch {
+      finish();
+    }
+    gl.setRenderTarget(prev);
+  });
   return null;
 }
 
@@ -357,6 +510,7 @@ export default function GuideCanvas() {
         <group scale={MODEL_SCALE} position={MODEL_OFFSET}>
           <Device />
         </group>
+        <Warmup />
       </Suspense>
       <Director />
       <Fx />

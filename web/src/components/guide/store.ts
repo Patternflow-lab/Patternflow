@@ -20,9 +20,20 @@ type GuideState = {
   handsOn: boolean;
   /** Narrow screen: the stage sits above the text instead of beside it. */
   narrow: boolean;
+  /**
+   * The flasher screens a card is playing right now (FlasherShots), so the
+   * DevKit on stage can act out the one on screen: RST is pressed only while
+   * the "No Wi-Fi step?" sequence says to press it. `at` is when this screen
+   * came up (performance.now()). Null when no flasher viewer is running.
+   */
+  flasher: { set: string; index: number; at: number } | null;
+  /** The DevKit is held up in front of the reader (KitFx), so a card about it can start. */
+  kitPresented: boolean;
   setScroll: (scene: string, progress: number, step: number) => void;
   setHandsOn: (on: boolean) => void;
   setNarrow: (narrow: boolean) => void;
+  setFlasher: (f: { set: string; index: number } | null) => void;
+  setKitPresented: (on: boolean) => void;
 };
 
 export const useGuideStore = create<GuideState>((set, get) => ({
@@ -31,6 +42,8 @@ export const useGuideStore = create<GuideState>((set, get) => ({
   step: 0,
   handsOn: false,
   narrow: false,
+  flasher: null,
+  kitPresented: false,
   setScroll: (scene, progress, step) => {
     const s = get();
     if (s.scene !== scene || s.step !== step) {
@@ -42,6 +55,17 @@ export const useGuideStore = create<GuideState>((set, get) => ({
   },
   setHandsOn: (handsOn) => set({ handsOn }),
   setNarrow: (narrow) => set({ narrow }),
+  setFlasher: (f) => {
+    const cur = get().flasher;
+    if (!f) {
+      if (cur) set({ flasher: null });
+    } else if (!cur || cur.set !== f.set || cur.index !== f.index) {
+      set({ flasher: { ...f, at: performance.now() } });
+    }
+  },
+  setKitPresented: (kitPresented) => {
+    if (get().kitPresented !== kitPresented) set({ kitPresented });
+  },
 }));
 
 // One simulated board per page. Module scope rather than state because it is

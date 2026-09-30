@@ -98,6 +98,16 @@ export type PanelOverlay =
       name: string;
     }
   | {
+      /**
+       * The name card after a remote pick (drawContentNotice, patternflow.ino:679-688):
+       * the pattern's name, upright and wrapped as SELECT wraps it, over the
+       * running pattern for FIRMWARE.contentNoticeMs. SELECT never shows it.
+       */
+      kind: "content";
+      /** The pattern's name as stored; folded to ASCII the way the panel does. */
+      name: string;
+    }
+  | {
       kind: "update";
       /** idle = waiting for a .bin (the screen NETWORK -> turn K4 opens); flashing; done = rebooting. */
       phase?: "idle" | "flashing" | "done";
@@ -911,7 +921,7 @@ function drawSelectingMode(g: PanelGfx, rank: number, count: number, name: strin
 /**
  * Draw one of the panel's own screens into `frame` - 128*64*4 RGBA, landscape,
  * row-major, y = 0 at the top - exactly as the firmware composes it:
- * - select and brightness draw over what the frame already holds (the pattern);
+ * - select, brightness and content draw over what the frame already holds (the pattern);
  * - network, knobmap and update clear the whole panel first, as the device does
  *   (no pattern renders under them).
  */
@@ -937,6 +947,11 @@ export function drawOverlay(frame: Uint8ClampedArray, overlay: PanelOverlay): vo
     }
     case "select":
       drawSelectingMode(g, overlay.rank, overlay.count, overlay.name);
+      return;
+    case "content":
+      g.setRotation(1);
+      drawWrappedName(g, asciiFold(overlay.name), cdiv(g.height, 2), PANEL_COLORS.white);
+      g.setFont(null);
       return;
     case "update":
       drawUpdateScreen(g, overlay);

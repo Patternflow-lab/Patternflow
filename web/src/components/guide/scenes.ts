@@ -1,4 +1,5 @@
 import type { SimMode, SimPack } from "@/lib/guide/deviceSim";
+import { kitHeld } from "./timing";
 
 // The script. Each scene is a band of the page; each step is one block of
 // copy inside it, and the step whose block crosses the middle of the viewport
@@ -38,14 +39,14 @@ export type Step = {
   labels?: boolean;
   /** 0 = the ESP32 is in the device, 1 = out in front of it. */
   esp?: number;
-  /** 0..1 the USB-C cable in the left port. */
+  /** The USB-C cable in the left port (KitFx plugs it in once the DevKit is presented). */
   cable?: number;
   /** Which ports / buttons to name on the module. */
   espTags?: ("usb" | "uart" | "boot" | "rst")[];
   flashing?: boolean;
-  /** Loop the BOOT/RST download-mode sequence on the module. */
+  /** Loop the BOOT/RST download-mode sequence on the module (timing.ts). */
   bootSeq?: boolean;
-  /** Pulse RST alone. */
+  /** Point out RST and press it once a loop (timing.ts). */
   rstPulse?: boolean;
   wifi?: "esp" | "device" | null;
   /** Pixels streaming from the deck into the panel. */
@@ -55,6 +56,11 @@ export type Step = {
   /** A scripted demo, looped every `period` ms while nobody has the knobs. */
   demo?: DemoAction[];
   period?: number;
+  /**
+   * How long this step's block is, in viewport heights (default 1): a step
+   * the reader has to watch loop — BOOT and RST — gets more scroll to stay on.
+   */
+  dwell?: number;
 };
 
 export type SceneDef = { id: string; steps: Step[] };
@@ -81,21 +87,22 @@ export const SCENES: SceneDef[] = [
   {
     id: "flash",
     steps: [
-      // 0 — the board that is the brain
+      // 0 — the board that is the brain: the back slides off, the DevKit
+      // comes straight off its pins
       { view: "back", power: false, pack: "origin", mode: "off", esp: 0.25 },
-      // 1 — out it comes
+      // 1 — out it comes, antenna up
       { view: "esp", power: false, pack: "origin", mode: "off", esp: 1, espTags: [] },
       // 2 — the LEFT port
       { view: "espPorts", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, espTags: ["usb", "uart"] },
       // 3 — Flash Patternflow
       { view: "esp", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, flashing: true },
-      // 4 — nothing in the port list: BOOT + RST
-      { view: "espButtons", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, bootSeq: true, espTags: ["boot", "rst"] },
-      // 5 — Wi-Fi
-      { view: "esp", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, wifi: "esp" },
-      // 6 — no Wi-Fi step: RST once
-      { view: "espButtons", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, rstPulse: true, espTags: ["rst"] },
-      // 7 — back in, power on
+      // 4 — nothing in the port list: BOOT + RST, slowly, with room to watch it
+      { view: "espButtons", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, bootSeq: true, espTags: ["boot", "rst"], dwell: 1.6 },
+      // 5 — Wi-Fi; and if that step never came, RST, right here — pressed
+      // only while the card's "No Wi-Fi step?" screens say to (KitFx reads
+      // which flasher screen is up from the store)
+      { view: "esp", power: false, pack: "origin", mode: "off", esp: 1, cable: 1, wifi: "esp", rstPulse: true, espTags: ["rst"] },
+      // 6 — back in, power on (the cable comes out first: timing.ts)
       { view: "hero", power: true, pack: "origin", mode: "run", esp: 0 },
     ],
   },
@@ -151,6 +158,9 @@ export const SCENES: SceneDef[] = [
           { at: 0, mode: "run" },
           { at: 400, press: 1 },
           { at: 1500, release: 1 },
+          // K2 = EXIT, as the screen says.
+          { at: 4600, press: 1 },
+          { at: 4750, release: 1 },
         ],
         period: 6000,
       },
@@ -168,8 +178,11 @@ export const SCENES: SceneDef[] = [
           { at: 2800, turn: 1, detents: 1 },
           { at: 3500, turn: 2, detents: 1 },
           { at: 4200, turn: 3, detents: 1 },
+          // K3 = EXIT.
+          { at: 5000, press: 2 },
+          { at: 5150, release: 2 },
         ],
-        period: 5400,
+        period: 6200,
       },
       // 6 — hold K4: patterns
       {
@@ -184,8 +197,11 @@ export const SCENES: SceneDef[] = [
           { at: 2400, turn: 3, detents: 1 },
           { at: 3000, turn: 3, detents: 1 },
           { at: 3600, turn: 3, detents: 1 },
+          // Hold K4 again to close it: the ring fills, then the list goes.
+          { at: 4300, press: 3 },
+          { at: 5500, release: 3 },
         ],
-        period: 5200,
+        period: 6400,
       },
       // 7 — your turn
       { ...base, view: "screenKnobs", mode: "run", handsOn: true },
@@ -236,6 +252,8 @@ export const SCENES: SceneDef[] = [
           { at: 0, mode: "run" },
           { at: 300, press: 1 },
           { at: 1400, release: 1 },
+          { at: 7600, press: 1 },
+          { at: 7750, release: 1 },
         ],
         period: 9000,
       },
@@ -253,7 +271,22 @@ export function sceneById(id: string): SceneDef | undefined {
   return SCENES.find((s) => s.id === id);
 }
 
+// A step as the stage should play it right now. The one difference from the
+// script: while the USB-C cable is still on the DevKit, the DevKit stays out
+// where it is (esp held at 1) — the plug has to come out and the cable go
+// before it can travel anywhere, whichever step the reader has scrolled to.
+const heldSteps = new WeakMap<Step, Step>();
+
 export function stepOf(scene: string, step: number): Step {
   const def = sceneById(scene) ?? SCENES[0];
-  return def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
+  const s = def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
+  if ((s.esp ?? 0) < 1 && kitHeld()) {
+    let held = heldSteps.get(s);
+    if (!held) {
+      held = { ...s, esp: 1 };
+      heldSteps.set(s, held);
+    }
+    return held;
+  }
+  return s;
 }

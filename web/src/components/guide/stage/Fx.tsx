@@ -10,15 +10,20 @@ import * as THREE from "three";
 import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
-import { LED_CENTER_WORLD } from "./geometry";
+import { LED_CENTER_WORLD, modelToWorld } from "./geometry";
+import { DEVKIT_SEAT } from "./parts";
 
 // World-space effects around the whole device, one draw call each:
 //
 //   stream — the Basics deck arriving over Wi-Fi: a sheaf of pixel ribbons
-//            leaves from behind the copy card, fans out and writes short
-//            scanlines onto the panel, a band of rows per ribbon.
+//            leaves from behind the copy card, swings round the device's
+//            right side and goes in behind it, where the ESP32 sits. The case
+//            hides the last of each ribbon (the stream is depth-tested), so
+//            it reads as data going into the board — nothing crosses the
+//            panel or the front of the case.
 //   wifi   — the device on the network: arcs rising off its top edge, and a
-//            pulse running from it towards the browser in the card.
+//            pulse running from it towards the browser in the card along a
+//            faint dotted path, so a still frame shows a link, not loose dashes.
 //   flash  — one ripple across the panel when the pack goes in.
 //
 // All three add light and nothing else: see `lightOnly`. Each hides itself
@@ -29,12 +34,9 @@ import { LED_CENTER_WORLD } from "./geometry";
 // so the landscape 128 × 64 panel stands 64 LEDs across and 128 down.
 const LED_W = 1.6;
 const LED_H = 3.2;
-const LED_X0 = LED_CENTER_WORLD.x - LED_W / 2;
-const LED_Y1 = LED_CENTER_WORLD.y + LED_H / 2;
 const LED_Z = 0.15;
 const GRID_ACROSS = PANEL_H;
 const GRID_DOWN = PANEL_W;
-const PITCH = LED_W / GRID_ACROSS; // 0.025 — square LEDs
 const DEVICE_TOP = 1.6;
 
 /**
@@ -103,7 +105,16 @@ const PACKETS = 12; // per ribbon
 const PER = 7; // pixels per packet: one short scanline
 const N = RIBBONS * PACKETS * PER; // 504
 const TRAIL = 0.0075; // path time between the pixels of a packet
-const LAND = 0.84; // share of a packet's life in flight; the rest lit on the panel
+
+// Where the ribbons go in: the ESP32 on its sockets behind the board.
+const SEAT = modelToWorld(DEVKIT_SEAT.position);
+/** Each ribbon's last control point: right of the case and behind its back
+ *  (the case spans x −1.25…1.22, z −0.19…0.16), so the final stretch runs in
+ *  from behind where the case covers it. */
+const BEHIND = { x: 1.62, z: -0.62 };
+const END_Z = SEAT.z - 0.04;
+/** The DevKit's height on the board (it is 63 mm long): the ribbons spread over it. */
+const END_SPREAD = 0.46;
 
 // On a wide screen the copy card is `min(440px, 40vw)` wide inside a 6vw
 // right gutter (Guide.module.css .step / .card). Its left edge, in NDC, is
@@ -124,6 +135,8 @@ function mouthWideX(width: number): number {
 const MOUTH_WIDE_Y = -0.24;
 const MOUTH_NARROW_Y = -0.72;
 const MOUTH_Z = 0.5;
+/** On a narrow screen the sheaf rises from behind the card on the right, up the device's right side. */
+const MOUTH_NARROW_X = 1.5;
 
 function buildStream() {
   const rand = seeded(20260930);
@@ -135,25 +148,21 @@ function buildStream() {
     bowW: new Float32Array(RIBBONS),
     bowN: new Float32Array(RIBBONS),
     lift: new Float32Array(RIBBONS * 2), // towards the reader at the two controls
-    bandMid: new Float32Array(RIBBONS),
-    band0: new Float32Array(RIBBONS),
-    bandRows: new Float32Array(RIBBONS),
+    /** Where on the DevKit the ribbon ends, in y. */
+    endY: new Float32Array(RIBBONS),
     speed: new Float32Array(RIBBONS),
   };
-  const rows = GRID_DOWN / RIBBONS;
   for (let r = 0; r < RIBBONS; r++) {
     const v = r / (RIBBONS - 1); // 0 = top ribbon
     rib.offW.set([rand() * 0.25, lerp(0.3, -0.3, v) + (rand() - 0.5) * 0.08, rand() * 0.3 - 0.15], r * 3);
     rib.offN.set([lerp(-0.45, 0.45, (r * 2) % RIBBONS / (RIBBONS - 1)) + (rand() - 0.5) * 0.08, rand() * 0.2, rand() * 0.3 - 0.15], r * 3);
     // Top ribbons arc over, bottom ones swing under; on a narrow screen they
-    // rise from below like a fountain, bowing out to either side.
-    rib.bowW[r] = lerp(1.45, -1.3, v) + (rand() - 0.5) * 0.15;
-    rib.bowN[r] = (r % 2 === 0 ? 1 : -1) * lerp(0.55, 0.2, v) + (rand() - 0.5) * 0.1;
-    rib.lift.set([0.55 + rand() * 0.35, 1.0 + rand() * 0.45], r * 2);
-    rib.band0[r] = Math.round(r * rows);
-    rib.bandRows[r] = Math.max(1, Math.round((r + 1) * rows) - rib.band0[r]);
-    rib.bandMid[r] = LED_Y1 - (rib.band0[r] + rib.bandRows[r] / 2) * PITCH;
-    rib.speed[r] = 0.27 + rand() * 0.06;
+    // rise from below, bowing out to the right, away from the device.
+    rib.bowW[r] = lerp(0.9, -0.8, v) + (rand() - 0.5) * 0.12;
+    rib.bowN[r] = lerp(0.25, 0.6, (r * 2) % RIBBONS / (RIBBONS - 1)) + (rand() - 0.5) * 0.08;
+    rib.lift.set([0.2 + rand() * 0.2, 0], r * 2);
+    rib.endY[r] = SEAT.y + lerp(END_SPREAD / 2, -END_SPREAD / 2, v);
+    rib.speed[r] = 0.3 + rand() * 0.06;
   }
 
   const P = RIBBONS * PACKETS;
@@ -161,8 +170,6 @@ function buildStream() {
     phase: new Float32Array(P),
     jit: new Float32Array(P * 3),
     cycle: new Int32Array(P).fill(-1 << 30),
-    row: new Float32Array(P),
-    col: new Float32Array(P),
     rgb: new Float32Array(P * 3),
   };
   for (let r = 0; r < RIBBONS; r++) {
@@ -189,6 +196,8 @@ function buildStream() {
 
 const PULSES = 3;
 const PULSE_PTS = 9;
+/** The faint dotted path the pulses run along. */
+const PATH_PTS = 24;
 // Where the arcs start: the top edge, a little towards the knob column.
 const WIFI_ORIGIN = new THREE.Vector2(0.28, DEVICE_TOP + 0.05);
 // The pulse runs from there over to the browser in the card on the right.
@@ -214,6 +223,7 @@ uniform vec2 uOrigin;
 uniform vec3 uColor;
 uniform vec3 uHot;
 uniform vec3 uPts[${PULSES * PULSE_PTS}];
+uniform vec3 uPath[${PATH_PTS}];
 varying vec2 vWorld;
 
 void main() {
@@ -252,6 +262,15 @@ void main() {
   }
   col += mix(uColor, uHot, 0.4) * pul * uPulse * 2.2;
 
+  // The path itself, a row of small dim pixels.
+  float path = 0.0;
+  for (int k = 0; k < ${PATH_PTS}; k++) {
+    vec3 a = uPath[k];
+    vec2 dd = abs(vWorld - a.xy);
+    path += a.z * (1.0 - smoothstep(0.007, 0.011, max(dd.x, dd.y)));
+  }
+  col += uColor * path * uPulse;
+
   gl_FragColor = vec4(col * uFade, 0.0);
 }
 `;
@@ -264,6 +283,7 @@ function buildWifi() {
   const y1 = 3.1;
   const geo = new THREE.PlaneGeometry(x1 - x0, y1 - y0);
   const pts = Array.from({ length: PULSES * PULSE_PTS }, () => new THREE.Vector3());
+  const path = Array.from({ length: PATH_PTS }, () => new THREE.Vector3());
   const mat = lightOnly(
     new THREE.ShaderMaterial({
       uniforms: {
@@ -276,6 +296,7 @@ function buildWifi() {
         uColor: { value: new THREE.Color("#ff6a3d") },
         uHot: { value: new THREE.Color("#ffd2b8") },
         uPts: { value: pts },
+        uPath: { value: path },
       },
       vertexShader: worldVert,
       fragmentShader: wifiFrag,
@@ -286,7 +307,7 @@ function buildWifi() {
   mesh.frustumCulled = false;
   mesh.visible = false;
   mesh.renderOrder = 2;
-  return { mesh, geo, mat, pts };
+  return { mesh, geo, mat, pts, path };
 }
 
 // ── flash ────────────────────────────────────────────────────────────────────
@@ -424,7 +445,8 @@ export default function Fx() {
     flash.mesh.visible = o.flashT < 1.2;
 
     // ── stream ────────────────────────────────────────────────────────────
-    o.stream += ((s.stream ? 1 : 0) - o.stream) * Math.min(1, dt * 2.4);
+    // In gently; out quickly, so it never runs on into the next step.
+    o.stream += ((s.stream ? 1 : 0) - o.stream) * Math.min(1, dt * (s.stream ? 2.4 : 6));
     // The deck step trickles; "Install to my board" pours, a little faster.
     const install = s.stream && step >= 2;
     o.density += ((install ? 1 : 0.6) * (reduced ? 0.5 : 1) - o.density) * Math.min(1, dt * 2);
@@ -441,7 +463,7 @@ export default function Fx() {
         .unproject(cam);
       v.sub(cam.position);
       const k = (MOUTH_Z - cam.position.z) / (Math.abs(v.z) > 1e-5 ? v.z : -1e-5);
-      const mx = lerp(cam.position.x + v.x * k, LED_CENTER_WORLD.x + 0.2, nf);
+      const mx = lerp(cam.position.x + v.x * k, MOUTH_NARROW_X, nf);
       const my = cam.position.y + v.y * k;
       const mz = MOUTH_Z;
 
@@ -449,32 +471,33 @@ export default function Fx() {
       const cArr = stream.mesh.instanceColor!.array as Float32Array;
       // Billboard basis from the camera: every pixel faces the reader.
       const e = cam.matrixWorld.elements;
-      const ez = LED_Z + 0.012;
       for (let r = 0; r < RIBBONS; r++) {
         const r3 = r * 3;
         const sx = mx + lerp(rib.offW[r3], rib.offN[r3], nf);
         const sy = my + lerp(rib.offW[r3 + 1], rib.offN[r3 + 1], nf);
         const sz = mz + lerp(rib.offW[r3 + 2], rib.offN[r3 + 2], nf);
-        const dx = LED_CENTER_WORLD.x - sx;
-        const dy = rib.bandMid[r] - sy;
-        const dz = LED_Z - sz;
+        // Out of the mouth with a bow, then to a point right of the case and
+        // behind it, and in to the DevKit from there: the curve is behind
+        // the case's back before it is ever over the case (checked for both
+        // mouths), so the front of the device is never crossed.
+        const ex = SEAT.x;
+        const ey = rib.endY[r];
+        const ez = END_Z;
         const bowX = rib.bowN[r] * nf;
         const bowY = rib.bowW[r] * (1 - nf);
-        const ax = sx + dx * 0.3 + bowX;
-        const ay = sy + dy * 0.3 + bowY;
-        const az = sz + dz * 0.3 + rib.lift[r * 2];
-        const bx = sx + dx * 0.72 + bowX * 0.55;
-        const by = sy + dy * 0.72 + bowY * 0.55;
-        const bz = sz + dz * 0.72 + rib.lift[r * 2 + 1];
+        const ax = sx + bowX;
+        const ay = sy + (ey - sy) * 0.25 + bowY;
+        const az = sz + rib.lift[r * 2];
+        const bx = BEHIND.x + bowX * 0.4;
+        const by = ey + bowY * 0.25;
+        const bz = BEHIND.z;
         for (let p = 0; p < PACKETS; p++) {
           const pi = r * PACKETS + p;
           const run = o.flow * rib.speed[r] + pkt.phase[pi];
           const cycle = Math.floor(run);
           if (cycle !== pkt.cycle[pi]) {
-            // A new packet: a fresh scanline in this ribbon's band, a colour.
+            // A new packet: a colour.
             pkt.cycle[pi] = cycle;
-            pkt.row[pi] = rib.band0[r] + Math.floor(hash(pi, cycle) * rib.bandRows[r]);
-            pkt.col[pi] = Math.floor(hash(pi + 977, cycle) * (GRID_ACROSS - PER));
             const pair = RIBBON_COLOURS[r];
             const c = PALETTE[hash(pi + 31, cycle) < 0.68 ? pair[0] : pair[1]];
             pkt.rgb[pi * 3] = c.r;
@@ -488,8 +511,6 @@ export default function Fx() {
           const jx = pkt.jit[pi * 3];
           const jy = pkt.jit[pi * 3 + 1];
           const jz = pkt.jit[pi * 3 + 2];
-          const ex0 = LED_X0 + (pkt.col[pi] + 0.5) * PITCH;
-          const ey = LED_Y1 - (pkt.row[pi] + 0.5) * PITCH;
           for (let q = 0; q < PER; q++) {
             const idx = pi * PER + q;
             const u = tau - q * TRAIL;
@@ -499,31 +520,21 @@ export default function Fx() {
             let z = 0;
             let size = 0;
             if (u > 0 && u < 1 && dens > 0) {
-              const ex = ex0 + q * PITCH;
-              if (u < LAND) {
-                const f = u / LAND;
-                const t = f * (0.6 + 0.4 * f); // gathering speed into the panel
-                const it = 1 - t;
-                const b0 = it * it * it;
-                const b1 = 3 * it * it * t;
-                const b2 = 3 * it * t * t;
-                const b3 = t * t * t;
-                x = b0 * (sx + jx) + b1 * (ax + jx * 0.7) + b2 * (bx + jx * 0.3) + b3 * ex;
-                y = b0 * (sy + jy) + b1 * (ay + jy * 0.7) + b2 * (by + jy * 0.3) + b3 * ey;
-                z = b0 * (sz + jz) + b1 * (az + jz * 0.7) + b2 * (bz + jz * 0.3) + b3 * ez;
-                // A dim glow while still behind the card, brightest mid-air.
-                const behind = smooth(edge - 0.05, edge + 0.03, ndcX(vp, x, y, z)) * wideCard;
-                bright = smooth(0.02, 0.2, f) * (1 - behind * 0.82) * (1 - q * 0.075) * lerp(2.3, 1.6, smooth(0.75, 1, f));
-                size = lerp(0.036, 0.024, q / (PER - 1)) * lerp(1, 0.8, smooth(0.8, 1, f));
-              } else {
-                // Landed: an LED lit for a moment.
-                const g = (u - LAND) / (1 - LAND);
-                x = ex;
-                y = ey;
-                z = ez;
-                bright = 1.5 * (1 - g) * (1 - g);
-                size = PITCH * 0.82;
-              }
+              const f = u;
+              const t = f * (0.7 + 0.3 * f); // gathering speed on the way in
+              const it = 1 - t;
+              const b0 = it * it * it;
+              const b1 = 3 * it * it * t;
+              const b2 = 3 * it * t * t;
+              const b3 = t * t * t;
+              x = b0 * (sx + jx) + b1 * (ax + jx * 0.7) + b2 * (bx + jx * 0.3) + b3 * ex;
+              y = b0 * (sy + jy) + b1 * (ay + jy * 0.7) + b2 * (by + jy * 0.3) + b3 * ey;
+              z = b0 * (sz + jz) + b1 * (az + jz * 0.7) + b2 * (bz + jz * 0.3) + b3 * ez;
+              // A dim glow while still behind the card, brightest mid-air,
+              // fading as it goes in.
+              const behind = smooth(edge - 0.05, edge + 0.03, ndcX(vp, x, y, z)) * wideCard;
+              bright = smooth(0.02, 0.18, f) * (1 - behind * 0.82) * (1 - q * 0.075) * 2.1 * (1 - smooth(0.82, 1, f));
+              size = lerp(0.034, 0.022, q / (PER - 1));
               bright *= fade * dens;
             }
             if (bright <= 0.001) size = 0;
@@ -556,7 +567,8 @@ export default function Fx() {
     }
 
     // ── wifi ──────────────────────────────────────────────────────────────
-    o.wifi += ((s.wifi === "device" ? 1 : 0) - o.wifi) * Math.min(1, dt * 2.4);
+    const wifiOn = s.wifi === "device";
+    o.wifi += ((wifiOn ? 1 : 0) - o.wifi) * Math.min(1, dt * (wifiOn ? 2.4 : 6));
     wifi.mesh.visible = o.wifi > 0.003;
     if (wifi.mesh.visible) {
       const t = o.clock;
@@ -588,6 +600,16 @@ export default function Fx() {
             const gone = smooth(edge - 0.07, edge + 0.01, ndcX(vp, pt.x, pt.y, 0)) * wideCard;
             pt.z = smooth(0.04, 0.16, a) * (1 - smooth(0.9, 1, a)) * (1 - gone) * (1 - (j / PULSE_PTS) * 0.8);
           }
+        }
+        // The path: dim dots from just out of the arcs to the card's edge.
+        for (let j = 0; j < PATH_PTS; j++) {
+          const a = 0.1 + (j / (PATH_PTS - 1)) * 0.86;
+          const ia = 1 - a;
+          const pt = wifi.path[j];
+          pt.x = ia * ia * WIFI_ORIGIN.x + 2 * ia * a * PULSE_CTRL.x + a * a * PULSE_END.x;
+          pt.y = ia * ia * WIFI_ORIGIN.y + 2 * ia * a * PULSE_CTRL.y + a * a * PULSE_END.y;
+          const gone = smooth(edge - 0.05, edge + 0.01, ndcX(vp, pt.x, pt.y, 0)) * wideCard;
+          pt.z = 0.22 * smooth(0.1, 0.22, a) * (1 - gone);
         }
       }
     }
