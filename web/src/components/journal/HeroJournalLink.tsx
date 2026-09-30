@@ -16,6 +16,7 @@ function InstagramIcon() {
 export default function HeroJournalLink() {
   return (
     <nav className="hero-top-links" aria-label="Patternflow pages">
+      <Link href="/guide">Guide</Link>
       <Link href="/journal">Journal</Link>
       <Link href={communityHref()}>Community</Link>
       <a
