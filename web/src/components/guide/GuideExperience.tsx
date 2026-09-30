@@ -10,13 +10,22 @@ import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
 import Extras from "./Extras";
 import { hereFor, reportUrl } from "./report";
 import { PAGES, pagePath, scriptMismatches, type PageChapter } from "./pages";
+import { useDeskFits } from "./desk/query";
+import DeskCue from "./desk/DeskCue";
 
 // A page of the guide (pages.ts: /guide is "start", /guide/make is "make").
 // A fixed stage behind, the story scrolling over it. The tracker below finds
 // the step block nearest the middle of the viewport and hands its scene and
 // index to the store; the stage takes it from there, from this page's script.
+//
+// The first page's stage is the 3D device (stage/GuideCanvas). The make
+// page's is a desk of app windows left of the story (desk/DeskStage) — the
+// real Pattern Lab, a practice community, a practice AI, and a pointer that
+// shows the way — on a screen big enough for it (desk/query.ts); below that
+// it has no stage, and its cards show screenshots instead.
 
 const GuideCanvas = dynamic(() => import("./stage/GuideCanvas"), { ssr: false });
+const DeskStage = dynamic(() => import("./desk/DeskStage"), { ssr: false });
 
 function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
@@ -139,6 +148,7 @@ function Step({
           </p>
         ))}
         {copy.warn && <p className={styles.warn}>{copy.warn}</p>}
+        {page === "make" && <DeskCue scene={scene} index={index} lang={lang} />}
         {copy.extra && <Extras kind={copy.extra} lang={lang} step={index} />}
         {copy.note && (
           <aside className={styles.note}>
@@ -195,6 +205,7 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
   const { opening, chapters, next } = PAGES[page].text(lang);
   const other: GuideLang = lang === "en" ? "ko" : "en";
   const root = useRef<HTMLDivElement>(null);
+  const deskFits = useDeskFits();
 
   // The stage plays this page's script, from its top: set before the canvas
   // draws a frame, and before the tracker below says where the reader is.
@@ -229,12 +240,21 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
   }, [page]);
 
   return (
-    <div className={styles.page} lang={lang} ref={root}>
-      <div className={styles.stage} aria-hidden="true">
-        <div className={styles.stageGlow} />
-        <GuideCanvas />
-        <div className={styles.grain} />
-      </div>
+    <div className={styles.page} lang={lang} ref={root} data-page={page === "make" ? "make" : undefined}>
+      {page === "make" ? (
+        // The room only: the desk comes after the story, so the keyboard
+        // reaches the cards first (each card's cue line can jump into it).
+        <div className={styles.stage} aria-hidden="true">
+          <div className={styles.stageGlow} />
+          <div className={styles.grain} />
+        </div>
+      ) : (
+        <div className={styles.stage} aria-hidden="true">
+          <div className={styles.stageGlow} />
+          <GuideCanvas />
+          <div className={styles.grain} />
+        </div>
+      )}
 
       <header className={styles.top}>
         <div className={styles.brandRow}>
@@ -334,6 +354,8 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
           </article>
         </section>
       </main>
+
+      {page === "make" && deskFits && <DeskStage lang={lang} />}
     </div>
   );
 }

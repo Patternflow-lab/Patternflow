@@ -1093,3 +1093,118 @@
   line-height: 1.5;
   color: var(--g-ink-2);
 }
+
+/* ── the make page (/guide/make): a desk of windows, or no stage at all ──
+
+   On a screen big enough for the desk (desk/query.ts; the same query is in
+   desk/Desk.module.css — change all three together) the story is a column on
+   the right and the desk takes the rest: the real Pattern Lab and the
+   practice windows, which show what the cards say. The cards' screenshots
+   are for screens without the desk (.offDesk). Below it there is no stage:
+   one column of cards, screenshots in them. The first page is untouched. */
+
+@media (min-width: 1340px) and (min-height: 640px), (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and (min-height: 700px) {
+  .page[data-page="make"] {
+    /* The story's column; the desk is everything left of it. */
+    --desk-col: clamp(330px, 27vw, 410px);
+  }
+  .page[data-page="make"] .story {
+    width: calc(var(--desk-col) + 48px);
+    margin-left: auto;
+  }
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    padding: 104px 24px 64px;
+  }
+  .page[data-page="make"] .openingInner,
+  .page[data-page="make"] .nextInner,
+  .page[data-page="make"] .card {
+    width: 100%;
+  }
+  .page[data-page="make"] .openingTitle {
+    font-size: clamp(46px, 4.4vw, 66px);
+  }
+  .page[data-page="make"] .openingLede {
+    font-size: 16px;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 72vh;
+    padding: 104px 24px 32px;
+  }
+  .page[data-page="make"] .chapterNum {
+    font-size: clamp(110px, 11vw, 170px);
+  }
+  .page[data-page="make"] .chapterTitle {
+    font-size: clamp(36px, 3.3vw, 50px);
+  }
+  .page[data-page="make"] .chapterLede {
+    font-size: 16px;
+  }
+  .page[data-page="make"] .step {
+    padding: 10vh 24px 8vh;
+  }
+  .page[data-page="make"] .card {
+    padding: 22px 22px 20px;
+  }
+  .page[data-page="make"] .stepTitle {
+    font-size: 23px;
+  }
+  .page[data-page="make"] .body {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .page[data-page="make"] .offDesk {
+    display: none;
+  }
+}
+
+/* The desk query's opposite, spelled out (a query list can't be negated as a whole). */
+@media (max-width: 1179.98px), (max-height: 639.98px), (max-width: 1279.98px) and (max-height: 699.98px), (max-width: 1339.98px) and (max-height: 659.98px) {
+  /* No stage behind: the cards pass under the top bar, which fades them out. */
+  .page[data-page="make"] .top {
+    background: linear-gradient(rgba(10, 9, 8, 0.94) 55%, rgba(10, 9, 8, 0));
+  }
+  .page[data-page="make"] .story {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    justify-content: center;
+    padding: 112px 24px 72px;
+  }
+  .page[data-page="make"] .openingInner,
+  .page[data-page="make"] .nextInner,
+  .page[data-page="make"] .card {
+    width: 100%;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 60vh;
+    align-items: flex-start;
+    text-align: left;
+    padding: 104px 24px 28px;
+  }
+  .page[data-page="make"] .step {
+    min-height: 90vh;
+    justify-content: center;
+    padding: 8vh 24px;
+  }
+}
+
+@media (max-width: 899px) {
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    align-items: center;
+    padding: 88px 16px 40px;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 56vh;
+    justify-content: flex-end;
+    padding: 88px 16px 24px;
+  }
+  .page[data-page="make"] .step {
+    min-height: 88vh;
+    align-items: center;
+    padding: 6vh 16px;
+  }
+}

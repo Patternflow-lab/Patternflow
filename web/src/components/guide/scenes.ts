@@ -1,6 +1,7 @@
 import type { SimMode, SimPack } from "@/lib/guide/deviceSim";
 import { kitHeld } from "./timing";
 import { useGuideStore, type GuidePageId } from "./store";
+import type { DeskPlacement } from "./desk/types";
 import { COMMUNITY_SCENE } from "./scenes/community";
 import { LAB_SCENE } from "./scenes/lab";
 
@@ -13,10 +14,12 @@ import { LAB_SCENE } from "./scenes/lab";
 // Knobs are logical: 0..3 = K1..K4, as the device numbers them.
 //
 // The guide has two pages (pages.ts), each with its own script: SCENES is
-// the first page (/guide, 01–04), MAKE_SCENES the second (/guide/make,
-// 05–06), whose chapters are in scenes/. Both pages open on a scene called
-// "opening" and end on one called "next"; which page's is meant is the
-// store's `page`.
+// the first page (/guide, 01–04), played by the 3D stage; MAKE_SCENES the
+// second (/guide/make, 05–06), whose chapters are in scenes/ and whose
+// stage is the desk of app windows (desk/DeskStage.tsx) — its steps say
+// which windows are on the desk (DeskStep), not what a device does. Both
+// pages open on a scene called "opening" and end on one called "next";
+// which page's is meant is the store's `page`.
 
 export type ViewName =
   | "hero"
@@ -77,7 +80,21 @@ export type Step = {
   mirror?: boolean;
 };
 
-export type SceneDef = { id: string; steps: Step[] };
+/**
+ * A step of the make page (/guide/make): which app windows are on the desk
+ * and which is in front (desk/types.ts DeskPlacement). What the pointer does
+ * in them is the chapter's tutorial (tutorials/*.ts), by the same index.
+ */
+export type DeskStep = {
+  desk: DeskPlacement;
+  /** As Step's: a longer block for the step to stay on, in viewport heights. */
+  dwell?: number;
+};
+
+/** A step of either page's script. */
+export type AnyStep = Step | DeskStep;
+
+export type SceneDef<S extends AnyStep = Step> = { id: string; steps: S[] };
 
 const base: Pick<Step, "power" | "pack"> = { power: true, pack: "origin" };
 
@@ -277,32 +294,39 @@ export const SCENES: SceneDef[] = [
   },
 ];
 
-// The second page, "Make your own": the device arrives powered, the Basics
-// deck already on it, running — the first page ended there, and a reader
-// who lands here directly has done that part.
-export const MAKE_SCENES: SceneDef[] = [
+// The second page, "Make your own": a desk of app windows instead of the
+// device — the community and the Lab are things you do on a screen. It opens
+// with the practice community in front and the Lab behind it, both at rest
+// (dimmed, nothing pointed at yet), and ends on the reader's Lab.
+export const MAKE_SCENES: SceneDef<DeskStep>[] = [
   {
     id: "opening",
-    steps: [{ view: "hero", spin: 0.22, power: true, pack: "basics", mode: "run" }],
+    steps: [{ desk: { front: "community", show: ["community", "lab"], rest: true } }],
   },
   COMMUNITY_SCENE,
   LAB_SCENE,
   {
     id: "next",
-    steps: [{ view: "hero", spin: 0.18, power: true, pack: "basics", mode: "run" }],
+    steps: [{ desk: { front: "lab", rest: true } }],
   },
 ];
 
-const PAGE_SCENES: Record<GuidePageId, SceneDef[]> = { start: SCENES, make: MAKE_SCENES };
+const PAGE_SCENES: Record<GuidePageId, SceneDef<AnyStep>[]> = { start: SCENES, make: MAKE_SCENES };
 
 /** A page's script, opening to end. */
-export function scenesOf(page: GuidePageId): SceneDef[] {
+export function scenesOf(page: GuidePageId): SceneDef<AnyStep>[] {
   return PAGE_SCENES[page];
 }
 
 /** A scene of the page the reader is on (or of `page`). */
-export function sceneById(id: string, page: GuidePageId = useGuideStore.getState().page): SceneDef | undefined {
+export function sceneById(id: string, page: GuidePageId = useGuideStore.getState().page): SceneDef<AnyStep> | undefined {
   return scenesOf(page).find((s) => s.id === id);
+}
+
+/** A step of the make page's script (clamped into its scene; the opening's for an unknown scene). */
+export function deskStepOf(scene: string, step: number): DeskStep {
+  const def = MAKE_SCENES.find((s) => s.id === scene) ?? MAKE_SCENES[0];
+  return def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
 }
 
 // A step as the stage should play it right now. The one difference from the
@@ -312,8 +336,9 @@ export function sceneById(id: string, page: GuidePageId = useGuideStore.getState
 const heldSteps = new WeakMap<Step, Step>();
 
 export function stepOf(scene: string, step: number): Step {
-  const page = useGuideStore.getState().page;
-  const def = sceneById(scene, page) ?? scenesOf(page)[0];
+  // The 3D stage plays only the first page's script: the make page has the
+  // desk instead (MAKE_SCENES, deskStepOf).
+  const def = SCENES.find((s) => s.id === scene) ?? SCENES[0];
   const s = def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
   if ((s.esp ?? 0) < 1 && kitHeld()) {
     let held = heldSteps.get(s);

@@ -1,0 +1,603 @@
+/* The make page's desk (DeskStage.tsx): app windows in the space left of the
+   story, and the guiding pointer over them. Browser chrome in the guide's
+   colours, as ConsoleWindow draws it; the windows' own content brings its
+   own look (the real Pattern Lab, the practice apps).
+
+   The desk's query — (min-width: 1340px) and (min-height: 640px),
+   (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and
+   (min-height: 700px) — is written out here, in
+   Guide.module.css (with its opposite) and in query.ts: change them all
+   together. --desk-col (the story's column) is set on the page by
+   Guide.module.css under the same query. */
+
+.desk {
+  --d-ink: #efe9dd;
+  --d-ink-2: rgba(239, 233, 221, 0.72);
+  --d-ink-3: rgba(239, 233, 221, 0.46);
+  --d-hair: rgba(239, 233, 221, 0.1);
+  --d-hair-2: rgba(239, 233, 221, 0.18);
+  --d-led: #ff6a3d;
+  --d-chrome: #1b1a18;
+  --d-chrome-2: #131210;
+  --d-field: #0f0e0d;
+  /* The Lab's own ground, so its window is the Lab's colour before it paints. */
+  --d-lab: #f4efe6;
+  --d-shadow: 0 26px 70px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
+  --d-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  position: fixed;
+  z-index: 1;
+  left: 20px;
+  top: 72px;
+  bottom: 20px;
+  right: calc(var(--desk-col, 380px) + 56px);
+}
+
+/* ── a window ────────────────────────────────────────────────────────────── */
+
+.win {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--d-hair-2);
+  border-radius: 12px;
+  background: var(--d-chrome);
+  box-shadow: var(--d-shadow);
+  transition:
+    transform 0.62s var(--d-ease),
+    opacity 0.45s ease,
+    border-color 0.3s,
+    visibility 0s linear 0s;
+}
+.win[data-role="away"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 0.62s var(--d-ease),
+    opacity 0.4s ease,
+    border-color 0.3s,
+    visibility 0s linear 0.45s;
+}
+.win[data-win="ai"] {
+  inset: auto 18px 18px auto;
+  border-color: rgba(239, 233, 221, 0.24);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.win[data-win="ai"][data-role="away"] {
+  transform: translate3d(0, 18px, 0) scale(0.97);
+}
+
+.bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  background: var(--d-chrome-2);
+  font-family: var(--pf-sans, system-ui, sans-serif);
+}
+.lights {
+  display: flex;
+  flex: none;
+  gap: 5px;
+}
+.lights i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.16);
+}
+.tab {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 220px;
+  font-size: 11.5px;
+  color: var(--d-ink-2);
+}
+.favicon {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff5c2e;
+  box-shadow: 0 0 5px rgba(255, 92, 46, 0.7);
+}
+.tabTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.address {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 23px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: var(--d-field);
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.01em;
+  color: var(--d-ink);
+}
+.lock {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--d-ink-3);
+}
+.url {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.path {
+  color: var(--d-ink-3);
+}
+.barFill {
+  flex: 1;
+}
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 106, 61, 0.5);
+  border-radius: 999px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--d-led);
+  white-space: nowrap;
+}
+
+.body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--d-chrome);
+}
+
+/* Over a window in the back (or all of them, at rest): dimmed, and a click
+   brings it forward. */
+.cover {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(10, 9, 8, 0.58);
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  transition:
+    opacity 0.45s ease,
+    background 0.25s;
+}
+.win[data-dim="1"] .cover {
+  opacity: 1;
+  pointer-events: auto;
+}
+.win[data-dim="1"] .cover:hover {
+  background: rgba(10, 9, 8, 0.42);
+}
+.desk[data-rest="1"] .win[data-dim="1"] .cover {
+  background: rgba(10, 9, 8, 0.5);
+}
+
+/* A practice window's content. */
+.appRoot {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.appEmpty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--d-ink-3);
+}
+
+/* ── the Lab ─────────────────────────────────────────────────────────────── */
+
+.labView {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--d-lab);
+}
+.poster {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+.labView[data-ready="1"] .poster {
+  visibility: hidden;
+}
+.labFrame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border: 0;
+  background: var(--d-lab);
+  transform-origin: 0 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.labView[data-ready="1"] .labFrame {
+  opacity: 1;
+}
+.notice {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 106, 61, 0.55);
+  border-radius: 10px;
+  background: rgba(20, 18, 16, 0.94);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--d-ink);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.notice span {
+  flex: 1;
+}
+.noticeClose {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--d-ink-2);
+  cursor: pointer;
+}
+.noticeClose svg {
+  width: 12px;
+  height: 12px;
+}
+.noticeClose:hover,
+.noticeClose:focus-visible {
+  color: var(--d-led);
+}
+
+/* ── the pointer ─────────────────────────────────────────────────────────── */
+
+.pointerLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+}
+.cursor,
+.ripple,
+.halo,
+.bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.cursor {
+  width: 0;
+  height: 0;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.pointerLayer[data-shown="1"] .cursor {
+  opacity: 1;
+}
+.cursor svg {
+  position: absolute;
+  /* The drawn tip (3, 2.2) sits on the point. */
+  left: -3px;
+  top: -2.2px;
+  overflow: visible;
+  transform-origin: 3px 2.2px;
+  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
+  transition: transform 0.14s ease;
+}
+.cursor[data-press="1"] svg {
+  transform: scale(0.82);
+}
+.cursor[data-mode="scroll"] svg {
+  animation: bob 0.5s ease-in-out infinite alternate;
+}
+/* Typing: a caret blinks beside the tip. */
+.cursor[data-mode="type"]::after {
+  content: "";
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: var(--d-led);
+  animation: caret 0.9s steps(2, start) infinite;
+}
+/* Waiting for the reader: a ring breathes at the tip. */
+.cursor::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--d-led);
+  opacity: 0;
+}
+.pointerLayer[data-waiting="1"] .cursor::before {
+  animation: breathe 1.7s ease-in-out infinite;
+}
+.ripple {
+  width: 0;
+  height: 0;
+}
+.ripple::after {
+  content: "";
+  position: absolute;
+  left: -20px;
+  top: -20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid var(--d-led);
+  opacity: 0;
+}
+.pointerLayer[data-shown="1"] .ripple[data-on="1"]::after {
+  animation: ripple 0.55s ease-out;
+}
+.halo {
+  border: 1.5px solid var(--d-led);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 3px rgba(255, 106, 61, 0.16),
+    0 0 22px rgba(255, 106, 61, 0.35);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.pointerLayer[data-shown="1"] .halo[data-on="1"] {
+  opacity: 1;
+  animation: halo 1.7s ease-in-out infinite;
+}
+.bubble {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 260px;
+  padding: 7px 11px 7px 10px;
+  border: 1px solid rgba(255, 106, 61, 0.5);
+  border-radius: 10px;
+  background: rgba(16, 14, 12, 0.95);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font: 500 12.5px/1.35 var(--pf-sans, system-ui, sans-serif);
+  color: var(--d-ink);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.pointerLayer[data-shown="1"] .bubble[data-on="1"] {
+  opacity: 1;
+}
+.chip {
+  flex: none;
+  padding: 1px 6px;
+  border: 1px solid rgba(239, 233, 221, 0.35);
+  border-radius: 5px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--d-ink);
+}
+.chip[hidden] {
+  display: none;
+}
+
+@keyframes ripple {
+  from {
+    transform: scale(0.3);
+    opacity: 0.95;
+  }
+  to {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+@keyframes halo {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 106, 61, 0.14),
+      0 0 16px rgba(255, 106, 61, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px rgba(255, 106, 61, 0.22),
+      0 0 28px rgba(255, 106, 61, 0.45);
+  }
+}
+@keyframes bob {
+  from {
+    transform: translateY(-3px);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+@keyframes caret {
+  to {
+    visibility: hidden;
+  }
+}
+
+/* ── the card's cue line (DeskCue) ───────────────────────────────────────── */
+
+.cue {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 14px 0 2px;
+  padding: 9px 10px 9px 12px;
+  border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
+  border-radius: 12px;
+  background: rgba(255, 106, 61, 0.06);
+}
+@media (min-width: 1340px) and (min-height: 640px), (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and (min-height: 700px) {
+  .cue {
+    display: flex;
+  }
+}
+.cueDot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--g-led, #ff6a3d);
+  box-shadow: 0 0 10px var(--g-led, #ff6a3d);
+}
+.cue[data-state="done"] .cueDot {
+  background: #7fd1a0;
+  box-shadow: 0 0 8px rgba(127, 209, 160, 0.7);
+}
+.cue[data-state="waiting"] .cueDot {
+  animation: cueBlink 1.7s ease-in-out infinite;
+}
+.cueText {
+  flex: 1 1 140px;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--g-ink, #efe9dd);
+}
+.cueAgain {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+  font: 500 12px/1 var(--pf-sans, system-ui, sans-serif);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.cueAgain svg {
+  width: 12px;
+  height: 12px;
+}
+.cueAgain:hover,
+.cueAgain:focus-visible {
+  border-color: var(--g-led, #ff6a3d);
+  color: var(--g-ink, #efe9dd);
+  background: rgba(255, 106, 61, 0.1);
+}
+.cueAgain:focus-visible,
+.cueJump:focus-visible {
+  outline: 2px solid var(--g-led, #ff6a3d);
+  outline-offset: 2px;
+}
+/* For the keyboard only: out of sight until it has focus. */
+.cueJump {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  padding: 6px 11px;
+  border: 1px solid var(--g-led, #ff6a3d);
+  border-radius: 999px;
+  background: var(--g-led-wash, rgba(255, 106, 61, 0.1));
+  color: var(--g-ink, #efe9dd);
+  font: 500 12px/1 var(--pf-sans, system-ui, sans-serif);
+  cursor: pointer;
+}
+.cueJump:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip-path: none;
+}
+@keyframes cueBlink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* ── less motion: windows cut, the pointer jumps, nothing pulses ────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .win,
+  .win[data-role="away"],
+  .cover,
+  .labFrame,
+  .cursor,
+  .cursor svg,
+  .halo,
+  .bubble {
+    transition: none;
+  }
+  .cursor[data-mode="scroll"] svg,
+  .cursor[data-mode="type"]::after,
+  .pointerLayer[data-waiting="1"] .cursor::before,
+  .pointerLayer[data-shown="1"] .halo[data-on="1"],
+  .cue[data-state="waiting"] .cueDot {
+    animation: none;
+  }
+  .pointerLayer[data-waiting="1"] .cursor::before {
+    opacity: 0.7;
+    transform: none;
+  }
+  /* A press still shows: a ring that stays a moment, not one that flies out. */
+  .pointerLayer[data-shown="1"] .ripple[data-on="1"]::after {
+    animation: none;
+  }
+}

@@ -16,7 +16,7 @@ const en: MakeCopy = {
   meta: {
     title: "Make your own Patternflow patterns",
     description:
-      "The second part of the Patternflow guide: find patterns and decks in the community, then make your own in Pattern Lab — layers, Graphic Export and Director — shown on a Patternflow you can turn.",
+      "The second part of the Patternflow guide: find patterns and decks in the community, then make your own in Pattern Lab (layers, Graphic Export and Director), hands-on in your own Lab beside the steps, with a practice community and a practice AI.",
   },
   opening: {
     kicker: "The guide, part two",
@@ -43,7 +43,7 @@ const ko: MakeCopy = {
   meta: {
     title: "패턴플로우 내 패턴 만들기",
     description:
-      "패턴플로우 가이드 두 번째. 커뮤니티에서 패턴과 덱을 찾고, 패턴 랩에서 직접 만들어요. 레이어, 그래픽 익스포트, 디렉터까지 직접 돌려볼 수 있는 패턴플로우로 보여줍니다.",
+      "패턴플로우 가이드 두 번째. 커뮤니티에서 패턴과 덱을 찾고, 패턴 랩에서 직접 만들어요. 레이어, 그래픽 익스포트, 디렉터까지 내 랩과 연습용 커뮤니티, 연습용 AI로 직접 해 봐요.",
   },
   opening: {
     kicker: "사용법, 두 번째",

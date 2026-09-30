@@ -15,8 +15,9 @@ export type GuidePageId = "start" | "make";
 type GuideState = {
   /**
    * The page the reader is on. Scene ids are the page's own — both pages
-   * have an "opening" and a "next" — so the stage looks steps up in this
-   * page's script (scenes.ts stepOf).
+   * have an "opening" and a "next" — so a step is looked up in this page's
+   * script (scenes.ts sceneById): the 3D stage's on the first page
+   * (stepOf), the desk's on the make page (deskStepOf).
    */
   page: GuidePageId;
   /** The scene whose band contains the middle of the viewport. */

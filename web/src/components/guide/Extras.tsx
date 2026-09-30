@@ -373,12 +373,27 @@ export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideL
       return <ConsoleWindow variant="phone" lang={lang} />;
     case "consoleTour":
       return <ConsoleTour lang={lang} />;
-    // The make page: 05 Community and 06 Pattern Lab.
+    // The make page: 05 Community and 06 Pattern Lab. On a screen with the
+    // desk (desk/DeskStage) the real thing is beside the card, so these —
+    // screenshots, and the Lab in a tab — are for screens without it
+    // (Guide.module.css .offDesk).
     case "communityShots":
-      return <CommunityShots lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <CommunityShots lang={lang} step={step} />
+        </div>
+      );
     case "labShots":
-      return <LabShots lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <LabShots lang={lang} step={step} />
+        </div>
+      );
     case "labWindow":
-      return <LabWindow lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <LabWindow lang={lang} step={step} />
+        </div>
+      );
   }
 }

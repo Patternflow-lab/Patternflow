@@ -1,0 +1,271 @@
+/* The practice AI (PracticeAi.tsx): a plain, generic chat — neutral greys,
+   no accent colour of any product. It sits inside the desk (Desk.module.css),
+   whose --d-* tokens it uses. Sized to its window: the code block's height is
+   a share of the window (cqh), so the newest answer and its Copy button fit
+   on screen together. */
+
+.root {
+  container-type: size;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #171615;
+  font-family: var(--pf-sans, system-ui, sans-serif);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--d-ink, #efe9dd);
+}
+
+/* ── the conversation ────────────────────────────────────────────────────── */
+
+.thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* At its end, the wheel stops here: it doesn't scroll the story (and the step) under the reader. */
+  overscroll-behavior: contain;
+  padding: 14px 14px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 233, 221, 0.18) transparent;
+}
+
+.you {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px 38px;
+}
+.youText,
+.pasted {
+  margin: 0;
+  max-width: 100%;
+  padding: 8px 11px;
+  border-radius: 12px 12px 3px 12px;
+  background: #2a2826;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.pasted {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.pastedHead {
+  overflow: hidden;
+  max-width: 100%;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--d-ink-2, rgba(239, 233, 221, 0.72));
+}
+.pastedMeta {
+  font-size: 11px;
+  color: var(--d-ink-3, rgba(239, 233, 221, 0.46));
+}
+
+.ai {
+  display: flex;
+  gap: 9px;
+  margin: 0 0 14px;
+}
+.mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border: 1px solid rgba(239, 233, 221, 0.22);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(239, 233, 221, 0.55) 0 2.5px, transparent 3px),
+    #22211f;
+}
+.aiBody {
+  flex: 1;
+  min-width: 0;
+}
+.aiText {
+  margin: 0;
+  color: var(--d-ink, #efe9dd);
+}
+.ai[data-typing] .aiText::after,
+.ai[data-typing] .code code::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -0.15em;
+  background: rgba(239, 233, 221, 0.6);
+}
+/* Only the part being written carries the caret. */
+.ai[data-typing] .aiText:has(+ .code)::after {
+  content: none;
+}
+
+.dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 20px;
+  margin: 0;
+}
+.dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.55);
+  animation: dot 1.1s ease-in-out infinite;
+}
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.35;
+    transform: none;
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* ── an answer's code ────────────────────────────────────────────────────── */
+
+.code {
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(239, 233, 221, 0.12);
+  border-radius: 9px;
+  background: #0e0d0c;
+}
+.codeBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 30px;
+  padding: 0 6px 0 11px;
+  border-bottom: 1px solid rgba(239, 233, 221, 0.08);
+  background: #1d1c1a;
+}
+.codeLang {
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--d-ink-3, rgba(239, 233, 221, 0.46));
+}
+.copy {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid rgba(239, 233, 221, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  font: 500 11.5px/1 var(--pf-sans, system-ui, sans-serif);
+  color: var(--d-ink, #efe9dd);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.copy:hover {
+  background: rgba(239, 233, 221, 0.08);
+}
+.copy:focus-visible {
+  outline: 2px solid rgba(239, 233, 221, 0.7);
+  outline-offset: 1px;
+}
+.copy[data-state="done"] {
+  border-color: rgba(239, 233, 221, 0.4);
+}
+.pre {
+  margin: 0;
+  max-height: min(170px, 34cqh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 9px 11px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+  color: #d9d4ca;
+  white-space: pre;
+  tab-size: 4;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 233, 221, 0.18) transparent;
+}
+.pre:focus-visible {
+  outline: 2px solid rgba(239, 233, 221, 0.5);
+  outline-offset: -2px;
+}
+
+/* ── the composer ────────────────────────────────────────────────────────── */
+
+.composer {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(239, 233, 221, 0.08);
+  background: #171615;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  resize: none;
+  padding: 7px 10px;
+  border: 1px solid rgba(239, 233, 221, 0.18);
+  border-radius: 10px;
+  background: #0e0d0c;
+  font: 12px/1.45 var(--pf-sans, system-ui, sans-serif);
+  color: var(--d-ink, #efe9dd);
+  scrollbar-width: thin;
+}
+.input::placeholder {
+  color: var(--d-ink-3, rgba(239, 233, 221, 0.46));
+}
+.input:focus-visible {
+  outline: none;
+  border-color: rgba(239, 233, 221, 0.5);
+}
+.send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: #e9e4da;
+  font: 600 12px/1 var(--pf-sans, system-ui, sans-serif);
+  color: #151412;
+  cursor: pointer;
+}
+.send svg {
+  width: 13px;
+  height: 13px;
+}
+.send:disabled {
+  background: rgba(239, 233, 221, 0.12);
+  color: var(--d-ink-3, rgba(239, 233, 221, 0.46));
+  cursor: default;
+}
+.send:focus-visible {
+  outline: 2px solid rgba(239, 233, 221, 0.8);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots i {
+    animation: none;
+    opacity: 0.7;
+  }
+}
