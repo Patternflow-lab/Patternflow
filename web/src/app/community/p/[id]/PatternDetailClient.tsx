@@ -1098,9 +1098,9 @@ function PerformancesSection({
 
       {pattern.performances.length === 0 ? (
         <p className={styles.formNote}>
-          No recordings yet. A performance is a timed ride through the knobs (Director&apos;s
-          Save-JSON) that a panel replays exactly — publish one and it is live immediately,
-          credited to you.
+          No recordings yet. A performance is a timed ride through the knobs (the .pfs the
+          Director saves) that a panel replays exactly — publish one and it is live
+          immediately, credited to you.
         </p>
       ) : (
         <ul className={styles.portsList}>

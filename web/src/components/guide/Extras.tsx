@@ -16,6 +16,9 @@ import { BASICS_NAMES } from "@/lib/guide/basicsNames";
 import { bootPhase } from "./timing";
 import FlasherShots from "./FlasherShots";
 import ConsoleWindow, { type ConsolePage } from "./ConsoleWindow";
+import CommunityShots from "./CommunityShots";
+import LabShots from "./LabShots";
+import LabWindow from "./LabWindow";
 
 // The small moving pieces that sit inside a step's card: the flasher's real
 // screens and its real button, BOOT and RST in order, a deck fanning out, the
@@ -347,7 +350,12 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
   );
 }
 
-export default function Extras({ kind, lang }: { kind: Extra; lang: GuideLang }) {
+/**
+ * The extra a step's copy names (copy.ts `extra`), inside that step's card.
+ * `step` is the step's index in its chapter, for an extra that more than one
+ * step uses and shows something different in each.
+ */
+export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideLang; step: number }) {
   switch (kind) {
     case "flashButton":
       return <FlashBlock lang={lang} />;
@@ -365,5 +373,12 @@ export default function Extras({ kind, lang }: { kind: Extra; lang: GuideLang })
       return <ConsoleWindow variant="phone" lang={lang} />;
     case "consoleTour":
       return <ConsoleTour lang={lang} />;
+    // The make page: 05 Community and 06 Pattern Lab.
+    case "communityShots":
+      return <CommunityShots lang={lang} step={step} />;
+    case "labShots":
+      return <LabShots lang={lang} step={step} />;
+    case "labWindow":
+      return <LabWindow lang={lang} step={step} />;
   }
 }

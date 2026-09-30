@@ -13,11 +13,17 @@
 // device prints on its KNOB MAP screen. Where each one sits on the front is
 // the 3D stage's business.
 
-import { PATTERN_DETENTS_PER_TURN, PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern/harness";
+import {
+  PATTERN_DETENTS_PER_TURN,
+  PatternRuntime,
+  knobTargetToDelta,
+  type ColorRamp,
+  type PatternInput,
+} from "@/lib/pattern/harness";
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
 import { hexToRgb } from "@/lib/pattern/color";
 import { knobSetupFromCode } from "@/lib/community/knobs";
-import { LOGICAL_KNOB_DEFAULTS, knobUnitsPerTurn } from "@/lib/pattern/controls";
+import { LOGICAL_KNOB_DEFAULTS, LOGICAL_KNOB_WRAP, knobUnitsPerTurn } from "@/lib/pattern/controls";
 import { livePresets } from "@/lib/presets";
 import { BASICS_PACK } from "@/lib/pattern/packs";
 import { BASICS_NAMES } from "./basicsNames";
@@ -54,6 +60,50 @@ type Knob = {
 };
 
 type FrameInput = { detents: number[]; edges: boolean[]; clicks: boolean[]; longs: boolean[] };
+
+/**
+ * A pattern from outside the board's list, played as the running one: the
+ * reader's own Pattern Lab draft (lib/guide/labMirror.ts turns the saved
+ * project into this, the way the lab turns it into one pattern for hardware).
+ * Nothing here is written anywhere; the board only runs it.
+ */
+export type SimMirror = {
+  /** What the lab calls it — the name its hardware export would carry. */
+  name: string;
+  /** One runnable pattern: the layer stack flattened, or the one code layer. */
+  code: string;
+  /** The frame the pattern draws in (the lab's matrix). */
+  width: number;
+  height: number;
+  /** The code layer's ramp, for setValue() and recolor; null for a flattened stack (its ramps are baked in). */
+  ramp: ColorRamp | null;
+  recolor: boolean;
+  /** The lab's four knobs: their names, ranges and where they are. */
+  labels: string[];
+  ranges: Array<[number, number]>;
+  values: number[];
+};
+
+type MirrorRun = {
+  spec: SimMirror;
+  runtime: PatternRuntime;
+  /** Where the knobs are on the board: the lab's values, then whatever the knobs did. */
+  values: number[];
+  /** A change the lab made to a knob, owed to the pattern as the lab would pass it (engine.ts). */
+  owed: number[];
+  /** Why the draft's code would not load (a syntax error, a setup() that threw); null when it loaded. */
+  loadError: string | null;
+  /** Frames in a row whose update()/draw() threw, and the last reason. */
+  fails: number;
+  error: string | null;
+};
+
+/**
+ * A draft whose frames have thrown this many times in a row doesn't run: the
+ * board plays its own pattern again underneath, and says so (mirrorState).
+ * One that throws now and then keeps playing.
+ */
+const MIRROR_FAILS = 5;
 
 /** The address the simulated board shows on its NETWORK screen; the guide's phone types the same one. */
 export const SIM_IP = "192.168.0.42";
@@ -107,6 +157,18 @@ export type SimSnapshot = {
   /** Every detent each knob has turned since load, clockwise positive — the stage turns the 3D knob by it. */
   turns: [number, number, number, number];
   down: [boolean, boolean, boolean, boolean];
+  /** The running pattern is a mirrored Pattern Lab draft (setMirror), not one of the board's. */
+  mirror: boolean;
+};
+
+/** A mirrored draft as the stage tells the reader about it (MirrorTag). */
+export type SimMirrorState = {
+  /** What the lab calls the draft. */
+  name: string;
+  /** The draft doesn't run — its code won't load, or every frame throws — so the board plays its own pattern. */
+  broken: boolean;
+  /** Why, in the runtime's words; null while it runs. */
+  error: string | null;
 };
 
 /** What the device console reads off the board (ConsoleWindow's bridge). */
@@ -187,6 +249,13 @@ export class DeviceSim {
   private busResidual = [0, 0, 0, 0];
   private busPending = [0, 0, 0, 0];
 
+  // A Pattern Lab draft played over the board (setMirror). It has its own
+  // runtime, so the board's pattern is left exactly where it was and comes
+  // back as it was when the mirror goes.
+  private mirror: MirrorRun | null = null;
+  /** The mirror is what runs: set by setMirror, cleared by a pick (SELECT, a console). */
+  private mirrorOn = false;
+
   /** Called with the new mode whenever it changes. */
   onModeChange: ((mode: SimMode) => void) | null = null;
 
@@ -201,18 +270,118 @@ export class DeviceSim {
       k.down && !k.longFired ? Math.min(1, (this.now - k.downAt) / FIRMWARE.longPressMs) : 0,
     ) as SimSnapshot["hold"];
     const shownIndex = this.mode === "select" ? this.cursor : this.active;
+    const mirrored = this.mirroring && this.mode !== "select";
     return {
       mode: this.mode,
       pack: this.pack,
       patternIndex: shownIndex,
-      patternName: this.patterns[shownIndex]?.name ?? "",
+      patternName: mirrored ? (this.mirror?.spec.name ?? "") : (this.patterns[shownIndex]?.name ?? ""),
       patternCount: this.boardCount(),
       brightness: brightnessPercent(this.level),
       activeKnob: this.now - this.activeKnobAt < 400 ? this.activeKnob : null,
       hold,
       turns: [...this.turns] as SimSnapshot["turns"],
       down: this.knobs.map((k) => k.down) as SimSnapshot["down"],
+      mirror: this.mirroring,
     };
+  }
+
+  // ── a Pattern Lab draft on the board ───────────────────────────────────────
+
+  /**
+   * Play a pattern that is not on the board — the reader's Pattern Lab draft —
+   * as the running one, or (null) put the board's own pattern back exactly as
+   * it was: same pattern, same knob values, its runtime never touched.
+   *
+   * Calling it again with a changed draft follows the change: new code or a
+   * new frame loads it afresh; a new ramp recolours; a knob the lab moved
+   * moves here too, and one it left alone stays where the board's knobs put
+   * it. The name card comes up when the mirror starts and when its name
+   * changes, as it does on a board when a pattern arrives.
+   *
+   * A pick on SELECT (or from a console) takes the mirror off: the board then
+   * plays what was picked, until setMirror is called again.
+   */
+  setMirror(spec: SimMirror | null) {
+    if (!spec) {
+      if (this.mirrorOn && this.mode === "run") this.noticeUntil = -1;
+      this.mirror = null;
+      this.mirrorOn = false;
+      return;
+    }
+    const width = Math.max(1, Math.round(spec.width));
+    const height = Math.max(1, Math.round(spec.height));
+    const prev = this.mirror;
+    const sameFrame = prev !== null && prev.runtime.width === width && prev.runtime.height === height;
+    const run: MirrorRun =
+      prev && sameFrame
+        ? prev
+        : {
+            spec,
+            runtime: new PatternRuntime(width, height),
+            values: [0, 0, 0, 0],
+            owed: [0, 0, 0, 0],
+            loadError: null,
+            fails: 0,
+            error: null,
+          };
+
+    if (!prev || !sameFrame || prev.spec.code !== spec.code) {
+      run.runtime.setRamp(spec.ramp);
+      run.runtime.recolor = spec.recolor;
+      const loaded = run.runtime.loadCode(spec.code);
+      run.loadError = loaded.ok ? null : (loaded.error ?? "It doesn't load.");
+      run.fails = 0;
+      run.error = null;
+    } else if (prev.spec.recolor !== spec.recolor || JSON.stringify(prev.spec.ramp) !== JSON.stringify(spec.ramp)) {
+      run.runtime.setRamp(spec.ramp);
+      run.runtime.recolor = spec.recolor;
+    }
+
+    for (let i = 0; i < 4; i++) {
+      const [min, max] = spec.ranges[i] ?? [0, 1];
+      const want = Number.isFinite(spec.values[i]) ? spec.values[i] : min;
+      const fresh = !prev || run !== prev;
+      if (fresh) {
+        run.values[i] = clamp(want, min, max);
+        run.owed[i] = 0;
+        continue;
+      }
+      const before = prev.spec.values[i];
+      const [pmin, pmax] = prev.spec.ranges[i] ?? [0, 1];
+      if (want !== before || min !== pmin || max !== pmax) {
+        // The lab moved it: the pattern hears it the way the lab's own
+        // preview passes a slider's move (engine.ts, knobTargetToDelta).
+        const next = clamp(want, min, max);
+        run.owed[i] += knobTargetToDelta(run.values[i], next, LOGICAL_KNOB_WRAP[i], knobUnitsPerTurn([min, max]));
+        run.values[i] = next;
+      } else {
+        run.values[i] = clamp(run.values[i], min, max);
+      }
+    }
+
+    const renamed = !prev || prev.spec.name !== spec.name;
+    run.spec = spec;
+    this.mirror = run;
+    if (!this.mirrorOn || renamed) {
+      this.mirrorOn = true;
+      // The name card, as a board shows one arriving — not for a draft that
+      // doesn't run, whose name would sit over the board's own pattern.
+      if (this.mode !== "select" && !mirrorBroken(run)) this.noticeUntil = this.now + FIRMWARE.contentNoticeMs;
+    }
+  }
+
+  /** The board is playing the mirrored draft right now (set, not picked away, and it runs). */
+  get mirroring(): boolean {
+    return this.mirrorOn && this.mirror !== null && !mirrorBroken(this.mirror);
+  }
+
+  /** The mirrored draft, set and not picked away — running or not; null otherwise. */
+  mirrorState(): SimMirrorState | null {
+    const m = this.mirrorOn ? this.mirror : null;
+    if (!m) return null;
+    const broken = mirrorBroken(m);
+    return { name: m.spec.name, broken, error: broken ? (m.loadError ?? m.error) : null };
   }
 
   /** Put the board in a state, the way a scene of the guide wants to show it. */
@@ -240,7 +409,13 @@ export class DeviceSim {
     const index = typeof which === "number" ? which : this.patterns.findIndex((p) => p.slug === which);
     if (index < 0 || index >= this.patterns.length) return;
     this.cursor = index;
+    this.pick(index);
+  }
+
+  /** A pattern of the board's is chosen: it runs (loaded if it wasn't), and a mirrored draft steps aside. */
+  private pick(index: number) {
     if (index !== this.active) this.load(index);
+    this.mirrorOn = false;
   }
 
   // ── the hands ──────────────────────────────────────────────────────────────
@@ -402,6 +577,14 @@ export class DeviceSim {
 
   /** What a knob controls on the running pattern, for the readout beside it. */
   knobReadout(knob: number): { label: string; value: number; min: number; max: number } {
+    const m = this.mirroring ? this.mirror : null;
+    if (m) {
+      // The lab's names for its knobs, printed the way the board's own are.
+      const [min, max] = m.spec.ranges[knob] ?? [0, 1];
+      const raw = (m.spec.labels[knob] ?? "").trim();
+      const label = !raw || raw === `Knob ${knob + 1}` ? "value" : raw.toLowerCase();
+      return { label, value: m.values[knob] ?? min, min, max };
+    }
     const [min, max] = this.ranges[knob] ?? [0, 1];
     return { label: this.labels[knob] ?? "value", value: this.currentValues()[knob] ?? min, min, max };
   }
@@ -532,13 +715,16 @@ export class DeviceSim {
             this.selectMovedAt = this.now;
           }
         }
+        // A mirrored draft is not on the list; landing on another of the
+        // board's patterns takes it off (pick), coming back without leaving
+        // doesn't.
         if (this.selectPending && this.now - this.selectMovedAt >= FIRMWARE.selectSettleMs) {
           this.selectPending = false;
-          if (this.cursor !== this.active) this.load(this.cursor);
+          if (this.cursor !== this.active) this.pick(this.cursor);
         }
         if (f.longs[3]) {
           this.selectPending = false;
-          if (this.cursor !== this.active) this.load(this.cursor);
+          if (this.cursor !== this.active) this.pick(this.cursor);
           this.enter("run");
         }
         // The preview behind the list gets neutral input.
@@ -558,7 +744,7 @@ export class DeviceSim {
         this.moveValues(f.detents, [0, 1, 2, 3]);
         // Origin's own click sends that knob back to its start (its update()
         // zeroes the parameter); the knob's readout follows it there.
-        if (this.patterns[this.active]?.slug === "origin") {
+        if (!this.mirroring && this.patterns[this.active]?.slug === "origin") {
           const values = this.currentValues();
           f.edges.forEach((e, i) => {
             if (e) values[i] = this.ranges[i]?.[0] ?? 0;
@@ -576,6 +762,18 @@ export class DeviceSim {
   }
 
   private moveValues(detents: number[], knobs: number[]) {
+    const m = this.mirroring ? this.mirror : null;
+    if (m) {
+      // The lab's knobs are its sliders: they stop at the ends of their ranges.
+      // A detent is the step its hardware export calibrates (knobDetentStep).
+      for (const i of knobs) {
+        const d = detents[i];
+        if (!d) continue;
+        const [min, max] = m.spec.ranges[i] ?? [0, 1];
+        m.values[i] = clamp(m.values[i] + d * (knobUnitsPerTurn([min, max]) / PATTERN_DETENTS_PER_TURN), min, max);
+      }
+      return;
+    }
     const values = this.currentValues();
     for (const i of knobs) {
       const d = detents[i];
@@ -662,6 +860,23 @@ export class DeviceSim {
       return;
     }
 
+    if (this.mirrorOn && this.mirror) {
+      const m = this.mirror;
+      const wasBroken = mirrorBroken(m);
+      // A draft that doesn't run is still tried every frame (with no knob
+      // input: the knobs are the board's pattern's meanwhile), so a fix that
+      // makes it run again shows at once.
+      const none = { detents: [0, 0, 0, 0], presses: [false, false, false, false] };
+      if (this.renderMirror(m, dt, wasBroken ? none : toPattern)) {
+        const overlay = this.overlay();
+        if (overlay) drawOverlay(out, overlay);
+        return;
+      }
+      // It has just stopped running: its name card goes with it.
+      if (!wasBroken && mirrorBroken(m) && this.mode === "run") this.noticeUntil = -1;
+      // Otherwise the board's own pattern plays underneath, below.
+    }
+
     const values = this.currentValues();
     const ranges = this.ranges;
     const input: PatternInput = {
@@ -693,6 +908,69 @@ export class DeviceSim {
     if (overlay) drawOverlay(out, overlay);
   }
 
+  /**
+   * One frame of the mirrored draft. The knobs reach it as a board's reach a
+   * pattern — the detents turned this frame — plus any move the lab made to
+   * one (owed). Its frame goes onto the panel by the firmware's own rule
+   * (core_canvas.h setFrame): the panel's size straight through, the panel
+   * turned (w×h = 64×128) rotated 90°, anything else centred with the rest
+   * left black.
+   */
+  private renderMirror(m: MirrorRun, dt: number, toPattern: { detents: number[]; presses: boolean[] }): boolean {
+    if (m.loadError !== null) return false;
+    const ranges = m.spec.ranges;
+    const deltas = [0, 1, 2, 3].map((i) => (toPattern.detents[i] ?? 0) + m.owed[i]);
+    m.owed = [0, 0, 0, 0];
+    const input: PatternInput = {
+      knobDeltas: deltas,
+      knobValues: m.values.slice(),
+      knobNormalized: m.values.map((v, i) => {
+        const [min, max] = ranges[i] ?? [0, 1];
+        return (v - min) / Math.max(0.0001, max - min);
+      }),
+      knobRanges: ranges.map((r) => [r[0], r[1]] as [number, number]),
+      btnPressed: toPattern.presses,
+      btnHeld: this.knobs.map((k) => this.mode === "run" && k.down),
+    };
+    const result = m.runtime.renderFrame(dt, this.time, input);
+    if (!result.ok) {
+      m.fails++;
+      m.error = result.error ?? null;
+      if (m.fails >= MIRROR_FAILS) return false;
+    } else {
+      m.fails = 0;
+      m.error = null;
+    }
+
+    const out = this.frame;
+    const src = m.runtime.data;
+    const w = m.runtime.width;
+    const h = m.runtime.height;
+    const boot = this.bootAt < 0 ? 1 : Math.min(1, (this.now - this.bootAt) / 600);
+    const gain = (this.level / 255) * boot;
+    out.fill(0);
+    for (let i = 3; i < out.length; i += 4) out[i] = 255;
+    const direct = w === PANEL_W && h === PANEL_H;
+    const rotate = !direct && w === PANEL_H && h === PANEL_W;
+    // C's integer division truncates toward zero; so does Math.trunc.
+    const offX = direct || rotate ? 0 : Math.trunc((PANEL_W - w) / 2);
+    const offY = direct || rotate ? 0 : Math.trunc((PANEL_H - h) / 2);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const px = rotate ? PANEL_W - 1 - y : x + offX;
+        const py = rotate ? x : y + offY;
+        if (px < 0 || px >= PANEL_W || py < 0 || py >= PANEL_H) continue;
+        const s = (y * w + x) * 4;
+        const d = (py * PANEL_W + px) * 4;
+        const a = (src[s + 3] / 255) * gain;
+        out[d] = src[s] * a;
+        out[d + 1] = src[s + 1] * a;
+        out[d + 2] = src[s + 2] * a;
+      }
+    }
+    return true;
+  }
+
   private overlay(): PanelOverlay | null {
     switch (this.mode) {
       case "brightness":
@@ -712,12 +990,18 @@ export class DeviceSim {
           count: this.boardCount(),
           name: this.patterns[this.cursor]?.name ?? "",
         };
-      case "run":
-        return this.now < this.noticeUntil ? { kind: "content", name: this.patterns[this.active]?.name ?? "" } : null;
+      case "run": {
+        const name = this.mirroring ? (this.mirror?.spec.name ?? "") : (this.patterns[this.active]?.name ?? "");
+        return this.now < this.noticeUntil ? { kind: "content", name } : null;
+      }
       default:
         return null;
     }
   }
+}
+
+function mirrorBroken(m: MirrorRun) {
+  return m.loadError !== null || m.fails >= MIRROR_FAILS;
 }
 
 function clamp(v: number, min: number, max: number) {

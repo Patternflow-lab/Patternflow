@@ -1,9 +1,11 @@
-import type { GuideLang } from "./store";
+import type { GuideLang, GuidePageId } from "./store";
 import type { ConsolePage } from "./ConsoleWindow";
 
-// Every word the guide says, in both languages. Scenes and steps line up with
-// SCENES in scenes.ts one-to-one: step N of a scene's copy is shown while
-// step N of its script is on stage.
+// Every word the guide's first page says, in both languages. Scenes and steps
+// line up with SCENES in scenes.ts one-to-one: step N of a scene's copy is
+// shown while step N of its script is on stage. The second page's words are
+// in copy/ (make.ts for the page, community.ts and lab.ts for its chapters);
+// the types and `ui` here are shared by both.
 
 export type Extra =
   | "flashButton"
@@ -13,7 +15,12 @@ export type Extra =
   | "installFlow"
   | "consoleDesktop"
   | "consolePhone"
-  | "consoleTour";
+  | "consoleTour"
+  // The make page (copy/community.ts, copy/lab.ts): CommunityShots.tsx,
+  // LabShots.tsx, LabWindow.tsx.
+  | "communityShots"
+  | "labShots"
+  | "labWindow";
 
 export type StepCopy = {
   kicker: string;
@@ -33,25 +40,49 @@ export type SceneCopy = {
   steps: StepCopy[];
 };
 
+/** A page's first screen (pages.ts). */
+export type OpeningCopy = {
+  kicker: string;
+  title: string;
+  lede: string;
+  scroll: string;
+  /** The chapters' names, in order: the opening's list and the rail. */
+  chapters: string[];
+  /** A quiet link to another page of the guide, under the chapter list. */
+  back?: { label: string; to: GuidePageId };
+};
+
+/** A page's last screen: what comes next. */
+export type ClosingCopy = {
+  title: string;
+  lede: string;
+  /**
+   * The guides still to come. A group with `to` is a guide that exists: the
+   * whole group links to that page. `later` sets a group as a list of names,
+   * three across.
+   */
+  groups: { label: string; items: string[]; to?: GuidePageId; later?: boolean }[];
+  until: string;
+  links: { label: string; href: string }[];
+  /** The end's "Stuck somewhere else?" issue: its title and where (default: ui.report's). */
+  report?: { title: string; where: string };
+};
+
 export type GuideCopy = {
   meta: { title: string; description: string };
   brand: string;
-  langSwitch: { label: string; href: string };
-  opening: { kicker: string; title: string; lede: string; scroll: string; chapters: string[] };
+  /** The other language's name; where it goes is the page's (pages.ts). */
+  langSwitch: { label: string };
+  opening: OpeningCopy;
   flash: SceneCopy;
   knobs: SceneCopy;
   patterns: SceneCopy;
   console: SceneCopy;
-  next: {
-    title: string;
-    lede: string;
-    /** What the guides still to come will cover: the next one, then the rest. */
-    groups: { label: string; items: string[] }[];
-    until: string;
-    links: { label: string; href: string }[];
-  };
+  next: ClosingCopy;
   ui: {
     noteBy: string;
+    /** The WIP chip's tooltip, beside the brand. */
+    wip: string;
     /** The "Stuck here?" links (report.ts). */
     report: { step: string; hint: string; general: string; generalTitle: string; generalWhere: string };
     flashUnsupported: string;
@@ -73,7 +104,7 @@ const en: GuideCopy = {
       "From a bare ESP32 to patterns on your panel: flashing, the four knobs, installing patterns and the device's own console — shown on a Patternflow you can turn.",
   },
   brand: "Patternflow",
-  langSwitch: { label: "한국어", href: "/guide/ko" },
+  langSwitch: { label: "한국어" },
   opening: {
     kicker: "The guide",
     title: "How to play it.",
@@ -279,8 +310,8 @@ const en: GuideCopy = {
     title: "Next: make your own.",
     lede: "That was the first hour. The next guide is about making: finding what other people made, and making your own.",
     groups: [
-      { label: "The next guide", items: ["Community — patterns and decks", "Pattern Lab — layers, Graphic Export, Director"] },
-      { label: "After that", items: ["Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"] },
+      { label: "The next guide", items: ["Community — patterns and decks", "Pattern Lab — layers, Graphic Export, Director"], to: "make" },
+      { label: "After that", items: ["Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"], later: true },
     ],
     until: "Until they're here, the real things:",
     links: [
@@ -292,6 +323,7 @@ const en: GuideCopy = {
   },
   ui: {
     noteBy: "From the maker",
+    wip: "Work in progress: this guide is still being written and will keep changing",
     report: {
       step: "Stuck here? Tell us",
       hint: "Opens a GitHub issue with this step already filled in",
@@ -321,7 +353,7 @@ const ko: GuideCopy = {
       "빈 ESP32에서 내 패널 위의 패턴까지. 펌웨어 굽기, 네 개의 노브, 패턴 설치, 기기의 웹 콘솔을 직접 돌려볼 수 있는 패턴플로우로 보여줍니다.",
   },
   brand: "Patternflow",
-  langSwitch: { label: "English", href: "/guide" },
+  langSwitch: { label: "English" },
   opening: {
     kicker: "사용법",
     title: "이렇게 연주해요.",
@@ -515,8 +547,8 @@ const ko: GuideCopy = {
     title: "다음: 내 패턴 만들기.",
     lede: "여기까지가 처음 한 시간이에요. 다음 가이드는 만드는 이야기예요. 남들이 만든 걸 찾고, 내 걸 만들어요.",
     groups: [
-      { label: "다음 가이드", items: ["커뮤니티 — 패턴과 덱", "패턴 랩 — 레이어, 그래픽 익스포트, 디렉터"] },
-      { label: "그다음", items: ["에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"] },
+      { label: "다음 가이드", items: ["커뮤니티 — 패턴과 덱", "패턴 랩 — 레이어, 그래픽 익스포트, 디렉터"], to: "make" },
+      { label: "그다음", items: ["에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"], later: true },
     ],
     until: "그동안은 바로 가서 해 봐도 돼요.",
     links: [
@@ -528,6 +560,7 @@ const ko: GuideCopy = {
   },
   ui: {
     noteBy: "만든 사람의 한마디",
+    wip: "작업 중이에요. 가이드는 아직 쓰는 중이라 계속 바뀌어요",
     report: {
       step: "여기서 막혔나요? 알려 주세요",
       hint: "이 단계가 채워진 GitHub 이슈가 열려요",
