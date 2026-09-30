@@ -520,6 +520,28 @@
   color: var(--g-led);
 }
 
+/* "Stuck here?" at the foot of every card (report.ts): there when it's
+   needed, quiet otherwise. */
+.report {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 16px;
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--g-ink-3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.report:hover,
+.report:focus-visible {
+  color: var(--g-led);
+}
+.report span {
+  font-size: 10px;
+}
+
 /* ── extras ──────────────────────────────────────────────────────────────── */
 
 .extra {
@@ -784,26 +806,45 @@
   line-height: 1.6;
   color: var(--g-ink-2);
 }
+.soonGroup {
+  margin: 0 0 22px;
+}
+.soonLabel {
+  margin: 0 0 6px;
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--g-led);
+}
+.soonGroup[data-later] .soonLabel {
+  color: var(--g-ink-3);
+}
 .soon {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 18px;
-  margin: 0 0 32px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .soon li {
-  display: flex;
-  gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid var(--g-hair);
-  font-size: 14.5px;
+  font-size: 15px;
+  color: var(--g-ink);
+}
+/* What comes later is a list of names, three across. */
+.soonGroup[data-later] .soon {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 18px;
+}
+.soonGroup[data-later] .soon li {
+  font-size: 14px;
   color: var(--g-ink-3);
 }
-.soon li span {
-  font-family: var(--g-pixel);
-  font-size: 10px;
-  color: rgba(255, 106, 61, 0.6);
+.nextUntil {
+  margin: 8px 0 12px;
+  font-size: 14.5px;
+  color: var(--g-ink-2);
 }
 .nextLinks {
   display: flex;
@@ -908,13 +949,15 @@
     margin-bottom: 16px;
     font-size: 15px;
   }
-  .soon {
-    gap: 0 14px;
-    margin-bottom: 20px;
+  .soonGroup {
+    margin-bottom: 14px;
   }
   .soon li {
     padding: 6px 0;
-    font-size: 13.5px;
+    font-size: 14px;
+  }
+  .soonGroup[data-later] .soon li {
+    font-size: 13px;
   }
   .nextLink {
     padding: 8px 13px;

@@ -45,11 +45,15 @@ export type GuideCopy = {
   next: {
     title: string;
     lede: string;
-    soon: string[];
+    /** What the guides still to come will cover: the next one, then the rest. */
+    groups: { label: string; items: string[] }[];
+    until: string;
     links: { label: string; href: string }[];
   };
   ui: {
     noteBy: string;
+    /** The "Stuck here?" links (report.ts). */
+    report: { step: string; hint: string; general: string; generalTitle: string; generalWhere: string };
     flashUnsupported: string;
     openDecks: string;
     deviceAddress: string;
@@ -273,8 +277,12 @@ const en: GuideCopy = {
   },
   next: {
     title: "Next: make your own.",
-    lede: "The rest of the guide is on its way. Until then, these are where it goes.",
-    soon: ["Pattern Lab", "Layers & Graphic Export", "Director", "Community", "Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"],
+    lede: "That was the first hour. The next guide is about making: finding what other people made, and making your own.",
+    groups: [
+      { label: "The next guide", items: ["Community — patterns and decks", "Pattern Lab — layers, Graphic Export, Director"] },
+      { label: "After that", items: ["Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"] },
+    ],
+    until: "Until they're here, the real things:",
     links: [
       { label: "Pattern Lab", href: "/pattern-lab" },
       { label: "Community", href: "https://community.patternflow.work/community" },
@@ -284,6 +292,13 @@ const en: GuideCopy = {
   },
   ui: {
     noteBy: "From the maker",
+    report: {
+      step: "Stuck here? Tell us",
+      hint: "Opens a GitHub issue with this step already filled in",
+      general: "Stuck somewhere else? Tell us",
+      generalTitle: "stuck",
+      generalWhere: "The guide, somewhere not listed",
+    },
     flashUnsupported: "Flashing works in desktop Chrome or Edge.",
     openDecks: "Open the decks",
     deviceAddress: "Device address",
@@ -498,8 +513,12 @@ const ko: GuideCopy = {
   },
   next: {
     title: "다음: 내 패턴 만들기.",
-    lede: "나머지 장은 만드는 중이에요. 그동안은 여기서 시작하면 돼요.",
-    soon: ["패턴 랩", "레이어 · 그래픽 익스포트", "디렉터", "커뮤니티", "에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"],
+    lede: "여기까지가 처음 한 시간이에요. 다음 가이드는 만드는 이야기예요. 남들이 만든 걸 찾고, 내 걸 만들어요.",
+    groups: [
+      { label: "다음 가이드", items: ["커뮤니티 — 패턴과 덱", "패턴 랩 — 레이어, 그래픽 익스포트, 디렉터"] },
+      { label: "그다음", items: ["에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"] },
+    ],
+    until: "그동안은 바로 가서 해 봐도 돼요.",
     links: [
       { label: "Pattern Lab", href: "/pattern-lab" },
       { label: "Community", href: "https://community.patternflow.work/community" },
@@ -509,6 +528,13 @@ const ko: GuideCopy = {
   },
   ui: {
     noteBy: "만든 사람의 한마디",
+    report: {
+      step: "여기서 막혔나요? 알려 주세요",
+      hint: "이 단계가 채워진 GitHub 이슈가 열려요",
+      general: "다른 데서 막혔나요? 알려 주세요",
+      generalTitle: "stuck",
+      generalWhere: "가이드 어딘가 (단계 없음)",
+    },
     flashUnsupported: "굽기는 데스크톱 크롬이나 엣지에서 돼요.",
     openDecks: "덱 열기",
     deviceAddress: "Device address",

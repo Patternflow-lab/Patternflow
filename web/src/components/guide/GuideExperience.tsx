@@ -8,6 +8,7 @@ import { COPY, type SceneCopy, type StepCopy } from "./copy";
 import { SCENES, sceneById } from "./scenes";
 import { useGuideStore, type GuideLang } from "./store";
 import Extras from "./Extras";
+import { hereFor, reportUrl } from "./report";
 
 // The page. A fixed stage behind, the story scrolling over it. The tracker
 // below finds the step block nearest the middle of the viewport and hands
@@ -71,12 +72,51 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
   }, [root]);
 }
 
-function Step({ scene, copy, index, lang, noteBy }: { scene: string; copy: StepCopy; index: number; lang: GuideLang; noteBy: string }) {
+/** A quiet line at the foot of a card, and at the end of the page: opens a GitHub issue that already says where. */
+function Report({ label, hint, title, where, anchor }: { label: string; hint: string; title: string; where: string; anchor?: string }) {
+  return (
+    <a
+      className={styles.report}
+      href={reportUrl(title, where)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={hint}
+      // The link back to the step and the browser are only known here.
+      onClick={(e) => {
+        e.currentTarget.href = reportUrl(title, where, hereFor(anchor));
+      }}
+    >
+      {label}
+      <span aria-hidden="true">↗</span>
+    </a>
+  );
+}
+
+function Step({
+  scene,
+  copy,
+  index,
+  total,
+  chapter,
+  lang,
+}: {
+  scene: string;
+  copy: StepCopy;
+  index: number;
+  total: number;
+  /** "01 Flash" */
+  chapter: string;
+  lang: GuideLang;
+}) {
   // A step the reader has to watch loop (BOOT and RST) gets a longer block,
   // and its card holds still inside it (Guide.module.css, .step[data-dwell]).
   const dwell = sceneById(scene)?.steps[index]?.dwell;
+  const ui = COPY[lang].ui;
+  // Steps count from 1 where people see them: #flash-3 is the third.
+  const anchor = `${scene}-${index + 1}`;
   return (
     <article
+      id={anchor}
       className={styles.step}
       data-step={index}
       data-on="0"
@@ -98,16 +138,26 @@ function Step({ scene, copy, index, lang, noteBy }: { scene: string; copy: StepC
         {copy.extra && <Extras kind={copy.extra} lang={lang} />}
         {copy.note && (
           <aside className={styles.note}>
-            <span className={styles.noteBy}>{noteBy}</span>
+            <span className={styles.noteBy}>{ui.noteBy}</span>
             {copy.note}
           </aside>
         )}
+        <Report
+          label={ui.report.step}
+          hint={ui.report.hint}
+          title={`${chapter} · ${index + 1} — ${copy.title}`}
+          where={`${chapter} · ${index + 1}/${total} — ${copy.title}`}
+          anchor={anchor}
+        />
       </div>
     </article>
   );
 }
 
-function Chapter({ id, copy, lang, noteBy }: { id: string; copy: SceneCopy; lang: GuideLang; noteBy: string }) {
+const CHAPTERS = ["flash", "knobs", "patterns", "console"] as const;
+
+function Chapter({ id, copy, lang }: { id: (typeof CHAPTERS)[number]; copy: SceneCopy; lang: GuideLang }) {
+  const chapter = `${copy.num} ${COPY[lang].opening.chapters[CHAPTERS.indexOf(id)]}`;
   return (
     <section className={styles.scene} data-scene={id} id={id}>
       <header className={styles.chapterHead}>
@@ -118,7 +168,7 @@ function Chapter({ id, copy, lang, noteBy }: { id: string; copy: SceneCopy; lang
         <p className={styles.chapterLede}>{copy.lede}</p>
       </header>
       {copy.steps.map((step, i) => (
-        <Step key={i} scene={id} copy={step} index={i} lang={lang} noteBy={noteBy} />
+        <Step key={i} scene={id} copy={step} index={i} total={copy.steps.length} chapter={chapter} lang={lang} />
       ))}
     </section>
   );
@@ -127,10 +177,9 @@ function Chapter({ id, copy, lang, noteBy }: { id: string; copy: SceneCopy; lang
 function ChapterRail({ lang }: { lang: GuideLang }) {
   const scene = useGuideStore((s) => s.scene);
   const copy = COPY[lang];
-  const ids = ["flash", "knobs", "patterns", "console"];
   return (
     <nav className={styles.rail} aria-label="Chapters">
-      {ids.map((id, i) => (
+      {CHAPTERS.map((id, i) => (
         <a key={id} href={`#${id}`} className={styles.railItem} data-active={scene === id ? "1" : "0"}>
           <span className={styles.railNum}>{String(i + 1).padStart(2, "0")}</span>
           <span className={styles.railLabel}>{copy.opening.chapters[i]}</span>
@@ -198,7 +247,7 @@ export default function GuideExperience({ lang }: { lang: GuideLang }) {
             <ol className={styles.openingChapters}>
               {copy.opening.chapters.map((c, i) => (
                 <li key={c}>
-                  <a href={`#${["flash", "knobs", "patterns", "console"][i]}`}>
+                  <a href={`#${CHAPTERS[i]}`}>
                     <span>{String(i + 1).padStart(2, "0")}</span>
                     {c}
                   </a>
@@ -212,23 +261,26 @@ export default function GuideExperience({ lang }: { lang: GuideLang }) {
           </article>
         </section>
 
-        <Chapter id="flash" copy={copy.flash} lang={lang} noteBy={copy.ui.noteBy} />
-        <Chapter id="knobs" copy={copy.knobs} lang={lang} noteBy={copy.ui.noteBy} />
-        <Chapter id="patterns" copy={copy.patterns} lang={lang} noteBy={copy.ui.noteBy} />
-        <Chapter id="console" copy={copy.console} lang={lang} noteBy={copy.ui.noteBy} />
+        <Chapter id="flash" copy={copy.flash} lang={lang} />
+        <Chapter id="knobs" copy={copy.knobs} lang={lang} />
+        <Chapter id="patterns" copy={copy.patterns} lang={lang} />
+        <Chapter id="console" copy={copy.console} lang={lang} />
 
         <section className={`${styles.scene} ${styles.next}`} data-scene="next" id="next">
           <article className={styles.nextInner} data-step={0} data-on="1">
             <h2 className={styles.nextTitle}>{copy.next.title}</h2>
             <p className={styles.nextLede}>{copy.next.lede}</p>
-            <ul className={styles.soon}>
-              {copy.next.soon.map((s, i) => (
-                <li key={s}>
-                  <span>{String(i + 5).padStart(2, "0")}</span>
-                  {s}
-                </li>
-              ))}
-            </ul>
+            {copy.next.groups.map((g, gi) => (
+              <div key={g.label} className={styles.soonGroup} data-later={gi > 0 ? "1" : undefined}>
+                <p className={styles.soonLabel}>{g.label}</p>
+                <ul className={styles.soon}>
+                  {g.items.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <p className={styles.nextUntil}>{copy.next.until}</p>
             <div className={styles.nextLinks}>
               {copy.next.links.map((l) => (
                 <a key={l.href} href={l.href} className={styles.nextLink}>
@@ -237,6 +289,12 @@ export default function GuideExperience({ lang }: { lang: GuideLang }) {
                 </a>
               ))}
             </div>
+            <Report
+              label={copy.ui.report.general}
+              hint={copy.ui.report.hint}
+              title={copy.ui.report.generalTitle}
+              where={copy.ui.report.generalWhere}
+            />
           </article>
         </section>
       </main>
