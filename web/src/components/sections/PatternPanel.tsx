@@ -382,14 +382,16 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                 adds {NUM_BASICS_PATTERNS} more in one click.
               </p>
               <p className={styles.hardwareNote}>
+                <Link href="/guide#flash">The guide</Link> shows each step on a board you can
+                turn: the port, the Wi-Fi, and what to do if the board doesn&rsquo;t show up (
                 <a
                   href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#8-firmware"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Flashing guide ↗
-                </a>{' '}
-                for the steps, the port, and what to do if the board doesn&rsquo;t show up.
+                  written version ↗
+                </a>
+                ).
               </p>
               <span className={styles.hardwareReq}>Chrome / Edge only</span>
             </div>
