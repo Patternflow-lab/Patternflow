@@ -615,6 +615,35 @@ void drawCenteredText(const char* text, int y, uint16_t color, int textSize = 1)
 // One fillRect + one text draw per label — cheap enough not to slow the frame
 // (a per-glyph outline tripled the per-frame pixel writes and tore the
 // double-buffered panel).
+// A line of 1x text is 6 px a character, so a portrait line (64 px) holds ten.
+// An eleven-character string does not clip: Adafruit GFX wraps its last letter
+// onto the next line by itself, over whatever is drawn there ("TURN = SHOW"
+// left a stray "W" in front of "K3 = EXIT"; the default host name
+// "patternflow" did the same on the hotspot and UPDATE screens). Text that can
+// be longer than a line comes through here instead: it is broken into lines
+// of at most ten, before a '-' or '.' when one is in reach, else before "flow"
+// in the product's own name, else hard at ten. Returns the y below the last line.
+int drawCenteredFit(const String& text, int y, uint16_t color, int lineH = 10) {
+  const unsigned maxChars = dma_display->width() / 6;
+  String rest = text;
+  while (rest.length() > maxChars) {
+    int cut = -1;
+    for (int i = maxChars; i >= 2; i--) {
+      if (rest[i] == '-' || rest[i] == '.') { cut = i; break; }
+    }
+    if (cut < 0) {
+      int f = rest.indexOf("flow");
+      if (f >= 2 && f <= (int)maxChars) cut = f;
+    }
+    if (cut < 0) cut = maxChars;
+    drawCenteredText(rest.substring(0, cut).c_str(), y, color, 1);
+    y += lineH;
+    rest = rest.substring(cut);
+  }
+  drawCenteredText(rest.c_str(), y, color, 1);
+  return y + lineH;
+}
+
 void drawCenteredTextScrim(const char* text, int y, uint16_t color, int textSize = 1) {
   int16_t x1, y1;
   uint16_t w, h;
@@ -787,14 +816,10 @@ void drawNetworkInfo() {
   bool wifiUp = PatternflowWifi::isConnected();
   if (!wifiUp && PatternflowHotspot::up) {
     // No station link, but the panel is a network of its own: the name to
-    // join, split at the dash so it fits the portrait width. The password
-    // is the documented default unless the owner changed it on /wifi.
+    // join, broken to fit the portrait width ("pattern" / "flow-a1b2"). The
+    // password is the documented default unless the owner changed it on /wifi.
     drawCenteredText("HOTSPOT", 50, pfGreenC(), 1);
-    String name = PatternflowHotspot::name();
-    int dash = name.indexOf('-');
-    if (dash < 0) dash = name.length();
-    drawCenteredText(name.substring(0, dash).c_str(), 62, pfWhiteC(), 1);
-    drawCenteredText(name.substring(dash).c_str(), 72, pfWhiteC(), 1);
+    drawCenteredFit(PatternflowHotspot::name(), 62, pfWhiteC());
   } else {
     drawCenteredText(PatternflowWifi::statusText(), 50, wifiUp ? pfGreenC() : pfBlueC(), 1);
     String ip = PatternflowWifi::ipString();
@@ -875,7 +900,7 @@ void drawPausedScreen() {
 
   if (consolePaused) {
     drawCenteredText("PAUSED", 26, pfWhiteC(), 1);
-    drawCenteredText("web console", 42, pfDimC(), 1);
+    drawCenteredText("console", 42, pfDimC(), 1);
     drawCenteredText("is open", 52, pfDimC(), 1);
     dma_display->drawFastHLine(4, h - 28, w - 8, pfRuleC());
     drawCenteredText("RESUMES", h - 23, pfDimC(), 1);
@@ -944,17 +969,19 @@ void drawUpdateScreen(int uploadPct) {
     }
     if (wifiUp) {
       drawCenteredText("DROP .BIN:", 36, pfDimC(), 1);
-      drawCenteredText(PF_OTA_HOSTNAME, 48, pfWhiteC(), 1);
-      drawCenteredText(".local", 58, pfWhiteC(), 1);
-      drawCenteredText("/update", 68, pfWhiteC(), 1);
+      // "pattern" / "flow.local" / "/update" for the default name; a longer
+      // one takes more lines and the address below moves down with it.
+      int y = drawCenteredFit(String(PF_OTA_HOSTNAME) + ".local", 48, pfWhiteC());
+      drawCenteredText("/update", y, pfWhiteC(), 1);
+      y += 14;
       // Raw IP as the mDNS fallback, split like the NETWORK screen.
       String ip = PatternflowWifi::ipString();
       if (ip.length() <= 10) {
-        drawCenteredText(ip.c_str(), 82, pfGrayC(), 1);
+        drawCenteredText(ip.c_str(), y, pfGrayC(), 1);
       } else {
         int cut = ip.indexOf('.', ip.indexOf('.') + 1) + 1;
-        drawCenteredText(ip.substring(0, cut).c_str(), 82, pfGrayC(), 1);
-        drawCenteredText(ip.substring(cut).c_str(), 92, pfGrayC(), 1);
+        drawCenteredText(ip.substring(0, cut).c_str(), y, pfGrayC(), 1);
+        drawCenteredText(ip.substring(cut).c_str(), y + 10, pfGrayC(), 1);
       }
     } else {
       drawCenteredText(PatternflowWifi::statusText(), 52, pfBlueC(), 1);
@@ -992,7 +1019,7 @@ void drawKnobMap() {
     dma_display->setCursor(x + 6, y);
     dma_display->print(title);
   }
-  drawCenteredText("TURN = SHOW", (h / 2) + 2, pfDimC(), 1);
+  drawCenteredText("TURN=SHOW", (h / 2) + 2, pfDimC(), 1);
   drawCenteredText("K3 = EXIT", (h / 2) + 12, pfDimC(), 1);
 
   // Front-view corners: K1 top-right, K2 top-left, K3 bottom-right,

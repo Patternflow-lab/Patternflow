@@ -26,7 +26,7 @@ integrations/ableton/
 
 OSC ships in the **Audio** edition. Open [patternflow.work/editions](https://patternflow.work/editions), pick Audio, and install it from the browser; your patterns, Wi-Fi networks and settings stay. No rebuild, no secrets file. (Building your own image with the OSC feature is also possible; that is [docs/EDITIONS.md](../../docs/EDITIONS.md).)
 
-You do **not** need to set your computer's IP: the device learns it from the bridge's ping. Check the K2 long-press info screen: OSC should read `READY` or `WAIT HOST`.
+You do **not** need to set your computer's IP: the device learns it from the bridge's ping. Check the K2 long-press NETWORK screen: the OSC row should read `ON`.
 
 ## 2. Install the bridge device
 

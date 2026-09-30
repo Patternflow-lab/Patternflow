@@ -244,13 +244,16 @@ The ESP32-S3 module is flashed **separately, outside the PCB**. Already seated i
 
 No installation required — desktop **Chrome or Edge** only (Web Serial; Firefox/Safari won't work).
 
-> 🔌 **Use the LEFT USB-C port** — the one on your left when the two ports face you. On the ESP32-S3 DevKit that's the board's **native USB** port (labeled `USB`); the browser flasher (Web Serial + Improv) talks to it directly. The right-hand port goes through a separate USB-to-UART bridge chip and is the one Arduino IDE uses (§8.2) — the browser flasher won't see the board on that one.
+> 🎬 **See it before you do it.** [patternflow.work/guide](https://patternflow.work/guide) walks through this section — the port, BOOT and RST, the Wi-Fi step, the Basics pack — on a Patternflow you can turn, and every step has a link for telling us where you got stuck.
+
+> 🔌 **Use the LEFT USB-C port** — the one on your left when the two ports face you. On the ESP32-S3 DevKit that's the board's **native USB** port (labeled `USB`); the browser flasher (Web Serial + Improv) talks to it directly. The right-hand port goes through a separate USB-to-UART bridge chip and is the one Arduino IDE uses (§8.2) — the flasher may still write the firmware through it, but the Wi-Fi step never appears there, because the firmware only listens for it on the left port.
 
 1. Visit **[patternflow.work](https://patternflow.work)** on a desktop browser.
 2. Connect the ESP32-S3 to your computer with a USB-C **data cable**, using the **left port** (see above).
-3. Scroll to the **Patterns** section, click **"Flash Patternflow"**, pick the serial port, and follow the on-screen steps. Wi-Fi can be provisioned right there too (Improv-Serial).
-4. Disconnect, seat the module back into the board sockets (orientation per silkscreen), and connect power.
-5. **Load the patterns.** The image ships with **Origin only** — the rest live on the device's filesystem instead of inside the firmware, which is what freed the memory for everything else. Open **[the decks shelf](https://community.patternflow.work/community/decks)** and press **Install to my board** on the **Basics** pack: 33 patterns, one click, no account. Your browser fetches the pack and hands it to the board over your Wi-Fi, so the board is never talking to the internet itself.
+3. Open the **Pattern** tab, find **Got the hardware?**, click **"Flash Patternflow"**, pick the serial port, and follow the on-screen steps. A new install erases the module first; a module already running Patternflow is updated in place and keeps its patterns and Wi-Fi.
+4. **Wi-Fi.** When the install finishes, press **Next** and the flasher asks for your network (Improv-Serial). Type the name exactly — there is no list to pick from, and it is case-sensitive — and use a **2.4 GHz** network; the ESP32-S3 cannot see 5 GHz. If the install ends without asking, press **RST** on the module once, click **Flash Patternflow** again, pick the port, and choose **Connect to Wi-Fi**. Some modules do not restart into Patternflow on their own after flashing; the button does it.
+5. Disconnect, seat the module back into the board sockets (orientation per silkscreen), and connect power.
+6. **Load the patterns.** The image ships with **Origin only** — the rest live on the device's filesystem instead of inside the firmware, which is what freed the memory for everything else. Open **[the decks shelf](https://community.patternflow.work/community/decks)** and press **Install to my board** on the **Basics** pack: 33 patterns, one click, no account. Your browser fetches the pack and hands it to the board over your Wi-Fi, so the board is never talking to the internet itself. On a freshly flashed board the device's page first says **Storage needs formatting**: press **Format storage**, confirm, and the pack installs by itself as soon as the format is done. On Android, `patternflow.local` does not resolve — type the board's IP address (hold **K2**) into the **Device address** field on the Basics card instead.
 
 > 🎛️ **One pattern after flashing is correct, not a failed install.** It used to be 34 baked into the image. They moved out so that patterns can be added and removed without reflashing, which is also how anything you make yourself reaches the panel.
 
@@ -262,11 +265,13 @@ No installation required — desktop **Chrome or Edge** only (Web Serial; Firefo
 >
 > The picker should now offer a line like `USB JTAG/serial debug unit (COM4) – Paired`. The number depends on which USB port you used.
 >
+> In download mode the firmware cannot answer the flasher, so it treats the module as new and **erases it** — installed patterns and saved Wi-Fi included. Press **RST** alone to bring a module back to normal first if you only meant to update it.
+>
 > Still nothing? It is almost always the cable — a charge-only USB-C one enumerates nothing at all. **There is no driver to install on this port**: the ESP32-S3 handles USB itself, so the CP2102 / CH34x links on the flasher's troubleshooting screen do not apply here.
 
-> 📶 **Changing Wi-Fi later.** The network you set during flashing is **saved on the device and reused on every boot** — it stays until you overwrite it. To move Patternflow to a different Wi-Fi, either **re-flash from the browser** (you'll set the new network during Improv provisioning), or in Arduino IDE do a **full erase** (Tools → *Erase All Flash Before Sketch Upload* → *Enabled*) and re-upload. A plain re-upload does **not** clear the stored credentials.
+> 📶 **Changing Wi-Fi later.** The network you set during flashing is **saved on the device and reused on every boot**. The panel remembers up to five networks — home, studio, a venue — and tries the most recent first, so moving it does not mean reflashing. Add or forget networks on the device's **Wi-Fi** page (the console at `patternflow.local`, or the board's IP address). A plain Arduino IDE re-upload does **not** clear the stored networks; **Tools → *Erase All Flash Before Sketch Upload*** does.
 
-> 📡 **No Wi-Fi where you are? The panel is one.** About fifteen seconds after it finds no known network, the panel raises its own hotspot: `patternflow-xxxx` (the name on its NETWORK screen - hold K2), password `patternflow`. Join it from a phone or a laptop and open `http://192.168.4.1/` - the whole console, including the Wi-Fi page, so you can add the network for wherever you are next and the panel joins it at once. The phone will say the network has no internet; that is true, and it stays connected. Mode (`auto`, `always`, `off`) and the password are on the console's Wi-Fi page.
+> 📡 **No Wi-Fi where you are? The panel is one.** *(Firmware after v3.10.4; the Performance edition v0.4.0 has it already.)* About fifteen seconds after it finds no known network, the panel raises its own hotspot: `patternflow-xxxx` (the name on its NETWORK screen - hold K2), password `patternflow`. Join it from a phone or a laptop and open `http://192.168.4.1/` - the whole console, including the Wi-Fi page, so you can add the network for wherever you are next and the panel joins it at once. The phone will say the network has no internet; that is true, and it stays connected. Mode (`auto`, `always`, `off`) and the password are on the console's Wi-Fi page.
 <img src="docs/build-guide/images/web_flash.jpg" width="33%"> <img src="docs/build-guide/images/esp32_insert.jpg" width="33%">
 
 *Photos from the v2 guide — the flashing flow is identical on v3.*
@@ -290,7 +295,7 @@ OSC, network MIDI and audio-react ship in the **Audio** edition: open [patternfl
 2. The panel lights up with the default pattern (Origin) within a second or two.
 3. Turn all four knobs — each should visibly change the pattern.
 4. Press-click each encoder once; long-press **K4** (~1s) to enter pattern select, rotate to browse, long-press again to exit.
-5. Long-press **K1** for the global brightness mode; **K2** long-press shows the OSC info screen.
+5. Long-press **K1** for the global brightness mode; **K2** long-press shows the NETWORK screen (Wi-Fi state and IP address); **K3** long-press puts each knob's number on the panel.
 6. Power-cycle once and confirm it boots cleanly with no RESET press needed (see the GPIO0 note in Section 5 if it doesn't).
 7. All good? **Close the back panel**: hook the right edge in first, then press along the snap-fit until it clicks shut (shown at **09:11** in the [assembly video](https://youtu.be/J9C9bZgkNKs)). Press the knobs onto the shafts last.
 

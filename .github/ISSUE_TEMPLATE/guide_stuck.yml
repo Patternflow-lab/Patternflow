@@ -1,0 +1,53 @@
+name: Stuck in the guide
+description: A step of the guide at patternflow.work/guide didn't get you through.
+title: "[guide] "
+labels: ["area:docs", "type:bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks — a report like this shows exactly where the guide needs to be better. If you came from a "Stuck here?" link, the step is already filled in below.
+
+        Need an answer right now rather than a better guide? The [hardware-help channel on Discord](https://discord.com/channels/1497757947827327067/1499907910707187833) is quicker. Writing in Korean is fine too — 한국어로 써도 돼요.
+  - type: input
+    id: where
+    attributes:
+      label: Where in the guide
+      description: The chapter and step. Filled in for you if you came from the guide.
+      placeholder: "01 Flash, step 3 — Hold BOOT, tap RST, let go."
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, and what you saw instead of what the guide said you'd see.
+      placeholder: "After flashing, the Wi-Fi box never appeared. Pressing RST didn't bring it up either."
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: Anything you tried to get past it, and whether it helped.
+  - type: dropdown
+    id: board
+    attributes:
+      label: Board
+      description: The version is printed on the board's silkscreen.
+      options:
+        - v3.9
+        - v3.0
+        - v2.x
+        - not sure
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and computer
+      description: Filled in for you if you came from the guide. Change it if you did the step on another device.
+      placeholder: "Chrome 140 on Windows"
+  - type: textarea
+    id: photos
+    attributes:
+      label: Photos or a screen recording
+      description: A photo of the panel, or of the screen you were stuck on, often says more than a paragraph. Drag them in here.

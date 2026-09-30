@@ -70,7 +70,7 @@ You don't need hardware to start. The **[Live Editor](https://patternflow.work/p
   <img src="./docs/media/web-live-editor.png" width="100%" alt="Live Editor: a full Patternflow simulator in the browser, code beside the device" />
 </p>
 
-**[Pattern Lab](https://patternflow.work/pattern-lab)** is the full studio, and where a pattern reaches the hardware. Generate variations in batches, shape color ramps, retune knob ranges, then send it to your device: it builds into a small `.pfm` module and installs over Wi-Fi, about ten seconds start to finish. You never plug in a cable, reflash the board, or open an IDE. The Capture panel takes the same pattern off the panel: a PNG at print size for a business card, or an MP4 loop for a post, rendered in your browser with nothing uploaded.
+**[Pattern Lab](https://patternflow.work/pattern-lab)** is the full studio, and where a pattern reaches the hardware. Generate variations in batches (in the Lab with your own Gemini key, or through any AI chat), shape color ramps, retune knob ranges, then send it to your device: it builds into a small `.pfm` module and installs over Wi-Fi, about ten seconds start to finish. You never plug in a cable, reflash the board, or open an IDE. The Graphic Export panel takes the same pattern off the panel: a PNG at print size for a business card, or an MP4 loop for a post, rendered in your browser with nothing uploaded.
 
 When it looks right, publish it to the **[Community](https://community.patternflow.work/community)**. More than a hundred patterns are up already and the range keeps widening, from quiet waves to chaos-theory studies, every one written as code and every one playable under the same four knobs. Collect patterns into a deck and send it to your board in one click. Browsing needs no account, and publishing asks a username and password, no email. The **[Pattern Guide](PATTERN_GUIDE.md)** walks the whole loop.
 
@@ -142,6 +142,8 @@ Every encoder does two jobs. Turn it, or give it a short press, and you are movi
 What a knob does to a running pattern is the pattern's own decision, so the same knob feels different on every one of them. That is what encoder 3 is for: hold it and each knob puts its own number on the panel, which saves counting around the front.
 
 The device functions themselves are fixed. Encoder 1 is brightness. Encoder 4 opens the pattern list, where you turn to browse the names and long-press again to load one, choosing from whatever is installed at the time. Encoder 2 puts the board's IP address on the panel, and typing that into a browser opens the web console, which carries every feature the device has and works from a phone.
+
+[patternflow.work/guide](https://patternflow.work/guide) has all of this on a Patternflow you can turn, press and hold, from flashing the ESP32 to the console.
 
 ## On the device
 

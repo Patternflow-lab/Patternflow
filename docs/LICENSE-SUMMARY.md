@@ -52,7 +52,7 @@ These are different things and are governed by different documents.
 | Where | GitHub PR / issue | The community site, from the Pattern Lab |
 | What | Code, hardware files, docs, build-map entries | Patterns |
 | License | Inbound = outbound: MIT for code, CC BY-SA 4.0 for the rest | The author's choice, above |
-| Governed by | [CONTRIBUTING.md](../CONTRIBUTING.md) | Terms of use *(not yet written)* |
+| Governed by | [CONTRIBUTING.md](../CONTRIBUTING.md) | [Terms of use](https://patternflow.work/terms) |
 
 ## Trademark
 

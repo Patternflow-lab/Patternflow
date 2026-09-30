@@ -13,9 +13,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/build`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/inside`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/roadmap`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
-    // The shelf of firmwares built on core. A device running a variant links
+    { url: `${siteUrl}/guide`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${siteUrl}/guide/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    // The guide's second page: the community and Pattern Lab.
+    { url: `${siteUrl}/guide/make`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/guide/make/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    // The shelf of firmwares built on core. A device running an edition links
     // here from its own console, so this needs to be findable from outside too.
-    { url: `${siteUrl}/variants`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    // (/variants only redirects here.)
+    { url: `${siteUrl}/editions`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     // The catalogue of features, with a reel of each - the other axis of the shelf.
     { url: `${siteUrl}/features`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${siteUrl}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.5 },

@@ -777,18 +777,21 @@ function loadFflate(){
 // on — writes "\" on Windows, and a pack made that way arrives with its
 // whole path stuck to the filename: the junk filter stops matching, the
 // duplicate check stops matching, and the queue shows "a\b\wave.pfm".
+// What goes onto the device, by file name — one rule for every way in: a
+// drop, a zip, a link.
+// catalog.txt rides along: it is the pack's running order (deck order).
+// .pfs is a Director show table — installed to /show alongside the pack.
+// performance.json is that show's editable source (Director / site), not
+// a module sidecar: the device has no use for it, so it stays behind.
+function installable(n){
+  if(/^performance\.json$/i.test(n)||/\.perf\.json$/i.test(n))return false;
+  return /\.(pfm|json|pfs)$/i.test(n)||/^catalog\.txt$/i.test(n)
+}
+
 function expandFiles(fileList){
   var list=Array.prototype.slice.call(fileList||[]);
-  // catalog.txt rides along: it is the pack's running order (deck order).
-  // .pfs is a Director show table — installed to /show alongside the pack.
-  // performance.json is that show's editable source (Director / site), not
-  // a module sidecar: the device has no use for it, so it stays behind.
-  var keep=function(n){
-    if(/^performance\.json$/i.test(n)||/\.perf\.json$/i.test(n))return false;
-    return /\.(pfm|json|pfs)$/i.test(n)||/^catalog\.txt$/i.test(n)
-  };
   if(!list.some(function(f){return /\.zip$/i.test(f.name)}))
-    return Promise.resolve(list.filter(function(f){return keep(f.name)}));
+    return Promise.resolve(list.filter(function(f){return installable(f.name)}));
 
   say('unpacking zip…');
   return loadFflate().then(function(){
@@ -796,12 +799,12 @@ function expandFiles(fileList){
     var push=function(f){if(!seen[f.name]){seen[f.name]=1;out.push(f)}};
     var chain=Promise.resolve();
     list.forEach(function(f){
-      if(!/\.zip$/i.test(f.name)){if(keep(f.name))push(f);return}
+      if(!/\.zip$/i.test(f.name)){if(installable(f.name))push(f);return}
       chain=chain.then(function(){return f.arrayBuffer()}).then(function(buf){
         var unzipped=fflate.unzipSync(new Uint8Array(buf));
         Object.keys(unzipped).forEach(function(name){
           var base=name.split(/[\\/]/).pop();
-          if(!base||base.charAt(0)==='.'||!keep(base))return;
+          if(!base||base.charAt(0)==='.'||!installable(base))return;
           total+=unzipped[name].length;
           if(total>ZIP_MAX_BYTES)
             throw new Error('zip holds more than '+(ZIP_MAX_BYTES>>20)+' MB of patterns');
@@ -884,8 +887,11 @@ function installFromUrl(src){
   fetch(src+sep+'list=1').then(function(r){
     if(!r.ok)throw 0;return r.json();
   }).then(function(d){
-    var names=(d.files||[]).filter(function(n){return /\.(pfm|json)$/.test(n)});
-    if(!names.length)throw 0;
+    // The same rule as a dropped zip. It used to be .pfm/.json only, which
+    // left a deck's catalog.txt behind: a deck sent from the community's
+    // dock arrived in alphabetical order instead of the order it was built in.
+    var names=(d.files||[]).filter(installable);
+    if(!names.some(function(n){return /\.pfm$/i.test(n)}))throw 0;
     holdBatch(true);
     items=names.map(function(n){return {f:null,name:n,st:'get',pct:0,tries:0}});
     retryBtn.style.display='none';
