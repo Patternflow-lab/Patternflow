@@ -11,7 +11,7 @@ import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
 
 // Publish a performance recording for a pattern — a Director timeline (the
-// Save-JSON file) that rides the same social rails as firmware ports: live
+// .pfs it saves, or its JSON form) that rides the same social rails as firmware ports: live
 // immediately, credited to the recorder, and the pattern's author outranks or
 // pins. Authoring happens in the Director tool; this modal only takes the
 // finished JSON, and the server re-validates it against the device player's

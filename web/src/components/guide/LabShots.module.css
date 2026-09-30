@@ -1,0 +1,227 @@
+/* The Lab's real screens inside a guide card (LabShots.tsx). The Lab is a
+   light, cream workspace; the frame around a crop stands in for the rest of
+   the app, dimmed, so a crop reads as a piece of a window and not as a hole
+   in the card. Tokens come from .page in Guide.module.css; the fallbacks keep
+   it legible anywhere else. Shaped after FlasherShots.module.css. */
+
+.shots {
+  margin: 18px 0 4px;
+  padding: 0;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 14px;
+  border: 1px solid var(--g-hair, rgba(239, 233, 221, 0.1));
+  background:
+    radial-gradient(120% 100% at 50% 40%, rgba(239, 233, 221, 0.07), rgba(239, 233, 221, 0.025) 75%),
+    #171614;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* On a wide screen the frame may take a little of the card's padding — the
+   screens are small type — and is never taller than MAX_VH of the viewport. */
+@media (min-width: 900px) {
+  .shots {
+    margin-inline: -10px;
+  }
+  .frame {
+    width: min(100%, var(--cap, 100%));
+  }
+  .caption {
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 899px) {
+  .frame {
+    width: min(100%, var(--cap-narrow, 100%));
+  }
+}
+
+.shot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: auto;
+  max-width: none;
+  border-radius: 6px;
+  outline: 1px solid rgba(239, 233, 221, 0.14);
+  transform: translate(-50%, -50%) scale(0.985);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.5));
+  /* The next screen comes up over the last one, which only goes once it is
+     covered: never a frame with nothing in it. */
+  z-index: 1;
+  transition:
+    opacity 0.12s linear 0.3s,
+    transform 0s linear 0.42s;
+}
+.shot[data-on="1"] {
+  z-index: 2;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* The control a screen is about. Remounted per screen: it arrives just after
+   the screen does, then breathes. */
+.ring {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 2px solid var(--g-led, #ff6a3d);
+  border-radius: 7px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 3px rgba(255, 106, 61, 0.2),
+    0 0 16px rgba(255, 106, 61, 0.32);
+  animation:
+    ringIn 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) 0.22s both,
+    ringBreathe 1.9s ease-in-out 0.7s infinite;
+}
+@keyframes ringIn {
+  from {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ringBreathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 106, 61, 0.2),
+      0 0 16px rgba(255, 106, 61, 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(255, 106, 61, 0.08),
+      0 0 24px rgba(255, 106, 61, 0.45);
+  }
+}
+
+.caption {
+  margin-top: 12px;
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+  font: 600 10.5px/1 var(--pf-mono, ui-monospace, monospace);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+/* A bigger hit area than the dot itself, without spreading the row. */
+.dot::before {
+  content: "";
+  position: absolute;
+  inset: -6px -3px;
+}
+.dot[data-done="1"] {
+  border-color: rgba(255, 106, 61, 0.35);
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+}
+.dot[data-on="1"] {
+  border-color: var(--g-led, #ff6a3d);
+  background: var(--g-led, #ff6a3d);
+  color: #150a06;
+}
+.dot:hover:not([data-on="1"]) {
+  border-color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+  color: var(--g-ink, #efe9dd);
+}
+.dot:focus-visible {
+  outline: 2px solid var(--g-led, #ff6a3d);
+  outline-offset: 2px;
+}
+.count {
+  margin-left: auto;
+  font: 500 11px/1 var(--pf-mono, ui-monospace, monospace);
+  letter-spacing: 0.06em;
+  color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+}
+
+/* Every caption sits in the same grid cell, so the block is as tall as the
+   longest one and nothing below it jumps when the screen changes. */
+.texts {
+  display: grid;
+  margin-top: 10px;
+}
+.text {
+  grid-area: 1 / 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.text[data-on="1"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s ease 0.12s,
+    visibility 0s;
+}
+.text b {
+  display: block;
+  margin-bottom: 2px;
+  font-weight: 600;
+  color: var(--g-ink, #efe9dd);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 899px) {
+  .caption {
+    margin-top: 10px;
+  }
+  .text {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot,
+  .shot[data-on="1"],
+  .text,
+  .text[data-on="1"],
+  .dot {
+    transition: none;
+  }
+  .shot {
+    transform: translate(-50%, -50%);
+  }
+  .ring {
+    animation: none;
+  }
+}

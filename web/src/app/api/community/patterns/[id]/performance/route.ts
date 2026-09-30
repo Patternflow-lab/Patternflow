@@ -138,7 +138,7 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
   const raw = body as Record<string, unknown>;
 
   if (typeof raw.performanceJson !== "string" || raw.performanceJson.length === 0) {
-    return Response.json({ error: "performanceJson (a Director Save-JSON string) is required." }, { status: 400 });
+    return Response.json({ error: "performanceJson (a Director show, as its JSON string) is required." }, { status: 400 });
   }
   if (raw.performanceJson.length > 64 * 1024) {
     return Response.json({ error: "Performance JSON is too large (max 64 KB)." }, { status: 400 });

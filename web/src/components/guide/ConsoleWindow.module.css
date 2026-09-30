@@ -1,0 +1,561 @@
+/* The console window: a browser the guide's colours, around the device's own
+   pages. Tokens are local because the lifted window is portalled to <body>,
+   outside the guide's .page where --g-* live. */
+
+.root,
+.layer {
+  --cw-ink: #efe9dd;
+  --cw-ink-2: rgba(239, 233, 221, 0.72);
+  --cw-ink-3: rgba(239, 233, 221, 0.46);
+  --cw-hair: rgba(239, 233, 221, 0.1);
+  --cw-hair-2: rgba(239, 233, 221, 0.18);
+  --cw-led: #ff6a3d;
+  /* The console's own ground (home.html --bg), so a frame that has not
+     painted yet is already the right colour. */
+  --cw-page: #0c0b09;
+  --cw-chrome: #1b1a18;
+  --cw-chrome-2: #131210;
+  --cw-field: #0f0e0d;
+  --cw-shadow: 0 22px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.root {
+  margin: 18px 0 4px;
+}
+
+/* ── the miniature: one button, the whole window ── */
+
+.opener {
+  appearance: none;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+  transition:
+    opacity 0.22s ease,
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.root[data-variant="phone"] .opener {
+  width: 232px;
+  margin: 0 auto;
+  border-radius: 32px;
+}
+/* On a phone the card sits under the board: a smaller phone, showing the
+   top of its page, leaves the board room. The lifted phone shows all of it. */
+@media (max-width: 899px) {
+  .root[data-variant="phone"] .opener {
+    width: 184px;
+  }
+  .root[data-variant="phone"] .opener .mini {
+    aspect-ratio: 390 / 430 !important;
+  }
+  /* The desktop window too shows the top of its page: Now playing and the
+     sliders are up there, and the card stays short enough to leave the
+     board above it. */
+  .root[data-variant="desktop"] .opener .mini {
+    aspect-ratio: 1024 / 540 !important;
+  }
+  /* The address from K2 has to read in full: the chip keeps only its icon. */
+  .root[data-variant="phone"] .openChip {
+    gap: 0;
+    padding: 0 5px;
+    font-size: 0;
+  }
+}
+.opener:focus-visible {
+  outline: 2px solid var(--cw-led);
+  outline-offset: 4px;
+}
+/* It has left the card while it floats. */
+.opener[data-lifted="1"] {
+  opacity: 0;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .opener:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.frame {
+  display: block;
+  border: 0;
+  background: var(--cw-page);
+  color-scheme: dark;
+}
+
+.mini {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--cw-page);
+}
+.mini .frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+/* ── desktop: tab strip, toolbar, page ── */
+
+.window {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--cw-hair-2);
+  border-radius: 11px;
+  background: var(--cw-chrome);
+  box-shadow: var(--cw-shadow);
+  transition: border-color 0.25s;
+}
+.opener:hover .window,
+.opener:focus-visible .window {
+  border-color: rgba(255, 106, 61, 0.45);
+}
+
+.bar {
+  display: block;
+  flex: none;
+  font-family: var(--pf-sans, system-ui, sans-serif);
+}
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  background: var(--cw-chrome-2);
+}
+.lights {
+  display: flex;
+  gap: 5px;
+  align-self: center;
+  margin-right: 12px;
+}
+.lights i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.16);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 190px;
+  height: 22px;
+  padding: 0 14px 0 10px;
+  border-radius: 7px 7px 0 0;
+  background: var(--cw-chrome);
+  font-size: 11px;
+  color: var(--cw-ink-2);
+}
+.favicon {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff5c2e;
+  box-shadow: 0 0 5px rgba(255, 92, 46, 0.7);
+}
+.tabTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.barEnd {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  margin-left: auto;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  background: var(--cw-chrome);
+}
+.navIcons {
+  display: flex;
+  gap: 6px;
+  color: var(--cw-ink-3);
+}
+.navIcons svg {
+  width: 13px;
+  height: 13px;
+}
+.navIcons svg:nth-child(2) {
+  opacity: 0.45;
+}
+
+.address {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  height: 21px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--cw-field);
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  color: var(--cw-ink);
+}
+.info {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  color: var(--cw-ink-3);
+}
+.url {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.path {
+  color: var(--cw-ink-3);
+}
+
+.openChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 7px 0 8px;
+  border: 1px solid var(--cw-hair-2);
+  border-radius: 999px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cw-ink-2);
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.openChip svg {
+  width: 10px;
+  height: 10px;
+}
+.opener:hover .openChip,
+.opener:focus-visible .openChip {
+  color: var(--cw-led);
+  border-color: var(--cw-led);
+  background: rgba(255, 106, 61, 0.1);
+}
+
+/* ── phone ── */
+
+.phone {
+  --bezel: 7px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--bezel);
+  border: 1px solid var(--cw-hair-2);
+  border-radius: 32px;
+  background: #0d0c0b;
+  box-shadow: var(--cw-shadow);
+  transition: border-color 0.25s;
+}
+.opener:hover .phone,
+.opener:focus-visible .phone {
+  border-color: rgba(255, 106, 61, 0.45);
+}
+.phoneTop {
+  display: block;
+  flex: none;
+  overflow: hidden;
+  border-radius: 24px 24px 0 0;
+  background: var(--cw-chrome);
+  font-family: var(--pf-sans, system-ui, sans-serif);
+}
+.status {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 20px;
+  padding: 0 16px 0 20px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--cw-ink);
+}
+.clock {
+  font-variant-numeric: tabular-nums;
+}
+.island {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 54px;
+  height: 14px;
+  margin-left: -27px;
+  border-radius: 999px;
+  background: #000;
+}
+.statusIcons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.statusIcons svg {
+  width: 11px;
+  height: 8px;
+}
+.battery {
+  position: relative;
+  width: 15px;
+  height: 7px;
+  border: 1px solid var(--cw-ink-2);
+  border-radius: 2px;
+}
+.battery::after {
+  content: "";
+  position: absolute;
+  inset: 1px 3px 1px 1px;
+  border-radius: 1px;
+  background: var(--cw-ink);
+}
+.phoneBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 7px 3px;
+}
+.phoneBar .address {
+  justify-content: center;
+  height: 22px;
+  font-size: 10px;
+}
+.phone > .mini {
+  border-radius: 0 0 3px 3px;
+}
+.homeBar {
+  position: relative;
+  display: block;
+  flex: none;
+  height: 14px;
+}
+.homeBar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 6px;
+  width: 64px;
+  height: 3px;
+  margin-left: -32px;
+  border-radius: 2px;
+  background: rgba(239, 233, 221, 0.4);
+}
+
+/* ── lifted ── */
+
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  /* The board, on the left of a wide stage, stays in the light: the window
+     is there to be used beside it. */
+  background: linear-gradient(90deg, rgba(8, 7, 6, 0.05) 0%, rgba(8, 7, 6, 0.3) 34%, rgba(8, 7, 6, 0.78) 58%, rgba(8, 7, 6, 0.86) 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.layer[data-narrow="1"] .backdrop {
+  background: rgba(8, 7, 6, 0.84);
+}
+.layer[data-shown="1"] .backdrop {
+  opacity: 1;
+}
+
+.lift {
+  position: absolute;
+  transform-origin: 0 0;
+  transition:
+    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
+    opacity 0.26s ease;
+}
+.layer[data-shown="1"] .lift {
+  transition:
+    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
+    opacity 0.18s ease;
+}
+
+.big.window {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border-color: rgba(239, 233, 221, 0.22);
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.62),
+    0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.big .tabs {
+  height: 36px;
+  padding: 0 10px 0 14px;
+}
+.big .lights {
+  gap: 7px;
+  margin-right: 16px;
+}
+.big .lights i {
+  width: 11px;
+  height: 11px;
+}
+.big .tab {
+  gap: 8px;
+  max-width: 240px;
+  height: 28px;
+  padding: 0 18px 0 12px;
+  border-radius: 9px 9px 0 0;
+  font-size: 12.5px;
+}
+.big .toolbar {
+  height: 40px;
+  gap: 14px;
+  padding: 0 12px;
+}
+.big .navIcons {
+  gap: 10px;
+}
+.big .navIcons svg {
+  width: 16px;
+  height: 16px;
+}
+.big .address {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.big .info {
+  width: 14px;
+  height: 14px;
+}
+.viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--cw-page);
+}
+
+.close {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--cw-hair-2);
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.04);
+  color: var(--cw-ink-2);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.close svg {
+  width: 14px;
+  height: 14px;
+}
+.close:hover {
+  color: var(--cw-ink);
+  border-color: var(--cw-led);
+  background: rgba(255, 106, 61, 0.14);
+}
+.close:focus-visible {
+  outline: 2px solid var(--cw-led);
+  outline-offset: 2px;
+}
+
+.phoneScale {
+  transform-origin: 0 0;
+}
+.big.phone {
+  --bezel: 10px;
+  width: 100%;
+  height: 100%;
+  border-radius: 50px;
+  border-color: rgba(239, 233, 221, 0.22);
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.62),
+    0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.big .phoneTop {
+  height: var(--top);
+  border-radius: 40px 40px 0 0;
+}
+.big .status {
+  height: 40px;
+  padding: 0 30px 0 36px;
+  font-size: 14px;
+}
+.big .island {
+  top: 9px;
+  width: 104px;
+  height: 26px;
+  margin-left: -52px;
+}
+.big .statusIcons {
+  gap: 7px;
+}
+.big .statusIcons svg {
+  width: 17px;
+  height: 12px;
+}
+.big .battery {
+  width: 24px;
+  height: 11px;
+  border-radius: 3px;
+}
+.big .phoneBar {
+  height: 52px;
+  gap: 10px;
+  padding: 0 12px 8px;
+}
+.big .phoneBar .address {
+  height: 38px;
+  font-size: 14px;
+}
+.phoneView {
+  flex: none;
+  overflow: hidden;
+  background: var(--cw-page);
+}
+.big .homeBar {
+  height: var(--foot);
+}
+.big .homeBar::after {
+  top: 10px;
+  width: 134px;
+  height: 5px;
+  margin-left: -67px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift,
+  .layer[data-shown="1"] .lift {
+    transition: opacity 0.18s ease;
+  }
+}
