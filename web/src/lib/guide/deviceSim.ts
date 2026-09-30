@@ -70,6 +70,9 @@ const DEFAULT_RAMP: ColorRamp = {
   wrap: false,
 };
 
+// Origin's knobs, as its header comment names them (lib/presets/pattern-origin.ts).
+const ORIGIN_LABELS = ["hue", "speed", "tiling", "freq"];
+
 const ORIGIN: SimPattern = (() => {
   const origin = livePresets.find((p) => p.id === "origin");
   return { slug: "origin", name: "Origin", code: origin?.code ?? "" };
@@ -141,6 +144,8 @@ export class DeviceSim {
   private values = new Map<string, number[]>();
   private ranges: Array<[number, number]> = [];
   private wraps: boolean[] = [false, false, false, false];
+  /** What the running pattern calls each knob (its @knobs line, or Origin's own). */
+  private labels: string[] = [...ORIGIN_LABELS];
 
   private mode: SimMode = "run";
   /** The panel's brightness byte, 5..255, as the firmware keeps it. */
@@ -395,6 +400,12 @@ export class DeviceSim {
     this.busHeldAt[knob] = this.now;
   }
 
+  /** What a knob controls on the running pattern, for the readout beside it. */
+  knobReadout(knob: number): { label: string; value: number; min: number; max: number } {
+    const [min, max] = this.ranges[knob] ?? [0, 1];
+    return { label: this.labels[knob] ?? "value", value: this.currentValues()[knob] ?? min, min, max };
+  }
+
   /** The /knobs page: which way each encoder counts and how many of its 4 edges make a click. */
   setKnobSettings(invert: boolean[], edgesPerClick: number[]) {
     for (let i = 0; i < 4; i++) {
@@ -545,6 +556,14 @@ export class DeviceSim {
         // The press edge reaches the pattern the moment the button goes down,
         // so a long-press delivers one too (patternflow.ino:1201-1205).
         this.moveValues(f.detents, [0, 1, 2, 3]);
+        // Origin's own click sends that knob back to its start (its update()
+        // zeroes the parameter); the knob's readout follows it there.
+        if (this.patterns[this.active]?.slug === "origin") {
+          const values = this.currentValues();
+          f.edges.forEach((e, i) => {
+            if (e) values[i] = this.ranges[i]?.[0] ?? 0;
+          });
+        }
         return { detents: f.detents.slice(), presses: f.edges.slice() };
       }
     }
@@ -609,6 +628,11 @@ export class DeviceSim {
 
     const setup = knobSetupFromCode(pattern.code);
     this.ranges = setup.ranges;
+    // A pattern without an @knobs line gets "Knob 1".."Knob 4"; Origin's are in its header comment.
+    this.labels =
+      pattern.slug === "origin"
+        ? [...ORIGIN_LABELS]
+        : setup.labels.map((l, i) => (l === `Knob ${i + 1}` ? "value" : l.toLowerCase()));
     const annotated = setup.ranges.some(
       (r, i) => r[0] !== [0, 0.1, 0, 0][i] || r[1] !== [1, 10, 4.9, 1][i],
     );

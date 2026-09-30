@@ -4,7 +4,7 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import styles from "./Guide.module.css";
 import { COPY, type Extra } from "./copy";
-import { getSim, useGuideStore, type GuideLang } from "./store";
+import type { GuideLang } from "./store";
 import { communityHref } from "@/lib/community/apiBase";
 import { PatternRuntime } from "@/lib/pattern/harness";
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
@@ -20,7 +20,7 @@ import ConsoleWindow, { type ConsolePage } from "./ConsoleWindow";
 // The small moving pieces that sit inside a step's card: the flasher's real
 // screens and its real button, BOOT and RST in order, a deck fanning out, the
 // board's own page installing a pack, the console itself — working, on a
-// simulated board. And the control pad, for hands on the knobs.
+// simulated board.
 
 const EspWebInstallButton = "esp-web-install-button" as unknown as React.ElementType<{
   children: React.ReactNode;
@@ -347,114 +347,6 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
   );
 }
 
-// ── the pad ─────────────────────────────────────────────────────────────────
-
-// Laid out as on the device: K2 K1 over K4 K3.
-const PAD_ORDER = [1, 0, 3, 2];
-
-function PadKnob({ knob, lang }: { knob: number; lang: GuideLang }) {
-  const ui = COPY[lang].ui.pad;
-  const repeat = useRef(0);
-  const keyDown = useRef(false);
-  const turn = (d: number) => {
-    getSim().turn(knob, d);
-    useGuideStore.getState().setHandsOn(true);
-  };
-  const startRepeat = (d: number) => {
-    turn(d);
-    window.clearInterval(repeat.current);
-    repeat.current = window.setInterval(() => turn(d), 90);
-  };
-  const stopRepeat = () => window.clearInterval(repeat.current);
-  useEffect(() => () => window.clearInterval(repeat.current), []);
-  // A click from the keyboard (Enter or Space on a focused arrow) has no
-  // pointer behind it (detail 0): one detent. Pointer clicks already turned
-  // on pointerdown.
-  const keyTurn = (d: number) => (e: React.MouseEvent) => {
-    if (e.detail === 0) turn(d);
-  };
-  // The knob itself from the keyboard: Space or Enter down presses it, up
-  // lets go, so holding the key for a second opens its screen as a held knob does.
-  const press = () => {
-    getSim().press(knob);
-    useGuideStore.getState().setHandsOn(true);
-  };
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== " " && e.key !== "Enter") return;
-    e.preventDefault();
-    if (e.repeat || keyDown.current) return;
-    keyDown.current = true;
-    press();
-  };
-  const onKeyUp = (e: React.KeyboardEvent) => {
-    if (e.key !== " " && e.key !== "Enter") return;
-    e.preventDefault();
-    if (!keyDown.current) return;
-    keyDown.current = false;
-    getSim().release(knob);
-  };
-
-  return (
-    <div className={styles.padKnob}>
-      <button
-        type="button"
-        aria-label={`K${knob + 1} ${ui.left}`}
-        onPointerDown={() => startRepeat(-1)}
-        onPointerUp={stopRepeat}
-        onPointerLeave={stopRepeat}
-        onPointerCancel={stopRepeat}
-        onClick={keyTurn(-1)}
-      >
-        ‹
-      </button>
-      <button
-        type="button"
-        className={styles.padPress}
-        aria-label={`K${knob + 1} ${ui.press}`}
-        onPointerDown={press}
-        onPointerUp={() => getSim().release(knob)}
-        onPointerLeave={() => getSim().cancel(knob)}
-        onPointerCancel={() => getSim().cancel(knob)}
-        onKeyDown={onKeyDown}
-        onKeyUp={onKeyUp}
-        onBlur={() => {
-          if (keyDown.current) {
-            keyDown.current = false;
-            getSim().cancel(knob);
-          }
-        }}
-      >
-        K{knob + 1}
-      </button>
-      <button
-        type="button"
-        aria-label={`K${knob + 1} ${ui.right}`}
-        onPointerDown={() => startRepeat(1)}
-        onPointerUp={stopRepeat}
-        onPointerLeave={stopRepeat}
-        onPointerCancel={stopRepeat}
-        onClick={keyTurn(1)}
-      >
-        ›
-      </button>
-    </div>
-  );
-}
-
-function Pad({ lang }: { lang: GuideLang }) {
-  const ui = COPY[lang].ui.pad;
-  return (
-    <div className={styles.extra}>
-      <div className={styles.pad} role="group" aria-label={ui.title}>
-        {PAD_ORDER.map((k) => (
-          <PadKnob key={k} knob={k} lang={lang} />
-        ))}
-      </div>
-      <p className={styles.padHint}>{ui.hint}</p>
-    </div>
-  );
-}
-
 export default function Extras({ kind, lang }: { kind: Extra; lang: GuideLang }) {
   switch (kind) {
     case "flashButton":
@@ -473,7 +365,5 @@ export default function Extras({ kind, lang }: { kind: Extra; lang: GuideLang })
       return <ConsoleWindow variant="phone" lang={lang} />;
     case "consoleTour":
       return <ConsoleTour lang={lang} />;
-    case "pad":
-      return <Pad lang={lang} />;
   }
 }

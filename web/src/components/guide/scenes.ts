@@ -51,8 +51,6 @@ export type Step = {
   wifi?: "esp" | "device" | null;
   /** Pixels streaming from the deck into the panel. */
   stream?: boolean;
-  /** Knobs are the reader's here: the control pad shows. */
-  handsOn?: boolean;
   /** A scripted demo, looped every `period` ms while nobody has the knobs. */
   demo?: DemoAction[];
   period?: number;
@@ -203,8 +201,6 @@ export const SCENES: SceneDef[] = [
         ],
         period: 6400,
       },
-      // 7 — your turn
-      { ...base, view: "screenKnobs", mode: "run", handsOn: true },
     ],
   },
   {
@@ -212,7 +208,7 @@ export const SCENES: SceneDef[] = [
     steps: [
       // 0 — only Origin
       { ...base, view: "screen", mode: "select" },
-      // 1 — decks
+      // 1 — the Basics deck (a deck, or a single pattern)
       { ...base, view: "front", mode: "run", stream: true },
       // 2 — install, format, done
       { ...base, view: "front", mode: "run", stream: true },
@@ -232,8 +228,6 @@ export const SCENES: SceneDef[] = [
         ],
         period: 4200,
       },
-      // 4 — your turn
-      { view: "screenKnobs", power: true, pack: "basics", mode: "run", handsOn: true },
     ],
   },
   {

@@ -218,14 +218,19 @@ describe("classic font", () => {
   });
 
   it("wraps an 11th character on the 64 px portrait line, as GFX does on the panel", () => {
-    // "TURN = SHOW" (KNOB MAP, patternflow.ino:995) measures as two lines...
+    // Eleven characters measure as two lines: the 11th goes to x = 0 below.
     expect(measureText("TURN = SHOW", 1, 1)).toEqual({ x1: 0, y1: 0, w: 60, h: 16 });
-    // ...and prints its 'W' at x = 0 on the next line, y = 66 + 8.
+  });
+
+  it("keeps the KNOB MAP hint on one line, as the fixed firmware draws it", () => {
+    // "TURN = SHOW" left a stray 'W' at x = 0 in front of "K3 = EXIT";
+    // the firmware now prints "TURN=SHOW", nine characters.
+    expect(measureText("TURN=SHOW", 1, 1).h).toBe(8);
     const f = solid(0, 0, 0);
     drawOverlay(f, { kind: "knobmap", activeKnob: null });
     let lit = 0;
     for (let x = 0; x < 5; x++) for (let y = 74; y < 81; y++) if (portraitPx(f, x, y)[0] > 0) lit++;
-    expect(lit).toBeGreaterThan(5);
+    expect(lit).toBe(0);
   });
 });
 

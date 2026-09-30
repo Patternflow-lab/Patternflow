@@ -29,6 +29,11 @@ export function screenY(camera: THREE.Camera, size: { height: number }, p: THREE
   return (-a.y * 0.5 + 0.5) * size.height;
 }
 
+/** The pill's text changed: measure it again on its next placement. */
+export function forgetPillSize(el: HTMLElement) {
+  sizes.delete(el);
+}
+
 export function pillSize(el: HTMLElement) {
   const now = performance.now();
   let s = sizes.get(el);

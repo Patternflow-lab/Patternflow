@@ -13,8 +13,7 @@ export type Extra =
   | "installFlow"
   | "consoleDesktop"
   | "consolePhone"
-  | "consoleTour"
-  | "pad";
+  | "consoleTour";
 
 export type StepCopy = {
   kicker: string;
@@ -53,7 +52,6 @@ export type GuideCopy = {
     noteBy: string;
     flashUnsupported: string;
     openDecks: string;
-    pad: { title: string; hint: string; press: string; left: string; right: string };
     deviceAddress: string;
     bootSteps: [string, string, string];
     /** The line under "Format pattern storage?" in the Patterns page's confirm. */
@@ -161,6 +159,7 @@ const en: GuideCopy = {
         body: [
           "Each knob moves whatever the running pattern gives it. On Origin: K1 colour, K2 speed, K3 the tiling, K4 the wave's frequency.",
           "Every pattern decides its own four. That's the point.",
+          "The one here plays like yours: take the orange dot on a knob's ring and drive it round — beside the knob you'll see what that knob is and where it is. Click to press, hold a second for its screen.",
         ],
       },
       {
@@ -198,12 +197,6 @@ const en: GuideCopy = {
           "Right now it says 1 / 1. That's next.",
         ],
       },
-      {
-        kicker: "Your turn",
-        title: "Play it.",
-        body: ["Drag a knob round to turn it, tap or click it to press, hold it for a second to open its screen. The pad below does the same."],
-        extra: "pad",
-      },
     ],
   },
   patterns: {
@@ -219,11 +212,11 @@ const en: GuideCopy = {
         ],
       },
       {
-        kicker: "Decks",
-        title: "Patterns come in decks.",
+        kicker: "Basics",
+        title: "Let's put the Basics deck on.",
         body: [
-          "In the community, patterns are collected into decks, like a hand of cards. Basics is the one that ships with Patternflow: 33 patterns.",
-          "Anyone can make a deck and share it.",
+          "The community has patterns one by one, and decks — a set of them, like a hand of cards. Basics is the deck made for a new board: 33 patterns, no account needed.",
+          "A single pattern goes on the same way, from its own page (Send to my Patternflow). And you can make a deck of your own and share it.",
         ],
         extra: "deckFan",
       },
@@ -242,12 +235,6 @@ const en: GuideCopy = {
         title: "Hold K4 again.",
         body: ["Origin and the 33 Basics. Turn K4 to browse, stop to play, hold to close."],
         note: "Some of these are the very first ones — a little old-fashioned. I like them anyway.",
-      },
-      {
-        kicker: "Your turn",
-        title: "Browse them.",
-        body: ["Hold K4, turn, and stop on one you like. Then hold K4 again."],
-        extra: "pad",
       },
     ],
   },
@@ -299,13 +286,6 @@ const en: GuideCopy = {
     noteBy: "From the maker",
     flashUnsupported: "Flashing works in desktop Chrome or Edge.",
     openDecks: "Open the decks",
-    pad: {
-      title: "The knobs",
-      hint: "‹ › turn · ● press · hold ● for a second",
-      press: "Press",
-      left: "Turn left",
-      right: "Turn right",
-    },
     deviceAddress: "Device address",
     bootSteps: ["Hold BOOT", "Tap RST", "Release BOOT"],
     install: { confirm: "This writes a fresh filesystem to the pattern partition. … On a new board there is nothing there to lose." },
@@ -412,6 +392,7 @@ const ko: GuideCopy = {
         body: [
           "노브는 지금 돌아가는 패턴이 맡긴 걸 움직여요. Origin에선 K1 색, K2 속도, K3 타일 배치, K4 물결의 촘촘함.",
           "패턴마다 네 개를 다르게 써요. 그게 핵심이에요.",
+          "여기 있는 것도 진짜처럼 돌아가요. 노브 둘레의 주황 점을 잡고 빙 돌려 보세요. 옆에 그 노브가 무엇을 얼마나 움직이는지 떠요. 클릭은 누르기, 1초 꾹 누르면 그 노브의 화면이 열려요.",
         ],
       },
       {
@@ -445,12 +426,6 @@ const ko: GuideCopy = {
           "지금은 1 / 1이에요. 그게 다음 이야기예요.",
         ],
       },
-      {
-        kicker: "직접",
-        title: "연주해 보세요.",
-        body: ["노브를 빙 드래그하면 돌아가요. 탭하거나 클릭하면 누르기, 1초 누르고 있으면 그 노브의 화면이 열려요. 아래 패드로도 똑같이 돼요."],
-        extra: "pad",
-      },
     ],
   },
   patterns: {
@@ -464,11 +439,11 @@ const ko: GuideCopy = {
         body: ["Origin은 펌웨어에 들어 있어서, 보드가 언제나 뭔가로는 켜질 수 있어요. 나머지는 보드 저장공간에 살고 몇 초면 설치돼요."],
       },
       {
-        kicker: "덱",
-        title: "패턴은 덱으로 와요.",
+        kicker: "Basics",
+        title: "Basics 덱을 올려 봐요.",
         body: [
-          "커뮤니티에선 패턴을 카드 게임처럼 덱으로 묶어요. Basics는 패턴플로우와 함께 오는 덱이에요. 패턴 33개.",
-          "누구나 자기 덱을 만들어 공유할 수 있어요.",
+          "커뮤니티엔 패턴 하나하나와, 여러 개를 카드 패처럼 묶은 덱이 있어요. Basics는 새 보드를 위한 덱이에요. 패턴 33개, 계정도 필요 없어요.",
+          "패턴 하나만 올리는 것도 같아요. 그 패턴 페이지에서 Send to my Patternflow를 누르면 돼요. 내 덱을 만들어 공유할 수도 있어요.",
         ],
         extra: "deckFan",
       },
@@ -487,12 +462,6 @@ const ko: GuideCopy = {
         title: "K4를 다시 꾹.",
         body: ["Origin에 Basics 33개. K4를 돌려 넘기고, 멈추면 재생, 꾹 누르면 닫혀요."],
         note: "아주 초기 패턴들이라 좀 촌스러운 것도 있다. 그래도 나는 좋다.",
-      },
-      {
-        kicker: "직접",
-        title: "넘겨 보세요.",
-        body: ["K4를 꾹, 돌리다가 마음에 드는 데서 멈춰요. 그리고 K4를 다시 꾹."],
-        extra: "pad",
       },
     ],
   },
@@ -542,7 +511,6 @@ const ko: GuideCopy = {
     noteBy: "만든 사람의 한마디",
     flashUnsupported: "굽기는 데스크톱 크롬이나 엣지에서 돼요.",
     openDecks: "덱 열기",
-    pad: { title: "노브", hint: "‹ › 돌리기 · ● 누르기 · ● 1초 꾹", press: "누르기", left: "왼쪽으로", right: "오른쪽으로" },
     deviceAddress: "Device address",
     bootSteps: ["BOOT 누른 채로", "RST 한 번", "BOOT 떼기"],
     install: { confirm: "This writes a fresh filesystem to the pattern partition. … On a new board there is nothing there to lose." },

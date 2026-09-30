@@ -39,7 +39,7 @@ import {
 } from "./parts";
 import KitFx from "./KitFx";
 import { devkitMaterials } from "./kitMaterials";
-import { NO_POINTER, placeTag } from "./tags";
+import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 
 // The Patternflow in the guide, put together from four files (parts.ts): the
 // v3.9 enclosure and knobs from the case's Blender source, the landing page
@@ -121,6 +121,24 @@ const KNOB_R = 0.813;
  * too small to find by touch.
  */
 const KNOB_HIT_R = 1.45;
+/**
+ * The dial round each knob: a band on the case face with a dot riding it at
+ * the knob's angle — something to take hold of and see go round, since the
+ * knobs themselves are plain black cylinders with no mark on them. Radii in
+ * model units, inside half the 31 mm between knob axes.
+ */
+const DIAL_IN = 0.98;
+const DIAL_OUT = 1.16;
+const DIAL_DOT = 0.17;
+/** Just proud of the case's front face (1.5635), under the knob skirts (1.6437). */
+const DIAL_Z = KNOB_BASE_Z - 0.06;
+/** How long a knob keeps its readout after it last moved, ms. */
+const READOUT_HOLD = 1400;
+
+function formatReadout(value: number, span: number) {
+  const digits = span >= 20 ? 0 : span >= 2 ? 1 : 2;
+  return value.toFixed(digits);
+}
 
 /**
  * How much faster than its own pace the back cover and the DevKit move.
@@ -306,6 +324,47 @@ export default function Device() {
     return () => rings.forEach((r) => scene.remove(r));
   }, [rings, scene]);
 
+  // The dials: a band and a riding dot per knob, added to the case so a
+  // pointer on them reaches the same handler as the knobs (userData.knob).
+  const dials = useMemo(
+    () =>
+      [0, 1, 2, 3].map((i) => {
+        const group = new THREE.Group();
+        const band = new THREE.Mesh(
+          new THREE.RingGeometry(DIAL_IN, DIAL_OUT, 72),
+          // A dark track on the white case, like a printed scale.
+          new THREE.MeshBasicMaterial({ color: "#1c1a18", transparent: true, opacity: 0, depthWrite: false, toneMapped: false }),
+        );
+        const spin = new THREE.Group();
+        const dot = new THREE.Mesh(
+          new THREE.CircleGeometry(DIAL_DOT, 24),
+          new THREE.MeshBasicMaterial({
+            color: new THREE.Color("#ff6a3d").multiplyScalar(1.6),
+            transparent: true,
+            opacity: 0,
+            depthWrite: false,
+            toneMapped: false,
+          }),
+        );
+        // Twelve o'clock when the knob is where it started.
+        dot.position.set(0, (DIAL_IN + DIAL_OUT) / 2, 0.004);
+        spin.add(dot);
+        group.add(band, spin);
+        const c = knobWorldCenter(i, "model");
+        group.position.set(c.x, c.y, DIAL_Z);
+        for (const o of [group, band, dot]) o.userData.knob = i;
+        return { group, band, dot, spin };
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    dials.forEach((d) => scene.add(d.group));
+    return () => dials.forEach((d) => scene.remove(d.group));
+  }, [dials, scene]);
+
+  const hovered = useRef(-1);
+
   // ── knobs under the pointer ────────────────────────────────────────────────
   const drag = useRef<{
     knob: number;
@@ -378,14 +437,14 @@ export default function Device() {
   }, []);
 
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    let o: THREE.Object3D | null = e.object;
-    while (o && !(o.name in KNOB_MESH_TO_LOGICAL)) o = o.parent;
-    if (!o) return;
+    const knob = knobUnder(e.object);
+    const knobMesh = knob < 0 ? null : parts.knobs[knob];
+    if (!knobMesh) return;
     e.stopPropagation();
-    const knob = KNOB_MESH_TO_LOGICAL[o.name];
     // The drag turns about the centre of the knob's top face as it lies on
-    // screen (the node's origin is at the knob's base).
-    const world = o.localToWorld(new THREE.Vector3(0, 0, KNOB_H));
+    // screen (the node's origin is at the knob's base), whether it began on
+    // the knob or on its dial.
+    const world = knobMesh.localToWorld(new THREE.Vector3(0, 0, KNOB_H));
     world.project(e.camera);
     const rect = (e.nativeEvent.target as HTMLElement).getBoundingClientRect();
     const cx = (world.x * 0.5 + 0.5) * rect.width + rect.left;
@@ -404,11 +463,13 @@ export default function Device() {
   };
 
   const onPointerOver = (e: ThreeEvent<PointerEvent>) => {
-    let o: THREE.Object3D | null = e.object;
-    while (o && !(o.name in KNOB_MESH_TO_LOGICAL)) o = o.parent;
-    if (o && !drag.current) document.body.style.cursor = "grab";
+    const knob = knobUnder(e.object);
+    if (knob < 0) return;
+    hovered.current = knob;
+    if (!drag.current) document.body.style.cursor = "grab";
   };
-  const onPointerOut = () => {
+  const onPointerOut = (e: ThreeEvent<PointerEvent>) => {
+    if (knobUnder(e.object) === hovered.current) hovered.current = -1;
     if (!drag.current) document.body.style.cursor = "";
   };
 
@@ -418,6 +479,7 @@ export default function Device() {
   const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const readout = useRef({ lastTurns: [0, 0, 0, 0], movedAt: [-1e9, -1e9, -1e9, -1e9], text: ["", "", "", ""] });
   const size = useThree((st) => st.size);
   // The knobs' top centres, world units (the stage's model group: geometry.ts).
   const knobTops = useMemo(() => [0, 1, 2, 3].map((i) => modelToWorld(knobWorldCenter(i, "model"))), []);
@@ -463,11 +525,54 @@ export default function Device() {
       ring.uniforms.uFocus.value += (focusTarget - ring.uniforms.uFocus.value) * Math.min(1, dt * 5);
       rings[i].position.z = KNOB_TOP_Z + 0.08 - shown.current.press[i] * KNOB_PRESS;
 
+      // Has it moved lately, or is a hand on it?
+      const ro = readout.current;
+      const nowMs = performance.now();
+      if (snap.turns[i] !== ro.lastTurns[i]) {
+        ro.lastTurns[i] = snap.turns[i];
+        ro.movedAt[i] = nowMs;
+      }
+      const held = drag.current?.knob === i || snap.down[i];
+      const live = held || hovered.current === i || nowMs - ro.movedAt[i] < READOUT_HOLD;
+      const handsOn = useGuideStore.getState().handsOn;
+
+      // The dial: faint wherever the knobs are the subject, bright while live.
+      const dial = dials[i];
+      const dialShown = sceneId === "knobs" || Boolean(s.labels) || s.focus === i || handsOn;
+      const bandTarget = live ? 0.55 : dialShown ? 0.3 : 0;
+      const dotTarget = live ? 1 : dialShown ? 0.75 : 0;
+      const bandMat = dial.band.material as THREE.MeshBasicMaterial;
+      const dotMat = dial.dot.material as THREE.MeshBasicMaterial;
+      bandMat.opacity += (bandTarget - bandMat.opacity) * Math.min(1, dt * 8);
+      dotMat.opacity += (dotTarget - dotMat.opacity) * Math.min(1, dt * 8);
+      dial.spin.rotation.z = m.rotation.z - m.userData.baseRotZ;
+      const dotScale = live ? 1.25 : 1;
+      dial.dot.scale.setScalar(dial.dot.scale.x + (dotScale - dial.dot.scale.x) * Math.min(1, dt * 10));
+
       const label = labelRefs.current[i];
       if (label) {
-        const on = Boolean(s.labels) || s.focus === i || snap.mode === "knobmap";
+        const on = Boolean(s.labels) || s.focus === i || snap.mode === "knobmap" || live;
         label.dataset.on = on ? "1" : "0";
         label.dataset.active = snap.activeKnob === i || snap.down[i] ? "1" : "0";
+        // Beside the name, what the pattern calls this knob and where it is.
+        const showVal = live && snap.mode === "run";
+        if ((label.dataset.val === "1") !== showVal) {
+          label.dataset.val = showVal ? "1" : "0";
+          forgetPillSize(label);
+        }
+        if (showVal) {
+          const r = sim.knobReadout(i);
+          const text = r.label + " " + formatReadout(r.value, r.max - r.min);
+          if (text !== ro.text[i]) {
+            ro.text[i] = text;
+            const v = label.querySelector<HTMLElement>("[data-kv]");
+            const bar = label.querySelector<HTMLElement>("[data-kbar]");
+            if (v) v.textContent = text;
+            const pct = Math.max(0, Math.min(1, (r.value - r.min) / Math.max(1e-6, r.max - r.min)));
+            if (bar) bar.style.width = Math.round(pct * 100) + "%";
+            forgetPillSize(label);
+          }
+        }
         // Beside its knob at a fixed gap in screen pixels, whatever the
         // zoom: K1/K3 to the right, over the case's margin. Left of K2/K4 is
         // the panel's edge, where the screens print their headings and
@@ -556,14 +661,32 @@ export default function Device() {
               }}
               className="guide-knob-tag"
               data-on="0"
+              data-val="0"
             >
-              {LABELS[i]}
+              <b>{LABELS[i]}</b>
+              <span className="guide-knob-val">
+                <span data-kv="" />
+                <span className="guide-knob-bar">
+                  <span data-kbar="" />
+                </span>
+              </span>
             </div>
           </Html>
         );
       })}
     </group>
   );
+}
+
+/** Which knob (logical index) an object under the pointer belongs to: a knob, its hit disc, or its dial; -1 if none. */
+function knobUnder(object: THREE.Object3D | null): number {
+  let o = object;
+  while (o) {
+    if (o.name in KNOB_MESH_TO_LOGICAL) return KNOB_MESH_TO_LOGICAL[o.name];
+    if (typeof o.userData.knob === "number") return o.userData.knob;
+    o = o.parent;
+  }
+  return -1;
 }
 
 function smoothstep(x: number, e0: number, e1: number) {

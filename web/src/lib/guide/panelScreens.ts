@@ -16,10 +16,11 @@
 // Things the port reproduces on purpose, because the panel does them:
 //  - Adafruit GFX's text wrap is on (the default; nothing in the firmware turns
 //    it off), so on the 64 px portrait line an 11th size-1 character wraps to
-//    x = 0 one line down. "TURN = SHOW" on the KNOB MAP and "patternflow" on
-//    the hotspot/UPDATE screens are 11 characters and lose their last letter to
-//    the next line on the real device, and long pattern names wrap
-//    mid-word (see drawWrappedName below).
+//    x = 0 one line down. The fixed labels that used to (KNOB MAP's
+//    "TURN = SHOW", "web console", the "patternflow" host name) were fixed in
+//    the firmware — drawCenteredFit breaks names into lines of ten — and are
+//    ported that way; long pattern names still wrap mid-word (see
+//    drawWrappedName below).
 //  - The brightness notice draws in whatever rotation is current. In RUNNING
 //    that is 0 - landscape, sideways on a panel stood in portrait - and in
 //    SELECT it is 1, where "BRIGHTNESS nn%" wraps and its bar falls off the
@@ -665,6 +666,33 @@ function drawCenteredText(g: PanelGfx, text: string, y: number, color: Rgb, size
   g.print(text);
 }
 
+// drawCenteredFit, patternflow.ino: text that can be longer than a portrait
+// line, broken into lines of at most ten characters — before a '-' or '.' in
+// reach, else before "flow", else hard at ten. Returns the y below it.
+function drawCenteredFit(g: PanelGfx, text: string, y: number, color: Rgb, lineH = 10): number {
+  const maxChars = cdiv(g.width, 6);
+  let rest = text;
+  while (rest.length > maxChars) {
+    let cut = -1;
+    for (let i = maxChars; i >= 2; i--) {
+      if (rest[i] === "-" || rest[i] === ".") {
+        cut = i;
+        break;
+      }
+    }
+    if (cut < 0) {
+      const f = rest.indexOf("flow");
+      if (f >= 2 && f <= maxChars) cut = f;
+    }
+    if (cut < 0) cut = maxChars;
+    drawCenteredText(g, rest.substring(0, cut), y, color);
+    y += lineH;
+    rest = rest.substring(cut);
+  }
+  drawCenteredText(g, rest, y, color);
+  return y + lineH;
+}
+
 // drawCenteredTextScrim, patternflow.ino:618-628.
 function drawCenteredTextScrim(g: PanelGfx, text: string, y: number, color: Rgb, size = 1): void {
   g.setTextSize(size);
@@ -793,11 +821,7 @@ function drawNetworkInfo(g: PanelGfx, o: Extract<PanelOverlay, { kind: "network"
   const wifiUp = o.connected ?? o.wifi === "CONNECTED";
   if (!wifiUp && o.hotspotName) {
     drawCenteredText(g, "HOTSPOT", 50, PANEL_COLORS.green);
-    const name = o.hotspotName;
-    let dash = name.indexOf("-");
-    if (dash < 0) dash = name.length;
-    drawCenteredText(g, name.substring(0, dash), 62, PANEL_COLORS.white);
-    drawCenteredText(g, name.substring(dash), 72, PANEL_COLORS.white);
+    drawCenteredFit(g, o.hotspotName, 62, PANEL_COLORS.white);
   } else {
     drawCenteredText(g, o.wifi, 50, wifiUp ? PANEL_COLORS.green : PANEL_COLORS.blue);
     drawTextSplitIp(g, o.ip, 62, 72);
@@ -849,10 +873,10 @@ function drawUpdateScreen(g: PanelGfx, o: Extract<PanelOverlay, { kind: "update"
     else drawCenteredText(g, wifiUp ? "READY" : "NO WIFI", 21, wifiUp ? PANEL_COLORS.green : PANEL_COLORS.red);
     if (wifiUp) {
       drawCenteredText(g, "DROP .BIN:", 36, PANEL_COLORS.dim);
-      drawCenteredText(g, "patternflow", 48, PANEL_COLORS.white); // PF_OTA_HOSTNAME, net_config.h:150
-      drawCenteredText(g, ".local", 58, PANEL_COLORS.white);
-      drawCenteredText(g, "/update", 68, PANEL_COLORS.white);
-      drawTextSplitIp(g, o.ip ?? "-", 82, 92);
+      // PF_OTA_HOSTNAME (net_config.h) + ".local": "pattern" / "flow.local".
+      const y = drawCenteredFit(g, "patternflow.local", 48, PANEL_COLORS.white);
+      drawCenteredText(g, "/update", y, PANEL_COLORS.white);
+      drawTextSplitIp(g, o.ip ?? "-", y + 14, y + 24);
     } else {
       drawCenteredText(g, wifi, 52, PANEL_COLORS.blue);
     }
@@ -878,7 +902,7 @@ function drawKnobMap(g: PanelGfx, active: readonly boolean[]): void {
   g.setTextColor(PANEL_COLORS.white);
   g.setCursor(tx + 6, ty);
   g.print(title);
-  drawCenteredText(g, "TURN = SHOW", cdiv(h, 2) + 2, PANEL_COLORS.dim);
+  drawCenteredText(g, "TURN=SHOW", cdiv(h, 2) + 2, PANEL_COLORS.dim);
   drawCenteredText(g, "K3 = EXIT", cdiv(h, 2) + 12, PANEL_COLORS.dim);
 
   // Front view: K1 top-right, K2 top-left, K3 bottom-right, K4 bottom-left.
