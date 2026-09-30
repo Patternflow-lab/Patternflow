@@ -53,6 +53,7 @@ import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 const ledFragment = `
 uniform sampler2D uTex;
 uniform float uPower;
+uniform float uHot;
 varying vec2 vUv;
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
@@ -66,12 +67,23 @@ void main() {
   float lod = smoothstep(0.0, 0.29, fw);
   float alpha = mix(dotMask, 1.0, lod);
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
-  col *= luma > 0.75 ? 2.35 : 0.9;
+  col *= luma > 0.75 ? uHot : 0.9;
   float unlit = 0.018;
   col = mix(vec3(unlit), col, step(0.01, length(col)));
   gl_FragColor = vec4(col * alpha * uPower + vec3(unlit) * (1.0 - uPower), 1.0);
 }
 `;
+
+// How hard a bright LED pixel (luma > 0.75) is pushed: past the bloom's
+// threshold (GuideCanvas, 1.15) so it glows. While the board plays a reader's
+// Lab draft, a panel crowded with bright pixels is pushed less — from
+// HOT_FRACTION_FROM of the panel that bright to HOT_FRACTION_TO — down to
+// HOT_GAIN_CROWDED, which keeps a white pixel (0.8 at the default
+// brightness) just under the threshold: white, without a haze over the black.
+const HOT_GAIN = 2.35;
+const HOT_GAIN_CROWDED = 1.3;
+const HOT_FRACTION_FROM = 0.08;
+const HOT_FRACTION_TO = 0.3;
 
 // A ring drawn on a plane: `uFill` of the circle as a bright arc (a hold on
 // its way to a long-press) over a faint full ring (the knob in focus).
@@ -246,7 +258,7 @@ export default function Device() {
   const ledMat = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { uTex: { value: texture }, uPower: { value: 0 } },
+        uniforms: { uTex: { value: texture }, uPower: { value: 0 }, uHot: { value: HOT_GAIN } },
         vertexShader: patternVert,
         fragmentShader: ledFragment,
       }),
@@ -476,7 +488,7 @@ export default function Device() {
   // ── the frame ──────────────────────────────────────────────────────────────
   // back: sliderPose's travel (0 shut, SLIDER_OFF off its rails, 1 laid
   // down); esp: devkitPose's travel (0 seated, 1 presented).
-  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0 });
+  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0, hot: HOT_GAIN });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const readout = useRef({ lastTurns: [0, 0, 0, 0], movedAt: [-1e9, -1e9, -1e9, -1e9], text: ["", "", "", ""] });
@@ -504,6 +516,25 @@ export default function Device() {
     const powerTarget = snap.mode === "off" ? 0 : 1;
     shown.current.power += (powerTarget - shown.current.power) * Math.min(1, dt * 6);
     ledMat.uniforms.uPower.value = shown.current.power;
+    // Bright pixels are pushed past the bloom's threshold so a lit LED glows
+    // (HOT_GAIN). The board's own patterns were set up under that glow; a
+    // reader's Lab draft can be anything, and one that is half white — the
+    // Lab's first pattern is — glowed into a grey haze with no black left in
+    // it. So while a draft plays, the more of the panel is that bright, the
+    // less it is pushed, down to just under the threshold.
+    let hotTarget = HOT_GAIN;
+    if (snap.mirror) {
+      let hot = 0;
+      let n = 0;
+      for (let i = 0; i < src.length; i += 16) {
+        n++;
+        if (0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2] > 0.75 * 255) hot++;
+      }
+      const k = THREE.MathUtils.clamp((hot / Math.max(1, n) - HOT_FRACTION_FROM) / (HOT_FRACTION_TO - HOT_FRACTION_FROM), 0, 1);
+      hotTarget = THREE.MathUtils.lerp(HOT_GAIN, HOT_GAIN_CROWDED, k);
+    }
+    shown.current.hot += (hotTarget - shown.current.hot) * Math.min(1, dt * 4);
+    ledMat.uniforms.uHot.value = shown.current.hot;
 
     // Knobs: rotation about their own axis follows the detents, a press
     // pushes the cap in along it.
@@ -660,6 +691,7 @@ export default function Device() {
                 labelRefs.current[i] = el;
               }}
               className="guide-knob-tag"
+              data-knob={i}
               data-on="0"
               data-val="0"
             >

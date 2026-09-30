@@ -102,6 +102,18 @@ export const VIEWS: Record<ViewName, View> = {
     0.94,
   ),
   screenKnobs: fromPos(v(1.8, 0.9, 8.6), v(0.25, 0.15, 0.1), DEVICE, 0.94),
+  // The device beside Pattern Lab (the make page's 06), playing the reader's
+  // draft: nearly square on, so the panel reads as the lab's preview does,
+  // with the knob column's side just showing. The frame reaches above the
+  // case for the "Your Lab draft" pill over it (MirrorTag). With the lab's
+  // window open the free area is the strip left of the window (stageArea.ts)
+  // and the fit brings the whole device into it.
+  labSide: fromPos(
+    v(1.25, 0.75, 8.8),
+    v(0.15, 0.2, 0.1),
+    [...DEVICE, v(-0.9, 2.02, 0.1), v(0.9, 2.02, 0.1)],
+    0.94,
+  ),
   // Close on the knobs but with the top of the panel in frame, from a little
   // below and to the right so the case is a lit edge rather than a white wall.
   knobs: fromPos(

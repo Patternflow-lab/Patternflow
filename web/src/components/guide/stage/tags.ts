@@ -18,6 +18,9 @@ export type TagSide = "left" | "right" | "up" | "down";
  */
 export const NO_POINTER = { pointerEvents: "none" } as const;
 
+/** How close to the screen's edge a pill may come, px. */
+const EDGE = 8;
+
 const a = new THREE.Vector3();
 const b = new THREE.Vector3();
 const right = new THREE.Vector3();
@@ -78,15 +81,28 @@ export function placeTag(
     near = Math.max(near, d + gap);
   }
   const { w, h } = pillSize(el);
+  // Where the point is on screen: the pill is centred on it before the translate.
+  const cx = (a.x * 0.5 + 0.5) * size.width;
+  const cy = (-a.y * 0.5 + 0.5) * size.height;
+  // A pill beside a knob near the edge of a narrow screen ran off it (K3's on
+  // a phone): it stays on its side, pushed back onto the screen — over the
+  // edge of its knob rather than over the panel on the other side.
+  const place = side;
   let tx = 0;
   let ty = 0;
-  if (side === "right") tx = near + w / 2;
-  else if (side === "left") tx = -(near + w / 2);
-  else if (side === "up") ty = -(near + h / 2);
+  if (place === "right") tx = near + w / 2;
+  else if (place === "left") tx = -(near + w / 2);
+  else if (place === "up") ty = -(near + h / 2);
   else ty = near + h / 2;
   ty += nudgeY;
+  if (w > 0 && size.width > w + 2 * EDGE) {
+    tx = Math.min(Math.max(tx, EDGE + w / 2 - cx), size.width - EDGE - w / 2 - cx);
+  }
+  if (h > 0 && size.height > h + 2 * EDGE) {
+    ty = Math.min(Math.max(ty, EDGE + h / 2 - cy), size.height - EDGE - h / 2 - cy);
+  }
   el.style.translate = `${tx.toFixed(1)}px ${ty.toFixed(1)}px`;
-  el.dataset.side = side;
+  el.dataset.side = place;
   const lead = near - rpx - 3;
   if (clear && lead > 6) {
     el.dataset.lead = "1";

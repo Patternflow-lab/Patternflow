@@ -14,16 +14,44 @@ import Device from "./Device";
 import Fx from "./Fx";
 import { LED_CENTER_WORLD, MODEL_OFFSET, MODEL_SCALE } from "./geometry";
 import { VIEWS } from "./views";
+import MirrorTag from "./MirrorTag";
+import { stageArea } from "./stageArea";
 import { getSim, useGuideStore } from "../store";
 import { stepOf, type DemoAction } from "../scenes";
 import { kitState } from "../timing";
+import { followLabDraft, labDraft, preloadLabDraft } from "./labFeed";
+import type { LabMirror } from "@/lib/guide/labMirror";
 
 // The stage: one canvas behind the whole page. It never scrolls; the page
 // scrolls over it and the Director below turns the scroll position into
 // what the device does and where the camera stands.
 
 function Director() {
-  const last = useRef({ scene: "", step: -1, clock: 0, fired: new Set<number>() });
+  // `mirror` starts unset, not null: the board outlives a page (store.ts
+  // getSim), and one left playing a draft must be put back on the first frame.
+  const last = useRef({ scene: "", step: -1, clock: 0, fired: new Set<number>(), mirror: undefined as LabMirror | null | undefined });
+
+  // Follow the lab's saves; on the make page, load the reader and read the
+  // draft once while the browser is idle, so the step that plays it doesn't
+  // parse it mid-move (labFeed.ts).
+  const page = useGuideStore((s) => s.page);
+  useEffect(() => {
+    // For the scratchpad's checks (as Device.tsx exposes its scene): the board, read-only use.
+    if (process.env.NODE_ENV !== "production") (window as unknown as { __pfGuideSim?: unknown }).__pfGuideSim = getSim();
+    const off = followLabDraft();
+    let idle = 0;
+    let timer = 0;
+    if (page === "make") {
+      // Safari has no requestIdleCallback.
+      if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(preloadLabDraft, { timeout: 2000 });
+      else timer = setTimeout(preloadLabDraft, 1200) as unknown as number;
+    }
+    return () => {
+      off();
+      if (idle) window.cancelIdleCallback(idle);
+      if (timer) clearTimeout(timer);
+    };
+  }, [page]);
 
   useFrame((_, dt) => {
     const sim = getSim();
@@ -41,6 +69,14 @@ function Director() {
       if (!s.power) sim.setMode("off");
       else if (s.mode) sim.setMode(s.mode === "off" ? "run" : s.mode);
       else sim.setMode("run");
+    }
+
+    // A mirror step plays the reader's own Lab draft, and follows its saves;
+    // any other step puts the board's own pattern back as it was.
+    const want = s.mirror ? labDraft() : null;
+    if (want !== d.mirror) {
+      d.mirror = want;
+      sim.setMirror(want);
     }
 
     // The scripted demo: each action once per loop, paused while the reader
@@ -254,7 +290,8 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
       c.freeKey = key;
       c.freeAge = 0;
     }
-    const free = c.free;
+    // A window lifted over the page (LabWindow) says what it leaves free.
+    const free = stageArea() ?? c.free;
 
     // Where this step wants the camera, in spherical terms around its target.
     let wantAz = Math.atan2(view.dir.x, view.dir.z);
@@ -510,6 +547,7 @@ export default function GuideCanvas() {
         <group scale={MODEL_SCALE} position={MODEL_OFFSET}>
           <Device />
         </group>
+        <MirrorTag />
         <Warmup />
       </Suspense>
       <Director />

@@ -1,5 +1,8 @@
 import type { SimMode, SimPack } from "@/lib/guide/deviceSim";
 import { kitHeld } from "./timing";
+import { useGuideStore, type GuidePageId } from "./store";
+import { COMMUNITY_SCENE } from "./scenes/community";
+import { LAB_SCENE } from "./scenes/lab";
 
 // The script. Each scene is a band of the page; each step is one block of
 // copy inside it, and the step whose block crosses the middle of the viewport
@@ -8,6 +11,12 @@ import { kitHeld } from "./timing";
 // device, the camera and the effects to match.
 //
 // Knobs are logical: 0..3 = K1..K4, as the device numbers them.
+//
+// The guide has two pages (pages.ts), each with its own script: SCENES is
+// the first page (/guide, 01–04), MAKE_SCENES the second (/guide/make,
+// 05–06), whose chapters are in scenes/. Both pages open on a scene called
+// "opening" and end on one called "next"; which page's is meant is the
+// store's `page`.
 
 export type ViewName =
   | "hero"
@@ -19,7 +28,9 @@ export type ViewName =
   | "esp"
   | "espPorts"
   | "espButtons"
-  | "wide";
+  | "wide"
+  /** Pattern Lab beside the device (stage/views.ts). */
+  | "labSide";
 
 export type DemoAction =
   | { at: number; press: number }
@@ -59,6 +70,11 @@ export type Step = {
    * the reader has to watch loop — BOOT and RST — gets more scroll to stay on.
    */
   dwell?: number;
+  /**
+   * The device plays the reader's own Pattern Lab draft (read from the
+   * browser's saved draft, never written) instead of the deck's pattern.
+   */
+  mirror?: boolean;
 };
 
 export type SceneDef = { id: string; steps: Step[] };
@@ -261,8 +277,32 @@ export const SCENES: SceneDef[] = [
   },
 ];
 
-export function sceneById(id: string): SceneDef | undefined {
-  return SCENES.find((s) => s.id === id);
+// The second page, "Make your own": the device arrives powered, the Basics
+// deck already on it, running — the first page ended there, and a reader
+// who lands here directly has done that part.
+export const MAKE_SCENES: SceneDef[] = [
+  {
+    id: "opening",
+    steps: [{ view: "hero", spin: 0.22, power: true, pack: "basics", mode: "run" }],
+  },
+  COMMUNITY_SCENE,
+  LAB_SCENE,
+  {
+    id: "next",
+    steps: [{ view: "hero", spin: 0.18, power: true, pack: "basics", mode: "run" }],
+  },
+];
+
+const PAGE_SCENES: Record<GuidePageId, SceneDef[]> = { start: SCENES, make: MAKE_SCENES };
+
+/** A page's script, opening to end. */
+export function scenesOf(page: GuidePageId): SceneDef[] {
+  return PAGE_SCENES[page];
+}
+
+/** A scene of the page the reader is on (or of `page`). */
+export function sceneById(id: string, page: GuidePageId = useGuideStore.getState().page): SceneDef | undefined {
+  return scenesOf(page).find((s) => s.id === id);
 }
 
 // A step as the stage should play it right now. The one difference from the
@@ -272,7 +312,8 @@ export function sceneById(id: string): SceneDef | undefined {
 const heldSteps = new WeakMap<Step, Step>();
 
 export function stepOf(scene: string, step: number): Step {
-  const def = sceneById(scene) ?? SCENES[0];
+  const page = useGuideStore.getState().page;
+  const def = sceneById(scene, page) ?? scenesOf(page)[0];
   const s = def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
   if ((s.esp ?? 0) < 1 && kitHeld()) {
     let held = heldSteps.get(s);

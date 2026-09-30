@@ -9,7 +9,16 @@ import { DeviceSim } from "@/lib/guide/deviceSim";
 
 export type GuideLang = "en" | "ko";
 
+/** Which page of the guide is open (pages.ts): "start" is /guide, 01–04; "make" is /guide/make, 05–06. */
+export type GuidePageId = "start" | "make";
+
 type GuideState = {
+  /**
+   * The page the reader is on. Scene ids are the page's own — both pages
+   * have an "opening" and a "next" — so the stage looks steps up in this
+   * page's script (scenes.ts stepOf).
+   */
+  page: GuidePageId;
   /** The scene whose band contains the middle of the viewport. */
   scene: string;
   /** 0..1 through that scene. */
@@ -29,6 +38,8 @@ type GuideState = {
   flasher: { set: string; index: number; at: number } | null;
   /** The DevKit is held up in front of the reader (KitFx), so a card about it can start. */
   kitPresented: boolean;
+  /** A guide page has mounted: its script, from its top (the scroll tracker takes over at once). */
+  enterPage: (page: GuidePageId) => void;
   setScroll: (scene: string, progress: number, step: number) => void;
   setHandsOn: (on: boolean) => void;
   setNarrow: (narrow: boolean) => void;
@@ -37,6 +48,7 @@ type GuideState = {
 };
 
 export const useGuideStore = create<GuideState>((set, get) => ({
+  page: "start",
   scene: "opening",
   progress: 0,
   step: 0,
@@ -44,6 +56,10 @@ export const useGuideStore = create<GuideState>((set, get) => ({
   narrow: false,
   flasher: null,
   kitPresented: false,
+  enterPage: (page) => {
+    if (get().page === page && get().scene === "opening" && get().step === 0) return;
+    set({ page, scene: "opening", progress: 0, step: 0, handsOn: false, flasher: null });
+  },
   setScroll: (scene, progress, step) => {
     const s = get();
     if (s.scene !== scene || s.step !== step) {
