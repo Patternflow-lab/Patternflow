@@ -39,6 +39,7 @@
 
 #include "core_http.h"
 #include "core_build.h"    // PFBuild::id()
+#include "core_crash.h"    // the `crash` object and DELETE /api/crash
 #include "core_bus.h"
 #include "core_canvas.h"   // presentUs
 #include "core_send.h"
@@ -58,6 +59,8 @@ extern bool nvsUsable;
 extern uint32_t nvsFailures;
 // Panel brightness as set; the sketch owns it (K1 and /api/display move it).
 extern uint8_t currentBrightness;
+// The Arduino core's handle for the task loop() runs on (cores/esp32/main.cpp).
+extern TaskHandle_t loopTaskHandle;
 
 namespace PatternflowStatusHttp {
 
@@ -128,6 +131,86 @@ inline void appendText(String& json, const char* s) {
   }
 }
 
+// One address out of a core dump. An address inside the module the breadcrumb
+// named is written "+0x<offset into its code>": the raw value is wherever
+// that module's code was placed on that boot - internal RAM at 0x40xxxxxx, or
+// PSRAM seen through the instruction bus at 0x43xxxxxx - which no ELF can
+// decode, while the offset is what the .pfm's own symbol table resolves.
+// Everything else is firmware code and goes out as the address addr2line
+// wants.
+inline void appendCrashAddress(String& json, const PFCrash::Record& r, uint32_t address) {
+  char text[12];
+  uint32_t offset;
+  if (PFCrash::inModule(r, address, offset)) {
+    snprintf(text, sizeof(text), "+0x%x", (unsigned)offset);
+  } else {
+    snprintf(text, sizeof(text), "0x%08x", (unsigned)address);
+  }
+  json += '"';
+  json += text;
+  json += '"';
+}
+
+// `crash`: what the last death left (core_crash.h), absent on a board with
+// nothing to report - which is nearly every board, so nearly every reply is
+// unchanged. Two halves that come and go separately. pattern/phase/code are
+// the breadcrumb and are only there on the boot that follows a panic or a
+// watchdog, describing the reset `resetReason` names. `dump` is the core dump
+// and stays through power cycles until the next panic replaces it or DELETE
+// /api/crash erases it; fromThisReset says whether the two are one event.
+//
+// The task name, the slug and the build hash are escaped like any other text
+// nobody here chose: they come out of flash and uninitialised RAM, and a dump
+// written by some other firmware is only probably well-formed.
+inline void appendCrash(String& json) {
+  const PFCrash::Record* r = PFCrash::record;
+  if (!r) return;
+  char hex[12];
+  json += "\"crash\":{";
+  if (r->trailed) {
+    json += "\"pattern\":\"";
+    PatternflowHttp::appendJsonText(json, r->slug);
+    json += "\",\"phase\":\"";
+    json += PFCrash::phaseName(r->phase);
+    json += '"';
+    if (r->codeSize) {
+      snprintf(hex, sizeof(hex), "0x%08x", (unsigned)r->codeBase);
+      json += ",\"code\":{\"base\":\"";
+      json += hex;
+      json += "\",\"size\":";
+      json += r->codeSize;
+      json += '}';
+    }
+  }
+  if (r->dumped) {
+    if (r->trailed) json += ',';
+    json += "\"dump\":{\"fromThisReset\":";
+    json += r->dumpFromThisReset ? "true" : "false";
+    json += ",\"task\":\"";
+    PatternflowHttp::appendJsonText(json, r->task);
+    json += "\",\"cause\":";
+    json += r->cause;
+    snprintf(hex, sizeof(hex), "0x%08x", (unsigned)r->vaddr);
+    json += ",\"vaddr\":\"";
+    json += hex;
+    json += "\",\"pc\":";
+    appendCrashAddress(json, *r, r->pc);
+    json += ",\"backtrace\":[";
+    for (uint8_t i = 0; i < r->depth; i++) {
+      if (i) json += ',';
+      appendCrashAddress(json, *r, r->frames[i]);
+    }
+    json += "],\"corrupted\":";
+    json += r->corrupted ? "true" : "false";
+    json += ",\"build\":\"";
+    PatternflowHttp::appendJsonText(json, r->build);
+    json += "\",\"bytes\":";
+    json += r->bytes;
+    json += '}';
+  }
+  json += "},";
+}
+
 // What is keeping the device from answering promptly, as a word an open
 // console slows its polling for: "update" while a firmware image is arriving
 // or the reboot after it is due, "storage" while the pattern volume is being
@@ -193,6 +276,8 @@ inline void handleStatus() {
   json += "\"resetReason\":\"";
   json += resetReasonName();
   json += "\",";
+  // And when that word is a bug, where it happened.
+  appendCrash(json);
   json += "\"panel\":\"";
   json += PANEL_RES_W;
   json += 'x';
@@ -362,6 +447,12 @@ inline void handleStatus() {
   json += ",\"netMaintenance\":{\"calls\":"; json += PFNetMaintenance::calls;
   json += ",\"maxGapMs\":"; json += PFNetMaintenance::maxGapMs;
   json += "}";
+  // The loop task's stack, the least it has ever had free. The blit runs
+  // inside whatever frame a pattern's draw() is holding and takes about 640 B
+  // of it; a module with a large local in draw() is what would bring this
+  // down, and until this field nothing reported it.
+  json += ",\"loopStackMin\":";
+  json += loopTaskHandle ? (uint32_t)uxTaskGetStackHighWaterMark(loopTaskHandle) : 0;
   json += ",\"netStackMin\":";
   json += PatternflowNetTask::stackMinFree;
   // Handlers that had to run on the loop task, and the longest one waited.
@@ -377,6 +468,21 @@ inline void handleStatus() {
   json += PFLoopSync::served;
   json += ",\"loopSyncMaxUs\":";
   json += PFLoopSync::maxWaitUs;
+  // How long since loop() was last at its frame boundary, read straight off
+  // the stamp and never through the loop: this is the number that says the
+  // loop is the thing that is stuck, so it cannot wait on the loop to be
+  // produced. A frame or two is a running panel. Seconds, and larger on the
+  // next poll by the time between the polls, is a pattern that is not coming
+  // back from draw() - `active` above names it, and Reboot still answers.
+  // One reading for both fields, so a reply never says an age under the
+  // limit and stalled in the same breath.
+  const uint32_t loopAge = PFLoopSync::loopAgeMs();
+  json += ",\"loopAgeMs\":";
+  json += loopAge;
+  json += ",\"loopStalled\":";
+  json += loopAge >= PF_LOOP_STALL_MS ? "true" : "false";
+  json += ",\"loopSyncGaveUp\":";
+  json += PFLoopSync::gaveUp;
   json += ",\"colorBits\":";
   json += dma_display->getCfg().getPixelColorDepthBits();
   json += ",\"refreshHz\":";
@@ -402,7 +508,11 @@ inline void handleStatus() {
   json += PFModuleLoader::lastInternalBytes;
   json += ",\"psram\":";
   json += PFModuleLoader::lastPsramBytes;
-  json += "}";
+  // Where the resident module's code runs from. In PSRAM it is counted in
+  // `psram` above and costs the services nothing.
+  json += ",\"code\":\"";
+  json += PFModuleLoader::lastCodeExternal ? "psram" : "internal";
+  json += "\"}";
   json += ",\"moduleMemory\":{\"reserve\":"; json += PF_MODULE_INTERNAL_RESERVE;
   json += ",\"runtimeBytes\":"; json += PFModuleLoader::runtimeBytes;
   json += ",\"runtimePeakBytes\":"; json += PFModuleLoader::runtimePeakBytes;
@@ -416,6 +526,9 @@ inline void handleStatus() {
   // codeBytes <= budget, and both numbers are readable while it is running.
   json += ",\"budget\":"; json += (uint32_t)PFModuleMemory::budget();
   json += ",\"codeBytes\":"; json += PFModuleLoader::lastCodeBytes;
+  // The rule in force for where code goes (core_module_memory.h): 2 as built,
+  // 0 once a PSRAM placement has failed to verify on this unit since boot.
+  json += ",\"codePolicy\":"; json += PFModuleMemory::codeRule();
   json += ",\"execLargest\":";
   json += heap_caps_get_largest_free_block(PFModuleMemory::internalCode);
   json += ",\"refusals\":"; json += PFModuleMemory::refusals;
@@ -443,6 +556,29 @@ inline void handleStatus() {
 
   server().sendHeader("Cache-Control", "no-store");
   server().send(200, "application/json", json);
+}
+
+// DELETE /api/crash
+//
+// Erases the core dump and drops the record, so `crash` leaves the status
+// reply. Nothing else clears it and that is deliberate: the dump has to
+// outlive the power cycle a person does before they think to look, so it
+// stays until a newer panic replaces it or somebody says they have read it.
+// 404 when there was nothing, as DELETE /api/wifi does for an unknown name.
+//
+// The erase is 64 KB of flash and holds both cores for as long as that takes;
+// the panel keeps its last frame meanwhile. It runs here and not through the
+// loop task because it touches nothing a frame is using.
+inline void handleCrashClear() {
+  PatternflowPatternsHttp::noteConsoleApiCall();
+  server().sendHeader("Cache-Control", "no-store");
+  if (!PFCrash::clear()) {
+    server().send(404, "application/json",
+                  "{\"ok\":false,\"error\":\"no crash recorded\"}");
+    return;
+  }
+  Serial.println("[CRASH] core dump erased, record cleared");
+  server().send(200, "application/json", "{\"ok\":true}");
 }
 
 inline void handleIndex() {
@@ -588,6 +724,7 @@ inline void begin() {
 
   server().on("/status", HTTP_GET, handleIndex);
   server().on("/api/status", HTTP_GET, handleStatus);
+  server().on("/api/crash", HTTP_DELETE, handleCrashClear);
   server().on("/api/sleep", HTTP_POST, handleSleep);
   server().on("/api/params", HTTP_POST, handleParams);
 

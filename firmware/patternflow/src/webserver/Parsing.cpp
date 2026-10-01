@@ -92,6 +92,9 @@ static char* readBytesWithTimeout(WiFiClient& client, size_t maxLength, size_t& 
 // body on timeout (which still aborts the request). readBytesWithTimeout()
 // and _uploadReadByte() already delay between checks and are left as they are.
 
+// PATTERNFLOW FIX (Fix 5): the longest multipart boundary a request may name.
+static const unsigned PF_MAX_BOUNDARY = 70;
+
 // True once a byte is waiting. False when the stream timeout passes with
 // nothing arriving, or the client has disconnected.
 static bool waitForByte(WiFiClient& client)
@@ -111,13 +114,20 @@ static bool waitForByte(WiFiClient& client)
 // readStringUntil('\n') pair it replaces: read up to the CR, then discard
 // through the LF. A line that times out part-way comes back short, and the
 // LF is only waited for once a CR has actually been seen.
-static String readLine(WiFiClient& client)
+//
+// PATTERNFLOW FIX (Fix 4): `whole`, when asked for, says whether the line
+// actually ended. An empty String means two different things here - a blank
+// line, or nothing arriving at all - and a caller that loops until it sees a
+// particular line has to know which, or it loops for ever on a peer that left.
+static String readLine(WiFiClient& client, bool* whole = nullptr)
 {
   String line;
+  if (whole) *whole = false;
   while (waitForByte(client)) {
     int c = client.read();
     if (c < 0) break;
     if (c == '\r') {
+      if (whole) *whole = true;
       while (waitForByte(client)) {
         c = client.read();
         if (c < 0 || c == '\n') break;
@@ -243,8 +253,22 @@ bool WebServer::_parseRequest(WiFiClient& client) {
       }
     }
 
-    if (!isForm && _currentHandler && _currentHandler->canRaw(_currentUri)){
+    // PATTERNFLOW FIX (Fix 5): the raw path is for routes whose body callback
+    // was written for a raw body. canRaw() is true for ANY route that has a
+    // body callback and is not a GET, so a POST that is not multipart, sent to
+    // a multipart upload route, was handed to that route's upload callback as
+    // a raw body - and the callback's first line, server().upload(), is then
+    // a reference through a null pointer. `curl -X POST /api/patterns` (or
+    // /update), with no body at all, panicked the board. A route registered
+    // for POST with a body callback is a multipart route here; its plain
+    // POSTs go to the plain path below and reach the completion handler.
+    if (!isForm && _currentHandler && _currentHandler->canRaw(_currentUri) &&
+        !_currentHandler->canUpload(_currentUri)){
       log_v("Parse raw");
+      // PATTERNFLOW FIX (Fix 5): a raw request has a query string too. Stock
+      // never parsed it on this path, so `PUT /update?size=N` found no size -
+      // and arg() answered with whatever the previous request had carried.
+      _parseArguments(searchStr);
       _currentRaw.reset(new HTTPRaw());
       _currentRaw->status = RAW_START;
       _currentRaw->totalSize = 0;
@@ -306,6 +330,17 @@ bool WebServer::_parseRequest(WiFiClient& client) {
       // it IS a form
       _parseArguments(searchStr);
       if (!_parseForm(client, boundaryStr, _clientContentLength)) {
+        // PATTERNFLOW FIX (Fix 4): a form given up on must not leave its
+        // finished fields behind. arg() and hasArg() look in _postArgs
+        // first, and nothing cleared it until the next multipart request -
+        // so a field from the abandoned form answered for the arguments of
+        // every plain request after it (an `index=3` picking the pattern
+        // for a later ?index=7, a `last=0` holding every later upload open).
+        if (_postArgs) {
+          delete[] _postArgs;
+          _postArgs = nullptr;
+        }
+        _postArgsLen = 0;
         return false;
       }
     }
@@ -452,6 +487,12 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
     ++retry;
   } while (line.length() == 0 && retry < 3);
 
+  // PATTERNFLOW FIX (Fix 5): a boundary is at most 70 characters (RFC 2046).
+  // Stock sized a stack array from whatever the Content-Type header said, on
+  // a task with an 8 KB stack: a 9,000-character boundary was a stack
+  // overflow and a reboot, from one request.
+  if (boundary.length() > PF_MAX_BOUNDARY) return false;
+
   //start reading the form
   if (line == ("--"+boundary)){
    if(_postArgs) delete[] _postArgs;
@@ -464,7 +505,21 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
       String argFilename;
       bool argIsFile = false;
 
-      line = readLine(client);
+      // PATTERNFLOW FIX (Fix 4): this loop had no way out but a well-formed
+      // part. A body that stopped after its first boundary - the sender
+      // closed, or went quiet - came back as an empty line every time, the
+      // test below failed, and control fell to the top again: with the peer
+      // gone waitForByte() returns at once, so it was a spin on pf-net with
+      // no delay in it, and the Core-0 watchdog rebooted the board 5 s later.
+      // One request, to any route. A line that never ended means the form is
+      // truncated and no later line is coming either. If a file part of this
+      // form was already delivered, its handler is told the upload was
+      // aborted - which is what the stock code does one line after a file
+      // ends when the peer has gone - because a handler that latched state
+      // at the file's start releases it only on completion or abort.
+      bool whole = false;
+      line = readLine(client, &whole);
+      if (!whole) return _currentUpload ? _parseFormUploadAborted() : false;
       if (line.length() > 19 && line.substring(0, 19).equalsIgnoreCase(F("Content-Disposition"))){
         int nameStart = line.indexOf('=');
         if (nameStart != -1){
@@ -493,8 +548,14 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
           log_v("PostArg Type: %s", argType.c_str());
           if (!argIsFile){
             while(1){
-              line = readLine(client);
+              // PATTERNFLOW FIX (Fix 4): same shape, and worse - each pass
+              // also grew argValue by a byte. The boundary is tested first so
+              // a closing boundary sent without its CR/LF still ends the form
+              // as it did; anything else that did not end is a truncation.
+              bool whole = false;
+              line = readLine(client, &whole);
               if (line.startsWith("--"+boundary)) break;
+              if (!whole) return _currentUpload ? _parseFormUploadAborted() : false;
               if (argValue.length() > 0) argValue += "\n";
               argValue += line;
             }
@@ -525,7 +586,7 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
             _currentUpload->status = UPLOAD_FILE_WRITE;
 
             int fastBoundaryLen = 4 /* \r\n-- */ + boundary.length() + 1 /* \0 */;
-            char fastBoundary[ fastBoundaryLen ];
+            char fastBoundary[ 4 + PF_MAX_BOUNDARY + 1 ];   // PATTERNFLOW FIX (Fix 5): bounded above, no longer sized by the request
             snprintf(fastBoundary, fastBoundaryLen, "\r\n--%s", boundary.c_str());
             int boundaryPtr = 0;
             while ( true ) {

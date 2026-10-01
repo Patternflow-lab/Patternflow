@@ -296,6 +296,101 @@ inline void displayNameFromSlug(const char* slug, char* out, size_t outSize) {
   out[n] = '\0';
 }
 
+// A JSON string's value as UTF-8, read from just past its opening quote.
+// False when the string never closes or decodes to nothing.
+//
+// This was `indexOf('"')`: stop at the next quote, copy what lies between. A
+// name written as  Say \"hi\"  therefore ended at the first escaped quote, as
+// a name ending in a backslash - which then ate the closing quote of every
+// JSON reply it was written into, and /api/patterns stopped parsing. And the
+// sidecars the build writes spell every non-ASCII character as \uXXXX, so a
+// name like "Dynamic Moiré" was kept as backslash-u text: harmless while it
+// was passed through raw and the browser decoded it, wrong the moment the
+// reply escapes backslashes as it has to.
+//
+// So this decodes: \" \\ \/ lose their backslash, \uXXXX (and a surrogate
+// pair) become UTF-8, the control escapes are dropped. The stored name is
+// then the same text the module's own NAME carries once it has loaded. A
+// character that will not fit is left out whole - the old copy could cut a
+// multi-byte sequence in half and hand a strict client invalid UTF-8.
+inline bool jsonStringValue(const char* text, char* out, size_t outSize) {
+  if (!text || !out || outSize == 0) return false;
+  auto hex4 = [](const char* h, uint32_t& value) {
+    value = 0;
+    for (int i = 0; i < 4; ++i) {
+      const char c = h[i];
+      uint32_t digit;
+      if (c >= '0' && c <= '9') digit = (uint32_t)(c - '0');
+      else if (c >= 'a' && c <= 'f') digit = (uint32_t)(c - 'a' + 10);
+      else if (c >= 'A' && c <= 'F') digit = (uint32_t)(c - 'A' + 10);
+      else return false;
+      value = (value << 4) | digit;
+    }
+    return true;
+  };
+  size_t n = 0;
+  bool full = false;      // once a character has not fitted, nothing later is added
+  auto put = [&](const char* bytes, size_t count) {
+    if (full || n + count + 1 > outSize) { full = true; return; }
+    memcpy(out + n, bytes, count);
+    n += count;
+  };
+  bool closed = false;
+  while (*text) {
+    const uint8_t c = (uint8_t)*text;
+    if (c == '"') { closed = true; break; }
+    if (c == '\\') {
+      const char e = text[1];
+      if (e == '\0') break;
+      if (e == 'u') {
+        uint32_t code;
+        if (!hex4(text + 2, code)) break;
+        text += 6;
+        if (code >= 0xD800 && code <= 0xDBFF && text[0] == '\\' && text[1] == 'u') {
+          uint32_t low;
+          if (hex4(text + 2, low) && low >= 0xDC00 && low <= 0xDFFF) {
+            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
+            text += 6;
+          }
+        }
+        if (code >= 0xD800 && code <= 0xDFFF) code = 0xFFFD;   // a lone surrogate
+        char utf8[4];
+        size_t count;
+        if (code < 0x20) continue;                             // control: dropped
+        if (code < 0x80) { utf8[0] = (char)code; count = 1; }
+        else if (code < 0x800) {
+          utf8[0] = (char)(0xC0 | (code >> 6));
+          utf8[1] = (char)(0x80 | (code & 0x3F)); count = 2;
+        } else if (code < 0x10000) {
+          utf8[0] = (char)(0xE0 | (code >> 12));
+          utf8[1] = (char)(0x80 | ((code >> 6) & 0x3F));
+          utf8[2] = (char)(0x80 | (code & 0x3F)); count = 3;
+        } else {
+          utf8[0] = (char)(0xF0 | (code >> 18));
+          utf8[1] = (char)(0x80 | ((code >> 12) & 0x3F));
+          utf8[2] = (char)(0x80 | ((code >> 6) & 0x3F));
+          utf8[3] = (char)(0x80 | (code & 0x3F)); count = 4;
+        }
+        put(utf8, count);
+        continue;
+      }
+      text += 2;
+      if (e == '"' || e == '\\' || e == '/') put(&e, 1);
+      continue;                                                // \n \t \b \f \r: dropped
+    }
+    // Raw UTF-8 in the file: take the whole sequence or none of it.
+    size_t count = c < 0x80 ? 1 : (c & 0xE0) == 0xC0 ? 2 : (c & 0xF0) == 0xE0 ? 3
+                 : (c & 0xF8) == 0xF0 ? 4 : 1;
+    for (size_t i = 1; i < count; ++i) {
+      if (((uint8_t)text[i] & 0xC0) != 0x80) { count = 1; break; }
+    }
+    if (c >= 0x20 && !(count == 1 && c >= 0x80)) put(text, count);
+    text += count;
+  }
+  out[n] = '\0';
+  return closed && n > 0;
+}
+
 // Deliberately a substring scan rather than a JSON parser: the sidecar is our
 // own generated file. One open for both facts it holds: the display name
 // (left as it was when the sidecar has none) and whether the module was
@@ -320,9 +415,12 @@ inline void readSidecar(const char* modulePath, char* nameOut, size_t nameSize,
   if (key >= 0) {
     int colon = json.indexOf(':', key + 6);
     int open = colon < 0 ? -1 : json.indexOf('"', colon + 1);
-    int close = open < 0 ? -1 : json.indexOf('"', open + 1);
-    if (open >= 0 && close > open + 1) {
-      snprintf(nameOut, nameSize, "%s", json.substring(open + 1, close).c_str());
+    if (open >= 0) {
+      char value[MODULE_NAME_BYTES];
+      const size_t room = nameSize < sizeof(value) ? nameSize : sizeof(value);
+      if (jsonStringValue(json.c_str() + open + 1, value, room)) {
+        snprintf(nameOut, nameSize, "%s", value);
+      }
     }
   }
 
@@ -884,18 +982,43 @@ inline int findPatternByName(const char* name) {
   return -1;
 }
 
+// A module is named on the crash breadcrumb (src/core_crash.h) by the load
+// that brings it in. A preset has no load, so the first call into one names
+// it; after that this is one pointer compare a frame. Asked of the breadcrumb
+// rather than remembered here, because a module load in between renames it.
+// By index, because the sketch calls every preset's setup() at boot, before
+// any of them is the active one.
+inline void namePresetForCrash(int index) {
+  const PatternEntry& entry = patterns[index];
+  if (PFCrash::isRunning(entry.name)) return;
+  char slug[MODULE_NAME_BYTES];
+  patternSlugAt(index, slug, sizeof(slug));
+  PFCrash::running(entry.name, slug);
+}
+
 inline void updateActivePattern(float dt, const InputFrame& input) {
   if (activePatternIdx < 0) return;
   const PatternEntry& entry = patterns[activePatternIdx];
   if (entry.modulePath) PFModuleLoader::update(dt, input);
-  else if (entry.update) entry.update(dt, input);
+  else if (entry.update) {
+    // The same pair of stores the loader puts around a module's update().
+    namePresetForCrash(activePatternIdx);
+    PFCrash::enter(PFCrash::UPDATE);
+    entry.update(dt, input);
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 inline void drawActivePattern() {
   if (activePatternIdx < 0) return;
   const PatternEntry& entry = patterns[activePatternIdx];
   if (entry.modulePath) PFModuleLoader::draw();
-  else if (entry.draw) entry.draw();
+  else if (entry.draw) {
+    namePresetForCrash(activePatternIdx);
+    PFCrash::enter(PFCrash::DRAW);
+    entry.draw();
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 #undef PATTERN_ENTRY

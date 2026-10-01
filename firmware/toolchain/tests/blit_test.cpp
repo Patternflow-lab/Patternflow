@@ -68,7 +68,9 @@ int main() {
   std::cout << "depths 11 and 12 refused, buffer untouched" << std::endl;
   std::mt19937 rng(20260906);
   uint64_t checked = 0;
-  for (int width : {32, 64, 128, 256, 127}) {
+  // Even widths that are not a multiple of the 32-column chunk the passes walk
+  // (2, 34, 98, 130) run a short last chunk; 127 takes the generic loop.
+  for (int width : {32, 64, 128, 256, 2, 34, 98, 130, 127}) {
     if constexpr (PF_TEST_SWAP) {
       if (width & 1) continue;  // FIFO swaps require even rows
     }
@@ -79,7 +81,12 @@ int main() {
     for (int depth = 2; depth <= 10; ++depth) {
 
       for (int sat : {0, 128, 256, 320, 512}) {
-        for (int trial = 0; trial < 5; ++trial) {
+        // Trials 0-3: identity LUTs (the raw pass). 4: all three random. 5-7:
+        // one channel random, the other two identity. 8-10: one entry of one
+        // channel off by one, at 0, 128 and 255. The last six exist for the
+        // decision "are all three tables the identity": a version that asks
+        // one table, or stops short of 256 entries, passes 0-4.
+        for (int trial = 0; trial < 11; ++trial) {
           MatrixPanel_I2S_DMA panel(static_cast<uint16_t>(width), 32, static_cast<uint8_t>(depth));
           for (auto& v : panel.data) v = static_cast<uint16_t>(rng());
           auto expected = panel.data;
@@ -88,7 +95,8 @@ int main() {
           uint8_t lut[3][256];
           for (int c = 0; c < 3; ++c)
             for (int v = 0; v < 256; ++v)
-              lut[c][v] = trial == 4 ? static_cast<uint8_t>(rng()) : static_cast<uint8_t>(v);
+              lut[c][v] = (trial == 4 || trial - 5 == c) ? static_cast<uint8_t>(rng()) : static_cast<uint8_t>(v);
+          if (trial >= 8) lut[trial - 8][(trial - 8) * 128 - (trial == 10)] ^= 1;
           uint64_t onTime = 0;
           for (int y = 0; y < 64; ++y) {
             for (int x = 0; x < width; ++x) {

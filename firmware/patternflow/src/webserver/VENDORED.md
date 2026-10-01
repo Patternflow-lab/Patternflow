@@ -1,11 +1,95 @@
 # Vendored: WebServer (arduino-esp32 core 2.0.17)
 
 Copied verbatim from the Arduino core's bundled library
-(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **three Patternflow
+(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **five Patternflow
 fixes**. Same arrangement as `src/hub75` and `src/pubsubclient`: every firmware
 include points at this copy (`#include "webserver/WebServer.h"`), so the
 Library Manager / core-bundled version is never compiled and its version does
 not matter.
+
+## Fix 5 (2026-10-02): three requests that took the board down
+
+Found by `firmware/toolchain/check_parser.py`, which replays requests through
+these files on a PC, and then reproduced on a panel: each of the first two was
+one request and a `panic` reset.
+
+**A POST that is not multipart, to a multipart route.** `canRaw()` is true for
+any route that has a body callback and is not a GET, whatever that callback was
+written for. So `curl -X POST http://panel/api/patterns` - or `/update` - with
+no body, or any body that is not a form, went down the raw path and called the
+route's *upload* callback, whose first line is `server().upload()`: a reference
+through a null `_currentUpload`. The raw path now also requires
+`!canUpload()`. In this firmware a route registered for POST with a body
+callback is a multipart route and one registered for PUT is a raw one; a plain
+POST to the former goes down the plain path and reaches the completion
+handler, which answers it.
+
+**A boundary of any length.** `_parseForm()` sized a stack array from the
+boundary the `Content-Type` header named. `pf-net` has an 8 KB stack; a
+9,000-character boundary overflowed it. A boundary is at most 70 characters
+(RFC 2046): a longer one is refused before anything is read, and the array is
+a fixed 75 bytes. (That declaration was also the one line MSVC could not
+compile; the host check no longer has to rewrite it.)
+
+**A raw request has a query string too.** The raw path never called
+`_parseArguments()`, so `PUT /update?size=N` found no `size`, and `arg()`
+answered with whatever the previous request had carried. It is parsed now,
+before the body callback is first called.
+
+Still stock, and pinned as KNOWN in the host check rather than fixed:
+`_uploadReadByte()` waits without a deadline, so an uploader that vanishes
+mid-file without closing holds the one connection until TCP keepalive notices.
+It sleeps while it waits; it is not a watchdog case.
+
+Marked `PATTERNFLOW FIX (Fix 5)` at the five sites.
+
+## Fix 4 (2026-10-01): the multipart parser can stop
+
+`_parseForm()` has two `while(1)` loops whose only exit is a well-formed part:
+the outer one reads lines until it finds a `Content-Disposition`, and the one
+that collects a plain field's value reads lines until it finds the boundary.
+`readLine()` returns an empty String both for a blank line and for nothing
+arriving at all, so a body that stopped early - `--boundary`, then the sender
+closed - came back as an empty line for ever. With the peer gone
+`waitForByte()` returns at once, so that was a spin on `pf-net` with no delay
+in it, and the Core-0 task watchdog (5 s, panic) rebooted the board. One
+request, to any route: multipart parsing does not depend on the handler. With
+the peer still connected but silent the same loops held the single connection
+indefinitely, five seconds a pass, and the field-value loop grew its String by
+a byte each time.
+
+Reproduced on hardware before the fix (reset reason `task_wdt` about five
+seconds after the request) and not after.
+
+`readLine()` takes an optional `bool* whole`, set only when the line actually
+ended in a CR. Both loops ask for it and return `false` on a line that did
+not end: a form that stops mid-way is truncated and no later line is coming.
+The field-value loop tests for the boundary first, so a closing boundary sent
+without its CR/LF still ends the form as it did before. Every other caller
+passes no pointer and sees what it saw.
+
+Giving a form up has two consequences the spin used to hide by rebooting, and
+both are handled where the form is abandoned. `arg()` and `hasArg()` look in
+`_postArgs` first and nothing cleared it until the next multipart request, so
+a field from the abandoned form would have answered for the arguments of every
+plain request after it (`index=3` choosing the pattern for a later
+`?index=7`); the caller now clears it on a false return, which also closes the
+stock path that already had this (a field, then a file cut mid-body). And a
+form can be abandoned after one of its file parts was delivered in full: the
+two exits then report the upload aborted, as the stock code does one line
+after a file ends when the peer has gone, because a handler that latched
+state at the file's start releases it only on completion or abort
+(`/api/patterns` would otherwise have stayed "storage busy" with the panel
+paused).
+
+One well-formed shape is now refused that was not: a body that stalls for the
+whole stream timeout exactly on a line boundary at the top of the part loop
+or inside a field value. Stock waited it out (and, inside a value, quietly
+inserted an empty line). It needs a segment to end on that line break and a
+five-second gap after it; a stall inside a file body or between the headers
+and the body is handled as before.
+
+Marked `PATTERNFLOW FIX (Fix 4)` at the four sites.
 
 ## Fix 3 (2026-09-07): cooperative network maintenance while reading
 
@@ -123,8 +207,9 @@ ever matters.
 ## Updating this copy
 
 Diff against the core's `libraries/WebServer/src` before replacing wholesale;
-both fixes above must survive (grep `PATTERNFLOW FIX`, `readLine`,
-`readBody`). If the project ever moves to core 3.x, this directory can be
+the fixes above must survive (grep `PATTERNFLOW FIX`, `readLine`,
+`readBody`, `whole`), and `python firmware/toolchain/check_parser.py` must
+still pass - it fails on stock. If the project ever moves to core 3.x, this directory can be
 deleted and the includes pointed back at `<WebServer.h>` — but check first
 that its parser yields between bytes; the Core-0 watchdog does not care which
 version is spinning.

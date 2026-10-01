@@ -38,6 +38,18 @@ inline WebServer& server() { return httpServer; }
 
 inline bool started = false;
 
+// Text nobody here chose - a pattern's name, a network's, an error message -
+// goes into a hand-assembled JSON reply through this. One quote or backslash
+// in a community pattern's title is otherwise one reply that does not parse,
+// and for /api/patterns that is a page that can no longer list, select or
+// delete anything - including the pattern that broke it.
+inline void appendJsonText(String& json, const char* s) {
+  for (; s && *s; s++) {
+    if (*s == '"' || *s == '\\') { json += '\\'; json += *s; }
+    else if ((uint8_t)*s >= 0x20) json += *s;
+  }
+}
+
 // Registered once, by the first begin() that runs — the console chrome is
 // not any one page's property.
 inline bool chromeRegistered = false;
@@ -84,6 +96,25 @@ inline void begin() {
 
 inline void handle() {
   if (started) httpServer.handleClient();
+}
+
+// What a handler answers when PFLoopSync::run() came back false: the request
+// needed the render loop, and the render loop has stopped coming round - a
+// pattern that never returns from draw(), most likely (core_loop_sync.h).
+// 503 because nothing was wrong with the request and the console itself is
+// alive: /api/status says how long the loop has been gone (loopAgeMs), and
+// Reboot needs nothing from it - nor does /update, as long as it is armed
+// without the UPDATE screen (PF_WEBUPDATE_ALWAYS_ARMED 1, the default; the
+// screen is drawn and its knob read by the loop). One wording for every route, so a
+// page or a script can recognise it without knowing which handler refused.
+constexpr char LOOP_STALLED_ERROR[] = "render loop is not answering";
+
+inline void sendLoopStalled() {
+  String body = "{\"ok\":false,\"error\":\"";
+  body += LOOP_STALLED_ERROR;
+  body += "\"}";
+  httpServer.sendHeader("Cache-Control", PFSend::CC_NO_STORE);
+  httpServer.send(503, "application/json", body);
 }
 
 }  // namespace PatternflowHttp

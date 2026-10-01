@@ -556,7 +556,25 @@ static constexpr uint8_t PF_SPREAD_MAX_DEPTH = 10;
 // Two adjacent columns share one aligned 32-bit word in every plane.
 #define PF_CLEAR32 (((uint32_t)BITMASK_RGB12_CLEAR << 16) | (uint32_t)BITMASK_RGB12_CLEAR)
 
-static void pfBuildSpread(uint8_t depth)
+// An empty asm statement that claims to rewrite its operand. The value is
+// untouched; the optimiser just stops knowing where it came from. Each use
+// says what this GCC does with that knowledge. MSVC, which the host test may
+// be built with, has no such statement and needs none.
+#if defined(__GNUC__)
+#define PF_OPAQUE(v) __asm__("" : "+r"(v))
+#define PF_NOINLINE __attribute__((noinline))
+#else
+#define PF_OPAQUE(v) ((void)0)
+#define PF_NOINLINE
+#endif
+// PF_NOINLINE keeps a function out of blitRGB888. For the passes further down
+// that is the whole idea: folded back in, they would share one set of registers
+// again. For the rest it is about where the code lives - whatever is inlined
+// into an IRAM function is in IRAM, and that is internal RAM.
+
+// Not inlined: this runs once per depth change, and inlined into blitRGB888 it
+// sat in IRAM for nothing.
+static PF_NOINLINE void pfBuildSpread(uint8_t depth)
 {
   const uint8_t maskOffset = 16 - depth;
   for (int v = 0; v < 256; v++)
@@ -613,6 +631,316 @@ static void pfBuildSpread(uint8_t depth)
 // Rec.601 luma pivot for the saturation boost, then the caller's gamma/WB LUT.
 // Kept as a macro so it stays inside the pixel loop with no call overhead.
 #define PF_POST_PIXEL(src, dst)                                       {                                                                     int _r = (src)[0], _g = (src)[1], _b = (src)[2];                    int _y = (_r * 77 + _g * 150 + _b * 29) >> 8;                       _r = _y + (((_r - _y) * satBoostQ8) >> 8);                          _g = _y + (((_g - _y) * satBoostQ8) >> 8);                          _b = _y + (((_b - _y) * satBoostQ8) >> 8);                          if (_r < 0) _r = 0; else if (_r > 255) _r = 255;                    if (_g < 0) _g = 0; else if (_g > 255) _g = 255;                    if (_b < 0) _b = 0; else if (_b > 255) _b = 255;                    (dst)[0] = lutR[_r]; (dst)[1] = lutG[_g]; (dst)[2] = lutB[_b];    }
+
+// ---------------------------------------------------------------------------
+// The kernel as three short passes (2026-10).
+//
+// Counted in the linked image, the one long loop this replaces - it is still
+// here, as pfBlitRowPair - ran 635 instructions per column pair in 691
+// cycles: compute-bound, not waiting on the DMA engine as its own comment
+// said. Three things in the disassembly made up the excess, and none of them
+// was the arithmetic:
+//
+//   - depth was a run-time value, so every plane word paid for a multiply by
+//     six, two variable shifts and a plane pointer reloaded from a stack
+//     array - 25 instructions where 10 do;
+//   - this compiler (GCC 8.4 at -Os) synthesises x77, x150 and x29 as
+//     shift/add chains, about 20 instructions a pixel where three multiplies
+//     do;
+//   - one 400-instruction body keeps more values alive than the 14 registers
+//     a windowed call leaves it, so every column pair made 48 reloads from the
+//     stack and 12 literal loads.
+//
+// Each pass below is short enough to keep its state in registers, and the
+// plane pass has the depth written into it:
+//
+//   1a  pfPostRow     saturation + gamma/WB LUT   RGB888 -> 3 bytes a pixel
+//       pfPostRowRaw  the same, when the LUTs are the identity
+//   1b  pfSpreadRow   on-time + plane spread      6 bytes -> (lo, hi) a column
+//   2   pfStoreRow8   plane words                 2 x (lo, hi) -> 8 plane words
+//
+// 426 instructions per column pair, counted the same way - 390 when the LUTs
+// are the identity, which is what config.h ships. Same tables, same DMA
+// words, same on-time sum: check_blit.py holds this to its scalar reference
+// exactly as it held the loop. What the split costs is a store and a reload
+// of every intermediate, through scratch on the caller's stack.
+//
+// THE NEXT SPEED-UP HAS A FLOOR THAT IS NOT THE CPU. flipDMABuffer() returns
+// before the swap happens: the retired buffer stays on the panel until the DMA
+// finishes its pass, up to 3.3 ms, and the next blit writes into that very
+// buffer. Nothing shows, for one reason - the scan takes 96 us a row pair
+// (12 buffers of 128 words at 16 MHz), it is already ahead when the blit
+// starts, and a writer slower than the reader never catches it. At 390
+// instructions a column pair this blit cannot go under 104 us a row pair. A
+// kernel that does get under 96 - 3.07 ms a frame - or one split across the
+// two cores, overtakes the scan and tears; it has to wait for the swap first.
+
+// GCC's count-register pass rewrites `while (p != end)` as a down-counter,
+// meant for Xtensa's zero-overhead loop instruction. In passes 1a and 1b it
+// then finds no register left for the counter and keeps it on the stack -
+// load, decrement, store, branch, every time round. With the pass off the test
+// is a compare against a pointer.
+#if defined(__XTENSA__)
+#define PF_NO_COUNT_REG __attribute__((optimize("no-branch-count-reg")))
+#else
+#define PF_NO_COUNT_REG
+#endif
+
+// Columns per trip through the passes. The scratch between them is 192 + 256
+// bytes at this size, and it lives on the stack of whoever calls blitRGB888 -
+// not in static storage, so a blit split by row pair across the two cores
+// would have nothing shared to trip over.
+#define PF_BLIT_CHUNK 32
+
+// What pass 1b hands pass 2 for one column: every plane's R1 G1 B1 R2 G2 B2.
+struct PfPlanes { uint32_t lo, hi; };
+
+// One pixel of pass 1a as far as the clamp, written once for its two forms.
+//
+// (c*q + y*(256-q)) >> 8 is PF_POST_PIXEL's y + (((c-y)*q) >> 8) with the y*256
+// carried inside the shift - exact for any q, because the shift is arithmetic.
+// It costs one multiply shared by the three channels where the other form
+// costs a subtract in each.
+#define PF_SATURATE(src)                                                   \
+  const int r = (src)[0], g = (src)[1], b = (src)[2];                      \
+  const int k = ((r * wr + g * wg + b * wb) >> 8) * kq;                    \
+  int R = (r * q + k) >> 8, G = (g * q + k) >> 8, B = (b * q + k) >> 8;    \
+  if (R < 0) R = 0; else if (R > 255) R = 255;                             \
+  if (G < 0) G = 0; else if (G > 255) G = 255;                             \
+  if (B < 0) B = 0; else if (B > 255) B = 255;
+// What it reads besides the pixel. The weights are hidden, or the three
+// multiplies come back as the shift/add chains.
+#define PF_SATURATE_CONSTANTS(q)                                           \
+  const int kq = 256 - (q);                                                \
+  int wr = 77, wg = 150, wb = 29;                                          \
+  PF_OPAQUE(wr); PF_OPAQUE(wg); PF_OPAQUE(wb);
+
+// Pass 1a. `n` pixels of one canvas row -> the three bytes the tables are
+// indexed by, written six apart: the other row of the pair fills the gaps, and
+// pass 1b walks one pointer instead of two.
+static PF_NOINLINE PF_NO_COUNT_REG void IRAM_ATTR
+pfPostRow(const uint8_t *src, unsigned n, uint8_t *out,
+          const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB, int q)
+{
+  PF_SATURATE_CONSTANTS(q)
+  const uint8_t *const end = src + (size_t)n * 3;
+  do
+  {
+    PF_SATURATE(src)
+    out[0] = lutR[R]; out[1] = lutG[G]; out[2] = lutB[B];
+    src += 3; out += 6;
+  } while (src != end);
+}
+
+// Pass 1a when all three LUTs are the identity - gamma 1.0 and white balance
+// 1/1/1, which is what config.h ships. The lookups would hand each index back
+// unchanged, at two instructions apiece and three table pointers this loop has
+// no registers for: 41 instructions a pixel with them, 32 without.
+static PF_NOINLINE PF_NO_COUNT_REG void IRAM_ATTR
+pfPostRowRaw(const uint8_t *src, unsigned n, uint8_t *out, int q)
+{
+  PF_SATURATE_CONSTANTS(q)
+  const uint8_t *const end = src + (size_t)n * 3;
+  do
+  {
+    PF_SATURATE(src)
+    out[0] = (uint8_t)R; out[1] = (uint8_t)G; out[2] = (uint8_t)B;
+    src += 3; out += 6;
+  } while (src != end);
+}
+
+static bool IRAM_ATTR pfLutIsIdentity(const uint8_t *lut)
+{
+  for (unsigned v = 0; v < 256; v++)
+    if (lut[v] != v) return false;
+  return true;
+}
+
+// Pass 1b. Six index bytes per column - the top row's three, then the bottom
+// row's - become that column's planes, and their on-time is returned.
+static PF_NOINLINE PF_NO_COUNT_REG uint32_t IRAM_ATTR
+pfSpreadRow(const uint8_t *idx, unsigned n, PfPlanes *out)
+{
+  const uint32_t *const spreadLo = pfSpreadLo, *const spreadHi = pfSpreadHi;
+  const uint16_t *const cie = pfCie;
+  uint32_t on = 0;
+  const PfPlanes *const end = out + n;
+  do
+  {
+    const unsigned t0 = idx[0], t1 = idx[1], t2 = idx[2], m0 = idx[3], m1 = idx[4], m2 = idx[5];
+    on += (uint32_t)cie[t0] + cie[t1] + cie[t2] + cie[m0] + cie[m1] + cie[m2];
+    out->lo = spreadLo[t0] | (spreadLo[t1] << 1) | (spreadLo[t2] << 2) |
+              (spreadLo[m0] << 3) | (spreadLo[m1] << 4) | (spreadLo[m2] << 5);
+    out->hi = spreadHi[t0] | (spreadHi[t1] << 1) | (spreadHi[t2] << 2) |
+              (spreadHi[m0] << 3) | (spreadHi[m1] << 4) | (spreadHi[m2] << 5);
+    idx += 6; out++;
+  } while (out != end);
+  return on;
+}
+
+static inline uint32_t pfSwapHalves(uint32_t v) { return (v << 16) | (v >> 16); }
+
+#if defined(SPIRAM_DMA_BUFFER)
+#define PF_PLANE_WRITEBACK(p) Cache_WriteBack_Addr((uint32_t)(p), sizeof(uint32_t))
+#else
+#define PF_PLANE_WRITEBACK(p) ((void)0)
+#endif
+
+// One plane's word for two adjacent columns: the ten control bits of each stay,
+// the six colour bits of each are replaced. `fieldA` is already in bits 0-5 and
+// `fieldB` in bits 16-21; which column the DMA sends first is the FIFO order's
+// business, as in the loop. The word access is spelled the way the loop spells
+// it, for the reason given there.
+#define PF_STORE_PLANE(fieldA, fieldB)                                         \
+  {                                                                            \
+    void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));             \
+    uint32_t word;                                                             \
+    memcpy(&word, aligned, sizeof(word));                                      \
+    word = (word & PF_CLEAR32) |                                               \
+           (aLow ? ((fieldA) | (fieldB)) : pfSwapHalves((fieldA) | (fieldB))); \
+    memcpy(aligned, &word, sizeof(word));                                      \
+    PF_PLANE_WRITEBACK(p);                                                     \
+    p = (ESP32_I2S_DMA_STORAGE_TYPE *)((uint8_t *)p + stride);                 \
+  }
+
+// Pass 2, for a depth of exactly 8. `pairs` column pairs of (lo, hi) go into
+// all eight planes of the row pair; `col` is plane 0 at the first column and
+// `stride` the bytes from one plane to the next. With the depth known every
+// field's position is a constant - an extract and a shift - where the loop
+// computes 6 * d and shifts by a register.
+static PF_NOINLINE void IRAM_ATTR
+pfStoreRow8(const PfPlanes *in, unsigned pairs, ESP32_I2S_DMA_STORAGE_TYPE *col, size_t stride)
+{
+  const bool aLow = (ESP32_TX_FIFO_POSITION_ADJUST(0) == 0);
+  const uint32_t fieldBMask = 0x003F0000u;
+  const PfPlanes *const end = in + (size_t)pairs * 2;
+  do
+  {
+    const uint32_t loA = in[0].lo, hiA = in[0].hi, loB = in[1].lo, hiB = in[1].hi;
+    // Hidden: shown that p starts at col, GCC walks a pointer of its own for
+    // half the planes and keeps stride multiples on the stack for the rest,
+    // three instructions a column pair more than stepping p by the stride.
+    ESP32_I2S_DMA_STORAGE_TYPE *p = col;
+    PF_OPAQUE(p);
+    PF_STORE_PLANE(loA & 0x3Fu, (loB << 16) & fieldBMask);
+    PF_STORE_PLANE((loA >> 6) & 0x3Fu, (loB << 10) & fieldBMask);
+    PF_STORE_PLANE((loA >> 12) & 0x3Fu, (loB << 4) & fieldBMask);
+    PF_STORE_PLANE((loA >> 18) & 0x3Fu, (loB >> 2) & fieldBMask);
+    PF_STORE_PLANE((loA >> 24) & 0x3Fu, (loB >> 8) & fieldBMask);
+    PF_STORE_PLANE(hiA & 0x3Fu, (hiB << 16) & fieldBMask);
+    PF_STORE_PLANE((hiA >> 6) & 0x3Fu, (hiB << 10) & fieldBMask);
+    PF_STORE_PLANE((hiA >> 12) & 0x3Fu, (hiB << 4) & fieldBMask);
+    in += 2; col += 2;
+  } while (in != end);
+}
+
+// The loop the passes replaced, kept whole for what they do not cover: an odd
+// width, where alternate planes are not word-aligned, and any depth but 8.
+// One row pair per call; returns its on-time. Nothing this firmware ships
+// reaches it, so it is the one part of the blit that is not in IRAM - and not
+// inlined, or it would follow blitRGB888 back there.
+static PF_NOINLINE uint64_t
+pfBlitRowPair(const uint8_t *top, const uint8_t *bot,
+              ESP32_I2S_DMA_STORAGE_TYPE *plane0, uint16_t w, uint8_t depth,
+              const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB, int satBoostQ8)
+{
+  uint64_t onTime = 0;
+
+  // Row pointers do not change across the pixels of a row — hoist all of
+  // them once instead of recomputing per pixel per plane. A row's planes
+  // are one allocation, `w` words apart (rowBitStruct::getDataPtr).
+  ESP32_I2S_DMA_STORAGE_TYPE *plane[16];
+  for (uint8_t d = 0; d < depth; d++)
+    plane[d] = plane0 + (size_t)d * w;
+
+  // Two columns per step. x and x + 1 are adjacent uint16_t words in every
+  // plane, so both halves of the panel for both columns — two pixel pairs —
+  // are one aligned 32-bit read-modify-write per plane instead of two.
+  // (This used to add that every access arbitrates with the DMA engine and
+  // that this is the cost. Counted, it is not: see the passes above.)
+  // Which column takes the low half is the FIFO order's business, decided
+  // once by the macro at compile time.
+  const bool aLow = (ESP32_TX_FIFO_POSITION_ADJUST(0) == 0);
+  uint16_t x = 0;
+  // DMA allocation is word-aligned. With an even width, every plane and
+  // every two-column offset is too. Tell the compiler that fact below:
+  // memcpy on a uint16_t* otherwise becomes four byte loads, a stack
+  // spill, and four byte stores on Xtensa, not the intended word access.
+  // Odd widths use the scalar path since alternate planes are unaligned.
+  const uint16_t pairedWidth = (w & 1) ? 0 : w;
+  for (; x + 1 < pairedWidth; x += 2)
+  {
+    uint32_t loA, hiA, loB, hiB;
+    PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, loA, hiA, onTime);
+    PF_PLANES_FOR(top + (size_t)(x + 1) * 3, bot + (size_t)(x + 1) * 3, loB, hiB, onTime);
+
+    uint8_t d = depth;
+    while (d > 5)
+    {
+      --d;
+      const uint32_t bA = (hiA >> (6 * (d - 5))) & 0x3Fu;
+      const uint32_t bB = (hiB >> (6 * (d - 5))) & 0x3Fu;
+      const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
+      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
+      void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
+      uint32_t word;
+      memcpy(&word, aligned, sizeof(word));
+      word = (word & PF_CLEAR32) | both;
+      memcpy(aligned, &word, sizeof(word));
+#if defined(SPIRAM_DMA_BUFFER)
+      Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
+#endif
+    }
+    while (d)
+    {
+      --d;
+      const uint32_t bA = (loA >> (6 * d)) & 0x3Fu;
+      const uint32_t bB = (loB >> (6 * d)) & 0x3Fu;
+      const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
+      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
+      void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
+      uint32_t word;
+      memcpy(&word, aligned, sizeof(word));
+      word = (word & PF_CLEAR32) | both;
+      memcpy(aligned, &word, sizeof(word));
+#if defined(SPIRAM_DMA_BUFFER)
+      Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
+#endif
+    }
+  }
+
+  // Scalar fallback for odd widths, one column at a time.
+  for (; x < w; ++x)
+  {
+    uint32_t lo, hi;
+    PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, lo, hi, onTime);
+    const uint16_t idx = ESP32_TX_FIFO_POSITION_ADJUST(x);
+    uint8_t d = depth;
+    while (d > 5)
+    {
+      --d;
+      const uint16_t bits = (uint16_t)((hi >> (6 * (d - 5))) & 0x3Fu);
+      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
+      *p = (*p & BITMASK_RGB12_CLEAR) | bits;
+#if defined(SPIRAM_DMA_BUFFER)
+      Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
+#endif
+    }
+    while (d)
+    {
+      --d;
+      const uint16_t bits = (uint16_t)((lo >> (6 * d)) & 0x3Fu);
+      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
+      *p = (*p & BITMASK_RGB12_CLEAR) | bits;
+#if defined(SPIRAM_DMA_BUFFER)
+      Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
+#endif
+    }
+  }
+
+  return onTime;
+}
+
 void IRAM_ATTR MatrixPanel_I2S_DMA::blitRGB888(const uint8_t *rgb,
                                                const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB,
                                                int satBoostQ8)
@@ -646,102 +974,47 @@ void IRAM_ATTR MatrixPanel_I2S_DMA::blitRGB888(const uint8_t *rgb,
   // the bitplane writes underneath it. See lastFrameOnTime().
   uint64_t onTime = 0;
 
+  // The passes need every plane word-aligned (an even width) and the depth
+  // pass 2 is written for. Everything else goes to the loop they replaced.
+  const bool passes = (depth == 8) && !(w & 1);
+  // Asked of the tables on every frame, not remembered: they are the caller's,
+  // and it rebuilds them in place whenever gamma or white balance is tuned.
+  // 768 compares a frame, against 36 instructions on each of its column pairs.
+  const bool rawLut = passes && pfLutIsIdentity(lutR) && pfLutIsIdentity(lutG) && pfLutIsIdentity(lutB);
+  // A row's planes are one allocation, `w` words apart
+  // (rowBitStruct::getDataPtr), so plane 0 and a stride reach all of them.
+  const size_t stride = (size_t)w * sizeof(ESP32_I2S_DMA_STORAGE_TYPE);
+  uint8_t idx[PF_BLIT_CHUNK * 6];
+  PfPlanes planes[PF_BLIT_CHUNK];
+
   // A two-scan panel lights row `r` and row `r + ROWS_PER_FRAME` together, and
   // both live in the same uint16_t. Walk the pairs, not the rows.
   for (uint8_t row = 0; row < rows; row++)
   {
     const uint8_t *top = rgb + (size_t)row * w * 3;
     const uint8_t *bot = rgb + ((size_t)row + rows) * w * 3;
+    ESP32_I2S_DMA_STORAGE_TYPE *plane0 = getRowDataPtr(row, 0);
 
-    // Row pointers do not change across the pixels of a row — hoist all of
-    // them once instead of recomputing per pixel per plane.
-    ESP32_I2S_DMA_STORAGE_TYPE *plane[16];
-    for (uint8_t d = 0; d < depth; d++)
-      plane[d] = getRowDataPtr(row, d);
-
-    // Two columns per step. x and x + 1 are adjacent uint16_t words in every
-    // plane, so both halves of the panel for both columns — two pixel pairs —
-    // are one aligned 32-bit read-modify-write per plane instead of two. The
-    // DMA engine is reading this memory the whole time, and every access that
-    // has to arbitrate with it is the cost; halving them is the point.
-    // Which column takes the low half is the FIFO order's business, decided
-    // once by the macro at compile time.
-    const bool aLow = (ESP32_TX_FIFO_POSITION_ADJUST(0) == 0);
-    uint16_t x = 0;
-    // DMA allocation is word-aligned. With an even width, every plane and
-    // every two-column offset is too. Tell the compiler that fact below:
-    // memcpy on a uint16_t* otherwise becomes four byte loads, a stack
-    // spill, and four byte stores on Xtensa, not the intended word access.
-    // Odd widths use the scalar path since alternate planes are unaligned.
-    const uint16_t pairedWidth = (w & 1) ? 0 : w;
-    for (; x + 1 < pairedWidth; x += 2)
+    if (!passes)
     {
-      uint32_t loA, hiA, loB, hiB;
-      PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, loA, hiA, onTime);
-      PF_PLANES_FOR(top + (size_t)(x + 1) * 3, bot + (size_t)(x + 1) * 3, loB, hiB, onTime);
-
-      uint8_t d = depth;
-      while (d > 5)
-      {
-        --d;
-        const uint32_t bA = (hiA >> (6 * (d - 5))) & 0x3Fu;
-        const uint32_t bB = (hiB >> (6 * (d - 5))) & 0x3Fu;
-        const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
-        ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
-        void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
-        uint32_t word;
-        memcpy(&word, aligned, sizeof(word));
-        word = (word & PF_CLEAR32) | both;
-        memcpy(aligned, &word, sizeof(word));
-#if defined(SPIRAM_DMA_BUFFER)
-        Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
-#endif
-      }
-      while (d)
-      {
-        --d;
-        const uint32_t bA = (loA >> (6 * d)) & 0x3Fu;
-        const uint32_t bB = (loB >> (6 * d)) & 0x3Fu;
-        const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
-        ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
-        void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
-        uint32_t word;
-        memcpy(&word, aligned, sizeof(word));
-        word = (word & PF_CLEAR32) | both;
-        memcpy(aligned, &word, sizeof(word));
-#if defined(SPIRAM_DMA_BUFFER)
-        Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
-#endif
-      }
+      onTime += pfBlitRowPair(top, bot, plane0, w, depth, lutR, lutG, lutB, satBoostQ8);
+      continue;
     }
-
-    // Scalar fallback for odd widths, one column at a time.
-    for (; x < w; ++x)
+    for (unsigned x = 0; x < w; x += PF_BLIT_CHUNK)
     {
-      uint32_t lo, hi;
-      PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, lo, hi, onTime);
-      const uint16_t idx = ESP32_TX_FIFO_POSITION_ADJUST(x);
-      uint8_t d = depth;
-      while (d > 5)
+      const unsigned n = (w - x < PF_BLIT_CHUNK) ? (w - x) : PF_BLIT_CHUNK;
+      if (rawLut)
       {
-        --d;
-        const uint16_t bits = (uint16_t)((hi >> (6 * (d - 5))) & 0x3Fu);
-        ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
-        *p = (*p & BITMASK_RGB12_CLEAR) | bits;
-#if defined(SPIRAM_DMA_BUFFER)
-        Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
-#endif
+        pfPostRowRaw(top + (size_t)x * 3, n, idx, satBoostQ8);
+        pfPostRowRaw(bot + (size_t)x * 3, n, idx + 3, satBoostQ8);
       }
-      while (d)
+      else
       {
-        --d;
-        const uint16_t bits = (uint16_t)((lo >> (6 * d)) & 0x3Fu);
-        ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
-        *p = (*p & BITMASK_RGB12_CLEAR) | bits;
-#if defined(SPIRAM_DMA_BUFFER)
-        Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
-#endif
+        pfPostRow(top + (size_t)x * 3, n, idx, lutR, lutG, lutB, satBoostQ8);
+        pfPostRow(bot + (size_t)x * 3, n, idx + 3, lutR, lutG, lutB, satBoostQ8);
       }
+      onTime += pfSpreadRow(idx, n, planes);
+      pfStoreRow8(planes, n / 2, plane0 + x, stride);
     }
   }
 

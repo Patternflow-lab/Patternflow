@@ -20,6 +20,7 @@
 #include "config.h"
 #include "abi/pf_abi.h"
 #include "core_canvas.h"
+#include "core_crash.h"
 #include "core_module_memory.h"
 #include "core_encoders.h"
 #include "core_mem.h"
@@ -81,9 +82,37 @@ struct LoadedSection {
   uint32_t elfAddress = 0;
   uint32_t size = 0;
   uint8_t* memory = nullptr;
+  // Where the CPU fetches this section from. Equal to `memory` unless the
+  // code sits in PSRAM, where the heap's pointer is the data-bus view and
+  // this is the instruction-bus view of the same bytes (see execAddress).
+  uintptr_t exec = 0;
+  // What to free. Code in PSRAM starts at a cache-line boundary inside its
+  // allocation (PFModuleMemory::code), so `memory` is not the heap's pointer
+  // there; everywhere else this is null and `memory` is.
+  void* block = nullptr;
   bool executable = false;
   bool initArray = false;
 };
+
+// The address a block of loaded code is CALLED at.
+//
+// On the S3 the instruction bus and the data bus index one MMU table, so the
+// PSRAM page the heap hands out at 0x3Dxxxxxx is the same page at
+// 0x43xxxxxx on the instruction bus - the app's own .flash.text and
+// .flash.rodata share that table, which is why the linker script carries a
+// dummy section to keep them apart. Everything that WRITES the code (the
+// copy, the relocations) keeps using the heap's pointer; everything that
+// names the code for the CPU - a function pointer in the descriptor, a
+// literal a callx8 loads, an .init_array entry, the entry point - gets this.
+// Internal executable RAM is one address for both, so it maps to itself.
+inline uintptr_t execAddress(const uint8_t* memory) {
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  if (esp_ptr_external_ram(memory)) {
+    return (uintptr_t)memory + (SOC_IROM_LOW - SOC_DROM_LOW);
+  }
+#endif
+  return (uintptr_t)memory;
+}
 
 inline LoadedSection sections[MAX_SECTIONS];
 inline int sectionCount = 0;
@@ -100,6 +129,9 @@ inline uint32_t lastPsramBytes = 0;
 // it went on to load. Published beside the budget it was weighed against, so a
 // refusal is arithmetic anyone can redo from the console.
 inline uint32_t lastCodeBytes = 0;
+// Whether the resident module's code runs from PSRAM (through the
+// instruction-bus alias) rather than from internal executable RAM.
+inline bool lastCodeExternal = false;
 inline void* moduleAllocs[MAX_MODULE_ALLOCS] = {};
 inline int moduleAllocCount = 0;
 inline uint32_t runtimeBytes = 0;
@@ -155,24 +187,35 @@ inline bool isInitArraySection(const Elf32Shdr& section, const char* names,
 // arbitrary patterns people upload from the community site.
 //
 // Runs after relocation and after the I-cache sync, because each entry is a
-// pointer into the module's freshly patched .text.
+// pointer into the module's freshly patched .text - and after the module's
+// entry point, because that is what gives a constructor a host to call.
 inline void runInitArray() {
   for (int i = 0; i < sectionCount; ++i) {
     if (!sections[i].initArray) continue;
     size_t count = sections[i].size / sizeof(void (*)());
     auto** constructors = reinterpret_cast<void (**)()>(sections[i].memory);
+    // Their own phase on the crash breadcrumb (core_crash.h), and afterwards
+    // back to whichever one the caller was in, so the mark does not depend on
+    // where in load() this is called from.
+    const PFCrash::Phase caller = (PFCrash::Phase)PFCrash::trail.phase;
+    PFCrash::enter(PFCrash::CONSTRUCTORS);
     for (size_t c = 0; c < count; ++c) {
       uintptr_t function = reinterpret_cast<uintptr_t>(constructors[c]);
       if (function == 0 || function == (uintptr_t)-1) continue;  // ld padding
       constructors[c]();
     }
+    PFCrash::enter(caller);
   }
 }
 
 inline uintptr_t mapDefinedSymbol(const Elf32Sym& symbol) {
   LoadedSection* section = sectionByIndex(symbol.shndx);
   if (!section || symbol.value > section->size) return 0;
-  return (uintptr_t)section->memory + symbol.value;
+  // A symbol in code resolves to where the code runs, not to where it was
+  // written: a pointer to the data-bus view is a pointer that cannot be called.
+  const uintptr_t base =
+      section->executable ? section->exec : (uintptr_t)section->memory;
+  return base + symbol.value;
 }
 
 // A module reaching for raw malloc would take memory the loader never gets back
@@ -445,12 +488,15 @@ inline PFHostAPI hostAPI = {
 
 inline void unload() {
   active = nullptr;
+  // Every way a module leaves comes through here, so this is where the crash
+  // breadcrumb stops naming it.
+  PFCrash::forget();
   for (int i = 0; i < moduleAllocCount; ++i) free(moduleAllocs[i]);
   memset(moduleAllocs, 0, sizeof(moduleAllocs));
   moduleAllocCount = 0;
   runtimeBytes = 0;
   for (int i = 0; i < sectionCount; ++i) {
-    free(sections[i].memory);
+    free(sections[i].block ? sections[i].block : sections[i].memory);
     sections[i] = {};
   }
   sectionCount = 0;
@@ -458,6 +504,7 @@ inline void unload() {
   // module that left, or the partial footprint of one that never arrived.
   lastInternalBytes = 0;
   lastPsramBytes = 0;
+  lastCodeExternal = false;
   PFModuleMemory::endLoad();
 }
 
@@ -479,9 +526,55 @@ inline bool copyExecutable(uint8_t* destination, const uint8_t* source, size_t b
 // code into it, the instruction fetch path can still see stale lines — on
 // ESP32-S3 that shows up as a silent TG0WDT reboot the moment we call into
 // the module. Write-back + invalidate before the first call.
-inline void syncExecutable(uint8_t* memory, size_t bytes) {
-  if (!memory || bytes == 0) return;
+//
+// For code in PSRAM this is not a precaution, it is the mechanism. The bytes
+// were written through the data cache and will be fetched through the
+// instruction cache, two caches over one memory: until the data cache writes
+// its lines back the PSRAM still holds whatever was there, and until the
+// instruction cache drops its lines for the alias it still holds the PREVIOUS
+// module's code - a new module regularly lands on the address the last one
+// freed. Write back the data-bus range, then invalidate the instruction-bus
+// range, then read the alias back against the copy: a load that cannot be
+// trusted is refused here rather than discovered as an IllegalInstruction.
+//
+// In slices under a critical section, because a flash operation started on
+// the other core suspends both caches through IPC and must not land in the
+// middle of a cache operation; a slice keeps interrupts off this core (the
+// network core, when the loader worker runs it) for well under a millisecond.
+inline bool syncExecutable(const LoadedSection& section) {
+  uint8_t* memory = section.memory;
+  size_t bytes = section.size;
+  if (!memory || bytes == 0) return true;
   size_t aligned = (bytes + 3) & ~size_t(3);
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  if (section.exec != (uintptr_t)memory) {
+    // Whole cache lines. The block owns every line it touches - that is what
+    // PFModuleMemory::code() allocates, and core_module_memory.h says why a
+    // line shared with a neighbour must not be written back from here - so
+    // the rounding below lands exactly on the block's own start and end.
+    constexpr uint32_t LINE = (uint32_t)PFModuleMemory::CODE_LINE;
+    constexpr uint32_t SLICE = 2048;
+    const uint32_t alias = (uint32_t)(section.exec - (uintptr_t)memory);
+    const uint32_t low = (uint32_t)(uintptr_t)memory & ~(LINE - 1);
+    const uint32_t high =
+        ((uint32_t)(uintptr_t)memory + (uint32_t)aligned + LINE - 1) & ~(LINE - 1);
+    static portMUX_TYPE cacheMux = portMUX_INITIALIZER_UNLOCKED;
+    for (uint32_t at = low; at < high; at += SLICE) {
+      const uint32_t span = high - at < SLICE ? high - at : SLICE;
+      portENTER_CRITICAL(&cacheMux);
+      Cache_WriteBack_Addr(at, span);
+      Cache_Invalidate_Addr(at + alias, span);
+      portEXIT_CRITICAL(&cacheMux);
+    }
+    const volatile uint32_t* written = reinterpret_cast<const volatile uint32_t*>(memory);
+    const volatile uint32_t* fetched =
+        reinterpret_cast<const volatile uint32_t*>(section.exec);
+    for (size_t i = 0; i < aligned / 4; ++i) {
+      if (written[i] != fetched[i]) return false;
+    }
+    return true;
+  }
+#endif
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   Cache_WriteBack_Addr((uint32_t)memory, aligned);
   Cache_Invalidate_Addr((uint32_t)memory, aligned);
@@ -491,6 +584,7 @@ inline void syncExecutable(uint8_t* memory, size_t bytes) {
 #else
   __asm__ __volatile__("memw" ::: "memory");
 #endif
+  return true;
 }
 
 // Phase timings from the last successful load(). Switching to a module is the
@@ -536,10 +630,27 @@ inline bool looksLikeModule(fs::FS& filesystem, const char* path, char* why, siz
   return true;
 }
 
+// The module on the crash breadcrumb (core_crash.h) for as long as load()
+// runs. An object rather than calls, because load() has well over a dozen ways
+// out and the breadcrumb has to be right after every one of them: a load that
+// failed leaves nothing resident, and a board that dies later on the PATTERN
+// FAILED screen must not be reported as having died loading this.
+struct LoadMark {
+  explicit LoadMark(const char* path) {
+    PFCrash::running(path, path);
+    PFCrash::enter(PFCrash::LOADING);
+  }
+  ~LoadMark() {
+    if (active) PFCrash::enter(PFCrash::IDLE);
+    else PFCrash::forget();
+  }
+};
+
 inline bool load(fs::FS& filesystem, const char* path) {
   unload();
   lastError[0] = '\0';
   Serial.printf("[MODULE] loading %s\n", path);
+  const LoadMark mark(path);
   const uint32_t startedUs = micros();
 
   File file = filesystem.open(path, FILE_READ);
@@ -650,8 +761,9 @@ inline bool load(fs::FS& filesystem, const char* path) {
       const bool executable = (section.flags & SHF_EXECINSTR) != 0;
       if (executable != (pass == 0)) continue;
       const size_t allocationSize = plannedSize[q];
+      void* block = nullptr;
       uint8_t* memory = executable
-          ? static_cast<uint8_t*>(PFModuleMemory::code(allocationSize))
+          ? static_cast<uint8_t*>(PFModuleMemory::code(allocationSize, &block))
           : static_cast<uint8_t*>(PFModuleMemory::data(
                 allocationSize, true, allocationSize > PF_MODULE_DATA_INTERNAL_MAX));
       if (!memory) {
@@ -659,7 +771,9 @@ inline bool load(fs::FS& filesystem, const char* path) {
         // after the cleanup and contradicts the failure it is explaining.
         const unsigned freeNow = (unsigned)PFModuleMemory::serviceFree();
         const unsigned largest = (unsigned)heap_caps_get_largest_free_block(
-            executable ? PFModuleMemory::internalCode : PFModuleMemory::internalData);
+            !executable ? PFModuleMemory::internalData
+            : PFModuleMemory::codeExternal ? PFModuleMemory::externalData
+                                           : PFModuleMemory::internalCode);
         free(image);
         unload();
         snprintf(lastError, sizeof(lastError), "no %s RAM: %u B, free %u, blk %u",
@@ -675,7 +789,20 @@ inline bool load(fs::FS& filesystem, const char* path) {
       loaded.elfAddress = section.addr;
       loaded.size = section.size;
       loaded.memory = memory;
+      loaded.block = block;
+      loaded.exec = executable ? execAddress(memory) : 0;
       loaded.executable = executable;
+      if (executable) lastCodeExternal = loaded.exec != (uintptr_t)memory;
+      if (executable && PFModuleMemory::codeExternal && !lastCodeExternal) {
+        // Admission chose PSRAM and this block has no instruction-bus view:
+        // a target without the alias, or a heap that reaches outside the
+        // range execAddress() knows. Calling it would be a fetch fault.
+        free(image);
+        unload();
+        PFModuleMemory::codeDemoted = true;
+        ++PFModuleMemory::refusals;
+        return fail("code in PSRAM has no instruction-bus address here");
+      }
       loaded.initArray = isInitArraySection(section, sectionNames, sectionNamesSize);
       if (section.type != SHT_NOBITS) {
         if (executable) copyExecutable(memory, image + section.offset, section.size);
@@ -685,6 +812,22 @@ inline bool load(fs::FS& filesystem, const char* path) {
   }
   // Placement is over; setup()'s api->alloc() must not spend the load budget.
   PFModuleMemory::endLoad();
+
+  // From here a crash PC can be inside this module, at an address that means
+  // nothing without the range it was loaded into - so the breadcrumb carries
+  // the range. module.ld collapses a module's code into one .text, so the
+  // first executable section is all of it.
+  //
+  // `exec`, not `memory`. A PC is an instruction-bus address, and for code in
+  // PSRAM that is 0x43xxxxxx while `memory` is the 0x3Dxxxxxx the loader
+  // wrote it through: recorded as `memory`, no frame of any crash would ever
+  // have fallen inside the range, and the offset this range exists to produce
+  // would never have been printed. For code in internal RAM the two are equal.
+  for (int i = 0; i < sectionCount; ++i) {
+    if (!sections[i].executable) continue;
+    PFCrash::code(sections[i].exec, sections[i].size);
+    break;
+  }
 
   const Elf32Sym* symbols = nullptr;
   size_t symbolCount = 0;
@@ -799,19 +942,42 @@ inline bool load(fs::FS& filesystem, const char* path) {
   // Relocations may have patched literals inside .text — publish those
   // writes to the instruction side before the first call into the module.
   for (int i = 0; i < sectionCount; ++i) {
-    if (sections[i].executable) {
-      syncExecutable(sections[i].memory, sections[i].size);
+    if (sections[i].executable && !syncExecutable(sections[i])) {
+      // Counted as a refusal so the worker retries - and demoted first, so
+      // the retry is a different experiment. The allocator would hand the
+      // same block straight back, and a unit on which that block does not
+      // verify would otherwise fail this pattern six times and then every
+      // other one, where internal RAM ran all of them.
+      PFModuleMemory::codeDemoted = true;
+      ++PFModuleMemory::refusals;
+      unload();
+      return fail("code in PSRAM did not read back through the instruction bus");
     }
   }
-
-  runInitArray();
-
-  lastRelocateUs = micros() - startedUs - lastReadUs;
 
   Serial.printf("[MODULE] entering %s...\n", path);
   using Entry = const PFPatternModule* (*)(const PFHostAPI*);
   Entry entry = reinterpret_cast<Entry>(entryAddress);
+  // Entry, constructors, entry again. The entry point is what hands the
+  // module its host API, so it has to come before any constructor can run:
+  // constructors used to run first, and a namespace-scope initialiser that
+  // allocates, asks for a random number or logs
+  // (`float* trail = PFMem::allocFloats(n);`, a global object whose
+  // constructor uses `new`) dereferenced a null PFHost::api on the loader
+  // task and took the board down every time that pattern was picked, having
+  // built and uploaded cleanly. But the entry also copies NAME and the knob
+  // labels into the descriptor by value, and those may themselves be
+  // dynamically initialised - so it is asked again once they exist. A module
+  // that rejects the host on the first call has no constructors run at all.
+  if (!entry(&hostAPI)) {
+    unload();
+    return fail("module rejected host ABI or panel size");
+  }
+  runInitArray();
   active = entry(&hostAPI);
+
+  lastRelocateUs = micros() - startedUs - lastReadUs;
+
   // Descriptor version 1 (pre-absolute) and 2 (reads the appended
   // absolute-param InputFrame fields) both run here — the host always fills
   // the extended frame. Anything else is a layout we do not provide.
@@ -847,6 +1013,7 @@ inline bool load(fs::FS& filesystem, const char* path) {
       return fail("module name is empty or unterminated (reloc bug)");
     }
   }
+  PFCrash::enter(PFCrash::SETUP);
   Serial.printf("[MODULE] setup %s...\n", active->name);
   const uint32_t setupStartedUs = micros();
   active->setup();
@@ -859,14 +1026,24 @@ inline bool load(fs::FS& filesystem, const char* path) {
   return true;
 }
 
+// The two calls a frame makes into the module, each between two stores to
+// the crash breadcrumb (core_crash.h): after a reset, which of them never
+// came back is the difference between "a pattern crashed" and "this one, in
+// draw()". One word each way and nothing else - this runs every frame.
 inline void update(float dt, const InputFrame& input) {
   if (active) {
+    PFCrash::enter(PFCrash::UPDATE);
     active->update(dt, reinterpret_cast<const PFInputFrame*>(&input));
+    PFCrash::enter(PFCrash::IDLE);
   }
 }
 
 inline void draw() {
-  if (active) active->draw();
+  if (active) {
+    PFCrash::enter(PFCrash::DRAW);
+    active->draw();
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 inline const char* error() {

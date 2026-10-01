@@ -76,6 +76,17 @@ inline uint32_t ioMaxUs = 0;
 inline uint32_t captureMaxUs = 0;
 inline uint32_t nextGeneration = 0;
 
+// Set by a forget() or forgetAll() that could not reach the loop because the
+// loop has stopped coming round (core_loop_sync.h). The file is removed all
+// the same; what cannot be done from the network task is the PSRAM half,
+// because the slots are the loop's and a loop that looks dead can wake up.
+// So the loop drops them itself, in service(), whenever it next runs - every
+// picture rather than the one slug, since one flag cannot name a slug and a
+// cache may always be emptied. Until then the disk worker writes nothing: a
+// save queued before the stall would put a deleted pattern's picture straight
+// back on the volume, and a stale .thumb is the bug that survives a reboot.
+inline bool dropAllDeferred = false;
+
 // One immutable job, at most one extra frame of PSRAM. The loop owns the
 // cache and submits snapshots; the existing network task owns disk I/O.
 // No extra task/stack and no lock held across a file read or write.
@@ -163,7 +174,8 @@ inline void serviceDisk() {
                                    __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) return;
   const uint32_t started = micros();
   io.ok = false;
-  if (__atomic_load_n(&io.slot->generation, __ATOMIC_ACQUIRE) == io.generation)
+  if (__atomic_load_n(&io.slot->generation, __ATOMIC_ACQUIRE) == io.generation &&
+      !__atomic_load_n(&dropAllDeferred, __ATOMIC_ACQUIRE))
     io.ok = io.write ? writeToDisk(io) : readFromDisk(io);
   const uint32_t elapsed = micros() - started;
   if (elapsed > ioMaxUs) ioMaxUs = elapsed;
@@ -212,8 +224,24 @@ inline bool queueIO(Slot& s, bool write) {
   return true;
 }
 
+// Loop task only: every copy in PSRAM is stale.
+inline void dropAll() {
+  for (int i = 0; i < slotCount; i++) {
+    __atomic_store_n(&slots[i].generation, ++nextGeneration, __ATOMIC_RELEASE);
+    if (slots[i].px) free(slots[i].px);
+    slots[i].px = nullptr;
+  }
+  slotCount = 0;
+}
+
 inline void service() {
   collectIO();
+  // Drop, then lower the flag: the generations are bumped before the disk
+  // worker is let back in, so a job from before the stall is stale by then.
+  if (__atomic_load_n(&dropAllDeferred, __ATOMIC_ACQUIRE)) {
+    dropAll();
+    __atomic_store_n(&dropAllDeferred, false, __ATOMIC_RELEASE);
+  }
   for (int i = 0; i < slotCount; ++i) {
     Slot& s = slots[i];
     if (s.savePending && !s.savedThisBoot && s.px && queueIO(s, true)) {
@@ -272,7 +300,7 @@ inline void paint(const uint16_t* px) {
 // The slot stays (slugs are few) and will look at the volume again if the
 // same slug is ever installed back.
 inline void forget(const char* slug) {
-  PFLoopSync::run([&] {
+  const bool dropped = PFLoopSync::run([&] {
   if (Slot* s = find(slug)) {
     __atomic_store_n(&s->generation, ++nextGeneration, __ATOMIC_RELEASE);
     if (s->px) free(s->px);
@@ -282,6 +310,7 @@ inline void forget(const char* slug) {
     s->savePending = false;
   }
   });
+  if (!dropped) __atomic_store_n(&dropAllDeferred, true, __ATOMIC_RELEASE);
   char path[64];
   pathFor(slug, path, sizeof(path));
   if (FFat.exists(path)) FFat.remove(path);
@@ -289,14 +318,9 @@ inline void forget(const char* slug) {
 
 // The volume was formatted: every file is gone, so every copy is stale.
 inline void forgetAll() {
-  PFLoopSync::run([] {
-  for (int i = 0; i < slotCount; i++) {
-    __atomic_store_n(&slots[i].generation, ++nextGeneration, __ATOMIC_RELEASE);
-    if (slots[i].px) free(slots[i].px);
-    slots[i].px = nullptr;
+  if (!PFLoopSync::run([] { dropAll(); })) {
+    __atomic_store_n(&dropAllDeferred, true, __ATOMIC_RELEASE);
   }
-  slotCount = 0;
-  });
 }
 
 }  // namespace PFThumbs

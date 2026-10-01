@@ -52,10 +52,13 @@ build keeps so switching stays safe. Read it before writing a feature.
 > | core 3.3.8 (IDF 5.5) | 15,320 B | 7,668 B |
 > | core 2.0.17 (IDF 4.4) | **98,708 B** | **90,100 B** |
 >
-> That largest-block number is the hard ceiling on a loadable module: a `.pfm`'s
-> `.text` has to land in one contiguous internal executable block, because the
-> S3 cannot execute loaded code from PSRAM. On core 3.x a 12 KB pattern is
-> simply refused; on core 2.x it loads and runs. See
+> When this was measured that largest-block number was the hard ceiling on a
+> loadable module: a `.pfm`'s `.text` had to land in one contiguous internal
+> executable block, so on core 3.x a 12 KB pattern was simply refused and on
+> core 2.x it loaded. That ceiling is gone - a module's code now runs from
+> PSRAM (`src/core_module_memory.h` says how) - but the headroom is still the
+> reason for this choice: it is what the console, lwIP and every feature run
+> on. See
 > [Internal RAM is the budget](#internal-ram-is-the-budget-everything-else-is-roomy).
 
 ### Build with PlatformIO (recommended)
