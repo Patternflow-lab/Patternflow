@@ -402,7 +402,11 @@ inline void handleStatus() {
   json += PFModuleLoader::lastInternalBytes;
   json += ",\"psram\":";
   json += PFModuleLoader::lastPsramBytes;
-  json += "}";
+  // Where the resident module's code runs from. In PSRAM it is counted in
+  // `psram` above and costs the services nothing.
+  json += ",\"code\":\"";
+  json += PFModuleLoader::lastCodeExternal ? "psram" : "internal";
+  json += "\"}";
   json += ",\"moduleMemory\":{\"reserve\":"; json += PF_MODULE_INTERNAL_RESERVE;
   json += ",\"runtimeBytes\":"; json += PFModuleLoader::runtimeBytes;
   json += ",\"runtimePeakBytes\":"; json += PFModuleLoader::runtimePeakBytes;
@@ -416,6 +420,9 @@ inline void handleStatus() {
   // codeBytes <= budget, and both numbers are readable while it is running.
   json += ",\"budget\":"; json += (uint32_t)PFModuleMemory::budget();
   json += ",\"codeBytes\":"; json += PFModuleLoader::lastCodeBytes;
+  // The rule in force for where code goes (core_module_memory.h): 2 as built,
+  // 0 once a PSRAM placement has failed to verify on this unit since boot.
+  json += ",\"codePolicy\":"; json += PFModuleMemory::codeRule();
   json += ",\"execLargest\":";
   json += heap_caps_get_largest_free_block(PFModuleMemory::internalCode);
   json += ",\"refusals\":"; json += PFModuleMemory::refusals;

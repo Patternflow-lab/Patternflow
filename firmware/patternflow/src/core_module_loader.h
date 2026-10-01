@@ -81,9 +81,33 @@ struct LoadedSection {
   uint32_t elfAddress = 0;
   uint32_t size = 0;
   uint8_t* memory = nullptr;
+  // Where the CPU fetches this section from. Equal to `memory` unless the
+  // code sits in PSRAM, where the heap's pointer is the data-bus view and
+  // this is the instruction-bus view of the same bytes (see execAddress).
+  uintptr_t exec = 0;
   bool executable = false;
   bool initArray = false;
 };
+
+// The address a block of loaded code is CALLED at.
+//
+// On the S3 the instruction bus and the data bus index one MMU table, so the
+// PSRAM page the heap hands out at 0x3Dxxxxxx is the same page at
+// 0x43xxxxxx on the instruction bus - the app's own .flash.text and
+// .flash.rodata share that table, which is why the linker script carries a
+// dummy section to keep them apart. Everything that WRITES the code (the
+// copy, the relocations) keeps using the heap's pointer; everything that
+// names the code for the CPU - a function pointer in the descriptor, a
+// literal a callx8 loads, an .init_array entry, the entry point - gets this.
+// Internal executable RAM is one address for both, so it maps to itself.
+inline uintptr_t execAddress(const uint8_t* memory) {
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  if (esp_ptr_external_ram(memory)) {
+    return (uintptr_t)memory + (SOC_IROM_LOW - SOC_DROM_LOW);
+  }
+#endif
+  return (uintptr_t)memory;
+}
 
 inline LoadedSection sections[MAX_SECTIONS];
 inline int sectionCount = 0;
@@ -100,6 +124,9 @@ inline uint32_t lastPsramBytes = 0;
 // it went on to load. Published beside the budget it was weighed against, so a
 // refusal is arithmetic anyone can redo from the console.
 inline uint32_t lastCodeBytes = 0;
+// Whether the resident module's code runs from PSRAM (through the
+// instruction-bus alias) rather than from internal executable RAM.
+inline bool lastCodeExternal = false;
 inline void* moduleAllocs[MAX_MODULE_ALLOCS] = {};
 inline int moduleAllocCount = 0;
 inline uint32_t runtimeBytes = 0;
@@ -172,7 +199,11 @@ inline void runInitArray() {
 inline uintptr_t mapDefinedSymbol(const Elf32Sym& symbol) {
   LoadedSection* section = sectionByIndex(symbol.shndx);
   if (!section || symbol.value > section->size) return 0;
-  return (uintptr_t)section->memory + symbol.value;
+  // A symbol in code resolves to where the code runs, not to where it was
+  // written: a pointer to the data-bus view is a pointer that cannot be called.
+  const uintptr_t base =
+      section->executable ? section->exec : (uintptr_t)section->memory;
+  return base + symbol.value;
 }
 
 // A module reaching for raw malloc would take memory the loader never gets back
@@ -458,6 +489,7 @@ inline void unload() {
   // module that left, or the partial footprint of one that never arrived.
   lastInternalBytes = 0;
   lastPsramBytes = 0;
+  lastCodeExternal = false;
   PFModuleMemory::endLoad();
 }
 
@@ -479,9 +511,55 @@ inline bool copyExecutable(uint8_t* destination, const uint8_t* source, size_t b
 // code into it, the instruction fetch path can still see stale lines — on
 // ESP32-S3 that shows up as a silent TG0WDT reboot the moment we call into
 // the module. Write-back + invalidate before the first call.
-inline void syncExecutable(uint8_t* memory, size_t bytes) {
-  if (!memory || bytes == 0) return;
+//
+// For code in PSRAM this is not a precaution, it is the mechanism. The bytes
+// were written through the data cache and will be fetched through the
+// instruction cache, two caches over one memory: until the data cache writes
+// its lines back the PSRAM still holds whatever was there, and until the
+// instruction cache drops its lines for the alias it still holds the PREVIOUS
+// module's code - a new module regularly lands on the address the last one
+// freed. Write back the data-bus range, then invalidate the instruction-bus
+// range, then read the alias back against the copy: a load that cannot be
+// trusted is refused here rather than discovered as an IllegalInstruction.
+//
+// In slices under a critical section, because a flash operation started on
+// the other core suspends both caches through IPC and must not land in the
+// middle of a cache operation; a slice keeps interrupts off this core (the
+// network core, when the loader worker runs it) for well under a millisecond.
+inline bool syncExecutable(const LoadedSection& section) {
+  uint8_t* memory = section.memory;
+  size_t bytes = section.size;
+  if (!memory || bytes == 0) return true;
   size_t aligned = (bytes + 3) & ~size_t(3);
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+  if (section.exec != (uintptr_t)memory) {
+    // Whole cache lines. The block owns every line it touches - that is what
+    // PFModuleMemory::code() allocates, and core_module_memory.h says why a
+    // line shared with a neighbour must not be written back from here - so
+    // the rounding below lands exactly on the block's own start and end.
+    constexpr uint32_t LINE = (uint32_t)PFModuleMemory::CODE_LINE;
+    constexpr uint32_t SLICE = 2048;
+    const uint32_t alias = (uint32_t)(section.exec - (uintptr_t)memory);
+    const uint32_t low = (uint32_t)(uintptr_t)memory & ~(LINE - 1);
+    const uint32_t high =
+        ((uint32_t)(uintptr_t)memory + (uint32_t)aligned + LINE - 1) & ~(LINE - 1);
+    static portMUX_TYPE cacheMux = portMUX_INITIALIZER_UNLOCKED;
+    for (uint32_t at = low; at < high; at += SLICE) {
+      const uint32_t span = high - at < SLICE ? high - at : SLICE;
+      portENTER_CRITICAL(&cacheMux);
+      Cache_WriteBack_Addr(at, span);
+      Cache_Invalidate_Addr(at + alias, span);
+      portEXIT_CRITICAL(&cacheMux);
+    }
+    const volatile uint32_t* written = reinterpret_cast<const volatile uint32_t*>(memory);
+    const volatile uint32_t* fetched =
+        reinterpret_cast<const volatile uint32_t*>(section.exec);
+    for (size_t i = 0; i < aligned / 4; ++i) {
+      if (written[i] != fetched[i]) return false;
+    }
+    return true;
+  }
+#endif
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   Cache_WriteBack_Addr((uint32_t)memory, aligned);
   Cache_Invalidate_Addr((uint32_t)memory, aligned);
@@ -491,6 +569,7 @@ inline void syncExecutable(uint8_t* memory, size_t bytes) {
 #else
   __asm__ __volatile__("memw" ::: "memory");
 #endif
+  return true;
 }
 
 // Phase timings from the last successful load(). Switching to a module is the
@@ -659,7 +738,9 @@ inline bool load(fs::FS& filesystem, const char* path) {
         // after the cleanup and contradicts the failure it is explaining.
         const unsigned freeNow = (unsigned)PFModuleMemory::serviceFree();
         const unsigned largest = (unsigned)heap_caps_get_largest_free_block(
-            executable ? PFModuleMemory::internalCode : PFModuleMemory::internalData);
+            !executable ? PFModuleMemory::internalData
+            : PFModuleMemory::codeExternal ? PFModuleMemory::externalData
+                                           : PFModuleMemory::internalCode);
         free(image);
         unload();
         snprintf(lastError, sizeof(lastError), "no %s RAM: %u B, free %u, blk %u",
@@ -675,7 +756,19 @@ inline bool load(fs::FS& filesystem, const char* path) {
       loaded.elfAddress = section.addr;
       loaded.size = section.size;
       loaded.memory = memory;
+      loaded.exec = executable ? execAddress(memory) : 0;
       loaded.executable = executable;
+      if (executable) lastCodeExternal = loaded.exec != (uintptr_t)memory;
+      if (executable && PFModuleMemory::codeExternal && !lastCodeExternal) {
+        // Admission chose PSRAM and this block has no instruction-bus view:
+        // a target without the alias, or a heap that reaches outside the
+        // range execAddress() knows. Calling it would be a fetch fault.
+        free(image);
+        unload();
+        PFModuleMemory::codeDemoted = true;
+        ++PFModuleMemory::refusals;
+        return fail("code in PSRAM has no instruction-bus address here");
+      }
       loaded.initArray = isInitArraySection(section, sectionNames, sectionNamesSize);
       if (section.type != SHT_NOBITS) {
         if (executable) copyExecutable(memory, image + section.offset, section.size);
@@ -799,8 +892,16 @@ inline bool load(fs::FS& filesystem, const char* path) {
   // Relocations may have patched literals inside .text — publish those
   // writes to the instruction side before the first call into the module.
   for (int i = 0; i < sectionCount; ++i) {
-    if (sections[i].executable) {
-      syncExecutable(sections[i].memory, sections[i].size);
+    if (sections[i].executable && !syncExecutable(sections[i])) {
+      // Counted as a refusal so the worker retries - and demoted first, so
+      // the retry is a different experiment. The allocator would hand the
+      // same block straight back, and a unit on which that block does not
+      // verify would otherwise fail this pattern six times and then every
+      // other one, where internal RAM ran all of them.
+      PFModuleMemory::codeDemoted = true;
+      ++PFModuleMemory::refusals;
+      unload();
+      return fail("code in PSRAM did not read back through the instruction bus");
     }
   }
 
@@ -812,6 +913,7 @@ inline bool load(fs::FS& filesystem, const char* path) {
   using Entry = const PFPatternModule* (*)(const PFHostAPI*);
   Entry entry = reinterpret_cast<Entry>(entryAddress);
   active = entry(&hostAPI);
+
   // Descriptor version 1 (pre-absolute) and 2 (reads the appended
   // absolute-param InputFrame fields) both run here — the host always fills
   // the extended frame. Anything else is a layout we do not provide.

@@ -25,7 +25,11 @@ static size_t internalFree=100000, largest=100000;
 static bool externalFails=false;
 static std::map<void*,size_t> internalOwned;
 static size_t heap_caps_get_free_size(unsigned) { return internalFree; }
-static size_t heap_caps_get_largest_free_block(unsigned) { return largest; }
+static size_t externalLargest=1u<<20;
+static size_t heap_caps_get_largest_free_block(unsigned caps) {
+  if (caps & MALLOC_CAP_SPIRAM) return externalFails ? 0 : externalLargest;
+  return largest;
+}
 static void* heap_caps_malloc(size_t n, unsigned caps) {
   if (caps & MALLOC_CAP_SPIRAM) return externalFails ? nullptr : malloc(n);
   if (n>internalFree || n>largest) return nullptr;
@@ -39,6 +43,13 @@ static void heap_caps_free(void* p) {
   auto i=internalOwned.find(p);
   if(i!=internalOwned.end()) { internalFree+=i->second; internalOwned.erase(i); }
   free(p);
+}
+// Only code in PSRAM asks for alignment; what it asked for is what is checked.
+static size_t alignedAlign=0, alignedBytes=0;
+static void* heap_caps_aligned_alloc(size_t align, size_t n, unsigned caps) {
+  assert(caps & MALLOC_CAP_SPIRAM);
+  alignedAlign=align; alignedBytes=n;
+  return externalFails ? nullptr : malloc(n);
 }
 #include "core_module_memory.h"
 
@@ -142,6 +153,61 @@ int main() {
   void* p=PFModuleMemory::data(128,true,false); assert(p);
   for(int i=0;i<128;++i) assert(static_cast<unsigned char*>(p)[i]==0);
   heap_caps_free(p);
+
+  // Code has a second home. With the fallback policy, what fits internally
+  // still goes there and is charged; what does not fit moves to PSRAM, is
+  // charged nothing, and leaves the whole budget to the module's data.
+  internalFree=PF_MODULE_INTERNAL_RESERVE+4000; largest=100000;
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_PSRAM_FALLBACK;
+  assert(PFModuleMemory::admitCode(2500) && !PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==1500);
+  assert(PFModuleMemory::admitCode(5000) && PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==4000);
+  void* far=PFModuleMemory::code(5000);
+  assert(far && internalOwned.empty() && internalFree==PF_MODULE_INTERNAL_RESERVE+4000);
+  // ...in a block that owns whole cache lines, so the write-back never
+  // touches a line the allocator or a neighbour is using.
+  assert(alignedAlign==64 && alignedBytes==5056 && alignedBytes%64==0);
+  heap_caps_free(far);
+  // Room in total is not a block: code refused for fragmentation is exactly
+  // what the second home is for.
+  largest=2000;
+  assert(PFModuleMemory::admitCode(2500) && PFModuleMemory::codeExternal);
+  largest=100000;
+  // Services under the reserve: budget is zero and code still has somewhere.
+  internalFree=PF_MODULE_INTERNAL_RESERVE-1;
+  assert(PFModuleMemory::admitCode(1) && PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==0);
+  // PSRAM-first: code never takes internal RAM while PSRAM can hold it.
+  internalFree=PF_MODULE_INTERNAL_RESERVE+4000;
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_PSRAM_FIRST;
+  assert(PFModuleMemory::admitCode(2500) && PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==4000);
+  // No PSRAM, or no block that large: both policies fall back to the internal
+  // rule exactly - same verdict, same budget, nothing allocated to find out.
+  externalLargest=2000;
+  assert(PFModuleMemory::admitCode(2500) && !PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==1500);
+  externalFails=true; externalLargest=1u<<20;
+  assert(!PFModuleMemory::admitCode(5000) && !PFModuleMemory::codeExternal);
+  assert(PFModuleMemory::dataBudget==0 && internalOwned.empty());
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_PSRAM_FALLBACK;
+  assert(!PFModuleMemory::admitCode(5000) && !PFModuleMemory::codeExternal);
+  // The old rule is still there to be chosen.
+  externalFails=false;
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_INTERNAL;
+  assert(!PFModuleMemory::admitCode(5000) && !PFModuleMemory::codeExternal);
+  // ...and is what a unit falls back to once a PSRAM placement has failed to
+  // verify: the same pick then lands internally instead of failing again.
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_PSRAM_FIRST;
+  PFModuleMemory::codeDemoted=true;
+  assert(PFModuleMemory::codeRule()==PF_MODULE_CODE_INTERNAL);
+  assert(PFModuleMemory::admitCode(2500) && !PFModuleMemory::codeExternal);
+  assert(!PFModuleMemory::admitCode(5000));
+  PFModuleMemory::codeDemoted=false;
+  PFModuleMemory::codePolicy=PF_MODULE_CODE_POLICY; PFModuleMemory::endLoad();
+  internalFree=100;
+
 
   PFLoopSync::attach();
   int attempts=0, commits=0;

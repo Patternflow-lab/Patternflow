@@ -6,13 +6,16 @@ Run `firmware/bundles/build.sh all` first; it leaves one .elf per edition next t
 the .bin in ~/pf-build-editions.
 
 WHY. CI builds five compositions and then prints `ls -l *.bin`, which is flash — and
-flash is not the scarce resource on this board. Internal DRAM is. A loadable
-pattern's code has to fit in one contiguous internal executable block, and that
-block is the residual of the internal pool after .data, .bss and IRAM have taken
-theirs. So a three-kilobyte static regression — one more inline buffer, one
-feature's tables, an unrolled loop in an IRAM_ATTR function — eats a large share
-of the budget that decides whether somebody's pattern loads, and nothing in CI
-would notice. There are 24 KB of canvas in .bss alone before anything else.
+flash is not the scarce resource on this board. Internal DRAM is. It is what the
+console, lwIP and every feature allocate from, and what is left for them is the
+residual of the internal pool after .data, .bss and IRAM have taken theirs. So a
+three-kilobyte static regression — one more inline buffer, one feature's tables,
+an unrolled loop in an IRAM_ATTR function — comes straight out of the margin
+between a console that answers and one that stops, and nothing in CI would
+notice. There are 24 KB of canvas in .bss alone before anything else. (Until
+2026-10 the same residual also decided whether a pattern loaded at all: a
+module's code had to fit in it. Code runs from PSRAM now, and falls back to
+this pool only when PSRAM cannot take it.)
 
 WHAT IT MEASURES. Not a sum of section names. `.dram0.heap_start` is a zero-length
 marker the linker places at the first byte of DRAM the heap may use, so its
