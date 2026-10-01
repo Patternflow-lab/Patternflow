@@ -20,27 +20,30 @@
 //
 // THE BREADCRUMB. A backtrace says where the CPU was. It does not say which
 // pattern was on the panel, and for a module it cannot be decoded at all: a
-// .pfm is loaded wherever the heap had room, so its code sits at an address no
+// .pfm's code is placed when it is loaded - in PSRAM, where the CPU fetches it
+// through the instruction-bus alias at 0x43xxxxxx, or in internal RAM at
+// 0x40xxxxxx when PSRAM cannot take it - so it sits at an address no
 // firmware.elf has heard of. So the pattern's slug, which of its entry points
-// was executing and where its code was loaded are kept in RTC memory, which a
+// was executing and where its code is executed from are kept in a corner of
+// RAM that no boot initialises (.noinit, at the variable below), which a
 // panic or a watchdog reset does not clear. With those an address inside the
 // module becomes an offset into the .pfm, and the .pfm's own symbol table
 // resolves that.
 //
 // The dump outlives the breadcrumb: flash keeps it until the next panic
-// overwrites it or somebody clears it, while RTC memory is gone with the
-// power. And a death does not always write a dump - a reset by the RTC
-// watchdog never reaches the panic handler, and a dump too large for the
-// partition is refused before the old one is erased, so the old one stays. A
-// breadcrumb from today next to a backtrace from last week would be a
-// confident lie, so the record says whether the two belong together
-// (dumpFromThisReset), and only then are module addresses turned into offsets.
+// overwrites it or somebody clears it, while RAM is gone with the power. And
+// a death does not always write a dump - a reset by the RTC watchdog never
+// reaches the panic handler, and a dump too large for the partition is
+// refused before the old one is erased, so the old one stays. A breadcrumb
+// from today next to a backtrace from last week would be a confident lie, so
+// the record says whether the two belong together (dumpFromThisReset), and
+// only then are module addresses turned into offsets.
 //
 // What this file does not do is act on any of it. No pattern is forgotten, no
 // reboot is forced, the boot latch in the sketch is untouched: this is the
-// half that reports. It costs two word stores per call into a pattern, 64
-// bytes of RTC memory and 232 bytes of internal RAM (heap start moved from
-// 0x3fcaab78 to 0x3fcaac60 on the default build). Eight of those are this
+// half that reports. It costs two word stores per call into a pattern and 296
+// bytes of internal RAM (heap start moved from 0x3fcaa7d8 to 0x3fcaa900 on
+// the default build). 64 of those are the breadcrumb and eight are this
 // file's two pointers. The other 224 are four error strings that come with
 // esp_core_dump_get_summary(): the SDK's core dump code keeps its log text in
 // DRAM so it can print with the flash cache off, and that holds for the one
@@ -101,8 +104,9 @@ constexpr uint32_t TRAIL_MAGIC = 0x50464331;   // "PFC1": bump when the layout c
 // would run at every boot and wipe the one thing this exists to carry across.
 struct Trail {
   uint32_t magic;
-  // Over everything below `phase`. RTC memory is noise after a power-on and
-  // intact after a panic, and the only way to tell is to check.
+  // Over everything below `phase`. This memory is noise after a power-on,
+  // another image's variables after an update, and intact after a panic, and
+  // the only way to tell is to check.
   uint32_t check;
   // Outside the checksum because it is written twice per call into a pattern,
   // and the budget for that is one store each way. It needs no seal of its
@@ -121,20 +125,33 @@ struct Trail {
   char slug[SLUG_BYTES];
 };
 
-// .rtc_noinit is a NOLOAD region of RTC slow memory (0x50000000) that the
-// startup code neither copies nor zeroes, which is the whole point.
+// .noinit is a NOLOAD region of internal DRAM that the startup code neither
+// copies nor zeroes, which is the whole point. It keeps its contents through
+// every reset this file acts on - a panic, the watchdogs, a software restart
+// - because none of them takes the power away, and loses them with the plug.
 //
-// It is shared, and that has a price to know about. The SDK keeps its RTC
-// clock bookkeeping in the same region (s_rtc_last_ticks, s_esp_rtc_time_us)
-// and initialises it only on a power-on; the sketch's object links ahead of
-// the SDK's, so this struct sits first and those two words sit after it. An
-// image that changes this struct's size moves them, and the first boot into
-// it after a warm reset - an update over the air - reads them from memory
-// nothing wrote: the wall clock is wrong on that one boot until SNTP sets it.
-// That is from the SDK's code (esp_rtc_get_time_us zeroes them only while the
-// slow-clock calibration register reads 0), not from a panel. Do not grow
-// this struct casually.
-inline RTC_NOINIT_ATTR Trail trail;
+// Not RTC memory, which is where this first went (RTC_NOINIT_ATTR) and where
+// a thing meant to outlive a reset looks like it belongs. .rtc_noinit is not
+// empty: the SDK keeps the wall clock's bookkeeping there (s_rtc_last_ticks,
+// s_esp_rtc_time_us, 16 bytes) and initialises it only on a power-on. The
+// sketch's object links ahead of the SDK's, so a struct placed there sits
+// first and pushes those two words 64 bytes along - and an update over the
+// air is a warm reset into an image that then reads them from memory nothing
+// wrote. That holds in both directions: upgrading into the image with the
+// struct, and going back from it to any older one. The libc clock is garbage
+// on that boot until SNTP sets it, and src/core_clock.h hands that clock to
+// whatever draws the time or schedules by it. (From the SDK's code -
+// esp_rtc_get_time_us zeroes the two words only while the slow-clock
+// calibration register reads 0 - and never let onto a panel.) DRAM .noinit
+// is empty in every image this project has shipped, so nothing is displaced
+// by being here.
+//
+// What the move costs is 64 bytes of internal RAM, and what it leaves is that
+// another image's .noinit need not start at the same address. Nothing has to
+// be done about that: after an update this struct is read from wherever the
+// old image kept something else, and the magic and the FNV seal reject a
+// stale or shifted block exactly as they reject power-on noise.
+inline __NOINIT_ATTR Trail trail;
 
 // Who the breadcrumb currently names, as a pointer nobody dereferences: a
 // preset's name literal, a module's path. Ordinary RAM, because it only has
@@ -197,7 +214,7 @@ inline void forget() {
 
 // What begin() found, for /api/status. Two halves, each with its own flag.
 struct Record {
-  // The breadcrumb, when this boot followed a panic or a watchdog and RTC
+  // The breadcrumb, when this boot followed a panic or a watchdog and the
   // memory still held it. The reset it belongs to is this boot's resetReason.
   bool trailed;
   uint8_t phase;

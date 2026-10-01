@@ -986,10 +986,13 @@ inline int findPatternByName(const char* name) {
 // that brings it in. A preset has no load, so the first call into one names
 // it; after that this is one pointer compare a frame. Asked of the breadcrumb
 // rather than remembered here, because a module load in between renames it.
-inline void namePresetForCrash(const PatternEntry& entry) {
+// By index, because the sketch calls every preset's setup() at boot, before
+// any of them is the active one.
+inline void namePresetForCrash(int index) {
+  const PatternEntry& entry = patterns[index];
   if (PFCrash::isRunning(entry.name)) return;
   char slug[MODULE_NAME_BYTES];
-  patternSlugAt(activePatternIdx, slug, sizeof(slug));
+  patternSlugAt(index, slug, sizeof(slug));
   PFCrash::running(entry.name, slug);
 }
 
@@ -999,7 +1002,7 @@ inline void updateActivePattern(float dt, const InputFrame& input) {
   if (entry.modulePath) PFModuleLoader::update(dt, input);
   else if (entry.update) {
     // The same pair of stores the loader puts around a module's update().
-    namePresetForCrash(entry);
+    namePresetForCrash(activePatternIdx);
     PFCrash::enter(PFCrash::UPDATE);
     entry.update(dt, input);
     PFCrash::enter(PFCrash::IDLE);
@@ -1011,7 +1014,7 @@ inline void drawActivePattern() {
   const PatternEntry& entry = patterns[activePatternIdx];
   if (entry.modulePath) PFModuleLoader::draw();
   else if (entry.draw) {
-    namePresetForCrash(entry);
+    namePresetForCrash(activePatternIdx);
     PFCrash::enter(PFCrash::DRAW);
     entry.draw();
     PFCrash::enter(PFCrash::IDLE);

@@ -538,9 +538,22 @@ void setup() {
   // version has stopDMAoutput() but no way back, so that trick is unavailable —
   // the loader's yield() every 64 relocations is the mitigation. Revisit if a
   // watchdog reset actually shows up on hardware.
+  //
+  // Each one between the two stores to the crash breadcrumb (src/core_crash.h)
+  // that the loader puts around a module's setup(). Without them a board that
+  // died here came back saying "idle" with no pattern named, which reads as a
+  // crash in the device itself - and a preset that dies in setup() dies at
+  // every boot, the one case where the name is all there is to go on. Nothing
+  // is on the panel yet when the loop ends, so the breadcrumb stops naming the
+  // last of them.
   for (int i = 0; i < NUM_PATTERNS; i++) {
-    if (!patterns[i].modulePath) patterns[i].setup();
+    if (patterns[i].modulePath) continue;
+    namePresetForCrash(i);
+    PFCrash::enter(PFCrash::SETUP);
+    patterns[i].setup();
+    PFCrash::enter(PFCrash::IDLE);
   }
+  PFCrash::forget();
   // The calibration test card lives outside the pattern list (it is an overlay
   // summoned by /api/display, not art) but still bakes its tables once here.
   CalibPattern::setup();

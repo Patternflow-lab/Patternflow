@@ -817,9 +817,15 @@ inline bool load(fs::FS& filesystem, const char* path) {
   // nothing without the range it was loaded into - so the breadcrumb carries
   // the range. module.ld collapses a module's code into one .text, so the
   // first executable section is all of it.
+  //
+  // `exec`, not `memory`. A PC is an instruction-bus address, and for code in
+  // PSRAM that is 0x43xxxxxx while `memory` is the 0x3Dxxxxxx the loader
+  // wrote it through: recorded as `memory`, no frame of any crash would ever
+  // have fallen inside the range, and the offset this range exists to produce
+  // would never have been printed. For code in internal RAM the two are equal.
   for (int i = 0; i < sectionCount; ++i) {
     if (!sections[i].executable) continue;
-    PFCrash::code((uintptr_t)sections[i].memory, sections[i].size);
+    PFCrash::code(sections[i].exec, sections[i].size);
     break;
   }
 

@@ -132,10 +132,12 @@ inline void appendText(String& json, const char* s) {
 }
 
 // One address out of a core dump. An address inside the module the breadcrumb
-// named is written "+0x<offset into its code>": the raw value is wherever the
-// heap happened to put that module on that boot, which no ELF can decode,
-// while the offset is what the .pfm's own symbol table resolves. Everything
-// else is firmware code and goes out as the address addr2line wants.
+// named is written "+0x<offset into its code>": the raw value is wherever
+// that module's code was placed on that boot - internal RAM at 0x40xxxxxx, or
+// PSRAM seen through the instruction bus at 0x43xxxxxx - which no ELF can
+// decode, while the offset is what the .pfm's own symbol table resolves.
+// Everything else is firmware code and goes out as the address addr2line
+// wants.
 inline void appendCrashAddress(String& json, const PFCrash::Record& r, uint32_t address) {
   char text[12];
   uint32_t offset;
@@ -158,7 +160,7 @@ inline void appendCrashAddress(String& json, const PFCrash::Record& r, uint32_t 
 // /api/crash erases it; fromThisReset says whether the two are one event.
 //
 // The task name, the slug and the build hash are escaped like any other text
-// nobody here chose: they come out of flash and RTC memory, and a dump
+// nobody here chose: they come out of flash and uninitialised RAM, and a dump
 // written by some other firmware is only probably well-formed.
 inline void appendCrash(String& json) {
   const PFCrash::Record* r = PFCrash::record;
@@ -167,7 +169,7 @@ inline void appendCrash(String& json) {
   json += "\"crash\":{";
   if (r->trailed) {
     json += "\"pattern\":\"";
-    appendText(json, r->slug);
+    PatternflowHttp::appendJsonText(json, r->slug);
     json += "\",\"phase\":\"";
     json += PFCrash::phaseName(r->phase);
     json += '"';
@@ -185,7 +187,7 @@ inline void appendCrash(String& json) {
     json += "\"dump\":{\"fromThisReset\":";
     json += r->dumpFromThisReset ? "true" : "false";
     json += ",\"task\":\"";
-    appendText(json, r->task);
+    PatternflowHttp::appendJsonText(json, r->task);
     json += "\",\"cause\":";
     json += r->cause;
     snprintf(hex, sizeof(hex), "0x%08x", (unsigned)r->vaddr);
@@ -201,7 +203,7 @@ inline void appendCrash(String& json) {
     json += "],\"corrupted\":";
     json += r->corrupted ? "true" : "false";
     json += ",\"build\":\"";
-    appendText(json, r->build);
+    PatternflowHttp::appendJsonText(json, r->build);
     json += "\",\"bytes\":";
     json += r->bytes;
     json += '}';
