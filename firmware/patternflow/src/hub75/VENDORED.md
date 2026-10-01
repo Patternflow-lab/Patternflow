@@ -106,9 +106,13 @@ compares, against 36 instructions on each of 2,048 column pairs. So tuning
 white balance away from 1/1/1 costs about a third of a millisecond a frame;
 that is the LUT being used, not a regression.
 
-On the panel: not measured when this was written. 5.90 ms x 390 / 635 is
-3.62 ms if cycles keep tracking instructions (3.96 ms on the LUT path); the
-intermediates now go through memory, so they may not quite.
+On a board (2026-10-02, default composition, A-B-B-A between the two images):
+`presentUs` **5,960 -> 3,496 µs**, the same on Origin, Wave Cascade and
+Two-stream, and every pattern's `frameUs` fell by the same 2.45 ms (Origin
+12.08 -> 9.61 ms). With white balance tuned off the identity (`wb_r=0.95`)
+it reads 3,802 µs: the LUT path costs 306 µs. That is a little better than
+the instruction count predicted (5.90 ms x 390 / 635 = 3.62), so cycles per
+instruction did not rise with the intermediates going through memory.
 
 The loop the passes replace is kept whole, as `pfBlitRowPair`: an odd width and
 every depth other than 8 still go through it, and `blit_test.cpp` still runs it
@@ -157,14 +161,25 @@ frame when the flip happens; the blit starts later, at row 0, and as long as it
 needs more than 96 µs a row pair it falls further behind with every row and
 never writes a row that is still to be shown. The September kernel took 184 µs.
 This one cannot take less than 104 - 390 instructions, 64 column pairs, one
-cycle each at 240 MHz - and is expected near 113.
+cycle each at 240 MHz - and measures 109 (3,496 µs over 32 row pairs), 119 on
+the LUT path.
 
 About one flip in six hundred lands inside the last padding descriptor, after
 the DMA has already fetched its `next`, and the old buffer gets one more whole
 pass. The same argument covers it: that pass begins within 6 µs of the flip,
 still ahead of the blit.
 
-**The line is 96 µs per row pair, 3.07 ms per frame.** A blit faster than that
+**The line is the scan's row time: buffers per row x words per row / pixel
+clock.** For the shipped configuration - 12 buffers, 128 words, 16 MHz - that
+is 96 µs per row pair, 3.07 ms per frame, and it is a property of the
+configuration, not of the kernel: at the 10 MHz the S3 really runs when
+`i2sspeed` is lowered (`core_display.h`), the same 12 buffers take 154 µs a row
+pair and this kernel is the faster of the two. The September loop was slower
+than the scan at every clock the driver can pick; this one needs the pixel
+clock to stay above about 14.8 MHz at 12 buffers (11.1 at 9, 9.9 at 8). The
+rate argument also assumes the first plane store comes at least one scan row
+after the flip, which today the pattern's own draw supplies and nothing in
+the driver enforces. A blit faster than the line
 catches the scan from behind unless it starts late: at B µs a row pair it must
 not begin sooner than 3,072 - 31 B µs after the flip - 1.1 ms at B = 62, the
 whole pass as B goes to zero. Crossing it tears: the rows past the point where

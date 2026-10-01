@@ -58,7 +58,11 @@ inline void initDisplay() {
   // docs/investigations/2026-08-the-panel-clock-and-the-wifi-radio.md.
   // Short version: 8 MHz is a real improvement and still is not shipped,
   // because every min_refresh_rate that keeps the panel bright bands on
-  // video. If you lower i2sspeed, lower min_refresh_rate with it.
+  // video. If you lower i2sspeed, lower min_refresh_rate with it - and read
+  // "The blit must stay slower than the scan" in src/hub75/VENDORED.md first:
+  // at a slower pixel clock the scan falls behind the blit, which then writes
+  // rows of the buffer that is still on the panel, and needs a wait it does
+  // not have.
   mxconfig.i2sspeed         = HUB75_I2S_CFG::HZ_15M;
   mxconfig.min_refresh_rate = 240;
   mxconfig.latch_blanking   = 2;

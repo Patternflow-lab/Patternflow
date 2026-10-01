@@ -58,6 +58,8 @@ extern bool nvsUsable;
 extern uint32_t nvsFailures;
 // Panel brightness as set; the sketch owns it (K1 and /api/display move it).
 extern uint8_t currentBrightness;
+// The Arduino core's handle for the task loop() runs on (cores/esp32/main.cpp).
+extern TaskHandle_t loopTaskHandle;
 
 namespace PatternflowStatusHttp {
 
@@ -362,6 +364,12 @@ inline void handleStatus() {
   json += ",\"netMaintenance\":{\"calls\":"; json += PFNetMaintenance::calls;
   json += ",\"maxGapMs\":"; json += PFNetMaintenance::maxGapMs;
   json += "}";
+  // The loop task's stack, the least it has ever had free. The blit runs
+  // inside whatever frame a pattern's draw() is holding and takes about 640 B
+  // of it; a module with a large local in draw() is what would bring this
+  // down, and until this field nothing reported it.
+  json += ",\"loopStackMin\":";
+  json += loopTaskHandle ? (uint32_t)uxTaskGetStackHighWaterMark(loopTaskHandle) : 0;
   json += ",\"netStackMin\":";
   json += PatternflowNetTask::stackMinFree;
   // Handlers that had to run on the loop task, and the longest one waited.

@@ -57,12 +57,15 @@ IRAM_END = 0x403E0000
 # Set 2026-09-10, commit adding this file, PlatformIO espressif32@7.0.1 ->
 # Arduino core 2.0.17 -> xtensa-esp32s3-elf-gcc 8.4.0 at -Os. A toolchain bump
 # moves every row; re-pin it in the same commit as the bump.
+#
+# Re-pinned 2026-10-02: IRAM -996 in every edition (the blit kernel became three
+# short passes and its generic loop left IRAM), static DRAM -136..-152.
 PINS = {
-    "default": (141424, 72467),
-    "audio": (160960, 72947),
-    "performance": (157848, 72467),
-    "clock": (141704, 72467),
-    "midi": (154000, 71667),
+    "default": (141272, 71471),
+    "audio": (160800, 71951),
+    "performance": (157776, 71471),
+    "clock": (141552, 71471),
+    "midi": (153864, 70671),
 }
 
 # Enough that an intentional, well-understood adjustment does not fire the check
