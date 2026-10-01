@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Group, InstancedMesh, LineSegments, Mesh, MeshBasicMaterial, Texture } from 'three';
+import type { Group, InstancedMesh, LineSegments, Mesh, MeshBasicMaterial } from 'three';
 import {
   BufferGeometry,
   CanvasTexture,
@@ -25,6 +25,7 @@ const COLORS = {
   land: '#ffffff',          // pure-white filled continents
   outline: '#141414',       // bold black coastlines
   pin: '#E8552E',           // build markers (LED orange)
+  activePin: '#141414',     // the selected marker
   web: '#E8552E',           // links between builds
 };
 
@@ -410,24 +411,6 @@ const smoothstep = (value: number, from: number, to: number) => {
   return t * t * (3 - 2 * t);
 };
 
-// The halo of a pin that is lit: white with a soft alpha falloff, tinted by
-// the material. 64px, drawn once.
-function makeGlowTexture(): Texture {
-  const size = 64;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
-  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, 'rgba(255,255,255,0.62)');
-  gradient.addColorStop(0.4, 'rgba(255,255,255,0.3)');
-  gradient.addColorStop(0.72, 'rgba(255,255,255,0.08)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-  return new CanvasTexture(canvas);
-}
-
 // A dot means a Patternflow exists there; a collaboration is an open ring,
 // something that grew out of one; a sale is a diamond, a unit that went out
 // rather than one that was built there. Reads at a glance without a second
@@ -440,11 +423,9 @@ function PinShape({ kind }: { kind: Build['kind'] }) {
   return <sphereGeometry args={[PIN_RADIUS, 16, 16]} />;
 }
 
-// The visible part of a pin: its mark, and the halo it gains while it is
-// hovered or selected. No idle pulse - a pin at rest costs one comparison a
-// frame. The selected pin used to turn black; it now stays the colour of the
-// LEDs and lights up instead, so the eye is led by the same orange it was
-// following, not by a hole in the map.
+// The visible part of a pin: its mark, a little larger while hovered, larger
+// and black while selected. No idle pulse - a pin at rest costs one comparison
+// a frame. (It had an orange halo for a while; a glow smudged the flat map.)
 //
 // `floating` is a pin of an open group: drawn over everything, since it stands
 // off the surface on its hairline and must not be cut by the globe's edge.
@@ -452,63 +433,38 @@ function PinBody({
   kind,
   hovered,
   selected,
-  glow,
   floating = false,
 }: {
   kind: Build['kind'];
   hovered: boolean;
   selected: boolean;
-  glow: Texture;
   floating?: boolean;
 }) {
   const bodyRef = useRef<Mesh>(null);
-  const haloRef = useRef<Mesh>(null);
-  const eased = useRef({ scale: 1, lit: 0 });
+  const eased = useRef({ scale: 1 });
 
   useFrame((_, delta) => {
     const body = bodyRef.current;
-    const halo = haloRef.current;
-    if (!body || !halo) return;
+    if (!body) return;
     const now = eased.current;
     const scale = selected ? SELECTED_SCALE : hovered ? HOVER_SCALE : 1;
-    const lit = selected ? 1 : hovered ? 0.5 : 0;
-    if (now.scale === scale && now.lit === lit) return;
+    if (now.scale === scale) return;
 
-    const share = easeShare(PIN_EASE, delta);
-    now.scale += (scale - now.scale) * share;
-    now.lit += (lit - now.lit) * share;
+    now.scale += (scale - now.scale) * easeShare(PIN_EASE, delta);
     if (Math.abs(scale - now.scale) < 0.004) now.scale = scale;
-    if (Math.abs(lit - now.lit) < 0.01) now.lit = lit;
-
     body.scale.setScalar(now.scale);
-    halo.scale.setScalar(now.scale);
-    halo.visible = now.lit > 0;
-    (halo.material as MeshBasicMaterial).opacity = now.lit;
   });
 
   return (
-    <>
-      <mesh ref={haloRef} visible={false} renderOrder={floating ? 12 : 1}>
-        <circleGeometry args={[PIN_RADIUS * 3.4, 32]} />
-        <meshBasicMaterial
-          map={glow}
-          color={COLORS.pin}
-          transparent
-          opacity={0}
-          depthWrite={false}
-          depthTest={!floating}
-        />
-      </mesh>
-      <mesh ref={bodyRef} renderOrder={floating ? 13 : 0}>
-        <PinShape kind={kind} />
-        <meshBasicMaterial
-          color={COLORS.pin}
-          transparent={floating}
-          depthTest={!floating}
-          depthWrite={!floating}
-        />
-      </mesh>
-    </>
+    <mesh ref={bodyRef} renderOrder={floating ? 13 : 0}>
+      <PinShape kind={kind} />
+      <meshBasicMaterial
+        color={selected ? COLORS.activePin : COLORS.pin}
+        transparent={floating}
+        depthTest={!floating}
+        depthWrite={!floating}
+      />
+    </mesh>
   );
 }
 
@@ -542,7 +498,6 @@ function BuildPin({
   build,
   isSelected,
   isHovered,
-  glow,
   fanRef,
   onHover,
   onSelect,
@@ -550,7 +505,6 @@ function BuildPin({
   build: Build;
   isSelected: boolean;
   isHovered: boolean;
-  glow: Texture;
   fanRef: RefObject<FanClaim | null>;
   onHover: (buildId: string, over: boolean) => void;
   onSelect: (buildId: string | null) => void;
@@ -596,7 +550,7 @@ function BuildPin({
       </mesh>
 
       {/* Small, precise visible pin */}
-      <PinBody kind={build.kind} hovered={isHovered} selected={isSelected} glow={glow} />
+      <PinBody kind={build.kind} hovered={isHovered} selected={isSelected} />
     </group>
   );
 }
@@ -663,7 +617,6 @@ function GroupPin({
   watchPointer,
   selectedBuildId,
   hoveredId,
-  glow,
   worldRef,
   pointer,
   neighbours,
@@ -681,7 +634,6 @@ function GroupPin({
   watchPointer: boolean;
   selectedBuildId: string | null;
   hoveredId: string | null;
-  glow: Texture;
   worldRef: RefObject<Group | null>;
   pointer: RefObject<PointerState>;
   // Every pin on the map, this group's own included.
@@ -959,7 +911,6 @@ function GroupPin({
               kind={build.kind}
               hovered={hoveredId === build.id}
               selected={isSelected}
-              glow={glow}
               floating
             />
           </group>
@@ -1050,7 +1001,6 @@ function GlobeScene({
     }),
     [groups],
   );
-  const glow = useMemo(() => makeGlowTexture(), []);
   const reducedMotion = useMemo(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     [],
@@ -1181,7 +1131,15 @@ function GlobeScene({
   // Drag to rotate (disabled while a build is focused). A near-still press is
   // treated as a click on empty globe and clears the current selection.
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
-    if (selected) return;
+    if (selected) {
+      // No turning while a build is in focus. A press on the bare globe lets
+      // the selection go; a press on another pin never gets here (the pin
+      // takes it), so one click goes from build to build.
+      event.stopPropagation();
+      onOpenGroup(null);
+      onSelectBuild?.(null);
+      return;
+    }
     event.stopPropagation();
     dragging.current = true;
     moved.current = 0;
@@ -1249,7 +1207,6 @@ function GlobeScene({
               build={build}
               isSelected={selectedBuildId === build.id}
               isHovered={hoveredId === build.id}
-              glow={glow}
               fanRef={fanRef}
               onHover={hover}
               onSelect={select}
@@ -1264,7 +1221,6 @@ function GlobeScene({
             watchPointer={heldOpen?.id === group.id && !openGroup?.sticky}
             selectedBuildId={selectedBuildId ?? null}
             hoveredId={hoveredId}
-            glow={glow}
             worldRef={worldRef}
             pointer={pointer}
             neighbours={neighbours}

@@ -94,9 +94,6 @@ export default function GlobeViewer() {
       <div
         className={`${styles.overlay} ${selected ? styles.overlayOpen : ''}`}
         aria-hidden={!selected}
-        onClick={() => {
-          if (selected) select(null);
-        }}
       >
         {selected && (
           <>
