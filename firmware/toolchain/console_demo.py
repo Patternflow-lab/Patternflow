@@ -1231,6 +1231,19 @@ MOCK_JS = r'''/* Patternflow console demo: a core board, simulated in the page.
       L.replace(BASE + 'index.html?v=' + load().build);
     }
   }, true);
+  // The chrome hands the site this panel's address on every link there
+  // (?device=), and the site keeps it as the reader's own panel. This panel
+  // is simulated: its address must never be saved as theirs. Bubbling, so it
+  // runs after the chrome's capture-phase listener has added it.
+  D.addEventListener('click', function (e) {
+    var p = e.composedPath ? e.composedPath() : [], a = null, i, u;
+    for (i = 0; i < p.length; i++) if (p[i].tagName === 'A' && p[i].href) { a = p[i]; break; }
+    if (!a) return;
+    try { u = new URL(a.href); } catch (x) { return; }
+    if (!/(^|\.)patternflow\.work$/.test(u.hostname) || !u.searchParams.has('device')) return;
+    u.searchParams.delete('device');
+    a.href = u.href;
+  });
   D.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !e.defaultPrevented) tell({ action: 'escape' });
   });
