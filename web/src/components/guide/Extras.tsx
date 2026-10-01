@@ -336,7 +336,6 @@ function InstallFlow({ lang }: { lang: GuideLang }) {
 function ConsoleTour({ lang }: { lang: GuideLang }) {
   const pages = COPY[lang].ui.pages;
   const [page, setPage] = useState<ConsolePage>(pages[0].id);
-  const on = pages.find((p) => p.id === page) ?? pages[0];
   return (
     <div className={styles.extra}>
       <div className={styles.tour} role="group" aria-label={COPY[lang].ui.tourLabel}>
@@ -347,7 +346,16 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
         ))}
       </div>
       <ConsoleWindow variant="desktop" page={page} lang={lang} />
-      <p className={styles.tourNote}>{on.body}</p>
+      {/* Every page's line in one grid cell: the block is as tall as the
+          longest, so the card (and the tabs under the pointer) doesn't move
+          when a shorter one comes up. */}
+      <div className={styles.tourNotes}>
+        {pages.map((p) => (
+          <p key={p.id} className={styles.tourNote} data-on={p.id === page ? "1" : "0"} aria-hidden={p.id !== page}>
+            {p.body}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }

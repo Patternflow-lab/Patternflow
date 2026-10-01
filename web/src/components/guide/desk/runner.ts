@@ -176,7 +176,7 @@ export class DeskTutorial {
       total: this.beats.length,
       waiting: this.waiting,
       done: this.done,
-      say: beat?.say ? beat.say[this.env.lang()] : null,
+      say: this.sayOf(beat),
       ...extra,
     });
   }
@@ -258,7 +258,7 @@ export class DeskTutorial {
     if (out === null && !tok.dead) {
       // Park on the target (a drag's start) and wait for the reader.
       void this.pointer.goTo(this.aimFor(beat, beat.target));
-      this.pointer.say(beat.say?.[this.env.lang()] ?? null, this.chipOf(beat));
+      this.pointer.say(this.sayOf(beat), this.chipOf(beat));
       this.waiting = true;
       this.pointer.setWaiting(true);
       this.report();
@@ -273,6 +273,14 @@ export class DeskTutorial {
     }
     show.kill();
     return out ?? "left";
+  }
+
+  /** A beat's hint in the page's language: its words, or — where they follow the reader — what they are now. */
+  private sayOf(beat: Beat | undefined): string | null {
+    const say = beat?.say;
+    if (!beat || !say) return null;
+    const words = typeof say === "function" ? safe(() => say(this.ctx(beat)), null) : say;
+    return words?.[this.env.lang()] ?? null;
   }
 
   private skips(beat: Beat): boolean {
@@ -351,8 +359,7 @@ export class DeskTutorial {
   /** Glide there and show the gesture. `ghost`: a replay — never act, never run hooks. */
   private async gesture(tok: Token, beat: Beat, ghost: boolean) {
     const env = this.env;
-    const lang = env.lang();
-    this.pointer.say(beat.say?.[lang] ?? null, this.chipOf(beat));
+    this.pointer.say(this.sayOf(beat), this.chipOf(beat));
     const aim = this.aimFor(beat, beat.target);
     await this.pointer.goTo(aim);
     if (tok.dead) return;
@@ -471,8 +478,18 @@ export class DeskTutorial {
       let seen = false;
       let missing = 0;
       const lostWatch = beat.win !== "lab" && Boolean(beat.target);
+      // A hint that follows the reader (a function): what it says now.
+      let said = typeof beat.say === "function" ? this.sayOf(beat) : null;
       const poll = window.setInterval(() => {
         attach();
+        if (typeof beat.say === "function" && this.waiting && !this.replaying) {
+          const now = this.sayOf(beat);
+          if (now !== said) {
+            said = now;
+            this.pointer.say(now, this.chipOf(beat));
+            this.report();
+          }
+        }
         if (beat.done && safe(() => Boolean(beat.done?.(this.ctx(beat))), false)) {
           finish("done");
           return;
@@ -561,7 +578,7 @@ export class DeskTutorial {
     // Back to waiting where it was — if it still is.
     if (this.waiting && this.index === index) {
       void this.pointer.goTo(this.aimFor(beat, beat.target));
-      this.pointer.say(beat.say?.[this.env.lang()] ?? null, this.chipOf(beat));
+      this.pointer.say(this.sayOf(beat), this.chipOf(beat));
       this.pointer.setWaiting(true);
     }
   }

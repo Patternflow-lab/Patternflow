@@ -3,17 +3,21 @@
 // copy/build.ts `cards`; the parts list is the BOM itself (bom.ts).
 
 /** Cards that are a row of links: their links are copy/build.ts cards.links. */
-export const LINK_CARDS = ["linksPcb", "linksPanel", "linksWiring", "linksPlay03", "linksGpio0", "linksBack"] as const;
+export const LINK_CARDS = ["linksPcb", "linksWiring", "linksPlay03", "linksGpio0", "linksBack"] as const;
 export type LinkCard = (typeof LINK_CARDS)[number];
 
-/** Cards that are a checklist the reader ticks: their items are copy/build.ts cards.checks. */
-export const CHECK_CARDS = ["checkShort", "checkPower", "checkKnobs"] as const;
+/**
+ * Cards that are a checklist the reader ticks: their items are copy/build.ts
+ * cards.checks. One, the knobs — there is no multimeter in this guide, so no
+ * short check and no 5 V check.
+ */
+export const CHECK_CARDS = ["checkKnobs"] as const;
 export type CheckCard = (typeof CHECK_CARDS)[number];
 
 export type BuildCard =
-  /** The BOM's on-board lines. */
+  /** The BOM's on-board lines: a quantity, a part, its reference and a few words each; the part number behind the line. */
   | "bomBoard"
-  /** The BOM's off-board lines. */
+  /** The BOM's off-board lines, the LED panel's with its recommended listing and the way to the compatibility doc. */
   | "bomOff"
   /** What else is on the bench (BUILD_GUIDE §1), ticked off. */
   | "tools"

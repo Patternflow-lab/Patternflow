@@ -1,267 +1,384 @@
-/* The hub (/guide, GuideHub): the guide's dark room, the device turning on
-   the left, and the three guides on the right — the page's own words in
-   Guide.module.css (.page, .stage, .top, .report), the choices here. */
+/* The hub (/guide, GuideHub): the guide's dark room with the device alone in
+   the middle of it, and under it three ways in — a number, a name, one line
+   — side by side in the order a reader goes through them. The page's own
+   words are in Guide.module.css (.page, .stage, .top, .report); the choices
+   and the hub's stage are here. */
+
+.page {
+  /* The guides' names: the page's large type. */
+  --hub-name: clamp(52px, 6vw, 96px);
+  /* The side margin the choices keep. */
+  --hub-side: 6vw;
+  /* Where the choices start, from the top of the page (GuideHub measures it). */
+  --hub-top: 66vh;
+}
+
+/* ── the stage ───────────────────────────────────────────────────────────── */
+
+/* The stage is a box round the part of the screen above the choices, so the
+   device stands in the middle of that and not of the whole screen. The
+   camera (GuideCanvas) shows the device 0.6 of its canvas's height, centred
+   16px below the canvas's middle (it keeps 64px free at the top and 32px at
+   the bottom); a box this tall, this far up, stands the device from 72px
+   under the top of the screen to 56px above the choices. The box's foot
+   runs on behind the choices and fades out there, so the floor has no edge. */
+.stageBox {
+  --box-top: calc(99px - var(--hub-top) / 3);
+  --fade: calc(var(--hub-top) - var(--box-top));
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--box-top);
+  height: calc(var(--hub-top) * 1.667 - 213px);
+  -webkit-mask-image: linear-gradient(#000 min(100% - 64px, var(--fade) - 36px), transparent min(100%, var(--fade) + 52px));
+  mask-image: linear-gradient(#000 min(100% - 64px, var(--fade) - 36px), transparent min(100%, var(--fade) + 52px));
+}
+.glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(30% 44% at 50% calc(var(--hub-top) / 2 + 8px), rgba(255, 106, 61, 0.07), transparent 70%),
+    radial-gradient(64% 62% at 50% calc(var(--hub-top) / 2), rgba(90, 110, 160, 0.06), transparent 70%),
+    radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* ── the choices ─────────────────────────────────────────────────────────── */
 
 .hub {
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 96px 6vw 56px;
+  align-items: flex-end;
+  padding: 0 var(--hub-side) 36px;
 }
 .inner {
-  width: min(580px, 46vw);
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
   pointer-events: auto;
 }
-.kicker {
-  margin: 0 0 16px;
-  font-family: var(--g-pixel);
-  font-size: 13px;
-  color: var(--g-led);
-  letter-spacing: 0.06em;
+/* What the stage frames the device against (GuideCanvas freeArea, by
+   [data-step]): its top is where the choices start, which is what a narrow
+   screen's stage reads, and its left edge is the screen's right, which is
+   what a wide one's reads — nothing stands beside the device. */
+.frame {
+  position: absolute;
+  top: 0;
+  left: calc(100% + var(--hub-side));
+  width: 0;
+  height: 0;
 }
+
+/* The page's one sentence, small: the names are the large type. */
 .title {
-  margin: 0 0 16px;
-  text-wrap: balance;
-  font-size: clamp(40px, 4.6vw, 72px);
-  line-height: 0.98;
-  font-weight: 600;
-  letter-spacing: -0.04em;
-}
-.lede {
-  margin: 0 0 26px;
-  text-wrap: pretty;
-  font-size: 16px;
-  line-height: 1.6;
+  margin: 0 0 18px;
+  font-size: 17px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: -0.005em;
   color: var(--g-ink-2);
 }
-
-/* ── the three guides ────────────────────────────────────────────────────── */
+.kicker {
+  margin-right: 14px;
+  font-family: var(--g-pixel);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--g-led);
+}
+/* (.inner .report: over Guide.module.css's .report, whichever sheet loads last.) */
+.inner .report {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0 0 20px;
+}
 
 .guides {
+  grid-column: 1 / -1;
   display: grid;
-  gap: 10px;
-  margin: 0 0 6px;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 40px;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 .guide {
   position: relative;
-  padding: 15px 18px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--g-hair);
-  background: rgba(20, 18, 16, 0.55);
-  backdrop-filter: blur(8px);
-  transition:
-    border-color 0.2s,
-    background 0.2s;
+  border-top: 1px solid var(--g-hair-2);
+  transition: border-color 0.25s;
 }
-.guide:hover,
-.guide:focus-within {
-  border-color: rgba(255, 106, 61, 0.7);
-  background: rgba(36, 22, 16, 0.6);
-}
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-.name {
-  margin: 0;
-  font-family: var(--g-pixel);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  color: var(--g-led);
-}
-/* The way in. Its ::after covers the card, so the whole card is the link;
-   the chapter links sit above it. */
+/* The way in: the whole column, its foot included (::after lies over all of it). */
 .go {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "num arrow"
+    "name name"
+    "situation situation";
   align-items: baseline;
-  gap: 6px;
-  font-family: var(--pf-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--g-ink-3);
+  padding: 16px 0 10px;
+  color: var(--g-ink);
   text-decoration: none;
-  white-space: nowrap;
-  transition: color 0.2s;
+  transition: opacity 0.25s;
 }
 .go::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
+  border-radius: 4px;
+}
+.go:hover {
+  text-decoration: none;
 }
 .go:focus-visible {
   outline: none;
 }
-.guide:hover .go,
-.go:hover,
-.go:focus-visible {
+.go:focus-visible::after {
+  outline: 2px solid var(--g-led);
+  outline-offset: 4px;
+}
+/* Digits are not set in the pixel face (Guide.module.css --g-num). */
+.num {
+  grid-area: num;
+  font-family: var(--g-num);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
   color: var(--g-led);
-  text-decoration: none;
+}
+.arrow {
+  grid-area: arrow;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--g-led);
+  opacity: 0;
+  transform: translateX(-10px);
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+.name {
+  grid-area: name;
+  margin-top: 10px;
+  font-size: var(--hub-name);
+  line-height: 0.95;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+.page:lang(ko) .name {
+  letter-spacing: -0.035em;
 }
 .situation {
-  margin: 0 0 4px;
-  font-size: 19px;
-  line-height: 1.3;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--g-ink);
-}
-.about {
-  margin: 0 0 12px;
-  font-size: 14px;
-  line-height: 1.5;
+  grid-area: situation;
+  margin-top: 12px;
+  text-wrap: balance;
+  font-size: 16px;
+  line-height: 1.4;
   color: var(--g-ink-2);
 }
-.chapters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* What is inside, only for the guide being pointed at. It is the column's
+   foot and always there, so showing it moves nothing; the foot is as tall as
+   the longest of the three lists (the columns share a row), two lines at
+   least, so no list is ever cut. */
+.inside {
+  min-height: 36px;
   margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.chapters a {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--g-hair-2);
-  background: rgba(10, 9, 8, 0.45);
-  color: var(--g-ink-2);
-  font-size: 12.5px;
-  text-decoration: none;
-  transition:
-    border-color 0.2s,
-    color 0.2s;
-}
-.chapters a:hover,
-.chapters a:focus-visible {
-  border-color: var(--g-led);
-  color: var(--g-ink);
-  text-decoration: none;
-}
-.chapters span {
-  font-family: var(--g-pixel);
-  font-size: 9.5px;
-  color: var(--g-led);
-}
-.later {
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--g-ink-3);
-}
-.later b {
-  margin-right: 8px;
   font-family: var(--pf-mono);
-  font-size: 10.5px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  color: var(--g-ink-3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+/* A chapter's name, with the dot after it: the line turns between names, never inside one. */
+.chapter {
+  white-space: nowrap;
 }
 
-/* ── narrow screens: the device on top, the choices underneath ──────────── */
+/* Pointed at, with the keyboard or the mouse: its line lights, its arrow
+   and what is inside it show, and the other two step back. */
+.guide:has(.go:focus-visible) {
+  border-top-color: var(--g-led);
+}
+.go:focus-visible ~ .inside {
+  opacity: 1;
+}
+.go:focus-visible .arrow {
+  opacity: 1;
+  transform: none;
+}
+.guides:has(.go:focus-visible) .go:not(:focus-visible) {
+  opacity: 0.42;
+}
+@media (hover: hover) {
+  .guide:has(.go:hover) {
+    border-top-color: var(--g-led);
+  }
+  .go:hover ~ .inside {
+    opacity: 1;
+  }
+  .go:hover .arrow {
+    opacity: 1;
+    transform: none;
+  }
+  .guides:has(.go:hover) .go:not(:hover) {
+    opacity: 0.42;
+  }
+}
 
+/* A short window: the names give way before the page scrolls. */
+@media (min-width: 900px) and (max-height: 820px) {
+  .page {
+    --hub-name: clamp(44px, 9.5vh, 80px);
+  }
+  .hub {
+    padding-bottom: 24px;
+  }
+}
+
+/* ── narrow screens ──────────────────────────────────────────────────────── */
+
+/* Under 900px the stage is the whole screen, and its camera keeps the device
+   above the choices (HubStage: the stage's narrow framing). */
 @media (max-width: 899px) {
-  /* The choices scroll up under the top bar; it keeps a dark ground to stay legible. */
+  .page {
+    --hub-side: 20px;
+  }
+  .stageBox {
+    inset: 0;
+    height: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .glow {
+    background:
+      radial-gradient(70% 34% at 50% 28%, rgba(255, 106, 61, 0.07), transparent 70%),
+      radial-gradient(120% 50% at 50% 28%, rgba(90, 110, 160, 0.06), transparent 70%),
+      radial-gradient(140% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  }
+  /* On a short phone the choices scroll up under the top bar; it keeps a dark ground to stay legible. */
   .top {
     background: linear-gradient(rgba(10, 9, 8, 0.94) 55%, rgba(10, 9, 8, 0));
   }
+  /* The device keeps what the choices leave above them, and never less than
+     the stage frames it in (GuideCanvas freeArea: 36% of the height). */
   .hub {
-    align-items: flex-end;
-    padding: 46vh 16px 32px;
+    padding-top: 38vh;
+    padding-bottom: 18px;
   }
-  .inner {
-    width: 100%;
-    padding: 22px 18px 18px;
-    border-radius: 18px;
-    background: rgba(10, 9, 8, 0.78);
-    backdrop-filter: blur(12px);
+  /* Nothing hovers on a phone: each way in shows it is one. */
+  .arrow {
+    color: var(--g-ink-3);
+    opacity: 1;
+    transform: none;
   }
-  .title {
-    font-size: 38px;
+  .go:focus-visible .arrow {
+    color: var(--g-led);
   }
-  .lede {
-    margin-bottom: 18px;
-    font-size: 15px;
-  }
-  .guide {
-    padding: 14px 14px 14px;
-  }
-  .situation {
-    font-size: 17px;
-  }
-  .about {
-    font-size: 13.5px;
-  }
-}
-
-/* A short desktop window (a laptop's 900 px and less): the three guides and
-   the "Stuck?" line still fit on the first screen. */
-@media (min-width: 900px) and (max-height: 940px) {
-  .hub {
-    padding-top: 80px;
-    padding-bottom: 32px;
-  }
-  .title {
-    font-size: clamp(36px, 3.8vw, 56px);
-    margin-bottom: 12px;
-  }
-  .lede {
-    margin-bottom: 18px;
-  }
-  .about {
-    margin-bottom: 10px;
-  }
-}
-
-/* A phone: the choice has to be one glance. With the device over the top
-   46% and each card carrying its chapter chips, only Build was on the first
-   screen — someone with a built board saw one choice, about soldering. The
-   device keeps the least the stage frames it in (GuideCanvas freeArea: 36%
-   of the height), the lede and the chips go (the chapters are a tap away,
-   inside each guide), and the three situations fit the first screen. */
-@media (max-width: 599px) {
-  .hub {
-    padding-top: calc(36vh + 12px);
-  }
-  .inner {
-    padding: 18px 14px 16px;
-  }
-  .kicker {
-    margin-bottom: 12px;
-  }
-  .title {
-    font-size: 34px;
-    margin-bottom: 14px;
-  }
-  .lede,
-  .chapters {
+  /* A phone points with a tap, and a tap goes in: the chapter names wait inside each guide. */
+  .inside {
     display: none;
   }
+  .go {
+    padding-bottom: 14px;
+  }
+  .situation {
+    font-size: 15px;
+  }
+}
+
+/* Held upright: the device on top, the three ways in underneath, one under the other. */
+@media (max-width: 899px) and (orientation: portrait) {
+  .page {
+    --hub-name: clamp(40px, 11.5vw, 64px);
+    /* The column the numbers stand in, left of the names. */
+    --hub-gutter: 40px;
+  }
+  .inner {
+    display: block;
+  }
+  .title {
+    margin: 0 0 14px var(--hub-gutter);
+    font-size: 15px;
+  }
+  .kicker {
+    display: block;
+    margin: 0 0 6px;
+    font-size: 11px;
+  }
   .guides {
-    gap: 8px;
+    display: block;
   }
-  .guide {
-    padding: 12px 14px;
+  .guide:last-child {
+    border-bottom: 1px solid var(--g-hair-2);
   }
-  .head {
-    margin-bottom: 4px;
+  .go {
+    grid-template-columns: var(--hub-gutter) 1fr auto;
+    grid-template-areas:
+      "num name arrow"
+      ".   situation situation";
+    padding: 14px 0 16px;
   }
-  .about {
-    margin-bottom: 0;
-    font-size: 13px;
+  .name {
+    margin-top: 0;
   }
-  .later {
+  .arrow {
+    align-self: center;
+    font-size: 22px;
+  }
+  .situation {
+    margin-top: 8px;
+  }
+  .inner .report {
+    margin: 14px 0 0 var(--hub-gutter);
+  }
+}
+
+/* On its side: the three stay side by side, smaller, so all of them are on the first screen. */
+@media (max-width: 899px) and (orientation: landscape) {
+  .page {
+    --hub-name: clamp(30px, 11vh, 56px);
+  }
+  .hub {
+    padding-top: 36vh;
+    padding-bottom: 12px;
+  }
+  .title {
+    margin-bottom: 10px;
+    font-size: 15px;
+  }
+  .inner .report {
+    margin-bottom: 12px;
+  }
+  .guides {
+    column-gap: 20px;
+  }
+  .go {
+    padding: 10px 0 8px;
+  }
+  .name {
     margin-top: 6px;
+  }
+  .situation {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide,
+  .go,
+  .arrow,
+  .inside {
+    transition: none;
+  }
+  .arrow {
+    transform: none;
   }
 }

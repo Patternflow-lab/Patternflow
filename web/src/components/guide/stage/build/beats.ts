@@ -10,7 +10,10 @@
 // step's own motion once at its own pace and holds its end.
 //
 // The ids are the storyboard's step ids. `seconds` is how long the beat's
-// own motion takes at its own pace.
+// own motion takes at its own pace. There is no solder-5 and no wire-3: the
+// build has no multimeter checks, so solder-4 is followed by case-1 and
+// wire-2 by firmware-1. Every beat but "opening" and "next" is one step of
+// the script, and the script uses every one (build.test.ts).
 
 export const BEATS = [
   ["opening", 1],
@@ -26,24 +29,24 @@ export const BEATS = [
   ["solder-2", 6.4],
   ["solder-3", 4.6],
   ["solder-4", 8.8],
-  ["solder-5", 3.6],
-  ["case-1", 4.4],
-  ["case-2", 5],
+  ["case-1", 5],
+  ["case-2", 5.6],
   ["case-3", 6.4],
   ["case-4", 3],
-  ["case-5", 4.6],
-  ["wire-1", 3.6],
-  ["wire-2", 4.2],
-  ["wire-3", 6.4],
+  ["case-5", 5.2],
+  ["wire-1", 4.4],
+  ["wire-2", 5],
   ["firmware-1", 2.2],
-  ["firmware-2", 1],
-  ["firmware-3", 3.8],
+  // The DevKit's travel round the case and onto its pins is Device's (it is
+  // Play's move), not this timeline's: these seconds are how long that takes,
+  // so the step's card offers Replay like the other steps with a motion.
+  ["firmware-2", 2.6],
+  ["firmware-3", 4.6],
   ["check-1", 1],
   ["check-2", 1],
   ["check-3", 1],
-  ["check-4", 4.6],
-  ["check-5", 3.6],
-  ["check-6", 1],
+  ["check-4", 5.4],
+  ["check-5", 5],
   ["next", 1],
 ] as const;
 
@@ -68,10 +71,9 @@ export function beatSeconds(i: number): number {
 /**
  * Where a beat stands when nothing moves (prefers-reduced-motion), 0…1
  * through it: its end, unless the end is not the frame that says what the
- * step is about. wire-3 ends unplugged, the meter back at zero; its still is
- * the 5 V reading, the power bank plugged in.
+ * step is about (none is, today).
  */
-const STILL: Partial<Record<BuildBeat, number>> = { "wire-3": 0.7 };
+const STILL: Partial<Record<BuildBeat, number>> = {};
 export function beatStill(i: number): number {
   return STILL[BEATS[Math.max(0, Math.min(BEATS.length - 1, i))][0]] ?? 0.999;
 }

@@ -6,14 +6,14 @@ import guide from "../Guide.module.css";
 import styles from "./Build.module.css";
 import { BUILD_COPY, type BuildLink } from "../copy/build";
 import type { GuideLang } from "../store";
-import { BOM_URL, bomKey, dashed, type BomRow } from "./bom";
+import { BOM_URL, PANEL_PART, bomKey, dashed, times, type BomRow } from "./bom";
 import { useBom } from "./BomContext";
 import { CHECK_CARDS, LINK_CARDS, type BuildCard, type CheckCard, type LinkCard } from "./cards";
 
 // The cards inside the Build guide's steps (a step's `extra`, "build:<card>",
 // copy/build.ts): the parts list — the BOM file itself, read when the page
-// was built — what else is on the bench, which case file to print, the
-// soldering order, the two screw terminals' polarity, the checks to tick off,
+// was built, shown a line at a time — what else is on the bench, which case file to print, the
+// soldering order, the two screw terminals' polarity, the knobs to tick off,
 // and the way to the Play guide for the firmware. Every word is in
 // copy/build.ts `cards`.
 
@@ -120,48 +120,125 @@ function Checklist({ id, items }: { id: string; items: { label: string; aside?: 
 
 // ── the parts list ──────────────────────────────────────────────────────────
 
+// A list to scan, not to study: per line the quantity, the part, its
+// reference on the board and a few words. What a line is ordered by — its
+// spec and part number, straight from the file — and any alternate are behind
+// it, one tap away (a <details>, so it works without script and from the
+// keyboard; the lines of a card share a name, so opening one shuts the last
+// and the card only ever grows by one line's details). The file's long notes
+// are not on the page: the card links the file and BUILD_GUIDE §1.
+//
+// One line is not folded away: the LED panel. It is bought by its listing,
+// and it is the part that goes wrong — so its line carries the listing
+// BUILD_GUIDE §1 recommends and the way to docs/panel-compatibility.md.
+
+function BomLine({ row: r, lang }: { row: BomRow; lang: GuideLang }) {
+  const words = BUILD_COPY[lang].cards.bom;
+  const key = bomKey(r);
+  const name = words.names?.[key] ?? r.part;
+  const isPanel = r.part === PANEL_PART;
+  // What to order it by: the part number, where it has one.
+  const mpn = r.mpn && r.mpn !== "-" && r.mpn !== "generic" ? r.mpn : null;
+  const more = words.more[key];
+  const head = (
+    <>
+      <span className={styles.bomQty}>×{dashed(r.qty)}</span>
+      <span className={styles.bomMain}>
+        <span className={styles.bomPart}>{name}</span>
+        {/* The panel's few words are its size, which is the file's. */}
+        <span className={styles.bomTip}>{isPanel ? times(r.spec) : words.tips[key]}</span>
+      </span>
+      {r.ref !== "-" && <span className={styles.bomRef}>{dashed(r.ref.replace(" (sockets)", ""))}</span>}
+    </>
+  );
+
+  if (isPanel) {
+    const { listing, other, note } = words.panel;
+    return (
+      <li className={styles.bomRow}>
+        <div className={styles.bomHead}>{head}</div>
+        <div className={styles.bomPanel}>
+          <div className={styles.links}>
+            {/* The listing is an affiliate link (BUILD_GUIDE §1 says so, and so does the note under it). */}
+            <a href={listing.href} className={`${styles.link} ${styles.linkFirst}`} target="_blank" rel="sponsored noopener noreferrer">
+              {listing.label}
+              <span aria-hidden="true">↗</span>
+            </a>
+            <a href={other.href} className={styles.link} target="_blank" rel="noopener noreferrer">
+              {other.label}
+              <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+          <p className={styles.bomNote}>{note}</p>
+        </div>
+      </li>
+    );
+  }
+
+  if (!mpn && !more) {
+    return (
+      <li className={styles.bomRow}>
+        <div className={styles.bomHead}>{head}</div>
+      </li>
+    );
+  }
+
+  return (
+    <li className={styles.bomRow}>
+      <details className={styles.bomFold} name={`pf-build-bom-${r.category}`}>
+        <summary className={styles.bomHead}>
+          {head}
+          <span className={styles.bomChev} aria-hidden="true" />
+        </summary>
+        <div className={styles.bomMore}>
+          <dl>
+            {name !== r.part && (
+              <div>
+                <dt>{words.labels.name}</dt>
+                <dd>{r.part}</dd>
+              </div>
+            )}
+            <div>
+              <dt>{words.labels.spec}</dt>
+              <dd>{times(r.spec)}</dd>
+            </div>
+            {mpn && (
+              <div>
+                <dt>{words.labels.mpn}</dt>
+                <dd>
+                  <code>{mpn}</code>
+                  {r.manufacturer && r.manufacturer !== "-" && <> · {r.manufacturer}</>}
+                </dd>
+              </div>
+            )}
+          </dl>
+          {more && <p>{more}</p>}
+        </div>
+      </details>
+    </li>
+  );
+}
+
 function BomList({ category, lang }: { category: BomRow["category"]; lang: GuideLang }) {
   const words = BUILD_COPY[lang].cards.bom;
   const rows = useBom()?.filter((r) => r.category === category);
+  const links = [{ label: words.source, href: BOM_URL }, words.guide];
   if (!rows) {
     return (
       <div className={guide.extra}>
         <p className={styles.caption}>{words.missing}</p>
-        <Links links={[{ label: words.source, href: BOM_URL }]} />
+        <Links links={links} />
       </div>
     );
   }
   return (
     <div className={guide.extra}>
       <ul className={styles.bom}>
-        {rows.map((r) => {
-          const tip = words.tips[bomKey(r)];
-          // What to order it by: the part number, where it has one.
-          const mpn = r.mpn && r.mpn !== "-" && r.mpn !== "generic" ? r.mpn : null;
-          return (
-            <li key={bomKey(r)} className={styles.bomRow}>
-              <span className={styles.bomRef}>
-                {r.ref !== "-" && <b>{dashed(r.ref.replace(" (sockets)", ""))}</b>}
-                <span>×{dashed(r.qty)}</span>
-              </span>
-              <span className={styles.bomMain}>
-                <span className={styles.bomPart}>{r.part}</span>
-                {tip && <span className={styles.bomTip}>{tip}</span>}
-                <span className={styles.bomSpec}>
-                  {r.spec}
-                  {mpn && (
-                    <>
-                      {" · "}
-                      <code>{mpn}</code>
-                    </>
-                  )}
-                </span>
-              </span>
-            </li>
-          );
-        })}
+        {rows.map((r) => (
+          <BomLine key={bomKey(r)} row={r} lang={lang} />
+        ))}
       </ul>
-      <Links links={[{ label: words.source, href: BOM_URL }, ...(category === "off-board" ? BUILD_COPY[lang].cards.links.linksPanel : [])]} />
+      <Links links={links} />
     </div>
   );
 }

@@ -54,6 +54,14 @@ export type Step = {
    * leaves what the step is about — which screw is +5 V — a few pixels wide.
    */
   narrowView?: ViewName;
+  /**
+   * The Build guide, on a narrow screen: a second view for the later part of
+   * the step's beat, from `from` (0…1 through it) on. For a step whose two
+   * halves happen in two places — the lead through the case's hole, then
+   * into J4 on the board held behind it — which one view shows only as a
+   * few pixels each in the strip a phone leaves above the card.
+   */
+  narrowLate?: { from: number; view: ViewName };
   /** Radians per second the device turns on its own (the opening). */
   spin?: number;
   power: boolean;

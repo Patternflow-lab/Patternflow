@@ -63,6 +63,9 @@ export type Target =
   | { text: string | RegExp; among?: string; nth?: number }
   | ((root: ParentNode) => Element | null);
 
+/** A hint, in both languages. */
+export type Say = Record<GuideLang, string>;
+
 /** What the pointer does at its target. */
 export type BeatDo = "point" | "press" | "type" | "paste" | "drag" | "scroll";
 
@@ -144,8 +147,13 @@ export type Beat = {
    * "Show me again"). May return a cleanup, run when the step is left.
    */
   run?: (ctx: BeatCtx) => void | (() => void);
-  /** A short hint beside the pointer (and in the card's cue line). */
-  say?: Record<GuideLang, string>;
+  /**
+   * A short hint beside the pointer (and in the card's cue line). A function
+   * when the words depend on where the reader is — a target that is one
+   * control on one page and another on the next: asked again while the beat
+   * waits, so the hint names what the pointer is on.
+   */
+  say?: Say | ((ctx: BeatCtx) => Say);
   /**
    * Where the hint sits (default: below right of the tip, flipped to stay on
    * the desk): "above" the target, or "left" of it — for a target whose

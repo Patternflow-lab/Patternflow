@@ -180,7 +180,13 @@ export const COMMUNITY_TUTORIAL: Tutorial = [
       skipIf: (ctx) => deck(ctx).includes("pattern-1"),
       done: (ctx) => deck(ctx).includes("pattern-1"),
       signal: COMMUNITY_SIGNAL.added,
-      say: { en: "Your turn: + on Pattern 1", ko: "이제 직접: Pattern 1의 +" },
+      // The hint names whichever of the two the pointer is on.
+      say: (ctx) => {
+        const p = at(ctx);
+        return p.kind === "pattern" && p.id === "pattern-1"
+          ? { en: "Your turn: ▦ Add to deck", ko: "이제 직접: ▦ Add to deck" }
+          : { en: "Your turn: + on Pattern 1", ko: "이제 직접: Pattern 1의 +" };
+      },
     },
     {
       win: C,

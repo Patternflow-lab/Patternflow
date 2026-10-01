@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useLayoutEffect } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import styles from "./Guide.module.css";
 import hub from "./Hub.module.css";
 import { COPY } from "./copy";
@@ -11,14 +11,16 @@ import { GUIDE_ORDER, PAGES, pagePath } from "./pages";
 import { hereFor, reportUrl } from "./report";
 import { legacyGuideTarget } from "./legacy";
 import { useDarkDocument, useDocumentLang } from "./darkDocument";
-import type { GuideLang } from "./store";
+import type { GuideLang, GuidePageId } from "./store";
 
-// /guide: the hub. The reader picks a guide by where their Patternflow is —
-// Build (soldering one from bare parts), Play (it's built), Make (it plays;
-// now their own patterns and the extras) — in that order, each with its
-// chapters, each chapter a way straight in. The 3D device turns beside the
-// choices as it does on Play's opening (HubStage, loaded after the page), so
-// the words never wait for it.
+// /guide: the hub. One glance, three ways in: Build (soldering one from bare
+// parts), Play (it's built), Make (it plays; now their own patterns) — side
+// by side in that order, each a number, a name and the one line a reader
+// recognises themselves in. What a guide covers is its own opening's to say;
+// here its chapter names only surface under the guide being pointed at. The
+// 3D device stands alone above them, the page's one image (HubStage, loaded
+// after the page, so the words never wait for it), and it answers the guide
+// being pointed at.
 //
 // /guide used to be the Play guide. Its old anchors (#flash, #knobs-3, …)
 // are sent on to /guide/play (legacy.ts): on a page load by the root
@@ -50,19 +52,46 @@ function useLegacyAnchors() {
   }, []);
 }
 
+// Where the choices start, from the top of the page: the stage is a box round
+// what is above them (Hub.module.css .stageBox reads --hub-top).
+function useChoicesTop(page: RefObject<HTMLElement | null>, choices: RefObject<HTMLElement | null>) {
+  useLayoutEffect(() => {
+    const root = page.current;
+    const el = choices.current;
+    if (!root || !el) return;
+    const measure = () => root.style.setProperty("--hub-top", `${Math.round(el.getBoundingClientRect().top + window.scrollY)}px`);
+    measure();
+    // The choices grow and shrink with the window's width and with their fonts.
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [page, choices]);
+}
+
 export default function GuideHub({ lang }: { lang: GuideLang }) {
   const copy = COPY[lang];
   const words = HUB_COPY[lang];
   const other: GuideLang = lang === "en" ? "ko" : "en";
+  // The guide the reader is pointing at (mouse or keyboard): the device answers it (HubStage).
+  const [guide, setGuide] = useState<GuidePageId | null>(null);
+  const page = useRef<HTMLDivElement>(null);
+  const choices = useRef<HTMLDivElement>(null);
   useLegacyAnchors();
   useDarkDocument();
   useDocumentLang(lang);
+  useChoicesTop(page, choices);
+
+  const leave = (id: GuidePageId) => setGuide((g) => (g === id ? null : g));
 
   return (
-    <div className={styles.page} lang={lang}>
+    <div ref={page} className={`${styles.page} ${hub.page}`} lang={lang}>
       <div className={styles.stage} aria-hidden="true">
-        <div className={styles.stageGlow} />
-        <HubStage />
+        <div className={hub.glow} />
+        <HubStage guide={guide} />
         <div className={styles.grain} />
       </div>
 
@@ -81,57 +110,62 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
       </header>
 
       <main className={styles.story}>
-        {/* data-scene / data-step: the stage frames the device in what this leaves free (GuideCanvas freeArea). */}
+        {/* data-scene / data-step: what the stage frames the device against (GuideCanvas freeArea; Hub.module.css .frame). */}
         <section className={`${styles.scene} ${hub.hub}`} data-scene="opening" id="top">
-          <div className={hub.inner} data-step={0} data-on="1">
-            <p className={hub.kicker}>{words.kicker}</p>
-            <h1 className={hub.title}>{words.title}</h1>
-            <p className={hub.lede}>{words.lede}</p>
+          <div ref={choices} className={hub.inner}>
+            <span className={hub.frame} data-step={0} aria-hidden="true" />
+            <h1 className={hub.title}>
+              <span className={hub.kicker}>{words.kicker}</span> {words.title}
+            </h1>
 
             <ol className={hub.guides}>
-              {GUIDE_ORDER.map((id) => {
+              {GUIDE_ORDER.map((id, i) => {
                 const text = PAGES[id].text(lang);
-                const g = words.guides[id];
-                const path = pagePath(id, lang);
+                const inside = `hub-${id}-inside`;
                 return (
                   <li key={id} className={hub.guide} data-guide={id}>
-                    <div className={hub.head}>
-                      <p className={hub.name}>{text.name}</p>
-                      {/* The way in; it covers the whole card (Hub.module.css .go::after). */}
-                      <Link href={path} className={hub.go}>
-                        {g.go}
-                        <span aria-hidden="true">→</span>
-                      </Link>
-                    </div>
-                    <h2 className={hub.situation}>{g.situation}</h2>
-                    <p className={hub.about}>{g.about}</p>
-                    <ol className={hub.chapters} aria-label={text.name}>
-                      {text.chapters.map((c) => (
-                        <li key={c.id}>
-                          <Link href={`${path}#${c.id}`}>
-                            <span>{c.copy.num}</span>
-                            {c.label}
-                          </Link>
-                        </li>
+                    <Link
+                      href={pagePath(id, lang)}
+                      className={hub.go}
+                      aria-describedby={inside}
+                      // Over, not enter: coming Back with the mouse where it
+                      // clicked, the link arrives under a pointer that never
+                      // left the page, and React makes no enter out of that
+                      // — the column lit (CSS :hover) and the device did not answer.
+                      onPointerOver={(e) => {
+                        if (e.pointerType === "mouse") setGuide(id);
+                      }}
+                      onPointerLeave={() => leave(id)}
+                      onFocus={() => setGuide(id)}
+                      onBlur={() => leave(id)}
+                    >
+                      <span className={hub.num}>{String(i + 1).padStart(2, "0")}</span>
+                      <span className={hub.name}>{text.name}</span>
+                      <span className={hub.arrow} aria-hidden="true">
+                        →
+                      </span>
+                      <span className={hub.situation}>{words.guides[id].situation}</span>
+                    </Link>
+                    {/* What is inside, for the guide being pointed at. A name never breaks in two: the line turns after its dot. */}
+                    <p className={hub.inside} id={inside}>
+                      {text.chapters.map((c, n) => (
+                        <Fragment key={c.id}>
+                          <span className={hub.chapter}>{n < text.chapters.length - 1 ? `${c.label} ·` : c.label}</span>{" "}
+                        </Fragment>
                       ))}
-                    </ol>
-                    {g.later && (
-                      <p className={hub.later}>
-                        <b>{g.later.label}</b>
-                        {g.later.items.join(" · ")}
-                      </p>
-                    )}
+                    </p>
                   </li>
                 );
               })}
             </ol>
 
             <a
-              className={styles.report}
+              className={`${styles.report} ${hub.report}`}
               href={reportUrl("stuck", words.report.where)}
               target="_blank"
               rel="noopener noreferrer"
               title={copy.ui.report.hint}
+              data-report
               // The browser is only known here.
               onClick={(e) => {
                 e.currentTarget.href = reportUrl("stuck", words.report.where, hereFor());

@@ -126,7 +126,11 @@ export default function CommunityApp({ lang, shown, scene, step, reduced, setPat
   }, []);
 
   // Whatever the pointer is aiming at in this window is scrolled into view
-  // (clear of the deck bar), the way a person would scroll to it.
+  // (clear of the deck bar), the way a person would scroll to it — when its
+  // beat starts, and again when the reader moves to another page of the
+  // practice while it waits: a beat whose target is one control on the wall
+  // and another on a pattern's page (▦ Add to deck, on the buttons' second
+  // row) pointed at it under the bar.
   const run = useDeskStore((s) => s.run);
   const runKey = run?.key;
   const runIndex = run?.index;
@@ -155,7 +159,7 @@ export default function CommunityApp({ lang, shown, scene, step, reduced, setPat
     };
     id = window.setTimeout(reveal, 60);
     return () => window.clearTimeout(id);
-  }, [runKey, runIndex, scene, step, reduced]);
+  }, [runKey, runIndex, scene, step, reduced, visit]);
 
   // Esc closes the send dialog.
   useEffect(() => {

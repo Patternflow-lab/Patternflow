@@ -4,6 +4,10 @@
 // (bom.server.ts) and hands its rows to the cards (BomContext); nothing here
 // keeps a copy of a part, a reference or a quantity. If the file can't be
 // read, the card links to it instead.
+//
+// What a card shows of a line is little — quantity, part, reference — with
+// the spec and the part number behind it; the file's long notes are not put
+// on the page at all. The card links the file, and BUILD_GUIDE §1.
 
 export const BOM_FILE = "hardware/bom/bom_v3.9.csv";
 export const BOM_URL = `https://github.com/engmung/Patternflow/blob/main/${BOM_FILE}`;
@@ -86,3 +90,15 @@ export function bomKey(row: Pick<BomRow, "ref" | "part">): string {
 export function dashed(s: string): string {
   return s.replace(/(\w)-(\w)/g, "$1–$2");
 }
+
+/** "128x64 px" → "128×64 px", "D10xL13" → "D10×L13": sizes set with a multiplication sign. */
+export function times(s: string): string {
+  return s.replace(/(\d)x(?=[\dA-Z])/g, "$1×");
+}
+
+/**
+ * The one line whose card says more than a few words: the LED panel, bought
+ * by its listing rather than a part number (BuildCards.tsx; build.test.ts
+ * checks the file has exactly one such line).
+ */
+export const PANEL_PART = "LED matrix panel";

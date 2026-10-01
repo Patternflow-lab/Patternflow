@@ -484,8 +484,9 @@ export const LAB_TUTORIAL: Tutorial = [
       target: APPLY,
       do: "point",
       until: 3200,
-      bubble: "above",
-      say: { en: "This one needs a community sign-in", ko: "이건 커뮤니티 로그인이 필요해요" },
+      // Beside the button, off the window: the lines above and below it ("Header ready…", "Happy with it?") are for reading.
+      bubble: "left",
+      say: { en: "Needs a sign-in", ko: "로그인이 필요해요" },
     },
   ],
 

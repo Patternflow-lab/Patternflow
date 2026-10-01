@@ -64,16 +64,18 @@ export const BUILD_STEPS: Record<BuildBeat, Step> = {
   "solder-2": { build: "solder-2", view: "boardParts", ...dark, esp: 1 },
   "solder-3": { build: "solder-3", view: "boardC11", ...dark, esp: 1 },
   "solder-4": { build: "solder-4", view: "boardSW", ...dark, esp: 1 },
-  "solder-5": { build: "solder-5", view: "boardJ4", ...dark, esp: 1 },
-  "case-1": { build: "case-1", view: "caseBack", ...dark, esp: 1 },
-  "case-2": { build: "case-2", view: "caseBack", ...dark, esp: 1 },
-  "case-3": { build: "case-3", view: "caseBackClose", ...dark, esp: 1 },
+  // The panel goes in from the front; the camera is behind the frame, where the panel's IN header and the tabs show.
+  "case-1": { build: "case-1", view: "panelIn", ...dark, esp: 1 },
+  "case-2": { build: "case-2", view: "screwsBack", ...dark, esp: 1 },
+  // Close on the bay's floor: the small slot the lead comes up through, then
+  // J4. On a phone those are two shots: the floor, then — as the board is
+  // brought over — J4 on it.
+  "case-3": { build: "case-3", view: "leadBack", narrowView: "leadHole", narrowLate: { from: 0.52, view: "leadJ4" }, ...dark, esp: 1 },
   "case-4": { build: "case-4", view: "caseBackClose", ...dark, esp: 1 },
   "case-5": { build: "case-5", view: "knobs", ...dark, esp: 1 },
   "wire-1": { build: "wire-1", view: "wireBack", ...dark, esp: 1 },
   // On a phone, close on the two terminals: the polarity is the step.
   "wire-2": { build: "wire-2", view: "wireBack", narrowView: "terminalsBack", ...dark, esp: 1 },
-  "wire-3": { build: "wire-3", view: "probeJ3", ...dark, esp: 1 },
   // Flashing is Play's 01 Flash: the DevKit held up, the cable in its left port.
   "firmware-1": { build: "firmware-1", view: "esp", ...dark, esp: 1, cable: 1, flashing: true, espTags: ["usb"] },
   "firmware-2": { build: "firmware-2", view: "back", ...dark, esp: 0 },
@@ -83,6 +85,5 @@ export const BUILD_STEPS: Record<BuildBeat, Step> = {
   "check-3": { build: "check-3", view: "front", ...lit, esp: 0, demo: [{ at: 700, mode: "off" }, { at: 2300, mode: "run" }], period: 5200 },
   "check-4": { build: "check-4", view: "caseBack", ...lit, esp: 0 },
   "check-5": { build: "check-5", view: "front", ...lit, esp: 0 },
-  "check-6": { build: "check-6", view: "hero", spin: 0.16, ...lit, esp: 0 },
   next: { build: "next", view: "hero", spin: 0.18, ...lit, esp: 0 },
 };

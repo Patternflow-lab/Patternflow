@@ -412,7 +412,8 @@ const ko: GuideCopy = {
       },
       {
         kicker: "목록에 포트가 없다면",
-        title: "BOOT 누른 채로, RST 한 번, BOOT 떼기.",
+        // "RST 한 번" stays on one line (no-break spaces): the title broke inside it.
+        title: "BOOT 누른 채로, RST\u00a0한\u00a0번, BOOT 떼기.",
         body: ["직접 다운로드 모드로 넣고 Flash Patternflow를 다시 눌러요. USB JTAG/serial debug unit이라는 이름으로 나타나요."],
         warn: "다운로드 모드에선 플래셔가 이미 패턴플로우인지 몰라서 새 보드로 보고 지워요. 설치한 패턴과 저장된 와이파이까지요.",
         extra: "bootSeq",

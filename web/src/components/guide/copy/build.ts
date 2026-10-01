@@ -14,10 +14,27 @@ import type { CheckCard, LinkCard } from "../build/cards";
 // (hardware/bom/bom_v3.9.csv), hardware/**/README.md. The parts list on the
 // page is the CSV itself (build/bom.ts); what is here is only what a card
 // says about a line, keyed by its reference (build/build.test.ts checks every
-// line has one). The board's known issues are BUILD_GUIDE.md §10: link there,
-// don't restate them. The board has one power input, J4, the screw terminal:
-// USB-C is never power. Firmware is the Play guide's 01 Flash, not repeated
-// here. There are no kits.
+// line has one). The list is made to be scanned: a quantity, a part, its
+// reference and a few words. What to order it by, alternates and sourcing
+// notes are behind the line, or left to the file and BUILD_GUIDE §1, which
+// the card links. One line says more, because it is the one that goes wrong:
+// the LED panel, with the listing BUILD_GUIDE §1 recommends and the way to
+// docs/panel-compatibility.md. The board's known issues are BUILD_GUIDE.md
+// §10: link there, don't restate them. The board has one power input, J4, the
+// screw terminal: USB-C is never power. Firmware is the Play guide's 01 Flash,
+// not repeated here. There are no kits.
+//
+// No multimeter, anywhere: the maker cut the short check, the continuity
+// check and the 5 V measurement as steps nobody needs. After the wiring the
+// build goes straight on to the firmware, the DevKit and first light; what a
+// builder checks before power is what they can see, the +5v marks
+// (build/build.test.ts keeps the meter out).
+//
+// The LED panel goes into the frame from the FRONT and stops on the twelve
+// tabs inside it. The tabs are part of the frame (encloser.stl's frame halves,
+// the .blend's 0904_v3.9 body; docs/build-guide/images/v3/02, 11–13), and the
+// M4 screws go in from behind, through the tabs, into the panel's own
+// threads. Only for_other_panels/ has a separate mounting part.
 //
 // The board's two faces are "the printed side" (all its lettering, the
 // sockets, J1, J3, J4 and C11 — KiCad's F side) and "the plain side" (where
@@ -33,10 +50,24 @@ export type BuildLink = { label: string; href: string };
 /** The words on the cards inside the steps (build/BuildCards.tsx). */
 export type BuildCardsCopy = {
   bom: {
-    /** What a card says about a line, by its reference ("SW1-SW4") — or, for a part with none, its name. */
+    /**
+     * The few words on a line, by its reference ("SW1-SW4") — or, for a part
+     * with none, its name. Every line has them but the LED panel, whose line
+     * is `panel`.
+     */
     tips: Record<string, string>;
+    /** A line's name where the file's English one is not what a reader would call it (Korean). The file's own name is then behind the line. */
+    names?: Record<string, string>;
+    /** Behind a line: an alternate, a sourcing note. A sentence or two, for the lines that have one. */
+    more: Record<string, string>;
+    /** Behind a line: what its rows are called — the file's name for it, its spec, the part number to order by. */
+    labels: { name: string; spec: string; mpn: string };
+    /** The LED panel's line: the listing BUILD_GUIDE §1 recommends, a word on that link, and the way to the compatibility doc. */
+    panel: { listing: BuildLink; note: string; other: BuildLink };
     /** The link to the file under the list. */
     source: string;
+    /** Beside it: the sourcing notes, BUILD_GUIDE §1. */
+    guide: BuildLink;
     /** In place of the list when the page was built without the file. */
     missing: string;
   };
@@ -97,19 +128,20 @@ const PCBWAY = "https://www.pcbway.com/project/shareproject/Patternflow_An_LED_s
 const MAKERWORLD = "https://makerworld.com/en/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015";
 const SOLDER_VIDEO = "https://youtu.be/NZCjMBCsDAc";
 const ASSEMBLY_VIDEO = "https://youtu.be/J9C9bZgkNKs";
+// BUILD_GUIDE.md by section. Not §5: the GPIO0 note is at that section's far
+// end, and what a reader lands on at its top is the multimeter pass this guide
+// does not have. The note's substance is issue #16, and §10 lists it.
 const GUIDE_SECTION = {
   bom: `${BUILD_GUIDE_MD}#1-bill-of-materials-bom`,
   tools: `${BUILD_GUIDE_MD}#what-you-also-need-not-in-bom`,
   print: `${BUILD_GUIDE_MD}#4-3d-printing`,
-  solder: `${BUILD_GUIDE_MD}#5-pcb-assembly`,
-  gpio0: `${BUILD_GUIDE_MD}#5-pcb-assembly`,
   case: `${BUILD_GUIDE_MD}#6-case-assembly`,
-  wiring: `${BUILD_GUIDE_MD}#7-wiring--first-power-up`,
   issues: `${BUILD_GUIDE_MD}#10-known-issues--design-notes`,
 };
 const ISSUE_16 = `${REPO}/issues/16`;
 const PANEL_DOC = `${BLOB}/docs/panel-compatibility.md`;
-const BOM_README = `${BLOB}/hardware/bom/README.md#sourcing-notes`;
+/** The panel BUILD_GUIDE §1 recommends: the one the case is measured around (build/build.test.ts keeps the two in step). */
+export const PANEL_LISTING = "https://s.click.aliexpress.com/e/_c3SVdcQr";
 const GERBER = `${BLOB}/hardware/pcb/gerber/patternflow_v3.9_gerber.zip`;
 const KICAD = `${TREE}/hardware/pcb/kicad`;
 const CASE_256 = `${BLOB}/hardware/case/bed_256mm/encloser.stl`;
@@ -122,7 +154,7 @@ const en: BuildCopy = {
   meta: {
     title: "Build a Patternflow",
     description:
-      "The Build guide: a Patternflow soldered from bare parts — the parts list, the board order, the printed case, soldering, putting it together and first power — shown on the real v3.9 hardware in 3D.",
+      "The Build guide: a Patternflow soldered from bare parts — the parts list, the board order, the printed case, soldering, putting it together and first light — shown on the real v3.9 hardware in 3D.",
   },
   name: "Build",
   opening: {
@@ -130,7 +162,7 @@ const en: BuildCopy = {
     title: "Build one from scratch.",
     lede: "The board comes from a fab, the case from your printer, the parts from the parts list. Then about an hour of soldering and putting it together — shown here on the real parts, in the order it really happens.",
     scroll: "Scroll",
-    chapters: ["Gather", "Order & print", "Solder", "Into the case", "Wire & power", "Firmware", "Check & close"],
+    chapters: ["Gather", "Order & print", "Solder", "Into the case", "Wire", "Firmware", "Check & close"],
     back: { label: "All guides", to: "hub" },
   },
   chapters: [
@@ -145,7 +177,7 @@ const en: BuildCopy = {
             kicker: "On the board",
             title: "Seven lines. Everything you solder is through-hole.",
             body: [
-              "Order by part number, from Mouser, DigiKey or anywhere with the same one. The list is the BOM file itself.",
+              "Order by part number, from Mouser, DigiKey or anywhere with the same one. Open a line to see its number.",
             ],
             extra: "build:bomBoard",
           },
@@ -153,8 +185,7 @@ const en: BuildCopy = {
             kicker: "Off the board",
             title: "A panel, screws, a cable, a power bank.",
             body: [
-              "Buy the LED panel by its listing, not a part number: the case is measured around the one the build guide links. It comes with its ribbon and power cable.",
-              "The USB cable is one you don't mind cutting: it becomes the power lead.",
+              "Buy the LED panel by its listing, not a part number: the case is measured around the one linked below. It comes with its ribbon and power cable.",
             ],
             warn: "Another panel? Its driver IC decides, not “HUB75E” in the title. S-PWM “video wall” panels stay completely dark, and no firmware fixes that.",
             extra: "build:bomOff",
@@ -204,7 +235,7 @@ const en: BuildCopy = {
             kicker: "Knobs",
             title: "The knobs in black, on their own.",
             body: [
-              "Print knobs_20mm.stl, all four on one plate, as its own job in black PLA. It fits the BOM's 20 mm-shaft encoders; 15 mm shafts take knobs_15mm.stl.",
+              "Print knobs_20mm.stl, all four on one plate, as its own job in black PLA. It fits the BOM's 20 mm-shaft encoders; 15 mm shafts take knobs_15mm.stl.",
               "White body, black knobs: that contrast is the Patternflow look.",
             ],
           },
@@ -225,7 +256,7 @@ const en: BuildCopy = {
       copy: {
         num: "03",
         title: "Solder the board",
-        lede: "Every joint is big and through-hole. Small parts first, the encoders last.",
+        lede: "Every joint is big and through-hole. Four steps, the encoders last.",
         steps: [
           {
             kicker: "Sockets",
@@ -241,7 +272,7 @@ const en: BuildCopy = {
             title: "Then the header and the two terminals.",
             body: [
               "J1, the 2×8 box header, goes beside the right-hand row of sockets, its notch toward them: the board prints hole! on that side.",
-              "The two screw terminals go in the bottom corners. With the printed side up and the encoders at the top, J3 is on the right and J4 on the left. J4 is the board's only power input.",
+              "The two screw terminals go in the bottom corners. Printed side up, encoders at the top: J4 on the left, its wire openings toward the bottom edge; J3 on the right, its openings the other way, up the board. J4 is the board's only power input.",
               "Seat each one flush, then solder from the plain side: 16 joints for J1, two each for J3 and J4.",
             ],
             extra: "build:order",
@@ -253,7 +284,7 @@ const en: BuildCopy = {
               "C11, the 1000 µF electrolytic, goes above J4. Its long lead is +: it goes in the hole marked + on the board, the one nearer the sockets. The stripe down the can marks −.",
               "Solder it, then trim the leads.",
             ],
-            warn: "It only goes in one way. Check the long lead is in + before you solder.",
+            warn: "Before you solder, check the long lead is in +. Reversed, the capacitor fails.",
             extra: "build:order",
           },
           {
@@ -265,15 +296,6 @@ const en: BuildCopy = {
             ],
             warn: "Check the side twice before you solder each one. On the wrong side the shafts can't reach the front of the case, and a soldered encoder is very hard to get back out.",
             extra: "build:order",
-          },
-          {
-            kicker: "Before any power",
-            title: "Check for a short.",
-            body: [
-              "Set the multimeter to continuity and touch +5 V and GND: J4's two screws are the easy place. It must read open, no beep.",
-              "Leave the DevKit out. It goes in only after the first power check, in 05.",
-            ],
-            extra: "build:checkShort",
           },
         ],
       },
@@ -287,17 +309,18 @@ const en: BuildCopy = {
         steps: [
           {
             kicker: "The panel",
-            title: "HUB-75E IN toward the top.",
+            title: "From the front, IN toward the top.",
             body: [
-              "Glue cured? Seat the LED panel in the frame from the back, its LEDs to the window and the connector marked HUB-75E IN toward the top, the knob end. That's the side the ribbon reaches J1 from.",
+              "Glue cured? On the panel's back, find the connector marked HUB-75E IN. That end goes toward the top, the knob end: it's where the ribbon reaches J1 from.",
+              "Then seat the panel in the frame from the front, LEDs facing out, until its back rests on the twelve tabs inside the frame.",
             ],
             warn: "The fit is very tight, with almost no clearance. Work it in slowly: forced, the print can crack.",
           },
           {
             kicker: "M4 screws",
-            title: "Screw the panel in.",
+            title: "Screw it in from behind.",
             body: [
-              "Fix it with the M4 screws. All 12 is the exact fit; 6, spread over the corners and the middle, hold it firmly.",
+              "Turn the case over. Each tab's hole sits over one of the panel's threaded holes: drive an M4 screw through the tab, into the panel. All 12 is the exact fit; 6, spread over the corners and the middle, hold it firmly.",
               "Another panel's holes and screws may differ. That's what the for_other_panels print is for.",
             ],
           },
@@ -305,9 +328,9 @@ const en: BuildCopy = {
             kicker: "Power lead",
             title: "The lead goes in before the board.",
             body: [
-              "Cut the USB cable and strip the red and black wires: red is +5 V, black GND. The other wires aren't used.",
-              "Thread the cut end through the case's cable hole first, from the power-bank compartment into the board bay.",
-              "Board still outside the case, clamp the wires into J4, red to the side marked +5v. Tighten, and tug each wire.",
+              "Cut the USB cable, keeping the power-bank end. Strip only its red (+5 V) and black (GND) wires.",
+              "Thread the cut end through the small cable hole first, from the power-bank compartment up into the board bay, right below J4's place. Not the wide opening beside it, if your case has one.",
+              "Board still outside the case, clamp them into J4, red to the +5v side. Tug each wire.",
             ],
             warn: "J4 is the only way power gets in. Never through the DevKit's USB ports.",
             extra: "build:j4",
@@ -316,7 +339,7 @@ const en: BuildCopy = {
             kicker: "The board",
             title: "Set the board into its bay.",
             body: [
-              "Printed side facing you, encoders first: the four shafts go through the four holes in the front face. The sockets and the terminals face the open back, and the J4 lead follows the board in.",
+              "From behind, printed side toward you: the four encoder shafts go through the four holes in the front face. The sockets and the terminals face the open back, and the J4 lead follows the board in.",
             ],
           },
           {
@@ -324,7 +347,7 @@ const en: BuildCopy = {
             title: "Lock it from the front.",
             body: [
               "On the front, screw the nut that came with each encoder onto its shaft and tighten it with pliers or a wrench. The nuts are what hold the board against the front face.",
-              "Keep the knobs off. They go on last, after the checks.",
+              "Keep the knobs off. They go on last, in 07.",
             ],
           },
         ],
@@ -334,34 +357,26 @@ const en: BuildCopy = {
       id: "wire",
       copy: {
         num: "05",
-        title: "Wiring and first power",
-        lede: "Two cables from the panel to the board, then one careful power-up — still without the DevKit.",
+        title: "Wiring",
+        lede: "Two cables from the panel to the board: the ribbon, then the power pair.",
         steps: [
           {
             kicker: "Ribbon",
             title: "From J1 to the panel's IN.",
             body: [
-              "Plug the panel's HUB75 ribbon into J1 on the board and into the connector marked IN on the panel. IN, not OUT. The plugs are keyed: match each key to its header's notch.",
+              "Plug the panel's HUB75 ribbon into J1 on the board and into the panel's IN connector, the one at the top. The one at the bottom is OUT: it stays empty.",
+              "The plugs are keyed. Match each key to its header's notch.",
             ],
           },
           {
             kicker: "J3",
             title: "The panel's power into J3.",
             body: [
-              "Clamp the panel's power cable into J3: red to the side marked +5v, black to GND.",
+              "Plug the panel's power cable into the 4-pin power header on the panel's back, just below the middle, and clamp its other end into J3: red to the side marked +5v, black to GND.",
               "J3 is J4's mirror image. From this side J3's +5v is on the left and J4's on the right, so go by the +5v mark, not by left and right.",
             ],
-            warn: "Reversed, J3 can destroy the panel. Check it twice before any power.",
+            warn: "Reversed, J3 can destroy the panel. Look twice before it ever gets power.",
             extra: "build:j3",
-          },
-          {
-            kicker: "First power",
-            title: "One check with power, no DevKit.",
-            body: [
-              "Power still off, check continuity across J3's +5 V and GND: open. Then plug the J4 lead into the power bank once, measure about 5 V across J3, and unplug.",
-              "The panel stays dark. It has no brain yet.",
-            ],
-            extra: "build:checkPower",
           },
         ],
       },
@@ -383,10 +398,10 @@ const en: BuildCopy = {
           },
           {
             kicker: "Seat it",
-            title: "Power off, then seat the DevKit.",
+            title: "Seat the DevKit, power off.",
             body: [
               "Press the flashed DevKit straight into the two sockets, its USB-C ports toward the board's bottom edge, where the board says USB, and its antenna end toward the encoders.",
-              "All 44 pins in, neither row shifted by one.",
+              "All 44 pins in, neither row shifted by one. The power bank stays unplugged until the next step.",
             ],
           },
           {
@@ -427,9 +442,9 @@ const en: BuildCopy = {
           },
           {
             kicker: "Power cycle",
-            title: "Off, on, no RESET.",
+            title: "Off, on, no RST.",
             body: [
-              "Unplug the power bank and plug it back in. It must boot cleanly without a RESET press. If it doesn't, the build guide's GPIO0 note is for exactly that.",
+              "Unplug the power bank and plug it back in. Origin must come back by itself, without a press of RST. If it doesn't, issue #16 is about exactly that, with the fix.",
             ],
             extra: "build:linksGpio0",
           },
@@ -438,7 +453,7 @@ const en: BuildCopy = {
             title: "Right edge in first, then click.",
             body: [
               "Hook the back panel's right edge in first, then press along the snap-fit until it clicks shut. Keep the cables clear of the edge.",
-              "Then slide the back cover over the board bay until it clicks: the small sliding one, over the board.",
+              "Then slide the back cover, the small one, shut over the board bay.",
             ],
             extra: "build:linksBack",
           },
@@ -470,19 +485,30 @@ const en: BuildCopy = {
   cards: {
     bom: {
       tips: {
-        U1: "Plugs into the sockets, never soldered. AliExpress ones usually work too.",
-        "U1 (sockets)": "Soldered into U1's two rows of holes.",
-        "SW1-SW4": "Bodies on the plain side. Any 5-pin EC11 with a push switch works; the cheapest fail more often.",
-        J1: "The panel's ribbon. Notch toward the sockets.",
+        U1: "Plugs in, never soldered.",
+        "U1 (sockets)": "Two rows, for the DevKit.",
+        "SW1-SW4": "20 mm shaft, to match the knobs.",
+        J1: "For the panel's ribbon.",
         J3: "+5 V out to the panel.",
         J4: "The only power input.",
-        C11: "Long lead to +.",
-        "LED matrix panel": "Check the driver IC before you buy.",
-        "M4 screw": "12 is the exact fit; 6 hold it firmly.",
-        "USB cable (sacrificial)": "Cut, stripped, clamped into J4.",
-        "USB power bank": "Must fit the case's compartment.",
+        C11: "Mind its polarity.",
+        "M4 screw": "About 10 mm. 12 is the exact fit, 6 hold it.",
+        "USB cable (sacrificial)": "One you can cut: it becomes the power lead.",
+        "USB power bank": "5 V. Has to fit the case's compartment.",
       },
-      source: "The BOM file",
+      more: {
+        U1: "Espressif's own is the reference part. AliExpress modules usually work too.",
+        "SW1-SW4": "Any 5-pin EC11 with a push switch works; the cheapest packs fail more often. A 15 mm shaft takes knobs_15mm.stl.",
+        "M4 screw": "Sized for the linked panel. Another panel takes whatever screws its own holes do.",
+      },
+      labels: { name: "In the BOM", spec: "Spec", mpn: "Order by" },
+      panel: {
+        listing: { label: "Recommended listing", href: PANEL_LISTING },
+        note: "An affiliate link: it supports Patternflow at no extra cost.",
+        other: { label: "Panel compatibility", href: PANEL_DOC },
+      },
+      source: "The full BOM",
+      guide: { label: "Sourcing notes · BUILD_GUIDE §1", href: GUIDE_SECTION.bom },
       missing: "The parts list is the BOM file:",
     },
     tools: {
@@ -491,9 +517,8 @@ const en: BuildCopy = {
         { label: "White PLA for the body, black PLA for the knobs", where: "§4", href: GUIDE_SECTION.print },
         { label: "Soldering iron, solder, flux, tweezers", where: "§1", href: GUIDE_SECTION.tools },
         { label: "Wire cutters, a Phillips screwdriver, a small flathead for the terminals", where: "§1", href: GUIDE_SECTION.tools },
-        { label: "CA glue, for bonding the printed halves", where: "§4", href: GUIDE_SECTION.print },
+        { label: "CA glue and masking tape, for bonding the printed halves", where: "§4", href: GUIDE_SECTION.print },
         { label: "Putty, or baking soda with CA, for the seams (optional)", where: "§4", href: GUIDE_SECTION.print },
-        { label: "A multimeter, for the short check and the 5 V check", where: "§5 · §7", href: GUIDE_SECTION.wiring },
         { label: "Pliers or a wrench, for the encoder nuts", where: "§6", href: GUIDE_SECTION.case },
       ],
       kept: "Your ticks stay in this browser.",
@@ -501,7 +526,7 @@ const en: BuildCopy = {
     figures: [
       { value: "~2 weeks", label: "for the parts to arrive" },
       { value: "~10 h", label: "of printing" },
-      { value: "~1 h", label: "hands-on: 30 min soldering, 30 min assembly" },
+      { value: "~1 h", label: "of soldering and assembly" },
     ],
     caseFiles: {
       head: ["Your bed", "Print", ""],
@@ -532,8 +557,6 @@ const en: BuildCopy = {
       j3: "out to the panel",
     },
     checks: {
-      checkShort: ["+5 V ↔ GND reads open", "The DevKit is still out"],
-      checkPower: ["Power off: J3 reads open", "Power on: about 5 V across J3", "Unplugged again"],
       checkKnobs: ["K1 turns and clicks", "K2 turns and clicks", "K3 turns and clicks", "K4 turns and clicks"],
     },
     handoff: {
@@ -548,15 +571,11 @@ const en: BuildCopy = {
         { label: "Gerber zip, v3.9", href: GERBER },
         { label: "KiCad source", href: KICAD },
       ],
-      linksPanel: [
-        { label: "LED panel compatibility", href: PANEL_DOC },
-        { label: "Where to buy the panel", href: BOM_README },
-      ],
       linksWiring: [{ label: "The wiring at 06:57 in the assembly video", href: `${ASSEMBLY_VIDEO}?t=417` }],
       linksPlay03: [{ label: "More patterns: Play 03", href: "/guide/play#patterns" }],
       linksGpio0: [
-        { label: "The GPIO0 note · BUILD_GUIDE §5", href: GUIDE_SECTION.gpio0 },
-        { label: "Issue #16", href: ISSUE_16 },
+        { label: "Issue #16 · RST needed at power-up", href: ISSUE_16 },
+        { label: "Known issues · BUILD_GUIDE §10", href: GUIDE_SECTION.issues },
       ],
       linksBack: [{ label: "Closing the back at 09:11 in the assembly video", href: `${ASSEMBLY_VIDEO}?t=551` }],
     },
@@ -567,7 +586,7 @@ const ko: BuildCopy = {
   meta: {
     title: "패턴플로우 조립하기",
     description:
-      "조립 가이드. 맨 부품에서 납땜해 패턴플로우를 만들어요. 부품 목록, 기판 주문, 케이스 출력, 납땜, 조립, 첫 전원까지 실제 v3.9 하드웨어를 3D로 보여줘요.",
+      "조립 가이드. 맨 부품에서 납땜해 패턴플로우를 만들어요. 부품 목록, 기판 주문, 케이스 출력, 납땜, 조립, 첫 불빛까지 실제 v3.9 하드웨어를 3D로 보여줘요.",
   },
   name: "조립",
   opening: {
@@ -575,7 +594,7 @@ const ko: BuildCopy = {
     title: "처음부터 직접 만들어요.",
     lede: "기판은 PCB 업체에서, 케이스는 내 3D 프린터에서, 부품은 부품 목록대로. 그다음 납땜과 조립에 한 시간쯤. 실제 부품으로, 실제 순서대로 보여줘요.",
     scroll: "스크롤",
-    chapters: ["부품", "주문과 출력", "납땜", "케이스", "배선과 전원", "펌웨어", "점검과 마무리"],
+    chapters: ["부품", "주문과 출력", "납땜", "케이스", "배선", "펌웨어", "점검과 마무리"],
     back: { label: "가이드 전체", to: "hub" },
   },
   chapters: [
@@ -590,7 +609,7 @@ const ko: BuildCopy = {
             kicker: "기판 위",
             title: "일곱 줄. 납땜하는 건 전부 스루홀.",
             body: [
-              "부품 번호로 주문해요. Mouser, DigiKey, 아니면 같은 번호를 파는 어디든요. 아래 목록이 부품 목록(BOM) 파일 그 자체예요.",
+              "부품 번호로 주문해요. Mouser, DigiKey, 아니면 같은 번호를 파는 어디든요. 줄을 누르면 부품 번호가 나와요.",
             ],
             extra: "build:bomBoard",
           },
@@ -598,8 +617,7 @@ const ko: BuildCopy = {
             kicker: "기판 밖",
             title: "패널, 나사, 케이블, 보조배터리.",
             body: [
-              "LED 패널만은 부품 번호가 아니라 판매 페이지로 사요. 케이스가 빌드 가이드에 링크된 그 패널에 맞춰져 있거든요. 리본 케이블과 전원 케이블이 같이 와요.",
-              "USB 케이블은 잘라도 괜찮은 걸로. 그게 전원선이 돼요.",
+              "LED 패널만은 부품 번호가 아니라 판매 페이지로 사요. 케이스가 아래에 링크된 그 패널에 맞춰져 있거든요. 리본 케이블과 전원 케이블이 같이 와요.",
             ],
             warn: "다른 패널을 산다면? 제목의 ‘HUB75E’가 아니라 드라이버 IC가 결정해요. S-PWM ‘비디오 월’ 패널은 아예 켜지지 않고, 펌웨어로도 못 고쳐요.",
             extra: "build:bomOff",
@@ -670,7 +688,7 @@ const ko: BuildCopy = {
       copy: {
         num: "03",
         title: "기판 납땜",
-        lede: "모든 납땜이 큼직한 스루홀이에요. 작은 부품부터, 엔코더는 마지막에.",
+        lede: "모든 납땜이 큼직한 스루홀이에요. 네 단계, 엔코더가 마지막이에요.",
         steps: [
           {
             kicker: "소켓",
@@ -686,7 +704,7 @@ const ko: BuildCopy = {
             title: "다음은 헤더와 나사 단자 두 개.",
             body: [
               "2×8 박스 헤더 J1은 오른쪽 소켓 줄 옆에, 홈이 소켓 쪽을 보게 꽂아요. 기판에도 그쪽에 hole!이라고 적혀 있어요.",
-              "나사 단자 두 개는 아래쪽 양 귀퉁이에 가요. 글씨 있는 면을 위로, 엔코더를 위쪽에 두고 보면 J3가 오른쪽, J4가 왼쪽이에요. J4가 기판의 유일한 전원 입력이에요.",
+              "나사 단자 두 개는 아래쪽 양 귀퉁이에 가요. 글씨 있는 면을 위로, 엔코더를 위쪽에 두고 보면 왼쪽이 J4, 오른쪽이 J3예요. 선 넣는 구멍은 J4가 기판 아래쪽 가장자리를, J3는 반대로 위쪽을 봐요. J4가 기판의 유일한 전원 입력이에요.",
               "하나씩 바닥에 붙여 꽂고 글씨 없는 면에서 납땜해요. J1은 16곳, J3와 J4는 두 곳씩.",
             ],
             extra: "build:order",
@@ -698,7 +716,7 @@ const ko: BuildCopy = {
               "1000 µF 전해 커패시터 C11은 J4 위에 가요. 긴 다리가 +예요. 기판에 +라고 적힌, 소켓에 더 가까운 구멍에 넣어요. 몸통의 띠는 − 표시예요.",
               "납땜하고 다리를 잘라요.",
             ],
-            warn: "한 방향으로만 들어가요. 납땜 전에 긴 다리가 +에 들어갔는지 확인해요.",
+            warn: "납땜 전에 긴 다리가 +에 들어갔는지 확인해요. 거꾸로 달면 커패시터가 망가져요.",
             extra: "build:order",
           },
           {
@@ -710,15 +728,6 @@ const ko: BuildCopy = {
             ],
             warn: "하나 납땜할 때마다 면을 두 번 확인해요. 반대로 달면 축이 케이스 앞면에 닿지 않고, 한번 납땜한 엔코더는 빼기가 정말 힘들어요.",
             extra: "build:order",
-          },
-          {
-            kicker: "전원 넣기 전에",
-            title: "쇼트부터 확인해요.",
-            body: [
-              "멀티미터를 도통 모드로 놓고 +5 V와 GND에 대요. J4의 나사 두 개가 대기 쉬워요. 열려 있어야 해요. 삑 소리가 나면 안 돼요.",
-              "DevKit은 아직 빼 둬요. 05의 첫 전원 확인이 끝난 뒤에 꽂아요.",
-            ],
-            extra: "build:checkShort",
           },
         ],
       },
@@ -732,26 +741,27 @@ const ko: BuildCopy = {
         steps: [
           {
             kicker: "패널",
-            title: "HUB-75E IN은 위쪽으로.",
+            title: "앞에서 넣어요. IN은 위쪽으로.",
             body: [
-              "접착제가 다 굳었나요? LED 패널을 뒤에서 프레임에 넣어요. LED는 창 쪽으로, HUB-75E IN이라고 적힌 커넥터는 위쪽, 노브가 있는 쪽으로요. 리본 케이블이 J1에 닿는 쪽이에요.",
+              "접착제가 다 굳었나요? 패널 뒷면에서 HUB-75E IN이라고 적힌 커넥터를 찾아요. 그쪽이 위, 노브가 있는 쪽으로 가요. 리본 케이블이 J1에 닿는 쪽이에요.",
+              "그다음 LED가 바깥을 보게 해서 프레임 앞쪽에서 패널을 넣어요. 패널 뒷면이 프레임 안쪽의 탭 열두 개에 닿을 때까지요.",
             ],
             warn: "아주 빡빡해요. 틈이 거의 없어요. 천천히 밀어 넣어요. 억지로 넣으면 출력물이 깨질 수 있어요.",
           },
           {
             kicker: "M4 나사",
-            title: "패널을 나사로 고정해요.",
+            title: "뒤에서 나사로 고정해요.",
             body: [
-              "M4 나사로 고정해요. 12개 다 박으면 딱 맞고, 6개만 모서리와 가운데에 고루 박아도 단단히 잡혀요.",
-              "다른 패널은 구멍과 나사가 다를 수 있어요. 그래서 for_other_panels 출력물이 있어요.",
+              "케이스를 뒤집어요. 탭마다 구멍이 있고, 그 밑에 패널의 나사 구멍이 와 있어요. M4 나사를 탭 구멍으로 넣어 패널에 박아요. 12개 다 박으면 딱 맞고, 6개만 모서리와 가운데에 고루 박아도 단단히 잡혀요.",
+              "다른 패널은 구멍 위치와 나사가 다를 수 있어요. 그래서 for_other_panels 출력물이 있어요.",
             ],
           },
           {
             kicker: "전원선",
             title: "기판보다 전원선이 먼저.",
             body: [
-              "USB 케이블을 자르고 빨강, 검정 두 가닥의 피복을 벗겨요. 빨강이 +5 V, 검정이 GND. 나머지 선은 안 써요.",
-              "자른 끝을 먼저 케이스의 케이블 구멍에 통과시켜요. 보조배터리 칸에서 기판 칸 쪽으로요.",
+              "USB 케이블을 잘라요. 보조배터리에 꽂는 쪽을 남기고, 빨강과 검정 두 가닥의 피복을 벗겨요. 빨강이 +5 V, 검정이 GND. 나머지 선은 안 써요.",
+              "자른 끝을 먼저 작은 케이블 구멍에 통과시켜요. 보조배터리 칸에서 기판 칸 쪽으로 넣으면 J4 자리 바로 아래로 나와요. 그 옆에 넓은 구멍이 있는 케이스도 있는데, 거기가 아니에요.",
               "기판이 아직 케이스 밖에 있을 때 J4에 물려요. 빨강은 +5v라고 적힌 쪽. 조이고, 한 가닥씩 당겨 봐요.",
             ],
             warn: "전원이 들어가는 길은 J4 하나뿐이에요. DevKit의 USB 포트로는 절대 넣지 않아요.",
@@ -761,7 +771,7 @@ const ko: BuildCopy = {
             kicker: "기판",
             title: "기판을 자리에 넣어요.",
             body: [
-              "글씨 있는 면이 나를 보게, 엔코더부터 넣어요. 축 네 개가 앞면의 구멍 네 개로 나가요. 소켓과 단자는 열린 뒤쪽을 보고, J4 전원선은 기판을 따라 들어가요.",
+              "케이스 뒤쪽에서, 글씨 있는 면이 나를 보게 넣어요. 엔코더 축 네 개가 앞면의 구멍 네 개로 나가요. 소켓과 단자는 열린 뒤쪽을 보고, J4 전원선은 기판을 따라 들어가요.",
             ],
           },
           {
@@ -769,7 +779,7 @@ const ko: BuildCopy = {
             title: "앞에서 너트로 고정해요.",
             body: [
               "앞면에서 엔코더마다 딸려 온 너트를 축에 끼우고 펜치나 렌치로 조여요. 이 너트들이 기판을 앞면에 붙잡아 줘요.",
-              "노브는 아직 끼우지 않아요. 점검이 끝난 뒤 맨 마지막에.",
+              "노브는 아직 끼우지 않아요. 07에서, 맨 마지막에 끼워요.",
             ],
           },
         ],
@@ -779,34 +789,26 @@ const ko: BuildCopy = {
       id: "wire",
       copy: {
         num: "05",
-        title: "배선과 첫 전원",
-        lede: "패널에서 기판으로 케이블 두 개, 그리고 조심스러운 첫 전원. 아직 DevKit 없이요.",
+        title: "배선",
+        lede: "패널에서 기판으로 케이블 두 개. 리본 케이블 먼저, 그다음 전원 케이블.",
         steps: [
           {
             kicker: "리본 케이블",
             title: "J1에서 패널의 IN으로.",
             body: [
-              "패널의 HUB75 리본 케이블을 기판의 J1과 패널의 IN이라고 적힌 커넥터에 꽂아요. OUT 말고 IN이에요. 플러그에 돌기가 있어요. 헤더의 홈에 맞춰 꽂아요.",
+              "패널의 HUB75 리본 케이블을 기판의 J1과 패널의 IN 커넥터에 꽂아요. IN은 위쪽에 있는 커넥터예요. 아래쪽 것은 OUT이고, 비워 둬요.",
+              "플러그에 돌기가 있어요. 헤더의 홈에 맞춰 꽂아요.",
             ],
           },
           {
             kicker: "J3",
             title: "패널 전원은 J3로.",
             body: [
-              "패널의 전원 케이블을 J3에 물려요. 빨강은 +5v라고 적힌 쪽, 검정은 GND로.",
+              "패널의 전원 케이블을 패널 뒷면 가운데 바로 아래의 4핀 전원 헤더에 꽂고, 반대쪽 끝을 J3에 물려요. 빨강은 +5v라고 적힌 쪽, 검정은 GND로.",
               "J3는 J4의 거울상이에요. 이쪽에서 보면 J3의 +5v는 왼쪽, J4의 +5v는 오른쪽이에요. 왼쪽 오른쪽 말고 +5v 표시를 보고 맞춰요.",
             ],
-            warn: "거꾸로 물리면 패널이 망가질 수 있어요. 전원 넣기 전에 두 번 확인해요.",
+            warn: "거꾸로 물리면 패널이 망가질 수 있어요. 전원이 들어가기 전에 두 번 봐요.",
             extra: "build:j3",
-          },
-          {
-            kicker: "첫 전원",
-            title: "DevKit 없이 전원 한 번.",
-            body: [
-              "전원을 넣기 전에 J3의 +5 V와 GND 사이 도통을 봐요. 열려 있어야 해요. 그다음 J4 전원선을 보조배터리에 한 번 꽂고, J3에서 5 V쯤 나오는지 재고, 다시 빼요.",
-              "패널은 꺼진 그대로예요. 아직 두뇌가 없거든요.",
-            ],
-            extra: "build:checkPower",
           },
         ],
       },
@@ -828,10 +830,10 @@ const ko: BuildCopy = {
           },
           {
             kicker: "꽂기",
-            title: "전원을 빼고, DevKit을 꽂아요.",
+            title: "DevKit을 꽂아요. 전원은 아직.",
             body: [
               "구운 DevKit을 소켓 두 줄에 곧게 눌러 꽂아요. USB-C 포트는 기판의 아래쪽 가장자리, USB라고 적힌 쪽으로, 안테나 끝은 엔코더 쪽으로요.",
-              "44핀이 전부 들어가고, 어느 줄도 한 칸 밀리지 않게요.",
+              "44핀이 전부 들어가고, 어느 줄도 한 칸 밀리지 않게요. 보조배터리는 다음 단계에서 꽂아요.",
             ],
           },
           {
@@ -870,9 +872,9 @@ const ko: BuildCopy = {
           },
           {
             kicker: "껐다 켜기",
-            title: "껐다 켜도, RESET 없이.",
+            title: "껐다 켜도, RST 없이.",
             body: [
-              "보조배터리를 뺐다가 다시 꽂아요. RESET을 누르지 않아도 깔끔하게 켜져야 해요. 안 그렇다면 빌드 가이드의 GPIO0 메모가 바로 그 얘기예요.",
+              "보조배터리를 뺐다가 다시 꽂아요. RST를 누르지 않아도 Origin이 다시 켜져야 해요. 안 그렇다면 이슈 #16이 바로 그 얘기예요. 고치는 법도 거기 있어요.",
             ],
             extra: "build:linksGpio0",
           },
@@ -881,7 +883,7 @@ const ko: BuildCopy = {
             title: "오른쪽 가장자리부터, 딸깍.",
             body: [
               "뒤판의 오른쪽 가장자리를 먼저 걸고, 스냅핏을 따라 눌러 딸깍 닫아요. 케이블이 가장자리에 끼지 않게 해요.",
-              "그다음 기판 칸 위의 뒷면 덮개(밀어 닫는 작은 덮개)를 밀어 딸깍 닫아요.",
+              "그다음 작은 뒷면 덮개를 기판 칸 위로 밀어 닫아요.",
             ],
             extra: "build:linksBack",
           },
@@ -913,19 +915,42 @@ const ko: BuildCopy = {
   cards: {
     bom: {
       tips: {
-        U1: "소켓에 꽂기만 하고 납땜 안 해요. 알리익스프레스 것도 대개 돼요.",
-        "U1 (sockets)": "U1의 구멍 두 줄에 납땜해요.",
-        "SW1-SW4": "몸통은 글씨 없는 면에. 누름 스위치 달린 5핀 EC11이면 되고, 제일 싼 건 불량이 좀 잦아요.",
-        J1: "패널 리본 케이블. 홈은 소켓 쪽으로.",
+        U1: "꽂기만 해요. 납땜하지 않아요.",
+        "U1 (sockets)": "DevKit이 꽂히는 두 줄.",
+        "SW1-SW4": "축 20 mm. 노브가 여기에 맞아요.",
+        J1: "패널 리본 케이블 자리.",
         J3: "패널로 나가는 +5 V.",
         J4: "유일한 전원 입력.",
-        C11: "긴 다리가 +.",
-        "LED matrix panel": "사기 전에 드라이버 IC를 확인해요.",
-        "M4 screw": "12개면 딱 맞고, 6개로도 단단해요.",
-        "USB cable (sacrificial)": "잘라서 벗기고 J4에 물려요.",
-        "USB power bank": "케이스 칸에 들어가야 해요.",
+        C11: "극성이 있어요.",
+        "M4 screw": "10 mm쯤. 12개면 딱 맞고, 6개로도 단단해요.",
+        "USB cable (sacrificial)": "잘라도 되는 걸로. 전원선이 돼요.",
+        "USB power bank": "5 V. 케이스 칸에 들어가야 해요.",
       },
-      source: "BOM 파일",
+      names: {
+        "U1 (sockets)": "핀 소켓",
+        "SW1-SW4": "로터리 엔코더",
+        J1: "박스 헤더",
+        J3: "나사 단자",
+        J4: "나사 단자",
+        C11: "전해 커패시터",
+        "LED matrix panel": "LED 매트릭스 패널",
+        "M4 screw": "M4 나사",
+        "USB cable (sacrificial)": "USB 케이블 (잘라 쓸 것)",
+        "USB power bank": "USB 보조배터리",
+      },
+      more: {
+        U1: "기준은 에스프레시프 정품이에요. 알리익스프레스 모듈도 대개 잘 돼요.",
+        "SW1-SW4": "누름 스위치 달린 5핀 EC11이면 다 돼요. 제일 싼 묶음은 불량이 좀 잦아요. 축이 15 mm면 노브는 knobs_15mm.stl로 뽑아요.",
+        "M4 screw": "링크된 패널 기준이에요. 다른 패널이면 그 패널 구멍에 맞는 나사를 써요.",
+      },
+      labels: { name: "BOM 표기", spec: "규격", mpn: "부품 번호" },
+      panel: {
+        listing: { label: "추천 판매 페이지", href: PANEL_LISTING },
+        note: "제휴 링크예요. 추가 비용 없이 패턴플로우에 도움이 돼요.",
+        other: { label: "패널 호환성", href: PANEL_DOC },
+      },
+      source: "BOM 전체",
+      guide: { label: "구매 메모 · BUILD_GUIDE §1", href: GUIDE_SECTION.bom },
       missing: "부품 목록은 BOM 파일 그대로예요:",
     },
     tools: {
@@ -934,9 +959,8 @@ const ko: BuildCopy = {
         { label: "본체용 흰색 PLA, 노브용 검정 PLA", where: "§4", href: GUIDE_SECTION.print },
         { label: "인두, 땜납, 플럭스, 핀셋", where: "§1", href: GUIDE_SECTION.tools },
         { label: "니퍼, 십자 드라이버, 단자용 작은 일자 드라이버", where: "§1", href: GUIDE_SECTION.tools },
-        { label: "출력물 반쪽을 붙일 CA 접착제", where: "§4", href: GUIDE_SECTION.print },
+        { label: "출력물 반쪽을 붙일 CA 접착제와 마스킹 테이프", where: "§4", href: GUIDE_SECTION.print },
         { label: "이음매용 퍼티, 또는 베이킹소다와 CA (선택)", where: "§4", href: GUIDE_SECTION.print },
-        { label: "쇼트 확인과 5 V 확인용 멀티미터", where: "§5 · §7", href: GUIDE_SECTION.wiring },
         { label: "엔코더 너트용 펜치나 렌치", where: "§6", href: GUIDE_SECTION.case },
       ],
       kept: "체크한 건 이 브라우저에 남아요.",
@@ -944,7 +968,7 @@ const ko: BuildCopy = {
     figures: [
       { value: "~2주", label: "부품 배송" },
       { value: "~10시간", label: "출력" },
-      { value: "~1시간", label: "손 작업: 납땜 30분, 조립 30분" },
+      { value: "~1시간", label: "납땜과 조립" },
     ],
     caseFiles: {
       head: ["내 베드", "출력할 파일", ""],
@@ -967,7 +991,7 @@ const ko: BuildCopy = {
       skip: "v3.0 기판으로 찍었어요. USB-C 부분인 11:00–15:18은 건너뛰어요. v3.9엔 USB-C 자리가 없어요.",
     },
     terminals: {
-      seen: "글씨 있는 면, 엔코더가 위. 열린 뒤판으로 들여다볼 때의 모습이에요.",
+      seen: "글씨 있는 면, 엔코더가 위. 케이스의 열린 뒤쪽에서 볼 때의 모습이에요.",
       red: "빨강",
       black: "검정",
       usb: "USB",
@@ -975,8 +999,6 @@ const ko: BuildCopy = {
       j3: "패널로 출력",
     },
     checks: {
-      checkShort: ["+5 V ↔ GND가 열려 있음", "DevKit은 아직 빼 둠"],
-      checkPower: ["전원 끄고: J3가 열려 있음", "전원 켜고: J3에서 5 V쯤", "다시 뺌"],
       checkKnobs: ["K1 돌리고 누르기", "K2 돌리고 누르기", "K3 돌리고 누르기", "K4 돌리고 누르기"],
     },
     handoff: {
@@ -991,15 +1013,11 @@ const ko: BuildCopy = {
         { label: "거버 zip, v3.9", href: GERBER },
         { label: "KiCad 원본", href: KICAD },
       ],
-      linksPanel: [
-        { label: "LED 패널 호환성", href: PANEL_DOC },
-        { label: "패널 사는 곳", href: BOM_README },
-      ],
       linksWiring: [{ label: "조립 영상 06:57, 배선", href: `${ASSEMBLY_VIDEO}?t=417` }],
       linksPlay03: [{ label: "패턴 더 넣기: 연주 03", href: "/guide/play/ko#patterns" }],
       linksGpio0: [
-        { label: "GPIO0 메모 · BUILD_GUIDE §5", href: GUIDE_SECTION.gpio0 },
-        { label: "이슈 #16", href: ISSUE_16 },
+        { label: "이슈 #16 · 켤 때마다 RST가 필요하다면", href: ISSUE_16 },
+        { label: "알려진 문제 · BUILD_GUIDE §10", href: GUIDE_SECTION.issues },
       ],
       linksBack: [{ label: "조립 영상 09:11, 뒤판 닫기", href: `${ASSEMBLY_VIDEO}?t=551` }],
     },

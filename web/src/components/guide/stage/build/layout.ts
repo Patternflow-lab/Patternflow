@@ -12,8 +12,9 @@ import { PCB_PLACEMENT } from "../parts";
 //     F side; PCB_PLACEMENT puts it in the case
 //   - the case: the 0904_v3.9 collection of hardware/case/source/
 //     patternflow_case.blend, sectioned (scratchpad build3d/analyze_case.py):
-//     the frame's twelve panel-screw slots, the hole from the power-bank tray
-//     into the board bay, and the notch in the bay wall the cables go through
+//     the frame's twelve panel-screw slots, the two cuts from the power-bank
+//     tray into the board bay (the lead's is the small one), and the notch in
+//     the bay wall the cables go through
 //   - the print plates: hardware/case/bed_256mm/patternflow_v3.3mf, laid out
 //     as the slicer has them, and each part's pose on its plate registered
 //     against the same part in the case (build3d/register_plates.py)
@@ -101,19 +102,47 @@ export const DEVKIT_BENCH: Pose = { p: v(9.6, MAT_TOP + 0.9, 31.4), q: q(-Math.P
  */
 export const PANEL_BENCH: Pose = (() => {
   const m = new THREE.Matrix4().makeBasis(v(0, 0, 1), v(-1, 0, 0), v(0, -1, 0));
-  return { p: v(-24, MAT_TOP + 0.85, 30), q: new THREE.Quaternion().setFromRotationMatrix(m) };
+  return { p: v(-24, MAT_TOP + 0.85, 28), q: new THREE.Quaternion().setFromRotationMatrix(m) };
 })();
 /** The panel's place in the case: the landing model's LED mesh "l", whose front face is at z 1.4977 and back at −0.2023. */
 export const PANEL_HOME = { p: v(-4.1908, 16.2677, 1.4977), back: -0.2023 };
 /** The panel's centre in the model frame when assembled. */
 export const PANEL_CENTRE = v(-4.1908, 16.2677, 0.6477);
+/**
+ * How far in front of its seat the panel is held before it goes in. It goes
+ * in from the FRONT: the frame is open that way, and behind the panel are
+ * the ledge round the opening (its face at z −0.217) and the twelve tabs it
+ * is screwed to — both part of the printed frame (the blend's 0904_v3.9 body,
+ * 3mm_round.038, and the Bambu project's plate 1; there is no separate
+ * mounting part in the 256 mm print).
+ */
+export const PANEL_FRONT_GAP = 9;
+
+/**
+ * The middle of J1's mouth (the top of its shroud) with the board in the
+ * case: KiCad's pad rows (pads.ts) through PCB_PLACEMENT, the header 9.1 mm
+ * tall on the board's printed face (which looks to the back, −z).
+ */
+export const J1_MOUTH = v(5.6285, 24.2217, -0.413);
+/**
+ * The folded ribbon (props.ts foldedRibbon) lying on the mat in front of the
+ * panel, plugs up: the pose of its middle (RIBBON_CENTRE where it is fitted).
+ * A quarter turn about x lays it flat with its mating faces up, and puts the
+ * end that goes to the panel's IN away from the reader.
+ */
+export const RIBBON_CENTRE = v(0.47, 26.0, -0.35);
+export const RIBBON_BENCH: Pose = { p: v(-13.5, MAT_TOP + 0.66, 39.6), q: q(-Math.PI / 2, 0, 0) };
+/** How far behind its seat the ribbon is held before its plugs are pressed home. */
+export const RIBBON_HOVER = 3.2;
+/** The panel's power lead, coiled beside it. */
+export const POWER_COIL = v(-23, MAT_TOP, 40.2);
 
 /** Twelve M4 screws lying in a row in front of the board. */
 export const SCREW_BENCH_Z = 39.2;
 export const SCREW_BENCH_X0 = -4.4;
 export const SCREW_BENCH_DX = 0.8;
-/** The sacrificial USB cable, coiled. */
-export const USB_COIL = v(16.5, MAT_TOP, 24.5);
+/** The sacrificial USB cable, coiled: right of the encoders' row, far enough that its tag clears their nuts. */
+export const USB_COIL = v(20.5, MAT_TOP, 23);
 /** The power bank, lying flat. */
 export const BANK_BENCH: Pose = { p: v(18.6, MAT_TOP + 0.75, 33.2), q: q(-Math.PI / 2, 0, 0.18) };
 
@@ -143,11 +172,18 @@ export const SCREW_HOLES: readonly [number, number][] = [
 export const TAB_BACK_Z = -0.64;
 
 /**
- * The hole from the power-bank tray (the front pocket under the knob column,
- * y 0.25…18.85, closed by the top lid) up into the board bay (y 19.0…32.2):
- * a cut in the wall between them at x 6.98…9.51, z −1.36…−0.30.
+ * The wall between the power-bank tray (the front pocket under the knob
+ * column, y 0.25…18.85, closed by the top lid) and the board bay above it
+ * (y 19.0…32.2) has two cuts. The wide one (x 6.98…9.51, z −1.36…−0.30) is
+ * under the DevKit's USB ports: the one-piece 330 mm body's pass-through for
+ * a USB lead to the DevKit, data only (hardware/case/README.md; the 256 mm
+ * print does not have it), and NOT where the power lead goes. The lead's is
+ * the small slot beside it, 3.8 × 7.5 mm at x 10.06…10.44,
+ * z −0.52…0.23: straight under J4, whose wire entries (x 10.04 and 10.54,
+ * y 19.63) face down at it (docs/build-guide/images/v3/17_screw_terminal_wiring.jpg
+ * and production photo 09-j4-lead.jpg show the lead coming up there).
  */
-export const TRAY_HOLE = v(8.25, 18.92, -0.83);
+export const CABLE_HOLE = v(10.25, 18.9, -0.15);
 /** The tray's inside: x 4.1…11.9, y 0.25…18.85, z −1.6 (its back) … 1.36 (under the lid). */
 export const TRAY = { x0: 4.1, x1: 11.9, y0: 0.25, y1: 18.85, z0: -1.6, z1: 1.36 };
 /**
@@ -156,18 +192,38 @@ export const TRAY = { x0: 4.1, x1: 11.9, y0: 0.25, y1: 18.85, z0: -1.6, z1: 1.36
  * power lead go through it.
  */
 export const NOTCH = v(4.0, 23.7, -1.2);
-/** The top lid opens by sliding out along +x (the production photos); open, it clears the tray. */
-export const LID_OPEN = 8.4;
+/**
+ * The lid over the power-bank tray slides in from the case's knob side,
+ * along x (the production photos 16a, 16b). This far out along +x it is
+ * clear of the case: where it is held before it goes in.
+ */
+export const LID_CLEAR = 13.4;
 /** The case's front face (geometry.ts), where the encoder washers sit. */
 export const FRONT_Z = 1.5635;
 
-// ── the panel's back (procedural, Stage) ─────────────────────────────────────
+// ── the panel's back (props.ts panelBack) ────────────────────────────────────
+//
+// Read off the photo of the finished wiring, square on from behind
+// (production photo 08c-wiring-overview.jpg: the panel the guide's listing
+// sells), placed by the case's own twelve screws in the same photo
+// (SCREW_HOLES) — a photo, not a drawing: good to about ±3 mm. Seen from
+// behind, as there: the two HUB75 box headers lie ACROSS the panel — their
+// long side along x — on its centre line, IN at the top, level with the
+// board bay beside it, and OUT at the very bottom; the 4-pin power header is
+// BELOW the band across the middle, 10 mm toward the panel's outer edge of
+// the centre line. Each point is the middle of its header's mouth. (The
+// older panel in docs/build-guide/images/v3/11_ready_to_mate.jpg has its
+// power header above the band; the stage follows 08c.)
 
-/** Its HUB75 IN header, near the top, a little toward the board bay (production photos). */
-export const PANEL_IN = v(-2.9, 28.3, -0.2023);
-export const PANEL_OUT = v(-3.6, 4.3, -0.2023);
-/** Its 4-pin power connector, in the middle. */
-export const PANEL_POWER = v(-4.6, 15.4, -0.2023);
+/** The panel's driver board (the floor of the recess in its back) and its rim's back face, model z. */
+export const PANEL_PCB_Z = 0.873;
+export const PANEL_RIM_Z = -0.2023;
+/** A 2 × 8 shrouded box header, as J1 (KiCad IDC-Header_2x08_P2.54mm_Vertical): 28 × 8.9 mm, 9.1 mm tall. */
+export const HUB75_HEADER = { w: 2.8, h: 0.89, d: 0.91 } as const;
+export const PANEL_IN = v(-3.85, 28.5, PANEL_PCB_Z - HUB75_HEADER.d);
+export const PANEL_OUT = v(-4.1, 4.1, PANEL_PCB_Z - HUB75_HEADER.d);
+/** Its 4-pin power header (VH): the tips of its pins. */
+export const PANEL_POWER = v(-5.2, 14.2, PANEL_PCB_Z - 1.15);
 
 // ── the print plates (register_plates.py) ────────────────────────────────────
 
@@ -217,6 +273,8 @@ export const PLATE_HEIGHT = [0, 17.53, 0.54, 0.54, 2.0] as const;
 
 /** The bonded back panel, lying flat outer face up, left of the case. */
 export const BACK_REST: Pose = { p: v(-27, 0, 6), q: q(Math.PI / 2, 0, 0) };
+/** The power-bank lid, lying flat beyond the PCB cover, outer face up, until the case is closed (check-5). */
+export const LID_REST: Pose = { p: v(36, 0, 6), q: q(-Math.PI / 2, 0, 0) };
 /** The PCB cover, lying flat right of the case. */
 export const SLIDER_REST: Pose = { p: v(25, 0, 3), q: q(Math.PI / 2, 0, 0) };
 /** The knobs, standing on their tops in a row right of the case. */

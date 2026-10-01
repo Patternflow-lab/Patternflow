@@ -6,7 +6,10 @@ import { MAKE_SCENES } from "../scenes";
 import { DESK_QUERY } from "./query";
 import { DESK_APPS } from "./apps";
 import { TUTORIALS, deskLayout, layoutOf } from "./script";
-import type { Beat } from "./types";
+import type { Beat, BeatCtx } from "./types";
+
+/** A beat's hooks, asked before any window is up. */
+const NOWHERE: BeatCtx = { lang: "en", el: null, doc: () => null, root: () => null, app: () => null, since: 0, memo: new Map() };
 
 // The make page's desk: every tutorial lines up with its chapter's script,
 // and every beat points into a window that is on the desk at that step.
@@ -27,7 +30,9 @@ describe("desk script", () => {
         const { shown } = layoutOf(def.steps[i].desk);
         for (const [n, beat] of (beats ?? []).entries()) {
           expect(shown.has(beat.win), `${scene} step ${i} beat ${n}: window "${beat.win}" is not in that step's desk.show`).toBe(true);
-          if (beat.say) expect(Object.keys(beat.say).sort()).toEqual(["en", "ko"]);
+          // A hint that follows the reader is asked with nothing on the desk: its words for the usual place.
+          const say = typeof beat.say === "function" ? beat.say(NOWHERE) : beat.say;
+          if (say) expect(Object.keys(say).sort()).toEqual(["en", "ko"]);
           if (beat.do === "drag") expect(beat.to, `${scene} step ${i} beat ${n}: a drag needs \`to\``).toBeDefined();
         }
       });

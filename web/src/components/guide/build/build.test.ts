@@ -1,17 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { BUILD_COPY } from "../copy/build";
+import { BUILD_COPY, PANEL_LISTING } from "../copy/build";
 import { PAGES } from "../pages";
-import { BOM_FILE, bomKey, dashed, parseBom } from "./bom";
+import { BOM_FILE, bomKey, dashed, PANEL_PART, parseBom, times } from "./bom";
 import { CHECK_CARDS, LINK_CARDS, type BuildCard } from "./cards";
 
 // The Build guide against its sources: the parts list on the page is the BOM
-// file (hardware/bom/bom_v3.9.csv), every line of it has its words in both
-// languages, every card a step names exists, the way to the firmware is the
-// Play guide's own chapter, and USB-C is never power.
+// file (hardware/bom/bom_v3.9.csv), every line of it has its few words in
+// both languages and nothing longer, the LED panel's line carries the listing
+// BUILD_GUIDE §1 recommends, every card a step names exists, the way to the
+// firmware is the Play guide's own chapter, USB-C is never power, there is no
+// multimeter, the LED panel goes in from the front, and the power lead goes
+// through the small cable hole.
 
-const csv = fs.readFileSync(path.resolve(__dirname, "../../../../..", BOM_FILE), "utf8");
+const REPO_ROOT = path.resolve(__dirname, "../../../../..");
+const csv = fs.readFileSync(path.join(REPO_ROOT, BOM_FILE), "utf8");
 const bom = parseBom(csv);
 const langs = ["en", "ko"] as const;
 
@@ -49,11 +53,53 @@ describe("the Build guide's parts list", () => {
     expect(() => parseBom("category,ref,qty\npcb,U1,1\n")).toThrow(/no column/);
   });
 
-  it("has words for every line, and only for lines that exist", () => {
+  it("has a few words for every line, and only for lines that exist", () => {
     const keys = bom.map(bomKey);
+    // Every line but the LED panel, whose line is `panel`: its listing, not a tip.
+    const tipped = keys.filter((k) => k !== PANEL_PART);
     for (const lang of langs) {
-      const tips = BUILD_COPY[lang].cards.bom.tips;
-      expect(Object.keys(tips).sort()).toEqual([...keys].sort());
+      const words = BUILD_COPY[lang].cards.bom;
+      expect(Object.keys(words.tips).sort()).toEqual([...tipped].sort());
+      for (const k of Object.keys(words.more)) expect(keys, `${lang} more: ${k}`).toContain(k);
+      for (const k of Object.keys(words.names ?? {})) expect(keys, `${lang} names: ${k}`).toContain(k);
+    }
+    // The same lines open in both languages.
+    expect(Object.keys(BUILD_COPY.ko.cards.bom.more).sort()).toEqual(Object.keys(BUILD_COPY.en.cards.bom.more).sort());
+  });
+
+  it("keeps a line to a few words: the rest is behind it, or in the file", () => {
+    for (const lang of langs) {
+      const { tips, more } = BUILD_COPY[lang].cards.bom;
+      for (const [k, tip] of Object.entries(tips)) expect(tip.length, `${lang} ${k}: ${tip}`).toBeLessThanOrEqual(48);
+      for (const [k, s] of Object.entries(more)) expect(s.length, `${lang} ${k}: ${s}`).toBeLessThanOrEqual(130);
+    }
+    // The file's long notes are what the card leaves to the file.
+    expect(Math.max(...bom.map((r) => r.notes.length))).toBeGreaterThan(200);
+  });
+
+  it("gives the LED panel the listing the build guide recommends, and the compatibility doc", () => {
+    const panels = bom.filter((r) => r.part === PANEL_PART);
+    expect(panels).toHaveLength(1);
+    expect(panels[0]).toMatchObject({ category: "off-board", ref: "-", qty: "1" });
+    // BUILD_GUIDE §1, "Off the board": the recommended listing is this link.
+    const guide = fs.readFileSync(path.join(REPO_ROOT, "BUILD_GUIDE.md"), "utf8");
+    const offBoard = guide.slice(guide.indexOf("### Off the board"), guide.indexOf("### What you also need"));
+    expect(offBoard).toContain("**Recommended: [");
+    expect(offBoard).toContain(`](${PANEL_LISTING})`);
+    // It is an affiliate link, and the card says so, as BUILD_GUIDE does.
+    expect(offBoard).toMatch(/affiliate link/);
+    expect(fs.existsSync(path.join(REPO_ROOT, "docs/panel-compatibility.md"))).toBe(true);
+    for (const lang of langs) {
+      const { panel } = BUILD_COPY[lang].cards.bom;
+      expect(panel.listing.href).toBe(PANEL_LISTING);
+      expect(panel.other.href).toBe("https://github.com/engmung/Patternflow/blob/main/docs/panel-compatibility.md");
+      expect(panel.note).toMatch(/affiliate|제휴/);
+    }
+  });
+
+  it("links the file's own list in the build guide under the card", () => {
+    for (const lang of langs) {
+      expect(BUILD_COPY[lang].cards.bom.guide.href).toBe("https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#1-bill-of-materials-bom");
     }
   });
 
@@ -71,6 +117,14 @@ describe("the Build guide's parts list", () => {
     expect(dashed("SW1-SW4")).toBe("SW1–SW4");
     expect(dashed("6-12")).toBe("6–12");
     expect(dashed("U1 (sockets)")).toBe("U1 (sockets)");
+  });
+
+  it("sets sizes with a multiplication sign, and leaves other x's alone", () => {
+    expect(times("HUB75, 128x64 px, P2.5, 320x160 mm")).toBe("HUB75, 128×64 px, P2.5, 320×160 mm");
+    expect(times("1x22, 2.54mm pitch")).toBe("1×22, 2.54mm pitch");
+    expect(times("radial D10xL13")).toBe("radial D10×L13");
+    expect(times("EC11 footprint, 5-pin")).toBe("EC11 footprint, 5-pin");
+    for (const r of bom) expect(times(r.spec)).not.toMatch(/\dx\d/);
   });
 });
 
@@ -131,6 +185,19 @@ describe("the Build guide's cards and links", () => {
       );
     }
   });
+
+  it("never sends a reader to the top of BUILD_GUIDE §5", () => {
+    // What is under that heading is a multimeter pass this guide does not
+    // have; the GPIO0 note is at the section's far end. A boot that needs RST
+    // goes to issue #16, and to §10, which lists it.
+    expect(JSON.stringify(BUILD_COPY)).not.toMatch(/#5-pcb-assembly/);
+    for (const lang of langs) {
+      expect(BUILD_COPY[lang].cards.links.linksGpio0.map((l) => l.href)).toEqual([
+        "https://github.com/engmung/Patternflow/issues/16",
+        "https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#10-known-issues--design-notes",
+      ]);
+    }
+  });
 });
 
 describe("the Build guide's words", () => {
@@ -154,6 +221,65 @@ describe("the Build guide's words", () => {
 
   it("never offers a kit or an assembled board", () => {
     expect(JSON.stringify(BUILD_COPY)).not.toMatch(/\bkits?\b|pre-?assembled|assembled board|키트|완제품/i);
+  });
+
+  it("has no multimeter: no short check, no continuity, no 5 V measurement", () => {
+    for (const lang of langs) {
+      for (const s of texts(BUILD_COPY[lang])) {
+        expect(s, `${lang}: ${s}`).not.toMatch(
+          /multimeter|\bmeter\b|continuity|\bprobes?\b|\bshort\b|\bmeasure\b|reads? open|멀티미터|테스터|도통|쇼트|단락|측정|재고|재요/i,
+        );
+      }
+    }
+    expect(CHECK_CARDS).toEqual(["checkKnobs"]);
+  });
+
+  it("goes from the wiring straight on to the firmware, with the other steps as they were", () => {
+    // solder-5 (the short check) and wire-3 (the powered check) are gone.
+    const steps = { gather: 4, print: 4, solder: 4, case: 5, wire: 2, firmware: 3, check: 5 };
+    for (const lang of langs) {
+      const chapters = BUILD_COPY[lang].chapters;
+      expect(Object.fromEntries(chapters.map((c) => [c.id, c.copy.steps.length]))).toEqual(steps);
+      expect(chapters.map((c) => c.id)).toEqual(Object.keys(steps));
+      expect(chapters.flatMap((c) => c.copy.steps)).toHaveLength(27);
+      const wire = chapters.find((c) => c.id === "wire")!.copy;
+      expect(wire.steps.at(-1)?.extra).toBe("build:j3");
+      // Nothing powers the board before the DevKit is in: the first power is first light.
+      const firmware = chapters.find((c) => c.id === "firmware")!.copy;
+      expect(firmware.steps.map((s) => s.extra ?? null)).toEqual(["build:handoff", null, "build:linksPlay03"]);
+    }
+    expect(BUILD_COPY.en.chapters.find((c) => c.id === "wire")?.copy.title).toBe("Wiring");
+    expect(BUILD_COPY.en.chapters.find((c) => c.id === "firmware")?.copy.steps[1].title).not.toMatch(/check/i);
+  });
+
+  it("puts the LED panel in from the front, and screws it in from behind", () => {
+    const step = (lang: "en" | "ko", i: number) => {
+      const s = BUILD_COPY[lang].chapters.find((c) => c.id === "case")!.copy.steps[i];
+      return [s.title, ...s.body].join(" ");
+    };
+    expect(step("en", 0)).toMatch(/from the front/);
+    expect(step("en", 0)).toMatch(/HUB-75E IN/);
+    expect(step("en", 0)).not.toMatch(/from (the back|behind)/);
+    expect(step("en", 1)).toMatch(/from behind/);
+    expect(step("ko", 0)).toMatch(/앞/);
+    expect(step("ko", 0)).toMatch(/HUB-75E IN/);
+    expect(step("ko", 0)).not.toMatch(/뒤에서/);
+    expect(step("ko", 1)).toMatch(/뒤에서/);
+  });
+
+  it("threads the power lead through the small cable hole, before the board goes in", () => {
+    // The wall between the power-bank compartment and the board bay has a
+    // small cable hole right under J4. The 330 mm body has a wide opening
+    // beside it as well, the USB pass-through to the DevKit; the 256 mm print
+    // has only the small hole (hardware/case/README.md). The lead takes the
+    // small one, whichever case it is.
+    const step = (lang: "en" | "ko") => BUILD_COPY[lang].chapters.find((c) => c.id === "case")!.copy.steps[2];
+    expect(step("en").title).toBe("The lead goes in before the board.");
+    expect(step("en").body.join(" ")).toMatch(/through the small cable hole/);
+    expect(step("en").body.join(" ")).toMatch(/Not the wide opening beside it, if your case has one/);
+    expect(step("ko").body.join(" ")).toMatch(/작은 케이블 구멍/);
+    expect(step("ko").body.join(" ")).toMatch(/넓은 구멍이 있는 케이스도 있는데, 거기가 아니에요/);
+    for (const lang of langs) expect(step(lang).extra).toBe("build:j4");
   });
 
   it("never calls a side of the board its front or back", () => {

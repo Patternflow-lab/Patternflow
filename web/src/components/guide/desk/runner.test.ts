@@ -270,6 +270,30 @@ describe("desk tutorial", () => {
     expect(last()).toMatchObject({ done: true });
   });
 
+  it("lets a waiting beat's hint follow the reader: a hint that is a function is asked again while it waits", async () => {
+    const { t, pointer, last } = setup();
+    let onPage = false;
+    t.start("community.3", [
+      {
+        win: "community",
+        target: "#post",
+        do: "press",
+        on: [],
+        signal: "added",
+        say: () => (onPage ? { en: "Add to deck", ko: "덱에 넣어요" } : { en: "+ on the card", ko: "카드의 +" }),
+      },
+    ]);
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(last()).toMatchObject({ waiting: true, say: "+ on the card" });
+    onPage = true;
+    await vi.advanceTimersByTimeAsync(600);
+    expect(last()).toMatchObject({ waiting: true, say: "Add to deck" });
+    expect(pointer.say).toHaveBeenLastCalledWith("Add to deck", null);
+    deskSignal("added");
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(last()).toMatchObject({ done: true });
+  });
+
   it("shows the gesture again on 'Show me again', and keeps waiting", async () => {
     const { t, pointer, last } = setup();
     t.start("lab.2", [{ win: "lab", target: "#copy", do: "press" }]);

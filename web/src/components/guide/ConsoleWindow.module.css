@@ -69,6 +69,28 @@
     font-size: 0;
   }
 }
+/* A laptop's short screen (under 860 px of page): the whole phone made its
+   card taller than the screen, its top under the header and its foot off the
+   bottom. There too the miniature shows the top of its page — and on a
+   shorter one still, as much as a phone's does; lifted, it shows all of it. */
+@media (min-width: 900px) and (max-height: 859px) {
+  .root[data-variant="phone"] .opener .mini {
+    aspect-ratio: 390 / 560 !important;
+  }
+}
+@media (min-width: 900px) and (max-height: 759px) {
+  .root {
+    margin-top: 12px;
+  }
+  .root[data-variant="phone"] .opener .mini {
+    aspect-ratio: 390 / 430 !important;
+  }
+  /* 490, not a phone's 540: with four tabs over it and a line under it, the
+     tour's card ("What's in it.") still ran past a 650 px screen. */
+  .root[data-variant="desktop"] .opener .mini {
+    aspect-ratio: 1024 / 490 !important;
+  }
+}
 .opener:focus-visible {
   outline: 2px solid var(--cw-led);
   outline-offset: 4px;

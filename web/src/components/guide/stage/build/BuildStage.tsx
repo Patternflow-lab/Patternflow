@@ -9,10 +9,14 @@
 // A Patternflow built from bare parts on the same 3D stage as Play
 // (GuideCanvas), in the order the build really happens (BUILD_GUIDE.md,
 // v3.9): parts arrive on a bench, the case prints and is bonded, the board is
-// soldered in a holder, then the panel, the screws, the J4 lead, the board,
-// the nuts, the ribbon and J3's wires go into the case, the DevKit is
-// flashed (Play's 01 Flash, Device + KitFx) and seated, the power bank goes
-// in, and the back, the cover, the lid and the knobs close it up.
+// soldered in a holder, then the panel goes into the frame from the front
+// and is screwed from behind, the J4 lead (through the small slot under J4,
+// not the wide opening beside it), the board, the nuts, the ribbon and J3's
+// wires go into the case, the DevKit is flashed (Play's 01 Flash,
+// Device + KitFx) and seated, the power bank goes in, and the back, the
+// cover, the lid and the knobs close it up. Nothing is measured on the way:
+// the build has no continuity or voltage checks (build.test.ts keeps the
+// instrument for them off this stage).
 //
 // It is mounted beside <Device /> on the build page only, and runs after it
 // each frame: it takes Device's own objects (the board and its parts, the
@@ -25,21 +29,24 @@
 // Play's: scenes.ts):
 //
 //   build   The beat this step shows: one of beats.ts BEATS, the
-//           storyboard's step ids ("gather-1" … "check-6", plus "opening"
+//           storyboard's step ids ("gather-1" … "check-5", plus "opening"
 //           and "next"). Required on every build step; the stage plays the
 //           beats in order and holds each one's end.
 //   view    A camera view: Play's (hero, front, back, knobs, screenKnobs,
 //           esp, …) or the build's own (build/views.ts: bench, benchWide,
 //           boardLift, plates, platesKnobs, bond, boardF, boardParts,
-//           boardC11, boardSW, boardJ4, caseBack, caseBackClose, wireBack,
-//           terminalsBack, probeJ3, trayFront). narrowView is the view on a
-//           narrow screen where that must differ (wire-2).
+//           boardC11, boardSW, panelIn, screwsBack, caseBack, caseBackClose,
+//           leadBack, leadHole, leadJ4, wireBack, terminalsBack, trayFront).
+//           narrowView is the view on a narrow screen where that must differ
+//           (wire-2, case-3); narrowLate is a second narrow view for the
+//           later part of the beat (case-3: the hole, then J4).
 //   power   The panel. On a build step it lights only once the power bank is
 //           plugged in (firmware-3); before that the stage keeps it dark.
 //   esp     1 from gather-1 to firmware-1 (the DevKit is never in the case
 //           before firmware-2; the stage holds it on the bench and brings it
 //           up to the reader at firmware-1), 0 from firmware-2 on (Device
-//           seats it, as in Play). cable / flashing at firmware-1 as Play's
+//           seats it — at firmware-2 for the reader: once the camera is
+//           behind the case, at its own pace, and again on Replay). cable / flashing at firmware-1 as Play's
 //           flash steps; labels / demo / mode at the checks as Play's knobs.
 //
 // build/script.ts has a ready Step for every beat (BUILD_STEPS), which the
@@ -50,12 +57,13 @@ import { useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { getSim, useGuideStore } from "../../store";
+import { buildClock } from "../../timing";
 import { stepOf } from "../../scenes";
 import { DRACO_URL, KNOB_PRESS, MODEL_OFFSET, MODEL_SCALE, MODEL_URL } from "../geometry";
 import { CASE_URL, DEVKIT_PRESENT, DEVKIT_SEAT, PCB_PLACEMENT, PCB_URL } from "../parts";
 import { placeTag, type TagSide } from "../tags";
 import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, settle, smooth, span } from "./beats";
-import { Path, Ribbon, Tube } from "./cable";
+import { Path, Tube } from "./cable";
 import {
   BACK_HINGE,
   BACK_OPEN_ANGLE,
@@ -68,19 +76,24 @@ import {
   BOARD_PARK,
   BOARD_WORK,
   boardToModel,
+  CABLE_HOLE,
   DEVKIT_BENCH,
   FRONT_Z,
   HOLDER_Z,
+  J1_MOUTH,
   KNOB_PLATE_XZ,
   KNOB_REST_X,
   KNOB_REST_Z,
-  LID_OPEN,
+  LID_CLEAR,
+  LID_REST,
   MAT_TOP,
   NOTCH,
   NUT_ROW_Z,
   PANEL_BENCH,
   PANEL_CENTRE,
+  PANEL_FRONT_GAP,
   PANEL_IN,
+  PANEL_PCB_Z,
   PANEL_POWER,
   PART_ORDER,
   type PartName,
@@ -91,6 +104,10 @@ import {
   plateCorner,
   PLATES_URL,
   type Pose,
+  POWER_COIL,
+  RIBBON_BENCH,
+  RIBBON_CENTRE,
+  RIBBON_HOVER,
   ROW,
   ROW_Z,
   SCREW_BENCH_DX,
@@ -101,7 +118,6 @@ import {
   SLIDER_REST,
   SPLIT_URL,
   TAB_BACK_Z,
-  TRAY_HOLE,
   USB_COIL,
 } from "./layout";
 import { PADS } from "./pads";
@@ -119,7 +135,6 @@ const S1 = at("solder-1");
 const S2 = at("solder-2");
 const S3 = at("solder-3");
 const S4 = at("solder-4");
-const S5 = at("solder-5");
 const C1 = at("case-1");
 const C2 = at("case-2");
 const C3 = at("case-3");
@@ -127,7 +142,6 @@ const C4 = at("case-4");
 const C5 = at("case-5");
 const W1 = at("wire-1");
 const W2 = at("wire-2");
-const W3 = at("wire-3");
 const F1 = at("firmware-1");
 const F2 = at("firmware-2");
 const F3 = at("firmware-3");
@@ -151,8 +165,9 @@ const INSERT: Record<PartName, [number, number]> = {
 /**
  * The board turns over (B side up) and back for each round of joints. The
  * encoders' round ends with it turned over once more: solder-4 holds on the
- * plain side, where their bodies are — what the step is about — and solder-5
- * turns it back to probe J4.
+ * plain side, where their bodies are — what the step is about. It is turned
+ * printed side up again at the bench while the panel goes into the case
+ * (case-1), ready to be carried over at case-3.
  */
 const FLIPS: [number, number][] = [
   [S1 + 0.48, S1 + 0.57],
@@ -164,7 +179,7 @@ const FLIPS: [number, number][] = [
   [S4 + 0.29, S4 + 0.36],
   [S4 + 0.64, S4 + 0.71],
   [S4 + 0.9, S4 + 0.98],
-  [S5 + 0.02, S5 + 0.16],
+  [C1 + 0.04, C1 + 0.2],
 ];
 /** Rounds of joints: which pads, and when the iron walks them. */
 const ROUNDS: { refs: string[]; from: number; to: number }[] = [
@@ -173,6 +188,20 @@ const ROUNDS: { refs: string[]; from: number; to: number }[] = [
   { refs: ["C11"], from: S3 + 0.55, to: S3 + 0.8 },
   { refs: ["SW1", "SW2", "SW3", "SW4"], from: S4 + 0.73, to: S4 + 0.87 },
 ];
+
+/** When the soldered board is carried from the bench to behind its bay (case-3): after the lead is through the hole. */
+const BOARD_OVER: [number, number] = [C3 + 0.4, C3 + 0.7];
+
+/**
+ * Small things carried from the bench to the case's back go over its top on a
+ * cubic whose two middle points are this high (near the bench, then above
+ * the case's back) and this far behind: the curve is past the case's back
+ * face before it comes below the case's top (y 32.56).
+ */
+const OVER_TOP = [52, 60, -9] as const;
+
+/** The print's layer, model units (0.2 mm). */
+const LAYER = 0.02;
 
 /** How far apart (timeline) the parts land on the mat. */
 const ARRIVE0 = G1 + 0.3;
@@ -236,7 +265,8 @@ function setRigid(o: THREE.Object3D, r: Rigid) {
 /** A part dropping onto the mat: how far through, as (height factor, scale). */
 function drop(t: number, t0: number, dur = 0.07) {
   const u = clamp01((t - t0) / dur);
-  return { fall: 1 - settle(u), scale: 0.35 + 0.65 * smooth(u * 1.6), on: t >= t0 };
+  // Down onto the mat and no lower (the landing ease runs past its end: without the floor, a part sank into the mat).
+  return { fall: Math.max(0, 1 - settle(u)), scale: 0.35 + 0.65 * smooth(u * 1.6), on: t >= t0 };
 }
 
 // ── materials ───────────────────────────────────────────────────────────────
@@ -258,13 +288,13 @@ type TagKey =
   | "c11p"
   | "c11m"
   | "wrong"
-  | "meter"
   | "in"
   | "j4p"
   | "j4m"
   | "j3p"
   | "j3m"
   | "usb"
+  | "hole"
   | "swPins"
   | "swBodies"
   | "gPanel"
@@ -287,21 +317,23 @@ const TAGS: { key: TagKey; text: TagText; side: TagSide; r: number }[] = [
   { key: "c11p", text: "+", side: "right", r: 0.02 },
   { key: "c11m", text: "−", side: "left", r: 0.02 },
   { key: "wrong", text: "✕", side: "up", r: 0.08 },
-  { key: "meter", text: "OL", side: "right", r: 0.05 },
-  { key: "in", text: "IN ↑", side: "left", r: 0.1 },
+  { key: "in", text: "IN ↑", side: "up", r: 0.06 },
   // Seen from the back of the case: J4's +5V is its right-hand screw, J3's its left-hand one.
-  { key: "j4p", text: "+5V", side: "right", r: 0.03 },
-  { key: "j4m", text: "GND", side: "left", r: 0.03 },
-  { key: "j3p", text: "+5V", side: "left", r: 0.03 },
-  { key: "j3m", text: "GND", side: "right", r: 0.03 },
+  // Pushed well out to the side: beside the terminal, not over the wires going into it.
+  { key: "j4p", text: "+5V", side: "right", r: 0.065 },
+  { key: "j4m", text: "GND", side: "left", r: 0.065 },
+  { key: "j3p", text: "+5V", side: "left", r: 0.065 },
+  { key: "j3m", text: "GND", side: "right", r: 0.065 },
+  // The slot the power lead comes up through (case-3): the small one, beside the wide opening.
+  { key: "hole", text: { en: "small hole", ko: "작은 구멍" }, side: "left", r: 0.05 },
   // The DevKit's USB end, toward the board's "USB" mark — never the power lead's.
   { key: "usb", text: { en: "USB end ↓", ko: "USB 쪽 ↓" }, side: "left", r: 0.05 },
   // The encoders' two sides (solder-4): where the pins are soldered, where the bodies sit.
   { key: "swPins", text: { en: "pins: printed side", ko: "다리: 글씨 있는 면" }, side: "up", r: 0.02 },
   { key: "swBodies", text: { en: "bodies: plain side", ko: "몸통: 글씨 없는 면" }, side: "up", r: 0.02 },
   // What came besides the board's parts (gather-2), each named on itself.
-  { key: "gPanel", text: { en: "LED panel, its back", ko: "LED 패널 뒷면" }, side: "up", r: 0 },
-  { key: "gScrews", text: "M4 × 12", side: "down", r: 0.05 },
+  { key: "gPanel", text: { en: "LED panel, its back", ko: "LED 패널 뒷면" }, side: "up", r: 0.02 },
+  { key: "gScrews", text: { en: "M4 screws", ko: "M4 나사" }, side: "down", r: 0.05 },
   { key: "gUsb", text: { en: "USB cable", ko: "USB 케이블" }, side: "up", r: 0.2 },
   { key: "gBank", text: { en: "power bank", ko: "보조배터리" }, side: "up", r: 0 },
 ];
@@ -316,9 +348,6 @@ const SW_CENTRES = ["SW1", "SW2", "SW3", "SW4"].map((ref) => {
 /** The terminals' wire entries face away from their screws: J4's toward the board's bottom edge, J3's (turned 180°) up toward the DevKit. */
 const J4_ENTRY = PADS.J4.map((p) => V(p[0], 0.006, 0.0533));
 const J3_ENTRY = PADS.J3.map((p) => V(p[0], 0.006, 0.0476));
-/** The terminals' screw heads, where a probe touches. */
-const J4_SCREWS = PADS.J4.map((p) => V(p[0], 0.0154, 0.0522));
-const J3_SCREWS = PADS.J3.map((p) => V(p[0], 0.0154, 0.0487));
 /** The "+5v" silkscreen by each terminal (KiCad gr_text). */
 const PLUS5_J4 = V(-0.019364, 0.0017, 0.053311);
 const PLUS5_J3 = V(0.019752, 0.0017, 0.048993);
@@ -347,6 +376,10 @@ export default function BuildStage() {
     };
     const white = () => std("#eceae4", 0.55, 0, { transparent: true });
     const metal = std("#c3c6cc", 0.32, 0.85);
+    // The encoders' washers and nuts: the brushed finish their bodies have
+    // (find(), below). Polished, the eight of them lying flat on the mat
+    // mirrored the key light straight into the bloom — four white lamps.
+    const brushed = std("#8d9096", 0.6, 0.7);
     const darkMetal = std("#5d6168", 0.4, 0.8);
 
     // The bench mat, under everything that arrives.
@@ -376,10 +409,14 @@ export default function BuildStage() {
     // mesh in a plain dark finish, and its back.
     const panel = { group: add(new THREE.Group()), slab: null as THREE.Mesh | null, mats: [] as THREE.MeshStandardMaterial[] };
     const slabMat = std("#0d0d0e", 0.62, 0, { transparent: true });
-    const backMat = std("#151517", 0.78, 0, { transparent: true });
-    const bossMat = std("#8d8778", 0.4, 0.7, { transparent: true });
+    // The moulded frame is a glossier black than the LED face; the driver
+    // board under it carries its parts and lettering as a texture.
+    const frameMat = std("#17171a", 0.46, 0, { transparent: true });
+    const headerMat = std("#1d1d20", 0.5, 0, { transparent: true });
+    const pinMat = std("#c9a44a", 0.35, 0.85, { transparent: true });
+    const canMat = std("#7f8389", 0.45, 0.6, { transparent: true });
+    const brassMat = std("#8f7440", 0.55, 0.55, { transparent: true });
     const powerMat = std("#e6e1d6", 0.6, 0, { transparent: true });
-    panel.mats.push(slabMat, backMat, bossMat, powerMat);
     const lSrc = ledGltf.scene.getObjectByName("l") as THREE.Mesh | undefined;
     if (lSrc) {
       const slab = new THREE.Mesh(lSrc.geometry, slabMat);
@@ -389,16 +426,21 @@ export default function BuildStage() {
       panel.slab = add(slab, panel.group);
     }
     const pb = props.panelBack();
+    const boardMat = std("#ffffff", 0.7, 0.05, { transparent: true, map: pb.boardTexture });
+    panel.mats.push(slabMat, frameMat, headerMat, pinMat, canMat, brassMat, powerMat, boardMat);
     const backGroup = add(new THREE.Group(), panel.group);
-    add(new THREE.Mesh(pb.ribs, backMat), backGroup);
-    add(new THREE.Mesh(pb.bosses, bossMat), backGroup);
-    add(new THREE.Mesh(pb.headers, backMat), backGroup);
+    add(new THREE.Mesh(pb.frame, frameMat), backGroup);
+    add(new THREE.Mesh(pb.board, boardMat), backGroup, false);
+    add(new THREE.Mesh(pb.shroud, headerMat), backGroup);
+    add(new THREE.Mesh(pb.pins, pinMat), backGroup, false);
+    add(new THREE.Mesh(pb.cans, canMat), backGroup, false);
+    add(new THREE.Mesh(pb.inserts, brassMat), backGroup, false);
     add(new THREE.Mesh(pb.power, powerMat), backGroup);
 
     // Fasteners.
     const screws = add(new THREE.InstancedMesh(props.screwGeometry(), metal, SCREW_HOLES.length));
-    const washers = add(new THREE.InstancedMesh(props.washerGeometry(), metal, 4));
-    const nuts = add(new THREE.InstancedMesh(props.nutGeometry(), metal, 4));
+    const washers = add(new THREE.InstancedMesh(props.washerGeometry(), brushed, 4));
+    const nuts = add(new THREE.InstancedMesh(props.nutGeometry(), brushed, 4));
     for (const m of [screws, washers, nuts]) {
       m.frustumCulled = false;
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -428,29 +470,39 @@ export default function BuildStage() {
     const j4Paths = [new Path(3), new Path(3)];
     const j4Wires = [new Tube(12, 8, 0.07, red), new Tube(12, 8, 0.07, black)];
     j4Wires.forEach((w) => add(w.mesh));
-    const ribbonPath = new Path(7);
-    const ribbon = new Ribbon(70, 2.03, 0.1, std("#b8b7b2", 0.7, 0, { side: THREE.DoubleSide }));
-    add(ribbon.mesh);
-    const idcMat = std("#2a2a2a", 0.6);
-    const ribbonPlugs = [add(new THREE.Mesh(new THREE.BoxGeometry(1, 2.5, 0.8), idcMat)), add(new THREE.Mesh(new THREE.BoxGeometry(1.05, 2.4, 0.62), idcMat))];
+    // The HUB75 ribbon, one rigid piece as it is fitted: J1's plug, the flat
+    // run through the notch, the fold, the run up to IN's plug. Built where
+    // it sits in the case, so the group is at the origin when it is seated.
+    const idcMat = std("#b9b9b4", 0.62);
+    const ribbon = add(new THREE.Group());
+    {
+      const rz = (mouthZ: number) => mouthZ + props.IDC_PLUG.into - (props.IDC_PLUG.d - 0.12);
+      const rg = props.foldedRibbon(J1_MOUTH.x, J1_MOUTH.y, rz(J1_MOUTH.z) - 0.045, PANEL_IN.x, PANEL_IN.y, rz(PANEL_IN.z) - 0.045);
+      add(new THREE.Mesh(rg.cable, std("#b8b7b2", 0.7, 0, { side: THREE.DoubleSide })), ribbon);
+      add(new THREE.Mesh(rg.stripe, std("#b3231d", 0.7, 0, { side: THREE.DoubleSide })), ribbon);
+      const p0 = add(new THREE.Mesh(props.idcPlug("y"), idcMat), ribbon);
+      p0.position.set(J1_MOUTH.x, J1_MOUTH.y, J1_MOUTH.z + props.IDC_PLUG.into);
+      const p1 = add(new THREE.Mesh(props.idcPlug("x"), idcMat), ribbon);
+      p1.position.set(PANEL_IN.x, PANEL_IN.y, PANEL_IN.z + props.IDC_PLUG.into);
+    }
+    // The panel's power lead: its plug on the panel's header, a red and a black wire to J3.
+    const powerPlug = add(new THREE.Mesh(props.vhPlug(), std("#e9e5da", 0.6)));
     const powerPaths = [new Path(7), new Path(7)];
     const powerWires = [new Tube(70, 8, 0.075, red), new Tube(70, 8, 0.075, black)];
     powerWires.forEach((w) => add(w.mesh));
 
-    // Coils on the mat: the USB cable, the panel's ribbon and its power lead.
+    // Coils on the mat: the USB cable and the panel's power lead.
     const coils = {
       usb: add(new THREE.Mesh(props.coil(1.7, 0.18, 3), jacket)),
-      ribbon: add(new THREE.Mesh(props.ribbonCoil(), ribbon.mesh.material as THREE.Material)),
       power: add(new THREE.Group()),
     };
     coils.usb.position.copy(USB_COIL);
-    coils.ribbon.position.set(-13, MAT_TOP, 41.4);
     add(new THREE.Mesh(props.coil(1.3, 0.075, 3), red), coils.power);
     const pc2 = add(new THREE.Mesh(props.coil(1.2, 0.075, 3), black), coils.power);
     pc2.position.set(0.22, 0, 0.16);
-    coils.power.position.set(-18.6, MAT_TOP, 41.4);
+    coils.power.position.copy(POWER_COIL);
 
-    // Tools: the iron, its glint, the meter's probes.
+    // Tools: the iron and its glint.
     const ig = props.iron();
     const iron = add(new THREE.Group());
     add(new THREE.Mesh(ig.metal, std("#b5b9c0", 0.28, 0.9)), iron);
@@ -459,13 +511,6 @@ export default function BuildStage() {
       new THREE.SpriteMaterial({ map: props.glowTexture(), color: new THREE.Color(2.4, 2.1, 1.7), transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }),
     );
     group.add(glint);
-    const prg = props.probe();
-    const probes = [0, 1].map((i) => {
-      const g = add(new THREE.Group());
-      add(new THREE.Mesh(prg.needle, std("#cfd2d8", 0.25, 0.9)), g);
-      add(new THREE.Mesh(prg.body, std(i === 0 ? "#c4271f" : "#3a3b3e", 0.5)), g);
-      return g;
-    });
 
     // Solder joints: a small fillet at every through-hole pad (pads.ts),
     // children of the board once it is found.
@@ -506,21 +551,34 @@ export default function BuildStage() {
       const g = add(new THREE.Group());
       g.position.copy(plateCorner(p));
       const slab = add(new THREE.Mesh(props.plate(), plateMat), g, false);
-      const partMat =
-        p === 4
-          ? std("#161616", 0.82, 0, { clippingPlanes: [clip[p - 1]], side: THREE.DoubleSide, clipShadows: true })
-          : std("#eceae4", 0.55, 0, { clippingPlanes: [clip[p - 1]], side: THREE.DoubleSide, clipShadows: true });
+      const partMat = std(p === 4 ? "#161616" : "#eceae4", p === 4 ? 0.82 : 0.55, 0, { clippingPlanes: [clip[p - 1]], clipShadows: true });
+      // The layer being laid: where the cut opens a part, its inside is drawn
+      // in one flat tone — a solid section, not the inside of a hollow shell.
+      // Drawn a little toward the camera in depth: a part's underside lies
+      // 0.06 mm above the plate, and from the plates' view the two fought
+      // for the same depth — the dark plate showing through in streaks.
+      const cutMat = new THREE.MeshBasicMaterial({
+        color: p === 4 ? "#0d0d0d" : "#b4b1a9",
+        side: THREE.BackSide,
+        clippingPlanes: [clip[p - 1]],
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -12,
+      });
       const parts: THREE.Mesh[] = [];
+      const cuts: THREE.Mesh[] = [];
       platesGltf.scene.traverse((o) => {
         const m = o as THREE.Mesh;
-        if (m.isMesh && m.name.startsWith(`p${p}_`)) parts.push(add(new THREE.Mesh(m.geometry, partMat), g));
+        if (!m.isMesh || !m.name.startsWith(`p${p}_`)) return;
+        parts.push(add(new THREE.Mesh(m.geometry, partMat), g));
+        cuts.push(add(new THREE.Mesh(m.geometry, cutMat), g, false));
       });
       const line = new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(PLATE_SIZE, 0, 0), V(PLATE_SIZE, 0, -PLATE_SIZE), V(0, 0, -PLATE_SIZE)]),
         new THREE.LineBasicMaterial({ color: new THREE.Color("#ff8a4d").multiplyScalar(2.2), transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
       );
       g.add(line);
-      return { group: g, slab, parts, line };
+      return { group: g, slab, parts, cuts, line };
     });
 
     // The 256 mm print's halves where they sit in the case (case-split.glb).
@@ -577,14 +635,12 @@ export default function BuildStage() {
       j4Paths,
       j4Wires,
       ribbon,
-      ribbonPath,
-      ribbonPlugs,
+      powerPlug,
       powerPaths,
       powerWires,
       coils,
       iron,
       glint,
-      probes,
       jointList,
       joints,
       ghost,
@@ -650,10 +706,12 @@ export default function BuildStage() {
       backRest,
       backTopApart,
       hingeOpen,
+      // Stood up as it will hook in, but out behind the case's corner: where it is brought first, so it never crosses the case.
+      hingeAway: { q: hingeOpen.q.clone(), T: hingeOpen.T.clone().add(V(-9, 0, -6)) } as Rigid,
       sliderRest: placeCentre(centres.back_slider, V(SLIDER_REST.p.x, 0.14, SLIDER_REST.p.z), SLIDER_REST.q),
       sliderOut: { q: new THREE.Quaternion(), T: V(SLIDER_OUT_X, 0, 0) } as Rigid,
-      lidOpen: { q: new THREE.Quaternion(), T: V(LID_OPEN, 0, 0) } as Rigid,
-      lidApproach: { q: new THREE.Quaternion(), T: V(LID_OPEN + 5, 0, 0) } as Rigid,
+      lidRest: placeCentre(centres.top_lid, V(LID_REST.p.x, 0.1, LID_REST.p.z), LID_REST.q),
+      lidApproach: { q: new THREE.Quaternion(), T: V(LID_CLEAR, 0, 0) } as Rigid,
     };
   }, [centres]);
 
@@ -816,6 +874,14 @@ export default function BuildStage() {
     };
   }, [gl]);
 
+  // The timeline is not running once this is gone (timing.ts buildClock).
+  useEffect(
+    () => () => {
+      buildClock.t = -1;
+    },
+    [],
+  );
+
   // ── tags: DOM pills beside what they name ─────────────────────────────────
   const tagEls = useRef<Partial<Record<TagKey, { wrap: HTMLDivElement; pill: HTMLDivElement }>>>({});
   useEffect(() => {
@@ -846,7 +912,7 @@ export default function BuildStage() {
 
   // Frames since mount, for the one-off warm-up draw below.
   const warmed = useRef(0);
-  const clock = useRef({ beat: -1, start: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay });
+  const clock = useRef({ beat: -1, start: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false });
   const tmp = useMemo(
     () => ({
       a: pose(),
@@ -858,6 +924,7 @@ export default function BuildStage() {
       v2: V(),
       v3: V(),
       v4: V(),
+      v5: V(),
       q: new THREE.Quaternion(),
       q2: new THREE.Quaternion(),
       m: new THREE.Matrix4(),
@@ -865,9 +932,6 @@ export default function BuildStage() {
       world: V(),
       tags: new Map<TagKey, THREE.Vector3>(),
       jacket: V(),
-      probeTip: [V(), V()],
-      meterAt: V(),
-      meter: "OL",
     }),
     [],
   );
@@ -947,8 +1011,18 @@ export default function BuildStage() {
       const rate = sameBeat ? 1.6 / beatSeconds(B) : Math.max(2.6, Math.abs(dlt) / 1.1);
       c.t += Math.sign(dlt) * Math.min(Math.abs(dlt), rate * dt);
     }
+    if (process.env.NODE_ENV !== "production") {
+      // For the filming and measuring scripts (scratchpad build3d/): the
+      // timeline value, the stage's objects, and a way to hold the timeline
+      // at a value (window.__pfBuildSeek = 14.37), to film a beat frame by frame.
+      const w = window as unknown as { __pfBuildT?: number; __pfBuildSeek?: number; __pfBuild?: unknown };
+      if (typeof w.__pfBuildSeek === "number") c.t = w.__pfBuildSeek;
+      w.__pfBuildT = c.t;
+      w.__pfBuild ??= { kit, dev: d, THREE };
+    }
     const t = c.t;
-    if (process.env.NODE_ENV !== "production") (window as unknown as { __pfBuildT?: number }).__pfBuildT = t;
+    // For the camera and the scripted demos (timing.ts).
+    buildClock.t = t;
 
     const finished = t < G1; // the opening: the device as it will end up
     const caseFade = finished ? 1 : 1 - span(t, G1, G1 + 0.16);
@@ -985,8 +1059,10 @@ export default function BuildStage() {
       });
       if (t >= S1 + 0.22) bp.q.copy(tmp.q.setFromAxisAngle(V(0, 0, 1), Math.PI * flip)).multiply(BOARD_WORK.q);
     } else if (t < C4) {
-      // Round the case's right side to behind its bay, turning to face the back.
-      const u = span(t, C3, C3 + 0.4, smooth);
+      // Round the case's right side to behind its bay, turning to face the
+      // back — once the lead is through the case's cable hole and waiting
+      // there (BUILD_GUIDE §7.3: the cable goes through first).
+      const u = span(t, BOARD_OVER[0], BOARD_OVER[1], smooth);
       bezier(BOARD_WORK.p, V(16, 10, 30), V(27, 22, -12), BOARD_HOVER.p, u, bp.p);
       bp.q.slerpQuaternions(BOARD_WORK.q, BOARD_HOVER.q, smooth((u - 0.12) / 0.7));
     } else {
@@ -1132,7 +1208,7 @@ export default function BuildStage() {
 
     // ── the holder ──────────────────────────────────────────────────────────
     {
-      const up = span(t, S1, S1 + 0.1) * (1 - span(t, C3 + 0.42, C3 + 0.52));
+      const up = span(t, S1, S1 + 0.1) * (1 - span(t, BOARD_OVER[1], BOARD_OVER[1] + 0.1));
       kit.holder.group.visible = up > 0.001;
       kit.holder.posts.forEach((p) => p.scale.set(1, 2.75 * up + 0.001, 1));
       kit.holder.jaws.forEach((j) => {
@@ -1193,54 +1269,62 @@ export default function BuildStage() {
       else {
         bpMesh.visible = true;
         if (t < K4) setRigid(bpMesh, places.backRest);
-        else if (t < K4 + 0.38) setRigid(bpMesh, arcRigid(centres.back_plate, places.backRest, places.hingeOpen, span(t, K4, K4 + 0.38), 8, tmp.r));
+        else if (t < K4 + 0.32) setRigid(bpMesh, arcRigid(centres.back_plate, places.backRest, places.hingeAway, span(t, K4 + 0.1, K4 + 0.32), 6, tmp.r));
+        else if (t < K4 + 0.44) {
+          tmp.r.q.copy(places.hingeOpen.q);
+          tmp.r.T.lerpVectors(places.hingeAway.T, places.hingeOpen.T, span(t, K4 + 0.32, K4 + 0.43));
+          setRigid(bpMesh, tmp.r);
+        }
         else {
-          const u = span(t, K4 + 0.4, K4 + 0.6, settle);
+          // Shut, and no further: an ease that overshoots swung the panel on through the ribbon.
+          const u = span(t, K4 + 0.44, K4 + 0.62, smooth);
           const a = BACK_OPEN_ANGLE * (1 - u);
           tmp.r.q.setFromAxisAngle(Y, a);
           tmp.r.T.copy(BACK_HINGE).sub(tmp.v.copy(BACK_HINGE).applyQuaternion(tmp.r.q));
           setRigid(bpMesh, tmp.r);
         }
       }
-      if (d.notch) d.notch.visible = finished || t >= K4 + 0.55;
+      if (d.notch) d.notch.visible = finished || t >= K4 + 0.58;
 
-      // The PCB cover (the stage's copy).
+      // The PCB cover (the stage's copy). Printed on plate 3 (the plate's own
+      // mesh shows it until print-4), it stays on its plate until it is
+      // lifted off: from P4 this one is there, in the same place.
       const sl = kit.slider;
       const slMat = sl.material as THREE.MeshStandardMaterial;
       slMat.opacity = t < G1 + 0.17 ? caseFade : 1;
       if (t < G1 + 0.17) {
         sl.visible = true;
         setRigid(sl, places.home);
-      } else if (t < P4 + 0.3) sl.visible = false;
+      } else if (t < P4) sl.visible = false;
       else {
         sl.visible = true;
         if (t < P4 + 0.55) setRigid(sl, arcRigid(centres.back_slider, places.plate.back_slider, places.sliderRest, span(t, P4 + 0.3, P4 + 0.55), 10, tmp.r));
-        else if (t < K4 + 0.62) setRigid(sl, places.sliderRest);
-        else if (t < K4 + 0.84) setRigid(sl, arcRigid(centres.back_slider, places.sliderRest, places.sliderOut, span(t, K4 + 0.62, K4 + 0.84), 6, tmp.r));
+        else if (t < K4 + 0.65) setRigid(sl, places.sliderRest);
+        else if (t < K4 + 0.85) setRigid(sl, arcRigid(centres.back_slider, places.sliderRest, places.sliderOut, span(t, K4 + 0.65, K4 + 0.85), 6, tmp.r));
         else {
           tmp.r.q.identity();
-          tmp.r.T.set(SLIDER_OUT_X * (1 - span(t, K4 + 0.85, K4 + 0.98)), 0, 0);
+          tmp.r.T.set(SLIDER_OUT_X * (1 - span(t, K4 + 0.86, K4 + 0.98)), 0, 0);
           setRigid(sl, tmp.r);
         }
       }
 
-      // The top lid over the power-bank tray: printed, slid into its rails
-      // open, and shut at the end (check-5).
+      // The lid over the power-bank tray: printed, laid down beside the
+      // case with the other covers, and slid in from the case's side at the
+      // end (check-5).
       const lid = d.topLid;
       if (t < G1 + 0.17) {
         lid.visible = true;
         setRigid(lid, places.home);
-      } else if (t < P4 + 0.4) lid.visible = false;
+      } else if (t < P4) lid.visible = false;
       else {
         lid.visible = true;
-        if (t < P4 + 0.56) setRigid(lid, arcRigid(centres.top_lid, places.plate.top_lid, places.lidApproach, span(t, P4 + 0.4, P4 + 0.56), 9, tmp.r));
-        else if (t < K5) {
+        if (t < P4 + 0.62) setRigid(lid, arcRigid(centres.top_lid, places.plate.top_lid, places.lidRest, span(t, P4 + 0.4, P4 + 0.62), 9, tmp.r));
+        else if (t < K5) setRigid(lid, places.lidRest);
+        else if (t < K5 + 0.32) setRigid(lid, arcRigid(centres.top_lid, places.lidRest, places.lidApproach, span(t, K5 + 0.18, K5 + 0.32), 5, tmp.r));
+        else {
+          // Along its rails, in from the case's side.
           tmp.r.q.identity();
-          tmp.r.T.set(LID_OPEN + 5 * (1 - span(t, P4 + 0.56, P4 + 0.64)), 0, 0);
-          setRigid(lid, tmp.r);
-        } else {
-          tmp.r.q.identity();
-          tmp.r.T.set(LID_OPEN * (1 - span(t, K5, K5 + 0.26)), 0, 0);
+          tmp.r.T.set(LID_CLEAR * (1 - span(t, K5 + 0.32, K5 + 0.5)), 0, 0);
           setRigid(lid, tmp.r);
         }
       }
@@ -1257,12 +1341,19 @@ export default function BuildStage() {
         const from = p < 4 ? P2 + 0.05 : P3 + 0.05;
         const to = p < 4 ? P2 + 0.95 : P3 + 0.9;
         const u = clamp01((t - from) / (to - from));
-        const h = PLATE_HEIGHT[p] * u;
+        // The cut rises a layer at a time and stands in the middle of one,
+        // never in a face: a plane sliding up through the flat parts (5.4 mm
+        // tall, their tops and pockets all level) grazed them, and the cut's
+        // tone showed through in smudges and streaks.
+        const h = Math.min(PLATE_HEIGHT[p], (Math.floor((PLATE_HEIGHT[p] * u) / LAYER) + 0.5) * LAYER);
         const printing = u > 0 && u < 1;
         // The cut, in world units (clipping planes are in world space).
         kit.clip[i].constant = u >= 1 ? 1e4 : (plateCorner(p, tmp.v).y + h) * MODEL_SCALE + MODEL_OFFSET.y + (u <= 0 ? -1 : 0.0005);
         pl.parts.forEach((m) => {
           m.visible = t < P4 && u > 0;
+        });
+        pl.cuts.forEach((m) => {
+          m.visible = printing;
         });
         pl.line.position.y = h;
         (pl.line.material as THREE.LineBasicMaterial).opacity = printing ? 0.9 : 0;
@@ -1311,7 +1402,7 @@ export default function BuildStage() {
       const home = d.knobHome[i];
       const mat = d.knobMats[i] as THREE.MeshStandardMaterial;
       mat.opacity = t < G1 + 0.17 ? caseFade : 1;
-      const onAt = K5 + 0.3 + i * 0.12;
+      const onAt = K5 + 0.52 + i * 0.09;
       const doneAt = onAt + 0.2;
       if (finished || t >= doneAt) {
         // Device's: home, turning and pressing as the encoder does.
@@ -1330,7 +1421,7 @@ export default function BuildStage() {
         // Fading with the case.
         k.position.copy(home.p);
         k.quaternion.copy(home.q);
-      } else if (t < P4 + 0.01) shown = false;
+      } else if (t < P4) shown = false;
       else {
         const plateP = tmp.a;
         plateCorner(4, plateP.p).add(V(KNOB_PLATE_XZ[i][0], 2, KNOB_PLATE_XZ[i][1]));
@@ -1393,17 +1484,28 @@ export default function BuildStage() {
         pg.position.copy(PANEL_BENCH.p).setY(PANEL_BENCH.p.y + dr.fall * 3);
         pg.quaternion.copy(PANEL_BENCH.q);
         scale = dr.scale;
-      } else if (t < C1 + 0.55) {
-        // Round the case's left side to behind its window, LED face forward.
-        const u = span(t, C1, C1 + 0.55, smooth);
-        const behind = tmp.v.copy(PANEL_CENTRE).add(V(0, 0, -9));
-        bezier(PANEL_BENCH.p, V(-36, 14, 22), V(-32, 18, -14), behind, u, pg.position);
-        pg.quaternion.slerpQuaternions(PANEL_BENCH.q, IDENTITY, smooth((u - 0.1) / 0.75));
+      } else if (t < C1 + 0.5) {
+        // Up off the mat and stood up in FRONT of the frame, its back to the
+        // frame, IN end up: the panel only goes in from the front (the
+        // frame's ledge and its twelve tabs are behind it).
+        const u = span(t, C1 + 0.12, C1 + 0.5, smooth);
+        const front = tmp.v.copy(PANEL_CENTRE).add(V(0, 0, PANEL_FRONT_GAP));
+        bezier(PANEL_BENCH.p, V(PANEL_BENCH.p.x, 15, PANEL_BENCH.p.z), V(-9, 21, 21), front, u, pg.position);
+        pg.quaternion.slerpQuaternions(PANEL_BENCH.q, IDENTITY, smooth((u - 0.08) / 0.8));
       } else {
-        // In along +z, slowly, with a little side to side at the end: near-zero clearance.
-        const u = span(t, C1 + 0.56, C1 + 0.92, smooth);
-        pg.quaternion.identity();
-        pg.position.copy(PANEL_CENTRE).add(V(Math.sin(u * Math.PI * 6) * 0.06 * span(u, 0.6, 0.85) * (1 - span(u, 0.9, 1)), 0, -9 * (1 - u)));
+        // In along −z, slowly, its bottom edge first and the top pressed home
+        // after it — the fit has almost no clearance — until its rim is on
+        // the ledge and the tabs.
+        const u = span(t, C1 + 0.54, C1 + 0.96, clamp01);
+        const tilt = 0.06 * smooth(u / 0.3) * (1 - smooth((u - 0.62) / 0.38));
+        pg.quaternion.setFromAxisAngle(tmp.v.set(1, 0, 0), tilt);
+        // About its bottom back edge, which travels straight in.
+        const edge = tmp.v2.set(0, -16, -0.85);
+        pg.position
+          .copy(PANEL_CENTRE)
+          .add(edge)
+          .add(tmp.v3.set(0, 0, PANEL_FRONT_GAP * (1 - smooth(u / 0.72))))
+          .sub(edge.applyQuaternion(pg.quaternion));
       }
       pg.visible = on;
       pg.scale.setScalar(scale);
@@ -1419,7 +1521,7 @@ export default function BuildStage() {
         seated.p.set(hx, hy, TAB_BACK_Z + 1.0);
         seated.q.copy(lying);
         let scale = 1;
-        const s0 = k < 6 ? C2 + 0.05 + k * 0.075 : C2 + 0.5 + (k - 6) * 0.05;
+        const s0 = k < 6 ? C2 + 0.14 + k * 0.07 : C2 + 0.56 + (k - 6) * 0.035;
         const bench = tmp.b;
         bench.p.set(SCREW_BENCH_X0 + k * SCREW_BENCH_DX, MAT_TOP + 0.36, SCREW_BENCH_Z);
         bench.q.copy(lying);
@@ -1431,10 +1533,12 @@ export default function BuildStage() {
           bench.p.y += dr.fall * 2.5;
           p = bench;
         } else if (t < s0 + 0.16) {
-          // Over the top of the case to behind its tab.
+          // Over the top of the case and down behind it to its tab: high and
+          // far enough back that it is past the case before it comes down
+          // (a lower arc took the screws for the low tabs through the panel).
           const u = span(t, s0, s0 + 0.16, smooth);
           const hover = tmp.v.set(hx, hy, TAB_BACK_Z - 3.2);
-          bezier(bench.p, tmp.v2.set(bench.p.x, 38, 18), tmp.v3.set(hx, 40, -8), hover, u, tmp.c.p);
+          bezier(bench.p, tmp.v2.set(bench.p.x, OVER_TOP[0], bench.p.z / 2), tmp.v3.set(hx, OVER_TOP[1], OVER_TOP[2]), hover, u, tmp.c.p);
           tmp.c.q.copy(lying);
           p = tmp.c;
         } else {
@@ -1459,7 +1563,7 @@ export default function BuildStage() {
         const ax = boardToModel(tmp.v.copy(SW_CENTRES[k]), BOARD_IN_CASE, V());
         const sx = ROW[`SW${k + 1}`];
         const arrive = ARRIVE0 + (6 + k) * ARRIVE_STEP + 0.02;
-        const s0 = C5 + 0.06 + k * 0.2;
+        const s0 = C5 + 0.2 + k * 0.18;
         for (const which of [0, 1] as const) {
           const seatZ = which === 0 ? FRONT_Z : FRONT_Z + 0.05;
           const restP = V(sx + (which ? 0.15 : 0), MAT_TOP, which ? NUT_ROW_Z - 1.3 : NUT_ROW_Z);
@@ -1493,204 +1597,255 @@ export default function BuildStage() {
     }
 
     // ── the power bank, the plug, the J4 lead ───────────────────────────────
-    const plugIn = finished || t >= F3 + 0.6;
+    const plugIn = finished || t >= F3 + 0.76;
     {
-      // The panel lights only once the bank is plugged in (firmware-3).
+      // The panel lights only once the bank is plugged in (firmware-3): a
+      // lit step reached while the timeline is still short of that — it runs
+      // there from wherever it was — is held dark, and comes on when the
+      // plug goes in. Only a panel held dark here is turned on here: check-3
+      // turns it off itself, for its power cycle. (This used to ask whether
+      // the timeline was still before check-1 instead, and a slow frame that
+      // carried it past that in one step left the panel off.)
       const sim = getSim();
       if (s.power && !plugIn) {
         if (sim.snapshot().mode !== "off") sim.setMode("off");
-      } else if (s.power && plugIn && t < K1 && sim.snapshot().mode === "off") sim.setMode(s.mode && s.mode !== "off" ? s.mode : "run");
+        c.heldOff = true;
+      } else if (c.heldOff) {
+        c.heldOff = false;
+        if (s.power && sim.snapshot().mode === "off") sim.setMode(s.mode && s.mode !== "off" ? s.mode : "run");
+      }
 
-      // The bank: dropped on the mat; stood in front of the tray to be tried
-      // and laid back on the bench, unplugged (wire-3) — it has no business
-      // near the case while the DevKit goes in with the power off; then
-      // stood up again and slid into the tray (firmware-3).
+      // The bank: dropped on the mat, where it stays until the DevKit is
+      // seated — it has no business near the case while that goes in with
+      // the power off — then stood up in front of the tray and slid in
+      // (firmware-3).
       const b = kit.bank;
       let on = true;
       let scale = 1;
-      if (finished || t >= F3 + 0.54) {
+      if (finished || t >= F3 + 0.7) {
         b.position.copy(BANK_IN.p);
         b.quaternion.identity();
-      } else if (t < W3 + 0.1) {
+      } else if (t < F3) {
         const dr = drop(t, G2 + 0.4, 0.08);
         on = dr.on;
         scale = dr.scale;
         b.position.copy(BANK_BENCH.p).setY(BANK_BENCH.p.y + dr.fall * 3);
         b.quaternion.copy(BANK_BENCH.q);
-      } else if (t < W3 + 0.86) {
-        arcPose(BANK_BENCH, BANK_FRONT, span(t, W3 + 0.1, W3 + 0.3), 6, tmp.a);
-        b.position.copy(tmp.a.p);
-        b.quaternion.copy(tmp.a.q);
-      } else if (t < F3) {
-        arcPose(BANK_FRONT, BANK_BENCH, span(t, W3 + 0.86, W3 + 0.985), 6, tmp.a);
-        b.position.copy(tmp.a.p);
-        b.quaternion.copy(tmp.a.q);
-      } else if (t < F3 + 0.24) {
-        arcPose(BANK_BENCH, BANK_FRONT, span(t, F3, F3 + 0.22), 6, tmp.a);
+      } else if (t < F3 + 0.44) {
+        arcPose(BANK_BENCH, BANK_FRONT, span(t, F3 + 0.2, F3 + 0.42), 6, tmp.a);
         b.position.copy(tmp.a.p);
         b.quaternion.copy(tmp.a.q);
       } else {
-        b.position.lerpVectors(BANK_FRONT.p, BANK_IN.p, span(t, F3 + 0.26, F3 + 0.54, smooth));
+        b.position.lerpVectors(BANK_FRONT.p, BANK_IN.p, span(t, F3 + 0.46, F3 + 0.7, smooth));
         b.quaternion.identity();
       }
       b.visible = on;
       b.scale.setScalar(scale);
-      kit.bankLed.visible = plugIn ? sim.snapshot().mode !== "off" : t > W3 + 0.46 && t < W3 + 0.8;
+      kit.bankLed.visible = plugIn && sim.snapshot().mode !== "off";
 
-      // The plug: loose in the tray once the lead is through; into the bank
-      // in front for the 5 V check, out again and back down into the tray,
-      // well clear of the bank; held up out of the bank's way as it slides
-      // in, then into it. At the power cycle (check-3) it follows the panel:
-      // out while it is off.
+      // The plug: loose in the tray once the lead is through; held up out of
+      // the bank's way as it slides in, then into it. At the power cycle
+      // (check-3) it follows the panel: out while it is off.
       const plugPos = tmp.v4;
       const above = (p: THREE.Vector3, h: number) => plugPos.copy(p).setY(p.y + h);
       if (plugIn) {
         const track = plugTrack.current;
         const out = !finished && t >= K1 && sim.snapshot().mode === "off" ? 1 : 0;
         track.out += (out - track.out) * Math.min(1, dt * 8);
-        above(PORT_IN, finished ? 0 : Math.max(1.1 * track.out, 1.4 * (1 - span(t, F3 + 0.6, F3 + 0.68))));
-      } else if (t < W3 + 0.32) plugPos.copy(PLUG_LOOSE);
-      else if (t < W3 + 0.42) plugPos.lerpVectors(PLUG_LOOSE, tmp.v.copy(PORT_FRONT).setY(PORT_FRONT.y + 1.4), span(t, W3 + 0.32, W3 + 0.42));
-      else if (t < W3 + 0.85) above(PORT_FRONT, 1.4 * ((1 - span(t, W3 + 0.42, W3 + 0.46)) + span(t, W3 + 0.8, W3 + 0.84)));
-      else if (t < F3) plugPos.lerpVectors(tmp.v.copy(PORT_FRONT).setY(PORT_FRONT.y + 1.4), PLUG_LOOSE, span(t, W3 + 0.85, W3 + 0.95));
-      else plugPos.lerpVectors(PLUG_LOOSE, tmp.v2.copy(PORT_IN).setY(PORT_IN.y + 1.4), span(t, F3 + 0.02, F3 + 0.22, smooth));
-      const cableOn = finished || t >= C3 + 0.42;
-      kit.plug.position.copy(plugPos);
-      kit.plug.visible = cableOn;
+        above(PORT_IN, finished ? 0 : Math.max(1.1 * track.out, 1.4 * (1 - span(t, F3 + 0.76, F3 + 0.84))));
+      } else if (t < F3) plugPos.copy(PLUG_LOOSE);
+      else plugPos.lerpVectors(PLUG_LOOSE, tmp.v2.copy(PORT_IN).setY(PORT_IN.y + 1.4), span(t, F3 + 0.22, F3 + 0.42, smooth));
+      // The cable as it came: a coil on the mat, its USB-A plug lying at
+      // the coil's end, mouth toward the reader — a bare coil did not read
+      // as a USB cable. At case-3 it is the lead, its plug in the tray.
+      const coilDrop = drop(t, G2 + 0.36, 0.07);
+      const cableOn = finished || t >= C3 + 0.05;
+      if (cableOn) {
+        kit.plug.position.copy(plugPos);
+        kit.plug.quaternion.identity();
+        kit.plug.scale.setScalar(1);
+        kit.plug.visible = true;
+      } else {
+        kit.plug.position.copy(USB_PLUG_BENCH).setY(USB_PLUG_BENCH.y + coilDrop.fall * 2);
+        kit.plug.quaternion.copy(PLUG_FLAT);
+        kit.plug.scale.setScalar(coilDrop.scale * (1 - span(t, C3, C3 + 0.05)) + 0.001);
+        kit.plug.visible = coilDrop.on;
+      }
 
-      // The lead: out of the plug, up the tray's back to the hole, into the
-      // bay and round to J4's wire entry — wherever the board is: hovering
-      // behind the bay while it is wired (case-3), then in (case-4).
+      // The lead, in the order it is really done (BUILD_GUIDE §7.3): the cut
+      // end goes through the case's cable hole FIRST — out of the plug in the
+      // tray, up the tray to the SMALL slot in its roof (layout.ts
+      // CABLE_HOLE: the one straight under J4, not the wide opening beside
+      // it), into the bay and out of its open back, its two stripped wires
+      // fanned — and waits there; then the board is brought to it and the
+      // wires go into J4 (case-3); then the board goes in and the lead's
+      // slack goes back down the hole after it (case-4).
       const pts = kit.usbPath.points;
       pts[0].copy(plugPos).setY(plugPos.y + 1.55);
       pts[1].copy(plugPos).setY(plugPos.y + 2.5);
-      pts[2].lerpVectors(pts[1], TRAY_HOLE, 0.6).setZ(-0.95);
-      pts[3].copy(TRAY_HOLE).setY(TRAY_HOLE.y - 0.8);
-      pts[4].copy(TRAY_HOLE);
+      pts[3].copy(CABLE_HOLE).setY(CABLE_HOLE.y - 0.7);
+      pts[2].lerpVectors(pts[1], pts[3], 0.55).setZ(-0.5);
+      pts[4].copy(CABLE_HOLE);
       const entryMid = tmp.v2.copy(J4_ENTRY[0]).add(J4_ENTRY[1]).multiplyScalar(0.5);
-      const jacketEnd = boardToModel(tmp.v3.copy(entryMid).setZ(entryMid.z + 0.0022), boardPose, tmp.jacket);
+      const onBoard = boardToModel(tmp.v3.copy(entryMid).setZ(entryMid.z + 0.0022), boardPose, tmp.jacket);
+      // 0 while the end is free, 1 once it is in J4.
+      const held = finished ? 1 : span(t, C3 + 0.72, C3 + 0.84, smooth);
+      // Out and round J4's side on its way under it, not through its body.
+      const jacketEnd = onBoard.lerpVectors(LEAD_FREE, onBoard, held).addScaledVector(LEAD_ROUND, Math.sin(Math.PI * held));
       const inCase = finished || t >= C4 + 0.55 ? 1 : t >= C4 ? span(t, C4, C4 + 0.55, smooth) : 0;
       pts[5].lerpVectors(BAY_OUT, BAY_IN, inCase);
-      pts[6].lerpVectors(SAG, tmp.v.lerpVectors(pts[5], jacketEnd, 0.45), inCase);
+      pts[6].lerpVectors(tmp.v.lerpVectors(LEAD_FREE_MID, SAG, held), tmp.v2.lerpVectors(pts[5], jacketEnd, 0.45), inCase);
       pts[7].lerpVectors(pts[6], jacketEnd, 0.7);
       pts[8].copy(jacketEnd);
       kit.usbPath.touch();
-      const grow = finished ? 1 : span(t, C3 + 0.42, C3 + 0.72, clamp01);
+      // Up the tray first (behind the case, out of this step's view), then
+      // out of the hole at a pace that can be watched: the hole's share of
+      // the lead's length, by its chords.
+      let toHole = 0;
+      let whole = 0;
+      for (let i = 1; i < pts.length; i++) {
+        whole += pts[i].distanceTo(pts[i - 1]);
+        if (i === 4) toHole = whole;
+      }
+      const holeAt = toHole / Math.max(1e-6, whole);
+      const grow = finished ? 1 : holeAt * span(t, C3 + 0.06, C3 + 0.2, clamp01) + (1 - holeAt) * span(t, C3 + 0.2, C3 + 0.38, smooth);
       if (cableOn && grow > 0) kit.usb.update(kit.usbPath, grow);
       kit.usb.mesh.visible = cableOn && grow > 0;
-      // Red to +5V, black to GND, their stripped ends into the entries.
-      const wireGrow = finished ? 1 : span(t, C3 + 0.7, C3 + 0.8, clamp01);
+      // Red to +5V, black to GND: fanned out of the jacket while they wait, then into J4's entries.
+      const wireGrow = finished ? 1 : span(t, C3 + 0.37, C3 + 0.42, clamp01);
       [1, 0].forEach((pad, w) => {
         const path = kit.j4Paths[w];
+        const fan = w === 0 ? -0.22 : 0.22;
         path.points[0].copy(jacketEnd);
         boardToModel(tmp.v.copy(J4_ENTRY[pad]).setZ(J4_ENTRY[pad].z + 0.0012), boardPose, path.points[1]);
         boardToModel(tmp.v.copy(J4_ENTRY[pad]).setZ(J4_ENTRY[pad].z - 0.0025), boardPose, path.points[2]);
+        path.points[1].lerpVectors(tmp.v.copy(LEAD_FREE).add(tmp.v2.set(fan * 0.5, 0.12, -0.45)), path.points[1], held);
+        path.points[2].lerpVectors(tmp.v.copy(LEAD_FREE).add(tmp.v2.set(fan, 0.3, -0.85)), path.points[2], held);
         path.touch();
         if (cableOn && wireGrow > 0) kit.j4Wires[w].update(path, wireGrow);
         kit.j4Wires[w].mesh.visible = cableOn && wireGrow > 0;
       });
       // The coil it came as, on the mat.
-      const coilDrop = drop(t, G2 + 0.36, 0.07);
-      kit.coils.usb.visible = !finished && coilDrop.on && t < C3 + 0.45;
-      kit.coils.usb.scale.setScalar(coilDrop.scale * (1 - span(t, C3 + 0.35, C3 + 0.45)) + 0.001);
+      kit.coils.usb.visible = !finished && coilDrop.on && t < C3 + 0.08;
+      kit.coils.usb.scale.setScalar(coilDrop.scale * (1 - span(t, C3, C3 + 0.08)) + 0.001);
       kit.coils.usb.position.y = USB_COIL.y + coilDrop.fall * 2;
     }
 
-    // ── the ribbon (J1 → the panel's IN) and the panel's power wires (→ J3) ──
+    // ── the ribbon (J1 → the panel's IN) and the panel's power lead (→ J3) ──
     {
-      // J1's plug: on the header, wherever the board is.
-      const j1 = d.parts.J1;
-      const top = V(((j1.min.x + j1.max.x) / 2), j1.max.y + 0.0042, (j1.min.z + j1.max.z) / 2);
-      const plugJ1 = boardToModel(top, BOARD_IN_CASE, V());
-      const plugAway = V(0, 0, -1).multiplyScalar(2.5 * (1 - span(t, W1 + 0.02, W1 + 0.12)));
-      const r0 = kit.ribbonPlugs[0];
-      r0.position.copy(plugJ1).add(plugAway);
-      r0.visible = finished || t >= W1 + 0.02;
-      const inPlug = V(PANEL_IN.x, PANEL_IN.y, PANEL_IN.z - 0.6 - 0.28);
-      const r1 = kit.ribbonPlugs[1];
-      const seatIn = span(t, W1 + 0.44, W1 + 0.54);
-      r1.position.copy(inPlug).add(V(0, 0, -1.2 * (1 - seatIn)));
-      r1.visible = finished || t >= W1 + 0.4;
-      const rp = kit.ribbonPath.points;
-      rp[0].copy(r0.position).add(V(0, 0, -0.42));
-      rp[1].set(plugJ1.x - 0.4, plugJ1.y - 0.2, -1.5);
-      rp[2].copy(NOTCH).add(V(0.5, 0.2, -0.15));
-      rp[3].copy(NOTCH).add(V(-0.7, 0.4, 0.05));
-      rp[4].set(0.6, 26.2, -1.2);
-      rp[5].set(inPlug.x + 0.6, inPlug.y - 0.6, -1.32);
-      rp[6].copy(r1.position).add(V(0, 0, -0.32));
-      kit.ribbonPath.touch();
-      const grow = finished ? 1 : span(t, W1 + 0.1, W1 + 0.46, clamp01);
-      const ribbonOn = finished || t >= W1 + 0.1;
-      if (ribbonOn) kit.ribbon.update(kit.ribbonPath, Y, grow);
-      kit.ribbon.mesh.visible = ribbonOn && grow > 0;
+      // The ribbon is one folded piece (props.ts foldedRibbon), built where it
+      // is fitted. It lies on the mat with the rest; at wire-1 it is carried
+      // over the top of the case to behind the board and the panel, and its
+      // two plugs are pressed home — onto J1, and into the panel's IN.
+      const rb = kit.ribbon;
+      const rq = tmp.q2;
+      const rc = tmp.v;
+      let rs = 1;
+      let rOn = true;
+      if (finished || t >= W1 + 0.74) {
+        rq.identity();
+        rc.copy(RIBBON_CENTRE);
+      } else if (t < W1 + 0.16) {
+        const dr = drop(t, G2 + 0.12, 0.07);
+        rOn = t >= G1 && dr.on;
+        rs = dr.scale;
+        rq.copy(RIBBON_BENCH.q);
+        rc.copy(RIBBON_BENCH.p).setY(RIBBON_BENCH.p.y + dr.fall * 2.5);
+      } else if (t < W1 + 0.56) {
+        // Quick over the top of the case, where the camera is not looking, and slow down behind it, where it is.
+        const u = 1 - Math.pow(1 - span(t, W1 + 0.16, W1 + 0.56, clamp01), 2.4);
+        const hover = tmp.v2.copy(RIBBON_CENTRE).setZ(RIBBON_CENTRE.z - RIBBON_HOVER);
+        bezier(RIBBON_BENCH.p, tmp.v3.set(RIBBON_BENCH.p.x, 44, 28), tmp.v4.set(RIBBON_CENTRE.x, 50, -8), hover, u, rc);
+        rq.slerpQuaternions(RIBBON_BENCH.q, IDENTITY, smooth((u - 0.1) / 0.7));
+      } else {
+        rq.identity();
+        rc.copy(RIBBON_CENTRE).setZ(RIBBON_CENTRE.z - RIBBON_HOVER * (1 - span(t, W1 + 0.6, W1 + 0.74, smooth)));
+      }
+      rb.visible = rOn;
+      rb.quaternion.copy(rq);
+      rb.scale.setScalar(rs);
+      // Turned and scaled about its own middle.
+      rb.position.copy(RIBBON_CENTRE).applyQuaternion(rq).multiplyScalar(-rs).add(rc);
 
-      // The power pair: from the panel's connector, through the notch's low
-      // end, down the bay's side into J3 from above.
-      const pwrGrow = finished ? 1 : span(t, W2 + 0.05, W2 + 0.45, clamp01);
-      const pwrOn = finished || t >= W2 + 0.05;
+      // The power lead: its plug onto the panel's header (below the band, as
+      // photo 08c has it), then the pair laid up the panel's back, through
+      // the notch's low end and down the bay's side into J3 from above.
+      const seat = tmp.v2.set(PANEL_POWER.x, PANEL_POWER.y, PANEL_PCB_Z - 0.3);
+      const pp = kit.powerPlug;
+      const pc = drop(t, G2 + 0.15, 0.07);
+      // On the mat it lies in its coil, mating face up.
+      const plugBench = tmp.v5.set(POWER_COIL.x, POWER_COIL.y + 0.9, POWER_COIL.z);
+      pp.scale.setScalar(1);
+      if (finished || t >= W2 + 0.24) {
+        pp.position.copy(seat);
+        pp.quaternion.identity();
+        pp.visible = true;
+      } else if (t < W2 + 0.02) {
+        pp.visible = t >= G1 && pc.on;
+        pp.position.copy(plugBench).setY(MAT_TOP + 0.9 * pc.scale + pc.fall * 2.5);
+        pp.quaternion.copy(qx(-Math.PI / 2));
+        pp.scale.setScalar(pc.scale);
+      } else if (t < W2 + 0.18) {
+        const u = span(t, W2 + 0.02, W2 + 0.18, smooth);
+        bezier(plugBench, tmp.v3.set(POWER_COIL.x, OVER_TOP[0], POWER_COIL.z / 2), tmp.v4.set(seat.x, OVER_TOP[1], OVER_TOP[2]), tmp.v.copy(seat).setZ(seat.z - 2.4), u, pp.position);
+        pp.quaternion.slerpQuaternions(qx(-Math.PI / 2), IDENTITY, smooth((u - 0.1) / 0.7));
+        pp.visible = true;
+      } else {
+        pp.position.copy(seat).setZ(seat.z - 2.4 * (1 - span(t, W2 + 0.18, W2 + 0.24, smooth)));
+        pp.quaternion.identity();
+        pp.visible = true;
+      }
+      // The lead is one piece and is carried as one: the pair trails from
+      // the plug's back as it comes off the mat (the coil paying out into
+      // it), hangs from it while the plug is seated, and then its free ends
+      // are brought up behind the case, let down into the notch's low end,
+      // and pushed into J3 from above. `lay` is that last part, 0…1.
+      const tail = finished ? 1 : span(t, W2 + 0.02, W2 + 0.1, clamp01);
+      const lay = finished ? 1 : span(t, W2 + 0.27, W2 + 0.6, clamp01);
+      const pwrOn = finished || t >= W2 + 0.02;
+      const over = smooth(lay / 0.68); // across to above where they will lie
+      const lower = smooth((lay - 0.68) / 0.18); // down into the notch
+      const insert = smooth((lay - 0.86) / 0.14); // the ends down into J3
+      const lifted = smooth(lay / 0.12);
+      const backDir = tmp.v3.set(0, 0, -1).applyQuaternion(pp.quaternion);
       [1, 0].forEach((pad, w) => {
         const pts = kit.powerPaths[w].points;
-        const off = w === 0 ? -0.09 : 0.09;
-        pts[0].set(PANEL_POWER.x + off, PANEL_POWER.y, PANEL_POWER.z - 0.5);
-        pts[1].set(-2.2 + off, 18.6, -1.05);
-        pts[2].set(1.6 + off, 21.7, -1.25);
-        pts[3].set(NOTCH.x, 22.55 + off, -1.25);
-        pts[4].set(4.85, 21.9 + off * 0.5, -0.95);
-        boardToModel(tmp.v.copy(J3_ENTRY[pad]).setZ(J3_ENTRY[pad].z - 0.003), BOARD_IN_CASE, pts[5]);
+        const off = w === 0 ? -0.2 : 0.2;
+        const o = off * 0.45;
+        // Where it lies in the end.
+        pts[0].set(seat.x + off, seat.y, seat.z - 0.85);
+        pts[1].set(seat.x + off + 0.2, seat.y + 0.5, -0.95);
+        pts[2].set(0.4 + o, 21.4 - o, -1.1);
+        pts[3].set(NOTCH.x - 0.5, 22.5 - o, -1.2);
+        pts[4].set(4.95 + o, 22.0 - o, -1.0);
+        boardToModel(tmp.v.copy(J3_ENTRY[pad]).setZ(J3_ENTRY[pad].z - 0.004), BOARD_IN_CASE, pts[5]);
         boardToModel(tmp.v.copy(J3_ENTRY[pad]).setZ(J3_ENTRY[pad].z + 0.002), BOARD_IN_CASE, pts[6]);
+        if (lay < 1) {
+          // Where it hangs from the plug, wherever the plug is: out of its
+          // back, then down.
+          const exit = tmp.v.set(off, 0, -0.85).applyQuaternion(pp.quaternion).add(pp.position);
+          for (let k = 0; k < pts.length; k++) {
+            const hang = tmp.v4.copy(exit);
+            if (k > 0) hang.addScaledVector(backDir, 0.5).add(tmp.world.set(off * 0.35 * (k - 1), -0.12 - 1.45 * (k - 1), 0));
+            const laid = pts[k];
+            const y = laid.y + POWER_RISE[k] * (1 - insert);
+            const z = laid.z;
+            laid.set(hang.x + (laid.x - hang.x) * over, hang.y + (y - hang.y) * over, hang.z + (z - hang.z) * over);
+            // Carried behind the case's back, clear of the bay's wall and of everything on the board.
+            const carried = laid.z + (POWER_CARRY_Z - laid.z) * Math.min(1, k / 2) * lifted;
+            laid.z = carried + (z - carried) * lower;
+          }
+        }
         kit.powerPaths[w].touch();
-        if (pwrOn) kit.powerWires[w].update(kit.powerPaths[w], pwrGrow);
-        kit.powerWires[w].mesh.visible = pwrOn && pwrGrow > 0;
+        if (pwrOn) kit.powerWires[w].update(kit.powerPaths[w], tail);
+        kit.powerWires[w].mesh.visible = pwrOn && tail > 0;
       });
-      const rc = drop(t, G2 + 0.12, 0.07);
-      kit.coils.ribbon.visible = !finished && rc.on && t < W1 + 0.12;
-      kit.coils.ribbon.scale.setScalar(rc.scale * (1 - span(t, W1, W1 + 0.12)) + 0.001);
-      const pc = drop(t, G2 + 0.15, 0.07);
       kit.coils.power.visible = !finished && pc.on && t < W2 + 0.1;
-      kit.coils.power.scale.setScalar(pc.scale * (1 - span(t, W2, W2 + 0.1)) + 0.001);
-    }
-
-    // ── probes and the meter ─────────────────────────────────────────────────
-    let meterAt: THREE.Vector3 | null = null;
-    {
-      let screwsLocal: THREE.Vector3[] | null = null;
-      let into = 0;
-      if (t >= S5 && t < C1 + 0.1) {
-        screwsLocal = J4_SCREWS;
-        into = span(t, S5 + 0.18, S5 + 0.34) * (1 - span(t, C1, C1 + 0.1));
-        tmp.meter = "OL";
-      } else if (t >= W3 && t < F1 + 0.08) {
-        screwsLocal = J3_SCREWS;
-        // On J3 to the end of the step — its held frame is the reading — and
-        // off as the next one starts.
-        into = span(t, W3 + 0.02, W3 + 0.16) * (1 - span(t, F1, F1 + 0.08));
-        tmp.meter = t < W3 + 0.47 ? "OL" : t < W3 + 0.82 ? "5.0 V" : "0.0 V";
-      }
-      for (let i = 0; i < kit.probes.length; i++) {
-        const g = kit.probes[i];
-        g.visible = !!screwsLocal && into > 0.001;
-        if (!screwsLocal) continue;
-        // Red on +5V (pad 2), black on GND (pad 1), leaning out of the F side.
-        const tip = boardToModel(screwsLocal[i === 0 ? 1 : 0], boardPose, tmp.probeTip[i]);
-        // On the bench they lean toward the reader; at the case's open back, up and out of it.
-        const bench = screwsLocal === J4_SCREWS;
-        const dir = tmp.v
-          .set(i === 0 ? -0.5 : 0.5, 1, bench ? 0.4 : -0.55)
-          .normalize()
-          .applyQuaternion(boardPose.q);
-        g.position.copy(tip).addScaledVector(dir, (1 - into) * 5);
-        g.quaternion.setFromUnitVectors(Y, dir);
-        if (i === 0) meterAt = tmp.meterAt.copy(tip).addScaledVector(dir, 2.5);
-      }
-      // No reading once the next step has the stage: held at its start under
-      // a chapter's title, the camera has already left for the case, and the
-      // pill hung in the air beside it.
-      if (!screwsLocal || into < 0.95 || (screwsLocal === J4_SCREWS ? t >= C1 : t >= F1)) meterAt = null;
+      kit.coils.power.scale.setScalar(pc.scale * (1 - span(t, W2 + 0.02, W2 + 0.1)) + 0.001);
     }
 
     // The two "+" joined (wire-2): J3's on the left, J4's on the right, seen from behind.
-    const plusOn = !finished && t >= W2 + 0.5 && t < W3;
+    const plusOn = !finished && t >= W2 + 0.62 && t < F1;
     const j3Plus = boardToModel(tmp.v.copy(J3_ENTRY[1]), boardPose, V());
     const j4Plus = boardToModel(tmp.v.copy(J4_ENTRY[1]), boardPose, V());
     {
@@ -1718,7 +1873,8 @@ export default function BuildStage() {
       };
       // What came off the board (gather-2), named until the bench is left for the board.
       if (t >= G2 + 0.5 && t < at("gather-4")) {
-        tags.set("gPanel", V(PANEL_BENCH.p.x, PANEL_BENCH.p.y + 0.9, PANEL_BENCH.p.z));
+        // Above the panel's far edge, so the pill covers nothing on its back.
+        tags.set("gPanel", V(PANEL_BENCH.p.x, PANEL_BENCH.p.y + 0.9, PANEL_BENCH.p.z - 8));
         // On a narrow screen the screws lie at the stage's bottom edge, under the card: no tag there.
         if (!narrow) tags.set("gScrews", V(SCREW_BENCH_X0 + 5.5 * SCREW_BENCH_DX, MAT_TOP + 0.4, SCREW_BENCH_Z));
         tags.set("gUsb", V(USB_COIL.x, USB_COIL.y + 0.4, USB_COIL.z));
@@ -1742,10 +1898,12 @@ export default function BuildStage() {
       if (t >= S4 + 0.07 && t < S4 + 0.26) tags.set("wrong", local(V(SW_CENTRES[0].x, 0.03, SW_CENTRES[0].z)));
       // Which side is which, while the joints are made and where the step holds.
       if (t >= S4 + 0.72 && t < S4 + 0.89) tags.set("swPins", local(V(0, 0.004, SW_CENTRES[0].z - 0.004)));
-      if (t >= S4 + 0.985 && t < S5) tags.set("swBodies", local(V(0, -0.027, (SW_CENTRES[0].z + SW_CENTRES[2].z) / 2)));
-      if (meterAt) tags.set("meter", meterAt);
-      if ((t >= C1 + 0.3 && t < C2) || (t >= W1 && t < W2)) tags.set("in", V(PANEL_IN.x, PANEL_IN.y + 1.4, PANEL_IN.z - 0.7));
-      if ((t >= C3 + 0.8 && t < C5) || plusOn) {
+      if (t >= S4 + 0.985 && t < C1) tags.set("swBodies", local(V(0, -0.027, (SW_CENTRES[0].z + SW_CENTRES[2].z) / 2)));
+      // The panel's IN header, wherever the panel is: while it is stood up and seated (case-1), and for the ribbon (wire-1).
+      if ((t >= C1 + 0.26 && t < C2) || (t >= W1 && t < W2)) tags.set("in", V().copy(PANEL_IN).sub(PANEL_CENTRE).applyQuaternion(kit.panel.group.quaternion).add(kit.panel.group.position));
+      // The small slot the lead comes up through, until the board is brought over.
+      if (t >= C3 + 0.02 && t < BOARD_OVER[0] + 0.04) tags.set("hole", V(CABLE_HOLE.x + 0.2, CABLE_HOLE.y + 0.1, CABLE_HOLE.z - 0.38));
+      if ((t >= C3 + 0.86 && t < C5) || plusOn) {
         tags.set("j4p", local(J4_ENTRY[1]));
         tags.set("j4m", local(J4_ENTRY[0]));
       }
@@ -1779,7 +1937,6 @@ export default function BuildStage() {
           el.pill.dataset.on = "0";
           continue;
         }
-        if (def.key === "meter" && el.pill.textContent !== tmp.meter) el.pill.textContent = tmp.meter;
         const x = (tmp.v.x * 0.5 + 0.5) * size.width;
         const y = (-tmp.v.y * 0.5 + 0.5) * size.height;
         el.wrap.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
@@ -1802,14 +1959,35 @@ export default function BuildStage() {
 const BANK_IN: Pose = { p: V(8.0, 7.62, -0.78), q: new THREE.Quaternion() };
 const BANK_FRONT: Pose = { p: V(8.0, 7.4, 6.6), q: new THREE.Quaternion() };
 const PORT_IN = V(8.0, 14.82, -0.78);
-const PORT_FRONT = V(8.0, 14.6, 6.6);
 /** The lead's plug lying loose at the bottom of the tray. */
 const PLUG_LOOSE = V(7.4, 2.2, 0.3);
-/** Where the lead comes out of the hole into the bay: out of the open back while the board hovers behind, along the board once it is in. */
-const BAY_OUT = V(8.9, 19.6, -2.6);
-const BAY_IN = V(9.0, 19.3, -0.55);
-/** The slack hanging behind the case while the board hovers. */
-const SAG = V(9.8, 18.3, -4.8);
+/**
+ * Where the lead comes out of the hole into the bay: out of the open back
+ * while the board hovers behind, along the board once it is in. On its way
+ * out it leans to the knob side, away from the wide opening: seen from
+ * behind and that side (views.ts leadBack) a lead running straight back
+ * crossed the opening's end, and could be taken to come out of it.
+ */
+const BAY_OUT = V(11.05, 19.9, -2.5);
+const BAY_IN = V(10.27, 19.14, -0.06);
+/** The slack hanging behind the case while the board hovers: low and behind the board's face, so the lead comes up to J4's entries from under its bottom edge. */
+const SAG = V(10.45, 18.2, -7.2);
+/**
+ * The lead's cut end while it waits for the board, out of the bay's open
+ * back, and the bend on the way to it: above J4 and C11 and behind them, off
+ * the hovering board's printed face (z −6.5).
+ */
+const LEAD_FREE = V(11.3, 21.6, -7.5);
+const LEAD_FREE_MID = V(11.25, 20.6, -4.8);
+/** How far out of the straight line the end swings on its way into J4. */
+const LEAD_ROUND = V(0.7, -0.3, -0.45);
+/** The uncut cable's USB-A plug on the mat: lying flat at the end of its coil's outer turn, mouth toward the reader. */
+const USB_PLUG_BENCH = V(USB_COIL.x + 1.7, MAT_TOP + 0.375, USB_COIL.z + 1.5);
+const PLUG_FLAT = qx(-Math.PI / 2);
+
+/** While the power pair's free ends are brought over: this far behind (the case's back is at z −1.9), and this much above where each point will lie (the ends: above J3's entries, to go down into them). */
+const POWER_CARRY_Z = -2.7;
+const POWER_RISE = [0, 0, 0, 0, 0.3, 1.2, 1.2] as const;
 
 // How far the plug is out of the bank, shown (check-3's power cycle eases it).
 const plugTrack = { current: { out: 0 } };
