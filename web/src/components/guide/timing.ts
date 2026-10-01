@@ -70,6 +70,16 @@ export const kitState = {
   home: true,
 };
 
+/**
+ * Where the Build guide's stage is on its timeline (stage/build/beats.ts: a
+ * beat's index plus how far through it, 0…1). BuildStage writes it every
+ * frame; −1 until it has drawn one — it loads after the device. The camera
+ * and the scripted demos read it: a step that changes view part-way through
+ * its beat (scenes.ts narrowLate), and a demo that must not start before the
+ * build has got to its step (GuideCanvas Director).
+ */
+export const buildClock = { t: -1 };
+
 /** True while the cable is anywhere near the DevKit. */
 export function kitHeld(): boolean {
   return kitState.cable > 0.001;

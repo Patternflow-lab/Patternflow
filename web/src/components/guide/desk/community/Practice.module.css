@@ -1,0 +1,256 @@
+/* The practice community (Make · 01) inside its desk window. Its look is the real
+   community's: the components here wear components/community/
+   Community.module.css classes, and the --pfc-* tokens are global. This file
+   only fits that page into a window — what the real site pins to the browser
+   (the deck bar, a dialog's backdrop) is pinned to the window instead — and
+   adds the few things the practice has of its own: the canvases, the
+   practice notes.
+
+   Two classes deep wherever a real class is overridden, so the override wins
+   whichever stylesheet loads first. */
+
+.root {
+  position: absolute;
+  inset: 0;
+  /* Its own stacking context: the dock and the dialog stay under the desk's
+     dimming cover when this window is behind another. */
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--pfc-ground);
+  color: var(--pfc-ink);
+  font-family: var(--pf-sans, ui-sans-serif, system-ui, sans-serif);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+/* The community's own rule: a link changes colour on hover, it is not underlined. */
+.root a:hover {
+  text-decoration: none;
+}
+
+.scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  /* At its end, the wheel stops here: it doesn't scroll the story (and the step) under the reader. */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 239, 230, 0.2) transparent;
+}
+
+/* The real page's gutter is 40px; the window is a narrow browser. */
+.root .pageBody {
+  padding: 0 32px;
+}
+.root .header {
+  padding: 14px 32px;
+}
+
+/* ── the banner: where the real site puts its firmware notice ── */
+
+.root .banner {
+  margin: 12px 32px 0;
+}
+
+/* ── the wall ── */
+
+.root .feed {
+  padding: 22px 0 8px;
+}
+.root .endNote {
+  margin-top: 18px;
+}
+
+/* A demo plays a card as the mouse would: lit the same way as :hover. */
+.lit .thumb {
+  outline: 1px solid var(--pfc-edge);
+  outline-offset: -1px;
+}
+.lit .cornerBtn {
+  opacity: 1;
+}
+
+
+/* A pattern on a canvas, filling the rotator or the upright box (the real
+   ones hold an <img> and an <iframe> in the same place). */
+.canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* ── a pattern's page ── */
+
+.root .detail {
+  gap: 18px;
+  padding: 14px 0 24px;
+}
+/* The real frame is up to 320 × 640; in a window it is as tall as leaves
+   the knobs and the buttons under it in view. */
+.root .frame {
+  width: auto;
+  max-width: none;
+  height: clamp(200px, calc(var(--pc-view-h, 640px) - 340px), 640px);
+}
+.root .knobsBox {
+  margin-top: 14px;
+}
+.root .actions {
+  margin-top: 14px;
+}
+.root .editorWrap {
+  min-height: 0;
+  max-height: calc(var(--pc-view-h, 640px) - 110px);
+}
+.root .editor {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: #1e1e1e;
+}
+.code {
+  margin: 0;
+  padding: 10px 14px 16px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  color: #d4d4d4;
+  white-space: pre;
+  tab-size: 2;
+}
+.root .meta {
+  padding-top: 16px;
+}
+.root .metaTitle {
+  font-size: 22px;
+}
+
+/* ── decks ── */
+
+.root .decks {
+  padding: 22px 0 12px;
+}
+.root .decksTitle {
+  font-size: 21px;
+}
+.root .deckTitle {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.root .slots {
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+}
+
+
+/* ── pinned to the window instead of the browser ── */
+
+.root .dock {
+  position: absolute;
+}
+.root .dockLabel {
+  padding-left: 32px;
+}
+.root .dock {
+  padding-right: 24px;
+}
+.root .overlay {
+  position: absolute;
+  z-index: 60;
+}
+.root .modal {
+  max-height: 100%;
+}
+.root .modal:focus {
+  outline: none;
+}
+/* The practice's keyboard additions show where focus is. */
+.root [data-pc-slot]:focus-visible,
+.root [data-pc-card]:focus-visible {
+  outline: 2px solid var(--pfc-led);
+  outline-offset: 2px;
+}
+
+/* ── the practice's own note: what would happen for real ── */
+
+.note {
+  position: absolute;
+  z-index: 40;
+  left: 50%;
+  bottom: 80px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(560px, calc(100% - 32px));
+  padding: 10px 10px 10px 12px;
+  border: 1px solid rgba(255, 92, 46, 0.45);
+  background: rgba(16, 16, 18, 0.97);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pfc-ink-2);
+  transform: translateX(-50%);
+  animation: noteIn 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Inside the send dialog, in its flow. */
+.noteInline {
+  position: static;
+  width: auto;
+  box-shadow: none;
+  transform: none;
+  animation: none;
+}
+.noteTag {
+  flex: none;
+  padding-top: 2px;
+  font-family: var(--pf-mono, monospace);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pfc-led);
+}
+.noteText {
+  flex: 1;
+  min-width: 0;
+}
+.noteClose {
+  flex: none;
+  appearance: none;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: var(--pfc-ink-faint);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.noteClose:hover,
+.noteClose:focus-visible {
+  color: var(--pfc-ink);
+}
+
+@keyframes noteIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note {
+    animation: none;
+  }
+}

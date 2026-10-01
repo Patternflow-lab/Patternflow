@@ -143,7 +143,7 @@ What a knob does to a running pattern is the pattern's own decision, so the same
 
 The device functions themselves are fixed. Encoder 1 is brightness. Encoder 4 opens the pattern list, where you turn to browse the names and long-press again to load one, choosing from whatever is installed at the time. Encoder 2 puts the board's IP address on the panel, and typing that into a browser opens the web console, which carries every feature the device has and works from a phone.
 
-[patternflow.work/guide](https://patternflow.work/guide) has all of this on a Patternflow you can turn, press and hold, from flashing the ESP32 to the console.
+[patternflow.work/guide/play](https://patternflow.work/guide/play) has all of this on a Patternflow you can turn, press and hold, from flashing the ESP32 to the console.
 
 ## On the device
 

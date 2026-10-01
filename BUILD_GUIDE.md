@@ -78,7 +78,7 @@ Key sourcing rules (details in the BOM README):
 >
 > **What happened** ([#221](https://github.com/engmung/Patternflow/issues/221)): a board powered through USB-C ran **completely fine for 20–30+ minutes** — no heat, no symptoms — and then suddenly started **smoking at one of the connector pins**, rapidly frying the receptacle and the power path around it. Whether that was a hand-soldering defect on those tight-pitch pins or a structural limit of the 14-pin THT part under the LED matrix's peak current was never settled — so rather than ship an input nobody should populate, **v3.9 removed the footprint entirely.**
 >
-> ⚠️ **This is why "it seems to work" proves nothing here.** The failure is *delayed* — passing your multimeter checks and running for half an hour does not mean the joint is safe.
+> ⚠️ **This is why "it seems to work" proves nothing here.** The failure is *delayed* — running fine for half an hour does not mean the joint is safe.
 >
 > The screw terminal has none of this history — it's the original, proven Patternflow power input, and it's exactly as capable.
 
@@ -108,8 +108,8 @@ Any fab works, though — upload **`hardware/pcb/gerber/patternflow_v3.9_gerber.
 
 | Your printer bed | Print | Notes |
 |---|---|---|
-| **256 mm** (P1S / X1C / A1 class) | `bed_256mm/encloser.stl` | Body frame, back panels, and LED-panel mount in one STL. **White PLA.** ~10 h total. |
-| **~330 mm+** (H2S class) | `bed_330mm/encloser.stl` | The one-piece original — body, closing part, and LED-panel mount in one STL, **no bonding at all**. **White PLA.** Adds a USB pass-through to the DevKit and a cable exit slot — **for wired MIDI/OSC and flashing, not for power** (power is always `J4`, Section 2). |
+| **256 mm** (P1S / X1C / A1 class) | `bed_256mm/encloser.stl` | Body frame (the LED panel's mounting tabs are part of it), back panels and covers in one STL. **White PLA.** ~10 h total. |
+| **~330 mm+** (H2S class) | `bed_330mm/encloser.stl` | The one-piece original — body (panel-mounting tabs built in) and closing part in one STL, **no bonding at all**. **White PLA.** Adds a USB pass-through to the DevKit and a cable exit slot — **for wired MIDI/OSC and flashing, not for power** (power is always `J4`, Section 2). |
 | **Everyone** | `knobs/knobs_20mm.stl` | **Required for every build** — all four knobs in one plate, as its own separate print job. **Black PLA.** (15 mm-shaft encoders → `knobs_15mm.stl`.) |
 
 Two colors, on purpose: **body in white, knobs in black** — that contrast is the Patternflow look. Printing the knob plate as a separate job keeps it simple (no color changes mid-print).
@@ -122,7 +122,7 @@ Two colors, on purpose: **body in white, knobs in black** — that contrast is t
 
 <img src="docs/build-guide/images/v3/01_printing.jpg" width="38%"> <img src="docs/build-guide/images/v3/02_printed_parts.jpg" width="58%">
 
-*Left: `encloser.stl` on a P1S bed. Right: everything that comes out of the one print — body frame, back panels, battery cover, and the LED-panel mounting part.*
+*Left: `encloser.stl` on a P1S bed. Right: everything that comes out of the one print — the body frame with its panel-mounting tabs, the back panels and the covers.*
 
 ### Bond the printed halves — right after printing
 
@@ -151,12 +151,6 @@ All parts are through-hole, and the video covers the complete order.
 > | ❌ A bridge like this shorts +5 V to ground | ✅ What a clean joint looks like |
 > |---|---|
 > | <img src="docs/build-guide/images/v3/06_usbc_bad.jpg" width="100%"> | <img src="docs/build-guide/images/v3/07_usbc_good.jpg" width="100%"> |
-
-Before first power, go over your joints with a multimeter:
-
-<img src="docs/build-guide/images/v3/08_short_check.jpg" width="60%">
-
-Don't plug the ESP32 DevKit in until after the first power check (Section 7).
 
 <details>
 <summary><b>ESP32 pin reference</b> — the full 44-pin map. You don't need it for a normal build; it's here for debugging and derivative designs.</summary>
@@ -206,9 +200,9 @@ By now the enclosure halves you bonded in Section 4 have cured and the board is 
 
 > Printed the **330 mm one-piece body**? Everything in this section is identical — the only thing you skipped is the bonding step in Section 4.
 
-1. **Seat the LED panel in the enclosure with its `HUB-75E IN` connector toward the top** — that's the side the ribbon reaches `J1` from. ⚠️ The panel insertion is very tight — near-zero clearance. Work it in slowly.
+1. **Seat the LED panel in the enclosure from the front, with its `HUB-75E IN` connector toward the top** — that's the side the ribbon reaches `J1` from. ⚠️ The panel insertion is very tight — near-zero clearance. Work it in slowly.
 
-2. **Fit the LED-panel mounting part and tighten the screws.** The mounting part is a separate piece precisely because panel bolt-hole positions vary between suppliers — match it to your panel first.
+2. **Screw the panel to the frame's mounting tabs from behind.** On the standard print the tabs are part of the frame and line up with the BOM-linked panel's holes. Printed the `for_other_panels/` variant (Section 4)? Its mount is a separate, adjustable piece, because bolt-hole positions vary between suppliers — match it to your panel first, then screw.
 
 3. **Set the board into its bay and secure the encoders from the front**: attach each encoder's nut and tighten with a wrench or pliers — this locks the board against the front face.
 
@@ -233,8 +227,7 @@ By now the enclosure halves you bonded in Section 4 have cured and the board is 
    <img src="docs/build-guide/images/v3/17_screw_terminal_wiring.jpg" width="45%">
 
    *Cable already through the enclosure hole, wires clamped into `J4`, board about to go in.*
-4. **Before inserting the ESP32:** with power disconnected, continuity-check +5V↔GND at the `J3` terminals (open = good, like the Section 5 check). Then power up once and confirm ~5V across `J3`.
-5. Power off, seat the ESP32 DevKit in its sockets (orientation per silkscreen), power on.
+4. With power off, seat the ESP32 DevKit in its sockets (orientation per silkscreen), then power on.
 
 ## 8. Firmware
 
@@ -244,7 +237,7 @@ The ESP32-S3 module is flashed **separately, outside the PCB**. Already seated i
 
 No installation required — desktop **Chrome or Edge** only (Web Serial; Firefox/Safari won't work).
 
-> 🎬 **See it before you do it.** [patternflow.work/guide](https://patternflow.work/guide) walks through this section — the port, BOOT and RST, the Wi-Fi step, the Basics pack — on a Patternflow you can turn, and every step has a link for telling us where you got stuck.
+> 🎬 **See it before you do it.** [patternflow.work/guide/play](https://patternflow.work/guide/play) walks through this section — the port, BOOT and RST, the Wi-Fi step, the Basics pack — on a Patternflow you can turn, and every step has a link for telling us where you got stuck.
 
 > 🔌 **Use the LEFT USB-C port** — the one on your left when the two ports face you. On the ESP32-S3 DevKit that's the board's **native USB** port (labeled `USB`); the browser flasher (Web Serial + Improv) talks to it directly. The right-hand port goes through a separate USB-to-UART bridge chip and is the one Arduino IDE uses (§8.2) — the flasher may still write the firmware through it, but the Wi-Fi step never appears there, because the firmware only listens for it on the left port.
 

@@ -35,6 +35,24 @@
     width: min(100%, var(--cap-narrow, 100%));
   }
 }
+/* A laptop's short screen (under 760 px of page): the flasher's two cards
+   (Flash, Wi-Fi) were the tallest in Play, their top under the chapter rail
+   and their foot off the bottom. The screens draw a little smaller there and
+   the viewer sets closer. */
+@media (min-width: 900px) and (max-height: 759px) {
+  .shots {
+    margin-top: 12px;
+  }
+  .frame {
+    width: min(100%, calc(var(--cap, 100%) * 0.86));
+  }
+  .caption {
+    margin-top: 9px;
+  }
+  .texts {
+    margin-top: 8px;
+  }
+}
 
 .shot {
   position: absolute;

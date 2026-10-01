@@ -1,6 +1,6 @@
 "use client";
 
-// 06 Pattern Lab — the Lab's own screens inside a step's card, one after
+// Make · 02 Pattern Lab — the Lab's own screens inside a step's card, one after
 // another the way FlasherShots shows the flasher's dialog, with a ring on the
 // control each one is about and the Lab's own words quoted under it.
 //
@@ -224,8 +224,8 @@ const STEPS: Record<number, ShotId[]> = {
   2: ["copyPrompt", "paste", "gallery"],
   3: ["bw", "ramp", "rampRandom", "color"],
   4: ["knobs", "push"],
-  5: ["convert", "pasted"],
-  6: ["apply"],
+  5: ["convert"],
+  6: ["pasted", "apply"],
   7: ["layers", "mask", "previewLayers", "blend", "hwLayers"],
   8: ["exportSize", "exportGo"],
   9: ["director"],

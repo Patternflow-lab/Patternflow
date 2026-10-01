@@ -13,9 +13,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/build`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/inside`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/roadmap`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
+    // The guide: the hub, then its three guides in order — Build (soldering
+    // one from bare parts), Play (01 Flash to 04 Console), Make (the
+    // community and Pattern Lab).
     { url: `${siteUrl}/guide`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/guide/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
-    // The guide's second page: the community and Pattern Lab.
+    { url: `${siteUrl}/guide/build`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/guide/build/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${siteUrl}/guide/play`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${siteUrl}/guide/play/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/guide/make`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/guide/make/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     // The shelf of firmwares built on core. A device running an edition links

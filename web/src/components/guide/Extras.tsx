@@ -19,6 +19,8 @@ import ConsoleWindow, { type ConsolePage } from "./ConsoleWindow";
 import CommunityShots from "./CommunityShots";
 import LabShots from "./LabShots";
 import LabWindow from "./LabWindow";
+import BuildCards from "./build/BuildCards";
+import type { BuildCard } from "./build/cards";
 
 // The small moving pieces that sit inside a step's card: the flasher's real
 // screens and its real button, BOOT and RST in order, a deck fanning out, the
@@ -334,7 +336,6 @@ function InstallFlow({ lang }: { lang: GuideLang }) {
 function ConsoleTour({ lang }: { lang: GuideLang }) {
   const pages = COPY[lang].ui.pages;
   const [page, setPage] = useState<ConsolePage>(pages[0].id);
-  const on = pages.find((p) => p.id === page) ?? pages[0];
   return (
     <div className={styles.extra}>
       <div className={styles.tour} role="group" aria-label={COPY[lang].ui.tourLabel}>
@@ -345,7 +346,16 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
         ))}
       </div>
       <ConsoleWindow variant="desktop" page={page} lang={lang} />
-      <p className={styles.tourNote}>{on.body}</p>
+      {/* Every page's line in one grid cell: the block is as tall as the
+          longest, so the card (and the tabs under the pointer) doesn't move
+          when a shorter one comes up. */}
+      <div className={styles.tourNotes}>
+        {pages.map((p) => (
+          <p key={p.id} className={styles.tourNote} data-on={p.id === page ? "1" : "0"} aria-hidden={p.id !== page}>
+            {p.body}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
@@ -356,6 +366,9 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
  * step uses and shows something different in each.
  */
 export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideLang; step: number }) {
+  // The build page's cards (build/BuildCards.tsx): the parts list, the
+  // terminals' polarity, the checklists, the way to Play's flashing.
+  if (kind.startsWith("build:")) return <BuildCards card={kind.slice(6) as BuildCard} lang={lang} step={step} />;
   switch (kind) {
     case "flashButton":
       return <FlashBlock lang={lang} />;
@@ -373,12 +386,27 @@ export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideL
       return <ConsoleWindow variant="phone" lang={lang} />;
     case "consoleTour":
       return <ConsoleTour lang={lang} />;
-    // The make page: 05 Community and 06 Pattern Lab.
+    // The make page: 01 Community and 02 Pattern Lab. On a screen with the
+    // desk (desk/DeskStage) the real thing is beside the card, so these —
+    // screenshots, and the Lab in a tab — are for screens without it
+    // (Guide.module.css .offDesk).
     case "communityShots":
-      return <CommunityShots lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <CommunityShots lang={lang} step={step} />
+        </div>
+      );
     case "labShots":
-      return <LabShots lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <LabShots lang={lang} step={step} />
+        </div>
+      );
     case "labWindow":
-      return <LabWindow lang={lang} step={step} />;
+      return (
+        <div className={styles.offDesk}>
+          <LabWindow lang={lang} step={step} />
+        </div>
+      );
   }
 }

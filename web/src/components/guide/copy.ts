@@ -1,11 +1,13 @@
-import type { GuideLang, GuidePageId } from "./store";
+import type { GuideLang, GuidePageId, GuideScreen } from "./store";
 import type { ConsolePage } from "./ConsoleWindow";
+import type { BuildCard } from "./build/cards";
 
-// Every word the guide's first page says, in both languages. Scenes and steps
-// line up with SCENES in scenes.ts one-to-one: step N of a scene's copy is
-// shown while step N of its script is on stage. The second page's words are
-// in copy/ (make.ts for the page, community.ts and lab.ts for its chapters);
-// the types and `ui` here are shared by both.
+// Every word the Play guide says (/guide/play), in both languages. Scenes
+// and steps line up with SCENES in scenes.ts one-to-one: step N of a scene's
+// copy is shown while step N of its script is on stage. The other guides'
+// words are in copy/: build.ts for Build; make.ts for Make, with
+// community.ts and lab.ts for its chapters; hub.ts for /guide itself. The
+// types and `ui` here are shared by all of them.
 
 export type Extra =
   | "flashButton"
@@ -20,7 +22,9 @@ export type Extra =
   // LabShots.tsx, LabWindow.tsx.
   | "communityShots"
   | "labShots"
-  | "labWindow";
+  | "labWindow"
+  // The build page (copy/build.ts): build/BuildCards.tsx.
+  | `build:${BuildCard}`;
 
 export type StepCopy = {
   kicker: string;
@@ -48,8 +52,8 @@ export type OpeningCopy = {
   scroll: string;
   /** The chapters' names, in order: the opening's list and the rail. */
   chapters: string[];
-  /** A quiet link to another page of the guide, under the chapter list. */
-  back?: { label: string; to: GuidePageId };
+  /** A quiet link to another page of the guide (or the hub), under the chapter list. */
+  back?: { label: string; to: GuideScreen };
 };
 
 /** A page's last screen: what comes next. */
@@ -70,6 +74,8 @@ export type ClosingCopy = {
 
 export type GuideCopy = {
   meta: { title: string; description: string };
+  /** The guide's name: in the hub, and where a "Stuck here?" issue says the reader was. */
+  name: string;
   brand: string;
   /** The other language's name; where it goes is the page's (pages.ts). */
   langSwitch: { label: string };
@@ -85,6 +91,8 @@ export type GuideCopy = {
     wip: string;
     /** The "Stuck here?" links (report.ts). */
     report: { step: string; hint: string; general: string; generalTitle: string; generalWhere: string };
+    /** On a Build card: play the step's motion on the stage again. */
+    replay: string;
     flashUnsupported: string;
     openDecks: string;
     deviceAddress: string;
@@ -103,14 +111,16 @@ const en: GuideCopy = {
     description:
       "From a bare ESP32 to patterns on your panel: flashing, the four knobs, installing patterns and the device's own console — shown on a Patternflow you can turn.",
   },
+  name: "Play",
   brand: "Patternflow",
   langSwitch: { label: "한국어" },
   opening: {
-    kicker: "The guide",
+    kicker: "The guide · Play",
     title: "How to play it.",
     lede: "Four knobs, one panel of light. From the moment it's in your hands to your own patterns running on it — and the device on this page turns, presses and holds exactly like yours.",
     scroll: "Scroll",
     chapters: ["Flash", "Knobs", "Patterns", "Console"],
+    back: { label: "All guides", to: "hub" },
   },
   flash: {
     num: "01",
@@ -320,6 +330,7 @@ const en: GuideCopy = {
       { label: "Editions", href: "/editions" },
       { label: "Features", href: "/features" },
     ],
+    report: { title: "stuck", where: "The Play guide, somewhere not listed" },
   },
   ui: {
     noteBy: "From the maker",
@@ -331,6 +342,7 @@ const en: GuideCopy = {
       generalTitle: "stuck",
       generalWhere: "The guide, somewhere not listed",
     },
+    replay: "Replay",
     flashUnsupported: "Flashing works in desktop Chrome or Edge.",
     openDecks: "Open the decks",
     deviceAddress: "Device address",
@@ -352,14 +364,16 @@ const ko: GuideCopy = {
     description:
       "빈 ESP32에서 내 패널 위의 패턴까지. 펌웨어 굽기, 네 개의 노브, 패턴 설치, 기기의 웹 콘솔을 직접 돌려볼 수 있는 패턴플로우로 보여줍니다.",
   },
+  name: "연주",
   brand: "Patternflow",
   langSwitch: { label: "English" },
   opening: {
-    kicker: "사용법",
+    kicker: "가이드 · 연주",
     title: "이렇게 연주해요.",
     lede: "노브 네 개, 빛의 패널 하나. 손에 들어온 순간부터 내 패턴이 돌아가기까지. 이 페이지의 패턴플로우는 진짜와 똑같이 돌고, 눌리고, 꾹 눌려요.",
     scroll: "스크롤",
     chapters: ["굽기", "노브", "패턴", "콘솔"],
+    back: { label: "가이드 전체", to: "hub" },
   },
   flash: {
     num: "01",
@@ -398,7 +412,8 @@ const ko: GuideCopy = {
       },
       {
         kicker: "목록에 포트가 없다면",
-        title: "BOOT 누른 채로, RST 한 번, BOOT 떼기.",
+        // "RST 한 번" stays on one line (no-break spaces): the title broke inside it.
+        title: "BOOT 누른 채로, RST\u00a0한\u00a0번, BOOT 떼기.",
         body: ["직접 다운로드 모드로 넣고 Flash Patternflow를 다시 눌러요. USB JTAG/serial debug unit이라는 이름으로 나타나요."],
         warn: "다운로드 모드에선 플래셔가 이미 패턴플로우인지 몰라서 새 보드로 보고 지워요. 설치한 패턴과 저장된 와이파이까지요.",
         extra: "bootSeq",
@@ -557,6 +572,7 @@ const ko: GuideCopy = {
       { label: "Editions", href: "/editions" },
       { label: "Features", href: "/features" },
     ],
+    report: { title: "stuck", where: "연주 가이드 어딘가 (단계 없음)" },
   },
   ui: {
     noteBy: "만든 사람의 한마디",
@@ -568,6 +584,7 @@ const ko: GuideCopy = {
       generalTitle: "stuck",
       generalWhere: "가이드 어딘가 (단계 없음)",
     },
+    replay: "다시 보기",
     flashUnsupported: "굽기는 데스크톱 크롬이나 엣지에서 돼요.",
     openDecks: "덱 열기",
     deviceAddress: "Device address",

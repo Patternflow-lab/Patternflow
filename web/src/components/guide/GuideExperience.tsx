@@ -9,14 +9,27 @@ import { sceneById } from "./scenes";
 import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
 import Extras from "./Extras";
 import { hereFor, reportUrl } from "./report";
-import { PAGES, pagePath, scriptMismatches, type PageChapter } from "./pages";
+import { PAGES, pagePath, type PageChapter } from "./pages";
+import { scriptMismatches } from "./checks";
+import { useDeskFits } from "./desk/query";
+import DeskCue from "./desk/DeskCue";
+import { useDarkDocument, useDocumentLang } from "./darkDocument";
+import { beatIndex, beatSeconds } from "./stage/build/beats";
 
-// A page of the guide (pages.ts: /guide is "start", /guide/make is "make").
-// A fixed stage behind, the story scrolling over it. The tracker below finds
-// the step block nearest the middle of the viewport and hands its scene and
-// index to the store; the stage takes it from there, from this page's script.
+// A guide (pages.ts: /guide/build is "build", /guide/play "play", /guide/make
+// "make"; /guide itself is the hub, GuideHub). A fixed stage behind, the
+// story scrolling over it. The tracker below finds the step block nearest
+// the middle of the viewport and hands its scene and index to the store; the
+// stage takes it from there, from this page's script.
+//
+// Build's and Play's stage is the 3D device (stage/GuideCanvas). Make's is a
+// desk of app windows left of the story (desk/DeskStage) — the
+// real Pattern Lab, a practice community, a practice AI, and a pointer that
+// shows the way — on a screen big enough for it (desk/query.ts); below that
+// it has no stage, and its cards show screenshots instead.
 
 const GuideCanvas = dynamic(() => import("./stage/GuideCanvas"), { ssr: false });
+const DeskStage = dynamic(() => import("./desk/DeskStage"), { ssr: false });
 
 function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
@@ -31,6 +44,7 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
       let chosenScene = "opening";
       let chosenStep = 0;
       let chosenProgress = 0;
+      const chosen = { el: null as HTMLElement | null };
       scenes.forEach((scene) => {
         const r = scene.getBoundingClientRect();
         const p = Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height)));
@@ -49,11 +63,18 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
             if (d < best) {
               best = d;
               chosenStep = Number(stepEl.dataset.step);
+              chosen.el = stepEl;
             }
           });
         }
       });
-      useGuideStore.getState().setScroll(chosenScene, chosenProgress, chosenStep);
+      // Is that step's card on screen yet? A chapter's first step is chosen
+      // while the chapter's title is still in the middle of the screen, its
+      // card a screen further down (store.ts cardIn). A chapter step's block
+      // holds one card; the opening and the end are their own.
+      const card = chosen.el && chosen.el.children.length === 1 ? chosen.el.firstElementChild : null;
+      const cardIn = !card || card.getBoundingClientRect().top < vh * 0.86;
+      useGuideStore.getState().setScroll(chosenScene, chosenProgress, chosenStep, cardIn);
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -108,14 +129,19 @@ function Step({
   copy: StepCopy;
   index: number;
   total: number;
-  /** "01 Flash" */
+  /** "Play · 01 Flash": the guide, then the chapter — every guide has an 01. */
   chapter: string;
   lang: GuideLang;
 }) {
   // A step the reader has to watch loop (BOOT and RST) gets a longer block,
   // and its card holds still inside it (Guide.module.css, .step[data-dwell]).
-  const dwell = sceneById(scene, page)?.steps[index]?.dwell;
+  const script = sceneById(scene, page)?.steps[index];
+  const dwell = script?.dwell;
   const ui = COPY[lang].ui;
+  // A Build step's motion plays once, and reading the card takes longer than
+  // most of them: the ones with something to watch can be played again.
+  const beat = script && "build" in script ? script.build : undefined;
+  const replayable = page === "build" && beat !== undefined && beatSeconds(beatIndex(beat)) >= 2.5;
   // Steps count from 1 where people see them: #flash-3 is the third.
   const anchor = `${scene}-${index + 1}`;
   return (
@@ -131,6 +157,12 @@ function Step({
         <p className={styles.kicker}>
           <span className={styles.kickerDot} aria-hidden="true" />
           {copy.kicker}
+          {replayable && (
+            <button type="button" className={styles.replay} onClick={() => useGuideStore.getState().replayStep()}>
+              <span aria-hidden="true">↻</span>
+              {ui.replay}
+            </button>
+          )}
         </p>
         <h3 className={styles.stepTitle}>{copy.title}</h3>
         {copy.body.map((p, i) => (
@@ -139,6 +171,7 @@ function Step({
           </p>
         ))}
         {copy.warn && <p className={styles.warn}>{copy.warn}</p>}
+        {page === "make" && <DeskCue scene={scene} index={index} lang={lang} />}
         {copy.extra && <Extras kind={copy.extra} lang={lang} step={index} />}
         {copy.note && (
           <aside className={styles.note}>
@@ -158,8 +191,19 @@ function Step({
   );
 }
 
-function Chapter({ page, chapter: { id, label, copy }, lang }: { page: GuidePageId; chapter: PageChapter; lang: GuideLang }) {
-  const chapter = `${copy.num} ${label}`;
+function Chapter({
+  page,
+  guide,
+  chapter: { id, label, copy },
+  lang,
+}: {
+  page: GuidePageId;
+  /** The guide's name ("Play"), for the "Stuck here?" issues. */
+  guide: string;
+  chapter: PageChapter;
+  lang: GuideLang;
+}) {
+  const chapter = `${guide} · ${copy.num} ${label}`;
   return (
     <section className={styles.scene} data-scene={id} id={id}>
       <header className={styles.chapterHead}>
@@ -190,36 +234,25 @@ function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
   );
 }
 
-export default function GuideExperience({ lang, page = "start" }: { lang: GuideLang; page?: GuidePageId }) {
+export default function GuideExperience({ lang, page = "play" }: { lang: GuideLang; page?: GuidePageId }) {
   const copy = COPY[lang];
-  const { opening, chapters, next } = PAGES[page].text(lang);
+  const { name, opening, chapters, next } = PAGES[page].text(lang);
   const other: GuideLang = lang === "en" ? "ko" : "en";
   const root = useRef<HTMLDivElement>(null);
+  const deskFits = useDeskFits();
 
   // The stage plays this page's script, from its top: set before the canvas
   // draws a frame, and before the tracker below says where the reader is.
-  // Coming from the other page the board is the same one (store.ts getSim);
+  // Coming from another page the board is the same one (store.ts getSim);
   // the Director puts it in this page's state on its first frame.
   useLayoutEffect(() => {
     useGuideStore.getState().enterPage(page);
   }, [page]);
   useScrollTracker(root);
 
-  // The site's body is cream. Anything that shows it here — a fast scroll, an
-  // overscroll bounce, the frame before the canvas paints — flashed the whole
-  // screen white, so the document itself goes dark while the guide is open.
-  useEffect(() => {
-    const html = document.documentElement;
-    const prev = { html: html.style.background, body: document.body.style.background, scheme: html.style.colorScheme };
-    html.style.background = "#0a0908";
-    document.body.style.background = "#0a0908";
-    html.style.colorScheme = "dark";
-    return () => {
-      html.style.background = prev.html;
-      document.body.style.background = prev.body;
-      html.style.colorScheme = prev.scheme;
-    };
-  }, []);
+  // The document goes dark while the guide is open, and says its language (darkDocument.ts).
+  useDarkDocument();
+  useDocumentLang(lang);
 
   // Sanity: the copy and the script must agree on how many steps each
   // chapter has, in both languages (pages.test.ts holds the same line).
@@ -229,12 +262,21 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
   }, [page]);
 
   return (
-    <div className={styles.page} lang={lang} ref={root}>
-      <div className={styles.stage} aria-hidden="true">
-        <div className={styles.stageGlow} />
-        <GuideCanvas />
-        <div className={styles.grain} />
-      </div>
+    <div className={styles.page} lang={lang} ref={root} data-page={page}>
+      {page === "make" ? (
+        // The room only: the desk comes after the story, so the keyboard
+        // reaches the cards first (each card's cue line can jump into it).
+        <div className={styles.stage} aria-hidden="true">
+          <div className={styles.stageGlow} />
+          <div className={styles.grain} />
+        </div>
+      ) : (
+        <div className={styles.stage} aria-hidden="true">
+          <div className={styles.stageGlow} />
+          <GuideCanvas />
+          <div className={styles.grain} />
+        </div>
+      )}
 
       <header className={styles.top}>
         <div className={styles.brandRow}>
@@ -284,7 +326,7 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
         </section>
 
         {chapters.map((c) => (
-          <Chapter key={c.id} page={page} chapter={c} lang={lang} />
+          <Chapter key={c.id} page={page} guide={name} chapter={c} lang={lang} />
         ))}
 
         <section className={`${styles.scene} ${styles.next}`} data-scene="next" id="next">
@@ -334,6 +376,8 @@ export default function GuideExperience({ lang, page = "start" }: { lang: GuideL
           </article>
         </section>
       </main>
+
+      {page === "make" && deskFits && <DeskStage lang={lang} />}
     </div>
   );
 }
