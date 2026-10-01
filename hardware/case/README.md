@@ -10,8 +10,8 @@
 
 | Your printer bed | Print | Design | Status |
 |---|---|---|---|
-| **256 mm** (Bambu P1S / X1C / A1 class) | [`bed_256mm/encloser.stl`](bed_256mm/) | The snap-fit design split for a 256 mm bed — body frame, back panels, and LED-panel mount in one STL | ✅ Standard option, ~10 h total |
-| **~330 mm+** (Bambu H2S-class) | [`bed_330mm/encloser.stl`](bed_330mm/) | The one-piece original — body, closing part, and LED-panel mount in one STL, no bonding at all. Also has a **USB pass-through to the DevKit and a cable exit slot** (data only — see below) | ✅ Main design ([#113](https://github.com/engmung/Patternflow/issues/113)) |
+| **256 mm** (Bambu P1S / X1C / A1 class) | [`bed_256mm/encloser.stl`](bed_256mm/) | The snap-fit design split for a 256 mm bed — body frame (LED-panel mounting tabs built in), back panels and covers in one STL | ✅ Standard option, ~10 h total |
+| **~330 mm+** (Bambu H2S-class) | [`bed_330mm/encloser.stl`](bed_330mm/) | The one-piece original — body (LED-panel mounting tabs built in) and closing part in one STL, no bonding at all. Also has a **USB pass-through to the DevKit and a cable exit slot** (data only — see below) | ✅ Main design ([#113](https://github.com/engmung/Patternflow/issues/113)) |
 
 **Whichever body you print, also print [`knobs/knobs_20mm.stl`](knobs/) — required for every build.** Knobs go in **black**, everything else in **white**; run the knob plate as its own print job. (15 mm-shaft encoders → `knobs_15mm.stl`; 15 mm and 20 mm shafts are functionally identical, and the [BOM](../bom/)'s reference part, PEC11R-4220F-S0024, is 20 mm.)
 
@@ -19,7 +19,7 @@
 
 The original mass-production-oriented design: a single-piece body plus a snap-fit closing part, wall-mount hanger hole included. No bonding step at all. Does **not** fit a 256 mm bed.
 
-**`encloser.stl`** — everything in one STL (body, closing part, LED-panel mount), all **white** PLA; knobs from [`knobs/`](knobs/) in black. Same design as the print-&-assembly-verified 256 mm version, just uncut.
+**`encloser.stl`** — everything in one STL (body with its LED-panel mounting tabs, closing part), all **white** PLA; knobs from [`knobs/`](knobs/) in black. Same design as the print-&-assembly-verified 256 mm version, just uncut.
 
 **Wired access to the DevKit (330 mm only).** Two openings the 256 mm variant doesn't have yet: a **pass-through between the power-bank bay and the ESP32**, so a USB-C lead reaches the DevKit's own port with the case shut — that's for wired features like MIDI and OSC, and for flashing — and a **cable exit slot below the battery compartment**, so a cable leaves the enclosure instead of being pinched under the back panel.
 
@@ -29,7 +29,7 @@ The original mass-production-oriented design: a single-piece body plus a snap-fi
 
 **`patternflow_v3.3mf`** is the Bambu Studio project for this print — four pre-arranged plates with the print settings below, the same file the MakerWorld listing serves. Open it and print; the STL is for every other slicer.
 
-**`encloser.stl`** puts the whole body in one file: frame and back-panel halves plus the LED-panel mounting part, all in **white** PLA. ~10 hours total on a P1S. Print the knobs separately from [`knobs/`](knobs/), in **black**. The LED-panel mount is sized for the panel linked in the [BOM](../bom/). **Print & assembly verified** — the [assembly video](https://youtu.be/J9C9bZgkNKs) builds from this exact file.
+**`encloser.stl`** puts the whole body in one file: frame halves (the LED panel's mounting tabs are part of them), back-panel halves and covers, all in **white** PLA. ~10 hours total on a P1S. Print the knobs separately from [`knobs/`](knobs/), in **black**. The tabs are placed for the panel linked in the [BOM](../bom/). **Print & assembly verified** — the [assembly video](https://youtu.be/J9C9bZgkNKs) builds from this exact file.
 
 Design perks: **two wall-mount holes**, a **snap-fit back panel**, and recesses for the LED matrix's alignment bumps — **no more nipper-trimming** the panel back (the old [#19](https://github.com/engmung/Patternflow/issues/19) workaround).
 
@@ -41,7 +41,7 @@ Design perks: **two wall-mount holes**, a **snap-fit back panel**, and recesses 
 
 ### Assembly notes (both 256 mm variants)
 
-The full photo sequence lives in the [build guide](../../BUILD_GUIDE.md) — §4 (bond the printed halves right after printing) and §6 (panel in with `HUB-75E IN` toward the top → mounting part + screws → board in, encoder nuts from the front). Two watch-outs: the panel insertion is very tight (near-zero clearance) — work it in slowly — and bonded seams can show a hairline gap, fillable with putty or baking soda + CA.
+The full photo sequence lives in the [build guide](../../BUILD_GUIDE.md) — §4 (bond the printed halves right after printing) and §6 (panel in from the front with `HUB-75E IN` toward the top → screws into the frame's tabs from behind → board in, encoder nuts from the front). Two watch-outs: the panel insertion is very tight (near-zero clearance) — work it in slowly — and bonded seams can show a hairline gap, fillable with putty or baking soda + CA.
 
 ## `legacy_v2/` — v2.x boards only
 

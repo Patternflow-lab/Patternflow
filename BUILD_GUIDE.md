@@ -108,8 +108,8 @@ Any fab works, though — upload **`hardware/pcb/gerber/patternflow_v3.9_gerber.
 
 | Your printer bed | Print | Notes |
 |---|---|---|
-| **256 mm** (P1S / X1C / A1 class) | `bed_256mm/encloser.stl` | Body frame, back panels, and LED-panel mount in one STL. **White PLA.** ~10 h total. |
-| **~330 mm+** (H2S class) | `bed_330mm/encloser.stl` | The one-piece original — body, closing part, and LED-panel mount in one STL, **no bonding at all**. **White PLA.** Adds a USB pass-through to the DevKit and a cable exit slot — **for wired MIDI/OSC and flashing, not for power** (power is always `J4`, Section 2). |
+| **256 mm** (P1S / X1C / A1 class) | `bed_256mm/encloser.stl` | Body frame (the LED panel's mounting tabs are part of it), back panels and covers in one STL. **White PLA.** ~10 h total. |
+| **~330 mm+** (H2S class) | `bed_330mm/encloser.stl` | The one-piece original — body (panel-mounting tabs built in) and closing part in one STL, **no bonding at all**. **White PLA.** Adds a USB pass-through to the DevKit and a cable exit slot — **for wired MIDI/OSC and flashing, not for power** (power is always `J4`, Section 2). |
 | **Everyone** | `knobs/knobs_20mm.stl` | **Required for every build** — all four knobs in one plate, as its own separate print job. **Black PLA.** (15 mm-shaft encoders → `knobs_15mm.stl`.) |
 
 Two colors, on purpose: **body in white, knobs in black** — that contrast is the Patternflow look. Printing the knob plate as a separate job keeps it simple (no color changes mid-print).
@@ -122,7 +122,7 @@ Two colors, on purpose: **body in white, knobs in black** — that contrast is t
 
 <img src="docs/build-guide/images/v3/01_printing.jpg" width="38%"> <img src="docs/build-guide/images/v3/02_printed_parts.jpg" width="58%">
 
-*Left: `encloser.stl` on a P1S bed. Right: everything that comes out of the one print — body frame, back panels, battery cover, and the LED-panel mounting part.*
+*Left: `encloser.stl` on a P1S bed. Right: everything that comes out of the one print — the body frame with its panel-mounting tabs, the back panels and the covers.*
 
 ### Bond the printed halves — right after printing
 
@@ -206,9 +206,9 @@ By now the enclosure halves you bonded in Section 4 have cured and the board is 
 
 > Printed the **330 mm one-piece body**? Everything in this section is identical — the only thing you skipped is the bonding step in Section 4.
 
-1. **Seat the LED panel in the enclosure with its `HUB-75E IN` connector toward the top** — that's the side the ribbon reaches `J1` from. ⚠️ The panel insertion is very tight — near-zero clearance. Work it in slowly.
+1. **Seat the LED panel in the enclosure from the front, with its `HUB-75E IN` connector toward the top** — that's the side the ribbon reaches `J1` from. ⚠️ The panel insertion is very tight — near-zero clearance. Work it in slowly.
 
-2. **Fit the LED-panel mounting part and tighten the screws.** The mounting part is a separate piece precisely because panel bolt-hole positions vary between suppliers — match it to your panel first.
+2. **Screw the panel to the frame's mounting tabs from behind.** On the standard print the tabs are part of the frame and line up with the BOM-linked panel's holes. Printed the `for_other_panels/` variant (Section 4)? Its mount is a separate, adjustable piece, because bolt-hole positions vary between suppliers — match it to your panel first, then screw.
 
 3. **Set the board into its bay and secure the encoders from the front**: attach each encoder's nut and tighten with a wrench or pliers — this locks the board against the front face.
 
