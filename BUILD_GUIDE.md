@@ -78,7 +78,7 @@ Key sourcing rules (details in the BOM README):
 >
 > **What happened** ([#221](https://github.com/engmung/Patternflow/issues/221)): a board powered through USB-C ran **completely fine for 20–30+ minutes** — no heat, no symptoms — and then suddenly started **smoking at one of the connector pins**, rapidly frying the receptacle and the power path around it. Whether that was a hand-soldering defect on those tight-pitch pins or a structural limit of the 14-pin THT part under the LED matrix's peak current was never settled — so rather than ship an input nobody should populate, **v3.9 removed the footprint entirely.**
 >
-> ⚠️ **This is why "it seems to work" proves nothing here.** The failure is *delayed* — passing your multimeter checks and running for half an hour does not mean the joint is safe.
+> ⚠️ **This is why "it seems to work" proves nothing here.** The failure is *delayed* — running fine for half an hour does not mean the joint is safe.
 >
 > The screw terminal has none of this history — it's the original, proven Patternflow power input, and it's exactly as capable.
 
@@ -151,12 +151,6 @@ All parts are through-hole, and the video covers the complete order.
 > | ❌ A bridge like this shorts +5 V to ground | ✅ What a clean joint looks like |
 > |---|---|
 > | <img src="docs/build-guide/images/v3/06_usbc_bad.jpg" width="100%"> | <img src="docs/build-guide/images/v3/07_usbc_good.jpg" width="100%"> |
-
-Before first power, go over your joints with a multimeter:
-
-<img src="docs/build-guide/images/v3/08_short_check.jpg" width="60%">
-
-Don't plug the ESP32 DevKit in until after the first power check (Section 7).
 
 <details>
 <summary><b>ESP32 pin reference</b> — the full 44-pin map. You don't need it for a normal build; it's here for debugging and derivative designs.</summary>
@@ -233,8 +227,7 @@ By now the enclosure halves you bonded in Section 4 have cured and the board is 
    <img src="docs/build-guide/images/v3/17_screw_terminal_wiring.jpg" width="45%">
 
    *Cable already through the enclosure hole, wires clamped into `J4`, board about to go in.*
-4. **Before inserting the ESP32:** with power disconnected, continuity-check +5V↔GND at the `J3` terminals (open = good, like the Section 5 check). Then power up once and confirm ~5V across `J3`.
-5. Power off, seat the ESP32 DevKit in its sockets (orientation per silkscreen), power on.
+4. With power off, seat the ESP32 DevKit in its sockets (orientation per silkscreen), then power on.
 
 ## 8. Firmware
 
