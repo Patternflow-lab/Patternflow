@@ -219,8 +219,7 @@
   background: var(--d-chrome);
 }
 
-/* Over a window in the back (or all of them, at rest): dimmed, and a click
-   brings it forward. */
+/* Over a window in the back: dimmed, and a click brings it forward. */
 .cover {
   position: absolute;
   inset: 0;
@@ -239,9 +238,6 @@
 }
 .win[data-dim="1"] .cover:hover {
   background: rgba(10, 9, 8, 0.42);
-}
-.desk[data-rest="1"] .win[data-dim="1"] .cover {
-  background: rgba(10, 9, 8, 0.5);
 }
 
 /* A practice window's content. */

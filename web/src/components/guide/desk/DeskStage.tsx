@@ -42,7 +42,12 @@ const LAB_W = 1024;
 const LAB_H = 680;
 /** What the keyboard can land on in a practice window. */
 const FOCUSABLE = 'button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-/** Two big windows on the desk: the one behind peeks out this far above and left of the one in front. */
+/**
+ * Two big windows on the desk: the one behind shows this much above the one
+ * in front — its title bar, whole: its name, its address, whose it is. (It
+ * used to show to the left as well, and what showed there was a strip of the
+ * Lab's panel cut through its labels: "Pat", "Pre", "60".)
+ */
 const CASCADE = 30;
 
 type Role = "solo" | "fore" | "back" | "away";
@@ -337,14 +342,16 @@ function roles(l: Layout): Record<BigWin, Role> {
 function bigStyle(role: Role, size: { w: number; h: number } | null, i: number): CSSProperties {
   const w = size?.w ?? 1000;
   const h = size?.h ?? 700;
-  const s = Math.min((w - CASCADE) / w, (h - CASCADE) / h);
+  void w;
+  const s = (h - CASCADE) / h;
   switch (role) {
     case "solo":
       return { transform: "none", transformOrigin: "50% 50%", zIndex: 3 };
+    // One over the other, the same width: the one in front lower, the one behind higher.
     case "fore":
-      return { transform: `scale(${s.toFixed(4)})`, transformOrigin: "100% 100%", zIndex: 3 };
+      return { transform: `scale(${s.toFixed(4)})`, transformOrigin: "50% 100%", zIndex: 3 };
     case "back":
-      return { transform: `scale(${s.toFixed(4)})`, transformOrigin: "0 0", zIndex: 2 };
+      return { transform: `scale(${s.toFixed(4)})`, transformOrigin: "50% 0", zIndex: 2 };
     case "away":
       return { transform: `translate3d(${i ? 24 : -24}px, 22px, 0) scale(0.97)`, transformOrigin: "50% 50%", zIndex: 1 };
   }
@@ -372,9 +379,10 @@ export default function DeskStage({ lang }: { lang: GuideLang }) {
     ai: DESK_APPS.ai.chrome.address?.path ?? "",
   });
   // The Lab's frame is made the first time the Lab is on the desk for real
-  // (not at rest behind the opening), then kept for the rest of the visit.
+  // (not behind the opening, where it is a picture of itself), then kept for
+  // the rest of the visit.
   const [labMounted, setLabMounted] = useState(false);
-  const wantLab = layout.shown.has("lab") && !layout.rest;
+  const wantLab = layout.shown.has("lab") && (!layout.rest || layout.top === "lab");
   if (wantLab && !labMounted) setLabMounted(true);
   const labReady = useRef(false);
 
@@ -497,7 +505,11 @@ export default function DeskStage({ lang }: { lang: GuideLang }) {
   const aiH = Math.round(Math.max(300, Math.min(520, (size?.h ?? 700) * layout.aiHeight)));
   const aiRole: Role = aiShown ? "solo" : "away";
 
-  const dimBig = (w: BigWin) => r[w] === "back" || (layout.rest && r[w] !== "away") || (layout.front === "ai" && r[w] !== "away");
+  // A window behind another is dimmed, and one under the AI's. At rest (the
+  // opening, the end) nothing is pointed at yet, and the window in front is
+  // as bright as it will be: the page used to open on two dimmed windows,
+  // which read as a desk that was switched off.
+  const dimBig = (w: BigWin) => r[w] === "back" || (layout.front === "ai" && r[w] !== "away");
   const appProps = (win: "community" | "ai") => ({
     lang,
     shown: layout.shown.has(win),

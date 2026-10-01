@@ -306,7 +306,12 @@ function paint(el: HTMLElement) {
 
 function tick(t: number) {
   raf = requestAnimationFrame(tick);
-  const dt = Math.min(0.25, (t - lastTick) / 1000);
+  // Never negative: a frame's time is taken when the frame begins, and the
+  // loop can be started (lastTick = now) by a page mounted a moment after
+  // that. A negative step made the limit below divide by a distance of zero,
+  // and the accent was "NaN NaN NaN" from then on — on Make, most visits:
+  // every lit thing on the page fell back to the ink's cream.
+  const dt = Math.max(0, Math.min(0.25, (t - lastTick) / 1000));
   lastTick = t;
   if (t - lastRead >= READ_MS) {
     lastRead = t;
@@ -329,7 +334,7 @@ function tick(t: number) {
   const d1 = (want[1] - now[1]) * k;
   const d2 = (want[2] - now[2]) * k;
   const far = Math.hypot(d0, d1, d2);
-  const cap = still || far <= MAX_SPEED * dt ? 1 : (MAX_SPEED * dt) / far;
+  const cap = still || far <= MAX_SPEED * dt || far === 0 ? 1 : (MAX_SPEED * dt) / far;
   now[0] += d0 * cap;
   now[1] += d1 * cap;
   now[2] += d2 * cap;

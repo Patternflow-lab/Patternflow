@@ -79,8 +79,9 @@ export default function HubAnswers() {
     // Build is pointed at: its stage and models start loading now (GuideCanvas
     // loads the same module), and if the reader lingers the Build stage is
     // put on the canvas in standby, where it gets its shaders built while the
-    // device hangs apart — so choosing Build flows straight into the guide
-    // (BuildStage). It stays there, doing nothing, until the hub is left.
+    // device hangs apart — so choosing Build flows straight into the guide,
+    // which opens on the device as it hangs here (BuildStage, stage/Explode).
+    // It stays there, doing nothing, until the hub is left.
     if (guide === "build") {
       void import("../stage/build/BuildStage");
       const timer = window.setTimeout(() => useGuideStore.getState().setBuildLive(true), BUILD_STANDBY_MS);

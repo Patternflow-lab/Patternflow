@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { Component, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import styles from "../Guide.module.css";
 import { useDarkDocument } from "../darkDocument";
 import { screenAt } from "../pages";
@@ -51,6 +51,27 @@ function hasWebGL(): boolean {
     webgl = false;
   }
   return webgl;
+}
+
+/**
+ * The stage is the guide's picture, not the guide. If it throws as it is
+ * made or drawn — the context refused after all, a model that did not arrive
+ * — it is taken off and the page stays whole: the words, the cards and the
+ * figures never depended on it. (Uncaught, the error went up to the site's
+ * error screen and took the page with it.) Whoever waits for the stage is
+ * told, as where there is no WebGL at all.
+ */
+class StageGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    stageLoad.set({ failed: true });
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
 }
 
 /** How long the hub's floor fade stays on the canvas after the hub is left: its ease down off the screen (Guide.module.css), ms. */
@@ -139,7 +160,13 @@ function World({ screen, children }: { screen: GuideScreen; children: ReactNode 
       <div className={styles.stage} aria-hidden="true" style={hubTop > 0 ? ({ "--hub-top": `${hubTop}px` } as CSSProperties) : undefined}>
         <div className={styles.stageGlow} />
         <div className={styles.hubGlow} />
-        <div className={styles.canvasBox}>{staged && <WorldStage />}</div>
+        <div className={styles.canvasBox}>
+          {staged && (
+            <StageGuard>
+              <WorldStage />
+            </StageGuard>
+          )}
+        </div>
         <div className={styles.grain} />
       </div>
       {children}

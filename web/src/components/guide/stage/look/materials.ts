@@ -266,14 +266,17 @@ export function brassMaterial(extra?: Extra) {
 
 /**
  * Solder, with its heat. Cold it is tin: bright, a little frosted. Hot
- * (`heat` 1) it is liquid — a mirror — and glows a dull orange that dies as
- * it sets. The heat is `material.userData.heat.value` for the whole material
+ * (`heat` 1) it is liquid — a mirror, which is how molten solder shows its
+ * heat: it does not glow (at 250 °C nothing does), it goes bright and clean
+ * and frosts over as it sets. A trace of warmth is left in it, no brighter
+ * than the board round it; lit like a lamp, a row of fresh joints read as a
+ * string of LEDs. The heat is `material.userData.heat.value` for the whole material
  * (setSolderHeat), or per instance: give the InstancedMesh's geometry an
  * `aHeat` InstancedBufferAttribute (one float each, 0 … 1) and each joint
  * cools on its own. Without the attribute it reads 0.
  */
 export function solderMaterial(extra?: Extra): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshStandardMaterial({ color: LOOK.tin, roughness: 0.26, metalness: 1, ...extra });
+  const m = new THREE.MeshStandardMaterial({ color: LOOK.tin, roughness: 0.34, metalness: 1, ...extra });
   const heat = { value: 0 };
   m.userData.heat = heat;
   m.onBeforeCompile = (shader) => {
@@ -287,15 +290,15 @@ export function solderMaterial(extra?: Extra): THREE.MeshStandardMaterial {
         "#include <roughnessmap_fragment>",
         /* glsl */ `#include <roughnessmap_fragment>
 float lkHeat = clamp(max(uLkHeat, vLkHeat), 0.0, 1.0);
-roughnessFactor = mix(roughnessFactor, 0.07, lkHeat);`,
+roughnessFactor = mix(roughnessFactor, 0.045, lkHeat);`,
       )
       .replace(
         "#include <emissivemap_fragment>",
         /* glsl */ `#include <emissivemap_fragment>
-totalEmissiveRadiance += vec3(1.0, 0.36, 0.08) * (lkHeat * lkHeat * 1.3);`,
+totalEmissiveRadiance += vec3(1.0, 0.36, 0.08) * (lkHeat * lkHeat * 0.15);`,
       );
   };
-  m.customProgramCacheKey = () => "look-solder-1";
+  m.customProgramCacheKey = () => "look-solder-2";
   return cloneable(m, () => {
     const c = solderMaterial();
     setSolderHeat(c, heat.value);
@@ -316,40 +319,166 @@ type Tune = { color?: string; roughness: number; metalness: number; env?: number
 // pcb-v39.glb's materials, by the names KiCad's export and the footprints'
 // models give them. Most arrive as glTF's defaults — metal, fully rough —
 // which renders a blue capacitor sleeve and a black header as dull metal.
+//
+// Nothing on the board is a mirror. The capacitor's top and the terminals'
+// screws were bright enough metal to hand the studio's strip lights straight
+// back, over the bloom's threshold: loose parts on the bench looked lit from
+// inside. They are satin now — stamped aluminium and plated steel are — and
+// take less of the studio.
 const PCB_TUNE: Record<string, Tune> = {
-  // Solder mask: a hard gloss over the laminate. A shade deeper than KiCad's
-  // green, which is the colour of the mask over bare laminate under a
-  // drawing-board light.
-  pcb_green: { color: "#2a8a45", roughness: 0.34, metalness: 0, env: 1.25 },
   // The pads are HASL — tin, not gold: bright, satin.
   pad_hasl: { color: LOOK.tin, roughness: 0.3, metalness: 1 },
   silkscreen: { color: "#f3f3ee", roughness: 0.86, metalness: 0 },
-  // C11: its aluminium top, its sleeve (a shrink film, glossy), its leads, its base.
-  mat_0: { roughness: 0.4, metalness: 1 },
-  mat_1: { roughness: 0.3, metalness: 0 },
-  mat_2: { roughness: 0.45, metalness: 1 },
+  // C11: its aluminium top, its sleeve (a shrink film), its leads, its base.
+  mat_0: { roughness: 0.6, metalness: 1, env: 0.55 },
+  mat_1: { roughness: 0.45, metalness: 0, env: 0.8 },
+  mat_2: { roughness: 0.5, metalness: 1, env: 0.7 },
   mat_3: { roughness: 0.6, metalness: 0 },
   // The box header's and the pin sockets' black housings, and their gold contacts.
   mat_8: { roughness: 0.52, metalness: 0 },
   mat_6: { roughness: 0.52, metalness: 0 },
   mat_9: { color: LOOK.gold, roughness: 0.32, metalness: 1 },
   mat_7: { color: LOOK.gold, roughness: 0.32, metalness: 1 },
-  // The screw terminals: blue housings, plated screws and clamps.
-  terminal_blue: { roughness: 0.44, metalness: 0 },
-  mat_5: { roughness: 0.38, metalness: 1 },
+  // The screw terminals: blue housings (a moulded matt), plated screws and clamps.
+  terminal_blue: { roughness: 0.62, metalness: 0, env: 0.7 },
+  mat_5: { roughness: 0.58, metalness: 1, env: 0.55 },
   encoder_base: { roughness: 0.62, metalness: 0 },
 };
+
+// ── the solder mask ─────────────────────────────────────────────────────────
+//
+// The board's own material was one flat green: no sheen, nothing under it. A
+// real board is a lacquer over copper and laminate. The lacquer is a clear
+// coat — it takes a hard, narrow highlight over a satin body — and it is
+// paler where there is copper under it and darker where there is not, with a
+// small step at the copper's edge that catches a raking light. On this board
+// both sides are poured (a ground plane each), so what shows is the plane,
+// and every trace drawn in it by the dark line of its clearance.
+//
+// The copper is the board's own: F.Cu and B.Cu plotted from
+// hardware/pcb/kicad/patternflow.kicad_pcb with kicad-cli (pcb export svg,
+// board area only), rasterised, and packed into one image — red is the front
+// layer, green the back (public/guide/look/pcb-v39-copper.webp). It is laid
+// on by position: the board mesh is in metres, 62 × 116.26 mm about its
+// centre in x and z, 1.51 thick, its front face up (+y).
+
+/** The board's size in its mesh's own units (metres): x across, z along. */
+const BOARD = { w: 0.062, h: 0.11626 };
+const COPPER_URL = "/guide/look/pcb-v39-copper.webp";
+
+let copper: { tex: { value: THREE.Texture }; on: { value: number } } | null = null;
+
+/** The copper image, fetched once, the first time a board is tuned. Until it is here the board is all plane (as most of it is). */
+function copperUniforms() {
+  if (copper) return copper;
+  const blank = new THREE.DataTexture(new Uint8Array([255, 255, 0, 255]), 1, 1, THREE.RGBAFormat);
+  blank.needsUpdate = true;
+  const c = (copper = { tex: { value: blank as THREE.Texture }, on: { value: 0 } });
+  if (typeof window !== "undefined") {
+    new THREE.TextureLoader().load(
+      COPPER_URL,
+      (t) => {
+        t.colorSpace = THREE.NoColorSpace;
+        t.minFilter = THREE.LinearMipmapLinearFilter;
+        t.magFilter = THREE.LinearFilter;
+        t.generateMipmaps = true;
+        t.anisotropy = 8;
+        t.needsUpdate = true;
+        c.tex.value = t;
+        c.on.value = 1;
+        blank.dispose();
+      },
+      undefined,
+      // Without it the board is a plain lacquered green: still a board.
+      () => undefined,
+    );
+  }
+  return c;
+}
+
+/** The solder mask, in place of the board's flat green: the same name, so a second tuning finds it done. */
+function maskMaterial(from: THREE.MeshStandardMaterial): THREE.MeshPhysicalMaterial {
+  const m = new THREE.MeshPhysicalMaterial({
+    // The mask over bare laminate; over copper it is paler (below).
+    color: "#0d5626",
+    roughness: 0.5,
+    metalness: 0,
+    // A clear coat, not a mirror: at a graze the whole studio would be in it, and the board went white.
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.28,
+    specularIntensity: 0.6,
+    envMapIntensity: 0.6,
+    side: from.side,
+    transparent: from.transparent,
+    opacity: from.opacity,
+  });
+  m.name = from.name;
+  const u = copperUniforms();
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uLkCopper = u.tex;
+    shader.uniforms.uLkCopperOn = u.on;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vLkPos;\nvarying vec3 vLkN;\nvarying vec3 vLkXV;\nvarying vec3 vLkZV;")
+      .replace("#include <begin_vertex>", "#include <begin_vertex>\nvLkPos = position;\nvLkN = normal;\nvLkXV = normalMatrix * vec3(1.0, 0.0, 0.0);\nvLkZV = normalMatrix * vec3(0.0, 0.0, 1.0);");
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        /* glsl */ `#include <common>
+uniform sampler2D uLkCopper;
+uniform float uLkCopperOn;
+varying vec3 vLkPos;
+varying vec3 vLkN;
+varying vec3 vLkXV;
+varying vec3 vLkZV;
+// How much copper is under the mask at a point of the board, on the face being looked at.
+float lkCopper(vec2 uv, float front) {
+  vec2 c = texture2D(uLkCopper, uv).rg;
+  return mix(c.g, c.r, front);
+}`,
+      )
+      .replace(
+        "#include <color_fragment>",
+        /* glsl */ `#include <color_fragment>
+// The image's top row is the board's far end (−z); a texture is loaded bottom row first.
+vec2 lkUv = vec2(vLkPos.x / ${BOARD.w} + 0.5, 0.5 - vLkPos.z / ${BOARD.h});
+float lkFront = step(0.0, vLkN.y);
+// Not on the board's cut edge: that is bare laminate.
+float lkFace = smoothstep(0.5, 0.9, abs(vLkN.y));
+float lkCu = lkCopper(lkUv, lkFront);
+diffuseColor.rgb *= 1.0 + 0.36 * lkCu * lkFace;`,
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        /* glsl */ `#include <normal_fragment_maps>
+// The copper's edge under the lacquer: a step of a few hundredths of a millimetre, enough to catch a raking light.
+vec2 lkStep = vec2(0.6 / 1024.0, 0.6 / 1920.0);
+float lkDx = lkCopper(lkUv + vec2(lkStep.x, 0.0), lkFront) - lkCopper(lkUv - vec2(lkStep.x, 0.0), lkFront);
+float lkDz = lkCopper(lkUv - vec2(0.0, lkStep.y), lkFront) - lkCopper(lkUv + vec2(0.0, lkStep.y), lkFront);
+normal = normalize(normal - (normalize(vLkXV) * lkDx + normalize(vLkZV) * lkDz) * (0.22 * lkFace * uLkCopperOn));`,
+      );
+  };
+  m.customProgramCacheKey = () => "look-mask-1";
+  return m;
+}
 
 /**
  * Sets the board's materials (pcb-v39.glb, and its parts wherever they have
  * been hung) to what the parts are made of. Safe to call again: it sets
- * values and replaces nothing, so a material faded or made transparent
- * elsewhere stays as it was.
+ * values, and the one material it replaces (the board's own, by the solder
+ * mask) it replaces once — so a material faded or made transparent elsewhere
+ * stays as it was.
  */
 export function tunePcbMaterials(root: THREE.Object3D) {
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
+    // The board itself: its flat green is replaced, once, by the mask.
+    const own = mesh.material as THREE.MeshStandardMaterial;
+    if (!Array.isArray(own) && own.name === "pcb_green" && !(own as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial) {
+      mesh.material = maskMaterial(own);
+      own.dispose();
+      return;
+    }
     for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
       const std = mat as THREE.MeshStandardMaterial;
       const tune = PCB_TUNE[std.name];

@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { GLCD_FONT } from "@/lib/guide/glcdFont";
+import { useGuideStore } from "../store";
 import { accentNow } from "./panelTint";
 import { stageLoad } from "./stageLoad";
 import css from "./Preloader.module.css";
@@ -133,6 +134,8 @@ export default function Preloader() {
   );
   const [show, setShow] = useState(() => !handled);
   const [off, setOff] = useState(false);
+  // On the hub the device stands above the choices, wherever they start (GuideHub measures it).
+  const hubTop = useGuideStore((s) => s.hubTop);
   const cover = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   /** This is the page that took the visit's one cover (an effect run twice in development is still the same page). */
@@ -292,7 +295,15 @@ export default function Preloader() {
 
   if (!show) return null;
   return (
-    <div ref={cover} className={css.cover} data-preloader="" data-off={off ? "lift" : undefined} aria-hidden="true" suppressHydrationWarning>
+    <div
+      ref={cover}
+      className={css.cover}
+      data-preloader=""
+      data-off={off ? "lift" : undefined}
+      aria-hidden="true"
+      style={hubTop > 0 ? ({ "--hub-top": `${hubTop}px` } as React.CSSProperties) : undefined}
+      suppressHydrationWarning
+    >
       <div className={css.matrix} style={{ "--cols": COLS, "--rows": ROWS } as React.CSSProperties}>
         <canvas ref={canvas} className={css.lit} />
       </div>

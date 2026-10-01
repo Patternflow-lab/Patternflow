@@ -11,6 +11,7 @@ import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import { LED_CENTER_WORLD, modelToWorld } from "./geometry";
+import { stageAccent } from "./look/accent";
 import { DEVKIT_SEAT } from "./parts";
 
 // World-space effects around the whole device, one draw call each:
@@ -29,6 +30,13 @@ import { DEVKIT_SEAT } from "./parts";
 // All three add light and nothing else: see `lightOnly`. Each hides itself
 // entirely while faded out, and prefers-reduced-motion slows the stream to a
 // drift, stands the arcs still and turns the ripple into a plain glow.
+//
+// The stream and the Wi-Fi are the page's signs, so they are drawn in the
+// page's accent (look/accent.ts) — the panel's colour, as the card's lit edge
+// is — and flat: a full colour and no more, under what the bloom takes, the
+// same arcs as the DevKit's in chapter one. And they stop short of the copy
+// card: the canvas is behind the page, the card is glass, and coloured
+// pixels ran under its text.
 
 // The LED face, measured off the model (world units): 1.6 × 3.2, portrait,
 // so the landscape 128 × 64 panel stands 64 LEDs across and 128 down.
@@ -78,27 +86,52 @@ function seeded(seed: number) {
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-/** Screen x (NDC) of a world point, given a view-projection matrix's elements. */
-const ndcX = (vp: ArrayLike<number>, x: number, y: number, z: number) =>
-  (vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / (vp[3] * x + vp[7] * y + vp[11] * z + vp[15]);
 const smooth = (e0: number, e1: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
 };
 
+/** The copy card on screen, px of the canvas (x right, y down); `on` false when there is none to keep clear of. */
+type CardRect = { on: boolean; l: number; t: number; r: number; b: number };
+/** How far outside the card the drawn light is all there, px: nearer than that it fades, and it is gone a little before the card's edge. */
+const CARD_CLEAR = 64;
+const CARD_GONE = 10;
+
+/**
+ * 0 at the card (and for CARD_GONE px round it) … 1 well clear of it, for a
+ * world point; `vp` is the view-projection matrix's elements, `hw`/`hh` half
+ * the canvas's size in px.
+ */
+function clearOfCard(card: CardRect, vp: ArrayLike<number>, hw: number, hh: number, x: number, y: number, z: number) {
+  if (!card.on) return 1;
+  const w = vp[3] * x + vp[7] * y + vp[11] * z + vp[15];
+  if (w <= 1e-5) return 1;
+  const sx = ((vp[0] * x + vp[4] * y + vp[8] * z + vp[12]) / w + 1) * hw;
+  const sy = (1 - (vp[1] * x + vp[5] * y + vp[9] * z + vp[13]) / w) * hh;
+  const dx = Math.max(card.l - sx, sx - card.r, 0);
+  const dy = Math.max(card.t - sy, sy - card.b, 0);
+  return smooth(CARD_GONE, CARD_CLEAR, Math.hypot(dx, dy));
+}
+
 // ── stream ───────────────────────────────────────────────────────────────────
 
-// The Basics palette: LED oranges and reds, cyans, and two whites.
-const PALETTE = ["#ff6a3d", "#ff3b2f", "#ffab40", "#38d6ff", "#fff1de", "#e6f6ff", "#ff8a4c"].map((h) => new THREE.Color(h));
-// Two colours per ribbon, top ribbon first, warm and cool taking turns.
+// The stream's colours: the accent, the accent paled half-way to white, and
+// two whites — made each frame from the page's accent (look/accent.ts), so a
+// packet in flight turns with the page.
+const WHITES = ["#fff1de", "#e6f6ff"].map((h) => new THREE.Color(h));
+/** [accent, pale accent, warm white, cool white] */
+const PALETTE = [new THREE.Color(), new THREE.Color(), WHITES[0], WHITES[1]];
+// Two colours per ribbon, top ribbon first.
 const RIBBON_COLOURS: [number, number][] = [
-  [0, 2],
-  [3, 5],
-  [1, 0],
-  [4, 2],
-  [3, 5],
-  [6, 1],
+  [0, 1],
+  [1, 3],
+  [0, 0],
+  [2, 1],
+  [1, 3],
+  [0, 1],
 ];
+/** A full colour and no more: what the bloom takes starts above this (look/StagePost). */
+const STREAM_PEAK = 1.02;
 
 const RIBBONS = RIBBON_COLOURS.length;
 const PACKETS = 12; // per ribbon
@@ -170,7 +203,8 @@ function buildStream() {
     phase: new Float32Array(P),
     jit: new Float32Array(P * 3),
     cycle: new Int32Array(P).fill(-1 << 30),
-    rgb: new Float32Array(P * 3),
+    /** Which of the palette's colours the packet is. */
+    colour: new Uint8Array(P),
   };
   for (let r = 0; r < RIBBONS; r++) {
     for (let p = 0; p < PACKETS; p++) {
@@ -233,7 +267,6 @@ void main() {
   float wedge = smoothstep(0.95, 0.55, abs(ang)) * step(0.0, p.y);
 
   float arcs = 0.0;
-  float haze = 0.0;
   for (int i = 0; i < 4; i++) {
     float fi = float(i);
     float ph = fract(uTime * 0.34 + fi * 0.25);
@@ -245,22 +278,22 @@ void main() {
     float d = abs(r - R);
     float w = 0.011 + 0.009 * ph;
     arcs += (1.0 - smoothstep(w * 0.35, w, d)) * life;
-    haze += exp(-d * d / 0.005) * life;
   }
-  float lit = (arcs + haze * 0.14) * wedge;
-  float core = exp(-r * r / 0.0009) * 0.9 + exp(-r * r / 0.025) * 0.1;
-  vec3 col = uColor * (lit * 2.3 + core * 2.2);
+  // Flat: a line of the accent at its own strength, no halo, and never more
+  // than a full colour — over that it blooms, and these arcs glowed red here
+  // while the DevKit's, in chapter one, were plain.
+  float lit = arcs * wedge;
+  float core = exp(-r * r / 0.0009);
+  vec3 col = uColor * min(lit * 1.25 + core, 1.0);
 
   // The pulse: a packet of square pixels, like the stream's, hopping along.
   float pul = 0.0;
   for (int k = 0; k < ${PULSES * PULSE_PTS}; k++) {
     vec3 a = uPts[k];
     vec2 dd = abs(vWorld - a.xy);
-    float sq = max(dd.x, dd.y);
-    float d2 = dot(dd, dd);
-    pul += a.z * ((1.0 - smoothstep(0.014, 0.019, sq)) + 0.22 * exp(-d2 / 0.0025));
+    pul += a.z * (1.0 - smoothstep(0.014, 0.019, max(dd.x, dd.y)));
   }
-  col += mix(uColor, uHot, 0.4) * pul * uPulse * 2.2;
+  col += uHot * min(pul * 1.6, 1.0) * uPulse;
 
   // The path itself, a row of small dim pixels.
   float path = 0.0;
@@ -271,7 +304,7 @@ void main() {
   }
   col += uColor * path * uPulse;
 
-  gl_FragColor = vec4(col * uFade, 0.0);
+  gl_FragColor = vec4(min(col, vec3(1.0)) * uFade, 0.0);
 }
 `;
 
@@ -409,6 +442,8 @@ export default function Fx() {
     flashT: 10,
   });
   const tmp = useMemo(() => ({ v: new THREE.Vector3(), vp: new THREE.Matrix4() }), []);
+  // The step's card, measured now and then while something is drawn that must keep clear of it.
+  const card = useRef<CardRect & { age: number; key: string }>({ on: false, l: 0, t: 0, r: 0, b: 0, age: 0, key: "" });
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
@@ -421,8 +456,45 @@ export default function Fx() {
     o.narrow += ((narrow ? 1 : 0) - o.narrow) * Math.min(1, dt * 3);
     const cam = state.camera;
     const vp = tmp.vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse).elements;
-    const edge = cardLeftNdc(state.size.width);
-    const wideCard = 1 - o.narrow;
+    const hw = state.size.width / 2;
+    const hh = state.size.height / 2;
+
+    // The page's accent: the arcs and their path in it, the pulse a shade
+    // paler, the stream in both and white.
+    const accent = stageAccent();
+    PALETTE[0].copy(accent);
+    PALETTE[1].copy(accent).lerp(WHITES[0], 0.5);
+    wifi.mat.uniforms.uColor.value.copy(accent);
+    wifi.mat.uniforms.uHot.value.copy(accent).lerp(WHITES[0], 0.4);
+
+    // Where the step's card is (its block's one child — GuideCanvas's
+    // freeArea reads it the same way). Measured every few frames, and at once
+    // on a new step: the page scrolls over the stage, and the card with it.
+    const cd = card.current;
+    if (s.stream || s.wifi === "device" || o.stream > 0.003 || o.wifi > 0.003) {
+      const key = scene + "." + step;
+      if (key !== cd.key || ++cd.age > 5) {
+        cd.key = key;
+        cd.age = 0;
+        const art = document.querySelector<HTMLElement>('[data-scene="' + scene + '"] [data-step="' + step + '"]');
+        const el = art && art.children.length === 1 ? (art.firstElementChild as HTMLElement) : art;
+        const box = el?.getBoundingClientRect();
+        const cv = state.gl.domElement.getBoundingClientRect();
+        if (box && box.width > 0 && cv.width > 0) {
+          const kx = state.size.width / cv.width;
+          const ky = state.size.height / cv.height;
+          cd.on = true;
+          cd.l = (box.left - cv.left) * kx;
+          cd.r = (box.right - cv.left) * kx;
+          cd.t = (box.top - cv.top) * ky;
+          cd.b = (box.bottom - cv.top) * ky;
+        } else {
+          cd.on = false;
+        }
+      }
+    } else {
+      cd.key = "";
+    }
 
     // ── install complete: read the board's pack for a few frames after each
     // step edge (the Director applies the step's pack in the same frame,
@@ -499,11 +571,9 @@ export default function Fx() {
             // A new packet: a colour.
             pkt.cycle[pi] = cycle;
             const pair = RIBBON_COLOURS[r];
-            const c = PALETTE[hash(pi + 31, cycle) < 0.68 ? pair[0] : pair[1]];
-            pkt.rgb[pi * 3] = c.r;
-            pkt.rgb[pi * 3 + 1] = c.g;
-            pkt.rgb[pi * 3 + 2] = c.b;
+            pkt.colour[pi] = hash(pi + 31, cycle) < 0.68 ? pair[0] : pair[1];
           }
+          const colour = PALETTE[pkt.colour[pi]];
           // Packets past the density hide — whole packets, never half of one.
           const dens = Math.min(1, Math.max(0, o.density * PACKETS - p));
           // Stretch the cycle so the packet's last pixel finishes too.
@@ -530,10 +600,9 @@ export default function Fx() {
               x = b0 * (sx + jx) + b1 * (ax + jx * 0.7) + b2 * (bx + jx * 0.3) + b3 * ex;
               y = b0 * (sy + jy) + b1 * (ay + jy * 0.7) + b2 * (by + jy * 0.3) + b3 * ey;
               z = b0 * (sz + jz) + b1 * (az + jz * 0.7) + b2 * (bz + jz * 0.3) + b3 * ez;
-              // A dim glow while still behind the card, brightest mid-air,
-              // fading as it goes in.
-              const behind = smooth(edge - 0.05, edge + 0.03, ndcX(vp, x, y, z)) * wideCard;
-              bright = smooth(0.02, 0.18, f) * (1 - behind * 0.82) * (1 - q * 0.075) * 2.1 * (1 - smooth(0.82, 1, f));
+              // Out from the card's edge — nothing under the card itself —
+              // brightest mid-air, fading as it goes in.
+              bright = smooth(0.02, 0.18, f) * clearOfCard(cd, vp, hw, hh, x, y, z) * (1 - q * 0.075) * STREAM_PEAK * (1 - smooth(0.82, 1, f));
               size = lerp(0.034, 0.022, q / (PER - 1));
               bright *= fade * dens;
             }
@@ -556,9 +625,9 @@ export default function Fx() {
             m[i16 + 13] = y;
             m[i16 + 14] = z;
             m[i16 + 15] = 1;
-            cArr[idx * 3] = pkt.rgb[pi * 3] * bright;
-            cArr[idx * 3 + 1] = pkt.rgb[pi * 3 + 1] * bright;
-            cArr[idx * 3 + 2] = pkt.rgb[pi * 3 + 2] * bright;
+            cArr[idx * 3] = colour.r * bright;
+            cArr[idx * 3 + 1] = colour.g * bright;
+            cArr[idx * 3 + 2] = colour.b * bright;
           }
         }
       }
@@ -596,9 +665,8 @@ export default function Fx() {
             const ia = 1 - a;
             pt.x = ia * ia * WIFI_ORIGIN.x + 2 * ia * a * PULSE_CTRL.x + a * a * PULSE_END.x;
             pt.y = ia * ia * WIFI_ORIGIN.y + 2 * ia * a * PULSE_CTRL.y + a * a * PULSE_END.y;
-            // Out of the arcs, over to the card, gone at its edge.
-            const gone = smooth(edge - 0.07, edge + 0.01, ndcX(vp, pt.x, pt.y, 0)) * wideCard;
-            pt.z = smooth(0.04, 0.16, a) * (1 - smooth(0.9, 1, a)) * (1 - gone) * (1 - (j / PULSE_PTS) * 0.8);
+            // Out of the arcs, over to the card, gone before its edge.
+            pt.z = smooth(0.04, 0.16, a) * (1 - smooth(0.9, 1, a)) * clearOfCard(cd, vp, hw, hh, pt.x, pt.y, 0) * (1 - (j / PULSE_PTS) * 0.8);
           }
         }
         // The path: dim dots from just out of the arcs to the card's edge.
@@ -608,8 +676,7 @@ export default function Fx() {
           const pt = wifi.path[j];
           pt.x = ia * ia * WIFI_ORIGIN.x + 2 * ia * a * PULSE_CTRL.x + a * a * PULSE_END.x;
           pt.y = ia * ia * WIFI_ORIGIN.y + 2 * ia * a * PULSE_CTRL.y + a * a * PULSE_END.y;
-          const gone = smooth(edge - 0.05, edge + 0.01, ndcX(vp, pt.x, pt.y, 0)) * wideCard;
-          pt.z = 0.22 * smooth(0.1, 0.22, a) * (1 - gone);
+          pt.z = 0.22 * smooth(0.1, 0.22, a) * clearOfCard(cd, vp, hw, hh, pt.x, pt.y, 0);
         }
       }
     }

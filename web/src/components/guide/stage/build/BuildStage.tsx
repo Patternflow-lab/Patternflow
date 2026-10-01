@@ -28,9 +28,18 @@
 //
 // Coming and going. The stage is the same one the hub and Play use, so this
 // takes the device over and hands it back while it is on screen:
-//   - It starts only on a whole device. Arriving from the hub with the
-//     device still apart (the hub's answer to Build, stage/Explode), it waits
-//     until the parts have settled; its opening is that same whole device.
+//   - Its opening is the device as the hub left it: apart, when the reader
+//     came by pointing at Build there (stage/Explode keeps it apart through
+//     Build's opening), whole under reduced motion. It takes the device over
+//     as it hangs — every part it places at its opening it places by
+//     Explode's amount (`open`, in the frame loop) — and what is inside a
+//     closed case and was never on the hub's device (the screws, the cables,
+//     the power bank) stays off until the case is shut, so nothing changes
+//     on screen when it does. Scrolled into the build, that device goes
+//     where it hangs as the bench comes up: the case fades, the board and the
+//     DevKit are drawn in to nothing. (It used to wait for the parts to come
+//     home first, and open on a whole, dark device: pointing at Build took
+//     the device apart and choosing Build put it back together.)
 //   - Before it starts it gets its shaders built, a piece of the stage a
 //     frame (warmStep, below), and only while nothing on stage is moving
 //     much: taking over with them unbuilt froze the page for half a second,
@@ -38,6 +47,9 @@
 //     ahead of time, on the hub: when the reader lingers on Build there, the
 //     hub mounts this in standby (world/HubAnswers → store.setBuildLive), and
 //     by the time Build is chosen there is nothing left to wait for.
+//   - What it adds to the stage is made once (keepKit, below) and kept for
+//     as long as the canvas is: the guide left and come back to finds its
+//     bench, its buffers and its built shaders where they were.
 //   - When the reader leaves the guide it does not vanish: it runs the
 //     timeline to the nearer end at which the device is whole — back to the
 //     opening, or on to the end — at the pace it uses between steps, waits
@@ -62,7 +74,7 @@
 //   view    A camera view: Play's (hero, front, back, knobs, screenKnobs,
 //           esp, …) or the build's own (build/views.ts: bench, benchWide,
 //           boardLift, plates, platesKnobs, bond, boardF, boardParts,
-//           boardC11, boardSW, panelIn, screwsBack, caseBack, caseBackClose,
+//           boardC11, boardSW, panelIn, screwsBack, caseBack, backShut, caseBackClose,
 //           leadBack, leadHole, leadJ4, wireBack, terminalsBack, trayFront,
 //           shafts, powerOn, finish).
 //           narrowView is the view on a narrow screen where that must differ
@@ -105,11 +117,11 @@ import * as THREE from "three";
 import { getSim, useGuideStore } from "../../store";
 import { buildClock } from "../../timing";
 import { stepOf } from "../../scenes";
-import { explodeState } from "../explodeParts";
+import { type ExplodePart, explodeState, partOffset } from "../explodeParts";
 import { DRACO_URL, KNOB_PRESS, MODEL_OFFSET, MODEL_SCALE, MODEL_URL } from "../geometry";
 import { CASE_URL, DEVKIT_PRESENT, DEVKIT_SEAT, PCB_PLACEMENT, PCB_URL } from "../parts";
 import { placeTag, type TagSide } from "../tags";
-import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, smooth, span } from "./beats";
+import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, OPENING_GONE, smooth, span } from "./beats";
 import { Path, Tube } from "./cable";
 import { buildFocus } from "./focus";
 import { ease, fall, glide, grow, land, latch, past, press, reach, rock, scatter, setDown, shake, sway, swing, windUp } from "./motion";
@@ -259,6 +271,9 @@ const WHOLE_AGAIN = at("next");
 const CUT_FAR = 2;
 /** How long after asking for a cut the canvas is out, ms (Guide.module.css [data-cut]: 0.14 s). */
 const CUT_DARK_MS = 170;
+
+/** Before it takes the device over, the stage builds its shaders only while the camera is slower than this, world units a second (the opening's own sway is a quarter of it). */
+const WARM_STILL = 1.2;
 
 /** The print's layer, model units (0.2 mm). */
 const LAYER = 0.02;
@@ -528,12 +543,50 @@ const PLUS5_J3 = V(0.019752, 0.0017, 0.048993);
 const USB_MARK = V(-0.00005, 0.0017, 0.053515);
 const U1_MID = V(0, 0.009, 0.0255);
 
+// ── the kit, made once ──────────────────────────────────────────────────────
+//
+// Everything the build adds to the stage is a pure function of the models
+// and is drawn on one canvas for the whole visit (world/GuideWorld), so it is
+// made once and kept here, outside the component: this stage comes and goes
+// with its guide, and making the kit again on every visit left the last
+// one's two hundred buffers, its vertex arrays and its textures on the GPU —
+// React never disposes what is handed to it as a <primitive>, and the canvas
+// that used to take them with it now outlives the page. A kit made for
+// another canvas (the guide was left altogether, and come back to) or other
+// models is let go before the next is made.
+
+type KitParts = { group: THREE.Object3D; joints: THREE.Object3D; ghost: THREE.Object3D };
+let kept: { key: unknown[]; kit: KitParts } | null = null;
+
+function disposeKit(kit: KitParts) {
+  const all = new Set<{ dispose: () => void }>();
+  for (const root of [kit.group, kit.joints, kit.ghost]) {
+    root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.geometry) all.add(m.geometry);
+      for (const mat of Array.isArray(m.material) ? m.material : m.material ? [m.material] : []) {
+        all.add(mat);
+        for (const v of Object.values(mat)) if (v && (v as THREE.Texture).isTexture) all.add(v as THREE.Texture);
+      }
+    });
+  }
+  all.forEach((x) => x.dispose());
+}
+
+function keepKit<T extends KitParts>(key: unknown[], make: () => T): T {
+  if (kept && kept.key.length === key.length && kept.key.every((k, i) => k === key[i])) return kept.kit as T;
+  if (kept) disposeKit(kept.kit);
+  const kit = make();
+  kept = { key, kit };
+  return kit;
+}
+
 export default function BuildStage() {
   const [splitGltf, platesGltf, caseGltf, ledGltf, pcbGltf] = useGLTF([SPLIT_URL, PLATES_URL, CASE_URL, MODEL_URL, PCB_URL], DRACO_URL);
   const { scene: world, gl, camera, size } = useThree();
 
   // ── everything the build adds ─────────────────────────────────────────────
-  const kit = useMemo(() => {
+  const kit = useMemo(() => keepKit([gl, splitGltf, platesGltf, caseGltf, ledGltf, pcbGltf], () => {
     const group = new THREE.Group();
     group.name = "build_stage";
     const add = <T extends THREE.Object3D>(o: T, parent: THREE.Object3D = group, shadow = true): T => {
@@ -682,17 +735,17 @@ export default function BuildStage() {
     pc2.position.set(0.22, 0, 0.16);
     coils.power.position.copy(POWER_COIL);
 
-    // One soft round glow for everything that is a point of heat: the iron's glint, the print's nozzles.
+    // A soft round glow for a point of heat: the print's nozzles.
     const glowMap = props.glowTexture();
-    // Tools: the iron and its glint.
+    // Tools: the iron — a plated tip, the heater's steel barrel, a rubber
+    // handle with its guard. Nothing glows where its tip touches: that was a
+    // flat disc of light lying on the board, a sprite and seen to be one.
+    // What says the tip is on a pad is the joint that grows under it.
     const ig = props.iron();
     const iron = add(new THREE.Group());
-    add(new THREE.Mesh(ig.metal, std("#b5b9c0", 0.28, 0.9)), iron);
-    add(new THREE.Mesh(ig.grip, std("#25272b", 0.75)), iron);
-    const glint = new THREE.Sprite(
-      new THREE.SpriteMaterial({ map: glowMap, color: new THREE.Color(2.4, 2.1, 1.7), transparent: true, depthWrite: false, toneMapped: false, blending: THREE.AdditiveBlending }),
-    );
-    group.add(glint);
+    add(new THREE.Mesh(ig.tip, metal), iron);
+    add(new THREE.Mesh(ig.barrel, brushed), iron);
+    add(new THREE.Mesh(ig.grip, std("#232528", 0.82)), iron);
 
     // Solder joints: a small fillet at every through-hole pad (pads.ts),
     // children of the board once it is found.
@@ -754,11 +807,39 @@ export default function BuildStage() {
 
     // The print plates, the parts on them (plates.glb), a layer line each.
     const plateMat = std("#45474d", 0.72, 0.15, { transparent: true });
+    // What they stand on. The floor of the room is black, and four dark
+    // plates on it were four squares hanging in the dark, in another and
+    // flatter world than the bench before them: a mat like the bench's, and
+    // on it the shade each plate keeps round its foot (drawn, not cast: the
+    // key light's shadow map is fitted to the device and does not reach the
+    // far plates).
+    const plateGround = add(new THREE.Group(), group, false);
+    plateGround.position.set(PLATES_GROUND.x, 0, PLATES_GROUND.z);
+    const plateGroundMat = std("#232b29", 0.96, 0, { transparent: true, opacity: 0 });
+    const groundSlab = add(new THREE.Mesh(props.mat(PLATES_GROUND.w, PLATES_GROUND.d), plateGroundMat), plateGround, false);
+    groundSlab.position.y = -0.05;
+    // One shade for each plate, and with its plate (the knobs' comes for the second print).
+    const plateShadeMat = new THREE.MeshBasicMaterial({
+      color: "#000000",
+      alphaMap: props.plateShade(PLATE_SHADE),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -8,
+    });
+    const plateShadeGeo = new THREE.PlaneGeometry(PLATE_SIZE + PLATE_SHADE * 2, PLATE_SIZE + PLATE_SHADE * 2);
+    plateShadeGeo.rotateX(-Math.PI / 2);
     const clip = [1, 2, 3, 4].map(() => new THREE.Plane(V(0, -1, 0), 1e4));
     const plates = [1, 2, 3, 4].map((p) => {
       const g = add(new THREE.Group());
       g.position.copy(plateCorner(p));
       const slab = add(new THREE.Mesh(props.plate(), plateMat), g, false);
+      // Its shade on the mat, just above the mat's top (the plate's corner is PLATE_TOP up).
+      const shade = new THREE.Mesh(plateShadeGeo, plateShadeMat);
+      shade.position.set(PLATE_SIZE / 2, -0.008 - plateCorner(p).y, -PLATE_SIZE / 2);
+      g.add(shade);
       // Printed lying on the plate: its layers stack along the plate's up.
       const partMat = plaMaterial({ axis: "y", ...(p === 4 ? { color: LOOK.plaBlack, roughness: 0.74 } : {}), extra: { clippingPlanes: [clip[p - 1]], clipShadows: true } });
       // The layer being laid: where the cut opens a part, its inside is drawn
@@ -884,6 +965,7 @@ export default function BuildStage() {
       new THREE.BufferGeometry().setFromPoints([V(), V()]),
       new THREE.LineDashedMaterial({ color: new THREE.Color("#ff6a3d").multiplyScalar(1.6), dashSize: 0.18, gapSize: 0.12, transparent: true, opacity: 0, toneMapped: false, depthWrite: false }),
     );
+    dash.geometry.setAttribute("lineDistance", new THREE.BufferAttribute(new Float32Array(2), 1).setUsage(THREE.DynamicDrawUsage));
     group.add(dash);
 
     return {
@@ -911,7 +993,6 @@ export default function BuildStage() {
       powerWires,
       coils,
       iron,
-      glint,
       jointList,
       rounds,
       joints,
@@ -919,6 +1000,9 @@ export default function BuildStage() {
       ghost,
       ghostMat,
       plates,
+      plateGround,
+      plateGroundMat,
+      plateShadeMat,
       clip,
       split,
       slider,
@@ -929,8 +1013,10 @@ export default function BuildStage() {
       seamMat,
       tapeMat,
       dash,
+      // Its shaders have all been built and drawn once (warmStep): a kit that is kept does not do it again.
+      warm: { done: false },
     };
-  }, [splitGltf, platesGltf, caseGltf, ledGltf, pcbGltf]);
+  }), [gl, splitGltf, platesGltf, caseGltf, ledGltf, pcbGltf]);
 
   // Centres of the case parts (unplaced), for turning them about themselves.
   const centres = useMemo(() => {
@@ -1055,15 +1141,28 @@ export default function BuildStage() {
       root.add(node);
       node.scale.setScalar(PCB_PLACEMENT.scale);
     }
+    // Device's case and knobs fade here (with the opening; while they wait
+    // beside the case). The flag alone is not enough: three keeps the shader
+    // it built for an opaque material — which writes alpha 1 whatever the
+    // opacity says — until the material says it has changed, and the case
+    // never faded at all: it stood solid for the length of the fade and was
+    // then switched off. The see-through variant is the one the stage's own
+    // printed parts use (white(), in the kit), built and drawn in the
+    // warm-up, so this costs a look-up, not a compile.
+    const seeThrough = (mat: THREE.Material) => {
+      if (mat.transparent) return;
+      mat.transparent = true;
+      mat.needsUpdate = true;
+    };
     const fade: THREE.Material[] = [];
     for (const m of [body, backPlate, topLid]) {
       const mat = m.material as THREE.MeshStandardMaterial;
-      mat.transparent = true;
+      seeThrough(mat);
       fade.push(mat);
     }
     const knobMats = knobs.map((k) => {
       const mat = k.material as THREE.MeshStandardMaterial;
-      mat.transparent = true;
+      seeThrough(mat);
       return mat;
     });
     // The encoders' simplified metal reads as a mirror under the bench
@@ -1092,7 +1191,8 @@ export default function BuildStage() {
       deviceSlider,
       notch: root.getObjectByName("notch_floor") ?? null,
       knobs,
-      knobHome: knobs.map((k) => (k.userData.buildHome ??= { p: k.position.clone(), q: k.quaternion.clone() }) as { p: THREE.Vector3; q: THREE.Quaternion }),
+      // (Device's own home for it — userData.home — not where it is now: the device may be standing apart, its knobs out in front.)
+      knobHome: knobs.map((k) => (k.userData.buildHome ??= { p: ((k.userData.home as THREE.Vector3 | undefined) ?? k.position).clone(), q: k.quaternion.clone() }) as { p: THREE.Vector3; q: THREE.Quaternion }),
       led,
       kit: kitPivot,
       dials,
@@ -1142,10 +1242,17 @@ export default function BuildStage() {
   useEffect(() => {
     const prev = gl.localClippingEnabled;
     gl.localClippingEnabled = true;
+    // A context the GPU took away and gave back has none of the kit's shaders: they are built again before the next takeover.
+    const canvas = gl.domElement;
+    const restored = () => {
+      kit.warm.done = false;
+    };
+    canvas.addEventListener("webglcontextrestored", restored);
     return () => {
       gl.localClippingEnabled = prev;
+      canvas.removeEventListener("webglcontextrestored", restored);
     };
-  }, [gl]);
+  }, [gl, kit]);
 
   // The timeline is not running once this is gone (timing.ts buildClock).
   useEffect(
@@ -1197,7 +1304,14 @@ export default function BuildStage() {
   // screen, one piece a frame, for what compiling alone misses (the clipping
   // planes' variant of a shader, the shadow pass's) — a few slow frames
   // instead of two frozen ones. Returns true once all of it has been drawn.
-  const warm = useRef<{ i: number; target: THREE.WebGLRenderTarget | null; compiled: "no" | "busy" | "yes" }>({ i: 0, target: null, compiled: "no" });
+  const warm = useRef<{ i: number; target: THREE.WebGLRenderTarget | null; compiled: "no" | "busy" | "yes"; cam: THREE.Vector3; seen: boolean }>({
+    i: 0,
+    target: null,
+    compiled: "no",
+    // Where the camera was last frame, for how fast it is moving (the gate at the top of the frame loop).
+    cam: new THREE.Vector3(),
+    seen: false,
+  });
   const warmUnits = useMemo(() => {
     // The print plates bring the clipped shaders — a part's, its cut's, and
     // the shadow pass's for both — and one plate drawn whole was the one long
@@ -1214,6 +1328,7 @@ export default function BuildStage() {
     [],
   );
   const warmStep = (renderer: THREE.WebGLRenderer, scene: THREE.Scene, cam: THREE.Camera): boolean => {
+    if (kit.warm.done) return true;
     const w = warm.current;
     if (w.compiled !== "yes") {
       if (w.compiled === "no") {
@@ -1228,12 +1343,28 @@ export default function BuildStage() {
         for (const u of loosePieces) kit.group.add(u);
         w.target ??= new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
         const before = renderer.getRenderTarget();
+        const planes = renderer.clippingPlanes;
         try {
           renderer.setRenderTarget(w.target);
-          renderer.compileAsync(kit.group, cam, scene).then(done, done);
+          const jobs: Promise<unknown>[] = [renderer.compileAsync(kit.group, cam, scene)];
+          // The print's parts are cut by a clipping plane, and a cut material
+          // is a shader of its own — which compile() does not make: it builds
+          // for as many planes as the renderer last drew with, and that is
+          // none. So that one was built where it could not be put off, on
+          // the piece's first draw: the one long frame (130–270 ms) left in
+          // the whole way from the hub into Build. Here the renderer is left
+          // counting one plane — an empty scene, drawn with one that cuts
+          // nothing — and the cut materials are compiled again, for that
+          // count, in the background with the rest.
+          renderer.clippingPlanes = [UNCUT];
+          renderer.render(NOTHING, cam);
+          const plate = kit.plates[0];
+          for (const cut of [plate.parts[0], plate.cuts[0], kit.plates[3].parts[0]]) if (cut) jobs.push(renderer.compileAsync(cut, cam, scene));
+          Promise.all(jobs).then(done, done);
         } catch {
           done();
         } finally {
+          renderer.clippingPlanes = planes;
           renderer.setRenderTarget(before);
           for (const u of loosePieces) kit.group.remove(u);
         }
@@ -1244,6 +1375,7 @@ export default function BuildStage() {
     if (!unit) {
       w.target?.dispose();
       w.target = null;
+      kit.warm.done = true;
       return true;
     }
     w.i++;
@@ -1290,7 +1422,7 @@ export default function BuildStage() {
 
   // Frames since mount, for the one-off warm-up draw below.
   const warmed = useRef(0);
-  const clock = useRef({ beat: -1, start: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN });
+  const clock = useRef({ beat: -1, start: 0, since: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN });
   const tmp = useMemo(
     () => ({
       a: pose(),
@@ -1308,7 +1440,7 @@ export default function BuildStage() {
       m: new THREE.Matrix4(),
       s: V(1, 1, 1),
       world: V(),
-      glintAt: V(),
+      open: V(),
       plugShown: V(1e9, 0, 0),
       tags: new Map<TagKey, THREE.Vector3>(),
       jacket: V(),
@@ -1329,11 +1461,21 @@ export default function BuildStage() {
         else if (explodeState.amount === 1) warmStep(state.gl, state.scene, state.camera);
         return;
       }
-      // The device is still coming back together (the hub's answer to Build): wait for it whole.
-      if (explodeState.amount > 0) return;
-      // Whole and still: what is left of the shaders, unless the reader is
-      // already scrolling into the guide — then it starts at once.
-      if (useGuideStore.getState().scene === "opening" && !warmStep(state.gl, state.scene, state.camera)) return;
+      // On the guide: the device is taken over as it stands, apart or whole.
+      // First what is left of the shaders — unless the reader is already
+      // scrolling into the guide, then it starts at once — and those only
+      // while the stage is still: the parts neither on their way out nor in,
+      // the camera arrived (a slow frame in the middle of its move from the
+      // hub is the stutter this is here to keep off the screen).
+      if (useGuideStore.getState().scene === "opening") {
+        const w = warm.current;
+        const speed = w.seen ? state.camera.position.distanceTo(w.cam) / Math.max(rawDt, 1e-3) : Infinity;
+        w.cam.copy(state.camera.position);
+        w.seen = true;
+        const still = speed < WARM_STILL && (explodeState.amount === 0 || explodeState.amount === 1);
+        if (!kit.warm.done && !still) return;
+        if (!warmStep(state.gl, state.scene, state.camera)) return;
+      }
       dev.current = find();
     }
     const d = dev.current;
@@ -1393,13 +1535,20 @@ export default function BuildStage() {
       // Forward, a step plays its own motion; back, it shows how it ends.
       c.start = c.beat >= 0 && B < c.beat ? now - beatSeconds(B) * 1000 : now;
       c.beat = B;
+      c.since = now;
     }
     // A step plays for its card. A chapter's first step is the current one
     // from the chapter's title on, a screen and more before its card: until
     // the card is on screen (store.ts cardIn) the beat waits at its start —
     // the build as the last chapter left it — and plays when the reader gets
     // there. Scrolling back up to the title winds it back, to play again.
-    if (!cardIn && onPage) c.start = now;
+    //
+    // One thing does not wait for a card: the opening's device. It goes as
+    // the opening is left — the first sixth of gather-1, the case fading and
+    // the mat coming up — under the first chapter's title, while the camera
+    // comes down to the bench. Held for the card, it hung in the top of the
+    // bench's frame for as long as the title took to pass.
+    if (!cardIn && onPage) c.start = now - (B === beatIndex("gather-1") ? Math.min(now - c.since, (OPENING_GONE - G1) * beatSeconds(B) * 1000) : 0);
     // "Replay" on the card: this step's motion again, from its start.
     if (replay !== c.replay) {
       c.replay = replay;
@@ -1472,16 +1621,37 @@ export default function BuildStage() {
     // What this frame is about, for whoever wants to know (focus.ts): set by the parts below that are.
     buildFocus.on = false;
     const caseFade = finished ? 1 : 1 - span(t, G1, G1 + 0.16);
+    // The opening's device may be standing apart (stage/Explode: the hub's
+    // answer to Build, kept through Build's opening): how far, 0 whole … 1,
+    // and each part's way out by it. Everything this stage places at its
+    // opening it places by this, until that device has faded (OPENING_GONE).
+    const apart = t < OPENING_GONE ? explodeState.amount : 0;
+    const open = (part: ExplodePart) => partOffset(part, apart, tmp.open) as THREE.Vector3;
+    // Apart, the board and the DevKit are out in the open, and cannot simply
+    // stop being there when the bench comes up (whole, they are inside the
+    // case and nobody sees them go): they are drawn in to nothing where they
+    // hang, as the case fades round them.
+    const going = apart > 0 && !finished;
+    const gone = going ? 1 - span(t, G1, G1 + 0.15, ease) : 1;
+    // What is inside the closed case and is not Device's — the screws, the
+    // nuts, the cables, the power bank: the hub's device has none of them,
+    // so apart they are not drawn. The case is shut again before the amount
+    // is back at 0, so they are never seen to come or go.
+    const shut = !(finished && apart > 0);
 
     // ── the board ───────────────────────────────────────────────────────────
     const bp = tmp.board;
     let boardScale = 1;
     let boardOn = true;
     if (t < G1) {
-      bp.p.copy(BOARD_IN_CASE.p);
+      bp.p.copy(BOARD_IN_CASE.p).add(open("board"));
       bp.q.copy(BOARD_IN_CASE.q);
     } else if (t < ARRIVE_BOARD) {
-      boardOn = false;
+      if (going && gone > 0.002) {
+        bp.p.copy(BOARD_IN_CASE.p).add(open("board"));
+        bp.q.copy(BOARD_IN_CASE.q);
+        boardScale = gone;
+      } else boardOn = false;
     } else if (t < P1) {
       const dr = drop(t, ARRIVE_BOARD, 0.13);
       bp.p.copy(BOARD_FLAT.p).setY(BOARD_FLAT.p.y + dr.fall * 4);
@@ -1561,7 +1731,12 @@ export default function BuildStage() {
       let scale = 1;
       let on = true;
       if (t < G1) onBoard(tmp.a);
-      else if (t < i0) {
+      else if (going && boardOn) {
+        // Still on the board, as the opening has it, and going with it: drawn in toward the board's middle.
+        onBoard(tmp.a);
+        tmp.a.p.sub(boardPose.p).multiplyScalar(gone).add(boardPose.p);
+        scale = gone;
+      } else if (t < i0) {
         const dr = drop(t, ARRIVE[name]);
         on = dr.on;
         row(tmp.a);
@@ -1601,10 +1776,11 @@ export default function BuildStage() {
     // slide along a row of pins, a real lift across the board — and away
     // again the way it came once the last is made. A joint starts when the
     // iron reaches its pad: a bead of molten solder, which then wets — it
-    // draws in to the pad and climbs the pin into a fillet — and cools, its
-    // glow gone a few joints behind the iron.
+    // draws in to the pad and climbs the pin into a fillet — and cools: liquid
+    // and mirror-bright under the tip, frosting over a joint or two behind
+    // the iron (look/materials.ts solderMaterial: its heat is in its
+    // surface, not in a glow).
     let ironTip: THREE.Vector3 | null = null;
-    let ironHot = 0;
     {
       const m = tmp.m;
       const heat = kit.jointHeat.array as Float32Array;
@@ -1647,12 +1823,8 @@ export default function BuildStage() {
         // Lifted between pads by how far apart they are; in before the first, out after the last.
         const hop = Math.sin(Math.PI * go) * b.hop;
         const coming = 1 - span(t, round.from - lead, round.from, reach);
-        const going = span(t, round.to + dwell, round.to + dwell + lead, fall);
-        ironTip.addScaledVector(IRON_AXIS, hop + (coming + going) * 4.4);
-        ironHot = (1 - clamp01((hop - 0.1) / 0.3)) * (1 - clamp01(coming * 8)) * (1 - clamp01(going * 8));
-        // The glint is on the pad being made; along a row it goes with the tip.
-        if (b.hop === 0) tmp.glintAt.lerpVectors(a.pos, b.pos, go);
-        else tmp.glintAt.copy(go < 0.5 ? a.pos : b.pos);
+        const leaving = span(t, round.to + dwell, round.to + dwell + lead, fall);
+        ironTip.addScaledVector(IRON_AXIS, hop + (coming + leaving) * 4.4);
       }
     }
     kit.iron.visible = !!ironTip;
@@ -1662,16 +1834,6 @@ export default function BuildStage() {
       buildFocus.on = true;
       buildFocus.size = 0.06;
       buildFocus.world.copy(ironTip).multiplyScalar(MODEL_SCALE).add(MODEL_OFFSET);
-    }
-    {
-      // The glint where the tip is on the solder: there while it touches, gone as it lifts.
-      kit.glint.visible = ironHot > 0.02;
-      if (kit.glint.visible) {
-        kit.glint.position.copy(d.pcb.localToWorld(tmp.v.copy(tmp.glintAt)));
-        kit.group.worldToLocal(kit.glint.position);
-        kit.glint.scale.setScalar(0.34 + 0.5 * ironHot);
-        (kit.glint.material as THREE.SpriteMaterial).opacity = ironHot;
-      }
     }
 
     // The encoder that went in from the wrong side (solder-4).
@@ -1710,8 +1872,15 @@ export default function BuildStage() {
       if (t < G1) {
         // Device has it on its pins inside the closed case; back from the
         // bench, it is not shown on its way there.
+        // (Apart, its pins are where Explode has put them: that far behind the board's sockets.)
         kp.visible = true;
-        kp.scale.setScalar(kp.position.distanceToSquared(DEVKIT_SEAT.position) < 1e-4 ? 100 : 1e-4);
+        kp.scale.setScalar(kp.position.distanceToSquared(tmp.v.copy(DEVKIT_SEAT.position).add(open("devkit"))) < 1e-4 ? 100 : 1e-4);
+      } else if (going) {
+        // Hanging apart behind the board: it goes as the board does.
+        kp.visible = true;
+        kp.position.copy(DEVKIT_SEAT.position).add(open("devkit"));
+        kp.quaternion.copy(DEVKIT_SEAT.quaternion);
+        kp.scale.setScalar(Math.max(1e-4, 100 * gone));
       } else if (t < F1 + 0.45) {
         // Not on the mat yet: shrunk away rather than hidden — KitFx keeps a
         // light on it, and a light going out changes every lit shader in the
@@ -1740,6 +1909,22 @@ export default function BuildStage() {
     // ── the case ────────────────────────────────────────────────────────────
     // When the bonded halves become the one-piece body (the same shape in the same place: nothing shows).
     const swapAt = P4 + 0.72;
+    // The printed parts that wait for the end of the build — the back, the
+    // two covers, the knobs — lie beside the case from the moment they are
+    // bonded. They are put away with the bench (the mat goes at firmware-1)
+    // and are back as each is wanted: lying there through first light they
+    // were white slabs cut by the frame's left edge and running under the
+    // card, at the one moment the stage should hold nothing but the device
+    // and its light. (Device does the same with its own back cover, set down
+    // for Play's first chapter.)
+    const away = 1 - span(t, F1 + 0.55, F1 + 0.95);
+    const spare = {
+      back: t < K4 ? away : span(t, K4, K4 + 0.05),
+      // (The cover lies at the edge of check-4's frame: it is back as it is picked up, not before.)
+      slider: t < K4 + 0.66 ? away : span(t, K4 + 0.66, K4 + 0.74),
+      // The lid and the knobs: for the last step.
+      late: t < K5 ? away : span(t, K5, K5 + 0.08),
+    };
     {
       // Device's body: the finished device, then gone until the halves are bonded.
       d.body.visible = finished ? true : t < G1 + 0.17 || t >= swapAt;
@@ -1750,12 +1935,16 @@ export default function BuildStage() {
 
       // The back panel: bonded at rest, then hooked in and swung shut (check-4).
       const bpMesh = d.backPlate;
+      bpMesh.castShadow = t < swapAt || spare.back > 0.5;
       if (t < G1 + 0.17) {
         bpMesh.visible = true;
         setRigid(bpMesh, places.home);
+        bpMesh.position.add(open("backPlate"));
       } else if (t < swapAt) bpMesh.visible = false;
       else {
-        bpMesh.visible = true;
+        // Lying beside the case until it is wanted — and put away with the bench in between (`spare`, above).
+        (bpMesh.material as THREE.MeshStandardMaterial).opacity = spare.back;
+        bpMesh.visible = spare.back > 0.01;
         if (t < K4) setRigid(bpMesh, places.backRest);
         else if (t < K4 + 0.32) setRigid(bpMesh, carryRigid(centres.back_plate, places.backRest, places.hingeAway, span(t, K4 + 0.06, K4 + 0.32, clamp01), 6, tmp.r));
         else if (t < K4 + 0.44) {
@@ -1785,13 +1974,15 @@ export default function BuildStage() {
       // lifted off: from P4 this one is there, in the same place.
       const sl = kit.slider;
       const slMat = sl.material as THREE.MeshStandardMaterial;
-      slMat.opacity = t < G1 + 0.17 ? caseFade : 1;
+      slMat.opacity = t < G1 + 0.17 ? caseFade : spare.slider;
+      sl.castShadow = t < G1 + 0.17 || spare.slider > 0.5;
       if (t < G1 + 0.17) {
         sl.visible = true;
         setRigid(sl, places.home);
+        sl.position.add(open("slider"));
       } else if (t < P4) sl.visible = false;
       else {
-        sl.visible = true;
+        sl.visible = spare.slider > 0.01;
         if (t < P4 + 0.56) setRigid(sl, carryRigid(centres.back_slider, places.plate.back_slider, places.sliderRest, span(t, P4 + 0.3, P4 + 0.56, clamp01), 10, tmp.r));
         else if (t < K4 + 0.68) setRigid(sl, places.sliderRest);
         else if (t < K4 + 0.86) setRigid(sl, carryRigid(centres.back_slider, places.sliderRest, places.sliderOut, span(t, K4 + 0.68, K4 + 0.86, clamp01), 6, tmp.r));
@@ -1812,12 +2003,15 @@ export default function BuildStage() {
       // case with the other covers, and slid in from the case's side at the
       // end (check-5).
       const lid = d.topLid;
+      lid.castShadow = t < P4 || spare.late > 0.5;
       if (t < G1 + 0.17) {
         lid.visible = true;
         setRigid(lid, places.home);
+        lid.position.add(open("lid"));
       } else if (t < P4) lid.visible = false;
       else {
-        lid.visible = true;
+        (lid.material as THREE.MeshStandardMaterial).opacity = spare.late;
+        lid.visible = spare.late > 0.01;
         if (t < P4 + 0.62) setRigid(lid, carryRigid(centres.top_lid, places.plate.top_lid, places.lidRest, span(t, P4 + 0.38, P4 + 0.62, clamp01), 9, tmp.r));
         else if (t < K5) setRigid(lid, places.lidRest);
         else if (t < K5 + 0.32) setRigid(lid, carryRigid(centres.top_lid, places.lidRest, places.lidApproach, span(t, K5 + 0.12, K5 + 0.32, clamp01), 5, tmp.r));
@@ -1835,6 +2029,9 @@ export default function BuildStage() {
       const platesOn = t >= P2 && t < P4 + 0.92;
       const plateFade = span(t, P2, P2 + 0.05) * (1 - span(t, P4 + 0.72, P4 + 0.92));
       (kit.plates[0].slab.material as THREE.MeshStandardMaterial).opacity = plateFade;
+      kit.plateGround.visible = platesOn;
+      kit.plateGroundMat.opacity = plateFade;
+      kit.plateShadeMat.opacity = 0.6 * plateFade;
       kit.plates.forEach((pl, i) => {
         const p = i + 1;
         pl.group.visible = platesOn && (p < 4 || t >= P3);
@@ -1938,9 +2135,10 @@ export default function BuildStage() {
     d.knobs.forEach((k, i) => {
       const home = d.knobHome[i];
       const mat = d.knobMats[i] as THREE.MeshStandardMaterial;
-      mat.opacity = t < G1 + 0.17 ? caseFade : 1;
       const onAt = K5 + 0.52 + i * 0.09;
       const doneAt = onAt + 0.2;
+      // With the case at the opening; put away with the bench while they wait on the floor (`spare`).
+      mat.opacity = t < G1 + 0.17 ? caseFade : t < doneAt ? spare.late : 1;
       if (finished || t >= doneAt) {
         // Device's: home, turning and pressing as the encoder does.
         if (!d.released[i]) {
@@ -1955,10 +2153,11 @@ export default function BuildStage() {
       d.released[i] = false;
       let shown = true;
       if (t < G1 + 0.17) {
-        // Fading with the case.
+        // Fading with the case, where the opening has it.
         k.position.copy(home.p);
+        k.position.z += open("knobs").z;
         k.quaternion.copy(home.q);
-      } else if (t < P4) shown = false;
+      } else if (t < P4 || spare.late < 0.01) shown = false;
       else {
         const plateP = tmp.a;
         plateCorner(4, plateP.p).add(V(KNOB_PLATE_XZ[i][0], 2, KNOB_PLATE_XZ[i][1]));
@@ -2022,7 +2221,7 @@ export default function BuildStage() {
       let scale = 1;
       let alpha = 1;
       if (t < G1 + 0.17) {
-        pg.position.copy(PANEL_CENTRE);
+        pg.position.copy(PANEL_CENTRE).add(open("panel"));
         pg.quaternion.identity();
         alpha = caseFade;
       } else if (t < C1) {
@@ -2121,6 +2320,7 @@ export default function BuildStage() {
           }
         }
         if (!finished && t >= G1 && t < ARRIVE2.screws) scale = 0;
+        if (!shut) scale = 0;
         m.compose(p.p, p.q, tmp.s.setScalar(scale));
         kit.screws.setMatrixAt(k, m);
         kit.screwSlots.setMatrixAt(k, m);
@@ -2151,6 +2351,7 @@ export default function BuildStage() {
           if (finished) {
             tmp.a.p.set(ax.x, ax.y, seatZ);
             tmp.a.q.copy(upZ);
+            if (!shut) scale = 0;
           } else if (t < lift0) {
             const dr = drop(t, ARRIVE[`SW${k + 1}` as PartName] + 0.03 + which * 0.02, 0.09);
             scale = dr.on ? dr.scale : 0;
@@ -2240,7 +2441,7 @@ export default function BuildStage() {
         buildFocus.size = 1.2;
         buildFocus.world.copy(b.position).multiplyScalar(MODEL_SCALE).add(MODEL_OFFSET);
       }
-      b.visible = on;
+      b.visible = on && shut;
       b.scale.setScalar(scale);
       kit.bankLed.visible = plugIn && sim.snapshot().mode !== "off";
 
@@ -2271,7 +2472,7 @@ export default function BuildStage() {
         kit.plug.position.copy(plugPos);
         kit.plug.quaternion.identity();
         kit.plug.scale.setScalar(1);
-        kit.plug.visible = true;
+        kit.plug.visible = shut;
       } else {
         kit.plug.position.copy(USB_PLUG_BENCH).setY(USB_PLUG_BENCH.y + coilDrop.fall * 2);
         kit.plug.quaternion.copy(PLUG_FLAT);
@@ -2330,7 +2531,7 @@ export default function BuildStage() {
       const holeAt = toHole / Math.max(1e-6, whole);
       const grow = finished ? 1 : holeAt * span(t, C3 + 0.06, C3 + 0.2, clamp01) + (1 - holeAt) * span(t, C3 + 0.2, C3 + 0.38, smooth);
       if (cableOn && grow > 0 && !usbStill) kit.usb.update(kit.usbPath, grow);
-      kit.usb.mesh.visible = cableOn && grow > 0;
+      kit.usb.mesh.visible = cableOn && grow > 0 && shut;
       // Red to +5V, black to GND: fanned out of the jacket while they wait, then into J4's entries.
       const wireGrow = finished ? 1 : span(t, C3 + 0.37, C3 + 0.42, clamp01);
       // The two wires spring apart as they come out of the jacket.
@@ -2347,7 +2548,7 @@ export default function BuildStage() {
           path.touch();
           if (cableOn && wireGrow > 0) kit.j4Wires[w].update(path, wireGrow);
         }
-        kit.j4Wires[w].mesh.visible = cableOn && wireGrow > 0;
+        kit.j4Wires[w].mesh.visible = cableOn && wireGrow > 0 && shut;
       });
       // The coil it came as, on the mat.
       kit.coils.usb.visible = !finished && coilDrop.on && t < C3 + 0.08;
@@ -2408,7 +2609,7 @@ export default function BuildStage() {
       }
       kit.ribbonFlex.bend(endJ1, fold, endIn, sag);
       kit.ribbonPlugs.forEach((rp, i) => rp.mesh.position.copy(rp.home).add(kit.ribbonFlex.ends[i]));
-      rb.visible = rOn;
+      rb.visible = rOn && shut;
       rb.quaternion.copy(rq);
       rb.scale.setScalar(rs);
       // Turned and scaled about its own middle.
@@ -2426,7 +2627,7 @@ export default function BuildStage() {
       if (finished || t >= W2 + 0.26) {
         pp.position.copy(seat);
         pp.quaternion.identity();
-        pp.visible = true;
+        pp.visible = shut;
       } else if (t < W2 + 0.02) {
         pp.visible = t >= G1 && pc.on;
         pp.position.copy(plugBench).setY(MAT_TOP + 0.9 * pc.scale + pc.fall * 2.5);
@@ -2488,7 +2689,7 @@ export default function BuildStage() {
           kit.powerPaths[w].touch();
           if (pwrOn) kit.powerWires[w].update(kit.powerPaths[w], tail);
         }
-        kit.powerWires[w].mesh.visible = pwrOn && tail > 0;
+        kit.powerWires[w].mesh.visible = pwrOn && tail > 0 && shut;
       });
       kit.coils.power.visible = !finished && pc.on && t < W2 + 0.1;
       kit.coils.power.scale.setScalar(pc.scale * (1 - span(t, W2 + 0.02, W2 + 0.1)) + 0.001);
@@ -2503,7 +2704,13 @@ export default function BuildStage() {
       pos.setXYZ(0, j3Plus.x, j3Plus.y, j3Plus.z - 0.9);
       pos.setXYZ(1, j4Plus.x, j4Plus.y, j4Plus.z - 0.9);
       pos.needsUpdate = true;
-      kit.dash.computeLineDistances();
+      // The dashes' distances along it, written in place. (computeLineDistances
+      // makes a new attribute every call, and three a new buffer for each one
+      // it draws — one a frame for as long as the line was on screen, and one
+      // more on every visit, none of them ever let go.)
+      const along = kit.dash.geometry.getAttribute("lineDistance") as THREE.BufferAttribute;
+      along.setX(1, Math.hypot(j4Plus.x - j3Plus.x, j4Plus.y - j3Plus.y, j4Plus.z - j3Plus.z));
+      along.needsUpdate = true;
       const lm = kit.dash.material as THREE.LineDashedMaterial;
       lm.opacity += ((plusOn ? 1 : 0) - lm.opacity) * Math.min(1, dt * 6);
       kit.dash.visible = lm.opacity > 0.01;
@@ -2646,6 +2853,15 @@ const PLUG_FLAT = qx(-Math.PI / 2);
 /** While the power pair's free ends are brought over: this far behind (the case's back is at z −1.9), and this much above where each point will lie (the ends: above J3's entries, to go down into them). */
 const POWER_CARRY_Z = -2.7;
 const POWER_RISE = [0, 0, 0, 0, 0.3, 1.2, 1.2] as const;
+
+/** For building the cut materials' shaders ahead of their first draw (warmStep): nothing to draw, and a plane that cuts none of it. */
+const NOTHING = new THREE.Scene();
+const UNCUT = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
+
+/** The mat the four print plates stand on: its middle (the plates' own, layout.ts) and its size, a few centimetres more than the plates all round. */
+const PLATES_GROUND = { x: 0, z: -48, w: 66, d: 64 } as const;
+/** How far out from a plate's edge its shade on that mat reaches. */
+const PLATE_SHADE = 3.2;
 
 // How far the plug is out of the bank, shown (check-3's power cycle eases it).
 const plugTrack = { current: { out: 0 } };

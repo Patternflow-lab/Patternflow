@@ -16,7 +16,7 @@
   --g-ink-3: rgba(239, 233, 221, 0.52);
   --g-hair: rgba(239, 233, 221, 0.1);
   --g-hair-2: rgba(239, 233, 221, 0.18);
-  --g-card: rgba(20, 18, 16, 0.62);
+  --g-card: rgba(20, 18, 16, 0.72);
   /* The accent is the panel's light. It starts as the LED orange, and while a
      pattern plays the page follows its colour (ui/panelTint.ts writes
      --g-led-rgb here, eased, fenced so it always reads on the dark and under
@@ -670,6 +670,16 @@
 .scene {
   position: relative;
 }
+/* A guide entered from another page of the guide (ui/Later): the blocks
+   below its first screen are not laid out until they are near the screen or
+   their turn has come — a moment after the words, a block at a time. All of
+   them at once was a long frame in the middle of the stage's move. A block
+   keeps its height while it waits (its min-height); the mark is taken off
+   every one within a second or two, and the page is then as it always was. */
+.chapterHead[data-wait],
+.step[data-wait] {
+  content-visibility: auto;
+}
 
 /* opening */
 .opening {
@@ -1008,8 +1018,12 @@
   border-radius: 18px;
   background: var(--g-card);
   border: 1px solid var(--g-hair);
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  /* Smoked glass: what passes behind the card — a knob, the DevKit, the
+     stream of patterns — is a soft shape of light under the words, never a
+     second thing to read. Written once, unprefixed: with a -webkit- line
+     beside it the build kept only that one, which Chrome and Firefox do not
+     read, and the glass was clear — every prop sharp behind the small type. */
+  backdrop-filter: blur(22px) saturate(120%);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
   position: relative;
   transition:
@@ -1527,6 +1541,32 @@
   image-rendering: pixelated;
   background: #000;
 }
+/* Make with no desk (a phone, a small window): four of the pack's patterns
+   playing at the head of the page, as a row of panels — the page's light,
+   where there is no stage to give one. */
+.band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 28px;
+}
+.band canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 4px;
+  image-rendering: pixelated;
+  background: #000;
+  box-shadow:
+    0 0 0 1px var(--g-hair),
+    0 10px 30px -12px rgba(0, 0, 0, 0.8);
+}
+@media (max-width: 560px) {
+  .band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 22px;
+  }
+}
 .deckMeta {
   display: flex;
   justify-content: center;
@@ -1741,8 +1781,11 @@
     width: 100%;
     padding: 20px 20px 18px;
     /* Over the stage here, not beside it: the DevKit's white cable hangs
-       down behind the card, and at 0.86 it was a pale bar through the words. */
+       down behind the card, and at 0.86 it was a pale bar through the words.
+       All but opaque, so there is nothing for the glass to blur: a phone is
+       spared the pass. */
     background: rgba(18, 16, 14, 0.95);
+    backdrop-filter: none;
   }
   /* The panel is above the card here: its light comes down onto the top edge. */
   .step[data-on="1"] .card {

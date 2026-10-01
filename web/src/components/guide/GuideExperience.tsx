@@ -2,12 +2,12 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import styles from "./Guide.module.css";
 import { COPY, type StepCopy } from "./copy";
 import { sceneById } from "./scenes";
 import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
-import Extras from "./Extras";
+import Extras, { LiveThumbs } from "./Extras";
 import { hereFor, reportUrl } from "./report";
 import { PAGES, type PageChapter } from "./pages";
 import { scriptMismatches } from "./checks";
@@ -16,6 +16,7 @@ import DeskCue from "./desk/DeskCue";
 import { beatIndex, beatSeconds } from "./stage/build/beats";
 import GuideLink from "./world/GuideLink";
 import { useGuidePage } from "./world/usePage";
+import Later, { arrived, arrivedByHistory, whenQuiet } from "./ui/Later";
 import Preloader from "./ui/Preloader";
 import Words from "./ui/Words";
 import { usePanelTint } from "./ui/panelTint";
@@ -51,10 +52,23 @@ import { useStepKeys } from "./ui/useStepKeys";
 // step [data-seen]). The chapter rail's marker travels (ChapterRail), and a
 // card says where it is in its chapter (StepMarks). → and ←, or J and K, go
 // stop by stop (ui/useStepKeys). The page's accent follows the colour on the
-// panel (ui/panelTint), and the first visit opens under a cover that counts
-// the stage in (ui/Preloader).
+// panel (ui/panelTint), and on a first visit a small counter stands where the
+// device will while the stage loads (ui/Preloader); the words do not wait.
+//
+// Entered from another page of the guide, the page's words are mounted first
+// and what its cards hold besides them — the flasher's screens, the consoles,
+// the parts lists — a moment later, a card at a time (ui/Later): all of it at
+// once was a long frame in the middle of the stage's move.
 
 const DeskStage = dynamic(() => import("./desk/DeskStage"), { ssr: false });
+
+// Make with no desk (a phone, a small window) has no stage at all: its first
+// screen was a card of words in an empty dark room. Four of the pack's
+// patterns play at its head there — what the guide is about, and the page's
+// one light (Extras.tsx LiveThumbs; never made on a screen with the desk).
+const MAKE_BAND = ["0510", "0513", "0518", "0520"];
+
+const noSubscription = () => () => {};
 
 function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
   useEffect(() => {
@@ -73,7 +87,16 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
       scenes.forEach((scene) => {
         const r = scene.getBoundingClientRect();
         const p = Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height)));
-        scene.style.setProperty("--p", p.toFixed(4));
+        // How far through the chapter the reader is, for the chapter's number
+        // (it drifts, Guide.module.css .chapterNum). Written on the chapter's
+        // head, which holds the number, and only when it has moved: a custom
+        // property is inherited, and on the whole chapter it had the browser
+        // work out the style of every card in it again, each frame of a scroll.
+        const head = scene.firstElementChild as HTMLElement | null;
+        if (head?.tagName === "HEADER") {
+          const value = p.toFixed(4);
+          if (head.style.getPropertyValue("--p") !== value) head.style.setProperty("--p", value);
+        }
         if (r.top <= mid && r.bottom > mid) {
           chosenScene = scene.dataset.scene ?? "opening";
           chosenProgress = p;
@@ -190,6 +213,7 @@ function Step({
   total,
   chapter,
   lang,
+  late,
 }: {
   page: GuidePageId;
   scene: string;
@@ -199,6 +223,8 @@ function Step({
   /** "Play · 01 Flash": the guide, then the chapter — every guide has an 01. */
   chapter: string;
   lang: GuideLang;
+  /** The card's extra comes in after its words (ui/Later). */
+  late: boolean;
 }) {
   // A step the reader has to watch loop (BOOT and RST) gets a longer block,
   // and its card holds still inside it (Guide.module.css, .step[data-dwell]).
@@ -217,6 +243,7 @@ function Step({
       className={styles.step}
       data-step={index}
       data-on="0"
+      data-wait={late ? "" : undefined}
       data-dwell={dwell ? "1" : undefined}
       style={dwell ? ({ "--dwell": dwell } as React.CSSProperties) : undefined}
     >
@@ -240,7 +267,11 @@ function Step({
         ))}
         {copy.warn && <p className={styles.warn}>{copy.warn}</p>}
         {page === "make" && <DeskCue scene={scene} index={index} lang={lang} />}
-        {copy.extra && <Extras kind={copy.extra} lang={lang} step={index} />}
+        {copy.extra && (
+          <Later late={late}>
+            <Extras kind={copy.extra} lang={lang} step={index} />
+          </Later>
+        )}
         {copy.note && (
           <aside className={styles.note}>
             <span className={styles.noteBy}>{ui.noteBy}</span>
@@ -264,17 +295,19 @@ function Chapter({
   guide,
   chapter: { id, label, copy },
   lang,
+  late,
 }: {
   page: GuidePageId;
   /** The guide's name ("Play"), for the "Stuck here?" issues. */
   guide: string;
   chapter: PageChapter;
   lang: GuideLang;
+  late: boolean;
 }) {
   const chapter = `${guide} · ${copy.num} ${label}`;
   return (
     <section className={styles.scene} data-scene={id} id={id}>
-      <header className={styles.chapterHead} data-leaves="" data-reveal="">
+      <header className={styles.chapterHead} data-leaves="" data-reveal="" data-wait={late ? "" : undefined}>
         <RollNum num={copy.num} />
         <h2 className={styles.chapterTitle} data-reveal-at="">
           <Words text={copy.title} />
@@ -284,7 +317,7 @@ function Chapter({
         </p>
       </header>
       {copy.steps.map((step, i) => (
-        <Step key={i} page={page} scene={id} copy={step} index={i} total={copy.steps.length} chapter={chapter} lang={lang} />
+        <Step key={i} page={page} scene={id} copy={step} index={i} total={copy.steps.length} chapter={chapter} lang={lang} late={late} />
       ))}
     </section>
   );
@@ -360,6 +393,32 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
   const root = useRef<HTMLDivElement>(null);
   const deskFits = useDeskFits();
 
+  // Reached from another page of the guide, at its top: the cards' extras
+  // come in after the words (ui/Later). Decided once, as the page mounts —
+  // the store still names the page the reader came from. A page being taken
+  // up from the server's markup, the same guide in its other language (the
+  // reader lands mid-page) and a page reached through the history are whole
+  // from the start.
+  const hydrating = useSyncExternalStore(
+    noSubscription,
+    () => false,
+    () => true,
+  );
+  const [late] = useState(() => {
+    if (hydrating) return false;
+    const s = useGuideStore.getState();
+    return s.entered && s.page !== page && !arrivedByHistory();
+  });
+  // …and the blocks below the first screen are laid out after them, each in
+  // its turn (they are marked [data-wait] as they mount; this takes the mark
+  // off, a block at a time, after the extras above have had theirs).
+  useEffect(() => arrived(), []);
+  useEffect(() => {
+    if (!late) return;
+    const waiting = Array.from(root.current?.querySelectorAll<HTMLElement>("[data-wait]") ?? []);
+    const forget = waiting.map((el) => whenQuiet(() => el.removeAttribute("data-wait")));
+    return () => forget.forEach((f) => f());
+  }, [late]);
   // The stage plays this page's script, from its top: said before the browser
   // paints the page, and before the tracker below says where the reader is.
   // The board is the same one on every page (store.ts getSim); the Director
@@ -402,6 +461,11 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
       <main className={styles.story}>
         <section className={`${styles.scene} ${styles.opening}`} data-scene="opening" id="top">
           <article className={styles.openingInner} data-step={0} data-on="1" data-leaves="">
+            {page === "make" && (
+              <div className={styles.offDesk}>
+                <LiveThumbs slugs={MAKE_BAND} variant="band" />
+              </div>
+            )}
             <p className={styles.openingKicker}>{opening.kicker}</p>
             <h1 className={`${styles.openingTitle} ${styles.wordsNow}`}>
               <Words text={opening.title} />
@@ -433,7 +497,7 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
         </section>
 
         {chapters.map((c) => (
-          <Chapter key={c.id} page={page} guide={name} chapter={c} lang={lang} />
+          <Chapter key={c.id} page={page} guide={name} chapter={c} lang={lang} late={late} />
         ))}
 
         <section className={`${styles.scene} ${styles.next}`} data-scene="next" id="next">

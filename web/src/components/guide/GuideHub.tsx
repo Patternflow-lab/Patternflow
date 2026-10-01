@@ -109,7 +109,7 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
   useEffect(() => () => useGuideStore.setState({ preview: null }), []);
 
   return (
-    <div className={`${styles.page} ${hub.page}`} lang={lang} ref={root}>
+    <div className={`${styles.page} ${hub.page}`} lang={lang} ref={root} data-page="hub">
       {/* The first visit's cover, while the stage loads (ui/Preloader). */}
       <Preloader />
       <header className={`${styles.top} ${hub.top}`}>

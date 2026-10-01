@@ -7,7 +7,9 @@ import { smoothDamp, type Damp } from "./damp";
 import { EXPLODE_WHOLE, explodeState, explodeWanted, partOffset } from "./explodeParts";
 import { KNOB_MESH_TO_LOGICAL } from "./geometry";
 import { PCB_PLACEMENT } from "./parts";
+import { OPENING_GONE, OPENING_UNSEEN } from "./build/beats";
 import { useGuideStore } from "../store";
+import { buildClock } from "../timing";
 
 // The device coming apart and going back together (explodeParts.ts has what moves
 // where; this puts it on the device's objects).
@@ -17,8 +19,21 @@ import { useGuideStore } from "../store";
 // those it adds its displacement; the parts Device leaves alone (the panel,
 // the lid, the board, the back plate) it places outright, from their homes.
 // When the amount is back at 0 every part is written home once, exactly, and
-// this does nothing more — which is when the Build stage, if it is waiting,
-// takes the device over (BuildStage reads explodeState).
+// this does nothing more.
+//
+// The Build guide opens on the device still apart (explodeParts.ts
+// explodeWanted), and its stage takes the device over as it hangs there:
+// BuildStage reads explodeState and draws its opening by the same amount, so
+// nothing changes on screen when it does. From there the amount is no longer
+// only a spring toward what is asked:
+//   - scrolled into the build, the opening's device goes as the bench comes
+//     up (the first sixth of gather-1). It goes where it hangs: the amount is
+//     held, not run home — closing it up just to dissolve it was the hub's
+//     promise undone a second time;
+//   - once it is gone (beats.ts OPENING_GONE) the amount is 0 at once — the
+//     build's own parts are on stage, and they are BuildStage's to place —
+//     except on the way back up to the opening, where it is 1 again before
+//     the device fades back in.
 //
 // Nothing here turns the panel off: taken apart, the back cover is off its
 // rails and the DevKit off its pins, and KitFx keeps a device in that state
@@ -26,8 +41,8 @@ import { useGuideStore } from "../store";
 
 /**
  * How quickly the amount follows, seconds (damp.ts): apart, back together,
- * and back together in a hurry — the reader has chosen Build and is already
- * scrolling into it, where the Build stage is waiting for a whole device.
+ * and back together in a hurry — a guide other than Build's opening is
+ * already on screen and wants the device whole.
  */
 const OUT_S = 0.42;
 const HOME_S = 0.4;
@@ -91,12 +106,25 @@ export default function Explode() {
     if (want === 0 && s.e === 0) return;
     const dt = Math.min(rawDt, 1 / 20);
     const { page, scene } = useGuideStore.getState();
-    const hurry = page !== "hub" && scene !== "opening";
-    let e = smoothDamp(s.e, want, s.vel, want ? OUT_S : hurry ? HURRY_S : HOME_S, dt);
-    if (want === 0 && e < EXPLODE_WHOLE) {
-      e = 0;
+    const t = buildClock.t;
+    let e: number;
+    if (t >= OPENING_GONE) {
+      // The build is under way and the opening's device is not on stage: whole,
+      // or — on the way back up to the opening, while it still cannot be seen — apart again.
+      e = want && t < OPENING_UNSEEN ? 1 : 0;
       s.vel.v = 0;
-    } else if (want === 1 && e > 1 - EXPLODE_WHOLE) e = 1;
+    } else if (!want && page === "build" && t >= 0) {
+      // Scrolled into the build: the opening's device goes where it hangs.
+      e = s.e;
+      s.vel.v = 0;
+    } else {
+      const hurry = page !== "hub" && scene !== "opening";
+      e = smoothDamp(s.e, want, s.vel, want ? OUT_S : hurry ? HURRY_S : HOME_S, dt);
+      if (want === 0 && e < EXPLODE_WHOLE) {
+        e = 0;
+        s.vel.v = 0;
+      } else if (want === 1 && e > 1 - EXPLODE_WHOLE) e = 1;
+    }
     const r = (rig.current ??= find(world));
     if (!r) {
       // The device has not loaded yet: nothing has moved.

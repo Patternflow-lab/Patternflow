@@ -84,7 +84,8 @@ export const BUILD_STEPS: Record<BuildBeat, Step> = {
   "check-1": { build: "check-1", view: "knobs", ...lit, esp: 0, labels: true, demo: turnAndClick, period: 5600 },
   "check-2": { build: "check-2", view: "screenKnobs", ...lit, esp: 0, labels: true, demo: longPresses, period: 17800 },
   "check-3": { build: "check-3", view: "front", ...lit, esp: 0, demo: [{ at: 700, mode: "off" }, { at: 2300, mode: "run" }], period: 5200 },
-  "check-4": { build: "check-4", view: "caseBack", ...lit, esp: 0 },
+  // From behind, round to the knob side and low: along the back's face as it shuts (views.ts backShut).
+  "check-4": { build: "check-4", view: "backShut", ...lit, esp: 0 },
   "check-5": { build: "check-5", view: "finish", ...lit, esp: 0 },
   next: { build: "next", view: "hero", spin: 0.18, ...lit, esp: 0 },
 };

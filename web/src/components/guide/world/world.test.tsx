@@ -4,6 +4,7 @@ import { DeviceSim } from "@/lib/guide/deviceSim";
 import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { knobIsTurned, turnBackNow, turnOn } from "../hubKnob";
 import { GUIDE_ORDER, pagePath, placeAnchor, screenAt } from "../pages";
+import { at, OPENING_GONE, OPENING_UNSEEN } from "../stage/build/beats";
 import { EXPLODE, EXPLODE_PARTS, explodeWanted, partAmount, partOffset } from "../stage/explodeParts";
 import { getSim, useGuideStore, type GuideScreen } from "../store";
 import { buildClock } from "../timing";
@@ -246,7 +247,7 @@ describe("the device coming apart", () => {
     expect(partAmount("slider", 0.1)).toBeGreaterThan(0);
   });
 
-  it("is asked for only by the hub with Build pointed at, and not while the Build stage still has the device", () => {
+  it("is asked for by the hub with Build pointed at, and not while the Build stage is still showing the build", () => {
     const s = useGuideStore.getState();
     s.enterPage("hub", "en");
     expect(explodeWanted()).toBe(false);
@@ -257,12 +258,44 @@ describe("the device coming apart", () => {
     // The Build stage is still winding the build back on this canvas.
     buildClock.t = 3.2;
     expect(explodeWanted()).toBe(false);
+    // Back at its opening it draws the device apart as well as whole.
+    buildClock.t = 0.4;
+    expect(explodeWanted()).toBe(true);
     buildClock.t = -1;
-    // Chosen: it stays apart until the guide arrives, then settles.
+  });
+
+  it("stays apart when Build is chosen, through the guide's opening, until the reader scrolls into the build", () => {
+    // Pointing at Build took the device apart; choosing it must not put it
+    // back together (it did: Build opened on a whole, dark device).
+    const s = useGuideStore.getState();
+    s.enterPage("hub", "en");
+    s.setPreview("build");
     s.leaveFor("build");
     expect(explodeWanted()).toBe(true);
     s.enterPage("build", "en");
+    expect(explodeWanted()).toBe(true);
+    // The Build stage taking the device over changes nothing.
+    buildClock.t = 0.5;
+    expect(explodeWanted()).toBe(true);
+    // Into the first chapter: the camera is the bench's (the parts go where they hang: Explode).
+    s.setScroll("gather", 0, 0);
     expect(explodeWanted()).toBe(false);
+    // Back up at the top, and at the top of Build opened cold.
+    s.setScroll("opening", 0, 0);
+    expect(explodeWanted()).toBe(true);
+    buildClock.t = -1;
+    expect(explodeWanted()).toBe(true);
+    // The other guides open on a whole device.
+    s.enterPage("play", "en");
+    expect(explodeWanted()).toBe(false);
+  });
+
+  it("keeps the opening's device on the first sixth of the build's first beat only", () => {
+    expect(OPENING_GONE).toBeGreaterThan(at("gather-1"));
+    expect(OPENING_GONE).toBeLessThan(at("gather-1", 0.24));
+    // Put apart again, unseen, only while nothing that comes apart is on stage.
+    expect(OPENING_UNSEEN).toBeGreaterThan(OPENING_GONE);
+    expect(OPENING_UNSEEN).toBeLessThanOrEqual(at("print-4"));
   });
 });
 

@@ -283,6 +283,19 @@
     padding-top: 38vh;
     padding-bottom: 18px;
   }
+  /* The floor ends above the choices here too. Wide, the canvas is masked
+     (Guide.module.css [data-foot]); here the room's dark rises behind the
+     words instead — no mask for a phone to draw the stage through. Without
+     it the kicker, set in the panel's colour, stood on the floor's
+     reflection of that same colour. */
+  .inner::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -48px calc(-1 * var(--hub-side)) -18px;
+    pointer-events: none;
+    background: linear-gradient(rgba(10, 9, 8, 0), rgba(10, 9, 8, 0.6) 30px, rgba(10, 9, 8, 0.9) 48px, var(--g-ground) 84px);
+  }
   /* Nothing hovers on a phone: each way in shows it is one. */
   .arrow {
     color: var(--g-ink-3);

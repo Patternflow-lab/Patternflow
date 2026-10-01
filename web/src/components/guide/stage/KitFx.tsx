@@ -12,6 +12,7 @@ import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import { bootPhase, kitState, RST_PULSE, rstPulseDown } from "../timing";
 import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { stageAccent } from "./look/accent";
 import { DEVKIT_PRESENT, DEVKIT_SEAT, KIT, M_TO_MODEL } from "./parts";
 import { NO_POINTER, pillSize, placeTag, screenY, type TagSide } from "./tags";
 
@@ -409,10 +410,13 @@ export default function KitFx({ boot, rst }: Props) {
     // The DevKit's own light, up while it is held up in front.
     light.intensity += ((presented ? KIT_LIGHT : 0) - light.intensity) * Math.min(1, dt * 3);
 
+    // The Wi-Fi's arcs are the page's sign, as the device's own are (Fx.tsx): in the page's accent.
+    const accent = stageAccent();
     waves.forEach((w, i) => {
       const phase = (((t * 0.7 + i / 3) % 1) + 1) % 1;
       w.scale.setScalar(1 + phase * 1.9);
       const mat = w.material as THREE.MeshBasicMaterial;
+      mat.color.copy(accent);
       const target = s.wifi === "esp" ? (1 - phase) * 0.9 * here : 0;
       mat.opacity += (target - mat.opacity) * Math.min(1, dt * (s.wifi === "esp" ? 6 : 10));
       w.visible = mat.opacity > 0.01;

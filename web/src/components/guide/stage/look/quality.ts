@@ -15,6 +15,8 @@ import { useSyncExternalStore } from "react";
 //   2  no occlusion, no multisampling (an edge filter instead), one canvas
 //      pixel per CSS pixel, a smaller shadow map
 //
+// (A phone's three are its own — settingsFor.)
+//
 // The bloom, the tone curve, the panel's own light and the materials stay at
 // every tier: they are what the stage looks like, and cost little.
 //
@@ -93,11 +95,20 @@ export type Settings = {
   shadow: number;
 };
 
-/** What a tier draws. A narrow screen (a phone) never had multisampling or occlusion: its pixels are small and its GPU is not. */
+/**
+ * What a tier draws. A narrow screen (a phone) has no occlusion and no depth
+ * of field: its pixels are small and its GPU is not. It does have its edges
+ * smoothed at every tier — it used to have nothing at the two it lands on,
+ * drawn at 1.5 canvas pixels to a 3× screen's 3, and the seam along the
+ * case's foot came out as a row of dashes. Multisampling at the first (two
+ * samples: a phone's tiled GPU resolves them almost for nothing) and an edge
+ * filter after it; never both — the filter is a pass of its own, and under
+ * multisampling a second pass is the resolve that fails (StagePost).
+ */
 export function settingsFor(t: Tier, narrow: boolean): Settings {
   if (narrow) {
-    if (t === 0) return { dpr: 1.5, msaa: 0, fxaa: false, ao: false, dof: false, shadow: 2048 };
-    if (t === 1) return { dpr: 1.25, msaa: 0, fxaa: false, ao: false, dof: false, shadow: 1024 };
+    if (t === 0) return { dpr: 2, msaa: 2, fxaa: false, ao: false, dof: false, shadow: 2048 };
+    if (t === 1) return { dpr: 1.5, msaa: 0, fxaa: true, ao: false, dof: false, shadow: 1024 };
     return { dpr: 1, msaa: 0, fxaa: true, ao: false, dof: false, shadow: 1024 };
   }
   if (t === 0) return { dpr: 2, msaa: 4, fxaa: false, ao: "medium", dof: true, shadow: 2048 };

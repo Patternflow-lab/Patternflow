@@ -479,15 +479,19 @@ export function usbPlug() {
   return { shell, boot };
 }
 
-/** A soldering iron: tip at the origin, the iron running up +y. */
+/**
+ * A soldering iron: tip at the origin, the iron running up +y. Three turned
+ * parts, each a lathe profile (radius, height): the plated tip, a cone a
+ * hair blunt on its shank; the heater's steel barrel, with the collar that
+ * holds the tip and the nut that holds the barrel; and the handle — a guard
+ * ahead of the fingers, a waist for them, a rounded end.
+ */
 export function iron() {
-  const tip = new THREE.CylinderGeometry(0.03, 0.12, 0.9, 12);
-  tip.translate(0, 0.45, 0);
-  const barrel = new THREE.CylinderGeometry(0.2, 0.2, 2.6, 16);
-  barrel.translate(0, 0.9 + 1.3, 0);
-  const grip = new THREE.CylinderGeometry(0.42, 0.36, 4.6, 20);
-  grip.translate(0, 3.5 + 2.3, 0);
-  return { metal: mergeGeometries([tip, barrel]), grip };
+  const lathe = (profile: [number, number][], segments: number) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), segments);
+  const tip = lathe([[0, 0], [0.026, 0.014], [0.082, 0.62], [0.082, 0.96]], 20);
+  const barrel = lathe([[0.082, 0.96], [0.15, 0.96], [0.15, 1.14], [0.112, 1.16], [0.112, 2.96], [0.2, 2.98], [0.2, 3.32], [0.12, 3.34]], 24);
+  const grip = lathe([[0.12, 3.34], [0.3, 3.34], [0.37, 3.46], [0.37, 3.62], [0.27, 3.9], [0.245, 5.2], [0.3, 6.5], [0.3, 7.7], [0.24, 7.96], [0, 8.02]], 28);
+  return { tip, barrel, grip };
 }
 
 /** The PCB holder: two posts with jaws, gripping the board's short edges. */
@@ -512,6 +516,33 @@ export function plate() {
   const g = new RoundedBoxGeometry(PLATE_SIZE, 0.12, PLATE_SIZE, 2, 0.05);
   g.translate(PLATE_SIZE / 2, -0.066, -PLATE_SIZE / 2);
   return g;
+}
+
+/**
+ * The shade a print plate keeps round its foot, as an alpha map for a square
+ * of ground `margin` wider than the plate all round: close and dark under
+ * the plate's edge, gone a few centimetres out.
+ */
+export function plateShade(margin: number) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, 128, 128);
+    const px = 128 / (PLATE_SIZE + margin * 2);
+    // Twice: a wide soft one, and a tight one where the plate meets the mat.
+    for (const [blur, a] of [
+      [margin * px * 0.8, 0.5],
+      [margin * px * 0.28, 0.8],
+    ]) {
+      ctx.shadowColor = `rgba(255,255,255,${a})`;
+      ctx.shadowBlur = blur;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(margin * px, margin * px, PLATE_SIZE * px, PLATE_SIZE * px);
+    }
+  }
+  return new THREE.CanvasTexture(c);
 }
 
 /**
@@ -574,7 +605,7 @@ export function tapeStrip(length: number) {
   return new THREE.BoxGeometry(0.9, length, 0.02);
 }
 
-/** A soft round glow for sprites (a solder joint's glint). */
+/** A soft round glow for sprites (a print's nozzle). */
 export function glowTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 64;

@@ -70,6 +70,13 @@ export const BUILD_VIEWS = {
   screwsBack: look([-1.2, 16.3, -0.6], [0.34, 0.3, -1], box([-12.6, 0.4, -3.6], [9.4, 32.4, 0.4]), 0.96, 1.6),
   // The whole case from behind (looking +z), a little from the knob side and above.
   caseBack: look([-0.4, 16, -1], [0.3, 0.42, -1], box([-12.6, 0, -9], [12.4, 32.6, 1.6]), 0.94, 2),
+  // Closing the back (check-4): from behind, well round to the knob side and
+  // low. Square on and from above (caseBack) the shut back was a blank slab
+  // under flat light — nothing of the edge that hooks in, of the cover on its
+  // rails or of the print. From here the back is seen along its face: the
+  // panel swings shut toward the camera, the cover slides in along the near
+  // edge, and the light rakes across both.
+  backShut: look([-0.6, 15.6, -1.6], [0.74, 0.17, -1], box([-12.6, 0, -9], [12.4, 32.6, 1.6]), 0.94, 2),
   // The board bay from behind and the knob side, with room for the board
   // hovering 7 units behind it (case-3, case-4) and the cable coming out.
   caseBackClose: look([7.4, 22.4, -3.6], [0.75, 0.42, -1], box([2.6, 16.6, -8.2], [12.6, 32.4, 1.2]), 0.94, 1.2),
@@ -180,6 +187,7 @@ const MOVES: Partial<Record<BuildViewName, Move>> = {
     open: { target: w(8.4, 9.6, 2.4), dir: new THREE.Vector3(0.7, 0.34, 1).normalize(), frame: box([3.6, 0, -1.6], [13, 19.4, 8]), minR: 1.2, until: 0.68, by: 0.9 },
   },
   caseBack: { turn: -0.07, push: 0.05 },
+  backShut: { turn: -0.08, push: 0.05 },
   caseBackClose: { turn: 0.05, push: 0.05 },
   leadBack: { turn: 0, push: 0.05 },
   leadHole: { turn: 0, push: 0.04 },

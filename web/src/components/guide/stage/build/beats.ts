@@ -68,6 +68,21 @@ export function at(id: BuildBeat, phase = 0): number {
   return (INDEX.get(id) ?? 0) + phase;
 }
 
+/**
+ * The opening's device is gone by here: it goes over the first sixth of
+ * gather-1, as the bench comes up (BuildStage). Until then it may be standing
+ * apart — the hub's answer to Build, kept through Build's opening
+ * (stage/Explode) — and from here on nothing of it is on stage.
+ */
+export const OPENING_GONE = at("gather-1", 0.17);
+/**
+ * Up to here nothing that comes apart is on stage at all (the case is not
+ * printed yet, the panel not in it): scrolling back up to the opening, the
+ * device is put apart again while it cannot be seen, and fades back in as it
+ * was left.
+ */
+export const OPENING_UNSEEN = at("print-1");
+
 export function beatSeconds(i: number): number {
   return BEATS[Math.max(0, Math.min(BEATS.length - 1, i))][1];
 }

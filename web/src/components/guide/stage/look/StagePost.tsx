@@ -5,8 +5,8 @@
    loop; that is their API and it never feeds back into React. */
 
 import { useFrame } from "@react-three/fiber";
-import { EffectComposer, Bloom, FXAA, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { BlendFunction, Effect, EffectAttribute, ToneMappingMode } from "postprocessing";
+import { EffectComposer, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
+import { BlendFunction, BloomEffect, Effect, EffectAttribute, FXAAEffect, ToneMappingMode } from "postprocessing";
 import { memo, useEffect, useMemo, type JSX } from "react";
 import * as THREE from "three";
 import { useGuideStore } from "../../store";
@@ -22,11 +22,18 @@ import { measureFrame, settingsFor, useTier } from "./quality";
 //               of the stage falls a little soft, more the closer the camera is
 //   bloom       only what is brighter than white glows: LEDs past their knee,
 //               the live rings. The white case, however well lit, stays under
-//               the threshold — it used to bloom the screen white.
+//               the threshold — it used to bloom the screen white. "Brighter
+//               than white" is judged by luminance for what is white and by
+//               its strongest channel for what is coloured (see the glow,
+//               below): a blue LED at full power is as much a light as a
+//               white one.
 //   tone curve  ACES
 //   grade       a film's: shadows a touch cool, highlights a touch warm, a
 //               gentle shoulder and toe, a little more colour
 //   vignette
+//
+//   edges       at the lowest tier, where there is no multisampling, an edge
+//               filter over the finished picture — in a pass of its own
 //
 // Which of these a machine gets is its tier (quality.ts), measured from its
 // own frame times. The composer is rebuilt only when the tier changes.
@@ -101,7 +108,11 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
   for (int i = 0; i < 16; i++) {
     float ring = i < 6 ? 0.5 : 1.0;
     float a = i < 6 ? float(i) * 1.0471976 : float(i - 6) * 0.6283185 + 0.3;
-    vec2 at = uv + vec2(cos(a), sin(a)) * (ring * r) * texelSize;
+    // On a texel's centre: between two, the filter hands back half of each
+    // texel's colour with only one's depth, and half of an in-focus edge then
+    // counted as background — a faint second outline, a blur's radius out
+    // from every sharp silhouette.
+    vec2 at = (floor((uv + vec2(cos(a), sin(a)) * (ring * r) * texelSize) * resolution) + 0.5) * texelSize;
     float w = clamp(softness(readDepth(at)) - ring * r + 1.0, 0.0, 1.0);
     sum += texture2D(inputBuffer, at) * w;
     wsum += w;
@@ -162,6 +173,65 @@ function Focus({ reducedMotion }: { reducedMotion: boolean }) {
   return <primitive object={effect} dispose={null} />;
 }
 
+// ── the glow ────────────────────────────────────────────────────────────────
+//
+// postprocessing's bloom takes what is over a luminance threshold. Luminance
+// is the eye's weighing of white light, and by it a blue LED at full power is
+// a ninth as bright as a white one, a red one a fifth: only the whites of a
+// pattern ever glowed, and a pattern in full colour, seen from across the
+// room, sat on the case like a printed card. A light is a light whatever its
+// colour. So what is coloured is judged by its strongest channel instead, and
+// what is white, grey or pale — the case, a highlight on a screw — still by
+// its luminance, exactly as before: nothing white blooms that did not.
+
+const GLOW_METRIC = /* glsl */ `float glowMax=max(texel.r,max(texel.g,texel.b));float glowMin=min(texel.r,min(texel.g,texel.b));float l=mix(luminance(texel.rgb),glowMax,smoothstep(0.3,0.75,(glowMax-glowMin)/max(glowMax,1e-4)));`;
+
+function Glow() {
+  const effect = useMemo(() => {
+    const bloom = new BloomEffect({
+      blendFunction: BlendFunction.ADD,
+      luminanceThreshold: 1.15,
+      luminanceSmoothing: 0.2,
+      intensity: 0.85,
+      radius: 0.72,
+      mipmapBlur: true,
+    });
+    const m = bloom.luminanceMaterial;
+    const before = m.fragmentShader;
+    m.fragmentShader = before.replace("float l=luminance(texel.rgb);", GLOW_METRIC);
+    // The library's shader was not what this was written against: its own bloom, then, as it was.
+    if (m.fragmentShader === before && process.env.NODE_ENV !== "production") console.warn("[guide] bloom: luminance shader not patched");
+    m.needsUpdate = true;
+    return bloom;
+  }, []);
+  useEffect(() => () => effect.dispose(), [effect]);
+  return <primitive object={effect} dispose={null} />;
+}
+
+// ── the edge filter ─────────────────────────────────────────────────────────
+//
+// FXAA reads its neighbours from the pass's *input*. Merged into the pass
+// that also blooms, tone-maps and grades, that input is the raw scene: every
+// pixel it took for an edge — and against a tone-mapped centre, anything
+// bright is one — was put back as it was before all of those. Lit LEDs came
+// out flat white with a dark rim, and the case speckled. Declared a
+// convolution it gets a pass of its own, after the rest, and filters the
+// finished picture. (Only without multisampling: a second pass under
+// multisampling is the resolve that fails — see the focus, above.)
+
+class EdgeFilterEffect extends FXAAEffect {
+  constructor() {
+    super();
+    this.setAttributes(this.getAttributes() | EffectAttribute.CONVOLUTION);
+  }
+}
+
+function EdgeFilter() {
+  const effect = useMemo(() => new EdgeFilterEffect(), []);
+  useEffect(() => () => effect.dispose(), [effect]);
+  return <primitive object={effect} dispose={null} />;
+}
+
 // ── frame times ─────────────────────────────────────────────────────────────
 
 function Probe() {
@@ -193,13 +263,13 @@ export default memo(function StagePost({ narrow, reducedMotion, ao, dof }: Props
   }
   if (q.dof && dof) effects.push(<Focus key="focus" reducedMotion={reducedMotion} />);
   effects.push(
-    <Bloom key="bloom" luminanceThreshold={1.15} luminanceSmoothing={0.2} intensity={0.85} radius={0.72} mipmapBlur />,
+    <Glow key="bloom" />,
     <ToneMapping key="tone" mode={ToneMappingMode.ACES_FILMIC} />,
     <Grade key="grade" />,
     <Vignette key="vignette" offset={0.32} darkness={0.55} />,
   );
   // Last, on the finished picture: its edges are what the eye sees.
-  if (q.fxaa) effects.push(<FXAA key="fxaa" />);
+  if (q.fxaa && !q.msaa) effects.push(<EdgeFilter key="fxaa" />);
   return (
     <>
       <Probe />

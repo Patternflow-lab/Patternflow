@@ -112,6 +112,8 @@ const KNOB_HIT_R = 1.45;
 const DIAL_IN = 0.98;
 const DIAL_OUT = 1.16;
 const DIAL_DOT = 0.17;
+/** The focus / hold ring's outer edge round a knob's top (the ring's plane is 4.2 across, its band out to 0.98 of that). */
+const FOCUS_RING_R = 2.06;
 /** Just proud of the case's front face (1.5635), under the knob skirts (1.6437). */
 const DIAL_Z = KNOB_BASE_Z - 0.06;
 /** How long a knob keeps its readout after it last moved, ms. */
@@ -498,6 +500,8 @@ export default function Device() {
   const size = useThree((st) => st.size);
   // The knobs' top centres, world units (the stage's model group: geometry.ts).
   const knobTops = useMemo(() => [0, 1, 2, 3].map((i) => modelToWorld(knobWorldCenter(i, "model"))), []);
+  // …and their dials' centres on the case's face, a knob's height below: a pill stands clear of both (tags.ts).
+  const dialAt = useMemo(() => [0, 1, 2, 3].map((i) => ({ at: modelToWorld(knobWorldCenter(i, "model").setZ(DIAL_Z)), radius: DIAL_OUT * MODEL_SCALE })), []);
 
   useFrame((state, rawDt) => {
     // A tab coming back from the background hands over one long frame; don't
@@ -664,11 +668,23 @@ export default function Device() {
           }
         }
         // Beside its knob at a fixed gap in screen pixels, whatever the
-        // zoom: K1/K3 to the right, over the case's margin. Left of K2/K4 is
-        // the panel's edge, where the screens print their headings and
-        // SELECT its bar, so K2's goes above and K4's below.
+        // zoom, and outside its dial — the band the orange dot rides — and
+        // its focus ring while that is lit: K1/K3 to the right, over the
+        // case's margin. Left of K2/K4 is the panel's edge, where the
+        // screens print their headings and SELECT its bar, so K2's goes
+        // above and K4's below, and a readout there grows to the right, away
+        // from the panel. Where there is no room to the right for a readout
+        // (a phone), K1's goes above K2's row and K3's below K4's.
         const side = i === 0 || i === 2 ? "right" : i === 1 ? "up" : "down";
-        if (on) placeTag(label, state.camera, size, knobTops[i], KNOB_R * MODEL_SCALE, side, 7);
+        if (on) {
+          const reach = (KNOB_R + (FOCUS_RING_R - KNOB_R) * Math.min(1, ring.uniforms.uFocus.value * 1.5)) * MODEL_SCALE;
+          placeTag(label, state.camera, size, knobTops[i], reach, side, 6, undefined, 0, {
+            also: dialAt[i],
+            growRight: true,
+            alt: i === 0 ? "up" : i === 2 ? "down" : undefined,
+            altRow: 1,
+          });
+        }
       }
     });
 

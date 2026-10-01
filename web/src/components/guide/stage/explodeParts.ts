@@ -1,8 +1,10 @@
 import { useGuideStore } from "../store";
 import { buildClock } from "../timing";
+import { OPENING_GONE } from "./build/beats";
 
 // The device, taken apart in the air: the hub's answer to "Build" (GuideHub
-// → store.preview → stage/Explode.tsx). One amount, 0 whole … 1 apart, and
+// → store.preview → stage/Explode.tsx), and how the Build guide opens. One
+// amount, 0 whole … 1 apart, and
 // each part's place is a function of it — along the axis that part really
 // goes on or comes off by (BUILD_GUIDE.md §6–§9, stage/build/BuildStage):
 //
@@ -80,8 +82,8 @@ export function partOffset(part: ExplodePart, amount: number, out: { x: number; 
 
 /**
  * Where the stage is with it. Explode.tsx writes `amount` every frame;
- * anything may read it (the Build stage waits for 0 before it takes the
- * device over; the light and the page may follow it).
+ * anything may read it (the Build stage draws its opening apart by it, and
+ * hands the device back only at 0; the light and the page may follow it).
  */
 export const explodeState = { amount: 0 };
 
@@ -95,11 +97,20 @@ function reducedMotion(): boolean {
 /**
  * Should the device be apart right now? On the hub, while Build is the guide
  * pointed at (or chosen: store.leaveFor keeps it pointed at until the guide
- * arrives). Not under reduced motion — nothing on the hub answers there —
- * and not while the Build stage still has the device (it is winding the
- * build back after its guide was left: timing.ts buildClock).
+ * arrives) — and on through Build's own opening: choosing Build does not put
+ * back together what pointing at it took apart. The parts hang there beside
+ * the title until the reader scrolls into the build, and go as the bench
+ * comes up (BuildStage; Explode holds them apart while they do).
+ *
+ * Not under reduced motion — nothing on the hub answers there, and Build
+ * opens on the whole device — and on the hub not while the Build stage is
+ * still showing the build (it is winding it back after its guide was left:
+ * timing.ts buildClock; at its opening it draws the device apart as well as
+ * whole).
  */
 export function explodeWanted(): boolean {
-  const { page, preview } = useGuideStore.getState();
-  return page === "hub" && preview === "build" && buildClock.t < 0 && !reducedMotion();
+  const { page, preview, scene } = useGuideStore.getState();
+  if (reducedMotion()) return false;
+  if (page === "hub") return preview === "build" && buildClock.t < OPENING_GONE;
+  return page === "build" && scene === "opening";
 }
