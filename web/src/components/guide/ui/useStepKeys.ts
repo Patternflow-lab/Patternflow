@@ -13,7 +13,7 @@ import { useEffect, type RefObject } from "react";
 // deck is rearranged with the arrows), the device's console, a held modifier.
 
 /** Where the keyboard is busy with something of its own. */
-function busy(target: EventTarget | null): boolean {
+export function busy(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el || typeof el.closest !== "function") return false;
   if (el.isContentEditable) return true;

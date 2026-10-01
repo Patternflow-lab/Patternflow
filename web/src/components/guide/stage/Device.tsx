@@ -42,6 +42,8 @@ import {
   sliderPose,
 } from "./parts";
 import KitFx from "./KitFx";
+import { kitPress } from "./hand";
+import { kitState } from "../timing";
 import { devkitMaterials } from "./kitMaterials";
 import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 import { VIEWS } from "./views";
@@ -365,6 +367,8 @@ export default function Device() {
   }, [dials, scene]);
 
   const hovered = useRef(-1);
+  /** The DevKit button under the pointer, while it can be pressed. */
+  const overButton = useRef<THREE.Object3D | null>(null);
 
   // ── knobs under the pointer ────────────────────────────────────────────────
   const drag = useRef<{
@@ -403,6 +407,7 @@ export default function Device() {
       }
     };
     const onUp = () => {
+      kitPress.boot = kitPress.rst = false;
       const d = drag.current;
       if (!d) return;
       if (!d.turned) sim.release(d.knob);
@@ -411,6 +416,7 @@ export default function Device() {
     };
     // A gesture the browser took over (a scroll, say) was never a click.
     const onCancel = () => {
+      kitPress.boot = kitPress.rst = false;
       const d = drag.current;
       if (!d) return;
       sim.cancel(d.knob);
@@ -437,7 +443,29 @@ export default function Device() {
     };
   }, []);
 
+  // The DevKit's BOOT and RST, on the step that is about them ("Hold BOOT,
+  // tap RST": scenes.ts bootSeq) and with the DevKit held up: a real hand
+  // could press them there, so the reader's can (hand.ts kitPress). Only the
+  // nearest thing under the pointer counts — never a button through the cable.
+  const buttonUnder = (e: ThreeEvent<PointerEvent>): "boot" | "rst" | null => {
+    if (!kit.boot && !kit.rst) return null;
+    let which: "boot" | "rst" | null = null;
+    for (let o: THREE.Object3D | null = e.object; o; o = o.parent) {
+      if (o === kit.boot) which = "boot";
+      else if (o === kit.rst) which = "rst";
+    }
+    if (!which || e.intersections[0]?.object !== e.object) return null;
+    const { scene: sceneId, step, page } = useGuideStore.getState();
+    return page === "play" && kitState.presented && stepOf(sceneId, step).bootSeq ? which : null;
+  };
+
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    const button = buttonUnder(e);
+    if (button) {
+      e.stopPropagation();
+      kitPress[button] = true;
+      return;
+    }
     const knob = knobUnder(e.object);
     const knobMesh = knob < 0 ? null : parts.knobs[knob];
     if (!knobMesh) return;
@@ -464,12 +492,18 @@ export default function Device() {
   };
 
   const onPointerOver = (e: ThreeEvent<PointerEvent>) => {
+    if (buttonUnder(e)) {
+      overButton.current = e.object;
+      if (!drag.current) document.body.style.cursor = "pointer";
+      return;
+    }
     const knob = knobUnder(e.object);
     if (knob < 0) return;
     hovered.current = knob;
     if (!drag.current) document.body.style.cursor = "grab";
   };
   const onPointerOut = (e: ThreeEvent<PointerEvent>) => {
+    if (overButton.current === e.object) overButton.current = null;
     if (knobUnder(e.object) === hovered.current) hovered.current = -1;
     if (!drag.current) document.body.style.cursor = "";
   };

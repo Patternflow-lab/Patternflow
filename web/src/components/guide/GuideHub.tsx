@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import styles from "./Guide.module.css";
 import hub from "./Hub.module.css";
 import { COPY } from "./copy";
@@ -15,6 +15,7 @@ import { useGuidePage } from "./world/usePage";
 import Preloader from "./ui/Preloader";
 import Words from "./ui/Words";
 import { usePanelTint } from "./ui/panelTint";
+import HubResident from "./ui/resident/HubResident";
 
 // /guide: the hub. One glance, three ways in: Build (soldering one from bare
 // parts), Play (it's built), Make (it plays; now their own patterns) — side
@@ -36,6 +37,14 @@ import { usePanelTint } from "./ui/panelTint";
 // guide (GuideLink) holds its answer while the words leave, and the guide's
 // opening takes it from there: the parts settle, the camera pushes in, the
 // device stands back for the desk.
+//
+// On the rule over the three guides stands the resident (ui/resident): a
+// figure a few LED cells tall that walks to the guide being pointed at, and
+// can be walked with ← and → — the guide it stands over is then the chosen
+// one (`walked`: the same state as pointing at it, kept here so the column
+// can show it), and Enter goes in. It is play, and nothing depends on it:
+// the three links, their order for Tab, and what a click does are as they
+// were. The mouse takes the choice back by moving.
 //
 // /guide used to be the Play guide. Its old anchors (#flash, #knobs-3, …)
 // are sent on to /guide/play (legacy.ts): on a page load by the root
@@ -100,6 +109,8 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
   const other: GuideLang = lang === "en" ? "ko" : "en";
   const root = useRef<HTMLDivElement>(null);
   const choices = useRef<HTMLDivElement>(null);
+  // The guide chosen by walking the resident to it (ui/resident/HubResident), or null.
+  const [walked, setWalked] = useState<GuidePageId | null>(null);
   useLegacyAnchors();
   useGuidePage("hub", lang);
   useChoicesTop(choices);
@@ -133,12 +144,24 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
               <span className={hub.kicker}>{words.kicker}</span> {words.title}
             </h1>
 
-            <ol className={hub.guides}>
+            <HubResident within={choices} chosen={walked} onChoose={setWalked} />
+
+            <ol
+              className={hub.guides}
+              data-walk={walked ? "" : undefined}
+              // The mouse moved: the pointing is its again.
+              onPointerMove={(e) => {
+                if (walked === null || e.pointerType !== "mouse") return;
+                setWalked(null);
+                const under = (e.target as Element).closest?.<HTMLElement>("[data-guide]")?.dataset.guide as GuidePageId | undefined;
+                useGuideStore.getState().setPreview(under ?? null);
+              }}
+            >
               {GUIDE_ORDER.map((id, i) => {
                 const text = PAGES[id].text(lang);
                 const inside = `hub-${id}-inside`;
                 return (
-                  <li key={id} className={hub.guide} data-guide={id}>
+                  <li key={id} className={hub.guide} data-guide={id} data-here={walked === id ? "" : undefined}>
                     <GuideLink
                       to={id}
                       lang={lang}
@@ -152,7 +175,11 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
                         if (e.pointerType === "mouse") point(id);
                       }}
                       onPointerLeave={() => pointAway(id)}
-                      onFocus={() => point(id)}
+                      onFocus={() => {
+                        // The focus is a pointing of its own: it takes over from the walk.
+                        setWalked(null);
+                        point(id);
+                      }}
                       onBlur={() => pointAway(id)}
                     >
                       <span className={hub.num}>{String(i + 1).padStart(2, "0")}</span>

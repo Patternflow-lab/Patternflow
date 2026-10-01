@@ -121,6 +121,8 @@ import { type ExplodePart, explodeState, partOffset } from "../explodeParts";
 import { DRACO_URL, KNOB_PRESS, MODEL_OFFSET, MODEL_SCALE, MODEL_URL } from "../geometry";
 import { CASE_URL, DEVKIT_PRESENT, DEVKIT_SEAT, PCB_PLACEMENT, PCB_URL } from "../parts";
 import { placeTag, type TagSide } from "../tags";
+import { handHold } from "../hand";
+import { stageFocus } from "../look/focus";
 import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, OPENING_GONE, smooth, span } from "./beats";
 import { Path, Tube } from "./cable";
 import { buildFocus } from "./focus";
@@ -184,6 +186,8 @@ import {
 } from "./layout";
 import { PADS } from "./pads";
 import * as props from "./props";
+import { makeTouch, type TouchPart } from "./touch";
+import type { TouchKey } from "./touchState";
 import { settleIn } from "./views";
 import { brassMaterial, goldMaterial, LOOK, plaMaterial, screwMaterial, solderMaterial, steelMaterial } from "../look/materials";
 
@@ -525,6 +529,22 @@ const TAGS: { key: TagKey; text: TagText; side: TagSide; r: number }[] = [
   { key: "gUsb", text: { en: "USB cable", ko: "USB 케이블" }, side: "up", r: 0.2 },
   { key: "gBank", text: { en: "power bank", ko: "보조배터리" }, side: "up", r: 0 },
 ];
+
+// The parts under the hand (touch.ts) go by their line in the parts list
+// (build/bom.ts bomKey). These are the lines the stage names itself at some
+// point of the build, and with which of its tags: while one of them is up,
+// the hand does not put a second name beside it.
+const NAMED_BY: Partial<Record<TouchKey, TagKey[]>> = {
+  "U1 (sockets)": ["u1"],
+  J1: ["j1"],
+  J3: ["j3"],
+  J4: ["j4"],
+  C11: ["c11"],
+  "LED matrix panel": ["gPanel"],
+  "M4 screw": ["gScrews"],
+  "USB cable (sacrificial)": ["gUsb"],
+  "USB power bank": ["gBank"],
+};
 
 // ── board-local feature points (pcb-v39.glb frame, metres) ─────────────────
 
@@ -1074,6 +1094,17 @@ export default function BuildStage() {
     };
   }, [centres]);
 
+  // The parts under the hand (touch.ts; set up further down, with the tags).
+  const touch = useMemo(() => makeTouch(), []);
+  const touchFrame = useMemo(
+    () => ({
+      t: 0,
+      on: false,
+      occluders: [] as { mesh: THREE.Object3D; key?: string }[],
+    }),
+    [],
+  );
+
   // ── Device's objects, found once they are in the scene ───────────────────
   type DeviceRig = {
     root: THREE.Object3D;
@@ -1208,6 +1239,9 @@ export default function BuildStage() {
     () => () => {
       const d = dev.current;
       dev.current = null;
+      // Nothing is left lifted or named by the hand.
+      touch.release();
+      touch.set([]);
       if (!d) return;
       for (const name of PART_ORDER) {
         const p = d.parts[name];
@@ -1235,7 +1269,7 @@ export default function BuildStage() {
       d.kit.scale.setScalar(100);
       d.dials.forEach((g) => g.scale.setScalar(1));
     },
-    [kit],
+    [kit, touch],
   );
 
   // Clipping for the print, on this canvas only (the build page's).
@@ -1286,11 +1320,14 @@ export default function BuildStage() {
       tagEls.current[t.key] = { wrap, pill };
     }
     host.appendChild(layer);
+    // …and the one the hand brings up, for the part under it (touch.ts).
+    touch.mount(layer);
     return () => {
+      touch.unmount();
       layer.remove();
       tagEls.current = {};
     };
-  }, [gl, lang]);
+  }, [gl, lang, touch]);
 
   // ── shaders before it takes over ──────────────────────────────────────────
   //
@@ -1448,6 +1485,70 @@ export default function BuildStage() {
     [],
   );
 
+  // ── the parts under the hand (touch.ts) ───────────────────────────────────
+  //
+  // Which of the stage's objects is which line of the parts list, and how
+  // each comes out of its seat. Laid over the build once it has the device's
+  // objects; the frame loop's last act is to hand it the frame.
+  const touchParts = (d: DeviceRig): TouchPart[] => {
+    const board = (key: TouchKey, name: PartName): TouchPart => {
+      const part = d.parts[name];
+      const q = new THREE.Quaternion();
+      // Out of its holes: off the face it sits on (the encoders', the plain one), wherever the board is — or, in the row, would be.
+      const out = name.startsWith("SW") ? -1 : 1;
+      return { key, object: part.node, full: PCB_PLACEMENT.scale, axis: (v) => v.set(0, out, 0).applyQuaternion(q.copy(part.hq).invert().premultiply(part.node.quaternion)) };
+    };
+    // The screws, lying in their row on the mat (the frame loop's `bench` pose): one box for the dozen.
+    const row = new THREE.Box3(V(SCREW_BENCH_X0 - 0.45, MAT_TOP, SCREW_BENCH_Z - 0.9), V(SCREW_BENCH_X0 + (SCREW_HOLES.length - 1) * SCREW_BENCH_DX + 0.45, MAT_TOP + 0.8, SCREW_BENCH_Z + 0.9));
+    return [
+      { key: "U1", object: d.kit, body: d.kit.children[0], full: 100 },
+      board("U1 (sockets)", "U1_socket_pins1-22"),
+      board("U1 (sockets)", "U1_socket_pins23-44"),
+      board("SW1-SW4", "SW1"),
+      board("SW1-SW4", "SW2"),
+      board("SW1-SW4", "SW3"),
+      board("SW1-SW4", "SW4"),
+      board("J1", "J1"),
+      board("J3", "J3"),
+      board("J4", "J4"),
+      board("C11", "C11"),
+      { key: "LED matrix panel", object: kit.panel.group },
+      { key: "M4 screw", object: kit.screws, box: row, owned: [kit.screwSlots] },
+      { key: "USB cable (sacrificial)", object: kit.coils.usb },
+      { key: "USB power bank", object: kit.bank },
+    ];
+  };
+  // On the mat, and not yet picked up for its step (the frame loop's own landmarks).
+  const touchLive = (key: string) => {
+    const t = touchFrame.t;
+    switch (key) {
+      case "U1":
+        return t >= ARRIVE_DEVKIT && t < F1;
+      case "LED matrix panel":
+        return t >= ARRIVE2.panel && t < C1;
+      case "M4 screw":
+        return t >= ARRIVE2.screws + 0.22 && t < C2 + 0.1;
+      case "USB cable (sacrificial)":
+        return t >= ARRIVE2.usb && t < C3;
+      case "USB power bank":
+        return t >= ARRIVE2.bank && t < F3;
+      default:
+        return true;
+    }
+  };
+  const touchNamed = (key: string) => NAMED_BY[key as TouchKey]?.some((k) => tmp.tags.has(k)) ?? false;
+  // What can stand between the eye and a part: the case and its covers, the panel, the bare board.
+  const touchOccluders = (d: DeviceRig) => {
+    const list: { mesh: THREE.Object3D; key?: string }[] = [d.body, d.backPlate, d.topLid, d.deviceSlider, d.led, kit.slider, ...Object.values(kit.split)].map((mesh) => ({ mesh }));
+    kit.panel.group.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) list.push({ mesh: o, key: "LED matrix panel" });
+    });
+    d.pcb.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh && o !== kit.joints && o.parent !== kit.ghost) list.push({ mesh: o });
+    });
+    return list;
+  };
+
   useFrame((state, rawDt) => {
     const onPage = useGuideStore.getState().page === "build";
     if (!dev.current) {
@@ -1477,6 +1578,10 @@ export default function BuildStage() {
         if (!warmStep(state.gl, state.scene, state.camera)) return;
       }
       dev.current = find();
+      if (dev.current) {
+        touch.set(touchParts(dev.current));
+        touchFrame.occluders = touchOccluders(dev.current);
+      }
     }
     const d = dev.current;
     if (!d) return;
@@ -2802,6 +2907,31 @@ export default function BuildStage() {
         el.pill.dataset.on = "1";
         placeTag(el.pill, state.camera, size, wp, def.r, def.side, 7);
       }
+    }
+
+    // ── the parts under the hand ────────────────────────────────────────────
+    //
+    // Last, over everything the timeline has placed (touch.ts): the part
+    // under the pointer, or the one the parts list points at, lifts a hair
+    // and is named. Only what is out in the open at this point of the build:
+    // the board's parts wherever they are, the rest while they lie on the mat.
+    {
+      const tf = touchFrame;
+      tf.t = t;
+      tf.on = onPage && !finished && !going && t < WHOLE_AGAIN;
+      touch.frame({
+        camera: state.camera,
+        size,
+        dt,
+        on: tf.on,
+        reduced,
+        // The two steps with the parts list on their card (scenes/build.ts: gather-1, gather-2).
+        card: s.build === "gather-1" || s.build === "gather-2",
+        occluders: tf.occluders,
+        hold: handHold(stageFocus.r),
+        live: touchLive,
+        named: touchNamed,
+      });
     }
 
     // Off the stage, once the guide has been left and the device stands whole

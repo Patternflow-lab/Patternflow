@@ -12,6 +12,7 @@ import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import { bootPhase, kitState, RST_PULSE, rstPulseDown } from "../timing";
 import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { kitPress } from "./hand";
 import { stageAccent } from "./look/accent";
 import { DEVKIT_PRESENT, DEVKIT_SEAT, KIT, M_TO_MODEL } from "./parts";
 import { NO_POINTER, pillSize, placeTag, screenY, type TagSide } from "./tags";
@@ -392,6 +393,11 @@ export default function KitFx({ boot, rst }: Props) {
       rstDown = rstPulseDown(rstSince - 500 + RST_PULSE.down);
     }
     const rstIdle = rstNow ? 0.3 + 0.15 * Math.sin(t * 3) : 0.25;
+    // …and under the reader's own finger, on that step (Device.tsx, hand.ts kitPress): the same press.
+    if (s.bootSeq) {
+      bootDown ||= kitPress.boot;
+      rstDown ||= kitPress.rst;
+    }
     if (!presented) {
       bootDown = false;
       rstDown = false;

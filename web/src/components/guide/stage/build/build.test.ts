@@ -11,6 +11,8 @@ import { footprint, foldedRibbon } from "./props";
 import * as THREE from "three";
 import { VIEWS } from "../views";
 import { BUILD_SCENES } from "../../scenes/build";
+import { BOM_FILE, bomKey, parseBom } from "../../build/bom";
+import { TOUCH_KEYS } from "./touchState";
 
 // The build stage's contract with the Build guide's script (scenes/build.ts):
 // every beat has a ready step that names itself and a view the camera knows,
@@ -238,5 +240,14 @@ describe("build stage", () => {
     expect(counts).toEqual({ U1: 44, J1: 16, J3: 2, J4: 2, C11: 2, SW1: 7, SW2: 7, SW3: 7, SW4: 7 });
     expect(PAD_COUNT).toBe(94);
     expect(SCREW_HOLES).toHaveLength(12);
+  });
+});
+
+// The parts under the hand (touch.ts) go by their line in the parts list.
+describe("the parts that can be touched", () => {
+  it("are the BOM's lines, every one and no other", () => {
+    const csv = readFileSync(path.resolve(__dirname, "../../../../../..", BOM_FILE), "utf8");
+    const lines = parseBom(csv).map(bomKey);
+    expect([...TOUCH_KEYS].sort()).toEqual([...lines].sort());
   });
 });

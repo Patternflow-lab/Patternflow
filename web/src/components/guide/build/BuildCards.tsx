@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore, type FocusEvent, type PointerEvent } from "react";
 import guide from "../Guide.module.css";
 import styles from "./Build.module.css";
 import { BUILD_COPY, type BuildLink } from "../copy/build";
@@ -9,6 +9,7 @@ import type { GuideLang } from "../store";
 import { BOM_URL, PANEL_PART, bomKey, dashed, times, type BomRow } from "./bom";
 import { useBom } from "./BomContext";
 import { CHECK_CARDS, LINK_CARDS, type BuildCard, type CheckCard, type LinkCard } from "./cards";
+import { cardTouch, nameParts, stageTouch, subscribeTouch, touchFromCard } from "../stage/build/touchState";
 
 // The cards inside the Build guide's steps (a step's `extra`, "build:<card>",
 // copy/build.ts): the parts list — the BOM file itself, read when the page
@@ -131,6 +132,40 @@ function Checklist({ id, items }: { id: string; items: { label: string; aside?: 
 // One line is not folded away: the LED panel. It is bought by its listing,
 // and it is the part that goes wrong — so its line carries the listing
 // BUILD_GUIDE §1 recommends and the way to docs/panel-compatibility.md.
+//
+// The list and the stage point at each other (stage/build/touchState.ts): a
+// line under the mouse, or with the keyboard on it, lifts and lights its part
+// on the bench; a part under the mouse on the stage lights its line here.
+// Nothing else about a line changes — it opens and reads as it did.
+
+/** What a line's part is called beside it on the stage: its reference and its name, as the line has them. */
+function stageName(r: BomRow, name: string): string {
+  return r.ref === "-" ? name : `${dashed(r.ref.replace(" (sockets)", ""))} · ${name}`;
+}
+
+/** The line's side of the pointing: what to put on its <li>. */
+function usePartTouch(key: string) {
+  const lit = useSyncExternalStore(
+    subscribeTouch,
+    () => stageTouch() === key,
+    () => false,
+  );
+  const away = () => {
+    if (cardTouch() === key) touchFromCard(null);
+  };
+  return {
+    "data-lit": lit ? "1" : undefined,
+    onPointerEnter: (e: PointerEvent) => {
+      if (e.pointerType === "mouse") touchFromCard(key);
+    },
+    onPointerLeave: away,
+    onFocus: () => touchFromCard(key),
+    onBlur: (e: FocusEvent) => {
+      // (Not while the keyboard only moves on inside the same line.)
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) away();
+    },
+  };
+}
 
 function BomLine({ row: r, lang }: { row: BomRow; lang: GuideLang }) {
   const words = BUILD_COPY[lang].cards.bom;
@@ -140,6 +175,7 @@ function BomLine({ row: r, lang }: { row: BomRow; lang: GuideLang }) {
   // What to order it by: the part number, where it has one.
   const mpn = r.mpn && r.mpn !== "-" && r.mpn !== "generic" ? r.mpn : null;
   const more = words.more[key];
+  const touch = usePartTouch(key);
   const head = (
     <>
       <span className={styles.bomQty}>×{dashed(r.qty)}</span>
@@ -155,7 +191,7 @@ function BomLine({ row: r, lang }: { row: BomRow; lang: GuideLang }) {
   if (isPanel) {
     const { listing, other, note } = words.panel;
     return (
-      <li className={styles.bomRow}>
+      <li className={styles.bomRow} {...touch}>
         <div className={styles.bomHead}>{head}</div>
         <div className={styles.bomPanel}>
           <div className={styles.links}>
@@ -177,14 +213,14 @@ function BomLine({ row: r, lang }: { row: BomRow; lang: GuideLang }) {
 
   if (!mpn && !more) {
     return (
-      <li className={styles.bomRow}>
+      <li className={styles.bomRow} {...touch}>
         <div className={styles.bomHead}>{head}</div>
       </li>
     );
   }
 
   return (
-    <li className={styles.bomRow}>
+    <li className={styles.bomRow} {...touch}>
       <details className={styles.bomFold} name={`pf-build-bom-${r.category}`}>
         <summary className={styles.bomHead}>
           {head}
@@ -223,6 +259,13 @@ function BomList({ category, lang }: { category: BomRow["category"]; lang: Guide
   const words = BUILD_COPY[lang].cards.bom;
   const rows = useBom()?.filter((r) => r.category === category);
   const links = [{ label: words.source, href: BOM_URL }, words.guide];
+  // What the stage calls these parts when one is under the hand: the line's own words.
+  useEffect(() => {
+    if (!rows) return;
+    nameParts(Object.fromEntries(rows.map((r) => [bomKey(r), stageName(r, words.names?.[bomKey(r)] ?? r.part)])));
+  });
+  // Gone with the card: the stage is pointed at nothing from here.
+  useEffect(() => () => touchFromCard(null), []);
   if (!rows) {
     return (
       <div className={guide.extra}>

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { knobIsTurned, turnBackClick, turnBackNow, turnOn } from "../hubKnob";
 import { getSim, useGuideStore } from "../store";
+import { handBackNow } from "./hubHand";
 import { DRAW_MS, makeNext, makeRestore } from "./hubMake";
 
 // The hub's answers. On the hub the device answers the guide the reader is
@@ -18,6 +19,11 @@ import { DRAW_MS, makeNext, makeRestore } from "./hubMake";
 // Pointing away puts it all back, as calmly as it came: the parts settle,
 // K1 turns back a click at a time, Origin is drawn back. Nothing answers
 // under reduced motion.
+//
+// And with nothing pointed at, the panel answers the hand itself: a mouse
+// over it steers Origin a little (hubHand.ts, from stage/StageHand.tsx). That is
+// given back here, at once, the moment anything else takes the board — so
+// each answer starts from the board as the hub found it.
 //
 // This lives with the stage (world/WorldStage), not with the hub's page: the
 // board is the same one in every guide, and choosing a guide must not cut an
@@ -48,6 +54,11 @@ export default function HubAnswers() {
   useEffect(
     () =>
       useGuideStore.subscribe((s, prev) => {
+        // What the hand turned (hubHand.ts): back before a guide's answer
+        // begins, before the knobs are the reader's, before another page.
+        if (s.page !== prev.page || (s.preview && s.preview !== prev.preview) || (s.leaving && s.leaving !== prev.leaving) || (s.handsOn && !prev.handsOn)) {
+          handBackNow(getSim());
+        }
         if (s.page === prev.page || prev.page !== "hub" || s.page === "play") return;
         // Origin first: a knob turns the pattern that is running, and it is Origin's hue that is owed.
         makeRestore(getSim());
@@ -100,6 +111,7 @@ export default function HubAnswers() {
   // The world is left (out of the guide altogether): the board as it was found.
   useEffect(
     () => () => {
+      handBackNow(getSim());
       makeRestore(getSim());
       turnBackNow(getSim());
     },

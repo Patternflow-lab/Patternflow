@@ -11,9 +11,11 @@ import * as THREE from "three";
 import Device from "./Device";
 import Explode from "./Explode";
 import Fx from "./Fx";
+import StageHand from "./StageHand";
 import { smoothDamp, type Damp } from "./damp";
 import { explodeWanted } from "./explodeParts";
 import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { hand } from "./hand";
 import { HUB_VIEWS } from "./hubViews";
 import { stageFocus } from "./look/focus";
 import { settingsFor, useTier } from "./look/quality";
@@ -115,6 +117,17 @@ function Director() {
 // what must be on screen (views.ts), and the rig finds the distance at which
 // that fits the part of the screen the copy leaves free — left of the card
 // on a wide screen, above it on a narrow one — at this screen's aspect.
+//
+// And it leans toward the reader's hand: a few degrees round its subject to
+// the side the mouse is on (hand.ts), so the device is a thing standing in
+// front of you and not a film of one. It goes round what it is looking at,
+// so nothing leaves the frame; it is eased in and out, never switched; and
+// it is level again while the reader has a knob, for a finger, and for a
+// reader who asked for less motion.
+
+/** How far round its subject the camera leans with the mouse at the window's edge: the tangents of 3.2° across and 2° up. */
+const LEAN_X = 0.056;
+const LEAN_Y = 0.035;
 
 function wrapAngle(a: number) {
   return Math.atan2(Math.sin(a), Math.cos(a));
@@ -230,7 +243,8 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     freeKey: "",
     freeAge: 0,
   });
-  const pointer = useRef({ x: 0, y: 0, sx: 0, sy: 0 });
+  // The lean: where it is, eased, and how much of it there is (0 while the reader has the knobs).
+  const pointer = useRef({ sx: 0, sy: 0, w: 0 });
   const tmp = useMemo(
     () => ({
       d: new THREE.Vector3(),
@@ -241,15 +255,6 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     }),
     [],
   );
-
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      pointer.current.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.current.y = (e.clientY / window.innerHeight) * 2 - 1;
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 1 / 20);
@@ -338,15 +343,19 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     const cosEl = Math.cos(c.el);
     tmp.p.set(Math.sin(c.az) * cosEl, Math.sin(c.el), Math.cos(c.az) * cosEl).multiplyScalar(c.r).add(c.target);
 
-    // A little parallax from the pointer, smoothed; none while on the knobs.
-    const par = reducedMotion || handsOn ? 0 : 0.12 * (c.r / 8);
+    // The lean toward the hand (see the top of this section): round the
+    // target, by the mouse's place in the window — level with the mouse gone
+    // from the window, and eased out to nothing while the reader has a knob
+    // (a turn is a circle drawn round the knob's place on screen).
     const pt = pointer.current;
-    pt.sx += (pt.x - pt.sx) * Math.min(1, dt * 2);
-    pt.sy += (pt.y - pt.sy) * Math.min(1, dt * 2);
+    const follow = Math.min(1, dt * 2.4);
+    pt.sx += ((hand.here ? hand.x : 0) - pt.sx) * follow;
+    pt.sy += ((hand.here ? hand.y : 0) - pt.sy) * follow;
+    pt.w += ((reducedMotion || handsOn ? 0 : 1) - pt.w) * Math.min(1, dt * 5);
     tmp.d.subVectors(c.target, tmp.p).normalize();
     tmp.right.crossVectors(tmp.d, camera.up).normalize();
     tmp.up.crossVectors(tmp.right, tmp.d).normalize();
-    tmp.p.addScaledVector(tmp.right, pt.sx * par).addScaledVector(tmp.up, -pt.sy * par * 0.6);
+    tmp.p.addScaledVector(tmp.right, pt.sx * pt.w * c.r * LEAN_X).addScaledVector(tmp.up, -pt.sy * pt.w * c.r * LEAN_Y);
 
     // Never inside the device, whatever the springs are doing.
     const m = 0.35;
@@ -560,6 +569,8 @@ export default function GuideCanvas() {
       <Director />
       <Fx />
       <CameraRig reducedMotion={reducedMotion} />
+      {/* The reader's mouse on the stage: the light it carries, and the hub's panel under it. After the rig, whose camera it reads. */}
+      <StageHand reducedMotion={reducedMotion} />
       {/* The panel's veil in the dark round it, over everything else that is lit. */}
       <PanelAir />
       {!flags.has("nobloom") && <StagePost narrow={narrow} reducedMotion={reducedMotion} ao={!flags.has("noao")} dof={!flags.has("nodof")} />}

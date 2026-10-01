@@ -20,6 +20,7 @@ import Later, { arrived, arrivedByHistory, whenQuiet } from "./ui/Later";
 import Preloader from "./ui/Preloader";
 import Words from "./ui/Words";
 import { usePanelTint } from "./ui/panelTint";
+import RailResident from "./ui/resident/RailResident";
 import { useReveal } from "./ui/useReveal";
 import { useStepKeys } from "./ui/useStepKeys";
 
@@ -327,7 +328,10 @@ function Chapter({
 // reader is in (measured off that chapter's item, so it fits any label in
 // either language), and the line along the marker's foot fills as the
 // chapter's steps go by: nothing under the chapter's title, then a share a
-// step, full on the last.
+// step, full on the last. On top of the rail, over the tip of that line,
+// stands the resident (ui/resident/RailResident): it runs along as the
+// reader goes on. It is play — hidden from assistive technology, outside the
+// rail's box — and the rail is what it was without it.
 function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
   const scene = useGuideStore((s) => s.scene);
   const step = useGuideStore((s) => s.step);
@@ -382,6 +386,7 @@ function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
           <span className={styles.railLabel}>{label}</span>
         </a>
       ))}
+      <RailResident nav={nav} index={index} fill={fill} end={scene === "next"} />
     </nav>
   );
 }

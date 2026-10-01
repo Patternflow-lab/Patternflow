@@ -53,7 +53,8 @@
 }
 /* The page's one sentence, small: the names are the large type. */
 .title {
-  margin: 0 0 18px;
+  /* Room under it for the resident (ui/resident), who stands on the rule below: 18 px of figure, 8 of air. */
+  margin: 0 0 26px;
   font-size: 17px;
   line-height: 1.4;
   font-weight: 500;
@@ -72,7 +73,7 @@
 .inner .report {
   grid-column: 2;
   grid-row: 1;
-  margin: 0 0 20px;
+  margin: 0 0 28px;
 }
 
 .guides {
@@ -239,21 +240,39 @@
 .guides:has(.go:focus-visible) .go:not(:focus-visible) {
   opacity: 0.42;
 }
+/* (Not while a guide is chosen by walking the resident to it — below: the
+   mouse may be resting on another, and it points again when it moves.) */
 @media (hover: hover) {
-  .guide:has(.go:hover)::after {
+  .guides:not([data-walk]) .guide:has(.go:hover)::after {
     transform: none;
   }
-  .go:hover ~ .inside {
+  .guides:not([data-walk]) .go:hover ~ .inside {
     opacity: 1;
     transform: none;
   }
-  .go:hover .arrow {
+  .guides:not([data-walk]) .go:hover .arrow {
     opacity: 1;
     transform: none;
   }
-  .guides:has(.go:hover) .go:not(:hover) {
+  .guides:not([data-walk]):has(.go:hover) .go:not(:hover) {
     opacity: 0.42;
   }
+}
+/* Chosen by walking the resident to it with ← and → (GuideHub `walked`,
+   ui/resident/HubResident): the same as being pointed at. */
+.guides[data-walk] .guide[data-here]::after {
+  transform: none;
+}
+.guides[data-walk] .guide[data-here] .inside {
+  opacity: 1;
+  transform: none;
+}
+.guides[data-walk] .guide[data-here] .arrow {
+  opacity: 1;
+  transform: none;
+}
+.guides[data-walk] .guide:not([data-here]) .go {
+  opacity: 0.42;
 }
 
 /* A short window: the names give way before the page scrolls. */
