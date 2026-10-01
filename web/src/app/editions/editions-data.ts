@@ -163,8 +163,8 @@ export const EDITIONS: Edition[] = [
       'The largest block a pattern can claim — 92 KB, against 74 KB elsewhere',
     ],
     hosted: {
-      version: 'v3.10.4',
-      url: 'https://patternflow.work/flash/bin/core-v3.10.4/patternflow.ino.bin',
+      version: 'v3.10.5',
+      url: 'https://patternflow.work/flash/bin/core-v3.10.5/patternflow.ino.bin',
     },
     source: 'https://github.com/engmung/Patternflow',
     note:
@@ -236,8 +236,8 @@ export const EDITIONS: Edition[] = [
     // Served from here, so the panel's own /update page can fetch it. Under
     // /flash/bin, which already sends the CORS header that fetch needs.
     hosted: {
-      version: 'v0.6.4',
-      url: 'https://patternflow.work/flash/bin/audio-v0.6.4/patternflow.ino.bin',
+      version: 'v0.6.5',
+      url: 'https://patternflow.work/flash/bin/audio-v0.6.5/patternflow.ino.bin',
     },
     source: 'https://github.com/engmung/Patternflow/tree/main/firmware/bundles/audio',
     note:
