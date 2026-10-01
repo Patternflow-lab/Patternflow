@@ -144,11 +144,22 @@ function paint(d){
   // states are worth naming, because the numbers below them look identical
   // either way — and asleep or paused, the frame rate is from before the
   // panel went dark.
-  var dark=d.sleep||d.consolePaused;
-  put('pwr',d.sleep?'asleep':d.consolePaused?'paused for storage':'awake',dark?'warn':'');
+  //
+  // And a third state that is not dark at all: the render loop has stopped
+  // coming round (loopStalled), so the panel shows its last frame and every
+  // number below is from before it stopped. Left alone this page said
+  // "awake, 60 fps" about a frozen panel, on the screenshot people send when
+  // they ask for help. It goes first: a frozen panel is not asleep, whatever
+  // the flag it can no longer clear says.
+  var frozen=!!d.loopStalled;
+  var dark=d.sleep||d.consolePaused||frozen;
+  put('pwr',frozen?'frozen for '+dur(Math.round(d.loopAgeMs/1000)):
+    d.sleep?'asleep':d.consolePaused?'paused for storage':'awake',frozen?'bad':dark?'warn':'');
   // The console no longer pauses the pattern for being open: the pause is
   // an upload batch or a format holding the pattern's memory while it writes.
-  $('pwrnote').textContent=d.sleep
+  $('pwrnote').textContent=frozen
+    ?'The render loop has stopped coming round - most likely the active pattern is not returning from a frame. If the time above keeps growing, knobs and pattern switching are dead until the panel restarts; Reboot on the Wi-Fi page still works. It comes back on the same pattern, so pick another before it stops again.'
+    :d.sleep
     ?'Panel off, still on the network. Any knob or button wakes it, as does the switch on the console home page.'
     :d.consolePaused?'Patterns are being written to storage; the pattern resumes when that is done.':'';
 
