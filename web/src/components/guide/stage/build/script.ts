@@ -72,18 +72,19 @@ export const BUILD_STEPS: Record<BuildBeat, Step> = {
   // brought over — J4 on it.
   "case-3": { build: "case-3", view: "leadBack", narrowView: "leadHole", narrowLate: { from: 0.52, view: "leadJ4" }, ...dark, esp: 1 },
   "case-4": { build: "case-4", view: "caseBackClose", ...dark, esp: 1 },
-  "case-5": { build: "case-5", view: "knobs", ...dark, esp: 1 },
+  "case-5": { build: "case-5", view: "shafts", ...dark, esp: 1 },
   "wire-1": { build: "wire-1", view: "wireBack", ...dark, esp: 1 },
   // On a phone, close on the two terminals: the polarity is the step.
   "wire-2": { build: "wire-2", view: "wireBack", narrowView: "terminalsBack", ...dark, esp: 1 },
   // Flashing is Play's 01 Flash: the DevKit held up, the cable in its left port.
   "firmware-1": { build: "firmware-1", view: "esp", ...dark, esp: 1, cable: 1, flashing: true, espTags: ["usb"] },
   "firmware-2": { build: "firmware-2", view: "back", ...dark, esp: 0 },
-  "firmware-3": { build: "firmware-3", view: "front", ...lit, esp: 0 },
+  // Opens on the tray (views.ts powerOn) and comes round to the front as the panel lights.
+  "firmware-3": { build: "firmware-3", view: "powerOn", ...lit, esp: 0 },
   "check-1": { build: "check-1", view: "knobs", ...lit, esp: 0, labels: true, demo: turnAndClick, period: 5600 },
   "check-2": { build: "check-2", view: "screenKnobs", ...lit, esp: 0, labels: true, demo: longPresses, period: 17800 },
   "check-3": { build: "check-3", view: "front", ...lit, esp: 0, demo: [{ at: 700, mode: "off" }, { at: 2300, mode: "run" }], period: 5200 },
   "check-4": { build: "check-4", view: "caseBack", ...lit, esp: 0 },
-  "check-5": { build: "check-5", view: "front", ...lit, esp: 0 },
+  "check-5": { build: "check-5", view: "finish", ...lit, esp: 0 },
   next: { build: "next", view: "hero", spin: 0.18, ...lit, esp: 0 },
 };

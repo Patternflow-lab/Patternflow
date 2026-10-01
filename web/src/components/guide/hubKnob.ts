@@ -2,7 +2,7 @@ import type { DeviceSim } from "@/lib/guide/deviceSim";
 import { ENCODER_CLICKS_PER_TURN, TURNS_PER_FULL_RANGE } from "@/lib/pattern/controls";
 import { useGuideStore } from "./store";
 
-// The hub's Play answer (HubStage): K1 turns while Play is pointed at, and
+// The hub's Play answer (world/HubAnswers): K1 turns while Play is pointed at, and
 // Origin's colour follows. The board is the same one in every guide
 // (store.ts getSim), so the hub hands it on as it found it: Play's words call
 // Origin red, and a hue left turned here opened that guide in another colour.

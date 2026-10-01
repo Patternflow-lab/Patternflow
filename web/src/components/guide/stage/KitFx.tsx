@@ -231,7 +231,10 @@ export default function KitFx({ boot, rst }: Props) {
   const waves = useMemo(
     () =>
       [0, 1, 2].map(() => {
-        const mat = new THREE.MeshBasicMaterial({ color: LED, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, side: THREE.DoubleSide });
+        // They write depth: they are thin, nothing is behind them to hide, and
+        // the stage's soft focus (look/StagePost) needs to know they are here
+        // at the antenna and not out with the background.
+        const mat = new THREE.MeshBasicMaterial({ color: LED, transparent: true, opacity: 0, toneMapped: false, side: THREE.DoubleSide });
         const arc = Math.PI * 0.5;
         const m = new THREE.Mesh(new THREE.TorusGeometry(0.0055, 0.0004, 6, 40, arc), mat);
         m.rotation.z = Math.PI / 2 - arc / 2;

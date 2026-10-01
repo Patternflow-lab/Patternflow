@@ -5,7 +5,10 @@ import { BEATS, beatIndex, beatSeconds, beatStill, clamp01, span } from "./beats
 import { BUILD_STEPS } from "./script";
 import { PADS, PAD_COUNT } from "./pads";
 import { BOARD_WORK, CABLE_HOLE, PANEL_CENTRE, PANEL_IN, PANEL_OUT, PANEL_POWER, SCREW_HOLES } from "./layout";
-import { BUILD_VIEWS } from "./views";
+import { BUILD_VIEWS, settleIn } from "./views";
+import { ease, fall, glide, grow, land, latch, past, press, reach, rock, setDown, swing, windUp } from "./motion";
+import { footprint, foldedRibbon } from "./props";
+import * as THREE from "three";
 import { VIEWS } from "../views";
 import { BUILD_SCENES } from "../../scenes/build";
 
@@ -135,6 +138,99 @@ describe("build stage", () => {
     expect(beatIndex("firmware-1")).toBe(beatIndex("wire-2") + 1);
     const stage = readFileSync(path.resolve(__dirname, "BuildStage.tsx"), "utf8") + readFileSync(path.resolve(__dirname, "props.ts"), "utf8");
     expect(stage).not.toMatch(/\bprobes?\b|\bmeter\b|multimeter/i);
+  });
+
+  it("moves every part from its start to exactly its end, whatever the timeline does outside the move", () => {
+    // span() clamps only through its ease (above): each of these must hold its
+    // ends for any input, or a part keeps going after its move is over.
+    const rising = { glide, reach, ease, fall, press, past, swing, windUp, grow };
+    for (const [name, f] of Object.entries(rising)) {
+      expect(f(0), name).toBeCloseTo(0, 6);
+      expect(f(1), name).toBeCloseTo(1, 6);
+      expect(f(-3), name).toBeCloseTo(0, 6);
+      expect(f(7), name).toBeCloseTo(1, 6);
+    }
+    const falling = { land, setDown, latch };
+    for (const [name, f] of Object.entries(falling)) {
+      expect(f(0), name).toBeCloseTo(1, 6);
+      expect(f(1), name).toBeCloseTo(0, 6);
+      expect(f(-3), name).toBeCloseTo(1, 6);
+      expect(f(7), name).toBeCloseTo(0, 6);
+    }
+    expect(rock(0)).toBeCloseTo(1, 6);
+    expect(rock(1)).toBeCloseTo(0, 6);
+  });
+
+  it("never pushes a part that seats against another past its seat, or under the mat", () => {
+    // A press ends against the part behind it; a part that lands, lands ON
+    // the mat; a cover shuts and no further (it swung on through the ribbon).
+    let last = 0;
+    for (let i = 0; i <= 400; i++) {
+      const x = i / 400;
+      const p = press(x);
+      expect(p).toBeLessThanOrEqual(1 + 1e-9);
+      expect(p).toBeGreaterThanOrEqual(last - 1e-9);
+      last = p;
+      expect(land(x)).toBeGreaterThanOrEqual(0);
+      expect(setDown(x)).toBeGreaterThanOrEqual(0);
+      expect(latch(x)).toBeGreaterThanOrEqual(0);
+      expect(latch(x)).toBeLessThanOrEqual(1);
+      // The ones that do go past their end go a little, and come back.
+      expect(past(x)).toBeLessThan(1.05);
+      expect(swing(x)).toBeLessThan(1.04);
+      expect(swing(x)).toBeGreaterThan(-0.04);
+    }
+  });
+
+  it("bends the ribbon and puts it back exactly as it is fitted", () => {
+    const r = foldedRibbon(5.6, 24.2, -1, -3.85, 28.5, -0.6);
+    const rest = Array.from(r.cable.getAttribute("position").array);
+    r.bend(3.2, 3.2, 3.2, new THREE.Vector3(0, -0.9, 0));
+    const bent = Array.from(r.cable.getAttribute("position").array);
+    expect(bent).not.toEqual(rest);
+    // Held out by the same amount everywhere, no part of it is left behind.
+    expect(Math.max(...bent.filter((_, i) => i % 3 === 2).map((z, i) => z - rest[i * 3 + 2]))).toBeCloseTo(-3.2, 5);
+    // Its ends carry the plugs: J1's end hangs the whole sag, IN's (the short run) less.
+    expect(r.ends[0].y).toBeCloseTo(-0.9, 6);
+    expect(r.ends[1].y).toBeGreaterThan(-0.9);
+    expect(r.ends[0].z).toBeCloseTo(-3.2, 6);
+    r.bend(0, 0, 0);
+    expect(Array.from(r.cable.getAttribute("position").array)).toEqual(rest);
+    expect(r.ends[0].length()).toBe(0);
+  });
+
+  it("finds a printed part's outline on its plate", () => {
+    const box = new THREE.BoxGeometry(4, 1, 2);
+    box.translate(10, 0.5, -6);
+    const outline = footprint(box, 16, 0);
+    for (const [x, z] of outline) {
+      expect(Math.abs(Math.abs(x - 10) - 2) < 1e-6 || Math.abs(Math.abs(z + 6) - 1) < 1e-6).toBe(true);
+    }
+  });
+
+  it("leaves every view as authored once the camera has settled in", () => {
+    const before = Object.fromEntries(Object.entries(BUILD_VIEWS).map(([k, v]) => [k, { dir: v.dir.clone(), fill: v.fill }]));
+    settleIn("boardF", 1);
+    expect(BUILD_VIEWS.boardF.fill).toBeLessThan(before.boardF.fill);
+    expect(BUILD_VIEWS.boardF.dir.angleTo(before.boardF.dir)).toBeGreaterThan(0.01);
+    // The step's end, and another step's view: both put it back.
+    settleIn("boardF", 0);
+    expect(BUILD_VIEWS.boardF.dir.angleTo(before.boardF.dir)).toBeLessThan(1e-9);
+    settleIn("boardF", 1);
+    settleIn("caseBack", 0.5);
+    expect(BUILD_VIEWS.boardF.dir.angleTo(before.boardF.dir)).toBeLessThan(1e-9);
+    expect(BUILD_VIEWS.boardF.fill).toBe(before.boardF.fill);
+    settleIn(null, 0);
+    for (const [k, v] of Object.entries(BUILD_VIEWS)) {
+      expect(v.dir.angleTo(before[k].dir), k).toBeLessThan(1e-9);
+      expect(v.fill, k).toBe(before[k].fill);
+    }
+    // The views that look through a gap never turn (case-3, above): only in.
+    for (const k of ["leadBack", "leadHole", "leadJ4", "terminalsBack"] as const) {
+      settleIn(k, 1);
+      expect(BUILD_VIEWS[k].dir.angleTo(before[k].dir), k).toBeLessThan(1e-9);
+    }
+    settleIn(null, 0);
   });
 
   it("solders every through-hole pad of the v3.9 board, and screws the panel at twelve slots", () => {

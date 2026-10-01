@@ -6,29 +6,42 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { EffectComposer, Bloom, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { ToneMappingMode } from "postprocessing";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import Device from "./Device";
+import Explode from "./Explode";
 import Fx from "./Fx";
-import { LED_CENTER_WORLD, MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { smoothDamp, type Damp } from "./damp";
+import { explodeWanted } from "./explodeParts";
+import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { HUB_VIEWS } from "./hubViews";
+import { stageFocus } from "./look/focus";
+import { settingsFor, useTier } from "./look/quality";
+import { PanelAir, PanelLights, StageFloor } from "./look/StageLight";
+import StagePost from "./look/StagePost";
 import { VIEWS } from "./views";
 import { getSim, useGuideStore } from "../store";
 import { stepOf, type DemoAction } from "../scenes";
 import { buildClock, kitState } from "../timing";
 import { beatIndex } from "./build/beats";
+import { awayFraming, hubFraming, type Framing, type Free } from "../world/framing";
 
-// The stage: one canvas behind the whole page. It never scrolls; the page
-// scrolls over it and the Director below turns the scroll position into
-// what the device does and where the camera stands.
+// The stage: one canvas behind the whole guide. It is mounted once, above
+// the pages (world/GuideWorld, from app/guide/layout.tsx), and stays up while
+// the reader goes between the hub, Build and Play, in either language: the
+// board, the camera and the loaded models carry over, and what changes from
+// page to page — the script (store.page), the framing (world/framing.ts) —
+// is eased into. It never scrolls; the page scrolls over it and the Director
+// below turns the scroll position into what the device does and where the
+// camera stands. On Make, which has a desk instead, the device stands far
+// back, the canvas fades (Guide.module.css) and the frame loop rests.
 
 // The Build guide's bench, plates and assembly (build/BuildStage): loaded
 // only on that page, after the device, which it takes over and adds to.
 const BuildStage = lazy(() => import("./build/BuildStage"));
 
 function Director() {
-  const last = useRef({ scene: "", step: -1, clock: 0, fired: new Set<number>() });
+  const last = useRef({ page: "", scene: "", step: -1, clock: 0, fired: new Set<number>() });
 
   useFrame((_, dt) => {
     const sim = getSim();
@@ -36,7 +49,10 @@ function Director() {
     const s = stepOf(scene, step);
     const d = last.current;
 
-    if (d.scene !== scene || d.step !== step) {
+    // Another page's opening is another step, though both are "opening", 0:
+    // the board is put in the new page's state (the hub's is lit, Build's dark).
+    if (d.page !== page || d.scene !== scene || d.step !== step) {
+      d.page = page;
       d.scene = scene;
       d.step = step;
       d.clock = 0;
@@ -100,27 +116,12 @@ function Director() {
 // that fits the part of the screen the copy leaves free — left of the card
 // on a wide screen, above it on a narrow one — at this screen's aspect.
 
-type Damp = { v: number };
-
-function smoothDamp(current: number, target: number, vel: Damp, smoothTime: number, dt: number) {
-  const omega = 2 / Math.max(0.0001, smoothTime);
-  const x = omega * dt;
-  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
-  const change = current - target;
-  const temp = (vel.v + omega * change) * dt;
-  vel.v = (vel.v - omega * temp) * exp;
-  return target + (change + temp) * exp;
-}
-
 function wrapAngle(a: number) {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
 // The device's box in world units; the camera keeps a margin from it.
 const DEVICE_BOX = new THREE.Box3(new THREE.Vector3(-1.3, -1.7, -0.3), new THREE.Vector3(1.3, 1.75, 0.45));
-
-/** The free part of the screen, in CSS px. */
-type Free = { l: number; r: number; t: number; b: number };
 
 // Where the step's card is when the reader is on that step (its block
 // centred; the opening at the top of the page), and so what it leaves free.
@@ -205,7 +206,7 @@ type RigState = {
   ox: Damp;
   oy: Damp;
   offset: { x: number; y: number };
-  free: Free;
+  framing: Framing;
   freeKey: string;
   freeAge: number;
 };
@@ -225,7 +226,7 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     ox: { v: 0 },
     oy: { v: 0 },
     offset: { x: 0, y: 0 },
-    free: { l: 0, r: 1, t: 0, b: 1 },
+    framing: { free: { l: 0, r: 1, t: 0, b: 1 }, scale: 1 },
     freeKey: "",
     freeAge: 0,
   });
@@ -252,8 +253,11 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 1 / 20);
-    const { scene, step, narrow, handsOn, page } = useGuideStore.getState();
+    const { scene, step, narrow, handsOn, page, lang, hubTop } = useGuideStore.getState();
     const s = stepOf(scene, step);
+    // The hub, with Build pointed at: the device is coming apart (Explode),
+    // and the camera goes round to where its layers show.
+    const apart = explodeWanted();
     // A DevKit view before the DevKit is out from behind the case (scrolling
     // back up into chapter one, say) would stare at empty air while the back
     // cover comes off; it watches from behind, as the chapter's first step
@@ -267,33 +271,41 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     // A Build step with two places to look at on a narrow screen (scenes.ts
     // narrowLate): its second view from that far through its beat.
     const late = narrow && s.narrowLate && s.build !== undefined && buildClock.t - beatIndex(s.build) >= s.narrowLate.from ? s.narrowLate.view : null;
-    const view = VIEWS[(devkitView && !kitState.out) || reassembling ? "back" : (late ?? ((narrow && s.narrowView) || s.view))];
+    const view = apart ? HUB_VIEWS.exploded : VIEWS[(devkitView && !kitState.out) || reassembling ? "back" : (late ?? ((narrow && s.narrowView) || s.view))];
     const c = st.current;
     const cam = camera as THREE.PerspectiveCamera;
     const w = size.width;
     const h = size.height;
 
-    // What the copy leaves free: measured when the step or the screen
-    // changes, and now and then in case the card grew (fonts, images).
-    const key = `${scene}.${step}.${w}x${h}.${narrow ? 1 : 0}`;
+    // What the page leaves free (world/framing.ts): measured when the page,
+    // the step or the screen changes, and now and then in case the card grew
+    // (fonts, images). The hub's is above its choices; Make has no device,
+    // and it stands far back there.
+    const key = `${page}.${lang}.${scene}.${step}.${w}x${h}.${narrow ? 1 : 0}.${hubTop}`;
     if (key !== c.freeKey || ++c.freeAge > 45) {
-      c.free = freeArea(scene, step, w, h, narrow, page === "build");
+      c.framing =
+        page === "hub"
+          ? hubFraming(w, h, hubTop, narrow)
+          : page === "make"
+            ? awayFraming(w, h)
+            : { free: freeArea(scene, step, w, h, narrow, page === "build"), scale: 1 };
       c.freeKey = key;
       c.freeAge = 0;
     }
-    const free = c.free;
+    const { free, scale } = c.framing;
 
     // Where this step wants the camera, in spherical terms around its target.
     let wantAz = Math.atan2(view.dir.x, view.dir.z);
     const wantEl = Math.asin(THREE.MathUtils.clamp(view.dir.y, -1, 1));
-    if (s.spin && !reducedMotion) wantAz += Math.sin(state.clock.elapsedTime * s.spin) * 0.5;
+    // Taken apart, it sways a little; whole, it turns.
+    if (s.spin && !reducedMotion) wantAz += Math.sin(state.clock.elapsedTime * s.spin) * (apart ? 0.1 : 0.5);
     const cosWantEl = Math.cos(wantEl);
     tmp.d.set(Math.sin(wantAz) * cosWantEl, Math.sin(wantEl), Math.cos(wantAz) * cosWantEl);
     // Back off along that line until the view's frame fits the free area.
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
     const hx = ((free.r - free.l) / w) * view.fill;
     const hy = ((free.b - free.t) / h) * view.fill;
-    const wantR = Math.max(view.minR, fitDistance(view.target, tmp.d, view.frame, tanHalf, w / h, hx, hy, tmp.fit));
+    const wantR = Math.max(view.minR * scale, fitDistance(view.target, tmp.d, view.frame, tanHalf, w / h, hx, hy, tmp.fit));
 
     if (!c.init) {
       // Arrive from a little further out and round, once, on load.
@@ -349,6 +361,9 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
 
     camera.position.copy(tmp.p);
     camera.lookAt(c.target);
+    // What the lens is on, for the depth of field (look/StagePost).
+    stageFocus.target.copy(c.target);
+    stageFocus.r = c.r;
 
     // Composition: the copy takes the right side on a wide screen and the
     // bottom on a narrow one, so the target moves to the middle of what it
@@ -397,97 +412,85 @@ function Warmup() {
   return null;
 }
 
-// ── light from the panel ────────────────────────────────────────────────────
+// ── light ───────────────────────────────────────────────────────────────────
 //
-// An LED panel is a light. A point light just in front of it takes the
-// average colour of what the board is showing, so the knobs, the case edge
-// and the floor catch the pattern's colour the way they do in a dark room.
+// The room has two kinds of light. The studio's: a soft key from above right
+// with a wide soft shadow, three rims and fills neutral enough that the white
+// case stays white, and a set of light panels for anything glossy or metal to
+// reflect (below). And the device's own: the LED panel is a light, and the
+// colours of the pattern on it reach the knobs, the bench, the floor and the
+// dark round it — look/StageLight.tsx (PanelLights, StageFloor, PanelAir),
+// fed by what the panel is showing (look/panelGlow.ts).
 //
-// It has no shadow, so it lights whatever faces it, through anything. On the
-// Build guide the panel's back stands open to a camera behind it (check-4,
-// before the back goes on), and the ribs and band there glowed with the
-// pattern's colour — a panel shining through itself. So on that page the
-// light goes out as the camera comes round behind the panel's plane; the
-// floor's spill, which it is for, is in front and not in those shots.
+// The panel's lights have no shadow, so they light whatever faces them,
+// through anything. On the Build guide the panel's back stands open to a
+// camera behind it (check-4, before the back goes on), and the ribs and band
+// there glowed with the pattern's colour — a panel shining through itself.
+// So on that page they go out as the camera comes round behind the panel's
+// plane; what they are for is in front and not in those shots.
 
-function PanelLight() {
-  const light = useRef<THREE.PointLight>(null);
-  const color = useMemo(() => new THREE.Color(), []);
-  const n = useRef(0);
-  useFrame((state) => {
-    const l = light.current;
-    if (!l || n.current++ % 3) return;
-    // 1 in front of the panel, 0 behind it (world z: its faces are at ±0.1).
-    const front = useGuideStore.getState().page === "build" ? THREE.MathUtils.clamp((state.camera.position.z + 0.3) / 0.6, 0, 1) : 1;
-    const f = getSim().frame;
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    // Every 8th pixel is plenty for an average.
-    for (let i = 0; i < f.length; i += 32) {
-      r += f[i];
-      g += f[i + 1];
-      b += f[i + 2];
-    }
-    const count = f.length / 32;
-    r /= count * 255;
-    g /= count * 255;
-    b /= count * 255;
-    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    const peak = Math.max(r, g, b);
-    if (peak > 0.0001) color.setRGB(r / peak, g / peak, b / peak);
-    l.color.lerp(color, 0.25);
-    l.intensity += (Math.min(4, lum * 9) * front - l.intensity) * 0.2;
-  });
+/** The key light. Its shadow map follows the quality tier: the old map is let go when the size changes. */
+function KeyLight({ shadows, mapSize }: { shadows: boolean; mapSize: number }) {
+  const light = useRef<THREE.DirectionalLight>(null);
+  const made = useRef(mapSize);
+  useEffect(() => {
+    const s = light.current?.shadow;
+    if (!s || made.current === mapSize) return;
+    made.current = mapSize;
+    // Both of VSM's targets: three makes them again, at the new size, on the next frame.
+    s.map?.dispose();
+    s.map = null;
+    s.mapPass?.dispose();
+    s.mapPass = null;
+  }, [mapSize]);
   return (
-    <pointLight
+    <directionalLight
       ref={light}
-      position={[LED_CENTER_WORLD.x, LED_CENTER_WORLD.y - 0.2, 0.9]}
-      intensity={0}
-      distance={6}
-      decay={2}
+      position={[3.5, 5, 6]}
+      intensity={2.4}
+      color="#fff7ee"
+      castShadow={shadows}
+      shadow-mapSize-width={mapSize}
+      shadow-mapSize-height={mapSize}
+      shadow-radius={9}
+      shadow-blurSamples={16}
+      shadow-bias={-0.0006}
+      shadow-camera-left={-4}
+      shadow-camera-right={4}
+      shadow-camera-top={4}
+      shadow-camera-bottom={-4}
+      shadow-camera-near={1}
+      shadow-camera-far={20}
     />
   );
 }
 
-// ── the floor ───────────────────────────────────────────────────────────────
-//
-// Something for the device to stand on and the panel to spill onto, fading
-// into the dark well before its edges.
-
-function Floor() {
-  const alpha = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = c.height = 256;
-    const ctx = c.getContext("2d");
-    if (ctx) {
-      const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
-      g.addColorStop(0, "#ffffff");
-      g.addColorStop(0.45, "#8a8a8a");
-      g.addColorStop(1, "#000000");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, 256, 256);
-    }
-    return new THREE.CanvasTexture(c);
-  }, []);
-  return (
-    <mesh rotation-x={-Math.PI / 2} position={[0, -1.66, 0.4]} receiveShadow>
-      <circleGeometry args={[7, 64]} />
-      <meshStandardMaterial color="#141210" roughness={0.92} metalness={0} transparent alphaMap={alpha} depthWrite={false} />
-    </mesh>
-  );
-}
-
-// ?gdebug=nobloom,noshadow,noenv,noao — for bisecting what a GPU objects to.
+// ?gdebug=nobloom,noshadow,noenv,noao,nodof — for bisecting what a GPU objects to. (?gq=0|1|2 pins the quality tier: look/quality.ts.)
 function debugFlags(): Set<string> {
   if (typeof window === "undefined") return new Set();
   return new Set((new URLSearchParams(window.location.search).get("gdebug") ?? "").split(",").filter(Boolean));
 }
 
+/** Make has the desk: how long the device takes to leave before the frame loop rests, ms (the canvas's fade is Guide.module.css's). */
+const REST_AFTER_MS = 1400;
+
 export default function GuideCanvas() {
   const flags = debugFlags();
   const narrow = useGuideStore((s) => s.narrow);
-  const page = useGuideStore((s) => s.page);
+  // The Build guide's stage: on with its guide, and off it until it has run
+  // the build to the whole device and handed it back (store.buildLive).
+  const building = useGuideStore((s) => s.page === "build" || s.buildLive);
+  // Make: the device has left. Once it has, nothing is drawn until it comes back.
+  const away = useGuideStore((s) => s.page === "make");
+  const [rested, setRested] = useState(false);
+  useEffect(() => {
+    if (!away) return;
+    const timer = window.setTimeout(() => setRested(true), REST_AFTER_MS);
+    return () => {
+      window.clearTimeout(timer);
+      setRested(false);
+    };
+  }, [away]);
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -496,62 +499,59 @@ export default function GuideCanvas() {
     mq.addEventListener("change", set);
     return () => mq.removeEventListener("change", set);
   }, []);
-  const ao = !narrow && !flags.has("noao");
+  // How much this machine draws (look/quality.ts): measured, and stepped down if its frames run long.
+  const quality = settingsFor(useTier(), narrow);
+  const shadows = !flags.has("noshadow");
 
   return (
     <Canvas
       camera={{ position: [4.2, 1.9, 11.6], fov: 26, near: 0.05, far: 100 }}
-      dpr={narrow ? [1, 1.5] : [1, 2]}
+      dpr={[1, quality.dpr]}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       flat
-      shadows={flags.has("noshadow") ? false : { type: THREE.VSMShadowMap }}
+      frameloop={away && rested ? "never" : "always"}
+      shadows={shadows ? { type: THREE.VSMShadowMap } : false}
     >
       <ambientLight intensity={0.18} color="#fef6e8" />
       {/* Key: soft, from above right. VSM with a wide radius gives the knobs a
           contact shadow on the case instead of hard black cut-outs. */}
-      <directionalLight
-        position={[3.5, 5, 6]}
-        intensity={2.4}
-        color="#fff7ee"
-        castShadow={!flags.has("noshadow")}
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-radius={9}
-        shadow-blurSamples={16}
-        shadow-bias={-0.0006}
-        shadow-camera-left={-4}
-        shadow-camera-right={4}
-        shadow-camera-top={4}
-        shadow-camera-bottom={-4}
-        shadow-camera-near={1}
-        shadow-camera-far={20}
-      />
+      <KeyLight shadows={shadows} mapSize={quality.shadow} />
       {/* Rims and a fill, neutral enough that the white case stays white. */}
       <directionalLight position={[-5, 2, -4]} intensity={0.9} color="#e2e8ff" />
       <directionalLight position={[4, -2, -5]} intensity={0.45} color="#ffe0d2" />
       <directionalLight position={[0, 3, -8]} intensity={0.7} color="#fff6ea" />
-      <PanelLight />
+      {/* The device's own light: the panel's colours on what is near it. */}
+      <PanelLights />
       {/* A studio made of light panels rather than a downloaded HDR: the
           preset environment lost the WebGL context on this scene (the landing
           page's copy of the same line does not), and panels read better on
-          the white case anyway — soft key above, cool rim behind. */}
+          the white case anyway — soft key above, cool rim behind. The two
+          strips are for what is glossy or metal — the solder mask, a screw's
+          head, the DevKit's can: a long narrow light is what draws a
+          highlight along an edge, and they are too small to change how
+          bright the white case is. */}
       {!flags.has("noenv") && (
-        <Environment resolution={128} frames={1}>
+        <Environment resolution={256} frames={1}>
           <Lightformer form="rect" intensity={2} color="#fff4e6" position={[0, 5, 4]} scale={[8, 3, 1]} />
           <Lightformer form="rect" intensity={0.9} color="#e4ebff" position={[-6, 1, -3]} rotation-y={Math.PI / 2} scale={[6, 4, 1]} />
           <Lightformer form="rect" intensity={0.5} color="#ffe2d6" position={[6, -1, -2]} rotation-y={-Math.PI / 2} scale={[5, 3, 1]} />
+          <Lightformer form="rect" intensity={5} color="#fff8ee" position={[-4.5, 3.2, 5]} rotation-y={Math.PI / 4} scale={[0.35, 6, 1]} />
+          <Lightformer form="rect" intensity={3} color="#eef2ff" position={[5, 2.2, 4.5]} rotation-y={-Math.PI / 3.2} scale={[0.25, 5, 1]} />
         </Environment>
       )}
-      <Floor />
+      <StageFloor />
       <Suspense fallback={null}>
         <group scale={MODEL_SCALE} position={MODEL_OFFSET}>
           <Device />
         </group>
+        {/* Straight after the device: each frame it adds to where the device
+            has put its parts (the hub's answer to Build). */}
+        <Explode />
         <Warmup />
         {/* After the device, so each frame it moves the device's parts after
             the device has (it runs later in the frame loop). Its own
             boundary: the device stays on screen while it loads. */}
-        {page === "build" && (
+        {building && (
           <Suspense fallback={null}>
             <BuildStage />
           </Suspense>
@@ -560,24 +560,9 @@ export default function GuideCanvas() {
       <Director />
       <Fx />
       <CameraRig reducedMotion={reducedMotion} />
-      {!flags.has("nobloom") &&
-        (ao ? (
-          <EffectComposer multisampling={4} enableNormalPass={false}>
-            <N8AO aoRadius={0.45} distanceFalloff={0.8} intensity={2.4} quality="medium" halfRes />
-            {/* Only what is brighter than white glows: LED pixels past their
-                knee and the live rings. The white case, however well lit,
-                stays under the threshold — it used to bloom the screen white. */}
-            <Bloom luminanceThreshold={1.15} luminanceSmoothing={0.2} intensity={0.85} radius={0.72} mipmapBlur />
-            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-            <Vignette offset={0.32} darkness={0.55} />
-          </EffectComposer>
-        ) : (
-          <EffectComposer multisampling={0} enableNormalPass={false}>
-            <Bloom luminanceThreshold={1.15} luminanceSmoothing={0.2} intensity={0.85} radius={0.72} mipmapBlur />
-            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-            <Vignette offset={0.32} darkness={0.55} />
-          </EffectComposer>
-        ))}
+      {/* The panel's veil in the dark round it, over everything else that is lit. */}
+      <PanelAir />
+      {!flags.has("nobloom") && <StagePost narrow={narrow} reducedMotion={reducedMotion} ao={!flags.has("noao")} dof={!flags.has("nodof")} />}
     </Canvas>
   );
 }

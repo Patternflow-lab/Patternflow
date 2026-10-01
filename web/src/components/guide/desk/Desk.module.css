@@ -16,14 +16,27 @@
   --d-ink-3: rgba(239, 233, 221, 0.46);
   --d-hair: rgba(239, 233, 221, 0.1);
   --d-hair-2: rgba(239, 233, 221, 0.18);
-  --d-led: #ff6a3d;
+  --d-led: var(--g-led, #ff6a3d);
   --d-chrome: #1b1a18;
   --d-chrome-2: #131210;
-  --d-field: #0f0e0d;
+  --d-field: #0d0c0b;
   /* The Lab's own ground, so its window is the Lab's colour before it paints. */
   --d-lab: #f4efe6;
-  --d-shadow: 0 26px 70px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
-  --d-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  /* A window stands off the desk: a tight dark line where it meets it, the
+     shade it throws close by, and the wide soft one under it. One light,
+     from above. */
+  --d-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.35),
+    0 14px 28px -8px rgba(0, 0, 0, 0.5),
+    0 44px 90px -24px rgba(0, 0, 0, 0.7);
+  /* The one in front stands higher. */
+  --d-shadow-fore:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 3px 6px rgba(0, 0, 0, 0.4),
+    0 22px 44px -10px rgba(0, 0, 0, 0.6),
+    0 70px 120px -30px rgba(0, 0, 0, 0.8);
+  --d-ease: cubic-bezier(0.16, 1, 0.3, 1);
 
   position: fixed;
   z-index: 1;
@@ -31,6 +44,20 @@
   top: 72px;
   bottom: 20px;
   right: calc(var(--desk-col, 380px) + 56px);
+  /* The desk comes up as the device stands back (the stage is the whole
+     guide's and stays; its fade on this page is Guide.module.css's). */
+  animation: deskUp 1s var(--d-ease) backwards;
+}
+@keyframes deskUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 34px, 0) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desk {
+    animation: none;
+  }
 }
 
 /* ── a window ────────────────────────────────────────────────────────────── */
@@ -46,17 +73,32 @@
   background: var(--d-chrome);
   box-shadow: var(--d-shadow);
   transition:
-    transform 0.62s var(--d-ease),
+    transform 0.85s var(--d-ease),
     opacity 0.45s ease,
     border-color 0.3s,
+    box-shadow 0.7s ease,
     visibility 0s linear 0s;
+}
+/* The light from above catches the frame's top edge. */
+.win::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+.win[data-role="fore"],
+.win[data-role="solo"] {
+  box-shadow: var(--d-shadow-fore);
 }
 .win[data-role="away"] {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
   transition:
-    transform 0.62s var(--d-ease),
+    transform 0.85s var(--d-ease),
     opacity 0.4s ease,
     border-color 0.3s,
     visibility 0s linear 0.45s;
@@ -64,35 +106,36 @@
 .win[data-win="ai"] {
   inset: auto 18px 18px auto;
   border-color: rgba(239, 233, 221, 0.24);
-  box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.6),
-    0 2px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--d-shadow-fore);
 }
 .win[data-win="ai"][data-role="away"] {
   transform: translate3d(0, 18px, 0) scale(0.97);
 }
 
+/* The chrome is the quietest thing on the desk: it says "a browser window"
+   and then gets out of the way of what is in it. */
 .bar {
   display: flex;
   flex: none;
   align-items: center;
   gap: 10px;
-  height: 36px;
-  padding: 0 10px 0 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  background: var(--d-chrome-2);
+  height: 34px;
+  padding: 0 10px 0 13px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.55);
+  background: linear-gradient(#181715, var(--d-chrome-2));
   font-family: var(--pf-sans, system-ui, sans-serif);
 }
 .lights {
   display: flex;
   flex: none;
-  gap: 5px;
+  gap: 6px;
 }
 .lights i {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: rgba(239, 233, 221, 0.16);
+  background: rgba(239, 233, 221, 0.11);
+  box-shadow: inset 0 0 0 0.5px rgba(239, 233, 221, 0.1);
 }
 .tab {
   display: flex;
@@ -102,15 +145,21 @@
   min-width: 0;
   max-width: 220px;
   font-size: 11.5px;
+  letter-spacing: 0.005em;
+  color: var(--d-ink-3);
+  transition: color 0.4s;
+}
+/* The window being worked in says so in its title, not its frame. */
+.win:not([data-dim="1"]) .tab {
   color: var(--d-ink-2);
 }
 .favicon {
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: #ff5c2e;
-  box-shadow: 0 0 5px rgba(255, 92, 46, 0.7);
+  background: var(--d-led);
+  opacity: 0.85;
 }
 .tabTitle {
   overflow: hidden;
@@ -123,14 +172,15 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  height: 23px;
+  height: 22px;
   padding: 0 11px;
   border-radius: 999px;
   background: var(--d-field);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5);
   font-family: var(--pf-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 0.01em;
-  color: var(--d-ink);
+  color: var(--d-ink-2);
 }
 .lock {
   flex: none;
@@ -152,11 +202,11 @@
 .badge {
   flex: none;
   padding: 2px 8px;
-  border: 1px solid rgba(255, 106, 61, 0.5);
+  border: 1px solid rgb(var(--g-led-rgb, 255 106 61) / 0.4);
   border-radius: 999px;
   font-family: var(--pf-mono, ui-monospace, monospace);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
   color: var(--d-led);
   white-space: nowrap;
 }
@@ -180,8 +230,8 @@
   pointer-events: none;
   cursor: pointer;
   transition:
-    opacity 0.45s ease,
-    background 0.25s;
+    opacity 0.6s ease,
+    background 0.3s;
 }
 .win[data-dim="1"] .cover {
   opacity: 1;
@@ -253,7 +303,7 @@
   gap: 10px;
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 106, 61, 0.55);
+  border: 1px solid rgb(var(--g-led-rgb, 255 106 61) / 0.55);
   border-radius: 10px;
   background: rgba(20, 18, 16, 0.94);
   font-size: 12.5px;
@@ -320,11 +370,17 @@
   top: -2.2px;
   overflow: visible;
   transform-origin: 3px 2.2px;
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
-  transition: transform 0.14s ease;
+  /* It floats over the windows: a close shade and a wider one under it. */
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6)) drop-shadow(0 6px 9px rgba(0, 0, 0, 0.45));
+  transition:
+    transform 0.34s cubic-bezier(0.3, 1.5, 0.5, 1),
+    filter 0.2s ease;
 }
+/* A press: down onto the glass at once (its shade closes up), and back with a little spring. */
 .cursor[data-press="1"] svg {
-  transform: scale(0.82);
+  transform: scale(0.84);
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.7)) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+  transition-duration: 0.07s;
 }
 .cursor[data-mode="scroll"] svg {
   animation: bob 0.5s ease-in-out infinite alternate;
@@ -376,10 +432,10 @@
 }
 .halo {
   border: 1.5px solid var(--d-led);
-  border-radius: 8px;
+  border-radius: 9px;
   box-shadow:
-    0 0 0 3px rgba(255, 106, 61, 0.16),
-    0 0 22px rgba(255, 106, 61, 0.35);
+    0 0 0 3px rgb(var(--g-led-rgb, 255 106 61) / 0.16),
+    0 0 22px rgb(var(--g-led-rgb, 255 106 61) / 0.35);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -394,24 +450,47 @@
   /* Wide enough for the longest one-line hints ("Your turn: roll the wheel
      over a card" left its last word on a line of its own at 260). */
   max-width: 300px;
-  padding: 7px 11px 7px 10px;
-  border: 1px solid rgba(255, 106, 61, 0.5);
-  border-radius: 10px;
-  background: rgba(16, 14, 12, 0.95);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  padding: 7px 12px 7px 11px;
+  border: 1px solid rgba(239, 233, 221, 0.16);
+  border-radius: 11px;
+  /* The pointer's own voice: dark glass, a line of the accent down its near
+     edge (the same line the cue in the card has), lit from above. */
+  background:
+    linear-gradient(var(--d-led), var(--d-led)) 0 50% / 2px calc(100% - 12px) no-repeat,
+    rgba(18, 16, 14, 0.94);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.35),
+    0 18px 36px -10px rgba(0, 0, 0, 0.6);
   font: 500 12.5px/1.35 var(--pf-sans, system-ui, sans-serif);
+  letter-spacing: 0.005em;
   color: var(--d-ink);
   opacity: 0;
-  transition: opacity 0.25s ease;
+  /* It comes up from the pointer and settles (its place is the script's transform; this is on top of it). */
+  scale: 0.94;
+  translate: 0 5px;
+  transition:
+    opacity 0.2s ease,
+    scale 0.2s ease,
+    translate 0.2s ease;
 }
 .pointerLayer[data-shown="1"] .bubble[data-on="1"] {
   opacity: 1;
+  scale: 1;
+  translate: 0 0;
+  transition:
+    opacity 0.3s ease,
+    scale 0.5s cubic-bezier(0.3, 1.36, 0.5, 1),
+    translate 0.5s var(--d-ease);
 }
 .chip {
   flex: none;
-  padding: 1px 6px;
-  border: 1px solid rgba(239, 233, 221, 0.35);
+  padding: 1px 6px 0;
+  border: 1px solid rgba(239, 233, 221, 0.28);
+  border-bottom-width: 2px;
   border-radius: 5px;
+  background: rgba(239, 233, 221, 0.05);
   font-family: var(--pf-mono, ui-monospace, monospace);
   font-size: 10.5px;
   letter-spacing: 0.04em;
@@ -446,13 +525,13 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 3px rgba(255, 106, 61, 0.14),
-      0 0 16px rgba(255, 106, 61, 0.25);
+      0 0 0 3px rgb(var(--g-led-rgb, 255 106 61) / 0.14),
+      0 0 16px rgb(var(--g-led-rgb, 255 106 61) / 0.25);
   }
   50% {
     box-shadow:
-      0 0 0 5px rgba(255, 106, 61, 0.22),
-      0 0 28px rgba(255, 106, 61, 0.45);
+      0 0 0 5px rgb(var(--g-led-rgb, 255 106 61) / 0.22),
+      0 0 28px rgb(var(--g-led-rgb, 255 106 61) / 0.45);
   }
 }
 @keyframes bob {
@@ -477,10 +556,13 @@
   align-items: center;
   gap: 8px 10px;
   margin: 14px 0 2px;
-  padding: 9px 10px 9px 12px;
+  padding: 9px 10px 9px 13px;
   border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
   border-radius: 12px;
-  background: rgba(255, 106, 61, 0.06);
+  /* The same accent line as the pointer's bubble: the two are one voice. */
+  background:
+    linear-gradient(var(--g-led, #ff6a3d), var(--g-led, #ff6a3d)) 0 50% / 2px calc(100% - 16px) no-repeat,
+    rgb(var(--g-led-rgb, 255 106 61) / 0.06);
 }
 @media (min-width: 1340px) and (min-height: 640px), (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and (min-height: 700px) {
   .cue {
@@ -534,7 +616,7 @@
 .cueAgain:focus-visible {
   border-color: var(--g-led, #ff6a3d);
   color: var(--g-ink, #efe9dd);
-  background: rgba(255, 106, 61, 0.1);
+  background: rgb(var(--g-led-rgb, 255 106 61) / 0.1);
 }
 .cueAgain:focus-visible,
 .cueJump:focus-visible {
@@ -552,7 +634,7 @@
   padding: 6px 11px;
   border: 1px solid var(--g-led, #ff6a3d);
   border-radius: 999px;
-  background: var(--g-led-wash, rgba(255, 106, 61, 0.1));
+  background: var(--g-led-wash, rgb(var(--g-led-rgb, 255 106 61) / 0.1));
   color: var(--g-ink, #efe9dd);
   font: 500 12px/1 var(--pf-sans, system-ui, sans-serif);
   cursor: pointer;
@@ -584,8 +666,12 @@
   .cursor,
   .cursor svg,
   .halo,
-  .bubble {
+  .bubble,
+  .pointerLayer[data-shown="1"] .bubble[data-on="1"],
+  .tab {
     transition: none;
+    scale: 1;
+    translate: 0 0;
   }
   .cursor[data-mode="scroll"] svg,
   .cursor[data-mode="type"]::after,

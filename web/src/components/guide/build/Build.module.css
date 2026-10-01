@@ -189,7 +189,7 @@ summary.bomHead:hover .bomChev,
   font-size: 12.5px;
 }
 .linkFirst {
-  border-color: rgba(255, 106, 61, 0.6);
+  border-color: rgb(var(--g-led-rgb, 255 106 61) / 0.6);
   background: var(--g-led-wash);
 }
 .bomNote {
@@ -220,7 +220,7 @@ summary.bomHead:hover .bomChev,
     background 0.2s;
 }
 .checks li[data-done="1"] {
-  border-color: rgba(255, 106, 61, 0.45);
+  border-color: rgb(var(--g-led-rgb, 255 106 61) / 0.45);
   background: var(--g-led-wash);
 }
 .checks label {

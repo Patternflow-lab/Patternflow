@@ -517,6 +517,8 @@ export default function DeskStage({ lang }: { lang: GuideLang }) {
     <div
       ref={desk}
       className={styles.desk}
+      // The page's own, gone with its words when another page is chosen (Guide.module.css [data-leaves]).
+      data-leaves="desk"
       data-rest={layout.rest ? "1" : "0"}
       data-front={layout.front}
       data-reduced={reduced ? "1" : "0"}
