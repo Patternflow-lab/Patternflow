@@ -143,7 +143,7 @@ What a knob does to a running pattern is the pattern's own decision, so the same
 
 The device functions themselves are fixed. Encoder 1 is brightness. Encoder 4 opens the pattern list, where you turn to browse the names and long-press again to load one, choosing from whatever is installed at the time. Encoder 2 puts the board's IP address on the panel, and typing that into a browser opens the web console, which carries every feature the device has and works from a phone.
 
-[patternflow.work/guide/play](https://patternflow.work/guide/play) has all of this on a Patternflow you can turn, press and hold, from flashing the ESP32 to the console.
+[patternflow.work/guide/play](https://patternflow.work/guide/play) has all of this on a Patternflow you can turn, press and hold, from flashing the ESP32 to the console. The same guide builds one with you ([Build](https://patternflow.work/guide/build)) and takes you through the community and Pattern Lab ([Make](https://patternflow.work/guide/make)); [patternflow.work/guide](https://patternflow.work/guide) is where to start.
 
 ## On the device
 
@@ -187,6 +187,7 @@ Patternflow is built around a standalone ESP32-S3 driving a HUB75 RGB LED matrix
 | `integrations/` | Host-software bridges: Ableton Live / Max for Live (OSC knob mapping) |
 | `.github/` | Issue and PR templates, and the CI that runs on every pull request (web, every firmware edition, doc links, console pages) |
 
+**Guide (interactive):** [Start here](https://patternflow.work/guide) · [Build it](https://patternflow.work/guide/build) · [Play it](https://patternflow.work/guide/play) · [Make patterns](https://patternflow.work/guide/make): each step shown on a 3D Patternflow you can turn, in English and Korean
 **Build:** [Full Build Guide](BUILD_GUIDE.md) · [Assembly Map](docs/assembly/README.md) · [Panel Compatibility](docs/panel-compatibility.md) · [Hardware files](hardware/README.md)
 **Play:** [Pattern Guide](PATTERN_GUIDE.md) · [Custom Patterns](firmware/CUSTOM_PATTERNS.md) · [Audio Guide](AUDIO_GUIDE.md) · [MIDI in Ableton](docs/midi-ableton.md)
 **Extend:** [Feature Guide](FEATURE_GUIDE.md) · [Editions](docs/EDITIONS.md) · [Firmware build](firmware/README.md) · [Web architecture](web/ARCHITECTURE.md) · [HTTP API](docs/rest-api.md) · [OSC Spec](docs/osc-spec.md) · [MIDI Spec](docs/midi-spec.md) · [Director → MIDI](docs/director-midi.md)
