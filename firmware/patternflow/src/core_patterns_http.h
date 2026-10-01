@@ -367,7 +367,7 @@ inline void handleList() {
     json += "{\"index\":";
     json += i;
     json += ",\"name\":\"";
-    json += patterns[i].name;
+    PatternflowHttp::appendJsonText(json, patterns[i].name);
     json += "\",\"module\":";
     if (patterns[i].modulePath) {
       char slug[MODULE_NAME_BYTES];
@@ -961,7 +961,7 @@ inline void handleSelect() {
   String body = "{\"ok\":true,\"index\":";
   body += index;
   body += ",\"name\":\"";
-  body += name;
+  PatternflowHttp::appendJsonText(body, name.c_str());
   body += "\"}";
   server().send(200, "application/json", body);
 }

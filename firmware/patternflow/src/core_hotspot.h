@@ -474,8 +474,10 @@ inline void registerRoutes() {
     json += "{\"ok\":true,";
     appendStatus(json);
     appendSeen(json);
+    // Escaped: a password is checked for length only, and one quote in it
+    // made this reply - and so the page's hotspot card - unreadable.
     json += "\"pass\":\"";
-    json += pass;
+    PatternflowHttp::appendJsonText(json, pass);
     json += "\"}";
     PatternflowHttp::server().sendHeader("Cache-Control", "no-store");
     PatternflowHttp::server().send(200, "application/json", json);
@@ -511,7 +513,7 @@ inline void registerRoutes() {
     appendStatus(json);
     appendSeen(json);
     json += "\"pass\":\"";
-    json += pass;
+    PatternflowHttp::appendJsonText(json, pass);
     json += "\"}";
     srv.sendHeader("Cache-Control", "no-store");
     srv.send(200, "application/json", json);

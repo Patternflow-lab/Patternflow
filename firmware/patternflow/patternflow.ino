@@ -1295,12 +1295,26 @@ void applyLaneMotion(InputFrame& input, bool enabled) {
   static bool wasActive[4] = {false, false, false, false};
   static float prevValue[4] = {0.0f, 0.0f, 0.0f, 0.0f};
   static float residual[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  static uint32_t handsOffUntil[4] = {0, 0, 0, 0};
+  // A flag and the moment of the touch, not a deadline. This used to keep
+  // `handsOffUntil` and test (int32_t)(until - now) > 0 "so the wrap at 49
+  // days is a non-event" - but a signed compare does not remove the wrap, it
+  // moves it to half the range: 24.9 days after a knob was last touched (or
+  // after boot, for one never touched) the difference turned positive and
+  // stayed positive for the next 24.9, and the lane on that knob was held
+  // off the whole time. An unattended panel stopped answering sound on day
+  // 25. The hold ends once, here, and only another delta on that knob
+  // starts it again.
+  static bool handsOn[4] = {false, false, false, false};
+  static uint32_t touchedAtMs[4] = {0, 0, 0, 0};
 
   for (int i = 0; i < 4; i++) {
-    if (input.knobDeltas[i] != 0) handsOffUntil[i] = input.now + LANE_HANDS_OFF_MS;
-    // Signed compare so the wrap at 49 days is a non-event.
-    const bool heldByHand = (int32_t)(handsOffUntil[i] - input.now) > 0;
+    if (input.knobDeltas[i] != 0) {
+      handsOn[i] = true;
+      touchedAtMs[i] = input.now;
+    } else if (handsOn[i] && (uint32_t)(input.now - touchedAtMs[i]) >= LANE_HANDS_OFF_MS) {
+      handsOn[i] = false;
+    }
+    const bool heldByHand = handsOn[i];
 
     if (!enabled || !input.knobAudioActive[i] || heldByHand) {
       wasActive[i] = false;

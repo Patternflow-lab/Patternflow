@@ -182,7 +182,8 @@ inline bool isInitArraySection(const Elf32Shdr& section, const char* names,
 // arbitrary patterns people upload from the community site.
 //
 // Runs after relocation and after the I-cache sync, because each entry is a
-// pointer into the module's freshly patched .text.
+// pointer into the module's freshly patched .text - and after the module's
+// entry point, because that is what gives a constructor a host to call.
 inline void runInitArray() {
   for (int i = 0; i < sectionCount; ++i) {
     if (!sections[i].initArray) continue;
@@ -905,14 +906,28 @@ inline bool load(fs::FS& filesystem, const char* path) {
     }
   }
 
-  runInitArray();
-
-  lastRelocateUs = micros() - startedUs - lastReadUs;
-
   Serial.printf("[MODULE] entering %s...\n", path);
   using Entry = const PFPatternModule* (*)(const PFHostAPI*);
   Entry entry = reinterpret_cast<Entry>(entryAddress);
+  // Entry, constructors, entry again. The entry point is what hands the
+  // module its host API, so it has to come before any constructor can run:
+  // constructors used to run first, and a namespace-scope initialiser that
+  // allocates, asks for a random number or logs
+  // (`float* trail = PFMem::allocFloats(n);`, a global object whose
+  // constructor uses `new`) dereferenced a null PFHost::api on the loader
+  // task and took the board down every time that pattern was picked, having
+  // built and uploaded cleanly. But the entry also copies NAME and the knob
+  // labels into the descriptor by value, and those may themselves be
+  // dynamically initialised - so it is asked again once they exist. A module
+  // that rejects the host on the first call has no constructors run at all.
+  if (!entry(&hostAPI)) {
+    unload();
+    return fail("module rejected host ABI or panel size");
+  }
+  runInitArray();
   active = entry(&hostAPI);
+
+  lastRelocateUs = micros() - startedUs - lastReadUs;
 
   // Descriptor version 1 (pre-absolute) and 2 (reads the appended
   // absolute-param InputFrame fields) both run here — the host always fills

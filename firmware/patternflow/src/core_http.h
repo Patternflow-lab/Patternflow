@@ -38,6 +38,18 @@ inline WebServer& server() { return httpServer; }
 
 inline bool started = false;
 
+// Text nobody here chose - a pattern's name, a network's, an error message -
+// goes into a hand-assembled JSON reply through this. One quote or backslash
+// in a community pattern's title is otherwise one reply that does not parse,
+// and for /api/patterns that is a page that can no longer list, select or
+// delete anything - including the pattern that broke it.
+inline void appendJsonText(String& json, const char* s) {
+  for (; s && *s; s++) {
+    if (*s == '"' || *s == '\\') { json += '\\'; json += *s; }
+    else if ((uint8_t)*s >= 0x20) json += *s;
+  }
+}
+
 // Registered once, by the first begin() that runs — the console chrome is
 // not any one page's property.
 inline bool chromeRegistered = false;

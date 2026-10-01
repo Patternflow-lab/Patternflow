@@ -52,6 +52,7 @@ static void* heap_caps_aligned_alloc(size_t align, size_t n, unsigned caps) {
   return externalFails ? nullptr : malloc(n);
 }
 #include "core_module_memory.h"
+#include "sidecar_name.h"
 
 using TaskHandle_t = void*;
 static thread_local TaskHandle_t task=reinterpret_cast<void*>(1);
@@ -208,6 +209,30 @@ int main() {
   PFModuleMemory::codePolicy=PF_MODULE_CODE_POLICY; PFModuleMemory::endLoad();
   internalFree=100;
 
+  // A sidecar's name, as the build writes it and as a person might.
+  {
+    char name[64];
+    assert(jsonStringValue("Wave Saw\", \"abi\": 2}", name, sizeof(name)) && !strcmp(name,"Wave Saw"));
+    // An escaped quote is part of the name, not the end of it.
+    assert(jsonStringValue("Say \\\"hi\\\" \\\\ there\"", name, sizeof(name)));
+    assert(!strcmp(name,"Say \"hi\" \\ there"));
+    // The build spells non-ASCII as \uXXXX; the stored name is UTF-8.
+    assert(jsonStringValue("Dynamic Moir\\u00e9\"", name, sizeof(name)));
+    assert(!strcmp(name,"Dynamic Moir\xC3\xA9"));
+    assert(jsonStringValue("\\ud328\\ud134\"", name, sizeof(name)) && !strcmp(name,"\xED\x8C\xA8\xED\x84\xB4"));
+    assert(jsonStringValue("\\ud83c\\udf0a\"", name, sizeof(name)) && !strcmp(name,"\xF0\x9F\x8C\x8A"));
+    // A character that does not fit is left out whole, and nothing after it.
+    char tight[6];
+    assert(jsonStringValue("abcd\\u00e9z\"", tight, sizeof(tight)) && !strcmp(tight,"abcd"));
+    assert(jsonStringValue("ab\xED\x8C\xA8z\"", tight, sizeof(tight)) && !strcmp(tight,"ab\xED\x8C\xA8"));
+    // Control escapes vanish; what never closes, or holds nothing, is no name.
+    assert(jsonStringValue("a\\nb\\tc\"", name, sizeof(name)) && !strcmp(name,"abc"));
+    assert(!jsonStringValue("never closed", name, sizeof(name)));
+    assert(!jsonStringValue("ends in a backslash\\", name, sizeof(name)));
+    assert(!jsonStringValue("bad \\u12 escape\"", name, sizeof(name)));
+    assert(!jsonStringValue("\"", name, sizeof(name)));
+    assert(!jsonStringValue("\\n\\t\"", name, sizeof(name)));
+  }
 
   PFLoopSync::attach();
   int attempts=0, commits=0;

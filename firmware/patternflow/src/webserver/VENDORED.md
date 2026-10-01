@@ -1,11 +1,59 @@
 # Vendored: WebServer (arduino-esp32 core 2.0.17)
 
 Copied verbatim from the Arduino core's bundled library
-(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **three Patternflow
+(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **four Patternflow
 fixes**. Same arrangement as `src/hub75` and `src/pubsubclient`: every firmware
 include points at this copy (`#include "webserver/WebServer.h"`), so the
 Library Manager / core-bundled version is never compiled and its version does
 not matter.
+
+## Fix 4 (2026-10-01): the multipart parser can stop
+
+`_parseForm()` has two `while(1)` loops whose only exit is a well-formed part:
+the outer one reads lines until it finds a `Content-Disposition`, and the one
+that collects a plain field's value reads lines until it finds the boundary.
+`readLine()` returns an empty String both for a blank line and for nothing
+arriving at all, so a body that stopped early - `--boundary`, then the sender
+closed - came back as an empty line for ever. With the peer gone
+`waitForByte()` returns at once, so that was a spin on `pf-net` with no delay
+in it, and the Core-0 task watchdog (5 s, panic) rebooted the board. One
+request, to any route: multipart parsing does not depend on the handler. With
+the peer still connected but silent the same loops held the single connection
+indefinitely, five seconds a pass, and the field-value loop grew its String by
+a byte each time.
+
+Reproduced on hardware before the fix (reset reason `task_wdt` about five
+seconds after the request) and not after.
+
+`readLine()` takes an optional `bool* whole`, set only when the line actually
+ended in a CR. Both loops ask for it and return `false` on a line that did
+not end: a form that stops mid-way is truncated and no later line is coming.
+The field-value loop tests for the boundary first, so a closing boundary sent
+without its CR/LF still ends the form as it did before. Every other caller
+passes no pointer and sees what it saw.
+
+Giving a form up has two consequences the spin used to hide by rebooting, and
+both are handled where the form is abandoned. `arg()` and `hasArg()` look in
+`_postArgs` first and nothing cleared it until the next multipart request, so
+a field from the abandoned form would have answered for the arguments of every
+plain request after it (`index=3` choosing the pattern for a later
+`?index=7`); the caller now clears it on a false return, which also closes the
+stock path that already had this (a field, then a file cut mid-body). And a
+form can be abandoned after one of its file parts was delivered in full: the
+two exits then report the upload aborted, as the stock code does one line
+after a file ends when the peer has gone, because a handler that latched
+state at the file's start releases it only on completion or abort
+(`/api/patterns` would otherwise have stayed "storage busy" with the panel
+paused).
+
+One well-formed shape is now refused that was not: a body that stalls for the
+whole stream timeout exactly on a line boundary at the top of the part loop
+or inside a field value. Stock waited it out (and, inside a value, quietly
+inserted an empty line). It needs a segment to end on that line break and a
+five-second gap after it; a stall inside a file body or between the headers
+and the body is handled as before.
+
+Marked `PATTERNFLOW FIX (Fix 4)` at the four sites.
 
 ## Fix 3 (2026-09-07): cooperative network maintenance while reading
 
@@ -123,8 +171,8 @@ ever matters.
 ## Updating this copy
 
 Diff against the core's `libraries/WebServer/src` before replacing wholesale;
-both fixes above must survive (grep `PATTERNFLOW FIX`, `readLine`,
-`readBody`). If the project ever moves to core 3.x, this directory can be
+the fixes above must survive (grep `PATTERNFLOW FIX`, `readLine`,
+`readBody`, `whole`). If the project ever moves to core 3.x, this directory can be
 deleted and the includes pointed back at `<WebServer.h>` — but check first
 that its parser yields between bytes; the Core-0 watchdog does not care which
 version is spinning.
