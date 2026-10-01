@@ -60,12 +60,15 @@ IRAM_END = 0x403E0000
 #
 # Re-pinned 2026-10-02: IRAM -996 in every edition (the blit kernel became three
 # short passes and its generic loop left IRAM), static DRAM -136..-152.
+# Again the same day: static DRAM +304 in every edition - the crash record's 296 B
+# (224 of them the SDK's own strings behind esp_core_dump_get_summary, 64 the
+# breadcrumb in .noinit) and 8 B of loop-sync state.
 PINS = {
-    "default": (141272, 71471),
-    "audio": (160800, 71951),
-    "performance": (157776, 71471),
-    "clock": (141552, 71471),
-    "midi": (153864, 70671),
+    "default": (141576, 71471),
+    "audio": (161104, 71951),
+    "performance": (158080, 71471),
+    "clock": (141856, 71471),
+    "midi": (154168, 70671),
 }
 
 # Enough that an intentional, well-understood adjustment does not fire the check
