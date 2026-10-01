@@ -85,6 +85,10 @@ struct LoadedSection {
   // code sits in PSRAM, where the heap's pointer is the data-bus view and
   // this is the instruction-bus view of the same bytes (see execAddress).
   uintptr_t exec = 0;
+  // What to free. Code in PSRAM starts at a cache-line boundary inside its
+  // allocation (PFModuleMemory::code), so `memory` is not the heap's pointer
+  // there; everywhere else this is null and `memory` is.
+  void* block = nullptr;
   bool executable = false;
   bool initArray = false;
 };
@@ -482,7 +486,7 @@ inline void unload() {
   moduleAllocCount = 0;
   runtimeBytes = 0;
   for (int i = 0; i < sectionCount; ++i) {
-    free(sections[i].memory);
+    free(sections[i].block ? sections[i].block : sections[i].memory);
     sections[i] = {};
   }
   sectionCount = 0;
@@ -730,8 +734,9 @@ inline bool load(fs::FS& filesystem, const char* path) {
       const bool executable = (section.flags & SHF_EXECINSTR) != 0;
       if (executable != (pass == 0)) continue;
       const size_t allocationSize = plannedSize[q];
+      void* block = nullptr;
       uint8_t* memory = executable
-          ? static_cast<uint8_t*>(PFModuleMemory::code(allocationSize))
+          ? static_cast<uint8_t*>(PFModuleMemory::code(allocationSize, &block))
           : static_cast<uint8_t*>(PFModuleMemory::data(
                 allocationSize, true, allocationSize > PF_MODULE_DATA_INTERNAL_MAX));
       if (!memory) {
@@ -757,6 +762,7 @@ inline bool load(fs::FS& filesystem, const char* path) {
       loaded.elfAddress = section.addr;
       loaded.size = section.size;
       loaded.memory = memory;
+      loaded.block = block;
       loaded.exec = executable ? execAddress(memory) : 0;
       loaded.executable = executable;
       if (executable) lastCodeExternal = loaded.exec != (uintptr_t)memory;

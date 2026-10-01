@@ -30,8 +30,9 @@ static size_t heap_caps_get_largest_free_block(unsigned caps) {
   if (caps & MALLOC_CAP_SPIRAM) return externalFails ? 0 : externalLargest;
   return largest;
 }
+static size_t externalAsked=0;
 static void* heap_caps_malloc(size_t n, unsigned caps) {
-  if (caps & MALLOC_CAP_SPIRAM) return externalFails ? nullptr : malloc(n);
+  if (caps & MALLOC_CAP_SPIRAM) { externalAsked=n; return externalFails ? nullptr : malloc(n); }
   if (n>internalFree || n>largest) return nullptr;
   void* p=malloc(n); assert(p); internalOwned[p]=n; internalFree-=n;
   return p;
@@ -43,13 +44,6 @@ static void heap_caps_free(void* p) {
   auto i=internalOwned.find(p);
   if(i!=internalOwned.end()) { internalFree+=i->second; internalOwned.erase(i); }
   free(p);
-}
-// Only code in PSRAM asks for alignment; what it asked for is what is checked.
-static size_t alignedAlign=0, alignedBytes=0;
-static void* heap_caps_aligned_alloc(size_t align, size_t n, unsigned caps) {
-  assert(caps & MALLOC_CAP_SPIRAM);
-  alignedAlign=align; alignedBytes=n;
-  return externalFails ? nullptr : malloc(n);
 }
 #include "core_module_memory.h"
 #include "sidecar_name.h"
@@ -129,7 +123,8 @@ int main() {
   externalFails=true; internalFree=PF_MODULE_INTERNAL_RESERVE+99;
   assert(!PFModuleMemory::data(100,true,true)); // PSRAM failure cannot bypass reserve
   internalFree=100000; largest=50;
-  assert(!PFModuleMemory::code(100)); // fragmentation despite ample total heap
+  void* held=nullptr;
+  assert(!PFModuleMemory::code(100,&held) && !held); // fragmentation despite ample total heap
   // Admission is on the SUM of the module's executable sections, and refuses
   // without allocating anything - no allocate-then-roll-back.
   largest=100000; externalFails=false;
@@ -164,12 +159,16 @@ int main() {
   assert(PFModuleMemory::dataBudget==1500);
   assert(PFModuleMemory::admitCode(5000) && PFModuleMemory::codeExternal);
   assert(PFModuleMemory::dataBudget==4000);
-  void* far=PFModuleMemory::code(5000);
+  void* far=PFModuleMemory::code(5000,&held);
   assert(far && internalOwned.empty() && internalFree==PF_MODULE_INTERNAL_RESERVE+4000);
   // ...in a block that owns whole cache lines, so the write-back never
   // touches a line the allocator or a neighbour is using.
-  assert(alignedAlign==64 && alignedBytes==5056 && alignedBytes%64==0);
-  heap_caps_free(far);
+  // One line of slack, the code on a line boundary inside the allocation:
+  // every line it occupies is the allocation's own.
+  assert(externalAsked==5056+64 && reinterpret_cast<uintptr_t>(far)%64==0);
+  assert(static_cast<char*>(far)>=static_cast<char*>(held) &&
+         static_cast<char*>(far)+5056<=static_cast<char*>(held)+externalAsked);
+  heap_caps_free(held);
   // Room in total is not a block: code refused for fragmentation is exactly
   // what the second home is for.
   largest=2000;

@@ -211,10 +211,27 @@ inline void* data(size_t bytes, bool zero, bool preferExternal) {
 
 // The home admitCode() chose. A PSRAM block is returned at its data-bus
 // address; the caller owns the translation to the address it is fetched from.
-inline void* code(size_t bytes) {
-  void* p = codeExternal
-      ? heap_caps_aligned_alloc(CODE_LINE, codeBlockBytes(bytes), externalData)
-      : internal(bytes, internalCode);
+//
+// Returns where the code goes; `*block` is what to free. They differ in PSRAM:
+// the allocation carries one line of slack and the code starts at the first
+// line boundary inside it, so every line it occupies lies wholly within the
+// allocation. Aligned by hand rather than with heap_caps_aligned_alloc()
+// because that call was the allocator's aligned path's only user in the
+// image, and the path is IRAM: 1.5 KB of the internal RAM this placement
+// exists to give back (measured from the linked sections, 2026-10-02).
+inline void* code(size_t bytes, void** block) {
+  void* p = nullptr;
+  if (codeExternal) {
+    void* raw = heap_caps_malloc(codeBlockBytes(bytes) + CODE_LINE, externalData);
+    *block = raw;
+    if (raw) {
+      p = reinterpret_cast<void*>(((uintptr_t)raw + CODE_LINE - 1) &
+                                  ~(uintptr_t)(CODE_LINE - 1));
+    }
+  } else {
+    p = internal(bytes, internalCode);
+    *block = p;
+  }
   if (!p) ++refusals;
   return p;
 }
