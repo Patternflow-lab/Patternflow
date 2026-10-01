@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAppStore, SectionType } from '@/store/useAppStore';
 import { SectionContent } from '@/lib/content';
 import { captureEvent } from '@/lib/posthogEvents';
@@ -244,30 +245,41 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
           </div>
         </div>
 
-        {/* ONE prominent route — the current v3.0.0 guide — with the two
-            ordering shortcuts wired straight to it. Every other combination
-            (breadboard, laser cut, older boards) lives in the assembly map,
-            which replaced the old build matrix here. */}
+        {/* ONE prominent route — the build guide on the site, where every step
+            is shown on the 3D model — with the written guide and the two
+            ordering shortcuts under it. Every other combination (breadboard,
+            laser cut, older boards) lives in the assembly map, which replaced
+            the old build matrix here. */}
         <div className="pf-block">
           <span className="pf-kicker">Start here</span>
-          <a
+          <Link
             className={styles.guideCard}
-            href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md"
-            target="_blank"
-            rel="noreferrer"
+            href="/guide/build"
             onClick={() => captureEvent('build_guide_opened', {
-              guide: 'v3.0.0',
+              guide: 'interactive',
               surface: 'build_panel',
             })}
           >
-            <strong>Build Guide v3.0.0 ↗</strong>
+            <strong>The build guide, in 3D →</strong>
             <span>
-              PLA case, hand-soldered PCB, browser flash. Start to finish in one document.
+              Parts, soldering, case, wiring, first light. Every step on a Patternflow you can turn.
             </span>
-          </a>
+          </Link>
           {/* Name on the left, destination on the right — the guide card above
               is the only solid in this panel, so these stay hairline rows. */}
           <div className={styles.quickLinks}>
+            <a
+              href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md"
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => captureEvent('build_guide_opened', {
+                guide: 'written',
+                surface: 'build_panel',
+              })}
+            >
+              <strong>Read it instead</strong>
+              <span>BUILD_GUIDE ↗</span>
+            </a>
             <a
               href="https://www.pcbway.com/project/shareproject/Patternflow_An_LED_synthesizer_776d796c.html"
               target="_blank"
@@ -285,12 +297,12 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
               <span>MakerWorld ↗</span>
             </a>
             <a
-              href="https://github.com/engmung/Patternflow/releases/tag/v3.0.0"
+              href="https://github.com/engmung/Patternflow/blob/main/hardware/README.md"
               target="_blank"
               rel="noreferrer"
             >
-              <strong>All files</strong>
-              <span>Release v3.0.0 ↗</span>
+              <strong>Gerbers, BOM, STLs</strong>
+              <span>hardware/ ↗</span>
             </a>
           </div>
           <p className={styles.otherPaths}>
