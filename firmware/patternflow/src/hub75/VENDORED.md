@@ -91,13 +91,24 @@ arithmetic. Same tables, same DMA words, same on-time sum.
 
 | | September | now |
 |---|---|---|
-| instructions per column pair, from the image | 635 | 426 |
-| IRAM the blit holds | 2,440 B | 1,184 B |
+| instructions per column pair, from the image | 635 | 426, or 390 with identity LUTs |
+| IRAM the blit holds | 2,440 B | 1,430 B |
 | `blitRGB888` stack frame | 224 B | 592 B, and 48 more inside a pass |
 
-On the panel: not measured when this was written. 5.90 ms x 426 / 635 is
-3.96 ms if cycles keep tracking instructions; the intermediates now go through
-memory, so they may not quite.
+**When all three LUTs are the identity, pass 1a skips them.** Gamma 1.0 and
+white balance 1/1/1 are what `config.h` ships, and then the three lookups hand
+each index back unchanged - at two instructions apiece, and with three table
+pointers the loop has no registers for. `pfPostRowRaw` is the same pass without
+them, 32 instructions a pixel instead of 41. `blitRGB888` asks the tables on
+every frame rather than remembering the answer, because they are the caller's
+and it rebuilds them in place whenever gamma or white balance is tuned: 768
+compares, against 36 instructions on each of 2,048 column pairs. So tuning
+white balance away from 1/1/1 costs about a third of a millisecond a frame;
+that is the LUT being used, not a regression.
+
+On the panel: not measured when this was written. 5.90 ms x 390 / 635 is
+3.62 ms if cycles keep tracking instructions (3.96 ms on the LUT path); the
+intermediates now go through memory, so they may not quite.
 
 The loop the passes replace is kept whole, as `pfBlitRowPair`: an odd width and
 every depth other than 8 still go through it, and `blit_test.cpp` still runs it
@@ -145,8 +156,8 @@ blit both walk row pairs 0 to 31 in order. The scan spends twelve buffers of
 frame when the flip happens; the blit starts later, at row 0, and as long as it
 needs more than 96 µs a row pair it falls further behind with every row and
 never writes a row that is still to be shown. The September kernel took 184 µs.
-This one cannot take less than 113 - 426 instructions, 64 column pairs, one
-cycle each at 240 MHz - and is expected near 125.
+This one cannot take less than 104 - 390 instructions, 64 column pairs, one
+cycle each at 240 MHz - and is expected near 113.
 
 About one flip in six hundred lands inside the last padding descriptor, after
 the DMA has already fetched its `next`, and the old buffer gets one more whole
