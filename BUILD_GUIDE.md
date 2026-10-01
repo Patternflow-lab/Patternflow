@@ -244,7 +244,7 @@ The ESP32-S3 module is flashed **separately, outside the PCB**. Already seated i
 
 No installation required — desktop **Chrome or Edge** only (Web Serial; Firefox/Safari won't work).
 
-> 🎬 **See it before you do it.** [patternflow.work/guide](https://patternflow.work/guide) walks through this section — the port, BOOT and RST, the Wi-Fi step, the Basics pack — on a Patternflow you can turn, and every step has a link for telling us where you got stuck.
+> 🎬 **See it before you do it.** [patternflow.work/guide/play](https://patternflow.work/guide/play) walks through this section — the port, BOOT and RST, the Wi-Fi step, the Basics pack — on a Patternflow you can turn, and every step has a link for telling us where you got stuck.
 
 > 🔌 **Use the LEFT USB-C port** — the one on your left when the two ports face you. On the ESP32-S3 DevKit that's the board's **native USB** port (labeled `USB`); the browser flasher (Web Serial + Improv) talks to it directly. The right-hand port goes through a separate USB-to-UART bridge chip and is the one Arduino IDE uses (§8.2) — the flasher may still write the firmware through it, but the Wi-Fi step never appears there, because the firmware only listens for it on the left port.
 

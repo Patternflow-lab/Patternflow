@@ -364,7 +364,7 @@ export function PatternPage({ id }: { id: string }) {
             <pre className={ps.code}>
               {tab === "js"
                 ? p.code
-                : "// firmware.h — this pattern's firmware header: the C++ the board runs.\n// The practice keeps no header. Pattern Lab makes one from the JS (06)."}
+                : "// firmware.h — this pattern's firmware header: the C++ the board runs.\n// The practice keeps no header. Pattern Lab makes one from the JS (02)."}
             </pre>
           </div>
           {tab === "h" && (

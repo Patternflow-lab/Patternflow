@@ -1,9 +1,12 @@
 import type { SimMode, SimPack } from "@/lib/guide/deviceSim";
 import { kitHeld } from "./timing";
-import { useGuideStore, type GuidePageId } from "./store";
+import { useGuideStore, type GuideScreen } from "./store";
 import type { DeskPlacement } from "./desk/types";
+import { BUILD_SCENES } from "./scenes/build";
 import { COMMUNITY_SCENE } from "./scenes/community";
 import { LAB_SCENE } from "./scenes/lab";
+import type { BuildBeat } from "./stage/build/beats";
+import type { BuildViewName } from "./stage/build/views";
 
 // The script. Each scene is a band of the page; each step is one block of
 // copy inside it, and the step whose block crosses the middle of the viewport
@@ -13,13 +16,15 @@ import { LAB_SCENE } from "./scenes/lab";
 //
 // Knobs are logical: 0..3 = K1..K4, as the device numbers them.
 //
-// The guide has two pages (pages.ts), each with its own script: SCENES is
-// the first page (/guide, 01–04), played by the 3D stage; MAKE_SCENES the
-// second (/guide/make, 05–06), whose chapters are in scenes/ and whose
-// stage is the desk of app windows (desk/DeskStage.tsx) — its steps say
-// which windows are on the desk (DeskStep), not what a device does. Both
-// pages open on a scene called "opening" and end on one called "next";
-// which page's is meant is the store's `page`.
+// The guide is three guides (pages.ts), each with its own script. SCENES is
+// Play (/guide/play, 01–04) and BUILD_SCENES (scenes/build.ts) is Build
+// (/guide/build): both are played by the 3D stage. MAKE_SCENES is Make
+// (/guide/make, 01–02), whose chapters are in scenes/ and whose stage is the
+// desk of app windows (desk/DeskStage.tsx) — its steps say which windows are
+// on the desk (DeskStep), not what a device does. Every guide opens on a
+// scene called "opening" and ends on one called "next"; which guide's is
+// meant is the store's `page`. The hub (/guide, GuideHub) has the stage too,
+// playing HUB_SCENES: Play's opening, and nothing after it.
 
 export type ViewName =
   | "hero"
@@ -32,8 +37,8 @@ export type ViewName =
   | "espPorts"
   | "espButtons"
   | "wide"
-  /** Pattern Lab beside the device (stage/views.ts). */
-  | "labSide";
+  // The Build guide's own (stage/build/views.ts): the bench, the plates, the case from behind.
+  | BuildViewName;
 
 export type DemoAction =
   | { at: number; press: number }
@@ -43,6 +48,12 @@ export type DemoAction =
 
 export type Step = {
   view: ViewName;
+  /**
+   * The view on a narrow screen, where it must differ: the stage is the top
+   * half of a phone, and a view that shows the whole run of a cable there
+   * leaves what the step is about — which screw is +5 V — a few pixels wide.
+   */
+  narrowView?: ViewName;
   /** Radians per second the device turns on its own (the opening). */
   spin?: number;
   power: boolean;
@@ -74,14 +85,16 @@ export type Step = {
    */
   dwell?: number;
   /**
-   * The device plays the reader's own Pattern Lab draft (read from the
-   * browser's saved draft, never written) instead of the deck's pattern.
+   * The Build guide only: which beat of the build this step shows (the
+   * storyboard's step id, stage/build/beats.ts). The build stage
+   * (stage/build/BuildStage.tsx) plays the beats in order and holds each
+   * one's end; build/script.ts has a ready Step for each.
    */
-  mirror?: boolean;
+  build?: BuildBeat;
 };
 
 /**
- * A step of the make page (/guide/make): which app windows are on the desk
+ * A step of the Make guide (/guide/make): which app windows are on the desk
  * and which is in front (desk/types.ts DeskPlacement). What the pointer does
  * in them is the chapter's tutorial (tutorials/*.ts), by the same index.
  */
@@ -294,7 +307,7 @@ export const SCENES: SceneDef[] = [
   },
 ];
 
-// The second page, "Make your own": a desk of app windows instead of the
+// The Make guide, "Make your own": a desk of app windows instead of the
 // device — the community and the Lab are things you do on a screen. It opens
 // with the practice community in front and the Lab behind it, both at rest
 // (dimmed, nothing pointed at yet), and ends on the reader's Lab.
@@ -311,19 +324,27 @@ export const MAKE_SCENES: SceneDef<DeskStep>[] = [
   },
 ];
 
-const PAGE_SCENES: Record<GuidePageId, SceneDef<AnyStep>[]> = { start: SCENES, make: MAKE_SCENES };
+// The hub (/guide): the device as Play's opening shows it, turning slowly
+// beside the three guides. The hub has no scroll story, so this is all it plays.
+const HUB_SCENES: SceneDef[] = [SCENES[0]];
+
+// The scripts the 3D stage plays, by page. Make has the desk instead; were
+// the stage ever mounted there, it would play Play's.
+const STAGE_SCENES: Record<GuideScreen, SceneDef[]> = { build: BUILD_SCENES, play: SCENES, make: SCENES, hub: HUB_SCENES };
+
+const PAGE_SCENES: Record<GuideScreen, SceneDef<AnyStep>[]> = { build: BUILD_SCENES, play: SCENES, make: MAKE_SCENES, hub: HUB_SCENES };
 
 /** A page's script, opening to end. */
-export function scenesOf(page: GuidePageId): SceneDef<AnyStep>[] {
+export function scenesOf(page: GuideScreen): SceneDef<AnyStep>[] {
   return PAGE_SCENES[page];
 }
 
 /** A scene of the page the reader is on (or of `page`). */
-export function sceneById(id: string, page: GuidePageId = useGuideStore.getState().page): SceneDef<AnyStep> | undefined {
+export function sceneById(id: string, page: GuideScreen = useGuideStore.getState().page): SceneDef<AnyStep> | undefined {
   return scenesOf(page).find((s) => s.id === id);
 }
 
-/** A step of the make page's script (clamped into its scene; the opening's for an unknown scene). */
+/** A step of the Make guide's script (clamped into its scene; the opening's for an unknown scene). */
 export function deskStepOf(scene: string, step: number): DeskStep {
   const def = MAKE_SCENES.find((s) => s.id === scene) ?? MAKE_SCENES[0];
   return def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
@@ -336,9 +357,10 @@ export function deskStepOf(scene: string, step: number): DeskStep {
 const heldSteps = new WeakMap<Step, Step>();
 
 export function stepOf(scene: string, step: number): Step {
-  // The 3D stage plays only the first page's script: the make page has the
-  // desk instead (MAKE_SCENES, deskStepOf).
-  const def = SCENES.find((s) => s.id === scene) ?? SCENES[0];
+  // The 3D stage plays the page's own script — Play's, Build's, the hub's.
+  // Make has the desk instead (MAKE_SCENES, deskStepOf).
+  const scenes = STAGE_SCENES[useGuideStore.getState().page];
+  const def = scenes.find((s) => s.id === scene) ?? scenes[0];
   const s = def.steps[Math.max(0, Math.min(def.steps.length - 1, step))];
   if ((s.esp ?? 0) < 1 && kitHeld()) {
     let held = heldSteps.get(s);

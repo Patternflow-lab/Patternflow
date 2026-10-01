@@ -1,6 +1,6 @@
 import type { DeskStep, SceneDef } from "../scenes";
 
-// 05 Community — the script for the chapter on the second page (/guide/make).
+// Make · 01 Community — the script for the chapter on the Make guide (/guide/make).
 // Step N here is on the desk while step N of copy/community.ts is in the
 // middle of the screen; the two lists must be the same length (pages.test.ts
 // checks it, and the page warns in development).
@@ -31,7 +31,7 @@ export const COMMUNITY_SCENE: SceneDef<DeskStep> = {
     community,
     // 4 — someone else's deck: the Decks page, Install to my board
     community,
-    // 5 — Open in Pattern Lab (06 next): the reader's own Lab waits behind
+    // 5 — Open in Pattern Lab (02 next): the reader's own Lab waits behind
     { desk: { front: "community", show: ["community", "lab"] } },
   ],
 };

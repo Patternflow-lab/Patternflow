@@ -1,7 +1,7 @@
 import { livePresets } from "@/lib/presets";
 import { BASICS_PACK } from "@/lib/pattern/packs";
 
-// What hangs in the practice community (05): placeholders, as the maker
+// What hangs in the practice community (Make · 01): placeholders, as the maker
 // allowed — Origin, and three patterns named only "Pattern 1", "Pattern 2",
 // "Pattern 3", each alive through a real JS preset (the names stay generic;
 // the code is the preset's own, credit and all). Two placeholder decks. The

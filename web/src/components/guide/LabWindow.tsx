@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react";
 import type { GuideLang } from "./store";
 import styles from "./LabWindow.module.css";
 
-// 06 Pattern Lab, "Open the Lab." — where the make page has no desk (a phone,
+// Make · 02 Pattern Lab, "Open the Lab." — where the make page has no desk (a phone,
 // a small window: desk/query.ts), the card shows the Lab as it opens (a real
 // capture, public/guide/lab-window/lab.webp, scratchpad lab_poster.py) in a
 // small browser window, and the whole of it opens the real Pattern Lab in a

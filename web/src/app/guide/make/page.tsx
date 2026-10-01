@@ -1,18 +1,10 @@
 import type { Metadata } from "next";
 import GuideExperience from "@/components/guide/GuideExperience";
-import { MAKE_COPY } from "@/components/guide/copy/make";
+import { guideMetadata } from "@/components/guide/meta";
 
-const copy = MAKE_COPY.en;
+// Make: 01 Community and 02 Pattern Lab, hands-on on a desk of windows.
 
-export const metadata: Metadata = {
-  title: `${copy.meta.title} / Patternflow`,
-  description: copy.meta.description,
-  alternates: {
-    canonical: "/guide/make",
-    languages: { en: "/guide/make", ko: "/guide/make/ko", "x-default": "/guide/make" },
-  },
-  openGraph: { title: copy.meta.title, description: copy.meta.description, url: "/guide/make" },
-};
+export const metadata: Metadata = guideMetadata("make", "en");
 
 export const dynamic = "force-static";
 

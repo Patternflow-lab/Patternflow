@@ -14,7 +14,7 @@ import { DESK_WORDS, type DeskWords } from "./words";
 import type { BigWin, DeskWin } from "./types";
 import styles from "./Desk.module.css";
 
-// The make page's stage (/guide/make, 05–06): a desk of app windows in the
+// The make page's stage (/guide/make, 01–02): a desk of app windows in the
 // space left of the story, instead of the 3D device. A large window holds the
 // reader's real Pattern Lab (/pattern-lab, same origin, its real storage); a
 // practice community and a small practice AI (desk/apps/*) sit with it. Each

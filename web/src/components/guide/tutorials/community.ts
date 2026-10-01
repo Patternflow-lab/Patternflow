@@ -2,7 +2,7 @@ import type { Beat, BeatCtx, Tutorial } from "../desk/types";
 import { deskApp } from "../desk/deskStore";
 import { COMMUNITY_SIGNAL, type CommunityHandle } from "../desk/community/handle";
 
-// 05 Community — what the desk's pointer does on each step, by step index:
+// Make · 01 Community — what the desk's pointer does on each step, by step index:
 // entry N plays while step N of copy/community.ts is in the middle of the
 // screen (scenes/community.ts says which windows that step puts on the
 // desk). Every beat's `win` must be on the desk that step (desk.test.ts
@@ -239,7 +239,7 @@ export const COMMUNITY_TUTORIAL: Tutorial = [
       do: "point",
       until: 2000,
       skipIf: (ctx) => at(ctx).kind !== "decks",
-      say: { en: "Basics, from 03: Install to my board", ko: "03의 Basics: Install to my board" },
+      say: { en: "Basics, from Play's 03: Install to my board", ko: "연주 03의 Basics: Install to my board" },
     },
     {
       win: C,
@@ -266,7 +266,7 @@ export const COMMUNITY_TUTORIAL: Tutorial = [
     },
   ],
 
-  // 5 — make it yours: Open in Pattern Lab (06 is next; the Lab waits behind).
+  // 5 — make it yours: Open in Pattern Lab (02 is next; the Lab waits behind).
   [
     toWall((ctx) => at(ctx).kind === "pattern"),
     {

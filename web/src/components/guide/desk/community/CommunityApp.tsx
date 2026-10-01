@@ -17,7 +17,7 @@ import { usePractice } from "./state";
 import { PRACTICE_WORDS } from "./words";
 import ps from "./Practice.module.css";
 
-// The practice community (05): a small copy of community.patternflow.work
+// The practice community (Make · 01): a small copy of community.patternflow.work
 // inside the desk's community window — the wall, a pattern's page and its
 // send dialog, the deck bar, the Decks page and a deck's page — holding
 // placeholder patterns (data.ts) and connected to nothing. The chapter's

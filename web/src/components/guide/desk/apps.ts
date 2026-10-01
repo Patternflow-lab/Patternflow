@@ -6,8 +6,8 @@ import { AI_APP } from "./apps/ai";
 // window is not in here — it is the real /pattern-lab, and the desk frames
 // it itself (DeskStage.tsx LabFrame).
 //
-// Each app is owned by its chapter: apps/community.tsx by 05 Community,
-// apps/ai.tsx by 06 Pattern Lab. This file only registers them.
+// Each app is owned by its chapter: apps/community.tsx by 01 Community,
+// apps/ai.tsx by 02 Pattern Lab. This file only registers them.
 
 export const DESK_APPS: Record<Exclude<DeskWin, "lab">, DeskApp> = {
   community: COMMUNITY_APP,

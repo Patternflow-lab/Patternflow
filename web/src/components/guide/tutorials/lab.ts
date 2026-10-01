@@ -4,7 +4,7 @@ import { deskApp } from "../desk/deskStore";
 import { resolveTarget } from "../desk/target";
 import type { Beat, BeatCtx, Target, Tutorial } from "../desk/types";
 
-// 06 Pattern Lab — what the desk's pointer does on each step, by step index:
+// Make · 02 Pattern Lab — what the desk's pointer does on each step, by step index:
 // entry N plays while step N of copy/lab.ts is in the middle of the screen
 // (scenes/lab.ts says which windows that step puts on the desk). A missing
 // or empty entry: no pointer on that step. Every beat's `win` must be on the

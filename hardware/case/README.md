@@ -19,7 +19,7 @@
 
 The original mass-production-oriented design: a single-piece body plus a snap-fit closing part, wall-mount hanger hole included. No bonding step at all. Does **not** fit a 256 mm bed.
 
-**`encloser.stl`** — everything in one STL (body, closing part, LED-panel mount), all **white** PLA; knobs from [`knobs/`](knobs/) in black. Same design as the print-&-assembly-verified 256 mm kit, just uncut.
+**`encloser.stl`** — everything in one STL (body, closing part, LED-panel mount), all **white** PLA; knobs from [`knobs/`](knobs/) in black. Same design as the print-&-assembly-verified 256 mm version, just uncut.
 
 **Wired access to the DevKit (330 mm only).** Two openings the 256 mm variant doesn't have yet: a **pass-through between the power-bank bay and the ESP32**, so a USB-C lead reaches the DevKit's own port with the case shut — that's for wired features like MIDI and OSC, and for flashing — and a **cable exit slot below the battery compartment**, so a cable leaves the enclosure instead of being pinched under the back panel.
 
@@ -27,7 +27,7 @@ The original mass-production-oriented design: a single-piece body plus a snap-fi
 
 ## `bed_256mm/` — the standard build
 
-**`patternflow_v3.3mf`** is the Bambu Studio project for this kit — four pre-arranged plates with the print settings below, the same file the MakerWorld listing serves. Open it and print; the STL is for every other slicer.
+**`patternflow_v3.3mf`** is the Bambu Studio project for this print — four pre-arranged plates with the print settings below, the same file the MakerWorld listing serves. Open it and print; the STL is for every other slicer.
 
 **`encloser.stl`** puts the whole body in one file: frame and back-panel halves plus the LED-panel mounting part, all in **white** PLA. ~10 hours total on a P1S. Print the knobs separately from [`knobs/`](knobs/), in **black**. The LED-panel mount is sized for the panel linked in the [BOM](../bom/). **Print & assembly verified** — the [assembly video](https://youtu.be/J9C9bZgkNKs) builds from this exact file.
 

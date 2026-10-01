@@ -8,7 +8,7 @@ import type { Layer } from "@/lib/lab/types";
 import { LAB_COPY } from "../copy/lab";
 import { LAB_TUTORIAL, stackOf } from "./lab";
 
-// 06 Pattern Lab: the words the pointer aims at in the real Lab, and the UI
+// Make · 02 Pattern Lab: the words the pointer aims at in the real Lab, and the UI
 // words its cards quote, are still the Lab's (and the community's) own. If
 // the Lab renames a button, this fails before the pointer silently hides.
 
@@ -104,7 +104,7 @@ const QUOTED: [string, "lab" | "community"][] = [
   ["Port this pattern (.h)", "community"],
 ];
 
-describe("06 Pattern Lab: the Lab's own words", () => {
+describe("02 Pattern Lab: the Lab's own words", () => {
   it.each(AIMED_AT)("the Lab still says %s", (w) => {
     expect(LAB_UI.includes(w)).toBe(true);
   });

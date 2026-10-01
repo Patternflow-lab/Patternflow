@@ -15,8 +15,12 @@ node_modules/
 dist/
 build/
 out/
-# Keep the /build app route (source, not a build artifact)
+# Keep the /build app route (source, not a build artifact), and every other
+# folder called build/ in the web source — the guide's /guide/build route.
 !web/src/app/build/
+!web/src/**/build/
+# The Build guide's models (case halves, print plates) are served from here.
+!web/public/guide/build/
 
 # Arduino build artifacts
 *.hex

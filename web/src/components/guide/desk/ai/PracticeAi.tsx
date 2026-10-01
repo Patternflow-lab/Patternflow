@@ -6,7 +6,7 @@ import { deskSignal, registerDeskApp } from "../deskStore";
 import { AI_PRESETS, AI_WORDS, answer, recognize, type PromptKind, type SetAnswer } from "./answers";
 import styles from "./PracticeAi.module.css";
 
-// The practice AI (06 Pattern Lab): a small, generic chat in a window on the
+// The practice AI (Make · 02 Pattern Lab): a small, generic chat in a window on the
 // make page's desk — no logos, no product names, no brand colours; its title
 // bar says it gives set answers. The reader pastes the Lab's prompt (a real
 // paste, Ctrl/⌘ V) and presses Send or Enter; it answers, typing, with a real

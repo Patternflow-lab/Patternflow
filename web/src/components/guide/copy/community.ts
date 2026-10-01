@@ -1,7 +1,7 @@
 import type { SceneCopy } from "../copy";
 import type { GuideLang } from "../store";
 
-// 05 Community — every word of the chapter, in both languages. Step N here
+// Make · 01 Community — every word of the chapter, in both languages. Step N here
 // is shown while step N of scenes/community.ts is on stage; the two lists
 // must be the same length. The chapter's name on the rail and in the
 // opening's list is copy/make.ts's opening.chapters[0].
@@ -25,10 +25,10 @@ import type { GuideLang } from "../store";
 //                       v3.10.4 that drops the order; the next firmware keeps
 //                       it; ↓ .zip always has)
 //   4 other decks       the Decks page: Install to my board, Copy into my deck
-//   5 open in the Lab   a copy, marked as a fork — which is 06
+//   5 open in the Lab   a copy, marked as a fork — which is 02
 
 const en: SceneCopy = {
-  num: "05",
+  num: "01",
   title: "The community",
   lede: "Patterns other people made, playing live. Take one at a time, or a whole deck.",
   steps: [
@@ -75,7 +75,7 @@ const en: SceneCopy = {
       kicker: "Other decks",
       title: "Or take someone else's.",
       body: [
-        "The Decks page holds the sets people stand behind. Basics from 03 is there, under Ships with Patternflow. Open a community deck and press Install to my board: no account, and the order comes with it.",
+        "The Decks page holds the sets people stand behind. Basics, from Play's 03, is there, under Ships with Patternflow. Open a community deck and press Install to my board: no account, and the order comes with it.",
         "Copy into my deck puts it in your bar instead, to change before you send it.",
       ],
       extra: "communityShots",
@@ -94,7 +94,7 @@ const en: SceneCopy = {
 };
 
 const ko: SceneCopy = {
-  num: "05",
+  num: "01",
   title: "커뮤니티",
   lede: "남들이 만든 패턴이 살아서 돌아가요. 하나씩 가져와도, 덱째로 가져와도 돼요.",
   steps: [
@@ -141,7 +141,7 @@ const ko: SceneCopy = {
       kicker: "남의 덱",
       title: "남의 덱을 통째로 가져와요.",
       body: [
-        "Decks 페이지엔 사람들이 자신 있게 내건 덱이 있어요. 03에서 올린 Basics도 Ships with Patternflow 아래에 있어요. 커뮤니티 덱을 열어 Install to my board를 누르면 계정 없이, 순서까지 그대로 들어가요.",
+        "Decks 페이지엔 사람들이 자신 있게 내건 덱이 있어요. 연주 가이드 03에서 올린 Basics도 Ships with Patternflow 아래에 있어요. 커뮤니티 덱을 열어 Install to my board를 누르면 계정 없이, 순서까지 그대로 들어가요.",
         "Copy into my deck을 누르면 아래쪽 바의 내 덱으로 가져와요. 고친 다음 보내면 돼요.",
       ],
       extra: "communityShots",

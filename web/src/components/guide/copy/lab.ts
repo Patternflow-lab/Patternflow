@@ -1,7 +1,7 @@
 import type { SceneCopy } from "../copy";
 import type { GuideLang } from "../store";
 
-// 06 Pattern Lab — every word of the chapter, in both languages. Layers,
+// Make · 02 Pattern Lab — every word of the chapter, in both languages. Layers,
 // Graphic Export and Director are steps in here, not chapters. Step N here
 // is shown while step N of scenes/lab.ts is on the desk, and the pointer
 // plays step N of tutorials/lab.ts; the lists must be the same length. The
@@ -29,7 +29,7 @@ import type { GuideLang } from "../store";
 // wide, and at 1280×800 the whole card has to fit.
 
 const en: SceneCopy = {
-  num: "06",
+  num: "02",
   title: "Your own pattern",
   lede: "Ask an AI for one, colour it, set its knobs and put it on your board. All in the browser.",
   steps: [
@@ -132,7 +132,7 @@ const en: SceneCopy = {
       title: "Give it back.",
       body: [
         "Upload to the community, after Next → in To hardware, publishes it with its .h, ready for anyone's board; Share, at the top, without one. You sign in when you publish.",
-        "Opened someone's pattern? Yours goes up as its fork. And a JS-only pattern from 05 can get its .h the same way: make it here, then propose it on its page with Port this pattern (.h).",
+        "Opened someone's pattern? Yours goes up as its fork. And a JS-only pattern from 01 can get its .h the same way: make it here, then propose it on its page with Port this pattern (.h).",
       ],
       note: "A Director show can go on someone's pattern the same way, as a performance. I should make one and put it up too; I keep putting it off.",
       extra: "labShots",
@@ -141,7 +141,7 @@ const en: SceneCopy = {
 };
 
 const ko: SceneCopy = {
-  num: "06",
+  num: "02",
   title: "내 패턴",
   lede: "AI에게 패턴을 받아 색을 입히고, 노브를 정하고, 내 보드에 올려요. 전부 브라우저에서요.",
   steps: [
@@ -244,7 +244,7 @@ const ko: SceneCopy = {
       title: "나눠요.",
       body: [
         "To hardware에서 Next →를 누르면 Upload to the community가 있어요. .h까지 함께 올려서, 누구든 바로 자기 보드에 넣을 수 있어요. 맨 위 Share는 .h 없이 올려요. 로그인은 올릴 때 해요.",
-        "남의 패턴에서 열었다면 그 패턴의 포크로 올라가요. 05에서 본 JS만 있는 패턴도 같은 식이에요. 여기서 .h를 만들어 그 패턴 페이지의 Port this pattern (.h)로 제안해요.",
+        "남의 패턴에서 열었다면 그 패턴의 포크로 올라가요. 01에서 본 JS만 있는 패턴도 같은 식이에요. 여기서 .h를 만들어 그 패턴 페이지의 Port this pattern (.h)로 제안해요.",
       ],
       note: "디렉터로 만든 쇼도 같은 식으로 남의 패턴에 퍼포먼스로 붙일 수 있다. 나도 하나 만들어 올려야 하는데, 계속 미루는 중이다.",
       extra: "labShots",

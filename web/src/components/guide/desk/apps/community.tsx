@@ -3,7 +3,7 @@
 import type { DeskApp } from "../types";
 import CommunityApp from "../community/CommunityApp";
 
-// The practice community (05): a small replica of the community's real UI,
+// The practice community (Make · 01): a small replica of the community's real UI,
 // holding placeholder patterns, connected to nothing. Its content is
 // desk/community/ (CommunityApp and its parts); this file only gives the
 // window its chrome, for desk/apps.ts to register. Owned by the community

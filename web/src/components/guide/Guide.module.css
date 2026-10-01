@@ -503,6 +503,33 @@
   background: var(--g-led);
   box-shadow: 0 0 12px var(--g-led);
 }
+/* "Replay", at the end of a Build card's kicker: the step's motion on the
+   stage again (GuideExperience, store.ts replayStep). */
+.replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px -6px -4px auto;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--g-ink-3);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.replay:hover,
+.replay:focus-visible {
+  color: var(--g-led);
+}
+.replay span {
+  font-size: 13px;
+  line-height: 1;
+}
 .stepTitle {
   margin: 0 0 12px;
   text-wrap: balance;
@@ -1101,7 +1128,7 @@
    the right and the desk takes the rest: the real Pattern Lab and the
    practice windows, which show what the cards say. The cards' screenshots
    are for screens without the desk (.offDesk). Below it there is no stage:
-   one column of cards, screenshots in them. The first page is untouched. */
+   one column of cards, screenshots in them. Play and Build are untouched. */
 
 @media (min-width: 1340px) and (min-height: 640px), (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and (min-height: 700px) {
   .page[data-page="make"] {
@@ -1206,5 +1233,90 @@
     min-height: 88vh;
     align-items: center;
     padding: 6vh 16px;
+  }
+}
+
+/* ── the Build guide: a bright stage under the words ──────────────────────
+   Play's stage is one lit device in a dark room. Build's is full of white
+   prints, a green board and a silver DevKit, and they pass under the text:
+   its cards are nearly opaque, its chapter titles and its header stand on a
+   dark ground of their own, and its opening — seven chapters, not four —
+   is laid out to fit a laptop's screen. */
+
+.page[data-page="build"] {
+  --g-card: rgba(20, 18, 16, 0.9);
+}
+.page[data-page="build"] .top::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto 0;
+  height: 104px;
+  pointer-events: none;
+  background: linear-gradient(rgba(10, 9, 8, 0.86), rgba(10, 9, 8, 0.6) 45%, rgba(10, 9, 8, 0));
+}
+.page[data-page="build"] .chapterHead {
+  background: radial-gradient(ellipse 84% 54% at 74% 56%, rgba(10, 9, 8, 0.88), rgba(10, 9, 8, 0.7) 50%, rgba(10, 9, 8, 0) 80%);
+}
+.page[data-page="build"] .chapterTitle,
+.page[data-page="build"] .chapterLede {
+  text-shadow:
+    0 2px 22px rgba(0, 0, 0, 0.85),
+    0 0 3px rgba(0, 0, 0, 0.5);
+}
+@media (min-width: 1200px) {
+  .page[data-page="build"] .openingChapters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .page[data-page="build"] .openingChapters a {
+    gap: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+}
+/* A laptop's 768–860 px of height: a three-line title and seven chapters ran off the first screen. */
+@media (min-width: 900px) and (max-height: 860px) {
+  .page[data-page="build"] .opening {
+    padding-top: 92px;
+    padding-bottom: 40px;
+  }
+  .page[data-page="build"] .openingTitle {
+    font-size: clamp(44px, 5vw, 76px);
+    margin-bottom: 18px;
+  }
+  .page[data-page="build"] .openingLede {
+    margin-bottom: 24px;
+    font-size: 16px;
+  }
+  .page[data-page="build"] .openingChapters {
+    margin-bottom: 34px;
+  }
+}
+@media (max-width: 899px) {
+  .page[data-page="build"] .card {
+    background: rgba(18, 16, 14, 0.94);
+  }
+  .page[data-page="build"] .chapterHead {
+    background: linear-gradient(rgba(10, 9, 8, 0) 46%, rgba(10, 9, 8, 0.8) 72%, rgba(10, 9, 8, 0.8));
+  }
+}
+/* Seven chapters on the rail: between a phone and a wide laptop they wrapped onto two lines. */
+@media (min-width: 900px) and (max-width: 1239px) {
+  .page[data-page="build"] .top {
+    gap: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .page[data-page="build"] .rail {
+    gap: 0;
+  }
+  .page[data-page="build"] .railItem {
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .page[data-page="build"] .lang {
+    white-space: nowrap;
   }
 }

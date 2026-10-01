@@ -1,4 +1,4 @@
-// What the practice community (05) tells the chapter's tutorial
+// What the practice community (Make · 01) tells the chapter's tutorial
 // (tutorials/community.ts): where the reader is in it, and a couple of demo
 // hooks the pointer may use there. Types and names only — the tutorial is
 // part of the guide's main bundle, and this file must not pull the practice

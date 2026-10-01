@@ -5,6 +5,7 @@ import { PostHogProvider } from "@/providers/PostHogProvider";
 import { Analytics } from "@vercel/analytics/next";
 import DeviceHostCapture from "@/components/DeviceHostCapture";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { LEGACY_GUIDE_REDIRECT } from "@/components/guide/legacy";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -171,6 +172,12 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* /guide#flash and the like — the Play guide's old anchors, from when
+            it was /guide — go on to /guide/play before the hub there is
+            parsed (components/guide/legacy.ts). Here, not on the hub's page,
+            because only the root layout is never rendered by a client-side
+            navigation, where an inline script would not run. */}
+        <script dangerouslySetInnerHTML={{ __html: LEGACY_GUIDE_REDIRECT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

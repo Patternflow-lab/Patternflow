@@ -55,9 +55,9 @@ export const PRACTICE_WORDS: Record<GuideLang, Words> = {
         case "installBasics":
           return `Nothing was sent. For real, your board's Patterns page opens and installs all ${n} of Basics.`;
         case "lab":
-          return "Nothing opens here. For real, a copy of this pattern opens in the community site's own Pattern Lab. Making your own, in your own Lab, is 06, next.";
+          return "Nothing opens here. For real, a copy of this pattern opens in the community site's own Pattern Lab. Making your own, in your own Lab, is 02, next.";
         case "labHeader":
-          return "Pattern Lab is 06, next.";
+          return "Pattern Lab is 02, next.";
         case "share":
           return "Sharing puts a deck up for everyone and needs an account, so it isn't part of this practice.";
         case "sharePack":
@@ -92,9 +92,9 @@ export const PRACTICE_WORDS: Record<GuideLang, Words> = {
         case "installBasics":
           return `아무것도 보내지 않았어요. 실제로는 보드의 Patterns 페이지가 열려서 Basics ${n}개를 전부 설치해요.`;
         case "lab":
-          return "여기선 열리지 않아요. 실제로는 이 패턴의 복사본이 커뮤니티 사이트의 패턴 랩에서 열려요. 내 랩에서 직접 만드는 건 바로 다음 06이에요.";
+          return "여기선 열리지 않아요. 실제로는 이 패턴의 복사본이 커뮤니티 사이트의 패턴 랩에서 열려요. 내 랩에서 직접 만드는 건 바로 다음 02예요.";
         case "labHeader":
-          return "패턴 랩은 바로 다음 06이에요.";
+          return "패턴 랩은 바로 다음 02예요.";
         case "share":
           return "공유하면 모두가 보는 곳에 덱이 올라가고, 계정이 필요해요. 그래서 이 연습엔 없어요.";
         case "sharePack":

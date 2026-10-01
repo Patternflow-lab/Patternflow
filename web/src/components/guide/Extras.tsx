@@ -19,6 +19,8 @@ import ConsoleWindow, { type ConsolePage } from "./ConsoleWindow";
 import CommunityShots from "./CommunityShots";
 import LabShots from "./LabShots";
 import LabWindow from "./LabWindow";
+import BuildCards from "./build/BuildCards";
+import type { BuildCard } from "./build/cards";
 
 // The small moving pieces that sit inside a step's card: the flasher's real
 // screens and its real button, BOOT and RST in order, a deck fanning out, the
@@ -356,6 +358,9 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
  * step uses and shows something different in each.
  */
 export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideLang; step: number }) {
+  // The build page's cards (build/BuildCards.tsx): the parts list, the
+  // terminals' polarity, the checklists, the way to Play's flashing.
+  if (kind.startsWith("build:")) return <BuildCards card={kind.slice(6) as BuildCard} lang={lang} step={step} />;
   switch (kind) {
     case "flashButton":
       return <FlashBlock lang={lang} />;
@@ -373,7 +378,7 @@ export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideL
       return <ConsoleWindow variant="phone" lang={lang} />;
     case "consoleTour":
       return <ConsoleTour lang={lang} />;
-    // The make page: 05 Community and 06 Pattern Lab. On a screen with the
+    // The make page: 01 Community and 02 Pattern Lab. On a screen with the
     // desk (desk/DeskStage) the real thing is beside the card, so these —
     // screenshots, and the Lab in a tab — are for screens without it
     // (Guide.module.css .offDesk).

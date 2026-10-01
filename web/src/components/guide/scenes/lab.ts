@@ -1,6 +1,6 @@
 import type { DeskStep, SceneDef } from "../scenes";
 
-// 06 Pattern Lab — the script for the chapter on the second page
+// Make · 02 Pattern Lab — the script for the chapter on the Make guide
 // (/guide/make). Layers, Graphic Export and Director are steps in here, not
 // chapters of their own. Step N here is on the desk while step N of
 // copy/lab.ts is in the middle of the screen; the two lists must be the same

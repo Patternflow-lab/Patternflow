@@ -3,7 +3,7 @@ import { preset as p0713 } from "@/lib/presets/pattern-0713";
 import type { GuideLang } from "../../store";
 import { HEADER_0710, HEADER_0713 } from "./headers";
 
-// The practice AI's set answers (06 Pattern Lab, on the make page's desk).
+// The practice AI's set answers (Make · 02 Pattern Lab, on the make page's desk).
 // It knows two prompts, both the Lab's own, and tells them apart by lines
 // their builders always write:
 //

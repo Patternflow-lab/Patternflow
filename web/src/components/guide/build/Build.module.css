@@ -1,0 +1,488 @@
+/* The Build guide's cards (BuildCards.tsx), inside a step's card. The room's
+   colours are Guide.module.css's (--g-*): cream type, hairlines, and the LED
+   orange only for what is live — the part being soldered, the terminal in
+   question, a tick. */
+
+.caption {
+  margin: 0 0 8px;
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
+}
+.kept {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--g-ink-3);
+}
+
+/* ── links ── */
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--g-hair-2);
+  border-radius: 999px;
+  color: var(--g-ink);
+  font-size: 13px;
+  line-height: 1.2;
+  text-decoration: none;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.link span {
+  font-size: 11px;
+  color: var(--g-ink-3);
+}
+.link:hover,
+.link:focus-visible {
+  border-color: var(--g-led);
+  background: var(--g-led-wash);
+}
+
+/* ── the parts list ── */
+
+.bom {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--g-hair);
+}
+.bomRow {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--g-hair);
+}
+.bomRef {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: var(--pf-mono);
+  font-size: 11.5px;
+  color: var(--g-ink-3);
+}
+.bomRef b {
+  font-weight: 600;
+  color: var(--g-ink);
+}
+.bomMain {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.bomPart {
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--g-ink);
+}
+.bomTip {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--g-led);
+}
+.bomSpec {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--g-ink-3);
+  overflow-wrap: anywhere;
+}
+.bomSpec code {
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  color: var(--g-ink-2);
+}
+
+/* ── checklists ── */
+
+.checks {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--g-hair);
+  border-radius: 10px;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.checks li[data-done="1"] {
+  border-color: rgba(255, 106, 61, 0.45);
+  background: var(--g-led-wash);
+}
+.checks label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+.checks input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.box {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--g-ink-3);
+  border-radius: 4px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.checks input:checked + .box {
+  border-color: var(--g-led);
+  background: var(--g-led)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3.5 8.5l3 3 6-7' fill='none' stroke='%23150a06' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    center / 12px no-repeat;
+}
+.checks input:focus-visible + .box {
+  outline: 2px solid var(--g-led);
+  outline-offset: 2px;
+}
+.checkLabel {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--g-ink-2);
+}
+.checks li[data-done="1"] .checkLabel {
+  color: var(--g-ink);
+}
+.where {
+  flex: none;
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  color: var(--g-ink-3);
+  text-decoration: none;
+}
+.where:hover,
+.where:focus-visible {
+  color: var(--g-led);
+}
+
+/* ── figures ── */
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.figures > div {
+  padding: 10px 10px 9px;
+  border: 1px solid var(--g-hair);
+  border-radius: 12px;
+}
+.figures dt {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--g-ink);
+}
+.figures dd {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
+}
+
+/* ── case files ── */
+
+.files {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+.files li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid var(--g-hair);
+  border-radius: 12px;
+}
+.fileBed {
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
+}
+.fileName {
+  font-family: var(--pf-mono);
+  font-size: 13px;
+  color: var(--g-ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.fileName:hover,
+.fileName:focus-visible {
+  color: var(--g-led);
+}
+.fileNote {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chips li {
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(239, 233, 221, 0.06);
+  font-size: 12px;
+  color: var(--g-ink-2);
+}
+
+/* ── the soldering order ── */
+
+.order {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.order li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid var(--g-hair);
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--g-ink-3);
+}
+.order li span {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.08);
+  font-family: var(--g-pixel);
+  font-size: 9px;
+}
+.order li[data-done="1"] {
+  color: var(--g-ink-2);
+}
+.order li[data-on="1"] {
+  border-color: var(--g-led);
+  background: var(--g-led-wash);
+  color: var(--g-ink);
+}
+.order li[data-on="1"] span {
+  background: var(--g-led);
+  color: #150a06;
+}
+
+/* ── the two screw terminals ── */
+
+.terminals {
+  margin-left: 0;
+  margin-right: 0;
+}
+.terminals svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  background: rgba(8, 8, 8, 0.55);
+  border: 1px solid var(--g-hair);
+}
+.board {
+  fill: #183022;
+  stroke: rgba(239, 233, 221, 0.16);
+  stroke-width: 0.25;
+}
+.socket {
+  fill: #0b0b0b;
+  stroke: rgba(239, 233, 221, 0.12);
+  stroke-width: 0.2;
+}
+.silk {
+  fill: #e9e6dc;
+  font-family: var(--pf-mono);
+  font-size: 2.2px;
+  font-weight: 600;
+}
+.silkSmall {
+  fill: rgba(233, 230, 220, 0.7);
+  font-family: var(--pf-mono);
+  font-size: 1.8px;
+}
+.dim {
+  opacity: 0.75;
+}
+.cap {
+  fill: #23262c;
+  stroke: rgba(239, 233, 221, 0.25);
+  stroke-width: 0.25;
+}
+.capStripe {
+  fill: #b9bcc4;
+}
+.term {
+  opacity: 0.42;
+  transition: opacity 0.4s;
+}
+.term[data-on="1"] {
+  opacity: 1;
+}
+.ring {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 0.35;
+}
+.term[data-on="1"] .ring {
+  stroke: var(--g-led);
+  stroke-dasharray: 1.2 0.8;
+}
+.block {
+  fill: #2f6488;
+  stroke: rgba(0, 0, 0, 0.4);
+  stroke-width: 0.2;
+}
+.screw {
+  fill: #c9c9c4;
+  stroke: #6d6d68;
+  stroke-width: 0.2;
+}
+.slot {
+  stroke: #55554f;
+  stroke-width: 0.4;
+  stroke-linecap: round;
+}
+.wireRed {
+  stroke: #e5483b;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+.wireBlack {
+  stroke: #111;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+.wireHalo {
+  stroke: rgba(239, 233, 221, 0.5);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+/* J3's wires, up the board: their colour is a gradient on the line (they fade out). */
+.wireUp line {
+  stroke-linecap: butt;
+}
+.pin {
+  fill: var(--g-ink-2);
+  font-family: var(--pf-mono);
+  font-size: 2.5px;
+  font-weight: 600;
+}
+.pinPlus {
+  fill: #ff7a5c;
+}
+.role {
+  fill: var(--g-ink-3);
+  font-family: var(--pf-sans);
+  font-size: 2.4px;
+}
+.term[data-on="1"] .role {
+  fill: var(--g-led);
+}
+.swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin: 0 5px 0 0;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+.swatch:not(:first-child) {
+  margin-left: 10px;
+}
+.swatch[data-c="red"] {
+  background: #e5483b;
+}
+.swatch[data-c="black"] {
+  background: #111;
+  box-shadow: 0 0 0 1px rgba(239, 233, 221, 0.5);
+}
+
+/* ── the knobs ── */
+
+.knobs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.knobs li {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--g-hair);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--g-ink-2);
+}
+.knobs b {
+  font-family: var(--g-pixel);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--g-led);
+}
+
+@media (max-width: 899px) {
+  .figures dt {
+    font-size: 18px;
+  }
+  .bomRow {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term,
+  .checks li,
+  .box,
+  .link {
+    transition: none;
+  }
+}

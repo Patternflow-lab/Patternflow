@@ -1,6 +1,6 @@
 "use client";
 
-// 06 Pattern Lab — the Lab's own screens inside a step's card, one after
+// Make · 02 Pattern Lab — the Lab's own screens inside a step's card, one after
 // another the way FlasherShots shows the flasher's dialog, with a ring on the
 // control each one is about and the Lab's own words quoted under it.
 //
