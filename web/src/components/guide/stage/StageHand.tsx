@@ -48,10 +48,15 @@ import { stageFocus } from "./look/focus";
 /** The floor (look/StageLight.tsx), and how near it the light may come. */
 const FLOOR_Y = -1.66;
 const FLOOR_CLEAR = 0.32;
-/** What it gives a surface straight under it, against the key light's 2.4. */
-const GIVES = 0.85;
-/** How many times that for the part the parts list points at. */
-const SPOT = 2.4;
+/**
+ * What it gives a surface straight under it, against the key light's 2.4.
+ * Kept low on purpose: the case is white and already near the top of the
+ * picture's range, so at 0.85 the light left a pale blot on it and turned the
+ * black knobs grey. At this strength it is a highlight that moves, no more.
+ */
+const GIVES = 0.26;
+/** How many times that for the part the parts list points at (about 1.7 in all: there it is the pointing). */
+const SPOT = 6.5;
 /** The panel's lit face: its plane and half-sizes, world units (look/StageLight.tsx FACE). */
 const PANEL = { z: 0.15, hw: 0.8, hh: 1.6 };
 
