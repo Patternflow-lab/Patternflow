@@ -72,6 +72,7 @@ The numbers that explain a device when something is off. Requires `PF_STATUS_HTT
 | `build` | Which image exactly, as eight lowercase hex digits: the start of the firmware ELF's SHA-256 (a hash of the compile time and version on an image built without it). Two images with the same `version` still differ here. Console page URLs carry it as `?v=` (see [Page caching](#transport)); a page open under another build is stale. Since 1.5. |
 | `uptime` | Seconds since boot. |
 | `resetReason` | Why the board is running, `esp_reset_reason()` by name: `"poweron"` (the plug), `"sw"` (the reboot button, a finished update), `"panic"`, `"task_wdt"`, `"int_wdt"`, `"wdt"`, `"brownout"`, `"deepsleep"`, `"ext"`, `"sdio"` or `"unknown"`. Read it together with `uptime`: a small uptime and anything but `"poweron"` or `"sw"` means the board restarted on its own — which from the network otherwise looks exactly like a power cut. The same word is printed once on serial at boot (`[BOOT] reset reason: …`). Since 1.4. |
+| `crash` | Since 1.5. Where the last death happened; **absent** when there is nothing to report, which is the normal case. See [The crash record](#the-crash-record). |
 | `panel` | Physical matrix, `"<w>x<h>"`. The closest thing to a model number. |
 | `host` | mDNS hostname, i.e. `PF_OTA_HOSTNAME`. **Not unique** — every device ships as `"patternflow"`. See [Identifying a device](#identifying-a-device). |
 | `network` | Since 1.5, when Wi-Fi is compiled in: `disconnects` counts sampled connected→disconnected edges; `retries` counts explicit retry attempts (including initial join failures); `reconnectMs` is the last sampled downtime, zero before a reconnect. `namesReady` means the core's local mDNS/service/alias and NetBIOS registrations succeeded; probing may still be in progress and it does not prove client reachability. `announcements` counts successful registration passes. Counters reset on boot. |
@@ -107,6 +108,52 @@ The numbers that explain a device when something is off. Requires `PF_STATUS_HTT
 | `caps` | What this build can do. **Probe this rather than assuming a feature exists.** The default build reports `["patterns","params","sleep"]` and nothing else; each [edition](EDITIONS.md) adds its own — Audio adds `osc` and `audio`, Performance adds `weather`, `mqtt` and `shows`. `patterns` and `params` are on every build. |
 | `mqttRole` | `"off"`, `"publisher"` or `"subscriber"`. Decides whether the device obeys knob and pattern topics — see [Knobs](#knobs-and-parameters). |
 | `featureNav` | `[path, label, one-line description]` per console page the loaded features serve, e.g. `[["/audio-in","Audio","The panel hears the room…"]]`. What the console header and home screen build their feature links from; empty on the default build. |
+
+### The crash record
+
+`resetReason` says that the board restarted on its own. `crash`, since 1.5, says where. It reports and nothing else: no pattern is forgotten and no reboot is forced because of it.
+
+```json
+"crash": {
+  "pattern": "cell_ripple", "phase": "draw",
+  "code": { "base": "0x40381c40", "size": 4660 },
+  "dump": {
+    "fromThisReset": true, "task": "loopTask", "cause": 28, "vaddr": "0x00000000",
+    "pc": "+0x1a1",
+    "backtrace": ["+0x1a1", "+0x9c", "0x4200f1a3", "0x4200e907", "0x42010b52"],
+    "corrupted": false, "build": "3f9a0c1e5d7b2a40", "bytes": 23108
+  }
+}
+```
+
+It has two halves, kept apart because they do not live equally long.
+
+**`pattern`, `phase`, `code`** are a breadcrumb the firmware keeps in RTC memory, which a panic or watchdog reset does not clear and a power cut does. They are present only on the boot that follows a `panic`, `task_wdt`, `int_wdt` or `wdt` reset, and describe the reset `resetReason` names.
+
+| Field | Meaning |
+|---|---|
+| `pattern` | Slug of the pattern that was resident (a module's file name without `.pfm`; a preset's name, slugified). `""` when none was. |
+| `phase` | What the device was in the middle of: `"loading"` (reading and relocating a module, through its entry point), `"constructors"`, `"setup"`, `"update"`, `"draw"`, or `"idle"` — anywhere outside pattern code: the blit, a feature, the network. `"dump-read"` means the previous boot died while reading the core dump, and this boot left it unread. A module loads on the network core while the panel draws on the other, so read `phase` beside `dump.task`: `"setup"` with a crash in `loopTask` is a crash during a load, not in it. |
+| `code` | Modules only: the address the module's code ran from, and its size in bytes. |
+
+**`dump`** is the summary of the core dump the SDK writes to the `coredump` partition on every panic. It survives power cycles and reflashing, and stays until the next panic overwrites it or [`DELETE /api/crash`](#delete-apicrash) erases it.
+
+| Field | Meaning |
+|---|---|
+| `fromThisReset` | Whether the dump was written by the reset this boot followed. Only then do the breadcrumb and the dump describe one event. `false` after a power cycle, and after a death that wrote no dump of its own — an RTC watchdog reset, or a dump too large for the 64 KB partition — which leaves an earlier one in place. |
+| `task` | Name of the task that took the exception. |
+| `cause` | Xtensa `EXCCAUSE` as recorded: `0` illegal instruction, `6` integer divide by zero, `20` instruction fetch prohibited (a jump to nowhere), `28` load prohibited, `29` store prohibited (a bad pointer read or written). |
+| `vaddr` | The address that faulted, for `28` and `29`. |
+| `pc`, `backtrace` | Where it happened and up to 16 return addresses, innermost first, as the SDK's own summary gives them — the `Backtrace:` line of a serial panic, including its convention that every address is three bytes short of the real one, so that a return address resolves to the call that made it. `backtrace[0]` is `pc`. An address inside the module `code` describes is written as an offset into it, `"+0x1a1"`, when `fromThisReset` is true; every other address is `"0x…"`. |
+| `corrupted` | The SDK could not walk the stack to its end; the addresses up to that point still hold. |
+| `build` | Sixteen hex digits of the ELF hash of the image that crashed. Its first eight are that image's `build`; when they are not this reply's `build`, the dump predates an update. |
+| `bytes` | Size of the dump image in flash. |
+
+**Decoding.** A `"0x…"` address is firmware code: `xtensa-esp32s3-elf-addr2line -pfiaC -e firmware.elf 0x4200f1a3 …` against the ELF of the image named by `build` (its SHA-256 starts with those digits). A `"+0x…"` address is an offset into the module's `.text`, and a `.pfm` carries its own symbol table: `xtensa-esp32s3-elf-nm -nC cell_ripple.pfm` lists its functions by offset, and the one at or below the address is where it was. Without `fromThisReset` a module address stays raw: nothing recorded where that module had been loaded. The same record is printed on serial at boot as `[CRASH] …` lines. The raw dump is not served: it is every task's stack, and whatever was on one.
+
+### `DELETE /api/crash`
+
+Erases the core dump and drops the record; `crash` is absent from the next status reply. `{"ok":true}`, or `404` with `{"ok":false,"error":"no crash recorded"}` when there was nothing to clear. The erase is 64 KB of flash, and the panel holds its last frame while it runs.
 
 ### `POST /api/params`
 

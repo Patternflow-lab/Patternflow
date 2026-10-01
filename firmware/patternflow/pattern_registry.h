@@ -982,18 +982,40 @@ inline int findPatternByName(const char* name) {
   return -1;
 }
 
+// A module is named on the crash breadcrumb (src/core_crash.h) by the load
+// that brings it in. A preset has no load, so the first call into one names
+// it; after that this is one pointer compare a frame. Asked of the breadcrumb
+// rather than remembered here, because a module load in between renames it.
+inline void namePresetForCrash(const PatternEntry& entry) {
+  if (PFCrash::isRunning(entry.name)) return;
+  char slug[MODULE_NAME_BYTES];
+  patternSlugAt(activePatternIdx, slug, sizeof(slug));
+  PFCrash::running(entry.name, slug);
+}
+
 inline void updateActivePattern(float dt, const InputFrame& input) {
   if (activePatternIdx < 0) return;
   const PatternEntry& entry = patterns[activePatternIdx];
   if (entry.modulePath) PFModuleLoader::update(dt, input);
-  else if (entry.update) entry.update(dt, input);
+  else if (entry.update) {
+    // The same pair of stores the loader puts around a module's update().
+    namePresetForCrash(entry);
+    PFCrash::enter(PFCrash::UPDATE);
+    entry.update(dt, input);
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 inline void drawActivePattern() {
   if (activePatternIdx < 0) return;
   const PatternEntry& entry = patterns[activePatternIdx];
   if (entry.modulePath) PFModuleLoader::draw();
-  else if (entry.draw) entry.draw();
+  else if (entry.draw) {
+    namePresetForCrash(entry);
+    PFCrash::enter(PFCrash::DRAW);
+    entry.draw();
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 #undef PATTERN_ENTRY

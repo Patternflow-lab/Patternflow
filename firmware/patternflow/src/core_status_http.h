@@ -39,6 +39,7 @@
 
 #include "core_http.h"
 #include "core_build.h"    // PFBuild::id()
+#include "core_crash.h"    // the `crash` object and DELETE /api/crash
 #include "core_bus.h"
 #include "core_canvas.h"   // presentUs
 #include "core_send.h"
@@ -130,6 +131,84 @@ inline void appendText(String& json, const char* s) {
   }
 }
 
+// One address out of a core dump. An address inside the module the breadcrumb
+// named is written "+0x<offset into its code>": the raw value is wherever the
+// heap happened to put that module on that boot, which no ELF can decode,
+// while the offset is what the .pfm's own symbol table resolves. Everything
+// else is firmware code and goes out as the address addr2line wants.
+inline void appendCrashAddress(String& json, const PFCrash::Record& r, uint32_t address) {
+  char text[12];
+  uint32_t offset;
+  if (PFCrash::inModule(r, address, offset)) {
+    snprintf(text, sizeof(text), "+0x%x", (unsigned)offset);
+  } else {
+    snprintf(text, sizeof(text), "0x%08x", (unsigned)address);
+  }
+  json += '"';
+  json += text;
+  json += '"';
+}
+
+// `crash`: what the last death left (core_crash.h), absent on a board with
+// nothing to report - which is nearly every board, so nearly every reply is
+// unchanged. Two halves that come and go separately. pattern/phase/code are
+// the breadcrumb and are only there on the boot that follows a panic or a
+// watchdog, describing the reset `resetReason` names. `dump` is the core dump
+// and stays through power cycles until the next panic replaces it or DELETE
+// /api/crash erases it; fromThisReset says whether the two are one event.
+//
+// The task name, the slug and the build hash are escaped like any other text
+// nobody here chose: they come out of flash and RTC memory, and a dump
+// written by some other firmware is only probably well-formed.
+inline void appendCrash(String& json) {
+  const PFCrash::Record* r = PFCrash::record;
+  if (!r) return;
+  char hex[12];
+  json += "\"crash\":{";
+  if (r->trailed) {
+    json += "\"pattern\":\"";
+    appendText(json, r->slug);
+    json += "\",\"phase\":\"";
+    json += PFCrash::phaseName(r->phase);
+    json += '"';
+    if (r->codeSize) {
+      snprintf(hex, sizeof(hex), "0x%08x", (unsigned)r->codeBase);
+      json += ",\"code\":{\"base\":\"";
+      json += hex;
+      json += "\",\"size\":";
+      json += r->codeSize;
+      json += '}';
+    }
+  }
+  if (r->dumped) {
+    if (r->trailed) json += ',';
+    json += "\"dump\":{\"fromThisReset\":";
+    json += r->dumpFromThisReset ? "true" : "false";
+    json += ",\"task\":\"";
+    appendText(json, r->task);
+    json += "\",\"cause\":";
+    json += r->cause;
+    snprintf(hex, sizeof(hex), "0x%08x", (unsigned)r->vaddr);
+    json += ",\"vaddr\":\"";
+    json += hex;
+    json += "\",\"pc\":";
+    appendCrashAddress(json, *r, r->pc);
+    json += ",\"backtrace\":[";
+    for (uint8_t i = 0; i < r->depth; i++) {
+      if (i) json += ',';
+      appendCrashAddress(json, *r, r->frames[i]);
+    }
+    json += "],\"corrupted\":";
+    json += r->corrupted ? "true" : "false";
+    json += ",\"build\":\"";
+    appendText(json, r->build);
+    json += "\",\"bytes\":";
+    json += r->bytes;
+    json += '}';
+  }
+  json += "},";
+}
+
 // What is keeping the device from answering promptly, as a word an open
 // console slows its polling for: "update" while a firmware image is arriving
 // or the reboot after it is due, "storage" while the pattern volume is being
@@ -195,6 +274,8 @@ inline void handleStatus() {
   json += "\"resetReason\":\"";
   json += resetReasonName();
   json += "\",";
+  // And when that word is a bug, where it happened.
+  appendCrash(json);
   json += "\"panel\":\"";
   json += PANEL_RES_W;
   json += 'x';
@@ -460,6 +541,29 @@ inline void handleStatus() {
   server().send(200, "application/json", json);
 }
 
+// DELETE /api/crash
+//
+// Erases the core dump and drops the record, so `crash` leaves the status
+// reply. Nothing else clears it and that is deliberate: the dump has to
+// outlive the power cycle a person does before they think to look, so it
+// stays until a newer panic replaces it or somebody says they have read it.
+// 404 when there was nothing, as DELETE /api/wifi does for an unknown name.
+//
+// The erase is 64 KB of flash and holds both cores for as long as that takes;
+// the panel keeps its last frame meanwhile. It runs here and not through the
+// loop task because it touches nothing a frame is using.
+inline void handleCrashClear() {
+  PatternflowPatternsHttp::noteConsoleApiCall();
+  server().sendHeader("Cache-Control", "no-store");
+  if (!PFCrash::clear()) {
+    server().send(404, "application/json",
+                  "{\"ok\":false,\"error\":\"no crash recorded\"}");
+    return;
+  }
+  Serial.println("[CRASH] core dump erased, record cleared");
+  server().send(200, "application/json", "{\"ok\":true}");
+}
+
 inline void handleIndex() {
   if (PatternflowPatternsHttp::noteConsolePageOpened()) {
     PatternflowPatternsHttp::sendConsoleWakePage();
@@ -603,6 +707,7 @@ inline void begin() {
 
   server().on("/status", HTTP_GET, handleIndex);
   server().on("/api/status", HTTP_GET, handleStatus);
+  server().on("/api/crash", HTTP_DELETE, handleCrashClear);
   server().on("/api/sleep", HTTP_POST, handleSleep);
   server().on("/api/params", HTTP_POST, handleParams);
 

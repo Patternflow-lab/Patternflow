@@ -467,6 +467,11 @@ void setup() {
   // /api/status carries the same word as resetReason.
   Serial.printf("[BOOT] reset reason: %s\n",
                 PatternflowStatusHttp::resetReasonName());
+  // And, when that word is a bug, where: the core dump the SDK wrote on the
+  // way down and the breadcrumb of which pattern was in which call. Read here,
+  // before anything below can load a pattern - the first one overwrites the
+  // breadcrumb. Reports only; nothing later in this file acts on it.
+  PFCrash::begin();
 
   reportHeap("boot");
   initEncoders();

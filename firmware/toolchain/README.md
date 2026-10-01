@@ -17,6 +17,6 @@ The repository-level scripts around the firmware: what builds a module or a pack
 - the vendored web server — `check_parser.py`: the real `src/webserver/Parsing.cpp` against a scripted socket and a fake clock, failing on a wait that does not sleep or does not end. Its `KNOWN:` lines are what the parser does today that the test would otherwise fail, pinned so that fixing one turns the check red until the pin is removed;
 - `check_sources.py`, a fast pre-compile sanity pass.
 
-`tests/` also holds `modules/_ctor_probe/`, a module that exists only to exercise the loader's `.init_array` path; build it with `build_module.py` and inspect the ELF as its header comment says.
+`tests/` also holds `modules/_ctor_probe/`, a module that exists only to exercise the loader's `.init_array` path; build it with `build_module.py` and inspect the ELF as its header comment says. Beside it, `modules/_crash_probe/` writes through a null pointer from `draw()` when a knob moves: the bench case for the crash record in `/api/status`.
 
 `module.ld` is the linker script every `.pfm` is linked with.

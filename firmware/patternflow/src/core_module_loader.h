@@ -20,6 +20,7 @@
 #include "config.h"
 #include "abi/pf_abi.h"
 #include "core_canvas.h"
+#include "core_crash.h"
 #include "core_module_memory.h"
 #include "core_encoders.h"
 #include "core_mem.h"
@@ -193,11 +194,17 @@ inline void runInitArray() {
     if (!sections[i].initArray) continue;
     size_t count = sections[i].size / sizeof(void (*)());
     auto** constructors = reinterpret_cast<void (**)()>(sections[i].memory);
+    // Their own phase on the crash breadcrumb (core_crash.h), and afterwards
+    // back to whichever one the caller was in, so the mark does not depend on
+    // where in load() this is called from.
+    const PFCrash::Phase caller = (PFCrash::Phase)PFCrash::trail.phase;
+    PFCrash::enter(PFCrash::CONSTRUCTORS);
     for (size_t c = 0; c < count; ++c) {
       uintptr_t function = reinterpret_cast<uintptr_t>(constructors[c]);
       if (function == 0 || function == (uintptr_t)-1) continue;  // ld padding
       constructors[c]();
     }
+    PFCrash::enter(caller);
   }
 }
 
@@ -481,6 +488,9 @@ inline PFHostAPI hostAPI = {
 
 inline void unload() {
   active = nullptr;
+  // Every way a module leaves comes through here, so this is where the crash
+  // breadcrumb stops naming it.
+  PFCrash::forget();
   for (int i = 0; i < moduleAllocCount; ++i) free(moduleAllocs[i]);
   memset(moduleAllocs, 0, sizeof(moduleAllocs));
   moduleAllocCount = 0;
@@ -620,10 +630,27 @@ inline bool looksLikeModule(fs::FS& filesystem, const char* path, char* why, siz
   return true;
 }
 
+// The module on the crash breadcrumb (core_crash.h) for as long as load()
+// runs. An object rather than calls, because load() has well over a dozen ways
+// out and the breadcrumb has to be right after every one of them: a load that
+// failed leaves nothing resident, and a board that dies later on the PATTERN
+// FAILED screen must not be reported as having died loading this.
+struct LoadMark {
+  explicit LoadMark(const char* path) {
+    PFCrash::running(path, path);
+    PFCrash::enter(PFCrash::LOADING);
+  }
+  ~LoadMark() {
+    if (active) PFCrash::enter(PFCrash::IDLE);
+    else PFCrash::forget();
+  }
+};
+
 inline bool load(fs::FS& filesystem, const char* path) {
   unload();
   lastError[0] = '\0';
   Serial.printf("[MODULE] loading %s\n", path);
+  const LoadMark mark(path);
   const uint32_t startedUs = micros();
 
   File file = filesystem.open(path, FILE_READ);
@@ -785,6 +812,16 @@ inline bool load(fs::FS& filesystem, const char* path) {
   }
   // Placement is over; setup()'s api->alloc() must not spend the load budget.
   PFModuleMemory::endLoad();
+
+  // From here a crash PC can be inside this module, at an address that means
+  // nothing without the range it was loaded into - so the breadcrumb carries
+  // the range. module.ld collapses a module's code into one .text, so the
+  // first executable section is all of it.
+  for (int i = 0; i < sectionCount; ++i) {
+    if (!sections[i].executable) continue;
+    PFCrash::code((uintptr_t)sections[i].memory, sections[i].size);
+    break;
+  }
 
   const Elf32Sym* symbols = nullptr;
   size_t symbolCount = 0;
@@ -970,6 +1007,7 @@ inline bool load(fs::FS& filesystem, const char* path) {
       return fail("module name is empty or unterminated (reloc bug)");
     }
   }
+  PFCrash::enter(PFCrash::SETUP);
   Serial.printf("[MODULE] setup %s...\n", active->name);
   const uint32_t setupStartedUs = micros();
   active->setup();
@@ -982,14 +1020,24 @@ inline bool load(fs::FS& filesystem, const char* path) {
   return true;
 }
 
+// The two calls a frame makes into the module, each between two stores to
+// the crash breadcrumb (core_crash.h): after a reset, which of them never
+// came back is the difference between "a pattern crashed" and "this one, in
+// draw()". One word each way and nothing else - this runs every frame.
 inline void update(float dt, const InputFrame& input) {
   if (active) {
+    PFCrash::enter(PFCrash::UPDATE);
     active->update(dt, reinterpret_cast<const PFInputFrame*>(&input));
+    PFCrash::enter(PFCrash::IDLE);
   }
 }
 
 inline void draw() {
-  if (active) active->draw();
+  if (active) {
+    PFCrash::enter(PFCrash::DRAW);
+    active->draw();
+    PFCrash::enter(PFCrash::IDLE);
+  }
 }
 
 inline const char* error() {
