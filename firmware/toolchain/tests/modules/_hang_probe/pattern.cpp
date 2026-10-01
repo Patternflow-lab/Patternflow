@@ -29,10 +29,13 @@
 //       a slice - the host's PF_LOOP_STALL_MS, which a module cannot see, so
 //       the two are kept in step by hand, plus half of the 25 ms a waiting
 //       caller sleeps between looks. The loop comes round inside the slice in
-//       which that caller gives up, so each of them should get there first
-//       in a fair share of rounds (reasoned from the slice, not yet counted
-//       on a board): the hand-off race, on the real core's atomics instead
-//       of a desk's. Either may win. Neither may crash.
+//       which that caller gives up, so over many rounds each of them gets
+//       there first sometimes. That checks both ORDERS on a real board -
+//       loop first, caller first - and not the tie itself: the loop stamps
+//       before it takes the request, so the window in which both exchanges
+//       are live is a few instructions wide. The tie is the host test's
+//       (runtime_test.cpp) and the generated code's. Either may win.
+//       Neither may crash.
 //
 // A hold that ends starts the fuse again in the same colour, so a script can
 // keep asking for as many rounds as it likes without a hand on the panel.

@@ -103,7 +103,9 @@ inline void handle() {
 // pattern that never returns from draw(), most likely (core_loop_sync.h).
 // 503 because nothing was wrong with the request and the console itself is
 // alive: /api/status says how long the loop has been gone (loopAgeMs), and
-// Reboot and /update need nothing from it. One wording for every route, so a
+// Reboot needs nothing from it - nor does /update, as long as it is armed
+// without the UPDATE screen (PF_WEBUPDATE_ALWAYS_ARMED 1, the default; the
+// screen is drawn and its knob read by the loop). One wording for every route, so a
 // page or a script can recognise it without knowing which handler refused.
 constexpr char LOOP_STALLED_ERROR[] = "render loop is not answering";
 

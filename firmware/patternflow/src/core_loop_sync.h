@@ -63,9 +63,15 @@
 // internet behind it is not (WiFiGenericClass::hostByName; the connect and
 // the reply have 5 s each after that). The panel stands still for those
 // seconds and then carries on, and that is not a hang. Twenty is clear of
-// it, and no more than that: a lookup that answers late with a server that
-// then does not can add up to more, and the panel will be called stalled
-// until it comes back. runtime.maxUs in /api/status is the longest
+// ONE such lookup and of nothing more. On an edition with two features that
+// resolve names, both hooks run in the same iteration with no service()
+// between them and each can sit out its own lookup - 28 to 30 s with a
+// resolver that does not answer - and a TLS handshake has a limit of its own
+// (120 s in WiFiClientSecure) that an HTTP timeout does not lower. So with
+// the internet down a healthy panel can be called stalled until its loop
+// comes back: a request gets a 503 it can retry, the Status page says "not
+// answering", and nothing is lost. That is why the word everywhere is
+// "not answering" and not "hung". runtime.maxUs in /api/status is the longest
 // iteration since boot - the number to read off a panel on every edition
 // before this is lowered, or before anything is ever allowed to ACT on it.
 //

@@ -336,7 +336,7 @@ int main() {
   // a stalled loop one frame before it answered.
   {
     int ran=0; std::atomic<bool> returned=false;
-    std::thread held([&]{
+    std::thread waiter([&]{
       becomeCaller();
       const bool ok=PFLoopSync::run([&]{
         leapMs+=2*PF_LOOP_STALL_MS;
@@ -347,7 +347,7 @@ int main() {
     });
     while(!ran) PFLoopSync::service();
     assert(!PFLoopSync::stalled());
-    held.join(); assert(ran==1 && PFLoopSync::gaveUp==2);
+    waiter.join(); assert(ran==1 && PFLoopSync::gaveUp==2);
   }
   // The age is never read from the future: with the loop stamping flat out,
   // a reader that took the clock before the stamp would see 49 days. Only a
@@ -434,6 +434,11 @@ int main() {
     for(Call& call : calls) bodies+=call.ran;
     assert(bodies==completed && PFLoopSync::gaveUp==2+withdrawn && !posted());
     printf("loop hand-off race: %u ran, %u withdrawn\n", completed, withdrawn.load());
+    // How hard this case tries depends on the machine. Under g++ on Linux it
+    // gets about 4,000 rounds and a non-atomic take on either side fails it
+    // every run; under MSVC, whose waits are coarse, it gets about 200 and the
+    // same mutation has passed. CI (g++, sanitizers) is the gate for the race,
+    // a local run on Windows is not.
     // Both ways, or the two never met and everything above passed for want of
     // a race. The aim swings back each time one side wins, so with a core each
     // both must turn up - they did with a third thread spinning on the same
