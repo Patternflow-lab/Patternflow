@@ -11,7 +11,7 @@ import { getSim, useGuideStore } from "../store";
 import { handSteer } from "../world/hubHand";
 import { touchSpot } from "./build/touchState";
 import { LED_CENTER_WORLD } from "./geometry";
-import { hand, handGone, handHold } from "./hand";
+import { hand, handGone } from "./hand";
 import { stageFocus } from "./look/focus";
 
 // The stage answers the hand.
@@ -20,14 +20,20 @@ import { stageFocus } from "./look/focus";
 // and nothing by the reader, short of taking a knob. This is the reader's
 // mouse on it (hand.ts), and the two things it carries here:
 //
-//   a light   small and soft, held just in front of what the camera is on and
-//             moved with the pointer, so it rakes over what it passes — the
-//             print's layers, the knobs' flanks, the board's mask, the bench.
-//             It is weak beside the key light and it cannot touch the panel
-//             (whose face is its own light, not a lit surface): it adds a
-//             highlight, it does not relight the room. On the Build guide it
-//             goes to the part the parts list is pointing at
-//             (build/touchState.ts touchSpot).
+//   a light   a torch in the hand: a narrow, soft-edged beam from beside the
+//             eye to where the pointer is, so it rakes over what it passes —
+//             the print's layers, the knobs' flanks, the board's mask, the
+//             bench. It has no fall-off with distance, on purpose. It used to
+//             be a small bulb held in the air just in front of the subject,
+//             and on the hub, where the view swings round the device, the
+//             case's near corner and the knobs came through that spot: the
+//             closer they swung, the harder they were lit, brightest with
+//             the device on the diagonal. A beam gives every surface the
+//             same light however the device is turned. It is weak beside the
+//             key light and it cannot touch the panel (whose face is its own
+//             light, not a lit surface): it adds a highlight, it does not
+//             relight the room. On the Build guide it goes to the part the
+//             parts list is pointing at (build/touchState.ts touchSpot).
 //   the hub   the pointer on the panel steers the pattern a little, as two
 //             knobs would (world/hubHand.ts: the arithmetic, and giving the
 //             board back).
@@ -49,23 +55,31 @@ import { stageFocus } from "./look/focus";
 const FLOOR_Y = -1.66;
 const FLOOR_CLEAR = 0.32;
 /**
- * What it gives a surface straight under it, against the key light's 2.4.
+ * What the beam gives a surface that faces it, against the key light's 2.4.
  * Kept low on purpose: the case is white and already near the top of the
- * picture's range, so at 0.85 the light left a pale blot on it and turned the
- * black knobs grey. At this strength it is a highlight that moves, no more.
+ * picture's range. At this strength it is a highlight that moves, no more.
  */
-const GIVES = 0.26;
+const GIVES = 0.3;
 /** How many times that for the part the parts list points at (about 1.7 in all: there it is the pointing). */
-const SPOT = 6.5;
+const SPOT = 5.6;
+/** The beam's half-angle, radians: about a sixth of the picture's height across, whatever the view. */
+const BEAM = 0.085;
+/** Where the torch is held, beside and above the eye, as a share of the distance to the subject: enough to rake. */
+const HELD = { right: 0.26, up: 0.18 };
 /** The panel's lit face: its plane and half-sizes, world units (look/StageLight.tsx FACE). */
 const PANEL = { z: 0.15, hw: 0.8, hh: 1.6 };
 
 export default function StageHand({ reducedMotion }: { reducedMotion: boolean }) {
   const gl = useThree((s) => s.gl);
-  const light = useRef<THREE.PointLight>(null);
+  const light = useRef<THREE.SpotLight>(null);
+  // What the beam is pointed at; the light itself stays by the eye.
+  const aim = useMemo(() => new THREE.Object3D(), []);
   const lit = useRef(0);
   const at = useMemo(() => ({ u: 0, v: 0 }), []);
-  const tmp = useMemo(() => ({ dir: new THREE.Vector3(), view: new THREE.Vector3(), to: new THREE.Vector3(), want: new THREE.Vector3() }), []);
+  const tmp = useMemo(
+    () => ({ dir: new THREE.Vector3(), view: new THREE.Vector3(), to: new THREE.Vector3(), want: new THREE.Vector3(), right: new THREE.Vector3(), up: new THREE.Vector3() }),
+    [],
+  );
 
   // Where the mouse is (hand.ts). A finger is never the hand.
   useEffect(() => {
@@ -120,23 +134,26 @@ export default function StageHand({ reducedMotion }: { reducedMotion: boolean })
       dir.set(hand.x, -hand.y, 0.5).unproject(cam).sub(cam.position).normalize();
 
       if (l && wanted) {
-        // How far in front of its subject it is held (hand.ts handHold).
-        const hold = handHold(stageFocus.r);
+        cam.getWorldDirection(view);
         if (spot) want.set(touchSpot.x, touchSpot.y, touchSpot.z);
         else {
-          // Just this side of the plane the camera is on — and never under
-          // the floor, which that plane goes through in a view from above.
-          cam.getWorldDirection(view);
-          let d = view.dot(to.subVectors(stageFocus.target, cam.position)) / Math.max(0.2, dir.dot(view)) - hold;
+          // Where the pointer's line meets the plane the camera is on — and
+          // never under the floor, which that plane goes through in a view
+          // from above.
+          let d = view.dot(to.subVectors(stageFocus.target, cam.position)) / Math.max(0.2, dir.dot(view));
           if (dir.y < -1e-3) d = Math.min(d, (FLOOR_Y + FLOOR_CLEAR - cam.position.y) / dir.y);
           want.copy(cam.position).addScaledVector(dir, Math.max(0.3, d));
         }
-        // It trails the pointer a little; lit from nothing, it is simply there.
-        if (lit.current < 0.004) l.position.copy(want);
-        else l.position.lerp(want, 1 - Math.exp(-dt * 16));
-        l.distance = hold * 5;
+        // The beam trails the pointer a little; lit from nothing, it is simply there.
+        if (lit.current < 0.004) aim.position.copy(want);
+        else aim.position.lerp(want, 1 - Math.exp(-dt * 16));
+        // The torch: beside and a little above the eye, so the beam rakes.
+        const r = Math.max(1, stageFocus.r);
+        tmp.right.setFromMatrixColumn(cam.matrixWorld, 0);
+        tmp.up.setFromMatrixColumn(cam.matrixWorld, 1);
+        l.position.copy(cam.position).addScaledVector(tmp.right, r * HELD.right).addScaledVector(tmp.up, r * HELD.up);
         // (The card's part is lit harder: there the light is all the pointing there is.)
-        lit.current += (GIVES * (spot ? SPOT : 1) * hold * hold - lit.current) * (1 - Math.exp(-dt * 9));
+        lit.current += (GIVES * (spot ? SPOT : 1) - lit.current) * (1 - Math.exp(-dt * 9));
       }
 
       // The hub: where on the panel the pointer is, from in front of it.
@@ -153,5 +170,10 @@ export default function StageHand({ reducedMotion }: { reducedMotion: boolean })
     if (page === "hub") handSteer(getSim(), onPanel ? at : null, dt * 1000);
   });
 
-  return <pointLight ref={light} color="#fff0dc" intensity={0} distance={4} decay={2} />;
+  return (
+    <>
+      <primitive object={aim} />
+      <spotLight ref={light} target={aim} color="#fff0dc" intensity={0} angle={BEAM} penumbra={1} distance={0} decay={0} />
+    </>
+  );
 }
