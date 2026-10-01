@@ -39,8 +39,15 @@
 // What this file does not do is act on any of it. No pattern is forgotten, no
 // reboot is forced, the boot latch in the sketch is untouched: this is the
 // half that reports. It costs two word stores per call into a pattern, 64
-// bytes of RTC memory and eight bytes of internal RAM; the record itself is
-// allocated in PSRAM, and only on a board that has something to report.
+// bytes of RTC memory and 232 bytes of internal RAM (heap start moved from
+// 0x3fcaab78 to 0x3fcaac60 on the default build). Eight of those are this
+// file's two pointers. The other 224 are four error strings that come with
+// esp_core_dump_get_summary(): the SDK's core dump code keeps its log text in
+// DRAM so it can print with the flash cache off, and that holds for the one
+// function in it that only ever runs at boot. Reading the dump without the
+// SDK's parser would get them back, at the price of a parser. The record
+// itself is allocated in PSRAM, and only on a board that has something to
+// report.
 //
 // License: MIT
 // ═══════════════════════════════════════════════════════════
