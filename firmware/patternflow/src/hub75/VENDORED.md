@@ -64,6 +64,103 @@ saturation values and both FIFO orders (over 30 million words). See the
 [bench report](../../../../docs/investigations/2026-09-firmware-runtime.md)
 for measurements.
 
+**2026-10-01: three short passes.** The instructions the September kernel
+executes were counted - its code taken from the linked image and run one
+instruction at a time against a synthetic panel - and came to 635 per column
+pair, in the 691 cycles a 5.90 ms frame works out to. That is 1.09 cycles an
+instruction. The blit was compute-bound, and the DMA contention the paragraph
+above still half believed in was never the cost. The excess was in three
+places, none of them the arithmetic:
+
+- depth was a run-time value, so each plane word paid for a multiply by six,
+  two variable shifts and a plane pointer reloaded from a stack array - 25
+  instructions where 10 do;
+- GCC 8.4 at `-Os` builds x77, x150 and x29 out of shifts and adds, about 20
+  instructions a pixel where three multiplies do;
+- one 400-instruction loop body holds more live values than the 14 registers
+  it has, so every column pair made 48 reloads from the stack and 12 literal
+  loads.
+
+The kernel is now three passes over 32 columns at a time, each short enough to
+keep its state in registers: `pfPostRow` (saturation and the LUTs, RGB888 to
+three index bytes a pixel), `pfSpreadRow` (on-time and the spread tables, to a
+`(lo, hi)` per column) and `pfStoreRow8` (the plane words, with the depth of 8
+written in, so every field position is a constant). Saturation is computed as
+`(c*q + y*(256-q)) >> 8`, which is `y + (((c-y)*q) >> 8)` exactly: the shift is
+arithmetic. Same tables, same DMA words, same on-time sum.
+
+| | September | now |
+|---|---|---|
+| instructions per column pair, from the image | 635 | 426 |
+| IRAM the blit holds | 2,440 B | 1,184 B |
+| `blitRGB888` stack frame | 224 B | 592 B, and 48 more inside a pass |
+
+On the panel: not measured when this was written. 5.90 ms x 426 / 635 is
+3.96 ms if cycles keep tracking instructions; the intermediates now go through
+memory, so they may not quite.
+
+The loop the passes replace is kept whole, as `pfBlitRowPair`: an odd width and
+every depth other than 8 still go through it, and `blit_test.cpp` still runs it
+(depths 2-7, 9, 10, and width 127 at depth 8). It is no longer in IRAM and
+neither is `pfBuildSpread` - no shipped configuration executes the first and
+the second runs once per depth change - which is where the 1.2 KB of internal
+RAM comes back from.
+
+Three things in the passes are there for this compiler alone, and each says so
+where it is used: `PF_OPAQUE`, an empty asm statement that hides where a value
+came from (the luma weights, or the multiplies come back as chains; and the
+plane pointer); `PF_NOINLINE`; and `optimize("no-branch-count-reg")` on passes
+1a and 1b, where GCC otherwise invents a down-counter, has no register for it
+and keeps it on the stack. None of them changes a result, and MSVC builds the
+host test without any of them.
+
+The scratch between the passes - 448 bytes - is on the caller's stack and not
+in static storage, so that a blit split by row pair across the two cores finds
+nothing shared.
+
+Roads that were compiled and did not pay, written down so nobody walks them
+twice: `-O2` on the kernel (about a third more instructions, all spills);
+reusing the left neighbour's result where a colour repeats (the miss path grows
+by more than the hit path saves on anything but flat fills); per-channel tables
+with the LUT and the CIE curve folded in (9 % fewer instructions, 9 KB of
+DRAM). One road was not taken for a different reason: this GCC never emits
+`addx`, so every table index is a shift and an add, and interleaving
+`pfSpreadLo` with `pfSpreadHi` into one table of pairs would save 14
+instructions a column pair. `check_blit.py` finds the kernel by the first
+table's declaration, and the two were left as they are.
+
+#### The blit must stay slower than the scan
+
+`flipDMABuffer()` returns before the swap takes effect.
+`flip_dma_output_buffer()` (`platforms/esp32s3/gdma_lcd_parallel16.cpp`) only
+rewrites the `next` pointer of each chain's last descriptor - upstream's wait
+is commented out - and `back_buffer_id` moves at once. So the buffer just
+retired stays on the panel until the DMA reaches the end of its pass, up to
+3.33 ms later, and the next `blitRGB888` writes into exactly that buffer.
+
+Nothing shows, and what prevents it is a rate, not a wait. The scan and the
+blit both walk row pairs 0 to 31 in order. The scan spends twelve buffers of
+128 words on a row pair: 1,536 clocks, 96 µs at 16 MHz, 3.07 ms for all 32 (the
+261 µs of padding comes after the last row). It is already somewhere down the
+frame when the flip happens; the blit starts later, at row 0, and as long as it
+needs more than 96 µs a row pair it falls further behind with every row and
+never writes a row that is still to be shown. The September kernel took 184 µs.
+This one cannot take less than 113 - 426 instructions, 64 column pairs, one
+cycle each at 240 MHz - and is expected near 125.
+
+About one flip in six hundred lands inside the last padding descriptor, after
+the DMA has already fetched its `next`, and the old buffer gets one more whole
+pass. The same argument covers it: that pass begins within 6 µs of the flip,
+still ahead of the blit.
+
+**The line is 96 µs per row pair, 3.07 ms per frame.** A blit faster than that
+catches the scan from behind unless it starts late: at B µs a row pair it must
+not begin sooner than 3,072 - 31 B µs after the flip - 1.1 ms at B = 62, the
+whole pass as B goes to zero. Crossing it tears: the rows past the point where
+the two meet show the next frame one refresh early, and the row where they meet
+mixes old and new planes. This kernel split across both cores crosses it. Any
+change that does has to wait for the swap before its first write.
+
 ### 2. `resumeDMAoutput()` — the way back from `stopDMAoutput()`
 
 Upstream's `stopDMAoutput()` is a one-way trip ("Screen will forever be black
