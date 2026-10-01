@@ -92,6 +92,9 @@ static char* readBytesWithTimeout(WiFiClient& client, size_t maxLength, size_t& 
 // body on timeout (which still aborts the request). readBytesWithTimeout()
 // and _uploadReadByte() already delay between checks and are left as they are.
 
+// PATTERNFLOW FIX (Fix 5): the longest multipart boundary a request may name.
+static const unsigned PF_MAX_BOUNDARY = 70;
+
 // True once a byte is waiting. False when the stream timeout passes with
 // nothing arriving, or the client has disconnected.
 static bool waitForByte(WiFiClient& client)
@@ -250,8 +253,22 @@ bool WebServer::_parseRequest(WiFiClient& client) {
       }
     }
 
-    if (!isForm && _currentHandler && _currentHandler->canRaw(_currentUri)){
+    // PATTERNFLOW FIX (Fix 5): the raw path is for routes whose body callback
+    // was written for a raw body. canRaw() is true for ANY route that has a
+    // body callback and is not a GET, so a POST that is not multipart, sent to
+    // a multipart upload route, was handed to that route's upload callback as
+    // a raw body - and the callback's first line, server().upload(), is then
+    // a reference through a null pointer. `curl -X POST /api/patterns` (or
+    // /update), with no body at all, panicked the board. A route registered
+    // for POST with a body callback is a multipart route here; its plain
+    // POSTs go to the plain path below and reach the completion handler.
+    if (!isForm && _currentHandler && _currentHandler->canRaw(_currentUri) &&
+        !_currentHandler->canUpload(_currentUri)){
       log_v("Parse raw");
+      // PATTERNFLOW FIX (Fix 5): a raw request has a query string too. Stock
+      // never parsed it on this path, so `PUT /update?size=N` found no size -
+      // and arg() answered with whatever the previous request had carried.
+      _parseArguments(searchStr);
       _currentRaw.reset(new HTTPRaw());
       _currentRaw->status = RAW_START;
       _currentRaw->totalSize = 0;
@@ -470,6 +487,12 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
     ++retry;
   } while (line.length() == 0 && retry < 3);
 
+  // PATTERNFLOW FIX (Fix 5): a boundary is at most 70 characters (RFC 2046).
+  // Stock sized a stack array from whatever the Content-Type header said, on
+  // a task with an 8 KB stack: a 9,000-character boundary was a stack
+  // overflow and a reboot, from one request.
+  if (boundary.length() > PF_MAX_BOUNDARY) return false;
+
   //start reading the form
   if (line == ("--"+boundary)){
    if(_postArgs) delete[] _postArgs;
@@ -563,7 +586,7 @@ bool WebServer::_parseForm(WiFiClient& client, String boundary, uint32_t len){
             _currentUpload->status = UPLOAD_FILE_WRITE;
 
             int fastBoundaryLen = 4 /* \r\n-- */ + boundary.length() + 1 /* \0 */;
-            char fastBoundary[ fastBoundaryLen ];
+            char fastBoundary[ 4 + PF_MAX_BOUNDARY + 1 ];   // PATTERNFLOW FIX (Fix 5): bounded above, no longer sized by the request
             snprintf(fastBoundary, fastBoundaryLen, "\r\n--%s", boundary.c_str());
             int boundaryPtr = 0;
             while ( true ) {

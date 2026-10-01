@@ -721,12 +721,12 @@ static Corpus corpus() {
       "JSON POST", "POST /plain HTTP/1.1", "Host: 192.168.4.1\r\nContent-Type: application/json\r\n",
       "{\"index\":3}", "handle /plain\narg plain={\"index\":3}\nhost 192.168.4.1\n");
   // 1500 is one full HTTP_RAW_BUFLEN and a short tail: the tail is what stock
-  // waited 5 s for (VENDORED.md, Fix 1). No "arg size=1500" in the log: the
-  // raw path never parses the query string (stock) - see carriesOver().
+  // waited 5 s for (VENDORED.md, Fix 1). "arg size=1500" is in the log since
+  // Fix 5: stock never parsed a raw request's query string - see carriesOver().
   c.put = request(
       "raw PUT", "PUT /raw?size=1500 HTTP/1.1",
       "Host: 192.168.4.1\r\nX-PF-Name: wave.pfm\r\nContent-Type: application/octet-stream\r\n", pattern,
-      "raw start\nraw end 1500\nhandle /raw\nheader X-PF-Name=wave.pfm\nhost 192.168.4.1\n", "", pattern);
+      "raw start\nraw end 1500\nhandle /raw\narg size=1500\nheader X-PF-Name=wave.pfm\nhost 192.168.4.1\n", "", pattern);
   c.get = request(
       "GET", "GET /page?x=1&y=two HTTP/1.1", "Host: patternflow.local\r\nX-PF-Name: probe\r\nAccept: */*\r\n", "",
       "handle /page\narg x=1\narg y=two\nheader X-PF-Name=probe\nhost patternflow.local\n");
@@ -830,6 +830,15 @@ static void truncated(const Corpus& c) {
             "raw start\nraw aborted 700\n");
     refuses("urlencoded POST: a body shorter than its Content-Length" + tail,
             cut(c.urlencoded.bytes, c.urlencoded.bytes.size() - 5, then));
+
+    // A boundary far past the 70 characters a boundary may have. Stock sized
+    // a stack array from it - 9,005 bytes on an 8 KB task stack, a reboot on
+    // the board and a stack overflow here under the sanitizers (Fix 5).
+    const std::string wide(9000, 'B');
+    const std::string oversized = "POST /form HTTP/1.1\r\nHost: 192.168.4.1\r\nContent-Type: multipart/form-data; boundary=" +
+                                  wide + "\r\n\r\n--" + wide +
+                                  "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.pfm\"\r\n\r\nxx";
+    refuses("multipart: a 9,000-character boundary" + tail, cut(oversized, oversized.size(), then));
   }
 
   // A closing boundary without its CR/LF still closes the form. With the peer
@@ -955,32 +964,33 @@ static void carriesOver(const Corpus& c) {
       fail("a GET after a refused form is answered with the form's field: " + shown(r.seen));
   }
   {
-    // The raw path never calls _parseArguments(), so a raw request has no
-    // arguments of its own and args()/arg() answer with the previous
-    // request's. core_web_update.h asks a raw PUT for "size".
+    // The raw path used not to call _parseArguments(), so a raw request had
+    // no arguments of its own and args()/arg() answered with the previous
+    // request's. core_web_update.h asks a raw PUT for "size" (Fix 5).
     Bench b;
     b.play(whole(c.get));
     b.probe = "size";
     const Result r = b.play(whole(c.put));
-    ends("a raw PUT after a GET", r);
-    known(r.seen.log.find("arg x=1\n") != std::string::npos && r.seen.log.find("named size=(absent)") != std::string::npos,
-          "a raw body's query string is never parsed: PUT /raw?size=1500 after GET /page?x=1 has no \"size\" "
-          "and still has x=1");
+    if (ends("a raw PUT after a GET", r) &&
+        (r.seen.log.find("arg x=1\n") != std::string::npos || r.seen.log.find("named size=1500") == std::string::npos))
+      fail("a raw PUT after a GET does not see its own query string, or still sees the GET's: " + shown(r.seen));
   }
   {
     // FunctionRequestHandler::canRaw() is true for any route with a body
     // callback that is not a GET, whatever the callback was written for. A
-    // POST that is not multipart, sent to a multipart route, is delivered to
-    // the upload callback as a raw body, and upload() is then a null
-    // reference. core_web_update.h and core_patterns_http.h read .status
-    // through it.
+    // POST that is not multipart, sent to a multipart route, used to be
+    // delivered to the upload callback as a raw body, where upload() is a
+    // null reference: core_web_update.h and core_patterns_http.h read
+    // .status through it, and `curl -X POST /api/patterns` panicked a board.
+    // It is a plain request now: handled, and no body callback (Fix 5).
     Bench b;
     const Request post = request("", "POST /form HTTP/1.1", "Host: 192.168.4.1\r\nContent-Type: text/plain\r\n", "x=1", "");
     const Result r = b.play(whole(post));
-    ends("a POST that is not multipart, to a multipart route", r);
-    known(r.seen.log.find("raw start\nraw end 3\n") == 0,
-          "a POST that is not multipart, to a route with an upload callback, calls that callback with no upload "
-          "(server.upload() is a null reference there)");
+    if (ends("a POST that is not multipart, to a multipart route", r) &&
+        (!r.seen.handled || r.seen.log.find("raw start") != std::string::npos ||
+         r.seen.log.find("upload ") != std::string::npos))
+      fail("a POST that is not multipart, to a route with an upload callback, reached that callback or was not "
+           "handled: " + shown(r.seen));
   }
 }
 

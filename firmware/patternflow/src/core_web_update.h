@@ -71,6 +71,12 @@ inline bool armed = false;        // set only from the on-device UPDATE screen
 inline bool uploading = false;
 inline bool rejected = false;     // this POST arrived while not armed
 inline bool completedOk = false;
+// Whether THIS request carried an image. The three flags above are written
+// by the body callback, and a request with no image in it - a POST that is
+// not a form, a form with no file part - never reaches that callback: its
+// completion handler would otherwise answer with whatever the last upload
+// left behind ("locked", or an old error, or nothing at all).
+inline bool bodySeen = false;
 inline bool bootMarkedValid = false;
 inline unsigned progressPct = 0;
 inline size_t expectedBytes = 0;
@@ -126,6 +132,7 @@ inline void handleUpload() {
   switch (up.status) {
     case UPLOAD_FILE_START: {
       uploadAttempts++;
+      bodySeen = true;
       rejected = !isArmed() || uploading || rebootAtMs != 0;
       if (rejected) {
         Serial.println("[UPDATE] upload refused (not armed)");
@@ -180,6 +187,7 @@ inline void handleUpload() {
       break;
     }
     case UPLOAD_FILE_ABORTED: {
+      bodySeen = false;
       if (uploading) {
         Update.abort();
         uploading = false;
@@ -198,6 +206,7 @@ inline void handleRawBody() {
   switch (raw.status) {
     case RAW_START: {
       uploadAttempts++;
+      bodySeen = true;
       rejected = !isArmed() || uploading || rebootAtMs != 0;
       if (rejected) {
         Serial.println("[UPDATE] raw upload refused (not armed)");
@@ -247,6 +256,7 @@ inline void handleRawBody() {
       break;
     }
     case RAW_ABORTED: {
+      bodySeen = false;
       if (uploading) {
         Update.abort();
         uploading = false;
@@ -260,6 +270,12 @@ inline void handleRawBody() {
 
 // Completion handler — runs after the whole POST body is consumed.
 inline void handleUploadDone() {
+  if (!bodySeen) {
+    server().send(400, "application/json",
+                  "{\"error\":\"no firmware image in the request\"}");
+    return;
+  }
+  bodySeen = false;
   if (rejected) {
     server().send(403, "application/json",
         "{\"error\":\"locked - on the device: hold K2 for NETWORK, then turn K4 for UPDATE\"}");

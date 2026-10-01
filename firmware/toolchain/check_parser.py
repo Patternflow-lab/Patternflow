@@ -22,11 +22,9 @@ VENDORED = ROOT / 'firmware/patternflow/src/webserver'
 SUPPLIED = ('Arduino.h', 'esp32-hal-log.h', 'WiFi.h', 'WiFiServer.h', 'WiFiClient.h', 'WString.h',
             'pgmspace.h', 'FS.h', 'MD5Builder.h', 'esp_random.h', 'http_parser.h', 'libb64/cencode.h',
             'core_net_maintenance.h')
-# MSVC has no variable-length arrays, and _parseForm declares one (stock). For
-# cl alone that one declaration becomes _alloca in the temporary copy. GCC and
-# Clang - which is what CI runs - compile the file byte for byte.
-VLA = 'char fastBoundary[ fastBoundaryLen ];'
-NO_VLA = 'char* fastBoundary = static_cast<char*>(_alloca(fastBoundaryLen));'
+# Every compiler builds the vendored files byte for byte. (Stock _parseForm
+# declared a variable-length array, which cl does not have and which this
+# script once had to rewrite; Fix 5 bounded it, for the board's sake.)
 # The subject of this test is code that does not return. A replay that neither
 # looks at the socket nor sleeps is outside what the fakes can throw out of,
 # and must not become a CI job that runs until the runner kills it.
@@ -47,13 +45,6 @@ def main():
         for name in SUPPLIED:
             (src / name).parent.mkdir(parents=True, exist_ok=True)
             (src / name).write_text('// Supplied by parser_test.cpp\n')
-        if msvc:
-            parsing = src / 'webserver/Parsing.cpp'
-            text = parsing.read_bytes().decode('utf-8')
-            if text.count(VLA) != 1:
-                raise SystemExit(f'Parsing.cpp no longer declares "{VLA}" exactly once; '
-                                 'update the MSVC stand-in in check_parser.py.')
-            parsing.write_bytes(text.replace(VLA, NO_VLA).encode('utf-8'))
         source = ROOT / 'firmware/toolchain/tests/parser_test.cpp'
         exe = work / ('parser_test.exe' if Path(compiler).suffix.lower() == '.exe' else 'parser_test')
         # C++17, not the C++20 the other checks use: the server is C++11 code

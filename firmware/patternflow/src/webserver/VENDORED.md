@@ -1,11 +1,47 @@
 # Vendored: WebServer (arduino-esp32 core 2.0.17)
 
 Copied verbatim from the Arduino core's bundled library
-(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **four Patternflow
+(`libraries/WebServer/src`, core 2.0.17 / IDF 4.4.7), plus **five Patternflow
 fixes**. Same arrangement as `src/hub75` and `src/pubsubclient`: every firmware
 include points at this copy (`#include "webserver/WebServer.h"`), so the
 Library Manager / core-bundled version is never compiled and its version does
 not matter.
+
+## Fix 5 (2026-10-02): three requests that took the board down
+
+Found by `firmware/toolchain/check_parser.py`, which replays requests through
+these files on a PC, and then reproduced on a panel: each of the first two was
+one request and a `panic` reset.
+
+**A POST that is not multipart, to a multipart route.** `canRaw()` is true for
+any route that has a body callback and is not a GET, whatever that callback was
+written for. So `curl -X POST http://panel/api/patterns` - or `/update` - with
+no body, or any body that is not a form, went down the raw path and called the
+route's *upload* callback, whose first line is `server().upload()`: a reference
+through a null `_currentUpload`. The raw path now also requires
+`!canUpload()`. In this firmware a route registered for POST with a body
+callback is a multipart route and one registered for PUT is a raw one; a plain
+POST to the former goes down the plain path and reaches the completion
+handler, which answers it.
+
+**A boundary of any length.** `_parseForm()` sized a stack array from the
+boundary the `Content-Type` header named. `pf-net` has an 8 KB stack; a
+9,000-character boundary overflowed it. A boundary is at most 70 characters
+(RFC 2046): a longer one is refused before anything is read, and the array is
+a fixed 75 bytes. (That declaration was also the one line MSVC could not
+compile; the host check no longer has to rewrite it.)
+
+**A raw request has a query string too.** The raw path never called
+`_parseArguments()`, so `PUT /update?size=N` found no `size`, and `arg()`
+answered with whatever the previous request had carried. It is parsed now,
+before the body callback is first called.
+
+Still stock, and pinned as KNOWN in the host check rather than fixed:
+`_uploadReadByte()` waits without a deadline, so an uploader that vanishes
+mid-file without closing holds the one connection until TCP keepalive notices.
+It sleeps while it waits; it is not a watchdog case.
+
+Marked `PATTERNFLOW FIX (Fix 5)` at the five sites.
 
 ## Fix 4 (2026-10-01): the multipart parser can stop
 
@@ -172,7 +208,8 @@ ever matters.
 
 Diff against the core's `libraries/WebServer/src` before replacing wholesale;
 the fixes above must survive (grep `PATTERNFLOW FIX`, `readLine`,
-`readBody`, `whole`). If the project ever moves to core 3.x, this directory can be
+`readBody`, `whole`), and `python firmware/toolchain/check_parser.py` must
+still pass - it fails on stock. If the project ever moves to core 3.x, this directory can be
 deleted and the includes pointed back at `<WebServer.h>` — but check first
 that its parser yields between bytes; the Core-0 watchdog does not care which
 version is spinning.
