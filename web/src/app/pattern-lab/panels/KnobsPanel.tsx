@@ -94,17 +94,18 @@ export default function KnobsPanel() {
     [setRange],
   );
 
+  // The store write stays in the blur handler. Inside a setEditingRange
+  // updater it ran while React rendered this panel, and the store then
+  // re-rendered every other subscriber mid-render (setstate-in-render).
   const commitRangeEdit = useCallback(() => {
-    setEditingRange((current) => {
-      if (current) {
-        const nextValue = Number(current.value);
-        if (Number.isFinite(nextValue)) {
-          updateRange(current.index, current.edge, roundRangeValue(nextValue));
-        }
+    if (editingRange) {
+      const nextValue = Number(editingRange.value);
+      if (Number.isFinite(nextValue)) {
+        updateRange(editingRange.index, editingRange.edge, roundRangeValue(nextValue));
       }
-      return null;
-    });
-  }, [updateRange]);
+    }
+    setEditingRange(null);
+  }, [editingRange, updateRange]);
 
   const finishRangeDrag = useCallback(() => {
     if (!rangeDragRef.current) return;

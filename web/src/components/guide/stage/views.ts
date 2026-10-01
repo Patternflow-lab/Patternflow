@@ -2,6 +2,7 @@ import * as THREE from "three";
 import type { ViewName } from "../scenes";
 import { KNOB_CLUSTER_WORLD, LED_CENTER_WORLD, MODEL_OFFSET, MODEL_SCALE } from "./geometry";
 import { DEVKIT_PRESENT, M_TO_MODEL } from "./parts";
+import { BUILD_VIEWS } from "./build/views";
 
 // Where the camera stands for each step, in world units (the device is about
 // 2.5 wide, 3.2 tall and 0.55 deep, centred on the origin, facing +z).
@@ -102,18 +103,6 @@ export const VIEWS: Record<ViewName, View> = {
     0.94,
   ),
   screenKnobs: fromPos(v(1.8, 0.9, 8.6), v(0.25, 0.15, 0.1), DEVICE, 0.94),
-  // The device beside Pattern Lab (the make page's 06), playing the reader's
-  // draft: nearly square on, so the panel reads as the lab's preview does,
-  // with the knob column's side just showing. The frame reaches above the
-  // case for the "Your Lab draft" pill over it (MirrorTag). With the lab's
-  // window open the free area is the strip left of the window (stageArea.ts)
-  // and the fit brings the whole device into it.
-  labSide: fromPos(
-    v(1.25, 0.75, 8.8),
-    v(0.15, 0.2, 0.1),
-    [...DEVICE, v(-0.9, 2.02, 0.1), v(0.9, 2.02, 0.1)],
-    0.94,
-  ),
   // Close on the knobs but with the top of the panel in frame, from a little
   // below and to the right so the case is a lit edge rather than a white wall.
   knobs: fromPos(
@@ -135,4 +124,6 @@ export const VIEWS: Record<ViewName, View> = {
   espPorts: kitView([0, -0.014, 0], 17, -5, kitBox([-0.038, -0.064, -0.006], [0.038, 0.037, 0.004]), 0.97),
   // BOOT and RST, with the module above and the ports below for bearings.
   espButtons: kitView([0.008, -0.003, 0], 17, 1, kitBox([-0.018, -0.032, -0.004], [0.036, 0.026, 0.004]), 0.72),
+  // The Build guide's: the bench, the print plates, the case from behind.
+  ...BUILD_VIEWS,
 };

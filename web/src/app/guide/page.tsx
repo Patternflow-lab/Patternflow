@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
-import GuideExperience from "@/components/guide/GuideExperience";
-import { COPY } from "@/components/guide/copy";
+import GuideHub from "@/components/guide/GuideHub";
+import { guideMetadata } from "@/components/guide/meta";
 
-const copy = COPY.en;
+// The guide's front door: pick Build, Play or Make by where your Patternflow
+// is (GuideHub). /guide used to be the Play guide; its old anchors
+// (/guide#flash …) are sent on to /guide/play (components/guide/legacy.ts).
 
-export const metadata: Metadata = {
-  title: `${copy.meta.title} / Patternflow`,
-  description: copy.meta.description,
-  alternates: {
-    canonical: "/guide",
-    languages: { en: "/guide", ko: "/guide/ko", "x-default": "/guide" },
-  },
-  openGraph: { title: copy.meta.title, description: copy.meta.description, url: "/guide" },
-};
+export const metadata: Metadata = guideMetadata("hub", "en");
 
 export const dynamic = "force-static";
 
-export default function GuidePage() {
-  return <GuideExperience lang="en" />;
+export default function GuideHubPage() {
+  return <GuideHub lang="en" />;
 }

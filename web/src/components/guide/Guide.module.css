@@ -17,6 +17,9 @@
   --g-led-2: #e8552e;
   --g-led-wash: rgba(255, 106, 61, 0.1);
   --g-pixel: var(--font-silkscreen), "Silkscreen", monospace;
+  /* Numbers a reader has to read are not set in the pixel face: its 2 is a
+     ㄹ and its 3 a ョ to a Korean eye. */
+  --g-num: var(--pf-mono);
 
   position: relative;
   min-height: 100vh;
@@ -240,8 +243,11 @@
   background: rgba(239, 233, 221, 0.08);
 }
 .railNum {
-  font-family: var(--g-pixel);
-  font-size: 10px;
+  font-family: var(--g-num);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
   color: inherit;
 }
 .railItem[data-active="1"] .railNum {
@@ -329,8 +335,11 @@
   background: var(--g-led-wash);
 }
 .openingChapters span {
-  font-family: var(--g-pixel);
-  font-size: 11px;
+  font-family: var(--g-num);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
   color: var(--g-led);
 }
 /* The way to the guide's other page: quiet, under the chapters. */
@@ -396,7 +405,10 @@
   /* Drifts up a little faster than the page as the chapter begins. */
   transform: translateY(calc(var(--p, 0) * -140px));
   will-change: transform;
-  font-family: var(--g-pixel);
+  font-family: var(--g-num);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
   font-size: clamp(120px, 17vw, 240px);
   line-height: 0.8;
   color: transparent;
@@ -502,6 +514,33 @@
 .step[data-on="1"] .kickerDot {
   background: var(--g-led);
   box-shadow: 0 0 12px var(--g-led);
+}
+/* "Replay", at the end of a Build card's kicker: the step's motion on the
+   stage again (GuideExperience, store.ts replayStep). */
+.replay {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: -4px -6px -4px auto;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--g-ink-3);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.replay:hover,
+.replay:focus-visible {
+  color: var(--g-led);
+}
+.replay span {
+  font-size: 13px;
+  line-height: 1;
 }
 .stepTitle {
   margin: 0 0 12px;
@@ -754,8 +793,10 @@
   transition: all 0.18s;
 }
 .seq li span {
-  font-family: var(--g-pixel);
-  font-size: 11px;
+  font-family: var(--g-num);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .seq li[data-on="1"] {
   color: var(--g-ink);
@@ -807,8 +848,10 @@
   font-weight: 600;
 }
 .deckCount {
-  font-family: var(--g-pixel);
-  font-size: 12px;
+  font-family: var(--g-num);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--g-led);
 }
 
@@ -979,7 +1022,9 @@
   .card {
     width: 100%;
     padding: 20px 20px 18px;
-    background: rgba(18, 16, 14, 0.86);
+    /* Over the stage here, not beside it: the DevKit's white cable hangs
+       down behind the card, and at 0.86 it was a pale bar through the words. */
+    background: rgba(18, 16, 14, 0.95);
   }
   .stepTitle {
     font-size: 24px;
@@ -1051,6 +1096,10 @@
   .soonLink:hover .soonArrow {
     transform: none;
   }
+  .tourNote,
+  .tourNote[data-on="1"] {
+    transition: none;
+  }
 }
 
 /* ── the console tour: a tab per page over one live window ─────────────── */
@@ -1087,9 +1136,403 @@
   outline: 2px solid var(--g-led);
   outline-offset: 2px;
 }
+.tourNotes {
+  display: grid;
+  margin-top: 10px;
+}
 .tourNote {
-  margin: 10px 0 0;
+  grid-area: 1 / 1;
+  margin: 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--g-ink-2);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
+}
+.tourNote[data-on="1"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.25s ease 0.08s,
+    visibility 0s;
+}
+
+/* ── the make page (/guide/make): a desk of windows, or no stage at all ──
+
+   On a screen big enough for the desk (desk/query.ts; the same query is in
+   desk/Desk.module.css — change all three together) the story is a column on
+   the right and the desk takes the rest: the real Pattern Lab and the
+   practice windows, which show what the cards say. The cards' screenshots
+   are for screens without the desk (.offDesk). Below it there is no stage:
+   one column of cards, screenshots in them. Play and Build are untouched. */
+
+@media (min-width: 1340px) and (min-height: 640px), (min-width: 1280px) and (min-height: 660px), (min-width: 1180px) and (min-height: 700px) {
+  .page[data-page="make"] {
+    /* The story's column; the desk is everything left of it. */
+    --desk-col: clamp(330px, 27vw, 410px);
+  }
+  .page[data-page="make"] .story {
+    width: calc(var(--desk-col) + 48px);
+    margin-left: auto;
+  }
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    padding: 104px 24px 64px;
+  }
+  .page[data-page="make"] .openingInner,
+  .page[data-page="make"] .nextInner,
+  .page[data-page="make"] .card {
+    width: 100%;
+  }
+  .page[data-page="make"] .openingTitle {
+    font-size: clamp(46px, 4.4vw, 66px);
+  }
+  .page[data-page="make"] .openingLede {
+    font-size: 16px;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 72vh;
+    padding: 104px 24px 32px;
+  }
+  .page[data-page="make"] .chapterNum {
+    font-size: clamp(110px, 11vw, 170px);
+  }
+  .page[data-page="make"] .chapterTitle {
+    font-size: clamp(36px, 3.3vw, 50px);
+  }
+  .page[data-page="make"] .chapterLede {
+    font-size: 16px;
+  }
+  .page[data-page="make"] .step {
+    padding: 10vh 24px 8vh;
+  }
+  .page[data-page="make"] .card {
+    padding: 22px 22px 20px;
+  }
+  .page[data-page="make"] .stepTitle {
+    font-size: 23px;
+  }
+  .page[data-page="make"] .body {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .page[data-page="make"] .offDesk {
+    display: none;
+  }
+}
+
+/* The desk on a short screen (a 1366 × 768 laptop's 640-odd px of page): the
+   longest Lab cards were a few px taller than the room under the top bar.
+   Their type sets a little closer, and a card sits a little lower in its
+   block, clear of the language switch. */
+@media (min-width: 1340px) and (min-height: 640px) and (max-height: 719.98px), (min-width: 1280px) and (min-height: 660px) and (max-height: 719.98px), (min-width: 1180px) and (min-height: 700px) and (max-height: 719.98px) {
+  .page[data-page="make"] .step {
+    padding: 13vh 24px 5vh;
+  }
+  .page[data-page="make"] .card {
+    padding: 18px 20px 16px;
+  }
+  .page[data-page="make"] .kicker {
+    margin-bottom: 9px;
+  }
+  .page[data-page="make"] .stepTitle {
+    margin-bottom: 9px;
+    font-size: 21.5px;
+  }
+  .page[data-page="make"] .body {
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .page[data-page="make"] .warn {
+    margin-top: 10px;
+    padding: 8px 11px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .page[data-page="make"] .note {
+    margin-top: 12px;
+    padding-top: 10px;
+    font-size: 15px;
+    line-height: 1.42;
+  }
+  .page[data-page="make"]:lang(ko) .note {
+    font-size: 14px;
+  }
+  .page[data-page="make"] .report {
+    margin-top: 11px;
+  }
+}
+
+/* The desk query's opposite, spelled out (a query list can't be negated as a whole). */
+@media (max-width: 1179.98px), (max-height: 639.98px), (max-width: 1279.98px) and (max-height: 699.98px), (max-width: 1339.98px) and (max-height: 659.98px) {
+  /* No stage behind: the cards pass under the top bar, which fades them out. */
+  .page[data-page="make"] .top {
+    background: linear-gradient(rgba(10, 9, 8, 0.94) 55%, rgba(10, 9, 8, 0));
+  }
+  .page[data-page="make"] .story {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    justify-content: center;
+    padding: 112px 24px 72px;
+  }
+  .page[data-page="make"] .openingInner,
+  .page[data-page="make"] .nextInner,
+  .page[data-page="make"] .card {
+    width: 100%;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 60vh;
+    align-items: flex-start;
+    text-align: left;
+    padding: 104px 24px 28px;
+  }
+  .page[data-page="make"] .step {
+    min-height: 90vh;
+    justify-content: center;
+    padding: 8vh 24px;
+  }
+}
+
+@media (max-width: 899px) {
+  .page[data-page="make"] .opening,
+  .page[data-page="make"] .next {
+    align-items: center;
+    padding: 88px 16px 40px;
+  }
+  .page[data-page="make"] .chapterHead {
+    min-height: 56vh;
+    justify-content: flex-end;
+    padding: 88px 16px 24px;
+  }
+  .page[data-page="make"] .step {
+    min-height: 88vh;
+    align-items: center;
+    padding: 6vh 16px;
+  }
+}
+
+/* ── Play on a short screen ───────────────────────────────────────────────
+   A laptop with 640–760 px of page: Play's tallest cards (the flasher's
+   screens, the console) ran from under the header to past the bottom. Their
+   type sets a little closer there; the flasher's screens and the console's
+   miniatures size themselves to the height (FlasherShots, ConsoleWindow). */
+@media (min-width: 900px) and (max-height: 759px) {
+  .page[data-page="play"] .step {
+    padding-top: 14vh;
+    padding-bottom: 6vh;
+  }
+  .page[data-page="play"] .card {
+    padding: 18px 24px 16px;
+  }
+  .page[data-page="play"] .kicker {
+    margin-bottom: 9px;
+  }
+  .page[data-page="play"] .stepTitle {
+    margin-bottom: 9px;
+    font-size: 23px;
+  }
+  .page[data-page="play"] .body {
+    margin-bottom: 8px;
+    font-size: 14.5px;
+    line-height: 1.58;
+  }
+  .page[data-page="play"] .warn {
+    margin-top: 10px;
+    padding: 8px 11px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .page[data-page="play"] .extra {
+    margin-top: 10px;
+  }
+  .page[data-page="play"] .note {
+    margin-top: 12px;
+    padding-top: 10px;
+    font-size: 15px;
+    line-height: 1.42;
+  }
+  .page[data-page="play"]:lang(ko) .note {
+    font-size: 14px;
+  }
+  .page[data-page="play"] .report {
+    margin-top: 9px;
+  }
+}
+
+/* On a phone a chapter's title stands over the stage, and in Play that is
+   often the white case (02's knobs, close up): cream words on a white wall.
+   A dark ground rises behind them, as Build's does. */
+@media (max-width: 899px) {
+  .page[data-page="play"] .chapterHead {
+    position: relative;
+    background: linear-gradient(rgba(10, 9, 8, 0) 42%, rgba(10, 9, 8, 0.74) 68%, rgba(10, 9, 8, 0.82));
+  }
+  /* …and lets go below them, rather than stopping at a line. */
+  .page[data-page="play"] .chapterHead::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 16vh;
+    pointer-events: none;
+    background: linear-gradient(rgba(10, 9, 8, 0.82), rgba(10, 9, 8, 0));
+  }
+}
+
+/* ── the Build guide: a bright stage under the words ──────────────────────
+   Play's stage is one lit device in a dark room. Build's is full of white
+   prints, a green board and a silver DevKit, and they pass under the text:
+   its cards are nearly opaque, its chapter titles and its header stand on a
+   dark ground of their own, and its opening — seven chapters, not four —
+   is laid out to fit a laptop's screen. */
+
+.page[data-page="build"] {
+  --g-card: rgba(20, 18, 16, 0.9);
+}
+.page[data-page="build"] .top::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0 0 auto 0;
+  height: 104px;
+  pointer-events: none;
+  background: linear-gradient(rgba(10, 9, 8, 0.86), rgba(10, 9, 8, 0.6) 45%, rgba(10, 9, 8, 0));
+}
+.page[data-page="build"] .chapterHead {
+  background: radial-gradient(ellipse 84% 54% at 74% 56%, rgba(10, 9, 8, 0.88), rgba(10, 9, 8, 0.7) 50%, rgba(10, 9, 8, 0) 80%);
+}
+.page[data-page="build"] .chapterTitle,
+.page[data-page="build"] .chapterLede {
+  text-shadow:
+    0 2px 22px rgba(0, 0, 0, 0.85),
+    0 0 3px rgba(0, 0, 0, 0.5);
+}
+@media (min-width: 1200px) {
+  .page[data-page="build"] .openingChapters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .page[data-page="build"] .openingChapters a {
+    gap: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+}
+/* A laptop's 768–860 px of height: a three-line title and seven chapters ran off the first screen. */
+@media (min-width: 900px) and (max-height: 860px) {
+  .page[data-page="build"] .opening {
+    padding-top: 92px;
+    padding-bottom: 40px;
+  }
+  .page[data-page="build"] .openingTitle {
+    font-size: clamp(44px, 5vw, 76px);
+    margin-bottom: 18px;
+  }
+  .page[data-page="build"] .openingLede {
+    margin-bottom: 24px;
+    font-size: 16px;
+  }
+  .page[data-page="build"] .openingChapters {
+    margin-bottom: 34px;
+  }
+}
+@media (max-width: 899px) {
+  .page[data-page="build"] .card {
+    background: rgba(18, 16, 14, 0.94);
+  }
+  .page[data-page="build"] .chapterHead {
+    background: linear-gradient(rgba(10, 9, 8, 0) 46%, rgba(10, 9, 8, 0.8) 72%, rgba(10, 9, 8, 0.8));
+  }
+}
+/* Seven chapters on the rail: between a phone and a wide laptop they wrapped onto two lines. */
+@media (min-width: 900px) and (max-width: 1239px) {
+  .page[data-page="build"] .top {
+    gap: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .page[data-page="build"] .rail {
+    gap: 0;
+  }
+  .page[data-page="build"] .railItem {
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .page[data-page="build"] .lang {
+    white-space: nowrap;
+  }
+}
+
+/* ── Build on a short screen ──────────────────────────────────────────────
+   Build's fullest cards — the parts lists, the case files, the two with the
+   J4/J3 drawing — are 750–790 px tall as set above, and a laptop gives a
+   page 650–800 px: centred, their titles were under the chapter rail and
+   their feet off the bottom. There the card is wider (the words take fewer
+   lines; the stage has the room to give on a landscape screen) and its type
+   sets closer, as Play's does; the lists and the drawing close up in
+   Build.module.css. Below about 700 px the two tallest still run past the
+   bottom by a few lines; nothing is cut, the card scrolls with the page. */
+@media (min-width: 900px) and (max-height: 860px) {
+  .page[data-page="build"] .card {
+    width: min(500px, 42vw);
+    padding: 20px 26px 18px;
+  }
+  .page[data-page="build"] .kicker {
+    margin-bottom: 9px;
+  }
+  .page[data-page="build"] .stepTitle {
+    margin-bottom: 9px;
+    font-size: 23px;
+  }
+  .page[data-page="build"] .body {
+    margin-bottom: 8px;
+    font-size: 14.5px;
+    line-height: 1.58;
+  }
+  .page[data-page="build"] .warn {
+    margin-top: 10px;
+    padding: 8px 11px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .page[data-page="build"] .extra {
+    margin-top: 12px;
+  }
+  .page[data-page="build"] .report {
+    margin-top: 10px;
+  }
+}
+@media (min-width: 900px) and (max-height: 759px) {
+  /* A little more above than below, so a card that fills the screen starts under the rail. */
+  .page[data-page="build"] .step {
+    padding-top: 13vh;
+    padding-bottom: 7vh;
+  }
+  .page[data-page="build"] .card {
+    width: min(560px, 44vw);
+    padding: 16px 24px 14px;
+  }
+  .page[data-page="build"] .stepTitle {
+    font-size: 22px;
+  }
+  .page[data-page="build"] .body {
+    margin-bottom: 7px;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .page[data-page="build"] .extra {
+    margin-top: 10px;
+  }
+  .page[data-page="build"] .report {
+    margin-top: 8px;
+  }
 }

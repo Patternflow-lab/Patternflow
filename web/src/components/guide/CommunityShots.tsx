@@ -1,6 +1,6 @@
 "use client";
 
-// 05 Community — the community as it really is, inside a step's card: crops
+// Make · 01 Community — the community as it really is, inside a step's card: crops
 // of the live public site (community.patternflow.work, logged out), captured
 // at 2x by community_shots.py into web/public/guide/community/, shown one
 // after another the way FlasherShots shows the flasher's dialog. A ring marks

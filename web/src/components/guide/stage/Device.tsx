@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { patternVert } from "@/components/3d/patterns/common";
 import { PATTERN_DETENTS_PER_TURN } from "@/lib/pattern/harness";
-import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
+import { FIRMWARE, PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import {
@@ -40,6 +40,7 @@ import {
 import KitFx from "./KitFx";
 import { devkitMaterials } from "./kitMaterials";
 import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
+import { VIEWS } from "./views";
 
 // The Patternflow in the guide, put together from four files (parts.ts): the
 // v3.9 enclosure and knobs from the case's Blender source, the landing page
@@ -53,7 +54,6 @@ import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 const ledFragment = `
 uniform sampler2D uTex;
 uniform float uPower;
-uniform float uHot;
 varying vec2 vUv;
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
@@ -67,23 +67,12 @@ void main() {
   float lod = smoothstep(0.0, 0.29, fw);
   float alpha = mix(dotMask, 1.0, lod);
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
-  col *= luma > 0.75 ? uHot : 0.9;
+  col *= luma > 0.75 ? 2.35 : 0.9;
   float unlit = 0.018;
   col = mix(vec3(unlit), col, step(0.01, length(col)));
   gl_FragColor = vec4(col * alpha * uPower + vec3(unlit) * (1.0 - uPower), 1.0);
 }
 `;
-
-// How hard a bright LED pixel (luma > 0.75) is pushed: past the bloom's
-// threshold (GuideCanvas, 1.15) so it glows. While the board plays a reader's
-// Lab draft, a panel crowded with bright pixels is pushed less — from
-// HOT_FRACTION_FROM of the panel that bright to HOT_FRACTION_TO — down to
-// HOT_GAIN_CROWDED, which keeps a white pixel (0.8 at the default
-// brightness) just under the threshold: white, without a haze over the black.
-const HOT_GAIN = 2.35;
-const HOT_GAIN_CROWDED = 1.3;
-const HOT_FRACTION_FROM = 0.08;
-const HOT_FRACTION_TO = 0.3;
 
 // A ring drawn on a plane: `uFill` of the circle as a bright arc (a hold on
 // its way to a long-press) over a faint full ring (the knob in focus).
@@ -157,12 +146,20 @@ function formatReadout(value: number, span: number) {
  * They keep their pace only on the way out in chapter one's first two steps,
  * which are about taking them out; putting them back ("Back in. Power on.")
  * is quicker, and anything else — scrolling back up, a jump from the chapter
- * list — is a scene change and gets it done quickly.
+ * list — is a scene change and gets it done quickly. In the Build guide the
+ * DevKit going onto its pins is all its step shows ("Seat the DevKit, power
+ * off."), so there it keeps its own pace too.
  */
-function choreoSpeed(scene: string, step: number, outward: boolean) {
+function choreoSpeed(page: string, scene: string, step: number, outward: boolean) {
   if (scene === "flash" && step <= 1 && outward) return 1;
   if (scene === "flash" && step === 6) return 1.8;
+  if (seatingStep(page, scene, step) && !outward) return 1;
   return 2.6;
+}
+
+/** The Build guide's "Seat the DevKit, power off." (scenes/build.ts: firmware, step 1). */
+function seatingStep(page: string, scene: string, step: number) {
+  return page === "build" && scene === "firmware" && step === 1;
 }
 
 // Warm white PLA, and the knobs' matte black.
@@ -258,7 +255,7 @@ export default function Device() {
   const ledMat = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: { uTex: { value: texture }, uPower: { value: 0 }, uHot: { value: HOT_GAIN } },
+        uniforms: { uTex: { value: texture }, uPower: { value: 0 } },
         vertexShader: patternVert,
         fragmentShader: ledFragment,
       }),
@@ -488,10 +485,25 @@ export default function Device() {
   // ── the frame ──────────────────────────────────────────────────────────────
   // back: sliderPose's travel (0 shut, SLIDER_OFF off its rails, 1 laid
   // down); esp: devkitPose's travel (0 seated, 1 presented).
-  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0, hot: HOT_GAIN });
+  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const readout = useRef({ lastTurns: [0, 0, 0, 0], movedAt: [-1e9, -1e9, -1e9, -1e9], text: ["", "", "", ""] });
+  const readout = useRef({
+    lastTurns: [0, 0, 0, 0],
+    movedAt: [-1e9, -1e9, -1e9, -1e9],
+    // …and when it last moved for the pattern: turned or clicked on the pattern's own screen.
+    valAt: [-1e9, -1e9, -1e9, -1e9],
+    text: ["", "", "", ""],
+    key: "",
+    settle: 0,
+    // Each knob's press as it went down: when, in which step, on which screen.
+    wasDown: [false, false, false, false],
+    downAt: [0, 0, 0, 0],
+    downKey: ["", "", "", ""],
+    downRun: [false, false, false, false],
+  });
+  // The Build guide's Replay, as last seen (the DevKit's seating plays again).
+  const replaySeen = useRef(useGuideStore.getState().replay);
   const size = useThree((st) => st.size);
   // The knobs' top centres, world units (the stage's model group: geometry.ts).
   const knobTops = useMemo(() => [0, 1, 2, 3].map((i) => modelToWorld(knobWorldCenter(i, "model"))), []);
@@ -501,9 +513,30 @@ export default function Device() {
     // let the timed motions below jump on it.
     const dt = Math.min(rawDt, 0.1);
     const sim = getSim();
-    const { scene: sceneId, step } = useGuideStore.getState();
+    const { scene: sceneId, step, page, cardIn, replay } = useGuideStore.getState();
     const s = stepOf(sceneId, step);
     const snap = sim.snapshot();
+
+    // A new step starts with no knob "just moved": the last step's demo may
+    // have turned one a moment ago (K4 through the pattern list), and its
+    // readout then popped up beside the knob on a step about something else.
+    // A couple of frames' grace, for the board being put in the step's state.
+    {
+      const ro = readout.current;
+      const key = `${sceneId}.${step}`;
+      if (ro.key !== key) {
+        ro.key = key;
+        ro.settle = 2;
+      }
+      if (ro.settle > 0) {
+        ro.settle--;
+        for (let i = 0; i < 4; i++) {
+          ro.lastTurns[i] = snap.turns[i];
+          ro.movedAt[i] = -1e9;
+          ro.valAt[i] = -1e9;
+        }
+      }
+    }
 
     // Panel: copy the simulated frame in, bottom row first for GL.
     const src = sim.frame;
@@ -516,25 +549,6 @@ export default function Device() {
     const powerTarget = snap.mode === "off" ? 0 : 1;
     shown.current.power += (powerTarget - shown.current.power) * Math.min(1, dt * 6);
     ledMat.uniforms.uPower.value = shown.current.power;
-    // Bright pixels are pushed past the bloom's threshold so a lit LED glows
-    // (HOT_GAIN). The board's own patterns were set up under that glow; a
-    // reader's Lab draft can be anything, and one that is half white — the
-    // Lab's first pattern is — glowed into a grey haze with no black left in
-    // it. So while a draft plays, the more of the panel is that bright, the
-    // less it is pushed, down to just under the threshold.
-    let hotTarget = HOT_GAIN;
-    if (snap.mirror) {
-      let hot = 0;
-      let n = 0;
-      for (let i = 0; i < src.length; i += 16) {
-        n++;
-        if (0.299 * src[i] + 0.587 * src[i + 1] + 0.114 * src[i + 2] > 0.75 * 255) hot++;
-      }
-      const k = THREE.MathUtils.clamp((hot / Math.max(1, n) - HOT_FRACTION_FROM) / (HOT_FRACTION_TO - HOT_FRACTION_FROM), 0, 1);
-      hotTarget = THREE.MathUtils.lerp(HOT_GAIN, HOT_GAIN_CROWDED, k);
-    }
-    shown.current.hot += (hotTarget - shown.current.hot) * Math.min(1, dt * 4);
-    ledMat.uniforms.uHot.value = shown.current.hot;
 
     // Knobs: rotation about their own axis follows the detents, a press
     // pushes the cap in along it.
@@ -562,9 +576,29 @@ export default function Device() {
       if (snap.turns[i] !== ro.lastTurns[i]) {
         ro.lastTurns[i] = snap.turns[i];
         ro.movedAt[i] = nowMs;
+        // A turn on another screen is that screen's — K1 on BRIGHTNESS sets
+        // the brightness — and the pattern's value did not move with it.
+        if (snap.mode === "run") ro.valAt[i] = nowMs;
       }
-      const held = drag.current?.knob === i || snap.down[i];
-      const live = held || hovered.current === i || nowMs - ro.movedAt[i] < READOUT_HOLD;
+      // A click is the pattern's as a turn is, so it counts as the knob
+      // having moved — once it has turned out to be a click: let go before
+      // the long-press, on the pattern's own screen, in the step it began in.
+      // A press on its way to a hold is the device's, and says nothing yet.
+      if (snap.down[i] !== ro.wasDown[i]) {
+        ro.wasDown[i] = snap.down[i];
+        if (snap.down[i]) {
+          ro.downAt[i] = nowMs;
+          ro.downKey[i] = ro.key;
+          ro.downRun[i] = snap.mode === "run";
+        } else if (ro.downRun[i] && snap.mode === "run" && ro.downKey[i] === ro.key && nowMs - ro.downAt[i] < FIRMWARE.longPressMs) {
+          ro.movedAt[i] = nowMs;
+          ro.valAt[i] = nowMs;
+        }
+      }
+      const mine = drag.current?.knob === i;
+      const moved = nowMs - ro.movedAt[i] < READOUT_HOLD;
+      const movedVal = nowMs - ro.valAt[i] < READOUT_HOLD;
+      const live = mine || snap.down[i] || hovered.current === i || moved;
       const handsOn = useGuideStore.getState().handsOn;
 
       // The dial: faint wherever the knobs are the subject, bright while live.
@@ -582,11 +616,19 @@ export default function Device() {
 
       const label = labelRefs.current[i];
       if (label) {
-        const on = Boolean(s.labels) || s.focus === i || snap.mode === "knobmap" || live;
+        // The hub is a poster: the knob turns and its dial lights, but no
+        // name or number comes up beside it there.
+        const on = Boolean(s.labels) || s.focus === i || snap.mode === "knobmap" || (live && page !== "hub");
         label.dataset.on = on ? "1" : "0";
         label.dataset.active = snap.activeKnob === i || snap.down[i] ? "1" : "0";
-        // Beside the name, what the pattern calls this knob and where it is.
-        const showVal = live && snap.mode === "run";
+        // Beside the name, what the pattern calls this knob and where it is:
+        // while the reader has it, or it has just turned or clicked. Not for
+        // a scripted press alone — the hold demos press a knob for a second
+        // before its screen opens, and the pattern's value beside it then
+        // said the hold was the pattern's ("K1 hue 0.00" before BRIGHTNESS).
+        // Nor for a turn made on another screen: the same pill came up as
+        // BRIGHTNESS closed, for the turns that had set the brightness.
+        const showVal = (mine || hovered.current === i || movedVal) && snap.mode === "run" && page !== "hub";
         if ((label.dataset.val === "1") !== showVal) {
           label.dataset.val = showVal ? "1" : "0";
           forgetPillSize(label);
@@ -626,10 +668,19 @@ export default function Device() {
       const espCap = sh.back >= 1 ? 1 : sh.back >= SLIDER_OFF ? DEVKIT_LIFT_END : 0;
       const backFloor = sh.esp > DEVKIT_LIFT_END ? 1 : sh.esp > 0 ? SLIDER_OFF : 0;
 
-      const backTarget = espTarget > 0 ? 1 : backFloor;
+      // "Everything runs on one small board.": the cover comes off for the
+      // reader — once the camera has come round behind the case and the
+      // step's card is on screen (store.ts cardIn) — not during the camera's
+      // swing, under the chapter's title, where half of it was missed.
+      let holdCover = false;
+      if (sh.back === 0 && sceneId === "flash" && step === 0 && page === "play") {
+        const behind = tmp.pos.copy(state.camera.position).sub(VIEWS.back.target).normalize().dot(VIEWS.back.dir);
+        holdCover = !cardIn || behind < 0.9;
+      }
+      const backTarget = holdCover ? 0 : espTarget > 0 ? 1 : backFloor;
       if (backTarget !== sh.back) {
         const inSlide = backTarget > sh.back ? sh.back < SLIDER_OFF : sh.back <= SLIDER_OFF;
-        const speed = choreoSpeed(sceneId, step, backTarget > sh.back);
+        const speed = choreoSpeed(page, sceneId, step, backTarget > sh.back);
         const rate = (SLIDER_OFF / SLIDER_SECONDS.slide) * speed;
         const rateDown = ((1 - SLIDER_OFF) / SLIDER_SECONDS.setDown) * speed;
         const db = backTarget - sh.back;
@@ -638,12 +689,29 @@ export default function Device() {
         sh.back = next;
       }
 
-      const espGoal = Math.min(espTarget, espCap);
+      // The Build guide's "Seat the DevKit, power off.": the DevKit going
+      // round the case and onto its pins is the step, so it waits in the
+      // reader's hands until the camera has come round behind the case and
+      // the card is on screen (it used to be home before the view arrived,
+      // and nothing moved for the rest of the step), and Replay takes it
+      // back out to play it again.
+      const seating = seatingStep(page, sceneId, step);
+      if (replay !== replaySeen.current) {
+        replaySeen.current = replay;
+        if (seating && espTarget === 0) sh.esp = 1;
+      }
+      let holdKit = false;
+      if (seating && espTarget === 0 && sh.esp === 1) {
+        const behind = tmp.pos.copy(state.camera.position).sub(VIEWS.back.target).normalize().dot(VIEWS.back.dir);
+        // Nearly there, not just past the case's side: the camera is still by the time the DevKit comes round.
+        holdKit = !cardIn || behind < 0.97;
+      }
+      const espGoal = holdKit ? sh.esp : Math.min(espTarget, espCap);
       if (espGoal !== sh.esp) {
         // Out, the lift takes ~0.75 s and the carry ~1.3 s (choreoSpeed).
         const out = espGoal > sh.esp;
         const lifting = out ? sh.esp < DEVKIT_LIFT_END : sh.esp <= DEVKIT_LIFT_END;
-        const rate = (lifting ? DEVKIT_LIFT_END / 0.75 : (1 - DEVKIT_LIFT_END) / 1.3) * choreoSpeed(sceneId, step, out);
+        const rate = (lifting ? DEVKIT_LIFT_END / 0.75 : (1 - DEVKIT_LIFT_END) / 1.3) * choreoSpeed(page, sceneId, step, out);
         const d = espGoal - sh.esp;
         let next = sh.esp + Math.sign(d) * Math.min(Math.abs(d), dt * rate);
         // One frame never steps across the lift/carry boundary, so each leg
@@ -691,7 +759,6 @@ export default function Device() {
                 labelRefs.current[i] = el;
               }}
               className="guide-knob-tag"
-              data-knob={i}
               data-on="0"
               data-val="0"
             >

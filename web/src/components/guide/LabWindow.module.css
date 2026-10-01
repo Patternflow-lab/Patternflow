@@ -1,9 +1,8 @@
-/* Pattern Lab in a window (LabWindow.tsx): a browser in the guide's colours
-   around the real /pattern-lab. Tokens are local because the lifted window is
-   portalled to <body>, outside the guide's .page where --g-* live. */
+/* Pattern Lab, as a card shows it where the make page has no desk
+   (LabWindow.tsx): a small browser window in the guide's colours around a
+   real capture of the Lab, and the whole of it a link to the Lab. */
 
-.root,
-.layer {
+.root {
   --lw-ink: #efe9dd;
   --lw-ink-2: rgba(239, 233, 221, 0.72);
   --lw-ink-3: rgba(239, 233, 221, 0.46);
@@ -22,7 +21,7 @@
   margin: 18px 0 4px;
 }
 
-/* ── the card: one button (or, on a phone, one link), the whole window ── */
+/* ── the card: one link, the whole window ── */
 
 .opener {
   appearance: none;
@@ -45,10 +44,6 @@
 .opener:focus-visible {
   outline: 2px solid var(--lw-led);
   outline-offset: 4px;
-}
-/* It has left the card while it floats. */
-.opener[data-lifted="1"] {
-  opacity: 0;
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .opener:hover {
@@ -167,210 +162,4 @@
 }
 .path {
   color: var(--lw-ink-3);
-}
-
-/* ── lifted ── */
-
-.layer {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-}
-.layer[data-closing="1"] {
-  pointer-events: none;
-}
-.backdrop {
-  position: absolute;
-  inset: 0;
-  /* The board, on the left, stays in the light: the window is there to be
-     used beside it. */
-  background: linear-gradient(90deg, rgba(8, 7, 6, 0) 0%, rgba(8, 7, 6, 0.12) 22%, rgba(8, 7, 6, 0.6) 34%, rgba(8, 7, 6, 0.82) 100%);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-.layer[data-shown="1"] .backdrop {
-  opacity: 1;
-}
-
-.lift {
-  position: absolute;
-  transform-origin: 0 0;
-  transition:
-    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
-    opacity 0.26s ease;
-}
-.layer[data-shown="1"] .lift {
-  transition:
-    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
-    opacity 0.18s ease;
-}
-
-.window {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  border: 1px solid rgba(239, 233, 221, 0.22);
-  border-radius: 12px;
-  background: var(--lw-chrome);
-  box-shadow:
-    0 40px 120px rgba(0, 0, 0, 0.62),
-    0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 12px;
-  padding: 0 10px 0 14px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  background: var(--lw-chrome-2);
-  font-family: var(--pf-sans, system-ui, sans-serif);
-}
-.bar .lights {
-  gap: 7px;
-  margin-right: 4px;
-}
-.bar .lights i {
-  width: 11px;
-  height: 11px;
-}
-.tabTitle {
-  flex: none;
-  max-width: 220px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: 12.5px;
-  color: var(--lw-ink-2);
-}
-.bar .address {
-  height: 26px;
-  padding: 0 14px;
-  font-size: 12.5px;
-}
-.bar .lock {
-  width: 13px;
-  height: 13px;
-}
-
-.barLink {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 11px;
-  border: 1px solid var(--lw-hair-2);
-  border-radius: 999px;
-  font-family: var(--pf-mono, ui-monospace, monospace);
-  font-size: 10.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--lw-ink-2);
-  transition:
-    color 0.2s,
-    border-color 0.2s,
-    background 0.2s;
-}
-.barLink svg {
-  width: 11px;
-  height: 11px;
-}
-.barLink:hover {
-  color: var(--lw-led);
-  border-color: var(--lw-led);
-  background: rgba(255, 106, 61, 0.1);
-}
-.barLink:focus-visible {
-  outline: 2px solid var(--lw-led);
-  outline-offset: 2px;
-}
-
-.close {
-  appearance: none;
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--lw-hair-2);
-  border-radius: 50%;
-  background: rgba(239, 233, 221, 0.04);
-  color: var(--lw-ink-2);
-  cursor: pointer;
-  transition:
-    color 0.2s,
-    border-color 0.2s,
-    background 0.2s;
-}
-.close svg {
-  width: 14px;
-  height: 14px;
-}
-.close:hover {
-  color: var(--lw-ink);
-  border-color: var(--lw-led);
-  background: rgba(255, 106, 61, 0.14);
-}
-.close:focus-visible {
-  outline: 2px solid var(--lw-led);
-  outline-offset: 2px;
-}
-
-.otherTab {
-  flex: none;
-  margin: 0;
-  padding: 7px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
-  background: #2a1a12;
-  font-family: var(--pf-sans, system-ui, sans-serif);
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: #ffd8c7;
-}
-
-.viewport {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--lw-lab);
-}
-.posterBig {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: auto;
-  pointer-events: none;
-}
-.frame {
-  position: absolute;
-  left: 0;
-  top: 0;
-  display: block;
-  border: 0;
-  background: var(--lw-lab);
-  color-scheme: light;
-  transform-origin: 0 0;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.viewport[data-ready="1"] .frame {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lift,
-  .layer[data-shown="1"] .lift {
-    transition: opacity 0.18s ease;
-  }
-  .frame {
-    transition: none;
-  }
 }

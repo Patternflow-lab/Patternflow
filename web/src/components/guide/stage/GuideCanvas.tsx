@@ -8,54 +8,31 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import { EffectComposer, Bloom, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
 import { ToneMappingMode } from "postprocessing";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import Device from "./Device";
 import Fx from "./Fx";
 import { LED_CENTER_WORLD, MODEL_OFFSET, MODEL_SCALE } from "./geometry";
 import { VIEWS } from "./views";
-import MirrorTag from "./MirrorTag";
-import { stageArea } from "./stageArea";
 import { getSim, useGuideStore } from "../store";
 import { stepOf, type DemoAction } from "../scenes";
-import { kitState } from "../timing";
-import { followLabDraft, labDraft, preloadLabDraft } from "./labFeed";
-import type { LabMirror } from "@/lib/guide/labMirror";
+import { buildClock, kitState } from "../timing";
+import { beatIndex } from "./build/beats";
 
 // The stage: one canvas behind the whole page. It never scrolls; the page
 // scrolls over it and the Director below turns the scroll position into
 // what the device does and where the camera stands.
 
-function Director() {
-  // `mirror` starts unset, not null: the board outlives a page (store.ts
-  // getSim), and one left playing a draft must be put back on the first frame.
-  const last = useRef({ scene: "", step: -1, clock: 0, fired: new Set<number>(), mirror: undefined as LabMirror | null | undefined });
+// The Build guide's bench, plates and assembly (build/BuildStage): loaded
+// only on that page, after the device, which it takes over and adds to.
+const BuildStage = lazy(() => import("./build/BuildStage"));
 
-  // Follow the lab's saves; on the make page, load the reader and read the
-  // draft once while the browser is idle, so the step that plays it doesn't
-  // parse it mid-move (labFeed.ts).
-  const page = useGuideStore((s) => s.page);
-  useEffect(() => {
-    // For the scratchpad's checks (as Device.tsx exposes its scene): the board, read-only use.
-    if (process.env.NODE_ENV !== "production") (window as unknown as { __pfGuideSim?: unknown }).__pfGuideSim = getSim();
-    const off = followLabDraft();
-    let idle = 0;
-    let timer = 0;
-    if (page === "make") {
-      // Safari has no requestIdleCallback.
-      if (typeof window.requestIdleCallback === "function") idle = window.requestIdleCallback(preloadLabDraft, { timeout: 2000 });
-      else timer = setTimeout(preloadLabDraft, 1200) as unknown as number;
-    }
-    return () => {
-      off();
-      if (idle) window.cancelIdleCallback(idle);
-      if (timer) clearTimeout(timer);
-    };
-  }, [page]);
+function Director() {
+  const last = useRef({ scene: "", step: -1, clock: 0, fired: new Set<number>() });
 
   useFrame((_, dt) => {
     const sim = getSim();
-    const { scene, step, handsOn } = useGuideStore.getState();
+    const { scene, step, handsOn, page } = useGuideStore.getState();
     const s = stepOf(scene, step);
     const d = last.current;
 
@@ -71,20 +48,25 @@ function Director() {
       else sim.setMode("run");
     }
 
-    // A mirror step plays the reader's own Lab draft, and follows its saves;
-    // any other step puts the board's own pattern back as it was.
-    const want = s.mirror ? labDraft() : null;
-    if (want !== d.mirror) {
-      d.mirror = want;
-      sim.setMirror(want);
-    }
-
     // The scripted demo: each action once per loop, paused while the reader
     // has the knobs.
-    if (s.demo && !handsOn) {
+    //
+    // Its clock is the board's own: the simulator never takes more than a
+    // tenth of a second in a frame (deviceSim tick), so on a slow frame — the
+    // page still loading, on a link straight to a step — a clock run on real
+    // time got ahead of it, and a scripted one-second hold came out shorter
+    // than a long press. The board took it for a click and the rest of the
+    // loop played against the wrong screen.
+    //
+    // On the Build guide a demo also waits for the build to get to its step:
+    // the stage runs its timeline there from wherever it was, the panel dark
+    // until the power bank goes in (BuildStage), and presses made meanwhile
+    // went to a board that was off.
+    const building = page === "build" && s.build !== undefined && Math.floor(buildClock.t) !== beatIndex(s.build);
+    if (s.demo && !handsOn && !building) {
       const period = s.period ?? 4000;
       const before = d.clock;
-      d.clock += dt * 1000;
+      d.clock += Math.min(Math.max(dt, 0), 0.1) * 1000;
       if (Math.floor(before / period) !== Math.floor(d.clock / period)) d.fired.clear();
       const local = d.clock % period;
       s.demo.forEach((a: DemoAction, i) => {
@@ -142,7 +124,7 @@ type Free = { l: number; r: number; t: number; b: number };
 
 // Where the step's card is when the reader is on that step (its block
 // centred; the opening at the top of the page), and so what it leaves free.
-function freeArea(scene: string, step: number, w: number, h: number, narrow: boolean): Free {
+function freeArea(scene: string, step: number, w: number, h: number, narrow: boolean, tallCards: boolean): Free {
   const fallback: Free = narrow ? { l: 12, r: w - 12, t: 56, b: h * 0.5 } : { l: 24, r: w * 0.6, t: 64, b: h - 32 };
   const art = document.querySelector<HTMLElement>(`[data-scene="${scene}"] [data-step="${step}"]`);
   if (!art) return fallback;
@@ -160,7 +142,13 @@ function freeArea(scene: string, step: number, w: number, h: number, narrow: boo
       ? h * 0.94 - card.offsetHeight
       : docTop + (card === art ? 0 : card.offsetTop - art.offsetTop) - at;
   const cardLeft = ar.left + (card === art ? 0 : card.offsetLeft - art.offsetLeft);
-  if (narrow) return { l: 12, r: w - 12, t: 56, b: THREE.MathUtils.clamp(cardTop - 14, h * 0.36, h - 12) };
+  // A card taller than about two thirds of a phone's screen stands higher
+  // than 36% when its block is centred. Play's are fitted as if it did not
+  // (the device is big, and losing its foot to the card costs nothing).
+  // Build's tall cards are the ones with the most to see above them — which
+  // hole, which screw — so there the stage fits what is really left, down to
+  // a fifth of the screen.
+  if (narrow) return { l: 12, r: w - 12, t: 56, b: THREE.MathUtils.clamp(cardTop - 14, h * (tallCards ? 0.2 : 0.36), h - 12) };
   return { l: 24, r: THREE.MathUtils.clamp(cardLeft - 32, w * 0.35, w - 24), t: 64, b: h - 32 };
 }
 
@@ -264,7 +252,7 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 1 / 20);
-    const { scene, step, narrow, handsOn } = useGuideStore.getState();
+    const { scene, step, narrow, handsOn, page } = useGuideStore.getState();
     const s = stepOf(scene, step);
     // A DevKit view before the DevKit is out from behind the case (scrolling
     // back up into chapter one, say) would stare at empty air while the back
@@ -276,7 +264,10 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     // copy gives — and comes round to the front once the device is whole,
     // as the panel powers on (KitFx holds the power until then).
     const reassembling = scene === "flash" && step === 6 && !kitState.home;
-    const view = VIEWS[(devkitView && !kitState.out) || reassembling ? "back" : s.view];
+    // A Build step with two places to look at on a narrow screen (scenes.ts
+    // narrowLate): its second view from that far through its beat.
+    const late = narrow && s.narrowLate && s.build !== undefined && buildClock.t - beatIndex(s.build) >= s.narrowLate.from ? s.narrowLate.view : null;
+    const view = VIEWS[(devkitView && !kitState.out) || reassembling ? "back" : (late ?? ((narrow && s.narrowView) || s.view))];
     const c = st.current;
     const cam = camera as THREE.PerspectiveCamera;
     const w = size.width;
@@ -286,12 +277,11 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     // changes, and now and then in case the card grew (fonts, images).
     const key = `${scene}.${step}.${w}x${h}.${narrow ? 1 : 0}`;
     if (key !== c.freeKey || ++c.freeAge > 45) {
-      c.free = freeArea(scene, step, w, h, narrow);
+      c.free = freeArea(scene, step, w, h, narrow, page === "build");
       c.freeKey = key;
       c.freeAge = 0;
     }
-    // A window lifted over the page (LabWindow) says what it leaves free.
-    const free = stageArea() ?? c.free;
+    const free = c.free;
 
     // Where this step wants the camera, in spherical terms around its target.
     let wantAz = Math.atan2(view.dir.x, view.dir.z);
@@ -412,14 +402,23 @@ function Warmup() {
 // An LED panel is a light. A point light just in front of it takes the
 // average colour of what the board is showing, so the knobs, the case edge
 // and the floor catch the pattern's colour the way they do in a dark room.
+//
+// It has no shadow, so it lights whatever faces it, through anything. On the
+// Build guide the panel's back stands open to a camera behind it (check-4,
+// before the back goes on), and the ribs and band there glowed with the
+// pattern's colour — a panel shining through itself. So on that page the
+// light goes out as the camera comes round behind the panel's plane; the
+// floor's spill, which it is for, is in front and not in those shots.
 
 function PanelLight() {
   const light = useRef<THREE.PointLight>(null);
   const color = useMemo(() => new THREE.Color(), []);
   const n = useRef(0);
-  useFrame(() => {
+  useFrame((state) => {
     const l = light.current;
     if (!l || n.current++ % 3) return;
+    // 1 in front of the panel, 0 behind it (world z: its faces are at ±0.1).
+    const front = useGuideStore.getState().page === "build" ? THREE.MathUtils.clamp((state.camera.position.z + 0.3) / 0.6, 0, 1) : 1;
     const f = getSim().frame;
     let r = 0;
     let g = 0;
@@ -438,7 +437,7 @@ function PanelLight() {
     const peak = Math.max(r, g, b);
     if (peak > 0.0001) color.setRGB(r / peak, g / peak, b / peak);
     l.color.lerp(color, 0.25);
-    l.intensity += (Math.min(4, lum * 9) - l.intensity) * 0.2;
+    l.intensity += (Math.min(4, lum * 9) * front - l.intensity) * 0.2;
   });
   return (
     <pointLight
@@ -488,6 +487,7 @@ function debugFlags(): Set<string> {
 export default function GuideCanvas() {
   const flags = debugFlags();
   const narrow = useGuideStore((s) => s.narrow);
+  const page = useGuideStore((s) => s.page);
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -547,8 +547,15 @@ export default function GuideCanvas() {
         <group scale={MODEL_SCALE} position={MODEL_OFFSET}>
           <Device />
         </group>
-        <MirrorTag />
         <Warmup />
+        {/* After the device, so each frame it moves the device's parts after
+            the device has (it runs later in the frame loop). Its own
+            boundary: the device stays on screen while it loads. */}
+        {page === "build" && (
+          <Suspense fallback={null}>
+            <BuildStage />
+          </Suspense>
+        )}
       </Suspense>
       <Director />
       <Fx />
