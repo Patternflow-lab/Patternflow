@@ -61,6 +61,10 @@ inline char uploadSlug[MODULE_NAME_BYTES] = {};
 inline char uploadPath[MODULE_PATH_BYTES] = {};
 inline char uploadError[96] = {};
 inline bool uploadFailed = false;
+// The upload was refused because the render loop has stopped coming round,
+// not because anything was wrong with the file: handleUploadDone answers 503
+// for that, where every other failure here is the sender's and a 400.
+inline bool uploadLoopStalled = false;
 inline bool uploadCreated = false;
 inline volatile bool storageOperationActive = false;
 struct StorageOperation {
@@ -311,11 +315,27 @@ inline void sendJsonAndClose(int code, const String& body) {
   sendJson(code, body);
 }
 
+// captureSelectionOnce() said no. There are two reasons, and they ask
+// different things of whoever is at the page: a pattern still in setup()
+// clears by itself, so "retry" is true; a render loop that has stopped
+// coming round does not, and telling a person to retry that is telling them
+// to keep pressing a dead button.
+inline const char* captureRefusal(bool loopStalled) {
+  return loopStalled ? PatternflowHttp::LOOP_STALLED_ERROR : "pattern still loading; retry";
+}
+
+inline void sendCaptureRefused() {
+  String body = "{\"ok\":false,\"error\":\"";
+  body += captureRefusal(PFLoopSync::stalled());
+  body += "\"}";
+  sendJson(503, body);
+}
+
 // Explicit, destructive, button-initiated. See formatModuleStorage.
 inline void handleFormat() {
   StorageOperation operation;
   if (!captureSelectionOnce()) {
-    sendJson(503, "{\"ok\":false,\"error\":\"pattern still loading; retry\"}");
+    sendCaptureRefused();
     return;
   }
   bool ok = formatModuleStorage();
@@ -361,7 +381,7 @@ inline void handleList() {
   json += ",\"patterns\":[";
   // The list is rebuilt by tick() on the loop task after an upload; walk it
   // there, not underneath that.
-  PFLoopSync::run([&] {
+  const bool walked = PFLoopSync::run([&] {
   for (int i = 0; i < NUM_PATTERNS; i++) {
     if (i) json += ',';
     json += "{\"index\":";
@@ -384,6 +404,14 @@ inline void handleList() {
     json += '}';
   }
   });
+  // This is the request the /patterns page opens with, so it is the one that
+  // used to park the network task behind a pattern stuck in draw() - and
+  // with it the status and Reboot routes that would have explained and
+  // ended the hang. Half a list is worse than an honest refusal.
+  if (!walked) {
+    PatternflowHttp::sendLoopStalled();
+    return;
+  }
   json += "],\"pendingRev\":";
   json += PatternflowPackSelect::rev;
   json += ",\"pending\":[";
@@ -503,7 +531,7 @@ inline void handleDeleteMany() {
   }
 
   if (!captureSelectionOnce()) {
-    sendJson(503, "{\"ok\":false,\"error\":\"pattern still loading; retry\"}");
+    sendCaptureRefused();
     return;
   }
 
@@ -592,7 +620,7 @@ inline void handleDelete() {
 
   // Drop it out of executable RAM before the file goes, in case it is running.
   if (!captureSelectionOnce()) {
-    sendJson(503, "{\"ok\":false,\"error\":\"pattern still loading; retry\"}");
+    sendCaptureRefused();
     return;
   }
   if (!removeModuleFiles(slug)) {
@@ -624,6 +652,7 @@ inline void handleUpload() {
     __atomic_store_n(&storageOperationActive, true, __ATOMIC_RELEASE);
     uploadCreated = false;
     uploadFailed = false;
+    uploadLoopStalled = false;
     uploadError[0] = '\0';
     uploadBytes = 0;
     uploadPath[0] = '\0';
@@ -669,7 +698,8 @@ inline void handleUpload() {
     if (!captureSelectionOnce()) {
       uploadFailed = true;
       uploadPath[0] = '\0'; // no file opened: do not delete an original on failure
-      snprintf(uploadError, sizeof(uploadError), "pattern still loading; retry");
+      uploadLoopStalled = PFLoopSync::stalled();
+      snprintf(uploadError, sizeof(uploadError), "%s", captureRefusal(uploadLoopStalled));
       return;
     }
 
@@ -732,6 +762,7 @@ inline void handlePutBody() {
     __atomic_store_n(&storageOperationActive, true, __ATOMIC_RELEASE);
     uploadCreated = false;
     uploadFailed = false;
+    uploadLoopStalled = false;
     uploadError[0] = '\0';
     uploadBytes = 0;
     uploadPath[0] = '\0';
@@ -775,7 +806,8 @@ inline void handlePutBody() {
     if (!captureSelectionOnce()) {
       uploadFailed = true;
       uploadPath[0] = '\0'; // no file opened: do not delete an original on failure
-      snprintf(uploadError, sizeof(uploadError), "pattern still loading; retry");
+      uploadLoopStalled = PFLoopSync::stalled();
+      snprintf(uploadError, sizeof(uploadError), "%s", captureRefusal(uploadLoopStalled));
       return;
     }
 
@@ -836,7 +868,7 @@ inline void handleUploadDone() {
     String body = "{\"ok\":false,\"error\":\"";
     body += uploadError[0] ? uploadError : "upload failed";
     body += "\"}";
-    sendJsonAndClose(400, body);
+    sendJsonAndClose(uploadLoopStalled ? 503 : 400, body);
     return;
   }
   if (!uploadPath[0] || uploadBytes == 0) {
@@ -913,7 +945,7 @@ inline void handleSelect() {
 
   int index = -1;
   String name;
-  PFLoopSync::run([&] {
+  const bool resolved = PFLoopSync::run([&] {
     if (byStep) {
       // ?step=+1|-1: the next (or previous) pattern that is not hidden,
       // wrapping, from wherever the panel is now.
@@ -951,6 +983,16 @@ inline void handleSelect() {
       restorePending = false;
     }
   });
+  // Not "no such pattern": nothing was looked up, and nothing was queued. A
+  // switch is exactly what a person tries when the panel has frozen, so the
+  // reply has to say that switching is not what will fix it. The header goes
+  // out here too - this route is called from other origins, which cannot
+  // read the reason without it.
+  if (!resolved) {
+    server().sendHeader("Access-Control-Allow-Origin", "*");
+    PatternflowHttp::sendLoopStalled();
+    return;
+  }
 
   server().sendHeader("Cache-Control", "no-store");
   server().sendHeader("Access-Control-Allow-Origin", "*");

@@ -212,7 +212,9 @@ inline void configOnLoop() {
   sendState(200);
 }
 
-inline void handleConfig() { PFLoopSync::run([] { configOnLoop(); }); }
+inline void handleConfig() {
+  if (!PFLoopSync::run([] { configOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
 
 inline void begin() {
   if (initialized) return;

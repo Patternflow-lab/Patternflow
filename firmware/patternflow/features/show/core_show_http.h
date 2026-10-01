@@ -589,9 +589,15 @@ inline void handlePutDone() {
 // these start, stop, reconfigure or delete what it is ticking. The HTTP
 // server runs on the network core, so the bodies above are handed to the
 // loop task and run at the frame boundary (core_loop_sync.h).
-inline void handleControl() { PFLoopSync::run([] { controlOnLoop(); }); }
-inline void handleSchedule() { PFLoopSync::run([] { scheduleOnLoop(); }); }
-inline void handleDelete() { PFLoopSync::run([] { deleteOnLoop(); }); }
+inline void handleControl() {
+  if (!PFLoopSync::run([] { controlOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleSchedule() {
+  if (!PFLoopSync::run([] { scheduleOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleDelete() {
+  if (!PFLoopSync::run([] { deleteOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
 
 inline void begin() {
   if (initialized) return;

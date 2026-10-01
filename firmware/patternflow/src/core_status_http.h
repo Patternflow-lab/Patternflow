@@ -468,6 +468,21 @@ inline void handleStatus() {
   json += PFLoopSync::served;
   json += ",\"loopSyncMaxUs\":";
   json += PFLoopSync::maxWaitUs;
+  // How long since loop() was last at its frame boundary, read straight off
+  // the stamp and never through the loop: this is the number that says the
+  // loop is the thing that is stuck, so it cannot wait on the loop to be
+  // produced. A frame or two is a running panel. Seconds, and larger on the
+  // next poll by the time between the polls, is a pattern that is not coming
+  // back from draw() - `active` above names it, and Reboot still answers.
+  // One reading for both fields, so a reply never says an age under the
+  // limit and stalled in the same breath.
+  const uint32_t loopAge = PFLoopSync::loopAgeMs();
+  json += ",\"loopAgeMs\":";
+  json += loopAge;
+  json += ",\"loopStalled\":";
+  json += loopAge >= PF_LOOP_STALL_MS ? "true" : "false";
+  json += ",\"loopSyncGaveUp\":";
+  json += PFLoopSync::gaveUp;
   json += ",\"colorBits\":";
   json += dma_display->getCfg().getPixelColorDepthBits();
   json += ",\"refreshHz\":";

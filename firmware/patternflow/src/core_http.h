@@ -98,4 +98,21 @@ inline void handle() {
   if (started) httpServer.handleClient();
 }
 
+// What a handler answers when PFLoopSync::run() came back false: the request
+// needed the render loop, and the render loop has stopped coming round - a
+// pattern that never returns from draw(), most likely (core_loop_sync.h).
+// 503 because nothing was wrong with the request and the console itself is
+// alive: /api/status says how long the loop has been gone (loopAgeMs), and
+// Reboot and /update need nothing from it. One wording for every route, so a
+// page or a script can recognise it without knowing which handler refused.
+constexpr char LOOP_STALLED_ERROR[] = "render loop is not answering";
+
+inline void sendLoopStalled() {
+  String body = "{\"ok\":false,\"error\":\"";
+  body += LOOP_STALLED_ERROR;
+  body += "\"}";
+  httpServer.sendHeader("Cache-Control", PFSend::CC_NO_STORE);
+  httpServer.send(503, "application/json", body);
+}
+
 }  // namespace PatternflowHttp

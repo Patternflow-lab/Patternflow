@@ -309,12 +309,24 @@ inline void forgetOnLoop() {
 // PubSubClient is not thread-safe, and the feature loop on the render core
 // calls client.loop() every frame. Anything here that reconnects, changes
 // mode or clears the config runs on the loop task (core_loop_sync.h).
-inline void handlePost() { PFLoopSync::run([] { postOnLoop(); }); }
-inline void handleConfig() { PFLoopSync::run([] { configOnLoop(); }); }
-inline void handleDirector() { PFLoopSync::run([] { directorOnLoop(); }); }
-inline void handleFlowLocal() { PFLoopSync::run([] { flowLocalOnLoop(); }); }
-inline void handleMode() { PFLoopSync::run([] { modeOnLoop(); }); }
-inline void handleForget() { PFLoopSync::run([] { forgetOnLoop(); }); }
+inline void handlePost() {
+  if (!PFLoopSync::run([] { postOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleConfig() {
+  if (!PFLoopSync::run([] { configOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleDirector() {
+  if (!PFLoopSync::run([] { directorOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleFlowLocal() {
+  if (!PFLoopSync::run([] { flowLocalOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleMode() {
+  if (!PFLoopSync::run([] { modeOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleForget() {
+  if (!PFLoopSync::run([] { forgetOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
 
 inline void begin() {
   if (initialized) return;

@@ -86,11 +86,17 @@ inline void handlePost() {
     return;
   }
   // On the frame task: the rebase reads the counters the frame is reading.
-  PFLoopSync::run([&] {
+  const bool applied = PFLoopSync::run([&] {
     for (int i = 0; i < 4; i++) {
       if (changed[i]) setKnobSettings(i, inv[i], sub[i]);
     }
   });
+  // No frame, no change - and nothing saved either, or NVS would hold a
+  // setting the reply said was refused.
+  if (!applied) {
+    PatternflowHttp::sendLoopStalled();
+    return;
+  }
   if (!saveKnobSettings()) {
     sendJson(500, "{\"ok\":false,\"error\":\"applied, but could not save to NVS\"}");
     return;

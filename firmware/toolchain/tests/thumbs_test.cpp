@@ -34,7 +34,11 @@ static void* heap_caps_calloc(size_t n, size_t s, unsigned caps) {
 }
 static uint32_t micros() { static uint32_t now = 0; return ++now; }
 namespace PFCanvas { constexpr int W = 128, H = 64; uint8_t buffer[W * H * 3]; }
-namespace PFLoopSync { template<class F> void run(F&& f) { f(); } }
+// The loop runs the body, or has stopped coming round and never will.
+static bool loopGone = false;
+namespace PFLoopSync {
+template<class F> bool run(F&& f) { if (loopGone) return false; f(); return true; }
+}
 
 constexpr bool FILE_READ = false, FILE_WRITE = true;
 static unsigned fileOpens = 0;
@@ -143,6 +147,20 @@ int main() {
   failWrites = false; capture("alloc", true); service(); finish();
   assert(find("alloc")->savedThisBoot);
 
+  // A delete while the loop is not answering cannot touch the cache, so it
+  // leaves a note. A save queued before the stall must not put the picture
+  // back on the volume, and the loop empties the cache when it returns.
+  colour(255, 0, 0); assert(capture("stuck", true)); service();
+  assert(ioState == IO_PENDING);
+  loopGone = true; forget("stuck"); loopGone = false;
+  assert(dropAllDeferred && find("stuck")->px);
+  serviceDisk(); assert(!FFat.exists("/patterns/stuck.thumb"));
+  service(); assert(!dropAllDeferred && slotCount == 0 && ioState == IO_IDLE);
+  assert(get("stuck") == nullptr); finish();
+  loopGone = true; forgetAll(); loopGone = false;
+  assert(dropAllDeferred && slotCount == 1);
+  service(); assert(!dropAllDeferred && slotCount == 0);
+
   forgetAll(); free(slots); slots = nullptr;
-  puts("thumbnail mailbox: read/capture, immutable save, deletion, format, short I/O, PSRAM OOM passed");
+  puts("thumbnail mailbox: read/capture, immutable save, deletion, format, short I/O, PSRAM OOM, stalled loop passed");
 }

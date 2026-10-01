@@ -116,7 +116,12 @@ section fully before writing code.
   using right now — starts or stops something your `loop` hook is ticking,
   reconnects a client it polls, frees a buffer it reads — wraps that part in
   `PFLoopSync::run([&] { ... })` (`src/core_loop_sync.h`): the body runs on
-  the loop task at the frame boundary and the handler waits for it.
+  the loop task at the frame boundary and the handler waits for it. `run()`
+  returns `false` when the body did not run and never will - the render loop
+  has stopped coming round, usually a pattern that never returns from
+  `draw()` - and the handler then answers
+  `PatternflowHttp::sendLoopStalled()` (a 503) and changes nothing. A handler
+  that ignores the result sends no reply at all in that case.
   [`show/`](firmware/patternflow/features/show/), `mqtt/` and `weather/`
   show the shape.
 

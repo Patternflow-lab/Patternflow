@@ -232,9 +232,15 @@ inline void activateOnLoop() {
 // manual fetch is left on the network core on purpose — a blocking HTTPS
 // round trip is exactly what should not hold a frame — guarded by the
 // same in-flight flag the scheduled fetch honours.
-inline void handleConfig() { PFLoopSync::run([] { configOnLoop(); }); }
-inline void handleForget() { PFLoopSync::run([] { forgetOnLoop(); }); }
-inline void handleActivate() { PFLoopSync::run([] { activateOnLoop(); }); }
+inline void handleConfig() {
+  if (!PFLoopSync::run([] { configOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleForget() {
+  if (!PFLoopSync::run([] { forgetOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
+inline void handleActivate() {
+  if (!PFLoopSync::run([] { activateOnLoop(); })) PatternflowHttp::sendLoopStalled();
+}
 
 inline void begin() {
   if (initialized) return;
