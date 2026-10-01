@@ -21,6 +21,15 @@ name: Core knows no features
 #   what every pattern built afterwards renders — and reaches only newly built
 #   modules, since an installed .pfm carries its own compiled copy.
 #
+#   check_parser.py — the vendored HTTP request parser, the real Parsing.cpp
+#   against a scripted socket and a fake clock. It runs on pf-net, where a loop
+#   that waits for the peer without sleeping starves IDLE0 and the Core-0
+#   watchdog reboots the board 5 s later. That has happened three times
+#   (src/webserver/VENDORED.md) and nothing on a PC stood in the way of any of
+#   them. Truncated, stalled and trickled requests are replayed here, every
+#   cut point of each, and a wait that neither reads a byte nor sleeps fails -
+#   as does a request still being parsed after its timeouts have run out.
+#
 # The blit, thumbnail mailbox, network recovery and ELF bounds also run on a
 # host C++ compiler with ASan/UBSan. The four-composition Xtensa compile stays
 # local (`firmware/bundles/build.sh all`) and remains required for core edits.
@@ -84,6 +93,8 @@ jobs:
         run: python firmware/toolchain/check_runtime.py --sanitize
       - name: HTTP backpressure and bounded send attempts
         run: python firmware/toolchain/check_send.py --sanitize
+      - name: HTTP request parser sleeps in every wait and gives up on a request that stopped
+        run: python firmware/toolchain/check_parser.py --sanitize
       - name: MIDI event ownership and remote-input echo suppression
         run: python firmware/toolchain/check_midi.py --sanitize
       - name: No mangled literals or raw control bytes

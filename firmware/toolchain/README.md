@@ -14,6 +14,7 @@ The repository-level scripts around the firmware: what builds a module or a pack
 - versions — `check_versions.py`: the version the firmware reports, the editions, `AGENTS.md`, the flasher manifest and the shelf all agree;
 - images — `check_footprint.py` (each edition's size against its baseline);
 - host-side unit tests of pure engine code — `check_math.py`, `check_blit.py`, `check_oe.py`, `check_send.py`, `check_thumbs.py`, `check_runtime.py`, `check_network.py`, `check_midi.py`, each compiling and running its twin in `tests/` (`*_test.cpp`) natively, with `--sanitize` for ASan/UBSan;
+- the vendored web server — `check_parser.py`: the real `src/webserver/Parsing.cpp` against a scripted socket and a fake clock, failing on a wait that does not sleep or does not end. Its `KNOWN:` lines are what the parser does today that the test would otherwise fail, pinned so that fixing one turns the check red until the pin is removed;
 - `check_sources.py`, a fast pre-compile sanity pass.
 
 `tests/` also holds `modules/_ctor_probe/`, a module that exists only to exercise the loader's `.init_array` path; build it with `build_module.py` and inspect the ELF as its header comment says.
