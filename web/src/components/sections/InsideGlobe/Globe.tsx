@@ -969,7 +969,10 @@ function headingTo(lat: number, lng: number): { yaw: number; pitch: number } {
 // Which group is open without one of its builds being selected: `sticky` when
 // it was tapped or clicked open (it stays until something else is picked),
 // not sticky when the pointer is merely resting on it.
-type OpenGroup = { id: string; sticky: boolean };
+// `during` is the build that was selected when it was opened (or null): a
+// group opened by hand stays open only for as long as the selection it was
+// opened under stands, so picking another build closes it without an effect.
+type OpenGroup = { id: string; sticky: boolean; during: string | null };
 
 interface SceneProps extends GlobeProps {
   openGroup: OpenGroup | null;
@@ -1052,15 +1055,18 @@ function GlobeScene({
   const selectedGroup = selected
     ? groups.find((group) => group.members.length > 1 && group.members.includes(selected)) ?? null
     : null;
-  const heldOpen = !selected && openGroup
+  // A group opened by hand, with or without a build selected: from a selected
+  // build the pointer can open another group and pick from it in one go. (It
+  // used to be ignored while a build was selected, so the rings would not open.)
+  const heldOpen = openGroup && openGroup.during === (selectedBuildId ?? null)
     ? groups.find((group) => group.id === openGroup.id) ?? null
     : null;
-  const openId = selectedGroup?.id ?? heldOpen?.id ?? null;
+  const isOpen = (id: string) => id === selectedGroup?.id || id === heldOpen?.id;
   // A hover only counts while the pin it was on is still there to be left:
   // a pin of a fan that has since closed never reports the pointer leaving,
   // and the globe would hold still for it for good.
   const hoveredId = groups.some(({ id, members }) =>
-    (members.length === 1 || id === openId) && members.some((build) => build.id === hoverId))
+    (members.length === 1 || isOpen(id)) && members.some((build) => build.id === hoverId))
     ? hoverId
     : null;
 
@@ -1179,11 +1185,13 @@ function GlobeScene({
     if (sticky) {
       // A tap brings the group round to the middle, where there is room for
       // its fan - and where a group tapped through the far side can open.
-      focus.current = headingTo(group.center.lat, group.center.lng);
-    } else if (openGroup?.id === group.id) {
+      // Not while a build is selected: the view stays on that build until
+      // another is picked.
+      if (!selected) focus.current = headingTo(group.center.lat, group.center.lng);
+    } else if (heldOpen?.id === group.id) {
       return;   // already open; a hover never loosens a tapped-open group
     }
-    onOpenGroup({ id: group.id, sticky });
+    onOpenGroup({ id: group.id, sticky, during: selectedBuildId ?? null });
   };
   const leave = (group: BuildGroup) => {
     if (openGroup?.id === group.id && !openGroup.sticky) onOpenGroup(null);
@@ -1217,7 +1225,7 @@ function GlobeScene({
           <GroupPin
             key={group.id}
             group={group}
-            open={openId === group.id}
+            open={isOpen(group.id)}
             watchPointer={heldOpen?.id === group.id && !openGroup?.sticky}
             selectedBuildId={selectedBuildId ?? null}
             hoveredId={hoveredId}
