@@ -19,6 +19,8 @@
 
 **Patternflow is an open-source LED synthesizer.** You play it with four knobs. 8,192 pixels across a 128 × 64 matrix respond the instant you turn one; nothing is pre-rendered, every frame is computed live on the device. A pattern is just a small file, so every Patternflow plays every pattern anyone makes.
 
+**Start with [the guide](https://patternflow.work/guide).** It builds one with you, shows you how to play it, and walks you through making patterns, each step on a 3D Patternflow you can turn in the browser: **[Build](https://patternflow.work/guide/build)** · **[Play](https://patternflow.work/guide/play)** · **[Make](https://patternflow.work/guide/make)**.
+
 ## Where it began
 
 Almost every screen around us is a playback device. It takes in content and shows it to us, and we sit in front of it and watch. Patternflow is different: touch it and it answers in that instant, and nobody plays the same thing twice.
@@ -52,7 +54,7 @@ The clearest case started on the other side of the world. A media art collective
 
 ### 1. The device
 
-The **[Full Build Guide](BUILD_GUIDE.md)** covers the official route: the custom PCB and a 3D-printed enclosure. Don't want to order a board? The **[Breadboard Build Guide](https://patternflow.work/build/breadboard)** wires the same electronics with jumper wires instead, and that's a real Patternflow, not a temporary prototype. Every other combination is on the **[Assembly Map](docs/assembly/README.md)**. Parts run about US$100–200 ([BOM](BUILD_GUIDE.md#1-bill-of-materials-bom)), it's all big through-hole joints, and every first-timer who has built one finished it. Most came back saying the soldering was the fun part.
+The **[Full Build Guide](BUILD_GUIDE.md)** covers the official route: the custom PCB and a 3D-printed enclosure. The **[build guide in 3D](https://patternflow.work/guide/build)** is the same route, every step shown on a board you can turn. Don't want to order a board? The **[Breadboard Build Guide](https://patternflow.work/build/breadboard)** wires the same electronics with jumper wires instead, and that's a real Patternflow, not a temporary prototype. Every other combination is on the **[Assembly Map](docs/assembly/README.md)**. Parts run about US$100–200 ([BOM](BUILD_GUIDE.md#1-bill-of-materials-bom)), it's all big through-hole joints, and every first-timer who has built one finished it. Most came back saying the soldering was the fun part.
 
 **When yours lights up, tell us.** Post it in [Discord](https://discord.gg/Vr9QtsxeTk) or fill in the [Share your build](../../issues/new?template=share_build.yml) form and it goes on the build map, a globe of Patternflows where each pin carries its build's story. The map is for the ones people made themselves: every pin is someone who built one from these files, in their own material, wherever they are. The goal is simple: cover it with pins.
 
@@ -72,7 +74,7 @@ You don't need hardware to start. The **[Live Editor](https://patternflow.work/p
 
 **[Pattern Lab](https://patternflow.work/pattern-lab)** is the full studio, and where a pattern reaches the hardware. Generate variations in batches (in the Lab with your own Gemini key, or through any AI chat), shape color ramps, retune knob ranges, then send it to your device: it builds into a small `.pfm` module and installs over Wi-Fi, about ten seconds start to finish. You never plug in a cable, reflash the board, or open an IDE. The Graphic Export panel takes the same pattern off the panel: a PNG at print size for a business card, or an MP4 loop for a post, rendered in your browser with nothing uploaded.
 
-When it looks right, publish it to the **[Community](https://community.patternflow.work/community)**. More than a hundred patterns are up already and the range keeps widening, from quiet waves to chaos-theory studies, every one written as code and every one playable under the same four knobs. Collect patterns into a deck and send it to your board in one click. Browsing needs no account, and publishing asks a username and password, no email. The **[Pattern Guide](PATTERN_GUIDE.md)** walks the whole loop.
+When it looks right, publish it to the **[Community](https://community.patternflow.work/community)**. More than a hundred patterns are up already and the range keeps widening, from quiet waves to chaos-theory studies, every one written as code and every one playable under the same four knobs. Collect patterns into a deck and send it to your board in one click. Browsing needs no account, and publishing asks a username and password, no email. The **[Pattern Guide](PATTERN_GUIDE.md)** walks the whole loop, and the **[Make guide](https://patternflow.work/guide/make)** is that loop as a tutorial you do as you read.
 
 <p align="center">
   <img src="./docs/media/community-library.png" width="100%" alt="The community wall: dozens of patterns by different authors, each one playing, with a deck being assembled along the bottom" />
@@ -181,7 +183,7 @@ Patternflow is built around a standalone ESP32-S3 driving a HUB75 RGB LED matrix
 | :--- | :--- |
 | `firmware/` | Arduino code for ESP32-S3, the custom pattern template, and the toolchain that builds patterns into `.pfm` modules and packs |
 | `hardware/` | Enclosure files and electronics source files (case, PCB, Gerbers, schematic PDF) |
-| `web/` | Next.js site (landing, Live Editor, Pattern Lab, community, browser flasher & build server, journal); the breadboard build guide is a React page here |
+| `web/` | Next.js site (landing, the interactive guide, Live Editor, Pattern Lab, community, browser flasher & build server, journal); the breadboard build guide is a React page here |
 | `docs/` | The contracts (HTTP, OSC, MIDI, MQTT, audio WebSocket, show files), how the firmware is put together (`EDITIONS.md`), the assembly map, walk-throughs, records and media — indexed in [`docs/README.md`](docs/README.md), with the folder-by-folder map in [`docs/REPOSITORY.md`](docs/REPOSITORY.md) |
 | `tools/` | Desktop-side helpers, including the audio-react browser extension |
 | `integrations/` | Host-software bridges: Ableton Live / Max for Live (OSC knob mapping) |
