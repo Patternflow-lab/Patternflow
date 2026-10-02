@@ -21,6 +21,10 @@ It is not a single luminous object but an open system. The hardware files, firmw
 
 - [Home](https://patternflow.work/): Overview, hero, and entry point.
 - [Patterns & Live Editor](https://patternflow.work/pattern): Preset library of LED-matrix patterns, remixable in the browser, with AI-assisted custom pattern creation and a flow to flash patterns to the device.
+- [Guide](https://patternflow.work/guide): The interactive guide, in English and Korean (add `/ko`). Each step is shown on a 3D Patternflow in the browser.
+  - [Build](https://patternflow.work/guide/build): Assembling one from the PCB, the printed case and the parts list, step by step in 3D.
+  - [Play](https://patternflow.work/guide/play): The first hour with a finished board — flashing the ESP32, the four knobs, installing patterns, the device console.
+  - [Make](https://patternflow.work/guide/make): A hands-on tutorial for the community and the Pattern Lab, from a prompt to a pattern on the device.
 - [Build your own](https://patternflow.work/build): Build the device from scratch — firmware, PCB, 3D-printed enclosure, browser flasher, and the full build guide.
 - [Inside](https://patternflow.work/inside): How Patternflow works — the electronics, encoders, and pattern architecture.
 - [Journal](https://patternflow.work/journal): Long-form notes and the story behind each step (English and Korean).
