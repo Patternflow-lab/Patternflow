@@ -55,13 +55,15 @@ import { stageFocus } from "./look/focus";
 const FLOOR_Y = -1.66;
 const FLOOR_CLEAR = 0.32;
 /**
- * What the beam gives a surface that faces it, against the key light's 2.4.
- * Kept low on purpose: the case is white and already near the top of the
- * picture's range. At this strength it is a highlight that moves, no more.
+ * What the beam gives a surface that faces it, against the key light's 2.4,
+ * by page. What it lands on decides how much it takes to be seen: the Build
+ * guide's bench and board are dark, and a weak beam vanishes on them; the hub
+ * and Play are mostly the white case, already near the top of the picture's
+ * range, where the same strength would bleach it.
  */
-const GIVES = 0.3;
-/** How many times that for the part the parts list points at (about 1.7 in all: there it is the pointing). */
-const SPOT = 5.6;
+const GIVES: Record<string, number> = { hub: 0.8, play: 0.9, build: 1.9 };
+/** How many times that for the part the parts list points at: there the light is all the pointing there is. */
+const SPOT = 1.35;
 /** The beam's half-angle, radians: about a sixth of the picture's height across, whatever the view. */
 const BEAM = 0.085;
 /** Where the torch is held, beside and above the eye, as a share of the distance to the subject: enough to rake. */
@@ -153,7 +155,7 @@ export default function StageHand({ reducedMotion }: { reducedMotion: boolean })
         tmp.up.setFromMatrixColumn(cam.matrixWorld, 1);
         l.position.copy(cam.position).addScaledVector(tmp.right, r * HELD.right).addScaledVector(tmp.up, r * HELD.up);
         // (The card's part is lit harder: there the light is all the pointing there is.)
-        lit.current += (GIVES * (spot ? SPOT : 1) - lit.current) * (1 - Math.exp(-dt * 9));
+        lit.current += ((GIVES[page] ?? 0.8) * (spot ? SPOT : 1) - lit.current) * (1 - Math.exp(-dt * 9));
       }
 
       // The hub: where on the panel the pointer is, from in front of it.
