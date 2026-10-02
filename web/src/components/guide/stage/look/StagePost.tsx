@@ -192,7 +192,8 @@ function Glow() {
       blendFunction: BlendFunction.ADD,
       luminanceThreshold: 1.15,
       luminanceSmoothing: 0.2,
-      intensity: 0.85,
+      // Halved from 0.85 (the maker: the glow was too strong).
+      intensity: 0.42,
       radius: 0.72,
       mipmapBlur: true,
     });
