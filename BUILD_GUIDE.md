@@ -4,6 +4,8 @@
 
 This guide walks you through building a Patternflow on the v3 board from scratch. v3.9 is the current revision; a v3.0 board follows the same steps (its USB-C footprint stays unpopulated, see §2). No prior soldering experience needed — every joint is big, forgiving through-hole, and the board was deliberately kept that simple so a first-time solderer can finish it.
 
+> 🧭 **The same build, in 3D.** [patternflow.work/guide/build](https://patternflow.work/guide/build) walks through this guide step by step on a 3D Patternflow: the parts list, the soldering order with each part going into its real holes, the case, the wiring, first light. This document stays the written reference; follow whichever suits you, or both.
+
 **Estimated build time:** about 1 hour of hands-on work (~30 min soldering + ~30 min assembly), plus ~10 hours of 3D printing. Parts shipping typically takes ~2 weeks — order first, build later.
 
 **What's new in v3** (vs. v2.x):

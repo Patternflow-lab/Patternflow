@@ -37,10 +37,15 @@
   opacity: 0;
   transition: opacity 0.3s ease;
 }
+/* Open, it still lets the pointer through to the globe: another pin can be
+   picked straight from a selected one, and a click on bare globe or beside it
+   lets the selection go (Globe.tsx). Only its own controls take the pointer. */
 .overlayOpen {
   opacity: 1;
+}
+.overlayOpen .thumbs,
+.overlayOpen .links {
   pointer-events: auto;
-  cursor: pointer;
 }
 
 /* Top-center prompt, matching the product preview's hint style. */

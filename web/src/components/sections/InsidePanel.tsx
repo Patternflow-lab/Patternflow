@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { SectionContent } from '@/lib/content';
 import BuildCard from './InsideGlobe/BuildCard';
 import BuildIndex from './InsideGlobe/BuildIndex';
-import { BUILD_FILTERS, builds } from './InsideGlobe/builds';
+import { BUILD_FILTERS, builds, countCountries } from './InsideGlobe/builds';
 import { useBuildSelection } from './InsideGlobe/useBuildSelection';
 import styles from './InsidePanel.module.css';
 
@@ -40,6 +40,9 @@ const JOIN = [
     desc: 'Exhibitions, commissions, and collaboration.',
   },
 ];
+
+// How far the map reaches, said once and quietly beside the entry count.
+const COUNTRIES = countCountries(builds);
 
 export default function InsidePanel({ content }: InsidePanelProps) {
   const { filter, visibleBuilds } = useBuildSelection();
@@ -77,7 +80,9 @@ export default function InsidePanel({ content }: InsidePanelProps) {
         <div className={styles.listHeading}>
           <span className="pf-kicker">{filter === 'all' ? 'Around the world' : label}</span>
           <span className={styles.count} role="status">
-            {filter === 'all' ? `${builds.length} entries` : `${visibleBuilds.length} of ${builds.length} entries`}
+            {filter === 'all'
+              ? `${builds.length} entries · ${COUNTRIES} countries`
+              : `${visibleBuilds.length} of ${builds.length} entries`}
           </span>
         </div>
         <BuildIndex />

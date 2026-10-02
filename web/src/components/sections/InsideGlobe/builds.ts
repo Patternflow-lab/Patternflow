@@ -342,6 +342,20 @@ export function originOf(build: Build): Build | undefined {
   return origin && origin.id !== build.id ? origin : undefined;
 }
 
+// The country a pin is in, read off the end of its label ("Leeds, UK" → the
+// United Kingdom). Labels are written for people, so the one country that is
+// spelled two ways is folded here rather than by rewording somebody's pin.
+const COUNTRY_ALIASES: Record<string, string> = { UK: 'United Kingdom' };
+
+export function countryOf(build: Build): string {
+  const name = build.location.label.split(',').pop()!.trim();
+  return COUNTRY_ALIASES[name] ?? name;
+}
+
+export function countCountries(entries: Build[]): number {
+  return new Set(entries.map(countryOf)).size;
+}
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',

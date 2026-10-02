@@ -13,8 +13,10 @@ import { normalizedKnobs } from "@/lib/community/knobs";
 //
 // A screen shows a still until it is asked to play (a card under the mouse,
 // a pattern's own page), then plays at the display's rate; stopped, it keeps
-// its last frame, as the real card does. Stills are made one per animation
-// frame, so a page of them never stalls the page. Nothing runs while the
+// its last frame, as the real card does. Stills are made one at a time and a
+// few milliseconds a frame (a still is eighteen frames of its pattern: all of
+// one in a single frame was a stall of its own, four times over, as the desk
+// came up), so a page of them never stalls the page. Nothing runs while the
 // practice window is off the desk (setScreensActive).
 
 /** The sandbox's ramp for a setValue() pattern with no @ramp line (sandbox.ts DEFAULT_RAMP). */
@@ -31,6 +33,8 @@ const DEFAULT_RAMP: ColorRamp = {
 /** How far into a pattern its still is taken, as the sandbox's still (a little under a second at 15 fps). */
 const STILL_STEPS = 18;
 const STILL_DT = 1 / 15;
+/** A still in the making is worked on for this long in one frame, ms. */
+const STILL_BUDGET_MS = 5;
 /** The sandbox's per-step cap and catch-up limit, so a slow frame is not slow motion. */
 const MAX_STEP = 0.05;
 const MAX_CATCHUP = 0.25;
@@ -129,15 +133,34 @@ function warm(s: Screen) {
   for (let i = 0; i < STILL_STEPS; i++) step(s, STILL_DT, false);
 }
 
-function renderStill(s: Screen): ImageData | null {
-  const rt = makeRuntime(s.code);
-  if (!rt) return null;
-  let t = 0;
-  for (let i = 0; i < STILL_STEPS; i++) {
-    t += STILL_DT;
-    if (!rt.renderFrame(STILL_DT, t, input(s.knobs, s.ranges, null)).ok) return null;
+/** The still being made: its runtime, and how far into the pattern it has got. */
+let making: { key: string; rt: PatternRuntime; steps: number; t: number } | null = null;
+
+/**
+ * A screen's still, a few milliseconds of it at a time: the picture when it
+ * is done, null when the pattern fails, undefined while there is more to do
+ * (ask again next frame).
+ */
+function renderStill(s: Screen, key: string): ImageData | null | undefined {
+  if (!making || making.key !== key) {
+    const rt = makeRuntime(s.code);
+    if (!rt) return null;
+    making = { key, rt, steps: 0, t: 0 };
   }
-  return new ImageData(new Uint8ClampedArray(rt.data), rt.width, rt.height);
+  const m = making;
+  const began = performance.now();
+  while (m.steps < STILL_STEPS) {
+    m.t += STILL_DT;
+    m.steps++;
+    if (!m.rt.renderFrame(STILL_DT, m.t, input(s.knobs, s.ranges, null)).ok) {
+      making = null;
+      return null;
+    }
+    if (performance.now() - began >= STILL_BUDGET_MS) break;
+  }
+  if (m.steps < STILL_STEPS) return undefined;
+  making = null;
+  return new ImageData(new Uint8ClampedArray(m.rt.data), m.rt.width, m.rt.height);
 }
 
 function tick(now: number) {
@@ -177,12 +200,14 @@ function tick(now: number) {
         if (img) paint(s, img);
         else s.failed = true;
       } else if (!stillMade) {
-        // One new still per frame: a page of them never holds the page up.
+        // One still at a time, a little of it a frame: a page of them never holds the page up.
         stillMade = true;
-        const img = renderStill(s);
-        stills.set(k, img);
-        if (img) paint(s, img);
-        else s.failed = true;
+        const img = renderStill(s, k);
+        if (img !== undefined) {
+          stills.set(k, img);
+          if (img) paint(s, img);
+          else s.failed = true;
+        }
       } else {
         more = true;
       }

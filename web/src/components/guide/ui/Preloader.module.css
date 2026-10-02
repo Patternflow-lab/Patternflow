@@ -1,0 +1,98 @@
+/* The first load's counter (Preloader.tsx): a small LED counter standing
+   where the device will, while the stage loads. It covers the stage and
+   nothing else: no ground of its own, under the page's story and top bar,
+   over the canvas (which is kept out until the count is done — [data-cover],
+   Guide.module.css). The page's words are read while it counts. */
+
+.cover {
+  --pitch: 7px;
+  /* Where the device stands on this page, as a share of the window. A guide
+     (wide): left of the story. */
+  --at-x: 29vw;
+  --at-y: 52vh;
+  position: fixed;
+  inset: 0;
+  /* With the stage (1), and after it in the document: over the canvas, under the story (2) and the top bar (20). */
+  z-index: 1;
+  pointer-events: none;
+  /* With no scripts nothing ever lifts it: it takes itself off. (With them,
+     it is long gone, or kept on by the count.) */
+  animation: giveUp 0.5s ease 24s forwards;
+}
+/* The hub: in the middle, above the choices (GuideHub's measure, when it has one). */
+[data-page="hub"] > .cover {
+  --at-x: 50vw;
+  --at-y: calc(var(--hub-top, 66vh) / 2);
+}
+@media (max-width: 899px) {
+  /* A narrow screen: the device is above the words. */
+  .cover {
+    --at-x: 50vw;
+    --at-y: 30vh;
+  }
+  [data-page="hub"] > .cover {
+    --at-y: 28vh;
+  }
+}
+/* A browser that has the stage cached (the script in the markup): never shown. */
+.cover[data-off="skip"] {
+  display: none;
+}
+/* Lifting: the stage is lit under it and the page's words are arriving. */
+.cover[data-off="lift"] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.7s cubic-bezier(0.65, 0, 0.35, 1);
+}
+@keyframes giveUp {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@media (scripting: none) {
+  .cover {
+    display: none;
+  }
+}
+
+/* The matrix: every LED is there, the unlit ones just visible — a panel that
+   is off is not black. One tile of the ground is one LED and the dark round
+   it; the lit ones are drawn over them on the canvas, in the same grid. */
+.matrix {
+  position: absolute;
+  left: calc(var(--at-x) - var(--cols) * var(--pitch) / 2);
+  top: calc(var(--at-y) - var(--rows) * var(--pitch) / 2);
+  width: calc(var(--cols) * var(--pitch));
+  height: calc(var(--rows) * var(--pitch));
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' preserveAspectRatio='none'><rect x='1' y='1' width='5' height='5' rx='0.9' fill='%23191715'/></svg>");
+  background-size: var(--pitch) var(--pitch);
+  animation: on 0.6s ease backwards;
+}
+@keyframes on {
+  from {
+    opacity: 0;
+  }
+}
+.lit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Light, not paint: each lit LED spills onto its neighbours and into the dark. */
+  filter: drop-shadow(0 0 3px rgb(var(--g-led-rgb, 255 106 61) / 0.75)) drop-shadow(0 0 14px rgb(var(--g-led-rgb, 255 106 61) / 0.4));
+}
+
+@media (max-width: 519px) {
+  .cover {
+    --pitch: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover[data-off="lift"] {
+    transition-duration: 0.2s;
+  }
+  .matrix {
+    animation: none;
+  }
+}

@@ -18,7 +18,7 @@ Build those two, flash the firmware, and your Patternflow is alive.
 | --- | --- | --- | --- |
 | [3D printed enclosure](../../hardware/case/README.md) | [Custom PCB, hand-soldered](../../hardware/pcb/README.md) | [Browser flash](../../BUILD_GUIDE.md#8-firmware) · [your own patterns](../../PATTERN_GUIDE.md) | **Current — fully documented** |
 
-This is the route [BUILD_GUIDE.md](../../BUILD_GUIDE.md) walks start to finish: PLA parts on any 256 mm-bed FDM printer, the hand-soldered v3.9 board (all through-hole — deliberately kept first-timer easy), and firmware flashed from the browser. Two ordering shortcuts are wired straight to it:
+This is the route [BUILD_GUIDE.md](../../BUILD_GUIDE.md) walks start to finish, and the one the [interactive build guide](https://patternflow.work/guide/build) shows in 3D: PLA parts on any 256 mm-bed FDM printer, the hand-soldered v3.9 board (all through-hole — deliberately kept first-timer easy), and firmware flashed from the browser. Two ordering shortcuts are wired straight to it:
 
 - **PCB** — the [PCBWay shared project](https://www.pcbway.com/project/shareproject/Patternflow_An_LED_synthesizer_776d796c.html): no Gerber upload, and ordering there supports Patternflow development.
 - **Case** — the [MakerWorld listing](https://makerworld.com/en/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015): tuned one-click print profiles for Bambu printers (STLs in `hardware/case/` for everyone else).

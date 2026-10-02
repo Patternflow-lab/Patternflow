@@ -5,51 +5,199 @@
    cream type, and the LED orange used only for what is live: the step on
    stage, a hold filling up, the button that does something real. */
 
-.page {
+/* The world (world/GuideWorld, from app/guide/layout.tsx): everything under
+   /guide — the hub and the three guides, in both languages — is inside one
+   of these, and it stays mounted while the reader goes between them. It
+   holds the guide's colours, the stage, and then the page. */
+.world {
   --g-ground: #0a0908;
   --g-ink: #efe9dd;
   --g-ink-2: rgba(239, 233, 221, 0.78);
   --g-ink-3: rgba(239, 233, 221, 0.52);
   --g-hair: rgba(239, 233, 221, 0.1);
   --g-hair-2: rgba(239, 233, 221, 0.18);
-  --g-card: rgba(20, 18, 16, 0.62);
-  --g-led: #ff6a3d;
-  --g-led-2: #e8552e;
-  --g-led-wash: rgba(255, 106, 61, 0.1);
+  --g-card: rgba(20, 18, 16, 0.72);
+  /* The accent is the panel's light. It starts as the LED orange, and while a
+     pattern plays the page follows its colour (ui/panelTint.ts writes
+     --g-led-rgb here, eased, fenced so it always reads on the dark and under
+     dark ink). Everything lit on the page is made from these three numbers. */
+  --g-led-rgb: 255 106 61;
+  --g-led: rgb(var(--g-led-rgb));
+  --g-led-wash: rgb(var(--g-led-rgb) / 0.1);
+  /* How lit the panel is, 0..1 (ui/panelTint.ts): what its light does to the page is that strong. */
+  --g-lit: 0;
+  /* The device's own orange — the dots on the knobs' rings — which no pattern changes. */
+  --g-led-fixed: #ff6a3d;
+  /* Type on the accent: a button's label, a ticked box. */
+  --g-on-led: #150a06;
   --g-pixel: var(--font-silkscreen), "Silkscreen", monospace;
   /* Numbers a reader has to read are not set in the pixel face: its 2 is a
      ㄹ and its 3 a ョ to a Korean eye. */
   --g-num: var(--pf-mono);
+  /* How things move here. Nothing is linear: what arrives comes in fast and
+     takes its time to stop (out); what travels between two places leaves and
+     lands gently (io); what is put down settles a hair past its place (seat). */
+  --g-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --g-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --g-seat: cubic-bezier(0.3, 1.36, 0.5, 1);
 
+  position: relative;
+  /* The stage and the page's layers are ordered among themselves, whatever the site puts round them. */
+  isolation: isolate;
+  min-height: 100vh;
+  background: var(--g-ground);
+}
+
+/* A page of the guide (GuideHub, GuideExperience). Its own box lies under the
+   stage; its story, its top bar and Make's desk lie over it (their z-index). */
+.page {
   position: relative;
   min-height: 100vh;
   background: var(--g-ground);
   color: var(--g-ink);
   font-family: var(--pf-sans);
   -webkit-font-smoothing: antialiased;
+  /* Nothing of a page widens the document: a chapter number's glow reaches
+     past the right edge, and on a phone that was 16px of sideways scroll (the
+     whole page zoomed out to fit it). Clipped, not hidden: `hidden` would make
+     this a scroll container and the dwell cards' position: sticky would stick
+     to it instead of the window. */
+  overflow-x: clip;
 }
 .page:lang(ko) {
   word-break: keep-all;
 }
+/* Marked text is lit by the panel too. */
+.page ::selection {
+  background: rgb(var(--g-led-rgb) / 0.32);
+  color: var(--g-ink);
+}
 
-/* ── the stage ───────────────────────────────────────────────────────────── */
+/* Where the accent is written (ui/panelTint.ts): not on the world — that
+   would have the browser restyle the whole page each time the panel's colour
+   moves — but on the few things it can be seen on: the stage's glow, the top
+   bar, and each block of the page while it is on screen. The colours made
+   from the three numbers are made again on each of those, from its own. */
+.stage,
+.top,
+.page [data-leaves=""] {
+  --g-led: rgb(var(--g-led-rgb));
+  --g-led-wash: rgb(var(--g-led-rgb) / 0.1);
+}
+
+/* ── the stage ─────────────────────────────────────────────────────────────
+
+   One for the whole guide: the room's glow, the 3D canvas, the grain. It is
+   the world's, not a page's, so going from the hub into a guide — or to the
+   other language — never takes it down. What a page changes is how the room
+   is lit and how the device is framed (world/framing.ts), and both ease:
+   [data-screen] on the world is the page on screen. */
 
 .stage {
+  /* Where the hub's choices start (GuideHub measures it; the world sets it here). */
+  --hub-top: 66vh;
   position: fixed;
   inset: 0;
-  z-index: 0;
+  /* Over the page's own ground, under its story (2), Make's desk (1, later in the document) and the top bar (20). */
+  z-index: 1;
+  pointer-events: none;
 }
 .stage canvas {
   touch-action: pan-y;
 }
-.stageGlow {
+.stageGlow,
+.hubGlow {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  transition: opacity 0.9s ease;
+}
+/* A guide's room: the device stands left of the story. The warm part of the
+   glow is the panel's: its colour, and as strong as the panel is lit. */
+.stageGlow {
   background:
-    radial-gradient(42% 52% at 36% 52%, rgba(255, 106, 61, 0.07), transparent 70%),
+    radial-gradient(42% 52% at 36% 52%, rgb(var(--g-led-rgb) / calc(0.025 + 0.06 * var(--g-lit))), transparent 70%),
     radial-gradient(80% 70% at 36% 50%, rgba(90, 110, 160, 0.06), transparent 70%),
     radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+/* The hub's: the device stands alone in the middle, above the choices. */
+.hubGlow {
+  opacity: 0;
+  background:
+    radial-gradient(30% 44% at 50% calc(var(--hub-top) / 2 + 8px), rgb(var(--g-led-rgb) / calc(0.025 + 0.06 * var(--g-lit))), transparent 70%),
+    radial-gradient(64% 62% at 50% calc(var(--hub-top) / 2), rgba(90, 110, 160, 0.06), transparent 70%),
+    radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+@media (max-width: 899px) {
+  /* A narrow hub: the device is in the upper part of the screen, the choices under it. */
+  .hubGlow {
+    background:
+      radial-gradient(70% 34% at 50% 28%, rgb(var(--g-led-rgb) / calc(0.025 + 0.06 * var(--g-lit))), transparent 70%),
+      radial-gradient(120% 50% at 50% 28%, rgba(90, 110, 160, 0.06), transparent 70%),
+      radial-gradient(140% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+  }
+}
+.world[data-screen="hub"] .hubGlow {
+  opacity: 1;
+}
+.world[data-screen="hub"] .stageGlow {
+  opacity: 0;
+}
+
+/* The canvas: the whole window, on every page. */
+@property --stage-foot-a {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --stage-foot-b {
+  syntax: "<length-percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+.canvasBox {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  /* Back from Make it is quicker to come than it was to go. */
+  transition:
+    opacity 0.45s ease,
+    visibility 0s linear 0s,
+    --stage-foot-a 0.9s cubic-bezier(0.3, 0, 0.2, 1),
+    --stage-foot-b 0.9s cubic-bezier(0.3, 0, 0.2, 1);
+}
+/* On the hub (wide) the floor runs on behind the choices and fades out
+   there, so it has no edge and the names stand on the dark. The fade's two
+   stops ease down off the screen when a guide is entered and back up on the
+   way out; [data-foot] is on while that can be seen (the hub, and a moment
+   after it), so a guide's canvas is not drawn through a mask for nothing. */
+@media (min-width: 900px) {
+  .world[data-foot="1"] .canvasBox {
+    -webkit-mask-image: linear-gradient(#000 var(--stage-foot-a), transparent var(--stage-foot-b));
+    mask-image: linear-gradient(#000 var(--stage-foot-a), transparent var(--stage-foot-b));
+  }
+  .world[data-screen="hub"] .canvasBox {
+    --stage-foot-a: calc(var(--hub-top) - 36px);
+    --stage-foot-b: calc(var(--hub-top) + 52px);
+  }
+}
+/* Make has a desk of windows instead: the device stands back and goes (the
+   camera's move is GuideCanvas's, world/framing.ts AWAY_SCALE), and comes
+   back the same way. Once gone the canvas draws nothing (GuideCanvas rests
+   its frame loop). */
+.world[data-screen="make"] .canvasBox {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.7s ease,
+    visibility 0s linear 0.7s;
+}
+/* A cut (store.requestCut): the stage has to jump — the Build guide opened
+   on, or left from, a step in its middle — and does it with the canvas out. */
+.world[data-cut] .canvasBox {
+  opacity: 0;
+  transition: opacity 0.14s ease;
 }
 .grain {
   position: absolute;
@@ -60,8 +208,181 @@
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
+/* ── between two pages ─────────────────────────────────────────────────────
+
+   A way to another page of the guide has been chosen (world/GuideLink):
+   what is the page's alone — each block of its story, its chapter rail,
+   Make's desk, each marked [data-leaves] — goes first, and the next page's
+   comes in over the stage, which stays. The brand and the language switch
+   are every page's, and hold.
+
+   The blocks, not the story as a whole: a card blurs the stage behind it
+   (backdrop-filter), and a faded ancestor would cut it off from the stage —
+   the glass went clear for as long as the fade ran. */
+.world[data-leaving] .page [data-leaves] {
+  opacity: 0;
+  /* Up and away, gathering speed (on top of wherever the block's own transform has it). */
+  translate: 0 -10px;
+  transition:
+    opacity 0.18s ease,
+    translate 0.2s cubic-bezier(0.5, 0, 0.9, 0.5);
+}
+/* (="": the story's blocks and the rail. The desk, ="desk", comes up its own way: Desk.module.css.) */
+.page [data-leaves=""] {
+  animation: arrive 0.55s ease backwards;
+}
+@keyframes arrive {
+  from {
+    opacity: 0;
+  }
+}
+/* What arrives inside a block, a line at a time (the opening's lines, a
+   card's, the hub's): up from a little below, fast and then slow. */
+@keyframes lineIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+}
+/* A word rising from behind its own mask (.w, below). */
+@keyframes rise {
+  from {
+    transform: translate3d(0, 128%, 0);
+  }
+}
+/* A rule being drawn, from where the reading starts. */
+@keyframes draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* The first load. The page's words arrive with the first paint and never
+   wait for the stage; where the device will stand there is, on a first
+   visit, a small LED counter (ui/Preloader), and the canvas stays out under
+   it until the count is done ([data-cover]). */
+/* The stage's own curtain (ui/StageLoad, in the stage's chunk): the canvas is
+   out until the device has been drawn and the frames run smooth, then comes
+   in with the canvas's fade — no first frame popping onto the page. */
+.world[data-stage="loading"] .canvasBox,
+.world[data-cover] .canvasBox {
+  opacity: 0;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world[data-leaving] .page [data-leaves] {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+  .page [data-leaves=""] {
+    animation: none;
+  }
+  .stageGlow,
+  .hubGlow,
+  .canvasBox {
+    transition: none;
+  }
+}
+
+/* ── words behind masks ──────────────────────────────────────────────────
+   A title's words (ui/Words): each stands in a mask of its own and rises
+   into it, one after another along the line. The mask is a clip, not a box
+   with its overflow hidden, so the line's baseline and the letters' fit are
+   exactly the plain title's; it reaches a little past the letters, for the
+   tail of a g and the overhang of a tight letter-spacing.
+
+   Two ways to start it. On a page's first screen the words play on arrival
+   (an animation, so they play before any script runs). Further down they
+   wait for the reader to reach them: [data-reveal] is the block, and it is
+   marked [data-in] the first time it comes onto the screen — once, and never
+   taken back (ui/useReveal). */
+.w {
+  display: inline-block;
+  clip-path: inset(-0.08em -0.14em -0.24em);
+}
+.w > span {
+  display: inline-block;
+  will-change: transform;
+}
+.wordsNow .w > span {
+  animation: rise 1s var(--g-out) backwards;
+  animation-delay: calc(var(--at, 0ms) + var(--i, 0) * 55ms);
+}
+.page [data-reveal] .w > span {
+  transform: translate3d(0, 128%, 0);
+  transition: transform 1s var(--g-out);
+  transition-delay: calc(var(--at, 0ms) + var(--i, 0) * 55ms);
+}
+.page [data-reveal][data-in] .w > span {
+  transform: none;
+}
+/* Once they are up the masks go: a title's shadow (Build's, over the bright
+   stage) is not cut off at each word's box. */
+.wordsNow .w {
+  animation: unmask 1ms linear 2s forwards;
+}
+.page [data-reveal][data-in] .w {
+  clip-path: inset(-1em);
+  transition: clip-path 0s linear 1.9s;
+}
+@keyframes unmask {
+  to {
+    clip-path: inset(-1em);
+  }
+}
+/* Already passed when the page opened (a link to a step further down, the
+   other language at the same place): there, with no arriving. */
+.page [data-reveal][data-in="still"] .w,
+.page [data-reveal][data-in="still"] .w > span,
+.page [data-reveal][data-in="still"] [data-line] {
+  transition: none;
+}
+/* What comes after a block's title: its lines, a beat later. */
+.page [data-reveal] [data-line] {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+  transition:
+    opacity 0.8s ease,
+    transform 0.9s var(--g-out);
+  transition-delay: calc(var(--at, 0ms) + var(--n, 0) * 70ms);
+}
+.page [data-reveal][data-in] [data-line] {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .w,
+  .page [data-reveal][data-in] .w {
+    clip-path: none;
+    animation: none;
+    transition: none;
+  }
+  .wordsNow .w > span {
+    animation: none;
+  }
+  .page [data-reveal] .w > span,
+  .page [data-reveal] [data-line] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+/* No scripts: nothing is ever marked, so nothing waits to be. */
+@media (scripting: none) {
+  .w {
+    clip-path: none;
+  }
+  .page [data-reveal] .w > span,
+  .page [data-reveal] [data-line] {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Knob tags, drawn by drei's <Html> next to each 3D knob. */
-.page :global(.guide-knob-tag) {
+.world :global(.guide-knob-tag) {
   font-family: var(--pf-mono);
   font-size: 12px;
   font-weight: 600;
@@ -83,10 +404,10 @@
 }
 /* A hairline back to what the tag names, when something sits in between
    (stage/tags.ts sets --lead). */
-.page :global(.guide-knob-tag) {
+.world :global(.guide-knob-tag) {
   position: relative;
 }
-.page :global(.guide-knob-tag[data-lead="1"])::before {
+.world :global(.guide-knob-tag[data-lead="1"])::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -94,31 +415,31 @@
   height: 1px;
   background: rgba(239, 233, 221, 0.42);
 }
-.page :global(.guide-knob-tag[data-lead="1"][data-side="right"])::before {
+.world :global(.guide-knob-tag[data-lead="1"][data-side="right"])::before {
   right: 100%;
 }
-.page :global(.guide-knob-tag[data-lead="1"][data-side="left"])::before {
+.world :global(.guide-knob-tag[data-lead="1"][data-side="left"])::before {
   left: 100%;
 }
-.page :global(.guide-knob-tag[data-active="1"][data-lead="1"])::before {
-  background: var(--g-led);
+.world :global(.guide-knob-tag[data-active="1"][data-lead="1"])::before {
+  background: var(--g-led-fixed);
 }
-.page :global(.guide-knob-tag[data-on="1"]) {
+.world :global(.guide-knob-tag[data-on="1"]) {
   opacity: 1;
   transform: scale(1);
 }
-.page :global(.guide-knob-tag[data-active="1"]) {
-  background: var(--g-led);
-  border-color: var(--g-led);
-  color: #140a06;
+.world :global(.guide-knob-tag[data-active="1"]) {
+  background: var(--g-led-fixed);
+  border-color: var(--g-led-fixed);
+  color: var(--g-on-led);
 }
 
 /* The live readout beside a knob's name (Device.tsx): what the running
    pattern calls that knob, its value, and where that sits in its range. */
-.page :global(.guide-knob-tag b) {
+.world :global(.guide-knob-tag b) {
   font-weight: 600;
 }
-.page :global(.guide-knob-val) {
+.world :global(.guide-knob-val) {
   display: none;
   align-items: center;
   gap: 7px;
@@ -129,10 +450,10 @@
   font-variant-numeric: tabular-nums;
   color: var(--g-ink-2);
 }
-.page :global(.guide-knob-tag[data-val="1"] .guide-knob-val) {
+.world :global(.guide-knob-tag[data-val="1"] .guide-knob-val) {
   display: inline-flex;
 }
-.page :global(.guide-knob-bar) {
+.world :global(.guide-knob-bar) {
   position: relative;
   width: 34px;
   height: 3px;
@@ -140,20 +461,20 @@
   background: rgba(239, 233, 221, 0.18);
   overflow: hidden;
 }
-.page :global(.guide-knob-bar > span) {
+.world :global(.guide-knob-bar > span) {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
-  background: var(--g-led);
+  background: var(--g-led-fixed);
 }
-.page :global(.guide-knob-tag[data-active="1"] .guide-knob-val) {
-  color: #140a06;
+.world :global(.guide-knob-tag[data-active="1"] .guide-knob-val) {
+  color: var(--g-on-led);
 }
-.page :global(.guide-knob-tag[data-active="1"] .guide-knob-bar) {
+.world :global(.guide-knob-tag[data-active="1"] .guide-knob-bar) {
   background: rgba(20, 10, 6, 0.22);
 }
-.page :global(.guide-knob-tag[data-active="1"] .guide-knob-bar > span) {
-  background: #140a06;
+.world :global(.guide-knob-tag[data-active="1"] .guide-knob-bar > span) {
+  background: var(--g-on-led);
 }
 
 /* ── top bar ─────────────────────────────────────────────────────────────── */
@@ -185,7 +506,7 @@
   font-size: 10px;
   letter-spacing: 0.08em;
   color: var(--g-led);
-  border: 1px solid rgba(255, 106, 61, 0.55);
+  border: 1px solid rgb(var(--g-led-rgb) / 0.55);
   border-radius: 999px;
   padding: 3px 8px 2px;
   line-height: 1;
@@ -211,9 +532,24 @@
   border: 1px solid var(--g-hair-2);
   border-radius: 999px;
   padding: 5px 12px;
+  transition:
+    color 0.2s,
+    border-color 0.3s,
+    background 0.3s,
+    transform 0.4s var(--g-out);
+}
+.lang:hover,
+.lang:focus-visible {
+  border-color: rgb(var(--g-led-rgb) / 0.7);
+  background: var(--g-led-wash);
+}
+.lang:active {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
 }
 
 .rail {
+  position: relative;
   display: flex;
   gap: 4px;
   padding: 4px;
@@ -223,6 +559,8 @@
   backdrop-filter: blur(10px);
 }
 .railItem {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: baseline;
   gap: 7px;
@@ -240,7 +578,56 @@
 }
 .railItem[data-active="1"] {
   color: var(--g-ink);
+}
+/* Until the marker has been measured (and with no scripts) the chapter's own item is lit. */
+.rail:not([data-marked]) .railItem[data-active="1"] {
   background: rgba(239, 233, 221, 0.08);
+}
+/* The marker: one pill that travels from chapter to chapter, and lands with
+   a little weight. Its foot is a line that fills as the chapter's steps go
+   by — where the reader is in the chapter, read off the rail. */
+.railMarker {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  width: var(--w, 0px);
+  transform: translate3d(var(--x, 0px), 0, 0);
+  border-radius: 999px;
+  background: rgba(239, 233, 221, 0.08);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.6s var(--g-seat),
+    width 0.5s var(--g-out),
+    opacity 0.3s ease;
+}
+.railMarker[data-on="1"] {
+  opacity: 1;
+}
+/* Its first place is taken, not travelled to. */
+.railMarker[data-still="1"] {
+  transition: opacity 0.3s ease;
+}
+.railMarker::before,
+.railMarker::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: 2.5px;
+  height: 1.5px;
+  border-radius: 1px;
+}
+.railMarker::before {
+  background: rgba(239, 233, 221, 0.1);
+}
+.railMarker::after {
+  background: var(--g-led);
+  box-shadow: 0 0 8px rgb(var(--g-led-rgb) / 0.6);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--f, 0));
+  transition: transform 0.7s var(--g-out);
 }
 .railNum {
   font-family: var(--g-num);
@@ -249,9 +636,17 @@
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   color: inherit;
+  transition: color 0.3s;
 }
 .railItem[data-active="1"] .railNum {
   color: var(--g-led);
+}
+
+/* Focus, in the guide's own hand: a line of the panel's light round what the
+   keyboard is on. (:where — anything with a ring of its own keeps it.) */
+:where(.page) :where(a, button, summary, [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--g-led);
+  outline-offset: 3px;
 }
 
 /* ── the story ───────────────────────────────────────────────────────────── */
@@ -275,6 +670,16 @@
 .scene {
   position: relative;
 }
+/* A guide entered from another page of the guide (ui/Later): the blocks
+   below its first screen are not laid out until they are near the screen or
+   their turn has come — a moment after the words, a block at a time. All of
+   them at once was a long frame in the middle of the stage's move. A block
+   keeps its height while it waits (its min-height); the mark is taken off
+   every one within a second or two, and the page is then as it always was. */
+.chapterHead[data-wait],
+.step[data-wait] {
+  content-visibility: auto;
+}
 
 /* opening */
 .opening {
@@ -287,14 +692,26 @@
 .openingInner {
   width: min(520px, 42vw);
 }
+/* The first screen arrives a line at a time: the label, the title's words
+   from behind their masks, then what is under it, each a beat after the last. */
+.openingInner > * {
+  animation: lineIn 0.9s var(--g-out) backwards;
+  animation-delay: calc(60ms + var(--n, 0) * 75ms);
+}
+.openingInner > .openingTitle,
+.openingInner > .openingChapters {
+  animation: none;
+}
 .openingKicker {
   margin: 0 0 18px;
   font-family: var(--g-pixel);
   font-size: 13px;
   color: var(--g-led);
   letter-spacing: 0.06em;
+  transition: color 0.3s;
 }
 .openingTitle {
+  --at: 120ms;
   margin: 0 0 22px;
   text-wrap: balance;
   font-size: clamp(52px, 6.6vw, 104px);
@@ -302,8 +719,17 @@
   font-weight: 600;
   letter-spacing: -0.045em;
 }
+/* Hangul is wider and squarer than Latin at the same size: a hair less tight, a hair more leading. */
+.page:lang(ko) .openingTitle,
+.page:lang(ko) .chapterTitle,
+.page:lang(ko) .nextTitle {
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+}
 .openingLede {
+  --n: 4;
   margin: 0 0 34px;
+  text-wrap: pretty;
   font-size: 17px;
   line-height: 1.6;
   color: var(--g-ink-2);
@@ -316,7 +742,18 @@
   padding: 0;
   list-style: none;
 }
+.openingChapters li {
+  animation: lineIn 0.85s var(--g-out) backwards;
+  animation-delay: calc(420ms + var(--k, 0) * 50ms);
+}
+.openingChapters li:nth-child(2) { --k: 1; }
+.openingChapters li:nth-child(3) { --k: 2; }
+.openingChapters li:nth-child(4) { --k: 3; }
+.openingChapters li:nth-child(5) { --k: 4; }
+.openingChapters li:nth-child(6) { --k: 5; }
+.openingChapters li:nth-child(n + 7) { --k: 6; }
 .openingChapters a {
+  position: relative;
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -327,12 +764,35 @@
   text-decoration: none;
   font-size: 15px;
   transition:
-    border-color 0.2s,
-    background 0.2s;
+    border-color 0.3s,
+    background 0.3s,
+    transform 0.45s var(--g-out);
 }
-.openingChapters a:hover {
-  border-color: var(--g-led);
+/* Pointed at: a line of the panel's light is drawn along its foot. */
+.openingChapters a::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  bottom: -1px;
+  height: 1px;
+  background: var(--g-led);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  transition: transform 0.5s var(--g-out);
+}
+.openingChapters a:hover,
+.openingChapters a:focus-visible {
+  border-color: var(--g-hair-2);
   background: var(--g-led-wash);
+}
+.openingChapters a:hover::after,
+.openingChapters a:focus-visible::after {
+  transform: none;
+}
+.openingChapters a:active {
+  transform: scale(0.985);
+  transition-duration: 0.08s;
 }
 .openingChapters span {
   font-family: var(--g-num);
@@ -341,9 +801,11 @@
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   color: var(--g-led);
+  transition: color 0.3s;
 }
 /* The way to the guide's other page: quiet, under the chapters. */
 .openingBack {
+  --n: 9;
   margin: -24px 0 36px;
   font-size: 13.5px;
 }
@@ -354,11 +816,19 @@
   text-decoration: none;
   transition: color 0.2s;
 }
+.openingBack a span {
+  transition: transform 0.45s var(--g-out);
+}
 .openingBack a:hover,
 .openingBack a:focus-visible {
   color: var(--g-ink);
 }
+.openingBack a:hover span,
+.openingBack a:focus-visible span {
+  transform: translate3d(-4px, 0, 0);
+}
 .scrollCue {
+  --n: 10;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -401,7 +871,13 @@
   text-align: right;
   padding: 120px 6vw 40px;
 }
+/* A chapter arrives: its number rolls up into place like a counter coming to
+   rest — the tens first, the units through the number before — then the
+   title's words rise from behind their masks, then the line under it. Once,
+   the first time the reader reaches it ([data-reveal], above). */
 .chapterNum {
+  position: relative;
+  display: block;
   /* Drifts up a little faster than the page as the chapter begins. */
   transform: translateY(calc(var(--p, 0) * -140px));
   will-change: transform;
@@ -411,13 +887,63 @@
   font-variant-numeric: tabular-nums;
   font-size: clamp(120px, 17vw, 240px);
   line-height: 0.8;
+  white-space: nowrap;
   color: transparent;
-  -webkit-text-stroke: 1px rgba(255, 106, 61, 0.55);
-  text-shadow: 0 0 60px rgba(255, 106, 61, 0.18);
+  -webkit-text-stroke: 1px rgb(var(--g-led-rgb) / 0.6);
   margin-bottom: 18px;
 }
+/* The light the number gives off: behind it, and the panel's colour. */
+.chapterNum::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -38% -24%;
+  background: radial-gradient(closest-side, rgb(var(--g-led-rgb) / 0.15), rgb(var(--g-led-rgb) / 0.05) 55%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.6s ease 0.25s;
+}
+.page [data-reveal][data-in] .chapterNum::before {
+  opacity: 1;
+}
+.digit {
+  display: inline-block;
+  vertical-align: top;
+  height: 0.8em;
+  /* The digit's window: a little taller than the line, for the stroke. */
+  clip-path: inset(-0.035em -0.06em);
+}
+.digitRoll {
+  display: block;
+  transform: translate3d(0, 0.88em, 0);
+  transition: transform 1.3s var(--g-out);
+  transition-delay: calc(var(--i, 0) * 120ms);
+  will-change: transform;
+}
+.digitRoll > span {
+  display: block;
+  height: 0.8em;
+}
+/* Room between the two figures: neither shows in the other's window. */
+.digitRoll > span + span {
+  margin-top: 0.3em;
+}
+.page [data-reveal][data-in] .digitRoll {
+  transform: none;
+}
+/* Two figures in the window's column: the number before, then this one. */
+.page [data-reveal][data-in] .digitRoll[data-roll] {
+  transform: translate3d(0, -1.1em, 0);
+}
+.page [data-reveal][data-in="still"] .digitRoll,
+.page [data-reveal][data-in="still"] .chapterNum::before {
+  transition: none;
+}
 .chapterTitle {
+  --at: 160ms;
   margin: 0 0 14px;
+  /* A measure: a long title turns into two even lines, not one across the stage. */
+  max-width: 11.5em;
   text-wrap: balance;
   font-size: clamp(40px, 4.8vw, 72px);
   font-weight: 600;
@@ -425,11 +951,45 @@
   line-height: 1;
 }
 .chapterLede {
+  --at: 420ms;
   margin: 0;
   max-width: 34ch;
+  text-wrap: pretty;
   font-size: 17px;
   line-height: 1.55;
   color: var(--g-ink-2);
+}
+@media (prefers-reduced-motion: reduce) {
+  .digit {
+    clip-path: none;
+  }
+  .page [data-reveal] .digitRoll,
+  .page [data-reveal][data-in] .digitRoll {
+    transform: none;
+    transition: none;
+  }
+  .page [data-reveal] .digitRoll[data-roll],
+  .page [data-reveal][data-in] .digitRoll[data-roll] {
+    transform: translate3d(0, -1.1em, 0);
+  }
+  .page [data-reveal] .digitRoll[data-roll] > :first-child {
+    visibility: hidden;
+  }
+  .chapterNum::before {
+    opacity: 1;
+    transition: none;
+  }
+}
+@media (scripting: none) {
+  .page [data-reveal] .digitRoll {
+    transform: none;
+  }
+  .page [data-reveal] .digitRoll[data-roll] {
+    transform: translate3d(0, -1.1em, 0);
+  }
+  .chapterNum::before {
+    opacity: 1;
+  }
 }
 
 /* steps */
@@ -458,38 +1018,97 @@
   border-radius: 18px;
   background: var(--g-card);
   border: 1px solid var(--g-hair);
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  /* Smoked glass: what passes behind the card — a knob, the DevKit, the
+     stream of patterns — is a soft shape of light under the words, never a
+     second thing to read. Written once, unprefixed: with a -webkit- line
+     beside it the build kept only that one, which Chrome and Firefox do not
+     read, and the glass was clear — every prop sharp behind the small type. */
+  backdrop-filter: blur(22px) saturate(120%);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  position: relative;
   transition:
-    opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
-    transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
-    border-color 0.5s;
+    opacity 0.7s ease,
+    transform 0.9s var(--g-out),
+    border-color 0.5s,
+    box-shadow 0.9s ease;
 }
 .step[data-on="0"] .card {
   opacity: 0.16;
-  transform: translateY(28px) scale(0.985);
+  transform: translate3d(0, 28px, 0) scale(0.985);
 }
-/* Inside a card that comes on, its lines arrive one after another. */
+/* A card's lines arrive one after another the first time it comes on
+   ([data-seen], set once by the scroll tracker) and never again: after that
+   the card only steps back and forward as a whole. Scrolling to and fro
+   across its edge moves nothing inside it. */
 .card > * {
-  transition:
-    opacity 0.55s cubic-bezier(0.2, 0.7, 0.2, 1),
-    transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+  --n: 6;
 }
-.step[data-on="0"] .card > * {
-  opacity: 0.4;
-  transform: translateY(8px);
-  transition-delay: 0s;
+.card > :nth-child(1) { --n: 0; }
+.card > :nth-child(2) { --n: 1; }
+.card > :nth-child(3) { --n: 2; }
+.card > :nth-child(4) { --n: 3; }
+.card > :nth-child(5) { --n: 4; }
+.card > :nth-child(6) { --n: 5; }
+.step:not([data-seen]) .card > * {
+  opacity: 0;
 }
-.step[data-on="1"] .card > :nth-child(1) { transition-delay: 0.04s; }
-.step[data-on="1"] .card > :nth-child(2) { transition-delay: 0.1s; }
-.step[data-on="1"] .card > :nth-child(3) { transition-delay: 0.16s; }
-.step[data-on="1"] .card > :nth-child(4) { transition-delay: 0.22s; }
-.step[data-on="1"] .card > :nth-child(5) { transition-delay: 0.28s; }
-.step[data-on="1"] .card > :nth-child(6) { transition-delay: 0.34s; }
-.step[data-on="1"] .card > :nth-child(n + 7) { transition-delay: 0.4s; }
+.step[data-seen] .card > * {
+  animation: lineIn 0.9s var(--g-out) backwards;
+  animation-delay: calc(110ms + var(--n) * 65ms);
+}
+/* (No scripts: no card is ever "on". All of them are, then.) */
+@media (scripting: none) {
+  .step[data-on="0"] .card {
+    opacity: 1;
+    transform: none;
+  }
+  .step:not([data-seen]) .card > * {
+    opacity: 1;
+  }
+}
 .step[data-on="1"] .card {
   border-color: var(--g-hair-2);
+  /* The panel is to the card's left, and it is the only light in the room. */
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.35),
+    -34px 0 90px -50px rgb(var(--g-led-rgb) / calc(0.08 + 0.26 * var(--g-lit)));
+}
+/* The card being read catches the panel's light on the edge that faces it:
+   a line of its colour along the near edge, running out along the top and
+   the bottom, and a breath of it in the glass behind the words. */
+.card::before,
+.card::after {
+  content: "";
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+.card::before {
+  inset: -1px;
+  padding: 1px;
+  background: linear-gradient(98deg, rgb(var(--g-led-rgb) / 0.85), rgb(var(--g-led-rgb) / 0.22) 16%, rgb(var(--g-led-rgb) / 0) 44%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+.card::after {
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(70% 90% at 0% 42%, rgb(var(--g-led-rgb) / 0.075), transparent 72%);
+}
+/* As strong as the panel is lit: with the power off (the Build guide, most
+   of the way) the line is only the mark of the card being read. */
+.step[data-on="1"] .card::before {
+  opacity: calc(0.45 + 0.55 * var(--g-lit));
+}
+.step[data-on="1"] .card::after {
+  opacity: var(--g-lit);
 }
 .kicker {
   display: flex;
@@ -503,6 +1122,7 @@
   color: var(--g-ink-3);
 }
 .kickerDot {
+  flex: none;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -514,6 +1134,40 @@
 .step[data-on="1"] .kickerDot {
   background: var(--g-led);
   box-shadow: 0 0 12px var(--g-led);
+}
+/* Where this step is in its chapter: a mark a step, at the end of the
+   kicker's line. The ones before it are done, this one is longer — and lit
+   while its card is the one being read. */
+.steps {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding-left: 12px;
+}
+.steps i {
+  width: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--g-hair-2);
+  transition:
+    background 0.5s,
+    box-shadow 0.5s;
+}
+.steps i[data-s="done"] {
+  background: var(--g-ink-3);
+}
+.steps i[data-s="on"] {
+  width: 16px;
+  background: var(--g-ink-2);
+}
+.step[data-on="1"] .steps i[data-s="on"] {
+  background: var(--g-led);
+  box-shadow: 0 0 10px rgb(var(--g-led-rgb) / 0.75);
+}
+.steps + .replay {
+  margin-left: 6px;
 }
 /* "Replay", at the end of a Build card's kicker: the step's motion on the
    stage again (GuideExperience, store.ts replayStep). */
@@ -539,8 +1193,19 @@
   color: var(--g-led);
 }
 .replay span {
+  display: inline-block;
   font-size: 13px;
   line-height: 1;
+  transition: transform 0.7s var(--g-out);
+}
+/* The arrow goes once round, the way the step is about to. */
+.replay:hover span,
+.replay:focus-visible span {
+  transform: rotate(360deg);
+}
+.replay:active span {
+  transform: rotate(360deg) scale(0.86);
+  transition-duration: 0.08s;
 }
 .stepTitle {
   margin: 0 0 12px;
@@ -552,6 +1217,7 @@
 }
 .body {
   margin: 0 0 10px;
+  text-wrap: pretty;
   font-size: 15.5px;
   line-height: 1.65;
   color: var(--g-ink-2);
@@ -562,6 +1228,7 @@
   border-left: 2px solid var(--g-led);
   border-radius: 0 10px 10px 0;
   background: var(--g-led-wash);
+  text-wrap: pretty;
   font-size: 14px;
   line-height: 1.55;
   color: var(--g-ink);
@@ -570,6 +1237,7 @@
   margin: 18px 0 0;
   padding-top: 14px;
   border-top: 1px solid var(--g-hair);
+  text-wrap: pretty;
   font-family: var(--pf-serif);
   font-style: italic;
   font-size: 16.5px;
@@ -599,19 +1267,30 @@
   align-items: center;
   gap: 5px;
   margin-top: 16px;
+  padding-bottom: 2px;
   font-family: var(--pf-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--g-ink-3);
   text-decoration: none;
-  transition: color 0.2s;
+  /* Its underline is drawn when it is pointed at, in the panel's colour. */
+  background: linear-gradient(var(--g-led), var(--g-led)) 0 100% / 0 1px no-repeat;
+  transition:
+    color 0.25s,
+    background-size 0.5s var(--g-out);
 }
 .report:hover,
 .report:focus-visible {
   color: var(--g-led);
+  background-size: 100% 1px;
 }
 .report span {
   font-size: 10px;
+  transition: transform 0.45s var(--g-out);
+}
+.report:hover span,
+.report:focus-visible span {
+  transform: translate3d(2px, -2px, 0);
 }
 
 /* ── extras ──────────────────────────────────────────────────────────────── */
@@ -634,22 +1313,47 @@
   border: 0;
   border-radius: 999px;
   background: var(--g-led);
-  color: #150a06;
+  color: var(--g-on-led);
   font: 600 14px/1 var(--pf-sans);
   letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 0 0 0 rgba(255, 106, 61, 0.5);
+  /* A lit thing: a rim of its own light on top, and the light it throws below. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 6px 22px -8px rgb(var(--g-led-rgb) / 0.5);
   transition:
-    transform 0.15s,
-    box-shadow 0.3s;
+    transform 0.4s var(--g-out),
+    box-shadow 0.4s ease;
 }
 .actionFirst {
   margin-top: 2px;
 }
-.action:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 30px rgba(255, 106, 61, 0.35);
+.action:hover,
+.action:focus-visible {
+  transform: translate3d(0, -1.5px, 0);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.34),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 12px 34px -8px rgb(var(--g-led-rgb) / 0.7);
+}
+/* Pressed: it goes down, at once. */
+.action:active {
+  transform: translate3d(0, 0.5px, 0) scale(0.98);
+  transition-duration: 0.08s;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 3px 12px -6px rgb(var(--g-led-rgb) / 0.5);
+}
+.action span {
+  display: inline-block;
+  transition: transform 0.45s var(--g-out);
+}
+.action:hover span,
+.action:focus-visible span {
+  transform: translate3d(2px, -2px, 0);
 }
 
 .mockWindow {
@@ -770,7 +1474,7 @@
 }
 .mockButton[data-pressed="1"] {
   background: var(--g-led);
-  color: #150a06;
+  color: var(--g-on-led);
   transform: scale(0.96);
 }
 
@@ -837,6 +1541,32 @@
   image-rendering: pixelated;
   background: #000;
 }
+/* Make with no desk (a phone, a small window): four of the pack's patterns
+   playing at the head of the page, as a row of panels — the page's light,
+   where there is no stage to give one. */
+.band {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 28px;
+}
+.band canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  border-radius: 4px;
+  image-rendering: pixelated;
+  background: #000;
+  box-shadow:
+    0 0 0 1px var(--g-hair),
+    0 10px 30px -12px rgba(0, 0, 0, 0.8);
+}
+@media (max-width: 560px) {
+  .band {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-bottom: 22px;
+  }
+}
 .deckMeta {
   display: flex;
   justify-content: center;
@@ -869,6 +1599,7 @@
   width: min(520px, 44vw);
 }
 .nextTitle {
+  --at: 60ms;
   margin: 0 0 14px;
   text-wrap: balance;
   font-size: clamp(40px, 4.4vw, 64px);
@@ -876,8 +1607,13 @@
   font-weight: 600;
   letter-spacing: -0.04em;
 }
+/* The end's lines come after its title's words. */
+.nextInner [data-line] {
+  --at: 260ms;
+}
 .nextLede {
   margin: 0 0 26px;
+  text-wrap: pretty;
   font-size: 16px;
   line-height: 1.6;
   color: var(--g-ink-2);
@@ -942,15 +1678,16 @@
 .soonArrow {
   font-size: 18px;
   color: var(--g-led);
-  transition: transform 0.2s;
+  transition: transform 0.5s var(--g-out);
 }
 .soonLink:hover,
 .soonLink:focus-visible {
   border-color: var(--g-led);
   background: var(--g-led-wash);
 }
-.soonLink:hover .soonArrow {
-  transform: translateX(3px);
+.soonLink:hover .soonArrow,
+.soonLink:focus-visible .soonArrow {
+  transform: translate3d(5px, 0, 0);
 }
 .nextUntil {
   margin: 8px 0 12px;
@@ -972,12 +1709,30 @@
   text-decoration: none;
   font-size: 14px;
   transition:
-    border-color 0.2s,
-    background 0.2s;
+    border-color 0.3s,
+    background 0.3s,
+    transform 0.4s var(--g-out);
 }
-.nextLink:hover {
+.nextLink span {
+  display: inline-block;
+  color: var(--g-ink-3);
+  transition:
+    transform 0.45s var(--g-out),
+    color 0.3s;
+}
+.nextLink:hover,
+.nextLink:focus-visible {
   border-color: var(--g-led);
   background: var(--g-led-wash);
+}
+.nextLink:hover span,
+.nextLink:focus-visible span {
+  color: var(--g-led);
+  transform: translate3d(2px, -2px, 0);
+}
+.nextLink:active {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
 }
 
 /* ── narrow screens: the stage on top, the story underneath ─────────────── */
@@ -1013,6 +1768,9 @@
   .chapterHead > * {
     text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
   }
+  .chapterHead > .chapterNum {
+    text-shadow: none;
+  }
   .step {
     min-height: 100vh;
     align-items: flex-end;
@@ -1023,8 +1781,23 @@
     width: 100%;
     padding: 20px 20px 18px;
     /* Over the stage here, not beside it: the DevKit's white cable hangs
-       down behind the card, and at 0.86 it was a pale bar through the words. */
+       down behind the card, and at 0.86 it was a pale bar through the words.
+       All but opaque, so there is nothing for the glass to blur: a phone is
+       spared the pass. */
     background: rgba(18, 16, 14, 0.95);
+    backdrop-filter: none;
+  }
+  /* The panel is above the card here: its light comes down onto the top edge. */
+  .step[data-on="1"] .card {
+    box-shadow:
+      0 30px 80px rgba(0, 0, 0, 0.35),
+      0 -30px 80px -52px rgb(var(--g-led-rgb) / calc(0.08 + 0.28 * var(--g-lit)));
+  }
+  .card::before {
+    background: linear-gradient(186deg, rgb(var(--g-led-rgb) / 0.8), rgb(var(--g-led-rgb) / 0.2) 8%, rgb(var(--g-led-rgb) / 0) 30%);
+  }
+  .card::after {
+    background: radial-gradient(90% 46% at 50% 0%, rgb(var(--g-led-rgb) / 0.07), transparent 72%);
   }
   .stepTitle {
     font-size: 24px;
@@ -1082,10 +1855,41 @@
   .chapterNum {
     transform: none;
   }
-  .card > *,
   .card,
-  .fanCard {
+  .card::before,
+  .card::after,
+  .fanCard,
+  .railMarker,
+  .railMarker::after,
+  .action,
+  .action span,
+  .report,
+  .report span,
+  .replay span,
+  .nextLink,
+  .nextLink span,
+  .lang,
+  .openingChapters a,
+  .openingChapters a::after,
+  .openingBack a span {
     transition: none;
+  }
+  .step:not([data-seen]) .card > * {
+    opacity: 1;
+  }
+  .step[data-seen] .card > *,
+  .openingInner > *,
+  .openingChapters li {
+    animation: none;
+  }
+  .action:hover,
+  .action:focus-visible,
+  .action:hover span,
+  .report:hover span,
+  .replay:hover span,
+  .nextLink:hover span,
+  .openingBack a:hover span {
+    transform: none;
   }
   .scrollLine {
     animation: none;

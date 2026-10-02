@@ -115,3 +115,30 @@ export const PAGES: Record<GuidePageId, PageDef> = {
 export function pagePath(page: GuideScreen, lang: GuideLang): string {
   return page === "hub" ? HUB_PATH[lang] : PAGES[page].path[lang];
 }
+
+/**
+ * The page of the guide an address is, and its language — the other way
+ * round from pagePath — or null for an address that is not the guide's. The
+ * world (world/GuideWorld) reads the address for what it can know before a
+ * page has mounted: which room to light on the server's first paint.
+ */
+export function screenAt(pathname: string): { page: GuideScreen; lang: GuideLang } | null {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  for (const lang of ["en", "ko"] as const) {
+    if (HUB_PATH[lang] === path) return { page: "hub", lang };
+    for (const page of GUIDE_ORDER) if (PAGES[page].path[lang] === path) return { page, lang };
+  }
+  return null;
+}
+
+/**
+ * Where the reader is on a guide, as an anchor: "#flash-3" for a step whose
+ * card is on screen, "#flash" for a chapter's title, "#next" for the end, and
+ * nothing at the opening. A link to the same guide in the other language
+ * carries it (world/GuideLink), so switching language keeps the place.
+ */
+export function placeAnchor(scene: string, step: number, cardIn: boolean): string {
+  if (scene === "opening") return "";
+  if (scene === "next") return "#next";
+  return cardIn ? `#${scene}-${step + 1}` : `#${scene}`;
+}

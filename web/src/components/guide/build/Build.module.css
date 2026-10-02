@@ -68,6 +68,22 @@
 .bomRow {
   border-bottom: 1px solid var(--g-hair);
 }
+/* The line and its part on the stage point at each other
+   (stage/build/touchState.ts): under the mouse here its part lifts on the
+   bench, and with the mouse on the part there, its line is lit here. */
+.bomRow .bomPart,
+.bomRow .bomRef {
+  transition: color 0.18s ease;
+}
+.bomRow[data-lit="1"] .bomPart,
+.bomRow[data-lit="1"] .bomRef {
+  color: var(--g-led);
+}
+@media (hover: hover) {
+  .bomRow:hover .bomRef {
+    color: var(--g-led);
+  }
+}
 .bomHead {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) auto 12px;
@@ -189,7 +205,7 @@ summary.bomHead:hover .bomChev,
   font-size: 12.5px;
 }
 .linkFirst {
-  border-color: rgba(255, 106, 61, 0.6);
+  border-color: rgb(var(--g-led-rgb, 255 106 61) / 0.6);
   background: var(--g-led-wash);
 }
 .bomNote {
@@ -220,7 +236,7 @@ summary.bomHead:hover .bomChev,
     background 0.2s;
 }
 .checks li[data-done="1"] {
-  border-color: rgba(255, 106, 61, 0.45);
+  border-color: rgb(var(--g-led-rgb, 255 106 61) / 0.45);
   background: var(--g-led-wash);
 }
 .checks label {

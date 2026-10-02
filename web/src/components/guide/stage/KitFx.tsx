@@ -12,6 +12,8 @@ import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import { bootPhase, kitState, RST_PULSE, rstPulseDown } from "../timing";
 import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
+import { kitPress } from "./hand";
+import { stageAccent } from "./look/accent";
 import { DEVKIT_PRESENT, DEVKIT_SEAT, KIT, M_TO_MODEL } from "./parts";
 import { NO_POINTER, pillSize, placeTag, screenY, type TagSide } from "./tags";
 
@@ -231,7 +233,10 @@ export default function KitFx({ boot, rst }: Props) {
   const waves = useMemo(
     () =>
       [0, 1, 2].map(() => {
-        const mat = new THREE.MeshBasicMaterial({ color: LED, transparent: true, opacity: 0, toneMapped: false, depthWrite: false, side: THREE.DoubleSide });
+        // They write depth: they are thin, nothing is behind them to hide, and
+        // the stage's soft focus (look/StagePost) needs to know they are here
+        // at the antenna and not out with the background.
+        const mat = new THREE.MeshBasicMaterial({ color: LED, transparent: true, opacity: 0, toneMapped: false, side: THREE.DoubleSide });
         const arc = Math.PI * 0.5;
         const m = new THREE.Mesh(new THREE.TorusGeometry(0.0055, 0.0004, 6, 40, arc), mat);
         m.rotation.z = Math.PI / 2 - arc / 2;
@@ -388,6 +393,11 @@ export default function KitFx({ boot, rst }: Props) {
       rstDown = rstPulseDown(rstSince - 500 + RST_PULSE.down);
     }
     const rstIdle = rstNow ? 0.3 + 0.15 * Math.sin(t * 3) : 0.25;
+    // …and under the reader's own finger, on that step (Device.tsx, hand.ts kitPress): the same press.
+    if (s.bootSeq) {
+      bootDown ||= kitPress.boot;
+      rstDown ||= kitPress.rst;
+    }
     if (!presented) {
       bootDown = false;
       rstDown = false;
@@ -406,10 +416,13 @@ export default function KitFx({ boot, rst }: Props) {
     // The DevKit's own light, up while it is held up in front.
     light.intensity += ((presented ? KIT_LIGHT : 0) - light.intensity) * Math.min(1, dt * 3);
 
+    // The Wi-Fi's arcs are the page's sign, as the device's own are (Fx.tsx): in the page's accent.
+    const accent = stageAccent();
     waves.forEach((w, i) => {
       const phase = (((t * 0.7 + i / 3) % 1) + 1) % 1;
       w.scale.setScalar(1 + phase * 1.9);
       const mat = w.material as THREE.MeshBasicMaterial;
+      mat.color.copy(accent);
       const target = s.wifi === "esp" ? (1 - phase) * 0.9 * here : 0;
       mat.opacity += (target - mat.opacity) * Math.min(1, dt * (s.wifi === "esp" ? 6 : 10));
       w.visible = mat.opacity > 0.01;
