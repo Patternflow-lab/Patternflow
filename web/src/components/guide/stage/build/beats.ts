@@ -10,15 +10,19 @@
 // step's own motion once at its own pace and holds its end.
 //
 // The ids are the storyboard's step ids. `seconds` is how long the beat's
-// own motion takes at its own pace. There is no solder-5 and no wire-3: the
+// own motion takes at its own pace. A beat whose step has the camera come a
+// long way — from the bench to behind the case, from behind it to the front —
+// keeps what it is about out of its first second and a bit: the camera is
+// still arriving then (its springs take about that long), and the reader
+// would see the end of something that had already happened. There is no solder-5 and no wire-3: the
 // build has no multimeter checks, so solder-4 is followed by case-1 and
 // wire-2 by firmware-1. Every beat but "opening" and "next" is one step of
 // the script, and the script uses every one (build.test.ts).
 
 export const BEATS = [
   ["opening", 1],
-  ["gather-1", 4.5],
-  ["gather-2", 3.2],
+  ["gather-1", 5],
+  ["gather-2", 4],
   ["gather-3", 1],
   ["gather-4", 1.6],
   ["print-1", 3.4],
@@ -30,11 +34,11 @@ export const BEATS = [
   ["solder-3", 4.6],
   ["solder-4", 8.8],
   ["case-1", 5],
-  ["case-2", 5.6],
+  ["case-2", 6.6],
   ["case-3", 6.4],
-  ["case-4", 3],
-  ["case-5", 5.2],
-  ["wire-1", 4.4],
+  ["case-4", 3.6],
+  ["case-5", 6],
+  ["wire-1", 5],
   ["wire-2", 5],
   ["firmware-1", 2.2],
   // The DevKit's travel round the case and onto its pins is Device's (it is
@@ -63,6 +67,21 @@ export function beatIndex(id: string | undefined): number {
 export function at(id: BuildBeat, phase = 0): number {
   return (INDEX.get(id) ?? 0) + phase;
 }
+
+/**
+ * The opening's device is gone by here: it goes over the first sixth of
+ * gather-1, as the bench comes up (BuildStage). Until then it may be standing
+ * apart — the hub's answer to Build, kept through Build's opening
+ * (stage/Explode) — and from here on nothing of it is on stage.
+ */
+export const OPENING_GONE = at("gather-1", 0.17);
+/**
+ * Up to here nothing that comes apart is on stage at all (the case is not
+ * printed yet, the panel not in it): scrolling back up to the opening, the
+ * device is put apart again while it cannot be seen, and fades back in as it
+ * was left.
+ */
+export const OPENING_UNSEEN = at("print-1");
 
 export function beatSeconds(i: number): number {
   return BEATS[Math.max(0, Math.min(BEATS.length - 1, i))][1];

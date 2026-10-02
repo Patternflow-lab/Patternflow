@@ -634,10 +634,21 @@ export default function ConsoleWindow({ variant, page = "home", lang }: { varian
     return () => window.removeEventListener("keydown", key);
   }, [lift, close]);
 
-  const closed = useCallback(() => {
-    setLift(null);
+  const closed = useCallback(() => setLift(null), []);
+  // Focus goes back to the button that opened the window — once the window is
+  // gone. Asked for while it was still mounted, its focus trap (Lifted's
+  // `keep`) took the focus straight back to its own Close button, the window
+  // then went, and the keyboard was left on <body>, at the top of the page.
+  const wasLifted = useRef(false);
+  useEffect(() => {
+    if (lift) {
+      wasLifted.current = true;
+      return;
+    }
+    if (!wasLifted.current) return;
+    wasLifted.current = false;
     opener.current?.focus({ preventScroll: true });
-  }, []);
+  }, [lift]);
 
   const host = HOST[variant];
   const view = VIEW[variant];

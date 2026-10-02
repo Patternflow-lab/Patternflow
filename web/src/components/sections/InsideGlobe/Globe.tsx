@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
-import type { Group, InstancedMesh, Mesh } from 'three';
+import type { Group, InstancedMesh, LineSegments, Mesh, MeshBasicMaterial } from 'three';
 import {
   BufferGeometry,
   CanvasTexture,
@@ -14,6 +15,9 @@ import {
 } from 'three';
 import type { Build } from './builds';
 import { builds, latLngToVec3, originOf } from './builds';
+import type { BuildGroup } from './groups';
+import type { FanObstacle } from './groups';
+import { angularDistance, fanAngle, fanChordPx, fanLean, fanRadiusPx, groupBuilds } from './groups';
 import landData from './land.json';
 
 const COLORS = {
@@ -21,7 +25,7 @@ const COLORS = {
   land: '#ffffff',          // pure-white filled continents
   outline: '#141414',       // bold black coastlines
   pin: '#E8552E',           // build markers (LED orange)
-  activePin: '#141414',     // selected marker
+  activePin: '#141414',     // the selected marker
   web: '#E8552E',           // links between builds
 };
 
@@ -201,19 +205,6 @@ function seededRandom(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-// Angular distance between two lat/lng points (radians), for nearest-neighbour ranking.
-function angularDistance(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const toRad = Math.PI / 180;
-  const lat1 = a.lat * toRad;
-  const lat2 = b.lat * toRad;
-  const dLat = (b.lat - a.lat) * toRad;
-  const dLng = (b.lng - a.lng) * toRad;
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
 // Every link, sampled once as a polyline of ARC_SAMPLES + 1 points. Both the
@@ -397,81 +388,537 @@ export interface GlobeProps {
   onSelectBuild?: (buildId: string | null) => void;
 }
 
+// --- Pins --------------------------------------------------------------------
+
+// The invisible sphere a pin is hovered and clicked by, in pin radii.
+const HIT_SCALE = 3.6;
+const HOVER_SCALE = 1.3;
+const SELECTED_SCALE = 1.45;
+// How fast a pin settles into a new size, and a group into open or closed
+// (1/seconds). Quick, but with a tail: the pin arrives rather than snaps.
+const PIN_EASE = 16;
+const FAN_EASE = 13;
+
+// A ring pin's own axis before it is turned to face out of the globe.
+const PIN_UP = new Vector3(0, 0, 1);
+
+// Frame-rate independent easing: the share of the remaining distance to cover
+// in a frame of `delta` seconds.
+const easeShare = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
+
+const smoothstep = (value: number, from: number, to: number) => {
+  const t = Math.min(1, Math.max(0, (value - from) / (to - from)));
+  return t * t * (3 - 2 * t);
+};
+
+// A dot means a Patternflow exists there; a collaboration is an open ring,
+// something that grew out of one; a sale is a diamond, a unit that went out
+// rather than one that was built there. Reads at a glance without a second
+// colour, and survives colour-blindness.
+function PinShape({ kind }: { kind: Build['kind'] }) {
+  if (kind === 'collaboration') {
+    return <torusGeometry args={[PIN_RADIUS * 1.35, PIN_RADIUS * 0.42, 10, 28]} />;
+  }
+  if (kind === 'sold') return <octahedronGeometry args={[PIN_RADIUS * 1.45, 0]} />;
+  return <sphereGeometry args={[PIN_RADIUS, 16, 16]} />;
+}
+
+// The visible part of a pin: its mark, a little larger while hovered, larger
+// and black while selected. No idle pulse - a pin at rest costs one comparison
+// a frame. (It had an orange halo for a while; a glow smudged the flat map.)
+//
+// `floating` is a pin of an open group: drawn over everything, since it stands
+// off the surface on its hairline and must not be cut by the globe's edge.
+function PinBody({
+  kind,
+  hovered,
+  selected,
+  floating = false,
+}: {
+  kind: Build['kind'];
+  hovered: boolean;
+  selected: boolean;
+  floating?: boolean;
+}) {
+  const bodyRef = useRef<Mesh>(null);
+  const eased = useRef({ scale: 1 });
+
+  useFrame((_, delta) => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const now = eased.current;
+    const scale = selected ? SELECTED_SCALE : hovered ? HOVER_SCALE : 1;
+    if (now.scale === scale) return;
+
+    now.scale += (scale - now.scale) * easeShare(PIN_EASE, delta);
+    if (Math.abs(scale - now.scale) < 0.004) now.scale = scale;
+    body.scale.setScalar(now.scale);
+  });
+
+  return (
+    <mesh ref={bodyRef} renderOrder={floating ? 13 : 0}>
+      <PinShape kind={kind} />
+      <meshBasicMaterial
+        color={selected ? COLORS.activePin : COLORS.pin}
+        transparent={floating}
+        depthTest={!floating}
+        depthWrite={!floating}
+      />
+    </mesh>
+  );
+}
+
+const setCursor = (cursor: string) => {
+  document.body.style.cursor = cursor;
+};
+
+// The pins of an open fan, in canvas pixels: where each one is and how far
+// from it a pointer still counts. They stand in front of whatever else is on
+// the map there, so every other pin asks this before it takes a pointer event
+// - R3F hands events to the nearest hit sphere first, and a neighbour's big
+// hit sphere would otherwise swallow a fanned-out pin sitting over it.
+type FanClaim = { id: string; count: number; xy: Float32Array; hitPx: number };
+
+type PinEvent = ThreeEvent<PointerEvent> | ThreeEvent<MouseEvent>;
+
+function fanClaims(claim: FanClaim | null, event: PinEvent): boolean {
+  if (!claim) return false;
+  const { offsetX, offsetY } = event.nativeEvent;
+  for (let i = 0; i < claim.count; i += 1) {
+    if (Math.hypot(offsetX - claim.xy[i * 2], offsetY - claim.xy[i * 2 + 1]) <= claim.hitPx) return true;
+  }
+  return false;
+}
+
+// Hover is a mouse thing. A finger's "hover" arrives with the tap and is
+// taken away with it, which would open a group and shut it in one touch.
+const isMouse = (event: ThreeEvent<PointerEvent>) => event.nativeEvent.pointerType === 'mouse';
+
 function BuildPin({
   build,
   isSelected,
+  isHovered,
+  fanRef,
+  onHover,
   onSelect,
 }: {
   build: Build;
   isSelected: boolean;
+  isHovered: boolean;
+  fanRef: RefObject<FanClaim | null>;
+  onHover: (buildId: string, over: boolean) => void;
   onSelect: (buildId: string | null) => void;
 }) {
-  const meshRef = useRef<Mesh>(null);
-  const [hovered, setHovered] = useState(false);
-  const position = latLngToVec3(build.location.lat, build.location.lng, PIN_LAYER_RADIUS);
-
-  // A collaboration is drawn as an open ring rather than a filled dot: a dot
-  // means a Patternflow exists there, a ring means something grew out of one.
-  // Reads at a glance without a second colour, and survives colour-blindness.
-  // The ring is flat against the surface, so lay its axis along the normal.
+  const { lat, lng } = build.location;
+  const position = useMemo(() => latLngToVec3(lat, lng, PIN_LAYER_RADIUS), [lat, lng]);
+  // A ring is flat against the surface, so lay its axis along the normal.
   const quaternion = useMemo(
     () => new Quaternion().setFromUnitVectors(PIN_UP, new Vector3(...position).normalize()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [position[0], position[1], position[2]],
+    [position],
   );
 
-  useFrame(() => {
-    if (!meshRef.current) return;
-    // No idle pulse! Constant base scale of 1.0, grows to 1.3x on hover, and 1.45x when selected.
-    const targetScale = isSelected ? 1.45 : hovered ? 1.3 : 1.0;
-    meshRef.current.scale.setScalar(targetScale);
-  });
+  // Over and move both: a pointer that came in under an open fan was not
+  // ours to take then, and has to be picked up once it moves off the fan.
+  const over = (event: ThreeEvent<PointerEvent>) => {
+    if (fanClaims(fanRef.current, event)) return;
+    event.stopPropagation();
+    setCursor('pointer');
+    if (isMouse(event)) onHover(build.id, true);
+  };
 
   return (
     <group position={position} quaternion={quaternion}>
       {/* Large invisible hit-box for both easy hover and click (3.6x sensitivity) */}
       <mesh
-        onPointerDown={(event) => event.stopPropagation()}
-        onPointerOver={(event) => {
-          event.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = 'pointer';
+        onPointerDown={(event) => {
+          if (!fanClaims(fanRef.current, event)) event.stopPropagation();
         }}
+        onPointerOver={over}
+        onPointerMove={over}
         onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = '';
+          setCursor('');
+          onHover(build.id, false);
         }}
         onClick={(event) => {
+          if (fanClaims(fanRef.current, event)) return;
           event.stopPropagation();
-          if (isSelected) {
-            onSelect(null);
-          } else {
-            onSelect(build.id);
-          }
+          onSelect(isSelected ? null : build.id);
         }}
       >
-        <sphereGeometry args={[PIN_RADIUS * 3.6, 12, 12]} />
+        <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
       {/* Small, precise visible pin */}
-      <mesh ref={meshRef}>
-        {build.kind === 'collaboration' ? (
-          <torusGeometry args={[PIN_RADIUS * 1.35, PIN_RADIUS * 0.42, 10, 28]} />
-        ) : build.kind === 'sold' ? (
-          // A sale is a diamond: a unit that went out, not one that was built there.
-          <octahedronGeometry args={[PIN_RADIUS * 1.45, 0]} />
-        ) : (
-          <sphereGeometry args={[PIN_RADIUS, 16, 16]} />
-        )}
-        <meshBasicMaterial color={isSelected ? COLORS.activePin : COLORS.pin} />
-      </mesh>
+      <PinBody kind={build.kind} hovered={isHovered} selected={isSelected} />
     </group>
   );
 }
 
-// A ring pin's own axis before it is turned to face out of the globe.
-const PIN_UP = new Vector3(0, 0, 1);
+// --- Groups ------------------------------------------------------------------
+//
+// Builds too close to tell apart are drawn as ONE pin that says how many it
+// holds: a dot with a ring around it for each build after the first, so two
+// is a dot in a ring and three a dot in two. On demand it opens into a fan -
+// each build its own pin on an arc above the shared point, tied by a hairline
+// to where it truly is. Nothing is moved to make room: a build keeps its
+// coordinates, and the hairline says the pin is standing off them.
+// (The grouping rule and the fan's proportions are in groups.ts.)
+
+// At rest: the dot is a little smaller than a lone pin, so the whole mark
+// stays compact enough not to run into a neighbour (the UK and France are
+// under four pin radii apart).
+const GROUP_DOT = 0.72;
+const GROUP_RING_FIRST = 1.28;   // radius of the first ring, in pin radii
+const GROUP_RING_REACH = 1.9;    // ...and of the outermost, when there are several
+const GROUP_RING_STEP = 0.56;    // between rings, while that reach allows it
+const GROUP_RING_TUBE = 0.12;
+// Where a build truly is, marked while its pin stands off on the fan.
+const ORIGIN_DOT = 0.3;
+
+function ringRadii(count: number): number[] {
+  const rings = count - 1;
+  if (rings <= 0) return [];
+  const step = rings === 1
+    ? 0
+    : Math.min(GROUP_RING_STEP, (GROUP_RING_REACH - GROUP_RING_FIRST) / (rings - 1));
+  return Array.from({ length: rings }, (_, index) => PIN_RADIUS * (GROUP_RING_FIRST + step * index));
+}
+
+// What the scene knows about the pointer, in canvas pixels. Kept by plain DOM
+// listeners rather than read off R3F's raycasts: an open fan has to know the
+// pointer has left it even when it has left for empty sky.
+type PointerState = { x: number; y: number; inside: boolean; mouse: boolean };
+
+// Another pin on the map, as the fan of an open group has to see it: where it
+// is on the globe and how big its mark is, in world units.
+type Neighbour = { id: string; at: Vector3; radius: number };
+
+// Scratch objects for the per-frame fan layout (one globe on screen).
+const _anchor = new Vector3();
+const _normal = new Vector3();
+const _toCamera = new Vector3();
+const _slot = new Vector3();
+const _inverse = new Quaternion();
+const _obstaclePool: FanObstacle[] = [];
+const _obstacles: FanObstacle[] = [];
+
+function distanceToSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq === 0 ? 0 : Math.min(1, Math.max(0, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+function GroupPin({
+  group,
+  open,
+  watchPointer,
+  selectedBuildId,
+  hoveredId,
+  worldRef,
+  pointer,
+  neighbours,
+  fanRef,
+  reducedMotion,
+  onOpen,
+  onLeave,
+  onHover,
+  onSelect,
+}: {
+  group: BuildGroup;
+  // Open by hover, by a tap, or because one of its builds is the selected one.
+  open: boolean;
+  // Opened by hovering: it shuts again when the pointer leaves the fan.
+  watchPointer: boolean;
+  selectedBuildId: string | null;
+  hoveredId: string | null;
+  worldRef: RefObject<Group | null>;
+  pointer: RefObject<PointerState>;
+  // Every pin on the map, this group's own included.
+  neighbours: Neighbour[];
+  fanRef: RefObject<FanClaim | null>;
+  reducedMotion: boolean;
+  onOpen: (group: BuildGroup, sticky: boolean) => void;
+  onLeave: (group: BuildGroup) => void;
+  onHover: (buildId: string, over: boolean) => void;
+  onSelect: (buildId: string | null) => void;
+}) {
+  const { members, center } = group;
+  const count = members.length;
+
+  const anchor = useMemo(
+    () => new Vector3(...latLngToVec3(center.lat, center.lng, PIN_LAYER_RADIUS)),
+    [center],
+  );
+  const normal = useMemo(() => anchor.clone().normalize(), [anchor]);
+  const surface = useMemo(() => new Quaternion().setFromUnitVectors(PIN_UP, normal), [normal]);
+  // Where each build truly is. The fan leaves from here and returns to here.
+  const homes = useMemo(
+    () => members.map(({ location }) => new Vector3(...latLngToVec3(location.lat, location.lng, PIN_LAYER_RADIUS))),
+    [members],
+  );
+  const rings = useMemo(() => ringRadii(count), [count]);
+  const hairlines = useMemo(() => {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(count * 6), 3));
+    return geometry;
+  }, [count]);
+
+  const amount = useRef(0);   // 0 closed … 1 fanned out
+  // How far the fan is tipped over to keep clear of its neighbours: where it
+  // is heading, and where it has got to.
+  const lean = useRef({ target: 0, now: 0 });
+  const claim = useRef<FanClaim>({ id: group.id, count, xy: new Float32Array(count * 2), hitPx: 0 });
+  const restRef = useRef<Group>(null);
+  const lineRef = useRef<LineSegments>(null);
+  const memberRefs = useRef<(Group | null)[]>([]);
+  const memberHitRefs = useRef<(Mesh | null)[]>([]);
+  const originRefs = useRef<(Mesh | null)[]>([]);
+
+  useFrame((state, delta) => {
+    const world = worldRef.current;
+    const rest = restRef.current;
+    const line = lineRef.current;
+    if (!world || !rest || !line) return;
+
+    // A fan only stands on a point that faces the viewer. As the point nears
+    // the edge of the globe the fan folds back into the one pin, so it can
+    // never end up drawn across the far side.
+    _anchor.copy(anchor).applyQuaternion(world.quaternion);
+    _toCamera.copy(state.camera.position).sub(_anchor).normalize();
+    const facing = _normal.copy(normal).applyQuaternion(world.quaternion).dot(_toCamera);
+    const target = open ? smoothstep(facing, 0.02, 0.2) : 0;
+
+    const before = amount.current;
+    if (before === 0 && target === 0) {
+      // Shut, and staying shut.
+      if (fanRef.current === claim.current) fanRef.current = null;
+      return;
+    }
+    let now = reducedMotion ? target : before + (target - before) * easeShare(FAN_EASE, delta);
+    if (Math.abs(target - now) < 0.003) now = target;
+    amount.current = now;
+
+    // Everything about the fan is measured in pixels and turned back into
+    // world units at the depth of the shared point - so it is the same size
+    // on screen whether the globe is far away or dollied in on a selection.
+    // The camera sits on +z looking at the origin (GlobeScene), so the screen
+    // is the world's xy plane and "towards the viewer" is +z.
+    const pxPerUnit =
+      state.size.height / 2 / ((state.camera.position.z - _anchor.z) * TAN_HALF_VFOV);
+    const pinPx = PIN_RADIUS * pxPerUnit;
+    const radiusPx = fanRadiusPx(count, pinPx);
+    const hitPx = fanChordPx(pinPx) / 2;
+    const radius = radiusPx / pxPerUnit;
+    _inverse.copy(world.quaternion).invert();
+    const ax = state.size.width / 2 + _anchor.x * pxPerUnit;
+    const ay = state.size.height / 2 - _anchor.y * pxPerUnit;
+
+    // Tip the fan over if standing straight up would put a pin on a
+    // neighbour. Only the pins near enough to be in the way are looked at.
+    _obstacles.length = 0;
+    const reach = radiusPx + pinPx * 3;
+    for (const neighbour of neighbours) {
+      if (neighbour.id === group.id) continue;
+      _slot.copy(neighbour.at).applyQuaternion(world.quaternion);
+      const x = (_slot.x - _anchor.x) * pxPerUnit;
+      const y = (_slot.y - _anchor.y) * pxPerUnit;
+      const r = neighbour.radius * pxPerUnit;
+      if (_slot.z < 0 || Math.hypot(x, y) > reach + r) continue;
+      const index = _obstacles.length;
+      const obstacle = _obstaclePool[index] ?? (_obstaclePool[index] = { x: 0, y: 0, r: 0 });
+      obstacle.x = x;
+      obstacle.y = y;
+      obstacle.r = r;
+      _obstacles.push(obstacle);
+    }
+    const tip = lean.current;
+    tip.target = fanLean(count, radiusPx, pinPx, _obstacles, tip.target);
+    // A fan that is only now opening starts out already leaning the right way.
+    tip.now = before === 0 || reducedMotion
+      ? tip.target
+      : tip.now + (tip.target - tip.now) * easeShare(FAN_EASE, delta);
+
+    const positions = line.geometry.attributes.position;
+    const taken = claim.current;
+    for (let i = 0; i < count; i += 1) {
+      const member = memberRefs.current[i];
+      if (!member) continue;
+      const angle = fanAngle(count, i, tip.now);
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      taken.xy[i * 2] = ax + cos * radiusPx;
+      taken.xy[i * 2 + 1] = ay - sin * radiusPx;
+      _slot.set(cos * radius, sin * radius, 0).add(_anchor).applyQuaternion(_inverse);
+      member.position.lerpVectors(homes[i], _slot, now);
+      // Upright to the viewer, whichever way the globe is turned.
+      member.quaternion.copy(_inverse);
+      member.scale.setScalar(0.35 + 0.65 * now);
+      member.visible = now > 0;
+      positions.setXYZ(i * 2, homes[i].x, homes[i].y, homes[i].z);
+      positions.setXYZ(i * 2 + 1, member.position.x, member.position.y, member.position.z);
+
+      memberHitRefs.current[i]?.scale.setScalar(hitPx / pxPerUnit / (0.35 + 0.65 * now));
+      originRefs.current[i]?.scale.setScalar(now);
+    }
+    positions.needsUpdate = true;
+    line.visible = now > 0;
+    (line.material as MeshBasicMaterial).opacity = 0.9 * now;
+
+    // The rings draw in to the middle as the pins leave it.
+    rest.scale.setScalar(1 - now);
+    rest.visible = now < 1;
+
+    // Once the pins are most of the way out, they are what a pointer there
+    // means (see FanClaim).
+    taken.hitPx = hitPx;
+    if (open && now > 0.5) fanRef.current = taken;
+    else if (fanRef.current === taken) fanRef.current = null;
+
+    if (!open || !watchPointer) return;
+    // Opened by hovering: stay open while the pointer is on the shared point
+    // or anywhere along a hairline or its pin, and close once it is not.
+    const at = pointer.current;
+    let near = false;
+    if (at.inside) {
+      near = Math.hypot(at.x - ax, at.y - ay) <= pinPx * HIT_SCALE + 3;
+      for (let i = 0; i < count && !near; i += 1) {
+        near = distanceToSegment(at.x, at.y, ax, ay, taken.xy[i * 2], taken.xy[i * 2 + 1]) <= hitPx + 3;
+      }
+    }
+    if (!near) onLeave(group);
+  });
+
+  // A group that leaves the map (the filter changed) takes its claim with it.
+  useEffect(() => {
+    const taken = claim.current;
+    return () => {
+      if (fanRef.current === taken) fanRef.current = null;
+    };
+  }, [fanRef]);
+
+  // Over and move both, as for a lone pin: the pointer may arrive under the
+  // fan of another group and only later be this pin's to take.
+  const over = (event: ThreeEvent<PointerEvent>) => {
+    if (fanClaims(fanRef.current, event)) return;
+    event.stopPropagation();
+    setCursor('pointer');
+    const world = worldRef.current;
+    // Not through the globe: a group on the far side is opened by a click,
+    // which also brings it round.
+    const towards = world
+      ? _normal.copy(normal).applyQuaternion(world.quaternion).dot(event.ray.direction)
+      : 0;
+    if (isMouse(event) && towards < -0.05) onOpen(group, false);
+  };
+
+  return (
+    <>
+      {/* The one pin, flat against the surface: a dot and its rings. */}
+      <group position={anchor} quaternion={surface}>
+        <mesh
+          onPointerDown={(event) => {
+            if (!fanClaims(fanRef.current, event)) event.stopPropagation();
+          }}
+          onPointerOver={over}
+          onPointerMove={over}
+          onPointerOut={() => setCursor('')}
+          onClick={(event) => {
+            if (fanClaims(fanRef.current, event)) return;
+            event.stopPropagation();
+            onOpen(group, true);
+          }}
+        >
+          <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+        <group ref={restRef}>
+          <mesh>
+            <sphereGeometry args={[PIN_RADIUS * GROUP_DOT, 16, 16]} />
+            <meshBasicMaterial color={COLORS.pin} />
+          </mesh>
+          {rings.map((radius) => (
+            <mesh key={radius}>
+              <torusGeometry args={[radius, PIN_RADIUS * GROUP_RING_TUBE, 8, 48]} />
+              <meshBasicMaterial color={COLORS.pin} />
+            </mesh>
+          ))}
+        </group>
+      </group>
+
+      {/* Where each build truly is, and the hairline out to its pin. */}
+      {members.map((build, index) => (
+        <mesh
+          key={build.id}
+          ref={(node) => {
+            originRefs.current[index] = node;
+          }}
+          position={homes[index]}
+          scale={0}
+          renderOrder={11}
+        >
+          <sphereGeometry args={[PIN_RADIUS * ORIGIN_DOT, 10, 10]} />
+          <meshBasicMaterial color={COLORS.pin} transparent depthTest={false} depthWrite={false} />
+        </mesh>
+      ))}
+      <lineSegments ref={lineRef} geometry={hairlines} visible={false} frustumCulled={false} renderOrder={11}>
+        <lineBasicMaterial color={COLORS.pin} transparent opacity={0} depthTest={false} depthWrite={false} />
+      </lineSegments>
+
+      {/* The builds themselves, each a pin like any other once fanned out. */}
+      {members.map((build, index) => {
+        const isSelected = selectedBuildId === build.id;
+        return (
+          <group
+            key={build.id}
+            ref={(node) => {
+              memberRefs.current[index] = node;
+            }}
+            position={homes[index]}
+            visible={false}
+          >
+            {open && (
+              <mesh
+                ref={(node) => {
+                  memberHitRefs.current[index] = node;
+                }}
+                scale={PIN_RADIUS}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerOver={(event) => {
+                  event.stopPropagation();
+                  if (isMouse(event)) onHover(build.id, true);
+                }}
+                onPointerMove={(event) => {
+                  event.stopPropagation();
+                  setCursor('pointer');
+                }}
+                onPointerOut={() => {
+                  setCursor('');
+                  onHover(build.id, false);
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onSelect(isSelected ? null : build.id);
+                }}
+              >
+                <sphereGeometry args={[1, 12, 12]} />
+                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+              </mesh>
+            )}
+            <PinBody
+              kind={build.kind}
+              hovered={hoveredId === build.id}
+              selected={isSelected}
+              floating
+            />
+          </group>
+        );
+      })}
+    </>
+  );
+}
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const AXIS_X = new Vector3(1, 0, 0);
@@ -483,6 +930,12 @@ const FIT_RADIUS = 1.35;       // globe radius including markers
 const FIT_FRACTION = 0.7;      // share of the limiting dimension to occupy
 const FOCUS_DOLLY = 0.62;      // zoom-in factor when a build is selected
 const DRAG_SPEED = 0.006;      // radians per pixel of drag
+const DRIFT_SPEED = 0.18;      // radians per second, idle
+
+// The globe leans a degree or two towards the pointer - enough to feel that
+// it has noticed, not enough to move a pin out from under it. Mouse only, and
+// not at all for anyone who has asked for less motion.
+const LEAN = 0.03;             // radians, at the edge of the frame
 
 // The globe is a turntable, not a trackball: yaw spins around the world's
 // vertical axis and pitch tilts towards the viewer, and there is no third axis
@@ -497,6 +950,7 @@ const MAX_PITCH = 1.31;
 // Reusable scratch objects (module-scoped — a single globe instance).
 const _yawQ = new Quaternion();
 const _pitchQ = new Quaternion();
+const _leanQ = new Quaternion();
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -512,39 +966,163 @@ function headingTo(lat: number, lng: number): { yaw: number; pitch: number } {
   return { yaw: Math.atan2(-x, z), pitch: Math.atan2(y, Math.hypot(x, z)) };
 }
 
-function GlobeScene({ entries = builds, selectedBuildId, onSelectBuild }: GlobeProps) {
+// Which group is open without one of its builds being selected: `sticky` when
+// it was tapped or clicked open (it stays until something else is picked),
+// not sticky when the pointer is merely resting on it.
+// `during` is the build that was selected when it was opened (or null): a
+// group opened by hand stays open only for as long as the selection it was
+// opened under stands, so picking another build closes it without an effect.
+type OpenGroup = { id: string; sticky: boolean; during: string | null };
+
+interface SceneProps extends GlobeProps {
+  openGroup: OpenGroup | null;
+  onOpenGroup: (next: OpenGroup | null) => void;
+}
+
+function GlobeScene({
+  entries = builds,
+  selectedBuildId,
+  onSelectBuild,
+  openGroup,
+  onOpenGroup,
+}: SceneProps) {
   const web = useMemo(() => webArcs(entries), [entries]);
   const collaborations = useMemo(() => collaborationArcs(entries), [entries]);
+  const groups = useMemo(() => groupBuilds(entries), [entries]);
+  // Every pin as an open fan has to see it: where, and how big its mark is.
+  const neighbours = useMemo<Neighbour[]>(
+    () => groups.map(({ id, members, center }) => {
+      const kind = members[0].kind;
+      const reach = members.length > 1
+        ? (ringRadii(members.length).at(-1) ?? 0) / PIN_RADIUS + GROUP_RING_TUBE
+        : kind === 'collaboration' ? 1.77 : kind === 'sold' ? 1.45 : 1;
+      return {
+        id,
+        at: new Vector3(...latLngToVec3(center.lat, center.lng, PIN_LAYER_RADIUS)),
+        radius: PIN_RADIUS * reach,
+      };
+    }),
+    [groups],
+  );
+  const reducedMotion = useMemo(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    [],
+  );
+  const canvas = useThree((state) => state.gl.domElement);
+
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const worldRef = useRef<Group>(null);
   const yaw = useRef(0);
   const pitch = useRef(INITIAL_PITCH);
+  const drift = useRef(DRIFT_SPEED);
+  const lean = useRef({ x: 0, y: 0 });
+  // Where a group that was tapped open is being brought round to.
+  const focus = useRef<{ yaw: number; pitch: number } | null>(null);
   const dragging = useRef(false);
   const moved = useRef(0);
   const distRef = useRef(5);
+  const pointer = useRef<PointerState>({ x: 0, y: 0, inside: false, mouse: false });
+  const fanRef = useRef<FanClaim | null>(null);
+
+  useEffect(() => {
+    const track = (event: PointerEvent) => {
+      const at = pointer.current;
+      at.x = event.offsetX;
+      at.y = event.offsetY;
+      at.inside = true;
+      at.mouse = event.pointerType === 'mouse';
+    };
+    const leave = () => {
+      pointer.current.inside = false;
+    };
+    canvas.addEventListener('pointermove', track);
+    canvas.addEventListener('pointerdown', track);
+    canvas.addEventListener('pointerleave', leave);
+    canvas.addEventListener('pointercancel', leave);
+    return () => {
+      canvas.removeEventListener('pointermove', track);
+      canvas.removeEventListener('pointerdown', track);
+      canvas.removeEventListener('pointerleave', leave);
+      canvas.removeEventListener('pointercancel', leave);
+    };
+  }, [canvas]);
 
   const selected = selectedBuildId
     ? entries.find((build) => build.id === selectedBuildId) ?? null
+    : null;
+  // A selected build holds its own group open - picked from the list or
+  // arrived at by URL, the fan shows which of the builds there it is.
+  const selectedGroup = selected
+    ? groups.find((group) => group.members.length > 1 && group.members.includes(selected)) ?? null
+    : null;
+  // A group opened by hand, with or without a build selected: from a selected
+  // build the pointer can open another group and pick from it in one go. (It
+  // used to be ignored while a build was selected, so the rings would not open.)
+  const heldOpen = openGroup && openGroup.during === (selectedBuildId ?? null)
+    ? groups.find((group) => group.id === openGroup.id) ?? null
+    : null;
+  const isOpen = (id: string) => id === selectedGroup?.id || id === heldOpen?.id;
+  // A hover only counts while the pin it was on is still there to be left:
+  // a pin of a fan that has since closed never reports the pointer leaving,
+  // and the globe would hold still for it for good.
+  const hoveredId = groups.some(({ id, members }) =>
+    (members.length === 1 || isOpen(id)) && members.some((build) => build.id === hoverId))
+    ? hoverId
     : null;
 
   useFrame((state, delta) => {
     const world = worldRef.current;
     if (!world) return;
 
+    if (!heldOpen) focus.current = null;
+    // The globe holds still under a pointer that is on a pin, and while a
+    // group stands open: a fan that slid away as you reached for it would be
+    // no use. It picks its drift back up gradually, the way it would if it
+    // had weight.
+    const held = !!selected || !!heldOpen || !!hoveredId || dragging.current;
+    drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
+
     if (selected) {
       // Ease the picked location around to face the camera.
       const target = headingTo(selected.location.lat, selected.location.lng);
       yaw.current += wrapAngle(target.yaw - yaw.current) * 0.08;
       pitch.current += (target.pitch - pitch.current) * 0.08;
+    } else if (focus.current) {
+      const dYaw = wrapAngle(focus.current.yaw - yaw.current);
+      const dPitch = clamp(focus.current.pitch, -MAX_PITCH, MAX_PITCH) - pitch.current;
+      yaw.current += dYaw * 0.08;
+      pitch.current += dPitch * 0.08;
+      if (Math.abs(dYaw) + Math.abs(dPitch) < 0.002) focus.current = null;
     } else if (!dragging.current) {
       // Idle drift, carrying on around whatever axis the globe was left
       // tilted on — the way a desk globe keeps turning after a nudge.
-      yaw.current += delta * 0.18;
+      yaw.current += delta * drift.current;
     }
 
-    // Yaw runs first so it spins the globe about its own (tilted) axis.
-    _pitchQ.setFromAxisAngle(AXIS_X, pitch.current);
+    // The lean towards the pointer. It rests at zero whenever a build is
+    // selected, so the selected place still lands dead centre.
+    const at = pointer.current;
+    const leaning = at.inside && at.mouse && !selected && !reducedMotion;
+    const leanX = leaning ? (at.x / state.size.width) * 2 - 1 : 0;
+    const leanY = leaning ? (at.y / state.size.height) * 2 - 1 : 0;
+    const share = easeShare(4, delta);
+    lean.current.x += (clamp(leanX, -1, 1) * LEAN - lean.current.x) * share;
+    lean.current.y += (clamp(leanY, -1, 1) * LEAN - lean.current.y) * share;
+
+    // Yaw runs first so it spins the globe about its own (tilted) axis; the
+    // lean is laid over the top, about the screen's own axes.
+    _pitchQ.setFromAxisAngle(AXIS_X, pitch.current + lean.current.y);
     _yawQ.setFromAxisAngle(AXIS_Y, yaw.current);
-    world.quaternion.copy(_pitchQ).multiply(_yawQ);
+    _leanQ.setFromAxisAngle(AXIS_Y, lean.current.x);
+    world.quaternion.copy(_leanQ).multiply(_pitchQ).multiply(_yawQ);
+
+    // A group left open that has since been dragged round the back is shut.
+    if (heldOpen && !focus.current) {
+      _normal
+        .set(...latLngToVec3(heldOpen.center.lat, heldOpen.center.lng, 1))
+        .applyQuaternion(world.quaternion);
+      if (_normal.z < 0) onOpenGroup(null);
+    }
 
     // Responsive distance so the globe fills ~70% of the smaller dimension.
     const aspect = state.size.width / Math.max(1, state.size.height);
@@ -559,10 +1137,19 @@ function GlobeScene({ entries = builds, selectedBuildId, onSelectBuild }: GlobeP
   // Drag to rotate (disabled while a build is focused). A near-still press is
   // treated as a click on empty globe and clears the current selection.
   const startDrag = (event: ThreeEvent<PointerEvent>) => {
-    if (selected) return;
+    if (selected) {
+      // No turning while a build is in focus. A press on the bare globe lets
+      // the selection go; a press on another pin never gets here (the pin
+      // takes it), so one click goes from build to build.
+      event.stopPropagation();
+      onOpenGroup(null);
+      onSelectBuild?.(null);
+      return;
+    }
     event.stopPropagation();
     dragging.current = true;
     moved.current = 0;
+    focus.current = null;
 
     const onMove = (move: PointerEvent) => {
       const dx = move.movementX || 0;
@@ -577,10 +1164,37 @@ function GlobeScene({ entries = builds, selectedBuildId, onSelectBuild }: GlobeP
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       dragging.current = false;
-      if (moved.current < 6) onSelectBuild?.(null);
+      if (moved.current < 6) {
+        onOpenGroup(null);
+        onSelectBuild?.(null);
+      }
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+  };
+
+  const hover = (buildId: string, over: boolean) => {
+    setHoverId((current) => (over ? buildId : current === buildId ? null : current));
+  };
+  const select = (buildId: string | null) => {
+    setHoverId(null);
+    onSelectBuild?.(buildId);
+  };
+  const open = (group: BuildGroup, sticky: boolean) => {
+    if (dragging.current) return;
+    if (sticky) {
+      // A tap brings the group round to the middle, where there is room for
+      // its fan - and where a group tapped through the far side can open.
+      // Not while a build is selected: the view stays on that build until
+      // another is picked.
+      if (!selected) focus.current = headingTo(group.center.lat, group.center.lng);
+    } else if (heldOpen?.id === group.id) {
+      return;   // already open; a hover never loosens a tapped-open group
+    }
+    onOpenGroup({ id: group.id, sticky, during: selectedBuildId ?? null });
+  };
+  const leave = (group: BuildGroup) => {
+    if (openGroup?.id === group.id && !openGroup.sticky) onOpenGroup(null);
   };
 
   return (
@@ -592,14 +1206,41 @@ function GlobeScene({ entries = builds, selectedBuildId, onSelectBuild }: GlobeP
       <LinkLines arcs={collaborations} opacity={0.22} />
       <LinkDots arcs={web} opacity={0.9} />
       <LinkDots arcs={collaborations} opacity={0.5} />
-      {entries.map((build) => (
-        <BuildPin
-          key={build.id}
-          build={build}
-          isSelected={selectedBuildId === build.id}
-          onSelect={(buildId) => onSelectBuild?.(buildId)}
-        />
-      ))}
+      {groups.map((group) => {
+        if (group.members.length === 1) {
+          const build = group.members[0];
+          return (
+            <BuildPin
+              key={build.id}
+              build={build}
+              isSelected={selectedBuildId === build.id}
+              isHovered={hoveredId === build.id}
+              fanRef={fanRef}
+              onHover={hover}
+              onSelect={select}
+            />
+          );
+        }
+        return (
+          <GroupPin
+            key={group.id}
+            group={group}
+            open={isOpen(group.id)}
+            watchPointer={heldOpen?.id === group.id && !openGroup?.sticky}
+            selectedBuildId={selectedBuildId ?? null}
+            hoveredId={hoveredId}
+            worldRef={worldRef}
+            pointer={pointer}
+            neighbours={neighbours}
+            fanRef={fanRef}
+            reducedMotion={reducedMotion}
+            onOpen={open}
+            onLeave={leave}
+            onHover={hover}
+            onSelect={select}
+          />
+        );
+      })}
 
       {/* Invisible drag handle behind the markers. */}
       <mesh onPointerDown={startDrag}>
@@ -611,6 +1252,19 @@ function GlobeScene({ entries = builds, selectedBuildId, onSelectBuild }: GlobeP
 }
 
 export default function Globe(props: GlobeProps) {
+  // Held out here, beside the canvas, because a click that misses everything
+  // in the scene is reported to the canvas and has to close the group too.
+  const [openGroup, setOpenGroup] = useState<OpenGroup | null>(null);
+  // A selection made anywhere - a pin, the list, the address bar - takes over
+  // from a group that was merely standing open, so it does not spring back
+  // open when that selection is cleared.
+  const selectedBuildId = props.selectedBuildId ?? null;
+  const [selectionSeen, setSelectionSeen] = useState(selectedBuildId);
+  if (selectionSeen !== selectedBuildId) {
+    setSelectionSeen(selectedBuildId);
+    if (selectedBuildId) setOpenGroup(null);
+  }
+
   return (
     <Canvas
       flat
@@ -622,9 +1276,12 @@ export default function Globe(props: GlobeProps) {
       // this automatically in the Build/Pattern viewer; this globe rolls its own
       // drag handler, so it must opt in explicitly.
       style={{ touchAction: 'none' }}
-      onPointerMissed={() => props.onSelectBuild?.(null)}
+      onPointerMissed={() => {
+        setOpenGroup(null);
+        props.onSelectBuild?.(null);
+      }}
     >
-      <GlobeScene {...props} />
+      <GlobeScene {...props} openGroup={openGroup} onOpenGroup={setOpenGroup} />
     </Canvas>
   );
 }

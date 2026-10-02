@@ -24,7 +24,9 @@ import type { BuildViewName } from "./stage/build/views";
 // on the desk (DeskStep), not what a device does. Every guide opens on a
 // scene called "opening" and ends on one called "next"; which guide's is
 // meant is the store's `page`. The hub (/guide, GuideHub) has the stage too,
-// playing HUB_SCENES: Play's opening, and nothing after it.
+// playing HUB_SCENES: Play's opening, and nothing after it — what it shows
+// besides, while a guide is pointed at, is not script (world/HubAnswers,
+// stage/Explode).
 
 export type ViewName =
   | "hero"
@@ -336,8 +338,11 @@ export const MAKE_SCENES: SceneDef<DeskStep>[] = [
 // beside the three guides. The hub has no scroll story, so this is all it plays.
 const HUB_SCENES: SceneDef[] = [SCENES[0]];
 
-// The scripts the 3D stage plays, by page. Make has the desk instead; were
-// the stage ever mounted there, it would play Play's.
+// The scripts the 3D stage plays, by page. The stage is one for the whole
+// guide and stays up between pages (world/GuideWorld). Make has the desk
+// instead: there the device stands far back, faded and at rest, and what it
+// holds meanwhile is Play's opening — the device whole and lit, which is how
+// it comes back.
 const STAGE_SCENES: Record<GuideScreen, SceneDef[]> = { build: BUILD_SCENES, play: SCENES, make: SCENES, hub: HUB_SCENES };
 
 const PAGE_SCENES: Record<GuideScreen, SceneDef<AnyStep>[]> = { build: BUILD_SCENES, play: SCENES, make: MAKE_SCENES, hub: HUB_SCENES };

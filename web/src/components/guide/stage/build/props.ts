@@ -20,6 +20,21 @@ export function screwGeometry() {
   return g;
 }
 
+/**
+ * The cross in the screw's head (the same frame as screwGeometry): two shallow
+ * bars across the top of the dome, drawn dark. A lathed head is the same from
+ * every side — without this a screw being driven does not show that it turns.
+ */
+export function screwRecessGeometry() {
+  const bar = (turn: number) => {
+    const g = new THREE.BoxGeometry(0.4, 0.03, 0.075);
+    g.rotateY(turn);
+    g.translate(0, 1.278, 0);
+    return g;
+  };
+  return mergeGeometries([bar(0), bar(Math.PI / 2)]);
+}
+
 /** The encoder's washer, axis +y, sitting on y 0. */
 export function washerGeometry() {
   return new THREE.LatheGeometry([v2(0.37, 0), v2(0.53, 0), v2(0.53, 0.05), v2(0.37, 0.05), v2(0.37, 0)], 28);
@@ -351,77 +366,91 @@ export function idcPlug(along: "x" | "y") {
  * `y0`; the upright run from the fold to y `y1`, rising to z `z1` at IN's
  * plug. 16 wires at 1.27 mm: 20.3 mm wide; wire 1's red stripe is the flat
  * run's top edge, which the fold turns to the upright run's −x edge.
+ *
+ * It is a cable, and is handled like one: each run is cut into strips along
+ * its length, and `bend` moves them — how far out of its seat each end and
+ * the fold between them are held (toward −z, model units), and how far the
+ * runs hang from the fold under their own weight (`sag`, in the ribbon's own
+ * frame). bend(0, 0, 0) is the ribbon as fitted. The ends carry the plugs:
+ * `ends` is where each one is, as an offset from its fitted place.
  */
 export function foldedRibbon(x0: number, y0: number, z0: number, inX: number, y1: number, z1: number) {
   const w = 2.03;
   const t = 0.09;
   const hw = w / 2;
-  const pos: number[] = [];
-  const idx: number[] = [];
-  /** A flat quad strip a→b→c→d (counter-clockwise seen from −z), given thickness toward +z. */
-  const slab = (pts: [number, number, number][], into: { pos: number[]; idx: number[] }) => {
-    const base = into.pos.length / 3;
-    for (const [x, y, z] of pts) into.pos.push(x, y, z);
-    for (const [x, y, z] of pts) into.pos.push(x, y, z + t);
-    const n = pts.length;
-    // back face (toward −z), front face, and the edges
-    for (let i = 1; i < n - 1; i++) into.idx.push(base, base + i + 1, base + i, base + n, base + n + i, base + n + i + 1);
+  const s = 0.13; // the stripe's width
+  const FLAT = 14; // strips along the flat run
+  const UP = 8; // and along the upright one
+  type Strip = { pos: number[]; w1: number[]; w2: number[] };
+  const soft = (x: number) => x * x * (3 - 2 * x);
+  /** A run between two edges (each a start and an end point), in `n` strips, `t` thick toward +z; `weight` says which end's it is. */
+  const run = (a0: number[], a1: number[], b0: number[], b1: number[], n: number, which: 1 | 2, into: Strip) => {
+    const at = (p0: number[], p1: number[], f: number, dz: number) => [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f, p0[2] + (p1[2] - p0[2]) * f + dz];
+    const quad = (p: number[][], f: number[]) => {
+      // Two triangles, the weight of each corner beside it.
+      for (const k of [0, 1, 2, 0, 2, 3]) {
+        into.pos.push(...p[k]);
+        // Flat run: 1 at J1's end (f 0), 0 at the fold. Upright: 0 at the fold (f 0), 1 at IN's end.
+        const wt = which === 1 ? 1 - soft(f[k]) : soft(f[k]);
+        into.w1.push(which === 1 ? wt : 0);
+        into.w2.push(which === 2 ? wt : 0);
+      }
+    };
     for (let i = 0; i < n; i++) {
-      const j = (i + 1) % n;
-      into.idx.push(base + i, base + j, base + n + j, base + i, base + n + j, base + n + i);
+      const f0 = i / n;
+      const f1 = (i + 1) / n;
+      // back (toward −z), front, and the two long edges
+      quad([at(a0, a1, f0, 0), at(b0, b1, f0, 0), at(b0, b1, f1, 0), at(a0, a1, f1, 0)], [f0, f0, f1, f1]);
+      quad([at(a0, a1, f0, t), at(a0, a1, f1, t), at(b0, b1, f1, t), at(b0, b1, f0, t)], [f0, f1, f1, f0]);
+      quad([at(a0, a1, f0, 0), at(a0, a1, f1, 0), at(a0, a1, f1, t), at(a0, a1, f0, t)], [f0, f1, f1, f0]);
+      quad([at(b0, b1, f0, 0), at(b0, b1, f0, t), at(b0, b1, f1, t), at(b0, b1, f1, 0)], [f0, f0, f1, f1]);
     }
   };
-  const grey = { pos, idx };
-  const red = { pos: [] as number[], idx: [] as number[] };
-  const s = 0.13; // the stripe's width
+  const grey: Strip = { pos: [], w1: [], w2: [] };
+  const red: Strip = { pos: [], w1: [], w2: [] };
   // The flat run: from J1's plug to the fold line (inX + hw, y0 − hw) → (inX − hw, y0 + hw).
-  slab(
-    [
-      [x0, y0 - hw, z0],
-      [inX + hw, y0 - hw, z0],
-      [inX - hw + s, y0 + hw - s, z0],
-      [x0, y0 + hw - s, z0],
-    ],
-    grey,
-  );
-  slab(
-    [
-      [x0, y0 + hw - s, z0],
-      [inX - hw + s, y0 + hw - s, z0],
-      [inX - hw, y0 + hw, z0],
-      [x0, y0 + hw, z0],
-    ],
-    red,
-  );
+  run([x0, y0 - hw, z0], [inX + hw, y0 - hw, z0], [x0, y0 + hw - s, z0], [inX - hw + s, y0 + hw - s, z0], FLAT, 1, grey);
+  run([x0, y0 + hw - s, z0], [inX - hw + s, y0 + hw - s, z0], [x0, y0 + hw, z0], [inX - hw, y0 + hw, z0], FLAT, 1, red);
   // The upright run, lying on the flat one at the fold (behind it: toward −z).
   const zf = z0 - t;
-  slab(
-    [
-      [inX - hw + s, y0 + hw - s, zf],
-      [inX + hw, y0 - hw, zf],
-      [inX + hw, y1, z1],
-      [inX - hw + s, y1, z1],
-    ],
-    grey,
-  );
-  slab(
-    [
-      [inX - hw, y0 + hw, zf],
-      [inX - hw + s, y0 + hw - s, zf],
-      [inX - hw + s, y1, z1],
-      [inX - hw, y1, z1],
-    ],
-    red,
-  );
-  const make = (d: { pos: number[]; idx: number[] }) => {
+  run([inX - hw + s, y0 + hw - s, zf], [inX - hw + s, y1, z1], [inX + hw, y0 - hw, zf], [inX + hw, y1, z1], UP, 2, grey);
+  run([inX - hw, y0 + hw, zf], [inX - hw, y1, z1], [inX - hw + s, y0 + hw - s, zf], [inX - hw + s, y1, z1], UP, 2, red);
+  const make = (d: Strip) => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(d.pos, 3));
-    g.setIndex(d.idx);
-    const flat = g.toNonIndexed();
-    flat.computeVertexNormals();
-    return flat;
+    g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(d.pos), 3).setUsage(THREE.DynamicDrawUsage));
+    g.computeVertexNormals();
+    return { geometry: g, rest: new Float32Array(d.pos), w1: new Float32Array(d.w1), w2: new Float32Array(d.w2) };
   };
-  return { cable: make(grey), stripe: make(red) };
+  const parts = [make(grey), make(red)];
+  const ends = [new THREE.Vector3(), new THREE.Vector3()];
+  let bent = false;
+  /** How far the upright run hangs for a given hang of the flat one: it is a third as long. */
+  const SHORT = 0.3;
+  const bend = (e1: number, fold: number, e2: number, sag?: THREE.Vector3) => {
+    const sx = sag?.x ?? 0;
+    const sy = sag?.y ?? 0;
+    const sz = sag?.z ?? 0;
+    const still = e1 === 0 && fold === 0 && e2 === 0 && sx === 0 && sy === 0 && sz === 0;
+    ends[0].set(sx, sy, sz - e1);
+    ends[1].set(sx * SHORT, sy * SHORT, sz * SHORT - e2);
+    if (still && !bent) return;
+    bent = !still;
+    for (const p of parts) {
+      const pos = p.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const arr = pos.array as Float32Array;
+      for (let i = 0, k = 0; k < p.w1.length; i += 3, k++) {
+        const a = p.w1[k];
+        const b = p.w2[k];
+        const hang = a + b * SHORT;
+        arr[i] = p.rest[i] + sx * hang;
+        arr[i + 1] = p.rest[i + 1] + sy * hang;
+        arr[i + 2] = p.rest[i + 2] + sz * hang - (fold + (e1 - fold) * a + (e2 - fold) * b);
+      }
+      pos.needsUpdate = true;
+      p.geometry.computeVertexNormals();
+    }
+  };
+  return { cable: parts[0].geometry, stripe: parts[1].geometry, bend, ends };
 }
 
 /** The panel's power lead's plug (VH, 4-way housing), in its own frame: mating face at z 0, the wires leaving its back at z −0.9. */
@@ -450,15 +479,19 @@ export function usbPlug() {
   return { shell, boot };
 }
 
-/** A soldering iron: tip at the origin, the iron running up +y. */
+/**
+ * A soldering iron: tip at the origin, the iron running up +y. Three turned
+ * parts, each a lathe profile (radius, height): the plated tip, a cone a
+ * hair blunt on its shank; the heater's steel barrel, with the collar that
+ * holds the tip and the nut that holds the barrel; and the handle — a guard
+ * ahead of the fingers, a waist for them, a rounded end.
+ */
 export function iron() {
-  const tip = new THREE.CylinderGeometry(0.03, 0.12, 0.9, 12);
-  tip.translate(0, 0.45, 0);
-  const barrel = new THREE.CylinderGeometry(0.2, 0.2, 2.6, 16);
-  barrel.translate(0, 0.9 + 1.3, 0);
-  const grip = new THREE.CylinderGeometry(0.42, 0.36, 4.6, 20);
-  grip.translate(0, 3.5 + 2.3, 0);
-  return { metal: mergeGeometries([tip, barrel]), grip };
+  const lathe = (profile: [number, number][], segments: number) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), segments);
+  const tip = lathe([[0, 0], [0.026, 0.014], [0.082, 0.62], [0.082, 0.96]], 20);
+  const barrel = lathe([[0.082, 0.96], [0.15, 0.96], [0.15, 1.14], [0.112, 1.16], [0.112, 2.96], [0.2, 2.98], [0.2, 3.32], [0.12, 3.34]], 24);
+  const grip = lathe([[0.12, 3.34], [0.3, 3.34], [0.37, 3.46], [0.37, 3.62], [0.27, 3.9], [0.245, 5.2], [0.3, 6.5], [0.3, 7.7], [0.24, 7.96], [0, 8.02]], 28);
+  return { tip, barrel, grip };
 }
 
 /** The PCB holder: two posts with jaws, gripping the board's short edges. */
@@ -485,6 +518,76 @@ export function plate() {
   return g;
 }
 
+/**
+ * The shade a print plate keeps round its foot, as an alpha map for a square
+ * of ground `margin` wider than the plate all round: close and dark under
+ * the plate's edge, gone a few centimetres out.
+ */
+export function plateShade(margin: number) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const ctx = c.getContext("2d");
+  if (ctx) {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, 128, 128);
+    const px = 128 / (PLATE_SIZE + margin * 2);
+    // Twice: a wide soft one, and a tight one where the plate meets the mat.
+    for (const [blur, a] of [
+      [margin * px * 0.8, 0.5],
+      [margin * px * 0.28, 0.8],
+    ]) {
+      ctx.shadowColor = `rgba(255,255,255,${a})`;
+      ctx.shadowBlur = blur;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(margin * px, margin * px, PLATE_SIZE * px, PLATE_SIZE * px);
+    }
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/**
+ * The outline of a part as it lies on its print plate, seen from above: the
+ * outermost point of it in each of `n` directions (plate x, z), drawn in a
+ * little — where the nozzle lays the part's outer wall, near enough.
+ */
+export function footprint(g: THREE.BufferGeometry, n = 28, inset = 0.06): [number, number][] {
+  const pos = g.getAttribute("position");
+  const far = new Float32Array(n).fill(-Infinity);
+  const out: [number, number][] = Array.from({ length: n }, () => [0, 0]);
+  const cos = Array.from({ length: n }, (_, k) => Math.cos((k / n) * Math.PI * 2));
+  const sin = Array.from({ length: n }, (_, k) => Math.sin((k / n) * Math.PI * 2));
+  let cx = 0;
+  let cz = 0;
+  // Every third vertex is plenty for an outline.
+  const step = pos.count > 3000 ? 3 : 1;
+  let count = 0;
+  for (let i = 0; i < pos.count; i += step) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    cx += x;
+    cz += z;
+    count++;
+    for (let k = 0; k < n; k++) {
+      const d = x * cos[k] + z * sin[k];
+      if (d > far[k]) {
+        far[k] = d;
+        out[k][0] = x;
+        out[k][1] = z;
+      }
+    }
+  }
+  cx /= Math.max(1, count);
+  cz /= Math.max(1, count);
+  for (const p of out) {
+    const dx = cx - p[0];
+    const dz = cz - p[1];
+    const l = Math.hypot(dx, dz) || 1;
+    p[0] += (dx / l) * inset;
+    p[1] += (dz / l) * inset;
+  }
+  return out;
+}
+
 /** A coil of cable lying on the mat (a few loose turns). */
 export function coil(radius: number, tube: number, turns: number) {
   const parts: THREE.BufferGeometry[] = [];
@@ -502,7 +605,7 @@ export function tapeStrip(length: number) {
   return new THREE.BoxGeometry(0.9, length, 0.02);
 }
 
-/** A soft round glow for sprites (a solder joint's glint). */
+/** A soft round glow for sprites (a print's nozzle). */
 export function glowTexture() {
   const c = document.createElement("canvas");
   c.width = c.height = 64;

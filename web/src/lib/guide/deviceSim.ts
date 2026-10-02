@@ -148,6 +148,7 @@ export class DeviceSim {
   private labels: string[] = [...ORIGIN_LABELS];
 
   private mode: SimMode = "run";
+  private filter: ((frame: Uint8ClampedArray) => void) | null = null;
   /** The panel's brightness byte, 5..255, as the firmware keeps it. */
   private level: number = FIRMWARE.defaultBrightness;
   /** When the open screen's idle timer last restarted. */
@@ -233,6 +234,16 @@ export class DeviceSim {
     }
     if (mode === "run" && this.mode === "off") this.bootAt = this.now;
     this.enter(mode);
+  }
+
+  /**
+   * The guide may draw over the frame — not the firmware's doing, the page's:
+   * the hub redraws the panel row by row when it shows a pattern being made
+   * (components/guide/world/hubMake.ts). Called with `frame` after each
+   * repaint of a lit panel; never while it is off or asleep. Null removes it.
+   */
+  setFrameFilter(filter: ((frame: Uint8ClampedArray) => void) | null) {
+    this.filter = filter;
   }
 
   /** Jump to a pattern by slug (or index), as if chosen on SELECT. */
@@ -691,6 +702,7 @@ export class DeviceSim {
 
     const overlay = this.overlay();
     if (overlay) drawOverlay(out, overlay);
+    this.filter?.(out);
   }
 
   private overlay(): PanelOverlay | null {

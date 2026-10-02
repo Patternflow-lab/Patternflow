@@ -1,33 +1,55 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Fragment, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import styles from "./Guide.module.css";
 import hub from "./Hub.module.css";
 import { COPY } from "./copy";
 import { HUB_COPY } from "./copy/hub";
-import { GUIDE_ORDER, PAGES, pagePath } from "./pages";
+import { GUIDE_ORDER, PAGES } from "./pages";
 import { hereFor, reportUrl } from "./report";
 import { legacyGuideTarget } from "./legacy";
-import { useDarkDocument, useDocumentLang } from "./darkDocument";
-import type { GuideLang, GuidePageId } from "./store";
+import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
+import GuideLink from "./world/GuideLink";
+import { useGuidePage } from "./world/usePage";
+import Preloader from "./ui/Preloader";
+import Words from "./ui/Words";
+import { usePanelTint } from "./ui/panelTint";
+import HubResident from "./ui/resident/HubResident";
 
 // /guide: the hub. One glance, three ways in: Build (soldering one from bare
 // parts), Play (it's built), Make (it plays; now their own patterns) — side
 // by side in that order, each a number, a name and the one line a reader
 // recognises themselves in. What a guide covers is its own opening's to say;
 // here its chapter names only surface under the guide being pointed at. The
-// 3D device stands alone above them, the page's one image (HubStage, loaded
-// after the page, so the words never wait for it), and it answers the guide
-// being pointed at.
+// 3D device stands alone above them, the page's one image, and it answers
+// the guide being pointed at.
+//
+// The device is not this page's: the stage is mounted above the pages, once
+// for the whole guide (world/GuideWorld — loaded after the page, so the
+// words never wait for it), and the hub is one of the pages that play on it.
+// This page tells the stage three things, all through the store: that the
+// hub is on screen (useGuidePage), where its choices start (setHubTop — the
+// device is framed above them, world/framing.ts), and which guide the reader
+// is pointing at (setPreview). The answers are the stage's (world/HubAnswers,
+// stage/Explode): Build — the device comes apart; Play — K1 turns and the
+// pattern follows; Make — the pattern is made again and again. Choosing a
+// guide (GuideLink) holds its answer while the words leave, and the guide's
+// opening takes it from there: the parts settle, the camera pushes in, the
+// device stands back for the desk.
+//
+// On the rule over the three guides stands the resident (ui/resident): a
+// figure a few LED cells tall that walks to the guide being pointed at, and
+// can be walked with ← and → — the guide it stands over is then the chosen
+// one (`walked`: the same state as pointing at it, kept here so the column
+// can show it), and Enter goes in. It is play, and nothing depends on it:
+// the three links, their order for Tab, and what a click does are as they
+// were. The mouse takes the choice back by moving.
 //
 // /guide used to be the Play guide. Its old anchors (#flash, #knobs-3, …)
 // are sent on to /guide/play (legacy.ts): on a page load by the root
 // layout's script, before the hub is parsed; here when the hub is reached
 // without one, before it paints.
-
-const HubStage = dynamic(() => import("./HubStage"), { ssr: false });
 
 function useLegacyAnchors() {
   useLayoutEffect(() => {
@@ -52,14 +74,14 @@ function useLegacyAnchors() {
   }, []);
 }
 
-// Where the choices start, from the top of the page: the stage is a box round
-// what is above them (Hub.module.css .stageBox reads --hub-top).
-function useChoicesTop(page: RefObject<HTMLElement | null>, choices: RefObject<HTMLElement | null>) {
+// Where the choices start, from the top of the page: the stage frames the
+// device in what is above them, and fades its floor out behind them
+// (store.hubTop → world/framing.ts hubFraming, Guide.module.css --hub-top).
+function useChoicesTop(choices: RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
-    const root = page.current;
     const el = choices.current;
-    if (!root || !el) return;
-    const measure = () => root.style.setProperty("--hub-top", `${Math.round(el.getBoundingClientRect().top + window.scrollY)}px`);
+    if (!el) return;
+    const measure = () => useGuideStore.getState().setHubTop(Math.round(el.getBoundingClientRect().top + window.scrollY));
     measure();
     // The choices grow and shrink with the window's width and with their fonts.
     const ro = new ResizeObserver(measure);
@@ -69,32 +91,38 @@ function useChoicesTop(page: RefObject<HTMLElement | null>, choices: RefObject<H
       ro.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [page, choices]);
+  }, [choices]);
+}
+
+/** The guide being pointed at, for the stage (store.preview). */
+function point(id: GuidePageId) {
+  useGuideStore.getState().setPreview(id);
+}
+function pointAway(id: GuidePageId) {
+  const s = useGuideStore.getState();
+  if (s.preview === id) s.setPreview(null);
 }
 
 export default function GuideHub({ lang }: { lang: GuideLang }) {
   const copy = COPY[lang];
   const words = HUB_COPY[lang];
   const other: GuideLang = lang === "en" ? "ko" : "en";
-  // The guide the reader is pointing at (mouse or keyboard): the device answers it (HubStage).
-  const [guide, setGuide] = useState<GuidePageId | null>(null);
-  const page = useRef<HTMLDivElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const choices = useRef<HTMLDivElement>(null);
+  // The guide chosen by walking the resident to it (ui/resident/HubResident), or null.
+  const [walked, setWalked] = useState<GuidePageId | null>(null);
   useLegacyAnchors();
-  useDarkDocument();
-  useDocumentLang(lang);
-  useChoicesTop(page, choices);
-
-  const leave = (id: GuidePageId) => setGuide((g) => (g === id ? null : g));
+  useGuidePage("hub", lang);
+  useChoicesTop(choices);
+  // The page's accent follows the colour on the panel (ui/panelTint.ts).
+  usePanelTint(root);
+  // Nothing is pointed at once the hub is gone (the store outlives it; a guide's own arrival clears it too).
+  useEffect(() => () => useGuideStore.setState({ preview: null }), []);
 
   return (
-    <div ref={page} className={`${styles.page} ${hub.page}`} lang={lang}>
-      <div className={styles.stage} aria-hidden="true">
-        <div className={hub.glow} />
-        <HubStage guide={guide} />
-        <div className={styles.grain} />
-      </div>
-
+    <div className={`${styles.page} ${hub.page}`} lang={lang} ref={root} data-page="hub">
+      {/* The first visit's cover, while the stage loads (ui/Preloader). */}
+      <Preloader />
       <header className={`${styles.top} ${hub.top}`}>
         <div className={styles.brandRow}>
           <Link href="/" className={styles.brand}>
@@ -104,28 +132,39 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
             WIP
           </span>
         </div>
-        <Link href={pagePath("hub", other)} className={styles.lang} hrefLang={other}>
+        <GuideLink to="hub" lang={other} className={styles.lang} hrefLang={other}>
           {copy.langSwitch.label}
-        </Link>
+        </GuideLink>
       </header>
 
       <main className={styles.story}>
-        {/* data-scene / data-step: what the stage frames the device against (GuideCanvas freeArea; Hub.module.css .frame). */}
         <section className={`${styles.scene} ${hub.hub}`} data-scene="opening" id="top">
-          <div ref={choices} className={hub.inner}>
-            <span className={hub.frame} data-step={0} aria-hidden="true" />
+          <div ref={choices} className={hub.inner} data-leaves="">
             <h1 className={hub.title}>
               <span className={hub.kicker}>{words.kicker}</span> {words.title}
             </h1>
 
-            <ol className={hub.guides}>
+            <HubResident within={choices} chosen={walked} onChoose={setWalked} />
+
+            <ol
+              className={hub.guides}
+              data-walk={walked ? "" : undefined}
+              // The mouse moved: the pointing is its again.
+              onPointerMove={(e) => {
+                if (walked === null || e.pointerType !== "mouse") return;
+                setWalked(null);
+                const under = (e.target as Element).closest?.<HTMLElement>("[data-guide]")?.dataset.guide as GuidePageId | undefined;
+                useGuideStore.getState().setPreview(under ?? null);
+              }}
+            >
               {GUIDE_ORDER.map((id, i) => {
                 const text = PAGES[id].text(lang);
                 const inside = `hub-${id}-inside`;
                 return (
-                  <li key={id} className={hub.guide} data-guide={id}>
-                    <Link
-                      href={pagePath(id, lang)}
+                  <li key={id} className={hub.guide} data-guide={id} data-here={walked === id ? "" : undefined}>
+                    <GuideLink
+                      to={id}
+                      lang={lang}
                       className={hub.go}
                       aria-describedby={inside}
                       // Over, not enter: coming Back with the mouse where it
@@ -133,19 +172,25 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
                       // left the page, and React makes no enter out of that
                       // — the column lit (CSS :hover) and the device did not answer.
                       onPointerOver={(e) => {
-                        if (e.pointerType === "mouse") setGuide(id);
+                        if (e.pointerType === "mouse") point(id);
                       }}
-                      onPointerLeave={() => leave(id)}
-                      onFocus={() => setGuide(id)}
-                      onBlur={() => leave(id)}
+                      onPointerLeave={() => pointAway(id)}
+                      onFocus={() => {
+                        // The focus is a pointing of its own: it takes over from the walk.
+                        setWalked(null);
+                        point(id);
+                      }}
+                      onBlur={() => pointAway(id)}
                     >
                       <span className={hub.num}>{String(i + 1).padStart(2, "0")}</span>
-                      <span className={hub.name}>{text.name}</span>
+                      <span className={`${hub.name} ${styles.wordsNow}`}>
+                        <Words text={text.name} />
+                      </span>
                       <span className={hub.arrow} aria-hidden="true">
                         →
                       </span>
                       <span className={hub.situation}>{words.guides[id].situation}</span>
-                    </Link>
+                    </GuideLink>
                     {/* What is inside, for the guide being pointed at. A name never breaks in two: the line turns after its dot. */}
                     <p className={hub.inside} id={inside}>
                       {text.chapters.map((c, n) => (

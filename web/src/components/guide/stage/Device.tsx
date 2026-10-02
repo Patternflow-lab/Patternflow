@@ -11,8 +11,12 @@ import * as THREE from "three";
 import { patternVert } from "@/components/3d/patterns/common";
 import { PATTERN_DETENTS_PER_TURN } from "@/lib/pattern/harness";
 import { FIRMWARE, PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
+import { ledPanelMaterial, ledPanelTexture } from "./look/ledPanel";
+import { knobMaterial, plaMaterial, tunePcbMaterials } from "./look/materials";
+import { readPanelGlow } from "./look/panelGlow";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
+import { knobIsTurned } from "../hubKnob";
 import {
   DRACO_URL,
   modelToWorld,
@@ -38,6 +42,8 @@ import {
   sliderPose,
 } from "./parts";
 import KitFx from "./KitFx";
+import { kitPress } from "./hand";
+import { kitState } from "../timing";
 import { devkitMaterials } from "./kitMaterials";
 import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 import { VIEWS } from "./views";
@@ -50,29 +56,6 @@ import { VIEWS } from "./views";
 // real encoders, and the back slider comes off for the DevKit to come out.
 // The landing model's GLB is shared with the landing page's HeroScene through
 // drei's cache, so this works on clones and never touches a cached scene.
-
-const ledFragment = `
-uniform sampler2D uTex;
-uniform float uPower;
-varying vec2 vUv;
-void main() {
-  vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
-  vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
-  vec2 localUV = fract(gridUV);
-  vec2 pxUV = (floor(gridUV) + 0.5) / vec2(128.0, 64.0);
-  vec3 col = texture2D(uTex, pxUV).rgb;
-  float d = length(localUV - 0.5);
-  float dotMask = smoothstep(0.46, 0.34, d);
-  float fw = fwidth(vUv.x) * 128.0;
-  float lod = smoothstep(0.0, 0.29, fw);
-  float alpha = mix(dotMask, 1.0, lod);
-  float luma = dot(col, vec3(0.299, 0.587, 0.114));
-  col *= luma > 0.75 ? 2.35 : 0.9;
-  float unlit = 0.018;
-  col = mix(vec3(unlit), col, step(0.01, length(col)));
-  gl_FragColor = vec4(col * alpha * uPower + vec3(unlit) * (1.0 - uPower), 1.0);
-}
-`;
 
 // A ring drawn on a plane: `uFill` of the circle as a bright arc (a hold on
 // its way to a long-press) over a faint full ring (the knob in focus).
@@ -131,6 +114,8 @@ const KNOB_HIT_R = 1.45;
 const DIAL_IN = 0.98;
 const DIAL_OUT = 1.16;
 const DIAL_DOT = 0.17;
+/** The focus / hold ring's outer edge round a knob's top (the ring's plane is 4.2 across, its band out to 0.98 of that). */
+const FOCUS_RING_R = 2.06;
 /** Just proud of the case's front face (1.5635), under the knob skirts (1.6437). */
 const DIAL_Z = KNOB_BASE_Z - 0.06;
 /** How long a knob keeps its readout after it last moved, ms. */
@@ -162,9 +147,13 @@ function seatingStep(page: string, scene: string, step: number) {
   return page === "build" && scene === "firmware" && step === 1;
 }
 
-// Warm white PLA, and the knobs' matte black.
-const caseMaterial = () => new THREE.MeshStandardMaterial({ color: "#eceae4", roughness: 0.55, metalness: 0 });
-const knobMaterial = () => new THREE.MeshStandardMaterial({ color: "#161616", roughness: 0.82, metalness: 0 });
+// Warm white PLA and the knobs' black (look/materials.ts): printed, with a
+// print's layers on the walls. The case lay on its face on the plate and the
+// knobs stood on their skirts, so in the device both are layered along z.
+const caseMaterial = () => plaMaterial();
+
+/** How fast the panel dies when its power is cut: the time to fall to a third, seconds. A supply's capacitors, not a fade — but not a cut frame either. */
+const POWER_OFF_S = 0.11;
 
 export default function Device() {
   const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
@@ -214,6 +203,21 @@ export default function Device() {
       m.castShadow = true;
       m.receiveShadow = true;
     });
+    // The board's parts as what they are made of (the file gives most of
+    // them glTF's default, a fully rough metal): look/materials.ts.
+    tunePcbMaterials(pcb);
+    // The encoders' simplified metal reads as a mirror under the stage's
+    // light (it was made to sit inside the case), and blooms: brushed steel
+    // instead, wherever they are out in the open — the hub's device taken
+    // apart (Explode), and the Build guide (BuildStage sets the same).
+    pcb.traverse((o) => {
+      const mat = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+      if (mat && !Array.isArray(mat) && mat.name === "encoder_metal") {
+        mat.color.set("#8d9096");
+        mat.metalness = 0.7;
+        mat.roughness = 0.6;
+      }
+    });
     return root;
   }, [ledGltf, caseGltf, pcbGltf]);
 
@@ -245,22 +249,10 @@ export default function Device() {
     };
   }, [scene, kit]);
 
-  const texture = useMemo(() => {
-    const data = new Uint8Array(PANEL_W * PANEL_H * 4);
-    const t = new THREE.DataTexture(data, PANEL_W, PANEL_H, THREE.RGBAFormat);
-    t.needsUpdate = true;
-    return t;
-  }, []);
-
-  const ledMat = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: { uTex: { value: texture }, uPower: { value: 0 } },
-        vertexShader: patternVert,
-        fragmentShader: ledFragment,
-      }),
-    [texture],
-  );
+  // The panel's face (look/ledPanel.ts): the frame as a texture, and the
+  // shader that makes LEDs of it.
+  const texture = useMemo(() => ledPanelTexture(), []);
+  const ledMat = useMemo(() => ledPanelMaterial(texture), [texture]);
 
   const parts = useMemo<Parts>(() => {
     const p: Parts = { devkit: kit, led: null, knobs: [null, null, null, null], slider: null, all: [] };
@@ -319,6 +311,8 @@ export default function Device() {
           toneMapped: false,
         });
         const mesh = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 4.2), mat);
+        // By name: a ring goes where its knob goes when the device comes apart (Explode).
+        mesh.name = "knob_ring";
         return mesh;
       }),
     [],
@@ -373,6 +367,8 @@ export default function Device() {
   }, [dials, scene]);
 
   const hovered = useRef(-1);
+  /** The DevKit button under the pointer, while it can be pressed. */
+  const overButton = useRef<THREE.Object3D | null>(null);
 
   // ── knobs under the pointer ────────────────────────────────────────────────
   const drag = useRef<{
@@ -411,6 +407,7 @@ export default function Device() {
       }
     };
     const onUp = () => {
+      kitPress.boot = kitPress.rst = false;
       const d = drag.current;
       if (!d) return;
       if (!d.turned) sim.release(d.knob);
@@ -419,6 +416,7 @@ export default function Device() {
     };
     // A gesture the browser took over (a scroll, say) was never a click.
     const onCancel = () => {
+      kitPress.boot = kitPress.rst = false;
       const d = drag.current;
       if (!d) return;
       sim.cancel(d.knob);
@@ -445,7 +443,29 @@ export default function Device() {
     };
   }, []);
 
+  // The DevKit's BOOT and RST, on the step that is about them ("Hold BOOT,
+  // tap RST": scenes.ts bootSeq) and with the DevKit held up: a real hand
+  // could press them there, so the reader's can (hand.ts kitPress). Only the
+  // nearest thing under the pointer counts — never a button through the cable.
+  const buttonUnder = (e: ThreeEvent<PointerEvent>): "boot" | "rst" | null => {
+    if (!kit.boot && !kit.rst) return null;
+    let which: "boot" | "rst" | null = null;
+    for (let o: THREE.Object3D | null = e.object; o; o = o.parent) {
+      if (o === kit.boot) which = "boot";
+      else if (o === kit.rst) which = "rst";
+    }
+    if (!which || e.intersections[0]?.object !== e.object) return null;
+    const { scene: sceneId, step, page } = useGuideStore.getState();
+    return page === "play" && kitState.presented && stepOf(sceneId, step).bootSeq ? which : null;
+  };
+
   const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
+    const button = buttonUnder(e);
+    if (button) {
+      e.stopPropagation();
+      kitPress[button] = true;
+      return;
+    }
     const knob = knobUnder(e.object);
     const knobMesh = knob < 0 ? null : parts.knobs[knob];
     if (!knobMesh) return;
@@ -472,12 +492,18 @@ export default function Device() {
   };
 
   const onPointerOver = (e: ThreeEvent<PointerEvent>) => {
+    if (buttonUnder(e)) {
+      overButton.current = e.object;
+      if (!drag.current) document.body.style.cursor = "pointer";
+      return;
+    }
     const knob = knobUnder(e.object);
     if (knob < 0) return;
     hovered.current = knob;
     if (!drag.current) document.body.style.cursor = "grab";
   };
   const onPointerOut = (e: ThreeEvent<PointerEvent>) => {
+    if (overButton.current === e.object) overButton.current = null;
     if (knobUnder(e.object) === hovered.current) hovered.current = -1;
     if (!drag.current) document.body.style.cursor = "";
   };
@@ -485,7 +511,8 @@ export default function Device() {
   // ── the frame ──────────────────────────────────────────────────────────────
   // back: sliderPose's travel (0 shut, SLIDER_OFF off its rails, 1 laid
   // down); esp: devkitPose's travel (0 seated, 1 presented).
-  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, back: 0, esp: 0 });
+  // power: the panel's, as shown (it dies away when cut); held: a lit frame is still on it.
+  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, held: false, tick: 0, back: 0, esp: 0 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const readout = useRef({
@@ -507,6 +534,8 @@ export default function Device() {
   const size = useThree((st) => st.size);
   // The knobs' top centres, world units (the stage's model group: geometry.ts).
   const knobTops = useMemo(() => [0, 1, 2, 3].map((i) => modelToWorld(knobWorldCenter(i, "model"))), []);
+  // …and their dials' centres on the case's face, a knob's height below: a pill stands clear of both (tags.ts).
+  const dialAt = useMemo(() => [0, 1, 2, 3].map((i) => ({ at: modelToWorld(knobWorldCenter(i, "model").setZ(DIAL_Z)), radius: DIAL_OUT * MODEL_SCALE })), []);
 
   useFrame((state, rawDt) => {
     // A tab coming back from the background hands over one long frame; don't
@@ -523,11 +552,17 @@ export default function Device() {
     // A couple of frames' grace, for the board being put in the step's state.
     {
       const ro = readout.current;
-      const key = `${sceneId}.${step}`;
+      // The page is part of it: the stage carries on from one page to the
+      // next, and both open on "opening", 0.
+      const key = `${page}.${sceneId}.${step}`;
       if (ro.key !== key) {
         ro.key = key;
         ro.settle = 2;
       }
+      // Nor is the hub's Play answer turning K1 back a knob "just moved": it
+      // finishes in Play's opening (world/HubAnswers), and its readout came up
+      // beside K1 there as if the reader had turned it.
+      if (page !== "hub" && knobIsTurned()) ro.settle = 2;
       if (ro.settle > 0) {
         ro.settle--;
         for (let i = 0; i < 4; i++) {
@@ -539,16 +574,36 @@ export default function Device() {
     }
 
     // Panel: copy the simulated frame in, bottom row first for GL.
-    const src = sim.frame;
+    //
+    // When the power goes the simulator's frame is black at once. The panel
+    // is not: what it was showing dies away over a tenth of a second, as the
+    // supply's capacitors empty. So the last lit frame is held on the panel
+    // while its power falls, and only then is it cleared. (Coming on is the
+    // firmware's own fade, in the frame itself.)
     const dst = texture.image.data as Uint8Array;
-    const row = PANEL_W * 4;
-    for (let y = 0; y < PANEL_H; y++) {
-      dst.set(src.subarray(y * row, (y + 1) * row), (PANEL_H - 1 - y) * row);
+    const sh0 = shown.current;
+    const on = snap.mode !== "off";
+    if (on) {
+      const src = sim.frame;
+      const row = PANEL_W * 4;
+      for (let y = 0; y < PANEL_H; y++) {
+        dst.set(src.subarray(y * row, (y + 1) * row), (PANEL_H - 1 - y) * row);
+      }
+      texture.needsUpdate = true;
+      sh0.power += (1 - sh0.power) * Math.min(1, dt * 9);
+      sh0.held = true;
+    } else if (sh0.held) {
+      sh0.power *= Math.exp(-dt / POWER_OFF_S);
+      if (sh0.power < 0.004) {
+        sh0.power = 0;
+        sh0.held = false;
+        dst.fill(0);
+        texture.needsUpdate = true;
+      }
     }
-    texture.needsUpdate = true;
-    const powerTarget = snap.mode === "off" ? 0 : 1;
-    shown.current.power += (powerTarget - shown.current.power) * Math.min(1, dt * 6);
-    ledMat.uniforms.uPower.value = shown.current.power;
+    ledMat.uniforms.uPower.value = sh0.power;
+    // What the panel is giving off, for the lights and the floor (look/panelGlow.ts): every other frame is plenty.
+    if ((sh0.tick = (sh0.tick + 1) & 1) === 0) readPanelGlow(dst, sh0.power, dt * 2);
 
     // Knobs: rotation about their own axis follows the detents, a press
     // pushes the cap in along it.
@@ -647,11 +702,23 @@ export default function Device() {
           }
         }
         // Beside its knob at a fixed gap in screen pixels, whatever the
-        // zoom: K1/K3 to the right, over the case's margin. Left of K2/K4 is
-        // the panel's edge, where the screens print their headings and
-        // SELECT its bar, so K2's goes above and K4's below.
+        // zoom, and outside its dial — the band the orange dot rides — and
+        // its focus ring while that is lit: K1/K3 to the right, over the
+        // case's margin. Left of K2/K4 is the panel's edge, where the
+        // screens print their headings and SELECT its bar, so K2's goes
+        // above and K4's below, and a readout there grows to the right, away
+        // from the panel. Where there is no room to the right for a readout
+        // (a phone), K1's goes above K2's row and K3's below K4's.
         const side = i === 0 || i === 2 ? "right" : i === 1 ? "up" : "down";
-        if (on) placeTag(label, state.camera, size, knobTops[i], KNOB_R * MODEL_SCALE, side, 7);
+        if (on) {
+          const reach = (KNOB_R + (FOCUS_RING_R - KNOB_R) * Math.min(1, ring.uniforms.uFocus.value * 1.5)) * MODEL_SCALE;
+          placeTag(label, state.camera, size, knobTops[i], reach, side, 6, undefined, 0, {
+            also: dialAt[i],
+            growRight: true,
+            alt: i === 0 ? "up" : i === 2 ? "down" : undefined,
+            altRow: 1,
+          });
+        }
       }
     });
 

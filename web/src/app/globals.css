@@ -1,18 +1,76 @@
 @import "tailwindcss";
 
+  /* Pretendard, each weight in four parts. The whole file is 770–790 KB, most
+     of it Hangul, and a page fetched all of it for one glyph Inter lacks —
+     an English page for the arrow in a link. The parts are the same glyphs,
+     outlines and metrics, cut by script (pyftsubset on the files beside
+     them); their ranges cover all of Unicode between them, so whatever the
+     whole file drew, one part still draws. A page now fetches only the parts
+     it has characters for: an arrow costs 38 KB, and the Hangul comes with
+     the first Korean word. */
   @font-face {
     font-family: 'Pretendard';
     font-weight: 400;
     font-style: normal;
     font-display: swap;
-    src: url('/fonts/Pretendard-Regular.woff2') format('woff2');
+    src: url('/fonts/Pretendard-Regular.latin.woff2') format('woff2');
+    unicode-range: U+0000-052F, U+1E00-1EFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Regular.hangul.woff2') format('woff2');
+    unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7FF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Regular.symbols.woff2') format('woff2');
+    unicode-range: U+2000-2BFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Regular.other.woff2') format('woff2');
+    unicode-range: U+0530-10FF, U+1200-1DFF, U+1F00-1FFF, U+2C00-312F, U+3190-A95F, U+A980-ABFF, U+D800-10FFFF;
   }
   @font-face {
     font-family: 'Pretendard';
     font-weight: 700;
     font-style: normal;
     font-display: swap;
-    src: url('/fonts/Pretendard-Bold.woff2') format('woff2');
+    src: url('/fonts/Pretendard-Bold.latin.woff2') format('woff2');
+    unicode-range: U+0000-052F, U+1E00-1EFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Bold.hangul.woff2') format('woff2');
+    unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7FF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Bold.symbols.woff2') format('woff2');
+    unicode-range: U+2000-2BFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Bold.other.woff2') format('woff2');
+    unicode-range: U+0530-10FF, U+1200-1DFF, U+1F00-1FFF, U+2C00-312F, U+3190-A95F, U+A980-ABFF, U+D800-10FFFF;
   }
 
   :root {

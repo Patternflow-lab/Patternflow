@@ -1,46 +1,15 @@
 /* The hub (/guide, GuideHub): the guide's dark room with the device alone in
    the middle of it, and under it three ways in — a number, a name, one line
    — side by side in the order a reader goes through them. The page's own
-   words are in Guide.module.css (.page, .stage, .top, .report); the choices
-   and the hub's stage are here. */
+   words are in Guide.module.css (.page, .top, .report), and so is the stage,
+   which is the whole guide's (.stage, .hubGlow, .canvasBox: the device above
+   the choices, its floor fading out behind them); the choices are here. */
 
 .page {
   /* The guides' names: the page's large type. */
   --hub-name: clamp(52px, 6vw, 96px);
   /* The side margin the choices keep. */
   --hub-side: 6vw;
-  /* Where the choices start, from the top of the page (GuideHub measures it). */
-  --hub-top: 66vh;
-}
-
-/* ── the stage ───────────────────────────────────────────────────────────── */
-
-/* The stage is a box round the part of the screen above the choices, so the
-   device stands in the middle of that and not of the whole screen. The
-   camera (GuideCanvas) shows the device 0.6 of its canvas's height, centred
-   16px below the canvas's middle (it keeps 64px free at the top and 32px at
-   the bottom); a box this tall, this far up, stands the device from 72px
-   under the top of the screen to 56px above the choices. The box's foot
-   runs on behind the choices and fades out there, so the floor has no edge. */
-.stageBox {
-  --box-top: calc(99px - var(--hub-top) / 3);
-  --fade: calc(var(--hub-top) - var(--box-top));
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: var(--box-top);
-  height: calc(var(--hub-top) * 1.667 - 213px);
-  -webkit-mask-image: linear-gradient(#000 min(100% - 64px, var(--fade) - 36px), transparent min(100%, var(--fade) + 52px));
-  mask-image: linear-gradient(#000 min(100% - 64px, var(--fade) - 36px), transparent min(100%, var(--fade) + 52px));
-}
-.glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(30% 44% at 50% calc(var(--hub-top) / 2 + 8px), rgba(255, 106, 61, 0.07), transparent 70%),
-    radial-gradient(64% 62% at 50% calc(var(--hub-top) / 2), rgba(90, 110, 160, 0.06), transparent 70%),
-    radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
 }
 
 /* ── the choices ─────────────────────────────────────────────────────────── */
@@ -60,21 +29,32 @@
   align-items: end;
   pointer-events: auto;
 }
-/* What the stage frames the device against (GuideCanvas freeArea, by
-   [data-step]): its top is where the choices start, which is what a narrow
-   screen's stage reads, and its left edge is the screen's right, which is
-   what a wide one's reads — nothing stands beside the device. */
-.frame {
-  position: absolute;
-  top: 0;
-  left: calc(100% + var(--hub-side));
-  width: 0;
-  height: 0;
+/* The hub arrives the way a poster is set: the sentence, then each guide in
+   turn, left to right — its rule drawn, its number, its name up from behind
+   a mask (Guide.module.css .wordsNow), its line. Once, as the page comes in;
+   under the first visit's cover it waits for the cover to lift. */
+@keyframes hubLine {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
 }
-
+@keyframes hubDraw {
+  from {
+    transform: scaleX(0);
+  }
+}
+.title,
+.inner .report {
+  animation: hubLine 0.9s var(--g-out) backwards;
+}
+.inner .report {
+  animation-delay: 620ms;
+}
 /* The page's one sentence, small: the names are the large type. */
 .title {
-  margin: 0 0 18px;
+  /* Room under it for the resident (ui/resident), who stands on the rule below: 18 px of figure, 8 of air. */
+  margin: 0 0 26px;
   font-size: 17px;
   line-height: 1.4;
   font-weight: 500;
@@ -93,7 +73,7 @@
 .inner .report {
   grid-column: 2;
   grid-row: 1;
-  margin: 0 0 20px;
+  margin: 0 0 28px;
 }
 
 .guides {
@@ -106,9 +86,39 @@
   list-style: none;
 }
 .guide {
+  /* Its place in the row: what arrives in it waits its turn. */
+  --at: calc(120ms + var(--c, 0) * 110ms);
   position: relative;
-  border-top: 1px solid var(--g-hair-2);
-  transition: border-color 0.25s;
+}
+.guide:nth-child(2) {
+  --c: 1;
+}
+.guide:nth-child(3) {
+  --c: 2;
+}
+/* Its rule: a hairline, drawn as the page arrives; and over it, when the
+   guide is pointed at, a line of the panel's light drawn the same way. */
+.guide::before,
+.guide::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+.guide::before {
+  background: var(--g-hair-2);
+  animation: hubDraw 1.2s var(--g-io) backwards;
+  animation-delay: calc(var(--at) - 120ms);
+}
+.guide::after {
+  background: var(--g-led);
+  box-shadow: 0 0 14px rgb(var(--g-led-rgb) / 0.7);
+  transform: scaleX(0);
+  transition: transform 0.7s var(--g-out);
 }
 /* The way in: the whole column, its foot included (::after lies over all of it). */
 .go {
@@ -122,7 +132,7 @@
   padding: 16px 0 10px;
   color: var(--g-ink);
   text-decoration: none;
-  transition: opacity 0.25s;
+  transition: opacity 0.35s ease;
 }
 .go::after {
   content: "";
@@ -149,6 +159,9 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
   color: var(--g-led);
+  animation: hubLine 0.9s var(--g-out) backwards;
+  animation-delay: var(--at);
+  transition: color 0.3s;
 }
 .arrow {
   grid-area: arrow;
@@ -156,10 +169,11 @@
   line-height: 1;
   color: var(--g-led);
   opacity: 0;
-  transform: translateX(-10px);
+  transform: translate3d(-14px, 0, 0);
   transition:
-    opacity 0.25s,
-    transform 0.25s;
+    opacity 0.3s ease,
+    transform 0.6s var(--g-out),
+    color 0.3s;
 }
 .name {
   grid-area: name;
@@ -172,6 +186,10 @@
 .page:lang(ko) .name {
   letter-spacing: -0.035em;
 }
+.name {
+  /* The name's own turn (Guide.module.css .wordsNow reads --at). */
+  --at: calc(160ms + var(--c, 0) * 110ms);
+}
 .situation {
   grid-area: situation;
   margin-top: 12px;
@@ -179,6 +197,8 @@
   font-size: 16px;
   line-height: 1.4;
   color: var(--g-ink-2);
+  animation: hubLine 0.9s var(--g-out) backwards;
+  animation-delay: calc(var(--at) + 260ms);
 }
 /* What is inside, only for the guide being pointed at. It is the column's
    foot and always there, so showing it moves nothing; the foot is as tall as
@@ -193,8 +213,11 @@
   letter-spacing: 0.02em;
   color: var(--g-ink-3);
   opacity: 0;
+  transform: translate3d(0, 6px, 0);
   pointer-events: none;
-  transition: opacity 0.25s;
+  transition:
+    opacity 0.3s ease,
+    transform 0.6s var(--g-out);
 }
 /* A chapter's name, with the dot after it: the line turns between names, never inside one. */
 .chapter {
@@ -203,11 +226,12 @@
 
 /* Pointed at, with the keyboard or the mouse: its line lights, its arrow
    and what is inside it show, and the other two step back. */
-.guide:has(.go:focus-visible) {
-  border-top-color: var(--g-led);
+.guide:has(.go:focus-visible)::after {
+  transform: none;
 }
 .go:focus-visible ~ .inside {
   opacity: 1;
+  transform: none;
 }
 .go:focus-visible .arrow {
   opacity: 1;
@@ -216,20 +240,39 @@
 .guides:has(.go:focus-visible) .go:not(:focus-visible) {
   opacity: 0.42;
 }
+/* (Not while a guide is chosen by walking the resident to it — below: the
+   mouse may be resting on another, and it points again when it moves.) */
 @media (hover: hover) {
-  .guide:has(.go:hover) {
-    border-top-color: var(--g-led);
+  .guides:not([data-walk]) .guide:has(.go:hover)::after {
+    transform: none;
   }
-  .go:hover ~ .inside {
-    opacity: 1;
-  }
-  .go:hover .arrow {
+  .guides:not([data-walk]) .go:hover ~ .inside {
     opacity: 1;
     transform: none;
   }
-  .guides:has(.go:hover) .go:not(:hover) {
+  .guides:not([data-walk]) .go:hover .arrow {
+    opacity: 1;
+    transform: none;
+  }
+  .guides:not([data-walk]):has(.go:hover) .go:not(:hover) {
     opacity: 0.42;
   }
+}
+/* Chosen by walking the resident to it with ← and → (GuideHub `walked`,
+   ui/resident/HubResident): the same as being pointed at. */
+.guides[data-walk] .guide[data-here]::after {
+  transform: none;
+}
+.guides[data-walk] .guide[data-here] .inside {
+  opacity: 1;
+  transform: none;
+}
+.guides[data-walk] .guide[data-here] .arrow {
+  opacity: 1;
+  transform: none;
+}
+.guides[data-walk] .guide:not([data-here]) .go {
+  opacity: 0.42;
 }
 
 /* A short window: the names give way before the page scrolls. */
@@ -244,23 +287,10 @@
 
 /* ── narrow screens ──────────────────────────────────────────────────────── */
 
-/* Under 900px the stage is the whole screen, and its camera keeps the device
-   above the choices (HubStage: the stage's narrow framing). */
+/* Under 900px the camera keeps the device above the choices (world/framing.ts hubFraming). */
 @media (max-width: 899px) {
   .page {
     --hub-side: 20px;
-  }
-  .stageBox {
-    inset: 0;
-    height: auto;
-    -webkit-mask-image: none;
-    mask-image: none;
-  }
-  .glow {
-    background:
-      radial-gradient(70% 34% at 50% 28%, rgba(255, 106, 61, 0.07), transparent 70%),
-      radial-gradient(120% 50% at 50% 28%, rgba(90, 110, 160, 0.06), transparent 70%),
-      radial-gradient(140% 120% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
   }
   /* On a short phone the choices scroll up under the top bar; it keeps a dark ground to stay legible. */
   .top {
@@ -271,6 +301,19 @@
   .hub {
     padding-top: 38vh;
     padding-bottom: 18px;
+  }
+  /* The floor ends above the choices here too. Wide, the canvas is masked
+     (Guide.module.css [data-foot]); here the room's dark rises behind the
+     words instead — no mask for a phone to draw the stage through. Without
+     it the kicker, set in the panel's colour, stood on the floor's
+     reflection of that same colour. */
+  .inner::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -48px calc(-1 * var(--hub-side)) -18px;
+    pointer-events: none;
+    background: linear-gradient(rgba(10, 9, 8, 0), rgba(10, 9, 8, 0.6) 30px, rgba(10, 9, 8, 0.9) 48px, var(--g-ground) 84px);
   }
   /* Nothing hovers on a phone: each way in shows it is one. */
   .arrow {
@@ -372,13 +415,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .guide,
+  .guide::after,
   .go,
   .arrow,
   .inside {
     transition: none;
   }
-  .arrow {
+  .arrow,
+  .inside {
     transform: none;
+  }
+  .title,
+  .inner .report,
+  .guide::before,
+  .num,
+  .situation {
+    animation: none;
   }
 }

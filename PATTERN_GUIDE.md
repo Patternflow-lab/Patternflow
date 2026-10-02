@@ -7,6 +7,10 @@ Lab, verify them on real hardware, and share them back.**
 Assembly and the first flash are [BUILD_GUIDE.md](BUILD_GUIDE.md). This guide
 is what comes after.
 
+Rather do it than read it? [patternflow.work/guide/make](https://patternflow.work/guide/make) is the
+same loop as a hands-on tutorial: a practice community, your real Pattern Lab
+in a window, and a practice AI to take the two prompts.
+
 - [0. Before you start](#0-before-you-start)
 - [1. One concept: a pattern is a small file](#1-one-concept-a-pattern-is-a-small-file)
 - [2. A look around the community](#2-a-look-around-the-community)
