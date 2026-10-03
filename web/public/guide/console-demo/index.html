@@ -20,7 +20,7 @@ a{color:inherit}:focus-visible{outline:2px solid var(--led);outline-offset:2px}
 h2{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:16px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 16px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);color:var(--ink);font:500 14px var(--sans);text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
-@media(hover:hover){.btn:hover{border-color:var(--ink)}.btn.pri:hover{background:var(--led);border-color:var(--led);color:#fff}footer a:hover,.kt :hover{color:var(--ink)}}
+@media(hover:hover){.btn:hover{border-color:var(--ink)}.btn.pri:hover{background:var(--led);border-color:var(--led);color:#fff}footer a:hover{color:var(--ink)}}
 .btn:disabled{opacity:.45;cursor:default;border-color:var(--rule)}
 .btn.pri{background:var(--ink);border-color:var(--ink);color:var(--cream)}
 .btn.ic{width:40px;padding:0}
@@ -49,13 +49,8 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
 .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--rule),inset 0 -2px var(--led)}
 #pwrnote{min-height:18px;margin:6px 0 4px}
 .val{font:12px var(--mono);color:var(--muted)}
-.kn{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;column-gap:10px;margin-top:4px}
-.kn label{font:600 12px var(--mono);color:var(--muted)}.kn .val{text-align:right}
-/* Several knobs at once: quiet, under the four. */
-.kt{display:flex;gap:20px;padding-left:38px;font-size:13px;color:var(--muted)}
-.kt>*{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
-.kt input{width:16px;height:16px;margin:0;accent-color:var(--ink)}
-.kt button{text-decoration:underline var(--faint);text-underline-offset:4px}
+.kn{display:grid;grid-template-columns:28px 1fr;align-items:center;column-gap:10px;margin-top:4px}
+.kn label{font:600 12px var(--mono);color:var(--muted)}
 #upd{margin-top:16px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}#upd span{flex:1}
 #upd:hover b{text-decoration:underline}
 .pf-offline .now,.pf-offline .f .v{opacity:.5}
@@ -67,10 +62,10 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
 #s-feat .btn{position:relative;min-height:32px;padding:0 12px;border-radius:99px;font-size:13px}
 @media(pointer:coarse){#s-feat .btn::after{content:"";position:absolute;inset:-4px 0}}
 #s-ed-block{width:100%;margin-top:16px}
-.f{display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule-soft);font-size:13px;text-decoration:none}
-.f .k{flex:none;width:84px;color:var(--muted)}
-.f .v{flex:1;min-width:0;font:12.5px var(--mono);text-align:right;overflow-wrap:anywhere}
-.bar{display:block;height:3px;margin:5px 0 2px auto;max-width:160px;background:var(--ghost)}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px}
+.f{min-width:0;font-size:12px;color:var(--muted)}
+.f .v{display:block;margin-top:2px;font:13px var(--mono);color:var(--ink);overflow-wrap:anywhere}
+.bar{display:block;height:3px;margin-top:5px;max-width:160px;background:var(--ghost)}
 .bar i{display:block;height:100%;width:0;background:var(--led);transition:width .3s}
 /* A description that does not fit beside its title wraps under it, whole. */
 .links a{position:relative;display:flex;align-items:baseline;column-gap:10px;min-height:44px;padding:10px 24px 10px 0;border-bottom:1px solid var(--rule-soft);text-decoration:none}
@@ -81,7 +76,7 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
 #featRows{display:contents}
 @media(min-width:960px){.wrap{max-width:1080px;padding-top:32px}
  .grid{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:48px;align-items:start}
- .ctl{position:sticky;top:20px}.side{margin-top:0}.card{padding:24px}.now{font-size:34px}}
+ .side{margin-top:0}.card{padding:24px}.now{font-size:34px}}
 </style></head><body>
 
 <main class="wrap">
@@ -114,15 +109,22 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
 
     <div class="blk" id="ctrls">
       <div class="hd"><span class="lbl">Knobs</span><span class="msg" id="ctrlmsg"></span></div>
-      <div class="kn"><label for="sl-0">K1</label><input type="range" id="sl-0" min="0" max="100" step="1" value="50"><span class="val" id="kv-0">&mdash;</span></div>
-      <div class="kn"><label for="sl-1">K2</label><input type="range" id="sl-1" min="0" max="100" step="1" value="50"><span class="val" id="kv-1">&mdash;</span></div>
-      <div class="kn"><label for="sl-2">K3</label><input type="range" id="sl-2" min="0" max="100" step="1" value="50"><span class="val" id="kv-2">&mdash;</span></div>
-      <div class="kn"><label for="sl-3">K4</label><input type="range" id="sl-3" min="0" max="100" step="1" value="50"><span class="val" id="kv-3">&mdash;</span></div>
-      <div class="kt">
-        <label><input type="checkbox" id="ktog">Together</label>
-        <button type="button" id="kshuf">Shuffle</button>
-        <button type="button" id="kundo" hidden>Undo</button>
-      </div>
+      <div class="kn"><label for="sl-0">K1</label><input type="range" id="sl-0" min="0" max="100" step="1" value="50"></div>
+      <div class="kn"><label for="sl-1">K2</label><input type="range" id="sl-1" min="0" max="100" step="1" value="50"></div>
+      <div class="kn"><label for="sl-2">K3</label><input type="range" id="sl-2" min="0" max="100" step="1" value="50"></div>
+      <div class="kn"><label for="sl-3">K4</label><input type="range" id="sl-3" min="0" max="100" step="1" value="50"></div>
+    </div>
+
+    <div class="blk facts">
+      <div class="f"><span class="k">Patterns</span><span class="v" id="s-pat">&mdash;</span></div>
+      <div class="f"><span class="k">Storage</span><span class="v"><span id="s-fs">&mdash;</span><span class="bar"><i id="s-fsbar"></i></span></span></div>
+      <div class="f"><span class="k">Wi-Fi</span><span class="v" id="s-wifi">&mdash;</span></div>
+      <div class="f"><span class="k">Address</span><span class="v" id="s-ip">&mdash;</span></div>
+      <!-- The panel's own access point, while it is up: a separate network
+           from the one above, so its own line. -->
+      <div class="f" id="s-hs-b" hidden><span class="k">Hotspot</span><span class="v" id="s-hs">&mdash;</span></div>
+      <div class="f"><span class="k">Memory</span><span class="v" id="s-heap">&mdash;</span></div>
+      <div class="f"><span class="k">Uptime</span><span class="v" id="s-up">&mdash;</span></div>
     </div>
   </div>
   </div>
@@ -144,18 +146,6 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
       <p class="note">Installing another keeps your patterns and settings.</p>
     </div>
 
-    <h2>Device</h2>
-    <div>
-      <div class="f"><span class="k">Patterns</span><span class="v" id="s-pat">&mdash;</span></div>
-      <div class="f"><span class="k">Storage</span><span class="v"><span id="s-fs">&mdash;</span><span class="bar"><i id="s-fsbar"></i></span></span></div>
-      <div class="f"><span class="k">Wi-Fi</span><span class="v" id="s-wifi">&mdash;</span></div>
-      <div class="f"><span class="k">Address</span><span class="v" id="s-ip">&mdash;</span></div>
-      <!-- The panel's own access point, while it is up: a separate network
-           from the one above, so its own line. -->
-      <div class="f" id="s-hs-b" hidden><span class="k">Hotspot</span><span class="v" id="s-hs">&mdash;</span></div>
-      <div class="f"><span class="k">Memory</span><span class="v" id="s-heap">&mdash;</span></div>
-      <div class="f"><span class="k">Uptime</span><span class="v" id="s-up">&mdash;</span></div>
-    </div>
 
     <h2>Pages</h2>
     <!-- Feature rows are not written here: they arrive from /api/status
@@ -281,7 +271,7 @@ function paint(s){
   b.textContent=(ed?'Other editions':'Editions')+' →';
   b.href='https://patternflow.work/editions'+(ed?'#'+encodeURIComponent(ed):'');
   b.hidden=s.viaHotspot&&!net;$('s-ed-off').hidden=!b.hidden;
-  updateSliders(s);
+  if(s.params)updateSliders(s.params);
   checkUpdate(s.version,s.variant);
 }
 
@@ -380,30 +370,15 @@ function checkUpdate(deviceVersion,variant){
 }
 
 // ── Knob sliders (K1..K4 · 0..100) ────────────────────────────
-// kv: what the four show. A status moves none while a hand is on one, or
-// for a beat after a write it may predate.
-var activeSlider=-1,inFlight=false,queuedParams={},kv=[],kBase=null,kSettle=0,kShown,undo,undoT,tog=$('ktog');
-function setK(i,v){
-  v=v<0?0:v>100?100:v;kv[i]=v;
-  var sl=$('sl-'+i);sl.value=v;fill(sl);$('kv-'+i).textContent=v;
-}
-// A free lane reports its last held value: painted once, then left alone
-// (Undo may just have freed it).
-function updateSliders(s){
-  var p=s.params,a=s.paramActive;
-  if(!p||p.length<4||activeSlider>=0||Date.now()<kSettle)return;
-  for(var i=0;i<4;i++)if(!kShown||!a||a[i])setK(i,Math.round(p[i]/10));
-  kShown=1;
-}
-// The four in one request: the server takes one connection at a time.
-// f[j]: free lane j (rN) instead.
-function sendAll(v,f){
-  for(var j=0;j<4;j++){
-    setK(j,v[j]);
-    if(f&&f[j]){delete queuedParams['p'+(j+1)];queuedParams['r'+(j+1)]=1}
-    else queuedParams['p'+(j+1)]=kv[j]*10;
+var activeSlider=-1,inFlight=false,queuedParams={};
+function updateSliders(params){
+  if(!params||params.length<4)return;
+  for(var i=0;i<4;i++){
+    if(activeSlider===i)continue;
+    var v=Math.round(params[i]/10);
+    if(v<0)v=0;if(v>100)v=100;
+    var sl=$('sl-'+i);sl.value=v;fill(sl);
   }
-  kSettle=Date.now()+1500;pumpParams();
 }
 function pumpParams(){
   if(inFlight)return; // one in flight; the newest values wait in the queue
@@ -422,51 +397,25 @@ function pumpParams(){
       // like a pattern ignoring its knobs.
       PF.say('not sent — '+(x&&x.message==='refused'?'refused':'no answer'),'err',$('ctrlmsg'));
     }).then(function(){
-      inFlight=false;kSettle=Date.now()+1500;
+      inFlight=false;
       if(Object.keys(queuedParams).length)pumpParams();
     });
 }
 // pX on the 0..1000 bus. The device derives the clicks a legacy pattern
 // reads from the change in the held value, so no dX alongside - sending
 // both counted every move twice.
-// Together: each knob moves by what the held one moved since the gesture
-// began (kBase), clamped, so dragging back undoes a clamp.
 [0,1,2,3].forEach(function(idx){
   var sl=$('sl-'+idx);
-  kv[idx]=+sl.value;
   held(sl,function(){activeSlider=idx},function(){
     if(activeSlider===idx)activeSlider=-1;
-    kBase=null;
     pumpParams();
   });
   sl.addEventListener('input',function(){
-    var v=+sl.value,j;
-    if(!kBase)kBase=kv.slice();
-    for(j=0;j<4;j++)if(j===idx||tog.checked){
-      setK(j,kBase[j]+v-kBase[idx]);
-      queuedParams['p'+(j+1)]=kv[j]*10;
-    }
-    kSettle=Date.now()+1500;dropUndo();
+    var v=parseInt(sl.value,10);if(isNaN(v))return;
+    queuedParams['p'+(idx+1)]=v*10;
     pumpParams();
   });
-  // A key press is a whole gesture.
-  sl.addEventListener('change',function(){kBase=null});
 });
-try{tog.checked=localStorage.getItem('pf-together')==1}catch(e){}
-tog.onchange=function(){try{localStorage.setItem('pf-together',tog.checked?1:0)}catch(e){}};
-// Undo: one level, until the next knob change or 12 s. Shuffle held all
-// four; a lane something else drove before is freed back to it.
-function dropUndo(){undo=0;$('kundo').hidden=true;clearTimeout(undoT)}
-$('kshuf').onclick=function(){
-  var s=last||{},a=s.paramActive||[],l=s.laneActive||[],r=[],f=[],j;
-  for(j=0;j<4;j++){r[j]=Math.floor(Math.random()*101);f[j]=!a[j]&&l[j]}
-  f=[kv.slice(),f];
-  sendAll(r);dropUndo();
-  if(last){undo=f;$('kundo').hidden=false;undoT=setTimeout(dropUndo,12000)}
-};
-$('kundo').onclick=function(){
-  if(undo){sendAll(undo[0],undo[1]);dropUndo();$('kshuf').focus()}
-};
 
 // ── Pattern stepping (← / →) ─────────────────────────────────
 // The reply names the new pattern; the next status confirms it. One step

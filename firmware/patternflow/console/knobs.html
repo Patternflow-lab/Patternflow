@@ -35,6 +35,7 @@ th{border-color:var(--rule);font-size:13px;font-weight:500;color:var(--muted)}
 .k{width:28px;padding-left:0;font:600 12px var(--mono);color:var(--muted)}
 .pos{width:76px;font:15px var(--mono)}
 select.dirty{border-color:var(--led)}
+tr.all td{border-color:var(--rule)}
 .pf-offline .pos,.pf-offline #st{opacity:.5}
 </style></head><body>
 <main class="wrap">
@@ -42,16 +43,17 @@ select.dirty{border-color:var(--led)}
 <p class="note">Turn a knob one click clockwise: its position should go up by one.</p>
 <table>
   <thead><tr><th class="k"></th><th>Position</th><th>Direction</th><th>Edges per click</th></tr></thead>
-  <tbody id="rows"></tbody>
+  <tbody id="rows"><tr class="all"><td class="k">All</td><td class="pos"></td>
+    <td><select id="invA" disabled><option value="">Mixed</option><option value="0">Normal</option><option value="1">Reversed</option></select></td>
+    <td><select id="subA" disabled><option value="">Mixed</option><option>4</option><option>2</option><option>1</option></select></td></tr></tbody>
 </table>
 <div class="acts">
   <button class="btn pri" type="button" id="save" disabled>Save</button>
   <button class="btn" type="button" id="revert" disabled>Revert</button>
   <span class="msg" id="msg"></span>
 </div>
-<p class="note">Goes down: set it to Reversed. Moves two, or takes two clicks to move one:
-change edges per click (most encoders are 4; the edge count under the position shows how many one click makes).
-Saved on the panel: nothing to rebuild, and saving does not move a knob.</p>
+<p class="note">Goes down: Reversed. Moves two, or needs two clicks to move one: change edges per click
+(most encoders are 4; the count under the position is what one click makes). Saved on the panel; saving does not move a knob.</p>
 <footer><a href="/">Console</a><a href="/status">Status</a></footer>
 </main>
 <script>
@@ -73,6 +75,12 @@ function build(){
     selDir(i).onchange=selSub(i).onchange=marks;
   }
 }
+// All sets the four; it reads Mixed while they differ
+function all(sel){
+  return function(){var v=this.value;if(v)for(var i=0;i<4;i++)sel(i).value=v;marks()};
+}
+$('invA').onchange=all(selDir);$('subA').onchange=all(selSub);
+function same(sel){var v=sel(0).value;for(var i=1;i<4;i++)if(sel(i).value!==v)return '';return v}
 // PF.dirty (no version reload) while a choice differs from the device
 function marks(){
   var any=false;
@@ -81,6 +89,7 @@ function marks(){
     selDir(i).className=a?'dirty':'';selSub(i).className=b?'dirty':'';
     any=any||a||b;
   }
+  $('invA').value=same(selDir);$('subA').value=same(selSub);
   setDirty(any);
 }
 function setDirty(on){dirty=PF.dirty=on;$('save').disabled=!on||saving;$('revert').disabled=!on}
@@ -96,7 +105,8 @@ function show(d){
     }
   }
   // re-judged each reading: another tab may have saved
-  if(dirty)marks();else for(i=0;i<4;i++)selDir(i).className=selSub(i).className='';
+  $('invA').disabled=$('subA').disabled=false;
+  if(dirty)marks();else{for(i=0;i<4;i++)selDir(i).className=selSub(i).className='';$('invA').value=same(selDir);$('subA').value=same(selSub)}
   $('st').textContent='live';
 }
 $('revert').onclick=function(){setDirty(false);if(cur)show(cur);say('')};
