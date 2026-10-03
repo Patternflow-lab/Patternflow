@@ -20,7 +20,7 @@ a{color:inherit}:focus-visible{outline:2px solid var(--led);outline-offset:2px}
 h2{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--muted)}
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:16px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 16px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);color:var(--ink);font:500 14px var(--sans);text-decoration:none;cursor:pointer;transition:border-color .15s,background .15s,color .15s}
-@media(hover:hover){.btn:hover{border-color:var(--ink)}.btn.pri:hover{background:var(--led);border-color:var(--led);color:#fff}footer a:hover{color:var(--ink)}}
+@media(hover:hover){.btn:hover{border-color:var(--ink)}.btn.pri:hover{background:var(--led);border-color:var(--led);color:#fff}footer a:hover,.kt :hover{color:var(--ink)}}
 .btn:disabled{opacity:.45;cursor:default;border-color:var(--rule)}
 .btn.pri{background:var(--ink);border-color:var(--ink);color:var(--cream)}
 .btn.ic{width:40px;padding:0}
@@ -49,17 +49,27 @@ input[type=range]:active::-webkit-slider-thumb{border-color:var(--led)}input[typ
 .seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--rule),inset 0 -2px var(--led)}
 #pwrnote{min-height:18px;margin:6px 0 4px}
 .val{font:12px var(--mono);color:var(--muted)}
-.kn{display:grid;grid-template-columns:28px 1fr;align-items:center;column-gap:10px;margin-top:4px}
-.kn label{font:600 12px var(--mono);color:var(--muted)}
-#upd{margin-top:12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}#upd span{flex:1}
+.kn{display:grid;grid-template-columns:28px 1fr 28px;align-items:center;column-gap:10px;margin-top:4px}
+.kn label{font:600 12px var(--mono);color:var(--muted)}.kn .val{text-align:right}
+/* Several knobs at once: quiet, under the four. */
+.kt{display:flex;gap:20px;padding-left:38px;font-size:13px;color:var(--muted)}
+.kt>*{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+.kt input{width:16px;height:16px;margin:0;accent-color:var(--ink)}
+.kt button{text-decoration:underline var(--faint);text-underline-offset:4px}
+#upd{margin-top:16px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}#upd span{flex:1}
 #upd:hover b{text-decoration:underline}
 .pf-offline .now,.pf-offline .f .v{opacity:.5}
-.side{margin-top:28px}.side h2+*{border-top:1px solid var(--rule)}
+.side,.side h2{margin-top:28px}.side h2+*{border-top:1px solid var(--rule)}
+/* Edition */
+.edn{font-size:22px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.note{margin:8px 0 0;font-size:13px;color:var(--muted)}
+#s-feat{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#s-feat .btn{position:relative;min-height:32px;padding:0 12px;border-radius:99px;font-size:13px}
+@media(pointer:coarse){#s-feat .btn::after{content:"";position:absolute;inset:-4px 0}}
+#s-ed-block{width:100%;margin-top:16px}
 .f{display:flex;align-items:baseline;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule-soft);font-size:13px;text-decoration:none}
 .f .k{flex:none;width:84px;color:var(--muted)}
 .f .v{flex:1;min-width:0;font:12.5px var(--mono);text-align:right;overflow-wrap:anywhere}
-.f small{display:block;font:12px var(--sans);color:var(--muted)}
-a.f:hover .v{text-decoration:underline}
 .bar{display:block;height:3px;margin:5px 0 2px auto;max-width:160px;background:var(--ghost)}
 .bar i{display:block;height:100%;width:0;background:var(--led);transition:width .3s}
 /* A description that does not fit beside its title wraps under it, whole. */
@@ -83,8 +93,8 @@ a.f:hover .v{text-decoration:underline}
     <div class="hd">
       <h1 class="lbl">Now playing</h1>
       <span class="msg" id="stepmsg"></span>
-      <button class="btn ic" id="pat-prev" title="Previous pattern" aria-label="Previous pattern" type="button">&larr;</button>
-      <button class="btn ic" id="pat-next" title="Next pattern" aria-label="Next pattern" type="button">&rarr;</button>
+      <button class="btn ic" id="pat-prev" title="Previous pattern (&larr;)" aria-label="Previous pattern" type="button">&larr;</button>
+      <button class="btn ic" id="pat-next" title="Next pattern (&rarr;)" aria-label="Next pattern" type="button">&rarr;</button>
     </div>
     <div class="now" id="now">&mdash;</div>
     <div class="nsub"><span id="nowsub"></span><span class="chip" id="nowperf" hidden></span></div>
@@ -104,20 +114,36 @@ a.f:hover .v{text-decoration:underline}
 
     <div class="blk" id="ctrls">
       <div class="hd"><span class="lbl">Knobs</span><span class="msg" id="ctrlmsg"></span></div>
-      <div class="kn"><label for="sl-0">K1</label><input type="range" id="sl-0" min="0" max="100" step="1" value="50"></div>
-      <div class="kn"><label for="sl-1">K2</label><input type="range" id="sl-1" min="0" max="100" step="1" value="50"></div>
-      <div class="kn"><label for="sl-2">K3</label><input type="range" id="sl-2" min="0" max="100" step="1" value="50"></div>
-      <div class="kn"><label for="sl-3">K4</label><input type="range" id="sl-3" min="0" max="100" step="1" value="50"></div>
+      <div class="kn"><label for="sl-0">K1</label><input type="range" id="sl-0" min="0" max="100" step="1" value="50"><span class="val" id="kv-0">&mdash;</span></div>
+      <div class="kn"><label for="sl-1">K2</label><input type="range" id="sl-1" min="0" max="100" step="1" value="50"><span class="val" id="kv-1">&mdash;</span></div>
+      <div class="kn"><label for="sl-2">K3</label><input type="range" id="sl-2" min="0" max="100" step="1" value="50"><span class="val" id="kv-2">&mdash;</span></div>
+      <div class="kn"><label for="sl-3">K4</label><input type="range" id="sl-3" min="0" max="100" step="1" value="50"><span class="val" id="kv-3">&mdash;</span></div>
+      <div class="kt">
+        <label><input type="checkbox" id="ktog">Together</label>
+        <button type="button" id="kshuf">Shuffle</button>
+        <button type="button" id="kundo" hidden>Undo</button>
+      </div>
     </div>
   </div>
-
-  <!-- Points at the SITE, not this device's own /update: that page reads the
-       release manifest and hands the new image to this board over Wi-Fi. -->
-  <a class="notice" id="upd" href="https://patternflow.work/update" target="_blank" rel="noopener" hidden>
-    <span id="updtext"></span><b>How to update &rarr;</b></a>
   </div>
 
   <div class="side">
+    <!-- A card with a button: nobody clicks a fact row. -->
+    <div class="card">
+      <p class="lbl">Edition</p>
+      <div class="edn" id="s-ed">&mdash;</div>
+      <div class="val" id="s-fw"></div>
+      <p class="note" id="s-ed-sub" hidden>Standard firmware, no extra features.</p>
+      <div id="s-feat" hidden></div>
+      <!-- Points at the SITE, not this device's own /update: that page reads the
+           release manifest and hands the new image to this board over Wi-Fi. -->
+      <a class="notice" id="upd" href="https://patternflow.work/update" target="_blank" rel="noopener" hidden>
+        <span id="updtext"></span><b>How to update &rarr;</b></a>
+      <a class="btn" id="s-ed-block" href="https://patternflow.work/editions" target="_blank" rel="noopener">Editions &rarr;</a>
+      <p class="note" id="s-ed-off" hidden>Editions are listed at patternflow.work/editions; the panel&rsquo;s own network has no internet.</p>
+      <p class="note">Installing another keeps your patterns and settings.</p>
+    </div>
+
     <h2>Device</h2>
     <div>
       <div class="f"><span class="k">Patterns</span><span class="v" id="s-pat">&mdash;</span></div>
@@ -129,15 +155,9 @@ a.f:hover .v{text-decoration:underline}
       <div class="f" id="s-hs-b" hidden><span class="k">Hotspot</span><span class="v" id="s-hs">&mdash;</span></div>
       <div class="f"><span class="k">Memory</span><span class="v" id="s-heap">&mdash;</span></div>
       <div class="f"><span class="k">Uptime</span><span class="v" id="s-up">&mdash;</span></div>
-      <div class="f"><span class="k">Firmware</span><span class="v" id="s-fw">&mdash;</span></div>
-      <!-- Which edition this panel runs: the first thing to know when a
-           feature you expected is not here. A link either way: an edition's
-           own card, or the shelf from the default. -->
-      <a class="f" id="s-ed-block" href="https://patternflow.work/editions">
-        <span class="k">Edition</span><span class="v"><span id="s-ed">&mdash;</span><small id="s-ed-sub"></small></span></a>
     </div>
 
-    <h2 style="margin-top:28px">Pages</h2>
+    <h2>Pages</h2>
     <!-- Feature rows are not written here: they arrive from /api/status
          featureNav, contributed by the loaded features (see gate()). -->
     <nav class="links">
@@ -164,17 +184,16 @@ function fill(el){el.style.setProperty('--p',(el.value-el.min)/(el.max-el.min)*1
 document.addEventListener('input',function(e){if(e.target.type==='range')fill(e.target)});
 
 // ── What this build actually has ───────────────────────────────
-// Feature rows come from /api/status featureNav (path, label, one line),
-// contributed by whatever features the firmware carries; a build with none
-// gets none, and a page the core never heard of still gets a row. Rebuilt
-// only when featureNav changes: the card polls, and a rebuild under the
-// pointer drops hover and focus.
+// Feature rows, and the edition card's chips, come from /api/status
+// featureNav (path, label, one line): a build with none gets none, and a
+// page the core never heard of still gets a row. Rebuilt only when it
+// changes: a rebuild under the pointer drops hover and focus.
 var navKey;
 function gate(s){
-  var i,nav=(s&&s.featureNav)||[],k=JSON.stringify(nav),f=$('featRows');
+  var i,nav=(s&&s.featureNav)||[],k=JSON.stringify(nav),f=$('featRows'),c=$('s-feat');
   if(k===navKey)return;
   navKey=k;
-  f.innerHTML='';
+  f.innerHTML=c.innerHTML='';
   for(i=0;i<nav.length;i++){
     var e=nav[i];if(!e||e.length<2)continue;
     var a=document.createElement('a');
@@ -182,14 +201,17 @@ function gate(s){
     a.firstChild.textContent=e[1];
     a.lastChild.textContent=e[2]||'';
     f.appendChild(a);
+    a=document.createElement('a');
+    a.href=e[0];a.className='btn';a.textContent=e[1];
+    c.appendChild(a);
   }
-  f.hidden=!f.firstChild;
+  f.hidden=c.hidden=!f.firstChild;
 }
 
 // ── Device card ───────────────────────────────────────────────
-// Everything here comes out of /api/status: the chrome's copy (PF.status),
-// kept fresh every 3 s (PF.watchStatus) on its one lane. The device streams
-// no pixels (see the note in core_patterns_http.h).
+// Everything here is /api/status: the chrome's copy (PF.status), fresh
+// every 3 s (PF.watchStatus). The device streams no pixels (see
+// core_patterns_http.h).
 function dur(s){
   var d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);
   if(d)return d+'d '+h+'h';if(h)return h+'h '+m+'m';
@@ -247,15 +269,19 @@ function paint(s){
   $('s-heap').textContent=Math.round(s.heapInternal/1024)+'K + '+
     Math.round(s.heapPsram/1048576)+'M PSRAM';
   $('s-up').textContent=dur(s.uptime);
-  $('s-fw').textContent='v'+s.version;
 
-  // Edition: which one and a link to its card; the default build points at
-  // the shelf, because "the feature I wanted is missing" is its question.
-  var ed=s.variant&&s.variant!=='core'?s.variant:'';
-  $('s-ed').textContent=ed?ed+(s.variantVersion?' '+s.variantVersion:''):'Patternflow';
-  $('s-ed-sub').textContent=ed?'What it carries, or back to the standard firmware':'Standard firmware · installing another edition keeps your patterns and settings';
-  $('s-ed-block').href='https://patternflow.work/editions'+(ed?'#'+encodeURIComponent(ed):'');
-  if(s.params)updateSliders(s.params);
+  // Edition: as its own page spells it, else a plain slug capitalised and a
+  // hyphenated one as is. No link that cannot open: the panel's own network
+  // has no internet (net: the site answered anyway).
+  var ed=s.variant&&s.variant!=='core'?s.variant:'',b=$('s-ed-block'),nm=/-/.test(ed)?ed:ed.charAt(0).toUpperCase()+ed.slice(1);
+  (s.featureNav||[]).forEach(function(e){if(e&&(''+e[1]).toLowerCase()==ed)nm=e[1]});
+  $('s-ed').textContent=nm||'Patternflow';
+  $('s-fw').textContent=(ed?(s.variantVersion?s.variantVersion+' · ':'')+'core ':'')+'v'+s.version;
+  $('s-ed-sub').hidden=ed||!$('s-feat').hidden;
+  b.textContent=(ed?'Other editions':'Editions')+' →';
+  b.href='https://patternflow.work/editions'+(ed?'#'+encodeURIComponent(ed):'');
+  b.hidden=s.viaHotspot&&!net;$('s-ed-off').hidden=!b.hidden;
+  updateSliders(s);
   checkUpdate(s.version,s.variant);
 }
 
@@ -336,7 +362,7 @@ held($('bri'),function(){briActive=true},function(){briActive=false;briSettleUnt
 // The manifest describes CORE releases: on a variant this stays quiet,
 // since offering one would talk someone into flashing away the edition
 // they chose, by a version comparison across two release lines.
-var updChecked=false;
+var updChecked=false,net=0;
 function checkUpdate(deviceVersion,variant){
   if(updChecked||!deviceVersion)return;
   if(variant&&variant!=='core')return;
@@ -344,6 +370,7 @@ function checkUpdate(deviceVersion,variant){
   fetch('https://patternflow.work/flash/manifest.json',{cache:'no-store'})
     .then(function(r){if(!r.ok)throw 0;return r.json()})
     .then(function(m){
+      net=1;$('s-ed-block').hidden=0;$('s-ed-off').hidden=1;
       var latest=String(m.version||'').replace(/^v/,'');
       if(latest&&latest!==deviceVersion){
         $('updtext').textContent='v'+latest+' is out — this panel runs v'+deviceVersion+'.';
@@ -353,15 +380,30 @@ function checkUpdate(deviceVersion,variant){
 }
 
 // ── Knob sliders (K1..K4 · 0..100) ────────────────────────────
-var activeSlider=-1,inFlight=false,queuedParams={};
-function updateSliders(params){
-  if(!params||params.length<4)return;
-  for(var i=0;i<4;i++){
-    if(activeSlider===i)continue;
-    var v=Math.round(params[i]/10);
-    if(v<0)v=0;if(v>100)v=100;
-    var sl=$('sl-'+i);sl.value=v;fill(sl);
+// kv: what the four show. A status moves none while a hand is on one, or
+// for a beat after a write it may predate.
+var activeSlider=-1,inFlight=false,queuedParams={},kv=[],kBase=null,kSettle=0,kShown,undo,undoT,tog=$('ktog');
+function setK(i,v){
+  v=v<0?0:v>100?100:v;kv[i]=v;
+  var sl=$('sl-'+i);sl.value=v;fill(sl);$('kv-'+i).textContent=v;
+}
+// A free lane reports its last held value: painted once, then left alone
+// (Undo may just have freed it).
+function updateSliders(s){
+  var p=s.params,a=s.paramActive;
+  if(!p||p.length<4||activeSlider>=0||Date.now()<kSettle)return;
+  for(var i=0;i<4;i++)if(!kShown||!a||a[i])setK(i,Math.round(p[i]/10));
+  kShown=1;
+}
+// The four in one request: the server takes one connection at a time.
+// f[j]: free lane j (rN) instead.
+function sendAll(v,f){
+  for(var j=0;j<4;j++){
+    setK(j,v[j]);
+    if(f&&f[j]){delete queuedParams['p'+(j+1)];queuedParams['r'+(j+1)]=1}
+    else queuedParams['p'+(j+1)]=kv[j]*10;
   }
+  kSettle=Date.now()+1500;pumpParams();
 }
 function pumpParams(){
   if(inFlight)return; // one in flight; the newest values wait in the queue
@@ -380,36 +422,69 @@ function pumpParams(){
       // like a pattern ignoring its knobs.
       PF.say('not sent — '+(x&&x.message==='refused'?'refused':'no answer'),'err',$('ctrlmsg'));
     }).then(function(){
-      inFlight=false;
+      inFlight=false;kSettle=Date.now()+1500;
       if(Object.keys(queuedParams).length)pumpParams();
     });
 }
 // pX on the 0..1000 bus. The device derives the clicks a legacy pattern
 // reads from the change in the held value, so no dX alongside - sending
 // both counted every move twice.
+// Together: each knob moves by what the held one moved since the gesture
+// began (kBase), clamped, so dragging back undoes a clamp.
 [0,1,2,3].forEach(function(idx){
   var sl=$('sl-'+idx);
+  kv[idx]=+sl.value;
   held(sl,function(){activeSlider=idx},function(){
     if(activeSlider===idx)activeSlider=-1;
+    kBase=null;
     pumpParams();
   });
   sl.addEventListener('input',function(){
-    var v=parseInt(sl.value,10);if(isNaN(v))return;
-    queuedParams['p'+(idx+1)]=v*10;
+    var v=+sl.value,j;
+    if(!kBase)kBase=kv.slice();
+    for(j=0;j<4;j++)if(j===idx||tog.checked){
+      setK(j,kBase[j]+v-kBase[idx]);
+      queuedParams['p'+(j+1)]=kv[j]*10;
+    }
+    kSettle=Date.now()+1500;dropUndo();
     pumpParams();
   });
+  // A key press is a whole gesture.
+  sl.addEventListener('change',function(){kBase=null});
 });
+try{tog.checked=localStorage.getItem('pf-together')==1}catch(e){}
+tog.onchange=function(){try{localStorage.setItem('pf-together',tog.checked?1:0)}catch(e){}};
+// Undo: one level, until the next knob change or 12 s. Shuffle held all
+// four; a lane something else drove before is freed back to it.
+function dropUndo(){undo=0;$('kundo').hidden=true;clearTimeout(undoT)}
+$('kshuf').onclick=function(){
+  var s=last||{},a=s.paramActive||[],l=s.laneActive||[],r=[],f=[],j;
+  for(j=0;j<4;j++){r[j]=Math.floor(Math.random()*101);f[j]=!a[j]&&l[j]}
+  f=[kv.slice(),f];
+  sendAll(r);dropUndo();
+  if(last){undo=f;$('kundo').hidden=false;undoT=setTimeout(dropUndo,12000)}
+};
+$('kundo').onclick=function(){
+  if(undo){sendAll(undo[0],undo[1]);dropUndo();$('kshuf').focus()}
+};
 
 // ── Pattern stepping (← / →) ─────────────────────────────────
-// The reply names the new pattern; the next status confirms it.
+// The reply names the new pattern; the next status confirms it. One step
+// in flight (?step is ±1); presses meanwhile add up in pend.
+var stepping=0,pend=0;
 function stepPattern(dir){
+  if(stepping){pend+=dir;return}
   var prev=$('now').textContent;
   $('now').textContent=dir>0?'Next…':'Prev…';
+  stepping=1;
   PF.get('/api/patterns/select?step='+dir).then(function(d){
+    stepping=0;
     $('now').textContent=d.name||prev;
     $('nowsub').textContent='switched';
     $('stepmsg').textContent='';
+    if(pend){dir=pend>0?1:-1;pend-=dir;stepPattern(dir)}
   },function(x){
+    stepping=pend=0;
     $('now').textContent=prev;
     if(!x||!x.nav)
       PF.say(x&&x.status===404?'nothing to switch to':'not switched','err',$('stepmsg'));
@@ -417,6 +492,13 @@ function stepPattern(dir){
 }
 $('pat-prev').addEventListener('click',function(){stepPattern(-1)});
 $('pat-next').addEventListener('click',function(){stepPattern(1)});
+// The arrow keys too, unless a field or slider has them or a modifier is
+// held (Alt+Left is Back).
+document.addEventListener('keydown',function(e){
+  var d=e.key=='ArrowLeft'?-1:e.key=='ArrowRight'?1:0;
+  if(!d||e.repeat||e.altKey||e.ctrlKey||e.metaKey||e.shiftKey||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;
+  e.preventDefault();stepPattern(d);
+});
 
 [].forEach.call(document.querySelectorAll('input[type=range]'),fill);
 PF.watchStatus(3000);
