@@ -4,6 +4,10 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ## [Unreleased]
 
+### Firmware
+
+- **The console is light, and its six core pages look like one thing.** It opens light; dark is still the toggle in the header, and a choice made there is remembered. Console, Patterns, Status, Wi-Fi, Knobs and Update now share one set of parts - buttons, chips, list rows, fields, notices, section titles - from a base block every page opens with (`console/README.md`, "The look"), with one accent, the LED orange, kept for what is live: the current tab, the playing pattern, the panel being on. The home page leads with the panel itself: what is playing with its arrows, on/sleep, brightness and the four knobs, then the device's facts in compact rows; the numbered index of every page with a paragraph each is now a list of one-line links. The header no longer scrolls sideways on a phone: Console and Patterns, the build's own feature pages, then Wi-Fi, Knobs, Update and Status, wrapped onto rows. Long explanations are a line, with the rest behind a disclosure where it is needed. Windows showed every small label in Courier New because no font in the monospace list was a Windows one; the list now includes Cascadia Mono and Consolas. The Status page shows the crash record (`crash` in `/api/status`) when there is one, with a button to clear it. Feature pages are not edited and take the light palette from the header. No page grew: home is 8.4 KB gzipped (was 10.9), the others are the same or slightly smaller, the header script is 9.6 KB, and the default image is 2.9 KB smaller. On a panel on the home network a page still opens in about 0.1 s the first time and in under 0.01 s after. Every request, control and message the pages had is still there; checked on a panel by stepping through patterns, sleeping and waking it, dimming it, dragging a knob and playing a pattern from the list. The guide's live console demo is regenerated to match.
+
 ## [3.10.5] - 2026-10-02
 
 ### Firmware
