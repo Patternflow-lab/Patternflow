@@ -83,7 +83,7 @@ each row says which port proved it.
 | hook | when | proven by |
 | --- | --- | --- |
 | `setup()` | boot, before Wi-Fi | show player, weather config, MQTT role |
-| `onNetwork()` | Wi-Fi connected, and every reconnect — register HTTP routes here | `/show`, `/weather`, `/mqtt`, `/audio` |
+| `onNetwork()` | Wi-Fi connected, and every reconnect — register HTTP routes here | `/show`, `/weather`, `/mqtt`, `/audio-in`, `/api/audio` |
 | `loop(frame)` | every frame; **must not block** | show cue table, weather polling, MQTT client |
 | `observeFrame(input, frame)` | the *finished* input frame, for features that mirror rather than produce | MQTT publishing knob values; OSC reporting outward |
 | `fillInput(input)` | before the pattern sees the frame — drive a lane from a reading | weather, audio bands, MQTT deltas |
@@ -177,8 +177,8 @@ Then one line in the bundle that carries it — `firmware/bundles/<edition>/feat
 | `show/` | player, HTTP page, night/wake schedule, library pull | The first port, deliberately the hardest. |
 | `weather/` | readings, HTTP page, corner clock | Grew the interface: `fillInput`, `chromeVisible`. |
 | `mqtt/` | client, all roles + FlowLocal, HTTP page | Grew it again: `observeFrame`, sleep in both directions, `appendStatus`. |
-| `audio/` | FFT bands over a websocket, HTTP page | The one with a server of its own, and a row in the device's own menu. |
-| `audio_in/` | the on-board PDM microphone: FFT on a Core-0 task, four bands onto the knob lanes, `/audio-in` | The first feature that did not already exist in the core; four hooks, no core edits. Its console page is assembled from the audio extension's editor (`toolchain/build_audio_in_page.py`). |
+| `audio/` | the WebSocket on port 81 that a client capturing sound elsewhere (the browser extension, the phone app) writes the four knob lanes through, and the switch that lets it (`/api/audio`) | The one with a server of its own, and a row in the device's own menu. The analysis and the mapping happen in the client; no page is served from here. `docs/audio-ws-spec.md`. |
+| `audio_in/` | the on-board PDM microphone: FFT on a Core-0 task, four bands onto the knob lanes, `/audio-in` and `/api/audio-in` | The first feature that did not already exist in the core; four hooks, no core edits. Its console page is assembled from the audio extension's mapping editor and the panel's own half in `console/_audio_in_*` (`toolchain/build_audio_in_page.py`, run by `console_pages.py build`). |
 | `osc/` | Max / TouchDesigner / Ableton, both directions | The fifth, and the first that did not fit — see below. |
 | `midi/` | MIDI in and out over RTP-MIDI (Wi-Fi) and, in the MIDI edition, USB: CC 20–23 absolute, 24–27 relative, notes, Program Change | Transport-agnostic mapping in `core_midi.h`; the network transport beside it (`core_midi_rtp.h`), and the USB one (`core_midi_usb.h`) that compiles in only when the build's USB port is the OTG stack — a build flag, which is why the MIDI edition has its own env (`bundles/midi/env`). `docs/midi-spec.md`. |
 | `clock/` | the time cut out of the running pattern, `/clock`, `/api/clock` | Settings in its own NVS namespace, a page with a live preview, and the first user of `composeFrame`: huge anti-aliased digits the pattern shows through (typefaces rasterised offline by `toolchain/build_clock_glyphs.py`, several faces), with what fills the digits and what surrounds them chosen separately. Owns the time zone as a POSIX string with its DST rule; the core keeps the time (`src/core_clock.h`), this shows it. |

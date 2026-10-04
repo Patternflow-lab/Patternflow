@@ -12,27 +12,27 @@
     <img src="icons/icon-32.png" alt="">
     <h1>Patternflow Audio</h1>
   </div>
-  <div id="status" class="status bad">Idle</div>
+  <div id="status" class="status">Idle</div>
 </header>
 
 <section class="device-section">
   <label class="label" for="host">Device</label>
-  <div class="device">
+  <!-- A form, so Enter in the address does what Start does. The one button is
+       Start while nothing is captured and Stop while something is. -->
+  <form id="device" class="device">
     <input id="host" type="text" spellcheck="false" value="patternflow.local">
-    <button id="connect">Start</button>
-  </div>
+    <button id="connect" type="submit">Start</button>
+  </form>
   <div id="detail" class="detail">Open the tab you want to hear, then press Start.</div>
-  <div class="actions">
-    <button id="stop">Stop</button>
-    <button id="release" title="Hand the knobs back to the encoders">Release knobs</button>
-  </div>
+  <!-- Shown only when the panel answered that Audio-React is switched off. -->
+  <button id="panelOn" class="quiet" type="button" hidden>Turn on</button>
 </section>
 
 <section>
   <!-- Mapping moved out of the popup: boxes dragged on a spectrum need a
        real tab, and two half-editors disagreeing was worse than one. -->
-  <button id="openEditor" class="editor-cta">Mapping editor &#8599;</button>
-  <div class="detail">Bands, boxes and response curves live there.</div>
+  <button id="openEditor" class="quiet editor-cta" type="button">Mapping editor &#8599;</button>
+  <div class="detail">Boxes and response curves for K1–K4 live there.</div>
 </section>
 
 <section class="spectrum-section">
@@ -42,31 +42,27 @@
   <div class="spectrum-wrap">
     <canvas id="spectrum" width="760" height="220"></canvas>
   </div>
-  <div class="spectrum-scale">
-    <span>20</span>
-    <span>100</span>
-    <span>1k</span>
-    <span>10k</span>
-    <span>20k</span>
-  </div>
+  <!-- Filled by popup.js: each label sits where its frequency is on the plot. -->
+  <div id="scale" class="spectrum-scale"></div>
 </section>
 
 <section>
   <!-- Connecting without audio and driving the knobs by hand is how you tell a
        dead panel from a dead capture. Useful, and not what anyone opens this
        for — so it is one click away rather than always on screen. -->
-  <details class="diagnostics">
+  <details id="test" class="diagnostics">
     <summary>Test without audio</summary>
-    <button id="manualConnect">Connect only</button>
-  <div class="manual-grid">
-    <label>K1 <input class="manual" data-knob="0" type="range" min="0" max="1" step="0.01" value="0.50"><output>0.50</output></label>
-    <label>K2 <input class="manual" data-knob="1" type="range" min="0" max="1" step="0.01" value="0.50"><output>0.50</output></label>
-    <label>K3 <input class="manual" data-knob="2" type="range" min="0" max="1" step="0.01" value="0.50"><output>0.50</output></label>
-    <label>K4 <input class="manual" data-knob="3" type="range" min="0" max="1" step="0.01" value="0.50"><output>0.50</output></label>
-  </div>
+    <button id="manualConnect" type="button">Connect</button>
+    <div class="manual-grid">
+      <label>K1 <input class="manual" data-knob="0" type="range" min="0" max="1" step="0.01" value="0.50" disabled><output>0.50</output></label>
+      <label>K2 <input class="manual" data-knob="1" type="range" min="0" max="1" step="0.01" value="0.50" disabled><output>0.50</output></label>
+      <label>K3 <input class="manual" data-knob="2" type="range" min="0" max="1" step="0.01" value="0.50" disabled><output>0.50</output></label>
+      <label>K4 <input class="manual" data-knob="3" type="range" min="0" max="1" step="0.01" value="0.50" disabled><output>0.50</output></label>
+    </div>
   </details>
 </section>
 
+<script src="mapping.js"></script>
 <script src="popup.js"></script>
 </body>
 </html>

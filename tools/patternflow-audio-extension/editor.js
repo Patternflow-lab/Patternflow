@@ -1,137 +1,142 @@
 // Patternflow Audio — the mapping editor.
 //
-// One module, no chrome.* and no fetch: everything outside this file arrives
-// through window.PFAdapter (editor-adapter.js). The console port copies this
-// file verbatim and swaps the adapter.
+// One module, no chrome.* and no fetch. It stands on two things:
+//
+//   PFMap (mapping.js)   the model: defaults, what a stored mapping is turned
+//                        into, the curves, the level-to-knob chain.
+//   window.PFAdapter     the SOURCE: the extension's is editor-adapter.js, the
+//                        panel's is console/_audio_in_adapter.js. This file
+//                        moves to the panel verbatim; only the adapter differs.
 //
 // The model, in one sentence: a band is a BOX drawn on the live spectrum
 // (width = the frequencies it listens to, height = the level window it maps),
 // and a RESPONSE CURVE that turns position-in-window into position-in-output-
 // range. Curves bake to a 33-point table on save; the analysis side — and
-// later the firmware — only interpolates, and never learns what a bezier is.
+// the firmware — only interpolates, and never learns what a bezier is.
+//
+// THE ADAPTER CONTRACT. The source owns its limits, its axis, its defaults
+// and where a level sits in a window; the editor draws what it is told and
+// asks rather than assumes.
+//
+//   loadConfig() -> Promise<config | null>
+//       { autoRange, smoothing, attack, bands[4] }, each band { hzMin, hzMax,
+//       inMin, inMax, gain, outMin, outMax, muted, curve, lut }. Levels are
+//       0..1 along the source's own level axis. null means NOTHING IS STORED
+//       (a first run): the editor then starts from PFMap's defaults. A source
+//       that could not read must not answer null - it keeps the promise open
+//       until it can; the editor stays inert meanwhile.
+//   caps() -> asked once, after loadConfig() has settled
+//       hzMin, hzMax    the ends of the frequency axis
+//       db              [bottom, top]: the dB at 0 and at 1 of the level axis
+//       levelMax        the highest a window's top edge is stored, 0..1
+//       hzGap           the narrowest band the source stores, in Hz
+//       top(lo)         the lowest top edge it stores over a bottom at `lo`
+//       bottom(hi)      the highest bottom edge it stores under a top at `hi`
+//     Only hzMin and hzMax are required; the rest default to an axis with no
+//     dB printed on it, the whole axis, and PFMap.MIN_WINDOW.
+//   saveConfig(config) -> Promise    store it and hand it to what is mapping
+//   resetBand(i, config) -> Promise<config>
+//       band i back to the SOURCE's default. Answers the whole mapping as it
+//       now stands (as loadConfig would); the editor takes that and does not
+//       save it back.
+//   resetAll(button)    optional: the source's own "reset everything", where it
+//                       has one. The editor then shows Reset mapping beside
+//                       the knob's own Reset and calls this with the button
+//                       pressed (for PFConfirm); what comes back goes in
+//                       through onConfig. A source without it has no such
+//                       button.
+//   onConfig(fn)        optional: fn(config) replaces the editor's copy without
+//                       saving it (after a reset the source did by itself)
+//   onFrame(fn)         fn(frame), about ten times a second while there is
+//                       something to show. Called once, when the editor is up.
+//       levels[4]       each band's level, 0..1 on the level axis. Empty or
+//                       missing = nothing is being heard: no level line, no
+//                       cursor.
+//       spectrum[64]    log-spaced over hzMin..hzMax, same axis
+//       env[4]          { lo, hi } per band while auto range has a learned
+//                       envelope; missing, or null for that band, otherwise
+//                       (the stored window is drawn, dashed). "Learned" is
+//                       the source's to say: what a band has while it has
+//                       heard nothing is not an envelope and is not sent, for
+//                       a drag that takes the windows over by hand seeds each
+//                       window from what is sent here.
+//       pos[4]          where each level sits in its window, 0..1, AS THE
+//                       MAPPER COMPUTED IT: the curve's input
+//       outputs[4]      what each knob is being sent
+//       db              optional [bottom, top] when this frame's levels are on
+//                       another axis than caps().db (the phone app's)
+//     pos and outputs are what make the cursor and the readout true. A frame
+//     without them (one the source did not map itself) gets the editor's own
+//     arithmetic: PFMap.position / PFMap.output on the frame's levels.
 
 'use strict';
 
 const A = window.PFAdapter;
+const { clamp01, PRESETS, evalCurve, bakeLut } = PFMap;
 
-// ── config ──────────────────────────────────────────────────────────────
+// What the source says about itself. Read once the mapping is in (the panel
+// learns its frequency range from the same reply), so nothing above init()
+// may use it at load.
+let CAPS = null;
+let DECADES = 1;
+let TICKS = [];
 
-const HZ_DEFAULTS = [[60, 250], [250, 2000], [2000, 5000], [5000, 16000]];
-const LUT_POINTS = 33;
+function readCaps() {
+  const c = A.caps();
+  CAPS = {
+    hzMin: c.hzMin, hzMax: c.hzMax,
+    db: c.db || null,
+    levelMax: c.levelMax || 1,
+    hzGap: c.hzGap || 0,
+    top: c.top || ((lo) => lo + PFMap.MIN_WINDOW),
+    bottom: c.bottom || ((hi) => hi - PFMap.MIN_WINDOW)
+  };
+  DECADES = Math.log10(CAPS.hzMax / CAPS.hzMin);
+  // Inner gridlines only — the endpoints are drawn from CAPS, so the same
+  // axis code serves the extension's 20–20k and the microphone's 31–8k.
+  TICKS = [[50, '50'], [100, '100'], [200, '200'], [500, '500'],
+    [1000, '1k'], [2000, '2k'], [5000, '5k'], [10000, '10k']]
+    .filter(([hz]) => hz > CAPS.hzMin * 1.15 && hz < CAPS.hzMax * 0.87);
+}
 
-const PRESETS = {
-  smooth: { label: 'Smooth', curve: { type: 'bezier', id: 'smooth', y0: 0, y1: 1, p1x: 0.45, p1y: 0.05, p2x: 0.55, p2y: 0.95 } },
-  sharp:  { label: 'Sharp',  curve: { type: 'bezier', id: 'sharp',  y0: 0, y1: 1, p1x: 0.10, p1y: 0.65, p2x: 0.35, p2y: 1.00 } },
-  fall:   { label: 'Fall',   curve: { type: 'bezier', id: 'fall',   y0: 1, y1: 0, p1x: 0.45, p1y: 0.95, p2x: 0.55, p2y: 0.05 } },
-  gate:   { label: 'Gate',   curve: { type: 'steps',  id: 'gate',  n: 2 } },
-  steps:  { label: 'Steps',  curve: { type: 'steps',  id: 'steps', n: 3 } },
-  arch:   { label: 'Arch',   curve: { type: 'arch',   id: 'arch' } }
-};
-
-const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
 const clampHz = (v) => Math.max(CAPS.hzMin, Math.min(CAPS.hzMax, Number(v) || CAPS.hzMin));
 
-const CAPS = A.caps();
-
-function defaultBand(index) {
-  const [hzMin, hzMax] = HZ_DEFAULTS[index % HZ_DEFAULTS.length];
-  return {
-    hzMin, hzMax,
-    knob: Math.min(index, 3), muted: false,
-    inMin: 0, inMax: 1, gain: 1,
-    outMin: 0.30, outMax: 0.85,
-    curve: null, lut: null
-  };
-}
-
-function normalizeBand(raw, index) {
-  const band = { ...defaultBand(index), ...(raw || {}) };
-  band.hzMin = clampHz(band.hzMin); band.hzMax = clampHz(band.hzMax);
-  if (band.hzMin > band.hzMax) [band.hzMin, band.hzMax] = [band.hzMax, band.hzMin];
-  if (band.hzMax - band.hzMin < 10) band.hzMax = Math.min(CAPS.hzMax, band.hzMin + 10);
-  band.inMin = clamp01(band.inMin); band.inMax = clamp01(band.inMax);
-  if (band.inMax - band.inMin < 0.02) band.inMax = Math.min(1, band.inMin + 0.02);
-  band.outMin = clamp01(band.outMin); band.outMax = clamp01(band.outMax);
-  if (band.outMax - band.outMin < 0.05) band.outMax = Math.min(1, band.outMin + 0.05);
-  // Four bands, four knobs, one line between them: band i drives knob i.
-  // A free assignment existed and earned nothing but a control to explain.
-  band.knob = index;
-  band.muted = band.muted === true;
-  band.gain = Math.max(0.2, Math.min(4, Number(band.gain) || 1));
-  if (band.curve && typeof band.curve !== 'object') band.curve = null;
-  if (band.lut && (!Array.isArray(band.lut) || band.lut.length < 2)) band.lut = null;
-  return band;
-}
-
-function normalizeConfig(raw) {
-  const stored = Array.isArray(raw && raw.bands) ? raw.bands : [];
-  const bands = [];
-  for (let i = 0; i < 4; i++) bands.push(normalizeBand(stored[i], i));
-  return {
-    host: (raw && raw.host) || 'patternflow.local',
-    smoothing: (raw && raw.smoothing) || 0.35,
-    sendIntervalMs: (raw && raw.sendIntervalMs) || 33,
-    autoRange: !!(raw && raw.autoRange),
-    attack: Math.max(0.05, Math.min(0.9, Number(raw && raw.attack) || 0.65)),
-    bands,
-    ...(raw && raw.manualExtra ? { manualExtra: raw.manualExtra } : {})
-  };
-}
-
-// ── curve engine ────────────────────────────────────────────────────────
-
-function evalCurve(curve, u) {
-  u = clamp01(u);
-  if (!curve) return u;
-  if (curve.type === 'steps') {
-    const n = Math.max(2, Math.min(8, Math.round(curve.n) || 2));
-    const k = Math.min(n - 1, Math.floor(u * n));
-    return k / (n - 1);
-  }
-  if (curve.type === 'arch') return Math.sin(Math.PI * u);
-  if (curve.type === 'bezier') {
-    // Cubic from (0, y0) to (1, y1); x(t) is monotone while both control xs
-    // stay in [0,1], so a short bisection recovers t for any u.
-    const { y0 = 0, y1 = 1, p1x, p1y, p2x, p2y } = curve;
-    const bx = (t) => 3 * (1 - t) * (1 - t) * t * p1x + 3 * (1 - t) * t * t * p2x + t * t * t;
-    const by = (t) => (1 - t) * (1 - t) * (1 - t) * y0 + 3 * (1 - t) * (1 - t) * t * p1y + 3 * (1 - t) * t * t * p2y + t * t * t * y1;
-    let lo = 0, hi = 1;
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2;
-      if (bx(mid) < u) lo = mid; else hi = mid;
-    }
-    return clamp01(by((lo + hi) / 2));
-  }
-  return u;
-}
-
-function legacyCurve(band, u) {
-  return Math.pow(clamp01(u), 1 / band.gain);
-}
-
+// What the editor DRAWS: the curve itself where there is one (a table would
+// round a step's corner), the model's answer otherwise.
 function bandCurveValue(band, u) {
-  return band.curve ? evalCurve(band.curve, u) : legacyCurve(band, u);
-}
-
-function bakeLut(curve) {
-  const lut = [];
-  for (let i = 0; i < LUT_POINTS; i++) {
-    lut.push(Number(evalCurve(curve, i / (LUT_POINTS - 1)).toFixed(4)));
-  }
-  return lut;
+  return band.curve ? evalCurve(band.curve, u) : PFMap.curveValue(band, u);
 }
 
 // ── state ───────────────────────────────────────────────────────────────
 
-let cfg = normalizeConfig(null);
+// The mapping being edited (null until init() has it), and the knob selected.
+let cfg = null;
 let sel = 0;
-let frame = { levels: [], env: [], spectrum: [], running: false, connected: false };
-let lastEnv = null;   // most recent non-empty env, for the auto→manual handoff
-let saveTimer = null;
+let frame = {};
+let saveTimer = 0;
 
+// Every edit saves itself, 150 ms after the last one of a burst.
 function persist() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => A.saveConfig(cfg), 150);
+  saveTimer = setTimeout(flush, 150);
+}
+
+// Save now what is waiting to be saved. Also on the way out of the page, so
+// an edit made in the last 150 ms is not left behind.
+function flush() {
+  if (!saveTimer) return null;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  return A.saveConfig(cfg);
+}
+window.addEventListener('pagehide', flush);
+
+// The source's copy replaces the editor's: after a reset. Not saved back.
+function applyConfig(raw) {
+  cfg = PFMap.normalizeConfig(raw, CAPS);
+  syncAutoToggle();
+  syncDamping();
+  selectBand(sel);
 }
 
 function touchCurve(band, curve) {
@@ -144,69 +149,132 @@ function touchCurve(band, curve) {
 const $ = (id) => document.getElementById(id);
 const plotCanvas = $('plot');
 const pctx = plotCanvas.getContext('2d');
-const M = { l: 48, r: 6, t: 22, b: 40 };
-let PW = 0, PH = 0;   // plot area, css px
+const M = { l: 48, r: 6, t: 26, b: 40 };
+// The plot area inside those margins, css px.
+let PW = 0, PH = 0;
 
+// A finger, not a mouse: what it has to land on is made larger, here and in
+// the stylesheet. EDGE is how far from a box's edge still grabs it, GRIP the
+// square drawn on a corner or a curve handle, REACH how far from a curve
+// handle still grabs that.
+const COARSE = matchMedia('(pointer: coarse)').matches;
+const EDGE = COARSE ? 18 : 7;
+const GRIP = COARSE ? 11 : 7;
+const REACH = COARSE ? 22 : 12;
+
+// What the toolbar says beside the Auto range switch, in each of its two
+// states (syncAutoToggle). The first, as a mouse has it, is also written in
+// editor.html in the hint's own place: unseen until the mapping is in, and
+// there so that its lines are already taken and the plot under it does not
+// move when the words arrive.
+const HINT_AUTO = 'Each box follows the loudness of what it hears. '
+  + (COARSE ? 'Switch Auto range off to set a height by hand.' : 'Drag a top or bottom edge to take all four over by hand.');
+const HINT_HAND = 'Width: the frequencies a knob listens to. Height: the quiet-to-loud range mapped onto it.';
+
+// The plot's box is the stylesheet's (#plot in editor.css: as wide as the
+// page, 45% of the window tall between 240 and 400 px, 260 at the most at the
+// phone width), so it has its size before this file has run and nothing below
+// it moves when the mapping arrives. That is the one rule for its height
+// (Preview's scope is the same box). Here the height is only snapped to a
+// whole pixel, so the canvas is not resampled, and the pixels are made.
 function sizePlot() {
-  const wrap = $('plotWrap');
-  const cssW = wrap.clientWidth;
-  const cssH = 400;
+  plotCanvas.style.height = '';
+  const cssW = plotCanvas.clientWidth, cssH = plotCanvas.clientHeight;
   const dpr = window.devicePixelRatio || 1;
   plotCanvas.width = Math.round(cssW * dpr);
   plotCanvas.height = Math.round(cssH * dpr);
-  plotCanvas.style.width = cssW + 'px';
   plotCanvas.style.height = cssH + 'px';
   pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   PW = cssW - M.l - M.r;
   PH = cssH - M.t - M.b;
 }
 
-const DECADES = Math.log10(CAPS.hzMax / CAPS.hzMin);
 const xOf = (hz) => M.l + PW * (Math.log10(clampHz(hz) / CAPS.hzMin) / DECADES);
 const hzOf = (x) => clampHz(CAPS.hzMin * Math.pow(10, DECADES * ((x - M.l) / PW)));
 const yOf = (v) => M.t + (1 - clamp01(v)) * PH;
 const vOf = (y) => clamp01(1 - (y - M.t) / PH);
 
-// Inner gridlines only — the endpoints are drawn from CAPS, so the same axis
-// code serves the extension's 20–20k and the microphone's 31–8k.
-const TICKS = [[50, '50'], [100, '100'], [200, '200'], [500, '500'],
-  [1000, '1k'], [2000, '2k'], [5000, '5k'], [10000, '10k']]
-  .filter(([hz]) => hz > CAPS.hzMin * 1.15 && hz < CAPS.hzMax * 0.87);
-const DB_LINES = [[1, '0'], [0.75, '-18'], [0.5, '-35'], [0.25, '-53'], [0, '-70']];
+// The level axis is the source's own dB: [bottom, top], or null when it gave
+// none. The frame may be on another axis than the source's usual one (see the
+// contract). Every level the editor prints goes through these, so the axis,
+// the knob's heading and the curve's labels are in one unit.
+const axisDb = () => frame.db || CAPS.db;
+const minus = (n) => String(Math.round(n)).replace('-', '−');
+
+// A height on the level axis, 0..1, as dB: '−43'. '' on an axis without dB.
+function dbText(v) {
+  const db = axisDb();
+  return db ? minus(db[0] + v * (db[1] - db[0])) : '';
+}
+
+// A line every 10 dB: [[v, label]].
+function dbLines() {
+  const db = axisDb();
+  const lines = [];
+  if (!db) return lines;
+  for (let d = Math.ceil(db[0] / 10) * 10; d <= db[1]; d += 10) {
+    lines.push([(d - db[0]) / (db[1] - db[0]), minus(d)]);
+  }
+  return lines;
+}
 
 // Canvas colors come from the page's CSS variables, read fresh each paint so
 // a theme toggle repaints correctly. The extension page is the cream
-// instrument; the device console wraps the same module in its dark tokens.
+// instrument; the panel's console wraps the same module in its own tokens.
+// Three of them are also painted see-through, which takes the colour apart:
+// --led, --rule and --ink have to be written #rrggbb on every surface.
 function theme() {
   const s = getComputedStyle(document.body);
-  const v = (name, fallback) => (s.getPropertyValue(name) || fallback).trim();
-  const led = v('--led', '#e8552e');
-  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(led.replace('#', ''));
-  const ledRgb = m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : '232, 85, 46';
+  const v = (name) => s.getPropertyValue(name).trim();
+  const alpha = (name) => {
+    const n = parseInt(v(name).slice(1), 16);
+    return (a) => `rgba(${n >> 16}, ${n >> 8 & 255}, ${n & 255}, ${a})`;
+  };
   return {
-    field: v('--field', '#fbf7ef'),
-    cream: v('--cream', '#f4efe6'),
-    ink: v('--ink', '#141414'),
-    muted: v('--muted', '#6b655a'),
-    faint: v('--faint', '#a69f90'),
-    rule: v('--rule', '#d9d1c0'),
-    led,
-    ledA: (a) => `rgba(${ledRgb}, ${a})`,
-    ruleA: (a) => `rgba(${parseInt(v('--rule', '#d9d1c0').replace('#', '').slice(0, 2), 16)}, ${parseInt(v('--rule', '#d9d1c0').replace('#', '').slice(2, 4), 16)}, ${parseInt(v('--rule', '#d9d1c0').replace('#', '').slice(4, 6), 16)}, ${a})`,
-    inkA: (a) => `rgba(${parseInt(v('--ink', '#141414').replace('#', '').slice(0, 2), 16)}, ${parseInt(v('--ink', '#141414').replace('#', '').slice(2, 4), 16)}, ${parseInt(v('--ink', '#141414').replace('#', '').slice(4, 6), 16)}, ${a})`
+    field: v('--field'),
+    cream: v('--cream'),
+    ink: v('--ink'),
+    muted: v('--muted'),
+    faint: v('--faint'),
+    rule: v('--rule'),
+    led: v('--led'),
+    ledA: alpha('--led'),
+    ruleA: alpha('--rule'),
+    inkA: alpha('--ink')
   };
 }
 
-// The window a band maps right now: its own handles, or the breathing
-// envelope while auto range runs.
+// The envelope auto range is mapping band `index` through right now, or null:
+// auto range is off, the source has not learned one, or what it sent has no
+// height (a panel that has never heard anything).
+function liveEnv(index) {
+  const env = cfg.autoRange && frame.env && frame.env[index];
+  return env && env.hi > env.lo ? { lo: clamp01(env.lo), hi: clamp01(env.hi) } : null;
+}
+
+// The window a band is drawn with: the breathing envelope while auto range
+// has one, the band's own hand-set window otherwise. Auto range without an
+// envelope yet shows the stored window (dashed), never a made-up one.
 function bandWindow(index) {
   const band = cfg.bands[index];
-  if (cfg.autoRange) {
-    const env = (frame.env && frame.env[index]) || (lastEnv && lastEnv[index]);
-    if (env) return { lo: clamp01(env.lo), hi: clamp01(env.hi) };
-    return { lo: 0.1, hi: 0.7 };
-  }
-  return { lo: band.inMin, hi: band.inMax };
+  return liveEnv(index) || { lo: band.inMin, hi: band.inMax };
+}
+
+// Is anything being heard? Without levels there is no line and no cursor.
+const hearing = () => !!(frame.levels && frame.levels.length);
+
+// Where band `index`'s level sits in its window, 0..1: the mapper's own
+// figure when the frame carries it, the model's arithmetic when it does not.
+function bandPos(index) {
+  if (frame.pos && frame.pos.length) return clamp01(frame.pos[index]);
+  return PFMap.position(frame.levels[index] || 0, cfg.bands[index], liveEnv(index));
+}
+
+// A window the source would store as it is: the top no higher than it keeps
+// one, the two edges no closer than it keeps them.
+function fitWindow(band) {
+  band.inMin = Math.max(0, Math.min(band.inMin, CAPS.bottom(CAPS.levelMax)));
+  band.inMax = Math.min(CAPS.levelMax, Math.max(band.inMax, CAPS.top(band.inMin)));
 }
 
 function formatHz(hz) {
@@ -215,7 +283,10 @@ function formatHz(hz) {
 
 // ── main plot drawing ───────────────────────────────────────────────────
 
-const MONO = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+// Everything written on a canvas: 11 px, in --muted. (10 px in --faint, as it
+// was, is 2.3:1 on the extension's cream; the axis and the one number that
+// says what the knob gets were the least legible text on the page.)
+const MONO = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 function drawPlot() {
   const T = theme();
@@ -227,9 +298,9 @@ function drawPlot() {
   // grid
   pctx.font = MONO;
   pctx.strokeStyle = T.ruleA(0.55);
-  pctx.fillStyle = T.faint;
+  pctx.fillStyle = T.muted;
   pctx.lineWidth = 1;
-  for (const [v, label] of DB_LINES) {
+  for (const [v, label] of dbLines()) {
     const y = Math.round(yOf(v)) + 0.5;
     if (v > 0 && v < 1) {
       pctx.beginPath(); pctx.moveTo(M.l, y); pctx.lineTo(M.l + PW, y); pctx.stroke();
@@ -237,6 +308,11 @@ function drawPlot() {
     pctx.textAlign = 'right';
     pctx.fillText(label, M.l - 8, y + 3);
   }
+  // The two units, once each, in the margin the level labels are in: dB heads
+  // their column, Hz starts the row of frequencies.
+  pctx.textAlign = 'right';
+  if (axisDb()) pctx.fillText('dB', M.l - 8, M.t - 9);
+  pctx.fillText('Hz', M.l - 8, M.t + PH + 16);
   pctx.textAlign = 'center';
   for (const [hz, label] of TICKS) {
     const x = Math.round(xOf(hz)) + 0.5;
@@ -289,26 +365,30 @@ function drawPlot() {
     pctx.beginPath(); pctx.moveTo(x0, yBot); pctx.lineTo(x1, yBot); pctx.stroke();
     pctx.setLineDash([]);
 
-    // live level as a horizontal line across the box — the band's average.
-    // The line BELONGS to the box: below the window it sits pinned on the
-    // bottom edge ("resting under the floor"), above it on the top. Drawn at
-    // the raw position it wandered out of its own box, which read as broken.
-    const level = (frame.levels && frame.levels[i]) || 0;
-    const ly = Math.max(yTop + 1.5, Math.min(yBot - 1.5, yOf(level)));
-    pctx.strokeStyle = T.led;
-    pctx.lineWidth = 2;
-    pctx.beginPath();
-    pctx.moveTo(x0 + 1, ly);
-    pctx.lineTo(x1 - 1, ly);
-    pctx.stroke();
+    // The live level, as a line across the box: how far through its window
+    // the band is, which is what the curve is fed and so what the knob gets.
+    // It is the mapper's position and not the level's height on the axis: the
+    // two differ wherever the mapper is not linear in this axis (the panel
+    // maps linear amplitude on a dB axis, and auto range squelches the floor),
+    // and a line drawn at the height says "fires" where the knob does not.
+    // Resting, it sits on the bottom edge; at full scale, on the top.
+    if (hearing()) {
+      const ly = Math.max(yTop + 1.5, Math.min(yBot - 1.5, yBot - bandPos(i) * (yBot - yTop)));
+      pctx.strokeStyle = T.led;
+      pctx.lineWidth = 2;
+      pctx.beginPath();
+      pctx.moveTo(x0 + 1, ly);
+      pctx.lineTo(x1 - 1, ly);
+      pctx.stroke();
+    }
 
     if (isSel) {
       pctx.fillStyle = T.field;
       pctx.strokeStyle = T.ink;
       pctx.lineWidth = 1;
       for (const [cx, cy] of [[x0, yTop], [x1, yTop], [x0, yBot], [x1, yBot]]) {
-        pctx.fillRect(cx - 3.5, cy - 3.5, 7, 7);
-        pctx.strokeRect(cx - 3.5, cy - 3.5, 7, 7);
+        pctx.fillRect(cx - GRIP / 2, cy - GRIP / 2, GRIP, GRIP);
+        pctx.strokeRect(cx - GRIP / 2, cy - GRIP / 2, GRIP, GRIP);
       }
     }
   });
@@ -316,31 +396,37 @@ function drawPlot() {
   placeTags();
 }
 
+// Band N drives knob N, and is named after it everywhere: K1..K4. A tag sits
+// ON its box's top edge, outside the box: auto range can make a box thinner
+// than the tag, which would otherwise cover it and its level line. It starts
+// at the box's left edge, and stops at the plot's right one: on a phone the
+// highest knob's box is narrower than its tag, which was cut off there.
 function placeTags() {
   const T = theme();
   cfg.bands.forEach((band, i) => {
     const tag = $('tag' + i);
     const win = bandWindow(i);
-    tag.style.left = Math.round(xOf(band.hzMin)) + 'px';
-    tag.style.top = Math.round(yOf(win.hi) - 11) + 'px';
     tag.classList.toggle('sel', i === sel);
     tag.classList.toggle('mutedTag', band.muted);
-    tag.querySelector('.tagText').textContent = 'B' + (i + 1) + (band.muted ? '·M' : '');
+    tag.querySelector('.tagText').textContent = 'K' + (i + 1) + (band.muted ? ' muted' : '');
     drawGlyph(tag.querySelector('canvas'), band, 18, 12, T.ink);
+    tag.style.left = Math.round(Math.min(xOf(band.hzMin), M.l + PW + M.r - tag.offsetWidth - 1)) + 'px';
+    tag.style.top = Math.round(yOf(win.hi) - 21) + 'px';
   });
 }
 
-// tiny curve glyph, used by tags and footer chips
+// The tiny curve glyph on tags, tabs and shapes. Its box (w x h css px) is the
+// stylesheet's, so a glyph that is not drawn yet already has its size; here
+// only the pixels are made.
 function drawGlyph(canvas, band, w, h, color) {
   const dpr = window.devicePixelRatio || 1;
   if (canvas.width !== w * dpr) {
     canvas.width = w * dpr; canvas.height = h * dpr;
-    canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   }
   const g = canvas.getContext('2d');
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
-  g.strokeStyle = color || theme().ink;
+  g.strokeStyle = color;
   g.lineWidth = 1.4;
   g.lineCap = 'round';
   g.beginPath();
@@ -356,7 +442,6 @@ function drawGlyph(canvas, band, w, h, color) {
 
 // ── main plot interaction ───────────────────────────────────────────────
 
-const EDGE = 7;
 let drag = null;
 
 function hitTest(x, y) {
@@ -371,8 +456,18 @@ function hitTest(x, y) {
     const insideX = x > x0 - EDGE && x < x1 + EDGE;
     const insideY = y > yTop - EDGE && y < yBot + EDGE;
     if (!insideX || !insideY) continue;
-    const nearL = Math.abs(x - x0) <= EDGE, nearR = Math.abs(x - x1) <= EDGE;
-    const nearT = Math.abs(y - yTop) <= EDGE, nearB = Math.abs(y - yBot) <= EDGE;
+    // An edge is grabbed from EDGE px outside it, and from inside too, but
+    // never from further in than a third of the box: the middle third of
+    // even the smallest box stays "move", so a fat edge cannot swallow it.
+    const inX = Math.min(EDGE, (x1 - x0) / 3), inY = Math.min(EDGE, (yBot - yTop) / 3);
+    const nearL = x <= x0 + inX, nearR = x >= x1 - inX;
+    // Under a finger, in auto range, a top or bottom edge is not a handle:
+    // with a finger's EDGE those two zones are a quarter of the plot, and a
+    // thumb that only meant to scroll the page took all four knobs over (see
+    // takeOver). There the touch scrolls, or moves the box if it is inside it;
+    // a height is set by hand after the Auto range switch is put off.
+    const tall = !(COARSE && cfg.autoRange);
+    const nearT = tall && y <= yTop + inY, nearB = tall && y >= yBot - inY;
     // Corners first — a grab there resizes both axes at once.
     if (nearL && nearT) return { band: i, mode: 'tl' };
     if (nearR && nearT) return { band: i, mode: 'tr' };
@@ -387,16 +482,22 @@ function hitTest(x, y) {
   return null;
 }
 
-// Grabbing a breathing edge is the gesture that says "I'll take it from
+// Dragging a breathing edge is the gesture that says "I'll take it from
 // here": auto range switches off, and every band's window is seeded from the
-// envelope it was just breathing at, so nothing jumps.
-function freezeAutoWindows() {
-  const env = (frame.env && frame.env.length ? frame.env : lastEnv) || [];
+// envelope it was just breathing at, so nothing jumps. A band with no live
+// envelope keeps the window it had (and a source sends none for a band that
+// has learned nothing: seeded from silence, a window is a sliver at the floor
+// that any sound pegs at its top). This is the ONLY thing that writes an
+// envelope into a window: the Auto range switch itself just goes back to the
+// hand-set windows, so trying auto costs nothing. With a mouse only: see
+// hitTest.
+function takeOver() {
   cfg.bands.forEach((band, i) => {
-    const e = env[i];
-    if (!e) return;
-    band.inMin = clamp01(e.lo);
-    band.inMax = Math.max(band.inMin + 0.02, clamp01(e.hi));
+    const env = liveEnv(i);
+    if (!env) return;
+    band.inMin = env.lo;
+    band.inMax = env.hi;
+    fitWindow(band);
   });
   cfg.autoRange = false;
   syncAutoToggle();
@@ -407,25 +508,39 @@ function plotPointer(event) {
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
+// A FINGER ON A CANVAS. One that lands on something draggable is a drag, and
+// the page must not scroll under it; one that misses is the browser's, so the
+// page still scrolls from anywhere else on the plot. That cannot be said with
+// touch-action, which is per element and not per touch (`none` made the plot
+// a trap no swipe got out of; `pan-y` would give the browser the vertical
+// drag of a top or bottom edge, and it takes it with a pointercancel that
+// preventDefault on pointerdown does not stop). What does decide it per touch
+// is a touchstart listener that is not passive: prevented, that touch never
+// scrolls and its pointer events run to the end. `hits(x, y)` says whether
+// the point, in the canvas's own px, is on something.
+function dragOnHit(canvas, hits) {
+  canvas.addEventListener('touchstart', (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const touch = event.changedTouches[0];
+    if (hits(touch.clientX - rect.left, touch.clientY - rect.top)) event.preventDefault();
+  }, { passive: false });
+}
+dragOnHit(plotCanvas, hitTest);
+
 plotCanvas.addEventListener('pointerdown', (event) => {
   const { x, y } = plotPointer(event);
   const hit = hitTest(x, y);
   if (!hit) return;
   if (hit.band !== sel) selectBand(hit.band);
-  if (cfg.autoRange && hit.mode !== 'move' && hit.mode !== 'l' && hit.mode !== 'r') {
-    freezeAutoWindows();  // any grab that touches a breathing edge takes over
-  }
-  const band = cfg.bands[hit.band];
-  const win = bandWindow(hit.band);
-  drag = {
-    ...hit,
-    startX: x, startY: y,
-    hzMin: band.hzMin, hzMax: band.hzMax,
-    lo: win.lo, hi: win.hi
-  };
+  // Armed, not moving: a press selects. Nothing is moved, resized or taken
+  // over until the pointer has travelled SLOP px, so a tap (or the jitter of
+  // one) changes nothing.
+  drag = { ...hit, startX: x, startY: y, live: false };
   plotCanvas.setPointerCapture(event.pointerId);
   event.preventDefault();
 });
+
+const SLOP = 4;
 
 plotCanvas.addEventListener('pointermove', (event) => {
   const { x, y } = plotPointer(event);
@@ -439,7 +554,16 @@ plotCanvas.addEventListener('pointermove', (event) => {
     return;
   }
   const band = cfg.bands[drag.band];
-  const MINR = 1.12;   // narrowest box, as a frequency ratio
+  if (!drag.live) {
+    if (Math.hypot(x - drag.startX, y - drag.startY) < SLOP) return;
+    // A top or bottom edge of a box in auto range (or a corner, which is one
+    // too): this drag takes over. ('move' has neither letter in it.)
+    if (cfg.autoRange && /[tb]/.test(drag.mode)) takeOver();
+    const win = bandWindow(drag.band);
+    Object.assign(drag, { live: true, hzMin: band.hzMin, hzMax: band.hzMax, lo: win.lo, hi: win.hi });
+  }
+  // The narrowest box, as a frequency ratio.
+  const MINR = 1.12;
 
   if (drag.mode === 'move') {
     // Translate in log-frequency: the box keeps its RATIO width, which is
@@ -448,30 +572,34 @@ plotCanvas.addEventListener('pointermove', (event) => {
     let ratio = Math.pow(10, shift);
     ratio = Math.max(CAPS.hzMin / drag.hzMin, Math.min(CAPS.hzMax / drag.hzMax, ratio));
     band.hzMin = drag.hzMin * ratio;
-    band.hzMax = drag.hzMax * ratio;
+    band.hzMax = Math.max(drag.hzMax * ratio, band.hzMin + CAPS.hzGap);
     if (!cfg.autoRange) {
       const dv = vOf(y) - vOf(drag.startY);
       const span = drag.hi - drag.lo;
-      const lo = Math.max(0, Math.min(1 - span, drag.lo + dv));
-      band.inMin = lo;
-      band.inMax = lo + span;
+      band.inMin = Math.max(0, Math.min(CAPS.levelMax - span, drag.lo + dv));
+      band.inMax = band.inMin + span;
+      fitWindow(band);
     }
   } else {
     // Edges and corners share the same four moves; a corner just does two.
-    if (drag.mode.includes('l')) band.hzMin = Math.min(hzOf(x), band.hzMax / MINR);
-    if (drag.mode.includes('r')) band.hzMax = Math.max(hzOf(x), band.hzMin * MINR);
-    if (drag.mode.includes('t')) band.inMax = Math.max(vOf(y), band.inMin + 0.02);
-    if (drag.mode.includes('b')) band.inMin = Math.min(vOf(y), band.inMax - 0.02);
+    // Each edge stops where the source would stop it, so what is drawn is
+    // what is stored and nothing moves on the next load.
+    if (drag.mode.includes('l')) band.hzMin = Math.max(CAPS.hzMin, Math.min(hzOf(x), band.hzMax / MINR, band.hzMax - CAPS.hzGap));
+    if (drag.mode.includes('r')) band.hzMax = Math.min(CAPS.hzMax, Math.max(hzOf(x), band.hzMin * MINR, band.hzMin + CAPS.hzGap));
+    if (drag.mode.includes('t')) band.inMax = Math.min(CAPS.levelMax, Math.max(vOf(y), CAPS.top(band.inMin)));
+    if (drag.mode.includes('b')) band.inMin = Math.max(0, Math.min(vOf(y), CAPS.bottom(band.inMax)));
   }
   drawPlot();
+  drawCurve();
   renderChips();
   renderSettings();
 });
 
 const releasePlot = () => {
   if (!drag) return;
+  const moved = drag.live;
   drag = null;
-  persist();
+  if (moved) persist();
 };
 plotCanvas.addEventListener('pointerup', releasePlot);
 plotCanvas.addEventListener('pointercancel', releasePlot);
@@ -480,15 +608,17 @@ plotCanvas.addEventListener('pointercancel', releasePlot);
 
 const curveCanvas = $('curve');
 const cctx = curveCanvas.getContext('2d');
-const CM = { l: 30, r: 10, t: 12, b: 26 };
+const CM = { l: 34, r: 10, t: 12, b: 26 };
 let CW = 0, CH = 0;
 let curveDrag = null;
 
+// The curve's box is the stylesheet's too (#curve: 356 px wide where there is
+// room, the width of its row where there is not, 218 tall). The pointer maths
+// below go by CW and CH, so any size works.
 function sizeCurve() {
   const dpr = window.devicePixelRatio || 1;
-  const cssW = 356, cssH = 218;
+  const cssW = curveCanvas.clientWidth, cssH = 218;
   curveCanvas.width = cssW * dpr; curveCanvas.height = cssH * dpr;
-  curveCanvas.style.width = cssW + 'px'; curveCanvas.style.height = cssH + 'px';
   cctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   CW = cssW - CM.l - CM.r; CH = cssH - CM.t - CM.b;
 }
@@ -538,47 +668,62 @@ function drawCurve() {
     cctx.strokeStyle = T.ink;
     cctx.lineWidth = 1;
     for (const [hx, hy] of [[c.p1x, c.p1y], [c.p2x, c.p2y]]) {
-      cctx.fillRect(cxOf(hx) - 3.5, cyOf(hy) - 3.5, 7, 7);
-      cctx.strokeRect(cxOf(hx) - 3.5, cyOf(hy) - 3.5, 7, 7);
+      cctx.fillRect(cxOf(hx) - GRIP / 2, cyOf(hy) - GRIP / 2, GRIP, GRIP);
+      cctx.strokeRect(cxOf(hx) - GRIP / 2, cyOf(hy) - GRIP / 2, GRIP, GRIP);
     }
   }
 
-  // live cursor: where the music is on this curve right now
+  // live cursor: where the music is on this curve right now, and (top
+  // left) what that is: the level heard, in the axis's dB, -> the knob's
+  // value. The position and the value are the mapper's own figures when the
+  // frame has them.
   const win = bandWindow(sel);
-  const level = (frame.levels && frame.levels[sel]) || 0;
-  const u = clamp01((level - win.lo) / Math.max(0.001, win.hi - win.lo));
-  const v = bandCurveValue(band, u);
-  cctx.strokeStyle = T.led;
-  cctx.setLineDash([3, 3]);
-  cctx.lineWidth = 1;
-  cctx.beginPath(); cctx.moveTo(cxOf(u), CM.t + CH); cctx.lineTo(cxOf(u), cyOf(v)); cctx.stroke();
-  cctx.setLineDash([]);
-  cctx.fillStyle = T.led;
-  cctx.beginPath(); cctx.arc(cxOf(u), cyOf(v), 4.5, 0, Math.PI * 2); cctx.fill();
+  if (hearing()) {
+    const u = bandPos(sel);
+    const v = bandCurveValue(band, u);
+    cctx.strokeStyle = T.led;
+    cctx.setLineDash([3, 3]);
+    cctx.lineWidth = 1;
+    cctx.beginPath(); cctx.moveTo(cxOf(u), CM.t + CH); cctx.lineTo(cxOf(u), cyOf(v)); cctx.stroke();
+    cctx.setLineDash([]);
+    cctx.fillStyle = T.led;
+    cctx.beginPath(); cctx.arc(cxOf(u), cyOf(v), 4.5, 0, Math.PI * 2); cctx.fill();
+    const out = frame.outputs && frame.outputs.length ? frame.outputs[sel] : PFMap.output(band, u);
+    const heard = dbText(frame.levels[sel] || 0);
+    cctx.font = MONO;
+    cctx.fillStyle = T.muted;
+    cctx.textAlign = 'left';
+    cctx.fillText((heard && heard + ' dB ') + '→ ' + Number(out).toFixed(2), CM.l + 6, CM.t + 12);
+  }
 
-  // labels
+  // labels: along the bottom the window this curve is spread over, quiet end
+  // to loud end, in the plot's dB (auto range keeps moving it, so it gets the
+  // word); up the side the two ends of the output range.
+  const lo = dbText(win.lo);
   cctx.font = MONO;
-  cctx.fillStyle = T.faint;
+  cctx.fillStyle = T.muted;
   cctx.textAlign = 'left';
-  cctx.fillText(cfg.autoRange ? 'in auto' : 'in ' + win.lo.toFixed(2), CM.l, CM.t + CH + 16);
+  cctx.fillText(cfg.autoRange ? 'auto range' : lo, CM.l, CM.t + CH + 16);
   cctx.textAlign = 'right';
-  cctx.fillText(cfg.autoRange ? '' : win.hi.toFixed(2), CM.l + CW, CM.t + CH + 16);
-  cctx.fillText(cfg.bands[sel].outMax.toFixed(2), CM.l - 6, CM.t + 8);
-  cctx.fillText(cfg.bands[sel].outMin.toFixed(2), CM.l - 6, CM.t + CH);
-  cctx.textAlign = 'left';
-  cctx.fillText(u.toFixed(2) + ' → ' + (cfg.bands[sel].outMin + v * (cfg.bands[sel].outMax - cfg.bands[sel].outMin)).toFixed(2), CM.l + 6, CM.t + 12);
+  cctx.fillText(cfg.autoRange || !lo ? '' : dbText(win.hi) + ' dB', CM.l + CW, CM.t + CH + 16);
+  cctx.fillText(band.outMax.toFixed(2), CM.l - 6, CM.t + 8);
+  cctx.fillText(band.outMin.toFixed(2), CM.l - 6, CM.t + CH);
 }
 
+// Which handle of the selected knob's curve is at this point: 'p1', 'p2', or
+// nothing (only a bezier has handles).
+function curveHit(x, y) {
+  const c = cfg.bands[sel].curve;
+  if (!c || c.type !== 'bezier') return null;
+  const near = (hx, hy) => Math.hypot(x - cxOf(hx), y - cyOf(hy)) < REACH;
+  return near(c.p1x, c.p1y) ? 'p1' : near(c.p2x, c.p2y) ? 'p2' : null;
+}
+dragOnHit(curveCanvas, curveHit);
+
 curveCanvas.addEventListener('pointerdown', (event) => {
-  const band = cfg.bands[sel];
-  if (!band.curve || band.curve.type !== 'bezier') return;
   const rect = curveCanvas.getBoundingClientRect();
-  const x = event.clientX - rect.left, y = event.clientY - rect.top;
-  const c = band.curve;
-  const near = (hx, hy) => Math.hypot(x - cxOf(hx), y - cyOf(hy)) < 12;
-  if (near(c.p1x, c.p1y)) curveDrag = 'p1';
-  else if (near(c.p2x, c.p2y)) curveDrag = 'p2';
-  else return;
+  curveDrag = curveHit(event.clientX - rect.left, event.clientY - rect.top);
+  if (!curveDrag) return;
   curveCanvas.setPointerCapture(event.pointerId);
   event.preventDefault();
 });
@@ -615,13 +760,18 @@ function renderPresetChips() {
   const id = band.curve ? (band.curve.id || 'custom') : null;
   document.querySelectorAll('.preset').forEach((el) => {
     el.classList.toggle('on', el.dataset.p === id);
+    el.setAttribute('aria-pressed', el.dataset.p === id);
   });
-  $('legacyHint').hidden = !!band.curve;
+  // One line under the shapes, and only when it is true: a knob that has no
+  // shape is on the source's default response (nothing to fix, so nothing is
+  // asked), and only a bezier has handles to drag.
+  $('curveHint').textContent = !band.curve ? 'This knob uses the default response.'
+    : band.curve.type === 'bezier' ? 'Drag the two handles for a custom shape.' : '';
   $('stepsRow').hidden = !(band.curve && band.curve.type === 'steps');
   if (band.curve && band.curve.type === 'steps') $('stepsN').textContent = String(band.curve.n);
   document.querySelectorAll('.preset canvas').forEach((canvas) => {
     const preset = PRESETS[canvas.parentElement.dataset.p];
-    drawGlyph(canvas, { curve: preset.curve, gain: 1 }, 40, 24, theme().ink);
+    drawGlyph(canvas, { curve: preset, gain: 1 }, 40, 24, theme().ink);
   });
 }
 
@@ -629,7 +779,7 @@ document.querySelectorAll('.preset').forEach((el) => {
   el.addEventListener('click', () => {
     const preset = PRESETS[el.dataset.p];
     if (!preset) return;
-    touchCurve(cfg.bands[sel], structuredClone(preset.curve));
+    touchCurve(cfg.bands[sel], structuredClone(preset));
     drawCurve();
     renderPresetChips();
     placeTags();
@@ -653,19 +803,26 @@ function stepsAdjust(delta) {
   persist();
 }
 
+// The selected knob's card: which knob, what it listens to (its frequencies,
+// and its window in the plot's dB unless auto range is setting that), its
+// output range and its mute. The knob's name is also on its Reset and in
+// Preview's legend.
 function renderSettings() {
   const band = cfg.bands[sel];
-  $('bandName').textContent = 'Band ' + (sel + 1);
+  const lo = dbText(band.inMin);
+  $('bandName').textContent = 'Knob ' + (sel + 1);
   $('bandMeta').textContent = formatHz(band.hzMin) + ' – ' + formatHz(band.hzMax) + ' Hz'
-    + (cfg.autoRange ? ' · in auto' : ' · in ' + band.inMin.toFixed(2) + '–' + band.inMax.toFixed(2));
+    + (cfg.autoRange ? ' · auto range' : lo && ' · ' + lo + ' to ' + dbText(band.inMax) + ' dB');
   $('outLabel').textContent = band.outMin.toFixed(2) + ' – ' + band.outMax.toFixed(2);
-  const track = $('outTrack');
-  const w = track.clientWidth - 10;
-  $('outLo').style.left = (5 + band.outMin * w - 5) + 'px';
-  $('outHi').style.left = (5 + band.outMax * w - 5) + 'px';
+  const w = $('outTrack').clientWidth - 10;
+  $('outLo').style.left = (5 + band.outMin * w) + 'px';
+  $('outHi').style.left = (5 + band.outMax * w) + 'px';
   $('outFill').style.left = (5 + band.outMin * w) + 'px';
   $('outFill').style.width = Math.max(0, (band.outMax - band.outMin) * w) + 'px';
   $('muteToggle').classList.toggle('on', band.muted);
+  $('muteToggle').setAttribute('aria-pressed', band.muted);
+  $('resetBand').textContent = 'Reset K' + (sel + 1);
+  $('pvOut').textContent = 'K' + (sel + 1) + ' output';
 }
 
 document.querySelectorAll('.outPreset').forEach((el) => {
@@ -677,12 +834,16 @@ document.querySelectorAll('.outPreset').forEach((el) => {
   });
 });
 
+// The track is dragged sideways and lets the page scroll up and down
+// (touch-action: pan-y). A touch that turns out to be a scroll ends in
+// pointercancel after it has already moved the handle a little: that puts
+// back what the press found and saves nothing.
 let outDrag = null;
 $('outTrack').addEventListener('pointerdown', (event) => {
   const band = cfg.bands[sel];
   const rect = $('outTrack').getBoundingClientRect();
   const v = clamp01((event.clientX - rect.left - 5) / (rect.width - 10));
-  outDrag = Math.abs(v - band.outMin) < Math.abs(v - band.outMax) ? 'lo' : 'hi';
+  outDrag = { lo: Math.abs(v - band.outMin) < Math.abs(v - band.outMax), was: [band.outMin, band.outMax] };
   $('outTrack').setPointerCapture(event.pointerId);
   event.preventDefault();
 });
@@ -691,13 +852,19 @@ $('outTrack').addEventListener('pointermove', (event) => {
   const band = cfg.bands[sel];
   const rect = $('outTrack').getBoundingClientRect();
   const v = clamp01((event.clientX - rect.left - 5) / (rect.width - 10));
-  if (outDrag === 'lo') band.outMin = Math.min(v, band.outMax - 0.05);
-  else band.outMax = Math.max(v, band.outMin + 0.05);
+  if (outDrag.lo) band.outMin = Math.min(v, band.outMax - PFMap.MIN_OUT);
+  else band.outMax = Math.max(v, band.outMin + PFMap.MIN_OUT);
   renderSettings(); drawCurve();
 });
-const releaseOut = () => { if (outDrag) { outDrag = null; persist(); } };
-$('outTrack').addEventListener('pointerup', releaseOut);
-$('outTrack').addEventListener('pointercancel', releaseOut);
+$('outTrack').addEventListener('pointerup', () => {
+  if (outDrag) { outDrag = null; persist(); }
+});
+$('outTrack').addEventListener('pointercancel', () => {
+  if (!outDrag) return;
+  [cfg.bands[sel].outMin, cfg.bands[sel].outMax] = outDrag.was;
+  outDrag = null;
+  renderSettings(); drawCurve();
+});
 
 $('muteToggle').addEventListener('click', () => {
   const band = cfg.bands[sel];
@@ -705,21 +872,30 @@ $('muteToggle').addEventListener('click', () => {
   renderSettings(); renderChips(); drawPlot(); persist();
 });
 
-$('resetBand').addEventListener('click', () => {
-  cfg.bands[sel] = defaultBand(sel);
-  touchCurve(cfg.bands[sel], structuredClone(PRESETS.smooth.curve));
-  selectBand(sel);
-  persist();
+// Reset band asks the SOURCE for its default: the editor has no table of its
+// own, so this and the source's own "reset everything" cannot disagree.
+// Whatever is waiting to be saved goes first, so the reset is the last word.
+$('resetBand').addEventListener('click', async () => {
+  await flush();
+  const next = await A.resetBand(sel, cfg);
+  if (next) applyConfig(next);
 });
 
-// ── footer chips ────────────────────────────────────────────────────────
+// The source's own "reset everything", where it has one (see the contract):
+// the button is in the page, hidden, and only such a source brings it out.
+if (A.resetAll) {
+  $('resetMap').hidden = false;
+  $('resetMap').addEventListener('click', function () { A.resetAll(this); });
+}
+
+// ── the knobs, as tabs under the plot ───────────────────────────────────
 
 function renderChips() {
   cfg.bands.forEach((band, i) => {
     const chip = $('chip' + i);
     chip.classList.toggle('sel', i === sel);
+    chip.setAttribute('aria-pressed', i === sel);
     chip.classList.toggle('mutedChip', band.muted);
-    chip.querySelector('.chipName').textContent = 'B' + (i + 1);
     chip.querySelector('.chipHz').textContent = formatHz(band.hzMin) + '–' + formatHz(band.hzMax);
     drawGlyph(chip.querySelector('canvas'), band, 18, 12, theme().muted);
   });
@@ -740,13 +916,21 @@ function selectBand(index) {
 
 // ── preview ─────────────────────────────────────────────────────────────
 //
-// Ableton-style: synthetic test signals through the SELECTED band's whole
+// Ableton-style: synthetic test signals through the SELECTED knob's whole
 // chain - window, glide ballistics, curve, output range - drawn as a
 // scrolling scope. What the knob will do, audible music not required.
+//
+// The scope takes the plot's place while it runs (#pv lies over it: a test
+// signal needs no spectrum), so everything it demonstrates - attack and
+// damping above it, the knobs, the curve and the output range below - stays
+// live around it. The Preview button, right under it, closes it again; so
+// does Escape.
 
-const pvOverlay = $('pvOverlay');
+const pv = $('pv');
 const pvScope = $('pvScope');
 const pvCtx = pvScope.getContext('2d');
+// The scope's box, css px: whatever the layer gives it (see pvSize).
+let pvW = 0, pvH = 0;
 let pvSig = 'pulse';
 let pvRaf = 0;
 let pvTimer = 0;
@@ -764,40 +948,32 @@ function pvSignal(t) {
     // output shows comes from the glide, which is the point of the demo.
     const phase = t % 0.8;
     const spike = phase < 0.06 ? 0.85 : 0;
-    return Math.min(1, Math.max(0, spike + 0.07 + (Math.random() - 0.5) * 0.03));
+    return clamp01(spike + 0.07 + (Math.random() - 0.5) * 0.03);
   }
   if (pvSig === 'noisy') {
     const spike = (t % 1.7) < 0.06 ? 0.5 : 0;
-    return Math.min(1, Math.max(0,
-      0.30 + 0.10 * Math.sin(t * 1.3) + (Math.random() - 0.5) * 0.22 + spike));
+    return clamp01(0.30 + 0.10 * Math.sin(t * 1.3) + (Math.random() - 0.5) * 0.22 + spike);
   }
   // swell
-  return Math.min(1, Math.max(0,
-    0.45 + 0.35 * Math.sin(t * Math.PI * 2 * 0.35) + (Math.random() - 0.5) * 0.04));
+  return clamp01(0.45 + 0.35 * Math.sin(t * Math.PI * 2 * 0.35) + (Math.random() - 0.5) * 0.04);
 }
 
 function pvChain(sig) {
   // Mirror the live pipeline: asymmetric glide on the LEVEL, then window,
   // curve, output range.
-  const a = pvLevel < sig
-    ? Math.max(0.05, Math.min(0.9, cfg.attack))
-    : Math.max(0.05, Math.min(0.9, cfg.smoothing));
+  // (Both alphas are already inside 0.05..0.9: the model holds them there on
+  // load and the two sliders cannot leave it.)
+  const a = pvLevel < sig ? cfg.attack : cfg.smoothing;
   pvLevel += (sig - pvLevel) * a;
   const band = cfg.bands[sel];
-  let u;
-  if (cfg.autoRange) {
-    u = clamp01((pvLevel - 0.10) / 0.85);
-  } else {
-    const inMin = clamp01(band.inMin);
-    const inMax = Math.max(inMin + 0.01, clamp01(band.inMax));
-    u = clamp01((pvLevel - inMin) / (inMax - inMin));
-  }
-  return band.outMin + bandCurveValue(band, u) * (band.outMax - band.outMin);
+  // The model's own two functions. In auto range the test signal is taken
+  // as already sitting in its envelope.
+  return PFMap.output(band, PFMap.position(pvLevel, band, cfg.autoRange ? { lo: 0, hi: 1 } : null));
 }
 
 function pvDraw() {
   const T = theme();
-  const w = 600, h = 230;
+  const w = pvW, h = pvH;
   pvCtx.clearRect(0, 0, w, h);
   pvCtx.strokeStyle = T.ruleA(0.5);
   pvCtx.lineWidth = 1;
@@ -821,7 +997,7 @@ function pvDraw() {
 }
 
 function pvTick(now) {
-  if (pvOverlay.hidden) return;
+  if (pv.hidden) return;
   if (!pvLast) pvLast = now;
   // Wall-clock scheduling, not per-frame increments: a throttled tab still
   // simulates the RIGHT amount of time when frames do arrive (capped per
@@ -853,26 +1029,31 @@ function pvSchedule() {
   }, 300);
 }
 
-function pvOpen() {
+// The scope draws into the box the stylesheet gives it: what is left of the
+// plot's box under the row of test signals. No size of its own.
+function pvSize() {
   const dpr = window.devicePixelRatio || 1;
-  pvScope.width = 600 * dpr; pvScope.height = 230 * dpr;
-  pvScope.style.width = '600px'; pvScope.style.height = '230px';
+  pvW = pvScope.clientWidth; pvH = pvScope.clientHeight;
+  pvScope.width = pvW * dpr; pvScope.height = pvH * dpr;
   pvCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  $('pvTitle').textContent = 'Preview — Band ' + (sel + 1);
+}
+
+// On, off: the one switch. The button says which it is (aria-pressed).
+function pvSet(on) {
+  pv.hidden = !on;
+  $('openPreview').setAttribute('aria-pressed', on);
+  cancelAnimationFrame(pvRaf);
+  clearTimeout(pvTimer);
+  if (!on) return;
+  pvSize();
   pvIn = []; pvOut = []; pvT = 0; pvLast = 0; pvLevel = 0;
-  pvOverlay.hidden = false;
   pvSchedule();
 }
 
-function pvClose() {
-  pvOverlay.hidden = true;
-  cancelAnimationFrame(pvRaf);
-  clearTimeout(pvTimer);
-}
-
-$('openPreview').addEventListener('click', pvOpen);
-$('pvClose').addEventListener('click', pvClose);
-pvOverlay.addEventListener('click', (e) => { if (e.target === pvOverlay) pvClose(); });
+$('openPreview').addEventListener('click', () => pvSet(pv.hidden));
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !pv.hidden) pvSet(false);
+});
 document.querySelectorAll('.pvSig').forEach((el) => {
   el.addEventListener('click', () => {
     pvSig = el.dataset.s;
@@ -882,22 +1063,22 @@ document.querySelectorAll('.pvSig').forEach((el) => {
 
 // ── auto toggle, status, wiring ─────────────────────────────────────────
 
+// The switch, and beside it the one thing to know about the boxes in the mode
+// it is in.
 function syncAutoToggle() {
   $('autoToggle').classList.toggle('on', cfg.autoRange);
-  $('autoHint').textContent = cfg.autoRange
-    ? 'boxes breathe with the room — drag a top or bottom edge to take manual control'
-    : 'manual windows — the box edges are exactly what maps';
+  $('autoToggle').setAttribute('aria-pressed', cfg.autoRange);
+  $('autoHint').textContent = cfg.autoRange ? HINT_AUTO : HINT_HAND;
 }
 
+// The switch only switches: off goes back to the windows set by hand, which
+// auto range never touched. (Dragging an edge is what keeps an envelope.)
 $('autoToggle').addEventListener('click', () => {
-  if (cfg.autoRange) freezeAutoWindows();
-  else cfg.autoRange = true;
+  cfg.autoRange = !cfg.autoRange;
   syncAutoToggle();
   drawPlot(); drawCurve(); renderSettings();
   persist();
 });
-
-$('stopBtn').addEventListener('click', () => A.stop());
 
 // Damping = the level smoothing the analysis already runs (an EMA on each
 // band, before the window and curve). Right means calmer: the slider's 0..1
@@ -907,68 +1088,90 @@ $('stopBtn').addEventListener('click', () => A.stop());
 const DAMP_WORDS = [[0.25, 'tight'], [0.5, 'balanced'], [0.75, 'smooth'], [1.01, 'glassy']];
 const ATK_WORDS = [[0.25, 'snap'], [0.5, 'quick'], [0.75, 'soft'], [1.01, 'lazy']];
 
-function dampWord(v) {
-  for (const [top, word] of DAMP_WORDS) if (v < top) return word;
-  return 'glassy';
-}
+const dampWord = (v) => DAMP_WORDS.find(([top]) => v < top)[1];
 
 function syncDamping() {
   const v = clamp01((0.9 - cfg.smoothing) / 0.85);
-  $('damping').value = String(v);
+  $('damping').value = v;
   $('dampingWord').textContent = dampWord(v);
   const k = clamp01((0.9 - cfg.attack) / 0.85);
-  $('attack').value = String(k);
+  $('attack').value = k;
   $('attackWord').textContent = ATK_WORDS.find(([top]) => k < top)[1];
 }
 
 $('attack').addEventListener('input', () => {
   const v = clamp01($('attack').value);
-  cfg.attack = Math.max(0.05, Math.min(0.9, 0.9 - v * 0.85));
+  cfg.attack = 0.9 - v * 0.85;
   $('attackWord').textContent = ATK_WORDS.find(([top]) => v < top)[1];
   persist();
 });
 
 $('damping').addEventListener('input', () => {
   const v = clamp01($('damping').value);
-  cfg.smoothing = Math.max(0.05, Math.min(0.9, 0.9 - v * 0.85));
+  cfg.smoothing = 0.9 - v * 0.85;
   $('dampingWord').textContent = dampWord(v);
   persist();
 });
 
-function renderStatus() {
-  const el = $('sourceChip');
-  if (frame.demo) { el.textContent = 'demo source'; el.className = 'chip'; }
-  else if (frame.running && frame.connected) { el.textContent = (A.labels && A.labels.live) || 'live · tab audio'; el.className = 'chip okChip'; }
-  else if (frame.running) { el.textContent = 'capturing · connecting'; el.className = 'chip'; }
-  else { el.textContent = 'idle'; el.className = 'chip'; }
-  $('hostChip').textContent = cfg.host + ':81';
-  $('captureHint').textContent = frame.running || frame.demo ? '' : A.captureHint;
-  $('stopBtn').disabled = !frame.running;
-}
-
-A.onFrame((state) => {
-  frame = state || {};
-  if (frame.env && frame.env.length) lastEnv = frame.env;
+// Everything drawn is sized from the page, so a window made narrower (half a
+// screen beside the music, a phone turned round) is measured again.
+window.addEventListener('resize', () => {
+  if (!cfg) return;
+  sizePlot();
+  sizeCurve();
+  if (!pv.hidden) pvSize();
   drawPlot();
   drawCurve();
-  renderStatus();
-});
-
-window.addEventListener('resize', () => {
-  sizePlot();
-  drawPlot();
   renderSettings();
 });
 
+// An in-page "are you sure": the first press arms the button and makes it ask,
+// a second press within four seconds answers yes. A second press that comes
+// within half a second of the first is the same double click or double tap,
+// not an answer to a question nobody has had time to read: it is ignored, and
+// the button stays armed. window.confirm is not used anywhere on these pages:
+// the phone app shows /audio-in in a WebView that has none (it answers "no"
+// without showing anything). Use:
+//   if (!PFConfirm(button, 'Reset everything? Press again')) return;
+window.PFConfirm = function (button, ask) {
+  if (button._armed) {
+    if (Date.now() - button._at < 500) return false;
+    clearTimeout(button._armed);
+    button._armed = 0;
+    button.textContent = button._label;
+    return true;
+  }
+  button._label = button.textContent;
+  button.textContent = ask;
+  button._at = Date.now();
+  button._armed = setTimeout(() => {
+    button._armed = 0;
+    button.textContent = button._label;
+  }, 4000);
+  return false;
+};
+
 (async function init() {
   const stored = await A.loadConfig();
-  cfg = normalizeConfig(stored);
-  if (A._setDemoConfig) A._setDemoConfig(cfg);
+  readCaps();
+  cfg = PFMap.normalizeConfig(stored, CAPS);
   sizePlot();
   sizeCurve();
   syncAutoToggle();
   syncDamping();
   selectBand(0);
-  renderStatus();
-  A.requestStatus();
+  // The attribute, not the property: a browser too old to know `inert` would
+  // keep the attribute, and with it what the stylesheet hides before the
+  // first mapping.
+  $('ed').removeAttribute('inert');
+  if (A.onConfig) A.onConfig(applyConfig);
+  A.onFrame((state) => {
+    const was = String(axisDb());
+    frame = state || {};
+    // A frame on another level axis (`db` in the contract) changes the dB the
+    // card prints, not only the plot's labels.
+    if (String(axisDb()) !== was) renderSettings();
+    drawPlot();
+    drawCurve();
+  });
 })();

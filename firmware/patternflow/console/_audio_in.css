@@ -1,0 +1,83 @@
+/* /audio-in, the panel's half: its styles. A source, not a page:
+   firmware/toolchain/build_audio_in_page.py puts this after the editor's own
+   rules (tools/patternflow-audio-extension/editor.css, down to its EXTENSION
+   ONLY line) in console/audio-in.html. Edit it here, then run
+   console_pages.py build. Comments and indentation do not travel.
+
+   The editor brings layout and no colour: every colour it uses is a
+   variable, and this file is where the panel gives them values. So the page
+   is a console page: the console's base block (README, "The look"), then the
+   editor's parts dressed as the console's. The extension keeps its own skin
+   below the EXTENSION ONLY line of its sheet; nothing here reaches it. */
+
+/* Console base: the same block opens every core page. Light in :root (the chrome's
+   injected light palette holds these same values: keep the two in step),
+   dark under html[data-theme=dark]. No web fonts: the hotspot has no internet.
+   Two names are the editor's own and stand on the console's: its plot and
+   cards are panels, its tags the ghost grey. They are set here and not in
+   the chrome, which is the core's. The canvases read all of them fresh on
+   every paint, and --led, --rule and --ink are taken apart for see-through
+   paint, so those three stay written #rrggbb. */
+:root{color-scheme:light;--cream:#F4EFE6;--panel:#FFFCFA;--ink:#1A1814;--muted:#625C51;--faint:#7D7668;--rule:#DDD5C6;--rule-soft:#E8E1D4;--ghost:#E3DCCE;--led:#FF5C2E;--bad:#B83C1C;--ok:#2B7A4B;--warn:#85600E;
+--sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;--mono:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'Roboto Mono',monospace;--field:var(--panel);--cream-2:var(--ghost)}
+html[data-theme=dark]{color-scheme:dark;--cream:#0C0B09;--panel:#131110;--ink:#EDE7DB;--muted:#A39B8A;--faint:#7A7364;--rule:#2B2721;--rule-soft:#1F1C18;--ghost:#2A2620;--bad:#FF7A55;--ok:#57B87F;--warn:#D9A03F}
+[hidden]{display:none!important}
+body{margin:0;background:var(--cream);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}:focus-visible{outline:2px solid var(--led);outline-offset:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 48px}
+h2{margin:14px 0 0;font-size:13px;font-weight:600;color:var(--muted)}
+.msg,.sub{font:12px var(--mono);color:var(--faint)}.pf-ok{color:var(--ok)}.pf-err{color:var(--bad)}
+.chip{display:inline-block;padding:0 8px;border:1px solid var(--rule);border-radius:99px;font:11px/20px var(--mono);color:var(--muted);white-space:nowrap}
+.chip.ok{border-color:var(--ok);color:var(--ok)}.chip.pf-err{border-color:var(--bad);color:var(--bad)}.chip:empty{display:none}
+footer{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:26px;border-top:1px solid var(--rule);font:12px var(--mono);color:var(--faint)}
+footer a{display:inline-flex;align-items:center;min-height:40px;color:var(--muted);text-decoration:none}
+header{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px}
+h1{flex:1;margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
+p{margin:0}
+.list{margin:0;padding:0;list-style:none;border-top:1px solid var(--rule)}
+.list>li{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-height:48px;padding:6px 0;border-bottom:1px solid var(--rule-soft)}
+/* The three sliders are the browser's own, in ink. The console's drawn range
+   (home.html's Range block and its fill()) is 290 bytes on the wire that this
+   page's budget does not have; the look differs by a thumb. */
+input[type=range]{accent-color:var(--ink)}
+
+/* ── Audio ── */
+/* The editor's parts, as the console's: its buttons, tabs and switches are
+   the small button (.btn.sm), its cards and plot the card, its two headings
+   the section title, its hints the note (and the
+   frame's own notes are its .hint, so there is one rule for both). Type is the console's 12 to 15 px
+   in the sans; mono stays on numbers. Orange is for what is selected or on,
+   never a hover. */
+.ghostBtn,.pvSig,.toggleWrap{padding:0 12px}
+.ghostBtn,.pvSig,.chipCard,.toggleWrap{min-height:32px;border-color:var(--rule);border-radius:8px;background:var(--panel);color:var(--ink);font:500 13px var(--sans);transition:border-color .15s}
+.ghostBtn:hover,.outPreset:hover{border-color:var(--ink);color:var(--ink)}
+.ghostBtn.dan,.ghostBtn.dan:hover{color:var(--bad)}.ghostBtn.dan:hover{border-color:var(--bad)}
+:disabled{opacity:.45;cursor:default}
+.toggleWrap{gap:8px;padding-left:8px}
+.toggleLabel,.hint,.fieldLabel{font-size:13px}.fieldLabel{font-weight:500}
+.toggle{width:28px;height:16px;border-radius:8px;background:var(--faint)}
+.dotK{left:2px;top:2px;width:12px;height:12px}
+.toggleWrap.on .toggle{background:var(--led)}.toggleWrap.on .dotK{left:14px}
+.plotWrap,.panel{border-radius:10px}
+.tag,.preset,.outPreset,.stepsRow button{border-radius:8px}
+.mono,.tagText,.chipCard .mono,.damping .mono,.preset span,.outPreset,.stepsRow{font-size:12px}
+.bandName{font-size:15px}
+.colKicker{font:600 13px var(--sans);letter-spacing:0}
+.outFill{background:var(--ink)}
+/* The extension's knob tabs each carry an orange dot. Here orange marks what
+   is selected or on, and the selected tab already has its orange border. */
+.chipDot{display:none}
+/* Until the editor has its mapping its canvases are the browser's 300 px
+   default, wider than a phone's column. */
+canvas{max-width:100%}
+/* The message slot beside "Mapping": what a save or a read came to. */
+h2 .msg{margin-left:8px;font-weight:400}
+/* The sources. A row is its switch, its state, and what belongs to it. (The
+   microphone's note takes a line of its own inside its row: the frame gives
+   it flex-basis 100% in its style attribute.) */
+.list .hint{flex:1 1 16em}
+/* The chrome says when the panel is unreachable; the page only dims what it
+   can no longer vouch for: the plot, the sources, and the header's sentence
+   about who has the knobs. (The adapter dims the plot the same way while the
+   microphone it would draw is not there.) */
+.pf-offline .plotWrap,.pf-offline .list,.pf-offline .sub{opacity:.5}
