@@ -2,7 +2,7 @@
 // core_color.h, core_noise.h — against double-precision references, and pins
 // every number it measures.
 //
-// WHY THIS EXISTS. abi/pf_module.h:241-243 includes these three files into every
+// WHY THIS EXISTS. abi/pf_module.h:260-262 includes these three files into every
 // .pfm, so they are not internal helpers: they are the published pattern SDK. Up
 // to this file, nothing in the repository ran a single number through them. Their
 // accuracy was asserted only in doc-comments, and two of those comments turned out

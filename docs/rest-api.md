@@ -282,7 +282,7 @@ An explicit pick here supersedes a pending console restore — without that, a p
   "abi": 2, "knobs": ["Waves", "Speed", "Sun", "Glitter"],
   "slug": "layer_stack", "absoluteReady": true,
   "panel_w": 128, "panel_h": 64, "module": "layer_stack.pfm",
-  "size": 6144, "opt": "-Os"
+  "size": 6144, "opt": "-O2"
 }
 ```
 

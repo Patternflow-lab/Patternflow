@@ -62,10 +62,37 @@ PANEL_H = 64
 # no hardware). pf_module.h includes these rather than carrying a second copy.
 SHARED_HEADERS = ["core_color.h", "core_math.h", "core_noise.h"]
 
-# -Os matches how the Arduino core builds the firmware, but a module is not
-# competing for the app partition: it is 6-22 KB in a 10 MB filesystem, so
-# trading size for speed is nearly free here. --opt selects it.
-DEFAULT_OPT = "s"
+# -O2. The default was -Os until 2026-10-04, because that is how the firmware
+# itself is built and because abi/pf_module.h said -O2 bought about 2 %. It
+# does not: measured on one board in one boot, the Basics presets as modules,
+# GCC 8.4, frame time -Os -> -O2:
+#     0510   11.9 -> 10.3 ms      0520  23.4 -> 19.7 ms
+#     0512   23.2 -> 22.6 ms      0531  13.7 -> 12.4 ms
+#     0515-4 15.0 -> 11.2 ms      0601  15.0 -> 13.6 ms
+# which is 3 to 34 % more frames a second. (GCC 14.2 at -O2 was another 1 to
+# 8 % faster than GCC 8.4 at -O2 on the same six.) --opt still selects another
+# level. It costs two things.
+#
+# Size. The builds timed above are 67 -> 90 KB of code across the 33 Basics
+# modules; with abi/pf_libm.h compiled in as well - the other half of the same
+# change: floorf, fmodf and their kin as inline code instead of calls into the
+# firmware's libm - the same 33 are 75 KB at -Os and 104 KB at -O2, and 145
+# community patterns built both ways came out at 1.36 times their old code
+# (the median; GCC 8.4, 2026-10-04). From firmware 3.10.5 a module's code runs
+# from PSRAM (src/core_module_memory.h) and its size does not decide whether it
+# loads. Before 3.10.5 code is placed in internal RAM and admitted against
+# what the services leave - about 7.8 KB on an Audio build - so a module that
+# fitted there as an -Os build can be refused as an -O2 one. Nothing here
+# builds a large module smaller for that firmware; it is told to update.
+#
+# The last bit. -O2 inlines helpers -Os left out of line, and GCC fuses a*b+c
+# into one instruction - one rounding where there were two
+# (-ffp-contract=fast) - wherever it then sees both halves together. A rebuilt
+# pattern's own arithmetic can therefore differ in its last bit, anywhere in
+# it. That shows only where the pattern amplifies it: a float hash, state
+# carried between frames, rarely the edge of a floorf band. abi/pf_libm.h has
+# the worked cases.
+DEFAULT_OPT = "2"
 
 CXXFLAGS = [
     "-std=gnu++17",
@@ -87,9 +114,13 @@ CXXFLAGS = [
 def toolchain_roots() -> list[Path]:
     """Where an xtensa-esp32s3 toolchain may live, most specific first.
 
-    Patternflow's firmware and the community build worker are both arduino-cli,
-    so the Arduino core's copy is the one that matches what devices actually
-    run. PlatformIO is kept as a fallback for the fork this came from.
+    The order is the community build worker's: the compiler it runs is the
+    Arduino core's (docs/SERVICES.md), so that is looked for before
+    PlatformIO's, and nothing here should reorder them under it. The firmware
+    itself is a PlatformIO build (bundles/build.sh) and its compiler -
+    toolchain-xtensa-esp32s3, GCC 8.4 - is therefore the LAST place looked;
+    PF_XTENSA_BIN names it when a build has to be the firmware compiler's, as
+    the committed Basics pack is (web/src/lib/pattern/packs.ts).
     """
     roots: list[Path] = []
     explicit = os.environ.get("PF_XTENSA_BIN")
@@ -309,7 +340,7 @@ def main() -> None:
     ap.add_argument("--compile-only", action="store_true", help="Skip link + manifest output")
     ap.add_argument("--clean", action="store_true", help="Remove previous build output first")
     ap.add_argument("--opt", default=DEFAULT_OPT, choices=["s", "1", "2", "3"],
-                    help="Optimisation level (default: s, matching the firmware)")
+                    help="Optimisation level (default: 2 - see DEFAULT_OPT)")
     ap.add_argument("--out", type=Path, default=OUT,
                     help="Where to write <slug>.pfm/.json (default: the sketch data dir)")
     args = ap.parse_args()

@@ -13,6 +13,50 @@ All notable changes to Patternflow will be documented in this file, newest first
 - **What this takes away:** a pattern that wants a fresh start every time it is picked cannot have one. `setup()` runs once per load, as `firmware/CUSTOM_PATTERNS.md` now says.
 - **The console is light, and its six core pages look like one thing.** It opens light; dark is still the toggle in the header, and a choice made there is remembered. Console, Patterns, Status, Wi-Fi, Knobs and Update now share one set of parts - buttons, chips, list rows, fields, notices, section titles - from a base block every page opens with (`console/README.md`, "The look"), with one accent, the LED orange, kept for what is live: the current tab, the playing pattern, the panel being on. The home page leads with the panel itself: what is playing with its arrows, on/sleep, brightness and the four knobs, with the device's facts under them in the same card; the arrow keys step through patterns as the arrow buttons do. Which edition the panel runs has a card of its own instead of being one more row among the facts: its name, its versions, the feature pages it carries as links, the update notice when there is one, and a button to the other editions (or a line saying the panel's own hotspot has no internet). The numbered index of every page with a paragraph each is now a list of one-line links. The header no longer scrolls sideways on a phone: Console and Patterns, the build's own feature pages, then Wi-Fi, Knobs, Update and Status, wrapped onto rows. Long explanations are a line, with the rest behind a disclosure where it is needed. Windows showed every small label in Courier New because no font in the monospace list was a Windows one; the list now includes Cascadia Mono and Consolas. The Knobs page has an *All* row that sets direction and edges per click for the four at once (it reads *Mixed* while they differ). The Status page shows the crash record (`crash` in `/api/status`) when there is one, with a button to clear it. Feature pages are not edited and take the light palette from the header. Home is 8.9 KB gzipped (was 10.9), Knobs grew by 0.15 KB for its All row, the others are the same or slightly smaller, and the header script is 9.6 KB. On a panel on the home network a page still opens in about 0.1 s the first time and in under 0.01 s after. Every request, control and message the pages had is still there; checked on a panel by stepping through patterns, sleeping and waking it, dimming it, dragging a knob and playing a pattern from the list. The guide's live console demo is regenerated to match.
 
+### Patterns
+
+- **Installed patterns run faster, and nobody has to edit one.** A pattern on a panel is a small compiled program (a `.pfm`). Two things about how it was compiled were costing frames, and both change where a module is built:
+  - It was built for size (`-Os`), on a note in the SDK that `-O2` bought about 2 %. Modules are now built at `-O2` (`build_module.py`).
+  - Every `floorf`, `ceilf`, `truncf`, `roundf`, `fminf`, `fmaxf` and `fmodf` in a pixel loop was a call out of the pattern into the firmware's maths library: 185 to 840 ns each as timed (`truncf` was not), 8,192 pixels a frame. The module SDK now gives those seven inline code (`abi/pf_libm.h`), so a header that calls them per pixel - most community patterns do - stops paying for the call.
+
+  Frame time on one board, in one boot. The Basics presets as they are today, GCC 8.4:
+
+  | | 0510 | 0512 | 0515-4 | 0520 | 0531 | 0601 |
+  |---|---|---|---|---|---|---|
+  | `-Os` | 11.9 ms | 23.2 | 15.0 | 23.4 | 13.7 | 15.0 |
+  | `-O2` | 10.3 ms | 22.6 | 11.2 | 19.7 | 12.4 | 13.6 |
+
+  That is 3 to 34 % more frames a second; GCC 14.2 at `-O2` was another 1 to 8 % faster. Four presets as they stood before they were tuned by hand, with `floorf` and `fmodf` per pixel:
+
+  | | 0510 | 0515-4 | 0520 | 0601 |
+  |---|---|---|---|---|
+  | built as before | 14.8 ms | 25.3 | 26.9 | 26.0 |
+  | `-O2` | 13.3 ms | 23.7 | 23.1 | 24.5 |
+  | `-O2`, maths inline | 10.3 ms | 17.5 | 20.3 | 20.2 |
+
+  The last row was measured with a first version of the header. With the header as committed, all 147 distinct public community patterns build (the old recipe's compiler crashed on two of them), and each was loaded and run on a board: no reset, no refused load.
+- **What is exact, and what is not.** The seven functions are exact: for every input, each returns the bits the library function returns. Each computes inline only the inputs that have one right answer, and hands the rest - a NaN, an infinity, a magnitude past the range its proof covers - to the call the pattern made before. `check_libm.py` holds them to that in CI: all 4,294,967,296 floats through `floorf`, `ceilf`, `truncf` and `roundf`, 419 million pairs through `fminf` and `fmaxf`, 481 million through `fmodf` by each of its two paths - twenty billion comparisons, no mismatch, under GCC with sanitizers and under MSVC. `check_module_libm.py` then reads a module the real compiler built, to see that this code is what a pattern's calls became, and `tests/modules/_math_probe` is the module that checks on a board what no PC can: that the panel's multiply-subtract is fused. It reported `math ok 9/9` on a board, over 1.17 million comparisons against the firmware's own library. One footnote: for `fminf`/`fmaxf` of a zero against a zero, or of a NaN, "the call the pattern made before" means what that call got from this compiler, which is not always newlib's answer for the arguments as written - GCC answers a call with constant arguments itself, and GCC 12 and later may swap the fallback's operands.
+
+  What is not exact is the pattern's own arithmetic. `-O2` and inline code both move where GCC fuses `a*b+c` into one instruction (`-ffp-contract=fast`), so a value in a rebuilt pattern can differ in its last bit from the build before. Two cases, worked through:
+  - The cell hash written as one line, `sinf(floorf(x)*12.9898f + floorf(y)*78.233f)*43758.5453f`: 20 of 128 cells hash differently.
+  - A helper that ends in a multiply and that `-O2` inlines - a smoothstep: `mul.s` then `sub.s` becomes one `msub.s`.
+
+  It shows only where a pattern amplifies the last bit: a float hash, state carried between frames, rarely the edge of a `floorf` band. Of 168 public community headers, one uses the 43758 float hash; 21 use the integer `PFNoise::cellHash`, which is unaffected.
+- **The Basics pack is rebuilt**, for the first time since 15 August: the same 33 patterns in the same order, from today's preset sources, at `-O2`, with the firmware's own compiler. Against the August binaries on the same board, every one of the 33 is faster: 1.11 to 2.36 times the frames a second, 1.52 at the median (47 fps to 77 across the pack).
+
+  | | 0510 | 0512 | 0515-4 | 0520 | 0531 | 0601 |
+  |---|---|---|---|---|---|---|
+  | August pack | 18.1 ms | 25.1 | 26.1 | 34.4 | 15.5 | 28.5 |
+  | rebuilt | 10.3 ms | 22.6 | 11.1 | 19.7 | 11.1 | 12.7 |
+
+  It is also the first rebuild to carry the two SDK fixes of 3.10.1, and those change what is drawn. `cellHash`'s seed decorrelates, so Firefly Hollow and Midsummer Sea get a different random stream. `hsvToRgb` rounds, so the 16 patterns in the pack that colour through it are up to one level brighter on a channel. The pack is 166 KB where it was 122, and holds 104 KB of code where it held 63.
+- **What the new builds need from the firmware.**
+  - **3.5.1 or later, for Basics.** Its modules are now stamped for the parameter bus (descriptor 2, where August's were 1), so a show can drive them - and firmware 3.2.0 to 3.4.0 refuses all 33. Update the firmware *before* reinstalling the pack: reinstalling replaces files that load with files that firmware will not.
+  - **3.10.5 or later, for the larger ones.** Firmware before 3.10.5 places a module's code in internal RAM, and the new builds are larger: 1.36 times the code at the median, over 145 community patterns built both ways with GCC 8.4. Thirteen of those 145 fitted an Audio build's budget of about 7.8 KB before and no longer do; nor does Breakout Arcade in Basics, at 14.2 KB where it was 5.4. From 3.10.5 code runs from PSRAM, and its size does not decide whether a module loads.
+  - Nothing else: a module built this way imports only names every loader since 3.2.0 resolves.
+- **What you have to do.** A pattern already on a panel keeps the build it was installed with; nothing is rebuilt on the device. Update the firmware if the list above says to. Then install the Basics pack again from the site, and send a community pattern or a deck again: the community server keeps one build of each pattern, keyed by everything that goes into a build, so once it is redeployed each is compiled again the first time someone asks for it.
+- **A module is 2.7 % slower than the same pattern compiled in, not 20 %.** The SDK said 20 % (a 2026-07 measurement: Origin, 53 fps against 43) and blamed the relocatable code model. Measured again on one board, A-B-B-A in one boot: Origin compiled in draws a frame in 9.56 ms, Origin as a module in 9.81.
+
 ## [3.10.5] - 2026-10-02
 
 ### Firmware

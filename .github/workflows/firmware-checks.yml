@@ -21,6 +21,17 @@ name: Core knows no features
 #   what every pattern built afterwards renders — and reaches only newly built
 #   modules, since an installed .pfm carries its own compiled copy.
 #
+#   check_libm.py — abi/pf_libm.h, which puts inline FPU code behind floorf,
+#   ceilf, truncf, roundf, fminf, fmaxf and fmodf in every .pfm so that a
+#   pattern nobody edits stops calling into the firmware's libm per pixel. The
+#   claim is that each of the seven returns exactly what libm returns, so this
+#   is equality of bits, not a band: all 2^32 floats through the one-argument
+#   functions and about three billion comparisons through the rest, against
+#   this runner's libm. One mismatch fails. It is the slow step here - a
+#   minute or two. (The half of that header only a module build compiles is
+#   read out of a built module by check_module_libm.py, in firmware-build.yml,
+#   where there is an Xtensa compiler.)
+#
 #   check_parser.py — the vendored HTTP request parser, the real Parsing.cpp
 #   against a scripted socket and a fake clock. It runs on pf-net, where a loop
 #   that waits for the peer without sleeping starves IDLE0 and the Core-0
@@ -93,6 +104,8 @@ jobs:
         run: python firmware/toolchain/check_oe.py --sanitize
       - name: Pattern SDK maths, colour and noise still measure the same
         run: python firmware/toolchain/check_math.py --sanitize
+      - name: Module SDK's inline floorf/fmodf return what libm returns, bit for bit
+        run: python firmware/toolchain/check_libm.py --sanitize
       - name: Thumbnail mailbox ownership and invalidation
         run: python firmware/toolchain/check_thumbs.py --sanitize
       - name: Wi-Fi and name-service recovery
