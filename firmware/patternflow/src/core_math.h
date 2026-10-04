@@ -40,9 +40,12 @@ inline void buildSinLUT() {
 // Round toward negative infinity, as an int. On this target floorf() is not an
 // instruction: GCC emits `call8 floorf` into a ~50-instruction newlib routine at
 // every use, under -O2, -Os and even -ffast-math, and __builtin_floorf makes no
-// difference. The FPU does have a FLOOR.S, but reaching it needs inline asm,
-// and asm cannot be checked by a host test - which for a file that IS the pattern
-// SDK is the more expensive problem.
+// difference. (That is the compiler, and still how it is in code compiled into
+// the firmware. In a module, abi/pf_libm.h has given floorf an exact inline
+// body since 2026-10 - bigger than what follows, because it has to be right
+// for every float.) The FPU does have a FLOOR.S, but reaching it needs inline
+// asm, and asm cannot be checked by a host test - which for a file that IS the
+// pattern SDK is the more expensive problem.
 //
 // So: truncate, which IS one instruction (TRUNC.S), and correct the one case
 // where truncation and flooring differ - a negative non-integer, where trunc
@@ -66,8 +69,11 @@ inline float fract(float x) {
   return x - t;
 }
 
-// fminf/fmaxf are libm calls too - two register-window frames for a comparison
-// the FPU does in one OLT.S. Written as a comparison, GCC emits exactly that.
+// fminf/fmaxf are libm calls too in the firmware image - two register-window
+// frames for a comparison the FPU does in one OLT.S - and in a module, where
+// abi/pf_libm.h makes them inline, still up to three compares, because they
+// keep the library's rules for NaN and signed zeros. Written as a comparison,
+// GCC emits exactly that.
 inline float clamp(float x, float lo, float hi) {
   return x < lo ? lo : (x > hi ? hi : x);
 }
@@ -77,13 +83,16 @@ inline float clamp01(float x) {
 }
 
 // JavaScript's `%` on floats: the sign of the dividend, the magnitude below
-// |m|. A pattern ported from the lab reaches for fmodf here, and in a module
-// that is a call into the host's libm on every pixel; this is one division
-// and one truncation. The truncation is one instruction (TRUNC.S). The
-// division is NOT - GCC emits a call into __divsf3 for any non-power-of-two
-// divisor, verified on the shipping compiler. Still far cheaper than fmodf,
-// but the comment used to claim both halves were single instructions and
-// only one of them is. The same value
+// |m|. A pattern ported from the lab reaches for fmodf here. This is one
+// division and one truncation. The truncation is one instruction (TRUNC.S).
+// The division is NOT - GCC emits a call into __divsf3 for any
+// non-power-of-two divisor, verified on the shipping compiler; the comment
+// used to claim both halves were single instructions and only one of them is.
+// Against fmodf as a call into libm on every pixel - which it is in code
+// compiled into the firmware, and was in a module until 2026-10 - this is far
+// cheaper. In a module the comparison has since changed: abi/pf_libm.h makes
+// fmodf inline there, and fmodf by a constant multiplies by a reciprocal the
+// compiler folded, where this still divides. The same value
 // as fmodf to a last-bit rounding for anything a pattern feeds it; |x / m|
 // has to stay under 2^31, and m must not be 0.
 inline float jsMod(float x, float m) {

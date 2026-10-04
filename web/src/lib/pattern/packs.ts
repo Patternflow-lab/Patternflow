@@ -12,14 +12,31 @@ import basicsManifest from "../../../public/packs/basics.json";
 // person to open a board's Patterns page is looking at an empty list and has
 // nowhere to get patterns from yet.
 //
-// Rebuild after changing a preset:
+// Rebuild after changing a preset, the module SDK (firmware/patternflow/abi/)
+// or the build recipe (build_module.py):
 //   python firmware/toolchain/port_preset.py --out-dir <tmp>/mods --all
 //   python firmware/toolchain/build_module.py --out <tmp>/art <tmp>/mods/*
 //   python firmware/toolchain/make_pack.py --out web/public/packs/basics.zip \
-//     --name Basics --publisher Patternflow <tmp>/art
+//     --name Basics --publisher Patternflow \
+//     --exclude origin --exclude calibration <tmp>/art
+//   python firmware/toolchain/console_demo.py
 //
-// The zip is byte-identical across rebuilds, so an unchanged pattern set
-// produces no diff.
+// The last line is the guide's live console demo
+// (web/public/guide/console-demo/), which lists the pack's modules and their
+// sizes and goes stale with every rebuild.
+//
+// The two excludes are what makes it 33: Origin is compiled into every
+// firmware image, and the calibration pattern is a bench tool with no author
+// to credit (make_pack.py refuses it, rightly).
+//
+// The committed pack is built with the firmware's own compiler - PlatformIO's
+// toolchain-xtensa-esp32s3, GCC 8.4.0 - by pointing PF_XTENSA_BIN at its bin/
+// (~/.platformio/packages/toolchain-xtensa-esp32s3/bin). Without that,
+// build_module.py takes the Arduino core's toolchain first where one is
+// installed, and a different compiler is different bytes.
+//
+// With the same compiler the zip is byte-identical across rebuilds, so an
+// unchanged pattern set produces no diff.
 
 export type PatternPack = {
   /** Stable id, and the basename of both files under /public/packs. */

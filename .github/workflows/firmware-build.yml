@@ -79,3 +79,15 @@ jobs:
       # of the split is that the blast radius differs.
       - name: Internal RAM this composition has already spent
         run: python firmware/toolchain/check_footprint.py --only ${{ matrix.composition }}
+
+      # The one check of the pattern SDK that needs the Xtensa compiler, so it
+      # runs here, where the build above has just installed one, and once
+      # rather than five times. abi/pf_libm.h puts inline code behind floorf,
+      # fmodf and five more in every .pfm; firmware-checks.yml proves the
+      # arithmetic on the runner's own CPU, and cannot compile the half of the
+      # header that exists only in a module build. This builds a small module
+      # with build_module.py and reads the object: each spelling inline, the
+      # library call left only as its fallback, no fmaf import. A few seconds.
+      - name: Module SDK's libm is inline in a module the real compiler built
+        if: matrix.composition == 'default'
+        run: python firmware/toolchain/check_module_libm.py
