@@ -2,12 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Patternflow Audio — Mapping</title>
 <link rel="stylesheet" href="editor.css">
 </head>
 <body>
 <div class="page">
 
+  <!-- SOURCE BAR. What is feeding the editor, and its switch: the extension's
+       own. Everything in it is drawn by editor-adapter.js; editor.js never
+       looks in here. The panel's /audio-in leaves this out and puts its own
+       bar in its place (firmware/patternflow/console/_audio_in_bar.html). -->
   <header>
     <div class="brand">
       <span class="led"></span>
@@ -17,78 +22,125 @@
     <div class="cluster">
       <span id="captureHint" class="hint"></span>
       <span id="sourceChip" class="chip">idle</span>
-      <span id="hostChip" class="chip dim">patternflow.local:81</span>
+      <span id="hostChip" class="chip dim" hidden></span>
       <button id="stopBtn" class="primaryBtn" disabled>Stop</button>
     </div>
   </header>
 
+  <!-- The editor itself, the same on every surface. The panel's page is
+       built from exactly what is between the next line and its closing twin
+       (firmware/toolchain/build_audio_in_page.py), so nothing a single
+       surface owns goes in here. It is inert until editor.js has the mapping
+       it is editing, and until then it shows nothing it does not know yet:
+       inert="inert", spelled out, is the state before the FIRST mapping, and
+       editor.css hides every switch position, thumb and handle in it (and the
+       words of the toolbar's hint, which is written here only so that its
+       lines are already taken). The sliders' words, the output range's
+       numbers and each tab's frequencies are empty for the same reason.
+
+       Top to bottom it is the order a person works in: what holds for all
+       four knobs (the toolbar), the plot the boxes are drawn on, the four
+       knobs as tabs right under it, the selected knob's card, and the resets
+       at the foot. -->
+  <!-- EDITOR BODY -->
+  <div id="ed" inert="inert">
+
   <div class="toolbar">
-    <button id="autoToggle" class="toggleWrap" type="button">
+    <button id="autoToggle" class="toggleWrap">
       <span class="toggle"><span class="dotK"></span></span>
       <span class="toggleLabel">Auto range</span>
     </button>
-    <span id="autoHint" class="hint"></span>
-    <span class="spacer"></span>
-    <div class="damping">
-      <span class="fieldLabel">Attack</span>
-      <input id="attack" type="range" min="0" max="1" step="0.01">
-      <span id="attackWord" class="mono dimText">quick</span>
+    <span id="autoHint" class="hint">Each box follows the loudness of what it hears. Drag a top or bottom edge to take all four over by hand.</span>
+    <div class="glide">
+      <div class="damping">
+        <label class="fieldLabel" for="attack">Attack</label>
+        <input id="attack" type="range" min="0" max="1" step="0.01">
+        <span id="attackWord" class="mono dimText"></span>
+      </div>
+      <div class="damping">
+        <label class="fieldLabel" for="damping">Damping</label>
+        <input id="damping" type="range" min="0" max="1" step="0.01">
+        <span id="dampingWord" class="mono dimText"></span>
+      </div>
     </div>
-    <div class="damping">
-      <span class="fieldLabel">Damping</span>
-      <input id="damping" type="range" min="0" max="1" step="0.01">
-      <span id="dampingWord" class="mono dimText">balanced</span>
-    </div>
-    <button id="openPreview" class="ghostBtn" type="button"
-            title="Synthetic test signals through the selected band - see attack, damping and the curve move a knob">Preview</button>
   </div>
 
+  <!-- The plot. While Preview runs, #pv lies over it: the scope takes the
+       plot's place (a test signal needs no spectrum), so everything the
+       preview demonstrates stays in reach around it. -->
   <div id="plotWrap" class="plotWrap">
     <canvas id="plot"></canvas>
-    <div class="tag" id="tag0"><span class="tagText">B1·K1</span><canvas></canvas></div>
-    <div class="tag" id="tag1"><span class="tagText">B2·K2</span><canvas></canvas></div>
-    <div class="tag" id="tag2"><span class="tagText">B3·K3</span><canvas></canvas></div>
-    <div class="tag" id="tag3"><span class="tagText">B4·K4</span><canvas></canvas></div>
+    <div class="tag" id="tag0"><span class="tagText">K1</span><canvas></canvas></div>
+    <div class="tag" id="tag1"><span class="tagText">K2</span><canvas></canvas></div>
+    <div class="tag" id="tag2"><span class="tagText">K3</span><canvas></canvas></div>
+    <div class="tag" id="tag3"><span class="tagText">K4</span><canvas></canvas></div>
+    <div id="pv" class="pv" hidden>
+      <div class="pvHead">
+        <div class="pvChips">
+          <button class="pvSig on" data-s="pulse">Kick pulses</button>
+          <button class="pvSig" data-s="noisy">Noisy room</button>
+          <button class="pvSig" data-s="swell">Slow swell</button>
+        </div>
+        <div class="pvLegend">
+          <span class="pvKeyIn"></span><span class="hint">test signal</span>
+          <span class="pvKeyOut"></span><span id="pvOut" class="hint">K1 output</span>
+        </div>
+      </div>
+      <canvas id="pvScope"></canvas>
+    </div>
+  </div>
+
+  <!-- The four knobs, as tabs: band N drives knob N. Preview is the selected
+       knob's, and sits here so the button that opens the scope is next to it
+       and closes it again. -->
+  <div class="knobRow">
+    <div class="chips">
+      <button class="chipCard" id="chip0"><span class="chipDot"></span><span class="chipName mono">K1</span><span class="chipHz mono dimText">&nbsp;</span><canvas></canvas></button>
+      <button class="chipCard" id="chip1"><span class="chipDot"></span><span class="chipName mono">K2</span><span class="chipHz mono dimText">&nbsp;</span><canvas></canvas></button>
+      <button class="chipCard" id="chip2"><span class="chipDot"></span><span class="chipName mono">K3</span><span class="chipHz mono dimText">&nbsp;</span><canvas></canvas></button>
+      <button class="chipCard" id="chip3"><span class="chipDot"></span><span class="chipName mono">K4</span><span class="chipHz mono dimText">&nbsp;</span><canvas></canvas></button>
+    </div>
+    <button id="openPreview" class="ghostBtn" aria-pressed="false"
+            title="Runs a test signal through this knob: its attack, damping, curve and output range">Preview</button>
   </div>
 
   <div class="panel">
-    <div class="col">
-      <span class="colKicker">RESPONSE</span>
-      <canvas id="curve"></canvas>
+    <div class="bandHead">
+      <span id="bandName" class="bandName">Knob 1</span>
+      <span id="bandMeta" class="mono dimText"></span>
     </div>
 
-    <div class="col presetsCol">
-      <span class="colKicker">CURVE</span>
-      <div class="presetGrid">
-        <button class="preset" data-p="smooth" type="button"><canvas></canvas><span>Smooth</span></button>
-        <button class="preset" data-p="sharp" type="button"><canvas></canvas><span>Sharp</span></button>
-        <button class="preset" data-p="fall" type="button"><canvas></canvas><span>Fall</span></button>
-        <button class="preset" data-p="gate" type="button"><canvas></canvas><span>Gate</span></button>
-        <button class="preset" data-p="steps" type="button"><canvas></canvas><span>Steps</span></button>
-        <button class="preset" data-p="arch" type="button"><canvas></canvas><span>Arch</span></button>
+    <div class="col curveCol">
+      <span class="colKicker">Response curve</span>
+      <div class="curveRow">
+        <canvas id="curve"></canvas>
+        <div class="presetsCol">
+          <div class="presetGrid">
+            <button class="preset" data-p="smooth"><canvas></canvas><span>Smooth</span></button>
+            <button class="preset" data-p="sharp"><canvas></canvas><span>Sharp</span></button>
+            <button class="preset" data-p="fall"><canvas></canvas><span>Fall</span></button>
+            <button class="preset" data-p="gate"><canvas></canvas><span>Gate</span></button>
+            <button class="preset" data-p="steps"><canvas></canvas><span>Steps</span></button>
+            <button class="preset" data-p="arch"><canvas></canvas><span>Arch</span></button>
+          </div>
+          <div id="stepsRow" class="stepsRow" hidden>
+            <span>Steps</span>
+            <button id="stepsMinus" aria-label="Fewer steps">&#8722;</button>
+            <span id="stepsN" class="mono">3</span>
+            <button id="stepsPlus" aria-label="More steps">+</button>
+          </div>
+          <span id="curveHint" class="hint"></span>
+        </div>
       </div>
-      <div id="stepsRow" class="stepsRow" hidden>
-        <span>steps</span>
-        <button id="stepsMinus" type="button">&#8722;</button>
-        <span id="stepsN" class="mono">3</span>
-        <button id="stepsPlus" type="button">+</button>
-      </div>
-      <span id="legacyHint" class="hint">This band still runs its old boost curve — pick a preset to upgrade it.</span>
-      <span class="hint">Drag the two handles for a custom shape. Any curve saves as a 33-point table.</span>
     </div>
 
     <div class="vr"></div>
 
     <div class="col grow">
-      <div class="bandHead">
-        <span id="bandName" class="bandName">Band 1</span>
-        <span id="bandMeta" class="mono dimText">62 – 375 Hz</span>
-      </div>
-
       <div class="field">
         <div class="fieldRow">
-          <span class="fieldLabel">Output range</span>
-          <span id="outLabel" class="mono">0.30 – 0.85</span>
+          <span class="colKicker">Output range</span>
+          <span id="outLabel" class="mono"></span>
         </div>
         <div id="outTrack" class="outTrack">
           <div class="outRail"></div>
@@ -97,56 +149,34 @@
           <div id="outHi" class="outHandle"></div>
         </div>
         <div class="outPresets">
-          <button class="outPreset" type="button" data-lo="0" data-hi="1">0&#8211;1</button>
-          <button class="outPreset" type="button" data-lo="0" data-hi="0.5">0&#8211;.5</button>
-          <button class="outPreset" type="button" data-lo="0.5" data-hi="1">.5&#8211;1</button>
-          <button class="outPreset" type="button" data-lo="0.25" data-hi="0.75">.25&#8211;.75</button>
-          <button class="outPreset" type="button" data-lo="0.15" data-hi="0.6">.15&#8211;.6</button>
-          <button class="outPreset" type="button" data-lo="0.3" data-hi="0.85">.3&#8211;.85</button>
+          <button class="outPreset" data-lo="0" data-hi="1">0&#8211;1</button>
+          <button class="outPreset" data-lo="0" data-hi="0.5">0&#8211;.5</button>
+          <button class="outPreset" data-lo="0.5" data-hi="1">.5&#8211;1</button>
+          <button class="outPreset" data-lo="0.25" data-hi="0.75">.25&#8211;.75</button>
+          <button class="outPreset" data-lo="0.15" data-hi="0.6">.15&#8211;.6</button>
+          <button class="outPreset" data-lo="0.3" data-hi="0.85">.3&#8211;.85</button>
         </div>
       </div>
 
-      <div class="fieldRow">
-        <span class="fieldLabel">Mute band</span>
-        <button id="muteToggle" class="toggle small" type="button"><span class="dotK"></span></button>
-      </div>
-
-      <div class="spacer"></div>
-      <div class="fieldRow">
-        <button id="resetBand" class="ghostBtn" type="button">Reset band</button>
-      </div>
+      <button id="muteToggle" class="toggleWrap">
+        <span class="toggle"><span class="dotK"></span></span>
+        <span class="toggleLabel">Mute</span>
+      </button>
     </div>
   </div>
 
-  <!-- Preview: synthetic test signals through the SELECTED band's window,
-       curve and glide - what the knob will do, before any music plays. -->
-  <div id="pvOverlay" class="pvOverlay" hidden>
-    <div class="pvCard">
-      <div class="pvHead">
-        <span id="pvTitle" class="bandName">Preview — Band 1</span>
-        <button id="pvClose" class="ghostBtn" type="button">Close</button>
-      </div>
-      <div class="pvChips">
-        <button class="pvSig on" type="button" data-s="pulse">Kick pulses</button>
-        <button class="pvSig" type="button" data-s="noisy">Noisy room</button>
-        <button class="pvSig" type="button" data-s="swell">Slow swell</button>
-      </div>
-      <canvas id="pvScope"></canvas>
-      <div class="pvLegend">
-        <span class="pvKeyIn"></span><span class="hint">input level</span>
-        <span class="pvKeyOut"></span><span class="hint">knob output</span>
-      </div>
-    </div>
+  <!-- The resets, the knob's own and (where the source has one: see resetAll
+       in editor.js's contract) the whole mapping's. -->
+  <div class="acts">
+    <button id="resetBand" class="ghostBtn">Reset K1</button>
+    <button id="resetMap" class="ghostBtn dan" hidden>Reset mapping</button>
   </div>
 
-  <div class="chips">
-    <button class="chipCard" id="chip0" type="button"><span class="chipDot"></span><span class="chipName mono">B1</span><span class="chipHz mono dimText">62–375</span><canvas></canvas></button>
-    <button class="chipCard" id="chip1" type="button"><span class="chipDot"></span><span class="chipName mono">B2</span><span class="chipHz mono dimText">250–2k</span><canvas></canvas></button>
-    <button class="chipCard" id="chip2" type="button"><span class="chipDot"></span><span class="chipName mono">B3</span><span class="chipHz mono dimText">2k–5k</span><canvas></canvas></button>
-    <button class="chipCard" id="chip3" type="button"><span class="chipDot"></span><span class="chipName mono">B4</span><span class="chipHz mono dimText">5k–16k</span><canvas></canvas></button>
   </div>
+  <!-- /EDITOR BODY -->
 
 </div>
+<script src="mapping.js"></script>
 <script src="editor-adapter.js"></script>
 <script src="editor.js"></script>
 </body>

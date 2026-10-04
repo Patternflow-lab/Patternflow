@@ -1,11 +1,19 @@
 // ═══════════════════════════════════════════════════════════
 // PatternFlow - /audio-in: watching and shaping the microphone
 //
-// Three routes:
+// Owns: the page and its four routes. The settings they read and write live
+// in core_audio_in_map.h; nothing is stored here but the phone's last frame.
 //
-//   GET  /audio-in           the page
-//   GET  /api/audio-in       live levels + the current shaping. Polled.
-//   POST /api/audio-in       set one band, or the microphone switch
+//   GET  /audio-in                 the page
+//   GET  /api/audio-in             the whole configuration, read once on load
+//   GET  /api/audio-in?levels=1    live levels, mapped values, spectrum. Polled.
+//   POST /api/audio-in             settings: the switch, gain, auto, the two
+//                                  speeds, and any band's fields
+//   POST /api/audio-in/reset       the firmware's defaults - one band, or all
+//
+// The contract, field by field, is docs/rest-api.md ("Microphone"). The phone
+// capture app reads the configuration and posts monitor frames through the
+// same routes, so a field here is not ours alone to rename.
 //
 // ── Why polling and not the websocket ───────────────────────────────────
 //
@@ -16,11 +24,11 @@
 // the browser path composed out - which is exactly the build someone with a
 // microphone would want.
 //
-// So: a small GET, polled at ~10 Hz by the page. The response is deliberately
-// tiny (four levels, four mapped values, a peak) because this device's web
-// server is single-connection and every byte here is a byte the panel is not
-// rendering. The shaping is sent once on load and only re-sent when the page
-// changes it.
+// So: a GET the page polls. The poll reply carries no configuration at all
+// (levels, what they map to, and a 64-bucket spectrum to draw) because this
+// device's web server is single-connection and every byte here is time the
+// one connection is not free for anything else. The configuration is sent
+// once on load and the page sends back only what it changed.
 //
 // License: MIT
 // ═══════════════════════════════════════════════════════════
@@ -74,14 +82,20 @@ inline bool pageWatching() {
 }
 
 // "l0,l1,l2,l3;lo0,hi0,..lo3,hi3;s0,..,s63" - 4+8+64 floats, three groups.
-// A frame that does not parse to exactly that shape is dropped whole.
+// A frame that does not parse to exactly that shape is dropped whole, and so
+// is one with a `nan` or an `inf` in it: these are printed back into the poll
+// as they came, and neither is JSON.
 inline void parseFrame(const String& s) {
   float vals[76];
   int n = 0, start = 0;
   for (unsigned i = 0; i <= s.length() && n < 76; i++) {
     const char c = i < s.length() ? s[i] : ',';
     if (c == ',' || c == ';') {
-      if (i > (unsigned)start) vals[n++] = s.substring(start, i).toFloat();
+      if (i > (unsigned)start) {
+        const float v = s.substring(start, i).toFloat();
+        if (!isfinite(v)) return;
+        vals[n++] = v;
+      }
       start = i + 1;
     }
   }
@@ -111,18 +125,26 @@ inline void handleIndex() {
 // dragged handle spring back to whatever the device last managed to save.
 //
 // Field names are the extension's — levels, outputs, spectrum — because the
-// page's paint loop is lifted from popup.js and renaming them here would mean
-// editing code whose whole value is that it is not edited.
+// page IS the extension's editor (tools/patternflow-audio-extension/editor.*,
+// assembled for the device by toolchain/build_audio_in_page.py) and it paints
+// both sources through one frame shape.
 inline void handleGet() {
   const bool levelsOnly = server().hasArg("levels");
 
   if (levelsOnly) {
-    // idle=1 marks the page's own low-power mode (its Monitor toggle off):
-    // it still wants a status trickle, but must not count as an audience -
-    // the phone reads that demand and throttles its frames accordingly.
+    // idle=1 is a poll that must not count as an audience: the phone reads
+    // that demand in every frame reply and throttles itself by it, so a
+    // client that only wants a trickle of status says so. Nothing in this
+    // tree sends it today (the page's Monitor toggle, which did, is gone);
+    // it stays because the demand signal is the phone's contract.
     if (!server().hasArg("idle")) pagePollMs = millis();
     const bool ext = extFresh();
-    String j = "{\"source\":\"";
+    // One allocation instead of one per `+=`: the reply is about 700 bytes
+    // and a String grows 16 at a time, so unreserved this was some forty
+    // reallocs of internal heap, ten times a second.
+    String j;
+    j.reserve(768);
+    j += "{\"source\":\"";
     j += ext ? "phone" : PFAudioFFT::sourceLabel();
     j += "\",\"ext\":";
     j += ext ? "true" : "false";
@@ -140,8 +162,11 @@ inline void handleGet() {
       if (i) j += ',';
       j += String(ext ? extLevels[i] : PFAudioInMap::smoothLevel[i], 4);
     }
-    // The level as the mapping consumes it in auto mode - the page paints
-    // its dot and meters from this so what you see is what the knob gets.
+    // The level as the mapping consumes it in auto mode - sent so a page can
+    // paint its cursor from what the knob gets rather than from its own
+    // re-derivation. This and `outputs` are always the MICROPHONE's: while
+    // `ext` frames are being served the phone is doing its own mapping, and
+    // these two do not describe it.
     j += "],\"levelsN\":[";
     for (int i = 0; i < 4; i++) {
       if (i) j += ',';
@@ -197,7 +222,10 @@ inline void handleGet() {
     return;
   }
 
-  String j = "{\"source\":\"";
+  // About 1.3 KB with four empty metas; see the note on the poll reply.
+  String j;
+  j.reserve(1536);
+  j += "{\"source\":\"";
   j += PFAudioFFT::sourceLabel();
   j += "\",\"micOn\":";
   j += PFAudioInMap::micOn ? "true" : "false";
@@ -260,14 +288,17 @@ inline void handleGet() {
     j += PFAudioInMap::lutSet[i] ? "true" : "false";
     j += '}';
   }
+  // Two decimals: the low edge is one FFT bin, 31.25 Hz, and at one decimal
+  // a client taking its axis from here was handed a bound that is not the
+  // one clampRange() holds a band to.
   j += "],\"hzRange\":[";
-  j += String(PFAudioInMap::MIN_HZ, 1);
+  j += String(PFAudioInMap::MIN_HZ, 2);
   j += ',';
-  j += String(PFAudioInMap::MAX_HZ, 1);
+  j += String(PFAudioInMap::MAX_HZ, 2);
 
-  // Three decimals, not five: this is 40 numbers ten times a second and the
-  // page draws them as bars a few pixels wide. The precision that matters is
-  // in `level`, which is what the shaping actually consumes.
+  // Three decimals: these are drawn as bars a few pixels wide. (`spec`,
+  // `level`, `out`, `rawPeak`, `rawDc` and `windows` ride in this reply for
+  // scripts and for diagnosing a microphone; the page draws from the poll.)
   j += "],\"spec\":[";
   {
     float s[PFAudioFFT::SPEC_BUCKETS];
@@ -283,16 +314,41 @@ inline void handleGet() {
   server().send(200, "application/json", j);
 }
 
+// A band's number, or the value it already has when the field is absent,
+// empty, or not a finite number. toFloat() is atof(), which reads `nan` and
+// `inf` as exactly that, and a NaN walks through every constrain() below; see
+// PFAudioInMap::finiteOr for what one stored NaN cost.
 inline float argFloat(const char* name, float fallback) {
   if (!server().hasArg(name)) return fallback;
   const String v = server().arg(name);
   if (!v.length()) return fallback;
-  return v.toFloat();
+  return PFAudioInMap::finiteOr(v.toFloat(), fallback);
 }
 
-// Apply whatever band fields arrived under the given argument names. Shared
-// by the single-band form (bare names + band=N) and the editor's whole-config
-// form (suffixed names, hzMin0..hzMin3), so the two cannot drift.
+// Does this request say anything about band N in the suffixed form? Every
+// field a band has is on the list. It used to be five of them - the ones a
+// whole-config save always carries - which meant a request with only
+// `inMax2`, the top edge of one box, was answered {"ok":true} and changed
+// nothing. A page that sends only what moved needs that to work.
+inline bool hasBandArgs(const String& suffix) {
+  static const char* const FIELDS[] = {"hzMin", "hzMax", "inMin", "inMax",
+                                       "gain",  "outMin", "outMax", "knob",
+                                       "muted", "lut",   "meta"};
+  for (const char* f : FIELDS)
+    if (server().hasArg(String(f) + suffix)) return true;
+  return false;
+}
+
+// Apply whatever band fields arrived under the given argument names; a field
+// that did not arrive keeps its value. Shared by the single-band form (bare
+// names + band=N) and the suffixed form (hzMin0..hzMin3), so the two cannot
+// drift.
+//
+// Two pairs are settled TOGETHER after the fields are in, whichever half
+// arrived: hzMin/hzMax (ordered, inside the analysable range, a bin apart)
+// and inMin/inMax (inMax at least 0.01 above inMin). So one half of a pair
+// sent alone can move the other half; a client that wants to know what was
+// stored sends both.
 inline void applyBandArgs(int b, const String& suffix) {
   PFAudioInMap::Band& x = PFAudioInMap::bands[b];
   const String sHzMin = "hzMin" + suffix, sHzMax = "hzMax" + suffix;
@@ -348,9 +404,11 @@ inline void applyBandArgs(int b, const String& suffix) {
   }
 }
 
-// One band per POST, addressed by index, or `mic` on its own. Partial
-// updates are allowed: the page sends only the handle that moved, so dragging
-// one edge cannot clobber the other three by round-tripping a stale copy.
+// Every field is optional and a request changes only what it names: `mic`
+// on its own, one slider, one edge of one box, or everything at once. That
+// is the point - a page that sends back its whole copy on every edit lets
+// two open tabs revert each other, and a drag clobber three bands it never
+// touched.
 inline void handleSet() {
   // Monitor frames are state, not settings: no NVS save, no other fields.
   // The reply carries the demand signal - see pageWatching().
@@ -362,6 +420,18 @@ inline void handleSet() {
                                  : "{\"ok\":true,\"watch\":false}");
     return;
   }
+  // Refused before anything is applied: a 400 that had already flipped the
+  // microphone switch in memory would not be a refusal.
+  int single = -1;
+  if (server().hasArg("band")) {
+    single = server().arg("band").toInt();
+    if (single < 0 || single > 3) {
+      server().sendHeader("Cache-Control", "no-store");
+      server().send(400, "application/json",
+                    "{\"ok\":false,\"error\":\"band must be 0-3\"}");
+      return;
+    }
+  }
   if (server().hasArg("mic")) {
     const String v = server().arg("mic");
     PFAudioInMap::micOn = (v == "1" || v == "true");
@@ -370,41 +440,39 @@ inline void handleSet() {
     const String v = server().arg("auto");
     PFAudioInMap::autoRange = (v == "1" || v == "true");
   }
+  // These three keep their value on `nan` or `inf`, like a band's fields. An
+  // EMPTY value is still read as 0 and lands on the low clamp, as documented;
+  // only what is not a finite number is refused. A NaN here was worse than in
+  // a band: as the gain it made every sample NaN, as a glide speed it made the
+  // damped levels NaN, and neither came back with a reset.
   if (server().hasArg("micGain")) {
-    PFAudioInMap::micGain = constrain(server().arg("micGain").toFloat(),
-                                      PFAudioInMap::MIC_GAIN_MIN,
-                                      PFAudioInMap::MIC_GAIN_MAX);
+    const float v = PFAudioInMap::finiteOr(server().arg("micGain").toFloat(),
+                                           PFAudioInMap::micGain);
+    PFAudioInMap::micGain =
+        constrain(v, PFAudioInMap::MIC_GAIN_MIN, PFAudioInMap::MIC_GAIN_MAX);
   }
   if (server().hasArg("smoothing")) {
-    PFAudioInMap::smoothing =
-        constrain(server().arg("smoothing").toFloat(), 0.05f, 0.9f);
+    const float v = PFAudioInMap::finiteOr(server().arg("smoothing").toFloat(),
+                                           PFAudioInMap::smoothing);
+    PFAudioInMap::smoothing = constrain(v, 0.05f, 0.9f);
   }
   if (server().hasArg("attack")) {
-    PFAudioInMap::attack =
-        constrain(server().arg("attack").toFloat(), 0.05f, 0.9f);
+    const float v = PFAudioInMap::finiteOr(server().arg("attack").toFloat(),
+                                           PFAudioInMap::attack);
+    PFAudioInMap::attack = constrain(v, 0.05f, 0.9f);
   }
 
   // Single-band form: band=N plus bare field names. The strip-era contract,
   // still honoured.
-  if (server().hasArg("band")) {
-    const int b = server().arg("band").toInt();
-    if (b < 0 || b > 3) {
-      server().send(400, "application/json", "{\"error\":\"band must be 0-3\"}");
-      return;
-    }
-    applyBandArgs(b, "");
-  }
+  if (single >= 0) applyBandArgs(single, "");
 
-  // Whole-config form: suffixed field names (hzMin0..hzMin3, lut2, meta1...).
-  // The editor saves everything it owns in one request - four sequential
-  // POSTs on a single-connection server was a drag stuttering the panel.
+  // Suffixed form: field names carrying their band (hzMin0..hzMin3, lut2,
+  // meta1...). Any number of bands in one request, any subset of each one's
+  // fields - four sequential POSTs on a single-connection server was a drag
+  // stuttering the panel.
   for (int b = 0; b < 4; b++) {
     const String suffix(b);
-    if (server().hasArg("hzMin" + suffix) || server().hasArg("lut" + suffix) ||
-        server().hasArg("knob" + suffix) || server().hasArg("muted" + suffix) ||
-        server().hasArg("outMin" + suffix)) {
-      applyBandArgs(b, suffix);
-    }
+    if (hasBandArgs(suffix)) applyBandArgs(b, suffix);
   }
 
   PFAudioInMap::save();
@@ -412,11 +480,39 @@ inline void handleSet() {
   server().send(200, "application/json", "{\"ok\":true}");
 }
 
+// The defaults live in the firmware (core_audio_in_map.h resetBand) and the
+// page asks for them here rather than keeping a table of its own - the one it
+// had was the extension's, and "Reset band" put a 5-16 kHz band on an axis
+// that ends at 8.
+//
+//   band=N   that band only: its range, window, gain, output range, knob,
+//            mute and curve. Nothing else moves. The reply names the band, so
+//            a client can tell this from an older firmware that ignored the
+//            argument and reset everything.
+//   (none)   all four bands and curves, damping, attack and the input gain.
+//            Not the microphone switch and not auto range.
 inline void handleReset() {
-  PFAudioInMap::resetBands();
-  PFAudioInMap::micGain = 8.0f;
-  PFAudioInMap::save();
   server().sendHeader("Cache-Control", "no-store");
+  if (server().hasArg("band")) {
+    // Exactly one digit. toInt() reads "" and "x" as 0, and a reset is not
+    // the request to guess on.
+    const String v = server().arg("band");
+    if (v.length() != 1 || v[0] < '0' || v[0] > '3') {
+      server().send(400, "application/json",
+                    "{\"ok\":false,\"error\":\"band must be 0-3\"}");
+      return;
+    }
+    PFAudioInMap::resetBand(v[0] - '0');
+    PFAudioInMap::save();
+    String j = "{\"ok\":true,\"band\":";
+    j += v[0];
+    j += '}';
+    server().send(200, "application/json", j);
+    return;
+  }
+  PFAudioInMap::resetBands();
+  PFAudioInMap::micGain = PFAudioInMap::MIC_GAIN_DEFAULT;
+  PFAudioInMap::save();
   server().send(200, "application/json", "{\"ok\":true}");
 }
 
