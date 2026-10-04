@@ -4,6 +4,8 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ## [Unreleased]
 
+## [3.11.0] - 2026-10-04
+
 ### Firmware
 
 - **Going back to a pattern no longer loads it again.** An installed pattern (a `.pfm` module) was unloaded the moment another pattern took the panel, so every return paid for a whole load: reading the file, relocating it, its constructors and its own `setup()`. For most of the catalogue that is 25-100 ms; for the heavy ones it was the pause you could see - Branched Flow 3.3 s, Two Stream 4.1 s, Burgers and Wave Cascade 0.6 s each. A module that has run now stays loaded in PSRAM ("parked") when another pattern takes over, and picking it again resumes it: nothing is read or relocated, `setup()` does not run again, and the pattern carries on from where it was, as the built-in presets always have. Measured on two boards, a return takes 115-197 µs. Picked while another pattern is still loading, it comes back once that load is done; picked during an install, it is loaded afresh afterwards, because an install empties what is parked. Up to 16 modules stay parked (`PF_MODULE_RESIDENT_MAX`; `0` turns this off).
