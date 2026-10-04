@@ -1,15 +1,24 @@
 /* The hub (/guide, GuideHub): the guide's dark room with the device alone in
-   the middle of it, and under it three ways in — a number, a name, one line
+   the middle of it, and under it four ways in — a number, a name, one line
    — side by side in the order a reader goes through them. The page's own
    words are in Guide.module.css (.page, .top, .report), and so is the stage,
    which is the whole guide's (.stage, .hubGlow, .canvasBox: the device above
    the choices, its floor fading out behind them); the choices are here. */
 
 .page {
-  /* The guides' names: the page's large type. */
-  --hub-name: clamp(52px, 6vw, 96px);
-  /* The side margin the choices keep. */
+  /* The side margin the choices keep, and the room between two of them. */
   --hub-side: 6vw;
+  --hub-gap: 40px;
+  /* The column one guide stands in: a quarter of the row. */
+  --hub-col: calc((100vw - 2 * var(--hub-side) - 3 * var(--hub-gap)) / 4);
+  /* The largest a name is set in that column: the longest of them ("Audio",
+     2.6 em of ink) keeps a fifth of the column clear beside it, so the four
+     read as four names and not as one line. From about 1400 px of width the
+     6vw below is the smaller of the two, and the names are the size they
+     were when there were three. */
+  --hub-fit: calc(var(--hub-col) * 0.302);
+  /* The guides' names: the page's large type. */
+  --hub-name: clamp(44px, min(6vw, var(--hub-fit)), 96px);
 }
 
 /* ── the choices ─────────────────────────────────────────────────────────── */
@@ -79,8 +88,8 @@
 .guides {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  column-gap: 40px;
+  grid-template-columns: repeat(4, 1fr);
+  column-gap: var(--hub-gap);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -95,6 +104,9 @@
 }
 .guide:nth-child(3) {
   --c: 2;
+}
+.guide:nth-child(4) {
+  --c: 3;
 }
 /* Its rule: a hairline, drawn as the page arrives; and over it, when the
    guide is pointed at, a line of the panel's light drawn the same way. */
@@ -202,7 +214,7 @@
 }
 /* What is inside, only for the guide being pointed at. It is the column's
    foot and always there, so showing it moves nothing; the foot is as tall as
-   the longest of the three lists (the columns share a row), two lines at
+   the longest of the four lists (the columns share a row), two lines at
    least, so no list is ever cut. */
 .inside {
   min-height: 36px;
@@ -225,7 +237,7 @@
 }
 
 /* Pointed at, with the keyboard or the mouse: its line lights, its arrow
-   and what is inside it show, and the other two step back. */
+   and what is inside it show, and the others step back. */
 .guide:has(.go:focus-visible)::after {
   transform: none;
 }
@@ -278,7 +290,7 @@
 /* A short window: the names give way before the page scrolls. */
 @media (min-width: 900px) and (max-height: 820px) {
   .page {
-    --hub-name: clamp(44px, 9.5vh, 80px);
+    --hub-name: clamp(44px, min(9.5vh, var(--hub-fit)), 80px);
   }
   .hub {
     padding-bottom: 24px;
@@ -336,7 +348,11 @@
   }
 }
 
-/* Held upright: the device on top, the three ways in underneath, one under the other. */
+/* Held upright: the device on top, the four ways in underneath, one under
+   the other. Four rows and the device's share of the screen (the 38vh above)
+   are a phone's whole height, so the rows keep close: at 390 × 844 all four
+   and the "Stuck?" link under them are on the first screen, with room for
+   one line under a name to turn into two. A shorter phone scrolls. */
 @media (max-width: 899px) and (orientation: portrait) {
   .page {
     --hub-name: clamp(40px, 11.5vw, 64px);
@@ -366,7 +382,7 @@
     grid-template-areas:
       "num name arrow"
       ".   situation situation";
-    padding: 14px 0 16px;
+    padding: 12px 0 14px;
   }
   .name {
     margin-top: 0;
@@ -376,17 +392,18 @@
     font-size: 22px;
   }
   .situation {
-    margin-top: 8px;
+    margin-top: 6px;
   }
   .inner .report {
     margin: 14px 0 0 var(--hub-gutter);
   }
 }
 
-/* On its side: the three stay side by side, smaller, so all of them are on the first screen. */
+/* On its side: the four stay side by side, smaller, so all of them are on the first screen. */
 @media (max-width: 899px) and (orientation: landscape) {
   .page {
-    --hub-name: clamp(30px, 11vh, 56px);
+    --hub-gap: 20px;
+    --hub-name: clamp(30px, min(11vh, var(--hub-fit)), 56px);
   }
   .hub {
     padding-top: 36vh;
@@ -398,9 +415,6 @@
   }
   .inner .report {
     margin-bottom: 12px;
-  }
-  .guides {
-    column-gap: 20px;
   }
   .go {
     padding: 10px 0 8px;

@@ -35,6 +35,10 @@ import {
 
 export type SimMode = "off" | "run" | "brightness" | "network" | "knobmap" | "select" | "sleep";
 export type SimPack = "origin" | "basics";
+/** The firmware the board runs: the default, or the Audio edition (the OSC and AUD rows on hold K2). */
+export type SimEdition = "core" | "audio";
+/** What may drive the four lanes: the extension's editor on the Audio guide (components/guide/EditorWindow). */
+export type SimLaneSource = "editor";
 
 export type SimPattern = {
   slug: string;
@@ -107,6 +111,12 @@ export type SimSnapshot = {
   /** Every detent each knob has turned since load, clockwise positive — the stage turns the 3D knob by it. */
   turns: [number, number, number, number];
   down: [boolean, boolean, boolean, boolean];
+  /** The Audio edition's rows on the NETWORK screen, in the order K2 and K3 switch them; none on the core firmware. */
+  rows: { name: string; on: boolean }[];
+  /** A lane is driving this knob's value right now (the knob itself is not turning). */
+  lanes: [boolean, boolean, boolean, boolean];
+  /** A hand took this knob from a lane that is still being written: it is the hand's for five seconds. */
+  laneHeld: [boolean, boolean, boolean, boolean];
 };
 
 /** What the device console reads off the board (ConsoleWindow's bridge). */
@@ -132,6 +142,18 @@ export type SimConsoleState = {
 const BUS_UNITS_PER_CLICK = 10;
 const BUS_RELEASE_GRACE_MS = 250;
 
+// The lanes (docs/audio-ws-spec.md): what sound writes. A lane is an absolute
+// 0..1 reading the pattern gets lerped into the knob's range, under the bus
+// and over the encoder. It is handed back 500 ms after the last message that
+// set it, and a turn by hand takes the knob for five seconds.
+const LANE_RELEASE_MS = 500;
+const LANE_HAND_HOLD_MS = 5000;
+// The two rows an Audio edition board draws under NETWORK, by the features'
+// short names, in the order K2 and K3 turn them (patternflow.ino:1688-1713).
+const ROW_OSC = 0;
+const ROW_AUD = 1;
+const ROW_NAMES = ["OSC", "AUD"];
+
 export class DeviceSim {
   /** 128×64 RGBA, landscape, y = 0 at the top — what the panel shows. */
   readonly frame = new Uint8ClampedArray(PANEL_W * PANEL_H * 4);
@@ -139,6 +161,16 @@ export class DeviceSim {
   private runtime = new PatternRuntime(PANEL_W, PANEL_H);
   private patterns: SimPattern[] = [ORIGIN];
   private pack: SimPack = "origin";
+  private edition: SimEdition = "core";
+  private laneSource: SimLaneSource | null = null;
+  /** The edition's two switches, OSC and AUD: on after every setEdition. */
+  private rowOn = [true, true];
+  // The lanes are an overlay: read when a frame is drawn, never written into
+  // `values`, so a knob is where the reader left it the moment a lane lets go.
+  private laneValue = [0, 0, 0, 0];
+  private laneAt = [-1e9, -1e9, -1e9, -1e9];
+  /** When a hand last turned each knob. */
+  private handAt = [-1e9, -1e9, -1e9, -1e9];
   private active = 0; // the pattern running
   private cursor = 0; // the pattern highlighted on SELECT
   private values = new Map<string, number[]>();
@@ -213,6 +245,9 @@ export class DeviceSim {
       hold,
       turns: [...this.turns] as SimSnapshot["turns"],
       down: this.knobs.map((k) => k.down) as SimSnapshot["down"],
+      rows: this.rows(),
+      lanes: [0, 1, 2, 3].map((i) => this.laneDrives(i)) as SimSnapshot["lanes"],
+      laneHeld: [0, 1, 2, 3].map((i) => this.laneOpen(i) && !this.busHeld[i] && this.handHolds(i)) as SimSnapshot["laneHeld"],
     };
   }
 
@@ -234,6 +269,49 @@ export class DeviceSim {
     }
     if (mode === "run" && this.mode === "off") this.bootAt = this.now;
     this.enter(mode);
+  }
+
+  // ── the Audio guide ────────────────────────────────────────────────────────
+  //
+  // The Audio edition on the board, as far as the guide shows it: the two
+  // rows on hold K2, and the lanes. The Director says the first two at every
+  // step edge (stage/GuideCanvas.tsx), so a step that declares neither has
+  // the core firmware and no lanes; the editor's window writes the third
+  // (components/guide/EditorWindow).
+
+  /**
+   * The firmware the board runs. "audio" adds the OSC and AUD rows to the
+   * NETWORK screen (K2 and K3 switch them, right on, left off); both are on
+   * after every call, so each step starts from the edition as installed.
+   */
+  setEdition(edition: SimEdition) {
+    this.edition = edition;
+    this.rowOn = [true, true];
+  }
+
+  /**
+   * Who may drive the lanes, or null for nobody. Changing it lets every lane
+   * go at once: each knob's value is what it was before a lane took it.
+   */
+  setLaneSource(source: SimLaneSource | null) {
+    if (source === this.laneSource) return;
+    this.laneSource = source;
+    this.laneAt = [-1e9, -1e9, -1e9, -1e9];
+    this.handAt = [-1e9, -1e9, -1e9, -1e9];
+  }
+
+  /**
+   * A lane's value from its source, 0…1 across the knob's range, as the
+   * board's audio lanes take it (docs/audio-ws-spec.md): the pattern reads
+   * it in place of the knob's own value and the knob does not turn. Ignored
+   * unless `source` is the one the step opened (setLaneSource). A lane not
+   * written for 500 ms lets go; a hand on the knob has it for five seconds;
+   * the AUD row switched off stops all four.
+   */
+  setLane(source: SimLaneSource, knob: number, value: number) {
+    if (source !== this.laneSource || !Number.isInteger(knob) || knob < 0 || knob > 3 || !Number.isFinite(value)) return;
+    this.laneValue[knob] = clamp(value, 0, 1);
+    this.laneAt[knob] = this.now;
   }
 
   /**
@@ -262,6 +340,8 @@ export class DeviceSim {
     // clickScale is 1 unless a console changed the knob's settings.
     this.pendingDetents[knob] += detents * this.clickScale[knob];
     this.turns[knob] += detents;
+    // "Hands always win": a turn takes the knob from its lane for five seconds.
+    this.handAt[knob] = this.now;
     // Physical motion takes a held bus channel back (PatternflowBus::releaseAbsolute).
     if (this.busHeld[knob] && this.now - this.busHeldAt[knob] >= BUS_RELEASE_GRACE_MS) this.releaseBus(knob);
     this.activeKnob = knob;
@@ -414,7 +494,7 @@ export class DeviceSim {
   /** What a knob controls on the running pattern, for the readout beside it. */
   knobReadout(knob: number): { label: string; value: number; min: number; max: number } {
     const [min, max] = this.ranges[knob] ?? [0, 1];
-    return { label: this.labels[knob] ?? "value", value: this.currentValues()[knob] ?? min, min, max };
+    return { label: this.labels[knob] ?? "value", value: this.shownValues()[knob] ?? min, min, max };
   }
 
   /** The /knobs page: which way each encoder counts and how many of its 4 edges make a click. */
@@ -523,6 +603,13 @@ export class DeviceSim {
           return none();
         }
         if (f.detents[1] || f.detents[2]) this.idleAt = this.now;
+        // The edition's rows: K2 turns the first, K3 the second — a turn and
+        // not a click, so holding K2 to leave cannot flip one. Right is on,
+        // left is off (patternflow.ino:1688-1713).
+        if (this.edition === "audio") {
+          if (f.detents[1]) this.rowOn[ROW_OSC] = f.detents[1] > 0;
+          if (f.detents[2]) this.rowOn[ROW_AUD] = f.detents[2] > 0;
+        }
         if (f.longs[1] || f.clicks[1]) this.enter("run");
         else if (this.idleFor(FIRMWARE.networkIdleExitMs)) this.enter("run");
         return none();
@@ -665,6 +752,41 @@ export class DeviceSim {
     return v;
   }
 
+  // ── the edition's rows and the lanes ───────────────────────────────────────
+
+  private rows(): { name: string; on: boolean }[] {
+    return this.edition === "audio" ? ROW_NAMES.map((name, i) => ({ name, on: this.rowOn[i] })) : [];
+  }
+
+  /** A source is writing this knob's lane and the board is taking it. */
+  private laneOpen(knob: number) {
+    return (
+      this.laneSource !== null &&
+      this.edition === "audio" &&
+      this.rowOn[ROW_AUD] &&
+      this.now - this.laneAt[knob] <= LANE_RELEASE_MS
+    );
+  }
+
+  private handHolds(knob: number) {
+    return this.now - this.handAt[knob] < LANE_HAND_HOLD_MS;
+  }
+
+  /** The lane has the knob: open, no hand on it, and no bus channel held over it. */
+  private laneDrives(knob: number) {
+    return this.laneOpen(knob) && !this.handHolds(knob) && !this.busHeld[knob];
+  }
+
+  /** What the pattern is given: the knobs' own values, with a lane's in place of each one it drives. */
+  private shownValues(): number[] {
+    const values = this.currentValues();
+    return values.map((v, i) => {
+      if (!this.laneDrives(i)) return v;
+      const [min, max] = this.ranges[i] ?? [0, 1];
+      return min + this.laneValue[i] * (max - min);
+    });
+  }
+
   private render(dt: number, toPattern: { detents: number[]; presses: boolean[] }) {
     const out = this.frame;
     if (this.mode === "off" || this.mode === "sleep") {
@@ -673,11 +795,11 @@ export class DeviceSim {
       return;
     }
 
-    const values = this.currentValues();
+    const values = this.shownValues();
     const ranges = this.ranges;
     const input: PatternInput = {
       knobDeltas: toPattern.detents,
-      knobValues: values.slice(),
+      knobValues: values,
       knobNormalized: values.map((v, i) => {
         const [min, max] = ranges[i] ?? [0, 1];
         return (v - min) / Math.max(0.0001, max - min);
@@ -710,7 +832,7 @@ export class DeviceSim {
       case "brightness":
         return { kind: "brightness", percent: brightnessPercent(this.level) };
       case "network":
-        return { kind: "network", wifi: "CONNECTED", ip: SIM_IP };
+        return { kind: "network", wifi: "CONNECTED", ip: SIM_IP, rows: this.rows() };
       case "knobmap":
         return {
           kind: "knobmap",

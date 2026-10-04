@@ -263,7 +263,7 @@ inline void clampRange(Band& b) {
 // analysis. Off means the feature costs a panel nothing but the code size.
 //
 // Default off, and this is the switch people will actually use. The mic is
-// four wires to a breakout rather than a part on the board, so a panel that
+// five leads to a breakout rather than a part on the board, so a panel that
 // installs the Audio edition for OSC and the Chrome extension should not be
 // running an analysis over a floating pin. Turning it on is one tick on
 // /audio-in and it persists.

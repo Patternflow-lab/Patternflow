@@ -3,7 +3,8 @@
 //
 //   GET  /midi                  the page
 //   GET  /api/midi              channel, outbound sensitivity, host, session
-//   POST /api/midi?on=0|1       the MIDI row on the NETWORK screen, from here
+//   POST /api/midi?on=0|1       MIDI on or off (the NETWORK screen's MIDI row,
+//                               on a build where that screen shows one)
 //   POST /api/midi?outDiv=N     detents per outbound step, 1..16, persisted
 //   POST /api/midi?outMul=N     steps per detent, 1..8 (the other direction)
 //        ...&knob=1..4          apply to one knob; absent = all four

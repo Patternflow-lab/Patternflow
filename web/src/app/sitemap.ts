@@ -13,9 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/build`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/inside`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/roadmap`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
-    // The guide: the hub, then its three guides in order — Build (soldering
+    // The guide: the hub, then its four guides in order — Build (soldering
     // one from bare parts), Play (01 Flash to 04 Console), Make (the
-    // community and Pattern Lab).
+    // community and Pattern Lab), Audio (the Audio edition: a browser tab,
+    // the microphone, MIDI and a DAW).
     { url: `${siteUrl}/guide`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${siteUrl}/guide/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/guide/build`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
@@ -24,6 +25,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/guide/play/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/guide/make`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/guide/make/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${siteUrl}/guide/audio`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${siteUrl}/guide/audio/ko`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     // The shelf of firmwares built on core. A device running an edition links
     // here from its own console, so this needs to be findable from outside too.
     // (/variants only redirects here.)

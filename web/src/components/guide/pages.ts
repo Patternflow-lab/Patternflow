@@ -1,11 +1,12 @@
 import { COPY, type ClosingCopy, type OpeningCopy, type SceneCopy } from "./copy";
 import { BUILD_COPY } from "./copy/build";
 import { MAKE_COPY } from "./copy/make";
+import { AUDIO_COPY } from "./copy/audio";
 import { COMMUNITY_COPY } from "./copy/community";
 import { LAB_COPY } from "./copy/lab";
 import type { GuideLang, GuidePageId, GuideScreen } from "./store";
 
-// The guide: a hub and three guides. The hub (/guide, GuideHub) is where the
+// The guide: a hub and four guides. The hub (/guide, GuideHub) is where the
 // reader picks one by where they are; each guide is one scroll over a stage:
 // an opening, its chapters, and an end. GuideExperience renders whichever it
 // is given from here — the opening, the chapter list and the rail, the
@@ -16,6 +17,14 @@ import type { GuideLang, GuidePageId, GuideScreen } from "./store";
 //   build  /guide/build  soldering a Patternflow from bare parts (copy/build.ts)
 //   play   /guide/play   01 Flash · 02 Knobs · 03 Patterns · 04 Console
 //   make   /guide/make   01 Community · 02 Pattern Lab
+//   audio  /guide/audio  The Audio edition, then in no order: A browser tab ·
+//                        The microphone · MIDI & your DAW (copy/audio.ts)
+//
+// Audio's chapters carry no number: one comes first (the edition every
+// section needs) and the other three are in no order, so the page shows no
+// 01… anywhere — not in a chapter's head, the rail, the opening's list or a
+// "Stuck here?" issue. On the hub it is the fourth guide, numbered like the
+// others.
 //
 // Korean is the same page under /ko. The copy/script check is checks.ts:
 // this file holds words only, so the hub can read the chapter lists without
@@ -27,6 +36,12 @@ export type PageChapter = {
   /** Its name on the rail and in the opening's list ("Flash"). */
   label: string;
   copy: SceneCopy;
+  /**
+   * The Audio guide: the chapter every other one needs done first (the
+   * edition). The opening lists it by itself, over the rest, and the rail
+   * sets it apart from them with a hairline.
+   */
+  first?: boolean;
 };
 
 export type PageText = {
@@ -46,7 +61,7 @@ export type PageDef = {
 };
 
 /** The guides, in the order a reader goes through them. */
-export const GUIDE_ORDER: readonly GuidePageId[] = ["build", "play", "make"];
+export const GUIDE_ORDER: readonly GuidePageId[] = ["build", "play", "make", "audio"];
 
 /** The hub's address in each language. */
 export const HUB_PATH: Record<GuideLang, string> = { en: "/guide", ko: "/guide/ko" };
@@ -107,6 +122,21 @@ export const PAGES: Record<GuidePageId, PageDef> = {
         ]),
         next: c.next,
       };
+    },
+  },
+  audio: {
+    id: "audio",
+    path: { en: "/guide/audio", ko: "/guide/audio/ko" },
+    text: (lang) => {
+      const c = AUDIO_COPY[lang];
+      const list = chapters(c.opening, [
+        ["edition", c.edition],
+        ["browser", c.browser],
+        ["mic", c.mic],
+        ["midi", c.midi],
+      ]);
+      list[0].first = true;
+      return { meta: c.meta, name: c.name, opening: c.opening, chapters: list, next: c.next };
     },
   },
 };

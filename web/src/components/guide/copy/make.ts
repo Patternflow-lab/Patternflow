@@ -4,8 +4,9 @@ import type { GuideLang } from "../store";
 // The Make guide's own words (/guide/make): its title for search and
 // sharing, the opening and the end. The chapters' words are beside this file
 // (community.ts, lab.ts); the small print every guide shares — "From the
-// maker", "Stuck here?" — is copy.ts's `ui`. The guides still to come (Sound,
-// MIDI & OSC, MQTT, Clock, Performance, Editions) join this one as chapters.
+// maker", "Stuck here?" — is copy.ts's `ui`. Sound and MIDI are a guide of their own
+// (copy/audio.ts); the ones still to come (MQTT, Clock, Performance,
+// Editions) join this one as chapters.
 
 export type MakeCopy = {
   meta: { title: string; description: string };
@@ -33,7 +34,10 @@ const en: MakeCopy = {
   next: {
     title: "Still to come.",
     lede: "Now you can find patterns and make your own. This guide grows: the rest of what the board can do joins it here, a chapter at a time.",
-    groups: [{ label: "Joining this guide", items: ["Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"], later: true }],
+    groups: [
+      { label: "The Audio guide", items: ["A browser tab, the microphone, MIDI & your DAW"], to: "audio" },
+      { label: "Joining this guide", items: ["Editions", "MQTT", "Clock", "Performance"], later: true },
+    ],
     until: "Until they're here, the real things:",
     links: [
       { label: "Editions", href: "/editions" },
@@ -61,7 +65,10 @@ const ko: MakeCopy = {
   next: {
     title: "아직 남은 이야기.",
     lede: "이제 패턴을 찾을 수도, 직접 만들 수도 있어요. 보드가 할 수 있는 나머지 이야기는 이 가이드에 한 챕터씩 이어서 들어와요.",
-    groups: [{ label: "이 가이드에 들어올 것들", items: ["에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"], later: true }],
+    groups: [
+      { label: "오디오 가이드", items: ["브라우저 탭 소리, 마이크, MIDI와 DAW"], to: "audio" },
+      { label: "이 가이드에 들어올 것들", items: ["에디션", "MQTT", "시계", "퍼포먼스"], later: true },
+    ],
     until: "그동안은 바로 가서 해 봐도 돼요.",
     links: [
       { label: "Editions", href: "/editions" },

@@ -6,11 +6,14 @@ know where knob values come from.
 
 There are two main ways in, and this guide covers both: the **Chrome
 extension** (any browser tab becomes the source) and the **on-board
-microphone** (a $5 part and four solder joints, and the panel hears the
+microphone** (a $5 part and five thin leads, and the panel hears the
 room with no computer involved). A phone app exists too — it's covered
 briefly at the end — and if you work in a DAW, the panel is also a **MIDI
 device** ([its own section](#midi--the-panel-as-a-midi-port)) and speaks
 OSC ([here](#osc--ableton-today-anything-tomorrow)).
+
+The same ground step by step, on a 3D Patternflow in the browser:
+[patternflow.work/guide/audio](https://patternflow.work/guide/audio).
 
 Like the [Feature Guide](FEATURE_GUIDE.md), this page ends with a section
 written for AI coding agents; everything above it is for people.
@@ -92,7 +95,7 @@ until you solder one on and switch it on.
 | Part | What to look for | Notes |
 | --- | --- | --- |
 | PDM MEMS microphone breakout | **Adafruit PDM MEMS Microphone Breakout #3492** (MP34DT01-M), or any clone whose pin row reads **3V · GND · SEL · CLK · DAT** | ~$5. This is the one in the photo. |
-| Hookup wire | 4 thin leads, ~10 cm | Shorter is better — see routing note below. |
+| Hookup wire | 5 thin leads, ~10 cm | Shorter is better — see routing note below. |
 
 **Don't buy these instead:** an **INMP441** or other standard I²S mic (it
 needs three signal pins — this board has exactly two free), or an analog
@@ -100,7 +103,7 @@ electret module (no ADC pin is free at all). It must be **PDM**.
 
 ### Wiring
 
-Four leads, five pads:
+Five leads, four places on the DevKit (GND takes two):
 
 ```
    mic breakout                 ESP32-S3 DevKit
@@ -111,11 +114,11 @@ Four leads, five pads:
    │  CLK  ───────┼──┼───────────►  TX  (GPIO 43)
    │  DAT  ───────┼──┼───────────►  RX  (GPIO 44)
    └──────────────┘  │
-                     └──────────►  GND   ← SEL goes to ground
+                     └──────────►  G   (GND)   ← SEL goes to ground: the same GND pin
 ```
 
-- **Don't forget SEL → GND** — jumper it to the breakout's own GND pad so it
-  shares the same lead. It selects the LEFT channel, the slot a mono read
+- **Don't forget SEL → GND** — it is a lead of its own, soldered to the same
+  GND pin as the GND lead. It selects the LEFT channel, the slot a mono read
   uses; tied high, the mic reads silence while looking perfectly healthy.
 - The DevKit silkscreen says **TX / RX**, not 43/44 — those are the ones.
   They're free because the console talks over native USB, and they are the
@@ -127,8 +130,8 @@ the main board:
 
 1. **Pull the DevKit out** of its sockets (straight up).
 2. Solder the thin wires on the **top side**, where the header pins poke
-   through the module — four spots: TX, RX, 3V3, GND (that's what the photo
-   shows).
+   through the module — five wires on four spots: TX, RX, 3V3, and GND
+   twice (that's what the photo shows).
 3. Route the wires out the top and plug the DevKit back in.
 
 Fully reversible — to undo it, just remove the wires. Two cautions: while
@@ -154,7 +157,7 @@ phone app*, is the other input: the same switch as `AUD` on the panel's
 NETWORK screen.)
 
 The same box editor from the extension lives on this page, under
-**Microphone mapping**, in the console's own look (light, or dark from the
+**Mapping**, in the console's own look (light, or dark from the
 toggle in the header) — same boxes K1 to K4, same curves, same Preview. Its
 level axis is the microphone's, about −45 to +2 dB, and its frequencies stop
 at 8 kHz. Changes save to the panel as you make them; mic settings are stored

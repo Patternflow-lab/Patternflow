@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
+import { micPortStep } from "../scenes/audio";
 import { bootPhase, kitState, RST_PULSE, rstPulseDown } from "../timing";
 import { MODEL_OFFSET, MODEL_SCALE } from "./geometry";
 import { kitPress } from "./hand";
@@ -277,7 +278,7 @@ export default function KitFx({ boot, rst }: Props) {
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
-    const { scene, step } = useGuideStore.getState();
+    const { scene, step, page } = useGuideStore.getState();
     const s = stepOf(scene, step);
     const t = state.clock.elapsedTime;
     const now = performance.now();
@@ -434,8 +435,12 @@ export default function KitFx({ boot, rst }: Props) {
       el.dataset.on = on ? "1" : "0";
       el.dataset.active = active ? "1" : "0";
     };
-    setTag("usb", tagsOn.has("usb"), true);
-    setTag("uart", tagsOn.has("uart"));
+    // Of the two ports the marked one is the one the step is about: USB, the
+    // port the cable goes into — except on the Audio guide's "leave the right
+    // port empty", whose card and warning are about UART (scenes/audio.ts).
+    const uartMarked = micPortStep(page, scene, step);
+    setTag("usb", tagsOn.has("usb"), !uartMarked);
+    setTag("uart", tagsOn.has("uart"), uartMarked);
     setTag("boot", tagsOn.has("boot"), bootDown);
     setTag("rst", tagsOn.has("rst"), rstDown);
 

@@ -5,7 +5,8 @@ import type { GuidePageId } from "./store";
 /**
  * Where a guide's words and its script disagree: a chapter with no scene, a
  * scene no chapter shows, or a different number of steps — in either
- * language. Empty when they line up. The page warns with these in
+ * language — or a step whose card carries one thing in English and another
+ * in Korean (its `extra`: a window, a set of captures). Empty when they line up. The page warns with these in
  * development; pages.test.ts fails on them.
  */
 export function scriptMismatches(page: GuidePageId): string[] {
@@ -27,6 +28,18 @@ export function scriptMismatches(page: GuidePageId): string[] {
       if (def.id === "opening" || def.id === "next") continue;
       if (!chapters.some((c) => c.id === def.id)) out.push(`${page}/${lang}: scene ${def.id} is in the script but not on the page`);
     }
+  }
+  const en = PAGES[page].text("en").chapters;
+  const ko = PAGES[page].text("ko").chapters;
+  for (const ch of en) {
+    const twin = ko.find((c) => c.id === ch.id);
+    if (!twin) continue;
+    ch.copy.steps.forEach((step, i) => {
+      const other = twin.copy.steps[i];
+      if (other && step.extra !== other.extra) {
+        out.push(`${page}: ${ch.id}-${i + 1} shows ${step.extra ?? "nothing"} in English and ${other.extra ?? "nothing"} in Korean`);
+      }
+    });
   }
   return out;
 }

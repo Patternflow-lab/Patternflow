@@ -19,7 +19,7 @@
 
 **Patternflow is an open-source LED synthesizer.** You play it with four knobs. 8,192 pixels across a 128 × 64 matrix respond the instant you turn one; nothing is pre-rendered, every frame is computed live on the device. A pattern is just a small file, so every Patternflow plays every pattern anyone makes.
 
-**Start with [the guide](https://patternflow.work/guide).** It builds one with you, shows you how to play it, and walks you through making patterns, each step on a 3D Patternflow you can turn in the browser: **[Build](https://patternflow.work/guide/build)** · **[Play](https://patternflow.work/guide/play)** · **[Make](https://patternflow.work/guide/make)**.
+**Start with [the guide](https://patternflow.work/guide).** It builds one with you, shows you how to play it, walks you through making patterns, and connects sound and MIDI, each step on a 3D Patternflow you can turn in the browser: **[Build](https://patternflow.work/guide/build)** · **[Play](https://patternflow.work/guide/play)** · **[Make](https://patternflow.work/guide/make)** · **[Audio](https://patternflow.work/guide/audio)**.
 
 ## Where it began
 
@@ -189,7 +189,7 @@ Patternflow is built around a standalone ESP32-S3 driving a HUB75 RGB LED matrix
 | `integrations/` | Host-software bridges: Ableton Live / Max for Live (OSC knob mapping) |
 | `.github/` | Issue and PR templates, and the CI that runs on every pull request (web, every firmware edition, doc links, console pages) |
 
-**Guide (interactive):** [Start here](https://patternflow.work/guide) · [Build it](https://patternflow.work/guide/build) · [Play it](https://patternflow.work/guide/play) · [Make patterns](https://patternflow.work/guide/make): each step shown on a 3D Patternflow you can turn, in English and Korean
+**Guide (interactive):** [Start here](https://patternflow.work/guide) · [Build it](https://patternflow.work/guide/build) · [Play it](https://patternflow.work/guide/play) · [Make patterns](https://patternflow.work/guide/make) · [Sound and MIDI](https://patternflow.work/guide/audio): each step shown on a 3D Patternflow you can turn, in English and Korean
 **Build:** [Full Build Guide](BUILD_GUIDE.md) · [Assembly Map](docs/assembly/README.md) · [Panel Compatibility](docs/panel-compatibility.md) · [Hardware files](hardware/README.md)
 **Play:** [Pattern Guide](PATTERN_GUIDE.md) · [Custom Patterns](firmware/CUSTOM_PATTERNS.md) · [Audio Guide](AUDIO_GUIDE.md) · [MIDI in Ableton](docs/midi-ableton.md)
 **Extend:** [Feature Guide](FEATURE_GUIDE.md) · [Editions](docs/EDITIONS.md) · [Firmware build](firmware/README.md) · [Web architecture](web/ARCHITECTURE.md) · [HTTP API](docs/rest-api.md) · [OSC Spec](docs/osc-spec.md) · [MIDI Spec](docs/midi-spec.md) · [Director → MIDI](docs/director-midi.md)
