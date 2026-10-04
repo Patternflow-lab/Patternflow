@@ -1,0 +1,472 @@
+/* The Audio guide's captures and photos inside a guide card (AudioShots.tsx).
+   Three looks. A "crop" is a piece of a page — the console, the extension's
+   popup, Live's settings — and its frame takes that page's own ground, so a
+   crop that stops short reads as more of the same page and not as a hole in
+   the card. A "window" (rtpMIDI) is a whole window with a rim of dark
+   desktop round it, at the card's width. A "photo" fills its frame. Tokens
+   come from .page in Guide.module.css; the fallbacks keep it legible
+   anywhere else.
+   Shaped after FlasherShots, LabShots and CommunityShots. */
+
+.shots {
+  margin: 18px 0 4px;
+  padding: 0;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  /* Its shape is the set's largest frame (--ar: AudioShots.tsx). */
+  aspect-ratio: var(--ar);
+  margin: 0 auto;
+  border-radius: 12px;
+  border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
+  background: var(--ground, #0b0b0c);
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The dimmed desktop a window stands on: a rim of it, no more. The window
+   has a program's worth of small type and wants the width. */
+.shots[data-look="window"] .frame {
+  border-radius: 10px;
+  border-color: var(--g-hair, rgba(239, 233, 221, 0.1));
+  background:
+    radial-gradient(120% 100% at 50% 40%, rgba(239, 233, 221, 0.075), rgba(239, 233, 221, 0.03) 75%),
+    #171614;
+}
+
+/* On a wide screen the frame may take a little of the card's padding — the
+   screens are small type — and is never taller than its share of the
+   viewport (--cap: AudioShots.tsx LOOKS). */
+@media (min-width: 900px) {
+  .shots {
+    margin-inline: -10px;
+  }
+  .frame {
+    width: min(100%, var(--cap, 100%));
+  }
+  .caption {
+    padding-inline: 10px;
+  }
+}
+@media (max-width: 899px) {
+  .frame {
+    width: min(100%, var(--cap-narrow, 100%));
+  }
+}
+/* A laptop's short screen (under 880 px of page): everything in the card
+   sets closer (Guide.module.css), and the frame draws a little smaller
+   (--cap-short: AudioShots.tsx LOOKS). */
+@media (min-width: 900px) and (max-height: 879px) {
+  .shots {
+    margin-top: 12px;
+  }
+  .frame {
+    width: min(100%, var(--cap-short, 100%));
+  }
+}
+
+/* One frame of the set: the image and, over it, the ring. Every frame is
+   drawn at the same scale and hangs from the top of the frame; a window
+   stands in its middle. */
+.shot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  /* The next frame comes up over the last one, which only goes once it is
+     covered: never a frame with nothing in it. */
+  z-index: 1;
+  transition: opacity 0.12s linear 0.34s;
+}
+.shot[data-on="1"] {
+  z-index: 2;
+  opacity: 1;
+  transition: opacity 0.34s ease;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+/* A photo fills its frame, whatever shape the frame has taken. */
+.shots[data-look="photo"] .shot {
+  height: 100%;
+}
+.shots[data-look="photo"] .shot img {
+  object-fit: cover;
+}
+.shots[data-look="window"] .shot {
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.985);
+  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, 0.55));
+  transition:
+    opacity 0.12s linear 0.3s,
+    transform 0s linear 0.42s;
+}
+.shots[data-look="window"] .shot[data-on="1"] {
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* A Windows window's own corners. */
+.shots[data-look="window"] .shot img {
+  border-radius: 7px;
+}
+
+/* The control a frame is about. Remounted per frame: it arrives just after
+   the frame does, then breathes. The captures are light pages, so the ring
+   keeps the guide's fixed orange — the panel's own colour can be one that
+   does not read on cream. */
+.ring {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  border: 2px solid var(--g-led-fixed, #ff6a3d);
+  border-radius: 7px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 3px rgb(255 106 61 / 0.2),
+    0 0 16px rgb(255 106 61 / 0.32);
+  animation:
+    ringIn 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) 0.22s both,
+    ringBreathe 1.9s ease-in-out 0.7s infinite;
+}
+@keyframes ringIn {
+  from {
+    opacity: 0;
+    transform: scale(1.18);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes ringBreathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgb(255 106 61 / 0.2),
+      0 0 16px rgb(255 106 61 / 0.32);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgb(255 106 61 / 0.08),
+      0 0 24px rgb(255 106 61 / 0.45);
+  }
+}
+
+.caption {
+  margin-top: 12px;
+}
+
+/* A set of more than one frame: its dots, and beside them the words of the
+   frame that is up — one row, so the caption costs the card as little
+   height as it can. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 7px;
+}
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--g-hair-2, rgba(239, 233, 221, 0.18));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+  font: 600 10.5px/1 var(--pf-mono, ui-monospace, monospace);
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+}
+/* A bigger hit area than the dot itself, without spreading the row. */
+.dot::before {
+  content: "";
+  position: absolute;
+  inset: -6px -3px;
+}
+.dot[data-done="1"] {
+  border-color: rgb(var(--g-led-rgb, 255 106 61) / 0.35);
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+}
+.dot[data-on="1"] {
+  border-color: var(--g-led, #ff6a3d);
+  background: var(--g-led, #ff6a3d);
+  color: #150a06;
+}
+.dot:hover:not([data-on="1"]) {
+  border-color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+  color: var(--g-ink, #efe9dd);
+}
+.dot:focus-visible {
+  outline: 2px solid var(--g-led, #ff6a3d);
+  outline-offset: 2px;
+}
+
+/* The words of each frame share one cell, as the sentences under them do:
+   nothing in the caption moves when the frame changes. */
+.heads {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.head {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+  color: var(--g-ink, #efe9dd);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.head[data-on="1"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s ease 0.12s,
+    visibility 0s;
+}
+
+/* Every caption sits in the same grid cell, so the block is as tall as the
+   longest one and nothing below it jumps when the frame changes. */
+.texts {
+  display: grid;
+}
+.text {
+  text-wrap: pretty;
+  grid-area: 1 / 1;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+.text[data-on="1"] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.3s ease 0.12s,
+    visibility 0s;
+}
+/* A single frame: the screen's own words run in at the head of its sentence. */
+.text b {
+  margin-right: 0.5em;
+  font-weight: 600;
+  color: var(--g-ink, #efe9dd);
+}
+
+/* ── mic · 4: an upright photo, its caption beside it ───────────────────── */
+.shots[data-beside] {
+  display: grid;
+  align-items: center;
+  column-gap: 16px;
+}
+.shots[data-beside="caption"] {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+}
+.shots[data-beside="caption"] .caption {
+  margin-top: 0;
+  padding-inline: 0;
+}
+@media (min-width: 900px) {
+  .shots[data-beside] {
+    padding-inline: 0 10px;
+  }
+}
+/* A card at its full width has the room to give the photo the larger half:
+   the caption still sets in lines long enough to read (a narrower card's,
+   or a phone's, would break inside "USB-C"). */
+@media (min-width: 1100px) {
+  .shots[data-beside="caption"] {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+
+/* ── mic · 3: the photo a reader solders by ───────────────────────────────
+   It takes the card's whole width, at any size, and hangs from its foot:
+   the pins the leads land on. Where the screen has the room the frame is
+   the whole capture, the breakout's row of pads at its top. Where it has
+   not, the frame is shorter and what goes is the top of the picture, never
+   its scale: the silkscreen by the pins is what has to be read. */
+.shots[data-foot] .frame {
+  width: 100%;
+}
+.shots[data-foot] .shot img {
+  object-position: 50% 100%;
+}
+/* A wide screen under 900 px tall, or one whose card is narrower than its
+   full 440 px (the words run to more lines): from under the breakout down
+   (--ar-short), and less of the leads still as the screen gets shorter.
+   The card holds under the header while its block passes (Guide.module.css,
+   Audio's dwell cards), so the frame may take what the rest of the card
+   leaves of the screen (--rest: AudioShots.tsx). */
+@media (min-width: 900px) and (max-height: 899px), (min-width: 900px) and (max-width: 1099px) {
+  .shots[data-foot] .frame {
+    aspect-ratio: var(--ar-short);
+    max-height: max(150px, calc(100vh - var(--rest, 570px)));
+  }
+}
+/* A phone: the rows of pins and the leads' ends (--ar-narrow). The card is
+   already most of the screen. */
+@media (max-width: 899px) {
+  .shots[data-foot] .frame {
+    aspect-ratio: var(--ar-narrow);
+  }
+}
+
+/* The leads under it, pad to pin: the pads across the top, in the order
+   they stand on the breakout, and under each the pin it goes to. These are
+   names a reader solders by, digits and all: the body face, never the pixel
+   one. A place two leads share is one cell under both — five leads, four
+   places. */
+.leads {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-family: var(--pf-sans, system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--g-ink, #efe9dd);
+}
+.leads th,
+.leads td {
+  padding: 0;
+  vertical-align: baseline;
+}
+/* What each row is: as wide as its word and no wider; the five leads share
+   what is left. */
+.leads th[scope="row"] {
+  width: 1%;
+  padding-right: 12px;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+}
+.leads th[scope="col"] {
+  width: 19.8%;
+  font-weight: 500;
+  color: var(--g-ink-2, rgba(239, 233, 221, 0.78));
+}
+.leads tbody th,
+.leads tbody td {
+  padding-top: 24px;
+}
+.leads tbody td {
+  position: relative;
+  font-weight: 600;
+}
+.leads tbody td::before {
+  content: "↓";
+  position: absolute;
+  top: 9px;
+  left: 0;
+  right: 0;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 400;
+  color: var(--g-ink-3, rgba(239, 233, 221, 0.52));
+}
+/* Two leads, one place: a bracket under the pair of pads, from the middle
+   of one to the middle of the other. */
+.leads tbody td[data-shared]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 25%;
+  right: 25%;
+  height: 4px;
+  border: 1px solid var(--g-ink-3, rgba(239, 233, 221, 0.52));
+  border-top: 0;
+  border-radius: 0 0 3px 3px;
+}
+/* On a wide screen the frame takes a little of the card's padding; the
+   table keeps to the column the caption and the card's words are in. */
+@media (min-width: 900px) {
+  .leads {
+    width: calc(100% - 20px);
+    margin-inline: 10px;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The short laptop screen again, after the rules it tightens. */
+@media (min-width: 900px) and (max-height: 879px) {
+  .caption {
+    margin-top: 9px;
+  }
+  .bar {
+    margin-bottom: 5px;
+  }
+}
+@media (max-width: 899px) {
+  .caption {
+    margin-top: 10px;
+  }
+  .text,
+  .head {
+    font-size: 12.5px;
+    line-height: 1.45;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot,
+  .shot[data-on="1"],
+  .shots[data-look="window"] .shot,
+  .shots[data-look="window"] .shot[data-on="1"],
+  .text,
+  .text[data-on="1"],
+  .head,
+  .head[data-on="1"],
+  .dot {
+    transition: none;
+  }
+  .shots[data-look="window"] .shot {
+    transform: translate(-50%, -50%);
+  }
+  .ring {
+    animation: none;
+  }
+}

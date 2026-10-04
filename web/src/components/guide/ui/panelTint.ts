@@ -323,8 +323,14 @@ function tick(t: number) {
     // the panel shows a pattern a moment and then the next, each its own
     // colour. The page does not chase them: it keeps the colour it had, and
     // takes the chosen pattern's when the list closes.
-    const browsing = here && getSim().snapshot().mode === "select";
-    if (!browsing) want = accentLab(light);
+    const snap = here ? getSim().snapshot() : null;
+    const browsing = snap?.mode === "select";
+    // Nor while sound has the knobs (the Audio guide's editor step): a lane
+    // on K1 swings Origin's hue with every beat, and the page's accent with
+    // it. The page keeps its colour; the knobs' own values come back when the
+    // lanes let go, and the panel's colour with them.
+    const driven = Boolean(snap && (snap.lanes.some(Boolean) || snap.laneHeld.some(Boolean)));
+    if (!browsing && !driven) want = accentLab(light);
     // On Make the light is the desk's windows, and they are always on.
     wantLit = here ? light.lit : s.entered ? 1 : 0;
   }

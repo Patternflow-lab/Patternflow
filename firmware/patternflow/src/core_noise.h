@@ -12,7 +12,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "core_math.h"  // ifloor: floorf is a libm call on this target
+#include "core_math.h"  // ifloor: floorf is a libm call in the firmware image
 
 namespace PFNoise {
 

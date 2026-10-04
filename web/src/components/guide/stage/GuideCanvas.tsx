@@ -24,6 +24,7 @@ import StagePost from "./look/StagePost";
 import { VIEWS } from "./views";
 import { getSim, useGuideStore } from "../store";
 import { stepOf, type DemoAction } from "../scenes";
+import { micReseatStep } from "../scenes/audio";
 import { buildClock, kitState } from "../timing";
 import { beatIndex } from "./build/beats";
 import { awayFraming, hubFraming, type Framing, type Free } from "../world/framing";
@@ -61,6 +62,11 @@ function Director() {
       d.fired.clear();
       sim.releaseAll();
       sim.setPack(s.pack);
+      // The Audio guide's two (scenes.ts Step): said at every edge, so a
+      // step that declares neither — all of Play, Build and the hub — has
+      // the core firmware and no lanes, whatever the step before it had.
+      sim.setEdition(s.edition ?? "core");
+      sim.setLaneSource(s.lanes ?? null);
       if (!s.power) sim.setMode("off");
       else if (s.mode) sim.setMode(s.mode === "off" ? "run" : s.mode);
       else sim.setMode("run");
@@ -136,9 +142,16 @@ function wrapAngle(a: number) {
 // The device's box in world units; the camera keeps a margin from it.
 const DEVICE_BOX = new THREE.Box3(new THREE.Vector3(-1.3, -1.7, -0.3), new THREE.Vector3(1.3, 1.75, 0.45));
 
+/**
+ * One row of the knobs' pills, px: a pill is 26 tall (Guide.module.css
+ * .guide-knob-tag) and tags.ts stacks them 4 apart.
+ */
+const PILL_ROW = 30;
+
 // Where the step's card is when the reader is on that step (its block
 // centred; the opening at the top of the page), and so what it leaves free.
-function freeArea(scene: string, step: number, w: number, h: number, narrow: boolean, tallCards: boolean): Free {
+// `headroom` is what a narrow screen keeps free under the top bar besides, px.
+function freeArea(scene: string, step: number, w: number, h: number, narrow: boolean, tallCards: boolean, headroom = 0): Free {
   const fallback: Free = narrow ? { l: 12, r: w - 12, t: 56, b: h * 0.5 } : { l: 24, r: w * 0.6, t: 64, b: h - 32 };
   const art = document.querySelector<HTMLElement>(`[data-scene="${scene}"] [data-step="${step}"]`);
   if (!art) return fallback;
@@ -162,7 +175,9 @@ function freeArea(scene: string, step: number, w: number, h: number, narrow: boo
   // Build's tall cards are the ones with the most to see above them — which
   // hole, which screw — so there the stage fits what is really left, down to
   // a fifth of the screen.
-  if (narrow) return { l: 12, r: w - 12, t: 56, b: THREE.MathUtils.clamp(cardTop - 14, h * (tallCards ? 0.2 : 0.36), h - 12) };
+  // With headroom the floor moves down by as much: the device keeps its size
+  // and stands that much lower.
+  if (narrow) return { l: 12, r: w - 12, t: 56 + headroom, b: THREE.MathUtils.clamp(cardTop - 14, h * (tallCards ? 0.2 : 0.36) + headroom, h - 12) };
   return { l: 24, r: THREE.MathUtils.clamp(cardLeft - 32, w * 0.35, w - 24), t: 64, b: h - 32 };
 }
 
@@ -272,7 +287,9 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     // cover slides shut, the camera watches that from behind — the order the
     // copy gives — and comes round to the front once the device is whole,
     // as the panel powers on (KitFx holds the power until then).
-    const reassembling = scene === "flash" && step === 6 && !kitState.home;
+    // The Audio guide's microphone section puts it back the same way, on the
+    // step where the board is whole and on again (scenes/audio.ts micReseatStep).
+    const reassembling = ((scene === "flash" && step === 6) || micReseatStep(page, scene, step)) && !kitState.home;
     // A Build step with two places to look at on a narrow screen (scenes.ts
     // narrowLate): its second view from that far through its beat.
     const late = narrow && s.narrowLate && s.build !== undefined && buildClock.t - beatIndex(s.build) >= s.narrowLate.from ? s.narrowLate.view : null;
@@ -287,13 +304,18 @@ function CameraRig({ reducedMotion }: { reducedMotion: boolean }) {
     // (fonts, images). The hub's is above its choices; Make has no device,
     // and it stands far back there.
     const key = `${page}.${lang}.${scene}.${step}.${w}x${h}.${narrow ? 1 : 0}.${hubTop}`;
+    // The Audio guide's editor step has all four knobs' readouts up at once.
+    // On a phone there is no room for K1's beside its knob, so it stands a
+    // row above K2's (Device.tsx, tags.ts `alt`) — which was in the top bar,
+    // over the language switch. That row is kept free under the bar there.
+    const headroom = narrow && s.lanes ? PILL_ROW : 0;
     if (key !== c.freeKey || ++c.freeAge > 45) {
       c.framing =
         page === "hub"
           ? hubFraming(w, h, hubTop, narrow)
           : page === "make"
             ? awayFraming(w, h)
-            : { free: freeArea(scene, step, w, h, narrow, page === "build"), scale: 1 };
+            : { free: freeArea(scene, step, w, h, narrow, page === "build", headroom), scale: 1 };
       c.freeKey = key;
       c.freeAge = 0;
     }

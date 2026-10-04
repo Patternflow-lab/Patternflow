@@ -11,6 +11,13 @@
 # uselessly. firmware/toolchain/check_math.py is the guard for that half:
 # it pins what those headers compute rather than what they contain, which
 # is the right test for a file whose comments are allowed to change.
+#
+# pf_libm.h is pinned here although it lays out nothing: it is compiled
+# into every module, behind floorf, fmodf and five more, on the promise
+# that it computes what libm computes. The hash makes an edit to it a
+# deliberate one; firmware/toolchain/check_libm.py is what holds the
+# promise, and has to pass before the hash is refreshed.
 2fdca28c596418529252f340133343c708a9a8aa11078435f5c733cbc922ec1b  pf_abi.h
-b6788eb470841b19738ce3bf2f81281903dd9839b9a87078133b0ec42460c481  pf_module.h
+0b225800b1211e52128c4de426be595d883384f4a39263a2562ce85773506d9b  pf_libm.h
+bfba1dcbd63f0ac8b311a10c5142d775a695ce0bdb12827d3593576902f7d000  pf_module.h
 5456ff3504023a7f126f57d0712085e7d6facb85f5f576e2e8fc447dec8b0b4a  pf_params.h

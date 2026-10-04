@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { GUIDE_ORDER, HUB_PATH, PAGES, pagePath } from "./pages";
 import { scriptMismatches } from "./checks";
-import { scenesOf } from "./scenes";
+import { scenesOf, type Step } from "./scenes";
 import { HUB_COPY } from "./copy/hub";
 import { LEGACY_GUIDE_REDIRECT, legacyGuideTarget } from "./legacy";
 import type { GuidePageId } from "./store";
 
-// The guide: a hub and three guides. Every chapter's words and its script
-// line up, in both languages; each guide numbers its own chapters from 01;
-// and the Play guide's old addresses under /guide still land on it.
+// The guide: a hub and four guides. Every chapter's words and its script
+// line up, in both languages; each guide numbers its own chapters from 01 —
+// but Audio, whose sections are in no order and carry no number; and the
+// Play guide's old addresses under /guide still land on it.
 
 const pages = Object.keys(PAGES) as GuidePageId[];
 
@@ -18,7 +19,7 @@ describe("guide pages", () => {
   });
 
   it("numbers each guide's chapters from 01, in order", () => {
-    for (const page of pages) {
+    for (const page of pages.filter((p) => p !== "audio")) {
       for (const lang of ["en", "ko"] as const) {
         const nums = PAGES[page].text(lang).chapters.map((c) => c.copy.num);
         expect(nums).toEqual(nums.map((_, i) => String(i + 1).padStart(2, "0")));
@@ -28,8 +29,59 @@ describe("guide pages", () => {
     expect(PAGES.make.text("en").chapters.map((c) => `${c.copy.num} ${c.label}`)).toEqual(["01 Community", "02 Pattern Lab"]);
   });
 
-  it("orders the guides Build, Play, Make, and names each in both languages", () => {
-    expect(GUIDE_ORDER).toEqual(["build", "play", "make"]);
+  it("gives Audio's chapters no number: the edition first, then three sections in no order", () => {
+    for (const lang of ["en", "ko"] as const) {
+      const { opening, chapters } = PAGES.audio.text(lang);
+      expect(chapters.map((c) => c.id)).toEqual(["edition", "browser", "mic", "midi"]);
+      expect(chapters.map((c) => c.copy.num)).toEqual([undefined, undefined, undefined, undefined]);
+      expect(chapters.map((c) => c.first ?? false)).toEqual([true, false, false, false]);
+      expect(chapters.map((c) => c.copy.steps.length)).toEqual([3, 4, 7, 5]);
+      // Each section opens cold: it says what it needs, and where that is.
+      expect(chapters.map((c) => c.copy.needs?.href)).toEqual([undefined, "#edition", "#edition", "#edition"]);
+      expect(opening.groups?.first).toBeTruthy();
+      expect(opening.groups?.rest).toBeTruthy();
+    }
+    expect(PAGES.audio.text("en").chapters.map((c) => c.label)).toEqual(["The Audio edition", "A browser tab", "The microphone", "MIDI & your DAW"]);
+  });
+
+  it("puts one thing on each Audio card: the editor once, and every set of captures once", () => {
+    const extras = PAGES.audio.text("en").chapters.flatMap((c) => c.copy.steps.map((s, i) => [`${c.id}-${i + 1}`, s.extra] as const).filter(([, extra]) => extra));
+    expect(Object.fromEntries(extras)).toEqual({
+      "edition-2": "editionsLink",
+      "browser-2": "audioShots:popup",
+      "browser-3": "audioShots:popupStates",
+      "browser-4": "editorLive",
+      "mic-1": "audioShots:micPart",
+      "mic-3": "audioShots:micWiring",
+      "mic-4": "audioShots:micSeated",
+      "mic-5": "audioShots:audioIn",
+      "mic-6": "audioShots:audioInMap",
+      "mic-7": "audioShots:audioInNoMic",
+      "midi-1": "audioShots:rtpmidi",
+      "midi-2": "audioShots:liveRemote",
+      "midi-4": "audioShots:midiPage",
+      "midi-5": "audioShots:midiSession",
+    });
+    // The editor's card is the one the lanes are open on (scenes/audio.ts).
+    const scene = scenesOf("audio").find((s) => s.id === "browser");
+    expect((scene?.steps[3] as Step).lanes).toBe("editor");
+  });
+
+  it("runs the Audio edition only where a step says so, and the lanes on one step", () => {
+    const steps = (page: "audio" | "play" | "build" | "hub") => scenesOf(page).flatMap((s) => s.steps.map((step, i) => ({ at: `${s.id}-${i + 1}`, step: step as Step })));
+    for (const page of ["play", "build", "hub"] as const) {
+      for (const { step } of steps(page)) {
+        expect(step.edition).toBeUndefined();
+        expect(step.lanes).toBeUndefined();
+      }
+    }
+    expect(steps("audio").filter(({ step }) => step.lanes).map(({ at }) => at)).toEqual(["browser-4"]);
+    // Nothing is installed on this guide: the pack never changes (stage/Fx.tsx flashes on Origin → Basics).
+    for (const { step } of steps("audio")) expect(step.pack).toBe("origin");
+  });
+
+  it("orders the guides Build, Play, Make, Audio, and names each in both languages", () => {
+    expect(GUIDE_ORDER).toEqual(["build", "play", "make", "audio"]);
     for (const page of GUIDE_ORDER) {
       for (const lang of ["en", "ko"] as const) {
         expect(PAGES[page].text(lang).name).toBeTruthy();
@@ -48,7 +100,7 @@ describe("guide pages", () => {
 
   it("gives every step of the Make page a desk, and none of the 3D pages'", () => {
     for (const scene of scenesOf("make")) for (const step of scene.steps) expect(step).toHaveProperty("desk.front");
-    for (const page of ["play", "build", "hub"] as const) {
+    for (const page of ["play", "build", "audio", "hub"] as const) {
       for (const scene of scenesOf(page)) for (const step of scene.steps) expect(step).not.toHaveProperty("desk");
     }
   });
@@ -74,6 +126,8 @@ describe("guide pages", () => {
     expect(pagePath("play", "ko")).toBe("/guide/play/ko");
     expect(pagePath("make", "en")).toBe("/guide/make");
     expect(pagePath("make", "ko")).toBe("/guide/make/ko");
+    expect(pagePath("audio", "en")).toBe("/guide/audio");
+    expect(pagePath("audio", "ko")).toBe("/guide/audio/ko");
   });
 
   it("links every guide's opening back to the hub", () => {

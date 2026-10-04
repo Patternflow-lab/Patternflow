@@ -5,20 +5,32 @@
 // a knob: the highs carry far less energy than the bass, so band 4 sits near
 // zero while band 1 saturates, and a room's noise floor is never at zero.
 //
-// Four numbers per band fix that, and they are deliberately the SAME four the
-// Chrome extension uses, computed the same way:
+// Owns: the four bands' settings, where they are kept (NVS), and the
+// arithmetic from a band's level to its knob. No I2S and no HTTP in here.
+//
+// Five numbers per band fix that, and they are deliberately the SAME five the
+// Chrome extension's mapper uses, applied in the same order - window, then
+// curve, then output range:
 //
 //   inMin   ignore below this        the room's noise floor
 //   inMax   full by this             what counts as loud, for this band
-//   gain    curve between them       >1 lifts a quiet band
+//   gain    curve between them       >1 lifts a quiet band (the curve, until
+//                                    the editor gives the band a table - see
+//                                    "Response curves" below)
 //   outMin  where the knob rests     what the pattern does in silence
 //   outMax  where the knob peaks
 //
-// mapBandOutput() in tools/patternflow-audio-extension/popup.js is the
-// reference implementation. If one of them changes, the other has to: a
+// The extension's half is mapBandOutput() in tools/patternflow-audio-extension.
+// If one of them changes its order or its edge cases, the other has to: a
 // person who has learned the response graph on one path must not find the
-// same handles doing something else on the other. That is the entire reason
-// this file repeats the extension's arithmetic instead of inventing its own.
+// same handles doing something else on the other.
+//
+// What the two do NOT share is the unit a level is measured in. The extension
+// reads decibels off the browser's analyser and normalizes them; this side
+// measures LINEAR amplitude, and every constant below was measured on that
+// scale. inMin/inMax are therefore linear here, and in manual mode the level
+// is placed between them linearly. The /audio-in page draws a dB axis and
+// converts at its own boundary; the numbers the API carries are these.
 //
 // ── On the S3's quiet PDM input ─────────────────────────────────────────
 //
@@ -83,9 +95,10 @@ struct Band {
 // same digital multiply. So: a runtime gain, WLED-style, user-tunable on
 // /audio-in. Applied only to the microphone - the synthetic source is
 // already full-scale and would clip.
-inline float micGain = 8.0f;
+constexpr float MIC_GAIN_DEFAULT = 8.0f;
 constexpr float MIC_GAIN_MIN = 1.0f;
 constexpr float MIC_GAIN_MAX = 16.0f;
+inline float micGain = MIC_GAIN_DEFAULT;
 
 inline Band bands[4];  // filled by resetBands() or load(); see below
 
@@ -102,8 +115,8 @@ inline Band bands[4];  // filled by resetBands() or load(); see below
 // tuned set (bands8 -> bands9 both did exactly that). The tables live under
 // their own keys, so an upgrade keeps the windows people measured.
 //
-// A band with no table (lutSet 0) keeps the legacy gain exponent - the
-// upgrade is invisible until the editor touches a band.
+// A band with no table (lutSet 0) runs its gain exponent - which is what the
+// measured defaults are, not a leftover: a factory panel has four of them.
 constexpr int LUT_POINTS = 33;
 inline uint8_t luts[4][LUT_POINTS];
 inline uint8_t lutSet[4] = {0, 0, 0, 0};
@@ -128,8 +141,10 @@ inline float lutValue(int b, float u) {
 // one number means one feel on both paths; this side converts to its own
 // frame rate at use. Higher alpha = snappier; the editor shows it reversed
 // as "damping", tight to glassy.
-inline float smoothing = 0.35f;
-inline float attack = 0.65f;
+constexpr float SMOOTHING_DEFAULT = 0.35f;
+constexpr float ATTACK_DEFAULT = 0.65f;
+inline float smoothing = SMOOTHING_DEFAULT;
+inline float attack = ATTACK_DEFAULT;
 inline float smoothLevel[4] = {0, 0, 0, 0};
 
 inline void smoothLevels(const float* level) {
@@ -168,22 +183,32 @@ inline void smoothLevels(const float* level) {
 // inMin also clears the measured quiet-room floor per band (0.135/0.088/
 // 0.024/0.010) so silence does not wobble the knobs.
 //
-// One function rather than two literal tables: the HTTP reset handler and
-// the fresh-boot path both call this, and the two copies they used to keep
-// in sync are exactly the kind of pair that drifts.
-inline void resetBands() {
-  const Band d[4] = {
+// One table rather than a copy per caller: the fresh-boot path, the HTTP
+// reset and the one-band reset all read this, and the copies they would
+// otherwise keep in sync are exactly the kind of pair that drifts. The page
+// asks for these (POST /api/audio-in/reset) instead of carrying its own.
+inline void resetBand(int i) {
+  static const Band d[4] = {
       {   62.0f,  375.0f, 0.200f, 0.900f, 1.0f, 0.30f, 0.85f, 0, false},
       {  375.0f, 1500.0f, 0.120f, 0.650f, 1.2f, 0.30f, 0.85f, 1, false},
       { 1500.0f, 5000.0f, 0.045f, 0.160f, 1.6f, 0.30f, 0.85f, 2, false},
       { 5000.0f, 8000.0f, 0.012f, 0.030f, 1.8f, 0.30f, 0.85f, 3, false},
   };
-  for (int i = 0; i < 4; i++) bands[i] = d[i];
-  for (int i = 0; i < 4; i++) {
-    lutSet[i] = 0;
-    metas[i][0] = 0;
-  }
-  smoothing = 0.35f;
+  if (i < 0 || i > 3) return;
+  bands[i] = d[i];
+  // No table: the band is back on its gain exponent, the measured default.
+  lutSet[i] = 0;
+  metas[i][0] = 0;
+}
+
+// Every band, and the two speeds that belong to the mapping as a whole. Not
+// the microphone switch and not auto range: those are how the panel is being
+// used, not how it is tuned, and a reset that flipped either would be a
+// surprise.
+inline void resetBands() {
+  for (int i = 0; i < 4; i++) resetBand(i);
+  smoothing = SMOOTHING_DEFAULT;
+  attack = ATTACK_DEFAULT;
 }
 
 // The analysis is 512 points at 16 kHz, so a bin is 31.25 Hz and the last
@@ -202,8 +227,27 @@ inline int binOf(float hz) {
   return b;
 }
 
-// Ordered, inside the analysable range, and at least one bin wide - a band
-// whose edges met would divide by zero in fold().
+// A setting that is a number, or `fallback`. NaN and the infinities are not
+// settings. constrain() passes a NaN straight through (both of its tests are
+// false), String() prints it as `nan`, and `nan` is not JSON: one stored NaN
+// made GET /api/audio-in unreadable for good, and the page that could not
+// read it had no way to offer the reset that would have cleared it. So nothing
+// that is not finite is taken - from a request (core_audio_in_http.h) or from
+// NVS (load, below).
+inline float finiteOr(float v, float fallback) { return isfinite(v) ? v : fallback; }
+
+inline bool allFinite(const Band& b) {
+  return isfinite(b.hzMin) && isfinite(b.hzMax) && isfinite(b.inMin) &&
+         isfinite(b.inMax) && isfinite(b.gain) && isfinite(b.outMin) &&
+         isfinite(b.outMax);
+}
+
+// Ordered, inside the analysable range, and a bin apart where there is room
+// for one. Against the top there is not: a low edge within a bin of MAX_HZ
+// keeps a band narrower than that (hzMin 7990 is stored as 7990..8000), and
+// one that rounds to the last bin covers no bin at all. fold() reads such a
+// band as silent rather than dividing by its width; this does not move the
+// edge, because what a client stored is what it reads back.
 inline void clampRange(Band& b) {
   b.hzMin = constrain(b.hzMin, MIN_HZ, MAX_HZ);
   b.hzMax = constrain(b.hzMax, MIN_HZ, MAX_HZ);
@@ -219,7 +263,7 @@ inline void clampRange(Band& b) {
 // analysis. Off means the feature costs a panel nothing but the code size.
 //
 // Default off, and this is the switch people will actually use. The mic is
-// four wires to a breakout rather than a part on the board, so a panel that
+// five leads to a breakout rather than a part on the board, so a panel that
 // installs the Audio edition for OSC and the Chrome extension should not be
 // running an analysis over a floating pin. Turning it on is one tick on
 // /audio-in and it persists.
@@ -327,8 +371,9 @@ constexpr float NORM_LO_K = 1.5f;      // normalization floor = ref * this
 constexpr float NORM_MIN_SPAN = 0.02f;
 constexpr float ENV_ATTACK = 0.3f;
 constexpr float ENV_RELEASE = 0.002f;
-// The relative response window the normalized level runs through (the
-// page shows the same 0.10..0.95 as the fixed in-handles in auto mode).
+// The relative response window the normalized level runs through. The poll
+// reply carries that normalized level (`levelsN`), so a page can place it in
+// this same 0.10..0.95 and show where the knob really is.
 constexpr float AUTO_LO = 0.10f;
 constexpr float AUTO_HI = 0.95f;
 
@@ -390,7 +435,8 @@ inline float normalized(int b, float level) {
 
 // The extension's mapBandOutput, in C++. Same clamps, same order, same edge
 // cases - including inMax being forced at least 0.01 above inMin, which is
-// what stops a dragged handle pair from dividing by zero.
+// what stops a dragged handle pair from dividing by zero. The level is placed
+// in the window LINEARLY (see the header: this side's unit is amplitude).
 inline float mappedWindow(int b, float level, float inMinRaw, float inMaxRaw) {
   const Band& x = bands[b];
   const float inMin = clamp01(inMinRaw);
@@ -413,19 +459,6 @@ inline float mapped(int b, float level) {
   const Band& x = bands[b];
   return mappedWindow(b, level, x.inMin, x.inMax);
 }
-
-// How much of its knob a band actually uses between silence and its own
-// recent peak. The extension calls this "travel" and shows it as a bar,
-// because "this band is not doing anything" is the question people actually
-// have, and it is not answerable from four raw numbers.
-inline float travel(int b, float peakLevel) {
-  const Band& x = bands[b];
-  const float span = fabsf(x.outMax - x.outMin);
-  if (span < 0.001f) return 0.0f;
-  return clamp01(fabsf(mapped(b, peakLevel) - mapped(b, 0.0f)) / span);
-}
-// (mapped() already routes through the auto window when autoRange is on, so
-// travel and the page's readouts follow whichever mode is live.)
 
 // ── Persistence ─────────────────────────────────────────────────────────
 //
@@ -479,14 +512,19 @@ inline void load() {
     p.getBytes(NVS_KEY, bands, sizeof(bands));
     // Saved settings are trusted to be the right shape, not to be sane: a
     // blob written by a build with a different sample rate would put edges
-    // past Nyquist, and fold() would read off the end of the spectrum.
+    // past Nyquist, and fold() would read off the end of the spectrum. Nor
+    // to be numbers: earlier builds stored a NaN when a request sent one,
+    // and no clamp removes it. Such a band goes back to its default (its
+    // curve table, read below, is kept).
     for (int i = 0; i < 4; i++) {
+      if (!allFinite(bands[i])) resetBand(i);
       clampRange(bands[i]);
       bands[i].knob = constrain(bands[i].knob, 0, 3);
     }
   }
   micOn = p.getBool(NVS_MIC, false);
-  micGain = constrain(p.getFloat(NVS_GAIN, micGain), MIC_GAIN_MIN, MIC_GAIN_MAX);
+  micGain = constrain(finiteOr(p.getFloat(NVS_GAIN, micGain), MIC_GAIN_DEFAULT),
+                      MIC_GAIN_MIN, MIC_GAIN_MAX);
   autoRange = p.getBool(NVS_AUTO, autoRange);
   if (p.getBytesLength(NVS_LUTS) == sizeof(luts) &&
       p.getBytesLength(NVS_LSET) == sizeof(lutSet)) {
@@ -497,8 +535,10 @@ inline void load() {
     p.getBytes(NVS_META, metas, sizeof(metas));
     for (int i = 0; i < 4; i++) metas[i][sizeof(metas[i]) - 1] = 0;
   }
-  smoothing = constrain(p.getFloat(NVS_SMOOTH, smoothing), 0.05f, 0.9f);
-  attack = constrain(p.getFloat(NVS_ATTACK, attack), 0.05f, 0.9f);
+  smoothing = constrain(finiteOr(p.getFloat(NVS_SMOOTH, smoothing), SMOOTHING_DEFAULT),
+                        0.05f, 0.9f);
+  attack = constrain(finiteOr(p.getFloat(NVS_ATTACK, attack), ATTACK_DEFAULT),
+                     0.05f, 0.9f);
   p.end();
 }
 

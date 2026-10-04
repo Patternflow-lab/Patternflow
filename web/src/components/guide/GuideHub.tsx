@@ -17,8 +17,9 @@ import Words from "./ui/Words";
 import { usePanelTint } from "./ui/panelTint";
 import HubResident from "./ui/resident/HubResident";
 
-// /guide: the hub. One glance, three ways in: Build (soldering one from bare
-// parts), Play (it's built), Make (it plays; now their own patterns) — side
+// /guide: the hub. One glance, four ways in: Build (soldering one from bare
+// parts), Play (it's built), Make (it plays; now their own patterns), Audio
+// (sound and MIDI into it) — side
 // by side in that order, each a number, a name and the one line a reader
 // recognises themselves in. What a guide covers is its own opening's to say;
 // here its chapter names only surface under the guide being pointed at. The
@@ -33,17 +34,18 @@ import HubResident from "./ui/resident/HubResident";
 // device is framed above them, world/framing.ts), and which guide the reader
 // is pointing at (setPreview). The answers are the stage's (world/HubAnswers,
 // stage/Explode): Build — the device comes apart; Play — K1 turns and the
-// pattern follows; Make — the pattern is made again and again. Choosing a
+// pattern follows; Make — the pattern is made again and again; Audio has
+// no answer of its own. Choosing a
 // guide (GuideLink) holds its answer while the words leave, and the guide's
 // opening takes it from there: the parts settle, the camera pushes in, the
 // device stands back for the desk.
 //
-// On the rule over the three guides stands the resident (ui/resident): a
+// On the rule over the guides stands the resident (ui/resident): a
 // figure a few LED cells tall that walks to the guide being pointed at, and
 // can be walked with ← and → — the guide it stands over is then the chosen
 // one (`walked`: the same state as pointing at it, kept here so the column
 // can show it), and Enter goes in. It is play, and nothing depends on it:
-// the three links, their order for Tab, and what a click does are as they
+// the links, their order for Tab, and what a click does are as they
 // were. The mouse takes the choice back by moving.
 //
 // /guide used to be the Play guide. Its old anchors (#flash, #knobs-3, …)

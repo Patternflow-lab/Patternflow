@@ -17,6 +17,10 @@ const eslintConfig = defineConfig([
     // fflate vendored beside them. `console_demo.py --check` keeps it in step
     // with the firmware; lint rules for hand-written code don't apply.
     "public/guide/console-demo/**",
+    // The Audio guide's editor is generated the same way: the audio
+    // extension's own editor files plus a bridge to the page, by
+    // firmware/toolchain/editor_demo.py.
+    "public/guide/audio-editor/**",
   ]),
   // Layering: lib/ is the bottom. It is imported by app/ and components/ and
   // must not import from them — a type it needs from a component belongs in

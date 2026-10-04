@@ -86,7 +86,8 @@ export default function ShippedPackCard({ pack }: { pack: PatternPack }) {
 
         <span className={styles.deckCardDesc}>
           The set a board arrives with. Install it on a device with nothing on it yet, or after
-          a wipe — no account, no build queue.
+          a wipe — no account, no build queue. Needs firmware 3.5.1 or later; update an older
+          board first.
         </span>
 
         <span className={styles.deckCardStats}>

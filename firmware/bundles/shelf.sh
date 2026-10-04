@@ -45,6 +45,31 @@ OUT="web/public/flash/bin/$NAME-$VERSION"
 CORE_PKG="$HOME/.platformio/packages/framework-arduinoespressif32"
 BOOT_APP0="$CORE_PKG/tools/partitions/boot_app0.bin"
 
+# A run that was killed outright (a Ctrl-C is covered by the trap further down)
+# leaves the credentials at .shelf-aside. Put them back before anything else:
+# otherwise this run would skip its control build, and the file would stay
+# under a name that is easy to commit by accident.
+if [ -f "$SECRETS.shelf-aside" ]; then
+  if [ -f "$SECRETS" ]; then
+    echo "both $SECRETS and $SECRETS.shelf-aside exist. Keep the right one and run again." >&2
+    exit 1
+  fi
+  mv "$SECRETS.shelf-aside" "$SECRETS"
+  echo "restored $SECRETS from an interrupted run"
+fi
+
+# A killed build.sh <bundle> leaves its composition files in features/, and a
+# default build would then compile them in: a "core" image carrying an
+# edition's features, with every check green. A shelf image is built from the
+# bundle alone, so refuse rather than guess whose files these are.
+for leftover in features_local.h addons_local.h overrides.h; do
+  if [ -f "$SKETCH/features/$leftover" ]; then
+    echo "$SKETCH/features/$leftover exists (a local composition, or left by an interrupted build)." >&2
+    echo "Remove it and run again: a shelf image must be built from the bundle alone." >&2
+    exit 1
+  fi
+done
+
 # A version-stamped path is never overwritten: the CDN and every browser that
 # has seen it will keep serving the old bytes under the same URL, so a
 # corrected image published over an existing one reaches nobody.

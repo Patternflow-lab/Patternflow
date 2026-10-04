@@ -1,9 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import styles from "./Guide.module.css";
-import { COPY, type Extra } from "./copy";
+import { COPY, type AudioShotSet, type Extra } from "./copy";
+import { AUDIO_COPY } from "./copy/audio";
 import type { GuideLang } from "./store";
 import { communityHref } from "@/lib/community/apiBase";
 import { PatternRuntime } from "@/lib/pattern/harness";
@@ -21,6 +24,11 @@ import LabShots from "./LabShots";
 import LabWindow from "./LabWindow";
 import BuildCards from "./build/BuildCards";
 import type { BuildCard } from "./build/cards";
+
+// The Audio guide's two (the editor in its window, the captures): loaded
+// with that guide's cards, so the other guides do not carry them.
+const EditorWindow = dynamic(() => import("./EditorWindow"));
+const AudioShots = dynamic(() => import("./AudioShots"));
 
 // The small moving pieces that sit inside a step's card: the flasher's real
 // screens and its real button, BOOT and RST in order, a deck fanning out, the
@@ -471,6 +479,19 @@ function ConsoleTour({ lang }: { lang: GuideLang }) {
   );
 }
 
+/** The Audio guide, "Install to my panel": the way to the edition shelf, in a tab of its own. */
+function EditionsLink({ lang }: { lang: GuideLang }) {
+  const { label, href } = AUDIO_COPY[lang].ui.editions;
+  return (
+    <div className={styles.extra}>
+      <Link href={href} className={styles.nextLink} target="_blank" rel="noopener">
+        {label}
+        <span aria-hidden="true">↗</span>
+      </Link>
+    </div>
+  );
+}
+
 /**
  * The extra a step's copy names (copy.ts `extra`), inside that step's card.
  * `step` is the step's index in its chapter, for an extra that more than one
@@ -480,6 +501,8 @@ export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideL
   // The build page's cards (build/BuildCards.tsx): the parts list, the
   // terminals' polarity, the checklists, the way to Play's flashing.
   if (kind.startsWith("build:")) return <BuildCards card={kind.slice(6) as BuildCard} lang={lang} step={step} />;
+  // The audio page's captures and photos (AudioShots.tsx), a set a step.
+  if (kind.startsWith("audioShots:")) return <AudioShots set={kind.slice(11) as AudioShotSet} lang={lang} step={step} />;
   switch (kind) {
     case "flashButton":
       return <FlashBlock lang={lang} />;
@@ -519,5 +542,11 @@ export default function Extras({ kind, lang, step }: { kind: Extra; lang: GuideL
           <LabWindow lang={lang} step={step} />
         </div>
       );
+    // The audio page: the way to the edition shelf, and the extension's
+    // real editor driving the board on the stage (EditorWindow.tsx).
+    case "editionsLink":
+      return <EditionsLink lang={lang} />;
+    case "editorLive":
+      return <EditorWindow lang={lang} step={step} />;
   }
 }

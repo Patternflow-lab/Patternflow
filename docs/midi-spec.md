@@ -72,7 +72,9 @@ carries
 "midi": {"runtime": true, "channel": 1, "outDiv": [1,1,4,1], "outMul": [1,2,1,1], "outMode": "abs", "host": "192.168.0.23", "rtpPeers": 1, "rtpPeer": "MacBook", "rx": 812, "tx": 40}
 ```
 
-`runtime` is the device's own switch (the `MIDI` row on the NETWORK screen);
+`runtime` is the device's own switch (**MIDI on this panel** on the console's
+MIDI page; the NETWORK screen shows the first two switchable features, so
+on the Audio edition, where `OSC` and `AUD` come first, MIDI has no row there);
 off means the port stays open and everything is dropped, the same convention
 as `OSC` and `AUD`.
 

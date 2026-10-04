@@ -104,6 +104,11 @@ export default function UpdateClient() {
           Android cannot resolve <code>.local</code> — use the IP from the device&rsquo;s
           NETWORK screen (hold K2).
         </p>
+        <p className={styles.hostNote}>
+          This installs the standard firmware. Running an edition (Audio, Performance)? Update
+          it from <a href="/editions">its card on the shelf</a> &mdash; this button would
+          replace it.
+        </p>
 
         <a
           className={wirelessUrl ? styles.go : styles.goDisabled}

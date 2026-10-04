@@ -12,13 +12,16 @@
 //             directions over UDP. Was core until it was pointed out that
 //             "needs no infrastructure" is not a test anyone can apply
 //             evenly — OSC is sound integration and belongs here.
-//   audio     The browser path: /audio in the device console, plus the
-//             websocket the Chrome extension speaks. Four FFT bands off a
-//             tab or a mic, driving the four knobs.
+//   audio     The browser path: the websocket on port 81 that the Chrome
+//             extension and the phone app speak, and the switch that lets
+//             them drive (AUD on the NETWORK screen, /api/audio). The client
+//             analyses its own sound into four bands and sends the four knob
+//             values; this feature serves no page.
 //   audio_in  On-board sound. A PDM microphone on the panel itself, so the
 //             thing works with no computer in the room at all. Six of seven
 //             people asked for this and it was the single most-wanted item
-//             in the survey — more than every other option combined.
+//             in the survey — more than every other option combined. Its
+//             page is /audio-in, where both inputs are switched.
 //
 // Deliberately absent: the show player, weather, MQTT. This firmware is for
 // people who point sound at a panel. If you want sequences or a broker, that

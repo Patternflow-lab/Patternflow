@@ -13,7 +13,7 @@ body:
     id: where
     attributes:
       label: Where in the guide
-      description: The guide (Build, Play or Make), the chapter and the step. Filled in for you if you came from the guide.
+      description: The guide (Build, Play, Make or Audio), the chapter and the step. Filled in for you if you came from the guide.
       placeholder: "Play · 01 Flash, step 5 — Hold BOOT, tap RST, let go."
     validations:
       required: true

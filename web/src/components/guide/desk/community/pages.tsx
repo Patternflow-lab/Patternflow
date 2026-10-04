@@ -437,7 +437,7 @@ function ShippedPack() {
           <span className={cs.deckCardUser}>{BASICS.publisher}</span>
         </span>
         <span className={cs.deckCardDesc}>
-          The set a board arrives with. Install it on a device with nothing on it yet, or after a wipe — no account, no build queue.
+          The set a board arrives with. Install it on a device with nothing on it yet, or after a wipe — no account, no build queue. Needs firmware 3.5.1 or later; update an older board first.
         </span>
         <span className={cs.deckCardStats}>
           <span>{(BASICS.bytes / 1024).toFixed(0)} KB</span>

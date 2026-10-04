@@ -14,17 +14,43 @@
 // present() crosses per frame. Calling setPixel through a function pointer
 // instead would be far worse.
 //
-// It is still NOT free. Measured on a 128x64 panel, the Origin pattern runs at
-// 53 fps compiled in and 43 fps as a module — about 20% slower for identical
-// source. That gap is not memory placement (it holds with every section in
-// internal RAM), not optimisation level (-O2 buys ~2%), and not the framebuffer
-// indirection (caching it in a module global made things worse). It is the cost
-// of the relocatable code model itself, chiefly -mlongcalls. Budget for it.
+// What being a module costs, measured 2026-10-04 on one board, A-B-B-A in
+// one boot: Origin compiled into the firmware (-Os) draws a frame in 9.56 ms,
+// Origin built as a module (-O2, this SDK) in 9.81 - 2.7% slower as a module.
+// This comment used to say 20% (2026-07: 53 fps against 43) and blame the
+// relocatable code model, chiefly -mlongcalls; whatever that was, it is not
+// in today's build. Two things the old comment said still hold: where a
+// module's sections live is not what a frame's time goes on
+// (src/core_module_memory.h has the numbers), and caching the framebuffer
+// pointer in a module global makes things worse (setPixel, below).
+//
+// What does cost a module is what costs a preset: the calls its pixel loop
+// makes, and how hard the compiler worked on it. Both are dealt with where a
+// module is BUILT, so that no pattern has to be edited for them:
+//   - toolchain/build_module.py compiles at -O2. This comment said -O2 bought
+//     ~2%; on the Basics presets it is 3..34% more frames a second than -Os
+//     (measured 2026-10-04, the numbers are beside DEFAULT_OPT).
+//   - pf_libm.h, included first below, makes floorf, ceilf, truncf, roundf,
+//     fminf, fmaxf and fmodf inline code that returns exactly what the
+//     firmware's libm returns - 185-840 ns a call, for the ones that were
+//     timed, that a pixel no longer pays.
+// Neither leaves a rebuilt pattern's own arithmetic as it was: both move
+// where GCC fuses a*b+c into one instruction, so a value in the pattern can
+// differ in its last bit from the build before. pf_libm.h says where that
+// shows.
+//
+// The rest of libm - sinf, sqrtf, powf, atan2f - is still a call into the
+// host, about a microsecond for sinf. PFMath's tables and fast* functions are
+// for those.
 //
 // Panel size is baked in at build time (-DPF_PANEL_W / -DPF_PANEL_H) because
 // patterns use PANEL_RES_W/H as array bounds. The loader rejects a module
 // whose panel size differs from the running firmware's.
 #pragma once
+
+// First, and before <math.h>: it is what makes floorf/fmodf and their kin
+// inline in a module, and part of that happens while <math.h> is read.
+#include "pf_libm.h"
 
 #include <math.h>
 #include <stdarg.h>

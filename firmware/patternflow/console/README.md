@@ -19,8 +19,9 @@ whenever you save a page, so a tab left open reloads itself onto your edit
 the way a real one does after a firmware update. To see the console the way
 a phone on the panel's hotspot does, `--slow` (gzip, 0.4 s round trips,
 5 KB/s, one request at a time); `/mock?hotspot=1` and `/mock?busy=update`
-set what `/api/status` says; `--chrome404` runs every page on its fallback.
-The script's docstring has the rest.
+set what `/api/status` says; `/mock?audio=…` sets what the panel hears
+(below); `--chrome404` runs every page on its fallback. The script's
+docstring has the rest.
 
 When you are done:
 
@@ -49,11 +50,9 @@ CI checks the two stay in sync.
 | `clock.html`     | `/clock`    | `features/clock/core_clock_http.h`       | `features/clock/clock_index.h`         |
 
 The list `console_pages.py` splices is `PAGES` at the top of that script — add a
-row there when you add a page. `audio-in.html` is itself generated, from the
-browser extension's mapping editor, by `firmware/toolchain/build_audio_in_page.py`;
-edit the extension, run that, then `console_pages.py build`. CI runs
-`build_audio_in_page.py --check`, so a page that was not rebaked after an
-editor change fails there rather than shipping stale.
+row there when you add a page. A file here whose name starts with an
+underscore is a source, not a page. `audio-in.html` is the one page you do
+not edit: it is assembled from other files (below).
 
 Pages under `src/` belong to the core and may not name a feature — not in a
 nav row, not in a sentence (see `docs/EDITIONS.md`). Pages under `features/`
@@ -67,6 +66,85 @@ is editable the same way. The chrome draws itself inside a shadow root
 (`<pf-chrome>`): a page's CSS cannot reach it and its CSS cannot reach the
 page, so do not style or query its insides. What a page may use is
 `window.PF`, below.
+
+## The page that is assembled: `/audio-in`
+
+`audio-in.html` is generated. Edit what it is made from, and
+`console_pages.py build` assembles it before it bakes the headers (the step
+is `firmware/toolchain/build_audio_in_page.py`; its docstring has the detail).
+`console_serve.py` does not read the generated file: it assembles the page
+from these sources on every request, with the same code, so here too it is
+save and refresh. A source the build would refuse shows as the build's own
+message instead of a page.
+
+| source | what it is |
+| ------ | ---------- |
+| `tools/patternflow-audio-extension/editor.html`, `editor.css`, `editor.js`, `mapping.js` | the mapping editor and its model, shared with the browser extension: one copy, so the two cannot drift. From `editor.html` only what is between its two `EDITOR BODY` lines comes here (the extension's own source bar stays behind); from `editor.css` and `mapping.js`, what is above their `EXTENSION ONLY` line |
+| `_audio_in_bar.html` | the panel's frame around the editor: the page heading, the Sources list (the microphone with its gain, the browser path's switch) and the footer, with a line saying `<!-- EDITOR -->` where the editor's body goes |
+| `_audio_in.css` | the panel's styles, applied after the editor's: the console's base block (the editor brings layout and no colours), then the editor's parts dressed as the console's |
+| `_audio_in_adapter.js` | `window.PFAdapter`, the editor's one way out, spoken over `/api/audio-in`. The contract it keeps is written at the top of `editor.js` |
+
+Comment those files as much as they need. Whole-line comments, indentation
+and blank lines are dropped as the page is assembled, which is a quarter of
+its weight on the wire. Nothing parses the JavaScript to do it, so the build
+refuses the few things that would make it unsafe and names the line; the one
+you might meet is a template literal that runs across lines. Line numbers in
+the browser's console are the generated page's.
+
+It is the heaviest page in the console, so its size is pinned: `BUDGET` in
+`build_audio_in_page.py`, in bytes of the stamped page gzipped as the panel
+sends it. `console_pages.py build` prints how much is spare. CI fails when the
+page is over it, and when `audio-in.html` is not what its sources assemble to
+(`build_audio_in_page.py --check`; `console_pages.py check` says so too).
+
+The page is an editor, so on the mock it has a panel that behaves. Its
+endpoints (`/api/audio-in`, `/api/audio-in/reset`, `/api/audio`) are the one
+part of `console_serve.py` that is a port of the firmware's handlers and not
+a fixture: a request changes only the fields it carries, the two pairs settle
+as they do on a panel, a curve table that is not 33 numbers is ignored with
+`{"ok":true}`, a POST without the form `Content-Type` has no arguments at
+all, and replies have the handler's field order and decimals. The sound is
+made up; what is done with it is not. What the panel hears is a state you
+pick, and each address lands on `/audio-in`:
+
+| `/mock?audio=` | the panel |
+| -------------- | --------- |
+| `music` | microphone on, a room with music in it (the default) |
+| `silence` | on, a quiet room: every gate shut, every knob at rest |
+| `off` | switched off after music: the poll's numbers are the last window's, not zeros |
+| `fresh` | nobody has configured it: off, nothing heard, the factory mapping |
+| `nomic` | on, nothing on the data pin: `source` is `pdm (no mic - data pin idle)` |
+| `stalled` | on, the microphone stopped answering: `synth (mic stalled)`, and the numbers are the test tones |
+| `phone` | off, the phone app posting monitor frames: `phone`, `ext:true`, its own units |
+| `ext` | off, the browser extension connected: `audioClients` is 1 |
+| `noread` | the configuration read gets no reply; the poll and every POST still answer |
+
+The switches on the page work from any of them. A build can also have the
+microphone without the browser path: `/mock?caps=patterns,params,sleep,audio-in`,
+where `/api/audio` is a 404. When a handler in `features/audio_in/` or
+`features/audio/` changes, the port in `console_serve.py` changes with it.
+
+## The look
+
+The console is light unless someone picks dark. The choice is the toggle in
+the header, kept in `localStorage` as `pf-theme`, and the chrome sets
+`data-theme` on `<html>` before the first paint. Every core page opens its
+`<style>` with the same base block (the `Console base` comment): the tokens,
+light in `:root` and dark under `html[data-theme=dark]`, then the parts every
+page shares: `.btn` (`.pri`, `.dan`, `.sm`), `.chip`, `.notice`, `.list`,
+the fields and the footer. Copy it rather than restyle it, and leave out the
+rules for parts a page never uses. Identical text costs almost nothing
+gzipped, and a page that is a little different is how the console stopped
+looking like one thing before.
+
+The chrome injects the same light palette for every token name a page might
+use, which is what turns the feature pages light without editing them. If
+you change a light token value, change it in the chrome (the `html:root[data-theme=light]`
+rule in `theme_index.h`) and in every core page's `:root` together, or the
+chrome's copy wins. The accent is the LED orange, and only for what is live:
+the current tab, the playing pattern, the panel's on state. Labels are
+sentence case in the sans; mono is for numbers, addresses, versions and
+file names.
 
 ## Writing a page: `window.PF`
 
@@ -180,3 +258,7 @@ Anything that lives in C++ — whether an upload actually parses, what the
 panel does when a show plays, whether a Wi-Fi switch really reconnects — is
 not modelled. A page that works against the mock still has to be tried on a
 real device before you believe it.
+
+The one exception is `/audio-in`'s endpoints, which are ported from the
+firmware (above). Even there the microphone is invented: what a real one
+does in a real room is still only on a panel.

@@ -12,7 +12,7 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "core_math.h"  // ifloor/clamp: floorf and fminf are libm calls here
+#include "core_math.h"  // ifloor/clamp: floorf and fminf are libm calls in the firmware image
 
 namespace PFColor {
 
@@ -27,9 +27,10 @@ inline void hsvToRgb(float h, float s, float v,
   float hh = h * 6.0f;
   // Sector and position within it. hh is in [0, 6]: 6.0f happens when h
   // rounds up to just under 1, and lands in sector 5 at f = 1 - the same
-  // red that sector 0 at f = 0 gives. No fmodf: this runs once per pixel in
-  // a module's inner loop, and fmodf there is a call into the host's libm,
-  // a hundred-odd cycles, where this is one truncation.
+  // red that sector 0 at f = 0 gives. No fmodf: this runs once per pixel, and
+  // fmodf is a call into libm in the firmware image, a hundred-odd cycles (in
+  // a module abi/pf_libm.h has made it inline since 2026-10), where this is
+  // one truncation either way.
   int i = (int)hh;
   if (i > 5) i = 5;
   float f = hh - (float)i;

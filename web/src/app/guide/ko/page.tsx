@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import GuideHub from "@/components/guide/GuideHub";
 import { guideMetadata } from "@/components/guide/meta";
 
-// The guide's front door: pick Build, Play or Make by where your Patternflow
+// The guide's front door: pick Build, Play, Make or Audio by where your Patternflow
 // is (GuideHub). /guide used to be the Play guide; its old anchors
 // (/guide#flash …) are sent on to /guide/play (components/guide/legacy.ts).
 
