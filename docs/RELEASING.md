@@ -73,7 +73,7 @@ What the two commands do, step by step - and the way to do it by hand.
    ```
 
    then point `web/public/flash/manifest.json` at the new folder. An edition that also moved gets its own `shelf.sh <edition> vA.B.C` and a card update in `web/src/app/editions/editions-data.ts`. The shelf retires the previous folder of the same name — older images stay on their tags. Try-out images (`clock-v0.1.5`, `midi-v0.1.0`, the ones the features page installs) are not part of a release and stay as they are; a fresh one is its own `shelf.sh <name> vA.B.C` and a row update in `web/src/app/features/features-data.ts`, done when somebody wants a newer one, not because the core moved.
-7. Run the web checks from `web/`: `npm run lint && npm run typecheck && npm run check:ci && npm run build`.
+7. Regenerate the guide's live console demo, which carries the version, the core image's build id and the manifest version: `python firmware/toolchain/console_demo.py` (neither `release.py` nor CI does this; without it the demo on `/guide/play` keeps presenting the previous release), and confirm `python firmware/toolchain/editor_demo.py --check`. Then run the web checks from `web/`: `npm run lint && npm run typecheck && npm run check:ci && npm run build`.
 8. Commit and tag:
 
    ```bash
@@ -84,6 +84,7 @@ What the two commands do, step by step - and the way to do it by hand.
 
 9. Create the GitHub Release from the tag. Publishing it triggers **Firmware release assets**, which attaches the four flash images from the tag plus a generated `FLASHING.md` with offsets and hashes.
 10. Confirm it went green before announcing; re-run it with `workflow_dispatch` if it did not fire.
+11. Redeploy the community host (the Pi: pull `main`, build, restart the web and worker units) once `main` has deployed. The Basics pack card and the pattern builds are served from there, so until it is redeployed it hands out the previous pack and the previous build settings. Do it before announcing anything that says "install the pack again".
 
 ## Branches
 

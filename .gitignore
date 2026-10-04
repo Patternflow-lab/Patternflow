@@ -36,6 +36,7 @@ out/
 # Local staging for a release upload (bins duplicated from the flasher folder).
 firmware/release/
 firmware/patternflow/patternflow_secrets.h
+firmware/patternflow/patternflow_secrets.h.shelf-aside
 
 # KiCad 자동 생성/백업
 *.kicad_prl

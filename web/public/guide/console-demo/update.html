@@ -72,7 +72,7 @@ h1{flex:1;margin:0;font-size:22px;font-weight:600;letter-spacing:-.01em}
   <div id="msg" aria-live="polite"></div>
   <div class="notice" id="done" hidden><p id="doneMsg"></p><button id="open" class="btn pri" type="button">Open console</button></div>
 
-  <p class="note">No file? <a href="https://patternflow.work/update">patternflow.work/update</a> sends the
+  <p class="note">No file? <a id="src" href="https://patternflow.work/update">patternflow.work/update</a> sends the
   latest release straight back to this page. Your own arduino-cli export works too. Keep the panel
   powered: it checks, flashes and restarts by itself.</p>
 
@@ -202,6 +202,8 @@ function done(s){
 // The running build; and a late answer (the chrome keeps probing).
 PF.status(function(s){
   build=s.build;
+  // An edition's image comes from its own card; /update on the site sends the standard firmware.
+  if(s.variant&&s.variant!=='core'){var a=$('src');a.href='https://patternflow.work/editions#'+encodeURIComponent(s.variant);a.textContent='patternflow.work/editions'}
   if(phase!=='lost')return;
   if(!job.from||s.build!==job.from||job.to===job.from)done(s);
   else{phase='';PF.dirty=false;bar.style.display='none';say('The panel is back, but still on its old build — the update did not take. Try again.','err');startPoll();render()}

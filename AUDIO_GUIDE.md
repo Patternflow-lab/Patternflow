@@ -239,6 +239,11 @@ microphone on any lane it's driving. The mic takes whatever's left. So you
 can leave the mic on and still grab a knob whenever you want — it comes back
 to the music a few seconds after you let go.
 
+A value set from the console's knob sliders, by MIDI CC 20–23 or by
+`POST /api/params` outranks all of them: that knob stays where it was put, and
+sound does not move it, until that encoder is turned. The Audio page's line
+does not show this.
+
 The extension keeps driving its knobs through a silent or paused tab, so with
 both on, the microphone does not take over during a pause. Press **Stop** in
 the extension to give the knobs to the room, or **Mute** a knob in the

@@ -231,7 +231,6 @@ export const EDITIONS: Edition[] = [
       'On-board PDM microphone — five leads, the two signals on GPIO43/44, no computer needed',
       'The mapping editor: bands as boxes on the live spectrum, response ' +
         'curves from rise to gate to hand-drawn',
-      'Wi-Fi transmit power raised for rooms full of access points',
     ],
     // Served from here, so the panel's own /update page can fetch it. Under
     // /flash/bin, which already sends the CORS header that fetch needs.
@@ -243,8 +242,7 @@ export const EDITIONS: Edition[] = [
     note:
       'Six of seven people asked for on-board sound and it was the most ' +
       'wanted thing in the survey by a wide margin — but it needs five leads ' +
-      'soldered to the DevKit and the radio setting here is not the ' +
-      'conformance-tested one, so neither belongs in the firmware everybody ' +
+      'soldered to the DevKit, so it does not belong in the firmware everybody ' +
       'gets. It is also where that work happens, which is why it carries ' +
       'nothing else: no sequences, no weather, no MQTT. Take this to ' +
       'experiment with sound, not to run a room. When the microphone is a ' +
