@@ -1,0 +1,389 @@
+/* The Audio guide's editor window (EditorWindow.tsx): a browser the guide's
+   colours, around the extension's own editor page. The shell follows
+   ConsoleWindow.module.css (desktop half) and is a copy on purpose — that
+   sheet is Play's. Tokens are local because the lifted window is portalled to
+   <body>, outside the guide's .page where --g-* live. */
+
+.root,
+.layer {
+  --ew-ink: #efe9dd;
+  --ew-ink-2: rgba(239, 233, 221, 0.72);
+  --ew-ink-3: rgba(239, 233, 221, 0.46);
+  --ew-hair-2: rgba(239, 233, 221, 0.18);
+  --ew-led: #ff6a3d;
+  /* The editor's own ground (editor.css --cream), so a frame that has not
+     painted yet is already the right colour. */
+  --ew-page: #f4efe6;
+  --ew-chrome: #1b1a18;
+  --ew-chrome-2: #131210;
+  --ew-field: #0f0e0d;
+  --ew-shadow: 0 22px 60px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.root {
+  margin: 18px 0 4px;
+}
+
+.caption {
+  margin-top: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ew-ink-3);
+}
+
+/* ── the miniature: one button, the whole window ── */
+
+.opener {
+  appearance: none;
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 12px;
+  transition:
+    opacity 0.22s ease,
+    transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.opener:focus-visible {
+  outline: 2px solid var(--ew-led);
+  outline-offset: 4px;
+}
+/* It has left the card while it floats. */
+.opener[data-lifted="1"] {
+  opacity: 0;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .opener:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.frame {
+  display: block;
+  border: 0;
+  background: var(--ew-page);
+  color-scheme: light;
+}
+
+.mini {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: var(--ew-page);
+}
+.mini .frame {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+/* A phone, or a short screen: the card and the board both have to fit, so the
+   miniature shows the editor down to its plot. Lifted, it shows all of it. */
+@media (max-width: 899px), (max-height: 879px) {
+  .opener .mini {
+    aspect-ratio: 760 / 400 !important;
+  }
+}
+
+/* ── tab strip, toolbar, page ── */
+
+.window {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ew-hair-2);
+  border-radius: 11px;
+  background: var(--ew-chrome);
+  box-shadow: var(--ew-shadow);
+  transition: border-color 0.25s;
+}
+.opener:hover .window,
+.opener:focus-visible .window {
+  border-color: rgba(255, 106, 61, 0.45);
+}
+
+.bar {
+  display: block;
+  flex: none;
+  font-family: var(--pf-sans, system-ui, sans-serif);
+}
+.tabs {
+  display: flex;
+  align-items: flex-end;
+  height: 28px;
+  padding: 0 8px 0 10px;
+  background: var(--ew-chrome-2);
+}
+.lights {
+  display: flex;
+  gap: 5px;
+  align-self: center;
+  margin-right: 12px;
+}
+.lights i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.16);
+}
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 220px;
+  height: 22px;
+  padding: 0 14px 0 10px;
+  border-radius: 7px 7px 0 0;
+  background: var(--ew-chrome);
+  font-size: 11px;
+  color: var(--ew-ink-2);
+}
+/* The extension's mark: the square LED of its own source bar. */
+.favicon {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: #e8552e;
+}
+.tabTitle {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.barEnd {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  margin-left: auto;
+  padding-left: 8px;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.5);
+  background: var(--ew-chrome);
+}
+.navIcons {
+  display: flex;
+  gap: 6px;
+  color: var(--ew-ink-3);
+}
+.navIcons svg {
+  width: 13px;
+  height: 13px;
+}
+.navIcons svg:nth-child(2) {
+  opacity: 0.45;
+}
+.address {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 21px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--ew-field);
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  color: var(--ew-ink);
+}
+.url {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.scheme {
+  color: var(--ew-ink-3);
+}
+
+.openChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 7px 0 8px;
+  border: 1px solid var(--ew-hair-2);
+  border-radius: 999px;
+  font-family: var(--pf-mono, ui-monospace, monospace);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ew-ink-2);
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.openChip svg {
+  width: 10px;
+  height: 10px;
+}
+.opener:hover .openChip,
+.opener:focus-visible .openChip {
+  color: var(--ew-led);
+  border-color: var(--ew-led);
+  background: rgba(255, 106, 61, 0.1);
+}
+
+/* ── lifted ── */
+
+/* The layer itself takes no pointer: the window does, and the guard, which is
+   the page that must not be touched while the window is up. On a wide screen
+   the guard is cut (its clip-path, EditorWindow.tsx) so the stage left of the
+   window is still under the pointer: the board there is to be played. */
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+.guard {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+.backdrop {
+  position: absolute;
+  inset: 0;
+  /* The board and the readouts at its knobs, on the left of a wide stage,
+     stay in the light: the window is there to be used beside them. */
+  background: linear-gradient(90deg, rgba(8, 7, 6, 0.05) 0%, rgba(8, 7, 6, 0.14) 48%, rgba(8, 7, 6, 0.8) 62%, rgba(8, 7, 6, 0.86) 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.layer[data-narrow="1"] .backdrop {
+  background: rgba(8, 7, 6, 0.84);
+}
+.layer[data-shown="1"] .backdrop {
+  opacity: 1;
+}
+
+.lift {
+  position: absolute;
+  pointer-events: auto;
+  transform-origin: 0 0;
+  transition:
+    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
+    opacity 0.26s ease;
+}
+.layer[data-shown="1"] .lift {
+  transition:
+    transform 0.44s cubic-bezier(0.22, 0.8, 0.2, 1),
+    opacity 0.18s ease;
+}
+
+.big.window {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  border-color: rgba(239, 233, 221, 0.22);
+  box-shadow:
+    0 40px 120px rgba(0, 0, 0, 0.62),
+    0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.big .tabs {
+  height: 36px;
+  padding: 0 10px 0 14px;
+}
+.big .lights {
+  gap: 7px;
+  margin-right: 16px;
+}
+.big .lights i {
+  width: 11px;
+  height: 11px;
+}
+.big .tab {
+  gap: 8px;
+  max-width: 280px;
+  height: 28px;
+  padding: 0 18px 0 12px;
+  border-radius: 9px 9px 0 0;
+  font-size: 12.5px;
+}
+.big .favicon {
+  width: 8px;
+  height: 8px;
+}
+.big .toolbar {
+  height: 40px;
+  gap: 14px;
+  padding: 0 12px;
+}
+.big .navIcons {
+  gap: 10px;
+}
+.big .navIcons svg {
+  width: 16px;
+  height: 16px;
+}
+.big .address {
+  height: 28px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: var(--ew-page);
+}
+/* While a press that began on the stage is down (a knob being turned), the
+   frame takes no pointer: the stage hears the moves and the release. */
+.layer[data-away="1"] .frame {
+  pointer-events: none;
+}
+
+.close {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--ew-hair-2);
+  border-radius: 50%;
+  background: rgba(239, 233, 221, 0.04);
+  color: var(--ew-ink-2);
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.close svg {
+  width: 14px;
+  height: 14px;
+}
+.close:hover {
+  color: var(--ew-ink);
+  border-color: var(--ew-led);
+  background: rgba(255, 106, 61, 0.14);
+}
+.close:focus-visible {
+  outline: 2px solid var(--ew-led);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lift,
+  .layer[data-shown="1"] .lift {
+    transition: opacity 0.18s ease;
+  }
+}

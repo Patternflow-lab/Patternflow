@@ -48,7 +48,7 @@ A bundle earns its place when it carries something the default **cannot**:
 
 | | why not in the default |
 |---|---|
-| **audio** | an on-board microphone that needs four wires soldered to the DevKit, a Wi-Fi transmit power that is not the conformance-tested one, and MIDI over the network |
+| **audio** | an on-board microphone that needs five leads soldered to the DevKit, and MIDI over the network |
 | **performance** | the show player, MQTT in every role, weather — Simone Majocchi's performance-director firmware, pinned so a show behaves the same at the next gig |
 | **clock** | the time cut out of the running pattern, in a choice of faces — a panel on a shelf that tells the time, with nothing else attached. **Not on the shelf since 2026-09-15:** the clock is a feature; this bundle is the composition CI keeps compiling |
 | **midi** | the DevKit's USB port as a MIDI device, beside RTP-MIDI — a wire into a DAW with no driver and no session. It needs the port on the S3's USB-OTG stack, a build flag the other images cannot carry (that flag is what makes the port their serial console), so this one builds in its own PlatformIO env. Data only; the panel is still powered from `J4`. **Not on the shelf:** the composition that proves the OTG build |

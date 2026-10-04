@@ -21,9 +21,11 @@ export type GuideLang = "en" | "ko";
  * The guides (pages.ts), in the order a reader goes through them: "build" is
  * /guide/build (soldering one from bare parts), "play" /guide/play (01 Flash
  * to 04 Console), "make" /guide/make (01 Community, 02 Pattern Lab). Each
- * numbers its own chapters from 01.
+ * numbers its own chapters from 01. "audio" is /guide/audio: the Audio
+ * edition, then three sections in no order (a browser tab, the microphone,
+ * MIDI and a DAW) — the one guide whose chapters carry no number.
  */
-export type GuidePageId = "build" | "play" | "make";
+export type GuidePageId = "build" | "play" | "make" | "audio";
 
 /** What the stage can be showing: a guide, or /guide itself — the hub, where the reader picks one (GuideHub). */
 export type GuideScreen = GuidePageId | "hub";

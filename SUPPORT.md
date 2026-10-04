@@ -4,7 +4,7 @@ One table for "where do I ask". Issues are for things that change this repositor
 
 | I want to… | Go to |
 | :--- | :--- |
-| Learn to build, play or make patterns for one | [The guide](https://patternflow.work/guide) — each step on a 3D Patternflow in the browser. A step that didn't get you through has a **Stuck here?** link, which opens an issue with that step filled in |
+| Learn to build, play, make patterns for one or give it sound and MIDI | [The guide](https://patternflow.work/guide) — each step on a 3D Patternflow in the browser. A step that didn't get you through has a **Stuck here?** link, which opens an issue with that step filled in |
 | Get unstuck building, soldering or flashing | [Discord → hardware-help](https://discord.com/channels/1497757947827327067/1499907910707187833) — photos and quick back-and-forth |
 | Show a pattern I made, or get feedback on one | Publish it from the [Pattern Lab](https://patternflow.work/pattern-lab) to the [Community](https://community.patternflow.work/community), then [Discord → patterns](https://discord.com/channels/1497757947827327067/1499908302962819236) |
 | Put my finished build on the [build map](https://patternflow.work/inside) | [Share your build](https://github.com/engmung/Patternflow/issues/new?template=share_build.yml) — or post it in Discord |

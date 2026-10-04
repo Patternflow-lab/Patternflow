@@ -149,14 +149,14 @@ html[data-theme=light]{--cream:#F4EFE6;--cream2:#FFFCFA;--bg:#F4EFE6;--panel:#FF
     <div class="knob"><div class="n"><span>K3</span><span>CC 26</span></div><div class="bar"><i></i></div><div class="v">-</div></div>
     <div class="knob"><div class="n"><span>K4</span><span>CC 27</span></div><div class="bar"><i></i></div><div class="v">-</div></div>
   </div>
-  <p class="note" id="knobnote">Live positions as the DAW sees them. They start at 64 on boot and stop at the ends; the DAW's takeover mode (Live: Preferences → MIDI → Takeover Mode) smooths the pickup.</p>
+  <p class="note" id="knobnote">Live positions as the DAW sees them. They start at 64 on boot and stop at the ends; the DAW's takeover mode (Live: Settings → Link, Tempo &amp; MIDI → Takeover Mode) smooths the pickup.</p>
 </section>
 
 <section>
   <h2>Switch</h2>
   <label class="check"><input type="checkbox" id="on"> MIDI on this panel</label>
   <div class="msg" id="omsg" aria-live="polite"></div>
-  <p class="note">Same switch as the <b>MIDI</b> row on the panel's NETWORK screen. Off keeps the port open and drops everything.</p>
+  <p class="note">Off keeps the port open and drops everything.</p>
 </section>
 
 <section>
@@ -168,7 +168,7 @@ html[data-theme=light]{--cream:#F4EFE6;--cream2:#FFFCFA;--bg:#F4EFE6;--panel:#FF
     <tr><td>Note 60–63</td><td>Button 1–4 (on = press, held while held)</td><td>Button 1–4 pressed / released</td></tr>
     <tr><td>Prog Change</td><td>Select pattern by index</td><td>Pattern changed</td></tr>
   </table>
-  <p class="note">Ableton: in Preferences → MIDI, switch <b>Track</b> and <b>Remote</b> on for the port's Input and <b>Track</b> on for its Output. Then Ctrl/Cmd-M, click a parameter, turn a knob.</p>
+  <p class="note">Ableton: in Settings → Link, Tempo &amp; MIDI, switch <b>Track</b> and <b>Remote</b> on for the port's Input and <b>Track</b> on for its Output. Then Ctrl/Cmd-M, click a parameter, turn a knob.</p>
 </section>
 
 <footer>RTP-MIDI (AppleMIDI) · <a href="https://github.com/engmung/Patternflow/blob/main/docs/midi-ableton.md">setup, step by step</a> · <a href="https://github.com/engmung/Patternflow/blob/main/docs/midi-spec.md">the contract</a></footer>
@@ -216,7 +216,7 @@ function paint(d){
   $('st').textContent=!d.runtime?'off':(con?('connected · '+(d.rtpPeer||'')):'listening');
   $('st').className='sub '+(con&&d.runtime?'ok':'');
   var lead=$('lead');
-  if(!d.runtime){lead.className='lead off';$('lead-t').textContent='MIDI is switched off';$('lead-p').textContent='Turn it on below, or the MIDI row on the panel.';}
+  if(!d.runtime){lead.className='lead off';$('lead-t').textContent='MIDI is switched off';$('lead-p').textContent='Turn it on below.';}
   else if(con){lead.className='lead on';$('lead-t').textContent='Connected to '+(d.rtpPeer||'a computer');
     $('lead-p').textContent='The panel is a MIDI port there now.'+(d.host?' It will reconnect on its own.':'');}
   else{lead.className='lead';$('lead-t').textContent=d.host?('Calling '+d.host+'…'):'Listening';

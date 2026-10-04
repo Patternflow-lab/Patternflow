@@ -2128,45 +2128,86 @@
    type sets a little closer there; the flasher's screens and the console's
    miniatures size themselves to the height (FlasherShots, ConsoleWindow). */
 @media (min-width: 900px) and (max-height: 759px) {
-  .page[data-page="play"] .step {
+  .page:is([data-page="play"], [data-page="audio"]) .step {
     padding-top: 14vh;
     padding-bottom: 6vh;
   }
-  .page[data-page="play"] .card {
+  .page:is([data-page="play"], [data-page="audio"]) .card {
     padding: 18px 24px 16px;
   }
-  .page[data-page="play"] .kicker {
+  .page:is([data-page="play"], [data-page="audio"]) .kicker {
     margin-bottom: 9px;
   }
-  .page[data-page="play"] .stepTitle {
+  .page:is([data-page="play"], [data-page="audio"]) .stepTitle {
     margin-bottom: 9px;
     font-size: 23px;
   }
-  .page[data-page="play"] .body {
+  .page:is([data-page="play"], [data-page="audio"]) .body {
     margin-bottom: 8px;
     font-size: 14.5px;
     line-height: 1.58;
   }
-  .page[data-page="play"] .warn {
+  .page:is([data-page="play"], [data-page="audio"]) .warn {
     margin-top: 10px;
     padding: 8px 11px;
     font-size: 13.5px;
     line-height: 1.5;
   }
-  .page[data-page="play"] .extra {
+  .page:is([data-page="play"], [data-page="audio"]) .extra {
     margin-top: 10px;
   }
-  .page[data-page="play"] .note {
+  .page:is([data-page="play"], [data-page="audio"]) .note {
     margin-top: 12px;
     padding-top: 10px;
     font-size: 15px;
     line-height: 1.42;
   }
-  .page[data-page="play"]:lang(ko) .note {
+  .page:is([data-page="play"], [data-page="audio"]):lang(ko) .note {
     font-size: 14px;
   }
-  .page[data-page="play"] .report {
+  .page:is([data-page="play"], [data-page="audio"]) .report {
     margin-top: 9px;
+  }
+}
+
+/* ── Play's closing in a laptop's window ──────────────────────────────────
+   The closing names two guides now, Make and Audio, and with the second it
+   was 660 px tall where it had been 570: under the end's 120 px above and
+   below it no longer stood in a window 720–800 px high, and scrolled to the
+   end its title was behind the chapter rail or off the top. Two things give
+   the height back. What is still to come is four names: they stand four
+   across, on one row, not three and one (a little closer together: at
+   900 px of window the longest, "Performance", is as wide as a quarter of
+   the column less the usual gaps). And where the section would be taller
+   than the window its padding closes up — more above than below, so the
+   title stops under the rail. */
+@media (min-width: 900px) {
+  .page[data-page="play"] .soonGroup[data-later] .soon {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: 12px;
+  }
+}
+@media (min-width: 900px) and (max-height: 859px) {
+  .page[data-page="play"] .next {
+    padding-top: 84px;
+    padding-bottom: 28px;
+  }
+}
+/* Shorter still (a 1366×768 laptop has a page of about 650): the end's own
+   type and spaces close up too. */
+@media (min-width: 900px) and (max-height: 699px) {
+  .page[data-page="play"] .next {
+    padding-top: 76px;
+    padding-bottom: 20px;
+  }
+  .page[data-page="play"] .nextTitle {
+    font-size: clamp(36px, 3.5vw, 48px);
+  }
+  .page[data-page="play"] .nextLede {
+    margin-bottom: 18px;
+  }
+  .page[data-page="play"] .soonGroup {
+    margin-bottom: 16px;
   }
 }
 
@@ -2174,12 +2215,12 @@
    often the white case (02's knobs, close up): cream words on a white wall.
    A dark ground rises behind them, as Build's does. */
 @media (max-width: 899px) {
-  .page[data-page="play"] .chapterHead {
+  .page:is([data-page="play"], [data-page="audio"]) .chapterHead {
     position: relative;
     background: linear-gradient(rgba(10, 9, 8, 0) 42%, rgba(10, 9, 8, 0.74) 68%, rgba(10, 9, 8, 0.82));
   }
   /* …and lets go below them, rather than stopping at a line. */
-  .page[data-page="play"] .chapterHead::after {
+  .page:is([data-page="play"], [data-page="audio"]) .chapterHead::after {
     content: "";
     position: absolute;
     top: 100%;
@@ -2338,5 +2379,233 @@
   }
   .page[data-page="build"] .report {
     margin-top: 8px;
+  }
+}
+
+/* ── the Audio guide: chapters with no number ─────────────────────────────
+   One chapter comes first (the edition) and the other three are in no order
+   (pages.ts): no numeral in a chapter's head, none in the rail or in the
+   opening's list. What stands in for the order is said once: the opening
+   lists the first chapter by itself, the rail sets it apart with a hairline,
+   and each section's head says what it needs, with the way there. */
+
+/* The opening's list, in two groups under their labels. (The groups' own
+   lines come in one by one, as a list's do: the box itself does not.) */
+.openingGroups {
+  margin: 0 0 40px;
+  animation: none;
+}
+.openingGroup + .openingGroup {
+  margin-top: 16px;
+}
+.openingGroupLabel {
+  margin: 0 0 8px;
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
+  animation: lineIn 0.85s var(--g-out) backwards;
+  animation-delay: 400ms;
+}
+.openingGroups .openingChapters {
+  margin: 0;
+}
+/* The rest come in after the first, in their turn. */
+.openingGroup + .openingGroup .openingGroupLabel {
+  animation-delay: 470ms;
+}
+.openingGroup + .openingGroup .openingChapters li {
+  animation-delay: calc(490ms + var(--k, 0) * 50ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .openingGroupLabel {
+    animation: none;
+  }
+}
+/* The chapter that comes first has the row to itself, from edge to edge:
+   one name over the three it opens. */
+.openingGroups .openingChapters li:only-child {
+  grid-column: 1 / -1;
+}
+/* Wide, the three in no order stand side by side: one row, and none of them
+   first. (Three names of this length fit a third of the column from here;
+   Build's seven go three across from the same width.) */
+@media (min-width: 1200px) {
+  .page[data-page="audio"] .openingGroup + .openingGroup .openingChapters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* A laptop's height: the opening has a sentence for a title and two lists
+   under it, and set as Play's is it ran off the first screen. It closes up
+   as Build's does, with Build's sizes — from a little taller a window than
+   Build's (860 px), because at the title's full size this opening is 770 px
+   and needs a window of 900 to stand in. */
+@media (min-width: 900px) and (max-height: 899px) {
+  .page[data-page="audio"] .opening {
+    padding-top: 92px;
+    padding-bottom: 40px;
+  }
+  .page[data-page="audio"] .openingTitle {
+    font-size: clamp(44px, 5vw, 76px);
+    margin-bottom: 18px;
+  }
+  .page[data-page="audio"] .openingLede {
+    margin-bottom: 24px;
+    font-size: 16px;
+  }
+  .page[data-page="audio"] .openingGroups {
+    margin-bottom: 34px;
+  }
+}
+/* A narrow phone: the English names are too long to stand two to a row
+   ("MIDI & your DAW" needs 151 px of pill, and half the card is 146 at
+   375 px), so there they stand one under the other. Korean's fit. */
+@media (max-width: 387px) {
+  .page[data-page="audio"]:lang(en) .openingGroup + .openingGroup .openingChapters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* A phone has no rail: the opening's two lists are its only way around, and
+   under a sentence of seven lines the first of them began below the first
+   screen (Play's begins on it). There the sentence sets a size down and the
+   spaces over the lists close up, and the first chapter is on the first
+   screen again. */
+@media (max-width: 899px) {
+  .page[data-page="audio"] .openingKicker {
+    margin-bottom: 14px;
+  }
+  .page[data-page="audio"] .openingTitle {
+    margin-bottom: 16px;
+  }
+  .page[data-page="audio"] .openingLede {
+    margin-bottom: 20px;
+    font-size: 15.5px;
+    line-height: 1.55;
+  }
+  .page[data-page="audio"] .openingGroup + .openingGroup {
+    margin-top: 12px;
+  }
+  .page[data-page="audio"] .openingGroupLabel {
+    margin-bottom: 6px;
+  }
+}
+.railRule {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--g-hair-2);
+}
+.page[data-page="audio"] .railItem {
+  white-space: nowrap;
+}
+.chapterNeeds {
+  --at: 520ms;
+  margin: 14px 0 0;
+  font-size: 13.5px;
+}
+.chapterNeeds a {
+  display: inline-flex;
+  gap: 8px;
+  color: var(--g-ink-3);
+  text-decoration: none;
+  border-bottom: 1px solid var(--g-hair-2);
+  padding-bottom: 2px;
+  transition:
+    color 0.2s,
+    border-color 0.2s;
+}
+.chapterNeeds a:hover,
+.chapterNeeds a:focus-visible {
+  color: var(--g-ink);
+  border-color: var(--g-led);
+}
+
+/* ── Audio's cards ────────────────────────────────────────────────────────
+   Nearly every Audio card holds a capture, or the editor, and the words that
+   go with it: set as a card is elsewhere its fullest (the editor, the rtpMIDI
+   session) are 850–890 px tall, and half of them are taller than a laptop's
+   page. So they set closer, with the sizes Play's cards take on a short
+   screen (above), from a taller window than Play's: under about 980 px of
+   page, where the fullest no longer fits under the header. The frames and
+   the editor's miniature size themselves (AudioShots, EditorWindow). */
+@media (min-width: 900px) and (max-height: 979px) {
+  .page[data-page="audio"] .card {
+    padding: 18px 24px 16px;
+  }
+  .page[data-page="audio"] .kicker {
+    margin-bottom: 9px;
+  }
+  .page[data-page="audio"] .stepTitle {
+    margin-bottom: 9px;
+    font-size: 23px;
+  }
+  .page[data-page="audio"] .body {
+    margin-bottom: 8px;
+    font-size: 14.5px;
+    line-height: 1.58;
+  }
+  .page[data-page="audio"] .warn {
+    margin-top: 10px;
+    padding: 8px 11px;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+  .page[data-page="audio"] .extra {
+    margin-top: 10px;
+  }
+  .page[data-page="audio"] .note {
+    margin-top: 12px;
+    padding-top: 10px;
+    font-size: 15px;
+    line-height: 1.42;
+  }
+  .page[data-page="audio"]:lang(ko) .note {
+    font-size: 14px;
+  }
+  .page[data-page="audio"] .report {
+    margin-top: 9px;
+  }
+}
+/* A card that holds while its block passes (.step[data-dwell]) stops where a
+   card 500 px tall would stand in the middle of the screen. Audio's three
+   are 650–800 px: stopped there, the foot of the card — the editor itself,
+   the row that steps through the rtpMIDI screens — was below the screen for
+   as long as it held. They stop under the header instead. */
+@media (min-width: 900px) {
+  .page[data-page="audio"] .step[data-dwell] .card {
+    top: max(72px, calc(50vh - 440px));
+  }
+}
+/* A phone, the editor's step. The card comes up from under the board, and in
+   the page's order — three paragraphs, then the editor — the editor was a
+   screen below the card's top: by the time it was in view the card had
+   covered the board it drives, and closing the opened window left the reader
+   there. So on a phone the editor stands right under the step's title and
+   the words come after it: as the card comes up, the board (the top third of
+   the screen) and the editor moving it are on one screen, and they are again
+   when the window is closed. Reading on covers the board, as every card does
+   here; dragging a box while watching the knob is a wide screen's.
+   (The screen's order only: the page's, and a screen reader's, is still
+   title, words, editor. EditorWindow marks its figure [data-editor-window].) */
+@media (max-width: 899px) {
+  .page[data-page="audio"] .card:has(> [data-editor-window]) {
+    display: flex;
+    flex-direction: column;
+  }
+  .page[data-page="audio"] .card:has(> [data-editor-window]) > :is(.kicker, .stepTitle) {
+    order: -2;
+  }
+  .page[data-page="audio"] .card > [data-editor-window] {
+    order: -1;
+    /* It arrives with the first paragraph, not after the last. */
+    --n: 2;
+    margin: 4px 0 16px;
+  }
+  /* A column's items take its width: the link at the card's foot keeps to its words. */
+  .page[data-page="audio"] .card:has(> [data-editor-window]) > .report {
+    align-self: flex-start;
   }
 }

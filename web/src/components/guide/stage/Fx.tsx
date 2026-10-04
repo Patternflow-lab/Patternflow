@@ -36,7 +36,8 @@ import { DEVKIT_SEAT } from "./parts";
 // is — and flat: a full colour and no more, under what the bloom takes, the
 // same arcs as the DevKit's in chapter one. And they stop short of the copy
 // card: the canvas is behind the page, the card is glass, and coloured
-// pixels ran under its text.
+// pixels ran under its text. The Wi-Fi's pulse stops short of a chapter's
+// title the same way, where one stands in its path.
 
 // The LED face, measured off the model (world units): 1.6 × 3.2, portrait,
 // so the landscape 128 × 64 panel stands 64 LEDs across and 128 down.
@@ -93,6 +94,20 @@ const smooth = (e0: number, e1: number, x: number) => {
 
 /** The copy card on screen, px of the canvas (x right, y down); `on` false when there is none to keep clear of. */
 type CardRect = { on: boolean; l: number; t: number; r: number; b: number };
+/** The lines of words a chapter's head has at most: its title, its lede, what it needs first. */
+const HEAD_LINES = 3;
+
+/** A box of the page, as the canvas has it: off when there is no box, or none with a size. */
+function boxOnCanvas(out: CardRect, box: DOMRect | undefined, cv: DOMRect, size: { width: number; height: number }) {
+  out.on = Boolean(box && box.width > 0 && cv.width > 0);
+  if (!box || !out.on) return;
+  const kx = size.width / cv.width;
+  const ky = size.height / cv.height;
+  out.l = (box.left - cv.left) * kx;
+  out.r = (box.right - cv.left) * kx;
+  out.t = (box.top - cv.top) * ky;
+  out.b = (box.bottom - cv.top) * ky;
+}
 /** How far outside the card the drawn light is all there, px: nearer than that it fades, and it is gone a little before the card's edge. */
 const CARD_CLEAR = 64;
 const CARD_GONE = 10;
@@ -444,6 +459,8 @@ export default function Fx() {
   const tmp = useMemo(() => ({ v: new THREE.Vector3(), vp: new THREE.Matrix4() }), []);
   // The step's card, measured now and then while something is drawn that must keep clear of it.
   const card = useRef<CardRect & { age: number; key: string }>({ on: false, l: 0, t: 0, r: 0, b: 0, age: 0, key: "" });
+  // …and the chapter's title and the lines under it, measured with it: the Wi-Fi's pulse keeps clear of them too.
+  const headLines = useMemo<CardRect[]>(() => Array.from({ length: HEAD_LINES }, () => ({ on: false, l: 0, t: 0, r: 0, b: 0 })), []);
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
@@ -478,22 +495,22 @@ export default function Fx() {
         cd.age = 0;
         const art = document.querySelector<HTMLElement>('[data-scene="' + scene + '"] [data-step="' + step + '"]');
         const el = art && art.children.length === 1 ? (art.firstElementChild as HTMLElement) : art;
-        const box = el?.getBoundingClientRect();
         const cv = state.gl.domElement.getBoundingClientRect();
-        if (box && box.width > 0 && cv.width > 0) {
-          const kx = state.size.width / cv.width;
-          const ky = state.size.height / cv.height;
-          cd.on = true;
-          cd.l = (box.left - cv.left) * kx;
-          cd.r = (box.right - cv.left) * kx;
-          cd.t = (box.top - cv.top) * ky;
-          cd.b = (box.bottom - cv.top) * ky;
-        } else {
-          cd.on = false;
-        }
+        boxOnCanvas(cd, el?.getBoundingClientRect(), cv, state.size);
+        // A chapter's first step is on stage from the moment the chapter's
+        // head is on screen, its card still a screen further down (store.ts
+        // cardIn) — so the pulse on its way to the card ran through the
+        // title wherever a title stands in its path: "MIDI & your DAW", with
+        // no numeral over it to push it down. The title and the lines under
+        // it are words too, each its own box, and the pulse stops short of
+        // them as it does of the card. (The stream never plays on a
+        // chapter's first step.)
+        const lines = step === 0 && s.wifi === "device" ? document.querySelectorAll<HTMLElement>('[data-scene="' + scene + '"] > header > :is(h2, p)') : null;
+        for (let i = 0; i < HEAD_LINES; i++) boxOnCanvas(headLines[i], lines?.[i]?.getBoundingClientRect(), cv, state.size);
       }
     } else {
       cd.key = "";
+      for (const line of headLines) line.on = false;
     }
 
     // ── install complete: read the board's pack for a few frames after each
@@ -641,6 +658,12 @@ export default function Fx() {
     wifi.mesh.visible = o.wifi > 0.003;
     if (wifi.mesh.visible) {
       const t = o.clock;
+      // How much of the pulse there is at a point of its path: none at the card, nor at a line of the chapter's head.
+      const clearOfWords = (x: number, y: number) => {
+        let k = clearOfCard(cd, vp, hw, hh, x, y, 0);
+        for (const line of headLines) k *= clearOfCard(line, vp, hw, hh, x, y, 0);
+        return k;
+      };
       const wu = wifi.mat.uniforms;
       wu.uTime.value = t;
       wu.uFade.value = o.wifi;
@@ -666,7 +689,7 @@ export default function Fx() {
             pt.x = ia * ia * WIFI_ORIGIN.x + 2 * ia * a * PULSE_CTRL.x + a * a * PULSE_END.x;
             pt.y = ia * ia * WIFI_ORIGIN.y + 2 * ia * a * PULSE_CTRL.y + a * a * PULSE_END.y;
             // Out of the arcs, over to the card, gone before its edge.
-            pt.z = smooth(0.04, 0.16, a) * (1 - smooth(0.9, 1, a)) * clearOfCard(cd, vp, hw, hh, pt.x, pt.y, 0) * (1 - (j / PULSE_PTS) * 0.8);
+            pt.z = smooth(0.04, 0.16, a) * (1 - smooth(0.9, 1, a)) * clearOfWords(pt.x, pt.y) * (1 - (j / PULSE_PTS) * 0.8);
           }
         }
         // The path: dim dots from just out of the arcs to the card's edge.
@@ -676,7 +699,7 @@ export default function Fx() {
           const pt = wifi.path[j];
           pt.x = ia * ia * WIFI_ORIGIN.x + 2 * ia * a * PULSE_CTRL.x + a * a * PULSE_END.x;
           pt.y = ia * ia * WIFI_ORIGIN.y + 2 * ia * a * PULSE_CTRL.y + a * a * PULSE_END.y;
-          pt.z = 0.22 * smooth(0.1, 0.22, a) * clearOfCard(cd, vp, hw, hh, pt.x, pt.y, 0);
+          pt.z = 0.22 * smooth(0.1, 0.22, a) * clearOfWords(pt.x, pt.y);
         }
       }
     }

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import styles from "./Guide.module.css";
 import { COPY, type StepCopy } from "./copy";
 import { sceneById } from "./scenes";
@@ -25,12 +25,16 @@ import { useReveal } from "./ui/useReveal";
 import { useStepKeys } from "./ui/useStepKeys";
 
 // A guide (pages.ts: /guide/build is "build", /guide/play "play", /guide/make
-// "make"; /guide itself is the hub, GuideHub). A fixed stage behind, the
+// "make", /guide/audio "audio"; /guide itself is the hub, GuideHub). A fixed stage behind, the
 // story scrolling over it. The tracker below finds the step block nearest
 // the middle of the viewport and hands its scene and index to the store; the
 // stage takes it from there, from this page's script.
 //
-// The stage is not this page's. Build's and Play's is the 3D device, and it
+// Audio is the one guide whose chapters carry no number (pages.ts): one
+// comes first and the rest are in no order, so its heads have no numeral,
+// its rail no 01…, and its opening lists the first by itself over the rest.
+//
+// The stage is not this page's. Build's, Play's and Audio's is the 3D device, and it
 // is mounted above the pages, once for the whole guide (world/GuideWorld,
 // stage/GuideCanvas): this page says it is the one on screen (useGuidePage)
 // and the stage, already up if the reader came from the hub or another
@@ -221,7 +225,7 @@ function Step({
   copy: StepCopy;
   index: number;
   total: number;
-  /** "Play · 01 Flash": the guide, then the chapter — every guide has an 01. */
+  /** "Play · 01 Flash": the guide, then the chapter — every guide has an 01 (Audio's have no number: "Audio · The microphone"). */
   chapter: string;
   lang: GuideLang;
   /** The card's extra comes in after its words (ui/Later). */
@@ -305,17 +309,26 @@ function Chapter({
   lang: GuideLang;
   late: boolean;
 }) {
-  const chapter = `${guide} · ${copy.num} ${label}`;
+  const chapter = `${guide} · ${[copy.num, label].filter(Boolean).join(" ")}`;
   return (
     <section className={styles.scene} data-scene={id} id={id}>
       <header className={styles.chapterHead} data-leaves="" data-reveal="" data-wait={late ? "" : undefined}>
-        <RollNum num={copy.num} />
+        {copy.num && <RollNum num={copy.num} />}
         <h2 className={styles.chapterTitle} data-reveal-at="">
           <Words text={copy.title} />
         </h2>
         <p className={styles.chapterLede} data-line="">
           {copy.lede}
         </p>
+        {/* The one thing this chapter needs first, and the way to it. */}
+        {copy.needs && (
+          <p className={styles.chapterNeeds} data-line="">
+            <a href={copy.needs.href}>
+              <span aria-hidden="true">↑</span>
+              {copy.needs.label}
+            </a>
+          </p>
+        )}
       </header>
       {copy.steps.map((step, i) => (
         <Step key={i} page={page} scene={id} copy={step} index={i} total={copy.steps.length} chapter={chapter} lang={lang} late={late} />
@@ -380,11 +393,15 @@ function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
   return (
     <nav ref={nav} className={styles.rail} aria-label="Chapters" data-leaves="">
       <span ref={marker} className={styles.railMarker} style={{ "--f": fill } as CSSProperties} aria-hidden="true" />
-      {chapters.map(({ id, label, copy }) => (
-        <a key={id} href={`#${id}`} className={styles.railItem} data-active={scene === id ? "1" : "0"} aria-current={scene === id ? "true" : undefined}>
-          <span className={styles.railNum}>{copy.num}</span>
-          <span className={styles.railLabel}>{label}</span>
-        </a>
+      {chapters.map(({ id, label, copy, first }) => (
+        <Fragment key={id}>
+          <a href={`#${id}`} className={styles.railItem} data-active={scene === id ? "1" : "0"} aria-current={scene === id ? "true" : undefined}>
+            {copy.num && <span className={styles.railNum}>{copy.num}</span>}
+            <span className={styles.railLabel}>{label}</span>
+          </a>
+          {/* The chapter that comes first, set apart from the ones in no order (not an <a>: the marker counts those). */}
+          {first && <span className={styles.railRule} aria-hidden="true" />}
+        </Fragment>
       ))}
       <RailResident nav={nav} index={index} fill={fill} end={scene === "next"} />
     </nav>
@@ -476,16 +493,42 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
               <Words text={opening.title} />
             </h1>
             <p className={styles.openingLede}>{opening.lede}</p>
-            <ol className={styles.openingChapters}>
-              {chapters.map((c) => (
-                <li key={c.id}>
-                  <a href={`#${c.id}`}>
-                    <span>{c.copy.num}</span>
-                    {c.label}
-                  </a>
-                </li>
-              ))}
-            </ol>
+            {opening.groups ? (
+              // Audio: one chapter first, then the rest in no order — two
+              // lists under their labels, and no numbers.
+              <div className={styles.openingGroups}>
+                {(
+                  [
+                    [opening.groups.first, chapters.filter((c) => c.first)],
+                    [opening.groups.rest, chapters.filter((c) => !c.first)],
+                  ] as const
+                ).map(([label, list], gi) => (
+                  <div key={gi} className={styles.openingGroup}>
+                    <p className={styles.openingGroupLabel} id={`opening-group-${gi}`}>
+                      {label}
+                    </p>
+                    <ul className={styles.openingChapters} aria-labelledby={`opening-group-${gi}`}>
+                      {list.map((c) => (
+                        <li key={c.id}>
+                          <a href={`#${c.id}`}>{c.label}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ol className={styles.openingChapters}>
+                {chapters.map((c) => (
+                  <li key={c.id}>
+                    <a href={`#${c.id}`}>
+                      {c.copy.num && <span>{c.copy.num}</span>}
+                      {c.label}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
             {opening.back && (
               <p className={styles.openingBack}>
                 <GuideLink to={opening.back.to} lang={lang}>

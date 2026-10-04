@@ -12,28 +12,10 @@
 
 // ── Wi-Fi transmit power ────────────────────────────────────────────────
 //
-// Core ships 13 dBm and that is NOT a conservative default — it is a
-// conformance fix. The comment where it is set says why: the ESP32's own
-// default of 19.5 dBm, plus the WROOM-1 antenna's gain, can sit at or over
-// the EU's 20 dBm EIRP limit.
-//
-// This firmware is for performing: a venue, a booth, a room full of
-// competing access points, twenty metres of it between the panel and
-// whatever laptop is running Ableton. 13 dBm is chosen for a desk.
-//
-// 17 dBm is +4 dB, so roughly 2.5x the uplink power, and it is the step the
-// core's own comment names as the first one to try. Note that only the
-// device→router direction changes: the RSSI on /status is the downlink and
-// will not move, so do not use it to judge whether this helped.
-//
-// **19.5 dBm is deliberately not used here.** It is the maximum the radio
-// offers and it is the value an outside report once proposed; the
-// investigation that looked at it declined, on the grounds above. Raising
-// this to WIFI_POWER_19_5dBm is one word away and whoever does it owns the
-// EIRP question that comes with it — including that a firmware published by
-// the same person who made the hardware does not read as third-party to
-// anybody checking.
-#define PF_WIFI_TX_POWER WIFI_POWER_17dBm
+// Nothing is set here: this edition transmits at the core's power
+// (net_config.h, 19.5 dBm since 3.10.5). It used to pin 17 dBm, which was a
+// raise while the core shipped 13 and became a cut when the core went to full
+// power; from v0.7.0 it follows the core.
 
 // ── What this firmware calls itself ─────────────────────────────────────
 //

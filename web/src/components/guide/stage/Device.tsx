@@ -16,6 +16,7 @@ import { knobMaterial, plaMaterial, tunePcbMaterials } from "./look/materials";
 import { readPanelGlow } from "./look/panelGlow";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
+import { micLiftStep, micReseatStep } from "../scenes/audio";
 import { knobIsTurned } from "../hubKnob";
 import {
   DRACO_URL,
@@ -133,11 +134,15 @@ function formatReadout(value: number, span: number) {
  * is quicker, and anything else — scrolling back up, a jump from the chapter
  * list — is a scene change and gets it done quickly. In the Build guide the
  * DevKit going onto its pins is all its step shows ("Seat the DevKit, power
- * off."), so there it keeps its own pace too.
+ * off."), so there it keeps its own pace too. The Audio guide's microphone
+ * section takes the DevKit out once and puts it back once (scenes/audio.ts
+ * micLiftStep, micReseatStep), at the paces Play's two have.
  */
 function choreoSpeed(page: string, scene: string, step: number, outward: boolean) {
   if (scene === "flash" && step <= 1 && outward) return 1;
   if (scene === "flash" && step === 6) return 1.8;
+  if (micLiftStep(page, scene, step) && outward) return 1;
+  if (micReseatStep(page, scene, step) && !outward) return 1.8;
   if (seatingStep(page, scene, step) && !outward) return 1;
   return 2.6;
 }
@@ -290,7 +295,8 @@ export default function Device() {
   }, [scene, ledMat, kit]);
 
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") (window as unknown as { __pfGuideScene?: THREE.Object3D }).__pfGuideScene = scene;
+    // In development only, for looking at the stage from a script: the scene, and the board it shows.
+    if (process.env.NODE_ENV !== "production") Object.assign(window, { __pfGuideScene: scene, __pfGuideSim: getSim() });
   }, [scene]);
 
   // Focus / hold rings, one per knob, just above the knob's top face.
@@ -683,7 +689,13 @@ export default function Device() {
         // said the hold was the pattern's ("K1 hue 0.00" before BRIGHTNESS).
         // Nor for a turn made on another screen: the same pill came up as
         // BRIGHTNESS closed, for the turns that had set the brightness.
-        const showVal = (mine || hovered.current === i || movedVal) && snap.mode === "run" && page !== "hub";
+        //
+        // And while a lane has the knob (the Audio guide's editor step): the
+        // knob does not turn, so the value moving beside it is all there is
+        // to see of what sound is doing to it. It stays up through a hand's
+        // five seconds, showing the knob's own value, which is the hand's.
+        const laned = snap.lanes[i] || snap.laneHeld[i];
+        const showVal = (mine || hovered.current === i || movedVal || laned) && snap.mode === "run" && page !== "hub";
         if ((label.dataset.val === "1") !== showVal) {
           label.dataset.val = showVal ? "1" : "0";
           forgetPillSize(label);
@@ -739,8 +751,10 @@ export default function Device() {
       // reader — once the camera has come round behind the case and the
       // step's card is on screen (store.ts cardIn) — not during the camera's
       // swing, under the chapter's title, where half of it was missed.
+      // The Audio guide's "lift the ESP32 out" waits the same way: the camera
+      // is behind the case already (the step before it), so it is the card.
       let holdCover = false;
-      if (sh.back === 0 && sceneId === "flash" && step === 0 && page === "play") {
+      if (sh.back === 0 && ((sceneId === "flash" && step === 0 && page === "play") || micLiftStep(page, sceneId, step))) {
         const behind = tmp.pos.copy(state.camera.position).sub(VIEWS.back.target).normalize().dot(VIEWS.back.dir);
         holdCover = !cardIn || behind < 0.9;
       }

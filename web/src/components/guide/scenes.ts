@@ -1,10 +1,11 @@
-import type { SimMode, SimPack } from "@/lib/guide/deviceSim";
+import type { SimEdition, SimLaneSource, SimMode, SimPack } from "@/lib/guide/deviceSim";
 import { kitHeld } from "./timing";
 import { useGuideStore, type GuideScreen } from "./store";
 import type { DeskPlacement } from "./desk/types";
 import { BUILD_SCENES } from "./scenes/build";
 import { COMMUNITY_SCENE } from "./scenes/community";
 import { LAB_SCENE } from "./scenes/lab";
+import { AUDIO_SCENES } from "./scenes/audio";
 import type { BuildBeat } from "./stage/build/beats";
 import type { BuildViewName } from "./stage/build/views";
 
@@ -16,9 +17,10 @@ import type { BuildViewName } from "./stage/build/views";
 //
 // Knobs are logical: 0..3 = K1..K4, as the device numbers them.
 //
-// The guide is three guides (pages.ts), each with its own script. SCENES is
-// Play (/guide/play, 01–04) and BUILD_SCENES (scenes/build.ts) is Build
-// (/guide/build): both are played by the 3D stage. MAKE_SCENES is Make
+// The guide is four guides (pages.ts), each with its own script. SCENES is
+// Play (/guide/play, 01–04), BUILD_SCENES (scenes/build.ts) is Build
+// (/guide/build) and AUDIO_SCENES (scenes/audio.ts) is Audio (/guide/audio):
+// all three are played by the 3D stage. MAKE_SCENES is Make
 // (/guide/make, 01–02), whose chapters are in scenes/ and whose stage is the
 // desk of app windows (desk/DeskStage.tsx) — its steps say which windows are
 // on the desk (DeskStep), not what a device does. Every guide opens on a
@@ -70,6 +72,23 @@ export type Step = {
   pack: SimPack;
   /** Screen the board is put on when the step starts. */
   mode?: SimMode;
+  /**
+   * The Audio guide: the firmware the board runs. "audio" is the Audio
+   * edition — hold K2 shows the OSC and AUD rows, and K2 / K3 switch them.
+   * The Director says it to the board at every step edge (sim.setEdition),
+   * and a step that does not declare it is the core firmware: nothing of
+   * the edition is left on the board for Play or the hub.
+   */
+  edition?: SimEdition;
+  /**
+   * The Audio guide: what drives the four lanes — the knob values, moved
+   * without the knobs turning, as sound does on the board. "editor" is the
+   * extension's editor in this step's card (EditorWindow, sim.setLane); a
+   * hand on a knob takes it for five seconds. The Director opens the lanes
+   * at the step's edge (sim.setLaneSource) and a step that does not declare
+   * them has none: they are released and the values are what they were.
+   */
+  lanes?: SimLaneSource;
   focus?: number | null;
   labels?: boolean;
   /** 0 = the ESP32 is in the device, 1 = out in front of it. */
@@ -343,9 +362,9 @@ const HUB_SCENES: SceneDef[] = [SCENES[0]];
 // instead: there the device stands far back, faded and at rest, and what it
 // holds meanwhile is Play's opening — the device whole and lit, which is how
 // it comes back.
-const STAGE_SCENES: Record<GuideScreen, SceneDef[]> = { build: BUILD_SCENES, play: SCENES, make: SCENES, hub: HUB_SCENES };
+const STAGE_SCENES: Record<GuideScreen, SceneDef[]> = { build: BUILD_SCENES, play: SCENES, make: SCENES, audio: AUDIO_SCENES, hub: HUB_SCENES };
 
-const PAGE_SCENES: Record<GuideScreen, SceneDef<AnyStep>[]> = { build: BUILD_SCENES, play: SCENES, make: MAKE_SCENES, hub: HUB_SCENES };
+const PAGE_SCENES: Record<GuideScreen, SceneDef<AnyStep>[]> = { build: BUILD_SCENES, play: SCENES, make: MAKE_SCENES, audio: AUDIO_SCENES, hub: HUB_SCENES };
 
 /** A page's script, opening to end. */
 export function scenesOf(page: GuideScreen): SceneDef<AnyStep>[] {
@@ -370,7 +389,7 @@ export function deskStepOf(scene: string, step: number): DeskStep {
 const heldSteps = new WeakMap<Step, Step>();
 
 export function stepOf(scene: string, step: number): Step {
-  // The 3D stage plays the page's own script — Play's, Build's, the hub's.
+  // The 3D stage plays the page's own script — Play's, Build's, Audio's, the hub's.
   // Make has the desk instead (MAKE_SCENES, deskStepOf).
   const scenes = STAGE_SCENES[useGuideStore.getState().page];
   const def = scenes.find((s) => s.id === scene) ?? scenes[0];

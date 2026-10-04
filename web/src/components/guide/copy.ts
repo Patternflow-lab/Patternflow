@@ -24,7 +24,33 @@ export type Extra =
   | "labShots"
   | "labWindow"
   // The build page (copy/build.ts): build/BuildCards.tsx.
-  | `build:${BuildCard}`;
+  | `build:${BuildCard}`
+  // The audio page (copy/audio.ts): the way to the edition shelf
+  // (Extras.tsx), the extension's real editor in its demo mode, driving the
+  // board on the stage (EditorWindow.tsx), and real captures and photos, a
+  // set a step (AudioShots.tsx).
+  | "editionsLink"
+  | "editorLive"
+  | `audioShots:${AudioShotSet}`;
+
+/**
+ * The Audio guide's captures and photos, a set a step (AudioShots.tsx): the
+ * extension's popup, the two microphone photos, the console's Audio and MIDI
+ * pages, rtpMIDI and Live.
+ */
+export type AudioShotSet =
+  | "popup"
+  | "popupStates"
+  | "micPart"
+  | "micWiring"
+  | "micSeated"
+  | "audioIn"
+  | "audioInMap"
+  | "audioInNoMic"
+  | "rtpmidi"
+  | "liveRemote"
+  | "midiPage"
+  | "midiSession";
 
 export type StepCopy = {
   kicker: string;
@@ -38,9 +64,21 @@ export type StepCopy = {
 };
 
 export type SceneCopy = {
-  num: string;
+  /**
+   * "01": the chapter's place in its guide. The Audio guide's sections have
+   * none — they are in no order — and wherever the number would stand (the
+   * chapter's head, the rail, the opening's list, a "Stuck here?" issue)
+   * there is nothing.
+   */
+  num?: string;
   title: string;
   lede: string;
+  /**
+   * The one thing the chapter needs first, as a link under its lede — the
+   * Audio guide's sections each open cold, and say "Needs the Audio edition"
+   * with the way to it (href: "#edition").
+   */
+  needs?: { label: string; href: string };
   steps: StepCopy[];
 };
 
@@ -52,6 +90,12 @@ export type OpeningCopy = {
   scroll: string;
   /** The chapters' names, in order: the opening's list and the rail. */
   chapters: string[];
+  /**
+   * The Audio guide: the list in two groups, each under its label — the one
+   * chapter that comes first (pages.ts PageChapter.first), then the rest, in
+   * any order.
+   */
+  groups?: { first: string; rest: string };
   /** A quiet link to another page of the guide (or the hub), under the chapter list. */
   back?: { label: string; to: GuideScreen };
 };
@@ -321,7 +365,8 @@ const en: GuideCopy = {
     lede: "That was the first hour. The next guide is about making: finding what other people made, and making your own.",
     groups: [
       { label: "The next guide", items: ["Community — patterns and decks", "Pattern Lab — layers, Graphic Export, Director"], to: "make" },
-      { label: "After that", items: ["Editions", "Sound", "MIDI & OSC", "MQTT", "Clock", "Performance"], later: true },
+      { label: "The Audio guide", items: ["A browser tab, the microphone, MIDI & your DAW"], to: "audio" },
+      { label: "After that", items: ["Editions", "MQTT", "Clock", "Performance"], later: true },
     ],
     until: "Until they're here, the real things:",
     links: [
@@ -563,7 +608,8 @@ const ko: GuideCopy = {
     lede: "여기까지가 처음 한 시간이에요. 다음 가이드는 만드는 이야기예요. 남들이 만든 걸 찾고, 내 걸 만들어요.",
     groups: [
       { label: "다음 가이드", items: ["커뮤니티 — 패턴과 덱", "패턴 랩 — 레이어, 그래픽 익스포트, 디렉터"], to: "make" },
-      { label: "그다음", items: ["에디션", "소리", "MIDI · OSC", "MQTT", "시계", "퍼포먼스"], later: true },
+      { label: "오디오 가이드", items: ["브라우저 탭 소리, 마이크, MIDI와 DAW"], to: "audio" },
+      { label: "그다음", items: ["에디션", "MQTT", "시계", "퍼포먼스"], later: true },
     ],
     until: "그동안은 바로 가서 해 봐도 돼요.",
     links: [

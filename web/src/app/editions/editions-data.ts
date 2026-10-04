@@ -228,10 +228,9 @@ export const EDITIONS: Edition[] = [
         'sensitivity on the console, the session reconnects itself',
       'OSC — Ableton, Max and TouchDesigner, both directions',
       'Browser and tab audio through the Chrome extension',
-      'On-board PDM microphone — four wires to GPIO43/44, no computer needed',
+      'On-board PDM microphone — five leads, the two signals on GPIO43/44, no computer needed',
       'The mapping editor: bands as boxes on the live spectrum, response ' +
         'curves from rise to gate to hand-drawn',
-      'Wi-Fi transmit power raised for rooms full of access points',
     ],
     // Served from here, so the panel's own /update page can fetch it. Under
     // /flash/bin, which already sends the CORS header that fetch needs.
@@ -242,15 +241,14 @@ export const EDITIONS: Edition[] = [
     source: 'https://github.com/engmung/Patternflow/tree/main/firmware/bundles/audio',
     note:
       'Six of seven people asked for on-board sound and it was the most ' +
-      'wanted thing in the survey by a wide margin — but it needs four wires ' +
-      'soldered to the DevKit and the radio setting here is not the ' +
-      'conformance-tested one, so neither belongs in the firmware everybody ' +
+      'wanted thing in the survey by a wide margin — but it needs five leads ' +
+      'soldered to the DevKit, so it does not belong in the firmware everybody ' +
       'gets. It is also where that work happens, which is why it carries ' +
       'nothing else: no sequences, no weather, no MQTT. Take this to ' +
       'experiment with sound, not to run a room. When the microphone is a ' +
       'part on the board, on-board audio moves into the default. ' +
       'Installing this without the microphone is safe: the panel can tell a ' +
-      'missing mic from a quiet room, says so on the Mic page, and lets ' +
+      'missing mic from a quiet room, says so on the Audio page, and lets ' +
       'nothing drive the knobs until you turn it on.',
   },
 ];
