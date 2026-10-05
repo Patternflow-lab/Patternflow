@@ -1,4 +1,5 @@
 Author: Simone Majocchi (SimonePDA), https://github.com/SimonePDA  
+License: CC-BY-SA-4.0  
 Based on: original design  
 Fits: v3 board (built on v3.0; v3.9 has the same outline) and a 320 × 160 mm LED panel  
 Material: 3 mm acrylic (about 2.75 mm with the film off) or 2.8 mm MDF, laser cut  
@@ -22,7 +23,7 @@ This folder replaces the printing and case-assembly sections of the [build guide
 
 | File | What |
 | :--- | :--- |
-| [`lasercut_layout.pdf`](lasercut_layout.pdf) | The drawing: six A3 pages at 1:1. Pages 1, 3 and 5 are the ones to cut; 2 and 4 show how the parts sit together; 6 is a panel maker's dimension drawing, there for reference. |
+| [`lasercut_layout.pdf`](lasercut_layout.pdf) | The drawing: six A3 pages at 1:1. Pages 1, 3 and 5 are the ones to cut; 2 and 4 show how the parts sit together; 6 is a panel maker's dimension drawing, there for reference and not covered by the license above. |
 | [`lasercut_layout.cdr`](lasercut_layout.cdr) | The CorelDRAW 2019 source. |
 
 The sheet has to fit your cutter's bed whole: 256 × 340 mm. That number is also the check that an import kept its scale.
