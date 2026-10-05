@@ -24,7 +24,7 @@ This folder replaces the printing and case-assembly sections of the [build guide
 | File | What |
 | :--- | :--- |
 | [`lasercut_layout.pdf`](lasercut_layout.pdf) | The drawing: six A3 pages at 1:1. Pages 1, 3 and 5 are the ones to cut; 2 and 4 show how the parts sit together; 6 is a panel maker's dimension drawing, there for reference and not covered by the license above. |
-| [`lasercut_layout.cdr`](lasercut_layout.cdr) | The CorelDRAW 2019 source. |
+| [`lasercut_layout.cdr`](lasercut_layout.cdr) | The CorelDRAW 2019 source. It keeps the alignment guides everything was laid out on, so it is the easier file to start from if your panel's holes sit somewhere else. |
 
 The sheet has to fit your cutter's bed whole: 256 × 340 mm. That number is also the check that an import kept its scale.
 
@@ -57,4 +57,4 @@ A check of the drawing against the board's KiCad files, made when the folder was
 
 - The PDF is to scale: the sheet is 256 × 340 mm, the panel outline 160 × 320 mm, and the board drawn on pages 2 and 4 is 62 × 116 mm. The v3 board is 62 × 116.25 mm.
 - The slots that hold the box are 2.7 mm wide, and the holes for the panel's screws are 5 mm.
-- The four knob holes are 8 mm, on a 30 × 30 mm grid. The encoders on the v3 board are 31 × 30.5 mm apart, so the fit relies on those holes being oversized. The builds in the photos went together as drawn.
+- The four knob holes are 8 mm, on a 30 × 30 mm grid. The encoders on the v3 board are 31 × 30.5 mm apart, so the fit relies on those holes being oversized. Simone has built it three times as drawn, and it works.
