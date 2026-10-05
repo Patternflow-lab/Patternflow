@@ -106,6 +106,8 @@ Any fab works, though — upload **`hardware/pcb/gerber/patternflow_v3.9_gerber.
 
 ## 4. 3D Printing
 
+> **No 3D printer?** The case can be laser-cut instead: [Simone Majocchi's laser-cut case](hardware/case/remixes/simonepda-lasercut/README.md) is a community remix cut from acrylic or MDF sheet. Its README takes the place of this section and Section 6; the rest of this guide is the same.
+
 **Bambu / MakerWorld users — this section is one click:** the case lives on **[MakerWorld](https://makerworld.com/ko/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015)** with tuned print profiles (the same 4-plate project is in the repo as [`hardware/case/bed_256mm/patternflow_v3.3mf`](hardware/case/bed_256mm/patternflow_v3.3mf)). Slicing manually instead? Case folders are named by **printer bed size** — see [`hardware/case/`](hardware/case/):
 
 | Your printer bed | Print | Notes |

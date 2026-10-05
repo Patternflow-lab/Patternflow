@@ -7,7 +7,7 @@
 
 Patternflow is not a single, rigid kit. It is a modular system divided into two core parts:
 
-1. **Enclosure** — how you house the device (3D printed; community remixes welcome).
+1. **Enclosure** — how you house the device (3D printed, or a community remix such as the laser-cut one below).
 2. **Electronics** — how you wire the hardware (custom PCB, or breadboard).
 
 Build those two, flash the firmware, and your Patternflow is alive.
@@ -29,7 +29,8 @@ This is the route [BUILD_GUIDE.md](../../BUILD_GUIDE.md) walks start to finish, 
 | --- | --- | --- |
 | 3D printed enclosure | Custom PCB | **Current** — [BUILD_GUIDE.md](../../BUILD_GUIDE.md) |
 | 3D printed enclosure | Breadboard / jumper-wire electronics | Available — [Breadboard Build Guide](https://patternflow.work/build/breadboard) |
-| Laser-cut or any other enclosure | either | Not an official path. Community variants live in [`hardware/case/remixes/`](../../hardware/case/remixes/README.md); the old acrylic drawings are in [`legacy_lasercut/`](../../hardware/case/legacy_lasercut/README.md) |
+| Laser-cut acrylic or MDF sheet | Custom PCB | Community — [`remixes/simonepda-lasercut/`](../../hardware/case/remixes/simonepda-lasercut/README.md), by Simone Majocchi. Built by its author in both materials; its README stands in for the printing and case-assembly sections of the build guide |
+| Any other enclosure | either | Not an official path. Community variants live in [`hardware/case/remixes/`](../../hardware/case/remixes/README.md); the old acrylic drawings, for the v1 and v2 boards, are in [`legacy_lasercut/`](../../hardware/case/legacy_lasercut/README.md) |
 
 The breadboard path exists to make Patternflow easier and cheaper to start. A breadboard build is not just a temporary prototype — if that form is enough for you, it is a valid Patternflow build. Want a more finished object later? Move to the PCB and printed-enclosure path whenever you like.
 
