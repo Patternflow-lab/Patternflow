@@ -320,6 +320,40 @@ export const builds: Build[] = [
       { src: '/builds/saladman/wall.jpg', alt: "A whole wall of shelves full of boomboxes, toys and model cars, with saladman's pastel Patternflow on the lower shelf" },
     ],
   },
+  {
+    id: 'germany-philipppp',
+    title: 'Plaster shell, on the wall',
+    category: 'builds',
+    slug: 'philipppp-germany',
+    kind: 'build',
+    location: { lat: 51.1657, lng: 10.4515, label: 'Germany' },
+    maker: 'Philipppp',
+    date: '2026-10',
+    description:
+      'A Raspberry Pi 4 with a HUB75 HAT and custom firmware, in a self-designed 3D-printed case finished with a plaster shell. It hangs on the wall with four knobs and an on/off button, and it is wired mostly with jumper wires. It came out beautifully.',
+    images: [
+      { src: '/builds/philipppp/wall.jpg', alt: "Philipppp's Patternflow on a wall, seen at an angle: a green lattice pattern on the panel, a ribbed plaster side and four knobs in a slot" },
+      { src: '/builds/philipppp/shell.jpg', alt: "The case without its panel: a 3D-printed frame under a ribbed plaster shell, held in one hand" },
+      { src: '/builds/philipppp/inside.jpg', alt: "Inside Philipppp's case: a Raspberry Pi with a HUB75 HAT on the back of the LED panel, wired mostly with jumper wires" },
+    ],
+  },
+  {
+    id: 'ukraine-extraplojo',
+    title: 'Horizontal build',
+    category: 'builds',
+    slug: 'extraplojo-ukraine',
+    kind: 'build',
+    location: { lat: 50.4501, lng: 30.5234, label: 'Kyiv, Ukraine' },
+    maker: 'extraplojo',
+    date: '2026-10',
+    description:
+      "A horizontal Patternflow in orange and white, for a desk or a wall. The case is held together with brass inserts instead of glue. It is also the maker's first 3D design, first PCB order and first soldering job, and it came out beautifully.",
+    images: [
+      { src: '/builds/extraplojo/front.jpg', alt: "extraplojo's horizontal Patternflow from the front: a rainbow gradient on the panel, an orange side panel with four white knobs, and orange feet" },
+      { src: '/builds/extraplojo/angle.jpg', alt: "extraplojo's Patternflow at an angle, blue and orange waves on the panel and a braided orange cable running off to the side" },
+      { src: '/builds/extraplojo/inside.jpg', alt: "Inside extraplojo's case: the board in the orange control box beside the panel, with brass inserts at the corners" },
+    ],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.
