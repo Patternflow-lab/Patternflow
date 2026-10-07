@@ -310,7 +310,7 @@ export const builds: Build[] = [
     category: 'builds',
     slug: 'saladman-uk',
     kind: 'build',
-    location: { lat: 53.8008, lng: -1.5491, label: 'Leeds, UK' },
+    location: { lat: 53.8008, lng: -1.5491, label: 'Leeds, United Kingdom' },
     maker: 'saladman',
     date: '2026-09',
     description:
