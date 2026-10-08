@@ -1,7 +1,7 @@
 Author: Besoiobiy, on the Patternflow Discord (https://discord.gg/Vr9QtsxeTk)  
 License: CC-BY-SA-4.0  
 Based on: original design  
-Fits: v3 board (v3.9 and v3.0 share the outline) and a 320 × 160 mm, 128 × 64 LED panel with M3 mounting sockets and a socket depth of 14.35 mm, like Besoiobiy's; [check your panel first](#check-your-panel-first)  
+Fits: v3 board (v3.9 and v3.0 share the outline) and a 320 × 160 mm, 128 × 64 LED panel with M3 mounting sockets and a socket depth of 14.35 mm, like [Besoiobiy's](https://aliexpress.ru/item/32691434344.html?sku_id=12000031100108258); [check your panel first](#check-your-panel-first)  
 Material: PLA, set up for a Bambu Lab P1S with a 0.4 mm nozzle; white case, black knob caps. The print settings are in [`print_layout.3mf`](print_layout.3mf)  
 Verified: 2026-10-08, photo below. Built by its author, and working for a week when they shared it
 
