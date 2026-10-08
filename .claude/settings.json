@@ -1,0 +1,7 @@
+{
+  "ultracode": true,
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": ["Workflow"]
+  }
+}
