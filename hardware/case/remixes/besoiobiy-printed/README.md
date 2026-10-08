@@ -15,7 +15,7 @@ A printed case in two long pieces glued side by side: a frame around the LED pan
 
 In this folder, **top** means the end with the knobs and **bottom** the other end, as the case is held in the photo. The top half of the box holds the board; the bottom half is the battery bay (Besoiobiy's files call it the battery case).
 
-This folder replaces the printing and case-assembly sections of the [build guide](../../../../BUILD_GUIDE.md) (4 and 6), and changes the order of the wiring in section 7: the panel has to be wired before its covers go on. The electronics, the soldering and the firmware are the same.
+This folder replaces the printing and case-assembly sections of the [build guide](../../../../BUILD_GUIDE.md) (4 and 6), and changes the order of sections 7 to 9: the panel has to be wired before its covers go on, and the box closes with screwed covers instead of the snap-fit back panel. The electronics, the soldering and the firmware are the same.
 
 ## Files
 
@@ -94,7 +94,7 @@ The box halves in the 3MF are not quite the ones in the STL. Their locating keys
 | 8 | M3 heat-set brass inserts, M3 × 8 × 5 (Besoiobiy's size) | The corners of both box halves, red in figure 6. The holes for them are 5.0 mm across and 9 mm deep. |
 | 8 | M3 × 10 countersunk screws | Through the two box covers into the inserts, orange in figure 6. |
 | 12 | M3 × 25 countersunk bolts | Through the two frame covers (green in figure 7) and the frame's tabs (turquoise) straight into the LED panel's threaded sockets. No inserts here: the cover, the frame and the panel are clamped together. [Check the reach first.](#check-your-panel-first) |
-| 1 | USB power bank, 5 V | In the bottom half. The bay is 90 mm wide and about 24.8 mm deep, from the inside of the front to the cover. Its corners are chamfered, so a bank the full 90 mm wide can be about 143 mm long, a narrower one up to about 170 mm down the middle. |
+| 1 | USB power bank, 5 V | In the bottom half. The empty bay is 90 mm wide, about 171 mm long down the middle and about 24.8 mm deep, from the inside of the front to the cover; its corners are chamfered, so at the full 90 mm width it is about 143 mm long. The bank needs less than that: leave room for the plug of the `J4` cable at its output, and remember that a bank reaching the bottom end covers the two power-cable openings from inside. |
 | — | Glue | For the halves, in the order of figure 5. The notes do not name a glue. |
 
 <img src="images/fig6_inserts_and_screws.png" alt="Figure 6: the box halves and their covers; red dots on the eight insert positions, orange dots on the eight cover screws, two blue dots on the openings for the power cable" width="58%"> <img src="images/fig7_panel_bolts.png" alt="Figure 7: the frame halves and their covers; green dots on the twelve holes in the covers, turquoise dots on the twelve frame tabs" width="40%">
@@ -112,12 +112,12 @@ The build guide's sections 5 (soldering), 7 (wiring), 8 (firmware) and 9 (checks
 *Figure 5: the gluing order.*
 
 1. **Glue the halves, in the order of figure 5:** first the two box halves end to end (1), then the two frame halves (2), then the frame to the box along its long side (3). The keys and pockets in each joint (figure 4) line the parts up.
-2. **Set the eight inserts** into the corners of the box (red in figure 6), at any point before the box covers go on.
+2. **Set the eight inserts** into the corners of the box (red in figure 6) once the glue has cured, before any wiring, the board or the power bank goes in.
 3. **Wire the panel before it is closed in.** Lower the ribbon's connector if it is too tall to fit (figure 8, below), plug the ribbon into the panel's `HUB-75E IN` and the power lead into the panel, and pass both through the window in the frame's side wall into the top half of the box. Their other ends go to `J1` and `J3` later (build guide, section 7, steps 1 and 2).
 4. **Panel.** Put the panel into the frame from the front, its sockets against the tabs; the build guide puts `HUB-75E IN` toward the top. Lay the two frame covers over it from behind and drive the twelve M3 × 25 bolts through the covers and the tabs into the panel's sockets (figure 7). From here on the back of the panel is closed.
-5. **Power cable.** Clamp the power cable into `J4` before the board goes in (build guide, section 7, step 3). If it is to leave the case, thread it through one of the two openings first (see [Hardware](#hardware)).
-6. **Board.** The encoders come through the four holes in the front of the top half; fasten their nuts from the front, as in [section 6 of the build guide](../../../../BUILD_GUIDE.md#6-case-assembly). Connect the ribbon to `J1` and the panel's power lead to `J3`, and seat the DevKit (section 7).
-7. **Power bank, firmware, checks.** Put the power bank in the bottom half and connect it to the `J4` cable, flash the firmware (section 8), and run the checks in section 9, steps 1 to 6, with the box still open.
+5. **Power cable.** Clamp the power cable into `J4` before the board goes in (build guide, section 7, step 3). If its other end is outside the case, at a power bank or 5 V supply there, thread it through one of the two openings first (see [Hardware](#hardware)).
+6. **Board.** The encoders come through the four holes in the front of the top half; fasten their nuts from the front, as in [section 6 of the build guide](../../../../BUILD_GUIDE.md#6-case-assembly). Connect the ribbon to `J1` and the panel's power lead to `J3`. Flash the DevKit off the board first (section 8.1, steps 1 to 4), then seat it with nothing powering `J4` (section 7, step 4).
+7. **Power, patterns, checks.** With the power bank in the bottom half, connect it to the `J4` cable; with the cable leading out of the case, connect its outside end to your bank or supply. Load the patterns (section 8.1, step 6) and run the checks in section 9, steps 2 to 6, with the box still open.
 8. **Close the box** with the two box covers and the eight M3 × 10 screws (orange in figure 6). This replaces closing the back panel in section 9, step 7.
 9. **Knobs.** Put the four knob caps on the encoder shafts last.
 
@@ -135,7 +135,7 @@ The ribbon cable from the panel takes a lot of height. The clip over the top of 
 
 The case was drawn around Besoiobiy's panel, and panels differ.
 
-- **Thread size.** Besoiobiy's panel takes M3 bolts, and the holes in the frame covers pass nothing larger. The panel the build guide links is mounted with M4 screws (build guide, section 1); with that panel, the cover holes would have to be opened up.
+- **Thread size and hole pattern.** As drawn, this case is for an M3 panel with Besoiobiy's hole pattern: the holes in the frame covers pass nothing larger than M3. The panel the build guide links takes M4 screws (build guide, section 1), and its holes are not on this pattern either. The official case, whose tabs are placed for that panel, has its two side rows about 137.4 mm apart and its end bolts about 84.4 mm apart across the panel, where these are 139 mm and 86 mm. Opening up the cover holes is therefore not enough: for that panel, redraw the frame's tabs and covers from the Blender source.
 - **Socket depth.** Besoiobiy's panel has a socket depth of 14.35 mm (1.435 cm in their notes). In the files, the fronts of the frame's tabs, where the panel's sockets rest, are exactly 14.35 mm behind the frame's front edge, so the figure is the distance from the LED face to the ends of the sockets, and with that panel the face lies flush with the front of the frame. Measure yours the same way. If it differs, the face stands out from the frame or sits back in it by the difference.
 - **Bolt reach.** With the cover in place, flush with the back of the frame, an M3 × 25 bolt ends about 8.5 mm past the front of the tab, inside the panel's socket. Check that your panel's threaded holes are at least that deep and closed at the bottom; if they are not, use a shorter bolt.
 - **Bolt positions.** The twelve bolts, measured from the centre of the frame's opening: eight at ±69.5 mm across and ±32 mm and ±123 mm along, and four at ±43 mm across and ±149.5 mm along. The tabs have 5 × 6 mm slots, but the holes in the covers are 3.2 × 4.2 mm slots. An M3 has about half a millimetre of play along each of them and only about 0.1 mm across: across the panel for the eight side bolts, and along it for the four end bolts. So in those directions your panel's sockets have to sit where these are. A frame cover is a 2 mm plate and a short print: print one first and lay it on the back of your panel.
