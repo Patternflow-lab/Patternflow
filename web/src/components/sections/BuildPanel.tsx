@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useAppStore, SectionType } from '@/store/useAppStore';
 import { SectionContent } from '@/lib/content';
 import { captureEvent } from '@/lib/posthogEvents';
+import CasePicker from './CasePicker';
+import { BUILD_CASES, DEFAULT_CASE, findCase, type CaseId } from './build-cases-data';
 import styles from './BuildPanel.module.css';
 
 interface BuildPanelProps {
@@ -13,7 +15,8 @@ interface BuildPanelProps {
 // The reality check every would-be builder wants before committing. Ordered
 // cost → your time → machine time → waiting, so the two numbers the reader is
 // actually deciding on come first. Numbers follow the main path (custom PCB +
-// 3D print, see BUILD_GUIDE.md BOM).
+// the official printed case, see BUILD_GUIDE.md: the BOM in §1 and the time
+// at the top). The case switch below changes step 01, not these.
 const FACTS = [
   {
     // A range, not the floor. The breakdown below adds up to about $100, and
@@ -27,7 +30,7 @@ const FACTS = [
     // Printing, not filament: most people order the case rather than owning a
     // printer, and $30 is what that costs.
     detail:
-      'At best: 3D printing ~$30 · panel ~$20 · ESP32-S3 ~$15 · PCB & rest ~$35. Shipping, minimum order quantities and a reprint or two take it up from there.',
+      'At best: 3D printing ~$30 · panel ~$20 · ESP32-S3 ~$13 · PCB & rest ~$35. Shipping, minimum order quantities and a reprint or two take it up from there.',
   },
   {
     value: '~1 hr',
@@ -35,9 +38,11 @@ const FACTS = [
     detail: '30 min soldering, 30 min assembly. Big through-hole joints — a first time is fine.',
   },
   {
-    value: '~10–12 hr',
+    // BUILD_GUIDE.md and hardware/case/README.md both say ~10 h for the
+    // official case on a 256 mm bed, at the 0.2 mm layers they set.
+    value: '~10 hr',
     name: 'Printing',
-    detail: 'Printer time, not yours. Nearer 12 at finer layer heights.',
+    detail: 'Printer time, not yours, for the official case on a 256 mm bed.',
   },
   {
     value: '~2 wk',
@@ -46,16 +51,18 @@ const FACTS = [
   },
 ];
 
+// Step 01 is replaced by the chosen case's own (build-cases-data.ts); the
+// one written here is the official case's.
 const STEPS = [
   {
     id: 1,
     title: 'Print the case',
-    desc: '3D print the current PLA enclosure.',
+    desc: 'Print the body in white PLA and the knobs in black.',
   },
   {
     id: 2,
     title: 'Solder the PCB',
-    desc: 'Hand-solder the custom Patternflow PCB.',
+    desc: 'Hand-solder the v3.9 board. Every part is through-hole.',
   },
   {
     id: 3,
@@ -63,11 +70,26 @@ const STEPS = [
     desc: 'Encoders, matrix, power wiring, and case fit.',
   },
   {
+    // BUILD_GUIDE.md §8.1: flash the module off the board, then seat it; power
+    // only ever comes in through J4, the screw terminal (§2).
     id: 4,
     title: 'Flash and power on',
-    desc: 'Browser flash the release firmware, then insert the ESP32-S3.',
+    desc: 'Flash the ESP32-S3 from the browser, seat it, then power up through the screw terminal.',
   },
 ];
+
+// /build?case=<id> opens the panel on that case, so a remix can be linked to
+// directly. The official case is the bare /build. Read as an external store:
+// the page is static, so the server snapshot is always "no case", and React
+// swaps in the URL's after hydration without a mismatch.
+function caseFromUrl(): CaseId | null {
+  return findCase(new URLSearchParams(window.location.search).get('case'))?.id ?? null;
+}
+
+function subscribeToUrl(onChange: () => void) {
+  window.addEventListener('popstate', onChange);
+  return () => window.removeEventListener('popstate', onChange);
+}
 
 export default function BuildPanel({ content, isActive }: BuildPanelProps) {
   const setActiveSection = useAppStore((state) => state.setActiveSection);
@@ -79,6 +101,27 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [lockedStep, setLockedStep] = useState<number | null>(null);
   const [activeTouchStep, setActiveTouchStep] = useState<number | null>(null);
+  // A pick on the switch wins over the URL; until there is one, the URL says.
+  const [pickedCase, setPickedCase] = useState<CaseId | null>(null);
+  const urlCase = useSyncExternalStore(subscribeToUrl, caseFromUrl, () => null);
+  const selectedCase = findCase(pickedCase ?? urlCase ?? DEFAULT_CASE) ?? BUILD_CASES[0];
+  const steps = STEPS.map((step) => (step.id === 1 ? { ...step, ...selectedCase.step } : step));
+
+  const handleCaseSelect = (nextId: CaseId, interaction: 'click' | 'key') => {
+    setPickedCase(nextId);
+    // replaceState, not push: switching cases is not a page to go back to.
+    // Only while the panel is the one on screen — it stays mounted, hidden,
+    // on the other tabs, and must not write to their URLs.
+    if (isActive && window.location.pathname === '/build') {
+      const query = nextId === DEFAULT_CASE ? '' : `?case=${nextId}`;
+      window.history.replaceState(null, '', `/build${query}${window.location.hash}`);
+    }
+    captureEvent('build_case_selected', {
+      case_id: nextId,
+      interaction,
+      surface: 'build_panel',
+    });
+  };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 900);
@@ -126,7 +169,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
   };
 
   const handleStepClick = (stepId: number) => {
-    const step = STEPS.find((item) => item.id === stepId);
+    const step = steps.find((item) => item.id === stepId);
 
     if (isMobile) {
       if (activeTouchStep === stepId) {
@@ -180,13 +223,27 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
           ))}
         </div>
 
+        {/* Which case comes before the steps: it decides step 01, and whether
+            you need a printer or a laser cutter at all. */}
+        <CasePicker
+          cases={BUILD_CASES}
+          selected={selectedCase}
+          onSelect={handleCaseSelect}
+          onLinkOpen={(id, target) => captureEvent('build_case_link_opened', {
+            case_id: id,
+            target,
+            surface: 'build_panel',
+          })}
+          lead={content.content}
+        />
+
         <div className={styles.buildCols}>
         <div className="pf-block" onMouseLeave={handleStepLeave}>
           <span className="pf-kicker">
             {isMobile ? 'Four steps — tap to preview' : 'Four steps — hover to preview on the device'}
           </span>
           <div className={styles.stepList}>
-            {STEPS.map((step) => {
+            {steps.map((step) => {
               const isActive = isMobile ? activeTouchStep === step.id : buildStep === step.id;
               const stepIndex = String(step.id).padStart(2, '0');
 
@@ -247,9 +304,10 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
 
         {/* ONE prominent route — the build guide on the site, where every step
             is shown on the 3D model — with the written guide and the two
-            ordering shortcuts under it. Every other combination (breadboard,
-            laser cut, older boards) lives in the assembly map, which replaced
-            the old build matrix here. */}
+            ordering shortcuts under it. The case row follows the switch above:
+            MakerWorld for the official case, the remix's folder otherwise. The
+            electronics routes (breadboard, older boards) live in the assembly
+            map, which replaced the old build matrix here. */}
         <div className="pf-block">
           <span className="pf-kicker">Start here</span>
           <Link
@@ -289,12 +347,17 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
               <span>PCBWay ↗</span>
             </a>
             <a
-              href="https://makerworld.com/en/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015"
+              href={selectedCase.links[0].href}
               target="_blank"
               rel="noreferrer"
+              onClick={() => captureEvent('build_case_link_opened', {
+                case_id: selectedCase.id,
+                target: selectedCase.links[0].target,
+                surface: 'build_panel_start',
+              })}
             >
-              <strong>Print the case</strong>
-              <span>MakerWorld ↗</span>
+              <strong>{selectedCase.step.title}</strong>
+              <span>{selectedCase.links[0].target} ↗</span>
             </a>
             <a
               href="https://github.com/engmung/Patternflow/blob/main/hardware/README.md"
@@ -304,13 +367,29 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
               <strong>Gerbers, BOM, STLs</strong>
               <span>hardware/ ↗</span>
             </a>
+            {/* The one check the docs put before any purchase: the panel's
+                driver chip decides whether it lights at all. */}
+            <a
+              href="https://github.com/engmung/Patternflow/blob/main/docs/panel-compatibility.md"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <strong>Before you buy the panel</strong>
+              <span>Compatibility ↗</span>
+            </a>
           </div>
           <p className={styles.otherPaths}>
-            Breadboard, laser-cut, or an older v2 board? Every route is in the assembly map.
+            No custom PCB, or an older v2 board? Every route is in the assembly map.
           </p>
           <div className={styles.pathLinks}>
             <a className="pf-link" href="https://github.com/engmung/Patternflow/blob/main/docs/assembly/README.md" target="_blank" rel="noreferrer">
               Open the assembly map
+            </a>
+            <Link className="pf-link" href="/build/breadboard">
+              Breadboard guide
+            </Link>
+            <a className="pf-link" href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE_v2.md" target="_blank" rel="noreferrer">
+              v2 board guide
             </a>
           </div>
         </div>
