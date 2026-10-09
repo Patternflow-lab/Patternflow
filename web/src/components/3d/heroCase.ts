@@ -10,7 +10,7 @@ import {
 
 // The product preview's copy of a case model (caseModels.ts), made ready to
 // be drawn: its parts sorted by what they are, measured, and placed so every
-// case stands where the official one does. HeroScene animates what this
+// case stands where the official one does, at the same scale. HeroScene animates what this
 // returns; this file only builds and tears it down.
 //
 // drei keeps one parsed scene per GLB and hands the same one to every
@@ -27,6 +27,11 @@ export interface CasePart {
   /** Where it sits assembled, and its own scale, as the file has them. */
   home: THREE.Vector3;
   homeScale: THREE.Vector3;
+  /**
+   * A piece that comes with the case but is not on the device as it stands
+   * (CaseModel.loose): drawn with the parts to make and on Assemble only.
+   */
+  loose: boolean;
   /** Its box, assembled, in the model's frame. */
   box: THREE.Box3;
   /** The middle of that box: a part that leaves the picture shrinks into it. */
@@ -66,8 +71,7 @@ export interface PreparedCase {
   knobs: KnobRig[];
   /** The LED panel's meshes: the pattern is drawn on them. */
   led: THREE.Mesh[];
-  /** Scales the model to the official device's size and centres it on FRAME_CENTRE. */
-  fitScale: number;
+  /** Centres the model on FRAME_CENTRE: where the model's frame sits in the preview's. */
   fitPosition: THREE.Vector3;
   /** The board with the DevKit on it, assembled, in the model's frame. */
   board: THREE.Box3;
@@ -82,14 +86,6 @@ export interface PreparedCase {
  * centred here, so a case swaps in exactly where the last one stood.
  */
 export const FRAME_CENTRE = new THREE.Vector3(0, 17, 0);
-
-/**
- * The official device's size seen from the front: the diagonal of its box's
- * width and height (246.8 × 326.3 mm), model units. Every case is scaled to
- * it, so each fills the preview as the official one does — a remix a little
- * bigger than the official case is drawn a little smaller, not bigger.
- */
-const OFFICIAL_SPAN = 40.91;
 
 /** The knob's ring: its radius against the knob's, and how far up the knob it sits. */
 const RING_RADIUS = 1.5;
@@ -187,6 +183,7 @@ export function prepareCase(scene: THREE.Object3D, model: CaseModel): PreparedCa
     return {
       node,
       role: roleOf(node.name),
+      loose: model.loose?.includes(node.name) ?? false,
       home: node.position.clone(),
       homeScale: node.scale.clone(),
       box,
@@ -197,11 +194,14 @@ export function prepareCase(scene: THREE.Object3D, model: CaseModel): PreparedCa
     };
   });
 
+  // Every case at the one scale, only centred: the LED panel is the same part
+  // in each (and the knobs, but on Besoiobiy's case, which has its own caps),
+  // so it is drawn the same size, and what differs is what really does, the
+  // case round it (up to 4% across the front's diagonal; Besoiobiy's case is
+  // 8% wider than the official one).
   const device = new THREE.Box3();
   parts.forEach((p) => device.union(p.box));
-  const size = device.getSize(new THREE.Vector3());
-  const fitScale = OFFICIAL_SPAN / Math.hypot(size.x, size.y);
-  const fitPosition = FRAME_CENTRE.clone().sub(device.getCenter(new THREE.Vector3()).multiplyScalar(fitScale));
+  const fitPosition = FRAME_CENTRE.clone().sub(device.getCenter(new THREE.Vector3()));
 
   const board = new THREE.Box3();
   parts.filter((p) => p.role === 'pcb' || p.role === 'devkit').forEach((p) => board.union(p.box));
@@ -283,7 +283,7 @@ export function prepareCase(scene: THREE.Object3D, model: CaseModel): PreparedCa
     return [{ node, ring, tints, height: box.max.z }];
   });
 
-  return { model, root, parts, knobs, led, fitScale, fitPosition, board, looks, owned };
+  return { model, root, parts, knobs, led, fitPosition, board, looks, owned };
 }
 
 /** The knob a pointer is on, if it is on one: the knob itself, its ring or its hit disc. */

@@ -22,13 +22,19 @@ const hex = (h, alpha = 1) => {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => srgbToLinear(v / 255)).concat(alpha);
 };
 
-// Clear acrylic: barely tinted, glossy, mostly see-through; its cut edges
-// read brighter and a touch green, as a sheet's edges do.
-const ACRYLIC_FACE = { color: hex('#f4f8f7', 0.22), roughness: 0.08, blend: true };
-const ACRYLIC_EDGE = { color: hex('#d9ece6', 0.6), roughness: 0.25, blend: true };
+// Clear acrylic: glossy and nearly all see-through, so what is behind it —
+// the page, the board — is what shows, as the carpet does through the sheet
+// in the remix's photo. Its cut edges are where a sheet shows itself: darker
+// and cool green, as light run along the sheet comes out of them.
+const ACRYLIC_FACE = { color: hex('#e6efed', 0.12), roughness: 0.08, blend: true };
+const ACRYLIC_EDGE = { color: hex('#8fb5ad', 0.7), roughness: 0.25, blend: true };
 
 export const LOOKS = {
-  pla_white: { color: hex('#eceae4'), roughness: 0.72 },
+  // A neutral white. White PLA photographs anywhere from cool to cream with
+  // the light it is under (the build photos run from b* −6 to +11), so the
+  // filament itself is drawn without a cast, and matte: a warmer white read
+  // as beige once the page's light got bright.
+  pla_white: { color: hex('#f4f4f2'), roughness: 0.85 },
   pla_black: { color: hex('#151515'), roughness: 0.55 },
   sheet_face: ACRYLIC_FACE,
   sheet_edge: ACRYLIC_EDGE,

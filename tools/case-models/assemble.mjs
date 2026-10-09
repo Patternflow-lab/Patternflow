@@ -8,8 +8,9 @@
 // panel, the v3.9 board, the ESP32 DevKit on its sockets, and four knobs. The
 // shell comes from the case's own script (besoiobiy.py, simonepda.py; for the
 // official case, the guide's case-v39.glb); everything else comes from the
-// files the guide uses, moved to where this case holds them. placement.json
-// says where that is:
+// files the guide uses, and the official knob from the STL people print
+// (lib/knob.mjs), moved to where this case holds them. placement.json says
+// where that is:
 //
 //   {
 //     "board": [dx, dy, dz],   // added to the official case's board, DevKit and knobs
@@ -41,10 +42,13 @@ import { MeshoptSimplifier } from 'meshoptimizer';
 import { getIO, worldBounds, fmt } from './lib/io.mjs';
 import { DEVKIT_SEAT, KNOB_BASES, PCB_PLACEMENT, add3 } from './lib/frame.mjs';
 import { applyLooks } from './lib/looks.mjs';
+import { knobMesh } from './lib/knob.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 const GUIDE = path.join(REPO, 'web/public/guide');
+/** The official knob, as printed (the BOM's 20 mm shaft). */
+const KNOB_STL = path.join(REPO, 'hardware/case/knobs/knobs_20mm.stl');
 const OUT_DIR = path.join(REPO, 'web/public/cases');
 
 /** How far the board and the DevKit are simplified (meshoptimizer, fraction of triangles kept, error bound relative to the mesh). */
@@ -94,8 +98,8 @@ function adopt(target, source) {
 let shellDoc;
 let placement;
 if (caseId === 'official') {
-  // The v3.9 case, as the guide has it, without its knobs (added below with
-  // the others) — the knobs are in the same file, at the same places.
+  // The v3.9 case, as the guide has it, without its knobs: the official knob
+  // is made below from knobs_20mm.stl, on the same bases.
   shellDoc = await io.read(path.join(GUIDE, 'case-v39.glb'));
   // No "led": the panel stays exactly where the source file has it.
   placement = { board: [0, 0, 0], knobs: 'official' };
@@ -123,19 +127,15 @@ const ledRoots = adopt(doc, await io.read(path.join(HERE, 'source/led_panel.glb'
 if (placement.led) ledRoots.l.setTranslation(placement.led);
 
 // The knobs: the official ones, on the encoder axes of the board as placed.
+// The printed knob's own profile (knobs_20mm.stl) turned round, one mesh for
+// all four: case-v39.glb has the same knob as a 32-sided prism.
 if (placement.knobs === 'official') {
-  const knobDoc = await io.read(path.join(GUIDE, 'case-v39.glb'));
-  for (const n of knobDoc.getRoot().listNodes()) {
-    if (!/^c[1-4]$/.test(n.getName())) n.dispose();
-  }
-  await knobDoc.transform(prune({ keepAttributes: true }));
-  const black = knobDoc.createMaterial('pla_black');
-  for (const n of knobDoc.getRoot().listNodes()) n.getMesh()?.listPrimitives().forEach((p) => p.setMaterial(black));
-  const knobs = adopt(doc, knobDoc);
+  const knob = knobMesh(doc, KNOB_STL, doc.createMaterial('pla_black'));
+  const scene = doc.getRoot().listScenes()[0];
   for (const [name, base] of Object.entries(KNOB_BASES)) {
     const t = add3(base, board);
     if (placement.knobBaseZ !== undefined) t[2] = placement.knobBaseZ;
-    knobs[name].setTranslation(t);
+    scene.addChild(doc.createNode(name).setMesh(knob).setTranslation(t));
   }
 } else {
   for (const name of Object.keys(KNOB_BASES)) {

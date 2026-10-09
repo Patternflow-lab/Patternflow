@@ -19,9 +19,10 @@ import {
   type RefObject,
 } from 'react';
 import * as THREE from 'three';
-import { useGLTF, ContactShadows, Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { patternVert } from './patterns/common';
+import { useGLTF, ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
+import { ledPanel, ledVert } from './patterns/common';
 import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
@@ -35,10 +36,12 @@ import {
   knobUnder,
   prepareCase,
   type KnobRig,
-  type PartRole,
   type PreparedCase,
 } from './heroCase';
+import { poseFor, shows } from './buildPose';
 import CaseFinishSwitch from './CaseFinishSwitch';
+import { PageAlpha, StraightAlpha } from './canvasAlpha';
+import { NeutralToeBack } from './neutralToe';
 import styles from './HeroScene.module.css';
 
 // The product preview on the Build and Pattern tabs: the device in the case
@@ -51,22 +54,15 @@ import styles from './HeroScene.module.css';
 const customFragmentShader = `
 uniform sampler2D uTex;
 varying vec2 vUv;
+${ledPanel}
 
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
   vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
-  vec2 localUV = fract(gridUV);
 
   // Sample discrete pixels to enforce pixelation
   vec2 pxUV = (floor(gridUV) + 0.5) / vec2(128.0, 64.0);
   vec4 texColor = texture2D(uTex, pxUV);
-
-  float dist2 = length(localUV - 0.5);
-  float circle = smoothstep(0.45, 0.35, dist2);
-
-  float fw = fwidth(vUv.x) * 128.0;
-  float lodBlend = smoothstep(0.0, 0.29, fw);
-  float finalAlpha = mix(circle, 1.0, lodBlend);
 
   vec3 col = texColor.rgb;
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
@@ -77,10 +73,7 @@ void main() {
     col *= 0.8;
   }
 
-  float unlit = 0.02;
-  col = mix(vec3(unlit), col, step(0.01, length(col)));
-
-  gl_FragColor = vec4(col * finalAlpha, 1.0);
+  gl_FragColor = vec4(ledPanel(col), 1.0);
 }
 `;
 
@@ -108,75 +101,10 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 /**
  * Solder (step 2) shows the board alone, filling the view: the diagonal of
  * the board-and-DevKit's box, seen from the front, is drawn this many world
- * units across. The device as a whole is 4.09 at the resting scale.
+ * units across. The official device as a whole is 4.09 at the resting scale
+ * (the remixes, up to 4% more).
  */
 const BOARD_SPAN = 3.1;
-/**
- * …and turned to the back, at an angle: the DevKit on its sockets faces the
- * reader, and the encoders' shafts stand out past the board's edge, so both
- * sides of what is soldered read in one view.
- */
-const BOARD_TURN = Math.PI - 0.8;
-
-/** What each Build step shows. */
-interface Pose {
-  /** The device's turn about the vertical, radians, and its scale. */
-  turn: number;
-  scale: number;
-  /** A small drift up and down, world units (the idle sway). */
-  lift: number;
-  /** How far the parts stand apart, as a fraction of each one's explode vector. */
-  spread: number;
-  show: Record<PartRole, boolean>;
-  /** Frame the board instead of the whole device. */
-  board: boolean;
-  /** The LED panel is lit (the device has power). */
-  lit: boolean;
-}
-
-const ALL: Record<PartRole, boolean> = { shell: true, knob: true, led: true, pcb: true, devkit: true };
-const CASE_ONLY: Record<PartRole, boolean> = { shell: true, knob: true, led: false, pcb: false, devkit: false };
-const BOARD_ONLY: Record<PartRole, boolean> = { shell: false, knob: false, led: false, pcb: true, devkit: true };
-
-function poseFor(step: number, explode: number, t: number): Pose {
-  switch (step) {
-    // 1. Print / cut the case: its parts and the knobs, drawn a little apart
-    // so it reads as parts to make, nothing inside yet.
-    case 1:
-      return { turn: -0.5, scale: 0.085, lift: 0, spread: 0.4, show: CASE_ONLY, board: false, lit: false };
-    // 2. Solder: the board and the DevKit alone, close. (Its scale comes from
-    // the board's size in the model, BOARD_SPAN, so it is left 0 here.)
-    case 2:
-      return { turn: BOARD_TURN, scale: 0, lift: 0, spread: 0, show: BOARD_ONLY, board: true, lit: false };
-    // 3. Assemble: everything, as far apart as the reader has dragged it.
-    // The view pulls back as the parts separate, rather than snapping between
-    // two framings — the reader is dragging this, so it has to track the drag.
-    case 3:
-      return {
-        turn: -0.5,
-        scale: THREE.MathUtils.lerp(0.11, 0.075, explode),
-        lift: 0,
-        spread: explode,
-        show: ALL,
-        board: false,
-        lit: false,
-      };
-    // 4. Flash and power on: together, lit.
-    case 4:
-      return { turn: -0.5, scale: 0.1, lift: 0, spread: 0, show: ALL, board: false, lit: true };
-    // Idle: together, lit, swaying slowly.
-    default:
-      return {
-        turn: Math.sin(t * 0.15) * 0.45,
-        scale: 0.1,
-        lift: Math.sin(t * 0.3) * 0.03,
-        spread: 0,
-        show: ALL,
-        board: false,
-        lit: true,
-      };
-  }
-}
 
 /** A per-frame easing factor (as at 60 fps) made independent of the frame rate. */
 const ease = (perFrame: number, dt: number) => 1 - Math.pow(1 - perFrame, Math.min(dt, 0.5) * 60);
@@ -249,7 +177,7 @@ function CaseDevice({
   useEffect(() => applyFinish(prepared, finish), [prepared, finish]);
 
   return (
-    <group position={prepared.fitPosition} scale={prepared.fitScale}>
+    <group position={prepared.fitPosition}>
       {/* dispose={null}: the geometry is drei's cache's; disposeCase lets go of the rest. */}
       <primitive object={prepared.root} dispose={null} {...handlers} />
     </group>
@@ -299,7 +227,7 @@ function ProductPreview({
       uParam4: { value: defaults.uParam4 ?? 0.0 },
       uAspect: { value: 2.0 },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: pattern.fragmentShader,
   }), [pattern, defaults]);
   useEffect(() => () => ledMat.dispose(), [ledMat]);
@@ -308,7 +236,7 @@ function ProductPreview({
     uniforms: {
       uTex: { value: ledMatrix.texture },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
 
@@ -475,7 +403,7 @@ function ProductPreview({
     // move is done, so the framing heads for it from the first frame.
     tmp.box.makeEmpty();
     for (const p of device.parts) {
-      const shown = pose.show[p.role];
+      const shown = shows(pose, p);
       tmp.v.copy(p.apart).multiplyScalar(pose.spread);
       if (shown) tmp.box.union(tmp.part.copy(p.box).translate(tmp.v));
       p.offset.lerp(tmp.v, kPart);
@@ -499,15 +427,15 @@ function ProductPreview({
     }
 
     // Framing. The aim, in the group's frame: the board on Solder, otherwise
-    // the middle of what is shown. Every case is centred and sized alike
-    // (prepareCase), so a swap lands where the last case stood.
+    // the middle of what is shown. Every case is centred alike and drawn at
+    // one scale (prepareCase), so a swap lands where the last case stood.
     if (pose.board) tmp.box.copy(device.board);
     if (tmp.box.isEmpty()) tmp.box.copy(device.board);
-    tmp.box.getCenter(tmp.aim).multiplyScalar(device.fitScale).add(device.fitPosition);
+    tmp.box.getCenter(tmp.aim).add(device.fitPosition);
     let scale = pose.scale;
     if (pose.board) {
       const size = device.board.getSize(tmp.v);
-      scale = BOARD_SPAN / (Math.hypot(size.x, size.y) * device.fitScale);
+      scale = BOARD_SPAN / Math.hypot(size.x, size.y);
     }
 
     group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, pose.turn, kView);
@@ -634,7 +562,19 @@ export default function HeroScene() {
         <directionalLight position={[-4, 3, 4]} intensity={0.4} color="#dde8ff" />
         <directionalLight position={[-2, 5, -6]} intensity={0.5} color="#fff4e0" />
         <pointLight position={[0, -2, 3]} intensity={0.15} color="#e8c89e" distance={15} decay={2} />
-        <Environment preset="city" environmentIntensity={0.25} />
+        {/* The room the reflections and the soft light come from: light
+            panels made here, as on the guide's stage, not an environment map
+            fetched at run time. Each faces the middle (drei aims a
+            Lightformer at the origin). Neutral white, with the left panel a
+            touch cool: the light has no cast of its own. */}
+        <Environment resolution={256} frames={1} environmentIntensity={0.6}>
+          <Lightformer form="rect" intensity={2} color="#ffffff" position={[0, 5, 5]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={0.8} color="#f3f6ff" position={[-6, 1, 1]} scale={[6, 5, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[6, 0, 1]} scale={[6, 4, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 3, -7]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} scale={[0.35, 6, 1]} />
+          <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} scale={[0.25, 5, 1]} />
+        </Environment>
         <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} />
         {loading && (
           <ModelGuard key={wanted} onError={() => onFailed(wanted)}>
@@ -646,8 +586,21 @@ export default function HeroScene() {
         <OrbitControls target={[0, 1.7, 0]} enablePan={false} enableZoom={true} enableRotate={!isDraggingKnob} />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
 
-        {/* 빛 번짐(Glow/Bloom) 효과 */}
+        {/* The frame, in order: the tone curve, on each pixel's own colour
+            (canvasAlpha.tsx), and the glow. The curve is Neutral's shoulder:
+            its toe is given back first (neutralToe.tsx), so below the knee
+            the frame is as lit — the white case the white it is drawn, a
+            pure LED colour pure (patterns/common.ts holds it at the knee),
+            the dark parts as dark as they are. What is brighter than that, an
+            LED's white core or a highlight, is rolled off with its channels
+            together, rather than one channel clipping before the others and
+            leaving the rest yellow. The glow then takes what the LED shader
+            runs past 2.0. */}
         <EffectComposer enableNormalPass={false}>
+          <StraightAlpha />
+          <NeutralToeBack />
+          <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <PageAlpha />
           <Bloom
             luminanceThreshold={2.0}
             mipmapBlur={false}

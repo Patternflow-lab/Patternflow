@@ -121,8 +121,36 @@ describe('prepareCase', () => {
     const prepared = prepareCase(cachedScene(), MODEL);
     const box = new THREE.Box3();
     prepared.parts.forEach((p) => box.union(p.box));
-    const centre = box.getCenter(new THREE.Vector3()).multiplyScalar(prepared.fitScale).add(prepared.fitPosition);
+    const centre = box.getCenter(new THREE.Vector3()).add(prepared.fitPosition);
     expect(centre.distanceTo(FRAME_CENTRE)).toBeLessThan(1e-9);
+  });
+
+  it('draws every case at one scale: a bigger case does not shrink the panel in it', () => {
+    const small = prepareCase(cachedScene(), MODEL);
+    const scene = cachedScene();
+    const plate = scene.getObjectByName('plate') as THREE.Mesh;
+    plate.geometry = new THREE.BoxGeometry(27, 35, 0.3);
+    const big = prepareCase(scene, MODEL);
+    const panel = (c: typeof small) => c.parts.find((p) => p.role === 'led')!.box.getSize(new THREE.Vector3());
+    expect(panel(big).toArray()).toEqual(panel(small).toArray());
+    [16, 32, 1.7].forEach((size, i) => expect(panel(big).getComponent(i)).toBeCloseTo(size, 5));
+    // Placing it is a move and nothing else: the copy is not scaled, and
+    // there is no scale for the preview to put on it (it used to get one,
+    // fitScale, that drew a bigger case smaller).
+    expect(big.root.scale.toArray()).toEqual([1, 1, 1]);
+    expect(Object.keys(big)).not.toContain('fitScale');
+  });
+
+  it('marks the case’s loose pieces, and only those', () => {
+    const scene = cachedScene();
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 3), std('sheet_face'));
+    foot.name = 'foot_1';
+    foot.position.set(10, 2, -2);
+    scene.add(foot);
+    const prepared = prepareCase(scene, { ...MODEL, loose: ['foot_1'] });
+    const loose = prepared.parts.filter((p) => p.loose).map((p) => p.node.name);
+    expect(loose).toEqual(['foot_1']);
+    expect(prepared.parts.find((p) => p.node.name === 'foot_1')!.role).toBe('shell');
   });
 });
 

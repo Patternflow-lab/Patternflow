@@ -12,9 +12,9 @@ Run `./build.sh` to make all three again (or `./build.sh <case>` for one). The m
 
 | Model | Size | Loads |
 | :--- | ---: | :--- |
-| `official/model.glb` | 316 KB | with the page (the guide uses it too) |
+| `official/model.glb` | 317 KB | with the page (the guide uses it too) |
 | `besoiobiy-printed/model.glb` | 345 KB | when its tab is hovered or picked |
-| `simonepda-lasercut/model.glb` | 331 KB | when its tab is hovered or picked |
+| `simonepda-lasercut/model.glb` | 332 KB | when its tab is hovered or picked |
 
 The landing page's model before these, `web/public/3dforweb.glb` (a v3.0 device), was 1,155 KB and loaded with the page.
 
@@ -36,11 +36,11 @@ A case script makes the case's *shell*: one mesh per part, assembled, in the mod
 { "board": [dx, dy, dz], "led": [x, y, z], "knobs": "official" | "shell", "knobBaseZ": z }
 ```
 
-`board` is added to where the official case has the board, the DevKit and the knobs; `led` is the panel node's translation, its z the LED face; `knobs` says whether the shell has its own `c1` … `c4` or takes the official ones (standing at `knobBaseZ`). `assemble.mjs` then adds what every case has, from the files the guide uses:
+`board` is added to where the official case has the board, the DevKit and the knobs; `led` is the panel node's translation, its z the LED face; `knobs` says whether the shell has its own `c1` … `c4` or takes the official ones (standing at `knobBaseZ`). `assemble.mjs` then adds what every case has, from the files the guide uses and the knob's STL:
 
 - the LED panel, `source/led_panel.glb`: the node `l` of the landing page's old model, its name, transform, geometry and UVs unchanged. `extract_led.mjs` took it out; the old file is at `git show v3.11.0:web/public/3dforweb.glb`;
 - the v3.9 board, `web/public/guide/pcb-v39.glb`, and the DevKit, `web/public/guide/devkit.glb`, simplified with meshoptimizer — the preview shows them small, through a case;
-- the official knobs from `case-v39.glb`, unless the case has its own;
+- the official knob, unless the case has its own: the knob people print, `hardware/case/knobs/knobs_20mm.stl`, read and turned round (`lib/knob.mjs`, below), one mesh for all four;
 
 sets every material's look by name (`lib/looks.mjs`; materials merge only when their names match, since the page swaps looks by name), compresses the meshes with Draco like the site's other models, and writes `web/public/cases/<case>/model.glb`.
 
@@ -66,6 +66,10 @@ Every other top-level node is a part of the case, named by its script. Where eac
 ## Official: `assemble.mjs official`
 
 The guide's v3.9 case (`body`, `back_plate`, `back_slider`, `top_lid`) in white PLA, with the knobs, the board and the DevKit where the guide seats them. There is no shell script: the case is already in the model frame.
+
+### The official knob: `lib/knob.mjs`
+
+`case-v39.glb` has the knob as exported from the STL, a 32-sided prism, and at the size the preview draws it its flats and corners show. `lib/knob.mjs` reads `hardware/case/knobs/knobs_20mm.stl` instead: it takes one of the file's four knobs, measures its radius at every height the STL has vertices at, and turns that profile about the knob's axis with 96 sides. It keeps the outside (20 mm tall, 16.26 mm across the base, 12.89 mm across the top, a little convex), the open recess under it and the bore; it leaves out the 16 flutes round the top half, 0.14 mm deep, and the D's flat in the bore, and rounds the top edge by 0.4 mm so it catches the light (a choice for the preview: the knob prints on its top, and that edge comes off the bed sharp). Bends under 35° are smooth, the rest are edges. It stops if the STL is no longer that knob (its height and both diameters are checked). The knob's base stands where `case-v39.glb`'s does, 0.8 mm off the front.
 
 ## Besoiobiy: `besoiobiy.py`
 
@@ -107,9 +111,11 @@ The plate, strips and feet use `sheet_face`/`sheet_edge`; the page shows them as
 
 - **Loading.** Only the official model is preloaded with the page. A remix's model loads when it is picked, or when its tab is hovered (`preloadCaseModel.ts`). The current case stays on screen until the new model has arrived. A model that fails to load is caught, and the official case stays up.
 - **Its own copy.** The preview works on a deep clone of drei's cached scene, with its own copy of each material, so it never changes the cached scene, which the guide may be given too. It finds the parts by the node names above; every other top-level node is treated as a piece of the case.
-- **Placement.** The model is measured once when it arrives. It is centred on the preview's orbit target and scaled so its front outline (the diagonal of its box's width and height) matches the official device's. A case bigger than the official one is drawn a little smaller, so all three cases stand in the same place at the same size; a script does not need to match the official case's size or origin, only the frame's axes and units.
+- **Placement.** The model is measured once when it arrives and centred on the preview's orbit target. Every case is drawn at the same scale: the LED panel is the same part in each (and the knobs, except Besoiobiy's own caps), so it is the same size on screen, and what differs is the case round it (up to 4% across the front's diagonal; Besoiobiy's case is 8% wider than the official one). A script does not need to match the official case's origin, only the frame's axes and units.
 - **The Build steps** use what `web/src/components/3d/cases/<case>.ts` gives: step 1 shows the case pieces and knobs at 40% of their explode vectors; step 2 shows the board and DevKit, framed on their box; step 3 moves every top-level node by its explode vector times the panel's slider.
 - **Finishes.** A case's alternative finishes recolour materials by name over the file's own. A look below full opacity is drawn see-through: blended, not writing depth, and casting no shadow.
+- **Loose pieces.** Top-level nodes a case's entry lists as `loose` come with the case but are not on it as it stands: SimonePDA's three feet, for laying it flat. They are drawn with the parts (step 1) and on Assemble (step 3), not on the device standing and lit.
+- **Light and colour.** The preview's light is its own, made on the page from Lightformers (no environment map is downloaded), and its frame goes through the shoulder of the Neutral tone curve: the curve's toe, which would crush dark colours, is given back first (`neutralToe.tsx`), so below the knee a look is drawn as lit, and only what is brighter rolls off, its channels together. So the white PLA is the white `lib/looks.mjs` gives it, under a light without a cast.
 
 ## Adding a case
 
