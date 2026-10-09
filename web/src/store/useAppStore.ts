@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { CaseId } from '@/components/sections/build-cases-data';
 
 export type SectionType = 'hero' | 'case' | 'pcb' | 'assembly' | 'firmware' | 'inside';
 
@@ -42,6 +43,16 @@ interface AppState {
   // separation to the reader instead of animating it at them.
   explode: number;
   setExplode: (explode: number) => void;
+  // Which case the Build panel's switch is on. The product preview shows the
+  // device in it (components/3d/caseModels.ts), on every tab that shows the
+  // product, so the case a reader picked stays the one they look at.
+  buildCase: CaseId;
+  setBuildCase: (id: CaseId) => void;
+  // For a case that comes in more than one finish (caseModels.ts: finishes),
+  // which one the preview shows. Kept per case, so going back to it keeps the
+  // reader's pick; a case without an entry shows its first finish.
+  caseFinish: Partial<Record<CaseId, string>>;
+  setCaseFinish: (id: CaseId, finish: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -111,4 +122,9 @@ export function draw(display, params, globalTime) {
   setBuildStep: (step) => set({ buildStep: step }),
   explode: 1,
   setExplode: (val) => set({ explode: val }),
+  buildCase: 'official',
+  setBuildCase: (id) => set({ buildCase: id }),
+  caseFinish: {},
+  setCaseFinish: (id, finish) =>
+    set((state) => ({ caseFinish: { ...state.caseFinish, [id]: finish } })),
 }));
