@@ -134,8 +134,11 @@ describe('prepareCase', () => {
     const panel = (c: typeof small) => c.parts.find((p) => p.role === 'led')!.box.getSize(new THREE.Vector3());
     expect(panel(big).toArray()).toEqual(panel(small).toArray());
     [16, 32, 1.7].forEach((size, i) => expect(panel(big).getComponent(i)).toBeCloseTo(size, 5));
-    // Placing it is a move and nothing else.
+    // Placing it is a move and nothing else: the copy is not scaled, and
+    // there is no scale for the preview to put on it (it used to get one,
+    // fitScale, that drew a bigger case smaller).
     expect(big.root.scale.toArray()).toEqual([1, 1, 1]);
+    expect(Object.keys(big)).not.toContain('fitScale');
   });
 
   it('marks the case’s loose pieces, and only those', () => {

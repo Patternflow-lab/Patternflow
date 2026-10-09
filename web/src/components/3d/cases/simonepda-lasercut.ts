@@ -37,9 +37,11 @@ export const SIMONEPDA_MODEL: CaseModel = {
     foot_3: [0, 0, -12],
   },
   // The three open cubes are feet for laying the case flat on a table, and
-  // neither build in the remix's photos has them on: through the clear sheet
-  // they would stand behind the panel. They are cut with the rest and shown
-  // with it, on Assemble too, but not on the device standing and lit.
+  // neither build in the remix's photos has them on. In the model they sit on
+  // the sheet's back at three corners, two poking out past the panel's and
+  // one beside the box, and the clear sheet shows all three from the front.
+  // They are cut with the rest and shown with it, on Assemble too, but not on
+  // the device standing and lit.
   loose: ['foot_1', 'foot_2', 'foot_3'],
   // The file is the clear acrylic build. The MDF one is the same drawing cut
   // from 2.8 mm board: a light tan face, and edges the laser burns dark brown

@@ -9,7 +9,8 @@
 // under it that clears the encoder's nut; and the bore for the shaft. What it
 // does not keep: the 16 flutes round the top half, 0.14 mm deep, too fine to
 // see here, and the D's flat in the bore, which nothing shows. The top edge
-// gets a 0.4 mm round, as a print's top edge has, so it catches the light.
+// gets a 0.4 mm round so it catches the light: a choice for the preview, as
+// the knob prints standing on its top and that edge comes off the bed sharp.
 //
 // The knob's frame is the case models' contract (caseModels.ts): the origin
 // on its axis at its base, the axis +z, one unit 10 mm.
@@ -41,8 +42,9 @@ const near = (a, b, tol, what) => {
 
 /**
  * The profile of one knob of the STL, in mm: [r, h] points with h up from the
- * base, as one closed outline of the solid's section, going round so that the
- * solid is on the left (the outward normal of a step [dr, dh] is [-dh, dr]).
+ * base, as one outline of the solid's section from the axis round to the
+ * axis, clockwise with r to the right and h up, so the solid is on the right
+ * of each step and its outward normal is the step's left normal: [-dh, dr].
  */
 export function knobProfile(stlFile) {
   const v = readStl(stlFile);
@@ -92,7 +94,8 @@ export function knobProfile(stlFile) {
   const coneStart = bore.find((l) => Math.abs(l.max - boreR) < 1e-3 && l !== ceiling);
   const boreEnd = bore[0];
 
-  // What the knob is (the remix README and the BOM's 20 mm shaft): stop if
+  // What the knob is (hardware/case/README.md's knob for the BOM's 20 mm
+  // shaft, as measured from this STL when this was written): stop if
   // the file has become something else rather than draw it wrong.
   near(height, 20, 0.05, 'height');
   near(2 * rBase, 16.26, 0.1, 'base diameter');

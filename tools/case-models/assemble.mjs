@@ -8,8 +8,9 @@
 // panel, the v3.9 board, the ESP32 DevKit on its sockets, and four knobs. The
 // shell comes from the case's own script (besoiobiy.py, simonepda.py; for the
 // official case, the guide's case-v39.glb); everything else comes from the
-// files the guide uses, moved to where this case holds them. placement.json
-// says where that is:
+// files the guide uses, and the official knob from the STL people print
+// (lib/knob.mjs), moved to where this case holds them. placement.json says
+// where that is:
 //
 //   {
 //     "board": [dx, dy, dz],   // added to the official case's board, DevKit and knobs
@@ -97,8 +98,8 @@ function adopt(target, source) {
 let shellDoc;
 let placement;
 if (caseId === 'official') {
-  // The v3.9 case, as the guide has it, without its knobs (added below with
-  // the others) — the knobs are in the same file, at the same places.
+  // The v3.9 case, as the guide has it, without its knobs: the official knob
+  // is made below from knobs_20mm.stl, on the same bases.
   shellDoc = await io.read(path.join(GUIDE, 'case-v39.glb'));
   // No "led": the panel stays exactly where the source file has it.
   placement = { board: [0, 0, 0], knobs: 'official' };

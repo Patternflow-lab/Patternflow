@@ -36,9 +36,9 @@ import {
   knobUnder,
   prepareCase,
   type KnobRig,
-  type PartRole,
   type PreparedCase,
 } from './heroCase';
+import { poseFor, shows } from './buildPose';
 import CaseFinishSwitch from './CaseFinishSwitch';
 import { PageAlpha, StraightAlpha } from './canvasAlpha';
 import styles from './HeroScene.module.css';
@@ -100,79 +100,10 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 /**
  * Solder (step 2) shows the board alone, filling the view: the diagonal of
  * the board-and-DevKit's box, seen from the front, is drawn this many world
- * units across. The device as a whole is 4.09 at the resting scale.
+ * units across. The official device as a whole is 4.09 at the resting scale
+ * (the remixes, up to 4% more).
  */
 const BOARD_SPAN = 3.1;
-/**
- * …and turned to the back, at an angle: the DevKit on its sockets faces the
- * reader, and the encoders' shafts stand out past the board's edge, so both
- * sides of what is soldered read in one view.
- */
-const BOARD_TURN = Math.PI - 0.8;
-
-/** What each Build step shows. */
-interface Pose {
-  /** The device's turn about the vertical, radians, and its scale. */
-  turn: number;
-  scale: number;
-  /** A small drift up and down, world units (the idle sway). */
-  lift: number;
-  /** How far the parts stand apart, as a fraction of each one's explode vector. */
-  spread: number;
-  show: Record<PartRole, boolean>;
-  /** The case's loose pieces (CaseModel.loose) are out too: the parts are being made or put together. */
-  loose: boolean;
-  /** Frame the board instead of the whole device. */
-  board: boolean;
-  /** The LED panel is lit (the device has power). */
-  lit: boolean;
-}
-
-const ALL: Record<PartRole, boolean> = { shell: true, knob: true, led: true, pcb: true, devkit: true };
-const CASE_ONLY: Record<PartRole, boolean> = { shell: true, knob: true, led: false, pcb: false, devkit: false };
-const BOARD_ONLY: Record<PartRole, boolean> = { shell: false, knob: false, led: false, pcb: true, devkit: true };
-
-function poseFor(step: number, explode: number, t: number): Pose {
-  switch (step) {
-    // 1. Print / cut the case: its parts and the knobs, drawn a little apart
-    // so it reads as parts to make, nothing inside yet.
-    case 1:
-      return { turn: -0.5, scale: 0.085, lift: 0, spread: 0.4, show: CASE_ONLY, loose: true, board: false, lit: false };
-    // 2. Solder: the board and the DevKit alone, close. (Its scale comes from
-    // the board's size in the model, BOARD_SPAN, so it is left 0 here.)
-    case 2:
-      return { turn: BOARD_TURN, scale: 0, lift: 0, spread: 0, show: BOARD_ONLY, loose: false, board: true, lit: false };
-    // 3. Assemble: everything, as far apart as the reader has dragged it.
-    // The view pulls back as the parts separate, rather than snapping between
-    // two framings — the reader is dragging this, so it has to track the drag.
-    case 3:
-      return {
-        turn: -0.5,
-        scale: THREE.MathUtils.lerp(0.11, 0.075, explode),
-        lift: 0,
-        spread: explode,
-        show: ALL,
-        loose: true,
-        board: false,
-        lit: false,
-      };
-    // 4. Flash and power on: together, lit.
-    case 4:
-      return { turn: -0.5, scale: 0.1, lift: 0, spread: 0, show: ALL, loose: false, board: false, lit: true };
-    // Idle: together, lit, swaying slowly.
-    default:
-      return {
-        turn: Math.sin(t * 0.15) * 0.45,
-        scale: 0.1,
-        lift: Math.sin(t * 0.3) * 0.03,
-        spread: 0,
-        show: ALL,
-        loose: false,
-        board: false,
-        lit: true,
-      };
-  }
-}
 
 /** A per-frame easing factor (as at 60 fps) made independent of the frame rate. */
 const ease = (perFrame: number, dt: number) => 1 - Math.pow(1 - perFrame, Math.min(dt, 0.5) * 60);
@@ -471,7 +402,7 @@ function ProductPreview({
     // move is done, so the framing heads for it from the first frame.
     tmp.box.makeEmpty();
     for (const p of device.parts) {
-      const shown = pose.show[p.role] && (pose.loose || !p.loose);
+      const shown = shows(pose, p);
       tmp.v.copy(p.apart).multiplyScalar(pose.spread);
       if (shown) tmp.box.union(tmp.part.copy(p.box).translate(tmp.v));
       p.offset.lerp(tmp.v, kPart);
@@ -651,12 +582,14 @@ export default function HeroScene() {
 
         {/* The frame, in order: the tone curve, on each pixel's own colour
             (canvasAlpha.tsx), and the glow. Neutral, because below its knee
-            it changes nothing: the white case stays the white it is drawn,
-            and an LED's colour keeps its hue (patterns/common.ts holds it
-            under the knee); only what is brighter than white, an LED's white
-            core or a highlight, is rolled off, together, rather than one
-            channel clipping before the others and leaving the rest yellow.
-            The glow then takes what the LED shader runs past 2.0, the whites. */}
+            it only takes the same small amount (0.04 at most) off every
+            channel: the white case stays a white without a cast, and a pure
+            LED colour stays pure (patterns/common.ts holds it at the
+            knee). What is brighter than white, an LED's white core or a
+            highlight, is rolled off with its channels together, rather than
+            one channel clipping before the others and leaving the rest
+            yellow. The glow then takes what the LED shader runs past 2.0,
+            the whites. */}
         <EffectComposer enableNormalPass={false}>
           <StraightAlpha />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />

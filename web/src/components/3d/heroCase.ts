@@ -194,9 +194,11 @@ export function prepareCase(scene: THREE.Object3D, model: CaseModel): PreparedCa
     };
   });
 
-  // Every case at the one scale, only centred: the panel and the knobs are
-  // the same parts in each, so they are drawn the same size, and what differs
-  // is what really does, the case round them (up to 4% across the three).
+  // Every case at the one scale, only centred: the LED panel is the same part
+  // in each (and the knobs, but on Besoiobiy's case, which has its own caps),
+  // so it is drawn the same size, and what differs is what really does, the
+  // case round it (up to 4% across the front's diagonal; Besoiobiy's case is
+  // 8% wider than the official one).
   const device = new THREE.Box3();
   parts.forEach((p) => device.union(p.box));
   const fitPosition = FRAME_CENTRE.clone().sub(device.getCenter(new THREE.Vector3()));
