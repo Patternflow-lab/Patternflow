@@ -64,6 +64,9 @@ export const CASE_MODELS: Record<CaseId, CaseModel> = {
   'simonepda-lasercut': SIMONEPDA_MODEL,
 };
 
+/** Where the Draco decoder comes from: the same copy the guide's models use. */
+export const DRACO_DECODER = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
+
 /** The parts every model has, by name (see above). */
 export const LED_NODE = 'l';
 export const KNOB_NODES = ['c1', 'c2', 'c3', 'c4'] as const;
