@@ -53,8 +53,10 @@ export interface BuildCase {
   parts: string;
   verified: string;
   license: string;
-  /** What to check on your own panel before printing or cutting, if anything. */
-  caution?: string;
+  /** What to check on your own panel before printing or cutting, and the
+      README section that says how. */
+  caution: string;
+  cautionHref: string;
   /** How this case relates to the written build guide. */
   guide: string;
   /** The first two show on the card; all of them open in the viewer. */
@@ -82,12 +84,14 @@ export const BUILD_CASES: BuildCase[] = [
       'The case the build guide walks through and the 3D model on this page shows: a frame for the panel and a bay for the board and the power bank, with a snap-fit back panel and two wall-mount holes. On a 256 mm bed it prints in halves you glue right after printing; on a 330 mm bed it is one piece.',
     author: { name: 'Patternflow', note: 'the project’s own design' },
     material: 'White PLA for the body, black PLA for the knobs, as a separate print.',
-    fits:
-      'v3.9 and v3.0 boards, and the panel linked in the BOM. For any other panel, print the adjustable version in for_other_panels/.',
+    fits: 'v3.9 and v3.0 boards, and the panel linked in the BOM. For another panel there is an adjustable version, in for_other_panels/.',
     make: 'About 10 hours on a 256 mm bed (Bambu P1S, X1C or A1 class), then the knobs. One piece, no gluing, on a ~330 mm bed.',
     parts: '6–12 M4 screws, about 10 mm, for the panel; CA glue for the halves.',
     verified: 'Print and assembly verified: the assembly video is built from these files.',
     license: 'CC BY-SA 4.0',
+    caution:
+      'The adjustable version in for_other_panels/ is not universal: if your panel’s holes sit far from the BOM panel’s, it may still not fit. Check its mounting part against your panel before the full print.',
+    cautionHref: `${blob(`${OFFICIAL}/README.md`)}#for_other_panels--using-a-different-led-panel`,
     guide:
       'The build guide covers it end to end: printing in section 4, assembly in section 6.',
     photos: [
@@ -99,7 +103,7 @@ export const BUILD_CASES: BuildCase[] = [
       },
       {
         src: '/cases/official/printed_parts.jpg',
-        alt: 'Every part of the 256 mm print laid out: the two frame halves glued, the back panels and the covers, all in white',
+        alt: 'Everything from the 256 mm print laid out before gluing: the two frame halves, the back-panel halves and the covers, all in white',
         width: 1400,
         height: 788,
       },
@@ -149,13 +153,14 @@ export const BUILD_CASES: BuildCase[] = [
     },
     material:
       'PLA, set up for a Bambu Lab P1S with a 0.4 mm nozzle. White case, black knob caps.',
-    fits: 'v3.9 and v3.0 boards, and a 320 × 160 mm panel with M3 sockets on Besoiobiy’s hole pattern, 14.35 mm deep.',
+    fits: 'v3.9 and v3.0 boards, and a 320 × 160 mm panel with M3 sockets on Besoiobiy’s hole pattern, ending 14.35 mm behind the LED face.',
     make: 'Eight parts and four knob caps, each fitting a 256 mm bed on its own. Glue the halves, then set the brass inserts. The print settings are in the 3MF.',
     parts: '8 M3 heat-set inserts (M3 × 8 × 5), 8 M3 × 10 and 12 M3 × 25 countersunk screws, glue.',
     verified: 'Built by its author, and working for a week when they shared it (2026-10-08).',
     license: 'CC BY-SA 4.0',
     caution:
-      'As drawn, this case takes an M3 panel on Besoiobiy’s hole pattern, with sockets 14.35 mm deep. The panel linked in the BOM takes M4 screws on a different pattern, so for that one the frame’s tabs and covers have to be redrawn from the Blender source.',
+      'As drawn, this case takes an M3 panel on Besoiobiy’s hole pattern, whose sockets end 14.35 mm behind the LED face and are threaded at least about 8.5 mm deep. The panel linked in the BOM takes M4 screws on a different pattern, so for that one the frame’s tabs and covers have to be redrawn from the Blender source.',
+    cautionHref: `${blob(`${BESOIOBIY}/README.md`)}#check-your-panel-first`,
     guide:
       'Its README replaces sections 4 and 6 of the build guide, and changes the order of 7 to 9: the panel is wired before its covers go on.',
     photos: [
@@ -211,7 +216,7 @@ export const BUILD_CASES: BuildCase[] = [
     kind: 'remix',
     name: 'Simone Majocchi’s laser-cut case',
     summary:
-      'The whole body is one flat sheet. The panel screws on from behind into its own inserts, four strips guard the LEDs at its edge, and the board sits beside it under a small finger-jointed box, its four encoder shafts coming through to the front. Three open cubes are feet for laying it flat.',
+      'The body is cut from sheet: one flat plate carries everything. The panel screws on from behind into its own inserts, four strips guard the LEDs at its edge, and the board sits beside it under a small finger-jointed box, its four encoder shafts coming through to the front. Three open cubes are feet for laying it flat.',
     author: {
       name: 'Simone Majocchi',
       note: 'SimonePDA',
@@ -219,12 +224,13 @@ export const BUILD_CASES: BuildCase[] = [
     },
     material: '3 mm acrylic (about 2.75 mm with the film off) or 2.8 mm MDF, laser cut.',
     fits: 'v3.9 and v3.0 boards (built on v3.0; v3.9 has the same outline), and a 320 × 160 mm panel.',
-    make: 'One 256 × 340 mm sheet, which has to fit your cutter’s bed whole. The knobs are not in the drawing: print the official ones, or fit any that suit your shafts.',
+    make: 'Three pages of the drawing to cut: the plate (page 3), 256 × 340 mm, which has to fit your cutter’s bed whole; the four border strips (page 1); and the box and the three feet (page 5). The knobs are not in the drawing: print the official ones, or fit any that suit your shafts.',
     parts: 'Panel screws of 10 or 12 mm at most, M4 or M3 to suit your panel; tape or glue for the box.',
     verified: 'Cut three times by its author, in acrylic and in MDF (2026-10-05).',
     license: 'CC BY-SA 4.0, except page 6 of the PDF, a panel maker’s drawing',
     caution:
       'Its holes have to sit where the drawing has them, so compare before cutting. Keep the panel screws to 10 or 12 mm: a longer one can pass through the panel’s inserts into its circuit board.',
+    cautionHref: `${blob(`${SIMONE}/README.md`)}#notes-do-not-skip`,
     guide:
       'Its README replaces sections 4 and 6 of the build guide. The soldering, the wiring and the firmware are the same.',
     photos: [
@@ -270,7 +276,7 @@ export const BUILD_CASES: BuildCase[] = [
     ],
     step: {
       title: 'Cut the case',
-      desc: 'Laser-cut one sheet of acrylic or MDF, and print the knobs.',
+      desc: 'Laser-cut the plate, the border strips, the box and the feet, and print the knobs.',
     },
   },
 ];

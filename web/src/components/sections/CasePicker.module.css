@@ -7,6 +7,11 @@
   display: grid;
 }
 
+/* No one-word last line ("… TO MAKE / IT") on a phone. */
+.picker > :global(.pf-kicker) {
+  text-wrap: balance;
+}
+
 /* .panel-body p is a global rule at (0,1,1) — 20px, a 28px bottom margin —
    so every paragraph here is matched with two classes to stay ahead of it. */
 .picker .lead {
@@ -29,7 +34,9 @@
   appearance: none;
   display: grid;
   gap: 4px;
-  align-content: center;
+  /* Start, not centre: on a phone "Printed remix" wraps and "Printed" does
+     not, and centred names would then sit at different heights. */
+  align-content: start;
   min-height: 60px;
   padding: 10px 14px;
   border: 0;
@@ -74,6 +81,11 @@
   letter-spacing: var(--pf-track-mono);
   line-height: 1.35;
   text-transform: uppercase;
+}
+
+/* Faded only on the ink cell, where cream still reads; on white the muted ink
+   is already as light as small text can go. */
+.tab[aria-selected='true'] .tabMethod {
   opacity: 0.8;
 }
 
@@ -172,6 +184,7 @@
   font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.2;
+  text-wrap: balance;
 }
 
 .kind {
@@ -247,6 +260,16 @@
   color: var(--pf-ink);
   font-size: var(--pf-fs-row-d);
   line-height: 1.55;
+}
+
+.caution a {
+  color: var(--pf-ink);
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
 }
 
 .caution strong {

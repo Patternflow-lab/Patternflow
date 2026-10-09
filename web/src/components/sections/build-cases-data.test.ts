@@ -1,14 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import matter from 'gray-matter';
 import { describe, expect, it } from 'vitest';
-import { getSectionContent } from '@/lib/content';
 import { BUILD_CASES, DEFAULT_CASE, findCase } from './build-cases-data';
 
 // The case cards against the repo: every GitHub link points at a path that
-// exists on this tree (a blob at a file, a tree at a folder), every photo is
-// in public/ at the size the card says, each remix card agrees with its own
-// README's header, nothing presents USB-C as power, and content/build.md no
-// longer says the laser-cut case is still being prepared.
+// exists on this tree (a blob at a file, a tree at a folder) and every #anchor
+// at a heading in that file, every photo is in public/ at the size the card
+// says, each remix card agrees with its own README's header, nothing presents
+// USB-C as power, and content/build.md no longer says the laser-cut case is
+// still being prepared. Paths resolve from this file, not the working
+// directory, so the suite runs from the repo root as well as from web/.
 
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const PUBLIC = path.join(REPO_ROOT, 'web/public');
@@ -28,6 +30,24 @@ function jpegSize(file: string): { width: number; height: number } {
     at += 2 + length;
   }
   throw new Error(`${file}: no SOF marker`);
+}
+
+// GitHub's heading anchors: lower case, punctuation dropped (backticks,
+// slashes, dashes of other kinds, brackets), each space a hyphen.
+function anchors(markdown: string): Set<string> {
+  return new Set(
+    markdown
+      .split('\n')
+      .filter((line) => /^#{1,6} /.test(line))
+      .map((line) =>
+        line
+          .replace(/^#{1,6} /, '')
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\p{M} _-]/gu, '')
+          .replace(/ /g, '-'),
+      ),
+  );
 }
 
 function readmeHeader(folder: string): Record<string, string> {
@@ -53,19 +73,28 @@ describe('the case cards', () => {
     expect(findCase(null)).toBeUndefined();
   });
 
-  it.each(BUILD_CASES)('$id links only to paths that exist on this tree', (item) => {
-    const hrefs = [...item.links.map((link) => link.href), item.author.href].filter(Boolean) as string[];
+  it.each(BUILD_CASES)('$id links only to paths and headings that exist on this tree', (item) => {
+    const hrefs = [...item.links.map((link) => link.href), item.author.href, item.cautionHref].filter(
+      Boolean,
+    ) as string[];
     expect(item.links.length).toBeGreaterThanOrEqual(3);
+    // The caution's "How to check" lands on the README section that says how.
+    expect(item.cautionHref).toMatch(GITHUB);
+    expect(item.cautionHref).toContain('#');
     for (const href of hrefs) {
       const match = href.match(GITHUB);
       if (!match) {
         expect(href, 'a link off GitHub is https').toMatch(/^https:\/\//);
         continue;
       }
-      const [, kind, repoPath] = match;
+      const [, kind, target] = match;
+      const [repoPath, anchor] = target.split('#');
       const full = path.join(REPO_ROOT, repoPath);
       expect(fs.existsSync(full), `${href} → ${repoPath} is missing`).toBe(true);
       expect(fs.statSync(full).isDirectory(), `${href}: blob/ wants a file, tree/ a folder`).toBe(kind === 'tree');
+      if (anchor) {
+        expect(anchors(fs.readFileSync(full, 'utf8')), `${href}: no heading for #${anchor}`).toContain(anchor);
+      }
     }
   });
 
@@ -99,9 +128,16 @@ describe('the case cards', () => {
       const readme = fs.readFileSync(path.join(REPO_ROOT, folder, 'README.md'), 'utf8');
       expect(readme).toMatch(/\(4 and 6\)/);
       expect(item.guide).toMatch(/sections 4 and 6/);
-      expect(item.caution, 'a remix says what to check on your panel').toBeTruthy();
     },
   );
+
+  it('sends the laser-cut reader to all three pages of the drawing, not one sheet', () => {
+    const simone = findCase('simonepda-lasercut');
+    expect(simone?.make).toMatch(/page 1/);
+    expect(simone?.make).toMatch(/page 3/);
+    expect(simone?.make).toMatch(/page 5/);
+    expect(simone?.step.desc).not.toMatch(/one sheet/i);
+  });
 
   it('never offers USB-C as power', () => {
     // BUILD_GUIDE §2: J4, the screw terminal, is the only power input.
@@ -111,11 +147,13 @@ describe('the case cards', () => {
 
 describe('content/build.md', () => {
   it('no longer lists the laser-cut case as in preparation', () => {
-    const content = getSectionContent('build');
-    expect(content.title).toBe('Build your own.');
-    expect(content.subtitle).toMatch(/US\$100–200/);
+    // gray-matter, as lib/content.ts reads it — but from this file's path,
+    // where the loader goes by process.cwd().
     const raw = fs.readFileSync(path.join(REPO_ROOT, 'web/content/build.md'), 'utf8');
+    const { data, content } = matter(raw);
+    expect(data.title).toBe('Build your own.');
+    expect(data.subtitle).toMatch(/US\$100–200/);
     expect(raw).not.toMatch(/Preparing|being prepared|in preparation/i);
-    expect(content.content).toMatch(/acrylic or MDF/);
+    expect(content).toMatch(/laser-cut from acrylic or MDF/);
   });
 });

@@ -26,7 +26,10 @@ const STRIP = 2;
 // replaces the whole card below it, and arrow keys move along the three the
 // way they do in any other tab set.
 export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead }: CasePickerProps) {
-  const [viewer, setViewer] = useState<number | null>(null);
+  // The viewer belongs to the case it was opened on. A bare index would
+  // outlive a switch (focus can still reach the tabs behind the viewer) and
+  // point past the end of a case with fewer photos.
+  const [viewer, setViewer] = useState<{ caseId: CaseId; index: number } | null>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const index = Math.max(0, cases.findIndex((item) => item.id === selected.id));
 
@@ -101,7 +104,7 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
                 flexGrow: photo.width / photo.height,
                 aspectRatio: `${photo.width} / ${photo.height}`,
               }}
-              onClick={() => setViewer(photoIndex)}
+              onClick={() => setViewer({ caseId: selected.id, index: photoIndex })}
             >
               <Image src={photo.src} alt={photo.alt} fill sizes="(max-width: 900px) 70vw, 30vw" />
             </button>
@@ -110,7 +113,7 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
         <div className={styles.photoMeta}>
           <span>{selected.credit}</span>
           {selected.photos.length > photos.length && (
-            <button type="button" onClick={() => setViewer(0)}>
+            <button type="button" onClick={() => setViewer({ caseId: selected.id, index: 0 })}>
               All {selected.photos.length} photos
             </button>
           )}
@@ -163,12 +166,20 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
             </div>
           </dl>
 
-          {selected.caution && (
-            <p className={styles.caution}>
-              <strong>Check your panel first</strong>
-              {selected.caution}
-            </p>
-          )}
+          <p className={styles.caution}>
+            <strong>Check your panel first</strong>
+            <span>
+              {selected.caution}{' '}
+              <a
+                href={selected.cautionHref}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => onLinkOpen?.(selected.id, 'caution')}
+              >
+                How to check ↗
+              </a>
+            </span>
+          </p>
 
           <p className={styles.guide}>
             {selected.guide}
@@ -192,11 +203,11 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
         </div>
       </div>
 
-      {viewer !== null && (
+      {viewer !== null && viewer.caseId === selected.id && (
         <PhotoLightbox
           images={selected.photos.map(({ src, alt }) => ({ src, alt }))}
-          index={viewer}
-          onIndexChange={setViewer}
+          index={viewer.index}
+          onIndexChange={(index) => setViewer({ caseId: selected.id, index })}
           onClose={() => setViewer(null)}
         />
       )}

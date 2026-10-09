@@ -33,6 +33,8 @@ const content: SectionContent = {
 };
 
 const GH = 'https://github.com/engmung/Patternflow';
+const MAKERWORLD =
+  'https://makerworld.com/en/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015';
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -55,6 +57,9 @@ afterEach(() => {
 const card = () => within(screen.getByRole('tabpanel'));
 const tab = (name: RegExp) => screen.getByRole('tab', { name });
 const stepOne = () => screen.getAllByRole('button').find((el) => el.textContent?.startsWith('01'));
+// The case row under Start here: step 01's title, then where it goes.
+const startRow = (name: RegExp) =>
+  within(screen.getByText('Start here').parentElement as HTMLElement).getByRole('link', { name });
 
 describe('the case switch', () => {
   it('opens on the official case, with the build.md lead above it', () => {
@@ -70,7 +75,13 @@ describe('the case switch', () => {
     );
     expect(card().queryByText(/The 3D model on this page is the official case/)).not.toBeInTheDocument();
     // Start here keeps the MakerWorld shortcut while the official case is on.
-    expect(screen.getByRole('link', { name: /Print the case\s*MakerWorld/ })).toBeInTheDocument();
+    expect(startRow(/^Print the case\s*MakerWorld/)).toHaveAttribute('href', MAKERWORLD);
+    // The official case has its own check: the adjustable mount is not universal.
+    expect(card().getByText(/is not universal/)).toBeInTheDocument();
+    expect(card().getByRole('link', { name: /How to check/ })).toHaveAttribute(
+      'href',
+      `${GH}/blob/main/hardware/case/README.md#for_other_panels--using-a-different-led-panel`,
+    );
     expect(stepOne()).toHaveTextContent('Print the body in white PLA and the knobs in black');
   });
 
@@ -84,7 +95,11 @@ describe('the case switch', () => {
     expect(panel.getByText('Community remix')).toBeInTheDocument();
     expect(panel.getByRole('link', { name: 'Besoiobiy' })).toHaveAttribute('href', 'https://discord.gg/Vr9QtsxeTk');
     expect(panel.getByText(/Bambu Lab P1S/)).toBeInTheDocument();
-    expect(panel.getByText(/M3 sockets on Besoiobiy’s hole pattern/)).toBeInTheDocument();
+    expect(panel.getByText(/M3 sockets on Besoiobiy’s hole pattern, ending 14\.35 mm behind the LED face/)).toBeInTheDocument();
+    expect(panel.getByRole('link', { name: /How to check/ })).toHaveAttribute(
+      'href',
+      `${GH}/blob/main/hardware/case/remixes/besoiobiy-printed/README.md#check-your-panel-first`,
+    );
     expect(panel.getByText(/takes M4 screws on a different pattern/)).toBeInTheDocument();
     expect(panel.getByText(/The 3D model on this page is the official case/)).toBeInTheDocument();
     expect(panel.getAllByRole('img')).toHaveLength(2);
@@ -102,7 +117,10 @@ describe('the case switch', () => {
     }
     // Step 01 and the Start here row follow the switch.
     expect(stepOne()).toHaveTextContent('Print eight parts and four knob caps');
-    expect(screen.getByRole('link', { name: /Print the case\s*besoiobiy-printed\// })).toBeInTheDocument();
+    expect(startRow(/^Print the case\s*besoiobiy-printed\//)).toHaveAttribute(
+      'href',
+      `${GH}/tree/main/hardware/case/remixes/besoiobiy-printed`,
+    );
     expect(screen.queryByRole('link', { name: /MakerWorld/ })).not.toBeInTheDocument();
     expect(capture).toHaveBeenCalledWith('build_case_selected', {
       case_id: 'besoiobiy-printed',
@@ -118,8 +136,11 @@ describe('the case switch', () => {
     fireEvent.keyDown(official, { key: 'ArrowRight' });
     expect(tab(/Besoiobiy/)).toHaveAttribute('aria-selected', 'true');
     expect(tab(/Besoiobiy/)).toHaveFocus();
-    fireEvent.keyDown(tab(/Besoiobiy/), { key: 'End' });
+    // false: the key was consumed, so End does not also scroll the panel.
+    expect(fireEvent.keyDown(tab(/Besoiobiy/), { key: 'End' })).toBe(false);
     expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
+    expect(tab(/SimonePDA/)).toHaveFocus();
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName(/SimonePDA/);
     expect(card().getByRole('heading', { name: 'Simone Majocchi’s laser-cut case' })).toBeInTheDocument();
     expect(card().getByRole('link', { name: 'Simone Majocchi' })).toHaveAttribute('href', 'https://github.com/SimonePDA');
     expect(card().getByText(/2\.8 mm MDF, laser cut/)).toBeInTheDocument();
@@ -128,21 +149,33 @@ describe('the case switch', () => {
       `${GH}/blob/main/hardware/case/remixes/simonepda-lasercut/lasercut_layout.pdf`,
     );
     expect(stepOne()).toHaveTextContent('Cut the case');
+    expect(startRow(/^Cut the case\s*simonepda-lasercut\//)).toHaveAttribute(
+      'href',
+      `${GH}/tree/main/hardware/case/remixes/simonepda-lasercut`,
+    );
     fireEvent.keyDown(tab(/SimonePDA/), { key: 'ArrowRight' });
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     fireEvent.keyDown(tab(/Official/), { key: 'ArrowLeft' });
     expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
-    fireEvent.keyDown(tab(/SimonePDA/), { key: 'Home' });
+    expect(fireEvent.keyDown(tab(/SimonePDA/), { key: 'Home' })).toBe(false);
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
+    expect(tab(/Official/)).toHaveFocus();
+    // Any other key is left alone.
+    expect(fireEvent.keyDown(tab(/Official/), { key: 'Tab' })).toBe(true);
     expect(capture).toHaveBeenCalledWith('build_case_selected', expect.objectContaining({ interaction: 'key' }));
   });
 
   it('writes ?case= while /build is on screen, and drops it for the official case', () => {
+    // Replaced, never pushed: Back would change the URL and not the card.
+    const push = vi.spyOn(window.history, 'pushState');
     render(<BuildPanel content={content} isActive />);
     fireEvent.click(tab(/SimonePDA/));
     expect(window.location.pathname + window.location.search).toBe('/build?case=simonepda-lasercut');
+    fireEvent.click(tab(/Besoiobiy/));
+    expect(window.location.pathname + window.location.search).toBe('/build?case=besoiobiy-printed');
     fireEvent.click(tab(/Official/));
     expect(window.location.pathname + window.location.search).toBe('/build');
+    expect(push).not.toHaveBeenCalled();
   });
 
   it('leaves the URL alone when the panel is mounted behind another tab', () => {
@@ -169,6 +202,31 @@ describe('the case switch', () => {
     const dialog = screen.getByRole('dialog', { name: 'Build photos' });
     expect(within(dialog).getAllByRole('button', { name: /MDF|acrylic|board/ }).length).toBeGreaterThanOrEqual(4);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Close gallery' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('a card photo opens the viewer on that photo', () => {
+    render(<BuildPanel content={content} isActive />);
+    fireEvent.click(tab(/SimonePDA/));
+    fireEvent.click(card().getByRole('button', { name: /cut in MDF and turned on its side/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Build photos' });
+    expect(within(dialog).getByRole('button', { name: /cut in MDF and turned on its side/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  });
+
+  it('closes the viewer when the case changes under it, even past the new case’s last photo', () => {
+    // Focus can still reach the tabs behind the viewer. Photo 4 of a remix
+    // has no counterpart in the official case's three.
+    window.history.replaceState(null, '', '/build?case=besoiobiy-printed');
+    render(<BuildPanel content={content} isActive />);
+    fireEvent.click(card().getByRole('button', { name: 'All 4 photos' }));
+    fireEvent.keyDown(document, { key: 'ArrowLeft' });
+    const dialog = screen.getByRole('dialog', { name: 'Build photos' });
+    expect(within(dialog).getByRole('button', { name: /thirteen STL files/ })).toHaveAttribute('aria-current', 'true');
+    fireEvent.keyDown(tab(/Besoiobiy/), { key: 'Home' });
+    expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
