@@ -12,7 +12,7 @@ Patternflow is not a single, rigid kit. It is a modular system divided into two 
 
 Build those two, flash the firmware, and your Patternflow is alive.
 
-## The main route (v3.0.0)
+## The main route (v3.9 board)
 
 | Enclosure | Electronics | Firmware | Status |
 | --- | --- | --- | --- |

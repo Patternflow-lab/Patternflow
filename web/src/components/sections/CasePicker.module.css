@@ -1,0 +1,421 @@
+/* The case switch and its card. Same vocabulary as the rest of the Build
+   panel: hairlines, no radius, weight 500 at most, ink as the only fill. The
+   container queries resolve against .buildPanel (BuildPanel.module.css), so
+   they track the panel's own width, not the window's. */
+
+.picker {
+  display: grid;
+}
+
+/* No one-word last line ("… TO MAKE / IT") on a phone. */
+.picker > :global(.pf-kicker) {
+  text-wrap: balance;
+}
+
+/* .panel-body p is a global rule at (0,1,1) — 20px, a 28px bottom margin —
+   so every paragraph here is matched with two classes to stay ahead of it. */
+.picker .lead {
+  margin-bottom: 18px;
+}
+
+.picker .lead p {
+  margin: 0;
+}
+
+/* ── The switch ── three cells over the card, the selected one in ink, so the
+   tab and the card it opened read as one piece. */
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--pf-rule);
+}
+
+.tab {
+  appearance: none;
+  display: grid;
+  gap: 4px;
+  /* Start, not centre: on a phone "Printed remix" wraps and "Printed" does
+     not, and centred names would then sit at different heights. */
+  align-content: start;
+  min-height: 60px;
+  padding: 10px 14px;
+  border: 0;
+  border-right: 1px solid var(--pf-rule);
+  background: transparent;
+  color: var(--pf-ink-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.tab:last-child {
+  border-right: 0;
+}
+
+.tab:hover {
+  background: var(--pf-cream-2);
+  color: var(--pf-ink);
+}
+
+.tab[aria-selected='true'] {
+  background: var(--pf-ink);
+  color: var(--pf-cream);
+  cursor: default;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
+}
+
+.tabName {
+  font-size: var(--pf-fs-row-d);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.tabMethod {
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--pf-track-mono);
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+/* Faded only on the ink cell, where cream still reads; on white the muted ink
+   is already as light as small text can go. */
+.tab[aria-selected='true'] .tabMethod {
+  opacity: 0.8;
+}
+
+/* ── The card ── */
+.card {
+  display: grid;
+  border: 1px solid var(--pf-rule);
+  border-top: 0;
+}
+
+.photos {
+  display: flex;
+  gap: 2px;
+  background: var(--pf-cream);
+}
+
+/* flex-grow is the photo's own ratio, set inline; with a zero basis every
+   photo in the row comes out the same height. */
+.photo {
+  appearance: none;
+  position: relative;
+  flex-basis: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  background: var(--pf-cream-2);
+  cursor: zoom-in;
+}
+
+.photo img {
+  object-fit: cover;
+  transition: opacity 120ms ease;
+}
+
+.photo:hover img {
+  opacity: 0.88;
+}
+
+.photo:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
+}
+
+.photoMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 10px 22px 0;
+  color: var(--pf-ink-muted);
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+.photoMeta button {
+  appearance: none;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--pf-ink);
+  font: inherit;
+  letter-spacing: var(--pf-track-mono);
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.photoMeta button:hover {
+  color: var(--pf-ink-muted);
+}
+
+.body {
+  display: grid;
+  gap: 16px;
+  padding: 18px 22px 22px;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 14px;
+}
+
+/* .panel-body h3 is global too: 24px with a 48px top margin. */
+.card .name {
+  margin: 0;
+  color: var(--pf-ink);
+  font-size: clamp(19px, 2vw, 22px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.kind {
+  flex: none;
+  color: var(--pf-ink-muted);
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: var(--pf-track-mono);
+  text-transform: uppercase;
+}
+
+.card .summary {
+  max-width: none;
+  margin: 0;
+  color: var(--pf-ink-muted);
+  font-size: var(--pf-fs-body);
+  line-height: 1.6;
+}
+
+/* Label | value rows, the label in the panel's mono. */
+.facts {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--pf-rule-soft);
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--pf-rule-soft);
+}
+
+.facts dt {
+  padding-top: 3px;
+  color: var(--pf-ink-muted);
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  letter-spacing: var(--pf-track-mono);
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--pf-ink);
+  font-size: var(--pf-fs-row-d);
+  line-height: 1.5;
+}
+
+.facts a {
+  color: var(--pf-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.facts .note {
+  color: var(--pf-ink-muted);
+}
+
+/* A remix's README, the guide to building it: the one box in the card with an
+   ink border all round, and the whole of it is the link. Still a hairline —
+   the guide card under Start here stays the panel's only solid. */
+.readme {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--pf-ink);
+  transition: background 120ms ease;
+}
+
+.readme:hover {
+  background: var(--pf-cream-2);
+}
+
+.readme a {
+  justify-self: start;
+  color: var(--pf-ink);
+  font-size: var(--pf-fs-row-d);
+  font-weight: 500;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.readme a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.readme a:focus-visible {
+  outline: 0;
+}
+
+.readme:has(a:focus-visible) {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
+}
+
+.card .readme p {
+  max-width: none;
+  margin: 0;
+  color: var(--pf-ink-muted);
+  font-size: var(--pf-fs-row-d);
+  line-height: 1.55;
+}
+
+/* An ink rule down the side rather than the LED orange: --pf-led is kept
+   for things that are live. */
+.card .caution {
+  display: grid;
+  gap: 4px;
+  max-width: none;
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--pf-ink);
+  background: var(--pf-cream);
+  color: var(--pf-ink);
+  font-size: var(--pf-fs-row-d);
+  line-height: 1.55;
+}
+
+.caution a {
+  color: var(--pf-ink);
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.caution strong {
+  font-family: var(--pf-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: var(--pf-track-mono);
+  text-transform: uppercase;
+}
+
+.card .guide {
+  max-width: none;
+  margin: 0;
+  color: var(--pf-ink-muted);
+  font-size: var(--pf-fs-row-d);
+  line-height: 1.55;
+}
+
+/* The files, as the hairline rows the Start here links use. */
+.links {
+  display: grid;
+  border-top: 1px solid var(--pf-rule);
+}
+
+.links a {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 22px;
+  border-bottom: 1px solid var(--pf-rule);
+  color: var(--pf-ink);
+  text-decoration: none;
+}
+
+.links a:last-child {
+  border-bottom: 0;
+}
+
+/* The global a:hover underline would run under both halves of the row. */
+.links a:hover,
+.links a:focus-visible {
+  outline: 0;
+  background: var(--pf-cream-2);
+  text-decoration: none;
+}
+
+.links strong {
+  font-size: var(--pf-fs-row-d);
+  font-weight: 500;
+}
+
+.links span {
+  flex: none;
+  max-width: 55%;
+  overflow-wrap: anywhere;
+  color: var(--pf-ink-muted);
+  font-family: var(--pf-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: right;
+}
+
+/* A phone: the label goes over its value, and the padding comes in. */
+@container (max-width: 420px) {
+  .tab {
+    padding: 10px 10px;
+  }
+
+  .photoMeta {
+    padding: 10px 14px 0;
+  }
+
+  .body {
+    padding: 16px 14px 18px;
+  }
+
+  .facts > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .facts dt {
+    padding-top: 0;
+  }
+
+  /* Side by side, a long file name wrapped mid-word and left the arrow on a
+     line of its own; stacked, each half keeps its line. */
+  .links a {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 12px 14px;
+  }
+
+  .links span {
+    max-width: none;
+    text-align: left;
+  }
+}

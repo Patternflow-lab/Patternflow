@@ -1,16 +1,16 @@
 import * as THREE from "three";
 
-// The guide's device is four files put together in the model frame of
-// 3dforweb.glb (see geometry.ts: the device stands facing +z, knobs top
-// right, 10 mm per unit):
+// The guide's device is four files put together in the model frame (see
+// geometry.ts: the device stands facing +z, knobs top right, 10 mm per unit):
 //   - case-v39.glb   the v3.9 enclosure (body, back_slider, back_plate,
 //                    top_lid) and knobs c1..c4, exported from
 //                    hardware/case/source/patternflow_case.blend (collection
 //                    0904_v3.9, its assembled copy) by the pure translation
 //                    (−300.2723, +58.4313, −1.9078) that lands the blend's LED
-//                    panel exactly on 3dforweb.glb's
-//   - 3dforweb.glb   the landing page's model, of which only that LED mesh,
-//                    "l", is used
+//                    panel exactly on the LED mesh below
+//   - model.glb      public/cases/official/, the official case model the
+//                    landing page's preview shows (tools/case-models), of
+//                    which only the LED mesh, "l", is used
 //   - pcb-v39.glb    the v3.9 board, exported from hardware/pcb/kicad with
 //                    kicad-cli, placed so its four encoders sit under the knobs
 //   - devkit.glb     the ESP32-S3 DevKit, in a canonical frame: origin at the

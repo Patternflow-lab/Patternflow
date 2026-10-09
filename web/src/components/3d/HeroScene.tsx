@@ -6,36 +6,64 @@
    and never feeds back into React rendering. */
 
 import { Canvas, useFrame, ThreeEvent } from '@react-three/fiber';
-import { useRef, useMemo, useEffect, useState } from 'react';
+import {
+  Component,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import * as THREE from 'three';
-import { useGLTF, ContactShadows, Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { patternVert } from './patterns/common';
+import { useGLTF, ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
+import { ledPanel, ledVert } from './patterns/common';
 import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
 import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
+import { BUILD_CASES, type CaseId } from '@/components/sections/build-cases-data';
+import { CASE_MODELS, DRACO_DECODER, type CaseFinish } from './caseModels';
+import {
+  FRAME_CENTRE,
+  applyFinish,
+  disposeCase,
+  knobUnder,
+  prepareCase,
+  type KnobRig,
+  type PreparedCase,
+} from './heroCase';
+import { poseFor, shows } from './buildPose';
+import CaseFinishSwitch from './CaseFinishSwitch';
+import { PageAlpha, StraightAlpha } from './canvasAlpha';
+import { NeutralToeBack } from './neutralToe';
+import styles from './HeroScene.module.css';
+
+// The product preview on the Build and Pattern tabs: the device in the case
+// the Build panel's switch is on (caseModels.ts), its LED panel running the
+// pattern, its knobs turning the pattern's controls, and the Build panel's
+// four steps acted out on it. Each case is its own model; the official one
+// loads with the page, a remix's when it is picked, and until it has arrived
+// the case on screen stays.
 
 const customFragmentShader = `
 uniform sampler2D uTex;
 varying vec2 vUv;
+${ledPanel}
 
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
   vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
-  vec2 localUV = fract(gridUV);
-  
+
   // Sample discrete pixels to enforce pixelation
   vec2 pxUV = (floor(gridUV) + 0.5) / vec2(128.0, 64.0);
   vec4 texColor = texture2D(uTex, pxUV);
-  
-  float dist2 = length(localUV - 0.5);
-  float circle = smoothstep(0.45, 0.35, dist2);
 
-  float fw = fwidth(vUv.x) * 128.0;
-  float lodBlend = smoothstep(0.0, 0.29, fw); 
-  float finalAlpha = mix(circle, 1.0, lodBlend);
-  
   vec3 col = texColor.rgb;
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
 
@@ -44,47 +72,137 @@ void main() {
   } else {
     col *= 0.8;
   }
-  
-  float unlit = 0.02;
-  col = mix(vec3(unlit), col, step(0.01, length(col)));
 
-  gl_FragColor = vec4(col * finalAlpha, 1.0);
+  gl_FragColor = vec4(ledPanel(col), 1.0);
 }
 `;
 
-useGLTF.preload('/3dforweb.glb');
+// Only the official case comes with the page; a remix's model is fetched
+// when it is picked, or when its tab is hovered on the way (preloadCaseModel).
+useGLTF.preload(CASE_MODELS.official.url, DRACO_DECODER);
 
-// The GLB knob meshes are named after the PCB encoder nets, and K1/K2 are
+type KnobId = 'c1' | 'c2' | 'c3' | 'c4';
+
+// The knob meshes are named after the PCB encoder nets, and K1/K2 are
 // cross-routed on the official board (see firmware config.h): the mesh at the
 // physical K1 position is named "c2" and vice versa. Remap mesh name → knob id
 // so the on-screen knobs behave like the physical ones.
-const MESH_TO_KNOB: Record<string, 'c1' | 'c2' | 'c3' | 'c4'> = {
+const MESH_TO_KNOB: Record<string, KnobId> = {
   c1: 'c2',
   c2: 'c1',
   c3: 'c3',
   c4: 'c4',
 };
 
-// Removed hardcoded ACTIVE_PATTERN
+/** Where the preview looks: OrbitControls' target, and where the device is centred. */
+const TARGET = new THREE.Vector3(0, 1.7, 0);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
-function Model() {
+/**
+ * Solder (step 2) shows the board alone, filling the view: the diagonal of
+ * the board-and-DevKit's box, seen from the front, is drawn this many world
+ * units across. The official device as a whole is 4.09 at the resting scale
+ * (the remixes, up to 4% more).
+ */
+const BOARD_SPAN = 3.1;
+
+/** A per-frame easing factor (as at 60 fps) made independent of the frame rate. */
+const ease = (perFrame: number, dt: number) => 1 - Math.pow(1 - perFrame, Math.min(dt, 0.5) * 60);
+
+/**
+ * A model that would not load or draw is taken off, and whoever is told
+ * shows the official case instead. Uncaught, the error would go up through
+ * the canvas and take the page with it.
+ */
+class ModelGuard extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+    this.props.onError();
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
+/**
+ * The cases whose models have been drawn on this page. The preview is taken
+ * down while the Inside tab shows the globe; coming back, a case already in
+ * drei's cache is drawn straight away rather than the official one first.
+ */
+const arrived = new Set<CaseId>();
+
+/** Waits, off screen, for a picked case's model, and says when it is in drei's cache. */
+function CaseLoader({ id, onReady }: { id: CaseId; onReady: (id: CaseId) => void }) {
+  useGLTF(CASE_MODELS[id].url, DRACO_DECODER);
+  useEffect(() => onReady(id), [id, onReady]);
+  return null;
+}
+
+interface DeviceHandlers {
+  onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
+}
+
+/**
+ * One case's device: its own copy of the model, placed to stand where every
+ * case stands, handed to the preview to animate.
+ */
+function CaseDevice({
+  id,
+  finish,
+  deviceRef,
+  handlers,
+}: {
+  id: CaseId;
+  finish: CaseFinish | undefined;
+  deviceRef: RefObject<PreparedCase | null>;
+  handlers: DeviceHandlers;
+}) {
+  const model = CASE_MODELS[id];
+  const { scene } = useGLTF(model.url, DRACO_DECODER);
+  const prepared = useMemo(() => prepareCase(scene, model), [scene, model]);
+
+  useLayoutEffect(() => {
+    deviceRef.current = prepared;
+    arrived.add(id);
+    return () => {
+      if (deviceRef.current === prepared) deviceRef.current = null;
+    };
+  }, [deviceRef, prepared, id]);
+  useEffect(() => () => disposeCase(prepared), [prepared]);
+  useEffect(() => applyFinish(prepared, finish), [prepared, finish]);
+
+  return (
+    <group position={prepared.fitPosition}>
+      {/* dispose={null}: the geometry is drei's cache's; disposeCase lets go of the rest. */}
+      <primitive object={prepared.root} dispose={null} {...handlers} />
+    </group>
+  );
+}
+
+/**
+ * The device as the preview animates it, whichever case it is in: the Build
+ * steps, the knobs, the pattern on the panel. It stays mounted while cases
+ * swap underneath it, so a swap never restarts the sway or the pattern.
+ */
+function ProductPreview({
+  caseId,
+  finish,
+  onFailed,
+}: {
+  caseId: CaseId;
+  finish: CaseFinish | undefined;
+  onFailed: (id: CaseId) => void;
+}) {
   const groupRef = useRef<THREE.Group>(null);
-  const { scene } = useGLTF('/3dforweb.glb', 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
-  const knobValues = useAppStore((state) => state.knobValues);
-  const buildStep = useAppStore((state) => state.buildStep);
-  const explode = useAppStore((state) => state.explode);
-
-  const partsRef = useRef<{
-    top: THREE.Mesh[];
-    mid: THREE.Mesh[];
-    bot: THREE.Mesh[];
-    pcb: THREE.Mesh[];
-    led: THREE.Mesh[];
-    knobs: THREE.Mesh[];
-    others: THREE.Mesh[];
-  }>({
-    top: [], mid: [], bot: [], pcb: [], led: [], knobs: [], others: []
-  });
+  const deviceRef = useRef<PreparedCase | null>(null);
+  // Where the view is centred, in the group's own frame; eased like the rest.
+  const focus = useRef(FRAME_CENTRE.clone());
+  const lift = useRef(0);
 
   const activePatternId = useAppStore((state) => state.activePatternId);
   const customJsCode = useAppStore((state) => state.customJsCode);
@@ -92,7 +210,7 @@ function Model() {
   const defaults = useMemo(() => pattern.defaults || {}, [pattern]);
 
   const ledMatrix = useMemo(() => new LedMatrixTexture(), []);
-  
+
   useEffect(() => {
     if (activePatternId === 'custom') {
       ledMatrix.loadCode(customJsCode);
@@ -109,434 +227,292 @@ function Model() {
       uParam4: { value: defaults.uParam4 ?? 0.0 },
       uAspect: { value: 2.0 },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: pattern.fragmentShader,
   }), [pattern, defaults]);
+  useEffect(() => () => ledMat.dispose(), [ledMat]);
 
   const customMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uTex: { value: ledMatrix.texture },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
 
   const blackMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 }), []);
 
-  useEffect(() => {
-    const isPoweredOff = buildStep === 1 || buildStep === 2 || buildStep === 3;
-    const targetMat = isPoweredOff ? blackMat : (activePatternId === 'custom' ? customMat : ledMat);
-    partsRef.current.led.forEach(m => {
-      m.material = targetMat;
-    });
-  }, [activePatternId, ledMat, customMat, blackMat, buildStep]);
-
-  useEffect(() => {
-    ledMat.uniforms.uParam1.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[0]]; // Hue
-    ledMat.uniforms.uSpeed.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[1]];  // Speed
-    ledMat.uniforms.uParam3.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[2]]; // Mode
-    ledMat.uniforms.uParam4.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[3]]; // Freq/Offset
-  }, [knobValues, ledMat]);
-
   // --- Knob Interaction Logic ---
-  const activeKnobRef = useRef<THREE.Mesh | null>(null);
-  const lastMouseAngle = useRef<number>(0);
-  const knobCenterScreen = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const drag = useRef<{ rig: KnobRig; knob: KnobId; cx: number; cy: number; lastAngle: number } | null>(null);
 
   useEffect(() => {
     const handlePointerMove = (e: PointerEvent) => {
-      if (!activeKnobRef.current) return;
-      
-      const dx = e.clientX - knobCenterScreen.current.x;
-      const dy = e.clientY - knobCenterScreen.current.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // 중심점에 너무 가깝게 클릭/드래그하면 각도가 급격하게 튀는 현상 방지
-      if (distance < 10) return;
+      const d = drag.current;
+      if (!d) return;
+
+      const dx = e.clientX - d.cx;
+      const dy = e.clientY - d.cy;
+      // Too near the centre the angle jumps about; wait for the pointer to move out.
+      if (dx * dx + dy * dy < 100) return;
 
       const currentAngle = Math.atan2(dy, dx);
-      let deltaAngle = currentAngle - lastMouseAngle.current;
-      
+      let deltaAngle = currentAngle - d.lastAngle;
       // Normalize deltaAngle (-PI ~ PI)
       while (deltaAngle < -Math.PI) deltaAngle += 2 * Math.PI;
       while (deltaAngle > Math.PI) deltaAngle -= 2 * Math.PI;
-      
-      lastMouseAngle.current = currentAngle;
-      
-      const knobName = MESH_TO_KNOB[activeKnobRef.current.name];
-      if (!knobName) return;
-      
-      // 노브 시각적 회전 (시계방향 마우스 회전 시 3D 모델도 시계방향 회전)
-      activeKnobRef.current.rotation.y -= deltaAngle; 
-      
+      d.lastAngle = currentAngle;
+
+      // The knob turns about its own axis, its local +z: a clockwise drag on
+      // screen (the angle growing, y pointing down) turns it clockwise as
+      // seen from the front.
+      d.rig.node.rotation.z -= deltaAngle;
+
+      // Sensitivity: the same rule as the physical encoder, the whole range
+      // in a set number of turns (knobUnitsPerTurn).
+      const knobName = d.knob;
       const currentVal = useAppStore.getState().knobValues[knobName];
-      let deltaVal = 0;
-      
-      // 회전 민감도 (1바퀴(2*PI) 돌릴 때 변하는 값). 실물 엔코더와 같은 규칙:
-      // 전체 범위를 TURNS_PER_FULL_RANGE 바퀴에 걸쳐 훑는다.
-      deltaVal = deltaAngle * (knobUnitsPerTurn(webKnobRange(knobName)) / (2 * Math.PI));
-      
+      const deltaVal = deltaAngle * (knobUnitsPerTurn(webKnobRange(knobName)) / (2 * Math.PI));
+
       let newVal = currentVal + deltaVal;
       if (knobName === 'c1') newVal = (newVal % 1.0 + 1.0) % 1.0; // Hue
       if (knobName === 'c2') newVal = THREE.MathUtils.clamp(newVal, 0.1, 10.0); // Speed
       if (knobName === 'c3') newVal = (newVal % 1.0 + 1.0) % 1.0; // Freq/Offset
       if (knobName === 'c4') newVal = THREE.MathUtils.clamp(newVal, 0.0, 4.9); // Mode
-      
+
       useAppStore.getState().setKnobValue(knobName, newVal);
     };
 
     const handlePointerUp = () => {
-      if (activeKnobRef.current) {
-        activeKnobRef.current = null;
-        useAppStore.getState().setIsDraggingKnob(false);
-        useAppStore.getState().setActiveKnobId(null);
-      }
+      if (!drag.current) return;
+      drag.current = null;
+      useAppStore.getState().setIsDraggingKnob(false);
+      useAppStore.getState().setActiveKnobId(null);
+      document.body.style.cursor = '';
     };
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-    
+    window.addEventListener('pointercancel', handlePointerUp);
+
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
+      // Taken down mid-turn (the Inside tab swaps the preview for the globe):
+      // let go, or the orbit would stay locked as if a knob were still held.
+      handlePointerUp();
+      document.body.style.cursor = '';
     };
   }, []);
 
-  const onPointerDown = (e: ThreeEvent<PointerEvent>) => {
-    // Check if we clicked the knob or its child elements
-    let knobMesh = e.object as THREE.Mesh;
-    while (knobMesh.parent && !knobMesh.name.match(/^c[1-4]$/)) {
-      knobMesh = knobMesh.parent as THREE.Mesh;
-    }
+  /**
+   * The knob under the pointer, if the nearest thing there is a knob (or its
+   * ring, or the disc over it a finger can find): never a knob through the
+   * case, and never one the current step has put away.
+   */
+  const knobAt = useCallback((e: ThreeEvent<PointerEvent>) => {
+    const device = deviceRef.current;
+    if (!device || e.intersections[0]?.object !== e.object) return null;
+    const rig = knobUnder(device, e.object);
+    const part = rig && device.parts.find((p) => p.node === rig.node);
+    return rig && part && part.presence > 0.5 ? rig : null;
+  }, []);
 
-    if (knobMesh.name.match(/^c[1-4]$/)) {
+  const handlers = useMemo<DeviceHandlers>(() => ({
+    onPointerDown: (e) => {
+      const rig = knobAt(e);
+      const knob = rig && MESH_TO_KNOB[rig.node.name];
+      if (!rig || !knob) return;
       e.stopPropagation(); // 드래그 중 화면 회전 방지
-      activeKnobRef.current = knobMesh;
-      
-      // 3D 공간의 노브 중심점을 2D 화면(Viewport) 좌표로 정확히 변환
-      const worldPos = new THREE.Vector3();
-      knobMesh.getWorldPosition(worldPos);
-      worldPos.project(e.camera);
-      
-      // Canvas의 실제 위치와 크기를 가져와서 계산해야 함 (window.innerWidth 사용 시 레이아웃 때문에 오차 발생)
+
+      // The drag turns about the centre of the knob's top face as it lies on
+      // screen (the node's origin is at the knob's base). Measured against
+      // the canvas's own box: the window's would be off by the page layout.
+      const top = rig.node.localToWorld(new THREE.Vector3(0, 0, rig.height));
+      top.project(e.camera);
       const rect = (e.nativeEvent.target as HTMLElement).getBoundingClientRect();
-      const screenX = (worldPos.x * 0.5 + 0.5) * rect.width + rect.left;
-      const screenY = (worldPos.y * -0.5 + 0.5) * rect.height + rect.top;
-      
-      knobCenterScreen.current = { x: screenX, y: screenY };
-      
-      // 최초 클릭 지점의 각도 저장
-      lastMouseAngle.current = Math.atan2(e.nativeEvent.clientY - screenY, e.nativeEvent.clientX - screenX);
+      const cx = (top.x * 0.5 + 0.5) * rect.width + rect.left;
+      const cy = (top.y * -0.5 + 0.5) * rect.height + rect.top;
+      drag.current = {
+        rig,
+        knob,
+        cx,
+        cy,
+        lastAngle: Math.atan2(e.nativeEvent.clientY - cy, e.nativeEvent.clientX - cx),
+      };
 
       useAppStore.getState().setIsDraggingKnob(true);
-      useAppStore.getState().setActiveKnobId(knobMesh.name as 'c1'|'c2'|'c3'|'c4');
-      
+      useAppStore.getState().setActiveKnobId(rig.node.name as KnobId);
       // 커서를 드래그용으로 변경 (원형 회전임을 암시하기 위해 grabbing 사용)
       document.body.style.cursor = 'grabbing';
-      
-      const handlePointerUpDom = () => {
-        document.body.style.cursor = 'auto';
-        window.removeEventListener('pointerup', handlePointerUpDom);
-      };
-      window.addEventListener('pointerup', handlePointerUpDom);
-    }
-  };
+    },
+    // The hand while over a knob. On every move, not on over/out: the
+    // handlers sit on the device's root, so r3f reports one over and one out
+    // for the device as a whole, and gliding from the case onto a knob would
+    // never show it. Only the nearest hit decides; the others are behind it.
+    onPointerMove: (e) => {
+      if (drag.current || e.object !== e.intersections[0]?.object) return;
+      document.body.style.cursor = knobAt(e) ? 'grab' : '';
+    },
+    onPointerOut: () => {
+      if (!drag.current) document.body.style.cursor = '';
+    },
+  }), [knobAt]);
 
-  useEffect(() => {
-    // Reset arrays
-    partsRef.current = { top: [], mid: [], bot: [], pcb: [], led: [], knobs: [], others: [] };
-
-    scene.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const m = child as THREE.Mesh;
-        if (m.userData.originalX === undefined) {
-          m.userData.originalX = m.position.x;
-        }
-        if (m.userData.originalY === undefined) {
-          m.userData.originalY = m.position.y;
-        }
-        if (m.userData.originalZ === undefined) {
-          m.userData.originalZ = m.position.z;
-        }
-        if (m.userData.originalScale === undefined) {
-          m.userData.originalScale = m.scale.clone();
-        }
-
-        if (m.name === 'l') {
-          m.material = activePatternId === 'custom' ? customMat : ledMat;
-          partsRef.current.led.push(m);
-        } else if (m.name.startsWith('t')) {
-          partsRef.current.top.push(m);
-        } else if (m.name === 'm') {
-          partsRef.current.mid.push(m);
-        } else if (m.name.startsWith('b')) {
-          partsRef.current.bot.push(m);
-        } else if (m.name === 'p' || m.name.includes('PCB')) {
-          partsRef.current.pcb.push(m);
-        } else if (m.name.match(/^c[1-4]$/)) {
-          // 개별 색상 변경을 위해 메테리얼 복제 및 원래 색상 저장 (falsy 버그 방지를 위해 === undefined 체크)
-          if (m.userData.originalColor === undefined) {
-            m.material = (m.material as THREE.Material).clone();
-            m.userData.originalColor = (m.material as THREE.MeshStandardMaterial).color.getHex();
-          }
-          partsRef.current.knobs.push(m);
-
-          // 행성 고리와 공전하는 점 그룹 추가
-          if (!m.children.find(c => c.name === 'knob-ring-group')) {
-            m.geometry.computeBoundingBox();
-            const bbox = m.geometry.boundingBox;
-            if (bbox) {
-              const radius = (bbox.max.x - bbox.min.x) / 2;
-              const height = bbox.max.y - bbox.min.y;
-              const ringRadius = radius * 1.5; // 노브보다 조금 더 큰 고리 반경
-              
-              const ringGroup = new THREE.Group();
-              ringGroup.name = 'knob-ring-group';
-              // 노브 높이의 중간 살짝 아래쯤에 고리 배치
-              ringGroup.position.set(0, bbox.min.y + height * 0.4, 0);
-              
-              const effectMat = new THREE.MeshStandardMaterial({ 
-                color: 0xff3333, emissive: 0xff0000, 
-                emissiveIntensity: 2.0,
-                transparent: true, opacity: 0.9 
-              });
-              
-              // 두께를 키운 토러스(고리)
-              const torusGeom = new THREE.TorusGeometry(ringRadius, radius * 0.08, 12, 48);
-              const torus = new THREE.Mesh(torusGeom, effectMat);
-              torus.rotation.x = Math.PI / 2; // XZ 평면으로 눕히기
-              
-              // 크기를 키운 고리 위에 얹혀 있는 구슬(점)
-              const dotGeom = new THREE.SphereGeometry(radius * 0.4, 16, 16);
-              const dot = new THREE.Mesh(dotGeom, effectMat);
-              dot.position.set(ringRadius, 0, 0); 
-              
-              ringGroup.add(torus);
-              ringGroup.add(dot);
-              ringGroup.visible = false; // 평소에는 숨김
-              
-              m.add(ringGroup);
-            }
-          }
-        } else if (!m.parent || m.parent.name !== 'knob-ring-group') {
-          partsRef.current.others.push(m);
-        }
-        m.castShadow = true;
-        m.receiveShadow = true;
-      }
-    });
-  }, [scene, ledMat]);
-
-  const prevKnobValues = useRef(knobValues);
+  const prevKnobValues = useRef(useAppStore.getState().knobValues);
+  // Scratch objects for the frame loop.
+  const tmp = useMemo(() => ({ box: new THREE.Box3(), part: new THREE.Box3(), v: new THREE.Vector3(), aim: new THREE.Vector3() }), []);
 
   useFrame((state, delta) => {
-    if (!groupRef.current) return;
     const t = state.clock.getElapsedTime();
-    
+    const { knobValues, buildStep, explode, activeKnobId } = useAppStore.getState();
+
+    // The pattern on the panel.
     if (activePatternId === 'custom') {
       ledMatrix.render(delta, t, knobValues, prevKnobValues.current);
       prevKnobValues.current = { ...knobValues };
     } else {
       ledMat.uniforms.uTime.value = t;
+      ledMat.uniforms.uParam1.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[0]]; // Hue
+      ledMat.uniforms.uSpeed.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[1]];  // Speed
+      ledMat.uniforms.uParam3.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[2]]; // Mode
+      ledMat.uniforms.uParam4.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[3]]; // Freq/Offset
     }
 
-    // 현재 선택된 노브만 고리 이펙트 표시 및 회색 변환
-    const currentActiveKnob = useAppStore.getState().activeKnobId;
-    partsRef.current.knobs.forEach(m => {
-      const isSelected = (currentActiveKnob === m.name);
-      
-      // 고리 표시 토글
-      const ringGroup = m.children.find(c => c.name === 'knob-ring-group');
-      if (ringGroup) {
-        ringGroup.visible = isSelected;
-      }
-      
-      // 색상 토글
-      const mat = m.material as THREE.MeshStandardMaterial;
-      if (isSelected) {
-        mat.color.setHex(0x666666); // 선택 시 회색
-      } else if (m.userData.originalColor !== undefined) {
-        mat.color.setHex(m.userData.originalColor); // 아닐 시 원래 색상 복구
-      }
-    });
+    const group = groupRef.current;
+    const device = deviceRef.current;
+    if (!group || !device) return;
 
-    let targetRotationY = 0;
-    let targetGroupY = 0;
-    let targetGroupX = 0;
-    let targetScale = 0.1;
-    
-    if (buildStep === 0) {
-      targetRotationY = Math.sin(t * 0.15) * 0.45;
-      targetGroupY = Math.sin(t * 0.3) * 0.03;
-    } else {
-      targetRotationY = -0.5;
-      
-      if (buildStep === 1) {
-        targetScale = 0.085; // Slight zoom out to show cases
-        targetGroupX = -0.3; // Slight left
-      } else if (buildStep === 2) {
-        targetScale = 0.230;
-        targetGroupX = 1.60;
-        targetGroupY = -4.45;
-        targetRotationY = 2.64;
-      } else if (buildStep === 3) {
-        // Pull back as the parts separate, rather than snapping between two
-        // framings — the reader is dragging this, so it has to track the drag.
-        const t = useAppStore.getState().explode;
-        targetScale = THREE.MathUtils.lerp(0.11, 0.075, t);
-        targetGroupX = -0.3;
-        targetRotationY = -0.5;
-      }
-    }
-    
-    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotationY, 0.05);
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetGroupY, 0.05);
-    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetGroupX, 0.05);
-    
-    const currentScale = groupRef.current.scale.x;
-    const nextScale = THREE.MathUtils.lerp(currentScale, targetScale, 0.05);
-    groupRef.current.scale.set(nextScale, nextScale, nextScale);
+    const pose = poseFor(buildStep, explode, t);
+    // A model that has just arrived starts where the step has everything,
+    // not assembled and easing out from there: a swap is a cut, not a move.
+    const fresh = !device.root.userData.settled;
+    device.root.userData.settled = true;
+    const kPart = fresh ? 1 : ease(0.08, delta);
+    const kView = ease(0.05, delta);
 
-    let offsetTopZ = 0, offsetMidZ = 0, offsetLedZ = 0, offsetPcbZ = 0, offsetBotZ = 0;
-    
-    if (buildStep === 1) { // 1. Print
-      offsetTopZ = 8; offsetBotZ = -8;
-    } else if (buildStep === 2) { // 2. Solder
-      offsetLedZ = 6; offsetPcbZ = 0; 
-    } else if (buildStep === 3) { // 3. Assemble
-      // LED matrix frontmost, then Top cover, Mid case, PCB, Bot case (furthest
-      // back). Every offset is the full-separation value times `explode`, so
-      // t=0 lands exactly on the assembled positions.
-      offsetLedZ = 24 * explode;
-      offsetTopZ = 16 * explode;
-      offsetMidZ = 8 * explode;
-      offsetPcbZ = 0;
-      offsetBotZ = -12 * explode;
+    // The panel: the pattern while there is power, black while it is being built.
+    const ledTarget = !pose.lit ? blackMat : activePatternId === 'custom' ? customMat : ledMat;
+    for (const mesh of device.led) {
+      if (mesh.material !== ledTarget) mesh.material = ledTarget;
     }
 
-    const lerpSpeed = 0.08;
-    
-    // Z-axis separation for true exploded view (depth)
-    partsRef.current.top.forEach(m => {
-      let targetZ = m.userData.originalZ + offsetTopZ;
-      let targetY = m.userData.originalY;
-      const targetX = m.userData.originalX;
+    // Each part eases to where this step has it: apart by its explode vector
+    // times the step's spread, and present or shrunk away into the middle of
+    // its own box. The aim is the middle of what will be on screen once the
+    // move is done, so the framing heads for it from the first frame.
+    tmp.box.makeEmpty();
+    for (const p of device.parts) {
+      const shown = shows(pose, p);
+      tmp.v.copy(p.apart).multiplyScalar(pose.spread);
+      if (shown) tmp.box.union(tmp.part.copy(p.box).translate(tmp.v));
+      p.offset.lerp(tmp.v, kPart);
+      p.presence = THREE.MathUtils.lerp(p.presence, shown ? 1 : 0, kPart);
+      if (Math.abs(p.presence - (shown ? 1 : 0)) < 0.002) p.presence = shown ? 1 : 0;
+      const s = Math.max(p.presence, 0.001);
+      p.node.scale.copy(p.homeScale).multiplyScalar(s);
+      // Scaled about the middle of its box, wherever the offset has taken it.
+      p.node.position.copy(p.home).sub(p.centre).multiplyScalar(s).add(p.centre).add(p.offset);
+      p.node.visible = p.presence > 0.01;
+    }
 
-      if (buildStep === 3) {
-        if (m.name === 't_rb') {
-          // Top cover: move UP
-          targetY += 25 * explode;
-          targetZ += 2 * explode;
-        } else if (m.name === 't_b') {
-          // Back top case: move BACK
-          targetZ -= 20 * explode; // push far back
-        } else if (m.name !== 't') {
-          targetZ += 4 * explode;
-        }
-        // General top group slight Y upward shift
-        if (m.name !== 't_rb') targetY += 2 * explode;
+    // The knob in hand wears its ring and goes grey.
+    for (const k of device.knobs) {
+      const held = activeKnobId === k.node.name;
+      k.ring.visible = held;
+      for (const tint of k.tints) {
+        if (held) tint.material.color.setHex(0x666666); // 선택 시 회색
+        else tint.material.color.copy(tint.own);
       }
+    }
 
-      m.position.z = THREE.MathUtils.lerp(m.position.z, targetZ, lerpSpeed);
-      m.position.y = THREE.MathUtils.lerp(m.position.y, targetY, lerpSpeed);
-      m.position.x = THREE.MathUtils.lerp(m.position.x, targetX, lerpSpeed);
-    });
-    
-    partsRef.current.knobs.forEach(m => {
-      const knobLift = buildStep === 3 ? explode : 0;
-      m.position.z = THREE.MathUtils.lerp(m.position.z, m.userData.originalZ + offsetTopZ + 8 * knobLift, lerpSpeed);
-      m.position.y = THREE.MathUtils.lerp(m.position.y, m.userData.originalY + 2 * knobLift, lerpSpeed);
-    });
-    
-    partsRef.current.mid.forEach(m => m.position.z = THREE.MathUtils.lerp(m.position.z, m.userData.originalZ + offsetMidZ, lerpSpeed));
-    partsRef.current.led.forEach(m => m.position.z = THREE.MathUtils.lerp(m.position.z, m.userData.originalZ + offsetLedZ, lerpSpeed));
-    partsRef.current.pcb.forEach(m => m.position.z = THREE.MathUtils.lerp(m.position.z, m.userData.originalZ + offsetPcbZ, lerpSpeed));
-    partsRef.current.others.forEach(m => m.position.z = THREE.MathUtils.lerp(m.position.z, m.userData.originalZ + offsetPcbZ, lerpSpeed));
-    
-    partsRef.current.bot.forEach(m => {
-      let targetZ = m.userData.originalZ + offsetBotZ;
-      let targetY = m.userData.originalY;
-      let targetX = m.userData.originalX;
-      
-      if (buildStep === 3) {
-        if (m.name === 'b_f') {
-          // Front cover: move to the RIGHT
-          targetX += 20 * explode;
-          targetZ += 2 * explode;
-        } else if (m.name === 'b_b') {
-          // Back bottom case: move BACK
-          targetZ -= 20 * explode; // push far back
-        } else {
-          targetZ += (m.name !== 'b' ? -4 : 0) * explode;
-          targetY -= 2 * explode;
-        }
-      }
+    // Framing. The aim, in the group's frame: the board on Solder, otherwise
+    // the middle of what is shown. Every case is centred alike and drawn at
+    // one scale (prepareCase), so a swap lands where the last case stood.
+    if (pose.board) tmp.box.copy(device.board);
+    if (tmp.box.isEmpty()) tmp.box.copy(device.board);
+    tmp.box.getCenter(tmp.aim).add(device.fitPosition);
+    let scale = pose.scale;
+    if (pose.board) {
+      const size = device.board.getSize(tmp.v);
+      scale = BOARD_SPAN / Math.hypot(size.x, size.y);
+    }
 
-      m.position.z = THREE.MathUtils.lerp(m.position.z, targetZ, lerpSpeed);
-      m.position.y = THREE.MathUtils.lerp(m.position.y, targetY, lerpSpeed);
-      m.position.x = THREE.MathUtils.lerp(m.position.x, targetX, lerpSpeed);
-    });
-
-    const showCase = buildStep === 0 || buildStep === 1 || buildStep === 3 || buildStep === 4;
-    const showPcb = buildStep === 0 || buildStep === 2 || buildStep === 3 || buildStep === 4;
-    const showLed = buildStep === 0 || buildStep === 3 || buildStep === 4;
-
-    const applyScaleLerp = (m: THREE.Mesh, show: boolean) => {
-      const targetScale = show ? m.userData.originalScale as THREE.Vector3 : new THREE.Vector3(0.001, 0.001, 0.001);
-      m.scale.lerp(targetScale, lerpSpeed);
-      m.visible = m.scale.x > 0.01 || show;
-    };
-
-    partsRef.current.top.forEach(m => applyScaleLerp(m, showCase));
-    partsRef.current.mid.forEach(m => applyScaleLerp(m, showCase));
-    partsRef.current.bot.forEach(m => applyScaleLerp(m, showCase));
-    partsRef.current.knobs.forEach(m => applyScaleLerp(m, showCase));
-    partsRef.current.pcb.forEach(m => applyScaleLerp(m, showPcb));
-    
-    // LED Matrix Visibility and Scale restore
-    partsRef.current.led.forEach(m => {
-       m.visible = showLed;
-       if (m.userData.originalScale) {
-         m.scale.copy(m.userData.originalScale);
-       }
-    });
-    
-    partsRef.current.others.forEach(m => applyScaleLerp(m, showPcb));
-
-    // Glow Effect for Step 4
-    const glowTarget = buildStep === 4 ? 2.0 : 0.0;
-    partsRef.current.others.forEach(m => {
-      if (m.name.toLowerCase().includes('esp') || m.name.toLowerCase().includes('chip')) {
-        const mat = m.material as THREE.MeshStandardMaterial;
-        if (mat.emissive) {
-           if (m.userData.originalMaterial === undefined) {
-             m.userData.originalMaterial = mat;
-             m.material = mat.clone();
-             (m.material as THREE.MeshStandardMaterial).emissive.setHex(0xFFD466);
-           }
-           const currentMat = m.material as THREE.MeshStandardMaterial;
-           currentMat.emissiveIntensity = THREE.MathUtils.lerp(currentMat.emissiveIntensity || 0, glowTarget, 0.05);
-        }
-      }
-    });
+    group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, pose.turn, kView);
+    const nextScale = THREE.MathUtils.lerp(group.scale.x, scale, kView);
+    group.scale.setScalar(nextScale);
+    focus.current.lerp(tmp.aim, kView);
+    lift.current = THREE.MathUtils.lerp(lift.current, pose.lift, kView);
+    // Turn and scale about the aim, which stays on the orbit target: the
+    // device turns in place and the view zooms into what it is about.
+    tmp.v.copy(focus.current).multiplyScalar(nextScale).applyAxisAngle(Y_AXIS, group.rotation.y);
+    group.position.copy(TARGET).sub(tmp.v);
+    group.position.y += lift.current;
   });
 
   return (
-    <group ref={groupRef} scale={[0.1, 0.1, 0.1]} position={[0, 0, 0]}>
-      <primitive object={scene} onPointerDown={onPointerDown} />
+    <group ref={groupRef} scale={[0.1, 0.1, 0.1]}>
+      <ModelGuard key={caseId} onError={() => onFailed(caseId)}>
+        <Suspense fallback={null}>
+          <CaseDevice id={caseId} finish={finish} deviceRef={deviceRef} handlers={handlers} />
+        </Suspense>
+      </ModelGuard>
     </group>
   );
 }
 
+const caseName = (id: CaseId) => BUILD_CASES.find((c) => c.id === id)?.tab ?? id;
+
 export default function HeroScene() {
   const isDraggingKnob = useAppStore((state) => state.isDraggingKnob);
   const activeKnobId = useAppStore((state) => state.activeKnobId);
+  const buildCase = useAppStore((state) => state.buildCase);
+  const caseFinish = useAppStore((state) => state.caseFinish);
+  const setCaseFinish = useAppStore((state) => state.setCaseFinish);
   const [hasInteracted, setHasInteracted] = useState(false);
   // Latch on first knob interaction — adjusting state during render (guarded)
   // avoids an extra effect-driven render pass.
   if (activeKnobId && !hasInteracted) {
     setHasInteracted(true);
   }
+
+  // The case on screen, and the one wanted: the picked case once its model is
+  // in, the official one for a case whose model would not load. While the
+  // wanted one loads, the shown one stays.
+  const [shown, setShown] = useState<CaseId>(() => (arrived.has(buildCase) ? buildCase : 'official'));
+  const [failed, setFailed] = useState<CaseId[]>([]);
+  // Picking a case whose model failed tries it again: its failure was let go
+  // of in drei's cache (onFailed), so this is a fresh request. Adjusted during
+  // render, guarded, like the hint's latch above.
+  const [picked, setPicked] = useState(buildCase);
+  if (picked !== buildCase) {
+    setPicked(buildCase);
+    if (failed.includes(buildCase)) setFailed(failed.filter((id) => id !== buildCase));
+  }
+  const wanted: CaseId = failed.includes(buildCase) ? 'official' : buildCase;
+  const loading = wanted !== shown;
+  const onReady = useCallback((id: CaseId) => setShown(id), []);
+  const onFailed = useCallback((id: CaseId) => {
+    // suspend-react keeps a failed load as a thrown error; without this, the
+    // case could not load again until the page was reloaded.
+    useGLTF.clear(CASE_MODELS[id].url);
+    setFailed((list) => (list.includes(id) ? list : [...list, id]));
+    // Back to the official case, and if that is what failed, onto it all the
+    // same: its slot then draws nothing, rather than a remix staying on screen
+    // under the Official tab.
+    setShown((current) => (current === id || id === 'official' ? 'official' : current));
+  }, []);
+
+  const finishes = CASE_MODELS[shown].finishes ?? [];
+  const finishId = caseFinish[shown] ?? finishes[0]?.id;
+  const finish = finishes.find((f) => f.id === finishId);
+
+  // Under the device: the picked case on its way, or why it is not there.
+  const note = loading
+    ? `Loading ${caseName(wanted)}…`
+    : failed.includes(buildCase)
+      ? `${caseName(buildCase)}’s model did not load`
+      : null;
 
   return (
     <div id="three-canvas" style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -562,6 +538,19 @@ export default function HeroScene() {
         Rotate the knobs to explore
       </div>
 
+      <div className={styles.note} data-on={note ? '1' : '0'} role="status" aria-live="polite">
+        {note}
+      </div>
+
+      {!loading && finishes.length > 1 && finishId && (
+        <CaseFinishSwitch
+          label={`${caseName(shown)} case material`}
+          finishes={finishes}
+          value={finishId}
+          onChange={(id) => setCaseFinish(shown, id)}
+        />
+      )}
+
       <Canvas camera={{ position: [0.0, 6.0, 10.3], fov: 28 }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
         <ambientLight intensity={0.3} color="#fef6e8" />
         <directionalLight position={[2.3, 3.9, 6]} intensity={2.60} color="#ffffff" castShadow
@@ -573,17 +562,49 @@ export default function HeroScene() {
         <directionalLight position={[-4, 3, 4]} intensity={0.4} color="#dde8ff" />
         <directionalLight position={[-2, 5, -6]} intensity={0.5} color="#fff4e0" />
         <pointLight position={[0, -2, 3]} intensity={0.15} color="#e8c89e" distance={15} decay={2} />
-        <Environment preset="city" environmentIntensity={0.25} />
-        <Model />
+        {/* The room the reflections and the soft light come from: light
+            panels made here, as on the guide's stage, not an environment map
+            fetched at run time. Each faces the middle (drei aims a
+            Lightformer at the origin). Neutral white, with the left panel a
+            touch cool: the light has no cast of its own. */}
+        <Environment resolution={256} frames={1} environmentIntensity={0.6}>
+          <Lightformer form="rect" intensity={2} color="#ffffff" position={[0, 5, 5]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={0.8} color="#f3f6ff" position={[-6, 1, 1]} scale={[6, 5, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[6, 0, 1]} scale={[6, 4, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 3, -7]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} scale={[0.35, 6, 1]} />
+          <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} scale={[0.25, 5, 1]} />
+        </Environment>
+        <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} />
+        {loading && (
+          <ModelGuard key={wanted} onError={() => onFailed(wanted)}>
+            <Suspense fallback={null}>
+              <CaseLoader id={wanted} onReady={onReady} />
+            </Suspense>
+          </ModelGuard>
+        )}
         <OrbitControls target={[0, 1.7, 0]} enablePan={false} enableZoom={true} enableRotate={!isDraggingKnob} />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
-        
-        {/* 빛 번짐(Glow/Bloom) 효과 */}
+
+        {/* The frame, in order: the tone curve, on each pixel's own colour
+            (canvasAlpha.tsx), and the glow. The curve is Neutral's shoulder:
+            its toe is given back first (neutralToe.tsx), so below the knee
+            the frame is as lit — the white case the white it is drawn, a
+            pure LED colour pure (patterns/common.ts holds it at the knee),
+            the dark parts as dark as they are. What is brighter than that, an
+            LED's white core or a highlight, is rolled off with its channels
+            together, rather than one channel clipping before the others and
+            leaving the rest yellow. The glow then takes what the LED shader
+            runs past 2.0. */}
         <EffectComposer enableNormalPass={false}>
-          <Bloom 
-            luminanceThreshold={2.0} 
-            mipmapBlur={false} 
-            intensity={0.2} 
+          <StraightAlpha />
+          <NeutralToeBack />
+          <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <PageAlpha />
+          <Bloom
+            luminanceThreshold={2.0}
+            mipmapBlur={false}
+            intensity={0.2}
           />
         </EffectComposer>
       </Canvas>

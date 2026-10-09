@@ -173,7 +173,7 @@ Each of these lives in an **edition** — a firmware you install from [the shelf
 
 ## How it's built
 
-Patternflow is built around a standalone ESP32-S3 driving a HUB75 RGB LED matrix at low resolution, where each pixel reads as a discrete point of light with its own brightness and color. Four rotary encoders feed firmware written in Arduino-compatible C++ around a modular pattern architecture: each pattern is a self-contained module with its own setup, update, and draw routines, while the shared framework handles input, LED rendering, mode transitions, and color calibration. I designed the PCB myself; the enclosure is 3D-printed by default, with stainless steel, transparent acrylic, and laser-cut variations in progress.
+Patternflow is built around a standalone ESP32-S3 driving a HUB75 RGB LED matrix at low resolution, where each pixel reads as a discrete point of light with its own brightness and color. Four rotary encoders feed firmware written in Arduino-compatible C++ around a modular pattern architecture: each pattern is a self-contained module with its own setup, update, and draw routines, while the shared framework handles input, LED rendering, mode transitions, and color calibration. I designed the PCB myself; the enclosure is 3D-printed by default. Two community remixes sit beside it in [`hardware/case/remixes/`](hardware/case/remixes/README.md), another printed case and a laser-cut one in clear acrylic or MDF, and a stainless steel version is still in progress.
 
 ## Repository & documentation
 

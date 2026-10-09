@@ -7,6 +7,7 @@ Clients that Patternflow ships and that run on their own — a browser extension
 | [`patternflow-audio-extension/`](patternflow-audio-extension/README.md) | Chrome/Edge extension: captures the current tab's audio, splits it into four bands, one per knob, that you shape as boxes on the live spectrum, and streams the four knob values to the panel | [`audio-ws-spec.md`](../docs/audio-ws-spec.md) |
 | [`patternflow-audio-android/`](patternflow-audio-android/README.md) | The phone-side twin: captures what the phone is playing and drives the knobs with it, for filming. It takes its mapping from the panel | [`audio-ws-spec.md`](../docs/audio-ws-spec.md), and the microphone endpoints of [`rest-api.md`](../docs/rest-api.md#microphone-audio-edition) |
 | [`rtpmidi-probe/`](rtpmidi-probe/README.md) | A plain-Python RTP-MIDI session initiator that walks the MIDI contract against a panel from a machine with no MIDI driver | [`midi-spec.md`](../docs/midi-spec.md) |
+| [`case-models/`](case-models/README.md) | Not a client of the panel: the scripts that make the 3D model of each case the /build page's preview shows (`web/public/cases/<id>/model.glb`), from the case's own files in `hardware/case/`. Run by hand; the site's build does not run them | The node names `web/src/components/3d/caseModels.ts` finds in every model, listed in its README |
 
 ## The extension is also firmware source
 

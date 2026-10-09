@@ -35,18 +35,19 @@ The `web/` app is the Patternflow site at [patternflow.work](https://patternflow
 ```
 HomeView (src/components/HomeView.tsx)
 ├── ViewerPanel (components/3d/)         ← sticky 3D panel
-│   ├── HeroScene.tsx                    ← Canvas, GLB loader (public/3dforweb.glb), LED ShaderMaterial
+│   ├── HeroScene.tsx                    ← Canvas, the picked case's GLB (public/cases/<id>/model.glb), LED ShaderMaterial
+│   ├── caseModels.ts + cases/           ← one model per case on the Build panel's switch: URL, node names, exploded view, finishes. The GLBs are built by tools/case-models
 │   ├── LedMatrixTexture.ts              ← renders JS patterns into a texture for the 3D LED mesh
 │   └── patterns/                        ← GLSL pattern ports (common.ts = shared vertex shader + registry)
 └── RightPanel (components/sections/)    ← tabbed content panel
     ├── Hero.tsx / Deck.tsx              ← hero copy + panel open/close orchestration
-    ├── BuildPanel.tsx                   ← build paths, flasher entry
+    ├── BuildPanel.tsx                   ← build paths, the case switch, flasher entry
     ├── PatternPanel.tsx                 ← preset browser + code editor; every CTA leads to /pattern-lab
     ├── InsidePanel.tsx + InsideGlobe/   ← concept content + community builds globe
     └── Sponsor.tsx
 ```
 
-Cross-component landing state (active tab, virtual knob values, bloom toggle) lives in the Zustand store `src/store/useAppStore.ts`.
+Cross-component landing state (active tab, virtual knob values, bloom toggle, the case picked on the Build panel and its finish) lives in the Zustand store `src/store/useAppStore.ts`.
 
 ## Pattern system
 

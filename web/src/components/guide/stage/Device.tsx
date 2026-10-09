@@ -50,13 +50,13 @@ import { forgetPillSize, NO_POINTER, placeTag } from "./tags";
 import { VIEWS } from "./views";
 
 // The Patternflow in the guide, put together from four files (parts.ts): the
-// v3.9 enclosure and knobs from the case's Blender source, the landing page
+// v3.9 enclosure and knobs from the case's Blender source, the official case
 // model's LED panel (nothing else of that model is used), the v3.9 board
 // exported from KiCad, and the ESP32 DevKit on its sockets. Its LED mesh
 // shows the simulated board's frame, its knobs turn, press and hold like the
 // real encoders, and the back slider comes off for the DevKit to come out.
-// The landing model's GLB is shared with the landing page's HeroScene through
-// drei's cache, so this works on clones and never touches a cached scene.
+// The landing page's preview loads the same official case model, so this
+// works on clones and never touches drei's cached scene.
 
 // A ring drawn on a plane: `uFill` of the circle as a bright arc (a hold on
 // its way to a long-press) over a faint full ring (the knob in focus).
@@ -165,12 +165,13 @@ export default function Device() {
   const scene = useMemo(() => {
     const root = new THREE.Group();
     root.name = "patternflow";
-    // Of the landing page's model only the LED panel stays: its case, knobs
-    // and board are older than v3.9.
+    // Of the official case model only the LED panel is used: its case, board
+    // and DevKit are the guide's own files (parts.ts), which it carries
+    // simplified for the landing page's preview.
     const ledSrc = ledGltf.scene.getObjectByName("l");
     if (ledSrc) {
       const led = ledSrc.clone(true);
-      // Start from the model's own pose even if the landing page left it mid-animation.
+      // Start from the file's own pose even if a page animating the cached scene left it mid-move.
       if (led.userData.originalX !== undefined) led.position.set(led.userData.originalX, led.userData.originalY, led.userData.originalZ);
       if (led.userData.originalScale) led.scale.copy(led.userData.originalScale);
       root.add(led);
