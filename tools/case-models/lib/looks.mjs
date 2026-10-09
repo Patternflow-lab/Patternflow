@@ -31,7 +31,7 @@ const ACRYLIC_EDGE = { color: hex('#8fb5ad', 0.7), roughness: 0.25, blend: true 
 
 export const LOOKS = {
   // A neutral white. White PLA photographs anywhere from cool to cream with
-  // the light it is under (the build photos run from b* −2 to +11), so the
+  // the light it is under (the build photos run from b* −6 to +11), so the
   // filament itself is drawn without a cast, and matte: a warmer white read
   // as beige once the page's light got bright.
   pla_white: { color: hex('#f4f4f2'), roughness: 0.85 },
