@@ -6,9 +6,11 @@
 // replaced it) was a v3.0 device; of all its parts only the LED panel, the
 // node "l", is still used: its front face carries the UVs the pattern shaders
 // draw on, and the guide places its own LED panel by it. This keeps that one
-// node, unchanged (same name, same transform, same geometry), in a file of
-// its own, so the case models and the guide can be rebuilt without the rest.
-// It has been run once; source/led_panel.glb is its output.
+// node, unchanged (same name, transform, geometry and UVs), in a file of its
+// own, so the case models and the guide can be rebuilt without the rest.
+// It has been run once; source/led_panel.glb is its output. The old model is
+// in the repository's history, for running it again:
+//   git show v3.11.0:web/public/3dforweb.glb > /tmp/3dforweb.glb
 import { prune } from '@gltf-transform/functions';
 import { getIO, worldBounds, fmt } from './lib/io.mjs';
 

@@ -9,15 +9,17 @@ export const SIMONEPDA_MODEL: CaseModel = {
   id: 'simonepda-lasercut',
   url: '/cases/simonepda-lasercut/model.glb',
   // Drawn apart around the sheet, which stays put: the knobs and the panel
-  // come off the front, the strips open out round where the panel was, and
-  // behind the sheet the board, the DevKit, the box's walls, its lid and the
-  // feet come away in that order, each clear of the one in front of it. The
-  // walls also step outward so their finger joints show.
+  // come off the front (the knobs as far as on the other two cases; further,
+  // they cross in front of the panel in the three-quarter view), the strips
+  // open out round where the panel was, and behind the sheet the board, the
+  // DevKit, the box's walls, its lid and the feet come away in that order,
+  // each clear of the one in front of it. The walls also step outward so
+  // their finger joints show.
   explode: {
-    c1: [0, 0, 14],
-    c2: [0, 0, 14],
-    c3: [0, 0, 14],
-    c4: [0, 0, 14],
+    c1: [0, 0, 4.2],
+    c2: [0, 0, 4.2],
+    c3: [0, 0, 4.2],
+    c4: [0, 0, 4.2],
     l: [0, 0, 6],
     strip_left: [-2.5, 0, 3],
     strip_right: [2.5, 0, 3],
