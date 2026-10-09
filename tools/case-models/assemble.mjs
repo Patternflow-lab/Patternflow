@@ -13,7 +13,8 @@
 //
 //   {
 //     "board": [dx, dy, dz],   // added to the official case's board, DevKit and knobs
-//     "led": [x, y, z],        // the LED panel node's translation (z is its LED face)
+//     "led": [x, y, z],        // the LED panel node's translation (z is its LED face);
+//                              // left out, it stays where the official case has it
 //     "knobs": "official",     // or "shell": the shell has its own c1..c4
 //     "knobBaseZ": 1.6437      // optional: the knobs' base, when "official"
 //   }
@@ -38,7 +39,7 @@ import { KHRDracoMeshCompression } from '@gltf-transform/extensions';
 import { dedup, draco, mergeDocuments, prune, simplify, weld } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
 import { getIO, worldBounds, fmt } from './lib/io.mjs';
-import { DEVKIT_SEAT, KNOB_BASES, LED_TRANSLATION, PCB_PLACEMENT, add3 } from './lib/frame.mjs';
+import { DEVKIT_SEAT, KNOB_BASES, PCB_PLACEMENT, add3 } from './lib/frame.mjs';
 import { applyLooks } from './lib/looks.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -96,7 +97,8 @@ if (caseId === 'official') {
   // The v3.9 case, as the guide has it, without its knobs (added below with
   // the others) — the knobs are in the same file, at the same places.
   shellDoc = await io.read(path.join(GUIDE, 'case-v39.glb'));
-  placement = { board: [0, 0, 0], led: LED_TRANSLATION, knobs: 'official' };
+  // No "led": the panel stays exactly where the source file has it.
+  placement = { board: [0, 0, 0], knobs: 'official' };
   for (const n of shellDoc.getRoot().listNodes()) {
     if (/^c[1-4]$/.test(n.getName())) n.dispose();
     else if (n.getMesh()) n.getMesh().listPrimitives().forEach((p) => p.setMaterial(null));
@@ -115,9 +117,10 @@ doc.createBuffer();
 const shellRoots = adopt(doc, shellDoc);
 const board = placement.board ?? [0, 0, 0];
 
-// The LED panel: the old landing model's own node, moved.
+// The LED panel: the old landing model's own node, moved where this case
+// holds it (on the official case it stays where it was).
 const ledRoots = adopt(doc, await io.read(path.join(HERE, 'source/led_panel.glb')));
-ledRoots.l.setTranslation(placement.led ?? LED_TRANSLATION);
+if (placement.led) ledRoots.l.setTranslation(placement.led);
 
 // The knobs: the official ones, on the encoder axes of the board as placed.
 if (placement.knobs === 'official') {
