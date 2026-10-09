@@ -27,7 +27,9 @@ for (const node of scene.listChildren()) {
 }
 const led = root.listNodes().find((n) => n.getName() === 'l');
 if (!led) throw new Error(`no node "l" in ${src}`);
-await doc.transform(prune());
+// keepAttributes: the panel's UVs are what the pattern shaders draw with, though no
+// texture in the file uses them — prune() would drop them otherwise.
+await doc.transform(prune({ keepAttributes: true }));
 doc.getRoot().getAsset().generator = 'patternflow tools/case-models/extract_led.mjs';
 await io.write(out, doc);
 const b = worldBounds(led);

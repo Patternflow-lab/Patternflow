@@ -63,7 +63,7 @@ const io = await getIO();
 async function readSimplified(file, opts) {
   const doc = await io.read(file);
   await MeshoptSimplifier.ready;
-  await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ...opts }), dedup(), prune());
+  await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ...opts }), dedup(), prune({ keepAttributes: true }));
   return doc;
 }
 
@@ -125,7 +125,7 @@ if (placement.knobs === 'official') {
   for (const n of knobDoc.getRoot().listNodes()) {
     if (!/^c[1-4]$/.test(n.getName())) n.dispose();
   }
-  await knobDoc.transform(prune());
+  await knobDoc.transform(prune({ keepAttributes: true }));
   const black = knobDoc.createMaterial('pla_black');
   for (const n of knobDoc.getRoot().listNodes()) n.getMesh()?.listPrimitives().forEach((p) => p.setMaterial(black));
   const knobs = adopt(doc, knobDoc);
@@ -153,7 +153,9 @@ applyLooks(doc);
 await doc.transform(
   weld(),
   dedup(),
-  prune({ keepLeaves: false }),
+  // keepAttributes: prune() drops a UV set no texture uses, and the LED
+  // panel's UVs are what the page's pattern shaders draw with.
+  prune({ keepLeaves: false, keepAttributes: true }),
   draco({ method: 'edgebreaker', quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 14 }),
 );
 doc.createExtension(KHRDracoMeshCompression).setRequired(true);
