@@ -56,6 +56,13 @@ export interface CaseModel {
   explode: Record<string, Vec3>;
   /** When the case comes in more than one material: the first is the file's. */
   finishes?: CaseFinish[];
+  /**
+   * Top-level nodes that come with the case but are not on the device as it
+   * stands, like feet for laying it flat: drawn with the parts to make (Build
+   * step 1) and on Assemble (step 3), and not on the device once it is
+   * powered.
+   */
+  loose?: string[];
 }
 
 export const CASE_MODELS: Record<CaseId, CaseModel> = {

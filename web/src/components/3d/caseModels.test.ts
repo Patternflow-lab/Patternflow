@@ -91,6 +91,16 @@ describe('case models', () => {
       }
     });
 
+    it('sets aside only parts of the case that are in the file', () => {
+      const gltf = readGlb(file);
+      const top = new Set(gltf.scenes[gltf.scene ?? 0].nodes.map((i) => gltf.nodes[i].name));
+      const device = new Set<string>([LED_NODE, ...KNOB_NODES, PCB_NODE, DEVKIT_NODE]);
+      for (const name of model.loose ?? []) {
+        expect(top.has(name), `${id}: loose names "${name}", which the file has no top-level node for`).toBe(true);
+        expect(device.has(name), `${id}: "${name}" is the device, not a loose piece of its case`).toBe(false);
+      }
+    });
+
     it('recolours only materials that are in the file', () => {
       const materials = new Set((readGlb(file).materials ?? []).map((m) => m.name));
       for (const finish of model.finishes ?? []) {

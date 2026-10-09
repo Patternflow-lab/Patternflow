@@ -1,4 +1,4 @@
-import { PatternDef } from './common';
+import { ledPanel, PatternDef } from './common';
 
 const fragmentShader = `
 uniform float uTime;
@@ -9,6 +9,7 @@ uniform float uParam3; // Mode (0.0 ~ 4.9)
 uniform float uParam4; // Freq (0.0 ~ 1.0)
 
 varying vec2 vUv;
+${ledPanel}
 
 // HSV to RGB conversion
 vec3 hsv2rgb(vec3 c) {
@@ -21,7 +22,6 @@ void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
   vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
   vec2 px = floor(gridUV);
-  vec2 localUV = fract(gridUV);
   
   float x = px.x;
   float y = 63.0 - px.y;
@@ -88,17 +88,7 @@ void main() {
     }
   }
 
-  float dist2 = length(localUV - 0.5);
-  float circle = smoothstep(0.45, 0.35, dist2);
-
-  float fw = fwidth(vUv.x) * 128.0;
-  float lodBlend = smoothstep(0.0, 0.29, fw); 
-  float finalAlpha = mix(circle, 1.0, lodBlend);
-  
-  float unlit = 0.02;
-  col = mix(vec3(unlit), col, step(0.01, length(col)));
-
-  gl_FragColor = vec4(col * finalAlpha, 1.0);
+  gl_FragColor = vec4(ledPanel(col), 1.0);
 }
 `;
 

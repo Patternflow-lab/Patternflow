@@ -19,9 +19,10 @@ import {
   type RefObject,
 } from 'react';
 import * as THREE from 'three';
-import { useGLTF, ContactShadows, Environment, OrbitControls } from '@react-three/drei';
-import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { patternVert } from './patterns/common';
+import { useGLTF, ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
+import { ToneMappingMode } from 'postprocessing';
+import { ledPanel, ledVert } from './patterns/common';
 import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
@@ -39,6 +40,7 @@ import {
   type PreparedCase,
 } from './heroCase';
 import CaseFinishSwitch from './CaseFinishSwitch';
+import { PageAlpha, StraightAlpha } from './canvasAlpha';
 import styles from './HeroScene.module.css';
 
 // The product preview on the Build and Pattern tabs: the device in the case
@@ -51,22 +53,15 @@ import styles from './HeroScene.module.css';
 const customFragmentShader = `
 uniform sampler2D uTex;
 varying vec2 vUv;
+${ledPanel}
 
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
   vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
-  vec2 localUV = fract(gridUV);
 
   // Sample discrete pixels to enforce pixelation
   vec2 pxUV = (floor(gridUV) + 0.5) / vec2(128.0, 64.0);
   vec4 texColor = texture2D(uTex, pxUV);
-
-  float dist2 = length(localUV - 0.5);
-  float circle = smoothstep(0.45, 0.35, dist2);
-
-  float fw = fwidth(vUv.x) * 128.0;
-  float lodBlend = smoothstep(0.0, 0.29, fw);
-  float finalAlpha = mix(circle, 1.0, lodBlend);
 
   vec3 col = texColor.rgb;
   float luma = dot(col, vec3(0.299, 0.587, 0.114));
@@ -77,10 +72,7 @@ void main() {
     col *= 0.8;
   }
 
-  float unlit = 0.02;
-  col = mix(vec3(unlit), col, step(0.01, length(col)));
-
-  gl_FragColor = vec4(col * finalAlpha, 1.0);
+  gl_FragColor = vec4(ledPanel(col), 1.0);
 }
 `;
 
@@ -128,6 +120,8 @@ interface Pose {
   /** How far the parts stand apart, as a fraction of each one's explode vector. */
   spread: number;
   show: Record<PartRole, boolean>;
+  /** The case's loose pieces (CaseModel.loose) are out too: the parts are being made or put together. */
+  loose: boolean;
   /** Frame the board instead of the whole device. */
   board: boolean;
   /** The LED panel is lit (the device has power). */
@@ -143,11 +137,11 @@ function poseFor(step: number, explode: number, t: number): Pose {
     // 1. Print / cut the case: its parts and the knobs, drawn a little apart
     // so it reads as parts to make, nothing inside yet.
     case 1:
-      return { turn: -0.5, scale: 0.085, lift: 0, spread: 0.4, show: CASE_ONLY, board: false, lit: false };
+      return { turn: -0.5, scale: 0.085, lift: 0, spread: 0.4, show: CASE_ONLY, loose: true, board: false, lit: false };
     // 2. Solder: the board and the DevKit alone, close. (Its scale comes from
     // the board's size in the model, BOARD_SPAN, so it is left 0 here.)
     case 2:
-      return { turn: BOARD_TURN, scale: 0, lift: 0, spread: 0, show: BOARD_ONLY, board: true, lit: false };
+      return { turn: BOARD_TURN, scale: 0, lift: 0, spread: 0, show: BOARD_ONLY, loose: false, board: true, lit: false };
     // 3. Assemble: everything, as far apart as the reader has dragged it.
     // The view pulls back as the parts separate, rather than snapping between
     // two framings — the reader is dragging this, so it has to track the drag.
@@ -158,12 +152,13 @@ function poseFor(step: number, explode: number, t: number): Pose {
         lift: 0,
         spread: explode,
         show: ALL,
+        loose: true,
         board: false,
         lit: false,
       };
     // 4. Flash and power on: together, lit.
     case 4:
-      return { turn: -0.5, scale: 0.1, lift: 0, spread: 0, show: ALL, board: false, lit: true };
+      return { turn: -0.5, scale: 0.1, lift: 0, spread: 0, show: ALL, loose: false, board: false, lit: true };
     // Idle: together, lit, swaying slowly.
     default:
       return {
@@ -172,6 +167,7 @@ function poseFor(step: number, explode: number, t: number): Pose {
         lift: Math.sin(t * 0.3) * 0.03,
         spread: 0,
         show: ALL,
+        loose: false,
         board: false,
         lit: true,
       };
@@ -249,7 +245,7 @@ function CaseDevice({
   useEffect(() => applyFinish(prepared, finish), [prepared, finish]);
 
   return (
-    <group position={prepared.fitPosition} scale={prepared.fitScale}>
+    <group position={prepared.fitPosition}>
       {/* dispose={null}: the geometry is drei's cache's; disposeCase lets go of the rest. */}
       <primitive object={prepared.root} dispose={null} {...handlers} />
     </group>
@@ -299,7 +295,7 @@ function ProductPreview({
       uParam4: { value: defaults.uParam4 ?? 0.0 },
       uAspect: { value: 2.0 },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: pattern.fragmentShader,
   }), [pattern, defaults]);
   useEffect(() => () => ledMat.dispose(), [ledMat]);
@@ -308,7 +304,7 @@ function ProductPreview({
     uniforms: {
       uTex: { value: ledMatrix.texture },
     },
-    vertexShader: patternVert,
+    vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
 
@@ -475,7 +471,7 @@ function ProductPreview({
     // move is done, so the framing heads for it from the first frame.
     tmp.box.makeEmpty();
     for (const p of device.parts) {
-      const shown = pose.show[p.role];
+      const shown = pose.show[p.role] && (pose.loose || !p.loose);
       tmp.v.copy(p.apart).multiplyScalar(pose.spread);
       if (shown) tmp.box.union(tmp.part.copy(p.box).translate(tmp.v));
       p.offset.lerp(tmp.v, kPart);
@@ -499,15 +495,15 @@ function ProductPreview({
     }
 
     // Framing. The aim, in the group's frame: the board on Solder, otherwise
-    // the middle of what is shown. Every case is centred and sized alike
-    // (prepareCase), so a swap lands where the last case stood.
+    // the middle of what is shown. Every case is centred alike and drawn at
+    // one scale (prepareCase), so a swap lands where the last case stood.
     if (pose.board) tmp.box.copy(device.board);
     if (tmp.box.isEmpty()) tmp.box.copy(device.board);
-    tmp.box.getCenter(tmp.aim).multiplyScalar(device.fitScale).add(device.fitPosition);
+    tmp.box.getCenter(tmp.aim).add(device.fitPosition);
     let scale = pose.scale;
     if (pose.board) {
       const size = device.board.getSize(tmp.v);
-      scale = BOARD_SPAN / (Math.hypot(size.x, size.y) * device.fitScale);
+      scale = BOARD_SPAN / Math.hypot(size.x, size.y);
     }
 
     group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, pose.turn, kView);
@@ -634,7 +630,14 @@ export default function HeroScene() {
         <directionalLight position={[-4, 3, 4]} intensity={0.4} color="#dde8ff" />
         <directionalLight position={[-2, 5, -6]} intensity={0.5} color="#fff4e0" />
         <pointLight position={[0, -2, 3]} intensity={0.15} color="#e8c89e" distance={15} decay={2} />
-        <Environment preset="city" environmentIntensity={0.25} />
+        <Environment resolution={256} frames={1} environmentIntensity={0.6}>
+          <Lightformer form="rect" intensity={2} color="#ffffff" position={[0, 5, 5]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={0.8} color="#f3f6ff" position={[-6, 1, 1]} rotation-y={Math.PI / 2} scale={[6, 5, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[6, 0, 1]} rotation-y={-Math.PI / 2} scale={[6, 4, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 3, -7]} scale={[10, 4, 1]} />
+          <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} rotation-y={Math.PI / 4} scale={[0.35, 6, 1]} />
+          <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} rotation-y={-Math.PI / 3.2} scale={[0.25, 5, 1]} />
+        </Environment>
         <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} />
         {loading && (
           <ModelGuard key={wanted} onError={() => onFailed(wanted)}>
@@ -646,8 +649,18 @@ export default function HeroScene() {
         <OrbitControls target={[0, 1.7, 0]} enablePan={false} enableZoom={true} enableRotate={!isDraggingKnob} />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
 
-        {/* 빛 번짐(Glow/Bloom) 효과 */}
+        {/* The frame, in order: the tone curve, on each pixel's own colour
+            (canvasAlpha.tsx), and the glow. Neutral, because below its knee
+            it changes nothing: the white case stays the white it is drawn,
+            and an LED's colour keeps its hue (patterns/common.ts holds it
+            under the knee); only what is brighter than white, an LED's white
+            core or a highlight, is rolled off, together, rather than one
+            channel clipping before the others and leaving the rest yellow.
+            The glow then takes what the LED shader runs past 2.0, the whites. */}
         <EffectComposer enableNormalPass={false}>
+          <StraightAlpha />
+          <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <PageAlpha />
           <Bloom
             luminanceThreshold={2.0}
             mipmapBlur={false}
