@@ -41,6 +41,7 @@ import {
 import { poseFor, shows } from './buildPose';
 import CaseFinishSwitch from './CaseFinishSwitch';
 import { PageAlpha, StraightAlpha } from './canvasAlpha';
+import { NeutralToeBack } from './neutralToe';
 import styles from './HeroScene.module.css';
 
 // The product preview on the Build and Pattern tabs: the device in the case
@@ -561,13 +562,18 @@ export default function HeroScene() {
         <directionalLight position={[-4, 3, 4]} intensity={0.4} color="#dde8ff" />
         <directionalLight position={[-2, 5, -6]} intensity={0.5} color="#fff4e0" />
         <pointLight position={[0, -2, 3]} intensity={0.15} color="#e8c89e" distance={15} decay={2} />
+        {/* The room the reflections and the soft light come from: light
+            panels made here, as on the guide's stage, not an environment map
+            fetched at run time. Each faces the middle (drei aims a
+            Lightformer at the origin). Neutral white, with the left panel a
+            touch cool: the light has no cast of its own. */}
         <Environment resolution={256} frames={1} environmentIntensity={0.6}>
           <Lightformer form="rect" intensity={2} color="#ffffff" position={[0, 5, 5]} scale={[10, 4, 1]} />
-          <Lightformer form="rect" intensity={0.8} color="#f3f6ff" position={[-6, 1, 1]} rotation-y={Math.PI / 2} scale={[6, 5, 1]} />
-          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[6, 0, 1]} rotation-y={-Math.PI / 2} scale={[6, 4, 1]} />
+          <Lightformer form="rect" intensity={0.8} color="#f3f6ff" position={[-6, 1, 1]} scale={[6, 5, 1]} />
+          <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[6, 0, 1]} scale={[6, 4, 1]} />
           <Lightformer form="rect" intensity={0.6} color="#ffffff" position={[0, 3, -7]} scale={[10, 4, 1]} />
-          <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} rotation-y={Math.PI / 4} scale={[0.35, 6, 1]} />
-          <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} rotation-y={-Math.PI / 3.2} scale={[0.25, 5, 1]} />
+          <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} scale={[0.35, 6, 1]} />
+          <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} scale={[0.25, 5, 1]} />
         </Environment>
         <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} />
         {loading && (
@@ -581,17 +587,18 @@ export default function HeroScene() {
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
 
         {/* The frame, in order: the tone curve, on each pixel's own colour
-            (canvasAlpha.tsx), and the glow. Neutral, because below its knee
-            it only takes the same small amount (0.04 at most) off every
-            channel: the white case stays a white without a cast, and a pure
-            LED colour stays pure (patterns/common.ts holds it at the
-            knee). What is brighter than white, an LED's white core or a
-            highlight, is rolled off with its channels together, rather than
-            one channel clipping before the others and leaving the rest
-            yellow. The glow then takes what the LED shader runs past 2.0,
-            the whites. */}
+            (canvasAlpha.tsx), and the glow. The curve is Neutral's shoulder:
+            its toe is given back first (neutralToe.tsx), so below the knee
+            the frame is as lit — the white case the white it is drawn, a
+            pure LED colour pure (patterns/common.ts holds it at the knee),
+            the dark parts as dark as they are. What is brighter than that, an
+            LED's white core or a highlight, is rolled off with its channels
+            together, rather than one channel clipping before the others and
+            leaving the rest yellow. The glow then takes what the LED shader
+            runs past 2.0. */}
         <EffectComposer enableNormalPass={false}>
           <StraightAlpha />
+          <NeutralToeBack />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />
           <PageAlpha />
           <Bloom

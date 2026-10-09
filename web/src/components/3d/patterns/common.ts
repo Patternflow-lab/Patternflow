@@ -31,17 +31,18 @@ void main() {
  * As a lit panel looks, exposed for its lit LEDs: a grid of round emitters on
  * a black mask, an LED that is off a dark package in it (an unpowered panel,
  * photographed for itself, shows its packages light grey; the preview draws
- * it unpowered with HeroScene's plain black material instead). Each emitter's edge is smoothed over a screen
- * pixel; once an LED is smaller than about three pixels the dots would beat
- * against the pixel grid, so each LED becomes its whole cell instead, which
- * is how the preview always drew it.
+ * it unpowered with HeroScene's plain black material instead). Each
+ * emitter's edge is smoothed over a screen pixel; once an LED is smaller than
+ * about three pixels the dots would beat against the pixel grid, so each LED
+ * becomes its whole cell instead, which is how the preview always drew it.
  *
- * The colours reach the bloom and the tone curve (HeroScene) as light. A
- * single colour's emitter is held at the curve's knee, so it keeps its
- * hue, as pure as before there was a curve; only the white in a colour (all
- * three of an LED's dies at once) runs hot, so whites glow, and a white dot
- * carries its whole cell's light, so the bloom off a field of dots is what it
- * was off the solid cells.
+ * The colours reach the bloom and the tone curve (HeroScene) as light. An
+ * LED whose cell is past the bloom's threshold is a light: a white, or a
+ * bright yellow or cyan that the editor's path runs hot. It keeps all of its
+ * energy, glows as it did, and drawn as a dot carries its whole cell's
+ * light, so the bloom off a field of dots is what it was off the solid
+ * cells. Any other colour is held at the tone curve's knee, so it keeps its
+ * hue, as pure as before there was a curve.
  *
  * Off the face — the rim, the sides and the back — it is the frame's black
  * plastic under the preview's key light, not the pattern smeared over it.
@@ -54,15 +55,17 @@ varying vec3 vViewPos;
 const vec2 LED_GRID = vec2(128.0, 64.0);
 // The emitter's radius in its cell.
 const float LED_R = 0.4;
-// Where a colour tops out: at the tone curve's knee. NeutralToneMapping
+// The bloom's threshold (HeroScene), by luminance: an LED whose cell is past
+// it is a light.
+const float LED_BLOOM = 2.0;
+// Where any other colour tops out: at the tone curve's knee. Neutral
 // compresses from 0.76 up and greys a colour only as far as it goes past
-// that (0.8 red comes out 0.794 red, 0.0007 green); below, it takes the same
-// small offset off every channel, which leaves a pure colour pure.
+// that (0.8 red comes out 0.794 red, 0.0007 green).
 const float LED_HUE_MAX = 0.8;
-// A white emitter, drawn as a dot, carries its whole cell's light: the bloom
-// takes in what is over its threshold whole, so a field of white dots glows
-// as the solid cells did.
-const float LED_WHITE_DOT = 1.0 / (3.14159265 * LED_R * LED_R);
+// A light drawn as a dot carries its whole cell's light: the bloom takes in
+// what is over its threshold whole, so a field of dots glows as the solid
+// cells did.
+const float LED_HOT_DOT = 1.0 / (3.14159265 * LED_R * LED_R);
 
 vec3 ledPanel(vec3 col) {
   vec3 n = normalize(vViewN);
@@ -76,11 +79,13 @@ vec3 ledPanel(vec3 col) {
     return vec3(0.010) + vec3(0.040) * diff + vec3(0.05) * spec;
   }
 
-  // The white in the colour, and the colour over it, held at the knee.
+  // A light keeps what it has; any other colour has the colour over its
+  // white held at the knee.
+  float hot = smoothstep(LED_BLOOM - 0.05, LED_BLOOM + 0.05, dot(col, vec3(0.2126, 0.7152, 0.0722)));
   float white = min(col.r, min(col.g, col.b));
   vec3 hue = col - white;
   hue *= min(1.0, LED_HUE_MAX / max(max(hue.r, max(hue.g, hue.b)), 1e-5));
-  float hot = smoothstep(1.0, 2.0, white);
+  vec3 led = mix(hue + white, col, hot);
 
   vec2 g = vec2(vUv.y, 1.0 - vUv.x) * LED_GRID;
   vec2 gw = fwidth(g);
@@ -91,11 +96,11 @@ vec3 ledPanel(vec3 col) {
   float emitter = 1.0 - smoothstep(LED_R - edge, LED_R + edge, d);
   // Dots while an LED is about three pixels or more; its whole cell below that.
   float dots = 1.0 - smoothstep(0.28, 0.42, fw);
-  float shape = mix(1.0, emitter * mix(1.0, LED_WHITE_DOT, hot), dots);
+  float shape = mix(1.0, emitter * mix(1.0, LED_HOT_DOT, hot), dots);
 
   // Unlit: the black mask, and each LED's dark package in it.
   vec3 body = vec3(0.004) + vec3(0.012) * mix(1.0, emitter, dots) + vec3(0.004) * diff;
-  return body + (hue + white) * shape;
+  return body + led * shape;
 }
 `;
 

@@ -115,7 +115,7 @@ The plate, strips and feet use `sheet_face`/`sheet_edge`; the page shows them as
 - **The Build steps** use what `web/src/components/3d/cases/<case>.ts` gives: step 1 shows the case pieces and knobs at 40% of their explode vectors; step 2 shows the board and DevKit, framed on their box; step 3 moves every top-level node by its explode vector times the panel's slider.
 - **Finishes.** A case's alternative finishes recolour materials by name over the file's own. A look below full opacity is drawn see-through: blended, not writing depth, and casting no shadow.
 - **Loose pieces.** Top-level nodes a case's entry lists as `loose` come with the case but are not on it as it stands: SimonePDA's three feet, for laying it flat. They are drawn with the parts (step 1) and on Assemble (step 3), not on the device standing and lit.
-- **Light and colour.** The preview's light is its own, made on the page from Lightformers (no environment map is downloaded), and its frame goes through the Neutral tone curve, which below its knee only takes the same small offset (0.04 at most) off every channel and rolls off what is brighter, channels together: the white PLA stays the white `lib/looks.mjs` gives it, without a cast. So a look here shows without a cast.
+- **Light and colour.** The preview's light is its own, made on the page from Lightformers (no environment map is downloaded), and its frame goes through the shoulder of the Neutral tone curve: the curve's toe, which would crush dark colours, is given back first (`neutralToe.tsx`), so below the knee a look is drawn as lit, and only what is brighter rolls off, its channels together. So the white PLA is the white `lib/looks.mjs` gives it, under a light without a cast.
 
 ## Adding a case
 

@@ -12,7 +12,7 @@ import { useEffect, useMemo } from 'react';
 // half covered that is far too bright — the encoding is a curve, and a
 // premultiplied value sits low on it — so the page composites a clear sheet
 // as a frosted white one, however clear the sheet is drawn. These two put the
-// tone curve between them, in order:
+// tone curve (and neutralToe.tsx before it) between them, in order:
 //
 //   StraightAlpha   each pixel's own colour, for the tone curve to work on
 //   PageAlpha       premultiplied again, so that once the last pass has
