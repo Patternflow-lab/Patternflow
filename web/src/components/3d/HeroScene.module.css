@@ -26,9 +26,55 @@
   transition-delay: 0.25s;
 }
 
+/* The arrows either side of the device on the Build tab, stepping through the
+   cases: the Inside globe's arrows (GlobeViewer.module.css), at the middle of
+   the frame, where the device is. */
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pf-led);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform 0.18s ease;
+}
+
+.arrow svg {
+  width: 84px;
+  height: 84px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.arrow:hover {
+  transform: translateY(-50%) scale(1.08);
+}
+
+.arrowPrev {
+  left: 12px;
+}
+
+.arrowNext {
+  right: 12px;
+}
+
 @media (max-width: 900px) {
   .note {
     bottom: 18px;
     font-size: 11px;
+  }
+
+  .arrow svg {
+    width: 44px;
+    height: 44px;
   }
 }

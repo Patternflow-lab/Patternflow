@@ -298,3 +298,19 @@ export const DEFAULT_CASE: CaseId = 'official';
 export function findCase(id: string | null | undefined): BuildCase | undefined {
   return BUILD_CASES.find((item) => item.id === id);
 }
+
+/** The case `step` places along the switch from `id`, wrapping round at either end: the preview's arrows. */
+export function stepCase(id: CaseId, step: number): CaseId {
+  const count = BUILD_CASES.length;
+  const at = Math.max(0, BUILD_CASES.findIndex((item) => item.id === id));
+  return BUILD_CASES[(((at + step) % count) + count) % count].id;
+}
+
+// replaceState, not push: switching cases is not a page to go back to. The
+// official case is the bare /build.
+export function writeCaseToUrl(id: CaseId) {
+  const query = id === DEFAULT_CASE ? '' : `?case=${id}`;
+  const next = `/build${query}${window.location.hash}`;
+  const now = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (now !== next) window.history.replaceState(null, '', next);
+}

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import matter from 'gray-matter';
 import { describe, expect, it } from 'vitest';
-import { BUILD_CASES, DEFAULT_CASE, findCase } from './build-cases-data';
+import { BUILD_CASES, DEFAULT_CASE, findCase, stepCase } from './build-cases-data';
 
 // The case cards against the repo: every GitHub link points at a path that
 // exists on this tree (a blob at a file, a tree at a folder) and every #anchor
@@ -151,6 +151,14 @@ describe('the case cards', () => {
   it('never offers USB-C as power', () => {
     // BUILD_GUIDE §2: J4, the screw terminal, is the only power input.
     expect(JSON.stringify(BUILD_CASES)).not.toMatch(/USB/i);
+  });
+
+  it('steps through every case in the switch order, wrapping at both ends (the preview arrows)', () => {
+    const ids = BUILD_CASES.map((item) => item.id);
+    ids.forEach((id, i) => {
+      expect(stepCase(id, 1)).toBe(ids[(i + 1) % ids.length]);
+      expect(stepCase(id, -1)).toBe(ids[(i - 1 + ids.length) % ids.length]);
+    });
   });
 });
 

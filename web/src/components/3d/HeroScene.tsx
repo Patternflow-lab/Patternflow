@@ -27,8 +27,10 @@ import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
 import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
-import { BUILD_CASES, type CaseId } from '@/components/sections/build-cases-data';
+import { BUILD_CASES, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
+import { captureEvent } from '@/lib/posthogEvents';
 import { CASE_MODELS, DRACO_DECODER, type CaseFinish } from './caseModels';
+import { preloadCaseModel } from './preloadCaseModel';
 import {
   FRAME_CENTRE,
   applyFinish,
@@ -467,6 +469,8 @@ export default function HeroScene() {
   const isDraggingKnob = useAppStore((state) => state.isDraggingKnob);
   const activeKnobId = useAppStore((state) => state.activeKnobId);
   const buildCase = useAppStore((state) => state.buildCase);
+  const setBuildCase = useAppStore((state) => state.setBuildCase);
+  const homeTab = useAppStore((state) => state.homeTab);
   const caseFinish = useAppStore((state) => state.caseFinish);
   const setCaseFinish = useAppStore((state) => state.setCaseFinish);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -514,6 +518,16 @@ export default function HeroScene() {
       ? `${caseName(buildCase)}’s model did not load`
       : null;
 
+  // On the Build tab, arrows either side of the device step through the
+  // cases, as the Inside globe's step through the builds. It is the Build
+  // panel's switch from the other side: the card, the address and the model
+  // follow it the same way.
+  const pickCase = (id: CaseId) => {
+    setBuildCase(id);
+    if (window.location.pathname === '/build') writeCaseToUrl(id);
+    captureEvent('build_case_selected', { case_id: id, interaction: 'click', surface: 'product_preview' });
+  };
+
   return (
     <div id="three-canvas" style={{ width: '100%', height: '100%', position: 'relative' }}>
 
@@ -541,6 +555,25 @@ export default function HeroScene() {
       <div className={styles.note} data-on={note ? '1' : '0'} role="status" aria-live="polite">
         {note}
       </div>
+
+      {homeTab === 'build' && BUILD_CASES.length > 1 && [-1, 1].map((step) => {
+        const target = stepCase(buildCase, step);
+        return (
+          <button
+            key={step}
+            type="button"
+            className={`${styles.arrow} ${step < 0 ? styles.arrowPrev : styles.arrowNext}`}
+            aria-label={`${step < 0 ? 'Previous' : 'Next'} case: ${caseName(target)}`}
+            onPointerEnter={() => preloadCaseModel(target)}
+            onFocus={() => preloadCaseModel(target)}
+            onClick={() => pickCase(target)}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d={step < 0 ? 'M15 4 7 12l8 8' : 'M9 4l8 8-8 8'} />
+            </svg>
+          </button>
+        );
+      })}
 
       {!loading && finishes.length > 1 && finishId && (
         <CaseFinishSwitch

@@ -5,7 +5,7 @@ import { SectionContent } from '@/lib/content';
 import { captureEvent } from '@/lib/posthogEvents';
 import { preloadCaseModel } from '@/components/3d/preloadCaseModel';
 import CasePicker from './CasePicker';
-import { BUILD_CASES, DEFAULT_CASE, findCase, type CaseId } from './build-cases-data';
+import { BUILD_CASES, findCase, writeCaseToUrl, type CaseId } from './build-cases-data';
 import styles from './BuildPanel.module.css';
 
 interface BuildPanelProps {
@@ -83,14 +83,6 @@ const STEPS = [
 // directly. The official case is the bare /build.
 function caseFromUrl(): CaseId | null {
   return findCase(new URLSearchParams(window.location.search).get('case'))?.id ?? null;
-}
-
-// replaceState, not push: switching cases is not a page to go back to.
-function writeCaseToUrl(id: CaseId) {
-  const query = id === DEFAULT_CASE ? '' : `?case=${id}`;
-  const next = `/build${query}${window.location.hash}`;
-  const now = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (now !== next) window.history.replaceState(null, '', next);
 }
 
 export default function BuildPanel({ content, isActive }: BuildPanelProps) {
