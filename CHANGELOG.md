@@ -4,6 +4,10 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ## [Unreleased]
 
+### Web
+
+- **The 3D view on /build shows the case you pick.** The Build panel's case switch (the official v3.9 case, Besoiobiy's printed case, SimonePDA's laser-cut one) swaps the device in the preview for that case, with the same v3.9 board, DevKit, LED panel and knobs inside. Each model is made by `tools/case-models` from the case's own files in this repository (the guide's v3.9 case, Besoiobiy's STLs, SimonePDA's cutting layout) and sits beside the case's photos, `web/public/cases/<id>/model.glb`. The model the page loads first is 0.32 MB, where the old v3.0 one (`3dforweb.glb`, now removed) was 1.15 MB; a remix's model loads when it is picked, and the guide takes its LED panel from the official one.
+
 ## [3.11.0] - 2026-10-04
 
 ### Firmware

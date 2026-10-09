@@ -20,7 +20,7 @@ import { PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 // a fifth of full power, as it is on the real panel after the driver's gamma,
 // and the room light, the bloom and the tone curve all work on light.
 //
-// The mesh ("l" of the landing model) is the whole panel, not only its face:
+// The mesh ("l" of the case models) is the whole panel, not only its face:
 // its rim, sides and back are the moulded black frame, and they are drawn as
 // that — dark plastic under the key light — instead of with the pattern
 // smeared over them, which showed when the device comes apart.

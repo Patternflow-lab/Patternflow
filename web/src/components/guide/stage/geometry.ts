@@ -1,21 +1,23 @@
 import * as THREE from "three";
 
-// Where things are on the model. The frame is public/3dforweb.glb's (the
-// landing page's model, whose LED mesh the guide still uses); the v3.9 case,
-// case-v39.glb, is exported into the same frame (parts.ts). One unit is
-// 10 mm: the 320 × 160 mm LED panel is 32 × 16 units.
+// Where things are on the model. Every model of the device shares one frame:
+// the v3.9 case, case-v39.glb (parts.ts), and the landing page's case models
+// (public/cases/<case>/model.glb, built by tools/case-models), of which the
+// guide uses the official one's LED mesh. One unit is 10 mm: the
+// 320 × 160 mm LED panel is 32 × 16 units.
 //
 // The device stands facing +z with the panel on the left and the knob column
 // on the right, knobs at the top — the portrait the firmware's screens are
 // drawn for. The stage scales the model by MODEL_SCALE and lifts it by
 // MODEL_OFFSET so its middle sits at the origin.
 
-export const MODEL_URL = "/3dforweb.glb";
+/** The official case model: the guide takes its LED panel, "l", and nothing else. The landing page's preview loads the same file. */
+export const MODEL_URL = "/cases/official/model.glb";
 export const DRACO_URL = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
 export const MODEL_SCALE = 0.1;
 export const MODEL_OFFSET = new THREE.Vector3(0, -1.65, 0);
 
-// case-v39.glb's knob nodes keep the landing model's names, after the PCB
+// case-v39.glb's knob nodes, like the case models', are named after the PCB
 // encoder nets. Seen from the front: c1 top-left, c2 top-right, c3
 // bottom-left, c4 bottom-right; the device numbers them K1 top-right, K2
 // top-left, K3 bottom-right, K4 bottom-left (docs/media/device-card.png,

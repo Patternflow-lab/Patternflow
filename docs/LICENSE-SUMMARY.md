@@ -17,7 +17,7 @@ override it.
 | Journal (`web/content/journal/`) | CC BY-SA 4.0 | Same as above. |
 | Enclosure remixes (`hardware/case/remixes/`) | Stated in each remix's README (CC BY-SA 4.0 by default) | The README is the license header for files that cannot carry one. |
 | Build-map photos (`web/public/builds/`) | CC BY-SA 4.0 unless the build's entry says otherwise | Credit the maker. |
-| Case photos (`web/public/cases/`) | CC BY-SA 4.0 — resized copies of the images in `hardware/case/remixes/<id>/` and `docs/build-guide/` | Credit the author the remix's README names (its /build card names them too). |
+| Case photos and models (`web/public/cases/`) | CC BY-SA 4.0 — resized copies of the images in `hardware/case/remixes/<id>/` and `docs/build-guide/`, and each case's 3D model for the /build preview (`model.glb`), made by `tools/case-models` from the case's own files | Credit the author the remix's README names (its /build card names them too). |
 | **Bundled patterns** (`web/src/lib/presets/`, `firmware/patternflow/presets/`) | CC BY-SA 4.0 | Per-file SPDX headers. They sit in code folders but they are artwork, not code. |
 | **Community patterns** | **Chosen by their author** — see below | Read the header in the pattern itself. |
 

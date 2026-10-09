@@ -26,7 +26,7 @@ It is not a single luminous object but an open system. The hardware files, firmw
   - [Play](https://patternflow.work/guide/play): The first hour with a finished board — flashing the ESP32, the four knobs, installing patterns, the device console.
   - [Make](https://patternflow.work/guide/make): A hands-on tutorial for the community and the Pattern Lab, from a prompt to a pattern on the device.
   - [Audio](https://patternflow.work/guide/audio): The Audio edition — sound from a browser tab (the extension and its mapping editor), the on-board PDM microphone, and the board as a network MIDI device with a DAW (Ableton Live as the example).
-- [Build your own](https://patternflow.work/build): Build the device from scratch — firmware, PCB, the case (the official printed one or a community remix: printed, or laser-cut; `?case=` picks one), browser flasher, and the full build guide.
+- [Build your own](https://patternflow.work/build): Build the device from scratch — firmware, PCB, the case (the official printed one or a community remix: printed, or laser-cut; `?case=` picks one, and the 3D view shows the device in it), browser flasher, and the full build guide.
 - [Inside](https://patternflow.work/inside): How Patternflow works — the electronics, encoders, and pattern architecture.
 - [Journal](https://patternflow.work/journal): Long-form notes and the story behind each step (English and Korean).
 
