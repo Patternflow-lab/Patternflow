@@ -215,7 +215,7 @@ function CaseLoader({ id, onReady }: { id: CaseId; onReady: (id: CaseId) => void
 
 interface DeviceHandlers {
   onPointerDown: (e: ThreeEvent<PointerEvent>) => void;
-  onPointerOver: (e: ThreeEvent<PointerEvent>) => void;
+  onPointerMove: (e: ThreeEvent<PointerEvent>) => void;
   onPointerOut: (e: ThreeEvent<PointerEvent>) => void;
 }
 
@@ -418,12 +418,16 @@ function ProductPreview({
       // 커서를 드래그용으로 변경 (원형 회전임을 암시하기 위해 grabbing 사용)
       document.body.style.cursor = 'grabbing';
     },
-    onPointerOver: (e) => {
-      if (!drag.current && knobAt(e)) document.body.style.cursor = 'grab';
+    // The hand while over a knob. On every move, not on over/out: the
+    // handlers sit on the device's root, so r3f reports one over and one out
+    // for the device as a whole, and gliding from the case onto a knob would
+    // never show it. Only the nearest hit decides; the others are behind it.
+    onPointerMove: (e) => {
+      if (drag.current || e.object !== e.intersections[0]?.object) return;
+      document.body.style.cursor = knobAt(e) ? 'grab' : '';
     },
-    onPointerOut: (e) => {
-      const device = deviceRef.current;
-      if (!drag.current && device && knobUnder(device, e.object)) document.body.style.cursor = '';
+    onPointerOut: () => {
+      if (!drag.current) document.body.style.cursor = '';
     },
   }), [knobAt]);
 
@@ -549,12 +553,26 @@ export default function HeroScene() {
   // wanted one loads, the shown one stays.
   const [shown, setShown] = useState<CaseId>(() => (arrived.has(buildCase) ? buildCase : 'official'));
   const [failed, setFailed] = useState<CaseId[]>([]);
+  // Picking a case whose model failed tries it again: its failure was let go
+  // of in drei's cache (onFailed), so this is a fresh request. Adjusted during
+  // render, guarded, like the hint's latch above.
+  const [picked, setPicked] = useState(buildCase);
+  if (picked !== buildCase) {
+    setPicked(buildCase);
+    if (failed.includes(buildCase)) setFailed(failed.filter((id) => id !== buildCase));
+  }
   const wanted: CaseId = failed.includes(buildCase) ? 'official' : buildCase;
   const loading = wanted !== shown;
   const onReady = useCallback((id: CaseId) => setShown(id), []);
   const onFailed = useCallback((id: CaseId) => {
+    // suspend-react keeps a failed load as a thrown error; without this, the
+    // case could not load again until the page was reloaded.
+    useGLTF.clear(CASE_MODELS[id].url);
     setFailed((list) => (list.includes(id) ? list : [...list, id]));
-    setShown((current) => (current === id && id !== 'official' ? 'official' : current));
+    // Back to the official case, and if that is what failed, onto it all the
+    // same: its slot then draws nothing, rather than a remix staying on screen
+    // under the Official tab.
+    setShown((current) => (current === id || id === 'official' ? 'official' : current));
   }, []);
 
   const finishes = CASE_MODELS[shown].finishes ?? [];
@@ -564,7 +582,7 @@ export default function HeroScene() {
   // Under the device: the picked case on its way, or why it is not there.
   const note = loading
     ? `Loading ${caseName(wanted)}…`
-    : failed.includes(buildCase) && buildCase !== 'official'
+    : failed.includes(buildCase)
       ? `${caseName(buildCase)}’s model did not load`
       : null;
 

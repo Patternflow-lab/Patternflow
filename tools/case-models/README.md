@@ -1,6 +1,6 @@
 # Case models
 
-The 3D models the [/build](https://patternflow.work/build) page's preview shows, one per case on its case switch, and the scripts that make them from files in this repository. Pick a case on the switch and the device in the preview is that case, with the same Patternflow inside it: the LED panel, the v3.9 board, the ESP32 DevKit and four knobs.
+The 3D models the [/build](https://patternflow.work/build) page's preview shows, one per case on its case switch, and the scripts that make them from files in this repository. Pick a case on the switch and the device in the preview is that case, with the same Patternflow inside it: the LED panel, the v3.9 board and the ESP32 DevKit, and four knobs (the official ones, or the case's own).
 
 | Case | Model | Made from | Script |
 | :--- | :--- | :--- | :--- |
@@ -23,7 +23,7 @@ The landing page's model before these, `web/public/3dforweb.glb` (a v3.0 device)
 ```sh
 cd tools/case-models
 npm ci                                   # glTF-Transform, Draco, meshoptimizer
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt   # Python 3.12 or newer
 ```
 
 `build.sh` uses `.venv/bin/python` when it is there (or `$PYTHON`). `preview.mjs` also needs the web app's dependencies (`npm ci` in `web/`) and Playwright with a Chromium.
@@ -79,7 +79,7 @@ The guide's v3.9 case (`body`, `back_plate`, `back_slider`, `top_lid`) in white 
 3. **Checks the result against the remix README** and stops if any of it is off: 267 × 329 × 30.85 mm overall, the 161 × 321 mm panel opening, the tabs 14.35 mm behind the front edge, four 7.2 mm encoder holes 30.8 × 30.1 mm apart, nothing behind the front where an encoder sits, and no two parts overlapping (boolean intersections, manifold3d).
 4. **Moves it into the model frame** with a half turn about z, 10 mm to the unit. The outline is centred where the official case's is and the front face is set at the official's z. Each part is one node (`frame_top`, `frame_bottom`, `box_top`, `box_bottom`, `cover_frame_top`, `cover_frame_bottom`, `cover_box_top`, `cover_box_bottom`, in `pla_white`), and Besoiobiy's knob cap is `c1` … `c4` (`pla_black`). Normals keep every edge sharper than 35° hard and smooth the round surfaces.
 
-In `placement.json`, `board` centres the board's encoders on the four holes: the board's 31 × 30.5 mm grid against the holes' 30.8 × 30.1 mm leaves half the difference on each side, which the build absorbs in play. The board sits 1 mm further back than in the official case, because the box's front is 4 mm thick where the official's is 3 mm. The knob caps stand on the board's encoder axes, 0.8 mm off the front, like the official knobs. `led` centres the panel in the frame's opening with its face flush with the frame's front edge, as a panel with Besoiobiy's 14.35 mm socket depth sits. The panel model is a 17 mm slab, so its back passes 2.6 mm into the frame's tabs; a real panel's sockets stop on them.
+In `placement.json`, `board` centres the board's encoders on the four holes: the board's 31 × 30.5 mm grid against the holes' 30.8 × 30.1 mm leaves half the difference on each side, which the build absorbs in play. The board sits 1 mm further back than in the official case, because the box's front is 4 mm thick where the official's is 3 mm. The knob caps stand on the board's encoder axes where the 20 mm shaft bottoms out in their 11.8 mm bore, 3.7 mm off the front (the official knobs, with a deeper bore, sit 0.8 mm off theirs); `lib/frame.mjs` has the shafts' tips. `led` centres the panel in the frame's opening with its face flush with the frame's front edge, as a panel with Besoiobiy's 14.35 mm socket depth sits. The panel model is a 17 mm slab, so its back passes 2.6 mm into the frame's tabs; a real panel's sockets stop on them.
 
 ## SimonePDA: `simonepda.py`
 
@@ -106,7 +106,7 @@ The plate, strips and feet use `sheet_face`/`sheet_edge`; the page shows them as
 `web/src/components/3d/HeroScene.tsx` with `heroCase.ts` draws whichever model the Build panel's case switch is on.
 
 - **Loading.** Only the official model is preloaded with the page. A remix's model loads when it is picked, or when its tab is hovered (`preloadCaseModel.ts`). The current case stays on screen until the new model has arrived. A model that fails to load is caught, and the official case stays up.
-- **Its own copy.** The preview works on a deep clone of drei's cached scene, with its own copy of each material, so it never changes what the guide shares. It finds the parts by the node names above; every other top-level node is treated as a piece of the case.
+- **Its own copy.** The preview works on a deep clone of drei's cached scene, with its own copy of each material, so it never changes the cached scene, which the guide may be given too. It finds the parts by the node names above; every other top-level node is treated as a piece of the case.
 - **Placement.** The model is measured once when it arrives. It is centred on the preview's orbit target and scaled so its front outline (the diagonal of its box's width and height) matches the official device's. A case bigger than the official one is drawn a little smaller, so all three cases stand in the same place at the same size; a script does not need to match the official case's size or origin, only the frame's axes and units.
 - **The Build steps** use what `web/src/components/3d/cases/<case>.ts` gives: step 1 shows the case pieces and knobs at 40% of their explode vectors; step 2 shows the board and DevKit, framed on their box; step 3 moves every top-level node by its explode vector times the panel's slider.
 - **Finishes.** A case's alternative finishes recolour materials by name over the file's own. A look below full opacity is drawn see-through: blended, not writing depth, and casting no shadow.

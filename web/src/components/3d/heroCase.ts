@@ -230,6 +230,29 @@ export function prepareCase(scene: THREE.Object3D, model: CaseModel): PreparedCa
     const radius = (box.max.x - box.min.x) / 2;
     const height = box.max.z - box.min.z;
 
+    // A material of its own: the file's four knobs share one, and only the
+    // knob being held greys. Its look is kept with the rest, so a finish
+    // that names it still reaches it.
+    for (const mesh of meshesOf(node)) {
+      const own = (m: THREE.Material) => {
+        const c = m.clone();
+        owned.push(c);
+        const std = c as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial) {
+          looks.push({
+            material: std,
+            color: std.color.clone(),
+            roughness: std.roughness,
+            opacity: std.opacity,
+            transparent: std.transparent,
+            depthWrite: std.depthWrite,
+          });
+        }
+        return c;
+      };
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(own) : own(mesh.material);
+    }
+
     // A ring round the knob, a little below half its height, with a bead
     // riding it: it turns with the knob, so the plain black cylinder shows
     // that it is turning. The knob's axis is its local +z, so the ring lies

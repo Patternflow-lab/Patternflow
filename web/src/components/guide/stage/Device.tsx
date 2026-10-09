@@ -55,9 +55,8 @@ import { VIEWS } from "./views";
 // exported from KiCad, and the ESP32 DevKit on its sockets. Its LED mesh
 // shows the simulated board's frame, its knobs turn, press and hold like the
 // real encoders, and the back slider comes off for the DevKit to come out.
-// The official case model's GLB is shared with the landing page's HeroScene
-// through drei's cache, so this works on clones and never touches a cached
-// scene.
+// The landing page's preview loads the same official case model, so this
+// works on clones and never touches drei's cached scene.
 
 // A ring drawn on a plane: `uFill` of the circle as a bright arc (a hold on
 // its way to a long-press) over a faint full ring (the knob in focus).

@@ -196,6 +196,12 @@ describe('the case switch', () => {
     expect(fireEvent.keyDown(tab(/SimonePDA/), { key: 'Home' })).toBe(false);
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     expect(tab(/Official/)).toHaveFocus();
+    // Home on the first tab picks nothing new, so it sends nothing: like a
+    // click on the selected tab. It still keeps the page from scrolling.
+    const selections = capture.mock.calls.filter(([name]) => name === 'build_case_selected').length;
+    expect(fireEvent.keyDown(tab(/Official/), { key: 'Home' })).toBe(false);
+    expect(tab(/Official/)).toHaveFocus();
+    expect(capture.mock.calls.filter(([name]) => name === 'build_case_selected')).toHaveLength(selections);
     // Any other key is left alone.
     expect(fireEvent.keyDown(tab(/Official/), { key: 'Tab' })).toBe(true);
     expect(capture).toHaveBeenCalledWith('build_case_selected', expect.objectContaining({ interaction: 'key' }));

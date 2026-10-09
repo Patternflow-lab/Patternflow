@@ -41,6 +41,14 @@ export const KNOB_BASES = {
 /** The official case's front face, which the encoders bear on from inside. */
 export const OFFICIAL_FRONT_Z = 1.5635;
 
+/**
+ * The tips of the encoders' shafts with the board where the official case
+ * holds it: SW1..SW4 of pcb-v39.glb, placed as above, end at this z. A knob
+ * cap whose bore is shallower than the shaft stands where the shaft bottoms
+ * out in it.
+ */
+export const SHAFT_TIP_Z = 3.2172;
+
 /** Where the LED panel's node ("l") sits on the official case. */
 export const LED_TRANSLATION = [-4.1908, 16.2677, 1.4977];
 

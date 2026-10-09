@@ -68,8 +68,9 @@ its placement (turned to its print orientation, set on the bed, centred). So:
 The board's encoders are 31 × 30.5 mm apart and the holes 30.8 × 30.1 mm, so
 they cannot all be concentric: the board is centred on the holes, as the
 README says the build relies on the play in both. The knob caps go on the
-encoder shafts, so they follow the board, 0.8 mm off the front face like the
-official knobs. The LED panel in the model is a simplified 17 mm slab, 2.6 mm
+encoder shafts, so they follow the board, and stand where the shaft bottoms
+out in their bore (it is shallower than the official knobs', and the box's
+front 1 mm thicker), not 0.8 mm off the front face as the official knobs do. The LED panel in the model is a simplified 17 mm slab, 2.6 mm
 deeper than the real panel in front of its sockets, so its back passes
 through the frame's tabs; the real panel's sockets stop on them.
 
@@ -162,19 +163,20 @@ def require(ok: bool, message: str) -> None:
         sys.exit(f"besoiobiy.py: {message}")
 
 
-def official_numbers() -> tuple[dict[str, np.ndarray], float]:
-    """KNOB_BASES and OFFICIAL_FRONT_Z, read from lib/frame.mjs."""
+def official_numbers() -> tuple[dict[str, np.ndarray], float, float]:
+    """KNOB_BASES, OFFICIAL_FRONT_Z and SHAFT_TIP_Z, read from lib/frame.mjs."""
     text = FRAME_MJS.read_text()
     bases = {
         f"c{n}": np.array([float(v) for v in vec.split(",")])
         for n, vec in re.findall(r"\bc([1-4]):\s*\[([^\]]+)\]", text)
     }
     front = re.search(r"OFFICIAL_FRONT_Z\s*=\s*([-\d.]+)", text)
+    tip = re.search(r"SHAFT_TIP_Z\s*=\s*([-\d.]+)", text)
     require(
-        sorted(bases) == ["c1", "c2", "c3", "c4"] and front is not None,
-        f"{FRAME_MJS}: no KNOB_BASES c1..c4 or OFFICIAL_FRONT_Z",
+        sorted(bases) == ["c1", "c2", "c3", "c4"] and front is not None and tip is not None,
+        f"{FRAME_MJS}: no KNOB_BASES c1..c4, OFFICIAL_FRONT_Z or SHAFT_TIP_Z",
     )
-    return bases, float(front.group(1))
+    return bases, float(front.group(1)), float(tip.group(1))
 
 
 def signature(mesh: trimesh.Trimesh) -> np.ndarray:
@@ -364,6 +366,26 @@ def knob_cap(knob: trimesh.Trimesh) -> trimesh.Trimesh:
     return to_model_units(cap, np.zeros(3))
 
 
+def bore_depth(cap: trimesh.Trimesh) -> float:
+    """
+    How far up the cap (model units, from its base) the hole for the shaft
+    goes: the highest cross-section that still has a hole in it. The README
+    measures a 2 mm recess and a bore about 9.8 mm deep above it.
+    """
+    step = 0.005  # 0.05 mm
+    z = step
+    top = cap.bounds[1, 2]
+    deepest = 0.0
+    while z < top:
+        loops = cap.section(plane_origin=[0, 0, z], plane_normal=[0, 0, 1])
+        if loops is None or len(loops.discrete) < 2:
+            break
+        deepest = z
+        z += step
+    require(deepest > 0.5, "the knob cap has no bore")
+    return deepest
+
+
 def to_model_units(mesh: trimesh.Trimesh, offset: np.ndarray) -> trimesh.Trimesh:
     """Scene mm → model frame: the half turn about z, 10 mm to the unit, then offset."""
     out = mesh.copy()
@@ -437,7 +459,7 @@ def main() -> None:
     )
     args = ap.parse_args()
 
-    knob_bases, official_front = official_numbers()
+    knob_bases, official_front, shaft_tip = official_numbers()
 
     scene = trimesh.load_mesh(args.scene).split(only_watertight=False)
     parts = find_parts(scene, args.parts)
@@ -477,10 +499,17 @@ def main() -> None:
     for name, part in case.items():
         mesh = crease_shaded(to_model_units(part, offset), CREASE_DEG)
         out.add_geometry(with_material(mesh, CASE_MATERIAL), node_name=name, geom_name=name)
-    cap = with_material(crease_shaded(knob_cap(parts["knob"]), CREASE_DEG), KNOB_MATERIAL)
+    cap = knob_cap(parts["knob"])
+    # The cap goes onto the shaft until the shaft bottoms out in its bore, or
+    # down to the official knobs' 0.8 mm off the front if the bore is deeper:
+    # the box's front is 1 mm thicker than the official case's, so less of the
+    # shaft stands out of it.
+    depth = bore_depth(cap)
+    knob_z = max(front + knob_standoff, shaft_tip + board[2] - depth)
+    cap = with_material(crease_shaded(cap, CREASE_DEG), KNOB_MATERIAL)
     knobs = {}
     for name, base in sorted(knob_bases.items()):
-        at = np.array([base[0] + board[0], base[1] + board[1], front + knob_standoff])
+        at = np.array([base[0] + board[0], base[1] + board[1], knob_z])
         knobs[name] = at
         out.add_geometry(
             cap, node_name=name, geom_name="knob_cap", transform=trimesh.transformations.translation_matrix(at)
@@ -509,6 +538,9 @@ def main() -> None:
         f"panel tabs {found['front'] - found['tabs']:.2f} behind the front; the {LED_DEPTH} mm panel model passes {into_tabs:.2f} into them"
     )
     print(f"model units: board {placement['board']}, led {placement['led']}")
+    print(
+        f"knob caps {(knob_z - front) / MM:.2f} mm off the front, where the shaft bottoms out in their {depth / MM:.2f} mm bore:"
+    )
     for name, at in knobs.items():
         print(f"  {name} {np.round(at, 4).tolist()}")
     print(f"wrote {args.out / 'shell.glb'} and placement.json")

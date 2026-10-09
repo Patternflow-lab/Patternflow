@@ -52,7 +52,9 @@ export default function CasePicker({
     else if (event.key === 'End') next = last;
     if (next === null) return;
     event.preventDefault();
-    onSelect(cases[next].id, 'key');
+    // Home on the first tab or End on the last picks nothing new: no select,
+    // as a click on the selected tab sends none.
+    if (next !== index) onSelect(cases[next].id, 'key');
     tabRefs.current[next]?.focus();
   };
 

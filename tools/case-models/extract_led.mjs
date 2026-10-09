@@ -11,10 +11,11 @@
 // It has been run once; source/led_panel.glb is its output. The old model is
 // in the repository's history, for running it again:
 //   git show v3.11.0:web/public/3dforweb.glb > /tmp/3dforweb.glb
+import { fileURLToPath } from 'node:url';
 import { prune } from '@gltf-transform/functions';
 import { getIO, worldBounds, fmt } from './lib/io.mjs';
 
-const [src, out = new URL('./source/led_panel.glb', import.meta.url).pathname] = process.argv.slice(2);
+const [src, out = fileURLToPath(new URL('./source/led_panel.glb', import.meta.url))] = process.argv.slice(2);
 if (!src) {
   console.error('usage: node extract_led.mjs <3dforweb.glb> [out.glb]');
   process.exit(1);
