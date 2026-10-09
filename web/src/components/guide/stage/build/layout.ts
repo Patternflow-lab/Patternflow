@@ -104,7 +104,7 @@ export const PANEL_BENCH: Pose = (() => {
   const m = new THREE.Matrix4().makeBasis(v(0, 0, 1), v(-1, 0, 0), v(0, -1, 0));
   return { p: v(-24, MAT_TOP + 0.85, 28), q: new THREE.Quaternion().setFromRotationMatrix(m) };
 })();
-/** The panel's place in the case: the landing model's LED mesh "l", whose front face is at z 1.4977 and back at −0.2023. */
+/** The panel's place in the case: the official case model's LED mesh "l", whose front face is at z 1.4977 and back at −0.2023. */
 export const PANEL_HOME = { p: v(-4.1908, 16.2677, 1.4977), back: -0.2023 };
 /** The panel's centre in the model frame when assembled. */
 export const PANEL_CENTRE = v(-4.1908, 16.2677, 0.6477);

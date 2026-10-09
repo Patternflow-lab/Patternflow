@@ -1,0 +1,66 @@
+/* The finish switch under the device in the product preview. The Build
+   panel's vocabulary (CasePicker.module.css) at the size of the viewer's own
+   kicker: hairlines, no radius, ink as the only fill, mono capitals. */
+
+.switch {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  z-index: 10;
+  display: flex;
+  transform: translateX(-50%);
+  border: 1px solid var(--pf-rule);
+  background: rgba(244, 239, 230, 0.82);
+}
+
+.option {
+  appearance: none;
+  min-width: 84px;
+  padding: 8px 14px;
+  border: 0;
+  border-right: 1px solid var(--pf-rule);
+  background: transparent;
+  color: #6B655A;
+  font-family: var(--mono);
+  font-size: var(--pf-fs-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.option:last-child {
+  border-right: 0;
+}
+
+.option:hover {
+  background: var(--pf-cream-2);
+  color: #1a1814;
+}
+
+.option[aria-pressed='true'] {
+  background: #1a1814;
+  color: var(--pf-cream);
+  cursor: default;
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
+}
+
+/* On a phone the viewer is a strip across the top of the screen; the switch
+   sits on its bottom edge, clear of the device. */
+@media (max-width: 900px) {
+  .switch {
+    bottom: 12px;
+  }
+
+  .option {
+    min-width: 0;
+    padding: 7px 12px;
+    font-size: 11px;
+  }
+}

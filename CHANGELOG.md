@@ -4,6 +4,18 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ## [Unreleased]
 
+### Hardware
+
+- **Besoiobiy's printed case is the second enclosure remix** (`hardware/case/remixes/besoiobiy-printed/`). Two long pieces glued side by side, a frame round the panel and a box for the board and the power bank, closed at the back by four screwed-on covers, with the panel bolted through the case into its own M3 sockets. Its README takes the place of the build guide's sections 4 and 6 and sets the order of 7 to 9; check your panel against it first, because the BOM's panel takes M4 screws on another hole pattern. The build guide's printing section and the assembly map point at it.
+
+### Web
+
+- **/build lets you pick the case, and the 3D view shows the one you pick.** The Build panel's switch (the official v3.9 case, Besoiobiy's printed case, SimonePDA's laser-cut one; `?case=` links to one) brings up that case's card, a remix's opening with its README on GitHub, and swaps the device in the preview for that case, with the same v3.9 board, DevKit and LED panel inside (and, on Besoiobiy's case, its own knob caps). SimonePDA's case comes in its two finishes, acrylic and MDF. Each model is made by `tools/case-models` from the case's own files in this repository (the guide's v3.9 case, Besoiobiy's STLs, SimonePDA's cutting layout) and sits beside the case's photos, `web/public/cases/<id>/model.glb`. The model the page loads first is 0.32 MB, where the old v3.0 one (`3dforweb.glb`, now removed) was 1.15 MB; a remix's model loads when it is picked, and the guide takes its LED panel from the official one.
+
+### Docs
+
+- **The build pages say what is true now.** Laser cut is no longer "being prepared" on /build, in the README, the v2 guide or `llms.txt`: SimonePDA's case is it. The printing time is about 10 hours for the official case on a 256 mm bed (/build said 10–12, the breadboard guide 11), the v2 guide and the assembly map name the v3.9 board, and the breadboard guide flashes through the DevKit's native USB port from the Pattern tab and links the sections that exist.
+
 ## [3.11.0] - 2026-10-04
 
 ### Firmware

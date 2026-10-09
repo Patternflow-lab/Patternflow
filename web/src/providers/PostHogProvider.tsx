@@ -36,7 +36,12 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const previousUrl = useRef('')
-  const search = searchParams.toString()
+  // The Build panel's case switch rewrites ?case= in place (replaceState):
+  // picking a case is an event of its own (build_case_selected), not a page.
+  // A /build?case= link still counts once, as the page it lands on.
+  const params = new URLSearchParams(searchParams.toString())
+  if (pathname === '/build') params.delete('case')
+  const search = params.toString()
 
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return

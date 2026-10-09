@@ -72,7 +72,7 @@ export function nutGeometry() {
 // one — and the 4-pin power header below the band (layout.ts has the
 // numbers). Everything is in the panel's own frame: its
 // centre at the origin, LED face toward +z, top +y, as it sits in the case.
-// The landing model's LED mesh ("l") already has the rim (18 mm wide, its
+// The case models' LED mesh ("l") already has the rim (18 mm wide, its
 // back at z −0.85) and the recess (its floor, the driver board, at z +0.225);
 // what is built here stands in that recess and never comes proud of the rim —
 // the rim is what the case's ledge and tabs bear on.

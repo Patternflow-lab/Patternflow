@@ -1,0 +1,34 @@
+/* The product preview's one line of status, under the device where the
+   finish switch goes: a picked case's model on its way, or why it did not
+   come. In the viewer's kicker type, quieter. It fades in after a beat, so a
+   model that is already in the cache swaps without a word. */
+
+.note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  z-index: 10;
+  text-align: center;
+  color: #6B655A;
+  font-family: var(--mono);
+  font-size: var(--pf-fs-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.note[data-on='1'] {
+  opacity: 0.85;
+  transition-delay: 0.25s;
+}
+
+@media (max-width: 900px) {
+  .note {
+    bottom: 18px;
+    font-size: 11px;
+  }
+}

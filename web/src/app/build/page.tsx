@@ -4,12 +4,12 @@ import HomeView from "@/components/HomeView";
 export const metadata: Metadata = {
   title: "Build Your Own — Patternflow",
   description:
-    "Build the open-source Patternflow LED synthesizer from scratch: ESP32-S3 firmware, custom PCB, 3D-printed enclosure, and a browser flasher. All files and the full build guide.",
+    "Build the open-source Patternflow LED synthesizer from scratch: the hand-soldered v3.9 board, a printed or laser-cut case, and firmware flashed from the browser. Every file and the full build guide.",
   alternates: { canonical: "/build" },
   openGraph: {
     title: "Build Your Own — Patternflow",
     description:
-      "Build the open-source Patternflow LED synthesizer from scratch — firmware, PCB, enclosure, and browser flasher.",
+      "Build the open-source Patternflow LED synthesizer from scratch — firmware, PCB, a printed or laser-cut case, and the browser flasher.",
     url: "https://patternflow.work/build",
   },
 };

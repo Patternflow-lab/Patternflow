@@ -1,16 +1,20 @@
 name: Web CI
 
 # Lint + build the Next.js site so broken code can't reach main.
-# Only runs when something under web/ (or this workflow) changes.
+# Only runs when something under web/ (or this workflow) changes — and on
+# hardware/case/, because the Build panel's case cards link into it and
+# build-cases-data.test.ts checks those paths and the remix READMEs.
 on:
   pull_request:
     paths:
       - "web/**"
+      - "hardware/case/**"
       - ".github/workflows/web-ci.yml"
   push:
     branches: [main]
     paths:
       - "web/**"
+      - "hardware/case/**"
       - ".github/workflows/web-ci.yml"
 
 # Cancel an in-progress run if newer commits are pushed to the same ref.
