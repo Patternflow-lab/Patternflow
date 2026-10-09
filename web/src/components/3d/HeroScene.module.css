@@ -1,0 +1,80 @@
+/* The product preview's one line of status, under the device where the
+   finish switch goes: a picked case's model on its way, or why it did not
+   come. In the viewer's kicker type, quieter. It fades in after a beat, so a
+   model that is already in the cache swaps without a word. */
+
+.note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  z-index: 10;
+  text-align: center;
+  color: #6B655A;
+  font-family: var(--mono);
+  font-size: var(--pf-fs-mono);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.note[data-on='1'] {
+  opacity: 0.85;
+  transition-delay: 0.25s;
+}
+
+/* The arrows either side of the device on the Build tab, stepping through the
+   cases: the Inside globe's arrows (GlobeViewer.module.css), at the middle of
+   the frame, where the device is. */
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pf-led);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform 0.18s ease;
+}
+
+.arrow svg {
+  width: 84px;
+  height: 84px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.arrow:hover {
+  transform: translateY(-50%) scale(1.08);
+}
+
+.arrowPrev {
+  left: 12px;
+}
+
+.arrowNext {
+  right: 12px;
+}
+
+@media (max-width: 900px) {
+  .note {
+    bottom: 18px;
+    font-size: 11px;
+  }
+
+  .arrow svg {
+    width: 44px;
+    height: 44px;
+  }
+}

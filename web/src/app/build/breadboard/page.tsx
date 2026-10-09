@@ -137,12 +137,12 @@ export default function BreadboardBuildPage() {
               <span style={{ fontSize: '18px' }}>⚡</span> Flash the firmware first
             </div>
             <p style={{ margin: '8px 0 0 0', fontSize: '13.5px', lineHeight: 1.55, color: 'var(--pf-ink-muted)' }}>
-              Flashing is fiddly once everything is wired into a tangle of jumpers. Connect the bare ESP32-S3 to your computer via USB-C, visit{' '}
-              <Link href="/" style={{ color: 'var(--pf-led)', fontWeight: 600, textDecoration: 'underline' }}>patternflow.work</Link>, and click <strong>“Flash Patternflow”</strong> in the Patterns section (Chrome / Edge desktop). Confirm it boots — <strong>then</strong> start the build.
+              Flashing is fiddly once everything is wired into a tangle of jumpers. Connect the bare ESP32-S3 to your computer by its <strong>left</strong> USB-C port (the native USB one, or the Wi-Fi step never appears), open the{' '}
+              <Link href="/pattern" style={{ color: 'var(--pf-led)', fontWeight: 600, textDecoration: 'underline' }}>Pattern tab</Link> and click <strong>“Flash Patternflow”</strong> under <strong>Got the hardware?</strong> (Chrome / Edge desktop). Confirm it boots — <strong>then</strong> start the build.
             </p>
             <p style={{ margin: '6px 0 0 0', fontSize: '12px', lineHeight: 1.5, color: 'var(--pf-ink-faint)' }}>
               Prefer Arduino IDE? See{' '}
-              <a href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#8-firmware" target="_blank" rel="noreferrer" style={{ color: 'var(--pf-led)', textDecoration: 'underline' }}>
+              <a href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#82-arduino-ide-custom-builds" target="_blank" rel="noreferrer" style={{ color: 'var(--pf-led)', textDecoration: 'underline' }}>
                 official guide Section 8.2
               </a>{' '}
               for board settings and upload steps.
@@ -157,9 +157,9 @@ export default function BreadboardBuildPage() {
             lineHeight: 1.55,
             color: 'var(--pf-ink-muted)'
           }}>
-            <strong style={{ color: 'var(--pf-ink)' }}>🖨 3D-printed enclosure:</strong> Print the case <em>before</em> you start wiring — it takes ~11 hours. STL files and print settings are in the{' '}
+            <strong style={{ color: 'var(--pf-ink)' }}>🖨 3D-printed enclosure:</strong> Print the case <em>before</em> you start wiring — it takes about 10 hours. STL files and print settings are in the{' '}
             <a href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md#4-3d-printing" target="_blank" rel="noreferrer" style={{ color: 'var(--pf-led)', textDecoration: 'underline' }}>
-              official Build Guide — Sections 2 & 3
+              official Build Guide — Section 4
             </a>. A cardboard box with four holes for the encoder shafts works too.
           </div>
         </section>

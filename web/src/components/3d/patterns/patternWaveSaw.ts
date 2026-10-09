@@ -1,4 +1,4 @@
-import { PatternDef } from './common';
+import { ledPanel, PatternDef } from './common';
 
 const fragmentShader = `
 precision highp float;
@@ -9,6 +9,7 @@ uniform float uParam3; // Dist (0..1 -> 0.0..4.0)
 uniform float uParam4; // dScale (0..1 -> 0.3..5.0)
 uniform float uAspect;
 varying vec2 vUv;
+${ledPanel}
 
 // Perlin Noise helper functions
 float hash(vec2 p) {
@@ -43,7 +44,6 @@ void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
   vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
   vec2 px = floor(gridUV);
-  vec2 localUV = fract(gridUV);
 
   float x = px.x;
   float y = 63.0 - px.y;
@@ -90,16 +90,7 @@ void main() {
     col = vec3(0.0, 0.0, 1.0);
   }
 
-  // LED Circle Mask logic from original pattern for consistency
-  float distCircle = length(localUV - 0.5);
-  float circle = smoothstep(0.45, 0.35, distCircle);
-  
-  // LOD logic: fade gaps when far away
-  float fw = fwidth(vUv.x) * 128.0;
-  float lodBlend = smoothstep(0.0, 0.29, fw); 
-  float finalAlpha = mix(circle, 1.0, lodBlend);
-
-  gl_FragColor = vec4(col * finalAlpha, 1.0);
+  gl_FragColor = vec4(ledPanel(col), 1.0);
 }
 `;
 

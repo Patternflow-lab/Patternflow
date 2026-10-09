@@ -653,8 +653,8 @@ export default function BuildStage() {
       holder.jaws.push(jaw);
     }
 
-    // The LED panel, for everything but lighting up: the landing model's LED
-    // mesh in a plain dark finish, and its back.
+    // The LED panel, for everything but lighting up: the official case model's
+    // LED mesh in a plain dark finish, and its back.
     const panel = { group: add(new THREE.Group()), slab: null as THREE.Mesh | null, mats: [] as THREE.MeshStandardMaterial[] };
     const slabMat = std("#0d0d0e", 0.62, 0, { transparent: true });
     // The moulded frame is a glossier black than the LED face; the driver

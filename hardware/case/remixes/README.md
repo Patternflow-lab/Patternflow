@@ -15,6 +15,8 @@ hardware/case/remixes/<maker>-<variant>/
 
 Folder name: your maker name, a dash, a short variant name, all lowercase (`nath-acrylic`, `day-paper-diffuser`).
 
+The [/build](https://patternflow.work/build) page can show a remix beside the official case, in its 3D preview too: [`tools/case-models`](../../../tools/case-models/README.md) makes that model from the folder's own files.
+
 ## The README is the license header
 
 STL and DXF files cannot carry an SPDX line, so the README carries the license for the whole folder. Its first lines are these fields, one per line, in this order; the first two are checked by CI on every pull request:

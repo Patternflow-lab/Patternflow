@@ -1,24 +1,6 @@
 ---
 title: Build your own.
 subtitle: Around US$100–200 and an hour of hands-on work.
-meta:
-  - label: Available now
-    value: "3D print + PCB · breadboard"
-  - label: Preparing
-    value: "Laser cut"
-  - label: Firmware
-    value: "Browser flash or Arduino IDE"
-cta:
-  primary:
-    label: "Open the assembly map ->"
-    href: "https://github.com/engmung/Patternflow/blob/main/docs/assembly/README.md"
-  secondary:
-    label: "Current full guide"
-    href: "https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE.md"
 ---
 
-Patternflow is becoming a build system you can choose your way through: pick an enclosure path, pick an electronics path, then flash firmware.
-
-The current supported combination is the original polished build: PLA 3D printed enclosure, hand-soldered custom PCB, and browser-flashed release firmware.
-
-The breadboard electronics path is now available — wire the same parts with jumpers and a breadboard power rail, no custom PCB or soldering iron. Laser-cut enclosure files are still being prepared, so you can start with the tools you have, then upgrade when you want a more finished object.
+Every case here holds the same v3 board, soldered, wired and flashed the same way; what changes is the body around it. The official case is printed, and it is the one the build guide walks through. The two community remixes have each been built by their authors: another printed case, and one laser-cut from acrylic or MDF sheet. Pick one and the 3D view shows the device in it.
