@@ -33,7 +33,7 @@ None are required — the site runs fully without them.
 ## Where things live
 
 - `src/app/` — routes (App Router). `/pattern-lab` is the pattern workspace (noindex, not internal). The breadboard build guide is `src/app/build/breadboard/page.tsx` — React, not markdown.
-- `src/components/` — 3D viewer, landing sections, journal renderer, the community UI. The build map's pins are `src/components/sections/InsideGlobe/builds.ts` plus photos in `public/builds/<slug>/`.
+- `src/components/` — 3D viewer, landing sections, journal renderer, the community UI. The build map's pins are `src/components/sections/InsideGlobe/builds.ts` plus photos in `public/builds/<slug>/`. The Build panel's case cards are `src/components/sections/build-cases-data.ts` plus photos in `public/cases/<id>/` (CC BY-SA, copied from the case's own folder).
 - `src/lib/presets/` — JS pattern library; **source of truth** for the firmware preset headers (`firmware/toolchain/check_presets.py` keeps the two in step).
 - `content/` — markdown/MDX site copy (`build.md`, `pattern.md`, `inside.md`) and the journal. The journal is the maintainer's own writing.
 - `public/flash/` — esp-web-tools manifest + firmware binaries for the browser flasher. `public/packs/` — the Basics pack.
