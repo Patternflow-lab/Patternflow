@@ -1,13 +1,15 @@
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useAppStore } from '@/store/useAppStore';
 import type { SectionContent } from '@/lib/content';
 import BuildPanel from './BuildPanel';
 
 // The Build panel's case switch: three tabs over one card, the official case
 // first; switching changes the card, step 01 and the Start here row, writes
-// ?case= while /build is on screen, and a ?case= link opens on that case.
+// ?case= while /build is on screen, and a ?case= link opens on that case. The
+// case lives in the app store, where the 3D preview reads it, so the switch
+// writes the store and the card follows whatever the store holds.
 
 vi.mock('next/link', () => ({
   default: ({
@@ -24,6 +26,13 @@ vi.mock('next/link', () => ({
 const capture = vi.fn();
 vi.mock('@/lib/posthogEvents', () => ({
   captureEvent: (...args: unknown[]) => capture(...args),
+}));
+
+// The real one hands a GLB to drei's loader; jsdom has no WebGL, and the
+// panel only needs to have asked.
+const preload = vi.fn();
+vi.mock('@/components/3d/preloadCaseModel', () => ({
+  preloadCaseModel: (...args: unknown[]) => preload(...args),
 }));
 
 const content: SectionContent = {
@@ -45,9 +54,12 @@ beforeEach(() => {
       disconnect() {}
     },
   );
-  useAppStore.setState({ buildStep: 0, explode: 1 });
+  // The store outlives a render the way it outlives a panel on the page, so
+  // each test starts from a fresh page's.
+  useAppStore.setState({ buildStep: 0, explode: 1, buildCase: 'official', caseFinish: {} });
   window.history.replaceState(null, '', '/build');
   capture.mockClear();
+  preload.mockClear();
 });
 
 afterEach(() => {
@@ -55,6 +67,7 @@ afterEach(() => {
 });
 
 const card = () => within(screen.getByRole('tabpanel'));
+const readme = () => card().queryByRole('link', { name: /Read its README on GitHub/ });
 const tab = (name: RegExp) => screen.getByRole('tab', { name });
 const stepOne = () => screen.getAllByRole('button').find((el) => el.textContent?.startsWith('01'));
 // The case row under Start here: step 01's title, then where it goes.
@@ -74,6 +87,10 @@ describe('the case switch', () => {
       expect.stringContaining('makerworld.com/en/models/3072492'),
     );
     expect(card().queryByText(/The 3D model on this page is the official case/)).not.toBeInTheDocument();
+    // The official case's guide is the build guide, not a README of its own.
+    expect(readme()).not.toBeInTheDocument();
+    expect(card().getByText(/printing in section 4, assembly in section 6/)).toBeInTheDocument();
+    expect(useAppStore.getState().buildCase).toBe('official');
     // Start here keeps the MakerWorld shortcut while the official case is on.
     expect(startRow(/^Print the case\s*MakerWorld/)).toHaveAttribute('href', MAKERWORLD);
     // The official case has its own check: the adjustable mount is not universal.
@@ -101,7 +118,17 @@ describe('the case switch', () => {
       `${GH}/blob/main/hardware/case/remixes/besoiobiy-printed/README.md#check-your-panel-first`,
     );
     expect(panel.getByText(/takes M4 screws on a different pattern/)).toBeInTheDocument();
-    expect(panel.getByText(/The 3D model on this page is the official case/)).toBeInTheDocument();
+    // The preview now shows the picked case, so the card no longer says it
+    // is the official one; it says what the model of this one is made from.
+    expect(panel.queryByText(/The 3D model on this page is the official case/)).not.toBeInTheDocument();
+    expect(panel.getByText('The 3D view puts it together from its STL files.')).toBeInTheDocument();
+    expect(useAppStore.getState().buildCase).toBe('besoiobiy-printed');
+    // The remix's guide is its README, and the card leads with it.
+    expect(readme()).toHaveAttribute(
+      'href',
+      `${GH}/blob/main/hardware/case/remixes/besoiobiy-printed/README.md`,
+    );
+    expect(panel.getByText(/It replaces sections 4 and 6 of the build guide/)).toBeInTheDocument();
     expect(panel.getAllByRole('img')).toHaveLength(2);
     expect(panel.getByRole('link', { name: /README and every file/ })).toHaveAttribute(
       'href',
@@ -127,6 +154,12 @@ describe('the case switch', () => {
       interaction: 'click',
       surface: 'build_panel',
     });
+    fireEvent.click(readme() as HTMLElement);
+    expect(capture).toHaveBeenCalledWith('build_case_link_opened', {
+      case_id: 'besoiobiy-printed',
+      target: 'README.md',
+      surface: 'build_panel',
+    });
   });
 
   it('moves along the tabs with the arrow keys, Home and End', () => {
@@ -148,6 +181,9 @@ describe('the case switch', () => {
       'href',
       `${GH}/blob/main/hardware/case/remixes/simonepda-lasercut/lasercut_layout.pdf`,
     );
+    expect(readme()).toHaveAttribute('href', `${GH}/blob/main/hardware/case/remixes/simonepda-lasercut/README.md`);
+    expect(card().getByText(/built to the drawing’s sizes/)).toBeInTheDocument();
+    expect(useAppStore.getState().buildCase).toBe('simonepda-lasercut');
     expect(stepOne()).toHaveTextContent('Cut the case');
     expect(startRow(/^Cut the case\s*simonepda-lasercut\//)).toHaveAttribute(
       'href',
@@ -183,16 +219,90 @@ describe('the case switch', () => {
     render(<BuildPanel content={content} isActive={false} />);
     fireEvent.click(tab(/Besoiobiy/));
     expect(window.location.pathname + window.location.search).toBe('/pattern');
+    // The store still takes it: the preview on that tab shows the case too.
+    expect(useAppStore.getState().buildCase).toBe('besoiobiy-printed');
   });
 
   it('opens on the case a /build?case= link names, and ignores one it does not know', () => {
     window.history.replaceState(null, '', '/build?case=besoiobiy-printed');
     const { unmount } = render(<BuildPanel content={content} isActive />);
     expect(tab(/Besoiobiy/)).toHaveAttribute('aria-selected', 'true');
+    expect(useAppStore.getState().buildCase).toBe('besoiobiy-printed');
     unmount();
+    // A link is a fresh page, and a fresh page's store is on the official
+    // case: the case now outlives the panel, so reset it as a load would.
+    useAppStore.setState({ buildCase: 'official' });
     window.history.replaceState(null, '', '/build?case=steel');
     render(<BuildPanel content={content} isActive />);
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
+    expect(useAppStore.getState().buildCase).toBe('official');
+  });
+
+  it('follows the store, so a case set anywhere else shows on the card', () => {
+    render(<BuildPanel content={content} isActive />);
+    act(() => useAppStore.getState().setBuildCase('simonepda-lasercut'));
+    expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
+    expect(card().getByRole('heading', { name: 'Simone Majocchi’s laser-cut case' })).toBeInTheDocument();
+    expect(stepOne()).toHaveTextContent('Cut the case');
+  });
+
+  it('takes the case from the URL on Back and Forward, and keeps it under a URL with none', () => {
+    render(<BuildPanel content={content} isActive />);
+    act(() => {
+      window.history.replaceState(null, '', '/build?case=simonepda-lasercut');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(useAppStore.getState().buildCase).toBe('simonepda-lasercut');
+    expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
+    // /pattern, /inside and / carry no case either; leaving for one of them
+    // must not put the preview back on the official case.
+    act(() => {
+      window.history.replaceState(null, '', '/pattern');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(useAppStore.getState().buildCase).toBe('simonepda-lasercut');
+  });
+
+  it('puts the kept case back in the URL when the Build tab comes on screen', () => {
+    // A remix picked earlier, then the reader went to Pattern: the panel was
+    // remounted behind it, and the Build tab button pushes a bare /build.
+    useAppStore.setState({ buildCase: 'besoiobiy-printed' });
+    window.history.replaceState(null, '', '/pattern');
+    const { rerender } = render(<BuildPanel content={content} isActive={false} />);
+    expect(window.location.pathname + window.location.search).toBe('/pattern');
+    window.history.pushState(null, '', '/build');
+    rerender(<BuildPanel content={content} isActive />);
+    expect(window.location.pathname + window.location.search).toBe('/build?case=besoiobiy-printed');
+    expect(tab(/Besoiobiy/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('lets a case the URL names win when the Build tab comes back on screen', () => {
+    // Back to an earlier /build?case=: the tab can come on before the panel's
+    // own popstate listener has read the URL, and must not overwrite it.
+    useAppStore.setState({ buildCase: 'besoiobiy-printed' });
+    window.history.replaceState(null, '', '/pattern');
+    const { rerender } = render(<BuildPanel content={content} isActive={false} />);
+    window.history.replaceState(null, '', '/build?case=simonepda-lasercut');
+    rerender(<BuildPanel content={content} isActive />);
+    expect(window.location.pathname + window.location.search).toBe('/build?case=simonepda-lasercut');
+    expect(useAppStore.getState().buildCase).toBe('simonepda-lasercut');
+    expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it("starts loading a case's model when a pointer or focus reaches its tab", () => {
+    render(<BuildPanel content={content} isActive />);
+    fireEvent.pointerEnter(tab(/Besoiobiy/));
+    expect(preload).toHaveBeenLastCalledWith('besoiobiy-printed');
+    fireEvent.focus(tab(/SimonePDA/));
+    expect(preload).toHaveBeenLastCalledWith('simonepda-lasercut');
+    // The case on screen is loaded already.
+    preload.mockClear();
+    fireEvent.pointerEnter(tab(/Official/));
+    fireEvent.focus(tab(/Official/));
+    expect(preload).not.toHaveBeenCalled();
+    // Prefetching is not picking.
+    expect(useAppStore.getState().buildCase).toBe('official');
+    expect(capture).not.toHaveBeenCalledWith('build_case_selected', expect.anything());
   });
 
   it('opens every photo of the case in the viewer', () => {

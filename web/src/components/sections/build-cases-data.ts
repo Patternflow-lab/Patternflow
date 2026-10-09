@@ -3,10 +3,11 @@
 //
 // Every claim here is copied from a file in the repo, not written fresh — the
 // official case from hardware/case/README.md and BUILD_GUIDE.md §1, §4 and §6,
-// each remix from the six header fields and the prose of its own README. When a
-// README changes, change the card with it; build-cases-data.test.ts checks that
-// every GitHub link here still points at a path that exists, and that every
-// photo is in public/.
+// each remix from the six header fields and the prose of its own README. A
+// remix's guide is its README, not this card: the card says what the case is
+// and leads with a link to it. When a README changes, change the card with it;
+// build-cases-data.test.ts checks that every GitHub link here still points at
+// a path that exists, and that every photo is in public/.
 //
 // A new remix is one more entry: copy its photos (resized, ~1200 px) into
 // public/cases/<folder name>/, and use the folder name as the id so
@@ -59,6 +60,13 @@ export interface BuildCase {
   cautionHref: string;
   /** How this case relates to the written build guide. */
   guide: string;
+  /** A remix's README on GitHub. It is the guide to building that case, so
+      the card leads with it, ahead of the facts. */
+  readme?: string;
+  /** What the preview's 3D model of a remix is made from, in a line: the
+      models are drawn from the remix's files by tools/case-models, and a
+      reader comparing them with the photos should know how closely. */
+  modelNote?: string;
   /** The first two show on the card; all of them open in the viewer. */
   photos: CasePhoto[];
   credit: string;
@@ -145,7 +153,7 @@ export const BUILD_CASES: BuildCase[] = [
     kind: 'remix',
     name: 'Besoiobiy’s printed case',
     summary:
-      'Two long pieces glued side by side: a frame around the panel, and a box for the board and the power bank with PATTERNFLOW lettered down its side. Four covers close the back with countersunk screws, and twelve bolts clamp the panel into the frame through its own M3 sockets.',
+      'Two long pieces glued side by side: a frame around the panel, and a box for the board and the power bank with PATTERNFLOW lettered down its side. Four covers close the back with countersunk screws, and twelve M3 bolts go through the frame’s covers and tabs into the panel’s own sockets, clamping the three together.',
     author: {
       name: 'Besoiobiy',
       note: 'on the Patternflow Discord',
@@ -159,10 +167,12 @@ export const BUILD_CASES: BuildCase[] = [
     verified: 'Built by its author, and working for a week when they shared it (2026-10-08).',
     license: 'CC BY-SA 4.0',
     caution:
-      'As drawn, this case takes an M3 panel on Besoiobiy’s hole pattern, whose sockets end 14.35 mm behind the LED face and are threaded at least about 8.5 mm deep. The panel linked in the BOM takes M4 screws on a different pattern, so for that one the frame’s tabs and covers have to be redrawn from the Blender source.',
+      'As drawn, this case takes an M3 panel on Besoiobiy’s hole pattern, whose sockets end 14.35 mm behind the LED face. An M3 × 25 bolt reaches about 8.5 mm into each socket: check yours are that deep and closed at the bottom, or use a shorter bolt. The panel linked in the BOM takes M4 screws on a different pattern, so for that one the frame’s tabs and covers have to be redrawn from the Blender source.',
     cautionHref: `${blob(`${BESOIOBIY}/README.md`)}#check-your-panel-first`,
     guide:
-      'Its README replaces sections 4 and 6 of the build guide, and changes the order of 7 to 9: the panel is wired before its covers go on.',
+      'It replaces sections 4 and 6 of the build guide, and changes the order of 7 to 9: the panel is wired before its covers go on.',
+    readme: blob(`${BESOIOBIY}/README.md`),
+    modelNote: 'The 3D view puts it together from its STL files.',
     photos: [
       {
         src: '/cases/besoiobiy-printed/built.jpg',
@@ -229,10 +239,12 @@ export const BUILD_CASES: BuildCase[] = [
     verified: 'Cut three times by its author, in acrylic and in MDF (2026-10-05).',
     license: 'CC BY-SA 4.0, except page 6 of the PDF, a panel maker’s drawing',
     caution:
-      'Its holes have to sit where the drawing has them, so compare before cutting. Keep the panel screws to 10 or 12 mm: a longer one can pass through the panel’s inserts into its circuit board.',
+      'Its holes have to sit where the drawing has them: compare it with page 2 before cutting. Keep the panel screws to 10 or 12 mm: a longer one can pass through the panel’s inserts into its circuit board.',
     cautionHref: `${blob(`${SIMONE}/README.md`)}#notes-do-not-skip`,
     guide:
-      'Its README replaces sections 4 and 6 of the build guide. The soldering, the wiring and the firmware are the same.',
+      'It replaces sections 4 and 6 of the build guide. The soldering, the wiring and the firmware are the same.',
+    readme: blob(`${SIMONE}/README.md`),
+    modelNote: 'The 3D view is a plain model of its parts, built to the drawing’s sizes.',
     photos: [
       {
         src: '/cases/simonepda-lasercut/acrylic_front.jpg',

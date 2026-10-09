@@ -69,14 +69,19 @@ describe('the case cards', () => {
     ]);
     expect(DEFAULT_CASE).toBe('official');
     expect(BUILD_CASES[0].kind).toBe('official');
+    // The official case's guide is the build guide itself.
+    expect(BUILD_CASES[0].readme).toBeUndefined();
     expect(findCase('nope')).toBeUndefined();
     expect(findCase(null)).toBeUndefined();
   });
 
   it.each(BUILD_CASES)('$id links only to paths and headings that exist on this tree', (item) => {
-    const hrefs = [...item.links.map((link) => link.href), item.author.href, item.cautionHref].filter(
-      Boolean,
-    ) as string[];
+    const hrefs = [
+      ...item.links.map((link) => link.href),
+      item.author.href,
+      item.cautionHref,
+      item.readme,
+    ].filter(Boolean) as string[];
     expect(item.links.length).toBeGreaterThanOrEqual(3);
     // The caution's "How to check" lands on the README section that says how.
     expect(item.cautionHref).toMatch(GITHUB);
@@ -117,6 +122,10 @@ describe('the case cards', () => {
       const header = readmeHeader(folder);
       // The folder name is the id, so /build?case=<id> reads like the path.
       expect(item.links[0].href).toBe(`https://github.com/engmung/Patternflow/tree/main/${folder}`);
+      // The remix's guide is its README: the card leads with a link to it,
+      // and says what the preview's model of it is made from.
+      expect(item.readme).toBe(`https://github.com/engmung/Patternflow/blob/main/${folder}/README.md`);
+      expect(item.modelNote).toMatch(/^The 3D view /);
       expect(header.Author).toContain(item.author.name);
       expect(header.License).toBe('CC-BY-SA-4.0');
       expect(item.license).toMatch(/^CC BY-SA 4\.0/);

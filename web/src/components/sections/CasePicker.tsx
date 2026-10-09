@@ -13,6 +13,9 @@ interface CasePickerProps {
   selected: BuildCase;
   onSelect: (id: CaseId, interaction: 'click' | 'key') => void;
   onLinkOpen?: (caseId: CaseId, target: string) => void;
+  /** A tab is about to be picked (pointer over it, or focus on it): time to
+      start loading that case's model. */
+  onPrefetch?: (id: CaseId) => void;
   /** The body of content/build.md, shown above the switch. */
   lead?: string;
 }
@@ -25,7 +28,14 @@ const STRIP = 2;
 // The case, three ways. A tablist rather than a row of toggles: the switch
 // replaces the whole card below it, and arrow keys move along the three the
 // way they do in any other tab set.
-export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead }: CasePickerProps) {
+export default function CasePicker({
+  cases,
+  selected,
+  onSelect,
+  onLinkOpen,
+  onPrefetch,
+  lead,
+}: CasePickerProps) {
   // The viewer belongs to the case it was opened on. A bare index would
   // outlive a switch (focus can still reach the tabs behind the viewer) and
   // point past the end of a case with fewer photos.
@@ -47,6 +57,7 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
   };
 
   const photos = selected.photos.slice(0, STRIP);
+  const footnote = selected.readme ? selected.modelNote : selected.guide;
   const panelId = 'build-case-panel';
 
   return (
@@ -76,6 +87,15 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
               className={styles.tab}
               onClick={() => {
                 if (!isSelected) onSelect(item.id, 'click');
+              }}
+              // A pointer on its way to a tab, or keyboard focus on one, is
+              // most of a second's notice: enough to have the model in hand
+              // by the time the preview is told to show it.
+              onPointerEnter={() => {
+                if (!isSelected) onPrefetch?.(item.id);
+              }}
+              onFocus={() => {
+                if (!isSelected) onPrefetch?.(item.id);
               }}
             >
               <span className={styles.tabName}>{item.tab}</span>
@@ -125,6 +145,22 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
             <span className={styles.kind}>{selected.kind === 'official' ? 'Official' : 'Community remix'}</span>
           </div>
           <p className={styles.summary}>{selected.summary}</p>
+
+          {/* A remix is built from its README, so that comes first, ahead of
+              the facts below — which are copied from it, not a second guide. */}
+          {selected.readme && (
+            <div className={styles.readme}>
+              <a
+                href={selected.readme}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => onLinkOpen?.(selected.id, 'README.md')}
+              >
+                Read its README on GitHub ↗
+              </a>
+              <p>{selected.guide}</p>
+            </div>
+          )}
 
           <dl className={styles.facts}>
             <div>
@@ -181,10 +217,10 @@ export default function CasePicker({ cases, selected, onSelect, onLinkOpen, lead
             </span>
           </p>
 
-          <p className={styles.guide}>
-            {selected.guide}
-            {selected.kind === 'remix' && ' The 3D model on this page is the official case.'}
-          </p>
+          {/* The official case's place in the build guide; for a remix that
+              is said by its README link above, and this line says instead what
+              the 3D view of it is made from. */}
+          {footnote && <p className={styles.guide}>{footnote}</p>}
         </div>
 
         <div className={styles.links}>

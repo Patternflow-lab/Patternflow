@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAppStore, SectionType } from '@/store/useAppStore';
 import { SectionContent } from '@/lib/content';
 import { captureEvent } from '@/lib/posthogEvents';
+import { preloadCaseModel } from '@/components/3d/preloadCaseModel';
 import CasePicker from './CasePicker';
 import { BUILD_CASES, DEFAULT_CASE, findCase, type CaseId } from './build-cases-data';
 import styles from './BuildPanel.module.css';
@@ -79,16 +80,17 @@ const STEPS = [
 ];
 
 // /build?case=<id> opens the panel on that case, so a remix can be linked to
-// directly. The official case is the bare /build. Read as an external store:
-// the page is static, so the server snapshot is always "no case", and React
-// swaps in the URL's after hydration without a mismatch.
+// directly. The official case is the bare /build.
 function caseFromUrl(): CaseId | null {
   return findCase(new URLSearchParams(window.location.search).get('case'))?.id ?? null;
 }
 
-function subscribeToUrl(onChange: () => void) {
-  window.addEventListener('popstate', onChange);
-  return () => window.removeEventListener('popstate', onChange);
+// replaceState, not push: switching cases is not a page to go back to.
+function writeCaseToUrl(id: CaseId) {
+  const query = id === DEFAULT_CASE ? '' : `?case=${id}`;
+  const next = `/build${query}${window.location.hash}`;
+  const now = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (now !== next) window.history.replaceState(null, '', next);
 }
 
 export default function BuildPanel({ content, isActive }: BuildPanelProps) {
@@ -101,27 +103,57 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [lockedStep, setLockedStep] = useState<number | null>(null);
   const [activeTouchStep, setActiveTouchStep] = useState<number | null>(null);
-  // A pick on the switch wins over the URL; until there is one, the URL says.
-  const [pickedCase, setPickedCase] = useState<CaseId | null>(null);
-  const urlCase = useSyncExternalStore(subscribeToUrl, caseFromUrl, () => null);
-  const selectedCase = findCase(pickedCase ?? urlCase ?? DEFAULT_CASE) ?? BUILD_CASES[0];
+  // The case is the store's, not this panel's: the product preview draws the
+  // device in it, on the Pattern tab as well as here, and it has to outlive
+  // this panel, which is remounted every time the Build tab is left.
+  const buildCase = useAppStore((state) => state.buildCase);
+  const setBuildCase = useAppStore((state) => state.setBuildCase);
+  const selectedCase = findCase(buildCase) ?? BUILD_CASES[0];
   const steps = STEPS.map((step) => (step.id === 1 ? { ...step, ...selectedCase.step } : step));
+  const wasActive = useRef(isActive);
 
   const handleCaseSelect = (nextId: CaseId, interaction: 'click' | 'key') => {
-    setPickedCase(nextId);
-    // replaceState, not push: switching cases is not a page to go back to.
+    setBuildCase(nextId);
     // Only while the panel is the one on screen — it stays mounted, hidden,
     // on the other tabs, and must not write to their URLs.
-    if (isActive && window.location.pathname === '/build') {
-      const query = nextId === DEFAULT_CASE ? '' : `?case=${nextId}`;
-      window.history.replaceState(null, '', `/build${query}${window.location.hash}`);
-    }
+    if (isActive && window.location.pathname === '/build') writeCaseToUrl(nextId);
     captureEvent('build_case_selected', {
       case_id: nextId,
       interaction,
       surface: 'build_panel',
     });
   };
+
+  // A ?case= link sets the store once the client can read the URL, and again
+  // on Back and Forward. In an effect, after hydration: the page is static, so
+  // the server's HTML is always the store's default, and the first client
+  // render has to match it. A URL that names no case leaves the store alone —
+  // it is the URL of every other tab too, and the case a reader picked stays
+  // the one they are looking at.
+  useEffect(() => {
+    const readUrl = () => {
+      const id = caseFromUrl();
+      if (id) setBuildCase(id);
+    };
+    readUrl();
+    window.addEventListener('popstate', readUrl);
+    return () => window.removeEventListener('popstate', readUrl);
+  }, [setBuildCase]);
+
+  // The tab button pushes a bare /build, but the store may hold a remix picked
+  // before the reader left: put it back in the address bar when the panel
+  // comes on screen, so the link still says what the card and the preview
+  // show. A URL that does name a case — Back to an earlier /build?case= — is
+  // the reader's, and wins; RightPanel's popstate can bring the panel on
+  // screen before the listener above has read it.
+  useEffect(() => {
+    const cameOn = isActive && !wasActive.current;
+    wasActive.current = isActive;
+    if (!cameOn || window.location.pathname !== '/build') return;
+    const named = caseFromUrl();
+    if (named) setBuildCase(named);
+    else writeCaseToUrl(buildCase);
+  }, [isActive, buildCase, setBuildCase]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 900);
@@ -223,12 +255,14 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
           ))}
         </div>
 
-        {/* Which case comes before the steps: it decides step 01, and whether
-            you need a printer or a laser cutter at all. */}
+        {/* Which case comes before the steps: it decides step 01, whether you
+            need a printer or a laser cutter at all, and which case the 3D
+            preview shows. */}
         <CasePicker
           cases={BUILD_CASES}
           selected={selectedCase}
           onSelect={handleCaseSelect}
+          onPrefetch={preloadCaseModel}
           onLinkOpen={(id, target) => captureEvent('build_case_link_opened', {
             case_id: id,
             target,
