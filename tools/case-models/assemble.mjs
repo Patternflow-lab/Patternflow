@@ -34,7 +34,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Document } from '@gltf-transform/core';
+import { Document, PropertyType } from '@gltf-transform/core';
 import { KHRDracoMeshCompression } from '@gltf-transform/extensions';
 import { dedup, draco, mergeDocuments, prune, simplify, weld } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
@@ -155,7 +155,11 @@ applyLooks(doc);
 
 await doc.transform(
   weld(),
-  dedup(),
+  dedup({ propertyTypes: [PropertyType.ACCESSOR, PropertyType.MESH, PropertyType.TEXTURE] }),
+  // Materials merge only when their names match as well: two names can share
+  // a look (SimonePDA's sheet and its box are both clear acrylic as built),
+  // and the page swaps looks by name (a case's finishes, caseModels.ts).
+  dedup({ propertyTypes: [PropertyType.MATERIAL], keepUniqueNames: true }),
   // keepAttributes: prune() drops a UV set no texture uses, and the LED
   // panel's UVs are what the page's pattern shaders draw with.
   prune({ keepLeaves: false, keepAttributes: true }),
