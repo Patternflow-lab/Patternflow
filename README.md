@@ -11,7 +11,7 @@ Play light patterns with your fingertips.
 [![Crowd Supply](https://img.shields.io/badge/Crowd_Supply-Funded-d4502b?style=flat-square)](https://www.crowdsupply.com/engmung/patternflow)
 [![Discord](https://img.shields.io/discord/1497757947827327067?style=flat-square&logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/Vr9QtsxeTk)
 
-**[Play one in your browser](https://patternflow.work/pattern)** &nbsp;·&nbsp; **[Build one](https://patternflow.work/guide/build)** &nbsp;·&nbsp; **[Get one assembled](https://www.crowdsupply.com/engmung/patternflow)**
+**[Play&nbsp;one&nbsp;in&nbsp;your&nbsp;browser](https://patternflow.work/pattern)** &nbsp;·&nbsp; **[Build&nbsp;one](https://patternflow.work/guide/build)** &nbsp;·&nbsp; **[Get&nbsp;one&nbsp;assembled](https://www.crowdsupply.com/engmung/patternflow)**
 
 </div>
 
