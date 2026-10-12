@@ -27,7 +27,7 @@ import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
 import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
-import { BUILD_CASES, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
+import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
 import { CASE_MODELS, DRACO_DECODER, type CaseFinish } from './caseModels';
 import { preloadCaseModel } from './preloadCaseModel';
@@ -40,7 +40,7 @@ import {
   type KnobRig,
   type PreparedCase,
 } from './heroCase';
-import { poseFor, shows } from './buildPose';
+import { fitAcross, poseFor, shows } from './buildPose';
 import CaseFinishSwitch from './CaseFinishSwitch';
 import { PageAlpha, StraightAlpha } from './canvasAlpha';
 import { NeutralToeBack } from './neutralToe';
@@ -100,11 +100,22 @@ const MESH_TO_KNOB: Record<string, KnobId> = {
 const TARGET = new THREE.Vector3(0, 1.7, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
+/** The camera as the page opens: where it stands, and its vertical field of view. */
+const CAMERA_POSITION: [number, number, number] = [0.0, 6.0, 10.3];
+const CAMERA_FOV = 28;
+/**
+ * How tall the view is where the device stands, with the camera at rest, in
+ * world units; times the canvas's aspect, how wide (buildPose.ts, fitAcross).
+ */
+const REST_VIEW_HEIGHT =
+  2 * Math.tan(THREE.MathUtils.degToRad(CAMERA_FOV / 2)) * TARGET.distanceTo(new THREE.Vector3(...CAMERA_POSITION));
+
 /**
  * Solder (step 2) shows the board alone, filling the view: the diagonal of
  * the board-and-DevKit's box, seen from the front, is drawn this many world
  * units across. The official device as a whole is 4.09 at the resting scale
- * (the remixes, up to 4% more).
+ * (Besoiobiy's and SimonePDA's up to 4% more; mbchars', lying the long way
+ * on its stands, 11% more, and two thirds wider).
  */
 const BOARD_SPAN = 3.1;
 
@@ -438,6 +449,10 @@ function ProductPreview({
     if (pose.board) {
       const size = device.board.getSize(tmp.v);
       scale = BOARD_SPAN / Math.hypot(size.x, size.y);
+    } else {
+      // A device too wide for a tall view at the one scale is drawn smaller,
+      // so it stays clear of the arrows (fitAcross); any other, as it is.
+      scale *= fitAcross(device.width, REST_VIEW_HEIGHT * (state.size.width / state.size.height));
     }
 
     group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, pose.turn, kView);
@@ -528,12 +543,25 @@ export default function HeroScene() {
     captureEvent('build_case_selected', { case_id: id, interaction: 'click', surface: 'product_preview' });
   };
 
+  // Over the device on the Build tab, whose case it is, in the build map's
+  // label: the name on its tab of the panel's switch, and nothing else. It
+  // changes with the pick, as the tab does, ahead of a model still loading
+  // (the note under the device says so), and reads Official for a case whose
+  // model did not load, since that is the one drawn.
+  const titled = homeTab === 'build' ? findCase(wanted) : undefined;
+
   return (
     <div id="three-canvas" style={{ width: '100%', height: '100%', position: 'relative' }}>
 
+      {titled && (
+        <div className={styles.title}>
+          <span className={styles.titleName}>{titled.tab}</span>
+        </div>
+      )}
+
       {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐) */}
       <div
-        className="viewer-hint"
+        className={`viewer-hint${titled ? ` ${styles.hintUnderTitle}` : ''}`}
         style={{
           position: 'absolute',
           left: '0', width: '100%', textAlign: 'center',
@@ -584,7 +612,7 @@ export default function HeroScene() {
         />
       )}
 
-      <Canvas camera={{ position: [0.0, 6.0, 10.3], fov: 28 }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
+      <Canvas camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
         <ambientLight intensity={0.3} color="#fef6e8" />
         <directionalLight position={[2.3, 3.9, 6]} intensity={2.60} color="#ffffff" castShadow
           shadow-mapSize-width={2048} shadow-mapSize-height={2048}
