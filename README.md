@@ -46,7 +46,7 @@ Two months later I connected an LED matrix and a potentiometer for the first tim
 
 I put my first pattern, *Patternflow: Origin*, on an LED matrix with four knobs and posted it online. Some people asked how to buy it; far more asked how to build it. So everything went public: schematics, firmware, 3D models, the build guide, and the whole workflow for making new patterns.
 
-**Patternflow is a contemporary reinterpretation of Nam June Paik's *Participation TV* (1963). Paik let the audience change the image. Patternflow lets you make it, and give it away.**
+**A contemporary reinterpretation of Nam June Paik's *Participation TV* (1963). Paik let the audience change the image. Patternflow lets you make it, and give it away.**
 
 ## The community responded
 
@@ -57,7 +57,7 @@ I put my first pattern, *Patternflow: Origin*, on an LED matrix with four knobs 
   <sub><i>Builds by Nath (UK), shooter (Poland), day (France), Enerjoy (Norway), SimonePDA (UAE), Nick (USA), and Jon (USA).</i></sub>
 </p>
 
-Two of the builds above live in DJ booths. More keep arriving on the **[build map](https://patternflow.work/inside)**, most of them made by hand from these files: a wooden case in Mexico City, a Burning Man case on a shoulder strap in Reno, a paper-and-acrylic diffuser in Poland, a horizontal desk case in Kyiv that is now one of the remixes in this repo. Others rebuilt it their own way, on a Raspberry Pi: a 64 × 32 port in France, a plaster shell hanging on a wall in Germany.
+Two of the builds above live in DJ booths. More keep arriving on the **[build map](https://patternflow.work/inside)**: a wooden case in Mexico City, a horizontal desk case in Kyiv that is now one of the remixes in this repo, a plaster shell hanging on a wall in Germany with a Raspberry Pi inside.
 
 <p align="center">
   <img src="./docs/media/web-build-map.png" width="100%" alt="Build map: a globe of Patternflows built around the world, with the story of every build" />
@@ -65,9 +65,9 @@ Two of the builds above live in DJ booths. More keep arriving on the **[build ma
 
 I started this alone. It hasn't worked that way for a while now. Web upload began as someone else's suggestion and proof of concept, and shipped as a main feature two days later. The pattern modules that install over Wi-Fi came from **[Simone Majocchi](https://github.com/SimonePDA)**, who designed the loader, built it and proved it on hardware before proposing it. They're core to the instrument now, and Simone went on to bring MQTT, a laser-cut case and the Performance edition. Martin Lopez has put more patterns on the Community wall than anyone, and a Patternflow went to California as thanks.
 
-In Iran, Azmano took Patternflow's patterns, added MIDI control and a microphone, and built an instrument of their own that runs in a browser, **[MOTIFLOW](https://azmano.art/portfolio-item/motiflow/)**, shown in a gallery and played at events since. Patternflow had become something people build their own instruments out of.
+In Iran, Azmano took Patternflow's patterns, added MIDI and a microphone, and built an instrument of their own that runs in a browser, **[MOTIFLOW](https://azmano.art/portfolio-item/motiflow/)**, shown in a gallery and played at events since. Patternflow had become something people build their own instruments out of.
 
-Underneath is an instrument still being designed, in the open, by whoever shows up. It's already moving in directions I didn't choose, and none of it was assigned. The next one is open too: a bridge for TouchDesigner or Node-RED has a folder waiting in [`integrations/`](integrations/README.md), and [Contributing](#contributing) says how to start.
+Underneath is an instrument still being designed, in the open, by whoever shows up. It's already moving in directions I didn't choose, and none of it was assigned. The next one is open too: a bridge for TouchDesigner or Node-RED has a place waiting in [`integrations/`](integrations/README.md), and [Contributing](#contributing) says how to start.
 
 **Patternflow is a thing we're all making now.**
 
@@ -83,7 +83,7 @@ You don't need hardware to start. The **[Live Editor](https://patternflow.work/p
   <img src="./docs/media/web-live-editor.png" width="100%" alt="Live Editor: a Patternflow in the browser, code beside the device" />
 </p>
 
-**[Pattern Lab](https://patternflow.work/pattern-lab)** is the studio, and where a pattern reaches the hardware. Generate variations in batches, with your own Gemini key or through any AI chat, then shape the color ramps and retune the knob ranges. Send it to your Patternflow and it builds into a small `.pfm` module that installs over Wi-Fi in about ten seconds, with no cable, no reflash and no IDE. Graphic Export renders the same pattern as a print-size PNG for a business card or an MP4 loop for a post, in your browser, with nothing uploaded.
+**[Pattern Lab](https://patternflow.work/pattern-lab)** is the studio, and where a pattern reaches the hardware. Make variations in batches, with your own Gemini key or through any AI chat, then shape the color ramps and retune the knob ranges. Send it to your Patternflow and it builds into a small `.pfm` module that installs over Wi-Fi in about ten seconds, with no cable, no reflash and no IDE. Graphic Export renders the same pattern as a print-size PNG for a business card or an MP4 loop for a post, in your browser, with nothing uploaded.
 
 Then publish it to the **[Community](https://community.patternflow.work/community)**: more than a hundred patterns, from quiet waves to chaos-theory studies, all playable under the same four knobs. Collect them into a deck and send it to your board in one click. Browsing needs no account, and publishing asks only a username and password, no email. New studies go up on **[Instagram](https://www.instagram.com/patternflow.work)** almost daily; publish something that stands out and it can get featured there, or ask for a collab and I'll post yours with you. The [Make guide](https://patternflow.work/guide/make) walks the whole loop as a tutorial you do as you read, no hardware needed.
 
@@ -116,7 +116,7 @@ For a DevKit that has never run Patternflow, or one that needs rescuing. The sam
 5. **Give it 15 seconds, then hold K2, the top-left knob,** for a second. `CONNECTED` and an address: you're on your Wi-Fi. `HOTSPOT` and a name like `patternflow-a1b2`: it found no network it knows, so it became one. Join it (password `patternflow`; the phone will say there's no internet, which is true, and it stays connected), open `http://192.168.4.1/` and add your network on the Wi-Fi page.
 6. **Back on that Wi-Fi, install the Basics pack.** On the [decks page](https://community.patternflow.work/community/decks), press **Install to my board** on the Basics card: 33 patterns, no account. The first time, the board asks to format its storage: press **Format storage**, confirm, and the pack installs by itself. The board's console is at `patternflow.local`; on Android, which can't open that name, type the address K2 shows into the card's **Device address** first.
 
-Panel stays dark? Check that the ribbon is in the panel's `IN`, not `OUT`, that red goes to +5V at both `J3` and `J4`, and that the power bank is on; for a panel other than the BOM's, see [Panel Compatibility](docs/panel-compatibility.md). Only starts after a press of RST? One resistor on the DevKit fixes it ([#16](https://github.com/engmung/Patternflow/issues/16)). Then finish with [BUILD_GUIDE §9](BUILD_GUIDE.md#9-final-checks): every knob, one power cycle, the back panel, and the knobs last.
+Panel stays dark? Check that the ribbon is in the panel's `IN`, not `OUT`, that red goes to +5V at both `J3` and `J4`, and that the power bank is on; for a panel other than the BOM's, see [Panel Compatibility](docs/panel-compatibility.md). Only starts after a press of RST? See [BUILD_GUIDE §10](BUILD_GUIDE.md#10-known-issues--design-notes). Then finish with [BUILD_GUIDE §9](BUILD_GUIDE.md#9-final-checks): every knob, one power cycle, the back panel, and the knobs last.
 
 ## Playing it
 
