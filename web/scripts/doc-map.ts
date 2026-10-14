@@ -11,9 +11,11 @@
  * so the cleanup (docs/rfc-cleanup.md §2.2) maps them before it moves anything.
  *
  * Sources are the tracked .md, .mdx, .ts, .tsx and .h files, the console
- * pages, and the redirect table in next.config.ts. Vendored upstream code is
- * skipped, as check_links.py skips it, and so are the *_index.h headers,
- * which are the console pages again. Kinds:
+ * pages, the .yml and .yaml files under .github/ (the issue forms and their
+ * config.yml link the repository by absolute URL), and the redirect table in
+ * next.config.ts. Vendored upstream code is skipped, as check_links.py skips
+ * it, and so are the *_index.h headers, which are the console pages again.
+ * Kinds:
  *
  *   relative       a path in Markdown, resolved against the file it is in
  *   absolute-blob  github.com/<owner>/Patternflow/blob|tree/<ref>/<path>
@@ -197,7 +199,8 @@ function linksIn(f: string): Row[] {
 // ── The map ──
 
 const sources = tracked.filter((f) => !SKIP.test(f) && (/\.(mdx?|tsx?)$/.test(f) ||
-  (f.endsWith(".h") && !f.endsWith("_index.h")) || (f.startsWith(CONSOLE) && f.endsWith(".html"))));
+  (f.endsWith(".h") && !f.endsWith("_index.h")) || (f.startsWith(CONSOLE) && f.endsWith(".html")) ||
+  (f.startsWith(".github/") && /\.ya?ml$/.test(f))));
 const key = (r: Row) => [r.from, r.to, r.anchor, r.kind].join("\0");
 const rows = new Map<string, Row>();
 for (const f of sources) for (const r of linksIn(f)) rows.set(key(r), r);

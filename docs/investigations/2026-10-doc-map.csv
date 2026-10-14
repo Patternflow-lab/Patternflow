@@ -1,4 +1,10 @@
 from,to,kind,anchor,resolves
+.github/FUNDING.yml,/,site,,yes
+.github/ISSUE_TEMPLATE/config.yml,CONTRIBUTING.md,absolute-blob,,yes
+.github/ISSUE_TEMPLATE/config.yml,SUPPORT.md,absolute-blob,,yes
+.github/ISSUE_TEMPLATE/docs_issue.yml,/build,site,,yes
+.github/ISSUE_TEMPLATE/share_build.yml,/inside,site,,yes
+.github/ISSUE_TEMPLATE/share_build.yml,CONTRIBUTING.md,absolute-blob,your-build,yes
 .github/PULL_REQUEST_TEMPLATE.md,CONTRIBUTING.md,absolute-blob,where-your-contribution-goes,yes
 AGENTS.md,docs/EDITIONS.md,relative,,yes
 AGENTS.md,docs/rfc-cleanup.md,relative,,yes
