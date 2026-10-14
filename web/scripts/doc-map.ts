@@ -40,9 +40,9 @@
  *   field   a field in web/src beside its Ko or En twin: title/titleKo
  *           (bare English), nm/nmEn (bare Korean)
  *
- * The three kinds §2.3 names (x.md beside x.ko.md, console page pairs,
- * detail/detailKo in features-data.ts) do not exist yet; when one lands it is
- * a file or a field row and needs no change here. Copy a component picks with
+ * The three kinds §2.3 names (x.md beside x.ko.md, console page pairs, Ko
+ * fields in features-data.ts) do not exist yet; when one lands it is a file or
+ * a field row and needs no change here. Copy a component picks with
  * a ternary on the language is not read. en_chars and ko_chars count the
  * characters that are not whitespace once markup is stripped; how state
  * weighs them is at PER_SYLLABLE below. Nothing is translated: the list is
@@ -274,11 +274,16 @@ function propsOf(o: ts.ObjectLiteralExpression): Map<string, ts.Node> {
   }
   return out;
 }
-// The strings in a value: a literal, a template's fixed parts, or every literal in a function.
+// The strings in a value: a literal, a template's fixed parts, literals joined
+// with +, or every literal in a function.
 function textOf(n: ts.Node | undefined): Side {
   if (!n) return null;
   if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return prose(n.text);
   if (ts.isTemplateExpression(n)) return prose([n.head.text, ...n.templateSpans.map((s) => s.literal.text)].join(""));
+  if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const [l, r] = [textOf(unwrap(n.left)), textOf(unwrap(n.right))];
+    return l === undefined && r === undefined ? undefined : (l ?? "") + (r ?? "");
+  }
   if (!ts.isFunctionLike(n)) return undefined;
   const parts: string[] = [];
   const walk = (c: ts.Node): void => {
