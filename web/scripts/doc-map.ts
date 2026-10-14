@@ -1,6 +1,7 @@
 /**
  * The doc map: every link into this repository, and whether it lands.
- * `npm run doc-map` in web/ writes docs/investigations/2026-10-doc-map.csv.
+ * `npm run doc-map` in web/ writes docs/investigations/2026-10-doc-map.csv,
+ * and beside it the parity list, docs/investigations/2026-10-doc-parity.csv.
  *
  * Moving a file breaks the links that point at it, and only one kind of link
  * is watched: the relative ones in Markdown (.github/scripts/check_links.py).
@@ -10,9 +11,11 @@
  * so the cleanup (docs/rfc-cleanup.md §2.2) maps them before it moves anything.
  *
  * Sources are the tracked .md, .mdx, .ts, .tsx and .h files, the console
- * pages, and the redirect table in next.config.ts. Vendored upstream code is
- * skipped, as check_links.py skips it, and so are the *_index.h headers,
- * which are the console pages again. Kinds:
+ * pages, the .yml and .yaml files under .github/ (the issue forms and their
+ * config.yml link the repository by absolute URL), and the redirect table in
+ * next.config.ts. Vendored upstream code is skipped, as check_links.py skips
+ * it, and so are the *_index.h headers, which are the console pages again.
+ * Kinds:
  *
  *   relative       a path in Markdown, resolved against the file it is in
  *   absolute-blob  github.com/<owner>/Patternflow/blob|tree/<ref>/<path>
@@ -26,13 +29,35 @@
  * An anchor into a Markdown file has to match one of its headings, slugged
  * the way GitHub slugs them. A ref other than main is read with git, and a
  * shallow clone has no tags: run `git fetch --tags` first or those rows say no.
+ *
+ * The parity list (docs/rfc-cleanup.md §2.3) is every text the repository
+ * keeps in both Korean and English, one row per pair, and whether a side is
+ * missing or short. Kinds:
+ *
+ *   file    a file beside its twin named for the other language: x.ko.md
+ *           beside x.md, a journal post's x.en.mdx beside x.mdx
+ *   route   a page under web/src/app beside its ko/ or en/ twin; the row only
+ *           says both exist, since the words are the copy rows
+ *   copy    an object in web/src with `en` and `ko`, walked side by side
+ *   field   a field in web/src beside its Ko or En twin: title/titleKo
+ *           (bare English), nm/nmEn (bare Korean)
+ *
+ * The three kinds §2.3 names (x.md beside x.ko.md, console page pairs, Ko
+ * fields in features-data.ts) do not exist yet; when one lands it is a file or
+ * a field row and needs no change here. Copy a component picks with
+ * a ternary on the language is not read. en_chars and ko_chars count the
+ * characters that are not whitespace once markup is stripped; how state
+ * weighs them is at PER_SYLLABLE below. Nothing is translated: the list is
+ * the deliverable.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const OUT = "docs/investigations/2026-10-doc-map.csv";
+const PARITY = "docs/investigations/2026-10-doc-parity.csv";
 const CONSOLE = "firmware/patternflow/console/";
 const REDIRECTS = "web/next.config.ts";
 const SKIP = /(^|\/)(hub75|webserver|pubsubclient)\//;
@@ -174,7 +199,8 @@ function linksIn(f: string): Row[] {
 // ── The map ──
 
 const sources = tracked.filter((f) => !SKIP.test(f) && (/\.(mdx?|tsx?)$/.test(f) ||
-  (f.endsWith(".h") && !f.endsWith("_index.h")) || (f.startsWith(CONSOLE) && f.endsWith(".html"))));
+  (f.endsWith(".h") && !f.endsWith("_index.h")) || (f.startsWith(CONSOLE) && f.endsWith(".html")) ||
+  (f.startsWith(".github/") && /\.ya?ml$/.test(f))));
 const key = (r: Row) => [r.from, r.to, r.anchor, r.kind].join("\0");
 const rows = new Map<string, Row>();
 for (const f of sources) for (const r of linksIn(f)) rows.set(key(r), r);
@@ -189,3 +215,190 @@ const broken = sorted.filter((r) => r.resolves === "no");
 console.log(`${sorted.length} links from ${new Set(sorted.map((r) => r.from)).size} files → ${OUT}`);
 console.log(`${broken.length} do not resolve`);
 for (const r of broken) console.log(`  ${r.from} → ${r.to}${r.anchor ? "#" + r.anchor : ""} (${r.kind})`);
+
+// ── The parity list ──
+
+type Side = string | null | undefined; // the side's prose; null: it does not exist; undefined: not measured
+type Pair = { kind: string; en: string; ko: string; enText: Side; koText: Side };
+const pairs: Pair[] = [];
+
+// Prose with the markup gone; a path or a URL on its own is not prose.
+const prose = (s: string) =>
+  /^\s*(?:https?:\/\/|\/)\S*\s*$/.test(s) ? "" : s
+    .replace(/^---\n[\s\S]*?\n---\n/, "").replace(/```[\s\S]*?```/g, "").replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/^(?:import|export) .*$/gm, "").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/<[^>]+>/g, "")
+    .replace(/https?:\/\/\S+/g, "").replace(/[*_~`#>|]/g, "");
+const chars = (s: Side) => (typeof s === "string" ? [...s.replace(/\s/g, "")].length : null);
+
+// Files and routes: the twin carries the language it adds, the bare one is the other.
+const TWIN = /^(.*?)([./])(en|ko)\2(page\.tsx|[^./]+)$/;
+const ROUTE = /^web\/src\/app\/([^/]+)\/.*page\.tsx$/;
+// The journal is written post by post in Korean (x.mdx) and English (x.en.mdx):
+// a post with one side is missing the other.
+const PAIRED_FOLDERS = ["web/content/journal/"];
+const routeTwins = new Map<string, string>(); // a route folder → the language its twins add
+const twinned = new Set<string>();
+for (const f of tracked) {
+  const m = TWIN.exec(f);
+  if (!m || (m[2] === "/" && m[4] !== "page.tsx")) continue;
+  const bare = `${m[1]}${m[2] === "/" ? "/" : "."}${m[4]}`;
+  const route = m[2] === "/";
+  const [en, ko] = m[3] === "ko" ? [bare, f] : [f, bare];
+  const text = (p: string) => (!files.has(p) ? null : route ? undefined : prose(read(p)));
+  pairs.push({ kind: route ? "route" : "file", en, ko, enText: text(en), koText: text(ko) });
+  twinned.add(bare);
+  if (route) routeTwins.set(ROUTE.exec(f)?.[1] ?? "", m[3]);
+}
+for (const f of tracked) {
+  if (twinned.has(f) || TWIN.test(f)) continue;
+  const top = ROUTE.exec(f)?.[1];
+  if (PAIRED_FOLDERS.some((d) => f.startsWith(d)) && /\.mdx?$/.test(f)) pairs.push({ kind: "file", en: f.replace(/(\.mdx?)$/, ".en$1"), ko: f, enText: null, koText: prose(read(f)) });
+  else if (top && routeTwins.has(top) && !/\/(en|ko)\//.test(f)) {
+    const twin = f.replace(/page\.tsx$/, `${routeTwins.get(top)}/page.tsx`);
+    pairs.push(routeTwins.get(top) === "ko"
+      ? { kind: "route", en: f, ko: twin, enText: undefined, koText: null }
+      : { kind: "route", en: twin, ko: f, enText: null, koText: undefined });
+  }
+}
+
+// Code: an object with `en` and `ko` (walked side by side when both are
+// objects), and a field beside its `Ko` or `En` twin (bare English beside Ko,
+// bare Korean beside En). A list where some items have the twin and some
+// do not has a missing side.
+const unwrap = (e: ts.Expression): ts.Expression =>
+  ts.isAsExpression(e) || ts.isSatisfiesExpression(e) || ts.isParenthesizedExpression(e) ? unwrap(e.expression) : e;
+const nameOf = (n: ts.PropertyName) => (ts.isIdentifier(n) || ts.isStringLiteral(n) ? n.text : null);
+function propsOf(o: ts.ObjectLiteralExpression): Map<string, ts.Node> {
+  const out = new Map<string, ts.Node>();
+  for (const p of o.properties) {
+    const n = p.name && nameOf(p.name);
+    if (!n) continue;
+    out.set(n, ts.isPropertyAssignment(p) ? unwrap(p.initializer) : ts.isShorthandPropertyAssignment(p) ? p.name : p);
+  }
+  return out;
+}
+// The strings in a value: a literal, a template's fixed parts, literals joined
+// with +, or every literal in a function.
+function textOf(n: ts.Node | undefined): Side {
+  if (!n) return null;
+  if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) return prose(n.text);
+  if (ts.isTemplateExpression(n)) return prose([n.head.text, ...n.templateSpans.map((s) => s.literal.text)].join(""));
+  if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const [l, r] = [textOf(unwrap(n.left)), textOf(unwrap(n.right))];
+    return l === undefined && r === undefined ? undefined : (l ?? "") + (r ?? "");
+  }
+  if (!ts.isFunctionLike(n)) return undefined;
+  const parts: string[] = [];
+  const walk = (c: ts.Node): void => {
+    if (ts.isStringLiteral(c) || ts.isNoSubstitutionTemplateLiteral(c) || ts.isTemplateLiteralToken(c)) parts.push(c.text);
+    ts.forEachChild(c, walk);
+  };
+  walk(n);
+  return prose(parts.join(" "));
+}
+
+function codePairs(f: string) {
+  const sf = ts.createSourceFile(f, read(f), ts.ScriptTarget.Latest, true, f.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  const consts = new Map<string, ts.Expression>();
+  for (const s of sf.statements)
+    if (ts.isVariableStatement(s))
+      for (const d of s.declarationList.declarations) if (ts.isIdentifier(d.name) && d.initializer) consts.set(d.name.text, d.initializer);
+  const deref = (n: ts.Node | undefined) => {
+    const e = n && ts.isIdentifier(n) ? (consts.get(n.text) ?? n) : n;
+    return e && ts.isExpression(e) ? unwrap(e) : e;
+  };
+  const push = (kind: string, en: string, ko: string, enText: Side, koText: Side) => {
+    if (enText === undefined && koText === undefined) return;
+    if (!chars(enText) && !chars(koText)) return; // a path, a URL or an empty string on both sides
+    pairs.push({ kind, en: `${f}#${en}`, ko: `${f}#${ko}`, enText, koText });
+  };
+
+  function sideBySide(base: string, rest: string, en: ts.Node | undefined, ko: ts.Node | undefined) {
+    const [a, b] = [deref(en), deref(ko)];
+    if (a && b && ts.isObjectLiteralExpression(a) && ts.isObjectLiteralExpression(b)) {
+      const [pa, pb] = [propsOf(a), propsOf(b)];
+      for (const k of new Set([...pa.keys(), ...pb.keys()])) sideBySide(base, `${rest}.${k}`, pa.get(k), pb.get(k));
+    } else if (a && b && ts.isArrayLiteralExpression(a) && ts.isArrayLiteralExpression(b)) {
+      for (let i = 0; i < Math.max(a.elements.length, b.elements.length); i++)
+        sideBySide(base, `${rest}[${i}]`, a.elements[i], b.elements[i]);
+    } else push("copy", `${base}.en${rest}`, `${base}.ko${rest}`, textOf(a), textOf(b));
+  }
+
+  function fields(at: string, props: Map<string, ts.Node>, twins: Set<string>) {
+    for (const k of twins) {
+      const [bare, lang] = [k.slice(0, -2), k.slice(-2)];
+      if (!props.has(bare) && !props.has(k)) continue;
+      const [en, ko] = lang === "Ko" ? [bare, k] : [k, bare];
+      push("field", `${at}.${en}`, `${at}.${ko}`, textOf(props.get(en)), textOf(props.get(ko)));
+    }
+  }
+  const twinsIn = (props: Map<string, ts.Node>) =>
+    [...props.keys()].filter((k) => /[a-z](Ko|En)$/.test(k) && props.has(k.slice(0, -2)));
+
+  function visit(n: ts.Node, at: string): void {
+    if ((ts.isVariableDeclaration(n) || ts.isFunctionDeclaration(n)) && n.name && ts.isIdentifier(n.name)) {
+      const here = at ? `${at}.${n.name.text}` : n.name.text;
+      ts.forEachChild(n, (c) => visit(c, here));
+    } else if (ts.isObjectLiteralExpression(n)) {
+      const props = propsOf(n);
+      const paired = props.has("en") && props.has("ko");
+      if (paired) sideBySide(at, "", props.get("en"), props.get("ko"));
+      if (!ts.isArrayLiteralExpression(n.parent)) fields(at, props, new Set(twinsIn(props)));
+      for (const [k, v] of props) if (!(paired && (k === "en" || k === "ko"))) visit(v, `${at}.${k}`);
+    } else if (ts.isArrayLiteralExpression(n)) {
+      const items = n.elements.map((e) => (ts.isObjectLiteralExpression(unwrap(e)) ? propsOf(unwrap(e) as ts.ObjectLiteralExpression) : null));
+      const twins = new Set(items.flatMap((p) => (p ? twinsIn(p) : [])));
+      n.elements.forEach((e, i) => {
+        const id = items[i]?.get("id");
+        const here = `${at}[${id && ts.isStringLiteral(id) ? id.text : i}]`;
+        if (items[i]) fields(here, items[i]!, twins);
+        visit(e, here);
+      });
+    } else ts.forEachChild(n, (c) => visit(c, at));
+  }
+  visit(sf, "");
+}
+for (const f of tracked) if (/^web\/src\/.*\.tsx?$/.test(f) && !/\.(test|d)\.tsx?$/.test(f)) codePairs(f);
+
+// Korean says in one syllable what English says in about two and a half
+// letters: over the journal's 37 pairs (2026-10-14) a Hangul syllable stands
+// for 2.4 English characters, the other characters for one. Sides are compared
+// at that size. A side under two thirds of the other is short; a line whose
+// longer side is under a sentence (SENTENCE) is a label or a title, and the
+// comparison means nothing there. The same sentence on both sides is a
+// translation not made yet; the same short value is an id, a file name or a
+// brand, not a translation, and is left out.
+const HANGUL = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7a3]/;
+const PER_SYLLABLE = 2.4;
+const SENTENCE = 40;
+const size = (s: string) => {
+  const hangul = [...s].filter((c) => HANGUL.test(c)).length;
+  return (chars(s) ?? 0) - hangul + PER_SYLLABLE * hangul;
+};
+function state(p: Pair): string | null {
+  if (p.enText === null) return "missing-en";
+  if (p.koText === null) return "missing-ko";
+  if (p.enText === undefined || p.koText === undefined) return "ok";
+  const [en, ko] = [size(p.enText), size(p.koText)];
+  if (p.enText.trim() === p.koText.trim())
+    return Math.max(en, ko) < SENTENCE || !/\s/.test(p.enText.trim()) ? null : HANGUL.test(p.enText) ? "missing-en" : "missing-ko";
+  if (Math.max(en, ko) < SENTENCE) return "ok";
+  if (ko < (2 / 3) * en) return "ko-short";
+  if (en < (2 / 3) * ko) return "en-short";
+  return "ok";
+}
+const pkey = (p: Pair) => [p.kind, p.en, p.ko].join("\0");
+const listed = [...new Map(pairs.map((p) => [pkey(p), p])).values()].sort((a, b) => (pkey(a) < pkey(b) ? -1 : pkey(a) > pkey(b) ? 1 : 0));
+const num = (n: number | null) => (n === null ? "" : String(n));
+const parity = listed.flatMap((p) => {
+  const s = state(p);
+  return s ? [{ ...p, state: s }] : [];
+});
+fs.writeFileSync(
+  path.join(ROOT, PARITY),
+  ["kind,en,ko,en_chars,ko_chars,state", ...parity.map((p) => [p.kind, p.en, p.ko, num(chars(p.enText)), num(chars(p.koText)), p.state].map(cell).join(","))].join("\n") + "\n",
+);
+const tally = new Map<string, number>();
+for (const p of parity) tally.set(p.state, (tally.get(p.state) ?? 0) + 1);
+console.log(`${parity.length} Korean/English pairs → ${PARITY}`);
+console.log([...tally].sort().map(([s, n]) => `${n} ${s}`).join(", "));
