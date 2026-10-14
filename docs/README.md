@@ -1,6 +1,6 @@
 # docs/
 
-What is here, and what is not. The rule for the split: **a guide somebody follows start to finish lives at the repository root** (`BUILD_GUIDE.md`, `BUILD_GUIDE_v2.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`, `AUDIO_GUIDE.md`); **a contract, a reference, a walk-through for one task, or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
+What is here, and what is not. The rule for the split: **a guide somebody follows start to finish lives at the repository root** (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`, `AUDIO_GUIDE.md`); **a contract, a reference, a walk-through for one task, or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
 
 ## Contracts — other software is built against these, not against the firmware source
 
@@ -28,6 +28,7 @@ What is here, and what is not. The rule for the split: **a guide somebody follow
 
 - [`assembly/`](assembly/README.md) — the assembly map: which enclosure with which electronics, and where each route is documented. The full guide is [`../BUILD_GUIDE.md`](../BUILD_GUIDE.md); the files to order are described in [`../hardware/README.md`](../hardware/README.md); enclosures other people built are [`../hardware/case/remixes/`](../hardware/case/remixes/README.md)
 - The same build in 3D, step by step, is [patternflow.work/guide/build](https://patternflow.work/guide/build). Its firmware chapter hands over to the Play guide's [Flash chapter](https://patternflow.work/guide/play#flash), which is also where to look when the first flash or the Wi-Fi step goes wrong (the written version is [`BUILD_GUIDE.md` §8](../BUILD_GUIDE.md#8-firmware))
+- [`legacy/BUILD_GUIDE_v2.md`](legacy/BUILD_GUIDE_v2.md) — the build guide for the v2.x board, kept for boards already built; a guide for a board that is no longer current lives here, not at the root
 - [`build-guide/images/`](build-guide/images/) — photos for the build guides (`images/` is the v2 set, `images/v3/` the current board)
 - [`LICENSE-SUMMARY.md`](LICENSE-SUMMARY.md) — MIT for code, CC BY-SA 4.0 for hardware, docs and bundled patterns, and what that means for a pattern you publish or a remix you share
 

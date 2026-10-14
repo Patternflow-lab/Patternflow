@@ -1,7 +1,7 @@
 # Build Patternflow — Assembly Map
 
 > **Which version am I building?** Current hardware is the **v3.9 board** (the v3.0 board with the USB-C footprint removed; same case, same guide): follow **[BUILD_GUIDE.md](../../BUILD_GUIDE.md)** and take the files from the tree — [`hardware/README.md`](../../hardware/README.md) says exactly which Gerber, BOM and STL to use. The [v3.0.0 release](https://github.com/engmung/Patternflow/releases/tag/v3.0.0) bundles the previous revision's files.
-> Own a **v2.x board**? Use **[BUILD_GUIDE_v2.md](../../BUILD_GUIDE_v2.md)** and the **[v2.1.0 release](https://github.com/engmung/Patternflow/releases/tag/v2.1.0)** instead. **v2 and v3 parts are not interchangeable** — the boards do not fit each other's cases.
+> Own a **v2.x board**? Use **[BUILD_GUIDE_v2.md](../legacy/BUILD_GUIDE_v2.md)** and the **[v2.1.0 release](https://github.com/engmung/Patternflow/releases/tag/v2.1.0)** instead. **v2 and v3 parts are not interchangeable** — the boards do not fit each other's cases.
 
 > 🔦 **Buying the LED panel? Read [LED Panel Compatibility](../panel-compatibility.md) first.** Patternflow scans the panel directly from the ESP32-S3, so the **driver IC** decides whether it lights up — "HUB75E" on the listing does not, and a spec-matching panel with S-PWM "video wall" drivers stays completely dark with no firmware fix. Since that part number is almost never in the listing, the practical check is the **buyer reviews**: someone running it off an ESP32 or Raspberry Pi is the best evidence you'll get.
 
@@ -51,4 +51,4 @@ Custom patterns no longer need a local toolchain or a reflash: a pattern built i
 | Version | Guide | Everything bundled |
 | --- | --- | --- |
 | **v3.9 board** (current; v3.0 is the same board with a USB-C footprint you leave empty) | [BUILD_GUIDE.md](../../BUILD_GUIDE.md) | the files in [`hardware/`](../../hardware/README.md); the [v3.0.0 release](https://github.com/engmung/Patternflow/releases/tag/v3.0.0) bundles the v3.0 revision |
-| v2.1.0 (legacy) | [BUILD_GUIDE_v2.md](../../BUILD_GUIDE_v2.md) | [v2.1.0 release](https://github.com/engmung/Patternflow/releases/tag/v2.1.0) |
+| v2.1.0 (legacy) | [BUILD_GUIDE_v2.md](../legacy/BUILD_GUIDE_v2.md) | [v2.1.0 release](https://github.com/engmung/Patternflow/releases/tag/v2.1.0) |

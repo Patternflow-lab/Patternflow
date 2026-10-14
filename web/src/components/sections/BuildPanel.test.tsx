@@ -384,7 +384,7 @@ describe('the rest of the panel', () => {
       `${GH}/blob/main/docs/panel-compatibility.md`,
     );
     expect(screen.getByRole('link', { name: 'Breadboard guide' })).toHaveAttribute('href', '/build/breadboard');
-    expect(screen.getByRole('link', { name: 'v2 board guide' })).toHaveAttribute('href', `${GH}/blob/main/BUILD_GUIDE_v2.md`);
+    expect(screen.getByRole('link', { name: 'v2 board guide' })).toHaveAttribute('href', `${GH}/blob/main/docs/legacy/BUILD_GUIDE_v2.md`);
     expect(screen.queryByText(/laser-cut, or an older/)).not.toBeInTheDocument();
   });
 });

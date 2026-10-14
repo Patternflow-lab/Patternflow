@@ -2,7 +2,7 @@
 
 This guide walks you through building a Patternflow v2.0.0 from scratch. It assumes basic familiarity with through-hole soldering and 3D printing.
 
-This is the current detailed path for a hand-soldered official PCB plus a PLA 3D printed enclosure. For the broader assembly map, see [docs/assembly/README.md](docs/assembly/README.md); the community cases it lists, laser-cut and printed, are for the v3 board.
+This is the current detailed path for a hand-soldered official PCB plus a PLA 3D printed enclosure. For the broader assembly map, see [docs/assembly/README.md](../assembly/README.md); the community cases it lists, laser-cut and printed, are for the v3 board.
 
 > **No PCB? Try the breadboard build.** If you don't want to order or solder a custom PCB, there's a complete **PCB-free path** that wires the same parts together with a snapped-off breadboard power rail and jumper wires — no soldering iron required. See the **[Breadboard Build Guide](https://patternflow.work/build/breadboard)**. You can always move up to this PCB build later.
 
@@ -10,13 +10,13 @@ This is the current detailed path for a hand-soldered official PCB plus a PLA 3D
 
 **Skill level:** Beginner-to-intermediate. If you've assembled a mechanical keyboard or built a basic Arduino project, you're ready — this is an all through-hole build.
 
-> 🚀 **This is the legacy v2.x guide.** The current build is the **v3.9** board — see the main **[Build Guide](BUILD_GUIDE.md)**. Keep following this page only if you already have v2.x parts (v2 and v3 boards/cases are not interchangeable).
+> 🚀 **This is the legacy v2.x guide.** The current build is the **v3.9** board — see the main **[Build Guide](../../BUILD_GUIDE.md)**. Keep following this page only if you already have v2.x parts (v2 and v3 boards/cases are not interchangeable).
 >
 > Photos in this guide were shot on an early build; where a photo looks slightly off, follow the written steps.
 
 > **What changed in v2.0.0.** PCB now includes a 10k pullup on GPIO0 (resolves the v1 cold-boot issue), silkscreen cleaned up to clearly mark R vs. C designators and the correct encoder solder side, firmware ships with a built-in custom-pattern template usable with any AI coding assistant, and the case files now include a 15mm encoder knob variant. Most of the case geometry is unchanged from v1; see Section 10 for the issues still open and the deliberate design notes worth knowing.
 
-![All parts laid out before assembly](docs/build-guide/images/all_parts.jpg)
+![All parts laid out before assembly](../build-guide/images/all_parts.jpg)
 
 ---
 
@@ -63,14 +63,14 @@ This is the current detailed path for a hand-soldered official PCB plus a PLA 3D
 >
 > Patternflow drives the panel **directly from the ESP32-S3** — there is no sending/receiving card. So the panel's **driver IC** decides whether it works, and "HUB75E" on the listing is a connector, not a compatibility promise. A spec-matching panel with the wrong chips stays **completely dark** even when wiring, power and firmware are all correct.
 >
-> - ✅ **Works:** classic shift-register drivers — **74HC595**, **FM6124**, **FM6126A**, **ICN2037**, **ICN2038S**, **DP5125D**, **DP3246**, **MBI5124**, **SM162xx**. Stock firmware drives most of these as-is; only if the panel comes up completely dark do you set `PANEL_PROFILE` in [`firmware/patternflow/config.h`](firmware/patternflow/config.h) to match your chip.
+> - ✅ **Works:** classic shift-register drivers — **74HC595**, **FM6124**, **FM6126A**, **ICN2037**, **ICN2038S**, **DP5125D**, **DP3246**, **MBI5124**, **SM162xx**. Stock firmware drives most of these as-is; only if the panel comes up completely dark do you set `PANEL_PROFILE` in [`firmware/patternflow/config.h`](../../firmware/patternflow/config.h) to match your chip.
 > - ❌ **Does NOT work:** S-PWM / GCLK "video wall" drivers — **ICN2053**, **FM6353**, **FM6363C/FM6373C**, **DP3264/DP3265**, **ICND2055**, **MBI505x**. Usually sold on a **very high refresh rate (1920/3840Hz)** and/or that they **require a Nova/Linsn/Colorlight/Huidu receiving card**.
 >
-> 📖 **Read [LED Panel Compatibility](docs/panel-compatibility.md) before ordering** — full chip lists, how to read the markings on a panel you already own, a symptom→cause table, and a copy-paste question to send the seller. The linked panel above is a known-good one.
+> 📖 **Read [LED Panel Compatibility](../panel-compatibility.md) before ordering** — full chip lists, how to read the markings on a panel you already own, a symptom→cause table, and a copy-paste question to send the seller. The linked panel above is a known-good one.
 
-PCB: order from your preferred fab using the **`patternflow_v2.1_gerber.zip`** Gerbers in [`hardware/pcb/gerber/`](hardware/pcb/gerber/) (or the KiCad source in `hardware/pcb/kicad/`). I used PCBway (sponsored).
+PCB: order from your preferred fab using the **`patternflow_v2.1_gerber.zip`** Gerbers in [`hardware/pcb/gerber/`](../../hardware/pcb/gerber/) (or the KiCad source in `hardware/pcb/kicad/`). I used PCBway (sponsored).
 
-> ⚠️ **For this (v2) guide, order v2.1 only.** This guide and its case files are built around the v2.1 board. The newer **v3 board** (`patternflow_v3.9_gerber.zip`; the v3 generation was verified in [#114](https://github.com/engmung/Patternflow/issues/114)) is a different size — it does **not** fit the v2 cases described here, and v2.1 boards don't fit the v3 cases. The v3 board has its own guide — the main [BUILD_GUIDE.md](BUILD_GUIDE.md).
+> ⚠️ **For this (v2) guide, order v2.1 only.** This guide and its case files are built around the v2.1 board. The newer **v3 board** (`patternflow_v3.9_gerber.zip`; the v3 generation was verified in [#114](https://github.com/engmung/Patternflow/issues/114)) is a different size — it does **not** fit the v2 cases described here, and v2.1 boards don't fit the v3 cases. The v3 board has its own guide — the main [BUILD_GUIDE.md](../../BUILD_GUIDE.md).
 
 > ⚠️ **Don't order through the PCBWay shared project for this guide.** The [Patternflow PCBWay project](https://www.pcbway.com/project/shareproject/Patternflow_An_LED_synthesizer_776d796c.html) now carries the **v3.0 board**, which does not fit the v2 cases described here. For a v2 build, download `patternflow_v2.1_gerber.zip` and upload it to your fab yourself.
 
@@ -103,7 +103,7 @@ PCB: order from your preferred fab using the **`patternflow_v2.1_gerber.zip`** G
 
 **Print the main body, dividers, and one knob file.** Print the knob STL that matches your encoder shaft length — `knobs_15mm.stl` or `knobs_20mm.stl`. Each file is one print job; each knob STL contains all four knobs.
 
-> 💡 **Easier option — skip the gluing (and the nippers).** [`hardware/case/legacy_v2/encloser_v2.1.stl`](hardware/case/legacy_v2/encloser_v2.1.stl) packs the newer **snap-fit** design, cut for the v2.1 board, into one STL — body, LED-panel mount, and knobs all inside. Print & assembly verified. Open it in your slicer, split the objects, print the knobs in black and the rest in white — then skip Section 3 entirely (no bonding; assembly follows the [v3 guide's Section 6](BUILD_GUIDE.md#6-case-assembly) sequence) **and skip Section 5.1 too**: the design recesses the LED matrix's alignment bumps, so no trimming. Bonus: a snap-fit back panel and two wall-mount holes. The plates below remain the classic, fully photo-documented path.
+> 💡 **Easier option — skip the gluing (and the nippers).** [`hardware/case/legacy_v2/encloser_v2.1.stl`](../../hardware/case/legacy_v2/encloser_v2.1.stl) packs the newer **snap-fit** design, cut for the v2.1 board, into one STL — body, LED-panel mount, and knobs all inside. Print & assembly verified. Open it in your slicer, split the objects, print the knobs in black and the rest in white — then skip Section 3 entirely (no bonding; assembly follows the [v3 guide's Section 6](../../BUILD_GUIDE.md#6-case-assembly) sequence) **and skip Section 5.1 too**: the design recesses the LED matrix's alignment bumps, so no trimming. Bonus: a snap-fit back panel and two wall-mount holes. The plates below remain the classic, fully photo-documented path.
 
 > **Note:** an `easyfit` main-body variant (alignment tabs along the bond seam) existed briefly but was retired over a fit defect ([Issue #154](https://github.com/engmung/Patternflow/issues/154)). Use the standard `plate_main.stl`; the old variant remains at the [v2.1.0 tag](https://github.com/engmung/Patternflow/tree/v2.1.0/hardware/case) if you're curious.
 
@@ -139,7 +139,7 @@ Apply super glue along the seam between the upper and lower halves of the main b
 
 Same procedure — bond the upper and lower halves of the back panel together.
 
-<img src="docs/build-guide/images/case_bond.jpg" width="33%">
+<img src="../build-guide/images/case_bond.jpg" width="33%">
 
 ### 3.3 Bond the internal divider
 
@@ -147,7 +147,7 @@ Inside the case, there's an internal divider that separates the LED matrix volum
 
 **Insert the divider from the front side (the power bank / lower side), sliding it up into position.** Apply super glue along the divider edges to bond it to the case interior. Do **not** insert it from the back.
 
-<img src="docs/build-guide/images/divider_bond.jpg" width="33%">
+<img src="../build-guide/images/divider_bond.jpg" width="33%">
 
 Allow ~5 minutes after every bond step for the glue to fully cure before handling.
 
@@ -159,7 +159,7 @@ This is an all through-hole build. Work small-to-tall — shortest parts first, 
 
 > **No SMD required.** The PCB has footprints for optional 0805 passives (encoder pull-ups, filter caps, ESP32 decoupling caps) and an R13 GPIO0 pull-up, but they are **not populated** — a unit runs fine without any of them. See the design note in Section 10 for the rationale and the on-module cold-boot fix if you ever need it.
 
-<img src="docs/build-guide/images/pcb_assembly_setup.jpg" width="70%">
+<img src="../build-guide/images/pcb_assembly_setup.jpg" width="70%">
 
 ### Through-Hole Pass
 
@@ -178,7 +178,7 @@ Solder, in order (small/short to tall):
 
 Wrong side (front) vs. correct side (back):
 
-<img src="docs/build-guide/images/encoder_front_wrong.jpg" width="45%"> <img src="docs/build-guide/images/encoder_back_correct.jpg" width="45%">
+<img src="../build-guide/images/encoder_front_wrong.jpg" width="45%"> <img src="../build-guide/images/encoder_back_correct.jpg" width="45%">
 
 The photos in this guide show the earlier 20mm-shaft encoders. The 15mm EC11 encoders install the same way; only the matching knob STL changes.
 
@@ -267,7 +267,7 @@ The LED matrix has two small alignment bumps on its back, diagonally opposite ea
 
 > This step only applies to the glued-plate body. If you printed `encloser_v2.1.stl` (the 💡 option in Section 2), skip it — that design has recesses for the bumps.
 
-<img src="docs/build-guide/images/matrix_bump_cut1.jpg" width="33%"> <img src="docs/build-guide/images/matrix_bump_cut2.jpg" width="33%">
+<img src="../build-guide/images/matrix_bump_cut1.jpg" width="33%"> <img src="../build-guide/images/matrix_bump_cut2.jpg" width="33%">
 
 ### 5.2 Screw the matrix into the case
 
@@ -277,7 +277,7 @@ The LED matrix has two small alignment bumps on its back, diagonally opposite ea
 
 > The screws thread directly into the LED matrix's mounting holes. Don't over-tighten.
 
-<img src="docs/build-guide/images/matrix_screw.jpg" width="33%">
+<img src="../build-guide/images/matrix_screw.jpg" width="33%">
 
 ---
 
@@ -285,13 +285,13 @@ The LED matrix has two small alignment bumps on its back, diagonally opposite ea
 
 At this point the matrix is in the case but the PCB is **not** yet installed. You'll do all the wire-side work first — connecting the USB power input, the matrix power, and the HUB75 ribbon to the PCB while it's still loose and easy to handle. Then in Section 7 the whole PCB-with-cables-attached assembly drops into the case.
 
-<img src="docs/build-guide/images/parts_layout.jpg" width="33%">
+<img src="../build-guide/images/parts_layout.jpg" width="33%">
 
 ### 6.1 Wire the USB power input to J2
 
 Cut the sacrificial USB cable short — trim it to a length that routes from the power bank compartment, through the divider hole, to the PCB position without excessive slack. Strip the +5V (red) and GND (black) wires.
 
-<img src="docs/build-guide/images/usb_wire_cut.jpg" width="33%">
+<img src="../build-guide/images/usb_wire_cut.jpg" width="33%">
 
 Pass the cable through the divider hole. Connect to **J2** (with the PCB-side facing you):
 
@@ -300,13 +300,13 @@ Pass the cable through the divider hole. Connect to **J2** (with the PCB-side fa
 
 Tighten with a small flathead.
 
-<img src="docs/build-guide/images/pcb_left_screw.jpg" width="33%">
+<img src="../build-guide/images/pcb_left_screw.jpg" width="33%">
 
 ### 6.2 Wire the LED matrix power to J3
 
 The LED matrix ships with a power cable (red/black) that has two red (+) and two black (−) wires. Hold it up to estimate reach to **J3** before cutting — give it just enough length to route cleanly without strain. Then cut, strip, and bundle each pair (the two reds together, the two blacks together) before inserting.
 
-<img src="docs/build-guide/images/power_wire_measure.jpg" width="33%">
+<img src="../build-guide/images/power_wire_measure.jpg" width="33%">
 
 Polarity matches J2: **inner = +5V (red pair)**, **outer = GND (black pair)**.
 
@@ -333,31 +333,31 @@ The PCB sits in the dedicated PCB slot, with the rotary encoders facing through 
 3. While tilting the PCB toward flat, guide the upper encoders into their slots simultaneously.
 4. Push the PCB flat against the case interior.
 
-<video src="docs/build-guide/images/pcb_insert.webm" autoplay loop muted playsinline width="45%"></video> <img src="docs/build-guide/images/pcb_inserted.jpg" width="45%">
+<video src="../build-guide/images/pcb_insert.webm" autoplay loop muted playsinline width="45%"></video> <img src="../build-guide/images/pcb_inserted.jpg" width="45%">
 
 ### 7.2 Secure the encoders from the front
 
 From the **front** of the case, attach each rotary encoder's nut and tighten with a wrench or pliers. This both secures the encoder shafts to the front face and locks the PCB in place.
 
-<img src="docs/build-guide/images/encoder_nut.jpg" width="33%">
+<img src="../build-guide/images/encoder_nut.jpg" width="33%">
 
 ### 7.3 Attach the back cover
 
 Slide the back cover panel into place along the rear of the case.
 
-<img src="docs/build-guide/images/back_cover.jpg" width="33%">
+<img src="../build-guide/images/back_cover.jpg" width="33%">
 
 ### 7.4 Close the PCB compartment slider
 
 Slide the PCB compartment cover panel into its slot to close off the electronics section.
 
-<img src="docs/build-guide/images/pcb_slider.jpg" width="33%">
+<img src="../build-guide/images/pcb_slider.jpg" width="33%">
 
 ### 7.5 Attach the knobs
 
 Press-fit the four black knobs onto the encoder shafts. Use the knob set that matches your encoder shaft length: `knobs_15mm.stl` for 15mm encoders, or `knobs_20mm.stl` for 20mm encoders.
 
-<img src="docs/build-guide/images/knobs.jpg" width="33%">
+<img src="../build-guide/images/knobs.jpg" width="33%">
 
 At this point the **Patternflow body is mechanically complete.** The only thing left is the brain.
 
@@ -385,7 +385,7 @@ No installation required. Works on any desktop with Chrome or Edge.
 3. Scroll to the **Patterns** section and click **"Flash Patternflow"**.
 4. Select the correct serial port when prompted and follow the on-screen steps. Wi-Fi can be provisioned right there too (Improv-Serial).
 
-<img src="docs/build-guide/images/web_flash.jpg" width="33%">
+<img src="../build-guide/images/web_flash.jpg" width="33%">
 
 5. Once flashing is complete, disconnect the USB-C cable.
 
@@ -393,7 +393,7 @@ No installation required. Works on any desktop with Chrome or Edge.
 
 ### 8.2 Arduino IDE (Manual / Custom Builds)
 
-Use this method if you want to modify the firmware source, add custom patterns, or if the browser flasher doesn't work for your setup. Custom patterns are not added to the release flasher automatically; you compile and upload your own firmware build. See [firmware/CUSTOM_PATTERNS.md](firmware/CUSTOM_PATTERNS.md).
+Use this method if you want to modify the firmware source, add custom patterns, or if the browser flasher doesn't work for your setup. Custom patterns are not added to the release flasher automatically; you compile and upload your own firmware build. See [firmware/CUSTOM_PATTERNS.md](../../firmware/CUSTOM_PATTERNS.md).
 
 #### Prerequisites
 
@@ -416,7 +416,7 @@ Use this method if you want to modify the firmware source, add custom patterns, 
 > cd firmware/patternflow && pio run -t upload
 > ```
 >
-> Full detail in [firmware/README.md](firmware/README.md#required-board-package).
+> Full detail in [firmware/README.md](../../firmware/README.md#required-board-package).
 
 #### Board Settings
 
@@ -462,7 +462,7 @@ OTA updates work via Arduino IDE's network port option once the device has been 
 
 With flashing complete and the USB cable disconnected, plug the ESP32-S3 module into the female pin sockets on the Patternflow PCB.
 
-<img src="docs/build-guide/images/esp32_insert.jpg" width="33%">
+<img src="../build-guide/images/esp32_insert.jpg" width="33%">
 
 ---
 
@@ -474,7 +474,7 @@ With flashing complete and the USB cable disconnected, plug the ESP32-S3 module 
 4. The LED matrix should illuminate with the default pattern within a second or two.
 5. Turn the four knobs to confirm they all respond.
 
-<img src="docs/build-guide/images/first_boot.jpg" width="33%">
+<img src="../build-guide/images/first_boot.jpg" width="33%">
 
 > If your unit does not boot reliably, press RESET on the ESP32-S3 module once. On v2.0 boards this should not be necessary -- if it consistently is, [open an issue](https://github.com/engmung/Patternflow/issues) with your module source (AliExpress / Espressif / other) and a photo of the GPIO0 area on your PCB.
 
