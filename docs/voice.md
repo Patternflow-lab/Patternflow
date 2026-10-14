@@ -1,36 +1,31 @@
 # Writing voice
 
-The README and the build guide set the voice for everything else written
-here. Read a page of [README.md](../README.md) and of
-[BUILD_GUIDE.md](../BUILD_GUIDE.md) before writing anything longer than a
-sentence. Where the two differ, write like the README. It was rewritten in
-October 2026 and joins its clauses with colons and full stops; the build guide
-still reaches for dashes and opens its callouts with an emoji.
+The README and the build guide set the voice for English here. Read a page of
+[README.md](../README.md) and of [BUILD_GUIDE.md](../BUILD_GUIDE.md) before
+writing anything longer than a sentence. Where the two differ, write like the
+README: it has no dash between clauses and no emoji callout, and the build
+guide still has both. Korean has a standard of its own, at the end.
 
 ## Name the thing
 
 Not "the power input" but "`J4`, the screw terminal". Not "a lot of LEDs"
-but "8,192 points of light". A wait is "about two minutes" and a deadline is
-"15 October 2026". A number carries its unit, and when it helps, the thing it
-is measured against:
+but "8,192 points of light". A number carries its unit, and when it helps,
+the thing it is measured against:
 
 > it holds the panel to a 2.4 A budget, the high-power USB-A rating, so a
 > white-out frame lands at roughly half brightness instead, while an ordinary
 > bright pattern (~1.9 A) never notices.
 
-Part numbers and designators are written as the BOM writes them:
-`PEC11R-4220F-S0024`, `C11`. A knob gets its place the first time: "K2, the
-top-left knob".
+A part is named as the BOM names it (`PEC11R-4220F-S0024`), and a knob gets
+its place the first time: "K2, the top-left knob".
 
 ## Say what happens
 
 The guides say what the reader will see, and what it means when it looks
 wrong: "The dialog usually ends without asking for it, and nothing failed:
 close it." A limit is stated as one, even after a fix: "1/120 and slow motion
-still band". A claim comes with what it rests on: "In testing, a
-40,000 mAh bank dropped about 13% over 2 hours at full brightness, which is
-roughly 15 hours on a full charge". "Usually" appears where it is true and
-the reader can act on it, not as a cushion under every sentence.
+still band". "Usually" appears where it is true and the reader can act on it,
+not as a cushion under every sentence.
 
 ## Short, and finished
 
@@ -38,9 +33,7 @@ Sentences carry one point each. A long one is followed by a short one, and a
 short one can open a section by itself: "Two licenses, in two separate
 files." A step starts with what to do and then says why: "Buy the LED panel
 the BOM links. It's verified, and the case is measured around its screw
-holes." The reader's situation becomes a question with the answer straight
-after it: "No printer?" A paragraph covers one thing and stops when it is
-said. Nothing at the end of a section repeats the section.
+holes." A paragraph covers one thing and stops when it is said.
 
 ## Who is speaking
 
@@ -55,18 +48,11 @@ not write himself.
 [EDITIONS.md](EDITIONS.md#the-three-words) defines the words for firmware
 builds, and prose uses them as defined there. A bundle is a composition's
 folder and nothing more; "addon" and "variant" stay only where they name the
-wire. The other nouns (core, preset, module, pack, deck, the console) mean
-what the README uses them for, with no synonym swapped in. Brand spelling is
-hard rule 4 in [AGENTS.md](../AGENTS.md).
-
-## Korean
-
-Korean text keeps the ending its file already uses: the web guide speaks
-해요체 and [SERVICES.md](SERVICES.md) 합니다체. The habits above hold in both.
+wire. Brand spelling is hard rule 4 in [AGENTS.md](../AGENTS.md).
 
 ## Side by side
 
-A sentence that reads as generated, then the one the docs have instead:
+A sentence that reads as generated, then the one the README has instead:
 
 > Make sure to select the correct USB port, as using the wrong one may cause
 > problems during setup.
@@ -74,9 +60,44 @@ A sentence that reads as generated, then the one the docs have instead:
 > Use its left port, labelled `USB` (antenna up, ports toward you): the right
 > one flashes too, but the Wi-Fi step never appears there.
 
-> 부품을 준비하는 과정에서는 여러 가지 사항을 고려하는 것이 좋습니다.
+## Korean
+
+Korean keeps the ending its file already uses (해요체 or 합니다체) and reads
+as if it was written in Korean first. Everything above holds in Korean too.
+Neither the journal nor the web guide is the model. The journal is a diary,
+and the guide's Korean was carried over from its English sentence by
+sentence. The marks of carried-over Korean, as two published Korean editing
+skills list them (DaleSeo's
+[humanizer](https://github.com/DaleSeo/korean-skills/tree/main/skills/humanizer)
+and epoko77-ai's [Humanize KR](https://github.com/epoko77-ai/im-not-ai)):
+
+- English prepositions turned into particles: `~에 대해`, `~를 통해`,
+  `~에 있어서`, `~에 의해`. The plain particle or the verb says it.
+- An English verb on a subject that is not a person. "드라이버 IC가
+  결정해요" is "the driver IC decides".
+- `가지고 있다` for have, and `~되어지다` for a passive that `~되다`
+  already is.
+- `~할 수 있다` where the sentence can simply say the thing.
+- A noun doing a verb's work: `확인을 진행해요` for `확인해요`.
+- Pronouns and plurals the sentence does not need: `그`, `그것`, `이러한`,
+  `-들`.
+- A comma wherever English would put one. Korean uses fewer
+  ([KatFishNet](https://aclanthology.org/2025.acl-long.1030/), ACL 2025).
+
+Two of the guide's lines in English and in Korean, then the same thing
+written in Korean:
+
+> Its driver IC decides, not “HUB75E” in the title.
 >
-> 전부 부품 목록에 있어요. 주문부터 해요. 배송이 제일 오래 걸려요.
+> 제목의 ‘HUB75E’가 아니라 드라이버 IC가 결정해요.
+>
+> 패널이 켜질지는 제목의 ‘HUB75E’가 아니라 드라이버 IC에 달려 있어요.
+
+> Take $100 as the floor, not the estimate
+>
+> 100달러는 예상치가 아니라 바닥이에요.
+>
+> 100달러는 아무 문제 없이 끝났을 때 드는 돈이에요. 보통은 더 들어요.
 
 Words that never go in are in [voice-banned.txt](voice-banned.txt), one per
 line. The maintainer adds to it, and `check:voice` reads it from there once
