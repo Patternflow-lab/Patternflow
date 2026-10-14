@@ -1,0 +1,34 @@
+# Words and phrases that do not go into anything a person reads here.
+# Why: docs/voice.md. The rule: docs/rfc-cleanup.md §2.10.
+#
+# One entry per line, written as it would appear in a sentence. Case does not
+# matter. An English entry matches whole words, so "here's" does not catch
+# "there's", and covers the word's other forms ("ensure" catches "ensures"
+# and "ensuring"). A Korean entry matches anywhere in the text. A line that
+# starts with # is a comment.
+#
+# check:voice (scripts/voice-lint.ts) reads this file. Adding a word needs no
+# change to the script.
+
+seamless
+robust
+leverage
+comprehensive
+streamline
+empower
+cutting-edge
+ensure
+utilize
+delve
+it's important to note
+here's
+
+효율적으로
+원활하게
+강력한
+최적화된
+혁신적인
+다양한
+전반적으로
+참고로
+살펴보겠습니다
