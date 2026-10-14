@@ -10,7 +10,7 @@ record.
 | step | what | state |
 | --- | --- | --- |
 | 0 | Baseline: CI record, doc map, cleanup-window rule in `AGENTS.md` | done ([#11](https://github.com/Patternflow-lab/Patternflow/pull/11)) |
-| 1 | Document structure: root, legacy guide, CHANGELOG split, ko/en parity list | — |
+| 1 | Document structure: root, legacy guide, CHANGELOG split, ko/en parity list | planned ([three lanes](investigations/2026-10-cleanup-step1-plan.md)) |
 | 2 | Drift checks: links, BOM triad, features, editions, presets, roadmap | — |
 | 3 | Code hygiene: lint/typecheck zero, legacy named or gone, HUB75 upstream patch, shared constants | — |
 | 4 | Test spine: contract vectors ×5, virtual panel | — |
