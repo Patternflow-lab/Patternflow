@@ -34,7 +34,7 @@ Started by media artist SeungHun Lee ([@engmung](https://github.com/engmung)) in
 - **[Build](https://patternflow.work/guide/build):** you're soldering one from bare parts, about US$100–200 of them. Or read [BUILD_GUIDE.md](BUILD_GUIDE.md).
 - **[Play](https://patternflow.work/guide/play):** yours is built. Flash it, put it on your Wi-Fi, learn the four knobs. Or read [First light](#first-light), below.
 - **[Make](https://patternflow.work/guide/make):** make your own patterns, with or without a Patternflow. Or read [PATTERN_GUIDE.md](PATTERN_GUIDE.md).
-- **[Audio](https://patternflow.work/guide/audio):** it plays; now add sound and MIDI with the Audio edition. Or read [AUDIO_GUIDE.md](AUDIO_GUIDE.md).
+- **[Audio](https://patternflow.work/guide/audio):** it plays; now add sound and MIDI with the Audio edition. Or read [AUDIO_GUIDE.md](docs/AUDIO_GUIDE.md).
 
 ## Where it began
 
@@ -151,7 +151,7 @@ The default firmware is the instrument and nothing else, which leaves the most m
 | :--- | :--- | :--- | :--- |
 | **MIDI over Wi-Fi** | The panel is a MIDI port in any DAW (Ableton, Logic, Bitwig); its knobs and buttons map like any controller's (Ctrl-M in Live), and CC and Program Change play it back | Audio | [MIDI in Ableton](docs/midi-ableton.md) · [spec](docs/midi-spec.md) |
 | **OSC, both ways** | Knobs, presses and pattern switches stream out to Max, TouchDesigner or Resolume; incoming OSC moves the panel exactly like a hand on the knob | Audio | [spec](docs/osc-spec.md) · [Max for Live bridge](integrations/ableton) |
-| **Audio-react** | A browser tab's audio in four bands you shape, or a small microphone soldered to the DevKit; every pattern reacts with no audio code of its own | Audio | [AUDIO_GUIDE.md](AUDIO_GUIDE.md) · [extension](tools/patternflow-audio-extension) |
+| **Audio-react** | A browser tab's audio in four bands you shape, or a small microphone soldered to the DevKit; every pattern reacts with no audio code of its own | Audio | [AUDIO_GUIDE.md](docs/AUDIO_GUIDE.md) · [extension](tools/patternflow-audio-extension) |
 | **MQTT** | Both ways, on the broker you already run; two panels on one broker follow each other | Performance | [spec](docs/mqtt-spec.md) |
 | **HTTP** | Knob state, pattern selection, brightness, status | every firmware | [API](docs/rest-api.md) |
 
@@ -238,9 +238,9 @@ Folder by folder, and what you want to do → where to start: **[docs/REPOSITORY
 
 **Guide (interactive):** [Start here](https://patternflow.work/guide) · [Build it](https://patternflow.work/guide/build) · [Play it](https://patternflow.work/guide/play) · [Make patterns](https://patternflow.work/guide/make) · [Sound and MIDI](https://patternflow.work/guide/audio), in English and Korean<br />
 **Build:** [Build Guide](BUILD_GUIDE.md) · [Assembly Map](docs/assembly/README.md) · [Panel Compatibility](docs/panel-compatibility.md) · [Hardware files](hardware/README.md) · [v2.x board](docs/legacy/BUILD_GUIDE_v2.md)<br />
-**Play:** [Pattern Guide](PATTERN_GUIDE.md) · [Custom Patterns](firmware/CUSTOM_PATTERNS.md) · [Audio Guide](AUDIO_GUIDE.md) · [MIDI in Ableton](docs/midi-ableton.md)<br />
+**Play:** [Pattern Guide](PATTERN_GUIDE.md) · [Custom Patterns](firmware/CUSTOM_PATTERNS.md) · [Audio Guide](docs/AUDIO_GUIDE.md) · [MIDI in Ableton](docs/midi-ableton.md)<br />
 **Extend:** [Feature Guide](FEATURE_GUIDE.md) · [Editions](docs/EDITIONS.md) · [Firmware build](firmware/README.md) · [Web architecture](web/ARCHITECTURE.md) · [HTTP API](docs/rest-api.md) · [OSC Spec](docs/osc-spec.md) · [MIDI Spec](docs/midi-spec.md) · [MQTT Spec](docs/mqtt-spec.md) · [Director → MIDI](docs/director-midi.md)<br />
-**Project:** [Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Repository map](docs/REPOSITORY.md) · [Changelog](CHANGELOG.md) · [License Summary](docs/LICENSE-SUMMARY.md) · [Manifesto](docs/manifesto.md)<br />
+**Project:** [Contributing](CONTRIBUTING.md) · [Support](.github/SUPPORT.md) · [Repository map](docs/REPOSITORY.md) · [Changelog](CHANGELOG.md) · [License Summary](docs/LICENSE-SUMMARY.md) · [Manifesto](docs/manifesto.md)<br />
 **Links:** [patternflow.work](https://patternflow.work) · [Community](https://community.patternflow.work/community) · [Crowd Supply](https://www.crowdsupply.com/engmung/patternflow) · [Releases](../../releases) · [Discord](https://discord.gg/Vr9QtsxeTk) · [Instagram](https://www.instagram.com/patternflow.work)
 
 ## What's new
@@ -266,7 +266,7 @@ Folder by folder, and what you want to do → where to start: **[docs/REPOSITORY
 
 ## Contributing
 
-Builds, documentation fixes, part sourcing tips, enclosure remixes, firmware features and host-software bridges are all welcome. **[CONTRIBUTING.md](CONTRIBUTING.md)** has one table of where each kind goes and what CI runs on it. Questions and ideas go to the **[Discord](https://discord.gg/Vr9QtsxeTk)**, and **[SUPPORT.md](SUPPORT.md)** says where to ask what. Patterns don't come here: publish them from the Pattern Lab to the Community. Galleries, installations and press: [patternflow.work/contact](https://patternflow.work/contact).
+Builds, documentation fixes, part sourcing tips, enclosure remixes, firmware features and host-software bridges are all welcome. **[CONTRIBUTING.md](CONTRIBUTING.md)** has one table of where each kind goes and what CI runs on it. Questions and ideas go to the **[Discord](https://discord.gg/Vr9QtsxeTk)**, and **[SUPPORT.md](.github/SUPPORT.md)** says where to ask what. Patterns don't come here: publish them from the Pattern Lab to the Community. Galleries, installations and press: [patternflow.work/contact](https://patternflow.work/contact).
 
 ## Story so far
 

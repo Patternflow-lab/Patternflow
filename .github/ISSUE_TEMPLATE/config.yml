@@ -13,7 +13,7 @@ contact_links:
     url: https://discord.gg/Vr9QtsxeTk
     about: New here? Join the server, then jump into the channels above.
   - name: Getting help — every venue in one table
-    url: https://github.com/engmung/Patternflow/blob/main/SUPPORT.md
+    url: https://github.com/engmung/Patternflow/blob/main/.github/SUPPORT.md
     about: Where to ask what, including the venue that works where Discord is blocked.
   - name: Contributing guide
     url: https://github.com/engmung/Patternflow/blob/main/CONTRIBUTING.md

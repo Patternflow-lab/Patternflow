@@ -1,6 +1,6 @@
 # Contributing to Patternflow
 
-Patternflow is a device, a firmware, a website and a pile of documentation, and people contribute to all of them. This page says where each kind of contribution goes, what checks it meets, and the few rules that are not negotiable. Where to *ask* things is [SUPPORT.md](SUPPORT.md); how we treat each other is [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md); what is where is [docs/REPOSITORY.md](docs/REPOSITORY.md).
+Patternflow is a device, a firmware, a website and a pile of documentation, and people contribute to all of them. This page says where each kind of contribution goes, what checks it meets, and the few rules that are not negotiable. Where to *ask* things is [SUPPORT.md](.github/SUPPORT.md); how we treat each other is [CODE_OF_CONDUCT.md](.github/CODE_OF_CONDUCT.md); what is where is [docs/REPOSITORY.md](docs/REPOSITORY.md).
 
 ## Where your contribution goes
 

@@ -4,7 +4,7 @@ This applies everywhere Patternflow people meet: this repository (issues, pull r
 
 ## How we treat each other
 
-The rule was written before there was anything to build, as a short poem, and it is the sixth section of the [manifesto](docs/manifesto.md#6-how-we-treat-each-other). In full:
+The rule was written before there was anything to build, as a short poem, and it is the sixth section of the [manifesto](../docs/manifesto.md#6-how-we-treat-each-other). In full:
 
 > 아무것도 몰라도, 하고자 한다면 만들 수 있습니다.
 > 도와주는 게 당연합니다. 고마운 게 당연합니다.
