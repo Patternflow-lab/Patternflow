@@ -382,7 +382,10 @@ function state(p: Pair): string | null {
 const pkey = (p: Pair) => [p.kind, p.en, p.ko].join("\0");
 const listed = [...new Map(pairs.map((p) => [pkey(p), p])).values()].sort((a, b) => (pkey(a) < pkey(b) ? -1 : pkey(a) > pkey(b) ? 1 : 0));
 const num = (n: number | null) => (n === null ? "" : String(n));
-const parity = listed.map((p) => ({ ...p, state: state(p) })).filter((p) => p.state !== null);
+const parity = listed.flatMap((p) => {
+  const s = state(p);
+  return s ? [{ ...p, state: s }] : [];
+});
 fs.writeFileSync(
   path.join(ROOT, PARITY),
   ["kind,en,ko,en_chars,ko_chars,state", ...parity.map((p) => [p.kind, p.en, p.ko, num(chars(p.enText)), num(chars(p.koText)), p.state].map(cell).join(","))].join("\n") + "\n",
