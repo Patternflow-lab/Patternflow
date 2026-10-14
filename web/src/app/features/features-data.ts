@@ -126,7 +126,7 @@ export const FEATURES: Feature[] = [
     where: "In the Audio firmware.",
     whereHref: "/editions#audio",
     links: [
-      { label: "Audio guide", href: blob("AUDIO_GUIDE.md") },
+      { label: "Audio guide", href: blob("docs/AUDIO_GUIDE.md") },
       { label: "Source", href: tree("firmware/patternflow/features/audio_in") },
     ],
     reel: {

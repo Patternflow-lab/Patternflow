@@ -15,7 +15,7 @@ OSC ([here](#osc--ableton-today-anything-tomorrow)).
 The same ground step by step, on a 3D Patternflow in the browser:
 [patternflow.work/guide/audio](https://patternflow.work/guide/audio).
 
-Like the [Feature Guide](FEATURE_GUIDE.md), this page ends with a section
+Like the [Feature Guide](../FEATURE_GUIDE.md), this page ends with a section
 written for AI coding agents; everything above it is for people.
 
 ---
@@ -28,16 +28,16 @@ Any of these puts the same firmware on your panel:
   → Audio → **Install to my panel**. Your browser hands the image to a panel
   that already runs Patternflow, over Wi-Fi; patterns, networks and settings
   stay. A DevKit that has never run Patternflow takes the core first, from
-  **Flash Patternflow** ([BUILD_GUIDE §8](BUILD_GUIDE.md#8-firmware)), and
+  **Flash Patternflow** ([BUILD_GUIDE §8](../BUILD_GUIDE.md#8-firmware)), and
   then this.
 - A release's `patternflow-audio.ino.bin` via the console's `/update` page.
 - Build it yourself: `./firmware/bundles/build.sh audio` (add
   `flash <hostname>` to send it over Wi-Fi).
 
 The edition bundles four features: **OSC** (Max/TouchDesigner/Ableton, see
-[`docs/osc-spec.md`](docs/osc-spec.md)), **audio** (the streaming path the
+[`docs/osc-spec.md`](osc-spec.md)), **audio** (the streaming path the
 extension uses), **audio_in** (the microphone and the mapping engine) and
-**MIDI** (the panel as a network MIDI port, [`docs/midi-spec.md`](docs/midi-spec.md)).
+**MIDI** (the panel as a network MIDI port, [`docs/midi-spec.md`](midi-spec.md)).
 
 ## The Chrome extension
 
@@ -47,11 +47,11 @@ locally, and streams four knob lanes to the panel over your LAN.
 
 **Install:** it's not on the Web Store — load it straight from this repo.
 `chrome://extensions` → enable *Developer mode* → *Load unpacked* → pick
-[`tools/patternflow-audio-extension/`](tools/patternflow-audio-extension/).
+[`tools/patternflow-audio-extension/`](../tools/patternflow-audio-extension/).
 After pulling a newer copy, press *Reload* on its card there. Reload keeps the
 mapping you already had, so the starting point described below is a new
 install's. (Every control is described in its
-[README](tools/patternflow-audio-extension/README.md), and so is how to get
+[README](../tools/patternflow-audio-extension/README.md), and so is how to get
 that starting point on an older mapping.)
 
 **Use:** open a tab with sound → click the extension → enter your panel's
@@ -87,7 +87,7 @@ Boxes map to knobs 1:1 and that's fixed on purpose — K2 *is* knob 2.
 
 ## The on-board microphone
 
-<img src="docs/images/audio-guide/pdm-mic-wiring.jpg" width="55%">
+<img src="images/audio-guide/pdm-mic-wiring.jpg" width="55%">
 
 A small PDM microphone soldered to the DevKit lets the panel react to the
 room itself — no browser, no phone, nothing else running. This is an
@@ -187,7 +187,7 @@ and input gain; it leaves the Microphone switch and Auto range as they are.
 
 ## The phone app (for filming)
 
-[`tools/patternflow-audio-android/`](tools/patternflow-audio-android/) is a
+[`tools/patternflow-audio-android/`](../tools/patternflow-audio-android/) is a
 small Android app that captures whatever the phone is playing and drives the
 panel with it. It exists for one job: **filming content** — play a track on
 the phone (reels, whatever), and the panel reacts to the same audio the
@@ -195,7 +195,7 @@ video records. For everyday listening the extension or the mic is the better
 path.
 
 It's not on any store — build and install it yourself; the
-[README](tools/patternflow-audio-android/README.md) has the full recipe. It
+[README](../tools/patternflow-audio-android/README.md) has the full recipe. It
 opens the panel's own editor page for configuration, so everything above
 about boxes and curves applies unchanged.
 
@@ -206,13 +206,13 @@ protocol macOS calls *Network MIDI*). Once a session is up the panel is an
 ordinary MIDI port in any DAW: four knobs in (CC 20–23 absolute, CC 24–27
 relative), four buttons (notes 60–63), a pattern selector (Program Change),
 and the same four knobs, buttons and pattern changes out as they happen.
-The contract is [`docs/midi-spec.md`](docs/midi-spec.md); the walk-through
+The contract is [`docs/midi-spec.md`](midi-spec.md); the walk-through
 with screenshots — connecting on macOS, Windows (rtpMIDI) and Linux, mapping
 in Ableton, the per-knob sensitivity slider, and telling the panel your
 computer's address so it reconnects itself after a reboot — is
-[`docs/midi-ableton.md`](docs/midi-ableton.md).
+[`docs/midi-ableton.md`](midi-ableton.md).
 
-This is the missing half of [`docs/director-midi.md`](docs/director-midi.md):
+This is the missing half of [`docs/director-midi.md`](director-midi.md):
 the Director's `.mid` export writes CC 20–23, so drop the clip on a MIDI
 track, set the track's output to the panel's port, and the show plays on the
 panel from Live's transport. The switch on the console's **MIDI** page turns it
@@ -223,11 +223,11 @@ sensitivity and message counts under `midi`.
 
 The edition also speaks **OSC** — plain OSC 1.0 over UDP, both directions.
 The ready-made client is the **Max for Live bridge** in
-[`integrations/ableton/`](integrations/ableton/): load it in Ableton and
+[`integrations/ableton/`](../integrations/ableton/): load it in Ableton and
 your set and the panel talk to each other.
 
 But the bridge is just one client of a written contract,
-[`docs/osc-spec.md`](docs/osc-spec.md) — anything that can send a UDP OSC
+[`docs/osc-spec.md`](osc-spec.md) — anything that can send a UDP OSC
 message can drive the panel the same way. TouchDesigner, VCV Rack and
 Processing speak it natively; Blender does through an OSC add-on or a few
 lines of Python. Send `/patternflow/ping` once and the device learns your
@@ -264,12 +264,12 @@ page says which source has the knobs right now.
 
 ## For the AI agent
 
-The hard rules — the same ones humans follow — are in [`AGENTS.md`](AGENTS.md#hard-rules-do-not-violate); the contributor flow is [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The hard rules — the same ones humans follow — are in [`AGENTS.md`](../AGENTS.md#hard-rules-do-not-violate); the contributor flow is [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 You were pointed here to work on Patternflow's audio path. The map:
 
 **Firmware — the mapping engine and mic**
-([`firmware/patternflow/features/audio_in/`](firmware/patternflow/features/audio_in/)):
+([`firmware/patternflow/features/audio_in/`](../firmware/patternflow/features/audio_in/)):
 
 | file | role |
 | --- | --- |
@@ -277,19 +277,19 @@ You were pointed here to work on Patternflow's audio path. The map:
 | `core_audio_pdm.h` | PDM mic driver (GPIO 43/44). Its header comment is the authoritative wiring + driver-choice record. |
 | `core_audio_fft.h` | FFT and spectrum buckets. |
 | `core_audio_in_map.h` | Bands, curve LUTs (33-point, interpolate-only), attack/damping glide, auto-range, the defaults a reset restores, NVS persistence. Manual mode maps linearly in amplitude between a band's two edges; the page's dB axis is a conversion at the page's edge. |
-| `core_audio_in_http.h` | `/audio-in` (editor page), `GET /api/audio-in` (the configuration, read once), `POST /api/audio-in` (any subset: a request changes only the fields it carries), `POST /api/audio-in/reset` (everything, or one band with `band=N`), the `?levels=1` live poll, and the frame endpoint the phone posts spectra to. The contract is [`docs/rest-api.md`](docs/rest-api.md#microphone-audio-edition); the phone app is a second client of it, so fields are added, never renamed. |
+| `core_audio_in_http.h` | `/audio-in` (editor page), `GET /api/audio-in` (the configuration, read once), `POST /api/audio-in` (any subset: a request changes only the fields it carries), `POST /api/audio-in/reset` (everything, or one band with `band=N`), the `?levels=1` live poll, and the frame endpoint the phone posts spectra to. The contract is [`docs/rest-api.md`](rest-api.md#microphone-audio-edition); the phone app is a second client of it, so fields are added, never renamed. |
 | `audio_in_index.h` | **Generated** — never edit (chain below). |
 
-**Firmware — MIDI** ([`firmware/patternflow/features/midi/`](firmware/patternflow/features/midi/)):
+**Firmware — MIDI** ([`firmware/patternflow/features/midi/`](../firmware/patternflow/features/midi/)):
 `core_midi.h` is the mapping (transport-agnostic: handlers in, a sink out),
 `core_midi_rtp.h` the RTP-MIDI listener on UDP 5004/5005 over lathoub's
-AppleMIDI library. Contract: [`docs/midi-spec.md`](docs/midi-spec.md).
+AppleMIDI library. Contract: [`docs/midi-spec.md`](midi-spec.md).
 `tools/rtpmidi-probe/` exercises the whole map from a PC with no MIDI driver.
 
 **Firmware — the stream path**
-([`firmware/patternflow/features/audio/`](firmware/patternflow/features/audio/)):
+([`firmware/patternflow/features/audio/`](../firmware/patternflow/features/audio/)):
 `core_audio_ws.h` is a WebSocket server on port 81. The wire contract is
-[`docs/audio-ws-spec.md`](docs/audio-ws-spec.md) — clients build against the
+[`docs/audio-ws-spec.md`](audio-ws-spec.md) — clients build against the
 spec, not the source. Probe `GET /api/status` for `"audio"` in `caps`. A lane
 is released 500 ms after the last message that set it, so a sender that means
 to hold a value resends it; the spec says which senders in this tree do.
@@ -319,7 +319,7 @@ Preview without building: `python firmware/toolchain/console_serve.py`
 assembles `/audio-in` from those sources on every request and answers its API
 the way the firmware does; `/mock?audio=music`, `silence`, `off`, `fresh`,
 `nomic`, `stalled`, `phone`, `ext` and `noread` pick what the panel hears
-([`console/README.md`](firmware/patternflow/console/README.md#the-page-that-is-assembled-audio-in)).
+([`console/README.md`](../firmware/patternflow/console/README.md#the-page-that-is-assembled-audio-in)).
 The page has a budget, `BUDGET` in `build_audio_in_page.py`: 17,500 bytes
 gzipped as the panel sends it. It is the heaviest page in the console and
 every byte crosses the panel's Wi-Fi, so whole-line comments and indentation
@@ -335,7 +335,7 @@ every request rides `PF.poll`/`PF.status`, nothing is saved until the
 panel's mapping has been read, and a save sends only the fields that changed.
 
 **Chrome extension**
-([`tools/patternflow-audio-extension/`](tools/patternflow-audio-extension/)):
+([`tools/patternflow-audio-extension/`](../tools/patternflow-audio-extension/)):
 `mapping.js` is the mapping model, one object (`PFMap`): defaults, the
 curves, level → knob. `editor.js` is the single shared editor module, and
 `editor-adapter.js` is its extension adapter (chrome storage, the capture's
@@ -350,7 +350,7 @@ the panel. The extension keeps its cream skin; only the panel's page wears
 the console's.
 
 **Android app**
-([`tools/patternflow-audio-android/`](tools/patternflow-audio-android/)):
+([`tools/patternflow-audio-android/`](../tools/patternflow-audio-android/)):
 `Analyzer.kt` mirrors the extension's analysis and mapping (`offscreen.js`
 and `mapping.js`); `DeviceLink.kt` speaks the WS
 contract + syncs panel config over `/api/audio-in` + posts monitor frames;
@@ -364,9 +364,9 @@ its WebView is set up without the part that shows a `window.confirm` dialog,
 which is why the page's Reset mapping is a button pressed twice. Open the
 app's editor once before releasing a change to `/audio-in`.
 
-Rules of the road: firmware changes follow [FEATURE_GUIDE.md](FEATURE_GUIDE.md)
+Rules of the road: firmware changes follow [FEATURE_GUIDE.md](../FEATURE_GUIDE.md)
 (hooks, checkers, `build.sh all`); protocol changes update the spec in the
-same PR; API changes extend [`docs/rest-api.md`](docs/rest-api.md) and never
+same PR; API changes extend [`docs/rest-api.md`](rest-api.md) and never
 rename what is there; editor changes run `console_pages.py build` so the
 panel's page follows — the editor's body is one file for both surfaces, which
 is the point.
