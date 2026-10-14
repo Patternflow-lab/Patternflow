@@ -1,6 +1,6 @@
 # docs/
 
-What is here, and what is not. The rule for the split: **a guide somebody follows start to finish lives at the repository root** (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`, `AUDIO_GUIDE.md`); **a contract, a reference, a walk-through for one task, or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
+What is here, and what is not. The rule for the split: **a guide somebody follows start to finish lives at the repository root** (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`); **a contract, a reference, a walk-through for one task, or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
 
 ## Contracts — other software is built against these, not against the firmware source
 
@@ -19,6 +19,7 @@ What is here, and what is not. The rule for the split: **a guide somebody follow
 
 ## Walk-throughs — one task, start to finish
 
+- [`AUDIO_GUIDE.md`](AUDIO_GUIDE.md) — sound into the panel
 - [`midi-ableton.md`](midi-ableton.md) — the panel as a MIDI port in Ableton Live, with screenshots
 - [`director-midi.md`](director-midi.md) — how a Director show becomes a MIDI clip
 - [`../firmware/CUSTOM_PATTERNS.md`](../firmware/CUSTOM_PATTERNS.md) — the hands-on pattern route (the everyday one is [`PATTERN_GUIDE.md`](../PATTERN_GUIDE.md))
@@ -34,12 +35,12 @@ What is here, and what is not. The rule for the split: **a guide somebody follow
 
 ## On the site, not in this folder
 
-The interactive guide at [patternflow.work/guide](https://patternflow.work/guide) has four parts, each in English and Korean: [Build](https://patternflow.work/guide/build) (soldering one from bare parts), [Play](https://patternflow.work/guide/play) (the first hour with a built one: flash, knobs, patterns, console), [Make](https://patternflow.work/guide/make) (community and Pattern Lab) and [Audio](https://patternflow.work/guide/audio) (the Audio edition: a browser tab, the microphone, MIDI with a DAW). They cover the same ground as the guides in the root, and every step has a **Stuck here?** link that opens an issue with that step filled in.
+The interactive guide at [patternflow.work/guide](https://patternflow.work/guide) has four parts, each in English and Korean: [Build](https://patternflow.work/guide/build) (soldering one from bare parts), [Play](https://patternflow.work/guide/play) (the first hour with a built one: flash, knobs, patterns, console), [Make](https://patternflow.work/guide/make) (community and Pattern Lab) and [Audio](https://patternflow.work/guide/audio) (the Audio edition: a browser tab, the microphone, MIDI with a DAW). They cover the same ground as the written guides, and every step has a **Stuck here?** link that opens an issue with that step filled in.
 
 ## Contributing
 
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — one table: what you have → where it goes → what CI runs on it
-- [`../SUPPORT.md`](../SUPPORT.md) — where to ask what
+- [`../.github/SUPPORT.md`](../.github/SUPPORT.md) — where to ask what
 - [`REPOSITORY.md`](REPOSITORY.md) — the folder-by-folder map, and the list of files that outside things link to
 
 ## Running the project
