@@ -1,6 +1,7 @@
 from,to,kind,anchor,resolves
 .github/PULL_REQUEST_TEMPLATE.md,CONTRIBUTING.md,absolute-blob,where-your-contribution-goes,yes
 AGENTS.md,docs/EDITIONS.md,relative,,yes
+AGENTS.md,docs/rfc-cleanup.md,relative,,yes
 AUDIO_GUIDE.md,/editions,site,,yes
 AUDIO_GUIDE.md,/guide/audio,site,,yes
 AUDIO_GUIDE.md,AGENTS.md,relative,hard-rules-do-not-violate,yes
@@ -359,6 +360,10 @@ docs/director-midi.md,integrations/ableton/docs/recording-sync.md,relative,,yes
 docs/investigations/2026-09-firmware-runtime.md,docs/investigations/2026-09-runtime-improvements.json,relative,,yes
 docs/investigations/2026-09-firmware-runtime.md,docs/investigations/2026-09-runtime-research/README.md,relative,,yes
 docs/investigations/2026-09-runtime-research/README.md,docs/investigations/2026-09-firmware-runtime.md,relative,,yes
+docs/investigations/2026-10-cleanup-baseline.md,docs/investigations/2026-10-doc-map.csv,relative,,yes
+docs/investigations/2026-10-cleanup-baseline.md,docs/rfc-cleanup-progress.md,relative,,yes
+docs/investigations/2026-10-cleanup-baseline.md,docs/rfc-cleanup.md,relative,,yes
+docs/investigations/2026-10-cleanup-baseline.md,web/scripts/doc-map.ts,relative,,yes
 docs/manifesto.md,/inside,site,,yes
 docs/midi-ableton.md,docs/director-midi.md,relative,,yes
 docs/midi-ableton.md,docs/images/midi/ableton-5-remote.png,relative,,yes
@@ -401,6 +406,8 @@ docs/rest-api.md,docs/audio-ws-spec.md,relative,,yes
 docs/rest-api.md,docs/audio-ws-spec.md,relative,the-switch-on-the-panel,yes
 docs/rest-api.md,docs/midi-spec.md,relative,,yes
 docs/rest-api.md,docs/mqtt-spec.md,relative,,yes
+docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-baseline.md,relative,,yes
+docs/rfc-cleanup-progress.md,docs/investigations/2026-10-doc-map.csv,relative,,yes
 docs/rfc-cleanup-progress.md,docs/rfc-cleanup.md,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/EDITIONS.md,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/pfst-v2-vectors,relative,,yes

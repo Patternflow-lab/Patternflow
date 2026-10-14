@@ -47,18 +47,21 @@ for (const f of tracked) for (let d = path.posix.dirname(f); d !== "."; d = path
 // ── What a link can land on ──
 
 const read = (f: string) => fs.readFileSync(path.join(ROOT, f), "utf8");
+const attempt = <T>(f: () => T, fallback: T): T => {
+  try {
+    return f();
+  } catch {
+    return fallback;
+  }
+};
+const decode = (p: string) => attempt(() => decodeURIComponent(p), p);
+const trim = (p: string) => (p.length > 1 ? p.replace(/\/+$/, "") : p);
 
 const atRef = new Map<string, string | null>();
 function contentAt(ref: string, p: string): string | null {
   if (ref === "main" || ref === "HEAD") return files.has(p) ? read(p) : dirs.has(p) ? "" : null;
   const key = `${ref}:${p}`;
-  if (!atRef.has(key)) {
-    try {
-      atRef.set(key, git(["cat-file", "-p", key]));
-    } catch {
-      atRef.set(key, null);
-    }
-  }
+  if (!atRef.has(key)) atRef.set(key, attempt<string | null>(() => git(["cat-file", "-p", key]), null));
   return atRef.get(key) ?? null;
 }
 
@@ -80,19 +83,12 @@ function anchorsOf(md: string): Set<string> {
   return out;
 }
 
-const pattern = (route: string) =>
-  new RegExp(
-    "^" +
-      route
-        .replace(/\[\[\.\.\.\w+\]\]/g, "\u0001")
-        .replace(/\[\.\.\.\w+\]/g, "\u0002")
-        .replace(/\[\w+\]|:\w+\*?/g, "\u0003")
-        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-        .replace(/\/?\u0001/g, "(?:/.*)?")
-        .replace(/\u0002/g, ".+")
-        .replace(/\u0003/g, "[^/]+") +
-      "$",
-  );
+// A route or redirect source as a regex; [[...x]], [...x], [x] and :x are its parameters.
+const pattern = (route: string) => {
+  const marked = route.replace(/\[\[\.\.\.\w+\]\]/g, "\u0001").replace(/\[\.\.\.\w+\]/g, "\u0002").replace(/\[\w+\]|:\w+\*?/g, "\u0003");
+  const escaped = marked.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\/?\u0001/g, "(?:/.*)?");
+  return new RegExp(`^${escaped.replace(/\u0002/g, ".+").replace(/\u0003/g, "[^/]+")}$`);
+};
 
 const publicFiles = new Set(tracked.filter((f) => f.startsWith("web/public/")).map((f) => f.slice("web/public".length)));
 const siteRoutes = [pattern("/sitemap.xml"), pattern("/robots.txt")];
@@ -118,14 +114,6 @@ const REPO_URL =
 const SITE_URL = /^https?:\/\/(?:www\.)?patternflow\.work(\/[^?#]*)?/i;
 const URL_IN_TEXT = /https?:\/\/(?:www\.)?(?:github\.com|raw\.githubusercontent\.com|patternflow\.work)[^\s"'`<>)\]]*/gi;
 
-function decode(p: string): string {
-  try {
-    return decodeURIComponent(p);
-  } catch {
-    return p;
-  }
-}
-
 function classify(from: string, raw: string, markdown: boolean): Row | null {
   const target = raw.replace(/^<|>$/g, "").replace(/[.,;:]+$/, "");
   if (target.includes("${")) return null; // a template the constants did not fill
@@ -136,10 +124,7 @@ function classify(from: string, raw: string, markdown: boolean): Row | null {
     const ok = body !== null && (!anchor || !/\.mdx?$/.test(p) || /^L\d+/.test(anchor) || anchorsOf(body).has(anchor.toLowerCase()));
     return row(ref === "main" ? p : `${ref}:${p}`, kind, ok);
   };
-  const site = (p: string) => {
-    const route = p.length > 1 ? p.replace(/\/+$/, "") : p;
-    return row(route, "site", publicFiles.has(route) || siteRoutes.some((r) => r.test(route)));
-  };
+  const site = (p: string) => row(trim(p), "site", publicFiles.has(trim(p)) || siteRoutes.some((r) => r.test(trim(p))));
 
   const repo = REPO_URL.exec(target);
   if (repo) {
@@ -151,16 +136,11 @@ function classify(from: string, raw: string, markdown: boolean): Row | null {
   if (web) return site(decode(web[1] ?? "/"));
   if (/^[a-z][a-z0-9+.-]*:|^\/\/|^#/i.test(target)) return null;
   const p = decode(target.split("#")[0].split("?")[0]);
-  if (from.startsWith(CONSOLE)) {
-    if (!p.startsWith("/")) return null;
-    const route = p.length > 1 ? p.replace(/\/+$/, "") : p;
-    return row(route, "console", deviceRoutes.has(route));
-  }
+  if (from.startsWith(CONSOLE)) return p.startsWith("/") ? row(trim(p), "console", deviceRoutes.has(trim(p))) : null;
   if (!markdown || !p) return null;
   if (p.startsWith("/")) return site(p);
-  if (p.startsWith("../../") && path.posix.normalize(path.posix.join(path.posix.dirname(from), p)).startsWith("../"))
-    return null; // GitHub's own pages (../../releases), not files
-  return fileRow("main", path.posix.normalize(path.posix.join(path.posix.dirname(from), p)).replace(/\/$/, ""), "relative");
+  const local = path.posix.normalize(path.posix.join(path.posix.dirname(from), p)).replace(/\/$/, "");
+  return local.startsWith("../") ? null : fileRow("main", local, "relative"); // ../../releases is GitHub's page, not a file
 }
 
 // `const REPO = "https://github.com/…"`, `${REPO}/blob/main/x` and one-line
@@ -193,13 +173,8 @@ function linksIn(f: string): Row[] {
 
 // ── The map ──
 
-const sources = tracked.filter(
-  (f) =>
-    !SKIP.test(f) &&
-    (/\.(mdx?|tsx?)$/.test(f) ||
-      (f.endsWith(".h") && !f.endsWith("_index.h")) ||
-      (f.startsWith(CONSOLE) && f.endsWith(".html"))),
-);
+const sources = tracked.filter((f) => !SKIP.test(f) && (/\.(mdx?|tsx?)$/.test(f) ||
+  (f.endsWith(".h") && !f.endsWith("_index.h")) || (f.startsWith(CONSOLE) && f.endsWith(".html"))));
 const key = (r: Row) => [r.from, r.to, r.anchor, r.kind].join("\0");
 const rows = new Map<string, Row>();
 for (const f of sources) for (const r of linksIn(f)) rows.set(key(r), r);
