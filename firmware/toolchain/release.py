@@ -236,8 +236,8 @@ def check_filing(core: str) -> None:
 
 
 def file_changelog(core: str) -> list[str]:
-    """Copy the section just dated to docs/releases/, and turn the oldest one
-    past IN_FULL into a line under OLDER. Returns the files it wrote."""
+    """Copy the section just dated to docs/releases/, and turn the one after
+    the newest IN_FULL into a line under OLDER. Returns the files it wrote."""
     text, crlf = read(CHANGELOG)
     sections = list(SECTION.finditer(text))
     written = [release_file(core[1:])]
