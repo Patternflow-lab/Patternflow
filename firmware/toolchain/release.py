@@ -8,7 +8,10 @@ two commands, so a release is a habit rather than an afternoon.
 `cut` (on dev, clean tree, written [Unreleased] section):
   1. bumps PF_IMPROV_FW_VERSION and each named edition's PF_VARIANT_VERSION,
   2. turns CHANGELOG's [Unreleased] into "## [X.Y.Z] - today" under a fresh
-     [Unreleased], and the "current" lines in AGENTS.md,
+     [Unreleased], and the "current" lines in AGENTS.md; copies the new
+     section to docs/releases/vX.Y.Z.md, and turns the fourth-newest section
+     in CHANGELOG into a line in its list of older releases (the root keeps
+     three in full),
   3. runs shelf.sh for the core and each named edition (the images the site
      serves, built from a sketch copy without patternflow_secrets.h - shelf.sh
      refuses an image that carries credentials or the wrong version),
@@ -50,6 +53,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 NET_CONFIG = ROOT / "firmware/patternflow/net_config.h"
 CHANGELOG = ROOT / "CHANGELOG.md"
+RELEASES = ROOT / "docs/releases"
+IN_FULL = 3  # releases CHANGELOG.md keeps in full; each older one is a line under OLDER
+OLDER = "## Older releases"
 AGENTS = ROOT / "AGENTS.md"
 MANIFEST = ROOT / "web/public/flash/manifest.json"
 EDITIONS_TS = ROOT / "web/src/app/editions/editions-data.ts"
@@ -193,6 +199,66 @@ def bump_changelog(core: str, today: str, allow_empty: bool) -> str:
     return body
 
 
+# A release section runs from its "## [X.Y.Z] - date" line to the next "## ".
+SECTION = re.compile(r"^## \[(?!Unreleased\])([^\]]+)\][^\n]*\n.*?(?=^## |\Z)", re.M | re.S)
+
+
+def release_file(label: str) -> Path:
+    # [3.11.0] and [v1.1.0] alike: the file name always carries the v.
+    return RELEASES / f"v{label.lstrip('v')}.md"
+
+
+def as_filed(section: str) -> str:
+    """A section as its file in docs/releases/ holds it: relative links two
+    folders up, nothing else changed."""
+    return re.sub(r"\]\((?![a-z][a-z0-9+.-]*:|[#/])", "](../../", section.rstrip("\n")) + "\n"
+
+
+def older_line(section: str) -> str:
+    label, rest = re.match(r"## \[([^\]]+)\]([^\n]*)", section).groups()
+    return f"- [{label}](docs/releases/{release_file(label).name}){rest}"
+
+
+def check_filing(core: str) -> None:
+    """Before anything is written: the new release has no file yet, and the
+    section about to leave CHANGELOG.md says what its file says, so the
+    root's copy is not lost."""
+    if release_file(core[1:]).exists():
+        die(f"docs/releases/{release_file(core[1:]).name} already exists")
+    text, _ = read(CHANGELOG)
+    sections = list(SECTION.finditer(text))
+    if len(sections) >= IN_FULL:
+        leaving = sections[IN_FULL - 1]
+        path = release_file(leaving.group(1))
+        if path.exists() and read(path)[0] != as_filed(leaving.group(0)):
+            die(f"CHANGELOG.md's [{leaving.group(1)}] section and docs/releases/{path.name} differ; "
+                "make them agree before cutting, since the section leaves the root")
+
+
+def file_changelog(core: str) -> list[str]:
+    """Copy the section just dated to docs/releases/, and turn the one after
+    the newest IN_FULL into a line under OLDER. Returns the files it wrote."""
+    text, crlf = read(CHANGELOG)
+    sections = list(SECTION.finditer(text))
+    written = [release_file(core[1:])]
+    write(written[0], as_filed(sections[0].group(0)), crlf)
+    if len(sections) > IN_FULL:
+        leaving = sections[IN_FULL]
+        path = release_file(leaving.group(1))
+        if not path.exists():
+            write(path, as_filed(leaving.group(0)), crlf)
+            written.append(path)
+        text = text[:leaving.start()] + text[leaving.end():]
+        if OLDER not in text:
+            text = text.rstrip("\n") + f"\n\n{OLDER}\n\n"
+        text = text.replace(f"{OLDER}\n\n", f"{OLDER}\n\n{older_line(leaving.group(0))}\n", 1)
+        write(CHANGELOG, text, crlf)
+        print(f"  CHANGELOG.md: [{leaving.group(1)}] -> a line under '{OLDER[3:]}'")
+    written = [p.relative_to(ROOT).as_posix() for p in written]
+    print("  " + ", ".join(written) + ": written")
+    return written
+
+
 def bump_agents_editions(editions_now: dict[str, str]) -> None:
     if not all(editions_now.get(n) for n in EDITIONS):
         return
@@ -279,10 +345,12 @@ def cmd_cut(args: argparse.Namespace) -> None:
         die("the working tree has uncommitted changes:\n  " + "\n  ".join(dirty))
     if out(["git", "tag", "-l", core]):
         die(f"tag {core} already exists")
+    check_filing(core)
 
     print(f"== cut {core}" + (" with " + ", ".join(f"{k} {v}" for k, v in editions.items()) if editions else ""))
     bump_firmware(core, editions)
     bump_changelog(core, today, args.allow_empty_changelog)
+    filed = file_changelog(core)
     bump_agents(core, today, {**current_edition_versions(), **editions})
 
     if args.no_build:
@@ -308,6 +376,7 @@ def cmd_cut(args: argparse.Namespace) -> None:
     else:
         paths = ["firmware/patternflow/net_config.h", "CHANGELOG.md", "AGENTS.md",
                  "web/public/flash/manifest.json", "web/src/app/editions/editions-data.ts"]
+        paths += filed
         paths += [f"firmware/bundles/{n}/overrides.h" for n in editions]
         run(["git", "add", "-A", "--", *paths, "web/public/flash/bin"])
         summary = f"Core {core}" + "".join(f", {n.capitalize()} {v}" for n, v in editions.items())
