@@ -101,19 +101,19 @@ summary lines and checks both CSVs out again. `AGENTS.md` gets a PR of its own
 6. REST against the firmware. Undocumented: `rN=1` releases a channel, a `dN`
    past ±100 is a 400, `/api/patterns/file` and `/api/knobs` have replies the
    spec does not list, and status carries `variantVersion`, `hostAlias`,
-   `txDbm` and `nvs`. `/api/display` gives `sleep` and `calib` as 0 and 1.
+   `txDbm` and `nvs`. `/api/display` clamps neither `screen` nor `level`.
 7. The other four against the firmware. OSC rounds a float half away from zero,
    and an unknown address still teaches the panel its host. MIDI reads CC 24
    to 27 as binary offset (`core_midi.h:287`), as `midi-spec.md` line 57 says
    and line 40 does not; CC 120, 121 and 123 clear held notes. An empty MQTT
    `param/N` does not free a channel set in the last 250 ms
-   (`core_bus.h:107`), and any `knob/N` drops the hold, cut at ±16 a step. The
+   (`core_bus.h:107`), and any `knob/N` drops the hold and moves 16 at most. The
    audio socket reads `a=-0.5` as a skipped slot and puts 0.5 on the next
    lane, takes `off=x` as `off=0`, and frees lanes when the last client
    leaves, not when a socket closes. Every delta starts the five-second hold
    (`patternflow.ino:1333`), where `audio-ws-spec.md` line 47 says a physical
-   turn. MIDI over USB needs the S3's OTG controller, which a Node process
-   cannot be; `midi_test.cpp` (CI) already checks that receive map natively.
+   turn. MIDI over USB needs the S3's OTG controller, and a Node process has no
+   USB device side; `midi_test.cpp` (CI) checks that receive map natively.
 8. Presets. `firmware/patternflow/presets/` has 35 headers: 34 with a JS twin,
    and `calib`, firmware-only by `FIRMWARE_ONLY` in `check_presets.py`.
    `DeviceSim` with the Basics pack runs the same 34. `basics.zip` carries each
@@ -165,8 +165,8 @@ summary lines and checks both CSVs out again. `AGENTS.md` gets a PR of its own
   and prints both sides through `compare` in `_lib.ts`. Once k3 merges,
   `_vectors.ts` is frozen, and a suite keeps its sender in its own `_` file.
 - D11. Not replayed: Wi-Fi, the hotspot, firmware update, install, delete and
-  format (no volume), the microphone, the clock, shows, weather, and MIDI over
-  USB. Each vector folder's README says so.
+  format (no volume), the microphone, the clock feature, shows, weather, MIDI
+  over USB. Each vector folder's README says so.
 - D12. Branches, labels and descriptions as in the step 1 plan's D4. Vector JSON
   is written by hand and counts toward the 300 lines. `typecheck` and `lint`
   read `web/` only; k2 adds `tools/virtual-panel/` to `typecheck`, not `lint`.
@@ -262,11 +262,12 @@ five seconds, and messages ignored while `audioRuntime` is off.
 k21 and k22. `AGENTS.md` maps `tools/virtual-panel` and a vector folder beside
 each contract (adding the missing `mqtt-spec.md`) and lists the new commands;
 it runs `check_versions.py`, which parses the file. k22: `docs/README.md`
-names each contract's vectors as it names pfst's; `docs/REPOSITORY.md` and
-`tools/README.md` name the virtual panel, the one thing in `tools/` that is
-not a client; its README lists the transports; `CONTRIBUTING.md`'s
-wire-contract row says a spec change moves its vectors; `web/ARCHITECTURE.md`
-(line 121) and `web/README.md` name the suites.
+names each contract's vectors as it names pfst's, and the format;
+`docs/REPOSITORY.md` and `tools/README.md` name the virtual panel, the one
+thing in `tools/` that is not a client, and `tools/virtual-panel/README.md`
+lists its transports; `CONTRIBUTING.md`'s wire-contract row says a spec change
+moves its vectors; `web/ARCHITECTURE.md` (line 121) and `web/README.md` name
+the suites.
 
 k23. Only for the lines the maintainer rules on (question 27): it corrects the
 losing line in `rest-api.md` or `midi-spec.md`, adds a version-history row, and
