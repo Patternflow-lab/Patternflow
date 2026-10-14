@@ -127,7 +127,7 @@ list in §2.3 keeps ten (`README.md`, the three guides, `CONTRIBUTING.md`,
 | file | what decides where it can live |
 | --- | --- |
 | `BUILD_GUIDE_v2.md` | §2.3 moves it to `docs/legacy/` whatever the answer to question 1. Lane A1. |
-| `CLAUDE.md` | Claude Code loads it only from the root. It is the one-line shim that loads `AGENTS.md`; moved, Claude Code sessions start without the hard rules. |
+| `CLAUDE.md` | The one-line shim that loads `AGENTS.md` for Claude Code, which reads `CLAUDE.md` from the folder a session starts in and the folders above it. Under `docs/`, a session started at the root would run without the hard rules. |
 | `CITATION.cff` | GitHub's "Cite this repository" reads it only from the root. Nothing links it. |
 | `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md` | GitHub finds each of them in the root, `docs/` or `.github/`, so a move keeps the community profile and the security tab. 6 links in, plus the absolute one in `config.yml`. |
 | `AUDIO_GUIDE.md` | `docs/README.md`'s rule puts it at the root; the default list does not. 6 links in, two of them absolute from the site (`features-data.ts`, `guide/copy/audio.ts`). |
@@ -272,7 +272,9 @@ Checks:
   `firmware/toolchain/`, so `firmware-build.yml` and `firmware-checks.yml`
   run on it in CI; that is the `build.sh all` record, since this container
   cannot reach the PlatformIO registry (baseline). No `.pfm` cache key can
-  move: no header or toolchain file changes.
+  move: the toolchain revision hashes `abi/*.h`, the shared `src/` sources,
+  `module.ld`, `build_module.py` and `port_preset.py`
+  (`web/src/lib/firmware/builderRev.ts`), and `release.py` is none of them.
 
 Done when: 30 files exist, the reassembly diff is empty, `release.py` and
 `RELEASING.md` describe the same release, and `docs-links.yml` is green.
