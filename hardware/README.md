@@ -11,7 +11,7 @@ Open hardware files for Patternflow: the board, the enclosure, the bill of mater
 | v2.1 | Legacy. Last of the v2.x generation; **does not fit the v3 cases** | `pcb/gerber/patternflow_v2.1_gerber.zip` | inside the [v2.1.0 guide](https://github.com/engmung/Patternflow/blob/v2.1.0/BUILD_GUIDE.md#1-bill-of-materials-bom) | `case/legacy_v2/` |
 | v1.0, v2.0 | Archived early revisions, kept for the record | `pcb/gerber/patternflow_v1.0_gerber.zip`, `pcb/gerber/patternflow_v2.0_gerber.zip` (do not order) | — | — |
 
-The build itself is [`../BUILD_GUIDE.md`](../BUILD_GUIDE.md) (v3 boards; the same build in 3D is [patternflow.work/guide/build](https://patternflow.work/guide/build)) and [`../BUILD_GUIDE_v2.md`](../BUILD_GUIDE_v2.md) (v2.x); the map of every enclosure + electronics combination is [`docs/assembly/README.md`](../docs/assembly/README.md). Every v3.x firmware release runs on every v3 board; the pin map has not changed since v2.
+The build itself is [`../BUILD_GUIDE.md`](../BUILD_GUIDE.md) (v3 boards; the same build in 3D is [patternflow.work/guide/build](https://patternflow.work/guide/build)) and [`../docs/legacy/BUILD_GUIDE_v2.md`](../docs/legacy/BUILD_GUIDE_v2.md) (v2.x); the map of every enclosure + electronics combination is [`docs/assembly/README.md`](../docs/assembly/README.md). Every v3.x firmware release runs on every v3 board; the pin map has not changed since v2.
 
 ## Folders
 
