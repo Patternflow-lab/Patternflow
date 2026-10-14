@@ -414,7 +414,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
             <Link className="pf-link" href="/build/breadboard">
               Breadboard guide
             </Link>
-            <a className="pf-link" href="https://github.com/engmung/Patternflow/blob/main/BUILD_GUIDE_v2.md" target="_blank" rel="noreferrer">
+            <a className="pf-link" href="https://github.com/engmung/Patternflow/blob/main/docs/legacy/BUILD_GUIDE_v2.md" target="_blank" rel="noreferrer">
               v2 board guide
             </a>
           </div>

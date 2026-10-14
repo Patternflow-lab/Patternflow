@@ -67,9 +67,9 @@ export function boardToModel(local: THREE.Vector3, pose: Pose, out = new THREE.V
 }
 
 // The parts as they arrive on the mat: a row behind the board in the order
-// they are soldered (BUILD_GUIDE_v2 §4's small-to-tall order mapped onto v3's
-// refs), each upright as it will sit on the board; the encoders shaft-up with
-// their washer and nut in front of them.
+// they are soldered (docs/legacy/BUILD_GUIDE_v2.md §4's small-to-tall order
+// mapped onto v3's refs), each upright as it will sit on the board; the
+// encoders shaft-up with their washer and nut in front of them.
 export const ROW_Z = 21.6;
 export const ROW: Record<string, number> = {
   "U1_socket_pins1-22": -6.8,
