@@ -276,8 +276,7 @@ Append to `AGENTS.md`:
 > sections, release notes, console page copy, PR descriptions, comments —
 > must read as if the maintainer wrote it. Not "polished". Written.
 >
-> Voice reference: `docs/voice.md` holds verbatim excerpts the maintainer
-> chose. Read it before writing anything longer than a sentence. Match its
+> Voice reference: `docs/voice.md` describes the project voice. Read it before writing anything longer than a sentence. Match its
 > register (Korean: 해요체 or 합니다체 as the file already uses; English:
 > plain, first person where the project already uses it), its sentence
 > length, and its habit of naming the specific thing — the part number,
@@ -318,9 +317,8 @@ Append to `AGENTS.md`:
 > `scripts/voice-lint.ts` (banned phrases, triplets, opener and closer
 > patterns) before the PR is opened, and a person reads it before merge.
 
-`docs/voice.md` is written by the maintainer: three to five paragraphs of
-his own, copied as they are, from wherever he likes. Agents do not pick
-them. `scripts/voice-lint.ts` (`check:voice`) reads the banned list from
+`docs/voice.md` is written by an agent at the maintainer's request (§2.13,
+answer 6), and the maintainer reads it before merge. `scripts/voice-lint.ts` (`check:voice`) reads the banned list from
 `docs/voice-banned.txt` so the maintainer can add to it without touching
 the script.
 
@@ -366,3 +364,23 @@ draft to proposed — when all of these hold at HEAD:
 5. Any file to add to `docs/.human-written` beyond the list in §2.9?
 6. The three to five excerpts for `docs/voice.md`, and additions to
    `docs/voice-banned.txt`.
+
+### Answers (maintainer, 2026-10-14)
+
+1. The root keeps `README.md`, `BUILD_GUIDE.md`, `PATTERN_GUIDE.md`,
+   `FEATURE_GUIDE.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `AGENTS.md`,
+   `CLAUDE.md`, `CITATION.cff`, `LICENSE`, `LICENSE-MIT`, `LICENSE-CC-BY-SA`
+   and the dotfiles. `CODE_OF_CONDUCT.md`, `SECURITY.md` and `SUPPORT.md`
+   move to `.github/`, where GitHub still finds them. `AUDIO_GUIDE.md` moves
+   to `docs/`. `BUILD_GUIDE_v2.md` moves to `docs/legacy/` as §2.3 says. A
+   first-time visitor should be able to read the root at a glance.
+2. The narrative sections stay in the README as they are.
+3. REST first.
+4. None. Major updates wait until the cleanup is done.
+5. Nothing beyond §2.9.
+6. An agent writes `docs/voice.md`. It does not quote the journal. It
+   describes the voice the README and the build guide already use: short,
+   specific, finished, nothing that reads as generated. One page at most.
+   It is the first prose PR of step 1, and no other step 1 PR that writes
+   prose opens before it is merged. `docs/voice-banned.txt` starts with
+   the list in §2.10.
