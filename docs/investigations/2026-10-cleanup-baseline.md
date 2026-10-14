@@ -7,37 +7,38 @@ the commit that added [rfc-cleanup-progress.md](../rfc-cleanup-progress.md).
 Project v3.11.0, Audio v0.7.0, Performance v0.4.0. The last commit to touch
 `firmware/` or `web/` before it is `caaf2c1`, on 12 October.
 
-The commands ran in a cloud container on that tree with nothing added: Linux,
-Node 22.22.0 and npm 10.9.4, Python 3.13, `npm ci` from `web/package-lock.json`.
-CI runs Node 20.
+The web commands ran in a cloud container on that tree with nothing added:
+Node 22.22.0, npm 10.9.4, `npm ci` from `web/package-lock.json`. CI runs Node 20.
 
 ## The five commands
 
 | command | result | output |
 | --- | --- | --- |
-| `firmware/bundles/build.sh all` | not run | see below |
+| `firmware/bundles/build.sh all` | pass, on CI | five compositions built and scanned, see below |
 | `npm run check:ci` | pass | 25 suites, last line `All module cache checks passed.`, 50 s |
 | `npm run check:panels` | pass | 35 test files, 478 tests, 19 s |
 | `npm run typecheck` | pass | `tsc --noEmit` prints nothing, 27 s |
 | `npm run lint` | pass | 0 errors, 12 warnings, 50 s |
 
-None of the four that ran is red, so there is no fix PR to land before Step 1.
+None of the five is red, so there is no fix PR to land before Step 1.
 
-`build.sh all` never reached the compiler. PlatformIO fetches the espressif32
-7.0.1 platform and the Xtensa toolchain from `api.registry.platformio.org`, and
-the container's network policy refuses that host (403 on CONNECT). The run stopped
-after 68 seconds at `Platform Manager: Installing espressif32 @ 7.0.1` with
-`HTTPClientError`. No CI result can stand in for it: GitHub Actions has no runs
-on the Patternflow-lab fork, where `dev` lives. The firmware line stays open
-until somebody runs `./firmware/bundles/build.sh all` at this SHA on a machine
-that reaches the registry and pastes the last lines here.
+The container cannot build firmware. PlatformIO fetches the espressif32 platform
+and the Xtensa toolchain from `api.registry.platformio.org`, and the container's
+network policy refuses that host (403 on CONNECT). So `build.sh all` ran the way
+CI runs it, `build.sh one <composition>` per job, in `firmware-build.yml`
+dispatched on `dev` at this SHA ([run 38560727407](https://github.com/Patternflow-lab/Patternflow/actions/runs/38560727407)).
+Each job scans its image for the feature markers:
 
-What runs without the Xtensa compiler did run, and passed. Those are the 17
-host-side checks in `firmware-checks.yml`, `check_boundaries.py` through
-`check_versions.py` with the sanitizer builds, the two checks in
-`console-sync.yml`, and `.github/scripts/check_links.py` (624 relative links).
-They say the boundary, the ABI freeze, the presets and the console headers
-hold. They do not say the five compositions compile.
+```
+default       1102672 bytes  ok
+audio         1208656 bytes  ok
+performance   1526624 bytes  ok
+clock         1187088 bytes  ok
+midi          1163440 bytes  ok
+```
+
+`check_footprint.py` says `every edition within tolerance` in all five. The 17
+host-side checks in `firmware-checks.yml` and the two in `console-sync.yml` pass.
 
 The lint warnings, for Step 3:
 

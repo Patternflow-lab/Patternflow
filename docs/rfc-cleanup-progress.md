@@ -5,11 +5,11 @@ against the step order in §2.12. Updated as PRs land. Entries are added by
 whoever merges; the table is the summary, the sections below are the
 record.
 
-**Where it stands: step 0, firmware line open.** Baseline SHA `8226f7e`.
+**Where it stands: step 0 done, step 1 next.** Baseline SHA `8226f7e`.
 
 | step | what | state |
 | --- | --- | --- |
-| 0 | Baseline: CI record, doc map, cleanup-window rule in `AGENTS.md` | web, doc map and rule in ([#11](https://github.com/Patternflow-lab/Patternflow/pull/11)); `build.sh all` not run yet |
+| 0 | Baseline: CI record, doc map, cleanup-window rule in `AGENTS.md` | done ([#11](https://github.com/Patternflow-lab/Patternflow/pull/11)) |
 | 1 | Document structure: root, legacy guide, CHANGELOG split, ko/en parity list | — |
 | 2 | Drift checks: links, BOM triad, features, editions, presets, roadmap | — |
 | 3 | Code hygiene: lint/typecheck zero, legacy named or gone, HUB75 upstream patch, shared constants | — |
@@ -29,9 +29,8 @@ Gate for any-resolution (§2.12): not met.
 
 At that SHA `check:ci` passes its 25 suites, `check:panels` its 478 tests,
 and `typecheck` is clean. `lint` has no errors and 12 warnings, listed in the
-record for Step 3. `build.sh all` did not run: the container that ran the rest
-cannot reach the PlatformIO registry, and the fork has no Actions runs to read
-instead. Step 0 is not done until somebody runs it at that SHA.
+record for Step 3. `build.sh all` ran on GitHub Actions, because the container
+cannot reach the PlatformIO registry, and all five compositions built.
 
 `npm run doc-map` in `web/` writes
 [investigations/2026-10-doc-map.csv](investigations/2026-10-doc-map.csv).
