@@ -88,7 +88,11 @@ export const mqtt: Sender = async () => {
         if (i >= inbox.length || inbox.length < i + 1 + length) return;
         const [type, flags, body] = [inbox[0] >> 4, inbox[0] & 15, inbox.subarray(i + 1, i + 1 + length)];
         inbox = inbox.subarray(i + 1 + length);
-        received(s, type, flags, body);
+        try {
+          received(s, type, flags, body);
+        } catch {
+          return void s.destroy(); // a body shorter than its own fields say
+        }
       }
     });
   });
