@@ -249,7 +249,7 @@ if (CHECK) {
   console.log(`${absolute.length} absolute links from ${new Set(absolute.map((r) => r.from)).size} files, against ${at}`);
   console.log(`${broken.length} do not resolve`);
   for (const r of broken) console.log(show(r));
-  console.log(`${new Set(strays.map((r) => r.from)).size} files outside the map carry a repository URL`);
+  console.log(`${strays.length} in files the map does not read`);
   for (const r of strays) console.log(show(r));
   if (unread.length) {
     console.log(`${unread.length} not read: this clone lacks ${[...lacking].sort().join(", ")}; run git fetch --tags`);
