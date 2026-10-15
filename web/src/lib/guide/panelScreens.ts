@@ -301,9 +301,9 @@ export const PANEL_COLORS = Object.freeze({
   green: rgb565(80, 220, 130), //  pfGreenC
   red: rgb565(255, 80, 80), //     pfRedC
   blue: rgb565(120, 180, 255), //  pfBlueC
-  selectPage: rgb565(190, 190, 190), //    "i / N", :1054
-  selectHint: rgb565(200, 200, 200), //    "HOLD TO SELECT", :1084
-  knobActiveFill: rgb565(74, 27, 15), //   KNOB MAP active disc, :1009
+  selectPage: rgb565(190, 190, 190), //    "i / N", drawSelectingMode
+  selectHint: rgb565(200, 200, 200), //    "HOLD TO SELECT", drawSelectingMode
+  knobActiveFill: rgb565(74, 27, 15), //   KNOB MAP active disc, drawKnobMap
 });
 
 // ── A small Adafruit GFX over an RGBA frame ─────────────────────────────────
