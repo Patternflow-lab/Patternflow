@@ -16,7 +16,7 @@ A transport is a file in `transports/` whose default export is a `Transport` (`p
 | `rest-state.ts` | core | Device state in [rest-api.md](../../docs/rest-api.md): `/api/status`, `/api/params`, `/api/sleep`, `/api/display`, `/api/knobs`, `DELETE /api/crash` and the favicon | `http`, 80 |
 | `rest-patterns.ts` | core | The pattern list, select and a module's files, over the Basics pack as `basics.zip` carries it, and the volume's fields in `/api/status` | `http` |
 | `mqtt.ts` | `mqtt` | [mqtt-spec.md](../../docs/mqtt-spec.md) as a broker's client: the roles, the channels, the topics and the eight-second snapshot. `GET /vp/mqtt` is the banner a `message` put up | none, it dials the broker `/api/mqtt` names |
-| `mqtt-http.ts` | `mqtt` | `/api/mqtt`, the device page's `/api/mqtt/config` and `/api/mqtt/forget`, and the three `mqtt` fields in `/api/status`. The Director's routes are the 404 | `http` |
+| `mqtt-http.ts` | `mqtt` | `/api/mqtt`, the device page's `/api/mqtt/config` and `/api/mqtt/forget`, and the three `mqtt` fields in `/api/status`. It has no Director, so `/api/mqtt/director`, `/flowlocal` and `/mode` are the 404 | `http` |
 | `osc.ts` | `osc` | [osc-spec.md](../../docs/osc-spec.md) both ways | `osc`, 9001, and replies to `oscReply`, 9000 |
 | `midi.ts` | `midi` | The RTP-MIDI session in [midi-spec.md](../../docs/midi-spec.md) and its *Host → device* table | `midi`, 5004, and the next port for data |
 | `midi-out.ts` | `midi` | *Device → host* on `midi.ts`'s session, `/api/midi` and the `midi` block in `/api/status` | `http` |
