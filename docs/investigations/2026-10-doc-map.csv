@@ -500,6 +500,7 @@ docs/rfc-any-resolution.md,docs/investigations/2026-10-panel-geometry.md,relativ
 docs/rfc-any-resolution.md,docs/panel-compatibility.md,relative,9-why-hub75e-guarantees-nothing-and-the-three-tiers,yes
 docs/rfc-any-resolution.md,docs/rfc-cleanup.md,relative,212-order-and-what-done-means,yes
 docs/rfc-any-resolution.md,docs/rfc-linux-player.md,relative,a-receiving-card,yes
+docs/rfc-cleanup-progress.md,docs/contract-vectors.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-baseline.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step1-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step2-plan.md,relative,,yes
@@ -507,7 +508,12 @@ docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step3-plan.md,r
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step4-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step5-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-doc-map.csv,relative,,yes
+docs/rfc-cleanup-progress.md,docs/investigations/2026-10-doc-parity.csv,relative,,yes
+docs/rfc-cleanup-progress.md,docs/investigations/2026-10-panel-geometry.md,relative,,yes
+docs/rfc-cleanup-progress.md,docs/rfc-any-resolution.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/rfc-cleanup.md,relative,,yes
+docs/rfc-cleanup-progress.md,docs/rfc-linux-player.md,relative,,yes
+docs/rfc-cleanup.md,docs/rfc-cleanup-progress.md,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/EDITIONS.md,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/pfst-v2-vectors,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/rest-api.md,relative,,yes
