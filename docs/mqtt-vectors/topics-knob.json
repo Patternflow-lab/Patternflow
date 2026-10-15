@@ -5,6 +5,8 @@
   "steps": [
     { "send": { "http": "POST /api/mqtt?role=subscriber" } },
     { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/knob/2", "payload": "0" } } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [0, 0, 0, 0] } } } },
     { "send": { "mqtt": { "topic": "patternflow/knob/2", "payload": "5" } } },
     { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [0, 5, 0, 0] } } } },
     { "send": { "mqtt": { "topic": "patternflow/knob/2", "payload": "5" } } },
