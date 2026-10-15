@@ -1,0 +1,948 @@
+--- a/ESP32-HUB75-MatrixPanel-I2S-DMA.cpp
++++ b/ESP32-HUB75-MatrixPanel-I2S-DMA.cpp
+@@ -1,3 +1,4 @@
++#include <string.h>
+ #include "ESP32-HUB75-MatrixPanel-I2S-DMA.h"
+ 
+ #if defined(SPIRAM_DMA_BUFFER)
+@@ -32,6 +33,68 @@
+  */
+ #define PIXEL_COLOR_MASK_BIT(color_depth_index, mask_offset) (1 << (color_depth_index + mask_offset))
+ 
++// PATTERNFLOW: how many EXTRA times one row sends plane `plane`, after the pass
++// that sends every plane once. This replaces upstream's 2^(i - L - 1) rule, and
++// pfOEWindowPixels() further down is its other half - read that comment first.
++//
++// Upstream's rule cannot be made binary without throwing light away. A plane is
++// on the LEDs while the NEXT buffer clocks in, a window belongs to a buffer and
++// not to a pass, and under the 2^k rule the windows that the top plane needs
++// wide are the same ones the planes below it need narrow. Solved exactly, that
++// chain (15 buffers a row on the shipped panel) keeps 42% of the row lit.
++//
++// Searching every grouped order of up to 16 buffers a row for the exactly-binary
++// solution that keeps the most of the row lit found this one, and nothing close:
++//
++//   scheme 0   all planes, then D-2 once, then D-1 three times     D + 4 buffers
++//              depth 8:  0 1 2 3 4 5 6 7 6 7 7 7   -> 66% of the row lit
++//   scheme 1   all planes, then D-1 once                            D + 1 buffers
++//   scheme 2   all planes                                           D buffers
++//
++// Fewer buffers is also a faster refresh: 12 against 15 is 325 Hz against 260 on
++// the shipped panel. Schemes 1 and 2 are the fallbacks for a row too long to
++// reach min_refresh_rate with scheme 0; they are dimmer, and still binary.
++// PATTERNFLOW: pad every frame out to an exact refresh rate, for cameras.
++//
++// A row is lit once per refresh, for 1/32 of it - a short pulse, not a glow. A
++// phone's rolling shutter therefore collects a whole number of pulses per sensor
++// line, and unless the exposure is an exact multiple of the refresh period some
++// lines get N and some N + 1: bands. Exposure times are not arbitrary - mains
++// flicker avoidance pins them to 1/50, 1/100, 1/25 or 1/60, 1/30 - and the
++// lowest rate all of those are whole multiples of is 300 Hz. The 12-buffer chain
++// runs at 325.5, which is close to the worst case for 1/50 (6.51 periods) and
++// 1/60 (5.43). So: a run of blank words, OE off, at the end of every frame,
++// bringing it to 16 MHz / 300 = 53,333 clocks. About 8% of the light, no CPU at
++// all - the DMA engine walks the chain by itself - and 1/120 and faster still
++// band at any rate this clock can reach (it would take 600 Hz).
++// 0 turns it off. Never pads below min_refresh_rate.
++#ifndef PF_TARGET_REFRESH_HZ
++#define PF_TARGET_REFRESH_HZ 300
++#endif
++static constexpr int PF_PAD_CHUNK_WORDS = 256;      // one small blank buffer, linked as often as needed
++static ESP32_I2S_DMA_STORAGE_TYPE *pfPadBuffer = nullptr;
++
++// How many blank clocks one frame needs. Pure, so check_oe.py lifts it out and
++// tests it on a host. 0 means "leave the frame alone": padding is off, the target
++// is not above the refresh floor, the frame is already longer than the target
++// (a slower clock - there is nothing to pad toward), or the gap is more than a
++// quarter of the frame, which would be a different chain's job and not padding's.
++long pfFramePadWords(long clockHz, long frameWords, long targetHz, long minRefreshHz)
++{
++  if (targetHz <= 0 || targetHz <= minRefreshHz || clockHz <= 0 || frameWords <= 0) return 0;
++  const long targetWords = (clockHz + targetHz / 2) / targetHz;
++  if (targetWords <= frameWords) return 0;
++  if (targetWords - frameWords >= frameWords / 4) return 0;
++  return targetWords - frameWords;
++}
++
++static inline int pfChainExtraPasses(int plane, int depth, int scheme)
++{
++  if (scheme == 0 && depth >= 3) return (plane == depth - 1) ? 3 : (plane == depth - 2) ? 1 : 0;
++  if (scheme <= 1 && depth >= 2) return (plane == depth - 1) ? 1 : 0;
++  return 0;
++}
++
+ bool MatrixPanel_I2S_DMA::setupDMA(const HUB75_I2S_CFG &_cfg)
+ {
+   
+@@ -84,39 +147,56 @@
+ 
+   ESP_LOGI("I2S-DMA", "Minimum visual refresh rate (scan rate from panel top to bottom) requested: %d Hz", m_cfg.min_refresh_rate);
+ 
+-  while (1)
++  // PATTERNFLOW: pick the brightest chain scheme that still clears the refresh
++  // floor (see pfChainExtraPasses). lsbMsbTransitionBit is no longer used.
++  for (pfChainScheme = 0; ; pfChainScheme++)
+   {
+     int psPerClock = 1000000000000UL / m_cfg.i2sspeed;
+     int nsPerLatch = ((PIXELS_PER_ROW + CLKS_DURING_LATCH) * psPerClock) / 1000; // time per row
+ 
+-    // add time to shift out LSBs + LSB-MSB transition bit - this ignores fractions...
+-    int nsPerRow = m_cfg.getPixelColorDepthBits() * nsPerLatch;
++    int buffersPerRow = m_cfg.getPixelColorDepthBits();
++    for (int i = 0; i < m_cfg.getPixelColorDepthBits(); i++)
++      buffersPerRow += pfChainExtraPasses(i, m_cfg.getPixelColorDepthBits(), pfChainScheme);
+ 
+-    // Now add the time for the remaining bit depths
+-    for (int i = lsbMsbTransitionBit + 1; i < m_cfg.getPixelColorDepthBits(); i++) {
+-      //nsPerRow += (1 << (i - lsbMsbTransitionBit - 1)) * (m_cfg.getPixelColorDepthBits() - i) * nsPerLatch;
+-	  nsPerRow += (1 << (i - lsbMsbTransitionBit - 1)) *  nsPerLatch;
+-	}
+-
+-    int nsPerFrame = nsPerRow * ROWS_PER_FRAME;
++    int nsPerFrame = buffersPerRow * nsPerLatch * ROWS_PER_FRAME;
+     int actualRefreshRate = 1000000000UL / (nsPerFrame);
+     calculated_refresh_rate = actualRefreshRate;
+ 
+-    ESP_LOGW("I2S-DMA", "lsbMsbTransitionBit of %d gives %d Hz refresh rate.", lsbMsbTransitionBit, actualRefreshRate);
+-
+-    if (actualRefreshRate > m_cfg.min_refresh_rate)
+-      break;
++    ESP_LOGW("I2S-DMA", "chain scheme %d: %d buffers per row, %d Hz refresh rate.", pfChainScheme, buffersPerRow, actualRefreshRate);
+ 
+-    if (lsbMsbTransitionBit < m_cfg.getPixelColorDepthBits() - 1)
+-      lsbMsbTransitionBit++;
+-    else
++    if (actualRefreshRate > m_cfg.min_refresh_rate || pfChainScheme >= 2)
+       break;
+   }
+ 
+-  if (lsbMsbTransitionBit > 0)
++  // PATTERNFLOW: frame padding to PF_TARGET_REFRESH_HZ (see above).
++  int pfPadWords = 0;
++  if (m_cfg.line_decoder != HUB75_I2S_CFG::SM5266P && m_cfg.line_decoder != HUB75_I2S_CFG::SM5368)
+   {
+-    ESP_LOGW("I2S-DMA", "lsbMsbTransitionBit of %d used to achieve refresh rate of %d Hz. Percieved colour depth to the eye may be reduced.", lsbMsbTransitionBit, m_cfg.min_refresh_rate);
++    int buffersPerRow = m_cfg.getPixelColorDepthBits();
++    for (int i = 0; i < m_cfg.getPixelColorDepthBits(); i++)
++      buffersPerRow += pfChainExtraPasses(i, m_cfg.getPixelColorDepthBits(), pfChainScheme);
++    const long frameWords = (long)buffersPerRow * (PIXELS_PER_ROW + CLKS_DURING_LATCH) * ROWS_PER_FRAME;
++    const long wanted = pfFramePadWords((long)m_cfg.i2sspeed, frameWords, PF_TARGET_REFRESH_HZ, m_cfg.min_refresh_rate);
++    if (wanted > 0)
++    {
++      if (!pfPadBuffer)
++        pfPadBuffer = (ESP32_I2S_DMA_STORAGE_TYPE *)heap_caps_malloc(
++            PF_PAD_CHUNK_WORDS * sizeof(ESP32_I2S_DMA_STORAGE_TYPE), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
++      if (pfPadBuffer)
++      {
++        // Output off, no latch, and the address left on the last row - whose top
++        // plane is still waiting for the next frame's buffer 0 to light it.
++        const ESP32_I2S_DMA_STORAGE_TYPE blank =
++            (ESP32_I2S_DMA_STORAGE_TYPE)(BIT_OE | ((ROWS_PER_FRAME - 1) << BITS_ADDR_OFFSET));
++        for (int i = 0; i < PF_PAD_CHUNK_WORDS; i++) pfPadBuffer[i] = blank;
++        pfPadWords = (int)wanted;
++        const long total = frameWords + wanted;
++        calculated_refresh_rate = (int)(((long)m_cfg.i2sspeed + total / 2) / total);
++        ESP_LOGW("I2S-DMA", "padding each frame with %d blank clocks: %d Hz refresh rate.", pfPadWords, calculated_refresh_rate);
++      }
++    }
+   }
++  const int pfPadDescriptors = (pfPadWords + PF_PAD_CHUNK_WORDS - 1) / PF_PAD_CHUNK_WORDS;
+ 
+   ESP_LOGI("I2S-DMA", "DMA frame buffer color depths: %d", m_cfg.getPixelColorDepthBits());
+ 
+@@ -146,14 +226,14 @@
+   int dma_descriptors_per_row = dma_descs_per_row_all_cdepths;
+ 
+   // Add descriptors for MSB bits after transition
+-  for (int i = lsbMsbTransitionBit + 1; i < m_cfg.getPixelColorDepthBits(); i++) {
+-    dma_descriptors_per_row += (1 << (i - lsbMsbTransitionBit - 1)) * dma_descs_per_row_1cdepth;
++  for (int i = 0; i < m_cfg.getPixelColorDepthBits(); i++) {
++    dma_descriptors_per_row += pfChainExtraPasses(i, m_cfg.getPixelColorDepthBits(), pfChainScheme) * dma_descs_per_row_1cdepth;
+   }
+   
+   //dma_descriptors_per_row = 1;
+ 
+   // Allocate DMA descriptors 
+-  int dma_descriptions_required = dma_descriptors_per_row * ROWS_PER_FRAME;
++  int dma_descriptions_required = dma_descriptors_per_row * ROWS_PER_FRAME + pfPadDescriptors;
+   
+   ESP_LOGV("I2S-DMA", "DMA descriptors per row: %d", dma_descriptors_per_row);  
+   ESP_LOGV("I2S-DMA", "DMA descriptors required per buffer: %d", dma_descriptions_required);    
+@@ -202,13 +282,13 @@
+ 	  }
+ 	
+       // Step 2: Handle additional descriptors for bits beyond the lsbMsbTransitionBit 
+-      for (int i = lsbMsbTransitionBit + 1; i < m_cfg.getPixelColorDepthBits(); i++) 
++      for (int i = 0; i < m_cfg.getPixelColorDepthBits(); i++) 
+ 	  {
+ 		  // binary time division setup: we need 2 of bit (LSBMSB_TRANSITION_BIT + 1) four of (LSBMSB_TRANSITION_BIT + 2), etc
+ 		  // because we sweep through to MSB each time, it divides the number of times we have to sweep in half (saving linked list RAM)
+ 		  // we need 2^(i - LSBMSB_TRANSITION_BIT - 1) == 1 << (i - LSBMSB_TRANSITION_BIT - 1) passes from i to MSB
+ 
+-		  for (int k = 0; k < (1 << (i - lsbMsbTransitionBit - 1)); k++)
++		  for (int k = 0; k < pfChainExtraPasses(i, m_cfg.getPixelColorDepthBits(), pfChainScheme); k++)
+ 		  {		  
+ 			  // Link and send all colour data, all passes of everything in one hit.
+ 			  for (int dma_desc_1cdepth = 0; dma_desc_1cdepth < dma_descs_per_row_1cdepth; dma_desc_1cdepth++) 
+@@ -230,6 +310,14 @@
+ 	  
+ 
+     } // end all rows
++
++    // PATTERNFLOW: the blank run that brings the frame to its target length.
++    for (int left = pfPadWords; left > 0; left -= PF_PAD_CHUNK_WORDS)
++    {
++      const int words = (left < PF_PAD_CHUNK_WORDS) ? left : PF_PAD_CHUNK_WORDS;
++      dma_bus.create_dma_desc_link(pfPadBuffer, words * sizeof(ESP32_I2S_DMA_STORAGE_TYPE), (fb==1));
++      _dmadescriptor_count++;
++    }
+ 	
+     ESP_LOGI("I2S-DMA", "Created %d DMA descriptors for buffer %d.", _dmadescriptor_count, fb);	
+ 	
+@@ -414,6 +502,530 @@
+ } // updateMatrixDMABuffer (specific co-ords change)
+ 
+ 
++/* PATTERNFLOW ADDITION (not upstream) — see the header for why this exists. */
++
++// The bitplane transpose, done once per channel value instead of once per
++// plane per channel. A plane wants bit (d + MASK_OFFSET) of each of the six
++// CIE values; the loop used to extract it with six masked tests per plane —
++// about thirty-six per pixel pair, and that loop was 60% of every frame
++// (presentUs 9.9 ms of 16.5 on the 128x64 panel at 6 bits). These tables
++// spread the top `depth` bits of a post-LUT byte's CIE value across 6-bit
++// slots, slot d holding bit d, so one OR of six table reads yields every
++// plane's R1 G1 B1 R2 G2 B2 at once and each plane is then a shift and a
++// mask. Planes 0-4 live in the low word (30 bits), 5-7 in the high one.
++// Bit-exact with the loop it replaces: the DMA words are identical.
++static uint32_t pfSpreadLo[256];
++static uint32_t pfSpreadHi[256];
++// lumConvTab is const, so it lives in flash and reaches the loop through the
++// cache; the on-time sum reads it six times a pixel pair. A copy in DRAM.
++static uint16_t pfCie[256];
++static uint8_t pfSpreadDepth = 0;
++
++// PATTERNFLOW FIX: the ceiling this encoding actually has.
++//
++// One 6-bit field per plane - three colours x two panel halves - packed into two
++// uint32: planes 0-4 in lo at 6*d, planes 5-9 in hi at 6*(d-5). Plane 9 ends at
++// bit 29 and there is no room for a tenth field. Past that it degrades quietly
++// and then illegally: depth 11 needs bits 30-35 of hi and loses the top four,
++// and depth 12 shifts a uint32 by 36, which is undefined behaviour in both the
++// builder above and the reader in blitRGB888.
++//
++// HUB75_I2S_CFG clamps a requested depth to PIXEL_COLOR_DEPTH_BITS_MAX, which is
++// 12, so the configuration permits what this path cannot represent. The upstream
++// updateMatrixDMABuffer path does not use these tables and is unaffected, which
++// is why the fix is a guard here rather than a lower MAX - fillScreen() still
++// goes through it. Nothing in this firmware asks for more than 8.
++static constexpr uint8_t PF_SPREAD_MAX_DEPTH = 10;
++
++
++// Both halves of the panel for one column: the post-processed bytes, their
++// on-time, and every plane's bits spread into (lo, hi).
++#define PF_PLANES_FOR(srcT, srcB, lo, hi, onTime)                              \
++  {                                                                            \
++    uint8_t _t[3], _m[3];                                                      \
++    PF_POST_PIXEL((srcT), _t);                                                 \
++    PF_POST_PIXEL((srcB), _m);                                                 \
++    (onTime) += (uint32_t)pfCie[_t[0]] + pfCie[_t[1]] + pfCie[_t[2]] +         \
++                (uint32_t)pfCie[_m[0]] + pfCie[_m[1]] + pfCie[_m[2]];          \
++    (lo) = pfSpreadLo[_t[0]] | (pfSpreadLo[_t[1]] << 1) | (pfSpreadLo[_t[2]] << 2) | \
++           (pfSpreadLo[_m[0]] << 3) | (pfSpreadLo[_m[1]] << 4) | (pfSpreadLo[_m[2]] << 5); \
++    (hi) = pfSpreadHi[_t[0]] | (pfSpreadHi[_t[1]] << 1) | (pfSpreadHi[_t[2]] << 2) | \
++           (pfSpreadHi[_m[0]] << 3) | (pfSpreadHi[_m[1]] << 4) | (pfSpreadHi[_m[2]] << 5); \
++  }
++
++// Two adjacent columns share one aligned 32-bit word in every plane.
++#define PF_CLEAR32 (((uint32_t)BITMASK_RGB12_CLEAR << 16) | (uint32_t)BITMASK_RGB12_CLEAR)
++
++// An empty asm statement that claims to rewrite its operand. The value is
++// untouched; the optimiser just stops knowing where it came from. Each use
++// says what this GCC does with that knowledge. MSVC, which the host test may
++// be built with, has no such statement and needs none.
++#if defined(__GNUC__)
++#define PF_OPAQUE(v) __asm__("" : "+r"(v))
++#define PF_NOINLINE __attribute__((noinline))
++#else
++#define PF_OPAQUE(v) ((void)0)
++#define PF_NOINLINE
++#endif
++// PF_NOINLINE keeps a function out of blitRGB888. For the passes further down
++// that is the whole idea: folded back in, they would share one set of registers
++// again. For the rest it is about where the code lives - whatever is inlined
++// into an IRAM function is in IRAM, and that is internal RAM.
++
++// Not inlined: this runs once per depth change, and inlined into blitRGB888 it
++// sat in IRAM for nothing.
++static PF_NOINLINE void pfBuildSpread(uint8_t depth)
++{
++  const uint8_t maskOffset = 16 - depth;
++  for (int v = 0; v < 256; v++)
++  {
++#ifdef NO_CIE1931
++    const uint16_t cie = (uint16_t)v;
++#else
++    const uint16_t cie = lumConvTab[v];
++#endif
++    pfCie[v] = cie;
++    // PATTERNFLOW FIX: round to nearest, not toward zero.
++    //
++    // Only the top `depth` bits of the 16-bit CIE value reach a plane; the low
++    // byte was simply dropped. Truncation is biased downward by up to half a
++    // plane step everywhere, and at the bottom of the range that is the whole
++    // signal: measured over the shipped white balance, eight input levels emitted
++    // nothing at all, and neighbouring neutral greys came out as opposite colour
++    // casts because each channel crossed its threshold at a different code. On the
++    // panel, level 9 read blue, level 17 cyan and level 18 red - all three from a
++    // neutral input. Adding half a step before the test costs nothing at runtime:
++    // this loop runs once per depth change, not per pixel.
++    //
++    // Computed over all 256 levels x 3 channels: dead levels 8 -> 4, level 9
++    // becomes (1,1,1), levels 17 and 18 both become (2,2,2), and full-scale white
++    // moves from (212,255,240) to (212,255,241) - so the hand-converged LED_WB_*
++    // constants keep their meaning. tests/blit_test.cpp carries the same rounding
++    // in its independent reference; the two must move together or 30M compared
++    // DMA words disagree.
++#ifdef NO_CIE1931
++    const uint32_t thresholdSrc = cie;
++#else
++    uint32_t thresholdSrc = (uint32_t)cie + (maskOffset ? (1u << (maskOffset - 1)) : 0u);
++    if (thresholdSrc > 0xFFFFu) thresholdSrc = 0xFFFFu;
++#endif
++    uint32_t lo = 0, hi = 0;
++    for (uint8_t d = 0; d < depth; d++)
++    {
++#ifdef NO_CIE1931
++      const uint16_t mask = d;
++#else
++      const uint16_t mask = PIXEL_COLOR_MASK_BIT(d, maskOffset);
++#endif
++      const uint32_t bit = (thresholdSrc & mask) ? 1u : 0u;
++
++      if (d < 5) lo |= bit << (6 * d);
++      else       hi |= bit << (6 * (d - 5));
++    }
++    pfSpreadLo[v] = lo;
++    pfSpreadHi[v] = hi;
++  }
++  pfSpreadDepth = depth;
++}
++
++// Rec.601 luma pivot for the saturation boost, then the caller's gamma/WB LUT.
++// Kept as a macro so it stays inside the pixel loop with no call overhead.
++#define PF_POST_PIXEL(src, dst)                                       {                                                                     int _r = (src)[0], _g = (src)[1], _b = (src)[2];                    int _y = (_r * 77 + _g * 150 + _b * 29) >> 8;                       _r = _y + (((_r - _y) * satBoostQ8) >> 8);                          _g = _y + (((_g - _y) * satBoostQ8) >> 8);                          _b = _y + (((_b - _y) * satBoostQ8) >> 8);                          if (_r < 0) _r = 0; else if (_r > 255) _r = 255;                    if (_g < 0) _g = 0; else if (_g > 255) _g = 255;                    if (_b < 0) _b = 0; else if (_b > 255) _b = 255;                    (dst)[0] = lutR[_r]; (dst)[1] = lutG[_g]; (dst)[2] = lutB[_b];    }
++
++// ---------------------------------------------------------------------------
++// The kernel as three short passes (2026-10).
++//
++// Counted in the linked image, the one long loop this replaces - it is still
++// here, as pfBlitRowPair - ran 635 instructions per column pair in 691
++// cycles: compute-bound, not waiting on the DMA engine as its own comment
++// said. Three things in the disassembly made up the excess, and none of them
++// was the arithmetic:
++//
++//   - depth was a run-time value, so every plane word paid for a multiply by
++//     six, two variable shifts and a plane pointer reloaded from a stack
++//     array - 25 instructions where 10 do;
++//   - this compiler (GCC 8.4 at -Os) synthesises x77, x150 and x29 as
++//     shift/add chains, about 20 instructions a pixel where three multiplies
++//     do;
++//   - one 400-instruction body keeps more values alive than the 14 registers
++//     a windowed call leaves it, so every column pair made 48 reloads from the
++//     stack and 12 literal loads.
++//
++// Each pass below is short enough to keep its state in registers, and the
++// plane pass has the depth written into it:
++//
++//   1a  pfPostRow     saturation + gamma/WB LUT   RGB888 -> 3 bytes a pixel
++//       pfPostRowRaw  the same, when the LUTs are the identity
++//   1b  pfSpreadRow   on-time + plane spread      6 bytes -> (lo, hi) a column
++//   2   pfStoreRow8   plane words                 2 x (lo, hi) -> 8 plane words
++//
++// 426 instructions per column pair, counted the same way - 390 when the LUTs
++// are the identity, which is what config.h ships. Same tables, same DMA
++// words, same on-time sum: check_blit.py holds this to its scalar reference
++// exactly as it held the loop. What the split costs is a store and a reload
++// of every intermediate, through scratch on the caller's stack.
++//
++// THE NEXT SPEED-UP HAS A FLOOR THAT IS NOT THE CPU. flipDMABuffer() returns
++// before the swap happens: the retired buffer stays on the panel until the DMA
++// finishes its pass, up to 3.3 ms, and the next blit writes into that very
++// buffer. Nothing shows, for one reason - the scan takes 96 us a row pair
++// (12 buffers of 128 words at 16 MHz), it is already ahead when the blit
++// starts, and a writer slower than the reader never catches it. At 390
++// instructions a column pair this blit cannot go under 104 us a row pair. A
++// kernel that does get under 96 - 3.07 ms a frame - or one split across the
++// two cores, overtakes the scan and tears; it has to wait for the swap first.
++
++// GCC's count-register pass rewrites `while (p != end)` as a down-counter,
++// meant for Xtensa's zero-overhead loop instruction. In passes 1a and 1b it
++// then finds no register left for the counter and keeps it on the stack -
++// load, decrement, store, branch, every time round. With the pass off the test
++// is a compare against a pointer.
++#if defined(__XTENSA__)
++#define PF_NO_COUNT_REG __attribute__((optimize("no-branch-count-reg")))
++#else
++#define PF_NO_COUNT_REG
++#endif
++
++// Columns per trip through the passes. The scratch between them is 192 + 256
++// bytes at this size, and it lives on the stack of whoever calls blitRGB888 -
++// not in static storage, so a blit split by row pair across the two cores
++// would have nothing shared to trip over.
++#define PF_BLIT_CHUNK 32
++
++// What pass 1b hands pass 2 for one column: every plane's R1 G1 B1 R2 G2 B2.
++struct PfPlanes { uint32_t lo, hi; };
++
++// One pixel of pass 1a as far as the clamp, written once for its two forms.
++//
++// (c*q + y*(256-q)) >> 8 is PF_POST_PIXEL's y + (((c-y)*q) >> 8) with the y*256
++// carried inside the shift - exact for any q, because the shift is arithmetic.
++// It costs one multiply shared by the three channels where the other form
++// costs a subtract in each.
++#define PF_SATURATE(src)                                                   \
++  const int r = (src)[0], g = (src)[1], b = (src)[2];                      \
++  const int k = ((r * wr + g * wg + b * wb) >> 8) * kq;                    \
++  int R = (r * q + k) >> 8, G = (g * q + k) >> 8, B = (b * q + k) >> 8;    \
++  if (R < 0) R = 0; else if (R > 255) R = 255;                             \
++  if (G < 0) G = 0; else if (G > 255) G = 255;                             \
++  if (B < 0) B = 0; else if (B > 255) B = 255;
++// What it reads besides the pixel. The weights are hidden, or the three
++// multiplies come back as the shift/add chains.
++#define PF_SATURATE_CONSTANTS(q)                                           \
++  const int kq = 256 - (q);                                                \
++  int wr = 77, wg = 150, wb = 29;                                          \
++  PF_OPAQUE(wr); PF_OPAQUE(wg); PF_OPAQUE(wb);
++
++// Pass 1a. `n` pixels of one canvas row -> the three bytes the tables are
++// indexed by, written six apart: the other row of the pair fills the gaps, and
++// pass 1b walks one pointer instead of two.
++static PF_NOINLINE PF_NO_COUNT_REG void IRAM_ATTR
++pfPostRow(const uint8_t *src, unsigned n, uint8_t *out,
++          const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB, int q)
++{
++  PF_SATURATE_CONSTANTS(q)
++  const uint8_t *const end = src + (size_t)n * 3;
++  do
++  {
++    PF_SATURATE(src)
++    out[0] = lutR[R]; out[1] = lutG[G]; out[2] = lutB[B];
++    src += 3; out += 6;
++  } while (src != end);
++}
++
++// Pass 1a when all three LUTs are the identity - gamma 1.0 and white balance
++// 1/1/1, which is what config.h ships. The lookups would hand each index back
++// unchanged, at two instructions apiece and three table pointers this loop has
++// no registers for: 41 instructions a pixel with them, 32 without.
++static PF_NOINLINE PF_NO_COUNT_REG void IRAM_ATTR
++pfPostRowRaw(const uint8_t *src, unsigned n, uint8_t *out, int q)
++{
++  PF_SATURATE_CONSTANTS(q)
++  const uint8_t *const end = src + (size_t)n * 3;
++  do
++  {
++    PF_SATURATE(src)
++    out[0] = (uint8_t)R; out[1] = (uint8_t)G; out[2] = (uint8_t)B;
++    src += 3; out += 6;
++  } while (src != end);
++}
++
++static bool IRAM_ATTR pfLutIsIdentity(const uint8_t *lut)
++{
++  for (unsigned v = 0; v < 256; v++)
++    if (lut[v] != v) return false;
++  return true;
++}
++
++// Pass 1b. Six index bytes per column - the top row's three, then the bottom
++// row's - become that column's planes, and their on-time is returned.
++static PF_NOINLINE PF_NO_COUNT_REG uint32_t IRAM_ATTR
++pfSpreadRow(const uint8_t *idx, unsigned n, PfPlanes *out)
++{
++  const uint32_t *const spreadLo = pfSpreadLo, *const spreadHi = pfSpreadHi;
++  const uint16_t *const cie = pfCie;
++  uint32_t on = 0;
++  const PfPlanes *const end = out + n;
++  do
++  {
++    const unsigned t0 = idx[0], t1 = idx[1], t2 = idx[2], m0 = idx[3], m1 = idx[4], m2 = idx[5];
++    on += (uint32_t)cie[t0] + cie[t1] + cie[t2] + cie[m0] + cie[m1] + cie[m2];
++    out->lo = spreadLo[t0] | (spreadLo[t1] << 1) | (spreadLo[t2] << 2) |
++              (spreadLo[m0] << 3) | (spreadLo[m1] << 4) | (spreadLo[m2] << 5);
++    out->hi = spreadHi[t0] | (spreadHi[t1] << 1) | (spreadHi[t2] << 2) |
++              (spreadHi[m0] << 3) | (spreadHi[m1] << 4) | (spreadHi[m2] << 5);
++    idx += 6; out++;
++  } while (out != end);
++  return on;
++}
++
++static inline uint32_t pfSwapHalves(uint32_t v) { return (v << 16) | (v >> 16); }
++
++#if defined(SPIRAM_DMA_BUFFER)
++#define PF_PLANE_WRITEBACK(p) Cache_WriteBack_Addr((uint32_t)(p), sizeof(uint32_t))
++#else
++#define PF_PLANE_WRITEBACK(p) ((void)0)
++#endif
++
++// One plane's word for two adjacent columns: the ten control bits of each stay,
++// the six colour bits of each are replaced. `fieldA` is already in bits 0-5 and
++// `fieldB` in bits 16-21; which column the DMA sends first is the FIFO order's
++// business, as in the loop. The word access is spelled the way the loop spells
++// it, for the reason given there.
++#define PF_STORE_PLANE(fieldA, fieldB)                                         \
++  {                                                                            \
++    void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));             \
++    uint32_t word;                                                             \
++    memcpy(&word, aligned, sizeof(word));                                      \
++    word = (word & PF_CLEAR32) |                                               \
++           (aLow ? ((fieldA) | (fieldB)) : pfSwapHalves((fieldA) | (fieldB))); \
++    memcpy(aligned, &word, sizeof(word));                                      \
++    PF_PLANE_WRITEBACK(p);                                                     \
++    p = (ESP32_I2S_DMA_STORAGE_TYPE *)((uint8_t *)p + stride);                 \
++  }
++
++// Pass 2, for a depth of exactly 8. `pairs` column pairs of (lo, hi) go into
++// all eight planes of the row pair; `col` is plane 0 at the first column and
++// `stride` the bytes from one plane to the next. With the depth known every
++// field's position is a constant - an extract and a shift - where the loop
++// computes 6 * d and shifts by a register.
++static PF_NOINLINE void IRAM_ATTR
++pfStoreRow8(const PfPlanes *in, unsigned pairs, ESP32_I2S_DMA_STORAGE_TYPE *col, size_t stride)
++{
++  const bool aLow = (ESP32_TX_FIFO_POSITION_ADJUST(0) == 0);
++  const uint32_t fieldBMask = 0x003F0000u;
++  const PfPlanes *const end = in + (size_t)pairs * 2;
++  do
++  {
++    const uint32_t loA = in[0].lo, hiA = in[0].hi, loB = in[1].lo, hiB = in[1].hi;
++    // Hidden: shown that p starts at col, GCC walks a pointer of its own for
++    // half the planes and keeps stride multiples on the stack for the rest,
++    // three instructions a column pair more than stepping p by the stride.
++    ESP32_I2S_DMA_STORAGE_TYPE *p = col;
++    PF_OPAQUE(p);
++    PF_STORE_PLANE(loA & 0x3Fu, (loB << 16) & fieldBMask);
++    PF_STORE_PLANE((loA >> 6) & 0x3Fu, (loB << 10) & fieldBMask);
++    PF_STORE_PLANE((loA >> 12) & 0x3Fu, (loB << 4) & fieldBMask);
++    PF_STORE_PLANE((loA >> 18) & 0x3Fu, (loB >> 2) & fieldBMask);
++    PF_STORE_PLANE((loA >> 24) & 0x3Fu, (loB >> 8) & fieldBMask);
++    PF_STORE_PLANE(hiA & 0x3Fu, (hiB << 16) & fieldBMask);
++    PF_STORE_PLANE((hiA >> 6) & 0x3Fu, (hiB << 10) & fieldBMask);
++    PF_STORE_PLANE((hiA >> 12) & 0x3Fu, (hiB << 4) & fieldBMask);
++    in += 2; col += 2;
++  } while (in != end);
++}
++
++// The loop the passes replaced, kept whole for what they do not cover: an odd
++// width, where alternate planes are not word-aligned, and any depth but 8.
++// One row pair per call; returns its on-time. Nothing this firmware ships
++// reaches it, so it is the one part of the blit that is not in IRAM - and not
++// inlined, or it would follow blitRGB888 back there.
++static PF_NOINLINE uint64_t
++pfBlitRowPair(const uint8_t *top, const uint8_t *bot,
++              ESP32_I2S_DMA_STORAGE_TYPE *plane0, uint16_t w, uint8_t depth,
++              const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB, int satBoostQ8)
++{
++  uint64_t onTime = 0;
++
++  // Row pointers do not change across the pixels of a row — hoist all of
++  // them once instead of recomputing per pixel per plane. A row's planes
++  // are one allocation, `w` words apart (rowBitStruct::getDataPtr).
++  ESP32_I2S_DMA_STORAGE_TYPE *plane[16];
++  for (uint8_t d = 0; d < depth; d++)
++    plane[d] = plane0 + (size_t)d * w;
++
++  // Two columns per step. x and x + 1 are adjacent uint16_t words in every
++  // plane, so both halves of the panel for both columns — two pixel pairs —
++  // are one aligned 32-bit read-modify-write per plane instead of two.
++  // (This used to add that every access arbitrates with the DMA engine and
++  // that this is the cost. Counted, it is not: see the passes above.)
++  // Which column takes the low half is the FIFO order's business, decided
++  // once by the macro at compile time.
++  const bool aLow = (ESP32_TX_FIFO_POSITION_ADJUST(0) == 0);
++  uint16_t x = 0;
++  // DMA allocation is word-aligned. With an even width, every plane and
++  // every two-column offset is too. Tell the compiler that fact below:
++  // memcpy on a uint16_t* otherwise becomes four byte loads, a stack
++  // spill, and four byte stores on Xtensa, not the intended word access.
++  // Odd widths use the scalar path since alternate planes are unaligned.
++  const uint16_t pairedWidth = (w & 1) ? 0 : w;
++  for (; x + 1 < pairedWidth; x += 2)
++  {
++    uint32_t loA, hiA, loB, hiB;
++    PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, loA, hiA, onTime);
++    PF_PLANES_FOR(top + (size_t)(x + 1) * 3, bot + (size_t)(x + 1) * 3, loB, hiB, onTime);
++
++    uint8_t d = depth;
++    while (d > 5)
++    {
++      --d;
++      const uint32_t bA = (hiA >> (6 * (d - 5))) & 0x3Fu;
++      const uint32_t bB = (hiB >> (6 * (d - 5))) & 0x3Fu;
++      const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
++      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
++      void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
++      uint32_t word;
++      memcpy(&word, aligned, sizeof(word));
++      word = (word & PF_CLEAR32) | both;
++      memcpy(aligned, &word, sizeof(word));
++#if defined(SPIRAM_DMA_BUFFER)
++      Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
++#endif
++    }
++    while (d)
++    {
++      --d;
++      const uint32_t bA = (loA >> (6 * d)) & 0x3Fu;
++      const uint32_t bB = (loB >> (6 * d)) & 0x3Fu;
++      const uint32_t both = aLow ? (bA | (bB << 16)) : (bB | (bA << 16));
++      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + x;
++      void *aligned = __builtin_assume_aligned(p, sizeof(uint32_t));
++      uint32_t word;
++      memcpy(&word, aligned, sizeof(word));
++      word = (word & PF_CLEAR32) | both;
++      memcpy(aligned, &word, sizeof(word));
++#if defined(SPIRAM_DMA_BUFFER)
++      Cache_WriteBack_Addr((uint32_t)p, sizeof(word));
++#endif
++    }
++  }
++
++  // Scalar fallback for odd widths, one column at a time.
++  for (; x < w; ++x)
++  {
++    uint32_t lo, hi;
++    PF_PLANES_FOR(top + (size_t)x * 3, bot + (size_t)x * 3, lo, hi, onTime);
++    const uint16_t idx = ESP32_TX_FIFO_POSITION_ADJUST(x);
++    uint8_t d = depth;
++    while (d > 5)
++    {
++      --d;
++      const uint16_t bits = (uint16_t)((hi >> (6 * (d - 5))) & 0x3Fu);
++      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
++      *p = (*p & BITMASK_RGB12_CLEAR) | bits;
++#if defined(SPIRAM_DMA_BUFFER)
++      Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
++#endif
++    }
++    while (d)
++    {
++      --d;
++      const uint16_t bits = (uint16_t)((lo >> (6 * d)) & 0x3Fu);
++      ESP32_I2S_DMA_STORAGE_TYPE *p = plane[d] + idx;
++      *p = (*p & BITMASK_RGB12_CLEAR) | bits;
++#if defined(SPIRAM_DMA_BUFFER)
++      Cache_WriteBack_Addr((uint32_t)p, sizeof(ESP32_I2S_DMA_STORAGE_TYPE));
++#endif
++    }
++  }
++
++  return onTime;
++}
++
++void IRAM_ATTR MatrixPanel_I2S_DMA::blitRGB888(const uint8_t *rgb,
++                                               const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB,
++                                               int satBoostQ8)
++{
++  if (!initialized || rgb == nullptr)
++    return;
++
++  const uint16_t w = PIXELS_PER_ROW;
++  const uint8_t depth = m_cfg.getPixelColorDepthBits();
++  const uint8_t rows = ROWS_PER_FRAME;
++  // Refuse rather than corrupt. Above PF_SPREAD_MAX_DEPTH the plane fields do not
++  // fit and the shifts are undefined; leaving the previous frame up and saying so
++  // once is diagnosable, where writing garbage into the DMA buffer is not. Cannot
++  // fire on any configuration this firmware ships.
++  if (depth > PF_SPREAD_MAX_DEPTH)
++  {
++    static bool warned = false;
++    if (!warned)
++    {
++      warned = true;
++      ESP_LOGE("I2S-DMA", "blitRGB888: colour depth %d exceeds %d, the most the "
++               "plane encoding can hold - frame not written", depth, PF_SPREAD_MAX_DEPTH);
++    }
++    return;
++  }
++  if (pfSpreadDepth != depth) pfBuildSpread(depth);
++
++  // Total LED on-time this frame asks for, summed as we go. The per-pixel
++  // linear values are computed below anyway and live in registers when we add
++  // them, so this rides along for six adds per pixel pair — nothing next to
++  // the bitplane writes underneath it. See lastFrameOnTime().
++  uint64_t onTime = 0;
++
++  // The passes need every plane word-aligned (an even width) and the depth
++  // pass 2 is written for. Everything else goes to the loop they replaced.
++  const bool passes = (depth == 8) && !(w & 1);
++  // Asked of the tables on every frame, not remembered: they are the caller's,
++  // and it rebuilds them in place whenever gamma or white balance is tuned.
++  // 768 compares a frame, against 36 instructions on each of its column pairs.
++  const bool rawLut = passes && pfLutIsIdentity(lutR) && pfLutIsIdentity(lutG) && pfLutIsIdentity(lutB);
++  // A row's planes are one allocation, `w` words apart
++  // (rowBitStruct::getDataPtr), so plane 0 and a stride reach all of them.
++  const size_t stride = (size_t)w * sizeof(ESP32_I2S_DMA_STORAGE_TYPE);
++  uint8_t idx[PF_BLIT_CHUNK * 6];
++  PfPlanes planes[PF_BLIT_CHUNK];
++
++  // A two-scan panel lights row `r` and row `r + ROWS_PER_FRAME` together, and
++  // both live in the same uint16_t. Walk the pairs, not the rows.
++  for (uint8_t row = 0; row < rows; row++)
++  {
++    const uint8_t *top = rgb + (size_t)row * w * 3;
++    const uint8_t *bot = rgb + ((size_t)row + rows) * w * 3;
++    ESP32_I2S_DMA_STORAGE_TYPE *plane0 = getRowDataPtr(row, 0);
++
++    if (!passes)
++    {
++      onTime += pfBlitRowPair(top, bot, plane0, w, depth, lutR, lutG, lutB, satBoostQ8);
++      continue;
++    }
++    for (unsigned x = 0; x < w; x += PF_BLIT_CHUNK)
++    {
++      const unsigned n = (w - x < PF_BLIT_CHUNK) ? (w - x) : PF_BLIT_CHUNK;
++      if (rawLut)
++      {
++        pfPostRowRaw(top + (size_t)x * 3, n, idx, satBoostQ8);
++        pfPostRowRaw(bot + (size_t)x * 3, n, idx + 3, satBoostQ8);
++      }
++      else
++      {
++        pfPostRow(top + (size_t)x * 3, n, idx, lutR, lutG, lutB, satBoostQ8);
++        pfPostRow(bot + (size_t)x * 3, n, idx + 3, lutR, lutG, lutB, satBoostQ8);
++      }
++      onTime += pfSpreadRow(idx, n, planes);
++      pfStoreRow8(planes, n / 2, plane0 + x, stride);
++    }
++  }
++
++  _lastFrameOnTime = onTime;
++  // What an all-white frame would have summed to: every pixel, every channel,
++  // at the top of the CIE table. Recomputed rather than cached because panel
++  // geometry and colour depth are both configurable.
++  _maxFrameOnTime = (uint64_t)w * rows * 2ULL * 3ULL * lumConvTab[255];
++} // blitRGB888
++
++
+ /* Update the entire buffer with a single specific colour - quicker */
+ void MatrixPanel_I2S_DMA::updateMatrixDMABuffer(uint8_t red, uint8_t green, uint8_t blue)
+ {
+@@ -630,6 +1242,78 @@
+   } while (row_idx);
+ }
+ 
++// PATTERNFLOW FIX: how wide the OE window written into one plane's buffer is.
++// Pure, so toolchain/check_oe.py can lift it out verbatim and test it on a host.
++//
++// THE FACT EVERYTHING HERE RESTS ON. A plane's bits are latched at the END of
++// its buffer, so they are on the LEDs while the NEXT buffer in the descriptor
++// chain clocks in - and it is that next buffer's OE bits that gate them.
++// clearFrameBuffer() already knows this: it marks buffer 0 with the PREVIOUS
++// row's address "because it is used to display previous row while we pump in
++// MSBs for the next row". So the window written into buffer b does not light
++// plane b. It lights whatever was latched before it, and buffer 0's window is
++// the top plane's - which is what upstream's (2 * depth - colouridx) % depth was
++// reaching for when it gave "the LSB" a full window.
++//
++// With the chain from pfChainExtraPasses(), at depth 8, scheme 0:
++//
++//     sent      0  1  2  3  4  5  6  7  6  7  7  7 | next row's 0
++//     lights    7' 0  1  2  3  4  5  6  7  6  7  7   (7' = previous row's)
++//
++//     light[p] = W[p+1]                   p <= 4         1/32 .. 1/2 of a row
++//     light[5] = W[6]                                    1
++//     light[6] = W[7] + W[7]                             2
++//     light[7] = W[6] + W[7] + W[7] + W[0]               4
++//
++// so W = [1, 1/32, 1/16, 1/8, 1/4, 1/2, 1, 1] is exactly binary, every window is
++// the full one shifted right, and floors keep it strictly ordered at every
++// brightness (sum of floor(n / 2^j) over j >= 1 is n - popcount(n) < n). Schemes
++// 1 and 2 are the same shape with one and no extra pass.
++//
++// TWO EARLIER VERSIONS OF THIS FUNCTION WERE WRONG, and the record matters more
++// than the embarrassment. Both kept upstream's chain (at depth 8, L = 4:
++// 0 1 2 3 4 5 6 7 5 6 6 7 7 7 7). 2026-09-10 read the full window on buffer 0
++// as an LSB bug and shrank it, which took a fifth of the top plane's light away.
++// The morning of 2026-09-17 corrected the repeat counts and kept the same
++// misreading - window b lights plane b - and was worse. Both were "verified" by
++// a test that modelled delivered light the same wrong way, so tens of thousands
++// of assertions agreed with them. Light per plane 0-7 at full brightness:
++//
++//     upstream    7 15 31 63 125 250 375 625    3 codes where light goes DOWN
++//     09-10       7 15 31 63 125 250 375 503    3, and 127 -> 128 loses 42%
++//     09-17 a.m.  9 19 39 78  78 210 355 458    15 such codes
++//     this        3  7 15 31  62 125 250 500    none
++//
++// What it looked like: a pattern whose background is a near-white (214,211,204)
++// and whose edges fade to dark. Each channel crosses code 128 at a different
++// point along the fade, and the one that has crossed is suddenly far brighter
++// than the ones that have not - blue first, a purple fringe; then green, a
++// sky-blue one; then red, and it is neutral again. Fringes round every star and
++// petal. A grey test card at identity white balance cannot show this: all three
++// channels cross together.
++//
++// Solving upstream's chain exactly was the first thing tried and was confirmed
++// fringe-free on the panel, but it keeps only 42% of the row lit and was too
++// dark to ship. This chain keeps 66% (upstream's, not binary: 80%).
++int pfOEWindowPixels(int buffer, int depth, int scheme,
++                     int width, int blank, int brt)
++{
++  if (buffer < 0 || buffer >= depth) return 0;
++  int full = (int)(((uint32_t)(width - blank) * (uint32_t)brt) >> 8);
++  if (full > width) full = width;
++  if (full < 0) full = 0;
++
++  // The buffers whose window is the full one: buffer 0 always (the top plane's
++  // last pass), and every buffer that is sent again.
++  int firstFull = depth;                       // lowest buffer index >= 1 at full width
++  if (scheme == 0 && depth >= 3) firstFull = depth - 2;
++  else if (scheme <= 1 && depth >= 2) firstFull = depth - 1;
++
++  if (buffer == 0 || buffer >= firstFull) return full;
++  const int shift = firstFull - buffer;        // 1 for the buffer just below, and so on down
++  return (shift < 31) ? (full >> shift) : 0;
++}
++
+ void MatrixPanel_I2S_DMA::setBrightnessOE(uint8_t brt, const int _buff_id)
+ {
+ 
+@@ -642,6 +1326,12 @@
+   uint8_t _depth = fb->rowBits[0]->colour_depth;
+   uint16_t _width = fb->rowBits[0]->width;
+ 
++  // One window per buffer, the same for every row - see pfOEWindowPixels above
++  // for which plane each one actually lights.
++  int windows[16] = {0};
++  for (int b = 0; b < _depth && b < 16; b++)
++    windows[b] = pfOEWindowPixels(b, _depth, pfChainScheme, _width, _blank, brt);
++
+   // start with iterating all rows in dma_buff structure
+   int row_idx = fb->rowBits.size();
+   do
+@@ -654,13 +1344,7 @@
+     {
+       --colouridx;
+ 
+-      char bitplane = (2 * _depth - colouridx) % _depth;
+-      char bitshift = (_depth - lsbMsbTransitionBit - 1) >> 1;
+-
+-      char rightshift = std::max(bitplane - bitshift - 2, 0);
+-      // calculate the OE disable period by brightness, and also blanking
+-      int brightness_in_x_pixels = ((_width - _blank) * brt) >> (7 + rightshift);
+-      brightness_in_x_pixels = (brightness_in_x_pixels >> 1) | (brightness_in_x_pixels & 1);
++      int brightness_in_x_pixels = windows[colouridx];
+ 
+       // switch pointer to a row for a specific color index
+       ESP32_I2S_DMA_STORAGE_TYPE *row = fb->rowBits[row_idx]->getDataPtr(colouridx);
+--- a/ESP32-HUB75-MatrixPanel-I2S-DMA.h
++++ b/ESP32-HUB75-MatrixPanel-I2S-DMA.h
+@@ -607,6 +607,45 @@
+   void fillScreenRGB888(uint8_t r, uint8_t g, uint8_t b);
+   void drawPixelRGB888(int16_t x, int16_t y, uint8_t r, uint8_t g, uint8_t b);
+ 
++  /* PATTERNFLOW ADDITION (not upstream) — blit a whole RGB888 frame.
++   *
++   * drawPixelRGB888() is built to change one pixel: for every call it bounds-
++   * checks, works out which half of the panel the row is in, and then walks the
++   * colour-depth planes recomputing the row pointer and doing a read-modify-write
++   * per plane. Painting a full frame that way costs one call per pixel and two
++   * RMWs per plane per word (the top and bottom halves arrive as separate calls
++   * even though they share the same uint16_t).
++   *
++   * A full-frame repaint knows more than that. Both halves of a word are known at
++   * once, the row pointers are the same for every pixel in a row, and nothing
++   * needs bounds-checking. Measured on a 128x64 P2.5 at 8-bit depth this took the
++   * frame's push cost from 12.3 ms to a fraction of it — see PFCanvas::present().
++   *
++   * `rgb` is W*H*3 bytes, row-major, 8 bits per channel, sized to the panel.
++   * Colour output is identical to calling drawPixelRGB888() for every pixel: the
++   * same lumConvTab/CIE1931 curve and the same bit masks are used.
++   */
++  void blitRGB888(const uint8_t *rgb,
++                  const uint8_t *lutR, const uint8_t *lutG, const uint8_t *lutB,
++                  int satBoostQ8);
++
++  /**
++   * Total LED on-time the last blit asked for, and the largest value that
++   * total could have been (an all-white frame).
++   *
++   * Summed from the post-CIE linear values — the numbers that actually become
++   * PWM duty — so the ratio between them is the fraction of full-white current
++   * the frame draws. Accumulated inside the blit's existing pixel loop from
++   * values already in registers, which is why it costs nothing worth
++   * measuring; see core_power.h for what reads it.
++   *
++   * Brightness is applied later, in OE timing, so this is deliberately
++   * independent of it: the limiter measures demand and sets brightness, and
++   * cannot end up chasing its own tail.
++   */
++  uint64_t lastFrameOnTime() const { return _lastFrameOnTime; }
++  uint64_t maxFrameOnTime() const { return _maxFrameOnTime; }
++
+ #ifdef USE_GFX_LITE
+   // 24bpp FASTLED CRGB colour struct support
+   void fillScreen(CRGB color);
+@@ -717,7 +756,8 @@
+   }
+ 
+   /**
+-   * Stop the ESP32 DMA Engine. Screen will forever be black until next ESP reboot.
++   * Stop the ESP32 DMA Engine. Upstream says "forever ... until next ESP
++   * reboot" — see resumeDMAoutput() below, which is Patternflow's way back.
+    */
+   void stopDMAoutput()
+   {
+@@ -726,6 +766,31 @@
+     dma_bus.dma_transfer_stop();
+   }
+ 
++  /**
++   * PATTERNFLOW ADDITION (not upstream)
++   *
++   * Restart the DMA engine after stopDMAoutput(), so a stop is a sleep rather
++   * than a one-way trip. This is what makes the firmware's sleep mode possible:
++   * with the transfer stopped the panel's driver ICs stop being clocked at
++   * 15 MHz, which is the part of the idle draw that blanking the framebuffer
++   * cannot touch.
++   *
++   * The pair is symmetric on both supported platforms — dma_transfer_stop()
++   * resets the LCD peripheral and halts the GDMA channel, and this starts the
++   * same channel again from the head of descriptor chain A. It has to live in
++   * the driver because dma_bus is protected.
++   *
++   * Note the restart always resumes at chain A while back_buffer_id is
++   * wherever it was left, so the caller should blank BOTH buffers before
++   * resuming or a stale frame can show for one flip. core_sleep.h does that.
++   */
++  void resumeDMAoutput()
++  {
++    if (!initialized)
++      return;
++    dma_bus.dma_transfer_start();
++  }
++
+   // ------- PROTECTED -------
+   // those might be useful for child classes, like VirtualMatrixPanel
+ protected:
+@@ -893,6 +958,7 @@
+   volatile int back_buffer_id = 0;      // If using double buffer, which one is NOT active (ie. being displayed) to write too?
+   int brightness = 128;        // If you get ghosting... reduce brightness level. ((60/64)*255) seems to be the limit before ghosting on a 64 pixel wide physical panel for some panels.
+   int lsbMsbTransitionBit = 0; // For colour depth calculations
++  int pfChainScheme = 0;       // PATTERNFLOW: which chain begin() linked - see pfChainExtraPasses in the .cpp
+ 
+   /* ESP32-HUB75-MatrixPanel-I2S-DMA functioning constants
+    * we should not those once object instance initialized it's DMA structs
+@@ -907,6 +973,10 @@
+   bool initialized = false;
+   bool config_set = false;
+ 
++  // Power demand of the last blitted frame — see lastFrameOnTime().
++  uint64_t _lastFrameOnTime = 0;
++  uint64_t _maxFrameOnTime = 0;
++
+ }; // end Class header
+ 
+ /***************************************************************************************/
