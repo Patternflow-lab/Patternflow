@@ -144,10 +144,11 @@ from it, and the firmware and the site read those. `check:shared` runs in
 `check:ci` and in `drift.yml`. The MIDI page counted 20 detents a turn and
 counts 24 now ([#46](https://github.com/Patternflow-lab/Patternflow/pull/46)),
 a fix reviewed as one. The `markers` check holds first-party code at no
-`TODO` or `FIXME`. The five markers §2.5 counts were never in this repository
-(question 16). Each web dependency family is on its newest release inside its
-major. Next went from 16.3.0 to 16.4.1, which closed nine security advisories,
-and React from 19.2.4 to 19.3.1. Majors wait (answer 4).
+`TODO` or `FIXME`. The five markers §2.5 counts are not in this repository
+(question 16). Each web dependency family moved to its newest release inside
+its major on the day its PR opened. Next went from 16.3.0 to 16.4.1, which
+closed nine security advisories, and React from 19.2.4 to 19.3.1. Majors wait
+(answer 4).
 
 `src/hub75/UPSTREAM.md` names upstream's tag 3.0.13 and its commit `a622186`,
 and `patternflow.patch` holds every line Patternflow changed, in 15 hunks
