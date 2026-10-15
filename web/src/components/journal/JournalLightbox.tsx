@@ -83,6 +83,7 @@ export default function JournalLightbox() {
         close
       </button>
       <figure onClick={(event) => event.stopPropagation()}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- whichever journal image was clicked, at the src it already has */}
         <img src={image.src} alt={image.alt} />
         {image.caption && <figcaption>{image.caption}</figcaption>}
       </figure>
