@@ -57,7 +57,7 @@ Origin and the 33 slugs of `web/public/packs/basics.json`'s `order`, each run
 from its JS twin (`deviceSim.ts:92-104`). The other 14 JS presets and every
 community pattern play as JS too. The community keeps a pattern as plain JS
 (`web/src/lib/community/server/schema.ts:95`) with an optional C++ port
-(`:102`), and the feed's cards carry the code (`serialize.ts:10`), so the
+(`:102`), and the feed's cards carry the JS (`server/serialize.ts:10`), so the
 player plays patterns no board runs until someone ports them.
 
 The size comes from the output (§2.3). At 128×64 nothing in `web/` changes.
@@ -65,8 +65,8 @@ At any other size `DeviceSim` is in the way, fixed through `PANEL_W` and
 `PANEL_H` (`web/src/lib/guide/panelScreens.ts:42-43`), and so are the typed
 sizes the [panel geometry record](investigations/2026-10-panel-geometry.md#the-site)
 lists. Step 4 asks for the size in one place (its D1), the firmware path
-proposes the change, and the player waits for it. 46 of the 48 JS presets read
-the size only from `display`.
+proposes the change, and the player waits for it. 46 of the 48 JS presets take
+the size only from what `draw` is given.
 
 A pattern can declare its frame with `// @matrix`, 8 to 512 on a side
 (`web/src/lib/pattern/matrix.ts:46-47`). `DeviceSim` never reads it, so a
@@ -87,7 +87,7 @@ size, the player refuses an output that is not 128×64 and says what it got.
 
 [rpi-rgb-led-matrix](https://github.com/hzeller/rpi-rgb-led-matrix) drives
 HUB75 panels from a Pi's GPIO header, bare or through a HAT. Its README covers
-the Pi Zero to the Pi 4, and says of the Pi 5 both that support has been added
+every Pi up to the Pi 4, and says of the Pi 5 both that support has been added
 and that it is not official as of November 2025. A program that uses it starts
 as root, and the library drops privileges once the hardware is set up. It
 exits while the on-board sound module, `snd_bcm2835`, is loaded, so the
@@ -205,8 +205,8 @@ transports and writes none of its own. It does not take `/vp/` (D6) or the
 manual clock and `advance(ms)` (D4): it runs on the wall clock, and the virtual
 panel is a test fixture (rfc-cleanup.md §2.6). If step 4 moves the transports
 or changes their seam, the player follows. If step 4 does not land, the player
-writes REST, OSC and the RTP-MIDI receive side itself, and §2.8 grows by four
-PRs, step 4's k4, k5, k13 and k15 (rows 3, 6, 7 and 10).
+writes each transport itself, and §2.8 grows by one PR for each of step 4's k4,
+k5, k9, k10, k13, k15 and k19 (rows 3, 6, 7 and 10).
 
 ## 2.6 What it cannot do
 
@@ -240,7 +240,8 @@ the 24-vs-20 detent incident is why step 3 has a shared constants file at all
 (rfc-cleanup.md §2.5). The C++ program for the matrix lives outside this tree
 either way.
 
-It ships as source: `npm ci` on Raspberry Pi OS, Node 20 as CI runs
+It ships as source with a `package.json` of its own, so a Pi never installs the
+site's dependencies: `npm ci` on Raspberry Pi OS, Node 20 as CI runs
 (`.github/workflows/web-ci.yml:36`), and a systemd unit that starts it at boot.
 There is no disk image (row 12). Its own home adds two PRs, the package or the
 copies and the check that keeps them in step.
@@ -269,8 +270,7 @@ into it. After row 4 a Pi with a screen and a USB knob box plays the Basics,
 and row 5 puts it on a HAT. Rows 3, 6, 7 and 10 wait for step 4's k2 and the
 transport each imports (k4 and k5, k13, k15, then k9, k10 and k19). Row 11
 waits for someone with a card. Any size but 128×64 waits for the site to take
-its size from one place, which the firmware path counts and this table does
-not.
+its size from one place, which the firmware path counts instead.
 
 ## 2.9 Open questions for the maintainer
 
@@ -290,8 +290,8 @@ Each has the default this draft uses until there is an answer.
    Default: the file first, the feed after.
 6. Which receiving card is the reference, and who has one on the bench?
    Default: the Colorlight 5A-75B, and row 11 waits for someone who has one.
-7. Encoders on the Pi's own header, beside a HAT, as Philipppp's build has
-   them? Default: USB only. Which pins are free depends on the HAT.
+7. Encoders on the Pi's own header, beside a HAT? Philipppp's Pi 4 has four
+   knobs by its HAT, wired in a way the site does not say. Default: USB only.
 8. What does `/api/status` say on a player, whose ESP32 fields have nothing
    behind them? Default: those fields are left out, and none is added.
 9. Does the player move to proposed with the firmware path at the cleanup's
