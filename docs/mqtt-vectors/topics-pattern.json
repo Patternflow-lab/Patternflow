@@ -1,0 +1,15 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "the pattern's display name or slug",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/pattern", "payload": "Wave Saw" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Wave Saw" } } },
+    { "send": { "mqtt": { "topic": "patternflow/pattern", "payload": "Origin" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Origin" } } },
+    { "send": { "mqtt": { "topic": "patternflow/pattern", "payload": "wave_saw" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Wave Saw" } } }
+  ]
+}
