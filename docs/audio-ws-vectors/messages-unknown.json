@@ -1,0 +1,17 @@
+{
+  "contract": "docs/audio-ws-spec.md#messages",
+  "says": "Anything else is **silently ignored** — that is the compatibility rule.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "a=0.25,0.5,0.75,1" } },
+    { "send": { "wait": 20 } },
+    { "send": { "ws": "x=1" } },
+    { "send": { "ws": "k=4,v=0.5" } },
+    { "send": { "ws": "d=4,v=1" } },
+    { "send": { "ws": "off=x" } },
+    { "send": { "ws": "hello" } },
+    { "send": { "wait": 50 }, "expect": { "status": { "lanes": [0.25, 0.5, 0.75, 1], "laneActive": [true, true, true, true] }, "input": { "given": { "deltas": [0, 0, 0, 0] } } } },
+    { "send": { "ws": "k=1,v=0" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "lanes": [0.25, 0, 0.75, 1] } } }
+  ]
+}
