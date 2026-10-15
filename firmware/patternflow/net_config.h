@@ -192,7 +192,8 @@
 // it into virtual knob deltas (applyLaneMotion), so EVERY encoder-driven
 // pattern reacts with no per-pattern code. This is how many knob clicks a
 // full 0..1 swing maps to. Higher = stronger response. No per-frame clamp,
-// so the value tracks without lag.
+// so the value tracks without lag. The default is a parameter's whole range,
+// two turns of 24 detents (src/core_shared.h).
 //
 // The old name is honoured below because a firmware built elsewhere may
 // already set it in its overrides.h, and a rename that silently ignores
@@ -201,9 +202,6 @@
 #ifdef PF_AUDIO_VIRTUAL_KNOB_SCALE
 #define PF_LANE_MOTION_SCALE PF_AUDIO_VIRTUAL_KNOB_SCALE
 #else
-#define PF_LANE_MOTION_SCALE 48.0f
-static_assert(PF_LANE_MOTION_SCALE ==
-                  (float)(PF_SHARED_DETENTS_PER_TURN * PF_SHARED_TURNS_PER_FULL_RANGE),
-              "same value as shared/constants.json");
+#define PF_LANE_MOTION_SCALE ((float)(PF_SHARED_DETENTS_PER_TURN * PF_SHARED_TURNS_PER_FULL_RANGE))
 #endif
 #endif

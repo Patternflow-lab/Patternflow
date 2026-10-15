@@ -30,8 +30,9 @@
 // CC — speaks this scale, and the site's Director bakes to it
 // (BUS_WIRE_MAX in web/src/lib/pattern/controls.ts). abi/pf_params.h clamps
 // to the same literal and cannot be changed to this name: the ABI is frozen.
-#define PF_BUS_MAX 1000
-static_assert(PF_BUS_MAX == PF_SHARED_BUS_MAX, "same value as shared/constants.json");
+// The number is BUS_MAX in shared/constants.json, and check:shared holds the
+// ABI's literal to it.
+#define PF_BUS_MAX PF_SHARED_BUS_MAX
 
 namespace PatternflowBus {
 
@@ -89,10 +90,9 @@ inline void applyRemoteParam(int index, long value) {
     if (diff != 0) {
       const int32_t acc =
           __atomic_add_fetch(&clickResidual[index], (int32_t)diff, __ATOMIC_RELAXED);
-      static_assert(10 == PF_SHARED_BUS_UNITS_PER_CLICK, "same value as shared/constants.json");
-      const int32_t d = acc / 10;  // truncates toward zero, both signs
+      const int32_t d = acc / PF_SHARED_BUS_UNITS_PER_CLICK;  // truncates toward zero, both signs
       if (d != 0) {
-        __atomic_fetch_sub(&clickResidual[index], d * 10, __ATOMIC_RELAXED);
+        __atomic_fetch_sub(&clickResidual[index], d * PF_SHARED_BUS_UNITS_PER_CLICK, __ATOMIC_RELAXED);
         __atomic_fetch_add(&pendingDelta[index], d, __ATOMIC_RELAXED);
       }
     }
