@@ -206,7 +206,7 @@ Classic HUB75 only, tiers 1 and 2 in
 S-PWM panels (ICN2053, FM6353, MBI5051 and the rest) stay dark at any
 geometry. They need a grey-scale clock the driver cannot make (upstream issue
 642, closed wontfix; `config.h:153-160`), and they are built for a receiving
-card, which is an output of the player in `docs/rfc-linux-player.md`.
+card, which is an output of the player in [rfc-linux-player.md §2.3](rfc-linux-player.md#a-receiving-card).
 
 One chain, in a row, two rows lit at once
 (`ESP32-HUB75-MatrixPanel-I2S-DMA.h:67, 750-751`): a module is 32 or 64 tall.
