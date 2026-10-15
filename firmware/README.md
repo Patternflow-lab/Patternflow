@@ -156,10 +156,13 @@ Library Manager:
 > not the plain device.
 
 > The HUB75 library is also **vendored** under `patternflow/src/hub75/`, and that
-> copy is the one that compiles — it carries Patternflow's additions
-> (`resumeDMAoutput()` for sleep, the brightness hook the power clamp uses). The
-> installed/cloned copy only needs to satisfy headers, so its exact version does
-> not matter. See `src/hub75/VENDORED.md`.
+> copy is the one that compiles. [`UPSTREAM.md`](patternflow/src/hub75/UPSTREAM.md)
+> there names the upstream tag and commit it was copied from, and each upstream
+> commit taken since. Every line Patternflow changed is in `patternflow.patch`
+> beside it, and [`VENDORED.md`](patternflow/src/hub75/VENDORED.md) says why.
+> After an edit under `src/hub75/`, rebuild the patch with the command in
+> `UPSTREAM.md` instead of editing it. The installed/cloned copy only needs to
+> satisfy headers, so its exact version does not matter.
 
 OSC uses the ESP32 Arduino core's built-in `WiFi` and `WiFiUdp` libraries, so it does not require an extra OSC library. The MQTT client (`pubsubclient`) and the HUB75 driver are vendored under `patternflow/src/`.
 
