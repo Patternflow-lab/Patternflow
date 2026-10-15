@@ -1,7 +1,7 @@
 import { DETENTS_PER_TURN, KNOB_COUNT, PANEL_GEOMETRIES, PANEL_GEOM_DEFAULT } from "@/lib/shared/constants";
 
-export const PATTERN_MATRIX_WIDTH = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
-export const PATTERN_MATRIX_HEIGHT = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
+export const PATTERN_MATRIX_WIDTH: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
+export const PATTERN_MATRIX_HEIGHT: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
 export const PATTERN_KNOB_COUNT = KNOB_COUNT;
 // Detents in one full turn of the physical encoder. The BOM reference part is
 // Bourns PEC11R-4220F-S0024 — the S0024 suffix means 24 detents / 24 PPR, which

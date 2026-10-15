@@ -47,8 +47,8 @@ import {
 import { GLCD_FONT } from "./glcdFont";
 import { TOM_THUMB, type GfxFont } from "./tomThumbFont";
 
-export const PANEL_W = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
-export const PANEL_H = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
+export const PANEL_W: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
+export const PANEL_H: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
 const FRAME_BYTES = PANEL_W * PANEL_H * 4;
 
 export type Rgb = readonly [number, number, number];
