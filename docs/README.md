@@ -4,12 +4,13 @@ What is here, and what is not. The rule for the split: **the repository root kee
 
 ## Contracts — other software is built against these, not against the firmware source
 
-- [`rest-api.md`](rest-api.md) — the device's HTTP API (`/api/*`), the console pages, and the table for choosing between HTTP, OSC, MIDI and MQTT
-- [`osc-spec.md`](osc-spec.md) — OSC over UDP (DAWs, Max, TouchDesigner)
-- [`midi-spec.md`](midi-spec.md) — the panel as a network MIDI port
-- [`mqtt-spec.md`](mqtt-spec.md) — MQTT topics, both directions, the roles, and why the channel decides whether a write sticks
-- [`audio-ws-spec.md`](audio-ws-spec.md) — the audio-react WebSocket the browser extension and the phone app speak
+- [`rest-api.md`](rest-api.md) — the device's HTTP API (`/api/*`), the console pages, and the table for choosing between HTTP, OSC, MIDI and MQTT, with test vectors in [`rest-api-vectors/`](rest-api-vectors/)
+- [`osc-spec.md`](osc-spec.md) — OSC over UDP (DAWs, Max, TouchDesigner), with test vectors in [`osc-vectors/`](osc-vectors/)
+- [`midi-spec.md`](midi-spec.md) — the panel as a network MIDI port, with test vectors in [`midi-vectors/`](midi-vectors/) and those for `/api/midi` in `rest-api-vectors/`
+- [`mqtt-spec.md`](mqtt-spec.md) — MQTT topics, both directions, the roles, and why the channel decides whether a write sticks, with test vectors in [`mqtt-vectors/`](mqtt-vectors/) and those for `/api/mqtt` in `rest-api-vectors/`
+- [`audio-ws-spec.md`](audio-ws-spec.md) — the audio-react WebSocket the browser extension and the phone app speak, with test vectors in [`audio-ws-vectors/`](audio-ws-vectors/) and those for `/api/audio` in `rest-api-vectors/`
 - [`pfst-v2-spec.md`](pfst-v2-spec.md) — the `.pfs` show table, with test vectors in [`pfst-v2-vectors/`](pfst-v2-vectors/)
+- [`contract-vectors.md`](contract-vectors.md) — how a vector of the first five is written, and how `npm run check:rest-vectors` and the four like it replay them against the [virtual panel](../tools/virtual-panel/README.md), a Patternflow with no board
 - [`panel-compatibility.md`](panel-compatibility.md) — a buying guide first (which HUB75 panels light up and which stay dark), then the reference for other sizes
 
 ## How the firmware is put together
