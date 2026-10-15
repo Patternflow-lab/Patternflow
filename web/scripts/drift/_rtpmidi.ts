@@ -17,7 +17,7 @@ const DATA: Record<number, number> = { 0x8: 2, 0x9: 2, 0xa: 2, 0xb: 2, 0xc: 1, 0
 
 // A session packet is two 0xFF octets and a two-letter command (AppleMIDI). Its clock counts 100 µs.
 const isSession = (b: Buffer) => b.length >= 4 && b.readUInt16BE(0) === 0xffff;
-const ticks = () => BigInt(Math.round(performance.now() * 10));
+const ticks = () => Math.round(performance.now() * 10);
 function session(command: string, ...words: number[]) {
   const b = Buffer.alloc(4 + 4 * words.length);
   b.writeUInt16BE(0xffff, 0);
@@ -26,9 +26,9 @@ function session(command: string, ...words: number[]) {
   return b;
 }
 // A clock sync: the initiator's SSRC, the count, three pad octets and three times.
-function sync(ssrc: number, count: number, times: bigint[]) {
+function sync(ssrc: number, count: number, times: (number | bigint)[]) {
   const b = Buffer.concat([session("CK", ssrc, count << 24), Buffer.alloc(24)]);
-  times.forEach((t, i) => b.writeBigUInt64BE(t, 12 + 8 * i));
+  times.forEach((t, i) => b.writeBigUInt64BE(BigInt(t), 12 + 8 * i));
   return b;
 }
 
@@ -98,7 +98,7 @@ export const midi: Sender = async () => {
       const invite = Buffer.concat([session("IN", 2, token, ssrc), Buffer.from(`${NAME}\0`)]);
       await ask(control, ports.midi, invite, "OK");
       await ask(data, ports.midi + 1, invite, "OK");
-      const answer = await ask(data, ports.midi + 1, sync(ssrc, 0, [ticks(), 0n, 0n]), "CK");
+      const answer = await ask(data, ports.midi + 1, sync(ssrc, 0, [ticks(), 0, 0]), "CK");
       await send(sync(ssrc, 2, [answer.readBigUInt64BE(12), answer.readBigUInt64BE(20), ticks()]), ports.midi + 1);
       panel = ports.midi;
     },
@@ -108,7 +108,7 @@ export const midi: Sender = async () => {
       b[0] = 0x80; // version 2
       b[1] = 0x61; // payload type 97
       b.writeUInt16BE(seq, 2);
-      b.writeUInt32BE(Number(ticks() % 2n ** 32n), 4);
+      b.writeUInt32BE(ticks() % 2 ** 32, 4);
       b.writeUInt32BE(ssrc, 8);
       b[12] = what.length; // a list under 16 octets has the short header
       seq = (seq + 1) & 0xffff;
