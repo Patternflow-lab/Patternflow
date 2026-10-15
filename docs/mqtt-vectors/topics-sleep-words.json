@@ -1,0 +1,19 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "`1` / `on` / `true` / `sleep` · `0` / `off` / `false` / `wake` · `toggle`",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "1" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "0" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "on" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "off" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "true" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "false" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "sleep" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "wake" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "toggle" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "toggle" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } }
+  ]
+}
