@@ -17,7 +17,7 @@ import type { Transport } from "../panel";
 const ZIP = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../web/public", packZipPath(BASICS_PACK));
 const PRESETS = 1; // Origin, the one preset left (rest-api.md "Patterns")
 const FS_TOTAL = 10_240_000; // FFat.totalBytes() of the ffat partition, off a real panel (console_demo.py)
-const RIPE_MS = 2000; // how long a pattern runs before leaving it takes its picture (THUMB_MIN_RUN_MS, patternflow.ino)
+const RIPE_MS = 2000; // a pattern left sooner leaves no picture (THUMB_MIN_RUN_MS, patternflow.ino)
 const CORS = { "Access-Control-Allow-Origin": "*" };
 
 // DeviceSim keeps its list, the canvas and load() private, since the guide reads none of them.
@@ -59,7 +59,8 @@ const transport: Transport = {
     const list = () => inside.patterns.map((p, index) => ({ index, name: p.name, module: index < PRESETS ? null : p.slug }));
     const modules = () => inside.patterns.slice(PRESETS).map((p) => p.slug);
 
-    // Whatever loads in a pattern's place, the canvas still holds the last frame it drew (snapshotActiveIfRipe, patternflow.ino).
+    // A pattern's picture is the canvas as it was left (snapshotActiveIfRipe, patternflow.ino). Every switch, a hand's
+    // on SELECT or a socket's, goes through DeviceSim's load(), so that is where the canvas is read.
     const thumbs = new Map<string, Buffer>();
     let since = clock.now();
     const load = inside.load.bind(sim);
