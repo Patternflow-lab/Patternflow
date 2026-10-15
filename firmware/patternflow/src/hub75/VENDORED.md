@@ -354,12 +354,12 @@ which is what makes comparing tens of millions of DMA words worth doing.
 
 ## What this costs
 
-- Upstream updates are manual. Diff a new release against this tree and re-apply
-  the additions.
-- The additions are marked `PATTERNFLOW ADDITION (not upstream)`, and the two
-  in-place changes above are marked `PATTERNFLOW FIX` —
-  `blitRGB888()` in `ESP32-HUB75-MatrixPanel-I2S-DMA.h` and `.cpp`,
-  `resumeDMAoutput()` in the `.h` only. Nothing else is modified.
+- Upstream updates are manual. [UPSTREAM.md](UPSTREAM.md) names the commit this
+  copy was taken from and the command that rebuilds the patch.
+- [patternflow.patch](patternflow.patch) is every change from upstream. Most of
+  it is marked `PATTERNFLOW ADDITION (not upstream)` or `PATTERNFLOW FIX` in the
+  source, not all of it: the two fields behind `lastFrameOnTime()`, which
+  `../core_power.h` reads, carry none. The patch is the list.
 - The build server compiles the sketch folder, so it picks this up with no
   separate configuration.
 - If the Library Manager copy is still installed it is simply unused: the sketch
