@@ -34,8 +34,8 @@
  * reads the same rows and writes nothing. It fails on an absolute row that does
  * not resolve, and on a tracked file outside the sources above that carries a
  * repository URL, since the map never reads that file. A row on a ref the clone
- * lacks is skipped, and the check says which refs; PF_DRIFT_STRICT=1, which CI
- * sets, fails on a skip as well.
+ * lacks is skipped, and the check says which refs. With PF_DRIFT_STRICT=1 a
+ * skip fails as well.
  *
  * The parity list (docs/rfc-cleanup.md §2.3) is every text the repository
  * keeps in both Korean and English, one row per pair, and whether a side is
