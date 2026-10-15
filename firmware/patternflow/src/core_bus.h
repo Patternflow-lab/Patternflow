@@ -23,6 +23,7 @@
 
 #include <Arduino.h>
 #include "core_encoders.h"  // InputFrame
+#include "core_shared.h"
 
 // The wire scale of an absolute channel: 0..PF_BUS_MAX, integer. Everything
 // that writes the bus — MQTT param/1..4, POST /api/params, a .pfs cue, a MIDI
@@ -30,6 +31,7 @@
 // (BUS_WIRE_MAX in web/src/lib/pattern/controls.ts). abi/pf_params.h clamps
 // to the same literal and cannot be changed to this name: the ABI is frozen.
 #define PF_BUS_MAX 1000
+static_assert(PF_BUS_MAX == PF_SHARED_BUS_MAX, "same value as shared/constants.json");
 
 namespace PatternflowBus {
 
@@ -87,6 +89,7 @@ inline void applyRemoteParam(int index, long value) {
     if (diff != 0) {
       const int32_t acc =
           __atomic_add_fetch(&clickResidual[index], (int32_t)diff, __ATOMIC_RELAXED);
+      static_assert(10 == PF_SHARED_BUS_UNITS_PER_CLICK, "same value as shared/constants.json");
       const int32_t d = acc / 10;  // truncates toward zero, both signs
       if (d != 0) {
         __atomic_fetch_sub(&clickResidual[index], d * 10, __ATOMIC_RELAXED);

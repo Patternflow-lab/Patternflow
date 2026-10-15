@@ -78,9 +78,14 @@ constexpr float EULER      = 2.71828182845904523536f;
 // pattern with PFCanvas::setFrame(). See README.md.
 // Running a non-stock panel? Please report how it went, working or not:
 // https://github.com/engmung/Patternflow/issues/224
+#include "src/core_shared.h"
 #define PANEL_GEOM_128x64_SINGLE 1  // one 128×64 module (stock)
 #define PANEL_GEOM_64x64_SINGLE  2  // one 64×64 module
 #define PANEL_GEOM_64x64_CHAIN2  3  // two 64×64 modules daisy-chained → 128×64
+static_assert(PANEL_GEOM_128x64_SINGLE == PF_SHARED_PANEL_GEOM_128x64_SINGLE, "same value as shared/constants.json");
+static_assert(PANEL_GEOM_64x64_SINGLE == PF_SHARED_PANEL_GEOM_64x64_SINGLE, "same value as shared/constants.json");
+static_assert(PANEL_GEOM_64x64_CHAIN2 == PF_SHARED_PANEL_GEOM_64x64_CHAIN2, "same value as shared/constants.json");
+static_assert(PANEL_GEOM_128x64_SINGLE == PF_SHARED_PANEL_GEOM_DEFAULT, "same value as shared/constants.json");
 
 // #define PANEL_GEOMETRY PANEL_GEOM_64x64_CHAIN2
 #ifndef PANEL_GEOMETRY
@@ -93,18 +98,27 @@ constexpr float EULER      = 2.71828182845904523536f;
   #define PANEL_CHAIN  1
   #define PANEL_RES_W  64
   #define PANEL_RES_H  64
+  static_assert(PANEL_PHYS_W == PF_SHARED_PANEL_GEOM_64x64_SINGLE_PHYS_W && PANEL_PHYS_H == PF_SHARED_PANEL_GEOM_64x64_SINGLE_PHYS_H &&
+                PANEL_CHAIN == PF_SHARED_PANEL_GEOM_64x64_SINGLE_CHAIN && PANEL_RES_W == PF_SHARED_PANEL_GEOM_64x64_SINGLE_RES_W &&
+                PANEL_RES_H == PF_SHARED_PANEL_GEOM_64x64_SINGLE_RES_H, "same value as shared/constants.json");
 #elif PANEL_GEOMETRY == PANEL_GEOM_64x64_CHAIN2
   #define PANEL_PHYS_W 64
   #define PANEL_PHYS_H 64
   #define PANEL_CHAIN  2
   #define PANEL_RES_W  128
   #define PANEL_RES_H  64
+  static_assert(PANEL_PHYS_W == PF_SHARED_PANEL_GEOM_64x64_CHAIN2_PHYS_W && PANEL_PHYS_H == PF_SHARED_PANEL_GEOM_64x64_CHAIN2_PHYS_H &&
+                PANEL_CHAIN == PF_SHARED_PANEL_GEOM_64x64_CHAIN2_CHAIN && PANEL_RES_W == PF_SHARED_PANEL_GEOM_64x64_CHAIN2_RES_W &&
+                PANEL_RES_H == PF_SHARED_PANEL_GEOM_64x64_CHAIN2_RES_H, "same value as shared/constants.json");
 #else
   #define PANEL_PHYS_W 128
   #define PANEL_PHYS_H 64
   #define PANEL_CHAIN  1
   #define PANEL_RES_W  128
   #define PANEL_RES_H  64
+  static_assert(PANEL_PHYS_W == PF_SHARED_PANEL_GEOM_128x64_SINGLE_PHYS_W && PANEL_PHYS_H == PF_SHARED_PANEL_GEOM_128x64_SINGLE_PHYS_H &&
+                PANEL_CHAIN == PF_SHARED_PANEL_GEOM_128x64_SINGLE_CHAIN && PANEL_RES_W == PF_SHARED_PANEL_GEOM_128x64_SINGLE_RES_W &&
+                PANEL_RES_H == PF_SHARED_PANEL_GEOM_128x64_SINGLE_RES_H, "same value as shared/constants.json");
 #endif
 
 #if PANEL_RES_W != (PANEL_PHYS_W * PANEL_CHAIN)

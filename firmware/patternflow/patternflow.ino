@@ -271,6 +271,7 @@ bool updateDirty = false;
 volatile int uploadPctShown = -1;
 
 const uint32_t MODE_HOLD_MS = 1000;
+static_assert(MODE_HOLD_MS == PF_SHARED_LONG_PRESS_MS, "same value as shared/constants.json");
 const uint32_t BRIGHTNESS_IDLE_MS = 5000;
 // How long the value has to be still before it is written to NVS - the
 // console's slider sends a step for every pixel of a drag.

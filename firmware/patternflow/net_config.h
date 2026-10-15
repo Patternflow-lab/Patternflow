@@ -32,6 +32,8 @@
 #include "patternflow_secrets.h"
 #endif
 
+#include "src/core_shared.h"
+
 // ── Wi-Fi ────────────────────────────────────────────────────────────
 // Whether the panel has a radio at all. 0 makes a USB-only instrument:
 // everything network-side (console, OTA, every feature that dials out)
@@ -200,5 +202,8 @@
 #define PF_LANE_MOTION_SCALE PF_AUDIO_VIRTUAL_KNOB_SCALE
 #else
 #define PF_LANE_MOTION_SCALE 48.0f
+static_assert(PF_LANE_MOTION_SCALE ==
+                  (float)(PF_SHARED_DETENTS_PER_TURN * PF_SHARED_TURNS_PER_FULL_RANGE),
+              "same value as shared/constants.json");
 #endif
 #endif
