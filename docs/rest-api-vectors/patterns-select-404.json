@@ -1,0 +1,13 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsselect",
+  "says": "`404` for an out-of-range index or an unknown name.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/select?index=0" } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns/select?index=-1" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/patterns/select?index=9999" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/patterns/select?name=No%20such%20pattern" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Origin" } } }
+  ]
+}

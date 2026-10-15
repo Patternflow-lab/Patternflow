@@ -1,0 +1,15 @@
+{
+  "contract": "docs/rest-api.md#transport",
+  "says": "Only `/api/patterns/select` and `/api/display` send `Access-Control-Allow-Origin: *`.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/display" }, "expect": { "reply": { "status": 200, "headers": { "access-control-allow-origin": "*" } } } },
+    { "send": { "http": "GET /api/patterns/select?index=0" }, "expect": { "reply": { "status": 200, "headers": { "access-control-allow-origin": "*" } } } },
+    { "send": { "http": "GET /api/status" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } },
+    { "send": { "http": "GET /api/knobs" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } },
+    { "send": { "http": "POST /api/params?p1=500" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } },
+    { "send": { "http": "GET /api/patterns/file?slug=wave_saw&ext=json" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } },
+    { "send": { "http": "GET /api/nothing" }, "expect": { "reply": { "headers": { "access-control-allow-origin": "<absent>" } } } }
+  ]
+}
