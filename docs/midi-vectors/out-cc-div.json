@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "The encoders have 24 detents a turn, so `1` is 24 steps per turn and `4` is 6.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outDiv=4&knob=1" } },
+    { "send": { "hand": { "knob": 1, "turn": 24 } }, "expect": { "out": [{ "midi": [176, 24, 70], "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": 24 } }, "expect": { "out": [{ "midi": [176, 25, 88], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 1, "turn": 3 } }, "expect": { "out": [{ "midi": "<absent>", "within": 100 }] } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 24, 71], "within": 20 }] } }
+  ]
+}

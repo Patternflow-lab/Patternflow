@@ -1,0 +1,13 @@
+{
+  "contract": "docs/rest-api.md#post-apiparams",
+  "says": "A channel is **held** once written and released the moment somebody turns that knob, so an automated source can pin a look and hands always win it back.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/params?p2=300" }, "expect": { "reply": { "body": { "ok": true, "active": [false, true, false, false] } } } },
+    { "send": { "wait": 1000 }, "expect": { "status": { "params": ["<integer>", 300, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, true, false, false] } } },
+    { "send": { "hand": { "knob": 2, "turn": -1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, false, false, false] } } }
+  ]
+}

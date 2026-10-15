@@ -1,0 +1,13 @@
+{
+  "contract": "docs/osc-spec.md#device--host",
+  "says": "Encoder button N pressed",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 50 } },
+    { "send": { "hand": { "knob": 3, "down": true } } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/button/3/press", 1] }, { "osc": ["/patternflow/button/3/held", 1] }] } },
+    { "send": { "hand": { "knob": 3, "down": false } } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/button/3/held", 0] }, { "osc": "<absent>" }] } }
+  ]
+}

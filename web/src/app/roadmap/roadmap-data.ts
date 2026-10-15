@@ -463,7 +463,7 @@ export const NODES: RoadmapNode[] = [
       'v2.0.0 unified the versioning: project, firmware, PCB and case became one Patternflow version instead of four. It carried the GPIO0 cold-boot fix, the custom-pattern workflow doc, canonical pattern names (Origin, Wave Saw), and a web platform that was by then substantially complete — flasher, Live Editor, journal and build map.',
     detailKo:
       'v2.0.0에서 버전 체계를 하나로 통일했습니다. 프로젝트·펌웨어·PCB·케이스가 각자 버전을 갖는 대신 하나의 패턴플로우 버전으로 묶였습니다. GPIO0 콜드부트 수정, 커스텀 패턴 제작 문서, 패턴 이름 정규화(Origin, Wave Saw)가 들어갔고, 이 시점의 웹(플래셔, 라이브 에디터, 저널, 빌드 맵)은 이미 상당 부분 완성된 상태였습니다.',
-    links: [{ label: 'CHANGELOG (2.0.0)', href: `${REPO}/blob/main/CHANGELOG.md` }],
+    links: [{ label: 'CHANGELOG (2.0.0)', href: `${REPO}/blob/main/docs/releases/v2.0.0.md` }],
   },
   {
     id: 'fw-foundation',

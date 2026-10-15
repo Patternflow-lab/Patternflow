@@ -13,13 +13,14 @@
 // device prints on its KNOB MAP screen. Where each one sits on the front is
 // the 3D stage's business.
 
-import { PATTERN_DETENTS_PER_TURN, PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern/harness";
+import { PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern/harness";
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
 import { hexToRgb } from "@/lib/pattern/color";
 import { knobSetupFromCode } from "@/lib/community/knobs";
 import { LOGICAL_KNOB_DEFAULTS, knobUnitsPerTurn } from "@/lib/pattern/controls";
 import { livePresets } from "@/lib/presets";
 import { BASICS_PACK } from "@/lib/pattern/packs";
+import { BUS_MAX, BUS_UNITS_PER_CLICK, DETENTS_PER_TURN, EDGES_PER_DETENT, KNOB_COUNT } from "@/lib/shared/constants";
 import { BASICS_NAMES } from "./basicsNames";
 import {
   brightnessPercent,
@@ -37,8 +38,11 @@ export type SimMode = "off" | "run" | "brightness" | "network" | "knobmap" | "se
 export type SimPack = "origin" | "basics";
 /** The firmware the board runs: the default, or the Audio edition (the OSC and AUD rows on hold K2). */
 export type SimEdition = "core" | "audio";
-/** What may drive the four lanes: the extension's editor on the Audio guide (components/guide/EditorWindow). */
-export type SimLaneSource = "editor";
+/**
+ * What may drive the four lanes: the extension's editor on the Audio guide
+ * (components/guide/EditorWindow), or the audio WebSocket (docs/audio-ws-spec.md).
+ */
+export type SimLaneSource = "editor" | "ws";
 
 export type SimPattern = {
   slug: string;
@@ -141,11 +145,25 @@ export type SimConsoleState = {
   knobs: [number, number, number, number];
 };
 
+/** The knobs as /api/status reports them (docs/rest-api.md). */
+export type SimKnobState = {
+  /** Clicks each encoder has made since load, after its /knobs settings. A hand's, and nothing else's. */
+  knobs: [number, number, number, number];
+  /** The bus, 0..1000 per channel, and which channels a remote writer holds. */
+  params: [number, number, number, number];
+  paramActive: [boolean, boolean, boolean, boolean];
+  /** Each lane's last value, 0..1, and whether it has its knob once the bus and the hands have had theirs. */
+  lanes: [number, number, number, number];
+  laneActive: [boolean, boolean, boolean, boolean];
+};
+
+/** What the pattern was given on a frame, and the error it threw there. */
+export type SimGiven = { input: PatternInput; error: string | null };
+
 // The absolute parameter bus (src/core_bus.h): what the console's sliders
 // write. A channel is held once written; a change of the held value reaches
 // a pattern as clicks, ten bus units each, the remainder carried; a hand on
 // that encoder takes it back after a grace.
-const BUS_UNITS_PER_CLICK = 10;
 const BUS_RELEASE_GRACE_MS = 250;
 
 // The lanes (docs/audio-ws-spec.md): what sound writes. A lane is an absolute
@@ -197,7 +215,7 @@ export class DeviceSim {
   private now = 0;
   private time = 0;
 
-  private knobs: Knob[] = Array.from({ length: 4 }, () => ({
+  private knobs: Knob[] = Array.from({ length: KNOB_COUNT }, () => ({
     down: false,
     downAt: 0,
     longFired: false,
@@ -227,6 +245,13 @@ export class DeviceSim {
   private busValue = [500, 500, 500, 500];
   private busResidual = [0, 0, 0, 0];
   private busPending = [0, 0, 0, 0];
+
+  // The sockets' side of the board (nudge, remoteButton, knobState, given).
+  private clicks = [0, 0, 0, 0];
+  private nudgePending = [0, 0, 0, 0];
+  private remoteDown = [false, false, false, false];
+  private remoteEdge = [false, false, false, false];
+  private lastGiven: SimGiven | null = null;
 
   /** Called with the new mode whenever it changes. */
   onModeChange: ((mode: SimMode) => void) | null = null;
@@ -330,9 +355,14 @@ export class DeviceSim {
    * the AUD row switched off stops all four.
    */
   setLane(source: SimLaneSource, knob: number, value: number) {
-    if (source !== this.laneSource || !Number.isInteger(knob) || knob < 0 || knob > 3 || !Number.isFinite(value)) return;
+    if (source !== this.laneSource || !Number.isInteger(knob) || knob < 0 || knob >= KNOB_COUNT || !Number.isFinite(value)) return;
     this.laneValue[knob] = clamp(value, 0, 1);
     this.laneAt[knob] = this.now;
+  }
+
+  /** off=N: the lane goes back to its encoder now, as it would 500 ms after its last write. */
+  releaseLane(source: SimLaneSource, knob: number) {
+    if (source === this.laneSource && isKnob(knob)) this.laneAt[knob] = -1e9;
   }
 
   /**
@@ -359,7 +389,9 @@ export class DeviceSim {
   turn(knob: number, detents: number) {
     if (!Number.isFinite(detents) || detents === 0) return;
     // clickScale is 1 unless a console changed the knob's settings.
-    this.pendingDetents[knob] += detents * this.clickScale[knob];
+    const clicks = detents * this.clickScale[knob];
+    this.pendingDetents[knob] += clicks;
+    this.clicks[knob] += clicks;
     this.turns[knob] += detents;
     // "Hands always win": a turn takes the knob from its lane for five seconds.
     this.handAt[knob] = this.now;
@@ -438,7 +470,8 @@ export class DeviceSim {
     this.pendingDetents = [0, 0, 0, 0];
 
     const toPattern = this.handle(input);
-    if (this.busPending.some((d) => d !== 0)) this.applyBus(toPattern.detents);
+    const remote = [...this.busPending, ...this.nudgePending].some((d) => d !== 0) || this.remoteEdge.some(Boolean);
+    if (remote) this.applyRemote(toPattern);
     this.render(step, toPattern);
   }
 
@@ -499,8 +532,8 @@ export class DeviceSim {
    * (core_bus.h applyRemoteParam). The 3D knob does not turn — nothing did.
    */
   applyRemoteParam(knob: number, value: number) {
-    if (knob < 0 || knob > 3 || !Number.isFinite(value)) return;
-    const v = clamp(Math.round(value), 0, 1000);
+    if (knob < 0 || knob >= KNOB_COUNT || !Number.isFinite(value)) return;
+    const v = clamp(Math.round(value), 0, BUS_MAX);
     if (this.busHeld[knob]) {
       const acc = this.busResidual[knob] + (v - this.busValue[knob]);
       const d = Math.trunc(acc / BUS_UNITS_PER_CLICK);
@@ -512,6 +545,51 @@ export class DeviceSim {
     this.busHeldAt[knob] = this.now;
   }
 
+  /** An empty MQTT param/N: the channel is let go now, grace or not (docs/mqtt-spec.md). */
+  releaseRemoteParam(knob: number) {
+    if (isKnob(knob)) this.releaseBus(knob);
+  }
+
+  /**
+   * Clicks that no hand made: OSC's knob/N/delta, MIDI CC 24 to 27, MQTT
+   * knob/N, the WebSocket's d=, POST /api/params dN. They reach the pattern
+   * where a turn's would, one for one, except on a channel the bus holds,
+   * which outranks them (docs/audio-ws-spec.md). The specs give a hand two
+   * things these do not get: the knob back from its lane, and its bus
+   * channel freed (mqtt-spec.md, midi-spec.md). They wake nothing, and
+   * `knobs` does not count them.
+   */
+  nudge(knob: number, clicks: number) {
+    if (isKnob(knob) && Number.isInteger(clicks)) this.nudgePending[knob] += clicks;
+  }
+
+  /**
+   * A button no hand pressed: MIDI notes 60 to 63 (docs/midi-spec.md). Down is
+   * a press edge, and the button reads as held until it is up. Only the
+   * pattern is given it, so it opens no screen and wakes nothing.
+   */
+  remoteButton(knob: number, down: boolean) {
+    if (!isKnob(knob)) return;
+    if (down && !this.remoteDown[knob]) this.remoteEdge[knob] = true;
+    this.remoteDown[knob] = down;
+  }
+
+  /** The fields of /api/status a socket reads: `knobs`, `params`, `paramActive`, `lanes`, `laneActive`. */
+  knobState(): SimKnobState {
+    return {
+      knobs: [...this.clicks] as SimKnobState["knobs"],
+      params: [...this.busValue] as SimKnobState["params"],
+      paramActive: [...this.busHeld] as SimKnobState["paramActive"],
+      lanes: [...this.laneValue] as SimKnobState["lanes"],
+      laneActive: [0, 1, 2, 3].map((i) => this.laneDrives(i)) as SimKnobState["laneActive"],
+    };
+  }
+
+  /** What the pattern was given on the last lit frame, and what it threw; null while the panel is dark. */
+  given(): SimGiven | null {
+    return this.lastGiven;
+  }
+
   /** What a knob controls on the running pattern, for the readout beside it. */
   knobReadout(knob: number): { label: string; value: number; min: number; max: number } {
     const [min, max] = this.ranges[knob] ?? [0, 1];
@@ -520,9 +598,9 @@ export class DeviceSim {
 
   /** The /knobs page: which way each encoder counts and how many of its 4 edges make a click. */
   setKnobSettings(invert: boolean[], edgesPerClick: number[]) {
-    for (let i = 0; i < 4; i++) {
-      const sub = [1, 2, 4].includes(edgesPerClick[i]) ? edgesPerClick[i] : 4;
-      this.clickScale[i] = (invert[i] ? -1 : 1) * (4 / sub);
+    for (let i = 0; i < KNOB_COUNT; i++) {
+      const sub = [1, 2, 4].includes(edgesPerClick[i]) ? edgesPerClick[i] : EDGES_PER_DETENT;
+      this.clickScale[i] = (invert[i] ? -1 : 1) * (EDGES_PER_DETENT / sub);
     }
   }
 
@@ -557,15 +635,22 @@ export class DeviceSim {
     this.busResidual[knob] = 0;
   }
 
-  /** The bus's clicks reach the pattern where a turn of that knob would. */
-  private applyBus(detents: number[]) {
+  /** The bus's clicks, a nudge's and a remote button's press reach the pattern where a hand's would. */
+  private applyRemote(toPattern: { detents: number[]; presses: boolean[] }) {
     const knobs = this.mode === "run" ? [0, 1, 2, 3] : this.mode === "brightness" ? [1, 2, 3] : [];
     const moved = [0, 0, 0, 0];
-    for (const i of knobs) moved[i] = this.busPending[i];
+    for (const i of knobs) moved[i] = this.busPending[i] + (this.busHeld[i] ? 0 : this.nudgePending[i]);
+    const edges = this.remoteEdge;
     this.busPending = [0, 0, 0, 0];
+    this.nudgePending = [0, 0, 0, 0];
+    this.remoteEdge = [false, false, false, false];
     if (!knobs.length) return;
     this.moveValues(moved, knobs);
-    for (const i of knobs) detents[i] += moved[i];
+    for (const i of knobs) {
+      toPattern.detents[i] += moved[i];
+      if (edges[i]) toPattern.presses[i] = true;
+    }
+    if (this.mode === "run") this.originPress(edges);
   }
 
   // ── firmware rules (patternflow.ino; see panelScreens.ts FIRMWARE) ──────────
@@ -675,18 +760,21 @@ export class DeviceSim {
         // The press edge reaches the pattern the moment the button goes down,
         // so a long-press delivers one too (patternflow.ino:1201-1205).
         this.moveValues(f.detents, [0, 1, 2, 3]);
-        // Origin's own click sends that knob back to its start (its update()
-        // zeroes the parameter); the knob's readout follows it there.
-        if (this.patterns[this.active]?.slug === "origin") {
-          const values = this.currentValues();
-          f.edges.forEach((e, i) => {
-            if (e) values[i] = this.ranges[i]?.[0] ?? 0;
-          });
-        }
+        this.originPress(f.edges);
         return { detents: f.detents.slice(), presses: f.edges.slice() };
       }
     }
     return none();
+  }
+
+  // Origin's own click sends that knob back to its start (its update()
+  // zeroes the parameter); the knob's readout follows it there.
+  private originPress(edges: boolean[]) {
+    if (this.patterns[this.active]?.slug !== "origin") return;
+    const values = this.currentValues();
+    edges.forEach((e, i) => {
+      if (e) values[i] = this.ranges[i]?.[0] ?? 0;
+    });
   }
 
   private enterFrom(mode: SimMode) {
@@ -700,7 +788,7 @@ export class DeviceSim {
       const d = detents[i];
       if (!d) continue;
       const [min, max] = this.ranges[i] ?? [0, 1];
-      const next = values[i] + d * (knobUnitsPerTurn([min, max]) / PATTERN_DETENTS_PER_TURN);
+      const next = values[i] + d * (knobUnitsPerTurn([min, max]) / DETENTS_PER_TURN);
       values[i] = this.wraps[i] ? wrap(next, min, max) : clamp(next, min, max);
     }
   }
@@ -710,7 +798,7 @@ export class DeviceSim {
     // SELECT clears the name card (patternflow.ino:1731).
     if (mode === "select") this.noticeUntil = -1;
     // SELECT drops every held bus channel, so browsing never fights one (patternflow.ino).
-    if (mode === "select") for (let i = 0; i < 4; i++) if (this.busHeld[i]) this.releaseBus(i);
+    if (mode === "select") for (let i = 0; i < KNOB_COUNT; i++) if (this.busHeld[i]) this.releaseBus(i);
     this.mode = mode;
     this.idleAt = this.now;
     this.onModeChange?.(mode);
@@ -813,6 +901,7 @@ export class DeviceSim {
     if (this.mode === "off" || this.mode === "sleep") {
       out.fill(0);
       for (let i = 3; i < out.length; i += 4) out[i] = 255;
+      this.lastGiven = null;
       return;
     }
 
@@ -827,9 +916,10 @@ export class DeviceSim {
       }),
       knobRanges: ranges,
       btnPressed: toPattern.presses,
-      btnHeld: this.knobs.map((k) => this.mode === "run" && k.down),
+      btnHeld: this.knobs.map((k, i) => this.mode === "run" && (k.down || this.remoteDown[i])),
     };
-    this.runtime.renderFrame(dt, this.time, input);
+    const result = this.runtime.renderFrame(dt, this.time, input);
+    this.lastGiven = { input, error: result.ok ? null : (result.error ?? "") };
 
     const src = this.runtime.data;
     // A short power-on: the frame fades up over the first 0.6 s after boot.
@@ -876,6 +966,10 @@ export class DeviceSim {
         return null;
     }
   }
+}
+
+function isKnob(knob: number) {
+  return Number.isInteger(knob) && knob >= 0 && knob < KNOB_COUNT;
 }
 
 function clamp(v: number, min: number, max: number) {

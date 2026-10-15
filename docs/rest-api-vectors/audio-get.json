@@ -1,0 +1,8 @@
+{
+  "contract": "docs/rest-api.md#audio-react-audio-edition",
+  "says": "`audioRuntime` (the switch) and `audioClients` (WebSocket senders connected on :81).",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "http": "GET /api/audio" }, "expect": { "reply": { "status": 200, "body": { "audioRuntime": "<boolean>", "audioClients": 0 } } } }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Note-on = press (edge), the button reads as held for as long as the note is held; note-off (or velocity 0) releases.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [144, 60, 127] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "presses": [1, 0, 0, 0], "held": [true, false, false, false] } } } },
+    { "send": { "wait": 1000 }, "expect": { "input": { "given": { "presses": [1, 0, 0, 0], "held": [true, false, false, false] } } } },
+    { "send": { "midi": [144, 61, 127] } },
+    { "send": { "midi": [144, 62, 1] } },
+    { "send": { "midi": [144, 63, 64] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "presses": [1, 1, 1, 1], "held": [true, true, true, true] } } } },
+    { "send": { "midi": [128, 60, 0] } },
+    { "send": { "midi": [144, 61, 0] } },
+    { "send": { "midi": [128, 62, 64] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "presses": [1, 1, 1, 1], "held": [false, false, false, true] } } } }
+  ]
+}

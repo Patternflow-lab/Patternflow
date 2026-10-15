@@ -29,15 +29,6 @@ import type { Edition } from "./editions-data";
 // Core is the cheapest entry on the shelf: its images already sit under
 // /flash/bin with CORS headers, so its install button needs nothing new.
 
-// Why this firmware is not simply the default. Three different answers, and
-// somebody choosing needs to know which — picking up something unfinished is
-// not the same as picking up something deliberately still.
-const REASON_LABEL: Record<NonNullable<Edition["reason"]>, string> = {
-  "not-ready": "not ready for everyone",
-  "not-universal": "not right as a default",
-  frozen: "pinned and not moving",
-};
-
 const STATUS_LABEL: Record<Edition["status"], string> = {
   available: "available",
   building: "in progress",

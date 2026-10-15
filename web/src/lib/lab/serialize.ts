@@ -4,9 +4,10 @@
 // Reads are defensive: a project written by any other build must degrade to
 // "no project" (or partial restore) rather than crash the lab on boot.
 //
-// Migration: when no v2 project exists, the old single-pattern draft
-// (patternflow_lab_draft_v1 + patternflow_ramp_v1) is lifted into a one-layer
-// project, so nobody loses work by opening the new lab once.
+// Migration: when no project restores, the single-pattern draft the lab wrote
+// from 25 to 27 July 2026 (patternflow_lab_draft_v1 + patternflow_ramp_v1) is
+// lifted into a one-layer project, so nobody lost work by opening the new lab.
+// persist.ts says who wrote each key.
 
 import { RAMP_MODES, type RampMode } from "@/lib/pattern/harness";
 import { COLOR_MODES, THINKING_LEVELS } from "@/lib/ai/settings";
@@ -76,7 +77,7 @@ export function layoutViewCount(layout: unknown): number {
   const grid = (layout as { grid?: { root?: unknown } } | null | undefined)?.grid;
   return walk(grid?.root);
 }
-/** Old single-pattern lab keys, read once for migration. */
+/** The colour ramp the lab wrote from 2 to 27 July 2026. Only the migration reads it. */
 const LEGACY_RAMP_STORAGE = LAB_STORAGE.legacyRamp;
 
 const MAX_CODE_CHARS = 200_000;
@@ -533,10 +534,13 @@ export function clearProject() {
   removeStorage(PROJECT_STORAGE);
 }
 
-// ── v1 migration ──
+// ── migration from the July draft ──
 /**
- * Lift the old single-pattern draft into a one-layer project. Returns null
- * when there is nothing to migrate.
+ * Lift the single-pattern draft the lab's autosave wrote from 25 to 27 July
+ * 2026 into a one-layer project. Returns null when there is no draft. The
+ * store calls this whenever loadProject returns null, and an empty canvas
+ * saves a project loadProject refuses, so a browser that still holds the
+ * draft gets it back on every such open, not once.
  */
 export function migrateLegacyDraft(): (LabProject & { savedAt: number }) | null {
   const draft = loadDraft(PATTERN_KNOB_COUNT);
@@ -582,7 +586,7 @@ export function migrateLegacyDraft(): (LabProject & { savedAt: number }) | null 
     knobLabels: draft.knobLabels ?? knobState.labels,
     director: emptyShow(),
     forkOf: draft.forkOf ?? null,
-    // The legacy single-draft format predates in-place editing entirely.
+    // The July draft predates in-place editing entirely.
     editOf: null,
     gen: readGen(draft.gen),
   };

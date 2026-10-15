@@ -1,0 +1,14 @@
+{
+  "contract": "docs/osc-spec.md#device--host",
+  "says": "Pattern changed (or announce)",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 50 } },
+    { "send": { "http": "GET /api/patterns/select?index=2" } },
+    {
+      "send": { "wait": 50 },
+      "expect": { "out": [{ "osc": ["/patternflow/pattern/index", 2] }, { "osc": ["/patternflow/pattern/name", "<string>"] }, { "osc": "<absent>" }] }
+    }
+  ]
+}

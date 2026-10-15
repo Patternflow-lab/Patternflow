@@ -1,0 +1,11 @@
+{
+  "contract": "docs/audio-ws-spec.md#holding-a-value--the-500-ms-release",
+  "says": "A lane is handed back to its encoder 500 ms after the last message that set it.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "http": "POST /api/audio?on=1" } },
+    { "send": { "ws": "a=0.8,-,-,0.2" } },
+    { "send": { "wait": 400 }, "expect": { "status": { "laneActive": [true, false, false, true] } } },
+    { "send": { "wait": 200 }, "expect": { "status": { "laneActive": [false, false, false, false] } } }
+  ]
+}

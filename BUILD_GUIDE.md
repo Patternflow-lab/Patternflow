@@ -1,6 +1,6 @@
 # Patternflow v3 -- Build Guide
 
-> **Building a v2.x board?** Use the [v2 build guide](BUILD_GUIDE_v2.md) instead — v2 and v3 parts are **not** interchangeable.
+> **Building a v2.x board?** Use the [v2 build guide](docs/legacy/BUILD_GUIDE_v2.md) instead — v2 and v3 parts are **not** interchangeable.
 
 This guide walks you through building a Patternflow on the v3 board from scratch. v3.9 is the current revision; a v3.0 board follows the same steps (its USB-C footprint stays unpopulated, see §2). No prior soldering experience needed — every joint is big, forgiving through-hole, and the board was deliberately kept that simple so a first-time solderer can finish it.
 

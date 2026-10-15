@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PatternRuntime } from "@/lib/pattern/harness";
 import { DeviceSim, SIM_HOTSPOT, SIM_IP } from "./deviceSim";
 import { drawOverlay, PANEL_H, PANEL_W } from "./panelScreens";
 
@@ -379,5 +380,151 @@ describe("the lanes", () => {
     expect(visited.snapshot().rows).toEqual([]);
     expect(visited.snapshot().turns).toEqual([0, 0, 0, 0]);
     expect(frames(visited)).toEqual(frames(play));
+  });
+});
+
+// What a socket of the virtual panel reads off the board, and what it writes
+// that no hand did.
+describe("the sockets", () => {
+  let sim: DeviceSim;
+  const none = [false, false, false, false];
+
+  beforeEach(() => {
+    sim = new DeviceSim();
+    sim.tick(FRAME);
+  });
+
+  it("read the knobs as /api/status does: a hand's clicks, the bus, the lanes", () => {
+    expect(sim.knobState()).toEqual({
+      knobs: [0, 0, 0, 0],
+      params: [500, 500, 500, 500],
+      paramActive: none,
+      lanes: [0, 0, 0, 0],
+      laneActive: none,
+    });
+    // Two edges a click on K2 (the /knobs page): its detent is two clicks.
+    sim.setKnobSettings(none, [4, 2, 4, 4]);
+    sim.turn(0, 3);
+    sim.turn(1, -1);
+    sim.applyRemoteParam(2, 750);
+    sim.setEdition("audio");
+    sim.setLaneSource("ws");
+    sim.setLane("ws", 3, 0.25);
+    sim.tick(FRAME);
+    expect(sim.knobState()).toEqual({
+      knobs: [3, -2, 0, 0],
+      params: [500, 500, 750, 500],
+      paramActive: [false, false, true, false],
+      lanes: [0, 0, 0, 0.25],
+      laneActive: [false, false, false, true],
+    });
+  });
+
+  it("drive the lanes from the WebSocket, and the editor writes nothing then", () => {
+    sim.setEdition("audio");
+    sim.setLaneSource("ws");
+    sim.setLane("editor", 0, 0.9);
+    sim.setLane("ws", 1, 0.9);
+    sim.tick(FRAME);
+    expect(sim.knobState().laneActive).toEqual([false, true, false, false]);
+  });
+
+  it("let one lane go on off=N, and the next write takes it again", () => {
+    sim.setEdition("audio");
+    sim.setLaneSource("ws");
+    const home = values(sim);
+    run(sim, 100, () => [0, 1, 2, 3].forEach((i) => sim.setLane("ws", i, 0.9)));
+    sim.releaseLane("editor", 2);
+    sim.releaseLane("ws", 1);
+    sim.tick(FRAME);
+    expect(sim.knobState().laneActive).toEqual([true, false, true, true]);
+    expect(sim.knobReadout(1).value).toBe(home[1]);
+    sim.setLane("ws", 1, 0.9);
+    sim.tick(FRAME);
+    expect(sim.knobState().laneActive[1]).toBe(true);
+  });
+
+  it("let one bus channel go on an empty param/N, inside the 250 ms a hand waits out", () => {
+    sim.applyRemoteParam(0, 800);
+    sim.applyRemoteParam(1, 800);
+    sim.tick(FRAME);
+    sim.turn(0, 1);
+    sim.releaseRemoteParam(1);
+    sim.tick(FRAME);
+    expect(sim.knobState().paramActive).toEqual([true, false, false, false]);
+  });
+
+  it("move a knob by clicks no hand made, one for one, and knobs counts none of them", () => {
+    const hand = new DeviceSim();
+    hand.tick(FRAME);
+    hand.turn(1, 3);
+    hand.tick(FRAME);
+    sim.nudge(1, 3);
+    sim.tick(FRAME);
+    expect(values(sim)).toEqual(values(hand));
+    expect(sim.given()?.input.knobDeltas).toEqual([0, 3, 0, 0]);
+    expect(sim.knobState().knobs).toEqual([0, 0, 0, 0]);
+    expect(sim.snapshot().turns).toEqual([0, 0, 0, 0]);
+  });
+
+  it("leave a nudged knob on its lane, and its bus channel held and in charge", () => {
+    sim.setEdition("audio");
+    sim.setLaneSource("ws");
+    sim.applyRemoteParam(3, 800);
+    run(sim, 300, () => sim.setLane("ws", 0, 0.5));
+    const held = values(sim)[3];
+    sim.setLane("ws", 0, 0.5);
+    sim.nudge(0, 2);
+    sim.nudge(3, 2);
+    sim.tick(FRAME);
+    expect(sim.knobState().laneActive[0]).toBe(true);
+    expect(sim.snapshot().laneHeld[0]).toBe(false);
+    expect(sim.knobState().paramActive[3]).toBe(true);
+    expect(values(sim)[3]).toBe(held);
+    expect(sim.given()?.input.knobDeltas).toEqual([2, 0, 0, 0]);
+  });
+
+  it("give the pattern a remote button's press once, and held until it is up, with no screen", () => {
+    sim.turn(2, 4);
+    sim.tick(FRAME);
+    expect(sim.knobReadout(2).value).toBeGreaterThan(sim.knobReadout(2).min);
+    sim.remoteButton(2, true);
+    sim.tick(FRAME);
+    expect(sim.given()?.input.btnPressed).toEqual([false, false, true, false]);
+    // Origin's press, as a hand's: K3 is back at its start.
+    expect(sim.knobReadout(2).value).toBe(sim.knobReadout(2).min);
+    sim.remoteButton(2, true);
+    run(sim, 2000);
+    expect(sim.given()?.input.btnPressed).toEqual(none);
+    expect(sim.given()?.input.btnHeld).toEqual([false, false, true, false]);
+    // A hand held this long opens KNOB MAP.
+    expect(sim.snapshot().mode).toBe("run");
+    sim.remoteButton(2, false);
+    sim.tick(FRAME);
+    expect(sim.given()?.input.btnHeld).toEqual(none);
+  });
+
+  it("wake nothing: asleep, a nudge and a remote button are lost", () => {
+    sim.setSleeping(true);
+    run(sim, 1000);
+    sim.nudge(0, 5);
+    sim.remoteButton(0, true);
+    sim.tick(FRAME);
+    expect(sim.snapshot().mode).toBe("sleep");
+    expect(sim.given()).toBeNull();
+    sim.remoteButton(0, false);
+    sim.setSleeping(false);
+    sim.tick(FRAME);
+    expect(sim.given()?.input.knobDeltas).toEqual([0, 0, 0, 0]);
+    expect(sim.given()?.input.btnPressed).toEqual(none);
+  });
+
+  it("read what the pattern threw, frame by frame", () => {
+    const spy = vi.spyOn(PatternRuntime.prototype, "renderFrame").mockReturnValueOnce({ ok: false, error: "boom" });
+    sim.tick(FRAME);
+    expect(sim.given()?.error).toBe("boom");
+    sim.tick(FRAME);
+    expect(sim.given()?.error).toBeNull();
+    spy.mockRestore();
   });
 });

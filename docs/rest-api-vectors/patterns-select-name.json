@@ -1,0 +1,12 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsselect",
+  "says": "Display name, exact match. Only if you have no index.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/select?index=1" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "activeIsModule": true } } },
+    { "send": { "http": "GET /api/patterns/select?name=origin" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/patterns/select?name=Origin" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "index": 0, "name": "Origin" } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Origin" } } }
+  ]
+}

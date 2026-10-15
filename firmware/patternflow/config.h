@@ -78,33 +78,37 @@ constexpr float EULER      = 2.71828182845904523536f;
 // pattern with PFCanvas::setFrame(). See README.md.
 // Running a non-stock panel? Please report how it went, working or not:
 // https://github.com/engmung/Patternflow/issues/224
-#define PANEL_GEOM_128x64_SINGLE 1  // one 128×64 module (stock)
-#define PANEL_GEOM_64x64_SINGLE  2  // one 64×64 module
-#define PANEL_GEOM_64x64_CHAIN2  3  // two 64×64 modules daisy-chained → 128×64
+//
+// The ids and the sizes come from shared/constants.json, which the site
+// reads too.
+#include "src/core_shared.h"
+#define PANEL_GEOM_128x64_SINGLE PF_SHARED_PANEL_GEOM_128x64_SINGLE  // one 128×64 module (stock)
+#define PANEL_GEOM_64x64_SINGLE  PF_SHARED_PANEL_GEOM_64x64_SINGLE   // one 64×64 module
+#define PANEL_GEOM_64x64_CHAIN2  PF_SHARED_PANEL_GEOM_64x64_CHAIN2   // two 64×64 modules daisy-chained → 128×64
 
 // #define PANEL_GEOMETRY PANEL_GEOM_64x64_CHAIN2
 #ifndef PANEL_GEOMETRY
-#define PANEL_GEOMETRY PANEL_GEOM_128x64_SINGLE
+#define PANEL_GEOMETRY PF_SHARED_PANEL_GEOM_DEFAULT
 #endif
 
 #if PANEL_GEOMETRY == PANEL_GEOM_64x64_SINGLE
-  #define PANEL_PHYS_W 64
-  #define PANEL_PHYS_H 64
-  #define PANEL_CHAIN  1
-  #define PANEL_RES_W  64
-  #define PANEL_RES_H  64
+  #define PANEL_PHYS_W PF_SHARED_PANEL_GEOM_64x64_SINGLE_PHYS_W
+  #define PANEL_PHYS_H PF_SHARED_PANEL_GEOM_64x64_SINGLE_PHYS_H
+  #define PANEL_CHAIN  PF_SHARED_PANEL_GEOM_64x64_SINGLE_CHAIN
+  #define PANEL_RES_W  PF_SHARED_PANEL_GEOM_64x64_SINGLE_RES_W
+  #define PANEL_RES_H  PF_SHARED_PANEL_GEOM_64x64_SINGLE_RES_H
 #elif PANEL_GEOMETRY == PANEL_GEOM_64x64_CHAIN2
-  #define PANEL_PHYS_W 64
-  #define PANEL_PHYS_H 64
-  #define PANEL_CHAIN  2
-  #define PANEL_RES_W  128
-  #define PANEL_RES_H  64
+  #define PANEL_PHYS_W PF_SHARED_PANEL_GEOM_64x64_CHAIN2_PHYS_W
+  #define PANEL_PHYS_H PF_SHARED_PANEL_GEOM_64x64_CHAIN2_PHYS_H
+  #define PANEL_CHAIN  PF_SHARED_PANEL_GEOM_64x64_CHAIN2_CHAIN
+  #define PANEL_RES_W  PF_SHARED_PANEL_GEOM_64x64_CHAIN2_RES_W
+  #define PANEL_RES_H  PF_SHARED_PANEL_GEOM_64x64_CHAIN2_RES_H
 #else
-  #define PANEL_PHYS_W 128
-  #define PANEL_PHYS_H 64
-  #define PANEL_CHAIN  1
-  #define PANEL_RES_W  128
-  #define PANEL_RES_H  64
+  #define PANEL_PHYS_W PF_SHARED_PANEL_GEOM_128x64_SINGLE_PHYS_W
+  #define PANEL_PHYS_H PF_SHARED_PANEL_GEOM_128x64_SINGLE_PHYS_H
+  #define PANEL_CHAIN  PF_SHARED_PANEL_GEOM_128x64_SINGLE_CHAIN
+  #define PANEL_RES_W  PF_SHARED_PANEL_GEOM_128x64_SINGLE_RES_W
+  #define PANEL_RES_H  PF_SHARED_PANEL_GEOM_128x64_SINGLE_RES_H
 #endif
 
 #if PANEL_RES_W != (PANEL_PHYS_W * PANEL_CHAIN)

@@ -119,9 +119,12 @@ export function openDeckPanel(): void {
 }
 
 const DECK_KEY = "pf-deck";
-/** What the deck was called when it was the only list. Migrated once, on read. */
+/** Written by the module cart from 27 July 2026 (2caa602) until the cart
+ *  became the deck on 29 July (f3f163b). Moved to the deck on the first read
+ *  that finds it. */
 const LEGACY_CART_KEY = "pf-module-cart";
-/** The removed Saved list. Cleared on first read so it does not sit in
+/** The Saved list, written from 29 July 2026 (f3f163b) until it was removed on
+ *  12 August (a0f14bc). Cleared on first read so it does not sit in
  *  people's browsers forever holding copies of patterns nothing can show. */
 const RETIRED_SAVED_KEY = "pf-saved";
 

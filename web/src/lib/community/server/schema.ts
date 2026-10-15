@@ -626,11 +626,13 @@ export const builds = sqliteTable(
     /** queued → running → done | error */
     status: text("status").notNull().default("queued"),
     /**
-     * What the worker produces. "bin" is a whole flashable image — the legacy
-     * path, and still what a device running firmware older than the module
-     * loader needs. "pfm" is loadable modules: one .pfm per pattern, zipped,
-     * built in ~½ s and installed over Wi-Fi at the device's /patterns page
-     * with no reflash.
+     * What the worker produces. "pfm" is loadable modules: one .pfm per
+     * pattern, zipped, built in ~½ s and installed over Wi-Fi at the device's
+     * /patterns page with no reflash. "bin" was a whole flashable image, built
+     * from 25 July 2026 until 12 August (4c13474), and the builds route
+     * answers it with 410 now. It is the default because
+     * 0005_add-build-format.sql added this column on 27 July under the image
+     * builds already in the table.
      */
     format: text("format").notNull().default("bin"),
     /** JSON: [{ label, code }] — the C++ headers to build. */

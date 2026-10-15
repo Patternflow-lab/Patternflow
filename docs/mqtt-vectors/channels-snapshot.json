@@ -1,0 +1,22 @@
+{
+  "contract": "docs/mqtt-spec.md#the-channel-decides-whether-your-writes-survive",
+  "says": "Channels 1–4 and Live subscribe to the retained `<prefix>/snapshot`, whose `param:[…]` the firmware applies straight onto the knobs, exactly as if it had arrived on `param/<n>`.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "mqtt": { "topic": "patternflow1/snapshot", "payload": "{\"param\":[110,120,130,140]}", "retain": true } } },
+    { "send": { "mqtt": { "topic": "patternflow2/snapshot", "payload": "{\"param\":[210,220,230,240]}", "retain": true } } },
+    { "send": { "mqtt": { "topic": "patternflow3/snapshot", "payload": "{\"param\":[310,320,330,340]}", "retain": true } } },
+    { "send": { "mqtt": { "topic": "patternflow4/snapshot", "payload": "{\"param\":[410,420,430,440]}", "retain": true } } },
+    { "send": { "mqtt": { "topic": "patternflow5/snapshot", "payload": "{\"param\":[510,520,530,540]}", "retain": true } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow1&role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [110, 120, 130, 140], "paramActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow2" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [210, 220, 230, 240], "paramActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow3" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [310, 320, 330, 340], "paramActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow4" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [410, 420, 430, 440], "paramActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow5" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [510, 520, 530, 540], "paramActive": [true, true, true, true] } } }
+  ]
+}

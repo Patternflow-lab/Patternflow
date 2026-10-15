@@ -42,8 +42,8 @@ cursor:pointer;text-align:left;font-family:inherit;color:inherit}
 .sens .top b{font-size:13px;font-weight:600}
 .sens .top label{margin-left:auto;font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;cursor:pointer}
 .sens .top label input{accent-color:var(--led)}
-/* The readout column is in its own font's ch: the longest reading is 29
-   (1/16 at 101.6 turns), plus room for a fallback font's wider × and ·.
+/* The readout column is in its own font's ch: the longest reading is 28
+   (1/16 at 84.7 turns), plus room for a fallback font's wider × and ·.
    Narrower, it spilled past the page edge; on a phone it goes under the
    slider instead. */
 .g{display:grid;grid-template-columns:28px minmax(0,1fr) 32ch;align-items:center;gap:12px;padding:5px 0;
@@ -201,9 +201,9 @@ function gainIndex(mul,div){
   return mul>1?0:GAINS.length-1;
 }
 function gainText(g){return g[0]>1?('\u00d7'+g[0]):(g[1]>1?('1/'+g[1]):'1 : 1')}
-// 20 detents a turn; 127 steps end to end.
+// 24 detents a turn (PEC11R-4220F-S0024); 127 steps end to end.
 function rowText(g,abs){
-  var perTurn=20*g[0]/g[1];
+  var perTurn=24*g[0]/g[1];
   var t=gainText(g)+' \u00b7 '+(Math.round(perTurn*10)/10)+'/turn';
   if(abs)t+=' \u00b7 '+(Math.round(127/perTurn*10)/10)+' turns';
   return t;

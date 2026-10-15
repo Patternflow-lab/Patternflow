@@ -1,0 +1,11 @@
+{
+  "contract": "docs/rest-api.md#post-apisleep",
+  "says": "`sleep` is the state **before** the transition — the request is only queued here.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/sleep?on=1" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "http": "POST /api/sleep?on=0" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "requested": false, "sleep": true } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } }
+  ]
+}

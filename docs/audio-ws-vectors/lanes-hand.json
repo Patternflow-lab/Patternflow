@@ -1,0 +1,17 @@
+{
+  "contract": "docs/audio-ws-spec.md#semantics--what-a-lane-is",
+  "says": "A physical turn of an encoder takes that knob back and holds it for five seconds; keep streaming and the lane resumes when the hold expires.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "a=0.5,0.5,-,-" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [true, true, false, false] } } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } } },
+    { "send": { "ws": "d=1,v=0.25" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [false, true, false, false] } } },
+    { "send": { "wait": 4700 } },
+    { "send": { "ws": "a=0.5,0.5,-,-" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [false, true, false, false] } } },
+    { "send": { "ws": "a=0.5,0.5,-,-" } },
+    { "send": { "wait": 300 }, "expect": { "status": { "laneActive": [true, true, false, false] } } }
+  ]
+}

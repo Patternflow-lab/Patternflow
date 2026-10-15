@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "a CC or note the host itself sent is never reflected back",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [176, 20, 100] } },
+    { "send": { "midi": [176, 25, 65] } },
+    { "send": { "midi": [144, 62, 127] } },
+    { "send": { "wait": 100 }, "expect": { "out": [{ "midi": "<absent>" }], "status": { "paramActive": [true, false, false, false] }, "input": { "given": { "deltas": [0, 1, 0, 0], "presses": [0, 0, 1, 0] } } } },
+    { "send": { "midi": [128, 62, 0] } },
+    { "send": { "wait": 100 }, "expect": { "out": [{ "midi": "<absent>" }] } }
+  ]
+}

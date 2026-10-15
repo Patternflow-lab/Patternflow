@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "in `abs` only a position that differs from the last one sent goes out",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "hand": { "knob": 2, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 25, 65], "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": 1 } }, "expect": { "out": [{ "midi": "<absent>", "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": -1 } }, "expect": { "out": [{ "midi": "<absent>", "within": 20 }] } },
+    { "send": { "wait": 100 }, "expect": { "out": [{ "midi": "<absent>" }] } },
+    { "send": { "hand": { "knob": 2, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 25, 66], "within": 20 }] } }
+  ]
+}

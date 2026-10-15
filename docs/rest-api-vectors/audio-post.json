@@ -1,0 +1,11 @@
+{
+  "contract": "docs/rest-api.md#audio-react-audio-edition",
+  "says": "`on=0/1`. Persisted in NVS; answers with the new state.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "http": "POST /api/audio?on=0" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "audioRuntime": false } } } },
+    { "send": { "http": "GET /api/audio" }, "expect": { "reply": { "body": { "audioRuntime": false } } } },
+    { "send": { "http": { "request": "POST /api/audio", "form": "on=1" } }, "expect": { "reply": { "status": 200, "body": { "ok": true, "audioRuntime": true } } } },
+    { "send": { "http": "GET /api/audio" }, "expect": { "reply": { "body": { "audioRuntime": true } } } }
+  ]
+}

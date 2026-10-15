@@ -1,6 +1,6 @@
 # tools/
 
-Clients that Patternflow ships and that run on their own — a browser extension, a phone app, a diagnostic script. The line between this folder and [`integrations/`](../integrations/README.md): a **tool** is a standalone program of ours; an **integration** is a bridge that runs inside or beside someone else's software (a DAW, Max, TouchDesigner, Node-RED). Both talk to the panel only through the contracts in [`docs/`](../docs/README.md#contracts--other-software-is-built-against-these-not-against-the-firmware-source).
+Clients that Patternflow ships and that run on their own — a browser extension, a phone app, a diagnostic script. The line between this folder and [`integrations/`](../integrations/README.md): a **tool** is a standalone program of ours; an **integration** is a bridge that runs inside or beside someone else's software (a DAW, Max, TouchDesigner, Node-RED). Both talk to the panel only through the contracts in [`docs/`](../docs/README.md#contracts--other-software-is-built-against-these-not-against-the-firmware-source). `virtual-panel/` is the one folder here on the panel's side of them.
 
 | Folder | What it is | Contract |
 | :--- | :--- | :--- |
@@ -8,6 +8,7 @@ Clients that Patternflow ships and that run on their own — a browser extension
 | [`patternflow-audio-android/`](patternflow-audio-android/README.md) | The phone-side twin: captures what the phone is playing and drives the knobs with it, for filming. It takes its mapping from the panel | [`audio-ws-spec.md`](../docs/audio-ws-spec.md), and the microphone endpoints of [`rest-api.md`](../docs/rest-api.md#microphone-audio-edition) |
 | [`rtpmidi-probe/`](rtpmidi-probe/README.md) | A plain-Python RTP-MIDI session initiator that walks the MIDI contract against a panel from a machine with no MIDI driver | [`midi-spec.md`](../docs/midi-spec.md) |
 | [`case-models/`](case-models/README.md) | Not a client of the panel: the scripts that make the 3D model of each case the /build page's preview shows (`web/public/cases/<id>/model.glb`), from the case's own files in `hardware/case/`. Run by hand; the site's build does not run them | The node names `web/src/components/3d/caseModels.ts` finds in every model, listed in its README |
+| [`virtual-panel/`](virtual-panel/README.md) | Not a client: a Patternflow with no board. The guide's `DeviceSim` answers on the firmware's ports, and the vectors beside each contract in `docs/` are replayed against it on every pull request. `npm run virtual-panel` in `web/` starts one | [`rest-api.md`](../docs/rest-api.md), [`osc-spec.md`](../docs/osc-spec.md), [`midi-spec.md`](../docs/midi-spec.md), [`mqtt-spec.md`](../docs/mqtt-spec.md) and [`audio-ws-spec.md`](../docs/audio-ws-spec.md), the device's side of each |
 
 ## The extension is also firmware source
 
