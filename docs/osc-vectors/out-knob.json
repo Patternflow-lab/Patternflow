@@ -1,0 +1,15 @@
+{
+  "contract": "docs/osc-spec.md#device--host",
+  "says": "Encoder N (1–4) turned by a hand; signed detent delta for this frame.",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 50 } },
+    { "send": { "hand": { "knob": 1, "turn": 2 } } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/knob/1/delta", 2] }, { "osc": ["/patternflow/knob/1/clicks", 2] }, { "osc": "<absent>" }] } },
+    { "send": { "hand": { "knob": 1, "turn": -3 } } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/knob/1/delta", -3] }, { "osc": ["/patternflow/knob/1/clicks", -1] }, { "osc": "<absent>" }] } },
+    { "send": { "osc": ["/patternflow/knob/1/delta", 5] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": "<absent>" }], "input": { "given": { "deltas": [4, 0, 0, 0] } } } }
+  ]
+}

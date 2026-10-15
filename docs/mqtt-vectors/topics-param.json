@@ -1,0 +1,17 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "absolute `0`–`1000`; empty payload releases the hold",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/3", "payload": "750" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": ["<integer>", "<integer>", 750, "<integer>"], "paramActive": [false, false, true, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/3", "payload": "1000" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": ["<integer>", "<integer>", 1000, "<integer>"], "paramActive": [false, false, true, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/3", "payload": "0" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": ["<integer>", "<integer>", 0, "<integer>"], "paramActive": [false, false, true, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/3", "payload": "" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, false, false, false] } } }
+  ]
+}

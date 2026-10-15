@@ -1,0 +1,11 @@
+{
+  "contract": "docs/osc-spec.md#host--device",
+  "says": "Virtual rotation on knob N (1–4), applied on top of physical motion at 1× per detent",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "hand": { "knob": 2, "turn": 1 } } },
+    { "send": { "osc": ["/patternflow/knob/2/delta", 3] } },
+    { "send": { "osc": ["/patternflow/knob/3/delta", -2] } },
+    { "send": { "wait": 50 }, "expect": { "input": { "given": { "deltas": [0, 4, -2, 0] } } } }
+  ]
+}
