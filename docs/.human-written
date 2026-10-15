@@ -1,0 +1,1 @@
+# Paths the maintainer locks beyond docs/rfc-cleanup.md §2.9, one per line from the repository root; a directory locks what is under it. web/scripts/human-lock.ts reads this file.
