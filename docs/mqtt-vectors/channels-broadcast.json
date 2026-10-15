@@ -1,0 +1,14 @@
+{
+  "contract": "docs/mqtt-spec.md#the-channel-decides-whether-your-writes-survive",
+  "says": "**Broadcast has no snapshot subscription.**",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "mqtt": { "topic": "patternflow/snapshot", "payload": "{\"param\":[100,200,300,400]}", "retain": true } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow&role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true, "paramActive": [false, false, false, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/2", "payload": "800" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": ["<integer>", 800, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow/snapshot", "payload": "{\"param\":[100,200,300,400]}", "retain": true } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": ["<integer>", 800, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } }
+  ]
+}

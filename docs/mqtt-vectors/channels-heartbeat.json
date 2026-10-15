@@ -1,0 +1,15 @@
+{
+  "contract": "docs/mqtt-spec.md#the-channel-decides-whether-your-writes-survive",
+  "says": "A Publisher on the channel re-sends one every 8 seconds, and the retained copy is redelivered on every reconnect.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow5&role=publisher" } },
+    { "send": { "wait": 20 }, "expect": {
+      "status": { "mqttRole": "publisher", "mqttConnected": true, "paramActive": [false, false, false, false] },
+      "out": [{ "mqtt": { "topic": "patternflow5/snapshot", "payload": "<string>", "retain": true } }] } },
+    { "send": { "wait": 7900 }, "expect": { "out": [{ "mqtt": "<absent>" }] } },
+    { "send": { "wait": 200 }, "expect": { "out": [{ "mqtt": { "topic": "patternflow5/snapshot", "payload": "<string>", "retain": true } }] } },
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "subscriber", "mqttConnected": true, "paramActive": [true, true, true, true] } } }
+  ]
+}

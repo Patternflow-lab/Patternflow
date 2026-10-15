@@ -1,0 +1,17 @@
+{
+  "contract": "docs/rest-api.md#get-apimqtt",
+  "says": "Absolute accumulated click counts, signed, unbounded. Live in every role.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "hand": { "knob": 1, "turn": 3 } } },
+    { "send": { "hand": { "knob": 1, "turn": 2 } } },
+    { "send": { "hand": { "knob": 2, "turn": -4 } } },
+    { "send": { "http": "GET /api/mqtt" }, "expect": { "reply": { "body": { "role": "off", "knobs": [5, -4, 0, 0] } } } },
+    { "send": { "http": "POST /api/mqtt?role=publisher" } },
+    { "send": { "hand": { "knob": 4, "turn": 30 } } },
+    { "send": { "http": "GET /api/mqtt" }, "expect": { "reply": { "body": { "role": "publisher", "knobs": [5, -4, 0, 30] } } } },
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "hand": { "knob": 2, "turn": -1 } } },
+    { "send": { "http": "GET /api/mqtt" }, "expect": { "reply": { "body": { "role": "subscriber", "knobs": [5, -5, 0, 30] } } } }
+  ]
+}
