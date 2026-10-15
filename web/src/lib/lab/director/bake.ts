@@ -7,8 +7,10 @@
 // The shipping path is PFST v2 (bakeShowV2): cues on the 0.1 s grid, curve
 // segments adaptively flattened into EASE pieces the player lerps between,
 // within a sub-detent error of the authored bezier. bakeShow (v1, the dense
-// whole-second staircase) stays for compatibility checks and old players —
-// nothing in the lab's own path uses it anymore.
+// whole-second staircase) was the shipping path until 25 August 2026
+// (7749e69). Its one reader now is scripts/lab-director-smoke.ts, which runs
+// its round trips on it and measures v2's cue count against it. Firmware
+// before v3.6.3 plays only v1 tables, and nothing on the site bakes for it.
 
 import {
   PFST_MAX_CUES,
