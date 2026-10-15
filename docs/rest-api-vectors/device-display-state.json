@@ -1,0 +1,15 @@
+{
+  "contract": "docs/rest-api.md#get-apidisplay",
+  "says": "Any subset of these may be set in the query string; the response always reports the full state afterwards.",
+  "features": [],
+  "steps": [
+    {
+      "send": { "http": "GET /api/display?sat=2&gamma_g=2.5" },
+      "expect": { "reply": { "status": 200, "body": {
+        "wb_r": "<number>", "wb_g": "<number>", "wb_b": "<number>", "gamma_r": "<number>", "gamma_g": 2.5, "gamma_b": "<number>", "sat": 2,
+        "brightness": "<integer>", "screen": "<integer>", "level": "<integer>", "power_budget": "<integer>", "power_limit": "<integer>",
+        "calib": "<any>", "sleep": "<any>", "power_ma": "<any>", "power_demand": "<any>", "power_limiting": "<any>", "power_applied": "<any>" } } }
+    },
+    { "send": { "http": "GET /api/display?brightness=128" }, "expect": { "reply": { "body": { "gamma_g": 2.5, "sat": 2, "brightness": 128 } } } }
+  ]
+}

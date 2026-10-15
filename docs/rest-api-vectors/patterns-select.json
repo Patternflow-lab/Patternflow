@@ -1,0 +1,13 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsselect",
+  "says": "Queued and applied in `loop()`, for the same reason as sleep: activating a module reads FATFS and runs the relocator.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/select?index=0" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "active": "Origin", "activeIsModule": false } } },
+    { "send": { "http": "GET /api/patterns/select?index=1" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "index": 1, "name": "<string>" } } } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 0 } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "activeIsModule": true } } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 1 } } } }
+  ]
+}

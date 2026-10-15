@@ -1,0 +1,11 @@
+{
+  "contract": "docs/rest-api.md#knobs-and-parameters",
+  "says": "`/api/knob` and `/remote` existed and were removed as unused alongside the `/api/frame` incident; do not look for them.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/knob" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "POST /api/knob?knob=1&delta=1" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /remote" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/frame" }, "expect": { "reply": { "status": 404 } } }
+  ]
+}
