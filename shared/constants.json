@@ -1,0 +1,29 @@
+{
+  "//": "Values the firmware and the site both carry. Change one here, then run npm run gen:shared in web/. It writes firmware/patternflow/src/core_shared.h and web/src/lib/shared/constants.ts, and check:shared fails while either is stale.",
+  "panel": {
+    "//": "The geometries PANEL_GEOMETRY picks from in config.h. Two 64x64 modules in a chain make the same 128x64 canvas as one 128x64 module.",
+    "PANEL_GEOM_DEFAULT": "128x64_SINGLE",
+    "PANEL_GEOMETRIES": {
+      "128x64_SINGLE": { "id": 1, "physW": 128, "physH": 64, "chain": 1 },
+      "64x64_SINGLE": { "id": 2, "physW": 64, "physH": 64, "chain": 1 },
+      "64x64_CHAIN2": { "id": 3, "physW": 64, "physH": 64, "chain": 2 }
+    }
+  },
+  "knobs": {
+    "//": "The PEC11R-4220F-S0024 has 24 detents a turn. Two turns cross a parameter's whole range, so 48 detents do.",
+    "KNOB_COUNT": 4,
+    "DETENTS_PER_TURN": 24,
+    "TURNS_PER_FULL_RANGE": 2
+  },
+  "encoder": {
+    "//": "Quadrature edges in one detent. A press held past LONG_PRESS_MS is a long press, and button edges closer than BUTTON_DEBOUNCE_MS are ignored.",
+    "EDGES_PER_DETENT": 4,
+    "LONG_PRESS_MS": 1000,
+    "BUTTON_DEBOUNCE_MS": 50
+  },
+  "bus": {
+    "//": "The absolute bus speaks integers 0 to BUS_MAX. A pattern that reads only knob deltas gets one click for every BUS_UNITS_PER_CLICK a held channel moves.",
+    "BUS_MAX": 1000,
+    "BUS_UNITS_PER_CLICK": 10
+  }
+}
