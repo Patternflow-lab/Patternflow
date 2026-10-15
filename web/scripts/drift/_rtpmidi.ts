@@ -1,9 +1,9 @@
 /**
  * The RTP-MIDI sender check:midi-vectors gives _vectors.ts, an initiator shaped like
- * tools/rtpmidi-probe/rtpmidi_probe.py. It opens a control and a data socket, invites the panel on its
- * midi port and then on the next, syncs clocks once, and puts each step's message in an RTP-MIDI packet
- * of its own. A vector writes a message as its bytes (docs/midi-vectors/README.md), [176, 24, 65] for
- * CC 24 at 65 on channel 1, and heard is each message the panel sent, read back into the same form.
+ * tools/rtpmidi-probe/rtpmidi_probe.py. It invites the panel on its midi port from a control socket and
+ * on the next port from a data socket, then syncs clocks once. Each step's message goes in an RTP-MIDI
+ * packet of its own. A vector writes a message as its bytes (docs/midi-vectors/README.md), [176, 24, 65]
+ * for CC 24 at 65 on channel 1, and heard is each message the panel sent, read back into the same form.
  */
 import { randomBytes } from "node:crypto";
 import dgram from "node:dgram";
