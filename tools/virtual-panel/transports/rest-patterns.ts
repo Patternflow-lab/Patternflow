@@ -54,7 +54,7 @@ function thumb({ width, height, data }: PatternRuntime) {
 const transport: Transport = {
   feature: null,
   caps: ["patterns"],
-  attach({ sim, clock, routes }) {
+  attach({ sim, clock, routes, status }) {
     const inside = sim as unknown as Inside;
     const list = () => inside.patterns.map((p, index) => ({ index, name: p.name, module: index < PRESETS ? null : p.slug }));
     const modules = () => inside.patterns.slice(PRESETS).map((p) => p.slug);
@@ -62,17 +62,24 @@ const transport: Transport = {
     // A pattern's picture is the canvas as it was left (snapshotActiveIfRipe, patternflow.ino). Every switch, a hand's
     // on SELECT or a socket's, goes through DeviceSim's load(), so that is where the canvas is read.
     const thumbs = new Map<string, Buffer>();
-    let since = clock.now();
+    let [since, captures, captureMaxUs] = [clock.now(), 0, 0];
     const load = inside.load.bind(sim);
     inside.load = (index) => {
       const left = inside.patterns[inside.active];
-      if (left && clock.now() - since >= RIPE_MS) thumbs.set(left.slug, thumb(inside.runtime));
+      if (left && clock.now() - since >= RIPE_MS) {
+        const t0 = performance.now();
+        thumbs.set(left.slug, thumb(inside.runtime));
+        captureMaxUs = Math.max(captureMaxUs, Math.round((performance.now() - t0) * 1000));
+        captures++;
+      }
       since = clock.now();
       load(index);
     };
 
     const cluster = (bytes = 0) => Math.ceil(bytes / 4096) * 4096;
     const used = () => [...modules().flatMap((s) => [PACK.get(`${s}.pfm`), PACK.get(`${s}.json`)]), ...thumbs.values()].reduce((n, f) => n + cluster(f?.length), 0);
+    // The volume's fields in /api/status. A panel saves a pattern's picture once a boot (savedThisBoot, core_thumbs.h).
+    status.push(() => ({ fsMounted: true, fsTotal: FS_TOTAL, fsUsed: used(), thumbs: { captures, reads: 0, writes: thumbs.size, captureMaxUs, ioMaxUs: 0 } }));
     routes("GET", "/api/patterns", () => ({
       body: { active: sim.consoleState().patternIndex, presets: PRESETS, mounted: true, free: FS_TOTAL - used(), patterns: list(), pendingRev: 0, pending: [] },
     }));
