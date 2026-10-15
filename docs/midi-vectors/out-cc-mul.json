@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "outbound sensitivity the other way: steps per detent, `1..8`.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outMul=8&knob=4" } },
+    { "send": { "hand": { "knob": 4, "turn": 2 } }, "expect": { "out": [{ "midi": [176, 27, 80], "within": 20 }] } },
+    { "send": { "hand": { "knob": 3, "turn": 2 } }, "expect": { "out": [{ "midi": [176, 26, 66], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 4, "turn": -1 } }, "expect": { "out": [{ "midi": [176, 27, 72], "within": 20 }] } }
+  ]
+}

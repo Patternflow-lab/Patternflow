@@ -1,0 +1,37 @@
+{
+  "contract": "docs/midi-spec.md#status",
+  "says": "Unreleased 1.2 adds `rxDetail` to both `midi` in `/api/status` and the root of `GET /api/midi`.",
+  "features": ["midi"],
+  "steps": [
+    {
+      "send": { "http": "GET /api/status" },
+      "expect": {
+        "reply": {
+          "body": {
+            "midi": {
+              "rxDetail": {
+                "worker": "<boolean>", "abs": ["<integer>", "<integer>", "<integer>", "<integer>"], "rel": ["<integer>", "<integer>", "<integer>", "<integer>"],
+                "queueDropped": "<integer>", "txQueueDropped": "<integer>", "packetGaps": "<integer>", "parseErrors": "<integer>", "bufferOverflows": "<integer>",
+                "pollMaxGapUs": "<integer>", "pollMaxUs": "<integer>", "queueMaxAgeUs": "<integer>", "stackMin": "<integer>"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "send": { "http": "GET /api/midi" },
+      "expect": {
+        "reply": {
+          "body": {
+            "rxDetail": {
+              "worker": "<boolean>", "abs": ["<integer>", "<integer>", "<integer>", "<integer>"], "rel": ["<integer>", "<integer>", "<integer>", "<integer>"],
+              "queueDropped": "<integer>", "txQueueDropped": "<integer>", "packetGaps": "<integer>", "parseErrors": "<integer>", "bufferOverflows": "<integer>",
+              "pollMaxGapUs": "<integer>", "pollMaxUs": "<integer>", "queueMaxAgeUs": "<integer>", "stackMin": "<integer>"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

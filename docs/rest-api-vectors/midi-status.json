@@ -1,0 +1,24 @@
+{
+  "contract": "docs/midi-spec.md#status",
+  "says": "`GET /api/status` on a build with this feature lists `\"midi\"` in `caps` and carries",
+  "features": ["midi"],
+  "steps": [
+    {
+      "send": { "http": "GET /api/status" },
+      "expect": {
+        "reply": {
+          "status": 200,
+          "body": {
+            "caps": ["patterns", "params", "sleep", "midi"],
+            "midi": {
+              "runtime": "<boolean>", "channel": "<integer>", "outMode": "<string>", "host": "<string>",
+              "outDiv": ["<integer>", "<integer>", "<integer>", "<integer>"],
+              "outMul": ["<integer>", "<integer>", "<integer>", "<integer>"],
+              "rtpPeers": "<integer>", "rtpPeer": "<string>", "rx": "<integer>", "tx": "<integer>"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

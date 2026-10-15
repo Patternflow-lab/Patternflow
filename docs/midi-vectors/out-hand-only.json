@@ -1,0 +1,10 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "Encoder 1–4 turned by a hand.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/params?p1=900" } },
+    { "send": { "wait": 100 }, "expect": { "out": [{ "midi": "<absent>" }], "status": { "params": [900, "<integer>", "<integer>", "<integer>"] } } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 24, 65], "within": 20 }] } }
+  ]
+}

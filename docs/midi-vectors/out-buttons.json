@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "Encoder button 1–4 pressed",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "hand": { "knob": 1, "down": true } }, "expect": { "out": [{ "midi": [144, 60, 127], "within": 20 }] } },
+    { "send": { "wait": 500 }, "expect": { "out": [{ "midi": "<absent>" }] } },
+    { "send": { "hand": { "knob": 1, "down": false } }, "expect": { "out": [{ "midi": [128, 60, "<integer>"], "within": 20 }] } },
+    { "send": { "hand": { "knob": 4, "down": true } }, "expect": { "out": [{ "midi": [144, 63, 127], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 4, "down": false } }, "expect": { "out": [{ "midi": [128, 63, "<integer>"], "within": 20 }, { "midi": "<absent>" }] } }
+  ]
+}
