@@ -5,7 +5,7 @@
 > **Status, 15 October 2026.** Draft. Nothing in it is built. It moves to
 > proposed when the cleanup's gate holds
 > ([rfc-cleanup.md §2.12](rfc-cleanup.md#212-order-and-what-done-means)).
-> Facts are from `dev` at `a800fd3`. What a step plan has not merged yet is
+> Facts are from `dev` at `adbe923`. What a step plan has not merged yet is
 > named by its plan and its k.
 
 This document is two things on purpose. **Part 1 is the maintainer, in his
@@ -172,11 +172,11 @@ guide's preview (`Extras.tsx:185, 248`) draw the stock device and stay at
 128×64. Pattern Lab's C++ export writes the macro a module build fills
 (`cppPrompt.ts:68`).
 
-`shared/constants.json` (step 3, k7) will hold the three geometries and the
-default (step 3, D7). This RFC adds the module sizes the page offers and the
-bound, carried to the page and to `DeviceSim` by the generated files. If k7
-lands in another shape, both stay by hand in `config.h` and `panelScreens.ts`,
-and no check covers them.
+`shared/constants.json` holds the three geometries and the default under
+`panel` (step 3, k7). This RFC adds the module sizes the page offers and the
+bound beside them. `core_shared.h` and `constants.ts` carry both once step 3's
+k8 and k9 have `config.h` and `panelScreens.ts` read them. If those land in
+another shape, the page and `DeviceSim` take the two by hand.
 
 Touches `web/src/lib/guide/deviceSim.ts` and its test, and
 `shared/constants.json` with its two generated files. Two PRs, site and shared.
@@ -264,7 +264,7 @@ size, one core PR.
 | 4 | compiled-in patterns through `setFrame` | core | 2 |
 | 5 | the clock's `w` and `h` | feature | 1 |
 | 6 | the menus from the screen size | core | 1 |
-| 7 | `shared/constants.json`: module sizes and the bound | shared | step 3's k7 |
+| 7 | `shared/constants.json`: module sizes and the bound | shared | step 3's k8, k9 |
 | 8 | the console page and `/api/panel` | core | 3, 6, 7 |
 | 9 | the button at power-on | core | 1 |
 | 10 | `build_module.py` and `make_pack.py` take a size | toolchain | — |
