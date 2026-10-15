@@ -30,6 +30,13 @@
  * the way GitHub slugs them. A ref other than main is read with git, and a
  * shallow clone has no tags: run `git fetch --tags` first or those rows say no.
  *
+ * `--check absolute` is check:links-absolute (docs/rfc-cleanup.md §2.4). It
+ * reads the same rows and writes nothing. It fails on an absolute row that does
+ * not resolve, and on a tracked file outside the sources above that carries a
+ * repository URL, since the map never reads that file. A row on a ref the clone
+ * lacks is skipped, and the check says which refs; PF_DRIFT_STRICT=1, which CI
+ * sets, fails on a skip as well.
+ *
  * The parity list (docs/rfc-cleanup.md §2.3) is every text the repository
  * keeps in both Korean and English, one row per pair, and whether a side is
  * missing or short. Kinds:
@@ -61,6 +68,11 @@ const PARITY = "docs/investigations/2026-10-doc-parity.csv";
 const CONSOLE = "firmware/patternflow/console/";
 const REDIRECTS = "web/next.config.ts";
 const SKIP = /(^|\/)(hub75|webserver|pubsubclient)\//;
+const CHECK = process.argv.includes("--check") ? (process.argv[process.argv.indexOf("--check") + 1] ?? "") : null;
+if (CHECK !== null && CHECK !== "absolute") {
+  console.error(`doc-map: --check takes "absolute", not "${CHECK}"`);
+  process.exit(2);
+}
 
 const git = (args: string[]) =>
   execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 28, stdio: ["ignore", "pipe", "ignore"] });
@@ -132,7 +144,8 @@ for (const f of tracked.filter((f) => /^firmware\/patternflow\/.*\.(h|ino|cpp)$/
 
 // ── Reading links out of a file ──
 
-type Row = { from: string; to: string; kind: string; anchor: string; resolves: "yes" | "no" };
+// ref: the branch or tag a file row was read at, which the CSV folds into `to`.
+type Row = { from: string; to: string; kind: string; anchor: string; resolves: "yes" | "no"; ref?: string };
 
 const REPO_URL =
   /^https?:\/\/(?:www\.)?(?:github\.com\/(?:engmung|patternflow-lab)\/patternflow\/(blob|tree|raw|edit)|raw\.githubusercontent\.com\/(?:engmung|patternflow-lab)\/patternflow)\/([^/?#]+)\/?([^?#]*)/i;
@@ -147,7 +160,7 @@ function classify(from: string, raw: string, markdown: boolean): Row | null {
   const fileRow = (ref: string, p: string, kind: string) => {
     const body = contentAt(ref, p);
     const ok = body !== null && (!anchor || !/\.mdx?$/.test(p) || /^L\d+/.test(anchor) || anchorsOf(body).has(anchor.toLowerCase()));
-    return row(ref === "main" ? p : `${ref}:${p}`, kind, ok);
+    return { ...row(ref === "main" ? p : `${ref}:${p}`, kind, ok), ref };
   };
   const site = (p: string) => row(trim(p), "site", publicFiles.has(trim(p)) || siteRoutes.some((r) => r.test(trim(p))));
 
@@ -208,13 +221,52 @@ for (const f of sources) for (const r of linksIn(f)) rows.set(key(r), r);
 const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 // Code-point order, not the locale's, so the file is the same on every machine.
 const sorted = [...rows.values()].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+const show = (r: Row) => `  ${r.from} → ${r.to}${r.anchor ? "#" + r.anchor : ""} (${r.kind})`;
+
+// ── The check ──
+
+if (CHECK) {
+  const strict = process.env.PF_DRIFT_STRICT === "1";
+  const absolute = sorted.filter((r) => r.kind.startsWith("absolute-"));
+  const refOf = (r: Row) => r.ref ?? "main";
+  const perRef = new Map<string, number>();
+  for (const r of absolute) perRef.set(refOf(r), (perRef.get(refOf(r)) ?? 0) + 1);
+  const lacking = new Set([...perRef.keys()].filter((ref) =>
+    ref !== "main" && ref !== "HEAD" && !attempt(() => !!git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]), false)));
+  const unread = absolute.filter((r) => lacking.has(refOf(r)));
+  const broken = absolute.filter((r) => r.resolves === "no" && !lacking.has(refOf(r)));
+
+  // A repository URL in a file the map does not read. The *_index.h headers
+  // are the console pages again, and vendored code is upstream's.
+  const mapped = new Set(sources);
+  const hits = attempt(() => git(["grep", "-z", "-l", "-I", "-i", "-E",
+    "github\\.com/(engmung|patternflow-lab)/patternflow/(blob|tree|raw|edit)/|raw\\.githubusercontent\\.com/(engmung|patternflow-lab)/patternflow/"]), "");
+  const strays = hits.split("\0").filter((f) => f && !mapped.has(f) && !SKIP.test(f) && !f.endsWith("_index.h"))
+    .flatMap((f) => [...read(f).matchAll(URL_IN_TEXT)].map((m) => classify(f, m[0], false)))
+    .filter((r): r is Row => !!r?.kind.startsWith("absolute-"));
+
+  const at = [...perRef].sort().map(([ref, n]) => `${ref === "main" ? "main at HEAD" : ref} (${n})`).join(", ");
+  console.log(`${absolute.length} absolute links from ${new Set(absolute.map((r) => r.from)).size} files, against ${at}`);
+  console.log(`${broken.length} do not resolve`);
+  for (const r of broken) console.log(show(r));
+  console.log(`${new Set(strays.map((r) => r.from)).size} files outside the map carry a repository URL`);
+  for (const r of strays) console.log(show(r));
+  if (unread.length) {
+    console.log(`${unread.length} not read: this clone lacks ${[...lacking].sort().join(", ")}; run git fetch --tags`);
+    if (strict) console.log("PF_DRIFT_STRICT=1, so a link not read fails");
+  }
+  const failed = broken.length > 0 || strays.length > 0 || (unread.length > 0 && strict);
+  console.log(`links-absolute: ${failed ? "failed" : unread.length ? "skipped" : "passed"}`);
+  process.exit(failed ? 1 : 0);
+}
+
 const csv = ["from,to,kind,anchor,resolves", ...sorted.map((r) => [r.from, r.to, r.kind, r.anchor, r.resolves].map(cell).join(","))];
 fs.writeFileSync(path.join(ROOT, OUT), csv.join("\n") + "\n");
 
 const broken = sorted.filter((r) => r.resolves === "no");
 console.log(`${sorted.length} links from ${new Set(sorted.map((r) => r.from)).size} files → ${OUT}`);
 console.log(`${broken.length} do not resolve`);
-for (const r of broken) console.log(`  ${r.from} → ${r.to}${r.anchor ? "#" + r.anchor : ""} (${r.kind})`);
+for (const r of broken) console.log(show(r));
 
 // ── The parity list ──
 
