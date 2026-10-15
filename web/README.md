@@ -14,11 +14,13 @@ npm run dev     # http://localhost:3000
 Other scripts:
 
 ```bash
-npm run build      # production build — must pass before merging (CI hard gate)
-npm run lint       # eslint
-npm run typecheck  # tsc --noEmit
-npm run check:ci   # every smoke suite CI runs (check:module wants the Xtensa toolchain and stays local)
-npm start          # serve the production build
+npm run build             # production build — must pass before merging (CI hard gate)
+npm run lint              # eslint
+npm run typecheck         # tsc --noEmit
+npm run check:ci          # every smoke suite CI runs, then the drift checks (check:module wants the Xtensa toolchain and stays local)
+npm run check:drift       # the drift checks alone; check:bom, check:editions and the others run one each
+npm run check:human-lock  # fails if a word of the maintainer's own writing changed since the merge-base with origin/dev
+npm start                 # serve the production build
 ```
 
 Requires Node 20+ (matches CI).
@@ -44,6 +46,6 @@ None are required — the site runs fully without them. The community host needs
 
 ## Contributing
 
-See the repo-level [CONTRIBUTING.md](../CONTRIBUTING.md). Web changes go through a PR into `main`; CI runs lint, typecheck, the `check:*` suites and `next build` on anything under `web/`.
+See the repo-level [CONTRIBUTING.md](../CONTRIBUTING.md). Web changes go through a PR into `main`; CI runs lint, typecheck, `check:ci` and `next build` on anything under `web/`, and the drift checks and `check:human-lock` on every pull request.
 
 Code in `web/` is MIT licensed ([LICENSE-MIT](../LICENSE-MIT)).
