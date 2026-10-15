@@ -32,6 +32,11 @@ function normalizeJournalPath(pathname: string) {
   return pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 }
 
+// No journal page ends in /en/en, but the first ?lang=en redirect in
+// next.config.ts makes one: it reads /journal/en?lang=en as a post called "en"
+// and answers /journal/en/en. The language switch on the Korean index has
+// linked /journal/en?lang=en since 17 May 2026 (668eaa2c), and this collapse
+// came the next day (83050af7).
 function collapseDuplicateEnglishSuffix(pathname: string) {
   const normalizedPathname = normalizeJournalPath(pathname);
 
