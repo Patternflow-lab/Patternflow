@@ -64,7 +64,11 @@ const named = [
   ...tryOuts,
   ...manifest.builds.flatMap((b) => b.parts.map((p) => new URL(p.path, manifestUrl).href)),
 ].flatMap((url) => binFolder(url) ?? []);
-compare("images against what names them", { label: BIN, items: folders(BIN) }, { label: "cards, try-outs and manifest.json", items: new Set(named) });
+compare(
+  "images against what names them",
+  { label: BIN, items: folders(BIN) },
+  { label: "cards, try-outs and manifest.json", items: new Set(named) },
+);
 
 for (const file of SCRIPTS) {
   const tuple = /^EDITIONS = \(([^)]*)\)/m.exec(read(file))?.[1];
