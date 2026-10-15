@@ -1,0 +1,15 @@
+{
+  "contract": "docs/rest-api.md#get-apipatterns",
+  "says": "`active` is an index into `patterns`, or `-1` while nothing is loaded.",
+  "features": [],
+  "steps": [
+    {
+      "send": { "http": "GET /api/patterns" },
+      "expect": { "reply": { "status": 200, "body": {
+        "active": "<integer>", "presets": 1, "mounted": true, "free": "<integer>", "patterns": "<array>", "pendingRev": "<integer>", "pending": "<array>" } } }
+    },
+    { "send": { "http": "GET /api/patterns/select?index=2" } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 2 } } } }
+  ]
+}

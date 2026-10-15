@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsfile",
+  "says": "This is a file download (`Content-Disposition: attachment`), one file at a time — the server is single-connection.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/file?slug=wave_saw" }, "expect": { "reply": { "status": 200, "headers": { "content-disposition": "<string>" } } } },
+    { "send": { "http": "GET /api/patterns/file?slug=wave_saw&ext=json" }, "expect": { "reply": { "status": 200, "headers": { "content-disposition": "<string>" } } } }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#get-apidisplay",
+  "says": "Read-only in the response: `calib`, `sleep`, `power_ma`, `power_demand`, `power_limiting`, `power_applied`.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/display?sleep=1" }, "expect": { "reply": { "status": 200, "body": { "sleep": "<any>" } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } }
+  ]
+}

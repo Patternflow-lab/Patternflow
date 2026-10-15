@@ -1,0 +1,16 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsselect",
+  "says": "`+1` or `-1`: the next or previous pattern that is not hidden, wrapping, from wherever the panel is now.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/select?index=0" } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns/select?step=%2B1" }, "expect": { "reply": { "status": 200, "body": { "index": 1 } } } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns/select?step=-1" }, "expect": { "reply": { "status": 200, "body": { "index": 0 } } } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns/select?step=-1" }, "expect": { "reply": { "status": 200, "body": { "index": "<integer>" } } } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns/select?step=%2B1" }, "expect": { "reply": { "status": 200, "body": { "index": 0 } } } }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsfile",
+  "says": "`404` if the file is not there, `409` if storage is not mounted.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/file?slug=no_such_module" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/patterns/file?slug=no_such_module&ext=json" }, "expect": { "reply": { "status": 404 } } },
+    { "send": { "http": "GET /api/patterns/file?slug=no_such_module&ext=thumb" }, "expect": { "reply": { "status": 404 } } }
+  ]
+}
