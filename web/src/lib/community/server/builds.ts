@@ -14,9 +14,13 @@ import { builds } from "./schema";
 export type BuildStatus = "queued" | "running" | "done" | "error";
 
 /**
- * "bin" — a whole flashable image (legacy; still what pre-loader firmware
- * needs). "pfm" — loadable modules, zipped, installed over Wi-Fi with no
- * reflash. See moduleRunner.ts for why the difference is 14 s vs ½ s.
+ * "pfm" — loadable modules, zipped, installed over Wi-Fi with no reflash.
+ * "bin" — a whole flashable image. The community built those from 25 July 2026
+ * (c5e0907) until 12 August (4c13474), and POST /builds has answered "bin"
+ * with 410 since. The worker builds modules whatever a row says (processSend
+ * in buildJobs.ts). "bin" is still the default here and on the column
+ * (schema.ts), and `npm run build:enqueue` writes it when run without --pfm.
+ * See moduleRunner.ts for why the difference is 14 s vs ½ s.
  */
 export type BuildFormat = "bin" | "pfm";
 
