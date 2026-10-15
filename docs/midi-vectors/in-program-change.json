@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Select pattern index `n` (0-based, the order on `/patterns`).",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [192, 3] } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 3 } } } },
+    { "send": { "midi": [192, 0] } },
+    { "send": { "wait": 20 } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 0 } } } }
+  ]
+}
