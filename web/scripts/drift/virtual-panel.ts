@@ -29,37 +29,38 @@ const RUN_MS = 2000;
 type Listed = { index: number; name: string; module: string | null };
 type State = { mode: string; pattern: { index: number }; error: string | null };
 
-const firmwareOnly = read(TWINS).match(/^FIRMWARE_ONLY\s*=\s*\{([^}]*)\}/m)?.[1];
-if (firmwareOnly === undefined) throw new Error(`${TWINS} has no FIRMWARE_ONLY = {...}`);
-const skipped = new Set([...firmwareOnly.matchAll(/"([^"]+)"/g)].map((m) => m[1]));
-console.log(`firmware-only, by ${TWINS}: ${[...skipped].sort().join(", ")}`);
+const literal = read(TWINS).match(/^FIRMWARE_ONLY\s*=\s*\{([^}]*)\}/m)?.[1];
+if (literal === undefined) throw new Error(`${TWINS} has no FIRMWARE_ONLY = {...}`);
+const firmwareOnly = new Set([...literal.matchAll(/"([^"]+)"/g)].map((m) => m[1]));
+console.log(`firmware-only, by ${TWINS}: ${[...firmwareOnly].sort().join(", ")}`);
 const headers = tracked(HEADERS)
   .map((f) => f.slice(HEADERS.length).match(/^preset_([^/]+)\.h$/)?.[1])
-  .filter((x): x is string => x !== undefined && !skipped.has(x));
+  .filter((x): x is string => x !== undefined && !firmwareOnly.has(x));
 
 // What the panel lists a header under: its NAME for a preset, its num for a module.
 const byName = new Map<string, string>();
 const byNum = new Map<number, string>();
 for (const h of headers) {
-  const name = read(`${HEADERS}preset_${h}.h`).match(/^\s*const char\* NAME = "([^"]*)";/m)?.[1];
+  const name = read(`${HEADERS}preset_${h}.h`).match(/\bNAME\s*=\s*"([^"]*)"/)?.[1];
   if (name !== undefined) byName.set(name, h);
   const twin = `${WEB}pattern-${h.replace(/_/g, "-")}.ts`;
   const num = tracked(twin).length ? read(twin).match(/^\s*num:\s*([0-9.]+)/m)?.[1] : undefined;
   if (num) byNum.set(Number(num), h);
 }
 const { presets: nums } = JSON.parse(read(PACK)) as { presets: Record<string, number> };
-const header = (p: Listed) =>
-  p.module === null ? (byName.get(p.name) ?? `${p.name} (no header has this NAME)`) : (byNum.get(nums[p.module]) ?? `${p.module} (no header by num)`);
+const header = ({ name, module }: Listed) =>
+  module === null ? (byName.get(name) ?? `${name} (no header has this NAME)`) : (byNum.get(nums[module]) ?? `${module} (no header by num)`);
 
-async function panel<T>(use: (get: (path: string) => Promise<Response>) => Promise<T>): Promise<T> {
+/** A fresh panel on the manual clock, any free port, closed once talk() is done with it. */
+async function panel<T>(talk: (get: (path: string) => Promise<Response>) => Promise<T>): Promise<T> {
   const { ports, close } = await start({ clock: "manual", ports: { "*": 0 } });
   try {
-    return await use((path) => fetch(`http://127.0.0.1:${ports.http}${path}`));
+    return await talk((path) => fetch(`http://127.0.0.1:${ports.http}${path}`));
   } finally {
     await close();
   }
 }
-const json = async <T>(r: Response | Promise<Response>) => (await r).json() as Promise<T>;
+const json = async <T>(reply: Promise<Response>) => (await reply).json() as Promise<T>;
 
 /** Width, height and lit pixels of an 8-bit RGB PNG with unfiltered rows, the one tools/virtual-panel/png.ts writes. */
 function readPng(file: Buffer) {
