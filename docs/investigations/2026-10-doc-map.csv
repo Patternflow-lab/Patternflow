@@ -293,6 +293,8 @@ docs/README.md,docs/releases,relative,,yes
 docs/README.md,docs/rest-api.md,relative,,yes
 docs/README.md,docs/rfc-core-and-variants-progress.md,relative,,yes
 docs/README.md,docs/rfc-core-and-variants.md,relative,,yes
+docs/README.md,docs/voice-banned.txt,relative,,yes
+docs/README.md,docs/voice.md,relative,,yes
 docs/README.md,firmware/CUSTOM_PATTERNS.md,relative,,yes
 docs/README.md,firmware/patternflow/console/README.md,relative,,yes
 docs/README.md,hardware/README.md,relative,,yes
