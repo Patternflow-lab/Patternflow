@@ -1,0 +1,70 @@
+name: Drift checks
+
+# The tree keeps some facts in two places by hand: the BOM and the build
+# guide's parts table, a card on /editions and a folder under
+# firmware/bundles/. Each check in web/scripts/drift/ compares one such pair
+# and prints both sides when they part (docs/rfc-cleanup.md §2.4). check:ci
+# runs them too, but Web CI starts only on web/ and hardware/case/. A pull
+# request that edits only the BOM, a bundle or the changelog runs no web job,
+# and that is the pull request a drift check is for. So this one runs on every
+# pull request.
+#
+# PF_DRIFT_STRICT=1 turns a skip into a failure. At a desk a check skips a side
+# it cannot read: a tag the clone lacks, no pdftotext, no gh login. Here every
+# side can be read, so a skip means this file is missing something.
+# fetch-depth: 0 brings the tags the absolute links point at, and the base
+# commit check:human-lock compares with.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: drift-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      PF_DRIFT_STRICT: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        id: deps
+        run: npm ci
+
+      # check:bom-schematic reads the schematic's text layer with pdftotext,
+      # which the runner image does not carry.
+      - name: Install pdftotext
+        run: command -v pdftotext || { sudo apt-get update -q && sudo apt-get install -y -q poppler-utils; }
+
+      # check:roadmap asks gh for the state of each issue a roadmap node names.
+      - name: Drift checks
+        run: npm run check:drift
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # Not a word of the maintainer's own writing changes (§2.9). It runs
+      # after a red drift step too, so one push shows both.
+      - name: Locked text
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' && github.event_name == 'pull_request' && hashFiles('web/scripts/human-lock.ts') != '' }}
+        run: npm run check:human-lock
+        env:
+          PF_LOCK_BASE: ${{ github.event.pull_request.base.sha }}
