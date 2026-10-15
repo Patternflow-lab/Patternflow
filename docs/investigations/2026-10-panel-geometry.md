@@ -6,8 +6,8 @@
 
 The stock panel is 128×64, and the tree says so in more places than one macro.
 Every count here comes from a command run at the repository root at `e3d3e83`,
-and the command is quoted with its number. A different number on a later tree
-means the tree moved there.
+and the command is quoted with its number or its table. A different number on a
+later tree means the tree moved there.
 
 ## The macro
 
@@ -71,7 +71,7 @@ text in `patternWaveSaw.ts` (2), `hExport.ts` and `matrix.ts`.
 
 The ABI carries the size as `panel_w` and `panel_h` in both structs:
 `PFHostAPI` at `pf_abi.h:82-83` and `PFPatternModule` at `pf_abi.h:117-118`.
-`pf_module.h:61-66` stops a module build that lacks either flag, `:305` stamps
+`pf_module.h:61-66` stops a module build that lacks either flag, `:306` stamps
 the descriptor and `:312` has the module refuse a host of another size. The ABI
 is at version 1, frozen and append only.
 
@@ -137,9 +137,10 @@ features (`show/core_show_schedule.h` 2, `show/core_show_select.h` 2,
 `preset_0629_2.h` sizes four arrays by the macro, two globals at lines 53-54 and
 two on the stack at 101 and 106. `preset_0713.h` sizes two on the stack through
 its local `H` (186-187). `preset_calib.h:119` allocates `4 × W × 3` bytes and
-`preset_0719.h:100` W × H floats. `preset_0712.h`, `preset_0712_2.h` and `preset_0713.h` turn a portrait
-grid onto the panel by hand (`v = W - 1 - x`) instead of calling `setFrame`, so
-they take the panel to be wider than it is tall.
+`preset_0719.h:100` W × H floats. `preset_0712.h`, `preset_0712_2.h` and
+`preset_0713.h` turn a portrait grid onto the panel by hand (`v = W - 1 - x`)
+instead of calling `setFrame`, so they take the panel to be wider than it is
+tall.
 
 | file | uses | lines | | file | uses | lines |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -189,10 +190,11 @@ queue lengths (96, 130).
 
 ## The driver's memory
 
-The driver allocates its row buffers once, in `begin()`
-(`hub75/ESP32-HUB75-MatrixPanel-I2S-DMA.cpp:111-131`), one per row pair per
-buffer. A row is module width × chain pixels and there are module height / 2 of
-them (`.h:750-751`, `MATRIX_ROWS_IN_PARALLEL` 2 at `.h:67`). Each takes width ×
+The driver is vendored in `firmware/patternflow/src/hub75/`, and `.h` and `.cpp`
+below are its `ESP32-HUB75-MatrixPanel-I2S-DMA` pair. It allocates its row
+buffers once, in `begin()` (`.cpp:111-133`), one per row pair per buffer. A row
+is module width × chain pixels, and there are module height / 2 of them
+(`.h:750-751`, with `MATRIX_ROWS_IN_PARALLEL` 2 at `.h:67`). Each takes width ×
 colour depth × 2 bytes (`.h:165-168`, words of `uint16_t` at `.h:87`), from
 `MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA` (`.h:195`). The PSRAM branch at `.h:186`
 needs `SPIRAM_DMA_BUFFER`, and nothing in the tree defines it. The depth is the
@@ -200,8 +202,9 @@ default 8 (`.h:80`, at most 12 at `.h:83`), and nothing sets another.
 `core_display.h:22` turns on double buffering. When a row does not fit,
 `begin()` logs "Not enough memory" (`.cpp:123`) and returns false.
 
-The tree states no total. Worked from that formula, as arithmetic, with two
-buffers at depth 8 and the DMA descriptors (`.cpp:236`) left out:
+The tree states no total, though `begin()` logs one at boot (`.cpp:134`).
+Worked from that formula, as arithmetic, with two buffers at depth 8 and the DMA
+descriptors (`.cpp:236`) left out:
 
 | geometry | row | rows | both buffers |
 | --- | --- | --- | --- |
@@ -210,13 +213,13 @@ buffers at depth 8 and the DMA descriptors (`.cpp:236`) left out:
 | 64×64, chain of 2 | 128 × 8 × 2 = 2,048 B | 32 | 131,072 B |
 
 The vendored blit adds limits of its own. Its fast passes need depth 8 and an
-even width (`.cpp:979`). Anything else goes through the older loop, which
-`firmware/toolchain/tests/blit_test.cpp:73` still runs at widths 2 to 256 and
-at 127. Above depth 10 it refuses to write the frame (`.cpp:538`, `:958`).
-`hub75/VENDORED.md:147-188` works out why the blit never tears for 12 buffers of
-128 words at 16 MHz: 96 µs a row pair against the blit's 109. The line it draws
-is buffers per row × words per row / pixel clock (`VENDORED.md:172`), so a wider
-row moves it.
+even width (`.cpp:979`), and an odd width or any other depth goes through the
+older loop. Above depth 10 it refuses to write the frame (`.cpp:538`, `:958`).
+The host test runs it at nine widths from 2 to 256, 127 among them
+(`firmware/toolchain/tests/blit_test.cpp:73`). `src/hub75/VENDORED.md:147-188`
+works out why the blit never tears for 12 buffers of 128 words at 16 MHz: 96 µs
+a row pair against the blit's 109. The line it draws is buffers per row × words
+per row / pixel clock (`VENDORED.md:172`), so a wider row moves it.
 
 ## The site
 
@@ -238,13 +241,14 @@ to each frame (`sandbox.ts:104-107`).
 | --- | --- |
 | `DeviceSim` and the guide's stage | `PANEL_W`, `PANEL_H` in `lib/guide/panelScreens.ts:42-43`, read by `deviceSim.ts` and five stage files (`Device.tsx`, `Fx.tsx`, `look/ledPanel.ts`, `look/panelGlow.ts`, `world/hubMake.ts`) |
 | the 3D panel's texture | typed, `components/3d/LedMatrixTexture.ts:20-21, 29` |
-| the 3D shaders | `vec2(128.0, 64.0)`, typed 5 times: `patterns/common.ts:55`, `HeroScene.tsx:63, 66`, `patternFlowOriginal.ts:23`, `patternWaveSaw.ts:45` |
+| the 3D shaders | `vec2(128.0, 64.0)`, typed 5 times (`git grep -n -F 'vec2(128.0, 64.0)' -- web/src`): `patterns/common.ts:55`, `HeroScene.tsx:63, 66`, `patternFlowOriginal.ts:23`, `patternWaveSaw.ts:45` |
 | the guide's preview | typed, `Extras.tsx:185` and the `ImageData` at `:248` |
 | the AI prompts | typed defaults, `lib/ai/gemini.ts:226, 387` |
 | Pattern Lab's C++ export | `PATTERN_MATRIX_*`, `lib/lab/cppPrompt.ts:68` and `hExport.ts:165` |
 | a pack's manifest | the `panel` field typed in `make_pack.py`, read as `lib/pattern/packs.ts:54` |
 
-All 48 JS presets read the size from the display, `pattern-0716.ts` through
-`d`. `pattern-0719.ts` also types 128×64 for its density map (33, 70, 132-134,
-146) and its centre (40, 75). `pattern-0712-2.ts` types its portrait grid as
-64×128 (43, 53). No JS preset carries `// @matrix`.
+`git grep -l -E '\b(display|d)\.(width|height)\b' -- 'web/src/lib/presets/pattern-*.ts' | wc -l`
+gives 48, every JS preset, so each reads the size from the display
+(`pattern-0716.ts` through `d`). `pattern-0719.ts` also types 128×64 for its
+density map (33, 70, 132-134, 146) and its centre (40, 75). `pattern-0712-2.ts`
+types its portrait grid as 64×128 (43, 53). No JS preset carries `// @matrix`.
