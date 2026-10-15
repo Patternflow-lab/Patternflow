@@ -13,7 +13,7 @@ record.
 | 1 | Document structure: root, legacy guide, CHANGELOG split, ko/en parity list | planned ([three lanes](investigations/2026-10-cleanup-step1-plan.md)) |
 | 2 | Drift checks: links, BOM triad, features, editions, presets, roadmap, changelog; the human-text lock and the voice lint | planned ([fourteen PRs](investigations/2026-10-cleanup-step2-plan.md)) |
 | 3 | Code hygiene: lint/typecheck zero, legacy named or gone, HUB75 upstream patch, shared constants | planned ([twenty-seven PRs](investigations/2026-10-cleanup-step3-plan.md)) |
-| 4 | Test spine: contract vectors ×5, virtual panel | — |
+| 4 | Test spine: contract vectors ×5, virtual panel | planned ([twenty-four PRs](investigations/2026-10-cleanup-step4-plan.md)) |
 | 5 | RFC drafts: any-resolution, Linux player | — |
 
 Gate for any-resolution (§2.12): not met.
