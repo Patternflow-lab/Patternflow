@@ -59,8 +59,9 @@ function markdown(src: string, mdx: boolean): string {
       if (i > 0 && /^---\s*$/.test(line)) front = false;
       return i > 0 && front ? line.replace(/^\s*[\w-]+:/, blank) : ""; // front matter: the values are text
     }
-    if (/^ {0,3}(?:```|~~~)/.test(line)) fence = !fence;
-    if (fence || /^ {0,3}(?:```|~~~)/.test(line)) return "";
+    const fenced = /^ {0,3}(?:```|~~~)/.test(line);
+    if (fenced) fence = !fence;
+    if (fence || fenced) return "";
     const h = /^ {0,3}(#{1,6})\s/.exec(line);
     if (h && quiet && h[1].length <= quiet) quiet = 0;
     quiet ||= VOICE_HEADING.exec(line)?.[1].length ?? 0;
@@ -92,6 +93,8 @@ function script(src: string, file: string): string {
       return;
     }
     ts.forEachLeadingCommentRange(src, n.pos, comment);
+    ts.forEachTrailingCommentRange(src, n.end, comment);
+    if (ts.isTaggedTemplateExpression(n) && n.tag.getText(sf) === "String.raw") return; // a pattern or a path
     if (ts.isStringLiteral(n)) keep.push([n.getStart(sf) + 1, n.end - 1]);
     else if (ts.isNoSubstitutionTemplateLiteral(n) || ts.isTemplateHead(n) || ts.isTemplateMiddle(n) || ts.isTemplateTail(n)) keep.push([n.getStart(sf), n.end]);
     n.getChildren(sf).forEach(visit);
@@ -114,11 +117,11 @@ const READERS: Record<string, Reader | undefined> = {
   ".py": python, ".sh": hash, ".yml": hash, ".yaml": hash, ".toml": hash,
 };
 
-// URLs, and quoted words: double quotes on one paragraph, or 「」 and 『』.
-// Runs of blanks shrink to one space; the newlines stay.
+// Not prose: URLs, paths, and quoted words (double quotes on one paragraph,
+// or 「」 and 『』). Runs of blanks shrink to one space; the newlines stay.
 const prose = (src: string, read: Reader, file: string) =>
   read(src.replace(/\r/g, ""), file)
-    .replace(/https?:\/\/[^\s)\]>"'`]+/g, blank)
+    .replace(/https?:\/\/[^\s)\]>"'`]+|[\w.@~-]*\/[\w./@~-]+/g, blank)
     .replace(/"(?:[^"\n]|\n(?![ \t]*\n)){1,300}?"|“[^”]{1,300}”|「[^」]{1,300}」|『[^』]{1,300}』/g, blank)
     .replace(/[^\S\n]+/g, " ");
 
@@ -185,8 +188,11 @@ const skipped: string[] = [];
 function add(file: string, lines: Set<number> | null, explicit: boolean, abs = path.join(ROOT, file)) {
   const read = READERS[path.extname(file).toLowerCase()] ?? (explicit ? plain : undefined);
   const raw = read && fs.existsSync(abs) && fs.statSync(abs).isFile() ? fs.readFileSync(abs) : null;
+  if (explicit && !raw && !EXEMPT[file]) {
+    console.log(`check:voice: no such file: ${file}`);
+    process.exit(1);
+  }
   if (EXEMPT[file]) skipped.push(`${file}: ${EXEMPT[file]}`);
-  else if (explicit && !raw) skipped.push(`${file}: no such file`);
   else if (read && raw && !raw.includes(0)) targets.push({ file, src: raw.toString("utf8"), read, lines });
 }
 
@@ -229,7 +235,7 @@ type Finding = { at: string; rule: string; words: string };
 const findings: Finding[] = [];
 let count = 0;
 for (const t of targets) {
-  const lines = prose(t.src, t.read, t.file).split("\n");
+  const lines = prose(t.src, t.read, t.file).replace(/\n$/, "").split("\n");
   const wanted = (i: number) => t.lines === null || t.lines.has(i + 1);
   count += lines.filter((_, i) => wanted(i)).length;
   // Runs of wanted lines, matched as one text so a phrase may wrap.
