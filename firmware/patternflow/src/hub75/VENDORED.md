@@ -356,10 +356,11 @@ which is what makes comparing tens of millions of DMA words worth doing.
 
 - Upstream updates are manual. [UPSTREAM.md](UPSTREAM.md) names the commit this
   copy was taken from and the command that rebuilds the patch.
-- [patternflow.patch](patternflow.patch) is every change from upstream. Most of
-  it is marked `PATTERNFLOW ADDITION (not upstream)` or `PATTERNFLOW FIX` in the
-  source, not all of it: the two fields behind `lastFrameOnTime()`, which
-  `../core_power.h` reads, carry none. The patch is the list.
+- [patternflow.patch](patternflow.patch) is every change from upstream. A
+  `PATTERNFLOW ADDITION (not upstream)` or `PATTERNFLOW FIX` marker heads the
+  larger changes in the source, but not every change has one: the two fields
+  behind `lastFrameOnTime()`, which `../core_power.h` reads, carry neither. The
+  patch is the list.
 - The build server compiles the sketch folder, so it picks this up with no
   separate configuration.
 - If the Library Manager copy is still installed it is simply unused: the sketch
