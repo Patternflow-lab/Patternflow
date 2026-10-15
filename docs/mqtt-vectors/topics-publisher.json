@@ -1,0 +1,13 @@
+{
+  "contract": "docs/mqtt-spec.md#transport",
+  "says": "`publisher` (sends knobs, pattern and, on a show channel, a snapshot heartbeat)",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=publisher" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "publisher", "mqttConnected": true } } },
+    { "send": { "hand": { "knob": 2, "turn": -3 } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/knob/2", "payload": "-3", "retain": false } }] } },
+    { "send": { "hand": { "knob": 2, "turn": 1 } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/knob/2", "payload": "-2", "retain": false } }] } },
+    { "send": { "http": "GET /api/patterns/select?index=1" } },
+    { "send": { "wait": 20 }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/pattern", "payload": "<string>", "retain": false } }] } }
+  ]
+}

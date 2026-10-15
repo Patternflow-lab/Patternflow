@@ -1,0 +1,17 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "`sleep` and `message` are the two topics a panel obeys in **either** role",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/message", "payload": "Doors at nine" } } },
+    { "send": { "http": "GET /vp/mqtt" }, "expect": { "reply": { "body": { "banner": "Doors at nine" } } } },
+    { "send": { "http": "POST /api/mqtt?role=publisher" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "publisher", "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/message", "payload": "Last call" } } },
+    { "send": { "http": "GET /vp/mqtt" }, "expect": { "reply": { "body": { "banner": "Last call" } } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "1" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } }
+  ]
+}
