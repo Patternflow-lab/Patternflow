@@ -40,9 +40,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Lint is a hard gate: lint errors can't reach main (warnings still pass).
+      # Lint is a hard gate, and a warning fails it like an error. The cleanup's
+      # step 3 took the site from twelve warnings to none; one more fails here.
       - name: Lint
-        run: npm run lint
+        run: npm run lint -- --max-warnings=0
 
       # `next build` type-checks only what it bundles; scripts/ and the smoke
       # suites are outside that, and a type error there used to surface as a
