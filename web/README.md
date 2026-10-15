@@ -14,13 +14,16 @@ npm run dev     # http://localhost:3000
 Other scripts:
 
 ```bash
-npm run build             # production build — must pass before merging (CI hard gate)
-npm run lint              # eslint
-npm run typecheck         # tsc --noEmit
-npm run check:ci          # every smoke suite CI runs, then the drift checks (check:module wants the Xtensa toolchain and stays local)
-npm run check:drift       # the drift checks alone; check:bom, check:editions and the others run one each
-npm run check:human-lock  # fails if a word of the maintainer's own writing changed since the merge-base with origin/dev
-npm start                 # serve the production build
+npm run build               # production build — must pass before merging (CI hard gate)
+npm run lint                # eslint
+npm run typecheck           # tsc --noEmit, here and in ../tools/virtual-panel
+npm run check:ci            # every smoke suite CI runs, then the drift checks (check:module wants the Xtensa toolchain and stays local)
+npm run check:drift         # the drift checks alone; check:bom, check:editions and the others run one each
+npm run check:rest-vectors  # a drift check: ../docs/rest-api-vectors against a virtual panel; osc-, midi-, mqtt- and audio-vectors the same
+npm run check:virtual-panel # a drift check too, but no vectors: every preset runs two seconds on a virtual panel without throwing
+npm run virtual-panel       # a Patternflow with no board, until Ctrl-C; on Linux add -- --port http=8080 (../tools/virtual-panel/README.md)
+npm run check:human-lock    # fails if a word of the maintainer's own writing changed since the merge-base with origin/dev
+npm start                   # serve the production build
 ```
 
 Requires Node 20+ (matches CI).
@@ -41,7 +44,7 @@ None are required — the site runs fully without them. The community host needs
 - `src/lib/presets/` — JS pattern library; **source of truth** for the firmware preset headers (`firmware/toolchain/check_presets.py` keeps the two in step).
 - `content/` — markdown/MDX site copy (`build.md`, `pattern.md`, `inside.md`) and the journal. The journal is the maintainer's own writing.
 - `public/flash/` — esp-web-tools manifest + firmware binaries for the browser flasher (there is no `/flash` page: the **Flash Patternflow** button lives on the Pattern tab and in the Play guide). `public/packs/` — the Basics pack. `public/guide/` — the guide's models, its flasher captures, and the live console and editor demos (`firmware/toolchain/console_demo.py`, `editor_demo.py`).
-- `scripts/` — build-time helpers (`build-sandbox.ts`, `import-patterns.ts`, ...), the build worker, and the `check:*` smoke suites (`*-smoke.ts`, run with `tsx`); `test/setup.ts` — the setup for the Vitest component tests that sit beside the code (`src/**/*.test.ts(x)`, `npm run check:panels`); `drizzle/` — community DB migrations; `.env.example` — every variable the community host reads.
+- `scripts/` — build-time helpers (`build-sandbox.ts`, `import-patterns.ts`, ...), the build worker, the `check:*` smoke suites (`*-smoke.ts`, run with `tsx`), and the drift checks in `scripts/drift/`, the contract-vector suites among them; `test/setup.ts` — the setup for the Vitest component tests that sit beside the code (`src/**/*.test.ts(x)`, `npm run check:panels`); `drizzle/` — community DB migrations; `.env.example` — every variable the community host reads.
 - `AGENTS.md` here is a block `next dev` writes for AI agents; `CLAUDE.md` is a one-line shim to it. The project's own agent context is the root `AGENTS.md`.
 
 ## Contributing
