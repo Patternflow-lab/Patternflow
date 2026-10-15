@@ -27,7 +27,7 @@ HUB75 HAT is the first machine it is written for. It is not firmware and not
 an edition: an edition is a firmware build
 ([EDITIONS.md](EDITIONS.md#the-three-words)), and nothing here compiles for
 the ESP32-S3.
-The firmware path, any size on one ESP32-S3, is `docs/rfc-any-resolution.md`.
+The firmware path, any size on one ESP32-S3, is [rfc-any-resolution.md](rfc-any-resolution.md).
 
 Facts are from `dev` at `adbe923`. Where the player leans on work that is only
 planned, the plan and its k are named and the paths are in backticks. "Size" is
