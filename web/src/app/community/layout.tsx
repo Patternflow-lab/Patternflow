@@ -22,9 +22,16 @@ export const metadata: Metadata = {
 
 export default async function CommunityLayout({ children }: { children: React.ReactNode }) {
   // Community pages only run where the SQLite database lives (the self-hosted
-  // deployment). Everywhere else — e.g. the Vercel site — this path is just an
-  // old or mistyped URL, so send the visitor straight to the community host
-  // rather than parking them on a page whose only content is another link.
+  // deployment). Everywhere else, e.g. the Vercel site, this path is reached
+  // through links that name patternflow.work instead of the community host,
+  // and the community writes one into every pattern: since 22 July 2026
+  // (edaa07da) each published pattern's licence footer has carried
+  // patternflow.work/community, and a fork's credit line links
+  // /community/p/<id> (SHARE_TOOLS in lib/pattern/share.ts). PATTERN_GUIDE.md
+  // and the roadmap print the address too. Send the visitor straight to the
+  // community host rather than parking them on a page whose only content is
+  // another link. Every path lands on the community's front page, a fork
+  // credit's included.
   if (!communityEnabled()) {
     const target = communityHomeUrl();
     let targetHost: string | null = null;
