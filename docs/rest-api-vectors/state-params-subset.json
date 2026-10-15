@@ -1,6 +1,6 @@
 {
   "contract": "docs/rest-api.md#post-apiparams",
-  "says": "`p1`..`p4`, each `0..1000`, any subset; at least one required.",
+  "says": "`p1`..`p4`, each `0..1000`, any subset. A request needs at least one `pN` or `dN`.",
   "features": [],
   "steps": [
     {
@@ -11,6 +11,7 @@
       }
     },
     { "send": { "http": "POST /api/params" }, "expect": { "reply": { "body": { "ok": false, "error": "<string>" } } } },
+    { "send": { "http": "POST /api/params?d2=1" }, "expect": { "reply": { "status": 200, "body": { "ok": true } } } },
     {
       "send": { "http": "POST /api/params?p2=1001" },
       "expect": { "reply": { "body": { "ok": false, "error": "<string>" } }, "status": { "paramActive": [true, false, true, false] } }
