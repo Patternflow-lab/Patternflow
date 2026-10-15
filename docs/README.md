@@ -1,6 +1,6 @@
 # docs/
 
-What is here, and what is not. The rule for the split: **a guide somebody follows start to finish lives at the repository root** (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`); **a contract, a reference, a walk-through for one task, or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
+What is here, and what is not. The rule for the split: **the repository root keeps three guides and no others** (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`), so a first-time visitor reads it at a glance; **a contract, a reference, a walk-through for one task (the audio guide is one), or a record lives here**; and a folder explains itself in its own README. The folder-by-folder map of the whole repository is [`REPOSITORY.md`](REPOSITORY.md).
 
 ## Contracts — other software is built against these, not against the firmware source
 
@@ -42,6 +42,7 @@ The interactive guide at [patternflow.work/guide](https://patternflow.work/guide
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — one table: what you have → where it goes → what CI runs on it
 - [`../.github/SUPPORT.md`](../.github/SUPPORT.md) — where to ask what
 - [`REPOSITORY.md`](REPOSITORY.md) — the folder-by-folder map, and the list of files that outside things link to
+- [`voice.md`](voice.md) — how the docs sound in English and in Korean, with the words that stay out in [`voice-banned.txt`](voice-banned.txt)
 
 ## Running the project
 
@@ -50,7 +51,7 @@ The interactive guide at [patternflow.work/guide](https://patternflow.work/guide
 
 ## Records
 
-- [`investigations/`](investigations/) — dated post-mortems
-- [`releases/`](releases/) — long-form notes for three July 2026 releases, kept as written; notes since 3.2 are on [GitHub Releases](https://github.com/engmung/Patternflow/releases), and `CHANGELOG.md` at the root is the complete record
+- [`investigations/`](investigations/) — dated post-mortems, and the cleanup's plans. `npm run doc-map` in `web/` writes the two lists here: `2026-10-doc-map.csv`, every link in the tree and whether it resolves, and `2026-10-doc-parity.csv`, every Korean/English pair and which side is missing or short
+- [`releases/`](releases/) — every release's changelog section as written, one file each (`vX.Y.Z.md`), back to v1.0.0; `CHANGELOG.md` at the root keeps the three newest in full and links the rest. `v3.0.0-notes.md` and `v3.1.0-notes.md` are long-form notes for two July 2026 releases, beside the v3.0.0 launch checklist; notes since 3.2 are on [GitHub Releases](https://github.com/engmung/Patternflow/releases)
 - [`manifesto.md`](manifesto.md) — why Patternflow exists, and (section 6) how we treat each other
 - [`images/`](images/), [`media/`](media/) — assets the guides and the site reference
