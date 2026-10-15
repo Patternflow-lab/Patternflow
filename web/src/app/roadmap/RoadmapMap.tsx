@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import styles from './Roadmap.module.css';
 import {
   EDGES,
@@ -249,7 +249,7 @@ export default function RoadmapMap() {
     return { x: left, y, w: right - left, h };
   }, [nodes]);
 
-  const clampPan = (x: number, y: number, z = zoom) => {
+  const clampPan = useCallback((x: number, y: number, z = zoom) => {
     const el = canvasRef.current;
     const cw = el ? el.clientWidth : width;
     const ch = el ? el.clientHeight : HEIGHT;
@@ -267,20 +267,7 @@ export default function RoadmapMap() {
       x: Math.min(maxX, Math.max(minX, x)),
       y: Math.min(maxY, Math.max(minY, y)),
     };
-  };
-
-  const zoomTo = (next: number) => {
-    const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(next * 10) / 10));
-    if (nz === zoom) return;
-    const el = canvasRef.current;
-    const cx = el ? el.clientWidth / 2 : 0;
-    const cy = el ? el.clientHeight / 2 : 0;
-    // Keep the point at the canvas center fixed while zooming.
-    setPan(
-      clampPan(cx - ((cx - pan.x) / zoom) * nz, cy - ((cy - pan.y) / zoom) * nz, nz),
-    );
-    setZoom(nz);
-  };
+  }, [width, zoom]);
 
   useEffect(() => {
     const el = canvasRef.current;
@@ -312,7 +299,7 @@ export default function RoadmapMap() {
     return () => {
       el.removeEventListener('wheel', handleWheel);
     };
-  }, [width, zoom]);
+  }, [width, zoom, clampPan]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     dragRef.current = {
