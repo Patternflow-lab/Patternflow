@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#conventions-for-future-additions",
+  "says": "A feature's endpoints exist only when that feature is composed in — the route itself is absent otherwise, so clients probe `caps` rather than expecting a soft 404.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "GET /api/status" }, "expect": { "reply": { "body": { "caps": ["patterns", "params", "sleep", "mqtt"] } } } },
+    { "send": { "http": "GET /api/mqtt" }, "expect": { "reply": { "status": 200, "headers": { "content-type": "application/json" }, "body": { "ok": true } } } }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "contract": "docs/rest-api.md#get-apimqtt",
+  "says": "The selected channel (1–4) pins the role to Subscriber",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow5&role=publisher" }, "expect": { "reply": { "body": { "channel": "live", "role": "publisher", "forcesSub": false } } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow3" }, "expect": { "reply": { "body": { "channel": "ch3", "role": "subscriber", "forcesSub": true } } } },
+    { "send": { "http": "POST /api/mqtt?role=publisher" }, "expect": { "reply": { "body": { "channel": "ch3", "role": "subscriber", "forcesSub": true } } } },
+    { "send": { "http": "GET /api/mqtt" }, "expect": { "reply": { "body": { "channel": "ch3", "role": "subscriber", "forcesSub": true } } } }
+  ]
+}
