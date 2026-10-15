@@ -3,8 +3,8 @@
  * 120) and the midi block in /api/status (68 to 93). Once a frame, as observeFrame() in features/midi/core_midi.h runs:
  * a hand's clicks become steps by each knob's outDiv and outMul, the remainder carried, and leave as CC 24 to 27 at
  * most once a knob every 50 ms, the last value always; a hand's button is a note, and a new pattern a Program Change.
- * knobs counts a hand's clicks and nothing else's, so a CC or note a host sent never comes back (line 62), and neither
- * does a lane. The spec where it speaks, core_midi.h and core_midi_http.h where it is silent: the order the arguments
+ * knobs counts a hand's clicks and nothing else's, and the button event is a hand's, so a CC or note a host sent never
+ * comes back (line 62), and neither does a lane. The spec where it speaks, core_midi.h and core_midi_http.h where it is silent: the order the arguments
  * are read in and the error texts, outDiv and outMul resetting each other even to 1, tx counting what goes out with
  * nobody joined, and the pattern under SELECT's cursor as the one that changed. runtime stays true and on= is not
  * read, since midi.ts applies what comes in whatever a switch says. host is kept and reported, and nobody is invited,
