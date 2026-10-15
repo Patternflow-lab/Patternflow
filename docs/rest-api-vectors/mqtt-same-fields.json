@@ -1,0 +1,17 @@
+{
+  "contract": "docs/rest-api.md#knobs-and-parameters",
+  "says": "`GET /api/mqtt` reports the same three fields and has since before `/api/status` did — but it lives in the MQTT addon, so a build without MQTT does not serve it.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "hand": { "knob": 3, "turn": 2 } } },
+    { "send": { "http": "POST /api/params?p2=800" } },
+    {
+      "send": { "http": "GET /api/mqtt" },
+      "expect": { "reply": { "body": { "knobs": [0, 0, 2, 0], "params": ["<integer>", 800, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } }
+    },
+    {
+      "send": { "http": "GET /api/status" },
+      "expect": { "reply": { "body": { "knobs": [0, 0, 2, 0], "params": ["<integer>", 800, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } }
+    }
+  ]
+}
