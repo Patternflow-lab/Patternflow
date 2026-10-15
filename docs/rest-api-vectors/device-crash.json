@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#delete-apicrash",
+  "says": "`{\"ok\":true}`, or `404` with `{\"ok\":false,\"error\":\"no crash recorded\"}` when there was nothing to clear.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/status" }, "expect": { "reply": { "body": { "crash": "<absent>" } } } },
+    { "send": { "http": "DELETE /api/crash" }, "expect": { "reply": { "status": 404, "body": { "ok": false, "error": "no crash recorded" } } } }
+  ]
+}

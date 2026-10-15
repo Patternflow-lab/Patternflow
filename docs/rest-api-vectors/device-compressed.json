@@ -1,0 +1,10 @@
+{
+  "contract": "docs/rest-api.md#transport",
+  "says": "Nothing under `/api/` is compressed.",
+  "features": [],
+  "steps": [
+    { "send": { "http": { "request": "GET /api/status", "headers": { "Accept-Encoding": "gzip, deflate" } } }, "expect": { "reply": { "status": 200, "headers": { "content-encoding": "<absent>" } } } },
+    { "send": { "http": { "request": "GET /api/patterns", "headers": { "Accept-Encoding": "gzip, deflate" } } }, "expect": { "reply": { "status": 200, "headers": { "content-encoding": "<absent>" } } } },
+    { "send": { "http": { "request": "GET /api/patterns/file?slug=wave_saw", "headers": { "Accept-Encoding": "gzip, deflate" } } }, "expect": { "reply": { "status": 200, "headers": { "content-encoding": "<absent>" } } } }
+  ]
+}
