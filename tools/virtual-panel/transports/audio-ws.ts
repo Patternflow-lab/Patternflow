@@ -5,7 +5,8 @@
  * one for five seconds (38 to 49). The spec where it speaks, features/audio/ where it is silent: a value past its
  * range is clamped, a d= of 1 is a full range of clicks, and what arrives is taken at the end of a frame, six messages
  * a client at most. Where the firmware does something else the spec wins: a slot is skipped only when it is a lone -,
- * off=x is ignored, a d= holds no lane, and any socket that closes lets the lanes go, not only the last one.
+ * off=x is ignored, a d= neither keeps a lane alive nor takes it for five seconds, and any socket that closes lets the
+ * lanes go, not only the last one.
  */
 import { createHash } from "node:crypto";
 import http from "node:http";
@@ -138,7 +139,7 @@ export default {
           if (Number.isNaN(end) || buf.length < end) return;
           const payload = Buffer.from(buf.subarray(at + 4, end).map((x, i) => x ^ buf[at + (i % 4)]));
           buf = buf.subarray(end);
-          // A text frame is a message. A piece of a longer one, or a binary frame, is dropped as handle() drops it.
+          // A text frame is a message. A piece of a longer one, or a binary frame, is dropped as onEvent() drops it.
           if (op === TEXT && fin) c.inbox.push(payload.toString("latin1"));
           else if (op === PING) socket.write(frame(PONG, payload.subarray(0, 125)));
           else if (op === CLOSE) return shut(payload.length >= 2 ? payload.readUInt16BE(0) : 1000);
