@@ -1,0 +1,16 @@
+{
+  "contract": "docs/rest-api.md#post-apisleep",
+  "says": "Any physical knob turn or button press wakes the device, as does an incoming firmware image.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/sleep" }, "expect": { "reply": { "body": { "ok": true, "requested": true } } } },
+    { "send": { "wait": 1000 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "hand": { "knob": 3, "turn": 1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "http": "POST /api/sleep" } },
+    { "send": { "wait": 1000 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "hand": { "knob": 2, "down": true } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "hand": { "knob": 2, "down": false } } }
+  ]
+}

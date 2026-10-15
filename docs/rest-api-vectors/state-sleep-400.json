@@ -1,0 +1,10 @@
+{
+  "contract": "docs/rest-api.md#post-apisleep",
+  "says": "`400` with `{\"ok\":false,\"error\":\"on must be 1, 0, or toggle\"}` for anything else.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/sleep?on=maybe" }, "expect": { "reply": { "status": 400, "body": { "ok": false, "error": "on must be 1, 0, or toggle" } } } },
+    { "send": { "http": "POST /api/sleep?on=2" }, "expect": { "reply": { "status": 400, "body": { "ok": false, "error": "on must be 1, 0, or toggle" } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } }
+  ]
+}

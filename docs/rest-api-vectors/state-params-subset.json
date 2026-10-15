@@ -1,0 +1,23 @@
+{
+  "contract": "docs/rest-api.md#post-apiparams",
+  "says": "`p1`..`p4`, each `0..1000`, any subset; at least one required.",
+  "features": [],
+  "steps": [
+    {
+      "send": { "http": { "request": "POST /api/params", "form": "p1=750&p3=250" } },
+      "expect": {
+        "reply": { "status": 200, "body": { "ok": true, "params": [750, "<integer>", 250, "<integer>"], "active": [true, false, true, false] } },
+        "status": { "params": [750, "<integer>", 250, "<integer>"], "paramActive": [true, false, true, false] }
+      }
+    },
+    { "send": { "http": "POST /api/params" }, "expect": { "reply": { "body": { "ok": false, "error": "<string>" } } } },
+    {
+      "send": { "http": "POST /api/params?p2=1001" },
+      "expect": { "reply": { "body": { "ok": false, "error": "<string>" } }, "status": { "paramActive": [true, false, true, false] } }
+    },
+    {
+      "send": { "http": "POST /api/params?p2=1000&p4=0" },
+      "expect": { "reply": { "status": 200, "body": { "ok": true, "params": [750, 1000, 250, 0], "active": [true, true, true, true] } } }
+    }
+  ]
+}
