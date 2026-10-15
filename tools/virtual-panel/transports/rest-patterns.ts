@@ -53,7 +53,7 @@ function thumb({ width, height, data }: PatternRuntime) {
 
 const transport: Transport = {
   feature: null,
-  caps: ["patterns"],
+  caps: [], // rest-state.ts reports patterns with the core's other caps
   attach({ sim, clock, routes, status }) {
     const inside = sim as unknown as Inside;
     const list = () => inside.patterns.map((p, index) => ({ index, name: p.name, module: index < PRESETS ? null : p.slug }));
