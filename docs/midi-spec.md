@@ -116,7 +116,7 @@ most.
 | `POST /api/midi?outMode=abs\|rel` | knobs out as a virtual position (default) or as relative steps. Persisted. |
 | `POST /api/midi?outMul=N` | outbound sensitivity the other way: steps per detent, `1..8`. Setting one of `outMul`/`outDiv` above 1 resets the other to 1; the console page shows both as one scale from ×8 through 1:1 to 1/16. |
 | `...&knob=1..4` | Apply `outMul`/`outDiv` to one knob; without it, to all four. Each knob keeps its own ratio; `GET` reports `outMul` and `outDiv` as four-element arrays. |
-| `POST /api/midi?outDiv=N` | outbound sensitivity: detents per outbound step, `1..16`, persisted on the panel. The encoders have 20 detents a turn, so `1` is 20 steps per turn and `4` is 5. Default `1` (`PF_MIDI_OUT_DIVISOR`). |
+| `POST /api/midi?outDiv=N` | outbound sensitivity: detents per outbound step, `1..16`, persisted on the panel. The encoders have 24 detents a turn, so `1` is 24 steps per turn and `4` is 6. Default `1` (`PF_MIDI_OUT_DIVISOR`). |
 | `POST /api/midi?host=<ip>` | A host to **invite**: the panel sends the session invitation itself on boot and again every 20 s while no session is up, so a panel that reboots comes back into the DAW without anyone reopening rtpMIDI or Audio MIDI Setup. The host must accept invitations (rtpMIDI: *Who may connect to me: Anyone*; macOS: the same setting in the Network MIDI window). Empty string clears it. Persisted. |
 
 ## Why these numbers
