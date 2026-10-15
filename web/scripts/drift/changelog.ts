@@ -27,8 +27,9 @@ const SECTION = /^## \[(?!Unreleased\])([^\]]+)\][^\n]*\n[\s\S]*?(?=^## |(?![\s\
 // [3.11.0] and [v1.1.0] alike: the file name always carries the v.
 const fileOf = (label: string) => `${RELEASES}v${label.replace(/^v+/, "")}.md`;
 
+// $& is the "](" itself, so this file holds no link for doc-map.ts to follow.
 const asFiled = (section: string) =>
-  section.replace(/\n+$/, "").replace(/\]\((?![a-z][a-z0-9+.-]*:|[#/])/g, "](../../") + "\n";
+  section.replace(/\n+$/, "").replace(/\]\((?![a-z][a-z0-9+.-]*:|[#/])/g, "$&../../") + "\n";
 
 function olderLine(file: string): string {
   const m = /^## \[([^\]]+)\]([^\n]*)/.exec(text(file));
@@ -57,10 +58,18 @@ for (const s of sections) {
   }
   // The section's line numbers in the root, counted from 1. as_filed keeps every line where it was.
   const start = root.slice(0, s.index).split("\n").length;
-  const show = (line: string | undefined) => (line === undefined ? "(ends before this line)" : JSON.stringify(line));
-  console.log(`[${label}]: CHANGELOG.md line ${start + at} and ${file} line ${at + 1} differ`);
-  console.log(`  CHANGELOG.md, links as filed: ${show(want[at])}`);
-  console.log(`  ${file}: ${show(have[at])}`);
+  // An entry is one long line, so the run shows where in it the two part.
+  const [a, b] = [want[at], have[at]];
+  let col = 0;
+  while (a !== undefined && b !== undefined && col < a.length && a[col] === b[col]) col++;
+  const from = Math.max(0, col - 30);
+  const show = (line: string | undefined) =>
+    line === undefined
+      ? "(ends before this line)"
+      : (from ? "…" : "") + JSON.stringify(line.slice(from, from + 80)) + (line.length > from + 80 ? "…" : "");
+  console.log(`[${label}]: CHANGELOG.md line ${start + at} and ${file} line ${at + 1} differ from column ${col + 1}`);
+  console.log(`  CHANGELOG.md, links as filed: ${show(a)}`);
+  console.log(`  ${file}: ${show(b)}`);
 }
 compare(
   "sections in full against their files",
