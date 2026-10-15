@@ -6,9 +6,10 @@
 // lab stored without grepping for "patternflow_lab_".
 //
 // Bumping a version means: add the new key here, keep the old one, and write a
-// migration that reads the old and writes the new (serialize.ts's
-// migrateLegacyDraft is the precedent — it lifts _draft_v1 + _gallery_v1 into
-// _project_v2 the first time the new lab opens).
+// migration that reads the old and writes the new. serialize.ts's
+// migrateLegacyDraft is the precedent: it lifts _draft_v1 and _ramp_v1 into a
+// _project_v2 project. The gallery was never migrated. It still lives under
+// its _v1 key.
 
 export const LAB_STORAGE = {
   /** The whole layered project — layers, knobs, ramps, director, gen settings. serialize.ts */
@@ -21,11 +22,24 @@ export const LAB_STORAGE = {
   capture: "patternflow_lab_capture_v1",
   /** Shader twins by layer id / code hash. capture/shaderStore.ts */
   shader: "patternflow_lab_shader_v1",
-  /** v1 lab: the single-pattern draft. Read once by the migration. legacyDraft.ts */
+  /**
+   * The single-pattern draft, written by the lab's autosave from 25 July 2026
+   * (e19fe19) until Pattern Lab v2 replaced it on 27 July (9be6e98). Nothing
+   * writes it now. The migration reads it on every open where no project
+   * restores, an empty canvas after a stash included. legacyDraft.ts
+   */
   legacyDraft: "patternflow_lab_draft_v1",
-  /** v1 lab: the generated gallery. Still live — the gallery has not moved into the project. legacyDraft.ts */
-  legacyGallery: "patternflow_lab_gallery_v1",
-  /** v1 lab: the colour ramp, kept apart from the draft back then. Read once by the migration. serialize.ts */
+  /**
+   * The generated gallery. The lab's autosave has written it since 25 July
+   * 2026 (e19fe19) and still does, because the gallery never moved into the
+   * project. legacyDraft.ts
+   */
+  gallery: "patternflow_lab_gallery_v1",
+  /**
+   * The colour ramp, written by the lab on every ramp edit from 2 July 2026
+   * (67b9798) until Pattern Lab v2 on 27 July (9be6e98). Nothing writes it
+   * now. The migration reads it with the draft. serialize.ts
+   */
   legacyRamp: "patternflow_ramp_v1",
 } as const;
 

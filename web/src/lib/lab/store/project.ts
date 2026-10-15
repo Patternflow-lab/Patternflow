@@ -17,6 +17,8 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
   return {
     hydrate: () => {
       if (get().hydrated) return;
+      // No project, or one with no layers: lift the July draft if the browser
+      // still holds one. persist.ts names the keys.
       const restored = loadProject() ?? migrateLegacyDraft();
       if (restored) {
         const { savedAt, ...project } = restored;
@@ -33,7 +35,7 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
 
     discardProject: () => {
       clearProject();
-      clearDraft(); // also clears the legacy draft + gallery keys
+      clearDraft(); // the July draft's key, and the gallery's
       set({
         ...defaultProject(),
         restoredAt: null,
