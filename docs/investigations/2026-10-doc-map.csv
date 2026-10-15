@@ -105,6 +105,7 @@ CONTRIBUTING.md,docs/mqtt-spec.md,relative,,yes
 CONTRIBUTING.md,docs/osc-spec.md,relative,,yes
 CONTRIBUTING.md,docs/pfst-v2-spec.md,relative,,yes
 CONTRIBUTING.md,docs/rest-api.md,relative,,yes
+CONTRIBUTING.md,docs/rfc-cleanup.md,relative,29-human-written-text-lock,yes
 CONTRIBUTING.md,firmware/bundles/README.md,relative,,yes
 CONTRIBUTING.md,firmware/patternflow/features/README.md,relative,,yes
 CONTRIBUTING.md,web/ARCHITECTURE.md,relative,,yes
@@ -363,6 +364,9 @@ docs/investigations/2026-10-cleanup-step2-plan.md,docs/rfc-cleanup.md,relative,,
 docs/investigations/2026-10-cleanup-step3-plan.md,docs/rfc-cleanup.md,relative,,yes
 docs/investigations/2026-10-cleanup-step4-plan.md,docs/rfc-cleanup.md,relative,,yes
 docs/investigations/2026-10-cleanup-step4-plan.md,docs/voice.md,relative,,yes
+docs/investigations/2026-10-cleanup-step5-plan.md,docs/panel-compatibility.md,relative,,yes
+docs/investigations/2026-10-cleanup-step5-plan.md,docs/rfc-cleanup.md,relative,,yes
+docs/investigations/2026-10-cleanup-step5-plan.md,docs/voice.md,relative,,yes
 docs/legacy/BUILD_GUIDE_v2.md,/,site,,yes
 docs/legacy/BUILD_GUIDE_v2.md,/build/breadboard,site,,yes
 docs/legacy/BUILD_GUIDE_v2.md,BUILD_GUIDE.md,relative,,yes
@@ -459,6 +463,7 @@ docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step1-plan.md,r
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step2-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step3-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step4-plan.md,relative,,yes
+docs/rfc-cleanup-progress.md,docs/investigations/2026-10-cleanup-step5-plan.md,relative,,yes
 docs/rfc-cleanup-progress.md,docs/investigations/2026-10-doc-map.csv,relative,,yes
 docs/rfc-cleanup-progress.md,docs/rfc-cleanup.md,relative,,yes
 docs/rfc-core-and-variants-progress.md,docs/EDITIONS.md,relative,,yes
@@ -877,6 +882,7 @@ web/next.config.ts,/guide/play,site,flash,yes
 web/next.config.ts,/journal/:slug/en,site,,yes
 web/next.config.ts,/journal/en,site,,yes
 web/scripts/deck-pack-smoke.ts,/community/p/p123,site,,yes
+web/scripts/drift/editions.ts,/,site,,yes
 web/scripts/license-smoke.ts,/community/p/abc123,site,,yes
 web/scripts/license-smoke.ts,/pattern-lab,site,,yes
 web/scripts/module-cache-smoke.ts,/community/p/p-author,site,,yes
