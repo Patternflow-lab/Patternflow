@@ -1,0 +1,15 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "the value is a virtual position `0..127` the panel keeps per knob — starts at 64, moves by that knob's `outMul` steps per `outDiv` detents, clamps at the ends",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "hand": { "knob": 1, "turn": 3 } }, "expect": { "out": [{ "midi": [176, 24, 67], "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": -2 } }, "expect": { "out": [{ "midi": [176, 25, 62], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 1, "turn": 62 } }, "expect": { "out": [{ "midi": [176, 24, 127], "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": -63 } }, "expect": { "out": [{ "midi": [176, 25, 0], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 1, "turn": -1 } }, "expect": { "out": [{ "midi": [176, 24, 126], "within": 20 }] } },
+    { "send": { "hand": { "knob": 2, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 25, 1], "within": 20 }] } }
+  ]
+}

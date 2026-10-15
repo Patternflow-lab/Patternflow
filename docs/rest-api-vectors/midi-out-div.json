@@ -1,0 +1,11 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "outbound sensitivity: detents per outbound step, `1..16`, persisted on the panel.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outDiv=16" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [16, 16, 16, 16] } }, "status": { "midi": { "outDiv": [16, 16, 16, 16] } } } },
+    { "send": { "http": "POST /api/midi?outDiv=1" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [1, 1, 1, 1] } } } }
+  ]
+}

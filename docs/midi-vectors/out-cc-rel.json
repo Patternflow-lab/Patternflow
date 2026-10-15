@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "`64 ± steps` since the previous message (binary offset)",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outMode=rel" } },
+    { "send": { "hand": { "knob": 3, "turn": -2 } }, "expect": { "out": [{ "midi": [176, 26, 62], "within": 20 }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 3, "turn": 5 } }, "expect": { "out": [{ "midi": [176, 26, 69], "within": 20 }] } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 24, 65], "within": 20 }] } }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "Apply `outMul`/`outDiv` to one knob; without it, to all four.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outDiv=4&knob=3" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "POST /api/midi?outMul=2&knob=2" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [1, 1, 4, 1], "outMul": [1, 2, 1, 1] } } } },
+    { "send": { "http": "POST /api/midi?outDiv=2" } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [2, 2, 2, 2], "outMul": [1, 1, 1, 1] } } } }
+  ]
+}
