@@ -1,0 +1,16 @@
+{
+  "contract": "docs/rest-api.md#get-apiknobs-and-post-apiknobs",
+  "says": "`GET` returns `inv` (four booleans: reversed or not), `sub` (edges per click per knob: 4, 2 or 1 — most encoders are 4), `clicks` (each knob's click count as the frame sees it) and `raw` (the edge counters underneath, for telling a 2-edge part from a 4-edge one).",
+  "features": [],
+  "steps": [
+    { "send": { "hand": { "knob": 1, "turn": 2 } } },
+    { "send": { "hand": { "knob": 3, "turn": -1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "knobs": [2, 0, -1, 0] } } },
+    {
+      "send": { "http": "GET /api/knobs" },
+      "expect": { "reply": { "status": 200, "body": {
+        "inv": ["<boolean>", "<boolean>", "<boolean>", "<boolean>"], "sub": ["<integer>", "<integer>", "<integer>", "<integer>"],
+        "clicks": [2, 0, -1, 0], "raw": ["<integer>", "<integer>", "<integer>", "<integer>"] } } }
+    }
+  ]
+}
