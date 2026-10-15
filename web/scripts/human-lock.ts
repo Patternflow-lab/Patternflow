@@ -16,18 +16,19 @@
  *                          TypeScript parser and keyed by the node's id
  *   docs/.human-written    each path in it, a directory locking what is under it
  *
- * Each locked file or region is compared as plain text: the base's against the
- * working tree's. Plain text is what is left with the Markdown and MDX syntax
- * and all whitespace gone. The syntax is heading, quote and list marks,
- * emphasis and code marks, table pipes and rules, tags (their alt, title and
- * aria-label values stay, being words), link targets, bare URLs and front
- * matter keys. Front matter values are text, unless one is a path or a URL.
+ * Each locked file or region is compared as plain text, the base's against the
+ * working tree's. Plain text is what is left once the Markdown and MDX syntax
+ * and all whitespace are gone. The syntax is heading, quote and list marks,
+ * emphasis and code marks, code fences (not the code in them), table pipes and
+ * rules, comments, tags, link targets, bare URLs and front matter keys. A
+ * tag's alt, title and aria-label stay, being words, and so do front matter
+ * values, unless one is a path or a URL.
  *
- * The base is scripts/lib/pr-base.ts's. A locked file the base lacks is new,
- * and passes. Locked text that leaves its place passes only if it turns up
- * word for word in a file this diff adds or changes; that is a move, and it
- * prints that the move needs the maintainer's approval on the PR. Taking a
- * path off docs/.human-written fails: only the maintainer does that.
+ * The base comes from scripts/lib/pr-base.ts. A locked file the base lacks is
+ * new, and passes. Locked text that leaves its place passes only if it turns
+ * up word for word in a file this diff adds or changes. That is a move, and the
+ * run says it needs the maintainer's approval on the PR. Taking a path off
+ * docs/.human-written fails: only the maintainer does that.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -260,7 +261,7 @@ const n = (kind: string) => count.get(kind) ?? 0;
 console.log(`base: ${BASE.slice(0, 7)} (${base.from})`);
 console.log(
   `locked: ${n("journal")} journal files, ${n("release")} release files, docs/manifesto.md, ${n("readme")} README sections, ` +
-    `Part 1 of ${n("rfc")} RFCs, ${n("roadmap")} roadmap strings, ${listedNow.length} paths in ${LIST}`,
+    `Part 1 of ${n("rfc")} RFCs, ${n("roadmap")} roadmap strings, ${listedNow.length} path${listedNow.length === 1 ? "" : "s"} in ${LIST}`,
 );
 
 const changes = changedSince(BASE);
@@ -269,12 +270,9 @@ console.log(`this diff touches ${touched.length} locked file${touched.length ===
 
 let failed = 0;
 let moved = 0;
-if (touched.length || listedBefore.some((p) => !listedNow.includes(p))) console.log("");
-
-for (const p of listedBefore.filter((p) => !listedNow.includes(p))) {
-  console.log(`unlisted ${LIST} no longer names ${p}; only the maintainer takes a path off it`);
-  failed++;
-}
+const unlisted = listedBefore.filter((p) => !listedNow.includes(p));
+if (touched.length || unlisted.length) console.log("");
+for (const p of unlisted) console.log(`unlisted ${LIST} no longer names ${p}; only the maintainer takes a path off it`);
 
 // Where vanished text may have gone: every file this diff adds or changes.
 let corpus: { file: string; text: string }[] | undefined;
@@ -322,8 +320,13 @@ for (const c of touched) {
 
 console.log("");
 if (moved) console.log("Moving locked text needs the maintainer's approval on the PR (docs/rfc-cleanup.md §2.9).");
-if (failed) {
-  console.log(`check:human-lock: ${failed} locked text${failed === 1 ? "" : "s"} changed. Markup, layout and link and image paths may change in it; words may not.`);
-  console.log("A typo is reported in the PR description, not fixed.");
+const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+const wrong = [
+  failed && `${plural(failed, "locked text", "locked texts")} changed`,
+  unlisted.length && `${plural(unlisted.length, "path", "paths")} taken off ${LIST}`,
+].filter(Boolean);
+if (wrong.length) {
+  console.log(`check:human-lock: ${wrong.join(", ")}`);
+  if (failed) console.log("Markup, layout and link and image paths may change in locked text; words may not. A typo is reported in the PR description, not fixed.");
   process.exitCode = 1;
 } else console.log("check:human-lock: no locked words changed");
