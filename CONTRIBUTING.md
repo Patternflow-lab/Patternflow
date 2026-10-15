@@ -15,10 +15,12 @@ Patternflow is a device, a firmware, a website and a pile of documentation, and 
 | An enclosure or mechanical **remix** | `hardware/case/remixes/<maker>-<variant>/`, with a README that states Author, License, what it is based on, which board it fits, and the print or cut settings | one new folder; the official folders stay as they are | the README fields are checked |
 | A **bridge** to host software (TouchDesigner, Node-RED, Max, a DAW…) | `integrations/<host>/` with a README, plus a row in `integrations/README.md`. It talks to the panel through the contracts in `docs/` and never imports firmware or web code | one new folder | the README has to name the contract it is built against |
 | A change to a **wire contract** | [`docs/rest-api.md`](docs/rest-api.md), [`osc-spec.md`](docs/osc-spec.md), [`midi-spec.md`](docs/midi-spec.md), [`mqtt-spec.md`](docs/mqtt-spec.md), [`audio-ws-spec.md`](docs/audio-ws-spec.md), [`pfst-v2-spec.md`](docs/pfst-v2-spec.md) | the spec: bump its version line and add a Version history row | `docs-links` |
-| Web app work | `web/` — start at [`web/README.md`](web/README.md) and [`web/ARCHITECTURE.md`](web/ARCHITECTURE.md) | | `web-ci`: lint, typecheck, the `check:*` suites, `next build` |
+| Web app work | `web/` — start at [`web/README.md`](web/README.md) and [`web/ARCHITECTURE.md`](web/ARCHITECTURE.md) | | `web-ci`: lint, typecheck, `check:ci` (the smoke suites and the drift checks), `next build` |
 | A **pattern** | **not this repository.** Make it in the [Pattern Lab](https://patternflow.work/pattern-lab), press **Publish**, and it is on the [Community](https://community.patternflow.work/community) for every Patternflow to play, under the license you choose. [PATTERN_GUIDE.md](PATTERN_GUIDE.md) walks the loop. The presets bundled in the firmware and the Basics pack are curated by the maintainer from the repository's own sources | | |
 
 Parts sourcing tips, better photos of a build step, a clearer sentence: all of those are the first row.
+
+Every pull request, whatever its row, also runs `drift`. It fails when two things the tree keeps by hand stop agreeing, the BOM and the parts table in `BUILD_GUIDE.md` for one, and when a word of the maintainer's own writing changes ([docs/rfc-cleanup.md §2.9](docs/rfc-cleanup.md#29-human-written-text-lock) names the files).
 
 ## Sending it
 
