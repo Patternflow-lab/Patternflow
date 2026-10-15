@@ -66,8 +66,8 @@ inline bool runtimeEnabled = true;
 // Outbound sensitivity: detents per relative-CC step. A DAW moves a mapped
 // parameter a fixed amount per step, and one detent per step turned out to be
 // a lot of parameter per wrist on the first Live session - the panel's
-// encoders have 20 detents a turn, so at 1 a full turn is 20 steps and at 4
-// it is 5. Remainders accumulate, so slow turns still arrive. Runtime, via
+// encoders have 24 detents a turn, so at 1 a full turn is 24 steps and at 4
+// it is 6. Remainders accumulate, so slow turns still arrive. Runtime, via
 // POST /api/midi?outDiv=N, persisted; PF_MIDI_OUT_DIVISOR is the default.
 #ifndef PF_MIDI_OUT_DIVISOR
 #define PF_MIDI_OUT_DIVISOR 1
