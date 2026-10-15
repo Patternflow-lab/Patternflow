@@ -1,9 +1,10 @@
 /**
- * check:markers (docs/rfc-cleanup.md §2.5): no TODO or FIXME is added during
- * the cleanup. First-party code had none when step 3 was planned, and none at
- * seven commits sampled on dev from May to October (finding 11 of
+ * The markers check (docs/rfc-cleanup.md §2.5): no TODO or FIXME is added
+ * during the cleanup. First-party code had none when step 3 was planned, and
+ * none at seven commits sampled on dev from May to October (finding 11 of
  * docs/investigations/2026-10-cleanup-step3-plan.md). So no marker is allowed,
- * and one found is drift.
+ * and one found is drift. `npm run check:drift` runs it with the others, and
+ * `npx tsx scripts/drift.ts markers` alone.
  *
  * It reads every tracked text file under firmware/, web/src/, web/scripts/,
  * tools/ and integrations/. The two words count in capitals, at the start of a
