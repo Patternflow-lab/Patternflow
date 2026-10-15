@@ -1,0 +1,21 @@
+{
+  "contract": "docs/rest-api.md#transport",
+  "says": "Request parameters are **query-string or form-encoded, never a JSON body** — `POST /api/sleep?on=1` and a form body with `on=1` are the same call.",
+  "features": [],
+  "steps": [
+    {
+      "send": { "http": { "request": "POST /api/sleep", "form": "on=1" } },
+      "expect": { "reply": { "status": 200, "body": { "ok": true, "requested": true, "sleep": false } } }
+    },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    {
+      "send": { "http": { "request": "POST /api/sleep", "form": "on=0" } },
+      "expect": { "reply": { "status": 200, "body": { "ok": true, "requested": false, "sleep": true } } }
+    },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    {
+      "send": { "http": { "request": "POST /api/sleep", "form": "{\"on\":\"0\"}", "headers": { "Content-Type": "application/json" } } },
+      "expect": { "reply": { "status": 200, "body": { "ok": true, "requested": true, "sleep": false } } }
+    }
+  ]
+}

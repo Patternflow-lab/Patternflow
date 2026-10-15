@@ -1,0 +1,15 @@
+{
+  "contract": "docs/rest-api.md#get-apiknobs-and-post-apiknobs",
+  "says": "`POST` takes any subset of `inv0`..`inv3` (`0`/`1`) and `sub0`..`sub3` (`4`/`2`/`1`), or `inv=` / `sub=` for all four, form-encoded; a change is applied at a frame boundary without moving the knob, stored on the device (NVS `pf_knobs`) and answered as `GET`.",
+  "features": [],
+  "steps": [
+    { "send": { "hand": { "knob": 2, "turn": 3 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "knobs": [0, 3, 0, 0] } } },
+    { "send": { "http": { "request": "POST /api/knobs", "form": "inv=0&sub=4" } }, "expect": { "reply": { "body": { "inv": [false, false, false, false], "sub": [4, 4, 4, 4], "clicks": [0, 3, 0, 0], "raw": "<array>" } } } },
+    { "send": { "http": { "request": "POST /api/knobs", "form": "inv1=1&sub2=2" } }, "expect": { "reply": { "body": { "inv": [false, true, false, false], "sub": [4, 4, 2, 4], "clicks": [0, 3, 0, 0], "raw": "<array>" } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "knobs": [0, 3, 0, 0] } } },
+    { "send": { "hand": { "knob": 2, "turn": 1 } } },
+    { "send": { "hand": { "knob": 3, "turn": 1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "knobs": [0, 2, 2, 0] } } }
+  ]
+}

@@ -29,15 +29,16 @@ The mapping below is transport-independent. What ships today:
 | **USB** (a USB-MIDI class device — the MIDI edition) | The DevKit's USB port, the one the panel is flashed over, plugged into the computer. No driver and no session: the panel enumerates as a MIDI device named `Patternflow` (a virtual serial port comes with it — that is the console's log and Improv, leave it be). MIDI edition only: the port has to be the S3's USB-OTG controller for a MIDI device to exist, and that is a build-time choice ([`EDITIONS.md`](EDITIONS.md)). **Data only** — the panel is powered from `J4` as always, never from that cable. Both transports share the map below and can be up at once. |
 
 Channel: **1** by default (`PF_MIDI_CHANNEL`; `0` listens on every channel
-and sends on 1). MIDI Thru is off — the panel never echoes a host's messages
-back to it.
+and sends on 1). MIDI Thru is off: the panel never echoes a host's CC or note
+back to it. A Program Change from the host comes back as the pattern change it
+made, as every pattern change does.
 
 ## Host → device
 
 | Message | Meaning |
 |---|---|
 | **CC 20 · 21 · 22 · 23** | Knob 1–4, **absolute**. `0..127` maps to the device's `0..1000` bus (rounded; 127 = 1000). The value **holds** until a hand turns that knob, exactly like `POST /api/params` and MQTT `param/N`. |
-| **CC 24 · 25 · 26 · 27** | Knob 1–4, **relative**. `64` = no motion, `65` = +1 detent, `63` = −1, and so on (two's-complement offset). Merged with physical motion at 1× per step — the same lane as OSC's `/patternflow/knob/N/delta`. Does not release an absolute hold. |
+| **CC 24 · 25 · 26 · 27** | Knob 1–4, **relative**. `64` = no motion, `65` = +1 detent, `63` = −1, and so on (binary offset). Merged with physical motion at 1× per step — the same lane as OSC's `/patternflow/knob/N/delta`. Does not release an absolute hold. |
 | **Note 60 · 61 · 62 · 63** (C4–D♯4) | Button 1–4. Note-on = press (edge), the button reads as held for as long as the note is held; note-off (or velocity 0) releases. |
 | **Program Change `n`** | Select pattern index `n` (0-based, the order on `/patterns`). Treated as a person's choice: it is remembered across reboots, like a knob pick. Ignored while a show claims the panel. |
 
@@ -48,7 +49,7 @@ the channel is `0`.
 
 The device's rules, not MIDI's: **a hand on an encoder beats everything.** An
 absolute CC pins a knob until that encoder moves; relative CCs and notes are
-just more input, and the audio lanes yield to both.
+just more input, and the audio lanes yield to the hand and to an absolute CC.
 
 ## Device → host
 
@@ -116,7 +117,7 @@ most.
 | `POST /api/midi?outMode=abs\|rel` | knobs out as a virtual position (default) or as relative steps. Persisted. |
 | `POST /api/midi?outMul=N` | outbound sensitivity the other way: steps per detent, `1..8`. Setting one of `outMul`/`outDiv` above 1 resets the other to 1; the console page shows both as one scale from ×8 through 1:1 to 1/16. |
 | `...&knob=1..4` | Apply `outMul`/`outDiv` to one knob; without it, to all four. Each knob keeps its own ratio; `GET` reports `outMul` and `outDiv` as four-element arrays. |
-| `POST /api/midi?outDiv=N` | outbound sensitivity: detents per outbound step, `1..16`, persisted on the panel. The encoders have 20 detents a turn, so `1` is 20 steps per turn and `4` is 5. Default `1` (`PF_MIDI_OUT_DIVISOR`). |
+| `POST /api/midi?outDiv=N` | outbound sensitivity: detents per outbound step, `1..16`, persisted on the panel. The encoders have 24 detents a turn, so `1` is 24 steps per turn and `4` is 6. Default `1` (`PF_MIDI_OUT_DIVISOR`). |
 | `POST /api/midi?host=<ip>` | A host to **invite**: the panel sends the session invitation itself on boot and again every 20 s while no session is up, so a panel that reboots comes back into the DAW without anyone reopening rtpMIDI or Audio MIDI Setup. The host must accept invitations (rtpMIDI: *Who may connect to me: Anyone*; macOS: the same setting in the Network MIDI window). Empty string clears it. Persisted. |
 
 ## Why these numbers
@@ -135,6 +136,10 @@ most.
 - **1.2** (unreleased) — additive receive diagnostics, transport service
   independent of display frames, and suppression of outbound CCs generated
   from absolute-bus compatibility clicks. No new transport or CC mapping.
+  Where this file said two things, the section that defines the message now
+  stands: CC 24–27 are binary offset, as their examples always were; a host's
+  Program Change comes back as the pattern change it made; the audio lanes
+  yield to a hand and an absolute CC.
 - **1.1** (2026-09-06) — outbound CC 24–27 paced: one message per knob per
   50 ms at most (`PF_MIDI_OUT_MIN_INTERVAL_MS`), the final value always sent;
   `rel` carries the steps summed since the previous message. On the Audio

@@ -1,0 +1,25 @@
+{
+  "contract": "docs/rest-api.md#post-apisleep",
+  "says": "`1` / `true` / `sleep` · `0` / `false` / `wake` · `toggle`. Default `1` when omitted.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/sleep?on=true" }, "expect": { "reply": { "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "http": "POST /api/sleep?on=0" }, "expect": { "reply": { "body": { "ok": true, "requested": false, "sleep": true } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "http": "POST /api/sleep?on=sleep" }, "expect": { "reply": { "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "http": "POST /api/sleep?on=false" }, "expect": { "reply": { "body": { "ok": true, "requested": false, "sleep": true } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "http": "POST /api/sleep?on=1" }, "expect": { "reply": { "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "http": "POST /api/sleep?on=wake" }, "expect": { "reply": { "body": { "ok": true, "requested": false, "sleep": true } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "http": "POST /api/sleep?on=toggle" }, "expect": { "reply": { "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } },
+    { "send": { "http": "POST /api/sleep?on=toggle" }, "expect": { "reply": { "body": { "ok": true, "requested": false, "sleep": true } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": false } } },
+    { "send": { "http": "POST /api/sleep" }, "expect": { "reply": { "body": { "ok": true, "requested": true, "sleep": false } } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "sleep": true } } }
+  ]
+}

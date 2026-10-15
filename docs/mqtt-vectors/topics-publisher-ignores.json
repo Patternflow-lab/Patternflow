@@ -1,0 +1,16 @@
+{
+  "contract": "docs/mqtt-spec.md#which-topic-to-write",
+  "says": "`knob`, `param` and `pattern` are obeyed **only in Subscriber role**; a Publisher ignores them silently.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=publisher" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "publisher", "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/knob/1", "payload": "5" } } },
+    { "send": { "mqtt": { "topic": "patternflow/param/2", "payload": "800" } } },
+    { "send": { "mqtt": { "topic": "patternflow/pattern", "payload": "Wave Saw" } } },
+    { "send": { "wait": 20 }, "expect": {
+      "out": [{ "mqtt": "<absent>" }],
+      "input": { "given": { "deltas": [0, 0, 0, 0] } },
+      "status": { "active": "Origin", "paramActive": [false, false, false, false] } } }
+  ]
+}

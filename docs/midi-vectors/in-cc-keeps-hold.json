@@ -1,0 +1,11 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Does not release an absolute hold.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [176, 20, 127] } },
+    { "send": { "wait": 1000 }, "expect": { "status": { "paramActive": [true, false, false, false] } } },
+    { "send": { "midi": [176, 24, 63] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [1000, "<integer>", "<integer>", "<integer>"], "paramActive": [true, false, false, false] } } }
+  ]
+}

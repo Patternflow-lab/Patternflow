@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "The value **holds** until a hand turns that knob, exactly like `POST /api/params` and MQTT `param/N`.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [176, 21, 100] } },
+    { "send": { "wait": 1000 }, "expect": { "status": { "params": ["<integer>", 787, "<integer>", "<integer>"], "paramActive": [false, true, false, false] } } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, true, false, false] } } },
+    { "send": { "hand": { "knob": 2, "turn": -1 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, false, false, false] } } }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "Setting one of `outMul`/`outDiv` above 1 resets the other to 1",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outDiv=4" } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [4, 4, 4, 4] } } } },
+    { "send": { "http": "POST /api/midi?outMul=8" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [1, 1, 1, 1], "outMul": [8, 8, 8, 8] } } } },
+    { "send": { "http": "POST /api/midi?outDiv=2" } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outDiv": [2, 2, 2, 2], "outMul": [1, 1, 1, 1] } } } }
+  ]
+}

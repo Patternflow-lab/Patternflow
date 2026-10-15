@@ -15,9 +15,10 @@ import type { GuideLang } from "../store";
 // The small print every guide shares is copy.ts's `ui`. The words of the
 // captures are AudioShots.tsx's, the editor window's are EditorWindow.tsx's.
 //
-// Sources for every fact, and nothing else: AUDIO_GUIDE.md, docs/midi-ableton.md,
-// docs/midi-spec.md, docs/audio-ws-spec.md, tools/patternflow-audio-extension
-// (its README, popup and editor), the console pages
+// Sources for every fact, and nothing else: docs/AUDIO_GUIDE.md,
+// docs/midi-ableton.md, docs/midi-spec.md, docs/audio-ws-spec.md,
+// tools/patternflow-audio-extension (its README, popup and editor), the
+// console pages
 // (firmware/patternflow/console/_audio_in_bar.html, _audio_in_adapter.js,
 // midi.html, update.html), web/src/app/editions and the firmware
 // (patternflow.ino's NETWORK screen, features/midi). UI words are quoted as
@@ -318,7 +319,7 @@ const en: AudioCopy = {
       { label: "The phone app", href: `${GH}tools/patternflow-audio-android/README.md` },
       { label: "A Director show as .mid", href: `${GH}docs/director-midi.md` },
       { label: "The MIDI map", href: `${GH}docs/midi-spec.md` },
-      { label: "AUDIO_GUIDE.md", href: `${GH}AUDIO_GUIDE.md` },
+      { label: "AUDIO_GUIDE.md", href: `${GH}docs/AUDIO_GUIDE.md` },
       { label: "Editions", href: "/editions" },
       { label: "All guides", href: "/guide" },
     ],
@@ -567,7 +568,7 @@ const ko: AudioCopy = {
       { label: "폰 앱", href: `${GH}tools/patternflow-audio-android/README.md` },
       { label: "디렉터 쇼를 .mid로", href: `${GH}docs/director-midi.md` },
       { label: "MIDI 맵", href: `${GH}docs/midi-spec.md` },
-      { label: "AUDIO_GUIDE.md", href: `${GH}AUDIO_GUIDE.md` },
+      { label: "AUDIO_GUIDE.md", href: `${GH}docs/AUDIO_GUIDE.md` },
       { label: "Editions", href: "/editions" },
       { label: "가이드 전체", href: "/guide/ko" },
     ],

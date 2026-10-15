@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#get-apistatus",
+  "says": "K1's long-press session and `GET /api/display?brightness=` move the same value; what the power clamp lets through is `power_applied` on `/api/display`.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/display?brightness=77" }, "expect": { "reply": { "body": { "brightness": 77 } }, "status": { "brightness": 77 } } },
+    { "send": { "http": "GET /api/display?brightness=255" }, "expect": { "reply": { "body": { "brightness": 255 } }, "status": { "brightness": 255 } } }
+  ]
+}

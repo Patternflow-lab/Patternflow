@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#transport",
+  "says": "`GET /favicon.ico` answers `204`, with `Cache-Control: public, max-age=31536000, immutable` on a panel `Host` and `no-store` on any other (see Host gating); pages carry their icon inline.",
+  "features": [],
+  "steps": [
+    { "send": { "http": { "request": "GET /favicon.ico", "headers": { "Host": "patternflow.local" } } }, "expect": { "reply": { "status": 204, "headers": { "cache-control": "public, max-age=31536000, immutable" } } } },
+    { "send": { "http": { "request": "GET /favicon.ico", "headers": { "Host": "patternflow.fritz.box" } } }, "expect": { "reply": { "status": 204, "headers": { "cache-control": "no-store" } } } }
+  ]
+}

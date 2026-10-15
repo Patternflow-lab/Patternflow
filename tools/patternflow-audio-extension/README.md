@@ -4,7 +4,7 @@ Captures the audio of a Chrome or Edge tab, splits it into four frequency
 bands, and sends each band to one of the panel's four knobs over your local
 network. The panel has to run the **Audio edition**
 ([patternflow.work/editions](https://patternflow.work/editions)).
-[`AUDIO_GUIDE.md`](../../AUDIO_GUIDE.md) is the guide to everything around it;
+[`AUDIO_GUIDE.md`](../../docs/AUDIO_GUIDE.md) is the guide to everything around it;
 the wire protocol is a written contract,
 [`docs/audio-ws-spec.md`](../../docs/audio-ws-spec.md).
 

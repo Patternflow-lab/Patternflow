@@ -79,8 +79,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // The shelf was /variants until 2026-09. The word the docs settled on is
-      // "edition" (docs/EDITIONS.md); the old URL is baked into every 3.8.0
-      // console page and printed in release notes, so it stays forever.
+      // "edition" (docs/EDITIONS.md); the old URL is baked into every console
+      // page from 3.7.0 to 3.8.0 and printed in release notes, so it stays
+      // forever.
       { source: "/variants", destination: "/editions", permanent: true },
       // There is no /flash page: the flasher is a button (the Pattern tab, the
       // Play guide), and /flash only holds its manifest and images. But the
@@ -89,6 +90,16 @@ const nextConfig: NextConfig = {
       // to the guide's Flash chapter, where the button and the steps are. Only
       // the exact path: /flash/manifest.json and /flash/bin/* are untouched.
       { source: "/flash", destination: "/guide/play#flash", permanent: false },
+      // From the journal's first post on 29 April 2026 until 11 May, its own
+      // links asked for English with ?lang=en. English moved to /en paths that
+      // day (c44b0d7a), and these two send the old links there. The query goes
+      // along, and proxy.ts takes it off and sets the language cookie.
+      //
+      // The first one reads /journal/en?lang=en as a post called "en" and
+      // answers /journal/en/en, which proxy.ts collapses back to /journal/en.
+      // /journal/en?lang=en is where the second one sends /journal?lang=en,
+      // and the language switch on the Korean index has linked it since
+      // 17 May.
       {
         source: "/journal/:slug",
         has: [{ type: "query", key: "lang", value: "en" }],

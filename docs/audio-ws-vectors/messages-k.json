@@ -1,0 +1,11 @@
+{
+  "contract": "docs/audio-ws-spec.md#messages",
+  "says": "Set lane `N` (0..3) to `F` (clamped to `0..1`).",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "k=0,v=0.25" } },
+    { "send": { "ws": "k=2,v=1.5" } },
+    { "send": { "ws": "k=3,v=-2" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "lanes": [0.25, "<number>", 1, 0], "laneActive": [true, false, true, true] } } }
+  ]
+}

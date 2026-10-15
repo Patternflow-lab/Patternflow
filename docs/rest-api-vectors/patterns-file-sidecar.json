@@ -1,0 +1,9 @@
+{
+  "contract": "docs/rest-api.md#get-apipatternsfile",
+  "says": "`ext=json` returns the module's **sidecar** — the only place per-pattern metadata is exposed over HTTP:",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/file?slug=wave_saw&ext=json" }, "expect": { "reply": { "status": 200, "body": {
+      "name": "<string>", "abi": "<integer>", "knobs": ["<string>", "<string>", "<string>", "<string>"], "slug": "wave_saw" } } } }
+  ]
+}

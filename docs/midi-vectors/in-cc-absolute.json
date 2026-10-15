@@ -1,0 +1,19 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "`0..127` maps to the device's `0..1000` bus (rounded; 127 = 1000).",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [176, 20, 0] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [0, "<integer>", "<integer>", "<integer>"], "paramActive": [true, false, false, false] } } },
+    { "send": { "midi": [176, 20, 1] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [8, "<integer>", "<integer>", "<integer>"] } } },
+    { "send": { "midi": [176, 20, 64] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [504, "<integer>", "<integer>", "<integer>"] } } },
+    { "send": { "midi": [176, 20, 127] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [1000, "<integer>", "<integer>", "<integer>"] } } },
+    { "send": { "midi": [176, 21, 127] } },
+    { "send": { "midi": [176, 22, 64] } },
+    { "send": { "midi": [176, 23, 1] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [1000, 1000, 504, 8], "paramActive": [true, true, true, true] } } }
+  ]
+}

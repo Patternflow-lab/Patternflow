@@ -10,8 +10,9 @@
 //   firmware/patternflow/src/hub75/ESP32-HUB75-MatrixPanel-I2S-DMA.h
 //                                              drawPixel/fillRect overrides, the
 //                                              rotation transform, RGB565 -> 888
-// Line numbers cited here are from those files at v3.10.4. When a screen
-// changes there, change it here - the test pins a few pixels so drift shows.
+// Firmware constants are cited by name. Other line numbers cited here are
+// from those files at v3.10.4. When a screen changes there, change it here -
+// the test pins a few pixels so drift shows.
 //
 // Things the port reproduces on purpose, because the panel does them:
 //  - Adafruit GFX's text wrap is on (the default; nothing in the firmware turns
@@ -36,11 +37,18 @@
 // License: MIT. The two font tables this draws with are BSD - see glcdFont.ts
 // and tomThumbFont.ts for their notices.
 
+import {
+  BUTTON_DEBOUNCE_MS,
+  EDGES_PER_DETENT,
+  LONG_PRESS_MS,
+  PANEL_GEOMETRIES,
+  PANEL_GEOM_DEFAULT,
+} from "@/lib/shared/constants";
 import { GLCD_FONT } from "./glcdFont";
 import { TOM_THUMB, type GfxFont } from "./tomThumbFont";
 
-export const PANEL_W = 128;
-export const PANEL_H = 64;
+export const PANEL_W: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
+export const PANEL_H: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
 const FRAME_BYTES = PANEL_W * PANEL_H * 4;
 
 export type Rgb = readonly [number, number, number];
@@ -71,15 +79,15 @@ export type PanelOverlay =
       wifi: WifiStatusText | (string & {});
       /** ipString(): the dotted IP, or "-" when not connected (src/core_wifi.h:629-632). */
       ip: string;
-      /** Feature toggle rows; a core build has none. At most two are drawn (patternflow.ino:759). */
+      /** Feature toggle rows; a core build has none. At most two are drawn (MAX_FEATURE_ROWS, patternflow.ino). */
       rows?: { name: string; on: boolean }[];
       /** The hotspot's name, e.g. "patternflow-a1b2", when the panel's own AP is up. Shown only while not connected. */
       hotspotName?: string;
       /** PatternflowWifi::isConnected(). Defaults to wifi === "CONNECTED". */
       connected?: boolean;
-      /** "K1 = SLEEP" line; true unless a build compiles sleep out (config.h:247-248). */
+      /** "K1 = SLEEP" line; true unless a build compiles sleep out (PF_SLEEP_ENABLED, config.h). */
       sleepHint?: boolean;
-      /** "K4=UPDATE" line; true unless a build compiles the web update out (net_config.h:172-173). */
+      /** "K4=UPDATE" line; true unless a build compiles the web update out (PF_WEBUPDATE_ENABLED, net_config.h). */
       updateHint?: boolean;
     }
   | {
@@ -123,7 +131,7 @@ export type PanelOverlay =
 
 // ── Firmware constants ──────────────────────────────────────────────────────
 
-const DEFAULT_BRIGHTNESS = 204; // firmware/patternflow/config.h:241 ("80%")
+const DEFAULT_BRIGHTNESS = 204; // DEFAULT_BRIGHTNESS, firmware/patternflow/config.h ("80%")
 
 /** The percentage the panel prints for a brightness byte (patternflow.ino:693). */
 export function brightnessPercent(level: number): number {
@@ -155,50 +163,53 @@ export interface FirmwareConstants {
 }
 
 export const FIRMWARE: Readonly<FirmwareConstants> = Object.freeze({
-  // MODE_HOLD_MS, patternflow.ino:269. Fires WHILE still held, on the first
-  // frame the hold exceeds it (strict >, src/core_encoders.h:172); the release
-  // that follows is not a click (core_encoders.h:151-154).
-  longPressMs: 1000,
-  // Button edges closer than this are ignored (src/core_encoders.h:143).
-  buttonDebounceMs: 50,
-  // Quadrature edges per detent (knobSubSteps default, src/core_encoders.h:76);
-  // one detent = one knob delta (patternflow.ino:1168-1182, no acceleration).
-  edgesPerDetent: 4,
-  // BRIGHTNESS_IDLE_MS, patternflow.ino:270; checked with > at :1566. The timer
-  // restarts on entry (:1539) and only when a turn actually changes the level
-  // (:1555-1559) - turning against the 5/255 clamp does not keep it open.
+  // MODE_HOLD_MS in patternflow.ino, LONG_PRESS_MS in shared/constants.json.
+  // Fires WHILE still held, on the first frame the hold exceeds it (strict >,
+  // Button::longPressed in src/core_encoders.h); the release that follows is
+  // not a click (Button::pressed).
+  longPressMs: LONG_PRESS_MS,
+  // Button edges closer than this are ignored (Button::pressed in
+  // src/core_encoders.h, BUTTON_DEBOUNCE_MS in shared/constants.json).
+  buttonDebounceMs: BUTTON_DEBOUNCE_MS,
+  // Quadrature edges per detent (the knobSubSteps default in
+  // src/core_encoders.h, EDGES_PER_DETENT in shared/constants.json); one
+  // detent = one knob delta (readInputFrame in patternflow.ino, no acceleration).
+  edgesPerDetent: EDGES_PER_DETENT,
+  // BRIGHTNESS_IDLE_MS in patternflow.ino, checked with > in loop(). The timer
+  // restarts on entry and only when a turn actually changes the level -
+  // turning against the 5/255 clamp does not keep it open.
   brightnessIdleExitMs: 5000,
-  // BRIGHTNESS_SAVE_DELAY_MS, patternflow.ino:273 (NVS write after the mode closes).
+  // BRIGHTNESS_SAVE_DELAY_MS in patternflow.ino (NVS write after the mode closes).
   brightnessSaveDelayMs: 3000,
-  // OSC_INFO_IDLE_MS (the NETWORK screen's timer despite the name), patternflow.ino:274, :1658.
+  // OSC_INFO_IDLE_MS in patternflow.ino (the NETWORK screen's timer despite the name).
   networkIdleExitMs: 8000,
-  // KNOB_MAP_IDLE_MS, patternflow.ino:276, :1687.
+  // KNOB_MAP_IDLE_MS in patternflow.ino.
   knobmapIdleExitMs: 8000,
-  // KNOB_MAP_HILITE_MS, patternflow.ino:277; a knob stays lit this long after its last detent (:1005-1006).
+  // KNOB_MAP_HILITE_MS in patternflow.ino: a knob stays lit this long after its last detent (drawKnobMap).
   knobmapHighlightMs: 600,
-  // UPDATE_IDLE_MS, patternflow.ino:278, :1711 (not while flashing).
+  // UPDATE_IDLE_MS in patternflow.ino (not while flashing).
   updateIdleExitMs: 600000,
-  // NET_INFO_REDRAW_MS, patternflow.ino:275: info screens repaint at most this often (or on a change).
+  // NET_INFO_REDRAW_MS in patternflow.ino: info screens repaint at most this often (or on a change).
   infoRedrawMs: 250,
-  // SELECT_DETENTS_PER_STEP, patternflow.ino:240; see stepSelect().
+  // SELECT_DETENTS_PER_STEP in patternflow.ino; see stepSelect().
   selectDetentsPerStep: 3,
-  // SELECT_SETTLE_MS, patternflow.ino:234: the highlighted pattern loads once K4 has rested this long (:1943).
+  // SELECT_SETTLE_MS in patternflow.ino: the highlighted pattern loads once K4 has rested this long.
   selectSettleMs: 350,
-  // PATTERN_SAVE_DELAY_MS, patternflow.ino:207 (only once SELECT is left, :313).
+  // PATTERN_SAVE_DELAY_MS in patternflow.ino (only once SELECT is left, savePatternIfSettled).
   patternSaveDelayMs: 3000,
-  // CONTENT_NOTICE_SECONDS, patternflow.ino:279 - the name card after a remote pick; SELECT never shows it.
+  // CONTENT_NOTICE_SECONDS in patternflow.ino - the name card after a remote pick; SELECT never shows it.
   contentNoticeMs: 1000,
-  // constrain(currentBrightness + d * 5, 5, 255), patternflow.ino:1554.
+  // constrain(currentBrightness + d * 5, 5, 255) in loop(), patternflow.ino.
   brightnessMin: 5,
   brightnessMax: 255,
   brightnessStepPerDetent: 5,
-  // DEFAULT_BRIGHTNESS, config.h:241 - a byte, not a percent.
+  // DEFAULT_BRIGHTNESS in config.h - a byte, not a percent.
   defaultBrightness: DEFAULT_BRIGHTNESS,
   // brightnessPercent(204) = 80.
   defaultBrightnessPercent: brightnessPercent(DEFAULT_BRIGHTNESS),
-  // MAX_FEATURE_ROWS, patternflow.ino:759.
+  // MAX_FEATURE_ROWS in drawNetworkInfo, patternflow.ino.
   networkMaxFeatureRows: 2,
-  // WAKE_GUARD_MS, src/core_sleep.h:64: input ignored this long after falling asleep.
+  // WAKE_GUARD_MS in src/core_sleep.h: input ignored this long after falling asleep.
   wakeGuardMs: 800,
 });
 
@@ -224,7 +235,7 @@ export function wrapIndex(index: number, count: number): number {
   return ((index % count) + count) % count;
 }
 
-// Fixed-size name buffers: MODULE_NAME_BYTES, firmware/patternflow/pattern_registry.h:139.
+// Fixed-size name buffers: MODULE_NAME_BYTES, firmware/patternflow/pattern_registry.h.
 const MODULE_NAME_BYTES = 40;
 const LATIN1_FOLD =
   "AAAAAAACEEEEIIII" + // C0-CF
@@ -235,8 +246,8 @@ const LATIN1_FOLD =
 /**
  * A pattern name as the panel prints it: asciiFold (patternflow.ino:577-601)
  * over the UTF-8 bytes. Latin-1 letters lose their accent, anything else
- * becomes one '?'. Stored names live in 40-byte buffers (pattern_registry.h:139,
- * snprintf at :217), so at most 39 bytes of the name survive.
+ * becomes one '?'. Stored names live in 40-byte buffers (MODULE_NAME_BYTES in
+ * pattern_registry.h, filled with snprintf), so at most 39 bytes of the name survive.
  */
 export function asciiFold(name: string): string {
   const bytes = new TextEncoder().encode(name).subarray(0, MODULE_NAME_BYTES - 1);
@@ -282,17 +293,17 @@ const rgb565 = (r: number, g: number, b: number): Rgb => color565to888(color565(
 /** The firmware's panel palette, as it lands in the frame buffer. */
 export const PANEL_COLORS = Object.freeze({
   black: rgb565(0, 0, 0),
-  led: rgb565(232, 85, 46), //     pfLedC,   patternflow.ino:635
-  white: rgb565(255, 255, 255), // pfWhiteC, :636
-  gray: rgb565(140, 140, 140), //  pfGrayC,  :637
-  dim: rgb565(90, 90, 90), //      pfDimC,   :638
-  rule: rgb565(60, 60, 60), //     pfRuleC,  :639
-  green: rgb565(80, 220, 130), //  pfGreenC, :640
-  red: rgb565(255, 80, 80), //     pfRedC,   :641
-  blue: rgb565(120, 180, 255), //  pfBlueC,  :642
-  selectPage: rgb565(190, 190, 190), //    "i / N", :1054
-  selectHint: rgb565(200, 200, 200), //    "HOLD TO SELECT", :1084
-  knobActiveFill: rgb565(74, 27, 15), //   KNOB MAP active disc, :1009
+  led: rgb565(232, 85, 46), //     pfLedC in patternflow.ino
+  white: rgb565(255, 255, 255), // pfWhiteC
+  gray: rgb565(140, 140, 140), //  pfGrayC
+  dim: rgb565(90, 90, 90), //      pfDimC
+  rule: rgb565(60, 60, 60), //     pfRuleC
+  green: rgb565(80, 220, 130), //  pfGreenC
+  red: rgb565(255, 80, 80), //     pfRedC
+  blue: rgb565(120, 180, 255), //  pfBlueC
+  selectPage: rgb565(190, 190, 190), //    "i / N", drawSelectingMode
+  selectHint: rgb565(200, 200, 200), //    "HOLD TO SELECT", drawSelectingMode
+  knobActiveFill: rgb565(74, 27, 15), //   KNOB MAP active disc, drawKnobMap
 });
 
 // ── A small Adafruit GFX over an RGBA frame ─────────────────────────────────
@@ -729,8 +740,8 @@ function drawUiLine(g: PanelGfx, font: GfxFont | null, text: string, yTop: numbe
 }
 
 // PatternflowUiText::drawWrappedName, src/core_ui_text.h:447-449 -> drawWrapped
-// (:388-445) with PF_UI_FONT_SELECT = the built-in 5x7 (core_ui_fonts.h:50-52)
-// and pitch 9 (:64-66).
+// (:388-445) with PF_UI_FONT_SELECT = the built-in 5x7 and PF_UI_PITCH_SELECT
+// = 9 (both in core_ui_fonts.h).
 //
 // Only drawWrapped's first branch is ported, because it is the only one that
 // runs: it measures the whole name with getTextBounds, and with GFX wrap on,

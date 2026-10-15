@@ -13,7 +13,6 @@ import {
   PFST_CUE_BYTES,
   decodePfst,
   encodePfst,
-  normalizePerformance,
   pfsFilename,
   serializePerformance,
   validatePerformance,

@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#settings",
+  "says": "knobs out as a virtual position (default) or as relative steps.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outMode": "abs" } } } },
+    { "send": { "http": "POST /api/midi?outMode=rel" }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outMode": "rel" } }, "status": { "midi": { "outMode": "rel" } } } },
+    { "send": { "http": { "request": "POST /api/midi", "form": "outMode=abs" } }, "expect": { "reply": { "status": 200 } } },
+    { "send": { "http": "GET /api/midi" }, "expect": { "reply": { "body": { "outMode": "abs" } }, "status": { "midi": { "outMode": "abs" } } } }
+  ]
+}

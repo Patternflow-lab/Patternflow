@@ -1,0 +1,12 @@
+{
+  "contract": "docs/osc-spec.md#transport",
+  "says": "Plain OSC 1.0 messages. No `#bundle` support — send bare messages.",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["#bundle", ["/patternflow/ping"], ["/patternflow/knob/1/delta", 2]] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": "<absent>" }], "input": { "given": { "deltas": [0, 0, 0, 0] } } } },
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "osc": ["/patternflow/knob/1/delta", 2] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/hello", "Patternflow"] }], "input": { "given": { "deltas": [2, 0, 0, 0] } } } }
+  ]
+}

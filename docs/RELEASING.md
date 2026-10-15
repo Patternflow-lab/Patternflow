@@ -19,7 +19,8 @@ the `[Unreleased]` section of `CHANGELOG.md` written:
 python firmware/toolchain/release.py cut v3.9.4 --audio v0.5.4 --performance v0.2.4
 ```
 
-bumps the versions, dates the changelog section, updates `AGENTS.md`, runs
+bumps the versions, dates the changelog section and files it in
+`docs/releases/`, updates `AGENTS.md`, runs
 `shelf.sh` for the core and each named edition, points the flasher manifest
 and the `/editions` cards at the new images, runs the web checks, commits
 `release: v3.9.4` and tags it. Name only the editions that should be re-cut;
@@ -63,7 +64,7 @@ What the two commands do, step by step - and the way to do it by hand.
 
 1. Make sure all intended changes are committed, and `./firmware/bundles/build.sh all` is green if anything under `firmware/` moved.
 2. Bump the version the firmware reports: `PF_IMPROV_FW_VERSION` in `firmware/patternflow/net_config.h` (written `X.Y.Z`, no `v`). `shelf.sh` refuses a core image whose define disagrees with the version it is being shelved as.
-3. Turn `CHANGELOG.md`'s `[Unreleased]` into `## [X.Y.Z] - YYYY-MM-DD` and open a fresh `[Unreleased]` above it.
+3. Turn `CHANGELOG.md`'s `[Unreleased]` into `## [X.Y.Z] - YYYY-MM-DD` and open a fresh `[Unreleased]` above it. Copy the new section to `docs/releases/vX.Y.Z.md` (the file name always carries the `v`), with each relative link two folders up (`../../`). The root keeps three releases in full: the fourth-newest section leaves it and becomes a line at the top of *Older releases*, linking its file.
 4. Update the version the docs claim: the "current" line in `AGENTS.md`, the *Moving fast* note in `README.md`, and any guide that names a release.
 5. If hardware changed: confirm `BUILD_GUIDE.md`'s parts table, `hardware/bom/bom_v*.csv` and the schematic agree; regenerate the Gerber zip, renders and schematic exports with the recipe in `hardware/pcb/README.md`; add a `### Hardware` entry to the changelog section; update the board table in `hardware/README.md` and the version line in `docs/assembly/README.md`; attach the Gerber zip, the BOM CSV and the STLs to the release.
 6. Stage the images the site serves:
@@ -102,7 +103,7 @@ Work happens on `dev`, then lands on `main` through a pull request. `main` is pr
 
 ## Current release line
 
-`CHANGELOG.md` is the record — one section per release, newest first — and the [releases page](https://github.com/engmung/Patternflow/releases) carries the notes and the flashable images. The shape of the line, for orientation:
+Every release has its own file in `docs/releases/`, `vX.Y.Z.md`, back to `v1.0.0`. `CHANGELOG.md` holds the three newest in full, newest first, and a line for each older one. The [releases page](https://github.com/engmung/Patternflow/releases) carries the notes and the flashable images. The shape of the line, for orientation:
 
 - `v1.x` -- first public buildable release, then the multi-pattern firmware and browser flasher.
 - `v2.x` -- the v2.0 board (GPIO0 cold-boot fix, cleaned silkscreen), custom pattern workflow, the web platform. `v2.1.0` is the last release for v2.x hardware.

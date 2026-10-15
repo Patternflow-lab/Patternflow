@@ -1,0 +1,16 @@
+{
+  "contract": "docs/audio-ws-spec.md#the-switch-on-the-panel",
+  "says": "Switched off, the messages are parsed and nothing is driven — an open socket is not evidence that the panel is listening.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "a=0.25,0.5,0.75,1" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/audio?on=0" }, "expect": { "status": { "audioRuntime": false, "laneActive": [false, false, false, false] } } },
+    { "send": { "ws": "a=0.25,0.5,0.75,1" } },
+    { "send": { "ws": "d=0,v=0.5" } },
+    { "send": { "wait": 50 }, "expect": { "status": { "laneActive": [false, false, false, false], "audioClients": 1 }, "input": { "given": { "deltas": [0, 0, 0, 0] } } } },
+    { "send": { "http": "POST /api/audio?on=1" } },
+    { "send": { "ws": "k=0,v=0.25" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "audioRuntime": true, "laneActive": [true, false, false, false] } } }
+  ]
+}

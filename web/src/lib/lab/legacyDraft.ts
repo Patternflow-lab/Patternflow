@@ -1,18 +1,19 @@
-// ── Pattern Lab draft autosave ───────────────────────────────────────────────
-// The lab is a long-session tool: people tune a pattern for an hour, edit the
-// ramp, generate a gallery. Closing the tab (or a crash) used to throw all of
-// that away, because only the ramp and the Experiment patch were persisted.
-//
-// This module stores the rest of the working state in localStorage so reopening
-// the page lands back where the user left off. Two keys on purpose:
+// ── Pattern Lab: the July draft, and the gallery ─────────────────────────────
+// The lab's autosave (e19fe19, 25 July 2026) stored the working session under
+// two keys on purpose:
 //
 //   DRAFT_STORAGE    small, always worth keeping (code, knobs, ranges, ...)
 //   GALLERY_STORAGE  potentially hundreds of KB of generated patterns
 //
 // A quota failure while writing the (large) gallery must never take the (small)
-// draft down with it, hence the split. Every read is defensive: a draft written
-// by an older build, or hand-edited, must degrade to "no draft" rather than
-// crash the lab on boot.
+// draft down with it, hence the split.
+//
+// Pattern Lab v2 (9be6e98, 27 July) moved the working session into the layered
+// project and stopped writing the draft. loadDraft stays for serialize.ts's
+// migrateLegacyDraft. The gallery never moved, and loadGallery and saveGallery
+// are its live reader and writer. Every read is defensive: a draft written by
+// an older build, or hand-edited, must degrade to "no draft" rather than crash
+// the lab on boot.
 
 import { COLOR_MODES, THINKING_LEVELS } from "@/lib/ai/settings";
 import type { ColorMode, PatternVariant, ThinkingLevelKey } from "@/lib/ai/settings";
@@ -21,7 +22,7 @@ import { isValidMatrix, type MatrixSize } from "@/lib/pattern/matrix";
 import { LAB_STORAGE, readJson, removeStorage as remove, writeJson } from "./persist";
 
 export const DRAFT_STORAGE = LAB_STORAGE.legacyDraft;
-export const GALLERY_STORAGE = LAB_STORAGE.legacyGallery;
+export const GALLERY_STORAGE = LAB_STORAGE.gallery;
 
 // Guard rails so one runaway value can't blow the whole quota.
 const MAX_CODE_CHARS = 200_000;
@@ -139,11 +140,6 @@ export function loadDraft(knobCount: number): Partial<LabDraft> | null {
       colorMode: oneOf<ColorMode>(gen.colorMode, COLOR_MODES, "vfield"),
     },
   };
-}
-
-export function saveDraft(draft: Omit<LabDraft, "savedAt">): boolean {
-  if (draft.code.length > MAX_CODE_CHARS) return false;
-  return writeJson(DRAFT_STORAGE, { ...draft, savedAt: Date.now() });
 }
 
 export function clearDraft() {

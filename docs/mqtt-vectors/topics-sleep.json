@@ -1,0 +1,11 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "Publishing `1` to `<prefix>/sleep` puts the panel to sleep, `0` wakes it, and `sleep/state` mirrors the result",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true, "sleep": false } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "1" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1" }, "within": 20 }], "status": { "sleep": true } } },
+    { "send": { "mqtt": { "topic": "patternflow/sleep", "payload": "0" } }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0" }, "within": 20 }], "status": { "sleep": false } } }
+  ]
+}

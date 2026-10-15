@@ -1,0 +1,17 @@
+{
+  "contract": "docs/osc-spec.md#host--device",
+  "says": "No-op. Accepted and discarded — the Pattern/Video content-mode split was removed.",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/hello", "Patternflow"] }] } },
+    { "send": { "osc": ["/patternflow/content/toggle"] } },
+    {
+      "send": { "wait": 50 },
+      "expect": {
+        "out": [{ "osc": "<absent>" }],
+        "input": { "mode": "run", "pattern": { "index": 0 }, "given": { "deltas": [0, 0, 0, 0], "presses": [0, 0, 0, 0] }, "banner": null }
+      }
+    }
+  ]
+}
