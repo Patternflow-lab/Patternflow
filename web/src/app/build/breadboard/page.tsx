@@ -391,6 +391,7 @@ export default function BreadboardBuildPage() {
             ↑ Ground (GND) pins on both sides of all four rotary encoders land on the Ground (<strong>−</strong>) rail of the breadboard.
           </p>
           <div className="w-full mt-4 step-photo-right flex flex-col gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step1.jpg"
               alt="Encoders mounted with GND wires connected to the breadboard rail"
@@ -432,6 +433,7 @@ export default function BreadboardBuildPage() {
             ↑ U1 (ESP32-S3) on the left, and J1 (HUB75E) on the right. Wire the pins that share the same color-coded labels (e.g. R1, B1, A, B...).
           </p>
           <div className="w-full mt-4 step-photo-left flex flex-col gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step3.jpg"
               alt="ESP32-S3 connected to the HUB75E LED matrix via ribbon cable"
@@ -473,6 +475,7 @@ export default function BreadboardBuildPage() {
             ↑ Four rotary encoders on the left, and ESP32 on the right. Wire the signal channels (A, B, SW) to their matching colored tags (e.g. 1A, 2A...).
           </p>
           <div className="w-full mt-4 step-photo-right flex flex-col gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step4.jpg"
               alt="All encoder signal wires routed routed into the case alongside the LED panel"
@@ -511,6 +514,7 @@ export default function BreadboardBuildPage() {
             <BreadboardDiagram mode="rail" />
           </div>
           <div className="w-full mt-4 step-photo-left flex flex-col gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step2.jpg"
               alt="Stripped USB and LED panel power wires being twisted onto jumpers"
@@ -553,6 +557,7 @@ export default function BreadboardBuildPage() {
               { src: '/builds/breadboard/step8.jpg', label: "It's alive! 🎉" }
             ].map((img, idx) => (
               <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
                 <img
                   src={img.src}
                   alt={img.label}
