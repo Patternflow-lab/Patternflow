@@ -1,0 +1,13 @@
+# Audio WebSocket vectors
+
+Each file here is one sentence of [audio-ws-spec.md](../audio-ws-spec.md) and the messages that show a panel doing it, written as [contract-vectors.md](../contract-vectors.md) sets out. `npm run check:audio-vectors` in `web/` replays every one against a fresh [virtual panel](../../tools/virtual-panel/README.md) built with the `audio` feature, and prints what the vector expects beside what the panel did. CI runs it on every pull request with the other drift checks. When the spec rewords a sentence a vector quotes, that vector fails until someone brings it along.
+
+A file's name starts with the part of the spec it reads. `messages-` is a row of the message table, or the rule for anything else. `lanes-` is what a lane is and what outranks it, and `release-` is the 500 ms release. `switch-` is the AUD switch. `/api/audio` is REST, so its vectors are in [rest-api-vectors](../rest-api-vectors/README.md) and start with `audio-`.
+
+A message is the text of one frame, `"a=0.8,-,-,0.2"`, and `{ "close": 1000 }` closes the socket with that code. Node 20 has no WebSocket client, so the suite brings one, `web/scripts/drift/_ws.ts`, and opens one socket a vector before the first step. After each message it sends a ping and waits for the pong, so the panel holds the message before the clock moves. The panel reads what has arrived at the end of a frame, 16.7 ms at 60 fps. A vector gives a lane 20 ms before it reads `/api/status`, and a `d=` 50 ms, since its clicks reach the pattern a frame later. A fresh panel has Audio-React on, as a board with nothing saved boots, so no vector switches it on first.
+
+`messages-d.json` reads "normalized" as a share of a parameter's whole range, which rest-api.md puts at 48 detents. A `d=` of 0.5 is 24 clicks.
+
+Three vectors keep the spec where the firmware does something else. `messages-a.json` sends `a=-0.5,0.25,-,-`, and the firmware takes the leading `-` for a skipped slot and puts 0.5 on the second lane (the `a=` parse in `core_audio_ws.h`). `messages-unknown.json` sends `off=x`, which the firmware reads as `off=0`. `lanes-hand.json` sends a `d=` to a knob a lane drives, and the firmware holds that knob five seconds as if a hand had turned it (`applyLaneMotion()` in `patternflow.ino`).
+
+Some of the spec has no vectors. The virtual panel has no microphone and no weather, so the WebSocket is the only source its lanes have. A vector talks over one socket, so two clients writing the same knob are not replayed, and neither is a socket that closes while another stays open. The one-in-flight pacing and the extension's resend timer are rules for a client, and a panel has nothing to show for them.
