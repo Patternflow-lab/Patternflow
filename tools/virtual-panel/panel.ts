@@ -9,7 +9,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { DeviceSim, type SimPack } from "@/lib/guide/deviceSim";
 import { PANEL_H, PANEL_W, type PanelOverlay } from "@/lib/guide/panelScreens";
-import type { PatternRuntime } from "@/lib/pattern/harness";
 import { KNOB_COUNT } from "@/lib/shared/constants";
 
 import { serve, type Reply, type Routes } from "./http";
@@ -46,8 +45,8 @@ export type Seam = {
 export type Transport = { feature: string | null; caps: string[]; attach(seam: Seam): void | Promise<void> };
 /** No features is the default build. Ports go by name, "*" for the rest, 0 for any free one. */
 export type Options = { features?: string[]; pack?: SimPack; ports?: Record<string, number>; clock?: "real" | "manual" };
-// DeviceSim keeps its runtime and screens private; the guide reads neither.
-type Inside = { runtime: PatternRuntime; overlay(): PanelOverlay | null };
+// DeviceSim keeps the screen it draws over a pattern private, since the guide never reads it.
+type Inside = { overlay(): PanelOverlay | null };
 
 export async function start(options: Options = {}) {
   const features = options.features ?? [];
@@ -62,20 +61,11 @@ export async function start(options: Options = {}) {
   const http = await serve(port("http", 80));
   const ports: Record<string, number> = { http: http.port };
 
-  // What the pattern is given, summed since start, and the first error the running one threw.
-  const given = { deltas: [0, 0, 0, 0], presses: [0, 0, 0, 0], values: [] as number[], held: [] as boolean[] };
-  let [error, thrower] = [null as string | null, ""];
+  // What the pattern has been given since start, and the first error the running one threw.
+  const zeros = () => Array<number>(KNOB_COUNT).fill(0);
+  const given = { deltas: zeros(), presses: zeros(), values: [] as number[], held: [] as boolean[] };
+  let error: string | null = null;
   const inside = sim as unknown as Inside;
-  const { renderFrame } = inside.runtime;
-  inside.runtime.renderFrame = function (dt, time, input) {
-    const [result, { patternSlug }] = [renderFrame.call(this, dt, time, input), sim.consoleState()];
-    if (patternSlug !== thrower) [error, thrower] = [null, patternSlug];
-    input.knobDeltas.forEach((d, i) => (given.deltas[i] += d));
-    input.btnPressed.forEach((p, i) => (given.presses[i] += Number(p)));
-    [given.values, given.held] = [[...(input.knobValues ?? [])], [...input.btnHeld]];
-    error ??= result.error ?? null;
-    return result;
-  };
 
   let [now, last] = [0, sim.consoleState()];
   const timers = new Set<{ at: number; every: number; fn: () => void }>();
@@ -89,6 +79,14 @@ export async function start(options: Options = {}) {
   const step = (to: number) => {
     sim.tick((to - now) / 1000);
     now = to;
+    const frame = sim.given(); // null while the panel is dark
+    if (sim.consoleState().patternSlug !== last.patternSlug) error = null;
+    if (frame) {
+      frame.input.knobDeltas.forEach((d, i) => (given.deltas[i] += d));
+      frame.input.btnPressed.forEach((p, i) => (given.presses[i] += Number(p)));
+      [given.values, given.held] = [[...(frame.input.knobValues ?? [])], [...frame.input.btnHeld]];
+      error ??= frame.error;
+    }
     for (let t = due(); t; t = due()) {
       if (t.every) t.at += t.every;
       else timers.delete(t);
