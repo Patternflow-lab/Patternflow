@@ -1,0 +1,19 @@
+{
+  "contract": "docs/mqtt-spec.md#the-channel-decides-whether-your-writes-survive",
+  "says": "So on those five channels an external controller is not the only writer: its value is overwritten a moment later by whatever the snapshot last said, with every write succeeding and nothing reporting an error.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow2&role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow2/param/1", "payload": "900" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [900, "<integer>", "<integer>", "<integer>"], "paramActive": [true, false, false, false] } } },
+    { "send": { "mqtt": { "topic": "patternflow2/snapshot", "payload": "{\"param\":[250,500,500,500]}", "retain": true } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [250, 500, 500, 500], "paramActive": [true, true, true, true] } } },
+    { "send": { "http": "POST /api/mqtt?prefix=patternflow5" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "subscriber", "mqttConnected": true } } },
+    { "send": { "mqtt": { "topic": "patternflow5/param/3", "payload": "900" } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [250, 500, 900, 500], "paramActive": [true, true, true, true] } } },
+    { "send": { "mqtt": { "topic": "patternflow5/snapshot", "payload": "{\"param\":[250,500,640,500]}", "retain": true } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "params": [250, 500, 640, 500], "paramActive": [true, true, true, true] } } }
+  ]
+}
