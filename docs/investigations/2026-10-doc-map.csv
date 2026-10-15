@@ -327,6 +327,7 @@ docs/REPOSITORY.md,firmware/bundles/README.md,relative,,yes
 docs/REPOSITORY.md,firmware/patternflow/features/README.md,relative,,yes
 docs/REPOSITORY.md,hardware/README.md,relative,,yes
 docs/REPOSITORY.md,integrations/README.md,relative,,yes
+docs/REPOSITORY.md,shared/constants.json,relative,,yes
 docs/REPOSITORY.md,tools/README.md,relative,,yes
 docs/REPOSITORY.md,web/ARCHITECTURE.md,relative,,yes
 docs/REPOSITORY.md,web/README.md,relative,,yes
@@ -527,6 +528,8 @@ firmware/README.md,firmware/CUSTOM_PATTERNS.md,relative,,yes
 firmware/README.md,firmware/bundles/README.md,relative,,yes
 firmware/README.md,firmware/patternflow/console,relative,,yes
 firmware/README.md,firmware/patternflow/console/README.md,relative,,yes
+firmware/README.md,firmware/patternflow/src/hub75/UPSTREAM.md,relative,,yes
+firmware/README.md,firmware/patternflow/src/hub75/VENDORED.md,relative,,yes
 firmware/README.md,integrations/ableton,relative,,yes
 firmware/README.md,tools/README.md,relative,,yes
 firmware/bundles/README.md,/editions,site,,yes
