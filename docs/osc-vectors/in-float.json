@@ -1,0 +1,12 @@
+{
+  "contract": "docs/osc-spec.md#transport",
+  "says": "Numeric arguments may be sent as OSC `int32` (`i`) or `float32` (`f`); the device accepts both and rounds floats.",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/knob/1/delta", 2.6] } },
+    { "send": { "osc": ["/patternflow/knob/2/delta", -2.6] } },
+    { "send": { "osc": ["/patternflow/pattern/index", 1.6] } },
+    { "send": { "wait": 50 }, "expect": { "input": { "given": { "deltas": [3, -3, 0, 0] } } } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "body": { "active": 2 } } } }
+  ]
+}

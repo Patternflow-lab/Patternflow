@@ -1,0 +1,12 @@
+{
+  "contract": "docs/osc-spec.md#host--device",
+  "says": "Unknown addresses are ignored silently.",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/knob/5/delta", 1] } },
+    { "send": { "osc": ["/patternflow/pattern/next"] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": "<absent>" }], "input": { "pattern": { "index": 0 }, "given": { "deltas": [0, 0, 0, 0] } } } },
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "osc": ["/patternflow/hello", "Patternflow"] }] } }
+  ]
+}

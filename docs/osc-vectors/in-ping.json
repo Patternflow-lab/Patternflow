@@ -1,0 +1,22 @@
+{
+  "contract": "docs/osc-spec.md#host--device",
+  "says": "Learn/refresh sender as the remote host and reply with a full announce (hello, version, ip, pattern index/name, modes).",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "osc": ["/patternflow/ping"] } },
+    {
+      "send": { "wait": 50 },
+      "expect": {
+        "out": [
+          { "osc": ["/patternflow/hello", "Patternflow"] },
+          { "osc": ["/patternflow/version", "<string>"] },
+          { "osc": ["/patternflow/ip", "<string>"] },
+          { "osc": ["/patternflow/pattern/index", "<integer>"] },
+          { "osc": ["/patternflow/pattern/name", "<string>"] },
+          { "osc": ["/patternflow/content/mode", 0] },
+          { "osc": ["/patternflow/app/mode", "<integer>"] }
+        ]
+      }
+    }
+  ]
+}

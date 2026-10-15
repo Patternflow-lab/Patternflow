@@ -1,0 +1,11 @@
+{
+  "contract": "docs/osc-spec.md#device--host",
+  "says": "Every 1 s while connected",
+  "features": ["osc"],
+  "steps": [
+    { "send": { "wait": 1500 }, "expect": { "out": [{ "osc": "<absent>" }] } },
+    { "send": { "osc": ["/patternflow/ping"] } },
+    { "send": { "wait": 1000 }, "expect": { "out": [{ "osc": ["/patternflow/hello", "Patternflow"] }, { "osc": ["/patternflow/heartbeat", "<integer>"] }, { "osc": "<absent>" }] } },
+    { "send": { "wait": 1000 }, "expect": { "out": [{ "osc": ["/patternflow/heartbeat", "<integer>"] }, { "osc": "<absent>" }] } }
+  ]
+}
