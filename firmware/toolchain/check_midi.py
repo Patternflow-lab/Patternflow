@@ -13,7 +13,8 @@ def main():
     compiler, env = compiler_environment()
     with tempfile.TemporaryDirectory(prefix='patternflow-midi-') as directory:
         work = Path(directory)
-        for name in ('features/midi/core_midi.h', 'features/midi/midi_queue.h', 'src/core_bus.h'):
+        for name in ('features/midi/core_midi.h', 'features/midi/midi_queue.h', 'src/core_bus.h',
+                     'src/core_shared.h'):
             dest = work / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes((ROOT / 'firmware/patternflow' / name).read_bytes())

@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include "config.h"
+#include "core_shared.h"
 
 volatile long     encPos[4]    = {0, 0, 0, 0};   // sub-steps; 4 per detent
 volatile uint8_t  encState[4]  = {0, 0, 0, 0};   // last ACCEPTED (A<<1)|B
@@ -73,7 +74,9 @@ void IRAM_ATTR isr4() { handleEncoder(3, ENC4_A, ENC4_B); }
 // (namespace "pf_knobs"), set from the /knobs page (core_knobs_http.h).
 inline bool knobInvert[4] = {INVERT_ENCODER != 0, INVERT_ENCODER != 0,
                              INVERT_ENCODER != 0, INVERT_ENCODER != 0};
-inline int  knobSubSteps[4] = {4, 4, 4, 4};   // edges per click: 4, 2 or 1
+// Edges per click: 4, 2 or 1.
+inline int  knobSubSteps[4] = {PF_SHARED_EDGES_PER_DETENT, PF_SHARED_EDGES_PER_DETENT,
+                               PF_SHARED_EDGES_PER_DETENT, PF_SHARED_EDGES_PER_DETENT};
 // A settings change must not move a knob. The click count carries on from
 // where it was, counting the edges since the change in the new direction
 // and at the new size, so the frame's delta stays zero across a save.
@@ -86,7 +89,9 @@ inline long getClicks(int idx) {
   return knobClickBase[idx] + rel / knobSubSteps[idx];
 }
 
-inline int clampSubSteps(int v) { return (v == 1 || v == 2 || v == 4) ? v : 4; }
+inline int clampSubSteps(int v) {
+  return (v == 1 || v == 2 || v == 4) ? v : PF_SHARED_EDGES_PER_DETENT;
+}
 
 // Call on the frame task (the frame reads the same counters).
 inline void setKnobSettings(int idx, bool invert, int subSteps) {
@@ -140,7 +145,7 @@ struct Button {
   bool pressed() {
     bool cur = digitalRead(pin);
     uint32_t now = millis();
-    if (cur != lastState && (now - lastChangeMs) > 50) {
+    if (cur != lastState && (now - lastChangeMs) > PF_SHARED_BUTTON_DEBOUNCE_MS) {
       lastState = cur;
       lastChangeMs = now;
       if (cur == LOW) {
@@ -166,7 +171,7 @@ struct Button {
     return c;
   }
 
-  bool longPressed(uint32_t threshold = 1000) {
+  bool longPressed(uint32_t threshold = PF_SHARED_LONG_PRESS_MS) {
     if (!isDown()) return false;
     uint32_t now = millis();
     if (!longPressFired && (now - pressStartMs) > threshold) {
