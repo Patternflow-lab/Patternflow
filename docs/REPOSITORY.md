@@ -12,7 +12,7 @@ A map for people. (AI coding agents get the same map with more rules in [`../AGE
 | `docs/` | Contracts other software is built against, how the firmware is put together, walk-throughs, the audio guide (`AUDIO_GUIDE.md`), the assembly map, the legacy v2.x build guide (`legacy/`), the writing voice (`voice.md` and `voice-banned.txt`), project records (`releases/`, one file per release) and media | [`README.md`](README.md) |
 | `tools/` | Clients Patternflow ships that run on their own: the audio-react browser extension (also the authoring source of the device's `/audio-in` page), the Android capture app, an RTP-MIDI probe. Also `case-models/`, the scripts that make the /build page's 3D model of each case, the official one and every remix on its case switch | [`tools/README.md`](../tools/README.md) |
 | `integrations/` | Bridges that run inside or beside someone else's software (Ableton / Max for Live today) and talk to the panel only through the contracts in `docs/` | [`integrations/README.md`](../integrations/README.md) |
-| `.github/` | Issue and pull-request templates (including the guide's **Stuck here?** form and **Share your build**), `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, the CI workflows (web, every firmware composition, the core-names-no-feature checks, doc links, community folders carrying their README, console-page sync, firmware release assets, Discord dev-log) and their helper scripts | the header comment of each workflow |
+| `.github/` | Issue and pull-request templates (including the guide's **Stuck here?** form and **Share your build**), `SUPPORT.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, the CI workflows (web, every firmware composition, the core-names-no-feature checks, doc links, the drift checks, community folders carrying their README, console-page sync, firmware release assets, Discord dev-log) and their helper scripts | the header comment of each workflow |
 | root | `README.md`, the three guides (`BUILD_GUIDE.md`, `PATTERN_GUIDE.md`, `FEATURE_GUIDE.md`), `CHANGELOG.md`, `CONTRIBUTING.md`, `CITATION.cff`, the two license texts and the `LICENSE` pointer, `AGENTS.md` (+ `CLAUDE.md`, a one-line shim) | |
 
 The rule for where a document lives: **the root keeps three guides and no others, so a first-time visitor reads it at a glance; a contract, a reference, a walk-through for one task or a record is in `docs/`; a folder explains itself in its own README.**
@@ -41,11 +41,11 @@ Filenames are lowercase with underscores. Tags are `vX.Y.Z`; the firmware source
 
 ## Files that other things link to — check before renaming
 
-The site, the firmware and the release notes hold absolute `blob/main/…` links into this tree, and none of them is checked by CI. Before renaming or moving any of these, grep `web/src`, `web/content`, `firmware/patternflow/console` and `firmware/patternflow/features/*/*_index.h`:
+The site, the firmware and the release notes hold absolute `blob/main/…` links into this tree, and a pull request that breaks one fails `check:links-absolute`. Before renaming or moving any of these, grep `web/src`, `web/content`, `firmware/patternflow/console` and `firmware/patternflow/features/*/*_index.h`:
 
 - `README.md`, `BUILD_GUIDE.md` (the site links its section anchors — §1, §2, §4, §8, §8.2 and §10 when this was written — so a renamed heading breaks them), `FEATURE_GUIDE.md`, `PATTERN_GUIDE.md`
 - `docs/AUDIO_GUIDE.md`, `docs/assembly/README.md`, `docs/midi-ableton.md`, `docs/midi-spec.md` (the last two are baked into the Audio edition's console pages)
 - `docs/EDITIONS.md`, `docs/rest-api.md`, `firmware/README.md`, `hardware/bom/bom_v3.9.csv`
 - `web/src/app/compliance/` — the `/compliance` URL is printed on the box. Never move, redirect or noindex it.
 
-`.github/scripts/check_links.py` checks the *relative* links in every tracked markdown file and runs on every pull request that touches one.
+`.github/scripts/check_links.py` checks the *relative* links in every tracked markdown file and runs on every pull request that touches one. `check:links-absolute` (`web/scripts/doc-map.ts --check absolute`, in `drift.yml`) checks the absolute ones on every pull request, against the tree or the tag a link names.
