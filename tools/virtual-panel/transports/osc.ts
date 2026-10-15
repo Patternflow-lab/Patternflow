@@ -3,8 +3,8 @@
  * (lines 13 to 20), what it tells that host (24 to 39) and the four addresses a host sends (43 to 50). The spec where
  * it speaks, features/osc/core_osc.h where it is silent: only the first argument is read, a float rounds half away
  * from zero, and what arrives is taken at the end of a frame, eight datagrams at most, so a delta reaches the pattern
- * on the frame after. Replies go to the learned address on --port oscReply, 9000 unless moved; 0 (what '*=0' gives)
- * sends them back to the port the host sent from, so a suite needs one socket.
+ * on the frame after. Replies go to the learned address on the oscReply port, 9000 unless --port moves it. There 0,
+ * which '*=0' gives, sends them back to the port the host sent from, so a suite needs one socket.
  */
 import dgram from "node:dgram";
 import fs from "node:fs";
@@ -21,7 +21,7 @@ const [LOCAL_PORT, REMOTE_PORT] = [9001, 9000]; // PF_OSC_LOCAL_PORT, PF_OSC_REM
 const [PACKET_BYTES, RX_BUDGET, HEARTBEAT_MS] = [256, 8, 1000]; // sizeof(packet) and rxBuf, PF_OSC_RX_BUDGET, update()
 const FRAME_MS = 1000 / 60; // the frame panel.ts ticks DeviceSim at; update() runs once a frame
 const NET_CONFIG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../firmware/patternflow/net_config.h");
-const P = "/patternflow";
+const P = "/patternflow"; // every address lives under it (line 54)
 
 // DeviceSim keeps the pattern list private, since the guide picks by slug.
 type Inside = { patterns: SimPattern[] };
@@ -76,8 +76,8 @@ export default {
     let [announce, pick] = [false, -1]; // a ping or a new host, and the frame's last pattern/index
     function receive({ b, from }: (typeof inbox)[number]) {
       const m = b.length <= PACKET_BYTES ? parse(b) : null;
-      const knob = Number(/^\/patternflow\/knob\/(\d)\/delta$/.exec(m?.address ?? "")?.[1]) - 1;
       if (!m) return;
+      const knob = Number(/^\/patternflow\/knob\/(\d)\/delta$/.exec(m.address)?.[1]) - 1;
       if (knob >= 0 && knob < KNOB_COUNT) {
         // Clicks no hand made, one for one (line 46). They take no lane and free no channel, and asleep they wake nothing.
         if (Number.isFinite(m.arg)) sim.nudge(knob, m.arg);
