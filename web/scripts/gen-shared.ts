@@ -1,9 +1,9 @@
 /**
  * gen:shared: writes shared/constants.json out as the two files that read it,
  * firmware/patternflow/src/core_shared.h and web/src/lib/shared/constants.ts
- * (docs/rfc-cleanup.md §2.5). The site counted 20 detents a turn until 31 July
- * 2026, against the 24 of the encoder it mirrors. One file to change is the
- * answer to that.
+ * (docs/rfc-cleanup.md §2.5). The lab counted 20 detents a turn until 31 July
+ * 2026, against the encoder's 24, and the community sandbox until 4 September.
+ * Each copy was found and fixed by hand.
  *
  * A key in the JSON is the constant's name on both sides: DETENTS_PER_TURN is
  * PF_SHARED_DETENTS_PER_TURN in the header and DETENTS_PER_TURN in the module.
