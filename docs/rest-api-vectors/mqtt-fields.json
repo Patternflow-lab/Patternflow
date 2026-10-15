@@ -1,0 +1,26 @@
+{
+  "contract": "docs/rest-api.md#get-apimqtt",
+  "says": "Also reported: `normalHost`, `normalPort`, `normalUser`, `normalPrefix`, `normalHasPassword` (the saved Normal-mode broker, kept while Director mode overlays it) and `directorHost`.",
+  "features": ["mqtt"],
+  "steps": [
+    {
+      "send": { "http": "GET /api/mqtt" },
+      "expect": {
+        "reply": {
+          "status": 200,
+          "body": {
+            "ok": true, "role": "<string>", "channel": "<string>", "state": "<string>",
+            "host": "<string>", "port": "<integer>", "user": "<string>", "prefix": "<string>",
+            "pattern": "<string>", "error": "<string>", "mode": "<string>",
+            "connected": "<boolean>", "configured": "<boolean>", "hasPassword": "<boolean>", "forcesSub": "<boolean>",
+            "knobs": ["<integer>", "<integer>", "<integer>", "<integer>"],
+            "params": ["<integer>", "<integer>", "<integer>", "<integer>"],
+            "paramActive": ["<boolean>", "<boolean>", "<boolean>", "<boolean>"],
+            "normalHost": "<string>", "normalPort": "<integer>", "normalUser": "<string>", "normalPrefix": "<string>",
+            "normalHasPassword": "<boolean>", "directorHost": "<string>"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "contract": "docs/rest-api.md#get-apistatus",
+  "says": "`\"off\"`, `\"publisher\"` or `\"subscriber\"`.",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "GET /api/status" }, "expect": { "reply": { "body": { "mqttRole": "off", "mqttState": "<string>", "mqttConnected": false } } } },
+    { "send": { "http": "POST /api/mqtt?role=publisher" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "role": "publisher" } }, "status": { "mqttRole": "publisher" } } },
+    { "send": { "http": "POST /api/mqtt?role=subscriber" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "role": "subscriber" } }, "status": { "mqttRole": "subscriber" } } },
+    { "send": { "http": "POST /api/mqtt?role=off" }, "expect": { "reply": { "status": 200, "body": { "ok": true, "role": "off" } }, "status": { "mqttRole": "off" } } }
+  ]
+}
