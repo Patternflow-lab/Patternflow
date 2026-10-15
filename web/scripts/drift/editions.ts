@@ -1,14 +1,14 @@
 /**
- * check:editions: the shelf against the bundles that build it, the images
- * the site serves, and the two scripts that cut releases. It checks names.
- * Versions, and that each named image has its files, are check_versions.py's.
+ * check:editions: the cards on /editions against the folders under
+ * firmware/bundles/. It checks names. Versions, and that each named image has
+ * its files, are check_versions.py's.
  *
- * Every card on /editions is a folder under firmware/bundles/, and every
- * folder there is a card or a try-out on /features. Two kinds of card have no
- * folder. The default is the card whose id is the variant the core reports
- * with no bundle, PF_VARIANT in net_config.h. A card with a github field is
- * released from that repository (EditionCard.tsx reads its latest tag there),
- * so it is built there too. Both are read from the tree and printed.
+ * Every card has a bundle, and every bundle is a card or a try-out on
+ * /features. Two kinds of card have no bundle. The default is the card whose
+ * id is the variant the core reports with no bundle, PF_VARIANT in
+ * net_config.h. A card with a github field is released from that repository
+ * (EditionCard.tsx reads its latest tag there), so it is built there too.
+ * Both are read from the tree and printed.
  *
  * The folders in web/public/flash/bin/ are the images the cards, the try-outs
  * and the flasher's manifest.json name: shelf.sh stages one per name and
