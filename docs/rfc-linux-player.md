@@ -29,7 +29,7 @@ an edition: an edition is a firmware build
 the ESP32-S3.
 The firmware path, any size on one ESP32-S3, is `docs/rfc-any-resolution.md`.
 
-Facts are from `dev` at `a800fd3`. Where the player leans on work that is only
+Facts are from `dev` at `adbe923`. Where the player leans on work that is only
 planned, the plan and its k are named and the paths are in backticks. "Size" is
 the canvas, width × height. A path that starts `player/` is inside the player's
 own folder, wherever that lives (§2.7). Each section ends with its rows in
@@ -142,11 +142,11 @@ USB encoders. The player reads a USB knob box's `/dev/input/by-id/*-event-*`
 node as a file: 24-byte events on 64-bit Raspberry Pi OS, a rotation as a
 relative step (`EV_REL`) or, on some single knobs, a key per step.
 `player/knobs.json` maps a device's axis or key to K1 to K4 and their buttons,
-with steps per detent. A board's `PEC11R-4220F-S0024` has 24 detents a turn
-(`harness.ts:11`; step 3's k7 moves the number to `shared/constants.json`, and
-the player reads it wherever the guide does). `DeviceSim` already takes a
-direction and an edge count per knob (`setKnobSettings`, `:522`), the setting
-`/api/knobs` keeps on a board.
+with steps per detent. A board's `PEC11R-4220F-S0024` has 24 detents a turn,
+`DETENTS_PER_TURN` in `shared/constants.json`. The player reads the generated
+`web/src/lib/shared/constants.ts`, which the site does not import yet
+(`harness.ts:11` still types 24). `DeviceSim` takes a direction and an edge
+count per knob (`setKnobSettings`, `:522`), as `/api/knobs` does on a board.
 
 MIDI. A USB controller appears as an ALSA raw device,
 `/dev/snd/midiC<card>D<device>`, and reads as a byte stream with no addon.
