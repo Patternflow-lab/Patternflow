@@ -13,13 +13,14 @@
 // device prints on its KNOB MAP screen. Where each one sits on the front is
 // the 3D stage's business.
 
-import { PATTERN_DETENTS_PER_TURN, PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern/harness";
+import { PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern/harness";
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
 import { hexToRgb } from "@/lib/pattern/color";
 import { knobSetupFromCode } from "@/lib/community/knobs";
 import { LOGICAL_KNOB_DEFAULTS, knobUnitsPerTurn } from "@/lib/pattern/controls";
 import { livePresets } from "@/lib/presets";
 import { BASICS_PACK } from "@/lib/pattern/packs";
+import { BUS_MAX, BUS_UNITS_PER_CLICK, DETENTS_PER_TURN, EDGES_PER_DETENT, KNOB_COUNT } from "@/lib/shared/constants";
 import { BASICS_NAMES } from "./basicsNames";
 import {
   brightnessPercent,
@@ -145,7 +146,6 @@ export type SimConsoleState = {
 // write. A channel is held once written; a change of the held value reaches
 // a pattern as clicks, ten bus units each, the remainder carried; a hand on
 // that encoder takes it back after a grace.
-const BUS_UNITS_PER_CLICK = 10;
 const BUS_RELEASE_GRACE_MS = 250;
 
 // The lanes (docs/audio-ws-spec.md): what sound writes. A lane is an absolute
@@ -197,7 +197,7 @@ export class DeviceSim {
   private now = 0;
   private time = 0;
 
-  private knobs: Knob[] = Array.from({ length: 4 }, () => ({
+  private knobs: Knob[] = Array.from({ length: KNOB_COUNT }, () => ({
     down: false,
     downAt: 0,
     longFired: false,
@@ -330,7 +330,7 @@ export class DeviceSim {
    * the AUD row switched off stops all four.
    */
   setLane(source: SimLaneSource, knob: number, value: number) {
-    if (source !== this.laneSource || !Number.isInteger(knob) || knob < 0 || knob > 3 || !Number.isFinite(value)) return;
+    if (source !== this.laneSource || !Number.isInteger(knob) || knob < 0 || knob >= KNOB_COUNT || !Number.isFinite(value)) return;
     this.laneValue[knob] = clamp(value, 0, 1);
     this.laneAt[knob] = this.now;
   }
@@ -499,8 +499,8 @@ export class DeviceSim {
    * (core_bus.h applyRemoteParam). The 3D knob does not turn — nothing did.
    */
   applyRemoteParam(knob: number, value: number) {
-    if (knob < 0 || knob > 3 || !Number.isFinite(value)) return;
-    const v = clamp(Math.round(value), 0, 1000);
+    if (knob < 0 || knob >= KNOB_COUNT || !Number.isFinite(value)) return;
+    const v = clamp(Math.round(value), 0, BUS_MAX);
     if (this.busHeld[knob]) {
       const acc = this.busResidual[knob] + (v - this.busValue[knob]);
       const d = Math.trunc(acc / BUS_UNITS_PER_CLICK);
@@ -520,9 +520,9 @@ export class DeviceSim {
 
   /** The /knobs page: which way each encoder counts and how many of its 4 edges make a click. */
   setKnobSettings(invert: boolean[], edgesPerClick: number[]) {
-    for (let i = 0; i < 4; i++) {
-      const sub = [1, 2, 4].includes(edgesPerClick[i]) ? edgesPerClick[i] : 4;
-      this.clickScale[i] = (invert[i] ? -1 : 1) * (4 / sub);
+    for (let i = 0; i < KNOB_COUNT; i++) {
+      const sub = [1, 2, 4].includes(edgesPerClick[i]) ? edgesPerClick[i] : EDGES_PER_DETENT;
+      this.clickScale[i] = (invert[i] ? -1 : 1) * (EDGES_PER_DETENT / sub);
     }
   }
 
@@ -700,7 +700,7 @@ export class DeviceSim {
       const d = detents[i];
       if (!d) continue;
       const [min, max] = this.ranges[i] ?? [0, 1];
-      const next = values[i] + d * (knobUnitsPerTurn([min, max]) / PATTERN_DETENTS_PER_TURN);
+      const next = values[i] + d * (knobUnitsPerTurn([min, max]) / DETENTS_PER_TURN);
       values[i] = this.wraps[i] ? wrap(next, min, max) : clamp(next, min, max);
     }
   }
@@ -710,7 +710,7 @@ export class DeviceSim {
     // SELECT clears the name card (patternflow.ino:1731).
     if (mode === "select") this.noticeUntil = -1;
     // SELECT drops every held bus channel, so browsing never fights one (patternflow.ino).
-    if (mode === "select") for (let i = 0; i < 4; i++) if (this.busHeld[i]) this.releaseBus(i);
+    if (mode === "select") for (let i = 0; i < KNOB_COUNT; i++) if (this.busHeld[i]) this.releaseBus(i);
     this.mode = mode;
     this.idleAt = this.now;
     this.onModeChange?.(mode);

@@ -24,10 +24,15 @@
 // public/pattern-sandbox.html is built from this module
 // (scripts/build-sandbox.ts), so there is no second parser to keep in step.
 
+import { PANEL_GEOMETRIES, PANEL_GEOM_DEFAULT } from "@/lib/shared/constants";
+
 export type MatrixSize = { width: number; height: number };
 
 /** The stock Patternflow panel. Used whenever a pattern carries no @matrix. */
-export const DEFAULT_MATRIX: MatrixSize = { width: 128, height: 64 };
+export const DEFAULT_MATRIX: MatrixSize = {
+  width: PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW,
+  height: PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH,
+};
 
 /**
  * The stock panel in either orientation — the board is mounted whichever way
@@ -69,7 +74,7 @@ export function clampMatrixDimension(value: number): number | null {
  * Pixels per frame beyond which the JS preview starts to struggle — four times
  * the stock panel. Not a limit, just the point worth warning about.
  */
-export const MATRIX_HEAVY_PIXELS = 128 * 64 * 4;
+export const MATRIX_HEAVY_PIXELS = DEFAULT_MATRIX.width * DEFAULT_MATRIX.height * 4;
 
 export function isValidMatrix(size: Partial<MatrixSize> | null | undefined): boolean {
   if (!size) return false;

@@ -1,16 +1,17 @@
-import { PATTERN_DETENTS_PER_TURN } from "./harness";
+import { BUS_MAX, DETENTS_PER_TURN, TURNS_PER_FULL_RANGE } from "@/lib/shared/constants";
 
 // Detents in one full turn of the physical encoder. One fact, one constant:
-// harness.ts owns it (see the note there — the reference Bourns
-// PEC11R-...-S0024 is 24, not the 20 assumed for a long time) and this is the
-// name the knob math has always used for it.
-export const ENCODER_CLICKS_PER_TURN = PATTERN_DETENTS_PER_TURN;
+// shared/constants.json owns it (see the note in harness.ts — the reference
+// Bourns PEC11R-...-S0024 is 24, not the 20 assumed for a long time) and this
+// is the name the knob math has always used for it.
+export const ENCODER_CLICKS_PER_TURN = DETENTS_PER_TURN;
 
 // The device's absolute bus speaks integers 0..1000 (PF_BUS_MAX in
-// firmware/patternflow/src/core_bus.h). Everything here that writes a wire
-// value — the Director's bake, the .pfs codec, the MIDI export — uses this
-// rather than the literal, so the two sides can only disagree in one place.
-export const BUS_WIRE_MAX = 1000;
+// firmware/patternflow/src/core_bus.h, BUS_MAX in shared/constants.json).
+// Everything here that writes a wire value — the Director's bake, the .pfs
+// codec, the MIDI export — uses this rather than the literal, so the two sides
+// can only disagree in one place.
+export const BUS_WIRE_MAX = BUS_MAX;
 
 // How many full turns cross a parameter's ENTIRE range.
 //
@@ -21,7 +22,7 @@ export const BUS_WIRE_MAX = 1000;
 // Deriving travel from the range makes every knob feel the same regardless of
 // what it controls, and keeps the web preview and the encoder in step because
 // both read the value from here.
-export const TURNS_PER_FULL_RANGE = 2;
+export { TURNS_PER_FULL_RANGE };
 
 /** Value units covered by one full turn, for a parameter spanning `range`. */
 export function knobUnitsPerTurn(range: readonly [number, number]) {
