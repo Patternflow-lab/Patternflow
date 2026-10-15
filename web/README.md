@@ -46,6 +46,6 @@ None are required — the site runs fully without them. The community host needs
 
 ## Contributing
 
-See the repo-level [CONTRIBUTING.md](../CONTRIBUTING.md). Web changes go through a PR into `main`; CI runs lint, typecheck, `check:ci` and `next build` on anything under `web/`, and the drift checks and `check:human-lock` on every pull request.
+See the repo-level [CONTRIBUTING.md](../CONTRIBUTING.md). Web changes go through a PR into `main`; CI runs `lint`, `typecheck`, `check:ci` and `build` on anything under `web/`, and the drift checks and `check:human-lock` on every pull request.
 
 Code in `web/` is MIT licensed ([LICENSE-MIT](../LICENSE-MIT)).
