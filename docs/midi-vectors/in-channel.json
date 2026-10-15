@@ -1,0 +1,14 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Messages on another channel are ignored unless the channel is `0`.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [177, 20, 127] } },
+    { "send": { "midi": [178, 25, 65] } },
+    { "send": { "midi": [159, 60, 127] } },
+    { "send": { "midi": [193, 3] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, false, false, false] }, "input": { "given": { "deltas": [0, 0, 0, 0], "presses": [0, 0, 0, 0] }, "pattern": { "index": 0 } } } },
+    { "send": { "midi": [176, 25, 65] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [0, 1, 0, 0] } } } }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Everything else is ignored.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [144, 60, 127] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "held": [true, false, false, false] } } } },
+    { "send": { "midi": [176, 123, 0] } },
+    { "send": { "midi": [176, 120, 0] } },
+    { "send": { "midi": [176, 121, 0] } },
+    { "send": { "midi": [176, 19, 127] } },
+    { "send": { "midi": [176, 28, 65] } },
+    { "send": { "midi": [144, 64, 127] } },
+    { "send": { "midi": [144, 59, 127] } },
+    { "send": { "midi": [224, 0, 127] } },
+    { "send": { "midi": [208, 100] } },
+    { "send": { "midi": [160, 61, 100] } },
+    { "send": { "wait": 20 }, "expect": { "status": { "paramActive": [false, false, false, false] }, "input": { "given": { "deltas": [0, 0, 0, 0], "presses": [1, 0, 0, 0], "held": [true, false, false, false] }, "pattern": { "index": 0 } } } }
+  ]
+}
