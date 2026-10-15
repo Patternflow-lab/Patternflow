@@ -71,9 +71,10 @@ profile names (`core_display.h:25`).
 
 What stays compile-time. Both ABI structs carry `panel_w` and `panel_h`
 (`pf_abi.h:82-83`, `117-118`), frozen at version 1, and a module takes its size
-from its build. The presets' arrays are in modules too. Only Origin and the
-calibration card compile in (`pattern_registry.h:44-48`), and the other 33
-reach a device as `.pfm` files in `basics.zip`. Those two and weather's compact
+from its build. The presets that size arrays by the macro (`preset_0629_2.h`,
+`preset_0713.h`) are modules too: only Origin and the calibration card compile
+in (`pattern_registry.h:44-48`), and the other 33 reach a device in
+`basics.zip`. Those two and weather's compact
 layout draw at the macro's size, and the core calls `setFrame(PANEL_RES_W,
 PANEL_RES_H)` before they draw. It centres them on another panel and is the
 straight path on the default one (`core_canvas.h:142`). `env:firmware64x2`
