@@ -4,7 +4,7 @@ Each file here is one sentence of [mqtt-spec.md](../mqtt-spec.md) and the steps 
 
 A Patternflow is a broker's client, so the suite brings the broker. `web/scripts/drift/_broker.ts` starts one for each vector on a free port. It speaks MQTT 3.1.1 at QoS 0 and keeps retained messages, and a topic matches only itself. Before the first step the suite points the panel at it with `POST /api/mqtt`, host and port only, which leaves the role off. A vector picks the role in its first step, `POST /api/mqtt?role=subscriber` for one, and the panel dials on its next frame, so a `wait` comes next. A message the vector sends is `{ "topic": "patternflow/sleep", "payload": "1" }`, with `"retain": true` to keep it on the broker. It reaches the panel only on a topic the panel subscribed to, as on any broker. `out` is each message the panel published, with its `retain` flag beside the topic and payload.
 
-A file's name starts with the part of the spec it reads. `topics-` is the topic table and the two roles, and `channels-` is the channels and the snapshot. `/api/mqtt` is REST, so its vectors are in `docs/rest-api-vectors/` and start with `mqtt-`.
+A file's name starts with the part of the spec it reads. `topics-` is the topic table and the two roles, and `channels-` is the channels and the snapshot. `/api/mqtt` is REST, so its vectors are in [rest-api-vectors](../rest-api-vectors/README.md) and start with `mqtt-`.
 
 The banner a `message` puts up is read with `GET /vp/mqtt`. That route is the virtual panel's own. The firmware has none, and `/frame.png` does not draw the banner.
 
