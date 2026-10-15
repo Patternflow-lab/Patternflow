@@ -77,8 +77,14 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  // "bin" is still accepted as a word so an older page gets an explanation
-  // rather than a validation error it cannot act on.
+  // "bin" asked for a whole firmware image. The community built those from 25
+  // July 2026 (c5e0907) until 4c13474 removed them on 12 August, and since
+  // then the word gets a 410 that says where to go instead of the 400 below.
+  // No page here ever sent it: BuildFirmwareModal, the one dialog that asked
+  // for an image, sent no format, and a missing format meant "bin" until that
+  // day.
+  // What the 410 is left for is a caller outside this repository that names
+  // the format, as this route's header said to from 27 July (d7cd193).
   const rawFormat = (body as Record<string, unknown>).format ?? "pfm";
   if (rawFormat === "bin") {
     return Response.json(

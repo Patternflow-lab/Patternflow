@@ -43,7 +43,6 @@ import { deckPatterns } from "./schema";
 export type DeckSkipReason =
   | "no-header"
   | "compile-error"
-  | "duplicate-name"
   | "missing"
   /** The build service could not compile it just now (not the code's fault). */
   | "unavailable";
