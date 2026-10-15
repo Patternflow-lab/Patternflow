@@ -25,9 +25,9 @@
 
 #include <Arduino.h>
 #include "core_loop_sync.h"   // onLoopTask(): present() belongs to the frame
-// Vendored HUB75 driver (src/hub75/), not the Library Manager copy: it
-// carries one addition, blitRGB888(), that upstream has no equivalent for.
-// See src/hub75/VENDORED.md.
+// Vendored HUB75 driver (src/hub75/), not the Library Manager copy. Every
+// change from upstream is in src/hub75/patternflow.patch, and
+// src/hub75/VENDORED.md says why.
 #include "hub75/ESP32-HUB75-MatrixPanel-I2S-DMA.h"
 #include "config.h"
 
