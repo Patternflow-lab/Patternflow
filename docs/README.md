@@ -49,6 +49,11 @@ The interactive guide at [patternflow.work/guide](https://patternflow.work/guide
 - [`RELEASING.md`](RELEASING.md) — the `dev` → `main` routine, cutting a release, what the workflows attach
 - [`SERVICES.md`](SERVICES.md) — the production hosts (community, build worker) and their systemd units. Korean.
 
+## Drafts — Part 2 only, and nothing in them is built
+
+- [`rfc-any-resolution.md`](rfc-any-resolution.md) — a panel of another size on one ESP32-S3, chosen on a console page and applied at the next boot instead of in a rebuild. Classic HUB75 only, within the driver's DMA memory
+- [`rfc-linux-player.md`](rfc-linux-player.md) — the site's pattern engine as a Linux program, onto a HUB75 HAT on a Raspberry Pi, a receiving card or a screen. Not firmware, and not an edition
+
 ## Records
 
 - [`investigations/`](investigations/) — dated post-mortems, and the cleanup's plans. `npm run doc-map` in `web/` writes the two lists here: `2026-10-doc-map.csv`, every link in the tree and whether it resolves, and `2026-10-doc-parity.csv`, every Korean/English pair and which side is missing or short
