@@ -194,8 +194,8 @@ async function run(file: string, senders: Record<string, Sender>, want: string[]
       }
     }
   } finally {
-    await panel?.close();
-    for (const c of channels.values()) await c.close();
+    const closed = await Promise.allSettled([panel?.close(), ...[...channels.values()].map((c) => c.close())]);
+    for (const c of closed) if (c.status === "rejected") got.push(`close threw ${c.reason}`);
   }
 }
 
