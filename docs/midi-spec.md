@@ -137,8 +137,8 @@ most.
   independent of display frames, and suppression of outbound CCs generated
   from absolute-bus compatibility clicks. No new transport or CC mapping.
   Where this file said two things, the section that defines the message now
-  stands: CC 24–27 are binary offset, as their examples always were, a host's
-  Program Change comes back as the pattern change it made, and the audio lanes
+  stands: CC 24–27 are binary offset, as their examples always were; a host's
+  Program Change comes back as the pattern change it made; the audio lanes
   yield to a hand and an absolute CC.
 - **1.1** (2026-09-06) — outbound CC 24–27 paced: one message per knob per
   50 ms at most (`PF_MIDI_OUT_MIN_INTERVAL_MS`), the final value always sent;
