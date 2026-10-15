@@ -27,7 +27,10 @@ It is standalone (not Eurorack), powered from a 5 V power bank through a screw t
 
 ## Common commands
 - Web dev server: `npm run dev` (inside the `web/` directory)
-- Web production build: `npm run build` (inside the `web/` directory); the smoke suites are `npm run check:*` and CI runs all of them.
+- Web production build: `npm run build` (inside the `web/` directory); the smoke suites are `npm run check:*`, and CI runs the ones `npm run check:ci` chains together.
+- Drift checks: `npm run check:drift` (inside `web/`) runs each file in `web/scripts/drift/`, and each compares two things the tree keeps by hand, such as `hardware/bom/bom_v3.9.csv` and the build guide's parts table. `npm run check:<name>` runs one: `links-absolute`, `bom`, `bom-schematic`, `features`, `editions`, `presets`, `roadmap` or `changelog`. `check:ci` ends with it, and `.github/workflows/drift.yml` runs it on every pull request with `PF_DRIFT_STRICT=1`. At a desk a check skips a side it cannot read (a tag the clone lacks, no `pdftotext`, no `gh` login); in that workflow the skip fails.
+- Locked text: `npm run check:human-lock` (inside `web/`) fails when a word changes in the maintainer's own writing, the regions `docs/rfc-cleanup.md` §2.9 lists plus each path in `docs/.human-written`. Markup and link paths in them may change. A typo is reported in the PR, not fixed. `drift.yml` runs it on pull requests against the base commit; at a desk the base is the merge-base with `origin/dev`.
+- Voice lint: `npm run check:voice` (inside `web/`) reads the lines a branch adds since that same base and prints `file:line` for each banned word from `docs/voice-banned.txt`, list of three, opener that says what the text is about, or closing summary. Run it by hand before opening a PR that adds prose; CI does not run it. Files given as arguments are read whole, and `-` reads a PR description from stdin.
 - Firmware compilation: `./firmware/bundles/build.sh` (PlatformIO, bundled toolchain — not the Arduino IDE; the IDE path cannot build the editions' library set). That builds the default: the device with no features. Named editions are `./firmware/bundles/build.sh audio`, `performance`, `clock` and `midi` (the last builds in its own PlatformIO env, named in `bundles/midi/env`, because its USB port must be the OTG controller — a build flag, not a setting). `./firmware/bundles/build.sh all` builds every composition and scans each binary for per-feature marker strings, proving each image carries exactly its features — run it before pushing anything that touches firmware.
 - **Changing anything in the firmware core means building every composition** — `build.sh all` is that rule as one command. A hook change that compiles against the default is not tested; the default has no features to break. The boundary rule itself is enforced by `firmware/toolchain/check_boundaries.py` in CI: core referencing a feature namespace, including from `features/`, branching on a feature flag, or naming a feature in a core console page fails the build. `check_presets.py` (also CI) keeps `web/src/lib/presets/` and `firmware/patternflow/presets/` in step.
 - Console pages: edit `firmware/patternflow/console/*.html`, preview with `python firmware/toolchain/console_serve.py`, then `python firmware/toolchain/console_pages.py build` (CI checks the headers stayed in sync).
@@ -43,3 +46,30 @@ It is standalone (not Eurorack), powered from a 5 V power bank through a screw t
 - New users: `README.md` → `BUILD_GUIDE.md`
 - Contributors: `CONTRIBUTING.md` → `docs/REPOSITORY.md` → `docs/EDITIONS.md` (firmware) · `web/ARCHITECTURE.md` (web)
 - Version history: `CHANGELOG.md`
+
+## Writing voice (hard rule)
+
+Everything an agent writes that a person will read — docs, README sections, release notes, console page copy, PR descriptions, comments — must read as if the maintainer wrote it. Not "polished". Written.
+
+Voice reference: `docs/voice.md` describes the project voice. Read it before writing anything longer than a sentence. Match its register (Korean: 해요체 or 합니다체 as the file already uses; English: plain, first person where the project already uses it), its sentence length, and its habit of naming the specific thing — the part number, the detent count, the date — instead of the category.
+
+Do not:
+- Open with what the document is about ("This document describes…", "이 문서는 …을 설명합니다"). Start with the thing.
+- Close with a summary that repeats the body, or with "In conclusion" / "결론적으로".
+- Turn prose into bullet lists, or bold phrases for emphasis. Bullets are for lists of things.
+- Use these words or their Korean equivalents: seamless, robust, leverage, comprehensive, streamline, empower, cutting-edge, ensure, utilize, delve, "it's important to note", "here's", 효율적으로, 원활하게, 강력한, 최적화된, 혁신적인, 다양한, 전반적으로, 참고로, 살펴보겠습니다.
+- Write in threes ("fast, simple, and reliable"). One reason is a reason; three is a pattern.
+- Join clauses with em dashes (—). End the sentence and start another.
+- Hedge every claim. Say it, or leave it out.
+- Add emoji, decorative headers, "Note:" callouts, or a "Generated by" line.
+- Mention that an AI, an agent or a tool wrote or helped write the text. Ever.
+- Reformat an existing human-written paragraph into another structure.
+
+Do:
+- Prefer one specific example over a general statement.
+- Vary sentence length. A short one can stand alone.
+- Keep the project's own terms (core, feature, edition, bundle, preset, module) exactly as the existing docs use them.
+- For PR descriptions and commits: imperative first line, one line of why, nothing else. No "This PR introduces…".
+- When unsure of tone, write less.
+
+Any new or rewritten text over 20 lines goes through `web/scripts/voice-lint.ts` (banned phrases, triplets, opener and closer patterns) before the PR is opened, and a person reads it before merge.
