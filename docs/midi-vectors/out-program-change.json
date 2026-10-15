@@ -1,0 +1,10 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "The pattern changed (by anyone: knob, console, OSC, MIDI, a show), for `n ≤ 127`",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "GET /api/patterns/select?index=2" }, "expect": { "out": [{ "midi": [192, 2], "within": 20 }] } },
+    { "send": { "midi": [192, 5] }, "expect": { "out": [{ "midi": [192, 5], "within": 50 }] } },
+    { "send": { "wait": 100 }, "expect": { "out": [{ "midi": "<absent>" }] } }
+  ]
+}

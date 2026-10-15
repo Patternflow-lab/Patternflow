@@ -1,0 +1,17 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "in `rel` the steps sum between messages and a sum leaving ±63 is sent at once",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "http": "POST /api/midi?outMode=rel" } },
+    { "send": { "hand": { "knob": 4, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 27, 65], "within": 20 }] } },
+    { "send": { "hand": { "knob": 4, "turn": 2 } }, "expect": { "out": [{ "midi": "<absent>", "within": 20 }] } },
+    { "send": { "hand": { "knob": 4, "turn": 3 } }, "expect": { "out": [{ "midi": "<absent>", "within": 10 }] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "midi": [176, 27, 69] }, { "midi": "<absent>" }] } },
+    { "send": { "wait": 100 } },
+    { "send": { "hand": { "knob": 4, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 27, 65], "within": 20 }] } },
+    { "send": { "hand": { "knob": 4, "turn": 40 } }, "expect": { "out": [{ "midi": "<absent>", "within": 20 }] } },
+    { "send": { "hand": { "knob": 4, "turn": 40 } }, "expect": { "out": [{ "midi": [176, 27, 127], "within": 20 }] } },
+    { "send": { "wait": 60 }, "expect": { "out": [{ "midi": [176, 27, 81] }, { "midi": "<absent>" }] } }
+  ]
+}

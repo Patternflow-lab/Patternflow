@@ -1,0 +1,11 @@
+{
+  "contract": "docs/midi-spec.md#device--host",
+  "says": "at most one message per knob every 50 ms (≤ 20/s per knob, `PF_MIDI_OUT_MIN_INTERVAL_MS`), trailing-edge so the final value always arrives",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": [176, 24, 65], "within": 20 }] } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": "<absent>", "within": 20 }] } },
+    { "send": { "hand": { "knob": 1, "turn": 1 } }, "expect": { "out": [{ "midi": "<absent>", "within": 10 }] } },
+    { "send": { "wait": 50 }, "expect": { "out": [{ "midi": [176, 24, 67] }, { "midi": "<absent>" }] } }
+  ]
+}
