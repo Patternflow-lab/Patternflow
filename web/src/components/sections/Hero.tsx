@@ -52,6 +52,7 @@ export default function Hero() {
           height: 0
         }}>
           {/* Static fallback and loading placeholder */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- a fixed poster under the video, shown as is */}
           <img 
             src="/product_v2.jpg" 
             alt="Patternflow physical device" 
