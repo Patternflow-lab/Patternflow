@@ -162,6 +162,21 @@ export function screenAt(pathname: string): { page: GuideScreen; lang: GuideLang
 }
 
 /**
+ * Where a link at a guide's end goes. Another page of the guide is followed
+ * in place (world/GuideLink): the words leave and the stage stays. Another
+ * page of the site is an ordinary link, →, in the same tab. Anything else is
+ * away from the site, ↗, in a new tab. The community is on its own host, so
+ * it is away.
+ */
+export type LinkWay = { way: "guide"; page: GuideScreen; lang: GuideLang } | { way: "site" } | { way: "away" };
+
+export function linkWay(href: string): LinkWay {
+  if (!href.startsWith("/") || href.startsWith("//")) return { way: "away" };
+  const screen = screenAt(href);
+  return screen ? { way: "guide", ...screen } : { way: "site" };
+}
+
+/**
  * Where the reader is on a guide, as an anchor: "#flash-3" for a step whose
  * card is on screen, "#flash" for a chapter's title, "#next" for the end, and
  * nothing at the opening. A link to the same guide in the other language

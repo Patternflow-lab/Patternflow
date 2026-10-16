@@ -9,7 +9,7 @@ import { sceneById } from "./scenes";
 import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
 import Extras, { LiveThumbs } from "./Extras";
 import { hereFor, reportUrl } from "./report";
-import { PAGES, type PageChapter } from "./pages";
+import { PAGES, linkWay, type PageChapter } from "./pages";
 import { scriptMismatches } from "./checks";
 import { useDeskFits } from "./desk/query";
 import DeskCue from "./desk/DeskCue";
@@ -585,12 +585,29 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
               {next.until}
             </p>
             <div className={styles.nextLinks} data-line="" style={{ "--n": next.groups.length + 2 } as CSSProperties}>
-              {next.links.map((l) => (
-                <a key={l.href} href={l.href} className={styles.nextLink}>
-                  {l.label}
-                  <span aria-hidden="true">↗</span>
-                </a>
-              ))}
+              {next.links.map((l) => {
+                const to = linkWay(l.href);
+                if (to.way === "guide")
+                  return (
+                    <GuideLink key={l.href} to={to.page} lang={to.lang} className={styles.nextLink} data-in="">
+                      {l.label}
+                      <span aria-hidden="true">→</span>
+                    </GuideLink>
+                  );
+                if (to.way === "site")
+                  return (
+                    <Link key={l.href} href={l.href} className={styles.nextLink} data-in="">
+                      {l.label}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  );
+                return (
+                  <a key={l.href} href={l.href} className={styles.nextLink} target="_blank" rel="noopener noreferrer">
+                    {l.label}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                );
+              })}
             </div>
             <div data-line="" style={{ "--n": next.groups.length + 3 } as CSSProperties}>
               <Report
