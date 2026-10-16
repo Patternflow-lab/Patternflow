@@ -26,6 +26,8 @@ type Shot = {
   title: string;
   en: string;
   ko: string;
+  /** What the picture shows, for a reader who cannot see it. */
+  alt: Record<GuideLang, string>;
   /** How long this screen stays up before the next one (ms). */
   ms?: number;
 };
@@ -43,6 +45,10 @@ const SCANNING: Shot = {
   title: "Scanning for networks",
   en: "Patternflow doesn't send a network list, so this spins about ten seconds.",
   ko: "Patternflow는 주변 네트워크 목록을 보내지 않아서 10초쯤 돌아요.",
+  alt: {
+    en: "Configure Wi-Fi, a spinner over Scanning for networks.",
+    ko: "Configure Wi-Fi 창. 도는 원 아래에 Scanning for networks가 있다.",
+  },
   ms: 2800,
 };
 
@@ -53,6 +59,10 @@ const CONNECTING: Shot = {
   title: "Trying to connect",
   en: "The panel gives the network up to 30 seconds.",
   ko: "패널이 최대 30초 동안 접속을 시도해요.",
+  alt: {
+    en: "Configure Wi-Fi, a spinner over Trying to connect.",
+    ko: "Configure Wi-Fi 창. 도는 원 아래에 Trying to connect가 있다.",
+  },
 };
 
 const CONNECTED: Shot = {
@@ -62,6 +72,10 @@ const CONNECTED: Shot = {
   title: "Device connected to the network!",
   en: "Visit Device opens the panel's console at its new address.",
   ko: "Visit Device를 누르면 패널의 새 주소로 콘솔이 열려요.",
+  alt: {
+    en: "A party popper over Device connected to the network!, then Visit Device and Skip.",
+    ko: "축하 폭죽 그림 아래에 Device connected to the network!가 있고, 그 아래 Visit Device와 Skip이 있다.",
+  },
 };
 
 const SETS: Record<FlasherSet, Shot[]> = {
@@ -73,6 +87,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Install Patternflow",
       en: "After you pick the port, the dialog opens here. Choose Install Patternflow.",
       ko: "포트를 고르면 이 창이 떠요. Install Patternflow를 누르세요.",
+      alt: {
+        en: "The flasher's dialog headed Patternflow, with two choices: Install Patternflow and Logs & Console.",
+        ko: "Patternflow라고 적힌 플래셔 창. Install Patternflow와 Logs & Console 두 가지가 있다.",
+      },
     },
     {
       src: "install-confirm.webp",
@@ -81,6 +99,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Confirm Installation",
       en: "A new install wipes the board first. Press Install.",
       ko: "새로 설치할 땐 보드를 먼저 싹 지워요. Install을 누르세요.",
+      alt: {
+        en: "Confirm Installation: Do you want to install Patternflow v3.10.4? All data on the device will be erased. Back and Install sit below.",
+        ko: "Confirm Installation 창. Patternflow v3.10.4를 설치할지 묻고, 기기의 데이터가 모두 지워진다고 한다. 아래에 Back과 Install이 있다.",
+      },
       ms: 2800,
     },
     {
@@ -90,6 +112,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Erasing",
       en: "Clearing the whole flash. It can sit here a while.",
       ko: "플래시 전체를 지우는 중이에요. 여기서 좀 머물 수 있어요.",
+      alt: {
+        en: "Installing, a spinner over Erasing.",
+        ko: "Installing 창. 도는 원 아래에 Erasing이 있다.",
+      },
     },
     {
       src: "install-writing.webp",
@@ -98,6 +124,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Installing",
       en: "Writing, with a percentage. Keep this tab in front.",
       ko: "퍼센트가 올라가요. 이 탭을 앞에 띄워 두세요.",
+      alt: {
+        en: "Installing at 42%, with This will take 2 minutes and a line asking to keep the page visible.",
+        ko: "Installing 창, 42%. 2분쯤 걸린다는 줄과 이 페이지를 띄워 두라는 줄이 있다.",
+      },
       ms: 2800,
     },
     {
@@ -107,6 +137,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Wrapping up",
       en: "It waits up to 20 seconds for the new firmware to answer. From download mode it usually won't yet. Let it wait.",
       ko: "새 펌웨어가 대답하길 20초까지 기다려요. 다운로드 모드로 구웠다면 보통 아직 대답이 없어요. 그냥 기다려요.",
+      alt: {
+        en: "Installing, a spinner over Wrapping up, with the same two lines under it.",
+        ko: "Installing 창. 도는 원 아래에 Wrapping up이 있고, 그 아래 같은 두 줄이 있다.",
+      },
     },
     {
       src: "install-complete.webp",
@@ -115,6 +149,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Installation complete!",
       en: "The firmware is on. Press Next. If no Wi-Fi follows — usually it doesn't — close the dialog. That's normal: the next card is for exactly this.",
       ko: "펌웨어가 들어갔어요. Next를 눌러요. 와이파이가 안 나오면(보통 안 나와요) 창을 닫아요. 정상이에요. 바로 다음 카드가 그 이야기예요.",
+      alt: {
+        en: "A party popper over Installation complete!, and a Next button.",
+        ko: "축하 폭죽 그림 아래에 Installation complete!가 있고, 그 아래 Next 버튼이 있다.",
+      },
     },
   ],
   // The usual way: RST, then the flasher again, which now finds Patternflow running.
@@ -126,6 +164,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Connect to Wi-Fi",
       en: "After RST, press Flash Patternflow and pick the port again: now it opens on Patternflow's own menu. Choose Connect to Wi-Fi.",
       ko: "RST 다음 Flash Patternflow를 다시 눌러 포트를 고르면, 이번엔 패턴플로우의 메뉴가 열려요. Connect to Wi-Fi를 골라요.",
+      alt: {
+        en: "The dialog headed Patternflow, now Connected to Patternflow 3.10.4 (ESP32-S3), offering Update Patternflow, Connect to Wi-Fi and Logs & Console.",
+        ko: "Patternflow 창. 이번엔 Connected to Patternflow 3.10.4 (ESP32-S3)가 뜨고, Update Patternflow, Connect to Wi-Fi, Logs & Console이 있다.",
+      },
       ms: 3600,
     },
     SCANNING,
@@ -136,6 +178,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Configure Wi-Fi",
       en: "Leave Join other…, type the network name exactly (capitals count, 2.4 GHz only), the password, then Connect.",
       ko: "Join other…는 그대로 두고, 네트워크 이름을 대소문자까지 정확히(2.4 GHz만 돼요) 적고 비밀번호를 넣은 뒤 Connect.",
+      alt: {
+        en: "The Configure Wi-Fi form: Network set to Join other…, Network Name Studio_2.4G and a hidden password, then Back and Connect.",
+        ko: "Configure Wi-Fi 창. Network는 Join other…, Network Name은 Studio_2.4G이고 비밀번호는 가려져 있다. 아래에 Back과 Connect이 있다.",
+      },
       ms: 3600,
     },
     CONNECTING,
@@ -150,6 +196,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Installation complete!",
       en: "Sometimes the board restarts by itself and Next goes straight on to Wi-Fi. Then there's no RST to press: fill it in right there.",
       ko: "가끔은 보드가 알아서 다시 켜져서 Next가 바로 와이파이로 넘어가요. 그럴 땐 RST 없이 거기서 바로 채워요.",
+      alt: {
+        en: "A party popper over Installation complete!, and a Next button.",
+        ko: "축하 폭죽 그림 아래에 Installation complete!가 있고, 그 아래 Next 버튼이 있다.",
+      },
       ms: 3200,
     },
     SCANNING,
@@ -160,6 +210,10 @@ const SETS: Record<FlasherSet, Shot[]> = {
       title: "Configure Wi-Fi",
       en: "The same form, straight after the install: fill it in the same way. Here the left button reads Skip, not Back.",
       ko: "설치 바로 다음에 뜨는 같은 입력 칸이에요. 똑같이 채워요. 여기선 왼쪽 버튼이 Back 대신 Skip이에요.",
+      alt: {
+        en: "The Configure Wi-Fi form: Network set to Join other…, Network Name Studio_2.4G and a hidden password, then Skip and Connect.",
+        ko: "Configure Wi-Fi 창. Network는 Join other…, Network Name은 Studio_2.4G이고 비밀번호는 가려져 있다. 아래에 Skip과 Connect이 있다.",
+      },
       ms: 3200,
     },
     CONNECTING,
@@ -292,7 +346,8 @@ export default function FlasherShots({
   // Across every sequence, so switching tabs doesn't resize the card.
   const unitW = Math.max(...every.map((s) => s.w)) + PAD * 2;
   const unitH = Math.max(...every.map((s) => s.h)) + PAD * 2;
-  const onSrc = shots[active].src;
+  const on = shots[active];
+  const onSrc = on.src;
 
   return (
     <figure
@@ -342,7 +397,7 @@ export default function FlasherShots({
             src={BASE + s.src}
             width={s.w}
             height={s.h}
-            alt={s.src === onSrc ? s.title : ""}
+            alt={s.src === onSrc ? on.alt[lang] : ""}
             aria-hidden={s.src === onSrc ? undefined : true}
             decoding="async"
             draggable={false}
