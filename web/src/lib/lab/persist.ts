@@ -16,6 +16,14 @@ export const LAB_STORAGE = {
   project: "patternflow_lab_project_v2",
   /** The dockview layout. PatternLabClient.tsx */
   layout: "patternflow_lab_layout_v1",
+  /**
+   * The dockview layout when the lab opens 800px wide or less. A tablet can
+   * open the lab upright one day and on its side the next, and each width
+   * keeps the dock it was arranged at. Written since 16 October 2026; before
+   * that a phone saved its three squeezed columns under _layout_v1, which a
+   * narrow screen no longer reads. PatternLabClient.tsx
+   */
+  layoutNarrow: "patternflow_lab_layout_narrow_v1",
   /** Ring of parked sessions, newest first. sessions.ts */
   sessions: "patternflow_lab_sessions_v1",
   /** Graphic Export output settings. capture/settings.ts */
