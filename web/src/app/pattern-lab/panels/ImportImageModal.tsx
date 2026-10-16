@@ -11,6 +11,8 @@ import { labEngine } from "@/lib/lab/engine";
 import { useLabStore } from "@/lib/lab/store";
 import styles from "../PatternLab.module.css";
 
+const clampScale = (value: number) => Math.max(0.05, Math.min(8, value));
+
 export default function ImportImageModal({
   width,
   height,
@@ -138,7 +140,21 @@ export default function ImportImageModal({
     context.putImageData(imageData, 0, 0);
   }, [image, fit, smooth, removeBg, bgTolerance, scale, offset, width, height]);
 
-  const clampScale = (value: number) => Math.max(0.05, Math.min(8, value));
+  // Wheel over the preview scales the image. A native listener, because
+  // React delegates wheel passively and preventDefault there would let the
+  // card scroll under the zoom. A sideways wheel has no deltaY and stays a
+  // scroll.
+  useEffect(() => {
+    const canvas = previewRef.current;
+    if (!canvas || !image) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
+      event.preventDefault();
+      setScale((current) => clampScale(current * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
+    };
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [image]);
 
   const onPreviewPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!image || event.button !== 0) return;
@@ -231,11 +247,6 @@ export default function ImportImageModal({
               onPointerMove={onPreviewPointerMove}
               onPointerUp={() => (dragRef.current = null)}
               onPointerCancel={() => (dragRef.current = null)}
-              onWheel={(event) => {
-                if (!image) return;
-                event.preventDefault();
-                setScale((current) => clampScale(current * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
-              }}
             />
           </div>
           <div

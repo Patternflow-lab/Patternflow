@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import HomeView from "@/components/HomeView";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 export const metadata: Metadata = {
   title: "Live Editor & Patterns — Patternflow",
@@ -7,6 +8,7 @@ export const metadata: Metadata = {
     "Browse a preset library of LED matrix patterns and remix them in the browser Live Editor. Generate your own with AI, preview on virtual knobs, and flash to the device.",
   alternates: { canonical: "/pattern" },
   openGraph: {
+    ...SITE_OPEN_GRAPH,
     title: "Live Editor & Patterns — Patternflow",
     description:
       "Browse and remix LED matrix patterns in the browser, generate your own with AI, and flash them to the device.",

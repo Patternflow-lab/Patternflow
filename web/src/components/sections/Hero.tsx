@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 import HeroJournalLink from "@/components/journal/HeroJournalLink";
 import { captureEvent } from "@/lib/posthogEvents";
 import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
@@ -10,7 +10,22 @@ import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
 // said as "around", because it is an estimate.
 const PEOPLE_WHO_MADE_ONE = 40;
 
-export default function Hero() {
+// The embed starts by itself and has no control to stop it, so someone who has
+// asked their system for less motion gets the poster and no embed at all. The
+// server cannot know, so it sends the poster alone and the client adds the
+// video after hydration.
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+function subscribeReducedMotion(onChange: () => void) {
+  const mq = window.matchMedia(REDUCED_MOTION);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+const getReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
+const getReducedMotionServer = () => true;
+
+// Mounted only while motion is welcome. Turning reduced motion off again
+// mounts a fresh one, which hides for its first three seconds like the first.
+function HeroVideo() {
   const [isVideoVisible, setIsVideoVisible] = useState(false);
 
   useEffect(() => {
@@ -29,6 +44,31 @@ export default function Hero() {
       clearTimeout(hideTimer);
     };
   }, []);
+
+  return (
+    <iframe
+      src="https://www.youtube.com/embed/OXt-yg_7qdk?autoplay=1&mute=1&controls=0&modestbranding=1&disablekb=1&playsinline=1&rel=0"
+      title="Patternflow Demo Video"
+      frameBorder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        display: 'block',
+        pointerEvents: 'none',
+        opacity: isVideoVisible ? 1 : 0,
+        transition: 'opacity 0.6s ease-in-out',
+      }}
+    />
+  );
+}
+
+export default function Hero() {
+  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, getReducedMotionServer);
 
   return (
     <section className="hero">
@@ -66,24 +106,7 @@ export default function Hero() {
               display: 'block' 
             }} 
           />
-          <iframe 
-            src="https://www.youtube.com/embed/OXt-yg_7qdk?autoplay=1&mute=1&controls=0&modestbranding=1&disablekb=1&playsinline=1&rel=0" 
-            title="Patternflow Demo Video"
-            frameBorder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-            allowFullScreen
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              pointerEvents: 'none',
-              opacity: isVideoVisible ? 1 : 0,
-              transition: 'opacity 0.6s ease-in-out',
-            }}
-          />
+          {!reducedMotion && <HeroVideo />}
         </div>
         {/* L3 — the strongest line we have, per the manifesto: a description of
             how the system works, with nothing in it to disbelieve. */}

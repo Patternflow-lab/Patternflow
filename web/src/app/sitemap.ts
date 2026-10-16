@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: `${siteUrl}/pattern`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: `${siteUrl}/build`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${siteUrl}/build/breadboard`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${siteUrl}/inside`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${siteUrl}/roadmap`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
     // The guide: the hub, then its four guides in order — Build (soldering
@@ -33,6 +34,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${siteUrl}/editions`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     // The catalogue of features, with a reel of each - the other axis of the shelf.
     { url: `${siteUrl}/features`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    // Where a device's console sends you when a newer firmware exists.
+    { url: `${siteUrl}/update`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${siteUrl}/contact`, lastModified: now, changeFrequency: "yearly", priority: 0.5 },
     { url: `${siteUrl}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     // Printed on the safety leaflet in every box as the address of the EU

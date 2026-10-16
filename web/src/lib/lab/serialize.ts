@@ -47,6 +47,7 @@ import {
 
 export const PROJECT_STORAGE = LAB_STORAGE.project;
 export const LAYOUT_STORAGE = LAB_STORAGE.layout;
+export const LAYOUT_NARROW_STORAGE = LAB_STORAGE.layoutNarrow;
 
 /**
  * How many panels a serialized dockview layout actually PLACES.
