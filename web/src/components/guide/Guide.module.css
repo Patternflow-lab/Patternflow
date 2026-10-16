@@ -1730,6 +1730,11 @@
   color: var(--g-led);
   transform: translate3d(2px, -2px, 0);
 }
+/* A way on inside the site: its → goes on, not up and out like ↗. */
+.nextLink[data-in]:hover span,
+.nextLink[data-in]:focus-visible span {
+  transform: translate3d(2px, 0, 0);
+}
 .nextLink:active {
   transform: scale(0.97);
   transition-duration: 0.08s;
@@ -1888,6 +1893,7 @@
   .report:hover span,
   .replay:hover span,
   .nextLink:hover span,
+  .nextLink[data-in]:hover span,
   .openingBack a:hover span {
     transform: none;
   }
