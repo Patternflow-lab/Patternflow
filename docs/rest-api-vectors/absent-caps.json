@@ -1,0 +1,6 @@
+{
+  "contract": "docs/rest-api.md#get-apistatus",
+  "says": "The default build reports `[\"patterns\",\"params\",\"sleep\"]` and nothing else; each [edition](EDITIONS.md) adds its own — Audio adds `osc`, `audio`, `audio-in` and `midi`, Performance adds `clock`, `weather`, `mqtt` and `shows`.",
+  "features": [],
+  "steps": [{ "send": { "http": "GET /api/status" }, "expect": { "reply": { "status": 200, "body": { "caps": ["patterns", "params", "sleep"] } } } }]
+}

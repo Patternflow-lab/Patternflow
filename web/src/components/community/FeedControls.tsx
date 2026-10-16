@@ -48,8 +48,11 @@ export default function FeedControls({
 
   const hrefWith = (patch: Record<string, string | null>) => {
     const next = new URLSearchParams(params.toString());
-    // Parameters from the paginated era — scrub them off any link followed
-    // from an old bookmark.
+    // Parameters from the paged feed: page and size from 22 July 2026
+    // (e146de6), view from the Large/Small card toggle on 25 July (5e5d50c).
+    // Infinite scroll retired all three on 2 August (c4a57f1). A bookmark
+    // saved in those days still carries them, so every link followed from it
+    // drops them.
     next.delete("page");
     next.delete("size");
     next.delete("view");

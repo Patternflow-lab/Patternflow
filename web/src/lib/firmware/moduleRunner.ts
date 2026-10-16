@@ -1,15 +1,16 @@
 // Builds a submitted pattern into a loadable module (.pfm) instead of a whole
 // firmware image.
 //
-// Why this exists alongside buildRunner.ts: the .bin path recompiles the entire
-// sketch — every preset lands in the same translation unit — so one pattern costs
-// 14-16 s and produces ~1.1 MB that has to be flashed over the top of the
-// running firmware. A module is that pattern's code alone: ~360 ms to build,
-// 3-22 KB, and it installs by POSTing it to the device's /patterns with no
-// reflash and no reboot.
+// A whole image recompiles the entire sketch — every preset lands in the same
+// translation unit — so one pattern costs 14-16 s and produces ~1.1 MB that
+// has to be flashed over the top of the running firmware. A module is that
+// pattern's code alone: ~360 ms to build, 3-22 KB, and it installs by POSTing
+// it to the device's /patterns with no reflash and no reboot.
 //
-// Both paths stay for now. A device on firmware older than the module loader
-// cannot load a .pfm, so it still needs an image.
+// The community built images too, from 25 July 2026 (c5e0907) until 4c13474
+// removed them and their runner on 12 August. Since then POST
+// /api/community/builds answers "bin" with 410 and a pointer to
+// patternflow.work/update, where a board gets a released image.
 //
 // The heavy lifting is the two Python scripts in firmware/toolchain/, which are
 // also what a maintainer runs by hand — one code path for both, so a build here

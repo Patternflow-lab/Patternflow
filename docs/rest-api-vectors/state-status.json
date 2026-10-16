@@ -1,0 +1,52 @@
+{
+  "contract": "docs/rest-api.md#get-apistatus",
+  "says": "The numbers that explain a device when something is off.",
+  "features": [],
+  "steps": [
+    {
+      "send": { "http": "GET /api/status" },
+      "expect": {
+        "reply": {
+          "status": 200,
+          "body": {
+            "version": "<string>", "build": "<string>", "uptime": "<integer>", "resetReason": "<string>", "panel": "<string>",
+            "wifi": "<boolean>", "ssid": "<string>", "ip": "<string>", "rssi": "<integer>",
+            "host": "<string>", "hostAlias": "<string>", "viaHotspot": "<boolean>",
+            "network": { "disconnects": "<integer>", "retries": "<integer>", "reconnectMs": "<integer>", "namesReady": "<boolean>", "announcements": "<integer>" },
+            "hotspot": { "mode": "<string>", "up": "<boolean>", "ssid": "<string>", "ip": "<string>", "channel": "<integer>", "clients": "<integer>", "dns": "<integer>" },
+            "heapInternal": "<integer>", "heapLargest": "<integer>", "heapPsram": "<integer>",
+            "fsMounted": "<boolean>", "fsTotal": "<integer>", "fsUsed": "<integer>", "fsError": "<string>", "flashId": "<string>",
+            "patterns": "<integer>", "presets": "<integer>", "modules": "<integer>",
+            "active": "<string>", "activeIsModule": "<boolean>", "loading": "<boolean>", "loadError": "<string>",
+            "sleep": "<boolean>", "brightness": "<integer>",
+            "knobs": ["<integer>", "<integer>", "<integer>", "<integer>"],
+            "params": ["<integer>", "<integer>", "<integer>", "<integer>"],
+            "paramActive": ["<boolean>", "<boolean>", "<boolean>", "<boolean>"],
+            "lanes": ["<number>", "<number>", "<number>", "<number>"],
+            "laneActive": ["<boolean>", "<boolean>", "<boolean>", "<boolean>"],
+            "consolePaused": "<boolean>", "busy": "<string>",
+            "frameUs": "<integer>", "presentUs": "<integer>",
+            "runtime": { "loops": "<integer>", "lastUs": "<integer>", "maxUs": "<integer>", "over50ms": "<integer>", "housekeepingMaxUs": "<integer>", "syncMaxUs": "<integer>" },
+            "moduleMemory": {
+              "reserve": "<integer>", "serviceFree": "<integer>", "execLargest": "<integer>", "runtimeBytes": "<integer>", "runtimePeakBytes": "<integer>",
+              "runtimeLimit": "<integer>", "refusals": "<integer>", "loaderRetries": "<integer>", "loaderStackBytes": "<integer>", "loaderStackMin": "<integer>",
+              "codePolicy": "<integer>",
+              "resident": { "count": "<integer>", "bytes": "<integer>", "slots": "<integer>", "resumes": "<integer>", "evictions": "<integer>" }
+            },
+            "netMaintenance": { "calls": "<integer>", "maxGapMs": "<integer>" },
+            "loopCore": "<integer>", "httpCore": "<integer>", "loopStackMin": "<integer>", "netStackMin": "<integer>",
+            "loopSyncServed": "<integer>", "loopSyncMaxUs": "<integer>",
+            "loopAgeMs": "<integer>", "loopStalled": "<boolean>", "loopSyncGaveUp": "<integer>",
+            "colorBits": "<integer>", "refreshHz": "<integer>",
+            "thumbs": { "captures": "<integer>", "reads": "<integer>", "writes": "<integer>", "captureMaxUs": "<integer>", "ioMaxUs": "<integer>" },
+            "load": {
+              "total": "<integer>", "read": "<integer>", "relocate": "<integer>", "setup": "<integer>", "internal": "<integer>", "psram": "<integer>",
+              "code": "<string>", "resumed": "<boolean>", "resumeUs": "<integer>"
+            },
+            "variant": "<string>", "caps": "<array>", "featureNav": "<array>"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "contract": "docs/rest-api.md#transport",
+  "says": "Every JSON endpoint sends `Cache-Control: no-store`, and so does the plain-text `404`.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "GET /api/status" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/display" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/knobs" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": { "request": "POST /api/knobs", "form": "inv=0" } }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "POST /api/params?p1=500" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "POST /api/sleep?on=0" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "DELETE /api/crash" }, "expect": { "reply": { "status": 404, "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/patterns" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/patterns/select?index=0" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/patterns/select?index=-1" }, "expect": { "reply": { "status": 404, "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/patterns/file?slug=wave_saw&ext=json" }, "expect": { "reply": { "headers": { "cache-control": "no-store" } } } },
+    { "send": { "http": "GET /api/nothing" }, "expect": { "reply": { "status": 404, "headers": { "content-type": "text/plain", "cache-control": "no-store" } } } }
+  ]
+}

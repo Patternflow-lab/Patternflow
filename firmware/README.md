@@ -156,10 +156,13 @@ Library Manager:
 > not the plain device.
 
 > The HUB75 library is also **vendored** under `patternflow/src/hub75/`, and that
-> copy is the one that compiles — it carries Patternflow's additions
-> (`resumeDMAoutput()` for sleep, the brightness hook the power clamp uses). The
-> installed/cloned copy only needs to satisfy headers, so its exact version does
-> not matter. See `src/hub75/VENDORED.md`.
+> copy is the one that compiles. [`UPSTREAM.md`](patternflow/src/hub75/UPSTREAM.md)
+> there names the upstream tag and commit it was copied from, and each upstream
+> commit taken since. Every line Patternflow changed is in `patternflow.patch`
+> beside it, and [`VENDORED.md`](patternflow/src/hub75/VENDORED.md) says why.
+> After an edit under `src/hub75/`, rebuild the patch with the command in
+> `UPSTREAM.md` instead of editing it. The installed/cloned copy only needs to
+> satisfy headers, so its exact version does not matter.
 
 OSC uses the ESP32 Arduino core's built-in `WiFi` and `WiFiUdp` libraries, so it does not require an extra OSC library. The MQTT client (`pubsubclient`) and the HUB75 driver are vendored under `patternflow/src/`.
 
@@ -945,7 +948,7 @@ A remembered pattern that is gone, or that no longer loads, falls back to Origin
 
 ## Audio-react, OSC, MIDI, MQTT
 
-None of these is in the core. They are features, and each ships in an edition you install from [the shelf](https://patternflow.work/editions): audio-react, OSC and network MIDI in **Audio**, MQTT in **Performance**. What a client sends is a written contract in `docs/` — [`audio-ws-spec.md`](../docs/audio-ws-spec.md), [`osc-spec.md`](../docs/osc-spec.md), [`midi-spec.md`](../docs/midi-spec.md), [`mqtt-spec.md`](../docs/mqtt-spec.md) — and the guides are [`AUDIO_GUIDE.md`](../AUDIO_GUIDE.md) (sound in, MIDI, OSC) and [`docs/midi-ableton.md`](../docs/midi-ableton.md). The ready-made clients are the audio extension and phone app in [`tools/`](../tools/README.md) and the Max for Live bridge in [`integrations/ableton/`](../integrations/ableton/).
+None of these is in the core. They are features, and each ships in an edition you install from [the shelf](https://patternflow.work/editions): audio-react, OSC and network MIDI in **Audio**, MQTT in **Performance**. What a client sends is a written contract in `docs/` — [`audio-ws-spec.md`](../docs/audio-ws-spec.md), [`osc-spec.md`](../docs/osc-spec.md), [`midi-spec.md`](../docs/midi-spec.md), [`mqtt-spec.md`](../docs/mqtt-spec.md) — and the guides are [`AUDIO_GUIDE.md`](../docs/AUDIO_GUIDE.md) (sound in, MIDI, OSC) and [`docs/midi-ableton.md`](../docs/midi-ableton.md). The ready-made clients are the audio extension and phone app in [`tools/`](../tools/README.md) and the Max for Live bridge in [`integrations/ableton/`](../integrations/ableton/).
 
 From a pattern's point of view every one of them is the user turning the four encoders: audio bands, OSC deltas and MIDI CCs arrive as `knobDeltas` (or pin a lane on the absolute parameter bus), so an encoder-driven pattern reacts with no transport-specific code.
 

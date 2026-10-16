@@ -1,0 +1,11 @@
+{
+  "contract": "docs/audio-ws-spec.md#semantics--what-a-lane-is",
+  "says": "the firmware also releases lanes when the socket closes",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "a=0.25,0.5,0.75,1" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [true, true, true, true], "audioClients": 1 } } },
+    { "send": { "ws": { "close": 1000 } } },
+    { "send": { "wait": 20 }, "expect": { "status": { "laneActive": [false, false, false, false], "audioClients": 0 } } }
+  ]
+}

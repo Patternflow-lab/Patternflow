@@ -9,6 +9,12 @@ export type CampaignRoute = {
   };
 };
 
+// Short links for the v2.0.0 launch, added 12 May 2026 (39fd47b7). Each was
+// made for one place to post it, which utm_source and utm_medium name: four
+// subreddits, Hacker News, Instagram, PCBWay's open-source project page and X.
+// A post that is still up still links one of these, so they stay.
+// next.config.ts rewrites each to its destination, and posthogEvents.ts tags
+// the visit from the same entry.
 export const CAMPAIGN_ROUTES = [
   {
     path: "/r/arduino",

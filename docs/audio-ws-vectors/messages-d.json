@@ -1,0 +1,12 @@
+{
+  "contract": "docs/audio-ws-spec.md#messages",
+  "says": "Add a normalized delta `F` (−1..1) to knob `N` — encoder-style motion rather than a level.",
+  "features": ["audio"],
+  "steps": [
+    { "send": { "ws": "d=1,v=0.5" } },
+    { "send": { "wait": 50 }, "expect": { "input": { "given": { "deltas": [0, 24, 0, 0] } }, "status": { "laneActive": [false, false, false, false] } } },
+    { "send": { "ws": "d=1,v=-0.25" } },
+    { "send": { "ws": "d=3,v=-1" } },
+    { "send": { "wait": 50 }, "expect": { "input": { "given": { "deltas": [0, 12, 0, -48] } } } }
+  ]
+}

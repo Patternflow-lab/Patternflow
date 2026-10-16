@@ -1,0 +1,10 @@
+{
+  "contract": "docs/rest-api.md#post-apiparams",
+  "says": "A legacy pattern — one that reads `knobDeltas` and nothing else — follows a held value too: the device turns the change in it into clicks, ten bus units per click, so `p1=750` moves such a pattern the same way the encoder would.",
+  "features": [],
+  "steps": [
+    { "send": { "http": "POST /api/params?p1=500" } },
+    { "send": { "http": "POST /api/params?p1=750" } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [25, 0, 0, 0] } } } }
+  ]
+}

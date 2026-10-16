@@ -20,9 +20,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// "duplicate-name" is kept for older servers; the current deck route renames a
-// colliding file instead of leaving it out. "unavailable" is a slot the build
-// service failed on just now for a reason that was not the code's.
+// No server has sent "duplicate-name". It arrived with this file on 24
+// September 2026 (e261978), and the deck route in that same commit already
+// renamed a colliding file instead of leaving it out (assignPackSlugs in
+// modulePack.ts). Before it, a deck's zip was one build with no skip list.
+// "unavailable" is a slot the build service failed on just now for a reason
+// that was not the code's.
 export type ZipSkipReason = "no-header" | "compile-error" | "duplicate-name" | "missing" | "unavailable";
 
 export type ZipSkip = { position: number; title: string; reason: ZipSkipReason };

@@ -1,0 +1,15 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "`64` = no motion, `65` = +1 detent, `63` = −1",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "midi": [176, 24, 65] } },
+    { "send": { "midi": [176, 25, 63] } },
+    { "send": { "midi": [176, 26, 64] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [1, -1, 0, 0] } } } },
+    { "send": { "midi": [176, 27, 63] } },
+    { "send": { "midi": [176, 27, 63] } },
+    { "send": { "midi": [176, 24, 65] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [2, -1, 0, -2] } } } }
+  ]
+}

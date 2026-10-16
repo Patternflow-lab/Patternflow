@@ -1,0 +1,12 @@
+{
+  "contract": "docs/midi-spec.md#host--device",
+  "says": "Merged with physical motion at 1× per step — the same lane as OSC's `/patternflow/knob/N/delta`.",
+  "features": ["midi"],
+  "steps": [
+    { "send": { "hand": { "knob": 3, "turn": 2 } } },
+    { "send": { "midi": [176, 26, 65] } },
+    { "send": { "midi": [176, 26, 65] } },
+    { "send": { "midi": [176, 26, 65] } },
+    { "send": { "wait": 20 }, "expect": { "input": { "given": { "deltas": [0, 0, 5, 0] } } } }
+  ]
+}

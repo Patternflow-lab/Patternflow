@@ -1,0 +1,13 @@
+{
+  "contract": "docs/mqtt-spec.md#topics",
+  "says": "`0` or `1`, on every change and once per connection",
+  "features": ["mqtt"],
+  "steps": [
+    { "send": { "http": "POST /api/mqtt?role=subscriber" } },
+    { "send": { "wait": 20 }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "0", "retain": false } }, { "mqtt": "<absent>" }] } },
+    { "send": { "http": "POST /api/sleep?on=1" } },
+    { "send": { "wait": 20 }, "expect": { "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1", "retain": false } }] } },
+    { "send": { "http": "POST /api/mqtt?role=publisher" } },
+    { "send": { "wait": 20 }, "expect": { "status": { "mqttRole": "publisher", "mqttConnected": true }, "out": [{ "mqtt": { "topic": "patternflow/sleep/state", "payload": "1", "retain": false } }] } }
+  ]
+}
