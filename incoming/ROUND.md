@@ -91,7 +91,7 @@ await browser.close();
 
 사진은 PR 에 남기지 않아요. 남기면 원래 레포로 가는 묶음에 실려요.
 
-1. 사진을 `round-shots/<바퀴>-<쪽>-390.png` 꼴로 두고 그 사진만 커밋해서 push 해요. 경로는 영문, 숫자, `._-` 만 써요.
+1. 사진을 `round-shots/<바퀴>-<쪽>-390.png` 와 `-1440.png` 꼴로 두고 사진만 커밋해서 push 해요. 경로는 영문, 숫자, `._-` 만 써요.
 2. 바로 다음 커밋에서 `git rm -r round-shots` 하고 push 해요.
 3. 본문의 그림 주소는 1번 커밋의 SHA 로 써요. 꼴은 `https://github.com/<레포>/blob/<사진 커밋 SHA>/round-shots/<파일>.png?raw=true` 이고 `<레포>` 는 `Patternflow-lab/Patternflow` 예요. `![폰 390 · Pattern Lab](주소)` 그대로 쓰고 백틱으로 싸지 않아요.
 
@@ -111,7 +111,7 @@ await browser.close();
 
 ```md
 ## 바퀴
-바퀴 3 · 후보 5 「폰에서 Pattern Lab 패널이 한 칸씩 넓게 보인다」
+바퀴 3 · 후보 4 「폰에서 Pattern Lab 패널이 한 칸씩 넓게 보인다」
 ```
 
 글을 맡았으면 `바퀴 4 · 글 <댓글 주소>` 예요. 이미 고쳐진 줄을 건너뛰었으면 `후보 2 이미 고쳐짐` 처럼 그 줄도 적어요.
