@@ -135,7 +135,7 @@ export default function GuideHub({ lang }: { lang: GuideLang }) {
           </span>
         </div>
         <GuideLink to="hub" lang={other} className={styles.lang} hrefLang={other}>
-          {copy.langSwitch.label}
+          <span lang={other}>{copy.langSwitch.label}</span>
         </GuideLink>
       </header>
 
