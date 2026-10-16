@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 // page.tsx is a client component, and a client component cannot export
-// metadata. Without this the guide's tab and its link preview were the home
-// page's.
+// metadata. Without this the guide's browser tab and its link preview were
+// the home page's.
 export const metadata: Metadata = {
   title: "Breadboard Build Guide / Patternflow",
   description:

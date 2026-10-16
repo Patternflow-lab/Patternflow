@@ -9,9 +9,10 @@ import type { Metadata } from "next";
 // first. A page that sets no openGraph inherits this as it is, and Next fills
 // og:title and og:description from the page's own title and description.
 //
-// The root layout keeps title and url out of its openGraph for the same
-// reason. Until 16 October 2026 it carried the home page's, and /features,
-// /editions, /roadmap and every page like them previewed as the home page.
+// The root layout's openGraph is this and nothing more. Until 16 October
+// 2026 it also carried the home page's title and address, and /features,
+// /editions, /roadmap and every other page that sets no openGraph previewed
+// as the home page.
 export const SITE_OPEN_GRAPH = {
   type: "website",
   siteName: "Patternflow",
