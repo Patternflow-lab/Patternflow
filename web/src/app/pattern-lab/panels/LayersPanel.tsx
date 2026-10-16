@@ -5,10 +5,21 @@
 // The active layer's opacity + blend live at the bottom of the panel.
 
 import { useState } from "react";
-import { BLEND_MODES } from "@/lib/lab/types";
+import { BLEND_MODES, type Layer } from "@/lib/lab/types";
 import { revealEditor } from "@/lib/lab/editorReveal";
 import { useLabStore } from "@/lib/lab/store";
+import { STARTER_CODE } from "@/lib/lab/store/shared";
 import dock from "../LabPanels.module.css";
+
+// A pixel layer nobody has drawn on, or a code layer still holding the
+// starter pattern, has nothing to lose, so Del takes it without asking.
+function holdsWork(layer: Layer): boolean {
+  if (layer.type === "code") return layer.code !== STARTER_CODE;
+  for (let i = 3; i < layer.data.length; i += 4) {
+    if (layer.data[i] !== 0) return true;
+  }
+  return false;
+}
 
 export default function LayersPanel() {
   const layers = useLabStore((state) => state.layers);
@@ -77,7 +88,18 @@ export default function LayersPanel() {
         </button>
         <button
           type="button"
-          onClick={() => active && removeLayer(active.id)}
+          onClick={() => {
+            if (!active) return;
+            // Deleting has no undo, and autosave writes the smaller stack
+            // over the saved project within 3 s.
+            if (
+              holdsWork(active) &&
+              !window.confirm(`Delete the layer "${active.name}"? It can't be brought back.`)
+            ) {
+              return;
+            }
+            removeLayer(active.id);
+          }}
           disabled={!active || layers.length <= 1}
           title={layers.length <= 1 ? "The stack needs at least one layer" : "Delete the selected layer"}
         >
