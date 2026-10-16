@@ -45,7 +45,7 @@ function tabFromPath(pathname: string): TabType {
 export default function RightPanel({ initialTab = 'hero', buildContent, patternContent, insideContent }: RightPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [buildPanelKey, setBuildPanelKey] = useState(0);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLElement>(null);
   const activeTabRef = useRef<TabType>(initialTab);
 
   // Apply a tab change to local + global state (no URL update).
@@ -130,32 +130,38 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
 
   return (
     <div className="right-panel-layout">
-      <div className="vertical-nav">
+      {/* The desktop column. It carries the phone bar's label: CSS shows one
+          of the two, so a screen reader meets one Sections nav either way. The
+          open tab is pressed, as on the phone, and its ✕ is only drawn. */}
+      <nav className="vertical-nav" aria-label="Sections">
         <button 
           className={`v-tab-btn ${activeTab === 'build' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'build'}
           onClick={() => handleTabClick('build')}
         >
-          {activeTab === 'build' && <span className="close-icon">✕</span>}
+          {activeTab === 'build' && <span className="close-icon" aria-hidden="true">✕</span>}
           <span className="tab-text" data-mobile-label="1. Build">Build</span>
         </button>
 
         <button 
           className={`v-tab-btn ${activeTab === 'pattern' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'pattern'}
           onClick={() => handleTabClick('pattern')}
         >
-          {activeTab === 'pattern' && <span className="close-icon">✕</span>}
+          {activeTab === 'pattern' && <span className="close-icon" aria-hidden="true">✕</span>}
           <span className="tab-text" data-mobile-label="2. Pattern">Pattern</span>
         </button>
         <button 
           className={`v-tab-btn ${activeTab === 'inside' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'inside'}
           onClick={() => handleTabClick('inside')}
         >
-          {activeTab === 'inside' && <span className="close-icon">✕</span>}
+          {activeTab === 'inside' && <span className="close-icon" aria-hidden="true">✕</span>}
           <span className="tab-text" data-mobile-label="3. Inside">Inside</span>
         </button>
-      </div>
+      </nav>
 
-      <div className={`content-panel ${activeTab !== 'hero' ? 'bg-white viewer-open' : ''}`} ref={contentRef}>
+      <main className={`content-panel ${activeTab !== 'hero' ? 'bg-white viewer-open' : ''}`} ref={contentRef}>
         <div className="deck-content">
           {/* The panels not on screen are only faded and folded away, so they
               are inert too: out of the tab order and the accessibility tree.
@@ -177,7 +183,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
             <InsidePanel content={insideContent} />
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Mobile-only bottom nav. Tapping a section drops the 3D viewer down from
           the top; tapping the active one again returns to the full-screen hero. */}
