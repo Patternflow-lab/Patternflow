@@ -60,6 +60,7 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ### Docs
 
+- **The cleanup's progress log records steps 1 to 5 and the gate.** `docs/rfc-cleanup-progress.md` has an entry for each step and checks the six items of §2.12 at `9dff573`, and all six hold. `docs/rfc-cleanup.md` is marked done.
 - **The cleanup has a baseline.** `docs/investigations/2026-10-cleanup-baseline.md` records the commit the cleanup starts from and what the five commands in `docs/rfc-cleanup.md` §2.1 said there. All five pass. `AGENTS.md` gains hard rule 8: during a cleanup window no PR changes behaviour, and moves and renames carry a redirect or an updated link map.
 - **Cleanup step 1 is planned.** [`docs/investigations/2026-10-cleanup-step1-plan.md`](docs/investigations/2026-10-cleanup-step1-plan.md) cuts the step into three lanes that share no file (root moves, the changelog split, the ko/en parity list), lists what the RFC did not know about the tree (`docs/releases/` already exists; the ko/en pairs it names do not), and asks the maintainer five more questions, each with a default.
 - **The v2 build guide moved to `docs/legacy/BUILD_GUIDE_v2.md`.** Every link to it in the repository and the site's v2 board link point at the new path; links from outside to the old root path break, since GitHub serves no redirect for a moved file.
