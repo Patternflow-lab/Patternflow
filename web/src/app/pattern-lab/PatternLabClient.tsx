@@ -32,15 +32,15 @@ import { withKnobsAnnotation } from "@/lib/lab/annotations";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { onEditorReveal } from "@/lib/lab/editorReveal";
 import { flattenLayers, needsFlatten } from "@/lib/lab/flatten";
-import { readStorage, removeStorage, writeStorage } from "@/lib/lab/persist";
-import { LAYOUT_STORAGE, layoutViewCount } from "@/lib/lab/serialize";
+import { readStorage, removeStorage, writeStorage, type LabStorageKey } from "@/lib/lab/persist";
+import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, layoutViewCount } from "@/lib/lab/serialize";
 import { listSessions, type SessionMeta } from "@/lib/lab/sessions";
 import { buildStackAnnotation, stripStackAnnotation } from "@/lib/lab/stackShare";
 import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store";
 import type { CodeLayer } from "@/lib/lab/types";
 import HardwareModal from "./HardwareModal";
 import { openIncomingPattern } from "./openIncomingPattern";
-import { PANELS, buildDefaultLayout, panelComponents, panelDef, type PanelId } from "./panels/registry";
+import { PANELS, buildDefaultLayout, isNarrowDock, panelComponents, panelDef, type PanelId } from "./panels/registry";
 
 import styles from "./PatternLab.module.css";
 import dock from "./LabPanels.module.css";
@@ -143,6 +143,10 @@ export default function PatternLabClient() {
   const [workError, setWorkError] = useState<string | null>(null);
   const apiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Where this dock's layout is saved, chosen with the layout itself: a dock
+  // built narrow keeps saving as narrow after the window widens, until Reset
+  // layout builds it again for the width it has then.
+  const layoutKey = useRef<LabStorageKey>(LAYOUT_STORAGE);
 
   const hydrate = useLabStore((state) => state.hydrate);
   const restoredAt = useLabStore((state) => state.restoredAt);
@@ -234,10 +238,12 @@ export default function PatternLabClient() {
     (event: DockviewReadyEvent) => {
       const api = event.api;
       apiRef.current = api;
+      const narrow = isNarrowDock();
+      layoutKey.current = narrow ? LAYOUT_NARROW_STORAGE : LAYOUT_STORAGE;
 
       let restored = false;
       try {
-        const raw = readStorage(LAYOUT_STORAGE);
+        const raw = readStorage(layoutKey.current);
         if (raw) {
           const parsed = JSON.parse(raw);
           // Restoring a layout that places nothing gives you an empty
@@ -255,12 +261,12 @@ export default function PatternLabClient() {
         // Drop the unusable one rather than leaving it to be rejected again on
         // every future load — onDidLayoutChange is subscribed below, so
         // nothing overwrites it until the first panel is moved.
-        removeStorage(LAYOUT_STORAGE);
+        removeStorage(layoutKey.current);
         try {
           // Whatever a failed fromJSON managed to add is still in there, and
           // building the default on top of it collides on panel ids.
           api.clear();
-          buildDefaultLayout(api);
+          buildDefaultLayout(api, narrow);
         } catch {
           // A half-built layout is still usable; panels can be opened manually.
         }
@@ -287,7 +293,7 @@ export default function PatternLabClient() {
             // taken then is a layout that restores as nothing at all. It is
             // never a state worth remembering, so it is never written.
             if (layoutViewCount(next) === 0) return;
-            writeStorage(LAYOUT_STORAGE, JSON.stringify(next));
+            writeStorage(layoutKey.current, JSON.stringify(next));
           } catch {
             // Quota/private mode — layout just won't persist.
           }
@@ -312,9 +318,11 @@ export default function PatternLabClient() {
   const resetLayout = () => {
     const api = apiRef.current;
     if (!api) return;
-    removeStorage(LAYOUT_STORAGE);
+    const narrow = isNarrowDock();
+    layoutKey.current = narrow ? LAYOUT_NARROW_STORAGE : LAYOUT_STORAGE;
+    removeStorage(layoutKey.current);
     api.clear();
-    buildDefaultLayout(api);
+    buildDefaultLayout(api, narrow);
     syncOpenPanels(api);
   };
 

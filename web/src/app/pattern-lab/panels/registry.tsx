@@ -98,6 +98,24 @@ export const panelComponents: Record<string, FunctionComponent<IDockviewPanelPro
 );
 
 /**
+ * At this width the default layout stacks instead of splitting into columns.
+ * Three columns on a 390px phone left each panel about 110px: the frame
+ * picker read "128 × 64 (Patter" and the Knobs range fields ran off the
+ * edge. 800px is where the header above the dock folds to two rows
+ * (LabPanels.module.css).
+ */
+export const NARROW_DOCK_QUERY = "(max-width: 800px)";
+
+/** Asked once, when the dock is built. Turning a phone does not re-lay it; Reset layout does. */
+export function isNarrowDock(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(NARROW_DOCK_QUERY).matches;
+}
+
+/** Share of a narrow dock's height that Preview keeps at the top: a 2:1 frame at full width, and its bar. */
+export const NARROW_PREVIEW_HEIGHT = 0.42;
+
+/**
  * Lay every panel out from scratch, in an order that satisfies the references
  * so the list above can stay in menu order.
  *
@@ -107,8 +125,14 @@ export const panelComponents: Record<string, FunctionComponent<IDockviewPanelPro
  * relative to the grid as it stands, so "layers below preview" issued while
  * preview is the only column becomes a full-width strip at root level — the
  * layout this replaced had exactly that comment above its hand-ordered calls.
+ *
+ * A narrow dock ignores `dock` and `size`: see buildNarrowLayout.
  */
-export function buildDefaultLayout(api: DockviewApi) {
+export function buildDefaultLayout(api: DockviewApi, narrow = false) {
+  if (narrow) {
+    buildNarrowLayout(api);
+    return;
+  }
   const placed = new Set<PanelId>();
   const pending = [...PANELS];
   const place = (def: PanelDef) => {
@@ -145,4 +169,34 @@ export function buildDefaultLayout(api: DockviewApi) {
     if (def.size.width !== undefined) panel.api.setSize({ width: Math.round(total * def.size.width) });
     if (def.size.height !== undefined) panel.api.setSize({ height: Math.round(height * def.size.height) });
   }
+}
+
+/**
+ * The phone layout: the root panel (Preview) across the top, and every other
+ * panel a tab in one group below it, in menu order. Each panel gets the full
+ * width, and the frame stays in sight while Code or Knobs is in front.
+ */
+function buildNarrowLayout(api: DockviewApi) {
+  const root = PANELS.find((entry) => entry.dock === null);
+  if (!root) return;
+  api.addPanel({ id: root.id, component: root.id, title: root.title });
+  let stack: PanelId | null = null;
+  for (const def of PANELS) {
+    if (def === root) continue;
+    api.addPanel({
+      id: def.id,
+      component: def.id,
+      title: def.title,
+      position: stack
+        ? { referencePanel: stack, direction: "within" }
+        : { referencePanel: root.id, direction: "below" },
+    });
+    stack ??= def.id;
+  }
+
+  const active = PANELS.find((entry) => entry.active);
+  if (active) api.getPanel(active.id)?.api.setActive();
+
+  const height = api.height || 700;
+  api.getPanel(root.id)?.api.setSize({ height: Math.round(height * NARROW_PREVIEW_HEIGHT) });
 }
