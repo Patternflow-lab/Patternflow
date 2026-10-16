@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Metadata } from "next";
-import { SITE_OPEN_GRAPH } from "./siteMetadata";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import { guideMetadata } from "@/components/guide/meta";
 import { PAGES, pagePath } from "@/components/guide/pages";
 import { builds } from "@/components/sections/InsideGlobe/builds";
