@@ -173,16 +173,21 @@ export function buildDefaultLayout(api: DockviewApi, narrow = false) {
 
 /**
  * The phone layout: the root panel (Preview) across the top, and every other
- * panel a tab in one group below it, in menu order. Each panel gets the full
- * width, and the frame stays in sight while Code or Knobs is in front.
+ * panel a tab in one group below it. Each panel gets the full width, and the
+ * frame stays in sight while Code or Knobs is in front.
+ *
+ * The fronted panel is the first tab and the rest follow in menu order. In
+ * menu order Layers came first, and a 374px tab strip scrolled it out of
+ * sight to the left of Code.
  */
 function buildNarrowLayout(api: DockviewApi) {
   const root = PANELS.find((entry) => entry.dock === null);
   if (!root) return;
+  const active = PANELS.find((entry) => entry.active && entry !== root);
+  const tabs = [...(active ? [active] : []), ...PANELS.filter((entry) => entry !== root && entry !== active)];
   api.addPanel({ id: root.id, component: root.id, title: root.title });
   let stack: PanelId | null = null;
-  for (const def of PANELS) {
-    if (def === root) continue;
+  for (const def of tabs) {
     api.addPanel({
       id: def.id,
       component: def.id,
@@ -193,8 +198,6 @@ function buildNarrowLayout(api: DockviewApi) {
     });
     stack ??= def.id;
   }
-
-  const active = PANELS.find((entry) => entry.active);
   if (active) api.getPanel(active.id)?.api.setActive();
 
   const height = api.height || 700;

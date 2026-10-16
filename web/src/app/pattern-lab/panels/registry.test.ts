@@ -65,17 +65,18 @@ afterEach(() => {
 });
 
 describe("narrow default layout", () => {
-  it("puts Preview alone on top and every other panel in one group below it, in menu order", () => {
+  it("puts Preview alone on top and every other panel in one group below it, Code first", () => {
     const dock = fakeDock(374, 723);
     buildDefaultLayout(dock.api, true);
 
     expect(dock.groups).toEqual([
       ["preview"],
-      PANELS.filter((def) => def.id !== "preview").map((def) => def.id),
+      ["code", ...PANELS.filter((def) => def.id !== "preview" && def.id !== "code").map((def) => def.id)],
     ]);
+    expect(dock.groups[1].slice(0, 3)).toEqual(["code", "layers", "pixel"]);
     // One split, and it is a row: nothing sits beside Preview.
     expect(dock.placements.filter((entry) => entry.dir !== "within" && entry.ref !== null)).toEqual([
-      { id: "layers", ref: "preview", dir: "below" },
+      { id: "code", ref: "preview", dir: "below" },
     ]);
   });
 
