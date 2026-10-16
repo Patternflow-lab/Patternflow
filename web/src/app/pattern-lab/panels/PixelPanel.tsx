@@ -166,7 +166,6 @@ export default function PixelPanel() {
         className={dock.pixelViewport}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onWheel={viewport.onWheel}
       >
         <div
           className={dock.pixelStage}
