@@ -3,7 +3,7 @@
 // thing the device receives — not what the canvas shows.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import PixelPanel from "./PixelPanel";
 import { useLabStore } from "@/lib/lab/store";
 import type { PixelLayer } from "@/lib/lab/types";
@@ -88,6 +88,20 @@ describe("PixelPanel", () => {
     expect(rgba(1, 1)).toEqual(CLEAR);
     fireEvent.click(screen.getByTitle(/^Redo/));
     expect(rgba(1, 1)).toEqual(ORANGE);
+  });
+
+  it("undo still works after the matrix size changes", () => {
+    const { overlay, viewport } = mount();
+    fireEvent.pointerDown(overlay, at(40, 20));
+    fireEvent.pointerUp(overlay, at(40, 20));
+    // 128×64 to 64×32 keeps the middle: (40, 20) becomes (8, 4)
+    act(() => useLabStore.getState().setMatrix({ width: 64, height: 32 }));
+    expect(pixelLayer().width).toBe(64);
+    expect(rgba(8, 4)).toEqual(ORANGE);
+    fireEvent.keyDown(viewport, { key: "z", ctrlKey: true });
+    expect(rgba(8, 4)).toEqual(CLEAR);
+    fireEvent.keyDown(viewport, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(rgba(8, 4)).toEqual(ORANGE);
   });
 
   it("tool keys switch tools: e erases, g fills, b is the pen again", () => {
