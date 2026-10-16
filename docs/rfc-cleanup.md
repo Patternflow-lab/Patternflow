@@ -2,10 +2,11 @@
 
 *Tidying the tree before any-resolution work starts. Written 2026-10-14.*
 
-> **Status, 14 October 2026.** Proposed. Nothing in this RFC changes what
+> **Status, 16 October 2026.** Done. Nothing in this RFC changes what
 > the firmware or the site does. It changes where things live, what CI
 > checks, and what an agent is allowed to write. The gate at the end (§2.12)
-> is what has to be true before the any-resolution RFCs open.
+> held at `9dff573`, and [rfc-cleanup-progress.md](rfc-cleanup-progress.md)
+> records each step and the check of each item.
 
 This document is two things on purpose. **Part 1 is the maintainer, in his
 own words.** **Part 2 is the specification** — precise and mechanical,
