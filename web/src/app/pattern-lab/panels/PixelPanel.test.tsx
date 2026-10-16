@@ -3,7 +3,7 @@
 // thing the device receives — not what the canvas shows.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import PixelPanel from "./PixelPanel";
 import { useLabStore } from "@/lib/lab/store";
 import type { PixelLayer } from "@/lib/lab/types";
@@ -88,6 +88,20 @@ describe("PixelPanel", () => {
     expect(rgba(1, 1)).toEqual(CLEAR);
     fireEvent.click(screen.getByTitle(/^Redo/));
     expect(rgba(1, 1)).toEqual(ORANGE);
+  });
+
+  it("undo still works after the matrix size changes", () => {
+    const { overlay, viewport } = mount();
+    fireEvent.pointerDown(overlay, at(40, 20));
+    fireEvent.pointerUp(overlay, at(40, 20));
+    // 128×64 to 64×32 keeps the middle: (40, 20) becomes (8, 4)
+    act(() => useLabStore.getState().setMatrix({ width: 64, height: 32 }));
+    expect(pixelLayer().width).toBe(64);
+    expect(rgba(8, 4)).toEqual(ORANGE);
+    fireEvent.keyDown(viewport, { key: "z", ctrlKey: true });
+    expect(rgba(8, 4)).toEqual(CLEAR);
+    fireEvent.keyDown(viewport, { key: "z", ctrlKey: true, shiftKey: true });
+    expect(rgba(8, 4)).toEqual(ORANGE);
   });
 
   it("tool keys switch tools: e erases, g fills, b is the pen again", () => {
@@ -230,6 +244,35 @@ describe("PixelPanel", () => {
     fireEvent.click(screen.getByLabelText("Zoom out"));
     fireEvent.click(screen.getByLabelText("Zoom out"));
     expect(screen.getByText("zoom 5×")).toBeTruthy();
+  });
+
+  it("the wheel zooms the drawing and does not scroll the panel", () => {
+    const { viewport } = mount();
+    const up = createEvent.wheel(viewport, { deltaY: -100 });
+    fireEvent(viewport, up);
+    expect(up.defaultPrevented).toBe(true);
+    expect(screen.getByText("zoom 7×")).toBeTruthy();
+    const down = createEvent.wheel(viewport, { deltaY: 100 });
+    fireEvent(viewport, down);
+    expect(down.defaultPrevented).toBe(true);
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+    // a sideways wheel has no up or down: it scrolls the viewport, zoom stays
+    const sideways = createEvent.wheel(viewport, { deltaX: 100, deltaY: 0 });
+    fireEvent(viewport, sideways);
+    expect(sideways.defaultPrevented).toBe(false);
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+  });
+
+  it("the wheel zooms once a pixel layer is picked after a code layer", () => {
+    const state = useLabStore.getState();
+    state.selectLayer(state.layers.find((entry) => entry.type === "code")!.id);
+    const { container } = render(<PixelPanel />);
+    act(() => useLabStore.getState().selectLayer(pixelLayer().id));
+    const viewport = container.querySelector('[tabindex="0"]') as HTMLDivElement;
+    const up = createEvent.wheel(viewport, { deltaY: -100 });
+    fireEvent(viewport, up);
+    expect(up.defaultPrevented).toBe(true);
+    expect(screen.getByText("zoom 7×")).toBeTruthy();
   });
 
   it("switching layers drops the selection", () => {

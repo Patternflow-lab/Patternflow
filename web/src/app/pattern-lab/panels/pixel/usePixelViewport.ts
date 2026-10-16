@@ -4,7 +4,7 @@
 // box. The refs belong to the panel (it renders the elements); this hook is
 // handed them.
 
-import { useCallback, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { PixelLayer } from "@/lib/lab/types";
 import type { Cell } from "./tools";
 
@@ -68,13 +68,23 @@ export function usePixelViewport({
     setZoom(next);
   }, [pixel, viewportRef]);
 
-  const onWheel = useCallback(
-    (event: React.WheelEvent) => {
+  // The wheel zooms. A native listener, because React delegates wheel
+  // passively and preventDefault there would let the viewport and the dock
+  // scroll under the zoom (useTimelineZoom does the same). A sideways wheel
+  // has no deltaY and stays a scroll. The viewport is only rendered while a
+  // pixel layer is selected, so the listener goes on when one is.
+  const hasPixel = pixel !== undefined;
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) return;
       event.preventDefault();
       zoomBy(event.deltaY < 0 ? 1 : -1);
-    },
-    [zoomBy],
-  );
+    };
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, [hasPixel, viewportRef, zoomBy]);
 
   /** Middle button: start panning. True when the press was taken. */
   const beginPan = useCallback(
@@ -121,7 +131,6 @@ export function usePixelViewport({
     zoom,
     zoomBy,
     fitZoom,
-    onWheel,
     panning,
     hoverCell,
     setHoverCell,

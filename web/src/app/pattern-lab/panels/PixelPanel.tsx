@@ -48,16 +48,16 @@ export default function PixelPanel() {
 
   // ── history ──
   const pushUndo = useCallback(() => {
-    if (pixel) snapshotPixels(pixel.id, pixel.data);
+    if (pixel) snapshotPixels(pixel.id, pixel);
   }, [pixel]);
   const commit = useCallback(() => {
     if (pixel) bumpPixelLayer(pixel.id);
   }, [pixel, bumpPixelLayer]);
   const undo = useCallback(() => {
-    if (pixel && undoPixels(pixel.id, pixel.data)) commit();
+    if (pixel && undoPixels(pixel.id, pixel)) commit();
   }, [pixel, commit]);
   const redo = useCallback(() => {
-    if (pixel && redoPixels(pixel.id, pixel.data)) commit();
+    if (pixel && redoPixels(pixel.id, pixel)) commit();
   }, [pixel, commit]);
 
   // ── the pieces ──
@@ -166,7 +166,6 @@ export default function PixelPanel() {
         className={dock.pixelViewport}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onWheel={viewport.onWheel}
       >
         <div
           className={dock.pixelStage}

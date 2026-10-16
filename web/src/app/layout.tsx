@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next";
 import DeviceHostCapture from "@/components/DeviceHostCapture";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { LEGACY_GUIDE_REDIRECT } from "@/components/guide/legacy";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -64,27 +65,13 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
     shortcut: "/favicon.ico",
   },
-  openGraph: {
-    type: "website",
-    url: "https://patternflow.work",
-    title: "Patternflow — An LED synthesizer",
-    description:
-      "An open-source LED synthesizer. Play light patterns with your fingertips — and every Patternflow plays every pattern we make.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        type: "image/png",
-      },
-    ],
-  },
+  // No title, description or url: those are each page's (lib/siteMetadata.ts).
+  // The home page's own are in page.tsx.
+  openGraph: SITE_OPEN_GRAPH,
+  // The card only. Next copies the title, description and picture into it
+  // from the page's openGraph, and it copies nothing over a title set here.
   twitter: {
     card: "summary_large_image",
-    title: "Patternflow — An LED synthesizer",
-    description:
-      "Patternflow is an open-source LED synthesizer. Play light with your fingertips.",
-    images: ["/og-image.png"],
   },
   alternates: {
     types: {
