@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { MODEL_URL } from "./geometry";
+import { LED_URL } from "./geometry";
 
 // The guide's device is four files put together in the model frame (see
 // geometry.ts: the device stands facing +z, knobs top right, 10 mm per unit):
@@ -9,9 +9,10 @@ import { MODEL_URL } from "./geometry";
 //                    0904_v3.9, its assembled copy) by the pure translation
 //                    (−300.2723, +58.4313, −1.9078) that lands the blend's LED
 //                    panel exactly on the LED mesh below
-//   - model.glb      public/cases/official/, the official case model the
-//                    landing page's preview shows (tools/case-models), of
-//                    which only the LED mesh, "l", is used
+//   - led-panel.glb  the LED mesh, "l", of public/cases/official/model.glb,
+//                    the official case model the landing page's preview
+//                    shows (tools/case-models), cut out of it by
+//                    web/scripts/cut-led-panel.ts
 //   - pcb-v39.glb    the v3.9 board, exported from hardware/pcb/kicad with
 //                    kicad-cli, placed so its four encoders sit under the knobs
 //   - devkit.glb     the ESP32-S3 DevKit, in a canonical frame: origin at the
@@ -29,7 +30,7 @@ export const DEVKIT_URL = "/guide/devkit.glb";
  * asked for three of them in a list of its own, and they were fetched, parsed
  * and decoded a second time as the Build guide opened.
  */
-export const DEVICE_MODELS = [MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL];
+export const DEVICE_MODELS = [LED_URL, CASE_URL, PCB_URL, DEVKIT_URL];
 
 /** Metres → model units. */
 export const M_TO_MODEL = 100;

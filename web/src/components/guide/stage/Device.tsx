@@ -162,9 +162,9 @@ export default function Device() {
   const scene = useMemo(() => {
     const root = new THREE.Group();
     root.name = "patternflow";
-    // Of the official case model only the LED panel is used: its case, board
-    // and DevKit are the guide's own files (parts.ts), which it carries
-    // simplified for the landing page's preview.
+    // Of the official case model only the LED panel is used (led-panel.glb,
+    // cut out of it): its case, board and DevKit are the guide's own files
+    // (parts.ts), which it carries simplified for the landing page's preview.
     const ledSrc = ledGltf.scene.getObjectByName("l");
     if (ledSrc) {
       const led = ledSrc.clone(true);
