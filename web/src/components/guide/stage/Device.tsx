@@ -27,17 +27,14 @@ import {
   KNOB_TOP_Z,
   knobWorldCenter,
   MODEL_SCALE,
-  MODEL_URL,
 } from "./geometry";
 import {
-  CASE_URL,
+  DEVICE_MODELS,
   DEVKIT_LIFT_END,
   DEVKIT_SEAT,
-  DEVKIT_URL,
   devkitPose,
   M_TO_MODEL,
   PCB_PLACEMENT,
-  PCB_URL,
   SLIDER_OFF,
   SLIDER_SECONDS,
   sliderPose,
@@ -161,7 +158,7 @@ const caseMaterial = () => plaMaterial();
 const POWER_OFF_S = 0.11;
 
 export default function Device() {
-  const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
+  const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF(DEVICE_MODELS, DRACO_URL);
   const scene = useMemo(() => {
     const root = new THREE.Group();
     root.name = "patternflow";
@@ -386,6 +383,9 @@ export default function Device() {
     accum: number;
     turned: boolean;
   } | null>(null);
+  // The stage's own element: the canvas, and the knob tags over it. A touch
+  // that can turn a knob lands on it.
+  const surface = useThree((st) => (st.events.connected as HTMLElement | null | undefined) ?? st.gl.domElement);
 
   useEffect(() => {
     const sim = getSim();
@@ -433,22 +433,27 @@ export default function Device() {
     // The page scrolls under a finger (the canvas is touch-action: pan-y);
     // a touch that landed on a knob is the knob's. Pointer events come before
     // their touch events, so by touchstart the knob has already been taken.
+    //
+    // Held on the stage, not the window. A touch listener that may cancel
+    // makes the browser wait for the page's script before it scrolls, and on
+    // the window that was every scroll of the page, over the cards too: on a
+    // phone each one waited for the frame the stage was drawing.
     const holdTouch = (e: TouchEvent) => {
       if (drag.current && e.cancelable) e.preventDefault();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
-    window.addEventListener("touchstart", holdTouch, { passive: false });
-    window.addEventListener("touchmove", holdTouch, { passive: false });
+    surface.addEventListener("touchstart", holdTouch, { passive: false });
+    surface.addEventListener("touchmove", holdTouch, { passive: false });
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
-      window.removeEventListener("touchstart", holdTouch);
-      window.removeEventListener("touchmove", holdTouch);
+      surface.removeEventListener("touchstart", holdTouch);
+      surface.removeEventListener("touchmove", holdTouch);
     };
-  }, []);
+  }, [surface]);
 
   // The DevKit's BOOT and RST, on the step that is about them ("Hold BOOT,
   // tap RST": scenes.ts bootSeq) and with the DevKit held up: a real hand
@@ -875,4 +880,4 @@ function smoothstep(x: number, e0: number, e1: number) {
   return t * t * (3 - 2 * t);
 }
 
-useGLTF.preload([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
+useGLTF.preload(DEVICE_MODELS, DRACO_URL);
