@@ -11,9 +11,7 @@ import * as THREE from "three";
 // drawn for. The stage scales the model by MODEL_SCALE and lifts it by
 // MODEL_OFFSET so its middle sits at the origin.
 
-/** The official case model: the guide takes its LED panel, "l", and nothing else. The landing page's preview loads the same file. */
-export const MODEL_URL = "/cases/official/model.glb";
-export const DRACO_URL = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
+export { DRACO_URL, LED_URL } from "./files";
 export const MODEL_SCALE = 0.1;
 export const MODEL_OFFSET = new THREE.Vector3(0, -1.65, 0);
 
