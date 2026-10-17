@@ -19,6 +19,7 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ### Web
 
+- **The Build guide keeps up with a finger on a phone.** A scroll waits for the 3D stage's script only when the finger lands on a knob. The stage's models start downloading with three.js and weigh 266 KB less, and a stage that has stopped moving no longer redraws its shadow map.
 - **Pattern Lab's pixel undo survives a matrix resize.** Undo after shrinking the matrix threw a RangeError, and after growing it wrote the old rows into the new buffer. Each undo frame now keeps its size and goes back through the same centred crop or pad the resize gave the layer.
 - **A link to any page previews with that page's own title and picture.** The guide pages and the home page's tabs went out with no image, and pages without Open Graph tags of their own, such as `/features` and `/editions`, previewed as the home page. `twitter:title` was the home page's everywhere. `/build/breadboard` has its own title now, and it and `/update` are in the sitemap.
 - **Pattern Lab asks before Del removes a layer with work in it.** Deleting a layer has no undo and autosave wrote the smaller stack over the saved project within 3 s, so one misclick lost a pixel drawing. A blank pixel layer or a code layer still holding the starter pattern goes without asking.
