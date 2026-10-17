@@ -6,7 +6,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import Device from "./Device";
 import Explode from "./Explode";
@@ -460,9 +460,128 @@ function Warmup() {
 // So on that page they go out as the camera comes round behind the panel's
 // plane; what they are for is in front and not in those shots.
 
+// The key light's shadow is drawn again only when what it falls from has
+// moved. three draws it on every render of the scene: the casters into a
+// map 2048 across (1024 on the lower tiers) and then a 16-sample blur over
+// the whole map, both ways (VSM), while most of the time the reader is
+// reading a card and nothing on the stage moves but the camera, which the
+// map does not depend on. Before each frame's first render it takes down
+// what the map does depend on (every mesh three would draw into it, VSM
+// counting what receives a shadow too: where it is, its geometry, its
+// material and the planes that cut it, and the light) and compares; the
+// map is drawn when any of it has moved by more than a hair, or the map is
+// new (a tier changed its size).
+
+/** Closer than this to the last drawn, a number has not moved (world units, or a matrix's scale): far under a shadow map's texel. */
+const SHADOW_STILL = 1e-5;
+
+function useShadowOnChange(light: RefObject<THREE.DirectionalLight | null>, on: boolean) {
+  const scene = useThree((s) => s.scene);
+  const gl = useThree((s) => s.gl);
+  const frame = useRef(0);
+  useFrame(() => {
+    frame.current++;
+  });
+  useEffect(() => {
+    const l = light.current;
+    if (!l || !on) return;
+    const shadow = l.shadow;
+    shadow.autoUpdate = false;
+    shadow.needsUpdate = true;
+    let seen = -1;
+    let last = new Float64Array(0);
+    let next = new Float64Array(8192);
+    let n = 0;
+    const put = (v: number) => {
+      if (n === next.length) {
+        const grown = new Float64Array(n * 2);
+        grown.set(next);
+        next = grown;
+      }
+      next[n++] = v;
+    };
+    const putMatrix = (e: ArrayLike<number>, at = 0) => {
+      for (let i = 0; i < 16; i++) put(e[at + i]);
+    };
+    // A material is told apart by a number of its own (three's id is not in its types).
+    const ids = new WeakMap<object, number>();
+    let lastId = 0;
+    const idOf = (x: object) => {
+      let id = ids.get(x);
+      if (id === undefined) {
+        id = ++lastId;
+        ids.set(x, id);
+      }
+      return id;
+    };
+    const putMaterial = (m: THREE.Material) => {
+      put(idOf(m));
+      put(m.version);
+      put(m.visible ? 1 : 0);
+      put(m.side);
+      put(m.alphaTest);
+      if (m.clipShadows && m.clippingPlanes) {
+        for (const p of m.clippingPlanes) {
+          put(p.normal.x);
+          put(p.normal.y);
+          put(p.normal.z);
+          put(p.constant);
+        }
+      }
+    };
+    const take = (o: THREE.Object3D) => {
+      const mesh = o as THREE.Mesh;
+      if (!(mesh.isMesh || (o as THREE.Line).isLine || (o as THREE.Points).isPoints)) return;
+      if (!o.castShadow && !o.receiveShadow) return;
+      put(o.id);
+      put(o.castShadow ? 1 : 0);
+      putMatrix(o.matrixWorld.elements);
+      const g = mesh.geometry;
+      put(g.id);
+      const pos = g.attributes.position;
+      put(pos ? ("isInterleavedBufferAttribute" in pos ? pos.data.version : pos.version) : -1);
+      put(g.index?.version ?? -1);
+      put(g.drawRange.start);
+      put(g.drawRange.count);
+      const inst = o as THREE.InstancedMesh;
+      if (inst.isInstancedMesh) {
+        put(inst.count);
+        const a = inst.instanceMatrix.array;
+        for (let i = 0; i < inst.count * 16; i++) put(a[i]);
+      }
+      if (Array.isArray(mesh.material)) mesh.material.forEach(putMaterial);
+      else if (mesh.material) putMaterial(mesh.material);
+    };
+    const before = scene.onBeforeRender;
+    scene.onBeforeRender = function (...args) {
+      before.apply(this, args);
+      // Once a frame: the effects render the scene more than once in it.
+      if (seen === frame.current) return;
+      seen = frame.current;
+      n = 0;
+      putMatrix(l.matrixWorld.elements);
+      putMatrix(l.target.matrixWorld.elements);
+      put(shadow.mapSize.x);
+      put(gl.localClippingEnabled ? 1 : 0);
+      scene.traverseVisible(take);
+      let moved = shadow.map === null || n !== last.length;
+      for (let i = 0; !moved && i < n; i++) moved = Math.abs(next[i] - last[i]) > SHADOW_STILL;
+      if (moved) {
+        shadow.needsUpdate = true;
+        last = next.slice(0, n);
+      }
+    };
+    return () => {
+      scene.onBeforeRender = before;
+      shadow.autoUpdate = true;
+    };
+  }, [light, on, scene, gl]);
+}
+
 /** The key light. Its shadow map follows the quality tier: the old map is let go when the size changes. */
 function KeyLight({ shadows, mapSize }: { shadows: boolean; mapSize: number }) {
   const light = useRef<THREE.DirectionalLight>(null);
+  useShadowOnChange(light, shadows);
   const made = useRef(mapSize);
   useEffect(() => {
     const s = light.current?.shadow;
