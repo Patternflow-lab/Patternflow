@@ -30,3 +30,5 @@ export const PLATES_URL = "/guide/build/plates.glb";
 export const BUILD_MODELS = [SPLIT_URL, PLATES_URL];
 
 export const DRACO_URL = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
+/** What the models' decoder fetches from there in a browser with WebAssembly (three's DRACOLoader). */
+export const DRACO_FILES = [`${DRACO_URL}draco_wasm_wrapper.js`, `${DRACO_URL}draco_decoder.wasm`];
