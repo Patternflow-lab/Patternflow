@@ -537,6 +537,10 @@ export default function GuideCanvas() {
   return (
     <Canvas
       camera={{ position: [4.2, 1.9, 11.6], fov: 26, near: 0.05, far: 100 }}
+      // A pointer is read by its place on the screen, where the canvas
+      // starts (it fills it, fixed): a touch on a knob lands on that knob's
+      // zone (Device.tsx), and its offset is from the zone's corner.
+      eventPrefix="client"
       dpr={[1, quality.dpr]}
       gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
       flat

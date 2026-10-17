@@ -93,7 +93,8 @@ export default function StageHand({ reducedMotion }: { reducedMotion: boolean })
       hand.x = (e.clientX / window.innerWidth) * 2 - 1;
       hand.y = (e.clientY / window.innerHeight) * 2 - 1;
       hand.here = true;
-      hand.onStage = e.target === canvas;
+      // A knob's zone (Device.tsx) is the stage too.
+      hand.onStage = e.target === canvas || (e.target instanceof HTMLElement && "knobZone" in e.target.dataset);
       hand.moves++;
     };
     const onDown = (e: PointerEvent) => {

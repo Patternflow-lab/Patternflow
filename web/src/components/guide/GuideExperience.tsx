@@ -84,35 +84,44 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
       frame = 0;
       const vh = window.innerHeight;
       const mid = vh * 0.5;
-      // Every box is read before anything is written. A write between two
-      // reads (one card's data-on, then the next card's box) had the browser
-      // work out the page's style again for the second read, a dozen times
-      // in a frame of scrolling.
-      const scenes = Array.from(el.querySelectorAll<HTMLElement>("[data-scene]"));
-      const rects = scenes.map((scene) => scene.getBoundingClientRect());
-      const progress = rects.map((r) => Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height))));
+      const scenes = el.querySelectorAll<HTMLElement>("[data-scene]");
       let chosenScene = "opening";
       let chosenStep = 0;
       let chosenProgress = 0;
       const chosen = { el: null as HTMLElement | null };
-      let steps: { el: HTMLElement; on: boolean }[] = [];
-      scenes.forEach((scene, i) => {
-        const r = rects[i];
-        if (!(r.top <= mid && r.bottom > mid)) return;
-        chosenScene = scene.dataset.scene ?? "opening";
-        chosenProgress = progress[i];
-        // The step whose block is closest to the middle.
-        let best = Infinity;
-        steps = Array.from(scene.querySelectorAll<HTMLElement>("[data-step]"), (stepEl) => {
-          const sr = stepEl.getBoundingClientRect();
-          const d = Math.abs(sr.top + sr.height / 2 - mid);
-          if (d < best) {
-            best = d;
-            chosenStep = Number(stepEl.dataset.step);
-            chosen.el = stepEl;
-          }
-          return { el: stepEl, on: sr.top < vh * 0.72 && sr.bottom > vh * 0.28 };
-        });
+      scenes.forEach((scene) => {
+        const r = scene.getBoundingClientRect();
+        const p = Math.max(0, Math.min(1, (mid - r.top) / Math.max(1, r.height)));
+        // How far through the chapter the reader is, for the chapter's number
+        // (it drifts, Guide.module.css .chapterNum). Written on the chapter's
+        // head, which holds the number, and only when it has moved: a custom
+        // property is inherited, and on the whole chapter it had the browser
+        // work out the style of every card in it again, each frame of a scroll.
+        const head = scene.firstElementChild as HTMLElement | null;
+        if (head?.tagName === "HEADER") {
+          const value = p.toFixed(4);
+          if (head.style.getPropertyValue("--p") !== value) head.style.setProperty("--p", value);
+        }
+        if (r.top <= mid && r.bottom > mid) {
+          chosenScene = scene.dataset.scene ?? "opening";
+          chosenProgress = p;
+          // The step whose block is closest to the middle.
+          let best = Infinity;
+          scene.querySelectorAll<HTMLElement>("[data-step]").forEach((stepEl) => {
+            const sr = stepEl.getBoundingClientRect();
+            const c = sr.top + sr.height / 2;
+            const d = Math.abs(c - mid);
+            const on = sr.top < vh * 0.72 && sr.bottom > vh * 0.28;
+            stepEl.dataset.on = on ? "1" : "0";
+            // Its card's lines arrive the first time, and only then (Guide.module.css).
+            if (on && !stepEl.dataset.seen) stepEl.dataset.seen = "1";
+            if (d < best) {
+              best = d;
+              chosenStep = Number(stepEl.dataset.step);
+              chosen.el = stepEl;
+            }
+          });
+        }
       });
       // Is that step's card on screen yet? A chapter's first step is chosen
       // while the chapter's title is still in the middle of the screen, its
@@ -120,24 +129,6 @@ function useScrollTracker(root: React.RefObject<HTMLDivElement | null>) {
       // holds one card; the opening and the end are their own.
       const card = chosen.el && chosen.el.children.length === 1 ? chosen.el.firstElementChild : null;
       const cardIn = !card || card.getBoundingClientRect().top < vh * 0.86;
-
-      scenes.forEach((scene, i) => {
-        // How far through the chapter the reader is, for the chapter's number
-        // (it drifts, Guide.module.css .chapterNum). Written on the chapter's
-        // head, which holds the number, and only when it has moved: a custom
-        // property is inherited, and on the whole chapter it had the browser
-        // work out the style of every card in it again, each frame of a scroll.
-        const head = scene.firstElementChild as HTMLElement | null;
-        if (head?.tagName !== "HEADER") return;
-        const value = progress[i].toFixed(4);
-        if (head.style.getPropertyValue("--p") !== value) head.style.setProperty("--p", value);
-      });
-      for (const { el: stepEl, on } of steps) {
-        const value = on ? "1" : "0";
-        if (stepEl.dataset.on !== value) stepEl.dataset.on = value;
-        // Its card's lines arrive the first time, and only then (Guide.module.css).
-        if (on && !stepEl.dataset.seen) stepEl.dataset.seen = "1";
-      }
       useGuideStore.getState().setScroll(chosenScene, chosenProgress, chosenStep, cardIn);
     };
     const onScroll = () => {
