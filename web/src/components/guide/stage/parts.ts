@@ -1,5 +1,4 @@
 import * as THREE from "three";
-import { LED_URL } from "./geometry";
 
 // The guide's device is four files put together in the model frame (see
 // geometry.ts: the device stands facing +z, knobs top right, 10 mm per unit):
@@ -19,18 +18,8 @@ import { LED_URL } from "./geometry";
 //                    board's centre, +Y toward the antenna, +Z out of the
 //                    component side, +X to the reader's right, metres.
 
-export const CASE_URL = "/guide/case-v39.glb";
-export const PCB_URL = "/guide/pcb-v39.glb";
-export const DEVKIT_URL = "/guide/devkit.glb";
-
-/**
- * The four, as Device loads them. useGLTF keeps what it loads under the whole
- * list it was given, so anything else on the stage that needs these files
- * asks for this list, in this order, and is handed Device's. The Build stage
- * asked for three of them in a list of its own, and they were fetched, parsed
- * and decoded a second time as the Build guide opened.
- */
-export const DEVICE_MODELS = [LED_URL, CASE_URL, PCB_URL, DEVKIT_URL];
+// Their addresses are in files.ts.
+export { CASE_URL, DEVICE_MODELS, DEVKIT_URL, PCB_URL } from "./files";
 
 /** Metres → model units. */
 export const M_TO_MODEL = 100;
