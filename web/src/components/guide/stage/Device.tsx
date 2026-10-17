@@ -27,17 +27,14 @@ import {
   KNOB_TOP_Z,
   knobWorldCenter,
   MODEL_SCALE,
-  MODEL_URL,
 } from "./geometry";
 import {
-  CASE_URL,
+  DEVICE_MODELS,
   DEVKIT_LIFT_END,
   DEVKIT_SEAT,
-  DEVKIT_URL,
   devkitPose,
   M_TO_MODEL,
   PCB_PLACEMENT,
-  PCB_URL,
   SLIDER_OFF,
   SLIDER_SECONDS,
   sliderPose,
@@ -106,6 +103,10 @@ const KNOB_R = 0.813;
  * too small to find by touch.
  */
 const KNOB_HIT_R = 1.45;
+/** A knob's zone on the page (the touch it may hold): drawn this size and scaled to the hit disc on screen, px. */
+const ZONE_PX = 100;
+/** …and this much wider all round than the disc, px. */
+const ZONE_MARGIN = 6;
 /**
  * The dial round each knob: a band on the case face with a dot riding it at
  * the knob's angle — something to take hold of and see go round, since the
@@ -161,13 +162,13 @@ const caseMaterial = () => plaMaterial();
 const POWER_OFF_S = 0.11;
 
 export default function Device() {
-  const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
+  const [ledGltf, caseGltf, pcbGltf, kitGltf] = useGLTF(DEVICE_MODELS, DRACO_URL);
   const scene = useMemo(() => {
     const root = new THREE.Group();
     root.name = "patternflow";
-    // Of the official case model only the LED panel is used: its case, board
-    // and DevKit are the guide's own files (parts.ts), which it carries
-    // simplified for the landing page's preview.
+    // Of the official case model only the LED panel is used (led-panel.glb,
+    // cut out of it): its case, board and DevKit are the guide's own files
+    // (parts.ts), which it carries simplified for the landing page's preview.
     const ledSrc = ledGltf.scene.getObjectByName("l");
     if (ledSrc) {
       const led = ledSrc.clone(true);
@@ -386,6 +387,64 @@ export default function Device() {
     accum: number;
     turned: boolean;
   } | null>(null);
+  const canvas = useThree((st) => st.gl.domElement);
+  // Where the stage's DOM goes (the knob tags are there): the element its
+  // pointer events are read from.
+  const surface = useThree((st) => (st.events.connected as HTMLElement | null | undefined) ?? st.gl.domElement);
+
+  // A finger on a knob turns it; anywhere else it scrolls the page. Holding a
+  // scroll back takes a touch listener that can cancel, and the browser waits
+  // for the page's script before it scrolls wherever such a listener is: not
+  // under the element under the finger, but anywhere in that element's box.
+  // On the window, and then on the stage, which fills the screen, that was
+  // every scroll of the page, over the cards too, and on a phone each one
+  // waited for the frame the stage was drawing. So the listener is on four
+  // small discs of the page instead, one over each knob's hit disc, moved
+  // with it every frame (below). A touch there reaches the stage as before
+  // (the Canvas reads pointers by their place on the screen, GuideCanvas).
+  const zones = useMemo(
+    () =>
+      [0, 1, 2, 3].map(() => {
+        if (typeof document === "undefined") return null;
+        const el = document.createElement("div");
+        el.dataset.knobZone = "";
+        el.setAttribute("aria-hidden", "true");
+        Object.assign(el.style, {
+          position: "absolute",
+          left: "0",
+          top: "0",
+          width: `${ZONE_PX}px`,
+          height: `${ZONE_PX}px`,
+          borderRadius: "50%",
+          transformOrigin: "0 0",
+          touchAction: "pan-y",
+          visibility: "hidden",
+        });
+        return el;
+      }),
+    [],
+  );
+  useEffect(() => {
+    // Pointer events come before their touch events, so by touchstart the
+    // knob has already been taken (onPointerDown).
+    const holdTouch = (e: TouchEvent) => {
+      if (drag.current && e.cancelable) e.preventDefault();
+    };
+    for (const z of zones) {
+      if (!z) continue;
+      surface.appendChild(z);
+      z.addEventListener("touchstart", holdTouch, { passive: false });
+      z.addEventListener("touchmove", holdTouch, { passive: false });
+    }
+    return () => {
+      for (const z of zones) {
+        if (!z) continue;
+        z.removeEventListener("touchstart", holdTouch);
+        z.removeEventListener("touchmove", holdTouch);
+        z.remove();
+      }
+    };
+  }, [zones, surface]);
 
   useEffect(() => {
     const sim = getSim();
@@ -430,23 +489,13 @@ export default function Device() {
       drag.current = null;
       document.body.style.cursor = "";
     };
-    // The page scrolls under a finger (the canvas is touch-action: pan-y);
-    // a touch that landed on a knob is the knob's. Pointer events come before
-    // their touch events, so by touchstart the knob has already been taken.
-    const holdTouch = (e: TouchEvent) => {
-      if (drag.current && e.cancelable) e.preventDefault();
-    };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
-    window.addEventListener("touchstart", holdTouch, { passive: false });
-    window.addEventListener("touchmove", holdTouch, { passive: false });
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
-      window.removeEventListener("touchstart", holdTouch);
-      window.removeEventListener("touchmove", holdTouch);
     };
   }, []);
 
@@ -482,7 +531,8 @@ export default function Device() {
     // the knob or on its dial.
     const world = knobMesh.localToWorld(new THREE.Vector3(0, 0, KNOB_H));
     world.project(e.camera);
-    const rect = (e.nativeEvent.target as HTMLElement).getBoundingClientRect();
+    // The canvas's box, not the target's: a touch lands on a knob's zone.
+    const rect = canvas.getBoundingClientRect();
     const cx = (world.x * 0.5 + 0.5) * rect.width + rect.left;
     const cy = (-world.y * 0.5 + 0.5) * rect.height + rect.top;
     drag.current = {
@@ -522,6 +572,9 @@ export default function Device() {
   const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, held: false, tick: 0, back: 0, esp: 0 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Where each knob's zone was last put, px (r 0: hidden).
+  const zoneAt = useRef([0, 1, 2, 3].map(() => ({ x: 0, y: 0, r: 0 })));
+  const zoneTmp = useMemo(() => ({ c: new THREE.Vector3(), a: new THREE.Vector3(), b: new THREE.Vector3() }), []);
   const readout = useRef({
     lastTurns: [0, 0, 0, 0],
     movedAt: [-1e9, -1e9, -1e9, -1e9],
@@ -735,6 +788,44 @@ export default function Device() {
       }
     });
 
+    // Each knob's zone over its hit disc as it now stands on screen (the
+    // Build stage and the hub's exploded view move the knobs; the camera
+    // moves on). Written only when it has moved half a pixel.
+    for (let i = 0; i < 4; i++) {
+      const z = zones[i];
+      const k = parts.knobs[i];
+      if (!z) continue;
+      const zs = zoneAt.current[i];
+      let x = 0;
+      let y = 0;
+      let r = 0;
+      if (k) {
+        const c = k.localToWorld(zoneTmp.c.set(0, 0, KNOB_H + 0.02)).project(state.camera);
+        const a = k.localToWorld(zoneTmp.a.set(KNOB_HIT_R, 0, KNOB_H + 0.02)).project(state.camera);
+        const b = k.localToWorld(zoneTmp.b.set(0, KNOB_HIT_R, KNOB_H + 0.02)).project(state.camera);
+        if (c.z > -1 && c.z < 1 && Math.abs(c.x) < 1.2 && Math.abs(c.y) < 1.2) {
+          x = (c.x * 0.5 + 0.5) * size.width;
+          y = (-c.y * 0.5 + 0.5) * size.height;
+          const ra = Math.hypot((a.x - c.x) * 0.5 * size.width, (a.y - c.y) * 0.5 * size.height);
+          const rb = Math.hypot((b.x - c.x) * 0.5 * size.width, (b.y - c.y) * 0.5 * size.height);
+          r = Math.max(ra, rb) + ZONE_MARGIN;
+        }
+      }
+      if (r === 0) {
+        if (zs.r !== 0) {
+          zs.r = 0;
+          z.style.visibility = "hidden";
+        }
+        continue;
+      }
+      if (Math.abs(x - zs.x) < 0.5 && Math.abs(y - zs.y) < 0.5 && Math.abs(r - zs.r) < 0.5) continue;
+      if (zs.r === 0) z.style.visibility = "";
+      zs.x = x;
+      zs.y = y;
+      zs.r = r;
+      z.style.transform = `translate3d(${(x - r).toFixed(1)}px, ${(y - r).toFixed(1)}px, 0) scale(${((2 * r) / ZONE_PX).toFixed(3)})`;
+    }
+
     // The back slider and the ESP32 DevKit, in the order hands do it: the
     // slider slides off its rails, then — while it is laid down behind the
     // case — the DevKit comes straight off its pins; it is carried round to
@@ -875,4 +966,4 @@ function smoothstep(x: number, e0: number, e1: number) {
   return t * t * (3 - 2 * t);
 }
 
-useGLTF.preload([MODEL_URL, CASE_URL, PCB_URL, DEVKIT_URL], DRACO_URL);
+useGLTF.preload(DEVICE_MODELS, DRACO_URL);

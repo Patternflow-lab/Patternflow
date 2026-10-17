@@ -3,11 +3,13 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Component, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { preload } from "react-dom";
 import styles from "../Guide.module.css";
 import { useDarkDocument } from "../darkDocument";
 import { screenAt } from "../pages";
 import { useGuideStore, type GuideScreen } from "../store";
 import { stageLoad } from "../ui/stageLoad";
+import { BUILD_MODELS, DEVICE_MODELS, DRACO_FILES } from "../stage/files";
 
 // The guide's world: one stage for /guide, /guide/build, /guide/play and
 // /guide/make, in both languages. app/guide/layout.tsx mounts this once and
@@ -98,6 +100,19 @@ function World({ screen, children }: { screen: GuideScreen; children: ReactNode 
   // The stage loads the first time a page with the device is on screen, and stays.
   const [staged, setStaged] = useState(false);
   if (!staged && entered && page !== "make" && hasWebGL()) setStaged(true);
+  // The stage's models, and the decoder they are packed for, start down with
+  // its code, not after it. They were asked for only once three.js had
+  // arrived and run (the decoder once the first model was in), and on a slow
+  // line that is seconds. The stage fetches them the same way later (same
+  // address, CORS, no credentials of another site's) and the browser hands
+  // it these.
+  useEffect(() => {
+    if (!staged) return;
+    for (const url of [...DEVICE_MODELS, ...DRACO_FILES]) preload(url, { as: "fetch", crossOrigin: "anonymous" });
+  }, [staged]);
+  useEffect(() => {
+    if (staged && page === "build") for (const url of BUILD_MODELS) preload(url, { as: "fetch", crossOrigin: "anonymous" });
+  }, [staged, page]);
   // No stage is coming: whoever waits for it (the first visit's counter) is told.
   useEffect(() => {
     if (entered && page !== "make" && !hasWebGL()) stageLoad.set({ failed: true });
