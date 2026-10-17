@@ -118,8 +118,8 @@ import { getSim, useGuideStore } from "../../store";
 import { buildClock } from "../../timing";
 import { stepOf } from "../../scenes";
 import { type ExplodePart, explodeState, partOffset } from "../explodeParts";
-import { DRACO_URL, KNOB_PRESS, MODEL_OFFSET, MODEL_SCALE, MODEL_URL } from "../geometry";
-import { CASE_URL, DEVKIT_PRESENT, DEVKIT_SEAT, PCB_PLACEMENT, PCB_URL } from "../parts";
+import { DRACO_URL, KNOB_PRESS, MODEL_OFFSET, MODEL_SCALE } from "../geometry";
+import { DEVICE_MODELS, DEVKIT_PRESENT, DEVKIT_SEAT, PCB_PLACEMENT } from "../parts";
 import { placeTag, type TagSide } from "../tags";
 import { handHold } from "../hand";
 import { stageFocus } from "../look/focus";
@@ -602,7 +602,10 @@ function keepKit<T extends KitParts>(key: unknown[], make: () => T): T {
 }
 
 export default function BuildStage() {
-  const [splitGltf, platesGltf, caseGltf, ledGltf, pcbGltf] = useGLTF([SPLIT_URL, PLATES_URL, CASE_URL, MODEL_URL, PCB_URL], DRACO_URL);
+  // The device's files are Device's own load (parts.ts DEVICE_MODELS); the
+  // two of the build's are the list preloaded below.
+  const [ledGltf, caseGltf, pcbGltf] = useGLTF(DEVICE_MODELS, DRACO_URL);
+  const [splitGltf, platesGltf] = useGLTF([SPLIT_URL, PLATES_URL], DRACO_URL);
   const { scene: world, gl, camera, size } = useThree();
 
   // ── everything the build adds ─────────────────────────────────────────────

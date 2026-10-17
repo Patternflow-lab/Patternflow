@@ -23,8 +23,7 @@ import { PCB_PLACEMENT } from "../parts";
 // (the scratchpad's build3d/): export_build.py (Blender: case-split.glb and
 // plates.glb), kicad_pads.py (pads.ts), register_plates.py (PLATE_POSES).
 
-export const SPLIT_URL = "/guide/build/case-split.glb";
-export const PLATES_URL = "/guide/build/plates.glb";
+export { PLATES_URL, SPLIT_URL } from "../files";
 
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const q = (x: number, y: number, z: number, order: THREE.EulerOrder = "XYZ") => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, order));
