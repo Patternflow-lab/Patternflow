@@ -541,6 +541,23 @@ export const builds: Build[] = [
       { src: '/builds/ddp/room.jpg', alt: "The party around the Patternflow's table, the lit glass wall of the hall behind" },
     ],
   },
+  {
+    id: 'belgium-jonwtr',
+    title: 'Norns screen mirror',
+    category: 'projects',
+    slug: 'jonwtr-belgium',
+    kind: 'build',
+    location: { lat: 51.0543, lng: 3.7174, label: 'Ghent, Belgium' },
+    maker: 'jonwtr',
+    date: '2026-10',
+    description:
+      'Mirrors the screen of a shieldXL, a norns clone, onto the panel. Still a work in progress — laser-cut wood and a diffusing surface are next.',
+    images: [
+      { src: '/builds/jonwtr/goldeneye.jpg', alt: 'The norns screen mirrored in red on the panel: two tape reels and 007_goldeneye.wav' },
+      { src: '/builds/jonwtr/mirror.jpg', alt: "From above: the shieldXL's green pad screen mirrored on the panel, beside a grid controller" },
+      { src: '/builds/jonwtr/surface.jpg', alt: 'A shieldXL and a Synthux Simple Touch resting on the glowing panel, played with both hands' },
+    ],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.

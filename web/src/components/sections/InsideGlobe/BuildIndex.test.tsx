@@ -22,10 +22,11 @@ describe('Inside browsing', () => {
     expect(list.getAllByRole('link')).toHaveLength(builds.length);
     expect(list.queryByRole('img')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-    expect(list.getAllByRole('link')).toHaveLength(3);
+    expect(list.getAllByRole('link')).toHaveLength(4);
     expect(list.getByRole('link', { name: /MOTIFLOW/ })).toHaveAttribute('href', '/inside/azmano-iran');
     expect(list.getByRole('link', { name: /Raspberry Pi port/ })).toBeInTheDocument();
     expect(list.getByRole('link', { name: /over MQTT/ })).toHaveAttribute('href', '/inside/simonepda-mqtt-uae');
+    expect(list.getByRole('link', { name: /Norns screen mirror/ })).toHaveAttribute('href', '/inside/jonwtr-belgium');
     expect(screen.getByRole('button', { name: 'Projects' })).toHaveAttribute('aria-pressed', 'true');
   });
 

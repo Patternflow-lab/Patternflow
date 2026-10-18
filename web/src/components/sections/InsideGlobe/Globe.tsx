@@ -254,8 +254,9 @@ function webArcs(entries: Build[]): number[][] {
 }
 
 // One line from each collaboration, sale and showing back to where it came
-// from. Not from a pin drawn on its origin's own spot, a showing in Seoul off
-// the first build there: that line has no length, only its dots piled on the pin.
+// from. None from a pin that sits on its origin's own spot, as the showings in
+// Seoul sit on the first build: that line would have no length, only its dots
+// piled on the pin.
 function collaborationArcs(entries: Build[]): number[][] {
   const arcs: number[][] = [];
   for (const build of entries) {
@@ -436,6 +437,8 @@ const SHOWING_TRIANGLE = (() => {
   shape.closePath();
   return shape;
 })();
+// One object, so a pin re-rendered on hover keeps its geometry.
+const SHOWING_EXTRUDE = { depth: PIN_RADIUS * 0.8, bevelEnabled: false };
 
 // A dot means a Patternflow exists there; a collaboration is an open ring,
 // something that grew out of one; a sale is a diamond, a unit that went out
@@ -448,7 +451,7 @@ function PinShape({ kind }: { kind: Build['kind'] }) {
   }
   if (kind === 'sold') return <octahedronGeometry args={[PIN_RADIUS * PIN_REACH.sold, 0]} />;
   if (kind === 'showing') {
-    return <extrudeGeometry args={[SHOWING_TRIANGLE, { depth: PIN_RADIUS * 0.8, bevelEnabled: false }]} />;
+    return <extrudeGeometry args={[SHOWING_TRIANGLE, SHOWING_EXTRUDE]} />;
   }
   return <sphereGeometry args={[PIN_RADIUS, 16, 16]} />;
 }
