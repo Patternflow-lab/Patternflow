@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Globe from './Globe';
 import BuildFilters from './BuildFilters';
 import PhotoLightbox from './PhotoLightbox';
+import PinLink from './PinLink';
 import { builds, formatBuildDate, CARD_TILES, STRIP_TILES } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import { useAppStore } from '@/store/useAppStore';
@@ -168,16 +169,13 @@ export default function GlobeViewer() {
               {selected.links && selected.links.length > 0 && (
                 <div className={styles.links}>
                   {selected.links.map((link) => (
-                    <a
+                    <PinLink
                       key={link.href}
                       className={styles.link}
                       href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      label={link.label}
                       onClick={(event) => event.stopPropagation()}
-                    >
-                      {link.label} ↗
-                    </a>
+                    />
                   ))}
                 </div>
               )}
