@@ -17,7 +17,13 @@ export type BuildImage = {
 // apart on purpose, because the maintainer wants them to be their own list —
 // a /works page one day is a filter on this kind, not a second source of
 // truth. The globe gives it its own pin and a line back to where it came from.
-export type BuildKind = 'build' | 'collaboration' | 'sold';
+//
+// `showing` is a unit set out somewhere for a while for people to play: an
+// exhibition, a night by the turntables, a party. It is a unit that already has
+// a pin, travelling, not Patternflow reaching a new place, so like a sale it
+// stays out of the web, gets its own pin and a line back to that unit, and
+// files under In use.
+export type BuildKind = 'build' | 'collaboration' | 'sold' | 'showing';
 
 // Subject of the entry, independent of the collaboration relationship above.
 export type BuildCategory = 'builds' | 'projects' | 'in-use';
@@ -38,8 +44,8 @@ export type Build = {
   kind: BuildKind;
   title: string;
   category: BuildCategory;
-  // For a collaboration, the pin it grew out of — the globe arcs a line back to
-  // it. Defaults to the origin build when left out.
+  // For a collaboration, a sale or a showing, the pin it grew out of — the
+  // globe arcs a line back to it. Defaults to the origin build when left out.
   originId?: string;
   // Where the pin sits and what it is called. Keep the two at the same
   // resolution: a city label gets the city's coordinates, a country label gets
@@ -52,6 +58,8 @@ export type Build = {
   // itself. Day precision is more than any of these are known to.
   date: string;
   description: string;
+  // A path into the site (/build?case=…) changes the tab in place; a full
+  // address opens in a new tab. See PinLink.
   links?: { href: string; label: string }[];
   images?: BuildImage[];
 };
@@ -177,7 +185,10 @@ export const builds: Build[] = [
     maker: 'Seunghun LEE',
     date: '2026-09',
     description:
-      'Sent to Martin Lopez, who put more patterns on the community wall — and more consistently, and more fun ones — than anyone.',
+      'Sent to Martin Lopez, who put more patterns on the community wall — and more consistently, and more fun ones — than anyone. One of three units built with what the first sale earned.',
+    images: [
+      { src: '/builds/martin/lit.jpg', alt: "A pink and blue pattern of crosses and stars lit on Martin Lopez's Patternflow, in a dark room" },
+    ],
   },
   {
     id: 'sf-swartz',
@@ -189,11 +200,14 @@ export const builds: Build[] = [
     maker: 'Seunghun LEE',
     date: '2026-09',
     description:
-      'The first Patternflow sold as a work: $500, to Mike Swartz, for USER EXPERIENCE — an exhibition in San Francisco that opens in October 2026. This is the unit that spent the month before in front of the camera for Instagram. What it earned goes straight back into growing the community, as the certificate says.',
+      'The first Patternflow sold as a work: $500, to Mike Swartz, for USER EXPERIENCE, an exhibition in San Francisco that opened in October 2026. This is the unit that spent the month before in front of the camera for Instagram. What it earned goes straight back into growing the community, as the certificate says.',
     links: [
       { href: 'https://www.instagram.com/userexperience.place', label: 'USER EXPERIENCE on Instagram' },
     ],
     images: [
+      { src: '/builds/swartz/on-show.jpg', alt: 'The first sold Patternflow lying flat on a pale wooden table in the gallery, a teal and orange pattern on the panel and its card in front' },
+      { src: '/builds/swartz/storefront.jpg', alt: 'The USER EXPERIENCE gallery from the street: a black front with the name in white above open glass doors' },
+      { src: '/builds/swartz/gallery.jpg', alt: 'Inside the USER EXPERIENCE gallery: long wooden tables of objects, a rail of clothes and a blue wall at the back, the Patternflow lit on the nearest table' },
       { src: '/builds/swartz/certificate.jpg', alt: 'The certificate that went with the first sold Patternflow, beside its pattern card' },
     ],
   },
@@ -348,6 +362,10 @@ export const builds: Build[] = [
     date: '2026-10',
     description:
       "A horizontal Patternflow in orange and white, for a desk or a wall. The case is held together with brass inserts instead of glue. It is also the maker's first 3D design, first PCB order and first soldering job, and it came out beautifully.",
+    links: [
+      { href: 'https://github.com/engmung/Patternflow/tree/main/hardware/case/remixes/mbchars-horizontal-desktop-printed', label: 'Case files on GitHub' },
+      { href: '/build?case=mbchars-horizontal-desktop-printed', label: 'Build this case' },
+    ],
     images: [
       { src: '/builds/mbchars/front.jpg', alt: "mbchars's horizontal Patternflow from the front: a rainbow gradient on the panel, an orange side panel with four white knobs, and orange feet" },
       { src: '/builds/mbchars/angle.jpg', alt: "mbchars's Patternflow at an angle, blue and orange waves on the panel and a braided orange cable running off to the side" },
@@ -371,6 +389,158 @@ export const builds: Build[] = [
       { src: '/builds/zuperzuche/cat.jpg', alt: "A cat plush in the foreground, with ZuperZuche's Patternflow behind it glowing red, purple and blue" },
     ],
   },
+  {
+    id: 'seoul-hongik',
+    title: 'The process, on the wall',
+    category: 'in-use',
+    slug: 'seunghun-hongik-seoul',
+    kind: 'showing',
+    originId: 'seoul-v1',
+    location: { lat: 37.5665, lng: 126.978, label: 'Seoul, Korea' },
+    maker: 'Seunghun LEE',
+    date: '2026-06',
+    description:
+      "The exhibition of the Hongik University course Authorial Design Studio (1), in the visual design department's corridor on the seventh floor of Hongmun Hall. The written process went up on the wall behind the unit. The unit died on the first day, and fixing it is how the SMD parts came off the board: the encoders' capacitors and resistors turned out not to be needed.",
+    images: [
+      { src: '/builds/hongik/wall.jpg', alt: 'A Patternflow with a red pattern on a table in front of a wall of pinned-up process notes, sketches and printouts, an open case and loose parts beside it' },
+      { src: '/builds/hongik/lit.jpg', alt: 'The same table from the side, a blue and pink pattern on the panel and the notes running on along a red wall' },
+    ],
+  },
+  {
+    id: 'usa-morelli',
+    title: 'A gift, for helping out',
+    category: 'builds',
+    slug: 'seunghun-philadelphia',
+    kind: 'build',
+    location: { lat: 39.9526, lng: -75.1652, label: 'Near Philadelphia, USA' },
+    maker: 'Seunghun LEE',
+    date: '2026-09',
+    description:
+      'Sent to Jake Morelli, at a studio near Philadelphia, who is helping out with Patternflow. One of three units built with what the first sale earned.',
+  },
+  {
+    id: 'spain-vargas',
+    title: 'A gift, to Spain',
+    category: 'builds',
+    slug: 'seunghun-spain',
+    kind: 'build',
+    location: { lat: 40.4637, lng: -3.7492, label: 'Spain' },
+    maker: 'Seunghun LEE',
+    date: '2026-09',
+    description:
+      'Sent to José Manuel Vargas, in Spain. One of three units built with what the first sale earned.',
+  },
+  {
+    id: 'uae-simonepda-mqtt',
+    title: 'Ajman to Seoul, over MQTT',
+    category: 'projects',
+    slug: 'simonepda-mqtt-uae',
+    kind: 'collaboration',
+    originId: 'seoul-v1',
+    location: { lat: 25.4052, lng: 55.5136, label: 'Ajman, UAE' },
+    maker: 'SimonePDA',
+    date: '2026-09',
+    description:
+      "An MQTT link, tested with SimonePDA: a knob turned on SimonePDA's Patternflow in Ajman changed the panel of the first build in Seoul. flowlocal, a box that gives a Patternflow a hotspot of its own, comes out of the same work and is to be published soon.",
+    images: [
+      { src: '/journal/the-messy-desk/flowlocal.jpg', alt: 'A flowlocal built in Seoul, held open: a battery cell and a small screen above the boards' },
+    ],
+  },
+  {
+    id: 'seoul-anbu',
+    title: 'Played at Anbu',
+    category: 'in-use',
+    slug: 'seunghun-anbu-seoul',
+    kind: 'showing',
+    originId: 'seoul-v1',
+    location: { lat: 37.5665, lng: 126.978, label: 'Seoul, Korea' },
+    maker: 'Seunghun LEE',
+    date: '2026-10',
+    description:
+      "Anbu (안부), an exhibition by visually impaired artists near Seoul Station. Patternflow was not the exhibit. It was a corner where visitors played the artists' paintings, illustrations and sculptures as patterns: one knob picks the work, the other three play it, and the sound follows the knobs. How it was set up, and the code it ran, will be written up soon.",
+    images: [
+      { src: '/builds/anbu/visitors.jpg', alt: "A visitor turning the knobs of a Patternflow lying flat on a white plinth, a painting on its panel and the artists' works on the wall behind" },
+      { src: '/builds/anbu/demo.jpg', alt: 'A Patternflow lying flat beside a laptop running Ableton Live, an orange pixel picture of a creature in sunglasses on its panel' },
+    ],
+  },
+  {
+    id: 'seoul-hongdae',
+    title: 'A record bar in Hongdae',
+    category: 'in-use',
+    slug: 'seunghun-hongdae-seoul',
+    kind: 'showing',
+    originId: 'seoul-v1',
+    location: { lat: 37.5665, lng: 126.978, label: 'Seoul, Korea' },
+    maker: 'Seunghun LEE',
+    date: '2026-10',
+    description:
+      'A DJ night at a record bar in Hongdae. A Patternflow with the microphone fitted stood beside the turntables and moved with the music, the first time the microphone was used outside home. Photos: mondkim.',
+    images: [
+      { src: '/builds/hongdae/decks.jpg', alt: 'A white Patternflow on the bar beside two turntables and a Pioneer mixer, a red and white tiled pattern on its panel' },
+      { src: '/builds/hongdae/close.jpg', alt: 'Close on the Patternflow, red and white tiles on the panel, with the mixer and its cables behind' },
+      { src: '/builds/hongdae/dj.jpg', alt: 'The DJ behind the decks with shelves of records at the back, a red swirl on the Patternflow in front' },
+    ],
+  },
+  {
+    id: 'uae-simonepda-lasercut',
+    title: 'Laser-cut case',
+    category: 'builds',
+    slug: 'simonepda-lasercut-uae',
+    kind: 'build',
+    location: { lat: 25.4052, lng: 55.5136, label: 'Ajman, UAE' },
+    maker: 'SimonePDA',
+    date: '2026-10',
+    description:
+      'A case drawn for the laser cutter, and cut three times, in clear acrylic and in MDF. One flat plate carries everything: the panel screws on from behind, and the board sits beside it under a small finger-jointed box. The drawing is in the repository for anyone to cut.',
+    links: [
+      { href: 'https://github.com/engmung/Patternflow/tree/main/hardware/case/remixes/simonepda-lasercut', label: 'Case files on GitHub' },
+      { href: '/build?case=simonepda-lasercut', label: 'Build this case' },
+    ],
+    images: [
+      { src: '/cases/simonepda-lasercut/acrylic_front.jpg', alt: "SimonePDA's laser-cut case in clear acrylic, upright: the LED panel on the left, the board and its four knobs to the right" },
+      { src: '/cases/simonepda-lasercut/mdf_front.jpg', alt: 'The same case cut in MDF and turned on its side: the LED panel above, four knobs below it on the right' },
+      { src: '/cases/simonepda-lasercut/mdf_back.jpg', alt: 'The MDF case from behind: screws through the sheet into the panel, four windows over the panel’s connectors, the board under an acrylic box' },
+      { src: '/cases/simonepda-lasercut/board_in_box.jpg', alt: 'The v3.0 board under its finger-jointed acrylic box, wired at the two screw terminals' },
+    ],
+  },
+  {
+    id: 'russia-besoiobiy',
+    title: 'Lettered down the side',
+    category: 'builds',
+    slug: 'besoiobiy-russia',
+    kind: 'build',
+    location: { lat: 61.524, lng: 105.3188, label: 'Russia' },
+    maker: 'Besoiobiy',
+    date: '2026-10',
+    description:
+      'A printed case in two long pieces glued side by side: a frame around the panel, and a box for the board and the power bank with PATTERNFLOW lettered down it. Twelve M3 bolts clamp the frame, its covers and the panel together. The files are in the repository for anyone to print.',
+    links: [
+      { href: 'https://github.com/engmung/Patternflow/tree/main/hardware/case/remixes/besoiobiy-printed', label: 'Case files on GitHub' },
+      { href: '/build?case=besoiobiy-printed', label: 'Build this case' },
+    ],
+    images: [
+      { src: '/cases/besoiobiy-printed/built.jpg', alt: 'Besoiobiy’s build held upright: the lit LED panel on the left, the white box on the right with four black knobs at the top and PATTERNFLOW lettered down its side' },
+    ],
+  },
+  {
+    id: 'seoul-ddp',
+    title: 'At Seoul Design Week',
+    category: 'in-use',
+    slug: 'seunghun-ddp-seoul',
+    kind: 'showing',
+    originId: 'seoul-v1',
+    location: { lat: 37.5665, lng: 126.978, label: 'Seoul, Korea' },
+    maker: 'Seunghun LEE',
+    date: '2026-10',
+    description:
+      'Taken to the Seoul Design Week network party at DDP, Dongdaemun Design Plaza, on 16 October 2026, and left running on a table among the guests.',
+    images: [
+      { src: '/builds/ddp/pedestal.jpg', alt: 'A Patternflow on a round table draped in purple, the DJs and stage lights in the haze behind it' },
+      { src: '/builds/ddp/crowd.jpg', alt: 'Guests crowding round the Patternflow, two of them filming it on their phones' },
+      { src: '/builds/ddp/phones.jpg', alt: 'A hand at the knobs while someone films the panel on a phone, a red and white tiled pattern lit' },
+      { src: '/builds/ddp/room.jpg', alt: "The party around the Patternflow's table, the lit glass wall of the hall behind" },
+    ],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.
@@ -387,7 +557,8 @@ export function buildBySlug(slug: string): Build | undefined {
   return builds.find((build) => build.slug === slug);
 }
 
-// The pin a collaboration or a sale hangs off — its own origin, or the first build.
+// The pin a collaboration, a sale or a showing hangs off — its own origin, or
+// the first build.
 export function originOf(build: Build): Build | undefined {
   const origin = builds.find((entry) => entry.id === (build.originId ?? builds[0]?.id));
   return origin && origin.id !== build.id ? origin : undefined;
