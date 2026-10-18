@@ -421,7 +421,7 @@ const PIN_REACH: Record<Build['kind'], number> = {
   build: 1,
   collaboration: 1.77,
   sold: 1.45,
-  showing: 1.7,
+  showing: 1.6,
 };
 
 // A showing's triangle, point up. Flat in the pin's own plane like the ring,

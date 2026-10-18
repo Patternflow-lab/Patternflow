@@ -26,8 +26,17 @@ describe('PinLink', () => {
   });
 
   it('leaves a modified click to the browser', () => {
+    // Seen after the link's own handler, then stopped: jsdom cannot navigate.
+    let leftToBrowser = false;
+    const after = (event: MouseEvent) => {
+      leftToBrowser = !event.defaultPrevented;
+      event.preventDefault();
+    };
+    window.addEventListener('click', after);
     render(<PinLink href="/build?case=simonepda-lasercut" label="Build this case" />);
     fireEvent.click(screen.getByRole('link'), { metaKey: true });
+    window.removeEventListener('click', after);
+    expect(leftToBrowser).toBe(true);
     expect(window.location.pathname).toBe('/inside/simonepda-lasercut-uae');
   });
 
