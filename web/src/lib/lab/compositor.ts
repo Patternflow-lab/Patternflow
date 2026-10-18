@@ -1,8 +1,8 @@
 // ── Layer compositor ─────────────────────────────────────────────────────────
 // Straight-alpha painter's algorithm over an opaque black base (the physical
 // LED panel is black when off). Blend modes are limited to what the firmware
-// can afford per pixel; the flattened JS export replicates this math 1:1, so
-// keep the two in sync (see flatten.ts).
+// can afford per pixel; the flattened JS export and the C++ header replicate
+// this math 1:1, so keep the three in sync (see flatten.ts and hExport.ts).
 
 import type { BlendMode } from "./types";
 
@@ -43,30 +43,31 @@ export function applyMaskToCoverage(
   }
 }
 
-/** Fill the target with opaque black, then blend entries bottom → top. */
+/**
+ * Blend entries bottom → top over opaque black. Each pixel adds up in floats
+ * and is rounded and clamped to a byte once, after the top layer — the order
+ * flatten.ts and hExport.ts use. Two add layers at (200, 0, 0) carry R = 400
+ * into a multiply above them, so (128, 128, 128) leaves 201 rather than 128.
+ */
 export function compositeLayers(
   out: Uint8ClampedArray,
   entries: CompositeEntry[],
   pixelCount: number,
 ) {
+  const opacities = entries.map((entry) => Math.max(0, Math.min(1, entry.opacity)));
+
   for (let i = 0; i < pixelCount; i++) {
     const j = i * 4;
-    out[j] = 0;
-    out[j + 1] = 0;
-    out[j + 2] = 0;
-    out[j + 3] = 255;
-  }
+    let r = 0;
+    let g = 0;
+    let b = 0;
 
-  for (const entry of entries) {
-    const source = entry.data;
-    const opacity = Math.max(0, Math.min(1, entry.opacity));
-    if (opacity <= 0) continue;
-    const blend = entry.blend;
-    const mask = entry.mask;
-
-    for (let i = 0; i < pixelCount; i++) {
-      if (mask && mask[i] === 0) continue;
-      const j = i * 4;
+    for (let e = 0; e < entries.length; e++) {
+      const opacity = opacities[e];
+      if (opacity <= 0) continue;
+      const entry = entries[e];
+      if (entry.mask && entry.mask[i] === 0) continue;
+      const source = entry.data;
       const alpha = (source[j + 3] / 255) * opacity;
       if (alpha <= 0) continue;
       const sr = source[j];
@@ -74,24 +75,30 @@ export function compositeLayers(
       const sb = source[j + 2];
       const inv = 1 - alpha;
 
-      if (blend === "add") {
-        out[j] = out[j] + sr * alpha;
-        out[j + 1] = out[j + 1] + sg * alpha;
-        out[j + 2] = out[j + 2] + sb * alpha;
-      } else if (blend === "multiply") {
-        out[j] = out[j] * inv + ((out[j] * sr) / 255) * alpha;
-        out[j + 1] = out[j + 1] * inv + ((out[j + 1] * sg) / 255) * alpha;
-        out[j + 2] = out[j + 2] * inv + ((out[j + 2] * sb) / 255) * alpha;
-      } else if (blend === "screen") {
-        out[j] = out[j] * inv + (255 - ((255 - out[j]) * (255 - sr)) / 255) * alpha;
-        out[j + 1] = out[j + 1] * inv + (255 - ((255 - out[j + 1]) * (255 - sg)) / 255) * alpha;
-        out[j + 2] = out[j + 2] * inv + (255 - ((255 - out[j + 2]) * (255 - sb)) / 255) * alpha;
+      if (entry.blend === "add") {
+        r += sr * alpha;
+        g += sg * alpha;
+        b += sb * alpha;
+      } else if (entry.blend === "multiply") {
+        r = r * inv + ((r * sr) / 255) * alpha;
+        g = g * inv + ((g * sg) / 255) * alpha;
+        b = b * inv + ((b * sb) / 255) * alpha;
+      } else if (entry.blend === "screen") {
+        r = r * inv + (255 - ((255 - r) * (255 - sr)) / 255) * alpha;
+        g = g * inv + (255 - ((255 - g) * (255 - sg)) / 255) * alpha;
+        b = b * inv + (255 - ((255 - b) * (255 - sb)) / 255) * alpha;
       } else {
-        out[j] = out[j] * inv + sr * alpha;
-        out[j + 1] = out[j + 1] * inv + sg * alpha;
-        out[j + 2] = out[j + 2] * inv + sb * alpha;
+        r = r * inv + sr * alpha;
+        g = g * inv + sg * alpha;
+        b = b * inv + sb * alpha;
       }
-      // Alpha stays 255: the base is opaque.
     }
+
+    // Math.round, not the array's own round-half-to-even: the export's
+    // setPixel rounds this way, and the header's (int)(c + 0.5) does too.
+    out[j] = Math.min(255, Math.round(r));
+    out[j + 1] = Math.min(255, Math.round(g));
+    out[j + 2] = Math.min(255, Math.round(b));
+    out[j + 3] = 255; // the base is opaque
   }
 }
