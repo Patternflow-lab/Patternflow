@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import PhotoLightbox from './PhotoLightbox';
+import PinLink from './PinLink';
 import { formatBuildDate, CARD_TILES } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import styles from './BuildCard.module.css';
@@ -78,15 +79,7 @@ export default function BuildCard() {
           {selected.links && selected.links.length > 0 && (
             <div className={styles.links}>
               {selected.links.map((link) => (
-                <a
-                  key={link.href}
-                  className={styles.link}
-                  href={link.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {link.label} ↗
-                </a>
+                <PinLink key={link.href} className={styles.link} href={link.href} label={link.label} />
               ))}
             </div>
           )}
