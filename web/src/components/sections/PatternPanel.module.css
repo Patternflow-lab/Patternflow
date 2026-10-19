@@ -25,6 +25,21 @@
   overflow: hidden;
 }
 
+/* The message, and on its own line the line of code it failed on when the
+   stack gives one. */
+.editorError {
+  margin: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--pf-rule);
+  background: var(--pf-cream);
+  color: var(--pf-danger);
+  font-family: var(--pf-mono);
+  font-size: var(--pf-fs-mono);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* One line under the editor instead of four numbered steps: what to do here,
    and the single button that belongs to it. */
 .editorFoot {

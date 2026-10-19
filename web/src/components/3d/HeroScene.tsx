@@ -222,13 +222,21 @@ function ProductPreview({
   const pattern = patterns[activePatternId] || patterns['patternFlowOriginal'];
   const defaults = useMemo(() => pattern.defaults || {}, [pattern]);
 
-  const ledMatrix = useMemo(() => new LedMatrixTexture(), []);
+  // The texture says when the editor's code stops running, not each frame, so
+  // the panel under the editor re-renders only when the reason changes.
+  const ledMatrix = useMemo(
+    () => new LedMatrixTexture((message) => useAppStore.getState().setCustomJsError(message)),
+    [],
+  );
 
   useEffect(() => {
     if (activePatternId === 'custom') {
       ledMatrix.loadCode(customJsCode);
     }
   }, [customJsCode, activePatternId, ledMatrix]);
+
+  // The globe replaces this scene on the Inside tab; the next one starts clean.
+  useEffect(() => () => useAppStore.getState().setCustomJsError(null), []);
 
   const ledMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
