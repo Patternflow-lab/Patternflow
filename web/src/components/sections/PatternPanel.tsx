@@ -117,6 +117,7 @@ export default function PatternPanel({ content }: PatternPanelProps) {
   );
   const customJsCode = useAppStore(state => state.customJsCode);
   const setCustomJsCode = useAppStore(state => state.setCustomJsCode);
+  const customJsError = useAppStore(state => state.customJsError);
 
   // The Live Editor renders through the 'custom' pattern, so the 3D preview
   // reflects the editor (and loaded presets). Load Origin into the editor
@@ -309,6 +310,12 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                   automaticLayout: true,
                 }}
               />
+              {/* Why the code above is not what the preview shows. Pasted code
+                  that threw used to reach the browser console and nothing
+                  else. The region stays mounted so a reader hears it change. */}
+              <div role="status">
+                {customJsError && <pre className={styles.editorError}>{customJsError}</pre>}
+              </div>
               {/* The four numbered steps collapsed to this: what the editor is
                   for, and the one button that belongs next to it. Everything
                   about hardware moved to its own block below. */}
