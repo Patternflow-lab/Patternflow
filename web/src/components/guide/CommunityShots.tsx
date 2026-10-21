@@ -414,7 +414,7 @@ export default function CommunityShots({ lang, step }: { lang: GuideLang; step: 
     >
       <div className={styles.frame}>
         {files.map((file) => (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a real capture of the community site, shown as is
           <img
             key={file}
             src={`${BASE}${file}.webp`}

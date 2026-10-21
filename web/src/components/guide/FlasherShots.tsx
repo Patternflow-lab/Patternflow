@@ -391,7 +391,7 @@ export default function FlasherShots({
         }
       >
         {every.map((s) => (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a real capture of the flasher's dialog, shown as is
           <img
             key={s.src}
             src={BASE + s.src}

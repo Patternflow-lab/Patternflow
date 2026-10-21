@@ -64,14 +64,14 @@ function hasWebGL(): boolean {
  * told, as where there is no WebGL at all.
  */
 class StageGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  override componentDidCatch() {
     stageLoad.set({ failed: true });
   }
-  render() {
+  override render() {
     return this.state.failed ? null : this.props.children;
   }
 }

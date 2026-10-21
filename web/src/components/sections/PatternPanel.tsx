@@ -60,7 +60,7 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
     if (origin) {
       setCustomJsCode(origin.code);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount; a later run would put Origin over the reader's own code
   }, []);
 
   // The panel is mounted on /, /build and /inside too, folded away, so the
