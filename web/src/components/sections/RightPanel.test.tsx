@@ -13,7 +13,13 @@ vi.mock('./Milestones', () => ({ default: () => null }));
 vi.mock('./Sponsor', () => ({ default: () => null }));
 vi.mock('../layout/Footer', () => ({ default: () => null }));
 vi.mock('./BuildPanel', () => ({ default: () => <section>build panel</section> }));
-vi.mock('./PatternPanel', () => ({ default: () => <section>pattern panel</section> }));
+vi.mock('./PatternPanel', () => ({
+  default: ({ isActive }: { isActive: boolean }) => (
+    <section data-testid="pattern-panel" data-active={String(isActive)}>
+      pattern panel
+    </section>
+  ),
+}));
 vi.mock('./InsidePanel', () => ({ default: () => <section>inside panel</section> }));
 vi.mock('@/lib/posthogEvents', () => ({ captureEvent: () => {} }));
 
@@ -89,5 +95,18 @@ describe('RightPanel', () => {
     for (const nav of screen.getAllByRole('navigation', { name: 'Sections' })) {
       expect(main.contains(nav)).toBe(false);
     }
+  });
+
+  it('tells the Pattern panel when its tab is open, so the editor waits for it', () => {
+    renderAt('/', 'hero');
+    const panel = screen.getByTestId('pattern-panel');
+    expect(panel).toHaveAttribute('data-active', 'false');
+
+    const [desktop] = screen.getAllByRole('navigation', { name: 'Sections' });
+    fireEvent.click(within(desktop).getByRole('button', { name: 'Pattern' }));
+    expect(panel).toHaveAttribute('data-active', 'true');
+
+    fireEvent.click(within(desktop).getByRole('button', { name: 'Build' }));
+    expect(panel).toHaveAttribute('data-active', 'false');
   });
 });
