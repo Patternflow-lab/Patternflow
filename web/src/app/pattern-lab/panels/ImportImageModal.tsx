@@ -11,8 +11,11 @@ import { rasterizeImage, type ImportFit, type RGBA } from "@/lib/lab/pixelTools"
 import { labEngine } from "@/lib/lab/engine";
 import { useLabStore } from "@/lib/lab/store";
 import styles from "../PatternLab.module.css";
+import { WHEEL_NOTCH_PX, wheelPixels } from "./pixel/wheel";
 
 const clampScale = (value: number) => Math.max(0.05, Math.min(8, value));
+// One wheel notch scales the image by 8%; a trackpad gets there in pieces.
+const NOTCH_SCALE = 1.08;
 
 export default function ImportImageModal({
   width,
@@ -34,6 +37,12 @@ export default function ImportImageModal({
   const [bgTolerance, setBgTolerance] = useState(0.12);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  // What the wheel listener reads: it runs between renders, and two wheel
+  // events can land before React commits the first.
+  const placement = useRef({ scale, offset });
+  useLayoutEffect(() => {
+    placement.current = { scale, offset };
+  }, [scale, offset]);
   const [showLayers, setShowLayers] = useState(true);
   const cardRef = useDialog<HTMLDivElement>(onClose);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
@@ -148,17 +157,34 @@ export default function ImportImageModal({
   // scroll. A layout effect, so the listener is on in the same commit that
   // turns Apply on. A plain effect runs a task later, and a wheel landing in
   // between scrolls the card.
+  //
+  // The point of the image under the cursor stays under it. The image's
+  // centre sits at the preview's centre plus the offset, so every distance
+  // from that centre grows by the same factor as the scale.
   useLayoutEffect(() => {
     const canvas = previewRef.current;
     if (!canvas || !image) return;
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY === 0) return;
       event.preventDefault();
-      setScale((current) => clampScale(current * (event.deltaY < 0 ? 1.08 : 1 / 1.08)));
+      const { scale: current, offset: at } = placement.current;
+      const next = clampScale(current * NOTCH_SCALE ** (-wheelPixels(event) / WHEEL_NOTCH_PX));
+      if (next === current) return;
+      let nextOffset = at;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        const grow = next / current;
+        const x = ((event.clientX - rect.left) / rect.width) * width - width / 2;
+        const y = ((event.clientY - rect.top) / rect.height) * height - height / 2;
+        nextOffset = { x: x - (x - at.x) * grow, y: y - (y - at.y) * grow };
+      }
+      placement.current = { scale: next, offset: nextOffset };
+      setScale(next);
+      setOffset(nextOffset);
     };
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [image]);
+  }, [image, width, height]);
 
   const onPreviewPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     if (!image || event.button !== 0) return;
