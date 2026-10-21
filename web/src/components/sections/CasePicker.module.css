@@ -177,7 +177,7 @@
   gap: 6px 14px;
 }
 
-/* .panel-body h3 is global too: 24px with a 48px top margin. */
+/* An h2 under the panel's h1, so the global .panel-body h3 no longer reaches it. */
 .card .name {
   margin: 0;
   color: var(--pf-ink);
@@ -362,9 +362,14 @@
 /* The global a:hover underline would run under both halves of the row. */
 .links a:hover,
 .links a:focus-visible {
-  outline: 0;
   background: var(--pf-cream-2);
   text-decoration: none;
+}
+
+/* Same ring as the case tabs above; the fill alone barely shows on white. */
+.links a:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
 }
 
 .links strong {

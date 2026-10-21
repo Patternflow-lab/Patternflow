@@ -387,4 +387,13 @@ describe('the rest of the panel', () => {
     expect(screen.getByRole('link', { name: 'v2 board guide' })).toHaveAttribute('href', `${GH}/blob/main/docs/legacy/BUILD_GUIDE_v2.md`);
     expect(screen.queryByText(/laser-cut, or an older/)).not.toBeInTheDocument();
   });
+
+  // On /build the hero's h1 is inert (RightPanel.tsx), so the panel's title is
+  // the page's h1 and the case name sits one level under it.
+  it("titles the page with an h1 and the case card with an h2", () => {
+    render(<BuildPanel content={content} isActive />);
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Build your own.']);
+    expect(card().getByRole('heading', { level: 2, name: 'The official printed case' })).toBeInTheDocument();
+    expect(screen.queryAllByRole('heading', { level: 3 })).toEqual([]);
+  });
 });

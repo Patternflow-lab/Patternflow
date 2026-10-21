@@ -142,7 +142,7 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
   return (
     <div className="panel-content pf-section-panel" id="pattern">
       <div className="panel-header">
-        <h2 className="pf-h2">{content.title}</h2>
+        <h1 className="pf-h2">{content.title}</h1>
         <p className="pf-sub">{content.subtitle}</p>
       </div>
       <div className="panel-body">
@@ -293,12 +293,12 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
               <span className="pf-kicker">Where it goes next</span>
               <Link href="/pattern-lab" className={styles.nextCard}>
                 <span className={styles.nextKicker}>01</span>
-                <h3>Pattern Lab ↗</h3>
+                <h2>Pattern Lab ↗</h2>
                 <p>The full studio — batch generation, color ramps, and ESP32 C++ compile.</p>
               </Link>
               <Link href={communityHref()} className={styles.nextCard}>
                 <span className={styles.nextKicker}>02</span>
-                <h3>Community ↗</h3>
+                <h2>Community ↗</h2>
                 <p>Share what you make, fork what everyone else made.</p>
               </Link>
               {/* The build server makes a .pfm on its own machine

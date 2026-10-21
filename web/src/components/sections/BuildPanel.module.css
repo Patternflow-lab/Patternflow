@@ -146,8 +146,13 @@
 
 .quickLinks a:hover,
 .quickLinks a:focus-visible {
-  outline: 0;
   background: var(--pf-cream-2);
+}
+
+/* The cream fill alone is 1.23:1 on white; the LED ring is what a keyboard sees. */
+.quickLinks a:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: -2px;
 }
 
 .quickLinks strong {
