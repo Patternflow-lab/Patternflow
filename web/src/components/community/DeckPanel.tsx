@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
-import { COMMUNITY_FETCH_INIT, buildsConfigured, communityApiUrl } from "@/lib/community/apiBase";
+import { buildsConfigured, communityApiUrl } from "@/lib/community/apiBase";
 import {
   COLLECTION_EVENT,
   DECK_MAX,
@@ -16,7 +16,7 @@ import {
   type CollectedPattern,
 } from "@/lib/community/deck";
 import { useDeviceHost } from "@/lib/community/deviceHost";
-import { captureEvent } from "@/lib/posthogEvents";
+import { useModuleBuild } from "@/lib/community/useModuleBuild";
 import AuthModal from "./AuthModal";
 import ShareDeckModal from "./ShareDeckModal";
 import styles from "./Community.module.css";
@@ -34,27 +34,14 @@ import styles from "./Community.module.css";
 // Building turns the deck into loadable .pfm modules: ~½ s per pattern, one
 // zip, installed from the device's own /patterns page with no reflash.
 
-type ModuleBuildState = {
-  id: string;
-  status: "queued" | "running" | "done" | "error";
-  queuePosition: number | null;
-  elapsedMs: number | null;
-  bytes: number | null;
-  error: string | null;
-  namespaces: string[];
-  modulesUrl: string | null;
-};
-
 export default function DeckPanel() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
 
   const [deck, setDeck] = useState<CollectedPattern[]>([]);
   const [open, setOpen] = useState(false);
-  const [build, setBuild] = useState<ModuleBuildState | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { build, error, busy, waited, expectedS, start, reset } = useModuleBuild();
   const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   // Sharing gets its own modal, opened with the panel closed — two stacked
   // dialogs would fight over the overlay click.
@@ -90,87 +77,13 @@ export default function DeckPanel() {
     return () => window.removeEventListener(DECK_PANEL_EVENT, open);
   }, []);
 
-  const pollRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    },
-    [],
-  );
-
-  const poll = useCallback(async (id: string) => {
-    try {
-      const response = await fetch(
-        communityApiUrl(`/api/community/builds/${id}`),
-        COMMUNITY_FETCH_INIT,
-      );
-      if (!response.ok) return;
-      const state = (await response.json()) as ModuleBuildState;
-      setBuild(state);
-      if (state.status === "done" || state.status === "error") {
-        if (pollRef.current) window.clearInterval(pollRef.current);
-        pollRef.current = null;
-        captureEvent("module_build_finished", {
-          status: state.status,
-          patterns: state.namespaces.length,
-          bytes: state.bytes,
-        });
-      }
-    } catch {
-      // A dropped poll is not a failed build; the next tick catches up.
-    }
-  }, []);
-
-  const startBuild = async () => {
+  const startBuild = () => {
     if (deck.length === 0) return;
     if (!session) {
       setNeedsAuth(true);
       return;
     }
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(communityApiUrl("/api/community/builds"), {
-        method: "POST",
-        ...COMMUNITY_FETCH_INIT,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "pfm",
-          // Sent in deck order, which is the order they appear on the device.
-          patterns: deck.map((item) => ({ label: item.title, code: item.code })),
-        }),
-      });
-      const payload = (await response.json()) as { id?: string; error?: string };
-      if (!response.ok || !payload.id) {
-        setError(payload.error ?? "Could not queue the build.");
-        return;
-      }
-      const buildId = payload.id;
-      captureEvent("module_build_queued", { patterns: deck.length });
-      setBuild({
-        id: buildId,
-        status: "queued",
-        queuePosition: null,
-        elapsedMs: null,
-        bytes: null,
-        error: null,
-        namespaces: [],
-        modulesUrl: null,
-      });
-      void poll(buildId);
-      pollRef.current = window.setInterval(() => void poll(buildId), 1000);
-    } catch {
-      setError("Network error — is the build server reachable?");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const reset = () => {
-    if (pollRef.current) window.clearInterval(pollRef.current);
-    pollRef.current = null;
-    setBuild(null);
-    setError(null);
+    void start(deck.map((item) => ({ label: item.title, code: item.code })));
   };
 
   const close = () => {
@@ -228,7 +141,10 @@ export default function DeckPanel() {
                       ? build.queuePosition && build.queuePosition > 1
                         ? `Waiting — ${build.queuePosition} in the queue…`
                         : "Waiting for a build slot…"
-                      : "Building modules… (usually a second or two)"}
+                      : waited >= expectedS
+                        ? "Building modules… (longer than usual)"
+                        : "Building modules… (usually a second or two)"}
+                    {waited > 0 && ` · ${waited} s`}
                   </p>
                 )}
 
@@ -365,7 +281,7 @@ export default function DeckPanel() {
                           type="button"
                           className={styles.btnAccent}
                           disabled={busy}
-                          onClick={() => void startBuild()}
+                          onClick={startBuild}
                         >
                           {busy
                             ? "Queueing…"
