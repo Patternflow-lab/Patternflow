@@ -105,7 +105,7 @@ describe('Hero', () => {
     expect(html).not.toContain('<button');
   });
 
-  it('stops the video from its button, leaving the poster, and plays it again from the top', () => {
+  it('stops the video from its button and plays it again from the top', () => {
     const { container } = render(<Hero />);
     act(() => vi.advanceTimersByTime(3000));
     expect(video(container)?.style.opacity).toBe('1');
