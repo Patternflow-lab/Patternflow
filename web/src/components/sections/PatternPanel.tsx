@@ -90,11 +90,6 @@ interface PatternPanelProps {
 }
 
 const EDITOR_LINE_HEIGHT = 20;
-// Fixed editor height — most visitors only paste AI-generated code and
-// rarely scroll the source themselves, so growing the page with line
-// count just pushed the rest of the section out of view. The editor
-// now scrolls internally instead.
-const EDITOR_HEIGHT = 480;
 
 // Phones show a sliding window of preset numbers around the active one instead
 // of the whole library — all 42 would wrap into a wall of rows. Keep in sync
@@ -255,7 +250,9 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
                 </button>
                 <div className={styles.presetNow}>
                   <span className={styles.presetIndex}>
-                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')} / {showcasePresets.length}
+                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')}
+                    {/* Dropped on phones, where "All 42" sits right under it. */}
+                    <span className={styles.presetTotal}> / {showcasePresets.length}</span>
                   </span>
                   <span className={styles.presetName}>{activePreset?.name ?? 'Custom'}</span>
                   {/* The one accent in this panel: it means "this is what the
@@ -296,39 +293,42 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
                   })}
                 </div>
               )}
-              {opened ? (
-                <Editor
-                  height={EDITOR_HEIGHT}
-                  defaultLanguage="javascript"
-                  theme="vs-dark"
-                  value={customJsCode}
-                  onChange={(val) => {
-                    const next = val || '';
-                    setCustomJsCode(next);
-                    // Deselect the chip once the code is edited away from the preset.
-                    if (activePresetId) {
-                      const preset = showcasePresets.find((p) => p.id === activePresetId);
-                      if (!preset || preset.code !== next) setActivePresetId(null);
-                    }
-                  }}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineHeight: EDITOR_LINE_HEIGHT,
-                    scrollBeyondLastLine: false,
-                    scrollbar: {
-                      vertical: 'auto',
-                      horizontal: 'auto',
-                      handleMouseWheel: true,
-                    },
-                    overviewRulerLanes: 0,
-                    hideCursorInOverviewRuler: true,
-                    automaticLayout: true,
-                  }}
-                />
-              ) : (
-                <div style={{ height: EDITOR_HEIGHT }} />
-              )}
+              {/* The box holds the editor's height, before Monaco loads and
+                  after, so the page does not jump when the tab first opens.
+                  The CSS shrinks it on phones (.editorBox). */}
+              <div className={styles.editorBox}>
+                {opened && (
+                  <Editor
+                    height="100%"
+                    defaultLanguage="javascript"
+                    theme="vs-dark"
+                    value={customJsCode}
+                    onChange={(val) => {
+                      const next = val || '';
+                      setCustomJsCode(next);
+                      // Deselect the chip once the code is edited away from the preset.
+                      if (activePresetId) {
+                        const preset = showcasePresets.find((p) => p.id === activePresetId);
+                        if (!preset || preset.code !== next) setActivePresetId(null);
+                      }
+                    }}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineHeight: EDITOR_LINE_HEIGHT,
+                      scrollBeyondLastLine: false,
+                      scrollbar: {
+                        vertical: 'auto',
+                        horizontal: 'auto',
+                        handleMouseWheel: true,
+                      },
+                      overviewRulerLanes: 0,
+                      hideCursorInOverviewRuler: true,
+                      automaticLayout: true,
+                    }}
+                  />
+                )}
+              </div>
               {/* Why the code above is not what the preview shows. Pasted code
                   that threw used to reach the browser console and nothing
                   else. The region stays mounted so a reader hears it change. */}
