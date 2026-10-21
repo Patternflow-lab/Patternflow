@@ -12,6 +12,7 @@
 // lib/lab/pixelHistory. PixelPanel.test.tsx pins the behaviour.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { clearSurface, stampOver, type PixelSurface } from "@/lib/lab/pixelTools";
 import { prunePixelHistories, redoPixels, snapshotPixels, undoPixels } from "@/lib/lab/pixelHistory";
 import { buildPixelPatternCode } from "@/lib/lab/pixelToCode";
@@ -73,7 +74,7 @@ export default function PixelPanel() {
   const [backdrop, setBackdrop] = useState(true);
   const [grid, setGrid] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [codeCopy, setCodeCopy] = useState<CodeCopyState>("idle");
+  const [codeCopy, flashCodeCopy] = useResettingState<CodeCopyState>("idle", 1400);
 
   const paintOverlay = usePixelCanvases({
     pixel,
@@ -111,18 +112,14 @@ export default function PixelPanel() {
   const copyAsCode = () => {
     if (!pixel) return;
     const code = buildPixelPatternCode(pixel);
-    const flash = (state: CodeCopyState) => {
-      setCodeCopy(state);
-      window.setTimeout(() => setCodeCopy("idle"), 1400);
-    };
     if (!code) {
-      flash("empty");
+      flashCodeCopy("empty");
       return;
     }
     navigator.clipboard
       .writeText(code)
-      .then(() => flash("copied"))
-      .catch(() => flash("failed"));
+      .then(() => flashCodeCopy("copied"))
+      .catch(() => flashCodeCopy("failed"));
   };
 
   if (!pixel) {

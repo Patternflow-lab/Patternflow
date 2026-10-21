@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { assembleH, buildHExport, cleanPastedUnit, enforcePatternName } from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
@@ -47,7 +48,7 @@ export default function HardwareModal({
   const [name, setName] = useState(() => labPatternName(useLabStore.getState()));
   const [pastes, setPastes] = useState<Record<number, string>>({});
   const [single, setSingle] = useState("");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copiedKey, flashCopied] = useResettingState<string | null>(null, 1200);
   const [stage, setStage] = useState<Stage>("convert");
 
   const [sendOpen, setSendOpen] = useState(false);
@@ -105,10 +106,6 @@ export default function HardwareModal({
     return cleanPastedUnit(pasted, index) !== null;
   };
 
-  const flashCopied = (key: string) => {
-    setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1200);
-  };
   const copyText = async (key: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);

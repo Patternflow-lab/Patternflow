@@ -5,7 +5,7 @@
 // removal, drag to position, and a live backdrop of the rest of the stack.
 // Lived at the bottom of PixelPanel.tsx until 2026-09; same code, own file.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { rasterizeImage, type ImportFit, type RGBA } from "@/lib/lab/pixelTools";
 import { labEngine } from "@/lib/lab/engine";
 import { useLabStore } from "@/lib/lab/store";
@@ -143,8 +143,10 @@ export default function ImportImageModal({
   // Wheel over the preview scales the image. A native listener, because
   // React delegates wheel passively and preventDefault there would let the
   // card scroll under the zoom. A sideways wheel has no deltaY and stays a
-  // scroll.
-  useEffect(() => {
+  // scroll. A layout effect, so the listener is on in the same commit that
+  // turns Apply on. A plain effect runs a task later, and a wheel landing in
+  // between scrolls the card.
+  useLayoutEffect(() => {
     const canvas = previewRef.current;
     if (!canvas || !image) return;
     const onWheel = (event: WheelEvent) => {
