@@ -18,7 +18,7 @@
 // localStorage budget, and a quota failure drops the oldest and retries
 // rather than breaking the save.
 
-import { LAB_STORAGE, readJson, removeStorage, writeJson } from "./persist";
+import { LAB_STORAGE, readJson, writeJson } from "./persist";
 
 const KEY = LAB_STORAGE.sessions;
 
@@ -94,10 +94,4 @@ export function stashSession(
 /** Serialized project for a session, or null if it is gone. */
 export function readSession(id: string): string | null {
   return read().find((entry) => entry.id === id)?.json ?? null;
-}
-
-export function deleteSession(id: string): void {
-  const remaining = read().filter((entry) => entry.id !== id);
-  if (remaining.length === 0) removeStorage(KEY);
-  else writeJson(KEY, remaining);
 }
