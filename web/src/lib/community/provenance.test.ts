@@ -1,7 +1,8 @@
-// Provenance badges against the lines Pattern Lab writes by itself. Until 21
-// October 2026 every Lab publish carried `@matrix` and every value-field layer
-// carried `@ramp`, touched or not, so a Gemini variant published the way it
-// came out of the gallery showed "Framed" and "Colour shaped" on its page.
+// Provenance badges against the lines Pattern Lab writes by itself. Every Lab
+// publish carries `@matrix` and every value-field layer carries `@ramp`,
+// touched or not. Until 21 October 2026 the badges counted the line alone, so
+// a Gemini variant published the way it came out of the gallery showed
+// "Framed" and "Colour shaped" on its page.
 
 import { describe, expect, it } from "vitest";
 import { defaultKnobState, withKnobsAnnotation } from "@/lib/lab/annotations";
