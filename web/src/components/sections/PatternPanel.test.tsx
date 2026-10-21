@@ -113,4 +113,15 @@ describe('PatternPanel', () => {
     expect(useAppStore.getState().activePatternId).toBe('custom');
     expect(useAppStore.getState().customJsCode).toBe(showcasePresets.find((p) => p.id === 'origin')?.code);
   });
+
+  // On /pattern the hero's h1 is inert (RightPanel.tsx), so the panel's title
+  // is the page's h1 and the two cards after the editor sit under it.
+  it('titles the page with an h1 and the next steps with h2s', () => {
+    render(<PatternPanel content={content} isActive />);
+    expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Pattern']);
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Pattern Lab ↗',
+      'Community ↗',
+    ]);
+  });
 });
