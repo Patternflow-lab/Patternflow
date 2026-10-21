@@ -296,7 +296,7 @@ export function PatternCard({ p }: { p: PracticePattern }) {
           aria-hidden="true"
         >
           <div className={cs.knobZoneBarInMeta}>
-            {setup.labels.map((l, i) => (
+            {setup.labels.map((_, i) => (
               <div key={i} className={`${cs.knobSegmentInMeta} ${i === k ? cs.activeKnobSegment : ""}`}>
                 <span>K{i + 1}</span>
               </div>

@@ -129,14 +129,14 @@ const ease = (perFrame: number, dt: number) => 1 - Math.pow(1 - perFrame, Math.m
  * the canvas and take the page with it.
  */
 class ModelGuard extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  override componentDidCatch() {
     this.props.onError();
   }
-  render() {
+  override render() {
     return this.state.failed ? null : this.props.children;
   }
 }

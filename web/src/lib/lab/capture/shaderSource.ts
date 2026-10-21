@@ -122,7 +122,7 @@ export function remapShaderLog(log: string): string {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) =>
-      line.replace(/\b0:(\d+):/g, (whole, digits: string) =>
+      line.replace(/\b0:(\d+):/g, (_, digits: string) =>
         Number(digits) >= 100000 ? "wrapper:" : `line ${digits}:`,
       ),
     )

@@ -461,8 +461,7 @@ export class PatternRuntime {
   // is mapped through the ramp. Lets the ramp restyle ordinary RGB patterns.
   public recolor = false;
 
-  private rampLUT: Uint8Array | null = null; // 256×3 RGB (recolor path)
-  private rampLUTA: Uint8Array | null = null; // 256×4 RGBA (setValue path)
+  private rampLUTA: Uint8Array | null = null; // 256×4 RGBA (setValue and recolor paths)
   private module: PatternModule | null = null;
   private params: PatternParams = {};
   private source: string | null = null;
@@ -532,7 +531,6 @@ export class PatternRuntime {
 
   public setRamp(ramp: ColorRamp | null) {
     this.ramp = ramp;
-    this.rampLUT = ramp && ramp.stops.length > 0 ? buildRampLUT(ramp) : null;
     this.rampLUTA = ramp && ramp.stops.length > 0 ? buildRampLUTRGBA(ramp) : null;
   }
 

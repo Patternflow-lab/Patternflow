@@ -449,7 +449,7 @@ export default function PatternCard({
 
         <div className={rotateThumb ? styles.screenRotator : styles.screenUpright}>
           {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- a data URL this browser just rendered; there is no file for the optimizer to fetch
             <img src={thumb} alt={`${item.title} preview`} />
           ) : (
             <div className={styles.cardThumbNote}>{failed ? "render error" : "rendering…"}</div>

@@ -86,7 +86,7 @@ export function buildCppPrompt({
     .join("\n");
 
   // Value-field patterns carry no color of their own. The ramp LUT is
-  // precomputed HERE (same buildRampLUT as the live preview) and emitted as
+  // precomputed HERE (same buildRampLUTRGBA as the live preview) and emitted as
   // a finished C array — models must not write sorting/interpolation code,
   // which is exactly where weaker models broke (unsorted stops → all-black
   // LUT, hallucinated tokens in hand-rolled lerp loops). The shared detector
