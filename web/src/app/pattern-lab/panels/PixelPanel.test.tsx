@@ -2,7 +2,7 @@
 // hooks: every gesture below reads the layer's RGBA buffer in the store — the
 // thing the device receives — not what the canvas shows.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import PixelPanel from "./PixelPanel";
 import { useLabStore } from "@/lib/lab/store";
@@ -43,6 +43,10 @@ const CLEAR: [number, number, number, number] = [0, 0, 0, 0];
 beforeEach(() => {
   useLabStore.getState().discardProject();
   useLabStore.getState().addPixelLayer();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PixelPanel", () => {
@@ -216,7 +220,8 @@ describe("PixelPanel", () => {
   });
 
   it("copy as code puts a standalone pattern on the clipboard", async () => {
-    const { overlay } = mount();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { overlay, unmount } = mount();
     const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     fireEvent.click(screen.getByTitle(/Copy this drawing/));
@@ -226,6 +231,15 @@ describe("PixelPanel", () => {
     fireEvent.click(screen.getByText("Layer is empty").closest("button")!);
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(String(writeText.mock.calls[0][0])).toContain("draw(");
+    await act(async () => {});
+    expect(screen.getByText("Copied ✓")).toBeTruthy();
+    // The label's way back to "Copy as code" goes with the panel. A timer
+    // left here fired after the test file had torn its DOM down. Focusing
+    // the viewport leaves a zero-delay timer of jsdom's own, so what is due
+    // now runs first.
+    unmount();
+    vi.advanceTimersByTime(0);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("opens the image import modal", () => {
