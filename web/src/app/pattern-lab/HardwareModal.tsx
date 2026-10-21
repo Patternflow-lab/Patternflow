@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import { assembleH, buildHExport, cleanPastedUnit, enforcePatternName } from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
@@ -136,6 +137,23 @@ export default function HardwareModal({
     if (event.target === event.currentTarget) onClose();
   };
 
+  // Esc closes the window on top. Send and Publish open over this one and
+  // hear no keys of their own, so the first Esc is theirs and the header
+  // stays.
+  const cardRef = useDialog<HTMLDivElement>(() => {
+    if (sendOpen) setSendOpen(false);
+    else if (publishCode !== null) setPublishCode(null);
+    else onClose();
+  });
+
+  // Their buttons go with them, and the focus would fall to the page behind.
+  const childOpen = sendOpen || publishCode !== null;
+  useEffect(() => {
+    if (!childOpen && !cardRef.current?.contains(document.activeElement)) {
+      cardRef.current?.focus({ preventScroll: true });
+    }
+  }, [childOpen, cardRef]);
+
   return (
     <div
       className={styles.modalOverlay}
@@ -144,7 +162,12 @@ export default function HardwareModal({
       aria-label="Hardware"
       onClick={closeOnBackdrop}
     >
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <strong>{stage === "convert" ? "Convert to a firmware header" : "On to hardware"}</strong>
           <button type="button" onClick={onClose} aria-label="Close">

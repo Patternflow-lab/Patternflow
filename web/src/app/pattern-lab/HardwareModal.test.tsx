@@ -3,6 +3,9 @@
 // on up to this backdrop and closed To hardware as well. The header the model
 // translated lives only in this modal's state, so it went with it.
 //
+// Esc goes the same way. Send and Publish listen for no keys, so this modal
+// hears the Esc meant for them, and it closes the one on top.
+//
 // The modal is mounted the way the lab mounts it, behind an open flag that
 // onClose clears, so a stray close really unmounts it and the pasted header
 // is really gone.
@@ -102,5 +105,42 @@ describe("HardwareModal", () => {
     fireEvent.click(hardware());
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByText("closed")).toBeTruthy();
+  });
+
+  it("opens with the focus inside it", () => {
+    render(<Lab />);
+    expect(hardware().contains(document.activeElement)).toBe(true);
+  });
+
+  it("Esc closes it", () => {
+    render(<Lab />);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("closed")).toBeTruthy();
+  });
+
+  it("Esc over the Send modal closes Send alone and keeps the header", () => {
+    render(<Lab />);
+    pasteHeaderAndContinue();
+    fireEvent.click(screen.getByText("↗ Apply to my Patternflow"));
+    expect(screen.getByText("Send to my Patternflow")).toBeTruthy();
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+
+    expect(screen.queryByText("Send to my Patternflow")).toBeNull();
+    expect(hardware().contains(document.activeElement)).toBe(true);
+    expectHeaderKept();
+  });
+
+  it("Esc over the Publish modal closes Publish alone and keeps the header", async () => {
+    render(<Lab />);
+    pasteHeaderAndContinue();
+    fireEvent.click(screen.getByText("Upload to the community"));
+    await screen.findByText("Share to Community");
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByText("Share to Community")).toBeNull());
+    expectHeaderKept();
   });
 });
