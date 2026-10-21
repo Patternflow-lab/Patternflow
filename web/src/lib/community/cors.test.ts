@@ -98,7 +98,8 @@ describe("withCors", () => {
   });
 
   it("adds nothing for a foreign origin or a request without one", () => {
-    for (const headers of [{ origin: "https://example.com" }, {}]) {
+    const cases: Record<string, string>[] = [{ origin: "https://example.com" }, {}];
+    for (const headers of cases) {
       const response = withCors(request(headers), Response.json({ liked: true }));
       expect(response.headers.get("access-control-allow-origin")).toBeNull();
       expect(response.headers.get("access-control-allow-credentials")).toBeNull();
