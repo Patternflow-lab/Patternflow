@@ -128,6 +128,11 @@ const LEGACY_CART_KEY = "pf-module-cart";
  *  people's browsers forever holding copies of patterns nothing can show. */
 const RETIRED_SAVED_KEY = "pf-saved";
 
+/** What storage refused to keep: blocked site data, or a private mode that
+ *  throws on write. Held for as long as the page lives, and read ahead of
+ *  storage so the deck shows what the person just did, not the copy before. */
+const unsaved = new Map<string, CollectedPattern[]>();
+
 function parse(raw: string | null): CollectedPattern[] {
   if (!raw) return [];
   try {
@@ -148,29 +153,41 @@ function parse(raw: string | null): CollectedPattern[] {
 
 function read(key: string): CollectedPattern[] {
   if (typeof window === "undefined") return [];
-  // Anyone who had a cart before this split keeps it, as their deck. Done on
-  // read rather than in a migration step so it works whenever they next visit,
-  // from whichever page they land on.
-  if (key === DECK_KEY) {
-    const legacy = window.localStorage.getItem(LEGACY_CART_KEY);
-    if (legacy !== null && window.localStorage.getItem(DECK_KEY) === null) {
-      window.localStorage.setItem(DECK_KEY, legacy);
-      window.localStorage.removeItem(LEGACY_CART_KEY);
+  // A copy: the callers edit what they get back before writing it.
+  const held = unsaved.get(key);
+  if (held) return [...held];
+  try {
+    // Anyone who had a cart before this split keeps it, as their deck. Done on
+    // read rather than in a migration step so it works whenever they next
+    // visit, from whichever page they land on.
+    if (key === DECK_KEY) {
+      const legacy = window.localStorage.getItem(LEGACY_CART_KEY);
+      if (legacy !== null && window.localStorage.getItem(DECK_KEY) === null) {
+        window.localStorage.setItem(DECK_KEY, legacy);
+        window.localStorage.removeItem(LEGACY_CART_KEY);
+      }
+      // Same idea for the list that went away: nothing reads it now, and
+      // leaving it behind would keep a copy of somebody's saved patterns in
+      // their browser indefinitely with no screen able to show or clear it.
+      window.localStorage.removeItem(RETIRED_SAVED_KEY);
     }
-    // Same idea for the list that went away: nothing reads it now, and leaving
-    // it behind would keep a copy of somebody's saved patterns in their
-    // browser indefinitely with no screen able to show or clear it.
-    window.localStorage.removeItem(RETIRED_SAVED_KEY);
+    return parse(window.localStorage.getItem(key));
+  } catch {
+    // Site data blocked: reading `window.localStorage` at all throws a
+    // SecurityError. The dock reads this on every community page, so letting
+    // it through turned each of them into "This page couldn't load".
+    return [];
   }
-  return parse(window.localStorage.getItem(key));
 }
 
 function write(key: string, items: CollectedPattern[]): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(items));
+    unsaved.delete(key);
   } catch {
-    // Private mode: the list degrades to per-page state; the event still fires
-    // so the UI reflects what the visitor just did.
+    // Private mode or blocked site data: the list degrades to per-page state;
+    // the event still fires so the UI reflects what the visitor just did.
+    unsaved.set(key, [...items]);
   }
   window.dispatchEvent(new CustomEvent(COLLECTION_EVENT));
 }
