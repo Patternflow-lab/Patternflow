@@ -1,13 +1,13 @@
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import Hero from './Hero';
 
-// The hero's video is a YouTube embed that starts by itself and has no control
-// to stop it. Someone whose system asks for reduced motion gets the poster
-// under it and no embed at all, and the server, which cannot know, sends the
-// poster alone.
+// The hero's video is a YouTube embed that starts by itself and takes no
+// clicks. A button over it stops it and plays it again. Someone whose system
+// asks for reduced motion gets the poster under it and no embed at all, and the
+// server, which cannot know, sends the poster alone.
 
 vi.mock('next/link', () => ({
   default: ({
@@ -55,6 +55,8 @@ afterEach(() => {
 
 const poster = (root: ParentNode) => root.querySelector('img[src="/product_v2.jpg"]');
 const video = (root: ParentNode) => root.querySelector('iframe');
+const stopButton = () => screen.getByRole('button', { name: 'Stop the video' });
+const playButton = () => screen.getByRole('button', { name: 'Play the video' });
 
 describe('Hero', () => {
   it('plays the video over the poster, hidden while the player loads', () => {
@@ -75,6 +77,7 @@ describe('Hero', () => {
     const { container } = render(<Hero />);
     expect(poster(container)).not.toBeNull();
     expect(video(container)).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
 
     act(() => vi.advanceTimersByTime(10000));
     expect(video(container)).toBeNull();
@@ -99,5 +102,52 @@ describe('Hero', () => {
     const html = renderToString(<Hero />);
     expect(html).toContain('/product_v2.jpg');
     expect(html).not.toContain('<iframe');
+    expect(html).not.toContain('<button');
+  });
+
+  it('stops the video from its button and plays it again from the top', () => {
+    const { container } = render(<Hero />);
+    act(() => vi.advanceTimersByTime(3000));
+    expect(video(container)?.style.opacity).toBe('1');
+
+    fireEvent.click(stopButton());
+    expect(video(container)).toBeNull();
+    expect(poster(container)).not.toBeNull();
+    act(() => vi.advanceTimersByTime(100000));
+    expect(video(container)).toBeNull();
+
+    // The same button, so focus stays where the hand left it.
+    const button = playButton();
+    fireEvent.click(button);
+    expect(stopButton()).toBe(button);
+    expect(video(container)?.style.opacity).toBe('0');
+    act(() => vi.advanceTimersByTime(3000));
+    expect(video(container)?.style.opacity).toBe('1');
+  });
+
+  it('offers Play once the video has ended, and Play starts a fresh one', () => {
+    const { container } = render(<Hero />);
+    expect(stopButton()).not.toBeNull();
+    act(() => vi.advanceTimersByTime(92000));
+    const ended = video(container);
+    expect(ended?.style.opacity).toBe('0');
+
+    fireEvent.click(playButton());
+    expect(video(container)).not.toBe(ended);
+    expect(video(container)?.style.opacity).toBe('0');
+    act(() => vi.advanceTimersByTime(3000));
+    expect(video(container)?.style.opacity).toBe('1');
+    expect(stopButton()).not.toBeNull();
+  });
+
+  it('takes the button away with the video when reduced motion turns on', () => {
+    render(<Hero />);
+    fireEvent.click(stopButton());
+    setReduce(true);
+    expect(screen.queryByRole('button')).toBeNull();
+
+    // A fresh video, playing, as when reduced motion turned off before.
+    setReduce(false);
+    expect(stopButton()).not.toBeNull();
   });
 });

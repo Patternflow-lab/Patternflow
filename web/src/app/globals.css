@@ -404,6 +404,31 @@
     border-color: var(--ink);
     text-decoration: none;
   }
+  /* Stop and Play for the hero video, in its bottom-right corner. Dark with a
+     light rule, so it shows on the poster and on the video. 40px square, for a
+     finger on a phone. The focus ring stays inside the frame, which clips
+     anything past its edge. */
+  .hero-video-toggle {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(244, 239, 230, 0.55);
+    background: rgba(20, 20, 20, 0.62);
+    color: var(--cream);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .hero-video-toggle:hover { background: rgba(20, 20, 20, 0.85); }
+  .hero-video-toggle:focus-visible {
+    outline: 2px solid var(--pf-led);
+    outline-offset: 2px;
+  }
   /* At laptop height the column — wordmark, video, the two facts, the buttons —
      can be taller than the window with the full 80px above it, and the buttons'
      note falls below the fold. Take the difference from the top. The nav is out
