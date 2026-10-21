@@ -36,6 +36,7 @@
 .joinCell:hover,
 .joinCell:focus-visible {
   background: var(--pf-cream-2);
+  text-decoration: none;
 }
 
 .joinCell:focus-visible {
