@@ -422,12 +422,14 @@
   }
 }
 
-/* A phone's column (296px at 390) cannot hold the arrows, both buttons and
-   "01 / 42 Origin on the device" (278px by itself) in one row. The name cell
-   came out 36px wide and showed "01" and nothing else. Here the name takes
-   the top row alone and the four buttons share the row under it, in their
-   old order, so Tab still goes left to right. */
-@container (max-width: 620px) {
+/* One row needs about 575px: 261 for the arrows and both buttons, and the
+   name cell around "01 / 42 Wave Saw on the device", the widest name. A
+   phone's column is 296px at 390, and there the name cell came out 36px wide
+   and showed "01" and nothing else. Below that width the name takes the top
+   row alone and the four buttons share the row under it, in their old order,
+   so Tab still goes left to right. The total goes, since "All 42" is the
+   next row down, and that leaves every name room at 390. */
+@container (max-width: 580px) {
   .presetBar {
     grid-template-columns: 48px 48px minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -437,5 +439,9 @@
     grid-column: 1 / -1;
     border-right: 0;
     border-bottom: 1px solid var(--pf-rule);
+  }
+
+  .presetTotal {
+    display: none;
   }
 }

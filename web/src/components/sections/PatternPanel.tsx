@@ -250,7 +250,9 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
                 </button>
                 <div className={styles.presetNow}>
                   <span className={styles.presetIndex}>
-                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')} / {showcasePresets.length}
+                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')}
+                    {/* Dropped on phones, where "All 42" sits right under it. */}
+                    <span className={styles.presetTotal}> / {showcasePresets.length}</span>
                   </span>
                   <span className={styles.presetName}>{activePreset?.name ?? 'Custom'}</span>
                   {/* The one accent in this panel: it means "this is what the
