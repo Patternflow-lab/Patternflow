@@ -84,7 +84,11 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
     return Response.json({ error: "Sign in to edit your deck." }, { status: 401 });
   }
 
-  if (!rateLimit(`deck:${session.user.id}`, 5, 60_000)) {
+  // Edits count on a key of their own. The visibility select sends a PATCH on
+  // every change, and while edits shared `deck:` with sharing a new deck, the
+  // fifth edit within a minute of the share was refused. Twenty, the same as
+  // a pattern's or a post's edits.
+  if (!rateLimit(`deckpatch:${session.user.id}`, 20, 60_000)) {
     return Response.json({ error: "Too many deck updates — wait a minute and try again." }, { status: 429 });
   }
 
