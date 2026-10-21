@@ -70,6 +70,7 @@
   font-size: 12px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
   cursor: pointer;
 }
 
@@ -80,6 +81,26 @@
 .toggleOn {
   background: var(--pf-ink);
   color: var(--pf-cream);
+}
+
+/* One row of back link, title and both toggle groups is 572px wide. Below
+   that the toggles ended at 422px on a 390px phone and cut 「상세보기」 in
+   half, so on a phone they take the second row. */
+@media (max-width: 640px) {
+  .topBar {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 10px 16px;
+  }
+
+  .headerRight {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+
+  .toggleBtn {
+    padding: 10px 14px;
+  }
 }
 
 .legend {
