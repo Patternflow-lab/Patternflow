@@ -84,7 +84,7 @@ describe("community fields say what they are", () => {
     expect(screen.getByRole("textbox", { name: "Device address" })).toHaveValue("patternflow.local");
   });
 
-  it("names the report's detail box and keeps the hint as its description", () => {
+  it("names the report's detail box and keeps its hint", () => {
     render(
       <ReportModal targetType="pattern" targetId="p1" targetLabel="Wave" onClose={() => {}} />,
     );
