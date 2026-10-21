@@ -255,6 +255,7 @@
 
 .nextCard:hover {
   background: var(--pf-cream-2);
+  text-decoration: none;
 }
 
 .nextKicker {

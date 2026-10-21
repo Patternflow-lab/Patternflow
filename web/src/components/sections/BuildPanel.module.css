@@ -121,6 +121,7 @@
   outline: 0;
   background: var(--pf-ink-muted);
   border-color: var(--pf-ink-muted);
+  text-decoration: none;
 }
 
 .quickLinks {
