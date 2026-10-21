@@ -37,7 +37,8 @@ function loadPostHog() {
       })
       attachPostHog(posthog)
     })
-    // A chunk that fails to arrive costs the analytics, never the page.
+    // A chunk that does not arrive, or an init that throws, costs the
+    // analytics and never the page.
     .catch(() => {})
 }
 
