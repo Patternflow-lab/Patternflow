@@ -1,12 +1,11 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
 import BreadboardDiagram from '@/components/docs/BreadboardDiagram';
+import styles from './breadboard.module.css';
 
 export default function BreadboardBuildPage() {
   return (
-    <div style={{ backgroundColor: 'var(--pf-cream)', minHeight: '100vh', color: 'var(--pf-ink)' }}>
+    <div className={styles.page} style={{ backgroundColor: 'var(--pf-cream)', minHeight: '100vh', color: 'var(--pf-ink)' }}>
       {/* Navigation Header */}
       <header style={{
         maxWidth: '820px',
@@ -390,12 +389,15 @@ export default function BreadboardBuildPage() {
           <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
             ↑ Ground (GND) pins on both sides of all four rotary encoders land on the Ground (<strong>−</strong>) rail of the breadboard.
           </p>
-          <div className="w-full mt-4 step-photo-right flex flex-col gap-2">
+          <div className={`${styles.photo} ${styles.photoRight}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step1.jpg"
               alt="Encoders mounted with GND wires connected to the breadboard rail"
-              style={{ width: '100%', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
+              width={900}
+              height={1600}
+              loading="lazy"
+              decoding="async"
             />
             <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
               ↑ Encoders fixed, GND wires on the − rail.
@@ -432,12 +434,15 @@ export default function BreadboardBuildPage() {
           <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
             ↑ U1 (ESP32-S3) on the left, and J1 (HUB75E) on the right. Wire the pins that share the same color-coded labels (e.g. R1, B1, A, B...).
           </p>
-          <div className="w-full mt-4 step-photo-left flex flex-col gap-2">
+          <div className={`${styles.photo} ${styles.photoLeft}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step3.jpg"
               alt="ESP32-S3 connected to the HUB75E LED matrix via ribbon cable"
-              style={{ width: '100%', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
+              width={900}
+              height={1600}
+              loading="lazy"
+              decoding="async"
             />
             <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
               ↑ ESP32-S3 with HUB75E jumpers connected.
@@ -474,12 +479,15 @@ export default function BreadboardBuildPage() {
           <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
             ↑ Four rotary encoders on the left, and ESP32 on the right. Wire the signal channels (A, B, SW) to their matching colored tags (e.g. 1A, 2A...).
           </p>
-          <div className="w-full mt-4 step-photo-right flex flex-col gap-2">
+          <div className={`${styles.photo} ${styles.photoRight}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step4.jpg"
-              alt="All encoder signal wires routed routed into the case alongside the LED panel"
-              style={{ width: '100%', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
+              alt="All encoder signal wires routed into the case alongside the LED panel"
+              width={900}
+              height={1600}
+              loading="lazy"
+              decoding="async"
             />
             <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
               ↑ Encoder A, B, SW wires all connected.
@@ -513,12 +521,15 @@ export default function BreadboardBuildPage() {
           <div style={{ border: '1px solid var(--pf-rule)', borderRadius: '10px', padding: '6px', background: '#fbfaf7' }}>
             <BreadboardDiagram mode="rail" />
           </div>
-          <div className="w-full mt-4 step-photo-left flex flex-col gap-2">
+          <div className={`${styles.photo} ${styles.photoLeft}`}>
             {/* eslint-disable-next-line @next/next/no-img-element -- a fixed build photo, shown as is */}
             <img
               src="/builds/breadboard/step2.jpg"
               alt="Stripped USB and LED panel power wires being twisted onto jumpers"
-              style={{ width: '100%', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
+              width={900}
+              height={1600}
+              loading="lazy"
+              decoding="async"
             />
             <p style={{ fontSize: 'var(--pf-fs-mono)', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0 }}>
               ↑ Power leads stripped and twisted onto jumpers.
@@ -561,7 +572,11 @@ export default function BreadboardBuildPage() {
                 <img
                   src={img.src}
                   alt={img.label}
-                  style={{ width: '100%', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
+                  width={900}
+                  height={1600}
+                  loading="lazy"
+                  decoding="async"
+                  style={{ width: '100%', height: 'auto', display: 'block', borderRadius: '8px', border: '1px solid var(--pf-rule)' }}
                 />
                 <p style={{ fontSize: '10px', color: 'var(--pf-ink-faint)', fontFamily: 'var(--pf-mono)', margin: 0, marginTop: '2px' }}>
                   {img.label}
@@ -617,57 +632,6 @@ export default function BreadboardBuildPage() {
           </div>
         </footer>
       </main>
-
-      {/* Scoped style to support printing and avoiding split sections */}
-      <style jsx global>{`
-        @media (min-width: 1280px) {
-          .step-photo-right {
-            position: absolute !important;
-            top: 50% !important;
-            left: 100% !important;
-            margin-left: 120px !important;
-            transform: translateY(-50%) !important;
-            width: 360px !important;
-            margin-top: 0 !important;
-          }
-          .step-photo-left {
-            position: absolute !important;
-            top: 50% !important;
-            right: 100% !important;
-            margin-right: 120px !important;
-            transform: translateY(-50%) !important;
-            width: 360px !important;
-            margin-top: 0 !important;
-          }
-        }
-        @media print {
-          html, body {
-            background: #ffffff !important;
-            color: #000000 !important;
-          }
-          main {
-            padding: 0 !important;
-            max-width: none !important;
-          }
-          section {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-          }
-          header {
-            display: none !important;
-          }
-          .step-photo-right,
-          .step-photo-left {
-            position: static !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-            margin-top: 16px !important;
-            transform: none !important;
-            width: 100% !important;
-            max-width: 440px !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
