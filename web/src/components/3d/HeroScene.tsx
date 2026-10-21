@@ -29,6 +29,7 @@ import { LedMatrixTexture } from './LedMatrixTexture';
 import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
 import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { CASE_MODELS, DRACO_DECODER, type CaseFinish } from './caseModels';
 import { preloadCaseModel } from './preloadCaseModel';
 import {
@@ -219,6 +220,9 @@ function ProductPreview({
 
   const activePatternId = useAppStore((state) => state.activePatternId);
   const customJsCode = useAppStore((state) => state.customJsCode);
+  // The idle sway goes on for as long as the page is open, so someone who has
+  // asked for less motion gets the device standing still (poseFor).
+  const still = useReducedMotion();
   const pattern = patterns[activePatternId] || patterns['patternFlowOriginal'];
   const defaults = useMemo(() => pattern.defaults || {}, [pattern]);
 
@@ -404,7 +408,7 @@ function ProductPreview({
     const device = deviceRef.current;
     if (!group || !device) return;
 
-    const pose = poseFor(buildStep, explode, t);
+    const pose = poseFor(buildStep, explode, t, still);
     // A model that has just arrived starts where the step has everything,
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;
