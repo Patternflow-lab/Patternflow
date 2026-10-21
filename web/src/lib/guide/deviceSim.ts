@@ -979,5 +979,10 @@ function clamp(v: number, min: number, max: number) {
 function wrap(v: number, min: number, max: number) {
   const span = max - min;
   if (span <= 0) return min;
-  return ((((v - min) % span) + span) % span) + min;
+  const r = (((v - min) % span) + span) % span;
+  // Clicks summed in floating point can come home a hair below the start,
+  // which wraps to a hair below the top: nine clicks of K1 out and nine back
+  // left Origin's hue at 0.9999999999999993, and its readout said "hue 1.00"
+  // with a full bar where it had said 0.00. That is the start.
+  return span - r < span * 1e-9 ? min : r + min;
 }
