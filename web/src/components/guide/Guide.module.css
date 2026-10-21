@@ -525,6 +525,7 @@
 .brand:hover,
 .lang:hover {
   color: var(--g-ink);
+  text-decoration: none;
 }
 .lang {
   letter-spacing: 0.04em;
@@ -575,6 +576,7 @@
 }
 .railItem:hover {
   color: var(--g-ink);
+  text-decoration: none;
 }
 .railItem[data-active="1"] {
   color: var(--g-ink);
@@ -1283,6 +1285,7 @@
 .report:focus-visible {
   color: var(--g-led);
   background-size: 100% 1px;
+  text-decoration: none;
 }
 .report span {
   font-size: 10px;
@@ -1333,6 +1336,7 @@
 .action:hover,
 .action:focus-visible {
   transform: translate3d(0, -1.5px, 0);
+  text-decoration: none;
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.34),
     inset 0 -1px 0 rgb(0 0 0 / 0.12),
@@ -1684,6 +1688,7 @@
 .soonLink:focus-visible {
   border-color: var(--g-led);
   background: var(--g-led-wash);
+  text-decoration: none;
 }
 .soonLink:hover .soonArrow,
 .soonLink:focus-visible .soonArrow {
@@ -1724,6 +1729,7 @@
 .nextLink:focus-visible {
   border-color: var(--g-led);
   background: var(--g-led-wash);
+  text-decoration: none;
 }
 .nextLink:hover span,
 .nextLink:focus-visible span {
