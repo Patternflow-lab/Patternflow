@@ -136,8 +136,9 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
   // effect above can point the hero preview at Origin. The editor and the
   // flasher are not: Monaco comes from jsdelivr, 4.2 MB once its loader is
   // in, and the flasher from unpkg. Both wait for the first time the tab
-  // opens and then stay, so closing the tab keeps what was typed. Latched
-  // while rendering, so the editor is there in the render that opens the tab.
+  // opens. After that they stay, so going back to the tab finds the editor
+  // as it was left, undo history included. Latched while rendering, so the
+  // editor is there in the render that opens the tab.
   const [opened, setOpened] = useState(isActive);
   if (isActive && !opened) {
     setOpened(true);
