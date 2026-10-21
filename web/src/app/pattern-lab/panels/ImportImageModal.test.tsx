@@ -5,7 +5,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ImportImageModal from "./ImportImageModal";
+import { rasterizeImage } from "@/lib/lab/pixelTools";
 import { useLabStore } from "@/lib/lab/store";
+
+// The placement the preview was last drawn with.
+vi.mock("@/lib/lab/pixelTools", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/lab/pixelTools")>();
+  return { ...actual, rasterizeImage: vi.fn(actual.rasterizeImage) };
+});
+function lastPlacement() {
+  const calls = vi.mocked(rasterizeImage).mock.calls;
+  const transform = calls[calls.length - 1][5]!;
+  return { scale: transform.scale!, x: transform.offsetX!, y: transform.offsetY! };
+}
 
 class LoadedImage {
   width = 32;
@@ -82,5 +94,31 @@ describe("ImportImageModal", () => {
     fireEvent(preview, sideways);
     expect(sideways.defaultPrevented).toBe(false);
     expect(screen.getByText(/100%/)).toBeTruthy();
+  });
+
+  it("a trackpad's small wheel events add up to one notch's 8%", async () => {
+    const preview = mount();
+    await loadImage();
+    for (let i = 0; i < 10; i++) fireEvent(preview, createEvent.wheel(preview, { deltaY: -10 }));
+    expect(screen.getByText(/108%/)).toBeTruthy();
+  });
+
+  it("the wheel keeps the point of the image under the cursor where it was", async () => {
+    const preview = mount();
+    await loadImage();
+    // The setup lays the 128 × 64 preview out at the origin, one CSS pixel a
+    // column. The image's centre is the preview's centre plus the offset.
+    const cursor = { clientX: 96, clientY: 16 };
+    const underCursor = () => {
+      const { scale, x, y } = lastPlacement();
+      return { x: (cursor.clientX - 64 - x) / scale, y: (cursor.clientY - 32 - y) / scale };
+    };
+    expect(underCursor()).toEqual({ x: 32, y: -16 });
+    for (const deltaY of [-100, -250, 40]) {
+      fireEvent(preview, createEvent.wheel(preview, { deltaY, ...cursor }));
+      expect(underCursor().x).toBeCloseTo(32, 9);
+      expect(underCursor().y).toBeCloseTo(-16, 9);
+    }
+    expect(lastPlacement().scale).toBeCloseTo(1.08 ** 3.1, 9);
   });
 });
