@@ -6,8 +6,9 @@
  * compare() prints both sides and what is on one side only, so a red run in
  * CI says what drifted without anyone checking the branch out. A side a check
  * cannot read where it runs (a tag the clone lacks, no gh login, no pdftotext)
- * goes to skip(), which says why and passes. Under PF_DRIFT_STRICT=1, which
- * the CI workflow sets, a skip fails.
+ * goes to skip(), which says why. The check then exits SKIPPED, which fails
+ * nothing and which scripts/drift.ts prints as skipped. Under
+ * PF_DRIFT_STRICT=1, which the CI workflow sets, a skip fails.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -59,7 +60,7 @@ export function compare(name: string, left: Side, right: Side): boolean {
   return ok;
 }
 
-/** A side this check cannot read here. Says why; passes, or fails under PF_DRIFT_STRICT=1. */
+/** A side this check cannot read here. Says why; done() then exits SKIPPED, or 1 under PF_DRIFT_STRICT=1. */
 export function skip(name: string, why: string): void {
   console.log(`${name}: skipped, ${why}`);
   skipped++;
