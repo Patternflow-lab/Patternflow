@@ -1187,12 +1187,28 @@ function subscribeLang(onChange: () => void) {
   };
 }
 
+/** The choice storage would not keep (site data blocked): it still holds for
+ *  this visit, just not the next. */
+let unsavedLang: Lang | null = null;
+
 function readLang(): Lang {
-  return window.localStorage.getItem(LANG_KEY) === "ko" ? "ko" : "en";
+  if (unsavedLang) return unsavedLang;
+  // This is the store's snapshot, read while rendering: a SecurityError from
+  // blocked site data here would take the whole map down with it.
+  try {
+    return window.localStorage.getItem(LANG_KEY) === "ko" ? "ko" : "en";
+  } catch {
+    return "en";
+  }
 }
 
 function writeLang(next: Lang) {
-  window.localStorage.setItem(LANG_KEY, next);
+  try {
+    window.localStorage.setItem(LANG_KEY, next);
+    unsavedLang = null;
+  } catch {
+    unsavedLang = next;
+  }
   for (const listener of langListeners) listener();
 }
 
