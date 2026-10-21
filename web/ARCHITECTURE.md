@@ -97,7 +97,7 @@ A published header is compiled **once** and kept beside the code in `module_cach
 
 ## Analytics
 
-PostHog (`src/providers/PostHogProvider.tsx`, event helpers in `src/lib/posthogEvents.ts`) plus Vercel Analytics / Speed Insights. All no-ops when the env vars are absent.
+PostHog (`src/providers/PostHogProvider.tsx`, event helpers in `src/lib/posthogEvents.ts`) plus Vercel Analytics / Speed Insights. All no-ops when the env vars are absent. `posthog-js` is fetched with `import()` after the page's load event, and an event captured before then waits in `posthogEvents.ts` with its own time. A static import of it puts 318 KB back into every page's first scripts; `posthogEvents.test.ts` fails on one.
 
 ## Environment variables
 
