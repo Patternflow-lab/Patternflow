@@ -86,6 +86,7 @@ const EspWebInstallButton = 'esp-web-install-button' as unknown as React.Element
 
 interface PatternPanelProps {
   content: SectionContent;
+  isActive: boolean;
 }
 
 const EDITOR_LINE_HEIGHT = 20;
@@ -110,7 +111,7 @@ const MOBILE_PRESET_WINDOW = 7;
 // now; the rest arrive as modules.
 const NUM_BASICS_PATTERNS = 33;
 
-export default function PatternPanel({ content }: PatternPanelProps) {
+export default function PatternPanel({ content, isActive }: PatternPanelProps) {
   // Start with Origin selected; the effect below loads it into the editor.
   const [activePresetId, setActivePresetId] = useState<string | null>(() =>
     showcasePresets.some((p) => p.id === 'origin') ? 'origin' : null,
@@ -130,6 +131,18 @@ export default function PatternPanel({ content }: PatternPanelProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The panel is mounted on /, /build and /inside too, folded away, so the
+  // effect above can point the hero preview at Origin. The editor and the
+  // flasher are not: Monaco comes from jsdelivr, 4.2 MB once its loader is
+  // in, and the flasher from unpkg. Both wait for the first time the tab
+  // opens. After that they stay, so going back to the tab finds the editor
+  // as it was left, undo history included. Latched while rendering, so the
+  // editor is there in the render that opens the tab.
+  const [opened, setOpened] = useState(isActive);
+  if (isActive && !opened) {
+    setOpened(true);
+  }
 
   const handleLoadPreset = (presetId: string) => {
     const preset = showcasePresets.find((p) => p.id === presetId);
@@ -221,11 +234,13 @@ export default function PatternPanel({ content }: PatternPanelProps) {
           </div>
         )}
 
-        <Script
-          type="module"
-          src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
-          strategy="lazyOnload"
-        />
+        {opened && (
+          <Script
+            type="module"
+            src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
+            strategy="lazyOnload"
+          />
+        )}
 
         <div className={styles.workspace}>
           {/* No tab bar: two of its three cells navigated to other pages, so it
@@ -281,35 +296,39 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                   })}
                 </div>
               )}
-              <Editor
-                height={EDITOR_HEIGHT}
-                defaultLanguage="javascript"
-                theme="vs-dark"
-                value={customJsCode}
-                onChange={(val) => {
-                  const next = val || '';
-                  setCustomJsCode(next);
-                  // Deselect the chip once the code is edited away from the preset.
-                  if (activePresetId) {
-                    const preset = showcasePresets.find((p) => p.id === activePresetId);
-                    if (!preset || preset.code !== next) setActivePresetId(null);
-                  }
-                }}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineHeight: EDITOR_LINE_HEIGHT,
-                  scrollBeyondLastLine: false,
-                  scrollbar: {
-                    vertical: 'auto',
-                    horizontal: 'auto',
-                    handleMouseWheel: true,
-                  },
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  automaticLayout: true,
-                }}
-              />
+              {opened ? (
+                <Editor
+                  height={EDITOR_HEIGHT}
+                  defaultLanguage="javascript"
+                  theme="vs-dark"
+                  value={customJsCode}
+                  onChange={(val) => {
+                    const next = val || '';
+                    setCustomJsCode(next);
+                    // Deselect the chip once the code is edited away from the preset.
+                    if (activePresetId) {
+                      const preset = showcasePresets.find((p) => p.id === activePresetId);
+                      if (!preset || preset.code !== next) setActivePresetId(null);
+                    }
+                  }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    lineHeight: EDITOR_LINE_HEIGHT,
+                    scrollBeyondLastLine: false,
+                    scrollbar: {
+                      vertical: 'auto',
+                      horizontal: 'auto',
+                      handleMouseWheel: true,
+                    },
+                    overviewRulerLanes: 0,
+                    hideCursorInOverviewRuler: true,
+                    automaticLayout: true,
+                  }}
+                />
+              ) : (
+                <div style={{ height: EDITOR_HEIGHT }} />
+              )}
               {/* Why the code above is not what the preview shows. Pasted code
                   that threw used to reach the browser console and nothing
                   else. The region stays mounted so a reader hears it change. */}

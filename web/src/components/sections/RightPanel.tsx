@@ -177,7 +177,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
             <BuildPanel key={buildPanelKey} content={buildContent} isActive={activeTab === 'build'} />
           </div>
           <div className={`panel-wrapper ${activeTab === 'pattern' ? 'active' : ''}`} inert={activeTab !== 'pattern'}>
-            <PatternPanel content={patternContent} />
+            <PatternPanel content={patternContent} isActive={activeTab === 'pattern'} />
           </div>
           <div className={`panel-wrapper ${activeTab === 'inside' ? 'active' : ''}`} inert={activeTab !== 'inside'}>
             <InsidePanel content={insideContent} />
