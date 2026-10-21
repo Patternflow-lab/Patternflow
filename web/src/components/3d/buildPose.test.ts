@@ -38,6 +38,30 @@ describe('poseFor and shows', () => {
   });
 });
 
+describe('poseFor at idle', () => {
+  const TIMES = [0, 5, 10.5, 21, 30, 600];
+
+  it('sways the device by itself', () => {
+    const turns = TIMES.map((t) => poseFor(STEPS.idle, 0, t).turn);
+    expect(new Set(turns).size).toBe(TIMES.length);
+    expect(Math.max(...turns.map(Math.abs))).toBeLessThanOrEqual(0.45);
+  });
+
+  it('holds it still, facing the reader, for someone who has asked for less motion', () => {
+    for (const t of TIMES) {
+      const pose = poseFor(STEPS.idle, 0, t, true);
+      expect(pose.turn, `turn at ${t}s`).toBe(0);
+      expect(pose.lift, `lift at ${t}s`).toBe(0);
+    }
+  });
+
+  it('leaves the Build steps as they were', () => {
+    for (const step of [STEPS.print, STEPS.solder, STEPS.assemble, STEPS.power]) {
+      expect(poseFor(step, 0.6, 12, true), `step ${step}`).toEqual(poseFor(step, 0.6, 12));
+    }
+  });
+});
+
 describe('fitAcross', () => {
   // The view's height at rest where the device stands (HeroScene: fov 28°,
   // the camera at (0, 6, 10.3) on the target (0, 1.7, 0)), and its width on
