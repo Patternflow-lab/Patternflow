@@ -25,6 +25,13 @@
   overflow: hidden;
 }
 
+/* The editor's height. Monaco fills this box and scrolls inside it, so the
+   page does not grow with the code: most visitors paste generated code and
+   rarely scroll the source themselves. */
+.editorBox {
+  height: 480px;
+}
+
 /* The message, and on its own line the line of code it failed on when the
    stack gives one. */
 .editorError {
@@ -393,9 +400,42 @@
 
 }
 
+/* Below 900px the 3D preview and the tab bar are pinned over the top of the
+   page (--mb-viewer-h and --mb-nav-h in globals.css), which leaves 421px of a
+   390x844 phone. A finger on the editor scrolls the code and never the page,
+   and at 480px there were scroll positions where the editor was all of those
+   421px, so there was nowhere to put a finger that moved the page. The editor
+   now leaves room for the preset bar's two rows (90px with its rules), and the
+   bar and the code fit on the screen together. svh keeps it fitting while the
+   browser's toolbar is showing; the vh line is for browsers without svh. */
+@media (max-width: 900px) {
+  .editorBox {
+    height: clamp(120px, calc(100vh - var(--mb-viewer-h) - var(--mb-nav-h) - 90px), 480px);
+    height: clamp(120px, calc(100svh - var(--mb-viewer-h) - var(--mb-nav-h) - 90px), 480px);
+  }
+}
+
 /* The hardware block drops under the exits when the panel gets narrow. */
 @container (max-width: 620px) {
   .branches {
     grid-template-columns: 1fr;
+  }
+}
+
+/* A phone's column (296px at 390) cannot hold the arrows, both buttons and
+   "01 / 42 Origin on the device" (278px by itself) in one row. The name cell
+   came out 36px wide and showed "01" and nothing else. Here the name takes
+   the top row alone and the four buttons share the row under it, in their
+   old order, so Tab still goes left to right. */
+@container (max-width: 620px) {
+  .presetBar {
+    grid-template-columns: 48px 48px minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .presetNow {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 1px solid var(--pf-rule);
   }
 }
