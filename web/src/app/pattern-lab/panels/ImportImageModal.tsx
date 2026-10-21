@@ -6,6 +6,7 @@
 // Lived at the bottom of PixelPanel.tsx until 2026-09; same code, own file.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { rasterizeImage, type ImportFit, type RGBA } from "@/lib/lab/pixelTools";
 import { labEngine } from "@/lib/lab/engine";
 import { useLabStore } from "@/lib/lab/store";
@@ -34,6 +35,7 @@ export default function ImportImageModal({
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [showLayers, setShowLayers] = useState(true);
+  const cardRef = useDialog<HTMLDivElement>(onClose);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const backdropRef = useRef<HTMLCanvasElement | null>(null);
   const resultRef = useRef<Uint8ClampedArray | null>(null);
@@ -190,7 +192,12 @@ export default function ImportImageModal({
       aria-label="Import image"
       onClick={onClose}
     >
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span>Import image → {width}×{height}</span>
           <button type="button" onClick={onClose} aria-label="Close">

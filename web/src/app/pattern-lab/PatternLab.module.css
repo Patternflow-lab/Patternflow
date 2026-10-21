@@ -465,6 +465,12 @@
   color: #171512;
 }
 
+/* The card takes the focus when it opens, so the keyboard starts inside it.
+   It is not a control, and a ring around the whole window says nothing. */
+.modalCard:focus {
+  outline: none;
+}
+
 .modalHeader {
   display: flex;
   align-items: center;
