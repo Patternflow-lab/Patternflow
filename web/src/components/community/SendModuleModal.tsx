@@ -254,6 +254,7 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
                 value={deviceHost}
                 onChange={(event) => changeDeviceHost(event.target.value)}
                 spellCheck={false}
+                aria-label="Device address"
                 style={{
                   font: "inherit",
                   width: "16ch",
