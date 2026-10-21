@@ -219,6 +219,49 @@ describe("atlas writes the server refuses", () => {
   });
 });
 
+// A screen reader announced these as "edit text", "combo box" and "slider" and
+// nothing more. The search box only had its placeholder to go on.
+describe("atlas fields say what they are", () => {
+  const nine = Array.from({ length: 9 }, (_, i) => ({
+    id: `p${i}`,
+    title: `Pattern ${i}`,
+    code: "function draw() {}",
+    isPublic: true,
+  }));
+
+  it("names the picker's search box in both languages", () => {
+    render(<AtlasClient pins={[]} viewerId="u1" isAdmin={false} myPatterns={nine} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add my pattern" }));
+    expect(screen.getByRole("searchbox", { name: "Search your patterns" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "한국어" }));
+    expect(screen.getByRole("searchbox", { name: "내 패턴 찾기" })).toBeTruthy();
+    // The language is the module's for the rest of this file.
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+  });
+
+  it("names the prompt a pin was made from", () => {
+    render(<AtlasClient pins={[tide]} viewerId="u1" isAdmin={false} myPatterns={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Slow tide" }));
+    expect(screen.getByRole("combobox", { name: "Made from prompt" })).toBeTruthy();
+  });
+
+  it("names each knob slider after the knob", () => {
+    render(atlas([tide, { ...tide, patternId: "p-folds", title: "Folds", code: "// @knobs Folds=3..12, -, Zoom=2..17\nfunction draw() {}" }]));
+    fireEvent.click(screen.getByRole("button", { name: "Slow tide" }));
+    expect(screen.getAllByRole("slider").map((s) => s.getAttribute("aria-label"))).toEqual([
+      "Knob 1",
+      "Knob 2",
+      "Knob 3",
+      "Knob 4",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Folds" }));
+    expect(screen.getByRole("slider", { name: "Folds" })).toBeTruthy();
+    expect(screen.getByRole("slider", { name: "Zoom" })).toBeTruthy();
+  });
+});
+
 describe("atlas reading language", () => {
   it("opens in the language this browser chose last time", () => {
     localStorage.setItem("pf-atlas-lang", "ko");
