@@ -164,14 +164,14 @@ export type SimGiven = { input: PatternInput; error: string | null };
 // write. A channel is held once written; a change of the held value reaches
 // a pattern as clicks, ten bus units each, the remainder carried; a hand on
 // that encoder takes it back after a grace.
-const BUS_RELEASE_GRACE_MS = 250;
+export const BUS_RELEASE_GRACE_MS = 250;
 
 // The lanes (docs/audio-ws-spec.md): what sound writes. A lane is an absolute
 // 0..1 reading the pattern gets lerped into the knob's range, under the bus
 // and over the encoder. It is handed back 500 ms after the last message that
 // set it, and a turn by hand takes the knob for five seconds.
-const LANE_RELEASE_MS = 500;
-const LANE_HAND_HOLD_MS = 5000;
+export const LANE_RELEASE_MS = 500;
+export const LANE_HAND_HOLD_MS = 5000;
 // The two rows an Audio edition board draws under NETWORK, by the features'
 // short names, in the order K2 and K3 turn them (patternflow.ino:1688-1713).
 const ROW_OSC = 0;

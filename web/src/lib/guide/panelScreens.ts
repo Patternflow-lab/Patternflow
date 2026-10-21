@@ -236,7 +236,7 @@ export function wrapIndex(index: number, count: number): number {
 }
 
 // Fixed-size name buffers: MODULE_NAME_BYTES, firmware/patternflow/pattern_registry.h.
-const MODULE_NAME_BYTES = 40;
+export const MODULE_NAME_BYTES = 40;
 const LATIN1_FOLD =
   "AAAAAAACEEEEIIII" + // C0-CF
   "DNOOOOOxOUUUUYPs" + // D0-DF
