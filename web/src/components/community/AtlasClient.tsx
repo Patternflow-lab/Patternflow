@@ -129,6 +129,7 @@ const UI = {
     addPattern: "Add my pattern",
     pickerHead: (n: number) => `Your patterns · newest first (${n})`,
     pickerSearch: "Search by title…",
+    noAnswer: "Not saved. The server did not answer.",
   },
   ko: {
     tagline: "실험 기능 — 더 많은 패턴 탐구를 위한 지도.",
@@ -176,6 +177,7 @@ const UI = {
     addPattern: "내 패턴 올리기",
     pickerHead: (n: number) => `내 패턴 · 최신순 (${n})`,
     pickerSearch: "제목으로 검색…",
+    noAnswer: "저장되지 않았다. 서버가 답하지 않았다.",
   },
 } as const;
 
@@ -222,6 +224,12 @@ export default function AtlasClient({
   // The picker lists your own patterns newest first, as thumbnails — you
   // recognise your work by looking at it, not by reading titles.
   const [pickerQuery, setPickerQuery] = useState("");
+  // A write the server refused, with its reason (null when no answer came
+  // back), and what the panel showed then. Select something else and the
+  // message goes, so a refusal about one pin never sits under another.
+  const [writeError, setWriteError] = useState<{ text: string | null; at: Selection } | null>(
+    null,
+  );
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingEntryRef = useRef<string | null>(null);
@@ -387,34 +395,58 @@ export default function AtlasClient({
 
   /* ── server writes ── */
 
-  const savePin = async (pin: AtlasPinData, [x, y]: [number, number]) => {
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId: pin.entryId, kind: pin.kind }),
+  /** One write to the atlas route. True when it saved; otherwise the panel
+   *  says why, in the server's words when it sent any. */
+  const writeAtlas = async (method: "POST" | "DELETE", body: Record<string, unknown>) => {
+    const at = selection;
+    setWriteError(null);
+    try {
+      const res = await fetch("/api/community/atlas", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return true;
+      const payload = (await res.json().catch(() => ({}))) as { error?: unknown };
+      setWriteError({ text: typeof payload.error === "string" ? payload.error : null, at });
+    } catch {
+      setWriteError({ text: null, at });
+    }
+    return false;
+  };
+
+  const forgetPinPosition = (patternId: string) =>
+    setPinPositions((prev) => {
+      const next = { ...prev };
+      delete next[patternId];
+      return next;
     });
-    router.refresh();
+
+  const savePin = async (pin: AtlasPinData, [x, y]: [number, number]) => {
+    const saved = await writeAtlas("POST", {
+      patternId: pin.patternId, x, y, entryId: pin.entryId, kind: pin.kind,
+    });
+    if (saved) {
+      router.refresh();
+      return;
+    }
+    // The drop did not stick: the tile goes back to where the server has it.
+    forgetPinPosition(pin.patternId);
   };
 
   const setPinLink = async (pin: AtlasPinData, entryId: string | null) => {
     const [x, y] = pinPos(pin);
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId, kind: pin.kind }),
-    });
-    router.refresh();
+    if (await writeAtlas("POST", { patternId: pin.patternId, x, y, entryId, kind: pin.kind })) {
+      router.refresh();
+    }
   };
 
   /** Demote a tile to a research note, or promote a note back to a tile. */
   const setPinKind = async (pin: AtlasPinData, kind: "pin" | "research") => {
     const [x, y] = pinPos(pin);
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId: pin.entryId, kind }),
-    });
-    router.refresh();
+    if (await writeAtlas("POST", { patternId: pin.patternId, x, y, entryId: pin.entryId, kind })) {
+      router.refresh();
+    }
   };
 
   const placePattern = async (pattern: NonNullable<typeof placing>, coords: [number, number]) => {
@@ -428,12 +460,10 @@ export default function AtlasClient({
     const entryId = nearestEntry(coords);
     const kind = pattern.isPublic ? "pin" : "research";
     if (kind === "research" && !entryId) return;
-    const res = await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pattern.id, x: coords[0], y: coords[1], entryId, kind }),
+    const saved = await writeAtlas("POST", {
+      patternId: pattern.id, x: coords[0], y: coords[1], entryId, kind,
     });
-    if (res.ok) {
+    if (saved) {
       setPlacing(null);
       setPlacingNear(null);
       setSelection({ kind: "pin", id: pattern.id });
@@ -442,17 +472,9 @@ export default function AtlasClient({
   };
 
   const removePin = async (patternId: string) => {
-    await fetch("/api/community/atlas", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId }),
-    });
+    if (!(await writeAtlas("DELETE", { patternId }))) return;
     setSelection(null);
-    setPinPositions((prev) => {
-      const next = { ...prev };
-      delete next[patternId];
-      return next;
-    });
+    forgetPinPosition(patternId);
     router.refresh();
   };
 
@@ -504,6 +526,11 @@ export default function AtlasClient({
 
   const worldTransform = `translate(${view.tx} ${view.ty}) scale(${view.k})`;
   const inv = 1 / view.k;
+
+  const shownError =
+    writeError && writeError.at?.kind === selection?.kind && writeError.at?.id === selection?.id
+      ? writeError.text ?? t.noAnswer
+      : null;
 
   return (
     <div className={styles.atlas}>
@@ -615,6 +642,7 @@ export default function AtlasClient({
                 onClick={() => {
                   setPlacing(null);
                   setPlacingNear(null);
+                  setWriteError(null);
                 }}
               >
                 {t.cancel}
@@ -844,6 +872,11 @@ export default function AtlasClient({
         </div>
 
         <aside className={styles.panel}>
+          {shownError && (
+            <p role="alert" className={styles.writeError} ref={revealOnMount}>
+              {shownError}
+            </p>
+          )}
           {selectedPin ? (
             <>
               <h2 className={styles.panelTitle}>{selectedPin.title}</h2>
@@ -1222,6 +1255,14 @@ function writeLang(next: Lang) {
     unsavedLang = next;
   }
   for (const listener of langListeners) listener();
+}
+
+/** Remove sits at the foot of a pin panel and the page scrolls to reach it,
+ *  so a refusal at the panel's head can land above the window. Brought into
+ *  view once, as it appears: a stable function, so React calls it on mount
+ *  and not on every render. */
+function revealOnMount(node: HTMLElement | null) {
+  node?.scrollIntoView({ block: "nearest" });
 }
 
 function clamp(value: number, min: number, max: number) {
