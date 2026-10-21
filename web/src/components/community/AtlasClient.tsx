@@ -538,117 +538,124 @@ export default function AtlasClient({
         <p className={styles.tagline}>
           {t.tagline} <span className={styles.zoomHint}>{t.zoomHint}</span>
         </p>
-        <div className={styles.toolbarSpacer} />
-        {myPatterns.length > 0 && (
-          <span className={styles.pickerWrap}>
-            <button
-              type="button"
-              className={styles.toolBtn}
-              data-on={pickerOpen || Boolean(placing)}
-              onClick={() => setPickerOpen((v) => !v)}
-            >
-              {t.addPattern}
-            </button>
-            {pickerOpen && (
-              <div className={styles.picker}>
-                <div className={styles.pickerHead}>{t.pickerHead(myPatterns.length)}</div>
-                {myPatterns.length > 8 && (
-                  <input
-                    type="search"
-                    className={styles.pickerSearch}
-                    placeholder={t.pickerSearch}
-                    value={pickerQuery}
-                    onChange={(ev) => setPickerQuery(ev.target.value)}
-                    autoFocus
-                  />
-                )}
-                <div className={styles.pickerGrid}>
-                  {pickerList.map((pattern) => (
-                    <button
-                      key={pattern.id}
-                      type="button"
-                      className={styles.pickerItem}
-                      title={pattern.title}
-                      onClick={() => {
-                        setPlacing(pattern);
-                        setPickerOpen(false);
-                      }}
-                    >
-                      <span className={styles.pickerTile}>
-                        <PatternCanvas
-                          code={pattern.code}
-                          title={pattern.title}
-                          className={styles.pinWell}
-                        />
-                      </span>
-                      <span className={styles.pickerCaption}>
-                        {pattern.title}
-                        {!pattern.isPublic && (
-                          <span className={styles.researchTag}> {t.privateTag}</span>
-                        )}
-                      </span>
-                    </button>
-                  ))}
+        {/* One block: when the row runs out, the buttons move under the
+            tagline together instead of each squeezing into a column. */}
+        <div className={styles.toolbarActions}>
+          {myPatterns.length > 0 && (
+            <span className={styles.pickerWrap}>
+              <button
+                type="button"
+                className={styles.toolBtn}
+                data-on={pickerOpen || Boolean(placing)}
+                onClick={() => setPickerOpen((v) => !v)}
+              >
+                {t.addPattern}
+              </button>
+              {pickerOpen && (
+                <div className={styles.picker}>
+                  <div className={styles.pickerHead}>{t.pickerHead(myPatterns.length)}</div>
+                  {myPatterns.length > 8 && (
+                    <input
+                      type="search"
+                      className={styles.pickerSearch}
+                      placeholder={t.pickerSearch}
+                      value={pickerQuery}
+                      onChange={(ev) => setPickerQuery(ev.target.value)}
+                      autoFocus
+                    />
+                  )}
+                  <div className={styles.pickerGrid}>
+                    {pickerList.map((pattern) => (
+                      <button
+                        key={pattern.id}
+                        type="button"
+                        className={styles.pickerItem}
+                        title={pattern.title}
+                        onClick={() => {
+                          setPlacing(pattern);
+                          setPickerOpen(false);
+                        }}
+                      >
+                        <span className={styles.pickerTile}>
+                          <PatternCanvas
+                            code={pattern.code}
+                            title={pattern.title}
+                            className={styles.pinWell}
+                          />
+                        </span>
+                        <span className={styles.pickerCaption}>
+                          {pattern.title}
+                          {!pattern.isPublic && (
+                            <span className={styles.researchTag}> {t.privateTag}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </span>
-        )}
-        <button type="button" className={styles.toolBtn} onClick={toggleLang}>
-          {lang === "en" ? "한국어" : "English"}
-        </button>
-        <button
-          type="button"
-          className={styles.toolBtn}
-          data-on={editMode}
-          onClick={() => setEditMode((v) => !v)}
-        >
-          {editMode ? t.editing : t.edit}
-        </button>
-        <button type="button" className={styles.toolBtn} onClick={exportLayout}>
-          {exported ? t.copiedLayout : t.copyLayout}
-        </button>
+              )}
+            </span>
+          )}
+          <button type="button" className={styles.toolBtn} onClick={toggleLang}>
+            {lang === "en" ? "한국어" : "English"}
+          </button>
+          <button
+            type="button"
+            className={styles.toolBtn}
+            data-on={editMode}
+            onClick={() => setEditMode((v) => !v)}
+          >
+            {editMode ? t.editing : t.edit}
+          </button>
+          <button type="button" className={styles.toolBtn} onClick={exportLayout}>
+            {exported ? t.copiedLayout : t.copyLayout}
+          </button>
+        </div>
       </div>
 
       <div className={styles.body}>
         <div className={styles.mapWrap} data-placing={Boolean(placing)}>
-          <div className={styles.chips}>
-            {chipList.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={styles.chip}
-                data-on={filter === key}
-                onClick={() => setFilter(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {placing && (
-            <div className={styles.placeBanner}>
-              <span>
-                {placing.isPublic ? t.placeBanner(placing.title) : t.placeBannerResearch(placing.title)}
-                {placingNear && ENTRY_BY_ID.has(placingNear) && (
-                  <span className={styles.bannerLink}>
-                    {" "}→ {entryName(ENTRY_BY_ID.get(placingNear)!)}
-                  </span>
-                )}
-              </span>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                onClick={() => {
-                  setPlacing(null);
-                  setPlacingNear(null);
-                  setWriteError(null);
-                }}
-              >
-                {t.cancel}
-              </button>
+          {/* Chips and the placing banner share one column, so the banner sits
+              under the chips however many rows they wrap to. */}
+          <div className={styles.mapTop}>
+            <div className={styles.chips}>
+              {chipList.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={styles.chip}
+                  data-on={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
+
+            {placing && (
+              <div className={styles.placeBanner}>
+                <span>
+                  {placing.isPublic ? t.placeBanner(placing.title) : t.placeBannerResearch(placing.title)}
+                  {placingNear && ENTRY_BY_ID.has(placingNear) && (
+                    <span className={styles.bannerLink}>
+                      {" "}→ {entryName(ENTRY_BY_ID.get(placingNear)!)}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  onClick={() => {
+                    setPlacing(null);
+                    setPlacingNear(null);
+                    setWriteError(null);
+                  }}
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            )}
+          </div>
 
           <svg
             ref={svgRef}
