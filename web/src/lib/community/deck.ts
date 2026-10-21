@@ -175,7 +175,7 @@ function read(key: string): CollectedPattern[] {
   } catch {
     // Site data blocked: reading `window.localStorage` at all throws a
     // SecurityError. The dock reads this on every community page, so letting
-    // it through turned each of them into "Application error".
+    // it through turned each of them into "This page couldn't load".
     return [];
   }
 }

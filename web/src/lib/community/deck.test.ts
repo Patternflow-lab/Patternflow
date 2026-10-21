@@ -1,7 +1,7 @@
 // The deck when the browser will not keep it. With site data blocked, merely
 // reading `window.localStorage` throws a SecurityError, and the dock that
 // draws the deck sits on every community page: a throw here took the whole
-// page down to "Application error". A private mode that refuses writes is
+// page down to "This page couldn't load". A private mode that refuses writes is
 // the milder case. Either way the deck should still work for the visit.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
