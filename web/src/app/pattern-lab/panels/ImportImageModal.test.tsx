@@ -106,6 +106,10 @@ describe("ImportImageModal", () => {
   it("the wheel keeps the point of the image under the cursor where it was", async () => {
     const preview = mount();
     await loadImage();
+    // The preview paints in a plain effect, a task after Apply turns on. On a
+    // busy machine that task came after this line, and there was no placement
+    // to read yet.
+    await waitFor(() => expect(rasterizeImage).toHaveBeenCalled());
     // The setup lays the 128 × 64 preview out at the origin, one CSS pixel a
     // column. The image's centre is the preview's centre plus the offset.
     const cursor = { clientX: 96, clientY: 16 };
