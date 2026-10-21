@@ -164,11 +164,6 @@ export function useActiveLayer(): Layer | undefined {
   return useLabStore((state) => state.layers.find((layer) => layer.id === state.activeLayerId));
 }
 
-export function useActiveCodeLayer(): CodeLayer | undefined {
-  const layer = useActiveLayer();
-  return isCodeLayer(layer) ? layer : undefined;
-}
-
 /**
  * The code layer whose knobs/ramp the side panels should edit: the active
  * layer when it is code, otherwise the topmost code layer.

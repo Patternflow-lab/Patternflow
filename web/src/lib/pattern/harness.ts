@@ -46,20 +46,6 @@ export type PatternRenderResult = {
   error?: string;
 };
 
-export type PatternStillOptions = {
-  width?: number;
-  height?: number;
-  seconds?: number;
-  fps?: number;
-  knobStart?: number[];
-  knobTargets?: number[];
-  knobRanges?: Array<[number, number]>;
-  knobWrap?: boolean[];
-  knobUnitsPerTurn?: number[];
-  ramp?: ColorRamp | null;
-  recolor?: boolean;
-};
-
 function clampByte(value: number) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(255, Math.round(value)));
@@ -643,59 +629,4 @@ export function createIdleInput(
 export function knobTargetToDelta(previous: number, next: number, wrap = false, unitsPerTurn = 1) {
   const delta = wrap ? wrapKnobDelta(next - previous) : next - previous;
   return delta * (PATTERN_DETENTS_PER_TURN / unitsPerTurn);
-}
-
-export function renderPatternStill(
-  code: string,
-  {
-    width = PATTERN_MATRIX_WIDTH,
-    height = PATTERN_MATRIX_HEIGHT,
-    seconds = 2.4,
-    fps = 30,
-    knobStart = [0.5, 0.5, 0.5, 0.5],
-    knobTargets = [0.5, 0.5, 0.5, 0.5],
-    knobRanges,
-    knobWrap,
-    knobUnitsPerTurn,
-    ramp,
-    recolor,
-  }: PatternStillOptions = {},
-) {
-  const runtime = new PatternRuntime(width, height);
-  if (ramp) runtime.setRamp(ramp);
-  runtime.recolor = Boolean(recolor && ramp);
-  const loadResult = runtime.loadCode(code);
-  if (!loadResult.ok) {
-    return { ...loadResult, data: runtime.data };
-  }
-
-  const frameCount = Math.max(1, Math.floor(seconds * fps));
-  const firstDeltas = knobTargets.map((target, index) =>
-    knobTargetToDelta(
-      knobStart[index] ?? 0.5,
-      target,
-      knobWrap?.[index] ?? false,
-      knobUnitsPerTurn?.[index] ?? 1,
-    ),
-  );
-  const knobNormalized = knobTargets.map((target, index) => {
-    const range = knobRanges?.[index];
-    if (!range) return target;
-    const span = Math.max(0.0001, range[1] - range[0]);
-    return (target - range[0]) / span;
-  });
-
-  for (let frame = 0; frame < frameCount; frame++) {
-    const input = createIdleInput(frame === 0 ? firstDeltas : undefined, {
-      knobValues: knobTargets,
-      knobNormalized,
-      knobRanges,
-    });
-    const result = runtime.renderFrame(1 / fps, frame / fps, input);
-    if (!result.ok) {
-      return { ...result, data: runtime.data };
-    }
-  }
-
-  return { ok: true, data: new Uint8ClampedArray(runtime.data) };
 }

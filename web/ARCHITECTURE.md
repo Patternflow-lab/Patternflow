@@ -42,7 +42,7 @@ HomeView (src/components/HomeView.tsx)
 │   ├── LedMatrixTexture.ts              ← renders JS patterns into a texture for the 3D LED mesh
 │   └── patterns/                        ← GLSL pattern ports (common.ts = shared vertex shader + registry)
 └── RightPanel (components/sections/)    ← tabbed content panel
-    ├── Hero.tsx / Deck.tsx              ← hero copy + panel open/close orchestration
+    ├── Hero.tsx                         ← hero copy and the intro video
     ├── BuildPanel.tsx                   ← build paths, the case switch, flasher entry
     ├── PatternPanel.tsx                 ← preset browser + code editor; every CTA leads to /pattern-lab
     ├── InsidePanel.tsx + InsideGlobe/   ← concept content + community builds globe
