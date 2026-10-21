@@ -49,6 +49,24 @@ describe("ImportImageModal", () => {
     expect(screen.getByText(/100%/)).toBeTruthy();
   });
 
+  it("the wheel scales the image from the moment Apply turns on", async () => {
+    const preview = mount();
+    const file = new File(["x"], "pic.png", { type: "image/png" });
+    fireEvent.change(screen.getByLabelText("Choose image"), { target: { files: [file] } });
+    // waitFor looks again on every DOM change, so the first look that finds
+    // Apply enabled is right after React wrote it, before anything later.
+    let prevented: boolean | null = null;
+    await waitFor(() => {
+      expect(screen.getByText("Apply to layer")).toBeEnabled();
+      if (prevented === null) {
+        const up = createEvent.wheel(preview, { deltaY: -100 });
+        preview.dispatchEvent(up);
+        prevented = up.defaultPrevented;
+      }
+    });
+    expect(prevented).toBe(true);
+  });
+
   it("the wheel scales the image and does not scroll the card", async () => {
     const preview = mount();
     await loadImage();
