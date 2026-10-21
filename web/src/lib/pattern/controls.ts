@@ -68,15 +68,20 @@ export function webKnobRange(knobId: KnobId): readonly [number, number] {
   return LOGICAL_KNOB_RANGES[logicalIndex] ?? [0, 1];
 }
 
-export function getKnobValueDelta(knobId: KnobId, current: number, previous: number) {
-  let delta = current - previous;
-
-  if (knobId === 'c1' || knobId === 'c3') {
-    if (delta > 0.5) delta -= 1;
-    if (delta < -0.5) delta += 1;
-  }
-
+/**
+ * A wrapping knob's change between two readings, taken the short way round:
+ * 0.95 to 0.05 is +0.1 across the seam, not -0.9. The values are 0..1, the
+ * hue knob's range.
+ */
+export function wrapKnobDelta(delta: number) {
+  if (delta > 0.5) return delta - 1;
+  if (delta < -0.5) return delta + 1;
   return delta;
+}
+
+export function getKnobValueDelta(knobId: KnobId, current: number, previous: number) {
+  const delta = current - previous;
+  return LOGICAL_KNOB_WRAP[LOGICAL_KNOB_TO_WEB_KNOB.indexOf(knobId)] ? wrapKnobDelta(delta) : delta;
 }
 
 export function toEncoderDelta(range: readonly [number, number], valueDelta: number) {
