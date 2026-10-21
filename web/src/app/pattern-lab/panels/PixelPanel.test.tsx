@@ -289,6 +289,59 @@ describe("PixelPanel", () => {
     expect(screen.getByText("zoom 7×")).toBeTruthy();
   });
 
+  it("the wheel zooms by how far it turned, not by how many events came", () => {
+    const { viewport } = mount();
+    const wheel = (init: WheelEventInit) => fireEvent(viewport, createEvent.wheel(viewport, init));
+    // a trackpad swipe: thirty small events, 120 px in all, one notch's step
+    for (let i = 0; i < 30; i++) wheel({ deltaY: -4 });
+    expect(screen.getByText("zoom 7×")).toBeTruthy();
+    // one fast flick of three notches
+    wheel({ deltaY: -300 });
+    expect(screen.getByText("zoom 10×")).toBeTruthy();
+    // a wheel that counts in lines: three lines are a notch
+    wheel({ deltaY: 3, deltaMode: WheelEvent.DOM_DELTA_LINE });
+    expect(screen.getByText("zoom 9×")).toBeTruthy();
+  });
+
+  it("turning the wheel back drops what was left of the other way", () => {
+    const { viewport } = mount();
+    const wheel = (init: WheelEventInit) => fireEvent(viewport, createEvent.wheel(viewport, init));
+    for (let i = 0; i < 9; i++) wheel({ deltaY: -10 });
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+    wheel({ deltaY: 100 });
+    expect(screen.getByText("zoom 5×")).toBeTruthy();
+  });
+
+  it("the wheel keeps the cell under the cursor where it was", () => {
+    const { overlay, viewport } = mount();
+    // A laid-out viewport: the picture starts 16 px in (the padding), is
+    // pixel.width × zoom wide, and moves left as the viewport scrolls.
+    const stage = overlay.parentElement as HTMLDivElement;
+    Object.defineProperty(overlay, "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        const left = 16 - viewport.scrollLeft;
+        const top = 16 - viewport.scrollTop;
+        const width = parseFloat(stage.style.width);
+        const height = parseFloat(stage.style.height);
+        return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) };
+      },
+    });
+    // the middle of cell (50, 20) at 6×
+    const cursor = { clientX: 16 + 50.5 * 6, clientY: 16 + 20.5 * 6 };
+    const hover = () => fireEvent.pointerMove(overlay, at(cursor.clientX, cursor.clientY, { buttons: 0 }));
+    hover();
+    expect(screen.getByText("50,20")).toBeTruthy();
+    for (const [deltaY, zoom] of [[-100, 7], [-300, 10], [200, 8]] as const) {
+      fireEvent(viewport, createEvent.wheel(viewport, { deltaY, ...cursor }));
+      expect(screen.getByText(`zoom ${zoom}×`)).toBeTruthy();
+      hover();
+      expect(screen.getByText("50,20")).toBeTruthy();
+    }
+    expect(viewport.scrollLeft).toBeGreaterThan(0);
+    expect(viewport.scrollTop).toBeGreaterThan(0);
+  });
+
   it("switching layers drops the selection", () => {
     const { overlay, viewport } = mount();
     fireEvent.keyDown(viewport, { key: "s" });
