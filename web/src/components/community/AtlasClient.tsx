@@ -739,9 +739,13 @@ export default function AtlasClient({
                       if (!dragMovedRef.current) setSelection({ kind: "entry", id: e.id });
                     }}
                     onKeyDown={(ev) => {
-                      if (ev.key === "Enter" || ev.key === " ") setSelection({ kind: "entry", id: e.id });
+                      if (ev.key !== "Enter" && ev.key !== " ") return;
+                      // Space would scroll the page as well.
+                      ev.preventDefault();
+                      setSelection({ kind: "entry", id: e.id });
                     }}
                   >
+                    <circle r={14} className={styles.focusRing} />
                     {placingNear === e.id && (
                       <circle r={13} fill="none" stroke="#F4EFE6" strokeOpacity={0.8} strokeDasharray="3 3" />
                     )}
@@ -781,6 +785,9 @@ export default function AtlasClient({
                   >
                     <foreignObject x={-22} y={-44} width={44} height={102}>
                       <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={pin.title}
                         className={styles.pin}
                         data-selected={isSelected}
                         data-draggable={draggable}
@@ -795,6 +802,11 @@ export default function AtlasClient({
                         onClick={(ev) => {
                           ev.stopPropagation();
                           if (!dragMovedRef.current) setSelection({ kind: "pin", id: pin.patternId });
+                        }}
+                        onKeyDown={(ev) => {
+                          if (ev.key !== "Enter" && ev.key !== " ") return;
+                          ev.preventDefault();
+                          setSelection({ kind: "pin", id: pin.patternId });
                         }}
                       >
                         <div className={styles.pinTile}>

@@ -288,6 +288,24 @@
   box-shadow: 0 0 8px rgba(244, 239, 230, 0.25);
 }
 
+.pin:focus-visible {
+  outline: none;
+}
+
+/* Drawn inside the tile: the foreignObject is the tile's width and clips
+   anything outside it, and the live well would cover an outline. */
+.pin:focus-visible .pinTile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--pfc-ink);
+  pointer-events: none;
+}
+
+.pin:focus-visible .pinCaption {
+  color: var(--pfc-ink);
+}
+
 .pinWell {
   position: absolute;
   inset: 0;
@@ -477,8 +495,27 @@
   transition: r 0.12s;
 }
 
-.node:hover .core {
+.node:hover .core,
+.node:focus-visible .core {
   r: 8;
+}
+
+/* The keyboard's place on the map. The browser's outline would box the
+   label too, so the ring is drawn: cream, like selection, since orange here
+   means live. */
+.focusRing {
+  fill: none;
+  stroke: var(--pfc-ink);
+  stroke-width: 1.5;
+  visibility: hidden;
+}
+
+.node:focus-visible .focusRing {
+  visibility: visible;
+}
+
+.node:focus-visible .nodeLabel {
+  fill: var(--pfc-ink);
 }
 
 .node[data-selected="true"] .core {
@@ -499,6 +536,14 @@
 
 .pulseRing {
   animation: pulse 2.2s ease-in-out infinite;
+}
+
+/* Held at the middle of its beat: the ring still marks the entry as live. */
+@media (prefers-reduced-motion: reduce) {
+  .pulseRing {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /* ── side panel ── */
