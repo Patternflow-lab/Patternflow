@@ -293,7 +293,7 @@
 }
 
 /* Drawn inside the tile: the foreignObject is the tile's width and clips
-   anything outside it, and the live well would cover an outline. */
+   anything outside it, so an outline around the tile shows only below. */
 .pin:focus-visible .pinTile::after {
   content: "";
   position: absolute;

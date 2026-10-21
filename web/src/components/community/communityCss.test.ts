@@ -1,6 +1,6 @@
 // jsdom applies none of the CSS modules, so the sizes and states below are
-// read from the files. The browser numbers are in the PR that set them: the
-// dialog × measured 25×21px before and 44×44px after, at 390px wide.
+// read from the files. In Chromium at 390px the dialog × measured 11×23px
+// before these rules and 44×44px after.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";

@@ -2552,9 +2552,9 @@
   color: var(--pfc-led);
 }
 
-/* The × is 10px of glyph in a 44px box, the tab bar's thumb rule. The
+/* The × is 11px of glyph in a 44px box, the tab bar's thumb rule. The
    negative margin gives the extra back to the header's padding, so the row
-   stays as tall as it was and the glyph stays near the corner. */
+   keeps its height and the glyph stays where it was. */
 .modalHeader button {
   appearance: none;
   border: 0;
@@ -2568,7 +2568,7 @@
   min-width: 44px;
   min-height: 44px;
   padding: 0;
-  margin: -12px -14px -12px auto;
+  margin: -10px -17px -10px auto;
 }
 
 .modalHeader button:hover {
