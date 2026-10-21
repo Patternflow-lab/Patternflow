@@ -1,13 +1,32 @@
 @import "tailwindcss";
 
-  /* Pretendard, each weight in four parts. The whole file is 770–790 KB, most
+  /* Pretendard, each weight in five parts. The whole file is 770–790 KB, most
      of it Hangul, and a page fetched all of it for one glyph Inter lacks —
      an English page for the arrow in a link. The parts are the same glyphs,
      outlines and metrics, cut by script (pyftsubset on the files beside
      them); their ranges cover all of Unicode between them, so whatever the
      whole file drew, one part still draws. A page now fetches only the parts
      it has characters for: an arrow costs 38 KB, and the Hangul comes with
-     the first Korean word. */
+     the first Korean word.
+
+     The Hangul is two parts. hangul holds the jamo and the 2,350 syllables
+     of KS X 1001 in 158–161 KB; on 21 October 2026 those were every
+     syllable in web/src and web/content. hangul-rare holds the other 8,822
+     in 463–484 KB. Both claim the syllable block, and hangul-rare is
+     written first on purpose: where two faces' ranges overlap, the browser
+     tries the one written last and moves to the earlier one only for a
+     syllable it has no glyph for. A Korean page fetches hangul alone, and
+     hangul-rare waits for a name like 똠 or 뷁. Listing the 2,350 syllables
+     in unicode-range instead takes 1,613 runs, 29 KB of CSS on every page,
+     English ones included.
+
+     Cut with fonttools 4.67 from the files beside them:
+       pyftsubset Pretendard-Regular.woff2 --unicodes-file=<list>
+         --layout-features='*' --name-IDs='*' --flavor=woff2
+     where the hangul list is U+1100-11FF, U+3130-318F, U+A960-A97F,
+     U+D7B0-D7FF and every syllable Python's euc_kr codec decodes from
+     lead bytes B0-C8, trail bytes A1-FE; the hangul-rare list is the rest
+     of U+AC00-D7A3. src/app/fonts.test.ts holds the files to that split. */
   @font-face {
     font-family: 'Pretendard';
     font-weight: 400;
@@ -15,6 +34,14 @@
     font-display: swap;
     src: url('/fonts/Pretendard-Regular.latin.woff2') format('woff2');
     unicode-range: U+0000-052F, U+1E00-1EFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Regular.hangul-rare.woff2') format('woff2');
+    unicode-range: U+AC00-D7A3;
   }
   @font-face {
     font-family: 'Pretendard';
@@ -47,6 +74,14 @@
     font-display: swap;
     src: url('/fonts/Pretendard-Bold.latin.woff2') format('woff2');
     unicode-range: U+0000-052F, U+1E00-1EFF;
+  }
+  @font-face {
+    font-family: 'Pretendard';
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    src: url('/fonts/Pretendard-Bold.hangul-rare.woff2') format('woff2');
+    unicode-range: U+AC00-D7A3;
   }
   @font-face {
     font-family: 'Pretendard';
