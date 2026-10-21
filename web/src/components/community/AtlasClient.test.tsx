@@ -84,8 +84,15 @@ describe("atlas writes the server refuses", () => {
     expect(screen.getByRole("heading", { name: "Slow tide" })).toBeTruthy();
   };
 
+  const scrollIntoView = vi.fn();
+
   beforeEach(() => {
     refresh.mockClear();
+    scrollIntoView.mockClear();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
     // jsdom lays nothing out and has neither of these. With the identity as
     // the map's screen matrix, a client point is a viewBox point.
     Object.defineProperty(SVGSVGElement.prototype, "getScreenCTM", {
@@ -143,6 +150,8 @@ describe("atlas writes the server refuses", () => {
     );
     expect(screen.getByRole("heading", { name: "Slow tide" })).toBeTruthy();
     expect(refresh).not.toHaveBeenCalled();
+    // Remove is at the foot of the panel and the reason at its head.
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getAllByRole("button", { name: ENTRIES[0].nmEn })[0]);
     expect(screen.queryByRole("alert")).toBeNull();

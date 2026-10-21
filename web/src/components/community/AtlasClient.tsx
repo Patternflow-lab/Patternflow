@@ -873,7 +873,7 @@ export default function AtlasClient({
 
         <aside className={styles.panel}>
           {shownError && (
-            <p role="alert" className={styles.writeError}>
+            <p role="alert" className={styles.writeError} ref={revealOnMount}>
               {shownError}
             </p>
           )}
@@ -1255,6 +1255,14 @@ function writeLang(next: Lang) {
     unsavedLang = next;
   }
   for (const listener of langListeners) listener();
+}
+
+/** Remove sits at the foot of a pin panel and the page scrolls to reach it,
+ *  so a refusal at the panel's head can land above the window. Brought into
+ *  view once, as it appears: a stable function, so React calls it on mount
+ *  and not on every render. */
+function revealOnMount(node: HTMLElement | null) {
+  node?.scrollIntoView({ block: "nearest" });
 }
 
 function clamp(value: number, min: number, max: number) {
