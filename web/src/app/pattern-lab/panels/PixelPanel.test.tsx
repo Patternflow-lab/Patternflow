@@ -266,14 +266,21 @@ describe("PixelPanel", () => {
     vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => height);
   };
 
-  it("on a phone the picture opens fitted, all 128 columns in view", () => {
-    // the Pixel panel on a 390 px phone: 374 px across, 16 px padding a side
-    panelSize(374, 300);
+  it("on a phone the picture opens fitted, all of it in view", () => {
+    // the Pixel viewport on a 390×844 phone, measured in Chromium
+    panelSize(372, 151);
     mount();
-    expect(screen.getByText("zoom 2×")).toBeTruthy();
+    expect(screen.getByText("zoom 1×")).toBeTruthy();
     // and the zoom stays the user's to change
     fireEvent.click(screen.getByLabelText("Zoom in"));
-    expect(screen.getByText("zoom 3×")).toBeTruthy();
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
+  });
+
+  it("a desktop panel narrower than the picture at 6× opens fitted too", () => {
+    // 1440×900: the viewport is 649×648, and 6× is 768 px across
+    panelSize(649, 648);
+    mount();
+    expect(screen.getByText("zoom 4×")).toBeTruthy();
   });
 
   it("a panel the picture already fits keeps 6×", () => {
@@ -304,14 +311,14 @@ describe("PixelPanel", () => {
       vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => size.height);
       mount();
       expect(screen.getByText("zoom 6×")).toBeTruthy();
-      size = { width: 374, height: 300 };
+      size = { width: 372, height: 151 };
       act(() => observers.forEach((observer) => observer.fire()));
-      expect(screen.getByText("zoom 2×")).toBeTruthy();
+      expect(screen.getByText("zoom 1×")).toBeTruthy();
       // a later resize leaves the user's zoom alone
       fireEvent.click(screen.getByLabelText("Zoom in"));
-      size = { width: 300, height: 200 };
+      size = { width: 200, height: 100 };
       act(() => observers.forEach((observer) => observer.fire()));
-      expect(screen.getByText("zoom 3×")).toBeTruthy();
+      expect(screen.getByText("zoom 2×")).toBeTruthy();
     } finally {
       Object.defineProperty(window, "ResizeObserver", { configurable: true, value: Original });
     }

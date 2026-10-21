@@ -14,8 +14,9 @@ export const ZOOM_MAX = 32;
 
 /**
  * The largest whole zoom that shows the picture entire inside a viewport of
- * this size: 16 px of padding a side and 4 px of air. Never below 1×. A
- * 128×64 picture in a 374 px phone panel is 2×.
+ * this size: 16 px of padding a side and 4 px of air. Never below 1×. For
+ * 128×64 that is 1× in a 390×844 phone's 372×151 viewport, and 4× in the
+ * 649×648 one at 1440×900.
  */
 export function zoomToFit(viewportWidth: number, viewportHeight: number, width: number, height: number) {
   return Math.max(ZOOM_MIN, Math.floor(Math.min((viewportWidth - 40) / width, (viewportHeight - 40) / height)));
@@ -76,8 +77,8 @@ export function usePixelViewport({
   }, [pixel, viewportRef]);
 
   // The first time the viewport has a size, a picture that does not fit at
-  // 6× opens fitted. A 390 px phone showed 57 of 128 columns, and there a
-  // finger drag paints, so the rest was out of reach. The panel can mount
+  // 6× opens fitted. A 390 px phone showed 56 of 128 columns and 19 of 64
+  // rows, and there a finger drag paints, so the rest was out of reach. The panel can mount
   // before it is laid out (a tab behind another), hence the observer. Once
   // only: after that the zoom is the user's, and Fit is one press.
   const fitted = useRef(false);
