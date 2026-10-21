@@ -1,26 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import HeroJournalLink from "@/components/journal/HeroJournalLink";
 import { captureEvent } from "@/lib/posthogEvents";
 import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
+import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 
 // How many people have made a Patternflow, by the nearest thing to a count
 // there is: the community's membership, which tracks it closely. Rounded and
 // said as "around", because it is an estimate.
 const PEOPLE_WHO_MADE_ONE = 40;
-
-// The embed starts by itself, so someone who has asked their system for less
-// motion gets the poster and no embed at all. The server cannot know, so it
-// sends the poster alone and the client adds the video after hydration.
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-function subscribeReducedMotion(onChange: () => void) {
-  const mq = window.matchMedia(REDUCED_MOTION);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-const getReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
-const getReducedMotionServer = () => true;
 
 // One play of the video, from the start.
 function HeroEmbed({ onEnded }: { onEnded: () => void }) {
@@ -107,7 +96,10 @@ function HeroVideo() {
 }
 
 export default function Hero() {
-  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, getReducedMotionServer);
+  // The embed starts by itself, so someone who has asked their system for less
+  // motion gets the poster and no embed at all. The server cannot know, so it
+  // sends the poster alone and the client adds the video after hydration.
+  const reducedMotion = useReducedMotion();
 
   return (
     <section className="hero">
