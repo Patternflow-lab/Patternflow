@@ -101,7 +101,7 @@ PostHog (`src/providers/PostHogProvider.tsx`, event helpers in `src/lib/posthogE
 
 ## Environment variables
 
-`web/.env.example` is the complete, commented list. The site builds and runs with none set; each group switches on one deployment concern:
+`web/.env.example` is the complete, commented list. `src/lib/envExample.test.ts` fails when the code reads a variable the file leaves out, when the file offers one nothing reads, or when this table and the file disagree. The site builds and runs with none set; each group switches on one deployment concern:
 
 | Group | Vars |
 | :--- | :--- |
@@ -109,7 +109,7 @@ PostHog (`src/providers/PostHogProvider.tsx`, event helpers in `src/lib/posthogE
 | Roadmap | `GITHUB_TOKEN` |
 | Community host | `COMMUNITY_ENABLED`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `COMMUNITY_DB_PATH`, `COMMUNITY_ALLOWED_ORIGINS`, `COMMUNITY_ADMIN_USERNAMES` |
 | Every deployment with a community | `NEXT_PUBLIC_COMMUNITY_URL` |
-| Build service | `BUILD_ENABLED`, `NEXT_PUBLIC_BUILD_ENABLED`, `FIRMWARE_SRC_DIR`, `BUILD_WORK_DIR`, `BUILD_ARTIFACT_DIR`, `ARDUINO_CLI_PATH`, `BUILD_FQBN`, `PYTHON_PATH`, `WORKER_ID`, `BUILD_POLL_MS` |
+| Build service | `BUILD_ENABLED`, `NEXT_PUBLIC_BUILD_ENABLED`, `FIRMWARE_SRC_DIR`, `BUILD_WORK_DIR`, `BUILD_ARTIFACT_DIR`, `PF_XTENSA_BIN`, `PF_TARGET_ABI`, `PYTHON_PATH`, `WORKER_ID`, `BUILD_POLL_MS` |
 | Edition images | `VARIANT_BIN_DIR` |
 | Local dev | `NEXT_DEV_ORIGINS` |
 
