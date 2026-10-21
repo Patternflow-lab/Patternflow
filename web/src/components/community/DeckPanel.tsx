@@ -196,6 +196,7 @@ export default function DeckPanel() {
                         value={deviceHost}
                         onChange={(event) => changeDeviceHost(event.target.value)}
                         spellCheck={false}
+                        aria-label="Device address"
                         style={{
                           font: "inherit",
                           width: "16ch",

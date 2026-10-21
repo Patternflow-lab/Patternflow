@@ -129,6 +129,7 @@ const UI = {
     addPattern: "Add my pattern",
     pickerHead: (n: number) => `Your patterns · newest first (${n})`,
     pickerSearch: "Search by title…",
+    pickerSearchLabel: "Search your patterns",
     noAnswer: "Not saved. The server did not answer.",
   },
   ko: {
@@ -177,6 +178,7 @@ const UI = {
     addPattern: "내 패턴 올리기",
     pickerHead: (n: number) => `내 패턴 · 최신순 (${n})`,
     pickerSearch: "제목으로 검색…",
+    pickerSearchLabel: "내 패턴 찾기",
     noAnswer: "저장되지 않았다. 서버가 답하지 않았다.",
   },
 } as const;
@@ -558,6 +560,7 @@ export default function AtlasClient({
                     <input
                       type="search"
                       className={styles.pickerSearch}
+                      aria-label={t.pickerSearchLabel}
                       placeholder={t.pickerSearch}
                       value={pickerQuery}
                       onChange={(ev) => setPickerQuery(ev.target.value)}
@@ -903,6 +906,7 @@ export default function AtlasClient({
                 {canEditPin(selectedPin) ? (
                   <select
                     className={styles.fromSelect}
+                    aria-label={t.madeFrom}
                     value={selectedPin.entryId ?? ""}
                     onChange={(ev) => void setPinLink(selectedPin, ev.target.value || null)}
                   >
@@ -1205,6 +1209,7 @@ function PinPlayer({ code, knobsLabel }: { code: string; knobsLabel: string }) {
               <input
                 type="range"
                 className={styles.knobInput}
+                aria-label={label}
                 min={min}
                 max={max}
                 step={(max - min) / 200 || 0.01}

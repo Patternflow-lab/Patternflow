@@ -125,6 +125,7 @@ export default function ReportModal({
                 rows={3}
                 value={detail}
                 maxLength={REPORT_DETAIL_MAX}
+                aria-label="Details"
                 placeholder="Anything that helps us look at the right thing (optional)"
                 onChange={(event) => setDetail(event.target.value)}
               />
