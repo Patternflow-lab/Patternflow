@@ -260,6 +260,70 @@ describe("PixelPanel", () => {
     expect(screen.getByText("zoom 5×")).toBeTruthy();
   });
 
+  // jsdom lays nothing out, so every element measures 0×0 unless told.
+  const panelSize = (width: number, height: number) => {
+    vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => width);
+    vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => height);
+  };
+
+  it("on a phone the picture opens fitted, all of it in view", () => {
+    // the Pixel viewport on a 390×844 phone, measured in Chromium
+    panelSize(372, 151);
+    mount();
+    expect(screen.getByText("zoom 1×")).toBeTruthy();
+    // and the zoom stays the user's to change
+    fireEvent.click(screen.getByLabelText("Zoom in"));
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
+  });
+
+  it("a desktop panel narrower than the picture at 6× opens fitted too", () => {
+    // 1440×900: the viewport is 649×648, and 6× is 768 px across
+    panelSize(649, 648);
+    mount();
+    expect(screen.getByText("zoom 4×")).toBeTruthy();
+  });
+
+  it("a panel the picture already fits keeps 6×", () => {
+    panelSize(1200, 800);
+    mount();
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+  });
+
+  it("a panel laid out after it mounts is fitted when it gets its size, and only then", () => {
+    const observers: { fire: () => void }[] = [];
+    const Original = window.ResizeObserver;
+    class CapturingObserver {
+      private live = true;
+      constructor(private readonly callback: ResizeObserverCallback) {
+        observers.push({ fire: () => this.live && this.callback([], this as unknown as ResizeObserver) });
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {
+        this.live = false;
+      }
+    }
+    Object.defineProperty(window, "ResizeObserver", { configurable: true, value: CapturingObserver });
+    try {
+      // a tab behind another: mounted, 0×0
+      let size = { width: 0, height: 0 };
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(() => size.width);
+      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(() => size.height);
+      mount();
+      expect(screen.getByText("zoom 6×")).toBeTruthy();
+      size = { width: 372, height: 151 };
+      act(() => observers.forEach((observer) => observer.fire()));
+      expect(screen.getByText("zoom 1×")).toBeTruthy();
+      // a later resize leaves the user's zoom alone
+      fireEvent.click(screen.getByLabelText("Zoom in"));
+      size = { width: 200, height: 100 };
+      act(() => observers.forEach((observer) => observer.fire()));
+      expect(screen.getByText("zoom 2×")).toBeTruthy();
+    } finally {
+      Object.defineProperty(window, "ResizeObserver", { configurable: true, value: Original });
+    }
+  });
+
   it("the wheel zooms the drawing and does not scroll the panel", () => {
     const { viewport } = mount();
     const up = createEvent.wheel(viewport, { deltaY: -100 });
