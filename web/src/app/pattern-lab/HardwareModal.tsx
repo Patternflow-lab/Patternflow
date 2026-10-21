@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type MouseEvent } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import { assembleH, buildHExport, cleanPastedUnit, enforcePatternName } from "@/lib/lab/hExport";
@@ -129,13 +129,20 @@ export default function HardwareModal({
 
   const label = stacked ? name : codeLayers[0]?.name ?? "Pattern";
 
+  // Only a press on this backdrop itself closes. Send and Publish open inside
+  // it, so a press on their backdrop bubbles up here too, and the header
+  // pasted above lives in this component's state and would go with it.
+  const closeOnBackdrop = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
   return (
     <div
       className={styles.modalOverlay}
       role="dialog"
       aria-modal="true"
       aria-label="Hardware"
-      onClick={onClose}
+      onClick={closeOnBackdrop}
     >
       <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
         <div className={styles.modalHeader}>
