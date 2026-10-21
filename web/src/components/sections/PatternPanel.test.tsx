@@ -75,7 +75,7 @@ describe('PatternPanel', () => {
   });
 
   it('copies a creation prompt with the code in the editor and the step one detent moves Knob 2', () => {
-    const writeText = vi.fn(() => Promise.resolve());
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
     vi.stubGlobal('alert', vi.fn());
     try {
@@ -83,7 +83,7 @@ describe('PatternPanel', () => {
       act(() => useAppStore.getState().setCustomJsCode('export function draw(display) {}'));
       screen.getByRole('button', { name: 'Copy creation prompt' }).click();
 
-      const prompt = writeText.mock.calls[0]?.[0] as string;
+      const prompt = writeText.mock.calls[0]?.[0] ?? '';
       expect(prompt).toContain('- Knob 2: 0.1 to 10.0, clamps at edges, step 0.206 per detent.');
       expect(prompt).toContain('```javascript\nexport function draw(display) {}\n```');
     } finally {
