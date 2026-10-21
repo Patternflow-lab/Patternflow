@@ -74,6 +74,38 @@ describe('PatternPanel', () => {
     expect(editor).toHaveAttribute('data-height', '100%');
   });
 
+  it('copies a creation prompt with the code in the editor and the step one detent moves Knob 2', () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    vi.stubGlobal('alert', vi.fn());
+    try {
+      render(<PatternPanel content={content} isActive />);
+      act(() => useAppStore.getState().setCustomJsCode('export function draw(display) {}'));
+      screen.getByRole('button', { name: 'Copy creation prompt' }).click();
+
+      const prompt = writeText.mock.calls[0]?.[0] ?? '';
+      expect(prompt).toContain('- Knob 2: 0.1 to 10.0, clamps at edges, step 0.206 per detent.');
+      expect(prompt).toContain('```javascript\nexport function draw(display) {}\n```');
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  // The build server bakes a .pfm on its own machine; nothing compiles in the
+  // browser. Firmware is a PlatformIO build, which the firmware README puts
+  // first.
+  it('says where the build server compiles, and sends firmware builds to PlatformIO', () => {
+    render(<PatternPanel content={content} isActive />);
+    const link = screen.getByRole('link', { name: 'PlatformIO' });
+    expect(link).toHaveAttribute(
+      'href',
+      'https://github.com/engmung/Patternflow/blob/main/firmware/README.md#build-with-platformio-recommended',
+    );
+    const note = link.closest('p');
+    expect(note).toHaveTextContent('compiles your pattern into a module on its own machine');
+    expect(note).not.toHaveTextContent('in the browser');
+  });
+
   it('points the hero preview at Origin while the tab is still closed', () => {
     useAppStore.getState().setActivePatternId('patternFlowOriginal');
     useAppStore.getState().setCustomJsCode('');
