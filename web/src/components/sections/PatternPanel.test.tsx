@@ -10,7 +10,9 @@ import PatternPanel from './PatternPanel';
 // editor. The panel is mounted on every tab of the home view, but the editor
 // and the flasher script only once the Pattern tab has been opened.
 
-vi.mock('@monaco-editor/react', () => ({ default: () => <textarea aria-label="Code" /> }));
+vi.mock('@monaco-editor/react', () => ({
+  default: ({ height }: { height?: string | number }) => <textarea aria-label="Code" data-height={height} />,
+}));
 vi.mock('next/script', () => ({ default: ({ src }: { src: string }) => <span data-script={src} /> }));
 vi.mock('@/lib/posthogEvents', () => ({ captureEvent: () => {} }));
 
@@ -56,6 +58,20 @@ describe('PatternPanel', () => {
     rerender(<PatternPanel content={content} isActive={false} />);
     expect(screen.getByRole('textbox', { name: 'Code' })).toBeInTheDocument();
     expect(flasher()).not.toBeNull();
+  });
+
+  // The height lives in CSS (.editorBox), where the phone rule can shrink it
+  // to fit under the pinned 3D preview. A pixel height on the editor itself
+  // would win over that rule.
+  it('fills one box with the editor, the same box before and after the tab first opens', () => {
+    const { container, rerender } = render(<PatternPanel content={content} isActive={false} />);
+    const box = container.querySelector('.editorBox');
+    expect(box).toBeEmptyDOMElement();
+
+    rerender(<PatternPanel content={content} isActive />);
+    const editor = screen.getByRole('textbox', { name: 'Code' });
+    expect(editor.parentElement).toBe(box);
+    expect(editor).toHaveAttribute('data-height', '100%');
   });
 
   it('points the hero preview at Origin while the tab is still closed', () => {
