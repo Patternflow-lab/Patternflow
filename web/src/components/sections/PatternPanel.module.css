@@ -265,7 +265,7 @@
   letter-spacing: var(--pf-track-mono);
 }
 
-.nextCard h3 {
+.nextCard h2 {
   margin: 0;
   font-size: var(--pf-fs-row);
   font-weight: 500;

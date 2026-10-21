@@ -640,7 +640,7 @@
   .panel-header {
     margin-bottom: 40px;
   }
-  .panel-header h2 {
+  .panel-header h1 {
     font-weight: 500;
     font-size: 64px;
     line-height: 1;
@@ -853,7 +853,7 @@
   @media (max-width: 900px) {
     .tab-bar { padding: 20px 24px 16px; gap: 20px; }
     .deck-content { padding: 0 24px 60px; }
-    .panel-header h2 { font-size: 42px; }
+    .panel-header h1 { font-size: 42px; }
     .panel-header .sub { font-size: 16px; }
     .panel-body p { font-size: 17px; }
     .panel-content { padding: 40px 0; min-height: auto; }
