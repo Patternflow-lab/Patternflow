@@ -1,4 +1,3 @@
-import React from 'react';
 import Link from 'next/link';
 import BreadboardDiagram from '@/components/docs/BreadboardDiagram';
 import styles from './breadboard.module.css';

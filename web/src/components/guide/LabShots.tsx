@@ -448,7 +448,7 @@ export default function LabShots({ lang, step }: { lang: GuideLang; step: number
         }
       >
         {images.map((g) => (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a real capture of the lab, shown as is
           <img
             key={g.src}
             src={BASE + g.src}

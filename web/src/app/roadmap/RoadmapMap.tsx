@@ -233,7 +233,7 @@ export default function RoadmapMap() {
       x: Math.min(0, Math.round(cw * 0.62 - nowX)),
       y: Math.round((ch - HEIGHT) / 2),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- not on nowX: it moves with the canvas width, and a resize would undo the reader's own pan
   }, [today]);
 
   const gate = useMemo(() => {

@@ -41,7 +41,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "Date"] });
   vi.stubEnv("NEXT_PUBLIC_BUILD_ENABLED", "1");
-  fetchMock = vi.fn((url: string, init?: RequestInit) =>
+  fetchMock = vi.fn((_url: string, init?: RequestInit) =>
     init?.method === "POST" ? answer({ id: "b1" }, 202) : answer(RUNNING),
   );
   vi.stubGlobal("fetch", fetchMock);
