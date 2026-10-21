@@ -12,6 +12,16 @@ import { WHEEL_NOTCH_PX, wheelPixels } from "./wheel";
 export const ZOOM_MIN = 1;
 export const ZOOM_MAX = 32;
 
+/**
+ * The largest whole zoom that shows the picture entire inside a viewport of
+ * this size: 16 px of padding a side and 4 px of air. Never below 1×. For
+ * 128×64 that is 1× in a 390×844 phone's 372×151 viewport, and 4× in the
+ * 649×648 one at 1440×900.
+ */
+export function zoomToFit(viewportWidth: number, viewportHeight: number, width: number, height: number) {
+  return Math.max(ZOOM_MIN, Math.floor(Math.min((viewportWidth - 40) / width, (viewportHeight - 40) / height)));
+}
+
 export function usePixelViewport({
   pixel,
   viewportRef,
@@ -63,14 +73,37 @@ export function usePixelViewport({
     if (!pixel) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const next = Math.max(
-      1,
-      Math.floor(
-        Math.min((viewport.clientWidth - 40) / pixel.width, (viewport.clientHeight - 40) / pixel.height),
-      ),
-    );
-    setZoom(next);
+    setZoom(zoomToFit(viewport.clientWidth, viewport.clientHeight, pixel.width, pixel.height));
   }, [pixel, viewportRef]);
+
+  // The first time the viewport has a size, a picture that does not fit at
+  // 6× opens fitted. A 390 px phone showed 56 of 128 columns and 19 of 64
+  // rows, and there a finger drag paints, so the rest was out of reach. The panel can mount
+  // before it is laid out (a tab behind another), hence the observer. Once
+  // only: after that the zoom is the user's, and Fit is one press.
+  const fitted = useRef(false);
+  const pictureWidth = pixel?.width ?? 0;
+  const pictureHeight = pixel?.height ?? 0;
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (fitted.current || !viewport || pictureWidth === 0) return;
+    const fitOnce = () => {
+      if (viewport.clientWidth <= 0 || viewport.clientHeight <= 0) return false;
+      fitted.current = true;
+      const next = zoomToFit(viewport.clientWidth, viewport.clientHeight, pictureWidth, pictureHeight);
+      if (next < zoomRef.current) {
+        zoomRef.current = next;
+        setZoom(next);
+      }
+      return true;
+    };
+    if (fitOnce()) return;
+    const observer = new ResizeObserver(() => {
+      if (fitOnce()) observer.disconnect();
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [pictureWidth, pictureHeight, viewportRef]);
 
   // The wheel zooms. A native listener, because React delegates wheel
   // passively and preventDefault there would let the viewport and the dock
