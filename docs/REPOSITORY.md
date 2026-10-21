@@ -44,9 +44,13 @@ Filenames are lowercase with underscores. Tags are `vX.Y.Z`; the firmware source
 
 The site, the firmware and the release notes hold absolute `blob/main/…` links into this tree, and a pull request that breaks one fails `check:links-absolute`. Before renaming or moving any of these, grep `web/src`, `web/content`, `firmware/patternflow/console` and `firmware/patternflow/features/*/*_index.h`:
 
-- `README.md`, `BUILD_GUIDE.md` (the site links its section anchors — §1, §2, §4, §8, §8.2 and §10 when this was written — so a renamed heading breaks them), `FEATURE_GUIDE.md`, `PATTERN_GUIDE.md`
+- `README.md`, `BUILD_GUIDE.md` (the site links its section anchors — §1, §2, §4, §8, §8.2 and §10 when this was written — so a renamed heading breaks them), `FEATURE_GUIDE.md`, `PATTERN_GUIDE.md`, `CHANGELOG.md`, `CONTRIBUTING.md` and `.github/SUPPORT.md` (the issue forms link the last two)
 - `docs/AUDIO_GUIDE.md`, `docs/assembly/README.md`, `docs/midi-ableton.md`, `docs/midi-spec.md` (the last two are baked into the Audio edition's console pages)
-- `docs/EDITIONS.md`, `docs/rest-api.md`, `firmware/README.md`, `hardware/bom/bom_v3.9.csv`
+- `docs/EDITIONS.md`, `docs/rest-api.md`, `docs/osc-spec.md`, `docs/mqtt-spec.md`, `docs/audio-ws-spec.md`, `docs/pfst-v2-spec.md`, `docs/director-midi.md` (the features page links each of these)
+- `docs/panel-compatibility.md`, `docs/legacy/BUILD_GUIDE_v2.md`, `docs/LICENSE-SUMMARY.md`, `docs/releases/v2.0.0.md`, `firmware/README.md`, `firmware/CUSTOM_PATTERNS.md`, `hardware/README.md`, `hardware/bom/bom_v3.9.csv`, `tools/patternflow-audio-android/README.md`
+- `hardware/case/README.md`, and each folder in `hardware/case/remixes/` with the files in it. The Build panel's case cards link them by name: a README, a `print_layout.3mf`, the mbchars case's `assembly.md` and `bom.md`
 - `web/src/app/compliance/` — the `/compliance` URL is printed on the box. Never move, redirect or noindex it.
+
+Folders are linked too. The features page links each feature's folder in `firmware/patternflow/features/`, and the site's Build guide links files in `hardware/case/bed_256mm/`, `hardware/case/bed_330mm/` and `hardware/pcb/`. Every row, with the file the link sits in, is in [`investigations/2026-10-doc-map.csv`](investigations/2026-10-doc-map.csv) under the kind `absolute-blob`. `npm run doc-map` in `web/` writes that list again from the tree as it is.
 
 `.github/scripts/check_links.py` checks the *relative* links in every tracked markdown file and runs on every pull request that touches one. `check:links-absolute` (`web/scripts/doc-map.ts --check absolute`, in `drift.yml`) checks the absolute ones on every pull request, against the tree or the tag a link names.
