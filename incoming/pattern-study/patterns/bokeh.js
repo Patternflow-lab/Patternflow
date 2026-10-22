@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Pace=0.2..4, Size=-1..1, Lights=40..90
 //
 // Knob 1: Hue. Turns the lights round the colour wheel, starting from sodium amber with a few red and blue ones among them.
@@ -16,8 +16,8 @@
 // Knob 4: Lights. How many are lit at once; big discs come in fewer.
 // Buttons: K1 tap racks the focus through, so every disc closes to a point and opens out again.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const N = 160;
 
 function hsvInto(out, h, s, v) {
@@ -39,8 +39,8 @@ function smooth(a, b, x) {
 }
 
 function spawn(params, i) {
-  params.x[i] = Math.random() * (W + 20) - 10;
-  params.y[i] = Math.random() * (H + 12) - 6;
+  params.x[i] = Math.random() * (W + 12) - 6;
+  params.y[i] = Math.random() * (H + 20) - 10;
   // Bigger discs are nearer lamps, so they also drift faster.
   params.size[i] = 0.65 + Math.random() * 0.75;
   const pick = Math.random();
@@ -165,9 +165,10 @@ export function draw(display, params, time) {
     const e = Math.max(0.3, 4.5 / r);
     const e0 = 1 - e * 0.5;
     const e1 = 1 + e * 0.5;
-    // Near the panel's edge the lens barrel clips the disc into a cat's eye.
-    const vx = ((cx - W / 2) / (W / 2)) * 0.45 * r;
-    const vy = ((cy - H / 2) / (W / 2)) * 0.45 * r;
+    // Near the panel's edge the lens barrel clips the disc into a cat's eye,
+    // measured against the long side so the corners clip as much as before.
+    const vx = ((cx - W / 2) / (H / 2)) * 0.45 * r;
+    const vy = ((cy - H / 2) / (H / 2)) * 0.45 * r;
     const reach = r * e1 * 1.12 + 1;
     const x0 = Math.max(0, Math.floor(cx - reach));
     const x1 = Math.min(W - 1, Math.ceil(cx + reach));
