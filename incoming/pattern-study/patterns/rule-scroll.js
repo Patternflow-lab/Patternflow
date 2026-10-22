@@ -1,13 +1,13 @@
 // ===== Patternflow pattern =====
 // Title:   Rule Scroll
 // Family:  automata
-// Idea:    A row of 128 cells looks at its neighbours and writes the next row under itself, and one eight-bit number decides whether the rows grow into nested triangles or into noise.
+// Idea:    A row of 64 cells looks at its neighbours and writes the next row under itself, and one eight-bit number decides whether the rows grow into nested triangles or into noise.
 // Author:  patternflow-lab
 // Date:    2026-10-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0..4, Rule=0..11, Noise=0..1
 //
 // Knob 1: Hue. Turns the colours around the colour wheel; each colour stands for the three cells a cell was born from.
@@ -30,8 +30,8 @@ function hsv(h, s, v) {
   return [r * 255, g * 255, b * 255];
 }
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const RULES = [30, 45, 73, 90, 105, 110, 150, 182, 54, 18, 62, 126];
 // Hue offset, saturation and brightness for each neighbourhood, left centre
 // right as three bits, then one more for a cell the noise flipped. The two
@@ -62,7 +62,10 @@ export function setup(params) {
   params.rows = new Uint8Array(W * H);
   params.cur = new Uint8Array(W);
   params.nxt = new Uint8Array(W);
-  params.back = new Uint8Array(W);
+  // The last eight rows, each packed into two 32-bit words.
+  params.histLo = new Int32Array(8);
+  params.histHi = new Int32Array(8);
+  params.histAt = 0;
   params.palette = new Float32Array(LOOK.length * 3);
   params.rng = (Math.random() * 4294967295) | 1;
   params.head = 0;
@@ -102,10 +105,21 @@ function step(params, rule, noise) {
     lit += nxt[x] ? 1 : -1;
     params.rows[row + x] = nxt[x] ? 9 : 0;
   }
-  // A row that is all one state, or repeats the one two generations back,
-  // has nothing left to show: one flipped cell starts it moving again.
-  let same = true;
-  for (let x = 0; x < W && same; x++) if (nxt[x] !== params.back[x]) same = false;
+  // A row that is all one state, or repeats one of the last eight, has
+  // nothing left to show: one flipped cell starts it moving again. On a ring
+  // of 64 rule 54 settles into a lattice of period four after 34 generations
+  // and rule 62 into one of period three; a flip there sets gliders running.
+  let lo = 0;
+  let hi = 0;
+  for (let x = 0; x < 32; x++) {
+    lo |= nxt[x] << x;
+    hi |= nxt[x + 32] << x;
+  }
+  let same = false;
+  for (let i = 0; i < 8 && !same; i++) if (params.histLo[i] === lo && params.histHi[i] === hi) same = true;
+  params.histLo[params.histAt] = lo;
+  params.histHi[params.histAt] = hi;
+  params.histAt = (params.histAt + 1) & 7;
   params.repeats = same ? params.repeats + 1 : 0;
   if (lit === 0 || lit === W || params.repeats > 24) {
     const x = Math.floor(rand(params) * W);
@@ -113,7 +127,6 @@ function step(params, rule, noise) {
     params.rows[row + x] = nxt[x] ? 9 : 0;
     params.repeats = 0;
   }
-  params.back.set(cur);
   params.cur = nxt;
   params.nxt = cur;
   params.gen++;
