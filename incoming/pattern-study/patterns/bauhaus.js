@@ -7,17 +7,17 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Pace=0.25..6, Grid=4..12, Line=0..1
 //
 // Knob 1: Hue. Turns the red, yellow and blue together around the wheel; the cream stays cream.
 // Knob 2: Pace. How often a cell changes and how long it takes; low is one slow turn after another, high has three cells moving at once.
-// Knob 3: Grid. Cells across, from four big squares a row to twelve small ones.
+// Knob 3: Grid. Cells down the long side, from four big squares to twelve small ones.
 // Knob 4: Line. How many cells are drawn as a line instead of a solid shape; at the top the sheet is a line drawing.
 // Buttons: K1 tap deals the whole sheet again, a diagonal of cells at a time.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const MAX = 12 * 6;
 
 const DISC = 0;
@@ -146,12 +146,13 @@ function randomShape(p, c) {
 
 function build(p, n) {
   p.n = n;
-  const S = Math.floor(W / n);
+  // The panel stands up, so the knob counts cells down its long side.
+  const S = Math.floor(H / n);
   p.S = S;
-  p.cols = n;
-  p.rows = Math.max(1, Math.floor(H / S));
-  p.ox = Math.floor((W - n * S) / 2);
-  p.oy = Math.floor((H - p.rows * S) / 2);
+  p.rows = n;
+  p.cols = Math.max(1, Math.floor(W / S));
+  p.ox = Math.floor((W - p.cols * S) / 2);
+  p.oy = Math.floor((H - n * S) / 2);
   const count = p.cols * p.rows;
   for (let c = 0; c < count; c++) {
     randomShape(p, c);

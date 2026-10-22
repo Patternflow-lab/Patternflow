@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Cycle=0..1, Speed=0..5, Warp=1..6, Zoom=0.035..0.095
 // @ramp oklab wrap 0:#05030f 0.16:#0e1450 0.22:#2a7ac0 0.27:#100c44 0.5:#2c1478 0.62:#c83888 0.68:#ffd890 0.74:#ff6a3a 0.84:#4a0a3a 1:#05030f
 //

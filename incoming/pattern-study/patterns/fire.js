@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Colour=0..1, Height=0.6..4, Wind=-1..1, Crackle=0..1
 //
 // Knob 1: Colour. What is burning: wood, then potassium lilac, gas blue, copper teal and boron green.
@@ -16,8 +16,8 @@
 // Knob 4: Crackle. Rougher air in the flames, pops of heat in the bed, and sparks thrown up out of them, from the odd one to a shower.
 // Buttons: K1 tap drops a log on, and the fire flares and throws sparks.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 // Two rows below the panel hold the fuel.
 const BH = H + 2;
 const STEPS = 60;
@@ -93,17 +93,19 @@ export function setup(params) {
   params.popS = new Float32Array(POPS);
   params.popClock = 0;
   params.buf = new Float32Array(W * H * 3);
+  params.started = false;
 }
 
 function throwEmber(params, wind, x) {
   const i = params.enext;
   params.enext = (i + 1) % E;
   params.ex[i] = x + (Math.random() - 0.5) * 8;
-  params.ey[i] = H - 4 - Math.random() * 10;
+  params.ey[i] = H - 6 - Math.random() * 20;
   params.evx[i] = wind * 26 + (Math.random() - 0.5) * 14;
-  params.evy[i] = -(24 + Math.random() * 30);
+  // Thrown hard enough to clear the flames, which now stand about ninety rows.
+  params.evy[i] = -(40 + Math.random() * 55);
   params.eage[i] = 0;
-  params.elife[i] = 0.7 + Math.random() * 1.3;
+  params.elife[i] = 1 + Math.random() * 1.6;
 }
 
 function step(params, height, wind, crackle) {
@@ -147,7 +149,8 @@ function step(params, height, wind, crackle) {
     shift[y] = gust * (0.25 + 0.6 * up) + slow + fast;
   }
 
-  const lose = 1.7 / (6 + height * 16);
+  // Half the loss a row of the 64-row panel had, so the flames climb twice as many rows.
+  const lose = 1.7 / (12 + height * 32);
   for (let y = 0; y < BH - 2; y++) {
     const below = (y + 1) * W;
     const below2 = (y + 2) * W;
@@ -215,6 +218,11 @@ export function update(dt, input, params) {
     params.popS[j] = 1;
     const n = 4 + Math.floor(Math.random() * 8);
     for (let m = 0; m < n; m++) throwEmber(params, wind, params.popX[j]);
+  }
+  // The first frame finds the fire already burning rather than a cold grate.
+  if (!params.started) {
+    params.started = true;
+    steps = 150;
   }
   for (let s = 0; s < steps; s++) step(params, height + params.flare * 1.2, wind, crackle);
 

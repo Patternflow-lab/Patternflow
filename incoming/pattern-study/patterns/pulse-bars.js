@@ -7,18 +7,18 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
-// @knobs Hue=0..1, Tempo=90..180, Bars=16..48, Decay=0..1
+// @matrix 64x128
+// @knobs Hue=0..1, Tempo=90..180, Bars=8..32, Decay=0..1
 //
 // Knob 1: Hue. Where the colour starts at the bass end; it climbs a third of the wheel to the treble end.
 // Knob 2: Tempo. Beats per minute of the drum machine, with sixteenth-note hats.
-// Knob 3: Bars. How many bands the meter splits into, from sixteen fat ones to a fine comb.
+// Knob 3: Bars. How many bands the meter splits into, from eight fat ones to a comb of LED-wide teeth.
 // Knob 4: Decay. How long each hit rings; low is tight and punchy, high swells and hangs.
 // Buttons: K1 tap grows the bars from the middle line both ways instead of from the floor.
 
-const W = 128;
-const H = 64;
-const MAX_BARS = 48;
+const W = 64;
+const H = 128;
+const MAX_BARS = 32;
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
@@ -86,7 +86,7 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const p = params;
-  const k = input.knobValues || [0, 90, 16, 0.06];
+  const k = input.knobValues || [0, 90, 8, 0.06];
   p.hue = k[0];
   p.bpm = k[1];
   p.bars = Math.round(k[2]);
@@ -120,7 +120,8 @@ export function update(dt, input, params) {
     const pad = 0.2 * (1 - 0.45 * f) * (0.75 + 0.25 * Math.sin(p.beats * 0.785 + f * 6));
     sum += duck * (pad + e[4] * 0.45 * band(f, p.bassAt, 0.08));
     sum += 0.03 + 0.04 * hash(p.step * 97 + i);
-    const target = (1 - Math.exp(-sum * p.jitter[i] * 1.7)) * 0.98;
+    // A tall meter has more room above the bars, so they are driven a little harder.
+    const target = (1 - Math.exp(-sum * p.jitter[i] * 2.1)) * 0.98;
     const lv = p.level[i];
     p.level[i] = target > lv ? lv + (target - lv) * Math.min(1, dt * 45) : target;
     if (p.level[i] >= p.peak[i]) {
@@ -139,10 +140,10 @@ export function update(dt, input, params) {
 export function draw(display, params, time) {
   const p = params;
   const n = p.bars;
-  const gap = n <= 24 ? 2 : 1;
+  const gap = n <= 12 ? 2 : 1;
   const mirror = p.mirror;
   // Rows from the floor (or from the middle line), in segments of two LEDs and a gap.
-  const reach = mirror ? 32 : H;
+  const reach = mirror ? H / 2 : H;
   // At 0 the bass end starts in blue.
   const hue = p.hue + 0.64;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
@@ -166,8 +167,8 @@ export function draw(display, params, time) {
       const c = p.cap;
       for (let x = x0; x < x1; x++) {
         if (mirror) {
-          display.setPixel(x, 31 - lv, c[0], c[1], c[2]);
-          display.setPixel(x, 32 + lv, c[0], c[1], c[2]);
+          display.setPixel(x, H / 2 - 1 - lv, c[0], c[1], c[2]);
+          display.setPixel(x, H / 2 + lv, c[0], c[1], c[2]);
         } else {
           display.setPixel(x, H - 1 - lv, c[0], c[1], c[2]);
         }

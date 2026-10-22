@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Grow=0.25..6, Branches=3..14, Wind=-1..1
 //
 // Knob 1: Hue. The flower colour; each plant takes a shade either side of it.
@@ -16,10 +16,11 @@
 // Knob 4: Wind. Leans new growth and sways the tops; left of centre it blows the other way.
 // Buttons: K1 tap sows a seed now.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const PLANTS = 18;
-const PIX = 420;
+// A plant can stand most of the way up the tall panel, so it needs room for more LEDs.
+const PIX = 720;
 const TIPS = 96;
 const FALL = 64;
 
@@ -37,8 +38,8 @@ const ASTER = 2;
 const LUPINE = 3;
 // How much a stem wanders off its line.
 const KIND_WOBBLE = [0.1, 0.04, 0.2, 0.06];
-const KIND_LEN = [34, 22, 18, 36];
-const KIND_SPREAD = [26, 16, 20, 24];
+const KIND_LEN = [74, 44, 40, 78];
+const KIND_SPREAD = [42, 30, 34, 36];
 const KIND_FORK = [0.12, 0.05, 0.3, 0.07];
 const KIND_LEAF = [0.12, 0.3, 0.22, 0.16];
 
@@ -197,8 +198,12 @@ function stepTip(p, t, wind) {
   if (fx > nx + 0.5) fx = nx + 0.5;
   if (fx < nx - 0.5) fx = nx - 0.5;
   if (!room(p, nx, ny)) {
-    // Blocked: try straight up, then the other slant.
-    const other = nx === x ? (lean < 0 ? x + 1 : x - 1) : x;
+    // Blocked: a slanted tip tries straight up, and a straight one tries the
+    // slant it leans to, then the other. Right after a fork the side shoot
+    // has taken a cell beside the stem, and the stem steps away from it.
+    const toward = lean < 0 ? x - 1 : x + 1;
+    const away = lean < 0 ? x + 1 : x - 1;
+    const other = nx !== x ? x : room(p, toward, ny) ? toward : away;
     if (room(p, other, ny)) {
       nx = other;
       fx = nx;
@@ -216,12 +221,12 @@ function stepTip(p, t, wind) {
   p.tipLeft[t]--;
   p.tipSince[t]++;
 
-  if (style === LUPINE && p.tipGen[t] === 0 && p.tipLeft[t] < 16) {
+  if (style === LUPINE && p.tipGen[t] === 0 && p.tipLeft[t] < 22) {
     // The top of a lupine climbs with a floret either side.
     for (let side = -1; side <= 1; side += 2) {
       if (free(p, nx + side, ny + 1) && free(p, nx + side * 2, ny + 1)) put(p, plant, nx + side, ny + 1, PETAL);
     }
-  } else if (p.tipSince[t] > 1 && Math.random() < KIND_LEAF[style] * (style === TULIP && ny < 46 ? 0.2 : 1)) {
+  } else if (p.tipSince[t] > 1 && Math.random() < KIND_LEAF[style] * (style === TULIP && ny < H - 18 ? 0.2 : 1)) {
     // Now and then a leaf beside the stem, rising away from it.
     const side = Math.random() < 0.5 ? -1 : 1;
     const lx = nx + side;
@@ -269,7 +274,8 @@ function step(p, dt, k) {
   const wind = k[3];
   p.branches = Math.round(k[2]);
   p.clock += dt;
-  const rate = 1.7 * pace;
+  // Tips climb faster than on the wide panel: a stem here goes twice as high in the same season.
+  const rate = 2.6 * pace;
   // Everything after growing runs on the same clock as the growing.
   const slow = 2 / pace;
   p.budTime = 1.2 * slow;
@@ -428,7 +434,7 @@ export function update(dt, input, params) {
     // pace: a slow garden is grown in longer steps.
     p.ready = true;
     const tick = (1 / 15) * Math.min(4, 2 / k[1]);
-    for (let i = 0; i < 1100; i++) step(p, tick, k);
+    for (let i = 0; i < 1600; i++) step(p, tick, k);
   }
   if (input.btnPressed && input.btnPressed[0]) sow(p);
   step(p, dt, k);

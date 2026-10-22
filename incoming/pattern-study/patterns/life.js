@@ -7,14 +7,14 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0..4, Rule=0..5, Ghosts=0..1
 //
 // Knob 1: Hue. Turns the whole palette, newborn to old to ghost, around the colour wheel.
 // Knob 2: Speed. Generations per second, from one to about 24.
 // Knob 3: Rule. 0 Conway B3/S23, 1 HighLife B36/S23, 2 2x2 B36/S125, 3 Day and Night B3678/S34678, 4 Anneal B4678/S35678, 5 Maze B3/S12345.
 // Knob 4: Ghosts. How long a dead cell glows on, from a short smear to long exposure.
-// Buttons: K1 tap sweeps a fresh soup across the whole panel.
+// Buttons: K1 tap sweeps a fresh soup down the whole panel.
 
 function hsv(h, s, v) {
   h = h - Math.floor(h);
@@ -30,8 +30,8 @@ function hsv(h, s, v) {
   return [r * 255, g * 255, b * 255];
 }
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const N = W * H;
 // Birth and survival as bit masks over the neighbour count, the density of
 // the soup each rule starts from, and the density a reseed drops in. The rules
@@ -122,13 +122,13 @@ function runWipe(params, dt, density) {
     params.wipeDone = r;
     if (params.wipeT >= 0.8) params.wipe = 0;
   } else {
-    // A front of fresh soup crosses the whole panel from left to right.
-    const to = Math.min(W, Math.floor((params.wipeT / 1.2) * W));
-    for (let x = params.wipeDone; x < to; x++) {
-      for (let y = 0; y < H; y++) reseedCell(params, y * W + x, density);
+    // A front of fresh soup comes down the whole panel from the top.
+    const to = Math.min(H, Math.floor((params.wipeT / 1.2) * H));
+    for (let y = params.wipeDone; y < to; y++) {
+      for (let x = 0; x < W; x++) reseedCell(params, y * W + x, density);
     }
     params.wipeDone = to;
-    if (to >= W) params.wipe = 0;
+    if (to >= H) params.wipe = 0;
   }
 }
 
@@ -171,8 +171,8 @@ function step(params, rule) {
   if (params.gen % 16 === 0) {
     let moved = 0;
     for (let b = 0; b < BLOCKS; b++) {
-      const bx = (b % 8) * 16;
-      const by = Math.floor(b / 8) * 16;
+      const bx = (b % 4) * 16;
+      const by = Math.floor(b / 4) * 16;
       let sum = 0;
       for (let y = by; y < by + 16; y++) for (let x = bx; x < bx + 16; x++) sum += next[y * W + x];
       params.now[b] = sum / 256;

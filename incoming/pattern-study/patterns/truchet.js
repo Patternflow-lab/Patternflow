@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Flip Rate=0..5, Tile=8..20, Thickness=0..1
 //
 // Knob 1: Hue. Turns the path colours around the colour wheel.
@@ -36,9 +36,11 @@ function hash(a, b) {
   return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
 }
 
+const W = 64;
+const H = 128;
 // Room for tiles down to 4 LEDs, so nothing is allocated after setup.
-const MAX_TILES = 32 * 16;
-const MAX_NODES = 17 * 32 + 16 * 33;
+const MAX_TILES = 16 * 32;
+const MAX_NODES = 33 * 16 + 32 * 17;
 const HALF_PI = Math.PI / 2;
 // Arcs between two pulses of light.
 const PULSE = 5;
@@ -63,10 +65,10 @@ export function setup(params) {
   params.seen = new Uint8Array(MAX_TILES * 2);
   params.walk = new Int32Array(MAX_TILES * 2);
   params.nodeArc = new Int32Array(MAX_NODES * 2);
-  params.colTile = new Int16Array(128);
-  params.colLocal = new Float32Array(128);
-  params.rowTile = new Int16Array(64);
-  params.rowLocal = new Float32Array(64);
+  params.colTile = new Int16Array(W);
+  params.colLocal = new Float32Array(W);
+  params.rowTile = new Int16Array(H);
+  params.rowLocal = new Float32Array(H);
   params.size = 0;
   params.wave = 0;
   params.flow = 0;
@@ -75,17 +77,17 @@ export function setup(params) {
 
 function build(params, size) {
   params.size = size;
-  params.tw = Math.ceil(128 / size);
-  params.th = Math.ceil(64 / size);
+  params.tw = Math.ceil(W / size);
+  params.th = Math.ceil(H / size);
   // The grid is centred, so a size that does not divide the panel crops evenly.
-  const ox = (params.tw * size - 128) / 2;
-  const oy = (params.th * size - 64) / 2;
-  for (let x = 0; x < 128; x++) {
+  const ox = (params.tw * size - W) / 2;
+  const oy = (params.th * size - H) / 2;
+  for (let x = 0; x < W; x++) {
     const gx = x + 0.5 + ox;
     params.colTile[x] = Math.floor(gx / size);
     params.colLocal[x] = gx - params.colTile[x] * size;
   }
-  for (let y = 0; y < 64; y++) {
+  for (let y = 0; y < H; y++) {
     const gy = y + 0.5 + oy;
     params.rowTile[y] = Math.floor(gy / size);
     params.rowLocal[y] = gy - params.rowTile[y] * size;
@@ -195,8 +197,8 @@ export function update(dt, input, params) {
   for (let t = 0; t < n; t++) {
     const i = t % tw;
     const j = (t - i) / tw;
-    // The front runs diagonally, and each pass turns a different third of the tiles.
-    const c = (i + j * 0.7 + 1.5 * Math.sin(j * 0.6)) / (tw + th * 0.7 + 3);
+    // The front runs diagonally down the long side, and each pass turns a different third of the tiles.
+    const c = (j + i * 0.7 + 1.5 * Math.sin(i * 0.6)) / (th + tw * 0.7 + 3);
     const count = Math.floor(params.wave - c);
     let flip = false;
     if (count !== params.cross[t]) {
@@ -249,10 +251,10 @@ export function draw(display, params, time) {
   const tw = params.tw;
   const hw = 0.8 + params.thick * (S * 0.235 - 0.8);
   const ground = hsv(params.hue + 0.6, 0.85, 0.16);
-  for (let y = 0; y < 64; y++) {
+  for (let y = 0; y < H; y++) {
     const ty = params.rowTile[y];
     const ly = params.rowLocal[y] - half;
-    for (let x = 0; x < 128; x++) {
+    for (let x = 0; x < W; x++) {
       const t = ty * tw + params.colTile[x];
       const lx = params.colLocal[x] - half;
       const c = params.cos[t];

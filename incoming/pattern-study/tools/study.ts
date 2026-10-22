@@ -7,7 +7,7 @@
  *   ... study.ts --only ripple-tank,moire    just those (index.html is left alone)
  *
  * A pattern passes when the Lab reads all four knobs and the frame from its
- * code, it runs eight seconds in the Lab engine without throwing (and three more
+ * code, the frame is the panel standing up (64 wide, 128 tall), it runs eight seconds in the Lab engine without throwing (and three more
  * with every knob at its minimum, then at its maximum), it lights the panel,
  * it moves, and each knob on its own changes the picture.
  */
@@ -66,6 +66,8 @@ function study(slug: string): Result {
   const matrix = parseMatrixAnnotation(code);
   if (!matrix) problems.push("no @matrix line");
   else if (!isStockPanelFrame(matrix)) problems.push(`@matrix ${matrix.width}x${matrix.height} is not the stock panel`);
+  // The panel stands on its short side by default, so the study draws for 64x128.
+  else if (matrix.width > matrix.height) problems.push(`@matrix ${matrix.width}x${matrix.height} lies on its side; the panel stands 64x128`);
   if (/\bsetValue\s*\(/.test(code) && !parseRampAnnotation(code)) problems.push("draws with setValue() but has no @ramp, so the Lab would show it grey");
   for (const key of ["Title", "Family", "Idea"]) if (!new RegExp(`^//[ \\t]*${key}:`, "m").test(code)) problems.push(`no "// ${key}:" line`);
   if (!/SPDX-License-Identifier:\s*CC-BY-SA-4\.0/.test(code)) problems.push("no CC-BY-SA-4.0 SPDX line");

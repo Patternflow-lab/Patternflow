@@ -73,8 +73,10 @@ const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;
 const number = (v: number) => `${Number(v.toPrecision(3))}`;
 
 /**
- * Knob sheet: a row per knob at its minimum, middle and maximum, the other
- * three at the study's start knobs.
+ * Knob sheet: each knob at its minimum, middle and maximum, the other three
+ * at the study's start knobs. A landscape frame takes a row per knob; a
+ * portrait one puts two knobs side by side, so the sheet stays about as wide
+ * as it is tall.
  */
 export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8Array[][]) {
   const { width, height } = pattern.matrix;
@@ -85,19 +87,23 @@ export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8
   const label = 22;
   const top = 36;
   const columns = 3;
-  const sheetW = gap + columns * (tileW + gap);
-  const sheetH = top + rows.length * (label + tileH + gap);
+  const perLine = height > width ? 2 : 1;
+  const blockW = columns * (tileW + gap);
+  const sheetW = gap + perLine * blockW + (perLine - 1) * gap;
+  const sheetH = top + Math.ceil(rows.length / perLine) * (label + tileH + gap);
   const tiles: OverlayOptions[] = [];
   const texts: string[] = [
     `<text x="${gap}" y="25" font-size="19" font-weight="bold" fill="#f2f2f2">${escape(pattern.title)}</text>`,
   ];
   rows.forEach((row, k) => {
-    const y = top + k * (label + tileH + gap);
+    const y = top + Math.floor(k / perLine) * (label + tileH + gap);
+    const left = gap + (k % perLine) * (blockW + gap);
     const knob = pattern.knobs[k];
     row.forEach((rgb, column) => {
       const value = knob.min + ((knob.max - knob.min) * column) / (columns - 1);
-      const x = gap + column * (tileW + gap);
-      texts.push(`<text x="${x}" y="${y + 16}" font-size="14" fill="#b8b8b8">K${k + 1} ${escape(knob.name)} ${number(value)}</text>`);
+      const x = left + column * (tileW + gap);
+      const name = column === 0 ? `K${k + 1} ${escape(knob.name)} ${number(value)}` : number(value);
+      texts.push(`<text x="${x}" y="${y + 16}" font-size="14" fill="#b8b8b8">${name}</text>`);
       tiles.push({ input: ledLook(rgb, width, height, scale), raw: { width: tileW, height: tileH, channels: 3 }, left: x, top: y + label });
     });
   });
@@ -110,15 +116,20 @@ export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8
     .toFile(file);
 }
 
-/** Every pattern's frame at the start knobs, three across, named, for the top of the pull request. */
+/**
+ * Every pattern's frame at the start knobs, named, for the top of the pull
+ * request: three across for landscape frames, eight for portrait ones, with
+ * the family under the name where a portrait tile has no room beside it.
+ */
 export async function writeOverview(file: string, items: { pattern: Pattern; rgb: Uint8Array }[]) {
   const scale = 3;
   const { width, height } = items[0].pattern.matrix;
+  const portrait = height > width;
   const tileW = width * scale;
   const tileH = height * scale;
   const gap = 12;
-  const label = 26;
-  const columns = 3;
+  const label = portrait ? 42 : 26;
+  const columns = portrait ? 8 : 3;
   const rows = Math.ceil(items.length / columns);
   const sheetW = gap + columns * (tileW + gap);
   const sheetH = gap + rows * (label + tileH + gap);
@@ -129,7 +140,9 @@ export async function writeOverview(file: string, items: { pattern: Pattern; rgb
     const y = gap + Math.floor(i / columns) * (label + tileH + gap);
     texts.push(
       `<text x="${x}" y="${y + 18}" font-size="17" font-weight="bold" fill="#f2f2f2">${escape(pattern.title)}</text>`,
-      `<text x="${x + tileW}" y="${y + 18}" font-size="14" fill="#9a9aa6" text-anchor="end">${escape(pattern.family)}</text>`,
+      portrait
+        ? `<text x="${x}" y="${y + 36}" font-size="14" fill="#9a9aa6">${escape(pattern.family)}</text>`
+        : `<text x="${x + tileW}" y="${y + 18}" font-size="14" fill="#9a9aa6" text-anchor="end">${escape(pattern.family)}</text>`,
     );
     tiles.push({ input: ledLook(rgb, width, height, scale), raw: { width: tileW, height: tileH, channels: 3 }, left: x, top: y + label });
   });

@@ -36,6 +36,15 @@ export const FAMILIES: Record<string, { label: string; color: string }> = {
   light: { label: "빛", color: "#7ef0d0" },
   growth: { label: "자라남", color: "#d4c094" },
   glitch: { label: "글리치", color: "#b0b8c8" },
+  physics: { label: "물리·스프링", color: "#ff9db0" },
+  fractal: { label: "프랙탈", color: "#a3a0ff" },
+  cells: { label: "보로노이·셀", color: "#5fd0d0" },
+  print: { label: "망점·인쇄", color: "#f0a0e0" },
+  weather: { label: "날씨·자연", color: "#8fc0ff" },
+  pixel: { label: "픽셀 아트", color: "#ffd166" },
+  data: { label: "데이터 그림", color: "#7fe08a" },
+  algo: { label: "알고리즘", color: "#e0c060" },
+  time: { label: "시계·시간", color: "#ff8f5a" },
 };
 
 function readmeNotes(): Map<string, string> {
@@ -70,6 +79,8 @@ export function buildPage(results: Result[]): string {
         slug: p.slug,
         title: p.title,
         family: p.family,
+        // Round two's files say "// Round: 2"; round one's carry no line.
+        round: Number(p.code.match(/^\/\/[ \t]*Round:[ \t]*(\d+)/m)?.[1] ?? 1),
         note: notes.get(p.slug) ?? "",
         idea: p.idea,
         buttons: p.code.match(/^\/\/[ \t]*Buttons:[ \t]*(.+)$/m)?.[1].trim() ?? "",

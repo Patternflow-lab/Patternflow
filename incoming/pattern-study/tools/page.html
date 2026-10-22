@@ -55,6 +55,7 @@ button:hover { border-color: #3a3a44; }
 #map .dot { cursor: pointer; }
 #map .dot circle { stroke: #0b0b0d; stroke-width: 2; }
 #map .dot:hover circle { r: 10; }
+#map .dot.r2 circle { stroke: #ffffff; stroke-width: 1.6; }
 #map .dot text { fill: var(--text); font-size: 11.5px; paint-order: stroke; stroke: #141418; stroke-width: 3px; }
 #map svg.narrow .dot text { font-size: 9.5px; }
 #map svg.narrow .dot circle { r: 5.5; }
@@ -62,9 +63,12 @@ button:hover { border-color: #3a3a44; }
 .legend-chip { border-color: var(--family); color: var(--text); padding: 3px 9px; font-size: 12px; }
 .legend-chip::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--family); margin-right: 6px; vertical-align: 1px; }
 .legend-chip.off { opacity: 0.35; }
+.round-chip { --family: #6d6d78; }
+.round-chip.r2 { --family: #ffffff; }
+.round-chip::before { border-radius: 2px; }
 .map-note { color: #6d6d78; font-size: 12px; margin: 6px 2px 0; }
 .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
-#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }
+#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 14px; }
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -77,8 +81,13 @@ button:hover { border-color: #3a3a44; }
 .card.focus { box-shadow: 0 0 0 2px var(--family); }
 .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .card h3 { margin: 0; font-size: 17px; }
+.tags { display: flex; gap: 8px; align-items: baseline; }
 .chip { font-size: 12px; color: var(--family); white-space: nowrap; }
-canvas.panel { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; background: #000; border-radius: 4px; image-rendering: pixelated; }
+.round { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+.round.r2 { color: var(--text); border-color: #8a8a96; }
+canvas.panel { display: block; width: 100%; height: auto; background: #000; border-radius: 4px; image-rendering: pixelated; }
+.card.portrait .card-body { display: grid; grid-template-columns: clamp(150px, 36%, 240px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.card.portrait .note { margin-top: 0; }
 .note { margin: 8px 0 6px; color: #c9c9d2; font-size: 14px; }
 .error { margin: 0; color: #ff6b6b; font-size: 13px; white-space: pre-wrap; }
 .error:empty { display: none; }
@@ -103,6 +112,9 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
   main { padding: 14px 16px 48px; }
   h1 { font-size: 22px; }
   #cards { grid-template-columns: 1fr; }
+  .card.portrait .card-body { grid-template-columns: 1fr; gap: 0; }
+  .card.portrait canvas.panel { width: min(62%, 240px); margin: 0 auto; }
+  .card.portrait .note { margin-top: 8px; }
   .knob { grid-template-columns: 96px 1fr 42px; }
 }
 </style>
@@ -110,7 +122,7 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
 <body>
 <main>
   <h1>패턴 연구</h1>
-  <p class="lede">새 패턴 <span id="count"></span>개예요. 모두 Pattern Lab 의 엔진으로 돌아가요. 노브는 Lab 의 기본 노브 값 0, 2, 0, 0.06 을 패턴의 범위 안으로 당긴 자리에서 시작해요. 마음에 드는 것은 「코드 복사」로 가져가 Lab 의 CODE 칸에 붙여 넣으면 돼요. 붙여 넣으면 노브는 그때 Lab 에 있던 값을 새 범위로 당긴 자리에 서니, 같은 화면을 보려면 카드의 슬라이더 값대로 Knobs 칸을 맞춰요.</p>
+  <p class="lede">새 패턴 <span id="count"></span>개예요(<span id="rounds"></span>). 모두 패널을 세운 64×128 로 그리고, Pattern Lab 의 엔진으로 돌아가요. 노브는 Lab 의 기본 노브 값 0, 2, 0, 0.06 을 패턴의 범위 안으로 당긴 자리에서 시작해요. 마음에 드는 것은 「코드 복사」로 가져가 Lab 의 CODE 칸에 붙여 넣으면 돼요. 붙여 넣으면 노브는 그때 Lab 에 있던 값을 새 범위로 당긴 자리에 서니, 같은 화면을 보려면 카드의 슬라이더 값대로 Knobs 칸을 맞춰요.</p>
 
   <section class="map-box">
     <div class="map-controls">
@@ -119,7 +131,7 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
     </div>
     <div id="map"></div>
     <div class="legend" id="legend"></div>
-    <p class="map-note">점 하나가 패턴 하나예요. 누르면 그 패턴으로 가요. 점선 칸은 아직 아무 패턴도 없는 자리예요. 자리는 카드의 처음 노브 값에서 8초 동안 돌린 화면을 재서 정했고, 거의 같은 자리에 겹친 점은 조금 떼어 놓았어요.</p>
+    <p class="map-note">점 하나가 패턴 하나예요. 누르면 그 패턴으로 가요. 흰 테두리 점이 2판이에요. 점선 칸은 아직 아무 패턴도 없는 자리예요. 자리는 카드의 처음 노브 값에서 8초 동안 돌린 화면을 재서 정했고, 거의 같은 자리에 겹친 점은 조금 떼어 놓았어요.</p>
   </section>
 
   <div class="toolbar">

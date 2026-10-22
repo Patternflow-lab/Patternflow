@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Tempo=80..180, Pulses=3..13, Steps=8..16
 //
 // Knob 1: Hue. Turns the three rings around the colour wheel together.
@@ -16,16 +16,17 @@
 // Knob 4: Steps. Steps on the outer ring; the middle ring has three for every four of them.
 // Buttons: K3 tap turns the outer rhythm one step later.
 
-const W = 128;
-const H = 64;
-const CX = 63.5;
-const CY = 31.5;
+const W = 64;
+const H = 128;
+const CX = 31.5;
+const CY = 63.5;
 const MAX_STEPS = 32;
 const RIPPLES = 24;
 
-// Ring bands in LEDs from the centre: outer, middle, inner.
-const R_IN = [24.5, 16.5, 9];
-const R_OUT = [30.5, 21.5, 13];
+// Ring bands in LEDs from the centre: outer, middle, inner. The outer ring
+// stops three LEDs short of the panel's sides so a ripple can be seen leaving it.
+const R_IN = [23, 15.5, 8.5];
+const R_OUT = [28.5, 20, 12];
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
@@ -81,6 +82,7 @@ export function setup(params) {
   p.rRing = new Uint8Array(RIPPLES);
   p.rPower = new Float32Array(RIPPLES);
   p.rAngle = new Float32Array(RIPPLES);
+  p.rAim = new Float32Array(RIPPLES);
   p.rWide = new Float32Array(RIPPLES);
   p.dist = new Float32Array(W * H);
   p.turn = new Float32Array(W * H);
@@ -135,7 +137,15 @@ export function update(dt, input, params) {
       }
     }
   }
-  for (let i = 0; i < RIPPLES; i++) p.rAge[i] = Math.min(1, p.rAge[i] + dt / 1.4);
+  for (let i = 0; i < RIPPLES; i++) {
+    p.rAge[i] = Math.min(1, p.rAge[i] + dt / 1.4);
+    // The panel stands, so the open space is above and below the rings. An
+    // arc leaves facing its step and bends toward the nearer of the two as it
+    // goes; one sent straight sideways would be off the panel at once.
+    const a = p.rAngle[i];
+    const to = a < 0.25 ? a * 0.4 : a < 0.5 ? 0.5 - (0.5 - a) * 0.4 : a < 0.75 ? 0.5 + (a - 0.5) * 0.4 : 1 - (1 - a) * 0.4;
+    p.rAim[i] = a + (to - a) * Math.min(1, p.rAge[i] * 2.5);
+  }
 }
 
 export function draw(display, params, time) {
@@ -199,7 +209,7 @@ export function draw(display, params, time) {
           let v = p.rPower[q] * (1 - age) * Math.sqrt(1 - age) * (1 - d / 2.2);
           const wide = p.rWide[q];
           if (wide > 0) {
-            let da = Math.abs(a - p.rAngle[q]);
+            let da = Math.abs(a - p.rAim[q]);
             if (da > 0.5) da = 1 - da;
             const span = wide * (0.8 + age * 1.4);
             if (da > span) continue;
