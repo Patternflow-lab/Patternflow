@@ -40,7 +40,13 @@ import {
   cleanTitle,
 } from "@/lib/community/validate";
 import { cleanVisibility } from "@/lib/community/visibility";
-import { KNOWN_LICENSES, forkLicenseAllowed, stripShareWrapping } from "@/lib/pattern/share";
+import {
+  KNOWN_LICENSES,
+  LICENSE_OPTIONS,
+  RETIRED_LICENSE_OPTIONS,
+  forkLicenseAllowed,
+  stripShareWrapping,
+} from "@/lib/pattern/share";
 
 // PATCH /api/community/patterns/[id] — the author edits their own pattern.
 //
@@ -178,11 +184,25 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
 
   let license = pattern.license;
   if (raw.license !== undefined) {
-    // KNOWN_LICENSES, not LICENSE_OPTIONS: a pattern published under a licence
-    // that has since been retired must stay editable by its author. Keeping the
-    // stored value is always allowed; only *changing* it is restricted.
-    const match = KNOWN_LICENSES.find((option) => option.spdx === raw.license);
-    if (!match) return Response.json({ error: "Unknown licence." }, { status: 400 });
+    // Keeping the stored value is always allowed, so it is looked up in
+    // KNOWN_LICENSES: a pattern published under a licence that has since been
+    // retired must stay editable by its author. Changing it picks from
+    // LICENSE_OPTIONS, the two the publish route and both pickers offer. A
+    // retired licence stays on the work that already has it, and no pattern
+    // moves to one.
+    const choosable = raw.license === pattern.license ? KNOWN_LICENSES : LICENSE_OPTIONS;
+    const match = choosable.find((option) => option.spdx === raw.license);
+    if (!match) {
+      const retired = RETIRED_LICENSE_OPTIONS.find((option) => option.spdx === raw.license);
+      return Response.json(
+        {
+          error: retired
+            ? `${retired.spdx} is retired. A pattern published under it keeps it, but no pattern can change to it.`
+            : "Unknown licence.",
+        },
+        { status: 400 },
+      );
+    }
     if (match.spdx !== pattern.license && parent && !forkLicenseAllowed(parent.license, match.spdx)) {
       return Response.json(
         {
