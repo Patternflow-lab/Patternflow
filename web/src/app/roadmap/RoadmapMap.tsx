@@ -389,7 +389,7 @@ export default function RoadmapMap() {
   return (
     <div className={styles.map} lang={lang}>
       <header className={styles.topBar}>
-        <Link className={styles.back} href="/" lang="en">
+        <Link className={styles.back} href="/" prefetch={false} lang="en">
           ← Patternflow
         </Link>
         <h1 className={styles.mapTitle} lang="en">Project map</h1>

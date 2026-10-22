@@ -80,7 +80,7 @@ export default async function CommunityLayout({ children }: { children: React.Re
         <FirmwareNotice />
         <header className={styles.pageHeader}>
           <div className={styles.brandBlock}>
-            <Link href="/" className={styles.brand}>
+            <Link href="/" prefetch={false} className={styles.brand}>
               Patternflow
             </Link>
             <Link href="/community" className={styles.pageTitle}>
