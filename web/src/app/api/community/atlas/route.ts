@@ -3,6 +3,7 @@ import { ENTRY_BY_ID } from "@/lib/atlas/data";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { listAtlasPins } from "@/lib/community/server/queries";
 import { rateLimit } from "@/lib/community/ratelimit";
@@ -84,12 +85,8 @@ async function handleWrite(request: Request, mode: "place" | "remove") {
     return Response.json({ error: "Too many moves — let the pin settle a moment." }, { status: 429 });
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const payload = await readJsonObject(request);
+  if (payload instanceof Response) return payload;
 
   const patternId = typeof payload.patternId === "string" ? payload.patternId : "";
   if (!patternId) {

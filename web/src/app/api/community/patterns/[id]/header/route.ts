@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { bakePatternHeader } from "@/lib/community/server/moduleCache";
 import { notifyPortAdded } from "@/lib/community/server/notify";
@@ -106,13 +107,8 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     return Response.json({ error: "No such pattern." }, { status: 404 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   const codeCpp = cleanCpp(raw.codeCpp);
   if (!codeCpp) {
