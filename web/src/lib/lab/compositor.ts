@@ -4,7 +4,7 @@
 // can afford per pixel; the flattened JS export and the C++ header replicate
 // this math 1:1, so keep the three in sync (see flatten.ts and hExport.ts).
 
-import type { BlendMode } from "./types";
+import type { BlendMode, Layer } from "./types";
 
 export type CompositeEntry = {
   /** Straight RGBA bytes, width × height × 4 — same frame as the target. */
@@ -14,6 +14,30 @@ export type CompositeEntry = {
   /** Binary per-pixel coverage from mask layers: 0 hides the pixel entirely. */
   mask?: Uint8Array;
 };
+
+/**
+ * The layers an export carries, bottom → top (layers[0] is the top, as in the
+ * Layers panel): the visible ones, less each paint layer at 0% and the masks
+ * resting on it. A mask over a 0% layer gates nothing. Dropping the 0% layer
+ * alone would hand its masks to the next paint layer down, which the preview
+ * (engine.ts buildEntries) never does. flatten.ts and hExport.ts both export
+ * this stack, so the two can't drift apart.
+ */
+export function exportStack(layers: Layer[]): Layer[] {
+  const stack: Layer[] = [];
+  let overZero = false;
+  for (let index = layers.length - 1; index >= 0; index--) {
+    const layer = layers[index];
+    if (!layer.visible) continue;
+    if (layer.role === "mask") {
+      if (!overZero) stack.push(layer);
+      continue;
+    }
+    overZero = !(layer.opacity > 0);
+    if (!overZero) stack.push(layer);
+  }
+  return stack;
+}
 
 /**
  * AND one mask layer's buffer into a coverage bitmap (1 byte per pixel).

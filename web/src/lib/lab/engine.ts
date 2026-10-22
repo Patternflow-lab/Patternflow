@@ -254,11 +254,20 @@ export class LabEngine {
       const layer = layers[index];
       if (layer.id === excludeId || !layer.visible) continue;
 
+      if (layer.role !== "mask" && layer.opacity <= 0) {
+        // A mask over a 0% layer gates nothing, the same rule as the export
+        // (compositor.ts exportStack). It must not fall through onto a deeper
+        // layer. Checked before the buffer: a code layer at 0% from the start
+        // has never run, so it has none.
+        lastPaint = null;
+        continue;
+      }
+
       const buffer = this.bufferOf(layer, matrix);
       if (!buffer) continue;
 
       if (layer.role === "mask") {
-        if (!lastPaint) continue; // mask at the very bottom gates nothing
+        if (!lastPaint) continue; // nothing below it to gate, or a 0% layer
         if (!lastPaint.mask) lastPaint.mask = new Uint8Array(pixelCount).fill(1);
         applyMaskToCoverage(
           lastPaint.mask,
@@ -270,12 +279,6 @@ export class LabEngine {
         continue;
       }
 
-      if (layer.opacity <= 0) {
-        // Invisible paint still anchors masks above it, so they don't leak
-        // onto a deeper layer.
-        lastPaint = { data: buffer, opacity: 0, blend: layer.blend };
-        continue;
-      }
       const entry: CompositeEntry = { data: buffer, opacity: layer.opacity, blend: layer.blend };
       entries.push(entry);
       lastPaint = entry;
