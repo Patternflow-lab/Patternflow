@@ -8,6 +8,7 @@ import {
 } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { bakePatternHeader } from "@/lib/community/server/moduleCache";
 import {
@@ -128,13 +129,8 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
     return Response.json({ error: "You can only edit your own patterns." }, { status: 403 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   // A moderator's reach into someone else's pattern is its visibility or its
   // .h, never both at once. Every other field below simply never runs for

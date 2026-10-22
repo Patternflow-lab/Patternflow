@@ -1,5 +1,6 @@
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { notifyCommentAdded } from "@/lib/community/server/notify";
 import { getPostStub, newId } from "@/lib/community/server/queries";
@@ -40,14 +41,10 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     return Response.json({ error: "Post not found." }, { status: 404 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const payload = await readJsonObject(request);
+  if (payload instanceof Response) return payload;
 
-  const text = cleanComment((payload as Record<string, unknown>).body);
+  const text = cleanComment(payload.body);
   if (!text) {
     return Response.json({ error: "Comment is empty or over 2000 chars." }, { status: 400 });
   }
