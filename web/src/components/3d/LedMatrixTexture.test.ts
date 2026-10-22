@@ -56,7 +56,7 @@ describe('LedMatrixTexture errors', () => {
     frames(texture, 1);
 
     expect(onError).toHaveBeenCalledTimes(1);
-    expect(onError.mock.calls[0][0]).toMatch(/^Unexpected/);
+    expect(onError.mock.calls[0][0]).toMatch(/^The code stops before it ends: 1 \( and 1 \{ never close\./);
     expect(topLeft(texture)).toEqual([255, 0, 0]);
   });
 

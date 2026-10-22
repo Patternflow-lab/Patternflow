@@ -408,14 +408,171 @@ function getFunctionPreambleLines(): number {
   return functionPreambleLines;
 }
 
+// ── Code that stops early ───────────────────────────────────────────────────
+// A paste cut off partway is the commonest syntax error, and the engine blames
+// a token the author never typed. Cut inside `display.setPixel(x, y, ` and the
+// `return` compilePatternCode appends below the code lands inside the call:
+// "Unexpected token 'return'". Lose only the last `}` and it is the `)` that
+// `new Function` closes the body with: "Unexpected token ')'". Neither is in
+// the editor. What is still open where the code ends says it was cut.
+
+const OPENER_OF: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+
+// After one of these words a `/` starts a regular expression, not a division.
+const REGEX_AFTER_WORDS = new Set([
+  "return", "typeof", "instanceof", "in", "of", "new", "delete", "void",
+  "throw", "case", "do", "else", "yield", "await",
+]);
+
+function regexCanStart(prev: string, word: string) {
+  if (word) return REGEX_AFTER_WORDS.has(word);
+  return prev === "" || "(,=:[!&|?{};+-*%<>~^".includes(prev);
+}
+
+/**
+ * What is still open where the code ends, innermost first: `(`, `[`, `{`, a
+ * template's `${`, and the quote, backtick or `/*` the code stops inside.
+ * Brackets inside strings, comments and regular expressions do not count.
+ * Null when the code is broken in the middle instead (a closer that meets the
+ * wrong opener, a string that runs into a newline): there the engine's own
+ * message is the better guess.
+ */
+function openAtEnd(code: string): string[] | null {
+  // Each entry is "(", "[", "{", "${" or "`"; a "`" on top means the scan is
+  // in template text.
+  const stack: string[] = [];
+  const innermostFirst = (inside?: string) =>
+    inside ? [inside, ...stack.slice().reverse()] : stack.slice().reverse();
+  // The last significant character outside strings and comments, and the word
+  // it ends, to tell a regular expression from a division.
+  let prev = "";
+  let word = "";
+  let i = 0;
+
+  while (i < code.length) {
+    const c = code[i];
+
+    if (stack[stack.length - 1] === "`") {
+      if (c === "\\") i += 2;
+      else if (c === "`") {
+        stack.pop();
+        prev = c;
+        word = "";
+        i++;
+      } else if (c === "$" && code[i + 1] === "{") {
+        stack.push("${");
+        prev = "{";
+        word = "";
+        i += 2;
+      } else i++;
+      continue;
+    }
+
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (/[\w$]/.test(c)) {
+      let j = i + 1;
+      while (j < code.length && /[\w$]/.test(code[j])) j++;
+      word = code.slice(i, j);
+      prev = code[j - 1];
+      i = j;
+      continue;
+    }
+
+    const next = code[i + 1];
+    if (c === "/" && next === "/") {
+      const end = code.indexOf("\n", i);
+      if (end < 0) break;
+      i = end;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      const end = code.indexOf("*/", i + 2);
+      if (end < 0) return innermostFirst("/*");
+      i = end + 2;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== c) {
+        if (code[j] === "\n") return null;
+        j += code[j] === "\\" ? 2 : 1;
+      }
+      if (j >= code.length) return innermostFirst(c);
+      prev = c;
+      word = "";
+      i = j + 1;
+      continue;
+    }
+    if (c === "/" && regexCanStart(prev, word)) {
+      let j = i + 1;
+      let inClass = false;
+      while (j < code.length && (inClass || code[j] !== "/")) {
+        if (code[j] === "\n") return null;
+        if (code[j] === "[") inClass = true;
+        else if (code[j] === "]") inClass = false;
+        j += code[j] === "\\" ? 2 : 1;
+      }
+      if (j >= code.length) return null;
+      // The flags that follow scan as a word; with none, a `/` after the
+      // literal divides.
+      prev = c;
+      word = "";
+      i = j + 1;
+      continue;
+    }
+
+    if (c === "`" || c === "(" || c === "[" || c === "{") stack.push(c);
+    else if (c === "}" && stack[stack.length - 1] === "${") stack.pop();
+    else if (c in OPENER_OF && stack.pop() !== OPENER_OF[c]) return null;
+    prev = c;
+    word = "";
+    i++;
+  }
+
+  return innermostFirst();
+}
+
+/**
+ * "The code stops before it ends: 1 ( and 3 { never close." with the last line
+ * the code has, or null when nothing is left open at the end.
+ */
+function describeCutOff(code: string): string | null {
+  const open = openAtEnd(code);
+  if (!open || open.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const token of open) counts.set(token, (counts.get(token) ?? 0) + 1);
+  const parts = [...counts].map(([token, count]) => `${count} ${token}`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  const verb = open.length === 1 ? "never closes" : "never close";
+
+  const lines = code.split("\n");
+  let last = lines.length;
+  while (last > 1 && !lines[last - 1].trim()) last--;
+  // The end of the line is where the paste stopped, so a long one keeps its tail.
+  const source = lines[last - 1].trim();
+  const quoted = source.length > 80 ? `…${source.slice(-79)}` : source;
+  return `The code stops before it ends: ${list} ${verb}. Was the paste cut off?\nline ${last} (the last): ${quoted}`;
+}
+
 /**
  * Message plus, when the stack allows it, the pattern's own line number and the
- * source of that line. Falls back to the bare message — a syntax error carries
- * no usable frame, and a wrong line number would be worse than none.
+ * source of that line. A syntax error carries no usable frame, so it gets the
+ * bare message, unless the code ends with brackets still open: then it says the
+ * code was cut off and quotes the last line. A wrong line number would be worse
+ * than none.
  */
 export function describePatternError(error: unknown, code: string | null): string {
   const message = error instanceof Error ? error.message : String(error);
   if (!code) return message;
+
+  if (error instanceof Error && error.name === "SyntaxError") {
+    const cutOff = describeCutOff(code);
+    if (cutOff) return cutOff;
+  }
 
   const location = stackLocation(error);
   if (!location) return message;
