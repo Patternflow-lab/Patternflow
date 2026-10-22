@@ -502,6 +502,17 @@
   border-color: #171512;
 }
 
+/* On a phone the × box grows from 30px to 44px, the size of the community's
+   close buttons. The negative margin gives the extra 14px back to the
+   header's padding, so the header keeps its height and the × its place. */
+@media (max-width: 800px) {
+  .modalHeader button {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -7px;
+  }
+}
+
 .modalBody {
   padding: 16px;
   font-size: 14px;
