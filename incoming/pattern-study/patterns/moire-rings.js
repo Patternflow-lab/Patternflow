@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.1..6, Rings=5..16, Spread=-1..1
 //
 // Knob 1: Hue. Turns the two-colour pair around the colour wheel.
