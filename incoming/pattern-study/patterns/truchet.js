@@ -177,7 +177,8 @@ function trace(params) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 8, 0.06];
-  params.hue = k[0];
+  // K1 at 0 opens on teal rather than the red most of the study opens on.
+  params.hue = k[0] + 0.48;
   params.rate = k[1];
   params.thick = k[3];
   const size = Math.round(k[2]);

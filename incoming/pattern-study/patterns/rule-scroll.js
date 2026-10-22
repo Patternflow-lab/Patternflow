@@ -121,7 +121,8 @@ function step(params, rule, noise) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
-  params.hue = k[0];
+  // K1 at 0 opens on green rather than the red most of the study opens on.
+  params.hue = k[0] + 0.3;
   const rate = 3 * Math.pow(2, 0.75 * k[1]);
   const rule = RULES[Math.max(0, Math.min(RULES.length - 1, Math.round(k[2])))];
   const noise = 5 * k[3] * k[3];

@@ -37,7 +37,8 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 3, 0.06];
-  params.hue = k[0];
+  // K1 at 0 opens on cyan rather than the red most of the study opens on.
+  params.hue = k[0] + 0.52;
   params.speed = k[1];
   params.spacing = k[2];
   params.spread = k[3];

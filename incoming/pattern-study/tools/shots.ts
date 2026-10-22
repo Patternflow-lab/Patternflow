@@ -110,6 +110,38 @@ export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8
     .toFile(file);
 }
 
+/** Every pattern's frame at the start knobs, three across, named, for the top of the pull request. */
+export async function writeOverview(file: string, items: { pattern: Pattern; rgb: Uint8Array }[]) {
+  const scale = 3;
+  const { width, height } = items[0].pattern.matrix;
+  const tileW = width * scale;
+  const tileH = height * scale;
+  const gap = 12;
+  const label = 26;
+  const columns = 3;
+  const rows = Math.ceil(items.length / columns);
+  const sheetW = gap + columns * (tileW + gap);
+  const sheetH = gap + rows * (label + tileH + gap);
+  const tiles: OverlayOptions[] = [];
+  const texts: string[] = [];
+  items.forEach(({ pattern, rgb }, i) => {
+    const x = gap + (i % columns) * (tileW + gap);
+    const y = gap + Math.floor(i / columns) * (label + tileH + gap);
+    texts.push(
+      `<text x="${x}" y="${y + 18}" font-size="17" font-weight="bold" fill="#f2f2f2">${escape(pattern.title)}</text>`,
+      `<text x="${x + tileW}" y="${y + 18}" font-size="14" fill="#9a9aa6" text-anchor="end">${escape(pattern.family)}</text>`,
+    );
+    tiles.push({ input: ledLook(rgb, width, height, scale), raw: { width: tileW, height: tileH, channels: 3 }, left: x, top: y + label });
+  });
+  const svg = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${sheetW}" height="${sheetH}" font-family="DejaVu Sans, sans-serif">${texts.join("")}</svg>`,
+  );
+  await sharp({ create: { width: sheetW, height: sheetH, channels: 3, background: "#0b0b0d" } })
+    .composite([...tiles, { input: svg, left: 0, top: 0 }])
+    .png({ compressionLevel: 9, palette: true, colours: 256, dither: 0 })
+    .toFile(file);
+}
+
 export function ensureShots() {
   fs.mkdirSync(SHOTS, { recursive: true });
 }

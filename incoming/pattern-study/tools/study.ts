@@ -19,7 +19,7 @@ import { parseRampAnnotation } from "@/lib/pattern/ramp";
 
 import { listPatterns, loadPattern, run, STUDY, type Frame, type Pattern } from "./lab";
 import { difference, measure, type Measures } from "./measure";
-import { ensureShots, SHOTS, writeGif, writeKnobSheet } from "./shots";
+import { ensureShots, SHOTS, writeGif, writeKnobSheet, writeOverview } from "./shots";
 
 const args = process.argv.slice(2);
 const checkOnly = args.includes("--check");
@@ -38,6 +38,8 @@ const pending: Promise<unknown>[] = [];
 
 export type Result = {
   pattern: Pattern;
+  /** The frame four seconds in at the start knobs. */
+  still: Uint8Array | null;
   problems: string[];
   measures: Measures | null;
   knobResponse: number[];
@@ -74,7 +76,7 @@ function study(slug: string): Result {
   const main = framesOf(pattern, pattern.start, 8, 2);
   if (main.error) {
     problems.push(`throws at the start knobs: ${main.error.split("\n")[0]}`);
-    return { pattern, problems, measures: null, knobResponse: [], ms: main.ms };
+    return { pattern, problems, still: null, measures: null, knobResponse: [], ms: main.ms };
   }
   for (const [name, knobs] of [
     ["minimum", pattern.knobs.map((k) => k.min)],
@@ -127,12 +129,17 @@ function study(slug: string): Result {
     pending.push(writeKnobSheet(path.join(SHOTS, `${slug}-knobs.png`), pattern, sheet));
   }
 
-  return { pattern, problems, measures, knobResponse, ms: main.ms };
+  // Frames are kept from 2 s on, so index 60 is 4 s in.
+  return { pattern, problems, still: main.frames[60].rgb, measures, knobResponse, ms: main.ms };
 }
 
 async function main() {
   const slugs = only ?? listPatterns();
   const results = slugs.map(study);
+  if (withShots && !checkOnly && !only) {
+    const items = results.filter((r) => r.still).map((r) => ({ pattern: r.pattern, rgb: r.still! }));
+    pending.push(writeOverview(path.join(SHOTS, "overview.png"), items));
+  }
   await Promise.all(pending);
 
   const pad = (s: string, n: number) => s.padEnd(n);

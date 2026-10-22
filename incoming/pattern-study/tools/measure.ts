@@ -8,7 +8,7 @@ import zlib from "node:zlib";
 import type { Frame } from "./lab";
 
 export type Measures = {
-  /** Luminance change per second, 0..1 of full scale, averaged over pixels. */
+  /** Change in LED level per second, 0..1 of full scale, averaged over pixels. */
   motion: number;
   /** Mean step between neighbouring pixels, 0..1. Coarse shapes are low, fine texture high. */
   detail: number;
@@ -24,7 +24,11 @@ export type Measures = {
   drift: number;
 };
 
-const luma = (rgb: Uint8Array, p: number) => 0.2126 * rgb[p * 3] + 0.7152 * rgb[p * 3 + 1] + 0.0722 * rgb[p * 3 + 2];
+// An LED's level is its brightest channel. Luminance was tried first, and it
+// moved Moire Rings from motion 0.38 to 0.85 when only its hue changed, red
+// to cyan: red carries a fifth of green's luminance. The map is about
+// structure, so a colour change should not move a pattern on it.
+const level = (rgb: Uint8Array, p: number) => Math.max(rgb[p * 3], rgb[p * 3 + 1], rgb[p * 3 + 2]);
 
 export function measure(frames: Frame[], width: number, height: number, fps: number): Measures {
   const pixels = width * height;
@@ -36,12 +40,12 @@ export function measure(frames: Frame[], width: number, height: number, fps: num
   let coverage = 0;
   let colour = 0;
   let previous: Float32Array | null = null;
-  const lumas: Float32Array[] = [];
+  const levels: Float32Array[] = [];
 
   for (const frame of frames) {
     const L = new Float32Array(pixels);
-    for (let p = 0; p < pixels; p++) L[p] = luma(frame.rgb, p);
-    lumas.push(L);
+    for (let p = 0; p < pixels; p++) L[p] = level(frame.rgb, p);
+    levels.push(L);
 
     if (previous) {
       let change = 0;
@@ -104,9 +108,9 @@ export function measure(frames: Frame[], width: number, height: number, fps: num
     for (let i = 0; i < out.length; i++) out[i] /= per;
     return out;
   };
-  const first = blocks(lumas[0]);
+  const first = blocks(levels[0]);
   let drift = 0;
-  for (const L of lumas.slice(1)) {
+  for (const L of levels.slice(1)) {
     const b = blocks(L);
     let d = 0;
     for (let i = 0; i < b.length; i++) d += Math.abs(b[i] - first[i]);

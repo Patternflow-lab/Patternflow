@@ -38,7 +38,8 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 8];
-  params.hue = k[0];
+  // K1 at 0 opens on violet rather than the red most of the study opens on.
+  params.hue = k[0] + 0.72;
   params.speed = k[1];
   params.twist = k[2];
   params.tiles = Math.round(k[3]);
