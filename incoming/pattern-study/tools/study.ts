@@ -5,25 +5,36 @@
  *   npx tsx ../incoming/pattern-study/tools/study.ts --shots    the same, and the GIFs and knob sheets
  *   npx tsx ../incoming/pattern-study/tools/study.ts --check    write nothing; fail on a pattern or a stale index.html
  *   ... study.ts --only ripple-tank,moire    just those (index.html is left alone)
+ *   ... study.ts --check --gaps              and the empty cells of every map, the
+ *                                           ones the page draws dashed
  *
  * A pattern passes when the Lab reads all four knobs and the frame from its
  * code, the frame is the panel standing up (64 wide, 128 tall), it runs eight seconds in the Lab engine without throwing (and three more
  * with every knob at its minimum, then at its maximum), it lights the panel,
- * it moves, and each knob on its own changes the picture.
+ * it moves, and each knob on its own changes the picture. Its code may not
+ * name the network, the page, a clock or code built from text (OFF_LIMITS),
+ * its family is one families.json names, and a file from round three on
+ * carries the whole header the rounds write: Author, Date, Lineage and a
+ * "// Knob N:" line for each knob.
  */
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
+
+import type * as TS from "typescript";
 
 import { isStockPanelFrame, parseMatrixAnnotation } from "@/lib/pattern/matrix";
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
 
-import { listPatterns, loadPattern, run, STUDY, type Frame, type Pattern } from "./lab";
+import { AXES, emptyCells } from "./map";
+import { FAMILIES_FILE, listPatterns, loadFamilies, loadPattern, roundOf, run, STUDY, type Family, type Frame, type Pattern } from "./lab";
 import { difference, measure, type Measures } from "./measure";
 import { ensureShots, SHOTS, writeGif, writeKnobSheet, writeOverview } from "./shots";
 
 const args = process.argv.slice(2);
 const checkOnly = args.includes("--check");
 const withShots = args.includes("--shots");
+const withGaps = args.includes("--gaps");
 const onlyArg = args.indexOf("--only");
 const only = onlyArg >= 0 ? (args[onlyArg + 1] ?? "").split(",").filter(Boolean) : null;
 
@@ -33,6 +44,86 @@ const FPS = 30;
 const KNOB_FLOOR = 0.012;
 const LIT_FLOOR = 0.03;
 const MOTION_FLOOR = 0.004;
+
+// This folder has no node_modules of its own: typescript is web/'s.
+const ts = createRequire(path.resolve(STUDY, "../../web/package.json"))("typescript") as typeof TS;
+
+/**
+ * A pattern draws from its knobs, its buttons and the time the Lab hands it.
+ * These names reach past that. The page and the Lab run a pattern with the
+ * browser's rights, and the study runs it inside Node, so a pattern that
+ * names one fails the check. Comments may say them; the names are read from
+ * the parsed code. This catches a pattern that reaches out by mistake. It is
+ * not a sandbox: a name spelled out of pieces of text gets past it.
+ */
+const OFF_LIMITS: Record<string, string> = {
+  fetch: "reaches the network",
+  XMLHttpRequest: "reaches the network",
+  WebSocket: "reaches the network",
+  EventSource: "reaches the network",
+  navigator: "reaches the network",
+  Worker: "reaches the network",
+  SharedWorker: "reaches the network",
+  importScripts: "reaches the network",
+  import: "reaches the network",
+  document: "reaches the page",
+  window: "reaches the page",
+  globalThis: "reaches the page",
+  self: "reaches the page",
+  global: "reaches the page",
+  location: "reaches the page",
+  localStorage: "reaches the page",
+  sessionStorage: "reaches the page",
+  indexedDB: "reaches the page",
+  process: "reaches Node, where the study runs patterns",
+  require: "reaches Node, where the study runs patterns",
+  eval: "builds code from text",
+  Function: "builds code from text",
+  constructor: "builds code from text",
+  setTimeout: "builds code from text",
+  setInterval: "builds code from text",
+  // The Lab hands a pattern its time. A clock of its own makes the GIFs and
+  // --check come out different on every run.
+  Date: "keeps a clock of its own",
+  performance: "keeps a clock of its own",
+};
+
+function offLimits(code: string): string[] {
+  const source = ts.createSourceFile("pattern.js", code, ts.ScriptTarget.Latest, false, ts.ScriptKind.JS);
+  const found = new Set<string>();
+  const visit = (node: TS.Node) => {
+    if (ts.isIdentifier(node) && Object.hasOwn(OFF_LIMITS, node.text)) found.add(node.text);
+    // import("…"), import.meta and a static import all start with the keyword.
+    else if (node.kind === ts.SyntaxKind.ImportKeyword || ts.isImportDeclaration(node) || ts.isMetaProperty(node)) found.add("import");
+    // thing["constructor"] is thing.constructor.
+    else if (ts.isElementAccessExpression(node) && ts.isStringLiteralLike(node.argumentExpression) && Object.hasOwn(OFF_LIMITS, node.argumentExpression.text))
+      found.add(node.argumentExpression.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return [...found].sort();
+}
+
+// The lines the page reads: a family's name and colour.
+function familyProblems(families: Record<string, Family>): string[] {
+  const problems: string[] = [];
+  for (const [key, family] of Object.entries(families)) {
+    if (!/^[a-z][a-z0-9-]*$/.test(key)) problems.push(`"${key}" is not a lowercase family slug`);
+    if (typeof family?.label !== "string" || !family.label.trim()) problems.push(`${key} has no label`);
+    if (typeof family?.color !== "string" || !/^#[0-9a-f]{6}$/.test(family.color)) problems.push(`${key} has no #rrggbb color`);
+  }
+  return problems;
+}
+
+let families: Record<string, Family> = {};
+const familyFile = path.relative(STUDY, FAMILIES_FILE);
+const familyFailures: string[] = [];
+try {
+  families = loadFamilies();
+  familyFailures.push(...familyProblems(families));
+} catch (error) {
+  familyFailures.push(`cannot read it: ${(error as Error).message.split("\n")[0]}`);
+}
 
 const pending: Promise<unknown>[] = [];
 
@@ -71,6 +162,17 @@ function study(slug: string): Result {
   if (/\bsetValue\s*\(/.test(code) && !parseRampAnnotation(code)) problems.push("draws with setValue() but has no @ramp, so the Lab would show it grey");
   for (const key of ["Title", "Family", "Idea"]) if (!new RegExp(`^//[ \\t]*${key}:`, "m").test(code)) problems.push(`no "// ${key}:" line`);
   if (!/SPDX-License-Identifier:\s*CC-BY-SA-4\.0/.test(code)) problems.push("no CC-BY-SA-4.0 SPDX line");
+  if (pattern.family && !Object.hasOwn(families, pattern.family)) problems.push(`family "${pattern.family}" is not in ${familyFile}`);
+  const roundLine = code.match(/^\/\/[ \t]*Round:[ \t]*(.*)$/m);
+  if (roundLine && !/^\d+\s*$/.test(roundLine[1])) problems.push(`"// Round:" is not a number`);
+  // Rounds three and on run without anyone at the desk, so their files carry
+  // everything rounds one and two wrote by hand.
+  if (roundOf(code) >= 3) {
+    for (const key of ["Author", "Lineage"]) if (!new RegExp(`^//[ \\t]*${key}:[ \\t]*\\S`, "m").test(code)) problems.push(`no "// ${key}:" line`);
+    if (!/^\/\/[ \t]*Date:[ \t]*\d{4}-\d{2}-\d{2}\b/m.test(code)) problems.push(`no "// Date: YYYY-MM-DD" line`);
+    for (let n = 1; n <= 4; n++) if (!new RegExp(`^//[ \\t]*Knob ${n}:[ \\t]*\\S`, "m").test(code)) problems.push(`no "// Knob ${n}:" line`);
+  }
+  for (const name of offLimits(code)) problems.push(`uses ${name}, which ${OFF_LIMITS[name]}`);
   pattern.knobs.forEach((knob, i) => {
     if (!(pattern.start[i] >= knob.min && pattern.start[i] <= knob.max)) problems.push(`K${i + 1} starts outside its range`);
   });
@@ -135,6 +237,38 @@ function study(slug: string): Result {
   return { pattern, problems, still: main.frames[60].rgb, measures, knobResponse, ms: main.ms };
 }
 
+/**
+ * The empty cells of the map for each pair of the seven measures, the cells
+ * the page draws dashed for that pair. A cell can be empty only because one
+ * pattern far out at an end stretched the axis, so each cell is tried again
+ * with the pattern at either end of either axis left out; a cell still empty
+ * every time gets a *.
+ */
+function printGaps(results: Result[]) {
+  const all = results.filter((r) => r.measures).map((r) => r.measures as unknown as Record<string, number>);
+  const keys = Object.keys(AXES);
+  console.log("empty cells (column,row from the low end of each axis, 1..4; * still empty with an end pattern left out)");
+  for (let a = 0; a < keys.length; a++)
+    for (let b = a + 1; b < keys.length; b++) {
+      const [x, y] = [keys[a], keys[b]];
+      const empty = emptyCells(x, y, all);
+      const ends = new Set<number>();
+      for (const key of [x, y]) {
+        let lo = 0;
+        let hi = 0;
+        all.forEach((m, i) => {
+          if (m[key] < all[lo][key]) lo = i;
+          if (m[key] > all[hi][key]) hi = i;
+        });
+        ends.add(lo).add(hi);
+      }
+      const holds = ([cx, cy]: [number, number]) =>
+        [...ends].every((skip) => emptyCells(x, y, all.filter((_, i) => i !== skip)).some(([ex, ey]) => ex === cx && ey === cy));
+      const cells = empty.map((c) => `${c[0] + 1},${c[1] + 1}${holds(c) ? "*" : ""}`).join(" ");
+      console.log(`${(x + " x " + y).padEnd(24)}${cells || "none"}`);
+    }
+}
+
 async function main() {
   const slugs = only ?? listPatterns();
   const results = slugs.map(study);
@@ -158,8 +292,11 @@ async function main() {
     );
   }
 
+  if (withGaps && !only) printGaps(results);
+
   const failed = results.filter((r) => r.problems.length);
   for (const r of failed) for (const p of r.problems) console.log(`FAIL ${r.pattern.slug}: ${p}`);
+  for (const p of familyFailures) console.log(`FAIL ${familyFile}: ${p}`);
   console.log(`${results.length - failed.length} of ${results.length} patterns pass`);
 
   // The page builder is optional while the study is being set up.
@@ -179,7 +316,7 @@ async function main() {
       console.log(`wrote index.html (${(html.length / 1024).toFixed(0)} KB)`);
     }
   }
-  if (failed.length) process.exit(1);
+  if (failed.length || familyFailures.length) process.exit(1);
 }
 
 void main();

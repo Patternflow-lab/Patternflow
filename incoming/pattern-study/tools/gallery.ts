@@ -4,11 +4,14 @@
  * Lab builds from its code and the study's start knobs. Cards off screen
  * don't run.
  * The map at the top places every pattern by two of the measures study.ts
- * took; a dot takes you to its card. Round two's dots wear a white ring, and
- * the chips under the map hide a round or a family.
+ * took; a dot takes you to its card. The newest round's dots wear a white
+ * ring, whichever round that is, and the chips under the map hide a round or
+ * a family.
  */
 import { LabEngine } from "../../../web/src/lib/lab/engine";
 import type { CodeLayer } from "../../../web/src/lib/lab/types";
+
+import { AXES, GRID, scale } from "./map";
 
 type Knob = { name: string; min: number; max: number; about: string };
 type Entry = {
@@ -31,15 +34,11 @@ type Data = { patterns: Entry[]; families: Record<string, { label: string; color
 
 const data = JSON.parse(document.getElementById("study-data")!.textContent!) as Data;
 
-const AXES: Record<string, { label: string; low: string; high: string; log?: boolean }> = {
-  edges: { label: "가장자리", low: "번짐", high: "또렷" },
-  motion: { label: "움직임", low: "고요", high: "바쁨", log: true },
-  detail: { label: "촘촘함", low: "굵음", high: "잘다" },
-  complexity: { label: "복잡도", low: "단순", high: "복잡" },
-  coverage: { label: "채움", low: "비어 있음", high: "꽉 참" },
-  colour: { label: "색", low: "한 색", high: "여러 색" },
-  drift: { label: "모양 바뀜", low: "제자리", high: "흘러감" },
-};
+// The newest round stands out on the map, its chip and its cards. With one
+// round there is nothing newer to tell apart.
+const rounds = [...new Set(data.patterns.map((p) => p.round))].sort((a, b) => a - b);
+const newest = rounds[rounds.length - 1] ?? 0;
+const roundClass = (round: number) => `r${round}${rounds.length > 1 && round === newest ? " new" : ""}`;
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
   const node = document.createElement(tag);
@@ -121,7 +120,7 @@ function buildCard(entry: Entry): Card {
   const head = el("header", "card-head");
   const title = el("h3", "", entry.title);
   const tags = el("span", "tags");
-  tags.append(el("span", "chip", family?.label ?? entry.family), el("span", `round r${entry.round}`, `${entry.round}판`));
+  tags.append(el("span", "chip", family?.label ?? entry.family), el("span", `round ${roundClass(entry.round)}`, `${entry.round}판`));
   head.append(title, tags);
 
   const { width, height } = entry.matrix;
@@ -297,7 +296,6 @@ function loop(now: number) {
 }
 
 // ── Map ─────────────────────────────────────────────────────────────────────
-const GRID = 4;
 let axisX = remember("x") ?? "edges";
 let axisY = remember("y") ?? "motion";
 if (!AXES[axisX]) axisX = "edges";
@@ -306,19 +304,7 @@ let hiddenFamilies = new Set<string>();
 let hiddenRounds = new Set<number>();
 const isHidden = (p: Entry) => hiddenFamilies.has(p.family) || hiddenRounds.has(p.round);
 
-function scale(key: string) {
-  const axis = AXES[key];
-  const tf = (v: number) => (axis.log ? Math.log10(Math.max(v, 1e-3)) : v);
-  const values = data.patterns.map((p) => tf(p.measures[key] ?? 0));
-  let lo = Math.min(...values);
-  let hi = Math.max(...values);
-  if (hi - lo < 1e-6) {
-    lo -= 0.5;
-    hi += 0.5;
-  }
-  const pad = (hi - lo) * 0.08;
-  return (v: number) => (tf(v) - (lo - pad)) / (hi - lo + 2 * pad);
-}
+const allMeasures = data.patterns.map((p) => p.measures);
 
 type Spot = { x: number; y: number; anchor: "start" | "end" };
 
@@ -362,8 +348,8 @@ function drawMap() {
   const m = { l: 34, r: 14, t: 14, b: 34 };
   const iw = W - m.l - m.r;
   const ih = H - m.t - m.b;
-  const sx = scale(axisX);
-  const sy = scale(axisY);
+  const sx = scale(axisX, allMeasures);
+  const sy = scale(axisY, allMeasures);
   const NS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -437,7 +423,7 @@ function drawMap() {
     const color = data.families[p.family]?.color ?? "#ccc";
     const g = document.createElementNS(NS, "a");
     g.setAttribute("href", `#${p.slug}`);
-    g.setAttribute("class", `dot r${p.round}`);
+    g.setAttribute("class", `dot ${roundClass(p.round)}`);
     const circle = document.createElementNS(NS, "circle");
     circle.setAttribute("cx", String(x));
     circle.setAttribute("cy", String(y));
@@ -485,17 +471,15 @@ function axisSelect(id: string, current: string, set: (v: string) => void) {
   });
 }
 
-const roundsOf = () => [...new Set(data.patterns.map((p) => p.round))].sort((a, b) => a - b);
-
 function legend() {
   const box = document.getElementById("legend")!;
   const refresh = () => {
     for (const card of cards) card.root.hidden = isHidden(card.entry);
     drawMap();
   };
-  for (const round of roundsOf()) {
+  for (const round of rounds) {
     const count = data.patterns.filter((p) => p.round === round).length;
-    const chip = el("button", `legend-chip round-chip r${round}`, `${round}판 ${count}`);
+    const chip = el("button", `legend-chip round-chip ${roundClass(round)}`, `${round}판 ${count}`);
     chip.addEventListener("click", () => {
       if (hiddenRounds.has(round)) hiddenRounds.delete(round);
       else hiddenRounds.add(round);
@@ -521,7 +505,8 @@ function legend() {
 // ── Start ───────────────────────────────────────────────────────────────────
 function start() {
   document.getElementById("count")!.textContent = String(data.patterns.length);
-  document.getElementById("rounds")!.textContent = roundsOf()
+  document.getElementById("newest")!.textContent = String(newest);
+  document.getElementById("rounds")!.textContent = rounds
     .map((round) => `${round}판 ${data.patterns.filter((p) => p.round === round).length}개`)
     .join(", ");
   const grid = document.getElementById("cards")!;
