@@ -114,9 +114,16 @@ function study(slug: string): Result {
 
   if (withShots && !checkOnly) {
     ensureShots();
-    // Three seconds at 15 fps, which keeps a busy pattern's GIF near 300 KB.
-    const gifFrames = main.frames.filter((_, i) => i % 2 === 0).slice(0, 45);
-    writeGif(path.join(SHOTS, `${slug}.gif`), gifFrames, pattern.matrix.width, pattern.matrix.height, 3, FPS / 2);
+    // Three seconds at 15 fps. A busy pattern whose GIF comes out past 450 KB
+    // goes again at 10 fps, then for two seconds, so a page of them still
+    // opens on a phone.
+    const gif = path.join(SHOTS, `${slug}.gif`);
+    for (const [every, seconds] of [[2, 3], [3, 3], [3, 2]]) {
+      const fps = FPS / every;
+      const gifFrames = main.frames.filter((_, i) => i % every === 0).slice(0, fps * seconds);
+      writeGif(gif, gifFrames, pattern.matrix.width, pattern.matrix.height, 3, fps);
+      if (fs.statSync(gif).size <= 450 * 1024) break;
+    }
     pending.push(writeKnobSheet(path.join(SHOTS, `${slug}-knobs.png`), pattern, sheet));
   }
 
