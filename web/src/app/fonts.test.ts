@@ -2,12 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { TextDecoder } from 'node:util';
 import { brotliDecompressSync } from 'node:zlib';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Pretendard's parts against the @font-face rules in globals.css: each
 // weight's ranges still cover all of Unicode, the Hangul is the 2,350
 // syllables of KS X 1001 in one file and the other 8,822 in another, and the
 // common file is the one the browser tries first. Reads each WOFF2's cmap.
+// Then the Google fonts the root layout loads, and which of them every page
+// preloads.
 
 const FONTS = path.resolve(__dirname, '../../public/fonts');
 const CSS = fs.readFileSync(path.resolve(__dirname, 'globals.css'), 'utf8');
@@ -188,5 +190,34 @@ describe.each([
 
   it('keeps a Korean page\'s Hangul under a quarter of the file it replaced', () => {
     expect(fs.statSync(path.join(FONTS, common)).size).toBeLessThan(COMMON_BUDGET);
+  });
+});
+
+// Each loader call the root layout makes, with its options. A font added there
+// without a line here fails the import: the mock has no export for it.
+const googleFonts = vi.hoisted(() => [] as { name: string; preload?: boolean }[]);
+vi.mock('next/font/google', () => {
+  const loader = (name: string) => (options: { preload?: boolean }) => {
+    googleFonts.push({ name, preload: options.preload });
+    return { variable: '', className: '' };
+  };
+  return {
+    Inter: loader('Inter'),
+    JetBrains_Mono: loader('JetBrains_Mono'),
+    Silkscreen: loader('Silkscreen'),
+    Newsreader: loader('Newsreader'),
+  };
+});
+
+describe('the root layout\'s Google fonts', () => {
+  // Next puts a preload link for each font the root layout loads in the head
+  // of every page. On 22 October DM Sans, which no text used, and Newsreader
+  // and Silkscreen, which only the journal, /terms and the guide use, were
+  // 166,368 bytes on / and on /pattern-lab that no letter there was set in.
+  it('preloads only Inter and JetBrains Mono, the two every page sets text in', async () => {
+    await import('@/app/layout');
+    const preloaded = googleFonts.filter((font) => font.preload !== false).map((font) => font.name);
+    expect(preloaded.sort()).toEqual(['Inter', 'JetBrains_Mono']);
+    expect(googleFonts.map((font) => font.name).sort()).toEqual(['Inter', 'JetBrains_Mono', 'Newsreader', 'Silkscreen']);
   });
 });
