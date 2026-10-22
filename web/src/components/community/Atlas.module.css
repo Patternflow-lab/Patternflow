@@ -156,6 +156,14 @@
   margin-left: 10px;
 }
 
+/* Zoom is on the wheel and a drag pans only once zoomed, so a touch screen
+   has none of the three gestures the hint names. */
+@media (hover: none) {
+  .zoomHint {
+    display: none;
+  }
+}
+
 .mapWrap[data-placing="true"] .map {
   cursor: crosshair;
 }
@@ -803,11 +811,24 @@
   .body {
     flex-direction: column;
     height: auto;
+    min-height: 0;
   }
 
+  /* At 390px the chips wrap to two rows, and over the map they hid 21 of its
+     83 labels. Here they stand above it, with the banner under them. */
+  .mapTop {
+    position: static;
+    padding: 12px 16px 0;
+  }
+
+  /* The map is as tall as its 1000:640 drawing. The old 380px box held a
+     drawing 228px tall at 390px and left the 152px under it blank. */
   .mapWrap {
-    height: 60vh;
-    min-height: 380px;
+    flex: none;
+  }
+
+  .map {
+    height: auto;
   }
 
   .panel {
