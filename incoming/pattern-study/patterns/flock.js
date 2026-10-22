@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.5..4, Scatter=-1..1, Trail=0.3..2.5
 //
 // Knob 1: Hue. Turns the flock's colours around the wheel; birds flying up and down sit either side of it.
@@ -16,8 +16,8 @@
 // Knob 4: Trail. How long a streak lasts; long trails leave the flock's recent path woven across the panel.
 // Buttons: K1 tap sends the unseen hawk diving into the flock.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const N = 90;
 const V0 = 16;
 
@@ -78,8 +78,8 @@ export function setup(params) {
     // Three loose groups heading different ways, so the first seconds already show them meeting.
     const g = i % 3;
     const a = g * 2.1 + (Math.random() - 0.5) * 0.8;
-    params.x[i] = (g * 43 + 20 + Math.random() * 24) % W;
-    params.y[i] = 10 + g * 18 + Math.random() * 14;
+    params.x[i] = (g * 21 + 6 + Math.random() * 18) % W;
+    params.y[i] = 14 + g * 38 + Math.random() * 26;
     params.vx[i] = Math.cos(a) * V0;
     params.vy[i] = Math.sin(a) * V0;
     params.lx[i] = params.x[i];
@@ -87,7 +87,7 @@ export function setup(params) {
     params.pace[i] = 0.85 + Math.random() * 0.3;
     params.tone[i] = Math.random() - 0.5;
   }
-  params.hx = 64;
+  params.hx = W / 2;
   params.hy = -20;
   params.hvx = 0;
   params.hvy = V0;

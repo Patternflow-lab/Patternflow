@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.25..4, Ratio=0..7, Damping=0.02..0.4
 //
 // Knob 1: Hue. The colour of the fresh line; older line turns a little round the wheel as it fades.
@@ -16,8 +16,8 @@
 // Knob 4: Damping. How quickly the swing dies away; low keeps one figure turning for two minutes, high spirals in within seconds.
 // Buttons: K1 tap gives the pendulums a fresh push.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const RATIOS = [1, 2, 2, 3, 3, 4, 3, 5, 1, 3, 2, 5, 1, 4, 4, 5];
 
 function hsvInto(out, o, h, s, v) {
@@ -72,11 +72,12 @@ function penAt(params, s, out) {
   const b = params.fb * w;
   const r = a * (1 + params.detune * params.sign);
   const t = params.turn;
-  // Lateral pendulums in x and y, y a little out of tune with x, and a rotary one
-  // turning the paper at nearly x's rate.
-  const yb = b * (1 - params.detune * 0.5 * params.sign);
-  out[0] = W / 2 - 0.5 + 60 * d * ((1 - t) * Math.sin(a * s + params.p1) + t * Math.sin(r * s + params.p3));
-  out[1] = H / 2 - 0.5 + 29.5 * d * ((1 - t) * Math.sin(yb * s + params.p2) + t * Math.cos(r * s + params.p3));
+  // Lateral pendulums along y and x, x a little out of tune with y, and a rotary one
+  // turning the paper at nearly y's rate. The slower pendulum swings along the tall
+  // side, so 1:2 stands up as an eight instead of lying down.
+  const xb = b * (1 - params.detune * 0.5 * params.sign);
+  out[0] = W / 2 - 0.5 + 29.5 * d * ((1 - t) * Math.sin(xb * s + params.p2) + t * Math.cos(r * s + params.p3));
+  out[1] = H / 2 - 0.5 + 60 * d * ((1 - t) * Math.sin(a * s + params.p1) + t * Math.sin(r * s + params.p3));
 }
 
 // A faint wide haze under the line, so it glows rather than sits on the black.

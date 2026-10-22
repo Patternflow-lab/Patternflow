@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Spread=0..1, Rate=0.6..5, Gravity=-1..1, Trail=0.3..1.8
 //
 // Knob 1: Spread. At 0 every shell is the same colour, slowly turning over the minutes; higher spreads the shells round the wheel, and past halfway each shell carries a second colour.
@@ -16,8 +16,8 @@
 // Knob 4: Trail. Seconds a spark's streak takes to fade.
 // Buttons: K1 tap fires a shell straight away.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 const P = 900;
 const R = 8;
 
@@ -117,10 +117,11 @@ function launch(params, late) {
   while (r < R && params.rOn[r]) r++;
   if (r === R) return;
   // Shells that will fall burst high, shells that will rise burst low.
-  const top = 12 + Math.max(0, -params.gravity) * 18;
-  params.rtx[r] = 18 + Math.random() * 92;
-  params.rty[r] = top + Math.random() * 20;
-  params.rx[r] = params.rtx[r] + (Math.random() - 0.5) * 12;
+  // The tall panel leaves room to stack shells at different heights.
+  const top = 18 + Math.max(0, -params.gravity) * 34;
+  params.rtx[r] = 14 + Math.random() * 36;
+  params.rty[r] = top + Math.random() * 70;
+  params.rx[r] = params.rtx[r] + (Math.random() - 0.5) * 10;
   params.rt[r] = 0;
   params.rf[r] = 0.45 + Math.random() * 0.3 + late;
   params.rpx[r] = params.rx[r];
@@ -194,7 +195,7 @@ export function update(dt, input, params) {
       params.beat = (0.75 + Math.random() * 0.5) / rate;
     }
   }
-  if (input.btnPressed && input.btnPressed[0]) burst(params, 20 + Math.random() * 88, 16 + Math.random() * 26);
+  if (input.btnPressed && input.btnPressed[0]) burst(params, 14 + Math.random() * 36, 20 + Math.random() * 70);
 
   const buf = params.buf;
   const fade = Math.exp(-dt / trail);
