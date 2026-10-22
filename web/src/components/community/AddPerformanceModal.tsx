@@ -6,6 +6,7 @@ import { captureEvent } from "@/lib/posthogEvents";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
 import { useSubmitLatch } from "@/lib/community/submitLatch";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { readPerformanceFile } from "@/lib/community/performanceFile";
 import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
@@ -32,6 +33,7 @@ export default function AddPerformanceModal({
   const [busy, setBusy] = useState(false);
   // One request per press, decided in the click's own tick (#455).
   const latch = useSubmitLatch();
+  const cardRef = useDialog<HTMLDivElement>(onClose);
 
   // The Director saves .pfs and the panel plays it, so that is what people
   // have. It is decoded here into the canonical form the site stores, which
@@ -79,6 +81,8 @@ export default function AddPerformanceModal({
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div
+        ref={cardRef}
+        tabIndex={-1}
         className={`${styles.modalCard} ${styles.modalCardWide}`}
         onClick={(event) => event.stopPropagation()}
       >

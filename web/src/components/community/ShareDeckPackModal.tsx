@@ -40,9 +40,8 @@ export default function ShareDeckPackModal({
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // Escape closes it. The other modals here rely on the backdrop alone, which
-  // is fine when the content is a form you are filling in — this one is a
-  // thing you glance at and leave, so the fastest way out should work.
+  // Escape closes it. This one is a thing you glance at and leave, so it had
+  // the key before the form windows took it from lib/hooks/useDialog.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();

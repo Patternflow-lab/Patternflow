@@ -1,6 +1,8 @@
 // Licence + attribution machinery for shared patterns (community publishing
-// and downloads). The editor stays clean while editing; the licence header +
-// attribution footer are injected only at export time.
+// and downloads). The Live Editor and the Lab never add the block while you
+// write. The community bakes the licence header + attribution footer into the
+// stored code on publish and on edit (lib/community/license.ts), and a
+// download wraps the code it hands out (lib/community/download.ts).
 
 export type LicenseOption = { id: string; label: string; spdx: string };
 

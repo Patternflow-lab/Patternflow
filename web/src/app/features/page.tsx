@@ -104,7 +104,7 @@ export default function FeaturesPage() {
     <main className={shelf.page}>
       <div className={shelf.doc}>
         <header className={shelf.head}>
-          <Link href="/" className={shelf.brand}>
+          <Link href="/" prefetch={false} className={shelf.brand}>
             Patternflow
           </Link>
           <ShelfTabs active="features" />

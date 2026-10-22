@@ -4,12 +4,23 @@
 // box. The refs belong to the panel (it renders the elements); this hook is
 // handed them.
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { PixelLayer } from "@/lib/lab/types";
 import type { Cell } from "./tools";
+import { WHEEL_NOTCH_PX, wheelPixels } from "./wheel";
 
 export const ZOOM_MIN = 1;
 export const ZOOM_MAX = 32;
+
+/**
+ * The largest whole zoom that shows the picture entire inside a viewport of
+ * this size: 16 px of padding a side and 4 px of air. Never below 1×. For
+ * 128×64 that is 1× in a 390×844 phone's 372×151 viewport, and 4× in the
+ * 649×648 one at 1440×900.
+ */
+export function zoomToFit(viewportWidth: number, viewportHeight: number, width: number, height: number) {
+  return Math.max(ZOOM_MIN, Math.floor(Math.min((viewportWidth - 40) / width, (viewportHeight - 40) / height)));
+}
 
 export function usePixelViewport({
   pixel,
@@ -21,6 +32,9 @@ export function usePixelViewport({
   overlayCanvasRef: RefObject<HTMLCanvasElement | null>;
 }) {
   const [zoom, setZoom] = useState(6);
+  // The zoom the wheel listener reads: it runs between renders, and two wheel
+  // events can land before React commits the first.
+  const zoomRef = useRef(zoom);
   const [panning, setPanning] = useState(false);
   const [hoverCell, setHoverCell] = useState<Cell | null>(null);
   // Middle-drag panning of the zoomed viewport.
@@ -59,20 +73,51 @@ export function usePixelViewport({
     if (!pixel) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
-    const next = Math.max(
-      1,
-      Math.floor(
-        Math.min((viewport.clientWidth - 40) / pixel.width, (viewport.clientHeight - 40) / pixel.height),
-      ),
-    );
-    setZoom(next);
+    setZoom(zoomToFit(viewport.clientWidth, viewport.clientHeight, pixel.width, pixel.height));
   }, [pixel, viewportRef]);
+
+  // The first time the viewport has a size, a picture that does not fit at
+  // 6× opens fitted. A 390 px phone showed 56 of 128 columns and 19 of 64
+  // rows, and there a finger drag paints, so the rest was out of reach. The panel can mount
+  // before it is laid out (a tab behind another), hence the observer. Once
+  // only: after that the zoom is the user's, and Fit is one press.
+  const fitted = useRef(false);
+  const pictureWidth = pixel?.width ?? 0;
+  const pictureHeight = pixel?.height ?? 0;
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (fitted.current || !viewport || pictureWidth === 0) return;
+    const fitOnce = () => {
+      if (viewport.clientWidth <= 0 || viewport.clientHeight <= 0) return false;
+      fitted.current = true;
+      const next = zoomToFit(viewport.clientWidth, viewport.clientHeight, pictureWidth, pictureHeight);
+      if (next < zoomRef.current) {
+        zoomRef.current = next;
+        setZoom(next);
+      }
+      return true;
+    };
+    if (fitOnce()) return;
+    const observer = new ResizeObserver(() => {
+      if (fitOnce()) observer.disconnect();
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [pictureWidth, pictureHeight, viewportRef]);
 
   // The wheel zooms. A native listener, because React delegates wheel
   // passively and preventDefault there would let the viewport and the dock
   // scroll under the zoom (useTimelineZoom does the same). A sideways wheel
   // has no deltaY and stays a scroll. The viewport is only rendered while a
   // pixel layer is selected, so the listener goes on when one is.
+  //
+  // One notch is one step, the step the ± buttons take. The travel adds up
+  // across events, so a trackpad swipe of thirty 4 px events is one step
+  // too, not thirty. Turning the other way drops what was left over.
+  const wheelRest = useRef(0);
+  // Where the cursor was over the picture (as a fraction of it) and on the
+  // screen, so the layout effect below can scroll that spot back under it.
+  const wheelAnchor = useRef<{ fx: number; fy: number; clientX: number; clientY: number } | null>(null);
   const hasPixel = pixel !== undefined;
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -80,11 +125,49 @@ export function usePixelViewport({
     const onWheel = (event: WheelEvent) => {
       if (event.deltaY === 0) return;
       event.preventDefault();
-      zoomBy(event.deltaY < 0 ? 1 : -1);
+      const notches = -wheelPixels(event) / WHEEL_NOTCH_PX;
+      const rest = Math.sign(wheelRest.current) === -Math.sign(notches) ? 0 : wheelRest.current;
+      const total = rest + notches;
+      const steps = Math.trunc(total);
+      wheelRest.current = total - steps;
+      const current = zoomRef.current;
+      const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current + steps));
+      if (next === current) {
+        // At either end the travel past it would otherwise wait there.
+        if (steps !== 0) wheelRest.current = 0;
+        return;
+      }
+      const rect = overlayCanvasRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        const fraction = (offset: number, size: number) => Math.max(0, Math.min(1, offset / size));
+        wheelAnchor.current = {
+          fx: fraction(event.clientX - rect.left, rect.width),
+          fy: fraction(event.clientY - rect.top, rect.height),
+          clientX: event.clientX,
+          clientY: event.clientY,
+        };
+      }
+      zoomRef.current = next;
+      setZoom(next);
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
     return () => viewport.removeEventListener("wheel", onWheel);
-  }, [hasPixel, viewportRef, zoomBy]);
+  }, [hasPixel, viewportRef, overlayCanvasRef]);
+
+  // After a zoom: scroll the spot the wheel was over back under the cursor.
+  // The browser clamps the scroll, so a picture smaller than the viewport
+  // stays centred.
+  useLayoutEffect(() => {
+    zoomRef.current = zoom;
+    const anchor = wheelAnchor.current;
+    wheelAnchor.current = null;
+    const viewport = viewportRef.current;
+    const canvas = overlayCanvasRef.current;
+    if (!anchor || !viewport || !canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    viewport.scrollLeft += rect.left + anchor.fx * rect.width - anchor.clientX;
+    viewport.scrollTop += rect.top + anchor.fy * rect.height - anchor.clientY;
+  }, [zoom, viewportRef, overlayCanvasRef]);
 
   /** Middle button: start panning. True when the press was taken. */
   const beginPan = useCallback(

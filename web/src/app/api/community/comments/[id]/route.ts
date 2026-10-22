@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { clearNotificationsFor } from "@/lib/community/server/notify";
 import { getCommentStub } from "@/lib/community/server/queries";
@@ -64,14 +65,10 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
     return Response.json({ error: "You can only edit your own comments." }, { status: 403 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const body = await readJsonObject(request);
+  if (body instanceof Response) return body;
 
-  const next = cleanComment((body as Record<string, unknown>).body);
+  const next = cleanComment(body.body);
   if (!next) {
     return Response.json(
       { error: `A comment cannot be empty, and must be under ${COMMENT_MAX} characters.` },

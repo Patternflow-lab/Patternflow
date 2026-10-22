@@ -117,6 +117,35 @@
   color: rgba(23, 21, 18, 0.4);
 }
 
+/* Below 800px the action row starts at the left edge. A menu hung from its
+   button's right edge then opens off the left of the screen, and one hung
+   from the button's left edge runs off the right once Share and To hardware
+   sit in front of Panels. Both menus take their left edge from the row
+   instead, at most 360px wide, which covers every button in it. `top: auto`
+   keeps each one just under its own button when Community wraps to a second
+   line. */
+@media (max-width: 800px) {
+  .dockHeaderGroup:last-child {
+    position: relative;
+  }
+
+  .menuWrap {
+    position: static;
+  }
+
+  .menuPop {
+    top: auto;
+    left: 0;
+    right: 0;
+    max-width: 360px;
+    margin-top: 6px;
+  }
+
+  .menuPop button {
+    min-height: 44px;
+  }
+}
+
 /* ── Generic panel chrome ── */
 
 .panel {

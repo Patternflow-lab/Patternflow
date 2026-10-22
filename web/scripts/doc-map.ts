@@ -34,8 +34,9 @@
  * reads the same rows and writes nothing. It fails on an absolute row that does
  * not resolve, and on a tracked file outside the sources above that carries a
  * repository URL, since the map never reads that file. A row on a ref the clone
- * lacks is skipped, and the check says which refs. With PF_DRIFT_STRICT=1 a
- * skip fails as well.
+ * lacks is skipped, and the check says which refs and exits with SKIPPED from
+ * scripts/drift/_lib.ts, so scripts/drift.ts prints it as skipped and not as
+ * passed. With PF_DRIFT_STRICT=1 a skip fails as well.
  *
  * The parity list (docs/rfc-cleanup.md §2.3) is every text the repository
  * keeps in both Korean and English, one row per pair, and whether a side is
@@ -61,6 +62,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+
+import { SKIPPED } from "./drift/_lib";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
 const OUT = "docs/investigations/2026-10-doc-map.csv";
@@ -257,7 +260,7 @@ if (CHECK) {
   }
   const failed = broken.length > 0 || strays.length > 0 || (unread.length > 0 && strict);
   console.log(`links-absolute: ${failed ? "failed" : unread.length ? "skipped" : "passed"}`);
-  process.exit(failed ? 1 : 0);
+  process.exit(failed ? 1 : unread.length ? SKIPPED : 0);
 }
 
 const csv = ["from,to,kind,anchor,resolves", ...sorted.map((r) => [r.from, r.to, r.kind, r.anchor, r.resolves].map(cell).join(","))];

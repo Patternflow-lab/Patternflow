@@ -129,6 +129,8 @@ const UI = {
     addPattern: "Add my pattern",
     pickerHead: (n: number) => `Your patterns · newest first (${n})`,
     pickerSearch: "Search by title…",
+    pickerSearchLabel: "Search your patterns",
+    noAnswer: "Not saved. The server did not answer.",
   },
   ko: {
     tagline: "실험 기능 — 더 많은 패턴 탐구를 위한 지도.",
@@ -176,6 +178,8 @@ const UI = {
     addPattern: "내 패턴 올리기",
     pickerHead: (n: number) => `내 패턴 · 최신순 (${n})`,
     pickerSearch: "제목으로 검색…",
+    pickerSearchLabel: "내 패턴 찾기",
+    noAnswer: "저장되지 않았다. 서버가 답하지 않았다.",
   },
 } as const;
 
@@ -222,6 +226,12 @@ export default function AtlasClient({
   // The picker lists your own patterns newest first, as thumbnails — you
   // recognise your work by looking at it, not by reading titles.
   const [pickerQuery, setPickerQuery] = useState("");
+  // A write the server refused, with its reason (null when no answer came
+  // back), and what the panel showed then. Select something else and the
+  // message goes, so a refusal about one pin never sits under another.
+  const [writeError, setWriteError] = useState<{ text: string | null; at: Selection } | null>(
+    null,
+  );
 
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draggingEntryRef = useRef<string | null>(null);
@@ -387,34 +397,58 @@ export default function AtlasClient({
 
   /* ── server writes ── */
 
-  const savePin = async (pin: AtlasPinData, [x, y]: [number, number]) => {
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId: pin.entryId, kind: pin.kind }),
+  /** One write to the atlas route. True when it saved; otherwise the panel
+   *  says why, in the server's words when it sent any. */
+  const writeAtlas = async (method: "POST" | "DELETE", body: Record<string, unknown>) => {
+    const at = selection;
+    setWriteError(null);
+    try {
+      const res = await fetch("/api/community/atlas", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return true;
+      const payload = (await res.json().catch(() => ({}))) as { error?: unknown };
+      setWriteError({ text: typeof payload.error === "string" ? payload.error : null, at });
+    } catch {
+      setWriteError({ text: null, at });
+    }
+    return false;
+  };
+
+  const forgetPinPosition = (patternId: string) =>
+    setPinPositions((prev) => {
+      const next = { ...prev };
+      delete next[patternId];
+      return next;
     });
-    router.refresh();
+
+  const savePin = async (pin: AtlasPinData, [x, y]: [number, number]) => {
+    const saved = await writeAtlas("POST", {
+      patternId: pin.patternId, x, y, entryId: pin.entryId, kind: pin.kind,
+    });
+    if (saved) {
+      router.refresh();
+      return;
+    }
+    // The drop did not stick: the tile goes back to where the server has it.
+    forgetPinPosition(pin.patternId);
   };
 
   const setPinLink = async (pin: AtlasPinData, entryId: string | null) => {
     const [x, y] = pinPos(pin);
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId, kind: pin.kind }),
-    });
-    router.refresh();
+    if (await writeAtlas("POST", { patternId: pin.patternId, x, y, entryId, kind: pin.kind })) {
+      router.refresh();
+    }
   };
 
   /** Demote a tile to a research note, or promote a note back to a tile. */
   const setPinKind = async (pin: AtlasPinData, kind: "pin" | "research") => {
     const [x, y] = pinPos(pin);
-    await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pin.patternId, x, y, entryId: pin.entryId, kind }),
-    });
-    router.refresh();
+    if (await writeAtlas("POST", { patternId: pin.patternId, x, y, entryId: pin.entryId, kind })) {
+      router.refresh();
+    }
   };
 
   const placePattern = async (pattern: NonNullable<typeof placing>, coords: [number, number]) => {
@@ -428,12 +462,10 @@ export default function AtlasClient({
     const entryId = nearestEntry(coords);
     const kind = pattern.isPublic ? "pin" : "research";
     if (kind === "research" && !entryId) return;
-    const res = await fetch("/api/community/atlas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId: pattern.id, x: coords[0], y: coords[1], entryId, kind }),
+    const saved = await writeAtlas("POST", {
+      patternId: pattern.id, x: coords[0], y: coords[1], entryId, kind,
     });
-    if (res.ok) {
+    if (saved) {
       setPlacing(null);
       setPlacingNear(null);
       setSelection({ kind: "pin", id: pattern.id });
@@ -442,17 +474,9 @@ export default function AtlasClient({
   };
 
   const removePin = async (patternId: string) => {
-    await fetch("/api/community/atlas", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ patternId }),
-    });
+    if (!(await writeAtlas("DELETE", { patternId }))) return;
     setSelection(null);
-    setPinPositions((prev) => {
-      const next = { ...prev };
-      delete next[patternId];
-      return next;
-    });
+    forgetPinPosition(patternId);
     router.refresh();
   };
 
@@ -505,122 +529,136 @@ export default function AtlasClient({
   const worldTransform = `translate(${view.tx} ${view.ty}) scale(${view.k})`;
   const inv = 1 / view.k;
 
+  const shownError =
+    writeError && writeError.at?.kind === selection?.kind && writeError.at?.id === selection?.id
+      ? writeError.text ?? t.noAnswer
+      : null;
+
   return (
     <div className={styles.atlas}>
       <div className={styles.toolbar}>
         <p className={styles.tagline}>
           {t.tagline} <span className={styles.zoomHint}>{t.zoomHint}</span>
         </p>
-        <div className={styles.toolbarSpacer} />
-        {myPatterns.length > 0 && (
-          <span className={styles.pickerWrap}>
-            <button
-              type="button"
-              className={styles.toolBtn}
-              data-on={pickerOpen || Boolean(placing)}
-              onClick={() => setPickerOpen((v) => !v)}
-            >
-              {t.addPattern}
-            </button>
-            {pickerOpen && (
-              <div className={styles.picker}>
-                <div className={styles.pickerHead}>{t.pickerHead(myPatterns.length)}</div>
-                {myPatterns.length > 8 && (
-                  <input
-                    type="search"
-                    className={styles.pickerSearch}
-                    placeholder={t.pickerSearch}
-                    value={pickerQuery}
-                    onChange={(ev) => setPickerQuery(ev.target.value)}
-                    autoFocus
-                  />
-                )}
-                <div className={styles.pickerGrid}>
-                  {pickerList.map((pattern) => (
-                    <button
-                      key={pattern.id}
-                      type="button"
-                      className={styles.pickerItem}
-                      title={pattern.title}
-                      onClick={() => {
-                        setPlacing(pattern);
-                        setPickerOpen(false);
-                      }}
-                    >
-                      <span className={styles.pickerTile}>
-                        <PatternCanvas
-                          code={pattern.code}
-                          title={pattern.title}
-                          className={styles.pinWell}
-                        />
-                      </span>
-                      <span className={styles.pickerCaption}>
-                        {pattern.title}
-                        {!pattern.isPublic && (
-                          <span className={styles.researchTag}> {t.privateTag}</span>
-                        )}
-                      </span>
-                    </button>
-                  ))}
+        {/* One block: when the row runs out, the buttons move under the
+            tagline together instead of each squeezing into a column. */}
+        <div className={styles.toolbarActions}>
+          {myPatterns.length > 0 && (
+            <span className={styles.pickerWrap}>
+              <button
+                type="button"
+                className={styles.toolBtn}
+                data-on={pickerOpen || Boolean(placing)}
+                onClick={() => setPickerOpen((v) => !v)}
+              >
+                {t.addPattern}
+              </button>
+              {pickerOpen && (
+                <div className={styles.picker}>
+                  <div className={styles.pickerHead}>{t.pickerHead(myPatterns.length)}</div>
+                  {myPatterns.length > 8 && (
+                    <input
+                      type="search"
+                      className={styles.pickerSearch}
+                      aria-label={t.pickerSearchLabel}
+                      placeholder={t.pickerSearch}
+                      value={pickerQuery}
+                      onChange={(ev) => setPickerQuery(ev.target.value)}
+                      autoFocus
+                    />
+                  )}
+                  <div className={styles.pickerGrid}>
+                    {pickerList.map((pattern) => (
+                      <button
+                        key={pattern.id}
+                        type="button"
+                        className={styles.pickerItem}
+                        title={pattern.title}
+                        onClick={() => {
+                          setPlacing(pattern);
+                          setPickerOpen(false);
+                        }}
+                      >
+                        <span className={styles.pickerTile}>
+                          <PatternCanvas
+                            code={pattern.code}
+                            title={pattern.title}
+                            className={styles.pinWell}
+                          />
+                        </span>
+                        <span className={styles.pickerCaption}>
+                          {pattern.title}
+                          {!pattern.isPublic && (
+                            <span className={styles.researchTag}> {t.privateTag}</span>
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </span>
-        )}
-        <button type="button" className={styles.toolBtn} onClick={toggleLang}>
-          {lang === "en" ? "한국어" : "English"}
-        </button>
-        <button
-          type="button"
-          className={styles.toolBtn}
-          data-on={editMode}
-          onClick={() => setEditMode((v) => !v)}
-        >
-          {editMode ? t.editing : t.edit}
-        </button>
-        <button type="button" className={styles.toolBtn} onClick={exportLayout}>
-          {exported ? t.copiedLayout : t.copyLayout}
-        </button>
+              )}
+            </span>
+          )}
+          <button type="button" className={styles.toolBtn} onClick={toggleLang}>
+            {lang === "en" ? "한국어" : "English"}
+          </button>
+          <button
+            type="button"
+            className={styles.toolBtn}
+            data-on={editMode}
+            onClick={() => setEditMode((v) => !v)}
+          >
+            {editMode ? t.editing : t.edit}
+          </button>
+          <button type="button" className={styles.toolBtn} onClick={exportLayout}>
+            {exported ? t.copiedLayout : t.copyLayout}
+          </button>
+        </div>
       </div>
 
       <div className={styles.body}>
         <div className={styles.mapWrap} data-placing={Boolean(placing)}>
-          <div className={styles.chips}>
-            {chipList.map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                className={styles.chip}
-                data-on={filter === key}
-                onClick={() => setFilter(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {placing && (
-            <div className={styles.placeBanner}>
-              <span>
-                {placing.isPublic ? t.placeBanner(placing.title) : t.placeBannerResearch(placing.title)}
-                {placingNear && ENTRY_BY_ID.has(placingNear) && (
-                  <span className={styles.bannerLink}>
-                    {" "}→ {entryName(ENTRY_BY_ID.get(placingNear)!)}
-                  </span>
-                )}
-              </span>
-              <button
-                type="button"
-                className={styles.toolBtn}
-                onClick={() => {
-                  setPlacing(null);
-                  setPlacingNear(null);
-                }}
-              >
-                {t.cancel}
-              </button>
+          {/* Chips and the placing banner share one column, so the banner sits
+              under the chips however many rows they wrap to. */}
+          <div className={styles.mapTop}>
+            <div className={styles.chips}>
+              {chipList.map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={styles.chip}
+                  data-on={filter === key}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          )}
+
+            {placing && (
+              <div className={styles.placeBanner}>
+                <span>
+                  {placing.isPublic ? t.placeBanner(placing.title) : t.placeBannerResearch(placing.title)}
+                  {placingNear && ENTRY_BY_ID.has(placingNear) && (
+                    <span className={styles.bannerLink}>
+                      {" "}→ {entryName(ENTRY_BY_ID.get(placingNear)!)}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  className={styles.toolBtn}
+                  onClick={() => {
+                    setPlacing(null);
+                    setPlacingNear(null);
+                    setWriteError(null);
+                  }}
+                >
+                  {t.cancel}
+                </button>
+              </div>
+            )}
+          </div>
 
           <svg
             ref={svgRef}
@@ -739,9 +777,13 @@ export default function AtlasClient({
                       if (!dragMovedRef.current) setSelection({ kind: "entry", id: e.id });
                     }}
                     onKeyDown={(ev) => {
-                      if (ev.key === "Enter" || ev.key === " ") setSelection({ kind: "entry", id: e.id });
+                      if (ev.key !== "Enter" && ev.key !== " ") return;
+                      // Space would scroll the page as well.
+                      ev.preventDefault();
+                      setSelection({ kind: "entry", id: e.id });
                     }}
                   >
+                    <circle r={14} className={styles.focusRing} />
                     {placingNear === e.id && (
                       <circle r={13} fill="none" stroke="#F4EFE6" strokeOpacity={0.8} strokeDasharray="3 3" />
                     )}
@@ -781,6 +823,9 @@ export default function AtlasClient({
                   >
                     <foreignObject x={-22} y={-44} width={44} height={102}>
                       <div
+                        role="button"
+                        tabIndex={0}
+                        aria-label={pin.title}
                         className={styles.pin}
                         data-selected={isSelected}
                         data-draggable={draggable}
@@ -795,6 +840,11 @@ export default function AtlasClient({
                         onClick={(ev) => {
                           ev.stopPropagation();
                           if (!dragMovedRef.current) setSelection({ kind: "pin", id: pin.patternId });
+                        }}
+                        onKeyDown={(ev) => {
+                          if (ev.key !== "Enter" && ev.key !== " ") return;
+                          ev.preventDefault();
+                          setSelection({ kind: "pin", id: pin.patternId });
                         }}
                       >
                         <div className={styles.pinTile}>
@@ -832,6 +882,11 @@ export default function AtlasClient({
         </div>
 
         <aside className={styles.panel}>
+          {shownError && (
+            <p role="alert" className={styles.writeError} ref={revealOnMount}>
+              {shownError}
+            </p>
+          )}
           {selectedPin ? (
             <>
               <h2 className={styles.panelTitle}>{selectedPin.title}</h2>
@@ -851,6 +906,7 @@ export default function AtlasClient({
                 {canEditPin(selectedPin) ? (
                   <select
                     className={styles.fromSelect}
+                    aria-label={t.madeFrom}
                     value={selectedPin.entryId ?? ""}
                     onChange={(ev) => void setPinLink(selectedPin, ev.target.value || null)}
                   >
@@ -1153,6 +1209,7 @@ function PinPlayer({ code, knobsLabel }: { code: string; knobsLabel: string }) {
               <input
                 type="range"
                 className={styles.knobInput}
+                aria-label={label}
                 min={min}
                 max={max}
                 step={(max - min) / 200 || 0.01}
@@ -1187,13 +1244,37 @@ function subscribeLang(onChange: () => void) {
   };
 }
 
+/** The choice storage would not keep (site data blocked): it still holds for
+ *  this visit, just not the next. */
+let unsavedLang: Lang | null = null;
+
 function readLang(): Lang {
-  return window.localStorage.getItem(LANG_KEY) === "ko" ? "ko" : "en";
+  if (unsavedLang) return unsavedLang;
+  // This is the store's snapshot, read while rendering: a SecurityError from
+  // blocked site data here would take the whole map down with it.
+  try {
+    return window.localStorage.getItem(LANG_KEY) === "ko" ? "ko" : "en";
+  } catch {
+    return "en";
+  }
 }
 
 function writeLang(next: Lang) {
-  window.localStorage.setItem(LANG_KEY, next);
+  try {
+    window.localStorage.setItem(LANG_KEY, next);
+    unsavedLang = null;
+  } catch {
+    unsavedLang = next;
+  }
   for (const listener of langListeners) listener();
+}
+
+/** Remove sits at the foot of a pin panel and the page scrolls to reach it,
+ *  so a refusal at the panel's head can land above the window. Brought into
+ *  view once, as it appears: a stable function, so React calls it on mount
+ *  and not on every render. */
+function revealOnMount(node: HTMLElement | null) {
+  node?.scrollIntoView({ block: "nearest" });
 }
 
 function clamp(value: number, min: number, max: number) {

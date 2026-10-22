@@ -12,6 +12,7 @@
 
 .labBrand:hover {
   opacity: 0.8;
+  text-decoration: none;
 }
 
 .labTitle {
@@ -465,6 +466,12 @@
   color: #171512;
 }
 
+/* The card takes the focus when it opens, so the keyboard starts inside it.
+   It is not a control, and a ring around the whole window says nothing. */
+.modalCard:focus {
+  outline: none;
+}
+
 .modalHeader {
   display: flex;
   align-items: center;
@@ -493,6 +500,17 @@
 
 .modalHeader button:hover {
   border-color: #171512;
+}
+
+/* On a phone the × box grows from 30px to 44px, the size of the community's
+   close buttons. The negative margin gives the extra 14px back to the
+   header's padding, so the header keeps its height and the × its place. */
+@media (max-width: 800px) {
+  .modalHeader button {
+    min-width: 44px;
+    min-height: 44px;
+    margin: -7px;
+  }
 }
 
 .modalBody {

@@ -20,6 +20,7 @@ import type { BuildGroup } from './groups';
 import type { FanObstacle } from './groups';
 import { GROUP_ANGLE_DEG, angularDistance, fanAngle, fanChordPx, fanLean, fanRadiusPx, groupBuilds } from './groups';
 import landData from './land.json';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
 const COLORS = {
   graticule: '#CFC7B4',     // faint lat/long grid — the see-through ocean
@@ -315,13 +316,14 @@ const _dotQuat = new Quaternion();
 const _dotMatrix = new Matrix4();
 
 // Dots running along the links, so the web reads as something live and moving
-// between the builds rather than a fixed diagram.
+// between the builds rather than a fixed diagram. For someone who has asked
+// for less motion they stand where they start, spaced along each link.
 //
 // Instanced spheres rather than a Points cloud: point sprites are squares held
 // flat to the screen, which is invisible at rest but unmistakable once a pin is
 // picked and the globe dollies in. Being round, they need no orientation — the
 // rotation is left at identity and the scale is uniform.
-function LinkDots({ arcs, opacity }: { arcs: number[][]; opacity: number }) {
+function LinkDots({ arcs, opacity, still }: { arcs: number[][]; opacity: number; still: boolean }) {
   const meshRef = useRef<InstancedMesh>(null);
   const count = arcs.length * DOTS_PER_LINK;
 
@@ -341,7 +343,7 @@ function LinkDots({ arcs, opacity }: { arcs: number[][]; opacity: number }) {
   useFrame((state) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    const time = state.clock.elapsedTime;
+    const time = still ? 0 : state.clock.elapsedTime;
 
     let d = 0;
     for (const arc of arcs) {
@@ -963,7 +965,7 @@ const FIT_RADIUS = 1.35;       // globe radius including markers
 const FIT_FRACTION = 0.7;      // share of the limiting dimension to occupy
 const FOCUS_DOLLY = 0.62;      // zoom-in factor when a build is selected
 const DRAG_SPEED = 0.006;      // radians per pixel of drag
-const DRIFT_SPEED = 0.18;      // radians per second, idle
+const DRIFT_SPEED = 0.18;      // radians per second, idle; none with less motion
 
 // The globe leans a degree or two towards the pointer - enough to feel that
 // it has noticed, not enough to move a pin out from under it. Mouse only, and
@@ -1036,10 +1038,7 @@ function GlobeScene({
     }),
     [groups],
   );
-  const reducedMotion = useMemo(
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    [],
-  );
+  const reducedMotion = useReducedMotion();
   const canvas = useThree((state) => state.gl.domElement);
 
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -1110,9 +1109,11 @@ function GlobeScene({
     // The globe holds still under a pointer that is on a pin, and while a
     // group stands open: a fan that slid away as you reached for it would be
     // no use. It picks its drift back up gradually, the way it would if it
-    // had weight.
+    // had weight. Someone who has asked for less motion gets no drift at
+    // all: the globe turns when they drag it, and stays where they leave it.
     const held = !!selected || !!heldOpen || !!hoveredId || dragging.current;
-    drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
+    if (reducedMotion) drift.current = 0;
+    else drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
 
     if (selected) {
       // Ease the picked location around to face the camera.
@@ -1236,8 +1237,8 @@ function GlobeScene({
       <GlobeWireframe />
       <LinkLines arcs={web} opacity={0.45} />
       <LinkLines arcs={collaborations} opacity={0.22} />
-      <LinkDots arcs={web} opacity={0.9} />
-      <LinkDots arcs={collaborations} opacity={0.5} />
+      <LinkDots arcs={web} opacity={0.9} still={reducedMotion} />
+      <LinkDots arcs={collaborations} opacity={0.5} still={reducedMotion} />
       {groups.map((group) => {
         if (group.members.length === 1) {
           const build = group.members[0];

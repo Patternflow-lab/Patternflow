@@ -8,6 +8,7 @@ import {
   type BuildPatternInput,
 } from "@/lib/community/server/builds";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled } from "@/lib/community/server/db";
 import { rateLimit } from "@/lib/community/ratelimit";
 import { CPP_MAX } from "@/lib/community/validate";
@@ -70,12 +71,8 @@ async function handlePost(request: Request) {
     );
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const body = await readJsonObject(request);
+  if (body instanceof Response) return body;
 
   // "bin" asked for a whole firmware image. The community built those from 25
   // July 2026 (c5e0907) until 4c13474 removed them on 12 August, and since
@@ -84,7 +81,7 @@ async function handlePost(request: Request) {
   // for an image, sent no format, and a missing format meant "bin" until 12
   // August. The 410 is for a caller outside this repository that names the
   // format, as this route's header told it to from 27 July (d7cd193).
-  const rawFormat = (body as Record<string, unknown>).format ?? "pfm";
+  const rawFormat = body.format ?? "pfm";
   if (rawFormat === "bin") {
     return Response.json(
       {
@@ -100,7 +97,7 @@ async function handlePost(request: Request) {
   }
   const format: BuildFormat = rawFormat;
 
-  const raw = (body as Record<string, unknown>).patterns;
+  const raw = body.patterns;
   if (!Array.isArray(raw) || raw.length === 0) {
     return Response.json({ error: "Send at least one pattern to build." }, { status: 400 });
   }

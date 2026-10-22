@@ -15,7 +15,7 @@ import type { GuideScreen } from "@/components/guide/store";
 vi.mock("@/components/HomeView", () => ({ default: () => null }));
 vi.mock("next/font/google", () => {
   const font = () => ({ variable: "", className: "" });
-  return { Inter: font, JetBrains_Mono: font, DM_Sans: font, Silkscreen: font, Newsreader: font };
+  return { Inter: font, JetBrains_Mono: font, Silkscreen: font, Newsreader: font };
 });
 
 type OpenGraph = NonNullable<Metadata["openGraph"]>;

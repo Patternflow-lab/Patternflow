@@ -121,14 +121,3 @@ export function emptyShow(): DirectorShow {
 export function showHasContent(show: DirectorShow): boolean {
   return show.lanes.some((lane) => lane.length > 0) || show.messages.length > 0;
 }
-
-export function cloneShow(show: DirectorShow): DirectorShow {
-  return {
-    title: show.title,
-    length: show.length,
-    loop: show.loop,
-    lanes: show.lanes.map((lane) => lane.map((k) => ({ ...k, cp: [...k.cp] }))) as DirectorShow["lanes"],
-    messages: show.messages.map((m) => ({ ...m })),
-    patternCues: show.patternCues?.map((c) => ({ ...c })),
-  };
-}

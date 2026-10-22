@@ -1,0 +1,81 @@
+/* A step photo sits under its diagram, and on a wide screen beside the step,
+   in the space between the 772px column and the window's edge. */
+.photo {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.photo img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  border: 1px solid var(--pf-rule);
+}
+
+/* The photo is centred in that space and at most 360px wide. 50vw - 394px is
+   the space with room left for an 8px half of a desktop scrollbar. The photo
+   used to sit 120px out at a fixed 360px, which needs a 1,732px window: at
+   1440px the page scrolled 146px sideways and the left-hand photos were cut
+   off where no scroll reaches. */
+@media (min-width: 1280px) {
+  .photoRight,
+  .photoLeft {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: calc(50vw - 394px);
+    margin-top: 0;
+    padding: 0 32px;
+    align-items: center;
+  }
+
+  .photoRight {
+    left: 100%;
+  }
+
+  .photoLeft {
+    right: 100%;
+  }
+
+  .photoRight > *,
+  .photoLeft > * {
+    width: 100%;
+    max-width: 360px;
+  }
+}
+
+@media print {
+  .page {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .page main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  .page section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .page header {
+    display: none !important;
+  }
+
+  .photoRight,
+  .photoLeft {
+    position: static;
+    margin-top: 16px;
+    transform: none;
+    width: 100%;
+    max-width: 440px;
+    padding: 0;
+    align-items: stretch;
+  }
+}

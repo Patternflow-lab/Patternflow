@@ -29,6 +29,7 @@ import { LedMatrixTexture } from './LedMatrixTexture';
 import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
 import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { CASE_MODELS, DRACO_DECODER, type CaseFinish } from './caseModels';
 import { preloadCaseModel } from './preloadCaseModel';
 import {
@@ -128,14 +129,14 @@ const ease = (perFrame: number, dt: number) => 1 - Math.pow(1 - perFrame, Math.m
  * the canvas and take the page with it.
  */
 class ModelGuard extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  override componentDidCatch() {
     this.props.onError();
   }
-  render() {
+  override render() {
     return this.state.failed ? null : this.props.children;
   }
 }
@@ -219,16 +220,27 @@ function ProductPreview({
 
   const activePatternId = useAppStore((state) => state.activePatternId);
   const customJsCode = useAppStore((state) => state.customJsCode);
+  // The idle sway goes on for as long as the page is open, so someone who has
+  // asked for less motion gets the device standing still (poseFor).
+  const still = useReducedMotion();
   const pattern = patterns[activePatternId] || patterns['patternFlowOriginal'];
   const defaults = useMemo(() => pattern.defaults || {}, [pattern]);
 
-  const ledMatrix = useMemo(() => new LedMatrixTexture(), []);
+  // The texture says when the editor's code stops running, not each frame, so
+  // the panel under the editor re-renders only when the reason changes.
+  const ledMatrix = useMemo(
+    () => new LedMatrixTexture((message) => useAppStore.getState().setCustomJsError(message)),
+    [],
+  );
 
   useEffect(() => {
     if (activePatternId === 'custom') {
       ledMatrix.loadCode(customJsCode);
     }
   }, [customJsCode, activePatternId, ledMatrix]);
+
+  // The globe replaces this scene on the Inside tab; the next one starts clean.
+  useEffect(() => () => useAppStore.getState().setCustomJsError(null), []);
 
   const ledMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
@@ -396,7 +408,7 @@ function ProductPreview({
     const device = deviceRef.current;
     if (!group || !device) return;
 
-    const pose = poseFor(buildStep, explode, t);
+    const pose = poseFor(buildStep, explode, t, still);
     // A model that has just arrived starts where the step has everything,
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;

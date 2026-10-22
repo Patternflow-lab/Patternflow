@@ -11,6 +11,7 @@ import {
   type ReportReason,
   type ReportTargetType,
 } from "@/lib/community/validate";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { captureEvent } from "@/lib/posthogEvents";
 import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
@@ -39,6 +40,7 @@ export default function ReportModal({
   // One request per press, decided in the click's own tick (#455).
   const latch = useSubmitLatch();
   const [sent, setSent] = useState(false);
+  const cardRef = useDialog<HTMLDivElement>(onClose);
 
   const submit = async () => {
     if (!latch.take()) return;
@@ -68,7 +70,12 @@ export default function ReportModal({
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span className={styles.modalKicker}>Report</span>
           <span>{targetLabel}</span>
@@ -125,6 +132,7 @@ export default function ReportModal({
                 rows={3}
                 value={detail}
                 maxLength={REPORT_DETAIL_MAX}
+                aria-label="Details"
                 placeholder="Anything that helps us look at the right thing (optional)"
                 onChange={(event) => setDetail(event.target.value)}
               />
