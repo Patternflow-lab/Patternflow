@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.1..4, Segments=6..16, Twist=-1..1
 //
 // Knob 1: Hue. Turns the glass colours around the colour wheel.
@@ -53,14 +53,14 @@ const LINES = [
 ];
 
 export function setup(params) {
-  const w = 128;
-  const h = 64;
+  const w = 64;
+  const h = 128;
   params.radius = new Float32Array(w * h);
   params.angle = new Float32Array(w * h);
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      const dx = x - 63.5;
-      const dy = y - 31.5;
+      const dx = x - 31.5;
+      const dy = y - 63.5;
       params.radius[y * w + x] = Math.hypot(dx, dy);
       params.angle[y * w + x] = Math.atan2(dy, dx);
     }
