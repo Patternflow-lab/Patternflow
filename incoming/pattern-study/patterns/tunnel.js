@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=-3..8, Twist=-1..1, Tiles=8..24
 //
 // Knob 1: Hue. The colour of the near rings; the far ones drift round the wheel from it.
@@ -60,7 +60,8 @@ export function draw(display, params, time) {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const dx = x + 0.5 - cx;
-      const dy = (y + 0.5 - cy) * 1.6;
+      // LEDs are square, so the tube is round with no aspect factor.
+      const dy = y + 0.5 - cy;
       const r = Math.sqrt(dx * dx + dy * dy) + 0.001;
       const depth = 40 / r;
       const u = depth + params.z;
@@ -69,7 +70,8 @@ export function draw(display, params, time) {
       const ring = Math.floor(u * 3);
       const check = (ring + Math.floor(v)) & 1;
       // Fog: the far end fades to black, which also hides the centre's aliasing.
-      const fog = Math.min(1, Math.max(0, (r - 4) / 34));
+      // It clears 28 LEDs out, inside the 32 the narrow side of the panel has.
+      const fog = Math.min(1, Math.max(0, (r - 4) / 24));
       const near = fog * fog;
       const c = hsv(params.hue + depth * 0.06, check ? 0.9 : 0.55, check ? near : near * 0.22);
       display.setPixel(x, y, c[0], c[1], c[2]);
