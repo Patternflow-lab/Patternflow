@@ -525,7 +525,9 @@ function start() {
     .map((round) => `${round}판 ${data.patterns.filter((p) => p.round === round).length}개`)
     .join(", ");
   const grid = document.getElementById("cards")!;
-  for (const entry of data.patterns) {
+  // The newest round comes first, so a returning visitor meets what is new.
+  const order = [...data.patterns].sort((a, b) => b.round - a.round || a.title.localeCompare(b.title));
+  for (const entry of order) {
     const card = buildCard(entry);
     cards.push(card);
     grid.append(card.root);
