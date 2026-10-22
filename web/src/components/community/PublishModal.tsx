@@ -24,6 +24,7 @@ import {
   LICENSE_OPTIONS,
   forkLicenseOptions,
   licenseById,
+  stripShareWrapping,
 } from "@/lib/pattern/share";
 import { captureEvent } from "@/lib/posthogEvents";
 import AuthModal from "./AuthModal";
@@ -149,11 +150,16 @@ export default function PublishModal({
   const send = async (): Promise<boolean> => {
     const trimmed = title.trim();
     setError(null);
-    if (code.length > CODE_MAX) {
+    // Measured the way the API measures it, with the licence header and
+    // footer off. "Open in Pattern Lab" hands back the stored code with both
+    // still on, a few hundred characters the server never counts, and
+    // counting them here refused a pattern the server takes unchanged.
+    const codeLength = (code.length <= CODE_MAX * 2 ? stripShareWrapping(code) : code).length;
+    if (codeLength > CODE_MAX) {
       // The server says the same thing, but after a round trip that costs
       // one of five publishes a minute — and without the likely cause.
       setError(
-        `This pattern is ${Math.round(code.length / 1000)} KB of code; the community takes up to ${
+        `This pattern is ${Math.round(codeLength / 1000)} KB of code; the community takes up to ${
           CODE_MAX / 1000
         } KB. Imported images as pixel layers are the usual reason — hide or delete one and share again.`,
       );
