@@ -10,6 +10,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 
 import type Sharp from "sharp";
+import type { OverlayOptions } from "sharp";
 
 import { STUDY, type Frame, type Pattern } from "./lab";
 
@@ -86,7 +87,7 @@ export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8
   const columns = 3;
   const sheetW = gap + columns * (tileW + gap);
   const sheetH = top + rows.length * (label + tileH + gap);
-  const tiles: Sharp.OverlayOptions[] = [];
+  const tiles: OverlayOptions[] = [];
   const texts: string[] = [
     `<text x="${gap}" y="25" font-size="19" font-weight="bold" fill="#f2f2f2">${escape(pattern.title)}</text>`,
   ];
