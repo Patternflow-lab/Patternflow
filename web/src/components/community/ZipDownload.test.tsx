@@ -58,6 +58,27 @@ describe("zip surfaces", () => {
     expect(screen.getByRole("link", { name: "http://192.168.0.44/patterns" })).toBeInTheDocument();
   });
 
+  it("sends a pasted http:// address and an emptied field to a real board", async () => {
+    window.localStorage.setItem("pf-device-host", "http://192.168.0.44/");
+    const { unmount } = render(
+      <SendModuleModal patternTitle="Wave" patternId="p123" onClose={() => {}} />,
+    );
+    await waitFor(() => expect(screen.getByText(/Wave is ready/)).toBeInTheDocument());
+    let href = screen.getByText("Send over Wi-Fi").closest("a")?.getAttribute("href") ?? "";
+    expect(new URL(href).host).toBe("192.168.0.44");
+    expect(screen.getByRole("link", { name: "http://192.168.0.44/patterns" })).toBeInTheDocument();
+    unmount();
+
+    window.localStorage.setItem("pf-device-host", "");
+    render(<SendModuleModal patternTitle="Wave" patternId="p123" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText(/Wave is ready/)).toBeInTheDocument());
+    href = screen.getByText("Send over Wi-Fi").closest("a")?.getAttribute("href") ?? "";
+    expect(new URL(href).host).toBe("patternflow.local");
+    expect(screen.getByRole("link", { name: "http://patternflow.local/patterns" })).toBeInTheDocument();
+    // The field keeps what was typed: nothing, over the placeholder.
+    expect(screen.getByRole("textbox", { name: "Board address" })).toHaveValue("");
+  });
+
   it("pattern mode disables sending a header that cannot compile", async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(
