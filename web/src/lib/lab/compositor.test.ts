@@ -10,7 +10,15 @@ import { createIdleInput, PatternRuntime } from "@/lib/pattern/harness";
 import { compositeLayers, type CompositeEntry } from "./compositor";
 import { LabEngine, type EngineProject } from "./engine";
 import { flattenLayers } from "./flatten";
-import { BLEND_MODES, type BlendMode, type PixelLayer } from "./types";
+import { buildHExport } from "./hExport";
+import {
+  BLEND_MODES,
+  DEFAULT_RAMP_STATE,
+  type BlendMode,
+  type CodeLayer,
+  type Layer,
+  type PixelLayer,
+} from "./types";
 
 type RGBA = [number, number, number, number];
 
@@ -114,7 +122,8 @@ describe("preview matches the flattened export", () => {
     const layers: PixelLayer[] = [];
     for (let k = 0; k < 6; k++) {
       const blend = BLEND_MODES[Math.floor(next() * BLEND_MODES.length)];
-      const opacity = [1, 0.5, 0.25, 0.8][Math.floor(next() * 4)];
+      // 0 too: seeds 9 and 11 put the mask on a 0% layer.
+      const opacity = [1, 0.5, 0.25, 0.8, 0][Math.floor(next() * 5)];
       layers.unshift(pixelLayer(`paint-${k}`, next, blend, opacity));
     }
     // A mask over the third paint layer from the top.
@@ -122,7 +131,7 @@ describe("preview matches the flattened export", () => {
     return layers;
   }
 
-  function project(layers: PixelLayer[]): EngineProject {
+  function project(layers: Layer[]): EngineProject {
     return {
       matrix: { width: W, height: H },
       layers,
@@ -132,7 +141,7 @@ describe("preview matches the flattened export", () => {
     };
   }
 
-  function exported(layers: PixelLayer[]): Uint8ClampedArray {
+  function exported(layers: Layer[]): Uint8ClampedArray {
     const runtime = new PatternRuntime(W, H);
     const loaded = runtime.loadCode(flattenLayers(layers, { width: W, height: H }));
     expect(loaded.error).toBeUndefined();
@@ -161,7 +170,7 @@ describe("preview matches the flattened export", () => {
     expect(differences(preview, exported(layers))).toEqual([]);
   });
 
-  it.each([1, 2, 3, 4, 5, 6, 7, 8])("random stack %i", (seed) => {
+  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])("random stack %i", (seed) => {
     const layers = stack(seed);
     const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
     expect(differences(preview, exported(layers))).toEqual([]);
@@ -173,5 +182,90 @@ describe("preview matches the flattened export", () => {
     const backdrop = new LabEngine().compositeBackdrop({ width: W, height: H }, layers, hidden).data;
     const rest = layers.filter((layer) => layer.id !== hidden);
     expect(differences(backdrop, exported(rest))).toEqual([]);
+  });
+
+  // A mask over a 0% layer gates nothing. Until 22 October 2026 the export
+  // and the header dropped the 0% layer first and handed its mask to the
+  // layer below, and the preview did the same for a code layer that had sat
+  // at 0% since it was added: it had never run, so it had no buffer to anchor.
+  describe("a mask over a 0% layer", () => {
+    const RED: RGBA = [255, 0, 0, 255];
+    const red = (): PixelLayer => ({ ...pixelLayer("red", () => 0, "normal", 1), data: solid(N, RED) });
+    // On over the left half of the frame only.
+    const leftHalf = (): PixelLayer => {
+      const layer = pixelLayer("mask", () => 0, "normal", 1, "mask");
+      for (let i = 0; i < N; i++) layer.data.set(i % W < W / 2 ? [255, 255, 255, 255] : [0, 0, 0, 0], i * 4);
+      return layer;
+    };
+    const blue = (opacity: number): CodeLayer => ({
+      id: "blue",
+      type: "code",
+      name: "blue",
+      visible: true,
+      opacity,
+      blend: "normal",
+      role: "paint",
+      maskInvert: false,
+      code: `export function draw(display) {
+  for (let y = 0; y < display.height; y++)
+    for (let x = 0; x < display.width; x++) display.setPixel(x, y, 0, 0, 255);
+}`,
+      ramp: DEFAULT_RAMP_STATE,
+      recolor: false,
+      knobsAnnotationRaw: null,
+      matrixAnnotationRaw: null,
+    });
+
+    // The header's composite plan: each paint group and the masks gating it.
+    function headerPlan(layers: Layer[]) {
+      const { scaffold } = buildHExport({
+        name: "Plan",
+        matrix: { width: W, height: H },
+        layers,
+        knobs: [0, 0, 0, 0],
+        ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+        knobLabels: ["A", "B", "C", "D"],
+      });
+      const names = [...scaffold.matchAll(/^\/\/ {3}L\d+\. (\S+) /gm)].map((match) => match[1]);
+      const table = (name: string) =>
+        scaffold.match(new RegExp(`${name}\\[\\d+\\]\\s*=\\s*\\{([^}]*)\\}`))![1].split(",").map(Number);
+      const at = table("G_MASK_AT");
+      const count = table("G_MASK_N");
+      const masks = table("MASK_LAYER");
+      return table("G_LAYER")
+        .slice(0, Number(scaffold.match(/GROUP_N = (\d+)/)![1]))
+        .map((layer, group) => ({
+          layer: names[layer],
+          masks: masks.slice(at[group], at[group] + count[group]).map((mask) => names[mask]),
+        }));
+    }
+
+    it("a pixel layer: the red under it shows whole, in the preview, the export and the header", () => {
+      const layers: Layer[] = [leftHalf(), pixelLayer("zero", () => 0.5, "normal", 0), red()];
+      const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
+      expect(differences(preview, solid(N, RED))).toEqual([]);
+      expect(differences(preview, exported(layers))).toEqual([]);
+      expect(headerPlan(layers)).toEqual([{ layer: "red", masks: [] }]);
+    });
+
+    it("the header still hands a mask over a 50% layer to that layer", () => {
+      const layers: Layer[] = [leftHalf(), pixelLayer("half", () => 0.5, "normal", 0.5), red()];
+      expect(headerPlan(layers)).toEqual([
+        { layer: "red", masks: [] },
+        { layer: "half", masks: ["mask"] },
+      ]);
+    });
+
+    it("a code layer at 0% since it was added, as one turned down from 100%", () => {
+      const layers: Layer[] = [leftHalf(), blue(0), red()];
+      const fresh = new LabEngine().render(project(layers), 1 / 60, 0).data;
+      expect(differences(fresh, solid(N, RED))).toEqual([]);
+      expect(differences(fresh, exported(layers))).toEqual([]);
+
+      const turnedDown = new LabEngine();
+      turnedDown.render(project([leftHalf(), blue(1), red()]), 1 / 60, 0);
+      expect(differences(turnedDown.render(project(layers), 1 / 60, 1 / 60).data, fresh)).toEqual([]);
+      expect(headerPlan(layers)).toEqual([{ layer: "red", masks: [] }]);
+    });
   });
 });
