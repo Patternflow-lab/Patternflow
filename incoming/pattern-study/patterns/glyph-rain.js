@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Fall=0.3..6, Density=0..1, Mutate=0..1
 //
 // Knob 1: Hue. Turns the rain around the colour wheel; the heads stay close to white.
@@ -16,8 +16,11 @@
 // Knob 4: Mutate. How often a glyph already written turns into another; near the top the rain boils.
 // Buttons: K4 tap switches between small glyphs and double-size ones.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
+// Small glyphs sit on a 4x6 pitch: 16 columns of 22 rows.
+const COLS = Math.floor(W / 4);
+const ROWS = Math.ceil(H / 6);
 
 // 3x5 glyphs, one octal digit per row from the top, 4 is the left column.
 const FONT = [
@@ -81,13 +84,13 @@ export function setup(params) {
   params.seed = 0x2545f491;
   params.scale = 1;
   params.density = 0;
-  params.glyph = new Uint8Array(32 * 11);
-  params.flash = new Float32Array(32 * 11);
-  params.head = new Float32Array(32);
-  params.len = new Float32Array(32);
-  params.rate = new Float32Array(32);
-  params.wait = new Float32Array(32);
-  params.rank = new Float32Array(32);
+  params.glyph = new Uint8Array(COLS * ROWS);
+  params.flash = new Float32Array(COLS * ROWS);
+  params.head = new Float32Array(COLS);
+  params.len = new Float32Array(COLS);
+  params.rate = new Float32Array(COLS);
+  params.wait = new Float32Array(COLS);
+  params.rank = new Float32Array(COLS);
   params.fb = new Uint8Array(W * H * 3);
   params.c = [0, 0, 0];
   layout(params);
