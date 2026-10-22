@@ -43,8 +43,12 @@ const ALL: Record<PartRole, boolean> = { shell: true, knob: true, led: true, pcb
 const CASE_ONLY: Record<PartRole, boolean> = { shell: true, knob: true, led: false, pcb: false, devkit: false };
 const BOARD_ONLY: Record<PartRole, boolean> = { shell: false, knob: false, led: false, pcb: true, devkit: true };
 
-/** The pose for a Build step (0 is none: idle), the Assemble slider's spread and the clock. */
-export function poseFor(step: number, explode: number, t: number): Pose {
+/**
+ * The pose for a Build step (0 is none: idle), the Assemble slider's spread
+ * and the clock. `still` is a reader who has asked for less motion: idle
+ * stands at the middle of its sway, facing them, and stays there.
+ */
+export function poseFor(step: number, explode: number, t: number, still = false): Pose {
   switch (step) {
     // 1. Print / cut the case: its parts and the knobs, drawn a little apart
     // so it reads as parts to make, nothing inside yet.
@@ -71,12 +75,12 @@ export function poseFor(step: number, explode: number, t: number): Pose {
     // 4. Flash and power on: together, lit.
     case 4:
       return { turn: -0.5, scale: REST_SCALE, lift: 0, spread: 0, show: ALL, loose: false, board: false, lit: true };
-    // Idle: together, lit, swaying slowly.
+    // Idle: together, lit, swaying slowly, 26° either way every 42 seconds.
     default:
       return {
-        turn: Math.sin(t * 0.15) * 0.45,
+        turn: still ? 0 : Math.sin(t * 0.15) * 0.45,
         scale: REST_SCALE,
-        lift: Math.sin(t * 0.3) * 0.03,
+        lift: still ? 0 : Math.sin(t * 0.3) * 0.03,
         spread: 0,
         show: ALL,
         loose: false,

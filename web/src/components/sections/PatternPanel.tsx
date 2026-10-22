@@ -10,72 +10,9 @@ import { showcasePresets } from '@/lib/presets';
 import { captureEvent } from '@/lib/posthogEvents';
 import { communityHref } from '@/lib/community/apiBase';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { useResettingState } from '@/lib/hooks/useResettingState';
 import styles from './PatternPanel.module.css';
-
-const getVariantPrompt = (code: string) => `I am writing custom LED patterns in JavaScript for Patternflow's 128x64 LED matrix web preview.
-
-I will give you one existing Patternflow pattern. Use it as a seed, not as a cage. Create exactly 5 distinct standalone variations that explore different visual directions.
-
-Very important output rules:
-- Return exactly 5 separate JavaScript code blocks.
-- Each code block must be a complete standalone Patternflow pattern.
-- Do not combine the 5 variations into one file.
-- Do not add a mode selector, preset array, switch statement, or any code that contains multiple patterns in one output.
-- Do not write wrapper text inside the code blocks.
-- Put a short variation name before each code block.
-- Do not include nested triple backticks inside any code block.
-
-Required API for every variation:
-- export function setup(params) {}
-- export function update(dt, input, params) {}
-- export function draw(display, params, time) {}
-- Use input.knobValues as the primary control API. input.knobValues is an array of 4 absolute knob values after the min/max ranges are applied.
-- input.knobNormalized is also available when a 0.0-1.0 value is useful.
-- Keep input.knobDeltas only as compatibility fallback if needed.
-- Use display.width and display.height in loops. Do not hardcode 128 or 64 inside draw().
-- Use only plain JavaScript and Math.*. No browser APIs, DOM APIs, imports, async code, external libraries, dynamic evaluation, or per-pixel allocations.
-
-Creative control mapping:
-- It is okay to keep one knob as animation speed, preferably Knob 2, if that suits the variation.
-- Do not keep all four knobs as the same old hue/speed/mode/frequency template unless it is genuinely the best fit.
-- Redesign the other controls creatively for each variation. Examples: cell size, symmetry fold, glitch amount, palette split, trail length, scanline spacing, pulse width, inversion threshold, rotation, warp depth, density, edge thickness, phase offset, bloom-like gain, or motif selection.
-- Each of the 5 variations should have a slightly different control personality. The controls should reveal the unique idea of that variation.
-- Include a short comment near setup() or update() naming what the 4 knobs do for that specific variation.
-
-Color direction:
-- Make color part of the pattern logic, not just a global hue wash.
-- Avoid relying on a single full-frame gradient or a uniform hue shift across the whole image.
-- Prefer colors that respond to local pattern values: distance fields, cell seeds, stripe index, phase, brightness, threshold bands, motion direction, edge thickness, density, or mask state.
-- Good examples: large values become red while small values become blue; interior/exterior use different palettes; threshold bands step through 3-5 colors; cell IDs pick related colors; moving fronts leave warmer highlights; thin edges are white while filled regions are saturated.
-- Both smooth local gradients and stepped posterized color bands are welcome, as long as the color changes are tied to the geometry or signal of the pattern.
-- Keep at least some pixels near full LED brightness.
-
-Variation direction:
-- Keep the general intent and the four control roles understandable, but do not copy the original structure too literally.
-- At least 3 of the 5 variations must change the main drawing algorithm, not only constants, colors, thresholds, or speed.
-- Avoid making all 5 outputs feel like the same pattern with different parameter values.
-- Do not reuse the same grid, shape, distance formula, or composition in every variation.
-- Give each variation a different dominant idea. Use these five directions:
-  1. Structural remix: change the main geometry or repetition system.
-  2. Motion remix: change how time moves through the pattern.
-  3. Palette/material remix: change color logic, brightness rhythm, or foreground/background relationship.
-  4. Domain remix: warp, mirror, fold, scroll, rotate, or otherwise remap coordinates.
-  5. Contrast remix: make a clearly different sparse/dense, hard/soft, or organic/mechanical interpretation.
-- The variations can be bold. They should still feel related to the seed, but not trapped inside its exact look.
-- Keep the patterns bright enough for an LED matrix and reasonably ESP32-friendly.
-- Avoid smoothing/lerping knob-controlled values unless the visual idea specifically needs inertia.
-
-Knob ranges for the Patternflow live editor:
-- Knob 1: 0.0 to 1.0, wraps at edges, default step 0.05 per detent.
-- Knob 2: 0.1 to 10.0, clamps at edges, default step 0.10 per detent.
-- Knob 3: 0.0 to 4.9, clamps at edges, default step 0.05 per detent.
-- Knob 4: 0.0 to 1.0, wraps at edges, default step 0.05 per detent.
-
-Existing pattern:
-\`\`\`javascript
-${code}
-\`\`\``;
-
+import { getVariantPrompt } from './variantPrompt';
 
 type EspWebInstallButtonProps = {
   children: React.ReactNode;
@@ -86,14 +23,10 @@ const EspWebInstallButton = 'esp-web-install-button' as unknown as React.Element
 
 interface PatternPanelProps {
   content: SectionContent;
+  isActive: boolean;
 }
 
 const EDITOR_LINE_HEIGHT = 20;
-// Fixed editor height — most visitors only paste AI-generated code and
-// rarely scroll the source themselves, so growing the page with line
-// count just pushed the rest of the section out of view. The editor
-// now scrolls internally instead.
-const EDITOR_HEIGHT = 480;
 
 // Phones show a sliding window of preset numbers around the active one instead
 // of the whole library — all 42 would wrap into a wall of rows. Keep in sync
@@ -110,13 +43,14 @@ const MOBILE_PRESET_WINDOW = 7;
 // now; the rest arrive as modules.
 const NUM_BASICS_PATTERNS = 33;
 
-export default function PatternPanel({ content }: PatternPanelProps) {
+export default function PatternPanel({ content, isActive }: PatternPanelProps) {
   // Start with Origin selected; the effect below loads it into the editor.
   const [activePresetId, setActivePresetId] = useState<string | null>(() =>
     showcasePresets.some((p) => p.id === 'origin') ? 'origin' : null,
   );
   const customJsCode = useAppStore(state => state.customJsCode);
   const setCustomJsCode = useAppStore(state => state.setCustomJsCode);
+  const customJsError = useAppStore(state => state.customJsError);
 
   // The Live Editor renders through the 'custom' pattern, so the 3D preview
   // reflects the editor (and loaded presets). Load Origin into the editor
@@ -127,8 +61,20 @@ export default function PatternPanel({ content }: PatternPanelProps) {
     if (origin) {
       setCustomJsCode(origin.code);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once on mount; a later run would put Origin over the reader's own code
   }, []);
+
+  // The panel is mounted on /, /build and /inside too, folded away, so the
+  // effect above can point the hero preview at Origin. The editor and the
+  // flasher are not: Monaco comes from jsdelivr, 4.2 MB once its loader is
+  // in, and the flasher from unpkg. Both wait for the first time the tab
+  // opens. After that they stay, so going back to the tab finds the editor
+  // as it was left, undo history included. Latched while rendering, so the
+  // editor is there in the render that opens the tab.
+  const [opened, setOpened] = useState(isActive);
+  if (isActive && !opened) {
+    setOpened(true);
+  }
 
   const handleLoadPreset = (presetId: string) => {
     const preset = showcasePresets.find((p) => p.id === presetId);
@@ -186,18 +132,28 @@ export default function PatternPanel({ content }: PatternPanelProps) {
   const [showAllPresets, setShowAllPresets] = useState(false);
   const activePreset = activePresetIndex >= 0 ? showcasePresets[activePresetIndex] : null;
 
-  const handleCopyVariantPrompt = () => {
-    navigator.clipboard.writeText(getVariantPrompt(customJsCode));
-    captureEvent('copy_variants_prompt_clicked', {
-      surface: 'live_editor',
-    });
+  // The alert says the prompt is on the clipboard, so it waits for the write.
+  // When the browser refuses it (no permission, a page served over plain
+  // http), the button says "Copy failed" for a moment instead.
+  const [copyFailed, flashCopyFailed] = useResettingState(false, 1400);
+  const handleCopyVariantPrompt = async () => {
+    try {
+      const copying = navigator.clipboard.writeText(getVariantPrompt(customJsCode));
+      captureEvent('copy_variants_prompt_clicked', {
+        surface: 'live_editor',
+      });
+      await copying;
+    } catch {
+      flashCopyFailed(true);
+      return;
+    }
     alert('Creation prompt copied to clipboard! Paste it in ChatGPT/Claude to get 5 pattern variations.');
   };
 
   return (
     <div className="panel-content pf-section-panel" id="pattern">
       <div className="panel-header">
-        <h2 className="pf-h2">{content.title}</h2>
+        <h1 className="pf-h2">{content.title}</h1>
         <p className="pf-sub">{content.subtitle}</p>
       </div>
       <div className="panel-body">
@@ -220,11 +176,13 @@ export default function PatternPanel({ content }: PatternPanelProps) {
           </div>
         )}
 
-        <Script
-          type="module"
-          src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
-          strategy="lazyOnload"
-        />
+        {opened && (
+          <Script
+            type="module"
+            src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"
+            strategy="lazyOnload"
+          />
+        )}
 
         <div className={styles.workspace}>
           {/* No tab bar: two of its three cells navigated to other pages, so it
@@ -239,7 +197,9 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                 </button>
                 <div className={styles.presetNow}>
                   <span className={styles.presetIndex}>
-                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')} / {showcasePresets.length}
+                    {String(activePresetIndex >= 0 ? activePresetIndex + 1 : 0).padStart(2, '0')}
+                    {/* Dropped on phones, where "All 42" sits right under it. */}
+                    <span className={styles.presetTotal}> / {showcasePresets.length}</span>
                   </span>
                   <span className={styles.presetName}>{activePreset?.name ?? 'Custom'}</span>
                   {/* The one accent in this panel: it means "this is what the
@@ -280,35 +240,48 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                   })}
                 </div>
               )}
-              <Editor
-                height={EDITOR_HEIGHT}
-                defaultLanguage="javascript"
-                theme="vs-dark"
-                value={customJsCode}
-                onChange={(val) => {
-                  const next = val || '';
-                  setCustomJsCode(next);
-                  // Deselect the chip once the code is edited away from the preset.
-                  if (activePresetId) {
-                    const preset = showcasePresets.find((p) => p.id === activePresetId);
-                    if (!preset || preset.code !== next) setActivePresetId(null);
-                  }
-                }}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineHeight: EDITOR_LINE_HEIGHT,
-                  scrollBeyondLastLine: false,
-                  scrollbar: {
-                    vertical: 'auto',
-                    horizontal: 'auto',
-                    handleMouseWheel: true,
-                  },
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  automaticLayout: true,
-                }}
-              />
+              {/* The box holds the editor's height, before Monaco loads and
+                  after, so the page does not jump when the tab first opens.
+                  The CSS shrinks it on phones (.editorBox). */}
+              <div className={styles.editorBox}>
+                {opened && (
+                  <Editor
+                    height="100%"
+                    defaultLanguage="javascript"
+                    theme="vs-dark"
+                    value={customJsCode}
+                    onChange={(val) => {
+                      const next = val || '';
+                      setCustomJsCode(next);
+                      // Deselect the chip once the code is edited away from the preset.
+                      if (activePresetId) {
+                        const preset = showcasePresets.find((p) => p.id === activePresetId);
+                        if (!preset || preset.code !== next) setActivePresetId(null);
+                      }
+                    }}
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineHeight: EDITOR_LINE_HEIGHT,
+                      scrollBeyondLastLine: false,
+                      scrollbar: {
+                        vertical: 'auto',
+                        horizontal: 'auto',
+                        handleMouseWheel: true,
+                      },
+                      overviewRulerLanes: 0,
+                      hideCursorInOverviewRuler: true,
+                      automaticLayout: true,
+                    }}
+                  />
+                )}
+              </div>
+              {/* Why the code above is not what the preview shows. Pasted code
+                  that threw used to reach the browser console and nothing
+                  else. The region stays mounted so a reader hears it change. */}
+              <div role="status">
+                {customJsError && <pre className={styles.editorError}>{customJsError}</pre>}
+              </div>
               {/* The four numbered steps collapsed to this: what the editor is
                   for, and the one button that belongs next to it. Everything
                   about hardware moved to its own block below. */}
@@ -317,8 +290,8 @@ export default function PatternPanel({ content }: PatternPanelProps) {
                   Paste AI-generated code here, or edit the preset. The preview updates as
                   you type.
                 </span>
-                <button type="button" onClick={handleCopyVariantPrompt}>
-                  Copy creation prompt
+                <button type="button" onClick={() => void handleCopyVariantPrompt()}>
+                  {copyFailed ? 'Copy failed' : 'Copy creation prompt'}
                 </button>
               </div>
           </div>
@@ -331,24 +304,31 @@ export default function PatternPanel({ content }: PatternPanelProps) {
               <span className="pf-kicker">Where it goes next</span>
               <Link href="/pattern-lab" className={styles.nextCard}>
                 <span className={styles.nextKicker}>01</span>
-                <h3>Pattern Lab ↗</h3>
+                <h2>Pattern Lab ↗</h2>
                 <p>The full studio — batch generation, color ramps, and ESP32 C++ compile.</p>
               </Link>
               <Link href={communityHref()} className={styles.nextCard}>
                 <span className={styles.nextKicker}>02</span>
-                <h3>Community ↗</h3>
+                <h2>Community ↗</h2>
                 <p>Share what you make, fork what everyone else made.</p>
               </Link>
+              {/* The build server makes a .pfm on its own machine
+                  (lib/community/server/buildJobs.ts) and the board's Patterns
+                  page installs it. Firmware still has to be built for a new
+                  feature or a panel other than the stock one (PANEL_GEOMETRY
+                  and PANEL_PROFILE in firmware/patternflow/config.h), and the
+                  firmware README puts PlatformIO before the Arduino IDE. */}
               <p className={styles.advancedNote}>
-                The build server compiles your pattern into firmware in the browser. The{' '}
+                The build server compiles your pattern into a module on its own machine, and
+                your board installs it over Wi-Fi. You build the firmware yourself, with{' '}
                 <a
-                  href="https://github.com/engmung/Patternflow/blob/main/firmware/README.md"
+                  href="https://github.com/engmung/Patternflow/blob/main/firmware/README.md#build-with-platformio-recommended"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Arduino IDE
-                </a>{' '}
-                is only for new firmware features or a different matrix size.
+                  PlatformIO
+                </a>
+                , only for a new firmware feature or a panel other than the stock 128×64.
               </p>
             </div>
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
-import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
+import { communityApiUrl } from "@/lib/community/apiBase";
 import { useDeviceHost } from "@/lib/community/deviceHost";
 import { captureEvent } from "@/lib/posthogEvents";
+import { useModuleBuild } from "@/lib/community/useModuleBuild";
 import { useZipDownload } from "@/lib/community/zipDownload";
 import AuthModal from "./AuthModal";
 import { ZipInstallNote, ZipProgress } from "./ZipDownload";
@@ -29,17 +30,6 @@ import styles from "./Community.module.css";
 // - Arbitrary code (`code`) — Pattern Lab's assembled header, which exists
 //   nowhere but this browser. That still goes through POST /builds, signed
 //   in, with a single-item list, so there is one server path for it.
-
-type ModuleBuild = {
-  id: string;
-  status: "queued" | "running" | "done" | "error";
-  queuePosition: number | null;
-  elapsedMs: number | null;
-  bytes: number | null;
-  error: string | null;
-  namespaces: string[];
-  modulesUrl: string | null;
-};
 
 export default function SendModuleModal(
   props: {
@@ -170,80 +160,12 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
   const { data: session, isPending } = authClient.useSession();
   const { deviceHost, changeDeviceHost, patternsUrl } = useDeviceHost();
 
-  const [build, setBuild] = useState<ModuleBuild | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { build, error, busy, waited, expectedS, start } = useModuleBuild();
 
-  const pollRef = useRef<number | null>(null);
-  useEffect(
-    () => () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    },
-    [],
-  );
-
-  const poll = useCallback(async (id: string) => {
-    try {
-      const response = await fetch(
-        communityApiUrl(`/api/community/builds/${id}`),
-        COMMUNITY_FETCH_INIT,
-      );
-      if (!response.ok) return;
-      const state = (await response.json()) as ModuleBuild;
-      setBuild(state);
-      if (state.status === "done" || state.status === "error") {
-        if (pollRef.current) window.clearInterval(pollRef.current);
-        pollRef.current = null;
-        captureEvent("module_build_finished", {
-          status: state.status,
-          patterns: 1,
-          bytes: state.bytes,
-        });
-      }
-    } catch {
-      // A dropped poll is not a failed build; the next tick catches up.
-    }
-  }, []);
-
-  const startBuild = useCallback(async () => {
+  const startBuild = useCallback(() => {
     if (!session) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(communityApiUrl("/api/community/builds"), {
-        method: "POST",
-        ...COMMUNITY_FETCH_INIT,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "pfm",
-          patterns: [{ label: patternTitle, code }],
-        }),
-      });
-      const payload = (await response.json()) as { id?: string; error?: string };
-      if (!response.ok || !payload.id) {
-        setError(payload.error ?? "Could not queue the build.");
-        return;
-      }
-      const buildId = payload.id;
-      captureEvent("module_build_queued", { patterns: 1 });
-      setBuild({
-        id: buildId,
-        status: "queued",
-        queuePosition: null,
-        elapsedMs: null,
-        bytes: null,
-        error: null,
-        namespaces: [],
-        modulesUrl: null,
-      });
-      void poll(buildId);
-      pollRef.current = window.setInterval(() => void poll(buildId), 1000);
-    } catch {
-      setError("Network error — is the build server reachable?");
-    } finally {
-      setBusy(false);
-    }
-  }, [session, patternTitle, code, poll]);
+    void start([{ label: patternTitle, code }]);
+  }, [session, patternTitle, code, start]);
 
   // Building one module takes about half a second, so asking the visitor to
   // press a second button after opening the modal would only be a wait with
@@ -252,15 +174,9 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
   useEffect(() => {
     if (session && !kicked.current) {
       kicked.current = true;
-      void startBuild();
+      startBuild();
     }
   }, [session, startBuild]);
-
-  const retry = () => {
-    setBuild(null);
-    setError(null);
-    void startBuild();
-  };
 
   return (
     <>
@@ -272,14 +188,26 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
       <AuthModal embedded onClose={() => undefined} onAuthed={() => router.refresh()} />
     ) : (
       <div className={styles.modalBody}>
-        {error && <div className={styles.formError}>{error}</div>}
+        {error && (
+          <>
+            <div className={styles.formError}>{error}</div>
+            <div className={styles.actionRow}>
+              <button type="button" className={styles.btn} onClick={startBuild}>
+                Try again
+              </button>
+            </div>
+          </>
+        )}
 
         {(busy || (build && build.status !== "done" && build.status !== "error")) && (
           <p className={styles.buildStatusLine}>
             <span className={styles.buildSpinner} aria-hidden="true" />
             {build && build.status === "queued" && build.queuePosition && build.queuePosition > 1
               ? `Waiting — ${build.queuePosition} in the queue…`
-              : "Building the module… (usually a second or two)"}
+              : waited >= expectedS
+                ? "Building the module… (longer than usual)"
+                : "Building the module… (usually a second or two)"}
+            {waited > 0 && ` · ${waited} s`}
           </p>
         )}
 
@@ -288,7 +216,7 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
             <div className={styles.formError}>The build failed.</div>
             <pre className={styles.buildLog}>{build.error}</pre>
             <div className={styles.actionRow}>
-              <button type="button" className={styles.btn} onClick={retry}>
+              <button type="button" className={styles.btn} onClick={startBuild}>
                 Try again
               </button>
             </div>
@@ -326,6 +254,7 @@ function CodeBuildBody({ patternTitle, code }: { patternTitle: string; code: str
                 value={deviceHost}
                 onChange={(event) => changeDeviceHost(event.target.value)}
                 spellCheck={false}
+                aria-label="Device address"
                 style={{
                   font: "inherit",
                   width: "16ch",

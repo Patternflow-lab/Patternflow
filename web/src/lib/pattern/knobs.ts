@@ -58,11 +58,17 @@ export function buildKnobsAnnotationLine(
   labels: readonly string[],
   ranges: readonly (readonly [number, number])[],
 ): string {
-  const trim = (value: number) => `${Math.round(value * 1000) / 1000}`;
+  // Twelve significant digits drop float noise (0.1 + 0.2 prints as 0.3) and
+  // keep a fine range whole. Rounding to three decimals wrote 0.0001..0.0004
+  // as 0..0, which the parser throws away.
+  const trim = (value: number) => `${Number(value.toPrecision(12))}`;
   const entries = labels.map((label, index) => {
     const range = ranges[index] ?? [0, 1];
-    // Commas and equals signs are the annotation's own separators.
-    const name = label.replace(/[,=]/g, " ").trim() || "-";
+    // Commas and equals signs are the annotation's own separators. An empty
+    // name takes the slot's default: "-" with a range after it reads back as
+    // a knob called "-".
+    const name =
+      label.replace(/[,=]/g, " ").trim() || (DEFAULT_KNOB_LABELS[index] ?? `Knob ${index + 1}`);
     return `${name}=${trim(range[0])}..${trim(range[1])}`;
   });
   return `// @knobs ${entries.join(", ")}`;

@@ -233,7 +233,7 @@ export default function RoadmapMap() {
       x: Math.min(0, Math.round(cw * 0.62 - nowX)),
       y: Math.round((ch - HEIGHT) / 2),
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- not on nowX: it moves with the canvas width, and a resize would undo the reader's own pan
   }, [today]);
 
   const gate = useMemo(() => {
@@ -383,18 +383,27 @@ export default function RoadmapMap() {
   // Timeline ticks and Today/Future labels stay pinned to the top edge of the canvas when panning vertically
   const stickyHeaderY = Math.max(TOP - 32, (18 - pan.y) / zoom);
 
+  // The page opens in Korean under <html lang="en">, so the map says which
+  // language it is in; a screen reader otherwise reads the Korean in an
+  // English voice. The back link and the title stay English in both.
   return (
-    <div className={styles.map}>
+    <div className={styles.map} lang={lang}>
       <header className={styles.topBar}>
-        <Link className={styles.back} href="/">
+        <Link className={styles.back} href="/" prefetch={false} lang="en">
           ← Patternflow
         </Link>
-        <h1 className={styles.mapTitle}>Project map</h1>
+        <h1 className={styles.mapTitle} lang="en">Project map</h1>
         <div className={styles.headerRight}>
-          <div className={styles.toggleGroup} role="group" aria-label="Language">
+          <div
+            className={styles.toggleGroup}
+            role="group"
+            aria-label={lang === 'ko' ? '언어' : 'Language'}
+          >
             <button
               type="button"
               className={`${styles.toggleBtn} ${lang === 'ko' ? styles.toggleOn : ''}`}
+              aria-pressed={lang === 'ko'}
+              lang="ko"
               onClick={() => setLang('ko')}
             >
               한글
@@ -402,15 +411,22 @@ export default function RoadmapMap() {
             <button
               type="button"
               className={`${styles.toggleBtn} ${lang === 'en' ? styles.toggleOn : ''}`}
+              aria-pressed={lang === 'en'}
+              lang="en"
               onClick={() => setLang('en')}
             >
               ENG
             </button>
           </div>
-          <div className={styles.toggleGroup} role="group" aria-label="Map detail level">
+          <div
+            className={styles.toggleGroup}
+            role="group"
+            aria-label={lang === 'ko' ? '지도 보기' : 'Map detail level'}
+          >
             <button
               type="button"
               className={`${styles.toggleBtn} ${!detailed ? styles.toggleOn : ''}`}
+              aria-pressed={!detailed}
               onClick={() => setDetailed(false)}
             >
               {lang === 'ko' ? '개요' : 'Overview'}
@@ -418,6 +434,7 @@ export default function RoadmapMap() {
             <button
               type="button"
               className={`${styles.toggleBtn} ${detailed ? styles.toggleOn : ''}`}
+              aria-pressed={detailed}
               onClick={() => setDetailed(true)}
             >
               {lang === 'ko' ? '상세보기' : 'Detailed'}
@@ -446,7 +463,11 @@ export default function RoadmapMap() {
             width={width}
             height={HEIGHT}
             role="img"
-            aria-label="Patternflow project map: past releases and planned work by area over time"
+            aria-label={
+              lang === 'ko'
+                ? 'Patternflow 프로젝트 지도: 분야별로 시간 순에 놓은 지난 릴리스와 계획한 일'
+                : 'Patternflow project map: past releases and planned work by area over time'
+            }
           >
             <defs>
               <marker
@@ -594,7 +615,7 @@ export default function RoadmapMap() {
                   className={styles.nodeGroup}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${titleText}, ${n.status}`}
+                  aria-label={`${titleText}, ${lang === 'ko' ? (n.status === 'planned' ? '계획' : '완료') : n.status}`}
                   onClick={() => handleNodeClick(n.id)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -693,10 +714,9 @@ export default function RoadmapMap() {
                 <button
                   type="button"
                   className={styles.popupClose}
-                  aria-label="Close"
                   onClick={() => setSelectedId(null)}
                 >
-                  Close
+                  {lang === 'ko' ? '닫기' : 'Close'}
                 </button>
               </div>
               <h2 className={styles.popupTitle}>{nodeTitle(selected, lang)}</h2>

@@ -166,7 +166,9 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
           {/* The panels not on screen are only faded and folded away, so they
               are inert too: out of the tab order and the accessibility tree.
               Otherwise a keyboard could reach the Build panel's case switch
-              from the Pattern tab and change the case under the preview. */}
+              from the Pattern tab and change the case under the preview.
+              Inert takes the hero's h1 with it, so each tab's title is an h1
+              of its own. */}
           <div className={`panel-wrapper ${activeTab === 'hero' ? 'active' : ''}`} inert={activeTab !== 'hero'}>
             <Hero />
             <Milestones />
@@ -177,7 +179,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
             <BuildPanel key={buildPanelKey} content={buildContent} isActive={activeTab === 'build'} />
           </div>
           <div className={`panel-wrapper ${activeTab === 'pattern' ? 'active' : ''}`} inert={activeTab !== 'pattern'}>
-            <PatternPanel content={patternContent} />
+            <PatternPanel content={patternContent} isActive={activeTab === 'pattern'} />
           </div>
           <div className={`panel-wrapper ${activeTab === 'inside' ? 'active' : ''}`} inert={activeTab !== 'inside'}>
             <InsidePanel content={insideContent} />

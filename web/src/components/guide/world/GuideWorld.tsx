@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Component, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { preload } from "react-dom";
+import { hasWebGL } from "@/lib/webgl";
 import styles from "../Guide.module.css";
 import { useDarkDocument } from "../darkDocument";
 import { screenAt } from "../pages";
@@ -38,22 +39,9 @@ const WorldStage = dynamic(() => import("./WorldStage"), { ssr: false });
 
 // A browser that cannot give the stage a WebGL 2 context (turned off, an old
 // machine, a blocked GPU) gets the guide without it: the words, the cards and
-// the pictures are all there. Asked once, before the stage's chunk is; the
-// stage used to be loaded regardless, throw as it made its renderer, and
+// the pictures are all there. Asked (lib/webgl) before the stage's chunk is;
+// the stage used to be loaded regardless, throw as it made its renderer, and
 // leave the page waiting on a canvas that would never draw.
-let webgl: boolean | null = null;
-function hasWebGL(): boolean {
-  if (webgl !== null) return webgl;
-  try {
-    // (A 1×1 canvas nobody holds: its context goes with it.)
-    const probe = document.createElement("canvas");
-    probe.width = probe.height = 1;
-    webgl = !!probe.getContext("webgl2");
-  } catch {
-    webgl = false;
-  }
-  return webgl;
-}
 
 /**
  * The stage is the guide's picture, not the guide. If it throws as it is
@@ -64,14 +52,14 @@ function hasWebGL(): boolean {
  * told, as where there is no WebGL at all.
  */
 class StageGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  override componentDidCatch() {
     stageLoad.set({ failed: true });
   }
-  render() {
+  override render() {
     return this.state.failed ? null : this.props.children;
   }
 }

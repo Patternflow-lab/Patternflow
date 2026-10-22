@@ -75,7 +75,3 @@ export function downloadPatternHeader(pattern: DownloadablePattern, cpp: string)
 export function licensedJsText(pattern: DownloadablePattern, code: string) {
   return buildSharedPatternFile(code, shareMetaFor(pattern));
 }
-
-export function licensedHeaderText(pattern: DownloadablePattern, cpp: string) {
-  return buildSharedHeaderFile(cpp, shareMetaFor(pattern));
-}

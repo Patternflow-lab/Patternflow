@@ -13,8 +13,9 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
   padding: 14px 0;
 }
 
@@ -24,8 +25,16 @@
   margin: 0;
 }
 
-.toolbarSpacer {
-  flex: 1;
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-left: auto;
+}
+
+.toolbarActions .toolBtn {
+  white-space: nowrap;
 }
 
 .toolBtn {
@@ -74,27 +83,41 @@
   cursor: default;
 }
 
-/* ── filter chips ── */
+/* ── filter chips and the placing banner, over the map ── */
 
-.chips {
+.mapTop {
   position: absolute;
   top: 12px;
   left: 16px;
+  right: 16px;
+  z-index: 2;
   display: flex;
-  z-index: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  /* The strip spans the map; only what is drawn in it takes the pointer. */
+  pointer-events: none;
 }
 
+.mapTop > * {
+  pointer-events: auto;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* Each chip pulls the next one over its right border and the next row up
+   over its bottom one, so the chips read as one strip on any number of rows. */
 .chip {
   composes: toolBtn;
-  border-right-width: 0;
   padding: 5px 10px;
-}
-
-.chip:last-child {
-  border-right-width: 1px;
+  margin: 0 -1px -1px 0;
 }
 
 .chip[data-on="true"] {
+  position: relative;
   color: var(--pfc-ink);
   background: var(--pfc-well-2);
   border-color: var(--pfc-edge);
@@ -133,6 +156,14 @@
   margin-left: 10px;
 }
 
+/* Zoom is on the wheel and a drag pans only once zoomed, so a touch screen
+   has none of the three gestures the hint names. */
+@media (hover: none) {
+  .zoomHint {
+    display: none;
+  }
+}
+
 .mapWrap[data-placing="true"] .map {
   cursor: crosshair;
 }
@@ -161,7 +192,9 @@
    sheet of thumbnails, newest first, not a list of titles. */
 .pickerGrid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* minmax(0, …): a long title is cut by its caption, it does not widen the
+     column. With plain 1fr the grid grew past the picker and scrolled sideways. */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   padding: 2px 4px 6px;
 }
@@ -239,11 +272,8 @@
 }
 
 .placeBanner {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
+  align-self: center;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -252,7 +282,10 @@
   border: 1px solid var(--pfc-led-edge);
   color: var(--pfc-led);
   font-size: 12.5px;
-  white-space: nowrap;
+}
+
+.placeBanner > button {
+  flex: none;
 }
 
 .bannerLink {
@@ -286,6 +319,24 @@
 .pin[data-selected="true"] .pinTile {
   border-color: var(--pfc-ink);
   box-shadow: 0 0 8px rgba(244, 239, 230, 0.25);
+}
+
+.pin:focus-visible {
+  outline: none;
+}
+
+/* Drawn inside the tile: the foreignObject is the tile's width and clips
+   anything outside it, so an outline around the tile shows only below. */
+.pin:focus-visible .pinTile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--pfc-ink);
+  pointer-events: none;
+}
+
+.pin:focus-visible .pinCaption {
+  color: var(--pfc-ink);
 }
 
 .pinWell {
@@ -349,6 +400,16 @@
 .removeBtn:hover {
   color: var(--pfc-danger);
   border-color: var(--pfc-danger);
+}
+
+/* Why a move, a link or a removal did not save. */
+.writeError {
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  background: rgba(232, 107, 94, 0.1);
+  border: 1px solid rgba(232, 107, 94, 0.4);
+  color: var(--pfc-danger);
+  font-size: 13px;
 }
 
 .legendTile {
@@ -477,8 +538,27 @@
   transition: r 0.12s;
 }
 
-.node:hover .core {
+.node:hover .core,
+.node:focus-visible .core {
   r: 8;
+}
+
+/* The keyboard's place on the map. The browser's outline would box the
+   label too, so the ring is drawn: cream, like selection, since orange here
+   means live. */
+.focusRing {
+  fill: none;
+  stroke: var(--pfc-ink);
+  stroke-width: 1.5;
+  visibility: hidden;
+}
+
+.node:focus-visible .focusRing {
+  visibility: visible;
+}
+
+.node:focus-visible .nodeLabel {
+  fill: var(--pfc-ink);
 }
 
 .node[data-selected="true"] .core {
@@ -499,6 +579,14 @@
 
 .pulseRing {
   animation: pulse 2.2s ease-in-out infinite;
+}
+
+/* Held at the middle of its beat: the ring still marks the entry as live. */
+@media (prefers-reduced-motion: reduce) {
+  .pulseRing {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /* ── side panel ── */
@@ -704,14 +792,43 @@
 /* ── narrow screens: stack map over panel ── */
 
 @media (max-width: 900px) {
+  /* Here the buttons sit on a row of their own and may wrap, so "Add my
+     pattern" can be at the left edge. The picker hangs from the toolbar's
+     right edge instead of the button, and is never wider than the toolbar. */
+  .toolbar {
+    position: relative;
+  }
+
+  .pickerWrap {
+    position: static;
+  }
+
+  .picker {
+    top: calc(100% - 8px);
+    width: min(396px, 100%);
+  }
+
   .body {
     flex-direction: column;
     height: auto;
+    min-height: 0;
   }
 
+  /* At 390px the chips wrap to two rows, and over the map they hid 21 of its
+     83 labels. Here they stand above it, with the banner under them. */
+  .mapTop {
+    position: static;
+    padding: 12px 16px 8px;
+  }
+
+  /* The map is as tall as its 1000:640 drawing. The old 380px box held a
+     drawing 228px tall at 390px and left the 152px under it blank. */
   .mapWrap {
-    height: 60vh;
-    min-height: 380px;
+    flex: none;
+  }
+
+  .map {
+    height: auto;
   }
 
   .panel {

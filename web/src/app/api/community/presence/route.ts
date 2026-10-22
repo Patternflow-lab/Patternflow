@@ -1,5 +1,6 @@
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import {
   STAGE_HEIGHT,
@@ -69,12 +70,8 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Too many moves — stand still a moment." }, { status: 429 });
   }
 
-  let payload: Record<string, unknown>;
-  try {
-    payload = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const payload = await readJsonObject(request);
+  if (payload instanceof Response) return payload;
 
   const hasPosition = payload.x !== undefined || payload.y !== undefined;
   const hasStatus = payload.status !== undefined;

@@ -2,9 +2,11 @@
 
 // The pattern-code reference modal, unchanged from the single-pattern lab.
 
+import { useDialog } from "@/lib/hooks/useDialog";
 import styles from "../PatternLab.module.css";
 
 export default function CodeGuideModal({ onClose }: { onClose: () => void }) {
+  const cardRef = useDialog<HTMLDivElement>(onClose);
   return (
     <div
       className={styles.modalOverlay}
@@ -13,7 +15,12 @@ export default function CodeGuideModal({ onClose }: { onClose: () => void }) {
       aria-label="Code guide"
       onClick={onClose}
     >
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span>Code guide — encoder buttons</span>
           <button type="button" onClick={onClose} aria-label="Close">

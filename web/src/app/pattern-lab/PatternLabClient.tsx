@@ -20,6 +20,7 @@ import type { DockviewTheme } from "dockview";
 import "dockview/dist/styles/dockview.css";
 import "./lab-dock.css";
 
+import { useDismiss } from "@/lib/hooks/useDismiss";
 import { withMatrixAnnotation } from "@/lib/pattern/matrix";
 import { codeUsesValueField, withRampAnnotation } from "@/lib/pattern/ramp";
 import {
@@ -141,6 +142,11 @@ export default function PatternLabClient() {
   const [sharePerfJson, setSharePerfJson] = useState<string | null>(null);
   const [hardwareOpen, setHardwareOpen] = useState(false);
   const [workError, setWorkError] = useState<string | null>(null);
+  // A header menu closes when the mouse leaves it, which a finger never does
+  // and a keyboard cannot. So a press outside closes it too, and so do the
+  // keys (useDismiss).
+  const recentRef = useDismiss<HTMLDivElement>(recentOpen, () => setRecentOpen(false));
+  const panelsMenuRef = useDismiss<HTMLDivElement>(panelsMenuOpen, () => setPanelsMenuOpen(false));
   const apiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Where this dock's layout is saved, chosen with the layout itself: a dock
@@ -415,7 +421,7 @@ export default function PatternLabClient() {
           )}
           {/* Recent works. The list is only read when the menu opens, so
               nothing polls localStorage while you are editing. */}
-          <div className={dock.menuWrap}>
+          <div className={dock.menuWrap} ref={recentRef}>
             <button
               type="button"
               className={styles.headerToggle}
@@ -475,7 +481,7 @@ export default function PatternLabClient() {
               </div>
             )}
           </div>
-          <div className={dock.menuWrap}>
+          <div className={dock.menuWrap} ref={panelsMenuRef}>
             <button
               type="button"
               className={styles.headerToggle}
@@ -490,15 +496,16 @@ export default function PatternLabClient() {
                   <button
                     key={def.id}
                     type="button"
+                    aria-pressed={openPanels.has(def.id)}
                     onClick={() => togglePanel(def.id, def.title)}
                   >
                     {def.title}
-                    <em>{openPanels.has(def.id) ? "●" : "○"}</em>
+                    <em aria-hidden="true">{openPanels.has(def.id) ? "●" : "○"}</em>
                   </button>
                 ))}
                 <button type="button" onClick={resetLayout}>
                   Reset layout
-                  <em>⟲</em>
+                  <em aria-hidden="true">⟲</em>
                 </button>
               </div>
             )}

@@ -1,31 +1,19 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import HeroJournalLink from "@/components/journal/HeroJournalLink";
 import { captureEvent } from "@/lib/posthogEvents";
 import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
+import { useReducedMotion } from "@/lib/hooks/useReducedMotion";
 
 // How many people have made a Patternflow, by the nearest thing to a count
 // there is: the community's membership, which tracks it closely. Rounded and
 // said as "around", because it is an estimate.
 const PEOPLE_WHO_MADE_ONE = 40;
 
-// The embed starts by itself and has no control to stop it, so someone who has
-// asked their system for less motion gets the poster and no embed at all. The
-// server cannot know, so it sends the poster alone and the client adds the
-// video after hydration.
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-function subscribeReducedMotion(onChange: () => void) {
-  const mq = window.matchMedia(REDUCED_MOTION);
-  mq.addEventListener('change', onChange);
-  return () => mq.removeEventListener('change', onChange);
-}
-const getReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
-const getReducedMotionServer = () => true;
-
-// Mounted only while motion is welcome. Turning reduced motion off again
-// mounts a fresh one, which hides for its first three seconds like the first.
-function HeroVideo() {
+// One play of the video, from the start.
+function HeroEmbed({ onEnded }: { onEnded: () => void }) {
   const [isVideoVisible, setIsVideoVisible] = useState(false);
 
   useEffect(() => {
@@ -37,13 +25,14 @@ function HeroVideo() {
     // Hide the video and return to static image after the video ends (3s delay + 89s video duration = 92s)
     const hideTimer = setTimeout(() => {
       setIsVideoVisible(false);
+      onEnded();
     }, 92000);
 
     return () => {
       clearTimeout(showTimer);
       clearTimeout(hideTimer);
     };
-  }, []);
+  }, [onEnded]);
 
   return (
     <iframe
@@ -67,8 +56,51 @@ function HeroVideo() {
   );
 }
 
+// Mounted only while motion is welcome. Turning reduced motion off again
+// mounts a fresh one, which hides for its first three seconds like the first.
+// The embed takes no clicks, so the button over it is the one way to stop the
+// video before its 89 seconds are up (WCAG 2.2.2). Stop takes the embed away
+// and the poster under it stays. Play mounts a fresh embed, which starts from
+// the top, and so does Play after the video has ended.
+function HeroVideo() {
+  const [state, setState] = useState<'playing' | 'ended' | 'stopped'>('playing');
+  const [take, setTake] = useState(0);
+  const onEnded = useCallback(() => setState('ended'), []);
+  const playing = state === 'playing';
+
+  return (
+    <>
+      {state !== 'stopped' && <HeroEmbed key={take} onEnded={onEnded} />}
+      <button
+        type="button"
+        className="hero-video-toggle"
+        aria-label={playing ? 'Stop the video' : 'Play the video'}
+        onClick={() => {
+          if (playing) {
+            setState('stopped');
+          } else {
+            setTake((n) => n + 1);
+            setState('playing');
+          }
+        }}
+      >
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
+          {playing ? (
+            <rect x="1" y="1" width="10" height="10" fill="currentColor" />
+          ) : (
+            <path d="M2 0.5 11.5 6 2 11.5Z" fill="currentColor" />
+          )}
+        </svg>
+      </button>
+    </>
+  );
+}
+
 export default function Hero() {
-  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, getReducedMotionServer);
+  // The embed starts by itself, so someone who has asked their system for less
+  // motion gets the poster and no embed at all. The server cannot know, so it
+  // sends the poster alone and the client adds the video after hydration.
+  const reducedMotion = useReducedMotion();
 
   return (
     <section className="hero">
@@ -91,20 +123,20 @@ export default function Hero() {
           paddingBottom: '56.25%',
           height: 0
         }}>
-          {/* Static fallback and loading placeholder */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- a fixed poster under the video, shown as is */}
-          <img 
-            src="/product_v2.jpg" 
-            alt="Patternflow physical device" 
-            style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block' 
-            }} 
+          {/* Static fallback and loading placeholder. The file is the 4032-wide
+              camera original, 2.1 MB, drawn at 340px on a phone and 578px at
+              most on a desktop, so it goes through the image optimizer at the
+              column's width. The column is the viewport less the deck's 24px
+              gutters up to 900px, and the copy's 580px cap above. It is the
+              largest thing on the first screen, so it loads at once. */}
+          <Image
+            src="/product_v2.jpg"
+            alt="Patternflow physical device"
+            fill
+            sizes="(max-width: 900px) calc(100vw - 48px), 580px"
+            loading="eager"
+            fetchPriority="high"
+            style={{ objectFit: 'cover' }}
           />
           {!reducedMotion && <HeroVideo />}
         </div>

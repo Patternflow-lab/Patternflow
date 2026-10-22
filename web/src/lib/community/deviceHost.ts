@@ -8,6 +8,11 @@
 // enough. DeviceHostCapture writes the same key when a panel's console links
 // here with ?device=<ip>.
 //
+// The field keeps what was typed, and every link is built from
+// deviceHostName() of it. An emptied field used to make http:///patterns,
+// which a browser reads as a host called "patterns", and an address pasted
+// from the console's own tab (http://192.168.0.44/) made a host called "http".
+//
 // The URLs handed to the device must be absolute even when the community API
 // is same-origin, because it is the *device* that fetches them, from its own
 // origin on the LAN.
@@ -26,6 +31,16 @@ import { communityApiUrl } from "./apiBase";
 const KEY = "pf-device-host";
 const FALLBACK = "patternflow.local";
 const CHANGE_EVENT = "pf-device-host-change";
+
+/** The host a link should go to: no scheme, no path, and the fallback name when empty. */
+export function deviceHostName(value: string): string {
+  const host = value
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .split(/[/?#]/)[0]
+    .trim();
+  return host || FALLBACK;
+}
 
 function readStored(): string {
   try {
@@ -56,21 +71,16 @@ export function useDeviceHost() {
     window.dispatchEvent(new Event(CHANGE_EVENT));
   };
 
+  const host = deviceHostName(deviceHost);
+
   const absolute = (apiPath: string) =>
     new URL(communityApiUrl(apiPath), window.location.origin).toString();
 
   /** Device's pattern manager, told to fetch and install a module build. */
   const patternsUrl = (modulesUrl: string) => {
     if (typeof window === "undefined") return "#";
-    return `http://${deviceHost.trim()}/patterns?src=${encodeURIComponent(absolute(modulesUrl))}`;
+    return `http://${host}/patterns?src=${encodeURIComponent(absolute(modulesUrl))}`;
   };
 
-  /** Device's update page, told to fetch and flash a firmware build. */
-  const updateUrl = (buildId: string) => {
-    if (typeof window === "undefined") return "#";
-    const firmware = absolute(`/api/community/builds/${buildId}/firmware`);
-    return `http://${deviceHost.trim()}/update?src=${encodeURIComponent(firmware)}`;
-  };
-
-  return { deviceHost, changeDeviceHost, patternsUrl, updateUrl };
+  return { deviceHost, host, changeDeviceHost, patternsUrl };
 }

@@ -8,6 +8,7 @@ import Editor from "@monaco-editor/react";
 import { useState } from "react";
 import { livePresets } from "@/lib/presets";
 import { buildVariantCopyPrompt } from "@/lib/ai/gemini";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { hasStackAnnotation, importCodeIntoLab } from "@/lib/lab/stackShare";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
 import { isCodeLayer } from "@/lib/lab/types";
@@ -31,9 +32,9 @@ export default function CodePanel() {
     layer ? (state.layerErrors[layer.id] ?? null) : null,
   );
 
-  const [promptCopied, setPromptCopied] = useState(false);
-  const [pasted, setPasted] = useState(false);
-  const [cleared, setCleared] = useState(false);
+  const [promptCopy, flashPromptCopy] = useResettingState<"idle" | "copied" | "failed">("idle", 1200);
+  const [pasted, setPasted] = useResettingState(false, 1200);
+  const [cleared, setCleared] = useResettingState(false, 1200);
   const [guideOpen, setGuideOpen] = useState(false);
 
   if (!isCodeLayer(layer)) {
@@ -60,12 +61,17 @@ export default function CodePanel() {
     applyCodeToActive(labPresets[next].code);
   };
 
+  // A browser can refuse the write (no permission, a page served over plain
+  // http). The button says so, the way Pixel's "Copy as code" does.
   const copyVariantPrompt = async () => {
-    await navigator.clipboard.writeText(
-      buildVariantCopyPrompt(layer.code, knobs, ranges, gen.colorMode, matrix),
-    );
-    setPromptCopied(true);
-    window.setTimeout(() => setPromptCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(
+        buildVariantCopyPrompt(layer.code, knobs, ranges, gen.colorMode, matrix),
+      );
+      flashPromptCopy("copied");
+    } catch {
+      flashPromptCopy("failed");
+    }
   };
 
   // Pasted code carrying a @stack line is a whole shared composition —
@@ -77,7 +83,6 @@ export default function CodePanel() {
       applyCodeToActive(text);
     }
     setPasted(true);
-    window.setTimeout(() => setPasted(false), 1200);
   };
 
   const pasteFromClipboard = async () => {
@@ -129,7 +134,6 @@ export default function CodePanel() {
           onClick={() => {
             updateLayerCode(layer.id, "");
             setCleared(true);
-            window.setTimeout(() => setCleared(false), 1200);
           }}
           title="Clear this layer's code"
         >
@@ -141,7 +145,7 @@ export default function CodePanel() {
           onClick={copyVariantPrompt}
           title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
         >
-          {promptCopied ? "Copied" : "Copy prompt"}
+          {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
         </button>
         <button type="button" onClick={() => setGuideOpen(true)}>
           Code guide

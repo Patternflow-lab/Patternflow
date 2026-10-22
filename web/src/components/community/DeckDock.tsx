@@ -17,7 +17,7 @@ import {
 } from "@/lib/community/deck";
 import { COMMUNITY_FETCH_INIT, buildsConfigured, communityApiUrl } from "@/lib/community/apiBase";
 import { useDeviceHost } from "@/lib/community/deviceHost";
-import { captureEvent } from "@/lib/posthogEvents";
+import { useModuleBuild } from "@/lib/community/useModuleBuild";
 import AuthModal from "./AuthModal";
 import PatternCanvas from "./PatternCanvas";
 import ShareDeckModal from "./ShareDeckModal";
@@ -77,43 +77,9 @@ function dockBelongs(pathname: string): boolean {
  *  read as something you fill; past that the single "+" says it on its own. */
 const MIN_PLACES = 3;
 
-/**
- * What a build is told to expect, and when to stop believing it.
- *
- * Both scale with the deck, because both used to be flat numbers sized for a
- * ten-pattern cap — and a full deck at the current cap would have hit the
- * timeout while the server was still working perfectly well, which reads as a
- * failure and is not one.
- *
- * Each pattern compiles alone in about half a second and there is no firmware
- * image to link. The per-pattern allowance is far more than that on purpose:
- * it covers a cold compiler and a Pi that is also serving the site, without
- * promising something the machine cannot keep.
- *
- * The timeout is the browser giving up on hearing back, not a cancellation —
- * the build may well still be running — so the message says that rather than
- * claiming it failed.
- */
-const BUILD_BASE_S = 6;
-const BUILD_PER_PATTERN_S = 1.5;
-const buildExpectedS = (patterns: number) =>
-  Math.ceil(BUILD_BASE_S + BUILD_PER_PATTERN_S * Math.max(1, patterns));
-const buildTimeoutMs = (patterns: number) => (buildExpectedS(patterns) + 5) * 1000;
-
 /** A drag in progress: which slot is moving, how far the pointer has taken it,
  *  and how wide one step is (measured, so it cannot drift from the CSS). */
 type Drag = { index: number; startX: number; dx: number; step: number; overTrash: boolean };
-
-type ModuleBuildState = {
-  id: string;
-  status: "queued" | "running" | "done" | "error";
-  queuePosition: number | null;
-  elapsedMs: number | null;
-  bytes: number | null;
-  error: string | null;
-  namespaces: string[];
-  modulesUrl: string | null;
-};
 
 export default function DeckDock() {
   const pathname = usePathname() ?? "";
@@ -142,14 +108,16 @@ export default function DeckDock() {
   const [dropping, setDropping] = useState(false);
   const [dropNote, setDropNote] = useState<string | null>(null);
 
-  const [build, setBuild] = useState<ModuleBuildState | null>(null);
-  const [buildError, setBuildError] = useState<string | null>(null);
+  const {
+    build,
+    error: buildError,
+    running,
+    waited,
+    expectedS,
+    start: queueBuild,
+    reset: resetBuild,
+  } = useModuleBuild();
   const [logOpen, setLogOpen] = useState(false);
-  const pollRef = useRef<number | null>(null);
-  // Whole seconds since the build was queued, and the instant it was. Shown
-  // while waiting, and read by the rule that stops waiting.
-  const [waited, setWaited] = useState(0);
-  const startedAtRef = useRef(0);
 
   useEffect(() => {
     const sync = () => {
@@ -167,7 +135,6 @@ export default function DeckDock() {
   useEffect(
     () => () => {
       if (settleRef.current) cancelAnimationFrame(settleRef.current);
-      if (pollRef.current) window.clearInterval(pollRef.current);
     },
     [],
   );
@@ -319,112 +286,26 @@ export default function DeckDock() {
   };
 
   // ── Building ───────────────────────────────────────────────────────────────
-
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) window.clearInterval(pollRef.current);
-    pollRef.current = null;
-  }, []);
-
-  const poll = useCallback(
-    async (id: string) => {
-      try {
-        const response = await fetch(
-          communityApiUrl(`/api/community/builds/${id}`),
-          COMMUNITY_FETCH_INIT,
-        );
-        if (!response.ok) return;
-        const state = (await response.json()) as ModuleBuildState;
-        setBuild(state);
-        if (state.status === "done" || state.status === "error") {
-          stopPolling();
-          captureEvent("module_build_finished", {
-            status: state.status,
-            patterns: state.namespaces.length,
-            bytes: state.bytes,
-          });
-        }
-      } catch {
-        // A dropped poll is not a failed build; the next tick catches up.
-      }
-    },
-    [stopPolling],
-  );
+  // Asking, timing and giving up live in useModuleBuild, shared with the deck
+  // panel and the Send window.
 
   /**
    * Straight from the press. No dialog in between: the deck is already on
    * screen and the button already says what it does, so the only thing a
    * confirmation step would add is a second press.
    */
-  const startBuild = async () => {
+  const startBuild = () => {
     const items = deckItems();
     if (items.length === 0) return;
     if (!session) {
       setNeedsAuth(true);
       return;
     }
-    setBuildError(null);
-    setBuild({
-      id: "",
-      status: "queued",
-      queuePosition: null,
-      elapsedMs: null,
-      bytes: null,
-      error: null,
-      namespaces: [],
-      modulesUrl: null,
-    });
-    try {
-      const response = await fetch(communityApiUrl("/api/community/builds"), {
-        method: "POST",
-        ...COMMUNITY_FETCH_INIT,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "pfm",
-          // Sent in deck order, which is the order they appear on the device.
-          patterns: items.map((item) => ({ label: item.title, code: item.code })),
-        }),
-      });
-      const payload = (await response.json()) as { id?: string; error?: string };
-      if (!response.ok || !payload.id) {
-        setBuild(null);
-        setBuildError(payload.error ?? "Could not queue the build.");
-        return;
-      }
-      captureEvent("module_build_queued", { patterns: items.length });
-      const buildId = payload.id;
-      startedAtRef.current = Date.now();
-      setWaited(0);
-      void poll(buildId);
-      // One timer for both jobs: ask how it is going, and keep the clock the
-      // giving-up rule reads. Ticking here rather than in `poll` means a
-      // request that hangs cannot also stall the timeout that exists to
-      // catch it.
-      pollRef.current = window.setInterval(() => {
-        const elapsed = Date.now() - startedAtRef.current;
-        setWaited(Math.floor(elapsed / 1000));
-        if (elapsed > buildTimeoutMs(items.length)) {
-          stopPolling();
-          setBuild(null);
-          setBuildError(
-            `The build server has not answered in ${Math.round(buildTimeoutMs(items.length) / 1000)} seconds. ` +
-              "The build may still be running — give it a moment and try again, and if it keeps " +
-              "happening the build worker is probably down.",
-          );
-          captureEvent("module_build_finished", { status: "timeout", patterns: items.length });
-          return;
-        }
-        void poll(buildId);
-      }, 1000);
-    } catch {
-      setBuild(null);
-      setBuildError("Network error — is the build server reachable?");
-    }
+    void queueBuild(items.map((item) => ({ label: item.title, code: item.code })));
   };
 
   const clearBuild = () => {
-    stopPolling();
-    setBuild(null);
-    setBuildError(null);
+    resetBuild();
     setLogOpen(false);
   };
 
@@ -440,7 +321,6 @@ export default function DeckDock() {
   // invitation once there is anything to invite onto the end of.
   const shown = Math.min(DECK_MAX, Math.max(MIN_PLACES, deck.length + 1));
   const slots = Array.from({ length: shown }, (_, index) => deck[index] ?? null);
-  const running = build !== null && build.status !== "done" && build.status !== "error";
   const done = build?.status === "done" && build.modulesUrl;
   const failed = build?.status === "error" || buildError !== null;
 
@@ -642,23 +522,21 @@ export default function DeckDock() {
             {running && (
               <span
                 className={styles.buildRunningNote}
-                data-slow={waited >= buildExpectedS(deck.length)}
+                data-slow={waited >= expectedS}
                 // The clock is the honest part; the promise is the reassuring
                 // one. Both, so a build that is taking its time does not look
                 // like a build that has died.
-                title={`About half a second per pattern, and under ${buildExpectedS(deck.length)} on a busy server.`}
+                title={`About half a second per pattern, and under ${expectedS} on a busy server.`}
               >
                 <span className={styles.buildSpinner} aria-hidden="true" />
                 {build?.status === "queued" && build.queuePosition && build.queuePosition > 1
                   ? `${build.queuePosition} in the queue`
-                  : build?.status === "queued"
+                  : !build || build.status === "queued"
                     ? "Waiting for a build slot"
                     : `Building ${deck.length} module${deck.length === 1 ? "" : "s"}`}
                 {waited > 0 && ` · ${waited} s`}
                 <em>
-                  {waited >= buildExpectedS(deck.length)
-                    ? "longer than usual"
-                    : `usually under ${buildExpectedS(deck.length)} s`}
+                  {waited >= expectedS ? "longer than usual" : `usually under ${expectedS} s`}
                 </em>
               </span>
             )}
@@ -671,7 +549,7 @@ export default function DeckDock() {
                   ? "Add patterns to the deck first"
                   : "Build the deck as loadable modules and install it over Wi-Fi"
               }
-              onClick={() => void startBuild()}
+              onClick={startBuild}
             >
               {running ? "Building…" : "Send to my board"}
             </button>

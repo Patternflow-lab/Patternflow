@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, DM_Sans, Silkscreen, Newsreader } from "next/font/google";
+import { Inter, JetBrains_Mono, Silkscreen, Newsreader } from "next/font/google";
 import "./globals.css";
 import { PostHogProvider } from "@/providers/PostHogProvider";
 import { Analytics } from "@vercel/analytics/next";
@@ -18,15 +18,15 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-});
-
+// Next puts a preload link for each font loaded here in the head of every
+// page. Silkscreen (the guide's kickers) and Newsreader (the journal, /terms,
+// the guide's notes) are fetched only by the pages whose text uses them
+// (app/fonts.test.ts).
 const silkscreen = Silkscreen({
   weight: ['400', '700'],
   variable: "--font-silkscreen",
   subsets: ["latin"],
+  preload: false,
 });
 
 const newsreader = Newsreader({
@@ -34,6 +34,7 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
   variable: "--font-newsreader",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -171,7 +172,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${silkscreen.variable} ${newsreader.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${silkscreen.variable} ${newsreader.variable} antialiased`}
       >
         <DeviceHostCapture />
         <PostHogProvider>{children}</PostHogProvider>
