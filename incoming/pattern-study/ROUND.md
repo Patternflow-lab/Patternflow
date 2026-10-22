@@ -31,7 +31,7 @@
 | 1 | 지도의 빈 칸 | `study.ts --check --gaps` 가 일곱 잰 값 가운데 둘로 그린 4×4 지도마다 빈 칸을 찍어요. 페이지가 점선으로 그리는 칸과 같은 셈이에요. `*` 이 붙은 칸 하나를 골라 거기 설 패턴을 만들어요. `*` 이 없는 칸은 축 끝에 멀리 떨어진 패턴 하나가 축을 늘려서 빈 칸이라 고르지 않아요. |
 | 2 | 아직 없는 갈래 | `families.json` 에 없는 갈래로 새 패턴을 만들고, 그 파일에 갈래 한 줄을 더해요. 키는 소문자 영어, `label` 은 페이지에 보일 한국어 이름, `color` 는 `#rrggbb` 예요. 색은 이미 있는 갈래와 헷갈리지 않게 골라요. |
 | 3 | 멋진 것 더 멋지게 | 있는 패턴 하나를 낫게 해요. 창작자가 댓글로 고른 패턴이 먼저예요. 없으면 잰 값이 약한 패턴을 골라요. 노브 반응이 0.03 이하인 노브, 빨강에서 열리는 화면, 450 KB 가 넘는 GIF 같은 것이에요. 파일 이름과 노브 넷의 이름과 뜻은 그대로 둬요. `// Round:` 줄도 그 패턴이 처음 나온 판이라 그대로예요. |
-| 4 | 세로 64×128 에서 잘 읽히는 것 | 128줄을 다 쓰는 그림이에요. 떨어지거나 자라거나 쌓이는 것, 키 큰 것이 주인공인 것이에요. 위나 아래 3분의 1이 비어 있으면 이 주제가 아니에요. |
+| 4 | 세로 64×128 에서 잘 읽히는 것 | 128줄을 다 쓰는 그림이에요. 떨어지거나 자라거나 쌓이는 것, 키 큰 것이 주인공인 것이에요. GIF 에서 위나 아래 3분의 1이 늘 비어 있으면 이 주제가 아니에요. |
 
 ### 크기
 
@@ -92,9 +92,11 @@ npx tsx ../incoming/pattern-study/tools/study.ts --shots                # 다 �
 npx tsx ../incoming/pattern-study/tools/study.ts --check --gaps         # 마지막: 아무것도 쓰지 않고 검사
 ```
 
-`ffmpeg` 이 없으면 `apt-get install -y ffmpeg` 로 깔아요. `--check` 의 표와 끝 두 줄 `N of N patterns pass`, `index.html is up to date` 를 「증거」에 붙여요. 주제 1이면 그 지도의 `--gaps` 줄을 만들기 전과 뒤로 붙여요. 고른 칸이 줄에서 빠졌으면 새 패턴이 거기 선 거예요.
+`ffmpeg` 이 없으면 `apt-get install -y ffmpeg` 로 깔아요. `--check` 의 표와 끝 두 줄 `N of N patterns pass`, `index.html is up to date` 를 「증거」에 붙여요. 주제 1이면 그 지도의 `--gaps` 줄을 만들기 전과 뒤로 붙여요. 고른 칸이 줄에서 빠졌으면 새 패턴이 거기 선 거예요. 빠지지 않았으면 그림이나 노브 범위를 고쳐 다시 재요.
 
 `--shots` 는 모든 패턴의 GIF 와 노브 시트를 다시 써요. 그 뒤 `git diff --stat origin/dev -- incoming/pattern-study/shots` 에는 이번 바퀴의 GIF, 노브 시트, `overview.png` 만 보여야 해요. 다른 그림이 바뀌었으면 컨테이너의 ffmpeg 이나 sharp 판이 달라서예요. `git checkout origin/dev -- <파일>` 로 되돌리고 「가정」에 적어요.
+
+PR 의 GitHub 검사(`Drift checks` 도)가 빨가면 2분 점검이 머지하지 않아요. 그 바퀴가 고쳐요.
 
 ### README 연구 노트
 
@@ -111,7 +113,7 @@ npx tsx ../incoming/pattern-study/tools/study.ts --check --gaps         # 마지
 ![Tide Pool](https://github.com/Patternflow-lab/Patternflow/blob/<커밋 SHA>/incoming/pattern-study/shots/tide-pool.gif?raw=true)
 ```
 
-`<커밋 SHA>` 는 그 GIF 가 든 커밋이에요. 주소를 백틱으로 싸지 않아요. 그 뒤로 할 일, 한 일, 증거, 가정, 경험이에요. `incoming/` 은 원래 레포로 가지 않아서 `## Changelog` 절은 두지 않아요.
+`<커밋 SHA>` 는 그 GIF 가 든 커밋이에요. 주소를 백틱으로 싸지 않아요. 그 뒤로 할 일, 한 일, 증거, 가정, 경험이 오고, `## 패턴 바퀴` 와 `## 다음 바퀴` 가 맨 끝이에요. `incoming/` 은 원래 레포로 가지 않아서 `## Changelog` 절은 두지 않아요.
 
 `## 패턴 바퀴` 는 이번 바퀴가 무엇을 맡았는지 한 줄로 적어요. 뒤 바퀴가 이 줄을 읽고 맡은 글을 가려요.
 
