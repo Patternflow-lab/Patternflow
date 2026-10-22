@@ -2527,6 +2527,12 @@
   color: var(--pfc-ink);
 }
 
+/* A window that takes the focus when it opens puts it on the card, as Pattern
+   Lab's do. The card is not a control, so it draws no ring. */
+.modalCard:focus {
+  outline: none;
+}
+
 .modalCardWide {
   width: min(720px, 100%);
 }
