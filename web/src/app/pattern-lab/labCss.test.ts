@@ -1,8 +1,9 @@
 // jsdom applies none of the CSS modules, so the narrow rules below are read
-// from the files. In Chromium at 390px, with Share and To hardware in the
-// header, the Panels menu measured x 139~329 before these rules, and a menu
-// hung from the button's left edge ran to x 449. Hung from the action row it
-// was 14~374. The Code guide × measured 30×30px before and 44×44px after.
+// from the files. In Chromium, with Share and To hardware in the header, the
+// Panels menu opened at x −106~84 on a 320px screen. Hung from its button's
+// left edge instead, it ran to x 449 on a 390px one. Hung from the action row
+// it stays inside, 14~374 at 390px. The Code guide × measured 30×30px before
+// and 44×44px after, in a header 59px tall both times.
 
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -48,6 +49,7 @@ describe("Lab header menus below 800px", () => {
     expect(narrowRule(dock, ".dockHeaderGroup:last-child")).toMatch(/position: relative;/);
     expect(narrowRule(dock, ".menuWrap")).toMatch(/position: static;/);
     const pop = narrowRule(dock, ".menuPop");
+    expect(pop).toMatch(/top: auto;/);
     expect(pop).toMatch(/left: 0;/);
     expect(pop).toMatch(/max-width: 360px;/);
   });
