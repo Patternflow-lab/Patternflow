@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import HeroJournalLink from "@/components/journal/HeroJournalLink";
 import { captureEvent } from "@/lib/posthogEvents";
 import { CROWD_SUPPLY_URL } from "@/lib/crowdSupply";
@@ -122,20 +123,20 @@ export default function Hero() {
           paddingBottom: '56.25%',
           height: 0
         }}>
-          {/* Static fallback and loading placeholder */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- a fixed poster under the video, shown as is */}
-          <img 
-            src="/product_v2.jpg" 
-            alt="Patternflow physical device" 
-            style={{ 
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block' 
-            }} 
+          {/* Static fallback and loading placeholder. The file is the 4032-wide
+              camera original, 2.1 MB, drawn at 340px on a phone and 578px at
+              most on a desktop, so it goes through the image optimizer at the
+              column's width. The column is the viewport less the deck's 24px
+              gutters up to 900px, and the copy's 580px cap above. It is the
+              largest thing on the first screen, so it loads at once. */}
+          <Image
+            src="/product_v2.jpg"
+            alt="Patternflow physical device"
+            fill
+            sizes="(max-width: 900px) calc(100vw - 48px), 580px"
+            loading="eager"
+            fetchPriority="high"
+            style={{ objectFit: 'cover' }}
           />
           {!reducedMotion && <HeroVideo />}
         </div>
