@@ -145,7 +145,8 @@ describe("PublishModal code size", () => {
     const code = storedFork(bodyOf(99_700));
     expect(code.length).toBeGreaterThan(CODE_MAX);
 
-    act(() => openFork(code).click());
+    const button = openFork(code);
+    act(() => button.click());
 
     expect(screen.queryByText(/KB of code/)).toBeNull();
     expect(server.mock).toHaveBeenCalledTimes(1);
@@ -183,7 +184,8 @@ describe("PublishModal code size", () => {
   });
 
   it("still stops a body over the cap before it is sent", () => {
-    act(() => openFork(storedFork(bodyOf(CODE_MAX + 600))).click());
+    const button = openFork(storedFork(bodyOf(CODE_MAX + 600)));
+    act(() => button.click());
 
     expect(screen.getByText(/This pattern is 101 KB of code/)).toBeInTheDocument();
     expect(server.mock).not.toHaveBeenCalled();
