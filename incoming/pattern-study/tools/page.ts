@@ -79,6 +79,8 @@ export function buildPage(results: Result[]): string {
         slug: p.slug,
         title: p.title,
         family: p.family,
+        // Round two's files say "// Round: 2"; round one's carry no line.
+        round: Number(p.code.match(/^\/\/[ \t]*Round:[ \t]*(\d+)/m)?.[1] ?? 1),
         note: notes.get(p.slug) ?? "",
         idea: p.idea,
         buttons: p.code.match(/^\/\/[ \t]*Buttons:[ \t]*(.+)$/m)?.[1].trim() ?? "",

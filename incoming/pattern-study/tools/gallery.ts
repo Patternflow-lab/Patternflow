@@ -4,7 +4,8 @@
  * Lab builds from its code and the study's start knobs. Cards off screen
  * don't run.
  * The map at the top places every pattern by two of the measures study.ts
- * took; a dot takes you to its card.
+ * took; a dot takes you to its card. Round two's dots wear a white ring, and
+ * the chips under the map hide a round or a family.
  */
 import { LabEngine } from "../../../web/src/lib/lab/engine";
 import type { CodeLayer } from "../../../web/src/lib/lab/types";
@@ -14,6 +15,7 @@ type Entry = {
   slug: string;
   title: string;
   family: string;
+  round: number;
   note: string;
   idea: string;
   buttons: string;
@@ -118,13 +120,17 @@ function buildCard(entry: Entry): Card {
 
   const head = el("header", "card-head");
   const title = el("h3", "", entry.title);
-  const chip = el("span", "chip", family?.label ?? entry.family);
-  head.append(title, chip);
+  const tags = el("span", "tags");
+  tags.append(el("span", "chip", family?.label ?? entry.family), el("span", `round r${entry.round}`, `${entry.round}판`));
+  head.append(title, tags);
 
   const { width, height } = entry.matrix;
+  // A panel standing up sits beside its controls instead of above them.
+  root.classList.toggle("portrait", height > width);
   const view = el("canvas", "panel");
   view.width = width * SCALE;
   view.height = height * SCALE;
+  view.style.aspectRatio = `${width} / ${height}`;
   const small = document.createElement("canvas");
   small.width = width;
   small.height = height;
@@ -185,7 +191,11 @@ function buildCard(entry: Entry): Card {
   table.append(el("dt", "", "노브 반응"), el("dd", "", entry.knobResponse.map(fmt).join(" · ")));
   measured.append(table);
 
-  root.append(head, view, note, error, knobBox, tools, pressNote, measured);
+  const side = el("div", "card-side");
+  side.append(note, error, knobBox, tools, pressNote, measured);
+  const body = el("div", "card-body");
+  body.append(view, side);
+  root.append(head, body);
 
   const card: Card = {
     entry,
@@ -293,6 +303,8 @@ let axisY = remember("y") ?? "motion";
 if (!AXES[axisX]) axisX = "edges";
 if (!AXES[axisY]) axisY = "motion";
 let hiddenFamilies = new Set<string>();
+let hiddenRounds = new Set<number>();
+const isHidden = (p: Entry) => hiddenFamilies.has(p.family) || hiddenRounds.has(p.round);
 
 function scale(key: string) {
   const axis = AXES[key];
@@ -365,7 +377,7 @@ function drawMap() {
     return node;
   };
 
-  const shown = data.patterns.filter((p) => !hiddenFamilies.has(p.family));
+  const shown = data.patterns.filter((p) => !isHidden(p));
   const points = shown.map((p) => ({
     p,
     x: m.l + sx(p.measures[axisX] ?? 0) * iw,
@@ -425,14 +437,14 @@ function drawMap() {
     const color = data.families[p.family]?.color ?? "#ccc";
     const g = document.createElementNS(NS, "a");
     g.setAttribute("href", `#${p.slug}`);
-    g.setAttribute("class", "dot");
+    g.setAttribute("class", `dot r${p.round}`);
     const circle = document.createElementNS(NS, "circle");
     circle.setAttribute("cx", String(x));
     circle.setAttribute("cy", String(y));
     circle.setAttribute("r", "7");
     circle.setAttribute("fill", color);
     const tip = document.createElementNS(NS, "title");
-    tip.textContent = `${p.title} · ${data.families[p.family]?.label ?? p.family}`;
+    tip.textContent = `${p.title} · ${data.families[p.family]?.label ?? p.family} · ${p.round}판`;
     circle.append(tip);
     g.append(circle);
     const text = document.createElementNS(NS, "text");
@@ -473,8 +485,25 @@ function axisSelect(id: string, current: string, set: (v: string) => void) {
   });
 }
 
+const roundsOf = () => [...new Set(data.patterns.map((p) => p.round))].sort((a, b) => a - b);
+
 function legend() {
   const box = document.getElementById("legend")!;
+  const refresh = () => {
+    for (const card of cards) card.root.hidden = isHidden(card.entry);
+    drawMap();
+  };
+  for (const round of roundsOf()) {
+    const count = data.patterns.filter((p) => p.round === round).length;
+    const chip = el("button", `legend-chip round-chip r${round}`, `${round}판 ${count}`);
+    chip.addEventListener("click", () => {
+      if (hiddenRounds.has(round)) hiddenRounds.delete(round);
+      else hiddenRounds.add(round);
+      chip.classList.toggle("off", hiddenRounds.has(round));
+      refresh();
+    });
+    box.append(chip);
+  }
   for (const [key, family] of Object.entries(data.families)) {
     const count = data.patterns.filter((p) => p.family === key).length;
     const chip = el("button", "legend-chip", `${family.label} ${count}`);
@@ -483,8 +512,7 @@ function legend() {
       if (hiddenFamilies.has(key)) hiddenFamilies.delete(key);
       else hiddenFamilies.add(key);
       chip.classList.toggle("off", hiddenFamilies.has(key));
-      for (const card of cards) card.root.hidden = hiddenFamilies.has(card.entry.family);
-      drawMap();
+      refresh();
     });
     box.append(chip);
   }
@@ -493,6 +521,9 @@ function legend() {
 // ── Start ───────────────────────────────────────────────────────────────────
 function start() {
   document.getElementById("count")!.textContent = String(data.patterns.length);
+  document.getElementById("rounds")!.textContent = roundsOf()
+    .map((round) => `${round}판 ${data.patterns.filter((p) => p.round === round).length}개`)
+    .join(", ");
   const grid = document.getElementById("cards")!;
   for (const entry of data.patterns) {
     const card = buildCard(entry);
