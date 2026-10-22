@@ -10,6 +10,7 @@ import { showcasePresets } from '@/lib/presets';
 import { captureEvent } from '@/lib/posthogEvents';
 import { communityHref } from '@/lib/community/apiBase';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
+import { useResettingState } from '@/lib/hooks/useResettingState';
 import styles from './PatternPanel.module.css';
 import { getVariantPrompt } from './variantPrompt';
 
@@ -131,11 +132,21 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
   const [showAllPresets, setShowAllPresets] = useState(false);
   const activePreset = activePresetIndex >= 0 ? showcasePresets[activePresetIndex] : null;
 
-  const handleCopyVariantPrompt = () => {
-    navigator.clipboard.writeText(getVariantPrompt(customJsCode));
-    captureEvent('copy_variants_prompt_clicked', {
-      surface: 'live_editor',
-    });
+  // The alert says the prompt is on the clipboard, so it waits for the write.
+  // When the browser refuses it (no permission, a page served over plain
+  // http), the button says "Copy failed" for a moment instead.
+  const [copyFailed, flashCopyFailed] = useResettingState(false, 1400);
+  const handleCopyVariantPrompt = async () => {
+    try {
+      const copying = navigator.clipboard.writeText(getVariantPrompt(customJsCode));
+      captureEvent('copy_variants_prompt_clicked', {
+        surface: 'live_editor',
+      });
+      await copying;
+    } catch {
+      flashCopyFailed(true);
+      return;
+    }
     alert('Creation prompt copied to clipboard! Paste it in ChatGPT/Claude to get 5 pattern variations.');
   };
 
@@ -279,8 +290,8 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
                   Paste AI-generated code here, or edit the preset. The preview updates as
                   you type.
                 </span>
-                <button type="button" onClick={handleCopyVariantPrompt}>
-                  Copy creation prompt
+                <button type="button" onClick={() => void handleCopyVariantPrompt()}>
+                  {copyFailed ? 'Copy failed' : 'Copy creation prompt'}
                 </button>
               </div>
           </div>
