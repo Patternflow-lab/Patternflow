@@ -2,14 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// A <Link href="/"> prefetches the home page when it scrolls into view, and
-// with the RSC payload come the home page's client chunks: three.js and the
-// post-processing chunk, about 450 KB gzip. At 390px in Chromium on 22
-// October that was 600 KB more script on /terms, /contact, /features,
-// /roadmap, a 404 and /community. With prefetch={false} the home page loads
-// when the link is followed. The guide, the breadboard guide and Pattern Lab
-// still prefetch, and journal, editions and compliance are the maintainer's.
-// They are left out below until they are done the same way.
+// A <Link href="/"> in view prefetches the home page, and the home page's
+// client chunks come with it: three.js (237,537 bytes gzip) and the
+// post-processing chunk (212,365). At 390px in Chromium on 22 October,
+// /terms, /contact and a 404 fetched 767,286 bytes of script with the
+// prefetch and 148,456 without, and /community 987,765 and 408,515. With
+// prefetch={false} the home page loads when the link is followed. Pattern
+// Lab (579,250 bytes) and the guide (107,109) still prefetch it, as do the
+// breadboard guide, journal, editions and compliance. They are left out
+// below until they are done the same way.
 
 const SRC = path.resolve(__dirname, '..');
 const LEFT_OUT = [
