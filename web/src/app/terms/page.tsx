@@ -27,7 +27,7 @@ export default function TermsPage() {
     <main className={styles.page}>
       <article className={styles.doc}>
         <header className={styles.head}>
-          <Link href="/" className={styles.brand}>
+          <Link href="/" prefetch={false} className={styles.brand}>
             Patternflow
           </Link>
           <h1>Terms &amp; Privacy</h1>
