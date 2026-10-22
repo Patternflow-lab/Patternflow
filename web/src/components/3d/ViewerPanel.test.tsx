@@ -2,7 +2,7 @@ import { hydrateRoot } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore, type HomeTabType } from '@/store/useAppStore';
 import ViewerPanel from './ViewerPanel';
 
 // The home page's 3D view is the build globe (hero, Inside) or the product
@@ -45,11 +45,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// The tabs beside the view, which must outlive it.
-function Page() {
+// The tabs beside the view, which must outlive it. The page passes the tab
+// it was made for, as HomeView does.
+function Page({ tab = 'hero' }: { tab?: HomeTabType }) {
   return (
     <>
-      <ViewerPanel />
+      <ViewerPanel initialTab={tab} />
       <button type="button">Build</button>
     </>
   );
@@ -71,7 +72,7 @@ describe('ViewerPanel', () => {
     (tab) => {
       webgl.answer = false;
       useAppStore.setState({ homeTab: tab });
-      render(<Page />);
+      render(<Page tab={tab} />);
       expect(scenes.made).toEqual([]);
       expect(screen.getByText(LINE)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Build' })).toBeInTheDocument();
@@ -82,7 +83,7 @@ describe('ViewerPanel', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     scenes.throws.add('product');
     useAppStore.setState({ homeTab: 'pattern' });
-    render(<Page />);
+    render(<Page tab="pattern" />);
     expect(screen.queryByTestId('scene')).not.toBeInTheDocument();
     expect(screen.getByText(LINE)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Build' })).toBeInTheDocument();
@@ -92,7 +93,7 @@ describe('ViewerPanel', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     scenes.throws.add('product');
     useAppStore.setState({ homeTab: 'build' });
-    render(<Page />);
+    render(<Page tab="build" />);
     expect(screen.getByText(LINE)).toBeInTheDocument();
     act(() => useAppStore.setState({ homeTab: 'inside' }));
     act(() => vi.advanceTimersByTime(200));
@@ -100,9 +101,46 @@ describe('ViewerPanel', () => {
     expect(screen.queryByText(LINE)).not.toBeInTheDocument();
   });
 
-  it('sends the page as it was from the server, and the browser without WebGL takes it up without a mismatch', async () => {
+  // The store says hero until RightPanel's effect tells it otherwise. Read
+  // from it, /build opened on the globe and kept it through the fade: long
+  // enough to mount it and send for every pin's photos.
+  it.each(['build', 'pattern'] as const)('opens /%s on the product and never makes the globe', (tab) => {
+    render(<Page tab={tab} />);
+    expect(screen.getByTestId('scene')).toHaveTextContent('product');
+    // RightPanel's effect, telling the store the tab the page opened on.
+    act(() => useAppStore.getState().setHomeTab(tab));
+    act(() => vi.advanceTimersByTime(200));
+    expect(scenes.made).not.toContain('globe');
+    expect(screen.getByTestId('scene')).toHaveTextContent('product');
+  });
+
+  it('opens /pattern on the product when the store still holds Inside from an earlier visit', () => {
+    useAppStore.setState({ homeTab: 'inside' });
+    render(<Page tab="pattern" />);
+    act(() => useAppStore.getState().setHomeTab('pattern'));
+    act(() => vi.advanceTimersByTime(200));
+    expect(scenes.made).not.toContain('globe');
+  });
+
+  it('follows the store once it changes, from whichever tab the page opened on', () => {
+    render(<Page tab="build" />);
+    act(() => useAppStore.getState().setHomeTab('build'));
+    act(() => useAppStore.getState().setHomeTab('inside'));
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.getByTestId('scene')).toHaveTextContent('globe');
+    act(() => useAppStore.getState().setHomeTab('hero'));
+    expect(screen.getByTestId('scene')).toHaveTextContent('globe');
+  });
+
+  it('drops down on a phone from the first render of /build, as the panel beside it does', () => {
+    const html = renderToString(<Page tab="build" />);
+    expect(html).toContain('viewer-panel is-open');
+    expect(renderToString(<Page />)).not.toContain('is-open');
+  });
+
+  it.each(['hero', 'build'] as const)('sends %s as it was from the server, and the browser without WebGL takes it up without a mismatch', async (tab) => {
     webgl.answer = false;
-    const html = renderToString(<Page />);
+    const html = renderToString(<Page tab={tab} />);
     // The server cannot ask: it answers yes and never calls the probe.
     expect(webgl.asked).toBe(0);
     expect(html).not.toContain('draw the 3D view');
@@ -111,7 +149,7 @@ describe('ViewerPanel', () => {
     container.innerHTML = html;
     document.body.appendChild(container);
     const recoverable = vi.fn();
-    const root = await act(async () => hydrateRoot(container, <Page />, { onRecoverableError: recoverable }));
+    const root = await act(async () => hydrateRoot(container, <Page tab={tab} />, { onRecoverableError: recoverable }));
     expect(recoverable).not.toHaveBeenCalled();
     expect(container).toHaveTextContent(LINE);
     expect(container.querySelector('[data-testid="scene"]')).toBeNull();
