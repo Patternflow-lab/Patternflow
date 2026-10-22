@@ -116,21 +116,19 @@ export function run(pattern: Pattern, options: RunOptions): RunResult {
   Math.random = mulberry32(hash(pattern.slug));
   const count = Math.round(options.seconds * fps);
   const pixels = pattern.matrix.width * pattern.matrix.height;
-  const presses = [...(options.presses ?? [])];
+  // Each press lands on the frame whose time is nearest it. Comparing times
+  // instead dropped a press at 0.5 s to float rounding.
+  const presses = (options.presses ?? []).map(([at, knob]) => [Math.max(0, Math.round(at * fps) - 1), knob]);
   let time = 0;
   let ms = 0;
   try {
     for (let i = 0; i < count; i++) {
       time += dt;
-      for (const press of presses) {
-        if (press[0] <= time && press[0] > time - dt) engine.pressButton(press[1]);
-      }
+      for (const [frame, knob] of presses) if (frame === i) engine.pressButton(knob);
       const started = performance.now();
       const frame = engine.render(project, dt, time);
       ms += performance.now() - started;
-      for (const press of presses) {
-        if (press[0] <= time && press[0] > time - dt) engine.releaseButton(press[1]);
-      }
+      for (const [frame, knob] of presses) if (frame === i) engine.releaseButton(knob);
       const error = engine.errors.get(pattern.layer.id);
       if (error) return { error, rendered: i, ms };
       if (options.onFrame && time >= (options.from ?? 0) - 1e-9) {
