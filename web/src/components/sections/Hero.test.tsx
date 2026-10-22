@@ -53,7 +53,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const poster = (root: ParentNode) => root.querySelector('img[src="/product_v2.jpg"]');
+const poster = (root: ParentNode) => root.querySelector('img[alt="Patternflow physical device"]');
 const video = (root: ParentNode) => root.querySelector('iframe');
 const stopButton = () => screen.getByRole('button', { name: 'Stop the video' });
 const playButton = () => screen.getByRole('button', { name: 'Play the video' });
@@ -100,9 +100,24 @@ describe('Hero', () => {
 
   it('sends the poster without the embed from the server', () => {
     const html = renderToString(<Hero />);
-    expect(html).toContain('/product_v2.jpg');
+    expect(html).toContain('Patternflow physical device');
     expect(html).not.toContain('<iframe');
     expect(html).not.toContain('<button');
+  });
+
+  // The original is 4032 wide and 2.1 MB, and it was the first screen's
+  // largest paint: 8.7 s on a phone at 9 Mbps. The poster asks the optimizer
+  // for the column's width instead, and starts loading with the page.
+  it('sends a poster sized to the column, never the original, loading at once', () => {
+    const html = renderToString(<Hero />);
+    const img = new DOMParser().parseFromString(html, 'text/html').querySelector('img');
+    expect(img?.getAttribute('alt')).toBe('Patternflow physical device');
+    expect(img?.getAttribute('src')).toMatch(/^\/_next\/image\?url=%2Fproduct_v2\.jpg&/);
+    expect(img?.getAttribute('srcset')).toContain('/_next/image?url=%2Fproduct_v2.jpg&w=1080&q=75 1080w');
+    expect(img?.getAttribute('sizes')).toBe('(max-width: 900px) calc(100vw - 48px), 580px');
+    expect(img?.getAttribute('loading')).toBe('eager');
+    expect(img?.getAttribute('fetchpriority')).toBe('high');
+    expect(html).not.toMatch(/(src|srcSet|imageSrcSet)="\/product_v2\.jpg"/);
   });
 
   it('stops the video from its button and plays it again from the top', () => {
