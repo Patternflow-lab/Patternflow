@@ -307,6 +307,41 @@ function scale(key: string) {
   return (v: number) => (tf(v) - (lo - pad)) / (hi - lo + 2 * pad);
 }
 
+type Spot = { x: number; y: number; anchor: "start" | "end" };
+
+/**
+ * Where each dot's name goes: right of the dot if that is free, else left,
+ * else a line above or below. Names that would sit on another name or dot
+ * try the next place; the first place stands when none is free.
+ */
+function labelPlaces(
+  points: { p: Entry; x: number; y: number }[],
+  charWidth: number,
+  plot: { l: number; r: number; t: number; b: number },
+) {
+  type Box = { x0: number; x1: number; y0: number; y1: number };
+  const taken: Box[] = points.map(({ x, y }) => ({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }));
+  const hits = (a: Box) => taken.some((b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1);
+  const out = new Map<string, Spot>();
+  const order = [...points].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const { p, x, y } of order) {
+    const width = p.title.length * charWidth;
+    const tries: Spot[] = [];
+    for (const dy of [4, -8, 16, -20, 28]) {
+      tries.push({ x: x + 9, y: y + dy, anchor: "start" }, { x: x - 9, y: y + dy, anchor: "end" });
+    }
+    const boxOf = (s: Spot): Box => {
+      const x0 = s.anchor === "start" ? s.x : s.x - width;
+      return { x0, x1: x0 + width, y0: s.y - 10, y1: s.y + 2 };
+    };
+    const inside = (b: Box) => b.x0 >= plot.l - 30 && b.x1 <= plot.r + 12 && b.y0 >= plot.t - 4 && b.y1 <= plot.b + 4;
+    const spot = tries.find((s) => inside(boxOf(s)) && !hits(boxOf(s))) ?? tries.find((s) => inside(boxOf(s))) ?? tries[0];
+    taken.push(boxOf(spot));
+    out.set(p.slug, spot);
+  }
+  return out;
+}
+
 function drawMap() {
   const box = document.getElementById("map")!;
   const W = box.clientWidth;
@@ -336,8 +371,33 @@ function drawMap() {
     y: m.t + (1 - sy(p.measures[axisY] ?? 0)) * ih,
   }));
 
+  // Two patterns that measure almost alike would hide one dot under the
+  // other, so dots closer than 14 px push apart a little. The cells below are
+  // counted from where the measures put them, before the push.
+  const measured = points.map(({ x, y }) => ({ x, y }));
+  for (let round = 0; round < 40; round++) {
+    for (let a = 0; a < points.length; a++)
+      for (let b = a + 1; b < points.length; b++) {
+        const dx = points[b].x - points[a].x;
+        const dy = points[b].y - points[a].y;
+        const d = Math.hypot(dx, dy);
+        if (d >= 14) continue;
+        const ux = d > 0.01 ? dx / d : 1;
+        const uy = d > 0.01 ? dy / d : 0;
+        const push = (14 - d) / 2;
+        points[a].x -= ux * push;
+        points[a].y -= uy * push;
+        points[b].x += ux * push;
+        points[b].y += uy * push;
+      }
+    for (const point of points) {
+      point.x = Math.max(m.l, Math.min(m.l + iw, point.x));
+      point.y = Math.max(m.t, Math.min(m.t + ih, point.y));
+    }
+  }
+
   // Empty cells: the places on this map no pattern stands yet.
-  const filled = new Set(points.map(({ x, y }) => `${Math.min(GRID - 1, Math.floor(((x - m.l) / iw) * GRID))},${Math.min(GRID - 1, Math.floor(((y - m.t) / ih) * GRID))}`));
+  const filled = new Set(measured.map(({ x, y }) => `${Math.min(GRID - 1, Math.floor(((x - m.l) / iw) * GRID))},${Math.min(GRID - 1, Math.floor(((y - m.t) / ih) * GRID))}`));
   for (let gx = 0; gx < GRID; gx++)
     for (let gy = 0; gy < GRID; gy++) {
       const empty = !filled.has(`${gx},${gy}`);
@@ -357,7 +417,9 @@ function drawMap() {
   add("text", { x: m.l + 4, y: m.t + 14, class: "axis-end" }, AXES[axisY].high);
 
   // A narrow map still names its dots, in a smaller face.
-  svg.classList.toggle("narrow", W < 520);
+  const narrow = W < 520;
+  svg.classList.toggle("narrow", narrow);
+  const place = labelPlaces(points, narrow ? 5.2 : 6.4, { l: m.l, r: m.l + iw, t: m.t, b: m.t + ih });
   for (const { p, x, y } of points) {
     const color = data.families[p.family]?.color ?? "#ccc";
     const g = document.createElementNS(NS, "a");
@@ -373,10 +435,10 @@ function drawMap() {
     circle.append(tip);
     g.append(circle);
     const text = document.createElementNS(NS, "text");
-    const right = x < m.l + iw * 0.72;
-    text.setAttribute("x", String(right ? x + 9 : x - 9));
-    text.setAttribute("y", String(y + 4));
-    text.setAttribute("text-anchor", right ? "start" : "end");
+    const spot = place.get(p.slug)!;
+    text.setAttribute("x", String(spot.x));
+    text.setAttribute("y", String(spot.y));
+    text.setAttribute("text-anchor", spot.anchor);
     text.textContent = p.title;
     g.append(text);
     g.addEventListener("click", (event) => {

@@ -34,6 +34,7 @@ export const FAMILIES: Record<string, { label: string; color: string }> = {
   rhythm: { label: "리듬·펄스", color: "#ff4d4d" },
   space: { label: "공간·원근", color: "#e8e05a" },
   light: { label: "빛", color: "#7ef0d0" },
+  growth: { label: "자라남", color: "#d4c094" },
   glitch: { label: "글리치", color: "#b0b8c8" },
 };
 
