@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.5..4, Species=0..5, Grain=0..1
 //
 // Knob 1: Hue. Turns the culture's colour around the wheel.
@@ -26,8 +26,8 @@ const SPECIES = [
   [0.078, 0.061],
 ];
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 
 function rand(params) {
   let s = params.seed | 0;
@@ -75,10 +75,10 @@ function seedSize(params) {
 function seedDish(params) {
   params.a.fill(1);
   params.b.fill(0);
-  // One seed in each cell of a 6 by 3 grid, jittered, so the dish fills evenly.
+  // One seed in each cell of a 3 by 6 grid, jittered, so the dish fills evenly.
   for (let n = 0; n < 18; n++) {
-    const cx = Math.floor(((n % 6) + 0.15 + rand(params) * 0.7) * (W / 6));
-    const cy = Math.floor((Math.floor(n / 6) + 0.15 + rand(params) * 0.7) * (H / 3));
+    const cx = Math.floor(((n % 3) + 0.15 + rand(params) * 0.7) * (W / 3));
+    const cy = Math.floor((Math.floor(n / 3) + 0.15 + rand(params) * 0.7) * (H / 6));
     dab(params, cx, cy, seedSize(params) + Math.floor(rand(params) * 2), 1);
   }
   params.young = 1;
@@ -178,8 +178,9 @@ export function update(dt, input, params) {
   }
   params.tideT += steps / 7200;
   const turn = params.tideT * 1.3;
-  const ax = (Math.cos(turn) * 9.42) / W;
-  const by = (Math.sin(turn) * 9.42) / W;
+  // About 85 cells from crest to crest, the same whichever way the tide faces.
+  const ax = (Math.cos(turn) * 9.42) / 128;
+  const by = (Math.sin(turn) * 9.42) / 128;
   const phase = params.tideT * 6.2832;
   for (let x = 0; x < W; x++) {
     params.tsx[x] = Math.sin(ax * x);

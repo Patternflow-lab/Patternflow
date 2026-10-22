@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Rain=0.5..6, Damping=0..1, Drop=2.5..6
 //
 // Knob 1: Hue. Turns the crests round the colour wheel; the troughs stay deep blue.
@@ -15,8 +15,8 @@
 // Knob 3: Damping. How long a ring keeps going; low rings on and bounces off the walls, high fades before it gets far.
 // Knob 4: Drop. Size of each drop; small drops throw fine rings, big ones a slow swell.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 // Wave speed squared, in cells per step; this stencil blows up above 0.75.
 const C2 = 0.55;
 const NU = 0.008;
