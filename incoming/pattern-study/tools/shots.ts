@@ -1,6 +1,6 @@
 /**
- * Pictures for the pull request: a GIF of the pattern running at the knobs a
- * paste starts on, drawn as LED dots so a pixel-fine texture looks the way it
+ * Pictures for the pull request: a GIF of the pattern running at the study's
+ * start knobs (lab.ts), drawn as LED dots so a pixel-fine texture looks the way it
  * will on the panel, and a sheet of each knob at its minimum, middle and
  * maximum. ffmpeg makes the GIF, sharp the PNG.
  */
@@ -74,7 +74,7 @@ const number = (v: number) => `${Number(v.toPrecision(3))}`;
 
 /**
  * Knob sheet: a row per knob at its minimum, middle and maximum, the other
- * three where a paste leaves them.
+ * three at the study's start knobs.
  */
 export async function writeKnobSheet(file: string, pattern: Pattern, rows: Uint8Array[][]) {
   const { width, height } = pattern.matrix;

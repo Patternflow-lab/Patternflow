@@ -1,10 +1,10 @@
 /**
  * index.html: one file that runs on its own, opened from disk or from any
  * static host. The script is tools/gallery.ts bundled by esbuild together with
- * LabEngine, the Lab preview's engine, so a card on the page renders what a
- * paste into Pattern Lab renders. Each card gets the layer and knob state that
- * codeLayerFromSource builds for the paste, computed here and carried as
- * JSON, and the map gets the measures study.ts took.
+ * LabEngine, the Lab preview's engine, so a card on the page renders what
+ * Pattern Lab renders at the same knobs. Each card gets the layer that
+ * codeLayerFromSource builds and the study's start knobs (lab.ts), computed
+ * here and carried as JSON, and the map gets the measures study.ts took.
  *
  * The one-line Korean note beside each card comes from the README's table of
  * patterns, the row that links patterns/<slug>.js. Without a row, the card

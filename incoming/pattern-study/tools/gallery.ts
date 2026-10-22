@@ -1,7 +1,8 @@
 /**
  * The page script of index.html (page.ts bundles it). A card is one pattern
- * running in its own LabEngine, the Lab preview's engine, with the layer and
- * knobs a paste into Pattern Lab would give it. Cards off screen don't run.
+ * running in its own LabEngine, the Lab preview's engine, with the layer the
+ * Lab builds from its code and the study's start knobs. Cards off screen
+ * don't run.
  * The map at the top places every pattern by two of the measures study.ts
  * took; a dot takes you to its card.
  */

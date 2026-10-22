@@ -6,8 +6,8 @@
  *   npx tsx ../incoming/pattern-study/tools/study.ts --check    write nothing; fail on a pattern or a stale index.html
  *   ... study.ts --only ripple-tank,moire    just those (index.html is left alone)
  *
- * A pattern passes when a Lab paste reads all four knobs and the frame from
- * it, it runs eight seconds in the Lab engine without throwing (and three more
+ * A pattern passes when the Lab reads all four knobs and the frame from its
+ * code, it runs eight seconds in the Lab engine without throwing (and three more
  * with every knob at its minimum, then at its maximum), it lights the panel,
  * it moves, and each knob on its own changes the picture.
  */

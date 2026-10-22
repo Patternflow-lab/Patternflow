@@ -1,6 +1,6 @@
 /**
  * What the map puts each pattern by. Every number comes from frames the Lab
- * engine rendered (lab.ts), at the knobs a paste starts on, so moving a
+ * engine rendered (lab.ts), at the study's start knobs, so moving a
  * pattern on the map means changing the pattern, never retyping a score.
  */
 import zlib from "node:zlib";

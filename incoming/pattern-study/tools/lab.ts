@@ -1,9 +1,15 @@
 /**
- * The Lab, without the page: a pattern file goes in the way a paste into the
- * CODE panel takes it (codeLayerFromSource reads @ramp, @knobs and @matrix,
- * the knobs start where applyKnobEntries puts them), and LabEngine, the
- * Lab preview's own engine, renders it. study.ts checks and measures through
- * this; nothing here is a copy of the Lab's code.
+ * The Lab, without the page: codeLayerFromSource reads a pattern file's
+ * @ramp, @knobs and @matrix the way the Lab builds a layer from code, and
+ * LabEngine, the Lab preview's own engine, renders it. study.ts checks and
+ * measures through this; nothing here is a copy of the Lab's code.
+ *
+ * The knobs start at the Lab's default knob state, [0, 2, 0, 0.06], pulled
+ * into the pattern's ranges: where a new Lab project's knobs sit. A paste
+ * into a Lab already open does not reset them. It pulls whatever the knobs
+ * were into the new ranges, so a freshly opened Lab, holding its first
+ * preset's (0, 2, 10, 2), lands K3 near 10 and K4 near its top. That is why
+ * study.ts looks at every knob across its whole range.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -28,7 +34,7 @@ export type Pattern = {
   family: string;
   idea: string;
   knobs: Knob[];
-  /** Where the Lab puts the knobs on paste. */
+  /** The Lab's default knob state pulled into this pattern's ranges. */
   start: number[];
   layer: CodeLayer;
   matrix: MatrixSize;
