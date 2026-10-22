@@ -86,8 +86,7 @@ export function ZipProgress({
 // type. Changing it here changes it everywhere.
 
 export function ZipInstallNote({ kind }: { kind: ZipKind }) {
-  const { deviceHost, changeDeviceHost } = useDeviceHost();
-  const host = deviceHost.trim() || "patternflow.local";
+  const { deviceHost, host, changeDeviceHost } = useDeviceHost();
   const patternsPage = `http://${host}/patterns`;
 
   return (

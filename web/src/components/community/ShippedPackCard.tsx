@@ -45,7 +45,7 @@ export default function ShippedPackCard({ pack }: { pack: PatternPack }) {
   // resolve — and this is the card a new owner reaches first, with no account
   // and nothing on the board yet. Telling us the IP once, anywhere, should be
   // enough for all of them.
-  const { deviceHost, changeDeviceHost } = useDeviceHost();
+  const { deviceHost, host, changeDeviceHost } = useDeviceHost();
 
   const shown = pack.order
     .slice(0, STRIP_CELLS - 1)
@@ -103,7 +103,7 @@ export default function ShippedPackCard({ pack }: { pack: PatternPack }) {
             the pack back over https and posts it to the device itself. */}
         <a
           className={styles.btnPrimary}
-          href={packInstallUrl(pack, deviceHost.trim() || "patternflow.local", origin)}
+          href={packInstallUrl(pack, host, origin)}
         >
           Install to my board
         </a>
