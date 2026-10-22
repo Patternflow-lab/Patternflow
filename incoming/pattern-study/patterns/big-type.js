@@ -7,7 +7,7 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: original, pattern study 2026-10
 // ===============================
-// @matrix 128x64
+// @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..5, Word=0..6, Warp=0..1
 //
 // Knob 1: Hue. Turns the outline colour; the fill and the shadow follow it.
@@ -15,13 +15,17 @@
 // Knob 3: Word. Picks the word: TV, 1963, LIGHT, HELLO, FLOW, PLAY, KNOB.
 // Knob 4: Warp. How hard the picture bends, from a slow sway to a set losing its hold.
 
-const W = 128;
-const H = 64;
+const W = 64;
+const H = 128;
 
 // The font is drawn from its Scale2x copy, ten by fourteen cells a glyph.
 const ZOOM = 2;
 
 const WORDS = ["TV", "1963", "LIGHT", "HELLO", "FLOW", "PLAY", "KNOB"];
+// The panel stands up, so a word is set in lines: four letters as two over
+// two like a poster, five down the panel like a hotel sign.
+const LINES = [["T", "V"], ["19", "63"], ["L", "I", "G", "H", "T"], ["H", "E", "L", "L", "O"], ["FL", "OW"], ["PL", "AY"], ["KN", "OB"]];
+const MAX_LINES = 5;
 
 // 5x7 glyphs, seven rows each from the top, 16 is the left column.
 const LETTERS = "TV1963LIGHEOFWPAYKNB";
@@ -67,18 +71,28 @@ function hash(n) {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
-// Lays a word out: glyph offsets into FONT, and its scale and origin.
+// Lays a word out: its lines, the glyphs of each, and one scale for all of
+// them, as tall as the lines allow and no wider than 1.8 times that. The
+// scale need not be whole: five lines get 3.2 LEDs a font row.
 function setWord(p, slot, index) {
-  const word = WORDS[index];
+  const lines = LINES[index];
   const L = p.layout[slot];
-  L.n = word.length;
-  for (let i = 0; i < L.n; i++) L.bits[i] = p.big[LETTERS.indexOf(word[i])];
-  const cols = L.n * 6 - 1;
-  L.cols = cols;
-  L.sx = Math.min(10, Math.floor(124 / cols));
-  L.sy = 8;
-  L.x0 = Math.floor((W - cols * L.sx) / 2);
-  L.y0 = 4;
+  L.lines = lines.length;
+  let wide = 0;
+  let k = 0;
+  for (let j = 0; j < L.lines; j++) {
+    const text = lines[j];
+    L.first[j] = k;
+    L.cols[j] = text.length * 6 - 1;
+    wide = Math.max(wide, L.cols[j]);
+    for (let i = 0; i < text.length; i++) L.bits[k++] = p.big[LETTERS.indexOf(text[i])];
+  }
+  L.gap = L.lines > 2 ? 2 : 8;
+  L.sy = Math.min(8, (H - 8 - (L.lines - 1) * L.gap) / (7 * L.lines));
+  L.sx = Math.min(11, Math.floor((W - 6) / wide), L.sy * 1.8);
+  L.pitch = Math.ceil(7 * L.sy) + L.gap;
+  L.y0 = Math.floor((H - L.lines * L.pitch + L.gap) / 2);
+  for (let j = 0; j < L.lines; j++) L.x0[j] = Math.floor((W - L.cols[j] * L.sx) / 2);
 }
 
 // Scale2x (EPX) on a bitmap: square corners stay, a diagonal step gets joined.
@@ -102,25 +116,43 @@ function epx(src, w, h) {
   return out;
 }
 
+// u is across the panel, v down from the top of the word.
 function inside(L, u, v) {
-  if (u < 0 || v < 0) return 0;
+  if (v < 0) return 0;
+  const j = Math.floor(v / L.pitch);
+  if (j >= L.lines) return 0;
+  v -= j * L.pitch;
+  u -= L.x0[j];
+  if (u < 0) return 0;
   const cu = Math.floor((u * ZOOM) / L.sx);
   const cv = Math.floor((v * ZOOM) / L.sy);
-  if (cu >= L.cols * ZOOM || cv >= 7 * ZOOM) return 0;
+  if (cu >= L.cols[j] * ZOOM || cv >= 7 * ZOOM) return 0;
   const letter = Math.floor(cu / (6 * ZOOM));
   const b = cu - letter * 6 * ZOOM;
   if (b >= 5 * ZOOM) return 0;
-  return L.bits[letter][cv * 5 * ZOOM + b];
+  return L.bits[L.first[j] + letter][cv * 5 * ZOOM + b];
+}
+
+function newLayout() {
+  return {
+    lines: 0,
+    gap: 0,
+    pitch: 1,
+    sx: 1,
+    sy: 1,
+    y0: 0,
+    first: new Int8Array(MAX_LINES),
+    cols: new Int16Array(MAX_LINES),
+    x0: new Int16Array(MAX_LINES),
+    bits: [],
+  };
 }
 
 export function setup(params) {
   params.phase = 0;
   params.roll = 1;
   params.word = -1;
-  params.layout = [
-    { n: 0, cols: 0, sx: 1, sy: 1, x0: 0, y0: 0, bits: [] },
-    { n: 0, cols: 0, sx: 1, sy: 1, x0: 0, y0: 0, bits: [] },
-  ];
+  params.layout = [newLayout(), newLayout()];
   params.big = [];
   for (let g = 0; g < LETTERS.length; g++) {
     const bits = new Uint8Array(35);
@@ -161,19 +193,20 @@ export function draw(display, params, time) {
   const warp = p.warp;
   const ph = p.phase;
   const amp = 1.5 + warp * 6;
-  const lambda = 52 - warp * 12;
-  const shear = warp * 0.18 * Math.sin(ph * 0.45);
+  // About one wave to a big letter, as on the wide panel.
+  const lambda = 64 - warp * 16;
+  const shear = warp * 0.09 * Math.sin(ph * 0.45);
   // Above half warp a band of rows slips sideways now and then, like lost sync.
   const slot = Math.floor(ph * 3);
   const tearY = hash(slot) * H;
-  const tearH = 2 + hash(slot + 7) * 7;
-  const tear = warp > 0.5 && hash(slot + 3) < 0.6 ? (hash(slot + 11) - 0.5) * 60 * (warp - 0.5) : 0;
+  const tearH = 3 + hash(slot + 7) * 12;
+  const tear = warp > 0.5 && hash(slot + 3) < 0.6 ? (hash(slot + 11) - 0.5) * 44 * (warp - 0.5) : 0;
   for (let y = 0; y < H; y++) {
-    let s = amp * Math.sin((y / lambda) * 6.2832 - ph * 2.4) + shear * (y - 32);
+    let s = amp * Math.sin((y / lambda) * 6.2832 - ph * 2.4) + shear * (y - H / 2);
     if (tear !== 0 && y >= tearY && y < tearY + tearH) s += tear;
     p.rowShift[y] = s;
   }
-  for (let x = 0; x < W; x++) p.colShift[x] = warp * 3 * Math.sin((x / 70) * 6.2832 + ph * 1.3);
+  for (let x = 0; x < W; x++) p.colShift[x] = warp * 3 * Math.sin((x / 56) * 6.2832 + ph * 1.3);
 
   const e = p.roll * p.roll * (3 - 2 * p.roll);
   const now = p.layout[0];
@@ -184,8 +217,8 @@ export function draw(display, params, time) {
     for (let x = 0; x < W; x++) {
       const u = x - p.rowShift[y];
       const v = y - p.colShift[x];
-      let m = inside(now, u - now.x0, v - now.y0 - (rolling ? (1 - e) * H : 0));
-      if (rolling && !m) m = inside(old, u - old.x0, v - old.y0 + e * H);
+      let m = inside(now, u, v - now.y0 - (rolling ? (1 - e) * H : 0));
+      if (rolling && !m) m = inside(old, u, v - old.y0 + e * H);
       mask[y * W + x] = m;
     }
   }
@@ -196,7 +229,7 @@ export function draw(display, params, time) {
   const line = p.line;
   const fill = p.fill;
   const shade = p.shade;
-  const bar = ((ph * 18) % (H + 24)) - 12;
+  const bar = ((ph * 30) % (H + 24)) - 12;
   const sdx = 2;
   const sdy = 2;
   for (let y = 0; y < H; y++) {
