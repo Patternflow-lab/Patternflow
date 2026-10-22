@@ -69,19 +69,22 @@ export function webKnobRange(knobId: KnobId): readonly [number, number] {
 }
 
 /**
- * A wrapping knob's change between two readings, taken the short way round:
- * 0.95 to 0.05 is +0.1 across the seam, not -0.9. The values are 0..1, the
- * hue knob's range.
+ * A wrapping knob's change between two readings, taken the short way round a
+ * range `span` wide: on 0..1, 0.95 to 0.05 is +0.1 across the seam, not -0.9.
+ * The span has to be the knob's own. A pattern that declares Hue=0..360 moves
+ * 7.5 a detent, and wrapping that at ±0.5 read the detent as 6.5.
  */
-export function wrapKnobDelta(delta: number) {
-  if (delta > 0.5) return delta - 1;
-  if (delta < -0.5) return delta + 1;
+export function wrapKnobDelta(delta: number, span = 1) {
+  if (delta > span / 2) return delta - span;
+  if (delta < -span / 2) return delta + span;
   return delta;
 }
 
 export function getKnobValueDelta(knobId: KnobId, current: number, previous: number) {
   const delta = current - previous;
-  return LOGICAL_KNOB_WRAP[LOGICAL_KNOB_TO_WEB_KNOB.indexOf(knobId)] ? wrapKnobDelta(delta) : delta;
+  if (!LOGICAL_KNOB_WRAP[LOGICAL_KNOB_TO_WEB_KNOB.indexOf(knobId)]) return delta;
+  const range = webKnobRange(knobId);
+  return wrapKnobDelta(delta, range[1] - range[0]);
 }
 
 export function toEncoderDelta(range: readonly [number, number], valueDelta: number) {

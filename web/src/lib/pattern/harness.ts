@@ -1,4 +1,10 @@
-import { DETENTS_PER_TURN, KNOB_COUNT, PANEL_GEOMETRIES, PANEL_GEOM_DEFAULT } from "@/lib/shared/constants";
+import {
+  DETENTS_PER_TURN,
+  KNOB_COUNT,
+  PANEL_GEOMETRIES,
+  PANEL_GEOM_DEFAULT,
+  TURNS_PER_FULL_RANGE,
+} from "@/lib/shared/constants";
 import { wrapKnobDelta } from "@/lib/pattern/controls";
 
 export const PATTERN_MATRIX_WIDTH: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
@@ -782,6 +788,8 @@ export function createIdleInput(
 }
 
 export function knobTargetToDelta(previous: number, next: number, wrap = false, unitsPerTurn = 1) {
-  const delta = wrap ? wrapKnobDelta(next - previous) : next - previous;
+  // The range is TURNS_PER_FULL_RANGE turns wide, so the seam sits half of
+  // that away from any reading.
+  const delta = wrap ? wrapKnobDelta(next - previous, unitsPerTurn * TURNS_PER_FULL_RANGE) : next - previous;
   return delta * (PATTERN_DETENTS_PER_TURN / unitsPerTurn);
 }
