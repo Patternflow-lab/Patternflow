@@ -32,7 +32,7 @@ export default function CodePanel() {
     layer ? (state.layerErrors[layer.id] ?? null) : null,
   );
 
-  const [promptCopied, setPromptCopied] = useResettingState(false, 1200);
+  const [promptCopy, flashPromptCopy] = useResettingState<"idle" | "copied" | "failed">("idle", 1200);
   const [pasted, setPasted] = useResettingState(false, 1200);
   const [cleared, setCleared] = useResettingState(false, 1200);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -61,11 +61,17 @@ export default function CodePanel() {
     applyCodeToActive(labPresets[next].code);
   };
 
+  // A browser can refuse the write (no permission, a page served over plain
+  // http). The button says so, the way Pixel's "Copy as code" does.
   const copyVariantPrompt = async () => {
-    await navigator.clipboard.writeText(
-      buildVariantCopyPrompt(layer.code, knobs, ranges, gen.colorMode, matrix),
-    );
-    setPromptCopied(true);
+    try {
+      await navigator.clipboard.writeText(
+        buildVariantCopyPrompt(layer.code, knobs, ranges, gen.colorMode, matrix),
+      );
+      flashPromptCopy("copied");
+    } catch {
+      flashPromptCopy("failed");
+    }
   };
 
   // Pasted code carrying a @stack line is a whole shared composition —
@@ -139,7 +145,7 @@ export default function CodePanel() {
           onClick={copyVariantPrompt}
           title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
         >
-          {promptCopied ? "Copied" : "Copy prompt"}
+          {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
         </button>
         <button type="button" onClick={() => setGuideOpen(true)}>
           Code guide

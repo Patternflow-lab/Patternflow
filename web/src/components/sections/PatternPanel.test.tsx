@@ -74,10 +74,11 @@ describe('PatternPanel', () => {
     expect(editor).toHaveAttribute('data-height', '100%');
   });
 
-  it('copies a creation prompt with the code in the editor and the step one detent moves Knob 2', () => {
+  it('copies a creation prompt with the code in the editor and the step one detent moves Knob 2', async () => {
     const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
-    vi.stubGlobal('alert', vi.fn());
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
     try {
       render(<PatternPanel content={content} isActive />);
       act(() => useAppStore.getState().setCustomJsCode('export function draw(display) {}'));
@@ -86,8 +87,50 @@ describe('PatternPanel', () => {
       const prompt = writeText.mock.calls[0]?.[0] ?? '';
       expect(prompt).toContain('- Knob 2: 0.1 to 10.0, clamps at edges, step 0.206 per detent.');
       expect(prompt).toContain('```javascript\nexport function draw(display) {}\n```');
+      await act(async () => {});
+      expect(alert).toHaveBeenCalledTimes(1);
+      expect(alert.mock.calls[0]?.[0]).toMatch(/^Creation prompt copied to clipboard!/);
     } finally {
       delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  // The alert used to go up before the write had finished, so a browser that
+  // refused it still said the prompt was copied.
+  it('says Copy failed instead of copied when the browser refuses the write', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() =>
+      Promise.reject(new DOMException('Write permission denied.', 'NotAllowedError')),
+    );
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
+    try {
+      render(<PatternPanel content={content} isActive />);
+      screen.getByRole('button', { name: 'Copy creation prompt' }).click();
+      await act(async () => {});
+
+      expect(alert).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Copy failed' })).toBeInTheDocument();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it('says Copy failed on a page with no clipboard at all, and comes back to its label', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const alert = vi.fn();
+    vi.stubGlobal('alert', alert);
+    try {
+      render(<PatternPanel content={content} isActive />);
+      screen.getByRole('button', { name: 'Copy creation prompt' }).click();
+      await act(async () => {});
+
+      expect(alert).not.toHaveBeenCalled();
+      expect(screen.getByRole('button', { name: 'Copy failed' })).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1400));
+      expect(screen.getByRole('button', { name: 'Copy creation prompt' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
     }
   });
 

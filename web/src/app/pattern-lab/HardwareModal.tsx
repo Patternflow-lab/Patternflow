@@ -49,7 +49,7 @@ export default function HardwareModal({
   const [name, setName] = useState(() => labPatternName(useLabStore.getState()));
   const [pastes, setPastes] = useState<Record<number, string>>({});
   const [single, setSingle] = useState("");
-  const [copiedKey, flashCopied] = useResettingState<string | null>(null, 1200);
+  const [copied, flashCopied] = useResettingState<{ key: string; ok: boolean } | null>(null, 1200);
   const [stage, setStage] = useState<Stage>("convert");
 
   const [sendOpen, setSendOpen] = useState(false);
@@ -110,11 +110,16 @@ export default function HardwareModal({
   const copyText = async (key: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      flashCopied(key);
+      flashCopied({ key, ok: true });
     } catch {
-      /* clipboard may be blocked */
+      // The browser refused the write. Saying nothing left the label as it
+      // was, and whatever the clipboard held before went to the model.
+      flashCopied({ key, ok: false });
     }
   };
+
+  const copyLabel = (key: string, idle: string) =>
+    copied?.key === key ? (copied.ok ? "Copied ✓" : "Copy failed") : idle;
 
   const downloadH = () => {
     const blob = new Blob([assembled], { type: "text/plain" });
@@ -217,7 +222,7 @@ export default function HardwareModal({
                           type="button"
                           onClick={() => void copyText(`u${unit.index}`, unit.prompt)}
                         >
-                          {copiedKey === `u${unit.index}` ? "Copied ✓" : "Copy prompt"}
+                          {copyLabel(`u${unit.index}`, "Copy prompt")}
                         </button>
                       </div>
                       <textarea
@@ -237,7 +242,7 @@ export default function HardwareModal({
                 <>
                   <div className={styles.variantActions}>
                     <button type="button" onClick={() => void copyText("single", singlePrompt)}>
-                      {copiedKey === "single" ? "Copied ✓" : "Copy the conversion prompt"}
+                      {copyLabel("single", "Copy the conversion prompt")}
                     </button>
                   </div>
                   <textarea
@@ -260,7 +265,7 @@ export default function HardwareModal({
 
               <div className={styles.variantActions} style={{ marginTop: 10, flexWrap: "wrap" }}>
                 <button type="button" onClick={() => void copyText("h", assembled)}>
-                  {copiedKey === "h" ? "Copied ✓" : "Copy .h"}
+                  {copyLabel("h", "Copy .h")}
                 </button>
                 <button type="button" onClick={downloadH} disabled={!headerLooksReal}>
                   Download .h

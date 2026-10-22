@@ -132,6 +132,29 @@ describe("HardwareModal", () => {
     expectHeaderKept();
   });
 
+  // The prompt goes to a model by paste. When the browser refuses the write,
+  // the label used to stay as it was, and the paste carried whatever the
+  // clipboard held before.
+  it("says Copy failed on the button whose copy the browser refused", async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() =>
+      Promise.reject(new DOMException("Write permission denied.", "NotAllowedError")),
+    );
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      fireEvent.click(screen.getByText("Copy the conversion prompt"));
+      expect(await screen.findByText("Copy failed")).toBeTruthy();
+      expect(screen.getByText("Copy .h")).toBeTruthy();
+
+      writeText.mockImplementation(() => Promise.resolve());
+      fireEvent.click(screen.getByText("Copy failed"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      expect(writeText).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("Esc over the Publish modal closes Publish alone and keeps the header", async () => {
     render(<Lab />);
     pasteHeaderAndContinue();
