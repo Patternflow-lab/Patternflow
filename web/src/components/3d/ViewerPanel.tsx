@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Component, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import HeroScene from './HeroScene';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore, type HomeTabType } from '@/store/useAppStore';
 import { hasWebGL } from '@/lib/webgl';
 
 // The hero and the Inside section show the build globe; Build and Pattern
@@ -41,8 +41,16 @@ class SceneGuard extends Component<{ children: ReactNode }, { failed: boolean }>
 // On desktop the panel is always shown (sticky left column). On mobile it stays
 // hidden while the hero is full-screen and only "drops down" once a section tab
 // (Build / Pattern / Inside) is opened from the bottom nav.
-export default function ViewerPanel() {
-  const homeTab = useAppStore((state) => state.homeTab);
+export default function ViewerPanel({ initialTab = 'hero' }: { initialTab?: HomeTabType }) {
+  // The store starts on the hero on every page and hears the page's tab from
+  // RightPanel's effect, after this panel has rendered once. Read from the
+  // store, /build and /pattern opened on the globe for the length of the
+  // fade, long enough to mount it and send for every pin's photos. So the
+  // panel starts on the tab the page was made for and follows the store from
+  // its first change. This effect runs before RightPanel's: siblings mount in
+  // order, and HomeView puts this panel first.
+  const [homeTab, setHomeTab] = useState(initialTab);
+  useEffect(() => useAppStore.subscribe((state) => setHomeTab(state.homeTab)), []);
   const isOpen = homeTab !== 'hero';
   // The server cannot ask for a context, so it answers yes and sends the page
   // as it was. The client asks while hydrating, before either scene's canvas
