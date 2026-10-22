@@ -31,6 +31,7 @@ import { knobDetentStep } from "@/lib/pattern/controls";
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE } from "./annotations";
+import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
 import type { CodeLayer, KnobRange, Layer } from "./types";
 
@@ -155,10 +156,9 @@ export type HExport = {
 
 export function buildHExport(args: HExportArgs): HExport {
   const { name, matrix, knobs, ranges, knobLabels } = args;
-  // Bottom → top, matching the compositor.
-  const stack = [...args.layers]
-    .reverse()
-    .filter((layer) => layer.visible && (layer.role === "mask" || layer.opacity > 0));
+  // Bottom → top, matching the compositor. A 0% layer leaves with the masks
+  // resting on it: a mask over a 0% layer gates nothing.
+  const stack = exportStack(args.layers);
 
   const ns = `LabStack_${sanitizeName(name)}`;
   const isPanelFrame =

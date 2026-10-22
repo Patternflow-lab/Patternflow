@@ -24,6 +24,7 @@ import { buildRampLUTRGBA } from "@/lib/pattern/harness";
 import { withMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE, buildKnobsAnnotationLine, defaultKnobState } from "./annotations";
+import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
 import { bytesToBase64 } from "./serialize";
 
@@ -110,11 +111,10 @@ export function flattenLayers(
   matrix: MatrixSize,
   knobConfig?: FlattenKnobs,
 ): string {
-  // Bottom → top for compositing. Masks ride along regardless of opacity
-  // (opacity is a paint concept; a mask is binary).
-  const stack = [...layers]
-    .reverse()
-    .filter((layer) => layer.visible && (layer.role === "mask" || layer.opacity > 0));
+  // Bottom → top for compositing. Masks ride along regardless of their own
+  // opacity (opacity is a paint concept; a mask is binary), unless they rest
+  // on a 0% layer: those gate nothing, in the preview too.
+  const stack = exportStack(layers);
 
   const manifest = stack
     .map(
