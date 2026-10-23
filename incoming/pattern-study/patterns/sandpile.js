@@ -30,6 +30,11 @@ const { min, max, floor, round, sqrt, log2, exp, sin, cos, PI } = Math;
 const rnd = () => Math.random();
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const at = (x, y) => (y + 1) * WP + x + 1;
+function hash(i, j) {
+  let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
 
 // Drop points for each Sources setting, as the centre of a 2x2 block of
 // cells, so every plan is mirror symmetric about the middle of the panel.
@@ -41,15 +46,42 @@ const POINTS = [
   [[15.5, 33.5], [47.5, 33.5], [31.5, 63.5], [15.5, 93.5], [47.5, 93.5]],
 ];
 
-// Each palette: 0, 1, 2 and 3 grains, the bare tray, the glow of toppling.
-// The study reads a cell by its brightest channel, and most neighbours in a
-// pile are a 3 beside a 2, so 3 is the bright one and 2 the dark one.
+// Each palette: 0, 1, 2 and 3 grains by the drop points, the same out at
+// the rim, the bare tray, and the glow of toppling. The study reads a cell by
+// its brightest channel, and most neighbours in a pile are a 3 beside a 2,
+// so 3 is the bright one and 2 the dark one, and the rim colours keep each
+// level's brightness while the hue drifts.
 const PALS = [
-  [[10, 8, 20], [26, 118, 124], [16, 22, 54], [255, 214, 146], [4, 5, 10], [255, 246, 220]],
-  [[4, 8, 16], [30, 110, 150], [34, 20, 70], [206, 246, 255], [2, 5, 9], [200, 255, 255]],
-  [[6, 10, 4], [130, 112, 20], [14, 46, 26], [196, 255, 110], [3, 5, 2], [240, 255, 200]],
-  [[12, 3, 4], [176, 42, 26], [62, 12, 44], [255, 182, 64], [6, 2, 2], [255, 230, 170]],
-  [[6, 0, 12], [0, 148, 170], [54, 0, 92], [255, 120, 222], [3, 0, 6], [255, 220, 255]],
+  [
+    [[10, 8, 20], [20, 128, 118], [14, 22, 62], [255, 198, 104]],
+    [[12, 8, 22], [54, 96, 150], [36, 16, 60], [255, 234, 200]],
+    [4, 5, 10],
+    [255, 236, 190],
+  ],
+  [
+    [[4, 8, 16], [30, 110, 150], [34, 20, 70], [170, 236, 255]],
+    [[4, 8, 16], [70, 90, 170], [20, 30, 72], [236, 246, 255]],
+    [2, 5, 9],
+    [200, 255, 255],
+  ],
+  [
+    [[6, 10, 4], [130, 112, 20], [14, 46, 26], [170, 255, 90]],
+    [[6, 10, 4], [96, 130, 30], [40, 40, 16], [230, 255, 160]],
+    [3, 5, 2],
+    [240, 255, 200],
+  ],
+  [
+    [[12, 3, 4], [176, 42, 26], [62, 12, 44], [255, 170, 40]],
+    [[12, 3, 6], [190, 30, 70], [40, 10, 60], [255, 214, 120]],
+    [6, 2, 2],
+    [255, 230, 170],
+  ],
+  [
+    [[6, 0, 12], [0, 148, 170], [54, 0, 92], [255, 110, 210]],
+    [[8, 0, 12], [40, 120, 200], [80, 0, 70], [255, 170, 250]],
+    [3, 0, 6],
+    [255, 220, 255],
+  ],
 ];
 
 const [GROW, HOLD, TILT] = [0, 1, 2];
@@ -77,6 +109,8 @@ export function setup(params) {
   P.tgt = new Uint8Array(N);
   P.amp = new Float32Array(N);
   P.dist = new Float32Array(N);
+  P.tone = new Float32Array(N);
+  P.toneKey = "";
   P.col = new Float32Array(W);
   for (let x = 0; x < W; x++) P.col[x] = rnd();
   P.started = false;
@@ -218,15 +252,25 @@ function plan(P, spread) {
   if (spread > 0) P.symX = P.symY = false;
   if (P.shift || P.n === 3) P.symY = false;
   setMode(P, (P.symX ? 1 : 0) | (P.symY ? 2 : 0));
-  return points(P, P.n);
+  const pts = points(P, P.n);
+  // How far each cell is from the nearest drop point, for the colours.
+  if (P.toneKey !== P.n + "," + P.shift) {
+    P.toneKey = P.n + "," + P.shift;
+    for (let p = 0; p < N; p++) {
+      let d = 1e9;
+      for (const [cx, cy] of pts) d = min(d, ((p & 63) - cx) ** 2 + ((p >> 6) - cy) ** 2);
+      P.tone[p] = min(1, sqrt(d) / 64);
+    }
+  }
+  return pts;
 }
 
 // Pour on every drop point together until the pile covers this much of the
 // tray, so the picture opens mid-growth whatever the knobs say.
-function prerun(P, cover) {
-  const pts = plan(P, 0);
+function prerun(P, cover, spread) {
+  const pts = plan(P, spread);
   for (let i = 0; i < 200; i++) {
-    pour(P, pts, 1600, 0);
+    pour(P, pts, 1600, spread);
     settle(P, 1e9);
     if (snapshot(P, P.cur) >= cover) break;
   }
@@ -242,9 +286,10 @@ function startRipple(P, pts) {
   let far = 0;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0, s = at(0, y); x < W; x++, p++, s++) {
+      // Cells the avalanche rewrote flash, the more the more often they
+      // toppled; sand reaching bare tray flashes brightest.
       const h = heat[s];
-      const born = tgt[p] && !cur[p];
-      amp[p] = h > 0 || born ? min(1, 0.25 + log2(1 + h) / 7 + (born ? 0.4 : 0)) : 0;
+      amp[p] = tgt[p] !== cur[p] ? min(1, 0.3 + log2(1 + h) / 8 + (cur[p] ? 0 : 0.4)) : h > 0 ? 0.12 : 0;
       let d = 1e9;
       for (const [cx, cy] of pts) d = min(d, (x - cx) ** 2 + (y - cy) ** 2);
       dist[p] = d = sqrt(d);
@@ -266,17 +311,17 @@ export function update(dt, input, params) {
   const spread = max(0, clamp(k[3], 0, 1) - 0.08) * 14;
   if (!P.started) {
     P.started = true;
-    prerun(P, 0.74);
+    prerun(P, 0.74, spread);
   }
   if (input.btnPressed && input.btnPressed[0] && P.phase !== TILT) [P.phase, P.pt] = [TILT, 0];
 
   if (P.phase === TILT) {
     P.pt += dt;
-    if (P.pt > 1.6) {
+    if (P.pt > 1.4) {
       clear(P);
       P.shift = round((rnd() - 0.5) * 50);
       P.phase = GROW;
-      P.wait = 0.3;
+      P.wait = 0;
     }
     return;
   }
@@ -308,17 +353,18 @@ export function update(dt, input, params) {
 
 export function draw(display, params) {
   const P = params;
-  const pal = PALS[P.pal ?? 0];
-  const bg = pal[4];
-  const glow = pal[5];
-  const { cur, tgt, amp, dist } = P;
+  const [core, rim, bg, glow] = PALS[P.pal ?? 0];
+  const { cur, tgt, amp, dist, tone } = P;
   const r = P.rip;
-  const tilt = P.phase === TILT ? 0.5 * 150 * P.pt * P.pt : 0;
+  // Tipped, the sand slides off the bottom edge, each column at its own
+  // pace and the grains tumbling more the faster it goes.
+  const tilt = P.phase === TILT ? P.pt : 0;
+  const f = (P.f = (P.f | 0) + 1);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       let sy = y;
       if (tilt) {
-        sy = y - round(tilt * (1 + 0.22 * P.col[x]) - 2 * P.col[(x * 7) & 63]);
+        sy = y - floor(70 * tilt * tilt * (0.85 + 0.3 * P.col[x]) + hash(x, y + f * 61) * (1 + 5 * tilt));
         if (sy < 0) {
           display.setPixel(x, y, bg[0], bg[1], bg[2]);
           continue;
@@ -331,10 +377,20 @@ export function draw(display, params) {
         const d = dist[p];
         if (d < r) {
           c = tgt[p];
-          if (amp[p] > 0) a = amp[p] * exp(-(r - d) / RING) * 0.6;
+          if (amp[p] > 0) a = amp[p] * exp(-(r - d) / RING) * 0.75;
         }
       }
-      const base = c ? pal[c - 4] : bg;
-      display.setPixel(x, y, base[0] + (glow[0] - base[0]) * a, base[1] + (glow[1] - base[1]) * a, base[2] + (glow[2] - base[2]) * a);
+      let R = bg[0];
+      let G = bg[1];
+      let B = bg[2];
+      if (c) {
+        const u = core[c - 4];
+        const v = rim[c - 4];
+        const t = tone[p];
+        R = u[0] + (v[0] - u[0]) * t;
+        G = u[1] + (v[1] - u[1]) * t;
+        B = u[2] + (v[2] - u[2]) * t;
+      }
+      display.setPixel(x, y, R + (glow[0] - R) * a, G + (glow[1] - G) * a, B + (glow[2] - B) * a);
     }
 }
