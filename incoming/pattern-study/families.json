@@ -29,5 +29,8 @@
   "ocean": { "label": "바다", "color": "#1f7fb8" },
   "insect": { "label": "곤충", "color": "#b4e61e" },
   "circuit": { "label": "전자 회로", "color": "#2e7d32" },
-  "toy": { "label": "장난감", "color": "#dd11ff" }
+  "toy": { "label": "장난감", "color": "#dd11ff" },
+  "glass": { "label": "유리", "color": "#b0002a" },
+  "mineral": { "label": "광물·결정", "color": "#886688" },
+  "fair": { "label": "놀이공원", "color": "#ffffff" }
 }
