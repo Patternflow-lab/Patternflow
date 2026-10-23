@@ -244,7 +244,7 @@ function kick(p, dvx, dvz, f) {
 }
 
 // Ball and pins are discs on the deck; pins rock, topple past 11 degrees, fly
-// when hit hard, spin, and bounce off the kickbacks.
+// when hit hard and spin off the kickbacks.
 function collide(P) {
   const bodies = [];
   if (P.B && P.B.h > -3) bodies.push([P.B, 15, 4.3, [[P.B.X, P.B.Z, 0.5]]]);

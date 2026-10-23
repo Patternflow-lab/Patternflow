@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Metal=0..1, Speed=0.2..3, Object=0..4, Light=0..1
 //
-// Knob 1: Metal. The finish of the pins and the colour the lamp gives them: blue steel at 0, then violet and pink, brass in the middle, green, and blue steel again at 1.
+// Knob 1: Metal. The finish of the pins and the colour the lamp gives them: blue steel at 0, turning through violet and pink to brass in the middle, then through green back to blue steel at 1.
 // Knob 2: Speed. How fast things press in, hold and are tilted flat again: at 2 an object takes 3 s to press in and a round is 8 s; at 0.2 it all runs ten times slower.
 // Knob 3: Object. What presses in next: a spread hand, a key, a seashell, a toy car or a face, the rest following in that order. Turning it tilts the toy flat and brings the new one.
 // Knob 4: Light. Where the desk lamp stands, going once round the toy from its left side, upper left at the start. The relief shines on the lamp's side and throws its shadow away from it, and the flat pins are brighter nearer the lamp.
