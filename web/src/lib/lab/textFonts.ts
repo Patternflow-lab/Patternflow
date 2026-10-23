@@ -130,7 +130,11 @@ export function resolveFont(id: string): ResolvedFont {
 export function ensureFontReady(id: string, size: number): boolean {
   if (typeof document === "undefined" || !document.fonts) return true;
   if (!id.startsWith("site:")) return true;
-  const spec = `${Math.max(1, Math.round(size))}px ${resolveFont(id).css}`;
+  // The first family only. next/font follows it with a "… Fallback" face
+  // made from local("Arial"), and on a device without Arial loading the
+  // whole list fails with a NetworkError, so the real font never drew.
+  const family = resolveFont(id).css.split(",")[0].trim();
+  const spec = `${Math.max(1, Math.round(size))}px ${family}`;
   let ready = true;
   try {
     ready = document.fonts.check(spec);

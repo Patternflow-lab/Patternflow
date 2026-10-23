@@ -2,7 +2,7 @@
 // asks first; a blank one goes straight away.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import LayersPanel from "./LayersPanel";
 import { useLabStore } from "@/lib/lab/store";
 
@@ -77,5 +77,28 @@ describe("LayersPanel Del", () => {
     fireEvent.click(del());
     expect(confirm.mock.calls[0][0]).toContain('"Code 1"');
     expect(names()).toEqual(["Pixel 1", "Code 1"]);
+  });
+});
+
+describe("LayersPanel + Text", () => {
+  it("adds a text layer on top, marked TX", () => {
+    render(<LayersPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Text" }));
+    expect(names()).toEqual(["Text 1", "Code 1"]);
+    expect(screen.getByText("TX")).toBeInTheDocument();
+  });
+
+  it("deletes a text layer that says nothing without asking, and asks for one that says something", () => {
+    store().addTextLayer();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(<LayersPanel />);
+    fireEvent.click(del());
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(names()).toEqual(["Text 1", "Code 1"]);
+
+    act(() => store().setTextSpec(store().layers[0].id, { text: "  " }));
+    fireEvent.click(del());
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(names()).toEqual(["Code 1"]);
   });
 });
