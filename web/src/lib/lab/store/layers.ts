@@ -21,6 +21,11 @@ export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
     addCodeLayer: () => {
       const state = get();
       const { layer } = codeLayerFromSource(STARTER_CODE, nextLayerName(state.layers, "Code"));
+      // Over another layer the low end starts transparent, as Fade low leaves
+      // it, so the pattern beneath shows through the dark half of each band.
+      if (state.layers.length > 0) {
+        layer.ramp.stops = layer.ramp.stops.map((stop, index) => (index === 0 ? { ...stop, alpha: 0 } : stop));
+      }
       set({ layers: [layer, ...state.layers], activeLayerId: layer.id });
     },
 
