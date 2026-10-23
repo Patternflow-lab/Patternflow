@@ -77,16 +77,17 @@ describe('grouping builds that sit too close to tell apart', () => {
     expect(backwards.map((group) => group.id).sort()).toEqual(forwards.map((group) => group.id).sort());
   });
 
-  it('reads the real map: Seoul is five, the UK three, France two, northern California three, Ajman three', () => {
+  it('reads the real map: Seoul is five, the UK three, France two, northern California three, Ajman three, Moscow two', () => {
     const multi = idsOf(groupBuilds(builds))
       .filter((ids) => ids.length > 1)
       .map((ids) => [...ids].sort());
-    expect(multi).toHaveLength(5);
+    expect(multi).toHaveLength(6);
     expect(multi).toContainEqual(['seoul-anbu', 'seoul-ddp', 'seoul-hongdae', 'seoul-hongik', 'seoul-v1']);
     expect(multi).toContainEqual(['uk-nath', 'uk-saladman', 'uk-slowrush']);
     expect(multi).toContainEqual(['france-day', 'paris-v1']);
     expect(multi).toContainEqual(['california-lopez', 'sf-swartz', 'usa-jon']);
     expect(multi).toContainEqual(['uae-simonepda', 'uae-simonepda-lasercut', 'uae-simonepda-mqtt']);
+    expect(multi).toContainEqual(['russia-dmitryleeo', 'russia-zuperzuche']);
   });
 
   it('follows the filter: a group is only the entries on show', () => {
@@ -96,7 +97,8 @@ describe('grouping builds that sit too close to tell apart', () => {
     expect(multi).toContainEqual(['uk-nath', 'uk-saladman', 'uk-slowrush']);
     expect(multi).toContainEqual(['california-lopez', 'usa-jon']);
     expect(multi).toContainEqual(['uae-simonepda', 'uae-simonepda-lasercut']);
-    expect(multi).toHaveLength(3);
+    expect(multi).toContainEqual(['russia-dmitryleeo', 'russia-zuperzuche']);
+    expect(multi).toHaveLength(4);
   });
 });
 
