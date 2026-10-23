@@ -27,8 +27,7 @@ const [SBO, SBI, NBI, NBO] = [22.5, 27.5, 36.5, 41.5];
 const STEP = 0.25;
 const cl = (v) => Math.min(1, Math.max(0, v));
 
-// A movement is an approach (from the north, south, west, east) and a turn
-// (0 straight on, 1 left, 2 right).
+// A movement: an approach (from N, S, W, E) and a turn (straight, left, right).
 const mv = (a, t) => 1 << (a * 3 + t);
 const all = (a) => 7 << (a * 3);
 const SR = (a) => mv(a, 0) | mv(a, 2);
@@ -42,22 +41,21 @@ const PH = [
 const CYCLE = PH.reduce((a, p) => a + p[0], 0);
 
 // Low-pressure sodium burns in one orange line at 589 nm; LED heads are cool white.
-const SODIUM = [1, 0.4, 0];
-const LED = [0.86, 0.92, 1];
-// Lamps [x, y, reach]: over both ends of the school street, two mid-block, and
-// on opposite corners of each junction so the zebras stand in light. Between
-// them the avenue is dark but for the cars.
+const SODIUM = [1, 0.34, 0];
+const LED = [0.4, 0.43, 0.47];
+// Lamps [x, y, reach]: both ends of the school street, two mid-block, and
+// opposite corners of each junction so the zebras stand in light.
 const LAMPS = [
   [6, 36, 8], [42, 70, 8], [21, 58, 8], [57, 36, 8],
   ...JY.flatMap((y) => [[21, y - 1, 9], [42, y + 12, 9]]),
 ];
-// The lamp at row 70 is dying and cycles: it goes out, strikes again in the
-// red of its neon starter gas and warms back up to orange.
+// The lamp at row 70 is dying: it goes out, strikes again in the red of its
+// neon starter gas and warms back up.
 const DYING = 1;
 // Red neon crosses on church roofs, as on every Seoul skyline.
 const CROSSES = [[7, 9], [56, 63], [9, 115]];
 // Lamp, headlight and tail light at their brightest, over albedo.
-const [I_LAMP, I_HEAD, I_TAIL] = [10, 1, 7];
+const [I_LAMP, I_HEAD, I_TAIL] = [20, 1, 9];
 const AMBIENT = [0.13, 0.14, 0.18];
 const RED = [1, 0.04, 0.03];
 const GREEN = [0.05, 1, 0.5];
@@ -65,16 +63,14 @@ const SIG = [RED, [1, 0.5, 0], GREEN];
 const GLASS = [0.03, 0.034, 0.04];
 const AMBER = [255, 150, 0];
 const BEAMS = [[1, 0.85, 0.6], [0.9, 0.95, 1]];
-// Car paint and its odds: white and silver half the time, as on any Korean
-// road, then black, grey, navy, red and orange taxis.
+// Car paint and its odds: white and silver half the time, as on Korean roads.
 const PAINT = [[0.72, 0.72, 0.72], [0.48, 0.5, 0.53], [0.05, 0.05, 0.06], [0.2, 0.2, 0.22], [0.07, 0.09, 0.24], [0.55, 0.05, 0.04], [0.8, 0.4, 0.06]];
 const PAINT_P = [0.3, 0.2, 0.17, 0.1, 0.07, 0.06, 0.1];
-// Umbrellas: clear plastic from the convenience store most, then black, red,
-// yellow and navy.
+// Umbrellas: clear convenience-store plastic most, then black, red, yellow, navy.
 const UMBRELLA = [[0.7, 0.72, 0.75], [0.7, 0.72, 0.75], [0.05, 0.05, 0.08], [0.6, 0.05, 0.08], [0.75, 0.6, 0.05], [0.06, 0.12, 0.4]];
 const PLUS = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];
-// Walk lights laid in the kerb at both ends of every zebra, as at Seoul
-// crossings: first LED and the way the strip runs.
+// Walk lights laid in the kerb at both ends of each zebra, as in Seoul: first
+// LED and the way the strip runs.
 const KERB = [[19, -6, 0, 1], [44, -6, 0, 1], [19, 14, 0, 1], [44, 14, 0, 1], [14, -1, 1, 0], [14, 12, 1, 0], [46, -1, 1, 0], [46, 12, 1, 0]];
 // Signal heads by approach, from the junction's first row: first LED of the
 // bar (red, amber, left arrow, green), the step along it, the way it faces.
@@ -209,15 +205,19 @@ function ground(S) {
     }
 }
 
-// What each lamp reaches: the street under it, with its share of the light
-// and of the wet glare, and the haze in the rain, brightest round the rim.
+// Each lamp's light on the street, falling as (1 - r^2)^1.5 so the core burns
+// amber and the rim fades over four LEDs; its wet glare; its haze in rain.
 function pools(S) {
-  S.pools = LAMPS.map(([hx, hy, R]) => {
+  S.pools = LAMPS.map(([hx, hy, R], i) => {
     const o = { idx: [], w: [], g: [], hi: [], hw: [] };
+    // An oval pool along its road, a little out of round.
+    const sx = hx < 16 || hx > 47 ? 1.2 : 0.85;
     const r2 = R * 1.9;
     box(hx - r2, hy - r2, hx + r2, hy + r2, (x, y, p) => {
-      const r = Math.hypot(x - hx, y - hy);
-      if (r < R && S.kind[p]) o.idx.push(p), o.w.push(Math.min(1, (R - r) / 1.6) * (1 - 0.15 * (r / R) ** 2)), o.g.push(Math.exp((-r * r) / 3));
+      const [dx, dy] = [(x - hx) / sx, (y - hy) * sx];
+      const r = Math.hypot(dx, dy) * (1 + 0.06 * Math.sin(3 * Math.atan2(dy, dx) + i * 2));
+      const u = 1 - (r / R) ** 2;
+      if (u > 0 && S.kind[p]) o.idx.push(p), o.w.push(u ** 1.5), o.g.push(Math.exp((-r * r) / 3));
       if (r < r2) o.hi.push(p), o.hw.push(r < R ? 0.3 + 0.7 * (r / R) ** 2 : ((r2 - r) / (r2 - R)) ** 2);
     });
     return o;
@@ -436,7 +436,7 @@ export function draw(display, params) {
       if (t > 12) c = [1, 0.12 + 0.38 * u, 0.15 * (1 - u)];
     }
     const { idx, w, g } = S.pools[i];
-    for (let n = 0; n < idx.length; n++) add(L, idx[n], c, I_LAMP * lv * (w[n] + wet * 4 * g[n]));
+    for (let n = 0; n < idx.length; n++) add(L, idx[n], c, I_LAMP * lv * (w[n] + wet * 2 * g[n]));
     return [c, lv];
   });
   const blink = S.t % 1 > 0.5;
@@ -465,7 +465,7 @@ export function draw(display, params) {
       for (const [x, y, dx, dy] of KERB) {
         const c = g ? GREEN : RED;
         lit.push([x, y0 + y, c, dx, dy, 4]);
-        beam(L, x + 0.5 - dx, y0 + y + 0.5 - dy, dx, dy, 5, 0.8, 0.8, 2.6, 0, c);
+        beam(L, x + 0.5 - dx, y0 + y + 0.5 - dy, dx, dy, 5, 0.8, 0.8, 3.4, 0, c);
       }
   }
   for (const c of S.cars) {
