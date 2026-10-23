@@ -23,6 +23,7 @@ vi.mock("@/lib/lab/textRaster", () => ({
 
 import TextPanel from "./TextPanel";
 import PreviewPanel from "./PreviewPanel";
+import RampPanel from "./RampPanel";
 import { useLabStore } from "@/lib/lab/store";
 import type { TextLayer } from "@/lib/lab/types";
 
@@ -179,6 +180,17 @@ describe("an effect on the text", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Effect" }), { target: { value: "ramp" } });
     expect(screen.queryByLabelText("Color")).toBeNull();
     expect(screen.getByText(/The colors are this layer's Color Ramp/)).toBeInTheDocument();
+  });
+
+  it("the Color Ramp panel no longer calls a one-color text that runs the ramp one colour", () => {
+    store().addTextLayer();
+    const { unmount } = render(<RampPanel />);
+    expect(screen.getByText(/This text is one colour/)).toBeInTheDocument();
+    unmount();
+    store().setTextSpec(text().id, { effect: "ramp" });
+    render(<RampPanel />);
+    expect(screen.queryByText(/This text is one colour/)).toBeNull();
+    expect(screen.getByText(/run through these colours all together/)).toBeInTheDocument();
   });
 });
 
