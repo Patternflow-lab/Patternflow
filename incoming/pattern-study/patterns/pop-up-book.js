@@ -13,7 +13,7 @@
 //
 // Knob 1: Spread. Which spread the book is open at: a castle at dusk at 0, a pine forest with a stag at 1, a lighthouse at night at 2, a city at 3. Turned, the book leafs over to it and reads on from there.
 // Knob 2: Speed. How fast the pages and the paper parts go: at 2 a spread stands seven seconds and a page turns in under three.
-// Knob 3: Layers. How many cards stand: sky, main piece, front strip and a flying piece at 4, hills or a far skyline at 5, and at 6 a tunnel-book frame across the front (a rose arch, pine boughs, a sea cave, a theatre curtain).
+// Knob 3: Layers. How many cards stand: sky, main piece, front strip and a flying piece at 4, hills, a swell with a sailing boat or a far skyline at 5, and at 6 a tunnel-book frame across the front (a rose arch, pine boughs, a sea cave, a theatre curtain).
 // Knob 4: Lamp. Where the light comes from: a warm lamp low on the left at 0, overhead at 0.5, cool daylight from the right at 1. The folds swap their lit and shaded faces and the shadows swing.
 // Buttons: K1 tap turns the page now.
 
@@ -77,10 +77,7 @@ const sky = (bands, stars) => {
 const slot = () => {
   for (let s = 0.12; s < 0.88; s += 0.01) put(28 - 21 * cos(PI * s), 30 + 21 * sin(PI * s), mauve);
 };
-const moon = (P) => {
-  const s = PI * (0.18 + 0.32 * (1 + sin(P.t * 0.3))), x = 28 - 21 * cos(s), y = 30 + 21 * sin(s);
-  disc(x, y, 4.3, cream);
-};
+const moon = (P, s = PI * (0.18 + 0.32 * (1 + sin(P.t * 0.3)))) => disc(28 - 21 * cos(s), 30 + 21 * sin(s), 4.3, cream);
 const cloud = (cx, cy, n, c) => {
   for (let k = 0; k < n; k++) disc(cx + (k - (n - 1) / 2) * 3.2, cy + (k % 2) * 1.3, 2.4, c);
 };
@@ -250,7 +247,7 @@ const SPREADS = [
     red,
     night,
     [
-      [68, 64, 1, () => (sky([sead, 7, night, 24, navy], 24), disc(11, 48, 5, cream), disc(13.5, 49.5, 4.4, navy), ridge((x) => (x > 5 && x < 19 ? 10 - abs(x - 12) * 0.6 : -1), black))],
+      [68, 64, 1, () => (sky([sead, 7, night, 24, navy], 24), disc(11, 48, 5, cream), disc(13.5, 49.5, 4.4, navy))],
       [14, 64, 0, lighthouse, beam],
       [4, 13, 0, null, (P) => waves(3 * sin(P.t * 0.8), 5, 5, 0.27, sead, sea)],
       [56, 56, 1, () => [...Array(32)].forEach((_, i, a, s = sin(i * 0.3 + 0.6)) => rect(i + 2, 46 + s, i + 2, 47 + s + (i > 6 && i < 26), sky2)), (P) => birds(P, [[10, 40, 4], [36, 48, 3.3]], white)],
@@ -350,8 +347,8 @@ export function update(dt, input, params) {
   P.layers = cl(round(k[2]), 4, 6);
   if (abs(lamp - P.lamp) > 0.002) (P.lamp = lamp), paint(P);
   if (P.cur < 0) P.cur = P.base = want;
-  if (want !== P.base) (P.base = want), (P.ask = want !== P.cur);
-  if (input.btnPressed?.[0]) P.ask = 1;
+  if (want !== P.base) (P.base = want), (P.ask = 1);
+  if (input.btnPressed?.[0]) P.ask = 2;
   P.t += d;
   P.pull = sm(0.5 + 1.3 * sin(P.t * 0.9 - 1));
   if (P.mode === OPEN) {
@@ -359,7 +356,9 @@ export function update(dt, input, params) {
     P.phi = PI * (1 - sm((P.timer += cl(dt, 0, 0.1) * max(rate, 0.6)) / 1.6));
     if (P.timer >= 1.6) stand(P, 1.7);
   } else if (P.mode === STAND) {
-    if ((P.timer += d) >= P.stay || P.ask) Object.assign(P, { mode: TURN, timer: 0, next: P.ask && P.base !== P.cur ? P.base : (P.cur + 1) % 4, ask: 0 });
+    // The knob asks for its own spread, the button for the next.
+    if (P.ask === 1 && P.base === P.cur) P.ask = 0;
+    if ((P.timer += d) >= P.stay || P.ask) Object.assign(P, { mode: TURN, timer: 0, next: P.ask === 1 ? P.base : (P.cur + 1) % 4, ask: 0 });
   } else if ((P.phi = PI * sm((P.timer += d) / 2.8)) && P.timer >= 2.8) (P.cur = P.next), stand(P, 7);
 }
 
