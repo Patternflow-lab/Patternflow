@@ -2,12 +2,13 @@
 
 // Monaco editor bound to the ACTIVE code layer. The toolbar keeps the
 // single-pattern workflow: preset stepper, paste/clear, the AI variation
-// prompt, and the code guide.
+// prompt with the colour model it asks for, and the code guide.
 
 import Editor from "@monaco-editor/react";
 import { useState } from "react";
 import { livePresets } from "@/lib/presets";
-import { buildVariantCopyPrompt } from "@/lib/ai/gemini";
+import { COLOR_MODES, type ColorMode } from "@/lib/ai/settings";
+import { buildVariantCopyPrompt } from "@/lib/ai/variantPrompt";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import { hasStackAnnotation, importCodeIntoLab } from "@/lib/lab/stackShare";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
@@ -25,6 +26,7 @@ export default function CodePanel() {
   const knobs = useLabStore((state) => state.knobs);
   const ranges = useLabStore((state) => state.ranges);
   const gen = useLabStore((state) => state.gen);
+  const setGen = useLabStore((state) => state.setGen);
   const updateLayerCode = useLabStore((state) => state.updateLayerCode);
   const applyCodeToActive = useLabStore((state) => state.applyCodeToActive);
   const addCodeLayer = useLabStore((state) => state.addCodeLayer);
@@ -139,14 +141,28 @@ export default function CodePanel() {
         >
           {cleared ? "Cleared ✓" : "Clear"}
         </button>
-        <button
-          type="button"
-          className={local.promptButton}
-          onClick={copyVariantPrompt}
-          title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
-        >
-          {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
-        </button>
+        <span className={local.promptGroup}>
+          <select
+            value={gen.colorMode}
+            aria-label="Color mode"
+            title="What Copy prompt asks for. v-field: the AI writes a 0..1 value field and the layer's Color Ramp does the coloring. rgb: the AI colors pixels itself."
+            onChange={(event) => setGen({ colorMode: event.target.value as ColorMode })}
+          >
+            {COLOR_MODES.map((option) => (
+              <option key={option} value={option}>
+                {option === "vfield" ? "v-field" : "rgb"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={local.promptButton}
+            onClick={copyVariantPrompt}
+            title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
+          >
+            {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
+          </button>
+        </span>
         <button type="button" onClick={() => setGuideOpen(true)}>
           Code guide
         </button>

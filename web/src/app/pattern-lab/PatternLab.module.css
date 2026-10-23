@@ -107,8 +107,7 @@
 }
 
 .headerMeta,
-.stats,
-.emptyState {
+.stats {
   color: rgba(23, 21, 18, 0.62);
   font-family: var(--font-jetbrains), monospace;
   font-size: 12px;
@@ -328,11 +327,6 @@
   font-weight: 700;
 }
 
-.emptyState {
-  margin: 0;
-  padding: 18px 14px;
-}
-
 .editorHeader button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -362,62 +356,6 @@
 .editorHeader .viewToggle button[data-active="true"] {
   background: #171512 !important;
   color: #f7f3ea !important;
-}
-
-.editorHeader .keyButton {
-  background: transparent !important;
-  color: rgba(23, 21, 18, 0.62) !important;
-  border-color: rgba(23, 21, 18, 0.22) !important;
-  padding: 0 10px;
-  font-size: var(--pf-fs-mono);
-}
-
-.editorHeader .keyButton:hover {
-  color: #171512 !important;
-  border-color: #171512 !important;
-}
-
-.editorHeader .genField {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: rgba(23, 21, 18, 0.62);
-  font-family: var(--font-jetbrains), monospace;
-  font-size: var(--pf-fs-mono);
-  text-transform: uppercase;
-}
-
-.editorHeader .genField input {
-  width: 56px;
-  min-height: 38px;
-  border: 1px solid rgba(23, 21, 18, 0.3);
-  background: #ffffff;
-  color: #171512;
-  padding: 0 8px;
-  font-family: var(--font-jetbrains), monospace;
-  font-size: 12px;
-}
-
-.editorHeader .genThinking {
-  min-height: 38px;
-  border: 1px solid rgba(23, 21, 18, 0.3);
-  background: #ffffff;
-  color: #171512;
-  padding: 0 8px;
-  font-family: var(--font-jetbrains), monospace;
-  font-size: 12px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-@keyframes jobPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
 }
 
 .variantActions {

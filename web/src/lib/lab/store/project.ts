@@ -1,9 +1,9 @@
-// ── Lab store slice: the whole project: hydration, the session ring, matrix, generation settings, lineage, name ──
+// ── Lab store slice: the whole project: hydration, the session ring, matrix, prompt settings, lineage, name ──
 // One of the slices store.ts composes. Bodies are unchanged from the single
 // 800-line store they came out of; only the file boundary is new.
 
 import { matrixesEqual } from "@/lib/pattern/matrix";
-import { clearDraft, loadGallery } from "@/lib/lab/legacyDraft";
+import { clearDraft, dropAiGallery } from "@/lib/lab/legacyDraft";
 import { clearProject, deserializeProject, loadProject, migrateLegacyDraft, serializeProject } from "../serialize";
 import { readSession, stashSession } from "../sessions";
 import { cloneRampState, layerId, type Layer } from "../types";
@@ -17,6 +17,7 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
   return {
     hydrate: () => {
       if (get().hydrated) return;
+      dropAiGallery();
       // No project, or one with no layers: lift the July draft if the browser
       // still holds one. persist.ts names the keys.
       const restored = loadProject() ?? migrateLegacyDraft();
@@ -26,21 +27,18 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
           ...project,
           hydrated: true,
           restoredAt: savedAt || Date.now(),
-          gallery: loadGallery(),
         });
         return;
       }
-      set({ hydrated: true, gallery: loadGallery() });
+      set({ hydrated: true });
     },
 
     discardProject: () => {
       clearProject();
-      clearDraft(); // the July draft's key, and the gallery's
+      clearDraft(); // the July draft's key
       set({
         ...defaultProject(),
         restoredAt: null,
-        gallery: [],
-        jobs: [],
         layerErrors: {},
       });
     },

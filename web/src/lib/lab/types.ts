@@ -13,7 +13,7 @@
 
 import type { RampMode } from "@/lib/pattern/harness";
 import type { MatrixSize } from "@/lib/pattern/matrix";
-import type { ColorMode, PatternVariant, ThinkingLevelKey } from "@/lib/ai/settings";
+import type { ColorMode } from "@/lib/ai/settings";
 import type { DirectorShow } from "./director/types";
 
 export type KnobRange = [number, number];
@@ -123,24 +123,13 @@ export type EditRef = {
   portCount: number;
 } | null;
 
+/**
+ * What Copy prompt asks an AI for. Until 23 October 2026 this also held the
+ * AI gallery's batch size, thinking level and reference count; a project
+ * saved then still carries them, and readGen (serialize.ts) lets them go.
+ */
 export type GenSettings = {
-  count: number;
-  thinking: ThinkingLevelKey;
-  refs: number;
   colorMode: ColorMode;
-};
-
-export type GalleryItem = PatternVariant & { id: string; pinned?: boolean };
-
-export type GenJob = {
-  id: string;
-  count: number;
-  thinkingLevel: ThinkingLevelKey;
-  status: "running" | "done" | "error";
-  startedAt: number;
-  finishedAt?: number;
-  resultCount?: number;
-  error?: string;
 };
 
 export type LabProject = {
