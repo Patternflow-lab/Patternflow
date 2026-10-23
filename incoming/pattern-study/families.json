@@ -34,5 +34,7 @@
   "mineral": { "label": "광물·결정", "color": "#886688" },
   "fair": { "label": "놀이공원", "color": "#ffffff" },
   "kitchen": { "label": "부엌", "color": "#ff5500" },
-  "fungi": { "label": "버섯·균사", "color": "#00ff88" }
+  "fungi": { "label": "버섯·균사", "color": "#00ff88" },
+  "bird": { "label": "새", "color": "#778800" },
+  "chemistry": { "label": "화학·실험", "color": "#00bb00" }
 }
