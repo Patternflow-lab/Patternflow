@@ -3,9 +3,12 @@
 // Panels menu opened at x −106~84 on a 320px screen. Hung from its button's
 // left edge instead, it ran to x 449 on a 390px one. Hung from the action row
 // it stays inside, 14~374 at 390px. The Code guide × measured 30×30px before
-// and 44×44px after, in a header 59px tall both times.
+// and 44×44px after, in a header 59px tall both times. On a 390×844 touch
+// screen the tab strip under Preview was 736px for 333px of room, and every
+// tab carried a 27×27px ×. Without the × it is 520px and Knobs shows whole.
 
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { NARROW_DOCK_QUERY } from "./panels/registry";
@@ -32,14 +35,19 @@ function mediaBlocks(source: string, query: string): string[] {
   return blocks;
 }
 
-/** The declarations of every `selector` rule inside a narrow-dock block. */
-function narrowRule(source: string, selector: string): string {
+/** The declarations of every `selector` rule inside a `@media <query>` block. */
+function mediaRule(source: string, query: string, selector: string): string {
   const found: string[] = [];
-  for (const block of mediaBlocks(source, NARROW_DOCK_QUERY)) {
+  for (const block of mediaBlocks(source, query)) {
     const at = block.indexOf(`\n  ${selector} {`);
     if (at > -1) found.push(block.slice(block.indexOf("{", at) + 1, block.indexOf("}", at)));
   }
   return found.join("");
+}
+
+/** The declarations of every `selector` rule inside a narrow-dock block. */
+function narrowRule(source: string, selector: string): string {
+  return mediaRule(source, NARROW_DOCK_QUERY, selector);
 }
 
 describe("Lab header menus below 800px", () => {
@@ -77,5 +85,31 @@ describe("Lab dialogs below 800px", () => {
     // 44 - 30 = 14px, half of it on each side.
     expect(button).toMatch(/margin: -7px;/);
     expect(lab.lastIndexOf(`@media ${NARROW_DOCK_QUERY} {`)).toBeGreaterThan(lab.indexOf("\n.modalHeader button {"));
+  });
+});
+
+describe("Lab dock on a touch screen", () => {
+  const theme = css("lab-dock.css");
+  const dockview = readFileSync(createRequire(import.meta.url).resolve("dockview/dist/styles/dockview.css"), "utf8");
+  const action = ".dv-tab .dv-default-tab .dv-default-tab-action";
+
+  it("lifts the tab overflow menu over the panels", () => {
+    // The menu's wrapper takes z-index from this variable, and dockview only
+    // sets it inside its own themes.
+    const at = theme.indexOf(".dockview-theme-patternflow {");
+    const body = theme.slice(at, theme.indexOf("}", at));
+    expect(body).toMatch(/--dv-overlay-z-index: 999;/);
+  });
+
+  it("drops the × from every tab where there is no hover", () => {
+    expect(mediaRule(theme, "(hover: none)", `.dockview-theme-patternflow ${action}`)).toMatch(/display: none;/);
+  });
+
+  it("answers dockview's rule with a property it does not set", () => {
+    // dockview shows the × by visibility at the same specificity. If it ever
+    // sets display there instead, the order of the two files decides.
+    const shown = mediaRule(dockview, "(hover: none)", ".dv-tab.dv-inactive-tab .dv-default-tab .dv-default-tab-action");
+    expect(shown).toMatch(/visibility: visible;/);
+    expect(shown).not.toMatch(/display:/);
   });
 });
