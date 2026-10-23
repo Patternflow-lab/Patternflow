@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Palette=0..4, Speed=0.2..3, Sources=1..5, Scatter=0..1
 //
-// Knob 1: Palette. The four colours of 0, 1, 2 and 3 grains: dune sand on indigo, glacier, moss, embers, neon.
-// Knob 2: Speed. Grains per second, 250 at 0.2 up to 3750 at 3; at 2 a handful of 1500 lands every 0.6 s.
+// Knob 1: Palette. The four colours of 0, 1, 2 and 3 grains, each a shade deeper by the drop points than out at the rim: dune sand on indigo, glacier, moss, embers, neon.
+// Knob 2: Speed. Grains per second, 300 at 0.2 up to 4500 at 3; at 2 a handful of 1800 lands every 0.6 s and its ring takes half a second to cross the pile.
 // Knob 3: Sources. How many drop points the sand falls on: one in the middle, two stacked, a triangle, a square, a square with a centre.
-// Knob 4: Scatter. How wide each handful spreads as it lands: near 0 every grain hits the drop point and the pile keeps its mirror symmetry, towards 1 the grains land in a wide ring and the lace grows ragged.
+// Knob 4: Scatter. How wide each handful spreads as it lands: near 0 every grain hits the drop point and the pile keeps its mirror symmetry; towards 1 the grains land over a patch some forty cells across, the lace grows ragged and stray grains speckle the bare tray.
 // Buttons: K1 tap tips the tray now.
 
 const W = 64;
@@ -365,7 +365,7 @@ export function update(dt, input, params) {
       }
     }
     const pts = plan(P, spread);
-    pour(P, pts, round(1250 * speed * every), spread);
+    pour(P, pts, round(1500 * speed * every), spread);
     P.next = pts;
     P.wait = every;
   }
