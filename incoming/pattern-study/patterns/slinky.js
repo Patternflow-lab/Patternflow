@@ -14,7 +14,7 @@
 // Knob 1: Spring. Which Slinky comes out of the box: polished steel at 0, then gold plate, the rainbow plastic one that walks lazier, a neon one under a blacklight, and at 1 a glow-in-the-dark one with the lights out.
 // Knob 2: Speed. How fast the film runs: at 2 a step takes under half a second and the walk from top to bottom about seven; at 0.2 it is ten times slower.
 // Knob 3: Rise. How tall each step is, from 6 rows to 12: low steps make three flights and small quick bows, tall ones two flights and long reaches down.
-// Knob 4: Lamp. The daylight in the stairwell: morning at -1, dusk at 0, night at 1, when only the step lights the spring has woken light the stairs and it flashes as it walks through them.
+// Knob 4: Lamp. The daylight in the stairwell: morning at -1, dusk at 0, night at 1, when only the step lights the spring has woken light the stairs and it glints as it passes them.
 
 const [W, H] = [64, 128];
 const N = W * H;
@@ -36,11 +36,9 @@ const DUR = [0, 0.5, 1.5, 0.8, 0.9, 1.5, 1.5];
 // The step lights' warm light; daylight comes from a window up to the left.
 const LAMP = [255, 206, 150];
 const [LX, LY, LZ, HX, HY, HZ] = [-0.5, -0.6, 0.62, -0.278, -0.334, 0.9];
-// The eye is a little above the stairs and to one side, so a ring's near half
-// shows a little below and right of its far half.
+// The eye is a little above and to one side: a ring's near half shows lower right.
 const [ZX, ZY, KS] = [0.22, 0.3, 28];
-const CS = Float32Array.from({ length: KS }, (_, j) => cos(((j + 0.5) / KS) * 2 * PI));
-const SN = Float32Array.from({ length: KS }, (_, j) => sin(((j + 0.5) / KS) * 2 * PI));
+const [CS, SN] = [cos, sin].map((f) => Float32Array.from({ length: KS }, (_, j) => f(((j + 0.5) / KS) * 2 * PI)));
 const kern = (r, s) => Float32Array.from({ length: (2 * r + 1) ** 2 }, (_, i) => exp(-(((i % (2 * r + 1)) - r) ** 2 + (floor(i / (2 * r + 1)) - r) ** 2) / s));
 const [KSH, KGL] = [kern(3, 3), kern(8, 18)];
 const RAIN = [[236, 44, 52], [250, 142, 34], [246, 222, 54], [62, 200, 84], [44, 124, 240], [152, 74, 222]];
@@ -56,9 +54,8 @@ const MAT = [
 // The hand as capsules from the pinch: x1, y1, x2, y2, radius, sleeve.
 const HAND = [[-1.6, -0.8, -4.6, -7.6, 2, 0], [1.3, -1, 4.4, -8.2, 1.8, 0], [6.2, -6.8, 8.4, -12.4, 2.4, 0], [2, -12.4, 2.3, -12.7, 6.6, 0], [4, -16, 8.8, -24, 4.4, 0], [7.4, -23.6, 13.5, -36, 6.2, 1]];
 
-// Built from the floor up: the bottom flight runs right, each one above runs the
-// other way. A flight ends in a deep drop to its landing, deep enough that the
-// spring can walk off the landing under the end of the flight above.
+// Built from the floor up, flights turning at each landing. A flight ends in a drop
+// deep enough that the spring can walk off its landing under the flight's end.
 function build(P, R) {
   const [dL, up, fl, lands] = [R + 16, [{ x: 56, y: FLOOR }], [], []];
   for (let s = 1, base = FLOOR, f = 0; base > 0; f++, s = -s) {
@@ -98,7 +95,7 @@ function paint(P, R, fl, lands) {
     const [x, y] = [p & 63, p >> 6];
     const d = abs((x % 8) - 4) + abs((y % 12) - 6) * 0.7;
     if (x < 2 || x > 61) set(x, y, 4, [100, 112, 136], lum(x, y) * (x === 1 || x === 62 ? 0.72 : 1));
-    else set(x, y, 0, [48, 62, 96], (x % 8 ? (d < 1.6 ? 1.38 : d < 2.4 ? 0.84 : 1) : 1.3) * lum(x, y) * (0.95 + 0.1 * rnd()));
+    else set(x, y, 0, [48, 62, 96], (x % 8 ? (d < 1.6 ? 1.7 : d < 2.4 ? 0.84 : 1) : 1.7) * lum(x, y) * (0.95 + 0.1 * rnd()));
   }
   // A step's side: the tread on top, the board's edge under it, the joint where
   // the next riser meets it, the dark underside.
@@ -176,9 +173,8 @@ function setCurve(x0, y0, t0x, t0y, x3, y3, t3x, t3y, h0, h3) {
   return L;
 }
 
-// How the coils spread along the curve: a0 keeps the ends from closing up, b
-// leans the spread toward one end, rip is a pulse running back up the bow, c
-// opens the gaps toward the top when the spring hangs.
+// How the coils spread along the curve: a0 keeps the ends open, b leans the spread
+// one way, rip is a pulse running up the bow, c opens the top of a hanging spring.
 function setDist(G) {
   const w = (v) => G.a0 + G.sn * sin(PI * v) ** 1.2 * (1 + G.b * (v - 0.5)) * (1 + G.rip * sin(2 * PI * (1.5 * v + 2 * G.ph))) + G.c * v;
   let [prev, acc] = [w(0), 0];
@@ -198,8 +194,7 @@ function onCurve(v, L) {
   bez((j + cl((s - LT[j]) / max(1e-6, LT[j + 1] - LT[j]), 0, 1)) / 16);
 }
 
-// A free end: its last few coils stay closed and turn together, like a lid.
-// Returns where the open part of the spring meets them.
+// A free end's last coils stay closed and turn together like a lid.
 function cap(G, x, y, tx, ty, tail) {
   const d = CAP * PITCH;
   if (tail) [G.nA, G.ax, G.ay, G.aux, G.auy] = [CAP, x, y, tx, ty];
@@ -207,9 +202,8 @@ function cap(G, x, y, tx, ty, tail) {
   return tail ? [x + tx * d, y + ty * d] : [x - tx * d, y - ty * d];
 }
 
-// One step down: the top end tips over and lands on the step below (p < 0.3),
-// the coils pour over the bow from one stack to the other, then the far end
-// lifts off and follows over the top (p > 0.74).
+// One step: the top end tips over onto the step below (p < 0.3), the coils pour
+// over the bow from stack to stack, then the far end lifts and follows (p > 0.74).
 function move(P, S, p, G) {
   const { a, b, s } = S;
   const [k, dx, hb, p1, p2] = [P.kf, abs(b.x - a.x), S.under ? 0.5 : 1, 0.3, 0.74];
@@ -265,8 +259,8 @@ function bounce(P, S, u, G) {
 
 const hangLen = (P, m) => m * PITCH + P.lext * (m / NC) ** 2;
 
-// Held by its top coil the spring hangs open at the top and closed at the
-// bottom, every gap carrying the weight of the coils below it.
+// Held by its top coil the spring hangs open at the top and closed at the bottom,
+// each gap carrying the weight of the coils below it.
 function hang(P, S, u, G) {
   let [a, x0, y0, m] = [S.a, S.a.x, 0, NC];
   if (S.k === CARRY) {
@@ -301,14 +295,9 @@ function shape(P) {
   P.hx = -99;
   if (S.k === MOVE) move(P, S, u, G);
   else if (S.k === BOUNCE || S.k === SETTLE) bounce(P, S, u, G);
-  else if (S.k === REACH) {
-    const e = 1 - (1 - u) ** 2;
-    [P.hx, P.hy] = [mix(80, S.a.x, e), mix(FLOOR - 46, S.a.y - HS, e)];
-  } else hang(P, S, u, G);
-  if (P.ht >= 0 && P.ht < 0.8) {
-    const e = sm(P.ht / 0.8);
-    [P.hx, P.hy] = [P.rx + 12 * e, P.ry - 44 * e];
-  }
+  else if (S.k === REACH) [P.hx, P.hy] = [mix(80, S.a.x, 1 - (1 - u) ** 2), mix(FLOOR - 46, S.a.y - HS, 1 - (1 - u) ** 2)];
+  else hang(P, S, u, G);
+  if (P.ht >= 0 && P.ht < 0.8) [P.hx, P.hy] = [P.rx + 12 * sm(P.ht / 0.8), P.ry - 44 * sm(P.ht / 0.8)];
   // Every coil: its centre and the way the spring runs through it.
   const { cx, cy, tx, ty } = P;
   const nc = NC - G.nA - G.nB;
@@ -417,10 +406,7 @@ function add(P, A, x, y, c, w) {
 function splat(P, A, x, y, c, w) {
   const [ix, iy] = [floor((x -= 0.5)), floor((y -= 0.5))];
   const [fx, fy] = [x - ix, y - iy];
-  add(P, A, ix, iy, c, w * (1 - fx) * (1 - fy));
-  add(P, A, ix + 1, iy, c, w * fx * (1 - fy));
-  add(P, A, ix, iy + 1, c, w * (1 - fx) * fy);
-  add(P, A, ix + 1, iy + 1, c, w * fx * fy);
+  for (let n = 0; n < 4; n++) add(P, A, ix + (n & 1), iy + (n >> 1), c, w * (n & 1 ? fx : 1 - fx) * (n >> 1 ? fy : 1 - fy));
 }
 
 // Each coil a thin ring seen nearly side-on: the far half dim inside the
@@ -432,7 +418,7 @@ function rings(P, M) {
     const col = colour(M, P.par ? NC - 1 - q : q);
     const [nx, ny] = [-ty[q], tx[q]];
     const [nl, nh] = [nx * LX + ny * LY, nx * HX + ny * HY];
-    const lamp = P.pl[cl(round(cy[q]), 0, H - 1) * W + cl(round(cx[q]), 0, W - 1)] * 0.6;
+    const lamp = P.pl[cl(round(cy[q]), 0, H - 1) * W + cl(round(cx[q]), 0, W - 1)] * 0.3;
     const lt = M.room.map((r, i) => r * (P.amb[i] + (lamp * LAMP[i]) / 255));
     for (let j = 0; j < KS; j++) {
       const [c, s] = [CS[j], SN[j]];
@@ -464,15 +450,15 @@ function lighting(P, M) {
     const I = M.lamps * sm(d / 0.3) * (1 - sm((d - 8) / 1.5));
     if (I <= 0) continue;
     for (let y = max(0, a.y - 13); y <= min(H - 1, a.y); y++)
-      for (let x = max(0, a.x - 13); x < min(W, a.x + 13); x++) if (mat[y * W + x] % 3 !== 1) pl[y * W + x] += 1.3 * I * exp(-(((x + 0.5 - a.x) / 8) ** 2) - ((y - a.y + 3) / 6) ** 2);
+      for (let x = max(0, a.x - 13); x < min(W, a.x + 13); x++) if (mat[y * W + x] % 3 !== 1) pl[y * W + x] += 1.5 * I * exp(-(((x + 0.5 - a.x) / 9) ** 2) - ((y - a.y + 3) / 6) ** 2);
     for (let i = -1; i < 1; i++) if (a.y > 3 && a.y < H + 2) pl[(a.y - 3) * W + a.x + i] += 6 * I;
   }
-  const c = [0, 1, 2].map((i) => M.room[i] * amb[i]);
+  const K = [0, 1, 2].map((i) => [M.room[i] * amb[i], (M.room[i] * LAMP[i]) / 300, (M.glow[i] / 255) * 1.3, M.glow[i] * 0.1, M.room[i] * [60, 34, 6][i]]);
   for (let p = 0, o = 0; p < N; p++, o += 3) {
     const m = mat[p];
-    const s = min(1, sh[p]) * (m === 0 || m === 5 ? 0.7 : m === 2 || m === 3 ? 0.45 : 0);
+    const s = 1 - min(1, sh[p]) * (m === 0 || m === 5 ? 0.7 : m === 2 || m === 3 ? 0.45 : 0);
     const [g, l] = [min(1.5, gl[p]), pl[p]];
-    for (let i = 0; i < 3; i++) out[o + i] = bg[o + i] * (c[i] * (1 - s) + (M.room[i] * l * LAMP[i]) / 300 + (M.glow[i] / 255) * g * 1.3) + M.glow[i] * g * 0.1 + M.room[i] * l * [60, 34, 6][i];
+    for (let i = 0, k; i < 3; i++) out[o + i] = bg[o + i] * ((k = K[i])[0] * s + k[1] * l + k[2] * g) + k[3] * g + k[4] * l;
   }
 }
 
