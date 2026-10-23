@@ -132,6 +132,56 @@ describe("TextPanel", () => {
   });
 });
 
+describe("Copy as code", () => {
+  function clipboard() {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    return writeText;
+  }
+
+  it("copies the letters as they are drawn now, and the new ones after an edit", async () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { text: "ab", x: 2, y: 4 });
+    const writeText = clipboard();
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy as code" }));
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Copied ✓" })).toBeTruthy();
+    const first = String(writeText.mock.calls[0][0]);
+    expect(first).toContain('// Text: "ab"');
+    // Two letters, a 2×2 block each: a 4 × 2 sprite.
+    expect(first).toContain("const SPRITE_W = 4, SPRITE_H = 2;");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), { target: { value: "abcd" } });
+    fireEvent.click(screen.getByRole("button", { name: "Copied ✓" }));
+    const second = String(writeText.mock.calls[1][0]);
+    expect(second).toContain('// Text: "abcd"');
+    expect(second).toContain("const SPRITE_W = 8, SPRITE_H = 2;");
+  });
+
+  it("says so when no letter is on the frame", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { text: "" });
+    const writeText = clipboard();
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy as code" }));
+    expect(writeText).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "No letters on the frame" })).toBeTruthy();
+  });
+
+  it("says so when the browser refuses the clipboard", async () => {
+    store().addTextLayer();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: () => Promise.reject(new Error("denied")) },
+    });
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy as code" }));
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Copy failed" })).toBeTruthy();
+  });
+});
+
 describe("dragging text on Preview", () => {
   it("moves the selected text by whole LED pixels", () => {
     store().addTextLayer();
