@@ -27,6 +27,8 @@ const DROPS = 5;
 const FILL = 0.8;
 // A clear drop's radius against an ink drop's: the dark rings between inks.
 const CLEAR = 0.8;
+// How far a site stands off the panel's middle, in LEDs: OFF and up to 4 more.
+const OFF = 5;
 // The bath's programme in bath seconds. Speed 2 runs 0.9 of them a second.
 const RATE = 0.45;
 const DROPS_END = 2.6;
@@ -89,8 +91,9 @@ function toothDistance(d, phase, pitch) {
 }
 
 // A fresh bath. Each site is a spot where five drops land one after another.
-// The sites stand one above the other in bands, every other one left of the
-// middle, and land in a shuffled order.
+// The sites stand one above the other near the middle of their bands, every
+// other one 5 to 9 LEDs left of the panel's middle and the rest as far right,
+// and land in a shuffled order. All sites take the same size of drop.
 function newBath(P) {
   P.tau = 0;
   P.lift = -1;
@@ -109,9 +112,8 @@ function newBath(P) {
   const flip = Math.random() < 0.5 ? 1 : -1;
   for (let s = 0; s < sites; s++) {
     const band = order[s];
-    P.cx[s] = W / 2 + (band % 2 === 0 ? flip : -flip) * (5 + Math.random() * 8);
-    P.cy[s] = ((band + 0.25 + Math.random() * 0.5) * H) / sites;
-    const r = R * (0.9 + Math.random() * 0.2);
+    P.cx[s] = W / 2 + (band % 2 === 0 ? flip : -flip) * (OFF + Math.random() * 4);
+    P.cy[s] = ((band + 0.35 + Math.random() * 0.3) * H) / sites;
     for (let d = 0; d < DROPS; d++) {
       const o = s * DROPS + d;
       // Ink and clear water take turns, ink first and last, so the rings
@@ -119,11 +121,15 @@ function newBath(P) {
       // turn, so every bath carries all four.
       const clear = d % 2 === 1;
       P.ink[o] = clear ? -1 : ink++ % NI;
-      P.rad[o] = r * (clear ? CLEAR : 1);
+      P.rad[o] = R * (clear ? CLEAR : 1);
       P.t0[o] = 0.1 + s * each + (d * each * 0.8) / DROPS;
     }
   }
-  P.dir = Math.random() < 0.5 ? 1 : -1;
+  // The first pass is drawn towards the side the even bands stand on (the
+  // top and bottom sites at Drops 3), so it drags the odd ones across the
+  // middle and folds the even ones back off the edge. Left to a coin, some
+  // baths came out of the first pass looking much as they went in.
+  P.dir = flip;
 }
 
 export function setup(params) {
