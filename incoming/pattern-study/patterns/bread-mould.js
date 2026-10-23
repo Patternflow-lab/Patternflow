@@ -12,7 +12,7 @@
 // @knobs Mould=0..3, Speed=0.2..3, Spores=4..40, Damp=0..1
 //
 // Knob 1: Mould. What the air carries: the bread bin at 0 (blue-green Penicillium, black pin mould and the odd pink yeast), black bread mould at 1 (grey Rhizopus cotton and Aspergillus niger), green-gold Aspergillus and olive Cladosporium at 2, orange Neurospora with pink yeast and blood-red Serratia at 3.
-// Knob 2: Speed. How fast the time-lapse runs: at 2 a pair of slices lasts about ten seconds from the first spore to overrun; at 0.2 the colonies creep.
+// Knob 2: Speed. How fast the time-lapse runs: at 2 a pair of slices goes from the first spore to overrun in about fifteen seconds; at 0.2 the colonies creep.
 // Knob 3: Spores. How many colonies start on each slice: four that grow into wide ringed discs at 4, up to forty small ones that close up fast at 40.
 // Knob 4: Damp. A dry kitchen near 0, with compact velvety colonies and thin white rims; turned up, the bread greys, the mould grows faster under a long white cotton and beads of liquid stand on the older colonies.
 // Buttons: K1 tap slides a fresh pair of slices in now.
@@ -56,7 +56,7 @@ const WHITE = [236, 238, 230];
 // is a smooth wet patch instead of a felt.
 const MOULDS = [
   // Penicillium: velvety blue-green in growth rings behind a white margin.
-  { v: 3.2, fz: 0.35, wh: 0.75, c1: [72, 156, 148], c2: [32, 84, 82], ring: 0.22, pin: 0, pc: null, gl: 0 },
+  { v: 3.2, fz: 0.35, wh: 0.75, c1: [72, 156, 148], c2: [34, 88, 86], ring: 0.22, pin: 0, pc: null, gl: 0 },
   // Rhizopus, the black bread mould: grey cotton that runs, then black pin heads.
   { v: 4.2, fz: 0.9, wh: 1.2, c1: [184, 184, 176], c2: [128, 126, 120], ring: 0.04, pin: 0.3, pc: [20, 18, 24], gl: 0 },
   // Cladosporium: slow and compact, olive-black velvet with hardly a margin.
@@ -136,7 +136,7 @@ function slice() {
     const x = q % SW, y = (q / SW) | 0, d = D[q], crust = d < 2.5;
     const t = crust ? cl((d - 1) / 1.4, 0, 1) : cl((d - 2.5) / 5, 0, 1), k = crust ? 0.82 + 0.32 * vn(x * 0.4 + so, y * 0.4) : 0.92 + 0.12 * vn(x * 0.3 + so, y * 0.16);
     for (let c = 0; c < 3; c++) {
-      alb[q * 3 + c] = (crust ? mix(CR_OUT[c], CR_IN[c], t) : mix(DENSE[c], CRUMB[c], t)) * k + (hash(q + so, c) - 0.5) * 8;
+      alb[q * 3 + c] = (crust ? mix(CR_OUT[c], CR_IN[c], t) : mix(DENSE[c], CRUMB[c], t)) * k + (hash(q + so, c) - 0.5) * 12;
       gr[q * 3 + c] = hash(q + so, c + 3) * 2 - 1;
     }
     hs[q] = hash(q + so, 7);
@@ -291,11 +291,14 @@ function drawSlice(P, S, A, ox, oy) {
               const k = 1 - M.ring * t1 * (0.5 + 0.5 * cos((T[q] - c.t0) * 7));
               (mr *= k), (mg *= k), (mb *= k);
             }
+            // Damp air keeps a grey cotton of aerial hyphae over the old growth.
+            const hz = damp * 0.45 * t1 * (0.6 + 0.4 * hs[q]);
+            (mr = mix(mr, 206, hz)), (mg = mix(mg, 208, hz)), (mb = mix(mb, 200, hz));
             if (M.pin) {
               const pr = M.pin * cl((age - wh) / 2.5, 0, 1), f = hp[q] < pr ? 1 : hp[q] < pr * 1.5 ? 0.5 : 0;
               (mr = mix(mr, M.pc[0], f)), (mg = mix(mg, M.pc[1], f)), (mb = mix(mb, M.pc[2], f));
             }
-            const gk = 4 + 5 * t1;
+            const gk = 6 + 8 * t1;
             mr += gr[q3] * gk;
             mg += gr[q3 + 1] * gk;
             mb += gr[q3 + 2] * gk;
@@ -329,20 +332,21 @@ export function draw(display, params) {
       const p = y * W + x + i;
       if (x + i < W && y >= 0 && y < H) (buf[p * 3] = 214 * k * lamp[p]), (buf[p * 3 + 1] = 160 * k * lamp[p]), (buf[p * 3 + 2] = 86 * k * lamp[p]);
     }
-  const e = P.sw >= 0 ? ease(P.sw / SLIDE) : 1;
-  const sets = P.sw >= 0 ? [[P.old, round(-68 * e)], [P.cur, round(68 * (1 - e))]] : [[P.cur, 0]];
+  // In a swap the bottom slice follows the top one a moment later.
+  const e = [0, 1].map((j) => (P.sw >= 0 ? ease((P.sw - 0.14 * j) / (SLIDE - 0.14)) : 1));
+  const sets = P.sw >= 0 ? [[P.old, e.map((v) => round(-68 * v))], [P.cur, e.map((v) => round(68 * (1 - v)))]] : [[P.cur, [0, 0]]];
   // Shadows on the board, cast down and to the right.
   sh.fill(1);
   for (const [set, ox] of sets)
     for (let j = 0; j < 2; j++)
       for (let q = 0, m = set.s[j].mask; q < SN; q++) {
         if (!m[q]) continue;
-        const x = BX + ox + (q % SW), y = BY[j] + ((q / SW) | 0);
+        const x = BX + ox[j] + (q % SW), y = BY[j] + ((q / SW) | 0);
         if (x + 1 >= 0 && x + 1 < W && y + 2 < H) sh[(y + 2) * W + x + 1] = 0.5;
         if (x + 2 >= 0 && x + 2 < W && y + 4 < H) sh[(y + 4) * W + x + 2] = min(sh[(y + 4) * W + x + 2], 0.74);
       }
   for (let p = 0; p < N; p++) if (sh[p] < 1) (buf[p * 3] *= sh[p]), (buf[p * 3 + 1] *= sh[p]), (buf[p * 3 + 2] *= sh[p]);
-  for (const [set, ox] of sets) for (let j = 0; j < 2; j++) drawSlice(P, set.s[j], set.A, BX + ox, BY[j]);
+  for (const [set, ox] of sets) for (let j = 0; j < 2; j++) drawSlice(P, set.s[j], set.A, BX + ox[j], BY[j]);
   // Spores settling out of the air, and dust in the lamplight.
   const add = (x, y, v) => {
     const xi = round(x), yi = round(y);
