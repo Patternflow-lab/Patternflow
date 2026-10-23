@@ -12,10 +12,10 @@
 // @knobs Facing=-1..1, Speed=0.2..3, Latitude=-1..1, Exposure=0..1
 //
 // Knob 1: Facing. Where the camera points: north in the middle, where the trails ring the pole; turned either way it swings round through east or west to the south, where the arcs rise, cross the meridian and set.
-// Knob 2: Speed. How fast the sky turns: at the bottom of the range the stars hardly move, at the top a star near the horizon crosses the frame in under a minute.
-// Knob 3: Latitude. Where the tripod stands: the middle is 37.5 degrees north; down to the equator the pole sinks to the horizon and the stars rise straight up, up to the North Pole the pole climbs overhead and the trails run level with the ground.
-// Knob 4: Exposure. How long the shutter has been open: from short strokes to nearly whole circles.
-// Buttons: K1 tap sends a meteor across the frame; it stays in the picture as long as the trails do.
+// Knob 2: Speed. How fast the sky turns: at 2 it goes once round in 69 seconds, at the top in 46, at the bottom in eleven and a half minutes.
+// Knob 3: Latitude. Where the tripod stands: the middle is 37.5 degrees north, Seoul; down to the equator the pole sinks to the horizon and, facing east, the stars rise straight up; up to the North Pole the pole climbs overhead and the trails run level with the ground.
+// Knob 4: Exposure. How long the shutter has been open, counted in sky turned: from 80 degrees, five hours of a real night, to 340, nearly whole circles.
+// Buttons: K1 tap sends a meteor across the frame; it stays in the picture as long as the trails do. One also falls by itself every 9 to 23 seconds.
 
 const W = 64;
 const H = 128;
@@ -30,6 +30,9 @@ const HORIZON = 112;
 const TILT = Math.atan((HORIZON - CY) / S);
 const STARS = 460;
 const DEG = Math.PI / 180;
+// Trails are looked over in stretches of this much hour angle before any is
+// drawn finely.
+const COARSE = 6 * DEG;
 // Star colours by spectral class, from blue-white to red, and how often each
 // turns up among the stars bright enough to trail.
 const CLASSES = [
@@ -111,6 +114,8 @@ export function setup(params) {
     P.col[i * 3 + 2] = c[2];
   }
   P.acc = new Float32Array(N * 3);
+  P.pt = [0, 0];
+  P.prev = [0, 0];
   P.sky = new Float32Array(N * 3);
   P.ground = new Uint8Array(N);
   P.lastFacing = NaN;
@@ -280,6 +285,55 @@ export function update(dt, input, params) {
   P.meteors = P.meteors.filter((m) => m.age < Math.min(P.open, 60));
 }
 
+// One star's trail from hour angle `from` to `to`. The samples sit at whole
+// multiples of a step of about two thirds of an LED, so they stay put on the
+// panel as the sky turns and a trail does not shimmer along its length; only
+// its two ends move.
+function strand(P, acc, i, from, to, tail, head, sphi, cphi) {
+  const sd = P.sinDec[i];
+  const cd = P.cosDec[i];
+  const bright = P.bright[i];
+  const cr = P.col[i * 3];
+  const cg = P.col[i * 3 + 1];
+  const cb = P.col[i * 3 + 2];
+  const span = head - tail;
+  const da = Math.min(COARSE, 0.65 / (S * Math.max(cd, 0.004) * 1.3));
+  const pt = P.pt;
+  const prev = P.prev;
+  let a = Math.ceil(from / da) * da;
+  let ch = Math.cos(a);
+  let sh = Math.sin(a);
+  const cs = Math.cos(da);
+  const ss = Math.sin(da);
+  let have = false;
+  const deposit = (age) => {
+    if (have) {
+      const len = Math.hypot(pt[0] - prev[0], pt[1] - prev[1]);
+      // The trail fades in over its oldest sixth.
+      if (len < 4 && pt[0] > -2 && pt[0] < W + 2 && pt[1] > -2 && pt[1] < H + 2) splat(acc, pt[0], pt[1], bright * len * Math.min(1, age * 6), cr, cg, cb);
+    }
+    prev[0] = pt[0];
+    prev[1] = pt[1];
+    have = true;
+  };
+  for (; a <= to; a += da) {
+    const up = sphi * sd + cphi * cd * ch;
+    if (up > -0.02 && project(P, cphi * sd - sphi * cd * ch, -cd * sh, up, pt)) deposit((a - tail) / span);
+    else have = false;
+    const c2 = ch * cs - sh * ss;
+    sh = sh * cs + ch * ss;
+    ch = c2;
+  }
+  if (to < head) return;
+  // The last bit up to the star itself, and the star where it is now.
+  const hc = Math.cos(head);
+  const up = sphi * sd + cphi * cd * hc;
+  if (up > -0.02 && project(P, cphi * sd - sphi * cd * hc, -cd * Math.sin(head), up, pt)) {
+    deposit(1);
+    if (pt[0] > -2 && pt[0] < W + 2 && pt[1] > -2 && pt[1] < H + 2) splat(acc, pt[0], pt[1], bright * 0.7, cr, cg, cb);
+  }
+}
+
 export function draw(display, params) {
   const P = params;
   const acc = P.acc;
@@ -287,85 +341,48 @@ export function draw(display, params) {
   const sphi = Math.sin(P.lat);
   const cphi = Math.cos(P.lat);
   const span = P.span;
-  const f = P.f;
   const pt = [0, 0];
-  const prev = [0, 0];
-  // A coarse pass at 6 degrees finds the stretches of each trail inside the
-  // frame; only those are drawn finely.
-  const coarse = 6 * DEG;
+  const ends = new Uint8Array(Math.ceil(span / COARSE) + 2);
   for (let i = 0; i < STARS; i++) {
     const sd = P.sinDec[i];
     const cd = P.cosDec[i];
     const head = P.turn - P.ra[i];
     const tail = head - span;
-    const steps = Math.ceil(span / coarse);
-    const bright = P.bright[i];
-    const cr = P.col[i * 3];
-    const cg = P.col[i * 3 + 1];
-    const cb = P.col[i * 3 + 2];
-    // Fine step: about two thirds of an LED along the trail.
-    const fine = Math.min(coarse, 0.65 / (S * Math.max(cd, 0.004) * 1.3));
-    for (let s = 0; s < steps; s++) {
-      const a0 = tail + s * coarse;
-      const a1 = Math.min(head, a0 + coarse);
-      // Is either end of this stretch in or near the frame?
-      let near = false;
-      for (const a of [a0, a1]) {
-        const ch = Math.cos(a);
-        const up = sphi * sd + cphi * cd * ch;
-        const n = cphi * sd - sphi * cd * ch;
-        const e = -cd * Math.sin(a);
-        const z = n * f[0] + e * f[1] + up * f[2];
-        if (z < 0.3 || up < -0.08) continue;
-        if (project(P, n, e, up, pt) && pt[0] > -12 && pt[0] < W + 12 && pt[1] > -12 && pt[1] < HORIZON + 6) near = true;
+    // A coarse pass finds the stretches of the trail in or near the frame;
+    // only those are drawn finely.
+    const steps = Math.ceil(span / COARSE);
+    for (let s = 0; s <= steps; s++) {
+      const a = Math.min(head, tail + s * COARSE);
+      const ch = Math.cos(a);
+      const up = sphi * sd + cphi * cd * ch;
+      const n = cphi * sd - sphi * cd * ch;
+      const e = -cd * Math.sin(a);
+      ends[s] = up > -0.08 && project(P, n, e, up, pt) && pt[0] > -12 && pt[0] < W + 12 && pt[1] > -12 && pt[1] < HORIZON + 6 ? 1 : 0;
+    }
+    let from = NaN;
+    for (let s = 0; s <= steps; s++) {
+      const near = s < steps && (ends[s] || ends[s + 1]);
+      if (near && Number.isNaN(from)) from = tail + s * COARSE;
+      if (!near && !Number.isNaN(from)) {
+        strand(P, acc, i, from, Math.min(head, tail + s * COARSE), tail, head, sphi, cphi);
+        from = NaN;
       }
-      if (!near) continue;
-      const count = Math.max(1, Math.ceil((a1 - a0) / fine));
-      const da = (a1 - a0) / count;
-      let ch = Math.cos(a0);
-      let sh = Math.sin(a0);
-      const cd1 = Math.cos(da);
-      const sd1 = Math.sin(da);
-      let have = false;
-      for (let q = 0; q <= count; q++) {
-        const up = sphi * sd + cphi * cd * ch;
-        const n = cphi * sd - sphi * cd * ch;
-        const e = -cd * sh;
-        const a = a0 + q * da;
-        if (up > -0.02 && project(P, n, e, up, pt)) {
-          if (have) {
-            const len = Math.hypot(pt[0] - prev[0], pt[1] - prev[1]);
-            // The trail fades in over its oldest sixth and is brightest at the head.
-            const age = (a - tail) / span;
-            const w = bright * len * Math.min(1, age * 6) * (0.75 + 0.25 * age);
-            if (len < 4 && pt[0] > -2 && pt[0] < W + 2 && pt[1] > -2 && pt[1] < H + 2) splat(acc, pt[0], pt[1], w, cr, cg, cb);
-          }
-          prev[0] = pt[0];
-          prev[1] = pt[1];
-          have = true;
-        } else have = false;
-        const c2 = ch * cd1 - sh * sd1;
-        sh = sh * cd1 + ch * sd1;
-        ch = c2;
-      }
-      // The star itself, where it is now.
-      if (a1 === head && have) splat(acc, prev[0], prev[1], bright * 0.7, cr, cg, cb);
     }
   }
 
-  // Meteors: they streak in over a third of a second and stay as long as the
-  // trails remember.
+  // Meteors: they streak in over a third of a second, stay as long as the
+  // trails remember and fade out the way a trail's oldest sixth does.
   for (const m of P.meteors) {
     const grow = Math.min(1, m.age / 0.35);
-    const fade = 1 - m.age / Math.min(P.open, 60);
+    const fade = Math.min(1, (1 - m.age / Math.min(P.open, 60)) * 6);
     const len = m.len * grow;
     for (let d = 0; d < len; d += 0.5) {
       const t = d / m.len;
       const x = m.x0 + m.dx * d;
       const y = m.y0 + m.dy * d;
       if (y > HORIZON) break;
-      // Greenish at the head, warm in the wake.
-      const w = 0.5 * m.bright * fade * Math.sin(Math.PI * Math.min(1, t * 1.1));
+      // Warm where it struck the air, green-white at the head.
+      const w = 0.6 * m.bright * fade * Math.sin(Math.PI * Math.min(1, t * 1.1));
       splat(acc, x, y, w, 0.55 + 0.45 * (1 - t), 1.0, 0.55 + 0.35 * t);
     }
   }
@@ -393,12 +410,13 @@ export function draw(display, params) {
       if (tent) {
         const dx = x + 0.5 - tent[0];
         const dy = y + 0.5 - tent[1];
-        // The tent: a lit orange triangle six LEDs high, and its glow on the grass.
+        // The tent: a lit orange triangle six LEDs high with its door flap
+        // open on the lantern, and the light on the grass in front.
         if (dy <= 0 && dy > -6 && Math.abs(dx) < (dy + 6) * 0.8) {
-          const inner = 1 - Math.abs(dx) / ((dy + 6) * 0.8 + 0.01);
-          r = (0.85 + 0.15 * inner) * lamp;
-          g = (0.42 + 0.2 * inner) * lamp;
-          b = 0.12 * lamp;
+          const door = dy > -3 && Math.abs(dx) < (dy + 3) * 0.55 + 0.3;
+          r = (door ? 1.6 : 0.62) * lamp;
+          g = (door ? 1.15 : 0.27) * lamp;
+          b = (door ? 0.45 : 0.07) * lamp;
         } else if (ground[p]) {
           const glow = Math.exp(-(dx * dx * 0.04 + dy * dy * 0.18)) * 0.22 * lamp;
           r += glow;
