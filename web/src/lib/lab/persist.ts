@@ -8,11 +8,11 @@
 // Bumping a version means: add the new key here, keep the old one, and write a
 // migration that reads the old and writes the new. serialize.ts's
 // migrateLegacyDraft is the precedent: it lifts _draft_v1 and _ramp_v1 into a
-// _project_v2 project. The gallery was never migrated. It still lives under
-// its _v1 key.
+// _project_v2 project. A key whose feature is gone stays listed here with the
+// date, so the lab can still remove it (legacyDraft.ts dropAiGallery).
 
 export const LAB_STORAGE = {
-  /** The whole layered project — layers, knobs, ramps, director, gen settings. serialize.ts */
+  /** The whole layered project — layers, knobs, ramps, director, prompt colour mode. serialize.ts */
   project: "patternflow_lab_project_v2",
   /** The dockview layout. PatternLabClient.tsx */
   layout: "patternflow_lab_layout_v1",
@@ -38,11 +38,17 @@ export const LAB_STORAGE = {
    */
   legacyDraft: "patternflow_lab_draft_v1",
   /**
-   * The generated gallery. The lab's autosave has written it since 25 July
-   * 2026 (e19fe19) and still does, because the gallery never moved into the
-   * project. legacyDraft.ts
+   * The AI gallery's generated patterns, written by the lab's autosave from
+   * 25 July 2026 (e19fe19) until the gallery was taken out on 23 October.
+   * Nothing writes it now, and the lab removes it on open. legacyDraft.ts
    */
   gallery: "patternflow_lab_gallery_v1",
+  /**
+   * The Gemini API key the AI gallery saved for whoever set one. Nothing
+   * writes it since 23 October 2026, and the lab removes it on open.
+   * legacyDraft.ts
+   */
+  geminiKey: "patternflow_gemini_key",
   /**
    * The colour ramp, written by the lab on every ramp edit from 2 July 2026
    * (67b9798) until Pattern Lab v2 on 27 July (9be6e98). Nothing writes it

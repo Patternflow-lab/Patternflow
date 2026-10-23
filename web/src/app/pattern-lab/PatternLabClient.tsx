@@ -3,11 +3,11 @@
 // Pattern Lab v2 — a layered, dockable pattern editing workspace.
 //
 // The old lab was one pattern + one fixed two-column layout. This shell hosts
-// nine dockable panels (dockview) over a layer-stack project (zustand):
-// Preview, Layers, Code, Pixel, Gallery, Knobs, Color Ramp, Graphic Export,
-// Director — the list is panels/registry.tsx. Panels rearrange
-// Photoshop-style — drag tabs, split groups, float — and the arrangement
-// persists to localStorage alongside the project itself.
+// eight dockable panels (dockview) over a layer-stack project (zustand):
+// Preview, Layers, Code, Pixel, Knobs, Color Ramp, Graphic Export, Director —
+// the list is panels/registry.tsx. Panels rearrange Photoshop-style — drag
+// tabs, split groups, float — and the arrangement persists to localStorage
+// alongside the project itself.
 //
 // Exports (community publish, firmware build) flatten the visible stack into
 // one standalone JS pattern (see lib/lab/flatten.ts), so every downstream
@@ -34,7 +34,7 @@ import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { onEditorReveal } from "@/lib/lab/editorReveal";
 import { flattenLayers, needsFlatten } from "@/lib/lab/flatten";
 import { readStorage, removeStorage, writeStorage, type LabStorageKey } from "@/lib/lab/persist";
-import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, layoutViewCount } from "@/lib/lab/serialize";
+import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, dropRetiredPanels, layoutViewCount } from "@/lib/lab/serialize";
 import { listSessions, type SessionMeta } from "@/lib/lab/sessions";
 import { buildStackAnnotation, stripStackAnnotation } from "@/lib/lab/stackShare";
 import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store";
@@ -251,7 +251,9 @@ export default function PatternLabClient() {
       try {
         const raw = readStorage(layoutKey.current);
         if (raw) {
-          const parsed = JSON.parse(raw);
+          // A panel the registry no longer has (Gallery, 23 October 2026)
+          // comes out first; fromJSON would throw on it.
+          const parsed = dropRetiredPanels(JSON.parse(raw), new Set(Object.keys(panelComponents)));
           // Restoring a layout that places nothing gives you an empty
           // workspace: every panel gone, and Reset layout the only way out.
           // dockview will happily do it, so the check has to happen here.

@@ -1,37 +1,30 @@
-// ── Pattern Lab: the July draft, and the gallery ─────────────────────────────
+// ── Pattern Lab: the July draft ──────────────────────────────────────────────
 // The lab's autosave (e19fe19, 25 July 2026) stored the working session under
-// two keys on purpose:
-//
-//   DRAFT_STORAGE    small, always worth keeping (code, knobs, ranges, ...)
-//   GALLERY_STORAGE  potentially hundreds of KB of generated patterns
-//
-// A quota failure while writing the (large) gallery must never take the (small)
-// draft down with it, hence the split.
+// two keys on purpose: the draft (small, always worth keeping: code, knobs,
+// ranges, ...) and the AI gallery (up to hundreds of KB of generated
+// patterns). A quota failure while writing the large gallery must never take
+// the small draft down with it, hence the split.
 //
 // Pattern Lab v2 (9be6e98, 27 July) moved the working session into the layered
 // project and stopped writing the draft. loadDraft stays for serialize.ts's
-// migrateLegacyDraft. The gallery never moved, and loadGallery and saveGallery
-// are its live reader and writer. Every read is defensive: a draft written by
-// an older build, or hand-edited, must degrade to "no draft" rather than crash
-// the lab on boot.
+// migrateLegacyDraft. The gallery kept its key until the lab dropped it on
+// 23 October 2026, and dropAiGallery clears what it left behind. Every read is
+// defensive: a draft written by an older build, or hand-edited, must degrade
+// to "no draft" rather than crash the lab on boot.
 
-import { COLOR_MODES, THINKING_LEVELS } from "@/lib/ai/settings";
-import type { ColorMode, PatternVariant, ThinkingLevelKey } from "@/lib/ai/settings";
+import { COLOR_MODES } from "@/lib/ai/settings";
+import type { ColorMode } from "@/lib/ai/settings";
 import { isValidMatrix, type MatrixSize } from "@/lib/pattern/matrix";
 
-import { LAB_STORAGE, readJson, removeStorage as remove, writeJson } from "./persist";
+import { LAB_STORAGE, readJson, removeStorage as remove } from "./persist";
 
 export const DRAFT_STORAGE = LAB_STORAGE.legacyDraft;
-export const GALLERY_STORAGE = LAB_STORAGE.gallery;
 
-// Guard rails so one runaway value can't blow the whole quota.
+// Guard rail so one runaway value can't blow the whole quota.
 const MAX_CODE_CHARS = 200_000;
-const MAX_GALLERY_ITEMS = 48;
 
+/** The July draft also kept the gallery's count, thinking and refs; only this outlived it. */
 export type DraftGenSettings = {
-  count: number;
-  thinking: ThinkingLevelKey;
-  refs: number;
   colorMode: ColorMode;
 };
 
@@ -48,12 +41,9 @@ export type LabDraft = {
    * covers drafts whose code predates the annotation.
    */
   matrix: MatrixSize;
-  editorView: "code" | "gallery";
   forkOf: { id: string; title: string } | null;
   gen: DraftGenSettings;
 };
-
-export type DraftGalleryItem = PatternVariant & { id: string; pinned?: boolean };
 
 function numberArray(value: unknown, length: number): number[] | null {
   if (!Array.isArray(value) || value.length !== length) return null;
@@ -118,8 +108,6 @@ export function loadDraft(knobCount: number): Partial<LabDraft> | null {
       : null;
 
   const gen = (raw.gen ?? {}) as Record<string, unknown>;
-  const genCount = Number(gen.count);
-  const genRefs = Number(gen.refs);
 
   // Each field falls back independently: a draft missing (or corrupting) one
   // value still restores everything else.
@@ -131,12 +119,8 @@ export function loadDraft(knobCount: number): Partial<LabDraft> | null {
     knobLabels: stringArray(raw.knobLabels, knobCount) ?? undefined,
     recolor: typeof raw.recolor === "boolean" ? raw.recolor : undefined,
     matrix: readMatrix(raw),
-    editorView: oneOf(raw.editorView, ["code", "gallery"] as const, "code"),
     forkOf,
     gen: {
-      count: Number.isFinite(genCount) ? genCount : 5,
-      thinking: oneOf<ThinkingLevelKey>(gen.thinking, THINKING_LEVELS, "LOW"),
-      refs: Number.isFinite(genRefs) ? genRefs : 6,
       colorMode: oneOf<ColorMode>(gen.colorMode, COLOR_MODES, "vfield"),
     },
   };
@@ -144,41 +128,15 @@ export function loadDraft(knobCount: number): Partial<LabDraft> | null {
 
 export function clearDraft() {
   remove(DRAFT_STORAGE);
-  remove(GALLERY_STORAGE);
-}
-
-export function loadGallery(): DraftGalleryItem[] {
-  const parsed = readJson(GALLERY_STORAGE);
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter(
-      (item): item is DraftGalleryItem =>
-        Boolean(item) &&
-        typeof item === "object" &&
-        typeof (item as DraftGalleryItem).id === "string" &&
-        typeof (item as DraftGalleryItem).code === "string" &&
-        typeof (item as DraftGalleryItem).name === "string",
-    )
-    .slice(0, MAX_GALLERY_ITEMS)
-    .map((item) => ({
-      id: item.id,
-      name: item.name,
-      code: item.code,
-      knobNotes: typeof item.knobNotes === "string" ? item.knobNotes : undefined,
-      pinned: Boolean(item.pinned),
-    }));
 }
 
 /**
- * Best-effort gallery persist. Generated patterns can add up to hundreds of KB,
- * so on a quota failure we retry with the pinned items only (the ones the user
- * explicitly kept) before giving up — a partial save beats none.
+ * The AI gallery's patterns and the Gemini key it kept. Nothing writes either
+ * since 23 October 2026. hydrate calls this on every open of the lab, so a
+ * browser that held them loses them the first time, and one that never did
+ * loses nothing.
  */
-export function saveGallery(items: DraftGalleryItem[]): boolean {
-  const trimmed = items.slice(0, MAX_GALLERY_ITEMS);
-  if (writeJson(GALLERY_STORAGE, trimmed)) return true;
-  const pinned = trimmed.filter((item) => item.pinned);
-  if (pinned.length > 0 && writeJson(GALLERY_STORAGE, pinned)) return true;
-  remove(GALLERY_STORAGE);
-  return false;
+export function dropAiGallery() {
+  remove(LAB_STORAGE.gallery);
+  remove(LAB_STORAGE.geminiKey);
 }

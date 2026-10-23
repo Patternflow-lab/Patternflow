@@ -166,20 +166,22 @@ export function buildAttributionFooter(meta: ShareMeta): string {
 // said "render error", the page showed a SyntaxError, and nothing said why.
 const TRAILING_COMMENTS = String.raw`(?:\n(?:[ \t]*\/\/[^\n]*|[ \t]*))*\s*$`;
 const COMMUNITY_FOOTER_RE = new RegExp(String.raw`\/\/ ── Made with Patternflow[^\n]*` + TRAILING_COMMENTS);
-const GEMINI_FOOTER_RE = new RegExp(
+const LAB_AI_FOOTER_RE = new RegExp(
   String.raw`\/\/ ---[ \t]*\n\/\/ (?:Generated at|Made with) [^\n]*patternflow\.work[^\n]*` + TRAILING_COMMENTS,
 );
 
 // Remove a header/footer we previously injected, so re-sharing an already
 // exported file does not stack duplicate blocks. Also strips the header/footer
-// the in-app Gemini generation stamps onto patterns (see gemini.ts), so shared
-// files carry ONE licence block — the user-titled one from this flow.
+// the Lab's AI gallery stamped onto every pattern it generated until it was
+// taken out on 23 October 2026. Those patterns still sit in saved layers and
+// published code, and a shared file should carry ONE licence block, the
+// user-titled one from this flow.
 export function stripShareWrapping(code: string): string {
   return code
     .replace(/\/\/ ===== Patternflow pattern =====[\s\S]*?\/\/ =+\n?/, "")
     .replace(COMMUNITY_FOOTER_RE, "")
     .replace(/^\s*\/\/ Pattern:[\s\S]*?\/\/ Made with Patternflow Pattern Lab[^\n]*\n?/, "")
-    .replace(GEMINI_FOOTER_RE, "")
+    .replace(LAB_AI_FOOTER_RE, "")
     .trim();
 }
 

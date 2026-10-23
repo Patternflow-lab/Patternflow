@@ -254,7 +254,7 @@ async function stackSmoke() {
     knobLabels: ["Hue", "Speed", "Freq", "Mix"],
     forkOf: null,
     editOf: null,
-    gen: { count: 5, thinking: "LOW" as const, refs: 6, colorMode: "vfield" as const },
+    gen: { colorMode: "vfield" as const },
     director: emptyShow(),
     name: "Flatten Smoke",
   };
