@@ -15,7 +15,7 @@
 // there.
 
 import type { MatrixSize } from "@/lib/pattern/matrix";
-import type { Layer, PixelLayer } from "../types";
+import type { Layer, RasterLayer } from "../types";
 
 /**
  * Which renderer fills the stage.
@@ -142,11 +142,15 @@ export type AutoVerdict = {
 
 /**
  * The slice of the lab project the stage needs. Code layers travel whole;
- * pixel layers travel with their buffer only when `rev` changed since the
- * last message (the worker keeps the previous copy).
+ * pixel and text layers travel with their buffer only when `rev` changed
+ * since the last message (the worker keeps the previous copy).
  */
-export type WirePixelLayer = Omit<PixelLayer, "data"> & { data?: Uint8ClampedArray };
-export type WireLayer = Exclude<Layer, PixelLayer> | WirePixelLayer;
+export type WirePixelLayer = RasterLayer extends infer L
+  ? L extends RasterLayer
+    ? Omit<L, "data"> & { data?: Uint8ClampedArray }
+    : never
+  : never;
+export type WireLayer = Exclude<Layer, RasterLayer> | WirePixelLayer;
 
 export type WireProject = {
   matrix: MatrixSize;

@@ -8,7 +8,7 @@
 
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { LabEngine } from "../engine";
-import type { Layer, PixelLayer } from "../types";
+import { isRasterLayer, type Layer, type RasterLayer } from "../types";
 import {
   CAPTURE_SIDE_MAX,
   CAPTURE_SIDE_MIN,
@@ -123,7 +123,7 @@ export function stretchNearest(
 }
 
 /**
- * Merge a wire project into the previous one: a pixel layer that arrived
+ * Merge a wire project into the previous one: a pixel or text layer that arrived
  * without its buffer keeps the copy from last time. A layer with neither is
  * dropped rather than rendered empty — it cannot happen with an in-order
  * channel, but a silent blank layer would be the worst way to find out.
@@ -132,23 +132,23 @@ export function mergeWireProject(
   previous: CaptureProject | null,
   wire: WireProject,
 ): CaptureProject {
-  const known = new Map<string, PixelLayer>();
+  const known = new Map<string, RasterLayer>();
   for (const layer of previous?.layers ?? []) {
-    if (layer.type === "pixel") known.set(layer.id, layer);
+    if (isRasterLayer(layer)) known.set(layer.id, layer);
   }
   const layers: Layer[] = [];
   for (const layer of wire.layers) {
-    if (layer.type !== "pixel") {
+    if (layer.type === "code") {
       layers.push(layer);
       continue;
     }
     if (layer.data) {
-      layers.push(layer as PixelLayer);
+      layers.push(layer as RasterLayer);
       continue;
     }
     const earlier = known.get(layer.id);
     if (!earlier) continue;
-    layers.push({ ...layer, data: earlier.data });
+    layers.push({ ...layer, data: earlier.data } as RasterLayer);
   }
   return {
     matrix: wire.matrix,
@@ -175,10 +175,10 @@ export type CaptureFrame = {
 
 type StretchedEntry = {
   /** The store's layer object this copy was made from. */
-  source: PixelLayer;
+  source: RasterLayer;
   width: number;
   height: number;
-  layer: PixelLayer;
+  layer: RasterLayer;
 };
 
 export class CaptureCore {
@@ -245,14 +245,14 @@ export class CaptureCore {
   }
 
   /**
-   * Pixel layers drawn for the project matrix, stretched to the render grid.
+   * Pixel and text layers drawn for the project matrix, stretched to the render grid.
    * Cached per layer by rev + size; code layers pass straight through.
    */
   private layersFor(render: MatrixSize): Layer[] {
     const project = this.project!;
     const live = new Set<string>();
     const layers = project.layers.map((layer) => {
-      if (layer.type !== "pixel") return layer;
+      if (!isRasterLayer(layer)) return layer;
       if (layer.width === render.width && layer.height === render.height) return layer;
       live.add(layer.id);
       const cached = this.stretched.get(layer.id);
@@ -266,7 +266,7 @@ export class CaptureCore {
           return cached.layer;
         }
       }
-      const stretchedLayer: PixelLayer = {
+      const stretchedLayer: RasterLayer = {
         ...layer,
         width: render.width,
         height: render.height,

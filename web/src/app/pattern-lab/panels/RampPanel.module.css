@@ -223,6 +223,22 @@
   text-transform: none;
 }
 
+.rampHint button {
+  min-height: 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  color: #171512;
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.rampHint button:hover {
+  background: #171512;
+  color: #f7f3ea;
+}
+
 @container ramp-controls (max-width: 210px) {
   .paletteActions {
     display: flex;

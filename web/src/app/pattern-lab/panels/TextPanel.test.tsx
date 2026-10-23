@@ -1,0 +1,159 @@
+// The Text panel and the drag on Preview. jsdom has no FontFace and no
+// document.fonts, so both are stood in for: the panel's font file path runs
+// for real up to the browser handing back a loaded face. The canvas that
+// measures letters is replaced by a 2×2 block per character (text.test.ts
+// has the same stand-in and says why).
+
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+vi.mock("@/lib/lab/textRaster", () => ({
+  textCoverage: (spec: { text: string; x: number; y: number }, _font: string, width: number, height: number) => {
+    const coverage = new Uint8ClampedArray(width * height);
+    for (let x = spec.x; x < spec.x + spec.text.length * 2; x++) {
+      for (let y = spec.y - 1; y < spec.y + 1; y++) {
+        if (x >= 0 && x < width && y >= 0 && y < height) coverage[y * width + x] = 255;
+      }
+    }
+    return coverage;
+  },
+}));
+
+import TextPanel from "./TextPanel";
+import PreviewPanel from "./PreviewPanel";
+import { useLabStore } from "@/lib/lab/store";
+import type { TextLayer } from "@/lib/lab/types";
+
+const store = () => useLabStore.getState();
+const text = (): TextLayer => {
+  const layer = store().layers.find((entry) => entry.id === store().activeLayerId);
+  if (layer?.type !== "text") throw new Error("active layer is not text");
+  return layer;
+};
+
+class FakeFontFace {
+  family: string;
+  constructor(family: string, readonly bytes: ArrayBuffer) {
+    this.family = family;
+  }
+  load() {
+    // A file whose first byte is 0 stands for one the browser can't read.
+    return new Uint8Array(this.bytes)[0] === 0 ? Promise.reject(new Error("bad")) : Promise.resolve(this);
+  }
+}
+
+const fontSet = { add: vi.fn(), delete: vi.fn(), check: () => true, load: () => Promise.resolve([]) };
+
+beforeEach(() => {
+  vi.stubGlobal("FontFace", FakeFontFace);
+  Object.defineProperty(document, "fonts", { value: fontSet, configurable: true });
+  store().discardProject();
+  store().setMatrix({ width: 16, height: 8 });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+function fontFile(name: string, firstByte = 1): File {
+  const bytes = new Uint8Array([firstByte, 2, 3, 4]);
+  const file = new File([bytes], name, { type: "font/ttf" });
+  // jsdom's File has no arrayBuffer(); every browser the lab runs in does.
+  return Object.assign(file, { arrayBuffer: () => Promise.resolve(bytes.buffer) });
+}
+
+describe("TextPanel", () => {
+  it("offers to add a text layer when none is selected", () => {
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Add text layer" }));
+    expect(text().spec.text).toBe("Hello");
+  });
+
+  it("writes what is typed into the layer", () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Text" }), { target: { value: "PATTERN\nFLOW" } });
+    expect(text().spec.text).toBe("PATTERN\nFLOW");
+  });
+
+  it("aligns left, center and right", () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Right" }));
+    expect(text().spec.align).toBe("right");
+    expect(screen.getByRole("button", { name: "Right" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("does not commit a size on the way to the one being typed", () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    const size = screen.getByRole("spinbutton", { name: "Size" });
+    fireEvent.focus(size);
+    fireEvent.change(size, { target: { value: "2" } });
+    expect(text().spec.size).toBe(16);
+    fireEvent.change(size, { target: { value: "24" } });
+    expect(text().spec.size).toBe(24);
+  });
+
+  it("sets the text in a font file from the device, without uploading it", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    store().addTextLayer();
+    render(<TextPanel />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Font file"), { target: { files: [fontFile("Brand Sans.otf")] } });
+    });
+    await waitFor(() => expect(text().spec.font).toBe("file:Brand Sans"));
+    expect(fontSet.add).toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    const group = screen.getByRole("group", { name: "Your font files" });
+    expect(within(group).getByRole("option", { name: "Brand Sans" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Brand Sans is loaded for this visit.");
+  });
+
+  it("says so when a file is not a font, and keeps the font it had", async () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Font file"), { target: { files: [fontFile("notes.ttf", 0)] } });
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("That file isn't a font this browser can read."),
+    );
+    expect(text().spec.font).toBe("site:silkscreen");
+  });
+
+  it("names a file font this browser doesn't have", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { font: "file:Gone Grotesk" });
+    render(<TextPanel />);
+    expect(screen.getByRole("status")).toHaveTextContent("Gone Grotesk isn't loaded in this browser.");
+    expect(screen.getByRole("combobox", { name: "Font" })).toHaveValue("file:Gone Grotesk");
+  });
+});
+
+describe("dragging text on Preview", () => {
+  it("moves the selected text by whole LED pixels", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { x: 4, y: 4 });
+    render(<PreviewPanel />);
+    const canvas = screen.getByLabelText(/Composite preview/);
+    // The frame drawn 160 × 80 CSS px: 10 px to an LED.
+    Object.defineProperty(canvas, "getBoundingClientRect", {
+      value: () => ({ x: 0, y: 0, left: 0, top: 0, width: 160, height: 80, right: 160, bottom: 80, toJSON: () => ({}) }),
+    });
+    fireEvent.pointerDown(canvas, { button: 0, pointerId: 1, clientX: 50, clientY: 50 });
+    fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 81, clientY: 29 });
+    expect([text().spec.x, text().spec.y]).toEqual([7, 2]);
+    fireEvent.pointerUp(canvas, { pointerId: 1 });
+    fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 150, clientY: 70 });
+    expect([text().spec.x, text().spec.y]).toEqual([7, 2]);
+  });
+
+  it("leaves the frame alone when the selected layer isn't text", () => {
+    render(<PreviewPanel />);
+    const canvas = screen.getByLabelText(/Composite preview/);
+    expect(canvas.getAttribute("style")).not.toContain("touch-action");
+    expect(canvas).not.toHaveAttribute("title");
+  });
+});

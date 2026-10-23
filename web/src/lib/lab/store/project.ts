@@ -138,7 +138,15 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
       const imported: Layer[] = payload.layers.map((layer) =>
         layer.type === "pixel"
           ? { ...layer, id: layerId(), data: new Uint8ClampedArray(layer.data), rev: 0 }
-          : { ...layer, id: layerId(), ramp: cloneRampState(layer.ramp) },
+          : layer.type === "text"
+            ? {
+                ...layer,
+                id: layerId(),
+                data: new Uint8ClampedArray(layer.data),
+                rev: 0,
+                ramp: cloneRampState(layer.ramp),
+              }
+            : { ...layer, id: layerId(), ramp: cloneRampState(layer.ramp) },
       );
       if (imported.length === 0) return;
 

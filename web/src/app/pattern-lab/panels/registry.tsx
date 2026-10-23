@@ -15,7 +15,7 @@
 // panel to sit next to and the side, and buildDefaultLayout() adds panels in
 // whatever order satisfies that.
 //
-// The heavy editors — Pixel, Director, Graphic Export — are loaded
+// The heavy editors — Pixel, Text, Director, Graphic Export — are loaded
 // on demand. They are a third of the lab's code and most sessions open one
 // of them at most; before this every panel sat in the route's first chunk.
 
@@ -35,6 +35,7 @@ export type PanelId =
   | "layers"
   | "code"
   | "pixel"
+  | "text"
   | "knobs"
   | "ramp"
   | "capture"
@@ -78,6 +79,7 @@ export const PANELS: readonly PanelDef[] = [
   { id: "layers", title: "Layers", component: LayersPanel, dock: { ref: "preview", dir: "below" }, size: { height: 0.34 } },
   { id: "code", title: "Code", component: CodePanel, dock: { ref: "preview", dir: "right" }, active: true },
   { id: "pixel", title: "Pixel", component: lazy(() => import("./PixelPanel")), dock: { ref: "code", dir: "within" } },
+  { id: "text", title: "Text", component: lazy(() => import("./TextPanel")), dock: { ref: "code", dir: "within" } },
   { id: "knobs", title: "Knobs", component: KnobsPanel, dock: { ref: "code", dir: "right" }, size: { width: 0.24 } },
   { id: "ramp", title: "Color Ramp", component: RampPanel, dock: { ref: "knobs", dir: "below" }, size: { height: 0.42 } },
   // Output stage (stills/clips at print sizes) — an add-on module, see lib/lab/capture.
