@@ -10,10 +10,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Fall=0.3..6, Density=0..1, Mutate=0..1
 //
-// Knob 1: Hue. Turns the rain around the colour wheel; the heads stay close to white.
+// Knob 1: Hue. Turns the rain around the colour wheel from phosphor green; the heads stay close to white.
 // Knob 2: Fall. How fast the columns fall, each at its own pace around this one.
 // Knob 3: Density. How many columns run and how long their tails hang, up to a full wall of text.
-// Knob 4: Mutate. How often a glyph already written turns into another; near the top the rain boils.
+// Knob 4: Mutate. How often a glyph already written turns into another; turned all the way, the whole wall boils.
 // Buttons: K4 tap switches between small glyphs and double-size ones.
 
 const W = 64;
@@ -29,6 +29,16 @@ const FONT = [
   0o55557, 0o55255, 0o55222, 0o71247, 0o02720, 0o00700, 0o07070, 0o05250, 0o11244, 0o12421,
   0o42124, 0o57575, 0o02020, 0o34216, 0o61243, 0o27272,
 ];
+
+// Hue 0 is the green of an old terminal's phosphor rather than red.
+const GREEN = 0.33;
+// Where a tail ends, and where the glyphs it leaves behind start to fade from.
+const EMBER = 0.38;
+// Below this a fading glyph is gone: the panel shows next to nothing under 20/255.
+const GONE = 0.09;
+// Levels are drawn in steps, so a fading glyph changes a few times on its way out
+// instead of on every frame.
+const STEPS = 20;
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
@@ -72,12 +82,15 @@ function layout(p) {
     // Golden-ratio steps: whatever share of columns runs is spread evenly.
     const r = c * 0.618034 + 0.31;
     p.rank[c] = r - Math.floor(r);
+    p.flick[c] = 0;
     spawn(p, c, true);
   }
   for (let i = 0; i < p.glyph.length; i++) {
     p.glyph[i] = Math.floor(rand(p) * FONT.length);
     p.flash[i] = 0;
+    p.glow[i] = 0;
   }
+  p.started = false;
 }
 
 export function setup(params) {
@@ -86,29 +99,21 @@ export function setup(params) {
   params.density = 0;
   params.glyph = new Uint8Array(COLS * ROWS);
   params.flash = new Float32Array(COLS * ROWS);
+  params.glow = new Float32Array(COLS * ROWS);
   params.head = new Float32Array(COLS);
   params.len = new Float32Array(COLS);
   params.rate = new Float32Array(COLS);
   params.wait = new Float32Array(COLS);
   params.rank = new Float32Array(COLS);
+  params.flick = new Float32Array(COLS);
   params.fb = new Uint8Array(W * H * 3);
   params.c = [0, 0, 0];
   layout(params);
 }
 
-export function update(dt, input, params) {
-  const p = params;
-  const k = input.knobValues || [0, 2, 0, 0.06];
-  p.hue = k[0];
-  p.fall = k[1];
-  p.density = k[2];
-  p.mutate = k[3];
-  if (input.btnPressed && input.btnPressed[3]) {
-    p.scale = 3 - p.scale;
-    layout(p);
-  }
-  const share = 0.62 + 0.38 * p.density;
-  const step = p.fall * 5 * dt;
+function step(p, dt) {
+  const share = 0.7 + 0.3 * p.density;
+  const move = p.fall * 5 * dt;
   for (let c = 0; c < p.cols; c++) {
     if (p.wait[c] > 0) {
       p.wait[c] -= dt;
@@ -117,25 +122,38 @@ export function update(dt, input, params) {
       continue;
     }
     const before = Math.floor(p.head[c]);
-    p.head[c] += step * p.rate[c];
+    p.head[c] += move * p.rate[c];
     const after = Math.floor(p.head[c]);
-    // The head writes a fresh glyph into each cell it enters.
-    if (after > before && after >= 0 && after < p.rows) {
-      const i = after * p.cols + c;
-      p.glyph[i] = Math.floor(rand(p) * FONT.length);
+    // The head writes a fresh glyph into each cell it enters, even the ones a
+    // fast drop crosses inside one frame.
+    for (let r = Math.max(0, before + 1); r <= Math.min(after, p.rows - 1); r++) p.glyph[r * p.cols + c] = Math.floor(rand(p) * FONT.length);
+    // And it cannot make up its mind about the cell it is in.
+    p.flick[c] -= dt;
+    if (p.flick[c] <= 0) {
+      p.flick[c] = 0.07;
+      if (after >= 0 && after < p.rows) p.glyph[after * p.cols + c] = Math.floor(rand(p) * FONT.length);
     }
     if (p.head[c] - p.len[c] > p.rows) {
       if (p.rank[c] < share) spawn(p, c, false);
       else p.wait[c] = 0.3;
     }
   }
+  // What a tail leaves behind fades the way a phosphor does, slower the
+  // longer the tails hang.
+  const fade = Math.exp(-dt / (1.8 + 3 * p.density));
   const chance = (0.4 + 12 * p.mutate * p.mutate) * dt;
   for (let r = 0; r < p.rows; r++) {
     for (let c = 0; c < p.cols; c++) {
       const i = r * p.cols + c;
       p.flash[i] *= Math.exp(-dt * 7);
       const d = p.head[c] - r;
-      if (p.wait[c] > 0 || d < 1 || d > p.len[c]) continue;
+      const tail = p.wait[c] <= 0 && d >= 1 && d <= p.len[c];
+      if (tail) p.glow[i] = EMBER;
+      else if (p.glow[i] > 0) {
+        p.glow[i] *= fade;
+        if (p.glow[i] < GONE) p.glow[i] = 0;
+      }
+      if (!tail && p.glow[i] === 0) continue;
       if (rand(p) < chance) {
         p.glyph[i] = Math.floor(rand(p) * FONT.length);
         p.flash[i] = 1;
@@ -144,34 +162,61 @@ export function update(dt, input, params) {
   }
 }
 
+export function update(dt, input, params) {
+  const p = params;
+  const k = input.knobValues || [0, 2, 0, 0.06];
+  dt = Math.min(dt, 0.1);
+  p.hue = k[0];
+  p.fall = k[1];
+  p.density = k[2];
+  p.mutate = k[3];
+  if (input.btnPressed && input.btnPressed[3]) {
+    p.scale = 3 - p.scale;
+    layout(p);
+  }
+  if (!p.started) {
+    p.started = true;
+    // Rain that has been falling a while: the wall behind it is already written.
+    for (let i = 0; i < 90; i++) step(p, 1 / 30);
+  }
+  step(p, dt);
+}
+
 export function draw(display, params, time) {
   const p = params;
   const fb = p.fb;
   fb.fill(0);
   const c3 = p.c;
   const sc = p.scale;
+  const hue = p.hue + GREEN;
   for (let c = 0; c < p.cols; c++) {
-    if (p.wait[c] > 0) continue;
+    const live = p.wait[c] <= 0;
     const head = p.head[c];
     const len = p.len[c];
     for (let r = 0; r < p.rows; r++) {
       const d = head - r;
-      if (d < 0 || d > len) continue;
       const i = r * p.cols + c;
-      let R;
-      let G;
-      let B;
-      if (d < 1) {
+      if (live && d >= 0 && d < 1) {
         // The head: near white with a little of the hue in it.
-        hsv(p.hue + 0.04, 0.3, 1, c3);
+        hsv(hue + 0.04, 0.3, 1, c3);
       } else {
-        const t = d / len;
-        const v = 0.12 + 0.88 * Math.pow(1 - t, 1.25) + p.flash[i] * 0.35;
-        hsv(p.hue + 0.08 - 0.1 * t, 0.85 + 0.15 * t, Math.min(1, v), c3);
+        let v;
+        let t;
+        if (live && d >= 1 && d <= len) {
+          // A tail steps down a glyph at a time behind its head.
+          t = Math.floor(d) / len;
+          v = EMBER + (1 - EMBER) * Math.pow(1 - t, 1.25);
+        } else if (p.glow[i] > 0) {
+          t = 1;
+          v = p.glow[i];
+        } else continue;
+        v = Math.min(1, v + p.flash[i] * 0.35);
+        v = Math.round(v * STEPS) / STEPS;
+        hsv(hue + 0.06 - 0.08 * t, 0.8 + 0.2 * t, v, c3);
       }
-      R = c3[0];
-      G = c3[1];
-      B = c3[2];
+      const R = c3[0];
+      const G = c3[1];
+      const B = c3[2];
       const bits = FONT[p.glyph[i]];
       const x0 = c * p.pw;
       const y0 = r * p.ph;
