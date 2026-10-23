@@ -22,5 +22,6 @@
   "algo": { "label": "알고리즘", "color": "#e0c060" },
   "time": { "label": "시계·시간", "color": "#ff8f5a" },
   "textile": { "label": "직물·짜임", "color": "#e04ad8" },
-  "machine": { "label": "기계·톱니", "color": "#4a2cff" }
+  "machine": { "label": "기계·톱니", "color": "#4a2cff" },
+  "celestial": { "label": "천체", "color": "#ffffaa" }
 }
