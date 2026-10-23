@@ -15,8 +15,11 @@
 // This hook into lib/lab/capture/session is the one place the lab touches
 // the capture add-on; removing capture means removing this and the lab is
 // whole again.
+//
+// With a text layer selected, a drag on the frame moves the text: mouse,
+// pen or a finger, anywhere on the frame, in whole LED pixels.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   MATRIX_HEAVY_PIXELS,
   MATRIX_MAX,
@@ -63,6 +66,47 @@ export default function PreviewPanel() {
   const activeError = useLabStore(
     (state) => state.layerErrors[state.activeLayerId] ?? null,
   );
+  const textLayerId = useLabStore((state) => {
+    const active = state.layers.find((layer) => layer.id === state.activeLayerId);
+    return active?.type === "text" && active.visible ? active.id : null;
+  });
+  const textDrag = useRef<{ id: string; pointerId: number; clientX: number; clientY: number; x: number; y: number; scale: number } | null>(null);
+
+  const startTextDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!textLayerId || event.button !== 0) return;
+    const layer = useLabStore.getState().layers.find((entry) => entry.id === textLayerId);
+    if (layer?.type !== "text") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    // object-fit: contain — the frame is drawn at the smaller of the two scales.
+    const scale = Math.min(rect.width / layer.width, rect.height / layer.height);
+    if (!(scale > 0)) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    textDrag.current = {
+      id: layer.id,
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      x: layer.spec.x,
+      y: layer.spec.y,
+      scale,
+    };
+  };
+
+  const moveTextDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const drag = textDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const state = useLabStore.getState();
+    const layer = state.layers.find((entry) => entry.id === drag.id);
+    if (layer?.type !== "text") return;
+    const x = Math.round(drag.x + (event.clientX - drag.clientX) / drag.scale);
+    const y = Math.round(drag.y + (event.clientY - drag.clientY) / drag.scale);
+    if (x !== layer.spec.x || y !== layer.spec.y) state.setTextSpec(drag.id, { x, y });
+  };
+
+  const endTextDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (textDrag.current?.pointerId === event.pointerId) textDrag.current = null;
+  };
 
   const resPreset = `${matrix.width}x${matrix.height}`;
   const isPresetMatrix = RESOLUTION_PRESETS.some((preset) => preset.value === resPreset);
@@ -262,8 +306,16 @@ export default function PreviewPanel() {
                 ref={canvasRef}
                 width={matrix.width}
                 height={matrix.height}
-                style={{ aspectRatio: `${matrix.width} / ${matrix.height}` }}
+                style={{
+                  aspectRatio: `${matrix.width} / ${matrix.height}`,
+                  ...(textLayerId ? { cursor: "move", touchAction: "none" } : {}),
+                }}
                 aria-label={`Composite preview, ${formatMatrix(matrix)}`}
+                title={textLayerId ? "Drag to move the selected text" : undefined}
+                onPointerDown={textLayerId ? startTextDrag : undefined}
+                onPointerMove={textLayerId ? moveTextDrag : undefined}
+                onPointerUp={textLayerId ? endTextDrag : undefined}
+                onPointerCancel={textLayerId ? endTextDrag : undefined}
               />
             )}
           </div>

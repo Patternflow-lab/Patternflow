@@ -17,7 +17,7 @@ import {
 import { hexToRgb } from "@/lib/pattern/color";
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { applyMaskToCoverage, compositeLayers, type CompositeEntry } from "./compositor";
-import type { CodeLayer, Layer, RampState } from "./types";
+import { isRasterLayer, type CodeLayer, type Layer, type RampState } from "./types";
 
 const RECOMPILE_DEBOUNCE_MS = 180;
 
@@ -227,7 +227,7 @@ export class LabEngine {
 
   /** A layer's CURRENT buffer at this frame size, or null if unavailable. */
   private bufferOf(layer: Layer, matrix: MatrixSize): Uint8ClampedArray | null {
-    if (layer.type === "pixel") {
+    if (isRasterLayer(layer)) {
       return layer.width === matrix.width && layer.height === matrix.height ? layer.data : null;
     }
     const entry = this.entries.get(layer.id);
@@ -272,7 +272,7 @@ export class LabEngine {
         applyMaskToCoverage(
           lastPaint.mask,
           buffer,
-          layer.type === "pixel",
+          isRasterLayer(layer),
           layer.maskInvert,
           pixelCount,
         );

@@ -13,13 +13,15 @@ import type { MatrixSize } from "@/lib/pattern/matrix";
 import { saveProject } from "./serialize";
 import { createAutosave } from "./autosave";
 import type { DirectorShow } from "./director/types";
-import { isCodeLayer, type BlendMode, type CodeLayer, type EditRef, type ForkRef, type LayerRole, type GenSettings, type LabProject, type Layer, type RampState, type RampStopState } from "./types";
+import { isCodeLayer, isRampLayer, type BlendMode, type EditRef, type ForkRef, type LayerRole, type GenSettings, type LabProject, type Layer, type RampLayer, type RampState, type RampStopState, type TextSpec } from "./types";
 import { defaultProject } from "./store/shared";
 import { createProjectSlice } from "./store/project";
 import { createLayersSlice } from "./store/layers";
 import { createKnobsSlice } from "./store/knobs";
 import { createRampSlice } from "./store/ramp";
 import { createDirectorSlice } from "./store/director";
+import { createTextSlice } from "./store/text";
+import { isFileFont, loadRememberedFonts, resolveFont, subscribeFonts } from "./textFonts";
 
 export { codeLayerFromSource } from "./store/shared";
 
@@ -84,6 +86,12 @@ export type LabStore = LabProject & {
   bumpPixelLayer: (id: string) => void;
   replacePixelData: (id: string, data: Uint8ClampedArray) => void;
 
+  addTextLayer: () => void;
+  /** Change a text layer's words, font, place or fill; its bitmap is drawn again. */
+  setTextSpec: (id: string, patch: Partial<TextSpec>) => void;
+  /** Draw again the text layers in this font (all of them when omitted): it has just loaded. */
+  redrawTextLayers: (fontId?: string) => void;
+
   setLayerErrors: (errors: Record<string, string | null>) => void;
 };
 
@@ -100,6 +108,7 @@ export const useLabStore = create<LabStore>((set, get) => ({
   ...createKnobsSlice(set),
   ...createRampSlice(set),
   ...createDirectorSlice(set),
+  ...createTextSlice(set, get),
 }));
 
 // ── persistence ──
@@ -144,6 +153,20 @@ if (typeof window !== "undefined") {
     if (state.saveStatus !== "error") useLabStore.setState({ saveStatus: "pending" });
     autosave.schedule();
   });
+
+  // A text layer's font arriving — a site font fetched on first use, a file
+  // added or remembered — draws the layers set in it again.
+  subscribeFonts((fontId) => useLabStore.getState().redrawTextLayers(fontId));
+
+  // A project set in a remembered file font reopens with that font loaded, so
+  // the next edit draws with it rather than the fallback.
+  useLabStore.subscribe((state, previous) => {
+    if (!state.hydrated || state.layers === previous.layers) return;
+    const wantsFile = state.layers.some(
+      (layer) => layer.type === "text" && isFileFont(layer.spec.font) && resolveFont(layer.spec.font).missing,
+    );
+    if (wantsFile) void loadRememberedFonts();
+  });
 }
 
 // ── selectors ──
@@ -152,13 +175,13 @@ export function useActiveLayer(): Layer | undefined {
 }
 
 /**
- * The code layer whose knobs/ramp the side panels should edit: the active
- * layer when it is code, otherwise the topmost code layer.
+ * The layer the Color Ramp panel edits: the active layer when it has a ramp
+ * (code or text), otherwise the topmost code layer.
  */
-export function useFocusCodeLayer(): CodeLayer | undefined {
+export function useFocusRampLayer(): RampLayer | undefined {
   return useLabStore((state) => {
     const active = state.layers.find((layer) => layer.id === state.activeLayerId);
-    if (isCodeLayer(active)) return active;
+    if (isRampLayer(active)) return active;
     return state.layers.find(isCodeLayer);
   });
 }

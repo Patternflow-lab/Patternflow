@@ -29,7 +29,7 @@ import type { MatrixSize } from "@/lib/pattern/matrix";
 import { LabEngine } from "../engine";
 import type { CaptureProject } from "./types";
 import { stretchNearest } from "./core";
-import type { Layer } from "../types";
+import { isRasterLayer, type Layer } from "../types";
 
 export type ProbeVerdict = "native" | "upscale";
 
@@ -215,10 +215,10 @@ function luminance(source: Float32Array): number {
   return sum / (source.length / 3);
 }
 
-/** Pixel layers stretched to `grid` (the same thing the stage does). */
+/** Pixel and text layers stretched to `grid` (the same thing the stage does). */
 function layersAt(layers: Layer[], grid: MatrixSize): Layer[] {
   return layers.map((layer) => {
-    if (layer.type !== "pixel") return layer;
+    if (!isRasterLayer(layer)) return layer;
     if (layer.width === grid.width && layer.height === grid.height) return layer;
     return {
       ...layer,

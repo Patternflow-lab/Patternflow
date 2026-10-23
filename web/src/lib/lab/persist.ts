@@ -10,6 +10,10 @@
 // migrateLegacyDraft is the precedent: it lifts _draft_v1 and _ramp_v1 into a
 // _project_v2 project. A key whose feature is gone stays listed here with the
 // date, so the lab can still remove it (legacyDraft.ts dropAiGallery).
+//
+// One thing the lab keeps is not in localStorage: font files a text layer was
+// set in, when the person ticks remember. Those are IndexedDB, the database
+// patternflow_lab_fonts_v1, because a font is megabytes (textFonts.ts).
 
 export const LAB_STORAGE = {
   /** The whole layered project — layers, knobs, ramps, director, prompt colour mode. serialize.ts */
