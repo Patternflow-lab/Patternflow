@@ -12,9 +12,9 @@
 // @knobs Salts=0..4, Speed=0.2..3, Crystals=5..20, Strength=-1..1
 //
 // Knob 1: Salts. What goes into the glass: all six salts at 0 (cobalt chloride's blue-violet, copper sulfate's turquoise, iron(III) chloride's rust, nickel sulfate's green, manganese chloride's pink, calcium chloride's white), the cool cobalt, copper and calcium at 1, the warm iron, manganese and calcium at 2, the greens of nickel and copper at 3, cobalt alone at 4.
-// Knob 2: Speed. How fast the garden grows: at 2 a tube that races climbs the 90 rows to the surface in about 20 s and a glass lasts about half a minute; at 0.2 it creeps.
-// Knob 3: Crystals. How many crystals are dropped in, 5 to 20; each one sends up two to four tubes as it dissolves. Turned up mid-glass, the extra crystals drop in at once.
-// Knob 4: Strength. How strong the water glass is: near 0 the usual mix, towards -1 a thin solution where fine threads shoot up fast and wriggle, towards 1 a thick one where fat tubes push up slowly and bud into knobbly branches.
+// Knob 2: Speed. How fast the garden grows: at 2 a tube that races takes about 11 s from its crystal to the surface and a glass lasts about half a minute before the next slides in; at 0.2 it creeps.
+// Knob 3: Crystals. How many crystals are dropped in, 5 to 20; each sends up four to six tubes as it dissolves, and those bud more. Turned up mid-glass, the extra crystals drop in at once.
+// Knob 4: Strength. How strong the water glass is: near 0 the usual mix, towards -1 a thin solution where hair-fine threads shoot up in 6 s and wriggle, towards 1 a thick one where fat tubes take 18 s and bud into knobbly branches.
 // Buttons: K1 tap slides the glass away and brings in a fresh one.
 
 const W = 64;
@@ -59,8 +59,8 @@ const SALT = [
   [[255, 168, 184], [240, 170, 186], 0.8, 1.05],
   [[232, 234, 224], [244, 244, 238], 0.72, 1.4],
 ];
-const saltOf = (P, J, si) => SALT[SETS[P.set][J.seeds[si].slot % SETS[P.set].length]];
 const SETS = [[0, 1, 2, 3, 4, 5], [0, 1, 5], [2, 4, 5], [3, 1], [0]];
+const saltOf = (P, J, si) => SALT[SETS[P.set][J.seeds[si].slot % SETS[P.set].length]];
 
 // The room: a dark wall with a frosted globe lamp behind the glass. The
 // solution seen against it is faintly yellow-green and a little cloudy.
@@ -272,7 +272,7 @@ function grow(P, J, d) {
     const top = surfAt(T.x, T.z) + 1.4 + T.r;
     if (!T.cap && T.y <= top) {
       // At the surface it spreads a little way under the skin of the solution.
-      Object.assign(T, { cap: 1, y: top, dir: T.a > 0.05 ? 1 : T.a < -0.05 ? -1 : rnd() < 0.5 ? -1 : 1, fuel: 5 + rnd() * 8 });
+      Object.assign(T, { cap: 1, y: top, dir: T.a > 0.05 ? 1 : T.a < -0.05 ? -1 : rnd() < 0.5 ? -1 : 1, fuel: 7 + rnd() * 11 });
       if (++J.up === 3) J.full = g + 7;
       if (T.bub) J.pops.push([T.x, surfAt(T.x, T.z), 0, 3]), (T.bub = 0);
     }
@@ -344,10 +344,10 @@ export function update(dt, input, params) {
     P.started = true;
     fresh(P, J);
     J.on = true;
-    for (let g = 8 + 2.5 * P.rate; g > 0; g -= 1 / 30) grow(P, J, 1 / 30);
+    for (let g = 10 + 2.5 * P.rate; g > 0; g -= 1 / 30) grow(P, J, 1 / 30);
   }
   if (input.btnPressed && input.btnPressed[0] && P.phase !== SWAP) slideIn(P);
-  if (P.phase !== SWAP) grow(P, J, P.phase === GROW ? d : 0);
+  if (P.phase !== SWAP) grow(P, J, d);
   if (P.phase === GROW && J.done) [P.phase, P.pt] = [HOLD, 0];
   else if (P.phase === HOLD && (P.pt += d) > 2.5) slideIn(P);
   else if (P.phase === SWAP) {
@@ -414,11 +414,20 @@ function life(P, J, cols) {
     // Salt leaking from the crystal's skin tints the solution round it.
     if (S.land >= 0) {
       const R = min(9, 2 + (J.g - S.land) * 0.7);
-      for (let y = round(S.rest - R * 1.3); y <= S.rest + 1; y++)
-        for (let x = round(S.x - R); x <= S.x + R; x++) {
-          const f = 1 - ((x - S.x) / R) ** 2 - ((y - S.rest) / (R * 1.3)) ** 2;
-          if (f > 0) add(x + o, y, sc[0][0], sc[0][1], sc[0][2], 0.08 * f);
+      const [hr, hg, hb] = sc[0];
+      for (let y = round(S.rest - R * 1.3); y <= S.rest + 1; y++) {
+        const v = (y - S.rest) / (R * 1.3);
+        for (let x = max(-o, round(S.x - R)); x <= S.x + R && x + o < W; x++) {
+          const u = (x - S.x) / R;
+          const f = 0.08 * (1 - u * u - v * v);
+          if (f > 0) {
+            const q = (y * W + x + o) * 3;
+            B[q] += hr * f;
+            B[q + 1] += hg * f;
+            B[q + 2] += hb * f;
+          }
         }
+      }
     }
     // A falling crystal leaves a faint streak of dissolving salt.
     const surf = surfAt(S.x, S.z);
@@ -440,7 +449,6 @@ export function draw(display, params) {
   const P = params;
   B = P.buf;
   const { wl: WL, la: LA, so: SO, jk: K, jc: C, jm: M, jo: O, tc: TC } = P;
-  const set = SETS[P.set];
   const on = P.jars.filter((J) => J.on);
   for (const J of on) {
     // This frame's colour for every tube, from its crystal's salt.
@@ -474,7 +482,7 @@ export function draw(display, params) {
         const fr = 0.3 * max(0, 1 - (J.g - J.bo[q]) / 1.4);
         const fog = 0.06 + 0.5 * J.zb[q];
         const hl = max(0, s - 1);
-        const sv = min(1, s) * (0.68 + 0.6 * LA[p]);
+        const sv = min(1, s) * (0.68 + 0.48 * LA[p]);
         for (let c = 0; c < 3; c++) {
           let v = J.tc[id + c] * sv;
           v += (255 - v) * hl;
