@@ -37,7 +37,9 @@ import {
   type PixelLayer,
   type RampState,
   type TextLayer,
+  type TextSource,
 } from "./types";
+import { sourceColumnLimit } from "./textEffects";
 import { defaultKnobState, matchKnobsAnnotation } from "./annotations";
 import { LAB_STORAGE, readStorage, removeStorage, writeStorage } from "./persist";
 import { matchMatrixAnnotation } from "@/lib/pattern/matrix";
@@ -283,6 +285,11 @@ export function serializeProject(project: LabProject): string | null {
         px: bytesToBase64(layer.data),
         spec: layer.spec,
         ramp: layer.ramp,
+        // A scrolling or ramp-running layer keeps what it moves too, past
+        // the frame's edges: without the font it could not be drawn again.
+        ...(layer.source
+          ? { src: { x: layer.source.x, w: layer.source.width, px: bytesToBase64(layer.source.data) } }
+          : {}),
       };
     }
     return {
@@ -384,6 +391,7 @@ function readLayer(raw: unknown): Layer | null {
         rev: 0,
         spec: normalizeTextSpec(isRecord(raw.spec) ? raw.spec : {}, defaultTextSpec(frame), frame),
         ramp: isRecord(raw.ramp) ? readRamp(raw.ramp) : cloneRampState(TEXT_RAMP_STATE),
+        source: readTextSource(raw.src, width, height),
       };
       return layer;
     }
@@ -399,6 +407,17 @@ function readLayer(raw: unknown): Layer | null {
   }
 
   return null;
+}
+
+/** A saved text source, or null when it is missing or does not fit the frame. */
+function readTextSource(raw: unknown, width: number, height: number): TextSource | null {
+  if (!isRecord(raw) || typeof raw.px !== "string") return null;
+  const x = Number(raw.x);
+  const columns = Number(raw.w);
+  if (!Number.isInteger(x) || !Number.isInteger(columns) || columns <= 0) return null;
+  if (columns > sourceColumnLimit(width, height) || Math.abs(x) > width * 8 + columns) return null;
+  const data = base64ToBytes(raw.px, columns * height * 4);
+  return data ? { x, width: columns, data } : null;
 }
 
 export function deserializeProject(json: string): (LabProject & { savedAt: number }) | null {

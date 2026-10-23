@@ -9,6 +9,7 @@ import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { needsFlatten } from "@/lib/lab/flatten";
 import { labPatternName, useLabStore } from "@/lib/lab/store";
+import { activeTextEffect } from "@/lib/lab/textEffects";
 import { isCodeLayer, isTextLayer } from "@/lib/lab/types";
 import styles from "./PatternLab.module.css";
 import local from "./HardwareModal.module.css";
@@ -213,6 +214,9 @@ export default function HardwareModal({
                       Nothing here needs a model. Text and pixel layers go into the header as the
                       pixels they show, so it is finished as it is.
                       {layers.some(isTextLayer) ? " The board needs no font for the letters." : null}
+                      {layers.some((layer) => isTextLayer(layer) && layer.visible && activeTextEffect(layer))
+                        ? " Text that moves moves there too, on the same knob."
+                        : null}
                     </p>
                   ) : (
                     <p className={styles.modalNote}>

@@ -4,7 +4,8 @@
 // layer keeps its own ramp. New in the layered lab: per-stop ALPHA, drawn over
 // a checkerboard, which is what lets a value field fade out and reveal the
 // layers underneath. A selected text layer has a ramp too: its letters take
-// these colours across or down when the Text panel's fill says so.
+// these colours across or down when the Text panel's fill says so, and run
+// through them when its effect does.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -437,7 +438,9 @@ function RampEditor({ layer }: { layer: RampLayer }) {
         )}
         {layer.type === "text" && layer.spec.fill === "solid" && (
           <p className={local.rampHint}>
-            This text is one colour. Fill it with the ramp:{" "}
+            {layer.spec.effect === "ramp"
+              ? "The letters run through these colours all together. Spread the ramp over them:"
+              : "This text is one colour. Fill it with the ramp:"}{" "}
             <button type="button" onClick={() => setTextSpec(layer.id, { fill: "rampX" })}>
               across
             </button>{" "}

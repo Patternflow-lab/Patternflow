@@ -107,6 +107,16 @@ export const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
 export type TextFill = "solid" | "rampX" | "rampY";
 export const TEXT_FILLS: TextFill[] = ["solid", "rampX", "rampY"];
 
+/**
+ * What moves the letters, frame by frame, at a speed one knob sets
+ * (lib/lab/textEffects.ts):
+ *   scroll   the lines run out to the left and come back in from the right
+ *   twinkle  each LED dims and brightens on its own beat
+ *   ramp     the colours run along the layer's ramp and back
+ */
+export type TextEffect = "none" | "scroll" | "twinkle" | "ramp";
+export const TEXT_EFFECTS: TextEffect[] = ["none", "scroll", "twinkle", "ramp"];
+
 export type TextSpec = {
   /** What it says. A line break starts a new line. */
   text: string;
@@ -126,17 +136,33 @@ export type TextSpec = {
   fill: TextFill;
   /** Every LED fully on or off, the way pixel art is. Off keeps the font's soft edges as dimmer LEDs. */
   sharp: boolean;
+  effect: TextEffect;
+  /** The knob that sets the effect's speed, 0..3. Turned all the way down, the effect stands still. */
+  effectKnob: number;
 };
 
 export const TEXT_SIZE_MIN = 4;
 export const TEXT_SIZE_MAX = 128;
 export const TEXT_MAX_CHARS = 200;
 
+/**
+ * What the scroll and ramp effects work from, drawn with the bitmap: every
+ * row of the frame, but only the columns the letters reach, `x` being the
+ * first of them in frame pixels. It may start left of the frame and run past
+ * its right edge, so a line longer than the panel scrolls through whole.
+ *   scroll  the letters in colour
+ *   ramp    in each pixel, red is where it sits on the ramp (0..255) and
+ *           alpha is how much of it the letters cover
+ */
+export type TextSource = { x: number; width: number; data: Uint8ClampedArray };
+
 export type TextLayer = LayerCommon & Raster & {
   type: "text";
   spec: TextSpec;
   /** Used when `spec.fill` is a ramp; edited in the Color Ramp panel like a code layer's. */
   ramp: RampState;
+  /** Null with no effect, for twinkle (it works on the bitmap) and when no letter lands. */
+  source: TextSource | null;
 };
 
 export type Layer = CodeLayer | PixelLayer | TextLayer;
@@ -288,6 +314,10 @@ export function defaultTextSpec(matrix: MatrixSize): TextSpec {
     color: "#e8552e",
     fill: "solid",
     sharp: true,
+    effect: "none",
+    // The second knob is the firmware's Speed, and the only one whose
+    // starting value is not at the bottom of its range.
+    effectKnob: 1,
   };
 }
 
@@ -323,6 +353,8 @@ export function normalizeTextSpec(
     color: typeof raw.color === "string" && HEX.test(raw.color) ? raw.color.toLowerCase() : previous.color,
     fill: TEXT_FILLS.includes(raw.fill as TextSpec["fill"]) ? (raw.fill as TextSpec["fill"]) : previous.fill,
     sharp: typeof raw.sharp === "boolean" ? raw.sharp : previous.sharp,
+    effect: TEXT_EFFECTS.includes(raw.effect as TextEffect) ? (raw.effect as TextEffect) : previous.effect,
+    effectKnob: whole(raw.effectKnob, previous.effectKnob, 0, 3),
   };
 }
 
@@ -343,6 +375,7 @@ export function createTextLayer(matrix: MatrixSize, name: string): TextLayer {
     rev: 0,
     spec: defaultTextSpec(matrix),
     ramp: cloneRampState(TEXT_RAMP_STATE),
+    source: null,
   };
 }
 
