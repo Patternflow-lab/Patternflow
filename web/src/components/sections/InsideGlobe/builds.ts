@@ -558,6 +558,26 @@ export const builds: Build[] = [
       { src: '/builds/jonwtr/surface.jpg', alt: 'A shieldXL and a Synthux Simple Touch resting on the glowing panel, played with both hands' },
     ],
   },
+  {
+    id: 'russia-dmitryleeo',
+    title: 'On air',
+    category: 'builds',
+    slug: 'dmitryleeo-russia',
+    kind: 'build',
+    location: { lat: 55.7558, lng: 37.6173, label: 'Moscow, Russia' },
+    maker: "Dmitry Lee'O",
+    date: '2026-10',
+    description:
+      'A black Patternflow connected to Cubase over RTP-MIDI and used in live performance. The maker plays original electronic music on YouTube, and the panel is joining the Friday stream.',
+    links: [
+      { href: 'https://www.youtube.com/@dmitryleeo', label: 'youtube.com/@dmitryleeo' },
+    ],
+    images: [
+      { src: '/builds/dmitryleeo/on-air.jpg', alt: "Dmitry Lee'O's black Patternflow standing on a desk in a home studio, a red and white tile pattern on the panel and an ON AIR sign behind it" },
+      { src: '/builds/dmitryleeo/space.jpg', alt: 'The same Patternflow on its side, a pixel-art spaceship and a planet on the panel' },
+      { src: '/builds/dmitryleeo/studio.jpg', alt: 'The same Patternflow on its side between a mixer and a keyboard, a pixel-art platform game on the panel' },
+    ],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.
