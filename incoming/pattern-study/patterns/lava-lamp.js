@@ -1,11 +1,11 @@
 // ===== Patternflow pattern =====
 // Title:   Lava Lamp
 // Family:  sim
-// Idea:    A tall lava lamp: wax warms in the pool over the bulb, pulls up on a neck, rises as a drop, cools under the cap and sinks back, glowing soft against coloured liquid.
+// Idea:    A tall lava lamp: wax warms in the pool over the bulb, pulls up on a neck, rises as a drop, cools against the glass at the top and sinks back, glowing soft against coloured liquid.
 // Author:  patternflow-lab
 // Date:    2026-10-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Edward Craven Walker's Astro lamp (1963), drawn as Wyvill soft objects
+// Lineage: Edward Craven Walker's Astro lamp (1963), drawn as metaballs
 // Round:   3
 // ===============================
 // @matrix 64x128
@@ -15,7 +15,7 @@
 // Knob 2: Heat. How hot the bulb runs: the wax barely stirs at the bottom of the range and circulates in a few seconds at the top.
 // Knob 3: Wax. How many drops are loose in the lamp; drops past the count sink into the pool and melt into it.
 // Knob 4: Stretch. At 0 the wax travels as round drops; turned up, moving wax pulls out into teardrops and long necks, and the pool reaches up after it.
-// Buttons: K1 tap flares the bulb, and the warmest drop in the pool lets go.
+// Buttons: K1 tap flares the bulb, and the lowest drop heats through and lets go.
 
 const W = 64;
 const H = 128;
@@ -153,7 +153,7 @@ function step(params, dt) {
       params.x[i] = W - m;
       params.vx[i] = -Math.abs(params.vx[i]) * 0.3;
     }
-    // Wax that reaches the cap stays under it until it cools; wax in the pool sinks half into it.
+    // Wax that reaches the top rests against the glass until it cools; wax in the pool sinks half into it.
     const ceiling = CAP + r * 0.45;
     const floor = POOL + r * 0.55;
     if (params.y[i] < ceiling) {
@@ -201,7 +201,7 @@ export function draw(display, params, time) {
   const liquid = params.liquid;
   const lut = params.lut;
   const side = params.side;
-  // The liquid glows brightest just over the bulb, bluer there and more violet under the cap.
+  // The liquid glows brightest just over the bulb, bluer there and more violet at the top.
   // Yellow liquid is lit brighter and paler, since dim yellow reads as olive.
   for (let y = 0; y < H; y++) {
     const d = y / (H - 1);
