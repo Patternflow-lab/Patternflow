@@ -19,3 +19,11 @@ button.promptButton {
   background: #eee7d8;
   font-weight: 600;
 }
+
+/* The colour mode is what the copied prompt asks for, so on a narrow bar the
+   two wrap to the next row together. */
+.promptGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

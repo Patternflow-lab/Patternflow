@@ -141,26 +141,28 @@ export default function CodePanel() {
         >
           {cleared ? "Cleared ✓" : "Clear"}
         </button>
-        <select
-          value={gen.colorMode}
-          aria-label="Color mode"
-          title="What Copy prompt asks for. v-field: the AI writes a 0..1 value field and the layer's Color Ramp does the coloring. rgb: the AI colors pixels itself."
-          onChange={(event) => setGen({ colorMode: event.target.value as ColorMode })}
-        >
-          {COLOR_MODES.map((option) => (
-            <option key={option} value={option}>
-              {option === "vfield" ? "v-field" : "rgb"}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className={local.promptButton}
-          onClick={copyVariantPrompt}
-          title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
-        >
-          {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
-        </button>
+        <span className={local.promptGroup}>
+          <select
+            value={gen.colorMode}
+            aria-label="Color mode"
+            title="What Copy prompt asks for. v-field: the AI writes a 0..1 value field and the layer's Color Ramp does the coloring. rgb: the AI colors pixels itself."
+            onChange={(event) => setGen({ colorMode: event.target.value as ColorMode })}
+          >
+            {COLOR_MODES.map((option) => (
+              <option key={option} value={option}>
+                {option === "vfield" ? "v-field" : "rgb"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={local.promptButton}
+            onClick={copyVariantPrompt}
+            title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
+          >
+            {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
+          </button>
+        </span>
         <button type="button" onClick={() => setGuideOpen(true)}>
           Code guide
         </button>
