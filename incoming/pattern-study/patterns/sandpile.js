@@ -135,6 +135,7 @@ function clear(P) {
   P.next = null;
   P.symX = true;
   P.symY = true;
+  P.edge = -1;
 }
 
 // Where the drop points sit this cycle: the first cycle uses the plan as it
@@ -160,7 +161,6 @@ function unfold(P) {
     for (let y = 0; y < H; y++)
       for (let x = W / 2; x < W; x++) (z[at(x, y)] = z[at(W - 1 - x, y)]), (heat[at(x, y)] = heat[at(W - 1 - x, y)]);
   if (mode & 2) {
-    z.copyWithin(at(-1, H / 2), at(-1, 0), at(-1, H / 2));
     for (let y = H / 2; y < H; y++) {
       z.copyWithin(at(-1, y), at(-1, H - 1 - y), at(-1, H - y));
       heat.copyWithin(at(-1, y), at(-1, H - 1 - y), at(-1, H - y));
@@ -301,6 +301,14 @@ function startRipple(P, pts) {
   return cov;
 }
 
+// The tray tips with whatever the panel shows on it.
+function tip(P) {
+  if (P.rip >= 0) P.cur.set(P.tgt);
+  P.rip = -1;
+  P.phase = TILT;
+  P.pt = 0;
+}
+
 export function update(dt, input, params) {
   const P = params;
   const k = input.knobValues || [0, 2, 1, 0.06];
@@ -308,18 +316,19 @@ export function update(dt, input, params) {
   P.pal = clamp(round(k[0]), 0, 4);
   const speed = clamp(k[1], 0.2, 3);
   P.n = clamp(round(k[2]), 1, 5);
-  const spread = max(0, clamp(k[3], 0, 1) - 0.08) * 14;
+  const spread = (P.spread = max(0, clamp(k[3], 0, 1) - 0.08) * 14);
+  P.speed = speed;
   if (!P.started) {
     P.started = true;
     prerun(P, 0.74, spread);
   }
-  if (input.btnPressed && input.btnPressed[0] && P.phase !== TILT) [P.phase, P.pt] = [TILT, 0];
+  if (input.btnPressed && input.btnPressed[0] && P.phase !== TILT) tip(P);
 
   if (P.phase === TILT) {
     P.pt += dt;
     if (P.pt > 1.4) {
       clear(P);
-      P.shift = round((rnd() - 0.5) * 50);
+      P.shift = round((rnd() - 0.5) * 40);
       P.phase = GROW;
       P.wait = 0;
     }
@@ -329,21 +338,32 @@ export function update(dt, input, params) {
   // Work on the next handful while the last one's ripple runs.
   settle(P, 60000);
   if (P.rip >= 0) {
-    P.rip += RIP * dt;
+    P.rip += RIP * sqrt(speed / 2) * dt;
     if (P.rip > P.ripMax) {
       P.cur.set(P.tgt);
       P.rip = -1;
     }
   }
   P.wait -= dt;
+  if (P.edge >= 0) P.edge += (dt * speed) / 2;
   if (P.phase === HOLD) {
     P.full += dt;
-    if (P.full > 2) [P.phase, P.pt] = [TILT, 0];
+    if (P.full > 2) tip(P);
     return;
   }
   const every = 0.6 * sqrt(2 / speed);
   if (P.wait <= 0 && P.sp === 0 && P.rip < 0) {
-    if (P.next && startRipple(P, P.next) > 0.985) [P.phase, P.full] = [HOLD, 0];
+    // Full is the whole tray, or ten seconds after the pile first spilled
+    // off the top or bottom: drop points off the middle fill the far end
+    // slowly, since most of their sand runs off the near one.
+    if (P.next) {
+      const cov = startRipple(P, P.next);
+      if (P.edge < 0 && (P.reach.subarray(0, W).includes(1) || P.reach.subarray(N - W).includes(1))) P.edge = 0;
+      if (cov > 0.985 || P.edge > 10) {
+        [P.phase, P.full] = [HOLD, 0];
+        return;
+      }
+    }
     const pts = plan(P, spread);
     pour(P, pts, round(1250 * speed * every), spread);
     P.next = pts;
@@ -392,5 +412,16 @@ export function draw(display, params) {
         B = u[2] + (v[2] - u[2]) * t;
       }
       display.setPixel(x, y, R + (glow[0] - R) * a, G + (glow[1] - G) * a, B + (glow[2] - B) * a);
+    }
+  // Grains still falling on the drop points glint as they land.
+  if (P.phase !== GROW || !P.next) return;
+  for (const [cx, cy] of P.next)
+    for (let i = 0; i < 1 + P.speed; i++) {
+      const a = rnd() * 2 * PI;
+      const d = 1.2 * rnd() + P.spread * sqrt(-2 * Math.log(1 - rnd() * 0.999));
+      const x = round(cx + cos(a) * d);
+      const y = round(cy + sin(a) * d);
+      const g = 0.5 + 0.5 * rnd();
+      if (x >= 0 && x < W && y >= 0 && y < H) display.setPixel(x, y, glow[0] * g, glow[1] * g, glow[2] * g);
     }
 }
