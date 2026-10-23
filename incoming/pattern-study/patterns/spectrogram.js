@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Map=0..1, Scroll=0.5..4, Birds=0..1, Gain=-1..1
 //
-// Knob 1: Map. The colour map, each blending into the next: inferno at 0, then magma, viridis, and at 1 the black ink on white paper of a Sona-Graph.
+// Knob 1: Map. The colour map: inferno at 0 blends into magma and then viridis, and at 1 it is the black ink on white paper of a Sona-Graph.
 // Knob 2: Scroll. How fast time falls: at 2 the waterfall moves 24 rows a second and holds five seconds of sound; at 0.5 the songs squeeze into short dashes, at 4 they stretch tall.
 // Knob 3: Birds. How far the chorus has woken: at 0 a robin, a cuckoo and a wren; turned up, sparrows, a blackbird, a collared dove, a woodpecker and more join, ten in all.
 // Knob 4: Gain. Slides the 50 dB window the map spans: turned down, only the songs show over a black floor; turned up, the wind and the far road flood the panel.
