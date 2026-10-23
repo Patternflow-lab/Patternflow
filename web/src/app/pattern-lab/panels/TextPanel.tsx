@@ -416,7 +416,11 @@ function TextEditor({ layer }: { layer: TextLayer }) {
           >
             {COPY_LABEL[codeCopy]}
           </button>
-          <span className={local.note}>The letters as pixels: the code needs no font. Change the words and copy again.</span>
+          <span className={local.note}>
+            {spec.effect === "none"
+              ? "The letters as pixels: the code needs no font. Change the words and copy again."
+              : "The letters as pixels, standing still: the effect goes with Export and To hardware."}
+          </span>
         </div>
       </div>
     </div>

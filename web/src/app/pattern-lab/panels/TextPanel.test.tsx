@@ -8,15 +8,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 vi.mock("@/lib/lab/textRaster", () => ({
-  textCoverage: (spec: { text: string; x: number; y: number }, _font: string, width: number, height: number) => {
+  textCoverage: (spec: { text: string; x: number; y: number }, _font: string, width: number, height: number, left = 0) => {
     const coverage = new Uint8ClampedArray(width * height);
     for (let x = spec.x; x < spec.x + spec.text.length * 2; x++) {
       for (let y = spec.y - 1; y < spec.y + 1; y++) {
-        if (x >= 0 && x < width && y >= 0 && y < height) coverage[y * width + x] = 255;
+        if (x - left >= 0 && x - left < width && y >= 0 && y < height) coverage[y * width + x - left] = 255;
       }
     }
     return coverage;
   },
+  // A scroll draws the whole line: where the blocks above start and end.
+  textReach: (spec: { text: string; x: number }) => ({ left: spec.x - 1, right: spec.x + spec.text.length * 2 + 1 }),
 }));
 
 import TextPanel from "./TextPanel";
@@ -129,6 +131,54 @@ describe("TextPanel", () => {
     render(<TextPanel />);
     expect(screen.getByRole("status")).toHaveTextContent("Gone Grotesk isn't loaded in this browser.");
     expect(screen.getByRole("combobox", { name: "Font" })).toHaveValue("file:Gone Grotesk");
+  });
+});
+
+describe("an effect on the text", () => {
+  it("scrolls on the Speed knob by default, and says where that knob is", () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    expect(screen.queryByRole("combobox", { name: "Speed knob" })).toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "Effect" }), { target: { value: "scroll" } });
+    expect(text().spec.effect).toBe("scroll");
+    expect(text().source).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "Speed knob" })).toHaveValue("1");
+    const { knobLabels, knobs, ranges } = store();
+    const share = Math.round(((knobs[1] - ranges[1][0]) / (ranges[1][1] - ranges[1][0])) * 100);
+    expect(share).toBeGreaterThan(0);
+    expect(screen.getByText(`${knobLabels[1]} sets how fast the letters run out to the left`, { exact: false })).toHaveTextContent(
+      `It is at ${share}% now. All the way down stands the effect still.`,
+    );
+  });
+
+  it("says nothing moves while the chosen knob is all the way down", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { effect: "twinkle" });
+    render(<TextPanel />);
+    useLabStore.setState({ knobs: [store().ranges[0][0], ...store().knobs.slice(1)] });
+    fireEvent.change(screen.getByRole("combobox", { name: "Speed knob" }), { target: { value: "0" } });
+    expect(text().spec.effectKnob).toBe(0);
+    expect(screen.getByText(`${store().knobLabels[0]} sets how fast each LED dims`, { exact: false })).toHaveTextContent(
+      "It is all the way down, so nothing moves yet: turn it up in Knobs.",
+    );
+  });
+
+  it("names the knobs as the Knobs panel does", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { effect: "scroll" });
+    useLabStore.setState({ knobLabels: ["Hue", "Rate", "Mode", "Shift"] });
+    render(<TextPanel />);
+    expect(screen.getByRole("option", { name: "Rate" })).toBeInTheDocument();
+    expect(screen.getByText(/Rate sets how fast/)).toBeInTheDocument();
+  });
+
+  it("running the ramp puts away the one color, which it does not use", () => {
+    store().addTextLayer();
+    render(<TextPanel />);
+    expect(screen.getByLabelText("Color")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Effect" }), { target: { value: "ramp" } });
+    expect(screen.queryByLabelText("Color")).toBeNull();
+    expect(screen.getByText(/The colors are this layer's Color Ramp/)).toBeInTheDocument();
   });
 });
 

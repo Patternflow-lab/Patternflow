@@ -27,6 +27,7 @@
 import { withMatrixAnnotation } from "@/lib/pattern/matrix";
 import { rleEncodeRGBA } from "./flatten";
 import { bytesToBase64 } from "./serialize";
+import { activeTextEffect } from "./textEffects";
 import { fontLabel } from "./textFonts";
 import type { RasterLayer } from "./types";
 
@@ -38,9 +39,21 @@ type SpriteCrop = {
   data: Uint8ClampedArray;
 };
 
-/** Tight bounding box of non-transparent pixels; null when nothing is drawn. */
+/**
+ * Tight bounding box of non-transparent pixels; null when nothing is drawn.
+ * A scrolling text crops its source instead, the whole line from wherever
+ * it starts, so the letters past the frame's edges come along to be
+ * scrolled in the chat too.
+ */
 function cropToSprite(layer: RasterLayer): SpriteCrop | null {
-  const { width, height, data } = layer;
+  if (layer.type === "text" && activeTextEffect(layer) === "scroll" && layer.source) {
+    const crop = cropBuffer(layer.source.data, layer.source.width, layer.height);
+    return crop && { ...crop, x: crop.x + layer.source.x };
+  }
+  return cropBuffer(layer.data, layer.width, layer.height);
+}
+
+function cropBuffer(data: Uint8ClampedArray, width: number, height: number): SpriteCrop | null {
   let minX = width;
   let minY = height;
   let maxX = -1;
