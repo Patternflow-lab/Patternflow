@@ -8,7 +8,9 @@
  *
  * The one-line Korean note beside each card comes from the README's table of
  * patterns, the row that links patterns/<slug>.js. Without a row, the card
- * shows the pattern's own Idea line.
+ * shows the pattern's own Idea line. A family's name and colour come from
+ * families.json beside the patterns, so a round that opens a family adds a
+ * line there and leaves tools/ alone.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -16,36 +18,10 @@ import path from "node:path";
 
 import type * as Esbuild from "esbuild";
 
-import { STUDY } from "./lab";
+import { loadFamilies, roundOf, STUDY } from "./lab";
 import type { Result } from "./study";
 
 const esbuild = createRequire(path.resolve(STUDY, "../../web/package.json"))("esbuild") as typeof Esbuild;
-
-/** Family slug as a pattern's header writes it → how the page names and colours it. */
-export const FAMILIES: Record<string, { label: string; color: string }> = {
-  noise: { label: "노이즈·흐름", color: "#5ec8ff" },
-  sim: { label: "시뮬레이션", color: "#3fe0a8" },
-  wave: { label: "물결·간섭", color: "#4f7dff" },
-  particle: { label: "입자", color: "#ffb02e" },
-  line: { label: "선·궤적", color: "#ff7a45" },
-  geometry: { label: "기하·대칭", color: "#c77dff" },
-  automata: { label: "셀룰러 오토마타", color: "#9be15d" },
-  type: { label: "글자", color: "#ff5fa2" },
-  rhythm: { label: "리듬·펄스", color: "#ff4d4d" },
-  space: { label: "공간·원근", color: "#e8e05a" },
-  light: { label: "빛", color: "#7ef0d0" },
-  growth: { label: "자라남", color: "#d4c094" },
-  glitch: { label: "글리치", color: "#b0b8c8" },
-  physics: { label: "물리·스프링", color: "#ff9db0" },
-  fractal: { label: "프랙탈", color: "#a3a0ff" },
-  cells: { label: "보로노이·셀", color: "#5fd0d0" },
-  print: { label: "망점·인쇄", color: "#f0a0e0" },
-  weather: { label: "날씨·자연", color: "#8fc0ff" },
-  pixel: { label: "픽셀 아트", color: "#ffd166" },
-  data: { label: "데이터 그림", color: "#7fe08a" },
-  algo: { label: "알고리즘", color: "#e0c060" },
-  time: { label: "시계·시간", color: "#ff8f5a" },
-};
 
 function readmeNotes(): Map<string, string> {
   const notes = new Map<string, string>();
@@ -79,8 +55,7 @@ export function buildPage(results: Result[]): string {
         slug: p.slug,
         title: p.title,
         family: p.family,
-        // Round two's files say "// Round: 2"; round one's carry no line.
-        round: Number(p.code.match(/^\/\/[ \t]*Round:[ \t]*(\d+)/m)?.[1] ?? 1),
+        round: roundOf(p.code),
         note: notes.get(p.slug) ?? "",
         idea: p.idea,
         buttons: p.code.match(/^\/\/[ \t]*Buttons:[ \t]*(.+)$/m)?.[1].trim() ?? "",
@@ -94,8 +69,9 @@ export function buildPage(results: Result[]): string {
       };
     });
   const used = new Set(patterns.map((p) => p.family));
+  const known = loadFamilies();
   const families = Object.fromEntries(
-    [...used].sort().map((f) => [f, FAMILIES[f] ?? { label: f, color: "#cccccc" }]),
+    [...used].sort().map((f) => [f, known[f] ?? { label: f, color: "#cccccc" }]),
   );
   const data = { patterns, families };
 

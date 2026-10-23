@@ -10,6 +10,8 @@
 
 바퀴 PR 은 포크 PR 가운데 본문에 `## 바퀴` 절이 있는 PR 이에요. 열린 것, 머지된 것, 머지되지 않고 닫힌 것을 다 봐요. 바퀴 번호는 hub 가 작업 글에 적어 줘요. 적혀 있지 않으면 가장 큰 앞 바퀴 번호에 1을 더해요. 앞 바퀴가 없으면 1바퀴예요.
 
+본문에 `## 패턴 바퀴` 절이 있는 PR 은 패턴 연구 바퀴([pattern-study/ROUND.md](pattern-study/ROUND.md))라서 이 바퀴의 PR 이 아니에요.
+
 ### 고르는 차례
 
 1. 앞 바퀴 PR 에 달린 글이 일을 시키면 그 일이 이번 바퀴예요. 대화 댓글, 리뷰, 리뷰의 줄 댓글을 다 읽어요. MCP 의 `pull_request_read` 는 셋을 `get_comments`, `get_reviews`, `get_review_comments` 로 나눠 줘요. `get_comments` 는 글마다 `author_association` 을 붙여 와요(포크 #94 에서 봤어요). 다른 둘에서 이 값이 비어 오면 그 글은 따르지 않고 「가정」에 옮겨 적어요.

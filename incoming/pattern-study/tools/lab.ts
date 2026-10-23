@@ -23,6 +23,18 @@ import { DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 
 export const STUDY = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 export const PATTERNS = path.join(STUDY, "patterns");
+/**
+ * Family slug, as a pattern's "// Family:" line writes it, → how the page
+ * names and colours that family. It sits beside the patterns rather than in
+ * tools/, so a round that opens a new family adds one line there.
+ */
+export const FAMILIES_FILE = path.join(STUDY, "families.json");
+
+export type Family = { label: string; color: string };
+
+export function loadFamilies(): Record<string, Family> {
+  return JSON.parse(fs.readFileSync(FAMILIES_FILE, "utf8")) as Record<string, Family>;
+}
 
 export type Knob = { name: string; min: number; max: number };
 
@@ -42,6 +54,9 @@ export type Pattern = {
 
 const header = (code: string, key: string) =>
   code.match(new RegExp(`^//[ \\t]*${key}:[ \\t]*(.+)$`, "m"))?.[1].trim() ?? "";
+
+/** The round a pattern came in: its "// Round:" line, or 1 for round one's files, which carry none. */
+export const roundOf = (code: string) => Number(code.match(/^\/\/[ \t]*Round:[ \t]*(\d+)/m)?.[1] ?? 1);
 
 export function loadPattern(slug: string): Pattern {
   const file = path.join(PATTERNS, `${slug}.js`);
