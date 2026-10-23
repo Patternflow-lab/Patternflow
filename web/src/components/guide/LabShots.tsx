@@ -26,7 +26,6 @@ type ShotId =
   | "recent"
   | "copyPrompt"
   | "paste"
-  | "gallery"
   | "bw"
   | "ramp"
   | "rampRandom"
@@ -58,17 +57,16 @@ const GEO: Record<ShotId, Geo> = {
   bw: { src: "preview-bw.webp", w: 401, h: 206, ring: null },
   color: { src: "preview-color.webp", w: 401, h: 206, ring: null },
   convert: { src: "convert.webp", w: 456, h: 256, ring: [2.85, 63.1, 94.3, 16.41] },
-  copyPrompt: { src: "code.webp", w: 485, h: 236, ring: [59.65, 15.68, 20.89, 15.25] },
+  copyPrompt: { src: "code.webp", w: 539, h: 236, ring: [64.06, 15.68, 18.8, 15.25] },
   director: { src: "director.webp", w: 480, h: 292, ring: [25.21, 12.67, 35.35, 12.33] },
   exportGo: { src: "export.webp", w: 476, h: 176, ring: [1.05, 76.93, 97.2, 20.45] },
   exportSize: { src: "export.webp", w: 476, h: 176, ring: [1.05, 21.02, 65.76, 20.45] },
-  gallery: { src: "gallery.webp", w: 485, h: 236, ring: [62.91, 15.68, 25.4, 15.25] },
   hwLayers: { src: "hw-layers.webp", w: 456, h: 188, ring: [71.96, 60.77, 22.77, 20.21] },
   knobs: { src: "knobs.webp", w: 345, h: 186, ring: [4.06, 76.55, 93.91, 18.28] },
   layers: { src: "layers.webp", w: 423, h: 240, ring: [2.84, 0.83, 30.66, 15.0] },
   mask: { src: "layers.webp", w: 423, h: 240, ring: [3.31, 87.11, 57.06, 9.97] },
   name: { src: "name.webp", w: 400, h: 64, ring: [14.0, 6.25, 72.0, 56.25] },
-  paste: { src: "code.webp", w: 485, h: 236, ring: [37.05, 15.68, 11.87, 15.25] },
+  paste: { src: "code.webp", w: 539, h: 236, ring: [30.18, 15.68, 10.68, 15.25] },
   pasted: { src: "pasted.webp", w: 456, h: 224, ring: [2.85, 62.31, 94.3, 31.96] },
   perf: { src: "ports.webp", w: 464, h: 149, ring: [21.79, 76.96, 32.49, 21.93] },
   port: { src: "ports.webp", w: 464, h: 149, ring: [24.92, 8.72, 29.55, 21.93] },
@@ -134,15 +132,6 @@ const WORDS: Record<ShotId, Words> = {
       ko: "Code 탭의 도구 줄과 그 아래 패턴 코드. Paste 버튼이 표시돼 있다.",
     },
   },
-  gallery: {
-    title: "Generate · Key",
-    en: "Key takes your Gemini key, kept in this browser and sent only to Google. Generate asks for n variations; click a card to load one.",
-    ko: "Key에 Gemini 키를 넣어요. 이 브라우저에만 저장되고 구글로만 가요. Generate를 누르면 n개를 받고, 카드를 누르면 불러와요.",
-    alt: {
-      en: "The Gallery tab before any variations, with its Generate and Key buttons marked.",
-      ko: "아직 변형이 없는 Gallery 탭. Generate와 Key 버튼이 표시돼 있다.",
-    },
-  },
   bw: {
     title: "Preview",
     en: "A v-field on the default ramp: each pixel's value, 0 to 1, shown black to white.",
@@ -172,8 +161,8 @@ const WORDS: Record<ShotId, Words> = {
   },
   color: {
     title: "Preview",
-    en: "The same values through that ramp. Want the AI to pick colours instead? Set the Gallery's v-field to rgb before copying the prompt.",
-    ko: "같은 값이 그 램프를 거친 모습이에요. 색을 AI에게 맡기려면, 프롬프트를 복사하기 전에 Gallery의 v-field를 rgb로 바꿔요.",
+    en: "The same values through that ramp. Want the AI to pick colours instead? Set v-field beside Copy prompt to rgb before copying.",
+    ko: "같은 값이 그 램프를 거친 모습이에요. 색을 AI에게 맡기려면, 복사하기 전에 Copy prompt 옆의 v-field를 rgb로 바꿔요.",
     alt: {
       en: "The preview through that ramp: the same rings in purple and blue, with dark bands between them.",
       ko: "그 램프를 거친 미리보기. 같은 동심원이 보라와 파랑으로 보이고, 그 사이는 어두운 띠다.",
@@ -328,7 +317,7 @@ const WORDS: Record<ShotId, Words> = {
 /** Which screens each step of the chapter shows (copy/lab.ts steps with extra: "labShots"). */
 const STEPS: Record<number, ShotId[]> = {
   1: ["name", "saved", "recent"],
-  2: ["copyPrompt", "paste", "gallery"],
+  2: ["copyPrompt", "paste"],
   3: ["bw", "ramp", "rampRandom", "color"],
   4: ["knobs", "push"],
   5: ["convert"],

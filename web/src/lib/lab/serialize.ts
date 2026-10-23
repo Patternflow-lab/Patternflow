@@ -10,8 +10,8 @@
 // persist.ts says who wrote each key.
 
 import { RAMP_MODES, type RampMode } from "@/lib/pattern/harness";
-import { COLOR_MODES, THINKING_LEVELS } from "@/lib/ai/settings";
-import type { ColorMode, ThinkingLevelKey } from "@/lib/ai/settings";
+import { COLOR_MODES } from "@/lib/ai/settings";
+import type { ColorMode } from "@/lib/ai/settings";
 import { isValidMatrix, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 import { loadDraft } from "@/lib/lab/legacyDraft";
 import { PATTERN_KNOB_COUNT } from "@/lib/pattern/harness";
@@ -77,6 +77,53 @@ export function layoutViewCount(layout: unknown): number {
   };
   const grid = (layout as { grid?: { root?: unknown } } | null | undefined)?.grid;
   return walk(grid?.root);
+}
+
+/**
+ * A saved dock layout without the panels this build no longer has, or null
+ * when taking one out would leave a group with no tabs.
+ *
+ * dockview builds every saved panel through the component map, and a name the
+ * map lacks throws ("Only React.memo(...), React.ForwardRef(...) and
+ * functional components are accepted"). The restore catches that and lays out
+ * the default, so when the Gallery panel went on 23 October 2026 every layout
+ * still holding its tab, the default one included, would have been thrown
+ * away for that one tab. A group left empty would restore as a blank pane, so
+ * that case still gets the default.
+ */
+export function dropRetiredPanels<T>(layout: T, known: ReadonlySet<string>): T | null {
+  if (!isRecord(layout) || !isRecord(layout.panels)) return layout;
+  const { panels, ...rest } = layout;
+  const retired = new Set(
+    Object.entries(panels)
+      .filter(([id, panel]) => {
+        const component = isRecord(panel) ? (panel.contentComponent ?? panel.id ?? id) : id;
+        return typeof component !== "string" || !known.has(component);
+      })
+      .map(([id]) => id),
+  );
+  if (retired.size === 0) return layout;
+
+  let emptied = false;
+  const keep = (ids: unknown[]) => ids.filter((id) => !(typeof id === "string" && retired.has(id)));
+  const strip = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(strip);
+    if (!isRecord(node)) return node;
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) next[key] = strip(value);
+    if (Array.isArray(node.views)) {
+      const views = keep(node.views);
+      if (views.length === 0 && node.views.length > 0) emptied = true;
+      next.views = views;
+      if (typeof node.activeView === "string" && retired.has(node.activeView)) next.activeView = views[0];
+    }
+    if (Array.isArray(node.panelIds)) next.panelIds = keep(node.panelIds);
+    return next;
+  };
+  const result = strip(rest) as Record<string, unknown>;
+  if (emptied) return null;
+  result.panels = Object.fromEntries(Object.entries(panels).filter(([id]) => !retired.has(id)));
+  return result as T;
 }
 /** The colour ramp the lab wrote from 2 to 27 July 2026. Only the migration reads it. */
 const LEGACY_RAMP_STORAGE = LAB_STORAGE.legacyRamp;
@@ -253,14 +300,7 @@ export function serializeProject(project: LabProject): string | null {
 
 function readGen(raw: unknown): GenSettings {
   const gen = (raw ?? {}) as Record<string, unknown>;
-  const count = Number(gen.count);
-  const refs = Number(gen.refs);
   return {
-    count: Number.isFinite(count) ? Math.max(1, Math.min(20, Math.round(count))) : 5,
-    thinking: THINKING_LEVELS.includes(gen.thinking as ThinkingLevelKey)
-      ? (gen.thinking as ThinkingLevelKey)
-      : "LOW",
-    refs: Number.isFinite(refs) ? refs : 6,
     colorMode: COLOR_MODES.includes(gen.colorMode as ColorMode)
       ? (gen.colorMode as ColorMode)
       : "vfield",

@@ -142,15 +142,15 @@ const communityFooter = [
   "// please keep this notice and the author credit above when you reuse,",
   "// remix, or redistribute this pattern. Do not delete it.",
 ].join("\n");
-const geminiFooter = [
+const labAiFooter = [
   "// ---",
   "// Made with Patternflow Pattern Lab — https://patternflow.work/pattern-lab",
   "// Licensed CC-BY-SA-4.0. Keep this notice if you share or remix.",
 ].join("\n");
-const stack = `(function () {\n  function draw() {}\n${communityFooter}\n})();\n(function () {\n  function draw() {}\n${geminiFooter}\n})();\nexport function draw(display) {}`;
+const stack = `(function () {\n  function draw() {}\n${communityFooter}\n})();\n(function () {\n  function draw() {}\n${labAiFooter}\n})();\nexport function draw(display) {}`;
 check("embedded community footer leaves the code after it alone", stripShareWrapping(stack), stack);
 check("trailing community footer still comes off", stripShareWrapping(`${BODY}\n\n${communityFooter}\n`), BODY);
-check("trailing gemini footer still comes off", stripShareWrapping(`${BODY}\n\n${geminiFooter}\n`), BODY);
+check("trailing Lab AI footer still comes off", stripShareWrapping(`${BODY}\n\n${labAiFooter}\n`), BODY);
 check(
   "a @stack line after the body survives a trailing footer",
   stripShareWrapping(`${BODY}\n\n// @stack v1 d:AAAA\n\n${communityFooter}\n`),

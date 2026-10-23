@@ -1,7 +1,7 @@
 // Provenance badges against the lines Pattern Lab writes by itself. Every Lab
 // publish carries `@matrix` and every value-field layer carries `@ramp`,
 // touched or not. Until 21 October 2026 the badges counted the line alone, so
-// a Gemini variant published the way it came out of the gallery showed
+// a variant published the way it came out of the Lab's AI gallery showed
 // "Framed" and "Colour shaped" on its page.
 
 import { describe, expect, it } from "vitest";

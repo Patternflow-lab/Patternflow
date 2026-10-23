@@ -6,7 +6,7 @@
 // (which owns the dockview api) fronts the matching editor tab.
 //
 // Deliberately NOT store state: deriving it from activeLayerId would front
-// tabs on every programmatic selection (gallery loads, imports, deletes), and
+// tabs on every programmatic selection (preset steps, imports, deletes), and
 // re-clicking the already-active layer — the exact "let me in" gesture — would
 // change nothing and emit nothing.
 
