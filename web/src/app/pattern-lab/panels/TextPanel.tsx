@@ -6,8 +6,13 @@
 //
 // Fonts come from the site, the device or a file the person picks
 // (lib/lab/textFonts.ts). A file is read in this browser and goes nowhere.
+//
+// Copy as code takes the letters as they are drawn now, the way Pixel's does
+// a drawing (lib/lab/pixelToCode.ts): a pattern that needs no font.
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useResettingState } from "@/lib/hooks/useResettingState";
+import { buildPixelPatternCode } from "@/lib/lab/pixelToCode";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
 import {
   FONT_FILE_ACCEPT,
@@ -32,6 +37,7 @@ import {
   type TextFill,
   type TextLayer,
 } from "@/lib/lab/types";
+import type { CodeCopyState } from "./pixel/PixelToolbars";
 import local from "./TextPanel.module.css";
 import dock from "../LabPanels.module.css";
 
@@ -48,6 +54,13 @@ const FILL_LABEL: Record<TextFill, string> = {
 };
 
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
+
+const COPY_LABEL: Record<CodeCopyState, string> = {
+  idle: "Copy as code",
+  copied: "Copied ✓",
+  empty: "No letters on the frame",
+  failed: "Copy failed",
+};
 
 /** The font picker's entries, kept up as fonts are added, remembered or arrive. */
 function useFontOptions(): FontOption[] {
@@ -136,8 +149,21 @@ function TextEditor({ layer }: { layer: TextLayer }) {
   const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [codeCopy, flashCodeCopy] = useResettingState<CodeCopyState>("idle", 1400);
   const { spec } = layer;
   const set = (patch: Parameters<typeof setTextSpec>[1]) => setTextSpec(layer.id, patch);
+
+  const copyAsCode = () => {
+    const code = buildPixelPatternCode(layer);
+    if (!code) {
+      flashCodeCopy("empty");
+      return;
+    }
+    navigator.clipboard
+      .writeText(code)
+      .then(() => flashCodeCopy("copied"))
+      .catch(() => flashCodeCopy("failed"));
+  };
 
   const missing = resolveFont(spec.font).missing;
   const groups = (["site", "system", "file"] as const).map((group) => ({
@@ -318,6 +344,17 @@ function TextEditor({ layer }: { layer: TextLayer }) {
             ? "Drag the text in Preview to move it."
             : "Drag the text in Preview to move it. The colors are this layer's Color Ramp."}
         </p>
+
+        <div className={local.actions}>
+          <button
+            type="button"
+            onClick={copyAsCode}
+            title="Copy the letters as a standalone pattern (JS) that needs no font. Paste it into an AI chat and ask it to scroll, wave or twinkle them. The text layer stays as it is."
+          >
+            {COPY_LABEL[codeCopy]}
+          </button>
+          <span className={local.note}>The letters as pixels: the code needs no font. Change the words and copy again.</span>
+        </div>
       </div>
     </div>
   );

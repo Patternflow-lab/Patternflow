@@ -20,6 +20,7 @@ import type { MatrixSize } from "@/lib/pattern/matrix";
 import { LabEngine } from "./engine";
 import { flattenLayers } from "./flatten";
 import { assembleH, buildHExport } from "./hExport";
+import { buildPixelPatternCode } from "./pixelToCode";
 import { paintText } from "./text";
 import {
   BLEND_MODES,
@@ -423,22 +424,30 @@ afterAll(() => {
 
 type Fraction = [bigint, bigint];
 
+// The site's TypeScript targets ES2017, so no 1n literals: BigInt(1).
+const ZERO = BigInt(0);
+const ONE = BigInt(1);
+const TWO = BigInt(2);
+
 function gcd(a: bigint, b: bigint): bigint {
-  a = a < 0n ? -a : a;
+  a = a < ZERO ? -a : a;
   while (b) [a, b] = [b, a % b];
   return a;
 }
-function fraction(n: bigint, d = 1n): Fraction {
-  const g = gcd(n, d) || 1n;
-  return [n / g, d / g];
+function fraction(n: bigint | number, d: bigint | number = 1): Fraction {
+  const [bn, bd] = [BigInt(n), BigInt(d)];
+  const g = gcd(bn, bd) || ONE;
+  return [bn / g, bd / g];
 }
 const plus = (a: Fraction, b: Fraction) => fraction(a[0] * b[1] + b[0] * a[1], a[1] * b[1]);
 const times = (a: Fraction, b: Fraction) => fraction(a[0] * b[0], a[1] * b[1]);
 const minus = (a: Fraction, b: Fraction) => plus(a, [-b[0], b[1]]);
 
-const OPACITY_FRACTIONS = new Map<number, Fraction>([
-  [1, [1n, 1n]], [0.8, [4n, 5n]], [0.6, [3n, 5n]], [0.2, [1n, 5n]], [0.5, [1n, 2n]], [0.25, [1n, 4n]],
-]);
+const OPACITY_FRACTIONS = new Map<number, Fraction>(
+  ([[1, 1, 1], [0.8, 4, 5], [0.6, 3, 5], [0.2, 1, 5], [0.5, 1, 2], [0.25, 1, 4]] as const).map(
+    ([opacity, n, d]) => [opacity, fraction(n, d)],
+  ),
+);
 
 /**
  * One channel of the composite before it is rounded, worked in fractions:
@@ -446,18 +455,18 @@ const OPACITY_FRACTIONS = new Map<number, Fraction>([
  * which is what HALVES holds.
  */
 function exactChannel(layers: Layer[], pixel: number, channel: number): Fraction {
-  let value: Fraction = [0n, 1n];
-  const full: Fraction = [255n, 1n];
+  let value = fraction(0);
+  const full = fraction(255);
   for (const layer of [...layers].reverse()) {
     const data = (layer as PixelLayer | TextLayer).data;
-    const a = times(fraction(BigInt(data[pixel * 4 + 3]), 255n), OPACITY_FRACTIONS.get(layer.opacity)!);
-    if (a[0] === 0n) continue;
-    const s: Fraction = [BigInt(data[pixel * 4 + channel]), 1n];
-    const keep = times(value, minus([1n, 1n], a));
+    const a = times(fraction(data[pixel * 4 + 3], 255), OPACITY_FRACTIONS.get(layer.opacity)!);
+    if (a[0] === ZERO) continue;
+    const s = fraction(data[pixel * 4 + channel]);
+    const keep = times(value, minus(fraction(1), a));
     if (layer.blend === "add") value = plus(value, times(s, a));
-    else if (layer.blend === "multiply") value = plus(keep, times(times(value, fraction(s[0], 255n)), a));
+    else if (layer.blend === "multiply") value = plus(keep, times(times(value, fraction(s[0], 255)), a));
     else if (layer.blend === "screen") {
-      const screened = minus(full, times(times(minus(full, value), minus(full, s)), [1n, 255n]));
+      const screened = minus(full, times(times(minus(full, value), minus(full, s)), fraction(1, 255)));
       value = plus(keep, times(screened, a));
     } else value = plus(keep, times(s, a));
   }
@@ -465,7 +474,7 @@ function exactChannel(layers: Layer[], pixel: number, channel: number): Fraction
 }
 
 /** n + 1/2 for a whole n: a value two correct roundings may take either way. */
-const isHalfStep = ([n, d]: Fraction) => d === 2n && n % 2n !== 0n;
+const isHalfStep = ([n, d]: Fraction) => d === TWO && n % TWO !== ZERO;
 
 describe.skipIf(!CXX)("a text layer in the C++ header", () => {
   let frames: Map<string, Uint8ClampedArray> | null = null;
@@ -481,7 +490,7 @@ describe.skipIf(!CXX)("a text layer in the C++ header", () => {
   it("an exact half step can round either way: one level, in the one channel", () => {
     const shown = preview(HALF_STEP);
     const panel = header(HALF_STEP.name);
-    expect(exactChannel(HALF_STEP.layers, 0, 2)).toEqual([55n, 2n]);
+    expect(exactChannel(HALF_STEP.layers, 0, 2)).toEqual(fraction(55, 2));
     expect([shown[2], panel[2]]).toEqual([27, 28]);
     expect(firstDifference(shown.slice(0, 2), panel.slice(0, 2), 1)).toBeNull();
   }, 60_000);
@@ -505,4 +514,78 @@ describe.skipIf(!CXX)("a text layer in the C++ header", () => {
     expect(parted.length).toBeGreaterThan(0);
     expect(parted.length).toBeLessThan(20);
   }, 60_000);
+});
+
+// ── Copy as code ──
+
+describe("a text layer copied as code", () => {
+  const alone = (layer: TextLayer): Case => ({
+    name: layer.name,
+    frame: { width: layer.width, height: layer.height },
+    layers: [{ ...layer, opacity: 1, blend: "normal", role: "paint" }],
+  });
+
+  function run(code: string, frame: MatrixSize, time = 0): Uint8ClampedArray {
+    const runtime = new PatternRuntime(frame.width, frame.height);
+    expect(runtime.loadCode(code).error).toBeUndefined();
+    expect(runtime.renderFrame(1 / 60, time, createIdleInput([0, 0, 0, 0])).error).toBeUndefined();
+    return runtime.data;
+  }
+
+  const sharp = CASES[0].layers[0] as TextLayer;
+  const soft = CASES[1].layers[0] as TextLayer;
+
+  it.each([["sharp, one colour", sharp], ["soft, a ramp with a see-through stop", soft]] as const)(
+    "%s: draws the pixels the preview shows, with no font",
+    (_name, layer) => {
+      const code = buildPixelPatternCode(layer)!;
+      expect(code).toContain(`// Text: "${layer.spec.text}"`);
+      expect(firstDifference(preview(alone(layer)), run(code, alone(layer).frame), layer.width)).toBeNull();
+    },
+  );
+
+  it("marks where a warp and a change of light go", () => {
+    const code = buildPixelPatternCode(sharp)!;
+    expect(code).toContain("// ── DISTORT HERE ──");
+    expect(code).toContain("// ── LIGHT HERE ──");
+  });
+
+  // The header's examples are what a model copies first, so they have to work.
+  it("its scroll example moves the letters left a pixel at a time and brings them back", () => {
+    const layer = alone(sharp);
+    const code = buildPixelPatternCode(sharp)!.replace(
+      "// ── DISTORT HERE ──",
+      `const span = display.width + SPRITE_W;
+      sx = ((Math.round(sx + time * 20) % span) + span) % span;
+      // ──`,
+    );
+    const still = run(buildPixelPatternCode(sharp)!, layer.frame);
+    expect(firstDifference(run(code, layer.frame, 0), still, 128)).toBeNull();
+
+    // One second is 20 pixels to the left.
+    const moved = run(code, layer.frame, 1);
+    const shifted = new Uint8ClampedArray(still.length);
+    for (let y = 0; y < 64; y++) {
+      for (let x = 0; x < 128 - 20; x++) shifted.set(still.subarray((y * 128 + x + 20) * 4, (y * 128 + x + 21) * 4), (y * 128 + x) * 4);
+    }
+    const lit = (data: Uint8ClampedArray) => data.some((byte, i) => (i & 3) !== 3 && byte > 0);
+    expect(lit(still)).toBe(true);
+    // The columns the letters left, and nothing yet coming in on the right.
+    expect(firstDifference(moved, shifted, 128)).toBeNull();
+  });
+
+  it("its twinkle example runs", () => {
+    const code = buildPixelPatternCode(soft)!.replace(
+      "// ── LIGHT HERE ──",
+      `const tw = 0.6 + 0.4 * Math.sin(time * 6 + x * 1.7 + y * 2.3);
+      r *= tw; g *= tw; b *= tw;
+      a *= 0.5 + 0.5 * Math.sin(time * 2);
+      // ──`,
+    );
+    run(code, alone(soft).frame, 0.3);
+  });
+
+  it("is null when no letter lands on the frame", () => {
+    expect(buildPixelPatternCode({ ...sharp, data: new Uint8ClampedArray(sharp.data.length) })).toBeNull();
+  });
 });
