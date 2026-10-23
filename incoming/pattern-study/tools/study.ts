@@ -2,7 +2,6 @@
  * The pattern study's one command. From web/:
  *
  *   npx tsx ../incoming/pattern-study/tools/study.ts            check, measure, write index.html
- *   npx tsx ../incoming/pattern-study/tools/study.ts --shots    the same, and the GIFs and knob sheets
  *   npx tsx ../incoming/pattern-study/tools/study.ts --check    write nothing; fail on a pattern or a stale index.html
  *   ... study.ts --only ripple-tank,moire    just those (index.html is left alone)
  *   ... study.ts --check --gaps              and the empty cells of every map, the
@@ -16,6 +15,11 @@
  * its family is one families.json names, and a file from round three on
  * carries the whole header the rounds write: Author, Date, Lineage and a
  * "// Knob N:" line for each knob.
+ *
+ * The study keeps no pictures. Rounds ten and before left a GIF and a knob
+ * sheet per pattern and an overview in shots/; they were taken out before
+ * round eleven, when a round started bringing ten patterns, and index.html
+ * is where the patterns are looked at.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -28,15 +32,19 @@ import { parseRampAnnotation } from "@/lib/pattern/ramp";
 
 import { AXES, emptyCells } from "./map";
 import { FAMILIES_FILE, listPatterns, loadFamilies, loadPattern, roundOf, run, STUDY, type Family, type Frame, type Pattern } from "./lab";
-import { difference, measure, type Measures } from "./measure";
-import { ensureShots, SHOTS, writeGif, writeKnobSheet, writeOverview } from "./shots";
+import { difference, measure, thirds, type Measures } from "./measure";
 
 const args = process.argv.slice(2);
 const checkOnly = args.includes("--check");
-const withShots = args.includes("--shots");
 const withGaps = args.includes("--gaps");
 const onlyArg = args.indexOf("--only");
 const only = onlyArg >= 0 ? (args[onlyArg + 1] ?? "").split(",").filter(Boolean) : null;
+// An old round's notes still say --shots. Running on past it would let a
+// round believe the pictures were made.
+for (const flag of args.filter((a) => a.startsWith("--") && !["--check", "--gaps", "--only"].includes(a))) {
+  console.log(flag === "--shots" ? "--shots is gone: the study keeps no GIFs since round eleven. Open index.html to look." : `unknown flag ${flag}`);
+  process.exit(1);
+}
 
 const FPS = 30;
 // A knob whose settings all stay this close to each other, frame for frame,
@@ -125,14 +133,12 @@ try {
   familyFailures.push(`cannot read it: ${(error as Error).message.split("\n")[0]}`);
 }
 
-const pending: Promise<unknown>[] = [];
-
 export type Result = {
   pattern: Pattern;
-  /** The frame four seconds in at the start knobs. */
-  still: Uint8Array | null;
   problems: string[];
   measures: Measures | null;
+  /** Lit share of the top, middle and bottom third of the panel. */
+  thirds: number[];
   knobResponse: number[];
   ms: number;
 };
@@ -180,7 +186,7 @@ function study(slug: string): Result {
   const main = framesOf(pattern, pattern.start, 8, 2);
   if (main.error) {
     problems.push(`throws at the start knobs: ${main.error.split("\n")[0]}`);
-    return { pattern, problems, still: null, measures: null, knobResponse: [], ms: main.ms };
+    return { pattern, problems, measures: null, thirds: [], knobResponse: [], ms: main.ms };
   }
   for (const [name, knobs] of [
     ["minimum", pattern.knobs.map((k) => k.min)],
@@ -198,14 +204,12 @@ function study(slug: string): Result {
   // a fresh start and compared over the last second frame against frame. The
   // ends alone are not enough: a hue knob is the same colour at 0 and 1.
   const stops = [0, 0.25, 0.5, 0.75, 1];
-  const sheet: Uint8Array[][] = [];
   const knobResponse = pattern.knobs.map((knob, k) => {
     const runs = stops.map((u) => {
       const knobs = [...pattern.start];
       knobs[k] = knob.min + (knob.max - knob.min) * u;
       return framesOf(pattern, knobs, 3, 2).frames;
     });
-    sheet.push([runs[0], runs[2], runs[4]].map((frames) => frames[frames.length - 1].rgb));
     let response = 0;
     for (let a = 0; a < runs.length; a++)
       for (let b = a + 1; b < runs.length; b++) {
@@ -218,23 +222,7 @@ function study(slug: string): Result {
     return response;
   });
 
-  if (withShots && !checkOnly) {
-    ensureShots();
-    // Three seconds at 15 fps. A busy pattern whose GIF comes out past 450 KB
-    // goes again at 10 fps, then for two seconds, so a page of them still
-    // opens on a phone.
-    const gif = path.join(SHOTS, `${slug}.gif`);
-    for (const [every, seconds] of [[2, 3], [3, 3], [3, 2]]) {
-      const fps = FPS / every;
-      const gifFrames = main.frames.filter((_, i) => i % every === 0).slice(0, fps * seconds);
-      writeGif(gif, gifFrames, pattern.matrix.width, pattern.matrix.height, 3, fps);
-      if (fs.statSync(gif).size <= 450 * 1024) break;
-    }
-    pending.push(writeKnobSheet(path.join(SHOTS, `${slug}-knobs.png`), pattern, sheet));
-  }
-
-  // Frames are kept from 2 s on, so index 60 is 4 s in.
-  return { pattern, problems, still: main.frames[60].rgb, measures, knobResponse, ms: main.ms };
+  return { pattern, problems, measures, thirds: thirds(main.frames, pattern.matrix.width, pattern.matrix.height), knobResponse, ms: main.ms };
 }
 
 /**
@@ -272,14 +260,11 @@ function printGaps(results: Result[]) {
 async function main() {
   const slugs = only ?? listPatterns();
   const results = slugs.map(study);
-  if (withShots && !checkOnly && !only) {
-    const items = results.filter((r) => r.still).map((r) => ({ pattern: r.pattern, rgb: r.still! }));
-    pending.push(writeOverview(path.join(SHOTS, "overview.png"), items));
-  }
-  await Promise.all(pending);
 
   const pad = (s: string, n: number) => s.padEnd(n);
-  console.log(pad("pattern", 22) + pad("family", 11) + "motion detail edges  cmplx  lit    colour drift  ms   knobs");
+  // thirds: the share of the top, middle and bottom third lit, in whole
+  // percent rounded down, so a 5 there is at least 5%.
+  console.log(pad("pattern", 22) + pad("family", 11) + "motion detail edges  cmplx  lit    colour drift  thirds      ms   knobs");
   for (const r of results) {
     const m = r.measures;
     const f = (v: number | undefined) => (v === undefined ? "-".padEnd(7) : v.toFixed(3).padEnd(7));
@@ -287,6 +272,7 @@ async function main() {
       pad(r.pattern.slug, 22) +
         pad(r.pattern.family, 11) +
         f(m?.motion) + f(m?.detail) + f(m?.edges) + f(m?.complexity) + f(m?.coverage) + f(m?.colour) + f(m?.drift) +
+        pad(r.thirds.length ? r.thirds.map((v) => Math.floor(v * 100)).join("/") : "-", 12) +
         r.ms.toFixed(1).padEnd(5) +
         r.knobResponse.map((v) => v.toFixed(2)).join(" "),
     );
