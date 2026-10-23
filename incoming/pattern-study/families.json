@@ -20,5 +20,6 @@
   "pixel": { "label": "픽셀 아트", "color": "#ffd166" },
   "data": { "label": "데이터 그림", "color": "#7fe08a" },
   "algo": { "label": "알고리즘", "color": "#e0c060" },
-  "time": { "label": "시계·시간", "color": "#ff8f5a" }
+  "time": { "label": "시계·시간", "color": "#ff8f5a" },
+  "textile": { "label": "직물·짜임", "color": "#e04ad8" }
 }
