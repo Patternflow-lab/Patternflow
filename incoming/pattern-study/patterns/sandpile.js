@@ -1,0 +1,427 @@
+// ===== Patternflow pattern =====
+// Title:   Sandpile
+// Family:  automata
+// Idea:    Handfuls of sand fall on a tray where any cell holding four grains topples one to each neighbour, each avalanche runs out from the drop point as a bright ring and leaves the four-colour lace of the pile rewritten behind it, and when the pile has filled the tall tray it tips and pours off.
+// Author:  patternflow-lab
+// Date:    2026-10-23
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Lineage: original, pattern round 21, after the Bak-Tang-Wiesenfeld abelian sandpile (1987)
+// Round:   21
+// ===============================
+// @matrix 64x128
+// @knobs Palette=0..4, Speed=0.2..3, Sources=1..5, Scatter=0..1
+//
+// Knob 1: Palette. The four colours of 0, 1, 2 and 3 grains, each a shade deeper by the drop points than out at the rim: dune sand on indigo, glacier, moss, embers, neon.
+// Knob 2: Speed. Grains per second, 300 at 0.2 up to 4500 at 3; at 2 a handful of 1800 lands every 0.6 s and its ring takes half a second to cross the pile.
+// Knob 3: Sources. How many drop points the sand falls on: one in the middle, two stacked, a triangle, a square, a square with a centre.
+// Knob 4: Scatter. How wide each handful spreads as it lands: near 0 every grain hits the drop point and the pile keeps its mirror symmetry; towards 1 the grains land over a patch some forty cells across, the lace grows ragged and stray grains speckle the bare tray.
+// Buttons: K1 tap tips the tray now.
+
+const W = 64;
+const H = 128;
+const N = W * H;
+// The sandpile lives on a grid one cell wider all round. The border cells
+// are the sinks: they start so far below zero that no number of grains
+// makes them topple, so grains pushed over the edge are simply gone.
+const WP = W + 2;
+const NP = WP * (H + 2);
+const SINK = -(1 << 30);
+const { min, max, floor, round, sqrt, log2, exp, sin, cos, PI } = Math;
+const rnd = () => Math.random();
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const at = (x, y) => (y + 1) * WP + x + 1;
+function hash(i, j) {
+  let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+// Drop points for each Sources setting, as the centre of a 2x2 block of
+// cells, so every plan is mirror symmetric about the middle of the panel.
+const POINTS = [
+  [[31.5, 63.5]],
+  [[31.5, 40.5], [31.5, 86.5]],
+  [[31.5, 33.5], [16.5, 91.5], [46.5, 91.5]],
+  [[17.5, 38.5], [45.5, 38.5], [17.5, 88.5], [45.5, 88.5]],
+  [[15.5, 33.5], [47.5, 33.5], [31.5, 63.5], [15.5, 93.5], [47.5, 93.5]],
+];
+
+// Each palette: 0, 1, 2 and 3 grains by the drop points, the same out at
+// the rim, the bare tray, and the glow of toppling. The study reads a cell by
+// its brightest channel, and most neighbours in a pile are a 3 beside a 2,
+// so 3 is the bright one and 2 the dark one, and the rim colours keep each
+// level's brightness while the hue drifts.
+const PALS = [
+  [
+    [[10, 8, 20], [20, 128, 118], [14, 22, 62], [255, 198, 104]],
+    [[12, 8, 22], [54, 96, 150], [36, 16, 60], [255, 234, 200]],
+    [4, 5, 10],
+    [255, 236, 190],
+  ],
+  [
+    [[4, 8, 16], [30, 110, 150], [34, 20, 70], [170, 236, 255]],
+    [[4, 8, 16], [70, 90, 170], [20, 30, 72], [236, 246, 255]],
+    [2, 5, 9],
+    [200, 255, 255],
+  ],
+  [
+    [[6, 10, 4], [130, 112, 20], [14, 46, 26], [170, 255, 90]],
+    [[6, 10, 4], [96, 130, 30], [40, 40, 16], [230, 255, 160]],
+    [3, 5, 2],
+    [240, 255, 200],
+  ],
+  [
+    [[12, 3, 4], [176, 42, 26], [62, 12, 44], [255, 170, 40]],
+    [[12, 3, 6], [190, 30, 70], [40, 10, 60], [255, 214, 120]],
+    [6, 2, 2],
+    [255, 230, 170],
+  ],
+  [
+    [[6, 0, 12], [0, 148, 170], [54, 0, 92], [255, 110, 210]],
+    [[8, 0, 12], [40, 120, 200], [80, 0, 70], [255, 170, 250]],
+    [3, 0, 6],
+    [255, 220, 255],
+  ],
+];
+
+const [GROW, HOLD, TILT] = [0, 1, 2];
+// A ripple runs out at this many cells a second; the glow trails it by about
+// RING cells.
+const RIP = 150;
+const RING = 5;
+
+export function setup(params) {
+  const P = params;
+  P.z = new Int32Array(NP);
+  P.heat = new Int32Array(NP);
+  // Cells waiting to topple. A cell goes on when it reaches four grains and
+  // comes off when it topples, so it is never on twice.
+  P.st = new Int32Array(NP);
+  P.sp = 0;
+  // Mirror lines: bit 1 sends a cell's right-hand grain back to itself, bit
+  // 2 its downward one.
+  P.mir = new Uint8Array(NP);
+  P.mode = 0;
+  // What the panel shows: the pile before the running ripple and after it,
+  // each cell as its grains plus 4 once sand has reached it.
+  P.reach = new Uint8Array(N);
+  P.cur = new Uint8Array(N);
+  P.tgt = new Uint8Array(N);
+  P.amp = new Float32Array(N);
+  P.dist = new Float32Array(N);
+  P.tone = new Float32Array(N);
+  P.toneKey = "";
+  P.col = new Float32Array(W);
+  for (let x = 0; x < W; x++) P.col[x] = rnd();
+  P.started = false;
+  P.phase = GROW;
+  P.pt = 0;
+  P.wait = 0;
+  P.full = 0;
+  P.shift = 0;
+  clear(P);
+}
+
+function clear(P) {
+  const z = P.z;
+  z.fill(SINK);
+  for (let y = 0; y < H; y++) z.fill(0, at(0, y), at(0, y) + W);
+  P.heat.fill(0);
+  P.sp = 0;
+  P.reach.fill(0);
+  P.cur.fill(0);
+  P.tgt.fill(0);
+  P.rip = -1;
+  P.next = null;
+  P.symX = true;
+  P.symY = true;
+  P.edge = -1;
+}
+
+// Where the drop points sit this cycle: the first cycle uses the plan as it
+// stands, later ones slide it up or down the tray.
+function points(P, n) {
+  return POINTS[n - 1].map(([x, y]) => [x, clamp(y + P.shift, 9.5, H - 10.5)]);
+}
+
+// While the pile is mirror symmetric, only the top left quarter (or the left
+// half) is worked out and then unfolded: a cell on a mirror line topples one
+// grain back onto itself. It is the same pile for a quarter of the work.
+function setMode(P, m) {
+  if (m === P.mode) return;
+  P.mode = m;
+  P.mir.fill(0);
+  if (m & 1) for (let y = 0; y < H; y++) P.mir[at(W / 2 - 1, y)] |= 1;
+  if (m & 2) for (let x = 0; x < W; x++) P.mir[at(x, H / 2 - 1)] |= 2;
+}
+
+function unfold(P) {
+  const { z, heat, mode } = P;
+  if (mode & 1)
+    for (let y = 0; y < H; y++)
+      for (let x = W / 2; x < W; x++) (z[at(x, y)] = z[at(W - 1 - x, y)]), (heat[at(x, y)] = heat[at(W - 1 - x, y)]);
+  if (mode & 2) {
+    for (let y = H / 2; y < H; y++) {
+      z.copyWithin(at(-1, y), at(-1, H - 1 - y), at(-1, H - y));
+      heat.copyWithin(at(-1, y), at(-1, H - 1 - y), at(-1, H - y));
+    }
+  }
+}
+
+function add(P, p, g) {
+  const o = P.z[p];
+  P.z[p] = o + g;
+  if (o < 4 && o + g > 3) P.st[P.sp++] = p;
+}
+
+// One handful shared by every drop point: on each point's 2x2 block, or
+// strewn round it with Scatter.
+function pour(P, pts, g, spread) {
+  if (spread <= 0) {
+    const share = max(1, floor(g / 4 / pts.length));
+    for (const [cx, cy] of pts)
+      for (let i = 0; i < 4; i++) {
+        const x = floor(cx) + (i & 1);
+        const y = floor(cy) + (i >> 1);
+        if (!((P.mode & 1 && x >= W / 2) || (P.mode & 2 && y >= H / 2))) add(P, at(x, y), share);
+      }
+    return;
+  }
+  for (let i = 0; i < g; i++) {
+    const [cx, cy] = pts[i % pts.length];
+    const a = rnd() * 2 * PI;
+    const d = spread * sqrt(-2 * Math.log(1 - rnd() * 0.999));
+    const x = round(cx + cos(a) * d);
+    const y = round(cy + sin(a) * d);
+    if (x >= 0 && x < W && y >= 0 && y < H) add(P, at(x, y), 1);
+  }
+}
+
+// Topple until stable or out of budget. A cell with 4k grains or more
+// topples k times at once. Working from the top of the stack keeps the
+// avalanche local, which is the fastest order on this grid.
+function settle(P, cap) {
+  const { z, st, heat, mir } = P;
+  let sp = P.sp;
+  let ops = 0;
+  while (sp > 0 && ops < cap) {
+    const p = st[--sp];
+    const v = z[p];
+    const k = v >> 2;
+    const m = mir[p];
+    z[p] = v & 3;
+    heat[p] += k;
+    ops++;
+    let n, o;
+    o = z[(n = p - 1)];
+    z[n] = o + k;
+    if (o < 4 && o + k > 3) st[sp++] = n;
+    o = z[(n = m & 1 ? p : p + 1)];
+    z[n] = o + k;
+    if (o < 4 && o + k > 3) st[sp++] = n;
+    o = z[(n = p - WP)];
+    z[n] = o + k;
+    if (o < 4 && o + k > 3) st[sp++] = n;
+    o = z[(n = m & 2 ? p : p + WP)];
+    z[n] = o + k;
+    if (o < 4 && o + k > 3) st[sp++] = n;
+  }
+  P.sp = sp;
+  if (sp) return false;
+  unfold(P);
+  return true;
+}
+
+// The settled pile as the panel shows it, and how much of the tray it covers.
+function snapshot(P, out) {
+  const { z, heat, reach } = P;
+  let n = 0;
+  for (let y = 0, p = 0; y < H; y++)
+    for (let x = 0, s = at(0, y); x < W; x++, p++, s++) {
+      if (z[s] || heat[s]) reach[p] = 1;
+      out[p] = reach[p] ? 4 + z[s] : 0;
+      n += reach[p];
+    }
+  return n / N;
+}
+
+// Choose the mirror work for the next handful. Every plan is symmetric left
+// to right; Scatter breaks both mirrors until the tray is emptied, and a plan
+// off the middle row breaks the top-bottom one.
+function plan(P, spread) {
+  if (spread > 0) P.symX = P.symY = false;
+  if (P.shift || P.n === 3) P.symY = false;
+  setMode(P, (P.symX ? 1 : 0) | (P.symY ? 2 : 0));
+  const pts = points(P, P.n);
+  // How far each cell is from the nearest drop point, for the colours.
+  if (P.toneKey !== P.n + "," + P.shift) {
+    P.toneKey = P.n + "," + P.shift;
+    for (let p = 0; p < N; p++) {
+      let d = 1e9;
+      for (const [cx, cy] of pts) d = min(d, ((p & 63) - cx) ** 2 + ((p >> 6) - cy) ** 2);
+      P.tone[p] = min(1, sqrt(d) / 64);
+    }
+  }
+  return pts;
+}
+
+// Pour on every drop point together until the pile covers this much of the
+// tray, so the picture opens mid-growth whatever the knobs say.
+function prerun(P, cover, spread) {
+  const pts = plan(P, spread);
+  for (let i = 0; i < 200; i++) {
+    pour(P, pts, 1600, spread);
+    settle(P, 1e9);
+    if (snapshot(P, P.cur) >= cover) break;
+  }
+  P.heat.fill(0);
+  P.tgt.set(P.cur);
+}
+
+// A ripple shows the handful that has settled: from the drop points outward,
+// cells take their new value and glow by how often they toppled.
+function startRipple(P, pts) {
+  const cov = snapshot(P, P.tgt);
+  const { heat, amp, dist, cur, tgt } = P;
+  let far = 0;
+  for (let y = 0, p = 0; y < H; y++)
+    for (let x = 0, s = at(0, y); x < W; x++, p++, s++) {
+      // Cells the avalanche rewrote flash, the more the more often they
+      // toppled; sand reaching bare tray flashes brightest.
+      const h = heat[s];
+      amp[p] = tgt[p] !== cur[p] ? min(1, 0.3 + log2(1 + h) / 8 + (cur[p] ? 0 : 0.4)) : h > 0 ? 0.12 : 0;
+      let d = 1e9;
+      for (const [cx, cy] of pts) d = min(d, (x - cx) ** 2 + (y - cy) ** 2);
+      dist[p] = d = sqrt(d);
+      if (h > 0 && d > far) far = d;
+    }
+  heat.fill(0);
+  P.rip = 0;
+  P.ripMax = far + RING * 3;
+  return cov;
+}
+
+// The tray tips with whatever the panel shows on it.
+function tip(P) {
+  if (P.rip >= 0) P.cur.set(P.tgt);
+  P.rip = -1;
+  P.phase = TILT;
+  P.pt = 0;
+}
+
+export function update(dt, input, params) {
+  const P = params;
+  const k = input.knobValues || [0, 2, 1, 0.06];
+  dt = clamp(dt, 0, 0.1);
+  P.pal = clamp(round(k[0]), 0, 4);
+  const speed = clamp(k[1], 0.2, 3);
+  P.n = clamp(round(k[2]), 1, 5);
+  const spread = (P.spread = max(0, clamp(k[3], 0, 1) - 0.08) * 14);
+  P.speed = speed;
+  if (!P.started) {
+    P.started = true;
+    prerun(P, 0.74, spread);
+  }
+  if (input.btnPressed && input.btnPressed[0] && P.phase !== TILT) tip(P);
+
+  if (P.phase === TILT) {
+    P.pt += dt;
+    if (P.pt > 1.4) {
+      clear(P);
+      P.shift = round((rnd() - 0.5) * 40);
+      P.phase = GROW;
+      P.wait = 0;
+    }
+    return;
+  }
+
+  // Work on the next handful while the last one's ripple runs.
+  settle(P, 60000);
+  if (P.rip >= 0) {
+    P.rip += RIP * sqrt(speed / 2) * dt;
+    if (P.rip > P.ripMax) {
+      P.cur.set(P.tgt);
+      P.rip = -1;
+    }
+  }
+  P.wait -= dt;
+  if (P.edge >= 0) P.edge += (dt * speed) / 2;
+  if (P.phase === HOLD) {
+    P.full += dt;
+    if (P.full > 2) tip(P);
+    return;
+  }
+  const every = 0.6 * sqrt(2 / speed);
+  if (P.wait <= 0 && P.sp === 0 && P.rip < 0) {
+    // Full is the whole tray, or ten seconds after the pile first spilled
+    // off the top or bottom: drop points off the middle fill the far end
+    // slowly, since most of their sand runs off the near one.
+    if (P.next) {
+      const cov = startRipple(P, P.next);
+      if (P.edge < 0 && (P.reach.subarray(0, W).includes(1) || P.reach.subarray(N - W).includes(1))) P.edge = 0;
+      if (cov > 0.985 || P.edge > 10) {
+        [P.phase, P.full] = [HOLD, 0];
+        return;
+      }
+    }
+    const pts = plan(P, spread);
+    pour(P, pts, round(1500 * speed * every), spread);
+    P.next = pts;
+    P.wait = every;
+  }
+}
+
+export function draw(display, params) {
+  const P = params;
+  const [core, rim, bg, glow] = PALS[P.pal ?? 0];
+  const { cur, tgt, amp, dist, tone } = P;
+  const r = P.rip;
+  // Tipped, the sand slides off the bottom edge, each column at its own
+  // pace and the grains tumbling more the faster it goes.
+  const tilt = P.phase === TILT ? P.pt : 0;
+  const f = (P.f = (P.f | 0) + 1);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let sy = y;
+      if (tilt) {
+        sy = y - floor(70 * tilt * tilt * (0.85 + 0.3 * P.col[x]) + hash(x, y + f * 61) * (1 + 5 * tilt));
+        if (sy < 0) {
+          display.setPixel(x, y, bg[0], bg[1], bg[2]);
+          continue;
+        }
+      }
+      const p = sy * W + x;
+      let c = cur[p];
+      let a = 0;
+      if (r >= 0) {
+        const d = dist[p];
+        if (d < r) {
+          c = tgt[p];
+          if (amp[p] > 0) a = amp[p] * exp(-(r - d) / RING) * 0.75;
+        }
+      }
+      let R = bg[0];
+      let G = bg[1];
+      let B = bg[2];
+      if (c) {
+        const u = core[c - 4];
+        const v = rim[c - 4];
+        const t = tone[p];
+        R = u[0] + (v[0] - u[0]) * t;
+        G = u[1] + (v[1] - u[1]) * t;
+        B = u[2] + (v[2] - u[2]) * t;
+      }
+      display.setPixel(x, y, R + (glow[0] - R) * a, G + (glow[1] - G) * a, B + (glow[2] - B) * a);
+    }
+  // Grains still falling on the drop points glint as they land.
+  if (P.phase !== GROW || !P.next) return;
+  for (const [cx, cy] of P.next)
+    for (let i = 0; i < 1 + P.speed; i++) {
+      const a = rnd() * 2 * PI;
+      const d = 1.2 * rnd() + P.spread * sqrt(-2 * Math.log(1 - rnd() * 0.999));
+      const x = round(cx + cos(a) * d);
+      const y = round(cy + sin(a) * d);
+      const g = 0.5 + 0.5 * rnd();
+      if (x >= 0 && x < W && y >= 0 && y < H) display.setPixel(x, y, glow[0] * g, glow[1] * g, glow[2] * g);
+    }
+}
