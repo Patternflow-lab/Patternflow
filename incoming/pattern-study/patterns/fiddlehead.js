@@ -48,11 +48,13 @@ const FERNS = [
 const [EM, UN, HO, FA, GP] = [2, 13, 7, 4, 1];
 const CYC = EM + UN + HO + FA + GP;
 // Crowns as x and depth, and which crown each slot belongs to in the order Fronds adds them.
-const CROWN = [[32, 1], [12, 0.84], [52, 0.84], [22, 0.62], [42, 0.62]];
+const CROWN = [[32, 1], [10, 0.93], [54, 0.93], [21, 0.72], [43, 0.72]];
 const SLOT = [0, 0, 0, 0, 0, 0, 1, 2, 1, 2, 1, 2, 3, 4, 3, 4, 3, 4];
+// Which way each slot leans: the side crowns lean in over the middle, mostly.
+const LEAN = [-1, 1, -1, 1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1, 1];
 // Where in its life each frond is at 2 s: the front crown has one of each, the others are
 // mostly up, so turning Fronds at the start shows.
-const OPEN = [0.02, 0.146, 0.267, 0.41, 0.59, 0.7, 0.5, 0.3, 0.65, 0.2, 0.75, 0.42, 0.6, 0.35, 0.5, 0.25, 0.7, 0.45];
+const OPEN = [0.02, 0.146, 0.267, 0.41, 0.59, 0.7, 0.62, 0.45, 0.7, 0.3, 0.76, 0.52, 0.65, 0.4, 0.58, 0.3, 0.72, 0.5];
 const SEN = [[204, 176, 64], [132, 74, 36]];
 const HAZE = [34, 52, 44];
 const MAXS = 340;
@@ -161,10 +163,17 @@ function px(x, y, r, g, b, a) {
 // A soft dot over four LEDs, so a curve moving a fraction of an LED still moves.
 function dot(x, y, r, g, b, a) {
   const xi = floor(x), yi = floor(y), fx = x - xi, fy = y - yi;
-  px(xi, yi, r, g, b, a * (1 - fx) * (1 - fy));
-  px(xi + 1, yi, r, g, b, a * fx * (1 - fy));
-  px(xi, yi + 1, r, g, b, a * (1 - fx) * fy);
-  px(xi + 1, yi + 1, r, g, b, a * fx * fy);
+  if (xi < 0 || xi > W - 2 || yi < 0 || yi > H - 2) {
+    px(xi, yi, r, g, b, a * (1 - fx) * (1 - fy));
+    px(xi + 1, yi, r, g, b, a * fx * (1 - fy));
+    px(xi, yi + 1, r, g, b, a * (1 - fx) * fy);
+    return px(xi + 1, yi + 1, r, g, b, a * fx * fy);
+  }
+  const B = BUF;
+  for (let k = 0, o = (yi * W + xi) * 3; k < 4; k++) {
+    const w = a * (k & 1 ? fx : 1 - fx) * (k & 2 ? fy : 1 - fy), q = o + (k & 1 ? 3 : 0) + (k & 2 ? W * 3 : 0);
+    if (w > 0.02) (B[q] += (r - B[q]) * w), (B[q + 1] += (g - B[q + 1]) * w), (B[q + 2] += (b - B[q + 2]) * w);
+  }
 }
 function disc(x, y, rad, r, g, b, a) {
   if (rad < 0.75) return dot(x, y, r, g, b, a);
@@ -180,7 +189,7 @@ function frondAt(P, S) {
   const sp = P.sp, T = P.t + S.off, c = floor(T / S.cyc), a = ((T - c * S.cyc) / S.cyc) * CYC;
   if (a >= EM + UN + HO + FA) return null;
   const h = (m) => hash(S.j * 13 + m, c + 977), cx = CROWN[S.c][0], dep = S.z;
-  const Lf = (dep > 0.84 ? 104 : dep > 0.66 ? 90 : 78) * (0.84 + 0.26 * h(1)), x = cx + (h(2) - 0.5) * 2 * sp[25];
+  const Lf = (dep > 0.86 ? 104 : 86) * (0.84 + 0.26 * h(1)), x = cx + (h(2) - 0.5) * 2 * sp[25];
   const stipe = 5 + Lf * 0.05, C0 = Lf * 0.5;
   let U, C, g = 1, fall = 0, sen = 0, fade = 1;
   if (a < EM) {
@@ -219,6 +228,11 @@ function pinna(x, y, th, len, q, sd, r, g, b, a, lobe) {
     x += sin(th) * st;
     y -= cos(th) * st;
     px(round(x), round(y), r, g, b, a);
+    // Pinnules: a lobe either side in turn, gone towards the tip.
+    if (j & 1 && w < 0.5 && s < len * lobe) {
+      const e = j & 2 ? sd : -sd;
+      px(round(x - e * cos(th)), round(y - e * sin(th)), r * 0.8, g * 0.85, b * 0.8, a * 0.55);
+    }
   }
 }
 
@@ -238,7 +252,7 @@ function frond(P, F, vis) {
     if (y > gy) y = gy;
   }
   // Pinnae, the ones nearest the coil still curled.
-  const sb = F.L * sp[18], np = max(4, round((F.Lf * (1 - sp[18])) / 3.8)), Pm = sp[19] * F.Lf, D = 0.18 * F.Lf, al = sp[27], lobe = cl(Pm / 11, 0.6, 1.7);
+  const sb = F.L * sp[18], np = max(4, round((F.Lf * (1 - sp[18])) / 3.8)), Pm = sp[19] * F.Lf, D = 0.18 * F.Lf, al = sp[27], lobe = 0.75;
   for (let i = 0; i < np; i++) {
     const u = (i + 0.5) / np, s = sb + (F.L - sb) * u;
     if (s > F.f - 0.5) break;
@@ -249,9 +263,11 @@ function frond(P, F, vis) {
     for (let sd = -1; sd < 2; sd += 2) pinna(RX[ii], RY[ii], RT[ii] + sd * al * (0.45 + 0.55 * q), len, q, sd, r, g, b, a0, lobe);
   }
   // Rachis over them, swelling into the furred coil.
-  const rw = 0.55 + 0.45 * F.dep;
+  const rw = 0.45 + 0.35 * F.dep;
   for (let i = 0; i <= n; i++) {
     const s = i * ds, u = s / F.L, w = RW[i], base = sm(1 - s / 10);
+    // The stalk is thin enough to draw every other step; the coil needs them all.
+    if (i & 1 && w === 0 && s < F.f - 6) continue;
     const rad = mix(rw * (1 - 0.6 * u), cl(0.17 * (F.k * (F.L - s) + 0.7), 0.5, 1.25), w);
     const r = mix(mix(sp[6], sp[9], w), 96, base) * ta + tb[0], g = mix(mix(sp[7], sp[10], w), 70, base) * ta + tb[1], b = mix(mix(sp[8], sp[11], w), 40, base) * ta + tb[2];
     disc(RX[i], RY[i], rad, r, g, b, a0);
@@ -290,7 +306,7 @@ export function setup(params) {
   build(P);
   P.slots = SLOT.map((c, j) => {
     const cyc = CYC * (0.92 + 0.16 * rnd());
-    return { j, c, o: j % 2 ? 1 : -1, cyc, off: OPEN[j] * cyc - 8, ph: rnd() * 7, z: CROWN[c][1] - rnd() * 0.14 };
+    return { j, c, o: LEAN[j], cyc, off: OPEN[j] * cyc - 8, ph: rnd() * 7, z: CROWN[c][1] - rnd() * 0.14 };
   });
 }
 
