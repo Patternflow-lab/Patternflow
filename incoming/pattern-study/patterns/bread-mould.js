@@ -20,7 +20,7 @@
 const W = 64;
 const H = 128;
 const N = W * H;
-// Each slice lives in its own 60x60 box; the pair sits one above the other.
+// Each slice lives in its own 62x62 box; the pair sits one above the other.
 const SW = 62;
 const SH = 62;
 const SN = SW * SH;
@@ -104,14 +104,15 @@ function board(P) {
 }
 
 // A pan loaf slice: a square body under a domed top that overhangs it at the
-// shoulders, a crust two LEDs deep, the crumb full of holes.
+// shoulders, a crust two LEDs deep and baked darker over the dome, the crumb
+// full of holes.
 const CRUMB = [242, 226, 188];
 const DENSE = [222, 186, 128];
 const CR_OUT = [100, 54, 26];
 const CR_IN = [194, 134, 70];
 function slice() {
   const S = { mask: new Uint8Array(SN), D: new Float32Array(SN), alb: new Float32Array(SN * 3), gr: new Float32Array(SN * 3), hs: new Float32Array(SN), hp: new Float32Array(SN), nz: new Float32Array(SN), T: new Float32Array(SN), own: new Uint8Array(SN), seam: new Uint8Array(SN), sp: [], col: [] };
-  const { mask, D, alb, gr, hs, hp, nz } = S;
+  const { mask, D, alb, gr, hs, hp, nz } = S, top = new Uint8Array(SN);
   const so = floor(rnd() * 99999), flip = rnd() < 0.35, lean = (rnd() - 0.5) * 5, sc = 0.96 + rnd() * 0.04, shy = 17 + rnd() * 5;
   for (let q = 0; q < SN; q++) {
     const x = q % SW, y = (q / SW) | 0;
@@ -123,6 +124,7 @@ function slice() {
       if (py > 56) hw -= 5 - sqrt(max(0, 25 - (py - 56) ** 2));
     }
     mask[q] = abs(px) < hw ? 1 : 0;
+    top[q] = py < shy + 2;
     D[q] = mask[q] ? 99 : 0;
   }
   // Distance in from the edge, two chamfer passes.
@@ -134,7 +136,7 @@ function slice() {
   for (let q = 0; q < SN; q++) {
     if (!mask[q]) continue;
     const x = q % SW, y = (q / SW) | 0, d = D[q], crust = d < 2.5;
-    const t = crust ? cl((d - 1) / 1.4, 0, 1) : cl((d - 2.5) / 5, 0, 1), k = crust ? 0.82 + 0.32 * vn(x * 0.4 + so, y * 0.4) : 0.92 + 0.12 * vn(x * 0.3 + so, y * 0.16);
+    const t = crust ? cl((d - 1) / 1.4, 0, 1) : cl((d - 2.5) / 5, 0, 1), k = crust ? (0.82 + 0.32 * vn(x * 0.4 + so, y * 0.4)) * (top[q] ? 0.84 : 1) : 0.92 + 0.12 * vn(x * 0.3 + so, y * 0.16);
     for (let c = 0; c < 3; c++) {
       alb[q * 3 + c] = (crust ? mix(CR_OUT[c], CR_IN[c], t) : mix(DENSE[c], CRUMB[c], t)) * k + (hash(q + so, c) - 0.5) * 12;
       gr[q * 3 + c] = hash(q + so, c + 3) * 2 - 1;
