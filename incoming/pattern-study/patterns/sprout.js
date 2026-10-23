@@ -51,8 +51,8 @@ const KIND_LEAF = [0.12, 0.3, 0.22, 0.16, 0.3];
 const SPIKE = 44;
 
 // Flowers as offsets from the tip, a big one for the main stem and a small
-// one for side shoots. The big daisy is seven LEDs across around a heart of
-// five (HEART_PLUS).
+// one for side shoots. The big daisy is seven LEDs across, its heart a plus
+// (HEART_PLUS).
 const BIG = [
   [0, -3, -2, -2, -1, -2, 0, -2, 1, -2, 2, -2, -2, -1, -1, -1, 1, -1, 2, -1, -3, 0, -2, 0, 2, 0, 3, 0, -2, 1, -1, 1, 1, 1, 2, 1, -2, 2, -1, 2, 0, 2, 1, 2, 2, 2, 0, 3],
   [0, -1, -1, -1, 1, -1, -1, -2, 0, -2, 1, -2, -1, -3, 1, -3],
@@ -165,6 +165,7 @@ function sow(p) {
     p.tipsEver[slot] = 0;
     p.buds[slot] = 0;
     p.wither[slot] = 0;
+    p.stopped[slot] = 0;
     p.shade[slot] = (Math.random() - 0.5) * 0.18;
     p.green[slot] = 0.27 + Math.random() * 0.1;
     p.style[slot] = kind;
@@ -216,6 +217,7 @@ function endTip(p, t) {
     p.budGen[i] = p.tipGen[t];
     p.buds[plant]++;
   }
+  if (p.tipGen[t] === 0) p.stopped[plant] = 1;
   p.tipPlant[t] = -1;
   p.tips[plant]--;
 }
@@ -271,9 +273,11 @@ function stepTip(p, t, wind) {
     for (let side = -1; side <= 1; side += 2) {
       if (free(p, nx + side, ny + 1) && free(p, nx + side * 2, ny + 1)) put(p, plant, nx + side, ny + 1, PETAL);
     }
-  } else if (style === HOLLYHOCK && p.tipGen[t] === 0 && p.tipLeft[t] < SPIKE) {
+  } else if (style === HOLLYHOCK && (p.tipGen[t] === 0 || p.stopped[plant]) && p.tipLeft[t] < SPIKE && ny < H - 40) {
     // Up the spike a bud every third LED, one side then the other. They open
-    // from the bottom up, as the stem passes them.
+    // from the bottom up, as the stem passes them. When the stem is stopped,
+    // often by its own side shoot right after a fork, a side shoot carries
+    // the spike instead.
     const left = p.tipLeft[t];
     const side = ((left / 3) | 0) & 1 ? 1 : -1;
     const bx = nx + side;
@@ -487,6 +491,7 @@ export function setup(params) {
   p.buds = new Int16Array(PLANTS);
   p.timer = new Float32Array(PLANTS);
   p.wither = new Float32Array(PLANTS);
+  p.stopped = new Uint8Array(PLANTS);
   p.shade = new Float32Array(PLANTS);
   p.green = new Float32Array(PLANTS);
   p.style = new Uint8Array(PLANTS);
