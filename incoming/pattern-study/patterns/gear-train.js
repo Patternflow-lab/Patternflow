@@ -233,16 +233,25 @@ export function draw(display, params) {
         const dx = x - q.x;
         const r = Math.sqrt(dx * dx + dy * dy);
         if (r > ro + 1) continue;
-        const beta = Math.atan2(dy, dx);
-        // The tooth outline: radius as a trapezoid wave around the rim.
-        const phi = z * (beta - th);
-        const c = Math.cos(phi);
-        const f = Math.max(-1, Math.min(1, FLANK * c));
-        const depth = f > 0 ? ADD : DED;
-        let dist = rp + depth * f - r;
-        if (Math.abs(FLANK * c) < 1 && r > 0.5) {
-          const slope = (depth * FLANK * Math.sin(phi) * z) / r;
-          dist /= Math.sqrt(1 + slope * slope);
+        // The tooth outline: radius as a trapezoid wave around the rim. Inside
+        // the roots the face is whole, so the angle is only worked out near
+        // the teeth and on the ring of holes.
+        const nearTeeth = r > root - 3;
+        const nearHoles = holes > 0 && Math.abs(r - ringR) < holeR + 1;
+        const beta = nearTeeth || nearHoles ? Math.atan2(dy, dx) : 0;
+        let dist = 4;
+        if (nearTeeth) {
+          const phi = z * (beta - th);
+          const c = Math.cos(phi);
+          const f = Math.max(-1, Math.min(1, FLANK * c));
+          const depth = f > 0 ? ADD : DED;
+          dist = rp + depth * f - r;
+          // On a flank the outline runs at a slant, so the distance to it is
+          // shorter than the radial gap; far from the outline that no longer holds.
+          if (Math.abs(FLANK * c) < 1) {
+            const slope = (depth * FLANK * Math.sin(phi) * z) / r;
+            dist /= Math.sqrt(1 + slope * slope * clamp01(1.5 - Math.abs(dist) / 2));
+          }
         }
         let cover = clamp01(dist + 0.5);
         if (cover <= 0) continue;
@@ -255,16 +264,18 @@ export function draw(display, params) {
           const along = dx * ct + dy * st;
           const across = -dx * st + dy * ct;
           const armC = along > 0 && along < arm ? clamp01(1.9 - Math.abs(across)) : 0;
-          knob = clamp01(3.6 - Math.hypot(along - arm, across));
+          const kx = along - arm;
+          knob = clamp01(3.6 - Math.sqrt(kx * kx + across * across));
           handle = Math.max(armC, knob);
         }
 
         // Lightening holes, turning with the gear: the board shows through.
-        if (holes) {
+        if (nearHoles) {
           const k = Math.round((beta - th) / step);
           const a = th + k * step;
-          const hd = Math.hypot(dx - ringR * Math.cos(a), dy - ringR * Math.sin(a));
-          cover *= 1 - clamp01(holeR - hd + 0.5);
+          const ex = dx - ringR * Math.cos(a);
+          const ey = dy - ringR * Math.sin(a);
+          cover *= 1 - clamp01(holeR - Math.sqrt(ex * ex + ey * ey) + 0.5);
           cover = Math.max(cover, handle);
           if (cover <= 0) continue;
         }
