@@ -133,7 +133,7 @@ function paint(P) {
   const put = (A, x, y, c) => A.set(c, (y * W + x) * 3);
   for (let y = 0; y < BENCH; y++)
     for (let x = 0; x < W; x++) {
-      // White wall tiles of the lab, dim, and dimmer still through two panes.
+      // White wall tiles of the lab, dimmed again through two panes of glass.
       const grout = x % 9 === 4 || y % 9 === 2;
       const inTank = x >= 1 && x <= 62 && y >= RIM;
       let c = grout ? [12, 12, 14] : [27, 27, 30];
