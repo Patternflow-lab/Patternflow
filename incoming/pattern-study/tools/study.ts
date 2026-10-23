@@ -16,10 +16,10 @@
  * carries the whole header the rounds write: Author, Date, Lineage and a
  * "// Knob N:" line for each knob.
  *
- * The study keeps no pictures. Rounds ten and before left a GIF and a knob
- * sheet per pattern and an overview in shots/; they were taken out before
- * round eleven, when a round started bringing ten patterns, and index.html
- * is where the patterns are looked at.
+ * The study keeps no pictures. Earlier rounds left a GIF and a knob sheet
+ * per pattern and an overview in shots/; they were taken out when a round
+ * started bringing ten patterns, and index.html is where the patterns are
+ * looked at.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -42,7 +42,7 @@ const only = onlyArg >= 0 ? (args[onlyArg + 1] ?? "").split(",").filter(Boolean)
 // An old round's notes still say --shots. Running on past it would let a
 // round believe the pictures were made.
 for (const flag of args.filter((a) => a.startsWith("--") && !["--check", "--gaps", "--only"].includes(a))) {
-  console.log(flag === "--shots" ? "--shots is gone: the study keeps no GIFs since round eleven. Open index.html to look." : `unknown flag ${flag}`);
+  console.log(flag === "--shots" ? "--shots is gone: the study keeps no GIFs now. Open index.html to look." : `unknown flag ${flag}`);
   process.exit(1);
 }
 
