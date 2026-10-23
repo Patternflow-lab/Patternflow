@@ -82,6 +82,12 @@ function build(P) {
         const c = moss ? [52, 92, 34] : [84, 86, 78];
         for (let i = 0; i < 3; i++) bg[o + i] = mix(bg[o + i], mix(c[i] * l, HAZE[i], 1 - z), 0.9);
       }
+  // The canopy overhead, with holes the shafts come through.
+  for (let p = 0; p < 18 * W; p++) {
+    const x = p & 63, y = p >> 6, h = sm((vn(x / 4, y / 3 + 50) * 0.7 + vn(x / 1.7, y / 1.4 + 70) * 0.3 - 0.52) * 5), a = (1 - h) * sm((17 - y - 7 * vn(x / 5, 3.3)) / 4), k = 0.6 + 0.7 * vn(x / 1.6, y / 1.3);
+    P.hole[p] = h * (1 - y / 18);
+    for (let i = 0; i < 3; i++) bg[p * 3 + i] = mix(bg[p * 3 + i], [16, 34, 20][i] * k, a);
+  }
   // Last year's leaves: beech copper, oak brown, pale skeletons and dark wet ones.
   const LC = [[124, 76, 40], [98, 62, 34], [140, 110, 74], [66, 44, 30], [96, 84, 70], [130, 90, 48]];
   for (let p = 0; p < N; p++) {
@@ -148,7 +154,7 @@ function build(P) {
     for (let i = 0; i < 256; i++) P.gap[i] = min(1, P.gap[i] + a * Math.exp(-(((((i - c + 384) % 256) - 128) / w) ** 2)));
   }
   for (let i = 0; i < 128 * 64; i++) P.dap[i] = sm((vn((i & 127) / 7, (i >> 7) / 5) * 0.7 + vn((i & 127) / 3, (i >> 7) / 2.5 + 30) * 0.3 - 0.3) * 2.2);
-  P.anem = [[18, 7], [27, 5], [41, 6], [56, 8], [8, 6]].map(([x, h]) => [x, h, rnd() * 7]);
+  P.anem = [[15, 6], [18, 8], [21, 5], [45, 5], [48, 7], [58, 6]].map(([x, h]) => [x, h, rnd() * 7]);
   P.mote = Array.from({ length: 16 }, () => [rnd() * 64, rnd() * 110, rnd() * 7]);
 }
 
@@ -201,7 +207,8 @@ function frondAt(P, S) {
   } else {
     [U, C] = [Lf, 0];
     const ph = (a - EM - UN - HO) / FA;
-    if (ph > 0) [fall, sen, fade] = [sm(ph * 1.2), sm(ph * 1.8), 1 - sm((ph - 0.5) / 0.5)];
+    // It yellows and browns where it stands, then folds down onto the litter and fades into it.
+    if (ph > 0) [fall, sen, fade] = [sm((ph - 0.3) / 0.55), sm(ph * 2), 1 - sm((ph - 0.7) / 0.3)];
   }
   const lean = sp[21] * (0.55 + 0.8 * h(3)) * (S.c ? 1.2 : 1);
   const wind = P.wind * 1.1 + (0.16 + 0.3 * abs(P.wind)) * sin(P.t * 1.3 + S.ph) + 0.1 * sin(P.t * 0.37 + S.c);
@@ -252,13 +259,13 @@ function frond(P, F, vis) {
     if (y > gy) y = gy;
   }
   // Pinnae, the ones nearest the coil still curled.
-  const sb = F.L * sp[18], np = max(4, round((F.Lf * (1 - sp[18])) / 3.8)), Pm = sp[19] * F.Lf, D = 0.18 * F.Lf, al = sp[27], lobe = 0.75;
+  const sb = F.L * sp[18], np = max(4, round((F.Lf * (1 - sp[18])) / 3.8)), Pm = sp[19] * F.Lf, D = 0.24 * F.Lf, al = sp[27], lobe = 0.75;
   for (let i = 0; i < np; i++) {
     const u = (i + 0.5) / np, s = sb + (F.L - sb) * u;
     if (s > F.f - 0.5) break;
     const q = cl((F.f - s) / D, 0, 1), ii = round(s / ds), bu = sp[20];
     const shape = u < bu ? 0.1 + 0.9 * sin(((PI / 2) * u) / bu) : 0.06 + 0.94 * cos(((PI / 2) * (u - bu)) / (1 - bu)) ** 0.7;
-    const len = Pm * shape * (0.3 + 0.7 * q) * (1 - 0.3 * F.fall), m = cl(((F.f - s) / F.Lf) * 0.8 + (F.hp * 1.2) / sp[28], 0, 1);
+    const len = Pm * shape * (0.55 + 0.45 * q) * (1 - 0.3 * F.fall), m = cl(((F.f - s) / F.Lf) * 0.8 + (F.hp * 1.2) / sp[28], 0, 1);
     const r = mix(sp[0], sp[3], m) * ta + tb[0], g = mix(sp[1], sp[4], m) * ta + tb[1], b = mix(sp[2], sp[5], m) * ta + tb[2];
     for (let sd = -1; sd < 2; sd += 2) pinna(RX[ii], RY[ii], RT[ii] + sd * al * (0.45 + 0.55 * q), len, q, sd, r, g, b, a0, lobe);
   }
@@ -302,7 +309,7 @@ function fertile(P, cx, dep) {
 
 export function setup(params) {
   const P = params;
-  Object.assign(P, { bg: new Float32Array(N * 3), buf: new Float32Array(N * 3), fa: new Uint8Array(N), fc: new Float32Array(N * 3), gnd: new Float32Array(W), gap: new Float32Array(256), dap: new Float32Array(128 * 64), vis: new Float32Array(18), t: 0, off: 0, kf: -1, sn: 40 });
+  Object.assign(P, { bg: new Float32Array(N * 3), buf: new Float32Array(N * 3), fa: new Uint8Array(N), fc: new Float32Array(N * 3), gnd: new Float32Array(W), gap: new Float32Array(256), dap: new Float32Array(128 * 64), hole: new Float32Array(18 * W), vis: new Float32Array(18), t: 0, off: 0, kf: -1, sn: 40 });
   build(P);
   P.slots = SLOT.map((c, j) => {
     const cyc = CYC * (0.92 + 0.16 * rnd());
@@ -314,8 +321,9 @@ export function update(dt, input, params) {
   const P = params, k = input.knobValues || [0, 2, 6, 0.06], d0 = cl(dt, 0, 0.1);
   const kf = cl(k[0], 0, 3), rate = cl(k[1], 0.2, 3) / 2, n = round(cl(k[2], 6, 18)), wind = cl(k[3], -1, 1);
   if (kf !== P.kf) {
-    const i = min(2, floor(kf));
-    P.sp = FERNS[i].map((v, c) => mix(v, FERNS[i + 1][c], kf - i));
+    // Each fern holds over most of its stretch of the knob and turns into the next near the middle.
+    const i = min(2, floor(kf)), f = sm((kf - i) * 2.5 - 0.75);
+    P.sp = FERNS[i].map((v, c) => mix(v, FERNS[i + 1][c], f));
     P.kf = kf;
   }
   // The world clock starts further in the faster the time-lapse runs.
@@ -353,14 +361,18 @@ export function draw(display, params) {
   // Wood anemones nodding in the breeze.
   for (const [ax, ah, ph] of P.anem) {
     const sw = P.wind * 1.6 + 0.5 * sin(P.t * 1.6 + ph);
-    let x = ax, y = gnd[ax];
-    for (let j = 0; j < ah; j++) (x += (sw * j) / ah / ah), y--, px(round(x), y, 70, 110, 44, 1);
+    let x = ax, y = round(gnd[ax]) + 1;
+    for (let j = 0; j < ah; j++) {
+      (x += (sw * j) / ah / ah), y--, px(round(x), y, 70, 110, 44, 1);
+      // The ruff of three cut leaves halfway up the stalk.
+      if (j === 2) for (const dx of [-2, -1, 1, 2]) px(round(x) + dx, y + (abs(dx) > 1), 58, 112, 40, 0.9);
+    }
     const fx = round(x + sw * 0.4), fy = y - 1;
     for (const [dx, dy, l] of [[0, 0, 1], [-1, 0, 0.9], [1, 0, 0.9], [0, -1, 0.85], [-1, -1, 0.5], [1, -1, 0.5], [0, 1, 0.6]]) px(fx + dx, fy + dy, 236 * l, 236 * l, 226 * l, 1);
     px(fx, fy, 240, 210, 70, 1);
   }
   // The snail, quick in the time-lapse.
-  const sx = round(P.sn), sy = round(gnd[cl(sx + 4, 0, W - 1)]) - 3, f = P.wind < -0.05 ? -1 : 1;
+  const sx = round(P.sn), sy = round(gnd[cl(sx + 4, 0, W - 1)]) - 4, f = P.wind < -0.05 ? -1 : 1;
   SNAIL.forEach((row, r) => {
     for (let c = 0; c < 10; c++) {
       const col = SNC[row[c]];
@@ -377,14 +389,14 @@ export function draw(display, params) {
 }
 
 // To the panel, under the light that gets through the canopy.
-function show(display, { buf, gap, dap, off, doff }) {
+function show(display, { buf, gap, dap, off, doff, hole }) {
   const o0 = floor(doff);
   for (let y = 0, p = 0; y < H; y++) {
     const hz = 0.5 * (1 - y / 150), dr = ((y >> 1) & 63) * 128;
     for (let x = 0; x < W; x++, p++) {
       const u = x + y * 0.42 - off, ui = floor(u), f = u - ui, s = gap[ui & 255] * (1 - f) + gap[(ui + 1) & 255] * f;
-      const l = s * (0.4 + 0.6 * dap[dr + ((x + o0) & 127)]), m = 0.78 + 0.75 * l, o = p * 3;
-      const r = buf[o] * m * (1 + 0.08 * l) + 34 * s * hz, g = buf[o + 1] * m + 30 * s * hz, b = buf[o + 2] * m * (1 - 0.1 * l) + 16 * s * hz;
+      const l = s * (0.4 + 0.6 * dap[dr + ((x + o0) & 127)]), m = 0.78 + 0.75 * l, o = p * 3, sky = y < 18 ? hole[p] * (0.25 + s) * 150 : 0;
+      const r = buf[o] * m * (1 + 0.08 * l) + 34 * s * hz + sky, g = buf[o + 1] * m + 30 * s * hz + sky * 1.08, b = buf[o + 2] * m * (1 - 0.1 * l) + 16 * s * hz + sky * 0.9;
       display.setPixel(x, y, r > 255 ? 255 : r, g > 255 ? 255 : g, b > 255 ? 255 : b);
     }
   }
