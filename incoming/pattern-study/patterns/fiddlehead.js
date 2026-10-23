@@ -12,7 +12,7 @@
 // @knobs Fern=0..3, Speed=0.2..3, Fronds=6..18, Breeze=-1..1
 //
 // Knob 1: Fern. Ostrich fern at 0, a shuttlecock of bright green round last year's brown fertile fronds; cinnamon fern at 1 with white-woolly croziers; bracken at 2, broad blades tipped flat on tall stalks; autumn fern at 3, whose new fronds come up copper-red and green as they age.
-// Knob 2: Speed. How fast the time-lapse runs: at 2 a crozier takes about eleven seconds to unroll and a frond lives about half a minute; at 0.2 it creeps.
+// Knob 2: Speed. How fast the time-lapse runs: at 2 a crozier takes about thirteen seconds to unroll and a frond lives about half a minute; at 0.2 it creeps.
 // Knob 3: Fronds. How many fronds there are, six in one crown at 6, then a crown either side, then two more crowns further back in the shade at 18.
 // Knob 4: Breeze. Near still at 0.06; turned either way the fronds lean and sway that way and the sunflecks from the canopy slide across faster.
 
@@ -109,7 +109,7 @@ function build(P) {
     const cx = rnd() * 68 - 2, top = gnd[cl(round(cx), 0, W - 1)];
     leaf(cx, top + rnd() * (H - top + 2) - 0.5, rnd() * PI, 2 + rnd() * 1.8, 1.1 + rnd() * 0.8, LC[floor(rnd() * 6)], putBg);
   }
-  // Moss cushions, twigs, a beech nut husk or two.
+  // Moss cushions and twigs.
   for (let n = 0; n < 7; n++) {
     const cx = rnd() * 64, cy = gnd[floor(cx)] + 2 + rnd() * 12, r = 1.5 + rnd() * 2.5;
     for (let y = floor(cy - r); y <= cy + r; y++)
@@ -215,7 +215,7 @@ function frondAt(P, S) {
   return {
     x, y: P.gnd[cl(round(x), 0, W - 1)] + 0.5, o: S.o, th0: S.o * (lean + 1.5 * fall), L: U + C, f: U, Lf, dep, g, fall, sen, fade, wind,
     k: sp[23] * (0.9 + 0.2 * h(4)), arch: sp[22] * (0.7 + 0.5 * h(5)) * sm(g * 1.3 - 0.1) * (1 + 0.6 * fall),
-    hp: a < EM + UN ? 0 : min(1, (a - EM - UN) / HO), seed: S.j * 31 + c,
+    hp: a < EM + UN ? 0 : min(1, (a - EM - UN) / HO), seed: S.j * 31 + c, hv: h(6) * 2 - 1,
   };
 }
 
@@ -266,7 +266,8 @@ function frond(P, F, vis) {
     const q = cl((F.f - s) / D, 0, 1), ii = round(s / ds), bu = sp[20];
     const shape = u < bu ? 0.1 + 0.9 * sin(((PI / 2) * u) / bu) : 0.06 + 0.94 * cos(((PI / 2) * (u - bu)) / (1 - bu)) ** 0.7;
     const len = Pm * shape * (0.55 + 0.45 * q) * (1 - 0.3 * F.fall), m = cl(((F.f - s) / F.Lf) * 0.8 + (F.hp * 1.2) / sp[28], 0, 1);
-    const r = mix(sp[0], sp[3], m) * ta + tb[0], g = mix(sp[1], sp[4], m) * ta + tb[1], b = mix(sp[2], sp[5], m) * ta + tb[2];
+    // No two fronds quite the same green: some yellower, some bluer.
+    const r = mix(sp[0], sp[3], m) * ta * (1 + 0.22 * F.hv) + tb[0], g = mix(sp[1], sp[4], m) * ta + tb[1], b = mix(sp[2], sp[5], m) * ta * (1 - 0.3 * F.hv) + tb[2];
     for (let sd = -1; sd < 2; sd += 2) pinna(RX[ii], RY[ii], RT[ii] + sd * al * (0.45 + 0.55 * q), len, q, sd, r, g, b, a0, lobe);
   }
   // Rachis over them, swelling into the furred coil.
@@ -309,7 +310,7 @@ function fertile(P, cx, dep) {
 
 export function setup(params) {
   const P = params;
-  Object.assign(P, { bg: new Float32Array(N * 3), buf: new Float32Array(N * 3), fa: new Uint8Array(N), fc: new Float32Array(N * 3), gnd: new Float32Array(W), gap: new Float32Array(256), dap: new Float32Array(128 * 64), hole: new Float32Array(18 * W), vis: new Float32Array(18), t: 0, off: 0, kf: -1, sn: 40 });
+  Object.assign(P, { bg: new Float32Array(N * 3), buf: new Float32Array(N * 3), fa: new Uint8Array(N), fc: new Float32Array(N * 3), gnd: new Float32Array(W), gap: new Float32Array(256), dap: new Float32Array(128 * 64), hole: new Float32Array(18 * W), vis: new Float32Array(18), t: 0, off: 0, doff: 0, kf: -1, sn: 40, sp: FERNS[0] });
   build(P);
   P.slots = SLOT.map((c, j) => {
     const cyc = CYC * (0.92 + 0.16 * rnd());
