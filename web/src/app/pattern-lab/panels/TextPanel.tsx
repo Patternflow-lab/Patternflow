@@ -9,6 +9,9 @@
 //
 // Copy as code takes the letters as they are drawn now, the way Pixel's does
 // a drawing (lib/lab/pixelToCode.ts): a pattern that needs no font.
+//
+// An effect moves the letters every frame at a speed one knob sets
+// (lib/lab/textEffects.ts), and the export and the firmware header carry it.
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useResettingState } from "@/lib/hooks/useResettingState";
@@ -30,10 +33,12 @@ import {
 } from "@/lib/lab/textFonts";
 import {
   TEXT_ALIGNS,
+  TEXT_EFFECTS,
   TEXT_MAX_CHARS,
   TEXT_SIZE_MAX,
   TEXT_SIZE_MIN,
   isTextLayer,
+  type TextEffect,
   type TextFill,
   type TextLayer,
 } from "@/lib/lab/types";
@@ -54,6 +59,27 @@ const FILL_LABEL: Record<TextFill, string> = {
 };
 
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
+
+const EFFECT_LABEL: Record<TextEffect, string> = {
+  none: "None",
+  scroll: "Scroll",
+  twinkle: "Twinkle",
+  ramp: "Run the ramp",
+};
+
+/** What the knob does to each effect, said after the knob's name. */
+const EFFECT_SPEED: Record<Exclude<TextEffect, "none">, string> = {
+  scroll: "sets how fast the letters run out to the left and come back from the right, up to a panel's width a second",
+  twinkle: "sets how fast each LED dims and comes back",
+  ramp: "sets how fast the colors run along this layer's Color Ramp and back",
+};
+
+/** Where a knob sits in its range, 0..1, the way the effect reads it. */
+function knobShare(value: number | undefined, range: [number, number] | undefined): number {
+  if (value === undefined || !range) return 0;
+  const share = (value - range[0]) / Math.max(0.0001, range[1] - range[0]);
+  return Math.max(0, Math.min(1, share));
+}
 
 const COPY_LABEL: Record<CodeCopyState, string> = {
   idle: "Copy as code",
@@ -144,6 +170,10 @@ export default function TextPanel() {
 
 function TextEditor({ layer }: { layer: TextLayer }) {
   const setTextSpec = useLabStore((state) => state.setTextSpec);
+  const knobLabels = useLabStore((state) => state.knobLabels);
+  const speed = useLabStore((state) =>
+    Math.round(knobShare(state.knobs[layer.spec.effectKnob], state.ranges[layer.spec.effectKnob]) * 100),
+  );
   const options = useFontOptions();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [remember, setRemember] = useState(false);
@@ -322,7 +352,7 @@ function TextEditor({ layer }: { layer: TextLayer }) {
               ))}
             </select>
           </label>
-          {spec.fill === "solid" && (
+          {spec.fill === "solid" && spec.effect !== "ramp" && (
             <label className={local.field}>
               <span>Color</span>
               <input
@@ -340,10 +370,43 @@ function TextEditor({ layer }: { layer: TextLayer }) {
           sharp edges: each LED fully on or off
         </label>
         <p className={local.note}>
-          {spec.fill === "solid"
+          {spec.fill === "solid" && spec.effect !== "ramp"
             ? "Drag the text in Preview to move it."
             : "Drag the text in Preview to move it. The colors are this layer's Color Ramp."}
         </p>
+
+        <div className={local.row}>
+          <label className={local.field}>
+            <span>Effect</span>
+            <select value={spec.effect} onChange={(event) => set({ effect: event.target.value as TextEffect })}>
+              {TEXT_EFFECTS.map((effect) => (
+                <option key={effect} value={effect}>
+                  {EFFECT_LABEL[effect]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {spec.effect !== "none" && (
+            <label className={local.field}>
+              <span>Speed knob</span>
+              <select value={spec.effectKnob} onChange={(event) => set({ effectKnob: Number(event.target.value) })}>
+                {knobLabels.map((label, index) => (
+                  <option key={index} value={index}>
+                    {label || `Knob ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        {spec.effect !== "none" && (
+          <p className={local.note}>
+            {`${knobLabels[spec.effectKnob] || `Knob ${spec.effectKnob + 1}`} ${EFFECT_SPEED[spec.effect]}. `}
+            {speed === 0
+              ? "It is all the way down, so nothing moves yet: turn it up in Knobs."
+              : `It is at ${speed}% now. All the way down stands the effect still.`}
+          </p>
+        )}
 
         <div className={local.actions}>
           <button
@@ -353,7 +416,11 @@ function TextEditor({ layer }: { layer: TextLayer }) {
           >
             {COPY_LABEL[codeCopy]}
           </button>
-          <span className={local.note}>The letters as pixels: the code needs no font. Change the words and copy again.</span>
+          <span className={local.note}>
+            {spec.effect === "none"
+              ? "The letters as pixels: the code needs no font. Change the words and copy again."
+              : "The letters as pixels, standing still: the effect goes with Export and To hardware."}
+          </span>
         </div>
       </div>
     </div>

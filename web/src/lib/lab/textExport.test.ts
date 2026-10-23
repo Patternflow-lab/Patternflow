@@ -2,7 +2,9 @@
 // bitmap once (text.ts) and both exports carry that bitmap, so the device
 // never needs the font. What was missing until 23 October 2026 was a check
 // that the three renderers agree: the Lab preview, the JS the flattener
-// writes, and the C++ header the To hardware window builds. The header half
+// writes, and the C++ header the To hardware window builds. Since 24 October
+// a text layer can also scroll, twinkle or run its ramp (textEffects.ts), and
+// the moving cases below hold the three to the same LEDs frame after frame. The header half
 // compiles the scaffold with the host's C++ compiler against the firmware's
 // own math, colour, memory and param headers; only the panel, the encoders
 // and Arduino.h are stood in for, and the stand-in canvas keeps the frame in
@@ -21,7 +23,10 @@ import { LabEngine } from "./engine";
 import { flattenLayers } from "./flatten";
 import { assembleH, buildHExport } from "./hExport";
 import { buildPixelPatternCode } from "./pixelToCode";
-import { paintText } from "./text";
+import { paintText, rampSource } from "./text";
+import { renderTextEffect, type ActiveTextEffect } from "./textEffects";
+import { buildRampLUTRGBA } from "@/lib/pattern/harness";
+import { rampStateToHarness } from "./engine";
 import {
   BLEND_MODES,
   DEFAULT_RAMP_STATE,
@@ -151,22 +156,62 @@ function stripes(id: string): CodeLayer {
   };
 }
 
-type Case = { name: string; frame: MatrixSize; layers: Layer[] };
+/**
+ * A stack to render. A moving one also says where its four knobs sit (0..1
+ * ranges, so a value is its own share), the seconds a frame takes, and
+ * which frames to compare, counted from 1.
+ */
+type Case = {
+  name: string;
+  frame: MatrixSize;
+  layers: Layer[];
+  knobs?: number[];
+  dt?: number;
+  frames?: number[];
+};
 
-function preview({ frame, layers }: Case): Uint8ClampedArray {
-  return new LabEngine().render(
-    { matrix: frame, layers, activeLayerId: layers[0].id, knobs: [0, 0, 0, 0], ranges: [[0, 1], [0, 1], [0, 1], [0, 1]] },
-    1 / 60,
-    0,
-  ).data;
+const RANGES: Array<[number, number]> = [[0, 1], [0, 1], [0, 1], [0, 1]];
+const knobsOf = (entry: Case) => entry.knobs ?? [0, 0, 0, 0];
+const framesOf = (entry: Case) => entry.frames ?? [1];
+
+/** The preview at each of the case's frames, by frame number. */
+function previewFrames(entry: Case): Map<number, Uint8ClampedArray> {
+  const { frame, layers } = entry;
+  const engine = new LabEngine();
+  const dt = entry.dt ?? 1 / 60;
+  const wanted = framesOf(entry);
+  const out = new Map<number, Uint8ClampedArray>();
+  for (let f = 1; f <= wanted[wanted.length - 1]; f++) {
+    const data = engine.render(
+      { matrix: frame, layers, activeLayerId: layers[0].id, knobs: knobsOf(entry), ranges: RANGES },
+      dt,
+      (f - 1) * dt,
+    ).data;
+    if (wanted.includes(f)) out.set(f, data.slice());
+  }
+  return out;
 }
 
-function exportedJs({ frame, layers }: Case): Uint8ClampedArray {
+const preview = (entry: Case) => previewFrames(entry).get(1)!;
+
+/** The flattened JS at each of the case's frames, fed the knobs the way the Lab feeds a pattern. */
+function exportedJsFrames(entry: Case): Map<number, Uint8ClampedArray> {
+  const { frame, layers } = entry;
   const runtime = new PatternRuntime(frame.width, frame.height);
   expect(runtime.loadCode(flattenLayers(layers, frame)).error).toBeUndefined();
-  expect(runtime.renderFrame(1 / 60, 0, createIdleInput([0, 0, 0, 0])).error).toBeUndefined();
-  return runtime.data;
+  const dt = entry.dt ?? 1 / 60;
+  const knobs = knobsOf(entry);
+  const input = createIdleInput([0, 0, 0, 0], { knobValues: knobs, knobNormalized: knobs, knobRanges: RANGES });
+  const wanted = framesOf(entry);
+  const out = new Map<number, Uint8ClampedArray>();
+  for (let f = 1; f <= wanted[wanted.length - 1]; f++) {
+    expect(runtime.renderFrame(dt, (f - 1) * dt, input).error).toBeUndefined();
+    if (wanted.includes(f)) out.set(f, runtime.data.slice());
+  }
+  return out;
 }
+
+const exportedJs = (entry: Case) => exportedJsFrames(entry).get(1)!;
 
 /** The first pixel that differs, as a sentence, or null. RGB only: the panel has no alpha. */
 function firstDifference(a: Uint8ClampedArray, b: Uint8ClampedArray, width: number): string | null {
@@ -271,9 +316,240 @@ const HALF_STEP: Case = (() => {
   return { name: "HalfStep", frame, layers: [{ ...art, id: "HalfStep", blend: "add", opacity: 0.5 }] };
 })();
 
+// ── moving text ──
+
+/**
+ * A text layer with an effect, and what it moves drawn the way text.ts
+ * draws it: for scroll and ramp a strip that starts left of the frame and
+ * runs on past its right edge, the bitmap being that strip at phase 0.
+ */
+function movingLayer(
+  id: string,
+  frame: MatrixSize,
+  next: () => number,
+  effect: ActiveTextEffect,
+  spec: Partial<TextSpec>,
+  common: Partial<Pick<TextLayer, "blend" | "opacity" | "role" | "maskInvert">> = {},
+  ramp: RampState = TEXT_RAMP_STATE,
+): TextLayer {
+  const layer = textLayer(id, frame, next, { ...spec, effect }, common, ramp);
+  if (effect === "twinkle") return layer;
+  const x = -Math.floor(frame.width / 3);
+  const width = frame.width + Math.floor(frame.width / 2) + 5;
+  const coverage = glyphCoverage({ width, height: frame.height }, next);
+  const data =
+    effect === "scroll"
+      ? paintText(coverage, layer.spec, ramp, width, frame.height)
+      : rampSource(coverage, layer.spec, width, frame.height);
+  const moving: TextLayer = { ...layer, source: { x, width, data }, data: new Uint8ClampedArray(layer.data.length) };
+  renderTextEffect(moving, effect, 0, effect === "ramp" ? buildRampLUTRGBA(rampStateToHarness(ramp)) : null, moving.data);
+  return moving;
+}
+
+// A sixty-fourth of a second, and knobs at quarters: dt × speed is then a
+// sum a float adds up without rounding, so the header's phase is the
+// preview's to the bit. Scroll at a knob of 0.5 is a pixel a frame.
+const STEP = 1 / 64;
+const QUARTERS = [0, 0.25, 0.5, 0.75, 1];
+
+const MOVING: Case[] = [];
+{
+  const frame = { width: 32, height: 16 };
+  // 53 columns of source and the frame's 32: round once in 85 frames.
+  MOVING.push({
+    name: "ScrollAlone",
+    frame,
+    layers: [movingLayer("Scroll", frame, random(5), "scroll", { effectKnob: 1 })],
+    knobs: [0, 0.5, 0, 0],
+    dt: STEP,
+    frames: [1, 2, 40, 85, 86, 130],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  const next = random(6);
+  MOVING.push({
+    name: "ScrollSoftRampOverArt",
+    frame,
+    layers: [
+      movingLayer("Soft", frame, next, "scroll", { effectKnob: 0, fill: "rampX", sharp: false }, { blend: "screen", opacity: 0.8 }),
+      artLayer("Art", frame, next),
+    ],
+    knobs: [0.75, 0, 0, 0],
+    dt: STEP,
+    frames: [1, 3, 57, 120],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  MOVING.push({
+    name: "ScrollMaskOverCode",
+    frame,
+    layers: [movingLayer("Mask", frame, random(7), "scroll", { effectKnob: 3, fill: "rampY" }, { role: "mask" }), stripes("Stripes")],
+    knobs: [0, 0, 0, 1],
+    dt: STEP,
+    frames: [1, 10, 50],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  const next = random(8);
+  // Four steps a frame: one beat of 256 in 64 frames.
+  MOVING.push({
+    name: "TwinkleOverArt",
+    frame,
+    layers: [
+      movingLayer("Twinkle", frame, next, "twinkle", { effectKnob: 1, sharp: false }, { blend: "add", opacity: 0.6 }),
+      artLayer("Art", frame, next),
+    ],
+    knobs: [0, 0.5, 0, 0],
+    dt: STEP,
+    frames: [1, 31, 64, 65, 100],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  MOVING.push({
+    name: "TwinkleMaskOverCode",
+    frame,
+    layers: [movingLayer("Mask", frame, random(9), "twinkle", { effectKnob: 2 }, { role: "mask", maskInvert: true }), stripes("Stripes")],
+    knobs: [0, 0, 0.25, 0],
+    dt: STEP,
+    frames: [1, 40, 129],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  // Two steps a frame: the far end of the ramp at frame 128, back by 256.
+  MOVING.push({
+    name: "RampAcross",
+    frame,
+    layers: [movingLayer("Ramp", frame, random(10), "ramp", { effectKnob: 1, fill: "rampX" })],
+    knobs: [0, 0.25, 0, 0],
+    dt: STEP,
+    frames: [1, 64, 128, 129, 200, 256, 257],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  const next = random(11);
+  MOVING.push({
+    name: "RampSolidOverArt",
+    frame,
+    layers: [
+      movingLayer("Solid", frame, next, "ramp", { effectKnob: 1, sharp: false }, { blend: "multiply", opacity: 0.6 }, {
+        ...TEXT_RAMP_STATE,
+        stops: TEXT_RAMP_STATE.stops.map((stop, i) => ({ ...stop, alpha: i === 2 ? 0.4 : 1 })),
+      }),
+      artLayer("Art", frame, next),
+    ],
+    knobs: [0, 1, 0, 0],
+    dt: STEP,
+    frames: [1, 33, 64, 65],
+  });
+}
+{
+  const frame = { width: 32, height: 16 };
+  MOVING.push({
+    name: "StandingStill",
+    frame,
+    layers: [movingLayer("Still", frame, random(12), "scroll", { effectKnob: 0 })],
+    knobs: [0, 1, 1, 1],
+    dt: STEP,
+    frames: [1, 50],
+  });
+}
+// Any effect on any knob, over art or under it, at any blend.
+for (let seed = 41; seed <= 52; seed++) {
+  const frame = { width: 24, height: 12 };
+  const next = random(seed);
+  const effect = (["scroll", "twinkle", "ramp"] as const)[seed % 3];
+  const layers: Layer[] = [];
+  for (let k = 0; k < 3; k++) {
+    const common = {
+      blend: BLEND_MODES[Math.floor(next() * BLEND_MODES.length)] as BlendMode,
+      opacity: ODD_OPACITIES[Math.floor(next() * ODD_OPACITIES.length)],
+    };
+    layers.push(
+      k === 1
+        ? movingLayer(`Moving${seed}`, frame, next, effect, {
+            effectKnob: Math.floor(next() * 4),
+            fill: (["solid", "rampX", "rampY"] as const)[Math.floor(next() * 3)],
+            sharp: next() < 0.5,
+          }, common)
+        : artLayer(`Art${k}`, frame, next, common),
+    );
+  }
+  MOVING.push({
+    name: `Moving${seed}`,
+    frame,
+    layers,
+    knobs: [0, 1, 2, 3].map(() => QUARTERS[1 + Math.floor(next() * 4)]),
+    dt: STEP,
+    frames: [1, 23, 77],
+  });
+}
+
+// The flattened JS works in doubles like the preview, so a knob anywhere
+// and the Lab's own frame time must agree too.
+const MOVING_ANYHOW: Case[] = MOVING.slice(0, 7).map((entry) => ({
+  ...entry,
+  name: `${entry.name}Anyhow`,
+  knobs: [0.3, 0.37, 0.81, 0.66],
+  dt: 1 / 60,
+  frames: [1, 45, 200],
+}));
+
 describe("a text layer in the flattened JS", () => {
   it.each([...CASES, ...HALVES].map((entry) => [entry.name, entry] as const))("%s: same pixels as the preview", (_name, entry) => {
     expect(firstDifference(preview(entry), exportedJs(entry), entry.frame.width)).toBeNull();
+  });
+
+  it.each([...MOVING, ...MOVING_ANYHOW].map((entry) => [entry.name, entry] as const))(
+    "%s: moving, same pixels as the preview frame after frame",
+    (_name, entry) => {
+      const shown = previewFrames(entry);
+      const js = exportedJsFrames(entry);
+      for (const f of framesOf(entry)) {
+        expect(firstDifference(shown.get(f)!, js.get(f)!, entry.frame.width), `frame ${f}`).toBeNull();
+      }
+    },
+  );
+});
+
+describe("moving text, as the preview shows it", () => {
+  const frames = (name: string) => previewFrames(MOVING.find((entry) => entry.name === name)!);
+  const same = (a: Uint8ClampedArray, b: Uint8ClampedArray) => firstDifference(a, b, 32) === null;
+
+  it("scrolls: a pixel a frame at half the knob, and back where it started after its period", () => {
+    const shown = frames("ScrollAlone");
+    expect(same(shown.get(1)!, shown.get(2)!)).toBe(false);
+    expect(same(shown.get(1)!, shown.get(40)!)).toBe(false);
+    // Frame 85 has gone round once: the rest frame. 86 is frame 1 again.
+    const rest = (MOVING[0].layers[0] as TextLayer).data;
+    expect(same(shown.get(85)!, rest)).toBe(true);
+    expect(same(shown.get(86)!, shown.get(1)!)).toBe(true);
+  });
+
+  it("twinkles with the beat, and is the same again after it", () => {
+    const shown = frames("TwinkleOverArt");
+    expect(same(shown.get(1)!, shown.get(31)!)).toBe(false);
+    expect(same(shown.get(1)!, shown.get(65)!)).toBe(true);
+  });
+
+  it("runs the ramp to its end and back", () => {
+    const shown = frames("RampAcross");
+    expect(same(shown.get(1)!, shown.get(128)!)).toBe(false);
+    expect(same(shown.get(1)!, shown.get(257)!)).toBe(true);
+    const rest = (MOVING[5].layers[0] as TextLayer).data;
+    expect(same(shown.get(256)!, rest)).toBe(true);
+  });
+
+  it("stands still with its knob all the way down, at the letters' rest", () => {
+    const shown = frames("StandingStill");
+    const rest = (MOVING[7].layers[0] as TextLayer).data;
+    expect(same(shown.get(1)!, rest)).toBe(true);
+    expect(same(shown.get(50)!, rest)).toBe(true);
   });
 });
 
@@ -358,8 +634,8 @@ function runHeaders(cases: Case[]): Map<string, Uint8ClampedArray> {
       name: entry.name,
       matrix: entry.frame,
       layers: entry.layers,
-      knobs: [0, 0, 0, 0],
-      ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+      knobs: knobsOf(entry),
+      ranges: RANGES,
       knobLabels: ["A", "B", "C", "D"],
     });
     const units: Record<number, string> = {};
@@ -371,8 +647,8 @@ function runHeaders(cases: Case[]): Map<string, Uint8ClampedArray> {
   const main = `#include <stdio.h>
 ${headers.map((entry) => `#include "${entry.name}.h"`).join("\n")}
 
-static void dump(const char* name) {
-  printf("%s ", name);
+static void dump(const char* name, int frame) {
+  printf("%s@%d ", name, frame);
   for (int i = 0; i < PFCanvas::frameW * PFCanvas::frameH * 3; i++) printf("%02x", PFCanvas::frame[i]);
   printf(" %d\\n", PFCanvas::presents);
 }
@@ -380,15 +656,21 @@ static void dump(const char* name) {
 int main() {
   InputFrame input{};
 ${headers
-  .map(
-    (entry) => `  PFCanvas::setFrame(PANEL_RES_W, PANEL_RES_H);
+  .map((entry) => {
+    const wanted = framesOf(entry);
+    // 1/60 as the scaffold's own callers write it; a moving case picks a
+    // step a float holds exactly, so the phase adds up the same in both.
+    const dt = entry.dt === undefined ? "1.0f / 60.0f" : `${entry.dt}f`;
+    return `  PFCanvas::setFrame(PANEL_RES_W, PANEL_RES_H);
   PFCanvas::presents = 0;
   memset(PFCanvas::frame, 0, sizeof PFCanvas::frame);
   ${entry.namespaceName}::setup();
-  ${entry.namespaceName}::update(1.0f / 60.0f, input);
-  ${entry.namespaceName}::draw();
-  dump("${entry.name}");`,
-  )
+  for (int f = 1; f <= ${wanted[wanted.length - 1]}; f++) {
+    ${entry.namespaceName}::update(${dt}, input);
+    ${entry.namespaceName}::draw();
+    if (${wanted.map((f) => `f == ${f}`).join(" || ")}) dump("${entry.name}", f);
+  }`;
+  })
   .join("\n")}
   return 0;
 }
@@ -403,8 +685,9 @@ ${headers
   const frames = new Map<string, Uint8ClampedArray>();
   for (const line of execFileSync(binary, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }).trim().split("\n")) {
     const [name, hex, presents] = line.split(" ");
-    expect(presents, `${name} presented once`).toBe("1");
-    const entry = cases.find((candidate) => candidate.name === name)!;
+    const [caseName, frameNumber] = name.split("@");
+    expect(presents, `${name} presented once a frame`).toBe(frameNumber);
+    const entry = cases.find((candidate) => candidate.name === caseName)!;
     const rgba = new Uint8ClampedArray(entry.frame.width * entry.frame.height * 4);
     for (let i = 0; i < rgba.length / 4; i++) {
       for (let c = 0; c < 3; c++) rgba[i * 4 + c] = parseInt(hex.slice((i * 3 + c) * 2, (i * 3 + c) * 2 + 2), 16);
@@ -478,11 +761,23 @@ const isHalfStep = ([n, d]: Fraction) => d === TWO && n % TWO !== ZERO;
 
 describe.skipIf(!CXX)("a text layer in the C++ header", () => {
   let frames: Map<string, Uint8ClampedArray> | null = null;
-  const header = (name: string) => (frames ??= runHeaders([...CASES, ...HALVES, HALF_STEP])).get(name)!;
+  const header = (name: string, frame = 1) =>
+    (frames ??= runHeaders([...CASES, ...HALVES, HALF_STEP, ...MOVING])).get(`${name}@${frame}`)!;
 
   it.each(CASES.map((entry) => [entry.name, entry] as const))("%s: same pixels as the preview", (name, entry) => {
     expect(firstDifference(preview(entry), header(name), entry.frame.width)).toBeNull();
   }, 60_000);
+
+  it.each(MOVING.map((entry) => [entry.name, entry] as const))(
+    "%s: moving, same pixels as the preview frame after frame",
+    (name, entry) => {
+      const shown = previewFrames(entry);
+      for (const f of framesOf(entry)) {
+        expect(firstDifference(shown.get(f)!, header(name, f), entry.frame.width), `frame ${f}`).toBeNull();
+      }
+    },
+    60_000,
+  );
 
   // The browser works in doubles and the S3 in floats. Neither holds 187/255
   // exactly, so at 27.5 one lands a hair under and the other a hair over, and
@@ -583,6 +878,16 @@ describe("a text layer copied as code", () => {
       // ──`,
     );
     run(code, alone(soft).frame, 0.3);
+  });
+
+  it("a scrolling text copies its whole line, and still rests where the Lab shows it", () => {
+    const scroll = MOVING[0].layers[0] as TextLayer;
+    const code = buildPixelPatternCode(scroll)!;
+    const columns = Number(code.match(/const SPRITE_W = (\d+)/)![1]);
+    expect(columns).toBeGreaterThan(scroll.width);
+    const frame = { width: scroll.width, height: scroll.height };
+    const still: Case = { ...alone(scroll), knobs: [0, 0, 0, 0] };
+    expect(firstDifference(preview(still), run(code, frame), scroll.width)).toBeNull();
   });
 
   it("is null when no letter lands on the frame", () => {
