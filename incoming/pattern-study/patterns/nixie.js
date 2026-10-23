@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Gas=0..1, Speed=0.2..3, Rows=1..3, Mode=0..3
 //
-// Knob 1: Gas. What glows: neon orange at 0, a pink neon-argon mix, the blue-violet of argon and mercury, and a green-filtered tube at 1.
+// Knob 1: Gas. What glows: neon orange at 0, a pink neon-argon mix at a third, the blue-violet of argon and mercury at two thirds, and at 1 a tube behind green-filtered glass.
 // Knob 2: Speed. How fast the display runs: at 2 a spinning tube runs through 16 numerals a second before it slows and stops.
-// Knob 3: Rows. One big tube at 1, two rows of two at 2, three rows of two at 3, each row on its own board.
-// Knob 4: Mode. Scramble at 0 (every tube spins and stops on a random number, one after another), a frequency counter at 1, a clock at 2, a countdown that ends in the anti-poisoning run through every cathode at 3.
+// Knob 3: Rows. One big tube at 1, two rows of two at 2, three rows of two at 3, each row on its own board. With more than one, one tube is a newer replacement, brighter, with a clean silver getter.
+// Knob 4: Mode. Scramble at 0 (every tube spins and stops on a random number, one after another), a frequency counter at 1, a clock at 2 (one big tube spells the time a numeral at a time), a countdown that ends in the anti-poisoning run through every cathode at 3.
 // Buttons: K1 tap runs every cathode in turn now.
 
 const W = 64;
@@ -90,7 +90,7 @@ function segDist(x, y, S) {
   }
   return sqrt(best);
 }
-// Distance to the nearest wire of a pointy-top hexagonal mesh of cell a.
+// How much a wire of the hexagonal anode mesh (cells of size a) covers a point.
 function hexLine(x, y, a) {
   const q = (x * 0.57735 - y / 3) / a, r = (y * 2) / 3 / a;
   let rx = round(q), rz = round(r);
@@ -154,6 +154,8 @@ function build(P, R) {
         S.push(strokes(j, cx - (L.dw * sc) / 2, dcy - (L.dh * sc) / 2, L.dw * sc, L.dh * sc));
       }
       S.push([bx + L.dw * 1.17, by + L.dh * 0.98, bx + L.dw * 1.17, by + L.dh * 0.98]);
+      // In the old tube a numeral the clock seldom shows is poisoned: a patch
+      // of its wire has stopped glowing.
       const pzx = S[P.pois][0] * 0.5 + S[P.pois][2] * 0.5, pzy = S[P.pois][1] * 0.5 + S[P.pois][3] * 0.5;
       for (let y = y0; y < y1; y++)
         for (let x = x0; x < x0 + cw; x++) {
@@ -299,7 +301,7 @@ function start(P) {
 }
 
 const MODES = [
-  // Scramble.
+  // Scramble: the tubes spin, stop one after another, and the number holds.
   (P) => {
     if (P.t < P.next) return;
     const n = P.n;
