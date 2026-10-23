@@ -26,7 +26,7 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const k = input.knobNormalized || [];
-  params.phase = (params.phase + dt * (k[1] ?? 0.5)) % 1;
+  params.phase = (params.phase + dt * 0.5 * (k[1] ?? 0.5)) % 1;
 }
 
 export function draw(display, params, time) {
