@@ -38,5 +38,7 @@
   "bird": { "label": "새", "color": "#778800" },
   "chemistry": { "label": "화학·실험", "color": "#00bb00" },
   "paper": { "label": "종이", "color": "#996600" },
-  "sport": { "label": "운동·경기", "color": "#337777" }
+  "sport": { "label": "운동·경기", "color": "#337777" },
+  "body": { "label": "몸", "color": "#bb5566" },
+  "flight": { "label": "비행", "color": "#9944ee" }
 }
