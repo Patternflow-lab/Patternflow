@@ -273,7 +273,10 @@ export const TEXT_RAMP_STATE: RampState = {
   wrap: false,
 };
 
-/** A new text layer's words, font and place: centred, in the site's pixel font. */
+/**
+ * A new text layer's words, font and place: centred, in the site's pixel font
+ * and its LED orange. White vanished into the starter pattern's white rings.
+ */
 export function defaultTextSpec(matrix: MatrixSize): TextSpec {
   return {
     text: "Hello",
@@ -282,7 +285,7 @@ export function defaultTextSpec(matrix: MatrixSize): TextSpec {
     y: Math.round(matrix.height / 2),
     align: "center",
     font: "site:silkscreen",
-    color: "#ffffff",
+    color: "#e8552e",
     fill: "solid",
     sharp: true,
   };

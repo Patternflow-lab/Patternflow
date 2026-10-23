@@ -1,4 +1,4 @@
-// Text layers (창작자 지시 2, 23 October 2026). A text layer is drawn into a
+// Text layers, added 23 October 2026. A text layer is drawn into a
 // bitmap whenever its words, font, place or fill change, and from then on it
 // is pixel art to the engine, the masks, the save and the export. The canvas
 // step (textRaster.ts) is stood in for here by a block per character, so

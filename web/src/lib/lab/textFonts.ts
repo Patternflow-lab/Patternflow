@@ -9,9 +9,8 @@
 //             this tab with FontFace and never uploaded. Remember keeps the
 //             bytes in this browser's IndexedDB, so the next visit has it.
 //
-// The site carries no fonts of its own for text layers. The creator, 23
-// October 2026: shipping them would put their weight on everyone's page, so a
-// brand's font comes from the person who has it.
+// The site carries no fonts of its own for text layers. A brand's font is
+// megabytes, and the person who has it brings it.
 //
 // A text layer keeps the bitmap it was last drawn as (lib/lab/text.ts), so a
 // project whose file font this browser does not have still looks right. Only

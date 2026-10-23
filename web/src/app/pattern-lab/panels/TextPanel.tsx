@@ -21,6 +21,7 @@ import {
   resolveFont,
   subscribeFonts,
   type FontGroup,
+  type FontOption,
 } from "@/lib/lab/textFonts";
 import {
   TEXT_ALIGNS,
@@ -48,16 +49,16 @@ const FILL_LABEL: Record<TextFill, string> = {
 
 const ALIGN_LABEL = { left: "Left", center: "Center", right: "Right" } as const;
 
-/** Re-render when a font is added, remembered or arrives. */
-function useFontsVersion(): number {
-  const [version, setVersion] = useState(0);
+/** The font picker's entries, kept up as fonts are added, remembered or arrive. */
+function useFontOptions(): FontOption[] {
+  const [options, setOptions] = useState(fontOptions);
   useEffect(() => {
-    const bump = () => setVersion((value) => value + 1);
-    const off = subscribeFonts(bump);
-    void loadRememberedFonts().then(bump);
+    const refresh = () => setOptions(fontOptions());
+    const off = subscribeFonts(refresh);
+    void loadRememberedFonts().then(refresh);
     return off;
   }, []);
-  return version;
+  return options;
 }
 
 /**
@@ -130,7 +131,7 @@ export default function TextPanel() {
 
 function TextEditor({ layer }: { layer: TextLayer }) {
   const setTextSpec = useLabStore((state) => state.setTextSpec);
-  const fontsVersion = useFontsVersion();
+  const options = useFontOptions();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [remember, setRemember] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,8 +139,6 @@ function TextEditor({ layer }: { layer: TextLayer }) {
   const { spec } = layer;
   const set = (patch: Parameters<typeof setTextSpec>[1]) => setTextSpec(layer.id, patch);
 
-  // fontsVersion is read so the list below follows fonts as they load.
-  const options = fontsVersion >= 0 ? fontOptions() : [];
   const missing = resolveFont(spec.font).missing;
   const groups = (["site", "system", "file"] as const).map((group) => ({
     group,

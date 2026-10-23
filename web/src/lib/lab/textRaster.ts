@@ -14,8 +14,8 @@ export function textLines(text: string): string[] {
 }
 
 /**
- * Coverage per pixel, row-major, or null where there is no canvas to draw on
- * (the server, a test without one).
+ * Coverage per pixel in rows from the top. Null where there is no canvas to
+ * draw on: the server, a test without one.
  *
  * Each line's left edge and the block's top are rounded to whole pixels
  * before drawing. Letting the canvas centre a line puts a pixel font's stems
