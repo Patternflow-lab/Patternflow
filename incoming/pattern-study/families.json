@@ -25,5 +25,7 @@
   "machine": { "label": "기계·톱니", "color": "#4a2cff" },
   "celestial": { "label": "천체", "color": "#ffffaa" },
   "city": { "label": "도시", "color": "#22ff00" },
-  "music": { "label": "음악·악기", "color": "#a0705a" }
+  "music": { "label": "음악·악기", "color": "#a0705a" },
+  "ocean": { "label": "바다", "color": "#1f7fb8" },
+  "insect": { "label": "곤충", "color": "#b4e61e" }
 }
