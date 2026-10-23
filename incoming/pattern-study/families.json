@@ -32,5 +32,7 @@
   "toy": { "label": "장난감", "color": "#dd11ff" },
   "glass": { "label": "유리", "color": "#b0002a" },
   "mineral": { "label": "광물·결정", "color": "#886688" },
-  "fair": { "label": "놀이공원", "color": "#ffffff" }
+  "fair": { "label": "놀이공원", "color": "#ffffff" },
+  "kitchen": { "label": "부엌", "color": "#ff5500" },
+  "fungi": { "label": "버섯·균사", "color": "#00ff88" }
 }
