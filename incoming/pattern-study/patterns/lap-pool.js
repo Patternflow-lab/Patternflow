@@ -90,8 +90,8 @@ function build(P) {
 
 // Sun height and bearing: shadows, light colour, the stretch of the caustic net.
 function paint(P, s) {
-  const q = pow(abs(s), 1.3), a = ((25 + 100 * s) * PI) / 180, e = ((60 - 44 * abs(s)) * PI) / 180, za = PI / 2 - e;
-  const L = 9 * tan(asin(sin(za) / 1.33)), ux = sin(a), uy = -cos(a), F = L + 8 * tan(za), I = 1 - 0.18 * q, warm = s < 0 ? [1, 0.86, 0.66] : [1, 0.76, 0.56];
+  const q = pow(abs(s), 1.3), a = ((25 + 100 * s) * PI) / 180, e = ((52 - 36 * abs(s)) * PI) / 180, za = PI / 2 - e;
+  const L = 11 * tan(asin(sin(za) / 1.33)), ux = sin(a), uy = -cos(a), F = L + 8 * tan(za), I = 1 - 0.18 * q, warm = s < 0 ? [1, 0.86, 0.66] : [1, 0.76, 0.56];
   Object.assign(P, { sx: ux * L, sy: uy * L, fx: ux * F, fy: uy * F, str: 0.8 * sin(e) ** 2 + 0.25, glint: (1 - abs(s)) ** 2 * 150 });
   P.lc = [1, 0.98, 0.93].map((v, c) => mix(v, warm[c], q) * I);
   // Low sun leaves the floor to the sky's light.
@@ -196,7 +196,7 @@ function foam(P, [x, y], n, spread, life, size, kind, vel) {
   for (let i = 0, a, r, l; i < n; i++) (a = rnd() * 2 * PI), (r = spread * sqrt(rnd())), (l = life * (0.6 + 0.6 * rnd())), P.fo.push([x + cos(a) * r, y + sin(a) * r, cos(a) * vel * rnd(), sin(a) * vel * rnd(), l, l, size * (0.7 + 0.6 * rnd()), kind]);
 }
 const ring = (P, S, [x, y], amp) => P.ri.push([x, y, 0, amp, S.k, rnd() * 7]);
-const fade = (r, amp) => amp * max(0, 1 - r / 7) ** 1.3;
+const fade = (r, amp) => amp * max(0, 1 - r / 10);
 
 function newSwimmer(P, i, fresh) {
   const k = ORDER[i % 5], d = rnd() < 0.5 ? 1 : -1;
@@ -235,7 +235,7 @@ function stepSwimmer(P, S, d, s) {
     }
     if ((s === 2 && crossed(0.6)) || (s === 3 && (crossed(0.08) || crossed(0.58)))) foam(P, feet(), 5, 2, 0.7, 0.85, 0, 3);
     // Each stroke sends out a pulse, so the arms of the V come in dashes.
-    if ((S.ring -= d) <= 0) (S.ring = 0.16), ring(P, S, head(), wamp * (0.35 + 1.3 * (s < 2 ? cos(2 * PI * ph) ** 2 : sm(1 - abs(fr(ph) - (s === 2 ? 0.45 : 0.78)) / 0.22))));
+    if ((S.ring -= d) <= 0) (S.ring = 0.2), ring(P, S, head(), wamp * (0.35 + 1.3 * (s < 2 ? cos(2 * PI * ph) ** 2 : sm(1 - abs(fr(ph) - (s === 2 ? 0.45 : 0.78)) / 0.22))));
     // At the wall: a flip turn, or a two-hand touch for breaststroke and butterfly.
     if ((wall - S.y) * S.d - HV < (s > 1 ? 1.2 : 2.3)) Object.assign(S, { st: TURN, t: 0, y0: S.y, w: wall, yb: wall - S.d * 3 * SZ, open: s > 1, tt: s > 1 ? 1.15 : 0.9, flip: 0 });
     else S.y += S.d * v * d;
@@ -257,7 +257,7 @@ function stepSwimmer(P, S, d, s) {
     v = pace * (1.75 - 0.85 * t);
     S.z = 0.85 - 0.75 * sm(t);
     S.y += S.d * v * d;
-    if ((S.ring -= d) <= 0) (S.ring = 0.18), ring(P, S, head(), 0.45 * (1 - S.z));
+    if ((S.ring -= d) <= 0) (S.ring = 0.2), ring(P, S, head(), 0.45 * (1 - S.z));
     if (t >= 1) {
       foam(P, head(), s === 3 ? 7 : 5, 1.8, 0.7, 0.85, 0, 3);
       ring(P, S, head(), 0.9);
@@ -303,7 +303,7 @@ export function update(dt, input, params) {
       const dx = abs(ROPE(j) - R[0]), dy = sqrt(r * r - dx * dx);
       if (j >= 0 && j < 4 && r > dx) for (const y of [round(R[1] - dy), round(R[1] + dy)]) if (y >= 0 && y < H) rock[j * H + y] = max(rock[j * H + y], f);
     }
-    return r < 7;
+    return r < 10;
   });
   const dk = exp(-4 * d);
   P.fo = P.fo.filter((f) => ((f[0] += f[2] * d), (f[1] += f[3] * d), (f[2] *= dk), (f[3] *= dk), (f[4] -= d) > 0));
@@ -363,8 +363,8 @@ export function draw(display, params) {
     const f = fade(r, amp), n = f > 0.03 ? max(6, ceil(r * 4.2)) : 0;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * 2 * PI, ca = cos(a), sa = sin(a), x = cx + ca * r, y = cy + sa * r, w = f * (abs(x - LANE(k)) > 6.2 ? 0.2 : 1) * (0.6 + 0.4 * sin(a * 3 + sd));
-      splat(SF, x, y, w * 2.2);
-      splat(SF, x - ca, y - sa, -w * 1.2);
+      splat(SF, x, y, w * 3);
+      splat(SF, x - ca, y - sa, -w * 1.6);
       splat(FL, x + sx, y + sy, w * 0.9);
       splat(FL, x + sx - 1.5 * ca, y + sy - 1.5 * sa, -w * 0.6);
     }
