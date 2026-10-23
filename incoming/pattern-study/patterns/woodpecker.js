@@ -24,6 +24,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mix = (a, b, t) => a + (b - a) * t;
 const sm = (x) => ((x = cl(x, 0, 1)), x * x * (3 - 2 * x));
 const mul = (c, k) => c.map((v) => v * k);
+const lum = (c) => (c[0] + c[1] + c[2]) / 3;
 function hash(i, j) {
   let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -36,7 +37,7 @@ function vn(x, y) {
 }
 
 // Trunks: centre, radius, the row where the foot meets the ground, haze. The near one first.
-const TR = [[30, 10, 119, 0], [56.5, 4.6, 108, 0.2], [2.4, 4.4, 110, 0.16]];
+const TR = [[30, 10, 119, 0], [57, 5.4, 108, 0.16], [2.2, 5.2, 110, 0.12]];
 const rad = (T, y) => T[1] * (1 + 0.7 * sm((y - T[2] + 16) / 16) ** 2);
 // Who climbs where: trunk, side (-1 the left edge, so the bird faces right), kind (0 male, 1 female, 2 young), first row.
 const FLOCK = [[0, -1, 0, 50], [1, -1, 1, 74], [2, 1, 2, 40], [0, 1, 2, 96]];
@@ -44,8 +45,8 @@ const TOP = 27;
 // The clinging bird facing right, the bark on its right: rows 0..4 the head, then the body and the
 // stiff tail. The toes on row 10 grip the bark's edge, and the bill on row 3 reaches one LED into it.
 // C crown, N nape, K black, W white, w buff, R red, G bill and toes, e eye.
-const HEAD = ["..CCC....", ".CCCCW...", "NCCCWWW..", "NWeWWWGG.", "KWKKKKG.."];
-const UPH = ["..CCC.G..", ".CCCCWG..", "NCCCWWW..", "NWeWWW...", "KWKKKK..."];
+const HEAD = ["..CCC....", ".CCCCC...", "NCCCWWW..", "NWWeWWGG.", "KWKKKKG.."];
+const UPH = ["..CCC.G..", ".CCCCCG..", "NCCCWeW..", "NWWWWW...", "KWKKKK..."];
 const BODY = ["KKKWWW...", "KKKKWw...", "KWWKww...", "KWWWww...", "KWWKww...", "KKKKwwG..", "KWKWww...", ".KKKwR...", "..KKRRG..", "..KKRR...", "...KK....", "....KK...", ".....K..."];
 // In flight, facing right: the bird with its wings closed for the bound, wings up, wings down.
 const FLB = [".......CCC...", "KKK.KKKNCWW..", "KKKKKWWKWeWGG", "...RRwwwKKK..", ".....www....."];
@@ -89,11 +90,11 @@ function bark(k, s, y) {
     c = lo.map((v, j) => mix(v, hi[j], up));
   } else {
     // Oak: deep furrows in a net of grey ridges.
-    const r = abs(vn(s * 0.45, y * 0.06) * 2 - 1) + 0.25 * (vn(s * 1.2, y * 0.3) - 0.5);
-    c = r < 0.16 ? [0.08, 0.07, 0.06] : mul([0.44, 0.42, 0.37], q * (r < 0.3 ? 0.72 : 1));
+    const r = abs(vn(s * 0.55, y * 0.04) * 2 - 1) + 0.12 * (vn(s * 1.3, y * 0.2) - 0.5);
+    c = r < 0.12 || vn(s * 1.1, y * 0.5 + 9) > 0.85 ? [0.09, 0.08, 0.07] : mul([0.64, 0.6, 0.53], q * (r < 0.24 ? 0.68 : 1));
   }
-  if (vn(s * 0.3 + 40, y * 0.25 + 40) > [0.86, 0.88, 0.7][k]) c = mul([0.64, 0.72, 0.52], q);
-  if (k && y > 92 && vn(s * 0.3 + 60, y * 0.2) > 0.62 - (y - 92) / 60) c = [0.26 * q, 0.4 * q, 0.1];
+  if (vn(s * 0.45 + 40, y * 0.35 + 40) > [0.86, 0.86, 0.76][k]) c = mul([0.66, 0.74, 0.54], q);
+  if (k && y > 94 && vn(s * 0.3 + 60, y * 0.2) > 0.78 - (y - 94) / 90) c = [0.26 * q, 0.4 * q, 0.1];
   return c;
 }
 
@@ -110,7 +111,7 @@ function build(P) {
     for (let x = 0; x < W; x++) {
       const d = vn(x * 0.11, y * 0.14) * 0.55 + vn(x * 0.3 + 5, y * 0.3) * 0.3 + vn(x * 0.8, y * 0.8) * 0.15, q = 0.75 + 0.5 * vn(x * 0.6 + 3, y * 0.6), gl = 99 + 3 * vn(x * 0.09, 3.1);
       const b = vn(x * 0.13, y * 0.11 + 30) * 0.7 + vn(x * 0.45, y * 0.4) * 0.3 + (y - 56) / 90;
-      if (d > 0.28 + 0.4 * sm((y - 4) / 26)) put(x, y, 1, mul(FF, q * (1.25 - d * 0.6)), 0, 0, 2);
+      if (d > 0.28 + 0.4 * sm((y - 4) / 26) && y < 32) put(x, y, 1, mul(FF, q * (1.25 - d * 0.6)), 0, 0, 2);
       else if (y < 12 + 8 * vn(x * 0.1, 9)) put(x, y, 0, FF, 0, 0, 2);
       else if (y < gl) put(x, y, 2, mul(FF, q), b > 0.75 && y > 54 ? 0.5 - (y - 56) / 140 : 0.2 + 0.68 * sm((y - 26) / 64) + 0.2 * (vn(x * 0.2, y * 0.08 + 60) - 0.5), 0, 2);
       else put(x, y, 4, mul(GR, q), 0.6 * (1 - sm((y - gl) / 14)), 0, 2);
@@ -130,7 +131,9 @@ function build(P) {
     for (let y = 0; y < min(H, fy + 3); y++)
       for (let r = rad(T, y), x = floor(cx - r); x <= cx + r; x++) {
         const u = (x + 0.5 - cx) / r;
-        if (abs(u) <= 1) put(x, y, 3, bark(k, asin(u) * r0 + t * 40, y), h, u, t ? 1 : 0);
+        // The bark's own relief tips the normal, so ridges catch a low sun on one side.
+        const s = asin(u) * r0 + t * 40, e = lum(bark(k, s - 0.7, y)) - lum(bark(k, s + 0.7, y));
+        if (abs(u) <= 1) put(x, y, 3, bark(k, s, y), h, cl(u + e * 1.6, -1, 1), t ? 1 : 0);
       }
   }
   // Limbs off the near trunk: a live one to the right, one up into the crown, a dead stub on the left.
@@ -228,8 +231,8 @@ function stepBird(P, B, d) {
       const on = B.t % 0.62 < 0.42;
       B.head = on ? 3 : 0;
       if (on) {
-        B.hole[2] = min(1.9, B.hole[2] + d * 0.35);
-        for (let n = rnd() < d * 26 ? 1 + (rnd() < 0.3) : 0; n > 0; n--) P.chips.push([B.hole[0] + B.side, B.hole[1] + (rnd() - 0.5) * 2, B.side * (12 + rnd() * 30), -(4 + rnd() * 26), floor(rnd() * 3), 0, B.tr ? 1 : 0]);
+        B.hole[2] = min(2.2, B.hole[2] + d * 0.5);
+        for (let n = rnd() < d * 30 ? 1 + (rnd() < 0.5) : 0; n > 0; n--) P.chips.push([B.hole[0] + B.side, B.hole[1] + (rnd() - 0.5) * 2, B.side * (12 + rnd() * 30), -(4 + rnd() * 26), floor(rnd() * 3), 0, B.tr ? 1 : 0]);
       }
       if (B.t >= B.dur) go(PROBE, 0.7 + rnd() * 0.6);
       break;
@@ -299,7 +302,7 @@ function light(P) {
   const { buf, bg, sa, ft, lit, hz, mat, shafts: S, t, sx } = P, w = 0.6 + 0.4 * sin(t * 0.31) * sin(t * 0.17 + 2);
   const ax = 4 * sin(t * 0.5) + 2 * sin(t * 1.3) * w + t * 0.6, ay = 2 * sin(t * 0.4 + 1), bx = -t * 1.1 + 3 * sin(t * 0.8) * w, by = 1.5 * sin(t * 0.6) + 40;
   const [ix, iy, jx, jy] = [floor(ax), floor(ay), floor(bx), floor(by)], [fx, fy, gx, gy] = [ax - ix, ay - iy, bx - jx, by - jy];
-  const sh = P.shaft * 70, so = t * 0.9 + 3 * sin(t * 0.23), [sr, sg, sb] = P.sun;
+  const sh = P.shaft * 100, so = t * 0.9 + 3 * sin(t * 0.23), [sr, sg, sb] = P.sun;
   for (let y = 0, p = 0; y < H; y++) {
     const r0 = ((y + iy) & 127) << 7, r1 = ((y + iy + 1) & 127) << 7, q0 = ((y + jy) & 127) << 7, q1 = ((y + jy + 1) & 127) << 7, bo = y * sx * 0.8 + so;
     for (let x = 0; x < W; x++, p++) {
@@ -315,7 +318,7 @@ function light(P) {
 
 function lightAt(P, x, y) {
   const l = P.lit[cl(round(y), 0, H - 1) * W + cl(round(x), 0, W - 1)];
-  return [0, 1, 2].map((c) => (P.amb[c] + 70 + P.sun[c] * 0.75 * l) / 255);
+  return [0, 1, 2].map((c) => (P.amb[c] + 96 + P.sun[c] * 0.65 * l) / 255);
 }
 
 function sprite(P, rows, x0, y0, face, cmap, L, a, z, dx = 0) {
@@ -356,8 +359,8 @@ export function draw(display, params) {
     for (let y = floor(hy - r - 1); y <= hy + r + 1; y++)
       for (let x = floor(hx - r - 1); x <= hx + r + 1; x++) {
         const e = sqrt(((x - hx) / max(0.6, r * 0.8)) ** 2 + ((y - hy) / max(0.6, r)) ** 2);
-        if (e < 1) A(x, y, 30 * L[0], 18 * L[1], 10 * L[2]);
-        else if (e < 1.5 && y > hy) A(x, y, 236 * L[0], 206 * L[1], 150 * L[2], 0.8);
+        if (e < 1) A(x, y, 12, 8, 6);
+        else if (e < 1.6) A(x, y, 240 * L[0], 212 * L[1], 156 * L[2], y > hy ? 0.9 : 0.5);
       }
   }
   for (let i = 0; i < P.nb; i++) if (P.birds[i].tr) drawBird(P, P.birds[i]);
@@ -378,15 +381,12 @@ export function draw(display, params) {
     const L = lightAt(P, x, y), k = 255 * (0.8 + 0.4 * sin(t * 6 + ph));
     A(round(x), round(y), leafC[0] * k * L[0], leafC[1] * k * L[1], leafC[2] * k * L[2]);
   }
-  // Bracken in front, swaying.
+  // Bracken in front, arching and swaying, the fronds narrowing to the tip.
   for (const [fx, fy, len, lean, ph] of P.ferns)
     for (let s = 0, x = fx, y = fy, sw = sin(t * 1.4 + ph) * 0.12 * w; s < len; s++) {
-      const f = s / len, a = lean * f + sw * f - 0.3 * lean;
-      x += sin(a) * 1.1;
-      y -= cos(a) * 0.9;
-      const L = mul(lightAt(P, x, y), 0.7 + 0.3 * f), xi = round(x), yi = round(y);
-      A(xi, yi, 70 * L[0], 130 * L[1], 40 * L[2]);
-      if (s % 2 && s > 1) A(xi - 1, yi + 1, 90 * L[0], 160 * L[1], 50 * L[2], 0.9), A(xi + 1, yi + 1, 90 * L[0], 160 * L[1], 50 * L[2], 0.9);
+      const f = s / len, a = (lean + sw) * f * 1.8 - 0.2 * lean, ca = cos(a), sa = sin(a), L = mul(lightAt(P, (x += sa), (y -= ca)), 0.6 + 0.4 * f);
+      A(round(x), round(y), 70 * L[0], 120 * L[1], 36 * L[2]);
+      if (s > 2) for (let j = 1, n = round(3.2 * (1 - f)) + (s & 1); j <= n; j++) for (const e of [-1, 1]) A(round(x + e * j * ca), round(y + e * j * sa + j * 0.35), 96 * L[0], 168 * L[1], 52 * L[2], 0.9);
     }
   show(display, P.buf);
 }
