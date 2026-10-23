@@ -72,14 +72,16 @@
   height: 32px;
 }
 
-.fontFile {
+.fontFile,
+.actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
 }
 
-.fontFile button {
+.fontFile button,
+.actions button {
   min-height: 32px;
   border-radius: 4px;
   border: 1px solid rgba(23, 21, 18, 0.3);
@@ -90,7 +92,8 @@
   cursor: pointer;
 }
 
-.fontFile button:hover:not(:disabled) {
+.fontFile button:hover:not(:disabled),
+.actions button:hover:not(:disabled) {
   background: #171512;
   color: #f7f3ea;
 }
@@ -133,7 +136,8 @@
 @media (hover: none) {
   .field select,
   .field input[type="number"],
-  .fontFile button {
+  .fontFile button,
+  .actions button {
     min-height: 44px;
   }
 
