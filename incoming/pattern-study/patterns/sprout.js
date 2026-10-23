@@ -22,7 +22,10 @@ const PLANTS = 18;
 // A plant can stand most of the way up the tall panel, so it needs room for more LEDs.
 const PIX = 720;
 const TIPS = 96;
-const FALL = 64;
+// Petals in the air and on the ground. Fallen ones lie in drifts up to PILE
+// LEDs deep at the foot of the garden.
+const FALL = 320;
+const PILE = 5;
 
 const STEM = 1;
 const LEAF = 2;
@@ -30,25 +33,31 @@ const BUD = 3;
 const PETAL = 4;
 const HEART = 5;
 
-// Four kinds of plant: a daisy on a tall stem, a tulip on a straight one, a
-// branchy aster with many small heads, and a lupine whose top grows florets.
+// Five kinds of plant: a daisy on a tall stem, a tulip on a straight one, a
+// branchy aster with many small heads, a lupine whose top grows florets, and
+// a hollyhock that stands near the top of the panel with cups up its spike.
 const DAISY = 0;
 const TULIP = 1;
 const ASTER = 2;
 const LUPINE = 3;
+const HOLLYHOCK = 4;
 // How much a stem wanders off its line.
-const KIND_WOBBLE = [0.1, 0.04, 0.2, 0.06];
-const KIND_LEN = [74, 44, 40, 78];
-const KIND_SPREAD = [42, 30, 34, 36];
-const KIND_FORK = [0.12, 0.05, 0.3, 0.07];
-const KIND_LEAF = [0.12, 0.3, 0.22, 0.16];
+const KIND_WOBBLE = [0.1, 0.04, 0.2, 0.06, 0.03];
+const KIND_LEN = [74, 44, 40, 78, 94];
+const KIND_SPREAD = [42, 30, 34, 36, 22];
+const KIND_FORK = [0.12, 0.05, 0.3, 0.07, 0.02];
+const KIND_LEAF = [0.12, 0.3, 0.22, 0.16, 0.3];
+// The top of a hollyhock stem, in LEDs, that carries flowers.
+const SPIKE = 44;
 
 // Flowers as offsets from the tip, a big one for the main stem and a small
-// one for side shoots.
+// one for side shoots. The big daisy is seven LEDs across around a heart of
+// five (HEART_PLUS).
 const BIG = [
-  [-1, -2, 0, -2, 1, -2, -2, -1, -1, -1, 0, -1, 1, -1, 2, -1, -2, 0, -1, 0, 1, 0, 2, 0, -2, 1, -1, 1, 1, 1, 2, 1, -1, 2, 1, 2],
+  [0, -3, -2, -2, -1, -2, 0, -2, 1, -2, 2, -2, -2, -1, -1, -1, 1, -1, 2, -1, -3, 0, -2, 0, 2, 0, 3, 0, -2, 1, -1, 1, 1, 1, 2, 1, -2, 2, -1, 2, 0, 2, 1, 2, 2, 2, 0, 3],
   [0, -1, -1, -1, 1, -1, -1, -2, 0, -2, 1, -2, -1, -3, 1, -3],
   [0, -1, -1, -1, 1, -1, -1, 0, 1, 0, -1, 1, 1, 1, 0, -2, 0, -3, -2, -2, 2, -2, -2, 0, -3, 0, 2, 0, 3, 0, -2, 2, 2, 2],
+  [-1, 0, 1, 0, 0, -1],
   [-1, 0, 1, 0, 0, -1],
 ];
 const SMALL = [
@@ -56,7 +65,17 @@ const SMALL = [
   [0, -1, -1, -1, 1, -1, -1, -2, 1, -2],
   [-1, 0, 1, 0, 0, -1],
   [-1, 0, 1, 0, 0, -1],
+  [-1, 0, 1, 0, 0, -1],
 ];
+const HEART_PLUS = [-1, 0, 1, 0, 0, -1, 0, 1];
+// A hollyhock cup, around a heart two LEDs out from the stem, for a cup on
+// the right; one on the left mirrors it. The open cups low on the spike are
+// wide, the young ones near its top are small.
+const CUP = [-1, -1, 0, -1, 1, -1, -1, 0, 1, 0, -1, 1, 0, 1, 1, 1, 0, -2, 0, 2, 2, 0];
+const YOUNG_CUP = [-1, -1, 0, -1, 1, -1, -1, 0, 1, 0, -1, 1, 0, 1, 1, 1];
+// budGen at or past this marks a hollyhock cup: +1 for the right side, +2 for
+// a wide one. A stem's generation stays below Branches, so it never gets here.
+const CUP_GEN = 100;
 
 const GROWING = 1;
 const HOLDING = 2;
@@ -126,11 +145,19 @@ function sow(p) {
   if (slot < 0) return false;
   for (let tries = 0; tries < 8; tries++) {
     const x = 3 + Math.floor(Math.random() * (W - 6));
+    // A plant that is withering or going back into the ground already makes
+    // room: a seed may come up beside it, where its leaves are not in the way.
     let near = false;
-    for (let i = 0; i < PLANTS; i++) if (p.state[i] && Math.abs(p.baseX[i] - x) < 6) near = true;
-    if (near || !room(p, x, H - 1)) continue;
+    for (let i = 0; i < PLANTS; i++) if ((p.state[i] === GROWING || p.state[i] === HOLDING) && Math.abs(p.baseX[i] - x) < 6) near = true;
+    let clear = !near;
+    for (let y = H - 1; clear && y > H - 12; y--) clear = room(p, x, y);
+    if (!clear) continue;
+    // Two hollyhocks stand in the garden whenever there is room for them; the
+    // rest is a mix.
+    let tall = 0;
+    for (let i = 0; i < PLANTS; i++) if ((p.state[i] === GROWING || p.state[i] === HOLDING) && p.style[i] === HOLLYHOCK) tall++;
     const r = Math.random();
-    const kind = r < 0.3 ? DAISY : r < 0.52 ? TULIP : r < 0.72 ? ASTER : LUPINE;
+    const kind = tall < 2 ? HOLLYHOCK : r < 0.32 ? DAISY : r < 0.54 ? TULIP : r < 0.76 ? ASTER : LUPINE;
     p.state[slot] = GROWING;
     p.baseX[slot] = x;
     p.count[slot] = 0;
@@ -150,10 +177,28 @@ function sow(p) {
 
 function bloom(p, plant, x, y, gen) {
   const style = p.style[plant];
+  if (gen >= CUP_GEN) {
+    // The bud beside the stem opens into a cup whose heart sits one LED further out.
+    const side = (gen - CUP_GEN) & 1 ? 1 : -1;
+    const shape = (gen - CUP_GEN) & 2 ? CUP : YOUNG_CUP;
+    const cx = x + side;
+    p.kind[y * W + x] = PETAL;
+    p.buds[plant]--;
+    if (free(p, cx, y)) put(p, plant, cx, y, HEART);
+    for (let n = 0; n < shape.length; n += 2) {
+      const px = cx + shape[n] * side;
+      const py = y + shape[n + 1];
+      if (free(p, px, py)) put(p, plant, px, py, PETAL);
+    }
+    return;
+  }
   // A tulip has no heart showing.
   p.kind[y * W + x] = style === TULIP ? PETAL : HEART;
   p.buds[plant]--;
   const shape = gen === 0 || Math.random() < 0.3 ? BIG[style] : SMALL[style];
+  if (style === DAISY && shape === BIG[DAISY]) {
+    for (let n = 0; n < HEART_PLUS.length; n += 2) if (free(p, x + HEART_PLUS[n], y + HEART_PLUS[n + 1])) put(p, plant, x + HEART_PLUS[n], y + HEART_PLUS[n + 1], HEART);
+  }
   for (let n = 0; n < shape.length; n += 2) {
     const px = x + shape[n];
     const py = y + shape[n + 1];
@@ -226,7 +271,24 @@ function stepTip(p, t, wind) {
     for (let side = -1; side <= 1; side += 2) {
       if (free(p, nx + side, ny + 1) && free(p, nx + side * 2, ny + 1)) put(p, plant, nx + side, ny + 1, PETAL);
     }
-  } else if (p.tipSince[t] > 1 && Math.random() < KIND_LEAF[style] * (style === TULIP && ny < H - 18 ? 0.2 : 1)) {
+  } else if (style === HOLLYHOCK && p.tipGen[t] === 0 && p.tipLeft[t] < SPIKE) {
+    // Up the spike a bud every third LED, one side then the other. They open
+    // from the bottom up, as the stem passes them.
+    const left = p.tipLeft[t];
+    const side = ((left / 3) | 0) & 1 ? 1 : -1;
+    const bx = nx + side;
+    if (left % 3 === 0 && left > 2 && free(p, bx, ny + 1) && free(p, bx + side, ny + 1)) {
+      put(p, plant, bx, ny + 1, BUD);
+      const c = (ny + 1) * W + bx;
+      p.budAt[c] = p.budTime * (0.8 + Math.random() * 0.5);
+      p.budGen[c] = CUP_GEN + (side > 0 ? 1 : 0) + (left > 14 ? 2 : 0);
+      p.buds[plant]++;
+    }
+  } else if (
+    p.tipSince[t] > 1 &&
+    // A tulip keeps its leaves low, and a hollyhock its big ones.
+    Math.random() < KIND_LEAF[style] * (style === TULIP && ny < H - 18 ? 0.2 : style === HOLLYHOCK && ny < H - 48 ? 0.15 : 1)
+  ) {
     // Now and then a leaf beside the stem, rising away from it.
     const side = Math.random() < 0.5 ? -1 : 1;
     const lx = nx + side;
@@ -267,6 +329,38 @@ function release(p, x, y, hue) {
     p.fSway[f] = Math.random() * 6.28;
     return;
   }
+}
+
+// A petal that lands rolls off a drift onto a lower neighbour, downwind
+// first, so the drifts slope like sand. On a full drift it blows away.
+function settle(p, f, wind, slow) {
+  const down = wind < 0 ? -1 : 1;
+  let x = Math.floor(p.fx[f]);
+  for (let roll = 0; roll < W; roll++) {
+    const a = x + down;
+    const b = x - down;
+    if (a >= 0 && a < W && p.pile[a] + 1 < p.pile[x]) x = a;
+    else if (b >= 0 && b < W && p.pile[b] + 1 < p.pile[x]) x = b;
+    else break;
+  }
+  if (p.pile[x] >= PILE) {
+    p.fState[f] = 0;
+    return;
+  }
+  p.fx[f] = x + 0.5;
+  p.fy[f] = H - 0.5 - p.pile[x];
+  p.pile[x]++;
+  p.fState[f] = 2;
+  p.fRest[f] = (12 + Math.random() * 14) * slow;
+}
+
+// A fallen petal goes into the soil, and the ones lying on it settle a LED.
+function sink(p, f) {
+  const x = Math.floor(p.fx[f]);
+  const y = p.fy[f];
+  p.fState[f] = 0;
+  p.pile[x]--;
+  for (let g = 0; g < FALL; g++) if (p.fState[g] === 2 && Math.floor(p.fx[g]) === x && p.fy[g] < y) p.fy[g] += 1;
 }
 
 function step(p, dt, k) {
@@ -357,15 +451,14 @@ function step(p, dt, k) {
       p.fSway[f] += dt * 2.2;
       p.fy[f] += dt * (3 + 1.5 * Math.sin(p.fSway[f] * 0.7));
       p.fx[f] += dt * (wind * 5 + Math.sin(p.fSway[f]) * 2.5);
-      if (p.fy[f] >= H - 0.5) {
-        p.fy[f] = H - 0.5;
-        p.fState[f] = 2;
-        p.fRest[f] = (1.5 + Math.random() * 2) * slow;
+      if (p.fx[f] < 0 || p.fx[f] >= W) {
+        p.fState[f] = 0;
+        continue;
       }
-      if (p.fx[f] < 0 || p.fx[f] >= W) p.fState[f] = 0;
+      if (p.fy[f] >= H - 0.5 - p.pile[Math.floor(p.fx[f])]) settle(p, f, wind, slow);
     } else {
       p.fRest[f] -= dt;
-      if (p.fRest[f] <= 0) p.fState[f] = 0;
+      if (p.fRest[f] <= 0) sink(p, f);
     }
   }
 
@@ -413,6 +506,7 @@ export function setup(params) {
   p.fState = new Uint8Array(FALL);
   p.fRest = new Float32Array(FALL);
   p.fSway = new Float32Array(FALL);
+  p.pile = new Uint8Array(W);
   p.offset = new Int8Array(H);
   p.col = new Float32Array(3);
   p.lit = 0;
@@ -491,7 +585,8 @@ export function draw(display, params, time) {
 
   for (let f = 0; f < FALL; f++) {
     if (!p.fState[f]) continue;
-    hsv(p.fHue[f], 0.82, 0.85, col, 0);
+    // A fallen petal is paler than one in the air. Darker, an orange one read as brown.
+    hsv(p.fHue[f], p.fState[f] === 1 ? 0.82 : 0.66, 0.85, col, 0);
     display.setPixel(Math.floor(p.fx[f]), Math.floor(p.fy[f]), col[0], col[1], col[2]);
   }
 }
