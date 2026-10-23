@@ -12,7 +12,7 @@
 // @knobs Stroke=0..3, Speed=0.2..3, Swimmers=4..15, Sun=-1..1
 //
 // Knob 1: Stroke. What everyone swims: freestyle at 0, backstroke at 1, breaststroke at 2 with its frog kick and glide, butterfly at 3 with both arms swung across the lane. Breaststroke and butterfly churn the water and break up the caustic net.
-// Knob 2: Speed. How fast the swimmers and the water go: at 2 a freestyle length takes 11 to 15 s.
+// Knob 2: Speed. How fast the swimmers and the water go: at 2 a freestyle length takes 10 to 14 s, breaststroke nearer 20.
 // Knob 3: Swimmers. Four swimmers in four of the five lanes at 4; past five they share lanes and swim in circles, three a lane at 15.
 // Knob 4: Sun. Near noon at 0.06, with a bright caustic net and short shadows. Towards -1 the morning sun comes low from the east, towards 1 the evening sun from the west: gold light, a faint stretched net, long shadows across the lanes.
 
