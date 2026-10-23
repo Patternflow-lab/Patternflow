@@ -12,9 +12,10 @@
 // @knobs Tree=0..2, Speed=0.2..3, Birds=1..4, Light=0..1
 //
 // Knob 1: Tree. A silver birch at 0, white with black lenticels and a fissured black foot; a Scots pine at 1, grey plates low down and thin orange bark higher up; an oak at 2, deeply furrowed and grey with lichen. The wood behind is of the same tree.
-// Knob 2: Speed. How fast the bird, the wind and the light go: at 2 it hops in real time and climbs the trunk in about twelve seconds; 0.2 is ten times slower.
-// Knob 3: Birds. One male at 1; at 2 his mate works a nearer trunk on the right, at 3 and 4 two red-capped young of the year come, one on a trunk at the left and one on the far side of his.
+// Knob 2: Speed. How fast the bird, the wind and the light go: at 2 all of it runs in real time, the bird takes 15 to 20 s up the trunk with its stops to drum and under 3 s back down; 0.2 is ten times slower.
+// Knob 3: Birds. One male at 1; at 2 his mate works a nearer trunk that comes in on the right; at 3 a red-capped young bird of the year climbs another at the left, and at 4 a second one climbs the right-hand edge of his trunk.
 // Knob 4: Light. Dawn at 0 with the sun low in the east and shafts through the mist, noon at 0.5, dusk at 1 with the sun low in the west.
+// Buttons: K1 tap makes the male stop and drum after his next hop.
 
 const [W, H] = [64, 128];
 const N = W * H;
@@ -130,10 +131,9 @@ function build(P) {
     const T = TR[t], [cx, r0, fy, h] = T;
     for (let y = 0; y < min(H, fy + 3); y++)
       for (let r = rad(T, y), x = floor(cx - r); x <= cx + r; x++) {
-        const u = (x + 0.5 - cx) / r;
+        const u = (x + 0.5 - cx) / r, s = asin(cl(u, -1, 1)) * r0 + t * 40;
         // The bark's own relief tips the normal, so ridges catch a low sun on one side.
-        const s = asin(u) * r0 + t * 40, e = lum(bark(k, s - 0.7, y)) - lum(bark(k, s + 0.7, y));
-        if (abs(u) <= 1) put(x, y, 3, bark(k, s, y), h, cl(u + e * 1.6, -1, 1), t ? 1 : 0);
+        if (abs(u) <= 1) put(x, y, 3, bark(k, s, y), h, cl(u + (lum(bark(k, s - 0.7, y)) - lum(bark(k, s + 0.7, y))) * 1.6, -1, 1), t ? 1 : 0);
       }
   }
   // Limbs off the near trunk: a live one to the right, one up into the crown, a dead stub on the left.
@@ -144,6 +144,8 @@ function build(P) {
     }
   };
   limb(38, 57, 64, 41, 4, 2, k === 1);
+  limb(46, 54, 52, 42, 1.5, 1, k === 1);
+  limb(56, 48, 61, 36, 1.5, 1, k === 1);
   limb(38, 24, 62, 4, 3, 1.5);
   limb(21, 87, 15, 83, 3, 2, true);
   // The near ground: moss, litter, roots.
@@ -179,10 +181,11 @@ function paint(P) {
   const f = P.h * 4, i = min(3, floor(f)), q = HOURS[i].map((v, c) => mix(v, HOURS[i + 1][c], f - i)), { alb, mat, hz, nx, bg, sa } = P;
   const sky = q.slice(0, 3), haze = q.slice(3, 6), sun = (P.sun = q.slice(6, 9)), amb = (P.amb = q.slice(9, 12));
   const sx = (P.sx = -0.85 + 1.7 * P.h), sz = 0.55, sl = sqrt(sx * sx + sz * sz);
-  P.shaft = q[12];
   for (let p = 0; p < N; p++) {
     const m = mat[p], y = p >> 6, h = hz[p], n = nx[p], nz = sqrt(max(0, 1 - n * n)), d = m === 3 ? max(0, (n * sx + nz * sz) / sl) : m === 4 ? 0.8 : m === 1 ? 0.7 : 0.2;
     const sh = m === 3 ? 0.35 + 0.65 * nz : m === 1 ? 0.8 : 0.9, hk = 1.1 - y / 180;
+    // How strongly the shafts show here: most in the haze, faint in front of the near trunk.
+    P.sw[p] = m ? (q[12] * 100 * (0.25 + 0.75 * h) * (1.1 - y / 160)) / 255 : 0;
     for (let c = 0, o = p * 3; c < 3; c++) {
       const a = alb[o + c];
       bg[o + c] = m ? mix(a * amb[c] * sh * 1.1, haze[c] * hk, h) : mix(sky[c], 255, 0.3);
@@ -248,7 +251,7 @@ function stepBird(P, B, d) {
 
 export function setup(params) {
   const P = params, F = (n) => new Float32Array(n);
-  Object.assign(P, { alb: F(N * 3), hz: F(N), nx: F(N), zb: new Uint8Array(N), mat: new Uint8Array(N), bg: F(N * 3), sa: F(N * 3), buf: F(N * 3), lit: F(N), kind: -1, nt: 0, h: -1, t: 0, holes: [], chips: [], falls: [] });
+  Object.assign(P, { alb: F(N * 3), hz: F(N), nx: F(N), zb: new Uint8Array(N), mat: new Uint8Array(N), bg: F(N * 3), sa: F(N * 3), sw: F(N), buf: F(N * 3), lit: F(N), kind: -1, nt: 0, h: -1, t: 0, holes: [], chips: [], falls: [] });
   P.birds = FLOCK.map((_, i) => newBird(i));
   // Sun flecks: a tile of soft blobs the crown lets through, wrapped both ways.
   const FT = (P.ft = F(16384));
@@ -272,6 +275,8 @@ export function update(dt, input, params) {
   if (kind !== P.kind || nt !== P.nt) (P.kind = kind), (P.nt = nt), build(P), (P.h = -1);
   if (abs(h - P.h) > 0.0005) (P.h = h), paint(P);
   P.nb = nb;
+  // K1 tap: the male stops to drum after his next hop.
+  if (input.btnPressed?.[0]) P.birds[0].work = 0;
   P.t += d;
   for (let i = 0; i < nb; i++) stepBird(P, P.birds[i], d);
   P.chips = P.chips.filter((c) => {
@@ -299,16 +304,18 @@ const A = (x, y, r, g, b, a = 1) => {
 
 // Sun flecks moving with the crown, and shafts through the haze.
 function light(P) {
-  const { buf, bg, sa, ft, lit, hz, mat, shafts: S, t, sx } = P, w = 0.6 + 0.4 * sin(t * 0.31) * sin(t * 0.17 + 2);
+  const { buf, bg, sa, ft, lit, sw, shafts: S, t, sx } = P, w = 0.6 + 0.4 * sin(t * 0.31) * sin(t * 0.17 + 2);
   const ax = 4 * sin(t * 0.5) + 2 * sin(t * 1.3) * w + t * 0.6, ay = 2 * sin(t * 0.4 + 1), bx = -t * 1.1 + 3 * sin(t * 0.8) * w, by = 1.5 * sin(t * 0.6) + 40;
   const [ix, iy, jx, jy] = [floor(ax), floor(ay), floor(bx), floor(by)], [fx, fy, gx, gy] = [ax - ix, ay - iy, bx - jx, by - jy];
-  const sh = P.shaft * 100, so = t * 0.9 + 3 * sin(t * 0.23), [sr, sg, sb] = P.sun;
+  const so = t * 0.9 + 3 * sin(t * 0.23), [sr, sg, sb] = P.sun;
   for (let y = 0, p = 0; y < H; y++) {
     const r0 = ((y + iy) & 127) << 7, r1 = ((y + iy + 1) & 127) << 7, q0 = ((y + jy) & 127) << 7, q1 = ((y + jy + 1) & 127) << 7, bo = y * sx * 0.8 + so;
     for (let x = 0; x < W; x++, p++) {
-      const x0 = (x + ix) & 127, x1 = (x0 + 1) & 127, z0 = (x + jx) & 127, z1 = (z0 + 1) & 127;
-      const a = mix(mix(ft[r0 + x0], ft[r0 + x1], fx), mix(ft[r1 + x0], ft[r1 + x1], fx), fy), b = mix(mix(ft[q0 + z0], ft[q0 + z1], gx), mix(ft[q1 + z0], ft[q1 + z1], gx), gy);
-      const f = sm((a * 0.55 + b * 0.45 - 0.47) * 9), l = (lit[p] = 0.15 + 0.85 * f), s = mat[p] ? (S[floor(x + bo) & 255] * sh * (0.25 + 0.75 * hz[p]) * (1.1 - y / 160)) / 255 : 0, o = p * 3;
+      const x0 = (x + ix) & 127, x1 = (x0 + 1) & 127, z0 = (x + jx) & 127, z1 = (z0 + 1) & 127, u = ft[r0 + x0], v = ft[r1 + x0], e = ft[q0 + z0], g = ft[q1 + z0];
+      const a = u + (ft[r0 + x1] - u) * fx, c = v + (ft[r1 + x1] - v) * fx, b = e + (ft[q0 + z1] - e) * gx, d = g + (ft[q1 + z1] - g) * gx;
+      let f = ((a + (c - a) * fy) * 0.55 + (b + (d - b) * gy) * 0.45 - 0.47) * 9;
+      f = f <= 0 ? 0 : f >= 1 ? 1 : f * f * (3 - 2 * f);
+      const l = (lit[p] = 0.15 + 0.85 * f), s = S[(x + bo) & 255] * sw[p], o = p * 3;
       buf[o] = bg[o] + sa[o] * l + s * sr;
       buf[o + 1] = bg[o + 1] + sa[o + 1] * l + s * sg;
       buf[o + 2] = bg[o + 2] + sa[o + 2] * l + s * sb;
