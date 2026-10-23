@@ -36,5 +36,7 @@
   "kitchen": { "label": "부엌", "color": "#ff5500" },
   "fungi": { "label": "버섯·균사", "color": "#00ff88" },
   "bird": { "label": "새", "color": "#778800" },
-  "chemistry": { "label": "화학·실험", "color": "#00bb00" }
+  "chemistry": { "label": "화학·실험", "color": "#00bb00" },
+  "paper": { "label": "종이", "color": "#996600" },
+  "sport": { "label": "운동·경기", "color": "#337777" }
 }
