@@ -53,7 +53,7 @@ STACK.forEach((d, i) => (DEPTH[d] = i));
 // Glass width, glass top and height, pins, socket, numeral box, where the
 // numeral sits down the glass, mesh cell, and a scale for wires and glow.
 const LAY = [
-  { gw: 54, top: 4, gh: 109, pin: 4, sock: 4, dw: 36, dh: 72, dc: 0.52, hex: 2.4, s: 1 },
+  { gw: 54, top: 4, gh: 109, pin: 4, sock: 4, dw: 36, dh: 72, dc: 0.5, hex: 2.4, s: 1 },
   { gw: 26, top: 3, gh: 50, pin: 3, sock: 2, dw: 17, dh: 34, dc: 0.5, hex: 1.6, s: 0.5 },
   { gw: 24, top: 2, gh: 32, pin: 2, sock: 2, dw: 14, dh: 23, dc: 0.5, hex: 1.4, s: 0.38 },
 ];
@@ -206,10 +206,10 @@ function build(P, R) {
       }
       for (let y = top - 1 - round(2 * s); y < top; y++) put(floor(cx) - 1, y, 36, 40, 46, 0.2), put(floor(cx), y, 50, 54, 60, 0.2);
       // Leads from the bottom mica to the glass press, pins to the socket.
-      const sh = round(3 + 6 * s), np = R === 1 ? 13 : 7, ph = hw * 0.55;
+      const sh = round(2 + 4 * s), np = R === 1 ? 13 : 7, ph = hw * 0.55;
       for (let k = 0; k < np; k++) {
         const u = k / (np - 1), xa = round(mix(c0 + 2, c1 - 2, u)), xp = round(cx - ph + 2 * ph * u);
-        line(xa, r1 + 3, xp, bot - sh, [18, 18, 21], 0.45);
+        line(xa, r1 + 3, xp, bot - sh, [30, 30, 33], 0.6);
         for (let y = bot; y < bot + L.pin; y++) put(xp, y, 62 + 20 * (y === bot), 64 + 20 * (y === bot), 68 + 20 * (y === bot), 0.5);
         put(xp, bot + L.pin, 120, 92, 40, 0.4);
       }
@@ -224,15 +224,16 @@ function build(P, R) {
       for (let y = by0; y < y1; y++)
         for (let x = x0; x < x0 + cw; x++) {
           const g = hash(x + 50, y), edge = y === by0;
-          put(x, y, edge ? 38 : 10 + 4 * g, edge ? 46 : 26 + 6 * g, edge ? 42 : 16 + 4 * g, 0.4);
+          put(x, y, edge ? 38 : 10 + 4 * g, edge ? 46 : 26 + 6 * g, edge ? 42 : 16 + 4 * g, 0.6);
         }
-      for (let k = 0; k < np; k++) {
-        const xp = round(cx - ph + (2 * ph * k) / (np - 1)), dir = xp < cx ? -1 : 1;
-        line(xp, by0 + 1, xp + dir * (y1 - by0), y1 + 1, [20, 52, 30], 0.4);
+      for (let k = 0; k < np; k += 2) {
+        const xp = round(cx - ph + (2 * ph * k) / (np - 1)), yv = by0 + 2 + (k & 2 ? 1 : 0);
+        line(xp, by0 + 1, xp, y1, [20, 54, 32], 0.6);
+        put(xp, yv, 120, 96, 44, 0.5);
       }
       for (let y = top - 4; y < y1; y++)
         for (let x = x0; x < x0 + cw; x++) {
-          const v = exp(-(((x + 0.5 - cx) / (hw * 0.8)) ** 2)) * exp(-max(0, y - bot + 6) / (3 + 8 * s));
+          const v = exp(-(((x + 0.5 - cx) / (hw * 0.8)) ** 2)) * exp(-max(0, y - bot + 6) / (6 + 10 * s));
           if (y >= bot - 8) PL[y * W + x] = 0.45 * v;
         }
       T.push({ cx, bot, by0, y1, hw });
@@ -369,7 +370,7 @@ export function update(dt, input, params) {
   P.t += dt * rate;
   P.rt += dt;
   if (input.btnPressed && input.btnPressed[0]) P.cyc = P.t;
-  P.lamp *= P.mode === 1 ? 0.6 : 1;
+  P.lamp *= P.mode & 1 ? 0.6 : 1;
   MODES[mode](P);
   P.blank = max(0, P.blank - dt);
   const cyc = P.t >= P.cyc && P.t < P.cyc + 1.9;
