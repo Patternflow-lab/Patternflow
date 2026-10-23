@@ -81,7 +81,7 @@ function build(P) {
     P.G[p] = hash(x + 77, y + 5) < 0.5 ? 0.94 : 1.06;
     if (y < IR0) (k = 0.82 + 0.08 * vn(x * 0.3, y)), set(p, 170 * k, 172 * k, 178 * k);
     else if (y <= IR1) {
-      // Seasoning lies thicker in patches, a little bronze, and crumbs of old batter.
+      // Seasoning in bronze patches, and crumbs of old batter.
       const s = vn(x * 0.08, y * 0.06) * 0.6 + vn(x * 0.21 + 9, y * 0.19) * 0.4;
       k = 0.84 + 0.32 * s;
       if (odd && rnd() < 0.024) set(p, 196, 140, 70), (mk[p] = 1);
@@ -98,7 +98,7 @@ function build(P) {
       set(p, (176 + 4 * v) * k, (100 + 26 * t + 20 * v) * k, (56 + 20 * t + 14 * v) * k);
     }
   }
-  // The hood lights' reflection, and oil specks that catch it.
+  // The hood lights' reflection, and oil specks catching it.
   for (let p = IR0 * W; p <= IR1 * W + 63; p++) {
     const x = p & 63, y = p >> 6;
     P.sheen[p] = exp(-(((x - 20) / 17) ** 2) - ((y - 30) / 11) ** 2) + 0.8 * exp(-(((x - 44) / 15) ** 2) - ((y - 68) / 12) ** 2);
@@ -163,8 +163,8 @@ function newCake(P, s) {
   return k;
 }
 
-// One pancake centred on (cx, cy): the raw top up (fried 0) or the fried side
-// (fried 1), squashed to sy as it turns over and spread to rs while poured.
+// One pancake at (cx, cy), raw top or fried side up, squashed to sy as it
+// turns over and spread to rs while poured.
 function cake(P, k, cx, cy, sx, sy, fried, p, rs = 1, lit = 1) {
   if (abs(sy) < 0.05) return;
   const bt = BAT[k.bi], [wet0, set0, hole] = bt, { h, sz, dd, site, spk, mot, hl, S1 } = k;
