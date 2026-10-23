@@ -40,5 +40,7 @@
   "paper": { "label": "종이", "color": "#996600" },
   "sport": { "label": "운동·경기", "color": "#337777" },
   "body": { "label": "몸", "color": "#bb5566" },
-  "flight": { "label": "비행", "color": "#9944ee" }
+  "flight": { "label": "비행", "color": "#9944ee" },
+  "stage": { "label": "무대·공연", "color": "#ff0066" },
+  "mammal": { "label": "짐승", "color": "#998844" }
 }
