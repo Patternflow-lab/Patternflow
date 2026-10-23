@@ -104,7 +104,6 @@ function dress(P, i) {
   P.glow[i] = 0;
   P.burn[i] = 0;
   P.nextBurn[i] = 1 + Math.random() * 5;
-  P.target[i] = 18 + Math.random() * 86;
   P.retarget[i] = 6 + Math.random() * 10;
 }
 
@@ -148,7 +147,9 @@ export function setup(params) {
   P.retarget = new Float32Array(MAX);
   P.live = new Int8Array(MAX);
   P.order = new Int32Array(MAX);
-  P.fab = new Float32Array(MAX * 9 * 3);
+  P.fab = new Float32Array(MAX * 9);
+  // The rainbow design's gores, one colour each.
+  P.rain = new Float32Array(MAX * 12 * 3);
   P.sky = new Float32Array(H * 3);
   P.keys = new Float32Array(9);
   P.bg = new Float32Array(N * 3);
@@ -174,7 +175,6 @@ export function setup(params) {
   P.hue = 0;
   P.sun = 0.06;
   P.ready = 0;
-  P.t = 0;
 }
 
 // The first frame's sky: the balloons spread over both winds, none of them
@@ -207,8 +207,6 @@ export function update(dt, input, params) {
     scatter(P);
     P.ready = 1;
   }
-  P.t += dt;
-
   const all = input.btnPressed && input.btnPressed[0];
   let live = 0;
   for (let i = 0; i < MAX; i++) if (P.live[i]) live++;
@@ -266,10 +264,10 @@ export function update(dt, input, params) {
   for (let i = 0; i < MAX; i++) {
     if (!P.live[i]) continue;
     const h = P.hue0[i] + P.hue;
-    const o = i * 27;
+    const o = i * 9;
     const des = P.design[i];
-    // Every colour at full value, white too, so a seam between two gores
-    // changes the hue and not the brightness.
+    // Every colour at full value, so a seam between two gores changes the
+    // hue and not the brightness.
     if (des === 0) {
       hsvInto(fab, o, h, 1, 1);
       hsvInto(fab, o + 3, h + 0.5, 1, 1);
@@ -291,6 +289,7 @@ export function update(dt, input, params) {
       hsvInto(fab, o + 3, h, 1, 1);
       hsvInto(fab, o + 6, h + 0.25, 1, 1);
     }
+    if (des === 2) for (let g = 0; g < P.gores[i]; g++) hsvInto(P.rain, (i * 12 + g) * 3, h + g / P.gores[i], 1, 1);
   }
 }
 
@@ -382,7 +381,7 @@ export function draw(display, params, time) {
     const glow = P.glow[i];
     // Far balloons sit in more of the dawn's shadow.
     const far = 0.88 + 0.12 * d;
-    const o9 = i * 27;
+    const o9 = i * 9;
     const x0 = Math.max(0, Math.floor(cx - R - 1));
     const x1 = Math.min(W - 1, Math.ceil(cx + R + 1));
     const y0 = Math.max(0, Math.floor(cy - R - 1));
@@ -408,12 +407,11 @@ export function draw(display, params, time) {
           const zig = Math.abs(lf - Math.floor(lf) - 0.5);
           c = Math.floor((t + 1) * 2.2 + zig * 1.2) % 3;
         } else c = t < -0.45 || t > 0.95 ? 0 : 1 + (gore % 2);
-        if (c < 0) hsvInto(col, 0, P.hue0[i] + P.hue + gore / G, 1, 1);
-        else {
-          col[0] = fab[o9 + c * 3];
-          col[1] = fab[o9 + c * 3 + 1];
-          col[2] = fab[o9 + c * 3 + 2];
-        }
+        const from = c < 0 ? P.rain : fab;
+        const oc = c < 0 ? (i * 12 + gore) * 3 : o9 + c * 3;
+        col[0] = from[oc];
+        col[1] = from[oc + 1];
+        col[2] = from[oc + 2];
         // The cloth's light: a sphere above the waist, a cone below it.
         let nx;
         let ny;
