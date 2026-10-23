@@ -340,7 +340,7 @@ export function draw(display, params) {
   const buf = P.buf;
   const t = P.t;
   const lk = P.lampK;
-  // The candle breathes in a draught, flickers, and jumps at each blow.
+  // The candle breathes and flickers in a draught, and jumps at each blow.
   const fl = (1 + (1 - lk) * (0.1 * Math.sin(0.62 * t + 0.4) + 0.05 * Math.sin(1.9 * t + 1.1) + 0.03 * Math.sin(5.3 * t + 2) + 0.02 * Math.sin(13.1 * t))) * (1 + 0.22 * P.flare);
   const L = P.light;
   // The window: moonlight at night, brighter near the full moon, and
