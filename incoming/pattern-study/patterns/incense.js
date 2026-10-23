@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Sticks=1..3, Breeze=-1..1
 //
 // Knob 1: Hue. The colour of the lamp that lights the smoke and the room, starting from a cool grey-blue; thick smoke goes whiter whatever the colour.
-// Knob 2: Speed. How fast the air moves: at 2 the thread leaves the tip at 18 rows a second and breaks up about 17 rows above it; at 0.2 the smoke drifts up ten times slower, thicker, and holds together for 29 rows; at 3 it breaks up after 10.
+// Knob 2: Speed. How fast the air moves: at 2 the thread leaves the tip at 18 rows a second and breaks up about 17 rows above it; at 0.2 the smoke drifts up ten times slower and holds together for 29 rows; at 3 it breaks up after 10.
 // Knob 3: Sticks. One to three sticks of incense standing in the dish beside the burner, each with a glowing tip and its own thread; each stick past the first warms and stirs the air so every thread breaks up 3.5 rows sooner.
 // Knob 4: Breeze. A cross draught: at 0 the smoke rises straight; turned either way it leans that way, breaks up as much as 9 rows sooner, bends the falling smoke and drags the pool along the dish.
 // Buttons: K1 tap breathes across the smoke at some height between rows 22 and 62, bending and scrambling the threads there for a second and a half while the embers flare.
