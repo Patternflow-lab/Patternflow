@@ -27,5 +27,7 @@
   "city": { "label": "도시", "color": "#22ff00" },
   "music": { "label": "음악·악기", "color": "#a0705a" },
   "ocean": { "label": "바다", "color": "#1f7fb8" },
-  "insect": { "label": "곤충", "color": "#b4e61e" }
+  "insect": { "label": "곤충", "color": "#b4e61e" },
+  "circuit": { "label": "전자 회로", "color": "#2e7d32" },
+  "toy": { "label": "장난감", "color": "#dd11ff" }
 }
