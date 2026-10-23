@@ -9,7 +9,8 @@ import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { needsFlatten } from "@/lib/lab/flatten";
 import { labPatternName, useLabStore } from "@/lib/lab/store";
-import { isCodeLayer } from "@/lib/lab/types";
+import { activeTextEffect } from "@/lib/lab/textEffects";
+import { isCodeLayer, isTextLayer } from "@/lib/lab/types";
 import styles from "./PatternLab.module.css";
 import local from "./HardwareModal.module.css";
 
@@ -93,6 +94,10 @@ export default function HardwareModal({
         : enforcePatternName(single.trim(), name),
     [stacked, exportData.scaffold, pastes, single, name],
   );
+
+  // Text and pixel layers go into the scaffold as the pixels they show, so
+  // a stack with no code layer is the whole header, no model in the loop.
+  const nothingToTranslate = stacked && exportData.units.length === 0;
 
   const translated = exportData.units.filter(
     (unit) => (pastes[unit.index] ?? "").trim().length > 0 && cleanPastedUnit(pastes[unit.index] ?? "", unit.index) !== null,
@@ -186,8 +191,10 @@ export default function HardwareModal({
               <p className={styles.modalNote}>
                 The board runs C++, so everything below — building an image, installing a module,
                 publishing as hardware-ready — needs this pattern as a <code>.h</code> header
-                first. Translating it is a model&rsquo;s job: copy the prompt, paste what comes
-                back.
+                first.
+                {nothingToTranslate
+                  ? null
+                  : " Translating it is a model’s job: copy the prompt, paste what comes back."}
               </p>
 
               {stacked ? (
@@ -202,11 +209,22 @@ export default function HardwareModal({
                       spellCheck={false}
                     />
                   </label>
-                  <p className={styles.modalNote}>
-                    {exportData.units.length} layer{exportData.units.length === 1 ? "" : "s"} to
-                    translate — {translated} done. Untranslated layers keep a compiling stub, so a
-                    partial port still builds.
-                  </p>
+                  {nothingToTranslate ? (
+                    <p className={styles.modalNote}>
+                      Nothing here needs a model. Text and pixel layers go into the header as the
+                      pixels they show, so it is finished as it is.
+                      {layers.some(isTextLayer) ? " The board needs no font for the letters." : null}
+                      {layers.some((layer) => isTextLayer(layer) && layer.visible && activeTextEffect(layer))
+                        ? " Text that moves moves there too, on the same knob."
+                        : null}
+                    </p>
+                  ) : (
+                    <p className={styles.modalNote}>
+                      {exportData.units.length} layer{exportData.units.length === 1 ? "" : "s"} to
+                      translate — {translated} done. Untranslated layers keep a compiling stub, so a
+                      partial port still builds.
+                    </p>
+                  )}
                   {exportData.units.map((unit) => (
                     <div key={unit.index} className={local.hwUnit}>
                       <div className={local.hwUnitHead}>

@@ -155,6 +155,64 @@ describe("HardwareModal", () => {
     }
   });
 
+  // Text and pixel layers are in the scaffold as pixels, so with no code
+  // layer the header is whole. The window used to count "0 layers to
+  // translate — 0 done" and send the person to a model anyway.
+  it("a stack of text alone is a finished header, with no model to ask", async () => {
+    const lab = useLabStore.getState();
+    const starter = lab.layers[0].id;
+    lab.addTextLayer();
+    useLabStore.getState().removeLayer(starter);
+    expect(useLabStore.getState().layers.map((layer) => layer.type)).toEqual(["text"]);
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      expect(screen.getByText(/Nothing here needs a model/)).toHaveTextContent("The board needs no font for the letters.");
+      expect(screen.queryByText(/to translate/)).toBeNull();
+      expect(screen.queryByText(/Translating it is a model/)).toBeNull();
+      expect(screen.queryByText("Copy prompt")).toBeNull();
+
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const header = String(writeText.mock.calls[0][0]);
+      expect(header).toMatch(/^#pragma once$/m);
+      expect(header).toContain('"Text 1": text as drawn, RLE');
+      expect(header).not.toContain("TRANSLATION BEGIN");
+
+      fireEvent.click(screen.getByText("Next →"));
+      expect(screen.getByText("On to hardware")).toBeTruthy();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("says a scrolling text scrolls on the board too, and the header carries the steps", async () => {
+    const lab = useLabStore.getState();
+    const starter = lab.layers[0].id;
+    lab.addTextLayer();
+    useLabStore.getState().removeLayer(starter);
+    const [layer] = useLabStore.getState().layers;
+    if (layer.type !== "text") throw new Error("not text");
+    const height = layer.height;
+    const source = { x: 4, width: 10, data: new Uint8ClampedArray(10 * height * 4).fill(255) };
+    useLabStore.setState({ layers: [{ ...layer, spec: { ...layer.spec, effect: "scroll" }, source }] });
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      expect(screen.getByText(/Nothing here needs a model/)).toHaveTextContent("Text that moves moves there too, on the same knob.");
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const header = String(writeText.mock.calls[0][0]);
+      expect(header).toContain('"Text 1": text, scroll on knob 2');
+      expect(header).toContain("advanceText(&L0_phase, dt, knobNorm[1], 128.0f, (float)L0_PERIOD);");
+      expect(header).toContain("textScroll(layerBuf[0], L0_src");
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("Esc over the Publish modal closes Publish alone and keeps the header", async () => {
     render(<Lab />);
     pasteHeaderAndContinue();

@@ -41,14 +41,14 @@ export function exportStack(layers: Layer[]): Layer[] {
 
 /**
  * AND one mask layer's buffer into a coverage bitmap (1 byte per pixel).
- * Pixel-art masks switch on wherever something was drawn (alpha ≥ 0.5);
+ * Pixel-art and text masks switch on wherever something was drawn (alpha ≥ 0.5);
  * code masks switch on where luminance × alpha crosses 0.5 — so the layer's
  * color ramp tunes the mask. Keep this math in sync with flatten.ts.
  */
 export function applyMaskToCoverage(
   coverage: Uint8Array,
   data: Uint8ClampedArray,
-  isPixelLayer: boolean,
+  isRaster: boolean,
   invert: boolean,
   pixelCount: number,
 ) {
@@ -56,7 +56,7 @@ export function applyMaskToCoverage(
     if (coverage[i] === 0) continue;
     const j = i * 4;
     let on: boolean;
-    if (isPixelLayer) {
+    if (isRaster) {
       on = data[j + 3] >= 128;
     } else {
       const alpha = data[j + 3] / 255;

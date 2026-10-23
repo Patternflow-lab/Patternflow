@@ -9,7 +9,8 @@ import { livePresets } from "@/lib/presets";
 import { applyKnobEntries, defaultKnobState, matchKnobsAnnotation, parseKnobsAnnotation, type KnobAnnotationEntry } from "../annotations";
 import { emptyShow } from "../director/types";
 import { resizeSurface } from "../pixelTools";
-import { DEFAULT_RAMP_STATE, cloneRampState, layerId, type CodeLayer, type LabProject, type Layer, type PixelLayer, type RampState } from "../types";
+import { drawTextLayer } from "../text";
+import { DEFAULT_RAMP_STATE, cloneRampState, isRampLayer, layerId, type CodeLayer, type LabProject, type Layer, type RampLayer, type RampState, type RasterLayer } from "../types";
 const labPresets = livePresets.filter((preset) => preset.labOnly);
 export const initialLabPreset = labPresets[0] ?? livePresets[0];
 
@@ -97,18 +98,41 @@ export function defaultProject(): LabProject {
   };
 }
 
+/**
+ * Bitmap layers re-centred on a new frame. A text layer's bitmap moves with
+ * the rest and its place moves by the same offset, so the next time it is
+ * drawn it lands where it already is.
+ */
 export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] {
   return layers.map((layer) => {
-    if (layer.type !== "pixel") return layer;
+    if (layer.type === "code") return layer;
     if (layer.width === matrix.width && layer.height === matrix.height) return layer;
     const data = resizeSurface(layer.data, layer.width, layer.height, matrix.width, matrix.height);
-    const resized: PixelLayer = {
+    const resized: RasterLayer = {
       ...layer,
       width: matrix.width,
       height: matrix.height,
       data,
       rev: layer.rev + 1,
     };
+    if (resized.type === "text") {
+      const dx = Math.floor((matrix.width - layer.width) / 2);
+      resized.spec = {
+        ...resized.spec,
+        x: resized.spec.x + dx,
+        y: resized.spec.y + Math.floor((matrix.height - layer.height) / 2),
+      };
+      // The source keeps its columns and moves by the same offset; its rows
+      // are cut or padded the way the bitmap's are.
+      const source = resized.source;
+      resized.source = source
+        ? {
+            x: source.x + dx,
+            width: source.width,
+            data: resizeSurface(source.data, source.width, layer.height, source.width, matrix.height),
+          }
+        : null;
+    }
     return resized;
   });
 }
@@ -116,6 +140,24 @@ export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] 
 
 export function updateLayer(layers: Layer[], id: string, patch: (layer: Layer) => Layer): Layer[] {
   return layers.map((layer) => (layer.id === id ? patch(layer) : layer));
+}
+
+/**
+ * Patch the ramp of a code or text layer. A text layer filled with its ramp,
+ * or running it, is drawn again, since its colours live in its bitmap.
+ */
+export function updateRampLayer(
+  layers: Layer[],
+  id: string,
+  patch: (layer: RampLayer) => RampLayer,
+): Layer[] {
+  return layers.map((layer) => {
+    if (layer.id !== id || !isRampLayer(layer)) return layer;
+    const next = patch(layer);
+    return next.type === "text" && next.ramp !== layer.ramp && (next.spec.fill !== "solid" || next.spec.effect === "ramp")
+      ? drawTextLayer(next)
+      : next;
+  });
 }
 
 export function updateCodeLayer(

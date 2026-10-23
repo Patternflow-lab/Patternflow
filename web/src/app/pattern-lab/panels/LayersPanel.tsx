@@ -11,15 +11,19 @@ import { useLabStore } from "@/lib/lab/store";
 import { STARTER_CODE } from "@/lib/lab/store/shared";
 import dock from "../LabPanels.module.css";
 
-// A pixel layer nobody has drawn on, or a code layer still holding the
-// starter pattern, has nothing to lose, so Del takes it without asking.
+// A pixel layer nobody has drawn on, a code layer still holding the starter
+// pattern, or a text layer that still says nothing, has nothing to lose, so
+// Del takes it without asking.
 function holdsWork(layer: Layer): boolean {
   if (layer.type === "code") return layer.code !== STARTER_CODE;
+  if (layer.type === "text") return layer.spec.text.trim() !== "";
   for (let i = 3; i < layer.data.length; i += 4) {
     if (layer.data[i] !== 0) return true;
   }
   return false;
 }
+
+const LAYER_BADGE: Record<Layer["type"], string> = { code: "JS", pixel: "PX", text: "TX" };
 
 export default function LayersPanel() {
   const layers = useLabStore((state) => state.layers);
@@ -28,6 +32,7 @@ export default function LayersPanel() {
   const selectLayer = useLabStore((state) => state.selectLayer);
   const addCodeLayer = useLabStore((state) => state.addCodeLayer);
   const addPixelLayer = useLabStore((state) => state.addPixelLayer);
+  const addTextLayer = useLabStore((state) => state.addTextLayer);
   const duplicateLayer = useLabStore((state) => state.duplicateLayer);
   const removeLayer = useLabStore((state) => state.removeLayer);
   const reorderLayer = useLabStore((state) => state.reorderLayer);
@@ -72,6 +77,16 @@ export default function LayersPanel() {
           title="Add a pixel art layer"
         >
           + Pixel
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            addTextLayer();
+            revealEditor("text", { open: true });
+          }}
+          title="Add a text layer, in a font from your own device if you like"
+        >
+          + Text
         </button>
         <span style={{ flex: 1 }} />
         <button
@@ -203,7 +218,7 @@ export default function LayersPanel() {
                       </span>
                     )
                   )}
-                  <span className={dock.layerType}>{layer.type === "code" ? "JS" : "PX"}</span>
+                  <span className={dock.layerType}>{LAYER_BADGE[layer.type]}</span>
                 </div>
               </li>
             );
@@ -217,7 +232,7 @@ export default function LayersPanel() {
             <span>Mask</span>
             <label
               className={dock.layerMaskLabel}
-              title="Turn this layer into a mask for the layer directly below it. Pixel art: drawn pixels reveal. Code: bright output (past 0.5, ramp-tunable) reveals."
+              title="Turn this layer into a mask for the layer directly below it. Pixel art and text: drawn pixels reveal. Code: bright output (past 0.5, ramp-tunable) reveals."
             >
               <input
                 type="checkbox"

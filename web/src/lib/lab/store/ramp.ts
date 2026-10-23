@@ -1,10 +1,11 @@
 // ── Lab store slice: per-layer colour ramps and the ramp editor's selection ──
+// Code and text layers each carry a ramp; recolor is a code layer's alone.
 // One of the slices store.ts composes. Bodies are unchanged from the single
 // 800-line store they came out of; only the file boundary is new.
 
 import type { LabStore } from "../store";
 import type { SliceSet } from "./kinds";
-import { updateCodeLayer } from "./shared";
+import { updateCodeLayer, updateRampLayer } from "./shared";
 
 export type RampSlice = Pick<LabStore, "setRampSelection" | "setLayerRecolor" | "setLayerRampMode" | "setLayerRampWrap" | "updateLayerRampStop" | "addLayerRampStop" | "deleteLayerRampStop" | "setLayerRampStops">;
 
@@ -20,7 +21,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     setLayerRampMode: (id, mode) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) => ({
+        layers: updateRampLayer(state.layers, id, (layer) => ({
           ...layer,
           ramp: { ...layer.ramp, mode },
         })),
@@ -28,7 +29,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     setLayerRampWrap: (id, wrap) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) => ({
+        layers: updateRampLayer(state.layers, id, (layer) => ({
           ...layer,
           ramp: { ...layer.ramp, wrap },
         })),
@@ -36,7 +37,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     updateLayerRampStop: (id, stopIndex, patch) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) => ({
+        layers: updateRampLayer(state.layers, id, (layer) => ({
           ...layer,
           ramp: {
             ...layer.ramp,
@@ -49,7 +50,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     addLayerRampStop: (id, stop) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) =>
+        layers: updateRampLayer(state.layers, id, (layer) =>
           layer.ramp.stops.length >= 64
             ? layer
             : { ...layer, ramp: { ...layer.ramp, stops: [...layer.ramp.stops, stop] } },
@@ -58,7 +59,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     deleteLayerRampStop: (id, stopIndex) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) =>
+        layers: updateRampLayer(state.layers, id, (layer) =>
           layer.ramp.stops.length <= 1
             ? layer
             : {
@@ -73,7 +74,7 @@ export function createRampSlice(set: SliceSet): RampSlice {
 
     setLayerRampStops: (id, stops) =>
       set((state) => ({
-        layers: updateCodeLayer(state.layers, id, (layer) => ({
+        layers: updateRampLayer(state.layers, id, (layer) => ({
           ...layer,
           ramp: { ...layer.ramp, stops: stops.slice(0, 64) },
         })),

@@ -33,7 +33,8 @@ import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE } from "./annotations";
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
-import type { CodeLayer, KnobRange, Layer } from "./types";
+import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, type ActiveTextEffect } from "./textEffects";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
 
 // ── helpers ──
 
@@ -105,7 +106,7 @@ function byteRows(values: number[], perRow: number, indent: string): string {
   return rows.join(",\n");
 }
 
-function lutRows(layer: CodeLayer): string {
+function lutRows(layer: RampLayer): string {
   const lut = buildRampLUTRGBA(rampStateToHarness(layer.ramp));
   const entries: string[] = [];
   for (let i = 0; i < 256; i++) {
@@ -190,7 +191,7 @@ export function buildHExport(args: HExportArgs): HExport {
       const maskLayer = stack[maskIndex];
       maskFlat.push({
         layerIndex: maskIndex,
-        pixelArt: maskLayer.type === "pixel",
+        pixelArt: isRasterLayer(maskLayer),
         invert: maskLayer.maskInvert,
       });
     }
@@ -267,13 +268,48 @@ static const uint8_t MASK_LAYER[${maskCount}]  = {${maskFlat.map((m) => m.layerI
 static const uint8_t MASK_PXART[${maskCount}]  = {${maskFlat.map((m) => (m.pixelArt ? 1 : 0)).join(", ") || "0"}};
 static const uint8_t MASK_INVERT[${maskCount}] = {${maskFlat.map((m) => (m.invert ? 1 : 0)).join(", ") || "0"}};`);
 
+  // Text layers that move: what each one moves, its phase, and for a ramp
+  // its LUT. The steps are textEffects.ts, written in C++ below.
+  const effects = new Map<number, { layer: TextLayer; effect: ActiveTextEffect }>();
+  stack.forEach((layer, index) => {
+    const effect = layer.type === "text" ? activeTextEffect(layer) : null;
+    if (layer.type === "text" && effect) effects.set(index, { layer, effect });
+  });
+
   // Per-code-layer ramp LUTs + paint helpers; pixel layers as RLE.
   for (let index = 0; index < stack.length; index++) {
     const layer = stack[index];
-    if (layer.type === "pixel") {
+    const moving = effects.get(index);
+    if (moving) {
+      const { layer: text, effect } = moving;
+      const source = effect === "twinkle" ? { x: 0, width: text.width, data: text.data } : text.source!;
+      const rle = rleEncode(source.data);
+      parts.push(`
+// ── L${index} "${text.name.replace(/\n/g, " ")}": text, ${effect} on knob ${text.spec.effectKnob + 1} — ${
+        effect === "twinkle" ? "the letters" : `what it moves, ${source.width} columns from x = ${source.x}`
+      }, RLE {count,r,g,b,a}, decoded once in setup ──
+static const uint8_t L${index}_RLE[${rle.length}] = {
+${byteRows(rle, 20, "  ")}
+};
+static uint8_t* L${index}_src = nullptr;
+static float L${index}_phase = 0.0f;
+constexpr int L${index}_SRC_X = ${source.x};
+constexpr int L${index}_SRC_W = ${source.width};
+constexpr int L${index}_PERIOD = ${textEffectPeriod(effect, text)};
+constexpr int L${index}_LEAD = ${text.width - source.x};${
+        effect === "ramp"
+          ? `
+static const uint8_t L${index}_RAMP[256][4] = {
+${lutRows(text)}
+};`
+          : ""
+      }`);
+      continue;
+    }
+    if (isRasterLayer(layer)) {
       const rle = rleEncode(layer.data);
       parts.push(`
-// ── L${index} "${layer.name.replace(/\n/g, " ")}": pixel art, RLE {count,r,g,b,a} — decoded once in setup ──
+// ── L${index} "${layer.name.replace(/\n/g, " ")}": ${layer.type === "text" ? "text as drawn" : "pixel art"}, RLE {count,r,g,b,a} — decoded once in setup ──
 static const uint8_t L${index}_RLE[${rle.length}] = {
 ${byteRows(rle, 20, "  ")}
 };`);
@@ -314,11 +350,30 @@ ${SLOT_END(index)}`);
   // Deterministic pipeline.
   const pixelDecodes = stack
     .map((layer, index) =>
-      layer.type === "pixel"
-        ? `  rleDecode(L${index}_RLE, sizeof(L${index}_RLE), layerBuf[${index}]);`
-        : null,
+      effects.has(index)
+        ? `  if (!L${index}_src) L${index}_src = (uint8_t*)PFMem::alloc((size_t)L${index}_SRC_W * FRAME_H * 4);
+  if (!L${index}_src) return;
+  rleDecode(L${index}_RLE, sizeof(L${index}_RLE), L${index}_src, (size_t)L${index}_SRC_W * FRAME_H * 4);`
+        : isRasterLayer(layer)
+          ? `  rleDecode(L${index}_RLE, sizeof(L${index}_RLE), layerBuf[${index}]);`
+          : null,
     )
     .filter(Boolean)
+    .join("\n");
+  const effectUpdates = [...effects]
+    .map(
+      ([index, { layer, effect }]) =>
+        `  advanceText(&L${index}_phase, dt, knobNorm[${layer.spec.effectKnob}], ${fmtFloat(TEXT_EFFECT_RATE[effect])}, (float)L${index}_PERIOD);`,
+    )
+    .join("\n");
+  const effectDraws = [...effects]
+    .map(([index, { effect }]) =>
+      effect === "scroll"
+        ? `  textScroll(layerBuf[${index}], L${index}_src, L${index}_SRC_W, L${index}_PERIOD, L${index}_LEAD, (int)L${index}_phase);`
+        : effect === "twinkle"
+          ? `  textTwinkle(layerBuf[${index}], L${index}_src, (int)L${index}_phase);`
+          : `  textRamp(layerBuf[${index}], L${index}_src, L${index}_SRC_X, L${index}_SRC_W, L${index}_RAMP, (int)L${index}_phase);`,
+    )
     .join("\n");
   const layerSetups = codeLayers.map(({ index }) => `  L${index}::setup();`).join("\n");
   const layerUpdates = codeLayers.map(({ index }) => `  L${index}::update(dt, input);`).join("\n");
@@ -333,9 +388,8 @@ ${SLOT_END(index)}`);
 
   parts.push(`
 // ── Deterministic pipeline (do not edit) ──
-static void rleDecode(const uint8_t* rle, size_t len, uint8_t* out) {
+static void rleDecode(const uint8_t* rle, size_t len, uint8_t* out, size_t cap = (size_t)PIX_N * 4) {
   size_t o = 0;
-  const size_t cap = (size_t)PIX_N * 4;
   for (size_t i = 0; i + 4 < len && o < cap; i += 5) {
     for (int k = 0; k < rle[i] && o < cap; k++) {
       out[o++] = rle[i + 1]; out[o++] = rle[i + 2]; out[o++] = rle[i + 3]; out[o++] = rle[i + 4];
@@ -364,7 +418,7 @@ static void recolorBuffer(uint8_t* buf, const uint8_t lut[256][4]) {
   }
 }
 
-void setup() {
+${effects.size > 0 ? TEXT_FX_CPP : ""}void setup() {
   for (int i = 0; i < LAYER_N; i++)
     if (!layerBuf[i]) layerBuf[i] = (uint8_t*)PFMem::alloc((size_t)PIX_N * 4);
   for (int i = 0; i < LAYER_N; i++)
@@ -379,14 +433,14 @@ void update(float dt, const InputFrame& input) {
     PFParams::apply(input, i, &knobVal[i], KNOB_MIN[i], KNOB_MAX[i], KNOB_STEP[i]);
     knobNorm[i] = (knobVal[i] - KNOB_MIN[i]) / (KNOB_MAX[i] - KNOB_MIN[i]);
   }
-${layerUpdates}
+${effectUpdates ? `${effectUpdates}\n` : ""}${layerUpdates}
 }
 
 void draw() {${isPanelFrame ? "" : "\n  PFCanvas::setFrame(FRAME_W, FRAME_H);"}
   for (int i = 0; i < LAYER_N; i++)
     if (!layerBuf[i]) { PFCanvas::present(); return; }
-
-${layerDraws}
+${[...effects.keys()].map((index) => `  if (!L${index}_src) { PFCanvas::present(); return; }\n`).join("")}
+${effectDraws ? `${effectDraws}\n` : ""}${layerDraws}
 
   // Composite bottom → top over the panel's black — same math as the web preview.
   for (int y = 0; y < FRAME_H; y++) {
@@ -462,6 +516,75 @@ ${layerDraws}
     stackNames: stack.map((layer) => layer.name),
   };
 }
+
+// textEffects.ts in C++. Each pixel is integer work, and the phase only adds
+// dt × speed and takes a remainder, as the preview's does; textExport.test.ts
+// compiles this and compares the frames.
+const TEXT_FX_CPP = `// ── Text effects: a moving text layer drawn again each frame from what it
+// carries, at a phase one knob speeds up (0 stands it still) ──
+static inline void advanceText(float* phase, float dt, float knob, float rate, float period) {
+  const float n = knob > 0.0f ? (knob < 1.0f ? knob : 1.0f) : 0.0f;
+  float p = *phase + dt * (n * rate);
+  if (!(p >= 0.0f)) p = 0.0f;
+  else if (p >= period) p = fmodf(p, period);
+  *phase = p;
+}
+
+static inline int twinkleHash(int x, int y) {
+  uint32_t h = (uint32_t)(x + 1) * 0x9e3779b1u ^ (uint32_t)(y + 1) * 0x85ebca77u;
+  h ^= h >> 15;
+  h *= 0x2c1b3c6du;
+  h ^= h >> 12;
+  return (int)(h & 255u);
+}
+
+static void textScroll(uint8_t* out, const uint8_t* src, int srcW, int period, int lead, int step) {
+  int m = (step + lead) % period;
+  if (m < 0) m += period;
+  const int shift = m - FRAME_W;
+  for (int y = 0; y < FRAME_H; y++) {
+    for (int x = 0; x < FRAME_W; x++) {
+      uint8_t* p = out + (((size_t)y * FRAME_W + x) << 2);
+      const int c = x + shift;
+      if (c < 0 || c >= srcW) { p[0] = p[1] = p[2] = p[3] = 0; continue; }
+      const uint8_t* s = src + (((size_t)y * srcW + c) << 2);
+      p[0] = s[0]; p[1] = s[1]; p[2] = s[2]; p[3] = s[3];
+    }
+  }
+}
+
+static void textTwinkle(uint8_t* out, const uint8_t* src, int step) {
+  for (int y = 0; y < FRAME_H; y++) {
+    for (int x = 0; x < FRAME_W; x++) {
+      const size_t j = ((size_t)y * FRAME_W + x) << 2;
+      const int a = src[j + 3];
+      out[j] = src[j]; out[j + 1] = src[j + 1]; out[j + 2] = src[j + 2];
+      if (a == 0) { out[j + 3] = 0; continue; }
+      const int u = (step + twinkleHash(x, y)) & 255;
+      const int tri = u < 128 ? u : 255 - u;
+      out[j + 3] = (uint8_t)((a * (255 - tri - (tri >> 1)) + 127) / 255);
+    }
+  }
+}
+
+static void textRamp(uint8_t* out, const uint8_t* src, int srcX, int srcW, const uint8_t lut[256][4], int step) {
+  for (int y = 0; y < FRAME_H; y++) {
+    for (int x = 0; x < FRAME_W; x++) {
+      uint8_t* p = out + (((size_t)y * FRAME_W + x) << 2);
+      const int c = x - srcX;
+      if (c < 0 || c >= srcW) { p[0] = p[1] = p[2] = p[3] = 0; continue; }
+      const uint8_t* s = src + (((size_t)y * srcW + c) << 2);
+      const int a = s[3];
+      if (a == 0) { p[0] = p[1] = p[2] = p[3] = 0; continue; }
+      const int u = (s[0] + step) & 511;
+      const uint8_t* k = lut[u < 256 ? u : 511 - u];
+      p[0] = k[0]; p[1] = k[1]; p[2] = k[2];
+      p[3] = (uint8_t)((a * k[3] + 127) / 255);
+    }
+  }
+}
+
+`;
 
 // ── per-layer translation prompt ──
 

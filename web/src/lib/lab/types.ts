@@ -7,6 +7,10 @@
 //   pixel layers   a hand-drawn / imported RGBA bitmap, edited in the pixel
 //                  panel. Transparency is real alpha, so cutouts layer over
 //                  the patterns beneath.
+//   text layers    a line or two of text in a font the user picks, drawn
+//                  into the same kind of RGBA bitmap a pixel layer holds
+//                  (lib/lab/text.ts). The bitmap is what composites, masks
+//                  and exports; the text, size and font are how it is redrawn.
 //
 // Convention: `layers[0]` is the TOP of the stack (what the Layers panel shows
 // first), so compositing walks the array back-to-front.
@@ -80,8 +84,7 @@ export type CodeLayer = LayerCommon & {
   matrixAnnotationRaw: string | null;
 };
 
-export type PixelLayer = LayerCommon & {
-  type: "pixel";
+type Raster = {
   width: number;
   height: number;
   /**
@@ -93,7 +96,82 @@ export type PixelLayer = LayerCommon & {
   rev: number;
 };
 
-export type Layer = CodeLayer | PixelLayer;
+export type PixelLayer = LayerCommon & Raster & {
+  type: "pixel";
+};
+
+export type TextAlign = "left" | "center" | "right";
+export const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
+
+/** solid: one colour. rampX / rampY: the layer's ramp runs across / down the letters. */
+export type TextFill = "solid" | "rampX" | "rampY";
+export const TEXT_FILLS: TextFill[] = ["solid", "rampX", "rampY"];
+
+/**
+ * What moves the letters, frame by frame, at a speed one knob sets
+ * (lib/lab/textEffects.ts):
+ *   scroll   the lines run out to the left and come back in from the right
+ *   twinkle  each LED dims and brightens on its own beat
+ *   ramp     the colours run along the layer's ramp and back
+ */
+export type TextEffect = "none" | "scroll" | "twinkle" | "ramp";
+export const TEXT_EFFECTS: TextEffect[] = ["none", "scroll", "twinkle", "ramp"];
+
+export type TextSpec = {
+  /** What it says. A line break starts a new line. */
+  text: string;
+  /** Font size in LED pixels (CSS px on a 1:1 canvas). */
+  size: number;
+  /**
+   * Where the text sits, in LED pixels. x is the left edge, the middle or the
+   * right edge of each line, by `align`; y is the middle of the whole block.
+   */
+  x: number;
+  y: number;
+  align: TextAlign;
+  /** A font id from lib/lab/textFonts.ts: site:…, system:… or file:…. */
+  font: string;
+  /** The solid fill, as #rrggbb. */
+  color: string;
+  fill: TextFill;
+  /** Every LED fully on or off, the way pixel art is. Off keeps the font's soft edges as dimmer LEDs. */
+  sharp: boolean;
+  effect: TextEffect;
+  /** The knob that sets the effect's speed, 0..3. Turned all the way down, the effect stands still. */
+  effectKnob: number;
+};
+
+export const TEXT_SIZE_MIN = 4;
+export const TEXT_SIZE_MAX = 128;
+export const TEXT_MAX_CHARS = 200;
+
+/**
+ * What the scroll and ramp effects work from, drawn with the bitmap: every
+ * row of the frame, but only the columns the letters reach, `x` being the
+ * first of them in frame pixels. It may start left of the frame and run past
+ * its right edge, so a line longer than the panel scrolls through whole.
+ *   scroll  the letters in colour
+ *   ramp    in each pixel, red is where it sits on the ramp (0..255) and
+ *           alpha is how much of it the letters cover
+ */
+export type TextSource = { x: number; width: number; data: Uint8ClampedArray };
+
+export type TextLayer = LayerCommon & Raster & {
+  type: "text";
+  spec: TextSpec;
+  /** Used when `spec.fill` is a ramp; edited in the Color Ramp panel like a code layer's. */
+  ramp: RampState;
+  /** Null with no effect, for twinkle (it works on the bitmap) and when no letter lands. */
+  source: TextSource | null;
+};
+
+export type Layer = CodeLayer | PixelLayer | TextLayer;
+
+/** The layers that hold a bitmap: they composite, mask and export the same way. */
+export type RasterLayer = PixelLayer | TextLayer;
+
+/** The layers with a colour ramp of their own. */
+export type RampLayer = CodeLayer | TextLayer;
 
 /**
  * `license` is the parent's SPDX id, used to narrow the publish picker to what
@@ -196,6 +274,109 @@ export function isCodeLayer(layer: Layer | undefined | null): layer is CodeLayer
 
 export function isPixelLayer(layer: Layer | undefined | null): layer is PixelLayer {
   return layer?.type === "pixel";
+}
+
+export function isTextLayer(layer: Layer | undefined | null): layer is TextLayer {
+  return layer?.type === "text";
+}
+
+export function isRasterLayer(layer: Layer | undefined | null): layer is RasterLayer {
+  return layer?.type === "pixel" || layer?.type === "text";
+}
+
+export function isRampLayer(layer: Layer | undefined | null): layer is RampLayer {
+  return layer?.type === "code" || layer?.type === "text";
+}
+
+/** A text layer's ramp until someone edits it: warm to cool across the letters. */
+export const TEXT_RAMP_STATE: RampState = {
+  stops: [
+    { position: 0, color: "#ff5a1f", alpha: 1 },
+    { position: 0.5, color: "#ffd23f", alpha: 1 },
+    { position: 1, color: "#3fa7ff", alpha: 1 },
+  ],
+  mode: "oklab",
+  wrap: false,
+};
+
+/**
+ * A new text layer's words, font and place: centred, in the site's pixel font
+ * and its LED orange. White vanished into the starter pattern's white rings.
+ */
+export function defaultTextSpec(matrix: MatrixSize): TextSpec {
+  return {
+    text: "Hello",
+    size: 16,
+    x: Math.round(matrix.width / 2),
+    y: Math.round(matrix.height / 2),
+    align: "center",
+    font: "site:silkscreen",
+    color: "#e8552e",
+    fill: "solid",
+    sharp: true,
+    effect: "none",
+    // The second knob is the firmware's Speed, and the only one whose
+    // starting value is not at the bottom of its range.
+    effectKnob: 1,
+  };
+}
+
+/** How far off the frame a text may be pushed, in frames: enough to slide it out of sight. */
+const OFF_FRAME = 4;
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+function whole(value: unknown, fallback: number, min: number, max: number): number {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(number)));
+}
+
+/**
+ * A spec every reader can trust: whole pixels, a size the panel offers, a
+ * known alignment and fill. `previous` supplies anything missing or broken.
+ */
+export function normalizeTextSpec(
+  raw: Partial<TextSpec>,
+  previous: TextSpec,
+  frame: { width: number; height: number },
+): TextSpec {
+  const reachX = frame.width * OFF_FRAME;
+  const reachY = frame.height * OFF_FRAME;
+  return {
+    text: typeof raw.text === "string" ? raw.text.slice(0, TEXT_MAX_CHARS) : previous.text,
+    size: whole(raw.size, previous.size, TEXT_SIZE_MIN, TEXT_SIZE_MAX),
+    x: whole(raw.x, previous.x, -reachX, reachX),
+    y: whole(raw.y, previous.y, -reachY, reachY),
+    align: TEXT_ALIGNS.includes(raw.align as TextSpec["align"]) ? (raw.align as TextSpec["align"]) : previous.align,
+    font: typeof raw.font === "string" && raw.font ? raw.font.slice(0, 120) : previous.font,
+    color: typeof raw.color === "string" && HEX.test(raw.color) ? raw.color.toLowerCase() : previous.color,
+    fill: TEXT_FILLS.includes(raw.fill as TextSpec["fill"]) ? (raw.fill as TextSpec["fill"]) : previous.fill,
+    sharp: typeof raw.sharp === "boolean" ? raw.sharp : previous.sharp,
+    effect: TEXT_EFFECTS.includes(raw.effect as TextEffect) ? (raw.effect as TextEffect) : previous.effect,
+    effectKnob: whole(raw.effectKnob, previous.effectKnob, 0, 3),
+  };
+}
+
+/** An undrawn text layer: lib/lab/store/text.ts draws its bitmap. */
+export function createTextLayer(matrix: MatrixSize, name: string): TextLayer {
+  return {
+    id: layerId(),
+    type: "text",
+    name,
+    visible: true,
+    opacity: 1,
+    blend: "normal",
+    role: "paint",
+    maskInvert: false,
+    width: matrix.width,
+    height: matrix.height,
+    data: new Uint8ClampedArray(matrix.width * matrix.height * 4),
+    rev: 0,
+    spec: defaultTextSpec(matrix),
+    ramp: cloneRampState(TEXT_RAMP_STATE),
+    source: null,
+  };
 }
 
 /** Next free "Prefix N" name given the existing stack. */

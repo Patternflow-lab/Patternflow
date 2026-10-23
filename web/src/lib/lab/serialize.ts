@@ -1,6 +1,7 @@
 // ── Lab project persistence (v2, layered) ────────────────────────────────────
 // The layered lab stores its whole working state — layer stack included — in
-// one localStorage key. Pixel layers serialize their RGBA bytes as base64.
+// one localStorage key. Pixel layers serialize their RGBA bytes as base64;
+// text layers too, beside the words and font they were drawn from.
 // Reads are defensive: a project written by any other build must degrade to
 // "no project" (or partial restore) rather than crash the lab on boot.
 //
@@ -19,8 +20,11 @@ import {
   BLEND_MODES,
   DEFAULT_RAMP_STATE,
   MAX_RAMP_STOPS,
+  TEXT_RAMP_STATE,
   cloneRampState,
+  defaultTextSpec,
   layerId,
+  normalizeTextSpec,
   type BlendMode,
   type CodeLayer,
   type EditRef,
@@ -32,7 +36,10 @@ import {
   type LayerRole,
   type PixelLayer,
   type RampState,
+  type TextLayer,
+  type TextSource,
 } from "./types";
+import { sourceColumnLimit } from "./textEffects";
 import { defaultKnobState, matchKnobsAnnotation } from "./annotations";
 import { LAB_STORAGE, readStorage, removeStorage, writeStorage } from "./persist";
 import { matchMatrixAnnotation } from "@/lib/pattern/matrix";
@@ -261,6 +268,30 @@ export function serializeProject(project: LabProject): string | null {
         recolor: layer.recolor,
       };
     }
+    if (layer.type === "text") {
+      // The bitmap rides along with the words: a browser without the font
+      // still shows what was drawn.
+      return {
+        type: "text",
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        blend: layer.blend,
+        role: layer.role,
+        maskInvert: layer.maskInvert,
+        width: layer.width,
+        height: layer.height,
+        px: bytesToBase64(layer.data),
+        spec: layer.spec,
+        ramp: layer.ramp,
+        // A scrolling or ramp-running layer keeps what it moves too, past
+        // the frame's edges: without the font it could not be drawn again.
+        ...(layer.source
+          ? { src: { x: layer.source.x, w: layer.source.width, px: bytesToBase64(layer.source.data) } }
+          : {}),
+      };
+    }
     return {
       type: "pixel",
       id: layer.id,
@@ -340,7 +371,7 @@ function readLayer(raw: unknown): Layer | null {
     return layer;
   }
 
-  if (raw.type === "pixel") {
+  if (raw.type === "pixel" || raw.type === "text") {
     const width = Number(raw.width);
     const height = Number(raw.height);
     if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
@@ -349,6 +380,21 @@ function readLayer(raw: unknown): Layer | null {
     const data =
       typeof raw.px === "string" ? base64ToBytes(raw.px, byteLength) : null;
     if (!data) return null;
+    if (raw.type === "text") {
+      const frame = { width, height };
+      const layer: TextLayer = {
+        ...common,
+        type: "text",
+        width,
+        height,
+        data,
+        rev: 0,
+        spec: normalizeTextSpec(isRecord(raw.spec) ? raw.spec : {}, defaultTextSpec(frame), frame),
+        ramp: isRecord(raw.ramp) ? readRamp(raw.ramp) : cloneRampState(TEXT_RAMP_STATE),
+        source: readTextSource(raw.src, width, height),
+      };
+      return layer;
+    }
     const layer: PixelLayer = {
       ...common,
       type: "pixel",
@@ -361,6 +407,17 @@ function readLayer(raw: unknown): Layer | null {
   }
 
   return null;
+}
+
+/** A saved text source, or null when it is missing or does not fit the frame. */
+function readTextSource(raw: unknown, width: number, height: number): TextSource | null {
+  if (!isRecord(raw) || typeof raw.px !== "string") return null;
+  const x = Number(raw.x);
+  const columns = Number(raw.w);
+  if (!Number.isInteger(x) || !Number.isInteger(columns) || columns <= 0) return null;
+  if (columns > sourceColumnLimit(width, height) || Math.abs(x) > width * 8 + columns) return null;
+  const data = base64ToBytes(raw.px, columns * height * 4);
+  return data ? { x, width: columns, data } : null;
 }
 
 export function deserializeProject(json: string): (LabProject & { savedAt: number }) | null {

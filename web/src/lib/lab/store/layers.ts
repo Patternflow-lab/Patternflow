@@ -62,21 +62,22 @@ export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
       const index = state.layers.findIndex((layer) => layer.id === id);
       if (index < 0) return;
       const source = state.layers[index];
+      const copyId = layerId();
+      const name = `${source.name} copy`.slice(0, 60);
       const copy: Layer =
         source.type === "code"
-          ? {
-              ...source,
-              id: layerId(),
-              name: `${source.name} copy`.slice(0, 60),
-              ramp: cloneRampState(source.ramp),
-            }
-          : {
-              ...source,
-              id: layerId(),
-              name: `${source.name} copy`.slice(0, 60),
-              data: new Uint8ClampedArray(source.data),
-              rev: 0,
-            };
+          ? { ...source, id: copyId, name, ramp: cloneRampState(source.ramp) }
+          : source.type === "text"
+            ? {
+                ...source,
+                id: copyId,
+                name,
+                data: new Uint8ClampedArray(source.data),
+                rev: 0,
+                spec: { ...source.spec },
+                ramp: cloneRampState(source.ramp),
+              }
+            : { ...source, id: copyId, name, data: new Uint8ClampedArray(source.data), rev: 0 };
       const layers = [...state.layers];
       layers.splice(index, 0, copy);
       set({ layers, activeLayerId: copy.id });

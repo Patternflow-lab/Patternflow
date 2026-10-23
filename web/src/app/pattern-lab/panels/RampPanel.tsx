@@ -3,7 +3,9 @@
 // Color ramp for the focused code layer — chained to the code, so every code
 // layer keeps its own ramp. New in the layered lab: per-stop ALPHA, drawn over
 // a checkerboard, which is what lets a value field fade out and reveal the
-// layers underneath.
+// layers underneath. A selected text layer has a ramp too: its letters take
+// these colours across or down when the Text panel's fill says so, and run
+// through them when its effect does.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -16,8 +18,8 @@ import {
 } from "@/lib/pattern/harness";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { rampStateToHarness } from "@/lib/lab/engine";
-import { DEFAULT_RAMP_STATE, type CodeLayer } from "@/lib/lab/types";
-import { useFocusCodeLayer, useLabStore } from "@/lib/lab/store";
+import { DEFAULT_RAMP_STATE, type RampLayer } from "@/lib/lab/types";
+import { useFocusRampLayer, useLabStore } from "@/lib/lab/store";
 import { rgbToHex } from "@/lib/pattern/color";
 import { randomRampColors } from "@/lib/lab/rampPalettes";
 import { useRampHistory } from "./ramp/useRampHistory";
@@ -39,7 +41,7 @@ const LUMA_TREND_LABEL: Record<LumaTrend, string> = {
 };
 
 export default function RampPanel() {
-  const layer = useFocusCodeLayer();
+  const layer = useFocusRampLayer();
   const addCodeLayer = useLabStore((state) => state.addCodeLayer);
   if (!layer) {
     return (
@@ -55,7 +57,7 @@ export default function RampPanel() {
   return <RampEditor key={layer.id} layer={layer} />;
 }
 
-function RampEditor({ layer }: { layer: CodeLayer }) {
+function RampEditor({ layer }: { layer: RampLayer }) {
   const setLayerRampMode = useLabStore((state) => state.setLayerRampMode);
   const setLayerRampWrap = useLabStore((state) => state.setLayerRampWrap);
   const setLayerRecolor = useLabStore((state) => state.setLayerRecolor);
@@ -63,6 +65,7 @@ function RampEditor({ layer }: { layer: CodeLayer }) {
   const addLayerRampStop = useLabStore((state) => state.addLayerRampStop);
   const deleteLayerRampStop = useLabStore((state) => state.deleteLayerRampStop);
   const setLayerRampStops = useLabStore((state) => state.setLayerRampStops);
+  const setTextSpec = useLabStore((state) => state.setTextSpec);
   const selectedStopIndex = useLabStore((state) => state.rampSelection[layer.id] ?? 0);
   const setRampSelection = useLabStore((state) => state.setRampSelection);
   const { edit, beginGesture, endGesture, undo, redo, canUndo, canRedo } = useRampHistory(layer.id);
@@ -198,7 +201,7 @@ function RampEditor({ layer }: { layer: CodeLayer }) {
 
   const activeStopIndex = Math.min(selectedStopIndex, ramp.stops.length - 1);
   const activeStop = ramp.stops[activeStopIndex];
-  const usesValueField = codeUsesValueField(layer.code);
+  const usesValueField = layer.type === "code" && codeUsesValueField(layer.code);
 
   const addStopAt = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
@@ -232,7 +235,7 @@ function RampEditor({ layer }: { layer: CodeLayer }) {
   return (
     <div className={dock.panel}>
       <div className={dock.panelBar}>
-        <label title="Ramp is chained to this code layer">{layer.name}</label>
+        <label title={`Ramp is chained to this ${layer.type} layer`}>{layer.name}</label>
         <span style={{ flex: 1 }} />
         <select
           value={ramp.mode}
@@ -257,17 +260,19 @@ function RampEditor({ layer }: { layer: CodeLayer }) {
           />
           wrap
         </label>
-        <label
-          className={local.rampToggle}
-          title="Recolor this layer: map each drawn pixel's luminance through the ramp (works on RGB patterns too)"
-        >
-          <input
-            type="checkbox"
-            checked={layer.recolor}
-            onChange={(event) => edit(() => setLayerRecolor(layer.id, event.target.checked))}
-          />
-          recolor
-        </label>
+        {layer.type === "code" && (
+          <label
+            className={local.rampToggle}
+            title="Recolor this layer: map each drawn pixel's luminance through the ramp (works on RGB patterns too)"
+          >
+            <input
+              type="checkbox"
+              checked={layer.recolor}
+              onChange={(event) => edit(() => setLayerRecolor(layer.id, event.target.checked))}
+            />
+            recolor
+          </label>
+        )}
       </div>
 
       <div className={`${dock.panelBody} ${dock.rampDock}`}>
@@ -425,10 +430,23 @@ function RampEditor({ layer }: { layer: CodeLayer }) {
           </>
         )}
 
-        {!usesValueField && !layer.recolor && (
+        {layer.type === "code" && !usesValueField && !layer.recolor && (
           <p className={local.rampHint}>
             This layer draws RGB directly — the ramp applies when the code uses display.setValue,
             or when recolor is on.
+          </p>
+        )}
+        {layer.type === "text" && layer.spec.fill === "solid" && (
+          <p className={local.rampHint}>
+            {layer.spec.effect === "ramp"
+              ? "The letters run through these colours all together. Spread the ramp over them:"
+              : "This text is one colour. Fill it with the ramp:"}{" "}
+            <button type="button" onClick={() => setTextSpec(layer.id, { fill: "rampX" })}>
+              across
+            </button>{" "}
+            <button type="button" onClick={() => setTextSpec(layer.id, { fill: "rampY" })}>
+              down
+            </button>
           </p>
         )}
       </div>

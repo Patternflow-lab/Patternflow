@@ -27,11 +27,15 @@ function fakeContext(canvas: HTMLCanvasElement): Ctx {
     getImageData(_x: number, _y: number, w: number, h: number) {
       return { width: w, height: h, data: new Uint8ClampedArray(w * h * 4) };
     },
+    // Text layers measure each line before drawing it; nothing is drawn, so nothing is wide.
+    measureText() {
+      return { width: 0 };
+    },
   };
   for (const name of [
     "putImageData", "clearRect", "fillRect", "strokeRect", "drawImage", "beginPath", "moveTo",
     "lineTo", "stroke", "fill", "arc", "rect", "save", "restore", "scale", "translate",
-    "setTransform", "closePath",
+    "setTransform", "closePath", "fillText",
   ]) {
     ctx[name] = () => {};
   }
