@@ -2,10 +2,12 @@
 // Owns one PatternRuntime per code layer and composites the visible stack into
 // a single RGBA frame each animation tick. Lives OUTSIDE React: the preview
 // panel drives it from requestAnimationFrame and reads the store imperatively,
-// so knob turns and code edits never restart the loop.
+// so knob turns and code edits never restart the loop. A text layer with an
+// effect gets a phase and a frame buffer here too (textEffects.ts).
 
 import {
   PatternRuntime,
+  buildRampLUTRGBA,
   createIdleInput,
   knobTargetToDelta,
   type ColorRamp,
@@ -17,7 +19,15 @@ import {
 import { hexToRgb } from "@/lib/pattern/color";
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { applyMaskToCoverage, compositeLayers, type CompositeEntry } from "./compositor";
-import { isRasterLayer, type CodeLayer, type Layer, type RampState } from "./types";
+import { stretchNearest } from "./stretch";
+import {
+  TEXT_EFFECT_RATE,
+  activeTextEffect,
+  advanceTextPhase,
+  renderTextEffect,
+  textEffectPeriod,
+} from "./textEffects";
+import { isRasterLayer, type CodeLayer, type Layer, type RampState, type TextLayer } from "./types";
 
 const RECOMPILE_DEBOUNCE_MS = 180;
 
@@ -46,6 +56,17 @@ type LayerEntry = {
   ramp: ColorRamp | null;
 };
 
+/** A text effect's running state: where it is, and the frame it drew last. */
+type TextFx = {
+  phase: number;
+  /** At the layer's own size. */
+  frame: Uint8ClampedArray;
+  /** `frame` at the matrix size, when the two differ (a Graphic Export render grid). */
+  stretched: Uint8ClampedArray | null;
+  rampState: RampState | null;
+  lut: Uint8Array | null;
+};
+
 /** The store slice the engine consumes each frame. */
 export type EngineProject = {
   matrix: MatrixSize;
@@ -64,6 +85,7 @@ export type EngineFrame = {
 
 export class LabEngine {
   private entries = new Map<string, LayerEntry>();
+  private textFx = new Map<string, TextFx>();
   /** Latest per-layer runtime error (null = healthy). */
   readonly errors = new Map<string, string | null>();
 
@@ -100,6 +122,43 @@ export class LabEngine {
         this.errors.delete(id);
       }
     }
+    for (const id of this.textFx.keys()) {
+      if (!ids.has(id)) this.textFx.delete(id);
+    }
+  }
+
+  /**
+   * Move a text layer's effect on by `dt` and draw its frame. The phase
+   * lives as long as the layer, so changing the words keeps the scroll where
+   * it is (taken round the new width).
+   */
+  private stepText(layer: TextLayer, matrix: MatrixSize, dt: number, knobNormalized: number[]) {
+    const effect = activeTextEffect(layer);
+    if (!effect) return;
+    const count = layer.width * layer.height * 4;
+    let fx = this.textFx.get(layer.id);
+    if (!fx) {
+      fx = { phase: 0, frame: new Uint8ClampedArray(count), stretched: null, rampState: null, lut: null };
+      this.textFx.set(layer.id, fx);
+    }
+    if (fx.frame.length !== count) fx.frame = new Uint8ClampedArray(count);
+    if (effect === "ramp" && fx.rampState !== layer.ramp) {
+      fx.rampState = layer.ramp;
+      fx.lut = buildRampLUTRGBA(rampStateToHarness(layer.ramp));
+    }
+    const period = textEffectPeriod(effect, layer);
+    fx.phase = advanceTextPhase(
+      fx.phase % period,
+      dt,
+      knobNormalized[layer.spec.effectKnob] ?? 0,
+      TEXT_EFFECT_RATE[effect],
+      period,
+    );
+    renderTextEffect(layer, effect, fx.phase, fx.lut, fx.frame);
+    fx.stretched =
+      layer.width === matrix.width && layer.height === matrix.height
+        ? null
+        : stretchNearest(fx.frame, layer.width, layer.height, matrix.width, matrix.height, fx.stretched);
   }
 
   private ensureEntry(layer: CodeLayer, matrix: MatrixSize, now: number): LayerEntry {
@@ -211,6 +270,14 @@ export class LabEngine {
       this.errors.set(layer.id, result.ok ? null : result.error ?? "Runtime error.");
     }
 
+    // Text layers with an effect move on by the same dt, masks included, at
+    // the speed of the knob each one is set to.
+    for (const layer of layers) {
+      if (layer.type !== "text" || !layer.visible) continue;
+      if (layer.role !== "mask" && layer.opacity <= 0) continue;
+      this.stepText(layer, matrix, dt, knobNormalized);
+    }
+
     // Pass 2 — group paint entries with the mask layers sitting above them,
     // then composite. On error the runtime keeps its last good frame — it
     // still composites, so a typo mid-edit dims nothing.
@@ -227,6 +294,12 @@ export class LabEngine {
 
   /** A layer's CURRENT buffer at this frame size, or null if unavailable. */
   private bufferOf(layer: Layer, matrix: MatrixSize): Uint8ClampedArray | null {
+    if (layer.type === "text" && activeTextEffect(layer)) {
+      const fx = this.textFx.get(layer.id);
+      if (fx && fx.frame.length === layer.width * layer.height * 4) {
+        return fx.stretched ?? (layer.width === matrix.width && layer.height === matrix.height ? fx.frame : null);
+      }
+    }
     if (isRasterLayer(layer)) {
       return layer.width === matrix.width && layer.height === matrix.height ? layer.data : null;
     }

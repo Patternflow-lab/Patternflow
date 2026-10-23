@@ -116,11 +116,22 @@ export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] 
       rev: layer.rev + 1,
     };
     if (resized.type === "text") {
+      const dx = Math.floor((matrix.width - layer.width) / 2);
       resized.spec = {
         ...resized.spec,
-        x: resized.spec.x + Math.floor((matrix.width - layer.width) / 2),
+        x: resized.spec.x + dx,
         y: resized.spec.y + Math.floor((matrix.height - layer.height) / 2),
       };
+      // The source keeps its columns and moves by the same offset; its rows
+      // are cut or padded the way the bitmap's are.
+      const source = resized.source;
+      resized.source = source
+        ? {
+            x: source.x + dx,
+            width: source.width,
+            data: resizeSurface(source.data, source.width, layer.height, source.width, matrix.height),
+          }
+        : null;
     }
     return resized;
   });
@@ -132,8 +143,8 @@ export function updateLayer(layers: Layer[], id: string, patch: (layer: Layer) =
 }
 
 /**
- * Patch the ramp of a code or text layer. A text layer filled with its ramp
- * is drawn again, since its colours live in its bitmap.
+ * Patch the ramp of a code or text layer. A text layer filled with its ramp,
+ * or running it, is drawn again, since its colours live in its bitmap.
  */
 export function updateRampLayer(
   layers: Layer[],
@@ -143,7 +154,7 @@ export function updateRampLayer(
   return layers.map((layer) => {
     if (layer.id !== id || !isRampLayer(layer)) return layer;
     const next = patch(layer);
-    return next.type === "text" && next.ramp !== layer.ramp && next.spec.fill !== "solid"
+    return next.type === "text" && next.ramp !== layer.ramp && (next.spec.fill !== "solid" || next.spec.effect === "ramp")
       ? drawTextLayer(next)
       : next;
   });

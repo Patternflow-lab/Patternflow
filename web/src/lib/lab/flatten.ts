@@ -27,6 +27,7 @@ import { KNOBS_ANNOTATION_RE, buildKnobsAnnotationLine, defaultKnobState } from 
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
 import { bytesToBase64 } from "./serialize";
+import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, type ActiveTextEffect } from "./textEffects";
 
 /**
  * Run-length encode straight RGBA bytes as {count-1, r, g, b, a} tuples
@@ -61,13 +62,13 @@ export function rleEncodeRGBA(data: Uint8ClampedArray): Uint8ClampedArray {
 }
 
 /** The embed expression for one pixel layer: RLE when it wins, raw otherwise. */
-function pixelBufferLiteral(data: Uint8ClampedArray): string {
+function pixelBufferLiteral(data: Uint8ClampedArray, length = "__W * __H * 4"): string {
   const rle = rleEncodeRGBA(data);
   return rle.length < data.length
-    ? `__rle("${bytesToBase64(rle)}", __W * __H * 4)`
-    : `__b64("${bytesToBase64(data)}", __W * __H * 4)`;
+    ? `__rle("${bytesToBase64(rle)}", ${length})`
+    : `__b64("${bytesToBase64(data)}", ${length})`;
 }
-import { isRasterLayer, type CodeLayer, type KnobRange, type Layer } from "./types";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
 
 export type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
 
@@ -92,10 +93,84 @@ function commentSafe(name: string): string {
   return name.replace(/[\r\n\u2028\u2029]/g, " ");
 }
 
-function lutLiteral(layer: CodeLayer): string {
+function lutLiteral(layer: RampLayer): string {
   const lut = buildRampLUTRGBA(rampStateToHarness(layer.ramp));
   return `[${Array.from(lut).join(",")}]`;
 }
+
+/**
+ * The fx object of a moving text layer. Scroll and ramp read the source,
+ * twinkle the bitmap; ramp brings its ramp as a LUT.
+ */
+function textFxLiteral(layer: TextLayer, effect: ActiveTextEffect): string {
+  const source = effect === "twinkle" ? { x: 0, width: layer.width, data: layer.data } : layer.source!;
+  return `{
+    kind: "${effect}", knob: ${layer.spec.effectKnob}, rate: ${TEXT_EFFECT_RATE[effect]}, period: ${textEffectPeriod(effect, layer)}, phase: 0,
+    srcX: ${source.x}, srcW: ${source.width}, lead: ${layer.width - source.x},
+    lut: ${effect === "ramp" ? lutLiteral(layer) : "null"},
+    src: ${pixelBufferLiteral(source.data, `${source.width} * __H * 4`)},
+  }`;
+}
+
+// textEffects.ts, in the export's own words. Keep the two in step:
+// textExport.test.ts compares them pixel for pixel.
+const TEXT_FX_HELPERS = `
+// Text effects: each frame a moving text layer is drawn again from what it
+// carries, at a phase one knob speeds up (0 stands it still). Whole numbers
+// per pixel, so the firmware header lights the same LEDs.
+function __fxHash(x, y) {
+  let h = Math.imul(x + 1, 0x9e3779b1) ^ Math.imul(y + 1, 0x85ebca77);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return h & 255;
+}
+
+function __fxAdvance(F, dt, input) {
+  const k = input && input.knobNormalized ? Number(input.knobNormalized[F.knob]) : 0;
+  const n = k > 0 ? (k < 1 ? k : 1) : 0;
+  let p = F.phase + dt * (n * F.rate);
+  if (!(p >= 0)) p = 0;
+  else if (p >= F.period) p %= F.period;
+  F.phase = p;
+}
+
+function __fxDraw(L) {
+  const F = L.fx, B = L.buf, S = F.src, W = F.srcW, s = Math.floor(F.phase);
+  if (F.kind === "scroll") {
+    const m = (((s + F.lead) % F.period) + F.period) % F.period, shift = m - __W;
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, c = x + shift;
+        if (c < 0 || c >= W) { B[j] = B[j + 1] = B[j + 2] = B[j + 3] = 0; continue; }
+        const i = (y * W + c) * 4;
+        B[j] = S[i]; B[j + 1] = S[i + 1]; B[j + 2] = S[i + 2]; B[j + 3] = S[i + 3];
+      }
+    }
+  } else if (F.kind === "twinkle") {
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, a = S[j + 3];
+        B[j] = S[j]; B[j + 1] = S[j + 1]; B[j + 2] = S[j + 2];
+        if (a === 0) { B[j + 3] = 0; continue; }
+        const u = (s + __fxHash(x, y)) & 255, tri = u < 128 ? u : 255 - u;
+        B[j + 3] = Math.floor((a * (255 - tri - (tri >> 1)) + 127) / 255);
+      }
+    }
+  } else {
+    const T = F.lut;
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, c = x - F.srcX, i = (y * W + c) * 4;
+        const a = c < 0 || c >= W ? 0 : S[i + 3];
+        if (a === 0) { B[j] = B[j + 1] = B[j + 2] = B[j + 3] = 0; continue; }
+        const u = (S[i] + s) & 511, k = (u < 256 ? u : 511 - u) * 4;
+        B[j] = T[k]; B[j + 1] = T[k + 1]; B[j + 2] = T[k + 2];
+        B[j + 3] = Math.floor((a * T[k + 3] + 127) / 255);
+      }
+    }
+  }
+}`;
 
 /** Does this composition even need flattening, or is it a single plain pattern? */
 export function needsFlatten(layers: Layer[]): boolean {
@@ -186,8 +261,28 @@ function __mkDisplay(L) {
   };
 }`);
 
+  // Text layers that move: each carries what it moves and a phase the knob
+  // speeds up. The helpers are textEffects.ts step for step.
+  const effects = new Map<TextLayer, ActiveTextEffect>();
+  for (const layer of stack) {
+    const effect = layer.type === "text" ? activeTextEffect(layer) : null;
+    if (layer.type === "text" && effect) effects.set(layer, effect);
+  }
+  if (effects.size > 0) parts.push(TEXT_FX_HELPERS);
+
   for (const layer of stack) {
     const roleProps = `role: "${layer.role}", maskInvert: ${layer.maskInvert}`;
+    const effect = layer.type === "text" ? effects.get(layer) : undefined;
+    if (layer.type === "text" && effect) {
+      parts.push(`
+// ── text layer, ${effect} on knob ${layer.spec.effectKnob + 1}: ${commentSafe(layer.name)} ──
+__stack.push({
+  kind: "pixel", opacity: ${layer.opacity}, blend: "${layer.blend}", ${roleProps},
+  buf: new Uint8ClampedArray(__W * __H * 4),
+  fx: ${textFxLiteral(layer, effect)},
+});`);
+      continue;
+    }
     if (isRasterLayer(layer)) {
       // A text layer travels as the pixels it was last drawn as: the font
       // stays in the browser that has it.
@@ -267,6 +362,7 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   for (const L of __stack) {
+    if (L.fx) __fxAdvance(L.fx, dt, input);
     if (L.kind !== "code") continue;
     L.lastInput = input;
     __mirror(L);
@@ -276,6 +372,7 @@ export function update(dt, input, params) {
 
 export function draw(display, params, time) {
   for (const L of __stack) {
+    if (L.fx) __fxDraw(L);
     if (L.kind !== "code" || !L.fDraw) continue;
     L.buf.fill(0);
     __mirror(L);
@@ -326,7 +423,7 @@ export function draw(display, params, time) {
 
   // Carry the shared knob labels/ranges so reopening the flattened pattern
   // restores the same tuning.
-  const hasCode = stack.some((layer): layer is CodeLayer => layer.type === "code");
+  const hasCode = stack.some((layer): layer is CodeLayer => layer.type === "code") || effects.size > 0;
   const knobState = knobConfig ?? {
     labels: defaultKnobState().labels,
     ranges: defaultKnobState().ranges,
