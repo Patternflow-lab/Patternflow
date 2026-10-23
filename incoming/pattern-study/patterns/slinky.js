@@ -1,11 +1,11 @@
 // ===== Patternflow pattern =====
 // Title:   Slinky
 // Family:  toy
-// Idea:    A Slinky walks end over end down a stairwell that zigzags the full height of the panel, its coils pouring through a bow from each step to the next and springing off the wall at every landing, until a hand lifts it dangling off the hall floor and sets it back on the top step.
+// Idea:    A Slinky walks end over end down a zigzag stairwell the height of the panel, its coils pouring through a bow from step to step, springing off the wall at each landing and waking each step light it lands by, until a hand carries it dangling back up to the top.
 // Author:  patternflow-lab
 // Date:    2026-10-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 21, after the Slinky, the steel spring toy Richard James brought out in 1945, walking down the stairs
+// Lineage: original, pattern round 21, after the Slinky, Richard James's steel spring toy of 1945
 // Round:   21
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Spring. Which Slinky comes out of the box: polished steel at 0, then gold plate, the rainbow plastic one that walks lazier, a neon one under a blacklight, and at 1 a glow-in-the-dark one with the lights out.
 // Knob 2: Speed. How fast the film runs: at 2 a step takes under half a second and the walk from top to bottom about seven; at 0.2 it is ten times slower.
 // Knob 3: Rise. How tall each step is, from 6 rows to 12: low steps make three flights and small quick bows, tall ones two flights and long reaches down.
-// Knob 4: Lamp. The light in the stairwell: morning at -1, late afternoon at 0 with the wall lamps just on, and night at 1, the stairs lit only in warm pools round the lamps and the spring flashing as it walks through them.
+// Knob 4: Lamp. The daylight in the stairwell: morning at -1, dusk at 0, night at 1, when only the step lights the spring has woken light the stairs and it flashes as it walks through them.
 
 const [W, H] = [64, 128];
 const N = W * H;
@@ -33,7 +33,7 @@ const [NC, RAD, PITCH, CAP] = [36, 5, 0.15, 4];
 const HS = NC * PITCH;
 const [MOVE, BOUNCE, SETTLE, REACH, LIFT, CARRY, LOWER] = [0, 1, 2, 3, 4, 5, 6];
 const DUR = [0, 0.5, 1.5, 0.8, 0.9, 1.5, 1.5];
-// Daylight from a window up to the left; the wall lamps' warm light.
+// The step lights' warm light; daylight comes from a window up to the left.
 const LAMP = [255, 206, 150];
 const [LX, LY, LZ, HX, HY, HZ] = [-0.5, -0.6, 0.62, -0.278, -0.334, 0.9];
 // The eye is a little above the stairs and to one side, so a ring's near half
@@ -45,7 +45,7 @@ const kern = (r, s) => Float32Array.from({ length: (2 * r + 1) ** 2 }, (_, i) =>
 const [KSH, KGL] = [kern(3, 3), kern(8, 18)];
 const RAIN = [[236, 44, 52], [250, 142, 34], [246, 222, 54], [62, 200, 84], [44, 124, 240], [152, 74, 222]];
 // Colour (null: rainbow bands), shine, highlight sharpness, band width, own light,
-// room light, whether the lamps stay on, and how lazily it walks.
+// room light, whether the step lights work, and how lazily it walks.
 const MAT = [
   [[172, 180, 196], 1, 16, 0, 0, [1, 1, 1], 1, 1],
   [[232, 174, 62], 1, 9, 0, 0, [1, 0.96, 0.9], 1, 1.06],
@@ -56,16 +56,11 @@ const MAT = [
 // The hand as capsules from the pinch: x1, y1, x2, y2, radius, sleeve.
 const HAND = [[-1.6, -0.8, -4.6, -7.6, 2, 0], [1.3, -1, 4.4, -8.2, 1.8, 0], [6.2, -6.8, 8.4, -12.4, 2.4, 0], [2, -12.4, 2.3, -12.7, 6.6, 0], [4, -16, 8.8, -24, 4.4, 0], [7.4, -23.6, 13.5, -36, 6.2, 1]];
 
-// ---- the staircase ----
-
 // Built from the floor up: the bottom flight runs right, each one above runs the
 // other way. A flight ends in a deep drop to its landing, deep enough that the
 // spring can walk off the landing under the end of the flight above.
 function build(P, R) {
-  const dL = R + 16;
-  const up = [{ x: 56, y: FLOOR }];
-  const fl = [];
-  const lands = [];
+  const [dL, up, fl, lands] = [R + 16, [{ x: 56, y: FLOOR }], [], []];
   for (let s = 1, base = FLOOR, f = 0; base > 0; f++, s = -s) {
     const y1 = base - (f ? dL : R) - 2 * R;
     fl.push([s, y1, y1 + R, y1 + 2 * R]);
@@ -74,7 +69,8 @@ function build(P, R) {
     lands.push([-s, base]);
     up.push({ x: s > 0 ? 8 : 56, y: base, wall: -s });
   }
-  const st = up.reverse();
+  const [end, st] = [up[0], up.reverse()];
+  st.forEach((a, i) => (a.id = i));
   const i0 = st.findIndex((a) => a.y >= 16);
   const seq = [{ k: LOWER, a: st[i0] }];
   for (let i = i0; i < st.length - 1; i++) {
@@ -82,140 +78,81 @@ function build(P, R) {
     seq.push({ k: MOVE, a, b, s: sign(b.x - a.x), under: !!a.wall });
     if (b.wall) seq.push({ k: BOUNCE, a: b, s: b.wall });
   }
-  const end = st[st.length - 1];
   seq.push({ k: SETTLE, a: end, s: 1 }, { k: REACH, a: end }, { k: LIFT, a: end }, { k: CARRY, a: end, b: st[i0] });
-  Object.assign(P, { R, seq });
-  paint(P, R, fl, lands, seq);
+  Object.assign(P, { R, seq, st, ton: new Float32Array(st.length).fill(-99) });
+  paint(P, R, fl, lands);
 }
 
-function paint(P, R, fl, lands, seq) {
+function paint(P, R, fl, lands) {
   const { bg, mat } = P;
-  const set = (x, y, m, c, k = 1) => {
-    if ((x = round(x)) < 0 || x >= W || (y = round(y)) < 0 || y >= H) return;
-    const p = y * W + x;
-    mat[p] = m;
-    for (let i = 0; i < 3; i++) bg[p * 3 + i] = c[i] * k;
-  };
   const at = (x, y) => (x < 0 || x >= W || y < 0 || y >= H ? 9 : mat[y * W + x]);
+  const set = (x, y, m, c, k = 1) => {
+    if (at((x = round(x)), (y = round(y))) > 8) return;
+    mat[y * W + x] = m;
+    for (let i = 0; i < 3; i++) bg[(y * W + x) * 3 + i] = c[i] * k;
+  };
   const lum = (x, y) => 1.16 - 0.0034 * y - 0.003 * x;
-  // Wallpaper: a teal ground, a pale stripe every 8 columns and a lozenge between.
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const sx = x % 8;
-      const d = abs(sx - 4) + abs((y % 12) - 6) * 0.7;
-      set(x, y, 0, [38, 70, 80], (sx === 0 ? 1.3 : d < 1.6 ? 1.38 : d < 2.4 ? 0.84 : 1) * lum(x, y) * (0.95 + 0.1 * rnd()));
-    }
-  for (let y = 0; y < H; y++) for (const x of [0, 1, 62, 63]) set(x, y, 4, [92, 120, 124], lum(x, y) * (x === 1 || x === 62 ? 0.72 : 1));
+  // Wallpaper: a dusty blue ground, a pale stripe every 8 columns and a lozenge
+  // between; and the edges of the side walls.
+  for (let p = 0; p < N; p++) {
+    const [x, y] = [p & 63, p >> 6];
+    const d = abs((x % 8) - 4) + abs((y % 12) - 6) * 0.7;
+    if (x < 2 || x > 61) set(x, y, 4, [100, 112, 136], lum(x, y) * (x === 1 || x === 62 ? 0.72 : 1));
+    else set(x, y, 0, [48, 62, 96], (x % 8 ? (d < 1.6 ? 1.38 : d < 2.4 ? 0.84 : 1) : 1.3) * lum(x, y) * (0.95 + 0.1 * rnd()));
+  }
   // A step's side: the tread on top, the board's edge under it, the joint where
   // the next riser meets it, the dark underside.
   const block = (x, top, bot, e, edge) => {
     for (let y = top; y <= bot; y++) {
-      let k = (0.88 + 0.1 * sin(y * 1.7 + 2 * sin(x * 0.23)) + 0.05 * rnd()) * (1.08 - y * 0.0025);
-      if (y === top) k = edge ? 1.12 : 1;
-      else if (y === top + 1) k *= 0.7;
-      else if (e === 0) k *= 0.62;
-      if (y === bot) k *= 0.55;
-      set(x, y, y === top ? 2 : 1, y === top ? [216, 162, 104] : [150, 94, 56], k);
+      let k = y === top ? (edge ? 1.12 : 1) : (0.88 + 0.1 * sin(y * 1.7 + 2 * sin(x * 0.23)) + 0.05 * rnd()) * (1.08 - y * 0.0025) * (y === top + 1 ? 0.7 : e ? 1 : 0.62);
+      set(x, y, y === top ? 2 : 1, y === top ? [216, 162, 104] : [150, 94, 56], y === bot ? k * 0.55 : k);
     }
   };
   for (const [s, ...ys] of fl) {
-    for (let x = 14; x < 50; x++) {
-      const d = s > 0 ? x - 14 : 49 - x;
-      block(x, ys[floor(d / T)], round(ys[0] + TH + (d * R) / T), d % T, d % T === T - 1);
-    }
+    for (let x = 14, d; x < 50; x++) block(x, ys[floor((d = s > 0 ? x - 14 : 49 - x) / T)], round(ys[0] + TH + (d * R) / T), d % T, d % T === T - 1);
     // Each nosing overhangs the riser below it by one LED.
-    for (let k = 0; k < 3; k++) {
-      const x = s > 0 ? 26 + 12 * k : 37 - 12 * k;
+    for (let k = 0, x; k < 3; k++) {
+      if (at((x = s > 0 ? 26 + 12 * k : 37 - 12 * k), ys[k] + 1) === 0) set(x, ys[k] + 1, 0, [20, 30, 34]);
       set(x, ys[k], 2, [226, 174, 116]);
-      if (at(x, ys[k] + 1) === 0) set(x, ys[k] + 1, 0, [20, 30, 34]);
     }
   }
   for (const [side, y] of lands) {
-    const x0 = side < 0 ? 2 : 50;
-    for (let x = x0; x < x0 + 12; x++) block(x, y, y + R + TH, side < 0 ? x - 2 : 61 - x, false);
+    for (let x = side < 0 ? 2 : 50, i = 0; i < 12; x++, i++) block(x, y, y + R + TH, side < 0 ? i : 11 - i, false);
     if (at(side < 0 ? 14 : 49, y) === 0) set(side < 0 ? 14 : 49, y, 2, [226, 174, 116]);
   }
-  // Floorboards seen from a little above, the near ones brighter.
-  for (let y = FLOOR; y < H; y++)
-    for (let x = 0, r = y - FLOOR; x < W; x++) set(x, y, 3, r ? [176, 122, 74] : [206, 156, 104], (0.78 + 0.04 * r) * (r % 3 === 2 || (x + r * 7) % 23 === 0 ? 0.62 : 0.95 + 0.1 * rnd()));
+  // Floorboards seen from a little above, the near ones brighter, and the skirting.
+  for (let p = FLOOR * W, x, r; p < N; p++) set((x = p & 63), (r = (p >> 6) - FLOOR) + FLOOR, 3, r ? [176, 122, 74] : [206, 156, 104], (0.78 + 0.04 * r) * (r % 3 === 2 || (x + r * 7) % 23 === 0 ? 0.62 : 0.95 + 0.1 * rnd()));
   for (let x = 2; x < 62; x++) for (let y = FLOOR - 4; y < FLOOR; y++) if (at(x, y) === 0) set(x, y, 5, [196, 190, 172], (y === FLOOR - 4 ? 1.08 : y === FLOOR - 1 ? 0.66 : 0.94) * lum(x, y));
-  // A handrail on the wall above each flight, on brackets.
-  for (const [s, y1] of fl)
-    for (let x = 15; x < 49; x++) {
-      const y = round(y1 + ((s > 0 ? x - 26 : 37 - x) * R) / T - 9);
-      if (at(x, y) === 0) set(x, y, 5, [104, 66, 42]);
-      if (at(x, y - 1) === 0) set(x, y - 1, 5, [150, 108, 72]);
-      if ((s > 0 ? x - 14 : 49 - x) % T === 6 && at(x, y + 1) === 0) set(x, y + 1, 5, [60, 60, 68]);
-    }
-  // The stairs' soft shadow from the room light, down and right of them.
-  const solid = (x, y) => (at(x, y) === 1 || at(x, y) === 2 ? 1 : 0);
-  for (let y = 0; y < H; y++)
-    for (let x = 2; x < 62; x++) {
-      if (at(x, y) !== 0 && at(x, y) !== 5) continue;
-      let n = 0;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) n += solid(x - 3 + dx, y - 4 + dy);
-      for (let i = 0, p = (y * W + x) * 3; i < 3; i++) bg[p + i] *= 1 - 0.045 * n;
-    }
-  // Where the spring never goes, a framed picture and a light switch.
-  const keep = new Uint8Array(N);
-  for (const S of seq) {
-    if (S.k > SETTLE) continue;
-    const b = S.b || { x: S.s > 0 ? 62 : 2, y: S.a.y };
-    for (let y = max(0, min(S.a.y, b.y) - 22); y <= min(H - 1, max(S.a.y, b.y)); y++) for (let x = max(0, min(S.a.x, b.x) - 8); x <= min(W - 1, max(S.a.x, b.x) + 8); x++) keep[y * W + x] = 1;
+  // The stairs' soft shadow from the window, down and right of them.
+  for (let p = 0; p < N; p++) {
+    const [x, y, m] = [p & 63, p >> 6, mat[p]];
+    let n = 0;
+    for (let d = 0; d < 9 && (m === 0 || m === 5); d++) n += at(x - 4 + (d % 3), y - 5 + floor(d / 3)) % 8 > 0 && at(x - 4 + (d % 3), y - 5 + floor(d / 3)) < 3 ? 1 : 0;
+    for (let i = 0; i < 3; i++) bg[p * 3 + i] *= 1 - 0.045 * n;
   }
-  const free = (x0, y0, w, h) => {
-    for (let y = y0 - 1; y <= y0 + h; y++) for (let x = x0 - 1; x <= x0 + w; x++) if (at(x, y) !== 0 || keep[y * W + x]) return false;
-    return true;
+  // A small step light in the wall just above each tread and landing, and a
+  // framed picture on bare wall where the spring never passes.
+  for (const a of P.st) for (let i = -1; i < 1; i++) set(a.x + i, a.y - 3, 5, [70, 72, 80]);
+  const free = (x0, y0) => {
+    for (let n = 0; n < 120; n++) if (at(x0 - 1 + (n % 10), y0 - 1 + floor(n / 10)) !== 0) return false;
+    return P.st.every((a) => abs(a.x - x0 - 4) > 13 || a.y < y0 || a.y - 26 > y0 + 10);
   };
-  // Up to three wall lamps where there is room, each a shade on a brass arm.
-  const lamps = [];
-  for (let y = 6; y < 112 && lamps.length < 3; y += 2)
-    for (const x of [7, 56, 31])
-      if (lamps.every((l) => abs(l[1] - y) > 26) && free(x - 3, y - 4, 7, 9)) {
-        lamps.push([x, y]);
-        for (let j = -3; j <= 4; j++)
-          for (let i = -3; i <= 3; i++) {
-            const shade = j >= -3 && j <= 0 && abs(i) <= 2 + (j + 3) / 3;
-            if (shade) set(x + i, y + j, 6, [255, 226, 170], 1 - 0.12 * abs(i));
-            else if ((i === 0 && j > 0 && j < 4) || (j === 4 && abs(i) < 2)) set(x + i, y + j, 5, [176, 140, 70]);
-          }
-        break;
-      }
-  const L = P.lamp;
-  for (let y = 0, p = 0; y < H; y++)
-    for (let x = 0; x < W; x++, p++) {
-      L[p] = 0;
-      for (const [lx, ly] of lamps) L[p] += 1.6 * exp(-((x - lx) ** 2 + (y - ly) ** 2) / 380) + 0.5 * exp(-((x - lx) ** 2 + (y - ly) ** 2) / 40);
-    }
-  P.lampAt = (x, y) => L[cl(round(y), 0, H - 1) * W + cl(round(x), 0, W - 1)];
-  let [pic, sw] = [0, 0];
-  for (let y = 4; y < 110; y += 2)
-    for (const x of [4, 52, 28]) {
-      if (!pic && free(x, y, 8, 10)) {
-        pic = 1;
-        for (let j = 0; j < 10; j++)
-          for (let i = 0; i < 8; i++) {
-            const edge = i === 0 || j === 0 || i === 7 || j === 9;
-            const c = edge ? [196, 150, 64] : j < 5 ? [96, 150, 206] : j < 7 ? [72, 136, 86] : [48, 96, 62];
-            set(x + i, y + j, 5, i === 5 && j === 2 ? [250, 226, 130] : c, edge && (i === 7 || j === 9) ? 0.7 : 1);
-          }
-      } else if (pic && !sw && free(x + 3, y + 14, 2, 3)) {
-        sw = 1;
-        for (let j = 0; j < 3; j++) for (let i = 0; i < 2; i++) set(x + 3 + i, y + 14 + j, 5, [206, 200, 184], j === 1 && i === 0 ? 0.6 : 1);
-      }
-    }
+  for (let y = 4, pic = 0; y < 110 && !pic; y += 2)
+    for (const x of [4, 52, 28])
+      if (!pic && (pic = free(x, y)))
+        for (let n = 0; n < 80; n++) {
+          const [i, j] = [n & 7, n >> 3];
+          const edge = !i || !j || i === 7 || j === 9;
+          set(x + i, y + j, 5, i === 5 && j === 2 ? [250, 226, 130] : edge ? [196, 150, 64] : j < 5 ? [96, 150, 206] : j < 7 ? [72, 136, 86] : [48, 96, 62], edge && (i === 7 || j === 9) ? 0.7 : 1);
+        }
 }
 
-// Daylight fades from -1 to 1 and turns blue; the lamps come on past dusk.
+// Daylight fades from -1 to 1 and turns blue.
 function lampLevel(P, k4) {
   const u = (k4 + 1) / 2;
-  const d = sm((u - 0.5) / 0.5);
-  P.amb = [0.98, 1, 1.04].map((t, i) => t * (1.16 - 0.2 * u - 0.8 * d) * mix(1, [0.6, 0.74, 1][i], d));
-  P.lampI = sm((u - 0.3) / 0.5);
+  P.amb = [0.98, 1, 1.04].map((t, i) => t * (1.16 - 1.02 * u) * mix(1, [0.6, 0.74, 1][i], u));
   P.lampAtK = k4;
 }
-
-// ---- the spring's shape ----
 
 const [BZ, LT, FT, PT] = [new Float32Array(8), new Float32Array(17), new Float32Array(33), new Float32Array(4)];
 
@@ -254,8 +191,7 @@ function setDist(G) {
 }
 
 function onCurve(v, L) {
-  const f = v * 32;
-  const i = min(31, floor(f));
+  const [f, i] = [v * 32, min(31, floor(v * 32))];
   const s = (FT[i] + (FT[i + 1] - FT[i]) * (f - i)) * L;
   let j = 0;
   while (j < 15 && LT[j + 1] < s) j++;
@@ -312,8 +248,7 @@ function move(P, S, p, G) {
 // On a landing the top end swings out, meets the wall and springs back over.
 // On the floor the same swing just rocks and dies away.
 function bounce(P, S, u, G) {
-  const a = S.a;
-  const phc = PI / 2;
+  const [a, phc] = [S.a, PI / 2];
   let ph = S.k === SETTLE ? 1.3 * phc * exp(-3 * u) * sin(2 * PI * 2.2 * u) * (1 - sm((u - 0.7) / 0.3)) : u < 0.42 ? phc * (u / 0.42) ** 1.7 : u < 0.56 ? phc : phc * (1 - ((u - 0.56) / 0.44) ** 0.85);
   let w = S.s;
   if (ph < 0) [ph, w] = [-ph, -w];
@@ -333,8 +268,7 @@ const hangLen = (P, m) => m * PITCH + P.lext * (m / NC) ** 2;
 // Held by its top coil the spring hangs open at the top and closed at the
 // bottom, every gap carrying the weight of the coils below it.
 function hang(P, S, u, G) {
-  const a = S.a;
-  let [x0, y0, m] = [a.x, 0, NC];
+  let [a, x0, y0, m] = [S.a, S.a.x, 0, NC];
   if (S.k === CARRY) {
     [P.hx, P.hy] = carry(P, S, u);
     [x0, y0] = P.pb;
@@ -361,9 +295,9 @@ function dur(P, S) {
 }
 
 function shape(P) {
-  const S = P.seq[P.seg];
+  const [S, G] = [P.seq[P.seg], P.G];
   const u = cl(P.sp / dur(P, S), 0, 1);
-  const G = Object.assign(P.G, { ax: S.a.x, ay: S.a.y, aux: 0, auy: -1, nA: NC, bx: 0, by: 0, bux: 0, buy: -1, nB: 0, a0: 0.3, sn: 1, b: 0, rip: 0, ph: 0, c: 0, curve: null });
+  Object.assign(P.G, { ax: S.a.x, ay: S.a.y, aux: 0, auy: -1, nA: NC, bx: 0, by: 0, bux: 0, buy: -1, nB: 0, a0: 0.3, sn: 1, b: 0, rip: 0, ph: 0, c: 0, curve: null });
   P.hx = -99;
   if (S.k === MOVE) move(P, S, u, G);
   else if (S.k === BOUNCE || S.k === SETTLE) bounce(P, S, u, G);
@@ -378,11 +312,8 @@ function shape(P) {
   // Every coil: its centre and the way the spring runs through it.
   const { cx, cy, tx, ty } = P;
   const nc = NC - G.nA - G.nB;
-  let L = 0;
-  if (G.curve && nc > 1e-3) {
-    L = setCurve(...G.curve);
-    setDist(G);
-  }
+  const L = G.curve && nc > 1e-3 ? setCurve(...G.curve) : 0;
+  if (L) setDist(G);
   for (let q = 0; q < NC; q++) {
     const u = q + 0.5;
     if (u <= G.nA || !L) [cx[q], cy[q], tx[q], ty[q]] = [G.ax + G.aux * u * PITCH, G.ay + G.auy * u * PITCH, G.aux, G.auy];
@@ -395,17 +326,20 @@ function shape(P) {
   }
 }
 
-// ---- running ----
-
 function restart(P) {
-  Object.assign(P, { seg: 0, sp: 0.9, par: 0, ht: -1, pb: [0, 0], pv: [0, 0] });
+  Object.assign(P, { seg: 0, sp: 0.9, par: 0, ht: -1, pb: [0, 0], pv: [0, 0], clock: 0 });
+  P.ton.fill(-99);
 }
 
 function advance(P, h) {
   P.sp += h;
+  P.clock += h;
   if (P.ht >= 0) P.ht += h;
   let S = P.seq[P.seg];
   if (P.seg === 1 && P.ht < 0 && P.sp >= 0.2 * dur(P, S)) [P.ht, P.rx, P.ry] = [0, P.hx, P.hy];
+  // A step light wakes when the spring lands by it, and stays on for 8 seconds.
+  const b = S.k === MOVE ? S.b : S.k === LOWER ? S.a : null;
+  if (b && P.sp >= 0.3 * dur(P, S) && P.ton[b.id] < P.clock - 9.5) P.ton[b.id] = P.clock;
   while (P.sp >= dur(P, S)) {
     P.sp -= dur(P, S);
     if (S.k === MOVE) P.par ^= 1;
@@ -416,55 +350,39 @@ function advance(P, h) {
   // Carried, the bottom of the spring hangs back and swings under the hand.
   if (S.k !== CARRY) return;
   const u = P.sp / dur(P, S);
-  const [hx, hy] = carry(P, S, u);
-  const L = hangLen(P, NC);
-  const damp = 3.5 + 30 * sm((u - 0.65) / 0.35);
+  const [[hx, hy], L, damp] = [carry(P, S, u), hangLen(P, NC), 3.5 + 30 * sm((u - 0.65) / 0.35)];
   for (let c = 0; c < 2; c++) {
     P.pv[c] += (48 * ((c ? hy + L : hx) - P.pb[c]) - damp * P.pv[c]) * h;
     P.pb[c] += P.pv[c] * h;
   }
-  const [dx, dy] = [P.pb[0] - hx, P.pb[1] - hy - L];
-  const r = hypot(dx, dy);
+  const [dx, dy, r] = [P.pb[0] - hx, P.pb[1] - hy - L, hypot(P.pb[0] - hx, P.pb[1] - hy - L)];
   if (r > 0.6 * L) P.pb = [hx + (dx * 0.6 * L) / r, hy + L + (dy * 0.6 * L) / r];
 }
 
 export function setup(params) {
-  const P = params;
-  const F = (n) => new Float32Array(n);
-  Object.assign(P, { bg: F(N * 3), out: F(N * 3), lamp: F(N), mat: new Uint8Array(N), sh: F(N), gl: F(N), fa: F(N * 4), ba: F(N * 4) });
-  Object.assign(P, { hit: new Uint8Array(N), list: new Int32Array(N), nl: 0, cx: F(NC), cy: F(NC), tx: F(NC), ty: F(NC), G: {}, k1: 0, kf: 1, lext: 24, hx: -99, hy: 0 });
+  const [P, F] = [params, (n) => new Float32Array(n)];
+  Object.assign(P, { bg: F(N * 3), out: F(N * 3), pl: F(N), mat: new Uint8Array(N), sh: F(N), gl: F(N), fa: F(N * 4), ba: F(N * 4) });
+  Object.assign(P, { hit: new Uint8Array(N), list: new Int32Array(N), nl: 0, cx: F(NC), cy: F(NC), tx: F(NC), ty: F(NC), G: {}, kf: 1, lext: 38, hx: -99, hy: 0, M: material(0) });
   build(P, 6);
   lampLevel(P, 0.06);
-  P.M = material(0);
   restart(P);
 }
 
 export function update(dt, input, params) {
-  const P = params;
-  const k = input.knobValues || [0, 2, 6, 0.06];
-  dt = cl(dt, 0, 0.1);
-  P.M = material((P.k1 = cl(k[0], 0, 1)));
-  P.kf = P.M.lazy;
-  P.lext = 38 / P.M.lazy ** 2;
+  const [P, k] = [params, input.knobValues || [0, 2, 6, 0.06]];
+  P.M = material(cl(k[0], 0, 1));
+  [P.kf, P.lext] = [P.M.lazy, 38 / P.M.lazy ** 2];
   const R = round(cl(k[2], 6, 12));
-  if (R !== P.R) {
-    build(P, R);
-    restart(P);
-  }
-  const k4 = cl(k[3], -1, 1);
-  if (k4 !== P.lampAtK) lampLevel(P, k4);
-  const h = dt * (cl(k[1], 0.2, 3) / 2);
+  if (R !== P.R) build(P, R), restart(P);
+  if (cl(k[3], -1, 1) !== P.lampAtK) lampLevel(P, cl(k[3], -1, 1));
+  const h = cl(dt, 0, 0.1) * (cl(k[1], 0.2, 3) / 2);
   const n = Math.ceil(h / 0.01);
   for (let i = 0; i < n; i++) advance(P, h / n);
 }
 
-// ---- drawing ----
-
 function material(k1) {
-  const f = k1 * 4;
-  const i = min(3, floor(f));
-  const t = f - i;
-  const [A, B] = [MAT[i], MAT[i + 1]];
+  const i = min(3, floor(k1 * 4));
+  const [t, A, B] = [k1 * 4 - i, MAT[i], MAT[i + 1]];
   const M = { i, t, shine: mix(A[1], B[1], t), pw: mix(A[2], B[2], t), wide: mix(A[3], B[3], t), emit: mix(A[4], B[4], t), lamps: mix(A[6], B[6], t), lazy: mix(A[7], B[7], t) };
   M.room = A[5].map((v, c) => mix(v, B[5][c], t));
   const g = (m) => MAT[m][0] || [230, 200, 190];
@@ -506,7 +424,7 @@ function splat(P, A, x, y, c, w) {
 }
 
 // Each coil a thin ring seen nearly side-on: the far half dim inside the
-// spring, the near half lit by the window and the lamps, with a glint.
+// spring, the near half lit by the window and the step lights, with a glint.
 function rings(P, M) {
   const { cx, cy, tx, ty, fa, ba } = P;
   const v = [0, 0, 0];
@@ -514,7 +432,7 @@ function rings(P, M) {
     const col = colour(M, P.par ? NC - 1 - q : q);
     const [nx, ny] = [-ty[q], tx[q]];
     const [nl, nh] = [nx * LX + ny * LY, nx * HX + ny * HY];
-    const lamp = M.lamps * P.lampI * P.lampAt(cx[q], cy[q]) * 1.3;
+    const lamp = P.pl[cl(round(cy[q]), 0, H - 1) * W + cl(round(cx[q]), 0, W - 1)] * 0.6;
     const lt = M.room.map((r, i) => r * (P.amb[i] + (lamp * LAMP[i]) / 255));
     for (let j = 0; j < KS; j++) {
       const [c, s] = [CS[j], SN[j]];
@@ -529,29 +447,32 @@ function rings(P, M) {
   }
 }
 
-// The room: daylight and lamplight, the spring's soft shadow, and the light a
-// glowing spring throws round it. The lamp shades shine by themselves.
+// The room: daylight, the pools of the step lights that are on, the spring's
+// soft shadow, and the light a glowing spring throws round it.
 function lighting(P, M) {
-  const { cx, cy, tx, ty, sh, gl, out, bg, lamp, mat, amb } = P;
+  const { cx, cy, tx, ty, sh, gl, pl, out, bg, mat, amb } = P;
   sh.fill(0);
   gl.fill(0);
+  pl.fill(0);
   for (let q = 0; q < NC; q += 2) {
     const [nx, ny] = [-ty[q] * RAD * 0.65, tx[q] * RAD * 0.65];
     for (const f of [-1, 0, 1]) stamp(sh, KSH, 3, cx[q] + 3 + nx * f, cy[q] + 4 + ny * f, 0.3);
     if (M.emit > 0 && q % 6 === 0) stamp(gl, KGL, 8, cx[q], cy[q], 0.12 * M.emit);
   }
-  const li = P.lampI * M.lamps;
+  for (const a of P.st) {
+    const d = P.clock - P.ton[a.id];
+    const I = M.lamps * sm(d / 0.3) * (1 - sm((d - 8) / 1.5));
+    if (I <= 0) continue;
+    for (let y = max(0, a.y - 13); y <= min(H - 1, a.y); y++)
+      for (let x = max(0, a.x - 13); x < min(W, a.x + 13); x++) if (mat[y * W + x] % 3 !== 1) pl[y * W + x] += 1.3 * I * exp(-(((x + 0.5 - a.x) / 8) ** 2) - ((y - a.y + 3) / 6) ** 2);
+    for (let i = -1; i < 1; i++) if (a.y > 3 && a.y < H + 2) pl[(a.y - 3) * W + a.x + i] += 6 * I;
+  }
   const c = [0, 1, 2].map((i) => M.room[i] * amb[i]);
-  const e = [0, 1, 2].map((i) => (M.room[i] * li * LAMP[i]) / 255);
   for (let p = 0, o = 0; p < N; p++, o += 3) {
     const m = mat[p];
     const s = min(1, sh[p]) * (m === 0 || m === 5 ? 0.7 : m === 2 || m === 3 ? 0.45 : 0);
-    const g = min(1.5, gl[p]);
-    const l = lamp[p] * (1 - s);
-    for (let i = 0; i < 3; i++) {
-      const gc = M.glow[i];
-      out[o + i] = m === 6 ? bg[o + i] * (0.3 * c[i] + 0.9 * e[i] * 255 / LAMP[i]) : bg[o + i] * (c[i] * (1 - s) + e[i] * l + (gc / 255) * g * 1.3) + gc * g * 0.1;
-    }
+    const [g, l] = [min(1.5, gl[p]), pl[p]];
+    for (let i = 0; i < 3; i++) out[o + i] = bg[o + i] * (c[i] * (1 - s) + (M.room[i] * l * LAMP[i]) / 300 + (M.glow[i] / 255) * g * 1.3) + M.glow[i] * g * 0.1 + M.room[i] * l * [60, 34, 6][i];
   }
 }
 
@@ -586,18 +507,16 @@ function hand(P, M) {
         if (sl) dc = min(dc, d);
         else ds = min(ds, d);
       }
-      let c;
-      let k;
+      let [c, k] = [0, 0];
       if (ds < 0) [c, k] = [[238, 184, 148], (ds > -0.8 ? 0.68 : 0.86 + 0.18 * cl(-ds / 2.5, 0, 1)) * (1.06 - 0.02 * (x - hx))];
       else if (dc < 0) [c, k] = [floor((y - hy + (x - hx) * 0.5) / 2) % 2 ? [206, 56, 62] : [232, 222, 206], dc > -0.8 ? 0.62 : 0.92];
       else continue;
-      for (let i = 0; i < 3; i++) out[(y * W + x) * 3 + i] = c[i] * k * M.room[i] * (0.15 + 0.85 * P.amb[i] + M.lamps * P.lampI * P.lampAt(x, y) * 0.6);
+      for (let i = 0; i < 3; i++) out[(y * W + x) * 3 + i] = c[i] * k * M.room[i] * (0.15 + 0.85 * P.amb[i] + P.pl[y * W + x] * 0.5);
     }
 }
 
 export function draw(display, params) {
-  const P = params;
-  const M = P.M;
+  const [P, M] = [params, params.M];
   shape(P);
   lighting(P, M);
   rings(P, M);
