@@ -129,6 +129,24 @@ export function measure(frames: Frame[], width: number, height: number, fps: num
   };
 }
 
+/**
+ * The share of LEDs lit above 24 of 255 in the top, middle and bottom third
+ * of the frame, each averaged over the frames. A picture that leaves a third
+ * of the panel standing up dark reads as a short picture on a tall panel.
+ * It stays out of Measures: the map does not place by it.
+ */
+export function thirds(frames: Frame[], width: number, height: number): number[] {
+  const lit = [0, 0, 0];
+  const rows = [0, 0, 0];
+  for (let y = 0; y < height; y++) rows[Math.floor((y * 3) / height)]++;
+  for (const frame of frames)
+    for (let y = 0; y < height; y++) {
+      const third = Math.floor((y * 3) / height);
+      for (let x = 0; x < width; x++) if (level(frame.rgb, y * width + x) > 24) lit[third]++;
+    }
+  return lit.map((n, i) => n / Math.max(1, rows[i] * width * frames.length));
+}
+
 /** Mean RGB difference of two frames, 0..1. */
 export function difference(a: Uint8Array, b: Uint8Array): number {
   let sum = 0;

@@ -87,8 +87,8 @@ export function listPatterns(): string[] {
 }
 
 // Patterns that scatter with Math.random() would measure differently on every
-// run, and the shots would never match the page twice. A seeded generator
-// stands in while a run lasts; the page itself keeps the real one.
+// run, and --check would never find index.html the same twice. A seeded
+// generator stands in while a run lasts; the page itself keeps the real one.
 function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
