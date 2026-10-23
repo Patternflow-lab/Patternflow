@@ -33,7 +33,7 @@ import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE } from "./annotations";
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
-import type { CodeLayer, KnobRange, Layer } from "./types";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer } from "./types";
 
 // ── helpers ──
 
@@ -190,7 +190,7 @@ export function buildHExport(args: HExportArgs): HExport {
       const maskLayer = stack[maskIndex];
       maskFlat.push({
         layerIndex: maskIndex,
-        pixelArt: maskLayer.type === "pixel",
+        pixelArt: isRasterLayer(maskLayer),
         invert: maskLayer.maskInvert,
       });
     }
@@ -270,10 +270,10 @@ static const uint8_t MASK_INVERT[${maskCount}] = {${maskFlat.map((m) => (m.inver
   // Per-code-layer ramp LUTs + paint helpers; pixel layers as RLE.
   for (let index = 0; index < stack.length; index++) {
     const layer = stack[index];
-    if (layer.type === "pixel") {
+    if (isRasterLayer(layer)) {
       const rle = rleEncode(layer.data);
       parts.push(`
-// ── L${index} "${layer.name.replace(/\n/g, " ")}": pixel art, RLE {count,r,g,b,a} — decoded once in setup ──
+// ── L${index} "${layer.name.replace(/\n/g, " ")}": ${layer.type === "text" ? "text as drawn" : "pixel art"}, RLE {count,r,g,b,a} — decoded once in setup ──
 static const uint8_t L${index}_RLE[${rle.length}] = {
 ${byteRows(rle, 20, "  ")}
 };`);
@@ -314,7 +314,7 @@ ${SLOT_END(index)}`);
   // Deterministic pipeline.
   const pixelDecodes = stack
     .map((layer, index) =>
-      layer.type === "pixel"
+      isRasterLayer(layer)
         ? `  rleDecode(L${index}_RLE, sizeof(L${index}_RLE), layerBuf[${index}]);`
         : null,
     )

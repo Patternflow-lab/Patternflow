@@ -10,7 +10,7 @@
 // re-clicking the already-active layer — the exact "let me in" gesture — would
 // change nothing and emit nothing.
 
-export type EditorKind = "code" | "pixel";
+export type EditorKind = "code" | "pixel" | "text";
 
 export type EditorRevealRequest = {
   kind: EditorKind;

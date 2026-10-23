@@ -67,7 +67,7 @@ function pixelBufferLiteral(data: Uint8ClampedArray): string {
     ? `__rle("${bytesToBase64(rle)}", __W * __H * 4)`
     : `__b64("${bytesToBase64(data)}", __W * __H * 4)`;
 }
-import type { CodeLayer, KnobRange, Layer } from "./types";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer } from "./types";
 
 export type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
 
@@ -188,9 +188,11 @@ function __mkDisplay(L) {
 
   for (const layer of stack) {
     const roleProps = `role: "${layer.role}", maskInvert: ${layer.maskInvert}`;
-    if (layer.type === "pixel") {
+    if (isRasterLayer(layer)) {
+      // A text layer travels as the pixels it was last drawn as: the font
+      // stays in the browser that has it.
       parts.push(`
-// ── pixel layer: ${commentSafe(layer.name)} ──
+// ── ${layer.type === "text" ? "text layer, as drawn" : "pixel layer"}: ${commentSafe(layer.name)} ──
 __stack.push({
   kind: "pixel", opacity: ${layer.opacity}, blend: "${layer.blend}", ${roleProps},
   buf: ${pixelBufferLiteral(layer.data)},

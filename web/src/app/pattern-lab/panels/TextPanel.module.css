@@ -1,0 +1,143 @@
+/* ── TextPanel: its own classes ─────────────────────────────────────────── */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  color: #171512;
+}
+
+.barLabel {
+  color: rgba(23, 21, 18, 0.6);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.field,
+.textField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.field > span,
+.textField > span {
+  font-size: 11px;
+  color: rgba(23, 21, 18, 0.6);
+}
+
+.grow {
+  flex: 1 1 160px;
+}
+
+.textField textarea {
+  resize: vertical;
+  min-height: 52px;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  color: inherit;
+  font: 14px/1.4 var(--font-jetbrains), ui-monospace, monospace;
+  padding: 6px 8px;
+}
+
+.field select,
+.field input[type="number"] {
+  min-height: 32px;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  color: inherit;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 4px;
+  min-width: 0;
+}
+
+.field input[type="number"] {
+  width: 64px;
+}
+
+.field input[type="color"] {
+  width: 44px;
+  height: 32px;
+}
+
+.fontFile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.fontFile button {
+  min-height: 32px;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  color: #171512;
+  font: inherit;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.fontFile button:hover:not(:disabled) {
+  background: #171512;
+  color: #f7f3ea;
+}
+
+.fontFile button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(23, 21, 18, 0.75);
+  cursor: pointer;
+}
+
+.check input {
+  accent-color: #171512;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #756f64;
+  text-wrap: pretty;
+}
+
+.body :is(button, select, input, textarea):focus-visible {
+  outline: 2px solid #9b4827;
+  outline-offset: 2px;
+}
+
+/* Touch screens get fingertip-sized targets. */
+@media (hover: none) {
+  .field select,
+  .field input[type="number"],
+  .fontFile button {
+    min-height: 44px;
+  }
+
+  .field input[type="color"] {
+    height: 44px;
+  }
+}
