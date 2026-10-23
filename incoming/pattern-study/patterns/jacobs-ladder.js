@@ -5,15 +5,15 @@
 // Author:  patternflow-lab
 // Date:    2026-10-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the climbing arc of the high-voltage demonstration called Jacob's ladder
+// Lineage: Jacob's ladder, the climbing-arc spark gap of high-voltage demonstrations
 // Round:   6
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Power=0.3..3, Spread=0..1, Exposure=0..1
 //
 // Knob 1: Hue. The colour of the gas the arc burns in, starting from the violet of an arc in air.
-// Knob 2: Power. How hard the transformer drives the arc: weak, it climbs slowly and breaks halfway up; strong, it races to the tips, writhes, throws sparks and strikes again before the last one is gone.
-// Knob 3: Spread. How far apart the rod tips stand, from a narrow V to horns that flare out to the edges of the panel; a wide V breaks a weak arc lower down.
+// Knob 2: Power. How hard the transformer drives the arc: weak, it climbs slowly and breaks partway up; strong, it races to the tips, writhes, throws sparks and strikes again before the last one is gone.
+// Knob 3: Spread. How far apart the rod tips stand, from a narrow V to horns that flare out to the edges of the panel. In a wide V the arc stretches sooner, so the next one strikes sooner and a weak arc breaks lower down.
 // Knob 4: Exposure. How long the panel keeps each arc after it has moved on, like a camera left open; turned up, the arcs it leaves stack into the rungs of a ladder.
 // Buttons: K1 tap strikes a new arc now.
 
@@ -207,7 +207,6 @@ export function setup(params) {
   P.seed = new Float32Array(ARCS);
   P.turb = new Float32Array(ARCS);
   P.len = new Float32Array(ARCS);
-  P.speed = new Float32Array(ARCS);
   P.ends = new Float32Array(ARCS * 4);
   P.px = new Float32Array(ARCS * PTS);
   P.py = new Float32Array(ARCS * PTS);
@@ -354,7 +353,6 @@ export function update(dt, input, params) {
     if (P.alive[a] === 0) continue;
     P.age[a] += dt;
     const v = vmax * (0.25 + 0.75 * (1 - Math.exp(-P.age[a] / 0.22)));
-    P.speed[a] = v;
     if (P.alive[a] === 1) {
       P.root[a] -= v * dt;
       P.turb[a] += dt * (1.2 + 0.5 * power);
