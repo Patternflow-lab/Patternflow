@@ -65,8 +65,10 @@ export default function HardwareModal({
   // One visible code layer is the simple case: a single prompt and a single
   // paste. Anything else goes through the scaffold. Same test the export path
   // uses (masks count; a lone pixel layer is a stack, not a pattern with an
-  // empty prompt), and the same layer: the one showing, whichever is picked
-  // in Layers. A hidden pick used to go into the prompt in its place.
+  // empty prompt; so is a lone code layer under 100% or on multiply, whose
+  // opacity and blend the single prompt doesn't carry), and the same layer:
+  // the one showing, whichever is picked in Layers. A hidden pick used to go
+  // into the prompt in its place.
   const lone = loneCodeLayer(layers);
   const stacked = lone === null;
 
