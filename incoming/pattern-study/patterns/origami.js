@@ -55,8 +55,8 @@ const sec = (...s) => (f) => s.includes(f.sec);
 const low = (...s) => (f, x, y) => y > K && s.includes(f.sec);
 const legL = (f, x, y) => x < 0 && y > K;
 const legR = (f, x, y) => x > 0 && y > K;
-// The legs turn up about a line through (0, YP) along NL: neck and tail rise
-// 40 degrees above the table's edge.
+// The legs turn up about a line through (0, YP) along NL, so neck and tail
+// rise at 40 degrees.
 const YP = 0.34;
 const NL = [-0.906, 0.423];
 const CRANE = [
