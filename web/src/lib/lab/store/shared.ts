@@ -125,7 +125,7 @@ export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] 
   return layers.map((layer) => {
     if (layer.type === "code") return layer;
     if (layer.width === matrix.width && layer.height === matrix.height) return layer;
-    if (layer.type === "pixel") snapshotPixels(layer.id, layer);
+    if (layer.type === "pixel") snapshotPixels(layer.id, layer, true);
     const data = resizeSurface(layer.data, layer.width, layer.height, matrix.width, matrix.height);
     const resized: RasterLayer = {
       ...layer,

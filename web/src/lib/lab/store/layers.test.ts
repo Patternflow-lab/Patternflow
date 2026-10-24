@@ -124,8 +124,8 @@ describe("a frame change and pixel undo", () => {
     store().updateLayerCode(codeId(), withLine("// @matrix 128x64"));
     expect(lit(pixel())).toBe(12 * 64);
 
-    expect(undoPixels(pixel().id, pixel())).toBe(true);
-    expect(lit(pixel())).toBe(12 * 64);
+    // The frame from before 12x64 grew back to 128x64 changes nothing, so
+    // one undo goes past it.
     expect(undoPixels(pixel().id, pixel())).toBe(true);
     expect(lit(pixel())).toBe(8192);
   });
@@ -135,8 +135,7 @@ describe("a frame change and pixel undo", () => {
     store().setMatrix({ width: 128, height: 64 });
     expect(lit(pixel())).toBe(12 * 64);
 
-    undoPixels(pixel().id, pixel());
-    undoPixels(pixel().id, pixel());
+    expect(undoPixels(pixel().id, pixel())).toBe(true);
     expect(lit(pixel())).toBe(8192);
   });
 });
