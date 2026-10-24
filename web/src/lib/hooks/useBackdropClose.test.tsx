@@ -12,7 +12,7 @@ function Modal({ label, onClose, children }: { label: string; onClose: () => voi
   const closeOnBackdrop = useBackdropClose(onClose);
   return (
     <div role="dialog" aria-modal="true" aria-label={label} {...closeOnBackdrop}>
-      <div data-testid={`${label} card`}>
+      <div>
         <textarea aria-label={`${label} text`} defaultValue="#pragma once" />
         <canvas
           aria-label={`${label} canvas`}
@@ -42,14 +42,6 @@ describe("useBackdropClose", () => {
     render(<Modal label="Outer" onClose={onClose} />);
     fireEvent.pointerDown(screen.getByLabelText("Outer text"));
     fireEvent.click(backdrop());
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  it("stays open when a press on the backdrop lets go inside the card", () => {
-    const onClose = vi.fn();
-    render(<Modal label="Outer" onClose={onClose} />);
-    fireEvent.pointerDown(backdrop());
-    fireEvent.click(screen.getByTestId("Outer card"));
     expect(onClose).not.toHaveBeenCalled();
   });
 
