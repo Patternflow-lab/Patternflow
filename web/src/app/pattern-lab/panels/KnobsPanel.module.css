@@ -217,3 +217,12 @@
     gap: 4px;
   }
 }
+
+/* Touch screens get a fingertip-sized Push, as the Text panel gives its
+   fields. On a 390px phone it was 40×22px. */
+@media (hover: none) {
+  .knobButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

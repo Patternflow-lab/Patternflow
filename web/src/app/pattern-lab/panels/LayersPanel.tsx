@@ -57,7 +57,7 @@ export default function LayersPanel() {
 
   return (
     <div className={dock.panel}>
-      <div className={dock.panelBar}>
+      <div className={`${dock.panelBar} ${dock.layerBar}`}>
         <button
           type="button"
           onClick={() => {
