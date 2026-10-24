@@ -165,12 +165,13 @@ function tree(E, n) {
   return T;
 }
 
-// Checked against the theorem: over 12,000 uniform points the distance to
-// the root 2e(U) exceeds h with probability within 0.01 of exp(-h^2/2) at
-// every h from 0.5 to 3 (Rayleigh, mean 1.245 against 1.253), and so does a
-// subtree after the dive's stretching. The spanned tree of 40 leaves is 8.44
-// long on average; adding the grid's missed minima, 2 x 0.583 / sqrt(N) a
-// branch, gives 8.95 against line-breaking's E[C_40] = 8.92.
+// Checked against the theorem: over 16,000 uniform points of 2,000 trees
+// the distance to the root 2e(U) exceeds h with probability within 0.008 of
+// exp(-h^2/2) for h from 0.5 to 3 (Rayleigh), the mean 1.241 against 1.253,
+// short by about the 0.013 the grid misses at the minimum; subtrees after
+// the dive's stretching stay within 0.012. The spanned tree of 40 leaves is
+// 8.40 long on average; adding the grid's missed minima, 2 x 0.583 / sqrt(N)
+// a branch, gives 8.92 against line-breaking's E[C_40] = 8.916.
 //
 // Aldous's line-breaking, read off the excursion: a new uniform leaf i
 // joins the tree spanned by the root and the leaves so far at the higher of
