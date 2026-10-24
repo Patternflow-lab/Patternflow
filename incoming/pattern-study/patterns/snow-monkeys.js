@@ -178,7 +178,7 @@ export function update(dt, input, params) {
       m.e = m.bl < 0.15 ? 1 : 0;
     }
   }
-  // The mother sits on the boulder, wades in, soaks, and climbs out again.
+  // The mother sits on the boulder until she wades in to soak. Later she climbs out again.
   const R = P.R;
   if ((R.t += d) >= R.dur) {
     R.st = (R.st + 1) % 4;

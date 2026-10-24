@@ -207,7 +207,7 @@ function paint(P, sh, s, SP, RM, HB) {
     for (let j = 0; j < NR; j++) rim(j, A, fr((j / NR) * ns * 0.5 - s * 0.9) < 0.5 ? 0.95 : 0.12);
     hub(B, 0.9);
   } else if (sh === 3) {
-    // Spoke after spoke lights up round the wheel, holds, and blinks out.
+    // Spoke after spoke lights up round the wheel and holds before it blinks out.
     const n = (s / 3.6) * ns, blink = s > 4.8 && fr((s - 4.8) * 2.6) > 0.5;
     for (let k = 0; k < ns; k++) {
       const I = blink ? 0.04 : k < floor(n) ? 0.9 : k === floor(n) ? fr(n) : 0.05;
