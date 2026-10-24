@@ -13,7 +13,7 @@
 //
 // Knob 1: Light. At 0 classic dark field, white and gold on black. At 0.5 a Rheinberg filter: a deep blue field, each edge yellow where it faces sideways and red where it faces up or down. At 1 phase contrast: a grey field, the bodies dark inside bright halos.
 // Knob 2: Speed. At 2 a paramecium crosses the panel in about six seconds; at 0.2 the drop runs ten times slower.
-// Knob 3: Crowd. At 0 three Volvox, three paramecia, five diatoms, five Vorticella bells, a rotifer and a few hundred bacteria; at 1 more of each, fading in.
+// Knob 3: Crowd. At 0 three Volvox, three paramecia, five diatoms, two Oscillatoria threads, five Vorticella bells, a rotifer and a few hundred bacteria; at 1 more of each, fading in.
 // Knob 4: Focus. Which depth is sharp: near 0 the algal thread with its Vorticella and rotifer, toward -1 the water under the coverslip, toward 1 the slide's glass, where diatoms glide among settled grit.
 // Buttons: K1 tap knocks the slide: the view jolts, every Vorticella snaps its stalk into a coil and the rotifer pulls in its crown. On its own one bell snaps four seconds in, then one every ten seconds or so.
 
@@ -123,7 +123,7 @@ const LUT = Float32Array.from({ length: 1024 }, (_, i) => {
 
 export function setup(params) {
   const F = (n) => new Float32Array(n), side = () => (rnd() < 0.5 ? -1 : 1), A = (n, f) => Array.from({ length: n }, (_, i) => ({ x: rr(-12, 76), y: rr(-12, 140), h: rnd() * TAU, ...f(i) }));
-  const P = (params.s = { t: 0, fr: 0, S: F(N * 3), Q: F(HW * HH * 3), T: F(HW * HH * 3), QS: F(HW * HH), O: F(N * 3), L: F(N), V: F(N), OP: F(140), nx: 0, ny: 0, ex: 0, ey: 0, nt: 3.2, ja: 0, jt: 9, jx: 0, jy: 0, s1: rnd() * 7, s2: rnd() * 7 });
+  const P = (params.s = { t: 0, fr: 0, S: F(N * 3), Q: F(HW * HH * 3), T: F(HW * HH * 3), QS: F(HW * HH), L: F(N), V: F(N), OP: F(140), nx: 0, ny: 0, ex: 0, ey: 0, nt: 3.2, ja: 0, jt: 9, jx: 0, jy: 0, s1: rnd() * 7, s2: rnd() * 7 });
   // The round field stop of the eyepiece clips the panel's two ends.
   for (let p = 0; p < N; p++) P.V[p] = sm(67.5, 62, sqrt(((p & 63) - 31.5) ** 2 + (((p >> 6) - 63.5) * 1.02) ** 2));
   // Volvox: cells on a sphere (a Fibonacci spiral) and daughter colonies inside.
@@ -467,7 +467,7 @@ export function draw(display, params) {
   // Light into LEDs, toned by the brightest channel so a green stays green,
   // each lit LED scintillating a little, and under it all the shimmer of
   // particles too small to resolve, below 24/255.
-  const fr = (P.fr = (P.fr + 1) | 0), m2 = P.m2, { V, L, O, QS } = P, c3 = K0;
+  const fr = (P.fr = (P.fr + 1) | 0), m2 = P.m2, { V, L, QS } = P, c3 = K0;
   for (let i = 0; i < HW * HH; i++) QS[i] = Q[i * 3] + Q[i * 3 + 1] + Q[i * 3 + 2];
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
@@ -475,18 +475,15 @@ export function draw(display, params) {
       const o = p * 3, i = x >> 1, j = (y >> 1) * HW, i2 = cl(i + (x & 1) * 2 - 1, 0, HW - 1), j2 = cl((y >> 1) + (y & 1) * 2 - 1, 0, HH - 1) * HW;
       const A = j + i, B = j + i2, c = j2 + i, e = j2 + i2, hl = QS[A] + QS[B] + QS[c] + QS[e] > 0, hh = h32(p, fr), sh = hh >>> 24;
       for (let n = 0; n < 3; n++) c3[n] = S[o + n] + (hl ? 0.17 * Q[A * 3 + n] + 0.056 * (Q[B * 3 + n] + Q[c * 3 + n]) + 0.019 * Q[e * 3 + n] : 0);
-      const mx = max(c3[0], c3[1], c3[2]), k = mx > 0.001 ? (LUT[min(1023, (mx * 256) | 0)] / mx) * (0.8 + sh / 640) : 0;
+      const mx = max(c3[0], c3[1], c3[2]), k = mx > 0.001 ? (LUT[min(1023, (mx * 256) | 0)] / mx) * (0.8 + sh / 640) : 0, l = (mx * k) / 255;
       for (let n = 0, hb; n < 3; n++) (hb = (hh >>> (n * 8)) & 255), (c3[n] = V[p] * (c3[n] * k * (1 + hb / 2200) + sh * (0.062 + (hb & 15) / 500) + m1 * FIELD[n]));
-      if (!m2) display.setPixel(x, y, min(255, c3[0]) | 0, min(255, c3[1]) | 0, min(255, c3[2]) | 0);
-      else O.set(c3, o), (L[p] = (mx * k) / 255);
-    }
-  if (!m2) return;
-  // Phase contrast: the field grey, each body darker than it, and a bright
-  // halo on the LEDs beside it.
-  for (let y = 0, p = 0; y < H; y++)
-    for (let x = 0; x < W; x++, p++) {
-      const l = L[p], o = p * 3, dk = 1 - 0.8 * cl(l * 1.6, 0, 1), hl = max(0, max(L[p - (x > 0)], L[p + (x < 63)], L[p - (y > 0) * W], L[p + (y < 127) * W]) - l) * 160;
-      const v = (i) => min(255, O[o + i] + m2 * (V[p] * (PHASE[i] * dk + hl + (h32(p, fr + i) & 15)) - O[o + i])) | 0;
-      display.setPixel(x, y, v(0), v(1), v(2));
+      // Phase contrast: the field grey, each body darker than it, and a
+      // bright halo on the LEDs beside it.
+      if (m2) {
+        const dk = 1 - 0.8 * cl(l * 1.6, 0, 1), ha = max(0, max(L[p - (x > 0)], L[p + (x < 63)], L[p - (y > 0) * W], L[p + (y < 127) * W]) - l) * 160;
+        for (let n = 0; n < 3; n++) c3[n] += m2 * (V[p] * (PHASE[n] * dk + ha + ((hh >>> (n * 8 + 3)) & 15)) - c3[n]);
+      }
+      L[p] = l;
+      display.setPixel(x, y, min(255, c3[0]) | 0, min(255, c3[1]) | 0, min(255, c3[2]) | 0);
     }
 }
