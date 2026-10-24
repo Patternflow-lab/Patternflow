@@ -135,7 +135,7 @@ export function update(dt, input, params) {
 
   // The spine of the column: it leans downwind, corkscrews and breathes, and
   // now and then tears in two along its middle and closes again higher up.
-  const Rk = 5 + (3.5 * (M - 400)) / 1000, ph = (T - 2.4) % 12, split = T < 2.4 ? 0 : sm(0, 1.4, ph) * (1 - sm(4.6, 6.2, ph));
+  const Rk = 5 + (5 * (M - 400)) / 1000, ph = (T - 2.4) % 12, split = T < 2.4 ? 0 : sm(0, 1.4, ph) * (1 - sm(4.6, 6.2, ph));
   for (let h = 0; h < HM; h++) {
     const A = 1 + 7.5 * sm(4, 92, h);
     SX[h] = CX + w * (0.17 * h + 0.0009 * h * h) + A * (sin(0.052 * h - 1.3 * T) + 0.4 * sin(0.12 * h + 0.75 * T + 2));
@@ -234,7 +234,7 @@ function backdrop(P, k) {
         if (md < mr) {
           const ma = 0.82 + 0.18 * sm(0.35, 0.65, vn(x * 0.4 + 3, y * 0.4)) - 0.12 * (md / mr) ** 4;
           col = mc.map((v) => v * ma);
-        } else col = col.map((v, c) => v + mc[c] * 0.3 * sm(0.25, 0.8, k) * exp(-(md - mr) / 5));
+        } else col = col.map((v, c) => v + mc[c] * sm(0.25, 0.8, k) * (0.22 * exp(-(md - mr) / 4) + 0.1 * exp(-(md - mr) / 14)));
         if (y >= P.FAR[x]) {
           const fv = 0.86 + 0.14 * vn(x * 0.3, y * 0.3);
           col = col.map((v, c) => mix(v, L[3 + c] * fv, 0.8));
