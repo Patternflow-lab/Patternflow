@@ -170,7 +170,10 @@
   text-transform: uppercase;
 }
 
-.otherPaths {
+/* Through .buildPanel, the same element as .panel-body: the global
+   `.panel-body p` (0,1,1) beat the bare class and set this line at 20px with
+   a 28px bottom margin. */
+.buildPanel .otherPaths {
   margin: 16px 0 0;
   color: var(--pf-ink-muted);
   font-size: var(--pf-fs-body);

@@ -156,7 +156,7 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
         <h1 className="pf-h2">{content.title}</h1>
         <p className="pf-sub">{content.subtitle}</p>
       </div>
-      <div className="panel-body">
+      <div className={`panel-body ${styles.body}`}>
         {content.meta && content.meta.length > 0 && (
           <div className={`pf-block ${styles.metaRows}`}>
             <span className="pf-kicker">Details</span>
