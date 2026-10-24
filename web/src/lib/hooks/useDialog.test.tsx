@@ -37,6 +37,24 @@ function Page({ onClose }: { onClose?: () => void }) {
   );
 }
 
+// A window that opens on top of this one, the way To hardware opens Publish:
+// the state comes back from a promise, so React commits it on its own
+// schedule and runs the passive effects later still.
+function UnderTop({ closed }: { closed: string[] }) {
+  const [top, setTop] = useState(false);
+  const cardRef = useDialog<HTMLDivElement>(() => closed.push(top ? "top" : "under"));
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Under">
+      <div ref={cardRef} tabIndex={-1}>
+        <button type="button" onClick={() => void Promise.resolve().then(() => setTop(true))}>
+          Open on top
+        </button>
+        {top && <p>On top</p>}
+      </div>
+    </div>
+  );
+}
+
 function open() {
   const opener = screen.getByText("Open");
   opener.focus();
@@ -94,6 +112,26 @@ describe("useDialog", () => {
     open();
     fireEvent.keyDown(screen.getByLabelText("Field"), { key: "Enter" });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("an Esc that comes as soon as a window opened on top closes that window", async () => {
+    // Until 24 October 2026 the newest onClose was taken in a passive effect.
+    // An Esc between the commit and that effect closed the window underneath,
+    // and on GitHub's runners the HardwareModal test sometimes landed there.
+    const closed: string[] = [];
+    render(<UnderTop closed={closed} />);
+    const pressed = new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!screen.queryByText("On top")) return;
+        observer.disconnect();
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+        resolve();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+    fireEvent.click(screen.getByText("Open on top"));
+    await pressed;
+    expect(closed).toEqual(["top"]);
   });
 
   it("stops listening once it is closed", () => {
