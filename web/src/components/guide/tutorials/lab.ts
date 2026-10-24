@@ -99,7 +99,7 @@ const LANE: Target = (root) => {
 // ── what the Lab has saved (read only) ──────────────────────────────────────
 
 /** A layer as the Lab saves it (lib/lab/serialize.ts serializeProject): only what's read here. */
-export type SavedLayer = { type?: unknown; code?: unknown; visible?: unknown; role?: unknown; opacity?: unknown };
+export type SavedLayer = { type?: unknown; code?: unknown; visible?: unknown; role?: unknown; opacity?: unknown; blend?: unknown };
 
 /** The layers of the Lab's saved project, or null (nothing saved, no storage). Never written. */
 function savedLayers(): SavedLayer[] | null {
@@ -117,13 +117,16 @@ const savedCode = () =>
 /**
  * lib/lab/flatten.ts needsFlatten, on saved layers: To hardware offers one
  * conversion prompt only when exactly one visible layer is left and it is a
- * code layer that isn't a mask. (Copied, not imported: flatten.ts brings the
- * Lab's engine with it. lab.test.ts checks the two agree.)
+ * code layer that isn't a mask, at 100% and not on multiply. (Copied, not
+ * imported: flatten.ts brings the Lab's engine with it. lab.test.ts checks
+ * the two agree.)
  */
 export function stackOf(layers: SavedLayer[]): boolean {
-  const visible = layers.filter((l) => l.visible !== false && (l.role === "mask" || (typeof l.opacity === "number" ? l.opacity > 0 : true)));
+  const opacity = (l: SavedLayer) => (typeof l.opacity === "number" ? l.opacity : 1);
+  const visible = layers.filter((l) => l.visible !== false && (l.role === "mask" || opacity(l) > 0));
   if (visible.length !== 1) return true;
-  return visible[0].type !== "code" || visible[0].role === "mask";
+  const [only] = visible;
+  return only.type !== "code" || only.role === "mask" || opacity(only) < 1 || only.blend === "multiply";
 }
 
 // ── layers, as the Layers panel shows them ──────────────────────────────────
