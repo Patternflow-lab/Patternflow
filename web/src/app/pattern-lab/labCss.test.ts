@@ -9,7 +9,7 @@
 // On the same screen Del was 37×28px, the layer eye 20×17px and Push 40×22px,
 // and the Pixel status bar was 51px, two lines with the mouse gestures.
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -178,5 +178,42 @@ describe("Pixel status line on a touch screen", () => {
     expect(mediaRule(dock, "(hover: none)", ".pixelMouseHint")).toMatch(/display: none;/);
     expect(pixel).toContain("<span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>");
     expect(mediaRule(dock, "(hover: none)", ".pixelStatus")).toBe("");
+  });
+});
+
+describe("Lab CSS modules", () => {
+  // Until 24 October 2026 these files held 13 classes that no component put
+  // on an element, and 220 lines of rules for them. A class counts as used
+  // when a file importing its module reads `styles.name` or `styles["name"]`,
+  // or a rule in the same file composes it. A module read by a computed name
+  // counts as used whole.
+  const src = path.resolve(__dirname, "../..");
+  const sources = (readdirSync(src, { recursive: true }) as string[])
+    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+    .map((file) => path.join(src, file))
+    .map((file) => ({ file, text: readFileSync(file, "utf8") }));
+  const modules = (readdirSync(__dirname, { recursive: true }) as string[]).filter((file) => file.endsWith(".module.css"));
+
+  it("define no class that no component uses", () => {
+    const unused: Record<string, string[]> = {};
+    for (const name of modules) {
+      const file = path.join(__dirname, name);
+      const bare = css(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, "");
+      const defined = new Set([...bare.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+      const used = new Set([...bare.matchAll(/composes:([^;]+);/g)].flatMap((m) => m[1].trim().split(/\s+/)));
+      let computed = false;
+      for (const { file: from, text } of sources) {
+        for (const [, local, spec] of text.matchAll(/import (\w+) from "([^"]+\.module\.css)"/g)) {
+          const target = spec.startsWith("@/") ? path.join(src, spec.slice(2)) : path.resolve(path.dirname(from), spec);
+          if (target !== file) continue;
+          for (const m of text.matchAll(new RegExp(`\\b${local}(?:\\.(\\w+)|\\[["'\`](\\w+)["'\`]\\])`, "g"))) used.add(m[1] ?? m[2]);
+          if (new RegExp(`\\b${local}\\[(?!["'\`])`).test(text)) computed = true;
+        }
+      }
+      const dead = computed ? [] : [...defined].filter((cls) => !used.has(cls)).sort();
+      if (dead.length) unused[name] = dead;
+    }
+    expect(modules.length).toBeGreaterThan(0);
+    expect(unused).toEqual({});
   });
 });
