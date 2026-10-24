@@ -72,6 +72,13 @@
   height: 32px;
 }
 
+.field input[type="range"] {
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  accent-color: #171512;
+}
+
 .fontFile,
 .actions {
   display: flex;
@@ -136,6 +143,7 @@
 @media (hover: none) {
   .field select,
   .field input[type="number"],
+  .field input[type="range"],
   .fontFile button,
   .actions button {
     min-height: 44px;
