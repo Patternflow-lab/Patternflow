@@ -58,6 +58,24 @@ describe("PixelPanel", () => {
     expect(useLabStore.getState().layers.filter((entry) => entry.type === "pixel")).toHaveLength(2);
   });
 
+  // The hint called every other layer a code pattern, written before text
+  // layers came in (#184).
+  it("names the selected layer's kind and the panel that edits it", () => {
+    const state = useLabStore.getState();
+    state.selectLayer(state.layers.find((entry) => entry.type === "code")!.id);
+    const { unmount } = render(<PixelPanel />);
+    expect(
+      screen.getByText("The selected layer is a code pattern. Edit it in the Code panel, or select a pixel layer to draw."),
+    ).toBeTruthy();
+    unmount();
+
+    useLabStore.getState().addTextLayer();
+    render(<PixelPanel />);
+    expect(
+      screen.getByText("The selected layer is text. Edit it in the Text panel, or select a pixel layer to draw."),
+    ).toBeTruthy();
+  });
+
   it("pen: a press paints a dot, a drag paints a line, release commits", () => {
     const { overlay } = mount();
     const before = pixelLayer().rev;

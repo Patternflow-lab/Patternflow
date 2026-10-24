@@ -20,13 +20,20 @@ import { buildVariantCopyPrompt } from "@/lib/ai/variantPrompt";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import { hasStackAnnotation, importCodeIntoLab } from "@/lib/lab/stackShare";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
-import { isCodeLayer } from "@/lib/lab/types";
+import { isCodeLayer, type Layer } from "@/lib/lab/types";
 import styles from "../PatternLab.module.css";
 import local from "./CodePanel.module.css";
 import dock from "../LabPanels.module.css";
 import CodeGuideModal from "./CodeGuideModal";
 
 const labPresets = livePresets.filter((preset) => preset.labOnly);
+
+// What the panel says when another kind of layer is selected. Keyed by type,
+// so a new layer type has to say where it is edited.
+const OTHER_LAYER_HINT: Record<Exclude<Layer["type"], "code">, string> = {
+  pixel: "The selected layer is pixel art. Edit it in the Pixel panel, or select a code layer.",
+  text: "The selected layer is text. Edit it in the Text panel, or select a code layer.",
+};
 
 export default function CodePanel() {
   const layer = useActiveLayer();
@@ -67,9 +74,7 @@ export default function CodePanel() {
     return (
       <div className={dock.panel}>
         <div className={dock.panelHint}>
-          {layer
-            ? "The selected layer is pixel art — use the Pixel panel to edit it, or select a code layer."
-            : "Select a layer to edit."}
+          {layer ? OTHER_LAYER_HINT[layer.type] : "Select a layer to edit."}
           <button type="button" onClick={addCodeLayer}>
             + Add code layer
           </button>
@@ -133,7 +138,7 @@ export default function CodePanel() {
     } catch {
       // Permission blocked or unsupported in WebView — fall back to window.prompt
     }
-    const fallbackText = window.prompt("붙여넣을 패턴 코드를 아래 상자에 입력하거나 붙여넣어 주세요:");
+    const fallbackText = window.prompt("Paste the pattern code here and press OK.");
     if (fallbackText !== null) {
       applyPastedCode(fallbackText);
     }
