@@ -47,7 +47,7 @@ const O_TORSO = [-8.2, 47, -6.5, 48.4, 6, 48.4, 7.8, 46.5, 7, 38, 5.5, 31, -5.5,
 const O_KAIN = [-6.2, 31.5, 6.2, 31.5, 8.8, 21.5, 2, 17, -4, 19.5, -10, 23];
 const O_CROWN = [-0.5, 58.5, 6.2, 58.5, 5.4, 62, 2.8, 67, 0.2, 61.8];
 
-// Seconds of a scene: when each puppet enters, and where it goes.
+// Where the knight and the ogre stand through a scene: story second, column (a scene that runs left to right).
 const KX = [1.7, -16, 3.6, 18, 5.6, 14, 6, 23, 6.4, 14, 6.8, 17, 7.2, 13, 7.6, 24, 8, 16, 8.5, 20, 9, 22, 10.8, 28, 12.3, 86];
 const OX = [2.3, 84, 4.2, 47, 5.6, 50, 6, 47, 6.4, 49, 6.8, 40, 7.2, 50, 7.6, 47, 8, 39, 8.5, 42, 9, 40];
 function key(t, k) {
