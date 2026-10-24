@@ -471,6 +471,36 @@
   cursor: pointer;
 }
 
+/* Touch screens get fingertip-sized targets, as in the Text panel. On a
+   390px phone the bar buttons were 28px tall, Del 37px wide, the eye 20×17px
+   and the mask box 13×13px. The row grows to 46px so the eye can take its
+   whole height. */
+@media (hover: none) {
+  .layerBar button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .layerRow {
+    min-height: 46px;
+    padding-block: 0;
+  }
+
+  .layerEye {
+    align-self: stretch;
+    width: 44px;
+  }
+
+  .layerMaskLabel {
+    min-height: 44px;
+  }
+
+  .layerControlRow input[type="range"],
+  .layerControlRow select {
+    min-height: 44px;
+  }
+}
+
 /* ── Pixel editor panel ── */
 
 .pixelViewport {
