@@ -123,7 +123,7 @@ const LUT = Float32Array.from({ length: 1024 }, (_, i) => {
 
 export function setup(params) {
   const F = (n) => new Float32Array(n), side = () => (rnd() < 0.5 ? -1 : 1), A = (n, f) => Array.from({ length: n }, (_, i) => ({ x: rr(-12, 76), y: rr(-12, 140), h: rnd() * TAU, ...f(i) }));
-  const P = (params.s = { t: 0, fr: 0, S: F(N * 3), Q: F(HW * HH * 3), T: F(HW * HH * 3), QS: F(HW * HH), L: F(N), V: F(N), OP: F(140), nx: 0, ny: 0, ex: 0, ey: 0, nt: 3.2, ja: 0, jt: 9, jx: 0, jy: 0, s1: rnd() * 7, s2: rnd() * 7 });
+  const P = (params.s = { t: 0, S: F(N * 3), Q: F(HW * HH * 3), T: F(HW * HH * 3), QS: F(HW * HH), L: F(N), V: F(N), OP: F(140), nx: 0, ny: 0, ex: 0, ey: 0, nt: 3.2, ja: 0, jt: 9, jx: 0, jy: 0, s1: rnd() * 7, s2: rnd() * 7 });
   // The round field stop of the eyepiece clips the panel's two ends.
   for (let p = 0; p < N; p++) P.V[p] = sm(67.5, 62, sqrt(((p & 63) - 31.5) ** 2 + (((p >> 6) - 63.5) * 1.02) ** 2));
   // Volvox: cells on a sphere (a Fibonacci spiral) and daughter colonies inside.
@@ -465,15 +465,17 @@ export function draw(display, params) {
   show(P.bac, (o) => (dep(o.z), dot(o.x, o.y, o.s * o.p)));
   blur(Q, P.T);
   // Light into LEDs, toned by the brightest channel so a green stays green,
-  // each lit LED scintillating a little, and under it all the shimmer of
-  // particles too small to resolve, below 24/255.
-  const fr = (P.fr = (P.fr + 1) | 0), m2 = P.m2, { V, L, QS } = P, c3 = K0;
+  // each lit LED with a grain of its own, and under it all the still grain
+  // of particles too small to resolve, below 24/255. The grain stays put:
+  // drawn anew every frame it was static, and it took the motion from 1.38
+  // to 2.31.
+  const m2 = P.m2, { V, L, QS } = P, c3 = K0;
   for (let i = 0; i < HW * HH; i++) QS[i] = Q[i * 3] + Q[i * 3 + 1] + Q[i * 3 + 2];
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       // The halo cell under the LED and its neighbours toward it, bilinear.
       const o = p * 3, i = x >> 1, j = (y >> 1) * HW, i2 = cl(i + (x & 1) * 2 - 1, 0, HW - 1), j2 = cl((y >> 1) + (y & 1) * 2 - 1, 0, HH - 1) * HW;
-      const A = j + i, B = j + i2, c = j2 + i, e = j2 + i2, hl = QS[A] + QS[B] + QS[c] + QS[e] > 0, hh = h32(p, fr), sh = hh >>> 24;
+      const A = j + i, B = j + i2, c = j2 + i, e = j2 + i2, hl = QS[A] + QS[B] + QS[c] + QS[e] > 0, hh = h32(p, 7), sh = hh >>> 24;
       for (let n = 0; n < 3; n++) c3[n] = S[o + n] + (hl ? 0.17 * Q[A * 3 + n] + 0.056 * (Q[B * 3 + n] + Q[c * 3 + n]) + 0.019 * Q[e * 3 + n] : 0);
       const mx = max(c3[0], c3[1], c3[2]), k = mx > 0.001 ? (LUT[min(1023, (mx * 256) | 0)] / mx) * (0.8 + sh / 640) : 0, l = (mx * k) / 255;
       for (let n = 0, hb; n < 3; n++) (hb = (hh >>> (n * 8)) & 255), (c3[n] = V[p] * (c3[n] * k * (1 + hb / 2200) + sh * (0.062 + (hb & 15) / 500) + m1 * FIELD[n]));
