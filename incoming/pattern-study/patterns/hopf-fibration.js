@@ -61,7 +61,9 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const P = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   P.hue = cl(k[0], 0, 1);
-  P.T += d * cl(k[1], 0.2, 3);
+  // 1.3 a second at Speed 2, so the strands sweep across the panel rather
+  // than drift.
+  P.T += d * cl(k[1], 0.2, 3) * 1.3;
   P.rings = cl(k[2], 5, 7);
   P.fib = cl(k[3], 14, 17);
   const b = input.btnPressed || [];
