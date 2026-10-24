@@ -280,7 +280,11 @@
   line-height: 1.5;
 }
 
-.advancedNote {
+/* .panel-body p is a global rule at (0,1,1), 20px (17px on a phone) with a
+   28px bottom margin, and it outranks a bare module class. Both notes are
+   scoped through .body to win it. At 1440 they were 20px under an 18px title,
+   and the To hardware block ran 572px. */
+.body .advancedNote {
   margin: 14px 0 0;
   color: var(--pf-ink-muted);
   font-size: var(--pf-fs-row-d);
@@ -341,7 +345,7 @@
   border-color: var(--pf-cream-2);
 }
 
-.hardwareNote {
+.body .hardwareNote {
   margin: 0;
   color: var(--pf-cream);
   opacity: 0.75;
