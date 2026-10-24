@@ -18,7 +18,7 @@
 // Buttons: K1 tap takes the lower part back up to where Depth opens it and works it out again from under the pinned rows.
 
 const W = 64, H = 128, LIM = 200000, K0 = 96, RW = 128, LOOK = 16, DMAX = 10000, PRIME = 255;
-const { floor, log, min, max, round } = Math;
+const { floor, log, min, round } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 function hsv(h, s, v, out, o) {
