@@ -13,10 +13,10 @@ import {
 } from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
-import { needsFlatten } from "@/lib/lab/flatten";
+import { loneCodeLayer } from "@/lib/lab/flatten";
 import { labPatternName, useLabStore } from "@/lib/lab/store";
 import { activeTextEffect } from "@/lib/lab/textEffects";
-import { isCodeLayer, isTextLayer } from "@/lib/lab/types";
+import { isTextLayer } from "@/lib/lab/types";
 import styles from "./PatternLab.module.css";
 import local from "./HardwareModal.module.css";
 
@@ -48,7 +48,6 @@ export default function HardwareModal({
   const knobs = useLabStore((state) => state.knobs);
   const ranges = useLabStore((state) => state.ranges);
   const knobLabels = useLabStore((state) => state.knobLabels);
-  const activeLayerId = useLabStore((state) => state.activeLayerId);
   const forkOf = useLabStore((state) => state.forkOf);
 
   // Seeded from the lab's pattern name so the .h NAME, the .pfm slug and the
@@ -64,11 +63,12 @@ export default function HardwareModal({
   const [publishPerfJson, setPublishPerfJson] = useState<string | null>(null);
 
   // One visible code layer is the simple case: a single prompt and a single
-  // paste. Anything else goes through the scaffold.
-  const codeLayers = layers.filter(isCodeLayer);
-  // Same test the export path uses (masks count; a lone pixel layer is a
-  // stack, not a pattern with an empty prompt).
-  const stacked = needsFlatten(layers);
+  // paste. Anything else goes through the scaffold. Same test the export path
+  // uses (masks count; a lone pixel layer is a stack, not a pattern with an
+  // empty prompt), and the same layer: the one showing, whichever is picked
+  // in Layers. A hidden pick used to go into the prompt in its place.
+  const lone = loneCodeLayer(layers);
+  const stacked = lone === null;
 
   const exportData = useMemo(
     () => buildHExport({ name, matrix, layers, knobs, ranges, knobLabels }),
@@ -76,20 +76,18 @@ export default function HardwareModal({
   );
 
   const singlePrompt = useMemo(() => {
-    const active = layers.find((layer) => layer.id === activeLayerId);
-    const focus = isCodeLayer(active) ? active : codeLayers[0];
-    if (!focus) return "";
+    if (!lone) return "";
     return buildCppPrompt({
-      code: focus.code,
+      code: lone.code,
       matrix,
       knobs,
       ranges,
       knobLabels,
-      ramp: focus.ramp,
-      recolor: focus.recolor,
+      ramp: lone.ramp,
+      recolor: lone.recolor,
       name,
     });
-  }, [layers, activeLayerId, codeLayers, matrix, knobs, ranges, knobLabels, name]);
+  }, [lone, matrix, knobs, ranges, knobLabels, name]);
 
   // A chat answer pasted whole used to go into the .h with the model's words
   // and the ``` fence, and the header test below passed it.
@@ -157,7 +155,7 @@ export default function HardwareModal({
     URL.revokeObjectURL(url);
   };
 
-  const label = stacked ? name : codeLayers[0]?.name ?? "Pattern";
+  const label = lone?.name ?? name;
 
   // Only a press on this backdrop itself closes. Send and Publish open inside
   // it, so a press on their backdrop bubbles up here too, and the header

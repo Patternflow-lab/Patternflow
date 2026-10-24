@@ -32,13 +32,12 @@ import {
 import { withKnobsAnnotation } from "@/lib/lab/annotations";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { onEditorReveal } from "@/lib/lab/editorReveal";
-import { flattenLayers, needsFlatten } from "@/lib/lab/flatten";
+import { flattenLayers, loneCodeLayer } from "@/lib/lab/flatten";
 import { readStorage, removeStorage, writeStorage, type LabStorageKey } from "@/lib/lab/persist";
 import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, dropRetiredPanels, layoutViewCount } from "@/lib/lab/serialize";
 import { listSessions, type SessionMeta } from "@/lib/lab/sessions";
 import { buildStackAnnotation, stripStackAnnotation } from "@/lib/lab/stackShare";
 import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store";
-import type { CodeLayer } from "@/lib/lab/types";
 import HardwareModal from "./HardwareModal";
 import { openIncomingPattern } from "./openIncomingPattern";
 import {
@@ -84,7 +83,8 @@ function premultiplyHex(hex: string, alpha: number): string {
 
 async function buildExportCode(): Promise<string> {
   const state = useLabStore.getState();
-  if (needsFlatten(state.layers)) {
+  const layer = loneCodeLayer(state.layers);
+  if (!layer) {
     const flat = flattenLayers(state.layers, state.matrix, {
       labels: state.knobLabels,
       ranges: state.ranges,
@@ -113,9 +113,6 @@ async function buildExportCode(): Promise<string> {
     const withStack = stackLine ? `${flat}\n\n${stackLine}\n` : flat;
     return withStack.length <= CODE_MAX ? withStack : flat;
   }
-  const layer = state.layers.find(
-    (entry) => entry.visible && entry.opacity > 0 && entry.type === "code",
-  ) as CodeLayer;
   // A layer that arrived from a shared composition may still carry that
   // composition's @stack line; published as-is it would reopen as the
   // original author's layers rather than this pattern.
