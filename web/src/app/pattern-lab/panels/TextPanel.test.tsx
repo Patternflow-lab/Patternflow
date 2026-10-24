@@ -22,6 +22,7 @@ vi.mock("@/lib/lab/textRaster", () => ({
 }));
 
 import TextPanel from "./TextPanel";
+import KnobsPanel from "./KnobsPanel";
 import PreviewPanel from "./PreviewPanel";
 import RampPanel from "./RampPanel";
 import { useLabStore } from "@/lib/lab/store";
@@ -160,8 +161,47 @@ describe("an effect on the text", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Speed knob" }), { target: { value: "0" } });
     expect(text().spec.effectKnob).toBe(0);
     expect(screen.getByText(`${store().knobLabels[0]} sets how fast each LED dims`, { exact: false })).toHaveTextContent(
-      "It is all the way down, so nothing moves yet: turn it up in Knobs.",
+      "It is all the way down, so nothing moves yet: turn it up here or in Knobs.",
     );
+  });
+
+  it("turns the speed knob beside its picker, the same knob Knobs turns", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { effect: "scroll" });
+    useLabStore.setState({ knobLabels: ["Hue", "Rate", "Mode", "Shift"] });
+    const [low, high] = store().ranges[1];
+    const textPanel = within(render(<TextPanel />).container);
+    const knobsPanel = within(render(<KnobsPanel />).container);
+    const here = textPanel.getByRole("slider", { name: "Rate" });
+    const there = knobsPanel.getByRole("slider", { name: "Rate value" });
+
+    fireEvent.change(here, { target: { value: String(high) } });
+    expect(store().knobs[1]).toBe(high);
+    expect(there).toHaveValue(String(high));
+    expect(textPanel.getByText(/Rate sets how fast/)).toHaveTextContent("It is at 100% now.");
+
+    fireEvent.change(there, { target: { value: String(low) } });
+    expect(here).toHaveValue(String(low));
+    expect(textPanel.getByText(/Rate sets how fast/)).toHaveTextContent("turn it up here or in Knobs.");
+  });
+
+  it("moves the slider to the knob a new pick names, and has none without an effect", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { effect: "twinkle" });
+    useLabStore.setState({ knobLabels: ["Hue", "Rate", "Mode", "Shift"] });
+    const { ranges } = store();
+    useLabStore.setState({ knobs: [ranges[0][1], ranges[1][0], ranges[2][0], ranges[3][0]] });
+    render(<TextPanel />);
+    expect(screen.getByRole("slider", { name: "Rate" })).toHaveValue(String(ranges[1][0]));
+    fireEvent.change(screen.getByRole("combobox", { name: "Speed knob" }), { target: { value: "0" } });
+    expect(screen.queryByRole("slider", { name: "Rate" })).toBeNull();
+    const hue = screen.getByRole("slider", { name: "Hue" });
+    expect(hue).toHaveValue(String(ranges[0][1]));
+    fireEvent.change(hue, { target: { value: String(ranges[0][0]) } });
+    expect(store().knobs).toEqual([ranges[0][0], ranges[1][0], ranges[2][0], ranges[3][0]]);
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Effect" }), { target: { value: "none" } });
+    expect(screen.queryByRole("slider")).toBeNull();
   });
 
   it("names the knobs as the Knobs panel does", () => {
