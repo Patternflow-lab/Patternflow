@@ -27,6 +27,7 @@ import PreviewPanel from "./PreviewPanel";
 import RampPanel from "./RampPanel";
 import { useLabStore } from "@/lib/lab/store";
 import type { TextLayer } from "@/lib/lab/types";
+import { knobDetentStep } from "@/lib/pattern/controls";
 
 const store = () => useLabStore.getState();
 const text = (): TextLayer => {
@@ -183,6 +184,18 @@ describe("an effect on the text", () => {
     fireEvent.change(there, { target: { value: String(low) } });
     expect(here).toHaveValue(String(low));
     expect(textPanel.getByText(/Rate sets how fast/)).toHaveTextContent("turn it up here or in Knobs.");
+  });
+
+  it("turns the speed knob a detent per arrow key, as Knobs does", () => {
+    store().addTextLayer();
+    store().setTextSpec(text().id, { effect: "scroll" });
+    useLabStore.setState({ knobLabels: ["Hue", "Rate", "Mode", "Shift"] });
+    const range = store().ranges[1];
+    useLabStore.setState({ knobs: [0, range[0], 0, 0] });
+    render(<TextPanel />);
+
+    expect(fireEvent.keyDown(screen.getByRole("slider", { name: "Rate" }), { key: "ArrowRight" })).toBe(false);
+    expect(store().knobs[1]).toBeCloseTo(range[0] + knobDetentStep(range), 12);
   });
 
   it("moves the slider to the knob a new pick names, and has none without an effect", () => {
