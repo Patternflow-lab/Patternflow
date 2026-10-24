@@ -2,6 +2,7 @@ import { inArray } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { featuredPatterns, patterns } from "@/lib/community/server/schema";
 
@@ -35,14 +36,10 @@ async function handlePut(request: Request) {
     return Response.json({ error: "Not found." }, { status: 404 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const payload = await readJsonObject(request);
+  if (payload instanceof Response) return payload;
 
-  const raw = (payload as { patternIds?: unknown }).patternIds;
+  const raw = payload.patternIds;
   if (!Array.isArray(raw) || raw.some((id) => typeof id !== "string")) {
     return Response.json({ error: "Expected patternIds: string[]." }, { status: 400 });
   }

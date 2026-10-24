@@ -10,6 +10,7 @@ import {
   type MadeHow,
 } from "@/lib/community/validate";
 import { LICENSE_OPTIONS, forkLicenseOptions, licenseBySpdx } from "@/lib/pattern/share";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { captureEvent } from "@/lib/posthogEvents";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
 import {
@@ -63,6 +64,10 @@ export default function EditDetailsModal({
   );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The title field takes the focus, as its autoFocus did. autoFocus moved it
+  // before the hook could see which button opened the window, so the focus
+  // had nowhere to go back to.
+  const titleRef = useDialog<HTMLInputElement>(onClose);
 
   // What this pattern may be relicensed to. The pattern's CURRENT licence is
   // always included even when it is no longer offered (MIT, CC0): a retired
@@ -121,10 +126,10 @@ export default function EditDetailsModal({
           <label className={styles.field}>
             <span className={styles.fieldLabel}>Title</span>
             <input
+              ref={titleRef}
               className={styles.textInput}
               value={title}
               maxLength={TITLE_MAX}
-              autoFocus
               onChange={(event) => setTitle(event.target.value)}
             />
           </label>

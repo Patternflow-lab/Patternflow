@@ -1,6 +1,7 @@
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import {
   cleanQuestions,
@@ -39,13 +40,8 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Not found." }, { status: 404 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = payload as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   const code = cleanTerritoryCode(raw.code);
   if (!code) {

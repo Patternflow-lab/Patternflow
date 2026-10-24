@@ -32,6 +32,8 @@ type Shot = {
   ko: string;
   /** Which page of the site it is. */
   where: Record<GuideLang, string>;
+  /** What the picture shows, for a reader who cannot see it. */
+  alt: Record<GuideLang, string>;
   /** How long this screen stays up before the next one (ms). */
   ms?: number;
 };
@@ -57,6 +59,10 @@ const STEPS: Shot[][] = [
       title: "Newest · Oldest · Most liked · Most forked · In decks",
       en: "The orders the wall comes in. Oldest goes back to the very first patterns.",
       ko: "벽을 늘어놓는 순서예요. Oldest를 누르면 맨 처음 패턴부터 나와요.",
+      alt: {
+        en: "The community's Patterns wall, 226 patterns, with the sort tabs from Newest to In decks marked.",
+        ko: "커뮤니티의 Patterns 벽, 226 PATTERNS. Newest부터 In decks까지 정렬 탭이 표시돼 있다.",
+      },
       where: WALL,
     },
     {
@@ -68,6 +74,10 @@ const STEPS: Shot[][] = [
       title: "Search titles or @author",
       en: "A title, or @ and a name. @engmung is the person who made Patternflow.",
       ko: "제목으로, 또는 @와 이름으로 찾아요. @engmung은 패턴플로우를 만든 사람이에요.",
+      alt: {
+        en: "The wall searched for @engmung: the search box and the line 111 matches for @engmung are marked.",
+        ko: "@engmung으로 찾은 벽. 검색 칸과 111 MATCHES FOR “@ENGMUNG” 줄이 표시돼 있다.",
+      },
       where: WALL,
     },
     {
@@ -76,6 +86,10 @@ const STEPS: Shot[][] = [
       title: "scroll on a screen to turn its knobs · hover to play",
       en: "The screen is split K1 to K4, left to right. The wheel turns the knob under the pointer.",
       ko: "화면이 왼쪽부터 K1–K4로 나뉘어 있어요. 휠은 포인터 아래 노브를 돌려요.",
+      alt: {
+        en: "Two cards on the wall. The pointer is over the right one, which shows K1 to K4 with K3 Shift at 0.74, marked.",
+        ko: "벽의 카드 두 장. 포인터가 오른쪽 카드 위에 있어 K1부터 K4까지와 K3 Shift 0.74가 뜨고, 그 자리가 표시돼 있다.",
+      },
       where: WALL,
       ms: 4200,
     },
@@ -88,6 +102,10 @@ const STEPS: Shot[][] = [
       title: "Hardware ready — ships a .h firmware header",
       en: "The right one can go on a board. The left one is JS only: it plays here, not there.",
       ko: "오른쪽은 보드에 올라가요. 왼쪽은 JS뿐이라 여기서만 돌아요.",
+      alt: {
+        en: "Two cards: the left one has no badge, the right one an orange .h badge in its corner, marked.",
+        ko: "카드 두 장. 왼쪽엔 배지가 없고, 오른쪽 구석의 주황 .h 배지가 표시돼 있다.",
+      },
       where: WALL,
     },
     {
@@ -96,6 +114,10 @@ const STEPS: Shot[][] = [
       title: ".h Flashable now",
       en: "The same wall, only the patterns that ship a .h.",
       ko: "같은 벽에서 .h가 있는 패턴만 보여줘요.",
+      alt: {
+        en: "The sort tabs with the .h Flashable now filter beside them marked, over cards that all carry .h.",
+        ko: "정렬 탭 옆의 .h Flashable now 필터가 표시돼 있고, 아래 카드에는 모두 .h가 붙어 있다.",
+      },
       where: WALL,
     },
     {
@@ -104,6 +126,10 @@ const STEPS: Shot[][] = [
       title: "Port this pattern (.h)",
       en: "On a pattern with no .h yet. Ran it on your own board? Propose the .h: signed in, and credited to you.",
       ko: "아직 .h가 없는 패턴에 있어요. 내 보드에서 돌려 봤다면 .h를 제안해요. 로그인해야 하고, 내 이름으로 올라가요.",
+      alt: {
+        en: "A pattern's page with no header yet, with the Port this pattern (.h) button under Firmware ports marked.",
+        ko: "아직 헤더가 없는 패턴 페이지. FIRMWARE PORTS의 Port this pattern (.h) 버튼이 표시돼 있다.",
+      },
       where: PATTERN,
       ms: 4200,
     },
@@ -116,6 +142,10 @@ const STEPS: Shot[][] = [
       title: "↗ Send to my Patternflow",
       en: "On the page of any pattern with a .h. No account needed.",
       ko: ".h가 있는 패턴 페이지마다 있어요. 계정이 필요 없어요.",
+      alt: {
+        en: "Under a pattern's preview, its knob sliders and buttons, with ↗ Send to my Patternflow marked.",
+        ko: "패턴 미리보기 아래의 노브 슬라이더와 버튼 줄. ↗ Send to my Patternflow가 표시돼 있다.",
+      },
       where: PATTERN,
     },
     {
@@ -124,6 +154,10 @@ const STEPS: Shot[][] = [
       title: "Send over Wi-Fi",
       en: "Opens your board's Patterns page with this pattern linked. That page fetches it and installs it.",
       ko: "보드의 Patterns 페이지가 열리고, 그 페이지가 이 패턴을 받아서 설치해요.",
+      alt: {
+        en: "The Send to my Patternflow dialog, koi pond is ready · 32 KB, with the Send over Wi-Fi button marked.",
+        ko: "Send to my Patternflow 창. koi pond is ready · 32 KB 아래의 Send over Wi-Fi 버튼이 표시돼 있다.",
+      },
       where: PATTERN,
       ms: 4200,
     },
@@ -133,6 +167,10 @@ const STEPS: Shot[][] = [
       title: "Download .zip",
       en: "Board out of reach from here, on a VPN say? Drop the .zip on the board's Patterns page, as it is — don't unzip it.",
       ko: "여기서 보드에 닿지 않으면(VPN 등) .zip을 받아 보드의 Patterns 페이지에 그대로 올려요. 압축은 풀지 않아요.",
+      alt: {
+        en: "The same dialog, with the Download .zip button under Send over Wi-Fi marked.",
+        ko: "같은 창. Send over Wi-Fi 아래의 Download .zip 버튼이 표시돼 있다.",
+      },
       where: PATTERN,
       ms: 4200,
     },
@@ -145,6 +183,10 @@ const STEPS: Shot[][] = [
       title: "Add to your deck",
       en: "The + on a card with a .h. Pressed, it turns into a −.",
       ko: ".h가 있는 카드의 +예요. 누르면 −로 바뀌어요.",
+      alt: {
+        en: "Cards on the wall, with the + beside the heart on the koi pond card marked.",
+        ko: "벽의 카드들. koi pond 카드의 하트 옆 + 버튼이 표시돼 있다.",
+      },
       where: WALL,
     },
     {
@@ -153,6 +195,10 @@ const STEPS: Shot[][] = [
       title: "Your deck 4 / 20",
       en: "Along the bottom of every page with patterns on it. The numbers are the order.",
       ko: "패턴이 있는 페이지마다 아래에 붙어 있어요. 숫자가 순서예요.",
+      alt: {
+        en: "The bar along the bottom of the wall: Your deck 4 / 20 and four numbered slots, marked.",
+        ko: "벽 아래쪽 바. YOUR DECK 4 / 20과 번호 붙은 칸 네 개가 표시돼 있다.",
+      },
       where: DECK_BAR,
     },
     {
@@ -161,6 +207,10 @@ const STEPS: Shot[][] = [
       title: "drag to rearrange · ✕ removes",
       en: "Carry a slot sideways and the others make room. Let go on ✕ and it's out.",
       ko: "칸을 옆으로 끌면 다른 칸이 비켜 줘요. ✕ 위에서 놓으면 빠져요.",
+      alt: {
+        en: "The same bar while a slot is carried: the slots now read 2, 1, 3, 4, and the one on the move is marked.",
+        ko: "칸을 끄는 중인 같은 바. 칸이 2, 1, 3, 4 차례가 되고, 옮기는 칸이 표시돼 있다.",
+      },
       where: DECK_BAR,
     },
     {
@@ -169,6 +219,10 @@ const STEPS: Shot[][] = [
       title: "press ✕ again to empty all 4",
       en: "✕ pressed on its own asks first. A second press empties the deck, and there is no undo.",
       ko: "✕만 누르면 먼저 물어요. 한 번 더 누르면 덱이 비워지고, 되돌릴 수 없어요.",
+      alt: {
+        en: "The same bar after one press on ✕: the ✕ has turned red, with press ✕ again to empty all 4 beside it, marked.",
+        ko: "✕를 한 번 누른 뒤의 같은 바. ✕가 빨개지고 옆에 press ✕ again to empty all 4가 뜬 자리가 표시돼 있다.",
+      },
       where: DECK_BAR,
     },
     {
@@ -177,6 +231,10 @@ const STEPS: Shot[][] = [
       title: "Send to my board",
       en: "Builds the deck as modules for your board. Needs you signed in — and so does Share deck, beside it.",
       ko: "덱을 보드용 모듈로 빌드해요. 로그인이 필요해요. 옆의 Share deck도 마찬가지예요.",
+      alt: {
+        en: "The right end of the bar, with Share deck and the orange Send to my board button marked.",
+        ko: "바 오른쪽 끝. Share deck 옆의 주황 SEND TO MY BOARD 버튼이 표시돼 있다.",
+      },
       where: DECK_BAR,
       ms: 4200,
     },
@@ -189,6 +247,10 @@ const STEPS: Shot[][] = [
       title: "Community decks",
       en: "Everyone's public decks: the first few patterns, in order, then how many more.",
       ko: "모두의 공개 덱이에요. 앞의 패턴 몇 개가 순서대로, 나머지는 개수로 보여요.",
+      alt: {
+        en: "Community decks, 3 public decks, each card showing a deck's first patterns. The second card, just, is marked.",
+        ko: "COMMUNITY DECKS, 공개 덱 3개. 카드마다 덱의 앞 패턴들이 보이고, 두 번째 카드 just가 표시돼 있다.",
+      },
       where: DECKS,
     },
     {
@@ -197,6 +259,10 @@ const STEPS: Shot[][] = [
       title: "Install to my board",
       en: "On a public deck. No sign-in: your board's Patterns page opens with the whole deck queued.",
       ko: "공개 덱에 있어요. 로그인 없이, 보드의 Patterns 페이지가 덱 전체를 담은 채로 열려요.",
+      alt: {
+        en: "The page of the deck just, by @engmung, 15 slots, with the orange Install to my board button marked.",
+        ko: "@engmung의 덱 just 페이지, 15칸. 주황 Install to my board 버튼이 표시돼 있다.",
+      },
       where: DECK,
     },
     {
@@ -205,6 +271,10 @@ const STEPS: Shot[][] = [
       title: "A deck's .zip also carries its running order",
       en: "On the board its patterns come first — right after Origin, in the deck's order.",
       ko: "보드에선 덱의 패턴이 맨 앞, Origin 바로 다음부터 덱 순서대로 놓여요.",
+      alt: {
+        en: "The same page, with the line A deck's .zip also carries its running order marked under Install from a file.",
+        ko: "같은 페이지. INSTALL FROM A FILE 아래 A deck's .zip also carries its running order 줄이 표시돼 있다.",
+      },
       where: DECK,
     },
     {
@@ -213,6 +283,10 @@ const STEPS: Shot[][] = [
       title: "Press again — this replaces your deck",
       en: "Copy into my deck, with a deck already in your bar: it asks before it replaces yours.",
       ko: "바에 이미 덱이 있으면, Copy into my deck은 내 덱을 바꾸기 전에 한 번 물어요.",
+      alt: {
+        en: "The deck's buttons after one press on Copy into my deck, which now reads Press again — this replaces your deck, marked.",
+        ko: "Copy into my deck을 한 번 누른 뒤의 버튼 줄. 그 버튼이 Press again — this replaces your deck으로 바뀐 채 표시돼 있다.",
+      },
       where: DECK,
       ms: 4200,
     },
@@ -225,6 +299,10 @@ const STEPS: Shot[][] = [
       title: "Open in Pattern Lab",
       en: "On every pattern's page, with a .h or without.",
       ko: "모든 패턴 페이지에 있어요. .h가 있든 없든요.",
+      alt: {
+        en: "Under a pattern's preview, its knob sliders and buttons, with Open in Pattern Lab marked.",
+        ko: "패턴 미리보기 아래의 노브 슬라이더와 버튼 줄. Open in Pattern Lab이 표시돼 있다.",
+      },
       where: PATTERN,
     },
     {
@@ -233,6 +311,10 @@ const STEPS: Shot[][] = [
       title: "forking from koi pond",
       en: "The copy arrives marked as a fork. If it's no longer a remix, × takes the mark off.",
       ko: "복사본에 포크 표시가 붙어서 와요. 더는 리믹스가 아니면 ×로 떼요.",
+      alt: {
+        en: "Pattern Lab with koi pond open. Under the name, beside Saved locally, forking from koi pond × is marked.",
+        ko: "koi pond를 연 패턴 랩. 이름 아래 Saved locally 옆의 forking from koi pond ×가 표시돼 있다.",
+      },
       where: LAB,
       ms: 4200,
     },
@@ -242,6 +324,10 @@ const STEPS: Shot[][] = [
       title: "Share",
       en: "Publishes it to the community as your fork. Needs you signed in.",
       ko: "커뮤니티에 내 포크로 올려요. 로그인이 필요해요.",
+      alt: {
+        en: "The same Lab, with the Share button at the top marked beside To hardware.",
+        ko: "같은 랩. 맨 위 To hardware 옆의 Share 버튼이 표시돼 있다.",
+      },
       where: LAB,
     },
   ],
@@ -328,11 +414,11 @@ export default function CommunityShots({ lang, step }: { lang: GuideLang; step: 
     >
       <div className={styles.frame}>
         {files.map((file) => (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a real capture of the community site, shown as is
           <img
             key={file}
             src={`${BASE}${file}.webp`}
-            alt={file === on.file ? on.title : ""}
+            alt={file === on.file ? on.alt[lang] : ""}
             aria-hidden={file === on.file ? undefined : true}
             loading="lazy"
             decoding="async"

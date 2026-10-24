@@ -12,6 +12,7 @@
 // lib/lab/pixelHistory. PixelPanel.test.tsx pins the behaviour.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { clearSurface, stampOver, type PixelSurface } from "@/lib/lab/pixelTools";
 import { prunePixelHistories, redoPixels, snapshotPixels, undoPixels } from "@/lib/lab/pixelHistory";
 import { buildPixelPatternCode } from "@/lib/lab/pixelToCode";
@@ -48,16 +49,16 @@ export default function PixelPanel() {
 
   // ── history ──
   const pushUndo = useCallback(() => {
-    if (pixel) snapshotPixels(pixel.id, pixel.data);
+    if (pixel) snapshotPixels(pixel.id, pixel);
   }, [pixel]);
   const commit = useCallback(() => {
     if (pixel) bumpPixelLayer(pixel.id);
   }, [pixel, bumpPixelLayer]);
   const undo = useCallback(() => {
-    if (pixel && undoPixels(pixel.id, pixel.data)) commit();
+    if (pixel && undoPixels(pixel.id, pixel)) commit();
   }, [pixel, commit]);
   const redo = useCallback(() => {
-    if (pixel && redoPixels(pixel.id, pixel.data)) commit();
+    if (pixel && redoPixels(pixel.id, pixel)) commit();
   }, [pixel, commit]);
 
   // ── the pieces ──
@@ -73,7 +74,7 @@ export default function PixelPanel() {
   const [backdrop, setBackdrop] = useState(true);
   const [grid, setGrid] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [codeCopy, setCodeCopy] = useState<CodeCopyState>("idle");
+  const [codeCopy, flashCodeCopy] = useResettingState<CodeCopyState>("idle", 1400);
 
   const paintOverlay = usePixelCanvases({
     pixel,
@@ -111,18 +112,14 @@ export default function PixelPanel() {
   const copyAsCode = () => {
     if (!pixel) return;
     const code = buildPixelPatternCode(pixel);
-    const flash = (state: CodeCopyState) => {
-      setCodeCopy(state);
-      window.setTimeout(() => setCodeCopy("idle"), 1400);
-    };
     if (!code) {
-      flash("empty");
+      flashCodeCopy("empty");
       return;
     }
     navigator.clipboard
       .writeText(code)
-      .then(() => flash("copied"))
-      .catch(() => flash("failed"));
+      .then(() => flashCodeCopy("copied"))
+      .catch(() => flashCodeCopy("failed"));
   };
 
   if (!pixel) {
@@ -166,7 +163,6 @@ export default function PixelPanel() {
         className={dock.pixelViewport}
         tabIndex={0}
         onKeyDown={onKeyDown}
-        onWheel={viewport.onWheel}
       >
         <div
           className={dock.pixelStage}

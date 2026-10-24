@@ -26,7 +26,6 @@ type ShotId =
   | "recent"
   | "copyPrompt"
   | "paste"
-  | "gallery"
   | "bw"
   | "ramp"
   | "rampRandom"
@@ -58,17 +57,16 @@ const GEO: Record<ShotId, Geo> = {
   bw: { src: "preview-bw.webp", w: 401, h: 206, ring: null },
   color: { src: "preview-color.webp", w: 401, h: 206, ring: null },
   convert: { src: "convert.webp", w: 456, h: 256, ring: [2.85, 63.1, 94.3, 16.41] },
-  copyPrompt: { src: "code.webp", w: 485, h: 236, ring: [59.65, 15.68, 20.89, 15.25] },
+  copyPrompt: { src: "code.webp", w: 539, h: 236, ring: [64.06, 15.68, 18.8, 15.25] },
   director: { src: "director.webp", w: 480, h: 292, ring: [25.21, 12.67, 35.35, 12.33] },
   exportGo: { src: "export.webp", w: 476, h: 176, ring: [1.05, 76.93, 97.2, 20.45] },
   exportSize: { src: "export.webp", w: 476, h: 176, ring: [1.05, 21.02, 65.76, 20.45] },
-  gallery: { src: "gallery.webp", w: 485, h: 236, ring: [62.91, 15.68, 25.4, 15.25] },
   hwLayers: { src: "hw-layers.webp", w: 456, h: 188, ring: [71.96, 60.77, 22.77, 20.21] },
   knobs: { src: "knobs.webp", w: 345, h: 186, ring: [4.06, 76.55, 93.91, 18.28] },
   layers: { src: "layers.webp", w: 423, h: 240, ring: [2.84, 0.83, 30.66, 15.0] },
   mask: { src: "layers.webp", w: 423, h: 240, ring: [3.31, 87.11, 57.06, 9.97] },
   name: { src: "name.webp", w: 400, h: 64, ring: [14.0, 6.25, 72.0, 56.25] },
-  paste: { src: "code.webp", w: 485, h: 236, ring: [37.05, 15.68, 11.87, 15.25] },
+  paste: { src: "code.webp", w: 539, h: 236, ring: [30.18, 15.68, 10.68, 15.25] },
   pasted: { src: "pasted.webp", w: 456, h: 224, ring: [2.85, 62.31, 94.3, 31.96] },
   perf: { src: "ports.webp", w: 464, h: 149, ring: [21.79, 76.96, 32.49, 21.93] },
   port: { src: "ports.webp", w: 464, h: 149, ring: [24.92, 8.72, 29.55, 21.93] },
@@ -82,146 +80,244 @@ const GEO: Record<ShotId, Geo> = {
 };
 // lab_shots.py:end
 
-/** The UI's own words for the shot (quoted as the Lab shows them), and a line about it. */
-type Words = { title: string; en: string; ko: string };
+/**
+ * The UI's own words for the shot (quoted as the Lab shows them), a line
+ * about it, and what the picture shows, for a reader who cannot see it.
+ */
+type Words = { title: string; en: string; ko: string; alt: Record<GuideLang, string> };
 
 const WORDS: Record<ShotId, Words> = {
   name: {
     title: "name this pattern",
     en: "At the top of the Lab. To hardware writes this name into the .h; the Director and Share start from it.",
     ko: "랩 맨 위에 있어요. To hardware가 이 이름을 .h에 적고, Director와 Share도 이 이름에서 시작해요.",
+    alt: {
+      en: "The top of Pattern Lab: the empty name field reads name this pattern, with Local draft under it.",
+      ko: "패턴 랩 맨 위. 빈 이름 칸에 name this pattern이 흐리게 적혀 있고, 그 아래에 Local draft가 있다.",
+    },
   },
   saved: {
     title: "Saved locally",
     en: "Saved as you go — in this browser only, not on a server or in your other browsers.",
     ko: "하는 대로 저장돼요. 이 브라우저에만요. 서버에도, 다른 브라우저에도 없어요.",
+    alt: {
+      en: "The same name field, now reading My first pattern, with Saved locally under it.",
+      ko: "같은 이름 칸에 My first pattern이 들어 있고, 그 아래는 Saved locally다.",
+    },
   },
   recent: {
     title: "Recent ▾",
     en: "Earlier work, parked when something replaced it. Share and To hardware sit beside it.",
     ko: "무언가에 밀려난 이전 작업이 여기 있어요. 옆에 Share와 To hardware가 있어요.",
+    alt: {
+      en: "The Lab's top buttons with the Recent menu open under them: Park this and start fresh, then nothing parked yet.",
+      ko: "랩 위쪽 버튼 줄. Recent 메뉴가 열려 있고, Park this and start fresh 아래에 nothing parked yet이 있다.",
+    },
   },
   copyPrompt: {
     title: "Copy prompt",
     en: "Copies the AI prompt for this layer, with its code in it.",
     ko: "이 레이어의 코드가 담긴 AI 프롬프트를 복사해요.",
+    alt: {
+      en: "The Code tab's toolbar over the pattern's code, with the Copy prompt button marked.",
+      ko: "Code 탭의 도구 줄과 그 아래 패턴 코드. Copy prompt 버튼이 표시돼 있다.",
+    },
   },
   paste: {
     title: "Paste",
     en: "Swaps this layer's code for what you copied. ‹ 1/6 › steps through the Lab's own examples.",
     ko: "복사한 코드로 이 레이어를 바꿔요. ‹ 1/6 ›은 랩에 든 예제를 넘겨요.",
-  },
-  gallery: {
-    title: "Generate · Key",
-    en: "Key takes your Gemini key, kept in this browser and sent only to Google. Generate asks for n variations; click a card to load one.",
-    ko: "Key에 Gemini 키를 넣어요. 이 브라우저에만 저장되고 구글로만 가요. Generate를 누르면 n개를 받고, 카드를 누르면 불러와요.",
+    alt: {
+      en: "The Code tab's toolbar over the pattern's code, with the Paste button marked.",
+      ko: "Code 탭의 도구 줄과 그 아래 패턴 코드. Paste 버튼이 표시돼 있다.",
+    },
   },
   bw: {
     title: "Preview",
     en: "A v-field on the default ramp: each pixel's value, 0 to 1, shown black to white.",
     ko: "기본 램프 위의 v-field예요. 픽셀마다 0에서 1 사이 값이 검정에서 흰색으로 보여요.",
+    alt: {
+      en: "The preview: concentric rings shading from black to white.",
+      ko: "미리보기. 검정에서 흰색으로 번지는 동심원이다.",
+    },
   },
   ramp: {
     title: "Random ramp",
     en: "Two to twelve stops in new colours, every press.",
     ko: "누를 때마다 새 색으로 2~12개의 지점이 생겨요.",
+    alt: {
+      en: "The Color Ramp panel with a plain black-to-white bar, and the Random ramp button marked.",
+      ko: "Color Ramp 패널. 바는 검정에서 흰색으로 이어지고, Random ramp 버튼이 표시돼 있다.",
+    },
   },
   rampRandom: {
     title: "Color Ramp",
     en: "Click the bar to add a stop, drag one to move it, pick its colour below. Undo steps back.",
     ko: "바를 클릭하면 지점이 생기고, 끌면 옮겨지고, 색은 아래에서 골라요. Undo로 되돌려요.",
+    alt: {
+      en: "The same panel after Random ramp: the bar runs from purple through black to blue, and its four stops are marked.",
+      ko: "Random ramp를 누른 뒤의 같은 패널. 바가 보라에서 검정을 지나 파랑으로 이어지고, 지점 네 개가 표시돼 있다.",
+    },
   },
   color: {
     title: "Preview",
-    en: "The same values through that ramp. Want the AI to pick colours instead? Set the Gallery's v-field to rgb before copying the prompt.",
-    ko: "같은 값이 그 램프를 거친 모습이에요. 색을 AI에게 맡기려면, 프롬프트를 복사하기 전에 Gallery의 v-field를 rgb로 바꿔요.",
+    en: "The same values through that ramp. Want the AI to pick colours instead? Set v-field beside Copy prompt to rgb before copying.",
+    ko: "같은 값이 그 램프를 거친 모습이에요. 색을 AI에게 맡기려면, 복사하기 전에 Copy prompt 옆의 v-field를 rgb로 바꿔요.",
+    alt: {
+      en: "The preview through that ramp: the same rings in purple and blue, with dark bands between them.",
+      ko: "그 램프를 거친 미리보기. 같은 동심원이 보라와 파랑으로 보이고, 그 사이는 어두운 띠다.",
+    },
   },
   knobs: {
     title: "Knobs",
     en: "The boxes either side of a slider are its range. Drag a digit sideways, or double-click and type.",
     ko: "슬라이더 양옆 칸이 범위예요. 숫자를 옆으로 끌거나, 두 번 클릭해 입력해요.",
+    alt: {
+      en: "The Knobs panel with Glitch and Speed, each a slider between two boxes. Speed's row, 0.0 to 5.0, is marked.",
+      ko: "Knobs 패널의 Glitch와 Speed. 슬라이더마다 양옆에 칸이 있고, 0.0에서 5.0까지인 Speed 줄이 표시돼 있다.",
+    },
   },
   push: {
     title: "Push",
     en: "A short press, as on the board. Holding a knob belongs to the board.",
     ko: "보드에서 짧게 누르는 것과 같아요. 꾹 누르기는 보드 몫이에요.",
+    alt: {
+      en: "The same Knobs panel, with Glitch's Push button marked.",
+      ko: "같은 Knobs 패널. Glitch의 Push 버튼이 표시돼 있다.",
+    },
   },
   convert: {
     title: "Copy the conversion prompt",
     en: "The prompt for your AI: the pattern with its name, knobs and ranges, the ramp as a finished colour table, and how Patternflow's C++ is written.",
     ko: "AI에게 줄 프롬프트예요. 패턴과 그 이름, 노브와 범위, 완성된 색 표로 바뀐 램프, 그리고 패턴플로우 C++를 쓰는 법이 들어 있어요.",
+    alt: {
+      en: "The Convert to a firmware header dialog, with the Copy the conversion prompt button marked above the box for the .h.",
+      ko: "Convert to a firmware header 창. .h를 붙일 칸 위의 Copy the conversion prompt 버튼이 표시돼 있다.",
+    },
   },
   pasted: {
     title: "Looks like a header ✓",
     en: "Here, the real .h of the pattern the Lab opens with. Copy .h and Download .h keep a copy; Next → goes on.",
     ko: "여기 붙인 건 랩이 처음 여는 패턴의 실제 .h예요. Copy .h와 Download .h로 사본을 남기고, Next →로 넘어가요.",
+    alt: {
+      en: "The same dialog with a header pasted in. Looks like a header ✓ shows under the box, above the Next → button, and both are marked.",
+      ko: "헤더를 붙여 넣은 같은 창. 칸 아래에 Looks like a header ✓가 뜨고, 그 줄과 아래 Next → 버튼이 표시돼 있다.",
+    },
   },
   apply: {
     title: "↗ Apply to my Patternflow",
     en: "Builds the module in a second or two, then offers Send over Wi-Fi and Download .zip instead. Needs you signed in to the community.",
     ko: "1~2초 만에 모듈을 만들고, Send over Wi-Fi와 Download .zip instead를 보여 줘요. 커뮤니티에 로그인해야 해요.",
+    alt: {
+      en: "The On to hardware dialog: Header ready (5.8 KB), and the ↗ Apply to my Patternflow button under it marked.",
+      ko: "On to hardware 창. Header ready (5.8 KB) 아래의 ↗ Apply to my Patternflow 버튼이 표시돼 있다.",
+    },
   },
   layers: {
     title: "+ Code · + Pixel",
     en: "The top of the list is the top of the stack. Drag to reorder, double-click to rename.",
     ko: "목록 맨 위가 맨 위 레이어예요. 끌어서 순서를 바꾸고, 두 번 클릭해 이름을 바꿔요.",
+    alt: {
+      en: "The Layers panel with Pixel 1 above Code 2 above Code 1, and the + Code and + Pixel buttons marked.",
+      ko: "Layers 패널. 위에서부터 Pixel 1, Code 2, Code 1이 있고, + Code와 + Pixel 버튼이 표시돼 있다.",
+    },
   },
   mask: {
     title: "masks layer below",
     en: "Code 2 here is a mask: it draws nothing, and Code 1 shows only where Code 2 is bright. invert flips it.",
     ko: "여기 Code 2는 마스크예요. 직접 그리지 않고, Code 2가 밝은 곳에서만 Code 1이 보여요. invert는 반대로요.",
+    alt: {
+      en: "The same panel with Code 2 selected and tagged MASK↓. Its masks layer below box is ticked and marked.",
+      ko: "같은 패널에서 Code 2가 골라져 있고 MASK↓ 표시가 붙었다. 체크된 masks layer below 칸이 표시돼 있다.",
+    },
   },
   blend: {
     title: "Opacity · Blend",
     en: "For a layer that paints: how much of it shows, and how it mixes with what's under it — normal, add, multiply or screen.",
     ko: "그리는 레이어라면 얼마나 보일지, 아래와 어떻게 섞일지를 정해요. normal, add, multiply, screen이 있어요.",
+    alt: {
+      en: "The same panel with Code 1 selected: Opacity at 100% and Blend set to normal, both marked.",
+      ko: "Code 1을 고른 같은 패널. Opacity는 100%, Blend는 normal이고 둘 다 표시돼 있다.",
+    },
   },
   hwLayers: {
     title: "Copy prompt",
     en: "A stack gets one prompt per code layer. A layer not done yet keeps a stub, so a half-done port still builds.",
     ko: "레이어를 쌓으면 코드 레이어마다 프롬프트가 하나씩이에요. 아직 안 한 레이어는 빈 자리로 남아서, 반만 해도 빌드돼요.",
+    alt: {
+      en: "The To hardware dialog for My first pattern, 2 layers to translate, with the Copy prompt button of L0 · Code 1 marked.",
+      ko: "My first pattern의 To hardware 창. 옮길 레이어가 둘이고, L0 · Code 1의 Copy prompt 버튼이 표시돼 있다.",
+    },
   },
   previewLayers: {
     title: "Preview",
     en: "Code 1 through Code 2's mask.",
     ko: "Code 2의 마스크를 거친 Code 1이에요.",
+    alt: {
+      en: "The preview through the mask: Code 1's rings on the left half, black on the right.",
+      ko: "마스크를 거친 미리보기. 왼쪽 절반엔 Code 1의 동심원이 있고, 오른쪽은 검정이다.",
+    },
   },
   exportSize: {
     title: "Business card 3.5 × 2 in @ 300 dpi (1050 × 600)",
     en: "A size preset, like the frame × 4 to × 16, Full HD or 4K. Custom… goes up to 4096 px a side.",
     ko: "크기 프리셋이에요. 프레임의 4~16배, Full HD, 4K 같은 것들이 있고, Custom…은 한 변 4096px까지 돼요.",
+    alt: {
+      en: "The Graphic Export controls, with the size preset Business card 3.5 × 2 in @ 300 dpi (1050 × 600) marked.",
+      ko: "Graphic Export 설정. 크기 프리셋 Business card 3.5 × 2 in @ 300 dpi (1050 × 600)이 표시돼 있다.",
+    },
   },
   exportGo: {
     title: "Save PNG · ● Record",
     en: "A still, or a clip of up to a minute at 24, 30 or 60 fps, as MP4 or WebM.",
     ko: "정지 이미지, 또는 24·30·60fps로 1분까지 녹화한 MP4나 WebM이에요.",
+    alt: {
+      en: "The same controls with their bottom row marked: Save PNG, then the Director box, 30 fps, 6 s, MP4 and ● Record.",
+      ko: "같은 설정의 맨 아래 줄이 표시돼 있다. Save PNG 다음에 Director 칸, 30 fps, 6 s, MP4, ● Record가 있다.",
+    },
   },
   director: {
     title: ".pfs · .mid · Render…",
     en: "Keyframes on Glitch's lane, a smooth curve between them; ▶ plays it. .pfs is the show for a Performance-edition board, .mid the same moves as MIDI for Ableton, Render… a video.",
     ko: "Glitch 줄에 찍은 키프레임과 그 사이 곡선이에요. ▶로 재생해요. .pfs는 퍼포먼스 에디션 보드용 쇼, .mid는 에이블톤용 MIDI, Render…는 영상이에요.",
+    alt: {
+      en: "The Director: a curve on Glitch's lane across twelve seconds, and the .pfs, .mid and Render… buttons marked.",
+      ko: "디렉터. Glitch 줄에 12초에 걸친 곡선이 있고, .pfs, .mid, Render… 버튼이 표시돼 있다.",
+    },
   },
   upload: {
     title: "Upload to the community",
     en: "Under Apply. The pattern and its .h go up together. Opened from someone's pattern, it goes up as their fork: the top of the Lab says forking from …, and its × undoes that.",
     ko: "Apply 아래에 있어요. 패턴과 .h가 함께 올라가요. 남의 패턴에서 시작했다면 그 패턴의 포크로 올라가요. 랩 맨 위에 forking from …이 뜨고, ×로 뗄 수 있어요.",
+    alt: {
+      en: "The bottom of the On to hardware dialog, with the Upload to the community button marked above ← Back to the header.",
+      ko: "On to hardware 창 아래쪽. ← Back to the header 위의 Upload to the community 버튼이 표시돼 있다.",
+    },
   },
   port: {
     title: "Port this pattern (.h)",
     en: "On a pattern with no header yet. Propose the .h you made, signed in, and it goes live at once, credited to you.",
     ko: "아직 헤더가 없는 패턴에 있어요. 만든 .h를 로그인해서 제안하면 바로 올라가고, 내 이름이 붙어요.",
+    alt: {
+      en: "A pattern's page on the community site: No firmware header yet, and the Port this pattern (.h) button under Firmware ports marked.",
+      ko: "커뮤니티의 패턴 페이지. 아직 헤더가 없다는 줄이 있고, FIRMWARE PORTS의 Port this pattern (.h) 버튼이 표시돼 있다.",
+    },
   },
   perf: {
     title: "Publish a performance",
     en: "Adds a Director show, the .pfs you saved, to anyone's pattern. Signed in, and live at once, credited to you.",
     ko: "디렉터 쇼, 저장해 둔 .pfs를 누구의 패턴에든 붙여요. 로그인해야 하고, 바로 올라가며 내 이름이 붙어요.",
+    alt: {
+      en: "The same page, with the Publish a performance button under Performances marked.",
+      ko: "같은 페이지. PERFORMANCES의 Publish a performance 버튼이 표시돼 있다.",
+    },
   },
 };
 
 /** Which screens each step of the chapter shows (copy/lab.ts steps with extra: "labShots"). */
 const STEPS: Record<number, ShotId[]> = {
   1: ["name", "saved", "recent"],
-  2: ["copyPrompt", "paste", "gallery"],
+  2: ["copyPrompt", "paste"],
   3: ["bw", "ramp", "rampRandom", "color"],
   4: ["knobs", "push"],
   5: ["convert"],
@@ -341,13 +437,13 @@ export default function LabShots({ lang, step }: { lang: GuideLang; step: number
         }
       >
         {images.map((g) => (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a real capture of the lab, shown as is
           <img
             key={g.src}
             src={BASE + g.src}
             width={g.w}
             height={g.h}
-            alt={g.src === onSrc ? words.title : ""}
+            alt={g.src === onSrc ? words.alt[lang] : ""}
             aria-hidden={g.src === onSrc ? undefined : true}
             loading="lazy"
             decoding="async"

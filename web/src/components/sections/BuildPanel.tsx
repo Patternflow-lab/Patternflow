@@ -230,7 +230,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
   return (
     <div className="panel-content pf-section-panel" id="build">
       <div className="panel-header">
-        <h2 className="pf-h2">{content.title || 'Build your own.'}</h2>
+        <h1 className="pf-h2">{content.title || 'Build your own.'}</h1>
         <p className="pf-sub">{content.subtitle || 'Print, solder, assemble, flash.'}</p>
       </div>
 

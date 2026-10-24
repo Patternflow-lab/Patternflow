@@ -19,6 +19,16 @@ function run(sim: DeviceSim, ms: number, each?: () => void) {
   }
 }
 
+/**
+ * Leave the board alone for `ms`, in the longest step tick() takes (0.1 s).
+ * Its timers count board time, not frames: fifteen seconds of NETWORK at 60
+ * frames a second drew 900 screens and ran past the 5 s a test is given on a
+ * busy machine.
+ */
+function wait(sim: DeviceSim, ms: number) {
+  for (let t = 0; t < ms; t += 100) sim.tick(0.1);
+}
+
 function values(sim: DeviceSim) {
   return [0, 1, 2, 3].map((i) => sim.knobReadout(i).value);
 }
@@ -95,11 +105,11 @@ describe("the Audio edition's rows on NETWORK", () => {
   it("a turn keeps the screen open past its eight seconds, as it does on the board", () => {
     sim.setEdition("audio");
     sim.setMode("network");
-    run(sim, 6000);
+    wait(sim, 6000);
     sim.turn(2, -1);
-    run(sim, 6000);
+    wait(sim, 6000);
     expect(sim.snapshot().mode).toBe("network");
-    run(sim, 3000);
+    wait(sim, 3000);
     expect(sim.snapshot().mode).toBe("run");
   });
 

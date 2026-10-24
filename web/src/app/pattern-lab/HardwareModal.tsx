@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
+import { useDialog } from "@/lib/hooks/useDialog";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { assembleH, buildHExport, cleanPastedUnit, enforcePatternName } from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
@@ -47,7 +49,7 @@ export default function HardwareModal({
   const [name, setName] = useState(() => labPatternName(useLabStore.getState()));
   const [pastes, setPastes] = useState<Record<number, string>>({});
   const [single, setSingle] = useState("");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [copied, flashCopied] = useResettingState<{ key: string; ok: boolean } | null>(null, 1200);
   const [stage, setStage] = useState<Stage>("convert");
 
   const [sendOpen, setSendOpen] = useState(false);
@@ -105,18 +107,19 @@ export default function HardwareModal({
     return cleanPastedUnit(pasted, index) !== null;
   };
 
-  const flashCopied = (key: string) => {
-    setCopiedKey(key);
-    window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 1200);
-  };
   const copyText = async (key: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      flashCopied(key);
+      flashCopied({ key, ok: true });
     } catch {
-      /* clipboard may be blocked */
+      // The browser refused the write. Saying nothing left the label as it
+      // was, and whatever the clipboard held before went to the model.
+      flashCopied({ key, ok: false });
     }
   };
+
+  const copyLabel = (key: string, idle: string) =>
+    copied?.key === key ? (copied.ok ? "Copied ✓" : "Copy failed") : idle;
 
   const downloadH = () => {
     const blob = new Blob([assembled], { type: "text/plain" });
@@ -132,15 +135,44 @@ export default function HardwareModal({
 
   const label = stacked ? name : codeLayers[0]?.name ?? "Pattern";
 
+  // Only a press on this backdrop itself closes. Send and Publish open inside
+  // it, so a press on their backdrop bubbles up here too, and the header
+  // pasted above lives in this component's state and would go with it.
+  const closeOnBackdrop = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) onClose();
+  };
+
+  // Esc closes the window on top. Send and Publish open over this one and
+  // hear no keys of their own, so the first Esc is theirs and the header
+  // stays.
+  const cardRef = useDialog<HTMLDivElement>(() => {
+    if (sendOpen) setSendOpen(false);
+    else if (publishCode !== null) setPublishCode(null);
+    else onClose();
+  });
+
+  // Their buttons go with them, and the focus would fall to the page behind.
+  const childOpen = sendOpen || publishCode !== null;
+  useEffect(() => {
+    if (!childOpen && !cardRef.current?.contains(document.activeElement)) {
+      cardRef.current?.focus({ preventScroll: true });
+    }
+  }, [childOpen, cardRef]);
+
   return (
     <div
       className={styles.modalOverlay}
       role="dialog"
       aria-modal="true"
       aria-label="Hardware"
-      onClick={onClose}
+      onClick={closeOnBackdrop}
     >
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <strong>{stage === "convert" ? "Convert to a firmware header" : "On to hardware"}</strong>
           <button type="button" onClick={onClose} aria-label="Close">
@@ -190,7 +222,7 @@ export default function HardwareModal({
                           type="button"
                           onClick={() => void copyText(`u${unit.index}`, unit.prompt)}
                         >
-                          {copiedKey === `u${unit.index}` ? "Copied ✓" : "Copy prompt"}
+                          {copyLabel(`u${unit.index}`, "Copy prompt")}
                         </button>
                       </div>
                       <textarea
@@ -210,7 +242,7 @@ export default function HardwareModal({
                 <>
                   <div className={styles.variantActions}>
                     <button type="button" onClick={() => void copyText("single", singlePrompt)}>
-                      {copiedKey === "single" ? "Copied ✓" : "Copy the conversion prompt"}
+                      {copyLabel("single", "Copy the conversion prompt")}
                     </button>
                   </div>
                   <textarea
@@ -233,7 +265,7 @@ export default function HardwareModal({
 
               <div className={styles.variantActions} style={{ marginTop: 10, flexWrap: "wrap" }}>
                 <button type="button" onClick={() => void copyText("h", assembled)}>
-                  {copiedKey === "h" ? "Copied ✓" : "Copy .h"}
+                  {copyLabel("h", "Copy .h")}
                 </button>
                 <button type="button" onClick={downloadH} disabled={!headerLooksReal}>
                   Download .h

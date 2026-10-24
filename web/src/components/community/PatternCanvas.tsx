@@ -69,7 +69,7 @@ export default function PatternCanvas({
     >
       <div className={rotate ? styles.screenRotator : styles.screenUpright}>
         {thumb ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          // eslint-disable-next-line @next/next/no-img-element -- a data URL this browser just rendered; there is no file for the optimizer to fetch
           <img src={thumb} alt={`${title} preview`} />
         ) : (
           <div className={styles.cardThumbNote} aria-hidden="true" />

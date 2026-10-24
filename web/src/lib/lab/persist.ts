@@ -8,14 +8,22 @@
 // Bumping a version means: add the new key here, keep the old one, and write a
 // migration that reads the old and writes the new. serialize.ts's
 // migrateLegacyDraft is the precedent: it lifts _draft_v1 and _ramp_v1 into a
-// _project_v2 project. The gallery was never migrated. It still lives under
-// its _v1 key.
+// _project_v2 project. A key whose feature is gone stays listed here with the
+// date, so the lab can still remove it (legacyDraft.ts dropAiGallery).
 
 export const LAB_STORAGE = {
-  /** The whole layered project — layers, knobs, ramps, director, gen settings. serialize.ts */
+  /** The whole layered project — layers, knobs, ramps, director, prompt colour mode. serialize.ts */
   project: "patternflow_lab_project_v2",
   /** The dockview layout. PatternLabClient.tsx */
   layout: "patternflow_lab_layout_v1",
+  /**
+   * The dockview layout when the lab opens 800px wide or less. A tablet can
+   * open the lab upright one day and on its side the next, and each width
+   * keeps the dock it was arranged at. Written since 16 October 2026; before
+   * that a phone saved its three squeezed columns under _layout_v1, which a
+   * narrow screen no longer reads. PatternLabClient.tsx
+   */
+  layoutNarrow: "patternflow_lab_layout_narrow_v1",
   /** Ring of parked sessions, newest first. sessions.ts */
   sessions: "patternflow_lab_sessions_v1",
   /** Graphic Export output settings. capture/settings.ts */
@@ -30,11 +38,17 @@ export const LAB_STORAGE = {
    */
   legacyDraft: "patternflow_lab_draft_v1",
   /**
-   * The generated gallery. The lab's autosave has written it since 25 July
-   * 2026 (e19fe19) and still does, because the gallery never moved into the
-   * project. legacyDraft.ts
+   * The AI gallery's generated patterns, written by the lab's autosave from
+   * 25 July 2026 (e19fe19) until the gallery was taken out on 23 October.
+   * Nothing writes it now, and the lab removes it on open. legacyDraft.ts
    */
   gallery: "patternflow_lab_gallery_v1",
+  /**
+   * The Gemini API key the AI gallery saved for whoever set one. Nothing
+   * writes it since 23 October 2026, and the lab removes it on open.
+   * legacyDraft.ts
+   */
+  geminiKey: "patternflow_gemini_key",
   /**
    * The colour ramp, written by the lab on every ramp edit from 2 July 2026
    * (67b9798) until Pattern Lab v2 on 27 July (9be6e98). Nothing writes it

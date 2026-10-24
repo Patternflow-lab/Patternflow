@@ -77,23 +77,28 @@ describe('grouping builds that sit too close to tell apart', () => {
     expect(backwards.map((group) => group.id).sort()).toEqual(forwards.map((group) => group.id).sort());
   });
 
-  it('reads the real map: the UK is three, France two, northern California three', () => {
+  it('reads the real map: Seoul is five, the UK three, France two, northern California three, Ajman three, Moscow two', () => {
     const multi = idsOf(groupBuilds(builds))
       .filter((ids) => ids.length > 1)
       .map((ids) => [...ids].sort());
-    expect(multi).toHaveLength(3);
+    expect(multi).toHaveLength(6);
+    expect(multi).toContainEqual(['seoul-anbu', 'seoul-ddp', 'seoul-hongdae', 'seoul-hongik', 'seoul-v1']);
     expect(multi).toContainEqual(['uk-nath', 'uk-saladman', 'uk-slowrush']);
     expect(multi).toContainEqual(['france-day', 'paris-v1']);
     expect(multi).toContainEqual(['california-lopez', 'sf-swartz', 'usa-jon']);
+    expect(multi).toContainEqual(['uae-simonepda', 'uae-simonepda-lasercut', 'uae-simonepda-mqtt']);
+    expect(multi).toContainEqual(['russia-dmitryleeo', 'russia-zuperzuche']);
   });
 
   it('follows the filter: a group is only the entries on show', () => {
     const builtOnly = builds.filter((build) => build.category === 'builds');
     const multi = idsOf(groupBuilds(builtOnly)).filter((ids) => ids.length > 1).map((ids) => [...ids].sort());
-    // France loses its project and California its sale.
+    // France and Ajman lose their projects, California its sale, Seoul its showings.
     expect(multi).toContainEqual(['uk-nath', 'uk-saladman', 'uk-slowrush']);
     expect(multi).toContainEqual(['california-lopez', 'usa-jon']);
-    expect(multi).toHaveLength(2);
+    expect(multi).toContainEqual(['uae-simonepda', 'uae-simonepda-lasercut']);
+    expect(multi).toContainEqual(['russia-dmitryleeo', 'russia-zuperzuche']);
+    expect(multi).toHaveLength(4);
   });
 });
 
@@ -104,7 +109,7 @@ describe('the count beside the list', () => {
     expect(named('Leeds, UK')).toBe('United Kingdom');
     expect(named('United Kingdom')).toBe('United Kingdom');
     expect(named('San Francisco, USA')).toBe('USA');
-    expect(countCountries(builds)).toBe(12);
+    expect(countCountries(builds)).toBe(14);
   });
 });
 

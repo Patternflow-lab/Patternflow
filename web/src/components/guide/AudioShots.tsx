@@ -641,7 +641,7 @@ export default function AudioShots({ set, lang, step }: { set: AudioShotSet; lan
               data-on={on ? "1" : "0"}
               style={{ width: `${(geo.w / unitW) * 100}%`, aspectRatio: `${geo.w} / ${geo.h}` }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {/* eslint-disable-next-line @next/next/no-img-element -- a real capture or photo, shown as is */}
               <img
                 src={`${BASE}${s.file}.webp`}
                 width={geo.w}

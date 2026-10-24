@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import UpdateClient from "./UpdateClient";
 
 // /update — where a device's console sends you when a newer firmware exists.
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Firmware update / Patternflow",
   description:
     "Update your Patternflow over Wi-Fi. Your patterns, Wi-Fi networks and storage are untouched — an update rewrites the program only.",
+  openGraph: { ...SITE_OPEN_GRAPH, url: "/update" },
 };
 
 export default function UpdatePage() {

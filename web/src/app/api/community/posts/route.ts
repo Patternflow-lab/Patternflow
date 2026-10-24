@@ -1,5 +1,6 @@
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { cleanPinNote, cleanTerritoryCode } from "@/lib/community/workshop";
 import { notifyNewThread } from "@/lib/community/server/notify";
@@ -43,14 +44,8 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Too many posts — wait a minute and try again." }, { status: 429 });
   }
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
-  const raw = payload as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
   const title = cleanTitle(raw.title);
   if (!title) {
     return Response.json({ error: "Title is empty or too long." }, { status: 400 });

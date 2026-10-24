@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import shelf from "../editions/Editions.module.css";
 import ShelfTabs from "../editions/ShelfTabs";
 import styles from "./Features.module.css";
@@ -26,6 +27,7 @@ export const metadata: Metadata = {
   description:
     "What a Patternflow panel can do, one feature at a time: a microphone, audio from a browser or phone, OSC, MIDI, a clock, MQTT, sequences, the weather. What each needs, which firmware carries it, and a reel of it running.",
   alternates: { canonical: "/features" },
+  openGraph: { ...SITE_OPEN_GRAPH, url: "/features" },
 };
 
 export const dynamic = "force-static";
@@ -102,7 +104,7 @@ export default function FeaturesPage() {
     <main className={shelf.page}>
       <div className={shelf.doc}>
         <header className={shelf.head}>
-          <Link href="/" className={shelf.brand}>
+          <Link href="/" prefetch={false} className={shelf.brand}>
             Patternflow
           </Link>
           <ShelfTabs active="features" />

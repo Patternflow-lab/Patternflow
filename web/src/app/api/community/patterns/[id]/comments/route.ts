@@ -1,6 +1,7 @@
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { notifyCommentAdded } from "@/lib/community/server/notify";
 import { getPatternStub, newId } from "@/lib/community/server/queries";
@@ -46,14 +47,10 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
     return Response.json({ error: "Pattern not found." }, { status: 404 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+  const body = await readJsonObject(request);
+  if (body instanceof Response) return body;
 
-  const text = cleanComment((body as Record<string, unknown>).body);
+  const text = cleanComment(body.body);
   if (!text) {
     return Response.json({ error: "Comment is empty or over 2000 chars." }, { status: 400 });
   }

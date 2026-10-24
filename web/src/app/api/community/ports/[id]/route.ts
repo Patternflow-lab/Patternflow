@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { bakePatternHeader } from "@/lib/community/server/moduleCache";
 import { clearNotificationsFor, notifyHeaderModerated } from "@/lib/community/server/notify";
@@ -96,13 +97,8 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
   const port = await getPortStub(id);
   if (!port) return Response.json({ error: "Port not found." }, { status: 404 });
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   const codeCpp = cleanCpp(raw.codeCpp);
   if (codeCpp === null) {

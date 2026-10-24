@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { getKnobValueDelta, LOGICAL_KNOB_RANGES, LOGICAL_KNOB_TO_WEB_KNOB, toEncoderDelta } from '@/lib/pattern/controls';
-import { compilePatternCode, type PatternModule, type PatternParams } from '@/lib/pattern/harness';
+import { compilePatternCode, describePatternError, type PatternModule, type PatternParams } from '@/lib/pattern/harness';
 
 type WebKnobValues = Record<'c1' | 'c2' | 'c3' | 'c4', number>;
 
@@ -23,6 +23,10 @@ export class LedMatrixTexture {
   
   private userModule: PatternModule | null = null;
   private userParams: PatternParams = {};
+  // The code userModule was compiled from, so a throw from update() or draw()
+  // can quote its line.
+  private source: string | null = null;
+  private error: string | null = null;
   
   // Create a display wrapper to match ESP32 API structure
   private displayApi = {
@@ -71,25 +75,43 @@ export class LedMatrixTexture {
     }
   };
 
-  constructor() {
+  /**
+   * `onError` hears why the editor's code is not running, with the line it
+   * failed on when the stack gives one, and null once new code runs. Only
+   * when that changes: a draw() that throws throws on every frame.
+   */
+  constructor(private readonly onError?: (message: string | null) => void) {
     this.data = new Uint8Array(this.width * this.height * 4);
     this.texture = new THREE.DataTexture(this.data, this.width, this.height, THREE.RGBAFormat);
     this.texture.needsUpdate = true;
   }
 
-  // Evaluate the custom code and setup the module
+  private setError(message: string | null) {
+    if (message === this.error) return;
+    this.error = message;
+    this.onError?.(message);
+  }
+
+  // Evaluate the custom code and setup the module. Code that will not compile
+  // or set up leaves the last pattern that did running: while someone types,
+  // most keystrokes leave code that does not parse yet.
   public loadCode(code: string) {
     try {
-      this.userModule = compilePatternCode(code);
-      this.userParams = {};
-      
-      this.userModule.setup?.(this.userParams);
-      
+      const userModule = compilePatternCode(code);
+      const userParams: PatternParams = {};
+      userModule.setup?.(userParams);
+
+      this.userModule = userModule;
+      this.userParams = userParams;
+      this.source = code;
+      this.setError(null);
+
       // Clear the screen
       this.data.fill(0);
       this.texture.needsUpdate = true;
     } catch (e) {
       console.error("Failed to load pattern code:", e);
+      this.setError(describePatternError(e, code));
     }
   }
 
@@ -139,7 +161,11 @@ export class LedMatrixTexture {
       // Update texture
       this.texture.needsUpdate = true;
     } catch (e) {
+      // The first throw stays until the code changes. A pattern that throws
+      // on some frames only would otherwise flash the message on and off.
+      if (this.error !== null) return;
       console.error("Runtime error in pattern code:", e);
+      this.setError(describePatternError(e, this.source));
     }
   }
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { authClient, dummyEmailFor } from "@/lib/community/auth-client";
 import { PASSWORD_MIN, USERNAME_RE } from "@/lib/community/validate";
+import { useDialog } from "@/lib/hooks/useDialog";
 import styles from "./Community.module.css";
 
 // Username + password auth. Email is an optional recovery field only — when
@@ -131,16 +132,28 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
 
   if (embedded) return <div className={styles.modalBody}>{body}</div>;
 
+  return <AuthWindow onClose={onClose}>{body}</AuthWindow>;
+}
+
+// Only the standalone window takes Esc and the focus. Embedded, the window
+// around the form owns both.
+function AuthWindow({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  const cardRef = useDialog<HTMLDivElement>(onClose);
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span>Patternflow Community</span>
           <button type="button" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
-        <div className={styles.modalBody}>{body}</div>
+        <div className={styles.modalBody}>{children}</div>
       </div>
     </div>
   );

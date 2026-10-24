@@ -51,7 +51,7 @@ export default function InsidePanel({ content }: InsidePanelProps) {
   return (
     <div className="panel-content pf-section-panel" id="inside" aria-label={content.title}>
       <div className="panel-header">
-        <h2 className="pf-h2">{content.title || 'Inside the work.'}</h2>
+        <h1 className="pf-h2">{content.title || 'Inside the work.'}</h1>
         <p className="pf-sub">{content.subtitle}</p>
         <div className={styles.joinBand} aria-label="Ways to join Patternflow">
           {JOIN.map((row) => {

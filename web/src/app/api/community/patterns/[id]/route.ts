@@ -8,6 +8,7 @@ import {
 } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { bakePatternHeader } from "@/lib/community/server/moduleCache";
 import {
@@ -39,7 +40,13 @@ import {
   cleanTitle,
 } from "@/lib/community/validate";
 import { cleanVisibility } from "@/lib/community/visibility";
-import { KNOWN_LICENSES, forkLicenseAllowed, stripShareWrapping } from "@/lib/pattern/share";
+import {
+  KNOWN_LICENSES,
+  LICENSE_OPTIONS,
+  RETIRED_LICENSE_OPTIONS,
+  forkLicenseAllowed,
+  stripShareWrapping,
+} from "@/lib/pattern/share";
 
 // PATCH /api/community/patterns/[id] — the author edits their own pattern.
 //
@@ -128,13 +135,8 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
     return Response.json({ error: "You can only edit your own patterns." }, { status: 403 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   // A moderator's reach into someone else's pattern is its visibility or its
   // .h, never both at once. Every other field below simply never runs for
@@ -182,11 +184,25 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
 
   let license = pattern.license;
   if (raw.license !== undefined) {
-    // KNOWN_LICENSES, not LICENSE_OPTIONS: a pattern published under a licence
-    // that has since been retired must stay editable by its author. Keeping the
-    // stored value is always allowed; only *changing* it is restricted.
-    const match = KNOWN_LICENSES.find((option) => option.spdx === raw.license);
-    if (!match) return Response.json({ error: "Unknown licence." }, { status: 400 });
+    // Keeping the stored value is always allowed, so it is looked up in
+    // KNOWN_LICENSES: a pattern published under a licence that has since been
+    // retired must stay editable by its author. Changing it picks from
+    // LICENSE_OPTIONS, the two the publish route and both pickers offer. A
+    // retired licence stays on the work that already has it, and no pattern
+    // moves to one.
+    const choosable = raw.license === pattern.license ? KNOWN_LICENSES : LICENSE_OPTIONS;
+    const match = choosable.find((option) => option.spdx === raw.license);
+    if (!match) {
+      const retired = RETIRED_LICENSE_OPTIONS.find((option) => option.spdx === raw.license);
+      return Response.json(
+        {
+          error: retired
+            ? `${retired.spdx} is retired. A pattern published under it keeps it, but no pattern can change to it.`
+            : "Unknown licence.",
+        },
+        { status: 400 },
+      );
+    }
     if (match.spdx !== pattern.license && parent && !forkLicenseAllowed(parent.license, match.spdx)) {
       return Response.json(
         {

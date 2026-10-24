@@ -7,6 +7,7 @@ import { captureEvent } from "@/lib/posthogEvents";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
 import { useSubmitLatch } from "@/lib/community/submitLatch";
+import { useDialog } from "@/lib/hooks/useDialog";
 import AuthModal from "./AuthModal";
 import styles from "./Community.module.css";
 
@@ -54,6 +55,7 @@ export default function AddHeaderModal({
   const [busy, setBusy] = useState(false);
   // One request per press, decided in the click's own tick (#455).
   const latch = useSubmitLatch();
+  const cardRef = useDialog<HTMLDivElement>(onClose);
 
   const moderating = mode === "moderate" || mode === "moderate-port";
 
@@ -126,6 +128,8 @@ export default function AddHeaderModal({
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
       <div
+        ref={cardRef}
+        tabIndex={-1}
         className={`${styles.modalCard} ${styles.modalCardWide}`}
         onClick={(event) => event.stopPropagation()}
       >

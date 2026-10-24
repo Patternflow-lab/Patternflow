@@ -20,7 +20,7 @@ import type { TryOut } from "./features-data";
 const SITE = "https://patternflow.work";
 
 export default function TryInstall({ t }: { t: TryOut }) {
-  const { deviceHost, changeDeviceHost } = useDeviceHost();
+  const { deviceHost, host, changeDeviceHost } = useDeviceHost();
   // The panel's page fetches the image, so the URL has to be absolute. The
   // production origin is the server-side answer, so the first paint matches;
   // a preview or a dev server reads its own in on the client. A store that
@@ -32,7 +32,6 @@ export default function TryInstall({ t }: { t: TryOut }) {
     () => SITE,
   );
 
-  const host = deviceHost.trim() || "patternflow.local";
   const src = new URL(t.url, origin).toString();
   const href = `http://${host}/update?src=${encodeURIComponent(src)}`;
 

@@ -2,6 +2,7 @@ import { eq, isNotNull } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { getPostStub } from "@/lib/community/server/queries";
 import { posts } from "@/lib/community/server/schema";
@@ -36,13 +37,9 @@ async function handlePost(request: Request, context: { params: Promise<{ id: str
   const post = await getPostStub(id);
   if (!post) return Response.json({ error: "Post not found." }, { status: 404 });
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const pinned = (body as Record<string, unknown>).pinned;
+  const body = await readJsonObject(request);
+  if (body instanceof Response) return body;
+  const pinned = body.pinned;
   if (typeof pinned !== "boolean") {
     return Response.json({ error: "Expected { pinned: true | false }." }, { status: 400 });
   }

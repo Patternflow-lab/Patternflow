@@ -1,5 +1,6 @@
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { newId, reportTarget } from "@/lib/community/server/queries";
 import { rateLimit } from "@/lib/community/ratelimit";
@@ -35,13 +36,8 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Too many reports — wait a minute and try again." }, { status: 429 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   if (!isReportTargetType(raw.targetType)) {
     return Response.json({ error: "Unknown report target." }, { status: 400 });

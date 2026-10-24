@@ -5,9 +5,11 @@ import Image from 'next/image';
 import Globe from './Globe';
 import BuildFilters from './BuildFilters';
 import PhotoLightbox from './PhotoLightbox';
+import PinLink from './PinLink';
 import { builds, formatBuildDate, CARD_TILES, STRIP_TILES } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import { useAppStore } from '@/store/useAppStore';
+import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import styles from './GlobeViewer.module.css';
 
 // The Inside section's viewer: an interactive globe with the picked build's
@@ -21,7 +23,15 @@ export default function GlobeViewer() {
   const { selectedId, select: selectBuild, visibleBuilds } = useBuildSelection();
   // On the hero the globe stands in for the product shot: no filters, and a
   // pin opens the Inside section rather than a detail card beside hero copy.
-  const onHero = useAppStore((state) => state.homeTab) === 'hero';
+  const homeTab = useAppStore((state) => state.homeTab);
+  const onHero = homeTab === 'hero';
+  // Below 901px the 3D view is hidden on the hero (globals.css) and drops
+  // down only for a tab, so a phone shows the globe on Inside alone. The
+  // photos below are warmed only where the globe is seen: a phone's hidden
+  // hero globe sent for all of them, in the large variant a 3× screen picks.
+  // The query reads false until measured, so a phone never renders them.
+  const wide = useMediaQuery('(min-width: 901px)');
+  const warm = wide || homeTab === 'inside';
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [hasSelected, setHasSelected] = useState(false);
 
@@ -69,17 +79,19 @@ export default function GlobeViewer() {
   return (
     <div className={styles.viewer}>
       {/* Offscreen preloader: fetch each pin's opening tiles (the same optimized
-          variant the strip and card use) eagerly the moment the globe mounts, so
+          variant the strip and card use) eagerly the moment the globe is seen, so
           opening a pin shows its photos instantly instead of lazy-loading. Low
           fetch priority so they queue behind the globe itself rather than
           competing with it for bandwidth on first paint. */}
-      <div className={styles.preload} aria-hidden>
-        {allImages.map((image) => (
-          <span key={image.src} className={styles.preloadBox}>
-            <Image src={image.src} alt="" fill sizes="280px" loading="eager" fetchPriority="low" />
-          </span>
-        ))}
-      </div>
+      {warm && (
+        <div className={styles.preload} aria-hidden>
+          {allImages.map((image) => (
+            <span key={image.src} className={styles.preloadBox}>
+              <Image src={image.src} alt="" fill sizes="280px" loading="eager" fetchPriority="low" />
+            </span>
+          ))}
+        </div>
+      )}
 
       <Globe entries={visibleBuilds} selectedBuildId={selectedId ?? undefined} onSelectBuild={select} />
       {!onHero && <BuildFilters />}
@@ -168,16 +180,13 @@ export default function GlobeViewer() {
               {selected.links && selected.links.length > 0 && (
                 <div className={styles.links}>
                   {selected.links.map((link) => (
-                    <a
+                    <PinLink
                       key={link.href}
                       className={styles.link}
                       href={link.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      label={link.label}
                       onClick={(event) => event.stopPropagation()}
-                    >
-                      {link.label} ↗
-                    </a>
+                    />
                   ))}
                 </div>
               )}

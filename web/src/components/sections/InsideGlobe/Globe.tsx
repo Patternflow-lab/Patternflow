@@ -11,14 +11,16 @@ import {
   Float32BufferAttribute,
   Matrix4,
   Quaternion,
+  Shape,
   Vector3,
 } from 'three';
 import type { Build } from './builds';
 import { builds, latLngToVec3, originOf } from './builds';
 import type { BuildGroup } from './groups';
 import type { FanObstacle } from './groups';
-import { angularDistance, fanAngle, fanChordPx, fanLean, fanRadiusPx, groupBuilds } from './groups';
+import { GROUP_ANGLE_DEG, angularDistance, fanAngle, fanChordPx, fanLean, fanRadiusPx, groupBuilds } from './groups';
 import landData from './land.json';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
 const COLORS = {
   graticule: '#CFC7B4',     // faint lat/long grid — the see-through ocean
@@ -215,8 +217,8 @@ const ARC_SAMPLES = 96;
 
 // Links between each build and its few nearest builds (deduped), not a full
 // mesh. Only actual builds take part: this web means "how far Patternflow has
-// spread", so a collaboration joining it would overstate the count. Those get
-// their own line back to where they came from.
+// spread", so a collaboration, a sale or a showing joining it would overstate
+// the count. Those get their own line back to where they came from.
 function webArcs(entries: Build[]): number[][] {
   const built = entries.filter((build) => build.kind === 'build');
   const arcs: number[][] = [];
@@ -252,13 +254,17 @@ function webArcs(entries: Build[]): number[][] {
   return arcs;
 }
 
-// One line from each collaboration, and each sale, back to where it came from.
+// One line from each collaboration, sale and showing back to where it came
+// from. None from a pin that sits on its origin's own spot, as the showings in
+// Seoul sit on the first build: that line would have no length, only its dots
+// piled on the pin.
 function collaborationArcs(entries: Build[]): number[][] {
   const arcs: number[][] = [];
   for (const build of entries) {
     if (build.kind === 'build') continue;
     const origin = originOf(build);
     if (!origin || !entries.some((entry) => entry.id === origin.id)) continue;
+    if (angularDistance(origin.location, build.location) <= (GROUP_ANGLE_DEG * Math.PI) / 180) continue;
     arcs.push(
       linkArc(
         origin.location.lat, origin.location.lng,
@@ -310,13 +316,14 @@ const _dotQuat = new Quaternion();
 const _dotMatrix = new Matrix4();
 
 // Dots running along the links, so the web reads as something live and moving
-// between the builds rather than a fixed diagram.
+// between the builds rather than a fixed diagram. For someone who has asked
+// for less motion they stand where they start, spaced along each link.
 //
 // Instanced spheres rather than a Points cloud: point sprites are squares held
 // flat to the screen, which is invisible at rest but unmistakable once a pin is
 // picked and the globe dollies in. Being round, they need no orientation — the
 // rotation is left at identity and the scale is uniform.
-function LinkDots({ arcs, opacity }: { arcs: number[][]; opacity: number }) {
+function LinkDots({ arcs, opacity, still }: { arcs: number[][]; opacity: number; still: boolean }) {
   const meshRef = useRef<InstancedMesh>(null);
   const count = arcs.length * DOTS_PER_LINK;
 
@@ -336,7 +343,7 @@ function LinkDots({ arcs, opacity }: { arcs: number[][]; opacity: number }) {
   useFrame((state) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    const time = state.clock.elapsedTime;
+    const time = still ? 0 : state.clock.elapsedTime;
 
     let d = 0;
     for (const arc of arcs) {
@@ -411,15 +418,43 @@ const smoothstep = (value: number, from: number, to: number) => {
   return t * t * (3 - 2 * t);
 };
 
+// How far each mark reaches from its centre, in pin radii: the shapes below
+// are drawn to it, and an open fan keeps clear of it.
+const PIN_REACH: Record<Build['kind'], number> = {
+  build: 1,
+  collaboration: 1.77,
+  sold: 1.45,
+  showing: 1.6,
+};
+
+// A showing's triangle, point up. Flat in the pin's own plane like the ring,
+// so a fanned-out showing, stood upright to the viewer, is the right way up.
+const SHOWING_TRIANGLE = (() => {
+  const reach = PIN_RADIUS * PIN_REACH.showing;
+  const half = reach * Math.sin(Math.PI / 3);
+  const shape = new Shape();
+  shape.moveTo(0, reach);
+  shape.lineTo(-half, -reach / 2);
+  shape.lineTo(half, -reach / 2);
+  shape.closePath();
+  return shape;
+})();
+// One object, so a pin re-rendered on hover keeps its geometry.
+const SHOWING_EXTRUDE = { depth: PIN_RADIUS * 0.8, bevelEnabled: false };
+
 // A dot means a Patternflow exists there; a collaboration is an open ring,
 // something that grew out of one; a sale is a diamond, a unit that went out
-// rather than one that was built there. Reads at a glance without a second
-// colour, and survives colour-blindness.
+// rather than one that was built there; a showing is a triangle, a unit set
+// out there for a while for people to play. Reads at a glance without a
+// second colour, and survives colour-blindness.
 function PinShape({ kind }: { kind: Build['kind'] }) {
   if (kind === 'collaboration') {
     return <torusGeometry args={[PIN_RADIUS * 1.35, PIN_RADIUS * 0.42, 10, 28]} />;
   }
-  if (kind === 'sold') return <octahedronGeometry args={[PIN_RADIUS * 1.45, 0]} />;
+  if (kind === 'sold') return <octahedronGeometry args={[PIN_RADIUS * PIN_REACH.sold, 0]} />;
+  if (kind === 'showing') {
+    return <extrudeGeometry args={[SHOWING_TRIANGLE, SHOWING_EXTRUDE]} />;
+  }
   return <sphereGeometry args={[PIN_RADIUS, 16, 16]} />;
 }
 
@@ -930,7 +965,7 @@ const FIT_RADIUS = 1.35;       // globe radius including markers
 const FIT_FRACTION = 0.7;      // share of the limiting dimension to occupy
 const FOCUS_DOLLY = 0.62;      // zoom-in factor when a build is selected
 const DRAG_SPEED = 0.006;      // radians per pixel of drag
-const DRIFT_SPEED = 0.18;      // radians per second, idle
+const DRIFT_SPEED = 0.18;      // radians per second, idle; none with less motion
 
 // The globe leans a degree or two towards the pointer - enough to feel that
 // it has noticed, not enough to move a pin out from under it. Mouse only, and
@@ -992,10 +1027,9 @@ function GlobeScene({
   // Every pin as an open fan has to see it: where, and how big its mark is.
   const neighbours = useMemo<Neighbour[]>(
     () => groups.map(({ id, members, center }) => {
-      const kind = members[0].kind;
       const reach = members.length > 1
         ? (ringRadii(members.length).at(-1) ?? 0) / PIN_RADIUS + GROUP_RING_TUBE
-        : kind === 'collaboration' ? 1.77 : kind === 'sold' ? 1.45 : 1;
+        : PIN_REACH[members[0].kind];
       return {
         id,
         at: new Vector3(...latLngToVec3(center.lat, center.lng, PIN_LAYER_RADIUS)),
@@ -1004,10 +1038,7 @@ function GlobeScene({
     }),
     [groups],
   );
-  const reducedMotion = useMemo(
-    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    [],
-  );
+  const reducedMotion = useReducedMotion();
   const canvas = useThree((state) => state.gl.domElement);
 
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -1078,9 +1109,11 @@ function GlobeScene({
     // The globe holds still under a pointer that is on a pin, and while a
     // group stands open: a fan that slid away as you reached for it would be
     // no use. It picks its drift back up gradually, the way it would if it
-    // had weight.
+    // had weight. Someone who has asked for less motion gets no drift at
+    // all: the globe turns when they drag it, and stays where they leave it.
     const held = !!selected || !!heldOpen || !!hoveredId || dragging.current;
-    drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
+    if (reducedMotion) drift.current = 0;
+    else drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
 
     if (selected) {
       // Ease the picked location around to face the camera.
@@ -1204,8 +1237,8 @@ function GlobeScene({
       <GlobeWireframe />
       <LinkLines arcs={web} opacity={0.45} />
       <LinkLines arcs={collaborations} opacity={0.22} />
-      <LinkDots arcs={web} opacity={0.9} />
-      <LinkDots arcs={collaborations} opacity={0.5} />
+      <LinkDots arcs={web} opacity={0.9} still={reducedMotion} />
+      <LinkDots arcs={collaborations} opacity={0.5} still={reducedMotion} />
       {groups.map((group) => {
         if (group.members.length === 1) {
           const build = group.members[0];

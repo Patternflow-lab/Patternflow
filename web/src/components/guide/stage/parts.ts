@@ -8,18 +8,18 @@ import * as THREE from "three";
 //                    0904_v3.9, its assembled copy) by the pure translation
 //                    (−300.2723, +58.4313, −1.9078) that lands the blend's LED
 //                    panel exactly on the LED mesh below
-//   - model.glb      public/cases/official/, the official case model the
-//                    landing page's preview shows (tools/case-models), of
-//                    which only the LED mesh, "l", is used
+//   - led-panel.glb  the LED mesh, "l", of public/cases/official/model.glb,
+//                    the official case model the landing page's preview
+//                    shows (tools/case-models), cut out of it by
+//                    web/scripts/cut-led-panel.ts
 //   - pcb-v39.glb    the v3.9 board, exported from hardware/pcb/kicad with
 //                    kicad-cli, placed so its four encoders sit under the knobs
 //   - devkit.glb     the ESP32-S3 DevKit, in a canonical frame: origin at the
 //                    board's centre, +Y toward the antenna, +Z out of the
 //                    component side, +X to the reader's right, metres.
 
-export const CASE_URL = "/guide/case-v39.glb";
-export const PCB_URL = "/guide/pcb-v39.glb";
-export const DEVKIT_URL = "/guide/devkit.glb";
+// Their addresses are in files.ts.
+export { CASE_URL, DEVICE_MODELS, DEVKIT_URL, PCB_URL } from "./files";
 
 /** Metres → model units. */
 export const M_TO_MODEL = 100;

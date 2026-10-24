@@ -143,7 +143,7 @@ export default function CasePicker({
 
         <div className={styles.body}>
           <div className={styles.head}>
-            <h3 className={styles.name}>{selected.name}</h3>
+            <h2 className={styles.name}>{selected.name}</h2>
             <span className={styles.kind}>{selected.kind === 'official' ? 'Official' : 'Community remix'}</span>
           </div>
           <p className={styles.summary}>{selected.summary}</p>
