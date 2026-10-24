@@ -6,6 +6,7 @@
 // and 44×44px after, in a header 59px tall both times. On a 390×844 touch
 // screen the tab strip under Preview was 736px for 333px of room, and every
 // tab carried a 27×27px ×. Without the × it is 520px and Knobs shows whole.
+// On the same screen Del was 37×28px, the layer eye 20×17px and Push 40×22px.
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -111,5 +112,59 @@ describe("Lab dock on a touch screen", () => {
     const shown = mediaRule(dockview, "(hover: none)", ".dv-tab.dv-inactive-tab .dv-default-tab .dv-default-tab-action");
     expect(shown).toMatch(/visibility: visible;/);
     expect(shown).not.toMatch(/display:/);
+  });
+});
+
+describe("Layers and Knobs on a touch screen", () => {
+  const dock = css("LabPanels.module.css");
+  const knobs = css("panels/KnobsPanel.module.css");
+  const layers = css("panels/LayersPanel.tsx");
+  const touch = (source: string, selector: string) => mediaRule(source, "(hover: none)", selector);
+
+  it("give the Layers bar buttons a 44px box", () => {
+    const button = touch(dock, ".layerBar button");
+    expect(button).toMatch(/min-width: 44px;/);
+    expect(button).toMatch(/min-height: 44px;/);
+    // Only the Layers bar: the Pixel toolbars carry a dozen buttons each.
+    expect(layers).toMatch(/className=\{`\$\{dock\.panelBar\} \$\{dock\.layerBar\}`\}/);
+    expect(touch(dock, ".panelBar button")).toBe("");
+  });
+
+  it("let the eye fill a 44px row", () => {
+    const row = touch(dock, ".layerRow");
+    expect(row).toMatch(/min-height: 46px;/);
+    expect(row).toMatch(/padding-block: 0;/);
+    const eye = touch(dock, ".layerEye");
+    expect(eye).toMatch(/align-self: stretch;/);
+    expect(eye).toMatch(/width: 44px;/);
+  });
+
+  it("give the mask, opacity and blend rows a 44px height", () => {
+    expect(touch(dock, ".layerMaskLabel")).toMatch(/min-height: 44px;/);
+    expect(touch(dock, ".layerControlRow select")).toMatch(/min-height: 44px;/);
+    expect(mediaBlocks(dock, "(hover: none)").join("")).toContain('.layerControlRow input[type="range"],\n  .layerControlRow select {');
+  });
+
+  it("give Push a 44px box", () => {
+    const push = touch(knobs, ".knobButton");
+    expect(push).toMatch(/min-width: 44px;/);
+    expect(push).toMatch(/min-height: 44px;/);
+  });
+
+  it("come after the rules they override", () => {
+    // Same specificity again, so each touch block has to sit below them.
+    const dockTouch = dock.lastIndexOf("@media (hover: none) {");
+    for (const base of [
+      "\n.panelBar button {",
+      "\n.layerRow {",
+      "\n.layerEye {",
+      "\n.layerControlRow select {",
+      "\n.layerMaskLabel {",
+    ]) {
+      expect(dock.indexOf(base)).toBeGreaterThan(-1);
+      expect(dockTouch).toBeGreaterThan(dock.indexOf(base));
+    }
+    // The 980px block sets Push back to 22px.
+    expect(knobs.lastIndexOf("@media (hover: none) {")).toBeGreaterThan(knobs.indexOf("@media (max-width: 980px) {"));
   });
 });
