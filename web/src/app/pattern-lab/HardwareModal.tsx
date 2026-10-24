@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
 import { useDialog } from "@/lib/hooks/useDialog";
 import { useResettingState } from "@/lib/hooks/useResettingState";
-import { assembleH, buildHExport, cleanPastedUnit, enforcePatternName } from "@/lib/lab/hExport";
+import {
+  assembleH,
+  buildHExport,
+  cleanPastedHeader,
+  cleanPastedUnit,
+  enforcePatternName,
+} from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { needsFlatten } from "@/lib/lab/flatten";
@@ -85,14 +91,21 @@ export default function HardwareModal({
     });
   }, [layers, activeLayerId, codeLayers, matrix, knobs, ranges, knobLabels, name]);
 
+  // A chat answer pasted whole used to go into the .h with the model's words
+  // and the ``` fence, and the header test below passed it.
+  const singleHeader = useMemo(() => cleanPastedHeader(single), [single]);
+  const wordsLeftOut = singleHeader !== null && singleHeader !== single.trim();
+
   // Single path: the model writes NAME itself, so stamp the lab's name back
   // on (the scaffold path already carries it — buildHExport bakes it in).
   const assembled = useMemo(
     () =>
       stacked
         ? assembleH(exportData.scaffold, pastes)
-        : enforcePatternName(single.trim(), name),
-    [stacked, exportData.scaffold, pastes, single, name],
+        : singleHeader === null
+          ? ""
+          : enforcePatternName(singleHeader, name),
+    [stacked, exportData.scaffold, pastes, singleHeader, name],
   );
 
   // Text and pixel layers go into the scaffold as the pixels they show, so
@@ -287,13 +300,18 @@ export default function HardwareModal({
                       {headerLooksReal
                         ? "Looks like a header ✓"
                         : "A Patternflow header starts with #pragma once"}
+                      {wordsLeftOut ? " The words around it stay out of the .h." : null}
                     </p>
                   )}
                 </>
               )}
 
               <div className={styles.variantActions} style={{ marginTop: 10, flexWrap: "wrap" }}>
-                <button type="button" onClick={() => void copyText("h", assembled)}>
+                <button
+                  type="button"
+                  onClick={() => void copyText("h", assembled)}
+                  disabled={!headerLooksReal}
+                >
                   {copyLabel("h", "Copy .h")}
                 </button>
                 <button type="button" onClick={downloadH} disabled={!headerLooksReal}>

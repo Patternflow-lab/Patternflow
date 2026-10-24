@@ -725,6 +725,26 @@ export function cleanPastedUnit(pasted: string, index: number): string | null {
   return text;
 }
 
+/**
+ * Cut a pasted one-layer answer down to the header. A chat answer copied whole
+ * brings the model's words and the ``` fence along. The header starts at the
+ * line #pragma once, or at the comment lines just above it (presets open with
+ * their SPDX line), and ends where a fence closes. null when no line starts
+ * with #pragma once.
+ */
+export function cleanPastedHeader(pasted: string): string | null {
+  const lines = pasted.split("\n");
+  const pragma = lines.findIndex((line) => /^\s*#pragma\s+once\b/.test(line));
+  if (pragma < 0) return null;
+  let start = pragma;
+  while (start > 0 && /^\s*(\/\/|\/\*|\*|$)/.test(lines[start - 1])) start -= 1;
+  const fence = lines.findIndex((line, i) => i > pragma && /^\s*```/.test(line));
+  return lines
+    .slice(start, fence < 0 ? lines.length : fence)
+    .join("\n")
+    .trim();
+}
+
 /** Swap pasted layer units into their marked slots. Missing units keep stubs. */
 export function assembleH(scaffold: string, units: Record<number, string>): string {
   let out = scaffold;
