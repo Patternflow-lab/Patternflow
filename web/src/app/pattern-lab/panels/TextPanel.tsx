@@ -12,6 +12,9 @@
 //
 // An effect moves the letters every frame at a speed one knob sets
 // (lib/lab/textEffects.ts), and the export and the firmware header carry it.
+// That knob turns here too, beside its picker: the same store value the Knobs
+// panel turns, so on a phone, where the two are tabs of one group, setting a
+// speed needs no trip to Knobs and back.
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useResettingState } from "@/lib/hooks/useResettingState";
@@ -170,10 +173,11 @@ export default function TextPanel() {
 
 function TextEditor({ layer }: { layer: TextLayer }) {
   const setTextSpec = useLabStore((state) => state.setTextSpec);
+  const setKnob = useLabStore((state) => state.setKnob);
   const knobLabels = useLabStore((state) => state.knobLabels);
-  const speed = useLabStore((state) =>
-    Math.round(knobShare(state.knobs[layer.spec.effectKnob], state.ranges[layer.spec.effectKnob]) * 100),
-  );
+  const knobValue = useLabStore((state) => state.knobs[layer.spec.effectKnob] ?? 0);
+  const knobRange = useLabStore((state) => state.ranges[layer.spec.effectKnob]);
+  const speed = Math.round(knobShare(knobValue, knobRange) * 100);
   const options = useFontOptions();
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [remember, setRemember] = useState(false);
@@ -201,6 +205,7 @@ function TextEditor({ layer }: { layer: TextLayer }) {
     options: options.filter((option) => option.group === group),
   }));
   const remembered = isFileFont(spec.font) && isFontRemembered(spec.font);
+  const knobName = knobLabels[spec.effectKnob] || `Knob ${spec.effectKnob + 1}`;
 
   const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -398,12 +403,25 @@ function TextEditor({ layer }: { layer: TextLayer }) {
               </select>
             </label>
           )}
+          {spec.effect !== "none" && knobRange && (
+            <label className={`${local.field} ${local.grow}`} title="The same knob as in Knobs: turning one turns the other">
+              <span>{knobName}</span>
+              <input
+                type="range"
+                min={knobRange[0]}
+                max={knobRange[1]}
+                step="0.001"
+                value={knobValue}
+                onChange={(event) => setKnob(spec.effectKnob, Number(event.target.value))}
+              />
+            </label>
+          )}
         </div>
         {spec.effect !== "none" && (
           <p className={local.note}>
-            {`${knobLabels[spec.effectKnob] || `Knob ${spec.effectKnob + 1}`} ${EFFECT_SPEED[spec.effect]}. `}
+            {`${knobName} ${EFFECT_SPEED[spec.effect]}. `}
             {speed === 0
-              ? "It is all the way down, so nothing moves yet: turn it up in Knobs."
+              ? "It is all the way down, so nothing moves yet: turn it up here or in Knobs."
               : `It is at ${speed}% now. All the way down stands the effect still.`}
           </p>
         )}
