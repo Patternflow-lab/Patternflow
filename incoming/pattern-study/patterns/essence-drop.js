@@ -227,7 +227,7 @@ function build(S) {
       }
     }
     if (tau >= 0.42 && v < 0.5) {
-      // The beads thrown from the fingers fly out and up, slow, and drop back.
+      // The beads thrown from the fingers fly out and up, then slow and drop back.
       const t = tau - 0.42, Hp = hc * Math.pow(sin((PI * 0.42) / TCR), 0.6), Rp = r * (1.4 + 1.5 * (1 - exp(-0.42 / 0.25))) + 0.35 * Hp;
       for (const [ph, lk, vy, vx] of e.fing) {
         const cs = cos(ph), lf = lk * 0.55 * hc * (1 - v / 0.5);
