@@ -432,6 +432,42 @@ describe("PixelPanel", () => {
     expect(viewport.scrollTop).toBeGreaterThan(0);
   });
 
+  it("the zoom buttons keep the cell in the middle of the panel where it was", () => {
+    // a 300×200 panel, so the picture opens fitted at 2×
+    panelSize(300, 200);
+    const { overlay, viewport } = mount();
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
+    // laid out as in the wheel test above; the viewport's box starts at 0, 0
+    const stage = overlay.parentElement as HTMLDivElement;
+    Object.defineProperty(overlay, "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        const left = 16 - viewport.scrollLeft;
+        const top = 16 - viewport.scrollTop;
+        const width = parseFloat(stage.style.width);
+        const height = parseFloat(stage.style.height);
+        return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) };
+      },
+    });
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByLabelText("Zoom in"));
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+    // scroll the middle of cell (50, 20) to the middle of the panel, (150, 100)
+    viewport.scrollLeft = 50.5 * 6 + 16 - 150;
+    viewport.scrollTop = 20.5 * 6 + 16 - 100;
+    const middle = () => fireEvent.pointerMove(overlay, at(150, 100, { buttons: 0 }));
+    middle();
+    expect(screen.getByText("50,20")).toBeTruthy();
+    for (const [button, zoom] of [["Zoom in", 7], ["Zoom in", 8], ["Zoom out", 7], ["Zoom out", 6]] as const) {
+      fireEvent.click(screen.getByLabelText(button));
+      expect(screen.getByText(`zoom ${zoom}×`)).toBeTruthy();
+      middle();
+      expect(screen.getByText("50,20")).toBeTruthy();
+    }
+    // the same scroll it started from, after going up two and down two
+    expect(viewport.scrollLeft).toBeCloseTo(50.5 * 6 + 16 - 150, 6);
+    expect(viewport.scrollTop).toBeCloseTo(20.5 * 6 + 16 - 100, 6);
+  });
+
   it("switching layers drops the selection", () => {
     const { overlay, viewport } = mount();
     fireEvent.keyDown(viewport, { key: "s" });
