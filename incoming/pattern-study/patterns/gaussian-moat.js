@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Gaussian Moat
 // Family:  number
-// Idea:    Every LED is a Gaussian integer with the origin at the bottom-left corner, the Gaussian primes glow as faint dots, and a breadth-first flood from 1+i hops from prime to prime in steps no longer than the square root of k, growing a branching coral coloured by its depth until it meets a moat, where its shore pulses and k rises to the next possible step so the flood can cross.
+// Idea:    Every LED is a Gaussian integer with the origin at the bottom-left corner, the Gaussian primes glow as faint dots, and a breadth-first flood from 1 + i hops from prime to prime in steps no longer than the square root of k, growing a branching coral coloured by its depth until it meets a moat, where its shore pulses and k rises to the next possible step so the flood can cross.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
