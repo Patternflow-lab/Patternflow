@@ -5,22 +5,22 @@
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 24, after the pendulum wave demonstration (Harvard Natural Sciences Lecture Demonstrations; R. E. Berg, "Pendulum waves", American Journal of Physics 59, 1991)
+// Lineage: original, pattern round 24, after the pendulum wave demonstration of the Harvard Natural Sciences Lecture Demonstrations, fifteen pendulums tuned to 51 to 65 swings a minute
 // Round:   24
 // ===============================
 // @matrix 64x128
 // @knobs Finish=0..1, Speed=0.2..3, Pendulums=16..24, Trails=0..1
 //
-// Knob 1: Finish. The bobs and the lamp over them: polished steel under a cool lamp on a walnut table at 0, then brass and copper under a warm lamp, and at 1 coloured glass beads in a rainbow down the row over a pale lab bench, each bead focusing a spot of its colour into its shadow.
-// Knob 2: Speed. The pace of time. At 2 one cycle takes 30 seconds and the longest pendulum swings in a second and a quarter; at 0.2 it all runs ten times slower, at 3 half as fast again.
-// Knob 3: Pendulums. How many hang from the beam, 16 to 24, always filling the 128 rows; with more of them the bobs are smaller and the shortest swings 47 times a cycle.
-// Knob 4: Trails. A long exposure: at 0.06 each bob drags a short streak, and turned up every bob paints the arc of its swing in fading light, so the snake becomes a woven ribbon.
+// Knob 1: Finish. The bobs and the lamp over them: polished steel under a cool lamp on a walnut table at 0, brass at 0.25 and copper at 0.5 under a warm lamp, sea-green glass beads on a pale lab bench at 0.75, opening into a rainbow down the row at 1. Each glass bead focuses a spot of its own colour into its shadow.
+// Knob 2: Speed. The pace of time. At 2 a cycle takes 28 seconds and the longest pendulum swings 22 times in it, once every 1.27 seconds; at 0.2 it all runs ten times slower, at 3 half as fast again.
+// Knob 3: Pendulums. How many hang from the beam, 16 to 24, always filling the 128 rows. With more of them the bobs are smaller and the shortest swings 45 times a cycle against the longest's 22.
+// Knob 4: Trails. A long exposure in the pendulums' own time: at 0.06 each bob drags a short streak, and turned up each one paints more of its arc in fading light, until at 1 the comets run together into a ladder of glowing bars with the bobs racing along them.
 // Buttons: K1 tap catches every bob on the release board and lets them all go together, so the wave starts over from one straight line.
 
 const W = 64;
 const H = 128;
 const N = W * H;
-const { min, max, floor, ceil, round, sin, cos, sqrt, exp, PI } = Math;
+const { min, max, floor, ceil, round, cos, sqrt, exp, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mix = (a, b, t) => a + (b - a) * t;
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -57,11 +57,12 @@ function hsv(h, s, v) {
   return [f(5) * 255, f(3) * 255, f(1) * 255];
 }
 
-// The lamp's colour, and the metal, at Finish 0, 1/3, 2/3 and 1.
+// The lamp's colour, and the metal, at Finish 0, 1/4, 1/2 and 3/4 and on.
 const LAMPS = [
   [184, 206, 248],
   [255, 214, 160],
   [255, 192, 142],
+  [238, 236, 226],
   [238, 236, 226],
 ];
 const METALS = [
@@ -69,9 +70,10 @@ const METALS = [
   [236, 172, 72],
   [240, 122, 74],
   [240, 122, 74],
+  [240, 122, 74],
 ];
 const stop = (T, f) => {
-  const u = cl(f, 0, 1) * 3, i = min(2, floor(u));
+  const u = cl(f, 0, 1) * 4, i = min(3, floor(u));
   return T[i].map((v, c) => mix(v, T[i + 1][c], u - i));
 };
 
@@ -92,17 +94,17 @@ function build(P) {
     P.wood[i * 3 + 1] = 0.37 * k;
     P.wood[i * 3 + 2] = 0.16 * k;
     const b = 0.95 + 0.05 * hash(x, y + 300) + 0.05 * vn(x * 0.25, y * 0.25);
-    P.bench[i * 3] = 0.7 * b;
-    P.bench[i * 3 + 1] = 0.74 * b;
-    P.bench[i * 3 + 2] = 0.7 * b;
+    P.bench[i * 3] = 0.8 * b;
+    P.bench[i * 3 + 1] = 0.84 * b;
+    P.bench[i * 3 + 2] = 0.8 * b;
     // Inverse square and the floor's slant, inside the shade's cone.
     const vx = x + 0.5 - LX, vy = y + 0.5 - LY, d = sqrt(vx * vx + vy * vy + LZ * LZ);
     const ca = (vx * ax + vy * ay + LZ * -az) / (d * al);
     const p = (LZ / d) ** 3 * (0.25 + 0.75 * sm(0.83, 0.97, ca));
     P.pool[i] = p;
     top = max(top, p);
-    // The beam's shadow: a straight band, since the lamp stands level with it.
-    const bx = LX + (BX - LX) * (LZ / (LZ - ZB)), hw = (LZ / (LZ - ZB)) * 1;
+    // The beam's shadow: it lies level, so its shadow is a straight band.
+    const bx = LX + (BX - LX) * (LZ / (LZ - ZB)), hw = LZ / (LZ - ZB);
     P.beamD[i] = 0.5 * (1 - sm(hw - 0.9, hw + 0.9, Math.abs(x + 0.5 - bx)));
   }
   for (let i = 0; i < N; i++) P.pool[i] /= top;
@@ -135,14 +137,15 @@ function layout(P, n) {
 function colours(P) {
   const f = P.fin, n = P.n;
   P.lamp = stop(LAMPS, f);
-  P.glass = sm(0.62, 1, f);
-  P.benchK = sm(0.55, 0.95, f);
+  P.glass = sm(0.52, 0.74, f);
+  P.benchK = sm(0.5, 0.74, f);
   // Brass and copper tint their own highlights; steel and glass do not.
-  P.tint = (0.15 + 0.7 * sm(0, 0.33, f)) * (1 - P.glass);
-  const m = stop(METALS, min(f, 2 / 3));
+  P.tint = (0.15 + 0.7 * sm(0, 0.25, f)) * (1 - P.glass);
+  const m = stop(METALS, f), u = sm(0.75, 1, f);
   P.col = [];
+  // Sea-green glass at 3/4, opening into a rainbow down the row at 1.
   for (let i = 0; i < n; i++) {
-    const b = hsv((0.02 + (0.8 * i) / (n - 1)) % 1, 0.82, 1);
+    const b = hsv(mix(0.42, 0.02 + (0.8 * i) / (n - 1), u), 0.82, 1);
     P.col.push(m.map((v, c) => mix(v, b[c], P.glass)));
   }
 }
@@ -152,7 +155,7 @@ export function update(dt, input, params) {
   const P = params.s, k = input.knobValues || [0, 2, 0, 0.06];
   const real = cl(dt || 0, 0, 0.1), d = (real * cl(k[1], 0.2, 3)) / 2;
   P.fin = cl(k[0], 0, 1);
-  P.tau = 0.05 + 0.45 * cl(k[3], 0, 1) ** 1.25;
+  P.tau = 0.05 + 0.3 * cl(k[3], 0, 1) ** 1.6;
   const n = cl(round(k[2]), 16, 24);
   if (n !== P.n) layout(P, n);
   colours(P);
@@ -254,7 +257,7 @@ export function draw(display, params) {
   for (let i = 0; i < n; i++) {
     const [sx, sy] = proj(P.x[i], P.y[i], P.z[i]), [px, py] = proj(BX, P.y[i], ZB);
     sh.push([sx, sy]);
-    const rs = P.r[i] * 0.95, pen = 0.45 + 0.09 * P.z[i], dk = (0.9 - 0.02 * P.z[i]) * (1 - 0.35 * g);
+    const rs = P.r[i] * 0.95, pen = 0.45 + 0.09 * P.z[i], dk = (0.9 - 0.02 * P.z[i]) * (1 - 0.15 * g);
     for (let y = floor(sy - rs - pen - 1); y <= sy + rs + pen + 1; y++)
       for (let x = floor(sx - rs - pen - 1); x <= sx + rs + pen + 1; x++) {
         if (x < 0 || x >= W || y < 0 || y >= H) continue;
