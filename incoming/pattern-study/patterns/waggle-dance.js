@@ -94,7 +94,7 @@ function layout(S) {
       let t;
       if (y < 24 || (e > 1.28 && y < 64)) t = u < 0.82 ? HONEY : u < 0.95 ? NECTAR : EMPTY;
       else if (e > 1 && y < 72) t = u < 0.62 ? POLLEN : u < 0.78 ? NECTAR : EMPTY;
-      else if (e < 0.72) t = u < 0.72 ? BROOD : u < 0.82 ? LARVA : u < 0.85 ? EGG : EMPTY;
+      else if (e < 0.72) t = u < 0.68 ? BROOD : u < 0.78 ? LARVA : u < 0.81 ? EGG : EMPTY;
       else if (e < 1) t = u < 0.34 ? LARVA : u < 0.48 ? EGG : u < 0.64 ? BROOD : u < 0.68 ? POLLEN : EMPTY;
       else t = u < 0.12 ? POLLEN : u < 0.27 ? NECTAR : EMPTY;
       [S.type[i], S.age[i], S.tint[i], S.gap[i], S.pol[i]] = [t, rnd(), rnd(), rnd() * 6.283, floor(rnd() * 8)];
@@ -128,14 +128,15 @@ function paint(S) {
         [r, g, b] = [(1 - 0.04 * tn) * k, (0.88 - 0.16 * tn) * k, (0.6 - 0.26 * tn) * k];
       } else if (t === NECTAR) {
         // Nectar: dark amber down in the cell, a bright meniscus round it, and a glint.
-        const f = (0.08 + 0.92 * sm(1.2, 2.3, d)) * (0.75 + 0.3 * tn);
+        const f = (0.08 + 0.92 * sm(1.5, 2.4, d)) * (0.75 + 0.3 * tn);
         [r, g, b] = [0.07 + 0.62 * f, 0.03 + 0.36 * f, 0.006 + 0.06 * f];
         if (abs(dx + 1) < 0.6 && abs(dy + 1) < 0.7) [r, g, b] = [0.95, 0.9, 0.74];
         ex = 0.6;
       } else if (t === POLLEN) {
         const c = POLLENS[S.pol[i]];
         dim = 0.8;
-        const k = (0.8 + 0.25 * tn) * (1 - 0.35 * sm(1.6, 2.5, d));
+        // Packed down in the cell, its inside wall in shadow round it.
+        const k = (0.8 + 0.25 * tn) * (1 - 0.85 * sm(1.5, 2.3, d));
         [r, g, b] = c.map((v, n) => v * k * (0.82 + 0.3 * hash(p, 2 + n)));
         ex = 0.8;
       } else if (t === BROOD) {
@@ -168,7 +169,8 @@ function paint(S) {
         const t2 = S.type[S.cid2[p]];
         const pale = t === HONEY || t === NECTAR ? 1 : 0;
         const seam = (t === BROOD || t2 === BROOD) && cap(t) && cap(t2) ? 0.15 : 1;
-        const k = (0.85 + 0.3 * hash(p, 8)) * seam;
+        // Light from above rakes the slanted walls; the upright ones stand side on to it.
+        const k = (0.85 + 0.3 * hash(p, 8)) * seam * (!pale && abs(dx) > 2.6 ? 0.45 : 1);
         r += ((0.34 + 0.18 * pale) * k - r) * w;
         g += ((0.24 + 0.15 * pale) * k - g) * w;
         b += ((0.11 + 0.08 * pale) * k - b) * w;
