@@ -291,14 +291,13 @@ describe("preview matches the flattened export", () => {
       matrixAnnotationRaw: null,
     });
 
-    it.each([
-      [
-        "const draw",
-        `const draw = (display) => {
+    const constDraw = `const draw = (display) => {
   for (let y = 0; y < display.height; y++)
     for (let x = 0; x < display.width; x++) display.setPixel(x, y, x * 16, y * 32, 128);
-};`,
-      ],
+};`;
+
+    it.each([
+      ["const draw", constDraw],
       [
         "const setup, let update and const draw",
         `let frames = 0;
@@ -326,6 +325,15 @@ let draw = function (display) { bars.paint(display); };`,
       const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
       // The layer drew: something under the half-opacity pixels is lit.
       expect(Array.from(preview).some((value, i) => i % 4 !== 3 && value > 0)).toBe(true);
+      expect(differences(preview, exported(layers))).toEqual([]);
+    });
+
+    // Since 24 October 2026 a lone code layer under 100% goes out flattened
+    // too (the "one code layer" tests below), so this reached a single layer.
+    it("const draw alone at 50%, where it goes out as a stack of one", () => {
+      const layers: Layer[] = [{ ...codeLayer(constDraw), opacity: 0.5 }];
+      expect(loneCodeLayer(layers)).toBeNull();
+      const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
       expect(differences(preview, exported(layers))).toEqual([]);
     });
   });
