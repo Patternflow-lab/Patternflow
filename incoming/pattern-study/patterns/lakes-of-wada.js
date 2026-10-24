@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Lakes=3..5, Wander=0..1
 //
 // Knob 1: Hue. Turns the waters round the wheel together, each the same step from the next. At 0 the sea is azure, lake one pink and lake two lime; at 0.17 the sea is violet, lake one orange and lake two green; at 0.33 the three colours have moved on by one water and the sea is pink.
-// Knob 2: Speed. At 2 three canal heads dig 160 LEDs a second between them, a fresh island is dug in about 15 seconds, the finished labyrinth stands 3 seconds, the flood takes 1.2 and the new island rises in 1; the panel opens on an island 6 seconds into its digging. At 0.2 they dig 16 a second and an island takes two and a half minutes; at 3, 240 a second and about 10 seconds.
+// Knob 2: Speed. At 2 three canal heads dig 220 LEDs a second between them, a fresh island is dug in about 11 seconds, the finished labyrinth stands 3 seconds, the flood takes 1.2 and the new island rises in 1; the panel opens on an island 3 seconds into its digging. At 0.2 they dig 22 a second and an island takes nearly two minutes; at 3, 330 a second and about 8 seconds.
 // Knob 3: Lakes. How many waters share the shore, the sea counted: at 3 two lakes and the sea, a third of the wheel apart; at 4 three lakes, a quarter apart; at 5 four lakes, a fifth apart. Turning it floods the island and raises a new one with that many waters.
 // Knob 4: Wander. How a canal finds the far land. At 0 it takes the shortest way through the land, ties broken toward the target, so canals run straight or in even steps; at 0.06 almost the same; at 1 its heading drifts up to 37 degrees with every LED and the canals wind, so the walls between them become a maze of bends.
 // Buttons: K1 tap floods the island now and raises a new one.
@@ -40,7 +40,7 @@ const TIPS = 3;
 // The first turn's distance; every later turn halves it, down to 1.
 const D0 = 32;
 // LEDs dug a second for each unit of Speed.
-const RATE = 80;
+const RATE = 110;
 // Distance searches a frame may run, so a late turn full of short canals
 // spreads over frames instead of stalling one.
 const SEARCHES = 14;
@@ -50,6 +50,11 @@ const SEARCHES = 14;
 const TURN_CAP = 160;
 // Hue of the sea at Hue 0; the lakes follow round the wheel.
 const H0 = 0.56;
+// Seconds of digging before the first frame, and the waters' saturation.
+// Six seconds at a RATE of 80 and full colour put the study's colour at 0.723
+// and its motion at 0.017, both past the ends of their map axes, which
+// emptied six cells of the map.
+const PRE = 3, SAT = 0.88;
 const NB = [1, -1, W, -W], ANG = [0, PI, PI / 2, -PI / 2];
 const wrap = (a) => a - 2 * PI * floor((a + PI) / (2 * PI));
 
@@ -459,9 +464,9 @@ export function update(dt, input, params) {
   if (!S.warm) {
     S.n = n;
     begin(S, makeIsland(n));
-    // Open on an island the waters have been digging for six seconds at
-    // this Speed: at 2, the first two turns done and the sea into its own.
-    const pre = round(6 * S.speed * RATE);
+    // Open on an island the waters have been digging for PRE seconds at
+    // this Speed.
+    const pre = round(PRE * S.speed * RATE);
     for (let i = 0; i < pre; i++) step(S, false);
     S.clock = 10;
     S.warm = true;
@@ -523,7 +528,7 @@ export function draw(display, params) {
         continue;
       }
       if (front < 0 && level < 0) glow = tipAt.has(p) ? 1 : exp(-(S.clock - born[p]) / 0.22);
-      hsv(S.hue + H0 + w / n, 1, 1, c);
+      hsv(S.hue + H0 + w / n, SAT, 1, c);
       const v = 255, s = 1 - 0.85 * glow;
       display.setPixel(x, y, round(v * (c[0] * s + 1 - s)), round(v * (c[1] * s + 1 - s)), round(v * (c[2] * s + 1 - s)));
     }
