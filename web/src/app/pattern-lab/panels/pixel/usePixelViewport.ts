@@ -65,9 +65,48 @@ export function usePixelViewport({
     [pixel, overlayCanvasRef],
   );
 
-  const zoomBy = useCallback((delta: number) => {
-    setZoom((current) => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current + delta)));
-  }, []);
+  // Where a zoom holds still: a spot on the picture (as a fraction of it)
+  // and the screen point it sat under, so the layout effect below can scroll
+  // that spot back there. The wheel holds the spot under the cursor, the ±
+  // buttons the one in the middle of the viewport.
+  const zoomAnchor = useRef<{ fx: number; fy: number; clientX: number; clientY: number } | null>(null);
+  const anchorAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = overlayCanvasRef.current?.getBoundingClientRect();
+      if (!rect || rect.width <= 0 || rect.height <= 0) return;
+      const fraction = (offset: number, size: number) => Math.max(0, Math.min(1, offset / size));
+      zoomAnchor.current = {
+        fx: fraction(clientX - rect.left, rect.width),
+        fy: fraction(clientY - rect.top, rect.height),
+        clientX,
+        clientY,
+      };
+    },
+    [overlayCanvasRef],
+  );
+
+  // The ± buttons keep the middle of what the viewport shows in the middle,
+  // as Director's ± does (useTimelineZoom). Zooming from the top-left corner
+  // moved the middle from column 64 to 58 on one + at 10× in the 649 px
+  // desktop panel.
+  const zoomBy = useCallback(
+    (delta: number) => {
+      const current = zoomRef.current;
+      const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, current + delta));
+      if (next === current) return;
+      const viewport = viewportRef.current;
+      if (viewport) {
+        const box = viewport.getBoundingClientRect();
+        anchorAt(
+          box.left + viewport.clientLeft + viewport.clientWidth / 2,
+          box.top + viewport.clientTop + viewport.clientHeight / 2,
+        );
+      }
+      zoomRef.current = next;
+      setZoom(next);
+    },
+    [viewportRef, anchorAt],
+  );
 
   const fitZoom = useCallback(() => {
     if (!pixel) return;
@@ -115,9 +154,6 @@ export function usePixelViewport({
   // across events, so a trackpad swipe of thirty 4 px events is one step
   // too, not thirty. Turning the other way drops what was left over.
   const wheelRest = useRef(0);
-  // Where the cursor was over the picture (as a fraction of it) and on the
-  // screen, so the layout effect below can scroll that spot back under it.
-  const wheelAnchor = useRef<{ fx: number; fy: number; clientX: number; clientY: number } | null>(null);
   const hasPixel = pixel !== undefined;
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -137,30 +173,21 @@ export function usePixelViewport({
         if (steps !== 0) wheelRest.current = 0;
         return;
       }
-      const rect = overlayCanvasRef.current?.getBoundingClientRect();
-      if (rect && rect.width > 0 && rect.height > 0) {
-        const fraction = (offset: number, size: number) => Math.max(0, Math.min(1, offset / size));
-        wheelAnchor.current = {
-          fx: fraction(event.clientX - rect.left, rect.width),
-          fy: fraction(event.clientY - rect.top, rect.height),
-          clientX: event.clientX,
-          clientY: event.clientY,
-        };
-      }
+      anchorAt(event.clientX, event.clientY);
       zoomRef.current = next;
       setZoom(next);
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
     return () => viewport.removeEventListener("wheel", onWheel);
-  }, [hasPixel, viewportRef, overlayCanvasRef]);
+  }, [hasPixel, viewportRef, anchorAt]);
 
-  // After a zoom: scroll the spot the wheel was over back under the cursor.
-  // The browser clamps the scroll, so a picture smaller than the viewport
-  // stays centred.
+  // After a zoom: scroll the anchored spot back under its screen point. The
+  // browser clamps the scroll, so a picture smaller than the viewport stays
+  // centred.
   useLayoutEffect(() => {
     zoomRef.current = zoom;
-    const anchor = wheelAnchor.current;
-    wheelAnchor.current = null;
+    const anchor = zoomAnchor.current;
+    zoomAnchor.current = null;
     const viewport = viewportRef.current;
     const canvas = overlayCanvasRef.current;
     if (!anchor || !viewport || !canvas) return;
