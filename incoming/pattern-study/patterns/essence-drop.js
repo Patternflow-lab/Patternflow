@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Viscosity=0..1, Size=0..1
 //
-// Knob 1: Hue. The essence's colour, all the way round the wheel from aqua at 0; round orange and gold the pool and the bloom are lifted and paled so they stay champagne, never brown.
+// Knob 1: Hue. The essence's colour, all the way round the wheel from aqua at 0. From about 0.42 to 0.8, rose through orange and gold to lime, the backdrop and the pool are lifted towards cream and paled so they read rose, peach, champagne, butter or pale lime, never brown or olive, and the bloom glows brighter than the pool instead of darker.
 // Knob 2: Speed. How slow the film runs: at 2 a drop takes 1.4 s to fall, lands every 5.5 s, and its crown, cavity and jet are over in 2.4 s while the bloom sinks for about 3 s more; at 0.2 all of it is ten times slower.
 // Knob 3: Viscosity. Watery at 0: a crown of nine fingers throws its beads, and a jet eight and a half drop radii high pinches off a bead. Turned up, the fingers go by 0.5 and the crown by 0.7, the jet shortens to a round mound with no bead, the drop sinks in on a thick neck, the thread behind it stretches long, everything runs up to 2.3 times slower, drops come every 7.7 s, the pool holds more colour and the bloom sinks as a slow compact plume.
 // Knob 4: Size. The drop's radius, 3.4 LEDs at 0, 3.7 at the start and 7.6 at 1, and the crown, the cavity, the jet and the bloom with it; the jet stops at 48 LEDs.
@@ -290,21 +290,24 @@ export function draw(display, params) {
         if (dp) deep[i] = max(deep[i], cl(1 - dd, 0, 1));
       }
   }
-  // Palette: backdrop, essence, and the deep colour the drop carries. Round
-  // orange and gold everything is lifted and paled so it reads champagne,
-  // never brown, and there the deep colour is brighter than the pool instead
-  // of darker. A thicker essence holds more colour.
+  // Palette: backdrop, essence, and the deep colour the drop carries. A
+  // thicker essence holds more colour. From rose through orange and gold to
+  // lime, hue -0.12 to 0.35, any of these at half brightness reads brown,
+  // khaki or olive on the LEDs, so there everything is lifted towards cream
+  // and paled: the backdrop to 200 of 255 or more with a shallow vignette, the
+  // pool to about 215, and the deep colour goes brighter than the pool
+  // instead of darker.
   const pal = S.pal, h = S.hue + 0.52, hf = h - floor(h), key = hf + 7 * v;
   if (S.palKey !== key) {
-    const wm = sm((hf - 0.02) / 0.04) * (1 - sm((hf - 0.19) / 0.06));
+    const hw = hf > 0.5 ? hf - 1 : hf, wm = sm((hw + 0.12) / 0.06) * (1 - sm((hw - 0.28) / 0.07));
     hsv(h + 0.02, 0.14 - 0.06 * wm, 1, pal, 0);
-    hsv(h + 0.06, 0.4 - 0.15 * wm, 1, pal, 10);
-    hsv(h, (0.38 + 0.22 * v) * (1 - 0.4 * wm), 1, pal, 3);
-    hsv(h + 0.015, 0.92 - 0.35 * wm, 1, pal, 6);
+    hsv(h + 0.06 * (1 - wm), 0.4 - 0.3 * wm, 1, pal, 10);
+    hsv(h, (0.38 + 0.22 * v) * (1 - 0.5 * wm), 1, pal, 3);
+    hsv(h + 0.015, 0.92 - 0.3 * wm, 1, pal, 6);
     pal[9] = wm;
     S.palKey = key;
   }
-  const wm = pal[9], lift = 1 + 0.18 * wm, dv = 0.46 + 0.5 * wm, dye = S.dye, T = S.T;
+  const wm = pal[9], dv = 0.46 + 0.5 * wm, dye = S.dye, T = S.T;
   for (let y = 0, i = 0; y < H; y++) {
     const below = y + 0.5 - Y0;
     for (let x = 0; x < W; x++, i++) {
@@ -312,7 +315,7 @@ export function draw(display, params) {
       // The backdrop: a soft key light high in the middle, deepening towards
       // the surface.
       const gx = (x + 0.5 - 32) / 32, gy = (y - 14) / 46;
-      const gl = exp(-(gx * gx + gy * gy)), bv = min(1, (0.4 + 0.46 * gl) * lift);
+      const gl = exp(-(gx * gx + gy * gy)), bv = min(1, 0.4 + 0.46 * gl + wm * (0.36 - 0.26 * gl));
       let r = (pal[10] + (pal[0] - pal[10]) * gl) * bv, g = (pal[11] + (pal[1] - pal[11]) * gl) * bv, b = (pal[12] + (pal[2] - pal[12]) * gl) * bv;
       // The crown's sheet: thin film between its walls, brighter at the two
       // sides where the eye looks along it, and along the lip.
@@ -341,12 +344,12 @@ export function draw(display, params) {
         // deeper towards the bottom, slow shafts of light from the surface
         // swaying through it, and the deep colour where the drop has gone.
         const depth = cl(below / (H - Y0), 0, 1);
-        let lv = below < 0 ? 0.88 : 0.8 - 0.36 * depth;
+        let lv = below < 0 ? 0.88 + 0.09 * wm : 0.8 - 0.36 * depth + wm * (0.15 + 0.16 * depth);
         if (below >= 0) {
           const sx = x + 0.4 * below;
           lv += 0.16 * (1 - depth) * (0.5 + 0.5 * sin(0.3 * sx - 0.7 * T + 1.3 * sin(0.11 * sx + 0.23 * T)));
         }
-        lv = min(1, lv * lift);
+        lv = min(1, lv);
         let lr = pal[3] * lv, lg = pal[4] * lv, lb = pal[5] * lv;
         const da = max(deep[i] * 0.9, 1 - exp(-dye[i] * 0.9));
         if (da > 0.003) {
