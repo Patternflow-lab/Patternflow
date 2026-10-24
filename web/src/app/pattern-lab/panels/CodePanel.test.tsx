@@ -170,3 +170,62 @@ describe("CodePanel @matrix line", () => {
     expect(useLabStore.getState().matrix).toEqual({ width: 64, height: 64 });
   });
 });
+
+// Paste falls back to a box when the browser won't hand over the clipboard,
+// and the Make guide sends people to that box. Until 24 October 2026 it asked
+// in Korean on an English page.
+describe("CodePanel paste", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("asks in English when the clipboard can't be read, and pastes what goes in the box", async () => {
+    setClipboard({
+      readText: () => Promise.reject(new DOMException("Read permission denied.", "NotAllowedError")),
+    });
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("export function draw(display) { /* boxed */ }\n");
+    render(<CodePanel />);
+
+    fireEvent.click(screen.getByText("Paste"));
+    await act(async () => {});
+
+    expect(prompt).toHaveBeenCalledWith("Paste the pattern code here and press OK.");
+    const state = useLabStore.getState();
+    const active = state.layers.find((layer) => layer.id === state.activeLayerId);
+    expect(active?.type === "code" && active.code).toContain("/* boxed */");
+    expect(screen.getByText("Pasted ✓")).toBeTruthy();
+  });
+
+  it("leaves the layer alone when the box is cancelled", async () => {
+    setClipboard({ readText: () => Promise.reject(new Error("no clipboard")) });
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+    const before = useLabStore.getState().layers;
+    render(<CodePanel />);
+
+    fireEvent.click(screen.getByText("Paste"));
+    await act(async () => {});
+
+    expect(useLabStore.getState().layers).toBe(before);
+    expect(screen.getByText("Paste")).toBeTruthy();
+  });
+});
+
+// The hint named every other layer pixel art, written before text layers
+// came in (#184). A selected text layer was told to use the Pixel panel.
+describe("CodePanel on another layer", () => {
+  it("names a text layer and sends it to the Text panel", () => {
+    useLabStore.getState().addTextLayer();
+    render(<CodePanel />);
+    expect(
+      screen.getByText("The selected layer is text. Edit it in the Text panel, or select a code layer."),
+    ).toBeTruthy();
+  });
+
+  it("names a pixel layer and sends it to the Pixel panel", () => {
+    useLabStore.getState().addPixelLayer();
+    render(<CodePanel />);
+    expect(
+      screen.getByText("The selected layer is pixel art. Edit it in the Pixel panel, or select a code layer."),
+    ).toBeTruthy();
+  });
+});
