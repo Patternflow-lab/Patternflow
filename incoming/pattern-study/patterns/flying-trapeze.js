@@ -36,7 +36,7 @@ const [PCX, PCY, LC, B] = [57, 30, 20, 0.18];
 const [BY, WX, LX] = [68, 1.2, 2.6];
 // Hips above feet, hands above hips, gravity, and the time of the flight back to the bar.
 const [LEG, HL, G, TR] = [3.8, 5.7, 90, 0.45];
-// Follow spots below the panel, behind the crowd, and how fast their cones open.
+// Follow spots below the panel behind the crowd, and how fast their cones open.
 const SPOT = [[-14, 166], [78, 166], [32, 186]];
 const TA = 0.046;
 // Gels by the Lights knob: house wash (0..1), three spots, two flyers and the catcher.

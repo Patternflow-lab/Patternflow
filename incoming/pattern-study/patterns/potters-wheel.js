@@ -43,7 +43,7 @@ for (const sy of SHELF) for (let i = 0; i < 7; i++) SLOT.push([4.6 + i * 9.13, s
 const ORDER = [1, 5, 8, 12, 14, 20, 3, 9, 11, 0, 6, 7, 13, 15, 19, 2, 4, 10, 16, 18, 17];
 const SHS = 0.27;
 
-// Each clay thrown and wet, leather-hard, and bone-dry.
+// Each clay at every stage of drying, from thrown and wet to bone-dry.
 const CLAY = [
   [[255, 112, 56], [196, 96, 58], [238, 158, 108]],
   [[236, 170, 104], [190, 148, 100], [244, 222, 182]],

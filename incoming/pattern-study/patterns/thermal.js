@@ -53,7 +53,7 @@ const PICK = [0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 4, 4];
 const GLIDER = [[3.6, 0, -0.1, -4.8, 0, 0.15, 0.85, 0.45], [0.6, 0, 0.25, 0.25, -9, 0.85, 0.75, 0.45], [0.6, 0, 0.25, 0.25, 9, 0.85, 0.75, 0.45], [-4.2, 0, 0.1, -4.9, 0, 2.4, 0.55, 0.45], [-4.9, -2.6, 2.4, -4.9, 2.6, 2.4, 0.45, 0.45]];
 const BUZZ = [[1.3, 0, 0, -1.3, 0, 0, 0.6, 0.45], [0.2, 0, 0.1, -0.3, -3.7, 0.75, 0.8, 0.45], [0.2, 0, 0.1, -0.3, 3.7, 0.75, 0.8, 0.45], [-1.2, 0, 0, -2.5, 0, 0.1, 0.45, 0.65]];
 
-// A cumulus as puffs over a flat base: u across, v up, r, and when in its growth each appears.
+// A cumulus as puffs over a flat base: each puff's place (u across, v up), its radius r and when in its growth it appears.
 function puffs() {
   const L = [];
   const add = (u, v, r, t0) => L.push({ u: u + (rnd() - 0.5) * 0.14, v: v + (rnd() - 0.5) * 0.08, r: r * (0.88 + 0.24 * rnd()), t0, ph: rnd() * TAU });

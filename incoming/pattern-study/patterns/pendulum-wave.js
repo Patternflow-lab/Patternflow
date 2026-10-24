@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Pendulum Wave
 // Family:  physics
-// Idea:    Seen straight down from above, a row of pendulums hangs from a beam down the middle of a lamplit table, each shorter one swinging once more per cycle than the last, so the row that leaves the release board as one straight line winds into a travelling snake, splits into three and two interleaved rows, scatters, and lines up again at the end of the cycle.
+// Idea:    Seen straight down from above, a row of pendulums hangs from a beam down the middle of a lamplit table, each shorter one swinging once more per cycle than the last, so the row that leaves the release board as one straight line winds into a travelling snake and splits into three and two interleaved rows before it scatters and lines up again at the end of the cycle.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
