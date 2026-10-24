@@ -202,7 +202,7 @@ function step(S, d, hold) {
   // The jet: slabs of water fly up and spread; past the top they break up.
   if (ph === 3) {
     const u = pt / Dj, v = sqrt(2 * G * (64 + 46 * P)) * (1 - 0.25 * sm(0.7, 1, u)) * (1 - 0.6 * sm(0.45, 0.8, P) * exp(-(((u - 0.48) / 0.09) ** 2)));
-    for (S.np += d * v * 0.6; S.np >= 1; S.np--) S.par.push({ x: C + (rnd() - 0.5) * 1.2, y: BRIM - 1, vy: -v * (0.95 + 0.1 * rnd()), w: (3.5 + 3.5 * P) * (0.85 + 0.3 * rnd()), a: 1, ap: 0 });
+    for (S.np += d * v * 0.6; S.np >= 1; S.np--) S.par.push({ x: C + (rnd() - 0.5) * 1.2, y: BRIM - 1 - v * d * rnd(), vy: -v * (0.95 + 0.1 * rnd()), w: (3.5 + 3.5 * P) * (0.85 + 0.3 * rnd()), a: 1, ap: 0 });
   }
   for (const q of S.par) {
     q.vy += G * d;
