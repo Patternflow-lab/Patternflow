@@ -203,5 +203,26 @@ for (const [label, frameMs, frames] of [
   check("…and schedules no frame of its own", s.asleep(), true);
 }
 
-console.log(failures === 0 ? "\nAll sandbox clock checks passed." : `\n${failures} FAILED`);
+// ── A fine knob range reads as the Lab reads it ─────────────────────────────
+// The page divided by no less than 0.001 where the Lab divides by 0.0001, so a
+// 0.0001..0.0004 knob in the middle of its range reached the pattern as 0.15.
+{
+  const s = boot();
+  s.send({
+    type: "pf-load", running: true,
+    code: `
+// @matrix 128x64
+export function update(dt, input, p){ p.n0 = input.knobNormalized[0]; p.n1 = input.knobNormalized[1]; }
+export function draw(display, p, time){}`,
+    knobValues: [0.00025, 0.0015, 0.5, 0.5], knobRanges: [[0.0001, 0.0004], [0.001, 0.002], [0, 1], [0, 1]],
+    knobWrap: [false, false, false, false], knobUnitsPerTurn: [1, 1, 1, 1],
+  });
+  s.frame(0);
+  s.frame(16);
+  const params = s.live().runtime.params;
+  check("the middle of 0.0001..0.0004 reaches the pattern as 0.5", Number(params.n0?.toFixed(9)), 0.5);
+  check("the middle of 0.001..0.002 reaches the pattern as 0.5", Number(params.n1?.toFixed(9)), 0.5);
+}
+
+console.log(failures === 0 ? "\nAll sandbox checks passed." : `\n${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);
