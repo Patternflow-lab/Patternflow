@@ -236,7 +236,7 @@ function flowStep(S, dt) {
 // The parcels ride the flow, and every flake in one turns as a flat disc of
 // no thickness does (Jeffery's equation): its normal m follows
 // dm/dt = K m with K = -(grad u)^T, so a flake turns its face across the
-// stretching and lies along the streamlines in shear. Then M follows
+// stretching and lies along the flow lines in shear. Then M follows
 // dM/dt = K M + M K^T, and the film draws M back toward the identity, the
 // flakes settling to rest.
 function flakeStep(S, dt) {
