@@ -6,7 +6,8 @@
 // and 44×44px after, in a header 59px tall both times. On a 390×844 touch
 // screen the tab strip under Preview was 736px for 333px of room, and every
 // tab carried a 27×27px ×. Without the × it is 520px and Knobs shows whole.
-// On the same screen Del was 37×28px, the layer eye 20×17px and Push 40×22px.
+// On the same screen Del was 37×28px, the layer eye 20×17px and Push 40×22px,
+// and the Pixel status bar was 51px, two lines with the mouse gestures.
 
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -166,5 +167,16 @@ describe("Layers and Knobs on a touch screen", () => {
     }
     // The 980px block sets Push back to 22px.
     expect(knobs.lastIndexOf("@media (hover: none) {")).toBeGreaterThan(knobs.indexOf("@media (max-width: 980px) {"));
+  });
+});
+
+describe("Pixel status line on a touch screen", () => {
+  const dock = css("LabPanels.module.css");
+  const pixel = css("panels/PixelPanel.tsx");
+
+  it("drops the mouse gestures, and nothing else", () => {
+    expect(mediaRule(dock, "(hover: none)", ".pixelMouseHint")).toMatch(/display: none;/);
+    expect(pixel).toContain("<span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>");
+    expect(mediaRule(dock, "(hover: none)", ".pixelStatus")).toBe("");
   });
 });

@@ -222,7 +222,7 @@ export default function PixelPanel() {
           </span>
         )}
         <span style={{ flex: 1 }} />
-        <span>alt-click picks · right-drag erases · middle-drag pans</span>
+        <span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>
       </div>
 
       {importOpen && (
