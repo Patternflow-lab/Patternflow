@@ -118,8 +118,10 @@ function build(S) {
 }
 
 export function setup(params) {
+  // The turn starts 0.4 short of face-on, so at Speed 2 the torus faces you
+  // squarely one second in and stands edge-on five seconds in.
   params.s = {
-    hue: 0, speed: 2, ratio: -1, tilt: 0.06, spin: 0, nod: 0, roads: -1, rc: 0, r: 0, ly: 0, per: 0,
+    hue: 0, speed: 2, ratio: -1, tilt: 0.06, spin: -0.4, nod: 0, roads: -1, rc: 0, r: 0, ly: 0, per: 0,
     cc: new Float32Array(4 * NU), tc: new Float32Array(NV), ts: new Float32Array(NV), cid: new Uint8Array(NS), road: new Float32Array(3 * 21 * NR),
     zb: new Float32Array(N), ib: new Int32Array(N), ib2: new Int32Array(N), cb: new Uint8Array(N), rb: new Uint8Array(N), pal: new Float32Array(21),
   };
