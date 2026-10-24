@@ -338,6 +338,73 @@ let draw = function (display) { bars.paint(display); };`,
     });
   });
 
+  // A code layer under another layer goes out on the export's own display.
+  // Until 24 October 2026 that display cut coordinates with `| 0` and left
+  // colours to Uint8ClampedArray, where the preview floors and rounds half
+  // up. A point at y −0.5 landed on row 0 in the export only, and a red of
+  // 0.5 showed 1 in the preview and 0 in the export.
+  describe("a code layer drawing between pixels", () => {
+    const codeLayer = (code: string): CodeLayer => ({
+      id: "code",
+      type: "code",
+      name: "code",
+      visible: true,
+      opacity: 1,
+      blend: "normal",
+      role: "paint",
+      maskInvert: false,
+      code,
+      ramp: DEFAULT_RAMP_STATE,
+      recolor: false,
+      knobsAnnotationRaw: null,
+      matrixAnnotationRaw: null,
+    });
+    // Clear pixels on top: the stack is flattened, and the code shows as drawn.
+    const clear = (): PixelLayer => ({ ...pixelLayer("clear", () => 0, "normal", 1), data: new Uint8ClampedArray(N * 4) });
+
+    function both(code: string) {
+      const layers: Layer[] = [clear(), codeLayer(code)];
+      expect(loneCodeLayer(layers)).toBeNull();
+      return { preview: new LabEngine().render(project(layers), 1 / 60, 0).data, exported: exported(layers) };
+    }
+
+    it.each([
+      ["setPixel", "display.setPixel(x, y, 255, 255, 255)"],
+      ["setValue", "display.setValue(x, y, 1)"],
+    ])("a ring that crosses the edge with %s lights the same pixels", (_, call) => {
+      const { preview, exported: out } = both(`export function draw(display) {
+  for (let a = 0; a < 360; a++) {
+    const t = (a * Math.PI) / 180, x = 6 + 9 * Math.cos(t), y = 4 + 5 * Math.sin(t);
+    ${call};
+  }
+}`);
+      // The ring drew.
+      expect(Array.from(preview).some((value, i) => i % 4 !== 3 && value > 0)).toBe(true);
+      expect(differences(preview, out)).toEqual([]);
+    });
+
+    it("half values round up", () => {
+      const { preview, exported: out } = both(`export function draw(display) {
+  for (let y = 0; y < display.height; y++)
+    for (let x = 0; x < display.width; x++) display.setPixel(x, y, x * 2 + 0.5, y * 32 + 0.5, 128.5);
+}`);
+      expect(Array.from(preview.subarray(0, 4))).toEqual([1, 1, 129, 255]);
+      expect(differences(preview, out)).toEqual([]);
+    });
+
+    it("a colour that is not a finite number is 0, in either form of setPixel", () => {
+      const { preview, exported: out } = both(`export function draw(display) {
+  for (let x = 0; x < display.width; x++) {
+    display.setPixel(x, 0, 1 / 0, -1 / 0, 0 / 0);
+    display.setPixel(x, 1, [1 / 0, 200, "200"]);
+  }
+}`);
+      expect(Array.from(preview.subarray(0, 4))).toEqual([0, 0, 0, 255]);
+      expect(Array.from(preview.subarray(W * 4, W * 4 + 4))).toEqual([0, 200, 0, 255]);
+      expect(differences(preview, out)).toEqual([]);
+    });
+  });
+
   // One code layer goes out as its own code only while the preview shows
   // that code as it is. Until 24 October 2026 a white layer at 50% showed 128
   // in the preview and went out as its code alone, so the community and the

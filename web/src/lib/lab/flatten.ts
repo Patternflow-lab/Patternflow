@@ -250,19 +250,26 @@ function __rle(s, n) {
   return out;
 }
 
+// The preview's display rules (harness.ts): a coordinate floors, so a point
+// at y = -0.5 falls off the top instead of landing on row 0, and a colour
+// rounds half up, with anything that is not a finite number drawn as 0.
+function __byte(v) {
+  return Number.isFinite(v) ? Math.max(0, Math.min(255, Math.round(v))) : 0;
+}
+
 function __mkDisplay(L) {
   return {
     width: __W, height: __H,
     setPixel(x, y, r, g, b) {
-      const xi = x | 0, yi = y | 0;
+      const xi = Math.floor(x), yi = Math.floor(y);
       if (xi < 0 || xi >= __W || yi < 0 || yi >= __H) return;
       const i = (yi * __W + xi) * 4, B = L.buf;
-      if (Array.isArray(r)) { B[i] = r[0] || 0; B[i + 1] = r[1] || 0; B[i + 2] = r[2] || 0; }
-      else { B[i] = r; B[i + 1] = g || 0; B[i + 2] = b || 0; }
+      if (Array.isArray(r)) { B[i] = __byte(r[0]); B[i + 1] = __byte(r[1]); B[i + 2] = __byte(r[2]); }
+      else { B[i] = __byte(r); B[i + 1] = __byte(g); B[i + 2] = __byte(b); }
       B[i + 3] = 255;
     },
     setValue(x, y, v) {
-      const xi = x | 0, yi = y | 0;
+      const xi = Math.floor(x), yi = Math.floor(y);
       if (xi < 0 || xi >= __W || yi < 0 || yi >= __H) return;
       v = Number.isFinite(v) ? (v < 0 ? 0 : v > 1 ? 1 : v) : 0;
       const i = (yi * __W + xi) * 4, B = L.buf, T = L.lut;
