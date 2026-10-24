@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Dive=0..1, Cut=0..1
 //
-// Knob 1: Hue. Turns the tree round the wheel: at 0 azure crowns on pale stems with green and violet limbs either side, at 0.25 magenta, 0.5 apricot, 0.75 green. The subtrees above the cut always spread over half the wheel from left to right.
+// Knob 1: Hue. Turns the tree round the wheel: at 0 azure crowns on dim grey stems with green and violet limbs either side, at 0.25 magenta, 0.5 apricot, 0.75 green. The subtrees above the cut always spread over half the wheel from left to right.
 // Knob 2: Speed. At 2 the tree grows 1.6 units of length a second, 60 to 120 rows of branch depending on how tall the tree stands, the dive takes 3.2 s and the two trees cross-fade for 0.7 s, so a dive comes every 9 to 10 s at Dive 0. At 0.2 all of it ten times slower, at 3 half as fast again.
 // Knob 3: Dive. The mass of the subtree the view dives into: 0.3 of the tree at 0, 0.13 at 0.5, 0.06 at 1. Its time is stretched by one over the mass (3.3 to 17 times) and its heights by one over the square root (1.8 to 4 times), Brownian scaling, and what fills the panel is again a tree of mass 1. Deeper dives keep fewer leaves, so the new tree starts sparser and grows longer before the next dive.
-// Knob 4: Cut. A level at 20% of the height at 0 and 90% at 1 (24% at the start). Every subtree above it gets its own hue, and below it the tree is pale. Turned up, the one crown splits into more and smaller trees, each of them a continuum random tree in its own right.
+// Knob 4: Cut. A level at 20% of the height at 0 and 90% at 1 (24% at the start). Every subtree above it gets its own hue and a white bead where its branch crosses the level, and below it the tree is dim and grey. Turned up, the one crown splits into more and smaller trees, each of them a continuum random tree in its own right.
 // Buttons: K1 tap dives now, once the tree holds 30 leaves.
 
 const W = 64, H = 128, N = 8192, NL = 256;
@@ -101,8 +101,8 @@ function subExcursion(S, T, g) {
 // tree at that height, and its samples are the part of the tree above it:
 // start a, end b, highest point top, parent run par one level down, and fx,
 // where the branch is drawn. The follow keeps the order of the runs, so no
-// two subtrees cross.
-// Built a few levels a frame while the view dives, n at a time.
+// two subtrees cross. Built count levels at a time, a few a frame while the
+// view dives.
 const RA = new Int32Array(N + 2), RB = new Int32Array(N + 2), RT = new Float32Array(N + 2);
 function build(T, count) {
   const E = T.E, out = T.lv, cs = (SLOPE * N) / W, end = min(NL, out.length + count);
@@ -359,7 +359,7 @@ export function update(dt, input, params) {
       }
     }
     S.T = tree(best, NL);
-    // Open a second before the first dive.
+    // Open a second before the first dive at Speed 2.
     grow(S.T, LEND - VGROW);
     S.begun = true;
   }
