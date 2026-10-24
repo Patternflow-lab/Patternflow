@@ -269,6 +269,67 @@ describe("preview matches the flattened export", () => {
     });
   });
 
+  // The preview runs a code layer written with const, let or class as it
+  // runs a function declaration. Until 24 October 2026 the flattened export
+  // pasted each layer's code under its own `var setup, update, draw;`, so
+  // `const draw = …` failed to load with "Identifier 'draw' has already been
+  // declared" and the whole stack went out dead.
+  describe("a code layer written with const, let or class", () => {
+    const codeLayer = (code: string): CodeLayer => ({
+      id: "code",
+      type: "code",
+      name: "code",
+      visible: true,
+      opacity: 1,
+      blend: "normal",
+      role: "paint",
+      maskInvert: false,
+      code,
+      ramp: DEFAULT_RAMP_STATE,
+      recolor: false,
+      knobsAnnotationRaw: null,
+      matrixAnnotationRaw: null,
+    });
+
+    it.each([
+      [
+        "const draw",
+        `const draw = (display) => {
+  for (let y = 0; y < display.height; y++)
+    for (let x = 0; x < display.width; x++) display.setPixel(x, y, x * 16, y * 32, 128);
+};`,
+      ],
+      [
+        "const setup, let update and const draw",
+        `let frames = 0;
+let shade = 0;
+const setup = () => { shade = 200; };
+let update = (dt) => { frames += 1; };
+const draw = (display) => {
+  for (let y = 0; y < display.height; y++)
+    for (let x = 0; x < display.width; x++) display.setPixel(x, y, shade, frames * 40, x * 16);
+};`,
+      ],
+      [
+        "a class and let draw",
+        `class Bars {
+  paint(display) {
+    for (let y = 0; y < display.height; y++)
+      for (let x = 0; x < display.width; x++) display.setPixel(x, y, x % 2 ? 255 : 0, y * 32, 64);
+  }
+}
+const bars = new Bars();
+let draw = function (display) { bars.paint(display); };`,
+      ],
+    ])("%s, under a pixel layer: it loads, and its pixels match the preview", (_, code) => {
+      const layers: Layer[] = [pixelLayer("over", random(7), "normal", 0.5), codeLayer(code)];
+      const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
+      // The layer drew: something under the half-opacity pixels is lit.
+      expect(Array.from(preview).some((value, i) => i % 4 !== 3 && value > 0)).toBe(true);
+      expect(differences(preview, exported(layers))).toEqual([]);
+    });
+  });
+
   // One code layer goes out as its own code only while the preview shows
   // that code as it is. Until 24 October 2026 a white layer at 50% showed 128
   // in the preview and went out as its code alone, so the community and the
