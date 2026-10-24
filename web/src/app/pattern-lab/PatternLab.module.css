@@ -88,57 +88,16 @@
   color: #171512;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid rgba(23, 21, 18, 0.18);
-}
-
-.headerMeta,
-.stats,
-.actionRow {
+.stats {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-.headerMeta,
-.stats {
-  color: rgba(23, 21, 18, 0.62);
-  font-family: var(--font-jetbrains), monospace;
-  font-size: 12px;
-  line-height: 1.45;
-  text-transform: uppercase;
-}
-
-.previewHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.editorHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.stats {
-  display: flex;
-  text-transform: none;
-  align-items: center;
   gap: 8px;
   color: rgba(23, 21, 18, 0.62);
   font-family: var(--font-jetbrains), monospace;
   font-size: 12px;
+  line-height: 1.45;
+  text-transform: none;
 }
 
 .dotSep {
@@ -248,114 +207,10 @@
   overflow-wrap: anywhere;
 }
 
-.actionRow {
-  margin-top: 12px;
-}
-
-.actionRow button,
-.editorHeader button {
-  min-height: 38px;
-  border: 1px solid rgba(23, 21, 18, 0.22);
-  background: #ffffff;
-  color: #171512;
-  padding: 0 12px;
-  font: inherit;
-  font-family: var(--font-jetbrains), monospace;
-  font-size: 12px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.actionRow button:hover,
-.editorHeader button:hover {
-  border-color: #171512;
-}
-
-.darkButton,
-.editorHeader button {
+.darkButton {
   background: #171512 !important;
   color: #f7f3ea !important;
   border-color: #171512 !important;
-}
-
-.editorHeader .guideButton {
-  background: #e8dcc2 !important;
-  color: #171512 !important;
-  border-color: #171512 !important;
-}
-
-.editorHeader .guideButton:hover {
-  background: #d9c8a4 !important;
-}
-
-.editorHeader .pasteButton {
-  display: none;
-  background: #e8552e !important;
-  color: #ffffff !important;
-  border-color: #e8552e !important;
-  font-weight: 600;
-}
-
-.editorHeader .pasteButton:hover {
-  background: #d44722 !important;
-  border-color: #d44722 !important;
-}
-
-.editorHeader .clearButton {
-  display: none;
-  background: #ffffff !important;
-  color: #171512 !important;
-  border: 1px solid rgba(23, 21, 18, 0.3) !important;
-}
-
-.editorHeader .clearButton:hover {
-  background: #f0eae1 !important;
-  border-color: #171512 !important;
-}
-
-.editorHeader {
-  flex: 0 0 auto;
-  min-height: 64px;
-  margin: 0;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(23, 21, 18, 0.18);
-}
-
-.editorHeader span {
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.editorHeader button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.viewToggle {
-  display: flex;
-  gap: 0;
-}
-
-.editorHeader .viewToggle button {
-  min-height: 32px;
-  border: 1px solid #171512 !important;
-  background: #ffffff !important;
-  color: #171512 !important;
-  padding: 0 14px;
-  font-family: var(--font-jetbrains), monospace;
-  font-size: 12px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.editorHeader .viewToggle button + button {
-  border-left: none !important;
-}
-
-.editorHeader .viewToggle button[data-active="true"] {
-  background: #171512 !important;
-  color: #f7f3ea !important;
 }
 
 .variantActions {
@@ -503,46 +358,10 @@
 }
 
 @media (max-width: 980px) {
-  .header,
-    .previewHeader,
-    .editorHeader {
-      align-items: flex-start;
-      flex-direction: column;
-    }
-
-  .previewHeader {
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-  .editorHeader button {
-      min-height: 36px;
-      padding: 0 10px;
-      font-size: 11px;
-    }
-
-  .editorHeader .pasteButton,
-    .editorHeader .clearButton {
-      display: inline-flex;
-    }
-
   .stats {
-      justify-content: flex-start;
-      text-align: left;
-    }
-
-  /* Action buttons become full-width rows — easy to hit, nothing truncated. */
-  .actionRow {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-  .actionRow button {
-      width: 100%;
-      min-height: 44px;
-    }
-
+    justify-content: flex-start;
+    text-align: left;
+  }
 }
 
 /* ── Community fork badge ── */
