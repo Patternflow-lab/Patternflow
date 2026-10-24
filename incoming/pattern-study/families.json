@@ -48,5 +48,7 @@
   "farm": { "label": "농사·밭", "color": "#449911" },
   "volcano": { "label": "화산", "color": "#bb2200" },
   "polar": { "label": "얼음·극지", "color": "#00ffff" },
-  "microbe": { "label": "미생물", "color": "#aa00aa" }
+  "microbe": { "label": "미생물", "color": "#aa00aa" },
+  "number": { "label": "수론", "color": "#00aaff" },
+  "topology": { "label": "위상", "color": "#44dd44" }
 }
