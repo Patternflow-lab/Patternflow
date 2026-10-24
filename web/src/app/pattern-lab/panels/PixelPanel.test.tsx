@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import PixelPanel from "./PixelPanel";
+import { zoomToFit } from "./pixel/usePixelViewport";
 import { useLabStore } from "@/lib/lab/store";
 import type { PixelLayer } from "@/lib/lab/types";
 
@@ -285,13 +286,20 @@ describe("PixelPanel", () => {
   };
 
   it("on a phone the picture opens fitted, all of it in view", () => {
-    // the Pixel viewport on a 390×844 phone, measured in Chromium
-    panelSize(372, 151);
+    // the Pixel viewport on a 390×844 touch phone, measured in Chromium
+    panelSize(372, 177);
     mount();
-    expect(screen.getByText("zoom 1×")).toBeTruthy();
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
     // and the zoom stays the user's to change
     fireEvent.click(screen.getByLabelText("Zoom in"));
-    expect(screen.getByText("zoom 2×")).toBeTruthy();
+    expect(screen.getByText("zoom 3×")).toBeTruthy();
+  });
+
+  it("the mouse gestures sit apart in the status line, where a touch screen can drop them", () => {
+    mount();
+    const hint = screen.getByText("alt-click picks · right-drag erases · middle-drag pans");
+    expect(hint.className).toBe("pixelMouseHint");
+    expect(hint.parentElement?.textContent).toContain("zoom 6×");
   });
 
   it("a desktop panel narrower than the picture at 6× opens fitted too", () => {
@@ -438,5 +446,15 @@ describe("PixelPanel", () => {
     fireEvent.pointerDown(overlay, at(2, 2));
     fireEvent.pointerUp(overlay, at(2, 2));
     expect(screen.queryByTitle(/Stamp the selection down/)).toBeNull();
+  });
+});
+
+describe("zoomToFit", () => {
+  it("fits 128×64 at 2× from a 168px-tall viewport, 64 × 2 and 40 of padding", () => {
+    expect(zoomToFit(372, 167, 128, 64)).toBe(1);
+    expect(zoomToFit(372, 168, 128, 64)).toBe(2);
+    // a 390×844 phone, with and without the mouse gestures under the picture
+    expect(zoomToFit(372, 151, 128, 64)).toBe(1);
+    expect(zoomToFit(372, 177, 128, 64)).toBe(2);
   });
 });
