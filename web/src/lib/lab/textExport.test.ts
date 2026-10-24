@@ -19,6 +19,7 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { createIdleInput, PatternRuntime } from "@/lib/pattern/harness";
 import type { MatrixSize } from "@/lib/pattern/matrix";
+import { CXX, cxxFlags, writeStubs } from "./cxxHarness";
 import { LabEngine } from "./engine";
 import { flattenLayers } from "./flatten";
 import { assembleH, buildHExport } from "./hExport";
@@ -42,8 +43,6 @@ import {
   type TextLayer,
   type TextSpec,
 } from "./types";
-
-const FIRMWARE = path.resolve(__dirname, "../../../../firmware/patternflow");
 
 function random(seed: number) {
   let state = seed >>> 0;
@@ -555,79 +554,13 @@ describe("moving text, as the preview shows it", () => {
 
 // ── the C++ header ──
 
-const CXX = ["c++", "g++", "clang++"].find((compiler) => {
-  try {
-    execFileSync(compiler, ["--version"], { stdio: "ignore" });
-    return true;
-  } catch {
-    return false;
-  }
-});
-
-// GitHub's runners have g++. A desk without a compiler skips the header half;
-// CI does not get to.
-if (!CXX && process.env.CI) throw new Error("no C++ compiler on this runner, and the header test needs one");
-
-const STUBS: Record<string, string> = {
-  "Arduino.h": `#pragma once
-#include <math.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#define PI 3.1415926535897932384626433832795
-#define TWO_PI 6.283185307179586476925286766559
-#define HALF_PI 1.5707963267948966192313216916398
-`,
-  "config.h": `#pragma once
-#define PANEL_RES_W 128
-#define PANEL_RES_H 64
-`,
-  "src/core_display.h": `#pragma once
-`,
-  // Field for field as firmware/patternflow/src/core_encoders.h has it.
-  "src/core_encoders.h": `#pragma once
-#include <Arduino.h>
-struct InputFrame {
-  long knobs[4];
-  int knobDeltas[4];
-  bool btnPressed[4];
-  bool btnHeld[4];
-  uint32_t now;
-  bool knobAudioActive[4];
-  float knobAudioValue[4];
-  bool paramAbsoluteActive[4];
-  uint16_t paramAbsolute[4];
-};
-`,
-  "src/core_canvas.h": `#pragma once
-#include <Arduino.h>
-#include "config.h"
-namespace PFCanvas {
-inline uint8_t frame[PANEL_RES_W * PANEL_RES_H * 3];
-inline int frameW = PANEL_RES_W, frameH = PANEL_RES_H;
-inline int presents = 0;
-inline void setFrame(int w, int h) { frameW = w; frameH = h; }
-inline void setPixel(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
-  if ((unsigned)x >= (unsigned)frameW || (unsigned)y >= (unsigned)frameH) return;
-  uint8_t* p = frame + ((size_t)y * frameW + x) * 3;
-  p[0] = r; p[1] = g; p[2] = b;
-}
-inline void present() { presents++; }
-}
-`,
-};
-
 type HeaderCase = Case & { namespaceName: string };
 
 /** Every case's header in one program: build once, print each frame as hex. */
 function runHeaders(cases: Case[]): Map<string, Uint8ClampedArray> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pf-text-header-"));
   dirs.push(dir);
-  for (const [file, text] of Object.entries(STUBS)) {
-    fs.mkdirSync(path.dirname(path.join(dir, "stub", file)), { recursive: true });
-    fs.writeFileSync(path.join(dir, "stub", file), text);
-  }
+  writeStubs(dir);
 
   const headers: HeaderCase[] = cases.map((entry) => {
     const built = buildHExport({
@@ -677,7 +610,7 @@ ${headers
 `;
   fs.writeFileSync(path.join(dir, "main.cpp"), main);
   const binary = path.join(dir, "headers");
-  execFileSync(CXX!, ["-std=c++17", "-O0", "-Wall", "-Werror", "-Wno-unused-function", "-Wno-unused-variable", "-I", path.join(dir, "stub"), "-I", FIRMWARE, "-I", dir, "main.cpp", "-o", binary], {
+  execFileSync(CXX!, [...cxxFlags(dir), "main.cpp", "-o", binary], {
     cwd: dir,
     stdio: ["ignore", "pipe", "pipe"],
   });

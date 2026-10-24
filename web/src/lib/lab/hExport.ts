@@ -43,9 +43,17 @@ function sanitizeName(name: string): string {
   return cleaned.length > 0 ? cleaned : "Composition";
 }
 
+// Rounded before the whole-number test: a Director knob at 62.99999999999999
+// only becomes whole at five places, and 63f is not a C++ literal.
 function fmtFloat(value: number): string {
-  if (Number.isInteger(value)) return `${value}.0f`;
-  return `${Math.round(value * 100000) / 100000}f`;
+  const text = String(Math.round(value * 100000) / 100000);
+  return /[.e]/.test(text) ? `${text}f` : `${text}.0f`;
+}
+
+// A `"` ends a C++ string and a `\` escapes the quote after it. The one-layer
+// path (enforcePatternName, cppPrompt.ts) leaves both out the same way.
+function literalText(text: string): string {
+  return text.trim().replace(/["\\]/g, "");
 }
 
 function stripLayerAnnotations(code: string): string {
@@ -233,8 +241,8 @@ ${stack.map((layer, i) => `//   L${i}. ${layer.name.replace(/\n/g, " ")} (${laye
 
 namespace ${ns} {
 
-const char* NAME = "${name.replace(/"/g, "'").slice(0, 24)}";
-const char* const KNOB_LABELS[4] = {${knobLabels.map((label) => `"${label.replace(/"/g, "'").slice(0, 14)}"`).join(", ")}};
+const char* NAME = "${literalText(name).slice(0, 24)}";
+const char* const KNOB_LABELS[4] = {${knobLabels.map((label) => `"${literalText(label).slice(0, 14)}"`).join(", ")}};
 // Knobs run through PFParams: the MQTT absolute bus (Director / Show
 // manager, 0..1000) can pin any of them deterministically.
 constexpr bool ABSOLUTE_READY = true;
@@ -708,7 +716,7 @@ ${stripLayerAnnotations(layer.code)}
  * pattern up by — so the paste path enforces it instead of trusting it.
  */
 export function enforcePatternName(code: string, name: string): string {
-  const clean = name.trim().replace(/["\\]/g, "");
+  const clean = literalText(name);
   if (!clean) return code;
   return code.replace(
     /(const\s+char\s*\*\s*NAME\s*=\s*")[^"\n]*(")/,
