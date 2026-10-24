@@ -190,13 +190,30 @@ export function buildSharedPatternFile(code: string, meta: ShareMeta): string {
   return `${buildLicenseHeader(meta)}\n\n${body}\n\n${buildAttributionFooter(meta)}\n`;
 }
 
+// Pattern Lab's C++ scaffold opens with `// SPDX-License-Identifier:
+// CC-BY-SA-4.0` whatever the author picks, and the presets a model copies from
+// open with the same line. Wrapped as it was, a header published under CC BY
+// 4.0 downloaded with CC-BY-SA-4.0 on line 1 and CC-BY-4.0 on line 18. The
+// licence block below is the one that counts, so the SPDX lines in the
+// comments above the first line of code come off. A line inside the code stays.
+const SPDX_LINE_RE = /^\s*\/\/\s*SPDX-License-Identifier:/;
+const COMMENT_OR_BLANK_RE = /^\s*(?:\/\/.*)?$/;
+
+function dropLeadingSpdx(code: string): string {
+  const lines = code.split("\n");
+  let top = 0;
+  while (top < lines.length && COMMENT_OR_BLANK_RE.test(lines[top])) top += 1;
+  const head = lines.slice(0, top).filter((line) => !SPDX_LINE_RE.test(line));
+  return [...head, ...lines.slice(top)].join("\n").trim();
+}
+
 // Wrap pasted C++ (the AI's conversion output) with the same licence header and
 // attribution footer as the .js file. The header goes right after the first
 // `#pragma once` line so the file still starts with it.
 export function buildSharedHeaderFile(cppCode: string, meta: ShareMeta): string {
   const header = buildLicenseHeader(meta);
   const footer = buildAttributionFooter(meta);
-  const body = stripShareWrapping(cppCode);
+  const body = dropLeadingSpdx(stripShareWrapping(cppCode));
   const lines = body.split("\n");
   const pragmaIndex = lines.findIndex((line) => line.trim().startsWith("#pragma once"));
   if (pragmaIndex >= 0) {

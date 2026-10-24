@@ -5,8 +5,12 @@
  * silent when they break: a fork must credit what it came from, and a fork must
  * not be published under looser terms than its parent.
  */
+import { buildHExport } from "../src/lib/lab/hExport";
+import { codeLayerFromSource } from "../src/lib/lab/store/shared";
+import { DEFAULT_MATRIX } from "../src/lib/pattern/matrix";
 import {
   LICENSE_OPTIONS,
+  buildSharedHeaderFile,
   buildSharedPatternFile,
   forkLicenseAllowed,
   forkLicenseOptions,
@@ -131,6 +135,36 @@ check(
   ).includes("SPDX-License-Identifier: MIT"),
   true,
 );
+
+console.log("\n── a downloaded .h carries one licence ──");
+// Pattern Lab's scaffold opens with a CC-BY-SA-4.0 SPDX line whatever the
+// author picked. Published under CC BY 4.0, the download said CC-BY-SA-4.0 on
+// line 1 and CC-BY-4.0 on line 18.
+const spdxLines = (text: string) => text.match(/SPDX-License-Identifier: \S+/g) ?? [];
+const ccBy: ShareMeta = { ...meta(), license: licenseBySpdx("CC-BY-4.0") };
+const { scaffold } = buildHExport({
+  name: "Ripple",
+  matrix: DEFAULT_MATRIX,
+  layers: [codeLayerFromSource(BODY, "Code 1").layer],
+  knobs: [0, 0, 0, 0],
+  ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+  knobLabels: ["A", "B", "C", "D"],
+});
+check("the Lab scaffold still opens with its own SPDX line", spdxLines(scaffold), ["SPDX-License-Identifier: CC-BY-SA-4.0"]);
+const labH = buildSharedHeaderFile(scaffold, ccBy);
+check("a Lab header shared under CC BY 4.0 says only CC-BY-4.0", spdxLines(labH), ["SPDX-License-Identifier: CC-BY-4.0"]);
+check("the scaffold's other top comments stay", labH.startsWith("// Pattern: Ripple — Pattern Lab layer-stack composition"), true);
+check("#pragma once stays above the licence block", labH.indexOf("#pragma once") < labH.indexOf("===== Patternflow pattern ====="), true);
+const presetH = "// SPDX-License-Identifier: CC-BY-SA-4.0\n// Pattern: Origin\n\n#pragma once\nvoid draw() {}";
+check("a preset-style header loses its SPDX line too", spdxLines(buildSharedHeaderFile(presetH, ccBy)), ["SPDX-License-Identifier: CC-BY-4.0"]);
+const noPragma = "// SPDX-License-Identifier: CC-BY-SA-4.0\nvoid draw() {}";
+check("so does one with no #pragma once", spdxLines(buildSharedHeaderFile(noPragma, ccBy)), ["SPDX-License-Identifier: CC-BY-4.0"]);
+const inCode = '#pragma once\nconst char* NOTE = "x";\n// SPDX-License-Identifier: MIT\nvoid draw() {}';
+check("a SPDX line inside the code stays", spdxLines(buildSharedHeaderFile(inCode, ccBy)), [
+  "SPDX-License-Identifier: CC-BY-4.0",
+  "SPDX-License-Identifier: MIT",
+]);
+check("wrapping a downloaded .h again keeps one licence", spdxLines(buildSharedHeaderFile(labH, ccBy)), ["SPDX-License-Identifier: CC-BY-4.0"]);
 
 console.log("\n── footers inside a flattened layer stack ──");
 // Pattern Lab flattens a layer stack with each layer's source embedded
