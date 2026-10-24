@@ -46,7 +46,8 @@ export function setup(params) {
   params.s = {
     n: 6, m: 1, q: 3.4, phi: 0, lay: 0, flash: [], begun: false,
     // Per square: circles as x, y, r (the outer, the inner, then the chain in
-    // the order it is laid); the touches as x, y, and which two circles meet.
+    // the order it is laid); each touch as its point x, y and the pair of
+    // circles that meet there.
     C: [new Float64Array(3 * 14), new Float64Array(3 * 14)],
     T: [new Float64Array(2 * 40), new Float64Array(2 * 40)], nt: 0, tri: [],
     A: new Float32Array(3 * W * H), col: [0, 0, 0], fil: [0, 0, 0],

@@ -51,9 +51,9 @@ const REACH = 7;
 
 // The whole crackle of one coat, worked out when it goes on. The panel is
 // one domain. A domain splits across its long axis: a crack starts on its
-// rim, square to the older crack it leaves, runs across, and turns to meet
-// the crack on the far side square. Each half splits the same way until it
-// is too short; bigger domains crack sooner.
+// rim, square to the older crack it leaves, and runs across until it turns
+// to meet the crack on the far side square. Each half splits the same way
+// until it is too short; bigger domains crack sooner.
 function crackle(craze) {
   const stop = 20 - 9 * craze, span = log((W * H) / (0.45 * stop * stop));
   const lab = new Int32Array(FW * FH), cracks = [];
