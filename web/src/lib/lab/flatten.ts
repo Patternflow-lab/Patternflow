@@ -319,15 +319,24 @@ __stack.push({
   // Shadow the wrapper's own exports: a layer that defines no setup/update
   // must yield undefined here, not capture the OUTER setup (infinite loop).
   var setup, update, draw;
+  // The layer's code gets a scope of its own below the shadows, so
+  // \`const draw = …\` declares a new draw instead of clashing with the var.
+  const __fns = (function () {
 ${stripForEmbedding(layer.code)}
+    return {
+      setup: typeof setup === "function" ? setup : null,
+      update: typeof update === "function" ? update : null,
+      draw: typeof draw === "function" ? draw : null,
+    };
+  })();
   __stack.push({
     kind: "code", opacity: ${layer.opacity}, blend: "${layer.blend}", recolor: ${layer.recolor}, ${roleProps},
     lut: ${needsLUT ? lutLiteral(layer) : "null"},
     buf: new Uint8ClampedArray(__W * __H * 4),
     params: {},
-    fSetup: typeof setup === "function" ? setup : null,
-    fUpdate: typeof update === "function" ? update : null,
-    fDraw: typeof draw === "function" ? draw : null,
+    fSetup: __fns.setup,
+    fUpdate: __fns.update,
+    fDraw: __fns.draw,
   });
 })();`);
   }
