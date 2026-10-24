@@ -191,7 +191,7 @@ function next(P) {
     } else P.pass++;
     return (P.ph = PAUSE), (P.t = 0);
   }
-  // At rest or after a pause: shuffle on, wait, or put the deck back.
+  // At rest or after a pause, pick what the deck does next.
   const home = sorted(P.deck, P.n);
   if (P.job === 1 && P.pass < P.bits) return unriffle(P), begin(P);
   if (P.job === 1 || (home && P.k > 0)) {
