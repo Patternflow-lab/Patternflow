@@ -49,15 +49,15 @@ const KL = [
   [0.6, 0, 0, 0, 84, 112, 186, 0.2, 0],
   [1, 52, 64, 92, 12, 22, 52, 0.32, 1],
 ].map((k) => Float64Array.from(k));
-// Coats from above, darkest on the back: black and white, grey, red, cream, black.
+// Coats from above, dark with a light face: black, grey, red, sable, black.
 const COAT = [
-  [34, 32, 36, 214, 210, 206, 236, 232, 228],
-  [104, 102, 106, 196, 192, 186, 218, 214, 206],
-  [156, 92, 50, 214, 186, 150, 232, 214, 192],
-  [226, 216, 196, 238, 232, 220, 240, 236, 226],
-  [30, 26, 26, 64, 58, 54, 196, 190, 184],
+  [28, 26, 30, 64, 60, 60, 236, 232, 228],
+  [64, 62, 66, 112, 108, 104, 226, 222, 214],
+  [110, 56, 26, 150, 92, 50, 236, 220, 198],
+  [58, 42, 28, 104, 80, 56, 232, 216, 192],
+  [24, 22, 22, 44, 40, 38, 220, 214, 206],
 ].map((c) => [0, 3, 6].map((j) => Float64Array.from(c.slice(j, j + 3), (v) => v / 255)));
-const HARN = [0.16, 0.32, 0.8], LINE = [0.2, 0.17, 0.22], WOOD = [0.62, 0.46, 0.3], DARK = [0.26, 0.18, 0.12], LOAD = [0.44, 0.34, 0.24], RED = [0.78, 0.15, 0.1], FUR = [0.74, 0.66, 0.54];
+const HARN = [1, 0.5, 0.04], LINE = [0.2, 0.17, 0.22], WOOD = [0.62, 0.46, 0.3], DARK = [0.26, 0.18, 0.12], LOAD = [0.44, 0.34, 0.24], RED = [0.78, 0.15, 0.1], FUR = [0.74, 0.66, 0.54];
 // Side views as capsules (a, h, a, h, r): a dog; the sled and musher.
 const DOG = [-2, 2.75, 1.2, 2.95, 0.82, 1.2, 3.2, 2.7, 3.95, 0.6, 2.7, 3.95, 3.9, 3.65, 0.42, 2.55, 4.4, 2.7, 5, 0.22, -2.2, 3.2, -2.6, 4.2, 0.42, -2.6, 4.2, -1.8, 4.7, 0.36];
 const SLD = [-1.5, 0.8, 14.5, 0.8, 0.55, 5.5, 1.8, 11.5, 1.8, 1, 2.6, 0.8, 2.6, 5.8, 0.3, 0.45, 0, 0.7, 5, 0.6, 0.7, 5, 0.9, 9, 1.15, 1, 10.2, 1, 10.3, 0.85, 1, 8.4, 2.5, 6, 0.4];
@@ -162,7 +162,7 @@ function layout(S) {
   // Long teams close up to fit the panel.
   const n = S.nd, odd = n & 1, pt = (S.pt = min(PITCH, 76 / (((n + 1) >> 1) - 1))), sf = (((n + 1) >> 1) - 1) * pt + 8 * Z;
   for (let i = 0; i < n; i++) {
-    const side = odd && !i ? 0 : (odd ? i - 1 : i) & 1 ? 1 : -1, s = ((i + odd) >> 1) * pt + 0.6 * (S.DO[i] - 0.5) + (side > 0 ? 0.5 : 0);
+    const side = odd && !i ? 0 : (odd ? i - 1 : i) & 1 ? 1 : -1, s = ((i + odd) >> 1) * pt + 0.6 * (S.DO[i] - 0.5) + (side > 0 ? 3.5 * Z : 0);
     pathAt(S, s - 1);
     const ax = PP[0], ay = PP[1];
     pathAt(S, s + 1);
@@ -317,7 +317,7 @@ export function draw(display, params) {
   }
   if (dON) shadowOf(S.sbx - cx + fx, S.sby - cy + fy, ux, uy, Kx, Ky, 16, 11, SLD, 0, 0);
   // Snow between grid points, shadows taken out.
-  for (let i = 0, o = 0; i < TW * TH; i++) for (let c = 0, s = 1 - SM[i]; c < 3; c++, o++) AM[o] += DI[o] * s;
+  for (let i = 0, o = 0; i < TW * TH; i++) for (let c = 0, s = 1 - 0.55 * SM[i]; c < 3; c++, o++) AM[o] += DI[o] * s;
   const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0, q = y * TW * 3; x < W; x++) for (let c = 0; c < 3; c++, p++, q++) F[p] = w00 * AM[q] + w10 * AM[q + 3] + w01 * AM[q + TW * 3] + w11 * AM[q + TW * 3 + 3];
@@ -381,10 +381,10 @@ function dog(S, i) {
       const qx = (px + 0.5 - x) / Z, qy = (py + 0.5 - y) / Z, a = qx * Fx + qy * Fy, b = -qx * Fy + qy * Fx;
       if (a * a + b * b > 30) continue;
       PO = (py * W + px) * 3;
-      for (let l = 0; l < 24; l += 6) paint(cap(a, b, LG[l], l % 12 ? 0.85 : -0.85, LG[l + 4], l % 12 ? 0.95 : -0.95, 0.38), 0.38, FC, 1);
+      for (let l = 0; l < 24; l += 6) paint(cap(a, b, LG[l], l % 12 ? 0.85 : -0.85, LG[l + 4], l % 12 ? 0.95 : -0.95, 0.38), 0.38, SD, 1);
       const d = cap(a, b, -2.1 - 0.25 * ext, 0, 1.1 + 0.15 * ext, 0, 1.12), q = cl(0.5 - d * Z, 0, 1);
       paint(d, 1.12, SD, 1);
-      if (q > 0) paint(d, 1.12, BK, sm(0.85, 0.35, abs(OO[1])) * q), abs(a - 0.8) < 0.3 && paint(d, 1.12, HARN, 0.9 * q);
+      if (q > 0) paint(d, 1.12, BK, sm(0.85, 0.35, abs(OO[1])) * q), abs(a - 0.7) < 0.45 && paint(d, 1.12, HARN, q);
       paint(cap(a, b, 1.4, 0, 2.7, 0, 0.55), 0.55, SD, 1);
       paint(cap(a, b, 3, 0, 3.3, 0, 0.8), 0.8, FC, 1);
       paint(cap(a, b, 3.5, 0, 4.4, 0, 0.42), 0.42, FC, 1);
