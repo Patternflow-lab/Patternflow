@@ -50,5 +50,7 @@
   "polar": { "label": "얼음·극지", "color": "#00ffff" },
   "microbe": { "label": "미생물", "color": "#aa00aa" },
   "rail": { "label": "철도", "color": "#00bb66" },
-  "film": { "label": "필름·영화", "color": "#ff0000" }
+  "film": { "label": "필름·영화", "color": "#ff0000" },
+  "topology": { "label": "위상·매듭", "color": "#80ff40" },
+  "cosmetic": { "label": "화장품 팝업", "color": "#f2c6c2" }
 }
