@@ -30,9 +30,10 @@ const A = 31.5, B = 26, C = sqrt(A * A - B * B), CX = 32;
 const YT = 0.5 + B, YB = 127.5 - B, YM = 64;
 const IA2 = 1 / (A * A), IB2 = 1 / (B * B), EPS = 1e-6;
 // Each reflection keeps 60% of the light. The glow is LEVEL times the light
-// over the mean of the lit LEDs, raised to GAMMA: the mean shows at 92 of 255
-// and the glow round the lamp comes close to full.
-const REFL = 0.6, LEVEL = 0.36, GAMMA = 0.7;
+// over the mean of the lit LEDs, raised to GAMMA: the mean shows at 128 of 255
+// and the glow round the lamp comes close to full. At 92 the swap moved the
+// picture 0.270 on the study's drift scale; at 128 it moves it 0.365.
+const REFL = 0.6, LEVEL = 0.50, GAMMA = 0.7;
 
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
