@@ -180,14 +180,15 @@ function paint(S) {
     for (let y = 0; y < H; y++) {
       const q = (y * W + x) * 3;
       bg[q] = bg[q + 1] = bg[q + 2] = 0;
-      for (let k = 0; k < 4; k++) {
+      // The open sky is smooth enough for one sample.
+      for (let k = y + 1 < farT ? 3 : 0; k < 4; k++) {
         const xs = x + 0.25 + 0.5 * (k & 1), ys = y + 0.25 + 0.5 * (k >> 1);
         let c;
         if (ys >= FY) c = fieldAt(S, xs, ys, sun, Lsh, haze);
         else if (ys >= nearT) c = ridgeN.map((v) => v * (0.84 + 0.3 * fbm(x * 0.35, ys * 0.9, 24)));
         else if (ys >= farT) c = ridgeF;
         else c = skyAt(xs, ys, h);
-        for (let i = 0; i < 3; i++) bg[q + i] += c[i] / 4;
+        for (let i = 0; i < 3; i++) bg[q + i] += y + 1 < farT ? c[i] : c[i] / 4;
       }
     }
   }
