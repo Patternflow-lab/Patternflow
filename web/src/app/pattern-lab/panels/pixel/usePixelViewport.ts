@@ -87,7 +87,8 @@ export function usePixelViewport({
 
   // The ± buttons keep the middle of what the viewport shows in the middle,
   // as Director's ± does (useTimelineZoom). Zooming from the top-left corner
-  // pushed it six cells off at 10× in the 649 px desktop panel.
+  // moved the middle from column 64 to 58 on one + at 10× in the 649 px
+  // desktop panel.
   const zoomBy = useCallback(
     (delta: number) => {
       const current = zoomRef.current;
