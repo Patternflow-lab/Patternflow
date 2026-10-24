@@ -213,7 +213,7 @@ function throwTo(S, c, delay = 0) {
 
 function puff(S, x, y, vy, r, a, k) {
   if (S.puffs.length > 110) S.puffs.shift();
-  S.puffs.push({ x, y, vy, r, a, k, hot: 0.7 + 0.3 * k, ph: rnd() * 7 });
+  S.puffs.push({ x, y, vy, r, a, k, hot: 0.7 - 0.2 * k, ph: rnd() * 7 });
 }
 
 function spark(S, s) {
@@ -253,7 +253,7 @@ function step(S, d) {
   // The potter stokes twice, watches the spy hole, then goes where wood is needed.
   pt.ph += d;
   if (!pt.mode) {
-    pt.A += cl(S.Ac[pt.tgt] - pt.A, -11 * d, 11 * d);
+    pt.A += cl(S.Ac[pt.tgt] - pt.A, -13 * d, 13 * d);
     if (abs(S.Ac[pt.tgt] - pt.A) < 1e-3) pt.mode = 1, pt.tm = 0, pt.thr = 0;
   } else if (pt.mode === 1) {
     pt.tm += d;
@@ -261,7 +261,7 @@ function step(S, d) {
       throwTo(S, pt.tgt);
       pt.thr++;
     }
-    if (pt.tm > 1.8) pt.mode = 2, pt.tm = 0.8 + rnd();
+    if (pt.tm > 1.5) pt.mode = 2, pt.tm = 0.6 + 0.6 * rnd();
   } else if ((pt.tm -= d) <= 0) pt.tgt = ++pt.k % 3 ? S.cf : min(n, S.cf + 1), pt.mode = 0;
   // The stoker feeds the fire mouth.
   fb.an = max(0, fb.an - d);
@@ -294,7 +294,7 @@ function air(S, d) {
     p.x += (wind * 18 * (0.5 + 0.5 * cl((TOP - p.y) / TOP, 0, 1)) + 1.2 * sin(S.t * 0.9 + p.ph)) * d;
     p.r = min(10 + p.k, p.r + d * (1.5 + 1.2 * p.k + 2 * cl((8 - p.y) / 8, 0, 1)));
     p.a -= d * (0.05 + 0.04 * (1 - p.k));
-    p.hot = max(0, p.hot - d * (1.4 - 0.9 * p.k));
+    p.hot = max(0, p.hot - d * 1.4);
   }
   S.puffs = S.puffs.filter((p) => p.a > 0.03 && p.y + p.r > -3 && p.x > -14 && p.x < W + 14);
   for (S.ns += d * (2 + 5 * T[n]) * (1 + 0.6 * wind); S.ns >= 1; S.ns--) spark(S, 1);
@@ -404,8 +404,8 @@ export function draw(display, params) {
     glow(x0, y0, 5, [120, 50, 10], s);
     for (let j = 0; j < len; j++) {
       const u = j / len, x = x0 - j * (1 - 0.6 * max(0, wind)) + wind * j * 0.4, y = y0 - j * j * 0.06 - j * 0.15 + sin(t * 17 + j) * 0.4 * u;
-      put(x, y, lc(T + 0.3 - 0.6 * u), 1 - u * 0.3);
-      if (u < 0.7) put(x, y - 1, lc(T + 0.1 - 0.6 * u), 0.8 - u), put(x, y + 1, lc(T - 0.6 * u), 0.5 - 0.5 * u);
+      put(x, y, lc(T + 0.45 - 0.6 * u), 1 - u * 0.3);
+      if (u < 0.7) put(x, y - 1, lc(T + 0.25 - 0.6 * u), 0.8 - u), put(x, y + 1, lc(T + 0.1 - 0.6 * u), 0.5 - 0.5 * u);
     }
   }
   const pt = S.pot, [px, py, climb] = posAt(S, pt.A), pose = pt.mode === 1 ? 3 : pt.mode ? 0 : climb ? 2 : 1;
