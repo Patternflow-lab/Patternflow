@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PublishModal, SendModuleModal, buildsConfigured, communityConfigured } from "./community";
+import { useBackdropClose } from "@/lib/hooks/useBackdropClose";
 import { useDialog } from "@/lib/hooks/useDialog";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import {
@@ -212,10 +213,9 @@ export default function HardwareModal({
 
   // Only a press on this backdrop itself closes. Send and Publish open inside
   // it, so a press on their backdrop bubbles up here too, and closing one of
-  // them would close this window under it.
-  const closeOnBackdrop = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) onClose();
-  };
+  // them would close this window under it. A drag out of the header box ends
+  // here as well, and that one began in the card.
+  const closeOnBackdrop = useBackdropClose(onClose);
 
   // Esc closes the window on top. Send and Publish open over this one and
   // hear no keys of their own, so the first Esc is theirs and the header
@@ -240,7 +240,7 @@ export default function HardwareModal({
       role="dialog"
       aria-modal="true"
       aria-label="Hardware"
-      onClick={closeOnBackdrop}
+      {...closeOnBackdrop}
     >
       <div
         ref={cardRef}
