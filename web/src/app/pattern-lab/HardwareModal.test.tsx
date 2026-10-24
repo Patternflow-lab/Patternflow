@@ -155,6 +155,70 @@ describe("HardwareModal", () => {
     }
   });
 
+  // A chat answer copied whole carries the model's words and the ``` fence
+  // around the code. The box used to pass it as a header, because the check
+  // found #pragma once on any line, and the words went into the .h whole.
+  it("keeps only the header when a whole chat answer is pasted", async () => {
+    const header = [
+      "// SPDX-License-Identifier: CC-BY-SA-4.0",
+      "// Pattern: Wave",
+      "#pragma once",
+      "namespace LabWave {",
+      '  const char* NAME = "Wave";',
+      "  void draw() {}",
+      "} // namespace LabWave",
+    ].join("\n");
+    const reply = `Here is the converted header:\n\n\`\`\`cpp\n${header}\n\`\`\`\n\nLet me know if you want the colours warmer.`;
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+        target: { value: reply },
+      });
+      expect(screen.getByText(/Looks like a header ✓/)).toHaveTextContent("The words around it stay out of the .h.");
+
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const name = useLabStore.getState().layers[0].name;
+      expect(writeText).toHaveBeenCalledWith(header.replace('"Wave"', `"${name}"`));
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("finds no header in an answer whose #pragma once is in a sentence", () => {
+    render(<Lab />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+      target: { value: "Sure. The header starts with #pragma once and ends with the namespace." },
+    });
+    expect(screen.getByText("A Patternflow header starts with #pragma once")).toBeTruthy();
+    expect(screen.getByText("Copy .h")).toBeDisabled();
+    expect(screen.getByText("Next →")).toBeDisabled();
+  });
+
+  // Copy .h used to be the one button open on an empty box. It put nothing
+  // on the clipboard and said Copied ✓.
+  it("keeps Copy .h shut until a header is pasted", () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      expect(screen.getByText("Copy .h")).toBeDisabled();
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(writeText).not.toHaveBeenCalled();
+      expect(screen.queryByText("Copied ✓")).toBeNull();
+
+      fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+        target: { value: HEADER },
+      });
+      expect(screen.getByText("Looks like a header ✓")).toBeTruthy();
+      expect(screen.getByText("Copy .h")).toBeEnabled();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   // Text and pixel layers are in the scaffold as pixels, so with no code
   // layer the header is whole. The window used to count "0 layers to
   // translate — 0 done" and send the person to a model anyway.
