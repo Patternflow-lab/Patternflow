@@ -99,18 +99,24 @@ export default function HardwareModal({
   // a stack with no code layer is the whole header, no model in the loop.
   const nothingToTranslate = stacked && exportData.units.length === 0;
 
-  const translated = exportData.units.filter(
-    (unit) => (pastes[unit.index] ?? "").trim().length > 0 && cleanPastedUnit(pastes[unit.index] ?? "", unit.index) !== null,
-  ).length;
-
-  const headerLooksReal = /^\s*#pragma\s+once\b/m.test(assembled);
-
   /** null = nothing pasted yet, true/false = parsed or not. */
   const unitState = (index: number): boolean | null => {
     const pasted = (pastes[index] ?? "").trim();
     if (pasted.length === 0) return null;
     return cleanPastedUnit(pasted, index) !== null;
   };
+
+  const untranslated = exportData.units.filter((unit) => unitState(unit.index) !== true);
+  const translated = exportData.units.length - untranslated.length;
+
+  const headerLooksReal = /^\s*#pragma\s+once\b/m.test(assembled);
+
+  // The scaffold has #pragma once before anything is pasted, so in a stack
+  // the header test alone let two untranslated code layers through as
+  // "Header ready", and the board showed black. Each stub draws nothing.
+  const waitingForTranslation = stacked && !nothingToTranslate && translated === 0;
+  const canContinue = headerLooksReal && !waitingForTranslation;
+  const stubNames = untranslated.map((unit) => `L${unit.index} · ${unit.name}`).join(", ");
 
   const copyText = async (key: string, text: string) => {
     try {
@@ -223,6 +229,11 @@ export default function HardwareModal({
                       {exportData.units.length} layer{exportData.units.length === 1 ? "" : "s"} to
                       translate — {translated} done. Untranslated layers keep a compiling stub, so a
                       partial port still builds.
+                      {waitingForTranslation
+                        ? exportData.units.length === 1
+                          ? " Next opens when it is translated."
+                          : " Next opens when one of them is translated."
+                        : null}
                     </p>
                   )}
                   {exportData.units.map((unit) => (
@@ -291,11 +302,13 @@ export default function HardwareModal({
                 <button
                   type="button"
                   className={styles.darkButton}
-                  disabled={!headerLooksReal}
+                  disabled={!canContinue}
                   title={
-                    headerLooksReal
+                    canContinue
                       ? "Continue with this header"
-                      : "Paste a header starting with #pragma once first"
+                      : waitingForTranslation
+                        ? "Paste the translation of one layer first"
+                        : "Paste a header starting with #pragma once first"
                   }
                   onClick={() => setStage("ready")}
                 >
@@ -306,10 +319,20 @@ export default function HardwareModal({
           ) : (
             <>
               <p className={styles.modalNote}>
-                Header ready ({(assembled.length / 1024).toFixed(1)} KB). Try it on the board
-                first — publishing it afterwards carries the header along, so the pattern lands
-                in the community already marked hardware-ready.
+                {stacked && untranslated.length > 0
+                  ? `Header built (${(assembled.length / 1024).toFixed(1)} KB) with ${translated} of ${exportData.units.length} layers translated.`
+                  : `Header ready (${(assembled.length / 1024).toFixed(1)} KB).`}{" "}
+                Try it on the board first — publishing it afterwards carries the header along, so
+                the pattern lands in the community already marked hardware-ready.
               </p>
+              {stacked && untranslated.length > 0 && (
+                <p className={local.hwBad}>
+                  Not translated: {stubNames}.{" "}
+                  {untranslated.length === 1
+                    ? "On the board it draws nothing until you go back and paste its translation."
+                    : "On the board they draw nothing until you go back and paste their translations."}
+                </p>
+              )}
 
               <div className={styles.variantActions} style={{ flexWrap: "wrap" }}>
                 {buildsConfigured() && (
