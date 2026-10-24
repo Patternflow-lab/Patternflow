@@ -11,7 +11,7 @@
 // is really gone.
 
 import { useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import HardwareModal from "./HardwareModal";
 import { useLabStore } from "@/lib/lab/store";
@@ -344,6 +344,23 @@ describe("HardwareModal", () => {
     } finally {
       delete (navigator as { clipboard?: unknown }).clipboard;
     }
+  });
+
+  // A lone code layer at 50% or on multiply is dimmer in the preview than its
+  // code draws, or black. The single prompt carried neither, so the board lit
+  // it at full strength; a stack of one carries the opacity and the blend.
+  it.each([
+    ["at 50%", (id: string) => useLabStore.getState().setLayerOpacity(id, 0.5)],
+    ["on multiply", (id: string) => useLabStore.getState().setLayerBlend(id, "multiply")],
+  ])("ports one code layer %s as a stack of one", (_, change) => {
+    render(<Lab />);
+    expect(screen.getByText("Copy the conversion prompt")).toBeTruthy();
+    cleanup();
+
+    change(useLabStore.getState().layers[0].id);
+    render(<Lab />);
+    expect(screen.queryByText("Copy the conversion prompt")).toBeNull();
+    expect(screen.getByText(/1 layer to translate — 0 done/)).toHaveTextContent("Next opens when it is translated.");
   });
 
   it("a code layer under a text layer is the one to translate before Next", () => {
