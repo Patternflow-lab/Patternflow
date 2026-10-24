@@ -12,7 +12,7 @@
 // @knobs Palette=0..1, Speed=0.25..6, Births=-1..1, Migration=-1..1
 //
 // Knob 1: Palette. Turns the colours of the birth decades round the wheel; the decades step bright, middle and dark in threes so neighbouring bands part.
-// Knob 2: Speed. At 2 three years go by each second and the 240 years from 1820 to 2060 take 80 seconds; at 6 the bands race up the pyramid.
+// Knob 2: Speed. At 2 three years go by each second: it opens in 1995, reaches 2060 in 22 seconds, and the whole 240 years from 1820 take 80 seconds after that; at 6 the bands race up the pyramid.
 // Knob 3: Births. Scales the fertility the story runs on, from 0.63 times at the left to 1.6 times at the right. In the middle the country starts near six children a woman and ends near one; turned down the base pinches in, turned up it spreads.
 // Knob 4: Migration. Within a tenth of the middle nobody moves. Turned up, young adults arrive each year around age 26 and their part of each bar is drawn paler at its outer end as they grow old in the country; turned down, they leave, and a dotted ghost past the bar's end shows where it would reach had they stayed.
 // Buttons: K1 tap makes this year a war or an epidemic, in turn: births fall by about half, and either young men or the very young and the old die, so a notch forms and climbs.
@@ -28,7 +28,9 @@ const rnd = () => Math.random();
 const NA = 107;
 // Row of age 0, first bar column for men (going left) and for women (going right), the widest bar.
 const [Y0, MX, FX, BAR] = [121, 30, 33, 23];
-const [START, END] = [1820, 2060];
+// The story runs from 1820 to 2060 and goes back to 1820. The first start opens in OPEN, the boom in middle age and
+// the old reaching the top of the panel, with the years before it run unseen.
+const [START, END, OPEN] = [1820, 2060, 1995];
 
 // Mortality level: 0 where a quarter of babies die in their first year and life lasts 30 to 33 years on average, 1 where it lasts 79 to 83.
 const LK = [[1820, 0], [1850, 0.02], [1880, 0.14], [1910, 0.34], [1950, 0.66], [1975, 0.84], [2000, 0.94], [2060, 1]];
@@ -87,10 +89,10 @@ function step(src, dst, y, fk, mig, kind, push) {
     const [D, I, E] = [dst[s], dst[s + 2], dst[s + 4]];
     for (let a = 12; a < 60; a++)
       if (mig > 0) {
-        const n = mig * 0.0006 * MIG[a] * (s ? 0.9 : 1.1);
+        const n = mig * 0.00045 * MIG[a] * (s ? 0.9 : 1.1);
         (D[a] += n), (I[a] += n);
       } else if (mig < 0) {
-        const f = 1 - exp(mig * 0.065 * MIG[a]);
+        const f = 1 - exp(mig * 0.035 * MIG[a]);
         (E[a] += D[a] * f), (D[a] *= 1 - f), (I[a] *= 1 - f);
       }
   }
@@ -114,17 +116,19 @@ export function setup(params) {
   params.s = { cur: S(), nxt: S(), tmp: S(), y: START, u: 0, scl: 0, f: new Float32Array(N * 3), ready: 0, war: 0, fade: 0, kinds: new Int8Array(END - START + 2) };
 }
 
-// Run the opening regime for 150 years so it reaches its own shape and the knobs show from the first frame.
-function warm(P, fk, mig) {
+// Run the opening regime for 110 years, longer than anyone lives, so it reaches its own shape and the knobs show from the first frame,
+// then the story up to the year it opens on.
+function warm(P, fk, mig, open) {
   for (let s = 0; s < 6; s++) for (let a = 0; a < NA; a++) P.cur[s][a] = s < 2 ? exp(-0.04 * a) : 0;
-  for (let i = 0; i < 150; i++) {
-    step(P.cur, P.tmp, START - 150 + i, fk, mig, rnd() < 0.07 ? 2 : -1, 0);
+  for (let i = 0; i < 110; i++) {
+    step(P.cur, P.tmp, START - 110 + i, fk, mig, rnd() < 0.07 ? 2 : -1, 0);
     [P.cur, P.tmp] = [P.tmp, P.cur];
   }
   P.y = START;
   P.u = 0;
   P.kinds.fill(-1);
   next(P, fk, mig, 0);
+  while (P.y < open) [P.cur, P.nxt] = [P.nxt, P.cur], P.y++, next(P, fk, mig, 0);
   P.scl = 0;
 }
 
@@ -140,13 +144,13 @@ export function update(dt, input, params) {
   const P = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const fk = exp(0.47 * cl(k[2], -1, 1)), k4 = cl(k[3], -1, 1), mig = Math.sign(k4) * max(0, abs(k4) - 0.1) / 0.9, spd = 1.5 * cl(k[1], 0.25, 6);
   P.hue = k[0];
-  if (!P.ready) (P.ready = 1), warm(P, fk, mig);
+  if (!P.ready) (P.ready = 1), warm(P, fk, mig, OPEN);
   // K1 tap: this year is a war, then an epidemic, by turns.
   if (input.btnPressed && input.btnPressed[0] && P.y < END) next(P, fk, mig, (P.war ^= 1) ? 1 : 2);
   if (P.fade > 0) {
     // The story is over: hold the urn a moment, dim, start again from the old triangle, light up.
     P.fade += d;
-    if (P.fade > 2 && P.y >= END) warm(P, fk, mig);
+    if (P.fade > 2 && P.y >= END) warm(P, fk, mig, START);
     if (P.fade > 2.8) P.fade = 0;
   } else {
     P.u += d * spd;
