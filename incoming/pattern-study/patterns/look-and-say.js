@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Look and Say
-// Family:  type
+// Family:  data
 // Idea:    Conway's look-and-say sequence types itself down the page, each row read aloud run by run from the row above, and as the rows grow by 1.3 a step the page steps down from numerals to bars to one LED a digit, every Conway element in its own colour.
 // Author:  patternflow-lab
 // Date:    2026-10-24

@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Hairy Ball
-// Family:  topology
+// Family:  noise
 // Idea:    A hairy sphere above a hairy doughnut, both turning in the light: however the sphere is combed, one or two cowlicks glow where its hair has nowhere to point, while the doughnut's hair lies smooth all the way round, and the small 2 and 0 are their Euler characteristics.
 // Author:  patternflow-lab
 // Date:    2026-10-24

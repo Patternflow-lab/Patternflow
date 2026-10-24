@@ -49,6 +49,7 @@
   "volcano": { "label": "화산", "color": "#bb2200" },
   "polar": { "label": "얼음·극지", "color": "#00ffff" },
   "microbe": { "label": "미생물", "color": "#aa00aa" },
-  "number": { "label": "수론", "color": "#00aaff" },
-  "topology": { "label": "위상", "color": "#44dd44" }
+  "rail": { "label": "철도", "color": "#00bb66" },
+  "film": { "label": "필름·영화", "color": "#ff0000" },
+  "number": { "label": "수론", "color": "#00aaff" }
 }
