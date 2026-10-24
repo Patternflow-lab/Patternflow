@@ -42,5 +42,7 @@
   "body": { "label": "몸", "color": "#bb5566" },
   "flight": { "label": "비행", "color": "#9944ee" },
   "stage": { "label": "무대·공연", "color": "#ff0066" },
-  "mammal": { "label": "짐승", "color": "#998844" }
+  "mammal": { "label": "짐승", "color": "#998844" },
+  "construction": { "label": "공사·건설", "color": "#ffee00" },
+  "pottery": { "label": "도자기", "color": "#b05030" }
 }
