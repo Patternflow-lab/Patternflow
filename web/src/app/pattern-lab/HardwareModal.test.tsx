@@ -311,6 +311,41 @@ describe("HardwareModal", () => {
     expect(screen.queryByText(/Not translated/)).toBeNull();
   });
 
+  // With one layer showing, the community gets that layer. The prompt used to
+  // take the layer picked in Layers even when it was hidden or at 0%, so the
+  // board got a pattern nobody could see in the preview.
+  it.each([
+    ["hidden", (id: string) => useLabStore.getState().setLayerVisible(id, false)],
+    ["at 0%", (id: string) => useLabStore.getState().setLayerOpacity(id, 0)],
+  ])("translates the layer that shows when the picked one is %s", async (_, hide) => {
+    const lab = useLabStore.getState();
+    const starter = lab.layers[0].id;
+    lab.addCodeLayerFromCode("export function draw(display) { display.setPixel(1, 1, 0, 255, 0); } // shown", "Shown");
+    useLabStore.getState().addCodeLayerFromCode("export function draw(display) { display.setPixel(2, 2, 0, 0, 255); } // hidden", "Hidden");
+    useLabStore.getState().removeLayer(starter);
+    const picked = useLabStore.getState().activeLayerId;
+    expect(useLabStore.getState().layers.find((layer) => layer.id === picked)?.name).toBe("Hidden");
+    hide(picked);
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      fireEvent.click(screen.getByText("Copy the conversion prompt"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const prompt = String(writeText.mock.calls[0][0]);
+      expect(prompt).toContain("// shown");
+      expect(prompt).not.toContain("// hidden");
+
+      // The build carries the shown layer's name too.
+      pasteHeaderAndContinue();
+      fireEvent.click(screen.getByText("↗ Apply to my Patternflow"));
+      const request = vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith("/api/community/builds"));
+      expect(JSON.parse(String(request?.[1]?.body)).patterns[0].label).toBe("Shown");
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   it("a code layer under a text layer is the one to translate before Next", () => {
     useLabStore.getState().addTextLayer();
     render(<Lab />);
