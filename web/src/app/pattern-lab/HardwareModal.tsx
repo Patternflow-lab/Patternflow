@@ -211,8 +211,8 @@ export default function HardwareModal({
   const label = lone?.name ?? name;
 
   // Only a press on this backdrop itself closes. Send and Publish open inside
-  // it, so a press on their backdrop bubbles up here too, and the header
-  // pasted above lives in this component's state and would go with it.
+  // it, so a press on their backdrop bubbles up here too, and closing one of
+  // them would close this window under it.
   const closeOnBackdrop = (event: MouseEvent<HTMLDivElement>) => {
     if (event.target === event.currentTarget) onClose();
   };

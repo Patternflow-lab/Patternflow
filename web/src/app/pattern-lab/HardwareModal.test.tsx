@@ -7,8 +7,8 @@
 // hears the Esc meant for them, and it closes the one on top.
 //
 // The modal is mounted the way the lab mounts it, behind an open flag that
-// onClose clears, so a stray close really unmounts it and the pasted header
-// is really gone.
+// onClose clears, so a stray close really unmounts it. The pasted header is
+// kept for the tab, and rendering Lab again is opening the window again.
 
 import { useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
