@@ -7,6 +7,7 @@ import { authClient } from "@/lib/community/auth-client";
 import AuthModal from "@/components/community/AuthModal";
 import { renderPatternThumb } from "@/lib/community/thumbs";
 import { knobSetupFromCode } from "@/lib/community/knobs";
+import { KNOB_SPAN_FLOOR, normalizeKnob, tidyKnobValue } from "@/lib/pattern/controls";
 import {
   describeMatrixShape,
   formatMatrix,
@@ -375,15 +376,14 @@ export default function PatternCard({
     e.preventDefault();
 
     const [min, max] = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
-    const span = Math.max(0.001, max - min);
+    const span = Math.max(KNOB_SPAN_FLOOR, max - min);
     const step = span / 25;
     const direction = e.deltaY < 0 ? 1 : -1;
 
     setKnobValues((prev) => {
       const next = [...prev];
       const current = next[activeKnobIdx] ?? min;
-      const updated = Math.max(min, Math.min(max, current + direction * step));
-      next[activeKnobIdx] = Number(updated.toFixed(3));
+      next[activeKnobIdx] = Math.max(min, Math.min(max, tidyKnobValue(current + direction * step)));
       return next;
     });
   };
@@ -391,7 +391,7 @@ export default function PatternCard({
   const activeLabel = knobSetup.labels[activeKnobIdx] ?? `Knob ${activeKnobIdx + 1}`;
   const activeValue = knobValues[activeKnobIdx] ?? 0;
   const [activeMin, activeMax] = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
-  const activeNorm = (activeValue - activeMin) / Math.max(0.001, activeMax - activeMin);
+  const activeNorm = normalizeKnob(activeValue, [activeMin, activeMax]);
 
   // Dynamic detail page URL query carrying modified knob values
   const detailUrl = `/community/p/${item.id}?k=${knobValues.join(",")}`;

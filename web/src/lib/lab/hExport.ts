@@ -27,7 +27,7 @@ import {
   PATTERN_MATRIX_WIDTH,
   buildRampLUTRGBA,
 } from "@/lib/pattern/harness";
-import { knobDetentStep } from "@/lib/pattern/controls";
+import { knobDetentStep, normalizeKnob } from "@/lib/pattern/controls";
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE } from "./annotations";
@@ -209,11 +209,9 @@ export function buildHExport(args: HExportArgs): HExport {
     .map((layer, index) => ({ layer, index }))
     .filter((entry): entry is { layer: CodeLayer; index: number } => entry.layer.type === "code");
 
-  const knobNorm = knobs.map((value, i) => {
-    const range = ranges[i] ?? [0, 1];
-    const span = Math.max(0.0001, range[1] - range[0]);
-    return Math.max(0, Math.min(1, (value - range[0]) / span));
-  });
+  const knobNorm = knobs.map((value, i) =>
+    Math.max(0, Math.min(1, normalizeKnob(value, ranges[i] ?? [0, 1]))),
+  );
 
   const parts: string[] = [];
   parts.push(`// SPDX-License-Identifier: CC-BY-SA-4.0
