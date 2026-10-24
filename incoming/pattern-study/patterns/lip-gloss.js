@@ -63,7 +63,7 @@ export function setup(params) {
     bx: F(MAXD * 3), by: F(MAXD * 3), br: F(MAXD * 3), nb: 0,
     fx: F(MAXF), fy: F(MAXF), fp: F(MAXF), fw: F(MAXF), nf: 0, cover: 0,
     hue: 0, rate: 1, amount: 0, shim: 0.06, started: false,
-    tint: F(3), absb: F(3), wall: F(3), pear: F(3), gain: 1, buf: F(N * 3),
+    tint: F(3), absb: F(3), wall: F(3), pear: F(3), gain: 1, dim: 0.27, buf: F(N * 3),
   };
 }
 
@@ -262,6 +262,7 @@ export function draw(display, params) {
   // is bright enough that they stay clear, and they get a touch more light.
   const hw = (hue - floor(hue) + 1) % 1, am = max(0, 1 - abs(hw - 0.11) / 0.1);
   S.gain = 1 + 0.08 * am;
+  S.dim = 0.27 * (1 - 0.85 * max(0, 1 - abs(hw - 0.13) / 0.16));
   // The wall: a pale warm white with a breath of the tint.
   hsv(hue + 0.04, 0.07, 1, wall, 0);
   // Each column's front and the rim behind it: walking up from the bottom,
@@ -320,7 +321,10 @@ export function draw(display, params) {
       const film = sm(0.02, 0.14, t);
       let R = wall[0] * wb, G = wall[1] * wb, B = wall[2] * wb;
       if (film > 0) {
-        const g = S.gain;
+        // Thick gloss also dims the wall a little in every channel, the band
+        // and the beads most, so the deep parts read deeper; less so for the
+        // warm tints, which dimmed turn brown and olive.
+        const g = S.gain * exp(-S.dim * t * t);
         R *= exp(-absb[0] * t) * g;
         G *= exp(-absb[1] * t) * g;
         B *= exp(-absb[2] * t) * g;
