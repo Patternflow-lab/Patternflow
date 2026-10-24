@@ -4,9 +4,17 @@
 // single-pattern workflow: preset stepper, paste/clear, the AI variation
 // prompt with the colour model it asks for, and the code guide.
 
-import Editor from "@monaco-editor/react";
-import { useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { useEffect, useRef, useState } from "react";
 import { livePresets } from "@/lib/presets";
+import {
+  MATRIX_MAX,
+  MATRIX_MIN,
+  formatMatrix,
+  matchMatrixAnnotation,
+  matrixesEqual,
+  parseMatrixAnnotation,
+} from "@/lib/pattern/matrix";
 import { COLOR_MODES, type ColorMode } from "@/lib/ai/settings";
 import { buildVariantCopyPrompt } from "@/lib/ai/variantPrompt";
 import { useResettingState } from "@/lib/hooks/useResettingState";
@@ -28,6 +36,7 @@ export default function CodePanel() {
   const gen = useLabStore((state) => state.gen);
   const setGen = useLabStore((state) => state.setGen);
   const updateLayerCode = useLabStore((state) => state.updateLayerCode);
+  const applyMatrixLine = useLabStore((state) => state.applyMatrixLine);
   const applyCodeToActive = useLabStore((state) => state.applyCodeToActive);
   const addCodeLayer = useLabStore((state) => state.addCodeLayer);
   const error = useLabStore((state) =>
@@ -38,6 +47,21 @@ export default function CodePanel() {
   const [pasted, setPasted] = useResettingState(false, 1200);
   const [cleared, setCleared] = useResettingState(false, 1200);
   const [guideOpen, setGuideOpen] = useState(false);
+
+  // Typing holds the @matrix line (holdMatrix below). The frame follows it
+  // when focus leaves the editor, or the panel leaves the layer.
+  const codeLayerId = isCodeLayer(layer) ? layer.id : null;
+  const editingId = useRef(codeLayerId);
+  useEffect(() => {
+    editingId.current = codeLayerId;
+    if (!codeLayerId) return;
+    return () => applyMatrixLine(codeLayerId);
+  }, [codeLayerId, applyMatrixLine]);
+  const applyMatrixOnBlur: OnMount = (editor) => {
+    editor.onDidBlurEditorWidget(() => {
+      if (editingId.current) applyMatrixLine(editingId.current);
+    });
+  };
 
   if (!isCodeLayer(layer)) {
     return (
@@ -55,6 +79,16 @@ export default function CodePanel() {
   }
 
   const activeLabIndex = labPresets.findIndex((preset) => preset.code === layer.code);
+
+  const matrixLine = matchMatrixAnnotation(layer.code);
+  const lineFrame = parseMatrixAnnotation(layer.code);
+  const matrixNote = !matrixLine
+    ? null
+    : !lineFrame
+      ? `The @matrix line needs each side from ${MATRIX_MIN} to ${MATRIX_MAX}. The frame stays ${formatMatrix(matrix)}.`
+      : matrixLine !== layer.matrixAnnotationRaw && !matrixesEqual(lineFrame, matrix)
+        ? `The frame becomes ${formatMatrix(lineFrame)} when you leave the editor.`
+        : null;
 
   const stepLabPreset = (dir: number) => {
     if (labPresets.length === 0) return;
@@ -169,6 +203,11 @@ export default function CodePanel() {
       </div>
 
       {error && <div className={styles.errorBox}>{error}</div>}
+      {matrixNote && (
+        <div className={local.matrixNote} role="status">
+          {matrixNote}
+        </div>
+      )}
 
       <div className={dock.panelBody}>
         <Editor
@@ -177,7 +216,8 @@ export default function CodePanel() {
           theme="vs-dark"
           path={`layer-${layer.id}.js`}
           value={layer.code}
-          onChange={(value) => updateLayerCode(layer.id, value ?? "")}
+          onChange={(value) => updateLayerCode(layer.id, value ?? "", { holdMatrix: true })}
+          onMount={applyMatrixOnBlur}
           options={{
             minimap: { enabled: false },
             fontSize: 14,
