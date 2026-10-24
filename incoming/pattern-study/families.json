@@ -51,5 +51,6 @@
   "microbe": { "label": "미생물", "color": "#aa00aa" },
   "rail": { "label": "철도", "color": "#00bb66" },
   "film": { "label": "필름·영화", "color": "#ff0000" },
-  "number": { "label": "수론", "color": "#00aaff" }
+  "number": { "label": "수론", "color": "#00aaff" },
+  "cosmetic": { "label": "화장품 팝업", "color": "#f2c6c2" }
 }
