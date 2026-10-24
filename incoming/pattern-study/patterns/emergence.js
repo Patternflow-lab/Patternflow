@@ -9,7 +9,7 @@
 // Round:   24
 // ===============================
 // @matrix 64x128
-// @knobs Dusk=0..1, Speed=0.2..3, Bats=300..1200, Wind=-1..1
+// @knobs Dusk=0..1, Speed=0.2..3, Bats=400..1400, Wind=-1..1
 //
 // Knob 1: Dusk. ...
 // Knob 2: Speed. ...
@@ -37,12 +37,12 @@ function vn(x, y) {
 }
 
 // The cave mouth: its middle column, floor row, half width and height.
-const [CX, CB, CW, CH] = [24, 121, 9, 9.5];
+const [CX, CB, CW, CH] = [27, 121, 9, 9.5];
 // The row where the bats come out, the most bats the knob asks for, the
 // spine's length in rows, and a bat's climb at Speed 2 in LEDs a second.
-const [CY, MAXB, HM, V0] = [115, 1200, 118, 28];
+const [CY, MAXB, HM, V0] = [115, 1400, 118, 28];
 // The column's front at the start, and the length of one trip.
-const [F0, LT] = [52, 150];
+const [F0, LT] = [90, 150];
 
 // The sky from the top (0) to the horizon (1): afterglow, late dusk, night.
 const SKIES = [
@@ -76,7 +76,7 @@ export function setup(params) {
   });
   // The near hill climbs over the cave; a flat mesa stands far off on the right.
   for (let x = 0; x < W; x++) {
-    P.RID[x] = 99 + 0.07 * x - 10 * exp(-(((x - 21) / 15) ** 2)) + 2 * vn(x * 0.13, 3) + 1.2 * vn(x * 0.4, 9) - 1.6;
+    P.RID[x] = 99 + 0.07 * x - 10 * exp(-(((x - 23) / 15) ** 2)) + 2 * vn(x * 0.13, 3) + 1.2 * vn(x * 0.4, 9) - 1.6;
     P.FAR[x] = 90 + 2.5 * vn(x * 0.09, 1) + 1.5 * vn(x * 0.3, 2) - 7 * sm(38, 43, x) * (1 - sm(57, 61, x)) - 2 * exp(-(((x - 8) / 9) ** 2));
   }
   // Scrub: juniper and mesquite clumps on the slope and along the skyline.
@@ -123,7 +123,7 @@ function place(P, M) {
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const P = params.s, k = input.knobValues || [0, 2, 0, 0.06];
-  const d = cl(dt || 0, 0, 0.1) * (cl(k[1], 0.2, 3) / 2), M = round(cl(k[2], 300, 1200));
+  const d = cl(dt || 0, 0, 0.1) * (cl(k[1], 0.2, 3) / 2), M = round(cl(k[2], 400, 1400));
   P.k1 = cl(k[0], 0, 1);
   P.w = cl(k[3], -1, 1);
   const T = (P.t += d);
@@ -135,11 +135,11 @@ export function update(dt, input, params) {
 
   // The spine of the column: it leans downwind, corkscrews and breathes, and
   // now and then tears in two along its middle and closes again higher up.
-  const Rk = 5 + (3.5 * (M - 300)) / 900, ph = (T - 2.4) % 12, split = T < 2.4 ? 0 : sm(0, 1.4, ph) * (1 - sm(4.6, 6.2, ph));
+  const Rk = 5 + (3.5 * (M - 400)) / 1000, ph = (T - 2.4) % 12, split = T < 2.4 ? 0 : sm(0, 1.4, ph) * (1 - sm(4.6, 6.2, ph));
   for (let h = 0; h < HM; h++) {
     const A = 1 + 7.5 * sm(4, 92, h);
-    SX[h] = CX + w * (0.13 * h + 0.0011 * h * h) + A * (sin(0.052 * h - 1.3 * T) + 0.4 * sin(0.12 * h + 0.75 * T + 2));
-    SR[h] = Rk * (0.32 + 0.68 * sm(0, 26, h)) * (1 + 0.005 * h) * (1 + 0.3 * sin(0.075 * h - 2.1 * T));
+    SX[h] = CX + w * (0.17 * h + 0.0009 * h * h) + A * (sin(0.052 * h - 1.3 * T) + 0.4 * sin(0.12 * h + 0.75 * T + 2));
+    SR[h] = Rk * (0.5 + 0.5 * sm(0, 22, h)) * (1 + 0.005 * h) * (1 + 0.3 * sin(0.075 * h - 2.1 * T));
     SP[h] = 0.055 * h - 1.7 * T;
     SS[h] = h > 18 && h < 96 ? split * 9 * sin((PI * (h - 18)) / 78) : 0;
   }
@@ -169,7 +169,8 @@ export function update(dt, input, params) {
   const { S, V, A, B, TU, RH, DR, JF, JP, OX, OY, VX, VY, BX, BY, Z } = P;
   for (let i = 0; i < MAXB; i++) {
     if (S[i] < 0 && i >= M) continue;
-    const s = (S[i] += V[i] * d);
+    // Fast out of the mouth, then the steady climb.
+    const s = (S[i] += V[i] * d * (S[i] < 40 ? 1.6 - 0.015 * S[i] : 1));
     if (s < 0) continue;
     const hh = min(s, TU[i]), j = min(HM - 2, floor(hh)), f = hh - j;
     const r = mix(SR[j], SR[j + 1], f), p = mix(SP[j], SP[j + 1], f), ca = cos(p), sa = sin(p), a = A[i], b = B[i];
