@@ -35,9 +35,9 @@ const hash = (i, j) => ((Math.imul(i * 7919 + j * 104729 + 17, 2654435761) >>> 8
 const FL = 121, FT = FL - 0.5, KICK = 117, LX = [11, 32, 53], BOLT = [95, 84, 73, 62, 51, 40, 29, 18], CLP = 3.5, RING = 11;
 // A route: NH hand holds HS rows apart, left and right in turn, a foot chip
 // CHIP rows under each. A lane has two routes, one each side of its bolts.
-const NH = 20, HY0 = 106, HS = 5, CHIP = 14;
+const NH = 20, HY0 = 105, HS = 5, CHIP = 15;
 // The body in LEDs: arm, forearm, thigh, shin, hip to shoulders; hips standing.
-const UA = 3.6, FA = 3.6, TH = 4.2, SN = 4.2, TOR = 5.2, STAND = FL - 8.85;
+const UA = 4.1, FA = 4.1, TH = 4.8, SN = 4.8, TOR = 6, STAND = FL - 10.05;
 // Route colours in Route's order with the lane and side each is set on.
 const RC = "3ceb6e ffd41e 288cff ff46aa ff7614 af5fff".split(" ").map(hex);
 const RL = [1, 2, 0, 1, 2, 0], RS = [-1, -1, -1, 1, 1, 1], ROUTE = [[2, 5], [0, 3], [1, 4]];
@@ -253,7 +253,7 @@ function stepParty(S, P, d) {
       else decide(P);
     }
     // Hips where all four limbs reach, hanging on the arms and off the moving one.
-    const lo = max(E[5], E[7]) - 8.1, hi = min(E[1], E[3]) + 7 + TOR;
+    const lo = max(E[5], E[7]) - 9.3, hi = min(E[1], E[3]) + 8 + TOR;
     let ty = ((E[5] + E[7]) / 2 - 7 + hi) / 2, tx = 0.55 * ((E[4] + E[6]) / 2) + 0.45 * ((E[0] + E[2]) / 2);
     ty = lo <= hi ? cl(ty, lo, hi) : (lo + hi) / 2;
     if (P.mv >= 0 && P.mv < 4) tx -= (P.mv & 1 ? 1 : -1) * 0.7;
@@ -263,7 +263,7 @@ function stepParty(S, P, d) {
     P.hy = min(STAND, y + 12 * d * ease(P.pt * 1.5));
     P.hx += (rcx(P.r) - x) * (1 - exp(-d * 1.5));
     const f = P.hy * 0.45;
-    aim(E, k, x - 0.4, y - TOR - 1.8, x + 0.6, y - TOR - 3.6, x - 2.8, y + 4.6 - 1.4 * max(0, sin(f)), x + 2.8, y + 4.6 - 1.4 * max(0, -sin(f)));
+    aim(E, k, x - 0.4, y - TOR - 1.8, x + 0.6, y - TOR - 3.6, x - 3.2, y + 5.3 - 1.6 * max(0, sin(f)), x + 3.2, y + 5.3 - 1.6 * max(0, -sin(f)));
     if (P.hy >= STAND - 0.01) enter(P, LAND);
   } else if (ph === LAND || ph === PULL) {
     // Down, she unties and the belayer pulls the rope through.
@@ -290,7 +290,7 @@ function stepParty(S, P, d) {
       if (!P.nc) return enter(P, START);
     }
     const fl = P.pt < 0.45, X = P.hx, Y = P.hy - TOR;
-    aim(E, 1 - exp(-d * (fl ? 6 : 4)), X - (fl ? 3.2 : 0.4), Y - (fl ? 4.5 : 2.5), X + (fl ? 3.2 : 0.5), Y - (fl ? 4.5 : 4.2), X - 2.4, P.hy + (fl ? 6.5 : 3.8), X + 2.4, P.hy + (fl ? 6 : 3.8));
+    aim(E, 1 - exp(-d * (fl ? 6 : 4)), X - (fl ? 3.2 : 0.4), Y - (fl ? 4.5 : 2.5), X + (fl ? 3.2 : 0.5), Y - (fl ? 4.5 : 4.2), X - 2.7, P.hy + (fl ? 7.5 : 4.4), X + 2.7, P.hy + (fl ? 7 : 4.4));
     if (P.pt > 2.4) rejoin(P);
   }
   P.bl *= exp(-d * 1.8);
@@ -313,7 +313,7 @@ export function update(dt, input, params) {
     else if (!P.on) {
       (P.on = 1), (P.r = r), enter(P, START);
       // Each party opens some way into its climb, further at a faster Speed.
-      if (!S.init) for (let n = PRE[j] * 30; n > 0; n--) stepParty(S, P, (0.3 + 0.35 * sp) / 30);
+      if (!S.init) for (let n = PRE[j] * 30; n > 0; n--) stepParty(S, P, (sp / 2) ** 1.6 / 30);
     } else if (P.r !== r) (P.r = r), P.ph === CLIMB ? rejoin(P) : P.ph === START && enter(P, START);
   }
   if (!S.init) S.pc.fill(0), (S.init = 1);
@@ -365,30 +365,32 @@ function person(hx, hy, E, o, lf, pa) {
   const sx = hx + 0.2 * ((E[0] + E[2]) / 2 - hx), sy = hy - TOR;
   for (let s = -1; s < 2; s += 2) {
     const j = s + 1;
-    ik(hx + s, hy + 0.4, E[4 + j], E[5 + j], TH, SN, s, -1);
-    cap(hx + s, hy + 0.4, KX, KY, 0.95, 3), cap(KX, KY, EX, EY, 0.72, 3), cap(EX, EY, EX + s * 0.8, EY + 0.3, 0.62, 5);
+    ik(hx + s * 1.15, hy + 0.4, E[4 + j], E[5 + j], TH, SN, s, -1);
+    cap(hx + s * 1.15, hy + 0.4, KX, KY, 1.1, 3), cap(KX, KY, EX, EY, 0.83, 3), cap(EX, EY, EX + s * 0.9, EY + 0.3, 0.7, 5);
   }
-  cap(hx - 1, hy, hx + 1, hy, 1.1, 3), cap(hx, hy - 1, sx, sy + 1, 1.7, 2), cap(sx - 1.9, sy + 0.6, sx + 1.9, sy + 0.6, 1, 2);
-  cap(hx - 1.6, hy - 1, hx + 1.6, hy - 1, 0.5, 4), cap(hx + 0.3, hy - 1, hx + 0.3, hy - 0.1, 0.7, 6);
+  cap(hx - 1.1, hy, hx + 1.1, hy, 1.25, 3), cap(hx, hy - 1, sx, sy + 1, 1.95, 2), cap(sx - 2.2, sy + 0.7, sx + 2.2, sy + 0.7, 1.15, 2);
+  cap(hx - 1.8, hy - 1.1, hx + 1.8, hy - 1.1, 0.55, 4), cap(hx + 0.3, hy - 1.2, hx + 0.3, hy - 0.1, 0.8, 6);
   for (let s = -1; s < 2; s += 2) {
-    ik(sx + s * 2, sy + 0.7, E[s + 1], E[s + 2], UA, FA, s, 1);
-    cap(sx + s * 2, sy + 0.7, KX, KY, 0.66, 0), cap(KX, KY, EX, EY, 0.56, 0), cap(EX, EY, EX, EY - 0.2, 0.66, 0);
+    ik(sx + s * 2.3, sy + 0.8, E[s + 1], E[s + 2], UA, FA, s, 1);
+    cap(sx + s * 2.3, sy + 0.8, KX, KY, 0.76, 0), cap(KX, KY, EX, EY, 0.64, 0), cap(EX, EY, EX, EY - 0.2, 0.75, 0);
   }
-  cap(sx, sy + 0.2, sx, sy - 1, 0.6, 0), cap(sx, sy - 2.6, sx, sy - 2.7, 1.7, 1);
-  if (o[7]) cap(sx, sy - 2.6, sx + 3.2 * sin(pa), sy - 2.6 + 3.6 * cos(pa), 0.55, 1);
-  // Her shadow on the wall first, thrown down and right by the spot, then her.
+  cap(sx, sy + 0.2, sx, sy - 1.2, 0.7, 0), cap(sx, sy - 3, sx, sy - 3.1, 1.95, 1);
+  if (o[7]) cap(sx, sy - 3, sx + 3.7 * sin(pa), sy - 3 + 4.1 * cos(pa), 0.63, 1);
+  // A dark rim round her, holds near her greyed, then her.
   for (let pass = 0; pass < 2; pass++)
-    for (let y = max(0, floor(hy - 18)); y < min(H, hy + 14); y++)
-      for (let x = max(0, floor(hx - 11)); x < min(W, hx + 12); x++) {
-        const qx = x + 0.5 - (pass ? 0 : 0.7), qy = y + 0.5 - (pass ? 0 : 1.3), i = (y * W + x) * 3;
-        let sh = 0;
+    for (let y = max(0, floor(hy - 21)); y < min(H, hy + 16); y++)
+      for (let x = max(0, floor(hx - 13)); x < min(W, hx + 14); x++) {
+        const qx = x + 0.5, qy = y + 0.5, i = (y * W + x) * 3;
+        let dm = 9;
         for (let j = 0; j < NP * 6; j += 6) {
-          const ax = PT[j], ay = PT[j + 1], dx = PT[j + 2] - ax, dy = PT[j + 3] - ay, r = PT[j + 4] + (pass ? 0 : 0.3);
-          if (abs(qx - ax - dx / 2) > abs(dx) / 2 + r + 1 || abs(qy - ay - dy / 2) > abs(dy) / 2 + r + 1) continue;
-          const tt = cl(((qx - ax) * dx + (qy - ay) * dy) / (dx * dx + dy * dy + 1e-6), 0, 1), a = cl(r + 0.5 - hyp(qx - ax - dx * tt, qy - ay - dy * tt), 0, 1);
-          if (a > 0) pass ? blend(i, o[PT[j + 5]], lf, a) : (sh = max(sh, a));
+          const ax = PT[j], ay = PT[j + 1], dx = PT[j + 2] - ax, dy = PT[j + 3] - ay, r = PT[j + 4];
+          if (abs(qx - ax - dx / 2) > abs(dx) / 2 + r + 3 || abs(qy - ay - dy / 2) > abs(dy) / 2 + r + 3) continue;
+          const tt = cl(((qx - ax) * dx + (qy - ay) * dy) / (dx * dx + dy * dy + 1e-6), 0, 1), e = hyp(qx - ax - dx * tt, qy - ay - dy * tt) - r;
+          if (pass && e < 0.5) blend(i, o[PT[j + 5]], lf, min(1, 0.5 - e));
+          dm = min(dm, e);
         }
-        if (sh > 0 && y < FL) for (let c = 0; c < 3; c++) F[i + c] *= 1 - 0.5 * sh;
+        const g = ease((dm - 1.3) / 1.4), m = ((F[i] + F[i + 1] + F[i + 2]) / 3) * 0.6;
+        if (!pass && g < 1) for (let c = 0; c < 3; c++) F[i + c] = mix(m, F[i + c], g) * (0.25 + 0.75 * g);
       }
 }
 function walk(x, ph, o, lf) {
@@ -412,7 +414,7 @@ function scene(S, P, t) {
   if (P.ph === PULL) (gy = hy - 3 - 2.6 * abs(sin(t * 6))), (by = hy - 3 - 2.6 * abs(cos(t * 6)));
   else if (P.ph === LOWER) by = hy + 0.6 + 0.8 * sin(t * 5);
   (BE[gi] = hx + gs * 0.7), (BE[gi + 1] = gy), (BE[bi] = hx - gs * 2.2), (BE[bi + 1] = by);
-  (BE[4] = hx - 1.15), (BE[6] = hx + 1.15), (BE[5] = BE[7] = min(FT, hy + 8.2));
+  (BE[4] = hx - 1.15), (BE[6] = hx + 1.15), (BE[5] = BE[7] = min(FT, hy + 9.5));
   span(BE[bi], by, px0, FL + 2.5, 1.2, 0, 1e9, rc, lightAt(BE[bi], by + 2));
   const n = path(P, BE[gi], gy), lim = RLEN - (P.ph === PULL ? P.pull : 0), taut = P.ph === FALL || P.ph === LOWER || P.ph === PULL;
   for (let j = 1, s = 0; j < n; j++) {
@@ -425,7 +427,7 @@ function scene(S, P, t) {
 
 // House light tinted by the route, a follow spot with a gel on each climber.
 function light(S) {
-  const k = S.k4, hs = k < 0 ? mix(0.68, 1.05, -k) : mix(0.68, 0.06, k), lv = k < 0 ? mix(0.85, 0.35, -k) : mix(0.85, 1.1, k), u = max(0, k);
+  const k = S.k4, hs = k < 0 ? mix(0.68, 1.12, -k) : mix(0.68, 0.06, k), lv = k < 0 ? mix(1, 0.35, -k) : mix(1, 1.2, k), u = max(0, k);
   const T = [1, 0.95, 0.86].map((w, j) => mix(w, RC[S.r0][j] / 255, 0.14) * hs), V = [0.1 * u, 0.04 * u, 0.24 * u];
   for (let o = 0; o < N * 3; o++) LB[o] = L0[(o / 3) | 0] * T[o % 3];
   for (const P of S.P) {
