@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Shadow Play
 // Family:  stage
-// Idea:    A wayang kulit night seen from the audience: an oil lamp behind the white screen throws the lacy leather shadows of a knight and an ogre who meet, threaten, fight until the ogre is flung away, and then the leaf-shaped gunungan sweeps in trembling to close the scene and open the next.
+// Idea:    Wayang kulit from the audience: an oil lamp behind the white screen throws the lacy leather shadows of a knight and an ogre who meet, threaten and fight until the ogre is flung away, then the leaf-shaped gunungan sweeps in trembling to close the scene and open the next.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,11 +11,11 @@
 // @matrix 64x128
 // @knobs View=0..1, Speed=0.2..3, Lamp=0..1, Flicker=0..1
 //
-// Knob 1: View. Where you sit. At 0 in front of the screen: black lace shadows on the warm cloth. Turned up you go round to the dalang's side, where the same puppets show their gold, red and indigo paint under the hanging lamp against the dim back of the screen.
+// Knob 1: View. At 0 you sit in front of the screen: black lace shadows on warm cloth. Turned up you go round to the dalang's side, where the same puppets show their gold, red and indigo paint under the hanging lamp.
 // Knob 2: Speed. The pace of the play: at 2 a scene, from the gunungan leaving the middle to the gunungan planted there again, takes 14.4 s; at 0.2 ten times slower.
-// Knob 3: Lamp. How close the blencong hangs to the screen. At 0 it is far back: sharp shadows on an evenly lit cloth. Turned up, the hot spot tightens, the corners go dark, and every shadow grows and blurs.
-// Knob 4: Flicker. How much the oil flame gutters and sways. At 0.06 the light breathes; at 1 a draught makes it jump and swing, and the shadows swing and soften with it.
-// Buttons: K1 tap: the dalang strikes the cempala; the knight lunges, the ogre reels and the screen shakes.
+// Knob 3: Lamp. How close the blencong hangs to the screen. At 0 it is far back and the shadows are sharp. Turned up, the hot spot tightens, the corners go dark, and every shadow grows and blurs.
+// Knob 4: Flicker. How much the oil flame gutters and sways. At 0.06 the light breathes; at 1 a draught makes it jump and swing, and the shadows soften.
+// Buttons: K1 tap: the dalang strikes the cempala; the knight lunges, the ogre reels (or the gunungan shivers) and the screen shakes.
 
 const W = 64, H = 128, N = W * H;
 const { min, max, floor, ceil, round, sin, cos, abs, sqrt, PI } = Math;
@@ -65,6 +65,8 @@ export function setup(params) {
     t: 0, rt: 0, view: 0, lamp: 0, fl: 0.06, knock: -1, ph: [R(), R(), R(), R(), R(), R(), R()], dir: Math.random() < 0.5 ? 1 : -1,
     K: pose(28, 1.22), O: pose(32, 1.12), G: pose(0, 1.04), I: 1, bil: 0, LX: 31.5, LY: 46, flame: 7, shx: 0, shy: 0,
   });
+  // The puppets planted in the trunk at either end of the screen, only their fronts showing: an ogre king, a knight.
+  P.SIMP = [[-6.5, 1, 1.32, 0], [65.5, -1, 1.4, 1]].map(([x, face, sz, k]) => Object.assign(pose(30, sz), { x, face, k, y: GROUND + 4, a2: 0.1, b1: -0.1, b2: 0.15 }));
   // Half the gunungan's width at each height: a leaf with a pointed tip.
   for (let v = 0; v <= 80; v++) P.LW[v] = v > 78 ? 0 : v < 22 ? 18 * sqrt(1 - ((22 - v) / 31) ** 2) : 18 * (1 - ((v - 22) / 56) ** 1.7) ** 1.15;
   // What does not move, as colour before the light: beam, border, posts, cloth, hem, trunk, floor.
@@ -97,7 +99,7 @@ function knight(t, Q, rt, kb) {
   const fight = sm(5.5, 5.8, t) * (1 - sm(8.6, 8.9, t)), w = TAU * 1.6 * (t - 5.6), reach = fight * cl((Q.x - 14) / 9, 0, 1);
   const point = sm(3.7, 4.1, t) * (1 - sm(4.8, 5.2, t)), heave = sm(8.5, 9.1, t) * (1 - sm(9.7, 10.5, t));
   Q.y = GROUND - walk * 1.8 * abs(st);
-  Q.z = 0.02;
+  Q.z = 0.03;
   Q.rot = -0.05 * walk + fight * 0.06 * sin(w + 0.5) + heave * 0.16 - 0.14 * kb;
   Q.a1 = 0.12 + 0.3 * walk * st + 1.45 * point + fight * 0.7 + 1.5 * reach + 2.5 * heave + 1.4 * kb;
   Q.a2 = 0.15 + 0.35 * point + fight * 0.9 - 0.7 * reach + 0.2 * heave;
@@ -114,7 +116,7 @@ function ogre(t, Q, rt, kb) {
   const fight = sm(5.5, 5.8, t) * (1 - sm(8.6, 8.9, t)), w = TAU * 1.6 * (t - 5.6), reach = fight * cl((50 - Q.x) / 10, 0, 1);
   const loom = sm(4.3, 4.9, t) * (1 - sm(4.95, 5.5, t));
   Q.y = GROUND - walk * 2.6 * abs(st) - 115 * u * u;
-  Q.z = 0.02 + 0.16 * loom + 0.28 * u;
+  Q.z = 0.03 + 0.16 * loom + 0.28 * u;
   Q.rot = -0.04 * walk + 0.07 * walk * st - 0.1 * loom + fight * 0.07 * sin(w + 3.6) + 5.6 * u + 0.35 * kb;
   Q.a1 = 0.3 + 0.25 * walk * st + 2.0 * loom + fight * (0.6 + 0.3 * sin(w)) + 1.6 * reach + 1.2 * u;
   Q.a2 = 0.35 + 0.5 * loom + fight * 0.6 - 0.5 * reach;
@@ -180,14 +182,14 @@ function holes(u, v, k) {
 }
 
 // The gunungan's inside: rim, gate, tree, the two beasts, and lace everywhere else.
-let LL;
+let LN, LW;
 function leaf(u, v, hw) {
   const au = abs(u);
-  (LL = 0), (LC = GOLD);
+  (LN = 0), (LC = GOLD);
   if (hw - au < 1.4 || v < 1.3) return (LC = RED), 1;
   if (v < 15 && au < 8) {
     if (v < 9) return (LC = RED), au > 1 && au < 3.3 && v > 2.2 && v < 7.6 ? 0.12 : 1;
-    return au < 8 - (v - 9) * 1.15 ? 1 : ((LL = 4), (LC = TEAL), 1);
+    return au < 8 - (v - 9) * 1.15 ? 1 : ((LN = 4), (LC = TEAL), 1);
   }
   if (au < 1.9 - v * 0.012 && v < 70) return 1;
   for (let b = 0; b < 6; b++) {
@@ -196,7 +198,7 @@ function leaf(u, v, hw) {
   }
   const bx = (au - 6.5) / 3.4, by = (v - 17.5) / 1.9;
   if (bx * bx + by * by < 1) return (LC = HORN), 1;
-  return (LL = 4), (LC = TEAL), 1;
+  return (LN = 4), (LC = TEAL), 1;
 }
 
 // One part: kind 0 a tapered rod (x0, y0, x1, y1, r0, r1), 1 an ellipse (cx, cy, rx, ry, turn), 2 a polygon, 3 the gunungan's leaf.
@@ -241,16 +243,16 @@ function part(k, a, b, c, d, e, f, lace, col) {
         }
         dd = ins ? -sqrt(md) : sqrt(md);
       } else {
-        const vi = cl(v, 0, 79.9), v0i = floor(vi), hw = mix(LL_W[v0i], LL_W[v0i + 1], vi - v0i);
+        const vi = cl(v, 0, 79.9), v0i = floor(vi), hw = mix(LW[v0i], LW[v0i + 1], vi - v0i);
         dd = max(abs(u) - hw, -v, v - 78);
-        if (dd < 0.6) (op = leaf(u, v, hw)), (ln = LL), (cc = LC);
+        if (dd < 0.6) (op = leaf(u, v, hw)), (ln = LN), (cc = LC);
       }
       const dp = dd * MAG;
       if (dp > pad) continue;
       let cs = cl(0.5 - dp / PEN, 0, 1) * thin, cv = cl(0.5 - dp, 0, 1);
       const i = y * W + x, o = i * 3;
       if (!cc) {
-        const dp = lace < 0 ? 0.9 * holes(u, v, -lace) : lace, s = 1 - cs * dp * min(1, HV * 1.3), sv = 1 - cv * dp;
+        const dep = lace < 0 ? 0.9 * holes(u, v, -lace) : lace, s = 1 - cs * dep * min(1, HV * 1.3), sv = 1 - cv * dep;
         (M[i] *= s), (A[i] *= sv), (C[o] *= sv), (C[o + 1] *= sv), (C[o + 2] *= sv);
         continue;
       }
@@ -264,7 +266,6 @@ function part(k, a, b, c, d, e, f, lace, col) {
       if (cv > 0) (C[o] += (cc[0] - C[o]) * cv), (C[o + 1] += (cc[1] - C[o + 1]) * cv), (C[o + 2] += (cc[2] - C[o + 2]) * cv), (A[i] += (1 - A[i]) * cv);
     }
 }
-let LL_W;
 const rod = (x0, y0, x1, y1, r0, r1, lace, col) => part(0, x0, y0, x1, y1, r0, r1, lace, col);
 const ell = (cx, cy, rx, ry, turn, lace, col) => part(1, cx, cy, rx, ry, turn, 0, lace, col);
 const poly = (pts, lace, col) => part(2, pts, 0, 0, 0, 0, 0, lace, col);
@@ -340,6 +341,7 @@ function blob(F, cx, cy, rx, ry, col, a, add) {
 }
 
 // The audience: heads and shoulders against the light, [x, top, rx, ry, kind]: bare, a peci cap, a headscarf.
+const RIM = [1, 0.76, 0.48];
 const HEADS = [[6, 98, 4.6, 5.6, 1], [19, 95, 5, 6, 0], [33, 99.5, 4.4, 5.4, 2], [46, 96, 5, 6.2, 1], [58.5, 98.5, 4.6, 5.6, 0]];
 // Their outline, as coverage in rows AUD and down: head, ears or scarf, neck, shoulders.
 function audience(HB, rt) {
@@ -362,9 +364,10 @@ function audience(HB, rt) {
 export function draw(display, params) {
   const P = params.s;
   if (!P) return;
-  (M = P.M), (A = P.A), (C = P.C), (LL_W = P.LW);
+  (M = P.M), (A = P.A), (C = P.C), (LW = P.LW);
   M.fill(0), A.fill(0), C.fill(0);
   const D = 1 - 0.55 * P.lamp;
+  for (const S of P.SIMP) place(P, S, D), S.k ? drawKnight(S) : drawOgre(S);
   if (P.K.on) place(P, P.K, D), drawKnight(P.K);
   if (P.O.on) place(P, P.O, D), drawOgre(P.O);
   if (P.G.on) place(P, P.G, D), drawGunungan();
@@ -377,7 +380,7 @@ export function draw(display, params) {
         const L = top * (0.2 + 0.8 * fo) * B[o], lr = L, lg = L * (0.7 + 0.18 * fo - rd), lb = L * (0.36 + 0.3 * fo - rd), s = 1 - 0.94 * M[i];
         let r = lr * s, g = lg * s, b = lb * s;
         if (vw > 0) {
-          const k = 0.3 * (1 - A[i]), lit = I * (0.5 + 0.55 * fo) * 255;
+          const k = 0.3 * (1 - A[i]), lit = I * (0.45 + 0.5 * fo) * 250;
           (r = mix(r, lr * k + C[o] * lit, vw)), (g = mix(g, lg * k + C[o + 1] * lit, vw)), (b = mix(b, lb * k + C[o + 2] * lit, vw));
         }
         (F[o] = r), (F[o + 1] = g), (F[o + 2] = b);
@@ -402,7 +405,7 @@ export function draw(display, params) {
       if (c <= 0) continue;
       const o = (y * W + x) * 3, q = (min(y, HEM - 1) * W + x) * 3, side = min(x > 0 ? HB[k - 1] : 1, x < W - 1 ? HB[k + 1] : 1);
       const rim = (1 - (HB[k - W] + HB[k - 2 * W]) / 2) * 0.6 + (1 - side) * 0.25;
-      for (let j = 0; j < 3; j++) F[o + j] = F[o + j] * (1 - c) + c * (6 + rim * [1, 0.76, 0.48][j] * max(70, F[q] * 0.9));
+      for (let j = 0; j < 3; j++) F[o + j] = F[o + j] * (1 - c) + c * (6 + rim * RIM[j] * max(70, F[q] * 0.9));
     }
   for (let i = 0, o = 0; i < N; i++, o += 3) display.setPixel(i & 63, i >> 6, min(255, max(0, F[o])) | 0, min(255, max(0, F[o + 1])) | 0, min(255, max(0, F[o + 2])) | 0);
 }
