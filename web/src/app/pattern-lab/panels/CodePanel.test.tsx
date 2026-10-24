@@ -8,7 +8,37 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CodePanel from "./CodePanel";
 import { useLabStore } from "@/lib/lab/store";
 
-vi.mock("@monaco-editor/react", () => ({ default: () => <textarea aria-label="Code" /> }));
+// A textarea standing in for Monaco: typing is onChange, and leaving it is the
+// blur listener the panel registers in onMount.
+vi.mock("@monaco-editor/react", async () => {
+  const { useEffect, useRef } = await import("react");
+  type Props = {
+    value?: string;
+    onChange?: (value: string | undefined) => void;
+    onMount?: (editor: { onDidBlurEditorWidget: (listener: () => void) => void }) => void;
+  };
+  return {
+    default: function Editor({ value, onChange, onMount }: Props) {
+      const blur = useRef<(() => void) | null>(null);
+      const mount = useRef(onMount);
+      useEffect(() => {
+        mount.current?.({
+          onDidBlurEditorWidget: (listener) => {
+            blur.current = listener;
+          },
+        });
+      }, []);
+      return (
+        <textarea
+          aria-label="Code"
+          value={value}
+          onChange={(event) => onChange?.(event.target.value)}
+          onBlur={() => blur.current?.()}
+        />
+      );
+    },
+  };
+});
 
 function setClipboard(value: unknown) {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value });
@@ -96,5 +126,47 @@ describe("CodePanel colour mode", () => {
     await act(async () => {});
     expect(writeText.mock.calls[1][0]).toContain("display.setPixel(x, y, r, g, b)");
     expect(writeText.mock.calls[1][0]).not.toContain("Do NOT call display.setPixel");
+  });
+});
+
+// The @matrix line, typed. Until 24 October 2026 each keystroke changed the
+// frame, so typing 96 over 128 cropped every pixel layer to 12, then 9
+// columns (lib/lab/store/layers.test.ts has the numbers).
+describe("CodePanel @matrix line", () => {
+  const BODY = "export function draw(display) {}\n";
+
+  it("changes the frame when focus leaves the editor, not while typing", () => {
+    render(<CodePanel />);
+    const editor = screen.getByLabelText("Code");
+
+    fireEvent.change(editor, { target: { value: `// @matrix 9x64\n${BODY}` } });
+    fireEvent.change(editor, { target: { value: `// @matrix 96x64\n${BODY}` } });
+    expect(useLabStore.getState().matrix).toEqual({ width: 128, height: 64 });
+    expect(screen.getByRole("status").textContent).toBe("The frame becomes 96×64 when you leave the editor.");
+
+    fireEvent.blur(editor);
+    expect(useLabStore.getState().matrix).toEqual({ width: 96, height: 64 });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("says the frame stays when the line is out of range", () => {
+    render(<CodePanel />);
+    const editor = screen.getByLabelText("Code");
+
+    fireEvent.change(editor, { target: { value: `// @matrix 1x64\n${BODY}` } });
+    fireEvent.blur(editor);
+    expect(useLabStore.getState().matrix).toEqual({ width: 128, height: 64 });
+    expect(screen.getByRole("status").textContent).toBe(
+      "The @matrix line needs each side from 8 to 512. The frame stays 128×64.",
+    );
+  });
+
+  it("takes up a held line when the panel closes", () => {
+    const { unmount } = render(<CodePanel />);
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: `// @matrix 64x64\n${BODY}` } });
+    expect(useLabStore.getState().matrix).toEqual({ width: 128, height: 64 });
+
+    unmount();
+    expect(useLabStore.getState().matrix).toEqual({ width: 64, height: 64 });
   });
 });
