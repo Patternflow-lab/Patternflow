@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Force=0..1, Shimmer=0..1
 //
-// Knob 1: Hue. The pigment, once round the wheel: at 0 orchid pink, at 0.15 coral, at 0.21 apricot, at 0.3 lemon, at 0.45 green, at 0.6 aqua, at 0.75 cobalt, at 0.85 violet. From coral to lemon the powder is paler, its faint end is lifted, and as it fades it greys to a pale dust, so it never reads brown or olive.
+// Knob 1: Hue. The pigment, once round the wheel: at 0 magenta, at 0.08 raspberry, at 0.2 coral, at 0.24 apricot, at 0.31 lemon, at 0.49 green, at 0.67 aqua, at 0.76 cobalt, at 0.91 violet. From coral to lemon the powder is paler, its faint end is lifted, and as it fades it greys to a pale dust, so it never reads brown or olive.
 // Knob 2: Speed. How slow the slow motion is: at 2 a strike comes every 6.3 seconds, the head's top reaches the top rows about 4 seconds after it and the last dust is gone about 8 seconds after it; at 0.2 ten times slower.
 // Knob 3: Force. How hard the cake is struck: at 0 the head climbs about 80 rows and opens about 50 LEDs wide; at 1 it climbs 130 and leaves through the top, opens about 66 wide, wider than the panel, and throws twice the specks, 200 a strike against 90.
 // Knob 4: Shimmer. Mica in the powder: at 0 about 60 flakes a strike, a glint here and there; at 1 about 1,460, so the cloud glitters, and its lit tops take a pearl tint a fifth of the way round the wheel from the pigment.
@@ -33,7 +33,7 @@ const NB = 4;
 // How far below the head the eye is (see draw), the share of grains drawn
 // round the axis rather than in the plane, how thick powder turns to light
 // (1 - exp(-GAIN d)), and the dust's mean life in seconds.
-const TILT = 0.12, GAIN = 2.6, FILL = 0.5, LIFE = 6.2;
+const TILT = 0.12, GAIN = 3.6, FILL = 0.5, LIFE = 6.2;
 // Small eddies: a stream function of four travelling waves, 19 to 44 LEDs
 // long, whose curl wrinkles the cloud's edge without bunching the powder.
 const WAVES = [
@@ -424,10 +424,15 @@ export function draw(display, params) {
   for (let p = 0; p < N; p++) D[p] += O[p];
   // Pigment, its pale lit side, the pearl tint mica gives the lit side, and
   // the glint colour. Coral to lemon read brown and olive when dim, so there
-  // the pigment is paler.
-  const h = S.hue + 0.86, hf = h - floor(h), warm = sm(0.0, 0.05, hf) * (1 - sm(0.17, 0.24, hf));
-  hsv(h, 0.82 - 0.32 * warm, 1, col, 0);
-  hsv(h - 0.02, 0.32 - 0.12 * warm, 1, col, 3);
+  // the pigment is paler. Elsewhere the pigment is laid at full saturation
+  // and only the lit side of thick powder goes pale: with an orchid pink at
+  // 0.82 and thick powder paling all over, the cloud's colourfulness was
+  // 0.231, and this way it is 0.393, beside Tunnel on the colour x drift
+  // map, since the cell where it first stood beside Bokeh took Heawood
+  // Torus first.
+  const h = S.hue + 0.84, hf = h - floor(h), warm = sm(0.0, 0.05, hf) * (1 - sm(0.17, 0.24, hf));
+  hsv(h, 1.0 - 0.32 * warm, 1, col, 0);
+  hsv(h - 0.02, 0.6 - 0.12 * warm, 1, col, 3);
   hsv(h + 0.08, 0.15, 1, col, 6);
   hsv(h + 0.2, 0.4, 1, col, 9);
   // Warm powder's faint end is lifted too: a fading peach cloud read as
@@ -443,7 +448,7 @@ export function draw(display, params) {
       const nrm = cl(((dn - up) * 0.8 + (rt - lf) * 0.4) / (d + 0.5), -1, 1), lit = 0.98 + 0.4 * nrm;
       // Thin powder glows in the pigment, thick powder goes pale and bright,
       // and with mica its lit side turns pearl.
-      const wt = a * a * cl(0.6 + 0.6 * nrm, 0, 1), pm = sh * 0.9 * cl(0.55 + nrm, 0, 1);
+      const wt = a * a * cl(0.22 + 0.6 * nrm, 0, 1), pm = sh * 0.9 * cl(0.55 + nrm, 0, 1);
       let r = 0, gg = 0, b = 0;
       for (let c = 0; c < 3; c++) {
         const lc = col[3 + c] * (1 - pm) + col[9 + c] * pm, v = (col[c] * (1 - wt) + lc * wt) * a * lit;
