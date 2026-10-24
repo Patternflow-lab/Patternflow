@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 /**
  * What a modal owes the keyboard. Esc closes it, the focus moves into it when
@@ -19,7 +19,10 @@ export function useDialog<T extends HTMLElement>(onClose: () => void): RefObject
   const ref = useRef<T | null>(null);
   const close = useRef(onClose);
 
-  useEffect(() => {
+  // In the commit, not after it: the render that opens a window on top hands
+  // over the onClose that closes it, and an Esc that came before the passive
+  // effects ran closed the window underneath.
+  useLayoutEffect(() => {
     close.current = onClose;
   });
 
