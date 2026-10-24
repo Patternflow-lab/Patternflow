@@ -15,6 +15,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import HardwareModal from "./HardwareModal";
 import { useLabStore } from "@/lib/lab/store";
+import { PROJECT_STORAGE, serializeProject } from "@/lib/lab/serialize";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/lib/community/auth-client", () => ({
@@ -25,6 +26,10 @@ vi.mock("@/lib/community/auth-client", () => ({
 
 const HEADER = "#pragma once\nnamespace Lab { void draw() {} }\n";
 const CODE = "export function draw(display) { display.setPixel(0, 0, 255, 0, 0); }";
+
+/** What a model sends back for one layer of a stack. */
+const unitBlock = (index: number) =>
+  `namespace L${index} {\n  void setup() {}\n  void update(float dt, const InputFrame& input) {}\n  void draw() {}\n}`;
 
 function Lab() {
   const [open, setOpen] = useState(true);
@@ -39,11 +44,17 @@ function hardware() {
   return screen.getByRole("dialog", { name: "Hardware" });
 }
 
+function headerBox() {
+  return screen.getByPlaceholderText(/Paste the \.h the model gives you/);
+}
+
+function pasteHeader() {
+  fireEvent.change(headerBox(), { target: { value: HEADER } });
+}
+
 /** Paste a header, press Next, and land on the "On to hardware" stage. */
 function pasteHeaderAndContinue() {
-  fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
-    target: { value: HEADER },
-  });
+  pasteHeader();
   fireEvent.click(screen.getByText("Next →"));
   expect(screen.getByText("On to hardware")).toBeTruthy();
 }
@@ -57,6 +68,8 @@ function expectHeaderKept() {
 
 beforeEach(() => {
   useLabStore.getState().discardProject();
+  // The modal keeps what was pasted for the tab, and jsdom's tab is the whole file.
+  sessionStorage.clear();
   vi.stubEnv("NEXT_PUBLIC_BUILD_ENABLED", "1");
   vi.stubEnv("NEXT_PUBLIC_COMMUNITY_URL", "https://patternflow.work");
   // Nothing here should reach the network; a request that does stays unanswered.
@@ -283,8 +296,6 @@ describe("HardwareModal", () => {
   it("a stack of two code layers waits for one translation, then names the stub left", () => {
     useLabStore.getState().addCodeLayer();
     const bottom = useLabStore.getState().layers[1];
-    const unit = (index: number) =>
-      `namespace L${index} {\n  void setup() {}\n  void update(float dt, const InputFrame& input) {}\n  void draw() {}\n}`;
     render(<Lab />);
 
     expect(screen.getByText(/2 layers to translate — 0 done/)).toHaveTextContent(
@@ -294,7 +305,7 @@ describe("HardwareModal", () => {
     fireEvent.click(screen.getByText("Next →"));
     expect(screen.queryByText("On to hardware")).toBeNull();
 
-    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L1 \{/), { target: { value: unit(1) } });
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L1 \{/), { target: { value: unitBlock(1) } });
     expect(screen.getByText(/1 done/)).not.toHaveTextContent("Next opens");
     fireEvent.click(screen.getByText("Next →"));
     expect(screen.getByText("On to hardware")).toBeTruthy();
@@ -305,7 +316,7 @@ describe("HardwareModal", () => {
     );
 
     fireEvent.click(screen.getByText("← Back to the header"));
-    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L0 \{/), { target: { value: unit(0) } });
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L0 \{/), { target: { value: unitBlock(0) } });
     fireEvent.click(screen.getByText("Next →"));
     expect(screen.getByText(/Header ready \([\d.]+ KB\)\./)).toBeTruthy();
     expect(screen.queryByText(/Not translated/)).toBeNull();
@@ -381,5 +392,123 @@ describe("HardwareModal", () => {
 
     await waitFor(() => expect(screen.queryByText("Share to Community")).toBeNull());
     expectHeaderKept();
+  });
+
+  // The header a model translated lived in this modal's state alone. Closing
+  // the window any way at all, or reloading the page, emptied the box, and
+  // the way back was to ask the model again.
+  it.each([
+    ["Esc", () => fireEvent.keyDown(document.activeElement!, { key: "Escape" })],
+    ["a press outside", () => fireEvent.click(hardware())],
+    ["×", () => fireEvent.click(screen.getByRole("button", { name: "Close" }))],
+  ])("opens again with the header it held before %s", (_, close) => {
+    render(<Lab />);
+    pasteHeader();
+    close();
+    expect(screen.getByText("closed")).toBeTruthy();
+    cleanup();
+
+    render(<Lab />);
+    expect(headerBox()).toHaveValue(HEADER);
+    expect(screen.getByText("Looks like a header ✓")).toBeTruthy();
+    expect(screen.getByText("Next →")).toBeEnabled();
+  });
+
+  it("opens again with the header after a reload", () => {
+    const lab = useLabStore.getState();
+    const starter = lab.layers[0].id;
+    lab.addCodeLayerFromCode(CODE, "Dot");
+    useLabStore.getState().removeLayer(starter);
+    render(<Lab />);
+    pasteHeader();
+    cleanup();
+
+    // What the lab's autosave writes, read back the way an open reads it.
+    const state = useLabStore.getState();
+    const saved = serializeProject({
+      name: state.name,
+      matrix: state.matrix,
+      layers: state.layers,
+      activeLayerId: state.activeLayerId,
+      knobs: state.knobs,
+      ranges: state.ranges,
+      knobLabels: state.knobLabels,
+      forkOf: state.forkOf,
+      editOf: state.editOf,
+      gen: state.gen,
+      director: state.director,
+    });
+    state.discardProject();
+    localStorage.setItem(PROJECT_STORAGE, saved!);
+    useLabStore.setState({ hydrated: false });
+    useLabStore.getState().hydrate();
+    expect(useLabStore.getState().layers.map((layer) => layer.name)).toEqual(["Dot"]);
+
+    render(<Lab />);
+    expect(headerBox()).toHaveValue(HEADER);
+  });
+
+  it("opens a stack again with the layers already translated", () => {
+    useLabStore.getState().addCodeLayer();
+    render(<Lab />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L1 \{/), { target: { value: unitBlock(1) } });
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    cleanup();
+
+    render(<Lab />);
+    expect(screen.getByText(/2 layers to translate — 1 done/)).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Paste the namespace L1 \{/)).toHaveValue(unitBlock(1));
+    expect(screen.getByPlaceholderText(/Paste the namespace L0 \{/)).toHaveValue("");
+    expect(screen.getByText("Next →")).toBeEnabled();
+  });
+
+  // A knob position only says where the board starts that knob. Asking the
+  // model again for it would cost more than it fixes.
+  it("keeps the header when a knob turns", () => {
+    render(<Lab />);
+    pasteHeader();
+    cleanup();
+
+    const [min, max] = useLabStore.getState().ranges[0];
+    const knob = useLabStore.getState().knobs[0];
+    useLabStore.getState().setKnob(0, knob === max ? min : max);
+    expect(useLabStore.getState().knobs[0]).not.toBe(knob);
+    render(<Lab />);
+    expect(headerBox()).toHaveValue(HEADER);
+  });
+
+  // The header answers one prompt. Once the lab asks another, it would put
+  // the old pattern, frame or colours on the board while saying ready.
+  it.each([
+    ["the code", (id: string) => {
+      const layer = useLabStore.getState().layers.find((each) => each.id === id);
+      if (layer?.type !== "code") throw new Error("not code");
+      useLabStore.getState().updateLayerCode(id, `${layer.code}\n// tuned`);
+    }],
+    ["the ramp mode", (id: string) => {
+      const layer = useLabStore.getState().layers.find((each) => each.id === id);
+      if (layer?.type !== "code") throw new Error("not code");
+      useLabStore.getState().setLayerRampMode(id, layer.ramp.mode === "step" ? "linear" : "step");
+    }],
+    ["the matrix", () => useLabStore.getState().setMatrix({ width: 64, height: 64 })],
+  ])("opens empty once %s changes, and keeps nothing for it", (_, change) => {
+    render(<Lab />);
+    pasteHeader();
+    cleanup();
+
+    change(useLabStore.getState().layers[0].id);
+    render(<Lab />);
+    expect(headerBox()).toHaveValue("");
+    expect(screen.getByText("Next →")).toBeDisabled();
+  });
+
+  it("forgets a header the box was emptied of", () => {
+    render(<Lab />);
+    pasteHeader();
+    fireEvent.change(headerBox(), { target: { value: "" } });
+    cleanup();
+
+    render(<Lab />);
+    expect(headerBox()).toHaveValue("");
   });
 });

@@ -12,6 +12,7 @@ import {
   enforcePatternName,
 } from "@/lib/lab/hExport";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
+import { promptKey, readPastes, writePastes } from "@/lib/lab/hardwarePastes";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { loneCodeLayer } from "@/lib/lab/flatten";
 import { labPatternName, useLabStore } from "@/lib/lab/store";
@@ -53,8 +54,6 @@ export default function HardwareModal({
   // Seeded from the lab's pattern name so the .h NAME, the .pfm slug and the
   // Director's opening pattern cue all agree without retyping.
   const [name, setName] = useState(() => labPatternName(useLabStore.getState()));
-  const [pastes, setPastes] = useState<Record<number, string>>({});
-  const [single, setSingle] = useState("");
   const [copied, flashCopied] = useResettingState<{ key: string; ok: boolean } | null>(null, 1200);
   const [stage, setStage] = useState<Stage>("convert");
 
@@ -90,6 +89,58 @@ export default function HardwareModal({
       name,
     });
   }, [lone, matrix, knobs, ranges, knobLabels, name]);
+
+  // What the model answered is kept for the tab under the prompt it answers
+  // (hardwarePastes.ts), so Esc, a press outside or a reload no longer sends
+  // the person back to ask again. The single key is the prompt without the
+  // name, which assembly stamps on again, and without the knob positions,
+  // which the key leaves out anyway.
+  const singleKey = useMemo(
+    () =>
+      lone
+        ? promptKey(
+            buildCppPrompt({
+              code: lone.code,
+              matrix,
+              knobs: [],
+              ranges,
+              knobLabels,
+              ramp: lone.ramp,
+              recolor: lone.recolor,
+            }),
+          )
+        : "",
+    [lone, matrix, ranges, knobLabels],
+  );
+  const unitKeys = useMemo(
+    () => exportData.units.map((unit) => [unit.index, promptKey(unit.prompt)] as const),
+    [exportData.units],
+  );
+
+  const [single, setSingle] = useState(() => (lone ? (readPastes()[singleKey] ?? "") : ""));
+  const [pastes, setPastes] = useState<Record<number, string>>(() => {
+    const kept = readPastes();
+    const restored: Record<number, string> = {};
+    for (const [index, key] of unitKeys) {
+      if (kept[key]) restored[index] = kept[key];
+    }
+    return restored;
+  });
+
+  // Keeps what the boxes hold now and nothing else, so a paste whose prompt
+  // the lab no longer asks goes with the next edit.
+  const keep = (nextSingle: string, nextPastes: Record<number, string>) => {
+    const kept: Record<string, string> = {};
+    if (lone) {
+      if (nextSingle.trim()) kept[singleKey] = nextSingle;
+    } else {
+      for (const [index, key] of unitKeys) {
+        const text = nextPastes[index] ?? "";
+        if (text.trim()) kept[key] = text;
+      }
+    }
+    writePastes(kept);
+  };
 
   // A chat answer pasted whole used to go into the .h with the model's words
   // and the ``` fence, and the header test below passed it.
@@ -270,9 +321,11 @@ export default function HardwareModal({
                       <textarea
                         className={local.hwPaste}
                         value={pastes[unit.index] ?? ""}
-                        onChange={(event) =>
-                          setPastes((current) => ({ ...current, [unit.index]: event.target.value }))
-                        }
+                        onChange={(event) => {
+                          const next = { ...pastes, [unit.index]: event.target.value };
+                          setPastes(next);
+                          keep(single, next);
+                        }}
                         placeholder={`Paste the namespace L${unit.index} { … } block here`}
                         spellCheck={false}
                         rows={5}
@@ -290,7 +343,10 @@ export default function HardwareModal({
                   <textarea
                     className={local.hwPaste}
                     value={single}
-                    onChange={(event) => setSingle(event.target.value)}
+                    onChange={(event) => {
+                      setSingle(event.target.value);
+                      keep(event.target.value, pastes);
+                    }}
                     placeholder="Paste the .h the model gives you — it starts with #pragma once"
                     spellCheck={false}
                     rows={12}
