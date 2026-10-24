@@ -52,6 +52,12 @@ function pasteHeader() {
   fireEvent.change(headerBox(), { target: { value: HEADER } });
 }
 
+/** A press that goes down and comes up on the same element. */
+function press(element: Element) {
+  fireEvent.pointerDown(element);
+  fireEvent.click(element);
+}
+
 /** Paste a header, press Next, and land on the "On to hardware" stage. */
 function pasteHeaderAndContinue() {
   pasteHeader();
@@ -88,7 +94,7 @@ describe("HardwareModal", () => {
     fireEvent.click(screen.getByText("↗ Apply to my Patternflow"));
     const send = screen.getByText("Send to my Patternflow").closest('[role="dialog"]')!;
 
-    fireEvent.click(send);
+    press(send);
 
     expect(screen.queryByText("Send to my Patternflow")).toBeNull();
     expectHeaderKept();
@@ -101,7 +107,7 @@ describe("HardwareModal", () => {
     const title = await screen.findByText("Share to Community");
     const publish = title.closest('[role="dialog"]')!;
 
-    fireEvent.click(publish);
+    press(publish);
 
     await waitFor(() => expect(screen.queryByText("Share to Community")).toBeNull());
     expectHeaderKept();
@@ -115,9 +121,21 @@ describe("HardwareModal", () => {
 
   it("a press on its own backdrop still closes it", () => {
     render(<Lab />);
-    fireEvent.click(hardware());
+    press(hardware());
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByText("closed")).toBeTruthy();
+  });
+
+  // Select the pasted header by dragging across it, let go past the edge of
+  // the card, and Chromium sends the click to the backdrop, the one element
+  // the press and the release share. That click used to close the window.
+  it("stays open when a drag that began in the header box ends on the backdrop", () => {
+    render(<Lab />);
+    pasteHeader();
+    fireEvent.pointerDown(headerBox());
+    fireEvent.click(hardware());
+    expect(hardware()).toBeTruthy();
+    expect(headerBox()).toHaveValue(HEADER);
   });
 
   it("opens with the focus inside it", () => {
@@ -399,7 +417,7 @@ describe("HardwareModal", () => {
   // the way back was to ask the model again.
   it.each([
     ["Esc", () => fireEvent.keyDown(document.activeElement!, { key: "Escape" })],
-    ["a press outside", () => fireEvent.click(hardware())],
+    ["a press outside", () => press(hardware())],
     ["×", () => fireEvent.click(screen.getByRole("button", { name: "Close" }))],
   ])("opens again with the header it held before %s", (_, close) => {
     render(<Lab />);
