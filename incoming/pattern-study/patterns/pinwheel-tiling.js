@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Pinwheel Tiling
 // Family:  geometry
-// Idea:    The pinwheel tiling of right triangles with legs 1 and 2 zooms for ever into the fixed point of its one turned child, each tile splitting into five copies a root five smaller, one of them turned by arctan(1/2), so every level brings directions the last one did not have, and each tile is coloured by the direction of its long leg.
+// Idea:    The pinwheel tiling of right triangles with legs 1 and 2 zooms for ever into the point held still by the child turned through arctan(1/2), each tile splitting into five copies a root five smaller, one of them turned by arctan(1/2), so every level brings directions the last one did not have, and each tile is coloured by the direction of its long leg.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Size=13..40, Paint=0..1
 //
-// Knob 1: Hue. Turns the colours against the directions. At 0 a tile whose long leg lies across the panel is cyan, one standing upright red, one along the rising diagonal green and one along the falling diagonal violet; parallel legs share a colour whichever way they point, and mirror-image tiles are a fifth darker.
+// Knob 1: Hue. Turns the colours against the directions. At 0 a tile whose long leg lies across the panel is cyan, one standing upright red, one along the rising diagonal green and one along the falling diagonal violet; parallel legs share a colour whichever way they point, and the tiles of one hand are a fifth darker than those of the other.
 // Knob 2: Speed. At 2 the view grows by the square root of 5 and turns 26.6 degrees every 3.6 seconds, one level of tiles; at 0.2 a level takes 36 seconds, at 3 it takes 2.4.
 // Knob 3: Size. How long a tile's hypotenuse is, 13 to 40 LEDs, when the next level starts to split off it. The new seams come in over the first 30% of the level and the five children take their own colours between 28% and 42%; the seams of tiles two levels older and more grow about one LED wider.
 // Knob 4: Paint. At 0 every tile is coloured by its direction. At 1 the tiles are one blue, the hue moving with Hue, each as bright as its long leg points to the lower left, one hand pale and the other deep, so the two hands show in equal numbers.
@@ -32,8 +32,8 @@ const S5 = sqrt(5), LS5 = log(S5), TAU = 2 * PI, A2 = atan(0.5);
 // its hypotenuse to its right angle and to the midpoints of its two legs,
 // four copies in two mirror pairs. Each child is [small, right, large] in the
 // parent's frame. Children 2 and 3 keep the parent's hand, 0, 1 and 4 are
-// mirrored. Cut with the midpoint split instead, the directions stay a
-// finite set; with this one they never repeat.
+// mirrored. Cut with the midpoint split instead, the tiles keep to eight
+// directions; with this cut the count grows with every level.
 const KIDS = [
   [[2, 0], [1.6, 0.8], [2, 1]],
   [[1, 0], [1.8, 0.4], [2, 0]],
@@ -116,7 +116,11 @@ function render(P, D, buf) {
           const K = KIDS[i], rx = qx - K.ax, ry = qy - K.ay;
           const tx = K.i00 * rx + K.i01 * ry, ty = K.i10 * rx + K.i11 * ry;
           const mg = Math.min(ty, 2 - tx, (tx - 2 * ty) / S5);
-          if (mg > best) (best = mg), (bi = i), (bx = tx), (by = ty);
+          if (mg > best) {
+            (best = mg), (bi = i), (bx = tx), (by = ty);
+            // The children do not overlap: one inside is the one.
+            if (mg > 0) break;
+          }
         }
         const K = KIDS[bi];
         const n00 = m00 * K.ux + m01 * K.uy, n01 = m00 * K.vx + m01 * K.vy, n10 = m10 * K.ux + m11 * K.uy, n11 = m10 * K.vx + m11 * K.vy;
