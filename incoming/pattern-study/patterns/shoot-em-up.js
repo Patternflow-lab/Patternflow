@@ -17,15 +17,12 @@
 // Knob 4: Bullets. How thick the fire is, from rings of twelve at 0.06 to rings of thirty and three-armed spirals at 1, with the ground dimmed so they read.
 // Buttons: K1 tap drops a bomb: a white flash and a shock ring that clears the bullets.
 
-const W = 64;
-const H = 128;
-const N = W * H;
+const W = 64, H = 128, N = W * H;
 const { min, max, sin, cos, abs, atan2, hypot, floor, round, sqrt, PI } = Math;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = (a, b) => a + (b - a) * Math.random();
 // Ground scroll at Speed 2 in LEDs a second; clouds go 1.8 times as fast.
-const V0 = 12;
-const CLOUD = 1.8;
+const V0 = 12, CLOUD = 1.8;
 
 const hash = (x, y, s) => {
   let h = Math.imul((x * 374761393 + y * 668265263 + s * 982451653) | 0, 1274126177);
@@ -33,8 +30,8 @@ const hash = (x, y, s) => {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 };
 function noise(x, y, s) {
-  const ix = floor(x), iy = floor(y), u = (x -= ix) * x * (3 - 2 * x), v = (y -= iy) * y * (3 - 2 * y), a = hash(ix, iy, s), b = hash(ix + 1, iy, s);
-  const c = hash(ix, iy + 1, s);
+  const ix = floor(x), iy = floor(y), u = (x -= ix) * x * (3 - 2 * x), v = (y -= iy) * y * (3 - 2 * y);
+  const a = hash(ix, iy, s), b = hash(ix + 1, iy, s), c = hash(ix, iy + 1, s);
   return a + (b - a) * u + (c - a) * v + (a - b - c + hash(ix + 1, iy + 1, s)) * u * v;
 }
 
@@ -314,7 +311,7 @@ function stepBoss(S, d) {
     B.x = 32 + 3 * sin((S.t - B.t1) * 0.8);
     const ph = floor((S.t - B.t1) / B.ph) % 3;
     if (ph === 0 && !(S.t < B.nr)) {
-      const n = round(12 + 18 * f), a0 = rnd(0, 6.283);
+      const n = floor(12 + 18 * f), a0 = rnd(0, 6.283);
       B.nr = S.t + 1.5 - 0.8 * f;
       for (let i = 0; i < n; i++) shoot(S, B.x, B.y + 11, a0 + (i * 2 * PI) / n, 28, 0, 1);
     }
@@ -486,7 +483,7 @@ export function draw(display, params, time) {
   for (const e of S.en) spr(S, e.k ? DART : FIGHTER, round(e.x) - 3, round(e.y) - 3, e.fl > 0 ? 1 : 0);
   // The boss's core pulses cyan, or red as the fury rises.
   const f = S.fury, p = 0.5 + 0.5 * sin(t * 9);
-  if (B) spr(S, BOSS, round(B.x) - 28, round(B.y), floor(t * 16) % 3 === 0 && (B.st === 2 || B.fl > 0) ? 1 : 0, [120 + 135 * f + 60 * p, 230 - 170 * f + 25 * p * (1 - f), 255 - 215 * f]);
+  if (B) spr(S, BOSS, round(B.x) - 28, round(B.y), (B.st === 2 ? floor(t * 16) % 2 : B.fl > 0 && floor(t * 20) % 4 === 0) ? 1 : 0, [120 + 135 * f + 60 * p, 230 - 170 * f + 25 * p * (1 - f), 255 - 215 * f]);
   for (const ex of [3, 5])
     for (let j = 0, L = 2 + ((t * 24 + ex) % 3 | 0), c; j < L; j++) put(buf, round(P.x) - 4 + ex, round(P.y) + 5 + j, 255 - 12 * (c = min(3, j + (L < 3))) * c, 255 - 65 * c, 220 - 70 * c);
   spr(S, PLAYER, round(P.x) - 4, round(P.y) - 5, 0);
