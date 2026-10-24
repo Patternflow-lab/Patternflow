@@ -14,12 +14,27 @@ import { DEFAULT_RAMP_STATE, cloneRampState, isRampLayer, layerId, type CodeLaye
 const labPresets = livePresets.filter((preset) => preset.labOnly);
 export const initialLabPreset = labPresets[0] ?? livePresets[0];
 
-export const STARTER_CODE = `// New layer — draws a scrolling value field, colored by this layer's ramp.
+// The starter reads knob 2 for speed and knob 3 for spacing, the two the
+// default preset labels Speed and Freq, so turning a knob moves the new layer
+// along with the pattern under it.
+export const STARTER_CODE = `// New layer — draws scrolling bands as a value field, colored by this layer's ramp.
+// Knob 2 sets the speed, knob 3 how many bands fit across.
 // Replace with your own pattern. Only draw() is required.
+export function setup(params) {
+  params.phase = 0;
+}
+
+export function update(dt, input, params) {
+  const k = input.knobNormalized || [];
+  params.phase = (params.phase + dt * 0.5 * (k[1] ?? 0.5)) % 1;
+}
+
 export function draw(display, params, time) {
+  const k = params.knobNormalized || [];
+  const bands = 1 + 7 * (k[2] ?? 0.5);
   for (let y = 0; y < display.height; y++) {
     for (let x = 0; x < display.width; x++) {
-      const v = (x / display.width + time * 0.12) % 1;
+      const v = ((x / display.width) * bands + params.phase) % 1;
       display.setValue(x, y, v);
     }
   }
