@@ -4,11 +4,13 @@
 // physical encoders on the device: every code layer reads the same input.
 // Sliders + Blender-style digit dragging on the range bounds, and the encoder
 // Push buttons routed to the engine (buttons hit the ACTIVE code layer).
+// An arrow key on a slider turns one detent, as on the device.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { labEngine } from "@/lib/lab/engine";
 import { captureSession } from "@/lib/lab/capture/session";
 import { useLabStore } from "@/lib/lab/store";
+import { knobArrowValue } from "@/lib/pattern/controls";
 import local from "./KnobsPanel.module.css";
 import dock from "../LabPanels.module.css";
 
@@ -287,6 +289,12 @@ export default function KnobsPanel() {
                   value={value}
                   aria-label={`${knobLabels[index]} value`}
                   onChange={(event) => setKnob(index, Number(event.target.value))}
+                  onKeyDown={(event) => {
+                    const next = knobArrowValue(event, value, ranges[index]);
+                    if (next === null) return;
+                    event.preventDefault();
+                    setKnob(index, next);
+                  }}
                 />
                 {renderRangeValue(index, "max")}
               </div>

@@ -45,6 +45,7 @@ import {
   type TextFill,
   type TextLayer,
 } from "@/lib/lab/types";
+import { knobArrowValue } from "@/lib/pattern/controls";
 import type { CodeCopyState } from "./pixel/PixelToolbars";
 import local from "./TextPanel.module.css";
 import dock from "../LabPanels.module.css";
@@ -413,6 +414,12 @@ function TextEditor({ layer }: { layer: TextLayer }) {
                 step="0.001"
                 value={knobValue}
                 onChange={(event) => setKnob(spec.effectKnob, Number(event.target.value))}
+                onKeyDown={(event) => {
+                  const next = knobArrowValue(event, knobValue, knobRange);
+                  if (next === null) return;
+                  event.preventDefault();
+                  setKnob(spec.effectKnob, next);
+                }}
               />
             </label>
           )}
