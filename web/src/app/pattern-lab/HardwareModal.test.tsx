@@ -464,17 +464,33 @@ describe("HardwareModal", () => {
 
   // A knob position only says where the board starts that knob. Asking the
   // model again for it would cost more than it fixes.
+  const turnKnob = () => {
+    const [min, max] = useLabStore.getState().ranges[0];
+    const knob = useLabStore.getState().knobs[0];
+    useLabStore.getState().setKnob(0, knob === max ? min : max);
+    expect(useLabStore.getState().knobs[0]).not.toBe(knob);
+  };
+
   it("keeps the header when a knob turns", () => {
     render(<Lab />);
     pasteHeader();
     cleanup();
 
-    const [min, max] = useLabStore.getState().ranges[0];
-    const knob = useLabStore.getState().knobs[0];
-    useLabStore.getState().setKnob(0, knob === max ? min : max);
-    expect(useLabStore.getState().knobs[0]).not.toBe(knob);
+    turnKnob();
     render(<Lab />);
     expect(headerBox()).toHaveValue(HEADER);
+  });
+
+  // Each layer's prompt in a stack lists the knobs with where they sit now.
+  it("keeps a stack's translations when a knob turns", () => {
+    useLabStore.getState().addCodeLayer();
+    render(<Lab />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L1 \{/), { target: { value: unitBlock(1) } });
+    cleanup();
+
+    turnKnob();
+    render(<Lab />);
+    expect(screen.getByPlaceholderText(/Paste the namespace L1 \{/)).toHaveValue(unitBlock(1));
   });
 
   // The header answers one prompt. Once the lab asks another, it would put
