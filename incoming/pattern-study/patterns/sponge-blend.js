@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Sponge Blend
 // Family:  cosmetic
-// Idea:    A stripe of colour is laid down a pale base and an unseen damp sponge bounces along it, each dab printing a soft patch of open-cell stipple that lifts colour off the stripe and leaves it further out, until the hard line is bounced out into a wide soft fade and the base is wiped for the next stripe.
+// Idea:    A stripe of colour is laid down a pale base and an unseen damp sponge bounces along it, each dab printing a soft patch of open-cell stipple that lifts colour off the stripe and leaves it further out while soft light glides over the damp canvas, until the hard line is bounced out into a wide soft fade and the base is wiped for the next stripe.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -76,7 +76,7 @@ export function setup(params) {
   params.s = {
     A: F(N), c: F(N), pm: new Uint8Array(N), cn: F(N), sh: F(N), dist: F(N).fill(99), su: F(N),
     phase: 0, pt: 0, lay: 0, len: 100, pts: F(98), u: 0, dir: 1, pass: 0, side: 1, load: 0, dabT: 0, n: 0,
-    hue: 0, speed: 2, cov: 0, grain: 0.06, started: false, col: F(6),
+    hue: 0, speed: 2, cov: 0, grain: 0.06, started: false, col: F(6), T: 0,
   };
 }
 
@@ -265,9 +265,11 @@ export function update(dt, input, params) {
     stripe(S, true);
   }
   const st = (d * S.speed) / 2;
+  S.T += st;
   stepT(S, st);
-  // The wet shine dries in real time, so a fast sponge leaves several at once.
-  const fade = exp(-d * 3);
+  // The wet shine dries in real time, over a second or two, so a fast sponge
+  // leaves several at once.
+  const fade = exp(-d * 1.4);
   for (let i = 0; i < N; i++) S.sh[i] *= fade;
 }
 
@@ -280,12 +282,19 @@ export function draw(display, params) {
   // nearly the same brightness, so the blend shows as colour on a steady grain.
   // Orange and gold read brown when dim, so round them the colour is lifted.
   const hf = h - floor(h), wm = sm((hf - 0.03) / 0.05) * (1 - sm((hf - 0.15) / 0.07));
-  hsv(h, 0.06, 224, col, 0);
-  hsv(h, 0.5 + 0.18 * cov + 0.1 * wm, 220 + 20 * wm, col, 3);
+  hsv(h, 0.06, 212, col, 0);
+  hsv(h, 0.5 + 0.18 * cov + 0.1 * wm, 208 + 18 * wm, col, 3);
+  // The damp canvas catches the light: two broad soft bands of sheen, about
+  // 18 levels at most and 35 LEDs wide, glide down it at 18 LEDs a second,
+  // tilted a little. They change by under a level from LED to LED, so they
+  // add no edge.
+  const cyc = H + 104, b0 = ((S.T * 18) % cyc) - 52, b1 = ((S.T * 18 + cyc / 2) % cyc) - 52;
   // Grain also roughens the base: the checker's step grows by half from 0 to 1.
   const g = S.grain, op = 0.65 + 0.35 * cov, dip = 0.05 + 0.03 * g, gs = STEP * (0.9 + 0.55 * g);
   for (let y = 0, i = 0; y < H; y++)
     for (let x = 0; x < W; x++, i++) {
+      const sy = y + (x - 32) * 0.35, e0 = (sy - b0) / 15, e1 = (sy - b1) / 15;
+      const glow = 0.085 * (exp(-e0 * e0 * 0.5) + exp(-e1 * e1 * 0.5));
       // How much pore is round this LED, 0..1 over its 3x3 neighbourhood.
       let pv = 0;
       for (let yy = max(0, y - 1); yy <= min(H - 1, y + 1); yy++) for (let xx = max(0, x - 1), j = yy * W + xx; xx <= min(W - 1, x + 1); xx++, j++) pv += pm[j];
@@ -295,7 +304,7 @@ export function draw(display, params) {
       // brighter, then it dries back.
       const ac = sqrt(cl(A[i], 0, 1)), wet = sh[i];
       const a = min(1, ac * op * (1 + 0.45 * wet) + 0.45 * pv);
-      const l = 1 + 0.03 * wet - dip * pv + gs * AMP[i] * (ODD[i] ? -0.5 : 0.5);
+      const l = 1 + glow + 0.08 * wet - dip * pv + gs * AMP[i] * (ODD[i] ? -0.5 : 0.5);
       display.setPixel(x, y, (col[0] + (col[3] - col[0]) * a) * l, (col[1] + (col[4] - col[1]) * a) * l, (col[2] + (col[5] - col[2]) * a) * l);
     }
 }
