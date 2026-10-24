@@ -18,8 +18,11 @@ import {
   getKnobValueDelta,
   knobArrowValue,
   knobDetentStep,
+  knobMidpoint,
   knobUnitsPerTurn,
   logicalKnobUnitsPerTurn,
+  normalizeKnob,
+  tidyKnobValue,
   toEncoderDelta,
   webKnobRange,
   wrapKnobDelta,
@@ -102,6 +105,40 @@ describe("arrow keys", () => {
     for (const mod of ["altKey", "ctrlKey", "metaKey"] as const) {
       expect(knobArrowValue(key("ArrowRight", { [mod]: true }), 0.5, [0, 1])).toBeNull();
     }
+  });
+});
+
+describe("reading a knob as 0..1", () => {
+  it("puts the bottom of a range at 0 and the top at 1, and leaves a value outside it outside", () => {
+    expect(normalizeKnob(0, [0, 1])).toBe(0);
+    expect(normalizeKnob(10, [0.1, 10])).toBe(1);
+    expect(normalizeKnob(5.05, [0.1, 10])).toBeCloseTo(0.5, 12);
+    expect(normalizeKnob(-1, [0, 4])).toBe(-0.25);
+  });
+
+  it("reads a range as fine as 0.0001..0.0004 across its whole width", () => {
+    // A floor of 0.001 read 0.00025 as 0.15 and the top of the range as 0.3.
+    expect(normalizeKnob(0.00025, [0.0001, 0.0004])).toBeCloseTo(0.5, 9);
+    expect(normalizeKnob(0.0004, [0.0001, 0.0004])).toBeCloseTo(1, 9);
+    expect(normalizeKnob(0.0015, [0.001, 0.002])).toBeCloseTo(0.5, 9);
+  });
+
+  it("reads a range edited down to nothing as 0, not NaN", () => {
+    expect(normalizeKnob(3, [3, 3])).toBe(0);
+  });
+
+  it("starts a knob in the middle of its range, however fine the range", () => {
+    expect(knobMidpoint([0, 1])).toBe(0.5);
+    expect(knobMidpoint([0.1, 10])).toBe(5.05);
+    expect(knobMidpoint([0.0001, 0.0004])).toBe(0.00025);
+    expect(knobMidpoint([0.001, 0.002])).toBe(0.0015);
+    expect(knobMidpoint([0.1, 0.2])).toBe(0.15);
+  });
+
+  it("takes the float noise off a value and keeps its digits", () => {
+    expect(tidyKnobValue(0.1 + 0.2)).toBe(0.3);
+    expect(tidyKnobValue(0.0001 + 0.00015)).toBe(0.00025);
+    expect(tidyKnobValue(5.446)).toBe(5.446);
   });
 });
 

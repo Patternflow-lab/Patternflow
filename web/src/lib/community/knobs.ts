@@ -1,6 +1,6 @@
 "use client";
 
-import { LOGICAL_KNOB_RANGES } from "@/lib/pattern/controls";
+import { LOGICAL_KNOB_RANGES, knobMidpoint, normalizeKnob } from "@/lib/pattern/controls";
 import { DEFAULT_KNOB_LABELS, parseKnobsAnnotation } from "@/lib/pattern/knobs";
 
 // @knobs for the community's cards and detail page: the labels, the ranges,
@@ -20,12 +20,10 @@ export type KnobSetup = {
 
 export { DEFAULT_KNOB_LABELS };
 
-const midpoint = (min: number, max: number) => Number(((min + max) / 2).toFixed(3));
-
 export function knobSetupFromCode(code: string): KnobSetup {
   const labels = [...DEFAULT_KNOB_LABELS];
   const ranges: Array<[number, number]> = LOGICAL_KNOB_RANGES.map(([min, max]) => [min, max]);
-  const values: number[] = ranges.map(([min, max]) => midpoint(min, max));
+  const values: number[] = ranges.map(knobMidpoint);
 
   const entries = parseKnobsAnnotation(code);
   if (entries) {
@@ -33,7 +31,7 @@ export function knobSetupFromCode(code: string): KnobSetup {
       if (!entry) return;
       labels[index] = entry.name;
       ranges[index] = [entry.min, entry.max];
-      values[index] = midpoint(entry.min, entry.max);
+      values[index] = knobMidpoint(ranges[index]);
     });
   }
 
@@ -41,9 +39,5 @@ export function knobSetupFromCode(code: string): KnobSetup {
 }
 
 export function normalizedKnobs(values: number[], ranges: Array<[number, number]>): number[] {
-  return values.map((value, index) => {
-    const [min, max] = ranges[index] ?? [0, 1];
-    const span = Math.max(0.001, max - min);
-    return (value - min) / span;
-  });
+  return values.map((value, index) => normalizeKnob(value, ranges[index] ?? [0, 1]));
 }

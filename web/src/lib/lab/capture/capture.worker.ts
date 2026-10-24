@@ -13,6 +13,7 @@
 // moment, so what the stage shows when you press Record is the first frame.
 
 import { CaptureCore, clampScale, mergeWireProject, resolveGeometry } from "./core";
+import { normalizeKnob } from "@/lib/pattern/controls";
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { StagePainter } from "./paint";
 import { describeProbe, probeKey, probeScaling, type ProbeResult } from "./probe";
@@ -162,11 +163,9 @@ function setStageKnobs(knobs: number[] | null) {
 function shaderKnobs() {
   if (!project) return;
   const values = knobOverride ?? project.knobs;
-  const normalized = values.map((value, index) => {
-    const range = project!.ranges[index] ?? [0, 1];
-    const span = Math.max(0.0001, range[1] - range[0]);
-    return (value - range[0]) / span;
-  });
+  const normalized = values.map((value, index) =>
+    normalizeKnob(value, project!.ranges[index] ?? [0, 1]),
+  );
   shader.setKnobs(values, normalized);
 }
 
