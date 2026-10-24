@@ -1,21 +1,21 @@
 // ===== Patternflow pattern =====
 // Title:   Pipe Organ
 // Family:  music
-// Idea:    The tin front pipes of a church organ case stand in towers and flats while an unseen organist plays a chorale, and each pipe that speaks lights at its mouth with a standing wave shimmering up its body, the bass in the tall pipes and the tune in the small ones, as light from a rose window drifts across the case.
+// Idea:    The tin front pipes of a church organ stand in towers and flats while an unseen organist plays a chorale, and each pipe that speaks lights at its mouth with a standing wave shimmering up its body, the bass in the tall pipes and the tune in the small ones, as light from a rose window drifts across the case.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 24, after the Baroque organ case of towers and flats (Arp Schnitger's Hamburg cases) and four-part chorale harmony
+// Lineage: original, pattern round 24, after the tower-and-flat fronts of North German Baroque organ cases and four-part chorale harmony
 // Round:   24
 // ===============================
 // @matrix 64x128
 // @knobs Stops=0..1, Tempo=0.2..3, Voices=1..6, Tremulant=0..1
 //
-// Knob 1: Stops. The registration: flutes at 0 glow soft blue with one broad band, principals in the middle speak silver-white and add the octave above each note, and the reeds at 1 burn gold at the mouth and red up the body with many bands and the fifteenth as well.
-// Knob 2: Tempo. Chords a second over two: at 2 a chord takes a second and a phrase with its held last chord about ten, at 0.2 one chord holds for ten seconds.
-// Knob 3: Voices. How many parts the hands play over the pedal: 1 is the tune alone over the bass, 3 the full four-part chorale, and 4 to 6 fill the chord with more pipes.
-// Knob 4: Tremulant. The wind shakes: the shimmer in the pipes wavers and throbs, and the two candles on the case flicker until the whole case flickers with them.
-// Buttons: K1 tap is full organ: every pipe in the case speaks at once for a few seconds.
+// Knob 1: Stops. The registration. Flutes at 0 glow soft blue in two broad bands; principals in the middle speak silver-white and add the octave above each note; the reeds at 1 burn gold at the mouth and red up the body in six bands, with the octave below, the twelfth and the fifteenth speaking too.
+// Knob 2: Tempo. At 2 a chord takes a second, so a phrase of eight with its held last chord takes about nine; at 0.2 a chord holds for ten seconds and at 3 for two thirds of one.
+// Knob 3: Voices. How many parts the hands play over the pedal: at 1 the tune alone over the bass, at 3 the four-part chorale, and 4 to 6 add parts that fill out the chord.
+// Knob 4: Tremulant. The wind shakes. The shimmer in the speaking pipes throbs and wavers, and the two candles on the case flicker and gutter until the light on the whole lower case flickers with them.
+// Buttons: K1 tap is full organ: every pipe in the front speaks at once for about three seconds.
 
 const W = 64;
 const H = 128;
@@ -95,7 +95,7 @@ const ROSE = [RUBY, SAPH, GREEN, SAPH];
 const FLUTE = [0.35, 0.62, 1];
 const PRIN = [0.84, 0.9, 1];
 const REED0 = [1, 0.77, 0.27];
-const REED1 = [1, 0.28, 0.14];
+const REED1 = [1, 0.2, 0.08];
 const FULL = [1, 0.86, 0.58];
 
 // Round tin: a highlight a third of the way across and a dark far edge.
@@ -201,8 +201,8 @@ function build(P) {
     put(x, 113, WOOD, 0.5);
   }
   // Candles on the stiles between the side towers and the flats.
-  for (let y = 98; y <= 101; y++) two(10, y, [0.95, 0.9, 0.8], 1);
-  for (let x = 9; x <= 11; x++) two(x, 102, GILT, 1.1);
+  for (let y = 98; y <= 101; y++) two(10, y, [0.95, 0.9, 0.8], 0.5);
+  for (let x = 9; x <= 11; x++) two(x, 102, GILT, 0.6);
   // The console: the music desk with its lamp, and one manual.
   for (let y = 114; y < H; y++) for (let x = 0; x < W; x++) put(x, y, WOOD, 0.7);
   for (let y = 114; y <= 119; y++) for (let x = 16; x <= 47; x++) put(x, y, WOOD, 0.85);
@@ -307,8 +307,9 @@ export function update(dt, input, params) {
   P.full = P.fullT < 2.8 ? sm(0, 0.06, P.fullT) : 1 - sm(2.8, 3.6, P.fullT);
 
   // Which pipes speak: each part's note, the octave above from the
-  // principals on, two octaves above with the reeds.
-  const c = P.cur, pos = P.beat - c.at, r4 = 0.8 * sm(0.3, 0.55, s), r2 = 0.65 * sm(0.7, 0.92, s);
+  // principals on, and with the reeds the octave below, the twelfth and the
+  // fifteenth.
+  const c = P.cur, pos = P.beat - c.at, r4 = 0.8 * sm(0.3, 0.55, s), r2 = 0.75 * sm(0.7, 0.92, s);
   P.tgt.fill(0);
   P.keys.fill(0);
   if (!(c.last && pos > c.dur - 0.22))
@@ -318,6 +319,7 @@ export function update(dt, input, params) {
       P.tgt[g] = 1;
       if (v !== 3) P.keys[g] = 1;
       if (g + 7 < NP) P.tgt[g + 7] = max(P.tgt[g + 7], r4);
+      if (g >= 7) P.tgt[g - 7] = max(P.tgt[g - 7], r2);
       if (g + 11 < NP) P.tgt[g + 11] = max(P.tgt[g + 11], r2);
       if (g + 14 < NP) P.tgt[g + 14] = max(P.tgt[g + 14], r2);
     }
@@ -328,9 +330,10 @@ export function update(dt, input, params) {
     P.amp[i] += (g - P.amp[i]) * (1 - exp(-d / (g > P.amp[i] ? 0.035 : 0.14)));
     P.chiff[i] *= exp(-d / 0.18);
   }
-  // Candles in the draught: they flicker harder as the tremulant shakes the wind.
-  const fa = 0.06 + 0.8 * tr;
-  const fl = (ph) => 1 - 0.35 * fa + fa * (0.6 * sin(t * 7.1 + ph) + 0.45 * sin(t * 11.9 + 2 * ph) + 0.35 * sin(t * 4.3 + 3 * ph) * sin(t * 17.3));
+  // Candles in the draught: as the tremulant shakes the wind they flicker
+  // harder and burn lower.
+  const fa = 0.05 + tr;
+  const fl = (ph) => 1 - 0.4 * fa + fa * (0.6 * sin(t * 7.1 + ph) + 0.45 * sin(t * 11.9 + 2 * ph) + 0.35 * sin(t * 4.3 + 3 * ph) * sin(t * 17.3));
   P.fl = cl(fl(0), 0.1, 2);
   P.fr = cl(fl(2.1), 0.1, 2);
 }
@@ -338,7 +341,7 @@ export function update(dt, input, params) {
 // A stop's colour, u from the mouth (0) to the top (1).
 function stopCol(out, s, u, full) {
   for (let n = 0; n < 3; n++) {
-    const v = s < 0.5 ? mix(FLUTE[n], PRIN[n], s * 2) : mix(PRIN[n], mix(REED0[n], REED1[n], u), s * 2 - 1);
+    const v = s < 0.5 ? mix(FLUTE[n], PRIN[n], s * 2) : mix(PRIN[n], mix(REED0[n], REED1[n], min(1, u * 1.6)), s * 2 - 1);
     out[n] = mix(v, FULL[n], full);
   }
 }
@@ -372,21 +375,13 @@ export function draw(display, params) {
       const kk = I0 * (lead ? 0.45 : 1) * sm(1, 0.82, r), o = (y * W + x) * 3;
       for (let n = 0; n < 3; n++) F[o + n] += A[o + n] * c[n] * kk;
     }
-  // The candle flames.
-  for (const [x, f] of [[10, P.fl], [53, P.fr]]) {
-    const add = (xx, y, c, k) => {
-      const o = (y * W + xx) * 3;
-      for (let n = 0; n < 3; n++) F[o + n] += c[n] * k;
-    };
-    add(x, 97, [255, 235, 170], min(1.2, f));
-    add(x, 96, [255, 160, 60], min(1.2, f));
-    add(x, 95, [200, 80, 20], cl(f - 0.9, 0, 1));
-    add(x - 1, 97, [140, 70, 20], 0.5 * f);
-    add(x + 1, 97, [140, 70, 20], 0.5 * f);
-  }
   // The pipes that speak: the mouth lights and a standing wave shimmers up
   // the body, its bands creeping upward and wavering with the tremulant.
-  const s = P.s, tr = P.tr, gain = 300 * (0.7 + 0.65 * s), bands = 2 + 4 * s;
+  const s = P.s, tr = P.tr, gain = 240 * (0.8 + 0.4 * s), bands = 2 + 4 * s, floor0 = 0.45 - 0.25 * s;
+  // Many pipes at once light the case less each, or the chord drowns in its own light.
+  let ns = 0;
+  for (let i = 0; i < NP; i++) ns += P.amp[i];
+  const spread = (1 - 0.6 * P.full) / (1 + 0.12 * max(0, ns - 2));
   const trem = sin(2 * PI * 5.4 * t), tm = 1 - 0.9 * tr * (0.5 + 0.5 * trem), wob = 0.3 * tr * trem;
   const col = [0, 0, 0];
   for (let i = 0; i < NP; i++) {
@@ -397,7 +392,7 @@ export function draw(display, params) {
     const bm = max(bands, 5 * P.full), creep = 0.3 * t + i * 0.37;
     // Its light on the polished tin and the gilt round it.
     stopCol(col, s, 0.4, P.full);
-    const kb = am * tm * (0.3 + 0.45 * s) * 255;
+    const kb = am * tm * (0.22 + 0.5 * s) * spread * 255;
     for (let y = max(0, top - 10); y < min(H, base + 6); y++) {
       const ly = kb * (y < top ? exp((y - top) / 4) : y > m ? exp((m - y) / 7) : 1);
       for (let xx = max(0, x - 16); xx < min(W, x + w + 16); xx++) {
@@ -408,7 +403,7 @@ export function draw(display, params) {
     for (let y = top; y < m; y++) {
       const u = (m - 0.5 - y) / span;
       const bv = abs(cos(PI * (bm * u - creep + wob))) ** 2.5 * osc;
-      const g = a * (0.7 + 0.3 * exp(-3 * u)) * (0.42 + 0.58 * bv);
+      const g = a * (0.75 + 0.25 * exp(-3 * u)) * (floor0 + (1 - floor0) * bv);
       stopCol(col, s, u, P.full);
       for (let j = -2; j < w + 2; j++) {
         const xx = x + j;
@@ -427,9 +422,21 @@ export function draw(display, params) {
         const e = ((xx + 0.5 - cx) / (w / 2 + 1.2)) ** 2 + ((y + 0.5 - cy) / 2.6) ** 2;
         if (e > 3) continue;
         const slot = y >= m && y < m + mh && xx > x && xx < x + w - 1;
-        const o = (y * W + xx) * 3, k = slot ? hot * 1.2 : hot * 0.42 * exp(-e * 1.3);
-        for (let n = 0; n < 3; n++) F[o + n] += mix(col[n], 1, slot ? 0.55 : 0.15) * k;
+        const o = (y * W + xx) * 3, k = slot ? hot * 2 : hot * 0.5 * exp(-e * 1.3);
+        for (let n = 0; n < 3; n++) F[o + n] += mix(col[n], 1, slot ? 0.7 : 0.2) * k;
       }
+  }
+  // The candle flames, each with a halo in the air round it.
+  for (const [x, f] of [[10, P.fl], [53, P.fr]]) {
+    for (let y = 92; y <= 100; y++)
+      for (let xx = x - 3; xx <= x + 3; xx++) {
+        const e = (xx - x) ** 2 + ((y - 96.5) * 0.8) ** 2, o = (y * W + xx) * 3;
+        for (let n = 0; n < 3; n++) F[o + n] += CAN[n] * 0.45 * f * exp(-e / 3);
+      }
+    for (const [y, c, k] of [[97, [255, 250, 225], 1], [96, [255, 236, 160], min(1, f)], [95, [255, 190, 80], cl(f, 0, 1)], [94, [255, 120, 30], cl(f - 0.8, 0, 1)]]) {
+      const o = (y * W + x) * 3;
+      for (let n = 0; n < 3; n++) F[o + n] = max(F[o + n], c[n] * k);
+    }
   }
   // Keys held down on the manual.
   for (let i = 0; i < NP; i++)
