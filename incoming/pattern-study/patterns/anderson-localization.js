@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the wave round the wheel; the old run below the head and the stripes turn with it. At 0 tails violet, body azure, core pale cyan; at 0.1 blue, at 0.2 violet, at 0.35 pink, at 0.42 red, at 0.5 peach, at 0.58 butter, at 0.66 lime, at 0.85 mint. From 0.42 to 0.68 the tails turn toward rose instead of yellow and the body is paled and lifted up to 1.4 times, so nothing reads brown or olive.
 // Knob 2: Speed. How fast time is written down the panel. At 2 twenty rows a second, so a run of 128 rows (t = 0 to 32 in units of the hopping) takes 6.4 s and the finished run holds 1.5 s; at 0.2 64 s, at 3 4.3 s.
 // Knob 3: Disorder. The width W of the random site energies, uniform in [-W/2, W/2]. At 4 the localization length at the band centre is about 105/W^2 = 6.6 sites: the lit column, where the probability is over 1/1000, is 13 LEDs wide at row 8, 19 at row 16, 25 at row 32 and stops at 27 to 28 from row 48 on, where a clean cone would be 49 wide and growing. At 8 it stops at 12 LEDs by row 16; at 12 the particle hardly leaves its site and the column is 8 LEDs wide from row 8.
-// Knob 4: Samples. How many disorder samples run side by side from the same site, their probabilities averaged. At 1 the speckle of one sample, braided fringes and dark holes where its localized states beat; from about 8 the holes fill in, and at 16 the column is a smooth bell that falls off exponentially on both sides and stops widening.
+// Knob 4: Samples. How many disorder samples run side by side from the same site, their probabilities averaged. At 1 the speckle of one sample, braided fringes and dark holes where its localized states beat; from about 8 the holes fill in, and at 16 the column is a smooth bell that falls off exponentially on both sides and stops widening. The stripes behind show the first sample's energies at 1/Samples of their strength, so they fade as the average takes over.
 // Buttons: K1 tap launches now, on a new sample of energies and a new site.
 
 const W = 64, H = 128, NS = 192, OFF = 64, MAXS = 16;
@@ -151,7 +151,9 @@ function writeRow(S) {
     }
     const p = r * W + x;
     rho[p] = s / ns;
-    vt[p] = u[n];
+    // The stripes show the first sample's energies, fainter as more samples
+    // are averaged, since the average has no one landscape.
+    vt[p] = u[n] / ns;
     // The clean chain's light cone, n0 +- 2t, dotted every other row.
     const d = abs(abs(x - c0) - edge);
     cone[p] = r % 2 === 0 && d < 0.5 && r > 0 ? 1 : 0;
