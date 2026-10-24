@@ -52,5 +52,6 @@
   "rail": { "label": "철도", "color": "#00bb66" },
   "film": { "label": "필름·영화", "color": "#ff0000" },
   "number": { "label": "수론", "color": "#00aaff" },
+  "topology": { "label": "위상·매듭", "color": "#80ff40" },
   "cosmetic": { "label": "화장품 팝업", "color": "#f2c6c2" }
 }
