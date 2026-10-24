@@ -35,6 +35,20 @@ function vn(x, y) {
   return a + (b - a) * su + (c - a) * sv + (a - b - c + hash(xi + 1, yi + 1)) * su * sv;
 }
 
+// A tiling noise, 64 by 128, for the breath clouds and the smog, read
+// smoothly at any offset.
+function vt(x, y, px, py) {
+  const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v), x1 = (xi + 1) % px, y1 = (yi + 1) % py;
+  const a = hash(xi, yi), b = hash(x1, yi), c = hash(xi, y1);
+  return a + (b - a) * su + (c - a) * sv + (a - b - c + hash(x1, y1)) * su * sv;
+}
+const NT = Float32Array.from({ length: N }, (_, p) => 0.62 * vt((p & 63) / 8, (p >> 6) / 8, 8, 16) + 0.38 * vt((p & 63) / 4, (p >> 6) / 4, 16, 32));
+function nt(x, y) {
+  const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, x0 = xi & 63, x1 = (xi + 1) & 63, y0 = (yi & 127) * W, y1 = ((yi + 1) & 127) * W;
+  const a = NT[y0 + x0] + (NT[y0 + x1] - NT[y0 + x0]) * u;
+  return a + (NT[y1 + x0] + (NT[y1 + x1] - NT[y1 + x0]) * u - a) * v;
+}
+
 // The diaphragm under the lungs breathed out, x then y: the right dome higher
 // over the liver, the heart sitting in the dip between the domes.
 const DK = [-1, 118.5, 5, 113.8, 9, 108.4, 13, 103.8, 17, 101.6, 21, 101, 25, 101.8, 29, 104.2, 33, 106, 37, 106.6, 41, 106.6, 45, 105.8, 49, 106.8, 53, 110.2, 57, 115, 60, 117.8, 65, 122.5];
@@ -57,7 +71,7 @@ const LUNGS = [
 // Airway walls by generation (9 is the channel through the larynx), and how
 // strongly each shows over the lung.
 const WC = [[226, 216, 204], [226, 216, 204], [228, 200, 206], [226, 192, 206], [224, 186, 206], [222, 182, 206], [220, 178, 206], [218, 176, 206], [216, 174, 206], [0, 0, 0]];
-const AG = [1, 1, 0.95, 0.9, 0.85, 0.78, 0.7, 0.62, 0.56, 0];
+const AG = [1, 1, 0.95, 0.9, 0.82, 0.72, 0.62, 0.52, 0.46, 0];
 // The cough: seconds and lung volume, and the moments of the three jolts.
 const CK = [0, 0, 0.32, 0.97, 0.44, 0.97, 0.54, 0.66, 0.84, 0.66, 0.94, 0.38, 1.24, 0.38, 1.34, 0.12, 1.9, 0];
 const CT = [0.44, 0.84, 1.24];
@@ -109,10 +123,18 @@ function grow(P, x0, y0, dx, dy, pts, g, r, d) {
     P.cb.push(0.84 + 0.32 * rnd());
     return;
   }
-  let ux = cx - x0, uy = cy - y0, ul = hypot(ux, uy);
+  // The lobes split along the line from the branch to their centroid; past
+  // them each set is cut across its long axis, a near half and a far one.
+  let ux = cx - x0, uy = cy - y0, ul = hypot(ux, uy), ox = x0, oy = y0;
+  if (g > 2) {
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const i of pts) (sxx += (ax[i] - cx) ** 2), (syy += (ay[i] - cy) ** 2), (sxy += (ax[i] - cx) * (ay[i] - cy));
+    const th = 0.5 * atan2(2 * sxy, sxx - syy) + PI / 2;
+    (ux = cos(th)), (uy = sin(th)), (ul = 1), (ox = cx), (oy = cy);
+  }
   if (ul < 0.5) (ux = dx), (uy = dy), (ul = hypot(dx, dy));
   (ux /= ul), (uy /= ul);
-  const side = (i) => (ax[i] - x0) * uy - (ay[i] - y0) * ux;
+  const side = (i) => (ax[i] - ox) * uy - (ay[i] - oy) * ux;
   let A = pts.filter((i) => side(i) > 0), B = pts.filter((i) => side(i) <= 0);
   if (A.length < 2 || B.length < 2) {
     const s = pts.slice().sort((i, j) => side(i) - side(j));
@@ -141,7 +163,7 @@ function build(P) {
   const { sd, lid, own, cap, cph, GL } = P;
   for (let p = 0; p < N; p++) {
     const x = p & 63, y = p >> 6, sl = d0(x + 0.5) - d0(x - 0.5), cut = (y - d0(x) + 0.6) / sqrt(1 + sl * sl);
-    const a = max(sdPoly(LUNGS[0], x, y), cut), b = max(sdPoly(LUNGS[1], x, y), cut);
+    const a = y < 15 ? 6 : max(sdPoly(LUNGS[0], x, y), cut), b = y < 15 ? 6 : max(sdPoly(LUNGS[1], x, y), cut);
     sd[p] = min(a, b) + 0.9 * (vn(x * 0.32, y * 0.32) - 0.5);
     lid[p] = a < b ? 0 : 1;
     cap[p] = hash(x * 3 + 1, y * 7) > 0.6 ? 0.4 + 0.6 * hash(x, y + 99) : 0;
@@ -206,7 +228,8 @@ function under(P) {
       const hy = 3.4 + 0.03 * ax * ax;
       if (ax < 9.5) lay(p, 200, 192, 176, 0.5 * cl(1 - abs(y - hy) / 0.9, 0, 1));
       const top = 6 + 2.2 * max(0, 1 - ax / 2.4), hw = 7.4 - 0.42 * (y - 6), e = min(y - top, 14.6 - y, hw - ax);
-      if (e > -0.5) lay(p, 206, 196, 184, cl(e + 0.5, 0, 1) * (0.42 + 0.2 * exp(-((ax / 1.8) ** 2)) + 0.25 * sm(1.2, 0.2, e)));
+      // The thyroid cartilage, its left plate lit and the right in shade.
+      if (e > -0.5) lay(p, 206, 196, 184, cl(e + 0.5, 0, 1) * (0.42 + 0.2 * exp(-((ax / 1.8) ** 2)) + 0.25 * sm(1.2, 0.2, e)) * (x < 32 ? 1.05 : 0.78));
       if (y > 15 && y < 17.6 && ax < 4.9) lay(p, 214, 204, 192, 0.55 * cl(4.9 - ax, 0, 1));
     }
   }
@@ -236,7 +259,7 @@ export function update(dt, input, params) {
       const u = c - tc;
       if (u > 0 && u < 0.7) P.bf.push(1 - u * 3.2), (P.jolt = max(P.jolt, 2.4 * exp(-u / 0.08)));
     }
-    if (P.cn < 3 && c > CT[P.cn] + 0.28) P.puffs.push([0, 1.3, rnd()]), P.cn++;
+    if (P.cn < 3 && c > CT[P.cn] + 0.28) P.puffs.push([0, 2, rnd()]), P.cn++;
     if (c > 1.9) (P.ct = -1), (P.ph = 0.9);
   } else {
     // In for 38% of a breath, out for half, then a short rest.
@@ -276,11 +299,12 @@ function alveoli(P) {
   alvA.fill(0);
   for (let i = 0; i < ax.length; i++) {
     fw(P, ax[i], ay[i]);
-    const cx = FX, cy = FY, r = R * as[i];
+    const cx = FX, cy = FY, r = R * as[i], lim = (r + 0.5) ** 2;
     for (let y = max(0, ceil(cy - r - 0.5)); y <= min(H - 1, floor(cy + r + 0.5)); y++)
       for (let x = max(0, ceil(cx - r - 0.5)); x <= min(W - 1, floor(cx + r + 0.5)); x++) {
-        const dx = x - cx, dy = y - cy, e = sqrt(dx * dx + dy * dy), a = cl(r + 0.5 - e, 0, 1), p = y * W + x;
-        if (a <= 0) continue;
+        const dx = x - cx, dy = y - cy, e2 = dx * dx + dy * dy;
+        if (e2 >= lim) continue;
+        const e = sqrt(e2), a = cl(r + 0.5 - e, 0, 1), p = y * W + x;
         const q = e / r, hx = dx + 0.4 * r, hy = dy + 0.45 * r, hl = max(0, 1 - sqrt(hx * hx + hy * hy) / (0.75 * r));
         const s = 0.72 + 0.28 * sqrt(max(0, 1 - q * q)) + 0.38 * hl * hl;
         if (a * s > alvA[p] * alvS[p]) (alvA[p] = a), (alvS[p] = s), (alvK[p] = i);
@@ -296,11 +320,12 @@ function tree(P) {
     fw(P, S[j], S[j + 1]);
     const x0 = FX, y0 = FY;
     fw(P, S[j + 2], S[j + 3]);
-    const ex = FX - x0, ey = FY - y0, l2 = ex * ex + ey * ey || 1e-6, r = S[j + 4] * dil, g = S[j + 5], da = S[j + 6], db = S[j + 7];
+    const ex = FX - x0, ey = FY - y0, l2 = ex * ex + ey * ey || 1e-6, r = S[j + 4] * dil, g = S[j + 5], da = S[j + 6], db = S[j + 7], lim = (r + 1.7) ** 2, hr = min(1, r);
     for (let y = max(0, floor(min(y0, FY) - r - 1)); y <= min(H - 1, ceil(max(y0, FY) + r + 1)); y++)
       for (let x = max(0, floor(min(x0, FX) - r - 1)); x <= min(W - 1, ceil(max(x0, FX) + r + 1)); x++) {
-        const t = cl(((x - x0) * ex + (y - y0) * ey) / l2, 0, 1), px = x - x0 - ex * t, py = y - y0 - ey * t, e = sqrt(px * px + py * py);
-        const a = cl(r + 0.5 - e, 0, 1), p = y * W + x, h = cl(r + 1.7 - e, 0, 1);
+        const t = cl(((x - x0) * ex + (y - y0) * ey) / l2, 0, 1), px = x - x0 - ex * t, py = y - y0 - ey * t, e2 = px * px + py * py;
+        if (e2 >= lim) continue;
+        const e = sqrt(e2), a = cl(r + 0.5 - e, 0, 1), p = y * W + x, h = cl(r + 1.7 - e, 0, 1) * hr;
         if (h > trH[p]) trH[p] = h;
         if (a > trA[p]) (trA[p] = a), (trS[p] = da + (db - da) * t), (trD[p] = trS[p] * dm), (trV[p] = e / r), (trG[p] = g);
       }
@@ -323,7 +348,7 @@ function ribs(P) {
       if (i === 0) {
         for (let n = 0; n <= 50; n++) {
           const u = n / 50;
-          dot(32 + s * (2.5 + 22 * u), 19 - 4.5 * u + 1.6 * sin(PI * u) - 1.2 * v, 0.9, 1);
+          dot(32 + s * (4.5 + 21 * u), 18.6 - 4.2 * u + 1.4 * sin(PI * u) - 1.2 * v, 0.5 + 0.4 * (2 * u - 1) ** 2, 0.85);
         }
         continue;
       }
@@ -345,7 +370,7 @@ export function draw(display, params) {
   const pal = (c, w, s) => [0, 1, 2].map((i) => c[i] * wC + w[i] * wW + s[i] * wS);
   const bgT = pal([3, 7, 18], [16, 26, 48], [62, 50, 32]), bgB = pal([2, 4, 12], [8, 14, 30], [36, 28, 20]), glo = pal([8, 18, 40], [22, 38, 64], [40, 30, 18]);
   const cold = pal([150, 205, 255], [215, 238, 255], [196, 178, 128]), warm = pal([255, 196, 160], [255, 224, 206], [190, 160, 130]);
-  const puffC = pal([255, 214, 196], [236, 242, 255], [168, 158, 144]), puffK = 0.34 * wC + 0.95 * wW + 0.6 * wS;
+  const puffC = pal([255, 214, 196], [236, 242, 255], [168, 158, 144]), puffK = 0.4 * wC + 1.5 * wW + 0.7 * wS;
   const oxA = [240 - 64 * wS, 46 + 26 * wS, 58 + 20 * wS], deA = [74, 58, 156], oxF = [80, 10, 30], deF = [24, 14, 50];
   for (let y = 0; y < H; y++) SX[y] = 1 + 0.085 * v * (0.25 + 0.75 * sm(15, 115, y));
   for (let x = 0; x < W; x++) KY[x] = 1 + 0.14 * v * GX[x];
@@ -355,15 +380,15 @@ export function draw(display, params) {
   // The breath leaving at the top: each puff rises, spreads and thins.
   const pf = [];
   for (const [age, str, sd0] of P.puffs) {
-    const R = 3 + (6 + 6 * wW) * age;
-    pf.push(32 + (sd0 - 0.5) * 8, 7 - 5 * age, R, str * sm(0, 0.3, age) * exp(-age / (0.9 + 1.4 * wW)), sd0 * 40);
+    const R = 3 + (5 + 8 * wW) * age;
+    pf.push(32 + (sd0 - 0.5) * 8, 6 - (4.6 - 1.6 * wW) * age, R, str * sm(0, 0.25, age) * exp(-age / (0.9 + 1.6 * wW)), sd0 * 40);
   }
   const hs = 1 / (1 - 0.035 * hb);
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       const fy = y / 127, gl = GL[p];
       let hz = 1;
-      if (wS > 0) hz = mix(1, 0.6 + 0.8 * vn(x * 0.07 + t * 0.3, y * 0.045 - t * 0.06), wS);
+      if (wS > 0) hz = mix(1, 0.6 + 0.8 * nt(x * 0.55 + t * 2.4, y * 0.36 - t * 0.5), wS);
       let r = (bgT[0] + (bgB[0] - bgT[0]) * fy + glo[0] * gl) * hz, g = (bgT[1] + (bgB[1] - bgT[1]) * fy + glo[1] * gl) * hz, b = (bgT[2] + (bgB[2] - bgT[2]) * fy + glo[2] * gl) * hz;
       const xr = cl(32 + (x - 32) / SX[y], 0, 62.999), yr = cl(A0 + (y - A0) / KY[x], 0, 126.999);
       const xi = xr | 0, yi = yr | 0, fx = xr - xi, fz = yr - yi, q = yi * W + xi;
@@ -435,7 +460,7 @@ export function draw(display, params) {
         let pa = 0;
         for (let j = 0; j < pf.length; j += 5) {
           const dx = (x - pf[j]) / (pf[j + 2] * 1.4), dy = (y - pf[j + 1]) / pf[j + 2], e = dx * dx + dy * dy;
-          if (e < 4) pa += pf[j + 3] * exp(-e * 1.5) * (0.55 + 0.9 * (vn(x * 0.2 + pf[j + 4], y * 0.2 + t * 0.9) - 0.5));
+          if (e < 4) pa += pf[j + 3] * exp(-e * 1.4) * cl(0.4 + 1.4 * (nt(x * 1.4 + pf[j + 4], y * 1.4 + t * 7) - 0.5) + 0.5 * exp(-e * 3), 0, 1.4);
         }
         if (pa > 0) {
           const k = min(1, pa * puffK);
