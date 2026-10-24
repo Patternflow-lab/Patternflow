@@ -3,6 +3,7 @@
 // React: buffers, not state. The Pixel panel calls snapshot() before a stroke,
 // undo()/redo() on the keys, and prune() with the live layer ids so a deleted
 // layer's stacks — up to MAX_UNDO frames of RGBA — do not live for the tab.
+// A frame change calls snapshot() too, before it crops or pads the layer.
 //
 // A frame keeps the size it was taken at. Changing the matrix size gives the
 // layer a new buffer under the same id (resizePixelLayers in store/shared.ts),

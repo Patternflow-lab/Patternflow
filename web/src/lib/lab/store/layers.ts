@@ -2,7 +2,7 @@
 // One of the slices store.ts composes. Bodies are unchanged from the single
 // 800-line store they came out of; only the file boundary is new.
 
-import { DEFAULT_MATRIX, matrixesEqual, matchMatrixAnnotation, parseMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
+import { matrixesEqual, matchMatrixAnnotation, parseMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
 import { parseRampAnnotation, stripRampAnnotation } from "@/lib/pattern/ramp";
 import { applyKnobEntries, matchKnobsAnnotation, parseKnobsAnnotation } from "../annotations";
 import { cloneRampState, createPixelLayer, isCodeLayer, layerId, nextLayerName, type LabProject, type Layer } from "../types";
@@ -10,7 +10,7 @@ import type { LabStore } from "../store";
 import type { SliceSet, SliceGet } from "./kinds";
 import { codeLayerFromSource, resizePixelLayers, updateLayer, updateCodeLayer, STARTER_CODE } from "./shared";
 
-export type LayersSlice = Pick<LabStore, "selectLayer" | "addCodeLayer" | "addPixelLayer" | "addCodeLayerFromCode" | "duplicateLayer" | "removeLayer" | "reorderLayer" | "renameLayer" | "setLayerVisible" | "setLayerOpacity" | "setLayerBlend" | "setLayerRole" | "setLayerMaskInvert" | "updateLayerCode" | "applyCodeToActive" | "bumpPixelLayer" | "replacePixelData" | "setLayerErrors">;
+export type LayersSlice = Pick<LabStore, "selectLayer" | "addCodeLayer" | "addPixelLayer" | "addCodeLayerFromCode" | "duplicateLayer" | "removeLayer" | "reorderLayer" | "renameLayer" | "setLayerVisible" | "setLayerOpacity" | "setLayerBlend" | "setLayerRole" | "setLayerMaskInvert" | "updateLayerCode" | "applyMatrixLine" | "applyCodeToActive" | "bumpPixelLayer" | "replacePixelData" | "setLayerErrors">;
 
 export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
   return {
@@ -146,7 +146,7 @@ export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
         layers: updateLayer(state.layers, id, (layer) => ({ ...layer, maskInvert })),
       })),
 
-    updateLayerCode: (id, code) => {
+    updateLayerCode: (id, code, options) => {
       const state = get();
       const layer = state.layers.find((entry) => entry.id === id);
       if (!isCodeLayer(layer)) return;
@@ -171,21 +171,33 @@ export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
         }
       }
 
-      let matrixPatch: { matrix: MatrixSize } | null = null;
+      // The editor holds the @matrix line while it has focus (applyMatrixLine
+      // takes it from there), so the frame changes once and not at each
+      // keystroke on the way from 128x64 to 96x64.
+      const hold = options?.holdMatrix === true;
       const matrixRaw = matchMatrixAnnotation(code);
-      if (matrixRaw !== layer.matrixAnnotationRaw) {
-        const parsed = parseMatrixAnnotation(code) ?? DEFAULT_MATRIX;
-        if (!matrixesEqual(parsed, state.matrix)) matrixPatch = { matrix: parsed };
-      }
+      const matrix = hold ? null : frameFromLine(layer.matrixAnnotationRaw, code, state.matrix);
 
       let layers = updateCodeLayer(state.layers, id, (entry) => ({
         ...entry,
         code,
         knobsAnnotationRaw: knobsRaw,
-        matrixAnnotationRaw: matrixRaw,
+        matrixAnnotationRaw: hold ? entry.matrixAnnotationRaw : matrixRaw,
       }));
-      if (matrixPatch) layers = resizePixelLayers(layers, matrixPatch.matrix);
-      set({ layers, ...knobPatch, ...(matrixPatch ?? {}) });
+      if (matrix) layers = resizePixelLayers(layers, matrix);
+      set({ layers, ...knobPatch, ...(matrix ? { matrix } : {}) });
+    },
+
+    applyMatrixLine: (id) => {
+      const state = get();
+      const layer = state.layers.find((entry) => entry.id === id);
+      if (!isCodeLayer(layer)) return;
+      const matrixRaw = matchMatrixAnnotation(layer.code);
+      if (matrixRaw === layer.matrixAnnotationRaw) return;
+      const matrix = frameFromLine(layer.matrixAnnotationRaw, layer.code, state.matrix);
+      let layers = updateCodeLayer(state.layers, id, (entry) => ({ ...entry, matrixAnnotationRaw: matrixRaw }));
+      if (matrix) layers = resizePixelLayers(layers, matrix);
+      set({ layers, ...(matrix ? { matrix } : {}) });
     },
 
     applyCodeToActive: (code) => {
@@ -241,4 +253,15 @@ export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
       if (!same) set({ layerErrors: errors });
     },
   };
+}
+
+/**
+ * The frame a changed @matrix line asks for, or null to keep the frame there
+ * is. A line the Lab cannot read (1x64, 600x64) or no line at all is not a
+ * frame, and the pixel and text layers stay as they are.
+ */
+function frameFromLine(appliedRaw: string | null, code: string, current: MatrixSize): MatrixSize | null {
+  if (matchMatrixAnnotation(code) === appliedRaw) return null;
+  const parsed = parseMatrixAnnotation(code);
+  return parsed && !matrixesEqual(parsed, current) ? parsed : null;
 }
