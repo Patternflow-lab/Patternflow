@@ -12,7 +12,7 @@
 // @knobs Mesh=12..28, Speed=0.2..3, Swirl=0..1, Ripple=0..1
 //
 // Knob 1: Mesh. Rooms along each side: 12 at the start (144 rooms), 20 at the middle (400), 28 at the top (784). The finer the mesh, the smaller the rainbow room, the closer it sits on the fixed point and the more the walk wanders; at 28 the territories' borders are nearly smooth curves.
-// Knob 2: Speed. At 2 the push of the map leans up to 60 degrees either way and back every 21 seconds, so the three territories rock round the fixed point, the fixed point goes round its loop in 27 seconds, and a bright head runs the walk at 36 LEDs a second. At 0.2 all of it ten times slower, at 3 one and a half times faster.
+// Knob 2: Speed. At 2 the push of the map leans up to 60 degrees either way and back every 12.6 seconds, so the three territories rock round the fixed point and 9 to 16 corners change label every second at Mesh 12, the fixed point goes round its loop in 14 seconds, and a bright head with a glow 7 LEDs round runs the walk at 36 LEDs a second. At 0.2 all of it ten times slower, at 3 one and a half times faster.
 // Knob 3: Swirl. Twists the map round its fixed point more the further out it reaches. At 0 the three territories are wedges meeting at the fixed point; at 0.5 their borders curl about half a turn round it; at 1 most of a turn, and the walk from the base runs along the bottom and round before it climbs in.
 // Knob 4: Ripple. Adds a wavy push to the map, which gives it more fixed points. Up to 0.06 none: one fixed point and one rainbow room. At 0.25 three to seven rainbow rooms, at 1 five to eleven, always an odd number; islands of one label float in another, the walk from the base reaches one rainbow room and dim walks join the others two by two.
 
@@ -41,16 +41,20 @@ const G1 = hypot(E3y - E2y, E2x - E3x) / abs(DET);
 // SWIRL radians per unit of distance at Swirl 1, and is STEP long from R0
 // out, shrinking to nothing at c.
 const STEP = 0.12, R0 = 0.35, SWIRL = 3.4;
+// Radius of the glow round the head of the walk, in LEDs.
+const GLOW = 7;
 // The ripple: two waves added to d, up to RIP times STEP.
 const RIP = 3.5;
 
-// Label colours, the territories at FILL of full: 1 azure, 2 rose, 3 green.
+// Label colours: 1 azure, 2 rose, 3 green. Each at its own brightness
+// (brightest channel 0.85, 0.62 and 0.4 of full), so a room that changes
+// label changes in brightness too and not only in hue; green at 0.4 still
+// looks about as bright to the eye as azure at 0.85.
 const COL = [
-  [0.12, 0.42, 1],
-  [1, 0.18, 0.3],
-  [0.2, 0.95, 0.28],
+  [0.12 * 0.85, 0.42 * 0.85, 0.85],
+  [0.62, 0.18 * 0.62, 0.3 * 0.62],
+  [0.2 * 0.4 / 0.95, 0.4, 0.28 * 0.4 / 0.95],
 ];
-const FILL = 0.7;
 
 function hsv(h, s, v, out) {
   h = (h - floor(h)) * 6;
@@ -268,15 +272,15 @@ export function update(dt, input, params) {
   S.t += (d * S.speed) / 2;
   S.head += d * S.speed * 18;
   // The fixed point of the map without ripple wanders inside the triangle,
-  // its barycentric coordinates never under 0.12, round its loop in 27
+  // its barycentric coordinates never under 0.12, round its loop in 14
   // seconds at Speed 2.
-  const t = S.t, rr = 0.13 + 0.08 * sin(0.37 * t + 0.6), ph = 0.23 * t + 1.1;
+  const t = S.t, rr = 0.13 + 0.08 * sin(0.6 * t + 0.6), ph = 0.45 * t + 1.1;
   const c1 = 1 / 3 + rr * cos(ph), c2 = 1 / 3 + rr * cos(ph - TAU / 3), c3 = 1 - c1 - c2;
   S.cx = c2 - c1;
   S.cy = R3 * c3;
   // The push leans up to 60 degrees either side of straight at c, back and
-  // forth every 21 seconds at Speed 2.
-  S.turn = 1.05 * sin(0.3 * t);
+  // forth every 12.6 seconds at Speed 2.
+  S.turn = 1.05 * sin(0.5 * t);
   label(S);
   walkAll(S);
 }
@@ -350,9 +354,9 @@ export function draw(display, params) {
         continue;
       }
       const wall = 1 - lw * wl;
-      R[p] = c[0] * FILL * wall * 255;
-      G[p] = c[1] * FILL * wall * 255;
-      B[p] = c[2] * FILL * wall * 255;
+      R[p] = c[0] * wall * 255;
+      G[p] = c[1] * wall * 255;
+      B[p] = c[2] * wall * 255;
     }
   // The other walks dim; the main one brighter, with a head running from
   // the base door into the rainbow room and a pause there before it runs again.
@@ -366,6 +370,30 @@ export function draw(display, params) {
       const back = hs - s;
       return back < 0 ? 0.62 : 0.62 + 0.38 * Math.exp(-back / 9);
     });
+    // A soft glow rides with the head, GLOW LEDs round, so the run up the
+    // walk shows from across the room and not only on the thin line.
+    if (hs < L) {
+      let s = 0, hx = pts[0][0], hy = pts[0][1];
+      for (let k = 1; k < pts.length; k++) {
+        const ex = pts[k][0] - pts[k - 1][0], ey = pts[k][1] - pts[k - 1][1], len = hypot(ex, ey);
+        if (s + len >= hs) {
+          const u = len > 0 ? (hs - s) / len : 0;
+          hx = pts[k - 1][0] + u * ex;
+          hy = pts[k - 1][1] + u * ey;
+          break;
+        }
+        s += len;
+      }
+      for (let y = max(0, floor(hy - GLOW)); y <= min(H - 1, floor(hy + GLOW)); y++)
+        for (let x = max(0, floor(hx - GLOW)); x <= min(W - 1, floor(hx + GLOW)); x++) {
+          const dd = hypot(x + 0.5 - hx, y + 0.5 - hy) / GLOW, p = y * W + x;
+          if (dd >= 1 || room[p] < 0 || rb.has(room[p])) continue;
+          const g = 0.7 * (1 - dd) * (1 - dd);
+          R[p] += (255 - R[p]) * g;
+          G[p] += (255 - G[p]) * g;
+          B[p] += (255 - B[p]) * g;
+        }
+    }
     // A halo round the room the walk ends in, flaring as the head arrives.
     const ctr = centroid(n, corners(S.main.end)), fl = hs > L ? Math.exp(-(hs - L) / 12) : 0;
     const rad = 5 + 3 * fl + 60 / n, amp = 0.3 + 0.5 * fl;
