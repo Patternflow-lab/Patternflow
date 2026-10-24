@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Cream Swirl
 // Family:  cosmetic
-// Idea:    An unseen palette knife sweeps slow S-curves and spirals through a thick satin cream, leaving a smooth band, pushing a glossy ridge along its edge and drawing dollops of tinted cream out into ribbons.
+// Idea:    An unseen palette knife sweeps slow S-curves and spirals through a thick satin cream, leaving a smooth band, pushing a glossy ridge along its edge and drawing dollops of tinted cream out into ribbons, while a soft light glides to and fro so the sheen slides over the folds.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Tones=1..3, Gloss=0..1
 //
 // Knob 1: Hue. Turns the cream and its tints round the whole colour wheel together, opening on rose.
-// Knob 2: Speed. How fast and how hard the knife works: at 2 it travels 20 LEDs a second and an S-sweep down the panel takes about eight seconds; slow, it glides and leaves smooth bands, fast, it chatters and throws taller ridges.
+// Knob 2: Speed. How fast and how hard the knife works: at 2 it travels 20 LEDs a second, an S-sweep down the panel takes about eight seconds and the light swings across and back in seven; slow, the knife glides and leaves smooth bands, fast, it chatters and throws taller ridges.
 // Knob 3: Tones. How many tints are folded into the pale cream, from one pastel at 1 to three at 3, a pale, a mid and a deep one; the ribbons split into their bands at once, and with more tints more dollops fall in each stroke's path.
 // Knob 4: Gloss. At 0 the cream has a soft satin sheen spread over its slopes; at 1 it is wet, a little deeper in colour, and each ridge carries a thin white highlight.
 // Buttons: K1 tap drops a fresh dollop of the deepest tint in the knife's path, and the knife sweeps it into a ribbon.
@@ -33,7 +33,9 @@ const STEP = 0.5, PMAX = 1200;
 // scraped; how much of the band's skin is the cream the blade carries; what
 // share of each bin's load slides on to the next bin along the angled blade
 // for each LED travelled.
-const PICK = 0.22, FILM = 0.6, SLIP = 1.05;
+const PICK = 0.3, FILM = 0.45, SLIP = 1.05;
+// The share of the dragged skin left behind for each LED travelled.
+const DRAG = 0.03;
 // The ridge the spill builds stands at RS height per LED on its flanks, and
 // is never taller than RMAX.
 const RS = 0.4, RMAX = 3.6;
@@ -44,17 +46,17 @@ const SKIN = 0.8;
 // The opening hue: rose, not red.
 const H0 = 0.93;
 
-// A soft light low from the top left, and the half vector to a viewer
-// straight in front, for the sheen.
-const LX = -0.6, LY = -0.62, LZ = 0.5;
-const HL = sqrt(LX * LX + LY * LY + (LZ + 1) * (LZ + 1)), HX = LX / HL, HY = LY / HL, HZ = (LZ + 1) / HL;
+// A soft light low over the top left, its height LZ and where it sits round
+// the panel, LA radians; it glides LS either way of that and back over SWING
+// seconds at Speed 2, so the sheen slides along the ridges between strokes.
+const LZ = 0.5, LA = -2.34, LS = 0.9, SWING = 7;
 // How tall the height field looks: a slope of 1 tilts the surface 56 degrees.
-const KZ = 1.5;
+const KZ = 1.8;
 // The light is a big soft box: it wraps a little way round the cream, so a
 // slope turned from it shades off gently instead of dropping into shadow.
-const WRAP = 0.45;
+const WRAP = 0.3;
 // How much a fold darkens and a crest brightens, per unit of height.
-const CAV = 0.35;
+const CAV = 0.5;
 // Cream the knife has just laid down holds a wet film that lifts it by this
 // much, fading as it dulls.
 const GLINT = 26;
@@ -86,7 +88,7 @@ const STEPS = [
 function band(c, n) {
   const [th, lv] = STEPS[n];
   let v = lv[0];
-  for (let i = 0; i < th.length; i++) v += (lv[i + 1] - lv[i]) * sm((c - th[i]) / 0.26 + 0.5);
+  for (let i = 0; i < th.length; i++) v += (lv[i + 1] - lv[i]) * sm((c - th[i]) / 0.1 + 0.5);
   return v;
 }
 
@@ -97,9 +99,9 @@ export function setup(params) {
     dh: new Float32Array(N), dt: new Float32Array(N), bl: new Float32Array(N), av: new Float32Array(N),
     stamp: new Int32Array(N).fill(-999), sub: 0, fr: new Float32Array(N),
     path: new Float32Array(PMAX * 2), plen: 0, pos: 0, type: 0, done: 0,
-    m: new Float32Array(NB), c: new Float32Array(NB), bm: 0, bc: 0,
+    m: new Float32Array(NB), c: new Float32Array(NB), ft: new Float32Array(NB), fm: new Float32Array(NB), bm: 0, bc: 0,
     L: 24, ca: 1, sa: 0, B: 0, tilt: 0, gPh: 0, cc: 0, cA: 0, cP: 8, cB: 0, slip: 1, rh: 0,
-    sp: new Float32Array(8), pause: 0, live: false, force: 1,
+    sp: new Float32Array(8), pause: 0, live: false, force: 1, lt: 0,
     dol: [], hue: 0, tones: 1, gloss: 0.06, ready: false,
     lut: new Float32Array(64 * 3), lus: new Float32Array(64 * 3),
     kx: 0, ky: 0, dx: 0, dy: 1, tx: 1, ty: 0,
@@ -115,16 +117,19 @@ function blur(a, b) {
 
 // A round dollop: a soft mound of tint c with a peak where it left the spoon. It is all skin, so a knife that
 // scrapes it away finds the cream it was dropped on.
-function dollop(P, x0, y0, r, ht, c, f) {
+// Its colour goes on with the first of it, as deep as the whole dollop will
+// be thick: its thin rim only half covers what it landed on, so a knife that
+// scrapes it off leaves no ring.
+function dollop(P, x0, y0, r, ht, c, f, first) {
   const x1 = max(0, floor(x0 - r)), x2 = min(W - 1, floor(x0 + r) + 1);
   const y1 = max(0, floor(y0 - r)), y2 = min(H - 1, floor(y0 + r) + 1);
   for (let y = y1; y <= y2; y++)
     for (let x = x1; x <= x2; x++) {
       const d = ((x - x0) ** 2 + (y - y0) ** 2) / (r * r);
       if (d >= 1) continue;
-      const p = y * W + x, a = ht * f * (1 - sqrt(d)) * (1 - d * 0.5);
-      P.hf[p] += a;
-      P.tn[p] += (c - P.tn[p]) * min(1, a * 2);
+      const p = y * W + x, a = ht * (1 - sqrt(d)) * (1 - d * 0.5);
+      P.hf[p] += a * f;
+      if (first) P.tn[p] += (c - P.tn[p]) * min(1, a / 1.2);
     }
 }
 
@@ -224,7 +229,7 @@ function startStroke(P, k3) {
   P.sa = sin(al);
   P.tilt = (rnd() - 0.5) * 0.6;
   P.cc = 0.2 + rnd() * 0.4;
-  P.cA = (0.1 + rnd() * 0.08) * (0.35 + 0.65 * P.force);
+  P.cA = (0.13 + rnd() * 0.1) * (0.35 + 0.65 * P.force);
   P.B -= 0.35 * (P.force - 1);
   P.cP = 11 + rnd() * 5;
   P.cB = (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 4);
@@ -237,12 +242,14 @@ function startStroke(P, k3) {
   }
   P.m.fill(0);
   P.c.fill(0);
+  P.ft.fill(0);
+  P.fm.fill(0);
   P.rh = 0;
   P.live = true;
   // Every stroke goes through fresh dollops dropped a little way along: one
   // for one tint, two or three when three tints are folded in.
   const nd = k3 === 1 ? 1 : k3 === 2 ? (rnd() < 0.5 ? 2 : 1) : rnd() < 0.4 ? 3 : 2;
-  for (let i = 0; i < nd; i++) plan(P, 0.1 + rnd() * 0.45, rnd() < 0.4 ? 0 : DOSE[k3 - 1][floor(rnd() * k3)], 10 + rnd() * 3);
+  for (let i = 0; i < nd; i++) plan(P, 0.1 + rnd() * 0.45, rnd() < 0.4 ? 0 : DOSE[k3 - 1][floor(rnd() * k3)], (10 + rnd() * 3) / sqrt(nd));
 }
 
 // A dollop waiting to fall at a point on the path ahead of the knife.
@@ -270,12 +277,12 @@ function locate(P, pos) {
   P.ty = dx * P.ca - dy * P.sa;
 }
 
-// The load and tint of the blade at a point a along it, read between the
-// bins so what it lays down has no seams.
+// The load of the blade at a point a along it and the tint it drags there,
+// read between the bins so what it lays down has no seams.
 function load(P, a) {
   const fb = cl(((a + P.L / 2) / P.L) * NB - 0.5, 0, NB - 1), j = min(NB - 2, floor(fb)), f = fb - j;
   P.bm = P.m[j] + (P.m[j + 1] - P.m[j]) * f;
-  P.bc = P.c[j] + (P.c[j + 1] - P.c[j]) * f;
+  P.bc = P.ft[j] + (P.ft[j + 1] - P.ft[j]) * f;
 }
 
 // The ridge across its width r (0 at the band's edge, 1 at its foot): a
@@ -291,7 +298,8 @@ function knife(P, ds) {
   P.sub++;
   if (P.pos >= P.plen) return lift(P);
   locate(P, P.pos);
-  const { hf, tn, ut, m, c, stamp, L } = P, hl = L / 2, sl = P.slip;
+  const { hf, tn, ut, m, c, ft, fm, stamp, L } = P, hl = L / 2, sl = P.slip;
+  for (let j = 0; j < NB; j++) fm[j] *= 1 - DRAG * ds;
   const kx = P.kx, ky = P.ky, dx = P.dx, dy = P.dy, tx = P.tx, ty = P.ty, det = tx * dy - ty * dx;
   // Pressure comes on over the first 8 LEDs and goes off over the last 6.
   const pr = sm(P.pos / 8) * sm((P.plen - P.pos) / 6);
@@ -318,6 +326,11 @@ function knife(P, ds) {
         if (e > 0) {
           m[j] += e * pr;
           c[j] += (to - c[j]) * min(1, e * PICK * pr);
+          // The skin of tint the blade drags stays in its own lane and is
+          // mixed by how much of each colour it gathered, so a dollop
+          // becomes a long ribbon that pales as white cream dilutes it.
+          fm[j] += e * pr;
+          ft[j] += ((to - ft[j]) * e * pr) / fm[j];
         }
         // Under what was scraped off lies the bed; over it the blade leaves a
         // film of the cream it carries.
@@ -363,7 +376,7 @@ function lift(P) {
   roll(P, P.hf, P.tn, P.ut);
   P.live = false;
   P.done++;
-  P.pause = 0.5 + rnd() * 0.4;
+  P.pause = 0.15 + rnd() * 0.2;
 }
 
 // The cream on the blade's face as a rounded roll in front of it, laid into
@@ -395,11 +408,12 @@ function tick(P, dt, speed, k3) {
   for (const d of P.dol) {
     if (d.f >= 1) continue;
     const g = min(1 - d.f, dt * 2.5 * max(0.6, speed / 2));
-    dollop(P, d.x, d.y, d.r, d.h, d.c, g);
+    dollop(P, d.x, d.y, d.r, d.h, d.c, g, d.f === 0);
     d.f += g;
   }
   // Freshly worked cream glistens; left alone it dulls to a satin over
   // about ten seconds at Speed 2.
+  P.lt += dt * speed * 0.5;
   const fr = P.fr, k = 1 - dt * 0.07 * max(0.5, speed);
   for (let p = 0; p < N; p++) fr[p] *= k;
   if (!P.live) {
@@ -428,7 +442,7 @@ function prime(P, k3) {
   while (P.done < 3) tick(P, 1 / 30, 2, k3);
   while (!P.live) tick(P, 1 / 30, 2, k3);
   // Start the live stroke a fifth of the way along, its dollops down.
-  for (const d of P.dol) if (d.f < 1) (dollop(P, d.x, d.y, d.r, d.h, d.c, 1 - d.f), (d.f = 1));
+  for (const d of P.dol) if (d.f < 1) (dollop(P, d.x, d.y, d.r, d.h, d.c, 1 - d.f, d.f === 0), (d.f = 1));
   while (P.live && P.pos < P.plen * 0.2) tick(P, 1 / 30, 2, k3);
   P.ready = true;
 }
@@ -471,15 +485,22 @@ export function draw(display, params) {
   // tint at 1, stepped into the bands Tones asks for. Light goes a little
   // way into cream, so its shadows are a deeper tint rather than grey.
   // Wet cream (Gloss up) is a little deeper in colour, as anything wet is.
+  // The deeper tints also darken, so three of them stay apart, except round
+  // orange and yellow, where darker reads as brown and olive on LEDs.
   const t = P.tones, n0 = floor(t) - 1, ft = t - floor(t), n1 = min(2, n0 + 1), hue = H0 + P.hue, g = P.gloss;
+  const hw = (hue - floor(hue) + 0.38) % 1, dk = 0.3 * min(1, abs(hw - 0.5) / 0.11);
   for (let i = 0; i < 64; i++) {
     const c = i / 63, v = band(c, n0) + (band(c, n1) - band(c, n0)) * ft;
-    hsv(hue, 0.22 + 0.72 * v + 0.06 * g, (1 - 0.1 * v) * (1 - 0.1 * g), lut, i * 3);
+    hsv(hue, 0.22 + 0.72 * v + 0.06 * g, (1 - 0.06 * v - dk * v * v) * (1 - 0.1 * g), lut, i * 3);
     hsv(hue, min(1, 0.4 + 0.6 * v + 0.1 * g), 0.58 - 0.08 * v - 0.14 * g, lus, i * 3);
   }
   // The sheen is measured from what a level surface would show, so level
   // cream stays its colour and only the slopes turned to the light shine.
-  const shin = 6 + 70 * g * g, ks = (0.4 + 0.9 * g) * 255, s0 = pow(HZ, shin), sk = ks / (1 - s0), fr = P.fr;
+  const la = LA + LS * sin((2 * PI * P.lt) / SWING), lr = sqrt(1 - LZ * LZ), LX = lr * cos(la), LY = lr * sin(la);
+  const HL = sqrt(LX * LX + LY * LY + (LZ + 1) * (LZ + 1)), HX = LX / HL, HY = LY / HL, HZ = (LZ + 1) / HL;
+  // A broad satin sheen is always there; Gloss adds a narrow wet one on top.
+  const shin = 10 + 70 * g * g, ks = 0.95 * g * 255, s0 = pow(HZ, shin), sk = ks / (1 - s0), fr = P.fr;
+  const b0 = pow(HZ, 6), bk = (0.4 * 255) / (1 - b0);
   for (let y = 0; y < H; y++) {
     const yu = y > 0 ? -W : 0, yd = y < H - 1 ? W : 0;
     for (let x = 0; x < W; x++) {
@@ -488,7 +509,7 @@ export function draw(display, params) {
       const gy = (dh[p + yd] - dh[p + yu]) * 0.5 * KZ;
       const il = 1 / sqrt(gx * gx + gy * gy + 1), nx = -gx * il, ny = -gy * il, nz = il;
       const df = nx * LX + ny * LY + nz * LZ, nh = nx * HX + ny * HY + nz * HZ;
-      const f = (df > -WRAP ? (0.85 * (df + WRAP)) / (LZ + WRAP) : 0) * (1 + cl((dh[p] - av[p]) * CAV, -0.45, 0.25)), sp = (nh > HZ ? (pow(nh, shin) - s0) * sk * (0.5 + 0.5 * fr[p]) : 0) + fr[p] * GLINT;
+      const f = (df > -WRAP ? (0.85 * (df + WRAP)) / (LZ + WRAP) : 0) * (1 + cl((dh[p] - av[p]) * CAV, -0.45, 0.25)), n2 = nh * nh, sp = (nh > HZ ? ((g > 0.01 ? (pow(nh, shin) - s0) * sk : 0) + (n2 * n2 * n2 - b0) * bk) * (0.5 + 0.5 * fr[p]) : 0) + fr[p] * GLINT;
       const o = cl(floor(dt[p] * 63 + 0.5), 0, 63) * 3, r = lus[o], gg = lus[o + 1], b = lus[o + 2];
       display.setPixel(x, y, min(255, r + (lut[o] - r) * f + sp), min(255, gg + (lut[o + 1] - gg) * f + sp * 0.97), min(255, b + (lut[o + 2] - b) * f + sp * 0.92));
     }
