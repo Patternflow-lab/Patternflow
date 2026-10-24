@@ -15,7 +15,7 @@ export const ZOOM_MAX = 32;
 /**
  * The largest whole zoom that shows the picture entire inside a viewport of
  * this size: 16 px of padding a side and 4 px of air. Never below 1×. For
- * 128×64 that is 1× in a 390×844 phone's 372×151 viewport, and 4× in the
+ * 128×64 that is 2× in a 390×844 phone's 372×177 viewport, and 4× in the
  * 649×648 one at 1440×900.
  */
 export function zoomToFit(viewportWidth: number, viewportHeight: number, width: number, height: number) {
