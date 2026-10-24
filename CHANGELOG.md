@@ -19,6 +19,7 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 ### Web
 
+- **Pattern Lab no longer has the AI gallery or a Gemini key.** The Gallery panel, its batch generation and the key field are gone, and so is the `@google/genai` dependency: the site calls no AI itself. Copy prompt stays, with the v-field/rgb choice beside it in the Code tab now. Opening the Lab removes the gallery's saved patterns and the key from the browser, and a saved dock layout opens without the Gallery tab instead of falling back to the default.
 - **Pattern Lab's preview shows add layers the way the device does.** The preview clamped each layer to 255 before blending the next, so two (200, 0, 0) add layers under a (128, 128, 128) multiply showed R 128 in the Lab and 201 in the exported pattern and on the panel.
 - **The Live Editor says why pasted code does not run.** The error, and the line it failed on when the stack gives one, shows under the editor. It used to reach the browser console only, once a frame for a `draw()` that throws.
 - **Community pages open when the browser blocks site data.** Reading the deck from `localStorage` threw a SecurityError that took every community page down to "This page couldn't load", and the atlas did the same reading its language. Both reads are guarded now, and a deck or language the browser refuses to store holds for the rest of the visit.

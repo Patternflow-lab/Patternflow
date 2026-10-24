@@ -23,8 +23,8 @@ import { MADE_HOW_BLURBS, MADE_HOW_LABELS, type MadeHow } from "./validate";
 // A line is only evidence when it says something other than what Pattern Lab
 // writes on its own. The Lab puts `@matrix` on everything it publishes, `@ramp`
 // on every value-field layer, and `@knobs` on every flattened stack with code
-// in it. Until 21 October 2026 the mere line counted, so an untouched Gemini
-// variant came out "Framed" and "Colour shaped". Each line is now read with its
+// in it. Until 21 October 2026 the mere line counted, so an untouched variant
+// from the Lab's AI gallery came out "Framed" and "Colour shaped". Each line is now read with its
 // own parser and set against the Lab's own defaults: a 128×64 frame, the
 // black-to-white linear ramp a new code layer gets with recolor off, and
 // Knob 1–4 on their stock ranges.

@@ -216,8 +216,7 @@ Now for the making side. Click **Pattern Lab ↗** at the community's top right.
 
 Pattern Lab has a lot of panels, but **this guide uses exactly two things:
 pattern generation and the color ramp.** They're enough to take a pattern from
-nothing to your device. Layers, pixel art, the gallery — all of that is for a
-later guide.
+nothing to your device. Layers and pixel art are for a later guide.
 
 ### 4-1. Pick a resolution first
 
@@ -384,5 +383,5 @@ onto their device. The loop has come all the way around.
 
 ---
 
-*The rest of Pattern Lab — layer compositing, pixel art, the gallery — gets
-its own guide later.*
+*The rest of Pattern Lab, layer compositing and pixel art, gets its own guide
+later.*

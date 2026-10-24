@@ -145,8 +145,8 @@ async function handlePost(request: Request) {
   if (!code) return Response.json({ error: "Pattern code is missing or over 100KB." }, { status: 400 });
 
   // Any licence block the code arrived with belongs to someone else (a lab
-  // preset's header, a Gemini stamp, a previously exported file), so drop it
-  // before we write our own.
+  // preset's header, the Lab's old AI gallery stamp, a previously exported
+  // file), so drop it before we write our own.
   if (stripShareWrapping(code).length === 0) {
     return Response.json({ error: "Pattern code is empty once the licence header is removed." }, { status: 400 });
   }

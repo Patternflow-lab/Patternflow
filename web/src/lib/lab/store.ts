@@ -1,8 +1,8 @@
 // ── Lab store ────────────────────────────────────────────────────────────────
-// One zustand store holds the whole layered project plus the AI gallery. The
-// render engine reads it imperatively each frame (labEngine + getState), while
-// panels subscribe to the slices they draw. All updates are immutable EXCEPT
-// pixel buffers, which are mutated in place and versioned via `rev`.
+// One zustand store holds the whole layered project. The render engine reads
+// it imperatively each frame (labEngine + getState), while panels subscribe to
+// the slices they draw. All updates are immutable EXCEPT pixel buffers, which
+// are mutated in place and versioned via `rev`.
 //
 // The actions live in ./store/<slice>.ts, one file per concern, composed here;
 // ./store/shared.ts holds the helpers they share. The store's shape (LabStore),
@@ -10,18 +10,16 @@
 
 import { create } from "zustand";
 import type { MatrixSize } from "@/lib/pattern/matrix";
-import { saveGallery } from "@/lib/lab/legacyDraft";
 import { saveProject } from "./serialize";
 import { createAutosave } from "./autosave";
 import type { DirectorShow } from "./director/types";
-import { isCodeLayer, type BlendMode, type CodeLayer, type EditRef, type ForkRef, type LayerRole, type GalleryItem, type GenJob, type GenSettings, type LabProject, type Layer, type RampState, type RampStopState } from "./types";
+import { isCodeLayer, type BlendMode, type CodeLayer, type EditRef, type ForkRef, type LayerRole, type GenSettings, type LabProject, type Layer, type RampState, type RampStopState } from "./types";
 import { defaultProject } from "./store/shared";
 import { createProjectSlice } from "./store/project";
 import { createLayersSlice } from "./store/layers";
 import { createKnobsSlice } from "./store/knobs";
 import { createRampSlice } from "./store/ramp";
 import { createDirectorSlice } from "./store/director";
-import { createGallerySlice } from "./store/gallery";
 
 export { codeLayerFromSource } from "./store/shared";
 
@@ -31,8 +29,6 @@ export type LabStore = LabProject & {
   restoredAt: number | null;
   /** Browser autosave state; never included in the serialized project. */
   saveStatus: "idle" | "pending" | "saved" | "error";
-  gallery: GalleryItem[];
-  jobs: GenJob[];
   layerErrors: Record<string, string | null>;
   /** Selected ramp stop per code layer (UI state, not persisted). */
   rampSelection: Record<string, number>;
@@ -88,8 +84,6 @@ export type LabStore = LabProject & {
   bumpPixelLayer: (id: string) => void;
   replacePixelData: (id: string, data: Uint8ClampedArray) => void;
 
-  setGallery: (update: (current: GalleryItem[]) => GalleryItem[]) => void;
-  setJobs: (update: (current: GenJob[]) => GenJob[]) => void;
   setLayerErrors: (errors: Record<string, string | null>) => void;
 };
 
@@ -98,8 +92,6 @@ export const useLabStore = create<LabStore>((set, get) => ({
   hydrated: false,
   restoredAt: null,
   saveStatus: "idle",
-  gallery: [],
-  jobs: [],
   layerErrors: {},
   rampSelection: {},
 
@@ -108,12 +100,11 @@ export const useLabStore = create<LabStore>((set, get) => ({
   ...createKnobsSlice(set),
   ...createRampSlice(set),
   ...createDirectorSlice(set),
-  ...createGallerySlice(set),
 }));
 
 // ── persistence ──
-// Debounced project autosave + gallery persist, gated until hydration so the
-// pre-restore default state can never overwrite a stored project.
+// Debounced project autosave, gated until hydration so the pre-restore
+// default state can never overwrite a stored project.
 const autosave = createAutosave(
   () => saveProject(useLabStore.getState()),
   (saved) => useLabStore.setState({ saveStatus: saved ? "saved" : "error" }),
@@ -134,10 +125,6 @@ export function flushLabProject(): void {
 if (typeof window !== "undefined") {
   useLabStore.subscribe((state, previous) => {
     if (!state.hydrated) return;
-
-    if (state.gallery !== previous.gallery) {
-      saveGallery(state.gallery);
-    }
 
     const projectChanged =
       state.name !== previous.name ||
