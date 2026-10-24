@@ -227,16 +227,18 @@ export function draw(display, params) {
   for (let i = 1; i <= NB; i++) bin[i] += bin[i - 1];
   for (let s = 0; s < ns; s++) ord[bin[key[s]]++] = s;
   // Far to near. A fibre is lit 1 near the camera and a quarter far off,
-  // and its core is two LEDs wide near and one far. A slow swell of light
-  // runs round every fibre at the same rate: the circle action of the
-  // fibration, which moves each point of the 3-sphere along its own fibre.
+  // and its core is two LEDs wide near and one far; even far off it keeps a
+  // quarter-LED halo, so thin strands fade into the dark instead of stepping
+  // off it. A slow swell of light runs round every fibre at the same rate:
+  // the circle action of the fibration, which moves each point of the
+  // 3-sphere along its own fibre.
   // Each fibre's swell starts from its own longitude so the whole picture
   // never dims at once.
   for (let r = ns - 1; r >= 0; r--) {
     const s = ord[r], a = sa[s], b = sb[s], f = floor(a / NT), c = f * 3, lf = lit[f];
     const dn = cl(((sz[a] + sz[b]) / 2 - (D - 3)) / 6, 0, 1) * (lf > 1 ? 2 - lf : 1);
     const v = (1 - 0.75 * dn) * lf * (0.72 + 0.28 * cos((TAU * (a % NT)) / NT + P.pp[f] - 1.6 * T));
-    line(buf, sx[a], sy[a], sx[b], sy[b], min(255, col[c] * v), min(255, col[c + 1] * v), min(255, col[c + 2] * v), 0.25 + 0.6 * (1 - dn), 0.05 + 0.65 * (1 - dn), lf < 1 ? lf * lf : 1);
+    line(buf, sx[a], sy[a], sx[b], sy[b], min(255, col[c] * v), min(255, col[c + 1] * v), min(255, col[c + 2] * v), 0.25 + 0.6 * (1 - dn), 0.25 + 0.65 * (1 - dn), lf < 1 ? lf * lf : 1);
   }
   for (let p = 0, y = 0; y < H; y++) for (let x = 0; x < W; x++, p += 3) display.setPixel(x, y, buf[p], buf[p + 1], buf[p + 2]);
 }
