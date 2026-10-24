@@ -186,6 +186,7 @@ function build(S, n) {
   if (!pt.mode) pt.mode = 2;
   S.logs = S.logs.filter((l) => l.c <= n);
   S.slugs = [];
+  S.ev = [];
 }
 
 // A stoke: reduction first, the flame starved and smoky, then the surge.
