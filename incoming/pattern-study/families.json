@@ -44,5 +44,7 @@
   "stage": { "label": "무대·공연", "color": "#ff0066" },
   "mammal": { "label": "짐승", "color": "#998844" },
   "construction": { "label": "공사·건설", "color": "#ffee00" },
-  "pottery": { "label": "도자기", "color": "#b05030" }
+  "pottery": { "label": "도자기", "color": "#b05030" },
+  "farm": { "label": "농사·밭", "color": "#449911" },
+  "volcano": { "label": "화산", "color": "#bb2200" }
 }
