@@ -213,6 +213,48 @@ describe("HardwareModal", () => {
     }
   });
 
+  // Two code layers make a stack, and the stack's scaffold has #pragma once
+  // before anything is pasted. Next used to open on "0 done" and say "Header
+  // ready", and on the board both stubs drew nothing: a black screen.
+  it("a stack of two code layers waits for one translation, then names the stub left", () => {
+    useLabStore.getState().addCodeLayer();
+    const bottom = useLabStore.getState().layers[1];
+    const unit = (index: number) =>
+      `namespace L${index} {\n  void setup() {}\n  void update(float dt, const InputFrame& input) {}\n  void draw() {}\n}`;
+    render(<Lab />);
+
+    expect(screen.getByText(/2 layers to translate — 0 done/)).toHaveTextContent(
+      "Next opens when one of them is translated.",
+    );
+    expect(screen.getByText("Next →")).toBeDisabled();
+    fireEvent.click(screen.getByText("Next →"));
+    expect(screen.queryByText("On to hardware")).toBeNull();
+
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L1 \{/), { target: { value: unit(1) } });
+    expect(screen.getByText(/1 done/)).not.toHaveTextContent("Next opens");
+    fireEvent.click(screen.getByText("Next →"));
+    expect(screen.getByText("On to hardware")).toBeTruthy();
+    expect(screen.getByText(/Header built \([\d.]+ KB\) with 1 of 2 layers translated\./)).toBeTruthy();
+    expect(screen.queryByText(/Header ready/)).toBeNull();
+    expect(screen.getByText(/^Not translated:/)).toHaveTextContent(
+      `Not translated: L0 · ${bottom.name}. On the board it draws nothing until you go back and paste its translation.`,
+    );
+
+    fireEvent.click(screen.getByText("← Back to the header"));
+    fireEvent.change(screen.getByPlaceholderText(/Paste the namespace L0 \{/), { target: { value: unit(0) } });
+    fireEvent.click(screen.getByText("Next →"));
+    expect(screen.getByText(/Header ready \([\d.]+ KB\)\./)).toBeTruthy();
+    expect(screen.queryByText(/Not translated/)).toBeNull();
+  });
+
+  it("a code layer under a text layer is the one to translate before Next", () => {
+    useLabStore.getState().addTextLayer();
+    render(<Lab />);
+    expect(screen.getByText(/1 layer to translate — 0 done/)).toHaveTextContent("Next opens when it is translated.");
+    expect(screen.getByText("Next →")).toBeDisabled();
+    expect(screen.getByText("Next →")).toHaveAttribute("title", "Paste the translation of one layer first");
+  });
+
   it("Esc over the Publish modal closes Publish alone and keeps the header", async () => {
     render(<Lab />);
     pasteHeaderAndContinue();
