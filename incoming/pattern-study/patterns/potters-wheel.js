@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Potter's Wheel
 // Family:  pottery
-// Idea:    At night under one warm lamp a potter centres a lump of wet clay on the spinning wheel, opens it and pulls the wall up into a tall pot whose throwing rings catch the light, wires it off the wheel and sets it on the shelves, where the earlier pots dry from dark to bone-pale.
+// Idea:    At night under one warm lamp a potter centres wet clay on the spinning wheel, opens it and pulls the wall up into a tall pot whose throwing rings catch the light, wires it off and sets it on the shelves, where the earlier pots dry from dark to bone-pale.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Clay=0..1, Speed=0.2..3, Pots=6..20, Lamp=0..1
 //
-// Knob 1: Clay. The clay body: terracotta at 0, then buff stoneware, grey porcelain and black clay at 1. The pot on the wheel, the slip in the splash pan and the pots drying on the shelves all take it.
-// Knob 2: Speed. At 2 a throw takes about fourteen seconds from the slapped lump to the pot set on the shelf, and the wheel turns about once a second; at 0.2 it all runs ten times slower.
-// Knob 3: Pots. How many earlier pieces stand drying on the three shelves of the rack, from six to twenty. The oldest are bone-dry, and each new pot takes the place of the oldest, which goes to the kiln.
+// Knob 1: Clay. The clay body: terracotta at 0, then buff stoneware, grey porcelain and black clay at 1. The pot, the slip in the splash pan, the pots drying on the shelves and the dust on the wall all take it.
+// Knob 2: Speed. At 2 a throw takes about thirteen seconds from the slapped lump to the pot set on the shelf, and the wheel turns about once a second; at 0.2 it all runs ten times slower.
+// Knob 3: Pots. How many earlier pieces stand drying on the rack's three shelves, from six to twenty. The oldest are bone-dry, and each new pot takes the place of the oldest, which goes to the kiln.
 // Knob 4: Lamp. Where the lamp hangs, from left of the wheel at 0 to right of it at 1. The lit side of the pot, the highlight down its throwing rings, its shadow on the wall and the light on the shelves move with it.
 // Buttons: K1 tap makes the wall slump, and the potter balls the clay up and centres it again.
 
@@ -24,6 +24,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mix = (a, b, t) => a + (b - a) * t;
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 const rnd = () => Math.random();
+const F32 = (n) => new Float32Array(n);
 function hash(i, j) {
   let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
   h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -40,7 +41,7 @@ const SHELF = [26, 53, 80];
 const SLOT = [];
 for (const sy of SHELF) for (let i = 0; i < 7; i++) SLOT.push([4.6 + i * 9.13, sy]);
 const ORDER = [1, 5, 8, 12, 14, 20, 3, 9, 11, 0, 6, 7, 13, 15, 19, 2, 4, 10, 16, 18, 17];
-const SHS = 0.25;
+const SHS = 0.27;
 
 // Each clay thrown and wet, leather-hard, and bone-dry.
 const CLAY = [
@@ -52,13 +53,16 @@ const CLAY = [
 const SKIN = [150, 98, 76], WALL = [84, 62, 50], WOOD = [132, 90, 58], METAL = [150, 152, 156], PLASTIC = [76, 80, 90], SLEEVE = [58, 66, 86], SHINE = [255, 232, 196];
 
 // Pot shapes as a height and the radius at keys up the wall: cylinder, bottle,
-// vase with a belly and a flared lip, jar, and trumpet vase.
+// vase with a belly and a flared lip, jar and trumpet vase on the wheel, and
+// bowls and cups from earlier in the evening on the shelves.
 const SHAPES = [
   (j) => [76 + 8 * j, [[0, 10.5], [0.45, 10.2 + j], [0.9, 9.6], [1, 11]]],
   (j) => [84 + 8 * j, [[0, 11], [0.3, 14.5], [0.7, 4.2], [0.93, 4], [1, 5.6]]],
   (j) => [82 + 8 * j, [[0, 8], [0.42, 15], [0.8, 5], [0.9, 5.4], [1, 9.5]]],
   (j) => [76 + 6 * j, [[0, 8.5], [0.55, 15.5], [0.9, 9], [1, 10.5]]],
   (j) => [86 + 6 * j, [[0, 9.5], [0.2, 9.8], [0.62, 5.5], [1, 14]]],
+  (j) => [26 + 6 * j, [[0, 7], [0.45, 14], [1, 19]]],
+  (j) => [40 + 6 * j, [[0, 9], [0.5, 11.5], [0.85, 10.5], [1, 12]]],
 ];
 function key(K, v) {
   let i = 0;
@@ -66,18 +70,14 @@ function key(K, v) {
   return mix(K[i][1], K[i + 1][1], sm(K[i][0], K[i + 1][0], v));
 }
 // A radius looked up along a wall kept one entry per row.
-const at = (pr, h, Hp) => {
-  h = h < 0 ? 0 : h > Hp ? Hp : h;
-  const i = h | 0;
-  return pr[i] + (pr[i + 1] - pr[i]) * (h - i);
-};
-function newSpec(not) {
+const at = (pr, h, Hp, i) => ((h = cl(h, 0, Hp)), (i = h | 0), pr[i] + (pr[i + 1] - pr[i]) * (h - i));
+function newSpec(not, all) {
   let type;
-  // The first throw of the night is always one of the three tall ones.
-  do type = floor(rnd() * SHAPES.length);
+  // The first throw of the night is always one of the three tallest.
+  do type = floor(rnd() * (all ? 7 : 5));
   while (type === not || (not < -1 && type % 3 === 0));
   const [Hf, K0] = SHAPES[type](rnd()), g = 0.92 + 0.16 * rnd(), K = K0.map(([v, r]) => [v, r * g]);
-  const pr = new Float32Array(ceil(Hf) + 3);
+  const pr = F32(ceil(Hf) + 3);
   for (let h = 0; h < pr.length; h++) pr[h] = key(K, min(1, h / Hf)) + 1.4 * exp(-h / 2.2);
   // Where the hands shape it: the belly, then the neck above.
   let vb = 0.5, vn = 0.85, rb = 0, rn = 99;
@@ -90,7 +90,7 @@ function newSpec(not) {
 // wheel turns through it (turns a second): slapped down, centred, opened,
 // three pulls, shaped, shown, wired off, lifted to the shelf, and the slump
 // and the balling up after a K1 tap.
-const DUR = [0.45, 1, 0.55, 4.5, 2.6, 1.6, 0.9, 1.8, 1.2, 0.9];
+const DUR = [0.45, 0.9, 0.5, 4.5, 2.6, 1.6, 0.9, 1.8, 1.2, 0.9];
 const SPIN = [0.4, 1.3, 1.1, 0.95, 0.75, 0.65, 0.3, 0, 0.9, 1];
 // The cylinder after each pull, and its wall at the rim.
 const RC = [12.5, 11.3, 10.5, 9.9], WALL_T = [4, 2.7, 2.1, 1.7];
@@ -99,13 +99,13 @@ const dome = (v, r) => r * sqrt(max(0, 1 - v ** 2.4)) + 1.2 * exp(-v * 8);
 
 export function setup(params) {
   const P = (params.s = {
-    t: 0, ph: 0, pt: 0, rot: 0, w: 0.4, H: 11, ri: 0, wa: 0, wt: 0, yo: 0, sH: 11, sri: 0, n: 6, LX: 12, clay: 0,
-    pr: new Float32Array(128), snap: new Float32Array(128), f: new Float32Array(N * 3), bg: new Float32Array(N * 3),
+    ph: 0, pt: 0, rot: 0, w: 0.4, H: 11, ri: 0, wa: 0, wt: 0, yo: 0, sH: 11, sri: 0, n: 6, LX: 12, clay: 0,
+    pr: F32(128), snap: F32(128), f: F32(N * 3), bg: F32(N * 3),
     hd: null, hs: null, g: null, wire: -1, pieces: [], sp: [], dr: [], free: 0, bgKey: -1,
   });
   P.spec = newSpec(-2);
   // The pieces already on the shelves, newest first.
-  for (let i = 0; i < 21; i++) P.pieces.push({ slot: ORDER[i], spec: newSpec(i ? P.pieces[i - 1].spec.type : -1), dry: min(1, 0.1 + i * 0.17) });
+  for (let i = 0; i < 21; i++) P.pieces.push({ slot: ORDER[i], spec: newSpec(i ? P.pieces[i - 1].spec.type : -1, 1), dry: min(1, 0.1 + i * 0.17) });
   // Old slip spattered in the pan.
   for (let i = 0; i < 60; i++) {
     const a = rnd() * TAU, r = 0.66 + 0.3 * rnd();
@@ -118,11 +118,8 @@ function go(P, ph) {
   // The oldest piece on show goes to the kiln and the new pot takes its place.
   if (ph === 7) P.free = P.pieces.splice(min(P.n, P.pieces.length) - 1, 1)[0].slot;
   if (ph === 0 && P.ph === 7) P.pieces.unshift({ slot: P.free, spec: P.spec, dry: 0 }), (P.spec = newSpec(P.spec.type));
-  P.ph = ph;
-  P.pt = 0;
   P.snap.set(P.pr);
-  P.sH = P.H;
-  P.sri = P.ri;
+  Object.assign(P, { ph, pt: 0, sH: P.H, sri: P.ri });
 }
 
 function fill(P, Hn, f) {
@@ -136,17 +133,12 @@ const offset = (P, h) => P.wa * sin(P.rot) + P.wt * (cl(h / P.H, 0, 1) ** 1.5) *
 function shape(P, p) {
   const sp = P.spec;
   let hand = null;
-  P.wa = 0;
-  P.wt = 0.2;
-  P.yo = 0;
-  P.g = null;
-  P.wire = -1;
-  P.ring = 0.07;
+  Object.assign(P, { wa: 0, wt: 0.2, yo: 0, g: null, wire: -1, ring: 0.07 });
   switch (P.ph) {
     case 0: {
       // Slapped down from the hands, squashing as it lands.
       const sq = p > 0.6 ? 1 - 0.3 * sin((PI * (p - 0.6)) / 0.4) : 1, r = 10.5 / sqrt(sq), Hn = 11 * sq;
-      P.yo = p < 0.6 ? -44 * (1 - (p / 0.6) ** 2) : 0;
+      P.yo = p < 0.6 ? -56 * (1 - (p / 0.6) ** 2) : 0;
       fill(P, Hn, (h) => dome(h / Hn, r));
       (P.ri = 0), (P.wa = 0.8), (P.ring = 0.04);
       hand = [5, -0.3, 0];
@@ -171,7 +163,7 @@ function shape(P, p) {
       // Three pulls. The hands squeeze the wall from the base to the rim and
       // a roll of clay rides up ahead of them.
       const k = min(2, floor(P.pt / 1.5)), a = (P.pt - k * 1.5) / 1.2, Hp = sp.Hf * 0.93;
-      const HS = [13, mix(13, Hp, 0.42), mix(13, Hp, 0.74), Hp];
+      const HS = [13, mix(13, Hp, 0.55), mix(13, Hp, 0.82), Hp];
       if (a <= 1) {
         const Hn = mix(HS[k], HS[k + 1], sm(0, 1, a)), hh = Hn * min(1, a * 1.04) * 0.95, roll = 1.3 * (1 - sm(0.9, 1, a));
         fill(P, Hn, (h) => mix(cyl(k + 1, h), cyl(k, h), sm(hh - 1, hh + 2.5, h)) + roll * exp(-(((h - hh - 2.6) / 2.2) ** 2)) - 0.8 * exp(-(((h - hh) / 1.4) ** 2)));
@@ -246,7 +238,6 @@ export function update(dt, input, params) {
   P.clay = cl(k[0], 0, 1);
   P.n = round(cl(k[2], 6, 20));
   P.LX = mix(9, 55, cl(k[3], 0, 1));
-  P.t += d;
   if (input.btnPressed && input.btnPressed[0] && P.ph >= 1 && P.ph <= 5) go(P, 8);
   if ((P.pt += d) >= DUR[P.ph]) go(P, [1, 2, 3, 4, 5, 6, 7, 0, 9, 1][P.ph]);
   P.w += (SPIN[P.ph] - P.w) * min(1, d * 3);
@@ -260,9 +251,9 @@ export function update(dt, input, params) {
 
   // Slip flung off the wall by the hands, and spattered as the lump lands.
   const fling = (x, y, sd, n) => {
-    for (let i = 0; i < n; i++) P.dr.push([x, y, sd * (8 + rnd() * 26), -8 - rnd() * 26, PY - 4 + rnd() * 10]);
+    while (n--) P.dr.push([x, y, sd * (8 + rnd() * 26), -8 - rnd() * 26, PY - 4 + rnd() * 10]);
   };
-  if (P.hs && (P.ph === 3 || P.ph === 4 || P.ph === 8) && rnd() < d * 3) rnd() < 0.5 ? fling(P.hs[0], P.hs[1], -1, 1) : fling(P.hs[2], P.hs[3], 1, 1);
+  if (P.hs && (P.ph === 3 || P.ph === 4) && rnd() < d * 3) rnd() < 0.5 ? fling(P.hs[0], P.hs[1], -1, 1) : fling(P.hs[2], P.hs[3], 1, 1);
   if (landing && P.yo === 0) fling(CX - 9, BY - 2, -1, 3), fling(CX + 9, BY - 2, 1, 3);
   P.dr = P.dr.filter((q) => {
     (q[0] += q[2] * d), (q[1] += q[3] * d), (q[3] += 150 * d);
@@ -276,7 +267,7 @@ export function update(dt, input, params) {
   for (const q of P.pieces) q.dry = min(1, q.dry + d / 75);
 }
 
-// The wall, the rack and the lamp's glow, kept until the lamp moves.
+// The wall, the rack and the lamp's glow, kept until the lamp or the clay changes.
 function backdrop(P) {
   P.bgKey = bgKey(P);
   // Clay dust lies on everything in the room and takes the clay's colour.
@@ -358,31 +349,28 @@ function solid(o) {
 }
 
 // The earlier pots on the shelves, wet and dark, then leather-hard, then pale.
+const STILL = { s: SHS, wa: 0, wt: 0, s1: 0, s2: 0, rot: 0, ring: 0, fl: 0, amb: 0.38 };
 function shelves(P, C) {
-  for (let i = 0; i < min(P.n, P.pieces.length); i++) {
+  // While a pot is carried over, its slot stands empty.
+  for (let i = 0; i < min(P.n - (P.ph === 7), P.pieces.length); i++) {
     const q = P.pieces[i], [sx, sy] = SLOT[q.slot], dr = q.dry, a = dr < 0.45 ? dr / 0.45 : (dr - 0.45) / 0.55;
     const alb = dr < 0.45 ? C[0].map((v, n) => mix(v * 0.62, C[1][n], a)) : C[1].map((v, n) => mix(v, C[2][n], a));
-    solid({ cx: sx, by: sy + 0.5, s: SHS, pr: q.spec.pr, Hp: q.spec.Hf, ri: q.spec.rim - 1.4, wa: 0, wt: 0, s1: 0, s2: 0, rot: 0, alb, spec: 0.6 * (1 - sm(0, 0.4, dr)), L: light(P, sx, sy - 10), ring: 0, fl: 0, amb: 0.3 });
+    solid({ ...STILL, cx: sx, by: sy + 0.5, pr: q.spec.pr, Hp: q.spec.Hf, ri: q.spec.rim - 1.4, alb, spec: 0.6 * (1 - sm(0, 0.4, dr)), L: light(P, sx, sy - 10) });
   }
 }
 
 const put = (x, y, col, k) => {
-  x = round(x - 0.5);
-  y = round(y - 0.5);
-  if (x >= 0 && x < W && y >= 0 && y < H) for (let c = 0, o = (y * W + x) * 3; c < 3; c++) F[o + c] = col[c] * k;
+  if ((x = round(x - 0.5)) >= 0 && x < W && (y = round(y - 0.5)) >= 0 && y < H) for (let c = 0, o = (y * W + x) * 3; c < 3; c++) F[o + c] = col[c] * k;
 };
 
 // The lamp: a cord, an enamel shade and the bulb under it.
 function lamp(P) {
-  const LX = P.LX;
   for (let y = 0; y < 12; y++)
-    for (let x = max(0, floor(LX - 8)); x <= min(W - 1, LX + 8); x++) {
-      const dx = x + 0.5 - LX, hw = 1.3 + (y - 3) * 0.85;
-      if (y < 3 ? abs(dx) < 0.6 : y < 10 ? abs(dx) < hw : abs(dx) < (y === 10 ? 2.4 : 1.2)) {
-        const o = (y * W + x) * 3, col = y < 3 ? [44, 38, 34] : y === 9 ? [236, 170, 96] : y < 9 ? [38, 72, 62] : y === 10 ? [255, 244, 214] : [255, 226, 168];
-        const k = y > 2 && y < 9 ? 0.7 + 0.6 * (1 - (y - 3) / 6) * (dx < 0 ? 1 : 0.6) : 1;
-        for (let c = 0; c < 3; c++) F[o + c] = col[c] * k;
-      }
+    for (let x = max(0, floor(P.LX - 8)); x <= min(W - 1, P.LX + 8); x++) {
+      const dx = x + 0.5 - P.LX;
+      if (abs(dx) >= (y < 3 ? 0.6 : y < 10 ? 1.3 + (y - 3) * 0.85 : y < 11 ? 2.4 : 1.2)) continue;
+      const k = y > 2 && y < 9 ? 0.7 + 0.6 * (1 - (y - 3) / 6) * (dx < 0 ? 1 : 0.6) : 1;
+      put(x + 0.5, y + 0.5, y < 3 ? [44, 38, 34] : y < 9 ? [38, 72, 62] : [[236, 170, 96], [255, 244, 214], [255, 226, 168]][y - 9], k);
     }
 }
 
@@ -401,11 +389,11 @@ function shadow(P) {
 
 // The splash pan with its slip, and the wheel head turning in it.
 function wheel(P, A) {
-  const L = light(P, CX, PY), [l0, l1, l2, lm] = L, mt = METAL.map((v, n) => mix(v, A[n], 0.7));
+  const [l0, l1, l2, lm] = light(P, CX, PY), mt = METAL.map((v, n) => mix(v, A[n], 0.7)), side = (z) => 0.15 + 0.8 * max(0, z * l0 + sqrt(max(0, 1 - z * z)) * l2);
   for (let y = 100; y < H; y++)
     for (let x = 0; x < W; x++) {
       const ex = (x + 0.5 - CX) / PR, ey = (y + 0.5 - PY) / (PR * E), dd = ex * ex + ey * ey, o = (y * W + x) * 3;
-      const wx = (x + 0.5 - CX) / WR, wy = (y + 0.5 - BY) / (WR * E), wd = wx * wx + wy * wy, side = (z) => 0.15 + 0.8 * max(0, z * l0 + sqrt(max(0, 1 - z * z)) * l2);
+      const wx = (x + 0.5 - CX) / WR, wy = (y + 0.5 - BY) / (WR * E), wd = wx * wx + wy * wy;
       let col, k;
       if (wd < 1) (col = mt), (k = (0.3 + 0.6 * l1) * lm * (0.9 + 0.1 * cos(sqrt(wd) * WR * 1.4)));
       else if (wy > 0 && wx * wx < 1 && y + 0.5 < BY + WR * E * sqrt(1 - wx * wx) + 2.5) (col = METAL), (k = 0.5 * side(wx) * lm);
@@ -440,8 +428,8 @@ function cap(ax, ay, bx, by, ra, rb, col, L, tip) {
     }
 }
 
-// A hand on the clay at x, y: the forearm down to the side, the palm, three
-// fingers round the wall with slip on their tips, and the thumb.
+// A hand on the clay at x, y: the sleeve and forearm down to the side, the
+// back of the hand, the fingers round the wall with slip on them, the thumb.
 function hand(P, sd, x, y, slip) {
   const L = light(P, x, y);
   cap(x + sd * 22, y + 26, x + sd * 46, y + 62, 5.6, 6.6, SLEEVE, L);
