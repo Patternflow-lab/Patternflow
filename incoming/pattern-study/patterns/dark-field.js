@@ -173,7 +173,7 @@ function knock(P) {
   for (const o of [...P.vol, ...P.fla, ...P.det]) (o.x += P.jx * rr(1, 4)), (o.y += P.jy * rr(1, 4));
 }
 
-// A stalk or body that waits, snaps in to lo, holds, and stretches out again.
+// A stalk or body that waits and snaps in to lo. It holds there, then stretches out again.
 function cycle(o, d, down, lo, up, hold, wait) {
   if (o.st === 0 && (o.tt -= d) < 0) o.st = 1;
   else if (o.st === 1 && (o.ext -= d * down) <= lo) (o.ext = lo), (o.st = 2), (o.tt = hold * rr(1, 2));
@@ -208,7 +208,7 @@ function life(P, d, crowd, first) {
     (o.cv[0] = (o.cv[0] + d * 0.24) % 1), (o.cv[1] = (o.cv[1] + d * 0.21) % 1);
     swim(o, d);
   });
-  // Diatoms glide on their raphe, stop, and set off again, often backwards.
+  // Diatoms glide on their raphe and stop. Then they set off again, often backwards.
   each(P.dia, 5 + round(4 * crowd), (o) => {
     if ((o.tt -= d) < 0) (o.go = !o.go), (o.tt = o.go ? rr(2, 4) : rr(0.8, 2.2)), o.go && rnd() < 0.4 && (o.dir = -o.dir);
     const v = o.go ? o.v * o.dir * d * sm(0, 0.4, o.tt) : 0;

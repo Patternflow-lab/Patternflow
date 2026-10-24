@@ -246,7 +246,7 @@ function back() {
   }
 }
 
-// The tower standing, falling, or rising in scaffolding.
+// The tower as it stands or falls. During the rebuild it rises in scaffolding.
 function tower() {
   const { fa: A, fk: K, fu: U, rs: RS, FL, SKY, T, BT, BH, fold: F0 } = P, tc = T - T_FALL;
   if (T >= T_TL && T < T_RISE) return;
