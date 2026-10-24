@@ -96,6 +96,9 @@ describe("names in the scaffold", () => {
   });
 });
 
+// GitHub's runners have g++, so the compiler half runs there.
+if (!CXX && process.env.CI) throw new Error("no C++ compiler on this runner, and the header test needs one");
+
 const dirs: string[] = [];
 afterAll(() => {
   for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true });

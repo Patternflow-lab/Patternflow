@@ -10,8 +10,9 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-export const FIRMWARE = path.resolve(__dirname, "../../../../firmware/patternflow");
+const FIRMWARE = path.resolve(__dirname, "../../../../firmware/patternflow");
 
+/** The first compiler on the PATH. Each test file throws when CI has none. */
 export const CXX = ["c++", "g++", "clang++"].find((compiler) => {
   try {
     execFileSync(compiler, ["--version"], { stdio: "ignore" });
@@ -20,10 +21,6 @@ export const CXX = ["c++", "g++", "clang++"].find((compiler) => {
     return false;
   }
 });
-
-// GitHub's runners have g++. A desk without a compiler skips the header half;
-// CI does not get to.
-if (!CXX && process.env.CI) throw new Error("no C++ compiler on this runner, and the header test needs one");
 
 const STUBS: Record<string, string> = {
   "Arduino.h": `#pragma once

@@ -554,6 +554,10 @@ describe("moving text, as the preview shows it", () => {
 
 // ── the C++ header ──
 
+// GitHub's runners have g++. A desk without a compiler skips the header half;
+// CI does not get to.
+if (!CXX && process.env.CI) throw new Error("no C++ compiler on this runner, and the header test needs one");
+
 type HeaderCase = Case & { namespaceName: string };
 
 /** Every case's header in one program: build once, print each frame as hex. */
