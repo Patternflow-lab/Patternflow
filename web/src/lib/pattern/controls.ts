@@ -34,6 +34,37 @@ export function knobDetentStep(range: readonly [number, number]) {
   return knobUnitsPerTurn(range) / ENCODER_CLICKS_PER_TURN;
 }
 
+/**
+ * Where one arrow key leaves a knob: a detent up (ArrowRight, ArrowUp) or
+ * down (ArrowLeft, ArrowDown), held to the range the way PFParams::apply holds
+ * the Lab's header. A range input's own arrow step is its `step`, 0.001, which
+ * took 110,000 presses across a 10..120 knob; this takes 48, as the encoder
+ * does. Any other key, or one with Alt, Ctrl or Cmd, gives null, so the input
+ * keeps Home, End and Page Up/Down and the browser keeps its shortcuts.
+ */
+export function knobArrowValue(
+  event: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean },
+  value: number,
+  range: readonly [number, number],
+): number | null {
+  if (event.altKey || event.ctrlKey || event.metaKey) return null;
+  const direction =
+    event.key === "ArrowRight" || event.key === "ArrowUp" ? 1
+    : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1
+    : 0;
+  const [min, max] = range;
+  const span = max - min;
+  if (!direction || !(span > 0)) return null;
+  // Counted in detents from the bottom, so a knob on a detent lands on the
+  // next one exactly. Adding 4 / 48 to 2 forty-eight times stops short of 6,
+  // and the top took a 49th press.
+  const across = TURNS_PER_FULL_RANGE * ENCODER_CLICKS_PER_TURN;
+  const from = ((value - min) / span) * across;
+  const nearest = Math.round(from);
+  const detent = (Math.abs(from - nearest) < 1e-6 ? nearest : from) + direction;
+  return Math.min(max, Math.max(min, min + (detent * span) / across));
+}
+
 export type KnobId = 'c1' | 'c2' | 'c3' | 'c4';
 
 export type KnobValues = Record<KnobId, number>;
