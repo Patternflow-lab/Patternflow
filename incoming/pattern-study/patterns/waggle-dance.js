@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Waggle Dance
 // Family:  insect
-// Idea:    One comb of an observation hive stands behind glass, capped honey across the top, a band of pollen and the brood below, while a hundred bees crawl over it and a forager home from the flowers dances her figure of eight, each waggle run pointing as far from straight up as the flowers lie from the sun, with a ring of followers turning to face her.
+// Idea:    Bees crawl over one comb of an observation hive while foragers home from the flowers dance figures of eight, each waggle run as far from straight up as the flowers lie from the sun, with a ring of followers turned to face her.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,51 +11,34 @@
 // @matrix 64x128
 // @knobs Light=0..1, Speed=0.2..3, Bees=80..240, Sun=-1..1
 //
-// Knob 1: Light. Daylight from the window at 0, with the sun lying across the glass in four panes; towards 1 the curtain closes and a dim red viewing lamp takes over, which the bees cannot see, so they carry on as before.
-// Knob 2: Speed. At 2 a waggle run takes a second and its loop back a little more, and the crawlers walk about a body length a second; at 0.2 everything runs ten times slower.
-// Knob 3: Bees. Eighty to 240 bees on the comb; more walk in from the sides when it is turned up, and the comb disappears under them.
-// Knob 4: Sun. The sun's bearing against the clover field. At 0.06 the field lies nearly under the sun and the runs point almost straight up; turning it swings every dance round and slides the patch of window sun across the glass.
-// Buttons: K1 tap brings a forager home from a rich patch; she comes up from the entrance and dances long and hard, and more followers gather round her.
+// Knob 1: Light. Daylight at 0, the window's sun lying across the glass in four panes; towards 1 the curtain closes and a red lamp comes up, which bees cannot see.
+// Knob 2: Speed. At 2 a waggle run takes about a second and a bee walks about a body length a second; 0.2 is ten times slower.
+// Knob 3: Bees. Eighty to 240; turned up, more walk in from the sides until they hide the comb.
+// Knob 4: Sun. The sun's bearing against the clover field: at 0.06 the runs point nearly straight up, and turning it swings every dance and slides the window's sun across the glass.
+// Buttons: K1 tap brings a forager home from a rich patch; she runs up from the entrance and dances long and hard, with more followers round her.
 
-const W = 64;
-const H = 128;
+const [W, H] = [64, 128];
 const N = W * H;
 // Cells six LEDs across the flats, rows five apart (a hexagon squashed by
 // four in a hundred, so every cell is drawn alike); the frame's top bar,
 // its bottom bar and the entrance slot in it.
-const CW = 6;
-const RH = 5;
-const TOP = 5;
-const BOT = 123;
+const [CW, RH, TOP, BOT, NC, NR, ENX] = [6, 5, 5, 123, 13, 27, 9];
 const Y0 = TOP + 2.5;
-const NC = 13;
-const NR = 27;
-const ENX = 9;
 const [EMPTY, HONEY, NECTAR, POLLEN, BROOD, LARVA, EGG] = [0, 1, 2, 3, 4, 5, 6];
-const [CRAWL, REST, DIP, FOLLOW, DANCE, HOME, EXIT, LEAVE] = [0, 1, 2, 3, 4, 5, 6, 7];
+const [CRAWL, REST, DIP, FOLLOW, DANCE, HOME, EXIT] = [0, 1, 2, 3, 4, 5, 6];
 // Pollen: orange, yellow, ochre, rust, purple-grey, buff, olive, red-orange.
-const POLLENS = [
-  [0.95, 0.52, 0.08],
-  [0.95, 0.8, 0.16],
-  [0.74, 0.54, 0.17],
-  [0.6, 0.25, 0.1],
-  [0.44, 0.37, 0.5],
-  [0.86, 0.68, 0.36],
-  [0.55, 0.58, 0.24],
-  [0.9, 0.4, 0.12],
-];
+const POLLENS = [[0.95, 0.52, 0.08], [0.95, 0.8, 0.16], [0.74, 0.54, 0.17], [0.6, 0.25, 0.1],
+  [0.44, 0.37, 0.5], [0.86, 0.68, 0.36], [0.55, 0.58, 0.24], [0.9, 0.4, 0.12]];
 // Bees: a dark race, the usual, a golden one. Thorax, then the amber bands.
-const THX = [[0.45, 0.33, 0.17], [0.72, 0.5, 0.2], [0.85, 0.62, 0.26]];
+const THX = [[0.5, 0.37, 0.2], [0.78, 0.56, 0.24], [0.9, 0.68, 0.3]];
 const AMB = [[0.62, 0.44, 0.18], [1, 0.72, 0.2], [1, 0.84, 0.32]];
-const DARK = [0.07, 0.05, 0.03];
-const HEAD = [0.05, 0.04, 0.03];
-const WING = [0.8, 0.84, 0.9];
-const SUNC = [1, 0.84, 0.56];
-const REDC = [1, 0.09, 0.035];
+const [DARK, HEAD, WING] = [[0.3, 0.18, 0.08], [0.14, 0.1, 0.06], [0.8, 0.84, 0.9]];
+const [SUNC, REDC] = [[1, 0.84, 0.56], [1, 0.09, 0.035]];
 // Where the flowers lie, against the main field, and how often foragers come from each.
 const FIELDS = [0, 0, 0.95, -1.9];
 
-const { min, max, sin, cos, abs, sqrt, floor, round, exp, atan2, hypot, PI } = Math;
+const { min, max, sin, cos, abs, sqrt, floor, round, exp, atan2, PI } = Math;
+const len = (a, b) => sqrt(a * a + b * b);
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = clamp((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 const wrap = (a) => a - 2 * PI * round(a / (2 * PI));
@@ -65,23 +48,18 @@ function hash(a, b) {
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
-function vn(x, y) {
-  const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
-  const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1);
-  return a + (b - a) * su + (c - a) * sv + (a - b - c + hash(xi + 1, yi + 1)) * su * sv;
-}
 // Distance from a cell's centre in its own hexagon, 3 on the wall.
 const hexd = (dx, dy) => max(abs(dx), abs(0.5 * dx + 0.9 * dy), abs(0.5 * dx - 0.9 * dy));
 const cellX = (r, c) => CW * (c - 1) + (r & 1 ? 3.5 : 0.5);
 const cellY = (r) => Y0 + (r - 1) * RH;
+const cap = (t) => t === BROOD || t === HONEY;
 
 // Which cell each LED sits in, and where in it.
 function grid(S) {
   for (let y = TOP; y < BOT; y++)
     for (let x = 0; x < W; x++) {
       const r0 = round((y + 0.5 - Y0) / RH) + 1;
-      let best = 99;
-      let next = 99;
+      let [best, next] = [99, 99];
       const p = y * W + x;
       for (let r = max(0, r0 - 1); r <= min(NR - 1, r0 + 1); r++) {
         const off = r & 1 ? 3.5 : 0.5;
@@ -95,9 +73,7 @@ function grid(S) {
             S.cid2[p] = S.cid[p];
             best = d;
             S.cid[p] = r * NC + c;
-            S.hd[p] = d;
-            S.dx[p] = dx;
-            S.dy[p] = dy;
+            [S.hd[p], S.dx[p], S.dy[p]] = [d, dx, dy];
           } else if (d < next) {
             next = d;
             S.cid2[p] = r * NC + c;
@@ -115,20 +91,16 @@ function layout(S) {
       const x = cellX(r, c);
       const y = cellY(r);
       const ex = (x - 32) / 33;
-      const ey = (y - 76) / 31;
-      const e = sqrt(ex * ex + ey * ey) + 0.18 * (vn(x * 0.09, y * 0.09) - 0.5);
+      const ey = (y - 70) / 28;
+      const e = sqrt(ex * ex + ey * ey) + 0.05 * (sin(x * 0.21 + y * 0.13) + sin(y * 0.29 - x * 0.17 + 2));
       const u = rnd();
       let t;
-      if (y < 26 || (e > 1.28 && y < 70)) t = u < 0.82 ? HONEY : u < 0.95 ? NECTAR : EMPTY;
-      else if (e > 1 && y < 80) t = u < 0.62 ? POLLEN : u < 0.78 ? NECTAR : EMPTY;
+      if (y < 24 || (e > 1.28 && y < 64)) t = u < 0.82 ? HONEY : u < 0.95 ? NECTAR : EMPTY;
+      else if (e > 1 && y < 72) t = u < 0.62 ? POLLEN : u < 0.78 ? NECTAR : EMPTY;
       else if (e < 0.72) t = u < 0.72 ? BROOD : u < 0.82 ? LARVA : u < 0.85 ? EGG : EMPTY;
       else if (e < 1) t = u < 0.34 ? LARVA : u < 0.48 ? EGG : u < 0.64 ? BROOD : u < 0.68 ? POLLEN : EMPTY;
       else t = u < 0.12 ? POLLEN : u < 0.27 ? NECTAR : EMPTY;
-      S.type[i] = t;
-      S.age[i] = rnd();
-      S.tint[i] = rnd();
-      S.gap[i] = rnd() * 6.283;
-      S.pol[i] = floor(rnd() * POLLENS.length);
+      [S.type[i], S.age[i], S.tint[i], S.gap[i], S.pol[i]] = [t, rnd(), rnd(), rnd() * 6.283, floor(rnd() * 8)];
     }
 }
 
@@ -142,25 +114,21 @@ function paint(S) {
     const q = p * 3;
     let r, g, b;
     let ex = 1;
+    let dim = 0.66;
     if (y < TOP || y >= BOT) {
       // Pine, the grain running along the bar, a groove where it meets the comb.
-      const gr = 0.8 + 0.2 * sin(x * 0.23 + 4 * vn(x * 0.06, y * 0.7 + (y < TOP ? 0 : 9)));
+      const gr = 0.8 + 0.2 * sin(x * 0.23 + 2 * sin(x * 0.07 + y * 1.3));
       const edge = y === TOP - 1 || y === BOT ? 0.55 : 1;
       const k = gr * edge * (0.9 + 0.1 * hash(p, 5));
       [r, g, b] = [0.6 * k, 0.42 * k, 0.24 * k];
       if (y > BOT + 1 && y < H - 1 && abs(x + 0.5 - ENX) < 5) [r, g, b] = [0.02, 0.015, 0.01];
     } else {
-      const i = S.cid[p];
-      const t = S.type[i];
-      const d = S.hd[p];
-      const dx = S.dx[p];
-      const dy = S.dy[p];
-      const rr = hypot(dx, dy);
-      const tn = S.tint[i];
-      const lit = -(dx + dy) / 3;
+      const [i, d, dx, dy] = [S.cid[p], S.hd[p], S.dx[p], S.dy[p]];
+      const [t, tn, rr, lit] = [S.type[i], S.tint[i], len(dx, dy), -(dx + dy) / 3];
       if (t === HONEY) {
+        dim = 1;
         const k = (1 - 0.12 * (d / 2.6) ** 2 + 0.06 * lit) * (0.95 + 0.06 * hash(p, 1));
-        [r, g, b] = [(0.97 - 0.05 * tn) * k, (0.9 - 0.16 * tn) * k, (0.66 - 0.28 * tn) * k];
+        [r, g, b] = [(1 - 0.04 * tn) * k, (0.88 - 0.16 * tn) * k, (0.6 - 0.26 * tn) * k];
       } else if (t === NECTAR) {
         // Nectar: dark amber down in the cell, a bright meniscus round it, and a glint.
         const f = (0.08 + 0.92 * sm(1.2, 2.3, d)) * (0.75 + 0.3 * tn);
@@ -169,8 +137,9 @@ function paint(S) {
         ex = 0.6;
       } else if (t === POLLEN) {
         const c = POLLENS[S.pol[i]];
+        dim = 0.8;
         const k = (0.8 + 0.25 * tn) * (1 - 0.35 * sm(1.6, 2.5, d));
-        [r, g, b] = [c[0] * k * (0.82 + 0.3 * hash(p, 2)), c[1] * k * (0.82 + 0.3 * hash(p, 3)), c[2] * k * (0.82 + 0.3 * hash(p, 4))];
+        [r, g, b] = c.map((v, n) => v * k * (0.82 + 0.3 * hash(p, 2 + n)));
         ex = 0.8;
       } else if (t === BROOD) {
         const k = (1 - 0.32 * (rr / 2.7) ** 2 + 0.1 * lit) * (hash(p, 6) < 0.14 ? 0.78 : 1) * (0.9 + 0.15 * tn);
@@ -184,8 +153,7 @@ function paint(S) {
         if (t === LARVA) {
           // The larva curled in a C on its bed of jelly, bigger as it grows.
           const a = S.age[i];
-          const R = 0.4 + 1.1 * a;
-          const th = 0.45 + 0.55 * a;
+          const [R, th] = [0.4 + 1.1 * a, 0.45 + 0.55 * a];
           const ang = wrap(atan2(dy, dx) - S.gap[i]);
           let on = a < 0.3 ? sm(1.2, 0.5, rr) : sm(th + 0.3, th - 0.3, abs(rr - R)) * sm(0.5, 1, abs(ang));
           if (rr < 1.9) [r, g, b] = [r + 0.18, g + 0.17, b + 0.14];
@@ -202,30 +170,25 @@ function paint(S) {
       if (w > 0) {
         const t2 = S.type[S.cid2[p]];
         const pale = t === HONEY || t === NECTAR ? 1 : 0;
-        const seam = (t === BROOD || t2 === BROOD) && (t === BROOD || t === HONEY) && (t2 === BROOD || t2 === HONEY) ? 0.15 : 1;
+        const seam = (t === BROOD || t2 === BROOD) && cap(t) && cap(t2) ? 0.15 : 1;
         const k = (0.85 + 0.3 * hash(p, 8)) * seam;
-        const wr = (0.34 + 0.18 * pale) * k;
-        const wg = (0.24 + 0.15 * pale) * k;
-        const wb = (0.11 + 0.08 * pale) * k;
-        r += (wr - r) * w;
-        g += (wg - g) * w;
-        b += (wb - b) * w;
+        r += ((0.34 + 0.18 * pale) * k - r) * w;
+        g += ((0.24 + 0.15 * pale) * k - g) * w;
+        b += ((0.11 + 0.08 * pale) * k - b) * w;
         ex += ((seam < 1 ? 0.15 : 1) - ex) * w;
       }
     }
     // The comb sits back in the hive's shade; the bees on it catch the light.
-    base[q] = r * 0.66;
-    base[q + 1] = g * 0.66;
-    base[q + 2] = b * 0.66;
+    base[q] = r * dim;
+    base[q + 1] = g * dim;
+    base[q + 2] = b * dim;
     expo[p] = ex;
   }
 }
 
 // The window throws its four panes of sun on the glass; they slide and lean with the sun.
 function sunPatch(S, s) {
-  const cx = 32 + 22 * s;
-  const cy = 74 - 6 * abs(s);
-  const sh = -0.5 * s;
+  const [cx, cy, sh] = [32 + 22 * s, 74 - 6 * abs(s), -0.5 * s];
   for (let p = 0; p < N; p++) {
     const v = ((p / W) | 0) + 0.5 - cy;
     const u = (p % W) + 0.5 - cx - sh * v;
@@ -239,21 +202,23 @@ function sunPatch(S, s) {
 
 function newBee(S, x, y, h) {
   const u = rnd();
-  const b = { x, y, h, m: CRAWL, t: rnd() * 3, v: 2.6 + 2.6 * rnd(), s: 1.12 + 0.14 * rnd(), tone: u < 0.18 ? 0 : u < 0.82 ? 1 : 2, ph: rnd() * 6.28, w: 0, wag: 0, wp: 0, D: null };
+  const b = { x, y, h, m: CRAWL, t: rnd() * 3, v: 2.6 + 2.6 * rnd(), s: 1.12 + 0.14 * rnd(), tone: u < 0.18 ? 0 : u < 0.82 ? 1 : 2, ph: rnd() * 6.28, w: 0, wag: 0, wp: 0 };
   S.bees.push(b);
   return b;
 }
 
 // A bee to the dance floor on the lower comb, clear of the other dances.
 function spot(S) {
-  let x = 32;
-  let y = 90;
-  for (let k = 0; k < 30; k++) {
-    x = 16 + 32 * rnd();
-    y = 84 + 28 * rnd();
-    if (S.dances.every((D) => hypot(D.cx - x, D.cy - y) > 26)) break;
+  let best = [32, 104];
+  let far = -1;
+  for (let k = 0; k < 24; k++) {
+    const x = 12 + 40 * rnd();
+    const y = 80 + 33 * rnd();
+    // The lower the better, near the entrance, but well clear of the others.
+    const d = min(24, ...S.dances.map((D) => len(D.cx - x, D.cy - y))) + 0.1 * y;
+    if (d > far) [far, best] = [d, [x, y]];
   }
-  return [x, y];
+  return best;
 }
 
 function newDance(S, b, vig) {
@@ -268,7 +233,7 @@ function newDance(S, b, vig) {
     n: vig ? 26 : 9 + floor(10 * rnd()),
     amp: vig ? 1 : 0.65 + 0.2 * rnd(),
     want: vig ? 10 : 6 + floor(3 * rnd()),
-    on: false, foll: [], rec: 0,
+    on: false, foll: [], rec: 0, pc: floor(rnd() * 3),
   };
   D.th = D.fl - S.sunA;
   b.D = D;
@@ -278,8 +243,8 @@ function newDance(S, b, vig) {
 
 // The bees nearest the dance turn and gather round it.
 function recruit(S, D, snap) {
-  const free = S.bees.filter((b) => (b.m === CRAWL || b.m === REST) && hypot(b.x - D.cx, b.y - D.cy) < 24);
-  free.sort((a, b) => hypot(a.x - D.cx, a.y - D.cy) - hypot(b.x - D.cx, b.y - D.cy));
+  const free = S.bees.filter((b) => (b.m === CRAWL || b.m === REST) && len(b.x - D.cx, b.y - D.cy) < 24);
+  free.sort((a, b) => len(a.x - D.cx, a.y - D.cy) - len(b.x - D.cx, b.y - D.cy));
   for (const b of free) {
     if (D.foll.length >= D.want) break;
     b.m = FOLLOW;
@@ -288,7 +253,7 @@ function recruit(S, D, snap) {
     b.t = 5 + 10 * rnd();
     D.foll.push(b);
     if (snap) {
-      const R = D.L / 2 + 3.8;
+      const R = D.L / 2 + 3.4;
       b.x = D.cx + R * sin(b.a);
       b.y = D.cy - R * cos(b.a);
       b.h = b.a + PI;
@@ -297,9 +262,8 @@ function recruit(S, D, snap) {
 }
 
 function seek(b, tx, ty, sp, dt) {
-  const dx = tx - b.x;
-  const dy = ty - b.y;
-  const r = hypot(dx, dy);
+  const [dx, dy] = [tx - b.x, ty - b.y];
+  const r = len(dx, dy);
   if (r > 0.25) {
     const want = atan2(dx, -dy);
     const e = wrap(want - b.h);
@@ -314,12 +278,11 @@ function seek(b, tx, ty, sp, dt) {
 function stepDance(S, D, dt) {
   const b = D.b;
   D.th += clamp(wrap(D.fl - S.sunA - D.th), -1.5 * dt, 1.5 * dt);
-  const ux = sin(D.th);
-  const uy = -cos(D.th);
+  const [ux, uy] = [sin(D.th), -cos(D.th)];
   if (!D.on) {
     // The forager hurries up from the entrance to where she will dance.
     b.m = HOME;
-    if (seek(b, D.cx - (ux * D.L) / 2, D.cy - (uy * D.L) / 2, 9, dt) < 1.2) {
+    if (seek(b, D.cx - (ux * D.L) / 2, D.cy - (uy * D.L) / 2, D.n > 20 ? 13 : 9, dt) < 1.2) {
       D.on = true;
       b.m = DANCE;
       recruit(S, D, false);
@@ -353,8 +316,7 @@ function stepDance(S, D, dt) {
   } else {
     const s = (D.tau - D.tw) / D.tr;
     const ps = D.side * PI * s;
-    const rx = ux * cos(ps) - uy * sin(ps);
-    const ry = ux * sin(ps) + uy * cos(ps);
+    const [rx, ry] = [ux * cos(ps) - uy * sin(ps), ux * sin(ps) + uy * cos(ps)];
     b.x = D.cx + (rx * D.L) / 2;
     b.y = D.cy + (ry * D.L) / 2;
     want = atan2(-D.side * ry, -D.side * rx);
@@ -371,7 +333,7 @@ function stepDance(S, D, dt) {
   const da = atan2(b.x - D.cx, -(b.y - D.cy));
   for (const f of D.foll) {
     f.a += dt * 0.35 * sin(wrap(da - f.a));
-    const R = D.L / 2 + 3.8 + 0.4 * sin(S.t * 2 + f.ph);
+    const R = D.L / 2 + 3.4 + 0.4 * sin(S.t * 2 + f.ph);
     if (seek(f, D.cx + R * sin(f.a), D.cy - R * cos(f.a), 6, dt) < 1.2) f.h += clamp(wrap(atan2(b.x - f.x, -(b.y - f.y)) - f.h), -6 * dt, 6 * dt);
     if ((f.t -= dt) <= 0) {
       f.m = CRAWL;
@@ -387,20 +349,9 @@ function crawl(S, b, dt) {
   let want = null;
   const ex = b.x < 4 ? 1 : b.x > W - 4 ? -1 : 0;
   const ey = b.y < TOP + 4 ? 1 : b.y > BOT - 4 ? -1 : 0;
-  if (ex || ey) want = atan2(ex + (ey ? 0 : 0.01 * (32 - b.x)), -ey);
+  if (ex || ey) want = atan2(ex, -ey);
   b.h += b.w * dt;
   if (want !== null) b.h += clamp(wrap(want - b.h), -3 * dt, 3 * dt);
-  // Clear of the dances, unless following one.
-  for (const D of S.dances) {
-    const dx = b.x - D.cx;
-    const dy = b.y - D.cy;
-    const r = hypot(dx, dy);
-    if (D.on && r < D.L / 2 + 3) {
-      b.x += (dx / (r + 0.01)) * 3 * dt;
-      b.y += (dy / (r + 0.01)) * 3 * dt;
-      b.h += clamp(wrap(atan2(dx, -dy) - b.h), -3 * dt, 3 * dt);
-    }
-  }
   const st = b.v * dt;
   b.x += sin(b.h) * st;
   b.y -= cos(b.h) * st;
@@ -415,12 +366,16 @@ function step(S, dt) {
       if (seek(b, ENX, BOT + 1.5, 7, dt) < 1.5) b.out = true;
       continue;
     }
-    if (m === LEAVE) {
-      b.h += clamp(wrap((b.x < 32 ? -PI / 2 : PI / 2) - b.h), -3 * dt, 3 * dt);
-      b.x += sin(b.h) * b.v * dt;
-      b.y -= cos(b.h) * b.v * dt;
-      if (b.x < -5 || b.x > W + 5) b.out = true;
-      continue;
+    // Others give the dancer and her followers room.
+    for (const D of S.dances) {
+      const [dx, dy] = [b.x - D.cx, b.y - D.cy];
+      const r = len(dx, dy);
+      if (D.on && r < D.L / 2 + 9) {
+        if (m !== CRAWL) b.t = 0;
+        b.x += (dx / (r + 0.01)) * 4 * dt;
+        b.y += (dy / (r + 0.01)) * 4 * dt;
+        b.h += clamp(wrap(atan2(dx, -dy) - b.h), -4 * dt, 4 * dt);
+      }
     }
     if (m === CRAWL) crawl(S, b, dt);
     else if (m === REST) b.h += sin(S.t * 6 + b.ph) * 0.5 * dt;
@@ -445,10 +400,8 @@ function step(S, dt) {
         const t = S.type[i];
         if (t !== HONEY && t !== BROOD) {
           const r = floor(i / NC);
-          const c = i % NC;
-          b.m = DIP;
-          b.t = 2 + 4 * rnd();
-          b.x = cellX(r, c) - sin(b.h) * 1.5;
+          [b.m, b.t] = [DIP, 2 + 4 * rnd()];
+          b.x = cellX(r, i % NC) - sin(b.h) * 1.5;
           b.y = cellY(r) + cos(b.h) * 1.5;
         }
       }
@@ -458,52 +411,36 @@ function step(S, dt) {
   S.dances = S.dances.filter((D) => !D.gone);
   for (const b of bees) if (b.D && (b.D.gone || (b.m !== FOLLOW && b.m !== DANCE && b.m !== HOME))) b.D = null;
   // Bees shoulder each other apart; those still at a cell or dancing stand firm.
-  const G = S.grid;
-  for (const k of G) k.length = 0;
-  for (const b of bees) {
-    const gx = clamp(floor(b.x / 8), 0, 7);
-    const gy = clamp(floor(b.y / 8), 0, 15);
-    G[gy * 8 + gx].push(b);
-  }
   for (const a of bees) {
     if (a.m === REST || a.m === DIP || a.m === DANCE) continue;
-    const gx = clamp(floor(a.x / 8), 0, 7);
-    const gy = clamp(floor(a.y / 8), 0, 15);
-    for (let j = max(0, gy - 1); j <= min(15, gy + 1); j++)
-      for (let i = max(0, gx - 1); i <= min(7, gx + 1); i++)
-        for (const b of G[j * 8 + i]) {
-          if (b === a) continue;
-          const dx = a.x - b.x;
-          const dy = a.y - b.y;
-          const r = hypot(dx, dy);
-          if (r < 3.6 && r > 0.01) {
-            const k = (3.6 - r) * 0.25;
-            a.x += (dx / r) * k;
-            a.y += (dy / r) * k;
-          }
-        }
+    for (const b of bees) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      if (abs(dx) > 3.6 || abs(dy) > 3.6 || b === a) continue;
+      const r = len(dx, dy);
+      if (r < 3.6 && r > 0.01) {
+        a.x += (dx / r) * (3.6 - r) * 0.25;
+        a.y += (dy / r) * (3.6 - r) * 0.25;
+      }
+    }
   }
   S.bees = bees.filter((b) => !b.out);
 }
 
 export function setup(params) {
-  const S = {
-    t: 0, started: false, sunA: 0, sunK: 9, next: 6, add: 0,
-    cid: new Int16Array(N), cid2: new Int16Array(N), hd: new Float32Array(N), dx: new Float32Array(N), dy: new Float32Array(N),
-    type: new Uint8Array(NR * NC), age: new Float32Array(NR * NC), tint: new Float32Array(NR * NC), gap: new Float32Array(NR * NC), pol: new Uint8Array(NR * NC),
-    base: new Float32Array(N * 3), expo: new Float32Array(N), A: new Float32Array(N * 3), X: new Float32Array(N),
-    amb: new Float32Array(N), pool: new Float32Array(N), sun: new Float32Array(N), jit: new Float32Array(N * 3),
-    bees: [], dances: [], grid: Array.from({ length: 128 }, () => []),
-    c0: 4.2, c1: 8.5, cd: 0.7,
-  };
+  const S = { t: 0, started: false, sunA: 0, sunK: 9, next: 6, add: 0, c0: 4.2, c1: 8.5, cd: 0.7, bees: [], dances: [] };
+  for (const k of ["cid", "cid2"]) S[k] = new Int16Array(N);
+  for (const k of ["hd", "dx", "dy", "expo", "X", "amb", "pool", "sun"]) S[k] = new Float32Array(N);
+  for (const k of ["base", "A", "jit"]) S[k] = new Float32Array(N * 3);
+  for (const k of ["age", "tint", "gap"]) S[k] = new Float32Array(NR * NC);
+  for (const k of ["type", "pol"]) S[k] = new Uint8Array(NR * NC);
   grid(S);
   layout(S);
   paint(S);
   for (let p = 0; p < N; p++) {
-    const x = p % W;
-    const y = (p / W) | 0;
-    S.amb[p] = 0.84 + 0.12 * (1 - y / H) + 0.1 * (vn(x * 0.05, y * 0.04) - 0.5) - 0.12 * ((x - 31.5) / 32) ** 4;
-    S.pool[p] = 0.4 + 0.65 * exp(-((x - 42) ** 2 + (y - 46) ** 2) / 2600);
+    const [x, y] = [p % W, (p / W) | 0];
+    S.amb[p] = 0.74 + 0.2 * (1 - y / H) + 0.03 * sin(x * 0.11 + y * 0.05) - 0.12 * ((x - 31.5) / 32) ** 4;
+    S.pool[p] = 0.42 + 0.6 * exp(-((x - 40) ** 2 + (y - 74) ** 2) / 3000);
     const j = 0.94 + 0.12 * hash(p, 19);
     for (let c = 0; c < 3; c++) S.jit[p * 3 + c] = j * (0.97 + 0.06 * hash(p, 20 + c));
   }
@@ -526,8 +463,8 @@ function start(S, n) {
     const D = newDance(S, b, false);
     D.fl = k ? 0.08 : -0.1;
     D.th = D.fl - S.sunA;
-    D.cx = k ? 22 : 40;
-    D.cy = k ? 109 : 90;
+    D.cx = k ? 20 : 43;
+    D.cy = k ? 111 : 102;
     D.on = true;
     b.m = DANCE;
     D.tau = rnd() * (D.tw + D.tr);
@@ -571,7 +508,7 @@ export function update(dt, input, params) {
     }
     if (!vig) S.next = 5 + 8 * rnd();
   }
-  // Bees walk in from the sides, or wander off them, to match the knob.
+  // Bees walk in from the sides, or go out at the entrance, to match the knob.
   let ord = 0;
   for (const b of S.bees) if (b.m <= FOLLOW) ord++;
   if ((S.add -= dt) <= 0) {
@@ -581,7 +518,7 @@ export function update(dt, input, params) {
       newBee(S, l ? -3 : W + 3, TOP + 8 + (BOT - TOP - 16) * rnd(), l ? PI / 2 : -PI / 2).t = 1.5;
     } else if (ord > want + 2) {
       const b = S.bees.find((b) => b.m === CRAWL);
-      if (b) b.m = LEAVE;
+      if (b) b.m = EXIT;
     }
   }
   step(S, d);
@@ -591,52 +528,48 @@ export function update(dt, input, params) {
 // then her shadow a step down and right, head, thorax, banded abdomen, wings.
 const PC = new Float32Array(144);
 const PP = new Uint8Array(144);
-const PU = new Float32Array(144);
-const PV = new Float32Array(144);
 function bee(S, b) {
   const { A, X } = S;
-  const s = b.s;
-  const fx = sin(b.h);
-  const fy = -cos(b.h);
-  const dip = b.m === DIP;
-  const wg = b.wag > 0;
+  const [s, fx, fy, dip, wg] = [b.s, sin(b.h), -cos(b.h), b.m === DIP, b.wag > 0];
   const wag = wg ? b.wag * sin(b.wp) : b.m === REST ? 0.15 * sin(S.t * 9 + b.ph) : 0;
-  const bl = wg ? 0.4 : 0;
-  const th = THX[b.tone];
-  const am = AMB[b.tone];
+  const [bl, th, am] = [wg ? 0.4 : 0, THX[b.tone], AMB[b.tone]];
   const shim = 0.24 + 0.14 * sin(S.t * 2.3 + b.ph + b.x * 0.3);
-  const x0 = floor(b.x) - 5;
-  const y0 = floor(b.y) - 5;
-  for (let j = 0, k = 0; j < 12; j++)
-    for (let i = 0; i < 12; i++, k++) {
+  // A box round her, the whole patch for a dancer and her blur.
+  const ax = wg ? 5 : s * (3.2 * abs(fx) + 1.9 * abs(fy)) + 0.5;
+  const ay = wg ? 5 : s * (3.2 * abs(fy) + 1.9 * abs(fx)) + 0.5;
+  const [x0, y0] = [floor(b.x - ax), floor(b.y - ay)];
+  const nw = min(12, floor(b.x + ax) - x0 + 2);
+  const nh = min(12, floor(b.y + ay) - y0 + 2);
+  for (let j = 0, k = 0; j < nh; j++)
+    for (let i = 0; i < nw; i++, k++) {
       const X0 = x0 + i + 0.5 - b.x;
       const Y0 = y0 + j + 0.5 - b.y;
       const u = (X0 * fx + Y0 * fy) / s;
       const v = (Y0 * fx - X0 * fy) / s - wag * (0.3 + 0.7 * clamp(-u / 2.5, 0, 1));
       PC[k] = shape(u, v, s, dip, bl);
       PP[k] = PART;
-      PU[k] = u;
-      PV[k] = v;
     }
-  for (let j = 0, k = 0; j < 12; j++)
-    for (let i = 0; i < 12; i++, k++) {
+  for (let j = 0, k = 0; j < nh; j++)
+    for (let i = 0; i < nw; i++, k++) {
       const px = x0 + i;
       const py = y0 + j;
+      const c = PC[k];
       if (px < 0 || px >= W || py < 0 || py >= H) continue;
       const p = py * W + px;
       const q = p * 3;
-      const c = PC[k];
-      const sh = i && j ? PC[k - 13] : 0;
+      const sh = i && j ? PC[k - nw - 1] : 0;
       if (sh > 0) {
         const f = 1 - 0.7 * sh * (1 - c);
         A[q] *= f;
         A[q + 1] *= f;
         A[q + 2] *= f;
       }
-      const u = PU[k];
-      const v = PV[k];
+      const X0 = px + 0.5 - b.x;
+      const Y0 = py + 0.5 - b.y;
+      const u = (X0 * fx + Y0 * fy) / s;
+      const v = (Y0 * fx - X0 * fy) / s - wag * (0.3 + 0.7 * clamp(-u / 2.5, 0, 1));
       // A waggling dancer buzzes her wings into a pale blur round her.
-      let wa = wg ? 0.55 * clamp(1.6 - hypot((u + 0.7) / 1.5, v / 1.7), 0, 1) : 0;
+      let wa = wg ? 0.55 * clamp(1.6 - len((u + 0.7) / 1.5, v / 1.7), 0, 1) : 0;
       if (c <= 0 && wa <= 0) continue;
       let r, g, bb;
       const pt = PP[k];
@@ -658,20 +591,31 @@ function bee(S, b) {
       A[q + 2] += (bb - A[q + 2]) * a;
       X[p] += (1 - X[p]) * a;
     }
+  // A forager home from the field carries her pollen loads on her hind legs.
+  if (b.D && (b.m === DANCE || b.m === HOME)) {
+    const c = POLLENS[b.D.pc];
+    for (const sd of [-1, 1]) {
+      const px = round(b.x + s * (-0.7 * fx - sd * 1.25 * fy) - 0.5);
+      const py = round(b.y + s * (-0.7 * fy + sd * 1.25 * fx) - 0.5);
+      if (px < 0 || px >= W || py < 0 || py >= H) continue;
+      const q = (py * W + px) * 3;
+      [A[q], A[q + 1], A[q + 2], X[py * W + px]] = [...c, 1];
+    }
+  }
 }
 
 // Coverage of a bee's body at (u along, v across) in body lengths of
 // about five LEDs; PART says which piece.
 let PART = 0;
 function shape(u, v, s, dip, bl) {
-  let c = clamp((1 - hypot((u + 1.3) / 1.5, v / (1.12 + bl))) * 1.2 * s + 0.5, 0, 1);
+  let c = clamp((1 - len((u + 1.3) / 1.5, v / (1.12 + bl))) * 1.2 * s + 0.5, 0, 1);
   PART = 3;
   if (!dip || u < 0.3) {
-    const k = clamp((1 - hypot((u - 0.5) / 0.8, v)) * 0.9 * s + 0.5, 0, 1);
+    const k = clamp((1 - len((u - 0.5) / 0.8, v)) * 0.9 * s + 0.5, 0, 1);
     if (k > c) [c, PART] = [k, 2];
   }
   if (!dip) {
-    const k = clamp((1 - hypot((u - 1.65) / 0.6, v / 0.75)) * 0.7 * s + 0.5, 0, 1);
+    const k = clamp((1 - len((u - 1.65) / 0.6, v / 0.75)) * 0.7 * s + 0.5, 0, 1);
     if (k > c) [c, PART] = [k, 1];
   }
   return c;
@@ -689,10 +633,10 @@ export function draw(display, params) {
   for (const b of S.bees) if (b.m === DANCE) bee(S, b);
   // Daylight warms and fades as the curtain closes, the sun goes first, and the red lamp comes up.
   const L = S.light;
-  const day = (1 - sm(0.1, 0.85, L)) * 255;
-  const dc = [day, day * (0.94 - 0.2 * L), day * (0.82 - 0.35 * L)];
-  const sk = 0.65 * S.cloud * (1 - sm(0.05, 0.55, L)) * 255;
-  const red = 0.85 * sm(0.3, 0.95, L) * 255;
+  const day = (1 - sm(0.05, 0.62, L)) * 255;
+  const dc = [day, day * (0.94 - 0.4 * L), day * (0.82 - 0.7 * L)];
+  const sk = 0.9 * S.cloud * (1 - sm(0, 0.45, L)) * 255;
+  const red = 0.9 * sm(0.2, 0.72, L) * 255;
   for (let p = 0; p < N; p++) {
     const q = p * 3;
     const a = amb[p];
