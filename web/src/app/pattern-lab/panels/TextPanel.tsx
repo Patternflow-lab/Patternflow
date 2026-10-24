@@ -45,7 +45,7 @@ import {
   type TextFill,
   type TextLayer,
 } from "@/lib/lab/types";
-import { knobArrowValue } from "@/lib/pattern/controls";
+import { knobArrowValue, normalizeKnob } from "@/lib/pattern/controls";
 import type { CodeCopyState } from "./pixel/PixelToolbars";
 import local from "./TextPanel.module.css";
 import dock from "../LabPanels.module.css";
@@ -81,8 +81,7 @@ const EFFECT_SPEED: Record<Exclude<TextEffect, "none">, string> = {
 /** Where a knob sits in its range, 0..1, the way the effect reads it. */
 function knobShare(value: number | undefined, range: [number, number] | undefined): number {
   if (value === undefined || !range) return 0;
-  const share = (value - range[0]) / Math.max(0.0001, range[1] - range[0]);
-  return Math.max(0, Math.min(1, share));
+  return Math.max(0, Math.min(1, normalizeKnob(value, range)));
 }
 
 const COPY_LABEL: Record<CodeCopyState, string> = {
