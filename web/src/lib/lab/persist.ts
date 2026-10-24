@@ -11,9 +11,11 @@
 // _project_v2 project. A key whose feature is gone stays listed here with the
 // date, so the lab can still remove it (legacyDraft.ts dropAiGallery).
 //
-// One thing the lab keeps is not in localStorage: font files a text layer was
-// set in, when the person ticks remember. Those are IndexedDB, the database
-// patternflow_lab_fonts_v1, because a font is megabytes (textFonts.ts).
+// Two things the lab keeps are not in localStorage. Font files a text layer
+// was set in, when the person ticks remember, are IndexedDB, the database
+// patternflow_lab_fonts_v1, because a font is megabytes (textFonts.ts). The
+// answers pasted into To hardware are sessionStorage, for the tab only, under
+// patternflow_lab_hardware_pastes_v1 (hardwarePastes.ts).
 
 export const LAB_STORAGE = {
   /** The whole layered project — layers, knobs, ramps, director, prompt colour mode. serialize.ts */
