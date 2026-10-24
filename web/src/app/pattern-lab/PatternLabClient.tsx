@@ -41,7 +41,15 @@ import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store
 import type { CodeLayer } from "@/lib/lab/types";
 import HardwareModal from "./HardwareModal";
 import { openIncomingPattern } from "./openIncomingPattern";
-import { PANELS, buildDefaultLayout, isNarrowDock, panelComponents, panelDef, type PanelId } from "./panels/registry";
+import {
+  PANELS,
+  buildDefaultLayout,
+  isNarrowDock,
+  panelComponents,
+  panelDef,
+  togglePanel,
+  type PanelId,
+} from "./panels/registry";
 
 import styles from "./PatternLab.module.css";
 import dock from "./LabPanels.module.css";
@@ -311,14 +319,17 @@ export default function PatternLabClient() {
     [syncOpenPanels],
   );
 
-  const togglePanel = (id: PanelId, title: string) => {
+  // Opening and closing leave the menu up for the next panel. Fronting one is
+  // going to it, so the menu gets out of the way: at 390×844 it covered 30%
+  // of the panel it had just brought forward.
+  const pickPanel = (id: PanelId) => {
     const api = apiRef.current;
     if (!api) return;
-    const existing = api.getPanel(id);
-    if (existing) {
-      api.removePanel(existing);
-    } else {
-      api.addPanel({ id, component: id, title });
+    if (togglePanel(api, id) === "fronted") {
+      const wrap = panelsMenuRef.current;
+      const hadFocus = wrap?.contains(document.activeElement) ?? false;
+      setPanelsMenuOpen(false);
+      if (hadFocus) wrap?.querySelector<HTMLElement>("[aria-expanded]")?.focus();
     }
     syncOpenPanels(api);
   };
@@ -499,7 +510,7 @@ export default function PatternLabClient() {
                     key={def.id}
                     type="button"
                     aria-pressed={openPanels.has(def.id)}
-                    onClick={() => togglePanel(def.id, def.title)}
+                    onClick={() => pickPanel(def.id)}
                   >
                     {def.title}
                     <em aria-hidden="true">{openPanels.has(def.id) ? "●" : "○"}</em>

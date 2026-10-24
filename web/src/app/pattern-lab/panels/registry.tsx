@@ -92,6 +92,31 @@ export function panelDef(id: string): PanelDef | undefined {
   return PANELS.find((entry) => entry.id === id);
 }
 
+export type PanelPress = "opened" | "fronted" | "closed";
+
+/**
+ * A press on a panel's name in the Panels menu. A closed panel opens, a panel
+ * in front closes, and an open panel behind another tab comes to the front.
+ *
+ * The menu marks every open panel ●, in front or not. On a phone every panel
+ * but Preview is a tab in one group, so Knobs wore a ● while Code covered it,
+ * and pressing it closed the panel it was meant to show. A second press put
+ * it back as the last tab: four presses to reach Knobs at 390×844.
+ */
+export function togglePanel(api: DockviewApi, id: PanelId): PanelPress {
+  const existing = api.getPanel(id);
+  if (!existing) {
+    api.addPanel({ id, component: id, title: panelDef(id)?.title ?? id });
+    return "opened";
+  }
+  if (!existing.api.isVisible) {
+    existing.api.setActive();
+    return "fronted";
+  }
+  api.removePanel(existing);
+  return "closed";
+}
+
 /** What DockviewReact wants: component name → component. Names are panel ids. */
 export const panelComponents: Record<string, FunctionComponent<IDockviewPanelProps>> = Object.fromEntries(
   PANELS.map((entry) => [entry.id, entry.component as FunctionComponent<IDockviewPanelProps>]),
