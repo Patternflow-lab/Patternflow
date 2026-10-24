@@ -122,8 +122,8 @@ function reset(st, L, k, pred) {
   st.next = -log(1 - Math.random()) / rate(st);
 }
 
-// Run a street's clock on to t: each try that lands in a feasible stretch
-// parks a car there, uniformly, and tries that land anywhere else are
+// Run a street's clock on to t: a try that lands in a feasible stretch
+// parks a car at a uniform place in it. Tries that land anywhere else are
 // turned away and change nothing, so only the successes are drawn, at the
 // rate of the feasible stretch. Each car keeps the share of the street that
 // was already parked when it came.
@@ -186,7 +186,7 @@ export function update(dt, input, params) {
   P.phase += d * P.speed * 2;
   while (P.phase >= 1) {
     P.phase -= 1;
-    // The bottom street leaves, jammed, and comes back empty at the top.
+    // The jammed bottom street leaves and comes back empty at the top.
     const bottom = P.streets[(P.head + H - 1) % H];
     if (bottom.L === P.L && bottom.k === P.k) {
       P.outs[P.outI] = (bottom.n * bottom.L) / S;

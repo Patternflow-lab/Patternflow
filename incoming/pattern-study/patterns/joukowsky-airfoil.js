@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Joukowsky Airfoil
 // Family:  physics
-// Idea:    A cambered Joukowsky wing 44 rows long stands in the middle of the panel with the ideal flow running down past it, faint streamlines bending round it, while lines of dye let go across the top row once a second come down, wrap the rounded nose where they split at a red stagnation point, and leave the sharp trailing edge with the half that went over the suction side well ahead of the half that went under, a lead that grows with the angle of attack and is gone when the circulation is taken away.
+// Idea:    A cambered Joukowsky wing 44 rows long stands in the middle of the panel with the ideal flow running down past it, faint stream lines bending round it, while lines of dye let go across the top row once a second come down, wrap the rounded nose where they split at a red stagnation point, and leave the sharp trailing edge with the half that went over the suction side well ahead of the half that went under, a lead that grows with the angle of attack and is gone when the circulation is taken away.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -88,7 +88,7 @@ function toZeta(F, X, Y, o) {
   else (o[0] = br), (o[1] = bi), (o[2] = db);
 }
 
-// When the fluid at an LED crossed the top row: back along its streamline,
+// When the fluid at an LED crossed the top row: back along its stream line,
 // in the ζ-plane where the wing is a circle and easy to keep out of, adding
 // up time. Midpoint steps of 0.35 LED by the surface, up to 3 LEDs and 3
 // time units away from it.
@@ -191,7 +191,7 @@ function paint(P, Fd, wgt, rgb) {
   const { T, G, psi, sp, body } = Fd, pal = P.pal;
   for (let p = 0, o = 0; p < NP; p++, o += 3) {
     let r = 0.012, g = 0.016, b = 0.05;
-    // Streamlines every 6 units of ψ, about one LED wide wherever they are.
+    // Stream lines every 6 units of ψ, about one LED wide wherever they are.
     const u = psi[p] / SPACE, du = (abs(u - round(u)) * SPACE) / max(0.05, sp[p]), sl = 0.15 * exp(-2 * du * du);
     r += sl * 0.45;
     g += sl * 0.55;
