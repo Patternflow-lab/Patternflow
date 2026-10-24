@@ -12,7 +12,7 @@
 // @knobs Light=0..1, Speed=0.2..3, Dogs=8..14, Wind=0..1
 //
 // Knob 1: Light. A low gold sun at 0, each dog's shadow nearly three times its height; at a third the sun sits on the horizon in rose light with longer shadows; blue twilight at 0.6; at 1 moonlight from the other side and green aurora light on the snow.
-// Knob 2: Speed. At 2 the team covers 18 LEDs a second and each dog takes about one and a half strides; 0.2 is ten times slower.
+// Knob 2: Speed. At 2 the team covers 20 LEDs a second and each dog takes about one and a half strides; 0.2 is ten times slower.
 // Knob 3: Dogs. Eight dogs in four pairs up to fourteen in seven; an odd number runs a single lead dog in front.
 // Knob 4: Wind. Turned up from calm, spindrift streams along the sastrugi in thicker, faster ribbons and blows the dogs' breath away; at 1 it hazes the ice.
 // Buttons: K1 tap: the musher calls gee or haw and the lead pair swings the team hard toward the middle of the ice, then back to the trail. K2 tap stops the team to rest; tap again, or wait ten seconds, and it runs on.
@@ -44,7 +44,7 @@ function vn(x, y) {
 const GX = -0.8, GY = 0.6;
 // K1 stops: direct rgb, sky rgb, tan of elevation, aurora.
 const KL = [
-  [0, 190, 134, 52, 66, 96, 162, 0.36, 0],
+  [0, 208, 146, 56, 64, 94, 160, 0.3, 0],
   [0.33, 205, 122, 44, 60, 80, 142, 0.17, 0],
   [0.6, 0, 0, 0, 84, 112, 186, 0.2, 0],
   [1, 52, 64, 92, 12, 22, 52, 0.32, 1],
@@ -59,7 +59,7 @@ const COAT = [
 ].map((c) => [0, 3, 6].map((j) => Float64Array.from(c.slice(j, j + 3), (v) => v / 255)));
 const HARN = [0.16, 0.32, 0.8], LINE = [0.2, 0.17, 0.22], WOOD = [0.62, 0.46, 0.3], DARK = [0.26, 0.18, 0.12], LOAD = [0.44, 0.34, 0.24], RED = [0.78, 0.15, 0.1], FUR = [0.74, 0.66, 0.54];
 // Side views as capsules (a, h, a, h, r): a dog; the sled and musher.
-const DOG = [-2, 2.75, 1.2, 2.95, 0.95, 1.2, 3.2, 2.7, 3.95, 0.6, 2.7, 3.95, 3.9, 3.65, 0.42, 2.55, 4.4, 2.7, 5, 0.22, -2.2, 3.2, -2.6, 4.2, 0.42, -2.6, 4.2, -1.8, 4.7, 0.36];
+const DOG = [-2, 2.75, 1.2, 2.95, 0.82, 1.2, 3.2, 2.7, 3.95, 0.6, 2.7, 3.95, 3.9, 3.65, 0.42, 2.55, 4.4, 2.7, 5, 0.22, -2.2, 3.2, -2.6, 4.2, 0.42, -2.6, 4.2, -1.8, 4.7, 0.36];
 const SLD = [-1.5, 0.8, 14.5, 0.8, 0.55, 5.5, 1.8, 11.5, 1.8, 1, 2.6, 0.8, 2.6, 5.8, 0.3, 0.45, 0, 0.7, 5, 0.6, 0.7, 5, 0.9, 9, 1.15, 1, 10.2, 1, 10.3, 0.85, 1, 8.4, 2.5, 6, 0.4];
 
 export function setup(params) {
@@ -68,8 +68,8 @@ export function setup(params) {
     HT: F32(RN), AL: U8(RN * 3), MT: U8(RN), MK: U8(RN), LI: F32(RN), SQ: F32(RN), GN: new Int32Array(RN), gen: 1,
     HL: F32(HW * HH), AM: F32(TW * TH * 3), DI: F32(TW * TH * 3), SM: F32(TW * TH), F: F32(N * 3), L: new Float64Array(9), TM: U8(1200), LC: new Float64Array(3),
     PX: F32(PL), PY: F32(PL), np: PL, acc: 0.01, DX: F32(16), DY: F32(16), DF: F32(16), DO: F32(16), DC: U8(16), BX: F32(256), BY: F32(256), BA: F32(256), bi: 0,
-    lx: 0.01, ly: 0.01, th: 0.01, v: 18, vt: 18, ph: 0.01, t: 0.01, cx: -30, cy: -18, gy: 230, nd: 8, sbx: 0.01, sby: 0.01, sfx: 0.01, sfy: 0.01, ux: 0.01, uy: 0.01, run: 0.01,
-    rest: 0, restT: 0.01, turn: 1, turnT: 0.01, k1: -1, k4: 0.06, wind: 0.01, live: 0, cpY: [400, 20], cpX: [0, 0], feat: [], nf: 0, sk: 0,
+    lx: 0.01, ly: 0.01, th: 0.01, v: 20, vt: 20, ph: 0.01, t: 0.01, cx: -30, cy: -18, gy: 230, nd: 8, sbx: 0.01, sby: 0.01, sfx: 0.01, sfy: 0.01, ux: 0.01, uy: 0.01, run: 0.01, pt: 15.4,
+    rest: 0, restT: 0.01, turn: 1, turnT: 0.01, k1: -1, k4: 0.06, wind: 0.01, live: 0, cpY: [400, 50], cpX: [0, 0], feat: [], nf: 0, sk: 0,
   });
   for (let k = 0; k < PL; k++) S.PY[k] = (PL - 1 - k) * 0.5;
   for (let i = 0; i < 16; i++) (S.DO[i] = hash(i, 3)), (S.DC[i] = floor(hash(i, 8) * 5));
@@ -89,9 +89,9 @@ function trailX(S, y) {
 // Each obstacle lies across the way on; the trail swings round its end.
 function plan(S) {
   const Y = S.cpY, X = S.cpX, ly = Y[Y.length - 1], lx = X[X.length - 1];
-  if (S.sk++ % 3 === 2) return Y.push(ly - 50 - 30 * rnd()), X.push(cl(lx + (rnd() - 0.5) * 40, -32, 32));
-  const side = abs(lx) > 6 ? (lx > 0 ? 1 : -1) : rnd() < 0.5 ? 1 : -1, x0 = cl(lx - side * (16 + 12 * rnd()), -40, 40), y0 = ly - 50 - 20 * rnd(), sd = floor(rnd() * 999), ph = rnd() * 6;
-  Y.push(y0, y0 - 50 - 20 * rnd()), X.push(x0, cl(x0 + side * (18 + 12 * rnd()), -34, 34));
+  if (S.sk++ % 3 === 2) return Y.push(ly - 60 - 30 * rnd()), X.push(cl(lx + (rnd() - 0.5) * 20, -24, 24));
+  const side = abs(lx) > 6 ? (lx > 0 ? 1 : -1) : rnd() < 0.5 ? 1 : -1, x0 = cl(lx - side * (9 + 5 * rnd()), -30, 30), y0 = ly - 60 - 20 * rnd(), sd = floor(rnd() * 999), ph = rnd() * 6;
+  Y.push(y0, y0 - 60 - 20 * rnd()), X.push(x0, cl(x0 + side * (9 + 6 * rnd()), -24, 24));
   if (S.nf++ % 2 === 0) {
     // A pressure ridge, square to the sun.
     const a = -side * (0.5 + 0.4 * rnd()), len = 60 + 40 * rnd(), dx = side * cos(a), dy = sin(a);
@@ -109,7 +109,7 @@ function genRow(S, y) {
     // Sastrugi: crests with a long back to the sun and a steep lee face, broken into pieces.
     const x = i - XO, u = x * GX + y * GY, v = -x * GY + y * GX, c = v * 0.085 + 2.4 * vn(u * 0.012, v * 0.012) + 0.7 * vn(u * 0.045, v * 0.03 + 20), cf = c - floor(c), ci = floor(c);
     const sa = (cf < 0.25 ? cf / 0.25 : (1 - cf) / 0.75) * sm(0.42, 0.75, vn(u * 0.06 + ci * 7.3, ci * 3.1)) * (0.25 + 0.75 * sm(0.3, 0.6, vn(x * 0.022 + 70, y * 0.022)));
-    let h = 0.8 * sa * sa + 0.15 * vn(u * 0.09 + 50, v * 0.34) + vn(x * 0.017 + 9, y * 0.017) - 0.5;
+    let h = 0.95 * sa * sa + 0.15 * vn(u * 0.09 + 50, v * 0.34) + vn(x * 0.017 + 9, y * 0.017) - 0.5;
     const g = 0.955 + 0.045 * hash(x, y);
     let ar = 0.9 * g, ag = 0.94 * g, ab = g, mt = 0;
     for (const f of fs) {
@@ -159,9 +159,10 @@ function pathAt(S, s) {
 }
 // Dogs in pairs on the path, the sled behind.
 function layout(S) {
-  const n = S.nd, odd = n & 1, sf = (((n + 1) >> 1) - 1) * PITCH + 8 * Z;
+  // Long teams close up to fit the panel.
+  const n = S.nd, odd = n & 1, pt = (S.pt = min(PITCH, 76 / (((n + 1) >> 1) - 1))), sf = (((n + 1) >> 1) - 1) * pt + 8 * Z;
   for (let i = 0; i < n; i++) {
-    const side = odd && !i ? 0 : (odd ? i - 1 : i) & 1 ? 1 : -1, s = ((i + odd) >> 1) * PITCH + 0.6 * (S.DO[i] - 0.5) + (side > 0 ? 0.5 : 0);
+    const side = odd && !i ? 0 : (odd ? i - 1 : i) & 1 ? 1 : -1, s = ((i + odd) >> 1) * pt + 0.6 * (S.DO[i] - 0.5) + (side > 0 ? 0.5 : 0);
     pathAt(S, s - 1);
     const ax = PP[0], ay = PP[1];
     pathAt(S, s + 1);
@@ -180,7 +181,7 @@ function step(S, d, k4) {
   S.v += ((S.rest ? 0 : S.vt) - S.v) * min(1, d * (S.rest ? 1.6 : 0.9));
   const v = S.v, rate = 0.065 * v * d;
   // The lead dog aims 22 LEDs up the trail, or swings on a call.
-  let des = S.turnT > 0 ? ((S.turnT -= d), S.turn * 1.15) : cl(atan2(trailX(S, S.ly - 22) - S.lx, 22), -0.85, 0.85);
+  let des = S.turnT > 0 ? ((S.turnT -= d), S.turn * 1.15) : cl(atan2(trailX(S, S.ly - 22) - S.lx, 22), -0.5, 0.5);
   if (abs(S.lx) > 44) des = S.lx > 0 ? -0.6 : 0.6;
   S.th += cl(des - S.th, -rate, rate);
   const dist = v * d, fx = sin(S.th), fy = -cos(S.th), oph = S.ph;
@@ -201,9 +202,9 @@ function step(S, d, k4) {
   }
   const ux = S.ux, uy = S.uy;
   for (let e = -1; e <= dist - 0.5; e += 0.5) for (let r = -2 * Z; r < 3 * Z; r += 4 * Z) stamp(S, S.sbx - uy * r + ux * e, S.sby + ux * r + uy * e, 0.3, 2);
-  // The camera follows the lead dog.
+  // The camera keeps the musher at row 118.
   S.cx += ((S.lx + S.sbx) / 2 - 32 + (S.k1 < 0.6 ? 6 : -6) - S.cx) * min(1, d * 1.5);
-  S.cy = max(S.ly - 18, S.sby - 118);
+  S.cy = S.sby - 118;
   while (S.gy > S.cy - 40) genRow(S, --S.gy);
   while (S.cpY[S.cpY.length - 1] > S.ly - 420) plan(S);
   while (S.cpY.length > 4 && S.cpY[2] > S.ly + 300) S.cpY.shift(), S.cpX.shift();
@@ -233,7 +234,7 @@ function cap(a, b, a0, b0, a1, b1, r) {
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 8, 0.06], k1 = cl(k[0], 0, 1), b = input.btnPressed || [];
-  (S.vt = 9 * cl(k[1], 0.2, 3)), (S.nd = cl(Math.round(k[2]), 8, 14)), (S.k4 = cl(k[3], 0, 1));
+  (S.vt = 10 * cl(k[1], 0.2, 3)), (S.nd = cl(Math.round(k[2]), 8, 14)), (S.k4 = cl(k[3], 0, 1));
   if (k1 !== S.k1) {
     // New light: all ice is lit again.
     let i = 0;
@@ -324,12 +325,12 @@ export function draw(display, params) {
   // Spindrift, under the dogs.
   for (let c = 0; c < 3; c++) LC[c] = L[4 + c] * 0.8 + L[1 + c] * 0.9;
   if (k4 > 0.01) {
-    const th = 0.68 - 0.3 * k4, hz = 0.16 * k4 * k4;
+    const th = 0.68 - 0.36 * k4, hz = 0.24 * k4 * k4;
     for (let y = 0, i = 0; y < H; y++)
       for (let x = 0; x < W; x++, i++) {
         const wx = x + cx, wy = y + cy, al = wx * GX + wy * GY - S.wind, ac = -wx * GY + wy * GX, n1 = 0.62 * vn(al * 0.055, ac * 0.325);
         if (n1 + 0.38 < th && hz < 0.004) continue;
-        const q = sm(th, th + 0.25, n1 + 0.38 * vn(al * 0.125 + 17, ac * 0.65 + 5)) * (0.4 + 0.5 * k4) * 0.85 + hz, p = i * 3;
+        const q = sm(th, th + 0.25, n1 + 0.38 * vn(al * 0.125 + 17, ac * 0.65 + 5)) * (0.4 + 0.6 * k4) * 0.9 + hz, p = i * 3;
         for (let c = 0; c < 3; c++) F[p + c] += ((LC[c] + 25 + 7.5 * c) * 1.1 - F[p + c]) * q;
       }
   }
@@ -354,13 +355,13 @@ function shadowOf(x, y, Fx, Fy, Kx, Ky, A, Hh, P, bob, withLegs) {
       const rx = (px + 0.5 - x) / Z, ry = (py + 0.5 - y) / Z, a = (rx * Ky - ry * Kx) / det, h = (Fx * ry - Fy * rx) / det, i = py * TW + px;
       if (h < -0.6 || h > Hh || a < -A || a > A) continue;
       let d = side(P, a, h, bob);
-      for (let o = 0; o < 24 && withLegs && h < 3.2; o += 6) if (abs(a - LG[o + 2]) < 2.2) d = min(d, cap(a, h, LG[o], LG[o + 1], LG[o + 2], LG[o + 3], 0.42), cap(a, h, LG[o + 2], LG[o + 3], LG[o + 4], LG[o + 5], 0.32));
+      for (let o = 0; o < 24 && withLegs && h < 3.2; o += 6) if (abs(a - LG[o + 2]) < 2.2) d = min(d, cap(a, h, LG[o], LG[o + 1], LG[o + 2], LG[o + 3], 0.36), cap(a, h, LG[o + 2], LG[o + 3], LG[o + 4], LG[o + 5], 0.28));
       SM[i] = max(SM[i], cl(0.6 - d * 1.4 * Z, 0, 1));
     }
 }
 // The gangline, in soft dots from the lead dog to the sled.
 function gangline(S) {
-  for (let s = (S.nd & 1 ? 2.6 : -1) * Z; s < (((S.nd + 1) >> 1) - 1) * PITCH + 8 * Z; s += 0.6) {
+  for (let s = (S.nd & 1 ? 2.6 : -1) * Z; s < (((S.nd + 1) >> 1) - 1) * S.pt + 8 * Z; s += 0.6) {
     pathAt(S, s);
     const x = PP[0] - S.cx - 0.5, y = PP[1] - S.cy - 0.5;
     for (let j = 0; j < 4; j++) {
