@@ -1,21 +1,21 @@
 // ===== Patternflow pattern =====
 // Title:   Emergence
 // Family:  mammal
-// Idea:    At dusk over dry hill country a dark ribbon of free-tailed bats pours out of a cave mouth and corkscrews up the whole sky, splitting into two strands and joining again before it streams off sideways high up, and when a hawk dives into it the bats ripple away and leave a hole that closes behind it.
+// Idea:    At dusk over dry hill country a dark ribbon of free-tailed bats pours out of a cave mouth and corkscrews up the whole sky, splits in two and joins again, streams off sideways at the top, and ripples open round a hawk that dives through it.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 24, after the evening emergence of Mexican free-tailed bats (Tadarida brasiliensis) from Bracken Cave, Texas
+// Lineage: original, pattern round 24, after the summer evening emergence of Mexican free-tailed bats (Tadarida brasiliensis) from the caves of the Texas Hill Country
 // Round:   24
 // ===============================
 // @matrix 64x128
 // @knobs Dusk=0..1, Speed=0.2..3, Bats=400..1400, Wind=-1..1
 //
-// Knob 1: Dusk. ...
-// Knob 2: Speed. ...
-// Knob 3: Bats. ...
-// Knob 4: Wind. ...
-// Buttons: K1 tap sends a hawk diving into the column.
+// Knob 1: Dusk. How late it is: at 0 the afterglow burns orange behind the far mesa and goes rose, then indigo overhead, and towards 1 it sinks into night, the stars come out and a full moon rises behind the column, so the bats and the hawk cross it as black shapes.
+// Knob 2: Speed. The pace of everything: at 2 a bat climbs from the cave mouth to the top of the panel in about four seconds and beats its wings five times a second, and at 0.2 it all runs ten times slower.
+// Knob 3: Bats. How many bats are out, from a stream of 400 to a river of 1400 that also widens the column. Turned down, the bats already in the air finish their trip and fewer follow them out of the cave.
+// Knob 4: Wind. A crosswind: the column leans downwind and most of the bats peel off that way at the top, and the high cloud streaks drift with it. With no wind about three in four turn right.
+// Buttons: K1 tap sends a hawk diving through the column now. On its own the first one comes about four seconds in, then one every fifteen to twenty seconds.
 
 const [W, H] = [64, 128];
 const N = W * H;
@@ -139,7 +139,7 @@ export function update(dt, input, params) {
   for (let h = 0; h < HM; h++) {
     const A = 1 + 7.5 * sm(4, 92, h);
     SX[h] = CX + w * (0.17 * h + 0.0009 * h * h) + A * (sin(0.052 * h - 1.3 * T) + 0.4 * sin(0.12 * h + 0.75 * T + 2));
-    SR[h] = Rk * (0.5 + 0.5 * sm(0, 22, h)) * (1 + 0.005 * h) * (1 + 0.3 * sin(0.075 * h - 2.1 * T));
+    SR[h] = Rk * (1.25 - 0.55 * sm(0, 26, h) + 0.3 * sm(20, 50, h)) * (1 + 0.005 * h) * (1 + 0.3 * sin(0.075 * h - 2.1 * T));
     SP[h] = 0.055 * h - 1.7 * T;
     SS[h] = h > 18 && h < 96 ? split * 9 * sin((PI * (h - 18)) / 78) : 0;
   }
@@ -153,7 +153,7 @@ export function update(dt, input, params) {
   const hk = P.hk;
   if (hk) {
     const u = (hk.t += d) / 2.3, v = 1 - u;
-    if (u >= 1) (P.hk = null), (P.nh = 12 + rnd() * 8);
+    if (u >= 1) (P.hk = null), (P.nh = 12 + rnd() * 6);
     else {
       hk.x = v * v * hk.x0 + 2 * u * v * hk.cx + u * u * hk.x2;
       hk.y = v * v * hk.y0 + 2 * u * v * hk.cy + u * u * hk.y2;
@@ -173,7 +173,7 @@ export function update(dt, input, params) {
     const s = (S[i] += V[i] * d * (S[i] < 40 ? 1.6 - 0.015 * S[i] : 1));
     if (s < 0) continue;
     const hh = min(s, TU[i]), j = min(HM - 2, floor(hh)), f = hh - j;
-    const r = mix(SR[j], SR[j + 1], f), p = mix(SP[j], SP[j + 1], f), ca = cos(p), sa = sin(p), a = A[i], b = B[i];
+    const r = mix(SR[j], SR[j + 1], f), p = mix(SP[j], SP[j + 1], f), ca = cos(p), sa = sin(p), a = A[i], b = B[i] * (1.9 - 0.9 * sm(0, 30, hh));
     let x = mix(SX[j], SX[j + 1], f) + r * (a * ca - b * sa) + (a < 0 ? -1 : 1) * mix(SS[j], SS[j + 1], f) + 1.1 * sin(T * JF[i] + JP[i]);
     let y = CY - hh + 0.8 * sin(T * JF[i] * 1.3 + JP[i] * 2);
     Z[i] = a * sa + b * ca;
@@ -219,7 +219,7 @@ export function update(dt, input, params) {
 function backdrop(P, k) {
   const B = P.bg, i0 = k < 0.5 ? 0 : 1, f = k < 0.5 ? k * 2 : k * 2 - 1;
   const L = LAND[i0].map((v, c) => mix(v, LAND[i0 + 1][c], f));
-  const glow = 1 - sm(0.2, 0.9, k), mx = 41, my = 134 - 86 * sm(0.12, 1, k), mr = 8.5, mc = [mix(250, 246, sm(100, 60, my)), mix(184, 240, sm(100, 60, my)), mix(124, 220, sm(100, 60, my))];
+  const glow = 1 - sm(0.2, 0.9, k), mx = 37, my = 134 - 88 * sm(0.12, 1, k), mr = 8.5, mc = [mix(250, 246, sm(100, 60, my)), mix(184, 240, sm(100, 60, my)), mix(124, 220, sm(100, 60, my))];
   P.cc = L.slice(9, 12);
   for (let y = 0; y < H; y++) {
     const g = y / 100, sky = [0, 1, 2].map((c) => mix(ramp(SKIES[i0], g, c), ramp(SKIES[i0 + 1], g, c), f));
@@ -244,7 +244,7 @@ function backdrop(P, k) {
         const n = vn(x * 0.22, y * 0.45), n2 = vn(x * 0.07 + 5, y * 0.16);
         let v = (0.6 + 0.4 * n + 0.25 * sm(0.55, 0.7, n2)) * (1 + 0.3 * exp(-(y - rid) / 2.5)) * (1 - (0.28 * (y - 92)) / 36);
         if (((y + 4 * vn(x * 0.05, 7)) % 6) < 1) v *= 0.72;
-        const e = hyp((x + 0.5 - CX) / CW, (CB - y - 0.5) / CH) * (0.94 + 0.16 * vn(x * 0.6, y * 0.6));
+        const e = (abs((x + 0.5 - CX) / CW) ** 2.4 + abs((CB - y - 0.5) / CH) ** 2.4) ** (1 / 2.4) * (0.96 + 0.09 * vn(x * 0.7, y * 0.7));
         // The pale outcrop the cave opens in, cracked, with a ledge on top.
         const ot = CB - CH - 6 + 2.5 * vn(x * 0.2, 4), ow = 16 + 4 * vn(y * 0.2, 6) - 6 * sm(CB - 3, CB - CH - 6, y);
         if (y >= ot && y < CB + 1 && abs(x + 0.5 - CX) < ow) {
