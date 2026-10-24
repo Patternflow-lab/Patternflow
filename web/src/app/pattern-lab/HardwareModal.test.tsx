@@ -11,7 +11,7 @@
 // is really gone.
 
 import { useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import HardwareModal from "./HardwareModal";
 import { useLabStore } from "@/lib/lab/store";
@@ -155,6 +155,70 @@ describe("HardwareModal", () => {
     }
   });
 
+  // A chat answer copied whole carries the model's words and the ``` fence
+  // around the code. The box used to pass it as a header, because the check
+  // found #pragma once on any line, and the words went into the .h whole.
+  it("keeps only the header when a whole chat answer is pasted", async () => {
+    const header = [
+      "// SPDX-License-Identifier: CC-BY-SA-4.0",
+      "// Pattern: Wave",
+      "#pragma once",
+      "namespace LabWave {",
+      '  const char* NAME = "Wave";',
+      "  void draw() {}",
+      "} // namespace LabWave",
+    ].join("\n");
+    const reply = `Here is the converted header:\n\n\`\`\`cpp\n${header}\n\`\`\`\n\nLet me know if you want the colours warmer.`;
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+        target: { value: reply },
+      });
+      expect(screen.getByText(/Looks like a header ✓/)).toHaveTextContent("The words around it stay out of the .h.");
+
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const name = useLabStore.getState().layers[0].name;
+      expect(writeText).toHaveBeenCalledWith(header.replace('"Wave"', `"${name}"`));
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  it("finds no header in an answer whose #pragma once is in a sentence", () => {
+    render(<Lab />);
+    fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+      target: { value: "Sure. The header starts with #pragma once and ends with the namespace." },
+    });
+    expect(screen.getByText("A Patternflow header starts with #pragma once")).toBeTruthy();
+    expect(screen.getByText("Copy .h")).toBeDisabled();
+    expect(screen.getByText("Next →")).toBeDisabled();
+  });
+
+  // Copy .h used to be the one button open on an empty box. It put nothing
+  // on the clipboard and said Copied ✓.
+  it("keeps Copy .h shut until a header is pasted", () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      expect(screen.getByText("Copy .h")).toBeDisabled();
+      fireEvent.click(screen.getByText("Copy .h"));
+      expect(writeText).not.toHaveBeenCalled();
+      expect(screen.queryByText("Copied ✓")).toBeNull();
+
+      fireEvent.change(screen.getByPlaceholderText(/Paste the \.h the model gives you/), {
+        target: { value: HEADER },
+      });
+      expect(screen.getByText("Looks like a header ✓")).toBeTruthy();
+      expect(screen.getByText("Copy .h")).toBeEnabled();
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
   // Text and pixel layers are in the scaffold as pixels, so with no code
   // layer the header is whole. The window used to count "0 layers to
   // translate — 0 done" and send the person to a model anyway.
@@ -245,6 +309,58 @@ describe("HardwareModal", () => {
     fireEvent.click(screen.getByText("Next →"));
     expect(screen.getByText(/Header ready \([\d.]+ KB\)\./)).toBeTruthy();
     expect(screen.queryByText(/Not translated/)).toBeNull();
+  });
+
+  // With one layer showing, the community gets that layer. The prompt used to
+  // take the layer picked in Layers even when it was hidden or at 0%, so the
+  // board got a pattern nobody could see in the preview.
+  it.each([
+    ["hidden", (id: string) => useLabStore.getState().setLayerVisible(id, false)],
+    ["at 0%", (id: string) => useLabStore.getState().setLayerOpacity(id, 0)],
+  ])("translates the layer that shows when the picked one is %s", async (_, hide) => {
+    const lab = useLabStore.getState();
+    const starter = lab.layers[0].id;
+    lab.addCodeLayerFromCode("export function draw(display) { display.setPixel(1, 1, 0, 255, 0); } // shown", "Shown");
+    useLabStore.getState().addCodeLayerFromCode("export function draw(display) { display.setPixel(2, 2, 0, 0, 255); } // hidden", "Hidden");
+    useLabStore.getState().removeLayer(starter);
+    const picked = useLabStore.getState().activeLayerId;
+    expect(useLabStore.getState().layers.find((layer) => layer.id === picked)?.name).toBe("Hidden");
+    hide(picked);
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      render(<Lab />);
+      fireEvent.click(screen.getByText("Copy the conversion prompt"));
+      expect(await screen.findByText("Copied ✓")).toBeTruthy();
+      const prompt = String(writeText.mock.calls[0][0]);
+      expect(prompt).toContain("// shown");
+      expect(prompt).not.toContain("// hidden");
+
+      // The build carries the shown layer's name too.
+      pasteHeaderAndContinue();
+      fireEvent.click(screen.getByText("↗ Apply to my Patternflow"));
+      const request = vi.mocked(fetch).mock.calls.find(([url]) => String(url).endsWith("/api/community/builds"));
+      expect(JSON.parse(String(request?.[1]?.body)).patterns[0].label).toBe("Shown");
+    } finally {
+      delete (navigator as { clipboard?: unknown }).clipboard;
+    }
+  });
+
+  // A lone code layer at 50% or on multiply is dimmer in the preview than its
+  // code draws, or black. The single prompt carried neither, so the board lit
+  // it at full strength; a stack of one carries the opacity and the blend.
+  it.each([
+    ["at 50%", (id: string) => useLabStore.getState().setLayerOpacity(id, 0.5)],
+    ["on multiply", (id: string) => useLabStore.getState().setLayerBlend(id, "multiply")],
+  ])("ports one code layer %s as a stack of one", (_, change) => {
+    render(<Lab />);
+    expect(screen.getByText("Copy the conversion prompt")).toBeTruthy();
+    cleanup();
+
+    change(useLabStore.getState().layers[0].id);
+    render(<Lab />);
+    expect(screen.queryByText("Copy the conversion prompt")).toBeNull();
+    expect(screen.getByText(/1 layer to translate — 0 done/)).toHaveTextContent("Next opens when it is translated.");
   });
 
   it("a code layer under a text layer is the one to translate before Next", () => {

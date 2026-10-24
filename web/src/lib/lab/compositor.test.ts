@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { createIdleInput, PatternRuntime } from "@/lib/pattern/harness";
 import { compositeLayers, type CompositeEntry } from "./compositor";
 import { LabEngine, type EngineProject } from "./engine";
-import { flattenLayers } from "./flatten";
+import { flattenLayers, loneCodeLayer } from "./flatten";
 import { buildHExport } from "./hExport";
 import {
   BLEND_MODES,
@@ -266,6 +266,84 @@ describe("preview matches the flattened export", () => {
       turnedDown.render(project([leftHalf(), blue(1), red()]), 1 / 60, 0);
       expect(differences(turnedDown.render(project(layers), 1 / 60, 1 / 60).data, fresh)).toEqual([]);
       expect(headerPlan(layers)).toEqual([{ layer: "red", masks: [] }]);
+    });
+  });
+
+  // One code layer goes out as its own code only while the preview shows
+  // that code as it is. Until 24 October 2026 a white layer at 50% showed 128
+  // in the preview and went out as its code alone, so the community and the
+  // board got 255. On multiply the preview was black and the board white.
+  describe("one code layer", () => {
+    const white = (blend: BlendMode, opacity: number): CodeLayer => ({
+      id: "white",
+      type: "code",
+      name: "white",
+      visible: true,
+      opacity,
+      blend,
+      role: "paint",
+      maskInvert: false,
+      code: `export function draw(display) {
+  for (let y = 0; y < display.height; y++)
+    for (let x = 0; x < display.width; x++) display.setPixel(x, y, 255, 255, 255);
+}`,
+      ramp: DEFAULT_RAMP_STATE,
+      recolor: false,
+      knobsAnnotationRaw: null,
+      matrixAnnotationRaw: null,
+    });
+
+    // What Share publishes and To hardware ports: the layer's own code, or
+    // the stack flattened (buildExportCode in PatternLabClient.tsx).
+    function published(layers: Layer[]): Uint8ClampedArray {
+      const lone = loneCodeLayer(layers);
+      if (!lone) return exported(layers);
+      const runtime = new PatternRuntime(W, H);
+      expect(runtime.loadCode(lone.code).error).toBeUndefined();
+      expect(runtime.renderFrame(1 / 60, 0, createIdleInput([0, 0, 0, 0])).error).toBeUndefined();
+      return runtime.data;
+    }
+
+    it.each([
+      ["normal", 0.5, 128],
+      ["add", 0.5, 128],
+      ["screen", 0.3, 77],
+      ["multiply", 1, 0],
+      ["multiply", 0.5, 0],
+      ["normal", 1, 255],
+      ["add", 1, 255],
+      ["screen", 1, 255],
+    ] as const)("%s at %d is %d in the preview and in what goes out", (blend, opacity, value) => {
+      const layers = [white(blend, opacity)];
+      const preview = new LabEngine().render(project(layers), 1 / 60, 0).data;
+      expect(Array.from(preview.subarray(0, 4))).toEqual([value, value, value, 255]);
+      expect(differences(preview, published(layers))).toEqual([]);
+    });
+
+    it("goes out as its own code at 100% on normal, add and screen", () => {
+      for (const blend of ["normal", "add", "screen"] as const) {
+        const layer = white(blend, 1);
+        expect(loneCodeLayer([layer])).toBe(layer);
+      }
+    });
+
+    it("goes to the header as a stack of one, with its opacity and blend", () => {
+      const plan = (layer: CodeLayer) => {
+        const { scaffold, units } = buildHExport({
+          name: "One",
+          matrix: { width: W, height: H },
+          layers: [layer],
+          knobs: [0, 0, 0, 0],
+          ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+          knobLabels: ["A", "B", "C", "D"],
+        });
+        const table = (name: string) => scaffold.match(new RegExp(`${name}\\[1\\]\\s*=\\s*\\{([^}]*)\\}`))![1].trim();
+        return { units: units.length, opacity: table("G_OPACITY"), blend: table("G_BLEND") };
+      };
+      expect(loneCodeLayer([white("normal", 0.5)])).toBeNull();
+      expect(plan(white("normal", 0.5))).toEqual({ units: 1, opacity: "0.5f", blend: "0" });
+      expect(loneCodeLayer([white("multiply", 1)])).toBeNull();
+      expect(plan(white("multiply", 1))).toEqual({ units: 1, opacity: "1.0f", blend: "2" });
     });
   });
 });

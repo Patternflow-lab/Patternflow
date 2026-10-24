@@ -172,13 +172,29 @@ function __fxDraw(L) {
   }
 }`;
 
-/** Does this composition even need flattening, or is it a single plain pattern? */
-export function needsFlatten(layers: Layer[]): boolean {
+/**
+ * The code layer a single plain pattern is made of: the one layer left
+ * showing, drawn over the panel's black exactly as its code draws it. Null
+ * when the composition is a stack. The community upload and To hardware both
+ * take this layer, so the board gets what was published.
+ */
+export function loneCodeLayer(layers: Layer[]): CodeLayer | null {
   const visible = layers.filter(
     (layer) => layer.visible && (layer.role === "mask" || layer.opacity > 0),
   );
-  if (visible.length !== 1) return true;
-  return visible[0].type !== "code" || visible[0].role === "mask";
+  if (visible.length !== 1) return null;
+  const [layer] = visible;
+  if (layer.type !== "code" || layer.role === "mask") return null;
+  // Over black, normal, add and screen at 100% leave the code's pixels as
+  // they are. Under 100% they dim, and multiply turns them black: a white
+  // layer at 50% showed 128 in the preview, and its code alone lit the board
+  // at 255. Such a layer goes out as a stack of one, opacity and blend kept.
+  return layer.opacity >= 1 && layer.blend !== "multiply" ? layer : null;
+}
+
+/** Does this composition even need flattening, or is it a single plain pattern? */
+export function needsFlatten(layers: Layer[]): boolean {
+  return loneCodeLayer(layers) === null;
 }
 
 export function flattenLayers(
