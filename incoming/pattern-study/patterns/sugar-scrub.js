@@ -165,7 +165,7 @@ function step(P, d, sp, press) {
   };
   const v = [0, 0];
 
-  // Grains: they follow the oil with a lag, roll, and melt under the pad.
+  // Grains trail the oil and roll; under the pad they melt.
   const melt = 0.05 + 0.32 * oil, mr = meanR(P);
   for (let i = 0; i < P.n; i++) {
     if (P.fall[i]) {

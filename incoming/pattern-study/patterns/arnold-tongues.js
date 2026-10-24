@@ -11,8 +11,8 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Tempo=0.2..3, Zoom=0..1, Depth=-1..1
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 the two q = 1 tongues filling the sides are dim teal, 1/2 pink, 1/3 and 2/3 green, the quarters blue, the fifths red-orange and the sevenths purple; the unlocked ground runs from navy on the left to plum on the right.
-// Knob 2: Tempo. 0.8 beats a second per unit, 1.6 at 2. A tongue locked to p/q flashes on every q-th beat, the sides on every beat, 1/2 on every second, 1/3 and 2/3 on every third, and a band of light runs up the lit tongues within the beat. The scan line goes up and down the panel once every 24 beats, 15 seconds at 2.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 the two q = 1 tongues filling the sides are dim teal and 1/2 is pink. The thirds are green and the quarters blue; the fifths are red-orange and the sevenths purple. The unlocked ground runs from navy on the left to plum on the right.
+// Knob 2: Tempo. 0.8 beats a second per unit, 1.6 at 2. A tongue locked to p/q flashes on every q-th beat, so the sides flash on every beat and 1/2 on every second one. A band of light runs up the lit tongues within the beat. The scan line goes up and down the panel once every 24 beats, 15 seconds at 2.
 // Knob 3: Zoom. At 0 Omega runs 0 to 1 across the panel; at 1 it runs 0.322 to 0.442, ten times closer, round the golden section 0.382, where 1/3, 3/8, 5/13 and 2/5 crowd together. After a turn the map is worked out again from the bottom up in about a second.
 // Knob 4: Depth. The largest q that gets a colour: 2 at -1, 13 at the start, 21 at 1. A point locked to a larger q stays in the dim ground with the unlocked points.
 // Buttons: K1 tap is a downbeat: the count goes back to beat 0, which every q divides, so every tongue flashes white at once and the scan line starts again from the bottom.
