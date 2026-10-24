@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Air=0..1, Rate=0.2..3, Depth=0..1, Altitude=0..1
 //
-// Knob 1: Air. What is breathed: clear cool air at 0, cold winter air at 0.5 where every breath comes out as a white cloud at the top, and city smog at 1 that browns the sky, turns the air in the airways yellow-grey and leaves soot in the alveoli.
-// Knob 2: Rate. Breaths a minute: about 9 asleep at 0.2, 17 at 2 (one every 3.5 s), and a shallow pant of 33 at 3.
-// Knob 3: Depth. A quiet breath at 0, where the domes of the diaphragm drop 6 LEDs, up to a deep sigh at 1 that drops them twice as far and spreads the ribs wide.
+// Knob 1: Air. What is breathed: clear cool air at 0, cold winter air at 0.5 where every breath comes out as a white cloud at the top, and city smog at 1 that browns the sky and leaves soot in the alveoli.
+// Knob 2: Rate. Breaths a minute: about 9 asleep at 0.2, 17 at 2 (one every 3.5 s), and a shallow pant of 34 at 3.
+// Knob 3: Depth. A quiet breath at 0, where the domes of the diaphragm drop 7 LEDs, up to a deep sigh at 1 that drops them 14 and lifts and spreads the ribs twice as far.
 // Knob 4: Altitude. Sea level at 0, the top of Everest at 1: each breath brings less oxygen, so the alveoli flush only to a dusky purple, and the breathing quickens and deepens on its own.
 // Buttons: K1 tap makes the lungs cough: a quick gasp, then three jolts that blow warm air up the tree and out in puffs.
 
@@ -33,20 +33,6 @@ function vn(x, y) {
   const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
   const a = hash(xi, yi), b = hash(xi + 1, yi), c = hash(xi, yi + 1);
   return a + (b - a) * su + (c - a) * sv + (a - b - c + hash(xi + 1, yi + 1)) * su * sv;
-}
-
-// A tiling noise, 64 by 128, for the breath clouds and the smog, read
-// smoothly at any offset.
-function vt(x, y, px, py) {
-  const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v), x1 = (xi + 1) % px, y1 = (yi + 1) % py;
-  const a = hash(xi, yi), b = hash(x1, yi), c = hash(xi, y1);
-  return a + (b - a) * su + (c - a) * sv + (a - b - c + hash(x1, y1)) * su * sv;
-}
-const NT = Float32Array.from({ length: N }, (_, p) => 0.62 * vt((p & 63) / 8, (p >> 6) / 8, 8, 16) + 0.38 * vt((p & 63) / 4, (p >> 6) / 4, 16, 32));
-function nt(x, y) {
-  const xi = floor(x), yi = floor(y), u = x - xi, v = y - yi, x0 = xi & 63, x1 = (xi + 1) & 63, y0 = (yi & 127) * W, y1 = ((yi + 1) & 127) * W;
-  const a = NT[y0 + x0] + (NT[y0 + x1] - NT[y0 + x0]) * u;
-  return a + (NT[y1 + x0] + (NT[y1 + x1] - NT[y1 + x0]) * u - a) * v;
 }
 
 // The diaphragm under the lungs breathed out, x then y: the right dome higher
@@ -70,8 +56,8 @@ const LUNGS = [
 ];
 // Airway walls by generation (9 is the channel through the larynx), and how
 // strongly each shows over the lung.
-const WC = [[226, 216, 204], [226, 216, 204], [228, 200, 206], [226, 192, 206], [224, 186, 206], [222, 182, 206], [220, 178, 206], [218, 176, 206], [216, 174, 206], [0, 0, 0]];
-const AG = [1, 1, 0.95, 0.9, 0.82, 0.72, 0.62, 0.52, 0.46, 0];
+const WC = Array.from({ length: 10 }, (_, g) => (g < 2 ? [226, 216, 204] : [232 - 2 * g, 208 - 4 * g, 206]));
+const AG = Array.from({ length: 10 }, (_, g) => (g < 2 ? 1 : g > 8 ? 0 : 1.1 - 0.08 * g));
 // The cough: seconds and lung volume, and the moments of the three jolts.
 const CK = [0, 0, 0.32, 0.97, 0.44, 0.97, 0.54, 0.66, 0.84, 0.66, 0.94, 0.38, 1.24, 0.38, 1.34, 0.12, 1.9, 0];
 const CT = [0.44, 0.84, 1.24];
@@ -87,6 +73,10 @@ function sdPoly(v, px, py) {
   }
   return s * sqrt(d);
 }
+// The colour being built for one LED, and mixing toward another by k.
+const C = F32(3);
+const DA = [74, 58, 156];
+const bl = (r, g, b, k) => ((C[0] += (r - C[0]) * k), (C[1] += (g - C[1]) * k), (C[2] += (b - C[2]) * k));
 function samp(A, x, y) {
   x = cl(x, 0, 62.999);
   y = cl(y, 0, 126.999);
@@ -96,17 +86,18 @@ function samp(A, x, y) {
 
 export function setup(params) {
   const P = (params.s = {
-    t: 0, ph: 0.68, lp: 0.68, vol: 0.6, D: 0.5, air: 0, alt: 0, ct: -1, cv: 0, jolt: 0, hp: 0, hb: 0, envIn: 0, envOut: 0, Fin: -1, Fx: 2, bf: [], puffs: [],
-    sd: F32(N), lid: new Int8Array(N), own: new Int16Array(N).fill(-1), cap: F32(N), cph: F32(N), und: F32(N * 3), ua: F32(N), GL: F32(N),
-    SX: F32(H), KY: F32(W), alvA: F32(N), alvS: F32(N), alvK: new Int16Array(N), trA: F32(N), trD: F32(N), trV: F32(N), trS: F32(N), trG: new Int8Array(N), rib: F32(N), O: F32(N * 3),
+    t: 0, ph: 0.68, lp: 0.68, vol: 0.6, D: 0.5, air: 0, ct: -1, jolt: 0, hp: 0, hb: 0, envIn: 0, envOut: 0, Fin: -1, Fx: 2, bf: [], puffs: [],
+    sd: F32(N), own: new Int16Array(N).fill(-1), und: F32(N * 3), ua: F32(N), GL: F32(N),
+    SX: F32(H), KY: F32(W), alvA: F32(N), alvS: F32(N), alvK: new Int16Array(N), trA: F32(N), trV: F32(N), trS: F32(N), trG: new Int8Array(N), rib: F32(N), O: F32(N * 3),
     seg: [], ax: [], ay: [], as: [], soot: [], cd: [], cb: [], trH: F32(N),
   });
   build(P);
 }
 
 function addSeg(P, x0, y0, x1, y1, r, g, d) {
-  P.seg.push(x0, y0, x1, y1, r, g, d, d + hypot(x1 - x0, y1 - y0));
-  return d + hypot(x1 - x0, y1 - y0);
+  const e = d + hypot(x1 - x0, y1 - y0);
+  P.seg.push(x0, y0, x1, y1, r, g, d, e);
+  return e;
 }
 
 // Volume-filling branching: a branch's alveoli are split by the line from its
@@ -146,7 +137,7 @@ function grow(P, x0, y0, dx, dy, pts, g, r, d) {
     for (const i of Q) (qx += ax[i]), (qy += ay[i]);
     (qx = qx / Q.length - x0), (qy = qy / Q.length - y0);
     let a = atan2(qy, qx), da = a - pa;
-    da = ((((da + PI) % (2 * PI)) + 2 * PI) % (2 * PI)) - PI;
+    da = atan2(sin(da), cos(da));
     if (abs(da) > lim) a = pa + Math.sign(da) * lim;
     let len = max(1.2, hypot(qx, qy) * (Q.length <= 7 ? 0.55 : 0.4)), x1, y1;
     for (;;) {
@@ -160,14 +151,11 @@ function grow(P, x0, y0, dx, dy, pts, g, r, d) {
 }
 
 function build(P) {
-  const { sd, lid, own, cap, cph, GL } = P;
+  const { sd, own, GL } = P;
   for (let p = 0; p < N; p++) {
     const x = p & 63, y = p >> 6, sl = d0(x + 0.5) - d0(x - 0.5), cut = (y - d0(x) + 0.6) / sqrt(1 + sl * sl);
     const a = y < 15 ? 6 : max(sdPoly(LUNGS[0], x, y), cut), b = y < 15 ? 6 : max(sdPoly(LUNGS[1], x, y), cut);
     sd[p] = min(a, b) + 0.9 * (vn(x * 0.32, y * 0.32) - 0.5);
-    lid[p] = a < b ? 0 : 1;
-    cap[p] = hash(x * 3 + 1, y * 7) > 0.6 ? 0.4 + 0.6 * hash(x, y + 99) : 0;
-    cph[p] = hash(x + 77, y) * 2 * PI;
     GL[p] = exp(-(((x - 32) / 26) ** 2) - (((y - 66) / 50) ** 2));
   }
   // Alveoli on a jittered honeycomb inside the lungs.
@@ -176,7 +164,7 @@ function build(P) {
     for (let i = 0; i < 29; i++) {
       const x = 1 + i * 2.25 + (j & 1) * 1.125 + (rnd() - 0.5) * 0.7, y = 19 + j * 1.95 + (rnd() - 0.5) * 0.7;
       if (x > 62.5 || y > 125 || samp(sd, x, y) > -1) continue;
-      pts[lid[round(y) * W + round(x)]].push(P.ax.length);
+      pts[x < 32 ? 0 : 1].push(P.ax.length);
       P.ax.push(x), P.ay.push(y), P.as.push(0.86 + 0.28 * rnd()), P.soot.push(rnd());
     }
   P.ak = new Int16Array(P.ax.length);
@@ -216,7 +204,7 @@ function under(P) {
     const x = p & 63, y = p >> 6, t = y - d0(x), ax = abs(x - 32);
     if (t > 3) {
       const xb = 37 + 3 * sin(y * 0.21), f = (1 - 0.55 * sm(3, 20, t)) * (0.7 + 0.5 * vn(x * 0.17, y * 0.17)) * (0.4 + 0.6 * sm(0.3, 2, abs(x - xb)));
-      x < xb ? lay(p, 70 * f, 22 * f, 22 * f, cl(t - 3, 0, 1)) : lay(p, 58 * f, 34 * f, 48 * f, cl(t - 3, 0, 1));
+      x < xb ? lay(p, 60 * f, 20 * f, 22 * f, cl(t - 3, 0, 1)) : lay(p, 50 * f, 30 * f, 44 * f, cl(t - 3, 0, 1));
     }
     // The diaphragm: a band of muscle with a lit upper face, its tendon pale
     // in the middle under the heart.
@@ -241,7 +229,7 @@ export function update(dt, input, params) {
   dt = cl(dt || 0, 0, 0.1);
   P.t += dt;
   P.air = cl(k[0], 0, 1);
-  const rate = cl(k[1], 0.2, 3), dep = cl(k[2], 0, 1), alt = (P.alt = cl(k[3], 0, 1));
+  const rate = cl(k[1], 0.2, 3), dep = cl(k[2], 0, 1), alt = cl(k[3], 0, 1);
   const bpm = (8 + 4.5 * rate + 12 * max(0, rate - 2) ** 2) * (1 + 0.45 * alt);
   P.D = (0.5 + 0.5 * dep) * (1 - 0.4 * sm(2, 3, rate)) * (1 + 0.22 * alt);
   if (input.btnPressed && input.btnPressed[0] && P.ct < 0) (P.ct = 0), (P.cv = P.vol), (P.cn = 0);
@@ -295,11 +283,11 @@ function fw(P, xr, yr) {
 }
 
 function alveoli(P) {
-  const { alvA, alvS, alvK, ax, ay, as } = P, R = 1.02 + 0.52 * P.vol * P.D;
+  const { alvA, alvS, alvK, ax, ay, as } = P, rA = 1.02 + 0.52 * P.vol * P.D;
   alvA.fill(0);
   for (let i = 0; i < ax.length; i++) {
     fw(P, ax[i], ay[i]);
-    const cx = FX, cy = FY, r = R * as[i], lim = (r + 0.5) ** 2;
+    const cx = FX, cy = FY, r = rA * as[i], lim = (r + 0.5) ** 2;
     for (let y = max(0, ceil(cy - r - 0.5)); y <= min(H - 1, floor(cy + r + 0.5)); y++)
       for (let x = max(0, ceil(cx - r - 0.5)); x <= min(W - 1, floor(cx + r + 0.5)); x++) {
         const dx = x - cx, dy = y - cy, e2 = dx * dx + dy * dy;
@@ -313,7 +301,7 @@ function alveoli(P) {
 }
 
 function tree(P) {
-  const { seg: S, trA, trD, trV, trS, trG, trH } = P, dm = 1 / P.dmax, dil = 1 + 0.1 * P.vol * P.D;
+  const { seg: S, trA, trV, trS, trG, trH } = P, dil = 1 + 0.1 * P.vol * P.D;
   trA.fill(0);
   trH.fill(0);
   for (let j = 0; j < S.length; j += 8) {
@@ -327,7 +315,7 @@ function tree(P) {
         if (e2 >= lim) continue;
         const e = sqrt(e2), a = cl(r + 0.5 - e, 0, 1), p = y * W + x, h = cl(r + 1.7 - e, 0, 1) * hr;
         if (h > trH[p]) trH[p] = h;
-        if (a > trA[p]) (trA[p] = a), (trS[p] = da + (db - da) * t), (trD[p] = trS[p] * dm), (trV[p] = e / r), (trG[p] = g);
+        if (a > trA[p]) (trA[p] = a), (trS[p] = da + (db - da) * t), (trV[p] = e / r), (trG[p] = g);
       }
   }
 }
@@ -356,7 +344,7 @@ function ribs(P) {
       const rx = hw - 3, ry = (5.5 + 0.55 * i) * (1 - 0.25 * v), n = ceil((rx + ry) * 2.2);
       for (let m = 0; m <= n; m++) {
         const th = (1.62 * m) / n;
-        dot(32 + s * (3 + rx * sin(th)), y0 + ry * (1 - cos(th)), 0.6, sm(0.2, 0.6, th));
+        dot(32 + s * (3 + rx * sin(th)), y0 + ry * (1 - cos(th)), 0.7, sm(0.2, 0.6, th));
       }
     }
 }
@@ -364,14 +352,14 @@ function ribs(P) {
 export function draw(display, params) {
   const P = params.s;
   if (!P || !P.cox) return;
-  const { SX, KY, sd, own, cox, cb, airK, cap, cph, und, ua, alvA, alvS, alvK, trA, trD, trV, trS, trG, trH, rib, O, ak, soot, GL } = P;
+  const { SX, KY, sd, own, cox, cb, airK, und, ua, alvA, alvS, alvK, trA, trV, trS, trG, trH, rib, O, ak, soot, GL } = P, dm = 1 / P.dmax;
   const t = P.t, v = P.vol * P.D, air = P.air, hb = P.hb, { envIn, envOut, Fin, Fx, bf } = P;
   const wC = max(0, 1 - 2 * air), wW = 1 - abs(2 * air - 1), wS = max(0, 2 * air - 1);
   const pal = (c, w, s) => [0, 1, 2].map((i) => c[i] * wC + w[i] * wW + s[i] * wS);
   const bgT = pal([3, 7, 18], [16, 26, 48], [62, 50, 32]), bgB = pal([2, 4, 12], [8, 14, 30], [36, 28, 20]), glo = pal([8, 18, 40], [22, 38, 64], [40, 30, 18]);
   const cold = pal([150, 205, 255], [215, 238, 255], [196, 178, 128]), warm = pal([255, 196, 160], [255, 224, 206], [190, 160, 130]);
-  const puffC = pal([255, 214, 196], [236, 242, 255], [168, 158, 144]), puffK = 0.4 * wC + 1.5 * wW + 0.7 * wS;
-  const oxA = [240 - 64 * wS, 46 + 26 * wS, 58 + 20 * wS], deA = [74, 58, 156], oxF = [80, 10, 30], deF = [24, 14, 50];
+  const puffC = pal([255, 214, 196], [236, 242, 255], [168, 158, 144]), puffK = 0.6 * wC + 1.5 * wW + 0.7 * wS;
+  const oxA = [240 - 64 * wS, 46 + 26 * wS, 58 + 20 * wS];
   for (let y = 0; y < H; y++) SX[y] = 1 + 0.085 * v * (0.25 + 0.75 * sm(15, 115, y));
   for (let x = 0; x < W; x++) KY[x] = 1 + 0.14 * v * GX[x];
   alveoli(P);
@@ -381,23 +369,21 @@ export function draw(display, params) {
   const pf = [];
   for (const [age, str, sd0] of P.puffs) {
     const R = 3 + (5 + 8 * wW) * age;
-    pf.push(32 + (sd0 - 0.5) * 8, 6 - (4.6 - 1.6 * wW) * age, R, str * sm(0, 0.25, age) * exp(-age / (0.9 + 1.6 * wW)), sd0 * 40);
+    pf.push(32 + (sd0 - 0.5) * 8, 6 - 3.2 * age, R, str * sm(0, 0.25, age) * exp(-age / (0.9 + 1.6 * wW)), sd0 * 40);
   }
   const hs = 1 / (1 - 0.035 * hb);
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       const fy = y / 127, gl = GL[p];
       let hz = 1;
-      if (wS > 0) hz = mix(1, 0.6 + 0.8 * nt(x * 0.55 + t * 2.4, y * 0.36 - t * 0.5), wS);
-      let r = (bgT[0] + (bgB[0] - bgT[0]) * fy + glo[0] * gl) * hz, g = (bgT[1] + (bgB[1] - bgT[1]) * fy + glo[1] * gl) * hz, b = (bgT[2] + (bgB[2] - bgT[2]) * fy + glo[2] * gl) * hz;
+      if (wS > 0) hz = 1 + wS * (0.18 * sin(x * 0.2 + y * 0.05 + t * 0.6) + 0.18 * sin(y * 0.13 - x * 0.06 - t * 0.35));
+      for (let c = 0; c < 3; c++) C[c] = (bgT[c] + (bgB[c] - bgT[c]) * fy + glo[c] * gl) * hz;
       const xr = cl(32 + (x - 32) / SX[y], 0, 62.999), yr = cl(A0 + (y - A0) / KY[x], 0, 126.999);
       const xi = xr | 0, yi = yr | 0, fx = xr - xi, fz = yr - yi, q = yi * W + xi;
       if (ua[q] + ua[q + 1] + ua[q + W] + ua[q + W + 1] > 0) {
         const w0 = (1 - fx) * (1 - fz) * ua[q], w1 = fx * (1 - fz) * ua[q + 1], w2 = (1 - fx) * fz * ua[q + W], w3 = fx * fz * ua[q + W + 1], a = 1 - w0 - w1 - w2 - w3;
         const o0 = q * 3, o2 = o0 + W * 3;
-        r = r * a + und[o0] * w0 + und[o0 + 3] * w1 + und[o2] * w2 + und[o2 + 3] * w3;
-        g = g * a + und[o0 + 1] * w0 + und[o0 + 4] * w1 + und[o2 + 1] * w2 + und[o2 + 4] * w3;
-        b = b * a + und[o0 + 2] * w0 + und[o0 + 5] * w1 + und[o2 + 2] * w2 + und[o2 + 5] * w3;
+        for (let c = 0; c < 3; c++) C[c] = C[c] * a + und[o0 + c] * w0 + und[o0 + 3 + c] * w1 + und[o2 + c] * w2 + und[o2 + 3 + c] * w3;
       }
       // The heart, dim behind the lungs, its apex down to the left.
       if (xr > 20 && xr < 56 && yr > 60 && yr < 110) {
@@ -405,7 +391,7 @@ export function draw(display, params) {
         const a = cl((1 - sqrt(eu * eu + ev * ev)) * 9, 0, 1);
         if (a > 0) {
           const k = (0.4 + 0.32 * hb) * (0.65 + 0.45 * sm(9, -9, hu));
-          (r = mix(r, 150 * k, a)), (g = mix(g, 26 * k, a)), (b = mix(b, 44 * k, a));
+          bl(150 * k, 26 * k, 44 * k, a);
         }
       }
       // The lung: a dusky body, the grape clusters of alveoli, the capillary
@@ -415,63 +401,51 @@ export function draw(display, params) {
       if (s < 1.2) {
         const c = own[qn], ox = c >= 0 ? cox[c] : 0.3;
         m = cl(0.5 - s, 0, 1);
-        if (m > 0) {
-          const k = 0.92 * m;
-          (r = mix(r, deF[0] + (oxF[0] - deF[0]) * ox, k)), (g = mix(g, deF[1] + (oxF[1] - deF[1]) * ox, k)), (b = mix(b, deF[2] + (oxF[2] - deF[2]) * ox, k));
-        }
+        if (m > 0) bl(24 + 56 * ox, 14 - 4 * ox, 50 - 20 * ox, 0.92 * m);
         const aa = alvA[p];
         if (aa > 0) {
           const i = alvK[p], cc = ak[i], o = cox[cc], sh = alvS[p] * cb[cc] * (soot[i] < wS * 0.4 ? 0.3 : 1), af = 0.4 * airK[cc];
-          (r = mix(r, (deA[0] + (oxA[0] - deA[0]) * o) * sh + cold[0] * af, aa)), (g = mix(g, (deA[1] + (oxA[1] - deA[1]) * o) * sh + cold[1] * af, aa)), (b = mix(b, (deA[2] + (oxA[2] - deA[2]) * o) * sh + cold[2] * af, aa));
+          for (let c = 0; c < 3; c++) C[c] += ((DA[c] + (oxA[c] - DA[c]) * o) * sh + cold[c] * af - C[c]) * aa;
         }
-        if (m > 0 && cap[qn] > 0) {
-          const k = cap[qn] * (0.5 + 0.5 * sin(t * 6 + cph[qn] + 2 * hb)) * (0.12 + 0.34 * ox) * m;
-          (r += 230 * k), (g += 30 * k), (b += 50 * k);
+        const cv = hash(qn, 5);
+        if (m > 0 && cv > 0.6) {
+          const k = (cv - 0.35) * (0.75 + 0.75 * sin(t * 6 + cv * 90 + 2 * hb)) * (0.12 + 0.34 * ox) * m;
+          (C[0] += 230 * k), (C[1] += 30 * k), (C[2] += 50 * k);
         }
         const rm = cl(1 - abs(s + 0.45) / 0.75, 0, 1) * 0.5;
-        if (rm > 0) (r = mix(r, 126 + 129 * ox, rm)), (g = mix(g, 100 + 24 * ox, rm)), (b = mix(b, 214 - 70 * ox, rm));
+        if (rm > 0) bl(126 + 129 * ox, 100 + 24 * ox, 214 - 70 * ox, rm);
         // A shadow along each airway lifts the tree off the alveoli.
-        const hk = trH[p] * 0.5 * m;
-        (r *= 1 - hk), (g *= 1 - hk), (b *= 1 - hk);
+        bl(0, 0, 0, trH[p] * 0.5 * m);
       }
       // The airways, and the air in them.
       const ta = trA[p];
       if (ta > 0) {
-        const gg = trG[p], vv = trV[p], d = trD[p], wc = WC[gg], al = AG[gg] * ta;
+        const gg = trG[p], vv = trV[p], d = trS[p] * dm, wc = WC[gg], al = AG[gg] * ta;
         let wb = 0.85;
         if (gg <= 1) {
           const ring = 0.5 + 0.5 * cos(trS[p] * 2.73);
           wb = (0.5 + 0.5 * sm(0.35, 0.95, vv)) * (0.66 + 0.44 * ring * ring);
         } else if (gg <= 3) wb = 0.65 + 0.35 * sm(0.3, 1, vv);
-        (r = mix(r, wc[0] * wb, al)), (g = mix(g, wc[1] * wb, al)), (b = mix(b, wc[2] * wb, al));
+        bl(wc[0] * wb, wc[1] * wb, wc[2] * wb, al);
         let ca = 0, wa = 0;
         if (envIn > 0 && d < Fin) ca = envIn * (0.3 + 0.7 * exp(-(((Fin - d) / 0.05) ** 2)));
         if (envOut > 0 && d > Fx) wa = envOut * (0.24 + 0.76 * exp(-(((d - Fx) / 0.05) ** 2)));
         for (const f of bf) wa += 1.3 * exp(-(((d - f) / 0.06) ** 2)) + (d > f ? 0.25 : 0);
         const lf = (gg <= 1 ? 1 - 0.5 * sm(0.55, 1, vv) : 1) * ta * (gg === 9 ? 0.8 : 0.9);
-        (r += (cold[0] * ca + warm[0] * wa) * lf), (g += (cold[1] * ca + warm[1] * wa) * lf), (b += (cold[2] * ca + warm[2] * wa) * lf);
+        for (let c = 0; c < 3; c++) C[c] += (cold[c] * ca + warm[c] * wa) * lf;
       }
       const rb = rib[p];
-      if (rb > 0) {
-        const k = rb * (0.4 - 0.12 * m);
-        (r = mix(r, 220, k)), (g = mix(g, 210, k)), (b = mix(b, 196, k));
-      }
+      if (rb > 0) bl(220, 210, 196, rb * (0.42 + 0.1 * m));
       if (y < 48 && pf.length) {
         let pa = 0;
         for (let j = 0; j < pf.length; j += 5) {
           const dx = (x - pf[j]) / (pf[j + 2] * 1.4), dy = (y - pf[j + 1]) / pf[j + 2], e = dx * dx + dy * dy;
-          if (e < 4) pa += pf[j + 3] * exp(-e * 1.4) * cl(0.4 + 1.4 * (nt(x * 1.4 + pf[j + 4], y * 1.4 + t * 7) - 0.5) + 0.5 * exp(-e * 3), 0, 1.4);
+          if (e < 4) pa += pf[j + 3] * exp(-e * 1.4) * cl(0.4 + 1.4 * (vn(x * 0.2 + pf[j + 4], y * 0.2 + t * 0.9) - 0.5) + 0.5 * exp(-e * 3), 0, 1.4);
         }
-        if (pa > 0) {
-          const k = min(1, pa * puffK);
-          (r = mix(r, puffC[0], k)), (g = mix(g, puffC[1], k)), (b = mix(b, puffC[2], k));
-        }
+        if (pa > 0) bl(puffC[0], puffC[1], puffC[2], min(1, pa * puffK));
       }
-      if (wS > 0) {
-        const k = 0.14 * wS * hz;
-        (r = mix(r, 120, k)), (g = mix(g, 96, k)), (b = mix(b, 62, k));
-      }
-      (O[p * 3] = r), (O[p * 3 + 1] = g), (O[p * 3 + 2] = b);
+      if (wS > 0) bl(120, 96, 62, 0.14 * wS * hz);
+      O.set(C, p * 3);
     }
   // A cough jolts the whole chest up.
   const jl = round(P.jolt);
