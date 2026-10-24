@@ -319,10 +319,18 @@ export default function PatternLabClient() {
     [syncOpenPanels],
   );
 
+  // Opening and closing leave the menu up for the next panel. Fronting one is
+  // going to it, so the menu gets out of the way: at 390×844 it covered 30%
+  // of the panel it had just brought forward.
   const pickPanel = (id: PanelId) => {
     const api = apiRef.current;
     if (!api) return;
-    togglePanel(api, id);
+    if (togglePanel(api, id) === "fronted") {
+      const wrap = panelsMenuRef.current;
+      const hadFocus = wrap?.contains(document.activeElement) ?? false;
+      setPanelsMenuOpen(false);
+      if (hadFocus) wrap?.querySelector<HTMLElement>("[aria-expanded]")?.focus();
+    }
     syncOpenPanels(api);
   };
 
