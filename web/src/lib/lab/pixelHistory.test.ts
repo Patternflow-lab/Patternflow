@@ -118,3 +118,45 @@ describe("pixel undo", () => {
     expect(undoPixels("kept", layer)).toBe(true);
   });
 });
+
+// Since 24 October 2026 a frame change snapshots the layer before it crops or
+// pads it (resizePixelLayers). Right after the change that snapshot is the
+// picture as it is, so undo goes past it, and only past that kind.
+describe("pixel undo across a frame change's snapshot", () => {
+  it("goes past one that changes nothing, to the stroke before", () => {
+    const layer = blank(4, 2);
+    snapshotPixels("a", layer);
+    paint(layer, 1, 0, RED);
+    snapshotPixels("a", layer, true);
+    const small = resized(layer, 2, 2);
+
+    expect(undoPixels("a", small)).toBe(true);
+    expect(rgba(small, 0, 0)).toEqual(CLEAR);
+    expect(redoPixels("a", small)).toBe(true);
+    expect(rgba(small, 0, 0)).toEqual(RED);
+  });
+
+  it("restores one that brings back what a smaller frame cut off", () => {
+    const layer = blank(4, 2);
+    paint(layer, 0, 0, RED);
+    snapshotPixels("a", layer, true);
+    const small = resized(layer, 2, 2);
+    snapshotPixels("a", small, true);
+    const grown = resized(small, 4, 2);
+    expect(rgba(grown, 0, 0)).toEqual(CLEAR);
+
+    expect(undoPixels("a", grown)).toBe(true);
+    expect(rgba(grown, 0, 0)).toEqual(RED);
+  });
+
+  it("still takes a stroke's snapshot that changes nothing as a step", () => {
+    // Esc on a selection lifted from empty pixels undoes the lift, and only it.
+    const layer = blank(2, 2);
+    snapshotPixels("a", layer);
+    paint(layer, 1, 1, BLUE);
+    snapshotPixels("a", layer);
+
+    expect(undoPixels("a", layer)).toBe(true);
+    expect(rgba(layer, 1, 1)).toEqual(BLUE);
+  });
+});

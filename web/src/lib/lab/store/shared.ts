@@ -1,13 +1,15 @@
 // ── Lab store: helpers the slices share ──────────────────────────────────────
 // Pure functions over project state — building a layer from source, the
 // default project, resizing pixel layers to a new matrix — that more than
-// one slice needs. No store access here; the slices do that.
+// one slice needs. No store access here; the slices do that. The one thing
+// outside the state a resize touches is the Pixel panel's undo stack.
 
 import { DEFAULT_MATRIX, matchMatrixAnnotation, parseMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
 import { parseRampAnnotation, stripRampAnnotation } from "@/lib/pattern/ramp";
 import { livePresets } from "@/lib/presets";
 import { applyKnobEntries, defaultKnobState, matchKnobsAnnotation, parseKnobsAnnotation, type KnobAnnotationEntry } from "../annotations";
 import { emptyShow } from "../director/types";
+import { snapshotPixels } from "../pixelHistory";
 import { resizeSurface } from "../pixelTools";
 import { drawTextLayer } from "../text";
 import { DEFAULT_RAMP_STATE, cloneRampState, isRampLayer, layerId, type CodeLayer, type LabProject, type Layer, type RampLayer, type RampState, type RasterLayer } from "../types";
@@ -116,12 +118,14 @@ export function defaultProject(): LabProject {
 /**
  * Bitmap layers re-centred on a new frame. A text layer's bitmap moves with
  * the rest and its place moves by the same offset, so the next time it is
- * drawn it lands where it already is.
+ * drawn it lands where it already is. A pixel layer goes on its undo stack
+ * first, so Undo in the Pixel panel brings back what a smaller frame cut off.
  */
 export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] {
   return layers.map((layer) => {
     if (layer.type === "code") return layer;
     if (layer.width === matrix.width && layer.height === matrix.height) return layer;
+    if (layer.type === "pixel") snapshotPixels(layer.id, layer, true);
     const data = resizeSurface(layer.data, layer.width, layer.height, matrix.width, matrix.height);
     const resized: RasterLayer = {
       ...layer,

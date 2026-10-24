@@ -69,7 +69,14 @@ export type LabStore = LabProject & {
   setLayerRole: (id: string, role: LayerRole) => void;
   setLayerMaskInvert: (id: string, maskInvert: boolean) => void;
 
-  updateLayerCode: (id: string, code: string) => void;
+  /**
+   * Replace a code layer's code. A changed @matrix line it can read changes
+   * the frame; with holdMatrix (the Code panel's editor, keystroke by
+   * keystroke) the line waits for applyMatrixLine.
+   */
+  updateLayerCode: (id: string, code: string, options?: { holdMatrix?: boolean }) => void;
+  /** Take up the @matrix line the editor held: focus has left it. */
+  applyMatrixLine: (id: string) => void;
   applyCodeToActive: (code: string) => void;
   /** Immutable edit of the Director show (timeline authoring). */
   updateDirector: (update: (show: DirectorShow) => DirectorShow) => void;
