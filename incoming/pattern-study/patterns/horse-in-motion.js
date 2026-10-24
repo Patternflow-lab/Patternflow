@@ -82,7 +82,7 @@ function ik(tx, ty, fx, fy, a, b, s) {
 // it lifts by G[2], folding (G[3] pulls it further behind first), and swings
 // forward, reaching G[4] past where it lands. The top joint (tx, ty) rides a
 // quarter of the sweep, hanging from the shoulder or hip (ux, uy).
-// L = bones a and b, bend, and four radii.
+// L = bones a and b with their bend, then four radii.
 const GR = 26.6;
 function leg(c, D, G, tx, ty, ux, uy, L, v) {
   let hx, lift = 0;

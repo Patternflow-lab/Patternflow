@@ -77,9 +77,9 @@ for (let v = 0, y = -40.8; v < 24; v++) {
   VT.set([spx(c), c, [1.3, 1.6, 2.2][k], h * 0.4, [1.6, 1.9, 2.6][k], -atan2(spx(c + 0.5) - spx(c - 0.5), 1)], v * 6);
   y += h;
 }
-// Seven ribs stand for twelve: half depth and width of the cage, drop of the
-// front end, sag, and how far round the bone goes before the cartilage, which
-// the beam passes through.
+// Seven ribs stand for twelve. Each row gives the half depth and width of the
+// cage, the drop of the front end and its sag. The last number is how far
+// round the bone goes before the cartilage, which the beam passes through.
 const RIB = [
   [4, 5.5, 4, 0.6, 0.95], [5.4, 8.2, 6.2, 0.9, 0.92], [6.1, 10, 7.6, 1.1, 0.88], [6.6, 11.2, 8.4, 1.2, 0.82],
   [6.7, 11.6, 8.6, 1.2, 0.75], [6.5, 11.4, 8.2, 1.1, 0.64], [6, 10.6, 7, 1, 0.5],

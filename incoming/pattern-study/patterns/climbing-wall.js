@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Climbing Wall
 // Family:  sport
-// Idea:    A gym's lead wall seen straight on, plywood set with routes of coloured holds: a climber moves hand and foot up hers in a follow spot, clips each quickdraw and the anchor, is lowered off, and once the rope is pulled through she and her belayer swap places.
+// Idea:    A gym's lead wall seen straight on, plywood set with routes of coloured holds: a climber moves hand and foot up hers in a follow spot and clips each quickdraw up to the anchor. Her belayer lowers her off, and once the rope is pulled through the two swap places.
 // Author:  patternflow-lab
 // Date:    2026-10-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
