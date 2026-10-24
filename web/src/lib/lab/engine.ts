@@ -15,6 +15,7 @@ import {
 import {
   knobUnitsPerTurn,
   LOGICAL_KNOB_WRAP,
+  normalizeKnob,
 } from "@/lib/pattern/controls";
 import { hexToRgb } from "@/lib/pattern/color";
 import type { MatrixSize } from "@/lib/pattern/matrix";
@@ -231,11 +232,9 @@ export class LabEngine {
         knobUnitsPerTurn(ranges[knobIndex] ?? [0, 1]),
       ),
     );
-    const knobNormalized = knobs.map((value, knobIndex) => {
-      const range = ranges[knobIndex] ?? [0, 1];
-      const span = Math.max(0.0001, range[1] - range[0]);
-      return (value - range[0]) / span;
-    });
+    const knobNormalized = knobs.map((value, knobIndex) =>
+      normalizeKnob(value, ranges[knobIndex] ?? [0, 1]),
+    );
     this.prevKnobs = [...knobs];
 
     // Pass 1 — advance every visible code layer's runtime, mask layers

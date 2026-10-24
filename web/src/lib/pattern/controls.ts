@@ -34,6 +34,33 @@ export function knobDetentStep(range: readonly [number, number]) {
   return knobUnitsPerTurn(range) / ENCODER_CLICKS_PER_TURN;
 }
 
+// The narrowest span a knob's 0..1 reading divides by, so a range edited down
+// to nothing reads 0 instead of NaN. The Lab, its capture worker, its C++
+// export and the text effects floored at 0.0001; the community's sandbox and
+// cards floored at 0.001, so a knob declared 0.0001..0.0004 sitting at 0.00025
+// reached a pattern as 0.5 in the Lab and 0.15 on its card.
+export const KNOB_SPAN_FLOOR = 0.0001;
+
+/** Where a value sits in a knob's range, 0 at the bottom and 1 at the top. Not held to 0..1. */
+export function normalizeKnob(value: number, range: readonly [number, number]) {
+  return (value - range[0]) / Math.max(KNOB_SPAN_FLOOR, range[1] - range[0]);
+}
+
+/**
+ * A knob value with float noise taken off: twelve significant digits, so 0.1 +
+ * 0.2 reads 0.3 and a range as fine as 0.0001..0.0004 keeps its digits. The
+ * community's cards rounded to three decimals, which started that knob at 0,
+ * below its range, and a 0.001..0.002 knob at its top.
+ */
+export function tidyKnobValue(value: number) {
+  return Number(value.toPrecision(12));
+}
+
+/** The middle of a knob's range, where a card with no saved knob state starts. */
+export function knobMidpoint(range: readonly [number, number]) {
+  return tidyKnobValue((range[0] + range[1]) / 2);
+}
+
 /**
  * Where one arrow key leaves a knob: a detent up (ArrowRight, ArrowUp) or
  * down (ArrowLeft, ArrowDown), held to the range the way PFParams::apply holds
