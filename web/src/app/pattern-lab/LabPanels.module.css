@@ -499,6 +499,14 @@
   .layerControlRow select {
     min-height: 44px;
   }
+
+  /* A finger has no Alt key, right button or middle button. On a 390×844
+     phone this line wrapped the Pixel status bar to 51px, which left the
+     picture a 372×151 viewport and fitted it at 1×. Without it the viewport
+     is 372×177, and 2× needs 168. */
+  .pixelMouseHint {
+    display: none;
+  }
 }
 
 /* ── Pixel editor panel ── */
