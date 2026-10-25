@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Silkscreen, Newsreader } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { PostHogProvider } from "@/providers/PostHogProvider";
-import { Analytics } from "@vercel/analytics/next";
 import DeviceHostCapture from "@/components/DeviceHostCapture";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { LEGACY_GUIDE_REDIRECT } from "@/components/guide/legacy";
 import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
@@ -87,6 +86,12 @@ export const metadata: Metadata = {
 };
 
 const siteUrl = "https://patternflow.work";
+
+// Cloudflare Web Analytics: visits and Core Web Vitals, without cookies. The
+// token is the site's own, from the Cloudflare dashboard (Web Analytics, the
+// manual setup), and it is read when the page is built, so it has to be in
+// the environment of the build. Unset, the beacon is left out.
+const webAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 // Structured data (schema.org / JSON-LD) so search engines and AI crawlers can
 // resolve Patternflow as an entity: who makes it, what category it belongs to,
@@ -176,8 +181,13 @@ export default function RootLayout({
       >
         <DeviceHostCapture />
         <PostHogProvider>{children}</PostHogProvider>
-        <Analytics />
-        <SpeedInsights />
+        {webAnalyticsToken && (
+          <Script
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: webAnalyticsToken })}
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );

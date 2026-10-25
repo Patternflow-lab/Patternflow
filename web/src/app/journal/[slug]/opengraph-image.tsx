@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getAllJournalPosts } from "@/lib/journal";
+import { getAllJournalPosts, getJournalSlugs } from "@/lib/journal";
 
 export const runtime = "nodejs";
 export const size = {
@@ -7,6 +7,13 @@ export const size = {
   height: 630,
 };
 export const contentType = "image/png";
+
+// One card per post, drawn at build like the posts themselves. A card drawn
+// on request reads content/journal, which is on disk while the site builds
+// and nowhere inside a Cloudflare Worker.
+export function generateStaticParams() {
+  return getJournalSlugs().map((slug) => ({ slug }));
+}
 
 type OpenGraphImageProps = {
   params: Promise<{ slug: string }>;
