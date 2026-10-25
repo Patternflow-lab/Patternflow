@@ -14,7 +14,7 @@
 // Knob 1: Hue. The tint of the lace. At 0 lavender, at 0.35 cold blue-white, at 0.7 ice cyan and at 1 a ghostly green.
 // Knob 2: Speed. The wind. At 2 the hem swings about 5 LEDs each way every 4 seconds and the pleats ripple across it; at 0.2 all of it, the face too, is ten times slower, at 3 half as fast again.
 // Knob 3: Lace. The size of the pattern. At 0 a diamond trellis 26 LEDs across with a flower in each diamond; at -1 a finer one 20 LEDs across, its threads broken; at 1 a bold one 34 LEDs across with thick threads.
-// Knob 4: Haunt. How often a face presses through. At 0.06 the first one starts at 2.3 s and is gone by 7 s, and the next comes 9 s after; at 1 the first is there at once and one follows another every 2 s, pressing deeper.
+// Knob 4: Haunt. How often a face presses through, and how hard. At 0.06 the first one starts at 2.2 s, is pressed full by 3.5 s, holds 1.6 s and is gone by 6.9 s, and the next comes 8.6 s later; at 1 the first is there at once, 25% bigger and deeper, and the next comes 2 s after the last has gone.
 // Buttons: K4 tap sends a face through now, or straight after the one already there.
 
 const W = 64, H = 128, N = W * H;
@@ -56,25 +56,37 @@ for (let i = ORDER.length - 1; i > 0; i--) {
 const BINS = 1280, LO = -12, PER = 64;
 
 // The window behind the curtain: a mullion down the middle and two
-// transoms make six panes; the lower left one is broken, its cracks running
-// from a hole at (15, 108). Their shadows fall on the curtain.
+// transoms make six panes, and their shadows fall on the curtain. The moon
+// stands behind the upper right pane. The lower left pane is broken: a
+// jagged hole round (15, 108) lets the moonlight in unglazed, so the lace
+// over it is lit a little more, and cracks run from its points to the frame,
+// glinting where they catch the light.
 const MOON = [48, 21, 8];
 const HOLE = [15, 108];
+const SPIKES = 11;
+const RIM = [];
+for (let k = 0; k < SPIKES; k++) RIM.push((k & 1 ? 4 : 8.5) + 2.5 * hash(k + 60));
+const holeR = (a) => {
+  const f = ((a / (2 * PI)) * SPIKES + SPIKES) % SPIKES, i = floor(f), u = f - i;
+  return RIM[i] + (RIM[(i + 1) % SPIKES] - RIM[i]) * u;
+};
 const CRACKS = [];
-for (let k = 0; k < 7; k++) {
-  const a = (k / 7) * 2 * PI + 0.4 + 0.5 * hash(k + 40), len = 9 + 14 * hash(k + 50);
-  CRACKS.push([HOLE[0], HOLE[1], HOLE[0] + cos(a) * len, HOLE[1] + sin(a) * len]);
+for (let k = 0; k < SPIKES; k += 2) {
+  const a = ((k + 0.5) / SPIKES) * 2 * PI, r0 = RIM[k] * 0.9, len = 12 + 14 * hash(k + 50);
+  CRACKS.push([HOLE[0] + cos(a) * r0, HOLE[1] + sin(a) * r0, HOLE[0] + cos(a + 0.15) * (r0 + len), HOLE[1] + sin(a + 0.15) * (r0 + len)]);
 }
-const SHADE = new Float32Array(N);
+const SHADE = new Float32Array(N), GAP = new Float32Array(N);
 for (let y = 0; y < H; y++)
   for (let x = 0; x < W; x++) {
     let s = 0;
     if (abs(x - 31.5) < 2) s = 1;
     if (abs(y - 43.5) < 2 || abs(y - 86.5) < 2) s = 1;
+    const hx = x - HOLE[0], hy = y - HOLE[1];
+    if (s === 0 && sqrt(hx * hx + hy * hy) < holeR(Math.atan2(hy, hx) + PI)) GAP[y * W + x] = 1;
     for (const [x0, y0, x1, y1] of CRACKS) {
-      if (x > 30 || y < 89) continue;
+      if (x > 29 || y < 89) continue;
       const ex = x1 - x0, ey = y1 - y0, qx = x - x0, qy = y - y0, u = cl((qx * ex + qy * ey) / (ex * ex + ey * ey), 0, 1);
-      if (sqrt((qx - u * ex) ** 2 + (qy - u * ey) ** 2) < 0.6) s = max(s, 0.7);
+      if (sqrt((qx - u * ex) ** 2 + (qy - u * ey) ** 2) < 0.7) GAP[y * W + x] = max(GAP[y * W + x], 0.6);
     }
     SHADE[y * W + x] = s;
   }
@@ -90,7 +102,7 @@ export function setup(params) {
 
 function newFace(S) {
   S.face = {
-    x: 22 + 20 * Math.random(), y: 52 + 22 * Math.random(), r: 17 + 3 * Math.random(),
+    x: 22 + 20 * Math.random(), y: 52 + 22 * Math.random(), r: (17 + 3 * Math.random()) * (1 + 0.25 * S.haunt),
     age: 0, deep: 0.75 + 0.35 * S.haunt, turn: (Math.random() - 0.5) * 0.3, open: 1,
   };
 }
@@ -201,8 +213,8 @@ export function draw(display, params) {
       const sh = SHADE[p] * (1 - min(1, 3 * rise));
       // The moon is a disc behind the upper right pane, its rim ramped over 6 LEDs.
       const mg = sm(MOON[2] + 6, MOON[2], sqrt((x - MOON[0]) ** 2 + (y - MOON[1]) ** 2));
-      L[p] = sh >= 1 ? 0 : round(min(80, 64 * mg + 76 * rise) * (1 - sh));
-      lit[p] = deep > 0.3 ? 0 : cl(light * (1 - sh) + mg, 0, 1);
+      L[p] = sh >= 1 ? 0 : round(min(80, 64 * mg + 76 * rise + 28 * GAP[p]) * (1 - sh));
+      lit[p] = deep > 0.3 ? 0 : cl(light * (1 - sh) + mg + GAP[p], 0, 1);
       if ((x + y) & 1) continue;
       score[p] = max(-motif(u, v, T) - thin, face) - 9 * deep - 9 * sh - 0.5 * mg;
     }
