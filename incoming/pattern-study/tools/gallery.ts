@@ -663,7 +663,7 @@ function drawMap() {
     const color = data.families[p.family]?.color ?? "#ccc";
     const g = document.createElementNS(NS, "a");
     g.setAttribute("href", `#${p.slug}`);
-    g.setAttribute("class", `dot ${roundClass(p.round)}${picked.has(p.slug) ? " picked" : ""}`);
+    g.setAttribute("class", `dot ${roundClass(p.round)}${groupOf.get(p.slug)?.key === "pick" ? " pick" : ""}`);
     const circle = document.createElementNS(NS, "circle");
     circle.setAttribute("cx", String(x));
     circle.setAttribute("cy", String(y));
