@@ -1,40 +1,57 @@
 /**
- * The page script of index.html (page.ts bundles it). A card is one pattern
- * running in its own LabEngine, the Lab preview's engine, with the layer the
- * Lab builds from its code and the study's start knobs. Cards off screen
- * don't run.
- * The map at the top places every pattern by two of the measures study.ts
- * took; a dot takes you to its card. The newest round's dots wear a white
- * ring, whichever round that is, and the chips under the map hide a round or
- * a family.
+ * The page script of index.html (page.ts bundles it). The patterns sit in the
+ * groups shelf.json sorts them into, one folded section each; a group's tiles
+ * are built the first time it opens. A tile is one pattern running in its own
+ * LabEngine, the Lab preview's engine, with the layer the Lab builds from its
+ * code and the study's start knobs. Only tiles on screen run: a tile gets an
+ * engine when it scrolls into view and drops it when it leaves, and all the
+ * running tiles share a few milliseconds a frame, so a screen full of heavy
+ * patterns plays slower instead of locking the page.
+ *
+ * A tile opens a card with the knobs, the buttons and the code. The map,
+ * folded at the bottom, places every pattern by two of the measures study.ts
+ * took; a dot opens its card. The newest round's dots wear a white ring, and
+ * the chips under the map hide a round or a family.
+ *
+ * A star marks a pattern as picked. The picks stay in this browser, and the
+ * toolbar copies them as a list to paste where the next round will read it.
  */
-import { LabEngine } from "../../../web/src/lib/lab/engine";
+import { LabEngine, type EngineFrame } from "../../../web/src/lib/lab/engine";
 import type { CodeLayer } from "../../../web/src/lib/lab/types";
+import { stripRampAnnotation } from "../../../web/src/lib/pattern/ramp";
 
 import { AXES, GRID, scale } from "./map";
 
-type Knob = { name: string; min: number; max: number; about: string };
+type Knob = { name: string; min: number; max: number };
 type Entry = {
   slug: string;
   title: string;
   family: string;
   round: number;
   note: string;
-  idea: string;
-  buttons: string;
-  code: string;
-  layer: CodeLayer;
+  why: string;
+  block: number;
+  ramped: boolean;
+  layer: Omit<CodeLayer, "code">;
   matrix: { width: number; height: number };
   knobs: Knob[];
   start: number[];
   measures: Record<string, number>;
   knobResponse: number[];
 };
-type Data = { patterns: Entry[]; families: Record<string, { label: string; color: string }> };
+type Group = { key: string; label: string; why: string; open: boolean; patterns: string[] };
+type Data = {
+  patterns: Entry[];
+  families: Record<string, { label: string; color: string }>;
+  shelf: { date: string; about: string; groups: Group[] };
+};
 
 const data = JSON.parse(document.getElementById("study-data")!.textContent!) as Data;
+const bySlug = new Map(data.patterns.map((p) => [p.slug, p]));
+const groupOf = new Map<string, Group>();
+for (const group of data.shelf.groups) for (const slug of group.patterns) groupOf.set(slug, group);
 
-// The newest round stands out on the map, its chip and its cards. With one
+// The newest round stands out on the map, its chip and its tiles. With one
 // round there is nothing newer to tell apart.
 const rounds = [...new Set(data.patterns.map((p) => p.round))].sort((a, b) => a - b);
 const newest = rounds[rounds.length - 1] ?? 0;
@@ -57,7 +74,246 @@ const remember = (key: string, value?: string) => {
   return null;
 };
 
-// ── LED look ────────────────────────────────────────────────────────────────
+// ── Code ────────────────────────────────────────────────────────────────────
+// Each pattern's code sits in one of the JSON blocks page.ts writes. The first
+// block is read before this script runs; the others may still be arriving.
+const blocks = new Map<number, Record<string, string>>();
+const loaded = () => document.readyState !== "loading";
+
+function codeOf(entry: Entry): string | null {
+  if (!blocks.has(entry.block)) {
+    const node = document.getElementById(`code-${entry.block}`);
+    if (!node || (entry.block > 0 && !loaded())) return null;
+    blocks.set(entry.block, JSON.parse(node.textContent!) as Record<string, string>);
+  }
+  return blocks.get(entry.block)![entry.slug] ?? null;
+}
+
+/** The sentence after the knob's name on each "// Knob N:" line: "Hue. Turns the pair..." → "Turns the pair...". */
+function knobNotes(code: string): string[] {
+  return [1, 2, 3, 4].map((n) => {
+    const line = code.match(new RegExp(`^//[ \\t]*Knob ${n}:[ \\t]*(.+)$`, "m"))?.[1].trim() ?? "";
+    return line.replace(/^[^.]{1,20}\.\s*/, "");
+  });
+}
+
+function layerOf(entry: Entry): CodeLayer | null {
+  const code = codeOf(entry);
+  if (code === null) return null;
+  // The Lab runs the code without its @ramp line, as page.ts checked.
+  return { ...entry.layer, code: entry.ramped ? stripRampAnnotation(code) : code } as CodeLayer;
+}
+
+// ── Running ─────────────────────────────────────────────────────────────────
+// Every runner steps on the Lab's 30 fps clock, so a pattern runs at the same
+// speed here whatever the screen's refresh rate, until the page runs out of
+// time in a frame.
+const STEP = 1 / 30;
+const BUDGET_MS = 10;
+
+type Runner = {
+  entry: Entry;
+  engine: LabEngine | null;
+  layer: CodeLayer | null;
+  knobs: number[];
+  time: number;
+  owed: number;
+  show: (frame: EngineFrame) => void;
+  error: (message: string) => void;
+};
+
+const active = new Set<Runner>();
+let running = true;
+let cursor = 0;
+/** The open card's runner. */
+let focus: Runner | null = null;
+
+function runner(entry: Entry, show: Runner["show"], error: Runner["error"]): Runner {
+  return { entry, engine: null, layer: null, knobs: [...entry.start], time: 0, owed: STEP, show, error };
+}
+
+/** One step of one runner. False when its code has not arrived yet. */
+function step(r: Runner): boolean {
+  if (!r.layer) r.layer = layerOf(r.entry);
+  if (!r.layer) return false;
+  if (!r.engine) r.engine = new LabEngine();
+  r.time += STEP;
+  const frame = r.engine.render(
+    {
+      matrix: r.entry.matrix,
+      layers: [r.layer],
+      activeLayerId: r.layer.id,
+      knobs: r.knobs,
+      ranges: r.entry.knobs.map((k): [number, number] => [k.min, k.max]),
+    },
+    STEP,
+    r.time,
+  );
+  r.error(r.engine.errors.get(r.layer.id) ?? "");
+  r.show(frame);
+  return true;
+}
+
+let last = performance.now();
+function loop(now: number) {
+  const dt = Math.min((now - last) / 1000, 0.25);
+  last = now;
+  if (running) {
+    const started = performance.now();
+    // An open card covers the tiles, so it runs alone.
+    const list = focus ? [focus] : [...active];
+    for (const r of list) r.owed = Math.min(r.owed + dt, STEP * 2);
+    for (let k = 0; k < list.length; k++) {
+      const r = list[(cursor + k) % list.length];
+      if (r.owed < STEP) continue;
+      if (step(r)) r.owed -= STEP;
+      if (performance.now() - started > BUDGET_MS) {
+        cursor = (cursor + k + 1) % list.length;
+        break;
+      }
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+// ── Tiles ───────────────────────────────────────────────────────────────────
+type Tile = { entry: Entry; root: HTMLElement; runner: Runner };
+const tiles = new Map<string, Tile>();
+
+const seen = new IntersectionObserver(
+  (entries) => {
+    for (const s of entries) {
+      const tile = tiles.get((s.target as HTMLElement).dataset.slug!);
+      if (!tile) continue;
+      if (s.isIntersecting) active.add(tile.runner);
+      else {
+        // Off screen, a tile keeps its last frame and lets its engine go.
+        active.delete(tile.runner);
+        tile.runner.engine = null;
+        tile.runner.time = 0;
+      }
+    }
+  },
+  { rootMargin: "160px" },
+);
+
+/** Clear pixels are dark LEDs. */
+function toLeds(frame: EngineFrame, out: ImageData) {
+  const src = frame.data;
+  const dst = out.data;
+  for (let p = 0; p < src.length; p += 4) {
+    const a = src[p + 3] / 255;
+    dst[p] = src[p] * a;
+    dst[p + 1] = src[p + 1] * a;
+    dst[p + 2] = src[p + 2] * a;
+    dst[p + 3] = 255;
+  }
+}
+
+function buildTile(entry: Entry): Tile {
+  const family = data.families[entry.family];
+  const root = el("article", `tile ${roundClass(entry.round)}`);
+  root.dataset.slug = entry.slug;
+  root.style.setProperty("--family", family?.color ?? "#ccc");
+  root.title = entry.note;
+
+  const open = el("button", "tile-open");
+  open.setAttribute("aria-label", `${entry.title} 열기`);
+  const canvas = el("canvas", "tile-panel");
+  canvas.width = entry.matrix.width;
+  canvas.height = entry.matrix.height;
+  canvas.style.aspectRatio = `${entry.matrix.width} / ${entry.matrix.height}`;
+  const ctx = canvas.getContext("2d")!;
+  const image = ctx.createImageData(entry.matrix.width, entry.matrix.height);
+  const name = el("span", "tile-name", entry.title);
+  const round = el("span", "tile-round", `${entry.round}판`);
+  open.append(canvas, name, round);
+  open.addEventListener("click", () => openCard(entry.slug));
+
+  const star = starButton(entry.slug);
+  root.append(open, star);
+  if (entry.why) root.append(el("p", "tile-why", entry.why));
+
+  const tile: Tile = {
+    entry,
+    root,
+    runner: runner(
+      entry,
+      (frame) => {
+        toLeds(frame, image);
+        ctx.putImageData(image, 0, 0);
+      },
+      (message) => root.classList.toggle("broken", Boolean(message)),
+    ),
+  };
+  tiles.set(entry.slug, tile);
+  root.hidden = isHidden(entry);
+  seen.observe(root);
+  return tile;
+}
+
+// ── Picks ───────────────────────────────────────────────────────────────────
+const picked = new Set<string>(
+  (() => {
+    try {
+      const list = JSON.parse(remember("picked") ?? "[]") as unknown;
+      return Array.isArray(list) ? list.filter((s): s is string => typeof s === "string" && bySlug.has(s)) : [];
+    } catch {
+      return [];
+    }
+  })(),
+);
+
+function starButton(slug: string) {
+  const star = el("button", "star");
+  star.dataset.star = slug;
+  star.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (picked.has(slug)) picked.delete(slug);
+    else picked.add(slug);
+    remember("picked", JSON.stringify([...picked]));
+    showPicks();
+  });
+  paintStar(star, picked.has(slug));
+  return star;
+}
+
+function paintStar(star: HTMLElement, on: boolean) {
+  star.textContent = on ? "★" : "☆";
+  star.classList.toggle("on", on);
+  star.title = on ? "고른 것에서 빼기" : "고르기";
+}
+
+function pickList() {
+  const chosen = data.patterns.filter((p) => picked.has(p.slug));
+  return `패턴 연구에서 고른 것 ${chosen.length}개: ${chosen.map((p) => `${p.title} (${p.slug})`).join(", ")}`;
+}
+
+function showPicks() {
+  for (const star of document.querySelectorAll<HTMLElement>("[data-star]")) paintStar(star, picked.has(star.dataset.star!));
+  document.getElementById("picked-count")!.textContent = `고른 것 ${picked.size}개`;
+  (document.getElementById("picked-copy") as HTMLButtonElement).disabled = picked.size === 0;
+  (document.getElementById("picked-clear") as HTMLButtonElement).disabled = picked.size === 0;
+}
+
+async function copyText(text: string, button: HTMLButtonElement, done: string) {
+  const label = button.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const area = el("textarea");
+    area.value = text;
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+  button.textContent = done;
+  setTimeout(() => (button.textContent = label), 1400);
+}
+
+// ── Card ────────────────────────────────────────────────────────────────────
+// The open card draws the panel larger, as LED dots or as plain pixels.
 const SCALE = 4;
 let ledLook = remember("look") !== "pixel";
 
@@ -84,60 +340,52 @@ function masksFor(width: number, height: number) {
   return masks.get(key)!;
 }
 
-// ── Cards ───────────────────────────────────────────────────────────────────
-type Card = {
-  entry: Entry;
-  root: HTMLElement;
-  engine: LabEngine;
-  knobs: number[];
-  time: number;
-  visible: boolean;
-  small: HTMLCanvasElement;
-  smallCtx: CanvasRenderingContext2D;
-  image: ImageData;
-  view: HTMLCanvasElement;
-  viewCtx: CanvasRenderingContext2D;
-  sliders: HTMLInputElement[];
-  readouts: HTMLElement[];
-  error: HTMLElement;
-};
+const dialog = document.getElementById("card") as HTMLDialogElement;
 
-const cards: Card[] = [];
-let running = true;
-
-function setKnob(card: Card, index: number, value: number) {
-  card.knobs[index] = value;
-  card.sliders[index].value = String(value);
-  card.readouts[index].textContent = fmt(value);
-}
-
-function buildCard(entry: Entry): Card {
+function openCard(slug: string) {
+  const entry = bySlug.get(slug);
+  if (!entry) return;
+  dropCard();
   const family = data.families[entry.family];
+  const group = groupOf.get(slug);
+  const { width, height } = entry.matrix;
+
   const root = el("article", "card");
-  root.id = entry.slug;
   root.style.setProperty("--family", family?.color ?? "#ccc");
+  // A panel standing up sits beside its controls instead of above them.
+  root.classList.toggle("portrait", height > width);
 
   const head = el("header", "card-head");
   const title = el("h3", "", entry.title);
   const tags = el("span", "tags");
   tags.append(el("span", "chip", family?.label ?? entry.family), el("span", `round ${roundClass(entry.round)}`, `${entry.round}판`));
-  head.append(title, tags);
+  const close = el("button", "close", "닫기");
+  close.addEventListener("click", () => closeCard());
+  head.append(title, tags, starButton(slug), close);
 
-  const { width, height } = entry.matrix;
-  // A panel standing up sits beside its controls instead of above them.
-  root.classList.toggle("portrait", height > width);
   const view = el("canvas", "panel");
   view.width = width * SCALE;
   view.height = height * SCALE;
   view.style.aspectRatio = `${width} / ${height}`;
+  const viewCtx = view.getContext("2d")!;
   const small = document.createElement("canvas");
   small.width = width;
   small.height = height;
   const smallCtx = small.getContext("2d")!;
+  const image = smallCtx.createImageData(width, height);
 
-  const note = el("p", "note", entry.note || entry.idea);
+  const placed = el("p", "placed");
+  if (group) {
+    placed.append(el("strong", "", group.label));
+    placed.append(document.createTextNode(` · ${entry.why || group.why}`));
+  }
+  const note = el("p", "note", entry.note);
   const error = el("p", "error");
 
+  // A card opened from the map before the later code blocks have arrived
+  // shows no knob notes; its panel starts once the code is there.
+  const code = codeOf(entry) ?? "";
+  const about = knobNotes(code);
   const knobBox = el("div", "knobs");
   const sliders: HTMLInputElement[] = [];
   const readouts: HTMLElement[] = [];
@@ -151,14 +399,38 @@ function buildCard(entry: Entry): Card {
     slider.step = String((knob.max - knob.min) / 480);
     slider.value = String(entry.start[i]);
     const readout = el("span", "knob-value", fmt(entry.start[i]));
-    row.title = knob.about;
-    row.append(name, slider, readout);
-    const about = el("span", "knob-about", knob.about);
-    row.append(about);
+    row.title = about[i];
+    row.append(name, slider, readout, el("span", "knob-about", about[i]));
     knobBox.append(row);
     sliders.push(slider);
     readouts.push(readout);
   });
+
+  const r = runner(
+    entry,
+    (frame) => {
+      toLeds(frame, image);
+      smallCtx.putImageData(image, 0, 0);
+      viewCtx.globalCompositeOperation = "source-over";
+      viewCtx.imageSmoothingEnabled = false;
+      viewCtx.drawImage(small, 0, 0, view.width, view.height);
+      if (ledLook) {
+        const mask = masksFor(width, height);
+        viewCtx.globalCompositeOperation = "multiply";
+        viewCtx.drawImage(mask.lit, 0, 0);
+        viewCtx.globalCompositeOperation = "lighten";
+        viewCtx.drawImage(mask.dim, 0, 0);
+        viewCtx.globalCompositeOperation = "source-over";
+      }
+    },
+    (message) => (error.textContent = message),
+  );
+  const setKnob = (index: number, value: number) => {
+    r.knobs[index] = value;
+    sliders[index].value = String(value);
+    readouts[index].textContent = fmt(value);
+  };
+  sliders.forEach((slider, i) => slider.addEventListener("input", () => setKnob(i, Number(slider.value))));
 
   const tools = el("div", "tools");
   const buttons = el("div", "buttons");
@@ -168,131 +440,97 @@ function buildCard(entry: Entry): Card {
     buttons.append(b);
     b.addEventListener("pointerdown", (event) => {
       event.preventDefault();
-      card.engine.pressButton(i);
+      r.engine?.pressButton(i);
     });
-    const up = () => card.engine.releaseButton(i);
+    const up = () => r.engine?.releaseButton(i);
     b.addEventListener("pointerup", up);
     b.addEventListener("pointerleave", up);
   }
   const copy = el("button", "action", "코드 복사");
   const reset = el("button", "action", "처음 값");
   const restart = el("button", "action", "다시 시작");
-  tools.append(buttons, copy, reset, restart);
+  const look = el("button", "action");
+  const showLook = () => (look.textContent = ledLook ? "LED 점" : "픽셀");
+  showLook();
+  tools.append(buttons, copy, reset, restart, look);
+  reset.addEventListener("click", () => entry.start.forEach((v, i) => setKnob(i, v)));
+  restart.addEventListener("click", () => {
+    r.engine = null;
+    r.time = 0;
+  });
+  copy.addEventListener("click", () => {
+    const code = codeOf(entry);
+    if (code !== null) void copyText(code, copy, "복사했어요");
+  });
+  look.addEventListener("click", () => {
+    ledLook = !ledLook;
+    remember("look", ledLook ? "led" : "pixel");
+    showLook();
+  });
 
-  const pressNote = el("p", "press-note", entry.buttons ? `버튼: ${entry.buttons}` : "");
+  const buttonsLine = code.match(/^\/\/[ \t]*Buttons:[ \t]*(.+)$/m)?.[1].trim() ?? "";
+  const pressNote = el("p", "press-note", buttonsLine ? `버튼: ${buttonsLine}` : "");
 
   const measured = el("details", "measured");
   measured.append(el("summary", "", "잰 값"));
   const table = el("dl");
-  for (const [key, axis] of Object.entries(AXES)) {
-    table.append(el("dt", "", axis.label), el("dd", "", fmt(entry.measures[key] ?? 0)));
-  }
+  for (const [key, axis] of Object.entries(AXES)) table.append(el("dt", "", axis.label), el("dd", "", fmt(entry.measures[key] ?? 0)));
   table.append(el("dt", "", "노브 반응"), el("dd", "", entry.knobResponse.map(fmt).join(" · ")));
   measured.append(table);
 
+  const pasteNote = el(
+    "p",
+    "paste-note",
+    "「코드 복사」로 가져가 Lab 의 CODE 칸에 붙여 넣으면 돼요. 노브는 Lab 의 기본 노브 값 0, 2, 0, 0.06 을 이 패턴의 범위 안으로 당긴 자리에서 시작해요. 붙여 넣으면 노브는 그때 Lab 에 있던 값을 새 범위로 당긴 자리에 서니, 같은 화면을 보려면 슬라이더 값대로 Knobs 칸을 맞춰요.",
+  );
+
   const side = el("div", "card-side");
-  side.append(note, error, knobBox, tools, pressNote, measured);
+  side.append(placed, note, error, knobBox, tools, pressNote, measured, pasteNote);
   const body = el("div", "card-body");
   body.append(view, side);
   root.append(head, body);
 
-  const card: Card = {
-    entry,
-    root,
-    engine: new LabEngine(),
-    knobs: [...entry.start],
-    time: 0,
-    visible: false,
-    small,
-    smallCtx,
-    image: smallCtx.createImageData(width, height),
-    view,
-    viewCtx: view.getContext("2d")!,
-    sliders,
-    readouts,
-    error,
-  };
-
-  sliders.forEach((slider, i) => slider.addEventListener("input", () => setKnob(card, i, Number(slider.value))));
-  reset.addEventListener("click", () => entry.start.forEach((v, i) => setKnob(card, i, v)));
-  restart.addEventListener("click", () => {
-    card.engine = new LabEngine();
-    card.time = 0;
-  });
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(entry.code);
-    } catch {
-      const area = el("textarea");
-      area.value = entry.code;
-      document.body.append(area);
-      area.select();
-      document.execCommand("copy");
-      area.remove();
-    }
-    copy.textContent = "복사했어요";
-    setTimeout(() => (copy.textContent = "코드 복사"), 1400);
-  });
-
-  return card;
+  dialog.replaceChildren(root);
+  focus = r;
+  if (!dialog.open) dialog.showModal();
+  history.replaceState(null, "", `#${slug}`);
 }
 
-function paint(card: Card) {
-  const { width, height } = card.entry.matrix;
-  const frame = card.engine.render(
-    {
-      matrix: card.entry.matrix,
-      layers: [card.entry.layer],
-      activeLayerId: card.entry.layer.id,
-      knobs: card.knobs,
-      ranges: card.entry.knobs.map((k): [number, number] => [k.min, k.max]),
-    },
-    1 / 30,
-    card.time,
-  );
-  const error = card.engine.errors.get(card.entry.layer.id) ?? "";
-  card.error.textContent = error;
-  const out = card.image.data;
-  for (let p = 0; p < width * height; p++) {
-    // Clear pixels are dark LEDs.
-    const a = frame.data[p * 4 + 3] / 255;
-    out[p * 4] = frame.data[p * 4] * a;
-    out[p * 4 + 1] = frame.data[p * 4 + 1] * a;
-    out[p * 4 + 2] = frame.data[p * 4 + 2] * a;
-    out[p * 4 + 3] = 255;
-  }
-  card.smallCtx.putImageData(card.image, 0, 0);
-  const ctx = card.viewCtx;
-  ctx.globalCompositeOperation = "source-over";
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(card.small, 0, 0, card.view.width, card.view.height);
-  if (ledLook) {
-    const mask = masksFor(width, height);
-    ctx.globalCompositeOperation = "multiply";
-    ctx.drawImage(mask.lit, 0, 0);
-    ctx.globalCompositeOperation = "lighten";
-    ctx.drawImage(mask.dim, 0, 0);
-    ctx.globalCompositeOperation = "source-over";
-  }
+function dropCard() {
+  focus = null;
 }
 
-// Every card steps on the Lab's 30 fps clock, so a pattern runs at the same
-// speed here whatever the screen's refresh rate.
-const STEP = 1 / 30;
-let last = performance.now();
-let owed = 0;
-function loop(now: number) {
-  owed = Math.min(owed + (now - last) / 1000, STEP * 3);
-  last = now;
-  if (running && owed >= STEP) {
-    owed -= STEP;
-    for (const card of cards) {
-      if (!card.visible) continue;
-      card.time += STEP;
-      paint(card);
+function closeCard() {
+  dropCard();
+  if (dialog.open) dialog.close();
+  if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+}
+
+// ── Groups ──────────────────────────────────────────────────────────────────
+function buildGroups() {
+  const box = document.getElementById("groups")!;
+  for (const group of data.shelf.groups) {
+    const section = el("details", `group g-${group.key}`);
+    section.id = `group-${group.key}`;
+    const summary = el("summary");
+    const label = el("span", "group-label", group.label);
+    const count = el("span", "group-count", `${group.patterns.length}개`);
+    summary.append(label, count, el("span", "group-why", group.why));
+    const grid = el("div", "tiles");
+    section.append(summary, grid);
+    let built = false;
+    const build = () => {
+      if (built) return;
+      built = true;
+      for (const slug of group.patterns) grid.append(buildTile(bySlug.get(slug)!).root);
+    };
+    section.addEventListener("toggle", () => section.open && build());
+    if (group.open) {
+      section.open = true;
+      build();
     }
+    box.append(section);
   }
-  requestAnimationFrame(loop);
 }
 
 // ── Map ─────────────────────────────────────────────────────────────────────
@@ -300,11 +538,12 @@ let axisX = remember("x") ?? "edges";
 let axisY = remember("y") ?? "motion";
 if (!AXES[axisX]) axisX = "edges";
 if (!AXES[axisY]) axisY = "motion";
-let hiddenFamilies = new Set<string>();
-let hiddenRounds = new Set<number>();
+const hiddenFamilies = new Set<string>();
+const hiddenRounds = new Set<number>();
 const isHidden = (p: Entry) => hiddenFamilies.has(p.family) || hiddenRounds.has(p.round);
 
 const allMeasures = data.patterns.map((p) => p.measures);
+const mapSection = document.getElementById("map-section") as HTMLDetailsElement;
 
 type Spot = { x: number; y: number; anchor: "start" | "end" };
 
@@ -342,6 +581,7 @@ function labelPlaces(
 }
 
 function drawMap() {
+  if (!mapSection.open) return;
   const box = document.getElementById("map")!;
   const W = box.clientWidth;
   const H = Math.round(Math.min(Math.max(W * 0.62, 300), 560));
@@ -423,14 +663,14 @@ function drawMap() {
     const color = data.families[p.family]?.color ?? "#ccc";
     const g = document.createElementNS(NS, "a");
     g.setAttribute("href", `#${p.slug}`);
-    g.setAttribute("class", `dot ${roundClass(p.round)}`);
+    g.setAttribute("class", `dot ${roundClass(p.round)}${groupOf.get(p.slug)?.key === "pick" ? " pick" : ""}`);
     const circle = document.createElementNS(NS, "circle");
     circle.setAttribute("cx", String(x));
     circle.setAttribute("cy", String(y));
     circle.setAttribute("r", "7");
     circle.setAttribute("fill", color);
     const tip = document.createElementNS(NS, "title");
-    tip.textContent = `${p.title} · ${data.families[p.family]?.label ?? p.family} · ${p.round}판`;
+    tip.textContent = `${p.title} · ${data.families[p.family]?.label ?? p.family} · ${p.round}판 · ${groupOf.get(p.slug)?.label ?? ""}`;
     circle.append(tip);
     g.append(circle);
     const text = document.createElementNS(NS, "text");
@@ -442,19 +682,11 @@ function drawMap() {
     g.append(text);
     g.addEventListener("click", (event) => {
       event.preventDefault();
-      focusCard(p.slug);
+      openCard(p.slug);
     });
     svg.append(g);
   }
   box.replaceChildren(svg);
-}
-
-function focusCard(slug: string) {
-  const card = cards.find((c) => c.entry.slug === slug);
-  if (!card) return;
-  for (const c of cards) c.root.classList.toggle("focus", c === card);
-  card.root.scrollIntoView({ behavior: "smooth", block: "center" });
-  history.replaceState(null, "", `#${slug}`);
 }
 
 function axisSelect(id: string, current: string, set: (v: string) => void) {
@@ -474,7 +706,7 @@ function axisSelect(id: string, current: string, set: (v: string) => void) {
 function legend() {
   const box = document.getElementById("legend")!;
   const refresh = () => {
-    for (const card of cards) card.root.hidden = isHidden(card.entry);
+    for (const tile of tiles.values()) tile.root.hidden = isHidden(tile.entry);
     drawMap();
   };
   for (const round of rounds) {
@@ -505,31 +737,13 @@ function legend() {
 // ── Start ───────────────────────────────────────────────────────────────────
 function start() {
   document.getElementById("count")!.textContent = String(data.patterns.length);
+  document.getElementById("rounds")!.textContent = rounds.length > 1 ? `${rounds[0]}–${newest}판` : `${newest}판`;
   document.getElementById("newest")!.textContent = String(newest);
-  document.getElementById("rounds")!.textContent = rounds
-    .map((round) => `${round}판 ${data.patterns.filter((p) => p.round === round).length}개`)
-    .join(", ");
-  const grid = document.getElementById("cards")!;
-  // The newest round comes first, so a returning visitor meets what is new.
-  const order = [...data.patterns].sort((a, b) => b.round - a.round || a.title.localeCompare(b.title));
-  for (const entry of order) {
-    const card = buildCard(entry);
-    cards.push(card);
-    grid.append(card.root);
-  }
-  const observer = new IntersectionObserver(
-    (seen) => {
-      for (const s of seen) {
-        const card = cards.find((c) => c.root === s.target);
-        if (card) card.visible = s.isIntersecting;
-      }
-    },
-    { rootMargin: "120px" },
-  );
-  for (const card of cards) {
-    observer.observe(card.root);
-    paint(card);
-  }
+  const about = document.getElementById("about")!;
+  about.textContent = data.shelf.about;
+  about.hidden = !data.shelf.about;
+
+  buildGroups();
 
   axisSelect("axis-x", axisX, (v) => {
     axisX = v;
@@ -540,28 +754,37 @@ function start() {
     remember("y", v);
   });
   legend();
-  drawMap();
+  mapSection.addEventListener("toggle", drawMap);
   window.addEventListener("resize", drawMap);
 
-  const look = document.getElementById("look") as HTMLButtonElement;
-  const showLook = () => (look.textContent = ledLook ? "LED 점으로 보는 중" : "픽셀로 보는 중");
-  showLook();
-  look.addEventListener("click", () => {
-    ledLook = !ledLook;
-    remember("look", ledLook ? "led" : "pixel");
-    showLook();
-    for (const card of cards) paint(card);
-  });
   const pause = document.getElementById("pause") as HTMLButtonElement;
   pause.addEventListener("click", () => {
     running = !running;
     pause.textContent = running ? "모두 멈춤" : "다시 재생";
   });
+  const copyPicks = document.getElementById("picked-copy") as HTMLButtonElement;
+  copyPicks.addEventListener("click", () => void copyText(pickList(), copyPicks, "복사했어요"));
+  document.getElementById("picked-clear")!.addEventListener("click", () => {
+    if (!confirm(`고른 것 ${picked.size}개를 비울까요?`)) return;
+    picked.clear();
+    remember("picked", "[]");
+    showPicks();
+  });
+  showPicks();
 
-  if (location.hash) {
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeCard();
+  });
+  dialog.addEventListener("close", () => closeCard());
+
+  // A link to #<slug>, or the back button to one, opens that card.
+  const fromHash = () => {
     const slug = decodeURIComponent(location.hash.slice(1));
-    requestAnimationFrame(() => focusCard(slug));
-  }
+    if (bySlug.has(slug)) openCard(slug);
+    else if (dialog.open) closeCard();
+  };
+  window.addEventListener("hashchange", fromHash);
+  if (location.hash) requestAnimationFrame(fromHash);
   requestAnimationFrame(loop);
 }
 

@@ -12,7 +12,8 @@
  * with every knob at its minimum, then at its maximum), it lights the panel,
  * it moves, and each knob on its own changes the picture. Its code may not
  * name the network, the page, a clock or code built from text (OFF_LIMITS),
- * its family is one families.json names, and a file from round three on
+ * its family is one families.json names, shelf.json names it at most once
+ * and names no pattern that is not there, and a file from round three on
  * carries the whole header the rounds write: Author, Date, Lineage and a
  * "// Knob N:" line for each knob.
  *
@@ -286,9 +287,12 @@ async function main() {
   console.log(`${results.length - failed.length} of ${results.length} patterns pass`);
 
   // The page builder is optional while the study is being set up.
+  let shelfFailures: string[] = [];
   if (!only && fs.existsSync(path.join(STUDY, "tools", "page.ts"))) {
     const pagePath = path.join(STUDY, "index.html");
-    const { buildPage } = await import("./page");
+    const { buildPage, shelfProblems, SHELF_FILE } = await import("./page");
+    shelfFailures = shelfProblems(listPatterns());
+    for (const p of shelfFailures) console.log(`FAIL ${path.relative(STUDY, SHELF_FILE)}: ${p}`);
     const html = buildPage(results);
     if (checkOnly) {
       const current = fs.existsSync(pagePath) ? fs.readFileSync(pagePath, "utf8") : "";
@@ -302,7 +306,7 @@ async function main() {
       console.log(`wrote index.html (${(html.length / 1024).toFixed(0)} KB)`);
     }
   }
-  if (failed.length || familyFailures.length) process.exit(1);
+  if (failed.length || familyFailures.length || shelfFailures.length) process.exit(1);
 }
 
 void main();
