@@ -1,9 +1,8 @@
 // Until 24 October 2026 the Lab's modules held 13 classes that no component
 // put on an element, and 220 lines of rules for them. The test that came with
-// that cleanup read the Lab alone, and until 25 October 2026 five modules
-// outside it held 23 more: the roadmap's legend and zoom buttons, the
-// community's sign-in gate, 241 lines with a keyframe and three variables
-// nothing read.
+// that cleanup read the Lab alone. Until 25 October 2026 five modules outside
+// it held 23 more in 30 rules, the roadmap's legend and zoom buttons and the
+// community's sign-in gate among them.
 
 import path from "node:path";
 import { describe, expect, it } from "vitest";
