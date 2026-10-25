@@ -67,6 +67,39 @@ function fontFile(name: string, firstByte = 1): File {
   return Object.assign(file, { arrayBuffer: () => Promise.resolve(bytes.buffer) });
 }
 
+/**
+ * IndexedDB as far as remembering a font goes, which jsdom lacks: a store
+ * that keeps what is put in it, or one whose write aborts, as a full disk
+ * or a private window's does.
+ */
+function fakeIndexedDb(outcome: "keeps" | "refuses") {
+  type Handlers = { oncomplete?: () => void; onerror?: () => void; onabort?: () => void };
+  const db = {
+    createObjectStore: () => ({}),
+    close: () => {},
+    transaction: () => {
+      const transaction: Handlers & { objectStore: () => { put: () => void } } = {
+        objectStore: () => ({
+          put: () => {
+            setTimeout(() => (outcome === "keeps" ? transaction.oncomplete?.() : transaction.onabort?.()));
+          },
+        }),
+      };
+      return transaction;
+    },
+  };
+  return {
+    open: () => {
+      const request: { result: typeof db; onsuccess?: () => void; onupgradeneeded?: () => void } = { result: db };
+      setTimeout(() => {
+        request.onupgradeneeded?.();
+        request.onsuccess?.();
+      });
+      return request;
+    },
+  };
+}
+
 describe("TextPanel", () => {
   it("offers to add a text layer when none is selected", () => {
     render(<TextPanel />);
@@ -114,6 +147,38 @@ describe("TextPanel", () => {
     const group = screen.getByRole("group", { name: "Your font files" });
     expect(within(group).getByRole("option", { name: "Brand Sans" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Brand Sans is loaded for this visit.");
+  });
+
+  it("says the font is kept for next time only when this browser kept it", async () => {
+    vi.stubGlobal("indexedDB", fakeIndexedDb("keeps"));
+    store().addTextLayer();
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "remember in this browser" }));
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Font file"), { target: { files: [fontFile("Kept Serif.ttf")] } });
+    });
+    await waitFor(() => expect(text().spec.font).toBe("file:Kept Serif"));
+    expect(screen.getByRole("status")).toHaveTextContent("Kept Serif is kept in this browser for next time.");
+    expect(screen.getByRole("button", { name: "Forget it" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["has no IndexedDB", undefined],
+    ["refuses to store it", "refuses"],
+  ] as const)("says it is only for this visit when the browser %s", async (_, db) => {
+    vi.stubGlobal("indexedDB", db && fakeIndexedDb(db));
+    const name = db ? "Refused Mono" : "Unkept Sans";
+    store().addTextLayer();
+    render(<TextPanel />);
+    fireEvent.click(screen.getByRole("checkbox", { name: "remember in this browser" }));
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Font file"), { target: { files: [fontFile(`${name}.woff2`)] } });
+    });
+    await waitFor(() => expect(text().spec.font).toBe(`file:${name}`));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      `${name} is loaded for this visit. This browser wouldn't keep a copy for next time.`,
+    );
+    expect(screen.queryByRole("button", { name: "Forget it" })).toBeNull();
   });
 
   it("says so when a file is not a font, and keeps the font it had", async () => {
