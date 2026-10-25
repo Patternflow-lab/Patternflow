@@ -56,9 +56,14 @@ const E_GLOW = 0.35, E_HAND0 = 0.5, E_HAND1 = 1.0, E_GRIP = 1.15, E_YANK = 1.3, 
 // Kinds of LED in the still picture.
 const SKY = 0, ROOF = 1, GABLE = 2, WOOD = 3, BACK = 4, SECT = 5, SOIL = 6, GRASS = 7, WATER = 8;
 const MOONC = [175, 185, 225], TINT = [0.95, 0.9, 1.12];
+// The bucket's iron hoops, its rim and its two shades of stave.
+const HOOP = [70, 70, 86], RIM = [214, 150, 84], STAVE = [[160, 98, 48], [186, 116, 58]];
 // The glow's light, falling off up the shaft from the water.
 const UP = new Float32Array(128);
 for (let i = 0; i < 128; i++) UP[i] = exp(-i / 16);
+// Light round a point, by squared distance in LEDs.
+const RAD = new Float32Array(4096);
+for (let i = 0; i < 4096; i++) RAD[i] = exp(-sqrt(i) / 7);
 
 export function setup(params) {
   params.s = {
@@ -352,7 +357,7 @@ export function draw(display, params) {
         let f = fw;
         if (cg > 0.01) {
           const dx = x - RX, dy = y - by - 4;
-          f += 0.8 * cg * exp(-sqrt(dx * dx + dy * dy) / 7);
+          f += 0.8 * cg * RAD[min(4095, (dx * dx + dy * dy) | 0)];
         }
         if (f < 0.012) continue;
         const p = y * W + x, o = p * 3, a = alb[p] * 0.72 + (kind[p] === BACK ? 0.3 : 0);
@@ -375,7 +380,7 @@ export function draw(display, params) {
       }
       if (g < 0.01) continue;
       const n = vn(x * 0.21 + 1.6 * vn(y * 0.17 - t * 0.6, 3) + t * 0.5, 11 + (y >> 2)), ex = x - RX, ey = y - 117;
-      const f = g * (0.12 + 0.1 * floor(n * 3 + 1.5) / 2 + 0.6 * exp(-sqrt(ex * ex * 0.4 + ey * ey) / 6) + (y - WS < 2 ? 0.2 : 0));
+      const f = g * (0.12 + 0.1 * floor(n * 3 + 1.5) / 2 + 0.6 * RAD[min(4095, round((ex * ex * 0.4 + ey * ey) * 1.36))] + (y - WS < 2 ? 0.2 : 0));
       buf[o] += gc[0] * f;
       buf[o + 1] += gc[1] * f;
       buf[o + 2] += gc[2] * f;
@@ -402,11 +407,11 @@ export function draw(display, params) {
     for (const ex of [RX - 6, RX + 4]) {
       const ey = 116, wide = S.eo > 0.45;
       for (let i = 0; i < 5; i++) {
-        const pup = i === 2, c = pup ? [20, 30, 20] : [228 + gc[0] * 0.1, 240, 222];
-        put(buf, ex + i, ey, c[0], c[1], c[2], min(1, S.eo * 2));
+        const pup = i === 2, r = pup ? 20 : 228 + gc[0] * 0.1, gg = pup ? 30 : 240, b = pup ? 20 : 222;
+        put(buf, ex + i, ey, r, gg, b, min(1, S.eo * 2));
         if (wide && i > 0 && i < 4) {
-          put(buf, ex + i, ey - 1, c[0], c[1], c[2], 1);
-          put(buf, ex + i, ey + 1, c[0], c[1], c[2], 1);
+          put(buf, ex + i, ey - 1, r, gg, b, 1);
+          put(buf, ex + i, ey + 1, r, gg, b, 1);
         }
       }
     }
@@ -435,7 +440,7 @@ export function draw(display, params) {
       const xl = RX - 6 + round(r / 9), xr = RX + 5 - round(r / 9);
       for (let x = xl; x <= xr; x++) {
         const hoop = r === 2 || r === 7, edge = x === xl || x === xr, rim = r === 0;
-        let c = hoop ? [70, 70, 86] : rim ? [214, 150, 84] : (x & 1) ? [186, 116, 58] : [160, 98, 48];
+        const c = hoop ? HOOP : rim ? RIM : STAVE[x & 1];
         const e = edge && !hoop ? 0.7 : 1;
         solid(S, x, by + r, (c[0] * lit + gc[0] * gl) * e, (c[1] * lit + gc[1] * gl) * e, (c[2] * lit + gc[2] * gl) * e);
       }
@@ -461,6 +466,8 @@ export function draw(display, params) {
     const m = beam(s, x, WS) * 0.25, y = WS + off[x], crest = off[x] < 0 ? 1.4 : 1;
     put(buf, x, y, (40 + MOONC[0] * m + gc[0] * g * 0.6) * crest, (44 + MOONC[1] * m + gc[1] * g * 0.6) * crest, (60 + MOONC[2] * m + gc[2] * g * 0.6) * crest, 1);
   }
-  for (let p = 0, o = 0; p < N; p++, o += 3)
-    display.setPixel(p % W, (p / W) | 0, min(255, round(buf[o] / 4) * 4), min(255, round(buf[o + 1] / 4) * 4), min(255, round(buf[o + 2] / 4) * 4));
+  // Out in steps of four.
+  for (let y = 0, o = 0; y < H; y++)
+    for (let x = 0; x < W; x++, o += 3)
+      display.setPixel(x, y, min(255, ((buf[o] + 2) >> 2) << 2), min(255, ((buf[o + 1] + 2) >> 2) << 2), min(255, ((buf[o + 2] + 2) >> 2) << 2));
 }
