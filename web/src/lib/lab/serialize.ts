@@ -13,7 +13,7 @@
 import { RAMP_MODES, type RampMode } from "@/lib/pattern/harness";
 import { COLOR_MODES } from "@/lib/ai/settings";
 import type { ColorMode } from "@/lib/ai/settings";
-import { isValidMatrix, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
+import { parseMatrixSize, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 import { loadDraft } from "@/lib/lab/legacyDraft";
 import { PATTERN_KNOB_COUNT } from "@/lib/pattern/harness";
 import {
@@ -444,10 +444,7 @@ export function deserializeProject(json: string): (LabProject & { savedAt: numbe
     .filter((layer): layer is Layer => layer !== null);
   if (layers.length === 0) return null;
 
-  const matrixCandidate = raw.matrix as Partial<MatrixSize> | undefined;
-  const matrix = isValidMatrix(matrixCandidate)
-    ? { width: Number(matrixCandidate!.width), height: Number(matrixCandidate!.height) }
-    : DEFAULT_MATRIX;
+  const matrix = parseMatrixSize(raw.matrix as Partial<MatrixSize> | undefined) ?? DEFAULT_MATRIX;
 
   const forkOf =
     raw.forkOf && typeof raw.forkOf === "object"
