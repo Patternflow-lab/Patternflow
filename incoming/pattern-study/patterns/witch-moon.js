@@ -12,10 +12,10 @@
 // @knobs Hue=0..1, Speed=0.2..3, Clouds=0..1, Flights=0..1
 //
 // Knob 1: Hue. The moon's tint, and the light on the cloud edges with it. At 0 harvest orange, at 0.25 amber, at 0.5 bone white, at 0.75 a ghostly green and at 1 lilac.
-// Knob 2: Speed. The clock of the whole scene. At 2 the near clouds drift 5 LEDs a second and the far ones 2.5, a branch sways about once in 3 seconds, and a witch crosses the 64 LEDs of the panel in about 7 seconds; at 0.2 all of it is ten times slower.
-// Knob 3: Clouds. How much of the sky the clouds cover. At 0 scattered banks pass the moon and leave it clear most of the time; at 0.5 about half the moon is under cloud at any moment; at 1 the cover is nearly closed and the moon shows through gaps and thin edges.
-// Knob 4: Flights. How many witches fly together and how often. Up to 0.25 one witch, then two, three and from 0.75 four in a staggered line; a new flight starts 12 seconds after the last one has gone at 0 and 3 seconds after at 1 (at Speed 2). The first flight always starts at once and crosses the moon between 2.5 and 5 seconds.
-// Buttons: K1 tap sends a flight off at once, from the side the last one did not leave by.
+// Knob 2: Speed. The clock of the whole scene. At 2 the near clouds drift 7 LEDs a second and the far ones 3.5, a branch sways once in 3 seconds, and a witch flies 18 LEDs a second and is in sight for about 7 seconds; at 0.2 all of it is ten times slower, at 3 half as fast again.
+// Knob 3: Clouds. At 0 three near and three far cloud banks take turns across the sky and a fifth of the moon is under cloud on average; at 0.5 six of each and 43% of the moon is hidden; at 1 eight of each, 30% longer and 60% thicker, and two thirds of it. Far banks let 30% of the light behind them through, near ones none.
+// Knob 4: Flights. How many witches fly together and how often. Below 0.25 one witch, then two, three and from 0.75 four, the others smaller and ahead of the last in a V. The next flight leaves 8 seconds after the last one has gone at 0 and 2 seconds after at 1 (at Speed 2). The first flight leaves at once and its middle crosses the middle of the moon at 3.7 seconds.
+// Buttons: K1 tap sends the next flight at once, or the moment the one in the air has gone.
 
 const W = 64, H = 128;
 const { floor, min, max, sqrt, abs, sin, cos, exp, round, PI } = Math;
@@ -36,7 +36,8 @@ const MX = 32, MY = 42, MR = 24;
 // Moon tints along Hue: harvest orange, amber, bone white, ghost green, lilac.
 const TINTS = [[1, 0.57, 0.16], [1, 0.79, 0.36], [0.94, 0.9, 0.8], [0.69, 1, 0.6], [0.8, 0.67, 1]];
 
-// Value noise on a 64 x 64 table that wraps.
+// Value noise on a 64 x 64 table that wraps, for ragged cloud edges and
+// the shores of the moon's seas.
 const NT = new Float32Array(64 * 64);
 for (let i = 0; i < NT.length; i++) NT[i] = hash(i * 7 + 3);
 function vnoise(x, y) {
@@ -46,7 +47,6 @@ function vnoise(x, y) {
   const a = NT[j0 + i0], b = NT[j0 + i1], c = NT[j1 + i0], d = NT[j1 + i1];
   return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
 }
-const fbm = (x, y) => 0.55 * vnoise(x, y) + 0.28 * vnoise(2.03 * x + 5.1, 2.03 * y + 1.7) + 0.17 * vnoise(4.1 * x + 2.3, 4.1 * y + 7.9);
 
 // Cloud streaks in two layers, both drifting left: far ones thin, slow and
 // letting 30% of what is behind them through, near ones thicker, faster and
@@ -136,12 +136,12 @@ grow(-1, 62, 131, -0.42, 18, 2.8, 0, 5, 77);
 export function setup(params) {
   params.s = {
     hue: 0, speed: 2, clouds: 0, flights: 0.06,
-    // Scene clock (seconds at Speed 2), cloud drift, the flight under way
-    // and the wait for the next, sparks behind the brooms.
+    // Scene clock (seconds at Speed 2; the clouds are placed from it), the
+    // flight under way and the wait for the next, sparks behind the brooms.
     t: 0, flight: null, wait: 0, nflight: 0, sparks: [],
     rgb: new Float32Array(W * H * 3), mask: new Float32Array(W * H), tint: [1, 0.6, 0.2],
     bx: new Float32Array(TREES.length), by: new Float32Array(TREES.length), ex: new Float32Array(TREES.length), ey: new Float32Array(TREES.length),
-    begun: false,
+    begun: false, queued: false,
   };
 }
 
@@ -149,13 +149,17 @@ export function setup(params) {
 // one side to 35 off the other, rising gently, at 18 LEDs a second at Speed 2.
 function launch(S) {
   const dir = S.nflight % 2 === 0 ? 1 : -1, n = 1 + min(3, floor(4 * S.flights));
-  S.flight = { dir, age: 0, n };
+  // The flight is placed by its middle, so whatever the number of witches
+  // the group is centred on the moon 3.7 s after it leaves (at Speed 2).
+  let mid = 0;
+  for (let j = 0; j < n; j++) mid += COVEN[j][0] / n;
+  S.flight = { dir, age: 0, n, mid };
   S.nflight++;
 }
 // Places of the witches in a flight, as [LEDs ahead of the last one, LEDs
 // up or down, scale]: the last is the biggest, the others fly ahead of her
 // in a V, smaller as if farther off.
-const COVEN = [[0, 0, 0.88], [18, -18, 0.62], [18, 18, 0.66], [36, 0, 0.56]];
+const COVEN = [[0, 0, 0.88], [22, -19, 0.7], [22, 19, 0.72], [44, 0, 0.64]];
 const FLY = 18, MARGIN = 35;
 
 export function update(dt, input, params) {
@@ -172,19 +176,24 @@ export function update(dt, input, params) {
   }
   const ds = (d * S.speed) / 2;
   S.t += ds;
-  if (input.btnPressed && input.btnPressed[0]) launch(S);
+  // A tap sends the next flight at once, or straight after the one in the air.
+  if (input.btnPressed && input.btnPressed[0]) {
+    if (S.flight) S.queued = true;
+    else launch(S);
+  }
   if (S.flight) {
     const f = S.flight;
     f.age += ds;
-    const span = W + 2 * MARGIN;
+    const span = W + 2 * MARGIN + f.mid;
     if (f.age * FLY > span) {
       S.flight = null;
-      S.wait = 12 - 9 * S.flights;
+      S.wait = S.queued ? 0 : 8 - 6 * S.flights;
+      S.queued = false;
     } else {
-      // Sparks from each broom's bristles, 30 a second each.
+      // Sparks from each broom's bristles, 40 a second each.
       for (let j = 0; j < f.n; j++) {
         const w = witchPlace(S, f, j), bx = w.x - w.dir * 20 * w.s, by = w.y + 2 * w.s;
-        for (let e = ds * 30; e > 0 && S.sparks.length < 240; e--) {
+        for (let e = ds * 40; e > 0 && S.sparks.length < 400; e--) {
           if (e < 1 && Math.random() > e) break;
           S.sparks.push({ x: bx + (Math.random() - 0.5) * 4, y: by + (Math.random() - 0.5) * 4, vx: -w.dir * (1 + 4 * Math.random()), vy: 1.5 + 4 * Math.random(), life: 1, ph: Math.random() * 6.28 });
         }
@@ -197,7 +206,7 @@ export function update(dt, input, params) {
   for (const p of S.sparks) {
     p.x += p.vx * ds;
     p.y += p.vy * ds;
-    p.life -= ds / 1.6;
+    p.life -= ds / 2;
   }
   S.sparks = S.sparks.filter((p) => p.life > 0);
 }
@@ -205,8 +214,8 @@ export function update(dt, input, params) {
 // Witch j of a flight: centre, scale, direction, tilt. She climbs 0.22 LEDs
 // for each LED she flies and swoops 3.5 LEDs up and down every 2.6 s.
 function witchPlace(S, f, j) {
-  const [ahead, up, s] = COVEN[j], run = f.age * FLY - MARGIN + ahead, x = f.dir > 0 ? run : W - run;
-  const ph = f.age * 2.4 + j * 1.7, y = MY + 1 + up - 0.22 * (run - MX) + 3.5 * sin(ph);
+  const [ahead, up, s] = COVEN[j], run = f.age * FLY - MARGIN + ahead - f.mid, x = f.dir > 0 ? run : W - run;
+  const ph = f.age * 2.4 + j * 0.5, y = MY + 1 + up - 0.22 * (run - MX) + 3.5 * sin(ph);
   return { x, y, s, dir: f.dir, tilt: f.dir * (-0.14 + 0.28 * cos(ph)) };
 }
 
