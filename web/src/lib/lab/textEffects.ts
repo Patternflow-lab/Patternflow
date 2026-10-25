@@ -100,9 +100,9 @@ export function activeTextEffect(layer: TextLayer): ActiveTextEffect | null {
 
 /**
  * What the effect draws each frame from: twinkle the bitmap as it stands,
- * scroll and ramp the source. Null when that source does not fit, the case
- * where activeTextEffect names no effect at all. flatten.ts and hExport.ts
- * write this out for the exports.
+ * scroll and ramp the source. Null when that source does not fit, and then
+ * activeTextEffect is null too. flatten.ts and hExport.ts write this out
+ * for the exports.
  */
 export function textEffectSource(layer: TextLayer, effect: ActiveTextEffect): TextSource | null {
   if (effect === "twinkle") return { x: 0, width: layer.width, data: layer.data };

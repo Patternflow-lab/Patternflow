@@ -77,9 +77,9 @@ export function clampMatrixDimension(value: number): number | null {
 export const MATRIX_HEAVY_PIXELS = DEFAULT_MATRIX.width * DEFAULT_MATRIX.height * 4;
 
 /**
- * A size read back from storage, as a frame, or null when either side is out
- * of range. The sides may come back as "128" as well as 128; a side between
- * two whole numbers rounds, as a typed one does.
+ * The frame a stored size names, or null when a side is out of range. A side
+ * saved as "128" reads as 128. One between two whole numbers rounds, as a
+ * typed one does.
  */
 export function parseMatrixSize(size: Partial<MatrixSize> | null | undefined): MatrixSize | null {
   if (!size) return null;
