@@ -20,6 +20,7 @@ import {
   knobDetentStep,
   knobMidpoint,
   knobUnitsPerTurn,
+  knobWheelValue,
   logicalKnobUnitsPerTurn,
   normalizeKnob,
   tidyKnobValue,
@@ -139,6 +140,30 @@ describe("reading a knob as 0..1", () => {
     expect(tidyKnobValue(0.1 + 0.2)).toBe(0.3);
     expect(tidyKnobValue(0.0001 + 0.00015)).toBe(0.00025);
     expect(tidyKnobValue(5.446)).toBe(5.446);
+  });
+});
+
+describe("a card's wheel", () => {
+  it("moves a knob a 25th of its range a notch and stops at each end", () => {
+    expect(knobWheelValue(0.5, [0, 1], 1)).toBe(0.54);
+    expect(knobWheelValue(5.05, [0.1, 10], -1)).toBe(4.654);
+    expect(knobWheelValue(0.98, [0, 1], 1)).toBe(1);
+    expect(knobWheelValue(0.11, [0.1, 10], -1)).toBe(0.1);
+  });
+
+  it("crosses a range in 25 notches", () => {
+    let value = 0.1;
+    for (let notch = 0; notch < 25; notch++) value = knobWheelValue(value, [0.1, 10], 1);
+    expect(value).toBe(10);
+  });
+
+  it("keeps a range as fine as 0.0001..0.0004 inside its range", () => {
+    expect(knobWheelValue(0.00025, [0.0001, 0.0004], 1)).toBe(0.000262);
+    expect(knobWheelValue(0.0001, [0.0001, 0.0004], -1)).toBe(0.0001);
+  });
+
+  it("leaves a knob on a range edited down to nothing where the range is", () => {
+    expect(knobWheelValue(3, [3, 3], 1)).toBe(3);
   });
 });
 

@@ -210,8 +210,8 @@ describe("CodePanel paste", () => {
   });
 });
 
-// The hint named every other layer pixel art, written before text layers
-// came in (#184). A selected text layer was told to use the Pixel panel.
+// The hint named every other layer pixel art, written before the Lab had
+// text layers. A selected text layer was told to use the Pixel panel.
 describe("CodePanel on another layer", () => {
   it("names a text layer and sends it to the Text panel", () => {
     useLabStore.getState().addTextLayer();

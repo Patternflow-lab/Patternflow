@@ -39,7 +39,7 @@ export function knobDetentStep(range: readonly [number, number]) {
 // export and the text effects floored at 0.0001; the community's sandbox and
 // cards floored at 0.001, so a knob declared 0.0001..0.0004 sitting at 0.00025
 // reached a pattern as 0.5 in the Lab and 0.15 on its card.
-export const KNOB_SPAN_FLOOR = 0.0001;
+const KNOB_SPAN_FLOOR = 0.0001;
 
 /** Where a value sits in a knob's range, 0 at the bottom and 1 at the top. Not held to 0..1. */
 export function normalizeKnob(value: number, range: readonly [number, number]) {
@@ -67,6 +67,19 @@ export function roundRangeValue(value: number) {
 /** The middle of a knob's range, where a card with no saved knob state starts. */
 export function knobMidpoint(range: readonly [number, number]) {
   return tidyKnobValue((range[0] + range[1]) / 2);
+}
+
+/**
+ * Where one notch of a card's wheel leaves a knob: a 25th of its range up or
+ * down, held to the range. The community's cards and the guide's practice
+ * wall both turn with it. The practice wall kept a copy of the cards' old
+ * step, floored at 0.001 and rounded to three decimals, so a 0.0001..0.0004
+ * knob fell to 0, below its range, on the first notch.
+ */
+export function knobWheelValue(value: number, range: readonly [number, number], direction: 1 | -1) {
+  const [min, max] = range;
+  const step = Math.max(KNOB_SPAN_FLOOR, max - min) / 25;
+  return Math.max(min, Math.min(max, tidyKnobValue(value + direction * step)));
 }
 
 /**
