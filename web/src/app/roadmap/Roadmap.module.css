@@ -103,54 +103,6 @@
   }
 }
 
-.legend {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 20px;
-}
-
-.legendItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--pf-ink-muted);
-  font-family: var(--pf-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.legendDrag {
-  color: var(--pf-ink-faint);
-  font-family: var(--pf-mono);
-  font-size: 12.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.swatchDone,
-.swatchPlanned {
-  width: 22px;
-  height: 14px;
-  border-radius: 0;
-}
-
-.swatchDone {
-  border: 1.5px solid var(--pf-ink);
-  background: #fff;
-}
-
-.swatchPlanned {
-  border: 1.5px dashed var(--pf-ink-faint);
-}
-
-.swatchDep {
-  width: 24px;
-  height: 0;
-  border-top: 2px dashed var(--pf-ink-faint);
-}
-
 /* .viewport does NOT clip, so the popup can never be cut off by the
    pannable canvas underneath it — only the canvas itself clips. */
 .viewport {
@@ -182,44 +134,6 @@
   will-change: transform;
 }
 
-.zoomGroup {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--pf-rule);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.zoomBtn,
-.zoomVal {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--pf-ink-muted);
-  font-family: var(--pf-mono);
-  cursor: pointer;
-}
-
-.zoomBtn {
-  padding: 7px 14px;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.zoomVal {
-  padding: 9px 10px;
-  min-width: 56px;
-  font-size: 12.5px;
-  letter-spacing: 0.04em;
-  border-inline: 1px solid var(--pf-rule);
-}
-
-.zoomBtn:hover,
-.zoomVal:hover {
-  color: var(--pf-ink);
-  background: var(--pf-cream-2);
-}
-
 .mapSvg {
   display: block;
   overflow: visible;
@@ -249,7 +163,6 @@
   letter-spacing: -0.01em;
 }
 
-.gridLine,
 .gridLineHorizontal {
   stroke: var(--pf-rule-soft);
   stroke-width: 1;
@@ -507,22 +420,4 @@
   color: var(--pf-ink);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.mapCaption {
-  position: absolute;
-  left: 16px;
-  bottom: 12px;
-  z-index: 5;
-  max-width: 620px;
-  margin: 0;
-  padding: 8px 12px;
-  border-radius: 0;
-  background: rgba(251, 248, 242, 0.88);
-  color: var(--pf-ink-faint);
-  font-family: var(--pf-mono);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  line-height: 1.6;
-  pointer-events: none;
 }

@@ -9,14 +9,6 @@
   container-type: inline-size;
 }
 
-.note {
-  max-width: 560px;
-  margin: 0;
-  color: var(--pf-ink-muted);
-  font-size: var(--pf-fs-body);
-  line-height: 1.65;
-}
-
 /* ── What it takes ── cost + time, before the steps. Four across, because the
    decision is "is this worth it", and that is one glance, not four rows. */
 .factsBand {
