@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Spread=-1..1, Ratio=2..4
 //
-// Knob 1: Hue. Turns the colours across the panel together; the strikes stay white. At 0 the slow lanes on the left are green, the middle azure and the fast lanes on the right violet; at 0.25 cyan, purple and orange; at 0.5 purple, red-orange and green; at 0.75 orange, green and blue.
+// Knob 1: Hue. Turns the colours across the panel together; the strikes stay white. At 0 the slow lanes on the left are green, the middle azure and the fast lanes on the right violet; at 0.25 blue, magenta and red; at 0.5 violet, orange and yellow-green; at 0.75 yellow, green and teal.
 // Knob 2: Speed. Every tempo doubles in 8 / Speed seconds: 4 at 2, 40 at 0.2 and 2.7 at 3. At 2 the ticks cross the playhead at 11 rows a second, and a lane strikes 0.23 times a second at the left edge, 1.3 at the middle and 7 at the right edge, each lane twice as often one doubling later, by which time it has slid one lane to the right.
 // Knob 3: Spread. The width of the bell of light in octaves of tempo, 1.4 times 2 to the knob. At 0 the edge lanes glow at a fifth of the middle; at -1 (0.7 octaves) one lane carries the light and the edges are dark; at 1 (2.8 octaves) the edges keep two thirds and the hand-over from fast to slow shows plainly.
 // Knob 4: Ratio. The tempo ratio between neighbouring layers, rounded to 2, 3 or 4: a binary, ternary or base-four ruler. Its lanes are 12.8, 20.3 and 25.6 LEDs wide, a doubling of tempo always being 12.8, and the picture repeats after one ratio's worth of tempo, every 4, 6.3 and 8 seconds at Speed 2.
