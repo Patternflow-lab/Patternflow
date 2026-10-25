@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Moon=0..1, Fog=0..1
 //
 // Knob 1: Hue. The colour of the glow in the water, of the light it throws up the shaft and of what comes up in the bucket: sickly green at 0, cyan at 0.25, violet at 0.5, orange at 0.75. The sky, the stones and the moonlight stay as they are.
-// Knob 2: Speed. At 2 the bucket goes down at 18 LEDs a second and comes up at 20, and one round takes about 14 s: down 3.6 s, the water and the hand 4.2 s, a 0.6 s calm, up 4.8 s and 0.9 s hanging at the top. At 0.2 everything is ten times slower, at 3 half as fast again. The first round starts with the bucket already low, so it touches the water 0.7 s in.
+// Knob 2: Speed. At 2 the bucket goes down at 18 LEDs a second and comes up at 20, and one round takes about 14 s: down 3.6 s, the water and the hand 4.2 s, a 0.6 s calm, up 5 s and 0.9 s hanging at the top. At 0.2 everything is ten times slower, at 3 half as fast again. The first round starts with the bucket already low, so it touches the water 0.7 s in.
 // Knob 3: Moon. Where the moon stands. At 0 it is high on the left and its light falls into the shaft slanting right, thinning as it goes down until it reaches the water on the right; at 0.25 it falls almost straight; at 0.5 the moon peeks over the ridge of the roof and the light leans left; at 1 it hangs low on the right and lights only the upper half of the left wall.
-// Knob 4: Fog. A mist over the water, added as light, moonlit and tinted by the glow. At 0 none; at 0.06 a thin layer over the water; at 0.5 it fills the bottom third of the shaft; at 1 it rises 70 rows, to just below the ground.
+// Knob 4: Fog. A mist over the water, added as light, moonlit and tinted by the glow. At 0 none; at 0.06 a thin layer over the water; at 0.5 it fills the bottom half of the shaft; at 1 it rises 70 rows, to the mouth of the well.
 // Buttons: K1 tap lets go of the crank while the bucket is going down or hanging at the top: it falls to the water at once.
 
 const W = 64, H = 128, N = W * H;

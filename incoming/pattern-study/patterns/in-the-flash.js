@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Speed=0.2..3, Rain=0..1, Approach=3..8
 //
 // Knob 1: Hue. The tint of the flash and the colour of the eyes, turned together: at 0 a violet-white flash and toxic green eyes; at 0.25 a pink-white flash and blue eyes; at 0.5 a pale yellow-green flash and magenta eyes; at 0.75 a pale cyan flash and orange eyes. The dark sky between flashes stays deep violet.
-// Knob 2: Speed. How often the lightning comes. At 2 the figure takes 6.4 s to come from far off to right in front, split between its steps, each gap 0.85 to 1.15 times the even share; the eyes stay at least 2.3 s; at 0.2 everything between flashes is ten times slower, at 3 two thirds as long. A flash itself always lasts about half a second, a bright stroke and a weaker one 0.2 s later. The first flash comes 0.5 s in at Speed 2.
-// Knob 3: Rain. At 0 about 200 drops in the air, at 1 about 900, each a streak slanting left, dim in the dark and white in the flash.
+// Knob 2: Speed. How often the lightning comes. At 2 the figure takes 6.4 s to come from far off to right in front, split evenly between its steps, each gap 0.85 to 1.15 times its share, and the eyes stay at least 2.3 s; at 0.2 the gaps are ten times as long, at 3 two thirds as long, but never shorter than half a second. A flash itself always lights the field for about two thirds of a second: a bright stroke, and a weaker one 0.2 s later. The first comes 0.5 s in at Speed 2.
+// Knob 3: Rain. At 0 about 200 drops in the air, at 1 about 900, each a streak slanting left, dim in the dark and lit with the flash's tint when it comes.
 // Knob 4: Approach. How many flashes it takes to come from far off to right in front: at 3 it stands 18 LEDs tall on the horizon, then 38, then 82 with its feet at the bottom; at 8 it comes in eight smaller steps, so the lightning comes more often. Then one flash for the face and one for the empty field.
 // Buttons: K1 tap brings the next flash at once.
 
@@ -249,7 +249,10 @@ export function update(dt, input, params) {
 
 // How bright the flash is, s seconds after it starts: a stroke, and a second
 // weaker one 0.2 s later.
-const env = (s) => (s < 0 ? 0 : max(exp(-s / 0.2), 0.62 * sm((s - 0.17) / 0.05) * exp(-max(0, s - 0.22) / 0.24)));
+const env = (s) => {
+  const f = s < 0 ? 0 : max(exp(-s / 0.2), 0.62 * sm((s - 0.17) / 0.05) * exp(-max(0, s - 0.22) / 0.24));
+  return f < 0.02 ? 0 : f;
+};
 
 export function draw(display, params) {
   const S = params.s;
@@ -257,9 +260,13 @@ export function draw(display, params) {
   const { buf, base, lit, fm, colF } = S, F = env(S.ft), fc = hsv(0.76 + S.hue, 0.45, 1, S.fc), ec = hsv(0.3 + S.hue, 0.8, 1, S.ec);
   // The sky is brightest round the bolt.
   for (let x = 0; x < W; x++) colF[x] = F * (0.85 + 0.75 * exp(-abs(x - S.bx) / 12));
+  // The figure is black against the flash and gone into the dark between.
+  const hide = 1 - min(1, F * 6);
   for (let p = 0, o = 0; p < N; p++, o += 3) {
     if (fm[p]) {
-      buf[o] = buf[o + 1] = buf[o + 2] = 0;
+      buf[o] = base[o] * hide;
+      buf[o + 1] = base[o + 1] * hide;
+      buf[o + 2] = base[o + 2] * hide;
       continue;
     }
     const l = lit[p] * colF[p & 63];
@@ -288,7 +295,7 @@ export function draw(display, params) {
     for (let j = 0; j < len; j++) {
       const x = round(dr[o] + 0.22 * j), y = round(dr[o + 1] - j);
       if (x < 0 || x >= W || y < 0 || y >= H) continue;
-      const q = (y * W + x) * 3, f = (1 - j / (len + 1)) * (fm[y * W + x] ? 0.35 : 1);
+      const q = (y * W + x) * 3, f = (1 - j / (len + 1)) * (fm[y * W + x] ? 0.35 + 0.65 * hide : 1);
       buf[q] = max(buf[q], r * f);
       buf[q + 1] = max(buf[q + 1], g * f);
       buf[q + 2] = max(buf[q + 2], b * f);
