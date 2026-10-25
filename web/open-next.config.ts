@@ -15,7 +15,12 @@ import memoryQueue from "@opennextjs/cloudflare/overrides/queue/memory-queue";
 // revalidating by asking this same Worker for the page again
 // (WORKER_SELF_REFERENCE). Nothing calls revalidateTag or revalidatePath, so
 // there is no tag cache.
-export default defineCloudflareConfig({
-  incrementalCache: withRegionalCache(r2IncrementalCache, { mode: "long-lived" }),
-  queue: memoryQueue,
-});
+export default {
+  ...defineCloudflareConfig({
+    incrementalCache: withRegionalCache(r2IncrementalCache, { mode: "long-lived" }),
+    queue: memoryQueue,
+  }),
+  // proxy.ts runs on Node, and OpenNext's bundle of it needs one package
+  // taken out of its trace first: scripts/cf-proxy-trace.ts says why.
+  buildCommand: "npm run build && tsx scripts/cf-proxy-trace.ts",
+};
