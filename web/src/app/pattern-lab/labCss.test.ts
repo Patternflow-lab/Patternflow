@@ -118,32 +118,33 @@ describe("Lab dock on a touch screen", () => {
 
 describe("Layers and Knobs on a touch screen", () => {
   const dock = css("LabPanels.module.css");
+  const own = css("panels/LayersPanel.module.css");
   const knobs = css("panels/KnobsPanel.module.css");
   const layers = css("panels/LayersPanel.tsx");
   const touch = (source: string, selector: string) => mediaRule(source, "(hover: none)", selector);
 
   it("give the Layers bar buttons a 44px box", () => {
-    const button = touch(dock, ".layerBar button");
+    const button = touch(own, ".layerBar button");
     expect(button).toMatch(/min-width: 44px;/);
     expect(button).toMatch(/min-height: 44px;/);
     // Only the Layers bar: the Pixel toolbars carry a dozen buttons each.
-    expect(layers).toMatch(/className=\{`\$\{dock\.panelBar\} \$\{dock\.layerBar\}`\}/);
+    expect(layers).toMatch(/className=\{`\$\{dock\.panelBar\} \$\{local\.layerBar\}`\}/);
     expect(touch(dock, ".panelBar button")).toBe("");
   });
 
   it("let the eye fill a 44px row", () => {
-    const row = touch(dock, ".layerRow");
+    const row = touch(own, ".layerRow");
     expect(row).toMatch(/min-height: 46px;/);
     expect(row).toMatch(/padding-block: 0;/);
-    const eye = touch(dock, ".layerEye");
+    const eye = touch(own, ".layerEye");
     expect(eye).toMatch(/align-self: stretch;/);
     expect(eye).toMatch(/width: 44px;/);
   });
 
   it("give the mask, opacity and blend rows a 44px height", () => {
-    expect(touch(dock, ".layerMaskLabel")).toMatch(/min-height: 44px;/);
-    expect(touch(dock, ".layerControlRow select")).toMatch(/min-height: 44px;/);
-    expect(mediaBlocks(dock, "(hover: none)").join("")).toContain('.layerControlRow input[type="range"],\n  .layerControlRow select {');
+    expect(touch(own, ".layerMaskLabel")).toMatch(/min-height: 44px;/);
+    expect(touch(own, ".layerControlRow select")).toMatch(/min-height: 44px;/);
+    expect(mediaBlocks(own, "(hover: none)").join("")).toContain('.layerControlRow input[type="range"],\n  .layerControlRow select {');
   });
 
   it("give Push a 44px box", () => {
@@ -154,17 +155,17 @@ describe("Layers and Knobs on a touch screen", () => {
 
   it("come after the rules they override", () => {
     // Same specificity again, so each touch block has to sit below them.
-    const dockTouch = dock.lastIndexOf("@media (hover: none) {");
-    for (const base of [
-      "\n.panelBar button {",
-      "\n.layerRow {",
-      "\n.layerEye {",
-      "\n.layerControlRow select {",
-      "\n.layerMaskLabel {",
-    ]) {
-      expect(dock.indexOf(base)).toBeGreaterThan(-1);
-      expect(dockTouch).toBeGreaterThan(dock.indexOf(base));
+    const ownTouch = own.lastIndexOf("@media (hover: none) {");
+    for (const base of ["\n.layerRow {", "\n.layerEye {", "\n.layerControlRow select {", "\n.layerMaskLabel {"]) {
+      expect(own.indexOf(base)).toBeGreaterThan(-1);
+      expect(ownTouch).toBeGreaterThan(own.indexOf(base));
     }
+    // `.layerBar button` answers `.panelBar button` from the other file. The
+    // bundle keeps the stylesheets in the order the panel imports them.
+    expect(dock.indexOf("\n.panelBar button {")).toBeGreaterThan(-1);
+    const dockImport = layers.indexOf('import dock from "../LabPanels.module.css";');
+    expect(dockImport).toBeGreaterThan(-1);
+    expect(layers.indexOf('import local from "./LayersPanel.module.css";')).toBeGreaterThan(dockImport);
     // The 980px block sets Push back to 22px.
     expect(knobs.lastIndexOf("@media (hover: none) {")).toBeGreaterThan(knobs.indexOf("@media (max-width: 980px) {"));
   });
