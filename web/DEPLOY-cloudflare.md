@@ -19,7 +19,7 @@ patternflow.work 는 지금 Vercel 에서 돌아요. 같은 `web/` 이 Cloudflar
 
 ### 1. workers.dev 에 올리기
 
-1. 계정이 Workers 유료 판인지 봐요. Worker 가 gzip 4,969 KiB 라 무료 판의 3 MB 를 넘고, 유료 판의 10 MB 안에 들어요.
+1. 계정이 Workers 유료 판인지 봐요. Worker 가 gzip 4,968 KiB 라 무료 판의 3 MB 를 넘고, 유료 판의 10 MB 안에 들어요.
 2. `cd web && npx wrangler login` 으로 창작자 계정에 들어가요.
 3. Web Analytics 토큰을 받아요. 대시보드 → Analytics & Logs → Web Analytics → Add a site → 호스트 `patternflow.work` → 수동 설정(JS snippet)을 고르면 스니펫의 `token` 값이 나와요.
 4. `web/.env.production.local` 을 만들어 `NEXT_PUBLIC_` 값만 넣어요. 아래 표에서 「빌드」라고 적힌 것들이고, Vercel 의 Production 값을 그대로 옮기고 3번 토큰을 더해요. `npx vercel env pull .env.production.local --environment=production` 으로 받아도 되는데, 받은 파일에 섞여 오는 `VERCEL_` 줄은 지워요. `NEXT_PUBLIC_` 이 아닌 이름이 하나라도 있으면 `cf:build` 가 멈춰요(아래 「환경 변수」).
@@ -90,7 +90,7 @@ OpenNext 는 `web/` 의 `.env`, `.env.local`, `.env.production(.local)` 값을 W
 - `/api/roadmap`(`revalidate = 600`)은 R2 캐시와 메모리 큐로 10분마다 다시 읽어요. 미리보기에서 빌드 10분 뒤 첫 요청이 `x-nextjs-cache: STALE`, 8초 뒤 요청이 `HIT` 이고 `s-maxage=592` 였어요. 새 항목이 R2 에 써진 거예요. 읽기만 하는 Static Assets 캐시였다면 다음 배포까지 빌드 때 목록에 머물러요.
 - `/feed.xml` 과 저널 글의 OG 카드 37장은 빌드 때 만들어요. 요청 때 만들면 `content/journal` 을 읽는데, 그 폴더는 Worker 안에 없어요. Vercel 에도 같이 바뀌어요.
 - Vercel Analytics 와 Speed Insights 를 걷고 Cloudflare Web Analytics 비컨을 넣었어요. 방문과 Core Web Vitals 를 쿠키 없이 세요. Vercel 에 쌓인 기록은 옮겨지지 않아요. 토큰이 없으면 비컨도 없어요.
-- 크기: Worker 22,486 KiB, gzip 4,969 KiB(`wrangler deploy --dry-run`, 10월 25일). 정적 파일 492개 가운데 가장 큰 것이 6.26 MiB 저널 사진이고 플래셔 이미지는 1.42 MiB(`performance-v0.4.0`)가 가장 커요. 파일 하나 한도 25 MiB 에 한참 못 미쳐요.
+- 크기: Worker 22,486 KiB, gzip 4,968 KiB(`wrangler deploy --dry-run`, 10월 25일). `.open-next/assets` 의 파일 414개 가운데 가장 큰 것이 6.26 MiB 저널 사진이고 플래셔 이미지는 1.42 MiB(`performance-v0.4.0`)가 가장 커요. 파일 하나 한도 25 MiB 에 한참 못 미쳐요. Worker 가 처음 뜰 때 쓰는 CPU 는 `npx wrangler check startup` 의 프로필에서 56 ms 였어요(이 세션의 기계, 프로필 445 ms 가운데 쉬지 않은 몫). 시작 한도는 1초로 알고 있어요.
 - `preview_urls` 를 켜 두었어요. `cf:upload` 한 판마다 미리보기 주소가 생기고, 같은 R2 캐시와 같은 비밀(`GITHUB_TOKEN` 하나)을 써요. 도메인을 이은 뒤 workers.dev 주소를 닫고 싶으면 `"workers_dev": false` 로 바꿔 배포해요.
 
 ## Workers Builds 로 잇는다면
