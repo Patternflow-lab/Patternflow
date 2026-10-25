@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The ghost's light and the night with it. At 0 a toxic green hand in a purple night with lilac moonlight on the metal; at 0.25 cold white in deep blue; at 0.5 violet in dark teal with pale aqua moonlight; at 0.75 pumpkin orange in indigo.
 // Knob 2: Speed. The clock of the scene. At 2 a swing takes 2.6 s to go out and back; at 0.2 everything runs ten times slower, at 3 half as fast again.
-// Knob 3: Coupling. How strongly the shared bar ties the two swings, as the time the near swing takes to hand its motion to the one behind: 9 s at 0.2, 3.6 s at 0.5 and 1.8 s at 1 (at Speed 2). At 0.2 the swing behind starts still, and after the first push it swings 15 degrees by 8 s while the near one falls from 17 to 8.
+// Knob 3: Coupling. How strongly the shared bar ties the two swings, as the time the near swing takes to hand all its motion to the one behind: 9 s at 0.2, 3.7 s at 0.5 and 1.6 s at 1 (at Speed 2). At 0.2 the swing behind starts still, and after the first push it swings 15 degrees by 8 s while the near one falls from 17 to 8.
 // Knob 4: Haunt. How often and how hard the hand comes, and how much of the ghost stays. After a hand has faded the next comes in 8 to 11 s at 0, 7.6 to 10.5 s at 0.06 and 2 to 3 s at 1, pushing twice as hard there, and three times in ten for the swing behind. The seats' after-image lasts 0.9 s at 0.06 and 2 s at 1, where a cold glow also sits on each seat. The first hand comes at 2.2 to 3.5 s at Speed 2 whatever the knob.
 
 const W = 64, H = 128;
