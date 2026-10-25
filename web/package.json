@@ -6,6 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "cf:build": "tsx scripts/cf-env-check.ts && opennextjs-cloudflare build && tsx scripts/cf-headers.ts",
+    "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
+    "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy",
+    "cf:upload": "npm run cf:build && opennextjs-cloudflare upload",
     "lint": "eslint",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ../tools/virtual-panel",
     "worker": "tsx scripts/build-worker.ts",
@@ -68,11 +72,10 @@
     "@mdx-js/loader": "^3.1.1",
     "@monaco-editor/react": "^4.7.0",
     "@next/mdx": "^16.2.4",
+    "@opennextjs/cloudflare": "^1.20.12",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.0",
     "@react-three/postprocessing": "^3.0.4",
-    "@vercel/analytics": "^2.0.1",
-    "@vercel/speed-insights": "^2.0.0",
     "better-auth": "^1.6.23",
     "better-sqlite3": "^12.11.1",
     "dockview": "^7.0.4",
@@ -108,6 +111,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.151.0"
   }
 }
