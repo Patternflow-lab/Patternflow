@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The ghost's light and the night with it. At 0 a toxic green hand in a purple night with lilac moonlight on the metal; at 0.25 cold white in deep blue; at 0.5 violet in dark teal with pale aqua moonlight; at 0.75 pumpkin orange in indigo.
 // Knob 2: Speed. The clock of the scene. At 2 a swing takes 2.6 s to go out and back; at 0.2 everything runs ten times slower, at 3 half as fast again.
-// Knob 3: Coupling. How strongly the shared bar ties the two swings, as the time the near swing takes to hand its motion to the one behind: 9 s at 0.2, 3.6 s at 0.5 and 1.8 s at 1 (at Speed 2). At 0.2 the swing behind, still at the start, swings 14 degrees by 8 s while the near one slows to 6.
+// Knob 3: Coupling. How strongly the shared bar ties the two swings, as the time the near swing takes to hand its motion to the one behind: 9 s at 0.2, 3.6 s at 0.5 and 1.8 s at 1 (at Speed 2). At 0.2 the swing behind starts still, and after the first push it swings 15 degrees by 8 s while the near one falls from 17 to 8.
 // Knob 4: Haunt. How often and how hard the hand comes, and how much of the ghost stays. After a hand has faded the next comes in 8 to 11 s at 0, 7.6 to 10.5 s at 0.06 and 2 to 3 s at 1, pushing twice as hard there, and three times in ten for the swing behind. The seats' after-image lasts 0.9 s at 0.06 and 2 s at 1, where a cold glow also sits on each seat. The first hand comes at 2.2 to 3.5 s at Speed 2 whatever the knob.
 
 const W = 64, H = 128;
@@ -85,7 +85,7 @@ export function update(dt, input, params) {
     S.begun = true;
     // The near swing is already moving when the picture opens, more the
     // more haunted the night.
-    S.th[0] = 0.17 + 0.12 * S.haunt;
+    S.th[0] = 0.21 + 0.09 * S.haunt;
   }
   const ds = (cl(dt || 0, 0, 0.1) * S.speed) / 2;
   S.t += ds;
@@ -200,7 +200,7 @@ export function draw(display, params) {
     N[c] = NIGHTS[i0][c] + (NIGHTS[i0 + 1][c] - NIGHTS[i0][c]) * ht;
     M[c] = MOONS[i0][c] + (MOONS[i0 + 1][c] - MOONS[i0][c]) * ht;
   }
-  const C = { pipe: PIPE, pipeLit: mul(M, 0.6), link: mul(M, 0.78), linkDim: mul(M, 0.4), seat: mul(M, 0.4), seatLit: mul(M, 1), glint: [1, 1, 1] };
+  const C = { pipe: PIPE, pipeLit: mul(M, 0.6), link: mul(M, 0.78), linkDim: mul(M, 0.4), seat: mul(M, 0.16), seatLit: mul(M, 1), glint: [1, 1, 1] };
   // Sky, moon and its rings.
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -222,17 +222,20 @@ export function draw(display, params) {
       rgb[o + 2] = B;
     }
   for (const [x, y, ph] of STARS) glow(rgb, x, y, [0.8, 0.8, 1], 0.3 + 0.2 * sin(S.t * 2 + ph));
-  // Fog over the ground, two banks drifting opposite ways, tinted a little
-  // by the ghost's light.
-  for (let l = 0; l < 2; l++) {
-    const v = l ? 3 : -2, base = l ? 121 : 114, f = l ? 0.36 : 0.26;
-    const c = [0.4 + 0.5 * T[0], 0.3 + 0.5 * T[1], 0.55 + 0.5 * T[2]];
+  // Fog over the ground: three layers of streaks drifting, the nearer ones
+  // faster and lower, tinted by the ghost's light, with gaps where the
+  // night shows through.
+  const fc = [0.3 + 0.4 * T[0], 0.24 + 0.4 * T[1], 0.4 + 0.4 * T[2]];
+  for (let l = 0; l < 3; l++) {
+    const v = [-1.6, 2.4, -3.4][l], y0 = [104, 111, 117][l], thick = 3 + 2 * l, a = [0.3, 0.38, 0.46][l];
     for (let x = 0; x < W; x++) {
       const u = x + S.t * v;
-      const top = base - 5 - 3 * sin(u * 0.11 + l * 2) - 2.5 * sin(u * 0.05 + 1 + l);
-      for (let y = round(top); y < H; y++) {
+      const d = sin(u * 0.08 + l * 1.7) + 0.7 * sin(u * 0.21 + l * 2.9);
+      if (d < -0.3) continue;
+      const top = y0 + round(1.5 * sin(u * 0.05 + l)), hgt = round(thick * min(1, (d + 0.3) * 1.5));
+      for (let y = top; y < top + hgt && y < H; y++) {
         const o = 3 * (y * W + x);
-        for (let q = 0; q < 3; q++) rgb[o + q] = 0.45 * rgb[o + q] + 0.55 * c[q] * f;
+        for (let q = 0; q < 3; q++) rgb[o + q] = rgb[o + q] * (1 - a) + fc[q] * a;
       }
     }
   }
