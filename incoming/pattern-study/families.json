@@ -53,5 +53,6 @@
   "film": { "label": "필름·영화", "color": "#ff0000" },
   "number": { "label": "수론", "color": "#00aaff" },
   "topology": { "label": "위상·매듭", "color": "#80ff40" },
-  "cosmetic": { "label": "화장품 팝업", "color": "#f2c6c2" }
+  "cosmetic": { "label": "화장품 팝업", "color": "#f2c6c2" },
+  "halloween": { "label": "할로윈", "color": "#7f00ff" }
 }
