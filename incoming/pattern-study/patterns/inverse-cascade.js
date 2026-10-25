@@ -97,9 +97,11 @@ function fft2(S, re, im, sign) {
 // apart with the conjugate mode. Leaves w and psi on the grid in br, bi
 // (and their largest sizes in wm, pm) and returns the largest |u| + |v|.
 function tendency(S, sr, si, or, oi) {
-  const { kx, ky, ik2, mask, neg, ar, ai, br: om, bi: ps } = S;
-  for (let i = 0; i < N; i++) {
-    const r = sr[i] / N, m = si[i] / N, q = ik2[i];
+  const { kx, ky, ik2, keep, neg, ar, ai, br: om, bi: ps } = S, nk = keep.length;
+  om.fill(0);
+  ps.fill(0);
+  for (let t = 0; t < nk; t++) {
+    const i = keep[t], r = sr[i] / N, m = si[i] / N, q = ik2[i];
     om[i] = r + q * m;
     ps[i] = m - q * r;
   }
@@ -126,12 +128,8 @@ function tendency(S, sr, si, or, oi) {
   S.wm = wm;
   S.pm = pm;
   fft2(S, ar, ai, -1);
-  for (let i = 0; i < N; i++) {
-    if (!mask[i]) {
-      or[i] = oi[i] = 0;
-      continue;
-    }
-    const j = neg[i], cr = ar[i], ci = ai[i], dr = ar[j], di = ai[j], a = kx[i], b = ky[i];
+  for (let t = 0; t < nk; t++) {
+    const i = keep[t], j = neg[i], cr = ar[i], ci = ai[i], dr = ar[j], di = ai[j], a = kx[i], b = ky[i];
     or[i] = 0.5 * (a * (ci - di) - b * (cr - dr));
     oi[i] = -0.5 * (a * (cr + dr) + b * (ci + di));
   }
@@ -165,8 +163,8 @@ function step(S, h) {
     c1 = -(a + (h1 + h2) * b) / (h1 * h2);
     c2 = (a + h1 * b) / ((h1 + h2) * h2);
   } else if (h1) (c0 = h * (1 + h / (2 * h1))), (c1 = -(h * h) / (2 * h1));
-  for (let i = 0; i < N; i++) {
-    const e = E[i];
+  for (let t = 0, keep = S.keep, nk = keep.length; t < nk; t++) {
+    const i = keep[t], e = E[i];
     wr[i] = e * (wr[i] + c0 * nr[i] + c1 * p1r[i] + c2 * p2r[i]);
     wi[i] = e * (wi[i] + c0 * ni[i] + c1 * p1i[i] + c2 * p2i[i]);
     p2r[i] = e * p1r[i];
@@ -201,10 +199,10 @@ function seed(S) {
 
 // The energy-weighted mean wavenumber: sum k |w^|^2 / k^2 over sum |w^|^2 / k^2.
 function kmean(S) {
-  const { wr, wi, ik2, kk } = S;
+  const { wr, wi, ik2, kk, keep } = S;
   let e = 0, ek = 0;
-  for (let i = 0; i < N; i++) {
-    const a = (wr[i] * wr[i] + wi[i] * wi[i]) * ik2[i];
+  for (let t = 0; t < keep.length; t++) {
+    const i = keep[t], a = (wr[i] * wr[i] + wi[i] * wi[i]) * ik2[i];
     e += a;
     ek += a * kk[i];
   }
@@ -264,6 +262,11 @@ export function setup(params) {
       const q = S.k2[i] / (KXC * KXC);
       S.lin[i] = q * q * q * q;
     }
+  // The modes inside the two-thirds cut, the only ones that are ever
+  // non-zero: the spectral loops run over these 3,655 alone.
+  const keep = [];
+  for (let i = 0; i < N; i++) if (S.mask[i]) keep.push(i);
+  S.keep = Int32Array.from(keep);
 }
 
 export function update(dt, input, params) {
