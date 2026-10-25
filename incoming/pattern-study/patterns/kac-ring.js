@@ -43,7 +43,7 @@ export function setup(params) {
     // One row per step of the period, indexed by step mod 128: the colours,
     // the light share, and the Stosszahlansatz prediction for that step.
     rows: new Uint8Array(P * N), wf: new Float32Array(P), wp: new Float32Array(P),
-    col: new Float32Array(12),
+    col: new Float32Array(15),
   };
 }
 
@@ -165,6 +165,8 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       let c = S.rows[o + x] ? 3 : 0;
       if (x >= a0 && x <= a1) c = 6;
+      // A black edge each side keeps the white trace apart from light balls.
+      else if (x === a0 - 1 || x === a1 + 1) c = 12;
       else if (dash && x >= p0 && x <= p1) c = 9;
       display.setPixel(x, y, c8[c], c8[c + 1], c8[c + 2]);
     }
