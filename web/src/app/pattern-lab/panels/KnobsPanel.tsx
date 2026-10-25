@@ -243,7 +243,7 @@ export default function KnobsPanel() {
         </label>
       </div>
       <div className={dock.panelBody}>
-        <div className={`${local.controls} ${dock.knobsDock}`}>
+        <div className={`${local.controls} ${local.knobsDock}`}>
           {knobs.map((value, index) => (
             <div key={index} className={local.knobLine}>
               <div className={local.knobHead}>

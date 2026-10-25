@@ -28,6 +28,7 @@ import { usePixelSelection } from "./pixel/usePixelSelection";
 import { usePixelToolState } from "./pixel/usePixelToolState";
 import { usePixelViewport, ZOOM_MIN } from "./pixel/usePixelViewport";
 import dock from "../LabPanels.module.css";
+import local from "./PixelPanel.module.css";
 
 // What the panel says when another kind of layer is selected. A text layer is
 // pixels too, but the Text panel redraws them from its words.
@@ -165,12 +166,12 @@ export default function PixelPanel() {
 
       <div
         ref={viewportRef}
-        className={dock.pixelViewport}
+        className={local.pixelViewport}
         tabIndex={0}
         onKeyDown={onKeyDown}
       >
         <div
-          className={dock.pixelStage}
+          className={local.pixelStage}
           style={{
             width: pixel.width * zoom,
             height: pixel.height * zoom,
@@ -211,7 +212,7 @@ export default function PixelPanel() {
         </div>
       </div>
 
-      <div className={dock.pixelStatus}>
+      <div className={local.pixelStatus}>
         <span>
           {pixel.width}×{pixel.height}
         </span>
@@ -222,7 +223,7 @@ export default function PixelPanel() {
           </span>
         )}
         <span style={{ flex: 1 }} />
-        <span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>
+        <span className={local.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>
       </div>
 
       {importOpen && (

@@ -1,7 +1,7 @@
 /* ── Layered lab: dock header + panel chrome ─────────────────────────────────
    The dock with its header and menus, and the chrome every panel shares. A
-   panel's own classes go in panels/<Panel>.module.css, as Layers' did on
-   2026-10-25; the Preview, Pixel, Ramp and Knobs rules below are still here.
+   panel's own classes go in panels/<Panel>.module.css: Layers' went there on
+   2026-10-25, and Preview's, Pixel's, Ramp's and Knobs' the same day.
    Modal styles are in PatternLab.module.css. */
 
 .dockShell {
@@ -436,107 +436,7 @@
   color: #f7f3ea;
 }
 
-/* ── Preview panel ── */
-
-.previewBody {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  overflow: auto;
-}
-
-.previewCanvasBox {
-  flex: 1 1 auto;
-  min-height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.previewFrame {
-  background: #060505;
-  border: 1px solid #171512;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  max-width: 100%;
-  max-height: 100%;
-  padding: 10px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.previewFrame canvas {
-  image-rendering: pixelated;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-/* Camera view frames arrive at output resolution — smooth them down, the
-   way the export will actually look, instead of nearest-neighbor grit. */
-.previewFrame canvas.cameraCanvas {
-  image-rendering: auto;
-}
-
-@media (hover: none) {
-  /* A finger has no Alt key, right button or middle button. On a 390×844
-     phone this line wrapped the Pixel status bar to 51px, which left the
-     picture a 372×151 viewport and fitted it at 1×. Without it the viewport
-     is 372×177, and 2× needs 168. */
-  .pixelMouseHint {
-    display: none;
-  }
-}
-
-/* ── Pixel editor panel ── */
-
-.pixelViewport {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  background: #eee8d8;
-  padding: 16px;
-}
-
-.pixelStage {
-  position: relative;
-  flex: 0 0 auto;
-  /* auto margins center when small AND keep every edge scrollable when zoomed */
-  margin: auto;
-  background: repeating-conic-gradient(#c9c2b1 0% 25%, #b5ad9a 0% 50%) 0 0 / 12px 12px;
-  box-shadow: 0 0 0 1px rgba(23, 21, 18, 0.5);
-}
-
-.pixelStage canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  display: block;
-}
-
-.pixelStatus {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 8px;
-  border-top: 1px solid rgba(23, 21, 18, 0.12);
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 11px;
-  color: rgba(23, 21, 18, 0.6);
-  text-transform: none;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-}
-
+/* Color inputs in the Pixel, Text and Graphic Export bars. */
 .colorWell {
   width: 26px;
   height: 22px;
@@ -544,71 +444,6 @@
   border: 1px solid rgba(23, 21, 18, 0.4);
   background: none;
   cursor: pointer;
-}
-
-.swatchRow {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.swatch {
-  width: 16px;
-  height: 16px;
-  border: 1px solid rgba(23, 21, 18, 0.3);
-  padding: 0;
-  cursor: pointer;
-  background: none;
-}
-
-.panelBar .swatch {
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
-  padding: 0;
-  border-radius: 3px;
-}
-
-.toolSep {
-  width: 1px;
-  align-self: stretch;
-  background: rgba(23, 21, 18, 0.15);
-  margin: 0 2px;
-}
-
-/* ── Ramp panel (dock variant) ── */
-
-.rampDock {
-  container: ramp-controls / inline-size;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rampAlphaRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 11px;
-  text-transform: none;
-  color: rgba(23, 21, 18, 0.65);
-}
-
-.rampAlphaRow input[type="range"] {
-  flex: 1 1 auto;
-  min-width: 0;
-  accent-color: #171512;
-}
-
-.rampAlphaValue {
-  width: 36px;
-  text-align: right;
-}
-
-/* Knobs panel: dock padding around the shared .controls block */
-.knobsDock {
-  padding: 10px;
 }
 
 /* Compact scrollbars inside panels */
@@ -628,9 +463,4 @@
 .menuPop button:focus-visible {
   outline: 2px solid #9b4827;
   outline-offset: 2px;
-}
-
-/* Scrolling keeps the ramp and controls at their intended height. */
-.rampDock > * {
-  flex-shrink: 0;
 }
