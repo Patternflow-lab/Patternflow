@@ -12,6 +12,7 @@ import { emptyShow } from "../director/types";
 import { snapshotPixels } from "../pixelHistory";
 import { resizeSurface } from "../pixelTools";
 import { drawTextLayer } from "../text";
+import { placeTextSource } from "../textEffects";
 import { DEFAULT_RAMP_STATE, cloneRampState, isRampLayer, layerId, type CodeLayer, type LabProject, type Layer, type RampLayer, type RampState, type RasterLayer } from "../types";
 const labPresets = livePresets.filter((preset) => preset.labOnly);
 export const initialLabPreset = labPresets[0] ?? livePresets[0];
@@ -142,15 +143,22 @@ export function resizePixelLayers(layers: Layer[], matrix: MatrixSize): Layer[] 
         y: resized.spec.y + Math.floor((matrix.height - layer.height) / 2),
       };
       // The source keeps its columns and moves by the same offset; its rows
-      // are cut or padded the way the bitmap's are.
+      // are cut or padded the way the bitmap's are. A frame that holds fewer
+      // columns cuts it where text.ts would have (placeTextSource), so it
+      // saves and opens again as it is.
       const source = resized.source;
-      resized.source = source
+      const moved = source
         ? {
             x: source.x + dx,
             width: source.width,
             data: resizeSurface(source.data, source.width, layer.height, source.width, matrix.height),
           }
         : null;
+      const effect = resized.spec.effect;
+      resized.source =
+        moved && (effect === "scroll" || effect === "ramp")
+          ? placeTextSource(moved, effect, matrix.width, matrix.height)
+          : moved;
     }
     return resized;
   });
