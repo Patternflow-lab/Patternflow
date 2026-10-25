@@ -37,6 +37,8 @@ const HUE0 = 0.52, SPAN = 0.3;
 // Line colour: saturation and value a line settles to, the ghost's value,
 // and the tint of a visited light and dark square.
 const SAT = 0.75, VAL = 1, GHOST = 0.85, TINT = [0.09, 0];
+// A square just reached glows WAKE brighter, fading over the next WAKEN jumps.
+const WAKE = 0.34, WAKEN = 6;
 
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
@@ -261,7 +263,7 @@ export function draw(display, params) {
     const q = path[i], w = cl((done - i + 0.5) * 2, 0, 1) * keep;
     if (w <= 0) continue;
     const light = ((q % C) + floor(q / C)) % 2 === 0;
-    hsv(hueOf(i), 0.75, (light ? TINT[0] : TINT[1]) * w, c3, 0);
+    hsv(hueOf(i), 0.75, ((light ? TINT[0] : TINT[1]) + WAKE * exp(-max(0, done - i) / WAKEN)) * w, c3, 0);
     fill(P, q, c3[0], c3[1], c3[2]);
   }
   // The tour before this one, dotted: every other LED of each of its lines.
@@ -336,14 +338,17 @@ export function draw(display, params) {
     (mx = P.cx[a] + (P.cx[b] - P.cx[a]) * e), (my = P.cy[a] + (P.cy[b] - P.cy[a]) * e);
   }
   if (mx >= 0) {
-    // The knight: a white point with a small soft cross.
-    const x = round(mx), y = round(my);
-    for (const [dx, dy, l] of [[0, 0, 1], [1, 0, 0.55], [-1, 0, 0.55], [0, 1, 0.55], [0, -1, 0.55]]) {
-      const px = x + dx, py = y + dy;
-      if (px < 0 || px >= W || py < 0 || py >= H) continue;
-      const o = (py * W + px) * 3;
-      (rgb[o] = max(rgb[o], l)), (rgb[o + 1] = max(rgb[o + 1], l)), (rgb[o + 2] = max(rgb[o + 2], l));
-    }
+    // The knight: a white point in a soft round glow that swells as it
+    // lands and settles while it rests.
+    const land = run && P.at > 0 ? exp(-((P.phase - GLIDE + 1) % 1) / 0.3) : 0, gr = 7 + 7 * land, ga = 0.75 + 0.25 * land;
+    for (let py = floor(my) - 5; py <= floor(my) + 6; py++)
+      for (let px = floor(mx) - 5; px <= floor(mx) + 6; px++) {
+        if (px < 0 || px >= W || py < 0 || py >= H) continue;
+        const r2 = (px - mx) ** 2 + (py - my) ** 2, l = r2 < 0.3 ? 1 : ga * exp(-r2 / gr);
+        if (l < 0.04) continue;
+        const o = (py * W + px) * 3;
+        (rgb[o] = max(rgb[o], l)), (rgb[o + 1] = max(rgb[o + 1], l * 0.95)), (rgb[o + 2] = max(rgb[o + 2], l * 0.85));
+      }
   }
   for (let y = 0, o = 0; y < H; y++)
     for (let x = 0; x < W; x++, o += 3) display.setPixel(x, y, min(255, rgb[o] * 255), min(255, rgb[o + 1] * 255), min(255, rgb[o + 2] * 255));
