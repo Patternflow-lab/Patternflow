@@ -14,7 +14,7 @@
 
 import { COLOR_MODES } from "@/lib/ai/settings";
 import type { ColorMode } from "@/lib/ai/settings";
-import { isValidMatrix, type MatrixSize } from "@/lib/pattern/matrix";
+import { parseMatrixSize, type MatrixSize } from "@/lib/pattern/matrix";
 
 import { LAB_STORAGE, readJson, removeStorage as remove } from "./persist";
 
@@ -77,14 +77,11 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback
 // Accepts the current `{width, height}` shape and the older `resPreset: "128x64"`
 // string, so a draft written before the frame rework still restores.
 function readMatrix(raw: Record<string, unknown>): MatrixSize | undefined {
-  const candidate = raw.matrix as Partial<MatrixSize> | undefined;
-  if (isValidMatrix(candidate)) {
-    return { width: Number(candidate!.width), height: Number(candidate!.height) };
-  }
+  const matrix = parseMatrixSize(raw.matrix as Partial<MatrixSize> | undefined);
+  if (matrix) return matrix;
   if (typeof raw.resPreset === "string") {
     const [w, h] = raw.resPreset.split("x");
-    const legacy = { width: Number(w), height: Number(h) };
-    if (isValidMatrix(legacy)) return legacy;
+    return parseMatrixSize({ width: Number(w), height: Number(h) }) ?? undefined;
   }
   return undefined;
 }

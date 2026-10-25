@@ -13,7 +13,7 @@
 import { RAMP_MODES, type RampMode } from "@/lib/pattern/harness";
 import { COLOR_MODES } from "@/lib/ai/settings";
 import type { ColorMode } from "@/lib/ai/settings";
-import { isValidMatrix, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
+import { parseMatrixSize, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 import { loadDraft } from "@/lib/lab/legacyDraft";
 import { PATTERN_KNOB_COUNT } from "@/lib/pattern/harness";
 import {
@@ -36,10 +36,11 @@ import {
   type LayerRole,
   type PixelLayer,
   type RampState,
+  type TextEffect,
   type TextLayer,
   type TextSource,
 } from "./types";
-import { sourceColumnLimit } from "./textEffects";
+import { placeTextSource, sourceColumnLimit } from "./textEffects";
 import { defaultKnobState, matchKnobsAnnotation } from "./annotations";
 import { LAB_STORAGE, readStorage, removeStorage, writeStorage } from "./persist";
 import { matchMatrixAnnotation } from "@/lib/pattern/matrix";
@@ -382,6 +383,7 @@ function readLayer(raw: unknown): Layer | null {
     if (!data) return null;
     if (raw.type === "text") {
       const frame = { width, height };
+      const spec = normalizeTextSpec(isRecord(raw.spec) ? raw.spec : {}, defaultTextSpec(frame), frame);
       const layer: TextLayer = {
         ...common,
         type: "text",
@@ -389,9 +391,9 @@ function readLayer(raw: unknown): Layer | null {
         height,
         data,
         rev: 0,
-        spec: normalizeTextSpec(isRecord(raw.spec) ? raw.spec : {}, defaultTextSpec(frame), frame),
+        spec,
         ramp: isRecord(raw.ramp) ? readRamp(raw.ramp) : cloneRampState(TEXT_RAMP_STATE),
-        source: readTextSource(raw.src, width, height),
+        source: readTextSource(raw.src, spec.effect, width, height),
       };
       return layer;
     }
@@ -409,15 +411,20 @@ function readLayer(raw: unknown): Layer | null {
   return null;
 }
 
-/** A saved text source, or null when it is missing or does not fit the frame. */
-function readTextSource(raw: unknown, width: number, height: number): TextSource | null {
+/**
+ * A saved text source, or null when it is missing, its effect reads none,
+ * or it holds more columns than the frame's source may. Its place goes
+ * through placeTextSource, as it did when it was drawn.
+ */
+function readTextSource(raw: unknown, effect: TextEffect, width: number, height: number): TextSource | null {
+  if (effect !== "scroll" && effect !== "ramp") return null;
   if (!isRecord(raw) || typeof raw.px !== "string") return null;
   const x = Number(raw.x);
   const columns = Number(raw.w);
-  if (!Number.isInteger(x) || !Number.isInteger(columns) || columns <= 0) return null;
-  if (columns > sourceColumnLimit(width, height) || Math.abs(x) > width * 8 + columns) return null;
+  if (!Number.isSafeInteger(x) || !Number.isInteger(columns) || columns <= 0) return null;
+  if (columns > sourceColumnLimit(width, height)) return null;
   const data = base64ToBytes(raw.px, columns * height * 4);
-  return data ? { x, width: columns, data } : null;
+  return data ? placeTextSource({ x, width: columns, data }, effect, width, height) : null;
 }
 
 export function deserializeProject(json: string): (LabProject & { savedAt: number }) | null {
@@ -437,10 +444,7 @@ export function deserializeProject(json: string): (LabProject & { savedAt: numbe
     .filter((layer): layer is Layer => layer !== null);
   if (layers.length === 0) return null;
 
-  const matrixCandidate = raw.matrix as Partial<MatrixSize> | undefined;
-  const matrix = isValidMatrix(matrixCandidate)
-    ? { width: Number(matrixCandidate!.width), height: Number(matrixCandidate!.height) }
-    : DEFAULT_MATRIX;
+  const matrix = parseMatrixSize(raw.matrix as Partial<MatrixSize> | undefined) ?? DEFAULT_MATRIX;
 
   const forkOf =
     raw.forkOf && typeof raw.forkOf === "object"

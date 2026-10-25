@@ -214,12 +214,14 @@ function TextEditor({ layer }: { layer: TextLayer }) {
     setBusy(true);
     setMessage(null);
     try {
-      const option = await addFontFile(file, remember);
+      const { option, remembered: kept } = await addFontFile(file, remember);
       set({ font: option.id });
       setMessage(
-        remember
+        kept
           ? `${option.label} is kept in this browser for next time.`
-          : `${option.label} is loaded for this visit.`,
+          : remember
+            ? `${option.label} is loaded for this visit. This browser wouldn't keep a copy for next time.`
+            : `${option.label} is loaded for this visit.`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "That font couldn't be read.");

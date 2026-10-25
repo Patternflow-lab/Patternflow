@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { knobSetupFromCode } from "@/lib/community/knobs";
+import { knobWheelValue, normalizeKnob } from "@/lib/pattern/controls";
 import { describeMatrixShape, matrixFromCode } from "@/lib/pattern/matrix";
 import cs from "@/components/community/Community.module.css";
 import { deskSignal } from "../deskStore";
@@ -138,8 +139,8 @@ function PlusMinusIcon({ minus }: { minus: boolean }) {
 function turnKnob(id: string, ranges: Array<[number, number]>, k: number, dir: 1 | -1) {
   const st = usePractice.getState();
   const next = st.knobsOf(id).slice();
-  const [min, max] = ranges[k] ?? [0, 1];
-  next[k] = Number(Math.max(min, Math.min(max, (next[k] ?? min) + (dir * Math.max(0.001, max - min)) / 25)).toFixed(3));
+  const range = ranges[k] ?? [0, 1];
+  next[k] = knobWheelValue(next[k] ?? range[0], range, dir);
   st.setKnobs(id, next);
   deskSignal(COMMUNITY_SIGNAL.turned);
 }
@@ -191,8 +192,7 @@ export function PatternCard({ p }: { p: PracticePattern }) {
   const noteEdge = overlayShowing && pos === "bottom" ? cs.deckNoteTop : cs.deckNoteBottom;
   const label = setup.labels[k] ?? `Knob ${k + 1}`;
   const value = knobs[k] ?? 0;
-  const [kMin, kMax] = setup.ranges[k] ?? [0, 1];
-  const norm = (value - kMin) / Math.max(0.001, kMax - kMin);
+  const norm = normalizeKnob(value, setup.ranges[k] ?? [0, 1]);
 
   const open = () => usePractice.getState().go({ kind: "pattern", id: p.id });
   const stop = (e: MouseEvent) => {

@@ -175,16 +175,20 @@ async function registerFontBytes(label: string, bytes: ArrayBuffer, remembered: 
   return { id, label, group: "file" };
 }
 
-/** Read a font file into this tab and, when asked, into this browser. */
-export async function addFontFile(file: File, remember: boolean): Promise<FontOption> {
+/**
+ * Read a font file into this tab and, when asked, into this browser.
+ * `remembered` is whether this browser kept it: false when it was not asked
+ * to, and when it has no IndexedDB or would not store the file.
+ */
+export async function addFontFile(file: File, remember: boolean): Promise<{ option: FontOption; remembered: boolean }> {
   if (file.size > MAX_FONT_FILE_BYTES) {
     throw new Error(`That font is ${Math.round(file.size / 1024 / 1024)} MB; the lab takes up to ${MAX_FONT_FILE_BYTES / 1024 / 1024} MB.`);
   }
   const bytes = await file.arrayBuffer();
   const label = fontLabelFromFileName(file.name);
   const option = await registerFontBytes(label, bytes, false);
-  if (remember) await rememberFont(option.id, bytes);
-  return option;
+  const remembered = remember ? await rememberFont(option.id, bytes) : false;
+  return { option, remembered };
 }
 
 // ── remembering: IndexedDB, this browser only ──

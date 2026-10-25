@@ -34,15 +34,20 @@ vi.mock("./textRaster", () => {
   };
 });
 
-import { buildRampLUTRGBA } from "@/lib/pattern/harness";
+import { PatternRuntime, buildRampLUTRGBA, createIdleInput } from "@/lib/pattern/harness";
 import { textCoverage } from "./textRaster";
+import { flattenLayers } from "./flatten";
+import { buildHExport } from "./hExport";
 import { drawTextLayer, paintText } from "./text";
 import {
   TEXT_EFFECT_RATE,
   activeTextEffect,
   advanceTextPhase,
+  placeTextSource,
   renderTextEffect,
+  sourceColumnLimit,
   textEffectPeriod,
+  textEffectSource,
   twinkleHash,
 } from "./textEffects";
 import { LabEngine } from "./engine";
@@ -177,6 +182,51 @@ describe("drawing a moving text", () => {
     const shown = render(new LabEngine(), [layer], [0, 1, 0, 0], 0.5);
     expect(shownColumns(shown, 16)).toEqual(litColumns(layer.data, 16));
   });
+
+  it("twinkle moves the bitmap, scroll and ramp only a source that fits", () => {
+    const twinkle = textAt({ text: "HEY", effect: "twinkle" });
+    expect(textEffectSource(twinkle, "twinkle")).toEqual({ x: 0, width: 16, data: twinkle.data });
+    const scroll = textAt({ text: "PATTERNFLOW!", effect: "scroll" });
+    expect(textEffectSource(scroll, "scroll")).toBe(scroll.source);
+    expect(textEffectSource({ ...scroll, source: null }, "scroll")).toBeNull();
+    expect(textEffectSource({ ...scroll, source: { ...scroll.source!, width: 23 } }, "scroll")).toBeNull();
+  });
+
+  it("a frame asked of a scroll with no source is left as it was", () => {
+    const layer = { ...textAt({ text: "HEY", effect: "scroll" }), source: null };
+    const out = new Uint8ClampedArray(layer.data);
+    renderTextEffect(layer, "scroll", 5, null, out);
+    expect(Array.from(out)).toEqual(Array.from(layer.data));
+  });
+});
+
+describe("a moving text with no source, exported", () => {
+  // A save from a build that did not keep the source: activeTextEffect names
+  // no effect, and both exports carry the letters as the Lab shows them.
+  it.each(["scroll", "ramp"] as const)("%s: the flattened JS and the header carry the bitmap, standing still", (effect) => {
+    const layer = { ...textAt({ text: "HEY", effect }), source: null };
+
+    const code = flattenLayers([layer], frame);
+    expect(code).not.toContain("function __fxDraw");
+    const runtime = new PatternRuntime(frame.width, frame.height);
+    expect(runtime.loadCode(code).error).toBeUndefined();
+    const input = createIdleInput([0, 0, 0, 0], { knobValues: [1, 1, 1, 1], knobNormalized: [1, 1, 1, 1] });
+    for (let f = 0; f < 3; f++) {
+      expect(runtime.renderFrame(0.5, f * 0.5, input).error).toBeUndefined();
+      expect(shownColumns(runtime.data, 16)).toEqual(litColumns(layer.data, 16));
+    }
+
+    const { scaffold } = buildHExport({
+      name: "NoSource",
+      matrix: frame,
+      layers: [layer],
+      knobs: [1, 1, 1, 1],
+      ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+      knobLabels: ["A", "B", "C", "D"],
+    });
+    expect(scaffold).toContain('"Text": text as drawn');
+    expect(scaffold).not.toContain("_SRC_W");
+  });
 });
 
 describe("moving text in the engine", () => {
@@ -247,6 +297,44 @@ describe("a moving text saved and opened again", () => {
     const back = deserializeProject(JSON.stringify(json))!.layers[0] as TextLayer;
     expect(back.source).toBeNull();
     expect(activeTextEffect(back)).toBeNull();
+  });
+});
+
+describe("placing a source", () => {
+  const scrollFrames = (layer: TextLayer) =>
+    Array.from({ length: textEffectPeriod("scroll", layer) + 3 }, (_, phase) => {
+      const out = new Uint8ClampedArray(16 * 8 * 4);
+      renderTextEffect(layer, "scroll", phase, null, out);
+      return Array.from(out);
+    });
+
+  it("brings a scroll's x next to the frame and shows the same frames", () => {
+    const layer = textAt({ text: "PATTERNFLOW!", effect: "scroll" });
+    for (const x of [-5000, -41, -24, 17, 900]) {
+      const far = { ...layer, source: { ...layer.source!, x } };
+      const placed = placeTextSource(far.source, "scroll", 16, 8)!;
+      expect(placed.x).toBeGreaterThan(-placed.width);
+      expect(placed.x).toBeLessThanOrEqual(16);
+      expect(scrollFrames({ ...layer, source: placed })).toEqual(scrollFrames(far));
+    }
+  });
+
+  it("keeps a ramp where it is, and drops one wholly off the frame", () => {
+    const layer = textAt({ text: "HEY", effect: "ramp" });
+    const source = layer.source!;
+    expect(placeTextSource({ ...source, x: -3 }, "ramp", 16, 8)?.x).toBe(-3);
+    expect(placeTextSource({ ...source, x: -source.width }, "ramp", 16, 8)).toBeNull();
+    expect(placeTextSource({ ...source, x: 16 }, "ramp", 16, 8)).toBeNull();
+  });
+
+  it("cuts the columns past what the frame's source holds, keeping each row's start", () => {
+    const columns = sourceColumnLimit(16, 8) + 5;
+    const data = new Uint8ClampedArray(columns * 8 * 4);
+    for (let y = 0; y < 8; y++) data[(y * columns + 1) * 4 + 3] = y + 1;
+    const placed = placeTextSource({ x: 0, width: columns, data }, "scroll", 16, 8)!;
+    expect(placed.width).toBe(sourceColumnLimit(16, 8));
+    expect(placed.data.length).toBe(placed.width * 8 * 4);
+    for (let y = 0; y < 8; y++) expect(placed.data[(y * placed.width + 1) * 4 + 3]).toBe(y + 1);
   });
 });
 

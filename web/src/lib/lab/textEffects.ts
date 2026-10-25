@@ -37,6 +37,40 @@ export function sourceColumnLimit(width: number, height: number): number {
   return Math.max(width, Math.floor(TEXT_SOURCE_MAX_BYTES / (height * 4)));
 }
 
+/**
+ * A source as every reader takes it, or null when the frame would read none
+ * of it. Columns past sourceColumnLimit are cut off, as text.ts leaves them
+ * out of a line too long to hold. A scroll reads x only modulo the source's
+ * width plus the frame's, so x is brought into one span that long, from the
+ * source's own width out to the left up to the frame's right edge: the same
+ * frames, and a number a reader can bound. A ramp reads x as it is, and one
+ * wholly off the frame lights nothing. text.ts, a resize (store/shared.ts)
+ * and serialize.ts all pass a source through here, so a save opens with the
+ * source it was saved with.
+ */
+export function placeTextSource(
+  source: TextSource,
+  effect: "scroll" | "ramp",
+  width: number,
+  height: number,
+): TextSource | null {
+  const columns = Math.min(source.width, sourceColumnLimit(width, height));
+  let data = source.data;
+  if (columns < source.width) {
+    data = new Uint8ClampedArray(columns * height * 4);
+    for (let y = 0; y < height; y++) {
+      const from = y * source.width * 4;
+      data.set(source.data.subarray(from, from + columns * 4), y * columns * 4);
+    }
+  }
+  if (effect === "ramp") {
+    return source.x <= -columns || source.x >= width ? null : { x: source.x, width: columns, data };
+  }
+  const period = columns + width;
+  const lead = (((width - source.x) % period) + period) % period;
+  return { x: width - lead, width: columns, data };
+}
+
 const TWINKLE_PERIOD = 256;
 const RAMP_PERIOD = 512;
 
@@ -62,6 +96,17 @@ export function activeTextEffect(layer: TextLayer): ActiveTextEffect | null {
   if (effect === "none") return null;
   if (effect === "twinkle") return "twinkle";
   return sourceFits(layer.source, layer.height) ? effect : null;
+}
+
+/**
+ * What the effect draws each frame from: twinkle the bitmap as it stands,
+ * scroll and ramp the source. Null when that source does not fit, and then
+ * activeTextEffect is null too. flatten.ts and hExport.ts write this out
+ * for the exports.
+ */
+export function textEffectSource(layer: TextLayer, effect: ActiveTextEffect): TextSource | null {
+  if (effect === "twinkle") return { x: 0, width: layer.width, data: layer.data };
+  return sourceFits(layer.source, layer.height) ? layer.source : null;
 }
 
 /** How many steps the phase counts before it starts again. */
@@ -134,7 +179,9 @@ export function renderTextEffect(
     return;
   }
 
-  const source = layer.source!;
+  // activeTextEffect names scroll or ramp only for a source that fits.
+  const source = layer.source;
+  if (!sourceFits(source, height)) return;
   const src = source.data;
   const srcWidth = source.width;
 
