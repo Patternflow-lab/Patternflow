@@ -200,7 +200,7 @@ export function update(dt, input, params) {
   }
   // The spider: at the hub until the first pulse reaches it, then it turns
   // to the moth's radial, waits for more to be sure (six in all, or four
-  // seconds), runs out along the radial, wraps, and walks back.
+  // seconds), then runs out along the radial to wrap the moth and walk back.
   const hubT = M.d[S.hub] / V;
   const path = [S.hub];
   for (let j = 0; j <= M.j; j++) if (S.id[M.k][j] >= 0) path.push(S.id[M.k][j]);
