@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Length=80..160, Stiff=0..1
 //
 // Knob 1: Hue. Turns the chain's gradient round the wheel. At 0 it runs from aqua at the first site through blue and violet to pink at the last; at 0.5 from coral through gold to green. The two end sites carry a white bead.
-// Knob 2: Speed. Pivot tries a second while the chain is at rest: 14 times the knob, so 28 at 2. An accepted try swings for 0.5 s at 2 when the moved arm is the whole chain and down to 0.25 s for an arm of one site; 0.33 s at 3 and 1.5 s at 0.2. A rejected try flashes its pivot site white for 0.15 s. At the opening knobs that comes to about 1.6 swings a second, the chain moving 63% of the time.
+// Knob 2: Speed. Pivot tries a second while the chain is at rest: 14 times the knob, so 28 at 2. An accepted try swings for 0.5 s at 2 when the moved arm is the whole chain and down to 0.25 s for an arm of one site; 0.33 s at 3 and 1.5 s at 0.2. A rejected try flashes its pivot site white for 0.15 s. At the opening knobs that comes to about 1.6 swings a second, the chain moving 66% of the time.
 // Knob 3: Length. The number of steps, 80 to 160, on 512 lattice sites 4 LEDs apart. Turning it grows or trims the chain at its ends, 30 steps a second. At 80 one try in 5 is accepted, at 160 one in 21, and the longer chain swings about half as often.
 // Knob 4: Stiff. A bending cost J from 0 to 3 per corner, taken by the Metropolis rule. A pivot changes only the corner at its own site, so a try that makes a new corner passes with chance exp(-J). Up to 0.06 there is no cost and the walk is the plain self-avoiding walk, with a corner at 66% of its sites; at 1 only 9% are corners, straight runs average 11 steps and the chain folds like a hairpin between the walls.
 // Buttons: K1 tap shrinks the chain to one site in the middle and it grows back at both ends, 30 steps a second, swinging as it grows.
@@ -72,6 +72,9 @@ function seed(S) {
 }
 
 // One pivot try. Returns true if it was accepted (and the walk changed).
+// The pivot site, the side that moves (a coin toss) and the symmetry are
+// all picked evenly, and a symmetry's inverse is one of the seven too, so a
+// move and its undoing are equally likely and the walks are sampled evenly.
 function attempt(S, animate) {
   const n = S.n;
   if (n < 2) return false;
