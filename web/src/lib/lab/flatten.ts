@@ -27,7 +27,7 @@ import { KNOBS_ANNOTATION_RE, buildKnobsAnnotationLine, defaultKnobState } from 
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
 import { bytesToBase64 } from "./serialize";
-import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, type ActiveTextEffect } from "./textEffects";
+import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, textEffectSource, type ActiveTextEffect } from "./textEffects";
 
 /**
  * Run-length encode straight RGBA bytes as {count-1, r, g, b, a} tuples
@@ -68,7 +68,7 @@ function pixelBufferLiteral(data: Uint8ClampedArray, length = "__W * __H * 4"): 
     ? `__rle("${bytesToBase64(rle)}", ${length})`
     : `__b64("${bytesToBase64(data)}", ${length})`;
 }
-import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer, type TextSource } from "./types";
 
 type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
 
@@ -102,8 +102,7 @@ function lutLiteral(layer: RampLayer): string {
  * The fx object of a moving text layer. Scroll and ramp read the source,
  * twinkle the bitmap; ramp brings its ramp as a LUT.
  */
-function textFxLiteral(layer: TextLayer, effect: ActiveTextEffect): string {
-  const source = effect === "twinkle" ? { x: 0, width: layer.width, data: layer.data } : layer.source!;
+function textFxLiteral(layer: TextLayer, effect: ActiveTextEffect, source: TextSource): string {
   return `{
     kind: "${effect}", knob: ${layer.spec.effectKnob}, rate: ${TEXT_EFFECT_RATE[effect]}, period: ${textEffectPeriod(effect, layer)}, phase: 0,
     srcX: ${source.x}, srcW: ${source.width}, lead: ${layer.width - source.x},
@@ -286,23 +285,25 @@ function __mkDisplay(L) {
 
   // Text layers that move: each carries what it moves and a phase the knob
   // speeds up. The helpers are textEffects.ts step for step.
-  const effects = new Map<TextLayer, ActiveTextEffect>();
+  const effects = new Map<TextLayer, { effect: ActiveTextEffect; source: TextSource }>();
   for (const layer of stack) {
-    const effect = layer.type === "text" ? activeTextEffect(layer) : null;
-    if (layer.type === "text" && effect) effects.set(layer, effect);
+    if (layer.type !== "text") continue;
+    const effect = activeTextEffect(layer);
+    const source = effect ? textEffectSource(layer, effect) : null;
+    if (effect && source) effects.set(layer, { effect, source });
   }
   if (effects.size > 0) parts.push(TEXT_FX_HELPERS);
 
   for (const layer of stack) {
     const roleProps = `role: "${layer.role}", maskInvert: ${layer.maskInvert}`;
-    const effect = layer.type === "text" ? effects.get(layer) : undefined;
-    if (layer.type === "text" && effect) {
+    const moving = layer.type === "text" ? effects.get(layer) : undefined;
+    if (layer.type === "text" && moving) {
       parts.push(`
-// ── text layer, ${effect} on knob ${layer.spec.effectKnob + 1}: ${commentSafe(layer.name)} ──
+// ── text layer, ${moving.effect} on knob ${layer.spec.effectKnob + 1}: ${commentSafe(layer.name)} ──
 __stack.push({
   kind: "pixel", opacity: ${layer.opacity}, blend: "${layer.blend}", ${roleProps},
   buf: new Uint8ClampedArray(__W * __H * 4),
-  fx: ${textFxLiteral(layer, effect)},
+  fx: ${textFxLiteral(layer, moving.effect, moving.source)},
 });`);
       continue;
     }
