@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Kac Ring
 // Family:  rhythm
-// Idea:    Mark Kac's ring of 64 balls steps round its 64 columns, each ball flipping colour as it crosses one of an odd number of marked edges, the newest step entering at the bottom so the panel always holds one whole 128-step period, a quilt of parallelograms that goes all dark at its middle row and all light again at its ends, with the white share of each row traced against the Stosszahlansatz curve that says it should settle at a half.
+// Idea:    Mark Kac's ring of 64 balls steps round the 64 columns, every ball changing colour as it crosses one of an odd number of marked edges, the newest step entering at the bottom so the panel always holds one whole period of 128 steps, a quilt of parallelograms whose middle row is the start with light and dark swapped and whose ends are the start again, each period on a fresh set of marks, with each row's light share traced in white against the dashed Stosszahlansatz curve that says it should settle at one half.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
