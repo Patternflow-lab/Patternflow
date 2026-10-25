@@ -1,92 +1,9 @@
 /* ── Pattern Lab: shared styles ──────────────────────────────────────────────
-   What more than one panel draws with. Each panel's own classes live beside
-   the panel (<Panel>.module.css) since 2026-09; a rule is here because two
-   files use it, or because the shell (PatternLabClient) does. */
-
-.labBrand {
-  color: inherit;
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.labBrand:hover {
-  opacity: 0.8;
-  text-decoration: none;
-}
-
-.labTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: #8c8577;
-  letter-spacing: 0.01em;
-}
-
-.projectIdentity {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  min-width: 0;
-}
-
-.projectMeta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  max-width: 100%;
-  min-height: 17px;
-}
-
-.labName {
-  width: 100%;
-  min-width: 0;
-  padding: 3px 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: #171512;
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  text-align: center;
-}
-
-.labName::placeholder {
-  color: #9a9486;
-  font-weight: 400;
-}
-
-.labName:hover {
-  background: rgba(255, 253, 248, 0.7);
-  border-color: rgba(23, 21, 18, 0.18);
-}
-
-.labName:focus {
-  outline: 2px solid #9b4827;
-  outline-offset: 1px;
-  background: #fffdf8;
-}
-
-.labNav {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.labNav a {
-  color: #6b655a;
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.labNav a:hover {
-  color: #171512;
-}
+   What more than one file draws with. Each panel's own classes live beside
+   the panel (<Panel>.module.css) since 2026-09, and the header's in
+   LabPanels.module.css since 2026-10-25. headerToggle stays because it is one
+   rule with Preview's headerSelect. labCss.test.ts fails on a class here that
+   only one file reads. */
 
 .stats {
   display: flex;
@@ -126,37 +43,6 @@
   background: #f7f3ea;
 }
 
-.saveStatus {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #6b655a;
-  font-size: 11px;
-  line-height: 17px;
-  white-space: nowrap;
-}
-
-.saveDot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #68826b;
-  flex: none;
-}
-
-.saveStatus[data-state="pending"] .saveDot,
-.saveStatus[data-state="idle"] .saveDot {
-  background: #a58a56;
-}
-
-.saveStatus[data-state="error"] {
-  color: #b42318;
-}
-
-.saveStatus[data-state="error"] .saveDot {
-  background: currentColor;
-}
-
 .headerToggle[data-primary="true"] {
   background: #171512;
   border-color: #171512;
@@ -168,28 +54,9 @@
 }
 
 .headerToggle:focus-visible,
-.headerSelect:focus-visible,
-.labNav a:focus-visible {
+.headerSelect:focus-visible {
   outline: 2px solid #9b4827;
   outline-offset: 2px;
-}
-
-.storageNotice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 8px 12px;
-  border: 1px solid #b42318;
-  background: #fff4f2;
-  color: #8f1c13;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.storageNotice > span {
-  flex: 1 1 280px;
 }
 
 .errorBox {
@@ -205,12 +72,6 @@
      message; without this the newline collapses and the two run together. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-.darkButton {
-  background: #171512 !important;
-  color: #f7f3ea !important;
-  border-color: #171512 !important;
 }
 
 .variantActions {
@@ -362,34 +223,6 @@
     justify-content: flex-start;
     text-align: left;
   }
-}
-
-/* ── Community fork badge ── */
-.forkBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  color: #925035;
-  font-size: 11px;
-}
-
-.forkBadge > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.forkBadge button {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  color: inherit;
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  flex: none;
 }
 
 .variantActions button:disabled {

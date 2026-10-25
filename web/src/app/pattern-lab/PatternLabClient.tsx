@@ -346,34 +346,34 @@ export default function PatternLabClient() {
     <main className={dock.dockShell}>
       <header className={dock.dockHeader}>
         <div className={dock.dockHeaderGroup}>
-          <Link href="/" className={styles.labBrand}>
+          <Link href="/" className={dock.labBrand}>
             Patternflow
           </Link>
-          <span className={styles.labTitle}>Pattern Lab</span>
+          <span className={dock.labTitle}>Pattern Lab</span>
         </div>
-        <div className={styles.projectIdentity}>
+        <div className={dock.projectIdentity}>
           <input
             type="text"
             aria-label="Pattern name"
-            className={styles.labName}
+            className={dock.labName}
             value={pieceName}
             maxLength={60}
             placeholder="name this pattern"
             title="The piece's name — To hardware uses it as NAME (so the .pfm module matches), the Director stamps it into the show, and publishing suggests it. Layer names stay layer names."
             onChange={(event) => setPieceName(event.target.value)}
           />
-          <div className={styles.projectMeta}>
+          <div className={dock.projectMeta}>
             <span
-              className={styles.saveStatus}
+              className={dock.saveStatus}
               data-state={saveStatus}
               title={`Saved only in this browser.${restoredAt !== null ? ` Restored your last session (${new Date(restoredAt).toLocaleString()}). Earlier work is under Recent.` : ""}`}
             >
-              <span className={styles.saveDot} aria-hidden="true" />
+              <span className={dock.saveDot} aria-hidden="true" />
               {saveStatus === "error" ? "Unsaved" : saveStatus === "pending" ? "Saving…" : saveStatus === "idle" && restoredAt === null ? "Local draft" : "Saved locally"}
             </span>
             {forkOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Sharing to the community will publish this as a fork of the linked pattern. Click × if this is no longer a remix of it."
               >
                 <span>forking from {forkOf.title}</span>
@@ -384,7 +384,7 @@ export default function PatternLabClient() {
             )}
             {editOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Your own post, reopened. Sharing UPDATES it — same page, same likes, comments and forks. Click × to publish this as a separate new pattern instead; the version you started from is under Recent ▾."
               >
                 <span>editing {editOf.title}</span>
@@ -520,7 +520,7 @@ export default function PatternLabClient() {
               </div>
             )}
           </div>
-          <nav className={styles.labNav}>
+          <nav className={dock.labNav}>
             <Link href="/community" title="Patternflow Community">
               Community ↗
             </Link>
@@ -529,7 +529,7 @@ export default function PatternLabClient() {
       </header>
 
       {(workError || saveStatus === "error") && (
-        <div className={styles.storageNotice} role="alert">
+        <div className={dock.storageNotice} role="alert">
           <span>{workError ?? "Changes could not be saved in this browser. Keep this tab open and copy your code before leaving. Browser storage may be full or unavailable, or this project may exceed the save limits."}</span>
           {saveStatus === "error" && (
             <button type="button" className={styles.headerToggle} onClick={saveLabProjectNow}>Retry save</button>
