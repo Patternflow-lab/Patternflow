@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Peaucellier Linkage
 // Family:  line
-// Idea:    A Peaucellier inversor of seven thick bars swings on two fixed pivots, its crank driving one corner of the rhombus round a circle through the main pivot so that the opposite corner runs up and down an exact straight line the height of the panel, drawn as a glowing rail, and moving the crank's pivot off its place bends that rail into a circle arc.
+// Idea:    A Peaucellier inversor of seven thick bars swings on two fixed pivots, its crank rocking one corner of the rhombus along a circle through the main pivot so that the opposite corner runs up and down an exact straight line nearly the height of the panel, drawn as a glowing rail, and moving the crank's pivot off its place sends that corner along a circle arc beside the rail instead.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Arms=0..1, Offset=0..1
 //
-// Knob 1: Hue. Turns the bars round the wheel together. At 0 the long arms are azure, the rhombus gold, the crank rose and the rail mint; at 0.5 the arms are orange, the rhombus blue, the crank green and the rail lilac.
+// Knob 1: Hue. Turns the bars round the wheel together. At 0 the long arms are azure, the rhombus gold, the crank rose and the rail mint; at 0.5 the arms are orange, the rhombus blue, the crank green and the rail pink.
 // Knob 2: Speed. How fast the crank rocks: at 2 the output joint runs the rail top to bottom and back in 6 seconds, at 0.2 in a minute, at 3 in 4 seconds.
 // Knob 3: Arms. The ratio of the long arms to the rhombus side, with their sum kept at 78 LEDs. At 0 the arms are 52 and the side 26, the rail stands 51 LEDs from the main pivot and the output runs 53 LEDs either side of centre; at 1 the arms are 45 and the side 33, the rhombus opens out, the rail moves in to 34 LEDs and the crank swings 116 degrees each way for a stroke of 55. The crank is always 0.44 of the inversion radius, so the output joint never crosses the joint the crank drives.
 // Knob 4: Offset. Moves the crank's pivot away from the main pivot. Up to 0.08 it sits exactly the crank's length away and the output runs on the straight rail, within 1e-13 LEDs of it; at 1 it is a tenth of the inversion radius farther (4.5 LEDs at Arms 0), the crank's circle misses the main pivot, and the output's white track runs on a circle arc of radius about 200, 5 LEDs inside the rail at the middle of the stroke.
@@ -106,7 +106,8 @@ export function update(dt, input, params) {
   S.speed = cl(k[1], 0.2, 3);
   S.arms = cl(k[2], 0, 1);
   S.offset = cl(k[3], 0, 1);
-  const key = S.arms.toFixed(4) + ',' + S.offset.toFixed(4);
+  // Inside the dead band the linkage is the same, so the track is kept.
+  const key = S.arms.toFixed(4) + ',' + max(0, S.offset - 0.08).toFixed(4);
   if (key !== S.gKey) {
     geometry(S.G, S.arms, S.offset);
     S.amp = swing(S.G, S.J);
