@@ -2135,6 +2135,8 @@ ESP32-S3 로 옮길 때 걸릴 것도 있어요. Reaction Diffusion 은 Node 에
 
 40판의 열 개는 가장 낮은 노브가 Brownian Frontier 의 K4 Rings 로 네 자리로 0.0359 이고, Zeldovich Pancakes 의 K4 Cross 0.0369 가 그다음이에요. Brownian Frontier 의 Rings 는 첫 판에서 0.0038 로 문턱 아래였어요. 지난 경계를 오래 남길수록 안쪽 낙서를 어둡게 하고 처음 화면을 키우자 0.036 이 됐는데, 같은 코드를 다른 씨앗으로 재면 0.098 이었어요. 무작위 그림은 씨앗 하나로 잰 반응이 그만큼 흔들려요. Zeldovich Pancakes 의 Cross 는 접착 모형의 끈적한 극한과 그냥 젤도비치 사이를 오가는데, 2~3초 창이 D 1.5~1.7 이던 첫 판에서는 두 극한이 거의 같은 그림이라 0.0014 였어요. 첫 판을 D 2.6 에서 열어 매듭이 부푸는 자리를 창 안에 넣고서야 0.04 가 됐어요.
 
+41판의 열 개는 가장 낮은 노브가 Eyes in the Dark 의 K1 Shift 로 네 자리로 0.0445 이고, Siteswap 의 K4 Tail 0.0456 과 Spider Drop 의 K4 Wind 0.0480 이 그다음이에요. Shift 는 색만 돌리는데 켜진 LED 가 판의 20% 라서 바뀌는 몫이 작아요. Hinged Dissection 의 K3 Hold 는 처음에 0.02 였어요. 첫 멈춤이 2.5초 동안 펼친 뒤에 와서, 2~3초를 견주는 검사에는 멈춤 길이가 보이지 않았어요. 시작할 때도 삼각형에서 한 번 멈추게 하자 0.18 이 됐어요.
+
 Flock, Harmonograph, Big Type 은 처음 화면이 빨강이에요.
 
 ### 세로 64×128
