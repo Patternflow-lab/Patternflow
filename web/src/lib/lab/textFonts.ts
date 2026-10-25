@@ -33,10 +33,10 @@ const SYSTEM_FONTS = [
 ] as const;
 
 /** What an unknown or missing font draws with. */
-export const FALLBACK_FONT_CSS = "sans-serif";
+const FALLBACK_FONT_CSS = "sans-serif";
 
 /** A 20 MB Korean font is ordinary; past this the tab is better off without it. */
-export const MAX_FONT_FILE_BYTES = 32 * 1024 * 1024;
+const MAX_FONT_FILE_BYTES = 32 * 1024 * 1024;
 
 export const FONT_FILE_ACCEPT = ".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2";
 
@@ -63,12 +63,12 @@ export function isFileFont(id: string): boolean {
 }
 
 /** The name a file font goes by in the picker: its file name without the extension. */
-export function fontLabelFromFileName(fileName: string): string {
+function fontLabelFromFileName(fileName: string): string {
   const base = fileName.replace(/\.(ttf|otf|woff2?)$/i, "").trim();
   return (base || "Font").slice(0, 60);
 }
 
-export function fileFontId(label: string): string {
+function fileFontId(label: string): string {
   return `file:${label}`;
 }
 
@@ -104,7 +104,7 @@ function siteFamily(variable: string, name: string): string {
   return quoteFamily(name);
 }
 
-export type ResolvedFont = {
+type ResolvedFont = {
   /** A CSS font-family list for the canvas. */
   css: string;
   /** True for a file font this browser does not have loaded: it draws with the fallback. */

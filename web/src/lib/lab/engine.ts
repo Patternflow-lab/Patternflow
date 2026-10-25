@@ -77,7 +77,7 @@ export type EngineProject = {
   ranges: Array<[number, number]>;
 };
 
-export type EngineFrame = {
+type EngineFrame = {
   data: Uint8ClampedArray;
   width: number;
   height: number;

@@ -10,7 +10,7 @@ import type { Cell } from "./tools";
 import { WHEEL_NOTCH_PX, wheelPixels } from "./wheel";
 
 export const ZOOM_MIN = 1;
-export const ZOOM_MAX = 32;
+const ZOOM_MAX = 32;
 
 /**
  * The largest whole zoom that shows the picture entire inside a viewport of

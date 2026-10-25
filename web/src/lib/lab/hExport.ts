@@ -131,11 +131,11 @@ const blendCode = (blend: Layer["blend"]) =>
   blend === "add" ? 1 : blend === "multiply" ? 2 : blend === "screen" ? 3 : 0;
 
 export const SLOT_BEGIN = (i: number) => `// >>> LAYER ${i} TRANSLATION BEGIN <<<`;
-export const SLOT_END = (i: number) => `// >>> LAYER ${i} TRANSLATION END <<<`;
+const SLOT_END = (i: number) => `// >>> LAYER ${i} TRANSLATION END <<<`;
 
 // ── export bundle ──
 
-export type HExportLayerUnit = {
+type HExportLayerUnit = {
   /** Stack index (bottom → top) — also the L<i> namespace number. */
   index: number;
   name: string;
@@ -155,7 +155,7 @@ export type HExportArgs = {
   knobLabels: string[];
 };
 
-export type HExport = {
+type HExport = {
   scaffold: string;
   units: HExportLayerUnit[];
   namespaceName: string;

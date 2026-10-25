@@ -17,7 +17,7 @@ import { useLabStore } from "@/lib/lab/store";
 import { wireToY, yToWire } from "../directorGeometry";
 import { CURVE_MAGNET_PX, FOCUS_PAD } from "./constants";
 
-export type Selection =
+type Selection =
   | { kind: "key"; lane: number; id: string }
   | { kind: "msg"; id: string }
   | null;
@@ -29,7 +29,7 @@ export function interpOf(k: DirectorKeyframe): Interp {
   return k.h === "auto" ? "auto" : "manual";
 }
 
-export function sortedLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
+function sortedLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
   return [...lane].sort((a, b) => a.t - b.t);
 }
 

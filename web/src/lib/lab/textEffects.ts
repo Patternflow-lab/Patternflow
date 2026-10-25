@@ -27,7 +27,7 @@ export const TEXT_EFFECT_RATE: Record<ActiveTextEffect, number> = {
 };
 
 /** A source is at most this many bytes: as much as the biggest frame (512 × 512) holds. */
-export const TEXT_SOURCE_MAX_BYTES = 512 * 512 * 4;
+const TEXT_SOURCE_MAX_BYTES = 512 * 512 * 4;
 
 /**
  * How many columns a source may have on a frame this tall: never fewer than
@@ -37,11 +37,11 @@ export function sourceColumnLimit(width: number, height: number): number {
   return Math.max(width, Math.floor(TEXT_SOURCE_MAX_BYTES / (height * 4)));
 }
 
-export const TWINKLE_PERIOD = 256;
-export const RAMP_PERIOD = 512;
+const TWINKLE_PERIOD = 256;
+const RAMP_PERIOD = 512;
 
 /** A source the layer's frame can be read from: every row, at least one column. */
-export function sourceFits(source: TextSource | null, height: number): source is TextSource {
+function sourceFits(source: TextSource | null, height: number): source is TextSource {
   return (
     source !== null &&
     Number.isInteger(source.x) &&

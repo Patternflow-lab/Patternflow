@@ -11,7 +11,7 @@ import type { LabStore } from "../store";
 import type { SliceSet, SliceGet } from "./kinds";
 import { defaultProject, resizePixelLayers } from "./shared";
 
-export type ProjectSlice = Pick<LabStore, "hydrate" | "discardProject" | "stashCurrent" | "parkSnapshot" | "restoreSession" | "setMatrix" | "setGen" | "setForkOf" | "setEditOf" | "setName" | "importStackLayers">;
+type ProjectSlice = Pick<LabStore, "hydrate" | "discardProject" | "stashCurrent" | "parkSnapshot" | "restoreSession" | "setMatrix" | "setGen" | "setForkOf" | "setEditOf" | "setName" | "importStackLayers">;
 
 export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
   return {

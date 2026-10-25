@@ -41,9 +41,9 @@ export type PanelId =
   | "capture"
   | "director";
 
-export type DockDirection = "right" | "below" | "within";
+type DockDirection = "right" | "below" | "within";
 
-export type PanelDef = {
+type PanelDef = {
   id: PanelId;
   /** The tab title. Belongs here, not to a saved layout — a rename reaches everyone. */
   title: string;
@@ -92,7 +92,7 @@ export function panelDef(id: string): PanelDef | undefined {
   return PANELS.find((entry) => entry.id === id);
 }
 
-export type PanelPress = "opened" | "fronted" | "closed";
+type PanelPress = "opened" | "fronted" | "closed";
 
 /**
  * A press on a panel's name in the Panels menu. A closed panel opens, a panel
