@@ -20,9 +20,16 @@
   "workers_dev": true,
   "preview_urls": true,
 
+  // public/ is answered from here before Next.js runs, so next.config.ts's
+  // headers() never reach it; scripts/cf-headers.ts writes them into
+  // .open-next/assets/_headers instead. "none" serves a file at the path it
+  // has, as Vercel does: the default sends /pattern-sandbox.html?v=… on to
+  // /pattern-sandbox, and the guide's console window loads its pages by their
+  // .html names.
   "assets": {
     "directory": ".open-next/assets",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "html_handling": "none"
   },
 
   "services": [
