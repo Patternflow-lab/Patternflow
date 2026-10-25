@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>패턴 연구</title>
 <!-- Built by incoming/pattern-study/tools/study.ts from tools/page.html, tools/gallery.ts,
-     the Lab engine in web/src/lib/ and the files in patterns/. Do not edit: run the study. -->
+     the Lab engine in web/src/lib/, shelf.json and the files in patterns/. Do not edit: run the study. -->
 <style>
 :root {
   --bg: #0b0b0d;
@@ -26,13 +26,16 @@ body {
 main { max-width: 1280px; margin: 0 auto; padding: 20px 16px 64px; }
 h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
 .lede { color: var(--dim); margin: 0 0 18px; max-width: 760px; }
-section.map-box {
+.about { color: #c9c9d2; margin: 0 0 16px; max-width: 760px; font-size: 14px; }
+details.map-box {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px 12px 8px;
-  margin-bottom: 18px;
+  padding: 10px 12px;
+  margin-top: 18px;
 }
+details.map-box > summary { cursor: pointer; color: var(--text); font-size: 15px; }
+details.map-box[open] > summary { margin-bottom: 10px; }
 .map-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--dim); }
 .map-controls label { display: flex; gap: 6px; align-items: center; }
 select, button {
@@ -67,27 +70,83 @@ button:hover { border-color: #3a3a44; }
 .round-chip.new { --family: #ffffff; }
 .round-chip::before { border-radius: 2px; }
 .map-note { color: #6d6d78; font-size: 12px; margin: 6px 2px 0; }
-.toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; }
-#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)); gap: 14px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: var(--dim); }
+.toolbar .picks { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+button:disabled { opacity: 0.4; cursor: default; }
+.group { border-top: 1px solid var(--line); padding: 4px 0; }
+.group > summary { cursor: pointer; list-style: none; padding: 10px 0 10px 22px; position: relative; }
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary::before { content: "▸"; position: absolute; left: 2px; top: 10px; color: var(--dim); }
+.group[open] > summary::before { content: "▾"; }
+.group-label { font-size: 17px; font-weight: 600; margin-right: 8px; }
+.group-count { color: var(--dim); font-size: 13px; }
+.group-why { display: block; color: #9a9aa6; font-size: 13px; margin-top: 4px; max-width: 760px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; padding: 4px 0 18px; }
+.g-pick .tiles, .g-new .tiles, .g-near .tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.tile { position: relative; min-width: 0; }
+.tile-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-bottom: 3px solid var(--family);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: hidden;
+  text-align: left;
+}
+.tile-open:hover { border-color: #4a4a55; border-bottom-color: var(--family); }
+.tile-panel { display: block; width: 100%; height: auto; background: #000; image-rendering: pixelated; }
+.tile-name { display: block; padding: 5px 7px 0; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile-round { display: block; padding: 0 7px 6px; font-size: 11px; color: #6d6d78; }
+.tile.new .tile-round { color: var(--text); }
+.tile.broken .tile-open { border-color: #ff6b6b; }
+.tile-why { margin: 6px 2px 0; color: #9a9aa6; font-size: 12px; line-height: 1.45; }
+.star {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(11, 11, 13, 0.7);
+  color: #d8d8e0;
+  font-size: 15px;
+  line-height: 26px;
+}
+.star.on { color: #ffd166; border-color: #ffd166; }
+.card-head .star { position: static; flex: none; }
+#card {
+  width: min(760px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+}
+#card { overflow: auto; }
+#card::backdrop { background: rgba(0, 0, 0, 0.72); }
 .card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-top: 3px solid var(--family);
   border-radius: 12px;
   padding: 12px;
-  scroll-margin: 16px;
   min-width: 0;
 }
-.card.focus { box-shadow: 0 0 0 2px var(--family); }
-.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
-.card h3 { margin: 0; font-size: 17px; }
+.card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.card h3 { margin: 0 auto 0 0; font-size: 17px; }
+.close { flex: none; }
+.placed { margin: 0 0 6px; color: #9a9aa6; font-size: 13px; }
+.placed strong { color: var(--text); font-weight: 600; }
 .tags { display: flex; gap: 8px; align-items: baseline; }
 .chip { font-size: 12px; color: var(--family); white-space: nowrap; }
 .round { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
 .round.new { color: var(--text); border-color: #8a8a96; }
 canvas.panel { display: block; width: 100%; height: auto; background: #000; border-radius: 4px; image-rendering: pixelated; }
 .card.portrait .card-body { display: grid; grid-template-columns: clamp(150px, 36%, 240px) minmax(0, 1fr); gap: 14px; align-items: start; }
-.card.portrait .note { margin-top: 0; }
 .note { margin: 8px 0 6px; color: #c9c9d2; font-size: 14px; }
 .error { margin: 0; color: #ff6b6b; font-size: 13px; white-space: pre-wrap; }
 .error:empty { display: none; }
@@ -103,6 +162,7 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
 .press:active { background: var(--family); color: #000; }
 .press-note { margin: 6px 0 0; color: #7d7d88; font-size: 12px; }
 .press-note:empty { display: none; }
+.paste-note { margin: 8px 0 0; color: #6d6d78; font-size: 12px; }
 .measured { margin-top: 8px; font-size: 12px; color: var(--dim); }
 .measured summary { cursor: pointer; }
 .measured dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 6px 0 0; }
@@ -111,10 +171,11 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
 @media (max-width: 640px) {
   main { padding: 14px 16px 48px; }
   h1 { font-size: 22px; }
-  #cards { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .g-pick .tiles, .g-new .tiles, .g-near .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .toolbar .picks { margin-left: 0; }
   .card.portrait .card-body { grid-template-columns: 1fr; gap: 0; }
-  .card.portrait canvas.panel { width: min(62%, 240px); margin: 0 auto; }
-  .card.portrait .note { margin-top: 8px; }
+  .card.portrait canvas.panel { width: min(62%, 240px); margin: 0 auto 8px; }
   .knob { grid-template-columns: 96px 1fr 42px; }
 }
 </style>
@@ -122,28 +183,37 @@ input[type=range] { width: 100%; accent-color: var(--family); height: 24px; }
 <body>
 <main>
   <h1>패턴 연구</h1>
-  <p class="lede">새 패턴 <span id="count"></span>개예요(<span id="rounds"></span>). 모두 패널을 세운 64×128 로 그리고, Pattern Lab 의 엔진으로 돌아가요. 노브는 Lab 의 기본 노브 값 0, 2, 0, 0.06 을 패턴의 범위 안으로 당긴 자리에서 시작해요. 마음에 드는 것은 「코드 복사」로 가져가 Lab 의 CODE 칸에 붙여 넣으면 돼요. 붙여 넣으면 노브는 그때 Lab 에 있던 값을 새 범위로 당긴 자리에 서니, 같은 화면을 보려면 카드의 슬라이더 값대로 Knobs 칸을 맞춰요.</p>
+  <p class="lede">새 패턴 <span id="count"></span>개예요(<span id="rounds"></span>). 모두 패널을 세운 64×128 로 그리고, Pattern Lab 의 엔진으로 돌아가요. 칸을 누르면 노브와 버튼이 있는 카드가 열려요. ☆ 로 고른 것은 이 브라우저에 남고, 「고른 목록 복사」로 PR 댓글에 붙여 넣을 수 있어요.</p>
+  <p class="about" id="about"></p>
 
-  <section class="map-box">
+  <div class="toolbar">
+    <button id="pause">모두 멈춤</button>
+    <span class="picks">
+      <span id="picked-count"></span>
+      <button id="picked-copy">고른 목록 복사</button>
+      <button id="picked-clear">비우기</button>
+    </span>
+  </div>
+
+  <div id="groups"></div>
+
+  <details class="map-box" id="map-section">
+    <summary>지도: 잰 값 둘로 놓은 패턴 전부</summary>
     <div class="map-controls">
       <label>가로 <select id="axis-x"></select></label>
       <label>세로 <select id="axis-y"></select></label>
     </div>
     <div id="map"></div>
     <div class="legend" id="legend"></div>
-    <p class="map-note">점 하나가 패턴 하나예요. 누르면 그 패턴으로 가요. 흰 테두리 점이 가장 새로 나온 <span id="newest"></span>판이에요. 점선 칸은 아직 아무 패턴도 없는 자리예요. 자리는 카드의 처음 노브 값에서 8초 동안 돌린 화면을 재서 정했고, 거의 같은 자리에 겹친 점은 조금 떼어 놓았어요.</p>
-  </section>
-
-  <div class="toolbar">
-    <button id="look"></button>
-    <button id="pause">모두 멈춤</button>
-  </div>
-
-  <div id="cards"></div>
+    <p class="map-note">점 하나가 패턴 하나예요. 누르면 그 패턴의 카드가 열려요. 흰 테두리 점이 가장 새로 나온 <span id="newest"></span>판이에요. 점선 칸은 아직 아무 패턴도 없는 자리예요. 자리는 카드의 처음 노브 값에서 8초 동안 돌린 화면을 재서 정했고, 거의 같은 자리에 겹친 점은 조금 떼어 놓았어요. 아래 칩은 판이나 갈래를 지도와 칸에서 숨겨요.</p>
+  </details>
 </main>
+<dialog id="card"></dialog>
 <script id="study-data" type="application/json">/*__DATA__*/</script>
+<!--__CODE_FIRST__-->
 <script>
 /*__SCRIPT__*/
 </script>
+<!--__CODE_REST__-->
 </body>
 </html>

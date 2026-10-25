@@ -286,9 +286,12 @@ async function main() {
   console.log(`${results.length - failed.length} of ${results.length} patterns pass`);
 
   // The page builder is optional while the study is being set up.
+  let shelfFailures: string[] = [];
   if (!only && fs.existsSync(path.join(STUDY, "tools", "page.ts"))) {
     const pagePath = path.join(STUDY, "index.html");
-    const { buildPage } = await import("./page");
+    const { buildPage, shelfProblems, SHELF_FILE } = await import("./page");
+    shelfFailures = shelfProblems(listPatterns());
+    for (const p of shelfFailures) console.log(`FAIL ${path.relative(STUDY, SHELF_FILE)}: ${p}`);
     const html = buildPage(results);
     if (checkOnly) {
       const current = fs.existsSync(pagePath) ? fs.readFileSync(pagePath, "utf8") : "";
@@ -302,7 +305,7 @@ async function main() {
       console.log(`wrote index.html (${(html.length / 1024).toFixed(0)} KB)`);
     }
   }
-  if (failed.length || familyFailures.length) process.exit(1);
+  if (failed.length || familyFailures.length || shelfFailures.length) process.exit(1);
 }
 
 void main();
