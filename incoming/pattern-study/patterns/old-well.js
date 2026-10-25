@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Old Well
 // Family:  halloween
-// Idea:    A cut-away old stone well under a moonlit sky lowers its wooden bucket down the whole height of the shaft, and when the bucket touches the black water the water glows sickly green, two pale eyes open beneath and a pale hand reaches up and yanks the bucket under, the rope whipping and the windlass spinning, until the water calms and the bucket is wound back up brimming and dripping, sometimes with the hand still on its rim.
+// Idea:    A cut-away stone well under the moon lowers its bucket to the black water, which glows sickly green as two pale eyes open beneath and a pale hand yanks the bucket under, the rope whipping and the windlass spinning, until it is wound back up brimming, sometimes with the hand still on its rim.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the glow in the water, of the light it throws up the shaft and of what comes up in the bucket: sickly green at 0, cyan at 0.25, violet at 0.5, orange at 0.75. The sky, the stones and the moonlight stay as they are.
 // Knob 2: Speed. At 2 the bucket goes down at 18 LEDs a second and is wound up at 26, and one round takes about 12.5 s: down 3.6 s, the water and the hand 3.8 s, a 0.5 s calm, up 3.8 s and 0.9 s hanging at the top. At 0.2 everything is ten times slower, at 3 half as fast again. The first round starts with the bucket already low, so it touches the water 0.5 s in and is pulled under at 1.8 s.
-// Knob 3: Moon. Where the moon stands. At 0 it is high on the left and its light falls into the shaft slanting right, thinning as it goes down until it reaches the water on the right; at 0.25 it falls almost straight; at 0.5 the moon peeks over the ridge of the roof and the light leans left; at 1 it hangs low on the right and lights only the upper half of the left wall.
+// Knob 3: Moon. Where the moon stands. At 0 high on the left: its light falls into the shaft slanting right and thins all the way down to the water. At 0.25 it falls straight; at 0.5 the moon peeks over the ridge and the light leans left; at 1 it hangs low on the right and lights only the upper left of the shaft.
 // Knob 4: Fog. A mist over the water, added as light, moonlit and tinted by the glow. At 0 none; at 0.06 a thin layer over the water; at 0.5 it fills the bottom half of the shaft; at 1 it rises 70 rows, to the mouth of the well.
 // Buttons: K1 tap lets go of the crank while the bucket is going down or hanging at the top: it falls to the water at once.
 
