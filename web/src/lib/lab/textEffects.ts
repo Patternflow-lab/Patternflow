@@ -98,6 +98,17 @@ export function activeTextEffect(layer: TextLayer): ActiveTextEffect | null {
   return sourceFits(layer.source, layer.height) ? effect : null;
 }
 
+/**
+ * What the effect draws each frame from: twinkle the bitmap as it stands,
+ * scroll and ramp the source. Null when that source does not fit, the case
+ * where activeTextEffect names no effect at all. flatten.ts and hExport.ts
+ * write this out for the exports.
+ */
+export function textEffectSource(layer: TextLayer, effect: ActiveTextEffect): TextSource | null {
+  if (effect === "twinkle") return { x: 0, width: layer.width, data: layer.data };
+  return sourceFits(layer.source, layer.height) ? layer.source : null;
+}
+
 /** How many steps the phase counts before it starts again. */
 export function textEffectPeriod(effect: ActiveTextEffect, layer: TextLayer): number {
   if (effect === "twinkle") return TWINKLE_PERIOD;
@@ -168,7 +179,9 @@ export function renderTextEffect(
     return;
   }
 
-  const source = layer.source!;
+  // activeTextEffect names scroll or ramp only for a source that fits.
+  const source = layer.source;
+  if (!sourceFits(source, height)) return;
   const src = source.data;
   const srcWidth = source.width;
 

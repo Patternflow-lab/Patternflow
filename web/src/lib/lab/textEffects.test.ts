@@ -34,8 +34,10 @@ vi.mock("./textRaster", () => {
   };
 });
 
-import { buildRampLUTRGBA } from "@/lib/pattern/harness";
+import { PatternRuntime, buildRampLUTRGBA, createIdleInput } from "@/lib/pattern/harness";
 import { textCoverage } from "./textRaster";
+import { flattenLayers } from "./flatten";
+import { buildHExport } from "./hExport";
 import { drawTextLayer, paintText } from "./text";
 import {
   TEXT_EFFECT_RATE,
@@ -45,6 +47,7 @@ import {
   renderTextEffect,
   sourceColumnLimit,
   textEffectPeriod,
+  textEffectSource,
   twinkleHash,
 } from "./textEffects";
 import { LabEngine } from "./engine";
@@ -178,6 +181,51 @@ describe("drawing a moving text", () => {
     expect(activeTextEffect(layer)).toBeNull();
     const shown = render(new LabEngine(), [layer], [0, 1, 0, 0], 0.5);
     expect(shownColumns(shown, 16)).toEqual(litColumns(layer.data, 16));
+  });
+
+  it("twinkle moves the bitmap, scroll and ramp only a source that fits", () => {
+    const twinkle = textAt({ text: "HEY", effect: "twinkle" });
+    expect(textEffectSource(twinkle, "twinkle")).toEqual({ x: 0, width: 16, data: twinkle.data });
+    const scroll = textAt({ text: "PATTERNFLOW!", effect: "scroll" });
+    expect(textEffectSource(scroll, "scroll")).toBe(scroll.source);
+    expect(textEffectSource({ ...scroll, source: null }, "scroll")).toBeNull();
+    expect(textEffectSource({ ...scroll, source: { ...scroll.source!, width: 23 } }, "scroll")).toBeNull();
+  });
+
+  it("a frame asked of a scroll with no source is left as it was", () => {
+    const layer = { ...textAt({ text: "HEY", effect: "scroll" }), source: null };
+    const out = new Uint8ClampedArray(layer.data);
+    renderTextEffect(layer, "scroll", 5, null, out);
+    expect(Array.from(out)).toEqual(Array.from(layer.data));
+  });
+});
+
+describe("a moving text with no source, exported", () => {
+  // A save from a build that did not keep the source: activeTextEffect names
+  // no effect, and both exports carry the letters as the Lab shows them.
+  it.each(["scroll", "ramp"] as const)("%s: the flattened JS and the header carry the bitmap, standing still", (effect) => {
+    const layer = { ...textAt({ text: "HEY", effect }), source: null };
+
+    const code = flattenLayers([layer], frame);
+    expect(code).not.toContain("function __fxDraw");
+    const runtime = new PatternRuntime(frame.width, frame.height);
+    expect(runtime.loadCode(code).error).toBeUndefined();
+    const input = createIdleInput([0, 0, 0, 0], { knobValues: [1, 1, 1, 1], knobNormalized: [1, 1, 1, 1] });
+    for (let f = 0; f < 3; f++) {
+      expect(runtime.renderFrame(0.5, f * 0.5, input).error).toBeUndefined();
+      expect(shownColumns(runtime.data, 16)).toEqual(litColumns(layer.data, 16));
+    }
+
+    const { scaffold } = buildHExport({
+      name: "NoSource",
+      matrix: frame,
+      layers: [layer],
+      knobs: [1, 1, 1, 1],
+      ranges: [[0, 1], [0, 1], [0, 1], [0, 1]],
+      knobLabels: ["A", "B", "C", "D"],
+    });
+    expect(scaffold).toContain('"Text": text as drawn');
+    expect(scaffold).not.toContain("_SRC_W");
   });
 });
 

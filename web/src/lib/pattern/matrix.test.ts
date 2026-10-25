@@ -12,13 +12,14 @@ import {
   describeMatrixShape,
   formatMatrix,
   isStockPanelFrame,
-  isValidMatrix,
   matchMatrixAnnotation,
   matrixFit,
   matrixFromCode,
   parseMatrixAnnotation,
+  parseMatrixSize,
   stripMatrixAnnotation,
   withMatrixAnnotation,
+  type MatrixSize,
 } from "./matrix";
 
 const DRAW = "function draw(display) {\n  display.clear();\n}";
@@ -83,11 +84,17 @@ describe("sizes typed by hand", () => {
     expect(clampMatrixDimension(Number.NaN)).toBeNull();
   });
 
-  it("isValidMatrix wants both sides inside the range", () => {
-    expect(isValidMatrix({ width: 128, height: 64 })).toBe(true);
-    expect(isValidMatrix({ width: 4, height: 64 })).toBe(false);
-    expect(isValidMatrix({ width: 128 })).toBe(false);
-    expect(isValidMatrix(null)).toBe(false);
+  it("parseMatrixSize wants both sides inside the range", () => {
+    expect(parseMatrixSize({ width: 128, height: 64 })).toEqual({ width: 128, height: 64 });
+    expect(parseMatrixSize({ width: 4, height: 64 })).toBeNull();
+    expect(parseMatrixSize({ width: 128 })).toBeNull();
+    expect(parseMatrixSize(null)).toBeNull();
+  });
+
+  it("parseMatrixSize reads a side saved as text and rounds one between whole numbers", () => {
+    const saved = JSON.parse('{"width":"64","height":"128"}') as Partial<MatrixSize>;
+    expect(parseMatrixSize(saved)).toEqual({ width: 64, height: 128 });
+    expect(parseMatrixSize({ width: 127.6, height: 64 })).toEqual({ width: 128, height: 64 });
   });
 });
 

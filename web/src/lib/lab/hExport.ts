@@ -33,8 +33,8 @@ import { codeUsesValueField } from "@/lib/pattern/ramp";
 import { KNOBS_ANNOTATION_RE } from "./annotations";
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
-import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, type ActiveTextEffect } from "./textEffects";
-import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
+import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, textEffectSource, type ActiveTextEffect } from "./textEffects";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer, type TextSource } from "./types";
 
 // ── helpers ──
 
@@ -276,10 +276,12 @@ static const uint8_t MASK_INVERT[${maskCount}] = {${maskFlat.map((m) => (m.inver
 
   // Text layers that move: what each one moves, its phase, and for a ramp
   // its LUT. The steps are textEffects.ts, written in C++ below.
-  const effects = new Map<number, { layer: TextLayer; effect: ActiveTextEffect }>();
+  const effects = new Map<number, { layer: TextLayer; effect: ActiveTextEffect; source: TextSource }>();
   stack.forEach((layer, index) => {
-    const effect = layer.type === "text" ? activeTextEffect(layer) : null;
-    if (layer.type === "text" && effect) effects.set(index, { layer, effect });
+    if (layer.type !== "text") return;
+    const effect = activeTextEffect(layer);
+    const source = effect ? textEffectSource(layer, effect) : null;
+    if (effect && source) effects.set(index, { layer, effect, source });
   });
 
   // Per-code-layer ramp LUTs + paint helpers; pixel layers as RLE.
@@ -287,8 +289,7 @@ static const uint8_t MASK_INVERT[${maskCount}] = {${maskFlat.map((m) => (m.inver
     const layer = stack[index];
     const moving = effects.get(index);
     if (moving) {
-      const { layer: text, effect } = moving;
-      const source = effect === "twinkle" ? { x: 0, width: text.width, data: text.data } : text.source!;
+      const { layer: text, effect, source } = moving;
       const rle = rleEncode(source.data);
       parts.push(`
 // ── L${index} "${text.name.replace(/\n/g, " ")}": text, ${effect} on knob ${text.spec.effectKnob + 1} — ${
