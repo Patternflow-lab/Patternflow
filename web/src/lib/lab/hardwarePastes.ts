@@ -16,6 +16,8 @@
 // record would wipe each other's pastes. A tab's record ends with the tab,
 // and nothing has to prune it.
 
+import { fnv1a } from "./hash";
+
 const KEY = "patternflow_lab_hardware_pastes_v1";
 
 /**
@@ -24,12 +26,7 @@ const KEY = "patternflow_lab_hardware_pastes_v1";
  */
 export function promptKey(prompt: string): string {
   const asked = prompt.replace(/, current [^,\n]*/g, "");
-  let h = 2166136261;
-  for (let i = 0; i < asked.length; i++) {
-    h ^= asked.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return `${asked.length}:${(h >>> 0).toString(36)}`;
+  return `${asked.length}:${fnv1a(asked).toString(36)}`;
 }
 
 /** Every paste this tab kept, by the key of the prompt it answers. */

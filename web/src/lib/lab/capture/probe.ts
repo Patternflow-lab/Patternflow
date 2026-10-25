@@ -27,6 +27,7 @@
 
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { LabEngine } from "../engine";
+import { fnv1a } from "../hash";
 import type { CaptureProject } from "./types";
 import { stretchNearest } from "./core";
 import { isRasterLayer, type Layer } from "../types";
@@ -348,20 +349,11 @@ export function probeKey(project: CaptureProject): string {
     if (!layer.visible) continue;
     parts.push(
       layer.type === "code"
-        ? `c:${layer.id}:${layer.role}:${layer.maskInvert}:${layer.opacity > 0}:${layer.recolor}:${layer.code.length}:${hash(layer.code)}`
+        ? `c:${layer.id}:${layer.role}:${layer.maskInvert}:${layer.opacity > 0}:${layer.recolor}:${layer.code.length}:${fnv1a(layer.code)}`
         : `p:${layer.id}:${layer.role}:${layer.maskInvert}:${layer.opacity > 0}:${layer.rev}`,
     );
   }
   return parts.join("|");
-}
-
-function hash(text: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 export function describeProbe(result: ProbeResult): string {

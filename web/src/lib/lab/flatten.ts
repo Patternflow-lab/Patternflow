@@ -89,7 +89,7 @@ function stripForEmbedding(code: string): string {
 }
 
 /** A layer name inside a `//` comment: every line terminator JS knows, not just \n. */
-function commentSafe(name: string): string {
+export function commentSafe(name: string): string {
   return name.replace(/[\r\n\u2028\u2029]/g, " ");
 }
 
