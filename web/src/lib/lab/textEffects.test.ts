@@ -41,7 +41,9 @@ import {
   TEXT_EFFECT_RATE,
   activeTextEffect,
   advanceTextPhase,
+  placeTextSource,
   renderTextEffect,
+  sourceColumnLimit,
   textEffectPeriod,
   twinkleHash,
 } from "./textEffects";
@@ -247,6 +249,44 @@ describe("a moving text saved and opened again", () => {
     const back = deserializeProject(JSON.stringify(json))!.layers[0] as TextLayer;
     expect(back.source).toBeNull();
     expect(activeTextEffect(back)).toBeNull();
+  });
+});
+
+describe("placing a source", () => {
+  const scrollFrames = (layer: TextLayer) =>
+    Array.from({ length: textEffectPeriod("scroll", layer) + 3 }, (_, phase) => {
+      const out = new Uint8ClampedArray(16 * 8 * 4);
+      renderTextEffect(layer, "scroll", phase, null, out);
+      return Array.from(out);
+    });
+
+  it("brings a scroll's x next to the frame and shows the same frames", () => {
+    const layer = textAt({ text: "PATTERNFLOW!", effect: "scroll" });
+    for (const x of [-5000, -41, -24, 17, 900]) {
+      const far = { ...layer, source: { ...layer.source!, x } };
+      const placed = placeTextSource(far.source, "scroll", 16, 8)!;
+      expect(placed.x).toBeGreaterThan(-placed.width);
+      expect(placed.x).toBeLessThanOrEqual(16);
+      expect(scrollFrames({ ...layer, source: placed })).toEqual(scrollFrames(far));
+    }
+  });
+
+  it("keeps a ramp where it is, and drops one wholly off the frame", () => {
+    const layer = textAt({ text: "HEY", effect: "ramp" });
+    const source = layer.source!;
+    expect(placeTextSource({ ...source, x: -3 }, "ramp", 16, 8)?.x).toBe(-3);
+    expect(placeTextSource({ ...source, x: -source.width }, "ramp", 16, 8)).toBeNull();
+    expect(placeTextSource({ ...source, x: 16 }, "ramp", 16, 8)).toBeNull();
+  });
+
+  it("cuts the columns past what the frame's source holds, keeping each row's start", () => {
+    const columns = sourceColumnLimit(16, 8) + 5;
+    const data = new Uint8ClampedArray(columns * 8 * 4);
+    for (let y = 0; y < 8; y++) data[(y * columns + 1) * 4 + 3] = y + 1;
+    const placed = placeTextSource({ x: 0, width: columns, data }, "scroll", 16, 8)!;
+    expect(placed.width).toBe(sourceColumnLimit(16, 8));
+    expect(placed.data.length).toBe(placed.width * 8 * 4);
+    for (let y = 0; y < 8; y++) expect(placed.data[(y * placed.width + 1) * 4 + 3]).toBe(y + 1);
   });
 });
 

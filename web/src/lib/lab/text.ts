@@ -15,7 +15,7 @@
 import { buildRampLUTRGBA } from "@/lib/pattern/harness";
 import { hexToRgb } from "@/lib/pattern/color";
 import { rampStateToHarness } from "./engine";
-import { renderTextEffect, sourceColumnLimit } from "./textEffects";
+import { placeTextSource, renderTextEffect, sourceColumnLimit } from "./textEffects";
 import { ensureFontReady, resolveFont } from "./textFonts";
 import { textCoverage, textReach } from "./textRaster";
 import type { RampState, TextLayer, TextSource, TextSpec } from "./types";
@@ -165,11 +165,13 @@ function cropToLetters(
 }
 
 /**
- * The scroll or ramp source for a spec, or null when no letter lands in it.
- * Undefined where there is no canvas to draw on.
+ * The scroll or ramp source for a spec, or null when no letter lands in it
+ * (or, for a ramp, none on the frame). Undefined where there is no canvas
+ * to draw on.
  */
 function drawTextSource(
   spec: TextSpec,
+  effect: "scroll" | "ramp",
   ramp: RampState,
   fontCss: string,
   width: number,
@@ -184,10 +186,10 @@ function drawTextSource(
   const letters = cropToLetters(coverage, spec.sharp, reach.left, columns, height);
   if (!letters) return null;
   const data =
-    spec.effect === "ramp"
+    effect === "ramp"
       ? rampSource(letters.coverage, spec, letters.width, height)
       : paintText(letters.coverage, spec, ramp, letters.width, height);
-  return { x: letters.x, width: letters.width, data };
+  return placeTextSource({ x: letters.x, width: letters.width, data }, effect, width, height);
 }
 
 /**
@@ -204,7 +206,7 @@ export function drawTextLayer(layer: TextLayer): TextLayer {
   const kept = layer.data.length === size ? layer.data : new Uint8ClampedArray(size);
 
   if (spec.effect === "scroll" || spec.effect === "ramp") {
-    const source = drawTextSource(spec, layer.ramp, font.css, width, height);
+    const source = drawTextSource(spec, spec.effect, layer.ramp, font.css, width, height);
     if (source === undefined) return { ...layer, data: kept, rev: layer.rev + 1 };
     const next: TextLayer = { ...layer, source, data: new Uint8ClampedArray(size), rev: layer.rev + 1 };
     if (source) {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { getKnobValueDelta, LOGICAL_KNOB_RANGES, LOGICAL_KNOB_TO_WEB_KNOB, toEncoderDelta } from '@/lib/pattern/controls';
+import { getKnobValueDelta, LOGICAL_KNOB_RANGES, LOGICAL_KNOB_TO_WEB_KNOB, normalizeKnob, toEncoderDelta } from '@/lib/pattern/controls';
 import { compilePatternCode, describePatternError, type PatternModule, type PatternParams } from '@/lib/pattern/harness';
 
 type WebKnobValues = Record<'c1' | 'c2' | 'c3' | 'c4', number>;
@@ -9,10 +9,7 @@ function getLogicalKnobValues(knobValues: WebKnobValues) {
 }
 
 function getLogicalKnobNormalized(logicalKnobValues: number[]) {
-  return logicalKnobValues.map((value, index) => {
-    const [min, max] = LOGICAL_KNOB_RANGES[index];
-    return (value - min) / Math.max(0.0001, max - min);
-  });
+  return logicalKnobValues.map((value, index) => normalizeKnob(value, LOGICAL_KNOB_RANGES[index]));
 }
 
 export class LedMatrixTexture {

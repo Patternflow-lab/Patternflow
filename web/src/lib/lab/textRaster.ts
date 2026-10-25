@@ -33,7 +33,8 @@ function lineLeft(spec: TextSpec, lineWidth: number): number {
 /**
  * The frame columns the lines reach, from the first to one past the last,
  * with a pixel to spare on each side for a glyph that leans out of its box.
- * Null where there is no canvas, or no letters.
+ * Null where there is no canvas. A text with no letters reaches nowhere:
+ * left and right are both 0.
  */
 export function textReach(spec: TextSpec, fontCss: string): { left: number; right: number } | null {
   const context = context2d(1, 1);
@@ -48,7 +49,7 @@ export function textReach(spec: TextSpec, fontCss: string): { left: number; righ
     left = Math.min(left, start - Math.max(0, metrics.actualBoundingBoxLeft || 0));
     right = Math.max(right, start + Math.max(metrics.width, metrics.actualBoundingBoxRight || 0));
   }
-  if (!Number.isFinite(left) || !Number.isFinite(right)) return null;
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return { left: 0, right: 0 };
   return { left: Math.floor(left) - 1, right: Math.ceil(right) + 1 };
 }
 

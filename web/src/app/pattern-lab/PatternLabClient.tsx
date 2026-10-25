@@ -3,11 +3,11 @@
 // Pattern Lab v2 — a layered, dockable pattern editing workspace.
 //
 // The old lab was one pattern + one fixed two-column layout. This shell hosts
-// eight dockable panels (dockview) over a layer-stack project (zustand):
-// Preview, Layers, Code, Pixel, Knobs, Color Ramp, Graphic Export, Director —
-// the list is panels/registry.tsx. Panels rearrange Photoshop-style — drag
-// tabs, split groups, float — and the arrangement persists to localStorage
-// alongside the project itself.
+// nine dockable panels (dockview) over a layer-stack project (zustand):
+// Preview, Layers, Code, Pixel, Text, Knobs, Color Ramp, Graphic Export,
+// Director — the list is panels/registry.tsx. Panels rearrange
+// Photoshop-style — drag tabs, split groups, float — and the arrangement
+// persists to localStorage alongside the project itself.
 //
 // Exports (community publish, firmware build) flatten the visible stack into
 // one standalone JS pattern (see lib/lab/flatten.ts), so every downstream
