@@ -10,6 +10,8 @@ import { revealEditor } from "@/lib/lab/editorReveal";
 import { useLabStore } from "@/lib/lab/store";
 import { STARTER_CODE } from "@/lib/lab/store/shared";
 import dock from "../LabPanels.module.css";
+// Second, so its touch rule for the bar buttons lands after `.panelBar button`.
+import local from "./LayersPanel.module.css";
 
 // A pixel layer nobody has drawn on, a code layer still holding the starter
 // pattern, or a text layer that still says nothing, has nothing to lose, so
@@ -57,7 +59,7 @@ export default function LayersPanel() {
 
   return (
     <div className={dock.panel}>
-      <div className={`${dock.panelBar} ${dock.layerBar}`}>
+      <div className={`${dock.panelBar} ${local.layerBar}`}>
         <button
           type="button"
           onClick={() => {
@@ -123,14 +125,14 @@ export default function LayersPanel() {
       </div>
 
       <div className={dock.panelBody}>
-        <ol className={dock.layerList}>
+        <ol className={local.layerList}>
           {layers.map((layer, index) => {
             const isActive = layer.id === activeLayerId;
             const error = layerErrors[layer.id];
             return (
               <li key={layer.id}>
                 <div
-                  className={`${dock.layerRow}${isActive ? ` ${dock.layerRowActive}` : ""}`}
+                  className={`${local.layerRow}${isActive ? ` ${local.layerRowActive}` : ""}`}
                   data-dragover={dragOverIndex === index && dragIndex !== index ? "true" : undefined}
                   draggable={renamingId !== layer.id}
                   onDragStart={(event) => {
@@ -171,7 +173,7 @@ export default function LayersPanel() {
                 >
                   <button
                     type="button"
-                    className={`${dock.layerEye}${layer.visible ? "" : ` ${dock.layerEyeOff}`}`}
+                    className={`${local.layerEye}${layer.visible ? "" : ` ${local.layerEyeOff}`}`}
                     aria-label={layer.visible ? "Hide layer" : "Show layer"}
                     title={layer.visible ? "Hide layer" : "Show layer"}
                     onClick={(event) => {
@@ -184,7 +186,7 @@ export default function LayersPanel() {
 
                   {renamingId === layer.id ? (
                     <input
-                      className={dock.layerRenameInput}
+                      className={local.layerRenameInput}
                       value={renameValue}
                       autoFocus
                       onChange={(event) => setRenameValue(event.target.value)}
@@ -196,15 +198,15 @@ export default function LayersPanel() {
                       onClick={(event) => event.stopPropagation()}
                     />
                   ) : (
-                    <span className={dock.layerName}>{layer.name}</span>
+                    <span className={local.layerName}>{layer.name}</span>
                   )}
 
                   {error && (
-                    <span className={dock.layerErrDot} title={error} aria-label="Layer error" />
+                    <span className={local.layerErrDot} title={error} aria-label="Layer error" />
                   )}
                   {layer.role === "mask" ? (
                     <span
-                      className={dock.layerType}
+                      className={local.layerType}
                       title={`Masks the layer below${layer.maskInvert ? " (inverted)" : ""}`}
                       style={{ opacity: 1 }}
                     >
@@ -212,13 +214,13 @@ export default function LayersPanel() {
                     </span>
                   ) : (
                     (layer.opacity < 1 || layer.blend !== "normal") && (
-                      <span className={dock.layerMeta}>
+                      <span className={local.layerMeta}>
                         {layer.blend !== "normal" ? `${layer.blend} ` : ""}
                         {Math.round(layer.opacity * 100)}%
                       </span>
                     )
                   )}
-                  <span className={dock.layerType}>{LAYER_BADGE[layer.type]}</span>
+                  <span className={local.layerType}>{LAYER_BADGE[layer.type]}</span>
                 </div>
               </li>
             );
@@ -227,11 +229,11 @@ export default function LayersPanel() {
       </div>
 
       {active && (
-        <div className={dock.layerControls}>
-          <div className={dock.layerControlRow}>
+        <div className={local.layerControls}>
+          <div className={local.layerControlRow}>
             <span>Mask</span>
             <label
-              className={dock.layerMaskLabel}
+              className={local.layerMaskLabel}
               title="Turn this layer into a mask for the layer directly below it. Pixel art and text: drawn pixels reveal. Code: bright output (past 0.5, ramp-tunable) reveals."
             >
               <input
@@ -244,7 +246,7 @@ export default function LayersPanel() {
               masks layer below
             </label>
             {active.role === "mask" && (
-              <label className={dock.layerMaskLabel} title="Flip the mask: dark/empty reveals instead">
+              <label className={local.layerMaskLabel} title="Flip the mask: dark/empty reveals instead">
                 <input
                   type="checkbox"
                   checked={active.maskInvert}
@@ -256,7 +258,7 @@ export default function LayersPanel() {
           </div>
           {active.role !== "mask" && (
             <>
-              <div className={dock.layerControlRow}>
+              <div className={local.layerControlRow}>
                 <span>Opacity</span>
                 <input
                   type="range"
@@ -267,9 +269,9 @@ export default function LayersPanel() {
                   aria-label="Layer opacity"
                   onChange={(event) => setLayerOpacity(active.id, Number(event.target.value))}
                 />
-                <span className={dock.layerControlValue}>{Math.round(active.opacity * 100)}%</span>
+                <span className={local.layerControlValue}>{Math.round(active.opacity * 100)}%</span>
               </div>
-              <div className={dock.layerControlRow}>
+              <div className={local.layerControlRow}>
                 <span>Blend</span>
                 <select
                   value={active.blend}
