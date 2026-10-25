@@ -150,6 +150,9 @@ export const TEXT_MAX_CHARS = 200;
  * row of the frame, but only the columns the letters reach, `x` being the
  * first of them in frame pixels. It may start left of the frame and run past
  * its right edge, so a line longer than the panel scrolls through whole.
+ * Every source passes through textEffects.ts placeTextSource, which keeps
+ * its columns within what the frame's source holds and a scroll's x next to
+ * the frame.
  *   scroll  the letters in colour
  *   ramp    in each pixel, red is where it sits on the ramp (0..255) and
  *           alpha is how much of it the letters cover
