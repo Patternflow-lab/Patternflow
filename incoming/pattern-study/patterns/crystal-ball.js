@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Smoke=0..1, Visions=0..1
 //
 // Knob 1: Hue. The two smokes' colours, kept out of red, orange and yellow, which turn brown when smoke thins. At 0 purple and toxic green, at 0.25 indigo and sea green, at 0.5 magenta and sky blue, at 0.75 crimson and blue violet, at 1 cyan and pink; the glass takes a dark shade of the first, visions stay bone white.
-// Knob 2: Speed. At 2 the smoke rises up the middle of the ball at 13 LEDs a second and sinks down the sides, the whole swirl turning once in 5.2 s; a vision gathers in 1.4 s and lets go over 1.6 s. At 0.2 all of it is ten times slower, at 3 half as fast again.
+// Knob 2: Speed. At 2 the smoke rises up the middle of the ball at 14 LEDs a second and sinks down the sides, the whole swirl turning once in 3.9 s; a vision gathers in 1.4 s and lets go over 1.6 s. At 0.2 all of it is ten times slower, at 3 half as fast again.
 // Knob 3: Smoke. How much smoke: 700 chunks at 0, 1500 at 1, each living 4.5 to 8 s from one of two wells low in the glass, one for each colour, turning slowly round the middle.
 // Knob 4: Visions. How often a vision comes and how much of the smoke goes into it. At 0.06 the first comes at 2 s and takes 62% of the smoke, holds 1.5 s, and the next comes 12.4 s after one has gone; at 1 the first comes at 0.4 s and takes all of it, holds 2.6 s, and the next comes after 3 s. They come as a grinning skull with a chattering jaw, a slit-pupilled eye that blinks once, and a crescent moon, then in any order.
 // Buttons: any tap calls the next vision at once when none is showing.
@@ -127,7 +127,7 @@ function spawn(P, i, age) {
 
 // The flow inside the glass: a turn about the upright axis, a ring vortex
 // rising up the middle and sinking down the sides (Hill's vortex, which
-// never crosses the glass), and a slow ABC flow for the curls.
+// never crosses the glass), and an ABC flow drifting in phase for the curls.
 function step(P, d) {
   const t = P.t, om = 1.6, C = 14, Rq = RIN * RIN, k = 0.16;
   const p1 = t * 0.7, p2 = t * 0.53 + 2, p3 = t * 0.47 + 4;
@@ -321,7 +321,7 @@ export function draw(display, params) {
       if (w >= 0.3) col = PAL[top][w < 0.75 ? 0 : w < 1.4 ? 1 : w < 2.3 ? 2 : 3];
       put(display, x, y, col);
     }
-  // The highlight: an arc high on the left and a small window glint.
+  // The highlight: an arc high on the left and a small glint.
   for (let y = CY - R; y < CY; y++)
     for (let x = CX - R; x < CX; x++) {
       const dx = x + 0.5 - CX, dy = y + 0.5 - CY, r = sqrt(dx * dx + dy * dy), an = Math.atan2(dy, dx);
