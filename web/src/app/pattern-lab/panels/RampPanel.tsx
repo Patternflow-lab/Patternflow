@@ -275,7 +275,7 @@ function RampEditor({ layer }: { layer: RampLayer }) {
         )}
       </div>
 
-      <div className={`${dock.panelBody} ${dock.rampDock}`}>
+      <div className={`${dock.panelBody} ${local.rampDock}`}>
         <div className={local.paletteActions}>
           <button
             type="button"
@@ -405,7 +405,7 @@ function RampEditor({ layer }: { layer: RampLayer }) {
                 Fade low
               </button>
             </div>
-            <div className={dock.rampAlphaRow}>
+            <div className={local.rampAlphaRow}>
               <span>Alpha</span>
               <input
                 type="range"
@@ -425,7 +425,7 @@ function RampEditor({ layer }: { layer: RampLayer }) {
                   }))
                 }
               />
-              <span className={dock.rampAlphaValue}>{Math.round(activeStop.alpha * 100)}%</span>
+              <span className={local.rampAlphaValue}>{Math.round(activeStop.alpha * 100)}%</span>
             </div>
           </>
         )}
