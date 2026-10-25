@@ -8,7 +8,7 @@ import { createTextLayer, nextLayerName, normalizeTextSpec } from "../types";
 import type { LabStore } from "../store";
 import type { SliceSet, SliceGet } from "./kinds";
 
-export type TextSlice = Pick<LabStore, "addTextLayer" | "setTextSpec" | "redrawTextLayers">;
+type TextSlice = Pick<LabStore, "addTextLayer" | "setTextSpec" | "redrawTextLayers">;
 
 export function createTextSlice(set: SliceSet, get: SliceGet): TextSlice {
   return {

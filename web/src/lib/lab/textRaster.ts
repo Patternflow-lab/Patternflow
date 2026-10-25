@@ -9,7 +9,7 @@ import type { TextSpec } from "./types";
 let scratch: HTMLCanvasElement | null = null;
 
 /** Lines, top to bottom. An empty text draws nothing. */
-export function textLines(text: string): string[] {
+function textLines(text: string): string[] {
   return text.replace(/\r\n?/g, "\n").split("\n");
 }
 

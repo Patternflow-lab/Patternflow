@@ -117,7 +117,7 @@ export function resolveLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
 }
 
 /** One lane's cue values by second: keyframes plus curve samples, dupes elided. */
-export function bakeLane(lane: DirectorKeyframe[]): Map<number, number> {
+function bakeLane(lane: DirectorKeyframe[]): Map<number, number> {
   const keys = resolveLane(lane);
   const raw = new Map<number, number>();
   for (let i = 0; i < keys.length; i++) {
@@ -145,7 +145,7 @@ export function bakeLane(lane: DirectorKeyframe[]): Map<number, number> {
   return out;
 }
 
-export type BakedShow = {
+type BakedShow = {
   perf: Performance;
   cueCount: number;
   /** Approximate string-pool bytes (messages; the real check is encodePfst). */
@@ -400,7 +400,7 @@ export function bakeLaneV2(lane: DirectorKeyframe[]): V2Point[] {
   return [...seen.values()].sort((a, b) => a.t - b.t);
 }
 
-export type BakedShowV2 = {
+type BakedShowV2 = {
   perf: Performance;
   cueCount: number;
   overBudget: boolean;

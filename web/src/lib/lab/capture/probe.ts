@@ -69,27 +69,27 @@ export const PROBE_LAYOUT_MAX = 27;
  * fault of the code — in both cases the upscale is pixel-identical to the
  * native render and costs a fraction of it, so the verdict is the same.
  */
-export const PROBE_DETAIL_MIN = 0.02;
-export const PROBE_DENSITY_MIN = 0.55;
-export const PROBE_DENSITY_MAX = 1.5;
-export const PROBE_LUMINANCE_MIN = 10;
+const PROBE_DETAIL_MIN = 0.02;
+const PROBE_DENSITY_MIN = 0.55;
+const PROBE_DENSITY_MAX = 1.5;
+const PROBE_LUMINANCE_MIN = 10;
 /** Below this mean neighbour difference a frame is flat — no texture to compare. */
-export const PROBE_VARIATION_MIN = 2;
-export const PROBE_NOISE_MAX = 12;
+const PROBE_VARIATION_MIN = 2;
+const PROBE_NOISE_MAX = 12;
 const PROBE_PIXEL_BUDGET = 600_000;
 const PROBE_STEPS = 8;
 const PROBE_DT = 0.4;
 const PROBE_SAMPLES = [3, 5, 8];
 
 /** Aspect-true multiple of the matrix the probe renders at, within budget. */
-export function probeGrid(matrix: MatrixSize): MatrixSize {
+function probeGrid(matrix: MatrixSize): MatrixSize {
   const pixels = matrix.width * matrix.height;
   const factor = Math.max(2, Math.min(4, Math.floor(Math.sqrt(PROBE_PIXEL_BUDGET / pixels))));
   return { width: matrix.width * factor, height: matrix.height * factor };
 }
 
 /** Box-filter an RGBA buffer to a coarser RGB float grid. */
-export function boxDown(
+function boxDown(
   data: Uint8ClampedArray,
   width: number,
   height: number,

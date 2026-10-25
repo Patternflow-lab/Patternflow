@@ -19,12 +19,10 @@ import {
 import type { KnobRange } from "./types";
 
 export {
-  DEFAULT_KNOB_LABELS,
   KNOBS_ANNOTATION_RE,
   buildKnobsAnnotationLine,
   matchKnobsAnnotation,
   parseKnobsAnnotation,
-  stripKnobsAnnotation,
 };
 export type { KnobAnnotationEntry };
 

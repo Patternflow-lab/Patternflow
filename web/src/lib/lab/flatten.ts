@@ -70,7 +70,7 @@ function pixelBufferLiteral(data: Uint8ClampedArray, length = "__W * __H * 4"): 
 }
 import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
 
-export type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
+type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
 
 function stripForEmbedding(code: string): string {
   return (

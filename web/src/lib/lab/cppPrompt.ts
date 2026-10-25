@@ -18,7 +18,7 @@ function roundRangeValue(value: number) {
   return Math.round(value * 1000) / 1000;
 }
 
-export type CppPromptArgs = {
+type CppPromptArgs = {
   code: string;
   matrix: MatrixSize;
   knobs: number[];

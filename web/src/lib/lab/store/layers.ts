@@ -10,7 +10,7 @@ import type { LabStore } from "../store";
 import type { SliceSet, SliceGet } from "./kinds";
 import { codeLayerFromSource, resizePixelLayers, updateLayer, updateCodeLayer, STARTER_CODE } from "./shared";
 
-export type LayersSlice = Pick<LabStore, "selectLayer" | "addCodeLayer" | "addPixelLayer" | "addCodeLayerFromCode" | "duplicateLayer" | "removeLayer" | "reorderLayer" | "renameLayer" | "setLayerVisible" | "setLayerOpacity" | "setLayerBlend" | "setLayerRole" | "setLayerMaskInvert" | "updateLayerCode" | "applyMatrixLine" | "applyCodeToActive" | "bumpPixelLayer" | "replacePixelData" | "setLayerErrors">;
+type LayersSlice = Pick<LabStore, "selectLayer" | "addCodeLayer" | "addPixelLayer" | "addCodeLayerFromCode" | "duplicateLayer" | "removeLayer" | "reorderLayer" | "renameLayer" | "setLayerVisible" | "setLayerOpacity" | "setLayerBlend" | "setLayerRole" | "setLayerMaskInvert" | "updateLayerCode" | "applyMatrixLine" | "applyCodeToActive" | "bumpPixelLayer" | "replacePixelData" | "setLayerErrors">;
 
 export function createLayersSlice(set: SliceSet, get: SliceGet): LayersSlice {
   return {

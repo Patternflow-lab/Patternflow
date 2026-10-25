@@ -7,7 +7,7 @@ import type { LabStore } from "../store";
 import type { SliceSet } from "./kinds";
 import { updateCodeLayer, updateRampLayer } from "./shared";
 
-export type RampSlice = Pick<LabStore, "setRampSelection" | "setLayerRecolor" | "setLayerRampMode" | "setLayerRampWrap" | "updateLayerRampStop" | "addLayerRampStop" | "deleteLayerRampStop" | "setLayerRampStops">;
+type RampSlice = Pick<LabStore, "setRampSelection" | "setLayerRecolor" | "setLayerRampMode" | "setLayerRampWrap" | "updateLayerRampStop" | "addLayerRampStop" | "deleteLayerRampStop" | "setLayerRampStops">;
 
 export function createRampSlice(set: SliceSet): RampSlice {
   return {
