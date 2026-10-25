@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Drips=5..12, Viscosity=-1..1
 //
-// Knob 1: Hue. The slime's colour. At 0 toxic green, then through aqua at 0.3, blue at 0.5 and violet at 0.75 to magenta at 1; the warm hues, which turn brown in the dark parts, are skipped. The stone turns with it, purple over green.
-// Knob 2: Speed. At 2 a drip swells for half a second and stretches for 1 to 3 seconds before it lets go, and a drop falls the 110 rows to the puddle in about 1.1 s; at 0.2 all of it ten times slower, at 3 half as fast again.
-// Knob 3: Drips. How many drips hang from the ledge, 4 to 10, spread along it.
-// Knob 4: Viscosity. ...
+// Knob 1: Hue. The slime's colour, the stone opposite it on the wheel. At 0 toxic green on purple stone; at 0.3 aqua on dark red, at 0.5 blue, at 0.75 violet on olive and at 1 pink. The warm hues from red to yellow are left out: in the slime's dark edges and its glow they turn brown.
+// Knob 2: Speed. At 2 a drip swells for half a second and stretches for 2 to 2.6 s, a drip on a thread hangs and sways 2.3 to 3.3 s more, and a drop falls from row 10 to the puddle in 1.1 s at up to 130 rows a second; at 0.2 all of it ten times slower, at 3 half as fast again.
+// Knob 3: Drips. How many drips hang from the ledge, 5 to 12, spread along it. At 5 about 0.9 drops fall a second and the puddle rises from 9 rows deep at the start to 18 in a minute; at 12 about 2.1 a second and it rises to 26.
+// Knob 4: Viscosity. How thick the slime is. At -1 it runs: drops 4 to 6 LEDs across let go about 19 rows down, 1.6 a second, and one drip at a time hangs long on a thread. At 0.06 drops 7 or 8 across let go anywhere from row 28 to 96, 0.9 a second, and three drips of five hang on threads at a time, swaying, with lumps of goo sliding down them. At 1 every drip stretches to row 74 to 102 on a thread before it drops 9 or 10 LEDs across, 0.5 a second.
 
 const W = 64, H = 128, STONE = 4;
 const { floor, ceil, round, min, max, abs, sqrt, sin, cos, exp, PI } = Math;
@@ -31,7 +31,7 @@ function hsv(h, s, v, out) {
 }
 
 // Tones: 0 dark, 1 glow, 2 slime edge, 3 slime, 4 slime core, 5 shine,
-// 6 stone, 7 stone lip, 8 deep puddle, 9 bubble.
+// 6 stone, 7 stone lip, 8 deep puddle, 9 bubble, 10 faint glow.
 const SLIME = 2;
 
 export function setup(params) {
@@ -39,7 +39,7 @@ export function setup(params) {
     begun: false, t: 0, hue: 0, speed: 1, n: 0, visc: 0.53,
     drips: [], drops: [], bits: [], rips: [], bubs: [], flashes: [],
     level: 6, bubWait: 0.3,
-    tone: new Uint8Array(W * H), pal: Array.from({ length: 10 }, () => [0, 0, 0]),
+    tone: new Uint8Array(W * H), pal: Array.from({ length: 11 }, () => [0, 0, 0]),
   };
 }
 
@@ -72,7 +72,9 @@ function build(S, n) {
   for (let i = 0; i < n; i++) {
     const d = {
       x: (i + 0.5) * slot + rnd(-0.15, 0.15) * slot, root: min(slot * 0.36, 3 + 1.5 * S.visc + rnd(0, 1)),
-      L: 2, R: 1.2, neck: 1.5, th: 0, phase: "rest", pt: 0, wait: rnd(0, 2), lump: -rnd(0, 20),
+      L: 2, R: 1.2, neck: 1.5, th: 0, phase: "rest", pt: 0, lump: -rnd(0, 20),
+      // Starts spread over a whole cycle, so the drips never fall in step.
+      wait: (((i * 0.618) % 1) + rnd(0, 0.1)) * (1.5 + 5 * S.visc),
     };
     S.drips.push(d);
   }
@@ -215,9 +217,9 @@ export function update(dt, input, params) {
   const n = cl(round(k[2]), 5, 12);
   if (n !== S.n) build(S, n);
   if (!S.begun) {
-    // The first frame is a drip already running: 6 s of it, run at once.
+    // The first frame is a drip already running: 8 s of it, run at once.
     S.begun = true;
-    for (let i = 0; i < 180; i++) step(S, 1 / 30);
+    for (let i = 0; i < 240; i++) step(S, 1 / 30);
   }
   step(S, cl(dt || 0, 0, 0.1) * S.speed);
 }
@@ -317,8 +319,16 @@ export function draw(display, params) {
         }
       if (lit) tone[o] = 1;
     }
+  // And a fainter LED round that.
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const o = y * W + x;
+      if (tone[o]) continue;
+      if ((x > 0 && tone[o - 1] === 1) || (x < W - 1 && tone[o + 1] === 1) || (y > 0 && tone[o - W] === 1) || (y < H - 1 && tone[o + W] === 1)) tone[o] = 10;
+    }
   const h = 0.31 + 0.62 * S.hue;
   hsv(h, 1, 0.26, pal[1]);
+  hsv(h, 1, 0.13, pal[10]);
   hsv(h + 0.01, 1, 0.55, pal[2]);
   hsv(h, 0.92, 0.86, pal[3]);
   hsv(h - 0.04, 0.6, 1, pal[4]);
