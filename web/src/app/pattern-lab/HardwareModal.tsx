@@ -370,7 +370,7 @@ export default function HardwareModal({
                 </button>
                 <button
                   type="button"
-                  className={styles.darkButton}
+                  className={local.darkButton}
                   disabled={!canContinue}
                   title={
                     canContinue
@@ -407,7 +407,7 @@ export default function HardwareModal({
                 {buildsConfigured() && (
                   <button
                     type="button"
-                    className={styles.darkButton}
+                    className={local.darkButton}
                     title="Install it as a loadable module over Wi-Fi — no reflash, no USB"
                     onClick={() => setSendOpen(true)}
                   >
