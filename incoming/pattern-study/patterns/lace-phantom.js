@@ -43,7 +43,7 @@ function hsv(h, s, v, out) {
 // knots of the lace are threads at full level, each with four holes round
 // it, and there are always KNOTS of them: that count alone fixes how many
 // neighbour pairs are hard steps.
-const STEP = 39, KNOTS = 796;
+const STEP = 39, KNOTS = 800;
 const CAND = [];
 for (let y = 1; y < H - 1; y++) for (let x = 2 - (y & 1); x < W - 1; x += 2) CAND.push(y * W + x);
 // A fixed shuffle: where two places score the same, the earlier one in this
@@ -216,7 +216,7 @@ export function draw(display, params) {
       L[p] = sh >= 1 ? 0 : round(min(80, 64 * mg + 76 * rise + 28 * GAP[p]) * (1 - sh));
       lit[p] = deep > 0.3 ? 0 : cl(light * (1 - sh) + mg + GAP[p], 0, 1);
       if ((x + y) & 1) continue;
-      score[p] = max(-motif(u, v, T) - thin, face) - 9 * deep - 9 * sh - 0.5 * mg;
+      score[p] = max(-motif(u, v, T) - thin, face) - 9 * deep - 9 * sh - 0.012 * L[p];
     }
   }
   // Exactly KNOTS knots: the best-scored places, ties broken by ORDER.
