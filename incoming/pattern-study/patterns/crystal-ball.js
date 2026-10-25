@@ -129,8 +129,8 @@ function spawn(P, i, age) {
 // rising up the middle and sinking down the sides (Hill's vortex, which
 // never crosses the glass), and a slow ABC flow for the curls.
 function step(P, d) {
-  const t = P.t, om = 1.2, C = 13, Rq = RIN * RIN, k = 0.16;
-  const p1 = t * 0.4, p2 = t * 0.31 + 2, p3 = t * 0.27 + 4;
+  const t = P.t, om = 1.6, C = 14, Rq = RIN * RIN, k = 0.16;
+  const p1 = t * 0.7, p2 = t * 0.53 + 2, p3 = t * 0.47 + 4;
   const s = P.vis >= 0 ? 1 - 0.7 * P.glow : 1;
   for (let i = 0; i < P.n; i++) {
     let x = P.x[i], y = P.y[i], z = P.z[i];
