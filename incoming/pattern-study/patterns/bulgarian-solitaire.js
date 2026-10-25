@@ -14,10 +14,10 @@
 // Knob 1: Hue. Turns the cards' colours together. Each pile of a deal has its own colour and its cards keep it through the play; at 0 the piles are azure, blue, violet, rose, orange, lime and so on in steps of 0.13 round the wheel, every card at full brightness, with a white suit on its face.
 // Knob 2: Speed. At 2 a move takes 1.6 seconds, so the slowest start of ten cards reaches the staircase in 12 moves and 19 seconds; at 0.25 a move takes 12.8 seconds, at 6 half a second.
 // Knob 3: Size. The staircase k, from 4 to 8: 10, 15, 21, 28 or 36 cards. A new size is dealt first from the slowest start, k - 1, k - 1, k - 2, ..., 2, 1, 1, which takes the most moves any start can, k^2 - k: 12, 20, 30, 42 or 56; then twice from a random start, then the slowest again. The tally along the top lights a mark a move against k^2 - k dim marks.
-// Knob 4: Extra. Cards beyond k(k + 1)/2: none below 1/(k + 1), 0.2 at Size 4, and one more for each further 1/(k + 1), up to k at 1. Then the play never settles: it falls into a cycle where the piles are the staircase with one extra card, rimmed white, on some of its steps, and the extra cards move round the steps and come back to their places after k + 1 moves or a divisor of it. The cycle is played round once more with gold marks in the tally, and then the cards are dealt again.
+// Knob 4: Extra. Cards beyond k(k + 1)/2: none below 1/(k + 1), 0.2 at Size 4, and one more for each further 1/(k + 1), up to k at 1. Then the play never settles: it falls into a cycle where the piles are the staircase with one extra card, rimmed white, on some of its steps, and the white rims move round the steps and come back to where they were after k + 1 moves or a divisor of it. The cycle is played round once more with gold marks in the tally, and then the cards are dealt again.
 
 const W = 64, H = 128;
-const { floor, round, min, max, abs, sin, PI } = Math;
+const { floor, round, min, max, sin, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (v) => {
   const t = cl(v, 0, 1);
@@ -134,8 +134,7 @@ function newGame(S) {
   }
   const sw = min(SWMAX, floor(W / slots)), cw = sw - (sw >= 8 ? 2 : 1);
   const ch = cl(floor((FLOOR - TOP) / (tall + 0.6)), CHMIN, CHMAX);
-  const moves = g.states.length - 1;
-  S.game = { ...g, n, k, tri: S.extra === 0, sw, cw, ch, moves, period: g.states.length - g.loop };
+  S.game = { ...g, n, k, tri: S.extra === 0, sw, cw, ch, period: g.states.length - g.loop };
   S.prevHues = S.hues;
   S.prevSuits = S.suits;
   S.hues = hues;
@@ -197,7 +196,8 @@ function extras(G, i) {
 const slotX = (G, i, count) => (W - count * G.sw) / 2 + i * G.sw + (G.sw - G.cw) / 2;
 const levelY = (G, j) => FLOOR - (j + 1) * G.ch;
 
-// Where every card is, as [id, x, y] (top-left corner), for the current frame.
+// Where every card is this frame, as [id, x, y, flying, extra]: x and y
+// are its top-left corner, a card of the last game has id -1 - its id.
 function layout(S) {
   const G = S.game, out = [];
   const rest = (piles, ex) => piles.forEach((p, i) => p.forEach((c, j) => out.push([c, slotX(G, i, piles.length), levelY(G, j), 0, ex.has(c)])));

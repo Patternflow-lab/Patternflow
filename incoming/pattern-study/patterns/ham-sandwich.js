@@ -14,7 +14,7 @@
 // Knob 1: Hue. The two clouds' colours. At 0 the bread is cyan and the ham magenta, at 0.14 azure and rose, at 0.64 green and blue, and back to cyan and magenta at 1. They stay between green and rose because red, orange and yellow turn brown on the dim side of the knife.
 // Knob 2: Speed. At 2 the clouds go once round each other in 10 seconds and each cloud's two lobes part and meet again every 7.7 seconds; at 0.2 everything takes ten times as long, at 6 a third as long.
 // Knob 3: Thin. Crumbs in each cloud, always an odd number: 4,401 at 0, 2,401 at 0.5, 401 at 1. At 0 the clouds fill the panel with a checkerboard stipple; at 1 the crumbs stand apart and the knife can be seen to pass between them.
-// Knob 4: Scatter. The share of crumbs that leave their cloud for a place of their own anywhere on the panel: 6% at the start, all of them at 1, when bread and ham are two even sprinklings over the whole panel and the knife still halves both.
+// Knob 4: Scatter. The share of crumbs that leave their cloud for a place of their own anywhere on the panel: about 4% at the start, all of them at 1, when bread and ham are two even sprinklings over the whole panel and the knife still halves both.
 
 const W = 64, H = 128;
 const { floor, round, min, abs, sqrt, sin, cos, PI } = Math;
