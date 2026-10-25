@@ -305,7 +305,7 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
               <Link href="/pattern-lab" className={styles.nextCard}>
                 <span className={styles.nextKicker}>01</span>
                 <h2>Pattern Lab ↗</h2>
-                <p>The full studio — batch generation, color ramps, and ESP32 C++ compile.</p>
+                <p>The full studio — layers, color ramps, and ESP32 C++ compile.</p>
               </Link>
               <Link href={communityHref()} className={styles.nextCard}>
                 <span className={styles.nextKicker}>02</span>
