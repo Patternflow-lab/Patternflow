@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns the sea and the record from teal at 0 through blue (0.25), indigo (0.5) and purple (0.75) to rose at 1; the foam stays white.
 // Knob 2: Speed. At 2 the equation's clock runs 0.77 units a second at the opening swell: the Peregrine crest stands above twice the swell for 1.7 s and the next breather comes 9 s later. The crests run 14 LEDs a second and the envelope 7, the group speed of deep water. At 0.2 all of it is ten times slower, at 3 half as fast again.
-// Knob 3: Family. Which breather of the one-parameter family. At 0 the Peregrine soliton (a = 1/2): one crest three times the swell, once, one to three crests further on each time. Below 0 Akhmediev breathers, periodic along the sea, down to a = 0.2 at -1: a row of crests 30 LEDs apart rising together to 2.26 times the swell. Above 0 Kuznetsov-Ma breathers, periodic in time, up to a = 0.9 at 1: one crest that pulses to 3.68 times the swell every 2.6 units (3.4 s) for ever.
-// Knob 4: Swell. The background amplitude A, 0.75 at 0 to 1.35 at 1, 0.79 at 0.06: a swell 12.6 LEDs high and a rogue of 38 standing 12.6 LEDs wide between its holes. The equation's scaling A psi(Ax, A^2 t) keeps the rogue three times the swell at every A, but makes it 1/A as wide and 1/A^2 as quick: at 1 the swell is 22 LEDs, the rogue 65 LEDs high and 7 wide, and a breather comes every 3 s.
+// Knob 3: Family. Which breather of the one-parameter family. At 0 the Peregrine soliton (a = 1/2): one crest three times the swell, once, one to three crests further on each time. Below 0 Akhmediev breathers, periodic along the sea, down to a = 0.2 at -1: three crests 20.5 LEDs apart rising together to 2.26 times the swell (the sea is drawn finer for them). Above 0 Kuznetsov-Ma breathers, periodic in time, up to a = 0.9 at 1: one crest that pulses to 3.68 times the swell every 2.6 units (3.4 s) for ever.
+// Knob 4: Swell. The background amplitude A, 0.75 at 0 to 1.35 at 1, 0.79 at 0.06: a swell 12.6 LEDs high and a rogue of 38 standing 15.7 LEDs wide between its holes. The equation's scaling A psi(Ax, A^2 t) keeps the rogue three times the swell at every A, but makes it 1/A as wide and 1/A^2 as quick: at 1 the swell is 22 LEDs, the rogue 65 LEDs high and 9 wide, and a breather comes every 3 s.
 
 const W = 64, H = 128, REC = 40, MEAN = 96, VS = 16, LAM = 16;
 const { floor, round, min, max, abs, sqrt, cos, sin, cosh, sinh, PI } = Math;
@@ -81,11 +81,16 @@ export function setup(params) {
   };
 }
 
+// Units of the equation per LED at A = 1: 0.14, so the Peregrine crest is
+// 15.7 LEDs wide between its holes at the opening swell; finer for an
+// Akhmediev breather, so three of its peaks fit at a = 0.2.
+const xScale = (a) => 0.14 * (a < 0.5 ? 1 + (0.8 * (0.5 - a)) / 0.3 : 1);
+
 // The envelope |psi| along the sea, unscaled (the background is 1), with
 // the breather's middle at column xu. A localised breather wraps round the
 // 64 columns; an Akhmediev breather is periodic in x and needs no wrap.
 function envelope(P, xu, t) {
-  const k = P.A * 0.175;
+  const k = P.A * xScale(P.a);
   for (let x = 0; x < W; x++) {
     let dx = x + 0.5 - xu;
     if (P.a >= 0.5) dx -= 64 * floor(dx / 64 + 0.5);
@@ -107,10 +112,10 @@ function pushRow(P) {
   }
 }
 
-// The carrier: crests at theta = 0 (mod 2 pi), sharp crests and flat
-// troughs, 1 at a crest and -0.5 in a trough.
+// The carrier: crests at theta = 0 (mod 2 pi), 1 at a crest and -0.5 in a
+// trough, the troughs a little flatter than the crests.
 const theta = (P, x) => (2 * PI * (x + 0.5 - P.xu)) / LAM - P.kap * P.t;
-const shape = (th) => 1.5 * ((1 + cos(th)) / 2) ** 1.2 - 0.5;
+const shape = (th) => 1.5 * ((1 + cos(th)) / 2) ** 0.8 - 0.5;
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
