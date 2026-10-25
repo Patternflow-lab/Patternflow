@@ -273,10 +273,10 @@ export default function PreviewPanel() {
         )}
       </div>
 
-      <div className={dock.previewBody}>
-        <div className={dock.previewCanvasBox}>
+      <div className={local.previewBody}>
+        <div className={local.previewCanvasBox}>
           <div
-            className={dock.previewFrame}
+            className={local.previewFrame}
             style={
               camera.view
                 ? {
@@ -292,7 +292,7 @@ export default function PreviewPanel() {
               <canvas
                 key="camera"
                 ref={cameraCanvasRef}
-                className={dock.cameraCanvas}
+                className={local.cameraCanvas}
                 style={
                   camera.output
                     ? { aspectRatio: `${camera.output.width} / ${camera.output.height}` }

@@ -172,13 +172,13 @@ describe("Layers and Knobs on a touch screen", () => {
 });
 
 describe("Pixel status line on a touch screen", () => {
-  const dock = css("LabPanels.module.css");
+  const own = css("panels/PixelPanel.module.css");
   const pixel = css("panels/PixelPanel.tsx");
 
   it("drops the mouse gestures, and nothing else", () => {
-    expect(mediaRule(dock, "(hover: none)", ".pixelMouseHint")).toMatch(/display: none;/);
-    expect(pixel).toContain("<span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>");
-    expect(mediaRule(dock, "(hover: none)", ".pixelStatus")).toBe("");
+    expect(mediaRule(own, "(hover: none)", ".pixelMouseHint")).toMatch(/display: none;/);
+    expect(pixel).toContain("<span className={local.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>");
+    expect(mediaRule(own, "(hover: none)", ".pixelStatus")).toBe("");
   });
 });
 
@@ -255,6 +255,27 @@ describe("PatternLab.module.css", () => {
     }
     const alone = [...files].filter(([, from]) => from.size < 2).map(([cls]) => cls).sort();
     expect(files.size).toBeGreaterThan(0);
+    expect(alone).toEqual([]);
+  });
+});
+
+describe("LabPanels.module.css", () => {
+  // The dock and the chrome the panels share. Until 25 October 2026 it also
+  // held 20 rules that one panel file read, for Preview's body and frame,
+  // Pixel's viewport and toolbars, Color Ramp's body and Knobs' padding. A
+  // class one file under panels/ reads belongs in that panel's stylesheet.
+  // The shell's header is the dock, so a class only the shell reads stays.
+  it("holds no class that only one panel file reads", () => {
+    const read = readers(path.resolve(__dirname, "LabPanels.module.css"));
+    expect(read).not.toBeNull();
+    // Only names the file defines: registry.tsx also reads `def.dock.ref`.
+    const defined = new Set([...bareCss("LabPanels.module.css").matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+    const panels = path.join(__dirname, "panels") + path.sep;
+    const alone = [...(read ?? [])]
+      .filter(([cls, from]) => defined.has(cls) && from.size === 1 && [...from].every((file) => file.startsWith(panels)))
+      .map(([cls]) => cls)
+      .sort();
+    expect(defined.size).toBeGreaterThan(0);
     expect(alone).toEqual([]);
   });
 });
