@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Barn Owl
 // Family:  halloween
-// Idea:    A gnarled dead tree stands the full height of a purple night, roots in the grass and bare branches across a big full moon, where a pale barn owl swivels its heart-shaped face far round and back and blinks, then drops off and swoops down the whole panel with big wingbeats to grab a mouse in the grass, or miss it, and beats back up as dead leaves fall.
+// Idea:    A gnarled dead tree stands the full height of a purple night, roots in the grass and bare branches across a big full moon, where a pale barn owl swivels its heart-shaped face far round and back and blinks, then drops off and swoops down the whole panel with big wingbeats to grab a mouse in the grass or miss it, then beats back up as dead leaves fall.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0

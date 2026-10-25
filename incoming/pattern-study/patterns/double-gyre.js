@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Double Gyre
 // Family:  noise
-// Idea:    Two counter-rotating cells of fluid stand one above the other while the line between them sways up and down, and each LED lights by how hard the fluid round it is torn apart over the next twenty units of flow time, in amber, and over the last twenty, in azure, so the thin ridges that fluid never crosses wind round both cells, fold into tongues across the middle and stand the picture on its head every half turn of the forcing.
+// Idea:    Two counter-rotating cells of fluid stand one above the other while the line between them sways up and down, and each LED lights by how hard the fluid round it is torn apart over the next twenty units of flow time in amber and over the last twenty in azure, so the thin ridges that fluid never crosses wind round both cells, fold into tongues across the middle and stand the picture on its head every half turn of the forcing.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Horizon=-1..1, Epsilon=0..1
 //
-// Knob 1: Hue. Turns both colours round the wheel together, half a wheel apart. At 0 the forward ridges, which push fluid apart, are amber and the backward ones, which draw it together, azure, and where they cross they add to white; at 0.25 green and magenta, at 0.5 azure and amber, at 0.75 magenta and green.
+// Knob 1: Hue. Turns both colours round the wheel together, half a wheel apart. At 0 the forward ridges, which push fluid apart, are amber and the backward ones, which draw it together, azure. Where they cross they add to white. At 0.25 green and magenta, at 0.5 azure and amber, at 0.75 magenta and green.
 // Knob 2: Speed. The starting time of the fields moves half a unit of flow time a second for each unit: 1 at the opening 2, so the forcing goes round once in 10 s and the picture stands on its head every 5 s; 0.1 at 0.2, a period in 100 s, and 1.5 at 3, a period in 6.7 s.
 // Knob 3: Horizon. How long the fluid is followed, 20 units of flow time times 2 to the knob, to the nearest 2: 10 at -1, one period of the forcing, a few soft ridges round the cells and one across the middle; 14 at -0.5; 20 at the opening 0, two periods, the ridges folded into bundles of thin lines; 28 at 0.5 and 40 at 1, where the folds crowd closer than an LED and the chaotic sea round the cells turns to grain round two dark islands.
 // Knob 4: Epsilon. How far the line between the cells sways, epsilon = 0.5 ln(1 + 1000 k) / ln 1001: 0 at 0, steady cells, where at a horizon of 10 the only ridges are the dividing line and the walls, white with the forward and backward ones lying on each other, and longer horizons add rings of shear round each cell; 0.17 at 0.01; 0.30 at the opening 0.06, where the line swings 18 LEDs either way of the middle; 0.40 at a quarter, 0.45 at half and 0.50 at 1, 26 LEDs either way.
