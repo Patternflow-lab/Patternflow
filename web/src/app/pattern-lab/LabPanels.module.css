@@ -1,6 +1,8 @@
 /* ── Layered lab: dock header + panel chrome ─────────────────────────────────
-   New-in-v2 styles only; knob/ramp/gallery/modal styles are shared from
-   PatternLab.module.css. */
+   The dock with its header and menus, and the chrome every panel shares. A
+   panel's own classes go in panels/<Panel>.module.css, as Layers' did on
+   2026-10-25; the Preview, Pixel, Ramp and Knobs rules below are still here.
+   Modal styles are in PatternLab.module.css. */
 
 .dockShell {
   height: 100vh;
@@ -55,6 +57,177 @@
     justify-content: flex-start;
     flex-wrap: wrap;
   }
+}
+
+/* ── Header: brand, piece name, save state, nav ──
+   Only the shell (PatternLabClient) reads these. They were in
+   PatternLab.module.css until 2026-10-25. */
+.labBrand {
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.labBrand:hover {
+  opacity: 0.8;
+  text-decoration: none;
+}
+
+.labTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8c8577;
+  letter-spacing: 0.01em;
+}
+
+.projectIdentity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.projectMeta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 17px;
+}
+
+.labName {
+  width: 100%;
+  min-width: 0;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #171512;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+.labName::placeholder {
+  color: #9a9486;
+  font-weight: 400;
+}
+
+.labName:hover {
+  background: rgba(255, 253, 248, 0.7);
+  border-color: rgba(23, 21, 18, 0.18);
+}
+
+.labName:focus {
+  outline: 2px solid #9b4827;
+  outline-offset: 1px;
+  background: #fffdf8;
+}
+
+.labNav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.labNav a {
+  color: #6b655a;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.labNav a:hover {
+  color: #171512;
+}
+
+.labNav a:focus-visible {
+  outline: 2px solid #9b4827;
+  outline-offset: 2px;
+}
+
+.saveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6b655a;
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+
+.saveDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #68826b;
+  flex: none;
+}
+
+.saveStatus[data-state="pending"] .saveDot,
+.saveStatus[data-state="idle"] .saveDot {
+  background: #a58a56;
+}
+
+.saveStatus[data-state="error"] {
+  color: #b42318;
+}
+
+.saveStatus[data-state="error"] .saveDot {
+  background: currentColor;
+}
+
+/* Under the header, when a save or a park fails. */
+.storageNotice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border: 1px solid #b42318;
+  background: #fff4f2;
+  color: #8f1c13;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.storageNotice > span {
+  flex: 1 1 280px;
+}
+
+/* ── Community fork badge ── */
+.forkBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #925035;
+  font-size: 11px;
+}
+
+.forkBadge > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.forkBadge button {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
 }
 
 .dockHost {
@@ -311,164 +484,14 @@
   image-rendering: auto;
 }
 
-/* ── Layers panel ── */
-
-.layerList {
-  list-style: none;
-  margin: 0;
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.layerRow {
-  min-height: 34px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 6px;
-  border: 1px solid transparent;
-  background: #fbf7ee;
-  cursor: pointer;
-  user-select: none;
-}
-
-.layerRow:hover {
-  border-color: rgba(23, 21, 18, 0.25);
-}
-
-.layerRowActive {
-  background: #171512;
-  color: #f7f3ea;
-  border-color: #171512;
-}
-
-.layerRow[data-dragover="true"] {
-  border-top: 2px solid #ff4d00;
-}
-
-.layerEye {
-  appearance: none;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 12px;
-  width: 20px;
-  padding: 0;
-  opacity: 0.85;
-}
-
-.layerEyeOff {
-  opacity: 0.3;
-}
-
-.layerName {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.layerRenameInput {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 1px solid rgba(23, 21, 18, 0.4);
-  background: #fffdf8;
-  color: #171512;
-  font: inherit;
-  font-size: 12px;
-  padding: 1px 4px;
-}
-
-.layerType {
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  padding: 1px 5px;
-  border: 1px solid currentColor;
-  opacity: 0.65;
-  flex: 0 0 auto;
-}
-
-.layerErrDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #d63e2e;
-  flex: 0 0 auto;
-}
-
-.layerMeta {
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 11px;
-  opacity: 0.55;
-  flex: 0 0 auto;
-}
-
-.layerControls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border-top: 1px solid rgba(23, 21, 18, 0.12);
-  background: #fbf7ee;
-  flex: 0 0 auto;
-  font-family: var(--font-inter), system-ui, sans-serif;
-  font-size: 12px;
-}
-
-.layerControlRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.layerControlRow > span {
-  width: 58px;
-  flex: 0 0 auto;
-  text-transform: none;
-  color: rgba(23, 21, 18, 0.6);
-  font-size: 11px;
-}
-
-.layerControlRow input[type="range"] {
-  flex: 1 1 auto;
-  min-width: 0;
-  accent-color: #171512;
-}
-
-.layerControlRow select {
-  min-height: 28px;
-  border-radius: 4px;
-  min-width: 0;
-  flex: 1 1 auto;
-  border: 1px solid rgba(23, 21, 18, 0.3);
-  background: #fffdf8;
-  font-family: inherit;
-  font-size: 12px;
-  padding: 2px 4px;
-}
-
-.layerControlValue {
-  width: 40px;
-  text-align: right;
-  flex: 0 0 auto;
-  font-size: 11px;
-}
-
-.layerMaskLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  text-transform: none;
-  cursor: pointer;
+@media (hover: none) {
+  /* A finger has no Alt key, right button or middle button. On a 390×844
+     phone this line wrapped the Pixel status bar to 51px, which left the
+     picture a 372×151 viewport and fitted it at 1×. Without it the viewport
+     is 372×177, and 2× needs 168. */
+  .pixelMouseHint {
+    display: none;
+  }
 }
 
 /* ── Pixel editor panel ── */
@@ -602,8 +625,7 @@
 
 /* Keyboard focus stays visible throughout the panel controls. */
 .panelBar :is(button, select, input):focus-visible,
-.menuPop button:focus-visible,
-.layerControlRow select:focus-visible {
+.menuPop button:focus-visible {
   outline: 2px solid #9b4827;
   outline-offset: 2px;
 }

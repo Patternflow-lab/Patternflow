@@ -17,7 +17,7 @@ import { clearSurface, stampOver, type PixelSurface } from "@/lib/lab/pixelTools
 import { prunePixelHistories, redoPixels, snapshotPixels, undoPixels } from "@/lib/lab/pixelHistory";
 import { buildPixelPatternCode } from "@/lib/lab/pixelToCode";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
-import { isPixelLayer } from "@/lib/lab/types";
+import { isPixelLayer, type Layer } from "@/lib/lab/types";
 import ImportImageModal from "./ImportImageModal";
 import { PixelActionBar, PixelToolBar, type CodeCopyState } from "./pixel/PixelToolbars";
 import { idleStroke, type Tool } from "./pixel/tools";
@@ -28,6 +28,13 @@ import { usePixelSelection } from "./pixel/usePixelSelection";
 import { usePixelToolState } from "./pixel/usePixelToolState";
 import { usePixelViewport, ZOOM_MIN } from "./pixel/usePixelViewport";
 import dock from "../LabPanels.module.css";
+
+// What the panel says when another kind of layer is selected. A text layer is
+// pixels too, but the Text panel redraws them from its words.
+const OTHER_LAYER_HINT: Record<Exclude<Layer["type"], "pixel">, string> = {
+  code: "The selected layer is a code pattern. Edit it in the Code panel, or select a pixel layer to draw.",
+  text: "The selected layer is text. Edit it in the Text panel, or select a pixel layer to draw.",
+};
 
 export default function PixelPanel() {
   const layer = useActiveLayer();
@@ -126,9 +133,7 @@ export default function PixelPanel() {
     return (
       <div className={dock.panel}>
         <div className={dock.panelHint}>
-          {layer
-            ? "The selected layer is a code pattern — select a pixel layer to draw, or add one."
-            : "Select a pixel layer to draw."}
+          {layer && !isPixelLayer(layer) ? OTHER_LAYER_HINT[layer.type] : "Select a pixel layer to draw."}
           <button type="button" onClick={addPixelLayer}>
             + Add pixel layer
           </button>
@@ -217,7 +222,7 @@ export default function PixelPanel() {
           </span>
         )}
         <span style={{ flex: 1 }} />
-        <span>alt-click picks · right-drag erases · middle-drag pans</span>
+        <span className={dock.pixelMouseHint}>alt-click picks · right-drag erases · middle-drag pans</span>
       </div>
 
       {importOpen && (

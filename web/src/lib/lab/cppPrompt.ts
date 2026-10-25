@@ -8,17 +8,13 @@ import {
   PATTERN_MATRIX_WIDTH,
   buildRampLUTRGBA,
 } from "@/lib/pattern/harness";
-import { knobDetentStep } from "@/lib/pattern/controls";
+import { knobDetentStep, roundRangeValue } from "@/lib/pattern/controls";
 import { withMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import type { KnobRange, RampState } from "./types";
 import { rampStateToHarness } from "./engine";
 
-function roundRangeValue(value: number) {
-  return Math.round(value * 1000) / 1000;
-}
-
-export type CppPromptArgs = {
+type CppPromptArgs = {
   code: string;
   matrix: MatrixSize;
   knobs: number[];

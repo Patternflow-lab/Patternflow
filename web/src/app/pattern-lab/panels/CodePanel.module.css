@@ -19,3 +19,24 @@ button.promptButton {
   background: #eee7d8;
   font-weight: 600;
 }
+
+/* The colour mode is what the copied prompt asks for, so on a narrow bar the
+   two wrap to the next row together. */
+.promptGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Under the bar while a typed @matrix line waits for the editor to lose
+   focus, or when the Lab cannot read it. */
+.matrixNote {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(23, 21, 18, 0.12);
+  color: #756f64;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}

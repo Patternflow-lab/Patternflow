@@ -16,9 +16,13 @@ import {
   LOGICAL_KNOB_TO_WEB_KNOB,
   LOGICAL_KNOB_WRAP,
   getKnobValueDelta,
+  knobArrowValue,
   knobDetentStep,
+  knobMidpoint,
   knobUnitsPerTurn,
   logicalKnobUnitsPerTurn,
+  normalizeKnob,
+  tidyKnobValue,
   toEncoderDelta,
   webKnobRange,
   wrapKnobDelta,
@@ -52,6 +56,89 @@ describe("travel", () => {
     LOGICAL_KNOB_RANGES.slice(1).forEach((range, index) => {
       expect(perTurn[index + 1]).toBeCloseTo(knobUnitsPerTurn(range), 12);
     });
+  });
+});
+
+describe("arrow keys", () => {
+  const key = (name: string, mods: Partial<Record<"altKey" | "ctrlKey" | "metaKey", boolean>> = {}) => ({
+    key: name,
+    altKey: false,
+    ctrlKey: false,
+    metaKey: false,
+    ...mods,
+  });
+
+  it("move a knob one detent, up on Right and Up, down on Left and Down", () => {
+    const range = [10, 120] as const;
+    expect(knobArrowValue(key("ArrowRight"), 10, range)).toBe(10 + knobDetentStep(range));
+    expect(knobArrowValue(key("ArrowUp"), 10, range)).toBe(10 + knobDetentStep(range));
+    expect(knobArrowValue(key("ArrowLeft"), 65, range)).toBe(65 - knobDetentStep(range));
+    expect(knobArrowValue(key("ArrowDown"), 65, range)).toBe(65 - knobDetentStep(range));
+  });
+
+  it("cross any range in two turns of detents and stop at each end", () => {
+    for (const range of [[0, 1], [0.1, 10], [0, 4.9], [10, 120], [2, 6], [-1, 1], [0, 360]] as const) {
+      let value: number = range[0];
+      let presses = 0;
+      while (value < range[1] && presses < 100) {
+        value = knobArrowValue(key("ArrowRight"), value, range)!;
+        presses++;
+        if (presses === DETENTS_PER_TURN) expect(value).toBeCloseTo((range[0] + range[1]) / 2, 12);
+      }
+      expect([range, presses, value]).toEqual([range, DETENTS_PER_TURN * TURNS_PER_FULL_RANGE, range[1]]);
+      expect(knobArrowValue(key("ArrowRight"), value, range)).toBe(range[1]);
+      for (presses = 0; value > range[0] && presses < 100; presses++) value = knobArrowValue(key("ArrowLeft"), value, range)!;
+      expect([range, presses, value]).toEqual([range, DETENTS_PER_TURN * TURNS_PER_FULL_RANGE, range[0]]);
+      expect(knobArrowValue(key("ArrowLeft"), value, range)).toBe(range[0]);
+    }
+  });
+
+  it("turn a knob between detents by one detent from where it is", () => {
+    const range = [0, 1] as const;
+    expect(knobArrowValue(key("ArrowRight"), 0.06, range)).toBeCloseTo(0.06 + knobDetentStep(range), 12);
+  });
+
+  it("leave other keys and modified arrows to the input and the browser", () => {
+    for (const name of ["Home", "End", "PageUp", "PageDown", "Tab", "a"]) {
+      expect(knobArrowValue(key(name), 0.5, [0, 1])).toBeNull();
+    }
+    for (const mod of ["altKey", "ctrlKey", "metaKey"] as const) {
+      expect(knobArrowValue(key("ArrowRight", { [mod]: true }), 0.5, [0, 1])).toBeNull();
+    }
+  });
+});
+
+describe("reading a knob as 0..1", () => {
+  it("puts the bottom of a range at 0 and the top at 1, and leaves a value outside it outside", () => {
+    expect(normalizeKnob(0, [0, 1])).toBe(0);
+    expect(normalizeKnob(10, [0.1, 10])).toBe(1);
+    expect(normalizeKnob(5.05, [0.1, 10])).toBeCloseTo(0.5, 12);
+    expect(normalizeKnob(-1, [0, 4])).toBe(-0.25);
+  });
+
+  it("reads a range as fine as 0.0001..0.0004 across its whole width", () => {
+    // A floor of 0.001 read 0.00025 as 0.15 and the top of the range as 0.3.
+    expect(normalizeKnob(0.00025, [0.0001, 0.0004])).toBeCloseTo(0.5, 9);
+    expect(normalizeKnob(0.0004, [0.0001, 0.0004])).toBeCloseTo(1, 9);
+    expect(normalizeKnob(0.0015, [0.001, 0.002])).toBeCloseTo(0.5, 9);
+  });
+
+  it("reads a range edited down to nothing as 0, not NaN", () => {
+    expect(normalizeKnob(3, [3, 3])).toBe(0);
+  });
+
+  it("starts a knob in the middle of its range, however fine the range", () => {
+    expect(knobMidpoint([0, 1])).toBe(0.5);
+    expect(knobMidpoint([0.1, 10])).toBe(5.05);
+    expect(knobMidpoint([0.0001, 0.0004])).toBe(0.00025);
+    expect(knobMidpoint([0.001, 0.002])).toBe(0.0015);
+    expect(knobMidpoint([0.1, 0.2])).toBe(0.15);
+  });
+
+  it("takes the float noise off a value and keeps its digits", () => {
+    expect(tidyKnobValue(0.1 + 0.2)).toBe(0.3);
+    expect(tidyKnobValue(0.0001 + 0.00015)).toBe(0.00025);
+    expect(tidyKnobValue(5.446)).toBe(5.446);
   });
 });
 

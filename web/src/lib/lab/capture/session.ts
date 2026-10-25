@@ -38,7 +38,7 @@ export type CaptureSessionState = {
   output: { width: number; height: number } | null;
 };
 
-export type CaptureSessionEvents = {
+type CaptureSessionEvents = {
   /** Per-layer errors from the latest frame, named for people. */
   errors?: (errors: Record<string, string>) => void;
   auto?: (auto: AutoVerdict | null) => void;

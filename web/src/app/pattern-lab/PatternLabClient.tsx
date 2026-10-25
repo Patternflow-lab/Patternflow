@@ -3,11 +3,11 @@
 // Pattern Lab v2 — a layered, dockable pattern editing workspace.
 //
 // The old lab was one pattern + one fixed two-column layout. This shell hosts
-// nine dockable panels (dockview) over a layer-stack project (zustand):
-// Preview, Layers, Code, Pixel, Gallery, Knobs, Color Ramp, Graphic Export,
-// Director — the list is panels/registry.tsx. Panels rearrange
-// Photoshop-style — drag tabs, split groups, float — and the arrangement
-// persists to localStorage alongside the project itself.
+// eight dockable panels (dockview) over a layer-stack project (zustand):
+// Preview, Layers, Code, Pixel, Knobs, Color Ramp, Graphic Export, Director —
+// the list is panels/registry.tsx. Panels rearrange Photoshop-style — drag
+// tabs, split groups, float — and the arrangement persists to localStorage
+// alongside the project itself.
 //
 // Exports (community publish, firmware build) flatten the visible stack into
 // one standalone JS pattern (see lib/lab/flatten.ts), so every downstream
@@ -32,16 +32,23 @@ import {
 import { withKnobsAnnotation } from "@/lib/lab/annotations";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { onEditorReveal } from "@/lib/lab/editorReveal";
-import { flattenLayers, needsFlatten } from "@/lib/lab/flatten";
+import { flattenLayers, loneCodeLayer } from "@/lib/lab/flatten";
 import { readStorage, removeStorage, writeStorage, type LabStorageKey } from "@/lib/lab/persist";
-import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, layoutViewCount } from "@/lib/lab/serialize";
+import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, dropRetiredPanels, layoutViewCount } from "@/lib/lab/serialize";
 import { listSessions, type SessionMeta } from "@/lib/lab/sessions";
 import { buildStackAnnotation, stripStackAnnotation } from "@/lib/lab/stackShare";
 import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store";
-import type { CodeLayer } from "@/lib/lab/types";
 import HardwareModal from "./HardwareModal";
 import { openIncomingPattern } from "./openIncomingPattern";
-import { PANELS, buildDefaultLayout, isNarrowDock, panelComponents, panelDef, type PanelId } from "./panels/registry";
+import {
+  PANELS,
+  buildDefaultLayout,
+  isNarrowDock,
+  panelComponents,
+  panelDef,
+  togglePanel,
+  type PanelId,
+} from "./panels/registry";
 
 import styles from "./PatternLab.module.css";
 import dock from "./LabPanels.module.css";
@@ -76,7 +83,8 @@ function premultiplyHex(hex: string, alpha: number): string {
 
 async function buildExportCode(): Promise<string> {
   const state = useLabStore.getState();
-  if (needsFlatten(state.layers)) {
+  const layer = loneCodeLayer(state.layers);
+  if (!layer) {
     const flat = flattenLayers(state.layers, state.matrix, {
       labels: state.knobLabels,
       ranges: state.ranges,
@@ -105,9 +113,6 @@ async function buildExportCode(): Promise<string> {
     const withStack = stackLine ? `${flat}\n\n${stackLine}\n` : flat;
     return withStack.length <= CODE_MAX ? withStack : flat;
   }
-  const layer = state.layers.find(
-    (entry) => entry.visible && entry.opacity > 0 && entry.type === "code",
-  ) as CodeLayer;
   // A layer that arrived from a shared composition may still carry that
   // composition's @stack line; published as-is it would reopen as the
   // original author's layers rather than this pattern.
@@ -251,7 +256,9 @@ export default function PatternLabClient() {
       try {
         const raw = readStorage(layoutKey.current);
         if (raw) {
-          const parsed = JSON.parse(raw);
+          // A panel the registry no longer has (Gallery, 23 October 2026)
+          // comes out first; fromJSON would throw on it.
+          const parsed = dropRetiredPanels(JSON.parse(raw), new Set(Object.keys(panelComponents)));
           // Restoring a layout that places nothing gives you an empty
           // workspace: every panel gone, and Reset layout the only way out.
           // dockview will happily do it, so the check has to happen here.
@@ -309,14 +316,17 @@ export default function PatternLabClient() {
     [syncOpenPanels],
   );
 
-  const togglePanel = (id: PanelId, title: string) => {
+  // Opening and closing leave the menu up for the next panel. Fronting one is
+  // going to it, so the menu gets out of the way: at 390×844 it covered 30%
+  // of the panel it had just brought forward.
+  const pickPanel = (id: PanelId) => {
     const api = apiRef.current;
     if (!api) return;
-    const existing = api.getPanel(id);
-    if (existing) {
-      api.removePanel(existing);
-    } else {
-      api.addPanel({ id, component: id, title });
+    if (togglePanel(api, id) === "fronted") {
+      const wrap = panelsMenuRef.current;
+      const hadFocus = wrap?.contains(document.activeElement) ?? false;
+      setPanelsMenuOpen(false);
+      if (hadFocus) wrap?.querySelector<HTMLElement>("[aria-expanded]")?.focus();
     }
     syncOpenPanels(api);
   };
@@ -336,34 +346,34 @@ export default function PatternLabClient() {
     <main className={dock.dockShell}>
       <header className={dock.dockHeader}>
         <div className={dock.dockHeaderGroup}>
-          <Link href="/" className={styles.labBrand}>
+          <Link href="/" className={dock.labBrand}>
             Patternflow
           </Link>
-          <span className={styles.labTitle}>Pattern Lab</span>
+          <span className={dock.labTitle}>Pattern Lab</span>
         </div>
-        <div className={styles.projectIdentity}>
+        <div className={dock.projectIdentity}>
           <input
             type="text"
             aria-label="Pattern name"
-            className={styles.labName}
+            className={dock.labName}
             value={pieceName}
             maxLength={60}
             placeholder="name this pattern"
             title="The piece's name — To hardware uses it as NAME (so the .pfm module matches), the Director stamps it into the show, and publishing suggests it. Layer names stay layer names."
             onChange={(event) => setPieceName(event.target.value)}
           />
-          <div className={styles.projectMeta}>
+          <div className={dock.projectMeta}>
             <span
-              className={styles.saveStatus}
+              className={dock.saveStatus}
               data-state={saveStatus}
               title={`Saved only in this browser.${restoredAt !== null ? ` Restored your last session (${new Date(restoredAt).toLocaleString()}). Earlier work is under Recent.` : ""}`}
             >
-              <span className={styles.saveDot} aria-hidden="true" />
+              <span className={dock.saveDot} aria-hidden="true" />
               {saveStatus === "error" ? "Unsaved" : saveStatus === "pending" ? "Saving…" : saveStatus === "idle" && restoredAt === null ? "Local draft" : "Saved locally"}
             </span>
             {forkOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Sharing to the community will publish this as a fork of the linked pattern. Click × if this is no longer a remix of it."
               >
                 <span>forking from {forkOf.title}</span>
@@ -374,7 +384,7 @@ export default function PatternLabClient() {
             )}
             {editOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Your own post, reopened. Sharing UPDATES it — same page, same likes, comments and forks. Click × to publish this as a separate new pattern instead; the version you started from is under Recent ▾."
               >
                 <span>editing {editOf.title}</span>
@@ -497,7 +507,7 @@ export default function PatternLabClient() {
                     key={def.id}
                     type="button"
                     aria-pressed={openPanels.has(def.id)}
-                    onClick={() => togglePanel(def.id, def.title)}
+                    onClick={() => pickPanel(def.id)}
                   >
                     {def.title}
                     <em aria-hidden="true">{openPanels.has(def.id) ? "●" : "○"}</em>
@@ -510,7 +520,7 @@ export default function PatternLabClient() {
               </div>
             )}
           </div>
-          <nav className={styles.labNav}>
+          <nav className={dock.labNav}>
             <Link href="/community" title="Patternflow Community">
               Community ↗
             </Link>
@@ -519,7 +529,7 @@ export default function PatternLabClient() {
       </header>
 
       {(workError || saveStatus === "error") && (
-        <div className={styles.storageNotice} role="alert">
+        <div className={dock.storageNotice} role="alert">
           <span>{workError ?? "Changes could not be saved in this browser. Keep this tab open and copy your code before leaving. Browser storage may be full or unavailable, or this project may exceed the save limits."}</span>
           {saveStatus === "error" && (
             <button type="button" className={styles.headerToggle} onClick={saveLabProjectNow}>Retry save</button>

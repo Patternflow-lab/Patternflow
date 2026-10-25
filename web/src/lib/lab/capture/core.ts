@@ -8,7 +8,9 @@
 
 import type { MatrixSize } from "@/lib/pattern/matrix";
 import { LabEngine } from "../engine";
-import type { Layer, PixelLayer } from "../types";
+import { stretchNearest } from "../stretch";
+import { activeTextEffect } from "../textEffects";
+import { isRasterLayer, type Layer, type RasterLayer } from "../types";
 import {
   CAPTURE_SIDE_MAX,
   CAPTURE_SIDE_MIN,
@@ -19,6 +21,10 @@ import {
   type CaptureSettings,
   type WireProject,
 } from "./types";
+
+// Lives in lib/lab/stretch.ts since the engine stretches a text effect's
+// frame with it too; probe.ts and the tests still import it from here.
+export { stretchNearest };
 
 export function clampSide(value: number): number {
   if (!Number.isFinite(value)) return CAPTURE_SIDE_MIN;
@@ -91,39 +97,7 @@ export function resolveGeometry(
 }
 
 /**
- * Nearest-neighbour stretch, independent per axis — a 128×64 sprite sheet
- * drawn for the panel lands on a 1050×600 card without a blurry resample,
- * and an off-aspect output simply stretches it the way the pattern beneath
- * stretches too.
- */
-export function stretchNearest(
-  src: Uint8ClampedArray,
-  srcWidth: number,
-  srcHeight: number,
-  dstWidth: number,
-  dstHeight: number,
-): Uint8ClampedArray {
-  const out = new Uint8ClampedArray(dstWidth * dstHeight * 4);
-  if (srcWidth <= 0 || srcHeight <= 0) return out;
-  for (let y = 0; y < dstHeight; y++) {
-    const sy = Math.min(srcHeight - 1, Math.floor((y * srcHeight) / dstHeight));
-    const srcRow = sy * srcWidth;
-    const dstRow = y * dstWidth;
-    for (let x = 0; x < dstWidth; x++) {
-      const sx = Math.min(srcWidth - 1, Math.floor((x * srcWidth) / dstWidth));
-      const si = (srcRow + sx) * 4;
-      const di = (dstRow + x) * 4;
-      out[di] = src[si];
-      out[di + 1] = src[si + 1];
-      out[di + 2] = src[si + 2];
-      out[di + 3] = src[si + 3];
-    }
-  }
-  return out;
-}
-
-/**
- * Merge a wire project into the previous one: a pixel layer that arrived
+ * Merge a wire project into the previous one: a pixel or text layer that arrived
  * without its buffer keeps the copy from last time. A layer with neither is
  * dropped rather than rendered empty — it cannot happen with an in-order
  * channel, but a silent blank layer would be the worst way to find out.
@@ -132,23 +106,23 @@ export function mergeWireProject(
   previous: CaptureProject | null,
   wire: WireProject,
 ): CaptureProject {
-  const known = new Map<string, PixelLayer>();
+  const known = new Map<string, RasterLayer>();
   for (const layer of previous?.layers ?? []) {
-    if (layer.type === "pixel") known.set(layer.id, layer);
+    if (isRasterLayer(layer)) known.set(layer.id, layer);
   }
   const layers: Layer[] = [];
   for (const layer of wire.layers) {
-    if (layer.type !== "pixel") {
+    if (layer.type === "code") {
       layers.push(layer);
       continue;
     }
     if (layer.data) {
-      layers.push(layer as PixelLayer);
+      layers.push(layer as RasterLayer);
       continue;
     }
     const earlier = known.get(layer.id);
     if (!earlier) continue;
-    layers.push({ ...layer, data: earlier.data });
+    layers.push({ ...layer, data: earlier.data } as RasterLayer);
   }
   return {
     matrix: wire.matrix,
@@ -175,10 +149,10 @@ export type CaptureFrame = {
 
 type StretchedEntry = {
   /** The store's layer object this copy was made from. */
-  source: PixelLayer;
+  source: RasterLayer;
   width: number;
   height: number;
-  layer: PixelLayer;
+  layer: RasterLayer;
 };
 
 export class CaptureCore {
@@ -245,15 +219,18 @@ export class CaptureCore {
   }
 
   /**
-   * Pixel layers drawn for the project matrix, stretched to the render grid.
+   * Pixel and text layers drawn for the project matrix, stretched to the render grid.
    * Cached per layer by rev + size; code layers pass straight through.
    */
   private layersFor(render: MatrixSize): Layer[] {
     const project = this.project!;
     const live = new Set<string>();
     const layers = project.layers.map((layer) => {
-      if (layer.type !== "pixel") return layer;
+      if (!isRasterLayer(layer)) return layer;
       if (layer.width === render.width && layer.height === render.height) return layer;
+      // An effect draws a new frame each tick at the layer's own size, and
+      // the engine stretches that frame (engine.ts stepText).
+      if (layer.type === "text" && activeTextEffect(layer)) return layer;
       live.add(layer.id);
       const cached = this.stretched.get(layer.id);
       if (cached && cached.width === render.width && cached.height === render.height) {
@@ -266,7 +243,7 @@ export class CaptureCore {
           return cached.layer;
         }
       }
-      const stretchedLayer: PixelLayer = {
+      const stretchedLayer: RasterLayer = {
         ...layer,
         width: render.width,
         height: render.height,

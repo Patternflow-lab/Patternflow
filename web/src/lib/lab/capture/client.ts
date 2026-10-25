@@ -5,7 +5,7 @@
 // worker exists.
 
 import type { MatrixSize } from "@/lib/pattern/matrix";
-import type { Layer } from "../types";
+import { isRasterLayer, type Layer } from "../types";
 import type {
   AutoVerdict,
   CaptureSettings,
@@ -28,7 +28,7 @@ export type ProjectSlice = {
   ranges: Array<[number, number]>;
 };
 
-export type CaptureClientHandlers = {
+type CaptureClientHandlers = {
   onFrame: (frame: FrameMessage) => void;
   onState: (state: { time: number; playing: boolean }) => void;
   onProgress: (done: number, total: number) => void;
@@ -137,7 +137,7 @@ export class CaptureClient {
   sendProject(slice: ProjectSlice) {
     const live = new Set<string>();
     const layers: WireLayer[] = slice.layers.map((layer) => {
-      if (layer.type !== "pixel") return layer;
+      if (!isRasterLayer(layer)) return layer;
       live.add(layer.id);
       const { data, ...rest } = layer;
       if (this.sentPixelRevs.get(layer.id) === layer.rev) return rest;

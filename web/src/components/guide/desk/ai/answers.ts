@@ -8,7 +8,7 @@ import { HEADER_0710, HEADER_0713 } from "./headers";
 // their builders always write:
 //
 //   the variation prompt   Copy prompt, app/pattern-lab/panels/CodePanel.tsx
-//                          → buildVariantCopyPrompt, lib/ai/gemini.ts
+//                          → buildVariantCopyPrompt, lib/ai/variantPrompt.ts
 //   the conversion prompt  Copy the conversion prompt, app/pattern-lab/HardwareModal.tsx
 //                          → buildCppPrompt, lib/lab/cppPrompt.ts
 //

@@ -2,18 +2,20 @@
 
 // The pattern-code reference modal, unchanged from the single-pattern lab.
 
+import { useBackdropClose } from "@/lib/hooks/useBackdropClose";
 import { useDialog } from "@/lib/hooks/useDialog";
 import styles from "../PatternLab.module.css";
 
 export default function CodeGuideModal({ onClose }: { onClose: () => void }) {
   const cardRef = useDialog<HTMLDivElement>(onClose);
+  const closeOnBackdrop = useBackdropClose(onClose);
   return (
     <div
       className={styles.modalOverlay}
       role="dialog"
       aria-modal="true"
       aria-label="Code guide"
-      onClick={onClose}
+      {...closeOnBackdrop}
     >
       <div
         ref={cardRef}

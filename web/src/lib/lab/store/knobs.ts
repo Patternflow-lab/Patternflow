@@ -7,7 +7,7 @@ import type { LabStore } from "../store";
 import type { SliceSet } from "./kinds";
 import { MIN_RANGE_SPAN } from "./shared";
 
-export type KnobsSlice = Pick<LabStore, "setKnob" | "setRange">;
+type KnobsSlice = Pick<LabStore, "setKnob" | "setRange">;
 
 export function createKnobsSlice(set: SliceSet): KnobsSlice {
   return {

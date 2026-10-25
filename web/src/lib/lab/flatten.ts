@@ -27,6 +27,7 @@ import { KNOBS_ANNOTATION_RE, buildKnobsAnnotationLine, defaultKnobState } from 
 import { exportStack } from "./compositor";
 import { rampStateToHarness } from "./engine";
 import { bytesToBase64 } from "./serialize";
+import { TEXT_EFFECT_RATE, activeTextEffect, textEffectPeriod, type ActiveTextEffect } from "./textEffects";
 
 /**
  * Run-length encode straight RGBA bytes as {count-1, r, g, b, a} tuples
@@ -61,15 +62,15 @@ export function rleEncodeRGBA(data: Uint8ClampedArray): Uint8ClampedArray {
 }
 
 /** The embed expression for one pixel layer: RLE when it wins, raw otherwise. */
-function pixelBufferLiteral(data: Uint8ClampedArray): string {
+function pixelBufferLiteral(data: Uint8ClampedArray, length = "__W * __H * 4"): string {
   const rle = rleEncodeRGBA(data);
   return rle.length < data.length
-    ? `__rle("${bytesToBase64(rle)}", __W * __H * 4)`
-    : `__b64("${bytesToBase64(data)}", __W * __H * 4)`;
+    ? `__rle("${bytesToBase64(rle)}", ${length})`
+    : `__b64("${bytesToBase64(data)}", ${length})`;
 }
-import type { CodeLayer, KnobRange, Layer } from "./types";
+import { isRasterLayer, type CodeLayer, type KnobRange, type Layer, type RampLayer, type TextLayer } from "./types";
 
-export type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
+type FlattenKnobs = { labels: string[]; ranges: KnobRange[] };
 
 function stripForEmbedding(code: string): string {
   return (
@@ -88,22 +89,112 @@ function stripForEmbedding(code: string): string {
 }
 
 /** A layer name inside a `//` comment: every line terminator JS knows, not just \n. */
-function commentSafe(name: string): string {
+export function commentSafe(name: string): string {
   return name.replace(/[\r\n\u2028\u2029]/g, " ");
 }
 
-function lutLiteral(layer: CodeLayer): string {
+function lutLiteral(layer: RampLayer): string {
   const lut = buildRampLUTRGBA(rampStateToHarness(layer.ramp));
   return `[${Array.from(lut).join(",")}]`;
 }
 
-/** Does this composition even need flattening, or is it a single plain pattern? */
-export function needsFlatten(layers: Layer[]): boolean {
+/**
+ * The fx object of a moving text layer. Scroll and ramp read the source,
+ * twinkle the bitmap; ramp brings its ramp as a LUT.
+ */
+function textFxLiteral(layer: TextLayer, effect: ActiveTextEffect): string {
+  const source = effect === "twinkle" ? { x: 0, width: layer.width, data: layer.data } : layer.source!;
+  return `{
+    kind: "${effect}", knob: ${layer.spec.effectKnob}, rate: ${TEXT_EFFECT_RATE[effect]}, period: ${textEffectPeriod(effect, layer)}, phase: 0,
+    srcX: ${source.x}, srcW: ${source.width}, lead: ${layer.width - source.x},
+    lut: ${effect === "ramp" ? lutLiteral(layer) : "null"},
+    src: ${pixelBufferLiteral(source.data, `${source.width} * __H * 4`)},
+  }`;
+}
+
+// textEffects.ts, in the export's own words. Keep the two in step:
+// textExport.test.ts compares them pixel for pixel.
+const TEXT_FX_HELPERS = `
+// Text effects: each frame a moving text layer is drawn again from what it
+// carries, at a phase one knob speeds up (0 stands it still). Whole numbers
+// per pixel, so the firmware header lights the same LEDs.
+function __fxHash(x, y) {
+  let h = Math.imul(x + 1, 0x9e3779b1) ^ Math.imul(y + 1, 0x85ebca77);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x2c1b3c6d);
+  h ^= h >>> 12;
+  return h & 255;
+}
+
+function __fxAdvance(F, dt, input) {
+  const k = input && input.knobNormalized ? Number(input.knobNormalized[F.knob]) : 0;
+  const n = k > 0 ? (k < 1 ? k : 1) : 0;
+  let p = F.phase + dt * (n * F.rate);
+  if (!(p >= 0)) p = 0;
+  else if (p >= F.period) p %= F.period;
+  F.phase = p;
+}
+
+function __fxDraw(L) {
+  const F = L.fx, B = L.buf, S = F.src, W = F.srcW, s = Math.floor(F.phase);
+  if (F.kind === "scroll") {
+    const m = (((s + F.lead) % F.period) + F.period) % F.period, shift = m - __W;
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, c = x + shift;
+        if (c < 0 || c >= W) { B[j] = B[j + 1] = B[j + 2] = B[j + 3] = 0; continue; }
+        const i = (y * W + c) * 4;
+        B[j] = S[i]; B[j + 1] = S[i + 1]; B[j + 2] = S[i + 2]; B[j + 3] = S[i + 3];
+      }
+    }
+  } else if (F.kind === "twinkle") {
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, a = S[j + 3];
+        B[j] = S[j]; B[j + 1] = S[j + 1]; B[j + 2] = S[j + 2];
+        if (a === 0) { B[j + 3] = 0; continue; }
+        const u = (s + __fxHash(x, y)) & 255, tri = u < 128 ? u : 255 - u;
+        B[j + 3] = Math.floor((a * (255 - tri - (tri >> 1)) + 127) / 255);
+      }
+    }
+  } else {
+    const T = F.lut;
+    for (let y = 0; y < __H; y++) {
+      for (let x = 0; x < __W; x++) {
+        const j = (y * __W + x) * 4, c = x - F.srcX, i = (y * W + c) * 4;
+        const a = c < 0 || c >= W ? 0 : S[i + 3];
+        if (a === 0) { B[j] = B[j + 1] = B[j + 2] = B[j + 3] = 0; continue; }
+        const u = (S[i] + s) & 511, k = (u < 256 ? u : 511 - u) * 4;
+        B[j] = T[k]; B[j + 1] = T[k + 1]; B[j + 2] = T[k + 2];
+        B[j + 3] = Math.floor((a * T[k + 3] + 127) / 255);
+      }
+    }
+  }
+}`;
+
+/**
+ * The code layer a single plain pattern is made of: the one layer left
+ * showing, drawn over the panel's black exactly as its code draws it. Null
+ * when the composition is a stack. The community upload and To hardware both
+ * take this layer, so the board gets what was published.
+ */
+export function loneCodeLayer(layers: Layer[]): CodeLayer | null {
   const visible = layers.filter(
     (layer) => layer.visible && (layer.role === "mask" || layer.opacity > 0),
   );
-  if (visible.length !== 1) return true;
-  return visible[0].type !== "code" || visible[0].role === "mask";
+  if (visible.length !== 1) return null;
+  const [layer] = visible;
+  if (layer.type !== "code" || layer.role === "mask") return null;
+  // Over black, normal, add and screen at 100% leave the code's pixels as
+  // they are. Under 100% they dim, and multiply turns them black: a white
+  // layer at 50% showed 128 in the preview, and its code alone lit the board
+  // at 255. Such a layer goes out as a stack of one, opacity and blend kept.
+  return layer.opacity >= 1 && layer.blend !== "multiply" ? layer : null;
+}
+
+/** Does this composition even need flattening, or is it a single plain pattern? */
+export function needsFlatten(layers: Layer[]): boolean {
+  return loneCodeLayer(layers) === null;
 }
 
 export function flattenLayers(
@@ -159,19 +250,26 @@ function __rle(s, n) {
   return out;
 }
 
+// The preview's display rules (harness.ts): a coordinate floors, so a point
+// at y = -0.5 falls off the top instead of landing on row 0, and a colour
+// rounds half up, with anything that is not a finite number drawn as 0.
+function __byte(v) {
+  return Number.isFinite(v) ? Math.max(0, Math.min(255, Math.round(v))) : 0;
+}
+
 function __mkDisplay(L) {
   return {
     width: __W, height: __H,
     setPixel(x, y, r, g, b) {
-      const xi = x | 0, yi = y | 0;
+      const xi = Math.floor(x), yi = Math.floor(y);
       if (xi < 0 || xi >= __W || yi < 0 || yi >= __H) return;
       const i = (yi * __W + xi) * 4, B = L.buf;
-      if (Array.isArray(r)) { B[i] = r[0] || 0; B[i + 1] = r[1] || 0; B[i + 2] = r[2] || 0; }
-      else { B[i] = r; B[i + 1] = g || 0; B[i + 2] = b || 0; }
+      if (Array.isArray(r)) { B[i] = __byte(r[0]); B[i + 1] = __byte(r[1]); B[i + 2] = __byte(r[2]); }
+      else { B[i] = __byte(r); B[i + 1] = __byte(g); B[i + 2] = __byte(b); }
       B[i + 3] = 255;
     },
     setValue(x, y, v) {
-      const xi = x | 0, yi = y | 0;
+      const xi = Math.floor(x), yi = Math.floor(y);
       if (xi < 0 || xi >= __W || yi < 0 || yi >= __H) return;
       v = Number.isFinite(v) ? (v < 0 ? 0 : v > 1 ? 1 : v) : 0;
       const i = (yi * __W + xi) * 4, B = L.buf, T = L.lut;
@@ -186,11 +284,33 @@ function __mkDisplay(L) {
   };
 }`);
 
+  // Text layers that move: each carries what it moves and a phase the knob
+  // speeds up. The helpers are textEffects.ts step for step.
+  const effects = new Map<TextLayer, ActiveTextEffect>();
+  for (const layer of stack) {
+    const effect = layer.type === "text" ? activeTextEffect(layer) : null;
+    if (layer.type === "text" && effect) effects.set(layer, effect);
+  }
+  if (effects.size > 0) parts.push(TEXT_FX_HELPERS);
+
   for (const layer of stack) {
     const roleProps = `role: "${layer.role}", maskInvert: ${layer.maskInvert}`;
-    if (layer.type === "pixel") {
+    const effect = layer.type === "text" ? effects.get(layer) : undefined;
+    if (layer.type === "text" && effect) {
       parts.push(`
-// ── pixel layer: ${commentSafe(layer.name)} ──
+// ── text layer, ${effect} on knob ${layer.spec.effectKnob + 1}: ${commentSafe(layer.name)} ──
+__stack.push({
+  kind: "pixel", opacity: ${layer.opacity}, blend: "${layer.blend}", ${roleProps},
+  buf: new Uint8ClampedArray(__W * __H * 4),
+  fx: ${textFxLiteral(layer, effect)},
+});`);
+      continue;
+    }
+    if (isRasterLayer(layer)) {
+      // A text layer travels as the pixels it was last drawn as: the font
+      // stays in the browser that has it.
+      parts.push(`
+// ── ${layer.type === "text" ? "text layer, as drawn" : "pixel layer"}: ${commentSafe(layer.name)} ──
 __stack.push({
   kind: "pixel", opacity: ${layer.opacity}, blend: "${layer.blend}", ${roleProps},
   buf: ${pixelBufferLiteral(layer.data)},
@@ -206,15 +326,24 @@ __stack.push({
   // Shadow the wrapper's own exports: a layer that defines no setup/update
   // must yield undefined here, not capture the OUTER setup (infinite loop).
   var setup, update, draw;
+  // The layer's code gets a scope of its own below the shadows, so
+  // \`const draw = …\` declares a new draw instead of clashing with the var.
+  const __fns = (function () {
 ${stripForEmbedding(layer.code)}
+    return {
+      setup: typeof setup === "function" ? setup : null,
+      update: typeof update === "function" ? update : null,
+      draw: typeof draw === "function" ? draw : null,
+    };
+  })();
   __stack.push({
     kind: "code", opacity: ${layer.opacity}, blend: "${layer.blend}", recolor: ${layer.recolor}, ${roleProps},
     lut: ${needsLUT ? lutLiteral(layer) : "null"},
     buf: new Uint8ClampedArray(__W * __H * 4),
     params: {},
-    fSetup: typeof setup === "function" ? setup : null,
-    fUpdate: typeof update === "function" ? update : null,
-    fDraw: typeof draw === "function" ? draw : null,
+    fSetup: __fns.setup,
+    fUpdate: __fns.update,
+    fDraw: __fns.draw,
   });
 })();`);
   }
@@ -265,6 +394,7 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   for (const L of __stack) {
+    if (L.fx) __fxAdvance(L.fx, dt, input);
     if (L.kind !== "code") continue;
     L.lastInput = input;
     __mirror(L);
@@ -274,6 +404,7 @@ export function update(dt, input, params) {
 
 export function draw(display, params, time) {
   for (const L of __stack) {
+    if (L.fx) __fxDraw(L);
     if (L.kind !== "code" || !L.fDraw) continue;
     L.buf.fill(0);
     __mirror(L);
@@ -324,7 +455,7 @@ export function draw(display, params, time) {
 
   // Carry the shared knob labels/ranges so reopening the flattened pattern
   // restores the same tuning.
-  const hasCode = stack.some((layer): layer is CodeLayer => layer.type === "code");
+  const hasCode = stack.some((layer): layer is CodeLayer => layer.type === "code") || effects.size > 0;
   const knobState = knobConfig ?? {
     labels: defaultKnobState().labels,
     ranges: defaultKnobState().ranges,

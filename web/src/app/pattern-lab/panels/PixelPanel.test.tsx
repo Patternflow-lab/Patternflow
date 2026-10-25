@@ -5,6 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import PixelPanel from "./PixelPanel";
+import { zoomToFit } from "./pixel/usePixelViewport";
 import { useLabStore } from "@/lib/lab/store";
 import type { PixelLayer } from "@/lib/lab/types";
 
@@ -56,6 +57,24 @@ describe("PixelPanel", () => {
     render(<PixelPanel />);
     fireEvent.click(screen.getByText("+ Add pixel layer"));
     expect(useLabStore.getState().layers.filter((entry) => entry.type === "pixel")).toHaveLength(2);
+  });
+
+  // The hint called every other layer a code pattern, written before text
+  // layers came in (#184).
+  it("names the selected layer's kind and the panel that edits it", () => {
+    const state = useLabStore.getState();
+    state.selectLayer(state.layers.find((entry) => entry.type === "code")!.id);
+    const { unmount } = render(<PixelPanel />);
+    expect(
+      screen.getByText("The selected layer is a code pattern. Edit it in the Code panel, or select a pixel layer to draw."),
+    ).toBeTruthy();
+    unmount();
+
+    useLabStore.getState().addTextLayer();
+    render(<PixelPanel />);
+    expect(
+      screen.getByText("The selected layer is text. Edit it in the Text panel, or select a pixel layer to draw."),
+    ).toBeTruthy();
   });
 
   it("pen: a press paints a dot, a drag paints a line, release commits", () => {
@@ -267,13 +286,20 @@ describe("PixelPanel", () => {
   };
 
   it("on a phone the picture opens fitted, all of it in view", () => {
-    // the Pixel viewport on a 390×844 phone, measured in Chromium
-    panelSize(372, 151);
+    // the Pixel viewport on a 390×844 touch phone, measured in Chromium
+    panelSize(372, 177);
     mount();
-    expect(screen.getByText("zoom 1×")).toBeTruthy();
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
     // and the zoom stays the user's to change
     fireEvent.click(screen.getByLabelText("Zoom in"));
-    expect(screen.getByText("zoom 2×")).toBeTruthy();
+    expect(screen.getByText("zoom 3×")).toBeTruthy();
+  });
+
+  it("the mouse gestures sit apart in the status line, where a touch screen can drop them", () => {
+    mount();
+    const hint = screen.getByText("alt-click picks · right-drag erases · middle-drag pans");
+    expect(hint.className).toBe("pixelMouseHint");
+    expect(hint.parentElement?.textContent).toContain("zoom 6×");
   });
 
   it("a desktop panel narrower than the picture at 6× opens fitted too", () => {
@@ -406,6 +432,42 @@ describe("PixelPanel", () => {
     expect(viewport.scrollTop).toBeGreaterThan(0);
   });
 
+  it("the zoom buttons keep the cell in the middle of the panel where it was", () => {
+    // a 300×200 panel, so the picture opens fitted at 2×
+    panelSize(300, 200);
+    const { overlay, viewport } = mount();
+    expect(screen.getByText("zoom 2×")).toBeTruthy();
+    // laid out as in the wheel test above; the viewport's box starts at 0, 0
+    const stage = overlay.parentElement as HTMLDivElement;
+    Object.defineProperty(overlay, "getBoundingClientRect", {
+      configurable: true,
+      value: () => {
+        const left = 16 - viewport.scrollLeft;
+        const top = 16 - viewport.scrollTop;
+        const width = parseFloat(stage.style.width);
+        const height = parseFloat(stage.style.height);
+        return { left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) };
+      },
+    });
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByLabelText("Zoom in"));
+    expect(screen.getByText("zoom 6×")).toBeTruthy();
+    // scroll the middle of cell (50, 20) to the middle of the panel, (150, 100)
+    viewport.scrollLeft = 50.5 * 6 + 16 - 150;
+    viewport.scrollTop = 20.5 * 6 + 16 - 100;
+    const middle = () => fireEvent.pointerMove(overlay, at(150, 100, { buttons: 0 }));
+    middle();
+    expect(screen.getByText("50,20")).toBeTruthy();
+    for (const [button, zoom] of [["Zoom in", 7], ["Zoom in", 8], ["Zoom out", 7], ["Zoom out", 6]] as const) {
+      fireEvent.click(screen.getByLabelText(button));
+      expect(screen.getByText(`zoom ${zoom}×`)).toBeTruthy();
+      middle();
+      expect(screen.getByText("50,20")).toBeTruthy();
+    }
+    // the same scroll it started from, after going up two and down two
+    expect(viewport.scrollLeft).toBeCloseTo(50.5 * 6 + 16 - 150, 6);
+    expect(viewport.scrollTop).toBeCloseTo(20.5 * 6 + 16 - 100, 6);
+  });
+
   it("switching layers drops the selection", () => {
     const { overlay, viewport } = mount();
     fireEvent.keyDown(viewport, { key: "s" });
@@ -420,5 +482,15 @@ describe("PixelPanel", () => {
     fireEvent.pointerDown(overlay, at(2, 2));
     fireEvent.pointerUp(overlay, at(2, 2));
     expect(screen.queryByTitle(/Stamp the selection down/)).toBeNull();
+  });
+});
+
+describe("zoomToFit", () => {
+  it("fits 128×64 at 2× from a 168px-tall viewport, 64 × 2 and 40 of padding", () => {
+    expect(zoomToFit(372, 167, 128, 64)).toBe(1);
+    expect(zoomToFit(372, 168, 128, 64)).toBe(2);
+    // a 390×844 phone, with and without the mouse gestures under the picture
+    expect(zoomToFit(372, 151, 128, 64)).toBe(1);
+    expect(zoomToFit(372, 177, 128, 64)).toBe(2);
   });
 });

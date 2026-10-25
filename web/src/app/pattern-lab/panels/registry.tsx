@@ -15,7 +15,7 @@
 // panel to sit next to and the side, and buildDefaultLayout() adds panels in
 // whatever order satisfies that.
 //
-// The heavy editors — Pixel, Director, Graphic Export, Gallery — are loaded
+// The heavy editors — Pixel, Text, Director, Graphic Export — are loaded
 // on demand. They are a third of the lab's code and most sessions open one
 // of them at most; before this every panel sat in the route's first chunk.
 
@@ -35,15 +35,15 @@ export type PanelId =
   | "layers"
   | "code"
   | "pixel"
-  | "gallery"
+  | "text"
   | "knobs"
   | "ramp"
   | "capture"
   | "director";
 
-export type DockDirection = "right" | "below" | "within";
+type DockDirection = "right" | "below" | "within";
 
-export type PanelDef = {
+type PanelDef = {
   id: PanelId;
   /** The tab title. Belongs here, not to a saved layout — a rename reaches everyone. */
   title: string;
@@ -79,7 +79,7 @@ export const PANELS: readonly PanelDef[] = [
   { id: "layers", title: "Layers", component: LayersPanel, dock: { ref: "preview", dir: "below" }, size: { height: 0.34 } },
   { id: "code", title: "Code", component: CodePanel, dock: { ref: "preview", dir: "right" }, active: true },
   { id: "pixel", title: "Pixel", component: lazy(() => import("./PixelPanel")), dock: { ref: "code", dir: "within" } },
-  { id: "gallery", title: "Gallery", component: lazy(() => import("./GalleryPanel")), dock: { ref: "code", dir: "within" } },
+  { id: "text", title: "Text", component: lazy(() => import("./TextPanel")), dock: { ref: "code", dir: "within" } },
   { id: "knobs", title: "Knobs", component: KnobsPanel, dock: { ref: "code", dir: "right" }, size: { width: 0.24 } },
   { id: "ramp", title: "Color Ramp", component: RampPanel, dock: { ref: "knobs", dir: "below" }, size: { height: 0.42 } },
   // Output stage (stills/clips at print sizes) — an add-on module, see lib/lab/capture.
@@ -90,6 +90,31 @@ export const PANELS: readonly PanelDef[] = [
 
 export function panelDef(id: string): PanelDef | undefined {
   return PANELS.find((entry) => entry.id === id);
+}
+
+type PanelPress = "opened" | "fronted" | "closed";
+
+/**
+ * A press on a panel's name in the Panels menu. A closed panel opens, a panel
+ * in front closes, and an open panel behind another tab comes to the front.
+ *
+ * The menu marks every open panel ●, in front or not. On a phone every panel
+ * but Preview is a tab in one group, so Knobs wore a ● while Code covered it,
+ * and pressing it closed the panel it was meant to show. A second press put
+ * it back as the last tab: four presses to reach Knobs at 390×844.
+ */
+export function togglePanel(api: DockviewApi, id: PanelId): PanelPress {
+  const existing = api.getPanel(id);
+  if (!existing) {
+    api.addPanel({ id, component: id, title: panelDef(id)?.title ?? id });
+    return "opened";
+  }
+  if (!existing.api.isVisible) {
+    existing.api.setActive();
+    return "fronted";
+  }
+  api.removePanel(existing);
+  return "closed";
 }
 
 /** What DockviewReact wants: component name → component. Names are panel ids. */
