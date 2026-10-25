@@ -97,7 +97,7 @@ export function update(dt, input, params) {
   // The first draft comes at 4 s, sooner the more the air moves.
   if (P.nextGust < 0) P.nextGust = 4 - 2.5 * dr;
 
-  // Drafts: a gust rises in 0.5 s, holds, and dies away over 1.2 s, all
+  // Drafts: a gust rises in 0.5 s, holds and then dies away over 1.2 s, all
   // flames leaning its way.
   if (t >= P.nextGust && P.gStart < 0) {
     P.gStart = t;
@@ -121,7 +121,7 @@ export function update(dt, input, params) {
   for (const c of P.cands) {
     c.mt += d;
     const sd = c.seed;
-    // Going out, staying dark, and lighting again.
+    // A flame goes out, stays dark a while, then lights again.
     if (c.mode === "lit") {
       let chance = (0.006 + 0.05 * dr + (abs(P.gust) > 0.6 ? 0.15 * dr : 0)) * d;
       if (out) chance *= 0.3;

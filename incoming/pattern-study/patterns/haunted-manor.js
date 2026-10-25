@@ -461,7 +461,7 @@ export function draw(display, params) {
       rgb[q + 2] = b;
     }
   }
-  // Rain over everything, pale, and white while the sky is lit.
+  // Rain over everything, pale, turning white while the sky is lit.
   const sl = S.slant, rl = mix(0.28, 0.85, flash);
   for (const d of S.drops) {
     for (let s = 0; s < d.l; s++) {
