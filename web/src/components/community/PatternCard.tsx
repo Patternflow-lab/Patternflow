@@ -7,7 +7,7 @@ import { authClient } from "@/lib/community/auth-client";
 import AuthModal from "@/components/community/AuthModal";
 import { renderPatternThumb } from "@/lib/community/thumbs";
 import { knobSetupFromCode } from "@/lib/community/knobs";
-import { KNOB_SPAN_FLOOR, normalizeKnob, tidyKnobValue } from "@/lib/pattern/controls";
+import { knobWheelValue, normalizeKnob } from "@/lib/pattern/controls";
 import {
   describeMatrixShape,
   formatMatrix,
@@ -375,15 +375,12 @@ export default function PatternCard({
     if (e.ctrlKey) return;
     e.preventDefault();
 
-    const [min, max] = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
-    const span = Math.max(KNOB_SPAN_FLOOR, max - min);
-    const step = span / 25;
+    const range = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
     const direction = e.deltaY < 0 ? 1 : -1;
 
     setKnobValues((prev) => {
       const next = [...prev];
-      const current = next[activeKnobIdx] ?? min;
-      next[activeKnobIdx] = Math.max(min, Math.min(max, tidyKnobValue(current + direction * step)));
+      next[activeKnobIdx] = knobWheelValue(next[activeKnobIdx] ?? range[0], range, direction);
       return next;
     });
   };

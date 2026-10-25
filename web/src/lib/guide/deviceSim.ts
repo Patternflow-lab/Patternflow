@@ -17,7 +17,7 @@ import { PatternRuntime, type ColorRamp, type PatternInput } from "@/lib/pattern
 import { parseRampAnnotation } from "@/lib/pattern/ramp";
 import { hexToRgb } from "@/lib/pattern/color";
 import { knobSetupFromCode } from "@/lib/community/knobs";
-import { LOGICAL_KNOB_DEFAULTS, knobUnitsPerTurn } from "@/lib/pattern/controls";
+import { LOGICAL_KNOB_DEFAULTS, knobUnitsPerTurn, normalizeKnob } from "@/lib/pattern/controls";
 import { livePresets } from "@/lib/presets";
 import { BASICS_PACK } from "@/lib/pattern/packs";
 import { BUS_MAX, BUS_UNITS_PER_CLICK, DETENTS_PER_TURN, EDGES_PER_DETENT, KNOB_COUNT } from "@/lib/shared/constants";
@@ -910,10 +910,7 @@ export class DeviceSim {
     const input: PatternInput = {
       knobDeltas: toPattern.detents,
       knobValues: values,
-      knobNormalized: values.map((v, i) => {
-        const [min, max] = ranges[i] ?? [0, 1];
-        return (v - min) / Math.max(0.0001, max - min);
-      }),
+      knobNormalized: values.map((v, i) => normalizeKnob(v, ranges[i] ?? [0, 1])),
       knobRanges: ranges,
       btnPressed: toPattern.presses,
       btnHeld: this.knobs.map((k, i) => this.mode === "run" && (k.down || this.remoteDown[i])),

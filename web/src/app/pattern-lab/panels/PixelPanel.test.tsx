@@ -59,8 +59,8 @@ describe("PixelPanel", () => {
     expect(useLabStore.getState().layers.filter((entry) => entry.type === "pixel")).toHaveLength(2);
   });
 
-  // The hint called every other layer a code pattern, written before text
-  // layers came in (#184).
+  // The hint called every other layer a code pattern, written before the Lab
+  // had text layers.
   it("names the selected layer's kind and the panel that edits it", () => {
     const state = useLabStore.getState();
     state.selectLayer(state.layers.find((entry) => entry.type === "code")!.id);
