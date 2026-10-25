@@ -1,0 +1,66 @@
+// patternflow.work on Cloudflare Workers. Next.js runs through the OpenNext
+// adapter (@opennextjs/cloudflare): `npm run cf:build` turns `next build` into
+// .open-next/worker.js and .open-next/assets, and wrangler deploys those two.
+// The Vercel deployment (vercel.json) keeps running from the same tree until
+// the domain moves; DEPLOY-cloudflare.md has the order and the way back.
+//
+// The community is not here. It runs on its own host
+// (community.patternflow.work, see docs/SERVICES.md), and on this Worker
+// COMMUNITY_ENABLED stays unset, so /api/community answers 404 from proxy.ts.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "patternflow-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  // patternflow-web.<account>.workers.dev is where the creator looks at the
+  // site before any domain points here. No routes yet: patternflow.work and
+  // www are attached as Custom Domains once the workers.dev site checks out.
+  "workers_dev": true,
+  "preview_urls": true,
+
+  // public/ is answered from here before Next.js runs, so next.config.ts's
+  // headers() never reach it; scripts/cf-headers.ts writes them into
+  // .open-next/assets/_headers instead. "none" serves a file at the path it
+  // has, as Vercel does: the default sends /pattern-sandbox.html?v=… on to
+  // /pattern-sandbox, and the guide's console window loads its pages by their
+  // .html names.
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+    "html_handling": "none"
+  },
+
+  "services": [
+    {
+      // Self-reference (must match "name"). The memory queue in
+      // open-next.config.ts revalidates /api/roadmap through it.
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "patternflow-web"
+    }
+  ],
+
+  // The incremental cache: every prerendered page, and /api/roadmap, which
+  // refreshes from GitHub every 10 minutes (revalidate = 600). The deploy
+  // command creates the bucket if it is missing and uploads the build's
+  // entries before the new version goes live.
+  "r2_buckets": [
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "patternflow-web-cache"
+    }
+  ],
+
+  // next/image goes through Cloudflare Images: resized to the width the page
+  // asks for and re-encoded as WebP, like Vercel did. Without this binding
+  // /_next/image hands back the original file, and some journal photos are
+  // 6 MB.
+  "images": {
+    "binding": "IMAGES"
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

@@ -3,6 +3,11 @@ import { getAllJournalPosts } from "@/lib/journal";
 
 const siteUrl = "https://patternflow.work";
 
+// Built once with the site. A GET handler runs on every request unless it
+// says otherwise, and this one reads content/journal, which is on disk while
+// the site builds and nowhere inside a Cloudflare Worker.
+export const dynamic = "force-static";
+
 export function GET() {
   const posts = getAllJournalPosts();
   const feed = new Feed({

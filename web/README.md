@@ -25,9 +25,10 @@ npm run virtual-panel       # a Patternflow with no board, until Ctrl-C; on Linu
 npm run check:human-lock    # fails if a word of the maintainer's own writing changed since the merge-base with origin/dev
 npm run check:voice         # file:line for each banned word or pattern in the lines added since that merge-base; run it before a PR that adds prose (CI does not)
 npm start                   # serve the production build
+npm run cf:preview          # the Cloudflare Workers build on a local workerd, http://localhost:8787 (DEPLOY-cloudflare.md)
 ```
 
-Requires Node 20+ (matches CI).
+Requires Node 20+ (matches CI). The `cf:` scripts need Node 22, which wrangler asks for.
 
 ## Environment variables
 
@@ -36,6 +37,7 @@ None are required — the site runs fully without them. The community host needs
 | Var | Purpose |
 | :--- | :--- |
 | `NEXT_PUBLIC_POSTHOG_KEY` / `NEXT_PUBLIC_POSTHOG_HOST` | PostHog analytics (no-op when absent) |
+| `NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN` | Cloudflare Web Analytics beacon, read at build (no-op when absent) |
 | `GITHUB_TOKEN` | Higher GitHub rate limit for `/api/roadmap` (optional) |
 
 ## Where things live
