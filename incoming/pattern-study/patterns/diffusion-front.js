@@ -18,7 +18,7 @@
 // Buttons: K1 tap starts a fresh lattice.
 
 const W = 64, H = 128, N = W * H;
-const { floor, min, max, exp, sqrt, abs, pow, round } = Math;
+const { floor, exp, sqrt, abs, pow } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // erfc(x) to 1.2e-7 (Numerical Recipes' Chebyshev fit).
@@ -36,10 +36,12 @@ const L1 = 320, L0 = 10, GROW = 4.8, HOLD = 0.5, DRAIN = 1.0, PC = 0.5927;
 
 export function setup(params) {
   params.s = {
-    hue: 0, speed: 2, hop: 0, isl: 0.06, c: 0, ph: 0, L: L0, runs: 0,
+    hue: 0, speed: 2, hop: 0, isl: 0.06, c: 0, L: L0, runs: 0,
     u: new Float32Array(N), occ: new Uint8Array(N), A: new Uint8Array(N), B: new Uint8Array(N), hull: new Uint8Array(N),
     join: new Float32Array(N), q: new Int32Array(N), p: new Float64Array(H), glow: new Float32Array(N * 3), ease: 1,
-    nA: 0, nHull: 0, hf: 0,
+    // Front sites and their mean height in rows, kept for checking the
+    // front against the threshold.
+    nHull: 0, hf: 0,
   };
   fresh(params.s);
 }
@@ -48,7 +50,6 @@ function fresh(S) {
   for (let i = 0; i < N; i++) S.u[i] = Math.random();
   S.join.fill(-1);
   S.c = 0;
-  S.ph = 0;
   S.runs++;
 }
 
@@ -71,7 +72,6 @@ function percolate(S) {
     if (i >= W && occ[i - W] && !A[i - W]) (A[i - W] = 1), (q[t++] = i - W);
     if (i + W < N && occ[i + W] && !A[i + W]) (A[i + W] = 1), (q[t++] = i + W);
   }
-  S.nA = t;
   B.fill(0);
   t = 0;
   for (let x = 0; x < W; x++) if (!occ[x]) (B[x] = 1), (q[t++] = x);
