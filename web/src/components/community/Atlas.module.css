@@ -361,15 +361,6 @@
   margin: 6px 0 14px;
 }
 
-.panelWell {
-  position: relative;
-  width: 140px;
-  height: 280px;
-  border: 1px solid var(--pfc-hair);
-  background: var(--pfc-well);
-  overflow: hidden;
-}
-
 .openLink {
   display: inline-block;
   margin-top: 4px;

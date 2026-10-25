@@ -2766,35 +2766,6 @@
   font-weight: 500;
 }
 
-/* ── Sign-in gate ──
-   Never a wall: everything plays without an account, so the prompt appears
-   inline at the moment something needs keeping, with the knobs left alone. */
-.gatePanel {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  border: 1px solid rgba(244, 239, 230, 0.16);
-  background: var(--pfc-panel);
-  padding: 16px 18px;
-  max-width: 560px;
-}
-
-.gateText {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.gateTitle {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.gateSub {
-  font-size: 12.5px;
-  color: var(--pfc-ink-muted);
-}
-
 /* ── Firmware build modal ── */
 
 .buildStatusLine {
@@ -2873,20 +2844,6 @@
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--pfc-led);
-}
-
-.sectionLink {
-  font-family: var(--pf-mono, monospace);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--pfc-ink);
-  text-decoration: none;
-  margin-left: auto;
-}
-
-.sectionLink:hover {
   color: var(--pfc-led);
 }
 
@@ -3031,22 +2988,7 @@
 /* An anchor that has to sit in a row of buttons and match them. It is a real
    link rather than a button because it leaves for the device's own origin —
    middle-click and "open in new tab" should work, and a click handler would
-   take those away. */
-.btnLink {
-  composes: btn;
-  display: inline-flex;
-  align-items: center;
-  text-decoration: none;
-  /* No line-height override: the buttons beside it inherit the body's, and
-     resetting it here made the link 6px shorter than everything in the row. */
-}
-
-.btnLink[aria-disabled="true"] {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* The accent weight of the same thing — "this leaves the page and touches
+   take those away. The accent weight says "this leaves the page and touches
    your board", which is exactly what it does.
    `composes: btn btnAccent` names both on purpose: composing btnAccent alone
    emits only two classes here, dropping the btn underneath it, so the fill
@@ -3313,27 +3255,6 @@
 .zipHostField:focus {
   outline: none;
   border-color: var(--pfc-ink);
-}
-
-/* Fresh from the wall: a single dense row under the decks, so the newest work
-   is one glance away from the curated shelf. */
-.freshStrip {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 12px;
-}
-
-@media (max-width: 1100px) {
-  .freshStrip {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 768px), (hover: none) {
-  .freshStrip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
 }
 
 /* ── Deck page ── */
@@ -3754,16 +3675,6 @@
   color: var(--pfc-ink);
 }
 
-.introRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 13.5px;
-  color: var(--pfc-ink-muted);
-  flex: none;
-}
-
 .postComposer {
   display: flex;
   flex-direction: column;
@@ -3824,13 +3735,6 @@
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.composerCount {
-  flex: 1;
-  font-family: var(--pf-mono, monospace);
-  font-size: 11px;
-  color: var(--pfc-ink-faint);
 }
 
 .postList {
@@ -5733,10 +5637,6 @@ button.legendWalk:hover {
 
   .feedGrid {
     gap: 8px;
-  }
-
-  .introRow {
-    font-size: 13px;
   }
 
   .feedControls {

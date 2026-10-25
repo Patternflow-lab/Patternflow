@@ -9,10 +9,11 @@
 // On the same screen Del was 37×28px, the layer eye 20×17px and Push 40×22px,
 // and the Pixel status bar was 51px, two lines with the mouse gestures.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { bareCss, readers } from "../../../test/cssModules";
 import { NARROW_DOCK_QUERY } from "./panels/registry";
 
 const css = (name: string) => readFileSync(path.resolve(__dirname, name), "utf8");
@@ -182,59 +183,6 @@ describe("Pixel status line on a touch screen", () => {
   });
 });
 
-/** Every `.tsx` and `.ts` under `src/`, tests left out. */
-const src = path.resolve(__dirname, "../..");
-const sources = (readdirSync(src, { recursive: true }) as string[])
-  .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
-  .map((file) => path.join(src, file))
-  .map((file) => ({ file, text: readFileSync(file, "utf8") }));
-
-/** A stylesheet with its comments and quoted strings taken out. */
-const bareCss = (name: string) => css(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, "");
-
-/** Each class of the module at `file` that a file importing it reads as
- *  `styles.name` or `styles["name"]`, with the files that read it. Null when
- *  one of them reads the module by a computed name. */
-function readers(file: string): Map<string, Set<string>> | null {
-  const read = new Map<string, Set<string>>();
-  for (const { file: from, text } of sources) {
-    for (const [, local, spec] of text.matchAll(/import (\w+) from "([^"]+\.module\.css)"/g)) {
-      const target = spec.startsWith("@/") ? path.join(src, spec.slice(2)) : path.resolve(path.dirname(from), spec);
-      if (target !== file) continue;
-      if (new RegExp(`\\b${local}\\[(?!["'\`])`).test(text)) return null;
-      for (const m of text.matchAll(new RegExp(`\\b${local}(?:\\.(\\w+)|\\[["'\`](\\w+)["'\`]\\])`, "g"))) {
-        const name = m[1] ?? m[2];
-        read.set(name, (read.get(name) ?? new Set<string>()).add(from));
-      }
-    }
-  }
-  return read;
-}
-
-describe("Lab CSS modules", () => {
-  // Until 24 October 2026 these files held 13 classes that no component put
-  // on an element, and 220 lines of rules for them. A class counts as used
-  // when a file importing its module reads `styles.name` or `styles["name"]`,
-  // or a rule in the same file composes it. A module read by a computed name
-  // counts as used whole.
-  const modules = (readdirSync(__dirname, { recursive: true }) as string[]).filter((file) => file.endsWith(".module.css"));
-
-  it("define no class that no component uses", () => {
-    const unused: Record<string, string[]> = {};
-    for (const name of modules) {
-      const bare = bareCss(name);
-      const defined = new Set([...bare.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
-      const used = new Set([...bare.matchAll(/composes:([^;]+);/g)].flatMap((m) => m[1].trim().split(/\s+/)));
-      const read = readers(path.join(__dirname, name));
-      for (const cls of read?.keys() ?? []) used.add(cls);
-      const dead = read === null ? [] : [...defined].filter((cls) => !used.has(cls)).sort();
-      if (dead.length) unused[name] = dead;
-    }
-    expect(modules.length).toBeGreaterThan(0);
-    expect(unused).toEqual({});
-  });
-});
-
 describe("PatternLab.module.css", () => {
   // The file is for what two or more files draw with. Until 25 October 2026
   // it also held 22 rules only the shell read, for the header, and the dark
@@ -246,7 +194,7 @@ describe("PatternLab.module.css", () => {
     expect(read).not.toBeNull();
     const by = (cls: string) => [...(read?.get(cls) ?? [])];
     const files = new Map<string, Set<string>>();
-    for (const [, selectors] of bareCss("PatternLab.module.css").matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    for (const [, selectors] of bareCss(path.resolve(__dirname, "PatternLab.module.css")).matchAll(/([^{}]+)\{[^{}]*\}/g)) {
       const plain = selectors.split(",").flatMap((part) => /^\s*\.([_a-zA-Z][\w-]*)\s*$/.exec(part)?.[1] ?? []);
       for (const [, cls] of selectors.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) {
         const reach = plain.includes(cls) ? plain.flatMap(by) : by(cls);
@@ -269,7 +217,7 @@ describe("LabPanels.module.css", () => {
     const read = readers(path.resolve(__dirname, "LabPanels.module.css"));
     expect(read).not.toBeNull();
     // Only names the file defines: registry.tsx also reads `def.dock.ref`.
-    const defined = new Set([...bareCss("LabPanels.module.css").matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+    const defined = new Set([...bareCss(path.resolve(__dirname, "LabPanels.module.css")).matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
     const panels = path.join(__dirname, "panels") + path.sep;
     const alone = [...(read ?? [])]
       .filter(([cls, from]) => defined.has(cls) && from.size === 1 && [...from].every((file) => file.startsWith(panels)))

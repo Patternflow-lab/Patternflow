@@ -250,12 +250,6 @@
     transform: translate3d(0, 128%, 0);
   }
 }
-/* A rule being drawn, from where the reading starts. */
-@keyframes draw {
-  from {
-    transform: scaleX(0);
-  }
-}
 
 /* The first load. The page's words arrive with the first paint and never
    wait for the stage; where the device will stand there is, on a first
