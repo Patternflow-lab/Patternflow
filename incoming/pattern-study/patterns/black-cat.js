@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Black Cat
 // Family:  halloween
-// Idea:    A big black cat sits in profile on a garden wall against a low harvest moon, its tail swishing in slow S-curves, its ears twitching and its glowing eyes blinking and looking round, and now and then it arches its back, its fur bristling and its mouth open in a hiss, before it settles again.
+// Idea:    A big black cat sits in profile on a garden wall against a low harvest moon beside a jack-o'-lantern, swishing its tail in slow S-curves, twitching its ears and following the bats round the moon with glowing eyes, and now and then it arches its back, fur on end and mouth open in a hiss, before it settles again.
 // Author:  patternflow-lab
 // Date:    2026-10-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Mood=0..1, Startle=0..1
 //
-// Knob 1: Hue. The moon and the light it throws round the cat's edges, with the eyes in the colour opposite. At 0 a harvest orange moon and toxic green eyes; at 0.25 a green moon and violet eyes, at 0.5 a cold blue moon and amber eyes, at 0.75 a purple moon.
-// Knob 2: Speed. The cat's clock. At 2 the tail swings through one S-curve in 2.6 seconds and the cat blinks every 2 to 5 seconds; at 0.2 everything is ten times slower, at 3 half as fast again.
-// Knob 3: Mood. At 0 the cat is watchful: the tail swishes 0.35 rad a joint, the ears stand up, the pupils are wide. At 1 it is furious: the tail lashes 1.7 times as fast and wide, the ears are laid back, the pupils are slits and the fur along its back stands up.
-// Knob 4: Startle. How often it arches and hisses. At 0.06 the first arch comes at 3.3 s and the next 11.5 s after the last; at 1 the first is at 0.5 s and one follows another every 3 s.
+// Knob 1: Hue. The moon and the light it throws round the cat's edges and whiskers, with the eyes in the colour opposite; the jack-o'-lantern stays candle orange. At 0 a harvest orange moon and toxic green eyes; at 0.25 a green moon and blue eyes, at 0.5 a cold blue moon and magenta eyes, at 0.75 a magenta moon and orange eyes.
+// Knob 2: Speed. The cat's clock. At 2 a wave runs down the tail every 2.6 seconds while the whole curl sways once in 5.2, the tail snaps upright every 1.6 to 3.2 seconds, the cat blinks every 2 to 5 seconds and the bats flap 4.5 times a second; at 0.2 everything is ten times slower, at 3 half as fast again.
+// Knob 3: Mood. At 0 the cat is watchful: the wave on its tail bends each joint 0.3 rad, the ears stand up, the pupils are wide. At 1 it is furious: the wave runs 1.7 times as fast and bends 0.52 rad, the tail snaps up 2.4 times as often, the cat leans 0.12 rad forward over its paws, its ears are laid back, its eyes narrow to slits and the fur along its back stands up.
+// Knob 4: Startle. How often it arches and hisses: up in 0.35 s, held 1.6 s, down in 1.2 s. At 0.06 the first arch comes at 3.1 s and the next 11.5 s after the last has settled; at 1 the first comes at 0.5 s and the next 3 s after.
 // Buttons: K4 tap startles it into an arch at once.
 
 const W = 64, H = 128, N = W * H, WALL = 102;
@@ -125,7 +125,7 @@ const vn = (x, sd) => {
 // Bats flitting round the moon, behind the cat: each loops on its own
 // figure of eight [centre x, centre y, half width, half height, rate x,
 // rate y, phase], with a jitter on top, and flaps about 4.5 times a second.
-const BATS = [[50, 32, 11, 10, 0.53, 0.97, 0], [44, 19, 16, 7, 0.41, 0.83, 2.1], [54, 58, 7, 12, 0.67, 0.59, 4.2]];
+const BATS = [[50, 32, 11, 10, 0.53, 0.97, 0], [44, 19, 16, 7, 0.41, 0.83, 2.1], [54, 58, 7, 12, 0.67, 0.59, 4.2], [47, 45, 13, 15, 0.47, 0.71, 5.3]];
 const batAt = (b, t) => [b[0] + b[2] * sin(b[4] * t + b[6]) + 1.5 * vn(t * 1.7, b[6] * 9), b[1] + b[3] * sin(b[5] * t + b[6] * 1.3) + 1.5 * vn(t * 1.9, b[6] * 9 + 3)];
 function batDist(px, py, bx, by, dir, flap) {
   const x = (px - bx) * dir, y = py - by, ax = abs(x), tip = -1.2 + 3.2 * flap;
@@ -143,8 +143,8 @@ export function setup(params) {
     arch: -1, wait: 3.3,
     // Eyes: blink clock, look target and where they look now; ear twitches.
     blink: 1.5, blinkAge: 9, look: 0, lookTo: 0.6, lookWait: 1.2, tilt: 0,
-    ear: [0, 0], earWait: [2.5, 4], earAge: [9, 9], lash: 9, lashWait: 0.8,
-    tail: new Float32Array(2 * 15), cat: new Float32Array(N), blk: new Uint8Array(16 * 32), tb: [0, 0, 0, 0], flap: 0, bats: BATS.map(() => [0, 0, 1]),
+    earWait: [2.5, 4], earAge: [9, 9], lash: 9, lashWait: 0.8,
+    tail: new Float32Array(2 * 15), blk: new Uint8Array(16 * 32), tb: [0, 0, 0, 0], flap: 0, bats: BATS.map(() => [0, 0, 1]),
     c: [0, 0, 0], e: [0, 0, 0],
   };
 }
@@ -333,13 +333,16 @@ function catDist(S, sx, sy, a) {
   }
   // A hiss opens the mouth: a wedge cut from the muzzle.
   if (hiss > 0.05) dh = max(dh, -tri(qx, qy, [10, 51.5 - 1.5 * hiss, 19, 52.5, 10, 53.5 + 3 * hiss]));
-  return { d: min(d, dh) * SC, qx, qy, hiss };
+  // Three whiskers from the muzzle, thin enough to show only as light.
+  let wk = 1e9;
+  if (qx < 16 && qy > 45 && qy < 58) for (let i = 0; i < 3; i++) wk = min(wk, capsule(qx, qy, 13, 50 + i, 7.5, 48 + 2.6 * i, 0.3, 0.3));
+  return { d: min(d, dh) * SC, qx, qy, wk: wk * SC };
 }
 
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const a = pose(S), L = S.c, E = S.e, cat = S.cat;
+  const a = pose(S), L = S.c, E = S.e;
   // The light: moon and rim in one hue, the eyes in the opposite one.
   hsv(0.075 + S.hue, 0.78, 1, L);
   hsv(0.33 + S.hue, 0.85, 1, E);
@@ -384,7 +387,7 @@ export function draw(display, params) {
         B = max(B, v * 1.1);
       }
       // Bats: black against the moon, a shade lighter than the night sky.
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < BATS.length; i++) {
         const [bx, by, dir] = S.bats[i];
         if (abs(px - bx) > 7 || abs(py - by) > 6) continue;
         const cov = cl(0.5 - batDist(px, py, bx, by, dir, sin(S.flap + i * 2.2)), 0, 1);
@@ -435,17 +438,21 @@ export function draw(display, params) {
           B = 0.05;
         }
       }
-      cat[p] = 0;
       const bk = blk[(y >> 2) * 16 + (x >> 2)];
       if (bk === 1) {
-        cat[p] = 1;
         R = 0.012;
         G = 0.008;
         B = 0.02;
       } else if (bk === 2 && y > 8 && y < WALL + 1) {
         const C = catDist(S, px, py, a), cov = cl(0.5 - C.d, 0, 1);
+        // The whiskers catch the moonlight where the night is behind them.
+        const wv = cov === 0 ? cl(0.6 - C.wk, 0, 0.6) * (1 - MOONT[p]) : 0;
+        if (wv > 0) {
+          R += (L[0] - R) * wv;
+          G += (L[1] - G) * wv;
+          B += (L[2] - B) * wv;
+        }
         if (cov > 0) {
-          cat[p] = 1;
           // Rim light: the first LED inside the edge in the moon's colour,
           // the second at a third, strongest away from the moon's face.
           const rim = (C.d > -1.2 ? 1 : C.d > -2.2 ? 0.35 : 0) * (0.35 + 0.65 * (1 - MOONT[p]));
