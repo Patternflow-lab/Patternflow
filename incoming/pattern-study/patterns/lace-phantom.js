@@ -96,7 +96,7 @@ export function setup(params) {
     hue: 0, speed: 2, lace: 0, haunt: 0.06, t: 0,
     face: null, wait: 2.3, queued: false,
     L: new Uint8Array(N), lit: new Float32Array(N), score: new Float32Array(N), knot: new Uint8Array(N),
-    hist: new Int32Array(BINS), c: [0, 0, 0], d: [0, 0, 0],
+    hist: new Int32Array(BINS), c: [0, 0, 0],
   };
 }
 
@@ -236,8 +236,7 @@ export function draw(display, params) {
   }
   // Colours: a pale tint where the lace is lit, the deep tint in shadow;
   // either way the brightest channel is the level the checker asks for.
-  const h = 0.76 - 0.42 * S.hue, c = S.c, dc = S.d;
-  hsv(h + 0.03, 1, 1, dc);
+  const h = 0.76 - 0.42 * S.hue, c = S.c;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
