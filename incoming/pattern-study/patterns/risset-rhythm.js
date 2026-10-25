@@ -38,7 +38,7 @@ const PAST = 0.6, FLASH = 3, HALO = 0.45, HR = 12, LANE = 0.12;
 
 export function setup(params) {
   params.s = {
-    t: 0, dir: 1, hue: 0, speed: 2, spread: 1.1, r: 2,
+    t: 0, dir: 1, hue: 0, speed: 2, spread: 1.4, r: 2,
     buf: new Float32Array(NP * 3), bell: new Float32Array(W), cr: new Float32Array(W), cg: new Float32Array(W), cb: new Float32Array(W),
   };
 }
