@@ -15,6 +15,7 @@
 // Knob 2: Speed. At 2 a parcel of water takes 1.2 seconds from the jaws to the puddle and a raindrop crosses the panel in 0.8; at 0.2 the water hangs ten times slower, at 3 it falls half as fast again. The clouds scud on the same clock, and the gaps between strikes stretch up to 1.6 times at 0.2 and shrink by a fifth at 3. A flash always lasts the same half second.
 // Knob 3: Rain. At 0 a steady rain of 90 drops and a stream three LEDs thick that frays into drops on the way down; at 1 a downpour of 280 drops slanting harder, and a gush four LEDs thick at the jaws, thrown 5 LEDs further, that frays to eight and splashes twice as high.
 // Knob 4: Lightning. The first strike always comes 1.5 seconds after the start. Then at 0 one every 4.5 seconds on average, a bolt with at most one branch; at the opening 0.06 one every 4.3; at 1 one every 0.9 seconds, brighter, with up to five branches and a third return stroke. Each strike leaves the eyes glowing green for about 2.5 seconds.
+// Buttons: any button calls a strike at once.
 
 const W = 64, H = 128, N = W * H;
 const { floor, min, max, abs, sqrt, sin, cos, exp, hypot, PI } = Math;
@@ -337,7 +338,7 @@ export function update(dt, input, params) {
     strike(S);
     S.next = S.t + mix(4.5, 0.9, S.bolt) * (0.7 + 0.6 * Math.random()) * min(2.5, 2 / S.speed) ** 0.5;
   }
-  // The eyes kindle a quarter second after each strike, glow, and fade.
+  // The eyes kindle a quarter second after each strike and stay lit until two seconds after it, then fade.
   const e = S.t - S.strikeAt;
   S.eye = e < 0.25 ? max(0, S.eye - d) : e < 0.45 ? max(S.eye, sm(0.25, 0.45, e)) : e < 2 ? 1 : 1 - sm(2, 3, e);
 }
