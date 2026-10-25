@@ -105,7 +105,7 @@ export const TEXT_ALIGNS: TextAlign[] = ["left", "center", "right"];
 
 /** solid: one colour. rampX / rampY: the layer's ramp runs across / down the letters. */
 export type TextFill = "solid" | "rampX" | "rampY";
-export const TEXT_FILLS: TextFill[] = ["solid", "rampX", "rampY"];
+const TEXT_FILLS: TextFill[] = ["solid", "rampX", "rampY"];
 
 /**
  * What moves the letters, frame by frame, at a speed one knob sets

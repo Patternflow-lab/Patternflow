@@ -20,7 +20,7 @@ import { ensureFontReady, resolveFont } from "./textFonts";
 import { textCoverage, textReach } from "./textRaster";
 import type { RampState, TextLayer, TextSource, TextSpec } from "./types";
 
-export type InkBounds = { minX: number; minY: number; maxX: number; maxY: number };
+type InkBounds = { minX: number; minY: number; maxX: number; maxY: number };
 
 /** The box around every lit pixel, or null when nothing is lit. */
 export function inkBounds(alpha: Uint8ClampedArray, width: number, height: number): InkBounds | null {
@@ -168,7 +168,7 @@ function cropToLetters(
  * The scroll or ramp source for a spec, or null when no letter lands in it.
  * Undefined where there is no canvas to draw on.
  */
-export function drawTextSource(
+function drawTextSource(
   spec: TextSpec,
   ramp: RampState,
   fontCss: string,

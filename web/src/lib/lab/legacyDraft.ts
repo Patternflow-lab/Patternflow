@@ -18,17 +18,17 @@ import { isValidMatrix, type MatrixSize } from "@/lib/pattern/matrix";
 
 import { LAB_STORAGE, readJson, removeStorage as remove } from "./persist";
 
-export const DRAFT_STORAGE = LAB_STORAGE.legacyDraft;
+const DRAFT_STORAGE = LAB_STORAGE.legacyDraft;
 
 // Guard rail so one runaway value can't blow the whole quota.
 const MAX_CODE_CHARS = 200_000;
 
 /** The July draft also kept the gallery's count, thinking and refs; only this outlived it. */
-export type DraftGenSettings = {
+type DraftGenSettings = {
   colorMode: ColorMode;
 };
 
-export type LabDraft = {
+type LabDraft = {
   savedAt: number;
   code: string;
   knobs: number[];

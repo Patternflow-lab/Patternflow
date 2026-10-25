@@ -14,9 +14,9 @@ import {
   type CaptureSettings,
 } from "./types";
 
-export const CAPTURE_SETTINGS_STORAGE = LAB_STORAGE.capture;
+const CAPTURE_SETTINGS_STORAGE = LAB_STORAGE.capture;
 
-export type SizePreset = { id: string; label: string; width: number; height: number };
+type SizePreset = { id: string; label: string; width: number; height: number };
 
 /**
  * Sizes worth a one-click pick. The matrix multiples keep the pattern's own

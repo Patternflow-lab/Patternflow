@@ -149,7 +149,7 @@ export function bytesToBase64(bytes: Uint8ClampedArray): string {
   return btoa(binary);
 }
 
-export function base64ToBytes(base64: string, expectedLength: number): Uint8ClampedArray | null {
+function base64ToBytes(base64: string, expectedLength: number): Uint8ClampedArray | null {
   try {
     const binary = atob(base64);
     if (binary.length !== expectedLength) return null;

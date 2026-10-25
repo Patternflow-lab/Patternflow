@@ -10,9 +10,9 @@
 // re-clicking the already-active layer — the exact "let me in" gesture — would
 // change nothing and emit nothing.
 
-export type EditorKind = "code" | "pixel" | "text";
+type EditorKind = "code" | "pixel" | "text";
 
-export type EditorRevealRequest = {
+type EditorRevealRequest = {
   kind: EditorKind;
   /** Creating a layer may reopen a closed editor panel; selecting never does. */
   open: boolean;
