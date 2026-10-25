@@ -22,7 +22,7 @@ import { LAB_STORAGE, readJson, writeJson } from "./persist";
 
 const KEY = LAB_STORAGE.sessions;
 
-export const MAX_SESSIONS = 3;
+const MAX_SESSIONS = 3;
 
 export type SessionMeta = {
   id: string;

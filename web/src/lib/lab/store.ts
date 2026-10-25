@@ -1,8 +1,8 @@
 // ── Lab store ────────────────────────────────────────────────────────────────
-// One zustand store holds the whole layered project plus the AI gallery. The
-// render engine reads it imperatively each frame (labEngine + getState), while
-// panels subscribe to the slices they draw. All updates are immutable EXCEPT
-// pixel buffers, which are mutated in place and versioned via `rev`.
+// One zustand store holds the whole layered project. The render engine reads
+// it imperatively each frame (labEngine + getState), while panels subscribe to
+// the slices they draw. All updates are immutable EXCEPT pixel buffers, which
+// are mutated in place and versioned via `rev`.
 //
 // The actions live in ./store/<slice>.ts, one file per concern, composed here;
 // ./store/shared.ts holds the helpers they share. The store's shape (LabStore),
@@ -10,18 +10,18 @@
 
 import { create } from "zustand";
 import type { MatrixSize } from "@/lib/pattern/matrix";
-import { saveGallery } from "@/lib/lab/legacyDraft";
 import { saveProject } from "./serialize";
 import { createAutosave } from "./autosave";
 import type { DirectorShow } from "./director/types";
-import { isCodeLayer, type BlendMode, type CodeLayer, type EditRef, type ForkRef, type LayerRole, type GalleryItem, type GenJob, type GenSettings, type LabProject, type Layer, type RampState, type RampStopState } from "./types";
+import { isCodeLayer, isRampLayer, type BlendMode, type EditRef, type ForkRef, type LayerRole, type GenSettings, type LabProject, type Layer, type RampLayer, type RampState, type RampStopState, type TextSpec } from "./types";
 import { defaultProject } from "./store/shared";
 import { createProjectSlice } from "./store/project";
 import { createLayersSlice } from "./store/layers";
 import { createKnobsSlice } from "./store/knobs";
 import { createRampSlice } from "./store/ramp";
 import { createDirectorSlice } from "./store/director";
-import { createGallerySlice } from "./store/gallery";
+import { createTextSlice } from "./store/text";
+import { isFileFont, loadRememberedFonts, resolveFont, subscribeFonts } from "./textFonts";
 
 export { codeLayerFromSource } from "./store/shared";
 
@@ -31,8 +31,6 @@ export type LabStore = LabProject & {
   restoredAt: number | null;
   /** Browser autosave state; never included in the serialized project. */
   saveStatus: "idle" | "pending" | "saved" | "error";
-  gallery: GalleryItem[];
-  jobs: GenJob[];
   layerErrors: Record<string, string | null>;
   /** Selected ramp stop per code layer (UI state, not persisted). */
   rampSelection: Record<string, number>;
@@ -71,7 +69,14 @@ export type LabStore = LabProject & {
   setLayerRole: (id: string, role: LayerRole) => void;
   setLayerMaskInvert: (id: string, maskInvert: boolean) => void;
 
-  updateLayerCode: (id: string, code: string) => void;
+  /**
+   * Replace a code layer's code. A changed @matrix line it can read changes
+   * the frame; with holdMatrix (the Code panel's editor, keystroke by
+   * keystroke) the line waits for applyMatrixLine.
+   */
+  updateLayerCode: (id: string, code: string, options?: { holdMatrix?: boolean }) => void;
+  /** Take up the @matrix line the editor held: focus has left it. */
+  applyMatrixLine: (id: string) => void;
   applyCodeToActive: (code: string) => void;
   /** Immutable edit of the Director show (timeline authoring). */
   updateDirector: (update: (show: DirectorShow) => DirectorShow) => void;
@@ -88,8 +93,12 @@ export type LabStore = LabProject & {
   bumpPixelLayer: (id: string) => void;
   replacePixelData: (id: string, data: Uint8ClampedArray) => void;
 
-  setGallery: (update: (current: GalleryItem[]) => GalleryItem[]) => void;
-  setJobs: (update: (current: GenJob[]) => GenJob[]) => void;
+  addTextLayer: () => void;
+  /** Change a text layer's words, font, place or fill; its bitmap is drawn again. */
+  setTextSpec: (id: string, patch: Partial<TextSpec>) => void;
+  /** Draw again the text layers in this font (all of them when omitted): it has just loaded. */
+  redrawTextLayers: (fontId?: string) => void;
+
   setLayerErrors: (errors: Record<string, string | null>) => void;
 };
 
@@ -98,8 +107,6 @@ export const useLabStore = create<LabStore>((set, get) => ({
   hydrated: false,
   restoredAt: null,
   saveStatus: "idle",
-  gallery: [],
-  jobs: [],
   layerErrors: {},
   rampSelection: {},
 
@@ -108,12 +115,12 @@ export const useLabStore = create<LabStore>((set, get) => ({
   ...createKnobsSlice(set),
   ...createRampSlice(set),
   ...createDirectorSlice(set),
-  ...createGallerySlice(set),
+  ...createTextSlice(set, get),
 }));
 
 // ── persistence ──
-// Debounced project autosave + gallery persist, gated until hydration so the
-// pre-restore default state can never overwrite a stored project.
+// Debounced project autosave, gated until hydration so the pre-restore
+// default state can never overwrite a stored project.
 const autosave = createAutosave(
   () => saveProject(useLabStore.getState()),
   (saved) => useLabStore.setState({ saveStatus: saved ? "saved" : "error" }),
@@ -135,10 +142,6 @@ if (typeof window !== "undefined") {
   useLabStore.subscribe((state, previous) => {
     if (!state.hydrated) return;
 
-    if (state.gallery !== previous.gallery) {
-      saveGallery(state.gallery);
-    }
-
     const projectChanged =
       state.name !== previous.name ||
       state.matrix !== previous.matrix ||
@@ -157,6 +160,20 @@ if (typeof window !== "undefined") {
     if (state.saveStatus !== "error") useLabStore.setState({ saveStatus: "pending" });
     autosave.schedule();
   });
+
+  // A text layer's font arriving — a site font fetched on first use, a file
+  // added or remembered — draws the layers set in it again.
+  subscribeFonts((fontId) => useLabStore.getState().redrawTextLayers(fontId));
+
+  // A project set in a remembered file font reopens with that font loaded, so
+  // the next edit draws with it rather than the fallback.
+  useLabStore.subscribe((state, previous) => {
+    if (!state.hydrated || state.layers === previous.layers) return;
+    const wantsFile = state.layers.some(
+      (layer) => layer.type === "text" && isFileFont(layer.spec.font) && resolveFont(layer.spec.font).missing,
+    );
+    if (wantsFile) void loadRememberedFonts();
+  });
 }
 
 // ── selectors ──
@@ -165,13 +182,13 @@ export function useActiveLayer(): Layer | undefined {
 }
 
 /**
- * The code layer whose knobs/ramp the side panels should edit: the active
- * layer when it is code, otherwise the topmost code layer.
+ * The layer the Color Ramp panel edits: the active layer when it has a ramp
+ * (code or text), otherwise the topmost code layer.
  */
-export function useFocusCodeLayer(): CodeLayer | undefined {
+export function useFocusRampLayer(): RampLayer | undefined {
   return useLabStore((state) => {
     const active = state.layers.find((layer) => layer.id === state.activeLayerId);
-    if (isCodeLayer(active)) return active;
+    if (isRampLayer(active)) return active;
     return state.layers.find(isCodeLayer);
   });
 }

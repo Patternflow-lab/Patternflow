@@ -101,7 +101,7 @@ export function snapWireTime(t: number): number {
 }
 
 export const DIRECTOR_MAX_SECONDS = 3600;
-export const DIRECTOR_DEFAULT_SECONDS = 30;
+const DIRECTOR_DEFAULT_SECONDS = 30;
 
 export function directorId(): string {
   return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;

@@ -28,12 +28,12 @@ class LoadedImage {
   }
 }
 
-function mount() {
+function mount(onClose = () => {}) {
   useLabStore.getState().discardProject();
   useLabStore.getState().addPixelLayer();
   const layer = useLabStore.getState().layers.find((entry) => entry.type === "pixel")!;
   render(
-    <ImportImageModal width={128} height={64} layerId={layer.id} onApply={() => {}} onClose={() => {}} />,
+    <ImportImageModal width={128} height={64} layerId={layer.id} onApply={() => {}} onClose={onClose} />,
   );
   return screen.getByLabelText(/^Import preview/);
 }
@@ -101,6 +101,23 @@ describe("ImportImageModal", () => {
     await loadImage();
     for (let i = 0; i < 10; i++) fireEvent(preview, createEvent.wheel(preview, { deltaY: -10 }));
     expect(screen.getByText(/108%/)).toBeTruthy();
+  });
+
+  // Dragging the image into place and letting go past the card's edge ends
+  // in a click on the backdrop. It used to close the window and drop the
+  // placement.
+  it("stays open when a drag on the preview ends on the backdrop", async () => {
+    const onClose = vi.fn();
+    const preview = mount(onClose);
+    await loadImage();
+    const backdrop = screen.getByRole("dialog", { name: "Import image" });
+    fireEvent.pointerDown(preview, { button: 0, clientX: 64, clientY: 32 });
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("the wheel keeps the point of the image under the cursor where it was", async () => {

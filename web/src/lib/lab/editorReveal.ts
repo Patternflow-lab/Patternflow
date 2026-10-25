@@ -6,13 +6,13 @@
 // (which owns the dockview api) fronts the matching editor tab.
 //
 // Deliberately NOT store state: deriving it from activeLayerId would front
-// tabs on every programmatic selection (gallery loads, imports, deletes), and
+// tabs on every programmatic selection (preset steps, imports, deletes), and
 // re-clicking the already-active layer — the exact "let me in" gesture — would
 // change nothing and emit nothing.
 
-export type EditorKind = "code" | "pixel";
+type EditorKind = "code" | "pixel" | "text";
 
-export type EditorRevealRequest = {
+type EditorRevealRequest = {
   kind: EditorKind;
   /** Creating a layer may reopen a closed editor panel; selecting never does. */
   open: boolean;

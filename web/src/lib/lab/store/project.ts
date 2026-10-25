@@ -1,9 +1,9 @@
-// ── Lab store slice: the whole project: hydration, the session ring, matrix, generation settings, lineage, name ──
+// ── Lab store slice: the whole project: hydration, the session ring, matrix, prompt settings, lineage, name ──
 // One of the slices store.ts composes. Bodies are unchanged from the single
 // 800-line store they came out of; only the file boundary is new.
 
 import { matrixesEqual } from "@/lib/pattern/matrix";
-import { clearDraft, loadGallery } from "@/lib/lab/legacyDraft";
+import { clearDraft, dropAiGallery } from "@/lib/lab/legacyDraft";
 import { clearProject, deserializeProject, loadProject, migrateLegacyDraft, serializeProject } from "../serialize";
 import { readSession, stashSession } from "../sessions";
 import { cloneRampState, layerId, type Layer } from "../types";
@@ -11,12 +11,13 @@ import type { LabStore } from "../store";
 import type { SliceSet, SliceGet } from "./kinds";
 import { defaultProject, resizePixelLayers } from "./shared";
 
-export type ProjectSlice = Pick<LabStore, "hydrate" | "discardProject" | "stashCurrent" | "parkSnapshot" | "restoreSession" | "setMatrix" | "setGen" | "setForkOf" | "setEditOf" | "setName" | "importStackLayers">;
+type ProjectSlice = Pick<LabStore, "hydrate" | "discardProject" | "stashCurrent" | "parkSnapshot" | "restoreSession" | "setMatrix" | "setGen" | "setForkOf" | "setEditOf" | "setName" | "importStackLayers">;
 
 export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
   return {
     hydrate: () => {
       if (get().hydrated) return;
+      dropAiGallery();
       // No project, or one with no layers: lift the July draft if the browser
       // still holds one. persist.ts names the keys.
       const restored = loadProject() ?? migrateLegacyDraft();
@@ -26,21 +27,18 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
           ...project,
           hydrated: true,
           restoredAt: savedAt || Date.now(),
-          gallery: loadGallery(),
         });
         return;
       }
-      set({ hydrated: true, gallery: loadGallery() });
+      set({ hydrated: true });
     },
 
     discardProject: () => {
       clearProject();
-      clearDraft(); // the July draft's key, and the gallery's
+      clearDraft(); // the July draft's key
       set({
         ...defaultProject(),
         restoredAt: null,
-        gallery: [],
-        jobs: [],
         layerErrors: {},
       });
     },
@@ -140,7 +138,15 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSlice {
       const imported: Layer[] = payload.layers.map((layer) =>
         layer.type === "pixel"
           ? { ...layer, id: layerId(), data: new Uint8ClampedArray(layer.data), rev: 0 }
-          : { ...layer, id: layerId(), ramp: cloneRampState(layer.ramp) },
+          : layer.type === "text"
+            ? {
+                ...layer,
+                id: layerId(),
+                data: new Uint8ClampedArray(layer.data),
+                rev: 0,
+                ramp: cloneRampState(layer.ramp),
+              }
+            : { ...layer, id: layerId(), ramp: cloneRampState(layer.ramp) },
       );
       if (imported.length === 0) return;
 

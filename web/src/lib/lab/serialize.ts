@@ -1,6 +1,7 @@
 // ── Lab project persistence (v2, layered) ────────────────────────────────────
 // The layered lab stores its whole working state — layer stack included — in
-// one localStorage key. Pixel layers serialize their RGBA bytes as base64.
+// one localStorage key. Pixel layers serialize their RGBA bytes as base64;
+// text layers too, beside the words and font they were drawn from.
 // Reads are defensive: a project written by any other build must degrade to
 // "no project" (or partial restore) rather than crash the lab on boot.
 //
@@ -10,8 +11,8 @@
 // persist.ts says who wrote each key.
 
 import { RAMP_MODES, type RampMode } from "@/lib/pattern/harness";
-import { COLOR_MODES, THINKING_LEVELS } from "@/lib/ai/settings";
-import type { ColorMode, ThinkingLevelKey } from "@/lib/ai/settings";
+import { COLOR_MODES } from "@/lib/ai/settings";
+import type { ColorMode } from "@/lib/ai/settings";
 import { isValidMatrix, DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 import { loadDraft } from "@/lib/lab/legacyDraft";
 import { PATTERN_KNOB_COUNT } from "@/lib/pattern/harness";
@@ -19,8 +20,11 @@ import {
   BLEND_MODES,
   DEFAULT_RAMP_STATE,
   MAX_RAMP_STOPS,
+  TEXT_RAMP_STATE,
   cloneRampState,
+  defaultTextSpec,
   layerId,
+  normalizeTextSpec,
   type BlendMode,
   type CodeLayer,
   type EditRef,
@@ -32,7 +36,10 @@ import {
   type LayerRole,
   type PixelLayer,
   type RampState,
+  type TextLayer,
+  type TextSource,
 } from "./types";
+import { sourceColumnLimit } from "./textEffects";
 import { defaultKnobState, matchKnobsAnnotation } from "./annotations";
 import { LAB_STORAGE, readStorage, removeStorage, writeStorage } from "./persist";
 import { matchMatrixAnnotation } from "@/lib/pattern/matrix";
@@ -78,6 +85,53 @@ export function layoutViewCount(layout: unknown): number {
   const grid = (layout as { grid?: { root?: unknown } } | null | undefined)?.grid;
   return walk(grid?.root);
 }
+
+/**
+ * A saved dock layout without the panels this build no longer has, or null
+ * when taking one out would leave a group with no tabs.
+ *
+ * dockview builds every saved panel through the component map, and a name the
+ * map lacks throws ("Only React.memo(...), React.ForwardRef(...) and
+ * functional components are accepted"). The restore catches that and lays out
+ * the default, so when the Gallery panel went on 23 October 2026 every layout
+ * still holding its tab, the default one included, would have been thrown
+ * away for that one tab. A group left empty would restore as a blank pane, so
+ * that case still gets the default.
+ */
+export function dropRetiredPanels<T>(layout: T, known: ReadonlySet<string>): T | null {
+  if (!isRecord(layout) || !isRecord(layout.panels)) return layout;
+  const { panels, ...rest } = layout;
+  const retired = new Set(
+    Object.entries(panels)
+      .filter(([id, panel]) => {
+        const component = isRecord(panel) ? (panel.contentComponent ?? panel.id ?? id) : id;
+        return typeof component !== "string" || !known.has(component);
+      })
+      .map(([id]) => id),
+  );
+  if (retired.size === 0) return layout;
+
+  let emptied = false;
+  const keep = (ids: unknown[]) => ids.filter((id) => !(typeof id === "string" && retired.has(id)));
+  const strip = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(strip);
+    if (!isRecord(node)) return node;
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) next[key] = strip(value);
+    if (Array.isArray(node.views)) {
+      const views = keep(node.views);
+      if (views.length === 0 && node.views.length > 0) emptied = true;
+      next.views = views;
+      if (typeof node.activeView === "string" && retired.has(node.activeView)) next.activeView = views[0];
+    }
+    if (Array.isArray(node.panelIds)) next.panelIds = keep(node.panelIds);
+    return next;
+  };
+  const result = strip(rest) as Record<string, unknown>;
+  if (emptied) return null;
+  result.panels = Object.fromEntries(Object.entries(panels).filter(([id]) => !retired.has(id)));
+  return result as T;
+}
 /** The colour ramp the lab wrote from 2 to 27 July 2026. Only the migration reads it. */
 const LEGACY_RAMP_STORAGE = LAB_STORAGE.legacyRamp;
 
@@ -95,7 +149,7 @@ export function bytesToBase64(bytes: Uint8ClampedArray): string {
   return btoa(binary);
 }
 
-export function base64ToBytes(base64: string, expectedLength: number): Uint8ClampedArray | null {
+function base64ToBytes(base64: string, expectedLength: number): Uint8ClampedArray | null {
   try {
     const binary = atob(base64);
     if (binary.length !== expectedLength) return null;
@@ -214,6 +268,30 @@ export function serializeProject(project: LabProject): string | null {
         recolor: layer.recolor,
       };
     }
+    if (layer.type === "text") {
+      // The bitmap rides along with the words: a browser without the font
+      // still shows what was drawn.
+      return {
+        type: "text",
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+        opacity: layer.opacity,
+        blend: layer.blend,
+        role: layer.role,
+        maskInvert: layer.maskInvert,
+        width: layer.width,
+        height: layer.height,
+        px: bytesToBase64(layer.data),
+        spec: layer.spec,
+        ramp: layer.ramp,
+        // A scrolling or ramp-running layer keeps what it moves too, past
+        // the frame's edges: without the font it could not be drawn again.
+        ...(layer.source
+          ? { src: { x: layer.source.x, w: layer.source.width, px: bytesToBase64(layer.source.data) } }
+          : {}),
+      };
+    }
     return {
       type: "pixel",
       id: layer.id,
@@ -253,14 +331,7 @@ export function serializeProject(project: LabProject): string | null {
 
 function readGen(raw: unknown): GenSettings {
   const gen = (raw ?? {}) as Record<string, unknown>;
-  const count = Number(gen.count);
-  const refs = Number(gen.refs);
   return {
-    count: Number.isFinite(count) ? Math.max(1, Math.min(20, Math.round(count))) : 5,
-    thinking: THINKING_LEVELS.includes(gen.thinking as ThinkingLevelKey)
-      ? (gen.thinking as ThinkingLevelKey)
-      : "LOW",
-    refs: Number.isFinite(refs) ? refs : 6,
     colorMode: COLOR_MODES.includes(gen.colorMode as ColorMode)
       ? (gen.colorMode as ColorMode)
       : "vfield",
@@ -300,7 +371,7 @@ function readLayer(raw: unknown): Layer | null {
     return layer;
   }
 
-  if (raw.type === "pixel") {
+  if (raw.type === "pixel" || raw.type === "text") {
     const width = Number(raw.width);
     const height = Number(raw.height);
     if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
@@ -309,6 +380,21 @@ function readLayer(raw: unknown): Layer | null {
     const data =
       typeof raw.px === "string" ? base64ToBytes(raw.px, byteLength) : null;
     if (!data) return null;
+    if (raw.type === "text") {
+      const frame = { width, height };
+      const layer: TextLayer = {
+        ...common,
+        type: "text",
+        width,
+        height,
+        data,
+        rev: 0,
+        spec: normalizeTextSpec(isRecord(raw.spec) ? raw.spec : {}, defaultTextSpec(frame), frame),
+        ramp: isRecord(raw.ramp) ? readRamp(raw.ramp) : cloneRampState(TEXT_RAMP_STATE),
+        source: readTextSource(raw.src, width, height),
+      };
+      return layer;
+    }
     const layer: PixelLayer = {
       ...common,
       type: "pixel",
@@ -321,6 +407,17 @@ function readLayer(raw: unknown): Layer | null {
   }
 
   return null;
+}
+
+/** A saved text source, or null when it is missing or does not fit the frame. */
+function readTextSource(raw: unknown, width: number, height: number): TextSource | null {
+  if (!isRecord(raw) || typeof raw.px !== "string") return null;
+  const x = Number(raw.x);
+  const columns = Number(raw.w);
+  if (!Number.isInteger(x) || !Number.isInteger(columns) || columns <= 0) return null;
+  if (columns > sourceColumnLimit(width, height) || Math.abs(x) > width * 8 + columns) return null;
+  const data = base64ToBytes(raw.px, columns * height * 4);
+  return data ? { x, width: columns, data } : null;
 }
 
 export function deserializeProject(json: string): (LabProject & { savedAt: number }) | null {

@@ -2,16 +2,25 @@
 
 // Monaco editor bound to the ACTIVE code layer. The toolbar keeps the
 // single-pattern workflow: preset stepper, paste/clear, the AI variation
-// prompt, and the code guide.
+// prompt with the colour model it asks for, and the code guide.
 
-import Editor from "@monaco-editor/react";
-import { useState } from "react";
+import Editor, { type OnMount } from "@monaco-editor/react";
+import { useEffect, useRef, useState } from "react";
 import { livePresets } from "@/lib/presets";
-import { buildVariantCopyPrompt } from "@/lib/ai/gemini";
+import {
+  MATRIX_MAX,
+  MATRIX_MIN,
+  formatMatrix,
+  matchMatrixAnnotation,
+  matrixesEqual,
+  parseMatrixAnnotation,
+} from "@/lib/pattern/matrix";
+import { COLOR_MODES, type ColorMode } from "@/lib/ai/settings";
+import { buildVariantCopyPrompt } from "@/lib/ai/variantPrompt";
 import { useResettingState } from "@/lib/hooks/useResettingState";
 import { hasStackAnnotation, importCodeIntoLab } from "@/lib/lab/stackShare";
 import { useActiveLayer, useLabStore } from "@/lib/lab/store";
-import { isCodeLayer } from "@/lib/lab/types";
+import { isCodeLayer, type Layer } from "@/lib/lab/types";
 import styles from "../PatternLab.module.css";
 import local from "./CodePanel.module.css";
 import dock from "../LabPanels.module.css";
@@ -19,13 +28,22 @@ import CodeGuideModal from "./CodeGuideModal";
 
 const labPresets = livePresets.filter((preset) => preset.labOnly);
 
+// What the panel says when another kind of layer is selected. Keyed by type,
+// so a new layer type has to say where it is edited.
+const OTHER_LAYER_HINT: Record<Exclude<Layer["type"], "code">, string> = {
+  pixel: "The selected layer is pixel art. Edit it in the Pixel panel, or select a code layer.",
+  text: "The selected layer is text. Edit it in the Text panel, or select a code layer.",
+};
+
 export default function CodePanel() {
   const layer = useActiveLayer();
   const matrix = useLabStore((state) => state.matrix);
   const knobs = useLabStore((state) => state.knobs);
   const ranges = useLabStore((state) => state.ranges);
   const gen = useLabStore((state) => state.gen);
+  const setGen = useLabStore((state) => state.setGen);
   const updateLayerCode = useLabStore((state) => state.updateLayerCode);
+  const applyMatrixLine = useLabStore((state) => state.applyMatrixLine);
   const applyCodeToActive = useLabStore((state) => state.applyCodeToActive);
   const addCodeLayer = useLabStore((state) => state.addCodeLayer);
   const error = useLabStore((state) =>
@@ -37,13 +55,26 @@ export default function CodePanel() {
   const [cleared, setCleared] = useResettingState(false, 1200);
   const [guideOpen, setGuideOpen] = useState(false);
 
+  // Typing holds the @matrix line (holdMatrix below). The frame follows it
+  // when focus leaves the editor, or the panel leaves the layer.
+  const codeLayerId = isCodeLayer(layer) ? layer.id : null;
+  const editingId = useRef(codeLayerId);
+  useEffect(() => {
+    editingId.current = codeLayerId;
+    if (!codeLayerId) return;
+    return () => applyMatrixLine(codeLayerId);
+  }, [codeLayerId, applyMatrixLine]);
+  const applyMatrixOnBlur: OnMount = (editor) => {
+    editor.onDidBlurEditorWidget(() => {
+      if (editingId.current) applyMatrixLine(editingId.current);
+    });
+  };
+
   if (!isCodeLayer(layer)) {
     return (
       <div className={dock.panel}>
         <div className={dock.panelHint}>
-          {layer
-            ? "The selected layer is pixel art — use the Pixel panel to edit it, or select a code layer."
-            : "Select a layer to edit."}
+          {layer ? OTHER_LAYER_HINT[layer.type] : "Select a layer to edit."}
           <button type="button" onClick={addCodeLayer}>
             + Add code layer
           </button>
@@ -53,6 +84,16 @@ export default function CodePanel() {
   }
 
   const activeLabIndex = labPresets.findIndex((preset) => preset.code === layer.code);
+
+  const matrixLine = matchMatrixAnnotation(layer.code);
+  const lineFrame = parseMatrixAnnotation(layer.code);
+  const matrixNote = !matrixLine
+    ? null
+    : !lineFrame
+      ? `The @matrix line needs each side from ${MATRIX_MIN} to ${MATRIX_MAX}. The frame stays ${formatMatrix(matrix)}.`
+      : matrixLine !== layer.matrixAnnotationRaw && !matrixesEqual(lineFrame, matrix)
+        ? `The frame becomes ${formatMatrix(lineFrame)} when you leave the editor.`
+        : null;
 
   const stepLabPreset = (dir: number) => {
     if (labPresets.length === 0) return;
@@ -97,7 +138,7 @@ export default function CodePanel() {
     } catch {
       // Permission blocked or unsupported in WebView — fall back to window.prompt
     }
-    const fallbackText = window.prompt("붙여넣을 패턴 코드를 아래 상자에 입력하거나 붙여넣어 주세요:");
+    const fallbackText = window.prompt("Paste the pattern code here and press OK.");
     if (fallbackText !== null) {
       applyPastedCode(fallbackText);
     }
@@ -139,20 +180,39 @@ export default function CodePanel() {
         >
           {cleared ? "Cleared ✓" : "Clear"}
         </button>
-        <button
-          type="button"
-          className={local.promptButton}
-          onClick={copyVariantPrompt}
-          title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
-        >
-          {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
-        </button>
+        <span className={local.promptGroup}>
+          <select
+            value={gen.colorMode}
+            aria-label="Color mode"
+            title="What Copy prompt asks for. v-field: the AI writes a 0..1 value field and the layer's Color Ramp does the coloring. rgb: the AI colors pixels itself."
+            onChange={(event) => setGen({ colorMode: event.target.value as ColorMode })}
+          >
+            {COLOR_MODES.map((option) => (
+              <option key={option} value={option}>
+                {option === "vfield" ? "v-field" : "rgb"}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={local.promptButton}
+            onClick={copyVariantPrompt}
+            title="Copy the AI variation prompt for this layer (ChatGPT / Claude / Gemini)"
+          >
+            {promptCopy === "copied" ? "Copied" : promptCopy === "failed" ? "Copy failed" : "Copy prompt"}
+          </button>
+        </span>
         <button type="button" onClick={() => setGuideOpen(true)}>
           Code guide
         </button>
       </div>
 
       {error && <div className={styles.errorBox}>{error}</div>}
+      {matrixNote && (
+        <div className={local.matrixNote} role="status">
+          {matrixNote}
+        </div>
+      )}
 
       <div className={dock.panelBody}>
         <Editor
@@ -161,7 +221,8 @@ export default function CodePanel() {
           theme="vs-dark"
           path={`layer-${layer.id}.js`}
           value={layer.code}
-          onChange={(value) => updateLayerCode(layer.id, value ?? "")}
+          onChange={(value) => updateLayerCode(layer.id, value ?? "", { holdMatrix: true })}
+          onMount={applyMatrixOnBlur}
           options={{
             minimap: { enabled: false },
             fontSize: 14,

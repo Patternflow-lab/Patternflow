@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDialog } from "@/lib/hooks/useDialog";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
 import { useSubmitLatch } from "@/lib/community/submitLatch";
@@ -120,6 +121,17 @@ export default function PublishModal({
   const [busy, setBusy] = useState(false);
   const latch = useSubmitLatch();
   const [includeShow, setIncludeShow] = useState(true);
+
+  // The card takes the focus first, so the hook sees the Share button that
+  // opened the window and hands the focus back to it on close. The title
+  // field's autoFocus used to move it before the hook could look, and the
+  // field is not there yet while the session is being checked.
+  const cardRef = useDialog<HTMLDivElement>(onClose);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const formShown = !isPending && Boolean(session);
+  useEffect(() => {
+    if (formShown) titleRef.current?.focus({ preventScroll: true });
+  }, [formShown]);
 
   const licenseChoices = parentLicense ? forkLicenseOptions(parentLicense) : LICENSE_OPTIONS;
   // Default to the recommended licence, unless the parent's terms rule it out.
@@ -252,7 +264,12 @@ export default function PublishModal({
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span>{editOf ? "Update your pattern" : "Share to Community"}</span>
           <button type="button" onClick={onClose} aria-label="Close">
@@ -317,10 +334,10 @@ export default function PublishModal({
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Title</span>
               <input
+                ref={titleRef}
                 className={styles.textInput}
                 value={title}
                 maxLength={TITLE_MAX}
-                autoFocus
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>

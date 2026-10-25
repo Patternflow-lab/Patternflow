@@ -6,6 +6,7 @@
 // Lived at the bottom of PixelPanel.tsx until 2026-09; same code, own file.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useBackdropClose } from "@/lib/hooks/useBackdropClose";
 import { useDialog } from "@/lib/hooks/useDialog";
 import { rasterizeImage, type ImportFit, type RGBA } from "@/lib/lab/pixelTools";
 import { labEngine } from "@/lib/lab/engine";
@@ -45,6 +46,7 @@ export default function ImportImageModal({
   }, [scale, offset]);
   const [showLayers, setShowLayers] = useState(true);
   const cardRef = useDialog<HTMLDivElement>(onClose);
+  const closeOnBackdrop = useBackdropClose(onClose);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const backdropRef = useRef<HTMLCanvasElement | null>(null);
   const resultRef = useRef<Uint8ClampedArray | null>(null);
@@ -216,7 +218,7 @@ export default function ImportImageModal({
       role="dialog"
       aria-modal="true"
       aria-label="Import image"
-      onClick={onClose}
+      {...closeOnBackdrop}
     >
       <div
         ref={cardRef}

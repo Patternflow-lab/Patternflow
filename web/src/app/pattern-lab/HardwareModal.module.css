@@ -1,5 +1,6 @@
 /* ── HardwareModal: its own classes ─────────────────────────────────────────
-   Moved out of PatternLab.module.css on 2026-09; only this file uses them. */
+   Moved out of PatternLab.module.css on 2026-09, and .darkButton on
+   2026-10-25; only this file uses them. */
 
 /* ── Hardware flow (HardwareModal) ─────────────────────────────────────
    The paste boxes are where the actual work lands, so they read as code:
@@ -110,4 +111,10 @@
   color: #c2410c;
   font-family: var(--font-jetbrains), monospace;
   font-size: 11px;
+}
+
+.darkButton {
+  background: #171512 !important;
+  color: #f7f3ea !important;
+  border-color: #171512 !important;
 }

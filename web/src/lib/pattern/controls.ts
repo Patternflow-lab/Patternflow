@@ -34,6 +34,72 @@ export function knobDetentStep(range: readonly [number, number]) {
   return knobUnitsPerTurn(range) / ENCODER_CLICKS_PER_TURN;
 }
 
+// The narrowest span a knob's 0..1 reading divides by, so a range edited down
+// to nothing reads 0 instead of NaN. The Lab, its capture worker, its C++
+// export and the text effects floored at 0.0001; the community's sandbox and
+// cards floored at 0.001, so a knob declared 0.0001..0.0004 sitting at 0.00025
+// reached a pattern as 0.5 in the Lab and 0.15 on its card.
+export const KNOB_SPAN_FLOOR = 0.0001;
+
+/** Where a value sits in a knob's range, 0 at the bottom and 1 at the top. Not held to 0..1. */
+export function normalizeKnob(value: number, range: readonly [number, number]) {
+  return (value - range[0]) / Math.max(KNOB_SPAN_FLOOR, range[1] - range[0]);
+}
+
+/**
+ * A knob value with float noise taken off: twelve significant digits, so 0.1 +
+ * 0.2 reads 0.3 and a range as fine as 0.0001..0.0004 keeps its digits. The
+ * community's cards rounded to three decimals, which started that knob at 0,
+ * below its range, and a 0.001..0.002 knob at its top.
+ */
+export function tidyKnobValue(value: number) {
+  return Number(value.toPrecision(12));
+}
+
+/**
+ * Three decimals, the grain of the Lab's knob range fields: an edge typed or
+ * dragged in the Knobs panel, and the detent step the C++ prompt quotes.
+ */
+export function roundRangeValue(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
+/** The middle of a knob's range, where a card with no saved knob state starts. */
+export function knobMidpoint(range: readonly [number, number]) {
+  return tidyKnobValue((range[0] + range[1]) / 2);
+}
+
+/**
+ * Where one arrow key leaves a knob: a detent up (ArrowRight, ArrowUp) or
+ * down (ArrowLeft, ArrowDown), held to the range the way PFParams::apply holds
+ * the Lab's header. A range input's own arrow step is its `step`, 0.001, which
+ * took 110,000 presses across a 10..120 knob; this takes 48, as the encoder
+ * does. Any other key, or one with Alt, Ctrl or Cmd, gives null, so the input
+ * keeps Home, End and Page Up/Down and the browser keeps its shortcuts.
+ */
+export function knobArrowValue(
+  event: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean },
+  value: number,
+  range: readonly [number, number],
+): number | null {
+  if (event.altKey || event.ctrlKey || event.metaKey) return null;
+  const direction =
+    event.key === "ArrowRight" || event.key === "ArrowUp" ? 1
+    : event.key === "ArrowLeft" || event.key === "ArrowDown" ? -1
+    : 0;
+  const [min, max] = range;
+  const span = max - min;
+  if (!direction || !(span > 0)) return null;
+  // Counted in detents from the bottom, so a knob on a detent lands on the
+  // next one exactly. Adding 4 / 48 to 2 forty-eight times stops short of 6,
+  // and the top took a 49th press.
+  const across = TURNS_PER_FULL_RANGE * ENCODER_CLICKS_PER_TURN;
+  const from = ((value - min) / span) * across;
+  const nearest = Math.round(from);
+  const detent = (Math.abs(from - nearest) < 1e-6 ? nearest : from) + direction;
+  return Math.min(max, Math.max(min, min + (detent * span) / across));
+}
+
 export type KnobId = 'c1' | 'c2' | 'c3' | 'c4';
 
 export type KnobValues = Record<KnobId, number>;

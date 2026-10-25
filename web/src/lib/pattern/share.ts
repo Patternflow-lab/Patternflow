@@ -166,20 +166,22 @@ export function buildAttributionFooter(meta: ShareMeta): string {
 // said "render error", the page showed a SyntaxError, and nothing said why.
 const TRAILING_COMMENTS = String.raw`(?:\n(?:[ \t]*\/\/[^\n]*|[ \t]*))*\s*$`;
 const COMMUNITY_FOOTER_RE = new RegExp(String.raw`\/\/ ── Made with Patternflow[^\n]*` + TRAILING_COMMENTS);
-const GEMINI_FOOTER_RE = new RegExp(
+const LAB_AI_FOOTER_RE = new RegExp(
   String.raw`\/\/ ---[ \t]*\n\/\/ (?:Generated at|Made with) [^\n]*patternflow\.work[^\n]*` + TRAILING_COMMENTS,
 );
 
 // Remove a header/footer we previously injected, so re-sharing an already
 // exported file does not stack duplicate blocks. Also strips the header/footer
-// the in-app Gemini generation stamps onto patterns (see gemini.ts), so shared
-// files carry ONE licence block — the user-titled one from this flow.
+// the Lab's AI gallery stamped onto every pattern it generated until it was
+// taken out on 23 October 2026. Those patterns still sit in saved layers and
+// published code, and a shared file should carry ONE licence block, the
+// user-titled one from this flow.
 export function stripShareWrapping(code: string): string {
   return code
     .replace(/\/\/ ===== Patternflow pattern =====[\s\S]*?\/\/ =+\n?/, "")
     .replace(COMMUNITY_FOOTER_RE, "")
     .replace(/^\s*\/\/ Pattern:[\s\S]*?\/\/ Made with Patternflow Pattern Lab[^\n]*\n?/, "")
-    .replace(GEMINI_FOOTER_RE, "")
+    .replace(LAB_AI_FOOTER_RE, "")
     .trim();
 }
 
@@ -188,13 +190,30 @@ export function buildSharedPatternFile(code: string, meta: ShareMeta): string {
   return `${buildLicenseHeader(meta)}\n\n${body}\n\n${buildAttributionFooter(meta)}\n`;
 }
 
+// Pattern Lab's C++ scaffold opens with `// SPDX-License-Identifier:
+// CC-BY-SA-4.0` whatever the author picks, and the presets a model copies from
+// open with the same line. Wrapped as it was, a header published under CC BY
+// 4.0 downloaded with CC-BY-SA-4.0 on line 1 and CC-BY-4.0 on line 18. The
+// licence block below is the one that counts, so the SPDX lines in the
+// comments above the first line of code come off. A line inside the code stays.
+const SPDX_LINE_RE = /^\s*\/\/\s*SPDX-License-Identifier:/;
+const COMMENT_OR_BLANK_RE = /^\s*(?:\/\/.*)?$/;
+
+function dropLeadingSpdx(code: string): string {
+  const lines = code.split("\n");
+  let top = 0;
+  while (top < lines.length && COMMENT_OR_BLANK_RE.test(lines[top])) top += 1;
+  const head = lines.slice(0, top).filter((line) => !SPDX_LINE_RE.test(line));
+  return [...head, ...lines.slice(top)].join("\n").trim();
+}
+
 // Wrap pasted C++ (the AI's conversion output) with the same licence header and
 // attribution footer as the .js file. The header goes right after the first
 // `#pragma once` line so the file still starts with it.
 export function buildSharedHeaderFile(cppCode: string, meta: ShareMeta): string {
   const header = buildLicenseHeader(meta);
   const footer = buildAttributionFooter(meta);
-  const body = stripShareWrapping(cppCode);
+  const body = dropLeadingSpdx(stripShareWrapping(cppCode));
   const lines = body.split("\n");
   const pragmaIndex = lines.findIndex((line) => line.trim().startsWith("#pragma once"));
   if (pragmaIndex >= 0) {

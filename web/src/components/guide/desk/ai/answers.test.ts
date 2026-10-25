@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildVariantCopyPrompt } from "@/lib/ai/gemini";
+import { buildVariantCopyPrompt } from "@/lib/ai/variantPrompt";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { buildHExport } from "@/lib/lab/hExport";
 import { codeLayerFromSource, initialLabPreset } from "@/lib/lab/store/shared";
