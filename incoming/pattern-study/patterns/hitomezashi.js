@@ -300,8 +300,8 @@ export function draw(display, params) {
   if (S.palHue !== S.hue) palette(S);
   const { P, NI, NJ, OX, OY, CW } = S.geo;
   const pal = S.pal;
-  // K4 lights the closed loops gold, biggest first, and dims the threads
-  // that run off the panel, down to a third at 1.
+  // K4 lights the closed loops gold, the biggest first. It also dims the
+  // threads that run off the panel, down to a third at 1.
   const lit = round(S.loopsK * S.loops.length), open = 1 - 0.67 * S.loopsK;
   const cur = S.cur ? S.loops.indexOf(S.cur) : -1, Lc = S.cur ? S.cur.length : 1;
   const rowGlow = new Float32Array(NJ), colGlow = new Float32Array(NI);
