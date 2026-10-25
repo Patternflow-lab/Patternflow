@@ -15,7 +15,7 @@ import memoryQueue from "@opennextjs/cloudflare/overrides/queue/memory-queue";
 // revalidating by asking this same Worker for the page again
 // (WORKER_SELF_REFERENCE). Nothing calls revalidateTag or revalidatePath, so
 // there is no tag cache.
-export default {
+const config = {
   ...defineCloudflareConfig({
     incrementalCache: withRegionalCache(r2IncrementalCache, { mode: "long-lived" }),
     queue: memoryQueue,
@@ -24,3 +24,5 @@ export default {
   // taken out of its trace first: scripts/cf-proxy-trace.ts says why.
   buildCommand: "npm run build && tsx scripts/cf-proxy-trace.ts",
 };
+
+export default config;
