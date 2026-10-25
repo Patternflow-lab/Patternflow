@@ -12,7 +12,8 @@
  * with every knob at its minimum, then at its maximum), it lights the panel,
  * it moves, and each knob on its own changes the picture. Its code may not
  * name the network, the page, a clock or code built from text (OFF_LIMITS),
- * its family is one families.json names, and a file from round three on
+ * its family is one families.json names, shelf.json names it at most once
+ * and names no pattern that is not there, and a file from round three on
  * carries the whole header the rounds write: Author, Date, Lineage and a
  * "// Knob N:" line for each knob.
  *
