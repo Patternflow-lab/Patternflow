@@ -182,39 +182,79 @@ describe("Pixel status line on a touch screen", () => {
   });
 });
 
+/** Every `.tsx` and `.ts` under `src/`, tests left out. */
+const src = path.resolve(__dirname, "../..");
+const sources = (readdirSync(src, { recursive: true }) as string[])
+  .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
+  .map((file) => path.join(src, file))
+  .map((file) => ({ file, text: readFileSync(file, "utf8") }));
+
+/** A stylesheet with its comments and quoted strings taken out. */
+const bareCss = (name: string) => css(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, "");
+
+/** Each class of the module at `file` that a file importing it reads as
+ *  `styles.name` or `styles["name"]`, with the files that read it. Null when
+ *  one of them reads the module by a computed name. */
+function readers(file: string): Map<string, Set<string>> | null {
+  const read = new Map<string, Set<string>>();
+  for (const { file: from, text } of sources) {
+    for (const [, local, spec] of text.matchAll(/import (\w+) from "([^"]+\.module\.css)"/g)) {
+      const target = spec.startsWith("@/") ? path.join(src, spec.slice(2)) : path.resolve(path.dirname(from), spec);
+      if (target !== file) continue;
+      if (new RegExp(`\\b${local}\\[(?!["'\`])`).test(text)) return null;
+      for (const m of text.matchAll(new RegExp(`\\b${local}(?:\\.(\\w+)|\\[["'\`](\\w+)["'\`]\\])`, "g"))) {
+        const name = m[1] ?? m[2];
+        read.set(name, (read.get(name) ?? new Set<string>()).add(from));
+      }
+    }
+  }
+  return read;
+}
+
 describe("Lab CSS modules", () => {
   // Until 24 October 2026 these files held 13 classes that no component put
   // on an element, and 220 lines of rules for them. A class counts as used
   // when a file importing its module reads `styles.name` or `styles["name"]`,
   // or a rule in the same file composes it. A module read by a computed name
   // counts as used whole.
-  const src = path.resolve(__dirname, "../..");
-  const sources = (readdirSync(src, { recursive: true }) as string[])
-    .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
-    .map((file) => path.join(src, file))
-    .map((file) => ({ file, text: readFileSync(file, "utf8") }));
   const modules = (readdirSync(__dirname, { recursive: true }) as string[]).filter((file) => file.endsWith(".module.css"));
 
   it("define no class that no component uses", () => {
     const unused: Record<string, string[]> = {};
     for (const name of modules) {
-      const file = path.join(__dirname, name);
-      const bare = css(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/"[^"]*"|'[^']*'/g, "");
+      const bare = bareCss(name);
       const defined = new Set([...bare.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map((m) => m[1]));
       const used = new Set([...bare.matchAll(/composes:([^;]+);/g)].flatMap((m) => m[1].trim().split(/\s+/)));
-      let computed = false;
-      for (const { file: from, text } of sources) {
-        for (const [, local, spec] of text.matchAll(/import (\w+) from "([^"]+\.module\.css)"/g)) {
-          const target = spec.startsWith("@/") ? path.join(src, spec.slice(2)) : path.resolve(path.dirname(from), spec);
-          if (target !== file) continue;
-          for (const m of text.matchAll(new RegExp(`\\b${local}(?:\\.(\\w+)|\\[["'\`](\\w+)["'\`]\\])`, "g"))) used.add(m[1] ?? m[2]);
-          if (new RegExp(`\\b${local}\\[(?!["'\`])`).test(text)) computed = true;
-        }
-      }
-      const dead = computed ? [] : [...defined].filter((cls) => !used.has(cls)).sort();
+      const read = readers(path.join(__dirname, name));
+      for (const cls of read?.keys() ?? []) used.add(cls);
+      const dead = read === null ? [] : [...defined].filter((cls) => !used.has(cls)).sort();
       if (dead.length) unused[name] = dead;
     }
     expect(modules.length).toBeGreaterThan(0);
     expect(unused).toEqual({});
+  });
+});
+
+describe("PatternLab.module.css", () => {
+  // The file is for what two or more files draw with. Until 25 October 2026
+  // it also held 22 rules only the shell read, for the header, and the dark
+  // button only To hardware read. Two classes whose plain rule is one rule
+  // count each other's files: `.headerToggle, .headerSelect` is one look, the
+  // header's buttons and Preview's quality menu.
+  it("holds no class that only one file reads", () => {
+    const read = readers(path.resolve(__dirname, "PatternLab.module.css"));
+    expect(read).not.toBeNull();
+    const by = (cls: string) => [...(read?.get(cls) ?? [])];
+    const files = new Map<string, Set<string>>();
+    for (const [, selectors] of bareCss("PatternLab.module.css").matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+      const plain = selectors.split(",").flatMap((part) => /^\s*\.([_a-zA-Z][\w-]*)\s*$/.exec(part)?.[1] ?? []);
+      for (const [, cls] of selectors.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) {
+        const reach = plain.includes(cls) ? plain.flatMap(by) : by(cls);
+        files.set(cls, new Set([...(files.get(cls) ?? []), ...reach]));
+      }
+    }
+    const alone = [...files].filter(([, from]) => from.size < 2).map(([cls]) => cls).sort();
+    expect(files.size).toBeGreaterThan(0);
+    expect(alone).toEqual([]);
   });
 });
