@@ -25,7 +25,7 @@
 // canvas with a small drawing in it shrinks from ~44 KB to a few KB.
 
 import { withMatrixAnnotation } from "@/lib/pattern/matrix";
-import { rleEncodeRGBA } from "./flatten";
+import { commentSafe, rleEncodeRGBA } from "./flatten";
 import { bytesToBase64 } from "./serialize";
 import { activeTextEffect } from "./textEffects";
 import { fontLabel } from "./textFonts";
@@ -120,11 +120,6 @@ function asciiPreview(sprite: SpriteCrop): string[] {
     rows.push(row);
   }
   return rows;
-}
-
-/** A layer name inside a `//` comment: no line terminators. */
-function commentSafe(name: string): string {
-  return name.replace(/[\r\n\u2028\u2029]/g, " ");
 }
 
 const B64_DECODER = `function decodeB64(s, n) {

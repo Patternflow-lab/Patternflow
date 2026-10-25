@@ -12,6 +12,7 @@ import {
   cleanPastedUnit,
   enforcePatternName,
 } from "@/lib/lab/hExport";
+import { downloadBlob } from "@/lib/lab/capture/download";
 import { buildCppPrompt } from "@/lib/lab/cppPrompt";
 import { promptKey, readPastes, writePastes } from "@/lib/lab/hardwarePastes";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
@@ -197,17 +198,11 @@ export default function HardwareModal({
   const copyLabel = (key: string, idle: string) =>
     copied?.key === key ? (copied.ok ? "Copied ✓" : "Copy failed") : idle;
 
-  const downloadH = () => {
-    const blob = new Blob([assembled], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${
-      exportData.namespaceName.replace(/^LabStack_/, "").toLowerCase() || "pattern"
-    }.h`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
+  const downloadH = () =>
+    downloadBlob(
+      new Blob([assembled], { type: "text/plain" }),
+      `${exportData.namespaceName.replace(/^LabStack_/, "").toLowerCase() || "pattern"}.h`,
+    );
 
   const label = lone?.name ?? name;
 
