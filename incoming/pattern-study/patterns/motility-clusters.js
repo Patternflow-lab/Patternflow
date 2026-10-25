@@ -131,9 +131,9 @@ function swim(S, n, amp, d) {
   }
 }
 
-// The first pass searches the grid, pushes, and lists every pair closer than
-// SIG + 0.25; the later passes push only the listed pairs. Returns the list's
-// length.
+// The first pass searches the grid and pushes. It also lists every pair
+// closer than SIG + 0.25, and the later passes push only those. Returns the
+// list's length.
 function pushGrid(x, y, cnt, pl) {
   let m = 0;
   for (let cy = 0; cy < GY; cy++) {
