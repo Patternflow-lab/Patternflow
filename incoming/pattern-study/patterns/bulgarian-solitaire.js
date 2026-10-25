@@ -31,9 +31,10 @@ const FLOOR = 124, TOP = 10;
 const CHMAX = 18, CHMIN = 4, SWMAX = 14;
 // Seconds at Speed 2: one move, gathering the cards, dealing them, holding the end.
 const MOVE = 1.6, GATHER = 0.9, DEAL = 1.8, HOLD = 2.6;
-// Phases of a move: the lift ends at A, the flight at B, the old piles' slide
-// into order at SL and the new pile's drop at C; it bounces BOUNCE LEDs.
-const A = 0.14, B = 0.5, SL = 0.7, C = 0.88, BOUNCE = 2;
+// Phases of a move: the lift ends at A and the flight at B; the old piles
+// slide into order from S0 to SL, clearing the place under the new pile,
+// which drops from SL to C and bounces BOUNCE LEDs.
+const A = 0.14, B = 0.5, S0 = 0.36, SL = 0.68, C = 0.86, BOUNCE = 2;
 // Every DEALS-th deal is the slowest start, k - 1, k - 1, k - 2, ..., 2, 1, 1.
 const DEALS = 3;
 // Hue at Hue 0 and the step between the hues of the dealt piles.
@@ -229,8 +230,8 @@ function layout(S) {
   const Q = stateAt(G, S.at + 1), m = P.length, u = S.t / MOVE;
   // The top cards lift, fly up and stack bottom first into the new pile,
   // which hangs at the top of the panel above its place in Q; the old piles
-  // slide into their places under it, and it drops to the floor.
-  const a = sm(u / A), c = sm((u - B) / (SL - B)), d = cl((u - SL) / (C - SL), 0, 1);
+  // slide into their places, and it drops to the floor.
+  const a = sm(u / A), c = sm((u - S0) / (SL - S0)), d = cl((u - SL) / (C - SL), 0, 1);
   const qIndex = new Map(Q.map((p, i) => [p[0], i]));
   const nx = slotX(G, qIndex.get(P[0][P[0].length - 1]), Q.length);
   const R = max(0, FLOOR - m * G.ch - TOP);
