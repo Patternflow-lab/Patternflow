@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "cf:build": "opennextjs-cloudflare build && tsx scripts/cf-headers.ts",
+    "cf:build": "tsx scripts/cf-env-check.ts && opennextjs-cloudflare build && tsx scripts/cf-headers.ts",
     "cf:preview": "npm run cf:build && opennextjs-cloudflare preview",
     "cf:deploy": "npm run cf:build && opennextjs-cloudflare deploy",
     "cf:upload": "npm run cf:build && opennextjs-cloudflare upload",
