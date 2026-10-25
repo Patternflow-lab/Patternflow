@@ -17,6 +17,7 @@
 // Bounded on purpose: the newest few, a couple of hundred KB. A shader lost to
 // pruning is one re-paste; a full quota breaks saving settings too.
 
+import { fnv1a } from "../hash";
 import { LAB_STORAGE, readJson, writeJson } from "../persist";
 
 const STORAGE_KEY = LAB_STORAGE.shader;
@@ -26,17 +27,8 @@ const MAX_TOTAL_CHARS = 200_000;
 type Entry = { source: string; at: number };
 type Store = Record<string, Entry>;
 
-function hash(text: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 function keysFor(layerId: string, code: string): string[] {
-  return [`id:${layerId}`, `code:${hash(code)}`];
+  return [`id:${layerId}`, `code:${fnv1a(code)}`];
 }
 
 function read(): Store {

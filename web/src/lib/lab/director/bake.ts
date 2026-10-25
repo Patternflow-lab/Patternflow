@@ -69,7 +69,7 @@ export function cubicBezierY(
   return sampleY(t);
 }
 
-function sortedLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
+export function sortedLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
   return [...lane].sort((a, b) => a.t - b.t);
 }
 

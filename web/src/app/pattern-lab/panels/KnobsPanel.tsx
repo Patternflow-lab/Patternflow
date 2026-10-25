@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { labEngine } from "@/lib/lab/engine";
 import { captureSession } from "@/lib/lab/capture/session";
 import { useLabStore } from "@/lib/lab/store";
-import { knobArrowValue } from "@/lib/pattern/controls";
+import { knobArrowValue, roundRangeValue } from "@/lib/pattern/controls";
 import local from "./KnobsPanel.module.css";
 import dock from "../LabPanels.module.css";
 
@@ -37,10 +37,6 @@ function formatKnob(value: number) {
 
 function formatRangeControlValue(value: number) {
   return value.toFixed(3);
-}
-
-function roundRangeValue(value: number) {
-  return Math.round(value * 1000) / 1000;
 }
 
 function getDigitStep(text: string, index: number) {

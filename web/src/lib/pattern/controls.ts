@@ -56,6 +56,14 @@ export function tidyKnobValue(value: number) {
   return Number(value.toPrecision(12));
 }
 
+/**
+ * Three decimals, the grain of the Lab's knob range fields: an edge typed or
+ * dragged in the Knobs panel, and the detent step the C++ prompt quotes.
+ */
+export function roundRangeValue(value: number) {
+  return Math.round(value * 1000) / 1000;
+}
+
 /** The middle of a knob's range, where a card with no saved knob state starts. */
 export function knobMidpoint(range: readonly [number, number]) {
   return tidyKnobValue((range[0] + range[1]) / 2);
