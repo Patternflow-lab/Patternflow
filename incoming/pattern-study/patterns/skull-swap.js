@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Speed=0.2..3, Toss=0..1, Dance=2..8
 //
 // Knob 1: Hue. The night sky and the shade side of the bones, through the cold half of the wheel only: violet at 0, blue at 0.25, cyan at 0.5, sea green at 0.75, toxic green at 1. The moon stays cream, the pumpkin orange, one skull's eyes green and the other's orange.
-// Knob 2: Speed. The tempo, 50 beats a minute for each unit. At the opening 100 the skulls leave the hands at 1.6 s, land on the wrong necks at 2.2 s, the two look at each other at 2.9 s, shrug at 3.7 s and throw back at 4.6 s. At 0.2 ten times slower; 150 at 3.
-// Knob 3: Toss. How high the skulls fly and how often they spin. At 0 the taller arc tops out over the moon's lower half and each skull turns once; at 0.5 it clears the moon and they turn twice; at 1 they leave the top of the panel, turn three times and the throwers hop.
+// Knob 2: Speed. The tempo, 50 beats a minute for each unit. At the opening 100 the skulls leave the hands at 1.6 s, land on the wrong necks at 2.1 s, the two look at each other at 2.8 s, shrug at 3.6 s and throw back at 4.9 s. At 0.2 ten times slower; 150 at 3.
+// Knob 3: Toss. How high the skulls fly and how often they spin. At 0 the higher arc crosses the moon and each skull turns once; at 0.5 it brushes the top edge and they turn twice; at 1 it leaves the panel for a moment, they turn three times and the throwers hop.
 // Knob 4: Dance. Beats danced between swaps, 2 to 8. Each round they dance the next of three dances: a sway with both arms up, kicks to the side with hands on hips, a bounce at the knees pumping the forearms in turn.
 // Buttons: K1 tap ends the dance and starts the throw at once.
 
@@ -252,7 +252,7 @@ export function update(dt, input, params) {
   T = times(S);
   // The arc is settled while no skull is in the air.
   if (!((u >= T[1] && u < T[2]) || (u >= T[6] && u < T[7]))) {
-    S.h = 13 + 32 * toss;
+    S.h = 13 + 24 * toss;
     S.T = 0.26 * sqrt(S.h);
     S.turns = 1 + floor(toss * 2.99);
     S.hop = toss;
