@@ -242,7 +242,9 @@
     bottom: 0;
     z-index: 40;
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    /* One equal column per tab, however many MobileTabBar draws. */
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     border-top: 1px solid rgba(244, 239, 230, 0.14);
     background: var(--pfc-panel);
   }
@@ -268,7 +270,7 @@
 }
 
 /* Glyphs are drawn, not typeset: an icon font would be one more request for
-   four shapes that are literally squares. */
+   three shapes that are literally squares. */
 .tabGlyphBars {
   display: flex;
   gap: 2px;
