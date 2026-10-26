@@ -4141,6 +4141,12 @@
     grid-column: span 2;
   }
 
+  /* In the grid a spacer would take a cell of its own and push Empty deck
+     onto a third row. */
+  .actionRow > .headerSpacer {
+    display: none;
+  }
+
   .actionRow button,
   .actionRow a {
     min-height: 44px;
@@ -4160,9 +4166,12 @@
     padding: 14px 16px;
   }
 
-  /* The section nav moves to the tab bar at the bottom of the screen. */
+  /* The section nav moves to the tab bar at the bottom of the screen, and the
+     gap that held it apart from the links goes with it. Only the header's own
+     gap: seven other rows use the same span to push a button right, and the
+     deck panel is drawn inside this <header>, hence the child combinator. */
   .sectionNav,
-  .headerSpacer {
+  .pageHeader > .headerSpacer {
     display: none;
   }
 
