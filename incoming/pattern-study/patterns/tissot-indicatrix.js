@@ -9,11 +9,11 @@
 // Round:   55
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.2..3, Tilt=0..90, Blend=0..1
+// @knobs Hue=0..1, Speed=0.2..3, Tilt=25..90, Blend=0..1
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 a circle is cyan at its smallest (the Mercator equator), azure where it covers three times that, violet at 14 times (latitude 75 on Mercator) and pink-magenta from 42 times (latitude 81); its outline is a paler tint of the same colour and the graticule is a dim mauve. The wheel leaves out orange and yellow, which read brown and olive in the dim fills.
 // Knob 2: Speed. How fast the sphere turns about its own axis: at 2 ten degrees a second, a whole turn in 36 s and a circle across the 180 degrees of the panel in 18 s. At 0.2 one degree a second, at 3 fifteen.
-// Knob 3: Tilt. How far the projection's axis leans from the sphere's, in degrees. At 0 the normal aspect: the graticule is square, the circles glide sideways in nine rows, and the row at 80 degrees is 14 LEDs in radius against 2.5 at the equator. Turned up, the sphere's pole comes down into the panel with the meridians meeting at it, and each circle swells as its path carries it towards the top or bottom edge and shrinks back. At 90 the transverse aspect: the pole sits at the centre and the circles wheel round it.
+// Knob 3: Tilt. How far the projection's axis leans from the sphere's, in degrees. It opens at 25: the sphere's pole sits just inside the top edge with the meridians fanning out from it, the circles travel on curved paths, and each one swells as its path carries it towards the top or bottom edge and shrinks back. The normal aspect, where the circles only glide sideways in nine rows, would be 0; the knob stops at 25 so the panel opens on circles that change size as they move. At 90 the transverse aspect: the pole sits at the centre and the circles wheel round it. On Mercator a circle's size depends only on its height on the map, so at every tilt the rows near the top and bottom edge are the ones at 14 LEDs in radius against 2.5 in the middle.
 // Knob 4: Blend. The projection's height, blended from Mercator at 0 to the equal-area cylindrical projection that fits the same box at 1, whose standard parallels are at 55.7 degrees. At 1 a circle on the equator is three times as tall as wide and one at 80 degrees ten times as wide as tall, and every one covers 61 square LEDs; on Mercator they run from 19 to 650. It opens at 0.06, nearly all Mercator.
 
 const W = 64, H = 128;
@@ -52,15 +52,15 @@ for (let r = -4; r <= 4; r++) {
 const NC = CL.length;
 
 export function setup(params) {
-  params.s = { spin: 0, hue: 0, speed: 2, tilt: 0, blend: 0.06, rgb: new Float32Array(W * H * 3), col: new Float64Array(3), o: [0, 0] };
+  params.s = { spin: 0, hue: 0, speed: 2, tilt: 25 * DEG, blend: 0.06, rgb: new Float32Array(W * H * 3), col: new Float64Array(3), o: [0, 0] };
 }
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
-  const S = params.s, kv = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
+  const S = params.s, kv = input.knobValues || [0, 2, 25, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = cl(kv[0], 0, 1);
   S.speed = cl(kv[1], 0.2, 3);
-  S.tilt = cl(kv[2], 0, 90) * DEG;
+  S.tilt = cl(kv[2], 25, 90) * DEG;
   S.blend = cl(kv[3], 0, 1);
   S.spin = (S.spin + d * S.speed * 5 * DEG) % TAU;
 }
