@@ -9,11 +9,11 @@
 // Round:   57
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.2..3, Beta=0..0.95, Distance=2..8
+// @knobs Hue=0..1, Speed=0.2..3, Beta=0.5..0.95, Distance=2..8
 //
 // Knob 1: Hue. The sheet's colour at rest, azure at 0, turned round the wheel. The Doppler shift moves each LED along the wheel from there by 0.12 times the log of the Doppler factor: towards violet where the light left a part coming towards the camera, towards green where it left a part going away.
 // Knob 2: Speed. How fast the sheet slides on the panel, not its speed against light's: 0.45 times the knob in cells of the sheet's own length a second, 0.9 at 2, so a new row comes in about every 1.1 s whatever Beta is.
-// Knob 3: Beta. The sheet's speed as a share of light's. At 0 the camera sees plain perspective. At 0.3 a cube seen straight out from the camera looks turned 17.5 degrees, at 0.6 36.9 and at 0.9 64.2, the arcsine of Beta, showing its trailing underside; the spheres stay round. The rows bunch up towards the top, and straight out the light arrives with the Doppler factor 1/gamma, 0.44 at 0.9.
+// Knob 3: Beta. The sheet's speed as a share of light's, from 0.5, where a cube seen straight out from the camera looks turned 30 degrees, through 36.9 at 0.6 to 64.2 at 0.9 and 71.8 at 0.95, the arcsine of Beta, showing its trailing underside; the spheres stay round. The rows bunch up towards the top, and straight out the light arrives with the Doppler factor 1/gamma, 0.44 at 0.9.
 // Knob 4: Distance. The camera's distance from the sheet, 2 to 8 cells, with the lens zoomed to keep three columns across the panel: it sees 54 degrees above and below the middle at 2, where the near rows bend, and 19 degrees at 8, where every cube is turned by nearly the same angle.
 
 const W = 64, H = 128;
@@ -69,7 +69,7 @@ export function update(dt, input, params) {
   const s = params.s, kv = input.knobValues || [0, 2, 0, 2], d = cl(dt || 0, 0, 0.1);
   s.hue = cl(kv[0], 0, 1);
   s.speed = cl(kv[1], 0.2, 3);
-  s.beta = cl(kv[2], 0, 0.95);
+  s.beta = cl(kv[2], 0.5, 0.95);
   s.dist = cl(kv[3], 2, 8);
   // phi is how far the camera has gone through the sheet, in the sheet's
   // own cells.
