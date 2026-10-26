@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Grain=0.5..4, Law=-1..1
 //
 // Knob 1: Hue. Turns the size colours round the wheel together. At 0 leaves of radius half an LED are pink-magenta and each doubling of the radius steps 0.072 back round the wheel, through violet and blue to cyan at 16 to 20 LEDs; at 0.25 the small leaves are orange-red and the big ones violet, at 0.5 green down to red, at 0.75 blue down to lime. A leaf whose hue falls between orange and yellow takes only the two bright levels, so it never reads brown or olive.
-// Knob 2: Speed. At 2 the leaves come down 3.2 deep a second, about 4,900 leaves a second at the opening Grain: the panel is 95% covered after 0.9 s and the last hole closes after 2.8 s (median of 40 samples, 2.3 to 3.2 s for the middle 80%), and the white ring runs out at 60 LEDs a second while the finished sample holds 2.2 s before the next one starts over it. At 0.2 everything is ten times slower, at 3 half as fast again.
+// Knob 2: Speed. At 2 the leaves come down 3.2 deep a second, about 4,900 leaves a second at the opening Grain: the panel is 95% covered after 0.9 s and the last hole closes after 2.8 s (median of 40 samples, 2.3 to 3.2 s for the middle 80%), and the white ring runs out at 60 LEDs a second while the finished sample holds 2.2 s before the next one starts under it, the old leaves showing through its holes one level darker and greyed. At 0.2 everything is ten times slower, at 3 half as fast again.
 // Knob 3: Grain. The smallest radius, 0.5 to 4 LEDs. At 0.5 a sample takes about 13,500 leaves and the five octaves of radius from half an LED to 16 each cover 19 to 20% of the panel; at 4 only the octaves from 4 up are left, 500 leaves make a sample, and the picture is big overlapping discs in blue and cyan.
 // Knob 4: Law. The exponent a of the radius density r^-a, 3 + K4 outside a dead zone of 0.1 either side of 0, so the opening 0.06 is exactly 3, the law under which the picture looks the same at every scale. At -1 (a = 2) the big leaves take over: radii 8 to 16 cover 42% of the panel and those under 1 LED 2.5%. At 1 (a = 4) the smallest octave covers 51% and the panel turns to magenta grain.
 
@@ -27,10 +27,10 @@ const RATE = 1.6;
 // Seconds the finished sample holds at Speed 1, and how fast the ring runs
 // out, in LEDs a second at Speed 1.
 const HOLD = 4.4, RING = 30;
-// Every leaf is one of four flat levels, 45 apart, and the holes show the
-// sample before at one dim level, so two leaves side by side either match
-// in level or differ by 45 or more.
-const TIERS = [255, 210, 165, 120], GHOST = 60;
+// Every leaf is one of four flat levels, 45 apart. The holes show the
+// sample before, each leaf one level down and greyed, so two leaves side by
+// side, old or new, either match in level or differ by 45 or more.
+const TIERS = [255, 210, 165, 120, 75], OLD_SAT = 0.35;
 // Hue tells a leaf's size: the smallest, half an LED across in radius, are
 // magenta at the opening, and each doubling of the radius steps OCT back
 // round the wheel, through violet, blue and cyan to green at 20 LEDs. Each
@@ -123,8 +123,8 @@ export function update(dt, input, params) {
   if (S.phase === 1) {
     S.pt += g;
     if (S.pt > HOLD) {
-      // The held sample sinks to one dim level and shows through the holes
-      // of the next one until they close.
+      // The held sample steps one level down, greys, and shows through the
+      // holes of the next one until they close.
       S.old = S.cur;
       S.cur = sample();
       S.phase = 0;
@@ -151,11 +151,11 @@ export function draw(display, params) {
         rgb[o] = rgb[o + 1] = rgb[o + 2] = 0;
         continue;
       }
-      const h = hb + L.hu[k], t = L.lv[k], v = L === D ? TIERS[warm(h) ? t & 1 : t] : GHOST;
+      const h = hb + L.hu[k], t = L.lv[k], fresh = L === D, v = TIERS[(warm(h) ? t & 1 : t) + (fresh ? 0 : 1)];
       // Each leaf pales toward its centre, so a disc reads as a disc even
       // where only a sliver of it shows. Only the weaker channels change.
       const dx = x + 0.5 - L.cx[k], dy = y + 0.5 - L.cy[k], f = min(1, sqrt(dx * dx + dy * dy) / L.r[k]);
-      hsv(h, L.sa[k] * (0.6 + 0.4 * f), v, rgb, o);
+      hsv(h, L.sa[k] * (0.6 + 0.4 * f) * (fresh ? 1 : OLD_SAT), v, rgb, o);
     }
   // The moment the last hole closes the sample is exact: a white ring runs
   // out from where that hole was.

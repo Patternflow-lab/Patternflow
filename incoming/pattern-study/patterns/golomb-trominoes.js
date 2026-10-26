@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Lift=0..4, Cell=1..4
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 the 2 x 2 trominoes are azure and navy in the outermost shell and turn cyan, aqua, green, lime and yellow shell by shell towards the hole; the 4 x 4 trominoes are plum, 8 x 8 gold, 16 x 16 lime and 32 x 32 rose, and the trominoes the proof lays round the hole, one a level, are white. At 0.5 the shells run orange, red, pink and violet and the levels aqua, blue and violet. The dim colours skip the orange and yellow part of the wheel, which reads brown and olive.
-// Knob 2: Speed. The hole walks 5 LEDs a second for each unit, 10 at the opening 2, on a straight line that reflects off the board's edges. A step that stays inside a 2 x 2 block re-lays that one tromino; a step over the line between two blocks of side 2^k re-lays at most 2^k - 1 trominoes (3, 7, 15, 31, 63) and about two thirds of that on average. At 2 the two holes cross their board's middle at 1.4 s and 1.2 s and then on average every 6.3 s. 0.2 is ten times slower.
+// Knob 2: Speed. The hole walks 9 LEDs a second for each unit, 18 at the opening 2, on a straight line that reflects off the board's edges. A step that stays inside a 2 x 2 block re-lays that one tromino; a step over the line between two blocks of side 2^k re-lays at most 2^k - 1 trominoes (3, 7, 15, 31, 63) and about two thirds of that on average. At 2 the two holes cross their board's middle at 0.8 s and 0.7 s and then on average every 3.5 s. 0.2 is ten times slower.
 // Knob 3: Lift. Leaves the lowest levels of the proof unlaid. At 0 every tromino is laid; 1 to 4 leave whole blocks of 4, 8, 16 and 32 cells a side (on a 16-cell board no more than 8), each one square in its tone short the one cell that the trominoes above it, or the hole, took. Each such square is the proof's induction hypothesis: a smaller board short one cell, which the same proof tiles.
-// Knob 4: Cell. LEDs to a cell: 1 below 1.5, 2 below 3.5, then 4, so each half of the panel is a board of 64, 32 or 16 cells a side, laid with 1365, 341 or 85 trominoes. The hole still walks 10 LEDs a second at Speed 2, so on the bigger cells it takes fewer, larger steps.
+// Knob 4: Cell. LEDs to a cell: 1 below 1.5, 2 below 3.5, then 4, so each half of the panel is a board of 64, 32 or 16 cells a side, laid with 1365, 341 or 85 trominoes. The hole still walks 18 LEDs a second at Speed 2, so on the bigger cells it takes fewer, larger steps.
 
 // Each half of the panel is one square board, W LEDs a side.
 const W = 64, H = 128;
@@ -166,10 +166,10 @@ export function update(dt, input, params) {
   }
   const n = S.n, N = S.S;
   S.lift = min(LIFT[cl(round(kv[2]), 0, 4)], n - 1);
-  // The hole walks five LEDs a second for each unit of Speed, whatever the
+  // The hole walks nine LEDs a second for each unit of Speed, whatever the
   // cell size.
   S.t += d;
-  S.acc += (d * S.speed * 5) / c;
+  S.acc += (d * S.speed * 9) / c;
   let steps = floor(S.acc);
   S.acc -= steps;
   for (const B of S.boards) {
