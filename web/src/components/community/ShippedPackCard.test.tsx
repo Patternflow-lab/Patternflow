@@ -71,7 +71,7 @@ describe("the Basics card", () => {
     expect(graph.filter((file) => file.startsWith("lib/presets/"))).toEqual([]);
   });
 
-  it("draws the four it is given, in pack order, and counts the rest", () => {
+  it("draws the four it is given and counts the rest", () => {
     render(<ShippedPackCard pack={BASICS_PACK} previews={packPreviews(BASICS_PACK, livePresets)} />);
     const cells = screen.getAllByTestId("cell").map((cell) => cell.textContent);
     const names = BASICS_PACK.order
