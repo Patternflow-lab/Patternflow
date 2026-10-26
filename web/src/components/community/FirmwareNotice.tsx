@@ -50,7 +50,7 @@ function remember() {
   try {
     window.localStorage.setItem(KEY, LATEST);
   } catch {
-    /* private mode — the cookie still holds it */
+    /* private mode: the cookie still holds it */
   }
 }
 
