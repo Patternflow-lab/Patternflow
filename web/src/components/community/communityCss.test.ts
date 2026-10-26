@@ -117,7 +117,7 @@ function mediaRules(source: string, query: string) {
 }
 
 // On 26 October a bare `.headerSpacer { display: none }` in the phone block,
-// meant for the page header's gap, took out the same span in seven other rows.
+// meant for the page header's gap, took out the same span in eight other rows.
 // At 390px the comment Post button sat at x 16 instead of 316, the deck
 // panel's ↑ buttons wandered between x 115 and 213 with each title's length,
 // and Make & publish on your own profile moved to the left edge.
