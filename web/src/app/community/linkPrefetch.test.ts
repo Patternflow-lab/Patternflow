@@ -4,8 +4,8 @@ import { links } from "../../../test/linkTags";
 // A <Link> in view prefetches the page it points to, and that page's client
 // chunks come with it. On 26 October, at 390px and 1440px, /community
 // fetched 20 scripts (392.8 KB gzip), and 9 of them (218.7 KB) arrived after
-// the load event. 213.6 KB was Pattern Lab, prefetched by the header's
-// "Pattern Lab ↗", and 5.1 KB was /editions, from the firmware notice. With
+// the load event. 210.5 KB was Pattern Lab, prefetched by the header's
+// "Pattern Lab ↗", and 5.0 KB was /editions, from the firmware notice. With
 // prefetch={false} on the links that leave the community, nothing arrived
 // after load. A page outside the community loads when its link is followed.
 
