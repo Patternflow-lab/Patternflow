@@ -236,7 +236,7 @@ export function update(dt, input, params) {
   S.arms = up;
   S.mouth = w < 0 ? 0.1 : w < WA ? 0.1 + 0.9 * sm((w - 0.15) / (WA - 0.15)) : w < WB ? 1 : w < WC ? 1 - 0.9 * sm((w - WB) / 0.4) : 0.1;
   S.blast = w >= WA && w < WB ? F * (0.6 + 0.4 * sm((w - WA) / 0.3)) : 0;
-  // She drifts, bobbing, and rises when she wails.
+  // She drifts and bobs. When she wails she rises.
   S.hx = 27 - 8 * S.wind + 10 * sin(0.23 * t + 0.4) + 4 * sin(0.57 * t);
   S.hy = 30 + 4 * sin(0.31 * t) + 1.5 * sin(1.3 * t) - 4 * up;
   S.gust = vn(t * 0.7, 3) * (4 + 16 * S.wind);

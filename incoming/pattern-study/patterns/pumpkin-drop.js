@@ -14,7 +14,7 @@
 // Knob 1: Flame. The colour of the candle and of what it lights: the carved face, the halo on the sky and the hoist, the streak as it falls and the flash of the burst. Gold at 0, toxic green at 0.25, blue at 0.5, magenta at 0.75. The pumpkin's skin stays orange.
 // Knob 2: Speed. At 2 a round takes about 10 s. The pumpkin is wound up from the ground in 2.2 s and swings for 1.6 s; the fall of 81 rows takes 1.04 s and ends at 156 LEDs a second; the burst lasts 2.4 s, the candle going out 1.3 to 1.6 s after the impact; the hook comes down in 0.9 s and the next pumpkin takes 1.8 s to come in and light. At 0.2 ten times slower, at 3 half as fast again.
 // Knob 3: Wind. How far the pumpkin swings at the top and how fast the clouds and the smoke drift right. At 0 nearly still air: a swing of 5 degrees either way and clouds at 2 LEDs a second. At 1 it swings 50 degrees and is let go at the end of a long arc, left and right in turn, while the top band of cloud runs at 18 LEDs a second. A big pumpkin swings less, so it stays on the panel.
-// Knob 4: Size. The pumpkin, 16 LEDs wide at 0 and 32 at 1, about 17 at the opening. A bigger one throws more light, farther, and bursts into more pieces: 25 shards at the opening and 48 at 1.
+// Knob 4: Size. The pumpkin, 16 LEDs wide at 0 and 32 at 1, about 17 at the opening. A bigger one throws its light farther and bursts into more pieces: 25 shards at the opening and 48 at 1.
 // Buttons: K1 tap lets the hanging pumpkin go at once.
 
 const W = 64, H = 128, N = W * H;
