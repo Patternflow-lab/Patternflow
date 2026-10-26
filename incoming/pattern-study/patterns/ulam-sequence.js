@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ulam Sequence
 // Family:  number
-// Idea:    The Ulam sequence counted live, each new term the least number that is a sum of two earlier terms in exactly one way, wound round a circle by the hidden frequency alpha that the code finds for itself: every term sits at the angle alpha times the term, across the panel, and lower the larger it is, so the terms fill only the half of the circle where cos(alpha a) < 0, in two humps, and leave the other half empty but for 2, 3, 47 and 69, while each new one drops into the pile below.
+// Idea:    The Ulam sequence counted live, each new term the least number that is a sum of two earlier terms in exactly one way, wound round a circle by the hidden frequency alpha that the code finds for itself: every term sits across the panel at the angle alpha times the term and lower down the larger it is, so the terms fill only the half of the circle where cos(alpha a) < 0, in two humps, and leave the other half empty but for 2, 3, 47 and 69, while each new one drops into the pile below.
 // Author:  patternflow-lab
 // Date:    2026-10-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
