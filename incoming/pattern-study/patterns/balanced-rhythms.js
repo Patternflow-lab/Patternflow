@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-10-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: vanishing sums of roots of unity (László Rédei, 1950s; N. G. de Bruijn, 1953; I. J. Schoenberg, 1964), the sizes a vanishing sum can have (T. Y. Lam and K. H. Leung, 2000), perfectly balanced rhythms and scales (Andrew Milne, David Bulger, Steffen Herff and William Sethares, 2015), pattern round 62
+// Lineage: vanishing sums of roots of unity (N. G. de Bruijn, 1953; I. J. Schoenberg, 1964), the sizes a vanishing sum can have (T. Y. Lam and K. H. Leung, 2000), perfectly balanced rhythms and scales (Andrew Milne, David Bulger, Steffen Herff and William Sethares, 2015), pattern round 62
 // Round:   62
 // ===============================
 // @matrix 64x128
