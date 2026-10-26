@@ -68,9 +68,10 @@ export default function DeckPanel() {
     };
   }, []);
 
-  // The dock along the bottom of the page owns arranging the deck; this panel
-  // owns the one thing it cannot do inline — building — so the dock asks for
-  // it by name. See DECK_PANEL_EVENT in lib/community/deck.ts.
+  // The dock along the bottom of the page arranges the deck by dragging. Its
+  // count asks for this panel by name, because the ↑, ↓ and remove here are
+  // the same moves from the keyboard. See DECK_PANEL_EVENT in
+  // lib/community/deck.ts.
   useEffect(() => {
     const open = () => {
       setOpen(true);
@@ -106,6 +107,8 @@ export default function DeckPanel() {
       <button
         type="button"
         className={styles.deckChip}
+        aria-label={`Your deck ${deck.length}/${DECK_MAX}`}
+        aria-haspopup="dialog"
         title={`Your deck (${deck.length}/${DECK_MAX})`}
         onClick={() => setOpen(true)}
       >
@@ -225,11 +228,15 @@ export default function DeckPanel() {
                           </Link>
                           <span className={styles.headerSpacer} />
                           {/* Buttons rather than drag: this list is at most ten
-                              rows and has to work on a phone. */}
+                              rows and has to work on a phone and from the
+                              keyboard. Each one names its pattern, or a
+                              screen reader hears the same three buttons on
+                              every row. */}
                           <button
                             type="button"
                             className={styles.btnSmall}
                             disabled={index === 0}
+                            aria-label={`Move ${item.title} up`}
                             title="Move up"
                             onClick={() => deckMove(item.patternId, -1)}
                           >
@@ -239,6 +246,7 @@ export default function DeckPanel() {
                             type="button"
                             className={styles.btnSmall}
                             disabled={index === deck.length - 1}
+                            aria-label={`Move ${item.title} down`}
                             title="Move down"
                             onClick={() => deckMove(item.patternId, 1)}
                           >
@@ -247,6 +255,7 @@ export default function DeckPanel() {
                           <button
                             type="button"
                             className={styles.btnSmall}
+                            aria-label={`Remove ${item.title}`}
                             onClick={() => deckRemove(item.patternId)}
                           >
                             remove
