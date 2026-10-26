@@ -4305,6 +4305,20 @@
     width: 100%;
   }
 
+  /* iOS Safari zooms the page into a field whose text is under 16px when it
+     takes focus, and the page stays zoomed after the keyboard goes. At 390px
+     every field here was under: 14px for the wall's search, a comment, sign in,
+     a report and the edit dialogs, 12px for a C++ header and a share link,
+     12.5px for a deck's visibility picker. */
+  .textInput,
+  .commentForm textarea,
+  .field select,
+  .postBodyInput,
+  .shareLinkField,
+  .deckVisControl select {
+    font-size: 16px;
+  }
+
   /* Card size is fixed by the mobile view config, and there is no Ctrl+wheel
      on a phone — the hint would advertise a gesture that does not exist. */
   .zoomHint,
