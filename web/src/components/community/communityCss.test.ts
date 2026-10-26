@@ -146,6 +146,12 @@ describe("the header spacer on a phone", () => {
     expect(spacer, ".actionRow > .headerSpacer is missing from @media (max-width: 900px)").toBeDefined();
     expect(spacer!.body).toContain("display: none;");
   });
+
+  // At 390px "@ada YOU" and its stats line take the first line, and the
+  // actions wrap to a second one where no spacer reaches.
+  it("keeps your profile's actions right when they wrap under the name", () => {
+    expect(declarations(rule(community, ".profileSelfActions"))).toContain("margin-left: auto");
+  });
 });
 
 // The community's text colours, against each ground they are drawn on. On 26
