@@ -3082,7 +3082,7 @@ ESP32-S3 로 옮길 때 걸릴 것도 있어요. Reaction Diffusion 은 Node 에
 
 Flock, Harmonograph, Big Type 은 처음 화면이 빨강이에요.
 
-56판의 열 개는 가장 낮은 노브가 Elliptic Law 의 K1 Hue 와 Golomb Trominoes 의 K2 Speed 로 둘 다 0.05 이고, Twist and Writhe 의 K1 Hue 와 K3 Lk 0.06 이 그다음이에요. 노브 마흔 개가 다 0.03 을 넘어요. 고요한 그림은 노브가 화면에 늘 있는 것을 바꿔야 창 안에서 보였어요. Golomb Trominoes 의 깔기는 빈칸이 어디로 걸어도 판마다 190 칸 넘게 달라지지 않아서, Speed 노브는 처음에 0.010 이었어요. 바탕을 빈칸의 껍질로 칠해 빈칸이 큰 블록의 경계를 넘을 때 판 넓이의 색이 바뀌게 하자 0.05 가 됐어요. 가는 점과 선만 켜지는 그림은 이번에도 색 노브가 약했어요. Elliptic Law 는 채움이 0.317 이고 고윳값의 꼬리가 어두워서 Hue 가 0.05 이에요. 여러 노브가 정리의 다른 자리를 골라요. Erdős Discrepancy 의 K4 는 보웨인, 최, 쿤스 수열의 소수 3, 5, 7, 11, 13 을, Multiplicative Cascade 의 K4 는 형제 무게의 상관을 골라요. Twist and Writhe 의 K3 은 정수 Lk 라서 노브가 다섯 자리에서만 그림을 바꿔요.
+56판의 열 개는 가장 낮은 노브가 Golomb Trominoes 의 K2 Speed 로 네 자리로 0.0515 이고, Elliptic Law 의 K1 Hue 0.0525 와 Twist and Writhe 의 K1 Hue 0.0582, K3 Lk 0.0593 이 그다음이에요. 노브 마흔 개가 다 0.03 을 넘어요. 고요한 그림은 노브가 화면에 늘 있는 것을 바꿔야 창 안에서 보였어요. Golomb Trominoes 의 깔기는 빈칸이 어디로 걸어도 판마다 190 칸 넘게 달라지지 않아서, Speed 노브는 처음에 0.010 이었어요. 바탕을 빈칸의 껍질로 칠해 빈칸이 큰 블록의 경계를 넘을 때 판 넓이의 색이 바뀌게 하자 0.05 가 됐어요. 가는 점과 선만 켜지는 그림은 이번에도 색 노브가 약했어요. Elliptic Law 는 채움이 0.317 이고 고윳값의 꼬리가 어두워서 Hue 가 0.0525 예요. 여러 노브가 정리의 다른 자리를 골라요. Erdős Discrepancy 의 K4 는 보웨인, 최, 쿤스 수열의 소수 3, 5, 7, 11, 13 을, Multiplicative Cascade 의 K4 는 형제 무게의 상관을 골라요. Twist and Writhe 의 K3 은 정수 Lk 라서 노브가 다섯 자리에서만 그림을 바꿔요.
 
 ### 세로 64×128
 
