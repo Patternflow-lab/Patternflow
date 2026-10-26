@@ -4258,8 +4258,10 @@
     white-space: nowrap;
   }
 
+  /* 108px is the 96px above with the 6px either side that the row gets back. */
   .headerNav > .userChip {
     display: block;
+    max-width: 108px;
     line-height: 44px;
   }
 
@@ -4374,7 +4376,6 @@
     display: inline-flex;
     align-items: flex-end;
     min-height: 44px;
-    box-sizing: border-box;
   }
 
   .filterChip {

@@ -257,6 +257,10 @@ describe("touch targets on a phone", () => {
       expect(lines, selector).toContain("padding: 0 6px");
       expect(lines, selector).toContain("margin: 0 -6px");
     }
+    // Every box is border-box, so the padding comes out of the handle's
+    // 96px unless the cap grows with it.
+    const caps = phone(".headerNav > .userChip").concat(phone(".userChip")).filter((l) => l.startsWith("max-width:"));
+    expect(caps).toEqual(["max-width: 108px", "max-width: 96px"]);
   });
 
   it("gives the wordmark's two links a 24px line each", () => {
