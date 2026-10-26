@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/community/auth-client";
 import { buildsConfigured, communityApiUrl } from "@/lib/community/apiBase";
@@ -36,6 +36,10 @@ import styles from "./Community.module.css";
 // Building turns the deck into loadable .pfm modules: ~½ s per pattern, one
 // zip, installed from the device's own /patterns page with no reflash.
 
+/** Where the focus goes after a press on a row: that row's button, or the
+ *  row that takes a removed one's place. No row means the deck is empty. */
+type Refocus = { patternId: string | null; button: "up" | "down" | "remove" };
+
 export default function DeckPanel() {
   const router = useRouter();
   const { data: session } = authClient.useSession();
@@ -54,6 +58,27 @@ export default function DeckPanel() {
   const [needsAuth, setNeedsAuth] = useState(false);
 
   const { deviceHost, changeDeviceHost, patternsUrl } = useDeviceHost();
+
+  // Remove takes its own button away, and the focus fell to the page behind
+  // the window. ↑ on the row that just reached the top, and ↓ on the one that
+  // reached the bottom, left it on a button that no longer does anything. So
+  // the press says where the focus goes next, and the render that follows
+  // puts it there.
+  const listBody = useRef<HTMLDivElement | null>(null);
+  const refocus = useRef<Refocus | null>(null);
+  useEffect(() => {
+    const want = refocus.current;
+    refocus.current = null;
+    if (!want) return;
+    const rows = [...(listBody.current?.querySelectorAll<HTMLElement>("li") ?? [])];
+    const row = rows.find((li) => li.dataset.patternId === want.patternId);
+    const [up, down, remove] = row ? [...row.querySelectorAll("button")] : [];
+    let target = want.button === "remove" ? remove : want.button === "up" ? up : down;
+    // A row at an end of the deck: its other arrow is the one that works.
+    if (target?.disabled) target = target === up ? down : up;
+    // An empty deck has no buttons left, so the window itself takes it.
+    (target ?? listBody.current?.closest<HTMLElement>("[tabindex='-1']"))?.focus();
+  }, [deck]);
 
   useEffect(() => {
     const sync = () => {
@@ -200,7 +225,7 @@ export default function DeckPanel() {
               )}
             </div>
           ) : (
-            <div className={styles.modalBody}>
+            <div className={styles.modalBody} ref={listBody}>
               {/* One list now, so the tab strip is a label. Saved lived in
                   the other tab; the like replaced it. */}
               <nav className={styles.deckTabs}>
@@ -221,7 +246,11 @@ export default function DeckPanel() {
                   <>
                     <ol className={styles.deckList}>
                       {deck.map((item, index) => (
-                        <li key={item.patternId} className={styles.deckRow}>
+                        <li
+                          key={item.patternId}
+                          className={styles.deckRow}
+                          data-pattern-id={item.patternId}
+                        >
                           <span className={styles.deckIndex}>{index + 1}</span>
                           <Link href={`/community/p/${item.patternId}`} onClick={close}>
                             {item.title}
@@ -238,7 +267,10 @@ export default function DeckPanel() {
                             disabled={index === 0}
                             aria-label={`Move ${item.title} up`}
                             title="Move up"
-                            onClick={() => deckMove(item.patternId, -1)}
+                            onClick={() => {
+                              refocus.current = { patternId: item.patternId, button: "up" };
+                              deckMove(item.patternId, -1);
+                            }}
                           >
                             ↑
                           </button>
@@ -248,7 +280,10 @@ export default function DeckPanel() {
                             disabled={index === deck.length - 1}
                             aria-label={`Move ${item.title} down`}
                             title="Move down"
-                            onClick={() => deckMove(item.patternId, 1)}
+                            onClick={() => {
+                              refocus.current = { patternId: item.patternId, button: "down" };
+                              deckMove(item.patternId, 1);
+                            }}
                           >
                             ↓
                           </button>
@@ -256,7 +291,14 @@ export default function DeckPanel() {
                             type="button"
                             className={styles.btnSmall}
                             aria-label={`Remove ${item.title}`}
-                            onClick={() => deckRemove(item.patternId)}
+                            onClick={() => {
+                              const next = deck[index + 1] ?? deck[index - 1];
+                              refocus.current = {
+                                patternId: next?.patternId ?? null,
+                                button: "remove",
+                              };
+                              deckRemove(item.patternId);
+                            }}
                           >
                             remove
                           </button>

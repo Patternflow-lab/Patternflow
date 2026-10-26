@@ -106,6 +106,41 @@ describe("the deck from the keyboard", () => {
     }
   });
 
+  // In Chromium the press on remove left the focus on the body, and Tab went
+  // on into the page behind the window.
+  it("remove hands the focus to the row that takes its place", () => {
+    renderDeck();
+    openFromChip();
+    const panel = within(screen.getByRole("dialog"));
+
+    fireEvent.click(panel.getByRole("button", { name: "Remove Wave" }));
+    expect(panel.getByRole("button", { name: "Remove Ripple" })).toHaveFocus();
+
+    fireEvent.click(panel.getByRole("button", { name: "Remove Grid" }));
+    expect(panel.getByRole("button", { name: "Remove Ripple" })).toHaveFocus();
+
+    fireEvent.click(panel.getByRole("button", { name: "Remove Ripple" }));
+    expect(titles()).toEqual([]);
+    expect(screen.getByRole("dialog")).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("a row that reaches the end hands the focus to its other arrow", () => {
+    renderDeck();
+    openFromChip();
+    const panel = within(screen.getByRole("dialog"));
+
+    fireEvent.click(panel.getByRole("button", { name: "Move Ripple up" }));
+    expect(panel.getByRole("button", { name: "Move Ripple down" })).toHaveFocus();
+
+    fireEvent.click(panel.getByRole("button", { name: "Move Ripple down" }));
+    expect(titles()).toEqual(["Wave", "Ripple", "Grid"]);
+    expect(panel.getByRole("button", { name: "Move Ripple down" })).toHaveFocus();
+
+    fireEvent.click(panel.getByRole("button", { name: "Move Ripple down" }));
+    expect(titles()).toEqual(["Wave", "Grid", "Ripple"]);
+    expect(panel.getByRole("button", { name: "Move Ripple up" })).toHaveFocus();
+  });
+
   it("Esc gives the focus back to the dock button", () => {
     renderDeck();
     const opener = openFromDock();
