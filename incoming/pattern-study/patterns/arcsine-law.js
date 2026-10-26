@@ -37,11 +37,12 @@ function hsv(h, s, v, o) {
 // The exact laws for N = 126 steps, bin k of the histogram. The time spent
 // above zero (counting a step as above when either end of it is) and the
 // last zero both take the value 2k with probability u(2k) u(N - 2k), where
-// u(2m) = C(2m, m) / 4^m is the chance of being at zero at time 2m (Chung
-// and Feller, Sparre Andersen). The first time of the maximum is k with
-// probability a(k) b(N - k): a(k) the chance a walk stays above zero for k
-// steps, b(m) the chance it stays at or below zero for m, both by counting
-// paths. Lévy's arcsine law is the limit of all three.
+// u(2m) = C(2m, m) / 4^m is the chance of being at zero at time 2m: the
+// discrete arcsine law of Feller's textbook (1950). The first time of the
+// maximum is k with probability a(k) b(N - k): a(k) the chance a walk stays
+// above zero for k steps, b(m) the chance it stays at or below zero for m,
+// both by following the walk step by step. Lévy's arcsine law is the limit
+// of all three.
 const U = new Float64Array(N + 1);
 U[0] = 1;
 for (let m = 1; 2 * m <= N; m++) U[2 * m] = (U[2 * m - 2] * (2 * m - 1)) / (2 * m);
@@ -72,7 +73,7 @@ const PB = [new Float64Array(NB), new Float64Array(NB), new Float64Array(NB)];
   for (let t = 0; t <= N; t++) PB[2][t >> 1] += a[t] * b[N - t];
 }
 // The histogram's scale puts the third bin from either end at full length,
-// so the two end bins, 2.6 and 1.3 times longer, run off the band.
+// so the bins at the very ends run off the band.
 const PFULL = PB[0][2];
 
 export function setup(params) {
@@ -83,8 +84,9 @@ export function setup(params) {
     pos: new Int16Array(NW), lz: new Int16Array(NW), tm: new Int16Array(NW), top: new Int16Array(NW),
     // Sorting: each walk's target column and each cell's target row.
     X: new Int16Array(NW), R: new Int16Array(NW * N), sortStat: -1,
-    // The last sorted picture, shown dimmed below the new batch's front.
-    prev: new Float32Array(NW * N * 3), cell: new Float32Array(NW * N * 3),
+    // The last sorted picture, shown on every other LED below the new
+    // batch's front.
+    prev: new Float32Array(NW * N * 3),
     hist: [new Float64Array(NB), new Float64Array(NB), new Float64Array(NB)], walks: 0, histMu: 0,
     fb: new Float32Array(W * H * 3), c: [0, 0, 0],
   };
