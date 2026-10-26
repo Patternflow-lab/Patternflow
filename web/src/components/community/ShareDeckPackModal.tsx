@@ -42,8 +42,8 @@ export default function ShareDeckPackModal({
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   // Esc closes it and the focus goes back to Share. The listener this panel
-  // had of its own came before the hook and moved no focus, so closing it
-  // left the focus on the body.
+  // had of its own came before the hook, and it never moved the focus into
+  // the panel.
   const cardRef = useDialog<HTMLDivElement>(onClose);
   const closeOnBackdrop = useBackdropClose(onClose);
 

@@ -8,11 +8,11 @@
 // It closed on a press outside alone, and its title field took the focus
 // before anything could note the Share button.
 //
-// The deck's six came last. In Chromium at 1440px Edit deck details and
-// Share deck stayed open on Esc, and Deck performance left the focus on its
-// button. Share this deck closed on Esc but never took the focus, and the
-// focus fell to the body. At 390px the deck panel did neither. Send to my
-// Patternflow stayed open here too.
+// The deck's five windows and Send to my Patternflow came last. In Chromium
+// at 390px and 1440px all but Share this deck stayed open on Esc. Edit deck
+// details and Share deck took the focus with their title fields. Deck
+// performance, the deck panel and Send left it on the button behind them.
+// Share this deck closed on Esc but never took the focus.
 
 import { useState, type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
