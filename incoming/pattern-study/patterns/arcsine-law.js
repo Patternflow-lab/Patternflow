@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Arcsine Law
 // Family:  data
-// Idea:    48 fair random walks come down the panel a row a step, each LED warm while its walk is above zero and cool below, and most columns turn out long stretches of one colour; after 126 steps the warm cells rise to the top of each column and the columns sort themselves by how many there are, so the boundary between the colours draws the arcsine quantile curve, while a histogram beside them gathers every walk so far into Lévy's U-shaped law, its exact values marked by white dots.
+// Idea:    48 fair random walks come down the panel a row a step, each LED one toss of the coin, bright for a step up and dark for a step down, coloured warm while its walk is above zero and cool below, so the tosses look like noise while most columns run in long stretches of one colour; after 126 steps the warm cells rise to the top of each column and the columns sort themselves by how many there are, so the boundary between the colours draws the arcsine quantile curve, while a histogram beside them gathers every walk so far into Lévy's U-shaped law, its exact values marked by white dots.
 // Author:  patternflow-lab
 // Date:    2026-10-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Statistic=0..2, Drift=-1..1
 //
-// Knob 1: Hue. Turns every colour around the wheel together. At 0 a walk above zero is amber and below zero azure, pale near zero and deeper the further out it is, with lavender histogram bars; at 0.25 green above and magenta below, at 0.5 the two sides trade colours.
-// Knob 2: Speed. 16 rows a second per unit: 32 at the opening 2, so a batch of 126 steps comes down in 3.9 s, settles and sorts in 1.4 s and holds for 1.4 s; at 0.2 a batch takes 39 s to come down, at 3 it takes 2.6 s. Walks that are not drawn feed the histogram at 120 a second per unit.
+// Knob 1: Hue. Turns every colour around the wheel together. At 0 a walk above zero is amber and below zero azure, pale near zero and deeper the further out it is, a step down drawn at a third of the brightness of a step up, with lavender histogram bars; at 0.25 green above and magenta below, at 0.5 the two sides trade colours.
+// Knob 2: Speed. 20 rows a second per unit: 40 at the opening 2, so a batch of 126 steps comes down in 3.2 s, settles and sorts in 1.4 s and holds for 1.4 s; at 0.2 a batch takes 32 s to come down, at 3 it takes 2.1 s. Walks that are not drawn feed the histogram at 120 a second per unit.
 // Knob 3: Statistic. Which of Lévy's three the columns sort by and the histogram counts. At 0 the time above zero: the warm cells rise to the top of their column. At 1 the last zero: the cells before each walk's last return to zero are dimmed, leaving a bright tail of one colour below it. At 2 the first time of the maximum: the cells after each walk's highest point so far are dimmed. All three histograms settle on the same U.
-// Knob 4: Drift. A step goes up with chance (1 + mu) / 2. mu is 0 within 0.08 of the middle, so the opening 0.06 is the fair walk, then grows as the square to 0.014 at 0.3, 0.052 at 0.5 and 0.25 at either end, where nearly every column floods one colour. Any drift breaks the law: at 0.5 the histogram of time above zero lies 0.19 from it in Kolmogorov distance, while the last zero, which only asks whether the walk comes back, lies 0.047 from it.
+// Knob 4: Drift. A step goes up with chance (1 + mu) / 2. mu is 0 within 0.08 of the middle, so the opening 0.06 is the fair walk, then grows as the square to 0.014 at 0.3, 0.052 at 0.5 and 0.25 at either end, where nearly every column floods one colour. Any drift breaks the law: at 0.5 the histogram of time above zero lies 0.19 from it in Kolmogorov distance, while the last zero, which only asks whether the walk comes back, lies 0.051 from it.
 
 const W = 64, H = 128;
 // 48 walks of 126 steps, one a column, step t drawn in row t - 1; then a
@@ -162,13 +162,16 @@ function plan(S) {
   S.sortStat = S.stat;
 }
 
-// A cell's colour: warm above zero and cool below, paler near zero and
-// deeper the further the walk is out in units of sqrt(t); dimmed before
-// the last zero or after the maximum when those are the statistic.
+// A cell is one toss of the coin: bright when the step went up, dark when
+// it went down, so the tosses read as noise. Its hue is the sign of the
+// running total, warm above zero and cool below, paler near zero and
+// deeper the further the walk is out in units of sqrt(t), and that hue
+// runs in long stretches. Cells are dimmed before the last zero or after
+// the maximum when those are the statistic.
 function shade(S, i, t, out) {
-  const o = i * (N + 1), a = S.S[o + t - 1], b = S.S[o + t], m = min(1, abs(a + b) / (2.2 * sqrt(t)));
-  if (a + b > 0) hsv(0.11 + S.hue, 0.3 + 0.7 * m, 1, out);
-  else hsv(0.6 + S.hue, 0.3 + 0.65 * m, 1, out);
+  const o = i * (N + 1), a = S.S[o + t - 1], b = S.S[o + t], m = min(1, abs(a + b) / (2.2 * sqrt(t))), up = b > a;
+  if (a + b > 0) hsv(0.11 + S.hue, 0.3 + 0.7 * m, up ? 1 : 0.3, out);
+  else hsv(0.6 + S.hue, 0.3 + 0.65 * m, up ? 0.85 : 0.25, out);
   let dim = false;
   if (S.stat === 1) dim = t <= S.lz[i];
   else if (S.stat === 2) dim = t > S.tm[i];
@@ -195,19 +198,15 @@ export function update(dt, input, params) {
     S.histMu = S.mu;
   }
   if (!S.init) {
-    // A first batch, run and sorted at once, is the picture the panel
-    // opens on while the next one comes down over it.
+    // The first batch comes down a dark panel; each later one comes down
+    // over the sorted picture of the one before.
     S.init = true;
-    newBatch(S);
-    while (S.row < N) stepRow(S);
-    plan(S);
-    keep(S, 0.75);
     newBatch(S);
   }
   // Walks nobody sees feed the histogram, 8 a frame at Speed 2.
   S.hidden = (S.hidden || 0) + (d * 30 * 8 * S.speed) / 2;
   while (S.hidden >= 1) hiddenWalk(S), S.hidden--;
-  const rate = 16 * S.speed, slow = sqrt(2 / S.speed);
+  const rate = 20 * S.speed, slow = sqrt(2 / S.speed);
   S.clock += d;
   if (S.phase === 0) {
     const want = min(N, floor(S.clock * rate));
@@ -221,21 +220,21 @@ export function update(dt, input, params) {
   } else {
     if (S.stat !== S.sortStat) plan(S), (S.clock = 0), (S.phase = 1);
     if (S.phase === 1 && S.clock > 1.4 * slow) (S.phase = 2), (S.clock = 0);
-    if (S.phase === 2 && S.clock > 1.4 * slow) keep(S, 0.75), newBatch(S);
+    if (S.phase === 2 && S.clock > 1.4 * slow) keep(S), newBatch(S);
   }
 }
 
-// Store the sorted picture of the batch, dimmed by f, as the backdrop.
-function keep(S, f) {
+// Store the sorted picture of the batch as the backdrop.
+function keep(S) {
   const P = S.prev, c = S.c;
   P.fill(0);
   for (let i = 0; i < NW; i++)
     for (let t = 1; t <= N; t++) {
       shade(S, i, t, c);
       const q = (S.R[i * N + t - 1] * NW + S.X[i]) * 3;
-      P[q] = c[0] * f;
-      P[q + 1] = c[1] * f;
-      P[q + 2] = c[2] * f;
+      P[q] = c[0];
+      P[q + 1] = c[1];
+      P[q + 2] = c[2];
     }
 }
 
