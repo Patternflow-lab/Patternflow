@@ -120,41 +120,55 @@ function bdepth(S, Y) {
 // The homotopy from the identity at tau = 0 to f at tau = 1: the panel
 // squeezed toward its left edge and stretched straight up along the centre
 // line, then the part above Q bent over, the bend's angle growing to pi.
-// The preimage of (X, Y) at tau goes into P, with P[2] set where the bend
-// has turned the strand downward; false outside the image.
-function minv(S, tau, X, Y, P) {
-  P[2] = 0;
+// phase() fixes the shape for one tau; minv() takes a point back through it
+// into P, with P[2] set where the bend has turned the strand downward, and
+// is false outside the image.
+function phase(S, tau) {
+  S.tau = tau;
   if (tau < T1) {
-    const a = ss(tau / T1), sx = 1 - a + a * S.lam, sq = 1 - a + a * S.mu;
-    const gt = QT * (1 - a) + a * (C + HQ * S.mu);
-    const x = X / sx;
-    const y = Y < C ? Y : Y <= gt ? C + (Y - C) / sq : QT + Y - gt;
+    const a = ss(tau / T1);
+    S.sx = 1 - a + a * S.lam;
+    S.sq = 1 - a + a * S.mu;
+    S.gt = QT * (1 - a) + a * (C + HQ * S.mu);
+  } else {
+    S.phi = PI * ss((tau - T1) / (1 - T1));
+    S.ct = cos(PI - S.phi);
+    S.st = sin(PI - S.phi);
+  }
+}
+
+function minv(S, X, Y, P) {
+  P[2] = 0;
+  if (S.tau < T1) {
+    const x = X / S.sx, y = Y < C ? Y : Y <= S.gt ? C + (Y - C) / S.sq : QT + Y - S.gt;
     if (x > 64 || y > 128) return false;
     P[0] = x;
     P[1] = y;
     return true;
   }
-  const phi = PI * ss((tau - T1) / (1 - T1)), lam = S.lam, w = S.w, R = S.R;
+  const phi = S.phi, lam = S.lam, w = S.w, R = S.R;
   let s = -1, u = 0;
   if (Y <= QT) {
     if (X <= 2 * w) (s = Y), (u = (X - w) / lam);
   } else {
-    const dx = X - 32, dy = Y - QT, r = sqrt(dx * dx + dy * dy), th = atan2(dy, dx);
-    if (th >= PI - phi && abs(r - R) <= w) {
-      s = QT + R * (PI - th);
-      u = (R - r) / lam;
-      P[2] = th < PI / 2 ? 1 : 0;
+    const dx = X - 32, dy = Y - QT, r = sqrt(dx * dx + dy * dy);
+    if (abs(r - R) <= w) {
+      const th = atan2(dy, dx);
+      if (th >= PI - phi) {
+        s = QT + R * (PI - th);
+        u = (R - r) / lam;
+        P[2] = th < PI / 2 ? 1 : 0;
+      }
     }
   }
   if (s < 0) {
     // Past the bend the strip runs straight on, along its tangent.
-    const te = PI - phi, ct = cos(te), st = sin(te);
-    const px = X - 32 - R * ct, py = Y - QT - R * st;
+    const ct = S.ct, st = S.st, px = X - 32 - R * ct, py = Y - QT - R * st;
     const sl = px * st - py * ct, off = -px * ct - py * st;
     if (sl >= 0 && abs(off) <= w) {
       s = QT + R * phi + sl;
       u = off / lam;
-      P[2] = te < PI / 2 ? 1 : 0;
+      P[2] = phi > PI / 2 ? 1 : 0;
     }
   }
   if (s < 0 || s > S.len) return false;
@@ -166,7 +180,7 @@ function minv(S, tau, X, Y, P) {
 export function setup(params) {
   // The first second shows the folded ribbon still; the first stretch
   // starts at 1.5 s.
-  params.s = { ph: 0.98, hue: 0, strands: 0, lam: 0, nf: 5, nb: 4, o1: 0, o2: 0, c: [0, 0, 0], P: [0, 0, 0], pal: new Float64Array(15) };
+  params.s = { ph: 0.98, hue: 0, strands: 0, lam: 0, nf: 5, nb: 4, tau: 0, sx: 1, sq: 1, gt: QT, phi: 0, ct: -1, st: 0, o1: 0, o2: 0, c: [0, 0, 0], P: [0, 0, 0], pal: new Float64Array(15) };
 }
 
 export function update(dt, input, params) {
@@ -193,6 +207,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const tau = S.ph < HOLD ? 0 : (S.ph - HOLD) / (1 - HOLD);
+  phase(S, tau);
   const P = S.P, c = S.c, pal = S.pal, h = S.hue, nf = S.nf, nb = S.nb;
   const wf = min(1, 1 - S.strands), wb = min(1, 1 + S.strands), vb = 0.3 + 0.7 * max(0, S.strands);
   // Rising strands gold and falling strands azure; where a stable strand
@@ -211,7 +226,7 @@ export function draw(display, params) {
       // fold, so the picture at the end of a cycle is the one it began with:
       // f maps the strands of each level onto those of the next.
       let v = tau - 1, e = 0, dn = 0;
-      if (minv(S, tau, i + 0.5, Y, P)) {
+      if (minv(S, i + 0.5, Y, P)) {
         const fl = P[2];
         e = max(0, bdepth(S, P[1]) - tau);
         v = fdepth(S, P[0], P[1], P) + tau;
