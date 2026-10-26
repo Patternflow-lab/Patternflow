@@ -5,13 +5,14 @@ import { zipSync } from "fflate";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // POST /builds read each entry of `patterns` as an object without asking, and
-// on 26 October `{"patterns":[null]}` threw a TypeError on `.code`: a 500 with
-// no JSON and no CORS headers. GET /builds/<id>/modules?file=__proto__ looked
-// the name up on the unzipped entries and found Object.prototype, so it
-// answered 200 with `Content-Length: undefined` and an empty body; `constructor`,
-// `toString` and `hasOwnProperty` did the same with a byte or none. No test
-// called either GET route. All three handlers are driven here with a signed-in
-// session, on a database and an artifact directory of their own.
+// on 26 October `{"patterns":[null]}` threw a TypeError on `.code`: Next
+// answered a 500 with no JSON and no CORS headers. GET
+// /builds/<id>/modules?file=__proto__ looked the name up on the unzipped
+// entries and found Object.prototype, so it answered 200 with an empty body
+// and `Content-Length: undefined`; `constructor`, `toString` and
+// `hasOwnProperty` were the same. No test called either GET route. All three
+// handlers are driven here with a signed-in session, on a database and an
+// artifact directory of their own.
 
 const LAB_ORIGIN = "https://lab.patternflow.test";
 const ENV_KEYS = [
