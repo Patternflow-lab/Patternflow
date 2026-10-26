@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Galperin Billiard
 // Family:  physics
-// Idea:    A heavy block slides down a rail onto a light one above a wall at the bottom, and every collision, block on block or light block on wall, lights one dot of a tally that groups itself in tens, hundreds and thousands, so with masses 100^k apart it reads 3, 31, 314 or 3141; above it the two velocities, scaled by the square roots of the masses, are a point on the energy circle that zigzags from the circle's left end to its right, one chord per collision, sweeping the disc until it lands in the wedge of angle arctan(sqrt(m/M)) where no collision is left.
+// Idea:    A heavy block slides down a rail onto a light one above a wall at the bottom, and every collision, block on block or light block on wall, lights one dot of a tally that groups itself in tens, hundreds and thousands, so with masses 100, 10,000 or 1,000,000 times apart it reads 31, 314 or 3141; above it the two velocities, scaled by the square roots of the masses, are a point on the energy circle that zigzags from the circle's left end to its right, one chord per collision, sweeping the disc until it lands in the wedge of angle arctan(sqrt(m/M)) where no collision is left.
 // Author:  patternflow-lab
 // Date:    2026-10-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,11 +9,11 @@
 // Round:   57
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.2..3, Digits=0..3, Warp=0..8
+// @knobs Hue=0..1, Speed=0.2..3, Digits=1..3, Warp=0..8
 //
 // Knob 1: Hue. Turns the colours round the wheel together. At 0 the heavy block is violet and the light one cyan, the swept disc runs violet through blue to green from left to right, and the tally is cyan, its thousands at k = 3 cyan, violet, green and rose; at 0.5 the heavy block is green, the light one pink and the disc runs green through rose to violet. The wheel skips orange to lime, and the unswept disc stays slate blue.
 // Knob 2: Speed. 2 is real time away from the burst, the heavy block coming down at 60 rows a second; 0.2 is ten times slower and 3 half as fast again. At 2, with Warp at its opening 0.06, the blocks meet 1.4 to 1.7 seconds into a run, the heavy block is off the top about 4 seconds in, and the tally holds 1.8 seconds before the next run.
-// Knob 3: Digits. k from 0 to 3: M = 100^k m, so 1, 100, 10,000 or 1,000,000 times the light block, and the collisions number 3, 31, 314 and 3141, the count of steps of theta = arctan(sqrt(m/M)), 45, 5.71, 0.573 or 0.0573 degrees, that fit below pi. The heavy block is 4 + 6k rows tall. The tally's dots are 15, 4, 1 and 1 LEDs wide at a pitch of 16, 5, 2 and 1. At k = 3 the middle 90% of the collisions fall within 3.4 ms and the closest two are 0.27 microseconds apart.
+// Knob 3: Digits. k from 1 to 3: M = 100^k m, so 100, 10,000 or 1,000,000 times the light block, and the collisions number 31, 314 and 3141, the count of steps of theta = arctan(sqrt(m/M)), 5.71, 0.573 or 0.0573 degrees, that fit below pi (equal blocks, k = 0, would give 3). The heavy block is 4 + 6k rows tall. The tally's dots are 4, 1 and 1 LEDs wide at a pitch of 5, 2 and 1. At k = 3 the middle 90% of the collisions fall within 3.4 ms and the closest two are 0.27 microseconds apart.
 // Knob 4: Warp. Seconds of slow motion added to the burst at Speed 2, from 0 to 8, shared evenly so each collision gets Warp / n of them: at the opening 0.06 the burst runs at nearly real time and the middle 90% of k = 3's collisions pass within two frames; at 8 they come 393 a second, and k = 1's 31 come four a second.
 
 const W = 64, H = 128;
@@ -175,7 +175,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kv = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = cl(kv[0], 0, 1);
-  const speed = cl(kv[1], 0.2, 3), k = round(cl(kv[2], 0, 3)), wsec = cl(kv[3], 0, 8);
+  const speed = cl(kv[1], 0.2, 3), k = round(cl(kv[2], 1, 3)), wsec = cl(kv[3], 0, 8);
   if (k !== S.k) start(S, k, wsec);
   else if (abs(wsec - S.warpS) > 1e-3) {
     // A new warp keeps the moment on screen where it is.
