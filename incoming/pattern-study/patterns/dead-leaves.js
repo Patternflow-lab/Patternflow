@@ -123,8 +123,8 @@ export function update(dt, input, params) {
   if (S.phase === 1) {
     S.pt += g;
     if (S.pt > HOLD) {
-      // The held sample steps one level down, greys, and shows through the
-      // holes of the next one until they close.
+      // The held sample steps one level down and greys. It shows through
+      // the holes of the next one until they close.
       S.old = S.cur;
       S.cur = sample();
       S.phase = 0;
