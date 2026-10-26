@@ -110,6 +110,14 @@ export function draw(display, params) {
     if (t % 8 === 0) set(0, y, 0.3, 0.32, 0.38);
     if (t === 0) for (let x = 0; x < W; x += 2) set(x, y, 0.32, 0.34, 0.42);
   }
+  // A dim lane down the middle of each voice's column, so the voices read as
+  // columns between their notes. It also keeps a fifth of the panel lit:
+  // with the notes alone the picture lit 7% and stretched the study map's
+  // fill axis past its end.
+  for (let v = 0; v < nv; v++) {
+    const cx = x0 + v * pitch + (lit >> 1);
+    for (let y = 0; y < H; y++) set(cx, y, 0.11, 0.115, 0.13);
+  }
   // The focused voice rules a faint line across the panel at each of its
   // notes, so its rhythm reads as a ruler laid over the others, and a stem
   // joins its notes down its own column.
