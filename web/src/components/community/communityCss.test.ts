@@ -177,6 +177,14 @@ describe("text fields on a phone", () => {
     expect(sizes).toEqual(["font-size: 16px;"]);
   });
 
+  // The pack link is monospace, and at 16px its 20 characters of its own made
+  // the share dialog's row 329px in a 308px body.
+  it("lets the pack link take its width from the row", () => {
+    const field = declarations(rule(community, ".shareLinkField"));
+    expect(field).toContain("flex: 1");
+    expect(field).toContain("width: 0");
+  });
+
   // A field with a class of its own fails here before it zooms a phone. The
   // board's address is left out: it sits inline in a sentence at the
   // sentence's size, and four places draw it four ways.
