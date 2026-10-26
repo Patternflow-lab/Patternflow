@@ -173,8 +173,8 @@ function push(S, i, T) {
     const r2 = x * x + y * y + z * z;
     const u = CT * x - ST * z, dz = ST * x + CT * z;
     if (r2 < RS * RS) {
-      // Into the sphere: a flash where it lands, dimmer on the far side,
-      // and a new particle.
+      // Into the sphere: a flash where it lands (dimmer on the far side),
+      // then a new particle.
       const fw = dz > -2 ? 1 : 0.4;
       splat(S.fx, CX + u, CY - y, 4 * fw);
       for (let j = 0; j < 4; j++) splat(S.fx, CX + u + (j < 2 ? 2 * j - 1 : 0), CY - y + (j < 2 ? 0 : 2 * j - 5), 1.5 * fw);
@@ -182,6 +182,8 @@ function push(S, i, T) {
       inject(S, i);
       return;
     }
+    // Past the Størmer length, or past 1.6 times the outermost shell if that
+    // is further, the particle has left the trap; a new one takes its place.
     if (r2 > esc * esc) {
       S.esc++;
       inject(S, i);
