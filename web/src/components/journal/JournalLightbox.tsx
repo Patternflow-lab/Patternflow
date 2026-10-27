@@ -8,6 +8,12 @@ type LightboxImage = {
   caption: string;
 };
 
+// focusVisible is in Chromium and Firefox but not yet in TypeScript's DOM types.
+function moveFocus(element: HTMLElement, ring: boolean) {
+  const options: FocusOptions & { focusVisible: boolean } = { preventScroll: true, focusVisible: ring };
+  element.focus(options);
+}
+
 export default function JournalLightbox() {
   const [image, setImage] = useState<LightboxImage | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +56,10 @@ export default function JournalLightbox() {
       return;
     }
 
+    // Chromium draws the focus ring wherever a script puts the focus, even
+    // after a mouse click. The ring waits for the first Tab.
+    let tabbed = false;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setImage(null);
@@ -58,13 +68,18 @@ export default function JournalLightbox() {
         // focus. A Tab that left it went to the links under the backdrop and
         // scrolled the post away from the picture.
         event.preventDefault();
-        closeRef.current?.focus();
+        const close = closeRef.current;
+        if (!close) return;
+        // focus() on the focused element changes nothing, ring included.
+        if (!tabbed) close.blur();
+        tabbed = true;
+        moveFocus(close, true);
       }
     };
 
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
-    closeRef.current?.focus({ preventScroll: true });
+    if (closeRef.current) moveFocus(closeRef.current, false);
 
     return () => {
       document.body.style.overflow = "";
@@ -74,7 +89,7 @@ export default function JournalLightbox() {
       const opener = openerRef.current;
       if (opener?.isConnected) {
         if (!opener.hasAttribute("tabindex")) opener.tabIndex = -1;
-        opener.focus({ preventScroll: true });
+        moveFocus(opener, tabbed);
       }
     };
   }, [image]);

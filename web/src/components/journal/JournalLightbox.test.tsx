@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import JournalLightbox from "./JournalLightbox";
 
 // Clicking a picture in a post opens it large in a dialog. The focus stayed
@@ -75,5 +75,39 @@ describe("JournalLightbox", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(screen.getByAltText("The desk"));
+  });
+
+  // Chromium rings whatever a script focuses, so a mouse that opened and
+  // closed the window would leave a ring on the close button and on the
+  // picture. jsdom draws no ring; the options passed to focus() are the test.
+  it("asks for a focus ring only once the reader has pressed Tab", () => {
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    const ringFor = (element: HTMLElement) =>
+      focus.mock.contexts.flatMap((context, i) =>
+        context === element ? [(focus.mock.calls[i][0] as { focusVisible?: boolean } | undefined)?.focusVisible] : [],
+      );
+
+    renderPost();
+    const picture = screen.getByAltText("The desk");
+    open();
+    const close = screen.getByRole("button", { name: "Close image" });
+    act(() => {
+      fireEvent.click(close);
+    });
+    expect(ringFor(close)).toEqual([false]);
+    expect(ringFor(picture)).toEqual([false]);
+
+    focus.mockClear();
+    open();
+    fireEvent.keyDown(screen.getByRole("button", { name: "Close image" }), { key: "Tab" });
+    act(() => {
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    });
+    expect(focus.mock.calls.map((call) => (call[0] as { focusVisible?: boolean } | undefined)?.focusVisible)).toEqual([
+      false,
+      true,
+      true,
+    ]);
+    expect(focus.mock.contexts.at(-1)).toBe(picture);
   });
 });
