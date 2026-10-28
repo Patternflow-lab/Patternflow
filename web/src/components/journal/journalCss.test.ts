@@ -392,7 +392,7 @@ describe("journal dates on a phone", () => {
 
 // Below 721px a post's text broke Korean words wherever a line ran out: on 28
 // October, 2,640 of the 4,458 line breaks in the 37 Korean posts at 390 (59%)
-// fell between two Hangul syllables of one word, and as many at 360 and 430.
+// fell between two Hangul syllables of one word, and 59 to 60% at 360 and 430.
 // Breaking only at spaces leaves a long English word or address to
 // overflow-wrap.
 
