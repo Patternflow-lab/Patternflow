@@ -35,11 +35,10 @@ const FADE = 0.5, GAIN = 1.4, AGL = 0.15, XI = 1 / sqrt(AGL);
 // ---- Michel-Levy colours: white light through a plate of retardation G
 // between crossed polarizers transmits sin^2(pi G / lambda) of each
 // wavelength. Summed against the CIE 1931 matching functions (the
-// three-lobe fit of Wyman, Sloan and Shirley) from 400 to 700 nm and taken
-// to sRGB, each channel divided by white's, then saturated SAT times over
-// for the panel, kept in linear light. One entry each 2 nm up to 2400 nm.
-// (Matching functions: Chris Wyman, Peter-Pike Sloan and Peter Shirley,
-// 2013.) ----
+// multi-lobe fit of Chris Wyman, Peter-Pike Sloan and Peter Shirley, 2013)
+// from 400 to 700 nm and taken to sRGB, each channel divided by white's,
+// then saturated SAT times over for the panel and kept in linear light. One
+// entry each 2 nm up to 2400 nm. ----
 const SAT = 3, GMAX = 2400, GSTEP = 2, GN = GMAX / GSTEP + 1, ML = new Float32Array(GN * 3);
 {
   const g = (l, m, a, b) => exp(-0.5 * ((l - m) / (l < m ? a : b)) ** 2);
