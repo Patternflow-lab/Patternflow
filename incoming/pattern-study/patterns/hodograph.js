@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Hodograph
 // Family:  physics
-// Idea:    Bodies of different eccentricity circle one Sun in the upper half with Kepler's timing, each sweeping a fan of equal-time slices, and in the lower half each body's velocity, drawn from one common origin, runs round a circle set off from the origin by e times its radius.
+// Idea:    Bodies of different eccentricity go round one Sun in the upper half with Kepler's timing, each trailing a fan of three equal-time slices, and below them each body's velocity, drawn from one common origin, runs round a circle set off from that origin by e times its radius.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Eccentricity=0.6..0.95, Bodies=3..6
 //
-// Knob 1: Hue. Turns the bodies' colours round the wheel together.
-// Knob 2: Speed. How fast time runs.
-// Knob 3: Eccentricity. The largest eccentricity.
-// Knob 4: Bodies. How many bodies.
+// Knob 1: Hue. Turns the bodies' colours round the wheel together: at 0 the first three are cyan, magenta and green and the fourth to sixth azure, rose and yellow, while the Sun stays pale gold and the origin of the velocities white.
+// Knob 2: Speed. How fast time runs. At 1 the three opening bodies go round in 3.2, 5.3 and 7.1 seconds, the period growing as the 3/2 power of the semi-major axis; at the opening 2 they take 1.6, 2.6 and 3.5 seconds.
+// Knob 3: Eccentricity. The eccentricity of the most eccentric body, with the others spread evenly below it: 0.2, 0.4 and 0.6 at the opening 0.6. At 0.95 that body moves 39 times faster at periapsis than at apoapsis, its hodograph is the largest circle with the origin 0.05 of a radius inside its rim, and the other hodographs shrink round the origin.
+// Knob 4: Bodies. Three to six bodies, their apoapses spread evenly from 13 to 29.5 units and their apse lines turned 137.5 degrees (the golden angle) from one another; each half of the panel is fitted to the set again.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, sin, cos, atan2, PI, round, hypot } = Math;
@@ -25,7 +25,7 @@ const wrap = (v) => v - TAU * floor(v / TAU);
 // Upper half: the orbits round the Sun. Lower half: velocity space, every
 // velocity drawn from one origin O. World y runs up in both. Each half is
 // fitted to its own box, BOX LEDs square, centred on row MID[0] or MID[1].
-const BOX = 59, MID = [31, 96];
+const BOX = 57, MID = [30, 97];
 // Apoapses run from Q0 to Q1 in world units, and an orbit with semi-major
 // axis 20 takes T20 seconds at Speed 1. One Sun, so one mu for every body.
 const Q0 = 13, Q1 = 29.5, T20 = 8;
@@ -48,11 +48,11 @@ function hsv(h, s, v, out) {
   out[2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
 
-// Kepler's equation M = E - e sin E by Newton's method; from pi it
-// converges for every M in [0, 2 pi) and every e below 1.
+// Kepler's equation M = E - e sin E by Newton's method from E = M. Over e
+// up to 0.95 and 20 000 values of M it settles within 7 steps.
 function kepler(M, e) {
-  let E = e > 0.8 ? PI : M;
-  for (let k = 0; k < 40; k++) {
+  let E = M;
+  for (let k = 0; k < 20; k++) {
     const d = (E - e * sin(E) - M) / (1 - e * cos(E));
     E -= d;
     if (abs(d) < 1e-13) break;
@@ -97,8 +97,8 @@ function check() {
 
 function body() {
   return {
-    e: 0, a: 1, p: 1, Q: 1, nm: 1, R: 1, w: 0, cw: 1, sw: 0, M0: 0, M: 0,
-    x: 0, y: 0, vx: 0, vy: 0, hx: 0, hy: 0, hr: 1, mt: new Float64Array(TAB + 1), col: new Float32Array(3),
+    e: 0, a: 1, p: 1, Q: 1, nm: 1, R: 1, w0: 0, w: 0, cw: 1, sw: 0, M0: 0, M: 0,
+    x: 0, y: 0, vx: 0, vy: 0, psi: 0, span: 0, hx: 0, hy: 0, hr: 1, mt: new Float64Array(TAB + 1), col: new Float32Array(3),
   };
 }
 
@@ -120,15 +120,27 @@ function fit(x0, x1, y0, y1, row) {
   return [s, 31.5 - (s * (x0 + x1)) / 2, row + (s * (y0 + y1)) / 2];
 }
 
+// The orbits' box with every apse line turned by tilt, as [x0, x1, y0, y1].
+function orbitBox(S, tilt) {
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let i = 0; i < S.n; i++) {
+    const B = S.b[i], w = B.w0 + tilt, cw = cos(w), sw = sin(w), b = B.a * sqrt(1 - B.e * B.e);
+    const cx = -B.a * B.e * cw, cy = -B.a * B.e * sw;
+    const ex = sqrt(B.a * B.a * cw * cw + b * b * sw * sw), ey = sqrt(B.a * B.a * sw * sw + b * b * cw * cw);
+    x0 = min(x0, cx - ex); x1 = max(x1, cx + ex); y0 = min(y0, cy - ey); y1 = max(y1, cy + ey);
+  }
+  return [x0, x1, y0, y1];
+}
+
 // The bodies: eccentricities spread evenly up to the knob's, apoapses from
-// Q0 to Q1, apse lines turned by the golden angle from one another. Then
-// both halves are fitted: the orbits by their boxes, the hodographs by
+// Q0 to Q1, apse lines turned by the golden angle from one another, and the
+// whole set turned to the tilt that lets it stand largest in its square.
+// Then both halves are fitted: the orbits by their box, the hodographs by
 // theirs, each circle of radius R = mu / h centred e R from O, square to
 // the apse line.
 function build(S, n, emax) {
   S.n = n;
   S.emax = emax;
-  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
   for (let i = 0; i < n; i++) {
     const B = S.b[i], e = (emax * (i + 1)) / n;
     B.e = e;
@@ -137,17 +149,25 @@ function build(S, n, emax) {
     B.p = B.a * (1 - e * e);
     B.nm = sqrt(MU / (B.a * B.a * B.a));
     B.R = sqrt(MU / B.p);
-    B.w = 1.1 + i * 2.39996;
-    B.cw = cos(B.w);
-    B.sw = sin(B.w);
+    B.w0 = i * 2.39996;
     B.M0 = 0.6 + i * 2.6;
     for (let k = 0; k <= TAB; k++) B.mt[k] = meanAt(e, (TAU * k) / TAB);
-    const b = B.a * sqrt(1 - e * e), cx = -B.a * e * B.cw, cy = -B.a * e * B.sw;
-    const ex = sqrt(B.a * B.a * B.cw * B.cw + b * b * B.sw * B.sw), ey = sqrt(B.a * B.a * B.sw * B.sw + b * b * B.cw * B.cw);
-    x0 = min(x0, cx - ex); x1 = max(x1, cx + ex); y0 = min(y0, cy - ey); y1 = max(y1, cy + ey);
-    const hx = -e * B.R * B.sw, hy = e * B.R * B.cw;
+  }
+  let tilt = 0, best = 1e9;
+  for (let k = 0; k < 60; k++) {
+    const [x0, x1, y0, y1] = orbitBox(S, (PI * k) / 60), size = max(x1 - x0, y1 - y0);
+    if (size < best - 1e-9) (best = size), (tilt = (PI * k) / 60);
+  }
+  let u0 = 1e9, u1 = -1e9, v0 = 1e9, v1 = -1e9;
+  for (let i = 0; i < n; i++) {
+    const B = S.b[i];
+    B.w = B.w0 + tilt;
+    B.cw = cos(B.w);
+    B.sw = sin(B.w);
+    const hx = -B.e * B.R * B.sw, hy = B.e * B.R * B.cw;
     u0 = min(u0, hx - B.R); u1 = max(u1, hx + B.R); v0 = min(v0, hy - B.R); v1 = max(v1, hy + B.R);
   }
+  const [x0, x1, y0, y1] = orbitBox(S, tilt);
   [S.so, S.fx, S.fy] = fit(x0, x1, y0, y1, MID[0]);
   [S.hs, S.ox, S.oy] = fit(u0, u1, v0, v1, MID[1]);
   for (let i = 0; i < n; i++) {
@@ -174,6 +194,12 @@ function place(B, t) {
   B.y = px * B.sw + py * B.cw;
   B.vx = vx * B.cw - vy * B.sw;
   B.vy = vx * B.sw + vy * B.cw;
+  // The directions of the velocity now and at the oldest edge of the fan.
+  // O is inside every hodograph, so the direction turns one way only, and
+  // the fan below lies between these two.
+  const Eo = kepler(wrap(M - TAU * FAN), e);
+  B.psi = atan2(vy, vx) + B.w;
+  B.span = wrap(B.psi - atan2(s1 * cos(Eo), -sin(Eo)) - B.w);
 }
 
 export function update(dt, input, params) {
@@ -249,10 +275,10 @@ export function draw(display, params) {
       for (let i = 0; i < n; i++) {
         const B = bs[i];
         if (d > B.Q + 1) continue;
-        const th = phi - B.w, edge = (B.p / (1 + B.e * cos(th)) - d) * so + 0.5;
-        if (edge <= 0) continue;
-        const age = wrap(B.M - meanOf(B, th)) / win;
+        const th = phi - B.w, age = wrap(B.M - meanOf(B, th)) / win;
         if (age >= 1) continue;
+        const edge = (B.p / (1 + B.e * cos(th)) - d) * so + 0.5;
+        if (edge <= 0) continue;
         put(rgb, x, y, B.col, fan(age) * min(1, edge));
       }
     }
@@ -265,9 +291,11 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const wx = x - ox, d = sqrt(wx * wx + wy * wy);
       if (d < 1e-6) continue;
-      const ux = wx / d, uy = wy / d;
+      const ux = wx / d, uy = wy / d, psi = atan2(wy, wx);
       for (let i = 0; i < n; i++) {
-        const B = bs[i], ex = wx - B.hx, ey = wy - B.hy, edge = B.hr + 0.5 - sqrt(ex * ex + ey * ey);
+        const B = bs[i];
+        if (wrap(B.psi - psi) > B.span) continue;
+        const ex = wx - B.hx, ey = wy - B.hy, edge = B.hr + 0.5 - sqrt(ex * ex + ey * ey);
         if (edge <= 0) continue;
         const uc = ux * B.hx + uy * B.hy;
         const s = uc + sqrt(max(0, uc * uc - B.hx * B.hx - B.hy * B.hy + B.hr * B.hr));
