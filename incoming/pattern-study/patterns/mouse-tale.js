@@ -62,6 +62,8 @@ const SIZES = [
   { h: 1, pitch: 2, space: 1, gap: 0 },
 ];
 const LAST = SIZES.length - 1;
+// How bright the shadow under the faces is, against its letter.
+const SHADOW = 0.22;
 
 // Word shapes: a letter on 2 by 3 keeps whether it rises, sits or hangs.
 const RISE = "bdfhklt", HANG = "gjpy", NARROW = "fijlrt", RIGHT = "dgjy";
@@ -140,7 +142,7 @@ export function setup(params) {
     lines,
     drawn: lines.map((t) => SIZES.map((_, k) => render(t, k))),
     q: 0, t: 0, hue: 0, speed: 2, sway: 1, taper: 0.06,
-    Y: new Float32Array(80), buf: new Float32Array(W * H * 3), c: [0, 0, 0],
+    Y: new Float32Array(80), buf: new Float32Array(W * H * 3), ink: new Uint8Array(W * H), c: [0, 0, 0],
   };
 }
 
@@ -180,8 +182,9 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.slots) return;
-  const { buf, Y, c, lines, drawn } = S, L = lines.length;
+  const { buf, ink, Y, c, lines, drawn } = S, L = lines.length;
   buf.fill(0);
+  ink.fill(0);
   const Q = floor(S.q), f = S.q - Q;
   for (let i = -1; i < S.slots; i++) {
     const y0 = i < 0 ? Y[0] - SIZES[0].pitch : Y[i], y1 = Y[i + 1];
@@ -201,9 +204,23 @@ export function draw(display, params) {
         buf[o] = c[0];
         buf[o + 1] = c[1];
         buf[o + 2] = c[2];
+        if (size < 3) ink[yy * W + x + k] = 1;
       }
     }
   }
+  // The faces cast a faint shadow one LED down and to the right, as type
+  // pressed into paper does. Word shapes and dots cast none.
+  for (let y = H - 1; y > 0; y--)
+    for (let x = W - 1; x >= 0; x--) {
+      const p = y * W + x, o = p * 3;
+      if (ink[p] || buf[o] + buf[o + 1] + buf[o + 2] > 0) continue;
+      const from = ink[p - W] ? p - W : x > 0 && ink[p - W - 1] ? p - W - 1 : -1;
+      if (from < 0) continue;
+      const q = from * 3;
+      buf[o] = buf[q] * SHADOW;
+      buf[o + 1] = buf[q + 1] * SHADOW;
+      buf[o + 2] = buf[q + 2] * SHADOW;
+    }
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3;
