@@ -162,7 +162,7 @@ const TURNS = [4, 8, 16, 32, 64];
 // At Speed 2 the beam's half turn takes SCAN seconds, reading the sinogram
 // back into the picture takes SWEEP, the result holds HOLD and the last
 // FADE of the hold clears both squares.
-const SCAN = 1, SWEEP = 6, HOLD = 1.5, FADE = 0.25, P0 = 0.75;
+const SCAN = 1, SWEEP = 6, HOLD = 1.5, FADE = 0.25, DIM = 0.15, P0 = 0.75;
 
 // A new scan starts on a cleared panel.
 function startCycle(S, E) {
@@ -261,9 +261,9 @@ export function update(dt, input, params) {
     S.hold += dt * rate;
     if (S.hold >= HOLD) startCycle(S, nextPhantom(S.E));
   }
-  // Near the end of the hold both squares fade out over FADE seconds and
-  // stay dark for the last 0.07 s.
-  S.clear = S.prog < 1 ? 1 : cl((HOLD - S.hold - 0.07) / FADE, 0, 1);
+  // Near the end of the hold both squares dim over FADE seconds to DIM of
+  // their light and stay there for the last 0.07 s.
+  S.clear = S.prog < 1 ? 1 : DIM + (1 - DIM) * cl((HOLD - S.hold - 0.07) / FADE, 0, 1);
 }
 
 export function draw(display, params) {
