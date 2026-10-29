@@ -298,7 +298,7 @@ function tape(symbols) {
 }
 
 export function setup(params) {
-  const S = (params.s = { t: 0, n: 0, p: 0, acc: 0, k3: -1, shown: -1, mapC: -1, fade: 0, rk: -1 });
+  const S = (params.s = { n: 0, p: 0, acc: 0, k3: -1, shown: -1, mapC: -1, fade: 0, rk: -1 });
   // The set, and for each syllable how many of the 2,350 come at or before it.
   S.ks = new Uint8Array(ALL);
   S.rank = new Uint16Array(ALL);
@@ -379,7 +379,6 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06];
   dt = cl(dt || 0, 0, 0.1);
-  S.t += dt;
   S.hue = k[0] || 0;
   const speed = cl(k[1], 0.2, 3);
   const d = speed - 2;
