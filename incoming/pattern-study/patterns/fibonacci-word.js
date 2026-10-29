@@ -138,7 +138,9 @@ function project(P, N, cam, X, Y) {
 
 // Least-squares similarity z -> alpha z + beta (or alpha conj z + beta)
 // taking the points (ax, ay) onto (bx, by). Returns [ar, ai, br, bi, err].
-function simFit(n, ax, ay, bx, by, conj) {
+// With snap the turn of alpha is rounded to a quarter, so a curve on the
+// grid stays on it.
+function simFit(n, ax, ay, bx, by, conj, snap) {
   let mx = 0, my = 0, nx = 0, ny = 0;
   for (let j = 0; j < n; j++) mx += ax(j), my += (conj ? -1 : 1) * ay(j), nx += bx(j), ny += by(j);
   mx /= n, my /= n, nx /= n, ny /= n;
@@ -147,7 +149,12 @@ function simFit(n, ax, ay, bx, by, conj) {
     const u = ax(j) - mx, v = (conj ? -1 : 1) * ay(j) - my, p = bx(j) - nx, q = by(j) - ny;
     sr += u * p + v * q, si += u * q - v * p, ss += u * u + v * v;
   }
-  const ar = sr / max(1e-9, ss), ai = si / max(1e-9, ss), br = nx - (ar * mx - ai * my), bi = ny - (ai * mx + ar * my);
+  let ar = sr / max(1e-9, ss), ai = si / max(1e-9, ss);
+  if (snap) {
+    const r = hypot(ar, ai), q = (((round(atan2(ai, ar) / (PI / 2)) % 4) + 4) % 4);
+    (ar = r * [1, 0, -1, 0][q]), (ai = r * [0, 1, 0, -1][q]);
+  }
+  const br = nx - (ar * mx - ai * my), bi = ny - (ai * mx + ar * my);
   let err = 0;
   for (let j = 0; j < n; j++) {
     const u = ax(j), v = (conj ? -1 : 1) * ay(j);
@@ -167,7 +174,7 @@ function geometry(n, deg, mir, keepPsi) {
   const X = new Float64Array(N + 1), Y = new Float64Array(N + 1);
   project(P, N, cam, X, Y);
   const fits = [false, true].map((cj) =>
-    simFit(Nc + 1, (j) => P[2 * j], (j) => P[2 * j + 1], (j) => X[BLK[j]], (j) => Y[BLK[j]], cj));
+    simFit(Nc + 1, (j) => P[2 * j], (j) => P[2 * j + 1], (j) => X[BLK[j]], (j) => Y[BLK[j]], cj, grid));
   const f = fits[0][4] < fits[1][4] ? fits[0] : fits[1], cj = f === fits[1];
   const GX = new Float64Array(Nc + 1), GY = new Float64Array(Nc + 1);
   for (let j = 0; j <= Nc; j++) {
@@ -289,7 +296,7 @@ export function draw(display, params) {
       if (i > 0) {
         const j = i - 1, pre = j < Nc;
         const u = pre ? ((j + 0.5) / N) * (1 - e) + ((BLK[j] + BLK[j + 1]) / (2 * N)) * e : (j + 0.5) / N;
-        const v = pre ? 1 : out * (1 - 0.4 * e);
+        const v = pre ? 1 : 0.45 * out;
         if (v > 0.01) {
           const w = pre ? 0.55 * (1 - e) : 0;
           col(u, v, w);
@@ -302,10 +309,11 @@ export function draw(display, params) {
     // The coarse curve, each step fading as the pen finishes its block.
     const rate = max(0.5, 70 / max(0.05, g.step));
     for (let j = 0; j < Nc; j++) {
-      const gone = (S.pen - BLK[j + 1]) / (0.3 * rate), a = S.gl * (1 - cl(gone, 0, 1));
+      const gone = (S.pen - BLK[j + 1]) / (0.3 * rate) + (S.phase === 1 ? 8 * S.pt : 0), a = S.gl * (1 - cl(gone, 0, 1));
       if (a <= 0.01) continue;
       col((BLK[j] + BLK[j + 1]) / (2 * N), a, 0.15);
-      lineAA(acc, g.GX[j], g.GY[j], g.GX[j + 1], g.GY[j + 1], c[0], c[1], c[2], 1);
+      if (g.grid) lineGrid(acc, round(g.GX[j]), round(g.GY[j]), round(g.GX[j + 1]), round(g.GY[j + 1]), c[0], c[1], c[2], 1);
+      else lineAA(acc, g.GX[j], g.GY[j], g.GX[j + 1], g.GY[j + 1], c[0], c[1], c[2], 1);
     }
     // The fine curve up to the pen. In the look (phase 1) the three copies
     // of the first F(n-3) digits light in turn and the rest dims.
@@ -313,9 +321,9 @@ export function draw(display, params) {
     let spot = [0, 0, 0], dim = 1;
     if (S.phase === 1) {
       const p = S.pt;
-      spot = [0.22, 0.46, 0.7].map((m0, q) => max(0, 1 - abs(p - m0) / 0.13));
-      spot[0] = max(spot[0], smooth((p - 0.8) / 0.2));
-      dim = 1 - 0.55 * smooth(p / 0.12);
+      spot = [0.33, 0.52, 0.71].map((m0) => max(0, 1 - abs(p - m0) / 0.11));
+      spot[0] = max(spot[0], smooth((p - 0.8) / 0.15));
+      dim = 1 - 0.55 * smooth((p - 0.1) / 0.12);
     }
     const last = S.phase === 0 ? floor(S.pen) : N - 1, frac = S.phase === 0 ? S.pen - last : 1;
     for (let i = 0; i <= min(last, N - 1); i++) {
