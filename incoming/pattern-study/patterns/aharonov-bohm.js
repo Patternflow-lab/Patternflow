@@ -87,12 +87,15 @@ function besselRun(nu0, z, M, w, out) {
 // the plane wave to 1e-14; at a = 1/2 the orders m and 1 - m pair off and
 // cancel on theta = 0, so the shadow line is an exact zero.
 //
-// Which a? The flux F in quanta enters as exp(2 pi i F) round any loop, so
-// F and F + 1 are the same physics, and the gauge with the whole quanta
-// taken out (a = F - round(F), here F - 1 on the knob's range) draws them as
-// the same picture: F = 1 is exactly the bare plane wave. Every orders' sum
-// is done for an LED and its mirror across the shadow line at once, since
-// they share r and differ only in the sign of theta.
+// Which a? The flux F in quanta enters only as exp(2 pi i F) round a loop,
+// so F and F + 1 are the same physics, and a whole quantum can be taken out
+// by a gauge change. The picture takes one out, a = F - 1, so F = 1 is the
+// bare plane wave exactly, as F = 0 would be. Over the knob's range a runs
+// from -1/2 to 1/2: the two ends are both half a quantum, drawn in gauges a
+// quantum apart, and come out as mirror images, the same seam with the
+// colours of its sides swapped. The orders' sum is done for an LED and its
+// mirror across the shadow line at once, since they share r and differ only
+// in the sign of theta.
 const MM = 260;
 function field(S, F, lam) {
   const a = F - 1, k = (2 * PI) / lam;
