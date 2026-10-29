@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Shapley-Folkman
 // Family:  geometry
-// Idea:    Four bands down the panel show one nonconvex shape and its Minkowski averages of 2, 4 and 8 copies, each computed exactly as a sum of lattice point sets, so the bays and holes close band by band toward the convex hull drawn faintly round each one, the gap halving at every step.
+// Idea:    Four bands down the panel hold one nonconvex shape and its Minkowski averages of 2, 4 and 8 copies, each summed exactly on a lattice, so its bays and holes close band by band toward the convex hull drawn faintly round it, the distance still to go halving at every band and every point coloured by the band where it first appears.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,24 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Shape=0..4, Hull=0..1
 //
-// Knob 1: Hue. Turns the band colours round the wheel together.
-// Knob 2: Speed. How fast the shape turns or moves.
-// Knob 3: Shape. Moon, pearls, open ring, comb and star at 0 to 4, blended in between.
-// Knob 4: Hull. How strongly the convex hull and its uncovered part are drawn.
+// Knob 1: Hue. Turns the four layer colours round a wheel that skips orange. At 0 the shape is teal and the parts added at 2, 4 and 8 copies azure, indigo and violet; at 0.25 blue, violet, magenta and yellow; at 0.75 lime, green, cyan and azure. The uncovered part of the hull is gold at 0 and turns with them.
+// Knob 2: Speed. How fast the shape moves: at 2 the moon's bite, the pearls and the ring's gap go round in 9 s, the star turns one point in 1.8 s and the comb's teeth rise and fall every 6.9 s; at 0.2 ten times slower, at 3 two thirds of that. Every band follows at once, since all four are summed again each frame.
+// Knob 3: Shape. 0 a moon (an ellipse with a bite), 1 three pearls, 2 an open ring, 3 a comb, 4 a five-pointed star; in between, the two neighbours blend and break into pieces. At 1 copy they leave 43, 51, 45, 37 and 45% of their hull uncovered, at 8 copies 3.7, 1.3, 0.7, 0.9 and 4.4%.
+// Knob 4: Hull. The convex hull is a faint line at 0 and 0.06; toward 1 the line brightens and the part of the hull each band has not yet covered fills with gold, which is the gap the lemma says shrinks like 1/n.
+
+// The Shapley-Folkman lemma: in the plane, a point of the convex hull of a
+// sum of n sets is a sum of n points, one from each set, of which at most
+// two come from a set's hull instead of the set. So the average of n copies
+// of a shape S, A(n) = (S + ... + S) / n, comes within 2D/n of every point
+// of S's hull, where D is how far the hull reaches from S itself: the
+// average fills toward the hull like 1/n. A(1), A(2), A(4) and A(8) also
+// nest, since (a + b) / 2 = (a + a + b + b) / 4.
+//
+// The panel takes S as the lattice points, one per LED, inside the shape,
+// sums the point sets exactly (8 copies make a lattice of 465 by 217),
+// and lights each LED by the share of A(n)'s points that fall inside it.
+// Brightness is never how many ways a point can be reached: that count is
+// the bell of the central limit theorem, a different statement.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, cos, sin, atan2, PI } = Math;
@@ -298,9 +312,12 @@ export function draw(display, params) {
   // Colour by n: each band's points are coloured by the band where they
   // first appear, since A(1), A(2), A(4) and A(8) each hold the one before.
   // Older layers are deep, the layer new in this band is pale and bright.
+  // The wheel skips orange, which goes brown at the depth of the old
+  // layers: the knob runs from yellow through green, blue and violet to red.
+  const wheel = (p) => 0.16 + (p - floor(p)) * 0.84;
   for (let j = 0; j < NS.length; j++) {
-    const h = S.hue + 0.47 + 0.12 * j;
-    hsv(h, 0.9, 0.5, c);
+    const h = wheel(S.hue + 0.352 + 0.136 * j);
+    hsv(h, 0.88, 0.58, c);
     L.set(c, j * 9);
     hsv(h + 0.03, 0.45, 1, c);
     L.set(c, j * 9 + 3);
