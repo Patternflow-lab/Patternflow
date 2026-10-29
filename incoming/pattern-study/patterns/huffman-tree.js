@@ -260,12 +260,13 @@ export function draw(display, params) {
     const q = nodes[i];
     for (let y = T.Y0; y > q.y; y -= 2) put(q.x, y, PALE, 0.4);
   }
-  // Faint level lines a bit apart: a node j lines under the root would
-  // ideally have a code j bits long.
-  const top = nodes[T.root].y;
-  for (let j = 0; T.Y0 - j * T.L > top + 1; j++) {
-    const y = round(T.Y0 - j * T.L);
-    for (let x = (j & 1) * 2; x < W; x += 4) put(x, y, PALE, 0.1);
+  // Faint lines a bit apart, counted down from where the root would stand:
+  // a leaf whose node sits between lines j and j + 1 has an ideal length
+  // log2(N / w) between j and j + 1 bits.
+  for (let j = 1; ; j++) {
+    const y = round(T.Y0 - (log2(N) - j) * T.L);
+    if (y > T.Y0) break;
+    for (let x = (j & 1) * 2; x < W; x += 4) put(x, y, PALE, 0.14);
   }
   // Under each bar a faint light down to the higher child: the 0 side left
   // of the parent, the 1 side right of it.
