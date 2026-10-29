@@ -97,8 +97,9 @@ function build(S) {
       objs[1].push({ fam, i, C: circleThrough(P[0], P[1], P[2]) });
     }
   // Sample every circle and fit each surface to its box. The turn is about
-  // the vertical axis, which both surfaces are symmetric about, so the
-  // widest the drawing gets is twice the largest distance from that axis.
+  // the vertical axis, and a half turn about it maps each surface onto
+  // itself, so the drawing is never wider than twice the largest distance
+  // from that axis.
   S.objs = objs.map((list, o) => {
     let ylo = 1e9, yhi = -1e9, rad = 0;
     const pts = list.map(({ C }) => {
@@ -133,7 +134,7 @@ export function update(dt, input, params) {
   // Shape: tube over centre radius 0.5 (ring) to 1 (horn) to 1.6 (spindle).
   const sh = cl(k[2], 0, 2);
   S.r = sh <= 1 ? 0.5 + 0.5 * sh : 1 + 0.6 * (sh - 1);
-  // Distance: the gap between the torus and the centre, in torus sizes.
+  // Distance: the gap between the torus and the centre, in outer radii.
   S.del = 1.2 * exp(3.2 * cl(k[3], 0, 1));
   const key = S.r.toFixed(4) + "," + S.del.toFixed(4);
   if (key !== S.key) {
