@@ -1,20 +1,21 @@
 // ===== Patternflow pattern =====
 // Title:   Clothesline
 // Family:  type
-// Idea:    Four ropes sag from wall to wall down the tall panel with ten letter cards pegged on them, 바람이 / 분다 / 살아야 / 겠다, and gusts cross the panel from the left so the cards swing on their pegs one after another like pendulums, twist on the line, the ropes lift and bob under them, and every card falls back to hanging straight once the gust has gone.
+// Idea:    Four ropes sag from wall to wall down the tall panel with ten letter cards pegged on them, 바람이 / 분다 / 살아야 / 겠다, and gusts cross the panel from the left so the cards swing on their pegs one after another like pendulums and twist on the line, the ropes lift and bob under them, and every card falls back to hanging straight once the gust has gone.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 72; the text is the Korean of «Le vent se lève, il faut tenter de vivre» from Paul Valéry's Le Cimetière marin (1920); the wind's mean speed from the Beaufort scale's v = 0.836 B^(3/2) m/s; the Hangul cards drawn as strokes for this pattern
+// Lineage: original, pattern round 72; the text is «Le vent se lève, il faut tenter de vivre» from Paul Valéry's Le Cimetière marin (1920) in the Korean it is usually given; the mean wind from the Beaufort scale (Francis Beaufort, 1805) by v = 0.836 B^(3/2) m/s; the Hangul syllables drawn as strokes for this pattern
 // Round:   72
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Wind=2..7, Gust=0..1
 //
-// Knob 1: Hue. The card colour, with the ink always cream white: at 0 the cards are teal, at 0.25 blue violet, at 0.5 rose, at 0.75 olive gold, each card a little off its neighbours.
-// Knob 2: Speed. The time scale. At 2 a card left to itself swings once a second and a gust takes 1.6 s to cross the panel in a light breeze; at 1 everything is half as fast, at 0.2 ten times slower, at 3 one and a half times faster.
-// Knob 3: Wind. The mean wind on the Beaufort scale. At the opening 2, a light breeze of 2.4 m/s, the cards lean 7 degrees and each gust swings them to about 25; at 4, 6.7 m/s, they lean 45 degrees; at 7, a near gale of 15.5 m/s, they fly almost flat and the ropes pull nearly straight.
-// Knob 4: Gust. Turbulence on top of the gusts: at 0 only the gust fronts that cross every 1.5 to 3 s, at the opening 0.06 a little flutter, at 1 gusts half as strong again and twice as often, eddies that throw neighbouring cards opposite ways, and the cards twist round their pegs until some show their blank backs.
+// Knob 1: Hue. The card colour, the ink always cream: sea green at 0, azure at 0.25, blue violet at 0.5, magenta at 0.75 and rose red at 1, each card a little off its neighbours. The wheel skips orange, which on a dim card reads brown.
+// Knob 2: Speed. The time scale. At 2 a card left to itself swings once a second and a gust crosses the 64 columns in 1.6 s in a light breeze; at 1 everything is half as fast, at 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 3: Wind. The mean wind in Beaufort force. At the opening 2, a light breeze of 2.4 m/s, the cards lean 7 degrees and the gusts swing them to 20 or 35 and back past straight; at 4, 6.7 m/s, they lean 45 degrees; at 7, a near gale of 15.5 m/s, they fly 79 degrees out, almost flat, and the ropes pull from a 5-LED sag to 1.
+// Knob 4: Gust. Turbulence on top of the gust fronts. At 0 only the fronts, one every 1.5 to 3 s; at the opening 0.06 a little flutter; at 1 the fronts come twice as often and half as strong again, eddies throw neighbouring cards opposite ways and the cards twist round their pegs until some turn their backs, where the ink shows through mirrored.
+// Buttons: K1 tap sends a strong gust across the whole line.
 
 const W = 64, H = 128;
 const { floor, round, min, max, abs, sin, cos, exp, sqrt, tanh, PI } = Math;
@@ -92,21 +93,27 @@ const G = (4 * PI * PI * J) / L;
 // Drag: tan(lean) = 0.022 v^2 for v in m/s, and 10 LED/s to a m/s.
 const Q = 10, KD = (0.022 * G) / (Q * Q);
 
+// The rope hangs in a catenary, y = c cosh(x / c) about its lowest point:
+// a 5-LED sag over the 63 columns between the hooks makes c = 99, a pull
+// along the rope equal to the weight of 99 LEDs of it. A gust lifting it
+// shrinks the sag in the same shape, and tips it in a sine of the span.
+const CC = 99, CH = Math.cosh(31.5 / CC) - 1;
+const cat = (x) => (Math.cosh(31.5 / CC) - Math.cosh((x - 31.5) / CC)) / CH;
+const tip = (x) => sin((2 * PI * x) / 63);
 function ropeY(r, x) {
-  const f1 = sin((PI * x) / 63), f2 = sin((2 * PI * x) / 63);
-  return r.y + (SAG - r.b1) * f1 - r.b2 * f2;
+  return r.y + (SAG - r.b1) * cat(x) - r.b2 * tip(x);
 }
 
 export function setup(params) {
-  const ropes = ROPES.map((R, ri) => {
+  const ropes = ROPES.map((R) => {
     const n = [...R.cards].length, cards = [];
     [...R.cards].forEach((ch, i) => {
       const x = 32 + (i - (n - 1) / 2) * 20 + (Math.random() - 0.5) * 2;
-      cards.push({ ch, x, th: (Math.random() - 0.5) * 0.1, w: 0, ph: 0, pw: 0, dh: (Math.random() - 0.5) * 0.08, ay: 0 });
+      cards.push({ ch, x, th: (Math.random() - 0.5) * 0.1, w: 0, ph: 0, pw: 0, dh: (Math.random() - 0.5) * 0.08 });
     });
-    return { y: R.y, cards, b1: 0, v1: 0, a1: 0, b2: 0, v2: 0, a2: 0, ri };
+    return { y: R.y, cards, b1: 0, v1: 0, a1: 0, b2: 0, v2: 0, a2: 0 };
   });
-  params.s = { t: 0, ropes, gusts: [], next: 0.3, ph: [0, 1, 2, 3, 4, 5].map(() => Math.random() * 2 * PI), warm: false, hue: 0, speed: 2, wind: 2, gust: 0.06, F: new Float32Array(W * H * 3) };
+  params.s = { t: 0, ropes, gusts: [], next: 0.3, ph: [0, 1, 2, 3, 4, 5].map(() => Math.random() * 2 * PI), warm: false, hue: 0, speed: 2, B: 2, V: 24, gust: 0.06, F: new Float32Array(W * H * 3) };
 }
 
 // The wind across the panel, LED/s rightward, at sim time t.
@@ -148,8 +155,8 @@ function step(S, h) {
       c.wv = w;
       c.wd = windAt(S, c.x + 6, py + L) - windAt(S, c.x - 6, py + L);
       const f = (w * w) / (Q * Q) / 100;
-      l1 += f * sin((PI * c.x) / 63);
-      l2 += f * sin((2 * PI * c.x) / 63);
+      l1 += f * cat(c.x);
+      l2 += f * tip(c.x);
     }
     const w1 = 2 * PI * 0.9, w2 = 2 * PI * 1.6;
     r.a1 = -w1 * w1 * r.b1 - 0.5 * w1 * r.v1 + w1 * w1 * 4 * tanh(l1);
@@ -160,7 +167,7 @@ function step(S, h) {
     r.b2 += r.v2 * h;
     for (const c of r.cards) {
       // The peg's own acceleration, down, changes the gravity the card feels.
-      const ay = -r.a1 * sin((PI * c.x) / 63) - r.a2 * sin((2 * PI * c.x) / 63);
+      const ay = -r.a1 * cat(c.x) - r.a2 * tip(c.x);
       const ct = cos(c.th), st = sin(c.th), rel = c.wv - 0.5 * L * ct * c.w, F = KD * rel * abs(rel);
       const acc = ((-(G - ay) * st + F * ct) * L) / J - 0.3 * c.w;
       c.w += acc * h;
@@ -184,6 +191,7 @@ export function update(dt, input, params) {
   // Beaufort: v = 0.836 B^1.5 m/s.
   S.V = 0.836 * S.B ** 1.5 * Q;
   let T = d * (S.speed / 2);
+  if (input.btnPressed && input.btnPressed[0]) S.gusts.push({ x: -25, s: 12, a: 2.4, yc: 64, c: 0.9 * S.V + 20 });
   // Start with the line already in the wind, 2.5 s in.
   if (!S.warm) (S.warm = true), (T += 2.5);
   const n = max(1, Math.ceil(T / (1 / 240)));

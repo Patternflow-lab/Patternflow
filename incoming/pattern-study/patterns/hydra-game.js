@@ -1,38 +1,38 @@
 // ===== Patternflow pattern =====
 // Title:   Hydra Game
 // Family:  algo
-// Idea:    Hercules fights Kirby and Paris's hydra, a tree rooted at the bottom of the panel with glowing heads on curved necks: at step n he cuts one head, and unless it grew straight from the root the node two levels down grows n copies of the stump's branch, which sprout from it in gold, so the hydra swells into a dense fan of hundreds or thousands of heads while the ordinal at the top, the sum of omega to the power of each branch's ordinal, falls at every cut, and the cuts come faster and faster until the last head drops and the root stands alone.
+// Idea:    Hercules fights Kirby and Paris's hydra, a tree rooted at the bottom of the panel with glowing heads on writhing necks: at step n he cuts one head, and unless its neck grows from the root, the node one level further down grows n copies of the branch the head was cut from, which sprout from it in gold, so the hydra swells into a dense fan of hundreds or thousands of heads while its ordinal at the top, the sum of omega to the power of each branch's ordinal, falls at every cut, and the cuts come faster and faster until the last head drops and the root stands alone.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the hydra game (Laurie Kirby and Jeff Paris, Accessible independence results for Peano arithmetic, Bulletin of the London Mathematical Society, 1982), the ordinal of a tree in Cantor normal form (Georg Cantor), pattern round 72
+// Lineage: the hydra game (Laurie Kirby and Jeff Paris, Accessible independence results for Peano arithmetic, Bulletin of the London Mathematical Society, 1982), a tree's ordinal in Cantor normal form (Georg Cantor), pattern round 72
 // Round:   72
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Hydra=1..5, Strategy=0..3
 //
-// Knob 1: Hue. Turns the hydra round the wheel. At 0 the necks are green and the heads pale mint, new growth sprouts gold and the ordinal's omegas are green; at 0.25 the necks are sky blue, at 0.5 violet, at 0.75 rose red.
-// Knob 2: Speed. Cuts a second, 0.9 Speed (1 + n / 8) at step n, so the cuts speed up as the hydra grows: at the opening 2 the first cut comes 1.6 s after the hydra has grown, step 40 at about 8 s, step 1149 at 23 s and step 5629 at 30 s; at 0.2 everything takes ten times as long.
-// Knob 3: Hydra. Five starting hydras, by whole steps. 1: omega^2 + omega + 1, a root with a two-headed neck, a one-headed neck and a head, 7 nodes; cut from the right it dies at step 1149 with 576 nodes at its biggest. 2: omega^omega, a single neck of three, dead at step 37 from either side, 20 nodes at most. 3: omega^2 + omega 2, dead at step 445 from either side, 224 nodes. 4: omega^2 + omega + 2, dead at step 5629 from the right, 2816 nodes. 5: omega^2 + omega 2 + 2, dead at step 2302 from either side, 1153 nodes.
-// Knob 4: Strategy. Which head Hercules cuts, by whole steps: 0 the rightmost, 1 the leftmost, 2 a random branch at every fork, 3 the end of the longest neck, the rightmost of the deepest. The order changes the length of the fight a hundredfold: hydra 1 dies at step 1149 cut from the right, at 30 from the left and at 23 from the deepest end, and 2000 random hunts took from 17 to 441 steps. A hunt whose regrowth would pass 8000 nodes is called off; in 2000 random hunts on hydra 5 that happened twice.
+// Knob 1: Hue. Turns the hydra round the wheel. At 0 the necks are green, the heads pale mint and new growth gold; at 0.25 the necks are azure and new growth green, at 0.5 magenta with sky-blue growth, at 0.75 amber with pink growth.
+// Knob 2: Speed. Cuts a second, 0.9 Speed (1 + n / 8) at step n, so the cuts come faster as the hydra grows. At the opening 2 the hydra grows out of its root in the first second, the first cut falls at 1.6 s, step 40 at 9.3 s, and hydra 1 dies at step 1149 at 23.5 s; at 3 that death comes at 16 s, at 0.2 at 225 s. The dead root waits 3.5 s and the hydra grows again.
+// Knob 3: Hydra. Five starting hydras, by whole steps, with their deaths under the rightmost cut. 1: ω²+ω+1, a two-headed neck, a one-headed neck and a head on the root, 7 nodes; dead at step 1149, 576 nodes at its biggest. 2: ω^ω, one neck of three, dead at step 37 with 20 nodes at most. 3: ω²+ω·2, dead at step 445, 224 nodes. 4: ω²+ω+2, dead at step 5629, 2816 nodes. 5: ω²+ω·2+2, 10 nodes, dead at step 2302, 1153 nodes. Levels stand 50 LEDs apart for the hydras two necks high and 33 for the neck of three.
+// Knob 4: Strategy. Which head Hercules cuts, by whole steps: 0 the rightmost head, 1 the leftmost, 2 a random branch at every fork, 3 the deepest head, the rightmost of them. The order changes the length of the fight up to 234 times: hydra 4 dies at step 5629 cut from the right and at 24 from the deepest end; hydra 1 at 1149 from the right, 30 from the left and 23 from the deepest end, and 2000 random hunts on it took 17 to 441 steps. Hydras 2, 3 and 5 are symmetric enough that the leftmost cut takes as long as the rightmost. A hunt whose regrowth would pass 8000 nodes is called off and shown as MAX; in 2000 random hunts on hydra 5 that happened twice.
 // Buttons: K1 tap grows the hydra again from its root.
 
 // Kirby and Paris (1982): a hydra is a finite rooted tree and its heads are
 // the leaves. At step n Hercules cuts a head. If its neck grows from the
-// root, the head is simply gone; otherwise the node below the stump grows n
-// copies of the stump's branch, head removed. Every way of choosing heads
-// kills every hydra in finitely many steps, and Peano arithmetic cannot
-// prove it. The proof gives each node the ordinal o(v) = the sum of
-// omega^o(c) over its children c, written in Cantor normal form with the
-// biggest terms first: a cut lowers one term and adds n smaller ones, so
-// the root's ordinal falls at every step, and ordinals below epsilon_0 cannot
-// fall forever. Arithmetic counts only up to omega^omega^... of finite
-// height, short of epsilon_0, so it cannot see the end.
+// root, the head is simply gone; otherwise the node below that neck's own
+// node grows n copies of the branch the head was cut from. Every way of
+// choosing heads kills every hydra in finitely many steps, and Peano
+// arithmetic cannot prove it. The proof gives each node the ordinal o(v),
+// the sum of omega^o(c) over its children c in Cantor normal form, biggest
+// terms first. A cut lowers one term and adds n smaller ones, so the root's
+// ordinal falls at every step, and ordinals below epsilon_0 cannot fall
+// forever; the hydra needs all of them, more than Peano arithmetic reaches.
 //
 // The panel can draw a few thousand heads, which leaves the hydras below
-// omega^3 and the single neck of three: the rightmost cut on omega^2 started
-// at step m ends near (m + 4) 2^(m + 2), and an omega^2 met at step 40
-// would need some 10^13 steps.
+// omega^3 and the single neck of three. The rightmost cut on omega^2 with
+// nothing beside it, first met at step m, ends at step (m + 3) 2^(m + 1) - 3:
+// 13 for m = 1, 1149 for m = 6. Two such necks, omega^2 2, die at step
+// 557053 with 278528 nodes at their biggest.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, sin, cos, exp, sqrt, PI } = Math;
@@ -164,9 +164,9 @@ function chop(S) {
 }
 
 // Heads under each node, then a span of the 60 columns for each node in
-// proportion to its heads, levels S.sp apart up from the root.
-// A node with a head of its own keeps at least 4 heads' width, so a few
-// branches stay apart beside a fan of hundreds.
+// proportion to its heads, levels S.sp apart up from the root. A node that
+// still carries necks keeps at least 4 heads' width, so a few branches stay
+// apart beside a fan of hundreds.
 function count(v) {
   if (!v.c.length) return (v.k = v.w = 1);
   let s = 0, w = 0;
@@ -284,7 +284,7 @@ function neck(A, x0, y0, x1, y1, col, w, thick, ph) {
       splat(A, x - ty * half * j, y + tx * half * j, r * q, g * q, b * q);
     }
     // and its glow, 1.5 LEDs further out each side.
-    for (let j = -1; j <= 1; j += 2) splat(A, x - ty * (half + 1.5) * j, y + tx * (half + 1.5) * j, r * 0.16, g * 0.16, b * 0.16);
+    for (let j = -1; j <= 1; j += 2) splat(A, x - ty * (half + 1.5) * j, y + tx * (half + 1.5) * j, r * 0.22, g * 0.22, b * 0.22);
   }
 }
 function headDot(A, x, y, col, w) {
@@ -400,10 +400,10 @@ export function draw(display, params) {
   const A = S.A, O = S.O, h = S.hue + HUE0;
   const C = {
     neck: hsv(h, 0.85, 0.9),
-    head: hsv(h + 0.04, 0.3, 1),
+    head: hsv(h + 0.04, 0.42, 1),
     gold: hsv(h - 0.22, 0.55, 1.1),
-    txt: [200, 200, 196],
-    dim: [120, 120, 120],
+    txt: hsv(h + 0.04, 0.18, 0.85).map((c) => round(c * 255)),
+    dim: hsv(h, 0.3, 0.55).map((c) => round(c * 255)),
     om: hsv(h, 0.6, 1).map((c) => round(c * 255)),
   };
   A.fill(0);
