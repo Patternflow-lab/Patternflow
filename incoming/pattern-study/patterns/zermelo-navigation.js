@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Current=0..2.5, Shape=0..1, Harbour=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel together: at 0 a front leaves the harbour gold, turns green halfway and reaches the far coast blue, and the shadows are rose.
-// Knob 2: Current. The fastest water in boat speeds. At 0 the fronts are circles and the routes straight; up to 1 every place can be reached; past 1 shadows open, at Shape 0 on 2.4% of the panel at 1.5, 8.9% at 2 (the opening) and 18.5% at 2.5.
-// Knob 3: Shape. Three eddies centred near the panel's sides at 0, a jet leaving the coast at the bottom centre and wandering as it climbs at 1, both at full strength at 0.5. With the harbour inside a jet faster than the boat, the fronts are teardrops carried up and only a cone above the harbour is reached first.
-// Knob 4: Harbour. Where the harbour stands along the coast, from column 8 at -1 to column 56 at 1; the shadows stay where they are, since they belong to the current and the panel's edge, not to the harbour.
+// Knob 2: Current. The fastest water, in boat speeds. At 0 the fronts are circles and the routes straight lines; up to 1 every LED is reached, at any shape, harbour and moment; past 1 shadows open, at Shape 0 on 2.5% of the panel at 1.5, 9.2% at 2 (the opening) and 19.7% at 2.5.
+// Knob 3: Shape. Three eddies at 0, two on the left side and one on the right, and at 1 a jet leaving the coast at the bottom centre that wanders more as it climbs; between, both at part strength. With the harbour inside a jet faster than the boat the fronts become teardrops carried up the jet, and at first only a cone above the harbour is reached: at Shape 1 and Current 2 the water there runs at 1.99 boat speeds and the cone's half-angle is asin(1 / 1.99) = 30 degrees.
+// Knob 4: Harbour. Where the harbour stands on the coast, from column 8 at -1 to column 56 at 1. At Shape 0 the shadows do not move with it, the same 756 LEDs at Current 2 wherever it stands, since they belong to the current and the panel's edges.
 
 const W = 64, H = 128, N = W * H;
 const { floor, min, max, abs, sqrt, exp, sin, cos, round, PI, cosh } = Math;
@@ -65,21 +65,21 @@ function slow(wx, wy, ux, uy) {
 function current(F, x, y, out) {
   let wx = 0, wy = 0;
   if (F.ge) {
-    // Gaussian eddies, psi = G exp(-r^2 / 2R^2), fastest at r = R. The coast
-    // calms them: psi is multiplied by c(y), 1 down to row 92 and 0 at the
-    // bottom edge, so the harbour never sits in a strong eddy.
-    const R2 = 169, z = (y - 92) / 36;
-    const c = z <= 0 ? 1 : z >= 1 ? 0 : 0.5 + 0.5 * cos(PI * z), dc = z <= 0 || z >= 1 ? 0 : (-0.5 * PI * sin(PI * z)) / 36;
+    // Gaussian eddies, psi = G exp(-r^2 / 2R^2) with R = 13 and G = S R
+    // sqrt(e), so the fastest water, at r = R, runs at S. Their centres sit
+    // 4 LEDs inside the sides, and the half of each that reaches past the
+    // edge brings water in through it.
+    const R2 = 169;
     for (let k = 0; k < 9; k += 3) {
-      const dx = x - F.E[k], dy = y - F.E[k + 1], p = F.E[k + 2] * F.ge * exp(-(dx * dx + dy * dy) / (2 * R2)), e = p / R2;
-      wx += -dy * e * c + p * dc;
-      wy += dx * e * c;
+      const dx = x - F.E[k], dy = y - F.E[k + 1], e = (F.E[k + 2] * F.ge * exp(-(dx * dx + dy * dy) / (2 * R2))) / R2;
+      wx -= dy * e;
+      wy += dx * e;
     }
   }
   if (F.gj) {
     // A jet leaving the coast at the bottom centre, wandering more as it
-    // climbs: psi = J L tanh((x - X(y)) / L), X = 32 + A(y) sin(k y - phase).
-    const L = 13, k = (2 * PI) / 52, A = 9 * (1 - y / H), ph = k * y - F.th;
+    // climbs: psi = J L tanh((x - X(y)) / L), X = 32 + A(y) sin(k y + phase).
+    const L = 13, k = (2 * PI) / 52, A = 9 * (1 - y / H), ph = k * y + F.th;
     const X = 32 + A * sin(ph), dX = (-9 / H) * sin(ph) + A * k * cos(ph), c = 1 / cosh((x - X) / L), j = F.gj * c * c;
     wx -= j * dX;
     wy -= j;
@@ -146,12 +146,12 @@ function pop(S) {
 function begin(S, kv, at) {
   const F = S.F, th = (at * 2 * PI) / 40, cur = cl(kv[1] ?? 2, 0, 2.5), m = cl(kv[2] || 0, 0, 1);
   F.th = th;
-  F.ge = cur * 13 * 1.6487 * min(1, 2 - 2 * m);
-  F.gj = cur * min(1, 2 * m);
+  F.ge = cur * 13 * 1.6487 * (1 - m);
+  F.gj = cur * m;
   F.hx = 32 + 24 * cl(kv[3] ?? 0.06, -1, 1);
   const E = F.E;
-  E[0] = 4 + 3 * sin(th); E[1] = 98 + 4 * cos(th); E[2] = 1;
-  E[3] = 60 - 3 * sin(th + 2); E[4] = 62 + 4 * cos(th + 2); E[5] = -1;
+  E[0] = 4 + 3 * sin(th); E[1] = 88 + 3 * cos(th); E[2] = 1;
+  E[3] = 60 - 3 * sin(th + 2); E[4] = 57 + 4 * cos(th + 2); E[5] = -1;
   E[6] = 4 + 3 * sin(th + 4); E[7] = 26 + 4 * cos(th + 4); E[8] = 1;
   const w = S.w;
   for (let y = 0; y < H; y++)
@@ -204,6 +204,17 @@ function work(S, budget) {
 // each target along the steps that reached it, and the colour scale is set
 // by the mean time to the far coast.
 function finish(S) {
+  // A lone LED left unreached among reached ones is the stencil's doing, not
+  // the current's (30 of 1,713 shadows over 45 settings, never wider than
+  // one LED): it takes the mean of its four neighbours.
+  const Tn = S.Tn;
+  for (let y = 1; y < H - 1; y++)
+    for (let x = 1; x < W - 1; x++) {
+      const i = y * W + x;
+      if (Tn[i] < INF || Tn[i - 1] >= INF || Tn[i + 1] >= INF || Tn[i - W] >= INF || Tn[i + W] >= INF) continue;
+      Tn[i] = (Tn[i - 1] + Tn[i + 1] + Tn[i - W] + Tn[i + W]) / 4;
+      S.pred[i] = i - 1;
+    }
   S.Ta.set(S.Tb);
   S.Tb.set(S.Tn);
   S.DWX.set(S.WX);
@@ -321,10 +332,11 @@ export function draw(display, params) {
       const gy = max(u < INF ? t - u : 0, dn < INF ? dn - t : 0, u < INF ? u - t : 0, dn < INF ? t - dn : 0);
       const g = max(0.25, sqrt(gx * gx + gy * gy));
       const q = (tau - t) / GAP, f = q - floor(q), dl = (min(f, 1 - f) * GAP) / g, behind = (f * GAP) / g;
-      // A line on the front, a short glow on the harbour side of it, and
-      // where fronts crowd closer than two LEDs they fade rather than merge.
+      // A line on the front and a short glow on the harbour side of it.
+      // Where the boats barely make way the fronts crowd closer than two
+      // LEDs; there they melt into a steady dim glow rather than shimmer.
       const line = dl < 1.1 ? 1 - dl / 1.1 : 0, tail = behind < 9 ? 0.16 * exp(-behind / 2.5) : 0;
-      const v = max(line, tail) * cl((GAP / g - 1.5) / 2, 0, 1);
+      const sp = cl((GAP / g - 1.5) / 2, 0, 1), v = max(line, tail) * sp + 0.12 * (1 - sp);
       if (v <= 0.01) continue;
       const c = min(64, (t * sc) | 0) * 3;
       rgb[o] = max(rgb[o], lut[c] * v);
