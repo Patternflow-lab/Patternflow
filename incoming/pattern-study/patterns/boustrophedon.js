@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Boustrophedon
 // Family:  type
-// Idea:    A plough point of light works a field of twenty furrows line after line, turning up last pass's dimming letters ahead of it and writing Hesiod's crane passage into the furrow behind it, mirrored on the lines it ploughs back, so the eye follows the ox across the panel and down.
+// Idea:    A point of light ploughs a field of twenty furrows line after line, turning under the cooled letters of its last pass and writing Hesiod's crane passage into the furrow behind it, mirrored on every line it ploughs back, so the eye follows the ox across the panel and down.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,13 +11,13 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Way=-1..1, Words=0..2
 //
-// Knob 1: Hue. Turns the field and the letters round the wheel together: at 0 the furrows run from deep blue in the troughs to pale blue on the ridges, fresh letters are cream gold and old ones cool to pale blue.
+// Knob 1: Hue. Turns the field and the letters round the wheel together: at 0 the furrows run from deep blue in the troughs to pale blue on the ridges, fresh letters are cream gold and cool to light blue over half a minute.
 // Knob 2: Speed. How fast the plough writes: 8 letters a second at 2, so a line of 15 takes under 2 s and the whole field of 300 about 40 s; 0.8 a second at 0.2, 12 at 3.
 // Knob 3: Way. How the plough turns at the end of a line, taken up at the start of the next one. At 0 boustrophedon: the plough turns and writes the next line right to left with every letter mirrored. At -1 every line runs left to right and the plough lifts and flies back to the left edge. At 1 reverse boustrophedon, as on the rongorongo tablets: the return lines are turned upside down, as if the field were turned round for each.
 // Knob 4: Words. How words are parted. At 0 by a column of three dots, the word divider of many archaic inscriptions; at 1 not at all, the letters run on as scriptio continua; at 2 by a blank, as we write now.
 
 const W = 64, H = 128;
-const { floor, round, min, max, exp, sin, PI } = Math;
+const { floor, round, min, max, exp, sin } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 function hsv(h, s, v) {
@@ -84,8 +84,9 @@ for (let p = 0; p < W * H; p++) {
   GRAIN[p] = (p % W) & 1 ? 20 + 10 * h : 6 * h;
 }
 
-// Letters: fresh ones stand C_NEW above the trough and cool to C_OLD as the
-// pass goes on; they keep part of the furrow's shape and all of its grain.
+// Letters give their own light, so cloud shadows pass them by. A fresh one
+// stands at C_NEW and sinks to C_OLD as it cools; each keeps a third of the
+// furrow's shape and most of its grain, so the strokes are not flat.
 const C_NEW = 226, C_OLD = 216, TAU = 30, KEEP_SHAPE = 0.33, KEEP_GRAIN = 0.7;
 
 // Cells a second at Speed s; a turn costs one cell's time, the flight back
@@ -95,7 +96,9 @@ const RATE = 4;
 const SHARE = 220, WAKE = 60;
 const turnLen = (way) => (way < 0 ? 3 : 1);
 // Direction and orientation of grid line l written the given way:
-// orientation 0 upright, 1 mirrored, 2 turned 180 degrees.
+// orientation 0 upright, 1 mirrored, 2 turned 180 degrees. Rongorongo is
+// read from the bottom line up; here every way ploughs from the top down, so
+// only the turn at the end of a line changes.
 const dirOf = (way, l) => (way !== 0 && way !== 1) || l % 2 === 0 ? 1 : -1;
 const orientOf = (way, l) => (dirOf(way, l) > 0 ? 0 : way === 0 ? 1 : 2);
 
@@ -106,7 +109,7 @@ export function setup(params) {
     glyph: new Uint8Array(CELLS), orient: new Uint8Array(CELLS), birth: new Float32Array(CELLS),
     // What lay in the cell under the plough before it got there.
     oldG: 0, oldO: 0, oldB: 0,
-    L: new Float32Array(W * H), rgb: new Float32Array(W * H * 3),
+    rgb: new Float32Array(W * H * 3),
   };
 }
 
@@ -181,11 +184,11 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  const { L, rgb } = S, t = S.t, hue = S.hue;
+  const { rgb } = S, t = S.t, hue = S.hue;
   const trough = hsv(0.66 + hue, 0.78, 1), ridge = hsv(0.55 + hue, 0.42, 1);
   const fresh = hsv(0.12 + hue, 0.38, 1), cool = hsv(0.6 + hue, 0.5, 1);
 
-  // Cloud shadows drift over the field from the upper left.
+  // Cloud shadows drift over the soil, darkening it by up to 38%.
   const cx = 0.07, cy = 0.045, wx = 0.035, wy = -0.06;
   const ca = t * 0.9, cb = t * 0.7 + 1.7;
 
@@ -198,7 +201,6 @@ export function draw(display, params) {
       const p = y * W + x;
       const cloud = 0.81 + 0.095 * (sin(cx * x + cy * y - ca) + sin(wx * x + wy * y + cb));
       const v = (base + GRAIN[p]) * cloud;
-      L[p] = cloud;
       rgb[p * 3] = r0 * v, rgb[p * 3 + 1] = g0 * v, rgb[p * 3 + 2] = b0 * v;
     }
   }
