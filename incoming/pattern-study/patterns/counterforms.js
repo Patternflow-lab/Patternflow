@@ -14,7 +14,7 @@
 // Knob 1: Hue. The lamplight in the windows: warm gold at 0, then green, sky blue, violet and rose round the wheel, each window a little off the next.
 // Knob 2: Speed. How fast the windows fill and drain and the words change: at 2 a word every 8 seconds, at 0.2 one in 80.
 // Knob 3: Words. Which words: 0 four-letter words made only of letters with counters (DOOR, ROAD, DROP, BOAR, BARD, ROAR), 1 four-digit numbers made only of 0, 4, 6, 8 and 9 (4096, 8086, 6809, 9600, 8008), 2 two Hangul syllables built from the closed jamo ㅁ, ㅂ and ㅇ (봄밤, 엄마, 아빠, 마음).
-// Knob 4: Body. How much of the letter body shows besides the light the windows throw on it: none at 0, a dim moonlit stone at 0.5, the whole letter standing out at 1.
+// Knob 4: Body. How much of the letter body shows besides the light the windows throw on it: none at 0, a faint stone just above what the panel shows at the opening 0.06, moonlit at 0.5, the whole letter standing out at 1.
 
 const W = 64, H = 128, N = W * H;
 const Q = 3; // supersampling of the glyph mask
@@ -426,7 +426,9 @@ export function draw(display, params) {
   blur(T, B, 4, false);
   blur(B, T, 3, true);
   blur(T, B, 3, false);
-  const moon = S.bodyK * S.bodyK;
+  // A square root, so the knob's opening 0.06 already lifts the stone to
+  // about 37/255, the faintest the panel shows.
+  const moon = Math.sqrt(S.bodyK);
   if (!TONE[1]) for (let i = 1; i < 1024; i++) TONE[i] = (SPILL * 255 * (i / 1020) ** 0.42) / (i / 4);
   for (let p = 0, y = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
