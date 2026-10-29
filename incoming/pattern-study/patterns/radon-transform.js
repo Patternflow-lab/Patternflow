@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Angles=0..64, Filter=0..1
 //
 // Knob 1: Hue. Turns both squares round the wheel: at 0 the reconstruction runs from dark cyan to ice white and the sinogram from blue violet to purple.
-// Knob 2: Speed. At 2 the beam's half turn takes 1 s, reading the projections back takes 6 s, and the picture holds 1.5 s, fading out over its last 0.3 s; at 0.2 everything takes ten times as long, at 3 two thirds as long.
+// Knob 2: Speed. At 2 the beam's half turn takes 1 s, reading the projections back takes 6 s, and the picture holds 1.5 s, dimming to 15% over its last 0.3 s before the next scan starts on an empty sinogram; at 0.2 everything takes ten times as long, at 3 two thirds as long.
 // Knob 3: Angles. How many projections a half turn takes. 0 takes turns, doubling each cycle from 16: 16, 32, 64, then 4, 8 and round again. 1 to 64 hold that count; with few the shapes are crossed by the star of streaks, one per angle. The half turn has a fixed dose of photons shared by its projections: at 4 angles each bin gets 2,000 and the rows are clean, at 64 it gets 125 and they are grainy.
 // Knob 4: Filter. The filter each projection passes before it is smeared back: (1 - f) c + f |w|, with c the ramp's height at 1/400 of a cycle a sample. At 0 it is plain back-projection, every shape in a blurred 1/r halo; at 0.06 the edges already come through; at 1 it is the ramp alone, sharp, with dark lobes beside every streak. Plain back-projection smooths the photon noise away; the ramp turns it into fine grain.
 
@@ -162,7 +162,7 @@ const TURNS = [4, 8, 16, 32, 64];
 // At Speed 2 the beam's half turn takes SCAN seconds, reading the sinogram
 // back into the picture takes SWEEP, the result holds HOLD and the last
 // FADE of the hold clears both squares.
-const SCAN = 1, SWEEP = 6, HOLD = 1.5, FADE = 0.25, P0 = 0.75;
+const SCAN = 1, SWEEP = 6, HOLD = 1.5, FADE = 0.25, DIM = 0.15, P0 = 0.75;
 
 // A new scan starts on a cleared panel.
 function startCycle(S, E) {
@@ -261,9 +261,9 @@ export function update(dt, input, params) {
     S.hold += dt * rate;
     if (S.hold >= HOLD) startCycle(S, nextPhantom(S.E));
   }
-  // Near the end of the hold both squares fade out over FADE seconds and
-  // stay dark for the last 0.07 s.
-  S.clear = S.prog < 1 ? 1 : cl((HOLD - S.hold - 0.07) / FADE, 0, 1);
+  // Near the end of the hold both squares dim over FADE seconds to DIM of
+  // their light and stay there for the last 0.07 s.
+  S.clear = S.prog < 1 ? 1 : DIM + (1 - DIM) * cl((HOLD - S.hold - 0.07) / FADE, 0, 1);
 }
 
 export function draw(display, params) {
