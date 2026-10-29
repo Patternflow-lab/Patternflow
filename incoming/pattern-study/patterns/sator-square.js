@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Sator square (Pompeii, before AD 79; Dura-Europos), Paternoster cross (Felix Grosser, 1926), the assignment problem solved by the Hungarian method (Harold Kuhn, 1955), pattern round 71
+// Lineage: Sator square (Pompeii, before AD 79; Dura-Europos), Paternoster cross (Felix Grosser, 1926), the assignment problem (Harold Kuhn, 1955), pattern round 71
 // Round:   71
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the light round the wheel: at 0 the letters glow gold and the four letters of the cross's ends, A and O, glow pale azure on grey stone.
 // Knob 2: Speed. One round of reading, flight, cross and flight home takes 14 s at 2, 9.3 s at 3 and 140 s at 0.2.
 // Knob 3: Assign. Which letter flies to which place of its kind. 0 is the matching with the least total travel, 537.6 LEDs for the 25 flights; 1 sends the k-th A of the square, read across, to the k-th A of the cross, read down and then across, 864.9 LEDs; 2 is the matching with the most travel, 1083.3 LEDs, so the flights cross over each other.
-// Knob 4: Weather. How long the tablet has stood out: at 0.06 the cuts are fresh; towards 1 the groove edges crumble, the stone pits and greys with lichen, and every letter carries its own worn patches on its flight.
+// Knob 4: Weather. How long the tablet has stood out: at 0.06 the cuts are fresh; towards 1 the groove edges crumble and the stone pits and greys with lichen, and every letter keeps its own worn patches all through its flight.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, ceil, round, min, max, exp, sqrt, sin } = Math;
