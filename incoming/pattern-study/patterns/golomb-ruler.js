@@ -234,10 +234,10 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) display.setPixel(0, y, 40, 40, 48);
   // A mark burns white while an arc from it is being measured.
   for (const m of S.marks) {
-    const f = mf[m], v = 170 + 85 * f;
+    const f = mf[m], v = (170 + 85 * f) | 0;
     display.setPixel(0, m, 255, 250, 240);
     display.setPixel(1, m, v, v - 5, v - 15);
-    if (f > 0.05) display.setPixel(2, m, 255 * f, 255 * f, 255 * f);
+    if (f > 0.05) display.setPixel(2, m, (255 * f) | 0, (255 * f) | 0, (255 * f) | 0);
   }
   // The length scale: row d ticks once measured, 2 + n LEDs long when n
   // pairs share the length, white for a moment as the caliper passes; a
@@ -252,7 +252,7 @@ export function draw(display, params) {
     }
     if (n === 0) {
       const b = exp(-since / 0.5);
-      if (b > 0.1) display.setPixel(SX, dd, 200 * b, 30 * b, 40 * b);
+      if (b > 0.1) display.setPixel(SX, dd, (200 * b) | 0, (30 * b) | 0, (40 * b) | 0);
       continue;
     }
     const fl = exp(-since / 0.25);
