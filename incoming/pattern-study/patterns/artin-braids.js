@@ -17,7 +17,7 @@
 // Knob 4: Word. Which braid word plays, round and round, starting again with every point home when it is turned: 0 random generators and inverses; 1 the full twist (s1 s2 ... s(n-1))^n, a pure braid that brings every colour home after n(n-1) crossings; 2 the Borromean braid (s1 s2^-1)^3 on three neighbouring strands, the three moving along; 3 the braid relation as a loop, s1 s2 s1 followed by the inverse of s2 s1 s2, six crossings that are the trivial braid; 4 a random positive braid, every crossing the same hand.
 
 const W = 64, H = 128;
-const { floor, round, min, max, abs, sqrt, exp, sin, cos, PI } = Math;
+const { floor, round, min, max, abs, sqrt, sin, cos, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 
@@ -28,7 +28,7 @@ function hsv(h, s, v) {
 }
 
 // The strip is rows 0 to BAND - 1; below it, one row of the space-time
-// picture per DT of braid time, the newest at the top.
+// picture per S.dt of braid time, the newest at the top.
 const BAND = 30, CY = 14.5, ROWS = H - BAND, KEEP = ROWS + 3;
 // One generator takes a unit of braid time: the half turn runs over the
 // first 0.9 of it, nearly at an even pace, and the points rest for the rest.
