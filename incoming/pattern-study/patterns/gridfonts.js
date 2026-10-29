@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Gridfonts
 // Family:  type
-// Idea:    Three lines of three lowercase letters are built only from short strokes joining neighbouring points of a faint 3 by 7 dot grid, as in Douglas Hofstadter's gridfonts, and when the style changes every letter on the panel takes back and draws in its strokes by the same rule at once, cutting its corners, raising gables or opening stencil gaps.
+// Idea:    Three lines of three lowercase letters are built only from short strokes joining neighbouring points of a faint 3 by 7 dot grid, as in Douglas Hofstadter's gridfonts, and when the style changes every letter on the panel takes back and draws in its strokes by the same rule at once, cutting its corners, raising gables, opening stencil gaps or turning to outline.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns the letters round the wheel from sea green at 0; each style keeps its own small step off that colour.
 // Knob 2: Speed. How fast strokes draw and the pages turn: at 2 something changes every 4 seconds, at 0.2 every 40.
-// Knob 3: Style. At 0 the six styles take turns, every other change a new style on the same words and then new words in that style; 1 to 6 hold one style: Square, Cut, Lean, Gable, Stencil, Inline.
-// Knob 4: Grid. The grid under the letters: dim points at 0, brighter points from 0.06, and toward 1 all 56 strokes every letter could use, faintly, in each letter's cell.
+// Knob 3: Style. At 0 the six styles take turns: one change puts a new style on the same words, the next brings new words in that style. 1 to 6 hold one style while the words change: Square, Cut, Lean, Gable, Stencil, Outline.
+// Knob 4: Grid. What shows of the grid under the letters: only its points at 0, brighter up to 0.33, and from 0.1 upward, more and more, all 56 quanta of each letter's cell, the strokes every letter could have used.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, round, min, max, abs, sqrt, exp } = Math;
@@ -205,8 +205,8 @@ const FACES = STYLES.map((st) => {
   return face;
 });
 
-// Pages of three three-letter lines. The alphabet pages are the specimen
-// sheet every gridfont was shown on.
+// Pages of three three-letter lines. Three of them are the alphabet, a to
+// z, the way a gridfont is shown.
 const PAGES = ["the", "sly", "fox", "abc", "def", "ghi", "web", "zig", "zag", "jkl", "mno", "pqr", "sea", "and", "sky", "stu", "vwx", "yz ", "art", "for", "all"]
   .join("")
   .match(/.{9}/g);
