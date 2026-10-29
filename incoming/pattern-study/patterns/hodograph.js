@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the bodies' colours round the wheel together: at 0 the first three are cyan, magenta and green and the fourth to sixth azure, rose and yellow, while the Sun stays pale gold and the origin of the velocities white.
 // Knob 2: Speed. How fast time runs. At 1 the three opening bodies go round in 3.2, 5.3 and 7.1 seconds, the period growing as the 3/2 power of the semi-major axis; at the opening 2 they take 1.6, 2.6 and 3.5 seconds.
 // Knob 3: Eccentricity. The eccentricity of the most eccentric body, with the others spread evenly below it: 0.2, 0.4 and 0.6 at the opening 0.6. At 0.95 that body moves 39 times faster at periapsis than at apoapsis, its hodograph is the largest circle with the origin 0.05 of a radius inside its rim, and the other hodographs shrink round the origin.
-// Knob 4: Bodies. Three to six bodies, their apoapses spread evenly from 13 to 29.5 units and their apse lines turned 137.5 degrees (the golden angle) from one another; each half of the panel is fitted to the set again.
+// Knob 4: Bodies. Three to six bodies, their eccentricities spread evenly up to Knob 3's (six at 0.6 run 0.1, 0.2 ... 0.6), their apoapses from 13 to 29.5 units and their apse lines turned 137.5 degrees (the golden angle) from one another; each half of the panel is fitted to the new set.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, sin, cos, atan2, PI, round, hypot } = Math;
