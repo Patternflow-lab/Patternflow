@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Structure ASCII
 // Family:  type
-// Idea:    The outline of a big letter sways and melts from A to S to & to the Hangul syllable 글 behind a grid of character cells, and each cell the outline crosses takes the ASCII character whose strokes lie nearest the piece of outline inside it, so slashes, bars, underscores, parentheses and ticks join into the letter's contour, as in structure-based ASCII art; a fourth setting picks by ink instead, as tone-based ASCII art does.
+// Idea:    The outline of a big letter sways and melts from A to S to & to the Hangul syllable 글 behind a grid of character cells, lit only by a dim rim just inside its edge, and each cell the outline crosses takes the ASCII character whose strokes lie nearest the piece of outline inside it, so slashes, bars, underscores, parentheses and ticks join into the letter's contour, as in structure-based ASCII art; a fourth setting picks by ink instead, as tone-based ASCII art does.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Set=0..3, Cell=0..3
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 the straight strokes are turquoise, curves and angles azure, corners and crossings green, dots and ticks lilac, and the outline under them a dim blue; at 0.5 the strokes are red.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 the straight strokes are turquoise, curves and angles azure, corners and crossings green, dots and ticks lilac, and a rim 4 LEDs deep just inside the outline a dim blue (16, 19, 45), so the characters stand on the edge of a shape; at 0.5 the strokes are red.
 // Knob 2: Speed. At 2 a letter holds 4.5 s and melts into the next in 1.5 s, so the four take 24 s, while the drawing sways 0.12 radian (about 7 degrees) each way every 9 s. At 0.2 it all takes ten times as long, at 3 two thirds as long.
 // Knob 3: Set. The characters a cell may take, each set with the space. At 0 the 27 of the structure set (. , ' ` " - _ = | / \ ( ) < > ^ v ~ o + L J 7 T Y V X); at 1 twelve of them (/ \ | - _ . ' , ( ) < >); at 2 only / \ | and -. At 3 the tone ramp . : - = + * # % @, picked by how much of the cell the outline darkens, not by its shape.
 // Knob 4: Cell. The size of a character cell in LEDs: 5 by 8 at 0 (a grid of 12 by 16), 4 by 6 at 1 (16 by 21), 3 by 5 at 2 (21 by 25), and 7 by 11 at 3 (9 by 11), where each character is big enough to read.
@@ -100,6 +100,8 @@ const CELLS = [
 // The distance is capped at CAP LEDs; a shift of the character by one LED
 // across or down costs SHIFT.
 const CAP = 3, SHIFT = 0.12;
+// The brightness and depth of the rim inside the letter.
+const IN = 0.18, BAND = 4;
 const SX = (cw) => (cw >= 4 ? 2 : 1), SY = 1;
 
 // Each character at each cell size: its bitmap, its lit LEDs, and the
@@ -278,13 +280,17 @@ export function draw(display, params) {
   const set = SETS[S.set], tone = S.set === 3, shifts = SHIFTS[S.cell];
   const bx = SX(cw), by = SY, ew = cw + 2 * bx, eh = ch + 2 * by;
   const sq = S.sq, nsq = S.nsq, rgb = S.rgb, dT = S.dt, segs = S.segs, tl = S.tl;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
-  const h0 = 0.47 + S.hue;
-  // The outline itself, faint.
-  hsv(h0 + 0.18, 0.7, 0.24, rgb);
+  const h0 = 0.47 + S.hue, f = S.f;
+  // A faint rim BAND LEDs deep inside the outline, so the characters stand
+  // on the edge of a shape.
+  hsv(h0 + 0.18, 0.65, IN, rgb);
+  const ir = rgb[0] | 0, ig = rgb[1] | 0, ib = rgb[2] | 0;
   for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (nsq[y * W + x]) display.setPixel(x, y, rgb[0] | 0, rgb[1] | 0, rgb[2] | 0);
+    for (let x = 0; x < W; x++) {
+      const c = 0.25 * (f[y * LW + x] + f[y * LW + x + 1] + f[(y + 1) * LW + x] + f[(y + 1) * LW + x + 1]);
+      if (c < 0 && c > -BAND) display.setPixel(x, y, ir, ig, ib);
+      else display.setPixel(x, y, 0, 0, 0);
+    }
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++) {
       const gx = ox + c * cw, gy = oy + r * ch, id = r * 32 + c;
