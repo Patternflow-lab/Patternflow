@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ogham
 // Family:  type
-// Idea:    A standing stone is seen corner-on with its edge running up the whole panel as the stemline, and an Ogham inscription is cut into it stroke by stroke from the bottom up, one to five strokes a letter, the B aicme on the right face, the H aicme on the left, the M aicme slanting across the edge from one face onto the other and the vowels notched on the edge itself, while a small Latin letter beside each group counts its strokes as they land (B, L, F, S, then N for five on the right) and the view climbs the stone with the chisel.
+// Idea:    A standing stone is seen corner-on with its edge running up the whole panel as the stemline, and an Ogham inscription is cut into it stroke by stroke from the bottom up, one to five strokes a letter, the B aicme on the right face, the H aicme on the left, the M aicme slanting across the edge from one face onto the other and the vowels notched on the edge itself, while a small Latin letter beside each group counts its strokes as they land (B, L, F, S, then N for five on the right) and the view climbs the stone with the chisel near the top, each cut a groove of a lit lower wall and a shaded upper one.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Speed=0.2..3, Text=0..3, Turn=-1..1
 //
 // Knob 1: Hue. Turns the light round the wheel: at 0 the cuts are pale gold on blue-grey slate, at 0.5 pale blue on a brown sandstone, the gloss letters a whiter tint of the cuts.
-// Knob 2: Speed. Strokes cut a second: 5 at the opening 2, so the alphabet's 60 strokes and 20 letters take 16 seconds before the stone holds 3 seconds with its top in view and a fresh one is started; 0.8 at 0.2, 13.6 at 3.
-// Knob 3: Text. Which inscription, each on its own stone: 0 the twenty letters in their four aicmí, 60 strokes over 302 rows of stone; 1 the four aicme names BEITHE HUATHA MUINE AILME, 59 strokes of which 40 are vowel notches; 2 the formula words ANM MAQI MUCOI, 34 strokes; 3 the Old Irish names of the first aicme, BEITHE LUIS FERN SAIL NIN, 76 strokes over 365 rows.
+// Knob 2: Speed. Strokes cut a second: 5 at the opening 2, 0.8 at 0.2, 13.6 at 3. Every fresh stone has its first 100 rows (the whole B aicme of the alphabet) cut at 25 a second, in 0.9 s, so the writing stands the panel's height at once; at 2 the alphabet's 60 strokes are done at 12.9 s (74 s at 0.2, 5.3 s at 3), then the stone holds 3 s with its top in view and a fresh one is started.
+// Knob 3: Text. Which inscription, each on its own stone: 0 the twenty letters in their four aicmí, 60 strokes over 380 rows of stone; 1 the four aicme names BEITHE HUATHA MUINE AILME, 59 strokes of which 40 are vowel notches; 2 the formula words ANM MAQI MUCOI, 34 strokes; 3 the Old Irish names of the first aicme, BEITHE LUIS FERN SAIL NIN, 76 strokes over 460 rows.
 // Knob 4: Turn. Turns the stone about its upright axis, 13 degrees at the opening 0.06 so the left face shows wider, 40 degrees each way at the ends: at -1 the right face comes round to you and the left one shrinks to a sliver, at 1 the reverse, and the strokes on the turning face shorten while the slanting M strokes kink at the edge.
 
 const W = 64, H = 128;
@@ -72,10 +72,14 @@ const FONT = {
 // view climbing the stone with the chisel a whole row at a time so every
 // cut lands on one row of LEDs.
 const CX = 35.5, RS = [24, 22.5, 25.5, 23.5], CAM0 = -10, VOFF = 40;
-const PITCH = 3, LGAP = 8, WGAP = 18, BASE = 9;
+const PITCH = 4, LGAP = 10, WGAP = 20, BASE = 9;
 // How far each aicme's strokes reach along a face, in face units (one
 // unit is one LED when the face is square to you), and the M slant.
-const REACH = [12.5, 12.5, 8.5, 2.3], SLANT = 0.42, CUT = 0.62;
+const REACH = [16, 16, 9, 2.4], SLANT = 0.42, CUT = 0.62;
+// A fresh stone's first RUN rows are cut at RUSH strokes a second, so the
+// writing stands the panel's height within a second; then the chisel goes
+// at the Speed knob's pace with the view holding it LEAD rows below the top.
+const RUN = 100, RUSH = 25, LEAD = 116;
 
 const hash = (a, b, c) => {
   let h = (a * 374761393 + b * 668265263 + c * 1013904223) | 0;
@@ -143,7 +147,7 @@ export function setup(params) {
   const S = (params.s = { ti: -1, hue: 0, rate: 5, turn: 0, dim: 1, emit: 0 });
   S.Cov = new Float32Array(W * H);
   S.Fre = new Float32Array(W * H);
-  S.Sh = new Float32Array(W * H);
+  S.Wl = new Float32Array(W * H);
   S.F = new Float32Array(W * H * 3);
   S.colF = new Int8Array(W);
   S.colU = new Float32Array(W);
@@ -175,10 +179,12 @@ export function update(dt, input, params) {
   // start again on a fresh one.
   let target;
   if (S.phase === 0) {
-    S.t += dt * S.rate;
+    const i = current(S), c = S.cuts[i], n = S.cuts[min(i + 1, S.cuts.length - 1)];
+    S.t += dt * (c.v < RUN ? max(S.rate, RUSH) : S.rate);
     S.dim = min(1, S.dim + dt / 0.5);
-    const c = S.cuts[current(S)];
-    target = c.v + (c.g === 2 ? REACH[2] * SLANT : 0) - 92;
+    // The view aims between this cut and the next, so it climbs evenly.
+    const a = n === c ? 0 : cl((S.t - c.t0) / (n.t0 - c.t0), 0, 1);
+    target = c.v + (n.v - c.v) * a + REACH[2] * SLANT - LEAD;
     if (S.t >= S.end) (S.phase = 1), (S.hold = 0);
   } else {
     target = S.top - 112;
@@ -189,7 +195,7 @@ export function update(dt, input, params) {
       newStone(S, S.ti);
     }
   }
-  S.cam += (max(CAM0, target) - S.cam) * (1 - exp(-dt * 2.5));
+  S.cam += (max(CAM0, target) - S.cam) * (1 - exp(-dt * 6));
   // Stone dust off the chisel, in panel columns and stone rows.
   const P = S.parts;
   for (const p of P) {
@@ -209,8 +215,10 @@ export function update(dt, input, params) {
   }
 }
 
-// One straight piece of a cut as a capsule of radius rad, into the cover
-// buffer, its freshness alongside and its shadow a row above it.
+// One straight piece of a cut as a capsule of radius rad. A cut is a groove
+// with two walls: under light from above, the lower wall faces up and is
+// lit (the cover buffer, its freshness alongside) and the upper wall a row
+// above it faces down into shade (the wall buffer).
 function seg(S, a, b, rad, fresh) {
   const [ax, ay] = a, [bx, by] = b;
   const x0 = max(0, floor(min(ax, bx) - rad - 1)), x1 = min(W - 1, ceil(max(ax, bx) + rad + 1));
@@ -226,17 +234,17 @@ function seg(S, a, b, rad, fresh) {
       const o = y * W + x;
       if (c > S.Cov[o]) S.Cov[o] = c;
       if (c * fresh > S.Fre[o]) S.Fre[o] = c * fresh;
-      if (c > S.Sh[o - W]) S.Sh[o - W] = c;
+      if (c > S.Wl[o - W]) S.Wl[o - W] = c;
     }
 }
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.cuts) return;
-  const { Cov, Fre, Sh, F, colF, colU } = S;
+  const { Cov, Fre, Wl, F, colF, colU } = S;
   Cov.fill(0);
   Fre.fill(0);
-  Sh.fill(0);
+  Wl.fill(0);
   F.fill(0);
   // The edge and the far corners across the panel, and how much of a face
   // unit each face shows: cos(45 degrees + turn) on the right, cos(45 - turn)
@@ -311,12 +319,12 @@ export function draw(display, params) {
         B = sky[2] * s;
       } else {
         const vi = cl(floor(v) + VOFF, 0, S.V - 1);
-        let l = shade[f] * near * S.tex[f][vi * S.U + ui] + edge;
-        l *= 1 - 0.55 * Sh[o] * (1 - Cov[o]);
-        const c = Cov[o], fr = Fre[o], cc = (0.7 + 0.3 * shade[f]) * (1 - fr);
-        R = stone[0] * l * (1 - c) + c * (cutC[0] * cc + 255 * fr);
-        G = stone[1] * l * (1 - c) + c * (cutC[1] * cc + 255 * fr);
-        B = stone[2] * l * (1 - c) + c * (cutC[2] * cc + 250 * fr);
+        const l = shade[f] * near * S.tex[f][vi * S.U + ui] + edge;
+        const c = Cov[o], w = Wl[o] * (1 - c), fr = Fre[o], fw = y < H - 1 ? 0.5 * Fre[o + W] : 0;
+        const cc = (0.7 + 0.3 * shade[f]) * (1 - fr), cw = 0.4 * (0.7 + 0.3 * shade[f]) * (1 - fw);
+        R = stone[0] * l * (1 - c - w) + c * (cutC[0] * cc + 255 * fr) + w * (cutC[0] * cw + 200 * fw);
+        G = stone[1] * l * (1 - c - w) + c * (cutC[1] * cc + 255 * fr) + w * (cutC[1] * cw + 200 * fw);
+        B = stone[2] * l * (1 - c - w) + c * (cutC[2] * cc + 250 * fr) + w * (cutC[2] * cw + 200 * fw);
       }
       F[o * 3] = R;
       F[o * 3 + 1] = G;
