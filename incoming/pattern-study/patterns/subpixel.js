@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: TrueType quadratic outlines and centre-sampling scan conversion (Apple, 1991), ClearType subpixel rendering (Microsoft, announced 1998), FreeType's default LCD filter and light hinting, pattern round 66
+// Lineage: TrueType quadratic outlines and its pixel-centre rule for scan conversion (Apple, 1991), ClearType subpixel rendering (Microsoft, announced 1998), FreeType's default LCD filter and light hinting, pattern round 66
 // Round:   66
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Letters. Which pair: a over g at 13.2 pixels to the em or R over & at 12.2, on pixels six LEDs square, or 한 over 글 at 19.5 on pixels three LEDs square.
 // Knob 2: Speed. How fast the outlines drift and breathe: at 2 they travel half a pixel a second and swell and shrink by 5.5 percent over 15 seconds, at 0.2 ten times slower.
 // Knob 3: Mode. How the grid is filled: 0 subpixel stripes, each pixel three LED columns red, green and blue, each lit by the coverage of its own third after FreeType's five-tap filter; 1 the same three values as the colour of the whole pixel, where the fringes show; 2 grey coverage; 3 one bit, a pixel lit when its centre is inside, TrueType's first rule.
-// Knob 4: Hint. Snapping to the grid: 0 none; 1 heights and horizontal strokes only, as FreeType's light hinting does; 2 the vertical stems as well, each stem a whole number of pixels wide.
+// Knob 4: Hint. Snapping to the grid: 0 none; 1 the baseline, heights and horizontal strokes on pixel rows, as FreeType's light hinting does; 2 the vertical stems as well, each a whole number of pixels wide, so the hinted letter keeps its shape and moves only in whole-pixel jumps while the outline glides.
 // Buttons: K2 tap holds the outlines still, tap again to let them drift.
 
 const W = 64, H = 128;
@@ -383,7 +383,8 @@ export function update(dt, input, params) {
   if (input.btnPressed && input.btnPressed[1]) S.hold = !S.hold;
   if (!S.hold) S.T += dt * cl(k[1], 0.05, 3);
   const set = S.sets[S.set];
-  // The true outline, for drawing, and the one the raster is made from.
+  // The true outline and its off-curve points, for drawing, and the outline
+  // the raster is made from, which is the hinted one when hinting is on.
   let n = 0;
   S.nOff = 0;
   for (let i = 0; i < 2; i++) {
