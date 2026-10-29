@@ -12,8 +12,8 @@
 // @knobs Order=-1..1, Speed=0.2..3, Defects=10..30, Uncross=0..1
 //
 // Knob 1: Order. The film's retardation at its mean thickness, 850 + 650 Order nm. At the opening 0 it is 850 nm, and the wedge spreads it from about 620 nm at the top of the panel to 1080 nm at the bottom, the whole second order in bands: blue, cyan, green, yellow, orange, red and magenta. At -1 it is 200 nm, first-order grey and white; at -0.5, 525 nm, first-order orange and the violet of the sensitive tint; at 1, 1500 nm, the greens and pinks of the third order.
-// Knob 2: Speed. The polarizers turn at 0.03 Speed radians a second, 0.06 at the opening 2, and the brushes of a half-strength core turn twice as fast, a +1/2 core's with the polarizers and a -1/2 core's against them; crossed polarizers look the same after a quarter turn, 26 s at Speed 2, 17 s at 3. The film relaxes 10 Speed time units a second: at Speed 2 a lone pair 20 LEDs apart meets in 2.4 s and one 30 LEDs apart in 10 s.
-// Knob 3: Defects. The film opens with this many cores and keeps at least this many: when annihilation leaves fewer, a new pair is let in 26 to 34 LEDs apart, at the best of 14 spots away from the cores already there, at most one every 0.8 s, and the panel dissolves to it over 0.7 s. One pair in five is a +1 and a -1 with four brushes each, which come apart into half-strength cores within a few seconds. 10 at the opening, 30 at the top.
+// Knob 2: Speed. The polarizers turn at 0.03 Speed radians a second, 0.06 at the opening 2, and the brushes of a half-strength core turn twice as fast, a +1/2 core's with the polarizers and a -1/2 core's against them; crossed polarizers look the same after a quarter turn, 26 s at Speed 2, 17 s at 3. The film relaxes 10 Speed time units a second: at Speed 2 a lone pair of opposite cores 20 LEDs apart meets in about 3 s, 30 LEDs apart in about 11 s, 40 apart in 23 s.
+// Knob 3: Defects. The film opens with this many cores and keeps at least this many: when annihilation leaves fewer, new pairs are let in, 26 to 34 LEDs apart at the best of 14 spots away from the cores already there, up to three pairs at once and at most every 1.5 s, and the panel dissolves to them over 0.5 s. One pair in five is a +1 and a -1 with four brushes each, which come apart into half-strength cores within a few seconds. 10 at the opening, 30 at the top.
 // Knob 4: Uncross. Turns the analyzer away from crossed by 90 Uncross degrees: at 0 the polarizers are crossed and the brushes black, at the opening 0.06 they are 5.4 degrees off, at 0.5 the colours have paled and the brushes gone, and at 1 the polarizers are parallel, the brushes white and the colours turned to their pale complements.
 
 // The director n is a line field: n and -n are the same, so its angle theta
@@ -30,7 +30,7 @@ const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, sqrt, sin, cos, atan2, exp, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const TAU = 2 * PI;
-const FADE = 0.7, GAIN = 1.4, AGL = 0.15, XI = 1 / sqrt(AGL);
+const FADE = 0.5, GAIN = 1.4, AGL = 0.15, XI = 1 / sqrt(AGL);
 
 // ---- Michel-Levy colours: white light through a plate of retardation G
 // between crossed polarizers transmits sin^2(pi G / lambda) of each
@@ -217,11 +217,14 @@ export function update(dt, input, params) {
   S.phi += d * 0.03 * S.speed;
   relax(S, d * 10 * S.speed);
   if (++S.frame % 6 === 0) census(S);
-  if (S.count < S.want && S.t - S.lastPair > 0.8) {
-    // The panel dissolves from the last frame to the film with the new
-    // pair over FADE seconds.
-    pair(S);
-    census(S);
+  if (S.count < S.want && S.t - S.lastPair > 1.5) {
+    // Enough pairs at once to make up the count, three at most, and the
+    // panel dissolves from the last frame to the film with them over FADE
+    // seconds.
+    for (let m = min(3, Math.ceil((S.want - S.count) / 2)); m > 0; m--) {
+      pair(S);
+      census(S);
+    }
     S.lastPair = S.t;
     S.OLD.set(S.LAST);
     S.fade = 0;
