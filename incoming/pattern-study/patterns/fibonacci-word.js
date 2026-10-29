@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Fibonacci Word
 // Family:  fractal
-// Idea:    A pen reads the Fibonacci word 0100101001001... and takes one step for every digit, turning a quarter turn at every 0, left in an even place and right in an odd one, so 144 crisp steps of 4 LEDs draw a self-avoiding curve of squares nested in squares over the coarse curve of the first 34 digits, each coarse step giving way to the 5 or 3 fine steps that 0 -> 01001 and 1 -> 010 make of it; the three copies of those 34 digits inside the 144 then light in turn, and the panel dives into the first with a quarter turn and a 1 + sqrt 2 zoom until it stands where the whole stood, mirrored, and the pen draws the whole over it again.
+// Idea:    A pen reads the Fibonacci word 0100101001001... and takes one step for every digit, turning a quarter turn at every 0, left in an even place and right in an odd one, so 144 crisp steps of 4 LEDs draw a self-avoiding curve of squares nested in squares over the coarse curve of the first 34 digits, which lies in a faint band 5 LEDs wide, each coarse step giving way to the 5 or 3 fine steps that 0 -> 01001 and 1 -> 010 make of it; the three copies of those 34 digits inside the 144 then light in turn, and the panel dives into the first with a quarter turn and a 1 + sqrt 2 zoom until it stands where the whole stood, mirrored, and the pen draws the whole over it again.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -182,11 +182,15 @@ function geometry(n, deg, mir, keepPsi) {
     GX[j] = f[0] * u - f[1] * v + f[2];
     GY[j] = f[1] * u + f[0] * v + f[3];
   }
-  return { n, N, Nc, deg, mir, grid, cam, X, Y, GX, GY, step: hypot(cam.ar, cam.ai) };
+  // The band round the coarse curve: 2 LEDs each side when its steps are
+  // near 10 LEDs long, 1 when they are near 5.
+  const hw = cl(round(0.22 * hypot(GX[1] - GX[0], GY[1] - GY[0])), 1, 2);
+  return { n, N, Nc, deg, mir, grid, cam, X, Y, GX, GY, hw, step: hypot(cam.ar, cam.ai) };
 }
 
-// How bright the coarse curve waits under the pen.
-const GHOST = 0.72;
+// How bright the coarse curve waits under the pen, and its band. The band
+// stays above 40 of 255, so its rim is a hard edge and not a glow.
+const GHOST = 0.72, BANDV = 0.19;
 
 const angleOf = (k) => {
   const a = abs(k);
@@ -198,7 +202,10 @@ function startDraw(S, ghost) {
 }
 
 export function setup(params) {
-  const S = (params.s = { t: 0, hue: 0, speed: 2, phase: 0, pen: 0, pt: 0, gl: GHOST, zt: 0, acc: new Float32Array(W * H * 3), c: [0, 0, 0] });
+  const S = (params.s = {
+    t: 0, hue: 0, speed: 2, phase: 0, pen: 0, pt: 0, gl: GHOST, zt: 0, c: [0, 0, 0],
+    acc: new Float32Array(W * H * 3), band: new Float32Array(W * H), bandU: new Float32Array(W * H),
+  });
   S.g = geometry(12, 90, 1, -1);
   startDraw(S, GHOST);
 }
@@ -276,11 +283,29 @@ function lineGrid(acc, x0, y0, x1, y1, r, g, b, upto) {
   }
 }
 
+// Every LED within hw of a segment joins the band at level v, the highest
+// level keeping its colour u, so crossings do not add up.
+function bandSeg(S, x0, y0, x1, y1, hw, v, u) {
+  if (v <= 0.01) return;
+  const B = S.band, U = S.bandU, r = hw + 0.45, dx = x1 - x0, dy = y1 - y0, L2 = dx * dx + dy * dy;
+  const xa = max(0, floor(min(x0, x1) - r)), xb = min(W - 1, ceil(max(x0, x1) + r));
+  const ya = max(0, floor(min(y0, y1) - r)), yb = min(H - 1, ceil(max(y0, y1) + r));
+  for (let y = ya; y <= yb; y++)
+    for (let x = xa; x <= xb; x++) {
+      const t = L2 > 0 ? cl(((x - x0) * dx + (y - y0) * dy) / L2, 0, 1) : 0, ex = x0 + dx * t - x, ey = y0 + dy * t - y;
+      if (ex * ex + ey * ey <= r * r) {
+        const p = y * W + x;
+        if (v > B[p]) (B[p] = v), (U[p] = u);
+      }
+    }
+}
+
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.g) return;
   const acc = S.acc, c = S.c, h0 = 0.42 + S.hue;
   acc.fill(0);
+  S.band.fill(0);
   const g = S.g, N = g.N, Nc = g.Nc;
   const col = (u, v, white) => {
     hsv(h0 + 0.5 * u, 0.78 * (1 - white), v, c);
@@ -289,7 +314,16 @@ export function draw(display, params) {
   if (S.phase === 2) {
     // The dive: every point of the curve under the similarity's power.
     const z = S.z, e = smooth(S.zt), rr = pow(z.r, e), ph = z.phi * e, er = rr * cos(ph), ei = rr * sin(ph);
-    const out = 1 - smooth(S.zt / 0.6);
+    const out = 1 - smooth(S.zt / 0.6), zx = (x, y) => z.cx + er * (x - z.cx) - ei * (y - z.cy), zy = (x, y) => z.cy + ei * (x - z.cx) + er * (y - z.cy);
+    // The old band rides the dive out; a new one grows round the first copy,
+    // which is the next picture's coarse curve.
+    const vo = BANDV * (1 - smooth(e / 0.35)), vn = BANDV * smooth(e / 0.5);
+    for (let j = 0; j < Nc; j++) {
+      const ax = g.GX[j], ay = g.GY[j], bx = g.GX[j + 1], by = g.GY[j + 1];
+      bandSeg(S, zx(ax, ay), zy(ax, ay), zx(bx, by), zy(bx, by), g.hw, vo, (BLK[j] + BLK[j + 1]) / (2 * N));
+      const cx = g.X[j], cy = g.Y[j], dx = g.X[j + 1], dy = g.Y[j + 1];
+      bandSeg(S, zx(cx, cy), zy(cx, cy), zx(dx, dy), zy(dx, dy), z.next.hw * e, vn, (BLK[j] + BLK[j + 1]) / (2 * N));
+    }
     let px = 0, py = 0;
     for (let i = 0; i <= N; i++) {
       const dx = g.X[i] - z.cx, dy = g.Y[i] - z.cy, x = z.cx + er * dx - ei * dy, y = z.cy + ei * dx + er * dy;
@@ -306,8 +340,10 @@ export function draw(display, params) {
       px = x, py = y;
     }
   } else {
-    // The coarse curve, each step fading as the pen finishes its block.
-    const rate = max(0.5, 70 / max(0.05, g.step));
+    // The coarse curve, each step fading as the pen finishes its block, and
+    // its band, which stays.
+    const rate = max(0.5, 70 / max(0.05, g.step)), rd = g.grid ? round : (v) => v;
+    for (let j = 0; j < Nc; j++) bandSeg(S, rd(g.GX[j]), rd(g.GY[j]), rd(g.GX[j + 1]), rd(g.GY[j + 1]), g.hw, BANDV, (BLK[j] + BLK[j + 1]) / (2 * N));
     for (let j = 0; j < Nc; j++) {
       const gone = (S.pen - BLK[j + 1]) / (0.3 * rate) + (S.phase === 1 ? 8 * S.pt : 0), a = S.gl * (1 - cl(gone, 0, 1));
       if (a <= 0.01) continue;
@@ -347,6 +383,11 @@ export function draw(display, params) {
       splat(acc, px, py, 1.6, 1, 1, 1);
       for (const [ox, oy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) splat(acc, px + ox, py + oy, 0.45, c[0], c[1], c[2]);
     }
+  }
+  for (let p = 0; p < W * H; p++) {
+    if (S.band[p] <= 0) continue;
+    col(S.bandU[p], S.band[p], 0);
+    acc[3 * p] += c[0], acc[3 * p + 1] += c[1], acc[3 * p + 2] += c[2];
   }
   // The tape: the word itself down the right edge, two rows a digit, the
   // digit being read on row 64. A 0 is two LEDs wide, a 1 one. Read digits
