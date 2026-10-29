@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: goal-based caustics (Marios Papas, Wojciech Jarosz, Wenzel Jakob, Szymon Rusinkiewicz, Wojciech Matusik and Tim Weyrich, Goal-Based Caustics, 2011), high-contrast computational caustic design (Yuliy Schwartzburg, Romain Testuz, Andrea Tagliasacchi and Mark Pauly, 2014); where the papers solve for an optimal-transport map, this pattern uses the Knothe-Rosenblatt rearrangement in its place (Murray Rosenblatt, 1952; Herbert Knothe, 1957); pattern round 69
+// Lineage: goal-based caustics (Marios Papas, Wojciech Jarosz, Wenzel Jakob, Szymon Rusinkiewicz, Wojciech Matusik and Tim Weyrich, Goal-Based Caustics, 2011), high-contrast computational caustic design (Yuliy Schwartzburg, Romain Testuz, Andrea Tagliasacchi and Mark Pauly, 2014); the Knothe-Rosenblatt rearrangement (Murray Rosenblatt, 1952; Herbert Knothe, 1957) stands in here for the optimal-transport map the 2014 paper solves for; pattern round 69
 // Round:   69
 // ===============================
 // @matrix 64x128
@@ -129,8 +129,8 @@ for (let j = 0; j < PY; j++)
 // matched to the same share of rho's row sums. Then, inside the row it lands
 // in, its share across is matched to the same share of that row. Both are
 // inverse cumulative sums, read linearly inside an LED. T moves light only
-// down and then across, so it is not the cheapest map the papers solve for,
-// but it carries exactly rho.
+// down and then across, so it is not the cheapest map, the one the 2014
+// paper solves for by optimal transport, but it carries exactly rho.
 function knothe(rho) {
   const Mc = new Float64Array(H + 1), C = new Float64Array(H * (W + 1));
   for (let r = 0; r < H; r++) {

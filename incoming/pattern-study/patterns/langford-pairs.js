@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Pairs=7..12, Rule=0..1
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 pairs 1, 2 and 3 are red, blue and yellow, the blocks Langford watched his son stack, and each larger pair is 0.58 of a turn on from the one before.
-// Knob 2: Speed. 40 steps a second at 2, where a step places a pair or takes one back; 4 at 0.2 and 60 at 3. While nothing turns up the search doubles its pace every 1.5 s, up to 30,000 steps a second, and falls back at each arrangement it finds.
+// Knob 2: Speed. 40 steps a second at 2, where a step places a pair or takes one back; 4 at 0.2 and 60 at 3. After 2 s with nothing found the search doubles its pace every 1.5 s, up to 30,000 steps a second, so 9 gets through its 19,781 placements and fails about 15 s in; at each arrangement it finds it falls back to the knob's pace.
 // Knob 3: Pairs. n from 7 to 12, so the tower is 14 to 24 blocks of 128 / 2n rows. Counted once with its reversal, 7 has 26 arrangements, 8 has 150, 11 has 17,792 and 12 has 108,144; 9 and 10 have none, and their searches run out and fail. When a search has tried everything, n goes up by one, and 12 goes back to 7.
 // Knob 4: Rule. Below 0.5 Langford's rule, k blocks between the two of colour k. From 0.5 Skolem's, the two of colour k stand k places apart, so the two 1s touch; that works for n = 8 (252), 9 (1,328) and 12 (227,968), and fails for 7, 10 and 11.
 // Buttons: any knob's button gives up on this n and moves on to the next.
@@ -35,7 +35,7 @@ const TX = 52, TW = 10, PBX = 63, SW = 5, SS = 7, S0 = 29, NMIN = 7, NMAX = 12;
 const top = (n, i) => round((i * H) / (2 * n));
 
 // ---- The search. Pairs go in from n down to 1; pair k tries each place i
-// whose partner i + gap is free, left to right. Langford's gap is k + 1 (k
+// whose partner i + gap is free, from the top down. Langford's gap is k + 1 (k
 // blocks between), Skolem's is k. A reversed arrangement is the same one, so
 // pair n only tries the top half of its places; when it sits exactly in the
 // middle an arrangement and its reversal both turn up, and only the one that
