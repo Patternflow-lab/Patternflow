@@ -175,7 +175,7 @@ function layout(S) {
   const pitch = ((1 - f) * S.maxH + f * SQ + LEAD) * sc;
   const adv = (w) => ((1 - f) * w + f * SQ + TRACK) * sc;
   let x = MARGIN, y = 0, lineIx = 0;
-  S.lines = [];
+  S.laid = true;
   const newLine = (gap) => {
     x = MARGIN;
     y += pitch * gap;
@@ -288,7 +288,7 @@ function ring(S, cx, cy, rx, ry, hw, col) {
 }
 
 export function draw(display, params) {
-  if (!params.s || !params.s.lines) return;
+  if (!params.s || !params.s.laid) return;
   const S = params.s, sc = S.size, f = S.frame, hw = 0.5 + 0.35 * (sc - 1);
   S.R.fill(0);
   S.G.fill(0);
