@@ -31,13 +31,15 @@ function hsv(h, s, v) {
 // Each glyph is a union of simple polygons that may overlap: rectangles,
 // slanted bars cut level at both ends, and bands along an ellipse whose
 // arcs are flattened into chords of at most 5 degrees. The box is about
-// 56 by 116, x 4..60 and y 6..122. Strokes are 11 to 13 LEDs wide, the
-// Hangul ones 9 to 10, so at 12 LEDs a texel the thin ones go first.
+// 56 by 116, x 4..60 and y 6..122. The round strokes are 12 LEDs wide, the
+// straight ones 8 to 15 and the Hangul ones 8 to 12, so at 12 LEDs a
+// texel the thin ones go first.
 const rect = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 // A bar from a top edge centred on xt, wt wide, to a bottom edge on xb.
 const bar = (xt, yt, wt, xb, yb, wb) => [[xt - wt / 2, yt], [xt + wt / 2, yt], [xb + wb / 2, yb], [xb - wb / 2, yb]];
 // A band hw either side of an ellipse from angle a0 to a1 in degrees,
-// clockwise on the panel (0 is right, 90 down), cut square to the curve.
+// clockwise on the panel (0 is right, 90 down), its ends cut along the
+// radius.
 function arc(cx, cy, rx, ry, hw, a0, a1) {
   const n = ceil(abs(a1 - a0) / 5), out = [], inn = [];
   for (let i = 0; i <= n; i++) {
@@ -74,11 +76,27 @@ const GLYPHS = [
   [arc(32, 37, 22, 25, 6, -160, 92), rect(26, 58, 38, 92), disc(32, 112, 8.5)],
 ];
 
-// Even-odd test against one simple polygon.
-function inPoly(P, x, y) {
+// Even-odd test against one simple polygon, kept flat as x0 y0 x1 y1 ...
+// after its bounding box.
+function flat(P) {
+  const f = new Float64Array(4 + 2 * P.length);
+  f[0] = f[1] = Infinity;
+  f[2] = f[3] = -Infinity;
+  P.forEach(([x, y], i) => {
+    f[4 + 2 * i] = x;
+    f[5 + 2 * i] = y;
+    if (x < f[0]) f[0] = x;
+    if (y < f[1]) f[1] = y;
+    if (x > f[2]) f[2] = x;
+    if (y > f[3]) f[3] = y;
+  });
+  return f;
+}
+function inPoly(f, x, y) {
+  if (x < f[0] || y < f[1] || x > f[2] || y > f[3]) return false;
   let c = false;
-  for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
-    const [xi, yi] = P[i], [xj, yj] = P[j];
+  for (let i = 4, j = f.length - 2; i < f.length; j = i, i += 2) {
+    const xi = f[i], yi = f[i + 1], xj = f[j], yj = f[j + 1];
     if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
   }
   return c;
@@ -93,7 +111,11 @@ function inPoly(P, x, y) {
 // minimum of each polygon's own distance would be wrong inside, wherever
 // two strokes join.
 function outline(polys) {
-  const inside = (x, y) => polys.some((P) => inPoly(P, x, y));
+  const flats = polys.map(flat);
+  const inside = (x, y) => {
+    for (const f of flats) if (inPoly(f, x, y)) return true;
+    return false;
+  };
   const segs = [];
   polys.forEach((P, i) => {
     for (let k = 0; k < P.length; k++) {
@@ -133,7 +155,8 @@ function sdf(G, x, y) {
   let d2 = Infinity;
   for (let i = 0; i < s.length; i += 4) {
     const ax = s[i], ay = s[i + 1], dx = s[i + 2] - ax, dy = s[i + 3] - ay;
-    const t = cl(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy), 0, 1);
+    let t = ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
     const ex = x - ax - t * dx, ey = y - ay - t * dy, e = ex * ex + ey * ey;
     if (e < d2) d2 = e;
   }

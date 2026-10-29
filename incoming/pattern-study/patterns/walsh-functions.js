@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Walsh functions (Joseph L. Walsh, "A closed set of normal orthogonal functions", 1923), Sylvester's Hadamard matrices (James Joseph Sylvester, 1867), Paley's dyadic ordering (Raymond Paley, 1932), pattern round 67
+// Lineage: Walsh functions (Joseph L. Walsh, "A closed set of normal orthogonal functions", 1923), Sylvester's construction of Hadamard matrices (James Joseph Sylvester, 1867), Paley's dyadic ordering (Raymond Paley, 1932), pattern round 67
 // Round:   67
 // ===============================
 // @matrix 64x128
