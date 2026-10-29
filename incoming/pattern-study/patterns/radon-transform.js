@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Radon Transform
 // Family:  algo
-// Idea:    A beam sweeps half a turn round a few ellipses of different densities, the bottom square fills row by row with their sinogram, and each projection is filtered and smeared back across the top square along its own angle, so the ellipses build up out of crossing streaks, hold, and give way to the next, slightly moved phantom.
+// Idea:    A beam takes half a turn round a few ellipses of different densities and counts the photons that get through, filling the bottom square row by row with a grainy sinogram, then each projection is filtered and smeared back across the top square along its own angle, so the ellipses build up out of crossing streaks, hold, and the panel clears for the next, slightly moved phantom.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,13 +11,13 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Angles=0..64, Filter=0..1
 //
-// Knob 1: Hue. Turns both squares round the wheel: at 0 the reconstruction is ice blue running to white and the sinogram violet.
-// Knob 2: Speed. How fast the beam turns: half a turn in 6 s at 2, then the picture holds 1.5 s; at 0.2 a half turn takes 60 s, at 3 it takes 4 s.
-// Knob 3: Angles. How many projections a half turn takes. 0 takes turns, doubling each cycle from 16: 16, 32, 64, then 4, 8 and round again. 1 to 64 hold that count; with few the shapes are crossed by the star of streaks, one per angle.
-// Knob 4: Filter. The filter each projection passes before it is smeared back: (1 - f) c + f |w|, with c the ramp's height at 1/400 of a cycle a sample. At 0 it is plain back-projection, every shape in a blurred 1/r halo; at 0.06 the edges already come through; at 1 it is the ramp alone, sharp, with dark lobes beside every streak.
+// Knob 1: Hue. Turns both squares round the wheel: at 0 the reconstruction runs from dark cyan to ice white and the sinogram from blue violet to purple.
+// Knob 2: Speed. At 2 the beam's half turn takes 1 s, reading the projections back takes 6 s, and the picture holds 1.5 s, fading out over its last 0.3 s; at 0.2 everything takes ten times as long, at 3 two thirds as long.
+// Knob 3: Angles. How many projections a half turn takes. 0 takes turns, doubling each cycle from 16: 16, 32, 64, then 4, 8 and round again. 1 to 64 hold that count; with few the shapes are crossed by the star of streaks, one per angle. The half turn has a fixed dose of photons shared by its projections: at 4 angles each bin gets 2,000 and the rows are clean, at 64 it gets 125 and they are grainy.
+// Knob 4: Filter. The filter each projection passes before it is smeared back: (1 - f) c + f |w|, with c the ramp's height at 1/400 of a cycle a sample. At 0 it is plain back-projection, every shape in a blurred 1/r halo; at 0.06 the edges already come through; at 1 it is the ramp alone, sharp, with dark lobes beside every streak. Plain back-projection smooths the photon noise away; the ramp turns it into fine grain.
 
 const W = 64, Q = 64, H = 128;
-const { floor, min, max, sqrt, sin, cos, exp, round, PI } = Math;
+const { floor, min, max, sqrt, sin, cos, exp, log, round, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 function hsv(h, s, v, o) {
@@ -63,6 +63,27 @@ function project(E, th, out) {
   return out;
 }
 
+// Photon counts. A line of attenuation p lets through exp(-MU p) of the
+// beam, so a bin that should count m photons counts a Poisson draw from m,
+// and the projection is read back as -ln(count / I0) / MU, as a scanner
+// reads it. One half turn has a fixed DOSE, shared by its projections: each
+// of N gets DOSE / N photons a bin, so few angles give clean rows and many
+// give grainy ones. The thickest line through the first phantom lets 5.4%
+// of the beam through.
+const MU = 0.08, DOSE = 8000;
+const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(2 * PI * Math.random());
+function poisson(m) {
+  if (m > 40) return max(0, round(m + sqrt(m) * gauss()));
+  const L = exp(-m);
+  let k = 0;
+  for (let q = Math.random(); q > L; q *= Math.random()) k++;
+  return k;
+}
+function expose(p, I0) {
+  for (let i = 0; i < p.length; i++) p[i] = -log(max(0.5, poisson(I0 * exp(-MU * p[i]))) / I0) / MU;
+  return p;
+}
+
 function ramp(p, q) {
   for (let i = 0; i < NB; i++) {
     let s = 0;
@@ -90,7 +111,7 @@ function smear(acc, p, th) {
 // The first phantom: a body and five inner shapes, one of them a hole.
 function firstPhantom() {
   return [
-    [0, 0, 26, 19, 0.3, 0.5],
+    [0, 0, 27, 22, 0.3, 0.5],
     [-9, 6, 9, 5, 0.9, 0.35],
     [8, 7, 7, 7, 0, -0.3],
     [5, -9, 10, 4, -0.4, 0.3],
@@ -119,34 +140,35 @@ function nextPhantom(E) {
   const rho = small ? 0.6 + Math.random() * 0.3 : Math.random() < 0.4 ? -0.3 : 0.25 + Math.random() * 0.2;
   out[k] = [r * cos(ang), r * sin(ang), a, b, Math.random() * PI, rho];
   // The body breathes between rounder and longer.
-  out[0][2] = 24 + Math.random() * 4, out[0][3] = 16 + Math.random() * 5;
+  out[0][2] = 25 + Math.random() * 3, out[0][3] = 19 + Math.random() * 5;
   return out;
 }
 
-// The continuous sinogram of a phantom, 64 angles down and the middle 64
-// bins across, and its peak.
-function sinogram(E, out) {
+// The sinogram a scan at all 64 angles would count at the same dose a
+// projection, the middle 64 bins across, and its peak before the noise.
+function sinogram(E, out, I0) {
   const p = new Float32Array(NB);
   let peak = 1e-6;
   for (let r = 0; r < Q; r++) {
     project(E, (r * PI) / Q, p);
-    for (let x = 0; x < Q; x++) (out[r * Q + x] = p[x + OFF]), (peak = max(peak, p[x + OFF]));
+    for (let x = OFF; x < OFF + Q; x++) peak = max(peak, p[x]);
+    expose(p, I0);
+    out.set(p.subarray(OFF, OFF + Q), r * Q);
   }
   return peak;
 }
 
 const TURNS = [4, 8, 16, 32, 64];
-// At Speed 2 a half turn takes SWEEP seconds and the result holds HOLD.
-const SWEEP = 6, HOLD = 1.5;
+// At Speed 2 the beam's half turn takes SCAN seconds, reading the sinogram
+// back into the picture takes SWEEP, the result holds HOLD and the last
+// FADE of the hold clears both squares.
+const SCAN = 1, SWEEP = 6, HOLD = 1.5, FADE = 0.25, P0 = 0.75;
 
+// A new scan starts on a cleared panel.
 function startCycle(S, E) {
-  S.prevSino.set(S.sino);
-  S.prevPeak = S.peak;
   S.E = E;
-  S.peak = sinogram(E, S.sino);
   S.cycle++;
-  S.prog = 0, S.hold = 0;
-  S.fadeFrom.set(S.shown), S.fade = S.first ? 1 : 0;
+  S.scan = 0, S.prog = 0, S.hold = 0;
   rebuild(S);
 }
 
@@ -154,48 +176,54 @@ function anglesFor(S) {
   return S.knobN > 0 ? S.knobN : TURNS[(S.cycle + 2) % TURNS.length];
 }
 
-// Start the reconstruction over for the current angle count and take every
-// projection the beam has already passed.
+// Start over for the current angle count: measure every projection the
+// beam has passed and smear back every one the reading has reached.
 function rebuild(S) {
   S.N = anglesFor(S);
+  S.peak = sinogram(S.E, S.sino, DOSE / S.N);
   S.P.fill(0), S.R.fill(0);
-  S.done = 0, S.taken.fill(-1);
+  S.done = 0, S.measured = 0, S.taken.fill(-1);
+  measure(S);
   take(S);
 }
 
-function take(S) {
-  while (S.done < S.N && (S.done * PI) / S.N <= S.prog * PI + 1e-9) {
-    const th = (S.done * PI) / S.N;
-    project(S.E, th, S.p);
-    ramp(S.p, S.q);
-    smear(S.P, S.p, th);
-    smear(S.R, S.q, th);
-    S.lastP.set(S.p), S.lastQ.set(S.q), S.lastTh = th, S.lastT = S.t;
+// The beam passes angle k pi / N and the detector counts its projection.
+function measure(S) {
+  while (S.measured < S.N && S.measured / S.N <= S.scan + 1e-9) {
+    const k = S.measured++;
+    expose(project(S.E, (k * PI) / S.N, S.proj[k]), DOSE / S.N);
     // Its row of the sinogram, drawn up to 3 rows deep when the rows
     // between projections leave room.
-    const r0 = round((S.done / S.N) * Q), deep = cl(floor(Q / S.N / 3), 1, 3);
+    const r0 = round((k / S.N) * Q), deep = cl(floor(Q / S.N / 3), 1, 3);
     for (let j = 0; j < deep; j++) {
       const r = (r0 + j) % Q;
-      S.taken[r] = S.done, S.depth[r] = j;
-      S.rows[r].set(S.p.subarray(OFF, OFF + Q));
+      S.taken[r] = k, S.depth[r] = j;
+      S.rows[r].set(S.proj[k].subarray(OFF, OFF + Q));
     }
+  }
+}
+
+// The reading reaches projection k: it is filtered and smeared back.
+function take(S) {
+  while (S.done < S.measured && S.done / S.N <= S.prog + 1e-9) {
+    const th = (S.done * PI) / S.N, p = S.proj[S.done];
+    ramp(p, S.q);
+    smear(S.P, p, th);
+    smear(S.R, S.q, th);
+    S.lastP.set(p), S.lastQ.set(S.q), S.lastTh = th, S.lastT = S.t;
     S.done++;
   }
 }
 
 export function setup(params) {
   const S = (params.s = {
-    t: 0, hue: 0, speed: 2, filt: 0.06, knobN: -1, N: 4, cycle: -1, prog: 0, hold: 0, done: 0, first: true,
-    E: null, P: new Float32Array(Q * Q), R: new Float32Array(Q * Q), shown: new Float32Array(Q * Q), fadeFrom: new Float32Array(Q * Q), fade: 1,
-    sino: new Float32Array(Q * Q), prevSino: new Float32Array(Q * Q), peak: 1, prevPeak: 1,
-    p: new Float32Array(NB), q: new Float32Array(NB), lastP: new Float32Array(NB), lastQ: new Float32Array(NB), lastTh: 0, lastT: -9,
-    taken: new Int16Array(Q).fill(-1), depth: new Uint8Array(Q), rows: Array.from({ length: Q }, () => new Float32Array(Q)), gain: 0, c: [0, 0, 0],
+    t: 0, hue: 0, speed: 2, filt: 0.06, knobN: -1, N: 4, cycle: -1, scan: 0, prog: 0, hold: 0, done: 0, measured: 0, first: true,
+    proj: Array.from({ length: 64 }, () => new Float32Array(NB)),
+    E: firstPhantom(), P: new Float32Array(Q * Q), R: new Float32Array(Q * Q), shown: new Float32Array(Q * Q),
+    sino: new Float32Array(Q * Q), peak: 1, clear: 1,
+    q: new Float32Array(NB), lastP: new Float32Array(NB), lastQ: new Float32Array(NB), lastTh: 0, lastT: -9,
+    taken: new Int16Array(Q).fill(-1), depth: new Uint8Array(Q), rows: Array.from({ length: Q }, () => new Float32Array(Q)), gain: 0, hist: new Int32Array(256), c: [0, 0, 0],
   });
-  // The panel opens on a sinogram already under way: a phantom before the
-  // first stands in the rows the beam has not reached.
-  const E = firstPhantom();
-  S.peak = sinogram(nextPhantom(E), S.sino);
-  S.E = E;
 }
 
 export function update(dt, input, params) {
@@ -208,11 +236,13 @@ export function update(dt, input, params) {
   S.filt = cl(k[3], 0, 1);
   const kn = cl(round(k[2]), 0, 64);
   if (S.first) {
-    // The first cycle starts 60% of the way round, so the picture is mostly
-    // built when the panel opens.
+    // The panel opens with the scan done and the reading P0 of the way
+    // through, so the picture is built by 1.5 s and the first clearing
+    // falls at 3 s.
     S.knobN = kn;
     startCycle(S, S.E);
-    S.prog = 0.6;
+    S.scan = 1, S.prog = P0;
+    measure(S);
     take(S);
     S.first = false;
   } else if (kn !== S.knobN) {
@@ -220,7 +250,10 @@ export function update(dt, input, params) {
     if (anglesFor(S) !== S.N) rebuild(S);
   }
   const rate = S.speed / 2;
-  S.fade = min(1, S.fade + dt / 0.6);
+  if (S.scan < 1) {
+    S.scan = min(1, S.scan + (dt * rate) / SCAN);
+    measure(S);
+  }
   if (S.prog < 1) {
     S.prog = min(1, S.prog + (dt * rate) / SWEEP);
     take(S);
@@ -228,6 +261,9 @@ export function update(dt, input, params) {
     S.hold += dt * rate;
     if (S.hold >= HOLD) startCycle(S, nextPhantom(S.E));
   }
+  // Near the end of the hold both squares fade out over FADE seconds and
+  // stay dark for the last 0.07 s.
+  S.clear = S.prog < 1 ? 1 : cl((HOLD - S.hold - 0.07) / FADE, 0, 1);
 }
 
 export function draw(display, params) {
@@ -235,24 +271,32 @@ export function draw(display, params) {
   if (!S || S.first) return;
   const c = S.c, f = S.filt, n = max(1, S.done), A = (1 - f) * FLAT, B = f;
   const shown = S.shown;
-  // The reconstruction, the mean of the smeared projections so far, and
-  // its gain eased toward its peak so a new streak does not flash the scale.
-  let peak = 1e-6;
+  // The reconstruction is the sum of the smeared projections so far over
+  // the full count, so it builds up from black. The gain follows the peak
+  // of their mean, eased so a new streak does not flash the scale.
+  let top = 1e-6;
   for (let i = 0; i < Q * Q; i++) {
     const v = (A * S.P[i] + B * S.R[i]) / n;
     shown[i] = v;
-    if (v > peak) peak = v;
+    if (v > top) top = v;
   }
+  // The scale is set by the brightest 0.5% of LEDs, so a few noise spikes
+  // do not darken the whole picture.
+  const hist = S.hist.fill(0);
+  for (let i = 0; i < Q * Q; i++) if (shown[i] > 0) hist[min(255, floor((shown[i] / top) * 256))]++;
+  let b = 255;
+  for (let cnt = 0; b > 0 && (cnt += hist[b]) < Q * Q * 0.005; ) b--;
+  const peak = (top * (b + 1)) / 256;
   S.gain = S.gain > 0 ? S.gain + (1 / peak - S.gain) * 0.25 : 1 / peak;
-  const g = S.gain;
+  const g = S.gain, env = S.clear;
   // The newest projection flashes along its rays for a moment.
-  const fl = exp(-(S.t - S.lastT) / 0.25) * 0.5, cth = cos(S.lastTh), sth = sin(S.lastTh);
+  const fl = exp(-(S.t - S.lastT) / 0.25) * 0.5 * S.clear, cth = cos(S.lastTh), sth = sin(S.lastTh);
   const hr = 0.55 + S.hue, hn = 0.78 + S.hue;
   for (let y = 0; y < Q; y++) {
     const u0 = -C * cth + (C - y) * sth + MID;
     for (let x = 0; x < Q; x++) {
       const i = y * Q + x;
-      let u = shown[i] * g;
+      let u = shown[i] * g * env;
       if (fl > 0.01) {
         const s = u0 + x * cth, j = floor(s);
         if (j >= 0 && j < NB - 1) {
@@ -260,37 +304,38 @@ export function draw(display, params) {
           u += fl * (A * pv + B * qv) * g;
         }
       }
-      if (S.fade < 1) u = S.fadeFrom[i] + (u - S.fadeFrom[i]) * S.fade;
       shown[i] = u;
       if (u >= 0) {
-        const v = min(1, u);
-        hsv(hr, 0.85 - 0.75 * v * v, 0.06 + 0.94 * v, c);
+        // A soft shoulder above 0.7 instead of a hard clip at white.
+        const v = u < 0.7 ? u : 1 - 0.3 * exp(-(u - 0.7) / 0.3);
+        hsv(hr - 0.05 + 0.1 * v, 0.85 - 0.75 * v * v, 0.06 + 0.94 * v ** 0.65, c);
       } else hsv(hn, 0.65, min(0.5, -u * 0.9), c);
       display.setPixel(x, y, 255 * c[0], 255 * c[1], 255 * c[2]);
     }
   }
   // The sinogram, angle 0 at the top to 180 degrees at the bottom. Rows the
   // beam has passed show the full sinogram dimly and the rows of the
-  // projections taken brightly; rows ahead still hold the last phantom's.
-  const swept = S.prog >= 1 ? Q : floor(S.prog * Q + 1e-6) + 1, hs = 0.72 + S.hue;
-  for (let r = 0; r < Q; r++) {
-    const tk = S.taken[r] >= 0 && r < swept;
-    const lv = tk ? (S.depth[r] ? 0.75 : 1) : r < swept ? 0.5 : 0.3;
-    const src = tk ? S.rows[r] : r < swept ? S.sino.subarray(r * Q, r * Q + Q) : S.prevSino.subarray(r * Q, r * Q + Q);
-    const pk = r < swept ? S.peak : S.prevPeak;
+  // projections measured brightly, brightest once they are smeared back;
+  // rows ahead are dark. A row flashes white as it is smeared back.
+  const swept = S.scan >= 1 ? Q : floor(S.scan * Q + 1e-6) + 1, hs = 0.72 + S.hue, pk = S.peak;
+  for (let r = 0; r < swept; r++) {
+    const tk = S.taken[r] >= 0;
+    const lv = (tk ? (S.taken[r] < S.done ? 1 : 0.7) * (S.depth[r] ? 0.8 : 1) : 0.55) * S.clear;
+    const src = tk ? S.rows[r] : S.sino.subarray(r * Q, r * Q + Q);
     const hot = tk && S.taken[r] === S.done - 1 ? exp(-(S.t - S.lastT) / 0.3) : 0;
     for (let x = 0; x < Q; x++) {
-      const v = cl(src[x] / pk, 0, 1);
-      hsv(hs, max(0, 0.8 - 0.55 * v * v - 0.6 * hot), lv * (0.05 + 0.95 * v) * (1 - hot) + hot * (0.3 + 0.7 * v), c);
+      // An empty bin reads 0 give or take its noise, on a faint floor.
+      const v = cl(0.12 + 0.88 * (src[x] / pk), 0, 1), e = v ** 0.65;
+      hsv(hs - 0.04 + 0.12 * v, max(0, 0.8 - 0.55 * v * v - 0.6 * hot), lv * e * (1 - hot) + hot * (0.3 + 0.7 * v), c);
       display.setPixel(x, Q + r, 255 * c[0], 255 * c[1], 255 * c[2]);
     }
   }
-  // The beam's place in the sweep, a tick at each side of the sinogram, and
-  // its direction across the reconstruction as a faint line.
-  if (S.prog < 1) {
-    const r = min(Q - 1, floor(S.prog * Q));
+  // While the beam turns: its place, a tick at each side of the sinogram,
+  // and its direction across the top square as a faint line.
+  if (S.scan < 1) {
+    const r = min(Q - 1, floor(S.scan * Q));
     for (const x of [0, 1, Q - 2, Q - 1]) display.setPixel(x, Q + r, 255, 255, 255);
-    const th = S.prog * PI, dx = -sin(th), dy = -cos(th);
+    const th = S.scan * PI, dx = -sin(th), dy = -cos(th);
     for (let s = -44; s <= 44; s += 0.5) {
       const x = round(C + s * dx), y = round(C + s * dy);
       if (x < 0 || x >= Q || y < 0 || y >= Q) continue;
