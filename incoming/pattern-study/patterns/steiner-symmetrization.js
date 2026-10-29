@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Steiner Symmetrization
 // Family:  line
-// Idea:    An irregular shape drawn as a hatch of parallel one-LED chords slides every chord along itself, each at its own moment so a shear wave runs down the stack, until its midpoint sits on a faint axis and the chords cut by a gap close up into one, then the hatch turns to a new axis and slides again, while a bar at the foot shrinks the perimeter toward that of the disc of the same area.
+// Idea:    An irregular shape drawn as a hatch of parallel one-LED chords slides every chord along itself, each at its own moment so a shear wave runs down the stack, until its midpoint sits on a faint axis and chords cut by a gap close into one, then the hatch turns to a new axis and slides again, while a faint circle marks the disc of the same area and a bar at the foot shrinks the perimeter toward the disc's.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Shape=0..5, Axes=0..8
 //
 // Knob 1: Hue. Turns the hatch round the wheel. At 0 the chords run from azure to violet along the axis, with the bar in amber.
-// Knob 2: Speed. At 2 a symmetrization takes about 2.3 s: the chords slide for 1.45 s, rest 0.25 s and the hatch turns for 0.55 s. At 0.2 ten times slower, at 3 two thirds as long.
+// Knob 2: Speed. At 2 a symmetrization takes about 2.1 s: the chords slide for up to 1.4 s, rest 0.2 s and the hatch turns for 0.5 s, and a shape that has come round holds 1.3 s and fades into the next. At 0.2 ten times slower, at 3 two thirds as long.
 // Knob 3: Shape. 0 takes the five starting shapes in turn, a crescent, an egg with a hole, a seven pointed star, two blobs and a comb; 1 to 5 start from one of them every time.
-// Knob 4: Axes. 0 turns the axis by 68.75 degrees, the golden angle of a half turn, every time, so no axis comes back and the shape rounds into the disc. 1 to 8 use that many axes, evenly spaced and drawn faintly: one axis does all its work in the first slide, and two or more settle the shape into one with a mirror for every axis that is not a disc.
+// Knob 4: Axes. 0 turns the axis by 68.75 degrees, the golden angle of a half turn, every time, so no axis comes back and the shape rounds into the disc. 1 to 8 use that many axes, evenly spaced and drawn faintly. One axis does all its work in the first slide. With a few the shape settles into one with a mirror for every axis that is still not the disc: with two axes the star stops at 1.24 times the disc's perimeter, with three at 1.03, and from four on it comes within 1%.
 
 const W = 64, H = 128, OX = 32, OY = 64;
 const { floor, min, max, abs, sqrt, sin, cos, PI } = Math;
@@ -22,6 +22,8 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 // Chords one LED apart, s from -72 to 72 along the axis, at most MAXP
 // pieces each.
 const K = 144, S0 = -72, MAXP = 8, MAXC = 16;
+// The golden angle of a half turn, pi (2 - phi) for the golden ratio phi:
+// 68.75 degrees, so no two axes are ever the same.
 const GOLD = (PI * (3 - sqrt(5))) / 2;
 const BAR = 60;
 
@@ -81,8 +83,8 @@ function hsv(h, s, v, out) {
 
 export function setup(params) {
   params.s = {
-    rings: null, shape: -1, step: 0, n: 0, phase: 1, pt: 0.5, phi: PI / 2, from: PI / 2, to: PI / 2,
-    P0: 1, P: 1, Pfrom: 1, Pto: 1, A: 1, prevP: 1, still: 0, fade: 1, dir: 1, lo: 0, hi: 0,
+    rings: null, shape: -1, n: 0, phase: 1, pt: 0.5, phi: PI / 2, from: PI / 2, to: PI / 2,
+    P0: 1, P: 1, Pfrom: 1, Pto: 1, A: 1, prevP: 1, still: 0, fade: 1, dir: 1,
     cross: new Float64Array(K * MAXC), nc: new Int32Array(K),
     a0: new Float64Array(K * MAXP), b0: new Float64Array(K * MAXP), a1: new Float64Array(K * MAXP), b1: new Float64Array(K * MAXP),
     cnt: new Int32Array(K), L: new Float64Array(K), del: new Float64Array(K), dur: new Float64Array(K), u: new Float64Array(K), sp: new Float64Array(K),
@@ -179,7 +181,7 @@ function begin(S, phi) {
       at += l;
     }
     // The shear wave runs along the axis, the other way each time.
-    const w = (S0 + k + 0.5 - lo) / max(1, hi - lo);
+    const w = cl((S0 + k + 0.5 - lo) / max(1, hi - lo), 0, 1);
     del[k] = 0.45 * (S.dir > 0 ? w : 1 - w) + 0.08 * Math.random();
     dur[k] = 0.7 * (0.8 + 0.4 * Math.random());
     u[k] = 0;
