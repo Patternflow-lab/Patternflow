@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Palimpsest
 // Family:  type
-// Idea:    A parchment leaf carries two Greek texts at right angles, a prayer written across the page in dark iron-gall ink over a scraped-off treatise of Archimedes that runs down it, and the imaging band sweeps from plain light, where the old text is a faint ghost, to ultraviolet, where the parchment glows and the old ink shows dark, to the pseudocolour view that turns the old text red and leaves the prayer dark, while an X-ray beam rasters down the leaf and lights the iron of both inks behind it.
+// Idea:    A parchment leaf carries two Greek texts at right angles, a prayer written across the page in brown iron-gall ink over a scraped-off treatise of Archimedes that runs down it, and the imaging band sweeps from plain light, where the old text is a faint ghost, to ultraviolet, where the parchment glows and the old ink shows dark, to the pseudocolour view that turns the old text red and leaves the prayer dark, while an X-ray beam rasters down the leaf and lights the iron of both inks behind it.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Band=0..1, Speed=0.2..3, Page=0..3, Ink=-1..1
 //
-// Knob 1: Band. The light the leaf is seen in. 0 to 0.15 is plain light: cream parchment, brown-black prayer, the old text a ghost 8% darker than the page. 0.4 to 0.6 is ultraviolet: the parchment glows blue and both inks put the glow out, the prayer nearly black and the old text dark blue. 0.85 to 1 is pseudocolour: a red-light picture in the red channel and the ultraviolet one in green and blue, so the old text comes out red and the prayer dark grey. Between, one blends into the next.
-// Knob 2: Speed. How fast the X-ray beam steps down the leaf: 26 rows a second at 2, a pass of the 128 rows every 6.5 s; 2.6 rows a second at 0.2. Behind the beam, for about 16 rows, the leaf shows its iron map: both inks pale blue on black, the scraped text as plain as the prayer.
-// Knob 3: Page. Which pair of texts, rounded to 0 to 3. 0: the Trisagion over the title of the Method. 1: the Lord's Prayer over the first proposition of the Measurement of a Circle. 2: Kyrie eleison over On Floating Bodies. 3: Glory to thee over the Stomachion.
-// Knob 4: Ink. How much of the old ink the scraper left and how far both inks have bled into the parchment. At -1 the strokes keep to 1 LED and the old text is all but gone even in ultraviolet; at 1 they bleed about 2 LEDs wide and the old text shows brown in plain light.
+// Knob 1: Band. The light the leaf is seen in. 0 to 0.15 is plain light: ivory parchment, brown prayer, the old text an ochre ghost 9% darker than the page in red and 25% in blue. 0.4 to 0.6 is ultraviolet: the parchment glows blue and the iron in both inks puts the glow out, the prayer down to 42% of the page and the old text to 64%. 0.85 to 1 is pseudocolour: the red-light picture in the red channel and the ultraviolet one in green and blue, so the old text, pale in red and dark in ultraviolet, comes out red, and the prayer, dark in both, near black. Between, one picture fades into the next.
+// Knob 2: Speed. How fast the X-ray beam steps down the leaf, a spot running along it: 26 rows a second at 2, a pass every 6.5 s; 2.6 rows a second at 0.2. For about 16 rows behind the beam the leaf shows its iron map, both inks pale blue on near black, the scraped text as plain as the prayer.
+// Knob 3: Page. Which pair of texts, rounded to 0 to 3. 0: the Trisagion over the title of the Method. 1: the Lord's Prayer over the title and first words of the Measurement of a Circle. 2: Kyrie eleison over On Floating Bodies. 3: Glory to thee, our God over the Stomachion.
+// Knob 4: Ink. How much of the old ink the scraper left and how far both inks have bled into the parchment. At -1 the prayer's strokes spread 0.5 LED and the old text's 0.35, and even in ultraviolet the old text is a thin line at 76% of the page; at 1 they spread 0.8 and 0.95 LED and the old text shows ochre-brown in plain light, 20% darker than the page in red and 57% in blue.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, exp } = Math;
@@ -31,7 +31,7 @@ const FONT = {
   δ: [0, ".###", "#...", ".##.", "#..#", "#..#", "#..#", ".##."],
   ε: [2, ".###", "#...", "###.", "#...", ".###"],
   ζ: [0, "####", "..#.", ".#..", "#...", "#...", "#...", ".##.", "...#", "..#."],
-  η: [2, "#.#.", "##.#", "#..#", "#..#", "#..#", "...#", "...#"],
+  η: [2, "###.", "#..#", "#..#", "#..#", "#..#", "...#", "...#"],
   θ: [0, ".##.", "#..#", "#..#", "####", "#..#", "#..#", ".##."],
   ι: [2, "#.", "#.", "#.", "#.", ".#"],
   κ: [2, "#..#", "#.#.", "##..", "#.#.", "#..#"],
@@ -289,10 +289,11 @@ export function draw(display, params) {
         bl += wU * (40 + 200 * F);
       }
       if (wP > 0) {
-        // Pseudocolour: red light in red, ultraviolet in green and blue.
-        const R = pa * (1 - 0.85 * o) * (1 - aRed * u);
+        // Pseudocolour: red light in red, ultraviolet in green and blue,
+        // both stretched the same way.
+        const R = cl((pa * (1 - 0.85 * o) * (1 - aRed * u) - 0.2) * 1.35, 0, 1);
         const G = cl((F - 0.2) * 1.35, 0, 1);
-        r += wP * 214 * R;
+        r += wP * 216 * R;
         g += wP * 196 * G;
         bl += wP * 200 * G;
       }
