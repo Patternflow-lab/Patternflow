@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the page round the wheel: at 0 the words are sea green, word pairs from the book warm gold and the noise between them slate.
 // Knob 2: Speed. Letters a second, eight times the knob: 16 at 2, so the cursor goes round the 336 cells of the page in 21 s; 1.6 at 0.2, 24 at 3. Fresh letters burn white and cool over a second.
-// Knob 3: Order. Shannon's six steps, in whole steps: 0 the 27 symbols equiprobable, 1 letter frequencies, 2 digrams, 3 trigrams, 4 words by their frequency, 5 each word drawn after the word before it. A change rewrites the whole page from the top in 0.6 s.
+// Knob 3: Order. Shannon's six steps, in whole steps: 0 the 27 symbols equiprobable, 1 letter frequencies, 2 digrams, 3 trigrams, 4 words by their frequency, 5 each word drawn after the word before it. A change rewrites the whole page from the top in 0.6 s. The bottom row is a gauge of the share of the page's letters that stand in real words.
 // Knob 4: Blackout. How the runs that are not words show: dim letters at 0, and turned up they sink under dark ink bars until at 1 only the real words stand on a blacked-out page.
 
 const W = 64, H = 128;
