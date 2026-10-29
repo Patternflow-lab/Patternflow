@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Band=0..1, Speed=0.2..3, Page=0..3, Ink=-1..1
 //
-// Knob 1: Band. The light the leaf is seen in. 0 to 0.15 is plain light: ivory parchment, brown prayer, the old text an ochre ghost 9% darker than the page in red and 25% in blue. 0.4 to 0.6 is ultraviolet: the parchment glows blue and the iron in both inks puts the glow out, the prayer down to 42% of the page and the old text to 64%. 0.85 to 1 is pseudocolour: the red-light picture in the red channel and the ultraviolet one in green and blue, so the old text, pale in red and dark in ultraviolet, comes out red, and the prayer, dark in both, near black. Between, one picture fades into the next.
+// Knob 1: Band. The light the leaf is seen in. 0 to 0.15 is plain light: ivory parchment, brown prayer, the old text an ochre ghost 8% darker than the page in red and 25% in blue. 0.4 to 0.6 is ultraviolet: the parchment glows blue and the iron in both inks puts the glow out, the prayer down to 42% of the page and the old text to 65%. 0.85 to 1 is pseudocolour: the red-light picture in the red channel and the ultraviolet one in green and blue, so the old text, pale in red and dark in ultraviolet, comes out red, and the prayer, dark in both, near black. Between, one picture fades into the next.
 // Knob 2: Speed. How fast the X-ray beam steps down the leaf, a spot running along it: 26 rows a second at 2, a pass every 6.5 s; 2.6 rows a second at 0.2. For about 16 rows behind the beam the leaf shows its iron map, both inks pale blue on near black, the scraped text as plain as the prayer.
 // Knob 3: Page. Which pair of texts, rounded to 0 to 3. 0: the Trisagion over the title of the Method. 1: the Lord's Prayer over the title and first words of the Measurement of a Circle. 2: Kyrie eleison over On Floating Bodies. 3: Glory to thee, our God over the Stomachion.
-// Knob 4: Ink. How much of the old ink the scraper left and how far both inks have bled into the parchment. At -1 the prayer's strokes spread 0.5 LED and the old text's 0.35, and even in ultraviolet the old text is a thin line at 76% of the page; at 1 they spread 0.8 and 0.95 LED and the old text shows ochre-brown in plain light, 20% darker than the page in red and 57% in blue.
+// Knob 4: Ink. How much of the old ink the scraper left and how far both inks have bled into the parchment. At -1 the prayer's strokes spread 0.5 LED and the old text's 0.35, and even in ultraviolet the old text is a thin line at 75% of the page; at 1 they spread 0.8 and 0.95 LED and the old text shows ochre-brown in plain light, 21% darker than the page in red and 59% in blue.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, exp } = Math;
@@ -77,7 +77,7 @@ const PAGES = [
 const LINE = 10, OVER_LINES = 12, UNDER_LINE = 12, UNDER_LINES = 5, SPACE = 3;
 // Plain light: the parchment's colour, how much of each channel the prayer's
 // ink takes at full strength, and the grain, a share of the page's level.
-const VIS = [226, 208, 168], INK = [0.6, 0.72, 0.84], GRAIN = 0.09;
+const VIS = [226, 208, 168], INK = [0.62, 0.72, 0.84], GRAIN = 0.08;
 
 function lay(words, len, lines, put) {
   // The words run on without a break, as a scribe filled a line: a word
