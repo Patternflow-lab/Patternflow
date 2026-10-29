@@ -243,9 +243,9 @@ export function update(dt, input, params) {
     }
   }
   S.flash = max(0, S.flash - dt * 1.5);
-  // Keep |beta| under 1.2, so no stretch of the curve runs more than 11
-  // times faster than another: where the wobble would push it higher, the
-  // wobble is turned down, and it comes back slowly.
+  // Where the wobble would push |beta| past 1.2, so that one stretch of the
+  // curve runs 11 times faster than another, or leaves nothing that closes,
+  // the wobble is turned down, and it comes back slowly.
   S.damp = min(1, S.damp + dt * 0.3);
   build(S);
   for (let n = 0; n < 12 && (!S.ok || S.beta > 1.2); n++) {

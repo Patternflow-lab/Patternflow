@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Ink=0..1, Speed=0.2..3, Plain=0..1, Press=0..1
 //
-// Knob 1: Ink. Turns the ink round the colour wheel at a fixed brightness. At 0 it is seal vermilion, at 0.5 a blue-green, and the paper stays a warm grey.
-// Knob 2: Speed. At 2 a text holds folded for 3.6 s and the whole change, unfold, swap and refold, takes 4 s more; 0.2 is ten times slower and 3 half as fast again.
-// Knob 3: Plain. How far the strokes may fold: 0 folds them until every box is full, 0.5 lets them fold seven lines deep, 1 shows the plain letters.
-// Knob 4: Press. How unevenly the seal is pressed. The pressure rocks round the seal once in 6 s, and the side it leaves prints with bare patches: almost none at 0, up to three quarters of the ink missing in the far corner at 1.
+// Knob 1: Ink. Turns the ink round the colour wheel at a fixed brightness. At 0 it is seal vermilion, at 0.5 a cyan blue, and the paper stays a dim warm grey.
+// Knob 2: Speed. At 2 a text holds folded for 3 s (the first for 2.4 s) and the change to the next, unfold, swap and refold, takes 4 s more; 0.2 is ten times slower and 3 half as fast again.
+// Knob 3: Plain. How far the strokes may fold: 0 folds them until every box is full, 0.5 stops every fold seven or eight lines out from its stroke, 1 shows the plain letters.
+// Knob 4: Press. How unevenly the seal is pressed. The pressure rocks round the seal once in 6 s, and the side it leaves prints with bare patches: none at 0, a few LEDs in a hundred at the opening 0.06, while at 1 one LED of ink in seven fails everywhere and the far corner prints almost bare.
 // Buttons: any button starts the change to the next text at once.
 
 const W = 64, H = 128;
