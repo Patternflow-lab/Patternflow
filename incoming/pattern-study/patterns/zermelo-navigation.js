@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Current=0..2.5, Shape=0..1, Harbour=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel together: at 0 a front leaves the harbour gold, turns green halfway and reaches the far coast blue, and the shadows are rose.
-// Knob 2: Current. The fastest water, in boat speeds. At 0 the fronts are circles and the routes straight lines; up to 1 every LED is reached, at any shape, harbour and moment; past 1 shadows open, at Shape 0 on 2.5% of the panel at 1.5, 9.2% at 2 (the opening) and 19.7% at 2.5.
+// Knob 2: Current. The fastest water, in boat speeds. At 0 the fronts are circles and the routes straight lines; up to 1 every LED is reached, at any shape, harbour and moment; past 1 shadows open, at Shape 0 on 1.6% of the panel at 1.5, 5.5% at 2 (the opening) and 11.5% at 2.5.
 // Knob 3: Shape. Three eddies at 0, two on the left side and one on the right, and at 1 a jet leaving the coast at the bottom centre that wanders more as it climbs; between, both at part strength. With the harbour inside a jet faster than the boat the fronts become teardrops carried up the jet, and at first only a cone above the harbour is reached: at Shape 1 and Current 2 the water there runs at 1.99 boat speeds and the cone's half-angle is asin(1 / 1.99) = 30 degrees.
-// Knob 4: Harbour. Where the harbour stands on the coast, from column 8 at -1 to column 56 at 1. At Shape 0 the shadows do not move with it, the same 756 LEDs at Current 2 wherever it stands, since they belong to the current and the panel's edges.
+// Knob 4: Harbour. Where the harbour stands on the coast, from column 8 at -1 to column 56 at 1. At Shape 0 the shadows do not move with it, the same 448 LEDs at Current 2 wherever it stands, since they belong to the current and the panel's edges.
 
 const W = 64, H = 128, N = W * H;
 const { floor, min, max, abs, sqrt, exp, sin, cos, round, PI, cosh } = Math;
@@ -171,9 +171,14 @@ function begin(S, kv, at) {
   S.solving = true;
 }
 
-// Dijkstra over the stencil, settling at most `budget` LEDs. A step's time
-// is its length times the mean slowness at its two ends; a step with an end
-// where no heading makes way along it is not taken.
+// Dijkstra over the stencil, settling at most `budget` LEDs. A step is
+// rowed in the mean of the currents at its two ends, and a step along which
+// no heading makes way in that current is not taken. The mean of the two
+// ends' slowness was tried first: it shut every step with either end too
+// fast to row along, and the opening's shadow shrank as the grid was made
+// finer, 756 LEDs on the LED grid and 472 on a grid four times finer. With
+// the mean current it is 441 and 444, and the arrival times of the two
+// grids differ by 0.69% at the median.
 function work(S, budget) {
   const T = S.Tn, WX = S.WX, WY = S.WY, done = S.done, pred = S.pred, pos = S.pos;
   while (S.hn > 0 && budget-- > 0) {
@@ -185,11 +190,9 @@ function work(S, budget) {
       if (vx < 0 || vx >= W || vy < 0 || vy >= H) continue;
       const v = vy * W + vx;
       if (done[v]) continue;
-      const a = slow(wx, wy, SUX[k], SUY[k]);
+      const a = slow(0.5 * (wx + WX[v]), 0.5 * (wy + WY[v]), SUX[k], SUY[k]);
       if (a >= INF) continue;
-      const b = slow(WX[v], WY[v], SUX[k], SUY[k]);
-      if (b >= INF) continue;
-      const tv = tu + SL[k] * 0.5 * (a + b);
+      const tv = tu + SL[k] * a;
       if (tv < T[v]) {
         T[v] = tv;
         pred[v] = u;
@@ -205,7 +208,7 @@ function work(S, budget) {
 // by the mean time to the far coast.
 function finish(S) {
   // A lone LED left unreached among reached ones is the stencil's doing, not
-  // the current's (30 of 1,713 shadows over 45 settings, never wider than
+  // the current's (51 of 1,713 shadows over 45 settings, never wider than
   // one LED): it takes the mean of its four neighbours.
   const Tn = S.Tn;
   for (let y = 1; y < H - 1; y++)
