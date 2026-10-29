@@ -336,8 +336,9 @@ export function draw(display, params) {
       const g = max(0.25, sqrt(gx * gx + gy * gy));
       const q = (tau - t) / GAP, f = q - floor(q), dl = (min(f, 1 - f) * GAP) / g, behind = (f * GAP) / g;
       // A line on the front and a short glow on the harbour side of it.
-      // Where the boats barely make way the fronts crowd closer than two
-      // LEDs; there they melt into a steady dim glow rather than shimmer.
+      // Where the boats barely make way the fronts crowd together; from 3.5
+      // LEDs apart down to 1.5 they melt into a steady dim glow rather than
+      // shimmer.
       const line = dl < 1.1 ? 1 - dl / 1.1 : 0, tail = behind < 9 ? 0.16 * exp(-behind / 2.5) : 0;
       const sp = cl((GAP / g - 1.5) / 2, 0, 1), v = max(line, tail) * sp + 0.12 * (1 - sp);
       if (v <= 0.01) continue;
