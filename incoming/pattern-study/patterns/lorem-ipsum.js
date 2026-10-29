@@ -156,11 +156,11 @@ const CUE = 0.35, CUT = 1.4, SLIDE_AT = 1.2, SLIDE_T = 1.0, IN_AT = 2.4, IN_SPRE
 const LIFE = 28;
 
 export function setup(params) {
-  params.s = { t: 0, ready: false, pair: 0, side: 0, text: "", line: [], bodies: [], next: 0, hue: 0, speed: 2, g: 240, turns: 0, stats: null };
+  params.s = { t: 0, ready: false, pair: 0, side: 0, text: "", line: [], bodies: [], next: 0, hue: 0, speed: 2, g: 240 };
 }
 
 function body(ch, x, y, mode) {
-  return { ch, rot: 0, x, y, vx: 0, vy: 0, mode, t0: 0, t1: 0, x0: x, y0: y, x1: x, y1: y, to: ch, born: 0, landed: -9, inAt: -9, fresh: false, spin: 0 };
+  return { ch, rot: 0, x, y, vy: 0, mode, t0: 0, t1: 0, x0: x, y0: y, x1: x, y1: y, to: ch, landed: -9, fresh: false, spin: 0 };
 }
 
 function setText(S, str) {
@@ -181,7 +181,7 @@ function turn(S, str) {
     if (ops[k] !== "+") i++;
     if (ops[k] !== "-") j++;
   }
-  let cut = 0, inn = 0, kept = 0;
+  let cut = 0, inn = 0;
   for (let k = 0, i = 0, j = 0; k < ops.length; k++) {
     const o = ops[k];
     if (o === "=") {
@@ -190,13 +190,12 @@ function turn(S, str) {
         Object.assign(b, { mode: SLIDE, t0: t + SLIDE_AT + 0.03 * pa[i].line, x0: b.x, y0: b.y, x1: pb[j].x, y1: pb[j].y, to: str[j] });
         b.t1 = b.t0 + SLIDE_T;
         nl[j] = b;
-        kept++;
       }
       i++, j++;
     } else if (o === "-") {
       const b = S.line[i];
-      // Cut letters go in reading order, the first CUE s before it falls
-      // turning towards the colour of the cut.
+      // Cut letters go in reading order over CUT s, each turning towards
+      // the colour of the cut for CUE s before it falls.
       if (b) Object.assign(b, { mode: LOOSE, t0: t + CUE + (CUT * cut++) / max(1, nCut - 1) });
       i++;
     } else {
@@ -212,7 +211,6 @@ function turn(S, str) {
   S.text = str;
   S.line = nl;
   S.next = t + DONE + HOLD;
-  S.stats = { kept, cut: nCut, ins: nIn };
 }
 
 // Where a sprite at column x would come to rest on the surface.
@@ -243,7 +241,6 @@ export function update(dt, input, params) {
     if (pair !== S.pair) (S.pair = pair), (S.side = 0);
     else S.side ^= 1;
     turn(S, PAIRS[S.pair][S.side]);
-    S.turns++;
   }
 
   // Timed modes.
@@ -252,7 +249,7 @@ export function update(dt, input, params) {
     if (b.mode === LOOSE && t >= b.t0) {
       // A cut letter tips onto its side a third of the time each way.
       const r = Math.random();
-      Object.assign(b, { mode: FALL, vy: 0, vx: 0, y0: b.y, spin: r < 0.25 ? 1 : r < 0.5 ? 3 : 0, born: t });
+      Object.assign(b, { mode: FALL, vy: 0, y0: b.y, spin: r < 0.25 ? 1 : r < 0.5 ? 3 : 0 });
     } else if (b.mode === SLIDE) {
       const u = cl((t - b.t0) / (b.t1 - b.t0), 0, 1), e = u * u * (3 - 2 * u);
       b.x = b.x0 + (b.x1 - b.x0) * e;
@@ -264,7 +261,6 @@ export function update(dt, input, params) {
       // lies there, the highest first; otherwise it falls in from above.
       let best = null;
       for (const h of heap) if (h.mode === HEAP && h.ch.toLowerCase() === b.ch.toLowerCase() && (!best || h.y < best.y)) best = h;
-      b.inAt = t;
       b.fresh = true;
       if (best) {
         best.mode = -1;
