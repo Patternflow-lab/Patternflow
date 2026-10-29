@@ -91,6 +91,8 @@ const C_NEW = 226, C_OLD = 216, TAU = 30, KEEP_SHAPE = 0.33, KEEP_GRAIN = 0.7;
 // Cells a second at Speed s; a turn costs one cell's time, the flight back
 // to the left edge three.
 const RATE = 4;
+// Light of the share's point and of the turned soil behind it.
+const SHARE = 220, WAKE = 60;
 const turnLen = (way) => (way < 0 ? 3 : 1);
 // Direction and orientation of grid line l written the given way:
 // orientation 0 upright, 1 mirrored, 2 turned 180 degrees.
@@ -229,29 +231,43 @@ export function draw(display, params) {
     }
   }
 
-  // The point of the share, a warm light in the furrow; on the flight back
-  // to the left edge it is lifted and dim.
-  let tx, ty, a = 1;
+  // The point of the share, a warm light in the furrow, and the turned soil
+  // behind it glowing for a few cells. On the flight back to the left edge
+  // the share is lifted and dim.
+  let tx, ty, a = 1, wake = 1, wx0;
   const yl = Y0 + l * LP + 2;
   if (i < NC) {
     const col = dir > 0 ? i : NC - 1 - i;
     tx = X0 + col * CW + (dir > 0 ? f * CW : (1 - f) * CW);
     ty = yl;
+    wx0 = tx;
   } else {
     const u = (S.pos - NC) / turnLen(S.lineWay), sm = u * u * (3 - 2 * u);
     const nl = (l + 1) % NL, xe = dir > 0 ? X0 + NC * CW : X0;
     const xs = S.lineWay < 0 ? X0 : dirOf(S.lineWay, nl) > 0 ? X0 : X0 + NC * CW;
-    const ny = nl === 0 ? Y0 + 2 : Y0 + nl * LP + 2;
+    const ny = Y0 + nl * LP + 2;
     tx = xe + (xs - xe) * sm;
     ty = yl + (ny - yl) * sm;
-    if (S.lineWay < 0) a = 0.45 + 0.55 * Math.abs(1 - 2 * u);
+    wx0 = xe;
+    wake = 1 - u;
+    if (S.lineWay < 0) a = 0.35 + 0.65 * Math.abs(1 - 2 * u);
   }
-  const lamp = hsv(0.1 + hue, 0.3, 1);
+  const lamp = hsv(0.1 + hue, 0.3, 1), soil = hsv(0.07 + hue, 0.55, 1);
+  for (let y = yl - 2; y <= yl + 3; y++) {
+    const rw = y === yl + 3 ? 0.5 : 1;
+    for (let x = 0; x < W; x++) {
+      const ahead = (x + 0.5 - wx0) * dir;
+      const v = WAKE * wake * rw * (ahead > 0 ? exp(-ahead * ahead) : exp(ahead / 7));
+      if (v < 1) continue;
+      const p = (y * W + x) * 3;
+      rgb[p] += soil[0] * v, rgb[p + 1] += soil[1] * v, rgb[p + 2] += soil[2] * v;
+    }
+  }
   const x0 = max(0, floor(tx - 9)), x1 = min(W - 1, floor(tx + 9)), y0 = max(0, floor(ty - 9)), y1 = min(H - 1, floor(ty + 9));
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const dx = x + 0.5 - tx, dy = y + 0.5 - ty, r2 = dx * dx + dy * dy;
-      const v = a * (160 * exp(-r2 / 2.2) + 45 * exp(-r2 / 24));
+      const v = a * (SHARE * exp(-r2 / 1.8) + 50 * exp(-r2 / 30));
       const p = (y * W + x) * 3;
       rgb[p] += lamp[0] * v, rgb[p + 1] += lamp[1] * v, rgb[p + 2] += lamp[2] * v;
     }
