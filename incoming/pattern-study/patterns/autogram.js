@@ -242,6 +242,17 @@ export function update(dt, input, params) {
         } else (s.sub = 0), (s.k = 0), (s.occ = occ(s, s.li));
       }
     } else if (s.phase === 1 || s.phase === 3) {
+      // Caught in a loop, the rewriting goes on round it, 8 a second.
+      if (s.phase === 3 && s.period && s.t >= s.next) {
+        const prev = s.claim, c = s.count.slice();
+        setText(s, c);
+        s.changedAt = new Float32Array(s.text.length).fill(-9);
+        s.item.forEach(([a, e], i) => {
+          if (c[i] !== prev[i]) for (let k = a; k < e; k++) s.changedAt[k] = s.clock;
+        });
+        s.next += 0.125;
+        continue;
+      }
       if (s.t < (s.phase === 1 ? T_TRUE : T_LOOP)) break;
       start(s, (s.si + 1) % 3, s.m);
     } else {
@@ -258,7 +269,7 @@ export function update(dt, input, params) {
       });
       const key = keyOf(c);
       if (s.count.every((n, i) => n === c[i])) (s.phase = 1), (s.t = 0), (s.verdict = "TRUE");
-      else if (s.seen.has(key)) (s.phase = 3), (s.t = 0), (s.period = s.round - s.seen.get(key));
+      else if (s.seen.has(key)) (s.phase = 3), (s.t = 0), (s.next = 0.125), (s.period = s.round - s.seen.get(key));
       else if (s.round >= MAXR) (s.phase = 3), (s.t = 0), (s.period = 0);
       else s.seen.set(key, s.round);
     }
