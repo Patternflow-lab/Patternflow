@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the light: at 0 cyan grain with a gold k = 5 line, at 0.25 violet with a green line, at 0.5 coral with a blue line, at 0.75 lime with a magenta line.
 // Knob 2: Speed. How fast each exposure builds: at 2 the dose comes in over 3 s, holds 1.2 s and clears; at 0.2 it comes in over 30 s, at 3 over 2 s. The photon flux is the dose over that time.
-// Knob 3: Exposure. The dose a build stops at, in photons per LED: 25 at 0, 224 at 0.5, 2000 at 1. At 25 the k = 5 line stops at C·d = 1.15 with 7 of the 50 discs still in the grain; from 0.27 on every disc is seen, the last one (contrast 0.15, 9 LEDs) at 124 photons, and the rest of the dose only calms the grain.
+// Knob 3: Exposure. The dose a build stops at, in photons per LED: 25 at 0, 224 at 0.5, 2000 at 1. At 25 the k = 5 line stops at C·d = 1.15 with 7 of the 50 discs still in the grain; from 0.37 on every disc is seen, the last one (contrast 0.15, 9 LEDs) at 124 photons, and the rest of the dose only calms the grain.
 // Knob 4: Read noise. Gaussian noise each channel adds every time it reads its LED, 1 photon rms at 0 and 9 at 1. It adds to the shot noise, so the grain coarsens and the k = 5 line, drawn with it counted in, slows: at 1 the first disc needs 8 photons instead of 1.3, and at 25 photons 24 discs stay hidden.
 
 // Rose (1948): a disc of area A whose brightness differs by a fraction C
