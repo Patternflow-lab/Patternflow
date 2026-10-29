@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Letter Melt
 // Family:  type
-// Idea:    A word of liquid stands in an invisible mould at the top of the panel, the mould lets go from the feet of the letters up so the strokes sag, drip and run down the full height into a pool on the floor, and then threads of the pool are drawn up into the mould of the next word, MELT, 물, FLOW, 녹다, DRIP, which fills from the top of each letter down and sets.
+// Idea:    A word of liquid stands in an invisible mould at the top of the panel, the mould lets go from the feet of the letters up so the strokes sag, drip and run down the full height into a pool on the floor, and then threads drawn up out of the pool fill the mould of the next word, MELT, 물, FLOW, 녹다, DRIP, from the top of each letter down until it sets.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Word=0..5, Heat=0..1
 //
-// Knob 1: Hue. Turns the liquid round the wheel. At 0 it is a teal body with a pale aqua rim, at 0.3 violet, at 0.5 rose, at 0.75 gold.
-// Knob 2: Speed. At 2 the simulation runs 60 steps a second and a word takes about 8 s to stand, melt, pool and pour back; at 0.2 ten times slower, at 3 half as fast again.
-// Knob 3: Word. 0 pours the five words in turn; 1 to 5 hold one of MELT, 물, FLOW, 녹다 and DRIP, and the pool is poured back into that same mould every time.
-// Knob 4: Heat. Cold liquid is thick: at 0.06 it sags slowly, hangs in threads and the mould holds it for 1.3 s. Hot liquid is thin and shivers in the mould: at 1 the mould opens after 0.5 s and the letters run down in loose drops and splash.
+// Knob 1: Hue. Turns the liquid round the wheel. At 0 it is a teal body with a pale aqua rim, at 0.25 blue violet, at 0.5 rose, at 0.65 gold.
+// Knob 2: Speed. At 2 the fluid takes 60 steps a second and a word holds 1.8 s, melts in about 2.4 s and pours back in 2.9 s, so the five words come round in 36 s; at 0.2 ten times slower, at 3 half as fast again.
+// Knob 3: Word. 0 pours the five words in turn, MELT, 물, FLOW, 녹다 and DRIP. 1 to 5 hold one of them, and every pour goes back into that same mould.
+// Knob 4: Heat. Cold liquid is thick: at 0.06 the mould holds the word 1.8 s, the lower strokes sag for about a second before they drip, and the strokes hang in long threads on the way down. Hot liquid is thin and shivers in the mould: at 1 the mould lets go after 0.5 s and the letters fall apart in loose blobs that splash.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, round, PI, cos, sin } = Math;
@@ -68,23 +68,20 @@ function boxes(word) {
   return [...word].map((c, i) => [c, 1.5 + i * 16, 6, 13, 36]);
 }
 
-// The mould's stroke segments in LEDs.
-function segments(word) {
-  const out = [];
-  for (const [c, bx, by, bw, bh] of boxes(word)) {
-    const x0 = bx + STROKE, y0 = by + STROKE, sw = bw - 2 * STROKE, sh = bh - 2 * STROKE;
-    const g = LATIN[c] || HANGUL[c];
-    if (g === "ring") {
-      const r = sw / 2, cx = x0 + r, ya = y0 + r, yb = y0 + sh - r, pts = [];
-      for (let k = 0; k <= 12; k++) pts.push(cx + r * cos(PI + (k * PI) / 12), ya + r * sin(PI + (k * PI) / 12));
-      for (let k = 0; k <= 12; k++) pts.push(cx + r * cos((k * PI) / 12), yb + r * sin((k * PI) / 12));
-      pts.push(pts[0], pts[1]);
-      for (let i = 0; i + 3 < pts.length; i += 2) out.push(pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
-      continue;
-    }
-    for (const pl of g)
-      for (let i = 0; i + 3 < pl.length; i += 2) out.push(x0 + pl[i] * sw, y0 + pl[i + 1] * sh, x0 + pl[i + 2] * sw, y0 + pl[i + 3] * sh);
+// The stroke segments of one glyph in its box, in LEDs.
+function segments(c, bx, by, bw, bh) {
+  const out = [], x0 = bx + STROKE, y0 = by + STROKE, sw = bw - 2 * STROKE, sh = bh - 2 * STROKE;
+  const g = LATIN[c] || HANGUL[c];
+  if (g === "ring") {
+    const r = sw / 2, cx = x0 + r, ya = y0 + r, yb = y0 + sh - r, pts = [];
+    for (let k = 0; k <= 12; k++) pts.push(cx + r * cos(PI + (k * PI) / 12), ya + r * sin(PI + (k * PI) / 12));
+    for (let k = 0; k <= 12; k++) pts.push(cx + r * cos((k * PI) / 12), yb + r * sin((k * PI) / 12));
+    pts.push(pts[0], pts[1]);
+    for (let i = 0; i + 3 < pts.length; i += 2) out.push(pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+    return out;
   }
+  for (const pl of g)
+    for (let i = 0; i + 3 < pl.length; i += 2) out.push(x0 + pl[i] * sw, y0 + pl[i + 1] * sh, x0 + pl[i + 2] * sw, y0 + pl[i + 3] * sh);
   return out;
 }
 
@@ -105,33 +102,24 @@ function segDist(px, py, s) {
 // width. Each spout keeps its sites top row first, so a pour fills each
 // letter from its top down.
 function mould(word) {
-  const s = segments(word), bx = boxes(word), xy = [], spouts = [], lists = [];
-  for (const [, x, y, w, h] of bx) {
-    const m = max(1, round(w / 16));
+  const xy = [], spouts = [], lists = [];
+  for (const [c, gx, gy, gw, gh] of boxes(word)) {
+    const m = max(1, round(gw / 16)), first = lists.length, segs = segments(c, gx, gy, gw, gh);
     for (let k = 0; k < m; k++) {
-      spouts.push(x + (w * (k + 0.5)) / m, y + h + 2);
+      spouts.push(gx + (gw * (k + 0.5)) / m, gy + gh + 2);
       lists.push([]);
     }
-  }
-  for (let j = 0; ; j++) {
-    const y = 3 + j * SP * 0.866;
-    if (y > 52) break;
-    for (let x = 0.5 + (j % 2) * SP * 0.5; x < W; x += SP) {
-      if (segDist(x, y, s) >= STROKE - 0.3) continue;
-      // The nearest spout of the glyph whose box holds the site.
-      let best = 0, bd = 1e9, k = 0;
-      for (const [, gx, , gw] of bx) {
-        const m = max(1, round(gw / 16));
-        for (let e = 0; e < m; e++, k++) {
-          const d = abs(spouts[2 * k] - x) + (x >= gx - 1 && x <= gx + gw + 1 ? 0 : 100);
-          if (d < bd) {
-            bd = d;
-            best = k;
-          }
-        }
+    for (let j = 0; ; j++) {
+      const y = 3 + j * SP * 0.866;
+      if (y > gy + gh) break;
+      if (y < gy) continue;
+      for (let x = 0.5 + (j % 2) * SP * 0.5; x < gx + gw; x += SP) {
+        if (x < gx || segDist(x, y, segs) >= STROKE - 0.3) continue;
+        // The nearest spout of the glyph.
+        const k = first + min(m - 1, floor(((x - gx) / gw) * m));
+        lists[k].push(xy.length / 2);
+        xy.push(x, y);
       }
-      lists[best].push(xy.length / 2);
-      xy.push(x, y);
     }
   }
   const of = new Int32Array(xy.length / 2);
@@ -165,7 +153,7 @@ export function setup(params) {
     pt: 0.5, acc: 0.5, hue: 0.5,
     x: new Float64Array(N), y: new Float64Array(N), px: new Float64Array(N), py: new Float64Array(N),
     vx: new Float64Array(N), vy: new Float64Array(N), st: new Uint8Array(N), site: new Int32Array(N),
-    rel: new Float64Array(N), rho: new Float64Array(N), rhn: new Float64Array(N),
+    rel: new Float64Array(N), kap: new Float64Array(N), tx: new Float64Array(N), ty: new Float64Array(N), rho: new Float64Array(N), rhn: new Float64Array(N),
     pa: new Int32Array(MP), pb: new Int32Array(MP), pn: 0, qx: new Float64Array(MP), qy: new Float64Array(MP), qq: new Float64Array(MP),
     cnt: new Int32Array(GX * GY + 1), fillc: new Int32Array(GX * GY), loose: new Int32Array(GX * GY), hd: new Uint8Array(N), idx: new Int32Array(N), cell: new Int32Array(N),
     F: new Float32Array(W * H), V: new Float32Array(W * H), pal: new Float32Array(64 * 3), rim: new Float32Array(3),
@@ -174,22 +162,31 @@ export function setup(params) {
   return params.s;
 }
 
+// Particle i takes site j of mould M in a given state, on a spring.
+function fix(S, i, M, j, state) {
+  S.st[i] = state;
+  S.site[i] = j;
+  S.kap[i] = 0.25;
+  S.tx[i] = M.xy[2 * j];
+  S.ty[i] = M.xy[2 * j + 1];
+}
+
 // Put word w in its mould and the rest of the particles in a pool on the
 // floor.
 function place(S, w) {
-  const st = S.MOULDS[w].xy, n = S.MOULDS[w].n;
+  const M = S.MOULDS[w], per = floor((W - 1) / SP);
   S.word = w;
   for (let i = 0; i < S.N; i++) {
-    if (i < n) {
-      S.x[i] = st[2 * i];
-      S.y[i] = st[2 * i + 1];
-      S.st[i] = 1;
-      S.site[i] = i;
+    if (i < M.n) {
+      fix(S, i, M, i, 1);
+      S.x[i] = S.tx[i];
+      S.y[i] = S.ty[i];
     } else {
-      const k = i - n, per = floor((W - 1) / SP), j = floor(k / per);
+      const k = i - M.n, j = floor(k / per);
       S.x[i] = 0.7 + (k % per) * SP + (j % 2) * SP * 0.5;
       S.y[i] = H - 0.7 - j * SP * 0.866;
       S.st[i] = 0;
+      S.kap[i] = 0;
     }
     S.vx[i] = S.vy[i] = 0;
   }
@@ -197,26 +194,9 @@ function place(S, w) {
   S.pt = 0;
 }
 
-function start(S, w) {
-  // Two steps with a particle in every state, so each branch of a step has
-  // run before the first frame and the compiled step does not fall back
-  // the first time the mould lets go or a pour begins.
-  place(S, w);
-  S.target = (w + 1) % WORDS.length;
-  S.phase = 1;
-  for (let i = 0; i < 9; i++) {
-    S.st[i] = 1 + (i % 3);
-    S.rel[i] = i % 2;
-  }
-  step(S, 0.3, 0.1);
-  step(S, 0.3, 0.1);
-  S.target = -1;
-  place(S, w);
-}
-
 // Counting sort of the particles into cells one interaction radius wide,
 // then every pair closer than the radius, each once, with its unit vector
-// and 1 - r/h, adding up both densities on the way.
+// and 1 - r/h, adding up both densities on the way. Returns the count.
 function neighbours(S) {
   const { N, x, y, cnt, idx, cell, pa, pb, qx, qy, qq, rho, rhn, st, hd } = S;
   cnt.fill(0);
@@ -269,39 +249,53 @@ function neighbours(S) {
     rho[i] += ri;
     rhn[i] += ni;
   }
-  S.pn = n;
+  return n;
 }
 
-// One step of the double density relaxation scheme: gravity and steering,
-// viscous impulses, a free step, the two densities and their pressure
-// displacements, the mould's springs, the walls, and velocity from the
-// change in position.
+// One step of the double density relaxation scheme: gravity, the pour's
+// steering, viscous impulses, a free step, the two densities and their
+// pressure displacements, the mould's springs, the walls, and velocity from
+// the change in position. Each part is a loop of its own with as few rare
+// branches as it can have.
 function step(S, visc, jit) {
-  const { N, x, y, px, py, vx, vy, st, site, pa, pb, qx, qy, qq, rho, rhn } = S;
-  const sites = S.MOULDS[S.word].xy, M = S.MOULDS[S.target >= 0 ? S.target : S.word], target = M.xy;
+  const { N, st, vy } = S;
+  for (let i = 0; i < N; i++) vy[i] += st[i] === 0 ? GRAV : 0;
+  if (S.phase === 2) steer(S);
+  viscosity(S, visc);
+  advance(S);
+  S.pn = neighbours(S);
+  relax(S);
+  if (S.phase === 1) melt(S);
+  springs(S, jit);
+  if (S.phase === 2) arrive(S);
+}
+
+// Drawn up: a thread rises at RISE LEDs a step to the spout under the
+// glyph, and from there each particle heads for its own site.
+function steer(S) {
+  const { N, st, x, y, vx, vy, site } = S, M = S.MOULDS[S.target];
   for (let i = 0; i < N; i++) {
-    if (st[i] === 0) vy[i] += GRAV;
-    else if (st[i] === 2) {
-      // Drawn up: a thread rises at RISE LEDs a step to the spout under the
-      // glyph, and from there each particle heads for its own site.
-      const k = M.of[site[i]], spx = M.spouts[2 * k], spy = M.spouts[2 * k + 1];
-      let dvx, dvy;
-      if (y[i] > spy) {
-        dvx = cl((spx - x[i]) * 0.15, -0.8, 0.8);
-        dvy = -RISE;
-      } else {
-        const dx = target[2 * site[i]] - x[i], dy = target[2 * site[i] + 1] - y[i], d = sqrt(dx * dx + dy * dy) + 1e-6;
-        const sc = min(RISE, d * 0.25) / d;
-        dvx = dx * sc;
-        dvy = dy * sc;
-      }
-      vx[i] += (dvx - vx[i]) * 0.35;
-      vy[i] += (dvy - vy[i]) * 0.35;
+    if (st[i] !== 2) continue;
+    const k = M.of[site[i]], spx = M.spouts[2 * k], spy = M.spouts[2 * k + 1];
+    let dvx, dvy;
+    if (y[i] > spy) {
+      dvx = cl((spx - x[i]) * 0.15, -0.8, 0.8);
+      dvy = -RISE;
+    } else {
+      const dx = M.xy[2 * site[i]] - x[i], dy = M.xy[2 * site[i] + 1] - y[i], d = sqrt(dx * dx + dy * dy) + 1e-6;
+      const sc = min(RISE, d * 0.25) / d;
+      dvx = dx * sc;
+      dvy = dy * sc;
     }
+    vx[i] += (dvx - vx[i]) * 0.35;
+    vy[i] += (dvy - vy[i]) * 0.35;
   }
-  // Viscosity over last step's pairs and their unit vectors.
-  const n0 = S.pn;
-  for (let p = 0; p < n0; p++) {
+}
+
+// Viscous impulses between approaching neighbours, over last step's pairs.
+function viscosity(S, visc) {
+  const { pa, pb, qx, qy, qq, vx, vy } = S, n = S.pn;
+  for (let p = 0; p < n; p++) {
     const i = pa[p], j = pb[p], ux = qx[p], uy = qy[p];
     const u = (vx[i] - vx[j]) * ux + (vy[i] - vy[j]) * uy;
     if (u <= 0) continue;
@@ -311,23 +305,29 @@ function step(S, visc, jit) {
     vx[j] += ix;
     vy[j] += iy;
   }
+}
+
+function advance(S) {
+  const { N, x, y, px, py, vx, vy } = S;
   for (let i = 0; i < N; i++) {
-    const sp = vx[i] * vx[i] + vy[i] * vy[i];
-    if (sp > 6.25) {
-      const f = 2.5 / sqrt(sp);
-      vx[i] *= f;
-      vy[i] *= f;
-    }
+    const f = min(1, 2.5 / sqrt(vx[i] * vx[i] + vy[i] * vy[i] + 1e-12));
+    vx[i] *= f;
+    vy[i] *= f;
     px[i] = x[i];
     py[i] = y[i];
     x[i] += vx[i];
     y[i] += vy[i];
   }
-  neighbours(S);
-  const n = S.pn, rho0 = S.rho0;
+}
+
+// Double density relaxation: a pressure from each density, and every pair
+// pushed apart (or pulled together, near the surface) along its line.
+function relax(S) {
+  const { N, x, y, pa, pb, qx, qy, qq, rho, rhn, hd } = S, n = S.pn, rho0 = S.rho0;
   for (let i = 0; i < N; i++) {
-    rho[i] = S.hd[i] ? 0 : KS * (rho[i] - rho0);
-    rhn[i] = S.hd[i] ? 0 : KN * rhn[i];
+    const free = 1 - hd[i];
+    rho[i] = free * KS * (rho[i] - rho0);
+    rhn[i] = free * KN * rhn[i];
   }
   for (let p = 0; p < n; p++) {
     const i = pa[p], j = pb[p], q = qq[p];
@@ -338,32 +338,44 @@ function step(S, visc, jit) {
     x[j] += dx;
     y[j] += dy;
   }
+}
+
+// The mould lets go: each held particle's spring weakens to nothing by its
+// release time, so the lower strokes sag before they drip.
+function melt(S) {
+  const { N, st, kap, rel } = S, t = S.pt;
   for (let i = 0; i < N; i++) {
-    if (st[i] === 1) {
-      // The mould: a spring to the site, weakening while the mould lets go.
-      const k = S.phase === 1 ? 0.25 * cl((S.rel[i] - S.pt) / 0.9, 0, 1) ** 2 : 0.25;
-      if (k <= 0) st[i] = 0;
-      else {
-        x[i] += (sites[2 * site[i]] - x[i]) * k + (Math.random() - 0.5) * jit;
-        y[i] += (sites[2 * site[i] + 1] - y[i]) * k + (Math.random() - 0.5) * jit;
-      }
-    } else if (st[i] === 2) {
-      const sx = target[2 * site[i]], sy = target[2 * site[i] + 1], dx = sx - x[i], dy = sy - y[i];
-      if (dx * dx + dy * dy < 0.8) {
-        st[i] = 3;
-        S.arrived++;
-      }
-    } else if (st[i] === 3) {
-      // Arrived: the new mould holds it.
-      x[i] += (target[2 * site[i]] - x[i]) * 0.25 + (Math.random() - 0.5) * jit;
-      y[i] += (target[2 * site[i] + 1] - y[i]) * 0.25 + (Math.random() - 0.5) * jit;
-    }
-    if (x[i] < 0.5) x[i] = 0.5;
-    else if (x[i] > W - 0.5) x[i] = W - 0.5;
-    if (y[i] < 0.5) y[i] = 0.5;
-    else if (y[i] > H - 0.5) y[i] = H - 0.5;
+    if (st[i] !== 1) continue;
+    const u = cl((rel[i] - t) / 0.9, 0, 1);
+    kap[i] = 0.25 * u * u;
+    if (u <= 0) st[i] = 0;
+  }
+}
+
+// The springs, a shiver as hot as the liquid, the walls, and velocity.
+function springs(S, jit) {
+  const { N, x, y, px, py, vx, vy, kap, tx, ty } = S, j4 = jit * 4;
+  for (let i = 0; i < N; i++) {
+    const k = kap[i];
+    const xi = x[i] + (tx[i] - x[i]) * k + (Math.random() - 0.5) * j4 * k;
+    const yi = y[i] + (ty[i] - y[i]) * k + (Math.random() - 0.5) * j4 * k;
+    x[i] = min(W - 0.5, max(0.5, xi));
+    y[i] = min(H - 0.5, max(0.5, yi));
     vx[i] = x[i] - px[i];
     vy[i] = y[i] - py[i];
+  }
+}
+
+// A drawn particle that reaches its site is held by the new mould.
+function arrive(S) {
+  const { N, st, x, y, site } = S, M = S.MOULDS[S.target];
+  for (let i = 0; i < N; i++) {
+    if (st[i] !== 2) continue;
+    const dx = M.xy[2 * site[i]] - x[i], dy = M.xy[2 * site[i] + 1] - y[i];
+    if (dx * dx + dy * dy < 0.8) {
+      fix(S, i, M, site[i], 3);
+      S.arrived++;
+    }
   }
 }
 
@@ -387,7 +399,7 @@ function pick(S, spx) {
 function tick(S, sel, heat) {
   const { N, st, y } = S;
   S.pt += 1 / 60;
-  if (S.phase === 0 && S.pt > 1.3 - 0.8 * heat) {
+  if (S.phase === 0 && S.pt > 1.9 - 1.4 * heat) {
     // The mould lets go from the feet of the letters up.
     S.phase = 1;
     S.pt = 0;
@@ -417,13 +429,14 @@ function tick(S, sel, heat) {
         const i = pick(S, M.spouts[2 * k]);
         if (i < 0) break;
         st[i] = 2;
+        S.kap[i] = 0;
         S.site[i] = l[S.nk[k]++];
       }
       if (S.nk[k] < l.length) done = false;
     }
     if (done && (S.arrived >= M.n || S.pt > POUR + 4)) {
       // Set: the new word stands in its mould.
-      for (let i = 0; i < N; i++) if (st[i] >= 2) st[i] = 1;
+      for (let i = 0; i < N; i++) if (st[i] >= 2) fix(S, i, M, S.site[i], 1);
       S.word = S.target;
       S.target = -1;
       S.phase = 0;
@@ -440,10 +453,10 @@ export function update(dt, input, params) {
   if (!S.started) {
     S.started = true;
     S.acc = 0;
-    start(S, sel ? sel - 1 : 0);
+    place(S, sel ? sel - 1 : 0);
     S.pt = 0.4;
   }
-  const visc = 0.6 * (1 - heat) ** 2 + 0.01, jit = 0.03 + 0.35 * heat;
+  const visc = 0.5 * (1 - heat) ** 2 + 0.08, jit = 0.02 + 0.12 * heat;
   S.acc += cl(dt || 0, 0, 0.1) * rate * 60;
   while (S.acc >= 1) {
     S.acc -= 1;
@@ -496,8 +509,9 @@ export function draw(display, params) {
       const lit = (-gx * LX - gy * LY) / gl, edge = cl(1 - (f - 0.9) / 1.3, 0, 1);
       const spec = edge * cl(lit, 0, 1) ** 3 * cl(gl, 0, 1);
       const deep = cl((f - 0.9) / 2.2, 0, 1), k = floor(deep * 63) * 3;
-      const foam = cl((V[o] / f - 0.35) * 0.8, 0, 0.6);
+      const foam = cl((V[o] / f - 0.6) * 0.6, 0, 0.5);
       const sh = 0.75 + 0.25 * cl(lit, -1, 1) * edge;
+      // The lit side of the surface and fast liquid take the pale rim colour.
       const m = max(spec, foam);
       const r = (pal[k] * sh * (1 - m) + rim[0] * m) * a;
       const g = (pal[k + 1] * sh * (1 - m) + rim[1] * m) * a;
