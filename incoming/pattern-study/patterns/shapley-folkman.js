@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the four layer colours round a wheel that skips orange. At 0 the shape is teal and the parts added at 2, 4 and 8 copies azure, indigo and violet; at 0.25 blue, violet, magenta and yellow; at 0.75 lime, green, cyan and azure. The uncovered part of the hull is gold at 0 and turns with them.
 // Knob 2: Speed. How fast the shape moves: at 2 the moon's bite, the pearls and the ring's gap go round in 9 s, the star turns one point in 1.8 s and the comb's teeth rise and fall every 6.9 s; at 0.2 ten times slower, at 3 two thirds of that. Every band follows at once, since all four are summed again each frame.
 // Knob 3: Shape. 0 a moon (an ellipse with a bite), 1 three pearls, 2 an open ring, 3 a comb, 4 a five-pointed star; in between, the two neighbours blend and break into pieces. At 1 copy they leave 43, 51, 45, 37 and 45% of their hull uncovered, at 8 copies 3.7, 1.3, 0.7, 0.9 and 4.4%.
-// Knob 4: Hull. The convex hull is a faint line at 0 and 0.06; toward 1 the line brightens and the part of the hull each band has not yet covered fills with gold, which is the gap the lemma says shrinks like 1/n.
+// Knob 4: Hull. The convex hull is a faint line at 0 and at the opening 0.06. From 0.1 the part of the hull a band has not covered yet is hatched in gold, the hatching at full strength by 0.4, and from there it fills in until at 1 that whole part is gold. It is the gap the lemma says shrinks like 1/n: for the moon, 43, 20, 8.6 and 3.7% of the hull in the four bands.
 
 // The Shapley-Folkman lemma: in the plane, a point of the convex hull of a
 // sum of n sets is a sum of n points, one from each set, of which at most
@@ -190,7 +190,7 @@ export function setup(params) {
   for (let k = 1; k <= NMAX; k++) sums.push(bitmap(k * (SW - 1) + 1, k * (SH - 1) + 1));
   const big = sums[NMAX - 1].w * sums[NMAX - 1].h;
   params.s = {
-    t: 0, phase: 0, hue: 0, shape: 0, hk: 0.06,
+    phase: 0, hue: 0, shape: 0, hk: 0.06,
     sums, xs: new Int32Array(big), ys: new Int32Array(big),
     lab: new Uint8Array(SW * SH), stack: new Int32Array(SW * SH * 9), reps: [],
     cov: new Float32Array(NS.length * SW * SH), sd: new Float32Array(SW * SH),
@@ -298,7 +298,6 @@ export function update(dt, input, params) {
   const speed = cl(kv[1] ?? 2, 0.2, 3);
   S.shape = cl(kv[2] || 0, 0, 4);
   S.hk = cl(kv[3] ?? 0.06, 0, 1);
-  S.t += d;
   S.phase += d * speed * 0.35;
   build(S);
 }
@@ -308,7 +307,10 @@ export function draw(display, params) {
   if (!S) return;
   const rgb = S.rgb, c = S.c, L = S.lay, unc = S.unc, cov = S.cov, A = SW * SH;
   rgb.fill(0);
-  const hk = S.hk;
+  // The uncovered part of the hull: gold hatching that comes in from Hull
+  // 0.1 to 0.4, then fills between its lines up to 1. Gold dimmed evenly
+  // would read brown.
+  const hk = S.hk, hatch = cl((hk - 0.1) / 0.3, 0, 1) * 0.85, fill = cl((hk - 0.4) / 0.6, 0, 1) * 0.85;
   // Colour by n: each band's points are coloured by the band where they
   // first appear, since A(1), A(2), A(4) and A(8) each hold the one before.
   // Older layers are deep, the layer new in this band is pale and bright.
@@ -353,7 +355,7 @@ export function draw(display, params) {
         }
         const glow = u * cv * 0.7, gq = bi * 9 + 3;
         const line = cl(1 - abs(sd) / 0.8, 0, 1) * (0.14 + 0.5 * hk);
-        const gap = unc[k] * hk * 0.85;
+        const gap = unc[k] * ((x + y) % 3 ? fill : hatch);
         const q = ((bi * BAND + Y0 + y) * W + X0 + x) * 3;
         rgb[q] = r + L[gq] * glow + fr * gap + line * 0.8;
         rgb[q + 1] = g + L[gq + 1] * glow + fg * gap + line * 0.75;
