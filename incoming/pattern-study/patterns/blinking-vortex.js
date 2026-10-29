@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Blinking Vortex
 // Family:  sim
-// Idea:    Two point vortices one above the other take turns, each spinning the fluid round itself for half a period while the other rests, and the bands of dye on the panel, traced back exactly through every turn, are stretched and folded into filaments until they are finer than an LED and blend to grey, when a fresh dye is laid.
+// Idea:    Two point vortices one above the other take turns, each spinning the fluid round itself for half a period while the other rests, and soft bands of two dyes, traced back exactly through every turn, are stretched and folded into filaments until they are finer than an LED and blend to one even colour, when a fresh dye is laid.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,16 +9,16 @@
 // Round:   67
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.2..3, Strength=1..16, Dye=0..3
+// @knobs Hue=0..1, Speed=0.2..3, Strength=2..16, Dye=0..3
 //
-// Knob 1: Hue. Turns both dyes round the wheel: at 0 one is azure and the other amber, nearly opposite, so where they are mixed finer than an LED they average to a neutral grey.
-// Knob 2: Speed. Half periods a second: 1 at 2, 0.1 at 0.2, 1.5 at 3.
-// Knob 3: Strength. The stirring strength mu = Gamma T / (2 pi a^2), with 2a the distance between the vortices: fluid at the midpoint turns mu/2 radians each half period. Near 1 each vortex winds the bands into its own spiral round a grey core and the bands between and beyond stay whole; from about 4 the grey joins up into one S round both vortices with a few islands of dye holding out inside it; at 16 the middle is grey within a few half periods. A dye lasts 48/mu half periods, 10 at mu up to 4.8 and 4 from 11 up. The whole history is traced again at the new strength, so the picture answers at once.
-// Knob 4: Dye. How the dye is laid: 0 eight bands across the panel, 16 rows each, azure, water, amber, water and again; 1 two halves either side of the line through the vortices; 2 eight stripes down the panel, 8 columns each; 3 rings round the midpoint, 6 LEDs each.
+// Knob 1: Hue. Turns both dyes round the wheel: at 0 one is turquoise and the other violet, both brightest in blue, so where they are mixed finer than an LED the brightness holds and only the colour blends to periwinkle.
+// Knob 2: Speed. Half periods a second: 2.2 at 2, 0.22 at 0.2, 3.3 at 3.
+// Knob 3: Strength. The stirring strength mu = Gamma T / (2 pi a^2), with 2a the distance between the vortices: fluid at the midpoint turns mu/2 radians each half period. At 2 each vortex winds the bands into its own spiral and the bands beyond them stay whole while an S of mixed dye grows between; past about 5 the S fills the middle within two half periods. A dye lasts 12/mu half periods, 6 at 2 and 3 from 4 up. The whole history is traced again at the new strength, so the picture answers at once.
+// Knob 4: Dye. How the dye is laid: 0 bands across the panel, 20 rows each; 1 two halves either side of the line through the vortices, shaded in bands of 32 rows; 2 stripes down the panel, 16 columns each; 3 rings round the midpoint, 16 LEDs each. Every band is brightest along its middle and dark where the colour changes.
 // Buttons: any knob's button lays a fresh dye now.
 
 const W = 64, H = 128;
-const { floor, min, max, abs, sqrt, sin, cos, round, PI } = Math;
+const { floor, min, max, abs, sqrt, sin, cos, exp, round, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 function hsv(h, s, v) {
@@ -34,12 +34,12 @@ function hsv(h, s, v) {
 //   theta(r) = Gamma T / (4 pi r^2) = mu a^2 / (2 r^2),
 // with 2a the distance between the vortices. The vortices themselves never
 // move: only one is on at a time, and a vortex is not moved by its own field.
-const AV = 24, CX = 32, YA = 64 - AV, YB = 64 + AV, A2 = AV * AV;
+const AV = 30, CX = 32, YA = 64 - AV, YB = 64 + AV, A2 = AV * AV;
 
-// A dye lasts 48 / mu half periods (4 to 10), then a fresh one fades in at
-// the start of the next. By then most of the middle has been mixed finer
-// than an LED.
-const life = (mu) => cl(round(48 / mu), 4, 10);
+// A dye lasts 12 / mu half periods (3 to 6), then a fresh one fades in at
+// the start of the next. By then an S of dye mixed finer than an LED joins
+// the two vortices.
+const life = (mu) => cl(round(12 / mu), 3, 6);
 // A fresh start begins this far into a dye, so the stirring shows at once.
 const AHEAD = 2;
 
@@ -52,65 +52,62 @@ for (let i = 0; i <= TB; i++) (SN[i] = sin(i / KT)), (CS[i] = cos(i / KT));
 
 // One sample an LED, at its centre, and the LED's own square traced back
 // with it: each half period's rotation has an exact Jacobian, so the square's
-// two edges are carried back step by step and the dye is averaged over the
-// strip of the old dye they span. Where the stirring has pulled one LED's
-// worth of fluid out over many bands, the LED shows their mean colour
-// instead of one band picked at random, and the mixed middle reads as a
-// blend rather than as sparkle.
+// two edges are carried back step by step, and the dye is averaged over the
+// patch of the first dye they cover. Where the stirring has pulled one LED's
+// worth of fluid out over many bands, the LED shows their mean instead of
+// one band picked at random.
 //
-// A dye is a pattern along one coordinate u: bands (u = y), the two halves
-// either side of the vortices (u = x - 32), stripes (u = x) or rings round
-// the midpoint (u = distance). Within a period P, dye A fills [0, a1) and dye
-// B fills [b0, b1); the rest is clear water.
+// The dye has two parts laid along one coordinate u: bands (u = y), stripes
+// (u = x) or rings round the midpoint (u = distance), or two halves either
+// side of the vortices (u = x - 32, with the shade along y). Its colour,
+// dye A or dye B, changes sharply every P / 2 along u. Its shade rises and
+// falls as a cosine of period P / 2, darkest where the colour changes and
+// brightest in the middle of each band. The two colours share
+// their brightest channel, so a colour edge never shows as a step in
+// brightness; only the shade does, and the shade is soft.
 const LAYOUTS = [
-  { u: 1, P: 64, a1: 16, b0: 32, b1: 48 },
-  { u: 3 },
-  { u: 0, P: 32, a1: 8, b0: 16, b1: 24 },
-  { u: 2, P: 24, a1: 6, b0: 12, b1: 18 },
+  { u: 1, P: 40 },
+  { u: 3, P: 64 },
+  { u: 0, P: 32 },
+  { u: 2, P: 32 },
 ];
+// Shade: L0 - L1 cos(4 pi u / P), from 0.17 to 0.97.
+const L0 = 0.57, L1 = 0.4;
+// The shade is averaged as if the LED were BLUR times its traced size, so a
+// band of shade fades into its mean before it is squeezed steep enough to
+// step more than 40 levels from one LED to the next; the colour is averaged
+// over the LED's own traced size.
+const BLUR = 3;
 
-// The length of [lo, hi) mod P that lies below u.
-function below(u, P, lo, hi) {
-  const k = floor(u / P), r = u - k * P - lo;
-  return k * (hi - lo) + (r < 0 ? 0 : r > hi - lo ? hi - lo : r);
+// The length of [0, P/2) mod P that lies below u.
+function below(u, P) {
+  const k = floor(u / P), r = u - k * P;
+  return k * (P / 2) + (r > P / 2 ? P / 2 : r);
 }
 
-// The share of dye A and dye B in a box of width w round u, into out.
-function cover(L, u, w, out) {
-  if (L.u === 3) {
-    const b = w < 1e-6 ? (u < 0 ? 0 : 1) : cl(u / w + 0.5, 0, 1);
-    out[0] = 1 - b, out[1] = b;
-    return;
-  }
-  if (w < 1e-3) {
-    const r = u - floor(u / L.P) * L.P;
-    out[0] = r < L.a1 ? 1 : 0, out[1] = r >= L.b0 && r < L.b1 ? 1 : 0;
-    return;
-  }
-  if (w > 1e7) {
-    out[0] = L.a1 / L.P, out[1] = (L.b1 - L.b0) / L.P;
-    return;
-  }
-  const lo = u - w / 2, hi = u + w / 2;
-  out[0] = (below(hi, L.P, 0, L.a1) - below(lo, L.P, 0, L.a1)) / w;
-  out[1] = (below(hi, L.P, L.b0, L.b1) - below(lo, L.P, L.b0, L.b1)) / w;
+// The share of dye A in a box of width w round u.
+function shareA(halves, u, w, P) {
+  if (halves) return w < 1e-6 ? (u < 0 ? 1 : 0) : cl(0.5 - u / w, 0, 1);
+  if (w < 1e-3) return u - floor(u / P) * P < P / 2 ? 1 : 0;
+  if (w > 1e7) return 0.5;
+  return (below(u + w / 2, P) - below(u - w / 2, P)) / w;
 }
 
 export function setup(params) {
   params.s = {
     n: AHEAD, f: 0, born: 0, gen: 0, old: -1, fade: 1,
-    hue: 0, mu: 1, layout: 0,
+    hue: 0, mu: 2, layout: 0,
     cv: [0, 0],
   };
 }
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
-  const S = params.s, k = input.knobValues || [0, 2, 1, 0.06], d = cl(dt || 0, 0, 0.1);
+  const S = params.s, k = input.knobValues || [0, 2, 2, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
-  S.mu = cl(k[2], 1, 16);
+  S.mu = cl(k[2], 2, 16);
   S.layout = cl(round(k[3]), 0, 3);
-  const rate = d * cl(k[1], 0.2, 3) * 0.5;
+  const rate = d * cl(k[1], 0.2, 3) * 1.1;
   S.f += rate;
   // A new dye fades in over 0.4 of a half period while the old one, still
   // being stirred under it, fades out.
@@ -135,9 +132,9 @@ export function draw(display, params) {
   const sNew = n - S.born + 1, sOld = S.old >= 0 ? n - S.old + 1 : -1;
   const steps = max(sNew, sOld);
   const fi = S.fade, wNew = sOld >= 0 ? fi * fi * (3 - 2 * fi) : 1;
-  const dyeA = hsv(0.58 + S.hue, 0.75, 0.95), dyeB = hsv(0.09 + S.hue, 0.8, 0.95), water = [0.02, 0.03, 0.07];
-  // Colour of a box holding shares a of the first dye and b of the second.
-  const mix = (a, b, g, ch) => (g ? dyeB[ch] * a + dyeA[ch] * b : dyeA[ch] * a + dyeB[ch] * b) + water[ch] * (1 - a - b);
+  // Both dyes keep blue as their brightest channel at the opening hue.
+  const dyeA = hsv(0.51 + S.hue, 0.75, 1), dyeB = hsv(0.79 + S.hue, 0.6, 1);
+  const col = (a, lv, g, ch) => lv * (g ? dyeB[ch] * a + dyeA[ch] * (1 - a) : dyeA[ch] * a + dyeB[ch] * (1 - a));
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
       let x = i + 0.5, y = j + 0.5;
@@ -146,7 +143,7 @@ export function draw(display, params) {
       // Undo the part of the current half period already turned, then the
       // whole half periods before it, newest first. Half period m is
       // stirred by vortex A when m is even and by B when it is odd.
-      let frac = f, m = n, aN = 0, bN = 0;
+      let frac = f, m = n, aN = 0, lN = 0;
       for (let s = 0; s < steps; s++) {
         const cy = m & 1 ? YB : YA, dx = x - CX, dy = y - cy, r2 = dx * dx + dy * dy + 1e-9;
         const th = (frac * c) / r2;
@@ -165,15 +162,15 @@ export function draw(display, params) {
         y = cy - dx * sn + dy * co;
         frac = 1;
         m--;
-        if (s + 1 === sNew) coverAt(L, x, y, ux, uy, vx, vy, cv), (aN = cv[0]), (bN = cv[1]);
+        if (s + 1 === sNew) dyeAt(L, x, y, ux, uy, vx, vy, cv), (aN = cv[0]), (lN = cv[1]);
       }
-      let r = mix(aN, bN, gen, 0), g = mix(aN, bN, gen, 1), b = mix(aN, bN, gen, 2);
+      let r = col(aN, lN, gen, 0), g = col(aN, lN, gen, 1), b = col(aN, lN, gen, 2);
       if (wNew < 1) {
-        coverAt(L, x, y, ux, uy, vx, vy, cv);
+        dyeAt(L, x, y, ux, uy, vx, vy, cv);
         const k = 1 - wNew;
-        r = r * wNew + k * mix(cv[0], cv[1], gen ^ 1, 0);
-        g = g * wNew + k * mix(cv[0], cv[1], gen ^ 1, 1);
-        b = b * wNew + k * mix(cv[0], cv[1], gen ^ 1, 2);
+        r = r * wNew + k * col(cv[0], cv[1], gen ^ 1, 0);
+        g = g * wNew + k * col(cv[0], cv[1], gen ^ 1, 1);
+        b = b * wNew + k * col(cv[0], cv[1], gen ^ 1, 2);
       }
       display.setPixel(i, j, (255 * min(1, r)) | 0, (255 * min(1, g)) | 0, (255 * min(1, b)) | 0);
     }
@@ -194,13 +191,12 @@ export function draw(display, params) {
   }
 }
 
-// The dye shares at the traced-back point (x, y), averaged over the width the
-// LED's traced-back edges cover along the layout's coordinate.
-function coverAt(L, x, y, ux, uy, vx, vy, out) {
+// The dye at the traced-back point (x, y), averaged over what the LED's
+// traced-back edges cover: out[0] the share of dye A, out[1] the shade.
+function dyeAt(L, x, y, ux, uy, vx, vy, out) {
   let u, w;
   if (L.u === 1) (u = y), (w = abs(uy) + abs(vy));
-  else if (L.u === 0) (u = x), (w = abs(ux) + abs(vx));
-  else if (L.u === 3) (u = x - CX), (w = abs(ux) + abs(vx));
+  else if (L.u === 0 || L.u === 3) (u = L.u === 3 ? x - CX : x), (w = abs(ux) + abs(vx));
   else {
     const dx = x - CX, dy = y - 64, r = sqrt(dx * dx + dy * dy) + 1e-9, gx = dx / r, gy = dy / r;
     (u = r), (w = abs(gx * ux + gy * uy) + abs(gx * vx + gy * vy));
@@ -208,6 +204,13 @@ function coverAt(L, x, y, ux, uy, vx, vy, out) {
   // A square pulled out longer than a period does not stay straight: the
   // flow folds it, so it crosses the bands even when its two traced edges
   // happen to lie along them. Past a period, its length counts as width.
-  const s = sqrt(ux * ux + uy * uy + vx * vx + vy * vy), P = L.P || 32;
-  cover(L, u, max(w, (s * s) / (s + P)), out);
+  const s = sqrt(ux * ux + uy * uy + vx * vx + vy * vy), fold = (s * s) / (s + L.P);
+  out[0] = shareA(L.u === 3, u, max(w, fold), L.P);
+  // The halves take their shade from bands along y.
+  let us = u, ws = w;
+  if (L.u === 3) (us = y), (ws = abs(uy) + abs(vy));
+  // A cosine averaged over a Gaussian as wide as the box keeps
+  // exp(-(k w)^2 / 24) of its swing, k its wavenumber.
+  const kw = ((4 * PI) / L.P) * BLUR * max(ws, fold);
+  out[1] = L0 - L1 * exp(-(kw * kw) / 24) * cos(((4 * PI) / L.P) * us);
 }
