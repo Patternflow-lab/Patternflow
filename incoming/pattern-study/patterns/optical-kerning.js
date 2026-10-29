@@ -1,11 +1,11 @@
 // ===== Patternflow pattern =====
 // Title:   Optical Kerning
 // Family:  type
-// Idea:    Five words whose letters have open and slanted sides, AVOW, LYNX, TOY, WAVE and FLY among them, stand in capitals 19 LEDs tall down the panel, the white between each pair of neighbours glows in a colour that says how much of it there is, and after each word is set with the same 2 LED space between every pair of letter boxes, so that A and V gape while H and I sit tight, its letters slide sideways until every gap holds the same area and the glows of the word turn one colour, a wave of new words running down the panel every few seconds.
+// Idea:    Five words whose letters have open and slanted sides, AVOW, LYNX, TOY, WAVE and FLY among them, stand in capitals 19 LEDs tall down the panel, the white between each pair of neighbours glows in a colour that says how much of it there is, and after each word is set with the same 2 LED space between every pair of letter boxes, so that A and V gape while H and I sit tight, its letters slide sideways until every gap holds the same area and the glows of the word turn one colour, a wave of new words running down the panel every 6.35 s.
 // Author:  patternflow-lab
 // Date:    2026-10-29
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 72, after spacing letters by a formula rather than by eye as in David Kindersley's Optical Letter Spacing for New Printing Systems (1976 edition) and the spacing method in Walter Tracy's Letters of Credit (1986)
+// Lineage: original, pattern round 72, after letter spacing worked out by formula in David Kindersley's Optical Letter Spacing for New Printing Systems (1976 edition) and by method in Walter Tracy's Letters of Credit (1986)
 // Round:   72
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the glow palette round the wheel. At 0 a gap 1.5 LEDs or less across on average glows violet-blue, 3.6 cyan, 6 yellow-green and 7.5 or more amber; the letters stay warm white.
 // Knob 2: Speed. At 2 a word is set, shown for 1.15 s at box spacing, slides into its spacing in 1.5 s, holds 3 s and goes, 6.35 s in all, and each line starts 0.45 s after the one above; at 0.2 a word takes 64 s, at 3 it takes 4.2 s.
 // Knob 3: Tracking. The area every gap is spaced to, given as its width averaged over the 19 rows: 3.6 LEDs at 0, where every gap of all ten words meets it, H and I stand 3.6 apart and A tucks 0.3 under V; 2.4 at -1, where seven pairs, Y N, F L and T O among them, reach the 1 LED that letters may come to and stay a little wider than the rest; 5.4 at 1, AVOW then 57 LEDs wide. The settled glows are blue at -1, cyan at 0 and green at 1.
-// Knob 4: Depth. How far into an open side the white is counted, measured in from the letter's outermost point: 3.2 LEDs at the opening 0.06. At -1 only 1 LED counts, every pair is spaced almost by its boxes and A V stays 1.9 apart, as wide as N X. At 1 the 8 LEDs counted reach right into the throats of A, V, L and T: A goes 0.6 under V and the L's foot 3.4 under the Y's arm, and still L Y, L T and F L cannot shed enough white without touching, so their glows stay yellow-green while the rest settle cyan.
+// Knob 4: Depth. How far into an open side the white is counted, measured in from the letter's outermost point: 3.2 LEDs at the opening 0.06. At -1 only 1 LED counts, every pair is spaced almost by its boxes and A V stands 1.9 apart instead of tucking under. At 1 the 8 LEDs counted reach right into the throats of A, V, L and T: A goes 0.6 under V and the L's foot 3.4 under the Y's arm, and still L Y, L T and F L cannot shed enough white without touching, so their glows stay yellow-green while the rest settle cyan.
 
 // The white between two letters is counted row by row through the cap
 // height: the horizontal distance between their facing contours, except
@@ -28,7 +28,7 @@
 // way: the tips touch before the throats close. The words leave them out.
 
 const W = 64, H = 128, CAP = 19, HW = 1.25, LINES = 5, PITCH = 25, TOP0 = 4, BOX = 2, CLEAR = 1;
-const { floor, round, min, max, abs, sqrt, exp, hypot } = Math;
+const { floor, round, min, max, abs, exp, hypot } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 function hsv(h, s, v) {
@@ -180,7 +180,8 @@ export function draw(display, params) {
   const marks = [];
   for (let li = 0; li < LINES; li++) {
     const ln = s.lines[li], top = TOP0 + li * PITCH, L = ln.letters;
-    const fade = ln.tau < 0 ? 1 : ln.tau < T_IN ? ln.tau / T_IN : ln.tau > T_OUT ? 1 - (ln.tau - T_OUT) / (T_END - T_OUT) : 1;
+    // The first words are on the panel from the start; later ones fade in.
+    const fade = ln.n === 0 && ln.tau < T_IN ? 1 : ln.tau < T_IN ? ln.tau / T_IN : ln.tau > T_OUT ? 1 - (ln.tau - T_OUT) / (T_END - T_OUT) : 1;
     let total = 0;
     for (let i = 0; i < L.length; i++) total += L[i].w + (i < ln.g.length ? ln.g[i] : 0);
     let x = 32 - total / 2;
