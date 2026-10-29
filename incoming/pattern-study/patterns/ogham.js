@@ -178,7 +178,7 @@ export function update(dt, input, params) {
     S.t += dt * S.rate;
     S.dim = min(1, S.dim + dt / 0.5);
     const c = S.cuts[current(S)];
-    target = c.v + (c.g === 2 ? REACH[2] * SLANT : 0) - 80;
+    target = c.v + (c.g === 2 ? REACH[2] * SLANT : 0) - 92;
     if (S.t >= S.end) (S.phase = 1), (S.hold = 0);
   } else {
     target = S.top - 112;
