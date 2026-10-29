@@ -33,7 +33,8 @@ function hsv(h, s, v, out) {
 // alignment-insensitive shape similarity and also deforms the drawing to suit
 // the characters. Here the drawing is never deformed, and the comparison is a
 // symmetric chamfer distance that lets the character slide by up to two LEDs
-// across and one down, each LED of slide costing a little.
+// across (one in a 3 by 5 cell) and one up or down, at 0.12 for each LED of
+// slide; the character is still drawn in its own cell.
 
 // ---- The characters. Each is drawn as pen strokes in a unit cell, across
 // then down in tenths, so (0,0) is the top left corner and (10,10) the
@@ -256,16 +257,15 @@ function contour(S) {
 }
 
 // The chamfer distance between a character shifted by sx, sy and the
-// outline: the distance from each of its lit LEDs to the outline, and from
-// each LED the outline crosses to its nearest lit LED, over the count of both.
-function cham(G, dT, tl, nt, ew, bx, by, sx, sy) {
-  const ink = G.ink, dist = G.dist;
-  let cost = 0;
-  for (let k = 0; k < ink.length; k += 2) cost += dT[(ink[k + 1] + sy + by) * ew + ink[k] + sx + bx];
-  const so = -sy * ew - sx;
-  for (let k = 0; k < nt; k++) cost += dist[tl[k] + so];
-  return cost / (ink.length / 2 + nt);
-}
+// outline is the distance from each of its lit LEDs to the outline, plus
+// the distance from each LED the outline crosses to its nearest lit LED,
+// over the count of both, plus SHIFT for each LED of shift. The shifts of
+// each cell size, cheapest first: sx, sy, cost.
+const SHIFTS = CELLS.map(([cw]) => {
+  const L = [];
+  for (let sy = -SY; sy <= SY; sy++) for (let sx = -SX(cw); sx <= SX(cw); sx++) L.push([sx, sy, SHIFT * (abs(sx) + abs(sy))]);
+  return L.sort((a, b) => a[2] - b[2]).flat();
+});
 
 export function draw(display, params) {
   const S = params.s;
@@ -275,7 +275,7 @@ export function draw(display, params) {
   const [cw, ch] = CELLS[S.cell], font = FONT[S.cell];
   const cols = floor(W / cw), rows = floor(H / ch);
   const ox = floor((W - cols * cw) / 2), oy = floor((H - rows * ch) / 2);
-  const set = SETS[S.set], tone = S.set === 3;
+  const set = SETS[S.set], tone = S.set === 3, shifts = SHIFTS[S.cell];
   const bx = SX(cw), by = SY, ew = cw + 2 * bx, eh = ch + 2 * by;
   const sq = S.sq, nsq = S.nsq, rgb = S.rgb, dT = S.dt, segs = S.segs, tl = S.tl;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
@@ -328,19 +328,28 @@ export function draw(display, params) {
         for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) ink += max(0, 1 - dT[(j + by) * ew + i + bx]);
         g = RAMP[min(9, round((ink / (cw * ch)) * 22))];
       } else {
-        // Each character of the set at every shift; the cheapest wins.
+        // Each character of the set at every shift, the cell's last character
+        // first; a shift is given up as soon as its sum cannot win.
         const prev = S.ch[id];
         let bestC = 1e9, prevC = 1e9;
-        for (const gi of set) {
-          const G = font[gi];
+        for (let k = -1; k < set.length; k++) {
+          const gi = k < 0 ? prev : set[k];
+          if (k >= 0 && gi === prev) continue;
+          const G = font[gi], ink = G.ink, dist = G.dist, n = ink.length / 2 + nt;
           let cbest = 1e9;
-          for (let sy = -by; sy <= by; sy++)
-            for (let sx = -bx; sx <= bx; sx++) {
-              const cost = cham(G, dT, tl, nt, ew, bx, by, sx, sy) + SHIFT * (abs(sx) + abs(sy));
-              if (cost < cbest) cbest = cost;
-            }
+          for (let m = 0; m < shifts.length; m += 3) {
+            const sx = shifts[m], sy = shifts[m + 1], pen = shifts[m + 2];
+            const lim = ((k < 0 ? cbest : min(cbest, bestC)) - pen) * n;
+            if (lim <= 0) break;
+            let cost = 0;
+            const io = (sy + by) * ew + sx + bx;
+            for (let i = 0; i < ink.length && cost < lim; i += 2) cost += dT[ink[i + 1] * ew + ink[i] + io];
+            const so = -sy * ew - sx;
+            for (let i = 0; i < nt && cost < lim; i++) cost += dist[tl[i] + so];
+            if (cost < lim) cbest = cost / n + pen;
+          }
+          if (k < 0) prevC = cbest;
           if (cbest < bestC) { bestC = cbest; g = gi; }
-          if (gi === prev) prevC = cbest;
         }
         // Hold on to the last character unless a new one fits clearly better.
         if (prevC < bestC + 0.08) g = prev;
