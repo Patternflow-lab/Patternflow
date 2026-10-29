@@ -96,22 +96,37 @@ function besselRun(nu0, z, M, w, out) {
 // colours of its sides swapped. The orders' sum is done for an LED and its
 // mirror across the shadow line at once, since they share r and differ only
 // in the sign of theta.
-const MM = 260;
-function field(S, F, lam) {
-  const a = F - 1, k = (2 * PI) / lam;
-  const fr = (x) => x - floor(x);
-  const nuP = fr(-a), nuQ = fr(a);
-  const wP = weights(nuP, MM), wQ = weights(nuQ, MM);
-  const JP = S.JP, JQ = S.JQ, fam = S.fam, nn = S.nn, cr = S.cr, ci = S.ci;
+const MM = 260, ROWS = 32;
+
+// A field is worked out in a buffer of its own, ROWS rows a frame, while the
+// last finished one stays on the panel; the first appears after 4 frames.
+function newField() {
+  return { amp: new Float32Array(N), ph: new Float32Array(N), lag: new Float32Array(N), lam: 0, flux: 0, row: 0, a: 0, k: 0, nuP: 0, nuQ: 0, wP: null, wQ: null };
+}
+function begin(S, G, F, lam) {
+  const a = F - 1, fr = (x) => x - floor(x);
+  Object.assign(G, { lam, flux: F, row: 0, a, k: (2 * PI) / lam, nuP: fr(-a), nuQ: fr(a) });
+  G.wP = weights(G.nuP, MM);
+  G.wQ = weights(G.nuQ, MM);
+  const { fam, nn, cr, ci } = S;
   for (let m = -MM; m <= MM; m++) {
     const d = m - a, j = m + MM, sg = m & 1 ? -1 : 1, nu = abs(d);
-    if (d >= 0) (fam[j] = 0), (nn[j] = round(d - nuP));
-    else (fam[j] = 1), (nn[j] = round(-d - nuQ));
+    if (d >= 0) (fam[j] = 0), (nn[j] = round(d - G.nuP));
+    else (fam[j] = 1), (nn[j] = round(-d - G.nuQ));
     cr[j] = sg * cos((PI * nu) / 2);
     ci[j] = -sg * sin((PI * nu) / 2);
   }
-  const { amp, ph, lag } = S;
-  for (let y = 0; y < H; y++) {
+}
+function rows(S, G, y0, y1) {
+  const { JP, JQ, fam, nn, cr, ci } = S, { amp, ph, lag, k, nuP, nuQ, wP, wQ } = G;
+  const put = (p, re, im, ox) => {
+    amp[p] = sqrt(re * re + im * im);
+    ph[p] = atan2(im, re);
+    // The slip behind the bare wave exp(i k x), in turns, -1/2 to 1/2.
+    const l = (ph[p] - ox) / (2 * PI);
+    lag[p] = l - round(l);
+  };
+  for (let y = y0; y < y1; y++) {
     const X = y + 0.5 - TY;
     for (let x = HALF; x < W; x++) {
       const Y = x + 0.5 - TX, r = sqrt(X * X + Y * Y), th = atan2(Y, X), z = k * r;
@@ -134,26 +149,15 @@ function field(S, F, lam) {
         sm = sm * c1 + cm * s1;
         cm = t;
       }
-      const pr = y * W + x, pl = y * W + (W - 1 - x);
-      const ox = k * X;
-      for (const [p, re, im] of [
-        [pr, Ar - Bi, Ai + Br],
-        [pl, Ar + Bi, Ai - Br],
-      ]) {
-        amp[p] = sqrt(re * re + im * im);
-        ph[p] = atan2(im, re);
-        // The slip behind the bare wave exp(i k x), in turns, -1/2 to 1/2.
-        let l = (ph[p] - ox) / (2 * PI);
-        lag[p] = l - round(l);
-      }
+      put(y * W + x, Ar - Bi, Ai + Br, k * X);
+      put(y * W + W - 1 - x, Ar + Bi, Ai - Br, k * X);
     }
   }
 }
 
 export function setup(params) {
   params.s = {
-    hue: 0, speed: 2, lam: NaN, flux: NaN, t: 0,
-    amp: new Float32Array(N), ph: new Float32Array(N), lag: new Float32Array(N),
+    hue: 0, speed: 2, t: 0, cur: null, job: null, spare: [newField(), newField()],
     JP: new Float64Array(MM + 2), JQ: new Float64Array(MM + 2),
     fam: new Int8Array(2 * MM + 1), nn: new Int32Array(2 * MM + 1), cr: new Float64Array(2 * MM + 1), ci: new Float64Array(2 * MM + 1),
     c: [0, 0, 0],
@@ -165,23 +169,29 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 7, 0.5], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
   S.speed = cl(k[1], 0.2, 3);
-  // The field is worked out again only when the wavelength or the flux has
-  // moved by a visible step.
+  // A new field starts only when the wavelength or the flux has moved by a
+  // visible step; turning the knob again restarts it.
   const lam = round(cl(k[2], 7, 16) * 20) / 20, flux = round(cl(k[3], 0.5, 1.5) * 200) / 200;
-  if (lam !== S.lam || flux !== S.flux) {
-    S.lam = lam;
-    S.flux = flux;
-    field(S, flux, lam);
+  const aim = S.job || S.cur;
+  if (!aim || aim.lam !== lam || aim.flux !== flux) {
+    S.job = S.spare.find((G) => G !== S.cur);
+    begin(S, S.job, flux, lam);
+  }
+  if (S.job) {
+    const G = S.job, y1 = min(H, G.row + ROWS);
+    rows(S, G, G.row, y1);
+    G.row = y1;
+    if (y1 >= H) (S.cur = G), (S.job = null);
   }
   S.t += d;
 }
 
 export function draw(display, params) {
   const S = params.s;
-  if (!S) return;
-  const { amp, ph, lag, c } = S;
+  if (!S || !S.cur) return;
+  const { amp, ph, lag, lam } = S.cur, c = S.c;
   // Crests run down at 4 * Speed LEDs a second: the phase turns by k v t.
-  const wt = ((2 * PI) / S.lam) * 4 * S.speed * S.t, h0 = 0.62 + S.hue;
+  const wt = ((2 * PI) / lam) * 4 * S.speed * S.t, h0 = 0.62 + S.hue;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const p = y * W + x, A = amp[p];
@@ -192,11 +202,5 @@ export function draw(display, params) {
       display.setPixel(x, y, (255 * c[0]) | 0, (255 * c[1]) | 0, (255 * c[2]) | 0);
     }
   // The tube itself, end on: a small white core.
-  for (const [x, y] of [
-    [31, 41],
-    [32, 41],
-    [31, 42],
-    [32, 42],
-  ])
-    display.setPixel(x, y, 235, 235, 245);
+  for (let p = 0; p < 4; p++) display.setPixel(31 + (p & 1), 41 + (p >> 1), 235, 235, 245);
 }

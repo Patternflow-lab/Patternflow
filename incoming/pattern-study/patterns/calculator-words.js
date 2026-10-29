@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the display, with the operator keys and the body following it round the wheel: at 0 a blue-green vacuum fluorescent display over orange operator keys on a slate body; at 0.54 the red of the first LED calculators.
 // Knob 2: Speed. How fast the machine works: at 2 a key goes down every 0.22 s and the turn takes 1.3 s, so hELLO is keyed, turned, read and turned back in 7.7 s; at 0.2 it takes ten times as long, at 3 two thirds.
 // Knob 3: Words. Which riddles: 0 the classics (hELLO, BOSS, LOSE, GLOBE, GOOSE, EGGSHELL); 1 short words (hI, BEE, OIL, BIG, EGG, ShOE, SOIL); 2 long ones made by multiplying two numbers (LEGIBLE, SLEIGh, BOGGLE, OBLIGE, GIGGLE, SIZZLE, hOBBIES); 3 answers under 1, whose decimal point turns up at the top of the word (IGLOO, hELLO, SILO, SOLO, hOBO, BOO).
-// Knob 4: Glow. How much light the display spills: at 0 the unlit segments are almost gone and the digits stand sharp on dark glass; at the opening 0.06 the unlit segments show faintly as a ghost 8 in every place; at 1 the ghosts glow at half strength and a haze spreads round every lit digit.
+// Knob 4: Glow. How much light the display spills: at 0 the unlit segments are almost gone and the digits stand sharp on dark glass; at the opening 0.06 the unlit segments show faintly as a ghost 8 in every place; at 1 the ghosts glow at half strength, a haze spreads round every lit digit, and the display's light falls over the body and the top rows of keys.
 // Buttons: any knob's button clears the calculator and starts the next riddle, when the calculator stands the right way up.
 
 const W = 64, H = 128;
