@@ -30,7 +30,7 @@ function hsv(h, s, v, out, o) {
 }
 
 // Words of light and of looking. A Hangul word is one syllable filling the
-// panel; a Latin word is four letters, two by two, 29 by 58 LEDs each.
+// panel; a Latin word is four letters, two by two, 28 by 58 LEDs each.
 const WORDS = ["빛", "LOOK", "달", "NEON", "별", "HALO", "밤", "SEEN"];
 
 // Shapes: [kind, add, ...]. kind 0 a rounded box x0 y0 x1 y1 tl tr br bl,
@@ -175,7 +175,7 @@ function inside(p, x, y) {
 function layout(word) {
   const chars = [...word];
   const big = chars.length === 1;
-  const cells = big ? [[0, 0, 64, 128]] : [[2, 4, 29, 58], [33, 4, 29, 58], [2, 66, 29, 58], [33, 66, 29, 58]];
+  const cells = big ? [[0, 0, 64, 128]] : [[2, 4, 28, 58], [34, 4, 28, 58], [2, 66, 28, 58], [34, 66, 28, 58]];
   const out = [];
   chars.forEach((ch, gi) => {
     const [cx, cy, w, h] = cells[gi];
