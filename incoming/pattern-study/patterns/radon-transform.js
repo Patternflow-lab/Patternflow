@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Angles=0..64, Filter=0..1
 //
 // Knob 1: Hue. Turns both squares round the wheel: at 0 the reconstruction runs from dark cyan to ice white and the sinogram from blue violet to purple.
-// Knob 2: Speed. At 2 the beam's half turn takes 1 s, reading the projections back takes 6 s, and the picture holds 1.5 s, fading out over its last 0.3 s; at 0.2 everything takes ten times as long, at 3 two thirds as long.
+// Knob 2: Speed. At 2 the beam's half turn takes 1 s, reading the projections back takes 6 s, and the picture holds 1.5 s, dimming to 15% over its last 0.3 s before the next scan starts on an empty sinogram; at 0.2 everything takes ten times as long, at 3 two thirds as long.
 // Knob 3: Angles. How many projections a half turn takes. 0 takes turns, doubling each cycle from 16: 16, 32, 64, then 4, 8 and round again. 1 to 64 hold that count; with few the shapes are crossed by the star of streaks, one per angle. The half turn has a fixed dose of photons shared by its projections: at 4 angles each bin gets 2,000 and the rows are clean, at 64 it gets 125 and they are grainy.
 // Knob 4: Filter. The filter each projection passes before it is smeared back: (1 - f) c + f |w|, with c the ramp's height at 1/400 of a cycle a sample. At 0 it is plain back-projection, every shape in a blurred 1/r halo; at 0.06 the edges already come through; at 1 it is the ramp alone, sharp, with dark lobes beside every streak. Plain back-projection smooths the photon noise away; the ramp turns it into fine grain.
 
