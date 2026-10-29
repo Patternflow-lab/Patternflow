@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Word=0..3, Lamp=0..1
 //
 // Knob 1: Hue. The colour of the one thread, always pale: linen ivory at 0, mint at 0.25, a cold blue at 0.5 and rose at 0.75.
-// Knob 2: Speed. How fast the lamp walks round the table: once in 64 s at 2, so the word turns from light to dark every 16 s; 43 s at 3 and over ten minutes at 0.2.
+// Knob 2: Speed. How fast the lamp walks round the table: once in 64 s at 2, so the word turns from light to dark every 16 s; 43 s at 3 and over ten minutes at 0.2. The low swells under the cloth keep the same clock.
 // Knob 3: Word. What the cloth says: LUX, the Hangul syllable 빛 (light), NOX, or 밤 (night). Each word is woven with the stem width that makes it 10 to 11% of the cloth: 4.0 LEDs for LUX, 3.3 to 3.5 for the others.
-// Knob 4: Lamp. How high the lamp stands: at 0.06 it rakes the cloth from 8 degrees up and the word is sharp; towards 1 it climbs to 68 degrees, both threads catch the light alike and the word sinks into the cloth.
+// Knob 4: Lamp. How high the lamp stands: at 0.06 it rakes the cloth from 8 degrees up, the word is sharp and every swell in the cloth shows; towards 1 it climbs to 68 degrees, both threads catch the light alike, the swells flatten out and the word sinks into the cloth.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, sqrt, cos, sin, tan, min, abs, PI } = Math;
@@ -153,24 +153,39 @@ const R = 300, PEAK = 232;
 // The lamp starts 28.1 degrees short of due right of the cloth and walks
 // 5.625 degrees a second at Speed 2, so at 5 s it stands square to the
 // warp. Checked over every crossing and frame from 2 s to 8 s: the lamp is
-// never more than 30.5 degrees off square, a weft float never rises above
-// 0.074 of the peak (17 of 255, under the 24 that counts as lit), a warp
-// float never falls below 0.56 of it, and the word stays bright on a dark
+// never more than 30.5 degrees off square, and with the swell below a weft
+// float never rises above 17.6 of 255 (under the 24 that counts as lit), a
+// warp float never falls below 92, and the word stays bright on a dark
 // ground. The two sheens are equal where dx^2 = dy^2: a straight line at 45
 // degrees through the foot of the lamp, which crosses the cloth from the
 // bottom right corner at 10.7 s to the top left at 15.3 s and passes the
 // middle at 13 s. The word vanishes along that line and comes back dark.
 const A0 = (-28.125 * PI) / 180, RATE = (5.625 * PI) / 180;
 
+// ---- The swell. The cloth is not quite flat: two low swells run under it,
+// like a tablecloth lifting in a draught. Each is [direction in radians from
+// the x axis, wavelength in LEDs, speed in LEDs a second at Speed 2, the
+// steepest slope it gives]. A tilt changes how much light the cloth takes
+// from the lamp: with the surface normal (-gx, -gy, 1) and D the way to the
+// lamp, the light goes as N.D / D.z = 1 - (gx dx + gy dy) / hz. With the
+// lamp 8 degrees up, D runs about 7.3 LEDs across for each one up, so a
+// slope of 0.03 toward it dims or brightens the threads by 22%; with the
+// lamp 68 degrees up, by 1%, so the swell shows only in raking light, as
+// folds do. At Speed 2 the swells pass each crossing every 6 and 5.6 s,
+// and from 2 s to 8 s they scale the light by 0.62 to 1.39.
+const SWELL = [[0.15, 36, 6, 0.03], [0.9, 28, 5, 0.02]].map(([a, l, v, g]) => ({ ux: cos(a), uy: sin(a), k: (2 * PI) / l, w: (2 * PI * v) / l, g }));
+
 export function setup(params) {
-  params.s = { a: A0, hue: 0, word: 0, lamp: 0.06, top: null, wordShown: -1 };
+  params.s = { a: A0, t: 0, hue: 0, word: 0, lamp: 0.06, top: null, wordShown: -1 };
 }
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
-  S.a += (d * RATE * cl(k[1], 0.2, 3)) / 2;
+  const clock = (d * cl(k[1], 0.2, 3)) / 2;
+  S.a += RATE * clock;
+  S.t += clock;
   S.word = cl(round(k[2]), 0, 3);
   S.lamp = cl(k[3], 0, 1);
   if (S.wordShown !== S.word) {
@@ -192,12 +207,19 @@ export function draw(display, params) {
     const dy = ly - (y + 0.5);
     for (let x = 0; x < W; x++) {
       const dx = lx - (x + 0.5), inv = 1 / (dx * dx + dy * dy + hz * hz);
+      let gx = 0, gy = 0;
+      for (const w of SWELL) {
+        const q = w.g * cos(w.k * (w.ux * x + w.uy * y) - w.w * S.t);
+        gx += q * w.ux;
+        gy += q * w.uy;
+      }
+      const lit = 1 - (gx * dx + gy * dy) / hz;
       const p = y * W + x;
       // T.L squared: dy^2 / |D|^2 for a warp float, dx^2 / |D|^2 for a weft.
       let s, f;
       if (top[p]) (s = 1 - dy * dy * inv), (f = WARP[x]);
       else (s = 1 - dx * dx * inv), (f = WEFT[y]);
-      const v = PEAK * f * s * s;
+      const v = PEAK * f * s * s * (lit > 0 ? lit : 0);
       display.setPixel(x, y, round(v * c[0]), round(v * c[1]), round(v * c[2]));
     }
   }
