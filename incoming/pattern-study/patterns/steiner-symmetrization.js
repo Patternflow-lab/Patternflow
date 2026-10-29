@@ -303,7 +303,7 @@ export function update(dt, input, params) {
     // One axis: nothing to turn to.
     if (S.pt > 0.3) begin(S, S.phi);
   } else if (S.phase === 3) {
-    // Hold the result, fade, and start again from a new shape.
+    // Hold the shape it settled into, then fade into a new one.
     S.fade = S.pt < 1.3 ? 1 : max(0, 1 - (S.pt - 1.3) / 0.3);
     if (S.pt > 1.6) {
       newShape(S, sel);
