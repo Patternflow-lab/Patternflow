@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   FRACTRAN
 // Family:  number
-// Idea:    Conway's PRIMEGAME runs as a bead machine: the exponents of 2, 3, 5 and 7 stand as columns of beads, each step the first of the fourteen fractions that keeps n whole lights up while beads fly up into its denominator and out of its numerator, the columns pump up and down in sawtooth loops, and each time n is a bare power of two the 2 column alone holds p beads and the prime p joins the record at the top.
+// Idea:    Conway's PRIMEGAME runs as a bead machine: the exponents of 2, 3, 5 and 7 stand as columns of beads that pump up and down in sawtooth loops while beads rise out of them and fall back in, the first of the fourteen fractions that keeps n whole lights at each step, and whenever n is a bare power of two the machine stops with p beads in the 2 column alone and writes the prime p into the record at the top.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Start=0..3, Trail=0..1
 //
-// Knob 1: Hue. Turns the beads round the wheel together: at 0 the 2 column is gold, 3 cyan, 5 violet and 7 green, and the state lamps 11 to 29 blue.
-// Knob 2: Speed. Steps a second, 2 times 50 to the power (Speed - 0.2) / 1.8: 100 at 2, so 2, 3, 5 and 7 arrive at 0.2, 0.7, 2.9 and 7.4 s; 2 at 0.2, one fraction at a time; 870 at 3. The machine stops for 12 steps' time on each prime.
-// Knob 3: Start. Where the run begins: n = 2 at 0, or n = 2^11, 2^19 or 2^29, the moments PRIMEGAME reaches those primes, with the primes before them already in the record. The higher the start, the taller the sawtooth: from 2^29 the columns climb to 31 beads in long ramps. Every run ends after 2^41 and starts again.
-// Knob 4: Trail. How long the light stays: at 0.06 a flying bead leaves a tail of 2 frames and a fraction fades in 0.1 s; at 1 the flights stay for 1.5 s and pile up into bright paths between the columns and the fractions that loop, and each column keeps a ghost of its last peak.
+// Knob 1: Hue. Turns every colour together: at 0 the 2 column is gold, 3 cyan, 5 violet and 7 green, the fractions and the state lamps 11 to 29 blue and the record warm white.
+// Knob 2: Speed. Steps a second, 2 times 60 to the power (Speed - 0.2) / 1.8: 120 at 2, where 2, 3, 5 and 7 enter the record at 0.2, 1.2, 3.5 and 7.7 s; 2 at 0.2, slow enough to follow every fraction and every bead; 1170 at 3, where 29 arrives at 37 s. On a prime the machine waits for its beads to land and 30 steps more, 0.55 s at 2.
+// Knob 3: Start. Where a run begins: n = 2 at 0, then 2^11, 2^19 or 2^29, the states PRIMEGAME is in when it finds those primes, with the primes up to them already in the record. The higher the start, the taller the sawtooth: from 2^29 the 2 and 5 columns climb to 31 beads before 31 arrives at 73 s, and the beads thin from 5 rows to 2. A run ends 3 s after 2^41 and starts again.
+// Knob 4: Trail. How long the light stays, 0.05 times 30 to the power Trail seconds. At 0.06 a flying bead leaves almost nothing behind and the tubes show single beads; from 0.4 up each bead draws a full tail, and at 1 the tails last 1.5 s and pile up into lit tubes as bright as their traffic, the fractions glow by how often they fire, and each column keeps a ghost of its last peak that sinks a bead a second.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, min, max, sqrt, exp, pow, abs } = Math;
@@ -77,6 +77,7 @@ function reset(S) {
   S.flights = [];
   S.inc = new Int32Array(10);
   S.heat.fill(0);
+  S.scan.fill(0);
   S.ghost = new Float32Array(4);
   S.acc = 0;
   S.pause = 0;
@@ -89,7 +90,7 @@ function reset(S) {
 }
 
 export function setup(params) {
-  params.s = { start: -1, hue: 0, rate: 100, trail: 0.06, heat: new Float32Array(14), glow: new Float32Array(NP * 3), rgb: new Float32Array(NP * 3), sheat: new Float32Array(6), gain: 1, last: -1, dur: 0.3 };
+  params.s = { start: -1, hue: 0, rate: 100, trail: 0.06, heat: new Float32Array(14), scan: new Float32Array(14), glow: new Float32Array(NP * 3), rgb: new Float32Array(NP * 3), sheat: new Float32Array(6), gain: 1, hgain: 1, last: -1, dur: 0.3 };
 }
 
 // A bead in flight runs up or down its own column: up from the top of the
@@ -110,8 +111,10 @@ function step(S) {
     let ok = true;
     for (let j = 0; j < 10 && ok; j++) if (e[j] < DEN[k][j]) ok = false;
     if (ok) break;
+    // Tried and passed over: its bar flickers.
+    S.scan[k] = min(1, S.scan[k] + 0.35);
   }
-  S.heat[k] = min(1.6, S.heat[k] + 1);
+  S.heat[k] = min(1.6, S.heat[k] + S.hgain);
   S.last = k;
   for (let j = 0; j < 10; j++) {
     e[j] -= DEN[k][j];
@@ -143,6 +146,8 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
+  const h = S.hue;
+  S.cols = [hsv(0.11 + h, 0.6, 1), hsv(0.5 + h, 0.6, 1), hsv(0.8 + h, 0.5, 1), hsv(0.32 + h, 0.6, 1), hsv(0.61 + h, 0.5, 1)];
   S.rate = 2 * pow(60, (cl(k[1], 0.2, 3) - 0.2) / 1.8);
   S.trail = cl(k[3], 0, 1);
   const start = cl(round(k[2]), 0, 3);
@@ -153,14 +158,20 @@ export function update(dt, input, params) {
   const tau = 0.05 * pow(30, S.trail);
   // A longer trail lays each pass down fainter, so a path's brightness is
   // its traffic, not how long the light stays.
-  S.gain = min(1, 0.08 / tau);
-  const fade = exp(-d / tau), hfade = exp(-d / max(0.1, tau, 0.6 / S.rate));
+  // At the shortest trail a bead leaves almost nothing behind it, so the
+  // tubes show single beads; the tail comes up with the knob.
+  S.gain = min(1, 0.35 / tau) * (0.12 + 0.88 * min(1, S.trail / 0.4));
+  const htau = max(0.1, tau, 0.6 / S.rate), fade = exp(-d / tau), hfade = exp(-d / htau);
+  S.hgain = min(1, 0.12 / htau);
   for (let i = 0; i < NP * 3; i++) S.glow[i] *= fade;
   for (let i = 0; i < 14; i++) S.heat[i] *= hfade;
+  for (let i = 0; i < 14; i++) S.scan[i] *= exp(-d / 0.06);
   S.flash *= exp(-d / 0.6);
   // A flight takes 0.3 s at speed, up to 0.6 s when the steps come slower.
   const dur = (S.dur = cl(2.2 / S.rate, 0.3, 0.6));
   const live = [];
+  S.busy = [0, 0, 0, 0];
+  for (const f of S.flights) S.busy[f.j]++;
   for (const f of S.flights) {
     const u0 = f.u;
     f.u = min(1, f.u + d / dur);
@@ -187,10 +198,16 @@ export function update(dt, input, params) {
   }
   S.pitch += (min(5, (FLOOR - CEIL) / S.peak) - S.pitch) * (1 - exp(-d / 0.4));
   for (let j = 0; j < 4; j++) {
-    const c = S.e[j] - S.inc[j];
-    S.ghost[j] = max(c, S.ghost[j] - d * (2 + 30 * (1 - S.trail)));
+    const c = shown(S, j);
+    S.ghost[j] = max(c, S.ghost[j] - d * (1 + 40 * (1 - S.trail) * (1 - S.trail)));
   }
 }
+
+// The beads a column shows. Below 10 steps a second a given bead joins the
+// stack when its flight lands; faster than that a flight outlasts many
+// steps, so the stack shows the register as it is and the flights are the
+// traffic through it.
+const shown = (S, j) => S.e[j] - (S.rate < 10 ? S.inc[j] : 0);
 
 // Falling beads speed up, rising ones slow down, like a ball thrown up.
 const fly = (f, u) => f.y0 + (f.y1 - f.y0) * (f.y1 > f.y0 ? u * u : u * (2 - u));
@@ -200,7 +217,7 @@ function trace(S, f, u0, u1) {
   const lo = round(min(a, b)), hi = round(max(a, b)), x = COL_X[f.j];
   for (let y = lo; y <= hi; y++) {
     if (y < 0 || y >= H) continue;
-    const w = S.gain * (0.25 + 0.5 * (f.y1 > f.y0 ? (y - lo + 1) / (hi - lo + 1) : (hi - y + 1) / (hi - lo + 1)));
+    const w = S.gain * min(1, 14 / S.busy[f.j]) * (0.12 + 0.33 * (f.y1 > f.y0 ? (y - lo + 1) / (hi - lo + 1) : (hi - y + 1) / (hi - lo + 1)));
     for (let dx = -1; dx <= 1; dx++) {
       const o = (y * W + x + dx) * 3, ww = dx ? 0.5 * w : w;
       S.glow[o] += col[0] * ww;
@@ -229,8 +246,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.e) return;
   const h = S.hue, rgb = S.rgb;
-  S.cols = [hsv(0.11 + h, 0.6, 1), hsv(0.5 + h, 0.6, 1), hsv(0.8 + h, 0.5, 1), hsv(0.32 + h, 0.6, 1), hsv(0.61 + h, 0.5, 1)];
-  const cols = S.cols, ink = hsv(0.58 + h, 0.3, 1), warm = hsv(0.1 + h, 0.4, 1);
+  const cols = S.cols, ink = hsv(0.58 + h, 0.45, 1), warm = hsv(0.1 + h, 0.5, 1);
   rgb.fill(0);
   // The record.
   for (let i = 0; i < S.found; i++) {
@@ -244,7 +260,7 @@ export function draw(display, params) {
     if (hk > 0.02) for (let yy = y - 1; yy <= y + 13; yy++) for (let xx = floor(x - 4); xx <= floor(x + 4); xx++) put(S, xx, yy, ink, 0.16 * hk);
     const lv = 0.2 + 0.8 * hk;
     text(S, a, round(x - textW(a) / 2), y, ink, lv);
-    for (let xx = round(x - 3.5); xx < round(x + 3.5); xx++) put(S, xx, y + 6, ink, lv * 0.8);
+    for (let xx = round(x - 3.5); xx < round(x + 3.5); xx++) put(S, xx, y + 6, ink, min(1, lv * 0.8 + 0.6 * S.scan[k]));
     text(S, b, round(x - textW(b) / 2), y + 8, ink, lv);
   }
   // The state lamps.
@@ -256,12 +272,12 @@ export function draw(display, params) {
   // The columns: a rod, the ghost of the last peak, and the beads.
   const pitch = S.pitch, bh = max(0.8, pitch - 1.4);
   for (let j = 0; j < 4; j++) {
-    const c = cols[j], cx = COL_X[j], n = S.e[j] - S.inc[j];
+    const c = cols[j], cx = COL_X[j], n = shown(S, j);
     for (let y = CEIL; y <= FLOOR; y++) put(S, cx, y, c, 0.12);
     text(S, String(PR[j]), cx - 1, FLOOR + 2, c, 0.7);
     const top = S.ghost[j];
     for (let i = 0; i < Math.ceil(top); i++) {
-      const lit = i < n, yc = FLOOR - pitch * (i + 0.5), a = lit ? 1 : 0.22 * min(1, top - i);
+      const lit = i < n, yc = FLOOR - pitch * (i + 0.5), a = lit ? 1 : 0.45 * min(1, top - i);
       const glow = j === 0 && S.flash > 0.02 && lit ? S.flash : 0;
       for (let y = floor(yc - bh / 2 - 1); y <= floor(yc + bh / 2 + 1); y++) {
         const cov = cl(min(y + 1, yc + bh / 2) - max(y, yc - bh / 2), 0, 1);
@@ -275,11 +291,23 @@ export function draw(display, params) {
     }
   }
   // Beads in flight: a small bright bead at the head of each trail.
+  // A crowded column dims its heads, so fast traffic reads as a lit tube in
+  // the column's colour rather than as white.
+  const busy = [0, 0, 0, 0];
+  for (const f of S.flights) busy[f.j]++;
   for (const f of S.flights) {
-    const y = fly(f, f.u), c = S.cols[f.j];
-    for (let dy = 0; dy < 2; dy++) for (let dx = -2; dx <= 2; dx++) put(S, COL_X[f.j] + dx, round(y) + dy - 1, abs(dx) < 2 ? [1, 1, 1] : c, abs(dx) < 2 ? 0.8 : 0.6);
+    const y = fly(f, f.u), c = S.cols[f.j], a = min(1, 14 / busy[f.j]);
+    const core = [0.5 + 0.5 * c[0], 0.5 + 0.5 * c[1], 0.5 + 0.5 * c[2]];
+    for (let dy = 0; dy < 2; dy++) for (let dx = -2; dx <= 2; dx++) put(S, COL_X[f.j] + dx, round(y) + dy - 1, abs(dx) < 2 ? core : c, a * (abs(dx) < 2 ? 0.85 : 0.5));
   }
-  for (let p = 0; p < NP * 3; p++) rgb[p] += S.glow[p];
+  // The trails keep their colour: a pixel's glow is held under 0.7 of full,
+  // hue kept, so heavy traffic makes a coloured tube and not a white one.
+  for (let p = 0; p < NP * 3; p += 3) {
+    const g = S.glow, m = max(g[p], g[p + 1], g[p + 2]), q = m > 0.7 ? 0.7 / m : 1;
+    rgb[p] += g[p] * q;
+    rgb[p + 1] += g[p + 1] * q;
+    rgb[p + 2] += g[p + 2] * q;
+  }
   for (let p = 0; p < NP; p++) {
     const o = p * 3;
     display.setPixel(p % W, floor(p / W), min(255, rgb[o] * 255) | 0, min(255, rgb[o + 1] * 255) | 0, min(255, rgb[o + 2] * 255) | 0);
