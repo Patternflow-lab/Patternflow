@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Prandtl's Membrane
 // Family:  type
-// Idea:    A bar whose cross-section is a word is twisted, and each letter is drawn as Prandtl's soap film stretched over a hole of its shape and blown up by pressure, so the letters breathe in and out as pillows and plateaus lit by a walking lamp, coloured by the shear stress that runs hot along their rims and hottest in their inside corners.
+// Idea:    A bar whose cross-section is a word is twisted, and each letter is Prandtl's film stretched over a hole of its shape and blown up from below, so the letters breathe as lit pillows and hollow letters rise as plateaus round a flat plate, coloured by the shear stress, which is zero along each crest, runs hot along the rims and hottest in the inside corners.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: torsion of prismatic bars (Adhémar Barré de Saint-Venant, 1855), the membrane analogy (Ludwig Prandtl, 1903), thin-walled tubes (Rudolf Bredt, 1896), pattern round 75
+// Lineage: torsion of prismatic bars (Adhémar Barré de Saint-Venant, 1855), the membrane analogy (Ludwig Prandtl, 1903), thin-walled tubes (Rudolf Bredt, 1896), the Shortley-Weller boundary stencil (George Shortley and Royal Weller, 1938), successive over-relaxation (David Young, 1950), pattern round 75
 // Round:   75
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Twist=0.2..3, Word=0..3, Lamp=0..1
 //
-// Knob 1: Hue. Turns the stress colours round the wheel: at 0 the unstressed crests are blue, the rims run through magenta and red, and the inside corners burn orange to yellow.
-// Knob 2: Twist. How hard the bar is twisted, which is how hard the film is blown up. At 2 the film rises to 60 degrees at a 12 LED stem's rim; at 0.2 it barely leaves the outline and everything stays blue; at 3 the walls stand steep and the rims run yellow. Each breath swings the twist between 40% and 100% of this.
-// Knob 3: Word. The cross-section: the syllable 숨 (breath) the height of the panel, then LIT, AIR and HOT stacked. A letter with a hole is a hollow section, and its hole is a flat plate the film lifts.
-// Knob 4: Lamp. How high the lamp stands as it walks round the word once in 12 s: at 0.06 it rakes the film from 15 degrees up and each stem is lit on one side and dark on the other; at 1 it stands at 75 degrees and the film glows almost evenly.
+// Knob 1: Hue. Turns the stress colours round the wheel: at 0 the crests, where the stress is zero, are blue, the rims run through magenta and red, and stress past the hot end burns orange to yellow. The plates in the holes take the blue, dim.
+// Knob 2: Twist. How hard the bar is twisted, which is how hard the film is blown up. Each breath, one every 4 s, swings the twist from 40% to 100% of the knob. At 2 the film stands at 56 degrees at the rim of the 14 LED bar of ㅜ at the top of a breath and 31 at the bottom, and the colour reaches its hot end at a stress of 12.7. At 0.2 the film over that bar tilts 9 degrees at most and the colours stay blue and violet; at 3 the same rim stands at 66 degrees and runs yellow.
+// Knob 3: Word. The cross-section: the syllable 숨 (breath) the height of the panel, then LIT, AIR and HOT, three capitals 56 by 38 LEDs stacked. A letter with a hole is a hollow section, and the hole is a flat plate the film lifts: at the same twist HOT carries four times the torque of LIT.
+// Knob 4: Lamp. How high the lamp stands as it walks round the word once in 12 s: 19 degrees at 0.06, low enough that each stroke is lit on one side and shaded on the other and a glint runs along the crests; 75 degrees at 1, where the film is lit almost evenly and only the colours move.
 
 const W = 64, H = 128;
 const { floor, round, sqrt, cos, sin, min, max, abs, PI } = Math;
@@ -28,11 +28,12 @@ function hsv(h, s, v, o, k) {
   o[k + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
 
-// ---- Letters, as unions of convex polygons in LEDs. Latin capitals sit in
-// a box 56 wide and 38 tall, stems 13 thick and bars 7 to 11; the syllable
-// 숨 is drawn for the whole panel. Corners are left sharp on purpose: the
-// film has zero slope at an outside corner and an infinite one at an inside
-// corner, and both should show.
+// ---- Letters, as unions of convex polygons in LEDs. The capitals sit in a
+// box 56 wide and 38 tall, stems 13 thick and bars 7 to 11, at rows 3, 46
+// and 89; the syllable 숨 fills the panel, ㅅ in rows 2 to 46, ㅜ in 51 to
+// 81 and ㅁ, a hollow box with walls 14 to 15 thick, in 85 to 126. Corners
+// are left sharp: the film is flat at an outside corner and infinitely steep
+// at an inside one, and both should show.
 const R = (a, b, c, d) => [[a, b], [c, b], [c, d], [a, d]];
 const TOP = [[0, 9], [9, 0], [47, 0], [56, 9], [56, 11], [0, 11]];
 const LAT = {
@@ -77,22 +78,31 @@ function edgesOf(poly) {
 }
 
 // ---- The film. Saint-Venant's stress function phi solves lap(phi) = -2
-// (twist and shear modulus taken as 1) inside the section, phi = 0 on its
-// outline, and the shear stress is |grad phi|. Prandtl saw the same equation
-// in a film stretched over a hole of that shape and blown up from below. It
-// is solved on a grid of half LEDs, 128 by 256 nodes at ((i + 1/2)/2,
-// (j + 1/2)/2), by successive over-relaxation, a few sweeps a frame until it
-// settles, so a new word inflates as the solver relaxes. Near the outline
-// each node uses the Shortley-Weller stencil with its true distance to the
-// edge along the grid line, so a slanted or curved outline is not a
-// staircase. A hole in a letter makes a hollow section: phi is constant on
-// the hole's edge, a flat plate the film lifts, and its height K is set by
-// the plate's balance (pressure on the plate's area against the film's pull
-// round its rim), which is Bredt's condition that the stress circulates
-// round the hole twice the hole's area. Checked in Node: for a circle of
-// radius 20 the solver gives phi = (a^2 - r^2)/2 to within 0.3% and the
-// stress at the rim is a to within 2%; a 40 by 8 strip has its largest
-// stress at the middle of a long side.
+// (twist and shear modulus taken as 1) inside the section with phi = 0 on
+// its outline, the shear stress is |grad phi| and the torque is twice the
+// volume under phi. Prandtl saw the same equation in a film stretched over a
+// hole of that shape and blown up from below. It is solved on a grid of half
+// LEDs, 128 by 256 nodes at ((i + 1/2)/2, (j + 1/2)/2), by successive
+// over-relaxation, ten sweeps a frame until no node moves by more than 0.01,
+// so a new word inflates as the solver relaxes: 116 to 144 sweeps, half a
+// second. Next to the outline a node uses the Shortley-Weller stencil with
+// its true distance to the edge along each grid line, so a slanted outline is
+// not a staircase. A hole makes a hollow section: phi is constant round the
+// hole, a weightless flat plate the film lifts, and the plate settles where
+// the pressure on its area balances the film's pull round its rim. That is
+// the condition that the stress circulates round the hole twice the hole's
+// area, the one Bredt's formula for thin tubes rests on.
+//
+// Checked in Node with this solver: on a circle of radius 20 the film peaks
+// at 199.79 against a^2/2 = 200, phi is within 0.18 of (a^2 - r^2)/2
+// everywhere, and the largest stress is 19.98 against a = 20, at the rim. On
+// a 40 by 8 strip the largest stress is at the middle of a long side, 7.50
+// at the node a quarter LED in from the edge, where the strip's 2y gives 7.5.
+// In a square tube 40 across with walls 6 the plate stands at 108.7 against
+// 102 from Bredt's thin-wall formula, and the stress in the middle of a wall
+// is 17.6 against Bredt's 17.0. The walls of 숨's ㅁ are too thick for Bredt:
+// its plate stands at 268, and across the bottom wall the stress climbs from
+// 6 at the plate to 31 at the outline.
 const FW = 128, FH = 256, NN = FW * FH, HS = 0.5;
 function buildFilm(word) {
   // Each polygon is measured only over its own box and 2 LEDs round it;
@@ -270,8 +280,8 @@ export function draw(display, params) {
   let hx = lx, hy = ly, hz = lz + 1;
   const hl = sqrt(hx * hx + hy * hy + hz * hz);
   (hx /= hl), (hy /= hl), (hz /= hl);
-  const kt = P / 13; // the stress at which the colour reaches the hot end is 13 / P
-  const plate = 0.5 * (0.5 + 0.5 * lz);
+  const kt = P / 11; // the stress at which the colour reaches the hot end is 11 / P
+  const plate = 0.6 * (0.5 + 0.5 * lz);
   for (let p = 0, y = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       const n = lin[p];
@@ -282,8 +292,8 @@ export function draw(display, params) {
         spec *= spec * spec * spec;
         spec *= spec * spec; // nh^24
         const tau = min(1.2, sqrt(gx * gx + gy * gy) * kt);
-        const v = (0.4 + 0.3 * (1 + dif) + 0.5 * spec) * (0.6 + 0.6 * tau) * n * 0.25;
-        hsv(0.62 + S.hue + 0.45 * min(1.15, tau), 1, v > 1 ? 1 : v, rgb, 0);
+        const v = (0.4 + 0.3 * (1 + dif)) * (0.6 + 0.6 * tau) + 0.7 * spec * n * 0.25;
+        hsv(0.62 + S.hue + 0.45 * min(1.15, tau), 1 - 0.3 * spec, v > 1 ? 1 : v, rgb, 0);
         display.setPixel(x, y, round(255 * rgb[0]), round(255 * rgb[1]), round(255 * rgb[2]));
       } else if (lplate[p]) {
         hsv(0.62 + S.hue, 1, plate * lplate[p] * 0.25, rgb, 0);
