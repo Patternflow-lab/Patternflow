@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Euler Strokes
 // Family:  type
-// Idea:    A pen writes a word stacked down the panel letter by letter, each letter a graph of stroke ends, corners and junctions, in exactly as many strokes as Euler's count of its odd vertices allows, following a Hierholzer route: the odd vertices glow before the pen reaches them, every pen lift leaves a faint dotted trail, and beside each letter a digit and a row of pips keep its stroke count.
+// Idea:    A pen writes a word stacked down the panel letter by letter, each letter a graph of stroke ends, corners and junctions, in exactly as many strokes as Euler's count of its odd vertices allows, following a Hierholzer route: the unwritten skeleton is faintly tinted with the stroke each piece will belong to, the odd vertices glow before the pen reaches them, each pen lift leaves a faint dashed trail, and beside each letter a digit and a row of pips keep its stroke count.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Word=0..3, Order=0..1
 //
-// Knob 1: Hue. Turns every colour together. At 0 the first stroke of a letter is cyan, the second gold, the third magenta, the fourth violet; the odd vertices glow warm white and the unwritten skeleton is a pale blue grey.
-// Knob 2: Speed. At 2 the pen writes 34 LEDs a second and travels with the pen up at 90, and rests 0.12 s on each touch and lift. PATH takes 11.7 s in the Euler order, then holds for 1.8 s and fades for 0.9 s before it is written again by another route. At 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 1: Hue. Turns every colour together. At 0 the first stroke of a letter is cyan, the second magenta, the third gold, the fourth green; the marks where strokes start and end are warm white on odd vertices and rose on even ones, and fresh ink is white hot for about 0.7 s.
+// Knob 2: Speed. At 2 the pen writes 34 LEDs a second, travels with the pen up at 90 and rests 0.12 s on each touch and lift. PATH takes 10.5 to 10.8 s in the Euler order and 12.6 s in school order, then holds for 1.8 s and fades for 0.9 s before it is written again. At 0.2 ten times slower, at 3 one and a half times faster.
 // Knob 3: Word. PATH (1, 2, 2 and 3 strokes), 다리 (bridge: 3 and 2), EULER (2, 1, 1, 2, 1) or 한붓 (one brush: 6 and 6), the counts in the Euler order. Each letter is a vertex and edge list in the code; the word stacks one letter per cell down the 128 rows.
-// Knob 4: Order. Below 0.5 the pen takes the fewest strokes, max(1, odd/2) for each connected piece, on a Hierholzer route that pairs the spare odd vertices with the shortest pen-up hops, and each pass picks a new route of the same count. Above 0.5 it follows school stroke order instead (ball and stick print for the Latin letters, 필순 for Hangul), and the counts grow: PATH 10 against 8, 다리 8 against 5, EULER 12 against 7, 한붓 14 against 12. Rings mark where each stroke touched down and lifted; in school order they land on even vertices too.
+// Knob 4: Order. Below 0.5 the pen takes the fewest strokes, max(1, odd/2) for each connected piece, on a Hierholzer route that pairs the spare odd vertices with short pen-up hops, and each pass picks a new route of the same count (H has 11, 붓 32 seen in 3000 passes). Above 0.5 it follows school stroke order instead (ball and stick print for the Latin letters, 필순 for Hangul), and the counts grow: PATH 10 against 8, 다리 8 against 5, EULER 12 against 7, 한붓 14 against 12. A ring stays where each stroke touched down or lifted; rose rings on even vertices are lifts no Euler route needs.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, min, max, sqrt, sin, cos, exp, abs, hypot, PI } = Math;
