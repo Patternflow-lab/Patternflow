@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Franklin's Involution
 // Family:  number
-// Idea:    Every partition of n into distinct parts stands in turn as a Ferrers diagram of square dots in the top third, coloured by whether it has an even or an odd number of parts, and Franklin's move flies its smallest row onto the slope of its largest rows, or the slope down into a new smallest row, to build its partner of the other colour in the bottom third, while the middle third counts the two colours level and writes Euler's series one coefficient at a time, until at a pentagonal n one staircase-trapezoid has no move to make and stands framed above the sign it gives the series.
+// Idea:    Every partition of n into distinct parts stands in turn as a Ferrers diagram of square dots in the top third, coloured by whether it has an even or an odd number of parts, over a faint lattice of every dot place a partition of n can reach, and Franklin's move flies its smallest row onto the slope of its largest rows, or the slope down into a new smallest row, leaving fading trails, to build its partner of the other colour in the bottom third, while the middle third counts the two colours level and writes Euler's series one coefficient at a time, until at a pentagonal n one staircase-trapezoid has no move to make and stands framed above the sign it gives the series.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, N=5..16, Gap=0..1
 //
 // Knob 1: Hue. Turns both colours round the wheel, always opposite. At 0 partitions with an even number of parts are azure and odd ones amber; at 0.5 the two swap.
-// Knob 2: Speed. A partition takes 2.4 / Speed seconds: 1.2 s at the opening 2, 12 s at 0.2, 0.8 s at 3. The moved dots leave one after another, the last 0.3 of that time after the first, and each takes 0.42 of it to land.
+// Knob 2: Speed. A partition takes 2.4 / Speed seconds: 1.2 s at the opening 2, 12 s at 0.2, 0.8 s at 3. The moved dots leave one after another, the last 0.3 of that time after the first, and each takes 0.42 of it to land; their trails keep a third of their light after a step.
 // Knob 3: N. The n the walk starts from, 5 to 16; it goes on to n + 1 after the last partition of n and back to N after 16. At the opening 5, (5) and (4, 1) turn into each other and then (3, 2) has no move, which gives x^5 its +1; n = 6 then comes out even, two pairs, and n = 7 ends on (4, 3). At 16 a pass is 32 partitions, 38 s.
 // Knob 4: Gap. The gap between dots as a share of their spacing: one LED at the opening 0.06, so the rows read as rows of square dots; at 0.5 the dots are five eighths of the spacing, at 1 a quarter.
 
@@ -39,8 +39,12 @@
 // pair is seen both ways round, and the lone one, if n has one, comes last.
 // The pair shares one dot spacing, the largest that fits both in a third
 // of the panel, up to 14 LEDs: 12 for (5) and (4, 1), 4 for (13) and (12, 1).
+// Behind each diagram every dot place that some partition of n uses is lit
+// faintly, brighter the more partitions use it (the first place is in all
+// of them, the end of the row (n) in one) and tinted by the share of those
+// with an even number of parts.
 
-const W = 64, H = 128, TOP = 1, BOT = 85, REG = 42, NMAX = 16;
+const W = 64, H = 128, TOP = 1, BOT = 85, REG = 42, NMAX = 16, UR = 6, UC = NMAX + 1;
 const { floor, min, max, round, PI, sin } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
@@ -131,12 +135,29 @@ export function setup(params) {
   params.s = {
     N: -1, n: 0, steps: [], i: 0, u: 0, e: 0, o: 0, lone: -1, hue: 0, speed: 2, gap: 0.06, t: 0,
     buf: new Float32Array(W * H * 3), ca: [0, 0, 0], cb: [0, 0, 0],
+    use: new Float32Array(UR * UC), even: new Float32Array(UR * UC), q: 1, trail: new Float32Array(W * H * 3),
   };
+}
+
+// How many partitions of n use each dot place, row r and column c, and
+// how many of those have an even number of parts.
+function usage(S, n) {
+  S.use.fill(0);
+  S.even.fill(0);
+  const P = partitions(n);
+  for (const l of P)
+    for (let r = 0; r < l.length; r++)
+      for (let c = 0; c < l[r]; c++) {
+        S.use[r * UC + c]++;
+        if (l.length % 2 === 0) S.even[r * UC + c]++;
+      }
+  S.q = P.length;
 }
 
 function begin(S, n) {
   S.n = n;
   S.steps = walk(n);
+  usage(S, n);
   S.i = 0;
   S.u = 0;
   S.e = S.o = 0;
@@ -165,6 +186,9 @@ export function update(dt, input, params) {
   }
   S.t += d;
   S.u += (d * S.speed) / 2.4;
+  // The trail keeps a third of its light after a step.
+  const keep = Math.exp((-d * S.speed) / 2.2), tr = S.trail;
+  for (let i = 0; i < tr.length; i++) tr[i] *= keep;
   while (S.u >= 1) {
     S.u -= 1;
     if (++S.i >= S.steps.length) begin(S, S.n >= max(NMAX, S.N) ? S.N : S.n + 1);
@@ -193,12 +217,20 @@ function text(S, s, x, y, sc, c, a) {
   }
 }
 
+// Lay a dot into the trail, keeping the brighter of old and new.
+function glow(S, x, y, w, c, a) {
+  const t = S.trail;
+  for (let yy = max(0, round(y)); yy < min(H, round(y) + w); yy++)
+    for (let xx = max(0, round(x)); xx < min(W, round(x) + w); xx++)
+      for (let q = 0, i = (yy * W + xx) * 3; q < 3; q++) t[i + q] = max(t[i + q], c[q] * a);
+}
+
 const mix = (c, w, o) => ((o[0] = c[0] + (255 - c[0]) * w), (o[1] = c[1] + (255 - c[1]) * w), (o[2] = c[2] + (255 - c[2]) * w), o);
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.steps.length) return;
-  S.buf.fill(0);
+  S.buf.set(S.trail);
   const st = S.steps[S.i], l = st.l, f = st.f, m = f.m, u = S.u;
   const ca = hsv(S.hue + 0.58, S.ca), cb = hsv(S.hue + 0.08, S.cb);
   const col = (p) => (p.length % 2 ? cb : ca);
@@ -236,6 +268,25 @@ export function draw(display, params) {
     rect(S, j * pip, S.lone ? 78 : 71, pip - 1, pip - 1, mix(S.lone ? cb : ca, w, [0, 0, 0]), 1);
   }
 
+  // Under each diagram, faintly, every dot place some partition of n
+  // reaches: the brighter the more partitions use it, tinted from the odd
+  // colour to the even one by the share of them with an even number of parts.
+  const faint = [0, 0, 0];
+  const lattice = (y0) => {
+    for (let r = 0; r < UR; r++)
+      for (let c = 0; c < UC; c++) {
+        const k = S.use[r * UC + c];
+        if (!k) continue;
+        const [x, y] = at(y0, r, c);
+        if (x >= W || y < y0 - 1 || y + ds > (y0 < BOT ? TOP + REG : H)) continue;
+        const w = S.even[r * UC + c] / k, a = (0.05 + 0.13 * (k / S.q)) * fade;
+        for (let q = 0; q < 3; q++) faint[q] = ca[q] * w + cb[q] * (1 - w);
+        rect(S, x, y, ds, ds, faint, a);
+      }
+  };
+  lattice(yl);
+  if (m) lattice(ym);
+
   const hl = [0, 0, 0];
   if (!m) {
     // The lone partition: its smallest row and its slope lit, the dot they
@@ -267,11 +318,14 @@ export function draw(display, params) {
     for (let r = 0; r < m.length; r++)
       for (let c = 0; c < m[r]; c++) if (!to.has(r * 64 + c)) rect(S, ...at(ym, r, c), ds, ds, col(m), fade);
     // The moved dots in flight, bowing out to the right on the way down.
+    // Each leaves its path in the trail, which fades over about a step.
     f.moves.forEach(([a, b], j) => {
       const [x0, y0] = at(yl, a[0], a[1]), [x1, y1] = at(ym, b[0], b[1]), w = v[j];
       if (w <= 0) return;
       const x = x0 + (x1 - x0) * w + sin(PI * w) * (6 + 2 * j), y = y0 + (y1 - y0) * w;
-      rect(S, x, y, ds, ds, mix(col(m), 0.45, hl), fade);
+      const k = mix(col(m), 0.45, hl);
+      if (w < 1) glow(S, x, y, ds, k, 0.4);
+      rect(S, x, y, ds, ds, k, fade);
     });
   }
 
