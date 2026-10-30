@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Coded Aperture
 // Family:  type
-// Idea:    A glowing word shines through a card punched with a modified uniformly redundant array onto a detector where photons land one by one as an unreadable jumble of overlapping shadows, and correlating that jumble with the array's decoding pattern brings the word up out of the noise as the counts pile up.
+// Idea:    A glowing word shines through a card punched with a modified uniformly redundant array onto a detector where photons land one by one as an unreadable jumble of overlapping shadows, and correlating that jumble with the array's decoding pattern brings the word up out of the noise as the counts pile up, until the 6 s exposure ends and the detector is cleared.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: coded aperture imaging with a random array of pinholes (Robert Dicke, and J. G. Ables, 1968), uniformly redundant arrays (E. E. Fenimore and T. M. Cannon, 1978), modified uniformly redundant arrays from quadratic residues (S. R. Gottesman and E. E. Fenimore, 1989), pattern round 75
+// Lineage: coded aperture imaging with random arrays of pinholes (Robert H. Dicke, 1968; J. G. Ables, 1968), uniformly redundant arrays (E. E. Fenimore and T. M. Cannon, 1978), modified uniformly redundant arrays from quadratic residues (S. R. Gottesman and E. E. Fenimore, 1989), pattern round 75
 // Round:   75
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Rate=0.2..3, Mask=0..2, Word=0..3
 //
-// Knob 1: Hue. Turns the word and the detector round the wheel together: at 0 the word and its decoded image are pale gold and the photons on the detector cyan.
-// Knob 2: Rate. Photons a second through the coded mask, 1500 per unit: 3000 at 2, 300 at 0.2, 4500 at 3. Every exposure lasts 6 s, so the rate sets how sharp the word comes up before the detector is cleared.
-// Knob 3: Mask. 0 is the MURA for p = 17, 144 holes; 1 is a random card with about as many holes, as Dicke and Ables proposed, decoded the same way, which leaves ghosts; 2 is one pinhole at the centre. Each hole lets through the same light, so the pinhole gets 144 times fewer photons in the same 6 s.
-// Knob 4: Word. What shines above the card: STAR, CRAB, VELA or LUX, in a 3 by 5 letter on the 17 by 17 sky.
+// Knob 1: Hue. Turns the light round the wheel: at 0 the word, the light in the holes and the decoded word are pale gold and the photons on the detector cyan.
+// Knob 2: Rate. Photons a second through the coded card, 1500 per unit: 3000 at 2, 300 at 0.2, 4500 at 3, on top of a detector background of 1 count per element a second. Every exposure lasts 6 s and holds its result 1.2 s, so the rate sets how clear the word comes up: at the end it stands 3.8 noise widths above the empty sky at 2, 0.9 at 0.2 and 4.7 at 3.
+// Knob 3: Mask. 0 is the MURA for p = 17, 144 holes of 289. 1 is a random card about half open, the kind Dicke and Ables proposed, decoded by balanced correlation; even without noise its shadows do not cancel, so 15 of STAR's 34 elements come out under half bright and a ghost in the sky reaches 38%. 2 is one pinhole in the middle. Every hole passes the same light, so in the same 6 s the pinhole gathers 123 photons among 1740 background counts, and the word ends 1.5 noise widths clear against 2.6 for the random card and 3.8 for the MURA.
+// Knob 4: Word. What shines above the card: STAR, CRAB, VELA or LUX, in 3 by 5 letters on the 17 by 17 sky. The fewer the lit elements, the clearer the decoded word: LUX, 27 elements, ends at 4.7 where STAR, 34, ends at 3.8.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, min, max, sqrt, exp, log, cos, PI } = Math;
@@ -122,6 +122,11 @@ function poisson(l) {
 }
 
 function clear(S) {
+  // What the last exposure showed fades out over a quarter second.
+  if (S.view) {
+    S.oldDec.set(S.view);
+    S.oldA = 1;
+  }
   S.D.fill(0);
   S.dD.fill(0);
   S.dec.fill(0);
@@ -136,6 +141,7 @@ export function setup(params) {
     D: new Float32Array(NE), dD: new Float32Array(NE), dec: new Float32Array(NE),
     cnt: new Float32Array(BW * BH), flash: new Float32Array(BW * BH), hole: new Float32Array(NE), spark: new Float32Array(NP),
     nWord: 0, nBkg: 0, rgb: new Float32Array(NP * 3), wrap: new Int32Array(3 * P),
+    view: new Float32Array(NE), oldDec: new Float32Array(NE), oldA: 0,
   });
   for (let x = 0; x < 3 * P; x++) S.wrap[x] = x % P;
 }
@@ -222,7 +228,8 @@ export function update(dt, input, params) {
     S.t -= CYCLE;
     clear(S);
   }
-  if (S.t < EXPO) expose(S, min(d, EXPO - S.t + d));
+  S.oldA *= exp(-d / 0.12);
+  if (S.t < EXPO) expose(S, d);
 }
 
 export function draw(display, params) {
@@ -280,13 +287,18 @@ export function draw(display, params) {
   const off = (S.nBkg / NE) * card.sq;
   for (let e = 0; e < NE; e++) {
     const i = floor(e / P), j = e - i * P;
-    const v = cl((S.dec[e] - off) / full, 0, 1.3);
+    const v = (S.view[e] = cl((S.dec[e] - off) / full, 0, 1.3));
+    const u = max(v, S.oldDec[e] * S.oldA);
     for (let y = 0; y < CH; y++)
       for (let x = 0; x < CW; x++) {
         put(X0 + j * CW + x, Y_DEC + i * CH + y, night, 1);
-        put(X0 + j * CW + x, Y_DEC + i * CH + y, gold, 0.85 * v);
+        put(X0 + j * CW + x, Y_DEC + i * CH + y, gold, 0.85 * u);
       }
   }
+  // The exposure clock: a thread under the detector that runs out over the
+  // 6 s and stays full while the decoded word holds.
+  const run = min(1, S.t / EXPO) * BW;
+  for (let x = 0; x < run; x++) put(X0 + x, Y_DET + BH + 1, cyan, 0.3);
   for (let p = 0; p < NP; p++) if (S.spark[p] > 0.01) put(p % W, floor(p / W), p < Y_MASK * W ? gold : lightC, 0.6 * S.spark[p]);
   for (let p = 0; p < NP; p++) {
     const o = p * 3;
