@@ -37,7 +37,8 @@ const EXPO = 6, HOLD = 1.2, CYCLE = EXPO + HOLD;
 // Detector background, counts per element per second, the same for every
 // mask: the cosmic-ray and radioactive counts an X-ray detector sees.
 const BKG = 1;
-// The first measured frame comes 2 s into the run; the exposure opens 0.6 s in.
+// The pattern opens 0.6 s into an exposure, so that 2 s in the word
+// already stands about 2.5 noise widths clear.
 const T0 = 0.6;
 
 // ---- Letters, 3 by 5, on sky rows 6 to 10.
@@ -122,7 +123,7 @@ function poisson(l) {
 }
 
 function clear(S) {
-  // What the last exposure showed fades out over a quarter second.
+  // What the last exposure decoded fades out in about a quarter second.
   if (S.view) {
     S.oldDec.set(S.view);
     S.oldA = 1;

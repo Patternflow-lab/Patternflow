@@ -157,15 +157,16 @@ export function update(dt, input, params) {
   }
   const tau = 0.05 * pow(30, S.trail);
   // A longer trail lays each pass down fainter, so a path's brightness is
-  // its traffic, not how long the light stays.
-  // At the shortest trail a bead leaves almost nothing behind it, so the
-  // tubes show single beads; the tail comes up with the knob.
+  // its traffic, not how long the light stays. At the shortest trail a bead
+  // leaves almost nothing behind it and the tubes show single beads.
   S.gain = min(1, 0.35 / tau) * (0.12 + 0.88 * min(1, S.trail / 0.4));
   const htau = max(0.1, tau, 0.6 / S.rate), fade = exp(-d / tau), hfade = exp(-d / htau);
   S.hgain = min(1, 0.12 / htau);
   for (let i = 0; i < NP * 3; i++) S.glow[i] *= fade;
   for (let i = 0; i < 14; i++) S.heat[i] *= hfade;
-  for (let i = 0; i < 14; i++) S.scan[i] *= exp(-d / 0.06);
+  const sfade = exp(-d / 0.06);
+  for (let i = 0; i < 14; i++) S.scan[i] *= sfade;
+  for (let j = 0; j < 6; j++) S.sheat[j] = S.e[4 + j] > 0 ? 1 : S.sheat[j] * exp(-d / 0.08);
   S.flash *= exp(-d / 0.6);
   // A flight takes 0.3 s at speed, up to 0.6 s when the steps come slower.
   const dur = (S.dur = cl(2.2 / S.rate, 0.3, 0.6));
@@ -265,8 +266,7 @@ export function draw(display, params) {
   }
   // The state lamps.
   for (let j = 0; j < 6; j++) {
-    const on = S.e[4 + j] - S.inc[4 + j] > 0;
-    S.sheat[j] = on ? 1 : S.sheat[j] * 0.7;
+    const on = S.e[4 + j] > 0;
     text(S, String(PR[4 + j]), round(stX(j) - 3.5), ST_Y, on ? [1, 1, 1] : cols[4], on ? 0.95 : 0.22 + 0.5 * S.sheat[j]);
   }
   // The columns: a rod, the ghost of the last peak, and the beads.
