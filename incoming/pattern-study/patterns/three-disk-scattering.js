@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0.2..3, Gap=0.4..4, Bounces=3..12
 //
 // Knob 1: Hue. Turns the three exit colours round the wheel together, a third apart. At 0 the gap at the bottom is gold, the one to the upper right teal and the one to the upper left violet; at 1/3 each colour moves on one gap. Starts still bouncing after 40 bounces are white.
-// Knob 2: Speed. At 2 the zoom takes 20.4 s to go 4 decades deep, holds, and fades back to the whole map and the next trapped start, 24 s in all, and the points fly 40 LEDs a second. At 0.2 it all runs ten times slower, at 3 one and a half times faster.
+// Knob 2: Speed. At 2 the zoom takes 20.4 s to go 4 decades deep and holds there, then fades back to the whole map and the next trapped start, 24 s in all, and the points fly 40 LEDs a second. At 0.2 it all runs ten times slower, at 3 one and a half times faster.
 // Knob 3: Gap. The gap between neighbouring discs in disc radii, 0.4 to 4 in steps of 0.05, so the centres stand R = 2.4a to 6a apart. At 0.4 the discs nearly touch, most starts bounce several times and the map is mostly thin bands; at 4 most starts leave at once or after one bounce and the bands narrow to a few strips across broad fields.
 // Knob 4: Bounces. How many bounces beyond the fewest on the map a start needs to reach full brightness, 3 at the opening up to 12. At 3 a start that bounced three times more than the quickest is at full brightness and one that bounced once more at two thirds; at 12 only the bands next to the trapped curves are bright, and the fields that leave at once stay at 42%.
 
