@@ -12,12 +12,12 @@
 // @knobs Hue=0..1, Speed=0.2..3, Word=0..3, Rule=0..1
 //
 // Knob 1: Hue. Turns the capitals and the wings round the wheel together: at 0 the capitals are gold and the wing text pale sky blue.
-// Knob 2: Speed. At 2 the reader slides for 0.45 to 0.95 s depending on how much text it skips, the capital locks in 0.4 s and the page climbs a line in 0.35 s, about 1.5 s a line. At 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 2: Speed. At 2 the reader slides for 0.45 to 0.95 s depending on how much text it passes over, the capital locks in 0.4 s and the page climbs a line in 0.35 s: a new line every 1.28 s on average with THOREAU. At 0.2 ten times slower, at 3 one and a half times faster.
 // Knob 3: Word. The spine: THOREAU, WALDEN, MUREAU (Cage's 1970 piece made from Thoreau's Journal, MUsic and thoREAU) or SILENCE (Cage's 1961 book). The page opens on the first 17 lines of the mesostic; turning it leaves a blank line and the reader starts a new mesostic from where it is.
 // Knob 4: Rule. Below 0.5 a 50% mesostic: between two capitals the second capital's letter does not appear. From 0.5 a 100% mesostic: the first capital's letter does not appear there either, so the wings are shorter and more letters are passed over. Turning it leaves a blank line like Word.
 
 const W = 64, H = 128, NP = W * H;
-const { floor, round, min, max, abs, exp } = Math;
+const { floor, round, min, max, exp } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 
@@ -232,7 +232,7 @@ export function update(dt, input, params) {
     const last = S.page[S.page.length - 1];
     S.gen = newGen(SPINES[wd], full, last.end);
     S.page.push({ blank: true, glyphs: [], rp: last.rp, end: last.end });
-    if (S.page.length > SLOTS + 1) S.page.shift();
+    while (S.page.length > SLOTS + 1) S.page.shift();
     S.next = nextLine(S.gen);
     S.from = last.rp;
     S.phase = 2;
@@ -246,7 +246,7 @@ export function update(dt, input, params) {
     if (S.phase === 0) S.phase = 1;
     else if (S.phase === 1) {
       S.page.push(S.next);
-      if (S.page.length > SLOTS + 1) S.page.shift();
+      while (S.page.length > SLOTS + 1) S.page.shift();
       S.from = S.next.rp;
       S.next = nextLine(S.gen);
       S.phase = 2;

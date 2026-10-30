@@ -12,12 +12,12 @@
 // @knobs Hue=0..1, Speed=0.2..3, Court=5..10, Decks=1..2
 //
 // Knob 1: Hue. Turns the ten chain colours round the wheel together; at 0 the first card's chain is cyan and the rest follow in steps of a tenth of the wheel.
-// Knob 2: Speed. At 2 the head reads 8 cards a second, so a deal takes 6.5 s, the turned-up card stays 2.2 s and the shuffle 0.8 s. At 0.2 ten times slower, at 3 one and a half times faster.
-// Knob 3: Court. What a jack, queen or king counts, from 5 as in Gardner's telling to 10 as in blackjack. The mean jump grows from 5.4 to 6.5 cards and fewer chains meet: with one deck all ten merge in 58% of deals at 5 and 28% at 10.
+// Knob 2: Speed. At 2 the head reads 10.4 cards a second (20.8 with two decks), so a deal takes 5 s, the turned-up card stays 2.2 s and the shuffle 0.8 s: a new deal every 8 s. At 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 3: Court. What a jack, queen or king counts, from 5 as in Gardner's telling to 10 as in blackjack; with one deck a court card shows its count where the suit would be. The mean jump grows from 5.4 to 6.5 cards and fewer chains meet: with one deck all ten merge in 58% of deals at 5 and 28% at 10.
 // Knob 4: Decks. One deck of 52 cards in 13 rows of 4 with suits, or from 1.5 two decks of 104 in 13 rows of 8 with the suit shown only by the colour of the rank. All ten chains merge in 94% of two-deck deals at Court 5. Turning it deals again.
 
 const W = 64, H = 128, NP = W * H;
-const { floor, round, min, max, abs, sqrt, exp, PI, sin } = Math;
+const { floor, round, min, max, sqrt, PI, sin, cos } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 
@@ -27,9 +27,9 @@ function hsv(h, s, v) {
   return [i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p, i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p, i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p];
 }
 
-// ---- Card faces. Ranks in a 3 by 5 font, one row a number with the high
-// bit on the left: A, 2 to 9, then the 1 and 0 of 10, J, Q, K. The 1 of 10
-// is one column wide so "10" fits in 5.
+// ---- Card faces. Ranks in a 3 by 5 font, one number a row with the high
+// bit on the left: A, 2 to 9, J, Q, K. Ten is a one-column 1 and a 0 (the
+// table below), so "10" fits in 5 columns.
 const RANK = [
   [2, 5, 7, 5, 5], [6, 1, 2, 4, 7], [6, 1, 2, 1, 6], [5, 5, 7, 1, 1], [7, 4, 6, 1, 6], [3, 4, 6, 5, 2], [7, 1, 2, 2, 2], [2, 5, 2, 5, 2], [2, 5, 3, 1, 6],
   null, [1, 1, 1, 5, 2], [2, 5, 5, 6, 3], [5, 6, 4, 6, 5],
@@ -56,11 +56,12 @@ const valueOf = (r, court) => (r > 10 ? court : r);
 // become one. Every token is always ahead of the head, so a chain can only
 // meet another on a card the other has not left yet. A token whose jump
 // would leave the deck stays: its card is that chain's last card. Counted
-// in Node over 100000 deals: with one deck and Court 5 all ten chains end
-// on one card in 58.2% of deals and the classic trick, a chain from the
-// first card against one from a card picked among the first ten, works in
-// 85.3%; at Court 10 it is 28.3% and 72.0%. With two decks at Court 5 all
-// ten merge in 93.8%.
+// in Node with this code over 100000 deals, every chain's last card the
+// same as walking it alone: with one deck and Court 5 all ten chains end
+// on one card in 58.5% of deals, and the trick itself, the magician's
+// chain from the first card against yours from a card you pick among the
+// first ten, works in 85.4%. At Court 10 it is 28.4% and 72.2%; with two
+// decks at Court 5, 93.8% and 97.9%.
 const CHAINS = 10;
 const DEAL = 5.0, SHOW = 2.2, SHUFFLE = 0.8;
 
@@ -75,7 +76,8 @@ function deal(S) {
   S.n = n;
   S.cards = cards;
   S.cols = S.decks === 1 ? 4 : 8;
-  // Tokens by card; trail colour index by card (-1 unvisited).
+  // The token on each card, and the chains that have stood on it (null for
+  // a card no chain has reached).
   S.tok = new Array(n).fill(null);
   S.trail = new Array(n).fill(null);
   for (let i = 0; i < CHAINS; i++) {
@@ -287,7 +289,7 @@ export function draw(display, params) {
   for (const b of S.bursts) {
     if (b.age < 0) continue;
     const p = cell(S, b.at), c = groupCol(b.members), R = 2 + b.age * 22, a = 1 - b.age / 0.6;
-    for (let s = 0; s < 48; s++) put(round(p.cx + R * Math.cos((s / 48) * 2 * PI)), round(p.cy + R * 0.8 * sin((s / 48) * 2 * PI)), c, a);
+    for (let s = 0; s < 48; s++) put(round(p.cx + R * cos((s / 48) * 2 * PI)), round(p.cy + R * 0.8 * sin((s / 48) * 2 * PI)), c, a);
   }
 
   // ---- The card the chains came to, turned up large: rank and suit, and a
