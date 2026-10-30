@@ -68,7 +68,7 @@ const FLAGS = {
   G: (u) => (floor(u * 6) % 2 ? B : Y),
   H: (u) => (u < 0.5 ? Wt : R),
   I: (u, v, l, d) => (((u - 0.5) * l) ** 2 + ((v - 0.5) * d) ** 2 < (0.26 * d) ** 2 ? K : Y),
-  J: (u, v) => (v < 0.25 || v >= 0.75 ? B : Wt),
+  J: (u, v) => (v < 1 / 3 || v >= 2 / 3 ? B : Wt),
   K: (u) => (u < 0.5 ? Y : B),
   L: (u, v) => ((u < 0.5) === (v < 0.5) ? Y : K),
   M: (u, v, l, d) => (min(distLine(u * l, v * d, 0, 0, l, d), distLine(u * l, v * d, 0, d, l, 0)) < 0.1 * d ? Wt : B),
