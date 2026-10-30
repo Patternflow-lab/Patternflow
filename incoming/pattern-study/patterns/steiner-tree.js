@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Steiner Tree
 // Family:  geometry
-// Idea:    Four to seven terminals wander the panel, the minimum spanning tree joins them in faint dashes and the shortest network joins them in bright lines that meet three at a time at 120 degrees in marked Steiner points, and when two trees tie the network flips to the other one while the old one fades out amber; a bar at the foot reads the length ratio of the two trees against its floor of root 3 over 2.
+// Idea:    Four to seven terminals stand on a zigzag of equilateral triangles or wander the panel; the minimum spanning tree joins them in faint dashes and the shortest network in bright lines that meet three at a time at 120 degrees in pink Steiner points, and when another network becomes shorter the tree flips to it while the old one fades out amber; a bar at the foot reads the length ratio of the two trees against the conjectured floor of root 3 over 2.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Terminals=4..7, Scatter=0..1
 //
-// Knob 1: Hue. Turns every colour together: at 0 the Steiner tree is cyan, its Steiner points pink rings, the terminals warm white, the spanning tree dashed blue grey and a tree just left behind amber.
-// Knob 2: Speed. How fast the terminals move. At 2 each wobbles about 2.5 LEDs round its place in 9 to 20 s and wanders at up to 6 LEDs a second when Scatter is up; at 0.2 ten times slower, at 3 one and a half times faster.
-// Knob 3: Terminals. 4 to 7. Every full Steiner topology is tried (3, 15, 105 or 945 of them) with Smith's iteration, a share each frame, and the tree on show is also checked against the 2 swaps across each of its inner edges every frame.
-// Knob 4: Scatter. At 0 the terminals sit on a zigzag strip of equilateral triangles down the panel, side 60 LEDs for four terminals and 32 for seven. Four make a 60 degree rhombus whose two Steiner trees are mirror images of the same length, so the wobble flips the tree back and forth at a ratio near root 7 over 3, 0.882. Five and seven split into equilateral stars that share terminals, and the ratio sits on root 3 over 2, 0.866. At 1 the terminals wander the whole panel and the ratio mostly stays above 0.95.
+// Knob 1: Hue. Turns every colour together: at 0 the Steiner tree is cyan with faint rings spreading from it every 6 LEDs, its Steiner points pink, the terminals warm white, the spanning tree dashed blue grey and a tree just left behind amber.
+// Knob 2: Speed. How fast the terminals move. At 2 each wobbles round its place on the strip by 3.5% of the triangle side (2.1 LEDs for four terminals), once in 9 to 20 s, the strip sways 2.5 LEDs across, and free terminals wander at up to about 6 LEDs a second. At 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 3: Terminals. 4 to 7. Each frame tries 40 of the full Steiner topologies (3, 15, 105 or 945 in all) from a cold start with 15 of Smith's steps, keeps the near misses for 3 s with 10 more steps a frame, and tries both swaps across every inner edge of the tree on show. A shorter candidate takes over, and if the picture changes the old tree fades out amber over 1.2 s.
+// Knob 4: Scatter, applied as its square. At 0 the terminals sit on a zigzag strip of equilateral triangles down the panel, side 60 LEDs for four terminals and 32 for seven. Four make a 60 degree rhombus whose two Steiner trees are mirror images of one length, root 7 over 3 (0.882) of the spanning tree, so the wobble flips the tree back and forth about 8 times a minute. Five and seven split into equilateral stars that share terminals: at rest the ratio is exactly root 3 over 2, and with the wobble it reads 0.867 to 0.904. At 1 they wander the whole panel, the ratio stays above 0.95 nine tenths of the time and seven terminals flip 27 times a minute.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, min, max, sqrt, sin, cos, exp, abs, hypot, PI } = Math;
@@ -211,7 +211,7 @@ function resolve(S) {
   for (const T of topologies(S.n)) {
     const X = S.X.slice();
     initPos(T, X);
-    const L = smith(T, X, 25);
+    const L = smith(T, X, 15);
     if (!best || L < best[2]) best = [T, X, L];
   }
   S.T = best[0];
@@ -415,7 +415,9 @@ export function draw(display, params) {
   for (let i = 0; i < S.n; i++) spot(rgb, S.X[2 * i], S.X[2 * i + 1], 1.9, warm, 1);
   // The ratio: a bar from root 3 over 2 at the left to 1 at the right, and
   // the number above it.
-  const r = S.M > 0 ? S.L / S.M : 1, fill = cl((r - FLOOR) / (1 - FLOOR), 0, 1);
+  // Smith's steps reach a degenerate tree slowly, so where the spanning tree
+  // is already the shortest the length can stand 0.04% above it: read 1.
+  const r = S.M > 0 ? min(1, S.L / S.M) : 1, fill = cl((r - FLOOR) / (1 - FLOOR), 0, 1);
   for (let x = 3; x <= 60; x++) {
     const u = (x - 3) / 57, on = u <= fill;
     for (let y = 121; y <= 124; y++) {

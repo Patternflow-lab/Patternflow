@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns every colour together. At 0 the first stroke of a letter is cyan, the second magenta, the third gold, the fourth green; the marks where strokes start and end are warm white on odd vertices and rose on even ones, and fresh ink is white hot for about 0.7 s.
 // Knob 2: Speed. At 2 the pen writes 34 LEDs a second, travels with the pen up at 90 and rests 0.12 s on each touch and lift. PATH takes 10.5 to 10.8 s in the Euler order and 12.6 s in school order, then holds for 1.8 s and fades for 0.9 s before it is written again. At 0.2 ten times slower, at 3 one and a half times faster.
 // Knob 3: Word. PATH (1, 2, 2 and 3 strokes), 다리 (bridge: 3 and 2), EULER (2, 1, 1, 2, 1) or 한붓 (one brush: 6 and 6), the counts in the Euler order. Each letter is a vertex and edge list in the code; the word stacks one letter per cell down the 128 rows.
-// Knob 4: Order. Below 0.5 the pen takes the fewest strokes, max(1, odd/2) for each connected piece, on a Hierholzer route that pairs the spare odd vertices with short pen-up hops, and each pass picks a new route of the same count (H has 11, 붓 32 seen in 3000 passes). Above 0.5 it follows school stroke order instead (ball and stick print for the Latin letters, 필순 for Hangul), and the counts grow: PATH 10 against 8, 다리 8 against 5, EULER 12 against 7, 한붓 14 against 12. A ring stays where each stroke touched down or lifted; rose rings on even vertices are lifts no Euler route needs.
+// Knob 4: Order. Below 0.5 the pen takes the fewest strokes, max(1, odd/2) for each connected piece, on a Hierholzer route that pairs the spare odd vertices with short pen-up hops, and each pass picks a new route of the same count (H has 11, 붓 32 seen in 3000 passes). Above 0.5 it follows school stroke order instead (ball and stick print for the Latin letters, 필순 for Hangul), and the counts grow: PATH 10 against 8, 다리 8 against 5, EULER 12 against 7, 한붓 14 against 12. A ring stays where each stroke touched down or lifted. Rose rings sit on even vertices: in the Euler order only a closed piece (the ring of ㅎ) touches one, in school order P, A, E, ㄷ, ㄹ and ㅂ do too.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, round, min, max, sqrt, sin, cos, exp, abs, hypot, PI } = Math;
@@ -281,8 +281,8 @@ function posAt(m, s) {
   return [pts[2 * i - 2] + (pts[2 * i] - pts[2 * i - 2]) * u, pts[2 * i - 1] + (pts[2 * i + 1] - pts[2 * i - 1]) * u];
 }
 
-// Ink the move from arc length a to b: a capsule per piece for strokes, a dot
-// every 3 LEDs for pen-up hops.
+// Ink the move from arc length a to b: a capsule per piece for strokes, faint
+// dashes for pen-up hops.
 function inkSpan(S, m, a, b) {
   if (b <= a) return;
   if (m.up) {
@@ -305,7 +305,8 @@ function inkSpan(S, m, a, b) {
 }
 
 // A round-ended segment: a solid core of radius r and a soft glow around it.
-// With col null it writes one channel (the ghost).
+// With col null it writes one channel (the ghost, with the stroke index in
+// kb, or the hot ink).
 function capsule(buf, col, ax, ay, bx, by, r, a, glow, kb, kv) {
   const R = r + (glow ? 5 : 1), dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
   for (let y = max(0, floor(min(ay, by) - R)); y <= min(H - 1, floor(max(ay, by) + R)); y++)
@@ -317,8 +318,7 @@ function capsule(buf, col, ax, ay, bx, by, r, a, glow, kb, kv) {
       const p = y * W + x;
       if (!col) {
         if (v > buf[p]) (buf[p] = v), kb && (kb[p] = kv);
-      }
-      else for (let c = 0; c < 3; c++) buf[3 * p + c] = max(buf[3 * p + c], col[c] * v * (core > 0.5 ? 1 : 0.85));
+      } else for (let c = 0; c < 3; c++) buf[3 * p + c] = max(buf[3 * p + c], col[c] * v * (core > 0.5 ? 1 : 0.85));
     }
 }
 
