@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Twist=0.2..3, Word=0..3, Lamp=0..1
 //
-// Knob 1: Hue. Turns the stress colours round the wheel: at 0 the crests, where the stress is zero, are blue, the rims run through magenta and red, and stress past the hot end burns orange to yellow. The plates in the holes take the blue, dim.
+// Knob 1: Hue. Turns the stress colours round the wheel: at 0 the crests, where the stress is zero, are blue, the rims run from magenta through red to orange, and the hottest places, inside corners and the outer walls of the hollow letters, burn yellow-orange. The plates in the holes take the blue, dim.
 // Knob 2: Twist. How hard the bar is twisted, which is how hard the film is blown up. Each breath, one every 4 s, swings the twist from 40% to 100% of the knob. At 2 the film stands at 56 degrees at the rim of the 14 LED bar of ㅜ at the top of a breath and 31 at the bottom, and the colour reaches its hot end at a stress of 12.7. At 0.2 the film over that bar tilts 9 degrees at most and the colours stay blue and violet; at 3 the same rim stands at 66 degrees and runs yellow.
 // Knob 3: Word. The cross-section: the syllable 숨 (breath) the height of the panel, then LIT, AIR and HOT, three capitals 56 by 38 LEDs stacked. A letter with a hole is a hollow section, and the hole is a flat plate the film lifts: at the same twist HOT carries four times the torque of LIT.
-// Knob 4: Lamp. How high the lamp stands as it walks round the word once in 12 s: 19 degrees at 0.06, low enough that each stroke is lit on one side and shaded on the other and a glint runs along the crests; 75 degrees at 1, where the film is lit almost evenly and only the colours move.
+// Knob 4: Lamp. How high the lamp stands as it walks round the word once in 12 s: 19 degrees at 0.06, low enough that each stroke is lit on one side and shaded on the other, with a pale glint halfway down the flank that faces the lamp; 75 degrees at 1, where the film is lit almost evenly, the glint rides the crests and mostly the colours move.
 
 const W = 64, H = 128;
 const { floor, round, sqrt, cos, sin, min, max, abs, PI } = Math;
