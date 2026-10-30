@@ -25,7 +25,7 @@
 // the discs spin free each wears one open quarter, a pac-man, so the lattice
 // reads the same whatever letter is coming; as a disc swings into line its
 // mouth turns into the cut the letter asks of it. The letter's own surface
-// is the grating, shifted, and shows through every cut.
+// is the grating shifted by half a period. It shows through every cut.
 
 const W = 64, H = 128, N = W * H, TAU = 2 * Math.PI, Q = Math.PI / 2;
 const { floor, round, min, max, abs, atan2, PI } = Math;
