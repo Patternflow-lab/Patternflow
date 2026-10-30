@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Brazil Nut
 // Family:  particle
-// Idea:    A bed of 480 small discs in seven coloured strata stands about 110 LEDs deep in the panel with one large pale disc on its floor, and a Monte Carlo shakes it six times a second, lifting the whole packing and letting every disc settle by random steps that may never go up, so the small discs that slip into the gap opening under the large one ratchet it up through the strata, stirring them in its wake, until it reaches the top after about 47 seconds and the column tips over end to end and starts again.
+// Idea:    A bed of 540 small discs in seven coloured strata fills the panel nearly to the top with one large pale disc on its floor, and a Monte Carlo shakes it six times a second, lifting the whole packing and letting every disc settle by random steps that may never go up, so the small discs that slip into the gap opening under the large one ratchet it up through the strata, stirring them in its wake, until it reaches the top after about 52 seconds and the column tips over end to end and starts again.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Amplitude=-1..1, Size=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel together. At 0 the strata run from sea green on the floor through cyan and azure to violet at the top, every other one pale, and the large disc is pale gold; at 0.5 they run from rose through orange and yellow to lime and the large disc is pale blue.
-// Knob 2: Speed. Shakes a second, 3 for each unit: 6 at the opening 2, 0.6 at 0.2 and 9 at 3. Each shake is the same Monte Carlo whatever the speed, so the climb takes about 280 shakes: 47 seconds at 2, 30 seconds at 3, nearly 8 minutes at 0.2.
-// Knob 3: Amplitude. How far each shake lifts the packing, 6 x 1.6^Amplitude LEDs: 3.75 at -1, 6 at the opening 0 (1.7 small diameters), 9.6 at 1. A bigger lift opens a deeper gap under the large disc and it climbs faster: about 78 seconds at -1, 47 at 0, 28 at 1.
-// Knob 4: Size. The large disc's radius, 7 x 1.45^Size rounded to half an LED: 5 at -1, 7 at the opening, 10 at 1, against small radii of 1.6 to 1.95. The climb takes about 51, 47 and 42 seconds. A new size fills a new column once the knob has rested 0.3 seconds.
+// Knob 2: Speed. Shakes a second, 3 for each unit: 6 at the opening 2, 0.6 at 0.2 and 9 at 3. Each shake is the same Monte Carlo whatever the speed, so the climb takes about 315 shakes: 52 seconds at 2, 35 seconds at 3, nearly 9 minutes at 0.2.
+// Knob 3: Amplitude. How far each shake lifts the packing, 6 x 1.6^Amplitude LEDs: 3.75 at -1, 6 at the opening 0 (1.7 small diameters), 9.6 at 1. A bigger lift opens a deeper gap under the large disc and it climbs faster: about 100 seconds at -1, 52 at 0, 31 at 1.
+// Knob 4: Size. The large disc's radius, 7 x 1.45^Size rounded to half an LED: 5 at -1, 7 at the opening, 10 at 1, against small radii of 1.6 to 1.95. The climb takes about 58, 52 and 49 seconds. A new size fills a new column once the knob has rested 0.3 seconds.
 // Buttons: K1 tap tips the column over now. A large disc on the floor then lands on top and the column tips back after 2.5 seconds.
 
 // Anthony Rosato, Katherine Strandburg, Friedrich Prinz and Robert Swendsen,
@@ -36,7 +36,7 @@
 // 0.6, else down by 0.15, each kept only if the disc then overlaps nothing.
 // No disc ever moves up except in the lift. The sides wrap round, so the
 // large disc never stalls against a wall, and overlaps are found through a
-// grid of 12 by 32 cells. The 480 small discs have radii 1.6 to 1.95 LEDs,
+// grid of 12 by 32 cells. The 540 small discs have radii 1.6 to 1.95 LEDs,
 // spread so the packing does not freeze into a crystal.
 //
 // The picture glides from one settled packing to the next while the Monte
@@ -58,7 +58,7 @@ const wrap = (x) => x - W * floor(x / W);
 const near = (d) => d - W * round(d / W);
 
 const P = {
-  RMIN: 1.6, RMAX: 1.95, TOP: 121, DELTA: 0.6, CS: 5, GX: 12, GY: 32,
+  RMIN: 1.6, RMAX: 1.95, TOP: 137, DELTA: 0.6, CS: 5, GX: 12, GY: 32,
   BANDS: 7, HOLD: 2.5, TIP: 1.4, FALL: 1.2, LIMIT: 900,
 };
 const CX = W / P.GX;
