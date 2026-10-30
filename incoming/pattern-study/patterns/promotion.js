@@ -54,7 +54,7 @@ function hsv(h, s, v, o, k) {
   o[k + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
 
-// 3 by 5 digits, copied from hydra-game.js (round 70), rows top to bottom.
+// 3 by 5 digits, copied from hydra-game.js (round 72), rows top to bottom.
 const DIG = ["111101101101111", "010110010010111", "111001111100111", "111001011001111", "101101111001001",
   "111100111001111", "111100111101111", "111001010010010", "111101111101111", "111101111001111"];
 
