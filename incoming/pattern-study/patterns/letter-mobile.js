@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Letter Mobile
 // Family:  type
-// Idea:    A hanging mobile in the manner of Calder whose weights are the four letters of a word, each weighing its ink, hangs the full height of the panel with every bar balanced by moments and turning slowly on its thread before a lit wall that takes its shadow, and when one letter of the word changes, as in a word ladder, the bars above it tilt and their hanging points slide to the new balance.
+// Idea:    A hanging mobile in the manner of Calder whose weights are the four letters of a word, each weighing its ink, hangs the full height of the panel with every bar balanced by moments and turning slowly on its thread before a lit wall that takes its shadow, and when one letter changes, as in a word ladder, every bar above it tips and its hanging point slides to the new balance.
 // Author:  patternflow-lab
 // Date:    2026-10-30
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Alexander Calder's mobiles (1931-32, named by Marcel Duchamp), the law of the lever (Archimedes, On the Equilibrium of Planes), word ladders (Lewis Carroll's Doublets, 1879), pattern round 75
+// Lineage: Alexander Calder's first mobiles (1931-32, named by Marcel Duchamp), the law of the lever (Archimedes, On the Equilibrium of Planes, 3rd century BC), word ladders (Lewis Carroll's Doublets, 1879), pattern round 75
 // Round:   75
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Word=0..2, Sway=0..1
 //
-// Knob 1: Hue. Turns the painted plates round the wheel together: at 0 they are Calder's yellow, blue, red and white, top to bottom. The wires stay steel and the wall a warm grey.
-// Knob 2: Speed. One clock for the turning, the swing and the word: at 2 one letter changes every 3.6 s, the bars twist on their threads once in 9 to 14 s and the mobile swings once in 3.3 s. At 0.2 ten times slower, at 3 one and a half times faster.
-// Knob 3: Word. Which word ladder the mobile climbs, one letter at a time and back: 0 is Carroll's own first, HEAD HEAL TEAL TELL TALL TAIL, from 493 LEDs of ink to 330; 1 is FILL FILM FIRM FORM WORM WARM, light letters turning heavy; 2 is WOMB TOMB TOME TIME TILE TILL, heavy turning light.
-// Knob 4: Sway. How far the whole mobile swings from its hook: at 0.06 the bottom letters move 3 LEDs either way, at 1 they move 25.
+// Knob 1: Hue. Turns the painted plates round the wheel together: at 0 they are Calder's yellow, blue, red and white, top to bottom. The wires stay steel; the wall is a grey that turns with the plates, blue-grey at 0.
+// Knob 2: Speed. One clock for the turning, the swing and the word: at 2 one letter changes every 3.6 s, the bars turn round on their threads once in 30 to 44 s while a draft rocks each to and fro every 7 to 11 s, and the mobile swings once in 3.3 s. At 0.2 ten times slower, at 3 one and a half times faster.
+// Knob 3: Word. Which word ladder the mobile climbs, one letter at a time and back down: 0 is Carroll's own first, HEAD HEAL TEAL TELL TALL TAIL, from 752 LEDs of ink to 501; 1 is FILL FILM FIRM FORM WORM WARM, light letters turning heavy, 467 to 860; 2 is WOMB TOMB TOME TIME TILE TILL, heavy turning light, 905 to 448.
+// Knob 4: Sway. How far the whole mobile swings from its hook: at 0.06 the bottom letters move 2.5 LEDs either way, at 1 they move 23.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, ceil, round, min, max, sqrt, sin, cos, abs, exp, PI } = Math;
@@ -105,14 +105,14 @@ const LADDERS = [
 // carries that rest on its left and letter 1 on its right, bar 2 carries
 // letters 2 and 3. Facing you the chain zigzags so the word reads down the
 // panel. Each bar hangs from a loop D LEDs above it.
-// Bar k: length and the thread below each end. The top hook hangs from
-// HOOK.
+// Bar k: length and the thread below each end. The top bar's hook hangs on
+// a thread 10 rows long from the top edge at x 31.
 const BAR = [
-  { len: 28, drop: [3, 30] },
-  { len: 26, drop: [30, 3] },
-  { len: 32, drop: [11, 11] },
+  { len: 28, drop: [3, 28] },
+  { len: 26, drop: [28, 3] },
+  { len: 32, drop: [10, 10] },
 ];
-const HOOK = [30, 4], D = 7;
+const HOOK = [31, 10], D = 7;
 
 // Weights on each end of bar k, given the four letters' ink. A sub-mobile
 // weighs the sum of what hangs below it; wire and thread weigh nothing.
@@ -124,16 +124,27 @@ function loads(ink) {
 // The law of the lever: the hook divides the bar so that left weight times
 // left arm equals right weight times right arm, so it sits at the fraction
 // WR / (WL + WR) of the bar from the left end.
+// Checked in Node over all three ladders, 21 words at rest just before the
+// next change: every bar's net moment is under 1e-12 (LEDs of ink times
+// LEDs of arm) and its tilt under 1.8 degrees. HEAD weighs H 196, E 180,
+// A 172, D 204; its top bar hangs 20.70 LEDs from the H and 7.30 from the
+// 556 below (196 x 20.70 = 556 x 7.30), its bottom bar 17.36 from the A and
+// 14.64 from the D.
 const balance = ([wl, wr]) => wr / (wl + wr);
 
-// Turning: each bar twists to and fro on its thread (amplitude, period at
-// Speed 2, phase).
-const TWIST = [[1.0, 17, -0.4], [1.25, 13, PI - 0.5], [1.75, 21, -0.35]];
+// Turning: each bar turns round on its thread at its own rate, the bottom
+// one fastest, and a draft rocks it back and forth on top of that. Per bar:
+// angle at the start, seconds a turn at Speed 2 (signed), the draft's swing
+// and its period.
+const TURN = [[-0.3, 44, 0.35, 9], [0.35, -36, 0.35, 7], [-0.6, 30, 0.35, 11]];
 
 // Lamp up and to the left in front of the mobile, the wall 26 LEDs behind
 // the threads.
 const LX = -80, LY = -120, LZ = 300, WZ = -26;
-const STEP = 3.6, FLIP = 0.7, SLIDE_AT = 0.35, SLIDE = 1.1;
+// A word holds 3.6 s at Speed 2; a changing letter spins round in 0.7 s and
+// swaps when it has turned a quarter (ss(0.3264) = 0.25); the hooks start to
+// slide 0.3 s after the swap and take 1.4 s.
+const STEP = 3.6, FLIP = 0.7, SWAP = 0.3264, SLIDE_AT = 0.3, SLIDE = 1.4;
 
 function startWord(S, ladder) {
   S.ladder = ladder;
@@ -142,7 +153,7 @@ function startWord(S, ladder) {
   const word = LADDERS[ladder][0];
   S.letters = [0, 1, 2, 3].map((i) => ({ g: glyphOf(word[i]), next: null, flip: -1 }));
   const L = loads(S.letters.map((l) => l.g.ink));
-  S.bars = BAR.map((b, k) => ({ f: balance(L[k]), f0: 0, f1: 0, slide: -1, a: 0, av: 0 }));
+  S.bars = BAR.map((b, k) => ({ f: balance(L[k]), f0: 0, slide: -1, a: 0, av: 0 }));
   S.clock = STEP - 2.1;
 }
 
@@ -191,13 +202,13 @@ export function update(dt, input, params) {
     nextWord(S);
   }
   // A letter that changes spins once round on its thread and comes back as
-  // the new letter; its weight changes when it is edge-on, a quarter in.
+  // the new letter; its weight changes a quarter turn in.
   let changed = false;
   for (const l of S.letters) {
     if (l.flip < 0) continue;
     const was = l.flip;
     l.flip += step / FLIP;
-    if (was < 0.25 && l.flip >= 0.25 && l.next) {
+    if (was < SWAP && l.flip >= SWAP && l.next) {
       l.g = l.next;
       l.next = null;
       changed = true;
@@ -205,7 +216,8 @@ export function update(dt, input, params) {
     if (l.flip >= 1) l.flip = -1;
   }
   const L = loads(ink(S));
-  if (changed) for (const b of S.bars) b.slide = 0;
+  // Only the bars whose balance moved: the changed letter's and those above.
+  if (changed) S.bars.forEach((b, i) => abs(balance(L[i]) - b.f) > 1e-9 && (b.slide = 0));
   // The hooks slide to the new balance once the bars have tipped.
   S.bars.forEach((b, i) => {
     if (b.slide < 0) return;
@@ -217,9 +229,10 @@ export function update(dt, input, params) {
       if (u >= 1) b.slide = -1;
     }
   });
-  // Tilts, in four substeps. G sets the swing: a level bar knocked off
-  // rocks back about once in 1.4 s.
-  const G = 1300, DAMP = 1.5, n = 4, h = step / n;
+  // Tilts, in four substeps. G and DAMP set the swing: when HEAD turns to
+  // HEAL the bottom bar tips to 35 degrees in 0.9 s, swings back past level
+  // to 6 degrees 1.3 s later and is within 1.5 degrees a second after that.
+  const G = 400, DAMP = 2.6, n = 4, h = step / n;
   for (let s = 0; s < n; s++)
     S.bars.forEach((b, i) => {
       const { tq, I } = torque(b, BAR[i].len, L[i]);
@@ -232,14 +245,14 @@ export function update(dt, input, params) {
 // ---- Geometry: points in LEDs, x right, y down, z towards you.
 function layout(S) {
   const t = S.t, phi = (0.012 + 0.2 * S.sway) * sin((2 * PI * t) / 3.3);
-  // The whole mobile swings about its hook at the top edge.
+  // The whole mobile swings about the top of its thread.
   const sw = (p) => [HOOK[0] + (p[0] - HOOK[0]) * cos(phi) - p[1] * sin(phi), (p[0] - HOOK[0]) * sin(phi) + p[1] * cos(phi), p[2]];
   const lines = [], plates = [];
   let piv = [HOOK[0], HOOK[1], 0];
   lines.push({ p: [HOOK[0], -1, 0], q: piv, c: 0, glint: 0 });
   for (let k = 0; k < 3; k++) {
-    const B = BAR[k], b = S.bars[k], [amp, per, ph] = TWIST[k];
-    const th = amp * sin((2 * PI * t) / per + ph), ex = cos(th), ez = sin(th), ca = cos(b.a), sa = sin(b.a);
+    const B = BAR[k], b = S.bars[k], [th0, per, amp, dp] = TURN[k];
+    const th = th0 + (2 * PI * t) / per + amp * sin((2 * PI * t) / dp), ex = cos(th), ez = sin(th), ca = cos(b.a), sa = sin(b.a);
     const bx = ca * ex, by = sa, bz = ca * ez;
     // Hook, then the bar's own point under it, then the ends.
     const hp = [piv[0] - sa * ex * D, piv[1] + ca * D, piv[2] - sa * ez * D];
