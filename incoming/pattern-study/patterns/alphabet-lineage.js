@@ -48,7 +48,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const K = 36;
 
 // Era colours at Hue 0 (h, s), widths of the round pen in grid units.
-const ERA = [[0.12, 0.62], [0.82, 0.55], [0.56, 0.62], [0.09, 0.1]];
+const ERA = [[0.12, 0.7], [0.82, 0.62], [0.56, 0.7], [0.09, 0.16]];
 const PEN = [0.3, 0.34, 0.37, 0.4];
 // Seconds at Speed 2: hold in each era, the bend between, the rewind.
 const HOLD = [1.6, 1.2, 1.2, 2.6], BEND = 1.8, BACK = 1.4;
@@ -82,17 +82,17 @@ const LETTERS = {
       [[0, 0, 0, 1], ["", "", "", "7.6,9.4 10.2,9.4"]],
     ],
   },
-  // bayt, a house with its door -> beth -> beta -> B.
+  // bayt, the plan of a house with its door in the front wall -> beth ->
+  // beta -> B.
   B: {
     turn: [[0, 0], [0, 1], [0, 0]],
     strokes: [
       [[1, 1, 1, 1], [
-        "8.6,5 8.6,1.4 1.4,1.4 1.4,8.6 4,8.6",
+        "6,8.6 8.6,8.6 8.6,1.4 1.4,1.4 1.4,8.6 4,8.6",
         "6.9,5 1.2,4.6 5.8,0.6 6.6,2.6 6.9,5 6.4,7.6 4.4,9 1.8,9.4",
         "2.4,4.8 6.4,4.2 7.4,2.4 6.2,0.8 2.4,0.6 2.4,9.4 7,9.2 8.2,7.2 7,5.2 2.4,4.8",
         "2.2,4.7 5.6,4.6 6.8,3.8 7,2.5 6.6,1.3 5.4,0.6 2.2,0.6 2.2,9.4 6,9.4 7.6,8.6 8,7 7.4,5.5 5.8,4.8 2.2,4.7",
       ]],
-      [[1, 0, 0, 0], ["6,8.6 8.6,8.6", "", "", ""]],
       [[0, 0, 0, 1], ["", "", "", "0.8,0.6 2.4,0.6"]],
       [[0, 0, 0, 1], ["", "", "", "0.8,9.4 2.4,9.4"]],
     ],
@@ -307,12 +307,12 @@ function seg(px, py, ax, ay, bx, by) {
 
 // Ink a segment with a round pen of radius w and a soft halo.
 function stamp(S, band, ax, ay, bx, by, w, a) {
-  const x0 = max(0, floor(min(ax, bx) - w - 2)), x1 = min(W - 1, floor(max(ax, bx) + w + 2));
-  const y0 = max(0, floor(min(ay, by) - w - 2)), y1 = min(H - 1, floor(max(ay, by) + w + 2));
+  const x0 = max(0, floor(min(ax, bx) - w - 3)), x1 = min(W - 1, floor(max(ax, bx) + w + 3));
+  const y0 = max(0, floor(min(ay, by) - w - 3)), y1 = min(H - 1, floor(max(ay, by) + w + 3));
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
       const d = seg(x + 0.5, y + 0.5, ax, ay, bx, by);
-      const v = a * max(cl(w + 0.5 - d, 0, 1), 0.3 * exp(-((d - w) * (d - w)) / 2.2));
+      const v = a * max(cl(w + 0.5 - d, 0, 1), 0.34 * exp(-((d - w) * (d - w)) / 4.5));
       const i = y * W + x;
       if (v > S.ink[i]) {
         S.ink[i] = v;
@@ -327,7 +327,7 @@ export function draw(display, params) {
   S.ink.fill(0);
   const word = WORDS[S.word], step = HOLD[1] + BEND;
   // Grid unit in LEDs and the 32 row band of each letter.
-  const U = 2.7, colours = [];
+  const U = 3, colours = [];
   for (let n = 0; n < 4; n++) {
     const G = S.glyphs[word[n]], yc = n * 32 + 16, xc = 33;
     const x = eraAt(S.clock - n * S.lag * step);

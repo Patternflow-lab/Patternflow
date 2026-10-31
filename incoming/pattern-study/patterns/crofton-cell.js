@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Crofton Cell
 // Family:  cells
-// Idea:    Isotropic Poisson lines drift, are born and die across the tall panel and cut it into convex cells tinted by their number of sides, while the one cell that holds the fixed point in the middle, the Crofton cell, is lit gold with its incircle drawn in it, so when the Big knob keeps every line at least r away from that point the cell swells and its gold corners thin to slivers round a nearly circular disc, as Kendall conjectured.
+// Idea:    Isotropic Poisson lines drift, are born and die across the tall panel and cut it into convex cells tinted by their number of sides, while the one cell that holds the fixed point in the middle, the Crofton cell, is lit as a pale incircle in gold corners under a dashed outer circle, so when the Big knob keeps every line at least r away from that point the cell swells, gains sides and its gold corners thin round the disc, as Kendall conjectured.
 // Author:  patternflow-lab
 // Date:    2026-10-31
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Lines=16..56, Big=0..1
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 triangles are teal, quadrilaterals azure, pentagons violet, hexagons pink and cells of seven sides or more lime, and the Crofton cell is a pale disc in gold corners.
-// Knob 2: Speed. At 2 a line slides along its normal at up to 3 LEDs a second, turns at up to 0.05 radians a second and lives 10 s on average, so about one line a second is born somewhere and one dies. Everything goes as Speed / 2.
-// Knob 3: Lines. The mean number of lines that cross the panel, 10 to 40; the cells come out about 120 at 20 lines and 420 at 40.
-// Knob 4: Big. No line may come nearer the fixed point than r = 28 Big^0.6 LEDs, which is the Poisson process conditioned on the zero cell holding that disc: 5 LEDs at the opening 0.06, 12 at 0.25 and 28 at 1, where with 40 lines the cell is a 9 to 13 sided polygon whose incircle fills about 0.9 of its outer circle.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 triangles are teal, quadrilaterals azure, pentagons violet, hexagons pink and cells of seven sides or more green, and the Crofton cell is a pale disc in gold corners.
+// Knob 2: Speed. At 2 a line slides along its normal at up to 3 LEDs a second, turns at up to 0.05 radians a second and lives 10 s on average, so at the opening about 1.6 lines a second are born where the panel shows them and as many die. Everything goes as Speed / 2.
+// Knob 3: Lines. The mean number of lines that cross the panel, 16 to 56: the panel shows about 52 cells at 16, 190 at 36 and 390 at 56.
+// Knob 4: Big. No line may come nearer the fixed point than r = 20 Big^0.6 LEDs, which is the Poisson process conditioned on the zero cell holding that disc: 3.7 LEDs at the opening 0.06, 8.7 at 0.25, 13.2 at 0.5 and 20 at 1. With 56 lines the zero cell has 4.95 sides on average at 0, 5.9 at the opening and 8.5 at 1, and its incircle grows from 0.36 to 0.65 of the radius of its outer circle.
 
 // A line is (theta, p): the points x with x . (cos theta, sin theta) = p,
 // p >= 0, measured from the fixed point O in the middle of the panel. The
@@ -41,7 +41,10 @@
 // 4.93 sides on average where a typical cell has 4. Kendall's question
 // was what a large zero cell looks like, and the answer is a disc: with r
 // large against the mean spacing of the lines, many lines lie just past r
-// and the cell is a many sided polygon hugging the circle.
+// and the cell is a many sided polygon hugging the circle. It comes slowly:
+// with l lines per LED of p per radian, the cell's corners stand out past
+// the disc by about (l r)^(-2/3) of r, so on 64 LEDs the cell gets to 8 or
+// 9 sides, rounder than its neighbours but still a polygon.
 //
 // Two LEDs are in the same cell when no line separates them, so each LED's
 // cell is the set of lines it lies beyond, hashed. A cell's polygon is the
