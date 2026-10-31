@@ -157,7 +157,7 @@ export function draw(display, params) {
   const tint = [0, 1, 2, 3, 4].map((b) => mix(C.body, hsv(acc + 0.1 * b, 0.75, 0.5), S.bands));
   const ink = [0, 1, 2, 3, 4].map((b) => mix(C.dig, hsv(acc + 0.1 * b, 0.6, 0.95), S.bands));
 
-  // Which row is lit, how brightly, and which diagonal is being added. While
+  // Which row is lit and which diagonal is being added. While
   // a row is read the others dim, and so do all of them while the partial
   // products are added.
   let row = -1, light = 0, part = -1, band = -1;
