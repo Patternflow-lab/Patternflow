@@ -238,8 +238,8 @@ function walk(S, start) {
   S.closed.push(closed);
 }
 
-// Self-crossings of the dual curve. A segment runs between two vertices'
-// normal angles, unwrapped, and is laid into [0, pi) once for every
+// Self-crossings of the dual curve. A segment runs between the unwrapped
+// normal angles of two vertices and is laid into [0, pi) once for every
 // multiple of pi it reaches, with h turned over for an odd one: the line
 // at angle th + pi and offset -h is the line at th and h.
 function bitangents(S) {
