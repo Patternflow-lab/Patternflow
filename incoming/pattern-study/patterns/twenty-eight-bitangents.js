@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Shape=0..1, Lines=0..1
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 the curve is ice white with a dim blue inside, lines with both ovals on one side are teal, lines that pass between two ovals are violet, a line across one oval's hollow is lime, and the points of contact are pale gold.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 the curve is pale ice blue with a dim blue inside, lines with both ovals on one side are teal, lines that pass between two ovals are violet, a line across one oval's hollow is lime, and the points of contact are gold.
 // Knob 2: Speed. At 2 the front goes once round the four crossings in 20 s, an opening or closing crossing turns over in 0.5 s, the crescents on the x axis and those on the y axis swell and thin in turn every 26 s, and the sweep picks out the next line by angle a little over twice a second, all 28 in 12 s. At 0.2 all of it is ten times slower, at 3 half as fast again.
 // Knob 3: Shape. How many of the four crossings between the crescents are open, each open one joining two crescents. Up to 0.15 none: four ovals and 28 lines, and a front that runs round the crossings only narrows the gap it passes to about 4 LEDs. At 0.25 the one crossing nearest the front is open, three ovals and 16 lines, and the join moves on to the next crossing every 5 s; at 0.5 two, two ovals and 8; at 0.75 three, one curled oval and 4; at 1 all four, a ring whose inner and outer edges are two nested ovals, and still 4. Between those steps the front opens one more crossing for part of each turn.
 // Knob 4: Lines. How bright the lines are that the sweep is not on: 40 of 255 at 0, 49 at the opening 0.06, 190 at 1, where every bitangent burns as bright as the one picked out.
@@ -36,11 +36,12 @@
 // other.
 //
 // Each frame the curve is traced by marching squares on a 105 by 105 grid,
-// 0.92 LEDs a cell, and every vertex is pulled onto the curve by a Newton
-// step. Each vertex gives a tangent line, written as an angle th in
-// [0, pi) and an offset h. Those points make the dual curve, and a line
-// tangent at two places is a point where the dual curve crosses itself,
-// found by testing segments that share a band of angles.
+// 0.68 LEDs a cell, and every vertex is pulled onto the curve by a Newton
+// step. Each vertex gives a tangent line, written as the angle th of the
+// curve's normal there and the line's offset h from the middle. Those
+// points make the dual curve, and a line tangent at two places is a point
+// where the dual curve crosses itself, found by testing segments that
+// share a band of angles.
 
 const W = 64, H = 128;
 const { floor, min, max, round, sqrt, abs, cos, sin, atan2, PI } = Math;
