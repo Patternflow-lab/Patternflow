@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Shift=0..0.5, Power=2..6
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 the points inside the circle run from cyan at the centre to azure at the rim, the count reads in cyan, and the error and the chart are gold where there are more points than area and blue where there are fewer.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 a joining point flashes white, stays pale cyan for 4 s and settles to a colour that runs from cyan at the centre to blue at the rim, a leaving point flashes orange, the count reads in cyan, and the error and the chart are gold where there are more points than area and blue where there are fewer.
 // Knob 2: Speed. At 2 the area inside the circle grows by 72 lattice points a second, so the circle takes 22 s to grow from one point to all 1,565 and 22 s to shrink back, resting 0.8 s at each end; at 0.2 ten times slower, at 3 half as fast again.
 // Knob 3: Shift. Moves the centre of the circle off the lattice point along the diagonal (s, s). At 0 the points join in groups of 4 or 8 and the error is Gauss's; between 0 and 0.5 only the mirror in that diagonal is left, so they come in pairs, or alone on the diagonal; at 0.5 the centre sits in the middle of a cell and the groups of 4 and 8 come back on new circles.
 // Knob 4: Power. The exponent p of the Lamé curve |x|^p + |y|^p = r^p the points are counted in. At 2 it is the circle; towards 6 it swells into a rounded square standing on its corner on the panel, its flat sides take in long runs of a lattice row at almost the same radius, and the error chart turns from a ragged band into tall regular teeth.
