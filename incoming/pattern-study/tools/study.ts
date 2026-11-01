@@ -20,7 +20,8 @@
  * The study keeps no pictures. Earlier rounds left a GIF and a knob sheet
  * per pattern and an overview in shots/; they were taken out when a round
  * started bringing ten patterns, and index.html is where the patterns are
- * looked at.
+ * looked at. Since the rounds turned to crafting one piece at a time, each
+ * piece's folder under craft/ keeps one sheet per round that look.ts drew.
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";

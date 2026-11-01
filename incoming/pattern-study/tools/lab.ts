@@ -13,6 +13,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { applyKnobEntries, defaultKnobState } from "@/lib/lab/annotations";
 import { LabEngine } from "@/lib/lab/engine";
@@ -21,7 +22,7 @@ import type { CodeLayer } from "@/lib/lab/types";
 import { parseKnobsAnnotation } from "@/lib/pattern/knobs";
 import { DEFAULT_MATRIX, type MatrixSize } from "@/lib/pattern/matrix";
 
-export const STUDY = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+export const STUDY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const PATTERNS = path.join(STUDY, "patterns");
 /**
  * Family slug, as a pattern's "// Family:" line writes it, → how the page
@@ -59,7 +60,11 @@ const header = (code: string, key: string) =>
 export const roundOf = (code: string) => Number(code.match(/^\/\/[ \t]*Round:[ \t]*(\d+)/m)?.[1] ?? 1);
 
 export function loadPattern(slug: string): Pattern {
-  const file = path.join(PATTERNS, `${slug}.js`);
+  return loadPatternFile(path.join(PATTERNS, `${slug}.js`), slug);
+}
+
+/** A pattern from any file, such as an earlier version of one that look.ts sets beside it. */
+export function loadPatternFile(file: string, slug: string): Pattern {
   const code = fs.readFileSync(file, "utf8");
   const { layer, matrix, knobEntries } = codeLayerFromSource(code, slug);
   const state = knobEntries ? applyKnobEntries(knobEntries, defaultKnobState()) : defaultKnobState();
