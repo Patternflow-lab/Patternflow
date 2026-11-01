@@ -423,7 +423,7 @@ const PARTS = {
 
 const ORDER = ["base", "coatback", "legfar", "legnear", "skirt", "torso", "arml", "armr", "cape", "neck", "head", "hat", "gun"];
 const GROUP = {"arml":  1, "armr":  1, "base":  0, "cape":  1, "coatback":  0, "eyeshalf":  2, "eyesshut":  2, "glint":  2, "gun":  1, "hat":  2, "head":  2, "legfar":  0, "legnear":  0, "neck":  1, "skirt":  3, "torso":  1};
-const PAL = { a: 0xe2cea6, b: 0xb49c7c, c: 0x8c6c80, d: 0x5e4a6e, f: 0x8c7caa, g: 0x5c4c82, h: 0x3c3062, n: 0xdce6f0, o: 0xb2c2d6, p: 0x7a88aa, q: 0x4e5484, B: 0xffe08a, C: 0xe0a848, D: 0xa8604a, t: 0xb4fff0, u: 0x3edcc6, v: 0x1a979e, z: 0xb49cff, K: 0x8a6ab0, J: 0x6a64b8, w: 0xfffaf0, S: 0x3a3a5e, T: 0x2e2c52, U: 0x25234a, L: 0xffe08a };
+const PAL = { a: 0xe2cea6, b: 0xb49c7c, c: 0x8c6c80, d: 0x5e4a6e, f: 0x8c7caa, g: 0x5c4c82, h: 0x3c3062, n: 0xdce6f0, o: 0xb2c2d6, p: 0x7a88aa, q: 0x4e5484, B: 0xffe08a, C: 0xe0a848, D: 0xa8604a, t: 0xb4fff0, u: 0x3edcc6, v: 0x1a979e, z: 0xb49cff, K: 0x8a6ab0, J: 0x6a64b8, w: 0xfffaf0, S: 0x5a5a88, T: 0x42406c, U: 0x201e50, L: 0xffe08a };
 const EDITIONS = [
   {  },
   { a: 0x9096bc, b: 0x646a98, c: 0x444878, d: 0x2e2e5e, f: 0xc86a7e, g: 0x963a5e, h: 0x5e2648 },
