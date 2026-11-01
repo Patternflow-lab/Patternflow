@@ -12,7 +12,7 @@
 // @knobs Edition=0..1, Stand=0..3, Detail=0..1, Gel=0..1
 //
 // Knob 1: Edition. The paint: sand duster and indigo felt below 0.25, the second-player charcoal and oxblood from 0.25, a gold and ivory limited plating from 0.5, and from 0.75 the unpainted grey prototype.
-// Knob 2: Stand. What he stands on, and the light it throws back up onto the bottom of his boots: a railroad tie below 0.75, red sandstone from 0.75, black acrylic with a gold lip from 1.5 (which throws none), and from 2.25 acrylic lit at the edge.
+// Knob 2: Stand. What he stands on: a railroad tie at 0, red sandstone from 1, black acrylic with a gold lip from 2, and from 3 acrylic lit at the edge.
 // Knob 3: Detail. Below 0.5 the whole figure; from 0.5 his head, chest and raised revolver at exactly twice the size.
 // Knob 4: Gel. The rim light down his left edges, the bounce beside it and the shaded side of the coat and the deepest shade of each material, as if the sky on his dark side changed: evening violet at 0, dawn blue from 0.25, cactus green from 0.5, night blue from 0.75.
 // Buttons: K1 tap sends the case light along him; K2 tap makes the muzzle glint.
@@ -22,7 +22,7 @@ const W = 64, H = 128;
 // in order. Materials run light to dark: canvas a b c d, felt and leather
 // f g h, nickel n o p q, brass B C D. t u v are the turquoise of the eyes and
 // the grip, z the rim light, K and J the bounce beside it on canvas and on
-// metal or felt, w the specular. S T U L are the stand, its shadow and its lip, Y and X the bottom of the boots, which catches the stand's light.
+// metal or felt, w the specular. S T U L are the stand, its shadow and its lip.
 const PARTS = {
   "arml": { x: 42, y: 34, rows: [
     ".........cccb.....",
@@ -290,9 +290,9 @@ const PARTS = {
     "...zhhgggggggggfff.B.",
     "..zhhhgggggggggfffC.C",
     "hhhhhhggggggggggff.D.",
-    "YYYYYYXXXXXXXXXXff...",
-    "YYYYYYXXXXXXXXXXff...",
-    "YYYYYYYYYYYYYYYYYY...",
+    "hhhhhhggggggggggff...",
+    "hhhhhhggggggggggff...",
+    "hhhhhhhhhhhhhhhhhh...",
   ] },
   "legnear": { x: 33, y: 74, rows: [
     "...pooo.................",
@@ -337,9 +337,9 @@ const PARTS = {
     "....Chhggggggggggffff...",
     "...D.hhgggggggggggffff..",
     ".....hhgggggggggggfffff.",
-    ".....YYXXXXXXXXXXXffffff",
-    ".....YYXXXXXXXXXXXffffff",
-    ".....YYYYYYYYYYYYYYYYYYY",
+    ".....hhgggggggggggffffff",
+    ".....hhgggggggggggffffff",
+    ".....hhhhhhhhhhhhhhhhhhh",
   ] },
   "neck": { x: 28, y: 38, rows: [
     "ppppppoo",
@@ -423,7 +423,7 @@ const PARTS = {
 
 const ORDER = ["base", "coatback", "legfar", "legnear", "skirt", "torso", "arml", "armr", "cape", "neck", "head", "hat", "gun"];
 const GROUP = {"arml":  1, "armr":  1, "base":  0, "cape":  1, "coatback":  0, "eyeshalf":  2, "eyesshut":  2, "glint":  2, "gun":  1, "hat":  2, "head":  2, "legfar":  0, "legnear":  0, "neck":  1, "skirt":  3, "torso":  1};
-const PAL = { a: 0xe2cea6, b: 0xb49c7c, c: 0x8c6c80, d: 0x5e4a6e, f: 0x8c7caa, g: 0x5c4c82, h: 0x3c3062, n: 0xdce6f0, o: 0xb2c2d6, p: 0x7a88aa, q: 0x4e5484, B: 0xffe08a, C: 0xe0a848, D: 0xa8604a, t: 0xb4fff0, u: 0x3edcc6, v: 0x1a979e, z: 0xb49cff, K: 0x8a6ab0, J: 0x6a64b8, w: 0xfffaf0, S: 0x3a3a5e, T: 0x2e2c52, U: 0x25234a, L: 0xffe08a, Y: 0x3c3062, X: 0x5c4c82 };
+const PAL = { a: 0xe2cea6, b: 0xb49c7c, c: 0x8c6c80, d: 0x5e4a6e, f: 0x8c7caa, g: 0x5c4c82, h: 0x3c3062, n: 0xdce6f0, o: 0xb2c2d6, p: 0x7a88aa, q: 0x4e5484, B: 0xffe08a, C: 0xe0a848, D: 0xa8604a, t: 0xb4fff0, u: 0x3edcc6, v: 0x1a979e, z: 0xb49cff, K: 0x8a6ab0, J: 0x6a64b8, w: 0xfffaf0, S: 0x3a3a5e, T: 0x2e2c52, U: 0x25234a, L: 0xffe08a };
 const EDITIONS = [
   {  },
   { a: 0x9096bc, b: 0x646a98, c: 0x444878, d: 0x2e2e5e, f: 0xc86a7e, g: 0x963a5e, h: 0x5e2648 },
@@ -436,9 +436,6 @@ const STANDS = [
   {  },
   { S: 0x4a5a8e, T: 0x6ea4e8, U: 0x2c2c5a, L: 0xd2f4ff },
 ];
-// The light each stand throws back up onto his soles; the black acrylic throws none.
-const SOLES = [0x8c5c5a, 0xb06e6e, -1, 0x5c9ae6];
-const BOOTS = [0xa0727a, 0xc08088, -1, 0x7cb0f0];
 const GELS = [
   {  },
   { z: 0x8ed8ff, K: 0x7a96b4, J: 0x5a88ba, c: 0x6e7a96, d: 0x4e5c7e, q: 0x42668e, h: 0x2e4668 },
@@ -478,10 +475,6 @@ function lut(ed, stand, gel) {
   put(EDITIONS[ed]);
   put(STANDS[stand]);
   put(GELS[gel]);
-  // The boots' lowest rows carry the stand's light, Y where the leather is
-  // darkest and X on its middle shade; the black acrylic throws none.
-  t[89] = SOLES[stand] >= 0 ? SOLES[stand] : t[104];
-  t[88] = BOOTS[stand] >= 0 ? BOOTS[stand] : t[103];
   return t;
 }
 
@@ -528,7 +521,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += min(dt || 0, 0.1);
   params.ed = min(3, max(0, floor(k[0] * 4)));
-  params.stand = min(3, max(0, floor(k[1] * 4 / 3)));
+  params.stand = min(3, max(0, floor(k[1])));
   params.detail = k[2] >= 0.5;
   params.gel = min(3, max(0, floor(k[3] * 4)));
   const b = input.btnPressed;
