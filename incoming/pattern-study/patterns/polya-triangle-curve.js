@@ -32,9 +32,11 @@
 // half square are they equal. In the panel's half, a = 26.6 degrees and the
 // first piece is 80% of the triangle, yet it gets only half the parameter;
 // inside it the split repeats. So a head moving at a steady parameter
-// sweeps hundreds of LEDs in one frame where the digits keep choosing the
-// big piece and stays on one LED for seconds where they keep choosing the
-// small one. Peter Lax studied in 1973 where Pólya's function has a
+// paints up to 505 LEDs in one frame where the digits keep choosing the
+// big piece and stays on one LED for up to half a second where they keep
+// choosing the small one; the first quarter of a pass paints 2601 of the
+// 4096 LEDs and the last half only 819. In the half square it never paints
+// more than 6 in a frame. Peter Lax studied in 1973 where Pólya's function has a
 // derivative, and the answer turns on this angle.
 //
 // Here each LED of the upper half is located in the cuts 60 levels deep,
