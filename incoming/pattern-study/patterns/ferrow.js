@@ -682,124 +682,6 @@ const PARTS = {
     "..zIhgg..",
     "...zhg...",
   ] },
-  smear_up: { x: 9, y: 0, rows: [
-    ".....nnnnmmmmmmmnnnnnnnnnnnnmmmmmmmnnnno........",
-    "...nnmmmmnnnnnnnoooooooooooonnnnnnnmmmmnnnnn....",
-    "..mmmnnnnoooooooo...........ooooooonnnnmmmmnn...",
-    "mm.nnn.ooo.........................oooonnnnmmm..",
-    ".......................................o...nn.mm",
-  ] },
-  smear_flip: { x: 53, y: 6, rows: [
-    "o..........",
-    "o..........",
-    "oo.........",
-    ".o.........",
-    ".o.........",
-    ".o.........",
-    "hhoh.......",
-    ".hoh.......",
-    ".hoh.......",
-    ".hoh.......",
-    ".hoh.......",
-    "..hoh......",
-    "..hoh......",
-    ".ihohi.....",
-    ".ihohi.....",
-    ".ihohi.....",
-    ".iihohi....",
-    "..ihohi....",
-    "..ihohi....",
-    "..ihohi....",
-    "..ihohi....",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "...iihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....iihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    "......ihohi",
-    ".....ihohii",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    ".....ihohi.",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "....ihohi..",
-    "...ihohii..",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "...ihohi...",
-    "..ihohi....",
-    "..ihohi....",
-    "..ihohi....",
-    "..ihohi....",
-    ".ihohii....",
-    ".ihohi.....",
-    ".ihohi.....",
-    ".ihohi.....",
-    "..hoh......",
-    "..hoh......",
-    ".hoh.......",
-    ".hoh.......",
-    ".hoh.......",
-    ".hoh.......",
-    "hohh.......",
-    ".o.........",
-    ".o.........",
-    ".o.........",
-    "oo.........",
-    "o..........",
-    "o..........",
-  ] },
 };
 // The three poses: the sword on the shoulder, held upright, and planted.
 const ORDER = ["base", "pack", "blade", "legfar", "legnear", "spine", "hips", "tabard", "tabtip", "torso", "neck", "paulfar", "armfar", "paulnear", "armnear", "head", "hilt", "fistfar"];
@@ -807,7 +689,7 @@ const ORDER_M = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard",
 const ORDER_B = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard", "tabtip", "torso", "torso_u", "neck", "paulfar", "paulfar_u", "chest_u", "armfar_b", "paulnear", "armnear", "head", "headrim", "blade_b", "hilt_b", "fist_b"];
 // Which breath each part follows: 0 stays, 1 the chest, 2 the head a beat later, 3 the tabard's hem, which swings sideways, 4 the planted blade, which stays but still takes the case light.
 const GROUP = {"base": 0, "pack": 1, "blade": 1, "legfar": 0, "legnear": 0, "spine": 0, "hips": 0, "tabard": 0, "tabtip": 3, "torso": 1, "neck": 1, "paulfar": 1, "armfar": 1, "paulnear": 1, "armnear": 1, "head": 2, "hilt": 1, "fistfar": 1, "armfar_m": 1, "blade_m": 1, "hilt_m": 1, "fist_m": 1, "armfar_b": 1, "blade_b": 4, "hilt_b": 4, "fist_b": 1, "torso_u": 1, "paulfar_u": 1, "chest_u": 1, "headrim": 2, "smear_up": 1, "smear_flip": 1};
-const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075, S: 0xe6e2de, T: 0xa7978f, E: 0xff9b30, F: 0xffd884, W: 0xfffaf0 };
+const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075, S: 0xe6e2de, E: 0xff9b30, F: 0xffd884, W: 0xfffaf0 };
 // Knob 4: the editions, each a hand-picked repaint of some materials.
 const EDITIONS = [
   {  },
@@ -832,8 +714,8 @@ const CHARGE = [
   { g: 0xd0f4ff, h: 0x90d0ff, i: 0x5088f0, j: 0x3840b0, I: 0x6a98f8, z: 0xf0fcff, O: 0x80b8f8, Z: 0xa8e8ff, u: 0x80e0ff, f: 0xd8f8ff, v: 0x4a90f0, E: 0x80e0ff, F: 0xd8f8ff },
 ];
 const HEAT = [
-  { g: 0xffe08a, h: 0xffa040, i: 0xd8602c, j: 0x8a3038, I: 0xc05a40, E: 0xfff0c0, F: 0xfffaf0 },
-  { g: 0xfff0b0, h: 0xffc060, i: 0xf07a34, j: 0xa83a3a, I: 0xd8703c, E: 0xfff0c0, F: 0xfffaf0 },
+  { g: 0xffe08a, h: 0xffa040, i: 0xd8602c, j: 0x8a3038, I: 0xc05a40, E: 0xffd060, F: 0xfffaf0 },
+  { g: 0xfff0b0, h: 0xffc060, i: 0xf07a34, j: 0xa83a3a, I: 0xd8703c, E: 0xffd060, F: 0xfffaf0 },
 ];
 // The case light: what a glossy character turns into while the band passes.
 const UP = {"n": "m", "o": "n", "O": "n", "h": "g", "i": "h", "I": "h", "j": "i"};
@@ -855,17 +737,17 @@ const SPILL = [[53, 118, "f"], [54, 118, "w"], [55, 118, "w"], [56, 118, "w"], [
 const SHOCK = [4, 9, 15, 22, 30, 38];
 // The flash at the moment of the bite, for its first two fifteenths of a second.
 const FLASH = [[56, 111, "f"], [56, 112, "w"], [56, 113, "w"], [56, 114, "w"], [53, 116, "w"], [54, 116, "w"], [55, 116, "w"], [57, 116, "w"], [58, 116, "w"], [51, 116, "f"], [52, 116, "f"], [59, 116, "f"], [60, 116, "f"], [54, 114, "f"], [58, 114, "f"], [53, 113, "u"], [59, 113, "u"], [56, 110, "u"]];
-// The two exhaust mouths and how late each puffs after the other. A
-// puff swells and thins as it drifts up and away to the left, light grey
-// cooling to warm grey: S T, its own letters so a repaint never reaches it.
+// The two exhaust mouths and how late each puffs after the other. A cloud
+// swells as it drifts up and away to the left, then shrinks away. S is its own
+// letter so no repaint reaches it.
 const STACKS = [[16, 27, 0], [10, 30, 0.2]];
 const PUFF = [
   ["SS", "SS"],
   [".SSS.", "SSSSS", "SSSSS", ".SSS."],
-  [".SSSS.", "SSSSST", "SSSSTT", "TSSSTT", ".TTT.."],
-  ["..TTT..", ".TTTTTT", "TTTTTT.", ".TTT..."],
-  ["..TT.", ".TTTT", "TTT.."],
-  [".TT.", "TT.."],
+  ["..SSS..", ".SSSSS.", "SSSSSSS", "SSSSSSS", ".SSSSS.", "..SSS.."],
+  ["..SSSS..", ".SSSSSS.", "SSSSSSSS", "SSSSSSSS", ".SSSSSS.", "..SSSS.."],
+  [".SSS.", "SSSSS", "SSSSS", ".SSS."],
+  [".SS.", "SSSS", ".SS."],
 ];
 
 const { floor, min, max, abs, cos, sin, PI } = Math;
@@ -894,10 +776,6 @@ const GLINT_LEN = 0.17;
 const LIFT = 10 / 15, DOWN = 40 / 15, PLANT_LEN = 46 / 15;
 const WIND = { blade: 1, hilt: 1, fistfar: 1, armfar: 1, blade_m: 1, hilt_m: 1, fist_m: 1, armfar_m: 1 };
 const REST = [0, 0, 1, 2];
-// The swing drawn behind the figure as the pose changes, by from * 3 + to: an
-// arc over the head between shoulder and upright, and a crescent down the right
-// side as the sword turns over in the hand.
-const SMEAR = [null, "smear_up", null, "smear_up", null, "smear_flip", null, "smear_flip", null];
 // One breath is 3.4 s: the chest rises a pixel, the head follows a quarter
 // second later, and the tabard's hem swings a pixel sideways a beat after
 // that; both ends of each move are held longer than the moves between them.
@@ -978,21 +856,27 @@ function plantSince(p, t, motion) {
   return d;
 }
 
-// A puff leaves each stack once each half of the breath has settled, and twice
-// as often on the overheat.
-function steam(buf, t, heavy) {
-  const life = heavy ? 2.0 : 1.8, phases = heavy ? [1.3, 2.15, 3.0, 0.45] : [1.3, 3.0];
+// After the bite the stacks vent four clouds each while he leans on the sword;
+// on the overheat they also puff through every breath.
+function steam(buf, t, heavy, bite) {
+  const life = 1.8;
+  const at = (x0, y0, age) => {
+    if (age < 0 || age >= life) return;
+    const shape = PUFF[min(5, floor(age / life * 6))];
+    const cx = floor(x0 - age * 6 + 0.5), cy = floor(y0 - 1 - age * 6 + 0.5);
+    const x1 = cx - (shape[0].length >> 1), y1 = cy - shape.length + 1;
+    for (let j = 0; j < shape.length; j++) {
+      for (let i = 0; i < shape[j].length; i++) if (shape[j][i] !== ".") under(buf, x1 + i, y1 + j, shape[j][i]);
+    }
+  };
   for (let s = 0; s < STACKS.length; s++) {
     const [x0, y0, lag] = STACKS[s];
-    for (let f = 0; f < phases.length; f++) {
-      const at = phases[f] + lag;
-      const age = t - (at + floor((t - at) / BREATH) * BREATH);
-      if (age < 0 || age >= life) continue;
-      const shape = PUFF[min(5, floor(age / life * 6))];
-      const cx = floor(x0 - age * (heavy ? 7 : 6) + 0.5), cy = floor(y0 - 1 - age * 5 + 0.5);
-      const x1 = cx - (shape[0].length >> 1), y1 = cy - shape.length + 1;
-      for (let j = 0; j < shape.length; j++) {
-        for (let i = 0; i < shape[j].length; i++) if (shape[j][i] !== ".") under(buf, x1 + i, y1 + j, shape[j][i]);
+    if (bite >= 0) for (let n = 0; n < 4; n++) at(x0, y0, t - (bite + 0.25 + n * 0.3 + lag * 0.6));
+    if (heavy) {
+      const phases = [1.3, 2.15, 3.0, 0.45];
+      for (let f = 0; f < phases.length; f++) {
+        const a = phases[f] + lag;
+        at(x0, y0, t - (a + floor((t - a) / BREATH) * BREATH));
       }
     }
   }
@@ -1029,8 +913,8 @@ function sparks(buf, tt0, tt, seed) {
 function arcs(buf, slot) {
   const out = [];
   const h = hash(slot * 7 + 3);
-  if ((h & 7) === 0) return out;
-  const count = 1 + ((h >>> 4) & 1) + ((h >>> 5) & 1);
+  if (h % 3 !== 0) return out;
+  const count = 1 + ((h >>> 4) & 1);
   for (let a = 0; a < count; a++) {
     const g = hash(h + a * 101);
     const y0 = 22 + (g % 88), left = (g >>> 8) & 1;
@@ -1041,7 +925,7 @@ function arcs(buf, slot) {
     // A jagged run outward, never level for two steps, with a fork off its
     // second step that kicks the other way.
     let y = y0, fx = 0, fy = 0;
-    const len = 4 + ((g >>> 10) % 5), step = left ? -1 : 1;
+    const len = 7 + ((g >>> 10) % 6), step = left ? -1 : 1;
     const put = (px, py, ch) => {
       if (py >= 0 && py < H && px >= 0 && px < W && !buf[py * W + px]) out.push([px, py, ch]);
     };
@@ -1049,11 +933,12 @@ function arcs(buf, slot) {
       x += step;
       y += (g >>> (12 + k)) & 1 ? 1 : -1;
       put(x, y, k < len ? "w" : "Z");
-      if (k === 2) { fx = x; fy = y; }
+      if (k === 3) { fx = x; fy = y; }
     }
     const kick = (g >>> 13) & 1 ? -1 : 1;
-    put(fx + step, fy + kick * 2, "Z");
+    put(fx + step, fy + kick * 2, "w");
     put(fx + step * 2, fy + kick * 3, "Z");
+    put(fx + step * 3, fy + kick * 4, "Z");
   }
   return out;
 }
@@ -1110,20 +995,18 @@ export function draw(display, params) {
   const dy = [0, u >= 1.1 && u < 2.8 ? -1 : 0, u >= 1.35 && u < 3.05 ? -1 : 0, 0, 0];
   const dx = [0, 0, 0, u >= 1.45 && u < 3.15 ? -1 : 0, 0];
 
-  // Shouldered, upright or planted, and the swing behind the figure for the
-  // two steps after it changes.
+  // Shouldered, upright or planted.
   const poseAt = (q) => {
     const e = plantSince(p, q, motion);
     return e < 0 ? REST[motion] : e < 2 / 15 ? REST[motion] === 2 ? 2 : 0 : e < LIFT || e >= DOWN ? 1 : 2;
   };
   const d = plantSince(p, t, motion);
-  const pose = poseAt(t), was = poseAt((tick - 2) / 15);
-  const smear = was !== pose ? SMEAR[was * 3 + pose] : null;
+  const pose = poseAt(t);
   const sd = d >= LIFT && d < DOWN ? d - LIFT : -1;
   // He sinks into his knees a pixel as he swings, and two as the point bites;
   // only the legs, the stand and the planted sword stay. On standby the head
   // hangs a pixel.
-  const sink = d >= 0 && d < 4 / 15 ? 1 : sd >= 0 && sd < 2 / 15 ? 2 : sd >= 0 && sd < 4 / 15 ? 1 : 0;
+  const sink = d >= 0 && d < 4 / 15 ? 1 : sd >= 0 && sd < 3 / 15 ? 2 : sd >= 0 && sd < 6 / 15 ? 1 : 0;
   const wind = (d >= 0 && d < 2 / 15) || (d >= LIFT - 2 / 15 && d < LIFT) ? -3 : 0;
   dy[1] += sink;
   dy[3] += sink;
@@ -1136,7 +1019,6 @@ export function draw(display, params) {
 
   // The case light passes over the steel above the stand; the legs and the stand keep still.
   const order = pose === 0 ? ORDER : pose === 1 ? ORDER_M : ORDER_B;
-  if (smear) blit(buf, PARTS[smear], 0, dy[1], false, 0);
   for (let n = 0; n < order.length; n++) {
     const name = order[n], g = GROUP[name];
     blit(buf, PARTS[name], dx[g] + (WIND[name] && wind ? 1 : 0), dy[g] + (g === 0 && !FIRM[name] ? sink : 0) + (WIND[name] ? wind : 0), sweep && g !== 0, band);
@@ -1175,7 +1057,7 @@ export function draw(display, params) {
     }
   }
 
-  if ((fx === 0 || fx === 2) && motion !== 3) steam(buf, t, fx === 2);
+  if (fx === 0 || fx === 2) steam(buf, t, fx === 2 && motion !== 3, sd >= 0 ? t - sd : -1);
   if (fx === 1) {
     const slot = tick >> 1;
     if (slot !== p.arcSlot) {
@@ -1187,21 +1069,12 @@ export function draw(display, params) {
   if (fx !== 3 && sd >= 0 && sd < 0.9) {
     const t0 = t - sd;
     sparks(buf, t0, t, floor(t0 * 10 + 0.5));
-    // A ring of light runs out across the dark from the point, and his whole
-    // rim flashes white with it.
+    // His whole rim flashes white as it bites.
     const k = floor(sd * 15 + 0.5);
-    if (k < 6) {
-      const r = 6 + 11 * k, ch = k < 2 ? "w" : k < 4 ? "f" : "u";
-      for (let a = 0; a <= 180; a++) {
-        const q = PI + (a / 180) * PI;
-        under(buf, floor(BITE_X + cos(q) * r + 0.5), floor(BITE_Y + 1 + sin(q) * r + 0.5), ch);
-        if (k < 2) under(buf, floor(BITE_X + cos(q) * (r + 1) + 0.5), floor(BITE_Y + 1 + sin(q) * (r + 1) + 0.5), ch);
-      }
-    }
-    if (k < 2) for (let i = 0; i < W * 104; i++) if (buf[i] === 122) buf[i] = 119;
+    if (k < 3) for (let i = 0; i < W * 104; i++) if (buf[i] === 122) buf[i] = 119;
     // The stand's gold ring answers the bite: white, then amber.
-    if (sd < 4 / 15) {
-      const ring = sd < 2 / 15 ? 119 : 102;
+    if (sd < 5 / 15) {
+      const ring = sd < 3 / 15 ? 119 : 102;
       for (let i = 104 * W; i < H * W; i++) if (buf[i] === 78) buf[i] = ring;
     }
     if (sd < 0.3) for (let i = 0; i < SPILL.length; i++) over(buf, SPILL[i][0], SPILL[i][1], sd < 0.15 ? SPILL[i][2] : "u");
