@@ -29,23 +29,24 @@
 // 0 < m < 1 it lies past the second axis, for m > 1 before the first, and
 // at m = 1 the segments are parallel and the point is at infinity. As m
 // passes 1 the knot leaves through one end of the panel and returns
-// through the other. Because the point c of the line also has its segment
-// through the knot, the knot slides along the extension of c's segment.
+// through the other. The segment of the line's own point c passes through
+// the knot too, so while c holds still the knot slides along that
+// segment's extension.
 //
 // In D dimensions the data are points c + s v on a line, v its direction.
 // Neighbouring coordinates are then related linearly, x_{k+1} = m_k x_k +
 // b_k with m_k = v_{k+1} / v_k, so the line becomes D - 1 knots, one
 // between each pair of neighbouring axes (Inselberg's representation of a
 // line in R^D by D - 1 points). v turns in a plane: v_k = cos(theta - phi_k)
-// with the phases phi_k a little under 2 radians apart, so each m_k sweeps
+// with the phases phi_k 1.74 to 2.47 radians apart, so each m_k sweeps
 // every real value once per half turn of theta. When v_k is 0 every point
 // has the same x_k and the polylines pinch to one LED on axis k.
 //
 // Knots outside their own gap are marked by the two outermost segments
 // extended to them, dashed and dim, and a ring where they land on the
-// panel. The lines add up light: thirty-two segments through one knot saturate
-// it to white, and the tone curve 1 - exp(-light) keeps their colour
-// elsewhere.
+// panel. The lines add up light: thirty-two segments through one knot
+// saturate it to white, and the tone curve 1 - exp(-light) keeps their
+// colour elsewhere.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, min, max, abs, sqrt, sin, cos, exp, log, round, PI } = Math;
