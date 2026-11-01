@@ -667,7 +667,7 @@ const ORDER_M = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard",
 const ORDER_B = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard", "tabtip", "torso", "torso_u", "neck", "paulfar", "paulfar_u", "chest_u", "armfar_b", "paulnear", "armnear", "head", "headrim", "blade_b", "hilt_b", "fist_b"];
 // Which breath each part follows: 0 stays, 1 the chest, 2 the head a beat later, 3 the tabard's hem, which swings sideways, 4 the planted blade, which stays but still takes the case light.
 const GROUP = {"base": 0, "pack": 1, "blade": 1, "legfar": 0, "legnear": 0, "spine": 0, "hips": 0, "tabard": 0, "tabtip": 3, "torso": 1, "neck": 1, "paulfar": 1, "armfar": 1, "paulnear": 1, "armnear": 1, "head": 2, "hilt": 1, "fistfar": 1, "armfar_m": 1, "blade_m": 1, "hilt_m": 1, "fist_m": 1, "armfar_b": 1, "blade_b": 4, "hilt_b": 4, "fist_b": 1, "torso_u": 1, "paulfar_u": 1, "chest_u": 1, "headrim": 2};
-const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075 };
+const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075, S: 0xa8bad4, T: 0x93a3c2, Y: 0x6a7aa6 };
 // Knob 4: the editions, each a hand-picked repaint of some materials.
 const EDITIONS = [
   {  },
@@ -708,16 +708,17 @@ const SPILL = [[51, 118, "u"], [52, 118, "f"], [53, 118, "f"], [54, 118, "f"], [
 // The flash at the moment of the bite, for its first two fifteenths of a second.
 const FLASH = [[53, 113, "w"], [52, 115, "w"], [54, 115, "w"], [51, 115, "f"], [55, 115, "f"], [53, 114, "f"], [50, 116, "u"], [56, 116, "u"]];
 // The two exhaust mouths, and the shape of a puff as it ages: x, y off its
-// centre and the colour, lightest while young.
+// centre and the colour, lightest while young. The steam has its own letters,
+// S T Y, so no repaint of the steel reaches it.
 const STACKS = [[16, 27, 0], [10, 30, 0.5]];
 const PUFF = [
-  [[0, 0, "n"], [1, 0, "n"]],
-  [[0, 0, "n"], [1, 0, "n"], [0, -1, "n"], [1, -1, "o"]],
-  [[0, 0, "o"], [1, 0, "n"], [2, 0, "o"], [0, -1, "o"], [1, -1, "n"], [2, -1, "o"]],
-  [[0, 0, "h"], [1, 0, "o"], [2, 0, "h"], [0, -1, "h"], [1, -1, "h"], [2, -1, "h"]],
-  [[0, 0, "h"], [1, 0, "h"]],
+  [[0, 0, "S"], [1, 0, "S"]],
+  [[0, 0, "S"], [1, 0, "S"], [0, -1, "S"], [1, -1, "T"]],
+  [[0, 0, "T"], [1, 0, "S"], [2, 0, "T"], [0, -1, "T"], [1, -1, "S"], [2, -1, "T"]],
+  [[0, 0, "Y"], [1, 0, "T"], [2, 0, "Y"], [0, -1, "Y"], [1, -1, "T"], [2, -1, "Y"]],
+  [[0, 0, "Y"], [1, 0, "Y"]],
 ];
-const BIG = [[0, 0, "o"], [1, 0, "n"], [2, 0, "n"], [3, 0, "o"], [0, -1, "o"], [1, -1, "n"], [2, -1, "o"], [3, -1, "h"], [1, -2, "o"], [2, -2, "h"]];
+const BIG = [[0, 0, "T"], [1, 0, "S"], [2, 0, "S"], [3, 0, "T"], [0, -1, "T"], [1, -1, "S"], [2, -1, "T"], [3, -1, "Y"], [1, -2, "T"], [2, -2, "Y"]];
 
 const { floor, min, max, abs, sin, cos, PI } = Math;
 // The events run on a fixed loop of exactly eight breaths, so they always meet
@@ -811,8 +812,8 @@ function over(buf, x, y, ch) {
 }
 
 // Seconds since the sword started down, or -1.
-function plantSince(p, t) {
-  const list = p.motion === 0 ? PLANTS : p.motion === 1 ? PLANTS_KEEN : null;
+function plantSince(p, t, motion) {
+  const list = motion === 0 ? PLANTS : motion === 1 ? PLANTS_KEEN : null;
   let d = list ? since(list, t, PLANT_LEN) : -1;
   const b = t - p.plantAt;
   if (b >= 0 && b < PLANT_LEN) d = b;
@@ -836,7 +837,7 @@ function steam(buf, tt, heavy) {
   }
 }
 
-function sparks(buf, sd, tt0, tt, seed) {
+function sparks(buf, tt0, tt, seed) {
   for (let n = 0; n < 14; n++) {
     const h = hash(seed * 31 + n);
     const ang = -PI * (0.4 + 0.45 * (h & 1023) / 1023);
@@ -853,14 +854,13 @@ function sparks(buf, sd, tt0, tt, seed) {
   }
 }
 
-// The arcs for one tenth of a second, worked out once from where the outline
-// is when it starts and drawn over whatever moves under it, so a breath step
-// inside it cannot make an LED flick for one frame.
+// The arcs for two fifteenths of a second, worked out once from where the
+// outline is when they start.
 function arcs(buf, slot) {
   const out = [];
   const h = hash(slot * 7 + 3);
-  if ((h & 3) === 0) return out;
-  const count = h & 16 ? 2 : 1;
+  if ((h & 7) === 0) return out;
+  const count = 1 + ((h >>> 4) & 1) + ((h >>> 5) & 1);
   for (let a = 0; a < count; a++) {
     const g = hash(h + a * 101);
     const y0 = 22 + (g % 88), left = (g >>> 8) & 1;
@@ -869,7 +869,7 @@ function arcs(buf, slot) {
     else { for (let i = W - 1; i >= 0; i--) if (buf[y0 * W + i]) { x = i; break; } }
     if (x < 0) continue;
     let y = y0;
-    const len = 3 + ((g >>> 10) % 4);
+    const len = 4 + ((g >>> 10) % 5);
     for (let k = 1; k <= len; k++) {
       x += left ? -1 : 1;
       y += ((g >>> (12 + k * 2)) % 3) - 1;
@@ -893,6 +893,8 @@ export function setup(params) {
   params.fx = 0;
   params.zoom = false;
   params.ed = 0;
+  params.tick = -1;
+  params.now = [0, 2, 0, 0, false];
 }
 
 export function update(dt, input, params) {
@@ -904,7 +906,7 @@ export function update(dt, input, params) {
   params.fx = min(3, max(0, floor(k[2] * 4)));
   params.ed = min(3, max(0, floor(k[3] * 4)));
   const b = input.btnPressed;
-  if (b && b[0] && plantSince(params, params.t) < 0) params.plantAt = params.t;
+  if (b && b[0] && plantSince(params, params.t, params.motion) < 0) params.plantAt = params.t;
   if (b && b[1]) params.sweepAt = params.t;
   if (b && b[2]) params.zoom = !params.zoom;
   if (b && b[3]) params.glintAt = params.t;
@@ -913,10 +915,15 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const p = params;
   if (!p.buf) setup(p);
-  const t = p.t;
-  // Steam, sparks and arcs step at 15 a second, so no LED holds a state for
-  // a single frame.
-  const tt = floor(t * 15 + 0.25) / 15;
+  // Everything steps at 15 a second, two of the Lab's frames, so no LED can
+  // hold a state for a single frame.
+  const tick = floor(p.t * 15 + 0.25), t = tick / 15;
+  // Knobs and the cut are taken at the step too.
+  if (tick !== p.tick) {
+    p.tick = tick;
+    p.now = [p.motion, p.stand, p.fx, p.ed, p.zoom];
+  }
+  const [motion, stand, fx, ed, zoom] = p.now;
   const buf = p.buf;
   buf.fill(0);
 
@@ -925,16 +932,16 @@ export function draw(display, params) {
   const dx = [0, 0, 0, u >= 1.45 && u < 3.15 ? -1 : 0, 0];
 
   // Shouldered, upright, or planted; guard mode keeps it planted.
-  const d = plantSince(p, t);
-  let pose = p.motion === 2 ? 2 : 0;
-  if (d >= 0) pose = d < LIFT ? 1 : d < DOWN || p.motion === 2 ? 2 : 1;
+  const d = plantSince(p, t, motion);
+  let pose = motion === 2 ? 2 : 0;
+  if (d >= 0) pose = d < LIFT ? 1 : d < DOWN || motion === 2 ? 2 : 1;
   const sd = d >= LIFT ? d - LIFT : -1;
   // The bite goes through him: the head drops a pixel, the chest after it.
   if (sd >= 0 && sd < 0.27) dy[2] += 1;
   if (sd >= 0.07 && sd < 0.23) dy[1] += 1;
 
   let sw = since(SWEEPS, t, SWEEP_LEN);
-  if (t - p.sweepAt < SWEEP_LEN) sw = t - p.sweepAt;
+  if (t >= p.sweepAt && t - p.sweepAt < SWEEP_LEN) sw = t - p.sweepAt;
   const sweep = sw >= 0;
   const band = -8 + (sw / SWEEP_LEN) * (W + H * 0.5 + 16);
 
@@ -956,11 +963,11 @@ export function draw(display, params) {
   const db = since(BLINKS, t, 0.3);
   const lid = db < 0 ? 0 : db < 0.08 || db >= 0.2 ? 1 : 2;
   let look = 0;
-  if (d < 0 && p.motion !== 3) {
+  if (d < 0 && motion !== 3) {
     const u2 = t % CYCLE;
     for (let s = 0; s < SCANS.length; s++) if (u2 >= SCANS[s][0] && u2 < SCANS[s][0] + SCANS[s][2]) look = SCANS[s][1];
   }
-  const mood = (d >= 0 && d < 1.4) || p.motion === 2 ? FLARE : p.motion === 3 ? DIM : null;
+  const mood = (d >= 0 && d < 1.4) || motion === 2 ? FLARE : motion === 3 ? DIM : null;
   for (let e = 0; e < EYES.length; e++) {
     const [x, y, c] = EYES[e];
     if (lid === 1 && y === 23) continue;
@@ -969,7 +976,7 @@ export function draw(display, params) {
   }
 
   let dg = since(GLINTS, t, GLINT_LEN);
-  if (t - p.glintAt < GLINT_LEN) dg = t - p.glintAt;
+  if (t >= p.glintAt && t - p.glintAt < GLINT_LEN) dg = t - p.glintAt;
   if (dg >= 0 && pose === 0) {
     for (let i = 0; i < GLINT.length; i++) {
       const g = GLINT[i], at = (g[1] + dy[1]) * W + g[0];
@@ -977,33 +984,32 @@ export function draw(display, params) {
     }
   }
 
-  const fx = p.fx;
-  if (fx === 0 || fx === 2) steam(buf, tt, fx === 2);
+  if (fx === 0 || fx === 2) steam(buf, t, fx === 2);
   if (fx === 1) {
-    const slot = floor(t * 10 + 0.25);
+    const slot = tick >> 1;
     if (slot !== p.arcSlot) {
       p.arcSlot = slot;
       p.arcPix = arcs(buf, slot);
     }
-    for (let i = 0; i < p.arcPix.length; i++) over(buf, p.arcPix[i][0], p.arcPix[i][1], p.arcPix[i][2]);
+    for (let i = 0; i < p.arcPix.length; i++) under(buf, p.arcPix[i][0], p.arcPix[i][1], p.arcPix[i][2]);
   }
   if (fx !== 3 && sd >= 0 && sd < 0.9) {
     const t0 = t - sd;
-    sparks(buf, sd, floor(t0 * 15 + 0.25) / 15, tt, floor(t0 * 10));
+    sparks(buf, t0, t, floor(t0 * 10 + 0.5));
     if (sd < 0.3) for (let i = 0; i < SPILL.length; i++) over(buf, SPILL[i][0], SPILL[i][1], sd < 0.15 ? SPILL[i][2] : "v");
     if (sd < 0.14) for (let i = 0; i < FLASH.length; i++) over(buf, FLASH[i][0], FLASH[i][1], FLASH[i][2]);
   }
 
   const tier = fx === 2 && dy[1] < 0 ? 1 : 0;
-  const key = p.ed * 64 + p.stand * 16 + fx * 4 + tier;
+  const key = ed * 64 + stand * 16 + fx * 4 + tier;
   if (key !== p.key) {
     p.key = key;
-    p.lut = lut(p.ed, p.stand, fx, tier);
+    p.lut = lut(ed, stand, fx, tier);
   }
   const L = p.lut;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      const ch = p.zoom ? buf[(CUT_Y + (y >> 1)) * W + CUT_X + (x >> 1)] : buf[y * W + x];
+      const ch = zoom ? buf[(CUT_Y + (y >> 1)) * W + CUT_X + (x >> 1)] : buf[y * W + x];
       const c = ch ? L[ch] : -1;
       if (c < 0) display.setPixel(x, y, 0, 0, 0);
       else display.setPixel(x, y, (c >> 16) & 255, (c >> 8) & 255, c & 255);
