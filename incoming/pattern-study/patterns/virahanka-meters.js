@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Matras=5..9, Order=0..1
 //
-// Knob 1: Hue. Turns both syllables round the wheel together. At 0 the shorts are sea green and the longs violet; at 0.25 azure and rose, at 0.5 rose and lime.
+// Knob 1: Hue. Turns both syllables round the wheel together. At 0 the shorts are sea green and the longs violet; at 0.25 blue and red, at 0.5 rose and lime. A syllable flashes white as it starts.
 // Knob 2: Speed. Matras a second, 1.25 for each unit: 2.5 at the opening 2, so a bar of 5 matras takes 2 s; 0.25 a second at 0.2 and 3.75 at 3.
 // Knob 3: Matras. The length n of every meter, 5 to 9, and with it the number of meters F(n + 1): 8 rows 16 LEDs tall at the opening 5, then 13, 21, 34 and 55 rows, the last ones 2 or 3 LEDs tall. The matra columns are 12 LEDs wide at 5 and 7 at 9.
 // Knob 4: Order. Below a third, Pingala's order: the meters that end in a long on top of those that end in a short, so the two blocks of the Fibonacci sum and the blocks inside them line up along the right edge. To two thirds, the same recursion on the first syllable: all meters that start with a short, then all that start with a long, and the blocks line up along the left edge. Above that, the meters grouped by how many longs they hold, most first, in blocks of C(n - k, k) rows: 3, 4 and 1 at n = 5, and 5, 20, 21, 8 and 1 at n = 9, Pascal's shallow diagonals. The rows slide to their new places.
@@ -142,7 +142,7 @@ export function draw(display, params) {
   if (!S || !S.pos) return;
   const n = S.n, P = S.meters, R = P.length, RH = H / R;
   const cw = floor(W / n), x0 = floor((W - cw * n) / 2);
-  const gx = cw >= 10 ? 2 : 1, gy = RH >= 10 ? 2 : RH >= 4 ? 1 : 0;
+  const gx = cw >= 10 ? 2 : 1, gy = RH >= 10 ? 2 : RH >= 3 ? 1 : 0;
   const ph = S.t % n, xph = x0 + ph * cw;
   const Rr = S.r, Gg = S.g, Bb = S.b, c = S.c, env = [0, 0];
   Rr.fill(0);
@@ -167,7 +167,9 @@ export function draw(display, params) {
       // The rounded rectangle, antialiased by its signed distance.
       const hx = (xb - xa) / 2, hy = (yb - ya) / 2, cx = xa + hx, cy = ya + hy;
       const rad = min(4, 0.38 * min(hx, hy) * 2);
-      const X0 = max(0, floor(xa)), X1 = min(W - 1, floor(xb)), Y0 = max(0, floor(ya)), Y1 = min(H - 1, floor(yb));
+      // A ring of light just outside the cell while the onset flash lasts.
+      const halo = env[1] * 0.75;
+      const X0 = max(0, floor(xa - 1)), X1 = min(W - 1, floor(xb + 1)), Y0 = max(0, floor(ya - 1)), Y1 = min(H - 1, floor(yb + 1));
       for (let py = Y0; py <= Y1; py++) {
         const qy = Math.abs(py + 0.5 - cy) - (hy - rad);
         const shade = (1.08 - 0.22 * ((py + 0.5 - ya) / (yb - ya))) * stripe;
@@ -176,7 +178,15 @@ export function draw(display, params) {
           const ox = max(qx, 0), oy = max(qy, 0);
           const sd = sqrt(ox * ox + oy * oy) + min(max(qx, qy), 0) - rad;
           const cov = cl(0.5 - sd, 0, 1);
-          if (cov <= 0) continue;
+          if (cov <= 0) {
+            if (halo > 0.02 && sd < 1.6) {
+              const k = halo * (1 - sd / 1.6) * 255 * stripe, i = py * W + px;
+              Rr[i] += (0.5 + 0.5 * c[0]) * k;
+              Gg[i] += (0.5 + 0.5 * c[1]) * k;
+              Bb[i] += (0.5 + 0.5 * c[2]) * k;
+            }
+            continue;
+          }
           // A long fills behind the playhead while it holds.
           let lv = v;
           if (active && len === 2) lv = v * (0.55 + 0.45 * cl(xph - px, 0, 1));
