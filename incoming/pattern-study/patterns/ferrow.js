@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ferrow
 // Family:  pixel
-// Idea:    A hand-pixelled figure of Ferrow, an old sentinel robot that has kept the last gate of a fallen citadel alone for two hundred years, standing on a display stand that fills the panel: bone-white enamel plates over a gunmetal frame, two exhaust stacks behind the shoulder, an antenna swept back from the ear, amber eyes in a dark visor, a plum tabard at the waist, and a greatsword as tall as he is carried on the shoulder, its fuller glowing like iron just out of the forge. He breathes, steam leaves his stacks, his eyes glance aside and blink, and twice a loop he swings the sword off his shoulder to stand it upright at his hip, turns it over in his hand and drives its point into the stand in a flash and a spray of sparks, leans on it a while and shoulders it again.
+// Idea:    A hand-pixelled figure of Ferrow, an old sentinel robot that has kept the last gate of a fallen citadel alone for two hundred years, standing on a display stand that fills the panel: bone-white enamel plates over a gunmetal frame, two exhaust stacks behind the shoulder, an antenna swept back from the ear, amber eyes in a dark visor, a plum tabard at the waist, and a greatsword as tall as he is carried on the shoulder, its fuller glowing like iron just out of the forge. He breathes, steam leaves his stacks, his eyes glance aside and blink, and twice a loop he swings the sword off his shoulder to stand it upright at his hip, turns it over in his hand and drives its point into the stand, sinking into his knees as the stand's gold ring flashes and sparks fly, leans on it a while and shoulders it again.
 // Author:  patternflow-lab
 // Date:    2026-11-01
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Motion=0..1, Stand=0..3, Effect=0..1, Edition=0..1
 //
-// Knob 1: Motion. How he moves: below 0.25 he plants the sword twice a loop; from 0.25 he is restless and plants it four times; from 0.5 he stands guard with the sword held upright at his hip and his eyes flared white; from 0.75 he is on standby, leaning on the planted sword with his eyes down to an ember line, and only breathes.
+// Knob 1: Motion. How he moves: below 0.25 he plants the sword twice a loop; from 0.25 he is restless and plants it four times; from 0.5 he stands guard with the sword held upright at his hip and his eyes flared white; from 0.75 he is on standby, leaning on the planted sword with his head down a pixel and his eyes down to an ember line, and only breathes.
 // Knob 2: Stand. What he stands on: a turned wood plinth at 0, white marble from 1, black acrylic with a gold rim from 2, and from 3 an acrylic disc lit from its edge.
-// Knob 3: Effect. What comes off him: steam from the stacks and sparks where the point bites below 0.25; from 0.25 a charge that turns his gunmetal and rim live blue with arcs crawling off his outline; from 0.5 an overheat, the gunmetal glowing red and hotter on each in-breath, with heavy steam; from 0.75 none.
+// Knob 3: Effect. What comes off him: puffs of steam from the stacks and sparks where the point bites below 0.25; from 0.25 a charge that turns his gunmetal, rim, eyes and fuller a live blue that surges brighter now and then, with arcs forking off his outline; from 0.5 an overheat, the gunmetal glowing orange, brighter than the enamel and hotter on each in-breath, with twice the steam; from 0.75 none.
 // Knob 4: Edition. The paint: bone-white enamel below 0.25, the second-player black and teal from 0.25, a gold and chrome limited plating from 0.5, and from 0.75 the unpainted grey prototype.
 // Buttons: K1 tap makes him plant the sword now; K2 tap sends the case light along him; K3 tap toggles the detail cut, his head, chest and sword hand at exactly twice the size; K4 tap makes the sword's point wink.
 
