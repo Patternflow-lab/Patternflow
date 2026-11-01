@@ -14,7 +14,7 @@
 // Knob 1: Hue. Tints the light round the wheel at a quarter saturation: at 0 a pale azure white, at 0.25 pale violet, at 0.5 peach, at 0.75 pale green. Under the tint the rings keep the colours the three wavelengths give them, and the marker ticks are gold at 0 and turn with the tint.
 // Knob 2: Speed. At 2 the screen travels from the top row of the section to the bottom in 6 s and back in 6 s, slowing at both ends; at 0.2 a crossing takes 60 s, at 3 it takes 4 s.
 // Knob 3: Fresnel. The Fresnel number a^2 / (lambda z) at the top row of the section, for green light; the section reaches 4 times as far, so its bottom row has a quarter of it. At 4 the screen opens on a spot 4 LEDs across in a dark disc ringed every 2.5 LEDs, and at the bottom of the sweep (N = 1) the spot is 16 LEDs across and the shadow is mostly rings. At 16 the shadow is sharp and smooth, its rings finer than an LED, and the spot is a single LED that only widens to 4 at the bottom.
-// Knob 4: Rough. Spreads the disc's edge radius by up to a quarter of the radius either side, and the light drawn is the field averaged over that spread. The spot needs an edge true to a fraction of a Fresnel zone: at 1 the axis is dark at the top of the section, comes back to a quarter of the free light a third of the way down where the Fresnel number has fallen to 2, and to 0.72 at the bottom. Red has the smallest Fresnel number, so the returning spot is warm before it turns white.
+// Knob 4: Rough. Spreads the disc's edge radius by up to 30% of the radius either side, and the light drawn is the field averaged over that spread. The spot needs an edge true to a fraction of a Fresnel zone: at 1 the axis is dark over the top fifth of the section, comes back to a seventh of the free light a third of the way down where the Fresnel number has fallen to 2, to a third of it just past halfway (1.5) and to 0.62 at the bottom. Red has the smallest Fresnel number, so the returning spot is warm before it turns white. At the opening 0.06 the spot keeps 97% of its light even at the top.
 
 // The field behind an opaque disc of radius a, lit by a plane wave, is by
 // Babinet's principle the free wave minus the wave through a hole of radius
@@ -63,7 +63,7 @@ const SCR_Y = 64, A_SCR = 20, CX = 32, CY = 96;
 // Radial samples of the screen profile, a quarter LED apart out to 46 LEDs.
 const RS = 0.25, NR = 186;
 // Edge spread at Rough 1, as a share of the radius.
-const WMAX = 0.25;
+const WMAX = 0.3;
 // Intensity drawn at full brightness, and the curve below it.
 const ITOP = 1.8, GAM = 0.8;
 
