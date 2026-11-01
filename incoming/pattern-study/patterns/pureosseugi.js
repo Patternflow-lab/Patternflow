@@ -39,6 +39,11 @@
 // letter and block that has to move glides to its new place in 0.65 s, so
 // the block that opens pushes the rest of the phrase along and down, and
 // a syllable's letters may end up split over two lines.
+//
+// Every text line stands on a ruled line across the panel, one LED under
+// its letters, at 22% brightness. When the layout changes the old rules fade
+// out and the new ones in over the same 0.65 s, so the paper is ruled two
+// lines deep for the blocks and three for the letters of 풀어쓰기.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, sin, cos, sqrt, PI } = Math;
@@ -47,6 +52,8 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const PHRASES = ["풀어쓰기", "한나라 말", "말의 소리", "모아쓰기", "한 줄로 써요", "한글"];
 
 const B = 25, BGAP = 3, LH = 25, LP = 31, PAGE = 119, SPW = 6, MAXL = 4;
+// Brightness of the ruled lines the text stands on.
+const RULE = 0.22;
 // Seconds at Speed 2: the opening hold, one block opening after another,
 // a letter's journey, the row's hold, packing, and the blocks' hold.
 const HOLD0 = 1.0, STEP_U = 0.8, FLY = 0.65, HOLD_R = 3.0, STEP_P = 0.6, HOLD_B = 2.0, PEEL = 0.06;
@@ -160,7 +167,7 @@ const ease = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const DIG = [[7, 5, 5, 5, 7], [2, 6, 2, 2, 7], [7, 1, 7, 4, 7], [7, 1, 3, 1, 7], [5, 5, 7, 1, 1], [7, 4, 7, 1, 7], [7, 4, 7, 5, 7], [7, 1, 1, 2, 2], [7, 5, 7, 5, 7], [7, 5, 7, 1, 7]];
 
 export function setup(params) {
-  params.s = { phrase: -1, gap: -1, t: 0, clock: 0, open: [], sylls: [], jamo: [], ink: new Float32Array(N * 2), hue: 0 };
+  params.s = { phrase: -1, gap: -1, t: 0, clock: 0, open: [], sylls: [], jamo: [], ink: new Float32Array(N * 2), hue: 0, rules: new Float32Array(H), ruleTo: new Uint8Array(H) };
 }
 
 function begin(S, n) {
@@ -237,7 +244,7 @@ function layout(S, open, gap) {
         }
       }
     });
-    return { out, lines: lines.length, gap: g };
+    return { out, lines: lines.length, gap: g, rules: lines.map((_, li) => top + li * LP + LH + 1) };
   }
 }
 
@@ -261,12 +268,17 @@ export function update(dt, input, params) {
   S.clock += step;
   S.t += step;
   if (S.t >= S.loop) S.t -= S.loop;
+  // Ruled lines fade to where the layout puts them, over one journey.
+  for (let y = 0; y < H; y++) S.rules[y] = cl(S.rules[y] + (S.ruleTo[y] ? step : -step) / FLY, 0, 1);
   const open = S.sylls.map((_, i) => S.t >= HOLD0 + i * STEP_U && S.t < S.packAt + i * STEP_P);
   if (gap === S.gap && open.every((o, i) => o === S.open[i])) return;
   const first = S.gap < 0;
   S.gap = gap;
   S.open = open;
   const L = layout(S, open, gap);
+  S.ruleTo.fill(0);
+  for (const y of L.rules) if (y < H) S.ruleTo[y] = 1;
+  if (first) S.rules.set(S.ruleTo);
   S.jamo.forEach((jm, j) => {
     const target = L.out[j];
     if (first) {
@@ -354,9 +366,15 @@ export function draw(display, params) {
   }
   const h = S.hue + 0.55;
   const cP = hsv(h, 0.3, 1), cF = hsv(h, 0.75, 1), vP = hsv(h + 0.33, 0.3, 1), vF = hsv(h + 0.33, 0.7, 1);
+  // The ruled line each text line stands on, one LED under it.
+  const rule = hsv(h + 0.16, 0.3, RULE);
   for (let p = 0; p < N; p++) {
-    const a = ink[p], b = ink[N + p], m = form[p];
+    const a = ink[p], b = ink[N + p], m = form[p], q = S.rules[floor(p / W)];
     let r = 0, g = 0, bl = 0;
+    if (q > 0 && a === 0 && b === 0) {
+      const x = p % W;
+      if (x > 0 && x < W - 1) (r = rule[0] * q), (g = rule[1] * q), (bl = rule[2] * q);
+    }
     if (a > 0) {
       r += a * (cP[0] + (cF[0] - cP[0]) * m);
       g += a * (cP[1] + (cF[1] - cP[1]) * m);
