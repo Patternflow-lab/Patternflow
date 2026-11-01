@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 the letters are periwinkle, the holes gold and the windows green for one lit bit, magenta for three and cyan for two across a corner; at 0.5 the letters go sand, the holes blue, and the three windows pink, green and red.
 // Knob 2: Speed. At 2 the window stays 0.06 s on each of a letter's 48 positions, so a letter is read in 2.9 s and its answer rises over 1 s; the panel opens with the first letter read, finishes the word at 7.8 s and holds it 2.5 s, and a word read from its first letter takes 11.6 s. Every time goes as 2 / Speed.
 // Knob 3: Words. Which list of three-letter words is read, each word in turn: 0 OBI, POD, AXE; 1 DOG, WAX, ZIP; 2 486, 809, 640. A new list starts at its first word, again with the first letter read.
-// Knob 4: Corners. Whether two bits that meet only at a corner touch. Up to 0.5 they do (8-connectivity, the way a reader sees the letters): the LED between them lights, the QD tally takes a minus sign, and O, B, A, D and the figures keep their holes. From 0.5 they do not (4-connectivity): that LED goes dark, QD takes a plus sign, and every bowl with a stepped corner leaks through it and comes apart, O into four pieces and X into nine, while P and 0, whose corners are square, keep their holes.
+// Knob 4: Corners. Whether two bits that meet only at a corner touch, shown top right as 8 beside a ring of eight neighbours or 4 beside a plus. Up to 0.5 they do (8-connectivity, the way a reader sees the letters): the LED between them lights, the QD tally takes a minus sign, and O, B, A, D and the figures keep their holes. From 0.5 they do not (4-connectivity): that LED goes dark, QD takes a plus sign, and every bowl with a stepped corner leaks through it and comes apart, O into four pieces and X into nine, while P and 0, whose corners are square, keep their holes.
 
 // Gray's bit quads. Pad the letter with a ring of zeros and look at every
 // 2 by 2 window that overlaps it, (5 + 1)(7 + 1) = 48 for a 5 by 7 letter.
@@ -389,5 +389,9 @@ export function draw(display, params) {
         }
     }
   }
+  // Top right, which neighbours count: 8 over a ring of eight, or 4 over a
+  // plus of four.
+  mini(S, c8 ? "4" : "8", 55, 0, white, 0.7 * alpha * 255);
+  for (let i = 0; i < 9; i++) if (i !== 4 && (!c8 || i % 2)) put(S, 60 + (i % 3), 1 + floor(i / 3), white, 0.7 * alpha * 255);
   for (let p = 0; p < NPX; p++) display.setPixel(p % W, floor(p / W), min(255, round(rgb[p * 3])), min(255, round(rgb[p * 3 + 1])), min(255, round(rgb[p * 3 + 2])));
 }
