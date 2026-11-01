@@ -21,8 +21,8 @@ const W = 64, H = 128;
 // Each part is a grid, one character per LED and "." where it is clear, drawn
 // in ORDER. Materials run light to dark: enamel a b c d, gunmetal g h i j,
 // tabard p q r s, blade steel m n o. C I R O are the shadow-side bounce next to
-// the rim light z. f u v are the hot amber of the
-// fuller and the eyes, x the dark of the visor, w the specular. U V X N are the stand.
+// the rim light z. f u v are the hot amber of the fuller and the eyes, x the
+// dark of the visor, w the specular. U V X N are the stand, S T Y the steam.
 const PARTS = {
   base: { x: 6, y: 111, rows: [
     ".............NNNNNNNNNNNNNNNNNNNNNNNNNN.............",
@@ -557,7 +557,10 @@ const PARTS = {
     ".....ssr.....",
     ".....ssr.....",
     ".....ssr.....",
-    ".....zIR.....",
+    ".....zRR.....",
+    ".....zRR.....",
+    ".....zRR.....",
+    ".....zhr.....",
     ".....zgg.....",
     "....zhggh....",
     ".....zhh.....",
@@ -576,11 +579,11 @@ const PARTS = {
   ] },
   armfar_b: { x: 49, y: 48, rows: [
     "..jhg..........",
-    ".jiihgg........",
-    "jjiiihhhgg.....",
-    "zIIiihhhhbba...",
-    "zIIiiihhcbbaa..",
-    ".zIIiiiccbbaaa.",
+    ".jiiihg........",
+    "jjijjihhgg.....",
+    "zIIijihhhbba...",
+    "zIIijjhhcbbaa..",
+    ".zIIjjiccbbaaa.",
     "..zIIjcccbbaaaa",
     "....zIcccbbaaaa",
     ".....zcccbbaaaa",
@@ -643,12 +646,17 @@ const PARTS = {
     "....o....",
     "....o....",
   ] },
-  hilt_b: { x: 50, y: 51, rows: [
+  hilt_b: { x: 50, y: 46, rows: [
     "......h......",
     ".....hgg.....",
     "....hhggh....",
     ".....hhh.....",
     ".....shr.....",
+    ".....ssr.....",
+    ".....ssr.....",
+    ".....ssr.....",
+    ".....ssr.....",
+    ".....ssr.....",
     ".....ssr.....",
     ".....ssr.....",
     ".....ssr.....",
@@ -675,123 +683,123 @@ const PARTS = {
     "...zhg...",
   ] },
   smear_up: { x: 9, y: 0, rows: [
-    ".........nnnnnnnoooooooooooonnnnnnnn............",
-    ".....nnnnoooooooo...........ooooooonnnnn........",
-    "..nnnooooo.........................oooonnnnn....",
-    "nnoooo.................................oooonnn..",
-    "oo.........................................ooonn",
+    "......ooommmmmmmmmmmmmmmmmmmmmmmmmmooooo........",
+    ".....mmmmmmmmmmmoooooooooooommmmmmmmmmmooo......",
+    "..mmmommmoooooooo...........ooooooommmmmmmmm....",
+    "mmoooooooo.........................oooommoommm..",
+    "oo.....................................ooo.ooomm",
     "..............................................oo",
   ] },
-  smear_flip: { x: 55, y: 6, rows: [
-    "on.......",
-    "on.......",
-    "oon......",
-    ".on......",
-    ".on......",
-    ".on......",
-    ".on......",
-    ".on......",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    "...on....",
-    "...on....",
-    "...on....",
-    "...on....",
-    "...on....",
-    "...oon...",
-    "....on...",
-    "....on...",
-    "....on...",
-    "....on...",
-    "....on...",
-    "....oon..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    ".......on",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    "......on.",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    ".....on..",
-    "....onn..",
-    "....on...",
-    "....on...",
-    "....on...",
-    "....on...",
-    "....on...",
-    "...onn...",
-    "...on....",
-    "...on....",
-    "...on....",
-    "...on....",
-    "...on....",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    "..on.....",
-    ".on......",
-    ".on......",
-    ".on......",
-    ".on......",
-    ".on......",
-    "onn......",
-    "on.......",
-    "on.......",
+  smear_flip: { x: 54, y: 6, rows: [
+    "oo........",
+    "oo........",
+    "ooo.......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    "..oo......",
+    ".ommo.....",
+    ".ommo.....",
+    ".ommo.....",
+    ".ommo.....",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    "..oommo...",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "...oommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    "......ommo",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    ".....ommo.",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "....ommo..",
+    "...ommoo..",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "...ommo...",
+    "..ommoo...",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    "..ommo....",
+    ".ommo.....",
+    ".ommo.....",
+    ".ommo.....",
+    ".ommo.....",
+    "..oo......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    ".oo.......",
+    "ooo.......",
+    "oo........",
+    "oo........",
   ] },
 };
 // The three poses: the sword on the shoulder, held upright, and planted.
@@ -816,13 +824,17 @@ const STANDS = [
   { U: 0x00658c, V: 0x00bcd9, X: 0x0084a8, N: 0xc1f8f9 },
 ];
 // Knob 3: what the frame does to the steel. Steam and off leave it; the charge
-// turns the gunmetal and the rim to a live blue; the overheat runs the gunmetal
-// red hot, one shade hotter on each in-breath.
+// turns the gunmetal, the rim, the eyes and the fuller a live blue that surges
+// brighter now and then; the overheat runs the gunmetal orange hot, brighter
+// than the enamel, and hotter again on each in-breath.
 // Z is the arcs, a shade apart from the charged rim.
-const CHARGE = { g: 0x58b0f0, h: 0x3a70d0, i: 0x2c44a0, j: 0x24286e, I: 0x3a5cc0, z: 0xd8f4ff, O: 0x5a90d8, Z: 0x6fd0ff };
+const CHARGE = [
+  { g: 0x58b0f0, h: 0x3a70d0, i: 0x2c44a0, j: 0x24286e, I: 0x3a5cc0, z: 0xd8f4ff, O: 0x5a90d8, Z: 0x6fd0ff, u: 0x40c8ff, f: 0xa8ecff, v: 0x3a78e0 },
+  { g: 0xb8eaff, h: 0x70b8ff, i: 0x4070e0, j: 0x30349a, I: 0x5a88f0, z: 0xf0fcff, O: 0x80b8f8, Z: 0xa8e8ff, u: 0x80e0ff, f: 0xd8f8ff, v: 0x4a90f0 },
+];
 const HEAT = [
-  { g: 0xf0a070, h: 0xc05a48, i: 0x86344c, j: 0x56265a, I: 0x7a3a5a, S: 0xf2d8c8, T: 0xc89a90, Y: 0x8a6070 },
-  { g: 0xffc080, h: 0xe07448, i: 0xa0404a, j: 0x642a5c, I: 0x8a4058, S: 0xf2d8c8, T: 0xc89a90, Y: 0x8a6070 },
+  { g: 0xffe08a, h: 0xffa040, i: 0xd8602c, j: 0x8a3038, I: 0xc05a40 },
+  { g: 0xfff0b0, h: 0xffc060, i: 0xf07a34, j: 0xa83a3a, I: 0xd8703c },
 ];
 // The case light: what a glossy character turns into while the band passes.
 const UP = {"n": "m", "o": "n", "O": "n", "h": "g", "i": "h", "I": "h", "j": "i"};
@@ -835,23 +847,25 @@ const FLARE = { u: "f", f: "w", w: "w" };
 // The wink on the sword's point: x, y and what the LED turns into.
 const GLINT = [[10, 5, "w"], [9, 4, "w"], [11, 5, "w"]];
 // Where the planted point bites the stand, and the glow it throws on the rim.
-const BITE_X = 53, BITE_Y = 116;
-const SPILL = [[51, 118, "f"], [52, 118, "w"], [53, 118, "w"], [54, 118, "w"], [55, 118, "f"], [52, 119, "f"], [53, 119, "f"], [54, 119, "f"]];
+const BITE_X = 56, BITE_Y = 116;
+// What does not sink with him.
+const FIRM = { base: 1, legfar: 1, legnear: 1 };
+const SPILL = [[53, 118, "f"], [54, 118, "w"], [55, 118, "w"], [56, 118, "w"], [57, 118, "f"], [54, 119, "f"], [55, 119, "f"], [56, 119, "f"]];
 // A ring running out along the stand from the bite, a step at a time.
-const SHOCK = [4, 9, 14, 19];
+const SHOCK = [4, 9, 15, 22, 30, 38];
 // The flash at the moment of the bite, for its first two fifteenths of a second.
-const FLASH = [[53, 113, "w"], [52, 115, "w"], [54, 115, "w"], [51, 115, "f"], [55, 115, "f"], [53, 114, "f"], [50, 116, "u"], [56, 116, "u"]];
+const FLASH = [[56, 111, "f"], [56, 112, "w"], [56, 113, "w"], [56, 114, "w"], [53, 116, "w"], [54, 116, "w"], [55, 116, "w"], [57, 116, "w"], [58, 116, "w"], [51, 116, "f"], [52, 116, "f"], [59, 116, "f"], [60, 116, "f"], [54, 114, "f"], [58, 114, "f"], [53, 113, "u"], [59, 113, "u"], [56, 110, "u"]];
 // The two exhaust mouths and how late each puffs after the other. A
 // puff swells and thins as it rises up and away to the left: S T Y light to
 // dim, its own letters so a repaint of the steel never reaches it.
 const STACKS = [[16, 27, 0], [10, 30, 0.2]];
 const PUFF = [
-  ["SS", "SS"],
-  [".SS.", "SSSS", ".TS."],
-  [".SST.", "SSSST", "TSSTT", ".TT.."],
-  ["..TT..", ".TTTTY", "TTTYY.", ".YY..."],
-  [".YY.", "YYYY", ".Y.."],
-  ["YY"],
+  [".S.", "SSS", ".S."],
+  [".SSS.", "SSSSS", "SSSST", ".STT."],
+  [".SSSS.", "SSSSST", "SSSSTT", "TSSTTT", ".TTT.."],
+  ["..TTT..", ".TTTTTY", "TTTTTYY", "TTTYYY.", ".YYY..."],
+  ["..YYY.", ".YYYYY", "YYYYY.", ".YY..."],
+  [".YY.", "YYYY"],
 ];
 
 const { floor, min, max, abs, cos, sin, PI } = Math;
@@ -867,7 +881,7 @@ const BLINKS = [0.6, 3.3, 6.4, 9.0, 12.0, 14.3, 17.6, 20.1, 23.4, 25.8];
 const SWEEPS = [4.3, 11.1, 17.9, 24.7];
 const GLINTS = [3.0, 12.6, 15.8, 25.0];
 const PLANTS = [7.0, 20.6];
-const PLANTS_KEEN = [0.2, 7.0, 13.8, 20.6];
+const PLANTS_KEEN = [1.6, 8.4, 15.2, 22.0];
 const SCANS = [[4.8, -2, 1.1], [10.95, 2, 0.9], [15.2, -2, 1.1], [18.4, 2, 1.0], [24.4, -2, 1.2]];
 const SWEEP_LEN = 2.4;
 const GLINT_LEN = 0.17;
@@ -911,7 +925,7 @@ function lut(ed, stand, fx, tier) {
   put(PAL);
   put(EDITIONS[ed]);
   put(STANDS[stand]);
-  if (fx === 1) put(CHARGE);
+  if (fx === 1) put(CHARGE[tier]);
   if (fx === 2) put(HEAT[tier]);
   return t;
 }
@@ -961,10 +975,10 @@ function plantSince(p, t, motion) {
   return d;
 }
 
-// Puffs leave the stacks once the out-breath has settled, and on the overheat
-// once the in-breath has too.
+// A puff leaves each stack once each half of the breath has settled, and twice
+// as often on the overheat.
 function steam(buf, t, heavy) {
-  const life = heavy ? 1.8 : 1.4, phases = heavy ? [1.3, 3.0] : [1.3];
+  const life = heavy ? 2.0 : 1.8, phases = heavy ? [1.3, 2.15, 3.0, 0.45] : [1.3, 3.0];
   for (let s = 0; s < STACKS.length; s++) {
     const [x0, y0, lag] = STACKS[s];
     for (let f = 0; f < phases.length; f++) {
@@ -972,7 +986,7 @@ function steam(buf, t, heavy) {
       const age = t - (at + floor((t - at) / BREATH) * BREATH);
       if (age < 0 || age >= life) continue;
       const shape = PUFF[min(5, floor(age / life * 6))];
-      const cx = floor(x0 - age * (heavy ? 7 : 6) + 0.5), cy = floor(y0 - 2 - age * 8 + 0.5);
+      const cx = floor(x0 - age * (heavy ? 5 : 4) + 0.5), cy = floor(y0 - 1 - age * 7 + 0.5);
       const x1 = cx - (shape[0].length >> 1), y1 = cy - shape.length + 1;
       for (let j = 0; j < shape.length; j++) {
         for (let i = 0; i < shape[j].length; i++) if (shape[j][i] !== ".") under(buf, x1 + i, y1 + j, shape[j][i]);
@@ -982,6 +996,15 @@ function steam(buf, t, heavy) {
 }
 
 function sparks(buf, tt0, tt, seed) {
+  // Embers skid out along the stand top, most of them to the left.
+  for (let n = 0; n < 6; n++) {
+    const h = hash(seed * 17 + n + 99);
+    const age = tt - tt0, life = 0.3 + (h & 7) / 30;
+    if (age < 0 || age >= life) continue;
+    const v = (40 + ((h >>> 3) & 31)) * (n < 4 ? -1 : 1);
+    const x = floor(BITE_X + v * age * (1 - age) + 0.5), y = BITE_Y + 1 - ((h >>> 9) & 1);
+    if (x >= 0 && x < W && buf[y * W + x]) over(buf, x, y, age < 0.15 ? "w" : "f");
+  }
   for (let n = 0; n < 14; n++) {
     const h = hash(seed * 31 + n);
     const ang = -PI * (0.35 + 0.42 * (h & 1023) / 1023);
@@ -1094,9 +1117,13 @@ export function draw(display, params) {
   const pose = poseAt(t), was = poseAt((tick - 2) / 15);
   const smear = was !== pose ? SMEAR[was * 3 + pose] : null;
   const sd = d >= LIFT && d < DOWN ? d - LIFT : -1;
-  // The bite goes through him: the head drops a pixel, the chest after it.
-  if (sd >= 0 && sd < 0.27) dy[2] += 1;
-  if (sd >= 0.07 && sd < 0.23) dy[1] += 1;
+  // He sinks into his knees a pixel as he swings, and two as the point bites;
+  // only the legs, the stand and the planted sword stay. On standby the head
+  // hangs a pixel.
+  const sink = d >= 0 && d < 2 / 15 ? 1 : sd >= 0 && sd < 2 / 15 ? 2 : sd >= 0 && sd < 4 / 15 ? 1 : 0;
+  dy[1] += sink;
+  dy[3] += sink;
+  dy[2] += sink + (motion === 3 && d < 0 ? 1 : 0);
 
   let sw = since(SWEEPS, t, SWEEP_LEN);
   if (t >= p.sweepAt && t - p.sweepAt < SWEEP_LEN) sw = t - p.sweepAt;
@@ -1108,7 +1135,7 @@ export function draw(display, params) {
   if (smear) blit(buf, PARTS[smear], 0, dy[1], false, 0);
   for (let n = 0; n < order.length; n++) {
     const name = order[n], g = GROUP[name];
-    blit(buf, PARTS[name], dx[g], dy[g], sweep && g !== 0, band);
+    blit(buf, PARTS[name], dx[g], dy[g] + (g === 0 && !FIRM[name] ? sink : 0), sweep && g !== 0, band);
   }
 
   // The eyes: clear the visor behind them, then paint them where they look.
@@ -1156,6 +1183,11 @@ export function draw(display, params) {
   if (fx !== 3 && sd >= 0 && sd < 0.9) {
     const t0 = t - sd;
     sparks(buf, t0, t, floor(t0 * 10 + 0.5));
+    // The stand's gold ring answers the bite: white, then amber.
+    if (sd < 4 / 15) {
+      const ring = sd < 2 / 15 ? 119 : 102;
+      for (let i = 104 * W; i < H * W; i++) if (buf[i] === 78) buf[i] = ring;
+    }
     if (sd < 0.3) for (let i = 0; i < SPILL.length; i++) over(buf, SPILL[i][0], SPILL[i][1], sd < 0.15 ? SPILL[i][2] : "u");
     const r = SHOCK[floor(sd * 15 + 0.5)];
     if (r) {
@@ -1168,7 +1200,7 @@ export function draw(display, params) {
     if (sd < 0.14) for (let i = 0; i < FLASH.length; i++) over(buf, FLASH[i][0], FLASH[i][1], FLASH[i][2]);
   }
 
-  const tier = fx === 2 && dy[1] < 0 ? 1 : 0;
+  const tier = fx === 2 ? (u >= 1.1 && u < 2.8 ? 1 : 0) : fx === 1 ? (hash((tick >> 1) * 13 + 5) % 7 === 0 ? 1 : 0) : 0;
   const key = ed * 64 + stand * 16 + fx * 4 + tier;
   if (key !== p.key) {
     p.key = key;
