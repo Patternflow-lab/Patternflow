@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ferrow
 // Family:  pixel
-// Idea:    A hand-pixelled figure of Ferrow, an old sentinel robot that has kept the last gate of a fallen citadel alone for two hundred years, standing on a display stand that fills the panel: bone-white enamel plates over a gunmetal frame, two exhaust stacks behind the shoulder, an antenna swept back from the ear, amber eyes in a dark visor, a plum tabard at the waist, and a greatsword as tall as he is carried on the shoulder, its fuller glowing like iron just out of the forge. He breathes, steam leaves his stacks, his eyes glance aside and blink, and twice a loop he lifts the sword off his shoulder and swings it over his head to stand it upright at his hip, raises it once more, turns it over in his hand and drives its point into the stand, sinking into his knees as the stand's gold ring flashes and sparks fly, leans on it a while and shoulders it again.
+// Idea:    A hand-pixelled figure of Ferrow, an old sentinel robot that has kept the last gate of a fallen citadel alone for two hundred years, standing on a display stand that fills the panel: bone-white enamel plates over a gunmetal frame, two exhaust stacks behind the shoulder, an antenna swept back from the ear, amber eyes in a dark visor, a plum tabard at the waist, and a greatsword as tall as he is carried on the shoulder, its fuller glowing like iron just out of the forge. He breathes, steam leaves his stacks, his eyes glance aside and blink, and every 6.8 s he lifts the sword off his shoulder and swings it over his head to stand it upright at his hip, raises it once more, turns it over in his hand and drives its point into the stand, sinking into his knees as his outline and the stand's gold ring flash, a ring of light runs out across the dark and sparks fly, leans on it a while and shoulders it again.
 // Author:  patternflow-lab
 // Date:    2026-11-01
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Motion=0..1, Stand=0..3, Effect=0..1, Edition=0..1
 //
-// Knob 1: Motion. How he moves: below 0.25 he plants the sword twice a loop; from 0.25 he is restless and plants it four times; from 0.5 he stands guard with the sword held upright at his hip and his eyes flared white; from 0.75 he is on standby, leaning on the planted sword with his head down a pixel and his eyes down to an ember line, and only breathes.
+// Knob 1: Motion. How he moves: below 0.25 he plants the sword every 6.8 s; from 0.25 he is restless and plants it every 3.4 s; from 0.5 he stands guard with the sword held upright at his hip and his eyes flared white; from 0.75 he is on standby, leaning on the planted sword with his head down a pixel and his eyes down to an ember line, and only breathes.
 // Knob 2: Stand. What he stands on: a turned wood plinth at 0, white marble from 1, black acrylic with a gold rim from 2, and from 3 an acrylic disc lit from its edge.
 // Knob 3: Effect. What comes off him: grey puffs of steam from the stacks and sparks where the point bites below 0.25; from 0.25 a charge that lights his gunmetal brighter than the enamel in a live blue, with his rim, eyes and fuller, surging brighter now and then, and arcs forking off his outline; from 0.5 an overheat, the gunmetal glowing orange, hotter on each in-breath, his eyes burning white and twice the steam; from 0.75 none.
 // Knob 4: Edition. The paint: bone-white enamel below 0.25, the second-player black and teal from 0.25, a gold and chrome limited plating from 0.5, and from 0.75 the unpainted grey prototype.
@@ -860,7 +860,7 @@ const FLASH = [[56, 111, "f"], [56, 112, "w"], [56, 113, "w"], [56, 114, "w"], [
 // dim, its own letters so a repaint of the steel never reaches it.
 const STACKS = [[16, 27, 0], [10, 30, 0.2]];
 const PUFF = [
-  [".S.", "SSS", ".S."],
+  ["SS", "SS"],
   [".SSS.", "SSSSS", "SSSST", ".STT."],
   [".SSSS.", "SSSSST", "SSSSTT", "TSSTTT", ".TTT.."],
   ["..TTT..", ".TTTTTY", "TTTTTYY", "TTTYYY.", ".YYY..."],
@@ -873,16 +873,16 @@ const { floor, min, max, abs, cos, sin, PI } = Math;
 // the breath at the same phase. Blinks come 2 to 3.3 s apart and never while
 // the head is moving; the case light every 6.8 s, taking 2.4 s to cross, at a
 // phase where no breath step meets its edge; the glint on the point every 3 or
-// more, always while the sword is on the shoulder. The sword comes down twice
-// a loop and the eyes glance aside between. None falls between 1.5 and 2.5 s,
+// more, always while the sword is on the shoulder. The sword comes down every
+// 6.8 s and the eyes glance aside between. None falls between 1.5 and 2.5 s,
 // where the still is taken.
 const CYCLE = 27.2;
 const BLINKS = [0.6, 3.3, 6.4, 9.0, 12.0, 14.3, 17.6, 20.1, 23.4, 25.8];
 const SWEEPS = [4.3, 11.1, 17.9, 24.7];
-const GLINTS = [3.0, 12.6, 15.8, 25.0];
-const PLANTS = [7.0, 20.6];
-const PLANTS_KEEN = [1.25, 8.05, 14.85, 21.65];
-const SCANS = [[4.8, -2, 1.1], [10.95, 2, 0.9], [15.2, -2, 1.1], [18.4, 2, 1.0], [24.4, -2, 1.2]];
+const GLINTS = [3.0, 8.0, 15.8, 22.0];
+const PLANTS = [3.4, 10.2, 17.0, 23.8];
+const PLANTS_KEEN = [1.25, 4.65, 8.05, 11.45, 14.85, 18.25, 21.65, 25.05];
+const SCANS = [[7.2, -2, 1.1], [8.8, 2, 0.8], [14.0, 2, 1.0], [15.4, -2, 1.0], [21.0, -2, 1.1], [22.6, 2, 0.8]];
 const SWEEP_LEN = 2.4;
 const GLINT_LEN = 0.17;
 // The big move: the sword comes off the shoulder upright, bites the stand
@@ -891,7 +891,7 @@ const GLINT_LEN = 0.17;
 // held upright on guard, and planted on standby.
 // Before each swing he winds up for two steps: the shouldered sword lifts off
 // the shoulder, and the upright one rises before it is turned and driven down.
-const LIFT = 10 / 15, DOWN = 55 / 15, PLANT_LEN = 61 / 15;
+const LIFT = 10 / 15, DOWN = 40 / 15, PLANT_LEN = 46 / 15;
 const WIND = { blade: 1, hilt: 1, fistfar: 1, armfar: 1, blade_m: 1, hilt_m: 1, fist_m: 1, armfar_m: 1 };
 const REST = [0, 0, 1, 2];
 // The swing drawn behind the figure as the pose changes, by from * 3 + to: an
@@ -1187,6 +1187,18 @@ export function draw(display, params) {
   if (fx !== 3 && sd >= 0 && sd < 0.9) {
     const t0 = t - sd;
     sparks(buf, t0, t, floor(t0 * 10 + 0.5));
+    // A ring of light runs out across the dark from the point, and his whole
+    // rim flashes white with it.
+    const k = floor(sd * 15 + 0.5);
+    if (k < 6) {
+      const r = 6 + 11 * k, ch = k < 2 ? "w" : k < 4 ? "f" : "u";
+      for (let a = 0; a <= 180; a++) {
+        const q = PI + (a / 180) * PI;
+        under(buf, floor(BITE_X + cos(q) * r + 0.5), floor(BITE_Y + 1 + sin(q) * r + 0.5), ch);
+        if (k < 2) under(buf, floor(BITE_X + cos(q) * (r + 1) + 0.5), floor(BITE_Y + 1 + sin(q) * (r + 1) + 0.5), ch);
+      }
+    }
+    if (k < 2) for (let i = 0; i < W * 104; i++) if (buf[i] === 122) buf[i] = 119;
     // The stand's gold ring answers the bite: white, then amber.
     if (sd < 4 / 15) {
       const ring = sd < 2 / 15 ? 119 : 102;
