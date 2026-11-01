@@ -683,123 +683,122 @@ const PARTS = {
     "...zhg...",
   ] },
   smear_up: { x: 9, y: 0, rows: [
-    "......ooommmmmmmmmmmmmmmmmmmmmmmmmmooooo........",
-    ".....mmmmmmmmmmmoooooooooooommmmmmmmmmmooo......",
-    "..mmmommmoooooooo...........ooooooommmmmmmmm....",
-    "mmoooooooo.........................oooommoommm..",
-    "oo.....................................ooo.ooomm",
-    "..............................................oo",
+    ".....nnnnmmmmmmmnnnnnnnnnnnnmmmmmmmnnnno........",
+    "...nnmmmmnnnnnnnoooooooooooonnnnnnnmmmmnnnnn....",
+    "..mmmnnnnoooooooo...........ooooooonnnnmmmmnn...",
+    "mm.nnn.ooo.........................oooonnnnmmm..",
+    ".......................................o...nn.mm",
   ] },
   smear_flip: { x: 54, y: 6, rows: [
-    "oo........",
-    "oo........",
-    "ooo.......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    "..oo......",
-    ".ommo.....",
-    ".ommo.....",
-    ".ommo.....",
-    ".ommo.....",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    "..oommo...",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "...oommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    "......ommo",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    ".....ommo.",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "....ommo..",
-    "...ommoo..",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "...ommo...",
-    "..ommoo...",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    "..ommo....",
-    ".ommo.....",
-    ".ommo.....",
-    ".ommo.....",
-    ".ommo.....",
-    "..oo......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    ".oo.......",
-    "ooo.......",
-    "oo........",
-    "oo........",
+    "m.........",
+    "m.........",
+    "mm........",
+    ".m........",
+    ".m........",
+    ".m........",
+    "nmn.......",
+    "nmn.......",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".oonmno...",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    "..oonmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    ".....onmno",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "....onmno.",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "...onmno..",
+    "..onmnoo..",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    "..onmno...",
+    ".onmnoo...",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".onmno....",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    ".nmn......",
+    "nmn.......",
+    "nmn.......",
+    ".m........",
+    ".m........",
+    ".m........",
+    "mm........",
+    "m.........",
+    "m.........",
   ] },
 };
 // The three poses: the sword on the shoulder, held upright, and planted.
@@ -808,7 +807,7 @@ const ORDER_M = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard",
 const ORDER_B = ["base", "pack", "legfar", "legnear", "spine", "hips", "tabard", "tabtip", "torso", "torso_u", "neck", "paulfar", "paulfar_u", "chest_u", "armfar_b", "paulnear", "armnear", "head", "headrim", "blade_b", "hilt_b", "fist_b"];
 // Which breath each part follows: 0 stays, 1 the chest, 2 the head a beat later, 3 the tabard's hem, which swings sideways, 4 the planted blade, which stays but still takes the case light.
 const GROUP = {"base": 0, "pack": 1, "blade": 1, "legfar": 0, "legnear": 0, "spine": 0, "hips": 0, "tabard": 0, "tabtip": 3, "torso": 1, "neck": 1, "paulfar": 1, "armfar": 1, "paulnear": 1, "armnear": 1, "head": 2, "hilt": 1, "fistfar": 1, "armfar_m": 1, "blade_m": 1, "hilt_m": 1, "fist_m": 1, "armfar_b": 1, "blade_b": 4, "hilt_b": 4, "fist_b": 1, "torso_u": 1, "paulfar_u": 1, "chest_u": 1, "headrim": 2, "smear_up": 1, "smear_flip": 1};
-const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075, S: 0xd6dde6, T: 0xa8bad4, Y: 0x6a7aa6 };
+const PAL = { a: 0xf2e2c0, b: 0xd8c4a2, c: 0xa7978f, d: 0x6f6684, g: 0x93a3c2, h: 0x5d6890, i: 0x3e4374, j: 0x2b2a56, p: 0xc87a96, q: 0x96507e, r: 0x683768, s: 0x3f1f56, m: 0xe4eef5, n: 0xa8bad4, o: 0x6a7aa6, f: 0xffd884, u: 0xff9b30, v: 0xd2552e, x: 0x2a2450, z: 0x8cccff, w: 0xfffaf0, C: 0xa7978f, I: 0x48538a, R: 0x683768, O: 0x6a7aa6, U: 0x48538a, V: 0x2f2f62, X: 0x2a2450, N: 0xd6b075, S: 0xe6e2de, T: 0xa7978f, Y: 0x6f6684, E: 0xff9b30, F: 0xffd884, W: 0xfffaf0 };
 // Knob 4: the editions, each a hand-picked repaint of some materials.
 const EDITIONS = [
   {  },
@@ -829,21 +828,22 @@ const STANDS = [
 // than the enamel, and hotter again on each in-breath.
 // Z is the arcs, a shade apart from the charged rim.
 const CHARGE = [
-  { g: 0x58b0f0, h: 0x3a70d0, i: 0x2c44a0, j: 0x24286e, I: 0x3a5cc0, z: 0xd8f4ff, O: 0x5a90d8, Z: 0x6fd0ff, u: 0x40c8ff, f: 0xa8ecff, v: 0x3a78e0 },
-  { g: 0xb8eaff, h: 0x70b8ff, i: 0x4070e0, j: 0x30349a, I: 0x5a88f0, z: 0xf0fcff, O: 0x80b8f8, Z: 0xa8e8ff, u: 0x80e0ff, f: 0xd8f8ff, v: 0x4a90f0 },
+  { g: 0x86d4ff, h: 0x4a90f0, i: 0x3058c0, j: 0x283090, I: 0x3a64d0, z: 0xd8f4ff, O: 0x5a90d8, Z: 0x6fd0ff, u: 0x40c8ff, f: 0xa8ecff, v: 0x3a78e0, E: 0x40c8ff, F: 0xa8ecff },
+  { g: 0xd0f4ff, h: 0x90d0ff, i: 0x5088f0, j: 0x3840b0, I: 0x6a98f8, z: 0xf0fcff, O: 0x80b8f8, Z: 0xa8e8ff, u: 0x80e0ff, f: 0xd8f8ff, v: 0x4a90f0, E: 0x80e0ff, F: 0xd8f8ff },
 ];
 const HEAT = [
-  { g: 0xffe08a, h: 0xffa040, i: 0xd8602c, j: 0x8a3038, I: 0xc05a40 },
-  { g: 0xfff0b0, h: 0xffc060, i: 0xf07a34, j: 0xa83a3a, I: 0xd8703c },
+  { g: 0xffe08a, h: 0xffa040, i: 0xd8602c, j: 0x8a3038, I: 0xc05a40, E: 0xfff0c0, F: 0xfffaf0 },
+  { g: 0xfff0b0, h: 0xffc060, i: 0xf07a34, j: 0xa83a3a, I: 0xd8703c, E: 0xfff0c0, F: 0xfffaf0 },
 ];
 // The case light: what a glossy character turns into while the band passes.
 const UP = {"n": "m", "o": "n", "O": "n", "h": "g", "i": "h", "I": "h", "j": "i"};
 // The eyes, x, y and colour, painted over the visor each frame so they can
-// look aside, half shut, shut to an ember line, or flare.
-const EYES = [[33, 23, "u"], [34, 23, "u"], [35, 23, "w"], [43, 23, "u"], [44, 23, "w"],
-  [33, 24, "u"], [34, 24, "f"], [35, 24, "f"], [36, 24, "f"], [37, 24, "u"], [41, 24, "u"], [42, 24, "f"], [43, 24, "f"], [44, 24, "u"],
-  [34, 25, "u"], [35, 25, "f"], [36, 25, "u"], [37, 25, "u"], [41, 25, "u"], [42, 25, "u"], [43, 25, "u"]];
-const FLARE = { u: "f", f: "w", w: "w" };
+// look aside, half shut, shut to an ember line, or flare. E F W are their own
+// letters, so each effect can repaint them apart from the fuller.
+const EYES = [[33, 23, "E"], [34, 23, "E"], [35, 23, "W"], [43, 23, "E"], [44, 23, "W"],
+  [33, 24, "E"], [34, 24, "F"], [35, 24, "F"], [36, 24, "F"], [37, 24, "E"], [41, 24, "E"], [42, 24, "F"], [43, 24, "F"], [44, 24, "E"],
+  [34, 25, "E"], [35, 25, "F"], [36, 25, "E"], [37, 25, "E"], [41, 25, "E"], [42, 25, "E"], [43, 25, "E"]];
+const FLARE = { E: "F", F: "W", W: "W" };
 // The wink on the sword's point: x, y and what the LED turns into.
 const GLINT = [[10, 5, "w"], [9, 4, "w"], [11, 5, "w"]];
 // Where the planted point bites the stand, and the glow it throws on the rim.
@@ -881,7 +881,7 @@ const BLINKS = [0.6, 3.3, 6.4, 9.0, 12.0, 14.3, 17.6, 20.1, 23.4, 25.8];
 const SWEEPS = [4.3, 11.1, 17.9, 24.7];
 const GLINTS = [3.0, 12.6, 15.8, 25.0];
 const PLANTS = [7.0, 20.6];
-const PLANTS_KEEN = [1.5, 8.3, 15.1, 21.9];
+const PLANTS_KEEN = [1.25, 8.05, 14.85, 21.65];
 const SCANS = [[4.8, -2, 1.1], [10.95, 2, 0.9], [15.2, -2, 1.1], [18.4, 2, 1.0], [24.4, -2, 1.2]];
 const SWEEP_LEN = 2.4;
 const GLINT_LEN = 0.17;
@@ -889,7 +889,10 @@ const GLINT_LEN = 0.17;
 // point first at LIFT, is leant on until DOWN, and goes back up the same way.
 // Each knob 1 stop has a pose it rests in between: shouldered, shouldered,
 // held upright on guard, and planted on standby.
-const LIFT = 6 / 15, DOWN = 51 / 15, PLANT_LEN = 55 / 15;
+// Before each swing he winds up for two steps: the shouldered sword lifts off
+// the shoulder, and the upright one rises before it is turned and driven down.
+const LIFT = 10 / 15, DOWN = 55 / 15, PLANT_LEN = 61 / 15;
+const WIND = { blade: 1, hilt: 1, fistfar: 1, armfar: 1, blade_m: 1, hilt_m: 1, fist_m: 1, armfar_m: 1 };
 const REST = [0, 0, 1, 2];
 // The swing drawn behind the figure as the pose changes, by from * 3 + to: an
 // arc over the head between shoulder and upright, and a crescent down the right
@@ -1111,7 +1114,7 @@ export function draw(display, params) {
   // two steps after it changes.
   const poseAt = (q) => {
     const e = plantSince(p, q, motion);
-    return e < 0 ? REST[motion] : e < LIFT || e >= DOWN ? 1 : 2;
+    return e < 0 ? REST[motion] : e < 2 / 15 ? REST[motion] === 2 ? 2 : 0 : e < LIFT || e >= DOWN ? 1 : 2;
   };
   const d = plantSince(p, t, motion);
   const pose = poseAt(t), was = poseAt((tick - 2) / 15);
@@ -1120,7 +1123,8 @@ export function draw(display, params) {
   // He sinks into his knees a pixel as he swings, and two as the point bites;
   // only the legs, the stand and the planted sword stay. On standby the head
   // hangs a pixel.
-  const sink = d >= 0 && d < 2 / 15 ? 1 : sd >= 0 && sd < 2 / 15 ? 2 : sd >= 0 && sd < 4 / 15 ? 1 : 0;
+  const sink = d >= 0 && d < 4 / 15 ? 1 : sd >= 0 && sd < 2 / 15 ? 2 : sd >= 0 && sd < 4 / 15 ? 1 : 0;
+  const wind = (d >= 0 && d < 2 / 15) || (d >= LIFT - 2 / 15 && d < LIFT) ? -3 : 0;
   dy[1] += sink;
   dy[3] += sink;
   dy[2] += sink + (motion === 3 && d < 0 ? 1 : 0);
@@ -1135,7 +1139,7 @@ export function draw(display, params) {
   if (smear) blit(buf, PARTS[smear], 0, dy[1], false, 0);
   for (let n = 0; n < order.length; n++) {
     const name = order[n], g = GROUP[name];
-    blit(buf, PARTS[name], dx[g], dy[g] + (g === 0 && !FIRM[name] ? sink : 0), sweep && g !== 0, band);
+    blit(buf, PARTS[name], dx[g] + (WIND[name] && wind ? 1 : 0), dy[g] + (g === 0 && !FIRM[name] ? sink : 0) + (WIND[name] ? wind : 0), sweep && g !== 0, band);
   }
 
   // The eyes: clear the visor behind them, then paint them where they look.
