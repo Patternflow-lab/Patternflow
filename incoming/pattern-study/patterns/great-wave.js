@@ -239,11 +239,13 @@ export function setup(params) {
   }
   // Claws: four long talons under the great wave's lip, set far enough apart
   // for the sky to show between them, a row of fingers along the crest's
-  // outer rim, short ones along the top of the swell, and three on the small
-  // wave's peak, as [curve, sample, length, side].
+  // outer rim at uneven spacing and lengths, longer towards the lip, short
+  // ones along the top of the swell, and three on the small wave's peak, as
+  // [curve, sample, length, side]. Rim fingers are placed by their distance
+  // back from the lip.
   P.claws = [];
   for (const [s, l] of [[0.5, 11], [9, 10], [18, 9], [27, 7]]) P.claws.push([0, Math.round(s / STEP), l, 1]);
-  for (let s = 8; s < 62; s += 6) P.claws.push([3, P.rim.length - 1 - Math.round(s / STEP), 2.4 + 2.4 * (1 - s / 62), 1]);
+  for (const [s, l] of [[7, 2.4], [11, 3.4], [18, 2.6], [22, 4], [29, 3], [35, 4.4], [39, 2.6], [46, 4.6], [51, 3.6], [58, 5]]) P.claws.push([3, P.rim.length - 1 - Math.round((62 - s) / STEP), l, 1]);
   for (let s = 9; s < 24; s += 4) P.claws.push([1, Math.round(s / STEP), 3.2, -1]);
   for (const s of [-3.5, 0, 3.5]) P.claws.push([2, Math.round((P.peak + s) / STEP), 2.6, s < 0 ? -1 : 1]);
   P.spray = [];
@@ -395,8 +397,9 @@ function boat(P) {
 }
 
 // A claw: a finger of foam that reaches out from the crest and hooks back at
-// the tip. The great wave's talons stay two LEDs wide for longer and stand
-// alone; the others have a shorter finger beside them.
+// the tip, with a shorter finger beside it. The great wave's own talons stay
+// two LEDs wide for longer, stand alone, and split into a fan of three small
+// fingers instead of hooking back.
 function claw(P, i) {
   const [c, j, len0, side] = P.claws[i];
   const [curve, nr] = curveOf(P, c);
@@ -426,12 +429,26 @@ function claw(P, i) {
   let ang = Math.atan2(ny, nx) - side * 0.5;
   let x = ax - nx * 0.6;
   let y = ay - ny * 0.6;
-  for (let s = 0; s < len + 0.6; s += 0.4) {
+  const end = c === 0 ? len * 0.6 : len + 0.6;
+  for (let s = 0; s < end; s += 0.4) {
     put(P, x, y, FOAM);
     if (s < len * (c === 0 ? 0.6 : 0.45)) put(P, x - Math.sin(ang) * side, y + Math.cos(ang) * side, FOAM);
     ang += side * (s < len * 0.5 ? 0.02 : 0.17);
     x += Math.cos(ang) * 0.4;
     y += Math.sin(ang) * 0.4;
+  }
+  if (c === 0) {
+    for (const turn of [-0.7, 0, 0.7]) {
+      let a = ang + turn;
+      let fx = x;
+      let fy = y;
+      for (let s = 0; s < len * 0.45; s += 0.4) {
+        put(P, fx, fy, FOAM);
+        a += 0.12;
+        fx += Math.cos(a) * 0.4;
+        fy += Math.sin(a) * 0.4;
+      }
+    }
   }
   // A short finger on its far side, but not on the great wave's own talons.
   if (c === 0) return;
