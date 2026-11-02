@@ -27,7 +27,7 @@ const PAL = { a: 0x040217, b: 0x05011c, c: 0x03031b, d: 0x05031e, e: 0x050320, f
 // A part also holds, under the parts drawn after it, a copy of the pixels at
 // its edge: the two rows a rising chest leaves behind, and the coat under the
 // left cape's edge (part "inside") that shows when the cape opens. The left
-// cape is cut in bands from shoulder (capeL0) to hem (capeL11), the right
+// cape is cut in bands from shoulder (capeL0) to hem (capeL10), the right
 // cape's skirt in four (capeR0 to the tip capeR3).
 const PARTS = {
   inside: { x: 13, y: 29, rows: [
@@ -54,7 +54,7 @@ const PARTS = {
     "nnnnnnnnnnn...................................",
     "nnnnnnnnnnn...................................",
     "nnnnnnnnnnn...................................",
-    "ihdfjjjnnnn...................................",
+    "ihdfjjjiknn...................................",
     ".........nnnn.................................",
     ".........nnnn.................................",
     ".........nnnn.................................",
@@ -84,31 +84,31 @@ const PARTS = {
     ".......nnnn...................................",
     "......nnnn....................................",
     "......oooo....................................",
-    "......oooo....................................",
-    "......oooo....................................",
-    "......oooo....................................",
-    "......oooo....................................",
-    "......oooo...................................u",
-    "......oooo...................................u",
-    "......oooo...................................u",
-    "......oooo...................................u",
-    "......oooo...................................u",
-    "......oooo...................................u",
-    ".....nnnn....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "....oooo.....................................u",
-    "..nnnn.......................................u",
-    "..nnnn.......................................u",
-    "..nnnn.......................................u",
+    "..............................................",
+    "..............................................",
+    "..............................................",
+    "..............................................",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
+    ".............................................u",
     "...........................................o..",
     "...........................................n..",
     "..........................................d...",
@@ -283,7 +283,7 @@ const PARTS = {
     "....ji......",
     "....ji......",
   ] },
-  capeL7: { x: 5, y: 60, rows: [
+  capeL6: { x: 5, y: 60, rows: [
     "..dimmmpuutiijrssjdhi",
     "..dimmmpuutiijrssjdhi",
     "..dimmmpuutbjssssjd..",
@@ -296,49 +296,49 @@ const PARTS = {
     "..dimmpuuutdjssssjc..",
     "..dimmpuuutdjssssjc..",
     "afikmmpuuutdjssssjc..",
-    "chppmmpuuutdjssssjd..",
-    "dhpmmmpuuutdjssrbi...",
-    "chppmmpuutpjjssrci...",
-    "chpmmmpuuigssssrci...",
-    "chpmmmpuuigssssrcff..",
-    "chpmmmpuuigssssrccc..",
-    "bhpmmmpuuigssssrccc..",
-    "bhpmmmtuuigssssrchi..",
-    "chpmmmuuuigssssrci...",
-    "chpmmmuuuihssssrci...",
-    "chpmmmuuuihsswsrci...",
-    "chpmmmuuuigswxsrci...",
-    "chpmmmuuuigswxsrci...",
-    "fhpmmmuuuigswxsrci...",
   ] },
-  capeL8: { x: 3, y: 86, rows: [
-    "afmmpmmmuuuhgswxsrci",
-    "afmmpmmmutpjjswxrjci",
-    "afmppmmmuthrsswxgcci",
-    "afmppmmmutfrswxxgcci",
-    "afmmmmmmupdrsxxxjaci",
-    "afmmmmmmupdrsxxxjcci",
-    "afmmmmmmupdrsxxxgfk.",
-    "afmmnmmmupdrsxxwgf..",
+  capeL7: { x: 5, y: 72, rows: [
+    "chppmmpuuutdjssssjd",
+    "dhpmmmpuuutdjssrbi.",
+    "chppmmpuutpjjssrci.",
+    "chpmmmpuuigssssrci.",
+    "chpmmmpuuigssssrcff",
   ] },
-  capeL9: { x: 2, y: 94, rows: [
-    "cimmmmknmupdrsxxxgf",
-    "dimmmmmptupdrsxxxgf",
-    "dimmmpmtuupdrsxxxgf",
-    "dimmifluuupdrsxxxgf",
-    "dimmiepuuupdrsxxxgf",
-    "cimmidluuupdrsxxxgf",
+  capeL8: { x: 5, y: 77, rows: [
+    "chpmmmpuuigssssrccc",
+    "bhpmmmpuuigssssrccc",
+    "bhpmmmtuuigssssrchi",
+    "chpmmmuuuigssssrci.",
+    "chpmmmuuuihssssrci.",
   ] },
-  capeL10: { x: 0, y: 100, rows: [
-    "ahimmmifluuupersxsjff",
-    "fhnmmmidluuupfrsxsccf",
-    "fhnmmmifluuupdrsxsdcf",
-    "fhpmmmidluuupdrsxsdhh",
-    "fhpmmmidluuupdrsxsd..",
-    "fhpmmmidluuupdrrjhd..",
-    "ahkmmmidluuupdjrcdd..",
+  capeL9: { x: 0, y: 82, rows: [
+    ".....chpmmmuuuihsswsrci",
+    ".....chpmmmuuuigswxsrci",
+    ".....chpmmmuuuigswxsrci",
+    ".....fhpmmmuuuigswxsrci",
+    "...afmmpmmmuuuhgswxsrci",
+    "...afmmpmmmutpjjswxrjci",
+    "...afmppmmmuthrsswxgcci",
+    "...afmppmmmutfrswxxgcci",
+    "...afmmmmmmupdrsxxxjaci",
+    "...afmmmmmmupdrsxxxjcci",
+    "...afmmmmmmupdrsxxxgfk.",
+    "...afmmnmmmupdrsxxwgf..",
+    "..cimmmmknmupdrsxxxgf..",
+    "..dimmmmmptupdrsxxxgf..",
+    "..dimmmpmtuupdrsxxxgf..",
+    "..dimmifluuupdrsxxxgf..",
+    "..dimmiepuuupdrsxxxgf..",
+    "..cimmidluuupdrsxxxgf..",
+    "ahimmmifluuupersxsjff..",
+    "fhnmmmidluuupfrsxsccf..",
+    "fhnmmmifluuupdrsxsdcf..",
+    "fhpmmmidluuupdrsxsdhh..",
+    "fhpmmmidluuupdrsxsd....",
+    "fhpmmmidluuupdrrjhd....",
+    "ahkmmmidluuupdjrcdd....",
   ] },
-  capeL11: { x: 2, y: 107, rows: [
+  capeL10: { x: 2, y: 107, rows: [
     "cipmidluuupddc",
     "aiimidluuupda.",
     ".acmidluuupd..",
@@ -403,13 +403,11 @@ const PARTS = {
   capeL3: { x: 9, y: 39, rows: [
     ".fmlmppptuuumppporrcdk",
     "admmmptuutttmkiqjjjhh.",
+    "admmltuutmmmmhdsjbh...",
+    "admptuutuvihhjjjkik...",
+    "abmtuuupuykhijrfh.....",
   ] },
-  capeL4: { x: 9, y: 41, rows: [
-    "admmltuutmmmmhdsjbh",
-    "admptuutuvihhjjjkik",
-    "abmtuuupuykhijrfh..",
-  ] },
-  capeL5: { x: 8, y: 44, rows: [
+  capeL4: { x: 8, y: 44, rows: [
     ".abmtully",
     ".ahptullt",
     "bimputlif",
@@ -420,7 +418,7 @@ const PARTS = {
     "ditutmttl",
     "diumpupmm",
   ] },
-  capeL6: { x: 7, y: 53, rows: [
+  capeL5: { x: 7, y: 53, rows: [
     ".diumtupmpihdfjjjik",
     ".diuppupmmiddhsssfh",
     ".diuppupmmibrrsssfh",
@@ -473,9 +471,9 @@ const PARTS = {
     "dt........uu...........................",
   ] },
 };
-const ORDER = ["inside", "legs", "coat", "capeR0", "capeR1", "capeR2", "capeR3", "handC", "capeL7", "capeL8", "capeL9", "capeL10", "capeL11", "torso", "capeL0", "capeL1", "capeL2", "capeL3", "capeL4", "capeL5", "capeL6", "handF", "head"];
+const ORDER = ["inside", "legs", "coat", "capeR0", "capeR1", "capeR2", "capeR3", "handC", "capeL6", "capeL7", "capeL8", "capeL9", "capeL10", "torso", "capeL0", "capeL1", "capeL2", "capeL3", "capeL4", "capeL5", "handF", "head"];
 // 1 rises with the breath.
-const GROUP = { legs: 0, coat: 0, capeR0: 0, capeR1: 0, capeR2: 0, capeR3: 0, handC: 0, capeL7: 0, capeL8: 0, capeL9: 0, capeL10: 0, capeL11: 0, torso: 1, capeL0: 1, capeL1: 1, capeL2: 1, capeL3: 1, capeL4: 1, capeL5: 1, capeL6: 1, handF: 1, head: 1 };
+const GROUP = { legs: 0, coat: 0, capeR0: 0, capeR1: 0, capeR2: 0, capeR3: 0, handC: 0, capeL6: 0, capeL7: 0, capeL8: 0, capeL9: 0, capeL10: 0, torso: 1, capeL0: 1, capeL1: 1, capeL2: 1, capeL3: 1, capeL4: 1, capeL5: 1, handF: 1, head: 1 };
 
 // The eyes, laid over the head: as drawn, alight, flaring, lids half down.
 const EYES = {
@@ -484,12 +482,12 @@ const EYES = {
     "wxx...xx",
   ] },
   eyesglow: { x: 33, y: 18, rows: [
-    "CCx...xC",
-    "xCC...CC",
+    "CCw...wC",
+    "wCC...CC",
   ] },
   eyesflare: { x: 33, y: 18, rows: [
-    "DDC...CD",
-    "CDD...DD",
+    "DDw...wD",
+    "wDD...DD",
   ] },
   eyeshalf: { x: 33, y: 18, rows: [
     "vvv...vv",
@@ -497,15 +495,16 @@ const EYES = {
   ] },
 };
 
-// The cape's poses: how far each left-cape band, capeL0 to capeL11, stands
+// The cape's poses: how far each left-cape band, capeL0 to capeL10, stands
 // off. Each band carries the cape with its red lining, so the lining keeps its
-// folds and what opens is the coat behind; from the hand down to the knee the
-// cape moves as one piece. The front hand goes with capeL5, the band it holds,
-// and lifts a row when the cape is open.
+// folds and what opens is the coat behind. The hand pulls the cape out four
+// columns at the chest and the cloth hangs back to its place by the knee, so
+// the bright lining below and the hem stay where they are. The front hand goes
+// with capeL4, the band it holds, and lifts a row when the cape is open.
 const POSES = {
-  gather: [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
-  half: [0, 0, -1, -1, -2, -2, -2, -2, -2, -1, -1, 0],
-  open: [0, -1, -2, -3, -4, -4, -4, -4, -3, -2, -1, 0],
+  gather: [0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0],
+  half: [0, 0, -1, -1, -2, -2, -2, -1, -1, 0, 0],
+  open: [0, -1, -2, -3, -4, -4, -3, -2, -1, 0, 0],
 };
 // The cape, in ticks of 1/60 s from the start of the act: drawn in, half
 // open, open while the eyes flare, half closed, down.
@@ -515,8 +514,8 @@ const ACT_AT = 1.6;
 const ACT_EVERY = 8.4;
 
 // The hem tips in the draught: [how far at most, lag in seconds]. Both swing
-// in towards the legs, the left one further; neither leaves the panel.
-const FLUTTER = { capeL10: [1, 0], capeL11: [2, 0.2], capeR2: [-1, 0.1], capeR3: [-1, 0.3] };
+// in towards the legs, the left point further; neither leaves the panel.
+const FLUTTER = { capeL10: [2, 0.2], capeR2: [-1, 0.1], capeR3: [-1, 0.3] };
 // A breath is half the breath time between two acts, so every act comes at
 // the same point of it, the chest down and the hems at rest.
 const BREATH = (ACT_EVERY - ACT_LEN) / 2;
