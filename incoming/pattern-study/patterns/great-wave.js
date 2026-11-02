@@ -70,15 +70,15 @@ const PRINTINGS = [
 
 // The cut, on the panel's LEDs. The great wave: its back from the foot of
 // the panel up over the crest to the lip, then its face from the lip back
-// down to the foot. The second swell's crest, from off the right edge down
+// down into the hollow and out again as its foot spreads into the trough. The second swell's crest, from off the right edge down
 // to the foot. The small wave in front, shaped like the mountain. The boat.
 const HORIZON = 97;
 const MOUNT = [31, 87, 1.5, 4];
 const BACK = [[-6, 128], [-4, 90], [0, 56], [8, 30], [18, 14], [30, 8], [42, 10], [50, 18], [52, 28], [48, 35]];
-const FACE = [[48, 35], [45, 28], [40, 23], [32, 23], [24, 29], [18, 41], [14, 58], [13, 80], [15, 104], [18, 128], [22, 140]];
+const FACE = [[48, 35], [45, 28], [40, 23], [32, 23], [24, 29], [18, 41], [15, 56], [16, 70], [19, 82], [23, 93], [26, 104], [26, 116], [24, 128], [22, 140]];
 const CREST = 30;
 const SWELL = [[70, 72], [62, 77], [54, 85], [46, 97], [39, 112], [33, 128], [30, 140]];
-const FRONT = [[4, 140], [12, 124], [19, 113], [24, 108], [29, 112], [35, 121], [42, 140]];
+const FRONT = [[12, 140], [20, 124], [27, 115], [32, 110], [37, 114], [43, 123], [50, 140]];
 const HULL = [17, 104, 43, 99];
 
 // Where the pale seams between the dark tongues lie, across the wave from its face.
@@ -374,6 +374,8 @@ function boat(P) {
   for (let s = 0; s <= L; s += 0.5) {
     const x = x0 + ux * s;
     const y = y0 + uy * s + bob;
+    // The boat's stern slips behind the great wave's foot.
+    if (P.zone[Math.floor(y) * W + Math.floor(x)] === Z_WAVE) continue;
     put(P, x, y, BOAT);
     put(P, x, y + 1, s < 1.5 || s > L - 1.5 ? BOATD : BOAT);
     put(P, x, y + 2, BOATD);
