@@ -383,22 +383,14 @@ function boat(P) {
     if (P.zone[top * W + x] === Z_WAVE) continue;
     const bow = x1 - x;
     const rise = bow < 3 ? 3 - bow : x === x0 ? 1 : 0;
-    const keel = top + 3 - Math.max(0, rise - 1);
+    const keel = top + 2 - Math.max(0, rise - 1);
     for (let y = top - rise; y <= keel; y++) put(P, x, y, y === keel && rise < 2 ? BOATD : BOAT);
     put(P, x, keel + 1, LINE);
-  }
-  // The rowers, hunched over their oars in a row along the boat: each a dark
-  // back two LEDs wide sunk into the gunwale, with a pale head above it.
-  for (let x = x0 + 3; x <= x1 - 6; x += 4) {
-    const top = Math.round(y0 + (x - x0) * k) + bob;
-    for (const dx of [0, 1]) {
-      const t = Math.round(y0 + (x + dx - x0) * k) + bob;
-      put(P, x + dx, t, ROWER);
-      put(P, x + dx, t + 1, ROWER);
-      put(P, x + dx, t - 1, ROWER);
+    const r = x - x0;
+    if (r >= 4 && bow >= 5 && r % 3 !== 2) {
+      put(P, x, top - 1, ROWER);
+      if (r % 3 === 0) put(P, x, top - 2, HEAD);
     }
-    put(P, x, top - 2, HEAD);
-    put(P, x + 1, top - 2, HEAD);
   }
 }
 
