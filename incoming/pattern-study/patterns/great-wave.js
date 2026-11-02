@@ -235,10 +235,11 @@ export function setup(params) {
       P.zone[p] = zone;
     }
   }
-  // Claws: along the great wave's lip, along the top of the swell, and on
-  // the small wave's peak, as [curve, sample, length, side].
+  // Claws: four long talons under the great wave's lip, set far enough apart
+  // for the sky to show between them, short ones along the top of the swell,
+  // and three on the small wave's peak, as [curve, sample, length, side].
   P.claws = [];
-  for (let s = 0.5; s < CREST; s += 5) P.claws.push([0, Math.round(s / STEP), 6.5 * (1.25 - (0.6 * s) / CREST) * (P.claws.length % 2 ? 0.8 : 1), 1]);
+  for (const [s, l] of [[0.5, 11], [9, 10], [18, 9], [27, 7]]) P.claws.push([0, Math.round(s / STEP), l, 1]);
   for (let s = 9; s < 24; s += 4) P.claws.push([1, Math.round(s / STEP), 3.2, -1]);
   for (const s of [-3.5, 0, 3.5]) P.claws.push([2, Math.round((P.peak + s) / STEP), 2.6, s < 0 ? -1 : 1]);
   P.spray = [];
@@ -390,7 +391,8 @@ function boat(P) {
 }
 
 // A claw: a finger of foam that reaches out from the crest and hooks back at
-// the tip, with a shorter finger either side of it.
+// the tip. The great wave's talons stay two LEDs wide for longer and stand
+// alone; the others have a shorter finger beside them.
 function claw(P, i) {
   const [c, j, len0, side] = P.claws[i];
   const [curve, nr] = curveOf(P, c);
@@ -406,12 +408,13 @@ function claw(P, i) {
   let y = ay - ny * 0.6;
   for (let s = 0; s < len + 0.6; s += 0.4) {
     put(P, x, y, FOAM);
-    if (s < len * 0.45) put(P, x - Math.sin(ang) * side, y + Math.cos(ang) * side, FOAM);
+    if (s < len * (c === 0 ? 0.6 : 0.45)) put(P, x - Math.sin(ang) * side, y + Math.cos(ang) * side, FOAM);
     ang += side * (s < len * 0.5 ? 0.02 : 0.17);
     x += Math.cos(ang) * 0.4;
     y += Math.sin(ang) * 0.4;
   }
-  // A short finger on its far side.
+  // A short finger on its far side, but not on the great wave's own talons.
+  if (c === 0) return;
   ang = Math.atan2(ny, nx) - side * 1.3;
   x = ax - nx * 0.3 - Math.sin(ang) * side;
   y = ay - ny * 0.3 + Math.cos(ang) * side;
