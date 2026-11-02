@@ -83,6 +83,7 @@ const HULL = [21, 103, 44, 98];
 
 // Where the pale seams between the dark tongues lie, across the wave from its face.
 const SEAMS = [3.2, 6.8, 9.6, 13.4, 16.6, 20.4, 23.6, 27.2, 30.8, 34.4, 38];
+const SPAN = 41.2;
 
 function hash(a, b) {
   let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263);
@@ -345,8 +346,13 @@ function wave(P, p) {
   const g = 1 + P.grain * 0.9;
   if (s < CREST + 6 && P.back[p] < 2.6 - s * 0.03) return FOAM;
   if (d < 1.2) return s < CREST ? MID : PALE;
-  const w = d / g + 0.9 * Math.sin(s * 0.16 - P.t * 0.7);
-  for (let i = 0; i < SEAMS.length; i++) if (Math.abs(w - SEAMS[i]) < 0.55) return s > CREST * 2.2 && i < 2 ? PALE : MID;
+  // Below the crest the tongues sweep: each rises from the back of the wave
+  // low down and reaches the face higher up, so the wall reads as water
+  // climbing towards the lip rather than a post.
+  const sweep = Math.max(0, s - CREST * 1.6) * 0.42;
+  let w = (d + sweep) / g + 0.9 * Math.sin(s * 0.16 - P.t * 0.7);
+  w -= Math.floor(w / SPAN) * SPAN;
+  for (let i = 0; i < SEAMS.length; i++) if (Math.abs(w - SEAMS[i]) < 0.55) return s > CREST * 2.2 && d < 7 ? PALE : MID;
   if (hash(Math.floor((s + P.t * 3) / (1.1 * g)), Math.floor(d / (1.2 * g))) < (0.045 + 0.2 * P.brk) * Math.min(1, Math.max(0, (90 - s) / 30))) return FOAM;
   return DEEP;
 }
