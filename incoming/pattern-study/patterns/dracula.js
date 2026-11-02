@@ -509,8 +509,8 @@ const ACT_EVERY = 8.4;
 const FLUTTER = { capeL8: [1, 0], capeL9: [1, 0.25], capeL10: [2, 0.5], capeL11: [2, 0.75], capeR1: [1, 0.15], capeR2: [1, 0.4], capeR3: [1, 0.65] };
 const FLUTTER_P = 3.2;
 const BREATH = 2.8;
-const PULSE = 4.4;
-const BLINK = 7.3;
+// Three breaths: the eyes swell once and blink once in it.
+const EYE_CYCLE = 3 * BREATH;
 
 // Knob 3: what each palette puts in place of the crimson ones.
 const BLOODS = [
@@ -556,7 +556,7 @@ function actAt(t, p) {
   return w < ACT_LEN ? w : -1;
 }
 
-// The time the breath has run: the clock less the time spent in acts.
+// The time the breath and the draught have run: the clock less the time spent in acts.
 function breathTime(t, p) {
   if (p.rest || t < ACT_AT) return t;
   const u = t - ACT_AT;
@@ -616,7 +616,7 @@ export function draw(display, params) {
 
   const a = actAt(t, p);
   const pose = POSES[poseAt(a)];
-  // The breath holds while the cape is up.
+  // The breath and the draught hold while the cape is up.
   const tb = breathTime(t, p);
   const ub = tb % BREATH;
   const up = a < 0 && ub >= 0.2 && ub < 1.3 ? -1 : 0;
@@ -633,16 +633,17 @@ export function draw(display, params) {
       if (pose === POSES.open) dy = -1;
     }
     const f = FLUTTER[name];
-    if (f) dx += hem(t, f[0], f[1]);
+    if (f) dx += hem(tb, f[0], f[1]);
     blit(buf, PARTS[name], dx, dy);
   }
 
   // The eyes: a slow swell, a blink now and then, a flare while the cape is open.
+  // They keep the breath's clock and change only while the chest is down, a
+  // tenth of a second or more from its moves, so no two changes meet.
   let eyes = EYES.eyes;
-  const w = t % PULSE;
-  if (w >= 3.0 && w < 3.8) eyes = w >= 3.2 && w < 3.6 ? EYES.eyesflare : EYES.eyesglow;
-  const bl = (t % BLINK) - 5.3;
-  if (bl >= 0 && bl < 0.24) eyes = bl < 0.067 || bl >= 0.167 ? EYES.eyeshalf : EYES.eyesshut;
+  const w = tb % EYE_CYCLE;
+  if (w >= 4.4 && w < 5.2) eyes = w >= 4.6 && w < 5.0 ? EYES.eyesflare : EYES.eyesglow;
+  if (w >= 7.0 && w < 7.3) eyes = w < 7.1 || w >= 7.2 ? EYES.eyeshalf : EYES.eyesshut;
   const tick = a < 0 ? -1 : floor(a * 60 + 1e-6);
   const fl = t - p.flareAt;
   if ((tick >= 20 && tick < 104) || (fl >= 0 && fl < 1.4)) {
