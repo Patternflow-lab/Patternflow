@@ -9,10 +9,10 @@
 // Round:   91
 // ===============================
 // @matrix 64x128
-// @knobs Action=0..2, Speed=0.5..3, Paint=0..1, Wall=0..1
+// @knobs Action=0..2, Speed=0.5..2.3, Paint=0..1, Wall=0..1
 //
 // Knob 1: Action. 0 plays the thrust and the chop in turn, 1 only the thrust, 2 only the chop, each between rests.
-// Knob 2: Speed. Half the knob is the speed: 2 plays the cells as timed, 0.5 at a quarter, 3 at one and a half.
+// Knob 2: Speed. Half the knob is the speed: 2 plays the cells as timed, 0.5 at a quarter, 2.3 a little faster, so at 2 s the slow end is still resting and the fast end is already pulling back from the thrust.
 // Knob 3: Paint. Four hand-made palettes on the same pixels: blackened iron and blood red below 0.25, rusted iron and moss from 0.25, gilded plate and grape (the strong one) from 0.5, white silver and blue from 0.75.
 // Knob 4: Wall. The flat castle stone behind him: night blue below 0.25, crypt violet from 0.25, cistern teal from 0.5, grey from 0.75.
 
@@ -402,9 +402,9 @@ const CELLS = {
     "ihgKKccKiiihhhgKaK..............",
     "KKK.KccKiiihhhgKaK..............",
     ".....KKKiiihhhgKKaKK............",
-    ".....KcciiihhhgKbaaaKK..........",
-    ".....KcciiihhhgKbbbaccK.........",
-    ".....KcciKihKhgKccbcaacK........",
+    ".....KcKiiihhhgKbaaaKK..........",
+    ".....KcKiiihhhgKbbbaccK.........",
+    ".....KcKiKihKhgKccbcaacK........",
     "....KcccKaKK.KKcccccbaaK........",
     "....KcccbaK....KKccccbcK........",
     "....KccccaK......KKcccaK........",
@@ -818,7 +818,7 @@ export function update(dt, input, params) {
   if (params.key === undefined) setup(params);
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.mode = min(2, max(0, floor(k[0])));
-  params.speed = min(3, max(0.5, k[1])) / 2;
+  params.speed = min(2.3, max(0.5, k[1])) / 2;
   params.paint = min(3, max(0, floor(k[2] * 4)));
   params.wall = min(3, max(0, floor(k[3] * 4)));
   params.t += min(dt || 0, 0.1) * params.speed;
