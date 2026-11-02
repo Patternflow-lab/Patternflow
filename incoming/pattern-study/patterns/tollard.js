@@ -384,7 +384,7 @@ const CELLS = {
     "......KccccccbbKKKaaK...........",
     "......KcccccccKbaaKKK...........",
     ".....KccccccccKcbbaaK...........",
-    "......KcccccccKKccbaaK..........",
+    "......KcccccccKKKcbaaK..........",
     "......KcccccccK..KccbaK.........",
     ".......KcccccccK..KcbaaK..K.....",
     ".......KcccKcbccK..KcbaK.KlK....",
