@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Dracula
 // Family:  pixel
-// Idea:    The creator's AI-made Dracula (11-02), kept dot for dot from craft/dracula/base.js and set moving. The still is cut into parts along the seams where the picture runs straight - head, chest, the front hand, the cane hand, both cape skirts in bands, legs - and each part keeps a copy of the pixels at its edge, so whatever a moving part uncovers is filled with the picture's own colours. He breathes a row, the hems of his cape stir in a draught from the left, his red eyes swell and fade, and now and then he blinks. Every eight seconds or so he draws the cape in with his raised hand and throws it open, the crimson lining widening down his side while his eyes flare, then lets it fall back.
+// Idea:    The creator's AI-made Dracula (11-02), kept dot for dot from craft/dracula/base.js and set moving. The still is cut into parts along seams where the picture runs straight - head, chest, the front hand, the cane hand, the left cape in bands from shoulder to hem, the right cape's skirt, coat, legs - and each part keeps a copy of the pixels at its edge, so whatever a moving part uncovers is filled with the picture's own colours. Everything above the waist rises two rows on the breath, the tips of the cape sway in towards his legs, his red eyes swell and fade, and now and then the lids come half down. Every eight seconds or so he draws the cape in with his raised hand, then pulls it out wide, lining and all, so the coat shows beneath while his eyes flare, and lets it fall back.
 // Author:  patternflow-lab
 // Date:    2026-11-02
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -25,10 +25,10 @@ const PAL = { a: 0x040217, b: 0x05011c, c: 0x03031b, d: 0x05031e, e: 0x050320, f
 // Each part is a grid, one character per LED and "." where it is clear, drawn
 // in ORDER. Laid over each other unmoved they give base.js's still exactly.
 // A part also holds, under the parts drawn after it, a copy of the pixels at
-// its edge: the row a rising chest leaves behind, and the lining under the
-// left cape (part "inside") that shows when the cape opens. The left cape is
-// cut in bands from shoulder (capeL0) to hem (capeL11), the right cape's
-// skirt in four (capeR0 to the tip capeR3).
+// its edge: the two rows a rising chest leaves behind, and the coat under the
+// left cape's edge (part "inside") that shows when the cape opens. The left
+// cape is cut in bands from shoulder (capeL0) to hem (capeL11), the right
+// cape's skirt in four (capeR0 to the tip capeR3).
 const PARTS = {
   inside: { x: 13, y: 29, rows: [
     ".........mmmm.................................",
@@ -497,7 +497,7 @@ const EYES = {
   ] },
 };
 
-// The cape's poses: how far each left-cape band, capeL0 to capeL10, stands
+// The cape's poses: how far each left-cape band, capeL0 to capeL11, stands
 // off. Each band carries the cape with its red lining, so the lining keeps its
 // folds and what opens is the coat behind; from the hand down to the knee the
 // cape moves as one piece. The front hand goes with capeL5, the band it holds,
@@ -521,7 +521,7 @@ const FLUTTER = { capeL10: [1, 0], capeL11: [2, 0.2], capeR2: [-1, 0.1], capeR3:
 // the same point of it, the chest down and the hems at rest.
 const BREATH = (ACT_EVERY - ACT_LEN) / 2;
 const FLUTTER_P = BREATH;
-// Two breaths: the eyes swell once and blink once in it.
+// Two breaths: the eyes swell once in it, and the lids come half down once.
 const EYE_CYCLE = 2 * BREATH;
 
 // Knob 3: what each palette puts in place of the crimson ones.
