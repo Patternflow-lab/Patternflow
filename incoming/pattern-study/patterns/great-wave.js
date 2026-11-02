@@ -70,12 +70,14 @@ const PRINTINGS = [
 
 // The cut, on the panel's LEDs. The great wave: its back from the foot of
 // the panel up over the crest to the lip, then its face from the lip back
-// down into the hollow and out again where its foot swells into the trough. The second swell's crest, from off the right edge down
-// to the foot. The small wave in front, shaped like the mountain. The boat.
+// under the heavy curl and down, leaning out as it goes, so the wave stands
+// as a mountain of water that is broadest at its foot. The second swell's
+// crest, from off the right edge down to the foot. The small wave in front,
+// shaped like the mountain, standing before the great wave's foot. The boat.
 const HORIZON = 97;
-const MOUNT = [31, 87, 1.5, 4];
+const MOUNT = [36, 88, 1.5, 4];
 const BACK = [[-6, 128], [-4, 90], [0, 56], [8, 30], [18, 14], [30, 8], [42, 10], [50, 18], [52, 28], [48, 35]];
-const FACE = [[48, 35], [45, 28], [40, 23], [32, 23], [24, 29], [18, 41], [15, 56], [15, 68], [17, 80], [20, 92], [22, 102], [21, 114], [19, 128], [18, 140]];
+const FACE = [[50, 38], [47, 32], [42, 29], [35, 30], [29, 34], [23, 41], [19, 50], [18, 60], [19, 70], [21, 80], [24, 90], [28, 100], [30, 110], [31, 120], [31, 128], [31, 140]];
 const CREST = 30;
 const SWELL = [[70, 72], [62, 77], [54, 85], [46, 97], [39, 112], [33, 128], [30, 140]];
 const FRONT = [[7, 140], [15, 124], [22, 113], [27, 108], [32, 112], [38, 121], [45, 140]];
@@ -218,18 +220,18 @@ export function setup(params) {
         P.along[p] = n[0] * STEP;
         P.across[p] = n[1];
       }
-      if (inside(frontPoly, cx, cy)) {
-        zone = Z_FRONT;
-        const n = nearest(front, cx, cy);
-        P.along[p] = n[0] * STEP;
-        P.across[p] = n[1];
-      }
       if (inside(wave, cx, cy)) {
         zone = Z_WAVE;
         const n = nearest(face, cx, cy);
         P.along[p] = n[0] * STEP;
         P.across[p] = n[1];
         P.back[p] = nearest(back, cx, cy)[1];
+      }
+      if (inside(frontPoly, cx, cy)) {
+        zone = Z_FRONT;
+        const n = nearest(front, cx, cy);
+        P.along[p] = n[0] * STEP;
+        P.across[p] = n[1];
       }
       P.base[p] = v;
       P.zone[p] = zone;
