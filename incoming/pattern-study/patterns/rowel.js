@@ -14,7 +14,7 @@
 // Knob 1: Edition. The paint: sand duster and indigo felt below 0.25, the second-player charcoal and oxblood from 0.25, a gold and ivory limited plating from 0.5, and from 0.75 the unpainted grey prototype.
 // Knob 2: Stand. What he stands on: a railroad tie at 0, red sandstone from 1, black acrylic with a gold lip from 2, and from 3 acrylic lit at the edge.
 // Knob 3: Detail. Below 0.5 the whole figure; from 0.5 his head, chest and raised revolver at exactly twice the size.
-// Knob 4: Gel. The rim light down his left edges, the bounce beside it and the shaded side of the coat and the deepest shade of each material, as if the sky on his dark side changed: evening violet at 0, dawn blue from 0.25, cactus green from 0.5, night blue from 0.75.
+// Knob 4: Gel. The rim light down his left edges, the bounce beside it and the shaded side of the coat and the deepest shade of each material, as if the sky on his dark side changed: evening violet at 0, dawn blue from 0.25, cactus green from 0.5, night blue from 0.75, a moonlit blue strong enough to read across the room.
 // Buttons: K1 tap sends the case light along him; K2 tap makes the muzzle glint.
 
 const W = 64, H = 128;
@@ -441,7 +441,7 @@ const GELS = [
   {  },
   { z: 0x8ed8ff, K: 0x7a96b4, J: 0x5a88ba, c: 0x6e7a96, d: 0x4e5c7e, q: 0x42668e, h: 0x2e4668 },
   { z: 0x8cf0a0, K: 0x86a07c, J: 0x5a9c8c, c: 0x6e8272, d: 0x4c6662, q: 0x3c6c70, h: 0x2c4c50 },
-  { z: 0x6e8cff, K: 0x6a6caa, J: 0x4e5eb2, c: 0x64669c, d: 0x3e4a88, q: 0x384c98, h: 0x282e74 },
+  { z: 0x86b0ff, K: 0x6080d8, J: 0x4c66c8, c: 0x5c66a8, d: 0x3a4690, q: 0x3650a8, h: 0x2a3286 },
 ];
 // The case light lifts the glossy materials above the legs one step: nickel and brass.
 const UP = { o: "n", p: "o", q: "p", C: "B", D: "C" };
