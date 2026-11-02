@@ -186,6 +186,8 @@ export function setup(params) {
   const frontPoly = front.concat([[FRONT[FRONT.length - 1][0], 200], [FRONT[0][0], 200]]);
   P.face = face;
   P.faceN = normals(face, wave);
+  P.rim = back;
+  P.rimN = normals(back, wave);
   P.swell = swell;
   P.swellN = normals(swell, swellPoly);
   P.front = front;
@@ -235,10 +237,13 @@ export function setup(params) {
       P.zone[p] = zone;
     }
   }
-  // Claws: along the great wave's lip, along the top of the swell, and on
-  // the small wave's peak, as [curve, sample, length, side].
+  // Claws: four long talons under the great wave's lip, set far enough apart
+  // for the sky to show between them, a row of fingers along the crest's
+  // outer rim, short ones along the top of the swell, and three on the small
+  // wave's peak, as [curve, sample, length, side].
   P.claws = [];
-  for (let s = 0.5; s < CREST; s += 5) P.claws.push([0, Math.round(s / STEP), 6.5 * (1.25 - (0.6 * s) / CREST) * (P.claws.length % 2 ? 0.8 : 1), 1]);
+  for (const [s, l] of [[0.5, 11], [9, 10], [18, 9], [27, 7]]) P.claws.push([0, Math.round(s / STEP), l, 1]);
+  for (let s = 8; s < 62; s += 6) P.claws.push([3, P.rim.length - 1 - Math.round(s / STEP), 2.4 + 2.4 * (1 - s / 62), 1]);
   for (let s = 9; s < 24; s += 4) P.claws.push([1, Math.round(s / STEP), 3.2, -1]);
   for (const s of [-3.5, 0, 3.5]) P.claws.push([2, Math.round((P.peak + s) / STEP), 2.6, s < 0 ? -1 : 1]);
   P.spray = [];
@@ -253,7 +258,7 @@ export function setup(params) {
 }
 
 function curveOf(P, c) {
-  return c === 0 ? [P.face, P.faceN] : c === 1 ? [P.swell, P.swellN] : [P.front, P.frontN];
+  return c === 0 ? [P.face, P.faceN] : c === 1 ? [P.swell, P.swellN] : c === 2 ? [P.front, P.frontN] : [P.rim, P.rimN];
 }
 
 // Where a claw's fingertip is now, for the spray to fall from.
@@ -390,7 +395,8 @@ function boat(P) {
 }
 
 // A claw: a finger of foam that reaches out from the crest and hooks back at
-// the tip, with a shorter finger either side of it.
+// the tip. The great wave's talons stay two LEDs wide for longer and stand
+// alone; the others have a shorter finger beside them.
 function claw(P, i) {
   const [c, j, len0, side] = P.claws[i];
   const [curve, nr] = curveOf(P, c);
@@ -399,6 +405,22 @@ function claw(P, i) {
   // Each claw opens and closes on its own beat, in steps of a fifth of a second.
   const beat = Math.floor(P.t * 5) / 5;
   const grow = 0.85 + 0.2 * Math.sin(beat * 0.6 + i * 1.7) + P.brk * 0.6 + P.crash * 0.6;
+  if (c === 3) {
+    // A finger on the crest's outer rim: two LEDs wide at the root, leaning towards the
+    // lip and curling over at the tip.
+    const len = len0 * grow;
+    let ang = Math.atan2(ny, nx) + 0.4;
+    let x = ax + nx * 0.4;
+    let y = ay + ny * 0.4;
+    for (let s = 0; s < len; s += 0.4) {
+      put(P, x, y, FOAM);
+      if (s < 1.2) put(P, x - Math.sin(ang), y + Math.cos(ang), FOAM);
+      ang += 0.28;
+      x += Math.cos(ang) * 0.4;
+      y += Math.sin(ang) * 0.4;
+    }
+    return;
+  }
   // The finger: two LEDs wide at the root, one at the end, hooking back.
   const len = len0 * grow;
   let ang = Math.atan2(ny, nx) - side * 0.5;
@@ -406,12 +428,13 @@ function claw(P, i) {
   let y = ay - ny * 0.6;
   for (let s = 0; s < len + 0.6; s += 0.4) {
     put(P, x, y, FOAM);
-    if (s < len * 0.45) put(P, x - Math.sin(ang) * side, y + Math.cos(ang) * side, FOAM);
+    if (s < len * (c === 0 ? 0.6 : 0.45)) put(P, x - Math.sin(ang) * side, y + Math.cos(ang) * side, FOAM);
     ang += side * (s < len * 0.5 ? 0.02 : 0.17);
     x += Math.cos(ang) * 0.4;
     y += Math.sin(ang) * 0.4;
   }
-  // A short finger on its far side.
+  // A short finger on its far side, but not on the great wave's own talons.
+  if (c === 0) return;
   ang = Math.atan2(ny, nx) - side * 1.3;
   x = ax - nx * 0.3 - Math.sin(ang) * side;
   y = ay - ny * 0.3 + Math.cos(ang) * side;
