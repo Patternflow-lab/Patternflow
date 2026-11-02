@@ -365,22 +365,24 @@ function swell(P, p, front) {
   return f < 0.3 ? DEEP : f < 0.45 ? MID : PALE;
 }
 
+// The boat, a column at a time: a long hull whose prow sweeps up into a
+// point, a key line under its keel, and the rowers hunched over their oars
+// in a row of dark backs and pale heads.
 function boat(P) {
   const [x0, y0, x1, y1] = HULL;
   const bob = Math.round(0.9 * Math.sin(P.t * 0.6));
-  const L = Math.hypot(x1 - x0, y1 - y0);
-  const ux = (x1 - x0) / L;
-  const uy = (y1 - y0) / L;
-  for (let s = 0; s <= L; s += 0.5) {
-    const x = x0 + ux * s;
-    const y = y0 + uy * s + bob;
-    put(P, x, y, BOAT);
-    put(P, x, y + 1, s < 1.5 || s > L - 1.5 ? BOATD : BOAT);
-    put(P, x, y + 2, BOATD);
-    // The rowers bent over their oars: a dark back and a pale head.
-    if (s > L * 0.14 && s < L * 0.86 && Math.floor(s) % 3 === 0) {
-      put(P, x, y - 1, ROWER);
-      put(P, x, y - 2, HEAD);
+  const k = (y1 - y0) / (x1 - x0);
+  for (let x = x0; x <= x1; x++) {
+    const top = Math.round(y0 + (x - x0) * k) + bob;
+    const bow = x1 - x;
+    const rise = bow < 3 ? 3 - bow : x === x0 ? 1 : 0;
+    const keel = top + 2 - Math.max(0, rise - 1);
+    for (let y = top - rise; y <= keel; y++) put(P, x, y, y === keel && rise < 2 ? BOATD : BOAT);
+    put(P, x, keel + 1, LINE);
+    const r = x - x0;
+    if (r >= 4 && bow >= 5 && r % 3 !== 2) {
+      put(P, x, top - 1, ROWER);
+      if (r % 3 === 0) put(P, x, top - 2, HEAD);
     }
   }
 }
