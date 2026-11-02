@@ -795,14 +795,15 @@ const CELLS = {
 
 // Timing in ticks of 1/60 s. The thrust holds from 1.87 to 2.13 s and its
 // second recovery cell covers 2.33 s; the pin's wind-up covers 3.67 s, the
-// pin itself 4.0 s and its recovery 4.33 s. Rest cells count from the end of
+// pin itself 4.0 s and its recovery 4.33 s; the next lunge's second wind-up
+// cell covers 5.67 s, the last strip frame. Rest cells count from the end of
 // the last action, so no rest cell is cut to a single frame.
 const REST = [["I0", 10], ["I1", 10], ["I2", 10], ["I3", 10]];
 const LUNGE = [["LA1", 8], ["LA2", 8], ["LH", 16], ["LR1", 8], ["LR2", 12]];
 const PIN = [["PA1", 8], ["PA2", 8], ["PH", 16], ["PR1", 8], ["LR2", 14]];
 const START = 96;          // the first action starts at 1.6 s
 const PLANS = [
-  { loop: 256, acts: [[LUNGE, 0], [PIN, 122]] },   // lunge at 1.6 s, pin at 3.63 s, 4.27 s loop
+  { loop: 232, acts: [[LUNGE, 0], [PIN, 122]] },   // lunge at 1.6 s, pin at 3.63 s, 3.87 s loop
   { loop: 130, acts: [[LUNGE, 0]] },
   { loop: 130, acts: [[PIN, 0]] },
 ];
