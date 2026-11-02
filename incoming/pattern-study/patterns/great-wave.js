@@ -45,7 +45,7 @@ const PRINTINGS = [
   [
     [228, 218, 190], [206, 200, 180], [172, 168, 154], [134, 132, 124],
     [24, 50, 108], [62, 108, 164], [158, 190, 204], [242, 240, 228],
-    [22, 32, 66], [224, 198, 164], [176, 140, 108], [34, 52, 98],
+    [22, 32, 66], [228, 190, 140], [168, 122, 86], [34, 52, 98],
     [232, 222, 196], [62, 84, 120], [246, 246, 238], [250, 250, 244],
   ],
   [
@@ -381,11 +381,8 @@ function boat(P) {
     const keel = top + 2 - Math.max(0, rise - 1);
     for (let y = top - rise; y <= keel; y++) put(P, x, y, y === keel && rise < 2 ? BOATD : BOAT);
     put(P, x, keel + 1, LINE);
-    // Each rower crouches in the hull two LEDs wide, his dark back against
-    // the pale planks and his head above the gunwale, a plank's width apart.
     const r = x - x0;
-    if (r >= 3 && bow >= 5 && r % 3 !== 2) {
-      put(P, x, top, ROWER);
+    if (r >= 4 && bow >= 5 && r % 3 !== 2) {
       put(P, x, top - 1, ROWER);
       if (r % 3 === 0) put(P, x, top - 2, HEAD);
     }
