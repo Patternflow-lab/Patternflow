@@ -329,7 +329,7 @@ export function update(dt, input, params) {
   const setKnob = cl(floor(k[2] == null ? 0 : k[2]), 0, 8);
   const paste = round(cl(k[3] == null ? 0.06 : k[3], 0, 1) * 50) / 50;
   if (!S.cur || setKnob !== S.setKnob) {
-    // The panel opens on a set already written, held, and then written over.
+    // The panel opens on a set already written and held, about to be written over.
     S.setKnob = setKnob;
     S.order = setKnob >= 1 ? setKnob - 1 : 0;
     S.paste = paste;
