@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Flow=0.2..3, Winding=0..4, Zoom=0..1
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 a composite is blue when its smallest factor is 2, teal for 3, violet for 5, magenta for 7, sea green for 11 and slate for the rest, a prime is gold and the composites on Euler's arm are pale cyan.
-// Knob 2: Flow. How fast the view rides out along the arm, and how fast the winding swells. At 2 its radius grows 0.63 units a second at radius 70, 0.99 at 150 and 1.5 at 300, it reaches radius 300 after 220 s, turns, and is back at radius 36 after about 510 s, and the winding swells once in 70 s. 0.2 is ten times slower, 3 half as fast again.
+// Knob 2: Flow. How fast the view rides out along the arm, and how fast the winding swells. At 2 its radius grows 0.63 units a second at radius 70, 0.99 at 150 and 1.5 at 300. It reaches radius 300 after 220 s and turns there. It is back at radius 36 after about 510 s. The winding swells once in 70 s. 0.2 is ten times slower, 3 half as fast again.
 // Knob 3: Winding. The winding a = 1 + w / (2 pi r), with w the knob and r the radius of the middle of the view. At 0 a is 1, the plain Sacks spiral, and the arm leans 128 / r LEDs sideways per LED up, to the left; each unit of w leans it one LED further to the right, and the dotted arms bend with it. On top of the knob w swells by 1.5 and back every 70 s at Flow 2, starting a quarter of the way up, so the arms unwind by themselves.
 // Knob 4: Zoom. LEDs to the spiral's unit, from 1.25 at 0 to 2.4 at 1: the view is 51 by 102 units at 0 and 27 by 54 at 1, and the beads grow with it, until at 1 each prime is a soft gold dot about four LEDs across.
 

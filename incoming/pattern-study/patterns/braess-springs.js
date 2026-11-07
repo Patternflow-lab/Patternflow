@@ -380,7 +380,7 @@ export function draw(display, params) {
   }
   for (const x of [XL, XR]) seg(S, x, top + 0.5, x, top + 0.5, 3, [255, 255, 255], 1);
 
-  // Scissors: they come in from above the bridge, open, and shut on it.
+  // Scissors come in from above the bridge and close on it after opening.
   if (S.mode === 1) {
     const t = S.tm, mx = (XL + XR) / 2, my = (yA + yB) / 2;
     let dx = XR - XL, dy = yB - yA;
