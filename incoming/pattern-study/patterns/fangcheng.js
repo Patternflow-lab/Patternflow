@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Fangcheng
-// Family:  number
+// Family:  type
 // Idea:    A counting board of three columns and four rows of rod numerals, each column one equation of a three-unknown system and each shape one of the characters of the counting-rod script, is cleared the way chapter 8 of the Nine Chapters clears it: a column is multiplied by a leading number and another column is taken off it again and again until the board is a triangle, rods withdrawing and new rods sliding in, warm rods for positive numbers and cool rods for negative, and the three answers are then read off the bottom as rod fractions, the grain problem's 37 over 4, 17 over 4 and 11 over 4.
 // Author:  patternflow-lab
 // Date:    2026-11-07
