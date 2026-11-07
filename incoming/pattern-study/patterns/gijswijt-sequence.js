@@ -30,7 +30,7 @@ const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 // first 3 is term 9, the first 4 is term 220 and the 4s come every 220 to 238
 // terms after it, and in the first 8192 terms there are 2368 1s, 4337
 // 2s, 1451 3s and 36 4s. The first 5 is far beyond any panel.
-const V0 = [0.6, 0.68, 0.92, 1], S0 = [0.88, 0.84, 0.78, 0.1];
+const V0 = [0.5, 0.54, 0.78, 1], S0 = [0.88, 0.84, 0.78, 0.1];
 const RMAX = 9500, TOP = 1.35, LENS = 20;
 
 function hsv(h, s, v, out, o) {
@@ -230,11 +230,11 @@ export function draw(display, params) {
   // Colours: the 1, 2 and 3 are a step apart on the wheel, the 4 is white.
   const h1 = S.hue + 0.55, step = 0.32 - 0.17 * S.pl;
   // Orange and yellow go brown and olive when dim, so a colour that lands in
-  // them is lifted to full brightness.
+  // them is lifted to 0.86.
   for (let v = 0; v < 4; v++) {
     const h = v < 3 ? h1 + step * v : h1 + 0.02, hw = h - round(h);
     const warm = cl((0.22 - hw) / 0.06, 0, 1) * cl((hw + 0.05) / 0.05, 0, 1);
-    hsv(h, S0[v], V0[v] + (max(V0[v], 0.92) - V0[v]) * warm, pal, 3 * v);
+    hsv(h, S0[v], V0[v] + (max(V0[v], 0.86) - V0[v]) * warm, pal, 3 * v);
   }
 
   const mode = S.mode, lo = S.lo;
@@ -271,7 +271,7 @@ export function draw(display, params) {
       line(S, tx, ty < 64 ? ty + 2 : ty - 2, 55, ty < 64 ? yL : yL + LENS - 1, 0.5 * lo, fy0, fy1 + 1);
     }
     // The glass: what lies under it is dimmed, and its two edges drawn.
-    const fr = 1 - 0.68 * lo;
+    const fr = 1 - 0.62 * lo;
     for (let y = yL; y < yL + LENS; y++)
       for (let x = 0; x < W; x++) { const o = y * W + x; R[o] *= fr; G[o] *= fr; B[o] *= fr; }
     for (let x = 0; x < W; x++) { put(S, x, yL, 1, 1, 1, 0.5 * lo); put(S, x, yL + LENS - 1, 1, 1, 1, 0.5 * lo); }
