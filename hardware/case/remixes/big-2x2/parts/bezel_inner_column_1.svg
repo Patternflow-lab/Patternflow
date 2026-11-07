@@ -4,5 +4,12 @@
 <polygon points="5.75,40.25 8.75,40.25 8.75,20.25 5.75,20.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="117.75,120.25 120.75,120.25 120.75,100.25 117.75,100.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="117.75,40.25 120.75,40.25 120.75,20.25 117.75,20.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
-<polygon points="23.00,136.00 91.00,136.00 91.00,13.75 23.00,13.75" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<polygon points="22.75,45.25 57.75,45.25 57.75,10.25 22.75,10.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<polygon points="67.75,45.25 102.75,45.25 102.75,10.25 67.75,10.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<polygon points="22.75,90.25 57.75,90.25 57.75,55.25 22.75,55.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<polygon points="67.75,90.25 102.75,90.25 102.75,55.25 67.75,55.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="26.75" cy="115.25" r="6.40" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="50.75" cy="115.25" r="6.40" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="74.75" cy="115.25" r="6.40" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="98.75" cy="115.25" r="6.40" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 </svg>

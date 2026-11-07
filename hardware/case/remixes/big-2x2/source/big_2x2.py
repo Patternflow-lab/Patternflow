@@ -66,7 +66,7 @@ D_BEZEL = 2 * T            # outer + inner bezel layer
 D_WALL_BACK = 62.0         # back edge of the walls; the back cover is behind it
 D_RAIL = (PANEL_DEPTH, PANEL_DEPTH + 2 * T)       # rails: two layers on the screw faces
 D_STIFF = (42.0, D_WALL_BACK)                     # back stiffeners
-BLOCK = 20.0               # screw block, 3 layers
+BLOCK = 14.0               # screw block, 3 layers
 BLOCK_LAYERS = 3
 
 PANEL_CENTRES = [(-80.0, 160.0), (80.0, 160.0), (-80.0, -160.0), (80.0, -160.0)]
@@ -83,37 +83,65 @@ SCREW_SLOT = (5.0, 9.0)    # M4 clamp slot, long in Y
 PIN_HOLE = 3.6             # for the panels' 3.48 mm pins
 KNOB_BORE = 7.3            # EC11 bushing (M7)
 M3_HOLE = 3.4
+M2_5_HOLE = 2.8
 
-# Knobs: the v3 board's encoders, 31 x 30.5 mm apart (hardware/pcb/kicad).
-KNOB_CENTRE = (225.0, 280.0)
-KNOBS = {  # front view; K2 is top-left as in BUILD_GUIDE
-    "K2": (KNOB_CENTRE[0] - 15.5, KNOB_CENTRE[1] + 15.25),
-    "K1": (KNOB_CENTRE[0] + 15.5, KNOB_CENTRE[1] + 15.25),
-    "K4": (KNOB_CENTRE[0] - 15.5, KNOB_CENTRE[1] - 15.25),
-    "K3": (KNOB_CENTRE[0] + 15.5, KNOB_CENTRE[1] - 15.25),
+# Controller: a Raspberry Pi 5 renders, and a Colorlight 5A-75B card running
+# receiver75 drives the panels, one panel to a HUB75 output (as patternflood).
+# The card sits on the middle back piece, behind the centre of the display, so
+# the four ribbons are the same short length. Component side faces the panels.
+CARD = (91.76, 143.67)
+CARD_CENTRE = (0.0, -15.0)
+_card0 = (CARD_CENTRE[0] - CARD[0] / 2, CARD_CENTRE[1] - CARD[1] / 2)
+# Measured by patternflood from scans, component side up, RJ45 edge at the top.
+CARD_HOLES = [(_card0[0] + x, _card0[1] + y) for x, y in
+              ((5.11, 139.08), (86.51, 139.35), (16.07, 3.81), (76.44, 3.96))]
+CARD_HUB75 = [(_card0[0] + x, _card0[1] + y) for y in (98.6, 71.8, 44.4, 17.1) for x in (11.9, 80.3)]
+CARD_RJ45 = (_card0[0] + 29.5, _card0[0] + 63.5)      # X span of the jack, on the top edge
+CARD_TALL = 14.8           # the tallest part above its PCB (terminal block)
+RING = (9.0, 6.0)          # spacer ring outer diameter, card and Pi
+RING_LAYERS = 2            # 6 mm between a board and the back cover
+
+# The Pi stands on end in the column, ports up, on the column's upper back piece.
+PI = (56.0, 85.0)
+PI_ORIGIN = (195.5, 120.0)
+PI_HOLES = [(PI_ORIGIN[0] + x, PI_ORIGIN[1] + y) for x, y in ((3.5, 3.5), (52.5, 3.5), (3.5, 61.5), (52.5, 61.5))]
+PI_TALL = 16.0             # USB and Ethernet stack
+
+# Knobs: four EC11 encoders on Adafruit 4991 I2C breakouts, 45 mm apart as in
+# patternflood, which clears the breakouts' outline. k0..k3 are I2C 0x37..0x3A.
+KNOB_PITCH = 45.0
+KNOB_CENTRE = (223.0, 270.0)
+KNOBS = {
+    "k0": (KNOB_CENTRE[0] - KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
+    "k1": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
+    "k2": (KNOB_CENTRE[0] - KNOB_PITCH / 2, KNOB_CENTRE[1] - KNOB_PITCH / 2),
+    "k3": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] - KNOB_PITCH / 2),
 }
-POCKET_MARGIN = 3.0        # the inner bezel layer is cut away round the whole board, so the
-                           # bushings clamp the outer sheet alone and no lead on the board's
-                           # front face (socket pins, J1, J3, J4, C11) can touch the inner one
-# Board outline in the front view: the encoders are fitted from the back of the
-# PCB, so the front view is the KiCad view mirrored. 62 x 116.25 mm.
-BOARD = (KNOB_CENTRE[0] - 38.75, KNOB_CENTRE[1] - 92.75, KNOB_CENTRE[0] + 23.25, KNOB_CENTRE[1] + 23.5)
-J1_FRONT = (BOARD[0] + 62 - 53.96, BOARD[3] - 56.59)   # HUB75 header
-J4_FRONT = (BOARD[0] + 62 - 6.13, BOARD[3] - 106.86)   # power in
+KNOB_POCKET = 35.0         # square, in the inner bezel layer: the bushing clamps the outer sheet alone
+# Buttons for patternflood's menu, left to right: previous, select, next, sleep.
+# 12 mm thread with two flats 11 mm apart, through both bezel layers.
+BUTTON_Y = 205.0
+BUTTONS = {"previous": 187.0, "select": 211.0, "next": 235.0, "sleep": 259.0}
+BUTTON_HOLE = 12.2
+BUTTON_FLATS = 11.1
 
-# Supply (Mean Well LRS-150F-5, 159 x 97 x 30) on the power tray, terminals down.
+# Supplies on the power tray, terminals down, bases on the tray.
+# Panels: Mean Well LRS-150F-5, 159 x 97 x 30, 22 A.
 PSU = (175.0, -255.0, 272.0, -96.0)
 PSU_HOLES = [(x, PSU[1] + d) for d in (24.0, 102.0) for x in (PSU[0] + 32.0, PSU[2] - 32.0)]
+# Pi and card: Mean Well LRS-50-5, 99 x 82 x 30, 10 A. Its two base holes are
+# 40.5 mm from one long side of 82, so either way round lands within 1 mm: slots.
+PSU_PI = (182.5, -80.0, 264.5, 19.0)
+PSU_PI_HOLES = [((PSU_PI[0] + PSU_PI[2]) / 2, PSU_PI[1] + d) for d in (20.5, 75.5)]
 # IEC C14 inlet with switch and fuse (AC-14-F16A): cut-out and flange screws as
 # measured for patternflood.
 IEC_CUT = (27.25, 46.75)
 IEC_CENTRE = (225.0, -290.0)
 IEC_SCREW_PITCH = 40.0
-BUS = [(201.0, -52.5), (247.0, -52.5)]   # two 6-way barrier strips, +5 V and GND
-BUS_SLOT_PITCH = 64.0
 
 STIFF_Y = [111.333, -111.333]
-DIV_WINDOWS = [(215.0, 275.0), (-70.0, -20.0)]   # HUB75 ribbon, panel power leads
+COL_SPLIT = 100.0          # the column's back: Pi piece above, power tray below
+DIV_WINDOWS = [(215.0, 275.0), (-70.0, -20.0), (-250.0, -190.0)]   # Ethernet, card power, panel power
 WINDOW_DEPTH = (20.0, 50.0)
 
 # --------------------------------------------------------------------------
@@ -259,6 +287,20 @@ def side_wall_tabs_in(lo, hi):
 # --------------------------------------------------------------------------
 
 
+def keyed(cx, cy, d=BUTTON_HOLE, flats=BUTTON_FLATS, n=12):
+    """A round hole with two vertical flats, for a keyed panel-mount button."""
+    r, f = d / 2, flats / 2
+    a0 = math.acos(f / r)
+    pts = []
+    for side in (0, 1):
+        start = a0 + side * math.pi
+        end = math.pi - a0 + side * math.pi
+        for i in range(n + 1):
+            a = start + (end - start) * i / n
+            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return poly(pts)
+
+
 def bezel_parts():
     parts = []
     # Outer layer: the face you see. Its joints are at the corners of the
@@ -275,6 +317,7 @@ def bezel_parts():
         shapes = [rect(x0, y0, x1, y1)]
         if name == "bezel-outer-column-upper":
             shapes += [circle(x, y, KNOB_BORE) for x, y in KNOBS.values()]
+            shapes += [keyed(x, BUTTON_Y) for x in BUTTONS.values()]
         parts.append(Part(name, 1, "Bezel, outer layer (the face)", shapes))
 
     # Inner layer: glued behind the outer one, joints staggered, and the
@@ -301,8 +344,9 @@ def bezel_parts():
                 for a, b in side_wall_tabs_in(y0, y1):
                     shapes.append(rect(wx[0], a, wx[1], b))
         if name == "bezel-inner-column-1":
-            m = POCKET_MARGIN
-            shapes.append(rect(BOARD[0] - m, BOARD[1] - m, BOARD[2] + m, BOARD[3] + m))
+            h = KNOB_POCKET / 2
+            shapes += [rect(x - h, y - h, x + h, y + h) for x, y in KNOBS.values()]
+            shapes += [circle(x, BUTTON_Y, BUTTON_HOLE + 0.6) for x in BUTTONS.values()]
         parts.append(Part(name, 1, "Bezel, inner layer (mortises)", shapes))
     return parts
 
@@ -335,8 +379,8 @@ def side_wall(name, wx, lo, hi, kind):
             if body_lo < y < body_hi:
                 shapes.append(rect(y - T / 2, STIFF_TAB_D[0], y + T / 2, STIFF_TAB_D[1]))
     if kind in ("divider", "right"):
-        if body_lo < 0 < body_hi:
-            shapes.append(rect(-T / 2, STIFF_TAB_D[0], T / 2, STIFF_TAB_D[1]))
+        if body_lo < COL_SPLIT < body_hi:
+            shapes.append(rect(COL_SPLIT - T / 2, STIFF_TAB_D[0], COL_SPLIT + T / 2, STIFF_TAB_D[1]))
     if kind == "divider":
         for a, b in DIV_WINDOWS:
             if body_lo < a and b < body_hi:
@@ -397,21 +441,23 @@ def rail_parts():
 
 def block_centres():
     """Where the screw blocks sit, in the front view. Each one is a screw."""
-    lw, dv, cv, rw = LEFT_WALL[1] + BLOCK / 2, DIVIDER[0] - BLOCK / 2, DIVIDER[1] + BLOCK / 2, RIGHT_WALL[0] - BLOCK / 2
-    top, bot = TOP_WALL[0] - BLOCK / 2, BOT_WALL[1] + BLOCK / 2
+    h = BLOCK / 2
+    lw, dv, cv, rw = LEFT_WALL[1] + h, DIVIDER[0] - h, DIVIDER[1] + h, RIGHT_WALL[0] - h
+    top, bot = TOP_WALL[0] - h, BOT_WALL[1] + h
     mid = (lw + dv) / 2
-    s_hi_up = STIFF_Y[0] + T / 2 + BLOCK / 2
-    s_hi_dn = STIFF_Y[0] - T / 2 - BLOCK / 2
-    s_lo_up = STIFF_Y[1] + T / 2 + BLOCK / 2
-    s_lo_dn = STIFF_Y[1] - T / 2 - BLOCK / 2
-    c_up, c_dn = T / 2 + BLOCK / 2, -T / 2 - BLOCK / 2
+    s_hi_up = STIFF_Y[0] + T / 2 + h
+    s_hi_dn = STIFF_Y[0] - T / 2 - h
+    s_lo_up = STIFF_Y[1] + T / 2 + h
+    s_lo_dn = STIFF_Y[1] - T / 2 - h
+    c_up, c_dn = COL_SPLIT + T / 2 + h, COL_SPLIT - T / 2 - h
+    gap = (PSU[3] + PSU_PI[1]) / 2        # between the two supplies
     return {
         "back-display-upper": [(lw, top), (mid, top), (dv, top), (lw, s_hi_up), (mid, s_hi_up), (dv, s_hi_up)],
         "back-display-middle": [(lw, s_hi_dn), (mid, s_hi_dn), (dv, s_hi_dn), (lw, 0.0), (dv, 0.0),
                                 (lw, s_lo_up), (mid, s_lo_up), (dv, s_lo_up)],
         "back-display-lower": [(lw, s_lo_dn), (mid, s_lo_dn), (dv, s_lo_dn), (lw, bot), (mid, bot), (dv, bot)],
-        "back-column-upper": [(cv, top), (rw, top), (cv, 165.0), (rw, 165.0), (cv, c_up), (rw, c_up)],
-        "back-column-lower": [(cv, c_dn), (rw, c_dn), (cv, -80.0), (rw, -80.0), (cv, bot), (rw, bot)],
+        "back-column-upper": [(cv, top), (rw, top), (cv, 215.0), (rw, 215.0), (cv, c_up), (rw, c_up)],
+        "back-column-lower": [(cv, c_dn), (rw, c_dn), (cv, gap), (rw, gap), (cv, bot), (rw, bot)],
     }
 
 
@@ -422,8 +468,13 @@ def back_parts():
         "back-display-upper": (X_L, STIFF_Y[0], split, Y_T),
         "back-display-middle": (X_L, STIFF_Y[1], split, STIFF_Y[0]),
         "back-display-lower": (X_L, Y_B, split, STIFF_Y[1]),
-        "back-column-upper": (split, 0.0, X_R, Y_T),
-        "back-column-lower": (split, Y_B, X_R, 0.0),
+        "back-column-upper": (split, COL_SPLIT, X_R, Y_T),
+        "back-column-lower": (split, Y_B, X_R, COL_SPLIT),
+    }
+    what = {
+        "back-display-middle": "Back cover, middle: the Colorlight card on its inside",
+        "back-column-upper": "Back cover, column: the Pi on its inside",
+        "back-column-lower": "Power tray: the inlet and both supplies",
     }
     parts = []
     for name, (x0, y0, x1, y1) in pieces.items():
@@ -431,26 +482,35 @@ def back_parts():
         shapes += [circle(x, y, M3_HOLE) for x, y in blocks[name]]
         if name == "back-display-upper":
             shapes += vent_row(-120.0, 120.0, 270.0, 310.0)
+        if name == "back-display-middle":
+            shapes += [circle(x, y, M3_HOLE) for x, y in CARD_HOLES]
+            cx0, cx1 = CARD_CENTRE[0] - CARD[0] / 2, CARD_CENTRE[0] + CARD[0] / 2
+            shapes += vent_row(cx0 - 90.0, cx0 - 12.0, -60.0, 40.0)
+            shapes += vent_row(cx1 + 12.0, cx1 + 90.0, -60.0, 40.0)
         if name == "back-display-lower":
             shapes += vent_row(-120.0, 120.0, -310.0, -270.0)
         if name == "back-column-upper":
-            shapes += vent_row(195.0, 255.0, 290.0, 315.0)
-            shapes += vent_row(195.0, 255.0, 30.0, 150.0)
+            shapes += [circle(x, y, M2_5_HOLE) for x, y in PI_HOLES]
+            shapes += vent_row(195.0, 255.0, 240.0, 315.0)
+            shapes += vent_row(203.0, 245.0, 130.0, 170.0)
         if name == "back-column-lower":
             cx, cy = IEC_CENTRE
             w, h = IEC_CUT
             shapes.append(rect(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2))
             shapes += [circle(cx, cy + s * IEC_SCREW_PITCH / 2, M3_HOLE) for s in (-1, 1)]
             shapes += [circle(x, y, M3_HOLE) for x, y in PSU_HOLES]
-            for bx, by in BUS:
-                shapes += [obround(bx, by + s * BUS_SLOT_PITCH / 2, 3.6, 10.0) for s in (-1, 1)]
+            shapes += [obround(x, y, 4.4, M3_HOLE) for x, y in PSU_PI_HOLES]
             shapes += vent_row(190.0, 206.0, -318.0, -268.0, pitch=8.0)
             shapes += vent_row(244.0, 260.0, -318.0, -268.0, pitch=8.0)
-        what = "Power tray: the inlet, the supply and the 5 V bus" if name == "back-column-lower" else "Back cover"
-        parts.append(Part(name, 1, what, shapes))
+            shapes += vent_row(192.0, 256.0, 30.0, 78.0)
+        parts.append(Part(name, 1, what.get(name, "Back cover"), shapes))
     n = sum(len(v) for v in blocks.values())
     parts.append(Part("screw-block", n * BLOCK_LAYERS,
                       f"Screw block, {BLOCK_LAYERS} glued per block, {n} blocks", [rect(0, 0, BLOCK, BLOCK)]))
+    parts.append(Part("ring-card", len(CARD_HOLES) * RING_LAYERS, "Spacer ring under the card, M3",
+                      [circle(0, 0, RING[0]), circle(0, 0, M3_HOLE)]))
+    parts.append(Part("ring-pi", len(PI_HOLES) * RING_LAYERS, "Spacer ring under the Pi, M2.5",
+                      [circle(0, 0, RING[1]), circle(0, 0, M2_5_HOLE)]))
     return parts
 
 
@@ -474,10 +534,9 @@ def test_cut_parts():
         shapes.append(rect(x, 15, x + w, 30))
     shapes.append(circle(6, 6, 1.5))      # marks the T-0.2 end
     parts.append(Part("test-01-kerf-comb", 1, "Slot widths T-0.2 to T+0.2, the small hole marks the narrow end", shapes))
-    # The knob bores on the board's grid: push the real board through it.
-    k = [(x - KNOB_CENTRE[0] + 30, y - KNOB_CENTRE[1] + 30) for x, y in KNOBS.values()]
-    parts.append(Part("test-02-knob-bores", 1, "The four knob bores; press the board's encoders through",
-                      [rect(0, 0, 60, 60)] + [circle(x, y, KNOB_BORE) for x, y in k]))
+    # One knob bore and one keyed button hole.
+    parts.append(Part("test-02-knob-and-button", 1, "A knob bore and a keyed button hole",
+                      [rect(0, 0, 60, 30), circle(15, 15, KNOB_BORE), keyed(42, 15)]))
     # One panel's rail holes: screw it to a real panel before cutting rails.
     shapes = [rect(-15, -165, 15, 165)]
     for sx, sy in PANEL_SCREWS:
@@ -664,57 +723,56 @@ def write_sheets_svg(sheets):
 def write_front_svg():
     """The assembled box from the front, drawn from the same numbers as the parts."""
     m = 40
-    W = (X_R - X_L) + 2 * m + 230
+    W = (X_R - X_L) + 2 * m + 250
     H = (Y_T - Y_B) + 2 * m
     def X(x): return x - X_L + m
     def Y(y): return Y_T - y + m
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:.0f} {H:.0f}" width="{W * 1.6:.0f}" height="{H * 1.6:.0f}" '
          f'font-family="Helvetica, Arial, sans-serif">',
+         '<defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">'
+         '<path d="M0,0 L10,5 L0,10 z" fill="#f5a623"/></marker></defs>',
          f'<rect width="{W:.0f}" height="{H:.0f}" fill="#ffffff"/>',
-         # bezel
          f'<rect x="{X(X_L)}" y="{Y(Y_T)}" width="{X_R - X_L}" height="{Y_T - Y_B}" fill="#e9d9bb" stroke="#8a6d3b" stroke-width="1"/>']
-    # bezel joints, outer layer
     for x0, y0, x1, y1 in ((AP_X, AP_Y, AP_X, Y_T), (AP_X, Y_B, AP_X, -AP_Y), (X_L, 0, -AP_X, 0), (AP_X, 0, X_R, 0)):
         o.append(f'<line x1="{X(x0)}" y1="{Y(y0)}" x2="{X(x1)}" y2="{Y(y1)}" stroke="#8a6d3b" stroke-width="0.6"/>')
-    # panels
-    names = {(80.0, 160.0): ("P0", "in from the board", 0), (80.0, -160.0): ("P1", "", 0),
-             (-80.0, -160.0): ("P2", "turned 180°", 180), (-80.0, 160.0): ("P3", "turned 180°", 180)}
     bw, bh = PANEL_BODY
-    for (cx, cy), (label, note, rot) in names.items():
+    names = {(80.0, 160.0): "P0", (80.0, -160.0): "P1", (-80.0, -160.0): "P2", (-80.0, 160.0): "P3"}
+    for (cx, cy), label in names.items():
         o.append(f'<rect x="{X(cx - bw / 2):.2f}" y="{Y(cy + bh / 2):.2f}" width="{bw}" height="{bh}" fill="#16161d" stroke="#000" stroke-width="0.4"/>')
-        # a few LED rows, to read as a panel
         for k in range(1, 16):
             yy = cy - bh / 2 + k * bh / 16
             o.append(f'<line x1="{X(cx - bw / 2 + 4):.1f}" y1="{Y(yy):.1f}" x2="{X(cx + bw / 2 - 4):.1f}" y2="{Y(yy):.1f}" stroke="#2a2a36" stroke-width="0.8"/>')
-        tx = cx - 10 if cx > 0 else cx + 10
-        o.append(f'<text x="{X(tx):.1f}" y="{Y(cy) - 4:.1f}" font-size="22" fill="#f2f2f2" text-anchor="middle">{label}</text>')
-        if note:
-            o.append(f'<text x="{X(tx):.1f}" y="{Y(cy) + 16:.1f}" font-size="10" fill="#c8c8c8" text-anchor="middle">{note}</text>')
-    # chain arrows (data flow, seen from the front)
-    chain = [(J1_FRONT[0], J1_FRONT[1]), (128, 236), (128, -236), (-128, -236), (-128, 236)]
-    pts = " ".join(f"{X(x):.1f},{Y(y):.1f}" for x, y in chain)
-    o.append(f'<polyline points="{pts}" fill="none" stroke="#f5a623" stroke-width="2.2" stroke-dasharray="7 4" marker-end="url(#ar)"/>')
-    o.insert(1, '<defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto">'
-                '<path d="M0,0 L10,5 L0,10 z" fill="#f5a623"/></marker></defs>')
-    # rails, behind
+        ty = cy + 70 if cy > 0 else cy - 70
+        o.append(f'<text x="{X(cx):.1f}" y="{Y(ty) + 8:.1f}" font-size="22" fill="#f2f2f2" text-anchor="middle">{label}</text>')
     for cx, w in RAILS.values():
         o.append(f'<rect x="{X(cx - w / 2):.1f}" y="{Y(TOP_WALL[0]):.1f}" width="{w}" height="{TOP_WALL[0] - BOT_WALL[1]}" '
                  f'fill="none" stroke="#4a90e2" stroke-width="0.8" stroke-dasharray="4 3"/>')
-    # column contents, behind the bezel
-    bx0, by0, bx1, by1 = BOARD
-    o.append(f'<rect x="{X(bx0):.1f}" y="{Y(by1):.1f}" width="{bx1 - bx0:.2f}" height="{by1 - by0:.2f}" fill="none" stroke="#417505" stroke-width="1" stroke-dasharray="4 3"/>')
-    o.append(f'<text x="{X((bx0 + bx1) / 2):.1f}" y="{Y(by0 + 30):.1f}" font-size="9" fill="#417505" text-anchor="middle">v3 board</text>')
-    px0, py0, px1, py1 = PSU
-    o.append(f'<rect x="{X(px0):.1f}" y="{Y(py1):.1f}" width="{px1 - px0}" height="{py1 - py0}" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>')
-    o.append(f'<text x="{X((px0 + px1) / 2):.1f}" y="{Y((py0 + py1) / 2):.1f}" font-size="9" fill="#9013fe" text-anchor="middle">LRS-150F-5</text>')
+    # The card, behind the centre, and a ribbon from it to each panel.
+    c0x, c0y = CARD_CENTRE[0] - CARD[0] / 2, CARD_CENTRE[1] - CARD[1] / 2
+    o.append(f'<rect x="{X(c0x):.1f}" y="{Y(c0y + CARD[1]):.1f}" width="{CARD[0]}" height="{CARD[1]}" fill="#0b3d2e" fill-opacity="0.85" stroke="#2ecc71" stroke-width="1.2"/>')
+    o.append(f'<text x="{X(CARD_CENTRE[0]):.1f}" y="{Y(CARD_CENTRE[1]) - 4:.1f}" font-size="10" fill="#c8f7dc" text-anchor="middle">Colorlight</text>')
+    o.append(f'<text x="{X(CARD_CENTRE[0]):.1f}" y="{Y(CARD_CENTRE[1]) + 9:.1f}" font-size="10" fill="#c8f7dc" text-anchor="middle">5A-75B</text>')
+    hdr = sorted(CARD_HUB75, key=lambda p: (-p[1], p[0]))
+    ends = {"P3": (hdr[0], (-80.0, 130.0)), "P0": (hdr[1], (80.0, 130.0)),
+            "P2": (hdr[6], (-80.0, -130.0)), "P1": (hdr[7], (80.0, -130.0))}
+    for (hx, hy), (px, py) in ends.values():
+        o.append(f'<line x1="{X(hx):.1f}" y1="{Y(hy):.1f}" x2="{X(px):.1f}" y2="{Y(py):.1f}" stroke="#f5a623" stroke-width="2.2" stroke-dasharray="7 4" marker-end="url(#ar)"/>')
+    # Column: knobs, buttons, the Pi behind them, the supplies and the inlet.
+    o.append(f'<rect x="{X(PI_ORIGIN[0]):.1f}" y="{Y(PI_ORIGIN[1] + PI[1]):.1f}" width="{PI[0]}" height="{PI[1]}" fill="none" stroke="#c2185b" stroke-width="1" stroke-dasharray="4 3"/>')
+    o.append(f'<text x="{X(PI_ORIGIN[0] + PI[0] / 2):.1f}" y="{Y(PI_ORIGIN[1] + 30):.1f}" font-size="9" fill="#c2185b" text-anchor="middle">Pi 5</text>')
+    for box, label in ((PSU, "LRS-150F-5"), (PSU_PI, "LRS-50-5")):
+        x0, y0, x1, y1 = box
+        o.append(f'<rect x="{X(x0):.1f}" y="{Y(y1):.1f}" width="{x1 - x0}" height="{y1 - y0}" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>')
+        o.append(f'<text x="{X((x0 + x1) / 2):.1f}" y="{Y((y0 + y1) / 2):.1f}" font-size="9" fill="#9013fe" text-anchor="middle">{label}</text>')
     cx, cy = IEC_CENTRE
     o.append(f'<rect x="{X(cx - IEC_CUT[0] / 2):.1f}" y="{Y(cy + IEC_CUT[1] / 2):.1f}" width="{IEC_CUT[0]}" height="{IEC_CUT[1]}" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>')
     o.append(f'<text x="{X(cx):.1f}" y="{Y(cy - IEC_CUT[1] / 2 - 6):.1f}" font-size="8" fill="#9013fe" text-anchor="middle">inlet (back)</text>')
-    # knobs
     for name, (x, y) in KNOBS.items():
         o.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="10" fill="#1d1d1d"/>')
         o.append(f'<text x="{X(x):.1f}" y="{Y(y) + 3:.1f}" font-size="8" fill="#fff" text-anchor="middle">{name}</text>')
-    # dimensions
+    for name, x in BUTTONS.items():
+        o.append(f'<circle cx="{X(x):.1f}" cy="{Y(BUTTON_Y):.1f}" r="6" fill="#555"/>')
+    o.append(f'<text x="{X(KNOB_CENTRE[0]):.1f}" y="{Y(BUTTON_Y) + 18:.1f}" font-size="7" fill="#333" text-anchor="middle">prev · select · next · sleep</text>')
     def hdim(x0, x1, y, text):
         o.append(f'<line x1="{X(x0)}" y1="{Y(y)}" x2="{X(x1)}" y2="{Y(y)}" stroke="#555" stroke-width="0.6"/>')
         for x in (x0, x1):
@@ -729,11 +787,14 @@ def write_front_svg():
     hdim(X_L, X_R, Y_T + 18, f"{X_R - X_L:.0f}")
     hdim(-PANEL_PITCH[0], PANEL_PITCH[0], Y_B - 18, "display 320")
     vdim(Y_B, Y_T, X_L - 18, f"{Y_T - Y_B:.0f}")
-    # legend
     lx = X(X_R) + 24
-    leg = [("#16161d", "Four 320 × 160 panels, 128 × 64 each"), ("#f5a623", "HUB75 chain: board → P0 → P1 → P2 → P3"),
-           ("#4a90e2", "Rails behind the panels (screws, pins)"), ("#417505", "Board, encoders through the face"),
-           ("#9013fe", "Supply and inlet on the power tray"), ("#8a6d3b", "Joints in the face layer")]
+    leg = [("#16161d", "Four 320 × 160 panels, 128 × 64 each"),
+           ("#2ecc71", "Colorlight 5A-75B, behind the centre"),
+           ("#f5a623", "One HUB75 ribbon per panel, 30 cm"),
+           ("#c2185b", "Raspberry Pi 5, behind the knobs"),
+           ("#4a90e2", "Rails behind the panels (screws, pins)"),
+           ("#9013fe", "Two supplies and the inlet, power tray"),
+           ("#8a6d3b", "Joints in the face layer")]
     for i, (c, t) in enumerate(leg):
         y = Y(Y_T) + 10 + i * 22
         o.append(f'<rect x="{lx}" y="{y}" width="12" height="12" fill="{c}"/>')
@@ -746,51 +807,54 @@ def write_front_svg():
 
 
 def write_wiring_svg():
-    W, H = 900, 430
+    W, H = 940, 470
     o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W * 1.6:.0f}" height="{H * 1.6:.0f}" '
          f'font-family="Helvetica, Arial, sans-serif" font-size="12">',
-         f'<rect width="{W}" height="{H}" fill="#ffffff"/>',
-         '<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">'
-         '<path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker></defs>']
+         f'<rect width="{W}" height="{H}" fill="#ffffff"/>']
     def box(x, y, w, h, title, sub="", fill="#f6f6f6", stroke="#333"):
         o.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="{fill}" stroke="{stroke}" stroke-width="1.2"/>')
         o.append(f'<text x="{x + w / 2}" y="{y + h / 2 - (5 if sub else -4)}" text-anchor="middle" font-weight="bold">{title}</text>')
         if sub:
             o.append(f'<text x="{x + w / 2}" y="{y + h / 2 + 12}" text-anchor="middle" font-size="10" fill="#555">{sub}</text>')
-    def wire(pts, color, label="", lx=None, ly=None, w=2.5, dash=""):
+    def wire(pts, color, w=2.5, dash=""):
         d = " ".join(f"{x},{y}" for x, y in pts)
         da = f' stroke-dasharray="{dash}"' if dash else ""
         o.append(f'<polyline points="{d}" fill="none" stroke="{color}" stroke-width="{w}"{da}/>')
-        if label:
-            o.append(f'<text x="{lx}" y="{ly}" font-size="10" fill="{color}">{label}</text>')
-    box(20, 170, 110, 60, "Mains", "100–240 VAC")
-    box(170, 160, 140, 80, "IEC C14 inlet", "switch, fuse T3.15A", fill="#fdeaea", stroke="#b00020")
-    box(350, 160, 150, 80, "LRS-150F-5", "5 V 22 A, trim to 5.1 V", fill="#f1e6fd", stroke="#7b1fa2")
-    box(545, 150, 100, 100, "5 V bus", "two 6-way strips", fill="#fff6e0", stroke="#c77700")
+    def label(x, y, t, color="#333", size=10):
+        o.append(f'<text x="{x}" y="{y}" font-size="{size}" fill="{color}">{t}</text>')
+    box(20, 190, 100, 56, "Mains", "100–240 VAC")
+    box(150, 180, 130, 76, "IEC C14 inlet", "switch, fuse T4A", fill="#fdeaea", stroke="#b00020")
+    box(330, 70, 150, 70, "LRS-150F-5", "5 V 22 A: panels", fill="#f1e6fd", stroke="#7b1fa2")
+    box(330, 300, 150, 70, "LRS-50-5", "5 V 10 A: Pi and card", fill="#f1e6fd", stroke="#7b1fa2")
+    box(560, 290, 150, 90, "Colorlight 5A-75B", "receiver75, 192.168.75.39", fill="#e3f7ec", stroke="#1e8449")
+    box(560, 400, 150, 56, "Raspberry Pi 5", "192.168.75.1 on eth0", fill="#fde7f0", stroke="#c2185b")
     for i, name in enumerate(["P0", "P1", "P2", "P3"]):
-        box(730, 20 + i * 70, 140, 52, f"Panel {name}", "4-pin power plug")
-    box(700, 330, 170, 70, "v3 board", "J4 in · J3 left empty", fill="#eaf5e0", stroke="#417505")
-    wire([(130, 200), (170, 200)], "#b00020")
-    o.append('<text x="22" y="252" font-size="10" fill="#b00020">L, N and earth: 18 AWG, 300 V</text>')
-    wire([(310, 200), (350, 200)], "#b00020")
-    wire([(500, 200), (545, 200)], "#c77700", "14 AWG", 505, 190, w=4)
+        box(780, 20 + i * 68, 140, 50, f"Panel {name}", "")
+    box(780, 330, 140, 56, "Knobs k0–k3", "4991s on I²C, 3V3")
+    box(780, 400, 140, 56, "Buttons", "GPIO 17 27 22 23")
+    wire([(120, 218), (150, 218)], "#b00020")
+    wire([(280, 205), (305, 205), (305, 105), (330, 105)], "#b00020")
+    wire([(280, 232), (305, 232), (305, 335), (330, 335)], "#b00020")
+    label(22, 275, "L, N and earth: 18 AWG, 300 V", "#b00020")
     for i in range(4):
-        y = 46 + i * 70
-        wire([(645, 200), (690, 200), (690, y), (730, y)], "#c77700", "16 AWG" if i == 0 else "", 650, y - 6, w=3)
-    wire([(645, 230), (670, 230), (670, 365), (700, 365)], "#c77700", "20 AWG", 610, 300, w=1.6)
-    # HUB75 chain
-    o.append('<text x="20" y="300" font-weight="bold">HUB75</text>')
-    wire([(785, 330), (785, 312), (893, 312), (893, 36), (870, 36)], "#1565c0", "", w=2, dash="6 3")
-    for i in range(3):
-        y0, y1 = 58 + i * 70, 20 + (i + 1) * 70 + 8
-        o.append(f'<polyline points="870,{y0} 882,{y0} 882,{y1} 870,{y1}" fill="none" stroke="#1565c0" '
-                 f'stroke-width="2" stroke-dasharray="6 3" marker-end="url(#b)"/>')
-    o.append('<defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">'
-             '<path d="M0,0 L10,5 L0,10 z" fill="#1565c0"/></marker></defs>')
-    o.append('<text x="20" y="320" font-size="11" fill="#1565c0">J1 → P0 IN, P0 OUT → P1 IN, P1 OUT → P2 IN, P2 OUT → P3 IN.</text>')
-    o.append('<text x="20" y="338" font-size="11" fill="#1565c0">Four 16-way ribbons, 30 cm. Grounds meet at the bus.</text>')
-    o.append('<text x="20" y="380" font-size="11" fill="#333">Earth from the inlet goes to the supply\'s FG terminal.</text>')
-    o.append('<text x="20" y="398" font-size="11" fill="#333">No panel current goes through the board.</text>')
+        y = 45 + i * 68
+        wire([(480, 105), (520, 105), (520, y), (780, y)], "#c77700", w=3)
+    label(525, 98, "16 AWG to each panel, two forks a screw", "#c77700")
+    wire([(480, 335), (560, 335)], "#c77700", w=2.2)
+    label(486, 328, "18 AWG, 4-pin", "#c77700")
+    wire([(600, 380), (600, 400)], "#c77700", w=1.6)
+    label(606, 395, "USB-C pigtail", "#c77700", 9)
+    wire([(690, 380), (690, 400)], "#1565c0", w=2, dash="4 2")
+    label(696, 395, "Ethernet", "#1565c0", 9)
+    for i in range(4):
+        y = 52 + i * 68
+        wire([(710, 300 + i * 18), (745, 300 + i * 18), (745, y), (780, y)], "#1565c0", w=2, dash="6 3")
+    label(560, 285, "HUB75, one output per panel", "#1565c0")
+    wire([(710, 428), (780, 358)], "#2e7d32", w=1.6)
+    wire([(710, 440), (780, 428)], "#2e7d32", w=1.6)
+    label(22, 400, "Pi ⇄ card: gigabit Ethernet, a 50 cm patch. The card will not link at 100 Mbit.", "#1565c0", 11)
+    label(22, 420, "Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.", "#333", 11)
+    label(22, 440, "Grounds meet through the ribbons; each panel returns its current on its own lead.", "#333", 11)
     o.append("</svg>")
     with open(os.path.join(ROOT, "preview", "wiring.svg"), "w") as f:
         f.write("\n".join(o))
@@ -852,6 +916,13 @@ def check():
         b = ebbox.extents(load(name))
         return b.size.x, b.size.y
 
+    def placed_circles(name):
+        """Circle centres of a part's DXF, back in front-view coordinates."""
+        part = [p for p in all_parts() if p.name == fname(name)][0]
+        x0, y0, _, _ = part.bbox()
+        return sorted((round(e.dxf.center.x + x0, 2), round(e.dxf.center.y + y0, 2), round(2 * e.dxf.radius, 2))
+                      for e in load(name).query("CIRCLE"))
+
     # The aperture is what the outer bezel leaves open between its strips.
     top_w, top_h = ext("bezel-outer-top")
     left_w, left_h = ext("bezel-outer-left-upper")
@@ -865,14 +936,26 @@ def check():
        f"{need_w:.1f} x {need_h:.1f}, so {CLEAR} mm clear each side")
     ok(abs(2 * left_h - 2 * AP_Y) < 0.01, f"left strips together {2 * left_h:.2f} mm = aperture height")
 
-    # Knob bores against the board's encoder pitch.
-    circles = sorted((round(e.dxf.center.x, 2), round(e.dxf.center.y, 2), round(2 * e.dxf.radius, 2))
-                     for e in load("bezel-outer-column-upper").query("CIRCLE"))
-    xs = sorted({c[0] for c in circles})
-    ys = sorted({c[1] for c in circles})
-    ok(len(circles) == 4 and abs(xs[1] - xs[0] - 31.0) < 0.01 and abs(ys[1] - ys[0] - 30.5) < 0.01,
-       f"knob bores: {len(circles)} at {xs[1] - xs[0]:.2f} x {ys[1] - ys[0]:.2f} mm, the v3 board's "
-       f"SW1-SW4 pitch is 31.00 x 30.50 (KiCad)")
+    # Knob bores: four, on the 45 mm pitch.
+    knobs = [c for c in placed_circles("bezel-outer-column-upper") if abs(c[2] - KNOB_BORE) < 0.01]
+    xs = sorted({c[0] for c in knobs})
+    ys = sorted({c[1] for c in knobs})
+    ok(len(knobs) == 4 and abs(xs[1] - xs[0] - KNOB_PITCH) < 0.01 and abs(ys[1] - ys[0] - KNOB_PITCH) < 0.01,
+       f"knob bores: {len(knobs)} at {xs[1] - xs[0]:.2f} x {ys[1] - ys[0]:.2f} mm, the 4991 breakouts need 45")
+    btn = [e for e in load("bezel-outer-column-upper").query("LWPOLYLINE") if len(e) > 8]
+    ok(len(btn) == len(BUTTONS), f"{len(btn)} keyed button holes")
+
+    # The card and the Pi land on the holes their makers drilled.
+    card = [c for c in placed_circles("back-display-middle") if abs(c[2] - M3_HOLE) < 0.01 and
+            any(abs(c[0] - x) < 0.01 and abs(c[1] - y) < 0.01 for x, y in CARD_HOLES)]
+    ok(len(card) == 4, f"card: 4 holes on back_display_middle where the 5A-75B has them (top pair "
+       f"{CARD_HOLES[1][0] - CARD_HOLES[0][0]:.2f} mm apart, bottom pair {CARD_HOLES[3][0] - CARD_HOLES[2][0]:.2f}, "
+       f"rows {CARD_HOLES[0][1] - CARD_HOLES[2][1]:.2f})")
+    pi = [c for c in placed_circles("back-column-upper") if abs(c[2] - M2_5_HOLE) < 0.01]
+    pxs = sorted({c[0] for c in pi})
+    pys = sorted({c[1] for c in pi})
+    ok(len(pi) == 4 and abs(pxs[1] - pxs[0] - 49.0) < 0.01 and abs(pys[1] - pys[0] - 58.0) < 0.01,
+       f"Pi: 4 holes {pxs[1] - pxs[0]:.1f} x {pys[1] - pys[0]:.1f} mm, the Pi 5's 49 x 58 on end")
 
     # Rails: glue the two layers back together and compare with the panel's holes.
     for rname, (cx, w) in RAILS.items():
@@ -895,7 +978,6 @@ def check():
         ok(sorted(found_s) == want_s and sorted(found_p) == want_p,
            f"rail {rname}: {len(found_s)} screw slots and {len(found_p)} pin holes where the panels have them")
 
-    # Every wall tab has a mortise of the same size where it lands.
     lw = ext("wall-left-lower")[0] + ext("wall-left-upper")[0]
     ok(abs(lw - (TOP_WALL[0] - BOT_WALL[1] + 2 * T)) < 0.01,
        f"left wall halves {lw:.1f} mm long with end tabs, between the top and bottom walls")
@@ -904,20 +986,14 @@ def check():
                for e in load(n).query("LWPOLYLINE") if len(e) == 4) - 3
     ok(mort == tabs, f"left wall: {tabs} front tabs, {mort} mortises in the inner bezel")
 
-    # The supply fits the column, between the divider and the right wall.
-    ok(PSU[0] > DIVIDER[1] and PSU[2] < RIGHT_WALL[0], f"supply {PSU[2] - PSU[0]:.0f} mm wide in a "
-       f"{RIGHT_WALL[0] - DIVIDER[1]:.0f} mm column")
-    ok(BOARD[0] > DIVIDER[1] and BOARD[2] < RIGHT_WALL[0] and BOARD[3] < TOP_WALL[0],
-       f"board outline {BOARD[2] - BOARD[0]:.2f} x {BOARD[3] - BOARD[1]:.2f} mm inside the column")
-    pocket = (BOARD[0] - POCKET_MARGIN, BOARD[1] - POCKET_MARGIN, BOARD[2] + POCKET_MARGIN, BOARD[3] + POCKET_MARGIN)
-    ok(pocket[0] > DIVIDER[1] and pocket[2] < RIGHT_WALL[0] and pocket[1] > 160.0 and pocket[3] < AP_Y,
-       f"board pocket {pocket[2] - pocket[0]:.2f} x {pocket[3] - pocket[1]:.2f} mm inside bezel_inner_column_1, "
-       f"clear of the divider and right-wall mortises")
     # Nothing inside the box sits where something else is. Bodies only, no tabs,
     # as boxes (x0, y0, v0, x1, y1, v1); v is depth behind the panel face.
+    board_face = D_WALL_BACK - RING_LAYERS * T          # a board's back, on its rings
     boxes = {}
     for i, (cx, cy) in enumerate(PANEL_CENTRES):
         boxes[f"panel {i}"] = (cx - PANEL_BODY[0] / 2, cy - PANEL_BODY[1] / 2, 0, cx + PANEL_BODY[0] / 2, cy + PANEL_BODY[1] / 2, PANEL_DEPTH)
+        # its IN, OUT and power plugs with their cables, somewhere near its middle
+        boxes[f"panel {i} plugs"] = (cx - 50, cy - 45, PANEL_DEPTH, cx + 50, cy + 45, PANEL_DEPTH + 20)
     for rname, (cx, w) in RAILS.items():
         boxes[f"rail {rname}"] = (cx - w / 2, BOT_WALL[1], D_RAIL[0], cx + w / 2, TOP_WALL[0], D_RAIL[1])
     boxes["top wall"] = (X_L, TOP_WALL[0], D_BEZEL, X_R, TOP_WALL[1], D_WALL_BACK)
@@ -926,18 +1002,24 @@ def check():
         boxes[n] = (wx[0], BOT_WALL[1], D_BEZEL, wx[1], TOP_WALL[0], D_WALL_BACK)
     for i, y in enumerate(STIFF_Y):
         boxes[f"stiffener {i}"] = (LEFT_WALL[1], y - T / 2, D_STIFF[0], DIVIDER[0], y + T / 2, D_STIFF[1])
-    boxes["stiffener column"] = (DIVIDER[1], -T / 2, D_STIFF[0], RIGHT_WALL[0], T / 2, D_STIFF[1])
+    boxes["stiffener column"] = (DIVIDER[1], COL_SPLIT - T / 2, D_STIFF[0], RIGHT_WALL[0], COL_SPLIT + T / 2, D_STIFF[1])
     for piece, pts in block_centres().items():
         for j, (x, y) in enumerate(pts):
             boxes[f"block {piece} {j}"] = (x - BLOCK / 2, y - BLOCK / 2, D_WALL_BACK - BLOCK_LAYERS * T, x + BLOCK / 2, y + BLOCK / 2, D_WALL_BACK)
-    # The board from the back of its encoders (6.5 mm body on the outer layer) to
-    # the top of a plugged ribbon, generously 40 mm.
-    boxes["board"] = (BOARD[0], BOARD[1], T + 6.5, BOARD[2], BOARD[3], 40.0)
-    boxes["supply"] = (PSU[0], PSU[1], D_WALL_BACK - 30.0, PSU[2], PSU[3], D_WALL_BACK)
+    c0x, c0y = CARD_CENTRE[0] - CARD[0] / 2, CARD_CENTRE[1] - CARD[1] / 2
+    boxes["card"] = (c0x, c0y, board_face - 1.7 - CARD_TALL, c0x + CARD[0], c0y + CARD[1], board_face)
+    boxes["card's Ethernet plug"] = (CARD_RJ45[0], c0y + CARD[1], board_face - 1.7 - 13.8, CARD_RJ45[1], c0y + CARD[1] + 30, board_face - 1.7)
+    boxes["Pi"] = (PI_ORIGIN[0], PI_ORIGIN[1], board_face - 1.6 - PI_TALL, PI_ORIGIN[0] + PI[0], PI_ORIGIN[1] + PI[1], board_face)
+    boxes["Pi's Ethernet plug"] = (PI_ORIGIN[0], PI_ORIGIN[1] + PI[1], board_face - 1.6 - PI_TALL, PI_ORIGIN[0] + PI[0], PI_ORIGIN[1] + PI[1] + 30, board_face - 1.6)
+    for name, (x, y) in KNOBS.items():
+        # encoder body, 4991 board and its STEMMA QT plugs and cables
+        boxes[f"knob {name}"] = (x - 13, y - 13, T, x + 13, y + 13, T + 30)
+    for name, x in BUTTONS.items():
+        boxes[f"button {name}"] = (x - 8, BUTTON_Y - 8, T, x + 8, BUTTON_Y + 8, T + 25)
+    boxes["supply, panels"] = (PSU[0], PSU[1], D_WALL_BACK - 30.0, PSU[2], PSU[3], D_WALL_BACK)
+    boxes["supply, Pi and card"] = (PSU_PI[0], PSU_PI[1], D_WALL_BACK - 30.0, PSU_PI[2], PSU_PI[3], D_WALL_BACK)
     cx, cy = IEC_CENTRE
     boxes["inlet"] = (cx - IEC_CUT[0] / 2, cy - IEC_CUT[1] / 2, D_WALL_BACK - 35.0, cx + IEC_CUT[0] / 2, cy + IEC_CUT[1] / 2, D_WALL_BACK)
-    for i, (bx, by) in enumerate(BUS):
-        boxes[f"bus {i}"] = (bx - 9, by - 36, D_WALL_BACK - 15.0, bx + 9, by + 36, D_WALL_BACK)
     boxes["splice left"] = (LEFT_WALL[1], WALL_SPLIT - 30, 10, LEFT_WALL[1] + T, WALL_SPLIT + 30, 50)
     boxes["splice divider"] = (DIVIDER[1], WALL_SPLIT - 30, 10, DIVIDER[1] + T, WALL_SPLIT + 30, 50)
     boxes["splice right"] = (RIGHT_WALL[0] - T, WALL_SPLIT - 30, 10, RIGHT_WALL[0], WALL_SPLIT + 30, 50)
