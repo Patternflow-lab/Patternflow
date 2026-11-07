@@ -180,9 +180,9 @@ function slot(code, w, qual) {
     case "h": return [w - 1, -2];
     case "d": return [(w - 2) >> 1, XH + 1];
     case "a": return q === "c" ? [mid(6) + 5, -7] : q === "b" ? [mid(4), -7] : [mid(4), -4];
-    case "g": return q === "c" ? [mid(6) - 3, -7] : q === "b" ? [mid(4), -7] : [mid(4), -4];
+    case "g": return q === "c" ? [mid(6) - 3, -7] : q === "b" ? [mid(4), -7] : [mid(4) - (q === "h" ? 1 : 0), -4];
     case "k": return q === "c" ? [mid(6) + 5, -8] : q === "b" ? [mid(3), -9] : [mid(3), -5];
-    case "t": return q === "c" || q === "b" ? [mid(5), -7] : [mid(5), -3];
+    case "t": return q === "c" || q === "b" ? [mid(5), -7] : [mid(5) - (q === "h" ? 1 : 0), -3];
     default: return [0, 0];
   }
 }
@@ -508,6 +508,53 @@ export function draw(display, params) {
     for (let r = 0; r < bm.length; r++)
       for (let q = 0; q < bm[r].length; q++)
         if (bm[r][q] === "#") for (let a = 0; a < 4; a++) put(B, lx + q * 2 + (a & 1), ly + r * 2 + (a >> 1), c[0] * v, c[1] * v, c[2] * v);
+  }
+  // The Czech aside, a small d on the legend's last row: its haček has no room
+  // above the ascender, glows where it meets the ceiling, and shrinks to the
+  // stroke that sits beside the stem (the one letter in the legend that
+  // changes the shape of its mark when the stack is too tight).
+  {
+    const u = (S.clock % 7), ax = 44, ay = ly0 + 8;
+    const rowsD = ["...##", "...##", ".####", "##.##", "##.##", ".####"];
+    const fade = 1 - sm((u - 6.2) / 0.7), wipe = cl(u / 0.8, 0, 1);
+    const shown = ceil(wipe * rowsD.length);
+    for (let r = 0; r < shown; r++)
+      for (let q = 0; q < 5; q++) if (rowsD[r][q] === "#") put(B, ax + q, ay + 3 + r, cLet[0] * fade, cLet[1] * fade, cLet[2] * fade);
+    // The ceiling the mark must stay under, dotted, shown while it is in play.
+    const lim = sm((u - 1.0) / 0.3) * fade;
+    for (let q = 0; q < 12; q += 2) put(B, ax - 2 + q, ay + 2, cLim[0] * lim, cLim[1] * lim, cLim[2] * lim);
+    if (u > 1.0 && u < 6.9) {
+      let bm, bx, by, hot = 0;
+      if (u < 1.7) {
+        const f = (1 - cl((u - 1) / 0.7, 0, 1)) ** 3;
+        bm = ["##.##", ".###."];
+        bx = ax;
+        by = ay - round(f * 8);
+        hot = u > 1.55 ? 1 : 0;
+      } else if (u < 2.3) {
+        const f = sm((u - 1.7) / 0.6);
+        bm = f < 0.5 ? ["##.##", ".###."] : ["#.#", ".#."];
+        bx = ax + round(f * 3);
+        by = ay + round(f * 1);
+        hot = 1 - f;
+      } else {
+        const f = sm((u - 2.3) / 0.5);
+        bm = [".#", ".#", "#."];
+        bx = ax + 3 + round(f * 3);
+        by = ay + 1 + round(f * 2);
+      }
+      for (let r = 0; r < bm.length; r++)
+        for (let q = 0; q < bm[r].length; q++)
+          if (bm[r][q] === "#") put(B, bx + q, by + r, mix(cQual[0], 1, hot * 0.6) * fade, mix(cQual[1], 0.5, hot * 0.6) * fade, mix(cQual[2], 0.2, hot * 0.6) * fade);
+      if (hot > 0.01) {
+        // The glow on the ceiling.
+        for (let y = ay - 3; y <= ay + 5; y++)
+          for (let x = ax - 4; x <= ax + 9; x++) {
+            const dd = sqrt(((x - ax - 2) / 1.6) ** 2 + (y - ay - 2) ** 2), v = exp(-(dd * dd) / 6) * hot * 0.8 * fade;
+            if (v > 0.02) put(B, x, y, v, v * 0.5, v * 0.15);
+          }
+      }
+    }
   }
   for (let p = 0; p < N; p++) display.setPixel(p & 63, p >> 6, min(255, B[p * 3] * 255), min(255, B[p * 3 + 1] * 255), min(255, B[p * 3 + 2] * 255));
 }
