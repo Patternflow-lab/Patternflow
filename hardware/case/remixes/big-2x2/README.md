@@ -37,7 +37,7 @@ The card has eight HUB75 outputs, in two columns of four, and each panel gets it
 
 All four stand the same way up. The pin holes are cut at all four corner positions anyway, because the drawing puts the pins on opposite corners and a panel turned round puts them on the other pair.
 
-<img src="preview/wiring.png" alt="Wiring: mains through the IEC inlet with switch and fuse to two supplies. The LRS-150F-5 feeds the four panels with 16 AWG, two forks to a screw. The LRS-50-5 feeds the card through a 4-pin cable, and the Pi takes a USB-C pigtail from the card's 5 V terminal. The Pi and the card are joined by Ethernet; the card has one HUB75 output per panel; the knobs reach the Pi on I²C and the buttons on GPIO" width="80%">
+<img src="preview/wires.png" alt="Wiring: mains through the IEC inlet with switch and fuse to two supplies. The LRS-150F-5 feeds the four panels with 16 AWG, two forks to a screw. The LRS-50-5 feeds the card through a 4-pin cable, and the Pi takes a USB-C pigtail from the card's 5 V terminal. The Pi and the card are joined by Ethernet; the card has one HUB75 output per panel; the knobs reach the Pi on I²C and the buttons on GPIO" width="80%">
 
 ## Controller: a Raspberry Pi 5 and a Colorlight 5A-75B
 
@@ -93,7 +93,7 @@ Three of the back pieces carry the electronics, each on its inside face. The mid
 | `screw_block` | 96 | 32 blocks of three squares |
 | `cradle` | 6 | Two cradles of three profiles; the box stands in them |
 
-<img src="preview/sheets.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, the card's and the Pi's holes, rails with slots, the face strips, cradles, spacer rings and the small screw-block squares" width="100%">
+<img src="preview/cuts.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, the card's and the Pi's holes, rails with slots, the face strips, cradles, spacer rings and the small screw-block squares" width="100%">
 
 The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every file comes twice, as DXF and as SVG at 1:1 in millimetres, for cutters that take one and not the other. Every line is a cut: on one layer named `CUT` in the DXFs, a red hairline in the SVGs.
 
@@ -151,7 +151,7 @@ What a Patternflow board brings and this box does not: the `.pfm` modules the Pa
 
 | Path | What |
 | :--- | :--- |
-| [`source/big_2x2.py`](source/big_2x2.py) | Draws every file below from the numbers at its top. `--check` reads the DXFs back and measures them; `--render` draws `preview/sheets.png` from the sheet DXFs. Needs `ezdxf` (and `matplotlib` for `--render`) |
+| [`source/big_2x2.py`](source/big_2x2.py) | Draws every file below from the numbers at its top. `--check` reads the DXFs back and measures them; `--render` draws `preview/cuts.png` from the sheet DXFs. Needs `ezdxf` (and `matplotlib` for `--render`) |
 | [`parts/`](parts/) | One DXF and one SVG per part, and `manifest.csv` with each part's size and count |
 | [`sheets/`](sheets/) | Eight nested 600 × 300 mm sheets as DXF and SVG, and `manifest.csv` |
 | [`test_cuts/`](test_cuts/) | The four test pieces, singly and on one sheet, as DXF and SVG |

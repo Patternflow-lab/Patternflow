@@ -3,7 +3,7 @@
 
     python3 big_2x2.py            write parts/, sheets/, test_cuts/, preview/*.svg
     python3 big_2x2.py --check    read every DXF back and measure it
-    python3 big_2x2.py --render   draw preview/sheets.png from the sheet DXFs (matplotlib)
+    python3 big_2x2.py --render   draw preview/cuts.png from the sheet DXFs (matplotlib)
 
 Needs ezdxf (pip install ezdxf). Change a number, run it again, and every file
 follows. The numbers that most often need changing are the first five: the
@@ -856,7 +856,7 @@ def write_wiring_svg():
     label(22, 420, "Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.", "#333", 11)
     label(22, 440, "Grounds meet through the ribbons; each panel returns its current on its own lead.", "#333", 11)
     o.append("</svg>")
-    with open(os.path.join(ROOT, "preview", "wiring.svg"), "w") as f:
+    with open(os.path.join(ROOT, "preview", "wires.svg"), "w") as f:
         f.write("\n".join(o))
 
 
@@ -1037,7 +1037,7 @@ def check():
 
 
 def render():
-    """preview/sheets.png, drawn from the sheet DXFs themselves (needs matplotlib)."""
+    """preview/cuts.png, drawn from the sheet DXFs themselves (needs matplotlib)."""
     import ezdxf
     import matplotlib
     matplotlib.use("Agg")
@@ -1062,8 +1062,8 @@ def render():
     for ax in list(axes.flat)[len(files):]:
         ax.axis("off")
     fig.tight_layout()
-    fig.savefig(os.path.join(ROOT, "preview", "sheets.png"), dpi=110, facecolor="white")
-    print("preview/sheets.png from", len(files), "sheet DXFs")
+    fig.savefig(os.path.join(ROOT, "preview", "cuts.png"), dpi=110, facecolor="white")
+    print("preview/cuts.png from", len(files), "sheet DXFs")
 
 
 if __name__ == "__main__":
