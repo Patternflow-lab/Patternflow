@@ -9,12 +9,12 @@
 // Round:   108
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.5..3, Block=9..64, Palette=0..1
+// @knobs Hue=0..1, Speed=0.5..3, Block=10..64, Palette=0..1
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 a 1 is azure, a 2 magenta, a 3 yellow and a 4 white; at 0.5 they are orange, green, blue and white.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 a 1 is dark azure, a 2 yellow, a 3 violet and a 4 white; at 0.5 a 1 is dark orange, a 2 blue, a 3 green and a 4 white.
 // Knob 2: Speed. How fast the whole run goes, the clock running at Speed over 2. At 2 the ninth term lands at 1 s, the rush down the panel starts at 1.35 s and has filled it by 2.9 s, and a replay lasts 3.7 s for a 3 and 4.15 s for a 4; at 3 all of it is 1.5 times as fast, at 0.5 four times slower.
-// Knob 3: Block. How many terms each row starts after the row above, 9 to 64, whole terms only. Row y shows the 64 terms from y times Block on, so each term stands in up to 8 LEDs. At 9 the panel is the first 1207 terms in chevron bands, because the early sequence repeats itself every 9 or 10 terms; at 10 the bands slant; at 19 they close into cells; at 64 a row starts where the one above ends and the panel is the first 8192 terms, one LED each. The layout turns at 90 steps a second when the knob moves.
-// Knob 4: Palette. How far apart the hues of a 1, a 2 and a 3 lie, 0.32 of the wheel at 0 and 0.15 at 1: at 0.06 they are azure, magenta and yellow, at 0.5 azure, violet and red-orange, at 1 azure, blue-violet and magenta.
+// Knob 3: Block. How many terms each row starts after the row above, 10 to 64, whole terms only. Row y shows the 64 terms from y times Block on, so each term stands in up to 7 LEDs. At 10 the panel is the first 1334 terms in slanting bands, because the early sequence repeats itself every 9 or 10 terms; at 19 the bands close into cells; at 64 a row starts where the one above ends and the panel is the first 8192 terms, one LED each. The layout turns at 90 steps a second when the knob moves.
+// Knob 4: Palette. How far the hue of a 2 lies behind that of a 1 on the wheel, 0.39 at 0 and 0.22 at 1, and a 3 lies twice as far: at 0.06 the 1, 2 and 3 are azure, yellow and violet, at 0.5 azure, yellow-green and pink-red, at 1 azure, green and orange.
 // Buttons: K1 tap clears the panel and writes it again from the first term.
 
 const W = 64, H = 128, NP = W * H, NT = 8192;
@@ -30,8 +30,10 @@ const ease = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
 // first 3 is term 9, the first 4 is term 220 and the 4s come every 220 to 238
 // terms after it, and in the first 8192 terms there are 2368 1s, 4337
 // 2s, 1451 3s and 36 4s. The first 5 is far beyond any panel.
-const V0 = [0.5, 0.54, 0.78, 1], S0 = [0.88, 0.84, 0.78, 0.1];
-const RMAX = 9500, TOP = 1.35, LENS = 20;
+const V0 = [0.3, 0.86, 0.45, 1], S0 = [0.9, 0.85, 0.75, 0.1];
+// Every other LED in a checker is 34% brighter and the rest 34% dimmer. The mean
+// stays, and two neighbours that hold the same term differ by 0.68 of it.
+const GRAIN = 0.34, RMAX = 9500, TOP = 1.35, LENS = 20;
 
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
@@ -68,8 +70,8 @@ export function setup(params) {
   }
   params.s = {
     A, M, threes, fours, R: new Float32Array(NP), G: new Float32Array(NP), B: new Float32Array(NP),
-    pal: new Float32Array(12), u: 0, Wr: 0, F: 0, mode: 0, h: 0, tgt: 0, p: 0, D: 3.5, lo: 0, flip: 0, seed: 20241107,
-    w: 9, wT: 9, hue: 0, pl: 0.06, sp: 2, init: false, prev: false, yL: 104, ln: 0, prog: 9, pop: 1, rows: 0,
+    pal: new Float32Array(12), lp: new Float32Array(12), u: 0, Wr: 0, F: 0, mode: 0, h: 0, tgt: 0, p: 0, D: 3.5, lo: 0, flip: 0, seed: 20241107,
+    w: 10, wT: 10, hue: 0, pl: 0.06, sp: 2, init: false, prev: false, yL: 104, ln: 0, prog: 9, pop: 1, rows: 0,
   };
 }
 
@@ -125,7 +127,7 @@ export function update(dt, input, params) {
   S.hue += (cl(k[0], 0, 1) - S.hue) * e;
   S.pl += (cl(k[3], 0, 1) - S.pl) * e;
   S.sp = cl(k[1], 0.5, 3);
-  S.wT = round(cl(k[2], 9, 64));
+  S.wT = round(cl(k[2], 10, 64));
   if (!S.init) S.w = S.wT;
   else if (S.w !== S.wT) {
     const st = max(1, round(d * 90));
@@ -226,35 +228,41 @@ function digits(S, num, x, y, r, g, b, a) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const { R, G, B, A, M, pal } = S, w = S.w, Wf = floor(S.Wr);
-  // Colours: the 1, 2 and 3 are a step apart on the wheel, the 4 is white.
-  const h1 = S.hue + 0.55, step = 0.32 - 0.17 * S.pl;
-  // Orange and yellow go brown and olive when dim, so a colour that lands in
-  // them is lifted to 0.86.
+  const { R, G, B, A, M, pal, lp } = S, w = S.w, Wf = floor(S.Wr);
+  // Colours: a 1 is a dark azure, a 2 yellow, a 3 a violet between them, a 4
+  // white. The 2s are over half of the terms, so a 1 or a 3 beside one is a
+  // step of 0.4 to 0.56. The lens shows the same colours lifted to 0.42 so
+  // that the dark 1 reads there.
+  const h1 = S.hue + 0.55, step = -0.39 + 0.17 * S.pl;
+  // A 3 that lands in orange or yellow would go brown or olive, so it is lifted
+  // to 0.75.
   for (let v = 0; v < 4; v++) {
     const h = v < 3 ? h1 + step * v : h1 + 0.02, hw = h - round(h);
     const warm = cl((0.22 - hw) / 0.06, 0, 1) * cl((hw + 0.05) / 0.05, 0, 1);
-    hsv(h, S0[v], V0[v] + (max(V0[v], 0.86) - V0[v]) * warm, pal, 3 * v);
+    hsv(h, S0[v], V0[v] + (v === 2 ? max(V0[v], 0.75) - V0[v] : 0) * warm, pal, 3 * v);
+    const q = max(1, 0.42 / max(pal[3 * v], pal[3 * v + 1], pal[3 * v + 2]));
+    for (let c = 0; c < 3; c++) lp[3 * v + c] = min(1, pal[3 * v + c] * q);
   }
 
   const mode = S.mode, lo = S.lo;
   const tgt = mode === 2 ? S.tgt : -1, km = mode === 2 ? A[tgt] * M[tgt] : 0, mm = mode === 2 ? M[tgt] : 1;
-  const dim = 1 - 0.28 * lo;
+  const dim = 1 - 0.1 * lo;
   const hh = S.h, tail = 2 + S.rows * w * 0.018;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const idx = y * w + x, o = y * W + x;
       if (idx >= Wf) { R[o] = G[o] = B[o] = 0; continue; }
       const c = 3 * (A[idx] - 1);
-      let f = dim;
+      const f = dim * (1 + GRAIN * ((x + y) & 1 ? 1 : -1));
+      let g = 0;
+      // The cells of the blocks that decide the term glow white, the nearest block most.
       if (tgt >= 0) {
         const rel = tgt - idx;
         if (rel > 0 && rel <= km) {
-          const j = ceil(rel / mm), pr = cl(S.prog - (j - 1), 0, 1);
-          f += ((j & 1 ? 1 : 0.8) - f) * pr * lo;
+          const j = ceil(rel / mm);
+          g = (j & 1 ? 0.34 : 0.2) * cl(S.prog - (j - 1), 0, 1) * lo;
         }
       }
-      let g = 0;
       if (idx <= hh && mode !== 2) g = exp(-(hh - idx) / tail);
       else if (idx === tgt) g = 0.8 * lo;
       R[o] = min(1, pal[c] * f + g); G[o] = min(1, pal[c + 1] * f + g); B[o] = min(1, pal[c + 2] * f + g);
@@ -271,7 +279,7 @@ export function draw(display, params) {
       line(S, tx, ty < 64 ? ty + 2 : ty - 2, 55, ty < 64 ? yL : yL + LENS - 1, 0.5 * lo, fy0, fy1 + 1);
     }
     // The glass: what lies under it is dimmed, and its two edges drawn.
-    const fr = 1 - 0.62 * lo;
+    const fr = 1 - 0.85 * lo;
     for (let y = yL; y < yL + LENS; y++)
       for (let x = 0; x < W; x++) { const o = y * W + x; R[o] *= fr; G[o] *= fr; B[o] *= fr; }
     for (let x = 0; x < W; x++) { put(S, x, yL, 1, 1, 1, 0.5 * lo); put(S, x, yL + LENS - 1, 1, 1, 1, 0.5 * lo); }
@@ -283,9 +291,9 @@ export function draw(display, params) {
     for (let i = 0; i < 12; i++) {
       const idx = n - 12 + i;
       if (idx < 0) continue;
-      const c = 3 * (A[idx] - 1), j = inBlock(i), on = j && S.prog >= j - 0.3 ? 1 : 0.5;
+      const c = 3 * (A[idx] - 1), j = inBlock(i), on = j && S.prog >= j - 0.3 ? 1 : 0.72;
       for (let y = 0; y < 7; y++)
-        for (let x = 0; x < 3; x++) put(S, 2 + 4 * i + x, yL + 6 + y, pal[c], pal[c + 1], pal[c + 2], lo * on);
+        for (let x = 0; x < 3; x++) put(S, 2 + 4 * i + x, yL + 6 + y, lp[c], lp[c + 1], lp[c + 2], lo * on);
     }
     if (kk > 1 && kk * m <= 12) {
       for (let j = 1; j <= kk; j++) {
@@ -307,7 +315,7 @@ export function draw(display, params) {
         put(S, 52 - q, yL + 9 + q, 1, 1, 1, pop * 0.8);
       }
       for (let y = 0; y < 9; y++)
-        for (let x = 0; x < 4; x++) put(S, 53 + x, yL + 5 + y, pal[c], pal[c + 1], pal[c + 2], pop);
+        for (let x = 0; x < 4; x++) put(S, 53 + x, yL + 5 + y, lp[c], lp[c + 1], lp[c + 2], pop);
       digits(S, kk, 59, yL + 7, wh, wh, wh, pop);
     }
   }
