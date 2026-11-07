@@ -1,7 +1,7 @@
 category,ref,qty,part,spec,mpn,manufacturer,source,notes
 display,-,4,LED matrix panel,"HUB75, 128x64 px, P2.5, 320x160 mm, classic shift-register driver",-,-,the panel BUILD_GUIDE.md section 1 links,"The panel every Patternflow uses. Each ships with a HUB75 ribbon and a power cable. Its 12 M4 inserts are what the rails are drilled for: cut dxf/panel_template.dxf first and lay it on one. The driver IC has to be one receiver75 lights as well, so try one panel on the card before buying four (README, step 2)."
 display,-,32,M4 screw,"M4 x 10, pan or socket head",-,generic,any,"Rails into the panels' inserts: 16 at the short ends, 16 along the vertical seam. No longer than 10: a longer one can reach the panel's own board."
-display,-,32,M4 washer,"M4, about 9 mm outside",-,generic,any,"Under each panel screw. The holes are 6 mm slots, 1.5 mm of play toward the seam."
+display,-,32,M4 washer,"M4, about 9 mm outside",-,generic,any,"Under each panel screw. The holes are 6 mm slots: an M4 can move 1 mm either way toward the seam."
 controller,-,1,Raspberry Pi 5,2 GB,-,Raspberry Pi,approved reseller,"Renders the frames. Patternflood runs on one at 60 fps with the CPU mostly idle; 2 GB is plenty."
 controller,-,1,Raspberry Pi Active Cooler,official,-,Raspberry Pi,approved reseller,The box is closed.
 controller,-,1,microSD card,16 GB or more,-,any,any,
@@ -24,17 +24,17 @@ power,-,1,Blade fuse,"ATC, 5 A",-,generic,any,The Pi.
 power,-,1,Blade fuse,"ATC, 3 A",-,generic,any,The card.
 power,-,1,5 V to USB-C pigtail,"bare leads, 20 AWG, no USB-PD",-,generic,Amazon,"The Pi's power, from its own fuse. Without PD the Pi assumes 3 A and warns: set PSU_MAX_CURRENT=5000 with rpi-eeprom-config."
 power,-,1,Wire for mains,"0.75 mm2 (18 AWG), 300 V or more: brown, blue, green-yellow, about 30 cm each",-,generic,any,Inlet to supply. Stays in the column.
-power,-,1,Wire for 5 V,"1.5 mm2 (16 AWG), red and black, about 1 m each",-,generic,any,"Supply to fuse box, two pairs: one on each of the supply's +V/-V terminal pairs."
-power,-,1,Wire for the panels,"0.75 mm2 (18 AWG), red and black, about 3 m each",-,generic,any,"Fuse box to each panel's power input, unless the panel's own cable is 18 AWG or heavier and long enough (the top panels need about 50 cm)."
+power,-,1,Wire for 5 V,"1.5 mm2 (16 AWG), red and black, about 1 m each",-,generic,any,"Supply to fuse box, two pairs: one on each of the supply's +V/-V terminal pairs. Keep the run under 40 cm."
+power,-,1,Wire for the panels,"0.75 mm2 (18 AWG), red and black, about 3 m each",-,generic,any,"Fuse box to each panel's power input, unless the panel's own cable is 18 AWG or heavier and long enough (the top panels need about 50 cm). The card's lead is 0.75 mm2 too: part of each panel's return current comes back through it."
 power,-,1,Terminals and heatshrink,"insulated forks for the supply's terminal screws, crimp or tab connectors for the fuse box",-,generic,any,
 power,-,1,Terminal cover,for the supply's AC input terminals,-,-,-,"Not optional. The back cover comes off with 28 screws, and L and N are open screws under it."
 enclosure,-,9,Plywood sheet,"3 mm birch, 600 x 300 mm or larger (a 12 x 24 in sheet is 305 x 610)",-,-,-,"Eight for the box, one for the test cuts. Measure yours: the files are drawn for 3.0 mm and a 0.15 mm kerf, and source/big2x2.py redraws them for another thickness."
 enclosure,-,1,Wood glue,PVA,-,-,-,Every joint but the back cover and the feet is glued.
 enclosure,-,28,M3 screw,"M3 x 10, low head (DIN 7984) or countersunk",-,generic,any,Back cover into the stringers' nuts.
-enclosure,-,6,M3 screw,M3 x 20,-,generic,any,"Electronics plate to the rails, through four rings each."
+enclosure,-,6,M3 screw,"M3 x 20, no longer and no washer",-,generic,any,"Electronics plate to the rails, through four rings each. The tip stops 1 mm short of the panel."
 enclosure,-,4,M3 screw,M3 x 14,-,generic,any,"The 5A-75B onto the plate, through two rings each."
 enclosure,-,4,M2.5 screw,M2.5 x 14,-,generic,any,"The Pi onto the plate, through two rings each."
-enclosure,-,2,M3 screw,"M3 x 6, no longer",-,generic,any,"Supply to the divider, into its side inserts (5 mm deep at most)."
+enclosure,-,2,M3 screw,"M3 x 6, no longer",-,generic,any,"Supply to the divider, into two of its side inserts (5 mm deep at most)."
 enclosure,-,2,M3 screw,M3 x 12,-,generic,any,Inlet flange.
 enclosure,-,4,M3 screw,M3 x 10,-,generic,any,"Feet, from inside the box."
 enclosure,-,2,M4 screw,M4 x 12,-,generic,any,"Fuse box to the plate, or whatever its holes take."

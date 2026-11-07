@@ -28,8 +28,10 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
 # The panel, from the maker's drawing (page 6 of the simonepda-lasercut PDF),
-# as it stands in this box: 160 wide, 320 tall.
+# as it stands in this box. Its pitch grid is 160 x 320 (64 and 128 LEDs at
+# 2.5 mm); its frame is drawn at 159.8 x 319.8.
 PANEL = (160.0, 320.0)
+PANEL_FRAME = (159.8, 319.8)
 INSERTS_END = (85.0,)                    # the two end inserts, 2 x 42.5 apart
 INSERT_END_FROM_EDGE = 160 - 148.5       # 11.5 from the short edge
 INSERTS_EDGE_STEPS = (91.0, 63.0, 91.0)  # -122.5, -31.5, 31.5, 122.5
@@ -150,7 +152,7 @@ def against_the_panel(nominal):
               f"wall {T} + clearance {b.CL} + panel edge to insert 37.5")
         check(all(near(y - y0, 10.0) for _, y, _, _ in s), f"{name}: slots centred on the 20 mm rail")
         check(all(near(ln, 6.0) and near(w, 4.5) for _, _, ln, w in s),
-              f"{name}: 4.5 wide, 6.0 long (1.5 mm of play toward the seam)")
+              f"{name}: 4.5 wide, 6.0 long, so an M4 can move 1 mm either way toward the seam")
     _, c, s, polys = read(D("rail_mid_front"))
     ys = [y for _, y, _, _ in s]
     check(len(s) == 8 and steps(ys) == [2 * INSERT_END_FROM_EDGE],
@@ -173,14 +175,21 @@ def against_the_panel(nominal):
     print("The opening is the four panels and 0.3 mm a side")
     _, c, s, polys = read(D("wall_top"))
     x0, y0, x1, y1 = extent(polys)
-    check(near(x1 - x0, b.xRo - b.xLo), f"wall_top is {x1 - x0:.1f} long")
+    # the divider's mortises are the two T x 15 holes; the wall's left end is
+    # the left wall's outside, so the opening is from there less one wall
+    div = [min(q[0] for q in p) for p in polys
+           if len(p) == 4 and near(max(q[0] for q in p) - min(q[0] for q in p), T)
+           and near(max(q[1] for q in p) - min(q[1] for q in p), 15.0)]
+    across = min(div) - x0 - T if div else 0.0
+    check(len(div) == 2 and near(across, 2 * PANEL[0] + 0.6),
+          f"wall_top: {across:.1f} from the left wall to the divider, two panels are {2 * PANEL[0]:.0f} "
+          f"on the pitch grid and {2 * PANEL_FRAME[0]:.1f} on the frame")
     _, c, s, polys = read(D("wall_left_upper"))
     x0, y0, x1, y1 = extent(polys)
     inner = (x1 - x0) - T                 # less the finger depth at the top end
     check(near(2 * inner, 2 * PANEL[1] + 0.6),
-          f"left wall halves give {2 * inner:.1f} inside, two panels are {2 * PANEL[1]:.0f}")
-    check(near(b.xDi - b.xLi, 2 * PANEL[0] + 0.6),
-          f"wall to divider {b.xDi - b.xLi:.1f}, two panels are {2 * PANEL[0]:.0f}")
+          f"left wall halves give {2 * inner:.1f} inside, two panels are {2 * PANEL[1]:.0f} "
+          f"on the grid and {2 * PANEL_FRAME[1]:.1f} on the frame")
     print("The column, the boards and the inlet")
     _, c, s, polys = read(D("column_front_upper"))
     knobs = [(x, y) for x, y, d in c if near(d, 7.2)]
@@ -191,14 +200,22 @@ def against_the_panel(nominal):
     check(sorted(steps([x for x, _ in pi]) + steps([y for _, y in pi])) == [49.0, 58.0],
           "Raspberry Pi 5 holes on 58 x 49")
     # the card's holes are the M3 holes that are not the plate's own mounts,
-    # which sit on the centre line or 54 either side of it
+    # which sit on the centre line or 54 either side of it. The plate is drawn
+    # from the back, the card's component side, which is how patternflood's
+    # template is drawn too, so the two must match without a mirror.
     tmpl = [(9.11, 143.08), (90.51, 143.35), (20.07, 7.81), (80.44, 7.96)]
-    want = sorted(round(math.dist(a, b_), 1) for a, b_ in combinations(tmpl, 2))
     mid = (extent(polys)[0] + extent(polys)[2]) / 2
     card = [(x, y) for x, y, d in c if near(d, 3.4) and not near(abs(x - mid), 0.0, 0.5)
             and not near(abs(x - mid), 54.0, 0.5)]
-    got = sorted(round(math.dist(a, b_), 1) for a, b_ in combinations(card, 2))
-    check(len(card) == 4 and got == want, f"5A-75B holes match patternflood's measured template: {got}")
+
+    def shape(pts):
+        mx, my = min(p[0] for p in pts), min(p[1] for p in pts)
+        return sorted((round(x - mx, 2), round(y - my, 2)) for x, y in pts)
+
+    check(len(card) == 4 and shape(card) == shape(tmpl),
+          f"5A-75B holes are patternflood's template, not its mirror: {shape(card)}")
+    _, c2, _, _ = read(D("card_template"))
+    check(shape([(x, y) for x, y, d in c2]) == shape(tmpl), "card_template carries the same four holes")
     _, c, s, polys = read(D("wall_right_lower"))
     rects = []
     for p in polys:
@@ -226,6 +243,9 @@ def kerf_applied(nominal, kerf=0.15):
               f"{name}: outline {kerf} mm larger")
         check(all(near(x[2] - y[2], kerf, 0.001) for x, y in zip(sorted(c0), sorted(c1))),
               f"{name}: every hole {kerf} mm smaller")
+        check(len(s0) == len(s1) and all(near(x[2] - y[2], kerf, 0.001) and near(x[3] - y[3], kerf, 0.001)
+                                         for x, y in zip(sorted(s0), sorted(s1))),
+              f"{name}: every slot {kerf} mm shorter and narrower")
 
 
 def main():

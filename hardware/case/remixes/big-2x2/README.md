@@ -20,8 +20,8 @@ Nothing here has been cut. The drawings are checked against the panel's own draw
 | Path | What |
 | --- | --- |
 | `sheets/sheet-1.dxf` to `sheet-8.dxf` | The box, every part nested on eight 600 × 300 mm sheets. The `.svg` beside each has the same cuts in red and the part names in blue, in a group not to cut |
-| `sheets/test-cuts.dxf` | Cut this first: a coupon with the box's holes, a slot with its key, and a template of one panel's back |
-| `dxf/` | One file per part: the box's 47 and the three test pieces. Each is drawn as seen from outside the box, or from the back for the parts behind the panels |
+| `sheets/test-cuts.dxf` | Cut this first: a coupon with the box's holes, a slot with its key, and templates of one panel's back and of the 5A-75B |
+| `dxf/` | One file per part: the box's 47 and the four test pieces. Each is drawn as seen from outside the box, or from the back for the parts behind the panels |
 | [`bom.csv`](bom.csv) | Everything to buy, fasteners included |
 | `images/` | The pictures on this page |
 | `source/big2x2.py` | Draws all of the above. `--thickness` and `--kerf` redraw it for your sheet and your laser |
@@ -61,10 +61,9 @@ The places are the stock board's. Its encoders go in from the back, so `SW1`, on
 | Load | Draw |
 | --- | --- |
 | Four panels, each capped at 3.5 A a frame | 14 A |
-| Raspberry Pi 5 with the Active Cooler | 1.6 A, planned |
+| Raspberry Pi 5 with the Active Cooler, and the four 4991s on its 3.3 V | 1.6 A, planned |
 | Colorlight 5A-75B | 0.8 A |
-| Four 4991s with their NeoPixels | 0.25 A |
-| In all | 16.7 A of the supply's 22 A |
+| In all | 16.4 A of the supply's 22 A |
 
 The stock panel draws about 1.9 A on an ordinary bright pattern and about 4.8 A on a white screen ([README, Power & runtime](../../../../README.md#power--runtime)). Four white screens and the boards come to about 22 A, all of a Mean Well LRS-150F-5, inside a closed box where its rating starts to fall at 40 °C. So whatever plays on it caps each frame's current before it goes out, as the stock firmware's power clamp does and as patternflood's renderer does. At 3.5 A a panel an ordinary pattern never meets the cap, and a white screen lands at about three quarters of full. The supply's hiccup mode is the backstop.
 
@@ -75,7 +74,7 @@ Mains comes in through an IEC C14 inlet with a switch and a fuse, low on the rig
 3. The time-delay fuse in the inlet.
 4. The mains leads tied down at the inlet, away from the 5 V side and the I²C lead.
 
-The supply lies on its side against the divider, base toward the front and terminals toward the back cover, with 41 mm of room above them for wiring. Two pairs of 1.5 mm² wire, one on each of its +V/−V terminal pairs, go through the divider to a 6-way blade fuse box with a negative bus on the electronics plate. That is the 5 V bus. It feeds the four panels through 7.5 A fuses on 0.75 mm² wire, the card through 3 A, and the Pi's USB-C pigtail through 5 A. The longest branch, to an upper panel, is about 50 cm and drops about 0.07 V at 3.5 A; the run to the fuse box drops another 0.08 V at full load. Trim the supply to 5.15 V measured at the fuse box, so the Pi sees at least 5.0 V. The pigtail does no USB-PD, so the Pi assumes a 3 A supply and warns: run `sudo rpi-eeprom-config -e` and add `PSU_MAX_CURRENT=5000`.
+The supply lies on its side against the divider, base toward the front and terminals toward the back cover, with 33 mm of room above them for wiring. Its base stands 12 mm behind the LED face, so a screw head at any of its side inserts clears the panel on the other side of the divider. Two pairs of 1.5 mm² wire, one on each of its +V/−V terminal pairs, go through the divider to a 6-way blade fuse box with a negative bus on the electronics plate. That is the 5 V bus. It feeds the four panels through 7.5 A fuses on 0.75 mm² wire, the card through 3 A, and the Pi's USB-C pigtail through 5 A. Give the card 0.75 mm² as well: each ribbon carries ground between the card and its panel, so part of every panel's return current comes back through the card's lead. The longest branch, to an upper panel, is about 50 cm and drops 0.08 V at 3.5 A. Keep the run from the supply to the fuse box under 40 cm, which drops about 0.08 V more at 16.4 A. Trim the supply to 5.15 V at the fuse box with a pattern playing, not at idle, so the Pi sees at least 5.0 V. The pigtail does no USB-PD, so the Pi assumes a 3 A supply and warns: run `sudo rpi-eeprom-config -e` and add `PSU_MAX_CURRENT=5000`.
 
 This build has no Patternflow board in it, so the board's rule that `J4` is its only power input does not come into it.
 
@@ -87,22 +86,22 @@ This build has no Patternflow board in it, so the board's rule that `J4` is its 
 
 Everything is 3 mm plywood. The four outer walls stand around the panels and the column, finger-jointed at the corners, and their front edges stand 3 mm proud of the LEDs to keep a knock off the panel edges. The left wall, the right wall and the divider between the panels and the column are each cut in two halves that meet at the middle, because 646 mm does not fit a 600 mm bed. The middle rail and the middle stringer pass through both halves of each and hold the joint.
 
-The panels hang on rails. Three run across the panel backs at the top, the middle and the bottom, each two sheets glued, through mortises in the left wall and the divider. The middle one goes on through the column to the right wall. Two more run down the vertical seam. M4 × 10 screws go through the rails into each panel's inserts: two at each short end, and four along the edge at the seam. The 3.48 mm pins on a panel's back drop into 5 mm holes in the seam rails. The screw holes are 6 mm slots, so each pair of panels can be pushed together before the screws are tightened. The seams are what shows most.
+The panels hang on rails. Three run across the panel backs at the top, the middle and the bottom, each two sheets glued, through mortises in the left wall and the divider. The middle one goes on through the column to the right wall. Two more run down the vertical seam. M4 × 10 screws go through the rails into each panel's inserts: two at each short end, and four along the edge at the seam. The 3.48 mm pins on a panel's back drop into 5 mm holes in the seam rails. The screw holes are 6 mm slots, so an M4 can move 1 mm either way and each pair of panels can be pushed together before the screws are tightened. The seams are what shows most.
 
-Behind the middle of the panels, the electronics plate stands 12 mm off the rails on stacks of laser-cut rings, held by six M3 × 20 screws into nuts in the rails' front sheets. The card, the Pi and the fuse box go on its back face, components toward the back cover, where they can be reached with the cover off. The panel screws under the plate are reached with the plate off.
+Behind the middle of the panels, the electronics plate stands 12 mm off the rails on stacks of laser-cut rings, held by six M3 × 20 screws, with no washers, into nuts in the rails' front sheets. A longer screw would reach the panel: the tip of this one stops 1 mm short. The card, the Pi and the fuse box go on its back face, components toward the back cover, where they can be reached with the cover off. The panel screws under the plate are reached with the plate off.
 
-The back cover is three pieces across the whole width, held by 28 M3 × 10 screws into nuts trapped in five stringers. A stringer is three sheets with the nuts in the middle one, and drops into notches in the back edges of the walls. Two feet, built the same way, screw on underneath from inside. Without them the box tips at about 7°; with them it takes about 17°. Air comes in through slots in the bottom wall and leaves through the top.
+The back cover is three pieces across the whole width, held by 28 M3 × 10 screws into nuts trapped in five stringers. A stringer is three sheets with the nuts in the middle one, and drops into notches in the back edges of the walls. Two feet, built the same way, screw on underneath from inside, under the display and clear of the supply. Most of the weight is the panels at the front, so the box tips forward first: at about 5° without the feet, and about 16° with them, which reach 69 mm in front of it. Both are estimates, with 0.6 kg a panel. Air comes in through slots in the bottom wall and leaves through the top.
 
 ## Cutting and building
 
 1. Measure the plywood in a few places. If it is not 3.0 mm, or your laser's kerf is not 0.15 mm, redraw everything with your numbers: `pip install -r source/requirements.txt`, then `python source/big2x2.py --thickness 3.18 --kerf 0.12`.
-2. Cut `sheets/test-cuts.dxf`. The key should push through the coupon's slot and hold, an M3 nut should sit in the hexagon, and the 7.2 mm hole should take the encoder's bushing without play. Lay the panel template on a panel's back: all twelve inserts should show through, and the two pins should drop into their holes. Then wire one panel to the card on the bench and get pixels on it.
+2. Cut `sheets/test-cuts.dxf`. The key should push through the coupon's slot and hold, an M3 nut should sit in the hexagon, and the 7.2 mm hole should take the encoder's bushing without play. Lay the panel template on a panel's back: all twelve inserts should show through, and the two pins should drop into their holes. Set the 5A-75B on its template, components up and RJ45 end at the top: all four M3 screws should go through card and template together. Then wire one panel to the card on the bench and get pixels on it.
 3. Cut the eight sheets. Label the parts as they come off; `images/sheets.png` names each one.
 4. Glue the layered parts: the rails, the seam rails, and the stringers and the feet with an M3 nut in each hexagon of their middle sheet. The rails' front sheets have nothing behind their nuts until the panels go on, so put a drop of glue on each.
 5. Build the box on its front. Thread the rails through the left wall halves and the divider halves, and the middle rail through the right wall halves too. Fit the column fronts into the divider and the right wall, with the doubler and the splice glued behind them. Then the top and bottom walls go on over the finger joints and the tabs. Drop the stringers into their notches, check that it is square, and glue.
 6. Panels in from the front, IN connectors toward the horizontal seam. Screw them to the rails with washers, pushing each pair together before tightening.
 7. The electronics plate: the card and the Pi on two rings a screw, then the fuse box, then the plate onto the rails.
-8. The column: the four knobs, the supply on the divider with two M3 × 6 (its side inserts take 5 mm at most), and the inlet.
+8. The column: the four knobs, the supply on the divider with two M3 × 6 into whichever two of its side inserts meet the holes (they take 5 mm at most), and the inlet.
 9. Wire it as the picture shows, with the ribbons last. Trim the supply to 5.15 V before the back goes on, and fit the feet.
 
 The supply's side inserts are taken from Mean Well's drawing, 22 and 139 mm from its terminal end, and the divider has holes for it both ways up. If neither set meets your supply, trust the supply and drill to it. The fuse box is held through two slots, since boxes differ.
@@ -122,4 +121,4 @@ On the Patternflow board, every number in the section on why this build uses a P
 
 ## Checking the files
 
-`python source/check.py` opens every DXF with ezdxf, runs its audit, and checks the units, the layer, and that every part fits a 600 × 300 bed. Then it redraws the box with no kerf and measures the parts that touch a panel against the panel's drawing, typed into the script again rather than imported. The end inserts are 85 apart, 75 across the seam and 11.5 from the edge; the edge inserts 91, 63 and 91 apart; the pins 140 apart; the opening 320.6 × 640.6 for panels of 320 and 640 each way. It also checks the knob grid, the Pi's 58 × 49, the card's holes against patternflood's measured template, the inlet's cutout, and that the shipped files are the nominal ones with the kerf applied. On 2026-11-07 it ended `all passed`.
+`python source/check.py` opens every DXF with ezdxf, runs its audit, and checks the units, the layer, and that every part fits a 600 × 300 bed. Then it redraws the box with no kerf and measures the parts that touch a panel against the panel's drawing, typed into the script again rather than imported. The end inserts are 85 apart, 75 across the seam and 11.5 from the edge; the edge inserts 91, 63 and 91 apart; the pins 140 apart. The opening, measured from the top wall's mortises and the left wall, is 320.6 × 640.6, for two panels each way on a 160 × 320 pitch grid whose frames are drawn at 159.8 × 319.8. It also checks the knob grid, the Pi's 58 × 49, the inlet's cutout, and the card's holes against patternflood's measured template the right way round, so a mirrored plate fails. Last, it checks that every outline in the shipped files is the nominal one grown by the kerf, and every hole and slot shrunk by it. On 2026-11-07 it ended `all passed`.

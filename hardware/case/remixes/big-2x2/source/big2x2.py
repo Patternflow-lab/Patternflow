@@ -59,6 +59,9 @@ M3_HOLE, M25_HOLE, M3_NUT_AF = 3.4, 2.9, 5.5
 ENC_HOLE = 7.2                      # PEC11R / EC11 bushing, M7
 IEC_CUT = (46.75, 27.25)            # AC-14-F16A inlet with switch and fuse
 IEC_SCREW_PITCH, IEC_SCREW_HOLE = 40.0, 3.2
+# Colorlight 5A-75B holes on patternflood's template (hardware/laser/test-cuts/
+# 07), which is the card's footprint plus 4 mm, seen from the component side
+CARD_TEMPLATE = ((9.11, 143.08), (90.51, 143.35), (20.07, 7.81), (80.44, 7.96))
 
 
 class Box:
@@ -120,28 +123,32 @@ class Box:
         # Colorlight 5A-75B, RJ45 end up. Holes from patternflood's measured
         # template (hardware/laser/test-cuts/07), its 4 mm margin taken off.
         s.card = (-45.88, 45.88, -66.0, 77.67)
-        s.card_holes = [(s.card[0] + hx, s.card[2] + hy) for hx, hy in
-                        ((5.11, 139.08), (86.51, 139.35), (16.07, 3.81), (76.44, 3.96))]
+        # templates are seen from the component side, which faces the back,
+        # so their x runs the other way in the box frame
+        s.card_holes = [(s.card[1] - (hx - 4), s.card[2] + (hy - 4)) for hx, hy in CARD_TEMPLATE]
         # Raspberry Pi 5, 85 x 56, holes on 58 x 49
         s.pi = (-42.5, 42.5, 118.0, 174.0)
-        s.pi_holes = [(s.pi[0] + hx, s.pi[2] + hy) for hx, hy in
+        s.pi_holes = [(s.pi[1] - hx, s.pi[2] + hy) for hx, hy in
                       ((3.5, 3.5), (61.5, 3.5), (3.5, 52.5), (61.5, 52.5))]
         s.fuse_slots = [(0.0, -170.0), (0.0, -250.0)]    # 4.2 x 30, along y
         # Mean Well LRS-150F-5 (159 x 97 x 30), against the divider in the
         # lower column, base toward the front, terminals toward the back cover
-        s.psu = (s.xDo, s.xDo + 97.0, -316.0, -157.0, -34.0, -4.0)
+        # base 12 mm behind the LED face so a screw head at any of its side
+        # inserts clears the panel next to the divider (panels end at z = -14)
+        psu_lo, psu_hi, base = -312.0, -153.0, -12.0
+        s.psu = (s.xDo, s.xDo + 97.0, psu_lo, psu_hi, base - 30.0, base)
         # its side inserts (3-M3, L = 5): 22 and 139 from the terminal end,
         # 15 from the base, and 6 and 24 for the pair. Both ways up are drilled.
-        s.psu_holes = [(-157.0 - 22, -4.0 - 15), (-157.0 - 139, -4.0 - 6),
-                       (-157.0 - 139, -4.0 - 24),
-                       (-316.0 + 22, -4.0 - 15), (-316.0 + 139, -4.0 - 6),
-                       (-316.0 + 139, -4.0 - 24)]
+        s.psu_holes = [(psu_hi - 22, base - 15), (psu_hi - 139, base - 6), (psu_hi - 139, base - 24),
+                       (psu_lo + 22, base - 15), (psu_lo + 139, base - 6), (psu_lo + 139, base - 24)]
         s.iec = (-115.0, -36.0)                       # on the right wall, (y, z)
         s.pass_5v = (-150.0, -50.0, 30.0, 16.0)       # divider, (y, z, len, width)
         s.pass_i2c = (215.0, -50.0, 14.0)             # divider, (y, z, dia)
-        s.feet_x = (-110.0, round(s.cx, 1))
-        s.foot_z = (-38.0 - 100, -38.0 + 100)         # 200 long, under the box's middle
-        s.foot_screws_z = (-55.0, -20.0)
+        # feet under the display, clear of the supply; 200 long and set
+        # forward, since the panels put the weight at the front
+        s.feet_x = (-110.0, 120.0)
+        s.foot_z = (-128.0, 72.0)
+        s.foot_screws_z = (-60.0, -40.0)              # behind the bottom rail, ahead of the stringer
         # finger joints between the walls, along z
         s.fingers = 5
         s.div_tabs = [(-60.0, -45.0), (-30.0, -15.0)]  # divider into top/bottom wall
@@ -294,9 +301,9 @@ def wall_end(b, which):
     # vents, behind the panels and in the column; the bottom wall's stay
     # clear of the feet
     clear = b.feet_x if which == "bottom" else ()
-    vx = [x for x in range(-150, 151, 12) if all(abs(x - f) > 14 for f in clear)]
+    vx = [x for x in range(-150, 151, 12) if all(abs(x - f) > 24 for f in clear)]
     vx += [x for x in range(int(b.xDo + 14), int(b.xRi - 9), 12)
-           if all(abs(x - f) > 14 for f in clear)]
+           if all(abs(x - f) > 24 for f in clear)]
     for x in vx:
         cuts.append(rect(x - 2, -62.0, x + 2, -16.0))
     shape = single(shape.difference(unary_union(cuts)))
@@ -509,8 +516,19 @@ def all_parts(b):
     return parts
 
 
+def card_template(b):
+    """The 5A-75B's footprint and four holes, seen from its component side,
+    to hold the card against before cutting the electronics plate."""
+    w, h = b.card[1] - b.card[0] + 8, b.card[3] - b.card[2] + 8
+    p = Part("card_template", 1, rect(0, 0, w, h), "from the card's component side",
+             "test piece: set the 5A-75B on it, components up, RJ45 end at the top")
+    for hx, hy in CARD_TEMPLATE:
+        p.circles.append((hx, hy, M3_HOLE))
+    return p
+
+
 def test_parts(b):
-    return [panel_template()] + test_coupon(b)
+    return [panel_template()] + test_coupon(b) + [card_template(b)]
 
 
 # ---------------------------------------------------------------- output
@@ -519,7 +537,7 @@ def kerfed(part, kerf):
     k = kerf / 2
     shape = part.shape.buffer(k, join_style=2, mitre_limit=4.0) if k else part.shape
     circles = [(x, y, d - kerf) for x, y, d in part.circles]
-    slots = [(x, y, w - kerf, l, a) for x, y, w, l, a in part.slots]
+    slots = [(x, y, w - kerf, l - kerf, a) for x, y, w, l, a in part.slots]
     hexes = [(x, y, af - kerf) for x, y, af in part.hexes]
     return shape, circles, slots, hexes
 

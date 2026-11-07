@@ -159,7 +159,7 @@ def back(b, path):
     px0, px1, py0, py1 = b.pi
     _rect(ax, X(px0), py0, X(px1), py1, PCB, "#103", lw=0.5, z=7)
     _rect(ax, X(-12), py0 + 14, X(18), py0 + 44, "#3b3b3b", "#000", z=8)    # cooler
-    _rect(ax, X(px1 - 21), py0 + 2, X(px1), py0 + 54, "#c8c8c8", "#666", z=8)  # USB, RJ45
+    _rect(ax, X(px0), py0 + 2, X(px0 + 21), py0 + 54, "#c8c8c8", "#666", z=8)  # USB, RJ45
     _rect(ax, X(-35), -262, X(35), -152, "#222", "#000", z=7)               # fuse box
     for i in range(6):
         yy = -252 + i * 16
@@ -197,7 +197,7 @@ def back(b, path):
                    (X(cx * 0.55), -240 if cy < 0 else -215), (X(cx * 0.55), cy - 30 if cy > 0 else cy + 30),
                    (X(cx), cy - 30 if cy > 0 else cy + 30)], RED, 0.9, z=10)
     _wire(ax, [(X(-20), -170), (X(-20), cy0 - 6), (X(-30), cy0 - 6)], RED, 0.9, z=10)
-    _wire(ax, [(X(20), -170), (X(20), -150), (X(52), -150), (X(52), py0 + 26), (X(px0), py0 + 26)],
+    _wire(ax, [(X(20), -170), (X(20), -150), (X(52), -150), (X(52), py0 + 26), (X(px1), py0 + 26)],
           RED, 0.9, z=10)
     _wire(ax, [(X(8), cy1), (X(8), py0), ], "#5aa0e0", 1.4, z=10)
     _wire(ax, [(X(-30), py1 - 4), (X(-30), b.pass_i2c[0]), (X(b.knobs[2][0]), b.pass_i2c[0]),
