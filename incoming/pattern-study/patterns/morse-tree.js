@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.5..3, Message=0..3, Reading=0..2
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 a dit is cyan, a dah pink, the unlit tree steel blue and the decoded text cream.
-// Knob 2: Speed. How fast the key goes, as words a minute: 4 times the knob, so 2 is 8 words a minute with a unit of 0.15 s, a dit 0.15 s, a dah 0.45 s, a letter gap 0.45 s and a word gap 1.05 s. 0.5 is 2 words a minute and 3 is 12.
-// Knob 3: Message. Snaps to one of four texts: 0 the call CQ CQ CQ DE PATTERNFLOW K, 1 SOS three times, 2 the first telegram, WHAT HATH GOD WROUGHT, 3 the pangram THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. Each has its own tint of the unlit tree and the decoded lines. The panel opens on text 0 already 40 units into it, so a letter is being keyed from the first frame; a text chosen with the knob starts from its first mark after 2.5 units of quiet.
-// Knob 4: Reading. Snaps to one of three ways of showing the walk: 0 keeps the whole route from the root lit until the letter is read, 1 lights only the branch being keyed and the lamp's node, and 2 darkens the table and lets every node the message has touched fade over fourteen seconds, so the text paints its own letters on the tree.
+// Knob 2: Speed. How fast the key goes, as words a minute: 4 times the knob, so 2 is 8 words a minute with a unit of 0.15 s, a dit 0.15 s, a dah 0.45 s, a letter gap 0.45 s and a word gap 1.05 s. 0.5 is 2 words a minute and 3 is 12. The unlit tree brightens while the key is down, so the whole table blinks in the beat.
+// Knob 3: Message. Snaps to one of four texts: 0 the call CQ CQ CQ DE PATTERNFLOW K, 1 SOS three times, 2 the first telegram, WHAT HATH GOD WROUGHT, 3 the pangram THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG. Each has its own tint of the unlit tree and the decoded lines. The panel opens on text 0 already 6 s into it, so a letter is being keyed from the first frame; a text chosen with the knob starts from its first mark after 2.5 units of quiet.
+// Knob 4: Reading. Snaps to one of three ways of showing the walk: 0 keeps the whole route from the root lit until the letter is read, 1 lights only the branch being keyed and the lamp's node on a brighter table, and 2 all but blacks out the table and lets every node the message has touched stay lit in a wider plate and fade over fourteen seconds, so the text paints its own letters on the tree.
 
 const W = 64, H = 128;
 const { floor, round, min, max, exp } = Math;
@@ -137,17 +137,17 @@ function build(lines, tint) {
 // lit while the letter is keyed.
 const MODE = [
   { gh: 1, tau: 1, route: true },
-  { gh: 1, tau: 0.3, route: false },
-  { gh: 0.22, tau: 14, route: true },
+  { gh: 1.4, tau: 0.3, route: false },
+  { gh: 0.1, tau: 14, route: true },
 ];
 const LEAD = 2.5; // units of quiet before the first mark
-const PRE = 40; // units into the first text when the panel opens
-const TX = 64, TY = 24; // the tape's right edge and top row; a unit is 2 LEDs
+const PRE = 6; // seconds the first text has been on the air when the panel opens
+const TX = 64, TY = 23; // the tape's right edge and top row; a unit is 2 LEDs
 const LY = [2, 9, 16]; // top rows of the decoded lines, the newest last
 
 export function setup(params) {
   params.s = {
-    hue: 0, speed: 2, msg: -1, mode: 0, t: 0, u: -LEAD, uS: 0.15, ai: -1, ep: 0, nr: 0, kp: 0,
+    hue: 0, speed: 2, msg: -1, mode: 0, t: 0, u: -LEAD, uS: 0.15, kv: 0, ai: -1, ep: 0, nr: 0, kp: 0,
     lvN: new Float32Array(NN), lvE: new Float32Array(NN), fl: new Float32Array(NN),
     buf: new Float32Array(W * H * 3),
   };
@@ -162,6 +162,7 @@ function restart(S) {
   S.lvN.fill(0);
   S.lvE.fill(0);
   S.fl.fill(0);
+  S.kv = 0;
 }
 
 // The letter the key is on at unit u, and how many of its marks have begun.
@@ -187,7 +188,7 @@ export function update(dt, input, params) {
     const first = S.msg < 0;
     S.msg = msg;
     restart(S);
-    if (first) while (S.u < PRE) step(S, 1 / 30);
+    if (first) while (S.t < PRE) step(S, 1 / 30);
   }
   step(S, d);
 }
@@ -219,8 +220,10 @@ function step(S, d) {
   while (S.kp < M.keys.length && M.keys[S.kp][0] <= u) S.kp++;
   // The route and the lamp's node are held, not left to fade.
   const { L, k } = state(S);
+  const keyed = L ? u < L.syms[k - 1].a + L.syms[k - 1].d : false;
+  S.kv += ((keyed ? 1 : 0) - S.kv) * min(1, d * (keyed ? 25 : 12));
   if (L) {
-    const key = u < L.syms[k - 1].a + L.syms[k - 1].d;
+    const key = keyed;
     for (let j = 1; j <= k; j++) {
       const arrived = u >= L.syms[j - 1].a + 1;
       if (md.route && u < L.rd) {
@@ -244,12 +247,12 @@ export function draw(display, params) {
     if (b > buf[o + 2]) buf[o + 2] = b;
   };
   const cDit = hsv(dim(h + 0.5), 0.85, 1), cDah = hsv(dim(h + 0.93), 0.8, 1);
-  const cTree = hsv(dim(h + 0.6 + tn), 0.5, 1), cText = hsv(h + 0.14 + tn, 0.3, 1);
+  const cTree = hsv(dim(h + 0.6 + tn), 0.85, 1), cText = hsv(h + 0.14 + tn, 0.45, 1);
   const key = L ? u < L.syms[k - 1].a + L.syms[k - 1].d : false;
   const cur = L ? L.syms[k - 1] : null;
   const front = key ? min(1, u - cur.a) : -1;
   const aId = L ? L.path[k] : -1;
-  const gL = 0.58 * md.gh, gE = 0.36 * md.gh;
+  const pk = 1 + 1.1 * S.kv, gL = 0.58 * md.gh * pk, gE = 0.36 * md.gh * pk;
   const glyph = (ch, x0, y0, c) => {
     const g = GLYPH[ch];
     for (let i = 0; i < 15; i++) if (g[i]) put(x0 + (i % 3), y0 + floor(i / 3), c, 1);
@@ -277,8 +280,8 @@ export function draw(display, params) {
       continue;
     }
     if (n > 0.03) {
-      const bx0 = x - PW[D[id]], bx1 = x + PW[D[id]] + (D[id] === 4 ? 1 : 0);
-      for (let by = y - 3; by <= y + 3; by++) for (let bx = bx0; bx <= bx1; bx++) put(bx, by, mix(lit, WHITE, 0.15), 0.42 * n);
+      const hw = PW[D[id]] + (S.mode === 2 && D[id] < 3 ? 2 : 0), bx0 = x - hw, bx1 = x + hw + (D[id] === 4 ? 1 : 0);
+      for (let by = y - 3; by <= y + 3; by++) for (let bx = bx0; bx <= bx1; bx++) put(bx, by, mix(lit, WHITE, 0.15), (S.mode === 2 ? 0.56 : 0.42) * n);
     }
     glyph(LET[id], x - 1, y - 2, mix(mix(scale(cTree, gL), mix(lit, WHITE, 0.6), n), WHITE, f));
   }
@@ -293,13 +296,13 @@ export function draw(display, params) {
     }
 
   // The tape: marks come in at the right edge and run left, 2 LEDs a unit.
-  for (let x = 0; x < W; x++) put(x, TY + 3, cTree, x & 1 ? 0.12 : 0.2);
+  for (let x = 0; x < W; x++) put(x, TY + 4, cTree, x & 1 ? 0.12 : 0.2);
   for (let j = M.keys.length ? min(S.kp, M.keys.length) - 1 : -1; j >= 0; j--) {
     const [a, dd, dah] = M.keys[j], e = min(a + dd, u);
     if ((u - e) * 2 > W) break;
     const x0 = TX - (u - a) * 2, x1 = TX - (u - e) * 2, c = dah ? cDah : cDit;
     for (let x = max(0, Math.ceil(x0 - 0.5)); x < Math.ceil(x1 - 0.5); x++) {
-      for (let q = 0; q < 3; q++) put(x, TY + q, c, 1);
+      for (let q = 0; q < 4; q++) put(x, TY + q, c, 1);
     }
   }
 
