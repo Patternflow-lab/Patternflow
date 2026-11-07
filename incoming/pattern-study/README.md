@@ -5860,7 +5860,7 @@ Flock, Harmonograph, Big Type 은 처음 화면이 빨강이에요.
 
 106판에서는 Collatz Tree 와 Fraction Ladder 가 128줄을 써요. Collatz Tree 는 줄기가 바닥에서 올라가 가지가 위로 자라서 31/16/6 이에요. 줄기를 한 LED 선으로 그린 첫 판은 아래 3분의 1이 2% 였고(29/6/2), 줄기 두께를 매달린 마디 수의 log₂ 에 비례하게 굵혀 6% 가 됐어요. 정확히는 5.98% 라 문턱 5 에 바싹 붙어 있어요. Fraction Ladder 는 단이 오른쪽 아래로 내려가는 사다리라서 12/22/36 이에요. 위 3분의 1은 맨 위 분자 1 과 첫 단의 숫자와 가로줄뿐이에요. 겨누지 않은 여덟도 다 5 를 넘어요. 가장 낮은 것은 Bidi Reorder 의 8 이고 Mark Stacks 의 아래 10 이 그다음이에요. Mark Stacks 의 첫 판은 줄을 앞줄이 끝나기를 기다렸다 한 줄씩 쳐서 18/2/1 이었고, 글자 높이를 8 에서 11 LED 로 키우고 줄이 1초씩 어긋나 겹쳐 시작하게 해서 24/25/10 이 됐어요. Playfair Cipher 는 장부가 한 줄씩 늘어서 처음 판의 아래 3분의 1이 4% 였고, 줄 쳐진 장부 종이를 처음부터 깔아 13% 가 됐어요. Polynomial Lemniscates 91/58/87, Thue-Morse Moments 73/77/79, Cayley Tables 51/43/45, Cut and Project 24/27/47, Saccades 24/24/21 은 판을 덮어요.
 
-107판은 열 개가 다 세 칸 모두 5 를 넘어요. 128줄을 써서 겨눈 것은 Zeckendorf Counter 와 Rectangle Runs, Tamari Lattice 예요. Zeckendorf Counter 는 줄 하나가 수 하나라 128줄이 그대로 128개의 수여서 49/40/46 이에요. Rectangle Runs 는 정사각형 둘을 위아래로 쌓아 46/26/47 이고, Tamari Lattice 는 점이 아래에서 위로 11층으로 쌓여 15/44/35 예요. 열 개 가운데 가장 낮은 칸은 Tamari Lattice 의 위 3분의 1, 15% 예요. 그다음은 Dayan Remainders 의 아래 3분의 1, 17% 예요.
+107판은 열 개가 다 세 칸 모두 5 를 넘어요. 128줄을 써서 겨눈 것은 Lill's Method 와 Zeckendorf Counter, Rectangle Runs, Tamari Lattice 예요. Lill's Method 는 직각 꺾은선이 위 100줄을, 빗나감 그래프가 아래 21줄을 써서 29/21/27 이에요. Zeckendorf Counter 는 줄 하나가 수 하나라 128줄이 그대로 128개의 수여서 49/40/46 이에요. Rectangle Runs 는 정사각형 둘을 위아래로 쌓아 46/26/47 이고, Tamari Lattice 는 점이 아래에서 위로 11층으로 쌓여 15/44/35 예요. 열 개 가운데 가장 낮은 칸은 Tamari Lattice 의 위 3분의 1, 15% 예요. 그다음은 Dayan Remainders 의 아래 3분의 1, 17% 예요.
 
 ### 낯선 수학
 
