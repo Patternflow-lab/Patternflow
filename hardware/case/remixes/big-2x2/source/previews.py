@@ -95,8 +95,12 @@ def front(b, path):
     ax.set_aspect("equal")
     ax.axis("off")
     fig.tight_layout()
-    fig.savefig(path, dpi=150)
+    fig.savefig(path, dpi=120)
     plt.close(fig)
+    # 256 colours keep the LED texture and a third of the bytes (Pillow comes
+    # with matplotlib)
+    from PIL import Image
+    Image.open(path).convert("RGB").quantize(256, dither=Image.Dither.NONE).save(path, optimize=True)
 
 
 def _wire(ax, pts, color, lw=1.2, z=8, ls="-"):
