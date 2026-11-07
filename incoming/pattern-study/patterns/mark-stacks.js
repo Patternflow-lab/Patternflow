@@ -157,11 +157,11 @@ function glyphs() {
     }
     add("V", -ASC, g);
   }
-  for (const ch of ["d", "đ"]) {
+  for (const ch of ["đ"]) {
     const h = XH + ASC, g = grid(W6, h), r = ring();
     for (let y = 0; y < XH; y++) for (let x = 0; x < W6; x++) g[ASC + y][x] = r[y][x];
     rect(g, W6 - T, 0, W6 - 1, h - 1);
-    if (ch !== "d") rect(g, W6 - T - 2, 1, W6 - 1, T);
+    rect(g, W6 - T - 2, 1, W6 - 1, T);
     add(ch, -ASC, g);
   }
   return out;
