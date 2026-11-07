@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ackermann Stack
 // Family:  algo
-// Idea:    The call stack of the Ackermann function A(3, n) is run for real, call by call, and drawn standing up the tall panel: each column is a stretch of calls in order, each row a frame on the stack, and each frame is coloured by its first argument m, so the stack climbs a jagged ridge to 127 frames for A(3, 4) while a scan line lights the calls as they are made.
+// Idea:    The call stack of the Ackermann function A(3, n) is run for real and drawn standing up the tall panel: each column is a stretch of calls in order, each row a frame on the stack, and each frame is coloured by its first argument m, so the stack climbs a jagged ridge to 127 frames for A(3, 4) while a scan line lights the calls as they are made.
 // Author:  patternflow-lab
 // Date:    2026-11-07
 // SPDX-License-Identifier: CC-BY-SA-4.0
