@@ -878,7 +878,7 @@ def write_manifest(parts, tests, sheets):
 
 
 # --------------------------------------------------------------------------
-# Check: read every DXF back and measure it against the panel and the board
+# Check: read every DXF back and measure it against the panel, the card and the Pi
 # --------------------------------------------------------------------------
 
 
