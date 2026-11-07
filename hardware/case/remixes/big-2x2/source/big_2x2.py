@@ -92,7 +92,9 @@ KNOBS = {  # front view; K2 is top-left as in BUILD_GUIDE
     "K4": (KNOB_CENTRE[0] - 15.5, KNOB_CENTRE[1] - 15.25),
     "K3": (KNOB_CENTRE[0] + 15.5, KNOB_CENTRE[1] - 15.25),
 }
-KNOB_POCKET = 52.0         # square, in the inner bezel layer, so the bushings clamp one sheet
+POCKET_MARGIN = 3.0        # the inner bezel layer is cut away round the whole board, so the
+                           # bushings clamp the outer sheet alone and no lead on the board's
+                           # front face (socket pins, J1, J3, J4, C11) can touch the inner one
 # Board outline in the front view: the encoders are fitted from the back of the
 # PCB, so the front view is the KiCad view mirrored. 62 x 116.25 mm.
 BOARD = (KNOB_CENTRE[0] - 38.75, KNOB_CENTRE[1] - 92.75, KNOB_CENTRE[0] + 23.25, KNOB_CENTRE[1] + 23.5)
@@ -291,8 +293,8 @@ def bezel_parts():
                 for a, b in side_wall_tabs_in(y0, y1):
                     shapes.append(rect(wx[0], a, wx[1], b))
         if name == "bezel-inner-column-1":
-            h = KNOB_POCKET / 2
-            shapes.append(rect(KNOB_CENTRE[0] - h, KNOB_CENTRE[1] - h, KNOB_CENTRE[0] + h, KNOB_CENTRE[1] + h))
+            m = POCKET_MARGIN
+            shapes.append(rect(BOARD[0] - m, BOARD[1] - m, BOARD[2] + m, BOARD[3] + m))
         parts.append(Part(name, 1, "Bezel, inner layer (mortises)", shapes))
     return parts
 
@@ -446,7 +448,7 @@ def back_parts():
 
 def cradle_parts():
     depth = D_WALL_BACK + T + 0.5        # the box, front to back, plus a little
-    f, base, lip_f, lip_b, back = 60.0, 15.0, 10.0, 25.0, 60.0
+    f, base, lip_f, lip_b, back = 60.0, 15.0, 10.0, 15.0, 60.0   # lips low: clear of the pixels and the inlet
     n0, n1 = f, f + depth
     L = n1 + back
     pts = [(0, 0), (L, 0), (L, base), (n1 + 20, base + lip_b), (n1, base + lip_b), (n1, base),
@@ -886,6 +888,46 @@ def check():
        f"{RIGHT_WALL[0] - DIVIDER[1]:.0f} mm column")
     ok(BOARD[0] > DIVIDER[1] and BOARD[2] < RIGHT_WALL[0] and BOARD[3] < TOP_WALL[0],
        f"board outline {BOARD[2] - BOARD[0]:.2f} x {BOARD[3] - BOARD[1]:.2f} mm inside the column")
+    pocket = (BOARD[0] - POCKET_MARGIN, BOARD[1] - POCKET_MARGIN, BOARD[2] + POCKET_MARGIN, BOARD[3] + POCKET_MARGIN)
+    ok(pocket[0] > DIVIDER[1] and pocket[2] < RIGHT_WALL[0] and pocket[1] > 160.0 and pocket[3] < AP_Y,
+       f"board pocket {pocket[2] - pocket[0]:.2f} x {pocket[3] - pocket[1]:.2f} mm inside bezel-inner-column-1, "
+       f"clear of the divider and right-wall mortises")
+    # Nothing inside the box sits where something else is. Bodies only, no tabs,
+    # as boxes (x0, y0, v0, x1, y1, v1); v is depth behind the panel face.
+    boxes = {}
+    for i, (cx, cy) in enumerate(PANEL_CENTRES):
+        boxes[f"panel {i}"] = (cx - PANEL_BODY[0] / 2, cy - PANEL_BODY[1] / 2, 0, cx + PANEL_BODY[0] / 2, cy + PANEL_BODY[1] / 2, PANEL_DEPTH)
+    for rname, (cx, w) in RAILS.items():
+        boxes[f"rail {rname}"] = (cx - w / 2, BOT_WALL[1], D_RAIL[0], cx + w / 2, TOP_WALL[0], D_RAIL[1])
+    boxes["top wall"] = (X_L, TOP_WALL[0], D_BEZEL, X_R, TOP_WALL[1], D_WALL_BACK)
+    boxes["bottom wall"] = (X_L, BOT_WALL[0], D_BEZEL, X_R, BOT_WALL[1], D_WALL_BACK)
+    for n, wx in (("left wall", LEFT_WALL), ("divider", DIVIDER), ("right wall", RIGHT_WALL)):
+        boxes[n] = (wx[0], BOT_WALL[1], D_BEZEL, wx[1], TOP_WALL[0], D_WALL_BACK)
+    for i, y in enumerate(STIFF_Y):
+        boxes[f"stiffener {i}"] = (LEFT_WALL[1], y - T / 2, D_STIFF[0], DIVIDER[0], y + T / 2, D_STIFF[1])
+    boxes["stiffener column"] = (DIVIDER[1], -T / 2, D_STIFF[0], RIGHT_WALL[0], T / 2, D_STIFF[1])
+    for piece, pts in block_centres().items():
+        for j, (x, y) in enumerate(pts):
+            boxes[f"block {piece} {j}"] = (x - BLOCK / 2, y - BLOCK / 2, D_WALL_BACK - BLOCK_LAYERS * T, x + BLOCK / 2, y + BLOCK / 2, D_WALL_BACK)
+    # The board from the back of its encoders (6.5 mm body on the outer layer) to
+    # the top of a plugged ribbon, generously 40 mm.
+    boxes["board"] = (BOARD[0], BOARD[1], T + 6.5, BOARD[2], BOARD[3], 40.0)
+    boxes["supply"] = (PSU[0], PSU[1], D_WALL_BACK - 30.0, PSU[2], PSU[3], D_WALL_BACK)
+    cx, cy = IEC_CENTRE
+    boxes["inlet"] = (cx - IEC_CUT[0] / 2, cy - IEC_CUT[1] / 2, D_WALL_BACK - 35.0, cx + IEC_CUT[0] / 2, cy + IEC_CUT[1] / 2, D_WALL_BACK)
+    for i, (bx, by) in enumerate(BUS):
+        boxes[f"bus {i}"] = (bx - 9, by - 36, D_WALL_BACK - 15.0, bx + 9, by + 36, D_WALL_BACK)
+    boxes["splice left"] = (LEFT_WALL[1], WALL_SPLIT - 30, 10, LEFT_WALL[1] + T, WALL_SPLIT + 30, 50)
+    boxes["splice divider"] = (DIVIDER[1], WALL_SPLIT - 30, 10, DIVIDER[1] + T, WALL_SPLIT + 30, 50)
+    boxes["splice right"] = (RIGHT_WALL[0] - T, WALL_SPLIT - 30, 10, RIGHT_WALL[0], WALL_SPLIT + 30, 50)
+    names = list(boxes)
+    hits = []
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            a, b = boxes[names[i]], boxes[names[j]]
+            if all(overlaps(a[k], a[k + 3], b[k], b[k + 3]) for k in range(3)):
+                hits.append(f"{names[i]} / {names[j]}")
+    ok(not hits, f"{len(names)} bodies inside the box, no two in the same place" + (": " + ", ".join(hits) if hits else ""))
     print()
     print("all checks pass" if not bad else f"{len(bad)} check(s) failed")
     return not bad

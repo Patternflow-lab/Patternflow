@@ -18,22 +18,22 @@ bezel-outer-column-upper,4
 bezel-outer-left-lower,8
 bezel-outer-left-upper,8
 bezel-outer-top,8
-cradle,3 4 5 5 5 5
+cradle,3 6 6 7 8 8
 divider-lower,6
 divider-upper,7
-rail-left-back-lower,7
-rail-left-back-upper,6
+rail-left-back-lower,5
+rail-left-back-upper,5
 rail-left-front-lower,4
-rail-left-front-upper,6
+rail-left-front-upper,4
 rail-middle-back-lower,4
 rail-middle-back-upper,7
 rail-middle-front-lower,7
 rail-middle-front-upper,3
-rail-right-back-lower,8
-rail-right-back-upper,8
-rail-right-front-lower,7
-rail-right-front-upper,8
-screw-block,2 2 2 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8
+rail-right-back-lower,6
+rail-right-back-upper,7
+rail-right-front-lower,6
+rail-right-front-upper,5
+screw-block,2 2 2 4 4 4 4 4 4 5 5 5 5 5 5 5 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8
 splice,1 1 1
 stiffener-column,2
 stiffener-display-1,7

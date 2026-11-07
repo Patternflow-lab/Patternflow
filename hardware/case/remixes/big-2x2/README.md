@@ -93,7 +93,7 @@ Three vertical rails run between the top and bottom walls, 14 mm behind the face
 | Files | Pieces | What |
 | :--- | :--- | :--- |
 | `bezel-outer-*` | 6 | The face. The column's upper piece has the four knob bores |
-| `bezel-inner-*` | 8 | Behind the face: mortises, and a 52 mm pocket round the knobs |
+| `bezel-inner-*` | 8 | Behind the face: mortises, and a pocket the size of the board |
 | `wall-*`, `divider-*` | 8 | Top and bottom walls with vents, and the left, right and divider walls in two halves each |
 | `splice` | 3 | Glued inside across each long wall's cut |
 | `rail-*` | 12 | Three rails, two layers, two pieces per layer |
@@ -125,11 +125,11 @@ The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sh
 6. Seat the panels from the front, one at a time, with their cables plugged in first or reached through the gaps between the rails. Screw them on from behind.
 7. Fit the board: encoders through the bores and nuts from the front, as in the standard build.
 8. Build the power tray on the bench, then screw it onto the column and connect the bus.
-9. Glue three profiles per cradle and stand the box in the two cradles.
+9. Glue three profiles per cradle and stand the box in the two cradles, one under each end of the display.
 
 ## Knobs
 
-The column carries the knobs where the board has them: K2 top left, K1 top right, K4 bottom left, K3 bottom right, 31 × 30.5 mm apart, their centre 54 mm below the top edge and 59 mm in from the right one. The bushings clamp the outer 3 mm layer alone; the inner layer is pocketed 52 mm square round them. The board hangs on its encoder nuts, as in the standard build, and the knobs are the printed ones in [`knobs/`](../../knobs/).
+The column carries the knobs where the board has them: K2 top left, K1 top right, K4 bottom left, K3 bottom right, 31 × 30.5 mm apart, their centre 54 mm below the top edge and 59 mm in from the right one. The bushings clamp the outer 3 mm layer alone: the inner layer is cut away round the whole board, 68 × 122 mm, so the socket pins and terminal leads on the board's front face touch nothing. The board hangs on its encoder nuts, as in the standard build, and the knobs are the printed ones in [`knobs/`](../../knobs/).
 
 ## Parts to buy
 
