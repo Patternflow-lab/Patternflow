@@ -518,6 +518,7 @@ def rotate90(shapes, h):
 
 def write_dxf(path, placed):
     import ezdxf
+    ezdxf.options.write_fixed_meta_data_for_testing = True   # same numbers, same bytes
     doc = ezdxf.new("R2000", setup=True)
     doc.units = ezdxf.units.MM
     doc.header["$INSUNITS"] = 4
@@ -586,7 +587,11 @@ def nest(parts, sheet=SHEET, gap=GAP):
 
 
 def write_all():
-    import ezdxf  # noqa: F401  (fail early with a clear message)
+    try:
+        import ezdxf
+        del ezdxf
+    except ImportError:
+        sys.exit("big_2x2.py needs ezdxf: pip install ezdxf")
     parts = all_parts()
     tests = test_cut_parts()
     for sub in ("parts", "sheets", "test_cuts", "preview"):
@@ -868,7 +873,6 @@ def check():
            f"rail {rname}: {len(found_s)} screw slots and {len(found_p)} pin holes where the panels have them")
 
     # Every wall tab has a mortise of the same size where it lands.
-    import itertools
     lw = ext("wall-left-lower")[0] + ext("wall-left-upper")[0]
     ok(abs(lw - (TOP_WALL[0] - BOT_WALL[1] + 2 * T)) < 0.01,
        f"left wall halves {lw:.1f} mm long with end tabs, between the top and bottom walls")
@@ -876,7 +880,6 @@ def check():
     mort = sum(1 for n in ("bezel-inner-left-1", "bezel-inner-left-2", "bezel-inner-left-3")
                for e in load(n).query("LWPOLYLINE") if len(e) == 4) - 3
     ok(mort == tabs, f"left wall: {tabs} front tabs, {mort} mortises in the inner bezel")
-    del itertools
 
     # The supply fits the column, between the divider and the right wall.
     ok(PSU[0] > DIVIDER[1] and PSU[2] < RIGHT_WALL[0], f"supply {PSU[2] - PSU[0]:.0f} mm wide in a "
