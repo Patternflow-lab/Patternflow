@@ -1,11 +1,11 @@
 group,qty,part,spec,where,usd_each,notes
 electronics,1,v3 board,"Assembled as in BUILD_GUIDE sections 2 to 7, parts in hardware/bom/bom_v3.9.csv",this repository,48,"BUILD_GUIDE section 1: ESP32-S3 about 13, PCB and the remaining parts about 35. J3 stays empty on this build"
-electronics,4,LED matrix panel,"HUB75, 128 x 64, P2.5, 320 x 160 mm, classic shift-register driver",the panel linked in hardware/bom/bom_v3.9.csv,20,"BUILD_GUIDE section 1 price. Check the holes against test-03-panel-rail before cutting the rails. Read docs/panel-compatibility.md before buying any other panel"
+electronics,4,LED matrix panel,"HUB75, 128 x 64, P2.5, 320 x 160 mm, classic shift-register driver",the panel linked in hardware/bom/bom_v3.9.csv,20,"BUILD_GUIDE section 1 price. Check the holes against test_03_panel_rail before cutting the rails. Read docs/panel-compatibility.md before buying any other panel"
 electronics,4,HUB75 ribbon,"16-way IDC, 2.54 mm, 30 cm",AliExpress or any HUB75 seller,,"One per hop: J1 to P0, P0 to P1, P1 to P2, P2 to P3. The ribbons that come with the panels do where they reach"
 electronics,4,Panel power cable,"4-pin panel plug to fork terminals",comes with each panel,,"Extend with 16 AWG if it does not reach the bus. P3 is about 50 cm away"
 electronics,4,Knob,"for a 20 mm D shaft",print hardware/case/knobs/knobs_20mm.stl,,"Same knobs as the standard build"
 power,1,Mean Well LRS-150F-5,"5 V, 22 A, 110 W, 85-264 VAC with no selector switch, 159 x 97 x 30 mm",Mean Well distributors (DigiKey or Mouser),,"Not priced. Buy a genuine one: it sits on mains in a wooden box. Datasheet LRS-150F-SPEC 2025"
-power,1,IEC C14 inlet,"rocker switch and 5 x 20 mm fuse holder, screw flange 40 mm, cut-out 46.75 x 27.25 mm",AC-14-F16A (patternflood found a 3-pack on Amazon for 9 USD on 2026-10-30),3,"Check yours against test-04-inlet before cutting the power tray"
+power,1,IEC C14 inlet,"rocker switch and 5 x 20 mm fuse holder, screw flange 40 mm, cut-out 46.75 x 27.25 mm",AC-14-F16A (patternflood found a 3-pack on Amazon for 9 USD on 2026-10-30),3,"Check yours against test_04_inlet before cutting the power tray"
 power,1,Fuse,"5 x 20 mm, time-delay: T3.15A on 220-240 V mains, T5A on 100-120 V",with the inlet or Littelfuse 218 series,,"Time-delay because the supply's cold-start inrush is 60 A at 230 VAC. A fast fuse blows at switch-on"
 power,1,IEC power cord,C13,any,2,
 power,2,Barrier terminal strip,"6-way, 25 A, with a jumper bar (TB-2506L or similar)",Amazon or a local electrical shop,,"The 5 V bus on the power tray: one for +5 V, one for GND. All six positions bridged"

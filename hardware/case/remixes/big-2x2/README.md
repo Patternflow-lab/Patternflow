@@ -92,28 +92,28 @@ Three vertical rails run between the top and bottom walls, 14 mm behind the face
 
 | Files | Pieces | What |
 | :--- | :--- | :--- |
-| `bezel-outer-*` | 6 | The face. The column's upper piece has the four knob bores |
-| `bezel-inner-*` | 8 | Behind the face: mortises, and a pocket the size of the board |
-| `wall-*`, `divider-*` | 8 | Top and bottom walls with vents, and the left, right and divider walls in two halves each |
+| `bezel_outer_*` | 6 | The face. The column's upper piece has the four knob bores |
+| `bezel_inner_*` | 8 | Behind the face: mortises, and a pocket the size of the board |
+| `wall_*`, `divider_*` | 8 | Top and bottom walls with vents, and the left, right and divider walls in two halves each |
 | `splice` | 3 | Glued inside across each long wall's cut |
-| `rail-*` | 12 | Three rails, two layers, two pieces per layer |
-| `stiffener-*` | 3 | Across the back: two in the display bay, one in the column |
-| `back-*` | 5 | The back cover, with vents. `back-column-lower` is the power tray |
-| `screw-block` | 96 | 32 blocks of three squares |
+| `rail_*` | 12 | Three rails, two layers, two pieces per layer |
+| `stiffener_*` | 3 | Across the back: two in the display bay, one in the column |
+| `back_*` | 5 | The back cover, with vents. `back_column_lower` is the power tray |
+| `screw_block` | 96 | 32 blocks of three squares |
 | `cradle` | 6 | Two cradles of three profiles; the box stands in them |
 
-<img src="preview/sheets.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, rails with slots, the face strips, cradles and the small screw-block squares" width="100%">
+<img src="preview/sheets.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, rails with slots, the face strips, cradles and the small screw_block squares" width="100%">
 
 The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every file comes twice, as DXF and as SVG at 1:1 in millimetres, for cutters that take one and not the other. Every line is a cut: on one layer named `CUT` in the DXFs, a red hairline in the SVGs.
 
 ### Test cuts
 
-`test_cuts/all-test-cuts.dxf` (and `.svg`) holds four small pieces. Cut them on the plywood you will use, before anything else.
+`test_cuts/all_test_cuts.dxf` (and `.svg`) holds four small pieces. Cut them on the plywood you will use, before anything else.
 
-1. `test-01-kerf-comb`: five slots from T − 0.2 to T + 0.2 mm, narrow end at the small hole. Push a strip of the same sheet into each. If T is not the slot that fits snugly, measure the sheet and change `T` in `source/big_2x2.py`.
-2. `test-02-knob-bores`: the four 7.3 mm bores on the board's grid. The encoders should drop through all four at once.
-3. `test-03-panel-rail`: one long side of a panel, with its four screw slots and its pin holes. Screw it to a real panel. If the holes miss, change `PANEL_SCREWS` and `PANEL_PINS`; the rails follow.
-4. `test-04-inlet`: the inlet cut-out and its two flange holes.
+1. `test_01_kerf_comb`: five slots from T − 0.2 to T + 0.2 mm, narrow end at the small hole. Push a strip of the same sheet into each. If T is not the slot that fits snugly, measure the sheet and change `T` in `source/big_2x2.py`.
+2. `test_02_knob_bores`: the four 7.3 mm bores on the board's grid. The encoders should drop through all four at once.
+3. `test_03_panel_rail`: one long side of a panel, with its four screw slots and its pin holes. Screw it to a real panel. If the holes miss, change `PANEL_SCREWS` and `PANEL_PINS`; the rails follow.
+4. `test_04_inlet`: the inlet cut-out and its two flange holes.
 
 ### Order of assembly
 

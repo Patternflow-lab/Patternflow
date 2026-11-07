@@ -203,12 +203,20 @@ def vent_row_h(u0, u1, v0, v1, pitch=12.0, w=4.0):
     return out
 
 
+def fname(name):
+    """Filenames are lowercase with underscores (AGENTS.md)."""
+    return name.replace("-", "_")
+
+
 @dataclass
 class Part:
     name: str
     qty: int
     what: str
     shapes: list            # first shape is the outline
+
+    def __post_init__(self):
+        self.name = fname(self.name)
 
     def bbox(self):
         xs, ys = [], []
@@ -615,13 +623,13 @@ def write_all():
     tsize = (400.0, 360.0)
     tsheets = nest(tests, sheet=tsize)
     placed = [(sh, dx, dy) for _, sh, dx, dy in tsheets[0]]
-    write_dxf(os.path.join(ROOT, "test_cuts", "all-test-cuts.dxf"), placed)
-    write_svg(os.path.join(ROOT, "test_cuts", "all-test-cuts.svg"), placed, *tsize)
+    write_dxf(os.path.join(ROOT, "test_cuts", "all_test_cuts.dxf"), placed)
+    write_svg(os.path.join(ROOT, "test_cuts", "all_test_cuts.svg"), placed, *tsize)
     sheets = nest(parts)
     for i, items in enumerate(sheets, 1):
         placed = [(sh, dx, dy) for _, sh, dx, dy in items]
-        write_dxf(os.path.join(ROOT, "sheets", f"sheet-{i:02d}.dxf"), placed)
-        write_svg(os.path.join(ROOT, "sheets", f"sheet-{i:02d}.svg"), placed, *SHEET)
+        write_dxf(os.path.join(ROOT, "sheets", f"sheet_{i:02d}.dxf"), placed)
+        write_svg(os.path.join(ROOT, "sheets", f"sheet_{i:02d}.svg"), placed, *SHEET)
     write_sheets_svg(sheets)
     write_front_svg()
     write_wiring_svg()
@@ -643,7 +651,7 @@ def write_sheets_svg(sheets):
     for i, items in enumerate(sheets):
         ox = pad + (i % cols) * (sw + pad)
         oy = pad + (i // cols) * (sh + pad + 14) + 14
-        out.append(f'<text x="{ox:.0f}" y="{oy - 5:.0f}" font-size="10" fill="#333">sheet-{i + 1:02d}.dxf</text>')
+        out.append(f'<text x="{ox:.0f}" y="{oy - 5:.0f}" font-size="10" fill="#333">sheet_{i + 1:02d}.dxf</text>')
         out.append(f'<g transform="translate({ox:.0f},{oy:.0f})">')
         out.append(f'<rect width="{sw}" height="{sh}" fill="#f4ead8" stroke="#b9a37e" stroke-width="0.6"/>')
         out += svg_shapes([(s, dx, dy) for _, s, dx, dy in items], flip_h=sh)
@@ -838,7 +846,7 @@ def check():
            f"{f}: parts inside {SHEET[0]:.0f} x {SHEET[1]:.0f} ({b.size.x:.1f} x {b.size.y:.1f})")
 
     def load(name):
-        return ezdxf.readfile(os.path.join(ROOT, "parts", f"{name}.dxf")).modelspace()
+        return ezdxf.readfile(os.path.join(ROOT, "parts", f"{fname(name)}.dxf")).modelspace()
 
     def ext(name):
         b = ebbox.extents(load(name))
@@ -870,7 +878,7 @@ def check():
     for rname, (cx, w) in RAILS.items():
         found_s, found_p = [], []
         for end in ("lower", "upper"):
-            name = f"rail-{rname}-front-{end}"
+            name = fname(f"rail-{rname}-front-{end}")
             part = [p for p in rail_parts() if p.name == name][0]
             x0, y0, _, _ = part.bbox()
             msp = load(name)
@@ -903,7 +911,7 @@ def check():
        f"board outline {BOARD[2] - BOARD[0]:.2f} x {BOARD[3] - BOARD[1]:.2f} mm inside the column")
     pocket = (BOARD[0] - POCKET_MARGIN, BOARD[1] - POCKET_MARGIN, BOARD[2] + POCKET_MARGIN, BOARD[3] + POCKET_MARGIN)
     ok(pocket[0] > DIVIDER[1] and pocket[2] < RIGHT_WALL[0] and pocket[1] > 160.0 and pocket[3] < AP_Y,
-       f"board pocket {pocket[2] - pocket[0]:.2f} x {pocket[3] - pocket[1]:.2f} mm inside bezel-inner-column-1, "
+       f"board pocket {pocket[2] - pocket[0]:.2f} x {pocket[3] - pocket[1]:.2f} mm inside bezel_inner_column_1, "
        f"clear of the divider and right-wall mortises")
     # Nothing inside the box sits where something else is. Bodies only, no tabs,
     # as boxes (x0, y0, v0, x1, y1, v1); v is depth behind the panel face.
