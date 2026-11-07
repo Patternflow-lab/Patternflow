@@ -351,7 +351,7 @@ export function draw(display, params) {
     glyph("1", x0 + 1, nTop, 1, colour(hue(k) + 0.08, 0.3, 1), GV * 1.2, hN);
     glyph("1", x0 + 1, nTop, 1, colour(hue(k) + 0.08, 0.3, 1), nA * lit, hN);
   }
-  // ----- the rungs: numeral, plus, and after the last written one, the tail -----
+  // ----- the rungs: a numeral and a plus, then after the last written one the tail -----
   const dimC = (k) => colour(hue(k) + 0.3, 0.4, 0.68);
   for (let k = 0; k <= D; k++) {
     const x = X[k] - sx, str = String(q[k]), w = tw(str, 1), yT = cy(k) - floor(hN / 2), yP = cy(k) - 2;
