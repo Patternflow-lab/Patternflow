@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="676.8pt" height="374.4pt" viewBox="0 0 676.8 374.4" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.2, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 374.4 
+L 676.8 374.4 
+L 676.8 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 100.9728 62.845714 
+Q 120.7584 62.845714 138.978752 62.845714 
+" style="fill: none; stroke: #8b4513; stroke-width: 1.4; stroke-linecap: round"/>
+    <path d="M 135.778752 61.245714 
+L 138.978752 62.845714 
+L 135.778752 64.445714 
+z
+" style="fill: #8b4513; stroke: #8b4513; stroke-width: 1.4; stroke-linecap: round"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 252.6624 62.845714 
+Q 272.448 62.845714 290.668352 62.845714 
+" style="fill: none; stroke: #8b4513; stroke-width: 1.4; stroke-linecap: round"/>
+    <path d="M 287.468352 61.245714 
+L 290.668352 62.845714 
+L 287.468352 64.445714 
+z
+" style="fill: #8b4513; stroke: #8b4513; stroke-width: 1.4; stroke-linecap: round"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 351.5904 85.165714 
+Q 351.5904 110.674286 351.5904 134.61761 
+" style="fill: none; stroke: #d62828; stroke-width: 1.4; stroke-linecap: round"/>
+    <path d="M 353.1904 131.41761 
+L 351.5904 134.61761 
+L 349.9904 131.41761 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 1.4; stroke-linecap: round"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 410.9472 149.574857 
+Q 486.792 92.658857 561.831981 36.346816 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 558.312156 36.987778 
+L 561.831981 36.346816 
+L 560.232855 39.547253 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 410.9472 159.778286 
+Q 486.792 123.269143 561.730144 87.196434 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 558.152838 87.142707 
+L 561.730144 87.196434 
+L 559.540779 90.026042 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 410.9472 169.981714 
+Q 486.792 153.879429 561.652508 137.986114 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 558.189993 137.085564 
+L 561.652508 137.986114 
+L 558.854559 140.215796 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 410.9472 180.185143 
+Q 486.792 184.489714 561.632186 188.737269 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 558.52799 186.958515 
+L 561.632186 188.737269 
+L 558.346665 190.153374 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 318.6144 193.577143 
+Q 318.6144 225.462857 318.6144 256.342341 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 320.2144 253.142341 
+L 318.6144 256.342341 
+L 317.0144 253.142341 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 302.1264 180.822857 
+Q 260.9064 225.462857 220.36903 269.36359 
+" style="fill: none; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+    <path d="M 223.715424 268.098027 
+L 220.36903 269.36359 
+L 221.364416 265.927137 
+z
+" style="fill: #d62828; stroke: #d62828; stroke-width: 0.9; stroke-linecap: round"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 219.6864 292.422857 
+Q 255.96 292.422857 290.668352 292.422857 
+" style="fill: none; stroke: #3a8fd8; stroke-width: 1.4; stroke-linecap: round"/>
+    <path d="M 287.468352 290.822857 
+L 290.668352 292.422857 
+L 287.468352 294.022857 
+z
+" style="fill: #3a8fd8; stroke: #3a8fd8; stroke-width: 1.4; stroke-linecap: round"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 160.3296 257.348571 
+Q 160.3296 238.217143 160.3296 220.650962 
+" style="fill: none; stroke: #1f6fd1; stroke-width: 1.4; stroke-linecap: round"/>
+    <path d="M 158.7296 223.850962 
+L 160.3296 220.650962 
+L 161.9296 223.850962 
+z
+" style="fill: #1f6fd1; stroke: #1f6fd1; stroke-width: 1.4; stroke-linecap: round"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 410.9472 282.857143 
+Q 486.792 164.88 561.669442 48.407589 
+" style="fill: none; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 558.593107 50.234105 
+L 561.669442 48.407589 
+L 561.284853 51.964567 
+z
+" style="fill: #a0a0a0; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 410.9472 277.117714 
+Q 486.792 187.518857 561.481034 99.285359 
+" style="fill: none; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 558.192322 100.694037 
+L 561.481034 99.285359 
+L 560.63475 102.761535 
+z
+" style="fill: #a0a0a0; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 410.9472 271.378286 
+Q 486.792 210.157714 561.244829 150.060717 
+" style="fill: none; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 557.749842 150.82561 
+L 561.244829 150.060717 
+L 559.759752 153.315643 
+z
+" style="fill: #a0a0a0; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 410.9472 265.638857 
+Q 486.792 232.796571 560.995239 200.665114 
+" style="fill: none; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+    <path d="M 557.422941 200.468425 
+L 560.995239 200.665114 
+L 558.694509 203.404939 
+z
+" style="fill: #a0a0a0; stroke: #a0a0a0; stroke-width: 1.6; stroke-linecap: round"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 18.5328 87.078857 
+L 97.6752 87.078857 
+Q 102.95136 87.078857 102.95136 81.977143 
+L 102.95136 43.714286 
+Q 102.95136 38.612571 97.6752 38.612571 
+L 18.5328 38.612571 
+Q 13.25664 38.612571 13.25664 43.714286 
+L 13.25664 81.977143 
+Q 13.25664 87.078857 18.5328 87.078857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #f4f4f4; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_18">
+    <path d="M 143.8416 87.078857 
+L 249.3648 87.078857 
+Q 254.64096 87.078857 254.64096 81.977143 
+L 254.64096 43.714286 
+Q 254.64096 38.612571 249.3648 38.612571 
+L 143.8416 38.612571 
+Q 138.56544 38.612571 138.56544 43.714286 
+L 138.56544 81.977143 
+Q 138.56544 87.078857 143.8416 87.078857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #efe7da; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_19">
+    <path d="M 295.5312 87.078857 
+L 407.6496 87.078857 
+Q 412.92576 87.078857 412.92576 81.977143 
+L 412.92576 43.714286 
+Q 412.92576 38.612571 407.6496 38.612571 
+L 295.5312 38.612571 
+Q 290.25504 38.612571 290.25504 43.714286 
+L 290.25504 81.977143 
+Q 290.25504 87.078857 295.5312 87.078857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #e6e8eb; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_20">
+    <path d="M 295.5312 195.490286 
+L 407.6496 195.490286 
+Q 412.92576 195.490286 412.92576 190.388571 
+L 412.92576 139.371429 
+Q 412.92576 134.269714 407.6496 134.269714 
+L 295.5312 134.269714 
+Q 290.25504 134.269714 290.25504 139.371429 
+L 290.25504 190.388571 
+Q 290.25504 195.490286 295.5312 195.490286 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #ece7e7; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_21">
+    <path d="M 565.9344 55.193143 
+L 658.2672 55.193143 
+Q 663.54336 55.193143 663.54336 50.091429 
+L 663.54336 21.394286 
+Q 663.54336 16.292571 658.2672 16.292571 
+L 565.9344 16.292571 
+Q 560.65824 16.292571 560.65824 21.394286 
+L 560.65824 50.091429 
+Q 560.65824 55.193143 565.9344 55.193143 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #2b2b2b; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_22">
+    <path d="M 565.9344 106.210286 
+L 658.2672 106.210286 
+Q 663.54336 106.210286 663.54336 101.108571 
+L 663.54336 72.411429 
+Q 663.54336 67.309714 658.2672 67.309714 
+L 565.9344 67.309714 
+Q 560.65824 67.309714 560.65824 72.411429 
+L 560.65824 101.108571 
+Q 560.65824 106.210286 565.9344 106.210286 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #2b2b2b; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_23">
+    <path d="M 565.9344 157.227429 
+L 658.2672 157.227429 
+Q 663.54336 157.227429 663.54336 152.125714 
+L 663.54336 123.428571 
+Q 663.54336 118.326857 658.2672 118.326857 
+L 565.9344 118.326857 
+Q 560.65824 118.326857 560.65824 123.428571 
+L 560.65824 152.125714 
+Q 560.65824 157.227429 565.9344 157.227429 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #2b2b2b; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_24">
+    <path d="M 565.9344 208.244571 
+L 658.2672 208.244571 
+Q 663.54336 208.244571 663.54336 203.142857 
+L 663.54336 174.445714 
+Q 663.54336 169.344 658.2672 169.344 
+L 565.9344 169.344 
+Q 560.65824 169.344 560.65824 174.445714 
+L 560.65824 203.142857 
+Q 560.65824 208.244571 565.9344 208.244571 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #2b2b2b; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_25">
+    <path d="M 295.5312 310.278857 
+L 407.6496 310.278857 
+Q 412.92576 310.278857 412.92576 305.177143 
+L 412.92576 260.537143 
+Q 412.92576 255.435429 407.6496 255.435429 
+L 295.5312 255.435429 
+Q 290.25504 255.435429 290.25504 260.537143 
+L 290.25504 305.177143 
+Q 290.25504 310.278857 295.5312 310.278857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #dfeee5; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_26">
+    <path d="M 104.2704 310.278857 
+L 216.3888 310.278857 
+Q 221.66496 310.278857 221.66496 305.177143 
+L 221.66496 260.537143 
+Q 221.66496 255.435429 216.3888 255.435429 
+L 104.2704 255.435429 
+Q 98.99424 255.435429 98.99424 260.537143 
+L 98.99424 305.177143 
+Q 98.99424 310.278857 104.2704 310.278857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #dfeee5; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_27">
+    <path d="M 104.2704 220.998857 
+L 216.3888 220.998857 
+Q 221.66496 220.998857 221.66496 215.897143 
+L 221.66496 171.257143 
+Q 221.66496 166.155429 216.3888 166.155429 
+L 104.2704 166.155429 
+Q 98.99424 166.155429 98.99424 171.257143 
+L 98.99424 215.897143 
+Q 98.99424 220.998857 104.2704 220.998857 
+z
+" clip-path="url(#p78b941d30e)" style="fill: #e3ebf6; stroke: #555555; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_1">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(47.23425 60.395605)">mains</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(32.896687 69.037011)">220–240 V AC</text>
+   </g>
+   <g id="text_2">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(173.461388 60.395324)">IEC C14 inlet</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(161.362575 69.037292)">switch, T3.15A fuse</text>
+   </g>
+   <g id="text_3">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(333.073463 56.074902)">Mean Well</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(330.967463 64.716308)">LRS-150F-5</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(335.21715 73.357714)">5 V, 22 A</text>
+   </g>
+   <g id="text_4">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(313.148025 162.429609)">6-way blade fuse box</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(328.258463 171.071578)">negative bus</text>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(582.3018 33.292748)">panel, upper left</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(595.343363 41.934154)">128 × 64</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(579.674363 84.309891)">panel, upper right</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(595.343363 92.951297)">128 × 64</text>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(583.007175 135.327033)">panel, lower left</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(595.343363 143.96844)">128 × 64</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(580.379738 186.344176)">panel, lower right</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'; fill: #ffffff" transform="translate(595.343363 194.985583)">128 × 64</text>
+   </g>
+   <g id="text_9">
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #d62828" x="490.0896" y="36.699429" transform="rotate(-0 490.0896 36.699429)">7.5 A fuse, 0.75 mm² (18 AWG) each</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(320.044838 280.406752)">Colorlight 5A-75B</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(314.345025 289.048721)">receiver75 gateware</text>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(134.3421 280.406752)">Raspberry Pi 5</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(136.4346 289.048721)">Active Cooler</text>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(128.096663 191.126752)">4 × Adafruit 4991</text>
+    <text style="font-size: 7.2px; font-family: 'DejaVu Sans'" transform="translate(124.448288 199.768721)">+ PEC11R encoders</text>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #666666" x="490.0896" y="281.581714" transform="rotate(-0 490.0896 281.581714)">HUB75 ribbons: J5, J8, J4, J1</text>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 6.6px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #444444" x="15.2352" y="346.628571" transform="rotate(-0 15.2352 346.628571)">Mains stays in the column. Two leads cross the divider into the space behind the panels: the 5 V pairs and the knobs' I²C lead.</text>
+   </g>
+   <g id="text_15">
+    <g id="patch_28">
+     <path d="M 103.6014 37.095107 
+L 137.9154 37.095107 
+L 137.9154 29.926607 
+L 103.6014 29.926607 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #8b4513" x="120.7584" y="35.173607" transform="rotate(-0 120.7584 35.173607)">L, N, earth</text>
+   </g>
+   <g id="text_16">
+    <g id="patch_29">
+     <path d="M 245.057 37.094857 
+L 299.839 37.094857 
+L 299.839 29.926857 
+L 245.057 29.926857 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #8b4513" x="272.448" y="35.173357" transform="rotate(-0 272.448 35.173357)">0.75 mm², 300 V</text>
+   </g>
+   <g id="text_17">
+    <g id="patch_30">
+     <path d="M 372.11784 118.739786 
+L 426.03384 118.739786 
+L 426.03384 102.608786 
+L 372.11784 102.608786 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #d62828" transform="translate(372.50184 108.496411)">2 pairs, 1.5 mm²</text>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #d62828" transform="translate(383.83234 116.177661)">(16 AWG)</text>
+   </g>
+   <g id="text_18">
+    <g id="patch_31">
+     <path d="M 276.16202 229.047107 
+L 303.02902 229.047107 
+L 303.02902 221.878607 
+L 276.16202 221.878607 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #d62828" x="289.59552" y="227.125607" transform="rotate(-0 289.59552 227.125607)">3 A fuse</text>
+   </g>
+   <g id="text_19">
+    <g id="patch_32">
+     <path d="M 233.0067 210.570893 
+L 275.6157 210.570893 
+L 275.6157 194.439393 
+L 233.0067 194.439393 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #d62828" transform="translate(241.2617 200.327018)">5 A fuse</text>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #d62828" transform="translate(233.3907 208.008768)">USB-C pigtail</text>
+   </g>
+   <g id="text_20">
+    <g id="patch_33">
+     <path d="M 229.6865 307.485964 
+L 282.2335 307.485964 
+L 282.2335 300.317464 
+L 229.6865 300.317464 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; text-anchor: middle; fill: #3a8fd8" x="255.96" y="305.564464" transform="rotate(-0 255.96 305.564464)">gigabit Ethernet</text>
+   </g>
+   <g id="text_21">
+    <g id="patch_34">
+     <path d="M 123.95076 246.282393 
+L 141.30876 246.282393 
+L 141.30876 230.151893 
+L 123.95076 230.151893 
+z
+" style="fill: #ffffff"/>
+    </g>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #1f6fd1" transform="translate(128.16826 236.039018)">I²C</text>
+    <text style="font-size: 6.4px; font-family: 'DejaVu Sans'; fill: #1f6fd1" transform="translate(124.33476 243.720268)">3.3 V</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p78b941d30e">
+   <rect x="8.64" y="8.64" width="659.52" height="357.12"/>
+  </clipPath>
+ </defs>
+</svg>

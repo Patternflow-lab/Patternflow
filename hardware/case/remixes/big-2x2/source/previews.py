@@ -405,7 +405,7 @@ def wiring(path_png, path_svg):
             "the panels: the 5 V pairs and the knobs' I²C lead.", fontsize=6.6, color="#444")
     fig.tight_layout()
     fig.savefig(path_png, dpi=150)
-    fig.savefig(path_svg)
+    fig.savefig(path_svg, metadata={"Date": None})
     plt.close(fig)
 
 

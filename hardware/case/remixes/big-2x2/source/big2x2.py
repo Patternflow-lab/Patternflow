@@ -31,6 +31,9 @@ from shapely import affinity
 from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
+# no timestamps and no fresh GUIDs, so a rerun writes the same bytes
+ezdxf.options.write_fixed_meta_data_for_testing = True
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
@@ -565,11 +568,6 @@ def write_dxf(path, placed, kerf):
         for x, y, af in hexes:
             msp.add_lwpolyline([(_r(a), _r(b)) for a, b in hex_points(x, y, af)],
                                close=True, dxfattribs=att)
-    # fixed handles and no timestamps, so a rerun writes the same bytes
-    doc.header["$TDCREATE"] = 2461000.5
-    doc.header["$TDUPDATE"] = 2461000.5
-    doc.header["$FINGERPRINTGUID"] = "{00000000-0000-0000-0000-000000000000}"
-    doc.header["$VERSIONGUID"] = "{00000000-0000-0000-0000-000000000000}"
     doc.saveas(path)
 
 
@@ -751,8 +749,8 @@ def main(argv=None):
         write_svg(os.path.join(sheet_dir, f"sheet-{i}.svg"), placed, a.kerf, SHEET_W, SHEET_H, True)
     tp = []
     x = SHEET_MARGIN
-    for p in tests:
-        n = p.normalised().moved(x, SHEET_MARGIN)
+    for p in tests:                       # the panel template lies on its side
+        n = p.normalised().moved(x, SHEET_MARGIN, rot=p.name == "panel_template")
         tp.append(n)
         x = n.bounds()[2] + 6
     write_dxf(os.path.join(sheet_dir, "test-cuts.dxf"), tp, a.kerf)
@@ -770,4 +768,8 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # ezdxf orders two objects in each file by string hash; a fixed seed
+    # keeps that order, and the bytes, the same from run to run
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        os.execve(sys.executable, [sys.executable, *sys.argv], {**os.environ, "PYTHONHASHSEED": "0"})
     main()

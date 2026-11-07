@@ -1,0 +1,4 @@
+ezdxf==1.4.5
+shapely==2.2.0
+matplotlib==3.11.2
+numpy==2.5.3
