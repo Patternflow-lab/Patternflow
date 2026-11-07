@@ -118,12 +118,26 @@ KNOBS = {
     "k3": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] - KNOB_PITCH / 2),
 }
 KNOB_POCKET = 35.0         # square, in the inner bezel layer: the bushing clamps the outer sheet alone
-# Buttons for patternflood's menu, left to right: previous, select, next, sleep.
-# 12 mm thread with two flats 11 mm apart, through both bezel layers.
-BUTTON_Y = 205.0
-BUTTONS = {"previous": 187.0, "select": 211.0, "next": 235.0, "sleep": 259.0}
-BUTTON_HOLE = 12.2
-BUTTON_FLATS = 11.1
+# A touch screen under the knobs: the Raspberry Pi Touch Display 2, 5-inch, on
+# the Pi's DSI port. Its outline, viewing area and standoffs are from Raspberry
+# Pi's product brief (approximate there, so test-fit before cutting the face).
+DISPLAY = (91.46, 143.4)               # outline, portrait
+DISPLAY_VIEW = (63.1, 111.4)           # the window in the face, centred on the outline
+DISPLAY_CENTRE = (223.0, 154.3)        # its top edge 4 mm under the knob pockets
+DISPLAY_DEPTH = 14.92                  # glass front to the standoffs' faces
+DISPLAY_CLEAR = 0.2                    # each side, in the inner layer's pocket
+_dx, _dy = DISPLAY_CENTRE
+_dbot = _dy - DISPLAY[1] / 2
+DISPLAY_STANDOFFS = [(_dx + sx * 24.5, _dbot + y) for y in (33.91, 91.91) for sx in (-1, 1)]   # M2.5, on its back
+DISPLAY_FFC = (_dx, _dbot + 36.0)      # ribbon connector on its back, between the lower standoffs
+DISPLAY_J1 = (_dx + 21.7, _dbot + 50.0)  # its power lead's socket
+# A bracket screws to the standoffs and to two posts glued into the column's
+# corners, and holds the glass against the face.
+POST_LAYERS = 4                        # 12 mm: the inner layer's back to the standoffs' faces
+POSTS = [(DIVIDER[1], DIVIDER[1] + 8.0), (RIGHT_WALL[0] - 8.0, RIGHT_WALL[0])]
+POST_Y = (_dy - 40.0, _dy + 25.0)
+BRACKET = (DIVIDER[1] + 1.0, _dy - 47.0, RIGHT_WALL[0] - 1.0, _dy + 28.0)
+BRACKET_SCREWS = [((a + b) / 2, _dy + d) for a, b in POSTS for d in (-30.0, 15.0)]
 
 # Supplies on the power tray, terminals down, bases on the tray.
 # Panels: Mean Well LRS-150F-5, 159 x 97 x 30, 22 A.
@@ -141,6 +155,7 @@ IEC_SCREW_PITCH = 40.0
 
 STIFF_Y = [111.333, -111.333]
 COL_SPLIT = 100.0          # the column's back: Pi piece above, power tray below
+COL_INNER_SPLIT = 75.0     # the column's inner face layer is cut here, under the display's pocket
 DIV_WINDOWS = [(215.0, 275.0), (-70.0, -20.0), (-250.0, -190.0)]   # Ethernet, card power, panel power
 WINDOW_DEPTH = (20.0, 50.0)
 
@@ -287,18 +302,6 @@ def side_wall_tabs_in(lo, hi):
 # --------------------------------------------------------------------------
 
 
-def keyed(cx, cy, d=BUTTON_HOLE, flats=BUTTON_FLATS, n=12):
-    """A round hole with two vertical flats, for a keyed panel-mount button."""
-    r, f = d / 2, flats / 2
-    a0 = math.acos(f / r)
-    pts = []
-    for side in (0, 1):
-        start = a0 + side * math.pi
-        end = math.pi - a0 + side * math.pi
-        for i in range(n + 1):
-            a = start + (end - start) * i / n
-            pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
-    return poly(pts)
 
 
 def bezel_parts():
@@ -317,7 +320,8 @@ def bezel_parts():
         shapes = [rect(x0, y0, x1, y1)]
         if name == "bezel-outer-column-upper":
             shapes += [circle(x, y, KNOB_BORE) for x, y in KNOBS.values()]
-            shapes += [keyed(x, BUTTON_Y) for x in BUTTONS.values()]
+            vw, vh = DISPLAY_VIEW
+            shapes.append(rect(_dx - vw / 2, _dy - vh / 2, _dx + vw / 2, _dy + vh / 2))
         parts.append(Part(name, 1, "Bezel, outer layer (the face)", shapes))
 
     # Inner layer: glued behind the outer one, joints staggered, and the
@@ -328,8 +332,8 @@ def bezel_parts():
         "bezel-inner-left-1": (X_L, 160.0, -AP_X, AP_Y),
         "bezel-inner-left-2": (X_L, -160.0, -AP_X, 160.0),
         "bezel-inner-left-3": (X_L, -AP_Y, -AP_X, -160.0),
-        "bezel-inner-column-1": (AP_X, 160.0, X_R, AP_Y),
-        "bezel-inner-column-2": (AP_X, -160.0, X_R, 160.0),
+        "bezel-inner-column-1": (AP_X, COL_INNER_SPLIT, X_R, AP_Y),
+        "bezel-inner-column-2": (AP_X, -160.0, X_R, COL_INNER_SPLIT),
         "bezel-inner-column-3": (AP_X, -AP_Y, X_R, -160.0),
     }
     for name, (x0, y0, x1, y1) in inner.items():
@@ -346,7 +350,8 @@ def bezel_parts():
         if name == "bezel-inner-column-1":
             h = KNOB_POCKET / 2
             shapes += [rect(x - h, y - h, x + h, y + h) for x, y in KNOBS.values()]
-            shapes += [circle(x, BUTTON_Y, BUTTON_HOLE + 0.6) for x in BUTTONS.values()]
+            c = DISPLAY_CLEAR
+            shapes.append(rect(_dx - DISPLAY[0] / 2 - c, _dy - DISPLAY[1] / 2 - c, _dx + DISPLAY[0] / 2 + c, _dy + DISPLAY[1] / 2 + c))
         parts.append(Part(name, 1, "Bezel, inner layer (mortises)", shapes))
     return parts
 
@@ -514,6 +519,22 @@ def back_parts():
     return parts
 
 
+def display_parts():
+    x0, y0, x1, y1 = BRACKET
+    lo, hi = _dy - 30.0, _dy + 12.0          # where the power socket and the ribbon need room
+    # A notch from the bottom edge clears the ribbon connector and J1, between the standoffs.
+    outline = poly([(x0, y0), (204.0, y0), (204.0, hi), (251.0, hi), (251.0, lo), (242.0, lo), (242.0, y0),
+                    (x1, y0), (x1, y1), (x0, y1)])
+    shapes = [outline] + [circle(x, y, M2_5_HOLE) for x, y in DISPLAY_STANDOFFS]
+    shapes += [circle(x, y, M3_HOLE) for x, y in BRACKET_SCREWS]
+    parts = [Part("display-bracket", 1, "Holds the touch screen against the face: its standoffs and two posts", shapes)]
+    w = POSTS[0][1] - POSTS[0][0]
+    parts.append(Part("display-post", POST_LAYERS * len(POSTS),
+                      f"Display post, {POST_LAYERS} glued per post, {len(POSTS)} posts",
+                      [rect(0, 0, w, POST_Y[1] - POST_Y[0])]))
+    return parts
+
+
 def cradle_parts():
     depth = D_WALL_BACK + T + 0.5        # the box, front to back, plus a little
     f, base, lip_f, lip_b, back = 60.0, 15.0, 10.0, 15.0, 60.0   # lips low: clear of the pixels and the inlet
@@ -534,9 +555,11 @@ def test_cut_parts():
         shapes.append(rect(x, 15, x + w, 30))
     shapes.append(circle(6, 6, 1.5))      # marks the T-0.2 end
     parts.append(Part("test-01-kerf-comb", 1, "Slot widths T-0.2 to T+0.2, the small hole marks the narrow end", shapes))
-    # One knob bore and one keyed button hole.
-    parts.append(Part("test-02-knob-and-button", 1, "A knob bore and a keyed button hole",
-                      [rect(0, 0, 60, 30), circle(15, 15, KNOB_BORE), keyed(42, 15)]))
+    # One knob bore, and the display's four standoffs as the bracket has them.
+    sx0, sy0 = min(x for x, _ in DISPLAY_STANDOFFS), min(y for _, y in DISPLAY_STANDOFFS)
+    shapes = [rect(0, 0, 80, 80), circle(10, 70, KNOB_BORE)]
+    shapes += [circle(x - sx0 + 15, y - sy0 + 11, M2_5_HOLE) for x, y in DISPLAY_STANDOFFS]
+    parts.append(Part("test-02-knob-and-display", 1, "A knob bore, and the display's standoff holes", shapes))
     # One panel's rail holes: screw it to a real panel before cutting rails.
     shapes = [rect(-15, -165, 15, 165)]
     for sx, sy in PANEL_SCREWS:
@@ -555,7 +578,7 @@ def test_cut_parts():
 
 
 def all_parts():
-    return bezel_parts() + wall_parts() + rail_parts() + back_parts() + cradle_parts()
+    return bezel_parts() + wall_parts() + rail_parts() + back_parts() + display_parts() + cradle_parts()
 
 
 # --------------------------------------------------------------------------
@@ -770,9 +793,13 @@ def write_front_svg():
     for name, (x, y) in KNOBS.items():
         o.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="10" fill="#1d1d1d"/>')
         o.append(f'<text x="{X(x):.1f}" y="{Y(y) + 3:.1f}" font-size="8" fill="#fff" text-anchor="middle">{name}</text>')
-    for name, x in BUTTONS.items():
-        o.append(f'<circle cx="{X(x):.1f}" cy="{Y(BUTTON_Y):.1f}" r="6" fill="#555"/>')
-    o.append(f'<text x="{X(KNOB_CENTRE[0]):.1f}" y="{Y(BUTTON_Y) + 18:.1f}" font-size="7" fill="#333" text-anchor="middle">prev · select · next · sleep</text>')
+    vw, vh = DISPLAY_VIEW
+    o.append(f'<rect x="{X(_dx - vw / 2):.1f}" y="{Y(_dy + vh / 2):.1f}" width="{vw}" height="{vh}" rx="2" fill="#10203a" stroke="#000" stroke-width="0.6"/>')
+    for k, t in enumerate(("shelves", "pattern", "brightness", "sleep")):
+        yy = _dy + vh / 2 - 14 - k * 22
+        o.append(f'<rect x="{X(_dx - vw / 2 + 6):.1f}" y="{Y(yy):.1f}" width="{vw - 12}" height="15" rx="3" fill="#24406b"/>')
+        o.append(f'<text x="{X(_dx):.1f}" y="{Y(yy) + 10.5:.1f}" font-size="8" fill="#dfe8f5" text-anchor="middle">{t}</text>')
+    o.append(f'<text x="{X(_dx):.1f}" y="{Y(_dy - vh / 2) + 12:.1f}" font-size="7" fill="#333" text-anchor="middle">5-inch touch screen</text>')
     def hdim(x0, x1, y, text):
         o.append(f'<line x1="{X(x0)}" y1="{Y(y)}" x2="{X(x1)}" y2="{Y(y)}" stroke="#555" stroke-width="0.6"/>')
         for x in (x0, x1):
@@ -791,7 +818,8 @@ def write_front_svg():
     leg = [("#16161d", "Four 320 × 160 panels, 128 × 64 each"),
            ("#2ecc71", "Colorlight 5A-75B, behind the centre"),
            ("#f5a623", "One HUB75 ribbon per panel, 30 cm"),
-           ("#c2185b", "Raspberry Pi 5, behind the knobs"),
+           ("#c2185b", "Raspberry Pi 5, behind the screen"),
+           ("#10203a", "Touch screen, 5-inch, under the knobs"),
            ("#4a90e2", "Rails behind the panels (screws, pins)"),
            ("#9013fe", "Two supplies and the inlet, power tray"),
            ("#8a6d3b", "Joints in the face layer")]
@@ -831,7 +859,7 @@ def write_wiring_svg():
     for i, name in enumerate(["P0", "P1", "P2", "P3"]):
         box(780, 20 + i * 68, 140, 50, f"Panel {name}", "")
     box(780, 330, 140, 56, "Knobs k0–k3", "4991s on I²C, 3V3")
-    box(780, 400, 140, 56, "Buttons", "GPIO 17 27 22 23")
+    box(780, 400, 140, 56, "Touch Display 2", "5-inch, DSI and pin 2")
     wire([(120, 218), (150, 218)], "#b00020")
     wire([(280, 205), (305, 205), (305, 105), (330, 105)], "#b00020")
     wire([(280, 232), (305, 232), (305, 335), (330, 335)], "#b00020")
@@ -852,6 +880,7 @@ def write_wiring_svg():
     label(560, 285, "HUB75, one output per panel", "#1565c0")
     wire([(710, 428), (780, 358)], "#2e7d32", w=1.6)
     wire([(710, 440), (780, 428)], "#2e7d32", w=1.6)
+    label(718, 452, "DSI ribbon", "#2e7d32", 9)
     label(22, 400, "Pi ⇄ card: gigabit Ethernet, a 50 cm patch. The card will not link at 100 Mbit.", "#1565c0", 11)
     label(22, 420, "Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.", "#333", 11)
     label(22, 440, "Grounds meet through the ribbons; each panel returns its current on its own lead.", "#333", 11)
@@ -942,8 +971,22 @@ def check():
     ys = sorted({c[1] for c in knobs})
     ok(len(knobs) == 4 and abs(xs[1] - xs[0] - KNOB_PITCH) < 0.01 and abs(ys[1] - ys[0] - KNOB_PITCH) < 0.01,
        f"knob bores: {len(knobs)} at {xs[1] - xs[0]:.2f} x {ys[1] - ys[0]:.2f} mm, the 4991 breakouts need 45")
-    btn = [e for e in load("bezel-outer-column-upper").query("LWPOLYLINE") if len(e) > 8]
-    ok(len(btn) == len(BUTTONS), f"{len(btn)} keyed button holes")
+    part = [p for p in all_parts() if p.name == fname("bezel-outer-column-upper")][0]
+    px0, py0, _, _ = part.bbox()
+    wins = []
+    for e in load("bezel-outer-column-upper").query("LWPOLYLINE"):
+        xs_ = [q[0] + px0 for q in e.get_points("xy")]
+        ys_ = [q[1] + py0 for q in e.get_points("xy")]
+        if 50 < max(xs_) - min(xs_) < 80:
+            wins.append((max(xs_) - min(xs_), max(ys_) - min(ys_), (max(xs_) + min(xs_)) / 2, (max(ys_) + min(ys_)) / 2))
+    ok(len(wins) == 1 and abs(wins[0][0] - DISPLAY_VIEW[0]) < 0.01 and abs(wins[0][1] - DISPLAY_VIEW[1]) < 0.01
+       and abs(wins[0][2] - _dx) < 0.01 and abs(wins[0][3] - _dy) < 0.01,
+       f"screen window {wins[0][0]:.2f} x {wins[0][1]:.2f} mm, the Touch Display 2's viewing area, centred on its outline")
+    br = [c for c in placed_circles("display-bracket") if abs(c[2] - M2_5_HOLE) < 0.01]
+    bxs = sorted({c[0] for c in br})
+    bys = sorted({c[1] for c in br})
+    ok(len(br) == 4 and abs(bxs[1] - bxs[0] - 49.0) < 0.01 and abs(bys[1] - bys[0] - 58.0) < 0.01,
+       f"display bracket: 4 holes {bxs[1] - bxs[0]:.1f} x {bys[1] - bys[0]:.1f} mm, the screen's standoffs (49 x 58)")
 
     # The card and the Pi land on the holes their makers drilled.
     card = [c for c in placed_circles("back-display-middle") if abs(c[2] - M3_HOLE) < 0.01 and
@@ -1014,8 +1057,20 @@ def check():
     for name, (x, y) in KNOBS.items():
         # encoder body, 4991 board and its STEMMA QT plugs and cables
         boxes[f"knob {name}"] = (x - 13, y - 13, T, x + 13, y + 13, T + 30)
-    for name, x in BUTTONS.items():
-        boxes[f"button {name}"] = (x - 8, BUTTON_Y - 8, T, x + 8, BUTTON_Y + 8, T + 25)
+    hw, hh = DISPLAY[0] / 2, DISPLAY[1] / 2
+    boxes["screen"] = (_dx - hw, _dy - hh, T, _dx + hw, _dy + hh, T + DISPLAY_DEPTH)
+    post_back = D_BEZEL + POST_LAYERS * T
+    # the bracket as its three solid pieces round the notch
+    bx0, by0, bx1, by1 = BRACKET
+    nlo, nhi = _dy - 30.0, _dy + 12.0
+    boxes["screen bracket, left"] = (bx0, by0, post_back, 204.0, by1, post_back + T)
+    boxes["screen bracket, right"] = (242.0, by0, post_back, bx1, nlo, post_back + T)
+    boxes["screen bracket, right upper"] = (251.0, nlo, post_back, bx1, nhi, post_back + T)
+    boxes["screen bracket, top"] = (204.0, nhi, post_back, 251.0, by1, post_back + T)
+    for i, (a, b) in enumerate(POSTS):
+        boxes[f"screen post {i}"] = (a, POST_Y[0], D_BEZEL, b, POST_Y[1], post_back)
+    # the screen's ribbon, out of its connector and round to the Pi
+    boxes["screen ribbon"] = (DISPLAY_FFC[0] - 13, DISPLAY_FFC[1] - 6, post_back, DISPLAY_FFC[0] + 13, DISPLAY_FFC[1] + 6, post_back + 15)
     boxes["supply, panels"] = (PSU[0], PSU[1], D_WALL_BACK - 30.0, PSU[2], PSU[3], D_WALL_BACK)
     boxes["supply, Pi and card"] = (PSU_PI[0], PSU_PI[1], D_WALL_BACK - 30.0, PSU_PI[2], PSU_PI[3], D_WALL_BACK)
     cx, cy = IEC_CENTRE

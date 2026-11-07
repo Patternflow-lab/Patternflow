@@ -30,8 +30,8 @@
 <text x="850.0" y="353.0" text-anchor="middle" font-weight="bold">Knobs k0–k3</text>
 <text x="850.0" y="370.0" text-anchor="middle" font-size="10" fill="#555">4991s on I²C, 3V3</text>
 <rect x="780" y="400" width="140" height="56" rx="6" fill="#f6f6f6" stroke="#333" stroke-width="1.2"/>
-<text x="850.0" y="423.0" text-anchor="middle" font-weight="bold">Buttons</text>
-<text x="850.0" y="440.0" text-anchor="middle" font-size="10" fill="#555">GPIO 17 27 22 23</text>
+<text x="850.0" y="423.0" text-anchor="middle" font-weight="bold">Touch Display 2</text>
+<text x="850.0" y="440.0" text-anchor="middle" font-size="10" fill="#555">5-inch, DSI and pin 2</text>
 <polyline points="120,218 150,218" fill="none" stroke="#b00020" stroke-width="2.5"/>
 <polyline points="280,205 305,205 305,105 330,105" fill="none" stroke="#b00020" stroke-width="2.5"/>
 <polyline points="280,232 305,232 305,335 330,335" fill="none" stroke="#b00020" stroke-width="2.5"/>
@@ -54,6 +54,7 @@
 <text x="560" y="285" font-size="10" fill="#1565c0">HUB75, one output per panel</text>
 <polyline points="710,428 780,358" fill="none" stroke="#2e7d32" stroke-width="1.6"/>
 <polyline points="710,440 780,428" fill="none" stroke="#2e7d32" stroke-width="1.6"/>
+<text x="718" y="452" font-size="9" fill="#2e7d32">DSI ribbon</text>
 <text x="22" y="400" font-size="11" fill="#1565c0">Pi ⇄ card: gigabit Ethernet, a 50 cm patch. The card will not link at 100 Mbit.</text>
 <text x="22" y="420" font-size="11" fill="#333">Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.</text>
 <text x="22" y="440" font-size="11" fill="#333">Grounds meet through the ribbons; each panel returns its current on its own lead.</text>
