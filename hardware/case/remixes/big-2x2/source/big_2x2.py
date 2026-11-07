@@ -521,7 +521,7 @@ def rotate90(shapes, h):
 def write_dxf(path, placed):
     import ezdxf
     ezdxf.options.write_fixed_meta_data_for_testing = True   # same numbers, same bytes
-    doc = ezdxf.new("R2000", setup=True)
+    doc = ezdxf.new("R2000", setup=False)
     doc.units = ezdxf.units.MM
     doc.header["$INSUNITS"] = 4
     doc.header["$MEASUREMENT"] = 1
@@ -535,6 +535,14 @@ def write_dxf(path, placed):
             else:
                 msp.add_circle((s.centre[0] + dx, s.centre[1] + dy), s.r, dxfattribs={"layer": s.layer})
     doc.saveas(path)
+
+
+def write_svg(path, placed, w, h):
+    """The same cut at 1:1, in millimetres, for cutters that take SVG and not DXF."""
+    body = svg_shapes(placed, stroke="#ff0000", sw=0.1, flip_h=h)
+    with open(path, "w") as f:
+        f.write(f'<svg xmlns="http://www.w3.org/2000/svg" width="{w:.3f}mm" height="{h:.3f}mm" '
+                f'viewBox="0 0 {w:.3f} {h:.3f}">\n' + "\n".join(body) + "\n</svg>\n")
 
 
 def svg_shapes(placed, stroke="#d0021b", sw=0.35, fill="none", flip_h=None):
@@ -598,17 +606,22 @@ def write_all():
     tests = test_cut_parts()
     for sub in ("parts", "sheets", "test_cuts", "preview"):
         os.makedirs(os.path.join(ROOT, sub), exist_ok=True)
-    for p in parts:
-        write_dxf(os.path.join(ROOT, "parts", f"{p.name}.dxf"), [(to_origin(p), 0, 0)])
-    for p in tests:
-        write_dxf(os.path.join(ROOT, "test_cuts", f"{p.name}.dxf"), [(to_origin(p), 0, 0)])
+    for sub, group in (("parts", parts), ("test_cuts", tests)):
+        for p in group:
+            w, h = p.size()
+            write_dxf(os.path.join(ROOT, sub, f"{p.name}.dxf"), [(to_origin(p), 0, 0)])
+            write_svg(os.path.join(ROOT, sub, f"{p.name}.svg"), [(to_origin(p), 0, 0)], w, h)
     # Test cuts on one small sheet.
-    tsheets = nest(tests, sheet=(400.0, 360.0))
-    write_dxf(os.path.join(ROOT, "test_cuts", "all-test-cuts.dxf"), [(sh, dx, dy) for _, sh, dx, dy in tsheets[0]])
+    tsize = (400.0, 360.0)
+    tsheets = nest(tests, sheet=tsize)
+    placed = [(sh, dx, dy) for _, sh, dx, dy in tsheets[0]]
+    write_dxf(os.path.join(ROOT, "test_cuts", "all-test-cuts.dxf"), placed)
+    write_svg(os.path.join(ROOT, "test_cuts", "all-test-cuts.svg"), placed, *tsize)
     sheets = nest(parts)
     for i, items in enumerate(sheets, 1):
         placed = [(sh, dx, dy) for _, sh, dx, dy in items]
         write_dxf(os.path.join(ROOT, "sheets", f"sheet-{i:02d}.dxf"), placed)
+        write_svg(os.path.join(ROOT, "sheets", f"sheet-{i:02d}.svg"), placed, *SHEET)
     write_sheets_svg(sheets)
     write_front_svg()
     write_wiring_svg()

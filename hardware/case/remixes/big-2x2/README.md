@@ -104,11 +104,11 @@ Three vertical rails run between the top and bottom walls, 14 mm behind the face
 
 <img src="preview/sheets.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, rails with slots, the face strips, cradles and the small screw-block squares" width="100%">
 
-The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every line is a cut, on one layer named `CUT`, in millimetres.
+The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every file comes twice, as DXF and as SVG at 1:1 in millimetres, for cutters that take one and not the other. Every line is a cut: on one layer named `CUT` in the DXFs, a red hairline in the SVGs.
 
 ### Test cuts
 
-`test_cuts/all-test-cuts.dxf` holds four small pieces. Cut them on the plywood you will use, before anything else.
+`test_cuts/all-test-cuts.dxf` (and `.svg`) holds four small pieces. Cut them on the plywood you will use, before anything else.
 
 1. `test-01-kerf-comb`: five slots from T − 0.2 to T + 0.2 mm, narrow end at the small hole. Push a strip of the same sheet into each. If T is not the slot that fits snugly, measure the sheet and change `T` in `source/big_2x2.py`.
 2. `test-02-knob-bores`: the four 7.3 mm bores on the board's grid. The encoders should drop through all four at once.
@@ -158,9 +158,9 @@ The panel geometry is the device, like the two-panel 64 × 64 entry already in `
 | Path | What |
 | :--- | :--- |
 | [`source/big_2x2.py`](source/big_2x2.py) | Draws every file below from the numbers at its top. `--check` reads the DXFs back and measures them; `--render` draws `preview/sheets.png` from the sheet DXFs. Needs `ezdxf` (and `matplotlib` for `--render`) |
-| [`parts/`](parts/) | One DXF per part, and `manifest.csv` with each part's size and count |
-| [`sheets/`](sheets/) | Eight nested 600 × 300 mm sheets, and `manifest.csv` |
-| [`test_cuts/`](test_cuts/) | The four test pieces, singly and on one sheet |
+| [`parts/`](parts/) | One DXF and one SVG per part, and `manifest.csv` with each part's size and count |
+| [`sheets/`](sheets/) | Eight nested 600 × 300 mm sheets as DXF and SVG, and `manifest.csv` |
+| [`test_cuts/`](test_cuts/) | The four test pieces, singly and on one sheet, as DXF and SVG |
 | [`preview/`](preview/) | Front view, wiring and the sheets, as SVG and PNG |
 | [`bom.csv`](bom.csv) | What to buy |
 
