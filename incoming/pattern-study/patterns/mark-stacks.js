@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.2..3, Leading=1..2, Word=0..8
 //
-// Knob 1: Hue. Turns the colours round the wheel together: at 0 the letters are ice blue, the quality marks cream, and the tone marks run from orange for the acute through green for the grave, aqua for the hook and blue for the tilde to violet-pink for the dot below.
-// Knob 2: Speed. How fast the typing goes. At 2 a letter takes 0.3 s and each mark 0.55 s, a word 1.7 to 3.1 s, the five words of the opening set 13 s, and the cycle with its 3.5 s hold and its fade 18 s; 0.2 is ten times slower and 3 half as fast again.
-// Knob 3: Leading. The baseline-to-baseline distance the lines start at, 1 to 2 times the cap height of 11 LEDs: 11 LEDs at 1, 22 at 2. Under about 17 a stack touches the line above, a glow flares and the lines slide apart to the distance the marks need, 15 to 19 LEDs; over it nothing touches and the lines stay where the knob put them.
-// Knob 4: Word. Which word the stack starts with, out of nine: tieng, Viet, nguoi, nuoc, quoc, ngu, duong, nang, to, each with its marks, and the next four words after it below. The stack is built again when the knob moves.
+// Knob 1: Hue. Turns the colours round the wheel together. At 0 the letters are ice blue and the quality marks cream, and the five tone marks take a colour each once their word is complete: orange-red for the acute, lime for the grave, aqua for the hook above, blue for the tilde and magenta for the dot below.
+// Knob 2: Speed. How fast the typing goes. At 2 a letter takes 0.3 s and each mark 0.55 s, a word 1.8 to 3.3 s, and a line starts a second after the one above. The opening five words are typed by 6.7 s, held 3.2 s, faded out line by line and typed again, a cycle of 11 s. 0.2 is ten times slower and 3 half as fast again.
+// Knob 3: Leading. The distance from one baseline to the next that the lines start at, 10 LEDs at 1 and 20 at 2, where a capital is 15 LEDs tall. The marks and descenders of neighbouring lines need 15 to 20 LEDs between baselines. Under that a stack touches the line above, a glow flares at the contact and the lines slide apart to the distance that clears it; 1.75 clears most pairs, at 2 nothing touches and the lines stay where the knob put them.
+// Knob 4: Word. Which of nine words the stack starts with: tiếng, Việt, người, nước, quốc, ngữ, đường, nặng, tổ. The next four words follow below, wrapping round after tổ. The stack is typed again from the top when the knob moves.
 
 const W = 64, H = 128, N = W * H;
 const { min, max, floor, ceil, round, sqrt, sin, exp, abs } = Math;
@@ -369,7 +369,6 @@ function analyse(S, adv) {
     const want = max(S.lead, need);
     if (want > pitch) pitch = min(want, pitch + 10 * adv);
     else pitch = max(want, pitch - 16 * adv);
-    if (S.t < 0.35) pitch = S.lead;
     S.pp[k] = pitch;
     y += round(pitch);
     S.ytop[k] = y;

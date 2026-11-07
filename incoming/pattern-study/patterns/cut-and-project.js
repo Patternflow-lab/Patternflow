@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Speed=0.2..3, Window=-0.45..0.8, Phase=0..1
 //
 // Knob 1: Hue. Turns the colours round the wheel together. At 0 a long tile is cyan, a short tile pink, the band blue-violet and, when the window is wider or narrower than the unit square, a middle tile lime. The gold of the flash, the period bracket and the golden mark stays gold.
-// Knob 2: Speed. How fast the slope sweeps. At 2 the cycle of nine stops takes 33 s: it rests 1.5 s on 3/2, then 5/3, 8/5 and 13/8 each 1.7 s, and 4.6 s on the golden slope, which it reaches at 10 s; 0.2 is ten times slower and 3 half as fast again.
-// Knob 3: Window. The strip's width as a multiple of the shadow of the unit square, 1 + the knob. At 0 the width is exactly the shadow (sin + cos of the slope angle, 1.37 LEDs-in-cells at slope 3/2), the one width that gives only two tile lengths; within 0.04 of 0 it snaps there. At -0.45 the strip is 0.55 as wide and drops lattice points, at 0.8 it is 1.8 times as wide and picks up more, and either way a third tile length appears and the period is not p + q any more.
-// Knob 4: Phase. Slides the strip sideways, across its own direction, by 2.4 lattice cells at 1. Points leave the strip on one side and enter on the other and the tape reshuffles: two neighbouring tiles swap places.
+// Knob 2: Speed. How fast the slope sweeps. At 2 the cycle of nine stops takes 33.5 s: it has rested 0.5 s of its 1.5 s on 3/2 when the pattern opens, then rests 1.7 s each on 5/3, 8/5 and 13/8, reaches the golden slope at 10.5 s and stays 4.6 s, then goes on to 7/4, 2/1, 5/2 and 4/3 and back to 3/2. 0.2 is ten times slower and 3 half as fast again.
+// Knob 3: Window. The strip's width as a multiple of the shadow of the unit square, 1 plus the knob. The shadow is sin + cos of the slope angle, 1.39 cells or 9.7 LEDs at 3/2, and it is the one width that gives only two tile lengths, so within 0.04 of 0 the knob snaps there. At -0.45 the strip is 0.55 as wide and drops points, at 0.8 it is 1.8 times as wide and picks up more. Either way a third tile length appears, and the period bracket and the P number go.
+// Knob 4: Phase. Slides the strip sideways, across its own direction, by 2.4 cells (17 LEDs) at 1. Points leave the strip on one side and enter on the other, and each change in the tape is two neighbouring tiles swapping places.
 
 const W = 64, H = 128, N = W * H;
 const { min, max, floor, ceil, round, sqrt, sin, cos, atan, exp, abs, PI } = Math;
@@ -100,7 +100,7 @@ export function setup(params) {
     pal: new Float32Array(30), palHue: -1,
     tape: new Float32Array(128 * 4), dark: new Float32Array(128),
     hue: 0, speed: 2, f: 1, shift: 0, canon: true,
-    u: 0, clock: 0, stop: 0, age: 0, left: 9, m: 1.5, flash: 0, lab: "",
+    u: 0.5, clock: 0, stop: 0, age: 0, left: 9, m: 1.5, flash: 0, lab: "",
     cs: 0, sn: 0, w: 0, pc: 0, tc: 0, k0: 0,
   };
 }
