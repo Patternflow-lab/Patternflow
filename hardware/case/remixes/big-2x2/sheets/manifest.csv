@@ -1,0 +1,46 @@
+part,sheets
+back-column-lower,6
+back-column-upper,5
+back-display-lower,2
+back-display-middle,3
+back-display-upper,1
+bezel-inner-bottom,8
+bezel-inner-column-1,1
+bezel-inner-column-2,5
+bezel-inner-column-3,2
+bezel-inner-left-1,8
+bezel-inner-left-2,8
+bezel-inner-left-3,8
+bezel-inner-top,8
+bezel-outer-bottom,8
+bezel-outer-column-lower,4
+bezel-outer-column-upper,4
+bezel-outer-left-lower,8
+bezel-outer-left-upper,8
+bezel-outer-top,8
+cradle,3 4 5 5 5 5
+divider-lower,6
+divider-upper,7
+rail-left-back-lower,7
+rail-left-back-upper,6
+rail-left-front-lower,4
+rail-left-front-upper,6
+rail-middle-back-lower,4
+rail-middle-back-upper,7
+rail-middle-front-lower,7
+rail-middle-front-upper,3
+rail-right-back-lower,8
+rail-right-back-upper,8
+rail-right-front-lower,7
+rail-right-front-upper,8
+screw-block,2 2 2 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8 8
+splice,1 1 1
+stiffener-column,2
+stiffener-display-1,7
+stiffener-display-2,8
+wall-bottom,2
+wall-left-lower,3
+wall-left-upper,7
+wall-right-lower,6
+wall-right-upper,7
+wall-top,1
