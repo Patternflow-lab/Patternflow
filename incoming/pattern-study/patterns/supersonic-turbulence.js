@@ -16,16 +16,16 @@
 // Knob 3: Scale. draft
 // Knob 4: Mach. draft
 
-const NX = 64, NY = 128, N = NX * NY;
+const NX = 64, NY = 128, N = NX * NY, MX_ = NX - 1;
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, log, round } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
 // ---- tunables
-const CFL = 0.45; // Courant number of each sweep
-const RMIN = 1e-3; // density floor
-const VCAP = 9; // no cell is faster than this, in sound speeds
+const CFL = 0.55; // Courant number of each sweep
+const RMIN = 2e-4; // density floor
+const VCAP = 10; // no cell is faster than this, in sound speeds
 
 // ---- the gas ---------------------------------------------------------------------------------
 // Isothermal Euler on an nx by ny torus, c = 1 and one cell is one length unit. State: density R and momentum MX, MY.
@@ -37,7 +37,16 @@ const rA = new Float64Array(SCN), uA = new Float64Array(SCN), wA = new Float64Ar
 const rB = new Float64Array(SCN), uB = new Float64Array(SCN), wB = new Float64Array(SCN);
 const fR = new Float64Array(SCN), fQ = new Float64Array(SCN), fT = new Float64Array(SCN);
 
-function line(R, Q, T, base, stride, n, lam, lim, G) {
+// monotonised central slope of three neighbours
+const mc = (a, b) => {
+  if (a * b <= 0) return 0;
+  const aa = a < 0 ? -a : a, bb = b < 0 ? -b : b, cc = 0.5 * (a + b), c2 = cc < 0 ? -cc : cc;
+  let q = 2 * (aa < bb ? aa : bb);
+  q = q < c2 ? q : c2;
+  return a < 0 ? -q : q;
+};
+
+function line(R, Q, T, base, stride, n, lam, G) {
   const m = n + 4;
   for (let s = 0; s < m; s++) {
     let c = s - 2;
@@ -52,48 +61,7 @@ function line(R, Q, T, base, stride, n, lam, lim, G) {
   let fb = 0;
   for (let s = 1; s < m - 1; s++) {
     const rc = gr[s], uc = gu[s], wc = gw[s];
-    let a = rc - gr[s - 1], b = gr[s + 1] - rc, ab = a * b, dr, du, dw;
-    if (lim) {
-      // monotonised central
-      if (ab > 0) {
-        const aa = a < 0 ? -a : a, bb = b < 0 ? -b : b, cc = 0.5 * (a + b), c2 = cc < 0 ? -cc : cc;
-        let q = aa < bb ? aa : bb;
-        q *= 2;
-        q = q < c2 ? q : c2;
-        dr = a < 0 ? -q : q;
-      } else dr = 0;
-      a = uc - gu[s - 1];
-      b = gu[s + 1] - uc;
-      ab = a * b;
-      if (ab > 0) {
-        const aa = a < 0 ? -a : a, bb = b < 0 ? -b : b, cc = 0.5 * (a + b), c2 = cc < 0 ? -cc : cc;
-        let q = aa < bb ? aa : bb;
-        q *= 2;
-        q = q < c2 ? q : c2;
-        du = a < 0 ? -q : q;
-      } else du = 0;
-      a = wc - gw[s - 1];
-      b = gw[s + 1] - wc;
-      ab = a * b;
-      if (ab > 0) {
-        const aa = a < 0 ? -a : a, bb = b < 0 ? -b : b, cc = 0.5 * (a + b), c2 = cc < 0 ? -cc : cc;
-        let q = aa < bb ? aa : bb;
-        q *= 2;
-        q = q < c2 ? q : c2;
-        dw = a < 0 ? -q : q;
-      } else dw = 0;
-    } else {
-      // van Leer
-      dr = ab > 0 ? (2 * ab) / (a + b) : 0;
-      a = uc - gu[s - 1];
-      b = gu[s + 1] - uc;
-      ab = a * b;
-      du = ab > 0 ? (2 * ab) / (a + b) : 0;
-      a = wc - gw[s - 1];
-      b = gw[s + 1] - wc;
-      ab = a * b;
-      dw = ab > 0 ? (2 * ab) / (a + b) : 0;
-    }
+    const dr = mc(rc - gr[s - 1], gr[s + 1] - rc), du = mc(uc - gu[s - 1], gu[s + 1] - uc), dw = mc(wc - gw[s - 1], gw[s + 1] - wc);
     const rm = rc - h * (uc * dr + rc * du), um = uc - h * (uc * du + dr / rc), wm = wc - h * uc * dw;
     const ra = rm + 0.5 * dr, rb = rm - 0.5 * dr;
     if (ra < RMIN || rb < RMIN) {
@@ -136,7 +104,7 @@ function makeGas(nx, ny) {
   const G = {
     nx, ny, n, R: new Float64Array(n), MX: new Float64Array(n), MY: new Float64Array(n),
     fx: new Float64Array(n), fy: new Float64Array(n),
-    par: 0, fallback: 0, floored: 0, added: 0, lim: 1,
+    par: 0, fallback: 0, floored: 0, added: 0, renorm: 0,
     vmax: 0, ucx: 0, ucy: 0, mass: 0, ek: 0, ekv: 0, capped: 0, steps: 0,
   };
   return G;
@@ -187,18 +155,9 @@ function step(G, dt, lam) {
     MX[k] += r * (dt * fx[k] - ux);
     MY[k] += r * (dt * fy[k] - uy);
   }
-  const sx = () => {
-    for (let j = 0; j < ny; j++) line(R, MX, MY, j * nx, 1, nx, lam, G.lim, G);
-  };
-  const sy = () => {
-    for (let i = 0; i < nx; i++) line(R, MY, MX, i, nx, ny, lam, G.lim, G);
-  };
-  if (G.par) {
-    sy();
-    sx();
-  } else {
-    sx();
-    sy();
+  for (let pass = 0; pass < 2; pass++) {
+    if (pass ^ G.par) for (let i = 0; i < nx; i++) line(R, MY, MX, i, nx, ny, lam, G);
+    else for (let j = 0; j < ny; j++) line(R, MX, MY, j * nx, 1, nx, lam, G);
   }
   G.par ^= 1;
   let fl = 0;
@@ -209,6 +168,18 @@ function step(G, dt, lam) {
       fl++;
     }
   G.floored += fl;
+  if (fl) {
+    // the floor added mass: give it back, so the total stays n and the velocities stay what they were
+    let m = 0;
+    for (let k = 0; k < n; k++) m += R[k];
+    const f = n / m;
+    for (let k = 0; k < n; k++) {
+      R[k] *= f;
+      MX[k] *= f;
+      MY[k] *= f;
+    }
+    G.renorm += abs(f - 1);
+  }
   G.steps++;
 }
 
@@ -217,13 +188,13 @@ function step(G, dt, lam) {
 // Solenoidal by construction: f = curl of a stream function that is a sum of plane waves with whole-number wave
 // vectors (nx, ny) of the torus, each an Ornstein-Uhlenbeck process. Wave (nx, ny) has wavelength 1 / sqrt((nx/64)^2 + (ny/128)^2).
 const MXN = 7, MYN = 14, NGRP = MXN + 1;
-const MODES = [];
+const MODES = []; // geometry only; the amplitudes live in the state, one pair per wave
 for (let a = 0; a <= MXN; a++)
   for (let b = -MYN; b <= MYN; b++) {
     if (a === 0 && b <= 0) continue;
     const k = sqrt(a * a + (b * b) / 4);
     if (k > 7.2) continue;
-    MODES.push({ a, b, k, nxh: b / 2 / k, nyh: -a / k, xc: 0, xs: 0, w: 0 });
+    MODES.push({ a, b, k, nxh: b / 2 / k, nyh: -a / k });
   }
 
 function makeForce(G, fac) {
@@ -249,14 +220,13 @@ function makeForce(G, fac) {
 }
 
 // weights of the wave vectors round the ring of radius kf (cycles across the 64 LEDs), then the force field at amplitude A
-function forceField(G, F, kf, A) {
-  const { nx, ny } = F;
+function forceField(S, kf, A) {
+  const G = S.g, F = S.F, { nx, ny } = F, W = S.w;
   let sw = 0;
-  const sg = 0.5;
-  for (const m of MODES) {
-    const d = (m.k - kf) / sg;
-    m.w = d * d < 18 ? exp(-0.5 * d * d) : 0;
-    sw += m.w * m.w;
+  for (let n = 0; n < MODES.length; n++) {
+    const d = (MODES[n].k - kf) / 0.5;
+    W[n] = d * d < 18 ? exp(-0.5 * d * d) : 0;
+    sw += W[n] * W[n];
   }
   const norm = A / sqrt(sw);
   for (let g = 0; g < NGRP; g++) {
@@ -266,11 +236,12 @@ function forceField(G, F, kf, A) {
     F.pys[g].fill(0);
   }
   let gmax = 0;
-  for (const m of MODES) {
-    if (m.w < 1e-3) continue;
+  for (let n = 0; n < MODES.length; n++) {
+    if (W[n] < 1e-3) continue;
+    const m = MODES[n];
     if (m.a > gmax) gmax = m.a;
-    const cm = norm * m.w, ax = cm * m.nxh, ay = cm * m.nyh, CY = F.cy[m.b + MYN], SY = F.sy[m.b + MYN];
-    const pxc = F.pxc[m.a], pxs = F.pxs[m.a], pyc = F.pyc[m.a], pys = F.pys[m.a], xs = m.xs, xc = m.xc;
+    const cm = norm * W[n], ax = cm * m.nxh, ay = cm * m.nyh, CY = F.cy[m.b + MYN], SY = F.sy[m.b + MYN];
+    const pxc = F.pxc[m.a], pxs = F.pxs[m.a], pyc = F.pyc[m.a], pys = F.pys[m.a], xs = S.xs[n], xc = S.xc[n];
     for (let j = 0; j < ny; j++) {
       const gc = xs * CY[j] - xc * SY[j], gs = -xs * SY[j] - xc * CY[j];
       pxc[j] += ax * gc;
@@ -300,12 +271,13 @@ function randn() {
 }
 
 // ---- the state -------------------------------------------------------------------------------
-function newState(fac, k) {
+function newState(fac) {
   const g = makeGas(NX * fac, NY * fac);
-  const S = {
-    g, F: makeForce(g, fac), fac, A: 0.3, Ms: 2.5, tcorr: 8, kf: 2.7, mt: 2.5, acc: 0, mtime: 0, hue: 0, flowS: 2,
+  const nm = MODES.length;
+  return {
+    g, F: makeForce(g, fac), fac, A: 0.3, Ms: 2.5, tcorr: 8, kf: 2.7, mt: 2.5, acc: 0, mtime: 0, hue: 0,
+    xc: new Float64Array(nm), xs: new Float64Array(nm), w: new Float64Array(nm), lastSteps: 0, Mm: 0,
   };
-  return S;
 }
 
 function seedField(S, kf, mach) {
@@ -334,16 +306,16 @@ function seedField(S, kf, mach) {
 
 // ---- one frame of model time ----------------------------------------------------------------
 const MS_MAX = 6; // sub-steps a frame may take
-function advance(S, tm, kf, mt, hue) {
-  const g = S.g, F = S.F, fac = S.fac;
+function advance(S, tm, kf, mt) {
+  const g = S.g, fac = S.fac;
   if (tm <= 0) return;
   // the forcing process, once per frame
   const ex = exp(-tm / S.tcorr), sg = sqrt(1 - ex * ex);
-  for (const m of MODES) {
-    m.xc = m.xc * ex + sg * randn();
-    m.xs = m.xs * ex + sg * randn();
+  for (let n = 0; n < MODES.length; n++) {
+    S.xc[n] = S.xc[n] * ex + sg * randn();
+    S.xs[n] = S.xs[n] * ex + sg * randn();
   }
-  forceField(g, F, kf, S.A);
+  forceField(S, kf, S.A);
   S.acc += tm;
   const dx = 1 / fac;
   let n = 0;
@@ -362,7 +334,7 @@ function advance(S, tm, kf, mt, hue) {
   const mm = sqrt((2 * g.ek * g.n) / g.mass);
   S.Mm = mm;
   S.Ms += (mm - S.Ms) * (1 - exp(-tm / 3));
-  S.A = cl(S.A * exp((tm / 10) * (mt / S.Ms - 1)), 0.01, 3);
+  S.A = cl(S.A * exp((tm / 5) * cl(mt / S.Ms - 1, -0.7, 1)), 0.01, 8);
 }
 
 // ---- colour ----------------------------------------------------------------------------------
@@ -389,30 +361,56 @@ for (let k = 0; k <= 4096; k++) {
   GAM[k] = 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / 2.4) - 0.055) + 0.5;
 }
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
-// stops of the density ramp: [position, L, C, h]
-const RAMP = [
-  [0.0, 0.3, 0.09, 285],
-  [0.25, 0.42, 0.11, 262],
-  [0.5, 0.58, 0.11, 215],
-  [0.72, 0.72, 0.12, 165],
-  [0.86, 0.84, 0.13, 95],
-  [1.0, 0.97, 0.05, 90],
+// The picture has two layers. The cool layer is the density, ln rho against its local surroundings, teal in the voids, blue and violet
+// as the gas thickens. The warm layer is the shocks: where the gas is steep or being squeezed it passes through magenta and orange to white.
+// stops: [position, L, C, h] in Oklab
+const COOL = [
+  [0.0, 0.3, 0.075, 195],
+  [0.3, 0.42, 0.1, 228],
+  [0.6, 0.52, 0.13, 270],
+  [0.85, 0.6, 0.15, 315],
+  [1.0, 0.68, 0.16, 345],
 ];
-const LN = 256;
+const WARM = [
+  [0.0, 0.55, 0.14, 320],
+  [0.3, 0.64, 0.19, 350],
+  [0.6, 0.76, 0.16, 45],
+  [0.85, 0.88, 0.1, 80],
+  [1.0, 0.98, 0.03, 90],
+];
+const BROWN = 0.6; // lightness a warm hue is brought up to
+const TN = 128, VN = 17, VH = 24; // density steps, vorticity steps, degrees of hue the vorticity moves
+function ramp(stops, v, hueOff, out) {
+  let j = 1;
+  while (j < stops.length - 1 && v > stops[j][0]) j++;
+  const A = stops[j - 1], B = stops[j], t = cl((v - A[0]) / (B[0] - A[0]), 0, 1);
+  let L = A[1] + (B[1] - A[1]) * t;
+  const aa = A[2] * cos((A[3] * PI) / 180), ab = A[2] * sin((A[3] * PI) / 180), ba = B[2] * cos((B[3] * PI) / 180), bb = B[2] * sin((B[3] * PI) / 180);
+  const a = aa + (ba - aa) * t, b = ab + (bb - ab) * t;
+  const h = (Math.atan2(b, a) * 180) / PI + hueOff;
+  // a dark orange or olive is brown on the panel: lift those hues until they read as amber and gold
+  let d = (((h - 62) % 360) + 540) % 360 - 180;
+  d /= 40;
+  if (L < BROWN) L += (BROWN - L) * exp(-d * d);
+  okLin(L, sqrt(a * a + b * b), h, out);
+}
 function buildLut(S, hue) {
-  const lut = S.lut, o = [0, 0, 0];
-  for (let i = 0; i < LN; i++) {
-    const v = i / (LN - 1);
-    let j = 1;
-    while (j < RAMP.length - 1 && v > RAMP[j][0]) j++;
-    const A = RAMP[j - 1], B = RAMP[j], t = cl((v - A[0]) / (B[0] - A[0]), 0, 1);
-    const L = A[1] + (B[1] - A[1]) * t;
-    const aa = A[2] * cos((A[3] * PI) / 180), ab = A[2] * sin((A[3] * PI) / 180), ba = B[2] * cos((B[3] * PI) / 180), bb = B[2] * sin((B[3] * PI) / 180);
-    const a = aa + (ba - aa) * t, b = ab + (bb - ab) * t;
-    okLin(L, sqrt(a * a + b * b), (Math.atan2(b, a) * 180) / PI + hue * 360, o);
-    lut[3 * i] = o[0];
-    lut[3 * i + 1] = o[1];
-    lut[3 * i + 2] = o[2];
+  const o = [0, 0, 0], H = hue * 360;
+  for (let v = 0; v < VN; v++) {
+    const dh = VH * (v / ((VN - 1) / 2) - 1);
+    for (let i = 0; i < TN; i++) {
+      ramp(COOL, i / (TN - 1), H + dh, o);
+      const q = 3 * (v * TN + i);
+      S.cool[q] = o[0];
+      S.cool[q + 1] = o[1];
+      S.cool[q + 2] = o[2];
+    }
+  }
+  for (let i = 0; i < TN; i++) {
+    ramp(WARM, i / (TN - 1), H, o);
+    S.warm[3 * i] = o[0];
+    S.warm[3 * i + 1] = o[1];
+    S.warm[3 * i + 2] = o[2];
   }
   S.lutHue = hue;
 }
@@ -420,23 +418,31 @@ function buildLut(S, hue) {
 const OPEN = [0, 2, 0, 0.06];
 function start(params, k) {
   const S = newState(1);
-  S.lut = new Float32Array(3 * LN);
+  S.cool = new Float32Array(3 * TN * VN);
+  S.warm = new Float32Array(3 * TN);
   S.lnr = new Float32Array(N);
-  S.sch = new Float32Array(N);
-  S.div = new Float32Array(N);
   S.tmp = new Float32Array(N);
   S.mu = new Float32Array(N);
+  S.u = new Float32Array(N);
+  S.v = new Float32Array(N);
+  S.m1 = 0;
+  S.sd = 0;
   params.s = S;
-  readKnobs(S, k, 1e9);
+  readKnobs(S, k);
   S.kf = S.kft;
   S.mt = S.mtt;
-  seedField(S, S.kf, S.mt);
-  S.tcorr = 24 / S.mt;
+  S.A = ampOf(S.mt, S.kf);
+  S.tcorr = tcorrOf(S.mt, S.kf);
   S.Ms = S.mt;
-  buildLut(S, 0);
-  for (let n = 0; n < 40; n++) advance(S, 0.2, S.kf, S.mt);
+  seedField(S, S.kf, S.mt);
+  buildLut(S, S.hue);
+  // let the shocks form before the first frame
+  for (let n = 0; n < 120; n++) advance(S, 0.2, S.kf, S.mt);
 }
-function readKnobs(S, k, f) {
+// the forcing amplitude that holds a Mach number at a forcing wave number (fits from the runs in the header; the controller does the rest)
+const ampOf = (mach, kf) => 0.066 * mach * mach * pow(kf / 2.67, 0.6);
+const tcorrOf = (mach, kf) => cl(64 / (kf * mach), 3, 25);
+function readKnobs(S, k) {
   S.hue = cl(k[0], 0, 1);
   S.rate = 1.3 * cl(k[1], 0.5, 4);
   const sc = cl(k[2], -1, 1), q = cl(k[3], -1, 1);
@@ -451,53 +457,91 @@ export function update(dt, input, params) {
   if (!params.s) start(params, k);
   const S = params.s, h = cl(dt || 0, 0, 0.1);
   readKnobs(S, k);
-  const f = 1 - exp(-h / 0.4);
-  const m0 = S.mt;
+  const f = 1 - exp(-h / 0.4), m0 = S.mt, k0 = S.kf;
   S.kf += (S.kft - S.kf) * f;
   S.mt += (S.mtt - S.mt) * f;
-  S.tcorr = 24 / S.mt;
+  S.tcorr = tcorrOf(S.mt, S.kf);
   if (S.mt !== m0) {
+    // Mach is the gas speed over the sound speed: the knob scales the speed of what is already there and the forcing that keeps it
     const r = S.mt / m0, g = S.g;
     for (let i = 0; i < N; i++) {
       g.MX[i] *= r;
       g.MY[i] *= r;
     }
+    S.A = cl(S.A * r * r * pow(S.kf / k0, 0.6), 0.01, 8);
+    S.Ms *= r;
   }
   advance(S, h * S.rate, S.kf, S.mt);
   if (abs(S.hue - S.lutHue) > 0.002) buildLut(S, S.hue);
 }
 
+// box mean of half-width r on the torus, rows then columns
+function blurBox(src, dst, tmp, r) {
+  const w = 1 / (2 * r + 1);
+  for (let y = 0; y < NY; y++) {
+    const o = y * NX;
+    let a = 0;
+    for (let d = -r; d <= r; d++) a += src[o + (d & (NX - 1))];
+    for (let x = 0; x < NX; x++) {
+      tmp[o + x] = a * w;
+      a += src[o + ((x + r + 1) & (NX - 1))] - src[o + ((x - r) & (NX - 1))];
+    }
+  }
+  for (let x = 0; x < NX; x++) {
+    let a = 0;
+    for (let d = -r; d <= r; d++) a += tmp[(((d + NY) % NY) * NX) + x];
+    for (let y = 0; y < NY; y++) {
+      dst[y * NX + x] = a * w;
+      a += tmp[((y + r + 1) % NY) * NX + x] - tmp[((y - r + NY) % NY) * NX + x];
+    }
+  }
+}
+
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const g = S.g, R = g.R, MX = g.MX, MY = g.MY, L = S.lnr, sch = S.sch, lut = S.lut;
+  const g = S.g, R = g.R, MX = g.MX, MY = g.MY, L = S.lnr, u = S.u, v = S.v, cool = S.cool, warm = S.warm, mu = S.mu;
   let m1 = 0, m2 = 0;
   for (let k = 0; k < N; k++) {
-    const l = log(R[k]);
+    const l = log(R[k]), ir = 1 / R[k];
     L[k] = l;
+    u[k] = MX[k] * ir;
+    v[k] = MY[k] * ir;
     m1 += l;
     m2 += l * l;
   }
   m1 /= N;
   const sd = sqrt(max(0.05, m2 / N - m1 * m1));
+  if (!S.sd) {
+    S.m1 = m1;
+    S.sd = sd;
+  } else {
+    S.m1 += (m1 - S.m1) * 0.1;
+    S.sd += (sd - S.sd) * 0.1;
+  }
+  blurBox(L, mu, S.tmp, 6);
+  const isd = 0.9 / S.sd, m0 = 0.5 * S.m1, vk = 5 / S.mt;
   for (let y = 0; y < NY; y++) {
-    const ym = ((y + NY - 1) % NY) * NX, y0 = y * NX, yp = ((y + 1) % NY) * NX;
+    const y0 = y * NX, ym = ((y + NY - 1) % NY) * NX, yp = ((y + 1) % NY) * NX;
     for (let x = 0; x < NX; x++) {
-      const xm = (x + NX - 1) & (NX - 1), xp = (x + 1) & (NX - 1);
-      const gx = L[y0 + xp] - L[y0 + xm], gy = L[yp + x] - L[ym + x];
-      sch[y0 + x] = 0.5 * sqrt(gx * gx + gy * gy);
+      const k = y0 + x, xm = y0 + ((x + NX - 1) & MX_), xp = y0 + ((x + 1) & MX_);
+      const gx = 0.5 * (L[xp] - L[xm]), gy = 0.5 * (L[yp + x] - L[ym + x]);
+      const dux = 0.5 * (u[xp] - u[xm]), dvy = 0.5 * (v[yp + x] - v[ym + x]);
+      const omg = 0.5 * (v[xp] - v[xm]) - 0.5 * (u[yp + x] - u[ym + x]);
+      const t = 0.5 + 0.5 * Math.tanh((L[k] - 0.5 * mu[k] - m0) * isd);
+      const sch = sqrt(gx * gx + gy * gy), comp = -(dux + dvy);
+      let q = max(sm(0.3, 1.15, sch), sm(0.3, 0.95, comp) * (0.35 + 0.65 * t)) * (0.4 + 0.6 * t);
+      const vi = ((0.5 + 0.5 * Math.tanh(omg * vk)) * (VN - 1) + 0.5) | 0;
+      const ci = 3 * (vi * TN + ((t * (TN - 1) + 0.5) | 0));
+      let r = cool[ci], gg = cool[ci + 1], b = cool[ci + 2];
+      if (q > 0.01) {
+        const wi = 3 * ((q * (TN - 1) + 0.5) | 0), m = sm(0, 0.3, q);
+        r += (warm[wi] - r) * m;
+        gg += (warm[wi + 1] - gg) * m;
+        b += (warm[wi + 2] - b) * m;
+      }
+      const e = exp(0.25 * Math.tanh(-1.5 * 0.7071 * (gx + gy)));
+      display.setPixel(x, y, gam(r * e), gam(gg * e), gam(b * e));
     }
   }
-  for (let y = 0; y < NY; y++)
-    for (let x = 0; x < NX; x++) {
-      const k = y * NX + x;
-      const t = cl(0.5 + (L[k] - m1) / (4.5 * sd), 0, 1);
-      const idx = ((t * (LN - 1) + 0.5) | 0) * 3;
-      const w = sm(0.15, 0.9, sch[k]);
-      let r = lut[idx], gg = lut[idx + 1], b = lut[idx + 2];
-      r += w * (1 - r) * 0.8;
-      gg += w * (1 - gg) * 0.8;
-      b += w * (1 - b) * 0.8;
-      display.setPixel(x, y, gam(r), gam(gg), gam(b));
-    }
 }
