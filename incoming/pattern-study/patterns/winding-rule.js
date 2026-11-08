@@ -232,7 +232,7 @@ export function update(dt, input, params) {
     S.tm = 0;
     S.g = (S.g + 1) % NGLYPH;
   }
-  // The scanline: not yet, going down, or off the bottom while the letter rests.
+  // The scanline starts above the glyph and goes down; once past the bottom it waits there while the letter rests.
   const ts = S.tm - FADEIO;
   S.ys = ts < 0 ? -1 : ts >= sweep ? HW : (ts / sweep) * HW;
   S.gain = min(sm(S.tm / FADEIO), 1 - sm((S.tm - (FADEIO + sweep + rest - FADEIO)) / FADEIO));
