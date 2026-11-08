@@ -9,7 +9,7 @@
 // Round:   115
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pace=0.5..3.5, Scale=-1..1, Prandtl=-1..1
+// @knobs Hue=0..1, Pace=1..3.5, Scale=-1..1, Prandtl=-1..1
 //
 // Knob 1: DRAFT
 // Knob 2: DRAFT
@@ -41,9 +41,9 @@ const RA0 = 3e7; // Rayleigh number at every knob place
 const PR0 = 0.3; // Prandtl number at Prandtl 0
 const R0 = 2.6; // how many LEDs of depth one column is wide, at Scale 0
 const GB0 = 4.7; // gB = g alpha dT at Pace 1, LEDs/s^2. Free fall over the depth, sqrt(gB d), is 24 LEDs a second
-const DRAG0 = 0.15; // drag on the wind that blows along the plates, 1/s at Pace 1
+const DRAG0 = 0.012; // drag on the whole flow, 1/s at Pace 1
+const DRAGM0 = 0.12; // and the drag added on the mean wind that blows along the plates, 1/s at Pace 1
 const AMP0 = 0.15; // how far the spots on the plates swing, as a share of the plate difference
-const PACE_OPEN = 1.5; // Pace at the Lab's opening K2 of 2
 
 // ---- the picture
 const GAIN = 0.9; // how hard the anomaly of T is pushed through the palette
@@ -105,7 +105,7 @@ function newState(nx, nz) {
     cp: new Float64Array(nz), dp: new Float64Array(nz), dq: new Float64Array(nz),
     lin: new Float64Array(nz), cx: new Float64Array(h),
     // the numbers the knobs set
-    R: 1, gB: 4, kap: 2, nu: 1, drag: 0, amp: 0, pace: 1, time: 0, kp: 1.5, ks: 0, kq: 0.06,
+    R: 1, gB: 4, kap: 2, nu: 1, drag: 0, dragM: 0, amp: 0, pace: 1, time: 0, kp: 1.5, ks: 0, kq: 0.06,
     pat: newPatches(),
     // what the picture reads
     lut: new Float32Array(3 * 512), hueDone: -1, mean: new Float64Array(nz), loc: F(), bq: F(), bh: F(), sig: 0.1, grm: 0.05, first: 1,
@@ -263,8 +263,7 @@ function diffuseSolve(S, dt) {
   const cn = nu * dt, ck = kap * dt;
   for (let k = 0; k < h; k++) {
     const ax = cx[k] * ir2;
-    // wavenumber 0 is the wind along the plates: it also feels the drag
-    thomas2(S, -cn, 1 + cn * (2 - ax) + (k ? 0 : dt * S.drag), Wr, Wi, k, h);
+    thomas2(S, -cn, 1 + cn * (2 - ax) + dt * (S.drag + (k ? 0 : S.dragM)), Wr, Wi, k, h);
     thomas2(S, -ck, 1 + ck * (2 - ax), Tr, Ti, k, h);
     for (let j = 1; j < nz - 1; j++) {
       Pr[j * h + k] = -Wr[j * h + k];
@@ -374,11 +373,12 @@ function setParams(S, ra, pr, R, pace) {
   S.kap = sqrt((S.gB * S.d * S.d * S.d) / (ra * pr));
   S.nu = pr * S.kap;
   S.drag = DRAG0 * pace;
+  S.dragM = DRAGM0 * pace;
   S.amp = AMP0;
 }
 const KNOB = [0, 2, 0, 0.06];
 function knobTargets(k) {
-  return [(cl(k[1], 0.5, 3.5) * PACE_OPEN) / 2, cl(k[2], -1, 1), cl(k[3], -1, 1)];
+  return [cl(k[1], 1, 3.5), cl(k[2], -1, 1), cl(k[3], -1, 1)];
 }
 function applyKnobs(S) {
   setParams(S, RA0, PR0 * pow(10, S.kq), R0 * pow(1.55, -S.ks), S.kp);
@@ -444,7 +444,7 @@ export function setup(params, knobValues) {
   [S.kp, S.ks, S.kq] = knobTargets(knobValues || KNOB);
   applyKnobs(S);
   seedState(S);
-  // a spin-up of 22.5 s of flow time at Pace 1.5, so that the first frame already has plumes standing
+  // a spin-up of 15 s of flow time at Pace 1.5, so that the first frame already has plumes standing
   const dt = 22.5 / (S.kp * 150);
   for (let n = 0; n < 150; n++) step(S, dt);
   S.time = 0;
