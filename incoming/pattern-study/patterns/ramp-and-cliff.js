@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Tilt=-1..1
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the palette, so one turn comes back. At 0 the field runs from indigo (31, 32, 109) through azure (18, 94, 176) and pale lilac (165, 190, 221) to cream (234, 222, 175), gold (240, 186, 57) and amber (212, 131, 0), with no red. At 0.25 it is maroon (134, 40, 70) through ice (213, 175, 195) to mint (33, 226, 188) and green (35, 179, 116); at 0.5 olive gold (113, 94, 7) through ice to sky blue (62, 158, 239); at 0.75 dark teal (1, 70, 64) through ice to pink (210, 112, 184). A dark stop between red and yellow-green is lifted in lightness so that it does not read as brown, and no entry has a brightest channel under 70.
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the palette, so one turn comes back. At 0 the field runs from indigo (31, 32, 109) through azure (18, 94, 176) and pale lilac (165, 190, 221) to cream (234, 222, 175), gold (240, 186, 57) and amber (212, 131, 0), with no red. At 0.25 it is rose (153, 57, 86) through ice (213, 175, 195) to mint (33, 226, 188) and green (35, 179, 116); at 0.5 mustard (141, 118, 0) through ice to sky blue (62, 158, 239); at 0.75 dark teal (1, 70, 64) through ice to pink (210, 112, 184). A dark stop between red and yellow-green is lifted in lightness so that it does not read as brown, and no entry has a brightest channel under 70.
 // Knob 2: Flow. The clock of the flow: Flow flow seconds pass in a panel second, and the speed, the stirring and the diffusivity are all in flow seconds, so the picture is the same at every Flow and only goes faster. The rms speed is 2.0 LEDs per flow second at Scale 0, so 1.0 LED a second at 0.5, 4.0 at 2 and 8.0 at 4, and the fastest cell goes 4.4 to 6.4 LEDs per flow second. A small separation grows at the Lyapunov exponent 0.078 per flow second, which is 0.04 per second at 0.5, 0.16 at 2 and 0.31 at 4. The velocity at a point is as good as forgotten after 2.2 flow seconds (autocorrelation one half), which is 4.4 s, 1.1 s and 0.55 s.
 // Knob 3: Scale. Where the spectrum of the stream function peaks, k0, in waves across the 64 LEDs: 1.5 at -1 (a wave is 42.7 LEDs), 2.4 at 0 (26.7) and 5.0 at 1 (12.7); the same 40 modes' worth at every setting, and the set changes continuously. The speed goes as k0^-0.4 (2.41, 2.00 and 1.49 LEDs per flow second) and the diffusivity as k0^0.6 (0.060, 0.080 and 0.124 LED^2 per flow second), which keeps a cliff 1.7, 1.7 and 1.55 LEDs wide (full width at half maximum of the gradient). The autocorrelation of the field first crosses zero at 17.2, 10.8 and 5.4 LEDs, the Lyapunov exponent is 0.064, 0.078 and 0.118 per flow second, and the Peclet number S/(kappa k0^2) is 220, 82 and 17, so the cliffs are fine against the eddies at -1 and only just so at 1.
 // Knob 4: Tilt. The direction of the mean gradient, 2.4 radians times the knob: -137 degrees at -1, 8 at the opening, +137 at 1. Two scalars run, one with its gradient along x and one along y, and the equation is linear, so the scalar for any direction is a cosine and sine mix of the two; Tilt turns that mix and answers at once, without touching the flow or the stored fields. The first label (along the gradient) picks the colour along the palette, the second (across it) moves lightness and hue a little, so Tilt re-sorts which sheets are indigo and which gold while the cliffs stay where the flow put them. A run with the source itself turned by 0.9 rad differs from the turned mix of the plain run by 0.8 percent (relative L2, after 60 flow seconds), the clamp in the interpolation being the only nonlinear part.
@@ -73,7 +73,10 @@
 // 5. The knobs. Each knob at either end or anywhere between, jumping every 2.5 s for 600 s and every 0.4 s for 150 s: the field stays finite,
 //    the largest |t| is 4.5 times its rms at most and the rms never falls under 5.6 cells.
 // The flowcheck of this study. 240 s at the opening, with every knob at its minimum, at its maximum and at three random
-// positions: FLOWCHECK
+// positions: recur 0.747 to 0.779, dim 0.771 to 0.970, quiet 0.805 to 0.922, drift -2.6 to +0.6 percent; the last quarter dim 0.683 to
+// 0.928, quiet 0.682 to 0.853. The worst case is every knob at its minimum (recur 0.779, dim 0.771, quiet 0.805; last quarter
+// 0.683 and 0.682). 900 s at the opening: recur 0.764, dim 0.971, quiet 0.946, the last quarter dim 0.917, quiet 0.895, drift -0.1
+// percent. 900 s with every knob at its minimum: recur 0.717, dim 0.917, quiet 0.905, the last quarter dim 0.833, quiet 0.608, drift +2.5 percent; at its maximum: 0.743, 0.986, 0.961, 0.950, 0.921, +0.2 percent.
 //
 // Not checked. A grid finer than 128 by 256. A pseudo-spectral reference for the scalar. The scale separation: the cliffs are
 // 1.7 LEDs wide and the shortest wave in the flow at the opening is 16 LEDs long (95 percent of the energy is in waves over 20), a factor 9 to
@@ -510,7 +513,7 @@ function buildLut(S, hue) {
       const h = a[3] + (b[3] - a[3]) * t + hue * 360 + CFG.hb * y;
       let L = a[1] + (b[1] - a[1]) * t + CFG.lb * y;
       // A dark orange or olive is brown on the panel: between red and yellow-green the dark stops are lifted.
-      L += max(0, 1 - abs(((h - 60 + 540) % 360) - 180) / 100) * max(0, 0.62 - L) * 0.9;
+      L += max(0, 1 - abs(((h - 60 + 540) % 360) - 180) / 100) * max(0, 0.62 - L) * 1.3;
       okRgb(cl(L, 0.25, 0.95), a[2] + (b[2] - a[2]) * t, h, RGB);
       let r = enc(RGB[0]), g = enc(RGB[1]), bl = enc(RGB[2]);
       const top = max(r, g, bl), up = top < FLOOR && top > 0 ? FLOOR / top : 1;
