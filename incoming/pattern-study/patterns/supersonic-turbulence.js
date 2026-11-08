@@ -1,20 +1,76 @@
 // ===== Patternflow pattern =====
 // Title:   Supersonic Turbulence
 // Family:  sim
-// Idea:    draft
+// Idea:    Gas moving at two and a half times the speed of sound on the panel's own 64 by 128 torus, stirred at large scale without a pause, so that its shocks cross and sweep it into a web of thin hot sheets round teal and violet voids, and the stirring rebuilds the web as fast as the shocks take it apart.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 118
+// Lineage: the isothermal Euler equations as the model of supersonic turbulence in gas clouds, driven in a periodic box (Stone, Ostriker and Gammie, 1998, and Mac Low and others, 1998, both from memory), with the log-normal density that such flows keep (Padoan and Nordlund, 2002, and Federrath and others, 2008, from memory); MUSCL reconstruction (Bram van Leer, 1979, from memory) with a Hancock half step and a monotonised central limiter; the HLL flux (Harten, Lax and van Leer, 1983) with Einfeldt's wave speeds (1988, from memory); solenoidal stirring as an Ornstein-Uhlenbeck process (Eswaran and Pope, 1988, from memory); colour mixed in OKLab (Bjorn Ottosson, 2020, from memory); pattern round 118
 // Round:   118
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Mach=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Flow. draft
-// Knob 3: Scale. draft
-// Knob 4: Mach. draft
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of both colour layers, so one turn comes back. At 0 the field runs from teal (hue 195, lightness 0.30) in the voids through blue and violet to magenta in the dense gas, and the shocks run from pink through orange and gold to white. The sign of the vorticity bends the field's hue by up to 24 degrees, so the eddies in the voids show. Warm hues are lifted to lightness 0.6 so that nothing dark goes brown.
+// Knob 2: Flow. The model time that passes in a panel second, 1.3 times Flow: 0.65 time units at 0.5, 2.6 at the opening 2 and 5.2 at 4. A time unit is one LED travelled at the speed of sound. The gas moves at 1.7, 7.3 and 14.4 LEDs a second (rms, measured at Mach 2.5), and the solver takes 0.28, 1.08 and 2.17 sub-steps a frame. The Mach number and the statistics of the picture do not move with it (Mach 2.43, 2.51, 2.50).
+// Knob 3: Scale. The wavelength of the stirring, 24 times 1.7 to the Scale LEDs: 14, 24 and 41, which is 4.5, 2.7 and 1.6 waves across the 64 LEDs. The density's autocorrelation falls to 1/e at 4.8, 6.8 and 9.8 LEDs, and 38, 25 and 15 per cent of the panel is steeper than 0.5 in ln rho per LED. The Mach number holds (2.49, 2.51, 2.52).
+// Knob 4: Mach. The rms Mach number of the gas, 2.4 times 1.8 to the Mach: 1.33 at -1, 2.49 at the opening 0.06 and 4.32 at 1. Measured, mass weighted, they are 1.34, 2.51 and 4.35 (1.49, 2.80 and 4.63 by volume), and the variance of ln rho is 0.48, 1.41 and 2.91. At 1.3 the shocks are weak, the field is wavy and filled with soft lines (8 per cent of the panel steeper than 0.5 per LED); at 4.3 it is a sharp web round large voids (37 per cent). Turning it scales the gas that is already there and the stirring follows: stepping the knob from 0.06 to 1, the Mach number is within 12 per cent of the new value after 2 s and within 7 per cent after 4 s; stepping it from 1 to -1, within 5 per cent after 2 s.
+
+// What the field is. Density rho and velocity (u, v) of an isothermal gas on a torus 64 LEDs wide and 128 tall, one cell to the LED, one length unit
+// to the LED and the speed of sound c = 1, so the pressure is p = rho:
+//   rho_t + div(rho u) = 0,    (rho u)_t + div(rho u u) + grad rho = rho f.
+// The mean density is 1. The scheme is finite volume, MUSCL-Hancock along one axis at a time, the order of the two axes swapped every step. Per
+// cell it takes slopes of (rho, u, w) with the monotonised central limiter (w is the velocity along the cell face), moves the cell's edge states
+// half a step with the primitive equations, and gives each face the HLL flux with Einfeldt's speeds, taken from the Roe-average velocity. The
+// momentum along the face is upwinded by the sign of the mass flux. A cell whose predicted edge density falls under 2e-4 drops to first order for
+// that sweep. The step is 0.55 over (1 + the largest |u| or |v|); a frame runs as many as an accumulator holds (the part of a step that does not
+// fit waits for the next frame, so the pace does not depend on the frame rate), at most 6, and the gas is capped at ten sound speeds. The density
+// is floored at 2e-4, and what the floor adds is taken off again by scaling rho and the momenta alike, so the total stays 8192.
+//
+// The stirring f is the curl of a stream function that is a sum of plane waves of the torus, wave (nx, ny) with nx = 0 to 7 and ny = -14 to 14, so
+// f is solenoidal by construction. The weight of a wave is a Gaussian of its wave number round kf = 64 / (24 * 1.7^Scale) waves across the panel,
+// 0.5 wide, and the weights are normalised so that the rms of f is A. The two amplitudes of each wave are Ornstein-Uhlenbeck processes with
+// correlation time the stirring wavelength over the Mach number, 3 to 25 time units, stepped exactly once a frame. The net momentum is taken off every step. A is the one
+// thing that adapts: it is multiplied by exp(dt / 5 * (target / measured - 1)), the measured rms Mach number smoothed over 3 time units, clamped to
+// 0.01..8, so that the Mach number is the knob and not a thing the knob hopes for. At 2.5 and 24 LEDs A is 0.40.
+//
+// The picture has two layers over the same cells. The first is the density, ln rho against its surroundings (the mean of a 13 by 13 box and the
+// global mean, half and half, scaled by the standard deviation and passed through tanh), a teal to magenta ramp. The second is the shocks:
+// the steepness of ln rho and the squeeze -div u, taken as the larger, weighted by the density, run through a pink to orange to white ramp and
+// mixed over the first. A faint raking light from the upper left, on the slope of ln rho, gives the sheets their relief. The voids are never dark:
+// they are the cool end of the ramp, lightness 0.30, and their relief comes from the exposure following the local density.
+//
+// What was checked, with the file's own sweep and step:
+// - Riemann problems against the exact isothermal solution, at 0.55 Courant on 256 and 512 cells: a tube from rho 4 to 1 (a rarefaction and a shock),
+//   a tube from 40 to 1, and two Mach 3 streams meeting (two shocks). The error in rho, relative to the density behind the shock, is 5.1e-3, 2.0e-2
+//   and 9.8e-3 at 256 cells and exactly half of that at 512: first order at the jump, as the limiter makes it. The shock speed is 1.410 against the
+//   exact 1.409 (4 to 1) and 2.421 against 2.377 (40 to 1); the slow shock of the meeting streams is within half a cell. Each shock is 2 cells
+//   wide, measured as the jump over the steepest slope: 1.87, 2.10 and 2.15 cells. Mass is conserved to 9e-16.
+// - Mass, momentum and positivity, 900 s of panel time through update(), at the opening knobs and with all knobs at their minimum and maximum
+//   (2364, 609 and 4704 time units, 29189, 4793 and 85687 steps). The total mass stays 8192 to 7e-15, 8e-15 and 1.2e-14. The lowest density is
+//   3.3e-4, 1.6e-2 and 2.0e-4, the highest 77, 14 and 176. The floor never fires at the opening and the minimum; at the maximum it fires in 1.1e-4
+//   of the cell-steps and adds 3.4e-5 of the mass over the 900 s, which the scaling takes off again. 0.08 per cent of the cell sweeps fall to
+//   first order at the maximum, 0.005 per cent at the opening. The guard that seeds the state again if it ever stops being a state never fired. The
+//   net velocity taken off a step is 0.008, 0.002 and 0.022 sound speeds at most.
+// - The Mach number and the density. Over 400 time units at the opening (a sample every 1.5 after 60), the mass-weighted Mach number is 2.51 against
+//   the 2.49 asked, 2.80 by volume. ln rho has variance 1.40, skewness -0.16 and kurtosis 3.07, a Gaussian's 0 and 3, and the variance fits
+//   ln(1 + b^2 M^2) with b = 0.70. Across Mach 1.34, 2.51 and 4.35 (the three Mach knob stops) b is 0.59, 0.70 and 0.96, higher than the
+//   0.3 to 0.5 quoted for solenoidal stirring in three dimensions (from memory); a flat flow has no third axis to be squeezed along.
+// - Stationary. Mean kinetic energy per cell over the four quarters of the 900 s, in units of the mean density times the sound speed squared: 3.148, 3.152, 3.142 and 3.139 at the opening;
+//   9.725, 9.729, 9.703 and 9.748 at the maximum; 0.918, 0.905, 0.888 and 0.892 at the minimum, which is 2.8 per cent down from first to last. The
+//   controller holds the Mach number, so the telling numbers are the forcing amplitude A it needs and the variance of ln rho: A is 0.396, 0.396,
+//   0.403, 0.405 and the variance 1.43, 1.39, 1.44, 1.41 at the opening.
+// - Resolution. The same stirring at the opening on 128 by 256 cells, two to the LED, 400 time units: Mach 2.50 against 2.51, ln rho
+//   variance 1.28 against 1.40, and the same share of the panel, 24.3 per cent, steeper than 0.5 in ln rho per LED. The shocks are thinner:
+//   the 99th percentile of that slope is 2.84 per LED against 1.72, the steepest 7.4 against 3.6, the mean square of div u is 0.72 against 0.37 and
+//   of the curl 0.58 against 0.42. So the panel's grid costs the shocks a factor of 1.7 to 2 in thickness, which is two LEDs against
+//   one, and leaves the Mach number and the shape of the density alone.
+// - It cannot die. The velocity and density were wiped at 40 s (rho = 1, u = 0): the Mach number is back at 0.8 of its aim after 1.8 s and
+//   holds 2.51 over the last 10 s of the next minute. The momenta times 6 (Mach 15, capped at 10): 0.2 s, peak 8.5, then 2.41. The density times
+//   a random 0.2 to 5, and a hole of density 1e-3 over 20 by 40 LEDs: 0.2 s. With all knobs at the maximum, 0.7 s; at Scale -1 and Mach 1, 1.1 s.
+//   The state was not reseeded in any of them.
+// - Cost in Node, update and draw: 1.5 + 1.1 ms at the opening, 3.4 + 1.1 at the maximum, 0.7 + 1.1 at the minimum. The first frame takes 0.45 s, for
+//   24 time units run before it, so that the shocks are there.
 
 const NX = 64, NY = 128, N = NX * NY, MX_ = NX - 1;
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, log, round } = Math;
@@ -276,7 +332,7 @@ function newState(fac) {
   const nm = MODES.length;
   return {
     g, F: makeForce(g, fac), fac, A: 0.3, Ms: 2.5, tcorr: 8, kf: 2.7, mt: 2.5, acc: 0, mtime: 0, hue: 0,
-    xc: new Float64Array(nm), xs: new Float64Array(nm), w: new Float64Array(nm), lastSteps: 0, Mm: 0,
+    xc: new Float64Array(nm), xs: new Float64Array(nm), w: new Float64Array(nm), lastSteps: 0, Mm: 0, resets: 0,
   };
 }
 
@@ -330,6 +386,13 @@ function advance(S, tm, kf, mt) {
   }
   if (n >= MS_MAX) S.acc = 0;
   S.lastSteps = n;
+  // a state that is not a state any more is thrown away and seeded again; this has not fired in any run of the header
+  if (!(g.mass > 0) || !(g.ek < 1e4)) {
+    seedField(S, kf, mt);
+    S.acc = 0;
+    S.resets++;
+    return;
+  }
   // controller: the forcing amplitude chases the rms Mach number (mass weighted)
   const mm = sqrt((2 * g.ek * g.n) / g.mass);
   S.Mm = mm;
