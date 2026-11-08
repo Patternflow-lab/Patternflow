@@ -49,7 +49,7 @@
 // - Finger width. At the opening the first minimum of the autocorrelation of S' across the panel is at 6 LEDs, a wavelength of 12, against 8 for the fastest
 //   linear finger and 6.0 for 2 pi d. A finger is 1.5 times the linear wavelength once it saturates.
 // - Flux ratio. gamma = <w T'> / <w S'> = alpha F_T / beta F_S is 0.72 at the opening over 900 s (0.76 at R 1.57, 0.69 at 3.08), inside the observed 0.4 to 0.8.
-// - Staying irregular. No imposed shear was needed. The plain system saturates as tall fingers that burst, then as plumes, and does not settle at any R in
+// - Staying irregular. No imposed shear was needed. The plain system saturates as tall fingers that burst into plumes and never settles, at any R in
 //   the knob's range. Variance of S' by quarter of 900 s: 57.9, 56.2, 54.7, 57.0 at the opening (last over first 0.98), 27.2, 27.5, 28.8, 27.7 with Flow 4, Scale 1 and
 //   Ratio 1 (1.02). The part of the variance in the means over x (layers) is 2 to 6 per cent, so no staircase forms.
 // - Staying alive. The linear growth rate is positive at every R the knob reaches, so the state cannot decay; a state scaled by 1e-3 grows back to rms 6
