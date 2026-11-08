@@ -90,13 +90,15 @@ function fft2(re, im, inv) {
 // ---- the plasma -----------------------------------------------------------------------------
 const KC = TAU / 3 / DX; // radius of the circle of k kept: the two-thirds rule
 const NU = 0.1; // viscosity = resistivity, LED^2 per model second
-const NU4 = 0.04; // hyperviscosity, LED^4 per model second
+const NU4 = 0.08; // hyperviscosity, LED^4 per model second
+const DEXP = 0.9; // the dissipation follows the forced wavenumber as kf to this power, so the cascade keeps its room
 const MU0 = 0.5; // friction on the longest waves, per model second
 const KMU = 0.08; // and the k where it has fallen to a half
 const DTMAX = 0.075; // longest step, model seconds
 const KFMAX = 0.8; // forced modes live below this k
 const TAUF = 3; // forcing correlation time, model seconds
-const FA = 0.05; // forcing strength
+const FA = 0.05; // forcing strength at kf = 0.26
+const FEXP = -0.35; // and how it follows kf, so that u_rms stays near 1.4 at every Scale
 const B0REF = 1.3, B0RANGE = 2.4; // mean field at Field 0, and its factor per unit of Field
 const L0 = 24, LRANGE = 1.7; // forced wavelength at Scale 0, LEDs, and its factor per unit of Scale
 const SPACING = 6; // line spacing at the mean field strength, LEDs
@@ -143,7 +145,7 @@ function setup(params) {
   const f = () => new Float64Array(N), m = () => new Float64Array(NM);
   const S = {
     t: 0, acc: 0, warm: false, hue: 0, ft: 0.033, js: 0.5, bm: 2, jb: new Float32Array(N), ramp: new Float32Array(64 * 3), lutHue: -1,
-    kf: 0.26, kft: 0.26, b0: B0REF, b0t: B0REF, fa: FA, alpha: 0, dtq: 0, kdt: -1,
+    kf: 0.26, kft: 0.26, b0: B0REF, b0t: B0REF, fa: FA, alpha: 0, dtq: 0, kdt: -1, kdd: 1,
     wr: m(), wi: m(), ar: m(), ai: m(),
     xwr: m(), xwi: m(), xar: m(), xai: m(),
     n1wr: m(), n1wi: m(), n1ar: m(), n1ai: m(),
@@ -228,12 +230,13 @@ function lin(S, ow_r, ow_i, oa_r, oa_i, wr, wi, ar, ai) {
 }
 
 function constants(S, dt) {
-  const dth = 0.5 * dt, bx = S.b0 * sin(S.alpha), by = S.b0 * cos(S.alpha);
-  if (dt !== S.kdt) {
+  const dth = 0.5 * dt, bx = S.b0 * sin(S.alpha), by = S.b0 * cos(S.alpha), dd = pow(S.kf / 0.26, DEXP);
+  if (dt !== S.kdt || abs(dd / S.kdd - 1) > 0.003) {
     S.kdt = dt;
+    S.kdd = dd;
     for (let j = 0; j < NM; j++) {
       const k2 = K2c[j], k = sqrt(k2);
-      S.dec[j] = exp(-(NU * k2 + NU4 * k2 * k2 + MU0 / (1 + (k / KMU) ** 4)) * dth);
+      S.dec[j] = exp(-(dd * (NU * k2 + NU4 * k2 * k2) + MU0 / (1 + (k / KMU) ** 4)) * dth);
     }
   }
   const { xc, xs, yc, ys } = S;
@@ -253,7 +256,7 @@ function forcing(S, dt) {
   for (let i = 0; i < NF; i++) {
     zr[i] = zr[i] * r + q * gauss() * sqrt(0.5);
     zi[i] = zi[i] * r + q * gauss() * sqrt(0.5);
-    const j = FJ[i], k = sqrt(K2c[j]), l = log(k / kf), w = S.fa * N * k * exp(-0.5 * (l / 0.22) ** 2);
+    const j = FJ[i], k = sqrt(K2c[j]), l = log(k / kf), w = S.fa * pow(kf / 0.26, FEXP) * N * k * exp(-0.5 * (l / 0.22) ** 2);
     fwr[i] = w * zr[i];
     fwi[i] = w * zi[i];
   }
@@ -457,9 +460,9 @@ export function draw(display, params) {
       const bx = bx0 + c2r[p], by = by0 + c2i[p], bm = sqrt(bx * bx + by * by) + 1e-6;
       const at = c1r[p] + b0 * (ca * (x - 31.5) - sa * (y - 63.5)), phi = at / delta, f = phi - floor(phi + 0.5);
       const di = min(NPR - 1, (abs(f) * delta * 16 / bm) | 0);
-      const jn = cl(jb[p] * ij, 0, 1), o = ((jn * (NR - 1) + 0.5) | 0) * 3;
+      const jn = cl(jb[p] * ij, 0, 1), jr = cl(abs(c1i[p]) * ij, 0, 1), o = ((jn * (NR - 1) + 0.5) | 0) * 3;
       const g3 = phi * 3, f3 = g3 - floor(g3 + 0.5), d3 = min(NPR - 1, (abs(f3) * delta * 16 / (3 * bm)) | 0);
-      const v = min(1, LINE[di] * (0.7 + 0.3 * jn) + 0.3 * LINE[d3] + GLOW[di] * (0.05 + 0.5 * jn * jn)) * 255;
+      const jf = 0.5 * (jn + jr), fill = jf < 0.4 ? 0 : (jf - 0.4) / 0.6, v = min(1, LINE[di] * (0.7 + 0.3 * jn) + 0.3 * LINE[d3] + GLOW[di] * 0.05 + 0.55 * fill * fill) * 255;
       display.setPixel(x, y, v * ramp[o], v * ramp[o + 1], v * ramp[o + 2]);
     }
 }
