@@ -37,6 +37,16 @@
 // speed of 500 LEDs a second, six times free fall. alpha is 0.012 Pace and alpha_m 0.12 Pace more, per second. At the opening
 // they take about 85 percent of the buoyancy work and the viscosity about 15 percent.
 
+// What the checks showed, with the plates uniform. Growth of the first mode in a box 2 sqrt 2 depths wide (256 columns of R = 1.4),
+// Pr 1, against sigma from (sigma + nu K^2)(sigma + kappa K^2) = k^2 gB / (d K^2): at Ra / Ra_c = 2 the rate is 0.0801 for a step of
+// 0.25 s and 0.0781 for 0.125 s, and 0.0761 extrapolated to a step of nothing, against 0.0760; at 1.1 it is 0.00903 against 0.00896;
+// the zero crossing is at Ra = 630 and 644 for the two steps and about 657 extrapolated, against 657.5. The error is first order in the step. At the
+// opening the error of T after 1 s against a step of 1/960 s is 11 percent at 1/30 s, 6.7, 3.6 and 1.6 for each halving, and the
+// heat flux through a level is 26.2 (1/30 s) and 27.2 (1/120 s) times the conduction flux, level to level within 8 percent
+// of its mean. The flow is divergence-free to 1e-14. The advection does not conserve heat: where T is held between its neighbours at
+// a peak it loses some. At Prandtl 3 the thermal layer is 1.5 rows thick and the flux runs from 34 to 46 times the conduction
+// flux between levels, so that end is under-resolved.
+
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
