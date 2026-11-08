@@ -39,8 +39,9 @@ const SIGK = 0.3; // width of the spectrum in ln k
 // ---- the particles --------------------------------------------------------------------------
 const RHO0 = 3.4; // particles per LED^2 in the beam
 const V0 = 12; // LEDs a second at Flow 2
-const HMAX = 0.4; // longest step, LEDs
+const HMAX = 0.42; // longest step, LEDs
 const CAP = Math.round(RHO0 * W * (H + PAD + 4) * 1.5);
+const TRAIL = 2.5; // e-folding length of a particle's light along its path, LEDs
 const DTRAIN = 1.4; // spacing of particles along a ray when the first frame is laid down
 
 // The landscape fades in over the first TAPER LEDs of the beam's run, above the panel. Switched on all at once, a wave
@@ -85,7 +86,7 @@ function hsv(h, s, v, out, o) {
 }
 
 // Strength knob (-1..1) to the rms of V, and Scale knob to the correlation length in LEDs.
-const strengthOf = (k) => 0.029 * pow(1.8, cl(k, -1, 1));
+const strengthOf = (k) => 0.0285 * pow(1.6, cl(k, -1, 1));
 const xiOf = (k) => 14 * pow(1.5, cl(k, -1, 1));
 
 export function setup(params, knobs) {
@@ -98,7 +99,6 @@ export function setup(params, knobs) {
     cx: new Float32Array(NP * NCE), sx: new Float32Array(NP * NCE),
     cy: new Float32Array(NP * NRE), sy: new Float32Array(NP * NRE),
     vext: new Float32Array(NRE * NCE),
-    V0: new Float32Array(NN), V1: new Float32Array(NN), VN: new Float32Array(NN),
     X0: new Float32Array(NN), X1: new Float32Array(NN), XN: new Float32Array(NN),
     Y0: new Float32Array(NN), Y1: new Float32Array(NN), YN: new Float32Array(NN),
     GX: new Float32Array(NN), GY: new Float32Array(NN),
@@ -107,7 +107,7 @@ export function setup(params, knobs) {
     P: mkpool(CAP),
     buf: new Float32Array(W * H * 3), tmp: new Float32Array(W * H * 3),
     ramp: new Float32Array(256 * 3), hue: -1,
-    births: 0, nin: 0, nout: 0, mh: 0,
+    births: 0, nspawn: 0, nin: 0, nout: 0, mh: 0,
   };
   clearpool(S.P);
   // The pool: wavenumbers log-uniform between KMIN and KMAX, directions uniform in a half plane, kx on the box's lattice.
@@ -136,14 +136,16 @@ export function setup(params, knobs) {
   selectWaves(S, 0);
   targetPhases(S, 0);
   vrows(S, 0, NRE);
-  gradient(S, S.V0, S.X0, S.Y0);
-  S.V1.set(S.V0);
+  gradient(S, S.X0, S.Y0);
   S.X1.set(S.X0);
   S.Y1.set(S.Y0);
   params.s = S;
   blend(S, 0);
   preroll(S);
   buildRamp(S, k[0]);
+  tailfill(S, cl(k[1], 1, 4));
+  S.nin = 0;
+  S.nout = 0;
   return S;
 }
 
@@ -198,12 +200,11 @@ function vrows(S, e0, e1) {
   }
 }
 
-function gradient(S, V, X, Y) {
+function gradient(S, X, Y) {
   const { vext } = S;
   for (let r = 0; r <= NR; r++)
     for (let c = 0; c <= NC; c++) {
       const e = (r + 1) * NCE + c + 1, o = r * NCN + c;
-      V[o] = vext[e];
       X[o] = (vext[e + 1] - vext[e - 1]) * (0.5 * GI);
       Y[o] = (vext[e + NCE] - vext[e - NCE]) * (0.5 * GI);
     }
@@ -217,12 +218,6 @@ function blend(S, w) {
     GX[i] = a * X0[i] + w * X1[i];
     GY[i] = a * Y0[i] + w * Y1[i];
   }
-}
-
-function vAt(S, x, y) {
-  const u = x * GI, v = (y - YT) * GI, ix = u | 0, iy = v | 0, fx = u - ix, fy = v - iy, o = iy * NCN + ix;
-  const f = (A) => A[o] * (1 - fx) * (1 - fy) + A[o + 1] * fx * (1 - fy) + A[o + NCN] * (1 - fx) * fy + A[o + NCN + 1] * fx * fy;
-  return (1 - S.w) * f(S.V0) + S.w * f(S.V1);
 }
 
 // Leapfrog on H = |p| - n(x), n = 1 + V: unit speed, p kicked by grad V.
@@ -256,7 +251,7 @@ function move(P, i0, i1, h, GX, GY) {
 
 function spawn(S, P, X, Y, tilt) {
   if (!P.nfree) return -1;
-  const j = P.free[--P.nfree], n = 1 + vAt(S, X, Y);
+  const j = P.free[--P.nfree], n = 1;
   P.alive[j] = 1;
   P.x[j] = X;
   P.y[j] = Y;
@@ -336,11 +331,10 @@ function advance(S, ft, k) {
   if (f < NSL) {
     const n = ceil(NRE / NSL);
     vrows(S, f * n, min(NRE, (f + 1) * n));
-  } else if (f === NSL) gradient(S, S.VN, S.XN, S.YN);
+  } else if (f === NSL) gradient(S, S.XN, S.YN);
   blend(S, (f + 1) / NF);
   if (f === NF - 1) {
-    let t = S.V0; S.V0 = S.V1; S.V1 = S.VN; S.VN = t;
-    t = S.X0; S.X0 = S.X1; S.X1 = S.XN; S.XN = t;
+    let t = S.X0; S.X0 = S.X1; S.X1 = S.XN; S.XN = t;
     t = S.Y0; S.Y0 = S.Y1; S.Y1 = S.YN; S.YN = t;
     S.f = 0;
   } else S.f = f + 1;
@@ -351,68 +345,100 @@ function advance(S, ft, k) {
     S.births += RHO0 * W * h * cos(S.tilt);
     while (S.births >= 1) {
       S.births -= 1;
-      if (spawn(S, P, Math.random() * W, -PAD + Math.random() * h, S.tilt) >= 0) S.nin++;
+      // positions come from a low-discrepancy sequence (the R2 sequence of Roberts, 2018, from memory) with a little jitter, so
+      // the beam is even to the shot noise's better, not Poisson
+      const n = ++S.nspawn;
+      if (spawn(S, P, W * (((n * 0.7548776662466927 + 0.1 * Math.random()) % 1) + 1) % W, -PAD + h * ((n * 0.5698402909980532) % 1), S.tilt) >= 0) S.nin++;
     }
     const before = P.nfree;
     move(P, 0, CAP, h, S.GX, S.GY);
     S.nout += P.nfree - before;
   }
-  deposit(S, exp(-dl / 2.5));
+  deposit(S, exp(-dl / TRAIL));
+}
+
+// One particle's light, spread over the four LEDs round (X, Y). The panel wraps along x.
+function splat(buf, X, Y, R, G, B) {
+  X -= 0.5;
+  Y -= 0.5;
+  let ix = floor(X), iy = floor(Y);
+  const fx = X - ix, fy = Y - iy;
+  if (ix < 0) ix += W;
+  const ix1 = ix + 1 === W ? 0 : ix + 1;
+  for (let dy = 0; dy < 2; dy++) {
+    const yy = iy + dy;
+    if (yy < 0 || yy >= H) continue;
+    const wy = dy ? fy : 1 - fy, a = (1 - fx) * wy, b = fx * wy, o0 = (yy * W + ix) * 3, o1 = (yy * W + ix1) * 3;
+    buf[o0] += R * a; buf[o0 + 1] += G * a; buf[o0 + 2] += B * a;
+    buf[o1] += R * b; buf[o1 + 1] += G * b; buf[o1 + 2] += B * b;
+  }
 }
 
 function deposit(S, decay) {
-  const { buf, ramp } = S, { x, y, px, py, alive } = S.P, q0 = (1 - decay) * 1;
+  const { buf, ramp } = S, { x, y, px, py, alive } = S.P, q0 = 1 - decay;
   for (let i = 0; i < buf.length; i++) buf[i] *= decay;
   const C1 = 1 / SINMAX, ct = cos(S.tilt), st = sin(S.tilt), mh0 = S.mh;
   let hs = 0, nh = 0;
   for (let i = 0; i < CAP; i++) {
-    if (!alive[i]) continue;
-    const X = x[i] - 0.5, Y = y[i] - 0.5;
-    if (Y < -1 || Y >= H) continue;
-    let ix = floor(X), iy = floor(Y);
-    const fx = X - ix, fy = Y - iy;
-    if (ix < 0) ix += W;
-    const ix1 = ix + 1 === W ? 0 : ix + 1;
+    if (!alive[i] || y[i] < -0.5 || y[i] >= H + 0.5) continue;
     const dxv = (px[i] * ct - py[i] * st) / sqrt(px[i] * px[i] + py[i] * py[i]);
     hs += dxv;
     nh++;
     let ri = (((dxv - mh0) * C1 + 1) * 127.5) | 0;
     ri = ri < 0 ? 0 : ri > 255 ? 255 : ri;
-    const R = ramp[ri * 3] * q0, G = ramp[ri * 3 + 1] * q0, B = ramp[ri * 3 + 2] * q0;
-    for (let dy = 0; dy < 2; dy++) {
-      const yy = iy + dy;
-      if (yy < 0 || yy >= H) continue;
-      const wy = dy ? fy : 1 - fy;
-      const a = (1 - fx) * wy, b = fx * wy, o0 = (yy * W + ix) * 3, o1 = (yy * W + ix1) * 3;
-      buf[o0] += R * a; buf[o0 + 1] += G * a; buf[o0 + 2] += B * a;
-      buf[o1] += R * b; buf[o1 + 1] += G * b; buf[o1 + 2] += B * b;
-    }
+    splat(buf, x[i], y[i], ramp[ri * 3] * q0, ramp[ri * 3 + 1] * q0, ramp[ri * 3 + 2] * q0);
   }
   if (nh) S.mh += (hs / nh - S.mh) * (1 - exp(-S.ft / 1.5));
+}
+
+// The first frame's trails: each particle's light is laid back along its heading at every second frame's step, as it
+// would stand after a few frames of running.
+function tailfill(S, flow) {
+  const { buf, ramp } = S, { x, y, px, py, alive } = S.P, dl = (V0 * flow) / 60, decay = exp(-dl / TRAIL);
+  const ct = cos(S.tilt), st = sin(S.tilt);
+  let hs = 0, nh = 0;
+  for (let i = 0; i < CAP; i++)
+    if (alive[i]) {
+      hs += (px[i] * ct - py[i] * st) / sqrt(px[i] * px[i] + py[i] * py[i]);
+      nh++;
+    }
+  S.mh = hs / nh;
+  for (let i = 0; i < CAP; i++) {
+    if (!alive[i]) continue;
+    const q = sqrt(px[i] * px[i] + py[i] * py[i]), ri = ((((px[i] * ct - py[i] * st) / q - S.mh) / SINMAX + 1) * 127.5) | 0;
+    const r = ri < 0 ? 0 : ri > 255 ? 255 : ri, ux = px[i] / q, uy = py[i] / q;
+    for (let j = 0; j < 24; j += 2) {
+      const X = x[i] - ux * dl * j, Y = y[i] - uy * dl * j;
+      if (Y < -0.5 || Y >= H + 0.5) continue;
+      const w = 2 * (1 - decay) * pow(decay, j);
+      splat(buf, X, Y, ramp[r * 3] * w, ramp[r * 3 + 1] * w, ramp[r * 3 + 2] * w);
+    }
+  }
 }
 
 const GAIN = 0.6, THR = 0.3, BX = 0.18, BY = 0.25;
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const { buf, tmp } = S;
+  const { buf, tmp } = S, cx = 1 - 2 * BX, cy = 1 - 2 * BY;
   // a light blur, wider along y than along x because the veins mostly run down the panel: [bx 1-2bx bx] along x
   // (the panel wraps), [by 1-2by by] along y
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
-      const xl = x === 0 ? W - 1 : x - 1, xr = x === W - 1 ? 0 : x + 1;
-      for (let c = 0; c < 3; c++) tmp[(y * W + x) * 3 + c] = BX * buf[(y * W + xl) * 3 + c] + (1 - 2 * BX) * buf[(y * W + x) * 3 + c] + BX * buf[(y * W + xr) * 3 + c];
+      const o = (y * W + x) * 3, ol = (y * W + (x === 0 ? W - 1 : x - 1)) * 3, or = (y * W + (x === W - 1 ? 0 : x + 1)) * 3;
+      tmp[o] = BX * buf[ol] + cx * buf[o] + BX * buf[or];
+      tmp[o + 1] = BX * buf[ol + 1] + cx * buf[o + 1] + BX * buf[or + 1];
+      tmp[o + 2] = BX * buf[ol + 2] + cx * buf[o + 2] + BX * buf[or + 2];
     }
+  const k = 1 / RHO0;
   for (let y = 0; y < H; y++) {
     const yu = y === 0 ? 0 : y - 1, yd = y === H - 1 ? H - 1 : y + 1;
     for (let x = 0; x < W; x++) {
-      const o = (y * W + x) * 3, ou = (yu * W + x) * 3, od = (yd * W + x) * 3, v = [0, 0, 0];
-      for (let c = 0; c < 3; c++) {
-        const r = (BY * tmp[ou + c] + (1 - 2 * BY) * tmp[o + c] + BY * tmp[od + c]) / RHO0;
-        const q = 1 - exp(-GAIN * max(0, r - THR));
-        v[c] = 235 * q + 20 * min(1, q * 25);
-      }
-      display.setPixel(x, y, v[0], v[1], v[2]);
+      const o = (y * W + x) * 3, ou = (yu * W + x) * 3, od = (yd * W + x) * 3;
+      const r0 = (BY * tmp[ou] + cy * tmp[o] + BY * tmp[od]) * k, r1 = (BY * tmp[ou + 1] + cy * tmp[o + 1] + BY * tmp[od + 1]) * k;
+      const r2 = (BY * tmp[ou + 2] + cy * tmp[o + 2] + BY * tmp[od + 2]) * k;
+      const q0 = 1 - exp(-GAIN * max(0, r0 - THR)), q1 = 1 - exp(-GAIN * max(0, r1 - THR)), q2 = 1 - exp(-GAIN * max(0, r2 - THR));
+      display.setPixel(x, y, 235 * q0 + 20 * min(1, q0 * 25), 235 * q1 + 20 * min(1, q1 * 25), 235 * q2 + 20 * min(1, q2 * 25));
     }
   }
 }
