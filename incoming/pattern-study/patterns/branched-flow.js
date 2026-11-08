@@ -1,21 +1,75 @@
 // ===== Patternflow pattern =====
 // Title:   Branched Flow
 // Family:  particle
-// Idea:    draft
+// Idea:    A cold beam of 35,000 rays is sent down through a smooth random landscape that drifts and breathes, and where the rays focus they pile into thin bright veins that fork, cross and sway down the panel, cyan where a vein leans left of the beam, magenta where it leans right and white where the two cross.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: branched flow, the way a cold stream of rays or particles in a smooth weak random potential stays in channels that fork where neighbouring paths focus, after a depth of about xi times s to the minus two thirds (Eric Heller and colleagues; Kaplan 2002; Metzger, Jacobsen and Heller 2010), seen in electrons leaving a quantum point contact (Topinka et al., Nature 2001), in tsunami focusing (Michael Berry 2007) and in microwave freak waves (Hohmann et al. 2010), all names and years from memory; the rays follow the eikonal equations of a medium of index 1 + V, leapfrogged on H = |p| - n(x), through a Gaussian random field summed from plane waves
 // Round:   117
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=1..4, Scale=-1..1, Strength=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Flow.
-// Knob 3: Scale.
-// Knob 4: Strength.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the whole ramp, and one turn comes back. At 0 a ray that leans left of the beam is cyan (0, 255, 255), a straight one lavender (206, 195, 246) and one that leans right magenta (255, 0, 255), and where the two meet the light adds up to white. At 0.25 the ends are magenta and amber with a pink middle, at 0.5 orange-red and green with a pale lime middle, at 0.75 lime and azure with an aqua middle. Every stop is drawn at one luma, so no hue is the dim one.
+// Knob 2: Flow. The speed of the rays, v0, is 6 LEDs a second at Flow 1, 12 at 2 and 24 at 4, so a ray takes 27, 13.5 and 6.8 s to run the 162 LEDs from where the landscape begins, 32 above the panel, to its bottom edge. The landscape's drift, its waves' own frequencies and their breathing are scaled by the same factor, so Flow only plays the same picture faster or slower. The trail is 2.5 LEDs of path at every speed, so it lasts 0.42 s at Flow 1 and 0.10 s at Flow 4.
+// Knob 3: Scale. The correlation length of the landscape, xi = 14 LEDs times 1.5 to the knob: 9.3, 14 and 21, a spectrum centred on 0.67, 0.45 and 0.30 radians per LED, with about 115, 80 and 50 of the 160 pooled waves carrying weight. The veins lie 10, 14 and 16 LEDs apart (twice the first minimum of the horizontal autocorrelation of the luma). At the opening strength the first rays cross 20, 28 and 39 LEDs into the landscape, which begins 32 above the panel, so at 9.3 and 14 the veins have forked before they reach the top edge and at 21 they fork 7 LEDs in. A vein is 3.7 LEDs wide across a row (median width at half height) at all three, because the splat, the blur and the trail set that, not xi.
+// Knob 4: Strength. The rms of V, 0.032 times 1.6 to the knob: 0.020, 0.033 at the opening and 0.051. At xi = 14 the rays of a static field first cross 39, 28 and 22 LEDs into the landscape at s = 0.021, 0.035 and 0.054, so a stronger landscape forks earlier. The rms deflection of the rays from vertical, over six random landscapes between 20 and 60 s, is 0.06 rad in the top quarter of the panel and 0.10 in the bottom quarter at -1, 0.12 and 0.25 at the opening and 0.27 and 0.51 at 1. At -1 the veins run nearly straight and parallel; at the opening they fork and cross; at 1 the beam is hot before the top quarter ends and the picture is a web of fine cross-threads.
 
+// What the field is. A beam of rays runs down a medium of index n = 1 + V(x, y, t), where V is a smooth Gaussian random field
+// that never stops moving. A ray keeps the speed 1 and bends toward high n: dx/dl = p / |p|, dp/dl = grad V, the eikonal equations
+// of geometrical optics, with H = |p| - n(x) the quantity the leapfrog keeps. A beam that starts cold, every ray heading down,
+// does not diffuse. Where neighbouring rays are focused by the same bump of V they cross, and the crossings are the
+// caustics, thin lines of high density that fork where the landscape's next bump bends them again: the veins. The panel shows
+// the density of the rays at one moment, with a short trail. The sides wrap, and 35,000 rays run at 3.4 to the LED^2.
+//
+// The landscape. V is the sum of the active waves of a pool of 160 plane waves, cos(kx x + ky y + phase): |k| log-uniform
+// between 0.3 and 2.0 radians per LED, the direction uniform in a half plane, kx rounded to a multiple of 2 pi / 64 so that the
+// field wraps from the left edge to the right. The Scale knob sets the centre of a Gaussian in ln k, 0.3 wide, that weights the
+// pool, and the amplitudes are scaled so that V has the variance s^2 (Strength). Each wave's phase runs at -w.k plus its own rate
+// of up to 0.08 radians a second, where w is a drift of 0.6 LED a second on average (0.3 to 0.9) that wanders in direction on sines of
+// 0.021 and 0.0077 radians a second, and each wave's amplitude swells and fades by 45 % at a rate of its own, 0.03 to 0.14 radians a
+// second. The beam's direction also wanders, by 0.08 radians at most, on four sines. Every rate is a model-time rate, and no time is ever wrapped.
+// The field is evaluated on a grid of 0.5 LED with the separable form cos(a + b) = cos a cos b - sin a sin b, so a node costs a
+// multiply-add per wave and no trigonometry: 129 by 329 nodes, a snapshot every 10 frames, nine frames of rows and one of central
+// differences, then a linear blend of two snapshots every frame. The force on a ray is the bilinear value of the blend.
+//
+// Two things the first versions needed. First, the landscape fades in over 14 LEDs (smoothstep), above the panel. Switched on at
+// the edge of the beam it leaves each ray with a tilt of a kx / ky that depends on where along its wave the ray started, which is
+// a phase screen: the beam broke into long straight columns and never into branches. Second, the waves with k nearly across the
+// beam, ky small, lens it as (kx / ky)^2, and one of them among the 80 or so that are active could set the whole picture: at weak
+// strength the beam became a grating of evenly spaced columns in some random landscapes. Leaving a gap in the pool around ky = 0
+// (|ky| >= 0.3 |k|) made the grating take the gap's edge, and cooled the beam too far (rms heading 0.08 against 0.55 after 130
+// LEDs at s = 0.05, xi = 8). The pool is isotropic again, and the weak end shows the grating when the landscape has such a wave.
+//
+// The beam. Rays enter 32 LEDs above the panel, at a constant rate of 3.4 * 64 * h per step, at positions of a low-discrepancy
+// sequence (the R2 sequence of Martin Roberts, 2018, from memory) with a jitter of 0.1 of the spacing, so the beam is even to
+// better than shot noise. They leave through y = 130 and are not brought back. A ray that went round again would meet the same
+// landscape and its heading would only spread, and the veins would melt: in a static field the density contrast (rms over the
+// mean of the ray density on the panel) falls 0.86, 0.58, 0.34, 0.21 for the first four passes, and the rms heading rises 0.34,
+// 0.45, 0.53, 0.59. A fresh beam every time keeps the first-pass picture for ever. The first frame is laid down from 305 rays
+// traced through the landscape as it stands, each carrying a train of particles 1.4 LEDs apart, with their trails.
+//
+// Colour. A ray's heading, relative to the mean heading of all rays (smoothed over 1.5 s), picks a place on a ramp from cyan on
+// the left through lavender to magenta on the right, at +-0.25 in sin of the angle. A moving landscape drags the mean heading
+// by up to 0.1, which is why the ramp is centred on it. Light is added per channel, so where a left and a right vein cross it
+// is white.
+//
+// Checks, each run on this file with its internals exported (Node, the study's seeded Math.random).
+// 1. Branching depth. A cold beam of 4096 rays in a static field, the depth at which 0.2 % of the neighbouring pairs have crossed,
+//    mean of 16 fields, xi = 14: 93, 64, 45, 33, 26, 21 LEDs at s = 0.008, 0.012, 0.018, 0.027, 0.04, 0.06. A line through
+//    them is L ~ s^-0.74, not -2/3: the local exponent is -0.91 at the weak end and -0.46 at the strong, and passes -2/3 near
+//    s = 0.03. At s = 0.03 the depth goes as xi^0.81 for xi = 6 to 24 (17 to 52 LEDs), where scaling says xi^1.
+// 2. The integrator. In a static field H = |p| - 1 - V, with V summed exactly, changes by 5.4e-4 rms (1.6 % of s) over 1000
+//    steps of 0.1 LED at xi = 14, s = 0.035, and by 2.5e-3 at xi = 9.3, s = 0.054. It is the same for steps of 0.4, 0.2 and 0.1,
+//    and it grows only slowly with the path, 3.2e-4 after 10 LEDs and 5.4e-4 after 100: the grid's force, 0.5 LED nodes with a
+//    bilinear lookup, sets it, not the step. Against RK4 with the exact force the position after 150 LEDs is out by 0.86 LED rms
+//    (xi = 14, s = 0.035) and by 15 LEDs in the hot case, the same for every step, so it is the grid's force error amplified by
+//    the rays' divergence. It is a slightly smoothed landscape, not a wrong one.
+// 3. The flux. In 900 s at the opening 2,349,120 rays went in and 2,349,296 came out, a ratio of 1.0001, with 35,295 in flight
+//    (35,179 to 35,657) and the density, by quarters of the panel, 1.00 to 1.01 times the beam's, rising 0.3 % toward the bottom
+//    where the rays are a little oblique.
+//
 const W = 64, H = 128;
 const { floor, ceil, min, max, sqrt, sin, cos, exp, log, pow, abs, PI } = Math;
 const TAU = 2 * PI;
@@ -86,7 +140,7 @@ function hsv(h, s, v, out, o) {
 }
 
 // Strength knob (-1..1) to the rms of V, and Scale knob to the correlation length in LEDs.
-const strengthOf = (k) => 0.0285 * pow(1.6, cl(k, -1, 1));
+const strengthOf = (k) => 0.032 * pow(1.6, cl(k, -1, 1));
 const xiOf = (k) => 14 * pow(1.5, cl(k, -1, 1));
 
 export function setup(params, knobs) {
