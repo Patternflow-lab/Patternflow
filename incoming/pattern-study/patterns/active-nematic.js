@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..3, Scale=-1..1, Order=2..6
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the ring that the director angle is read on, so one full turn comes back. At 0 a director running across the panel is blue (64, 115, 212), one running along it orange (254, 145, 64), and the two diagonals are magenta (188, 86, 162) for the fibres that run from top left to bottom right and a lighter pink (229, 123, 201) for the other. At 0.25 the across fibres are rose and the along ones green, at 0.5 amber and sky blue, at 0.75 teal and violet. Yellow and orange come up in lightness, so no hue goes brown or olive; before the fibre shading the darkest ring colour at any hue has a brightest channel of 131 and a luma of 88.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the ring that the director angle is read on, so one full turn comes back. At 0 a director running across the panel is blue (64, 115, 212), one running along it orange (254, 145, 64), and the two diagonals are magenta (188, 86, 162) for the fibres that run from top left to bottom right and a lighter pink (229, 123, 201) for the other. At 0.25 the across fibres are rose and the along ones green, at 0.5 amber and sky blue, at 0.75 teal and violet. Colours between orange and yellow-green come up to an Oklab lightness of 0.72 at their yellowest, so that they do not go olive or brown; before the fibre shading the darkest ring colour at any hue has a brightest channel of 131 and a luma of 88.
 // Knob 2: Flow. The activity zeta, which is the clock: 0.5 units of the model's time eta / zeta pass per panel second per unit of Flow, so everything runs faster in proportion and nothing else changes. The rms speed of the fluid, measured over 500 s at Scale 0 and Order 2, is 0.85 LEDs a second at 0.5, 1.74 at 1, 3.37 at the opening 2 and 5.05 at 3; the speed taken each second ranged from 2.25 to 5.72 at Flow 2. The +1/2 defects swim on their own and go faster than the fluid, a net 4.7 LEDs a second at Flow 2 against 2.8 for the -1/2 defects.
-// Knob 3: Scale. The active length ell = sqrt(K eta / zeta) = 1.25 times 1.3 to the Scale LEDs, 0.96 at -1, 1.25 at 0 and 1.63 at 1 (the Frank constant K = ell^2 changes, zeta does not). The aligned film is unstable to bend below the wavelength 2 pi ell sqrt(2 / (1 + lambda)), 6.5, 8.5 and 11.1 LEDs, which is 9.8, 7.5 and 5.8 of them across the 64 LEDs. Defects, counted as plaquettes of the 128 by 64 grid round which the director turns by half a turn, mean over 500 s at Order 2: 26.6 at -1 (12 to 42), 18.5 at 0 (6 to 32) and 12.5 at 1 (4 to 22), one for every 17.5, 21 and 25.6 LEDs of spacing; the +1/2 and -1/2 counts were equal at every one-second sample.
+// Knob 3: Scale. The active length ell = sqrt(K eta / zeta) = 1.25 times 1.3 to the Scale LEDs, 0.96 at -1, 1.25 at 0 and 1.63 at 1 (the Frank constant K = ell^2 changes, zeta does not). The aligned film is unstable to bend at wavelengths longer than 2 pi ell sqrt(2 / (1 + lambda)), 6.5, 8.5 and 11.1 LEDs, which is 9.8, 7.5 and 5.8 of them across the 64 LEDs. Defects, counted as plaquettes of the 128 by 64 grid round which the director turns by half a turn, mean over 500 s at Order 2: 26.6 at -1 (12 to 42), 18.5 at 0 (6 to 32) and 12.5 at 1 (4 to 22), one for every 17.5, 21 and 25.6 LEDs of spacing; the +1/2 and -1/2 counts were equal at every one-second sample.
 // Knob 4: Order. The rate a, in units of zeta / eta, at which the order |q| is driven back to its resting value 1/2, so the core radius xi = ell / sqrt(a) is 0.88 LEDs at Order 2 and 0.51 at 6 at Scale 0. At 2 the cores are soft: 4.4 LEDs on average lie under half the order within three LEDs of a defect, the bend walls between the blue, pink and orange domains are dark lines two or three LEDs wide and there are 18.5 defects. At 4 there are 24.3 and 2.0 LEDs, at 6 there are 29.9 and 1.2 LEDs, the walls are thinner and a core is a LED or less across. At Scale -1 and Order 6 there are 49.7 defects (28 to 68), at Scale 1 and Order 2 there are 12.5.
 
 // What the field is. Q = [[q1, q2], [q2, -q1]] is the order tensor of a two-dimensional film. |q| = S / 2 with S the degree of order, the
@@ -25,8 +25,8 @@
 //   eta laplacian u - grad p = zeta div Q,   div u = 0.
 // J turns the pair (q1, q2) through a right angle, so the first term turns the director with the fluid at half the vorticity.
 // The second is the flow alignment of Beris and Edwards, lambda (E - 2 tr(QE) Q) written out in two dimensions (0.7 here, below
-// the flow-aligning value 1 and so flow-tumbling; it settles cos 2 theta = 1 / lambda in a simple shear at |q| = 1/2, which this
-// file does not test). The third is the Landau-de Gennes relaxation of the order and the fourth one-constant elasticity. The
+// the flow-aligning value 1 and so flow-tumbling; above 1 it settles cos 2 theta = 1 / lambda in a simple shear at |q| = 1/2,
+// which this file does not test). The third is the Landau-de Gennes relaxation of the order and the fourth one-constant elasticity. The
 // active stress is -zeta Q with zeta > 0, the extensile sign, which makes the aligned film unstable to bend. Solved in Fourier
 // space the Stokes equation is a stream function, u = (psi_y, -psi_x) with psi_hat = -c_hat / k^4 and c_hat = (ky^2 - kx^2) q2_hat +
 // 2 kx ky q1_hat, the curl of zeta div Q; the mean flow (k = 0) is zero. Nothing stirs the film from outside, there is no friction
@@ -34,15 +34,16 @@
 //
 // What is left out. The passive stress of the elasticity (the Ericksen stress and the antisymmetric torque stress of the
 // Beris-Edwards equations) is dropped, so the active stress alone drives u, and the viscosity is one number for the whole film.
-// With it the active length would not be the only length that the elasticity sets; this file does not test what it would change.
+// With it the elasticity would also push on the fluid at the scale of the defects; this file does not test what that would change.
 //
 // One step of h. Godunov splitting, first order in h: (1) the Stokes solve from the current q; (2) q carried by u through the
-// foot of the characteristic with four-point Lagrange look-up, turned by omega h (a series of cos and sin to the sixth power) and
-// aligned by an explicit step; (3) the order relaxed with the exact solution of d|q|^2/dt = 2 a |q|^2 (1 - 4 |q|^2); (4) the
+// foot of the characteristic with four-point Lagrange look-up, turned by omega h (series for cos and sin, wrong by under 3e-5
+// for a turn of 0.3 radians) and aligned by an explicit step; (3) the order relaxed with the exact solution of d|q|^2/dt = 2 a |q|^2 (1 - 4 |q|^2); (4) the
 // elastic term taken implicitly in Fourier space, q_hat / (1 + h ell^2 k^2), whose spectrum feeds the next Stokes solve. Three
 // 64 by 128 transforms a step. A frame is one step of 0.5 Flow / 30 time units (0.033 at the opening, 0.05 at Flow 3) unless
-// the largest |u| + |v| would carry a feature more than 0.7 LED, which asks for less and has not happened at any knob in the
-// runs below. The first update runs the model from a random director field for 20 time units, about half a second, so the
+// the largest |u| + |v| would carry a feature more than 0.7 LED, which asks for less and did not happen in 200 s at the
+// opening, at Flow 3 with Scale 1 and Order 2 (the closest, 13.9 against the 14 that asks for less), at Flow 3 with Scale 0 and
+// at Flow 3 with Scale -1 and Order 6. The first update runs the model from a random director field for 20 time units, about half a second, so the
 // picture opens with its defects already made.
 //
 // Checks, each run on this file:
@@ -70,20 +71,22 @@
 // 4. div u = 0 is exact: u and v both come from psi, so i kx u_hat + i ky v_hat vanishes mode by mode, and a transform of the
 //    stored u and v gives a residual of 1.4e-14 of the rms of |k u_hat|. A central difference on the grid, which the
 //    strain and the vorticity use, gives 4.9e-3 of the rms of |grad u|.
-// 5. One length. If ell is the only length, the number of defects goes as 1 / ell^2. n ell^2 over the 8192 LEDs of the panel
-//    is 0.0056, 0.0057 and 0.0062 for Scale -1, 0 and 1 at Order 6 (49.7, 29.9, 19.2 defects), and 0.0067, 0.0064 and 0.0067
+// 5. One length. If ell is the only length, the number of defects goes as 1 / ell^2. The defect count times ell^2 over the 8192 LEDs of the
+//    panel is 0.0056, 0.0057 and 0.0062 for Scale -1, 0 and 1 at Order 6 (49.7, 29.9, 19.2 defects), and 0.0067, 0.0064 and 0.0067
 //    at Order 8, beyond the knob, where the cores are far under a cell. At Order 2 it is 0.0030, 0.0035 and 0.0040: there the
 //    core, ell / sqrt(2) = 0.68 to 1.15 LEDs, is not small against the grid and the count falls off slower than 1 / ell^2.
-// 6. The defects are made and lost in pairs: the +1/2 and -1/2 counts are equal at every sample (the mean of their
-//    difference is 0.00 over 900 s), as a torus requires, and they are made and lost all the time, 19.1 defects on
-//    average at the opening over 900 s (6 to 36, 5 to 95 percent 12 to 28), with no drift in the mean: 8.7, 9.6, 9.8, 9.4,
-//    8.8, 9.4, 9.3, 11.2 and 9.8 of each sign in nine blocks of 100 s. The film neither orders nor melts: the mean of |q| is
-//    0.475 to 0.485 against the resting 0.5 at every corner of Scale and Order, so the order is whole but at the cores and walls.
+// 6. The defects come in pairs: the +1/2 and -1/2 counts were equal at each of 900 one-second samples at the opening, as a
+//    torus requires, while the count itself moves, 16.8 on average over 900 s (4 to 32, 5 to 95 percent 10 to 24), with no
+//    drift in the mean: 7.9, 8.9, 8.7, 7.9, 9.6, 9.2, 8.5, 6.9 and 8.0 of each sign in nine blocks of 100 s. The film neither
+//    orders nor melts: the mean of |q| is 0.475 to 0.485 against the resting 0.5 at every corner of Scale and Order, so the
+//    order is whole but at the cores and walls.
 // 7. A +1/2 defect swims and a -1/2 does not so much: tracked every 0.3 time units over 200, defects that lived at least
 //    1.8 time units had net speeds (mean, median, 90th percentile) of 4.7, 5.0 and 6.5 LEDs per time unit for +1/2
 //    (226 tracks, life 4.4 mean) and 2.8, 2.6 and 5.0 for -1/2 (153 tracks, life 9.7 mean) at Order 2. The fluid's
 //    rms speed was 3.4. Most +1/2 tracks are short: a defect that moves more than 2.5 cells in 0.3 leaves the matching, or
 //    flickers on the grid. The figures are for the ones that were followed, so the +1/2 speed is more likely low than high.
+// The tables for the knobs and checks 5 to 7 were taken before the random start's correlation length was changed from
+// 0.6 ell to 1.5 LEDs, which does not enter the running model; the 900 s run in check 6 is on this file.
 // Not checked: the flow-aligning angle in a shear against lambda; the lambda dependence of the defect count (0.7 is used
 // throughout); a run at half or twice the resolution, and with the passive stress; the speed of a +1/2 defect against a
 // published number; the flow's spectrum.
