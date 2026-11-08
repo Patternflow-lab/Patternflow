@@ -1,23 +1,63 @@
 // ===== Patternflow pattern =====
 // Title:   Salt Fingers
 // Family:  ocean
-// Idea:    placeholder
+// Idea:    Warm salty water over cold fresh water is stable in density, yet heat leaves a displaced parcel ten times faster than salt does, so the interface breaks into tall alternating plumes, fresh cool ones rising and salty warm ones sinking, solved as two-dimensional double-diffusive flow in a box with fixed background gradients and drawn as the salt anomaly in teal and vermilion over deep blue with a pale seam where it is steepest, and the plumes tilt, pinch, drip and re-form for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: placeholder
+// Lineage: Salt fingers: Stern (1960, from memory) on the instability of warm salty water over cold fresh; the perpetual salt fountain of Stommel, Arons and Blanchard (1956, from memory); a gradient-periodic box, in which T', S' and the stream function are periodic about constant background gradients, as Radko used for finger simulations (2003, and with Smith 2012, both from memory); the flux ratio gamma = alpha F_T / beta F_S after Schmitt (1979, from memory); integrating-factor Adams-Bashforth stepping (Lawson, 1967, from memory) with the two-thirds rule (Orszag, 1971, from memory)
 // Round:   118
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Ratio=-1..1
 //
-// Knob 1: Hue. placeholder
-// Knob 2: Flow. placeholder
-// Knob 3: Scale. placeholder
-// Knob 4: Ratio. placeholder
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the colour ramp except the one at zero salt, so the deep blue between plumes stays and one full turn comes back. At 0 the fresh rising water runs from deep blue through teal (hue 200 to 228 degrees, lightness 0.50 at the middle stop, 0.95 at the top) to ice, and the salty sinking water from crimson (hue 8, lightness 0.45) through vermilion to peach (hue 62, lightness 0.94). The two ramps stay about 180 degrees apart at every setting (0.3 is magenta against green, 0.5 orange against teal) because each keeps nearly one hue, and the ramp is joined in Oklab a and b so that a turn goes through grey and not through a rainbow. The colour scale is 2.2 rms of S' followed over about 8 s, raised to the power 1.3 so the middle stays dark; the stop at zero salt is deep blue (lightness 0.29). The temperature layer moves the lightness by up to 0.04 and the hue by up to 18 degrees where the salt anomaly is small.
+// Knob 2: Flow. Model time per panel second: 0.6 time units per unit of the knob at the opening, so 1.2 at 2, times h / 1.05 and (R / 2.2)^1.85 so that the pace of the picture does not change with Scale or Ratio (h is the LED pitch in d, below, and the second factor is the fall of the rms speed with R, measured). Over 90 s the plumes' rms speed is 1.4 LEDs a second up the panel at 0.5, 5.8 at 2 and 11.7 at 4 (across the panel 0.5, 2.0 and 4.0), 5.8 at Ratio -1, 0 and 1, 4.2 at Scale -1 and 6.2 at Scale 1. The model's steps are fixed in size, so a slow frame runs more of them (at most 8). Cost per frame in Node: 0.4 ms to step at 0.5, 1.6 at 2 and 3.4 at 4, and 0.9 ms to draw.
+// Knob 3: Scale. The wavelength of the fastest-growing finger in LEDs, 8 times 1.55 to the knob: 5.2 at -1, 8 at 0, 12.4 at 1, which sets the LED pitch h = 1.63, 1.05 and 0.68 d. The plumes on the panel are wider than that, as saturated fingers are: the distance from a salty maximum to the next fresh one (first minimum of the autocorrelation of S' across the panel, 90 s) is 4, 6 and 9 LEDs, so 16, 11 and 7 plumes across, and the spectral centroid of S' is at a wavelength of 10.6, 12.7 and 17.1 LEDs. The pitch follows the knob with a time constant of 0.6 s, and the fingers need a few growth times (5.8 model time units, 4.7 panel seconds, at the opening) to settle to a new width.
+// Knob 4: Ratio. R = alpha T_z / (beta S_z), the stabilising temperature gradient over the destabilising salt gradient, 2.2 times 1.4 to the knob: 1.57 at -1, 2.25 at the opening and 3.08 at 1. The fingers exist for R below 1 / tau = 10. The fastest linear growth rate is 0.307, 0.173 and 0.099 per time unit, the rms vertical speed of the saturated state 4.7, 2.4 and 1.4 d per time unit, and the flux ratio 0.76, 0.72 and 0.69. At -1 the plumes are shorter and the picture is busy with small drips, at 1 they are longer, wider and calmer; the top end still never settles (recur 0.68 over 900 s).
+
+// What the field is. Perturbations T', S' and a stream function psi (u = -psi_z, w = psi_x, x across, z up) about linear background gradients, in the units d =
+// (nu kappa_T / (g alpha T_z))^(1/4), d^2 / kappa_T, with T in T_z d and S in (alpha / beta) T_z d:
+//   T_t + J(psi, T') + w = lap T',   S_t + J(psi, S') + w / R = tau lap S',   zeta_t + J(psi, zeta) = Pr (T' - S')_x + Pr lap zeta,   zeta = lap psi.
+// Pr = nu / kappa_T = 7, tau = kappa_S / kappa_T = 0.1 (0.01 in the ocean; at 0.1 the salt field is resolved on 64 cells and the flux ratio stays in the observed
+// 0.4 to 0.8), R above. The box is 64 h by 64 h: 64 by 64 modes, the 2/3 rule (|m|, |n| <= 21, 1848 modes kept), and the panel's 128 rows are the same box
+// stretched by two in z by zero-padding the spectrum, so a plume is twice as long in LEDs as in the box and as wide as it is. The linear terms of (w, T, S) in
+// each mode (diffusion, the buoyancy that drives w, and the w that carries the background gradients) are one 3 by 3 matrix, exponentiated exactly, and the
+// advective terms go through Adams-Bashforth 3 on top of it (Lawson's integrating factor), with the step picked from a ladder 0.008 2^(l/2) so that
+// k_max (max|u| + max|w|) dt stays under 0.6. Modes with no x variation carry psi, so a mean shear can grow. S gets a grid-scale damping 3 (kk)^8 per time unit, kk
+// the mode's radius in units of the cut. Conjugate symmetry is restored after every step. The first frame runs 14 time units from a seed of
+// eigenvectors in the fastest-growing band: 340 to 640 steps and 0.2 to 0.55 s across the knobs (451 steps, 0.4 s at the opening).
+//
+// The picture. S' is the colour (ramp in Knob 1), T' the faint second layer that keeps the voids from being black, and a pixel whose salt gradient (central
+// differences, in colour scales per LED) passes 0.3 to 0.75 is pulled toward white by up to 0.8, a pale seam on the steepest fronts and the sheared edges of tongues.
+//
+// What was checked, with the file's own step:
+// - Linear growth. A single mode at amplitude 1e-9 grows at the largest root of (s + Pr k2)(s + k2)(s + tau k2) + Pr c [(s + tau k2) - (s + k2) / R] = 0
+//   (c = kx^2 / k2) to a relative 3e-13 or better over 20 cases (R 1.6, 2.2, 3; fastest wavelength 5, 8, 12 LEDs; modes (8,0), (8,3), (5,0), (13,6)), with the
+//   damping included in the root. It lowers the finger's own rate by 0.9 per cent (0.1783 to 0.1766 at the opening). The static limit gives the unstable band
+//   k^4 < 1/(tau R) - 1, upper edge 1.363 d^-1 at R = 2.245, and the cubic's zero is at 1.363. The fastest wavelength is 8.38 d at R = 2.245, 1.33 times the
+//   2 pi d = 6.28 d one reads off the scales.
+// - The advective terms. Against a direct convolution over all kept mode pairs, on a random state: T, S and w terms agree to 2.4e-15, 2.0e-15 and 1.6e-15
+//   relative. With the linear terms off, the tendencies of <T'^2>, <S'^2>, the energy and the enstrophy are 1e-16 of themselves, and over 4 time units the
+//   largest drift of the four is 5e-5 at dt = 0.008, 6e-5 at 0.016, 5e-4 at 0.023 and 2e-3 at 0.032.
+// - Time step. Against dt = 0.0005, the state of a developed run after 2 time units differs by 2.8e-2 (dt 0.032), 2.7e-3 (0.016), 7.9e-4 (0.008) and
+//   2.1e-4 (0.004), second order once the two lower-order start-up steps are counted (the ladder starts again at a change of step).
+// - Resolution. The same box on 128 by 128 modes (R = 2.2, 8 LEDs) at damping 3 and 0.3: rms w 2.80 and 2.67, rms S' 8.5 and 8.1, flux ratio 0.69 and 0.68.
+//   On 64 by 64: 2.54, 7.9 and 0.73 at damping 3, 2.04, 6.1 and 0.63 at 0.3, 1.97, 5.8 and 0.59 with none. So the shipped grid and damping run 9 per cent
+//   under the finer grid in w and 7 in S', and without damping the salt spectrum does not fall toward the cut (19 per cent of its peak at kk 1, 0.8 per cent
+//   with damping 3). The grid is coarser at Scale -1 (h = 1.63 d) and finer at 1 (0.68 d), and not checked there beyond the runs below.
+// - Finger width. At the opening the first minimum of the autocorrelation of S' across the panel is at 6 LEDs, a wavelength of 12, against 8 for the fastest
+//   linear finger and 6.0 for 2 pi d. A finger is 1.5 times the linear wavelength once it saturates.
+// - Flux ratio. gamma = <w T'> / <w S'> = alpha F_T / beta F_S is 0.72 at the opening over 900 s (0.76 at R 1.57, 0.69 at 3.08), inside the observed 0.4 to 0.8.
+// - Staying irregular. No imposed shear was needed. The plain system saturates as tall fingers that burst, then as plumes, and does not settle at any R in
+//   the knob's range. Variance of S' by quarter of 900 s: 57.9, 56.2, 54.7, 57.0 at the opening (last over first 0.98), 27.2, 27.5, 28.8, 27.7 with Flow 4, Scale 1 and
+//   Ratio 1 (1.02). The part of the variance in the means over x (layers) is 2 to 6 per cent, so no staircase forms.
+// - Staying alive. The linear growth rate is positive at every R the knob reaches, so the state cannot decay; a state scaled by 1e-3 grows back to rms 6
+//   in 50 s unaided. If rms S' ever falls under 0.25 (it is 3.7 to 13 in the runs) or a speed passes 80, the field is cleared and the first-frame run is
+//   done again (0.36 s once). Zeroing the state by hand did that.
 
 const LW = 6, W = 1 << LW, H = W, N = W * H, HD = 2 * H, ND = W * HD;
-const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, pow, log, PI } = Math;
+const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, pow, PI } = Math;
 const TAU2 = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const IM = floor(W / 3), JM = floor(H / 3); // modes kept: |m| <= IM along x, |n| <= JM along z (the two-thirds rule)
@@ -186,11 +226,11 @@ const mkF = () => ({ wr: new Float64Array(N), wi: new Float64Array(N), tr: new F
 
 function makeState() {
   const S = {
-    t: 0, acc: 0, R: 2.2, h: 1, ver: 0, bR: 0, bh: 0, lv: 4, ord: 0, up: 0, umax: 0, wmax: 0, ready: false,
+    t: 0, acc: 0, R: 2.2, h: 1, ver: 0, bR: 0, bh: 0, lv: 4, ord: 0, up: 0, umax: 0, wmax: 0, srms: 1, ready: false,
     X: mkF(), N0: mkF(), H1: mkF(), H2: mkF(),
     ar: new Float64Array(N), ai: new Float64Array(N), br: new Float64Array(N), bi: new Float64Array(N), cr: new Float64Array(N), ci: new Float64Array(N),
     E: [], Ever: new Int32Array(NLV).fill(-1),
-    pr: new Float64Array(ND), pi: new Float64Array(ND), hue: 0, sref: 0, flow: 1, Rt: 2.2, lt: 8, lam: 8, dirty: false, lutHue: -1,
+    pr: new Float64Array(ND), pi: new Float64Array(ND), hue: 0, sref: 0, fk: 2, Rt: 2.2, lt: 8, lam: 8, dirty: false, lutHue: -1,
     SS: new Float32Array(ND), TT: new Float32Array(ND),
   };
   for (let l = 0; l < NLV; l++) S.E.push(new Float64Array(NQ * 9));
@@ -252,13 +292,14 @@ function evalN(S, O) {
   }
   fft2(ar, ai, true);
   fft2(br, bi, true);
-  let um = 0, wm = 0;
+  let um = 0, wm = 0, ss = 0;
   for (let p = 0; p < N; p++) {
     const u = ar[p], w = ai[p], T = br[p], Sv = bi[p];
     if (u > um) um = u;
     else if (-u > um) um = -u;
     if (w > wm) wm = w;
     else if (-w > wm) wm = -w;
+    ss += Sv * Sv;
     ar[p] = u * T;
     ai[p] = w * T;
     br[p] = u * Sv;
@@ -268,6 +309,7 @@ function evalN(S, O) {
   }
   S.umax = um;
   S.wmax = wm;
+  S.srms = sqrt(ss / N);
   fft2(ar, ai, false);
   fft2(br, bi, false);
   fft2(cr, ci, false);
@@ -407,7 +449,7 @@ const round0 = (v) => Math.round(v);
 const OPEN = [0, 2, 0, 0.06];
 const RMID = 2.2, RSPAN = 1.4; // Ratio knob: R_rho = RMID RSPAN^knob
 const LAM0 = 8, LAMB = 1.55; // Scale knob: the fastest finger's wavelength in LEDs is LAM0 LAMB^knob
-const MAXSTEPS = 8;
+const MAXSTEPS = 8, FLOWC = 0.6, H0 = 1.05, WEXP = 1.85; // Flow knob: model time units per panel second per unit of knob at the opening
 
 export function setup(params) {
   params.s = makeState();
@@ -415,7 +457,7 @@ export function setup(params) {
 }
 
 function targets(S, k) {
-  S.flow = cl(k[1], 0.1, 8);
+  S.fk = cl(k[1], 0.1, 8);
   S.Rt = RMID * pow(RSPAN, cl(k[3], -1.2, 1.2));
   S.lt = LAM0 * pow(LAMB, cl(k[2], -1.2, 1.2));
   S.hue = cl(k[0], 0, 1);
@@ -431,9 +473,11 @@ function follow(S, f) {
     S.ver++;
   }
 }
+// The pace of the panel does not depend on Scale or Ratio: a model time unit is worth h / H0 (R / RMID)^WEXP of them, the first because one LED is h
+// lengths and the second because the rms speed of the fingers goes as R^-WEXP (measured between R = 1.57 and 3.08).
 function advance(S, ft) {
   follow(S, 1 - exp(-ft / 0.6));
-  S.acc += ft * S.flow;
+  S.acc += ft * FLOWC * S.fk * (S.h / H0) * pow(S.R / RMID, WEXP);
   let n = 0;
   while (n < MAXSTEPS) {
     const dt = DT0 * pow(2, S.lv / 2);
@@ -443,13 +487,20 @@ function advance(S, ft) {
   }
   if (n === MAXSTEPS) S.acc = min(S.acc, 0.05);
   S.dirty = true;
-  // A state that has gone bad starts over from the seed.
-  if (!(S.wmax < 80)) {
-    for (const f of [S.X, S.N0, S.H1, S.H2]) for (const key in f) f[key].fill(0);
-    seed(S, 0.5);
-    S.ord = 0;
-    S.lv = 3;
-  }
+  // A state that has gone bad, or has died away, starts over from the seed. Neither happens in the runs below.
+  if (!(S.wmax < 80) || !(S.srms > 0.25)) spin(S);
+}
+
+// The first frame has to show fingers already: a seed in the fastest-growing band, then PRE model time units at the starting knobs.
+function spin(S) {
+  for (const f of [S.X, S.N0, S.H1, S.H2]) for (const key in f) f[key].fill(0);
+  S.ord = 0;
+  S.lv = 3;
+  S.srms = 1;
+  S.t = 0;
+  S.acc = 0;
+  seed(S, 0.5);
+  while (S.t < PRE) step(S);
 }
 
 export function update(dt, input, params) {
@@ -459,25 +510,16 @@ export function update(dt, input, params) {
     S.ready = true;
     S.R = S.Rt;
     S.lam = S.lt;
-    S.bh = 0;
     follow(S, 1);
-    seed(S, 0.5);
-    S.flow = 1;
-    while (S.t < PRE) {
-      S.acc += 1;
-      while (S.acc >= DT0 * pow(2, S.lv / 2) && S.t < PRE) S.acc -= step(S);
-    }
-    S.acc = 0;
-    targets(S, k);
+    spin(S);
   }
   advance(S, cl(dt || 0, 0, 0.1));
 }
 
 // ---- colour ---------------------------------------------------------------------------------------
-function okRgb(L, C, hDeg, out) {
-  const hr = (hDeg * PI) / 180;
+function okLab(L, a0, b0, out) {
   for (let k = 1; k >= 0; k -= 0.05) {
-    const a = C * k * cos(hr), b = C * k * sin(hr);
+    const a = a0 * k, b = b0 * k;
     const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
     const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
     const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
@@ -498,25 +540,32 @@ const enc = (v) => {
 const RGB = [0, 0, 0];
 // stops of the S ramp, [position -1..1, L, C, hue]: -1 is the freshest rising water, +1 the saltiest sinking
 const STOPS = [
-  [-1, 0.95, 0.04, 195],
-  [-0.62, 0.74, 0.11, 212],
-  [-0.3, 0.48, 0.13, 243],
-  [0, 0.25, 0.07, 272],
-  [0.3, 0.44, 0.13, 352],
-  [0.62, 0.68, 0.15, 382],
-  [1, 0.93, 0.07, 422],
+  [-1, 0.95, 0.03, 200],
+  [-0.62, 0.78, 0.1, 207],
+  [-0.3, 0.5, 0.12, 228],
+  [0, 0.29, 0.06, 262],
+  [0.3, 0.45, 0.14, 8],
+  [0.62, 0.7, 0.15, 30],
+  [1, 0.94, 0.06, 62],
 ];
 const NV = 128, NT = 8;
 const LUT = new Uint8Array(NV * NT * 3);
 function buildLut(hue) {
+  // every stop but the one at zero salt turns by the knob; the ramp is joined in Oklab a and b, so a turn of the hue goes through grey and not through a rainbow
+  const lab = STOPS.map(([x, L, C, h]) => {
+    const r = ((h + (x ? hue * 360 : 0)) * PI) / 180;
+    return [x, L, C * cos(r), C * sin(r)];
+  });
   for (let v = 0; v < NV; v++) {
-    const x = (v / (NV - 1)) * 2 - 1;
+    const x = (v / (NV - 1)) * 2 - 1, ax = abs(x);
     let j = 1;
-    while (j < STOPS.length - 1 && x > STOPS[j][0]) j++;
-    const a = STOPS[j - 1], b = STOPS[j], t = cl((x - a[0]) / (b[0] - a[0]), 0, 1);
+    while (j < lab.length - 1 && x > lab[j][0]) j++;
+    const a = lab[j - 1], b = lab[j], t = cl((x - a[0]) / (b[0] - a[0]), 0, 1);
     for (let u = 0; u < NT; u++) {
-      const tt = (u / (NT - 1)) * 2 - 1; // temperature layer: -1 cold, +1 warm
-      okRgb(a[1] + (b[1] - a[1]) * t + 0.025 * tt * (1 - abs(x)), a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t + hue * 360 + 8 * tt * (1 - abs(x)), RGB);
+      const tt = (u / (NT - 1)) * 2 - 1; // the temperature layer: -1 cold, +1 warm, felt most where the salt anomaly is small
+      const w = tt * (1 - ax), L = a[1] + (b[1] - a[1]) * t + 0.04 * w, ca = a[2] + (b[2] - a[2]) * t, cb = a[3] + (b[3] - a[3]) * t;
+      const r = (18 * PI * w) / 180, cr = cos(r), sr = sin(r);
+      okLab(L, ca * cr - cb * sr, ca * sr + cb * cr, RGB);
       const o = (v * NT + u) * 3;
       LUT[o] = enc(RGB[0]);
       LUT[o + 1] = enc(RGB[1]);
@@ -553,23 +602,28 @@ export function draw(display, params) {
   if (S.dirty) {
     S.dirty = false;
     const rms = fields(S);
-    S.sref = S.sref ? S.sref + (rms - S.sref) * 0.02 : rms;
+    S.sref = S.sref ? S.sref + (rms - S.sref) * 0.004 : rms;
   }
   if (S.lutHue !== S.hue) {
     S.lutHue = S.hue;
     buildLut(S.hue);
   }
-  const { SS, TT } = S, is = 1 / (CS * S.sref), it = 1 / (CT * S.sref);
+  const { SS, TT } = S, is = 1 / (CS * S.sref), it = 1 / (CT * S.sref), ge = 0.5 * is;
   for (let y = 0; y < HD; y++) {
-    const z = HD - 1 - y;
+    const z = HD - 1 - y, zu = ((z + 1) & (HD - 1)) * W, zd = ((z + HD - 1) & (HD - 1)) * W;
     for (let x = 0; x < W; x++) {
       const q = z * W + x;
       let v = cl(SS[q] * is, -1, 1);
       const t = cl(TT[q] * it, -1, 1);
       v = v < 0 ? -pow(-v, GAM) : pow(v, GAM);
       const o = (((v + 1) * 0.5 * (NV - 1) + 0.5) | 0) * NT + (((t + 1) * 0.5 * (NT - 1) + 0.5) | 0);
-      display.setPixel(x, y, LUT[o * 3], LUT[o * 3 + 1], LUT[o * 3 + 2]);
+      // the seam: where the salt field is steepest the colour is pulled toward white
+      const gx = (SS[z * W + ((x + 1) & (W - 1))] - SS[z * W + ((x + W - 1) & (W - 1))]) * ge, gz = (SS[zu + x] - SS[zd + x]) * ge;
+      const e = sm(E0, E1, sqrt(gx * gx + gz * gz)) * EW;
+      const r = LUT[o * 3], g = LUT[o * 3 + 1], b = LUT[o * 3 + 2];
+      display.setPixel(x, y, r + (255 - r) * e, g + (255 - g) * e, b + (255 - b) * e);
     }
   }
 }
-const CS = 2.2, CT = 2.2, PRE = 14, GAM = 1.5;
+const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
+const CS = 2.2, CT = 2.2, PRE = 14, GAM = 1.3, E0 = 0.3, E1 = 0.75, EW = 0.8;
