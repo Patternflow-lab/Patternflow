@@ -50,7 +50,9 @@ const CFG = {
   al0: 0.3, // its heading, radians, plus two slow swings
   kb: 10, // centre of the band that sharpens the picture
   beta: 0.15, // and how much of it is added
-  tone: 1.1,
+  tone: 0.8,
+  gam: 1.5,
+  fv: 0.55,
   f0: 0.8,
   f1: 3.5,
 };
@@ -391,11 +393,11 @@ function hsv(h, s, v, out) {
 // theta, squeezed through tanh, picks a place on a ramp of hue, saturation and value stops.
 // Where |grad theta| is large, a front, the colour loses saturation and gains value.
 const STOPS = [
-  [0, 0.66, 0.85, 0.3],
-  [0.3, 0.6, 0.9, 0.48],
-  [0.6, 0.5, 0.75, 0.7],
-  [0.85, 0.4, 0.35, 0.95],
-  [1, 0.16, 0.4, 1],
+  [0, 0.68, 0.72, 0.3],
+  [0.35, 0.6, 0.72, 0.5],
+  [0.65, 0.5, 0.62, 0.72],
+  [0.88, 0.42, 0.36, 0.95],
+  [1, 0.32, 0.26, 1],
 ];
 const RGB = [0, 0, 0];
 
@@ -411,9 +413,12 @@ export function draw(display, params) {
       let j = 1;
       while (j < STOPS.length - 1 && x > STOPS[j][0]) j++;
       const a = STOPS[j - 1], b = STOPS[j], t = cl((x - a[0]) / (b[0] - a[0]), 0, 1);
-      lut[i * 3] = a[1] + (b[1] - a[1]) * t + hue;
-      lut[i * 3 + 1] = a[2] + (b[2] - a[2]) * t;
-      lut[i * 3 + 2] = a[3] + (b[3] - a[3]) * t;
+      const h = a[1] + (b[1] - a[1]) * t + hue;
+      // Orange and yellow go brown when dark: from hue 0 to 0.2 they come up in value and lose saturation.
+      const hh = h - floor(h), warm = sm(0.25, 0.1, abs(hh - 0.1));
+      lut[i * 3] = h;
+      lut[i * 3 + 1] = (a[2] + (b[2] - a[2]) * t) * (1 - 0.4 * warm);
+      lut[i * 3 + 2] = max(a[3] + (b[3] - a[3]) * t, 0.3 + 0.32 * warm);
     }
   }
   let gs = 0;
@@ -428,8 +433,8 @@ export function draw(display, params) {
   gs = N / gs; // the mean of gr is 1
   for (let p = 0; p < N; p++) {
     const th = f[p] * inv, fr = sm(CFG.f0, CFG.f1, gr[p] * gs);
-    const i = ((0.5 + 0.5 * tanh(th / CFG.tone)) * 255) | 0;
-    hsv(lut[i * 3], lut[i * 3 + 1] * (1 - 0.5 * fr), cl(lut[i * 3 + 2] * (0.85 + 0.15 * fr) + 0.45 * fr + d[p] * dinv, 0.25, 1), RGB);
+    const x = th / CFG.tone, i = (pow(0.5 + 0.5 * (x / sqrt(1 + x * x)), CFG.gam) * 255) | 0;
+    hsv(lut[i * 3], lut[i * 3 + 1] * (1 - 0.5 * fr), cl(lut[i * 3 + 2] * (0.85 + 0.15 * fr) + CFG.fv * fr + d[p] * dinv, 0.25, 1), RGB);
     display.setPixel(p & 63, p >> 6, (RGB[0] * 255) | 0, (RGB[1] * 255) | 0, (RGB[2] * 255) | 0);
   }
 }
