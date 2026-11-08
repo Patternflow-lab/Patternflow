@@ -13,7 +13,7 @@
 
 const W = 64, H = 128;
 const NX = 64, NY = 128, N = NX * NY, LX = 64, LY = 128, DX = LX / NX;
-const { floor, sqrt, sin, cos, exp, log, min, max, abs, pow, PI } = Math;
+const { floor, sqrt, sin, cos, exp, log, min, abs, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -104,7 +104,7 @@ const L0 = 24, LRANGE = 1.7; // forced wavelength at Scale 0, LEDs, and its fact
 const SPACING = 6; // line spacing at the mean field strength, LEDs
 const OPEN = [0, 2, 0, 0.06];
 
-// The modes kept, 2855 of 8192, in a compact list; MIDX is each one's place in the transform arrays, MJ its mirror's place in the list.
+// The modes kept, 2858 of 8192, in a compact list; MIDX is each one's place in the transform arrays, MJ its mirror's place in the list.
 const KX = new Float64Array(NX), KY = new Float64Array(NY);
 for (let x = 0; x < NX; x++) KX[x] = (TAU * (x < NX / 2 ? x : x - NX)) / LX;
 for (let y = 0; y < NY; y++) KY[y] = (TAU * (y < NY / 2 ? y : y - NY)) / LY;
@@ -144,8 +144,8 @@ function gauss() {
 function setup(params) {
   const f = () => new Float64Array(N), m = () => new Float64Array(NM);
   const S = {
-    t: 0, acc: 0, warm: false, hue: 0, ft: 0.033, js: 0.5, bm: 2, jb: new Float32Array(N), ramp: new Float32Array(64 * 3), lutHue: -1,
-    kf: 0.26, kft: 0.26, b0: B0REF, b0t: B0REF, fa: FA, alpha: 0, dtq: 0, kdt: -1, kdd: 1,
+    t: 0, acc: 0, warm: false, hue: 0, ft: 0.033, js: 0.5, bm: 2, drawn: false, jb: new Float32Array(N), ramp: new Float32Array(64 * 3), lutHue: -1,
+    kf: 0.26, kft: 0.26, b0: B0REF, b0t: B0REF, fa: FA, alpha: 0, dtq: 0, kdt: -1, kdd: 1, resets: 0,
     wr: m(), wi: m(), ar: m(), ai: m(),
     xwr: m(), xwi: m(), xar: m(), xai: m(),
     n1wr: m(), n1wi: m(), n1ar: m(), n1ai: m(),
@@ -356,16 +356,23 @@ export function update(dt, input, params) {
     S.kf = S.kft;
     S.b0 = S.b0t;
     seed(S);
-    for (let i = 0; i < 100; i++) step(S, 0.08);
+    for (let i = 0; i < 100; i++) step(S, 0.07);
   }
   S.kf += (S.kft - S.kf) * (1 - exp(-ft / 0.5));
   S.b0 += (S.b0t - S.b0) * (1 - exp(-ft / 0.4));
-  // model seconds per step: a frame's worth at this Flow, held to steps of 2^(1/32) so that the damping factors are kept from frame to frame
-  S.dtq = pow(2, Math.round((log(cl(flow / 30, 0.002, DTMAX)) / Math.LN2) * 32) / 32);
+  // model seconds per step: a frame's worth at this Flow in as few equal steps as keep each under DTMAX, held to steps of 2^(1/32) so that the
+  // damping factors are kept from frame to frame
+  S.dtq = pow(2, Math.round((log(cl(flow / 30 / Math.ceil(flow / 30 / DTMAX - 1e-9), 0.002, DTMAX)) / Math.LN2) * 32) / 32);
   S.acc = min(S.acc + ft * flow, 8 * S.dtq);
   while (S.acc >= S.dtq) {
     S.acc -= S.dtq;
     step(S, S.dtq);
+  }
+  // The scheme is stable at these steps and the field is forced and damped, so this has never fired in a run; it is here for a step that is too long.
+  const [ek, em] = energy(S);
+  if (!(ek + em < 40)) {
+    seed(S);
+    S.resets++;
   }
 }
 
@@ -409,13 +416,9 @@ function buildRamp(S, hue) {
   }
 }
 
-// d (in 1/16 LED) -> profile of a line 0.7 LED wide and of the glow round it
-const NPR = 192, LINE = new Float32Array(NPR), GLOW = new Float32Array(NPR);
-for (let i = 0; i < NPR; i++) {
-  const d = i / 16;
-  LINE[i] = exp(-0.5 * (d / 0.7) ** 2);
-  GLOW[i] = exp(-d / 2.2);
-}
+// distance from a line in 1/16 LED -> brightness: a Gaussian 0.7 LED wide (sigma), 1.6 LEDs across at half height
+const NPR = 128, LINE = new Float32Array(NPR);
+for (let i = 0; i < NPR; i++) LINE[i] = exp(-0.5 * (i / 16 / 0.7) ** 2);
 
 export function draw(display, params) {
   const S = params.s;
@@ -443,7 +446,9 @@ export function draw(display, params) {
     const bx = bx0 + c2r[p], by = by0 + c2i[p];
     sb += sqrt(bx * bx + by * by);
   }
-  const rate = 1 - exp(-S.ft / 6);
+  // the scales that the line spacing and the colour are measured against follow the field with a 6 s memory, so a change of Field or Scale does not flash
+  const rate = S.drawn ? 1 - exp(-S.ft / 6) : 1;
+  S.drawn = true;
   S.js += (sqrt(sj / N) - S.js) * rate;
   S.bm += (sb / N - S.bm) * rate;
   const delta = S.bm * SPACING, ij = 1 / (2.2 * S.js), jb = S.jb;
@@ -462,7 +467,7 @@ export function draw(display, params) {
       const di = min(NPR - 1, (abs(f) * delta * 16 / bm) | 0);
       const jn = cl(jb[p] * ij, 0, 1), jr = cl(abs(c1i[p]) * ij, 0, 1), o = ((jn * (NR - 1) + 0.5) | 0) * 3;
       const g3 = phi * 3, f3 = g3 - floor(g3 + 0.5), d3 = min(NPR - 1, (abs(f3) * delta * 16 / (3 * bm)) | 0);
-      const jf = 0.5 * (jn + jr), fill = jf < 0.4 ? 0 : (jf - 0.4) / 0.6, v = min(1, LINE[di] * (0.7 + 0.3 * jn) + 0.3 * LINE[d3] + GLOW[di] * 0.05 + 0.55 * fill * fill) * 255;
+      const jf = 0.5 * (jn + jr), fill = jf < 0.4 ? 0 : (jf - 0.4) / 0.6, v = min(1, LINE[di] * (0.7 + 0.3 * jn) + 0.22 * LINE[d3] + 0.55 * fill * fill) * 255;
       display.setPixel(x, y, v * ramp[o], v * ramp[o + 1], v * ramp[o + 2]);
     }
 }
