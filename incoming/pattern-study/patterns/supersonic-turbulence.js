@@ -73,7 +73,7 @@
 //   24 time units run before it, so that the shocks are there.
 
 const NX = 64, NY = 128, N = NX * NY, MX_ = NX - 1;
-const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, log, round } = Math;
+const { exp, sqrt, abs, sin, cos, PI, max, pow, log } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -424,8 +424,7 @@ for (let k = 0; k <= 4096; k++) {
   GAM[k] = 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / 2.4) - 0.055) + 0.5;
 }
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
-// The picture has two layers. The cool layer is the density, ln rho against its local surroundings, teal in the voids, blue and violet
-// as the gas thickens. The warm layer is the shocks: where the gas is steep or being squeezed it passes through magenta and orange to white.
+// Two ramps, the cool one for the density and the warm one for the shocks, as the header says.
 // stops: [position, L, C, h] in Oklab
 const COOL = [
   [0.0, 0.3, 0.075, 195],
