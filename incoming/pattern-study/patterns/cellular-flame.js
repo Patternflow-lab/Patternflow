@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Cellular Flame
 // Family:  sim
-// Idea:    The Kuramoto-Sivashinsky equation in two space dimensions runs on the panel's own 64 by 128 torus, and the front it makes is drawn as a surface lit from the upper left, so smooth ember-orange bowls are pulled, split and merged between thin gold creases that fold, slide and never settle into a pattern that repeats.
+// Idea:    The Kuramoto-Sivashinsky equation in two space dimensions runs on the panel's own 64 by 128 torus, and the front it makes is drawn as a surface lit from the upper left, so smooth ember-orange bowls split and merge between thin gold creases, and the front never settles into a pattern that repeats.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Flow=0.5..3, Scale=-1..1, Stretch=-1..1
 //
 // Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the ramp, so one turn comes back. At 0 the surface runs from deep red-brown (64, 13, 9) through red-orange (148, 38, 5) and orange (232, 127, 37) to pale gold on the creases (254, 242, 197). At 0.25 it is olive through green to mint, at 0.5 teal (0, 52, 60) through azure (24, 171, 234) to ice white (238, 241, 254), at 0.75 violet through orchid to pink. A dark end that would leave the brightest channel under 60 is scaled up, so at every hue no LED is darker than that.
-// Knob 2: Flow. The model time that passes in a panel second: 1.63 time units per unit of Flow at the opening, a little more or less as Stretch changes so that the pace holds. The creases, followed as the level lines of the laplacian of u, move 0.38 LED a second at Flow 0.5, 0.75 at 1, 1.5 at 2 and 2.3 at 3 (medians at the opening Scale and Stretch). Scale changes it, because an LED is fewer model units where the cells are big: at Flow 2 the creases move 1.3 LED a second at Scale -1 and 2.4 at Scale 1, and a cell is crossed in about the same time. The autocorrelation of u falls to one half after 4.2 time units, which is 2.6 s at Flow 1, 1.3 s at 2 and 0.9 s at 3, and to 0.19 after 8.
+// Knob 2: Flow. The model time that passes in a panel second: 1.63 time units per unit of Flow at the opening, a little more or less as Stretch changes so that the pace holds. The creases, followed as the level lines of the laplacian of u, move 0.38 LED a second at Flow 0.5, 0.75 at 1, 1.5 at 2 and 2.3 at 3 (medians at the opening Scale and Stretch). Scale changes it, because an LED is fewer model units where the cells are big: at Flow 2 the creases move 1.3 LED a second at Scale -1 and 2.4 at Scale 1, and a cell is crossed in 8.3 s at both, and at the opening. The autocorrelation of u falls to one half after 4.2 time units, which is 2.6 s at Flow 1, 1.3 s at 2 and 0.9 s at 3, and to 0.19 after 8.
 // Knob 3: Scale. How big the cells are, as the length dx of one LED in model units: 0.79 at -1, 0.69 at the opening 0, 0.42 at 1 (times 1.15 at Stretch -1 and 0.84 at Stretch 1). The box is then 51 by 101 model units at -1 and 27 by 53 at 1. The bowls of u, counted as minima of u over a 7 by 7 window, are 66 at -1 (11 LEDs apart, 6 across the panel), 51 at 0 (12.6 LEDs, 5 across) and 20 at 1 (20 LEDs apart, 3 across), each count averaged over 50 time units. At Scale 1 the Lyapunov exponent is still 0.20.
 // Knob 4: Stretch. The weight a of the y-derivative in the growth term, L = kx^2 + a ky^2 - (kx^2 + ky^2)^2: 0.3 at -1, 1 at 0, 2 at 1. At -1 the creases line up into tall curtains (the rms of u_x is 1.5 times the rms of u_y), at 1 the bowls squash into rows (0.77 times). The count of bowls hardly moves, 43, 51 and 53 at the opening Scale. The Lyapunov exponent goes with a, 0.09, 0.21 and 0.45 per time unit, and the pace is divided by a to a power so that Flow keeps its meaning.
 
@@ -22,8 +22,8 @@
 // The first term makes long waves grow: a mode of wavenumber k grows at k^2 - k^4, which is positive below k = 1 and largest at
 // k = 1/sqrt 2, a wavelength of 8.9 model units. The fourth derivative damps the short ones. The last term bends the front
 // where it is steep, and that folds it: u becomes smooth bowls bounded by sharp ridges, the creases, which merge, split,
-// migrate and stretch with no end. Nothing is added to the equation, no forcing, no noise, no drag. One model unit is dx LEDs
-// (the Scale knob, below) and one model time unit is the Flow knob's business. The equation is as I remember it from
+// migrate and stretch with no end. Nothing is added to the equation. It runs unforced, and only its own fourth-derivative term damps it. One LED is dx model units
+// (the Scale knob, below), and the Flow knob sets how many model time units pass in a panel second. The equation is as I remember it from
 // Kuramoto and Sivashinsky; I did not look it up.
 //
 // The grid. One cell per LED. A mode (m, n) has kx = 2 pi m / 64 and ky = 2 pi n / 128 per LED, divided by dx for the model.
@@ -42,10 +42,10 @@
 // modes by 1e-16, and the part of u that is not real grows as fast as the real part does (e^(0.25 t) from 1e-16 is 1 at
 // t = 150). Without the line in step() that puts the symmetry back, every run blew up between t = 153 and 158, for grids from
 // dx 0.45 to 1.0 and steps from 0.05 to 0.4, which is how I found it. Second, the grid has to resolve the spectrum. At dx 1.15
-// (Nyquist cut at k = 1.8) the truncated system blows up, so Scale is limited to dx 0.8, and at Stretch 2 the spectrum is wider
+// (Nyquist cut at k = 1.8) the truncated system blows up, so Scale is limited to dx 0.8, and at Stretch 1 (a = 2) the spectrum is wider
 // (u rms 6.6 against 4.2), so dx is divided by a^0.25 above a = 1 (at a = 2 with dx 0.9 and no division the run blew up at t = 6.8).
 //
-// Checks, each run on this file (Node, the study's seeded Math.random).
+// Checks, each run on this file with its internals exported (Node, the study's seeded Math.random).
 // 1. Linear growth. One mode at amplitude 1e-7 for 20 time units, against k^2 + a(ky^2) - k^4: 0.24993 measured and 0.24993
 //    in theory for k = 0.701 along x and along a diagonal, 0.21567 for k = 0.561 along y, 0.02220 at a = 0.3 (k = 0.364 along y),
 //    0.22861 at a = 2 (k = 0.527), 0.02398 for k = 0.157. They agree to the five places printed: the exponential is exact, so
@@ -58,30 +58,37 @@
 //    halving climb 6.5, 9.1, 11.7 and 5.2, 6.7, 9.0 towards the 16 of fourth order without reaching it at these steps.
 //    Over 3 time units in the chaotic state the error is 1.9e-2 at h = 0.3 and 3.3e-4 at 0.075 at the opening (Lyapunov
 //    amplification included), and 1.5e-1 at h = 0.15 at Stretch 1, where the step is cut by a and the field is quicker.
-// 4. The statistics against the step, 400 time units each: rms of grad u 2.30, 2.33, 2.34 at h = 0.3, 0.15, 0.075 at the opening;
-//    the share of the energy at k = 1 is 0.058, 0.057, 0.060. At Stretch 1 with h = 0.3 the rms of grad u was 4.11 against
-//    4.51, which is why the step is cut by a there; with h = 0.15 it is 4.44. The picture needs the statistics, not the trajectory.
-// 5. The cell size. The mean distance between bowls at Scale 0 is 12.6 LEDs, which is 8.7 model units against the 8.9 of the
-//    fastest-growing wavelength, 98 percent of it.
-// 6. Chaos. The largest Lyapunov exponent, by two runs 1e-7 apart in relative distance and renormalised every 2 time
-//    units over 400: 0.21 per time unit at the opening, 0.21 at Scale -1, 0.20 at Scale 1, 0.09 at Stretch -1, 0.45 at
-//    Stretch 1. A perturbation doubles in 3.3 time units at the opening. The autocorrelation of u, over 300 time units at
-//    the opening, is 0.82 at lag 2, 0.39 at 5, 0.19 at 8, 0.06 at 20 and under 0.07 at every lag from 30 to 120.
-// 7. Bounded. 6000 time units at the opening: rms of u 4.2 on average and 6.3 at most, rms of grad u 2.32 (2.15 at least),
-//    largest |grad u| anywhere 6.1, largest |laplacian u| 8.0. 3000 units at each of the corners Scale and Stretch at -1 and 1
-//    kept the rms of u under 10.1 and the largest |grad u| under 11.
-// 8. Resolution. Shell sums of |u_k|^2 over the peak shell, at dx 0.8 (Scale -1): 2.6e-4 at k = 2.0 and 1.2e-4 in the last shell,
-//    k = 2.1; the same shell at dx 0.4 (cut at k = 5.2) is 2.7e-4 at k = 2.0 and falls as e^-3k beyond, so the cut at dx 0.8 does not
-//    reshape the spectrum where it counts.
-// 9. The knobs, 600 s of panel time with all four jumping every 2.5 s to a random value or to an end: no restart of the
-//    safety net, no blow-up, the picture's gradient scale between 1.3 and 4.6. Scale 0 to 1 turns 53 bowls into 23 in 2 s
-//    and to 20 after 4 s; Scale 0 to -1 turns 54 into 72 in 2 s.
-// The flowcheck of this study, 240 s at the six positions and 900 s at the opening, at Flow 0.5 with Scale and Stretch at -1 and
-// at the maximum, passed every line, recur between 0.72 and 0.80 (see the notes).
+// 4. The statistics against the step, 400 time units each: the rms of grad u at the opening is 2.30, 2.33 and 2.34 for h = 0.3, 0.15
+//    and 0.075, at Stretch -1 1.48, 1.48 and 1.48, at Stretch 1 (h = 0.15, 0.075, 0.0375) 4.44, 4.52 and 4.52. At Stretch 1 with h = 0.3
+//    a run gave 4.07 and a spectrum shell at k = 2 that was 38 percent low, which is why the step is cut by a above 1. The
+//    picture needs the statistics, not the trajectory.
+// 5. The cell size. The mean distance between bowls at Scale 0 is 12.6 LEDs, which is 8.8 model units against the 8.9 of the
+//    fastest-growing wavelength.
+// 6. Chaos. The largest Lyapunov exponent, from two runs 1e-7 apart in relative distance, renormalised every 2 time units over
+//    400: 0.21 per time unit at the opening, and 0.21, 0.20 at Scale -1 and 1, 0.09 and 0.45 at Stretch -1 and 1; at the four
+//    corners 0.10 (Scale and Stretch -1), 0.43 (1, 1), 0.47 (-1, 1) and 0.09 (1, -1). A perturbation doubles in 3.3 time units
+//    at the opening. The autocorrelation of u over 300 time units at the opening is 0.82 at lag 2, 0.39 at 5, 0.19 at 8, 0.06 at
+//    20 and under 0.07 at every lag from 30 to 120. The fewest bowls anywhere on the knobs is 14, at Scale 1 and Stretch -1,
+//    24.5 LEDs apart; the exponent there is 0.09.
+// 7. Bounded. 6000 time units at the opening: the rms of u is 4.2 on average and 6.3 at most, the rms of grad u 2.32 (2.15 at
+//    least), the largest |grad u| anywhere 6.1 and the largest |lap u| 8.0. 3000 units at each of nine positions (Scale and
+//    Stretch at -1, 0 and 1 in all combinations that were run) kept the rms of u under 10.1, the largest |grad u| under 11.5,
+//    the largest |lap u| under 18.3 and the largest mode under 4.9.
+// 8. Resolution. Lowering the cut from the disc of radius 21 to 17 leaves the statistics where they were: at Scale -1 (cut at
+//    k = 2.6 and then 2.1) the rms of grad u is 2.315 and 2.315, the rms of lap u 2.047 and 2.071, the bowls 67 and 68; at Scale 0,
+//    Stretch 1 (cut at 3.5 and then 2.8) 4.440 and 4.441, 4.892 and 4.941, 54 and 55. I did not run a finer grid than the panel's.
+// 9. The knobs. Three runs of 600, 600 and 900 s of panel time, the knobs jumping every 2.5 s to a random value or to an end,
+//    or gliding there: no restart of the safety net in update(), no blow-up, the picture's gradient scale between 1.0 and 4.7. Scale
+//    0 to 1 turns 53 bowls into 23 in 2 s and into 20 after 4 s; Scale 0 to -1 turns 54 into 72 in 2 s.
+// The flowcheck of this study. 240 s at the opening, with every knob at its minimum, at its maximum and at three random positions:
+// recur 0.72 to 0.80, dim 0.955 to 0.984, quiet 0.83 to 0.98, still 0, the last quarter dim 0.93 to 0.98, quiet 0.69 to 0.94, recur 0.76
+// to 0.88, dBright at most 0.002, mean brightness 0.436 to 0.466 and the dimmest sampled frame 0.430. 900 s at the opening: recur
+// 0.727, dim 0.987, quiet 0.966, the last quarter dim 0.986, quiet 0.973, recur 0.778; with every knob at its minimum: 0.739, 0.969,
+// 0.923, 0.928, 0.869, 0.753; at its maximum: 0.710, 0.992, 0.979, 0.961, 0.965, 0.748.
 //
 // Not checked. Global bounds: I know no proof that the potential form of the equation stays bounded in two dimensions, and
-// what is shown is what was run. A comparison with ETDRK4, with a finer grid than dx 0.4 at Scale 1, and a count of merges
-// and splits per second. The numbers in the knob lines are from the opening seed.
+// what is shown is what was run. A comparison with ETDRK4. A run on a grid finer than the panel's; check 8 stands in for it. A count
+// of merges and splits per second. The numbers in the knob lines are from one seed.
 //
 // What the picture adds. All of it is the picture's choice, none of it is in the equation. The normal is (-u_x, -u_y, 1) with u_x
 // and u_y over their running rms (followed with a time constant of 4 model units), the light is a unit vector from 215 degrees
