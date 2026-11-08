@@ -9,7 +9,7 @@
 // Round:   115
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=1.5..4, Scale=-1..1, Alpha=1..2
+// @knobs Hue=0..1, Flow=0.6..3, Scale=-1..1, Alpha=1..2
 //
 // Knob 1: Hue. DRAFT
 // Knob 2: Flow. DRAFT
@@ -40,18 +40,21 @@ const CFG = {
   kref: 6, // wavenumber where the kernel is normalised, so theta and speed agree there for every Alpha
   nuc: 3, // hyperviscous rate at kappa = KC, order 2 p = 16
   up: 8,
-  sigma: 0.03, // rms of the forcing
-  tauf: 8, // correlation time of the forcing, model time
+  sigma: 0.015, // rms of the forcing
+  tauf: 20, // correlation time of the forcing, model time
   band: 0.25, // width of the forced band over kf
-  mu: 0.03, // large-scale drag, times kf, below kd * kf
-  kd: 0.3,
-  speed: 3.5, // LEDs a second of rms speed per unit of Flow
-  wind: 3.5, // mean wind, LEDs a second per unit of Flow
+  gamma: 0, // relaxation toward a drifting target, in units of urs K0 kf
+  amp: 1, // target rms
+  omega: 0.12, // drift rate of the target's phases
+  mu: 0.01, // large-scale drag, times kf, below kd * kf
+  kd: 0.5,
+  speed: 2.5, // LEDs a second of rms speed per unit of Flow
+  wind: 1.25, // mean wind, LEDs a second per unit of Flow
   al0: 0.3, // its heading, radians, plus two slow swings
   kb: 10, // centre of the band that sharpens the picture
-  beta: 0.18, // and how much of it is added
-  tone: 0.8,
-  gam: 1.5,
+  beta: 0.15, // and how much of it is added
+  tone: 0.45,
+  gam: 1.3,
   fv: 0.55,
   f0: 0.8,
   f1: 3.5,
@@ -199,11 +202,20 @@ function start(params, k) {
     n0r: vec(), n0i: vec(), n1r: vec(), n1i: vec(), n2r: vec(), n2i: vec(), // the three stages
     u1r: vec(), u1i: vec(), u2r: vec(), u2i: vec(),
     ehr: vec(), ehi: vec(), // exp(L h / 2)
-    G: vec(), mu: vec(), ea: vec(), fr: vec(), fi: vec(), // kernel, drag shape, forcing shape and state
+    G: vec(), mu: vec(), ea: vec(), fr: vec(), fi: vec(), ep: vec(), eo: vec(), rel: vec(), gr: vec(), gi: vec(), // kernel, drag shape, forcing shape and state
     alpha: -1, kf: -1, umax: 1, urms: 1, urs: 1, t: 0, tp: 0, ux: 0, uy: 0,
     field: full(), det: full(), sig: 1, dsig: 1, hue: 0, lutHue: -1, lut: new Float64Array(256 * 3), grad: full(),
   };
   params.s = S;
+  for (let q = 0; q < M; q++) {
+    const p = PAR[q];
+    if (p < q) continue;
+    const ph = TAU * Math.random(), om = CFG.omega * (Math.random() < 0.5 ? -1 : 1) * (0.4 + 1.2 * Math.random());
+    S.ep[q] = ph;
+    S.ep[p] = -ph;
+    S.eo[q] = om;
+    S.eo[p] = -om;
+  }
   prepare(S, cl(k[3], 1, 2), kfOf(k[2]));
   init(S);
   nonlin(S, S.tr, S.ti, S.n0r, S.n0i);
@@ -225,6 +237,7 @@ function prepare(S, alpha, kf) {
       S.ea[q] = a;
       s2 += a * a;
       S.mu[q] = 0.5 * (1 - tanh((KAP[q] - CFG.kd * kf) / (0.2 * CFG.kd * kf)));
+      S.rel[q] = 0.5 * (1 - tanh((KAP[q] - 1.35 * kf) / (0.15 * kf)));
     }
     const nrm = 1 / sqrt(s2);
     for (let q = 0; q < M; q++) S.ea[q] *= nrm;
@@ -279,8 +292,8 @@ function nonlin(S, tr, ti, outR, outI) {
   fft2real(pr, pi);
   const sc = -1 / N;
   for (let q = 0; q < M; q++) {
-    outR[q] = pr[IDX[q]] * sc + fr[q];
-    outI[q] = pi[IDX[q]] * sc + fi[q];
+    outR[q] = pr[IDX[q]] * sc + fr[q] + S.gr[q];
+    outI[q] = pi[IDX[q]] * sc + fi[q] + S.gi[q];
   }
 }
 
@@ -292,8 +305,12 @@ function step(S, h) {
   // the forcing: an Ornstein-Uhlenbeck process in each mode of the band, carried by the wind
   const rho = exp(-h / CFG.tauf), sg = CFG.sigma * sqrt(1 - rho * rho), ur = S.urs * K0;
   for (let q = 0; q < M; q++) {
-    const lr = -ur * (CFG.mu * S.kf * S.mu[q] + CFG.nuc * pow(KAP[q] / KC, 2 * CFG.up));
+    const gq = CFG.gamma * S.kf * S.rel[q], lr = -ur * (CFG.mu * S.kf * S.mu[q] + gq + CFG.nuc * pow(KAP[q] / KC, 2 * CFG.up));
     const ph = -(KX[q] * S.ux + KY[q] * S.uy) * h, ex = exp(0.5 * lr * h);
+    S.ep[q] += S.eo[q] * h + ph;
+    const tg = gq * ur * CFG.amp * S.ea[q];
+    S.gr[q] = tg * cos(S.ep[q]);
+    S.gi[q] = tg * sin(S.ep[q]);
     ehr[q] = ex * cos(0.5 * ph);
     ehi[q] = ex * sin(0.5 * ph);
     const p = PAR[q];
@@ -344,7 +361,7 @@ function advance(S, Ht) {
 export function update(dt, input, params) {
   const k = input.knobValues || OPEN;
   if (!params.s) start(params, k);
-  const S = params.s, ft = cl(dt || 0, 0, 0.1), flow = cl(k[1], 1.5, 4);
+  const S = params.s, ft = cl(dt || 0, 0, 0.1), flow = cl(k[1], 0.6, 3);
   prepare(S, cl(k[3], 1, 2), kfOf(k[2]));
   S.hue = k[0];
   // Model time per panel second holds the rms speed at CFG.speed LEDs a second per unit of Flow.
@@ -417,8 +434,8 @@ export function draw(display, params) {
       // Orange and yellow go brown when dark: from hue 0 to 0.2 they come up in value and lose saturation.
       const hh = h - floor(h), warm = sm(0.25, 0.1, abs(hh - 0.1));
       lut[i * 3] = h;
-      lut[i * 3 + 1] = (a[2] + (b[2] - a[2]) * t) * (1 - 0.4 * warm);
-      lut[i * 3 + 2] = max(a[3] + (b[3] - a[3]) * t, 0.3 + 0.32 * warm);
+      lut[i * 3 + 1] = (a[2] + (b[2] - a[2]) * t) * (1 - 0.45 * warm);
+      lut[i * 3 + 2] = max(a[3] + (b[3] - a[3]) * t, 0.3 + 0.18 * warm);
     }
   }
   let gs = 0;
