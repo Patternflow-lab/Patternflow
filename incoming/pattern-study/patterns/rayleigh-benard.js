@@ -18,9 +18,9 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 // ---- tunables
 const NX = 64, NZ = 128;
 const GB0 = 4.7; // buoyancy gB = g alpha DT at Pace 1, LED/s^2: free fall over the depth is 24 LEDs a second
-const RA0 = 1e7; // Rayleigh number
+const RA0 = 3e7; // Rayleigh number
 const PR0 = 0.3; // Prandtl number at Prandtl 0
-const R0 = 2.75; // how many LEDs of depth one column of the box is wide, at Scale 0
+const R0 = 2.6; // how many LEDs of depth one column of the box is wide, at Scale 0
 const AMP0 = 0.15; // how far the warm and cool spots on the plates swing, as a share of the plate difference
 const DRAG0 = 0.5; // drag on the horizontal-mean wind, 1/s at Pace 1
 
@@ -70,20 +70,19 @@ function newState(nx, nz) {
   const n = nx * nz, F = () => new Float64Array(n), h = nx / 2 + 1;
   const S = {
     nx, nz, n, d: nz - 1,
-    T: F(), W: F(), P: F(), U: F(), V: F(), T2: F(), W2: F(), C: F(), C2: F(),
-    Tp: new Float64Array(nx * (nz + 4)), Wp: new Float64Array(nx * (nz + 4)), Cp: new Float64Array(nx * (nz + 4)),
+    T: F(), W: F(), P: F(), U: F(), V: F(), T2: F(), W2: F(),
+    Tp: new Float64Array(nx * (nz + 4)), Wp: new Float64Array(nx * (nz + 4)),
     fft: makeFft(nx), zr: new Float64Array(nx), zi: new Float64Array(nx),
     Wr: new Float64Array(nz * h), Wi: new Float64Array(nz * h),
     Tr: new Float64Array(nz * h), Ti: new Float64Array(nz * h),
     Pr: new Float64Array(nz * h), Pi: new Float64Array(nz * h),
     cp: new Float64Array(nz), dp: new Float64Array(nz), dq: new Float64Array(nz),
-    R: 1, ct: 1, cw: 1, drag: 0, amp: 0, pace: 1, pat: newPatches(), gB: 4, kap: 2, nu: 2, time: 0, lut: new Float32Array(3 * 512), hueDone: -1, sig: 0.1, grm: 0.05, wrm: 1, mean: new Float64Array(nz),  lin: new Float64Array(nz), cx: new Float64Array(h),
+    R: 1, drag: 0, amp: 0, pace: 1, pat: newPatches(), gB: 4, kap: 2, nu: 2, time: 0, lut: new Float32Array(3 * 512), hueDone: -1, sig: 0.1, grm: 0.05, wrm: 1, loc: new Float64Array(n), bq: new Float64Array(n), bh: new Float64Array(n), mean: new Float64Array(nz),  lin: new Float64Array(nz), cx: new Float64Array(h),
   };
   for (let j = 0; j < nz; j++) {
     S.lin[j] = j / (nz - 1);
     for (let i = 0; i < nx; i++) {
       S.T[j * nx + i] = S.lin[j];
-      S.C[j * nx + i] = 2 * S.lin[j] - 1;
     }
   }
   for (let k = 0; k < h; k++) S.cx[k] = 2 * cos((TAU * k) / nx) - 2;
@@ -91,7 +90,7 @@ function newState(nx, nz) {
 }
 
 // Cubic (Catmull-Rom) weights
-function sampleBoth(Tp, Wp, Cp, nx, fi, fj, out, ct, cw) {
+function sampleBoth(Tp, Wp, nx, fi, fj, out) {
   // Tp, Wp are padded: row index r = j + 2
   const mx = nx - 1;
   const i1 = floor(fi), j1 = floor(fj), tx = fi - i1, ty = fj - j1;
@@ -101,8 +100,8 @@ function sampleBoth(Tp, Wp, Cp, nx, fi, fj, out, ct, cw) {
   const s2 = ty * ty, s3 = s2 * ty;
   const ay = -0.5 * s3 + s2 - 0.5 * ty, by = 1.5 * s3 - 2.5 * s2 + 1, cy = -1.5 * s3 + 2 * s2 + 0.5 * ty, dy = 0.5 * s3 - 0.5 * s2;
   const ra = (j1 + 1) * nx, rb = ra + nx, rc = rb + nx, rd = rc + nx;
-  for (let f = 0; f < 3; f++) {
-    const A = f === 2 ? Cp : f ? Wp : Tp;
+  for (let f = 0; f < 2; f++) {
+    const A = f ? Wp : Tp;
     const va = ax * A[ra + xa] + bx * A[ra + xb] + cx * A[ra + xc] + dx * A[ra + xd];
     const vb = ax * A[rb + xa] + bx * A[rb + xb] + cx * A[rb + xc] + dx * A[rb + xd];
     const vc = ax * A[rc + xa] + bx * A[rc + xb] + cx * A[rc + xc] + dx * A[rc + xd];
@@ -114,7 +113,7 @@ function sampleBoth(Tp, Wp, Cp, nx, fi, fj, out, ct, cw) {
   }
 }
 
-const OUT = [0, 0, 0];
+const OUT = [0, 0];
 
 function velocities(S) {
   const { nx, nz, P, U, V } = S, mx = nx - 1, ir = 1 / S.R;
@@ -135,14 +134,13 @@ function velocities(S) {
 }
 
 function advect(S, dt) {
-  const { nx, nz, T, W, C, U, V, T2, W2, C2, Tp, Wp, Cp } = S, mx = nx - 1, ymax = nz - 1, ir = 1 / S.R;
+  const { nx, nz, T, W, U, V, T2, W2, Tp, Wp } = S, mx = nx - 1, ymax = nz - 1, ir = 1 / S.R;
   // padded copies, two ghost rows each side, odd about the wall value
   for (let j = 0; j < nz; j++) {
     const o = j * nx, q = (j + 2) * nx;
     for (let i = 0; i < nx; i++) {
       Tp[q + i] = T[o + i];
       Wp[q + i] = W[o + i];
-      Cp[q + i] = C[o + i];
     }
   }
   for (let g = 1; g <= 2; g++) {
@@ -152,8 +150,6 @@ function advect(S, dt) {
       Wp[a + i] = -W[g * nx + i];
       Tp[c + i] = 2 * T[(nz - 1) * nx + i] - T[(nz - 1 - g) * nx + i];
       Wp[c + i] = -W[(nz - 1 - g) * nx + i];
-      Cp[a + i] = 2 * C[i] - C[g * nx + i];
-      Cp[c + i] = 2 * C[(nz - 1) * nx + i] - C[(nz - 1 - g) * nx + i];
     }
   }
   for (let j = 1; j < nz - 1; j++) {
@@ -169,10 +165,9 @@ function advect(S, dt) {
       const v1 = w00 * V[r0 + x0] + w10 * V[r0 + x1] + w01 * V[r1 + x0] + w11 * V[r1 + x1];
       let xf = i - dt * ir * u1, yf = j - dt * v1;
       yf = yf < 0 ? 0 : yf > ymax ? ymax : yf;
-      sampleBoth(Tp, Wp, Cp, nx, xf, yf, OUT);
+      sampleBoth(Tp, Wp, nx, xf, yf, OUT);
       T2[k] = OUT[0];
       W2[k] = OUT[1];
-      C2[k] = OUT[2];
     }
   }
   for (let i = 0; i < nx; i++) {
@@ -180,11 +175,7 @@ function advect(S, dt) {
     W2[i] = 0;
     T2[(nz - 1) * nx + i] = T[(nz - 1) * nx + i];
     W2[(nz - 1) * nx + i] = 0;
-    C2[i] = -1;
-    C2[(nz - 1) * nx + i] = 1;
   }
-  S.C = C2;
-  S.C2 = C;
 }
 
 // One Thomas solve down a mode's column of rows: a x(j-1) + b x(j) + a x(j+1) = r(j) for rows 1 to nz-2, with the wall
@@ -360,8 +351,8 @@ function setParams(S, ra, pr, R, pace) {
 
 const KNOB = [0, 2, 0, 0.06];
 function knobs(S, k) {
-  const pace = cl(k[1], 0.5, 3.5) / 2, scale = cl(k[2], -1, 1), pk = cl(k[3], -1, 1);
-  setParams(S, RA0, PR0 * pow(10, pk), R0 * pow(1.5, -scale), pace);
+  const pace = cl(k[1], 0.5, 3.5) * 0.75, scale = cl(k[2], -1, 1), pk = cl(k[3], -1, 1);
+  setParams(S, RA0, PR0 * pow(10, pk), R0 * pow(1.55, -scale), pace);
 }
 
 // ---- colour. OKLab (Ottosson 2020, constants from memory)
@@ -429,7 +420,7 @@ export function update(dt, input, params) {
   step(S, h);
 }
 
-const GAIN = 0.9, WR = 0.5, RIM = 0.22, VORH = 0;
+const GAIN = 0.9, WR = 0.5, RIM = 0.22, VORH = 0, VORL = 0, LOC = 1, LFLOOR = 0.6;
 
 export function draw(display, params) {
   const S = params.s;
@@ -452,10 +443,37 @@ export function draw(display, params) {
   S.sig += (sqrt(ss / cnt) - S.sig) * 0.05;
   S.grm += (sqrt(gs / cnt) - S.grm) * 0.05;
   S.wrm += (sqrt(ws / cnt) - S.wrm) * 0.05;
+  const loc = S.loc;
+  if (LOC) {
+    // local rms of the anomaly over a box 9 columns by 21 rows
+    const bq = S.bq, bh = S.bh;
+    for (let j = 0; j < nz; j++)
+      for (let i = 0; i < nx; i++) {
+        const q = T[j * nx + i] - mean[j];
+        bq[j * nx + i] = q * q;
+      }
+    for (let j = 0; j < nz; j++) {
+      let a = 0;
+      for (let d = -4; d <= 4; d++) a += bq[j * nx + ((d + nx) & mx)];
+      for (let i = 0; i < nx; i++) {
+        bh[j * nx + i] = a;
+        a += bq[j * nx + ((i + 5) & mx)] - bq[j * nx + ((i - 4 + nx) & mx)];
+      }
+    }
+    for (let i = 0; i < nx; i++)
+      for (let j = 0; j < nz; j++) {
+        let a = 0, n = 0;
+        for (let d = -10; d <= 10; d++) {
+          const jj = j + d;
+          if (jj >= 0 && jj < nz) (a += bh[jj * nx + i]), n++;
+        }
+        loc[j * nx + i] = sqrt(a / (n * 9));
+      }
+  }
   const is = 1 / max(1e-3, S.sig), il = 1 / (1.5 * max(1e-4, S.grm)), iw = 1 / max(1e-4, S.wrm), vh = (VORH * PI) / 180;
   for (let y = 0; y < nz; y++)
     for (let x = 0; x < nx; x++) {
-      const k = y * nx + x, q = (T[k] - mean[y]) * is;
+      const k = y * nx + x, q = LOC ? (T[k] - mean[y]) / max(loc[k], LFLOOR * S.sig) : (T[k] - mean[y]) * is;
       let t = 0.5 + 0.5 * 0.9 * Math.tanh(GAIN * q) + WR * (T[k] - 0.5);
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const idx = 3 * ((t * (LN - 1) + 0.5) | 0);
@@ -464,6 +482,7 @@ export function draw(display, params) {
         const lap = (T[y * nx + ((x + 1) & mx)] + T[y * nx + ((x - 1) & mx)] - 2 * T[k]) * ir2 + T[k + nx] + T[k - nx] - 2 * T[k];
         L += RIM * Math.tanh(lap * il);
       }
+      L += VORL * Math.tanh(1.5 * W[k] * iw);
       if (VORH) {
         const th = vh * Math.tanh(W[k] * iw), c = cos(th), s = sin(th), A1 = A * c - B * s;
         B = A * s + B * c;
