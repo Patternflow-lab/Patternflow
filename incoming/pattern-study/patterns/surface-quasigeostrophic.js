@@ -36,7 +36,7 @@ const K0 = TAU / W, KC = 21, KMAX = K0 * KC;
 // The tunables. Rates carry the rms speed of the moment (urs) times K0, so the shape of the
 // picture does not depend on how loud the forcing has made the field.
 const CFG = {
-  kf0: 3.6, // forcing wavenumber at Scale 0 (wavelength 64 / 3.6 = 18 LEDs); Scale divides it by 1.65 per unit
+  kf0: 3.6, // forcing wavenumber at Scale 0 (wavelength 64 / 3.6 = 18 LEDs); Scale divides it by 1.55 per unit
   kref: 6, // wavenumber where the kernel is normalised, so theta and speed agree there for every Alpha
   nuc: 3, // hyperviscous rate at kappa = KC, order 2 p = 16
   up: 8,
@@ -46,10 +46,10 @@ const CFG = {
   mu: 0.03, // large-scale drag, times kf, below kd * kf
   kd: 0.3,
   speed: 3.5, // LEDs a second of rms speed per unit of Flow
-  wind: 3, // mean wind, LEDs a second per unit of Flow
+  wind: 3.5, // mean wind, LEDs a second per unit of Flow
   al0: 0.3, // its heading, radians, plus two slow swings
   kb: 10, // centre of the band that sharpens the picture
-  beta: 0.15, // and how much of it is added
+  beta: 0.18, // and how much of it is added
   tone: 0.8,
   gam: 1.5,
   fv: 0.55,
@@ -189,7 +189,7 @@ function gauss() {
 
 // ---- the state ------------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
-const kfOf = (s) => CFG.kf0 * pow(1.65, -cl(s, -1, 1));
+const kfOf = (s) => CFG.kf0 * pow(1.55, -cl(s, -1, 1));
 
 function start(params, k) {
   const vec = () => new Float64Array(M), full = () => new Float64Array(N);
