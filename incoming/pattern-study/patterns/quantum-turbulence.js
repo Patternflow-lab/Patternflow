@@ -9,7 +9,7 @@
 // Round:   115
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Stir=1.6..3, Scale=-0.5..1, Damping=0.025..0.1
+// @knobs Hue=0..1, Stir=1.6..2.8, Scale=-0.5..1, Damping=0.035..0.1
 //
 // Knob 1: Hue. draft
 // Knob 2: Stir. draft
@@ -91,7 +91,7 @@ function setup(params) {
     re: new Float64Array(N), im: new Float64Array(N), V: new Float64Array(N),
     Kr: new Float64Array(N), Ki: new Float64Array(N), K2: new Float64Array(N), RR: new Float32Array(N),
     sx: new Float64Array(NSP), sy: new Float64Array(NSP), ph: new Float64Array(NSP * 4), gx: new Float64Array(64), gy: new Float64Array(64),
-    U: 7, warm: false, hue: 0, uf: 3.6, x0: 1.5, wsp: 1.5, va: 3, pls: 0.35, nsp: NSP, eb: 0.9, em: 2.5,
+    U: 7, warm: false, hue: 0, uf: 3.6, x0: 1.5, wsp: 1.5, va: 3, pls: 0.35, nsp: NSP, eb: 0.65, em: 6,
   };
   if (params.tune) Object.assign(S, params.tune);
   for (let i = 0; i < S.ph.length; i++) S.ph[i] = Math.random() * TAU;
@@ -185,7 +185,7 @@ function spots(S, h) {
 
 // Vortex dipoles imprinted with the phase of the plane vortex and its eight periodic images.
 function imprint(S) {
-  const xi = S.xi, vs = [], nd = Math.round(9 * (1.5 / xi) * (1.5 / xi));
+  const xi = S.xi, vs = [], nd = Math.round(13 * (1.5 / xi) * (1.5 / xi));
   for (let d = 0; d < nd; d++) {
     const cx = Math.random() * W, cy = Math.random() * H, an = Math.random() * TAU, sep = 6 + 8 * Math.random(), sg = Math.random() < 0.5 ? 1 : -1;
     vs.push([cx + 0.5 * sep * cos(an), cy + 0.5 * sep * sin(an), sg], [cx - 0.5 * sep * cos(an), cy - 0.5 * sep * sin(an), -sg]);
@@ -259,7 +259,7 @@ export function draw(display, params) {
   if (!S || !S.warm) return;
   const { re, im, RR } = S, h0 = S.hue + 0.55 + S.hd;
   // a reference wave tilted across the panel, turning slowly
-  const ga = 0.3 + 0.9 * sin(0.0213 * S.t + 1) + 0.6 * sin(0.0517 * S.t + 2.3), gm = 1.25, gx = (gm * cos(ga)) / 64, gy = (gm * sin(ga)) / 64;
+  const ga = 0.9 * sin(0.0213 * S.t + S.ph[0]) + 0.6 * sin(0.0517 * S.t + S.ph[1]), gm = 1.1, gx = (gm * cos(ga)) / 64, gy = (gm * sin(ga)) / 64;
   for (let q = 0; q < N; q++) RR[q] = re[q] * re[q] + im[q] * im[q];
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
