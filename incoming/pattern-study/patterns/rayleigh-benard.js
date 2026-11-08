@@ -1,25 +1,25 @@
 // ===== Patternflow pattern =====
 // Title:   Rayleigh-Benard
 // Family:  sim
-// Idea:    DRAFT
+// Idea:    Two-dimensional Rayleigh-Benard convection solved on the panel's own 64 columns and 128 rows at a Rayleigh number of 3e7, the top row a cold plate and the bottom row a hot one, so pale gold plumes climb from the floor on thin stems and roll over into caps, blue sheets fall from the ceiling, the rolls spiral and shear and fold, and the layer keeps overturning with nobody stirring it.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: DRAFT
+// Lineage: Rayleigh-Benard convection (Henri Benard, 1900, cells in a thin layer heated from below; Lord Rayleigh, 1916, the criterion Ra = 27 pi^4 / 4 for free plates; both from memory) in the Boussinesq approximation (Joseph Boussinesq, 1903, from memory), written as vorticity and stream function (Barry Saltzman, 1962, from memory) and advected by semi-Lagrangian back-tracing (Andre Robert, 1981, from memory) with Catmull-Rom look-up (Edwin Catmull and Raphael Rom, 1974, from memory); a Fourier transform across the columns (James Cooley and John Tukey, 1965, from memory) and a tridiagonal solve down the rows (Llewellyn Thomas, 1949, from memory); a drag on the flow, because free plates let a wind along them grow until it shears the convection out (David Goluskin, Hans Johnston, Glenn Flierl and Edward Spiegel, 2014, from memory) and because a two-dimensional flow gathers its energy at the largest scale; the rim light is the shadowgraph of the experiment; colour in OKLab (Bjorn Ottosson, 2020, from memory); pattern round 115, made on the creator's turn of 8 November toward fields that flow for ever
 // Round:   115
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=1..3.5, Scale=-1..1, Prandtl=-1..1
 //
-// Knob 1: DRAFT
-// Knob 2: DRAFT
-// Knob 3: DRAFT
-// Knob 4: DRAFT
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the whole ramp, so one turn comes back to where it began. At 0 the cold plumes are azure (15, 102, 172), the bulk of the layer a dark violet (32, 9, 67) and the hot plumes run from coral through amber to pale gold (254, 239, 183). At 0.5 the ground is dark olive and the plumes are amber on the cold side and pale blue on the hot one. Warm hues come up in lightness where the ramp is low, so that no ground goes brown.
+// Knob 2: Pace. A clock. gB goes with the square of Pace and kappa and nu with Pace, so Ra = gB d^3 / (nu kappa) stays at 3e7 and the same flow runs faster. The water's rms speed is 6.6 LEDs a second at 1, 14.3 at the opening 2 and 25.6 at 3.5, and the fastest 1 percent of it moves faster than 14.5, 32.7 and 56.6. Free fall over the depth, sqrt(gB d), is 24 LEDs a second at 1 and 85 at 3.5.
+// Knob 3: Scale. How wide a column is, in LEDs of depth: R = 2.6 times 1.55 to the power of minus Scale, 4.0 at -1, 2.6 at 0 and 1.7 at 1, which makes the box 2.0, 1.3 and 0.85 depths wide. The temperature anomaly stays correlated across the columns for 1.9 LEDs at -1, 2.8 at 0 and 4.1 at 1 (the 1/e length of the autocorrelation across the columns), so the plumes are thin and many at -1 and fat and few at 1. The rms speed is 16.5, 14.3 and 12.6 LEDs a second. Ra and Pr do not move.
+// Knob 4: Prandtl. nu / kappa at the same Ra and the same gB: 0.03 at -1, 0.34 at the opening 0.06 and 3 at 1, with kappa 6.5, 1.9 and 0.65 LED^2 per second and nu 0.20, 0.67 and 1.96. At 3 the temperature is carried in thin sheets by a smooth, slower flow: the anomaly is correlated over 1.9 LEDs and the rms speed is 9.9 LEDs a second. At 0.03 the plumes are broad and the flow quick, 4.1 LEDs and 18.6.
 
 // What the field is. Convection in a box 127 LEDs deep, the plates being the top row (T = 0) and the bottom row (T = 1), and
 // 64 columns wide, periodic across. With the stream function psi, u = dpsi/dy and v = -dpsi/dx (y runs down), the vorticity w
 // and the temperature T obey
-//   dw/dt + u.grad w = nu del^2 w - gB dT/dx - drag (mean of w over x)
+//   dw/dt + u.grad w = nu del^2 w - gB dT/dx - alpha w - alpha_m (mean of w over x)
 //   dT/dt + u.grad T = kappa del^2 T,        del^2 psi = -w.
 // The plates are free-slip, psi = 0 and w = 0 on them, so Rayleigh's linear theory holds exactly: the conduction state is
 // unstable above Ra = gB d^3 / (nu kappa) = 27 pi^4 / 4 = 657.5, at a wavelength of 2 sqrt 2 depths.
@@ -30,6 +30,12 @@
 // A column is R LEDs of depth wide, not one. With square cells the box would be half as wide as it is deep, and then only a
 // wavelength of half a depth fits across: the first instability is at Ra = 29,900 and the flow is one pair of stripes.
 // Stretching x by R = 2.6 makes the box 1.3 depths wide, so plumes have room to stand beside each other and to lean.
+// The two drag terms are not in Boussinesq's equations and the pattern needs both. Free plates do not hold back a wind along
+// them, and without alpha_m that wind grew to 30 LEDs a second within 150 s at Pace 1.5 and the temperature anomaly fell from
+// 0.09 to 0.011 by 390 s: the convection was sheared out. A two-dimensional flow also has no third dimension to rub against, so its
+// energy gathers in the largest scale, and without alpha the box at Prandtl 0.03, Scale -1 and Pace 3.5 ran away to an rms
+// speed of 500 LEDs a second, six times free fall. alpha is 0.012 Pace and alpha_m 0.12 Pace more, per second. At the opening
+// they take about 85 percent of the buoyancy work and the viscosity about 15 percent.
 
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh } = Math;
 const TAU = 2 * PI;
@@ -40,9 +46,9 @@ const NX = 64, NZ = 128;
 const RA0 = 3e7; // Rayleigh number at every knob place
 const PR0 = 0.3; // Prandtl number at Prandtl 0
 const R0 = 2.6; // how many LEDs of depth one column is wide, at Scale 0
-const GB0 = 4.7; // gB = g alpha dT at Pace 1, LEDs/s^2. Free fall over the depth, sqrt(gB d), is 24 LEDs a second
-const DRAG0 = 0.012; // drag on the whole flow, 1/s at Pace 1
-const DRAGM0 = 0.12; // and the drag added on the mean wind that blows along the plates, 1/s at Pace 1
+const GB0 = 4.7; // gB = g alpha dT at Pace 1, LEDs/s^2. Free fall over the depth, sqrt(gB d), is then 24 LEDs a second
+const DRAG0 = 0.012; // alpha, the drag on the whole flow, 1/s at Pace 1
+const DRAGM0 = 0.12; // alpha_m, the drag added on the wind that blows along the plates, 1/s at Pace 1
 const AMP0 = 0.15; // how far the spots on the plates swing, as a share of the plate difference
 
 // ---- the picture
@@ -311,8 +317,9 @@ function diffuseSolve(S, dt) {
 }
 
 // The plates are not quite uniform. Three warm and cool spots on each, plane waves across the 64 columns, drift along the floor
-// and the ceiling at their own slow rates. Plumes start where the floor is warm, so they keep starting in new places and the
-// flow cannot settle into one steady set. Each plate's mean is unchanged, 1 and 0.
+// and the ceiling at their own slow rates, and plumes start where the floor is warm, so they keep starting in new places. Each
+// plate's mean is unchanged, 1 and 0. The box does not need them: with the spots off it was still chaotic at five knob places,
+// recur 0.51 to 0.71, but quieter at the slow, viscous ones, where the spots lift the last-quarter quiet from 0.049 to 0.068.
 function newPatches() {
   const P = [];
   for (let side = 0; side < 2; side++)
@@ -424,7 +431,7 @@ function buildLut(S, shift) {
     // a dark orange or olive reads as brown on the panel, so the warm hues come up in lightness when the ramp is low
     let dh = (((hd - 75) % 360) + 360) % 360;
     if (dh > 180) dh -= 360;
-    L += 0.17 * exp(-(dh * dh) / 2500) * (1 - sm(0.4, 0.75, L));
+    L += 0.3 * exp(-(dh * dh) / 3200) * (1 - sm(0.45, 0.8, L));
     for (let it = 0; it < 8; it++) {
       lin(L, C * cos(h), C * sin(h), TMP);
       if (TMP[0] >= -0.002 && TMP[1] >= -0.002 && TMP[2] >= -0.002 && TMP[0] <= 1.002 && TMP[1] <= 1.002 && TMP[2] <= 1.002) break;
@@ -444,7 +451,8 @@ export function setup(params, knobValues) {
   [S.kp, S.ks, S.kq] = knobTargets(knobValues || KNOB);
   applyKnobs(S);
   seedState(S);
-  // a spin-up of 15 s of flow time at Pace 1.5, so that the first frame already has plumes standing
+  // a spin-up of 150 steps that is 22.5 / Pace seconds long, the same stretch of flow at every Pace, so that the first frame
+  // already has plumes standing
   const dt = 22.5 / (S.kp * 150);
   for (let n = 0; n < 150; n++) step(S, dt);
   S.time = 0;
@@ -466,7 +474,6 @@ export function update(dt, input, params) {
   for (let i = 0; i < n; i++) step(S, h / n);
   if (!isFinite(S.P[S.n >> 1] + S.T[S.n >> 1] + S.W[S.n >> 2])) {
     // never reached in the runs below; if a value ever went bad, start the box over rather than stay dark
-    S.T.fill(0.5);
     seedState(S);
   }
 }
