@@ -34,8 +34,6 @@ const NRE = NR + 3, NCE = NC + 3; // extended rows and columns for the central d
 const NP = 160;
 const KMIN = 0.3, KMAX = 2.0;
 const DKX = TAU / W;
-const KYMIN = 0; // smallest |ky| / k a wave of the pool may have
-const PW = 0; // waves are weighted by (ky / k)^PW
 const SIGK = 0.3; // width of the spectrum in ln k
 
 // ---- the particles --------------------------------------------------------------------------
@@ -87,8 +85,8 @@ function hsv(h, s, v, out, o) {
 }
 
 // Strength knob (-1..1) to the rms of V, and Scale knob to the correlation length in LEDs.
-const strengthOf = (k) => 0.018 * pow(1.8, cl(k, -1, 1));
-const xiOf = (k) => 10 * pow(1.5, cl(k, -1, 1));
+const strengthOf = (k) => 0.029 * pow(1.8, cl(k, -1, 1));
+const xiOf = (k) => 14 * pow(1.5, cl(k, -1, 1));
 
 export function setup(params, knobs) {
   const k = knobs || OPEN;
@@ -115,11 +113,8 @@ export function setup(params, knobs) {
   // The pool: wavenumbers log-uniform between KMIN and KMAX, directions uniform in a half plane, kx on the box's lattice.
   for (let j = 0; j < NP; j++) {
     const kk = KMIN * exp(Math.random() * log(KMAX / KMIN));
-    // no wavefront within 17 degrees of the beam's own direction: a wave that hardly changes along y guides rays down the panel for ever
-    let a = Math.random() * PI;
-    while (sin(a) < KYMIN) a = Math.random() * PI;
-    let m = Math.round((kk * cos(a)) / DKX);
-    while (abs(m) * DKX > kk * sqrt(1 - KYMIN * KYMIN)) m -= m > 0 ? 1 : -1; // rounding must not push kx past k
+    let m = Math.round((kk * cos(Math.random() * PI)) / DKX);
+    while (abs(m) * DKX > kk) m -= m > 0 ? 1 : -1; // rounding must not push kx past k
     const kx = m * DKX, ky = sqrt(max(0, kk * kk - kx * kx));
     S.pk[j] = sqrt(kx * kx + ky * ky);
     S.pkx[j] = kx;
@@ -142,9 +137,9 @@ export function setup(params, knobs) {
   targetPhases(S, 0);
   vrows(S, 0, NRE);
   gradient(S, S.V0, S.X0, S.Y0);
-  targetPhases(S, NF);
-  vrows(S, 0, NRE);
-  gradient(S, S.V1, S.X1, S.Y1);
+  S.V1.set(S.V0);
+  S.X1.set(S.X0);
+  S.Y1.set(S.Y0);
   params.s = S;
   blend(S, 0);
   preroll(S);
