@@ -45,7 +45,7 @@
 // - Resolution. The same box on 128 by 128 modes (R = 2.2, 8 LEDs) at damping 3 and 0.3: rms w 2.80 and 2.67, rms S' 8.5 and 8.1, flux ratio 0.69 and 0.68.
 //   On 64 by 64: 2.54, 7.9 and 0.73 at damping 3, 2.04, 6.1 and 0.63 at 0.3, 1.97, 5.8 and 0.59 with none. So the shipped grid and damping run 9 per cent
 //   under the finer grid in w and 7 in S', and without damping the salt spectrum does not fall toward the cut (19 per cent of its peak at kk 1, 0.8 per cent
-//   with damping 3). The grid is coarser at Scale -1 (h = 1.63 d) and finer at 1 (0.68 d), and not checked there beyond the runs below.
+//   with damping 3). At the opening the damping takes 50 per cent of the S' variance the run dissipates (64 per cent at R = 1.57), physical diffusion the rest. The grid is coarser at Scale -1 (h = 1.63 d) and finer at 1 (0.68 d), and not checked there beyond the runs below.
 // - Finger width. At the opening the first minimum of the autocorrelation of S' across the panel is at 6 LEDs, a wavelength of 12, against 8 for the fastest
 //   linear finger and 6.0 for 2 pi d. A finger is 1.5 times the linear wavelength once it saturates.
 // - Flux ratio. gamma = <w T'> / <w S'> = alpha F_T / beta F_S is 0.72 at the opening over 900 s (0.76 at R 1.57, 0.69 at 3.08), inside the observed 0.4 to 0.8.
