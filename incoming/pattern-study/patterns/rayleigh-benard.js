@@ -17,8 +17,11 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- tunables
 const NX = 64, NZ = 128;
-const KAP0 = 2.0; // thermal diffusivity at Pace 1, Scale 0, LED^2/s
-const RA0 = 2e6; // Rayleigh number at Scale 0
+const GB0 = 4.7; // buoyancy gB = g alpha DT at Pace 1, LED/s^2: free fall over the depth is 24 LEDs a second
+const RA0 = 1e7; // Rayleigh number
+const PR0 = 0.3; // Prandtl number at Prandtl 0
+const R0 = 2.75; // how many LEDs of depth one column of the box is wide, at Scale 0
+const AMP0 = 0.15; // how far the warm and cool spots on the plates swing, as a share of the plate difference
 const DRAG0 = 0.5; // drag on the horizontal-mean wind, 1/s at Pace 1
 
 // ---- in-place complex FFT, N a power of two
@@ -67,25 +70,28 @@ function newState(nx, nz) {
   const n = nx * nz, F = () => new Float64Array(n), h = nx / 2 + 1;
   const S = {
     nx, nz, n, d: nz - 1,
-    T: F(), W: F(), P: F(), U: F(), V: F(), T2: F(), W2: F(),
-    Tp: new Float64Array(nx * (nz + 4)), Wp: new Float64Array(nx * (nz + 4)),
+    T: F(), W: F(), P: F(), U: F(), V: F(), T2: F(), W2: F(), C: F(), C2: F(),
+    Tp: new Float64Array(nx * (nz + 4)), Wp: new Float64Array(nx * (nz + 4)), Cp: new Float64Array(nx * (nz + 4)),
     fft: makeFft(nx), zr: new Float64Array(nx), zi: new Float64Array(nx),
     Wr: new Float64Array(nz * h), Wi: new Float64Array(nz * h),
     Tr: new Float64Array(nz * h), Ti: new Float64Array(nz * h),
     Pr: new Float64Array(nz * h), Pi: new Float64Array(nz * h),
     cp: new Float64Array(nz), dp: new Float64Array(nz), dq: new Float64Array(nz),
-    R: 1, ct: 1, cw: 1, drag: 0, gB: 4, kap: KAP0, nu: KAP0, time: 0, lut: new Float32Array(3 * 512), hueDone: -1, sig: 0.1, mean: new Float64Array(nz),  lin: new Float64Array(nz), cx: new Float64Array(h),
+    R: 1, ct: 1, cw: 1, drag: 0, amp: 0, pace: 1, pat: newPatches(), gB: 4, kap: 2, nu: 2, time: 0, lut: new Float32Array(3 * 512), hueDone: -1, sig: 0.1, grm: 0.05, wrm: 1, mean: new Float64Array(nz),  lin: new Float64Array(nz), cx: new Float64Array(h),
   };
   for (let j = 0; j < nz; j++) {
     S.lin[j] = j / (nz - 1);
-    for (let i = 0; i < nx; i++) S.T[j * nx + i] = S.lin[j];
+    for (let i = 0; i < nx; i++) {
+      S.T[j * nx + i] = S.lin[j];
+      S.C[j * nx + i] = 2 * S.lin[j] - 1;
+    }
   }
   for (let k = 0; k < h; k++) S.cx[k] = 2 * cos((TAU * k) / nx) - 2;
   return S;
 }
 
 // Cubic (Catmull-Rom) weights
-function sampleBoth(Tp, Wp, nx, fi, fj, out, ct, cw) {
+function sampleBoth(Tp, Wp, Cp, nx, fi, fj, out, ct, cw) {
   // Tp, Wp are padded: row index r = j + 2
   const mx = nx - 1;
   const i1 = floor(fi), j1 = floor(fj), tx = fi - i1, ty = fj - j1;
@@ -95,8 +101,8 @@ function sampleBoth(Tp, Wp, nx, fi, fj, out, ct, cw) {
   const s2 = ty * ty, s3 = s2 * ty;
   const ay = -0.5 * s3 + s2 - 0.5 * ty, by = 1.5 * s3 - 2.5 * s2 + 1, cy = -1.5 * s3 + 2 * s2 + 0.5 * ty, dy = 0.5 * s3 - 0.5 * s2;
   const ra = (j1 + 1) * nx, rb = ra + nx, rc = rb + nx, rd = rc + nx;
-  for (let f = 0; f < 2; f++) {
-    const A = f ? Wp : Tp;
+  for (let f = 0; f < 3; f++) {
+    const A = f === 2 ? Cp : f ? Wp : Tp;
     const va = ax * A[ra + xa] + bx * A[ra + xb] + cx * A[ra + xc] + dx * A[ra + xd];
     const vb = ax * A[rb + xa] + bx * A[rb + xb] + cx * A[rb + xc] + dx * A[rb + xd];
     const vc = ax * A[rc + xa] + bx * A[rc + xb] + cx * A[rc + xc] + dx * A[rc + xd];
@@ -104,11 +110,11 @@ function sampleBoth(Tp, Wp, nx, fi, fj, out, ct, cw) {
     const r = ay * va + by * vb + cy * vc + dy * vd;
     const p = A[rb + xb], q = A[rb + xc], s = A[rc + xb], u = A[rc + xc];
     const lo = min(min(p, q), min(s, u)), hi = max(max(p, q), max(s, u));
-    out[f] = (f ? cw : ct) ? (r < lo ? lo : r > hi ? hi : r) : r;
+    out[f] = r < lo ? lo : r > hi ? hi : r;
   }
 }
 
-const OUT = [0, 0];
+const OUT = [0, 0, 0];
 
 function velocities(S) {
   const { nx, nz, P, U, V } = S, mx = nx - 1, ir = 1 / S.R;
@@ -129,22 +135,25 @@ function velocities(S) {
 }
 
 function advect(S, dt) {
-  const { nx, nz, T, W, U, V, T2, W2, Tp, Wp } = S, mx = nx - 1, ymax = nz - 1, ir = 1 / S.R;
+  const { nx, nz, T, W, C, U, V, T2, W2, C2, Tp, Wp, Cp } = S, mx = nx - 1, ymax = nz - 1, ir = 1 / S.R;
   // padded copies, two ghost rows each side, odd about the wall value
   for (let j = 0; j < nz; j++) {
     const o = j * nx, q = (j + 2) * nx;
     for (let i = 0; i < nx; i++) {
       Tp[q + i] = T[o + i];
       Wp[q + i] = W[o + i];
+      Cp[q + i] = C[o + i];
     }
   }
   for (let g = 1; g <= 2; g++) {
     const a = (2 - g) * nx, b = (2 + g) * nx, c = (nz + 1 + g) * nx, e = (nz + 1 - g) * nx;
     for (let i = 0; i < nx; i++) {
-      Tp[a + i] = 0 - T[g * nx + i];
+      Tp[a + i] = 2 * T[i] - T[g * nx + i];
       Wp[a + i] = -W[g * nx + i];
-      Tp[c + i] = 2 - T[(nz - 1 - g) * nx + i];
+      Tp[c + i] = 2 * T[(nz - 1) * nx + i] - T[(nz - 1 - g) * nx + i];
       Wp[c + i] = -W[(nz - 1 - g) * nx + i];
+      Cp[a + i] = 2 * C[i] - C[g * nx + i];
+      Cp[c + i] = 2 * C[(nz - 1) * nx + i] - C[(nz - 1 - g) * nx + i];
     }
   }
   for (let j = 1; j < nz - 1; j++) {
@@ -160,39 +169,49 @@ function advect(S, dt) {
       const v1 = w00 * V[r0 + x0] + w10 * V[r0 + x1] + w01 * V[r1 + x0] + w11 * V[r1 + x1];
       let xf = i - dt * ir * u1, yf = j - dt * v1;
       yf = yf < 0 ? 0 : yf > ymax ? ymax : yf;
-      sampleBoth(Tp, Wp, nx, xf, yf, OUT, S.ct, S.cw);
+      sampleBoth(Tp, Wp, Cp, nx, xf, yf, OUT);
       T2[k] = OUT[0];
       W2[k] = OUT[1];
+      C2[k] = OUT[2];
     }
   }
   for (let i = 0; i < nx; i++) {
-    T2[i] = 0;
+    T2[i] = T[i];
     W2[i] = 0;
-    T2[(nz - 1) * nx + i] = 1;
+    T2[(nz - 1) * nx + i] = T[(nz - 1) * nx + i];
     W2[(nz - 1) * nx + i] = 0;
+    C2[i] = -1;
+    C2[(nz - 1) * nx + i] = 1;
   }
+  S.C = C2;
+  S.C2 = C;
 }
 
-// One Thomas solve on rows 1..nz-2 of a mode's column, constant coefficients a (off-diagonal), b (diagonal)
-// Solves a x(j-1) + b x(j) + a x(j+1) = r(j), x(0) = x(nz-1) = 0. re and im solved together.
-function thomas2(S, a, b, re, im, o, stride) {
-  const { nz, cp, dp, dq } = S;
-  // forward
-  let m = b;
+// One Thomas solve down a mode's column of rows: a x(j-1) + b x(j) + a x(j+1) = r(j) for rows 1 to nz-2, with the wall
+// rows 0 and nz-1 holding x as it is. Real and imaginary parts go together.
+function thomas2(S, a, b, re, im, o, st) {
+  const { nz, cp, dp, dq } = S, e = (nz - 1) * st, l = nz - 2;
+  let m = b, rr = re[o + st] - a * re[o], qq = im[o + st] - a * im[o];
   cp[1] = a / m;
-  dp[1] = re[o + stride] / m;
-  dq[1] = im[o + stride] / m;
+  dp[1] = rr / m;
+  dq[1] = qq / m;
   for (let j = 2; j < nz - 1; j++) {
     m = b - a * cp[j - 1];
+    rr = re[o + j * st];
+    qq = im[o + j * st];
+    if (j === l) {
+      rr -= a * re[o + e];
+      qq -= a * im[o + e];
+    }
     cp[j] = a / m;
-    dp[j] = (re[o + j * stride] - a * dp[j - 1]) / m;
-    dq[j] = (im[o + j * stride] - a * dq[j - 1]) / m;
+    dp[j] = (rr - a * dp[j - 1]) / m;
+    dq[j] = (qq - a * dq[j - 1]) / m;
   }
-  re[o + (nz - 2) * stride] = dp[nz - 2];
-  im[o + (nz - 2) * stride] = dq[nz - 2];
-  for (let j = nz - 3; j >= 1; j--) {
-    re[o + j * stride] = dp[j] - cp[j] * re[o + (j + 1) * stride];
-    im[o + j * stride] = dq[j] - cp[j] * im[o + (j + 1) * stride];
+  re[o + l * st] = dp[l];
+  im[o + l * st] = dq[l];
+  for (let j = l - 1; j >= 1; j--) {
+    re[o + j * st] = dp[j] - cp[j] * re[o + (j + 1) * st];
+    im[o + j * st] = dq[j] - cp[j] * im[o + (j + 1) * st];
   }
 }
 
@@ -278,7 +297,31 @@ function diffuseSolve(S, dt) {
   }
 }
 
+// The plates are not quite uniform. A few warm and cool spots, each a plane wave across the 64 columns, drift along the floor
+// and the ceiling at their own slow rates, so the places where plumes start keep moving and the flow cannot settle into one
+// steady set of plumes. Their mean is zero: the plates stay at 1 and 0 on average.
+function newPatches() {
+  const P = [];
+  for (let side = 0; side < 2; side++)
+    for (let m = 0; m < 3; m++)
+      P.push({ side, k: 2 + ((m * 2 + side + floor(Math.random() * 2)) % 6), a: [1, 0.8, 0.6][m] / 1.9, w: (0.06 + 0.13 * Math.random()) * (Math.random() < 0.5 ? -1 : 1), ph: Math.random() * TAU });
+  return P;
+}
+function wallTemps(S, dt) {
+  const { nx, nz, T } = S, o = (nz - 1) * nx;
+  for (let i = 0; i < nx; i++) {
+    T[i] = 0;
+    T[o + i] = 1;
+  }
+  for (const q of S.pat) {
+    q.ph = (q.ph + q.w * S.pace * dt) % TAU;
+    const A = S.amp * q.a, base = q.side ? o : 0;
+    for (let i = 0; i < nx; i++) T[base + i] += A * cos((TAU * q.k * i) / nx + q.ph);
+  }
+}
+
 function step(S, dt) {
+  wallTemps(S, dt);
   velocities(S);
   advect(S, dt);
   diffuseSolve(S, dt);
@@ -307,14 +350,19 @@ function seedState(S) {
 
 function setParams(S, ra, pr, R, pace) {
   S.R = R;
-  S.kap = KAP0 * pace;
+  S.pace = pace;
+  S.gB = GB0 * pace * pace;
+  S.kap = sqrt((S.gB * S.d * S.d * S.d) / (ra * pr));
   S.nu = pr * S.kap;
-  S.gB = (ra * S.nu * S.kap) / (S.d * S.d * S.d);
   S.drag = DRAG0 * pace;
+  S.amp = AMP0;
 }
 
 const KNOB = [0, 2, 0, 0.06];
-const PARAM_WR = 1.0, PARAM_SCH = 0.06, PARAM_DEL = 0.04, PARAM_FA = 0.12;
+function knobs(S, k) {
+  const pace = cl(k[1], 0.5, 3.5) / 2, scale = cl(k[2], -1, 1), pk = cl(k[3], -1, 1);
+  setParams(S, RA0, PR0 * pow(10, pk), R0 * pow(1.5, -scale), pace);
+}
 
 // ---- colour. OKLab (Ottosson 2020, constants from memory)
 function lin(L, a, b, o) {
@@ -331,13 +379,14 @@ for (let k = 0; k <= 4096; k++) {
 }
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
 const STOPS = [
-  [0.0, 0.3, 0.13, 275],
-  [0.18, 0.42, 0.17, 268],
-  [0.38, 0.52, 0.19, 305],
-  [0.55, 0.62, 0.2, 345],
-  [0.72, 0.74, 0.17, 395],
-  [0.86, 0.83, 0.15, 430],
-  [1.0, 0.94, 0.09, 455],
+  [0.0, 0.5, 0.15, 250],
+  [0.2, 0.38, 0.17, 262],
+  [0.38, 0.27, 0.14, 280],
+  [0.5, 0.22, 0.1, 295],
+  [0.62, 0.32, 0.15, 335],
+  [0.76, 0.55, 0.17, 380],
+  [0.88, 0.78, 0.15, 425],
+  [1.0, 0.95, 0.09, 455],
 ];
 const LN = 512;
 const TMP = [0, 0, 0];
@@ -362,14 +411,6 @@ function buildLut(S, shift) {
   S.hueDone = shift;
 }
 
-function knobs(S, k) {
-  const heat = cl(k[1], 0.5, 4), scale = cl(k[2], -1, 1), pk = cl(k[3], -1, 1);
-  const ra = RA0 * pow(2, 1.2 * (heat - 2));
-  const R = 2.1 * pow(1.7, -scale);
-  const pr = pow(6, pk);
-  setParams(S, ra, pr, R, 1);
-}
-
 export function setup(params) {
   const S = (params.s = newState(NX, NZ));
   buildLut(S, 0);
@@ -388,33 +429,48 @@ export function update(dt, input, params) {
   step(S, h);
 }
 
+const GAIN = 0.9, WR = 0.5, RIM = 0.22, VORH = 0;
+
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const { nx, nz, T, mean, lut } = S, mx = nx - 1, o = [0, 0, 0];
-  let ss = 0;
+  const { nx, nz, T, W, mean, lut, R } = S, mx = nx - 1, o = [0, 0, 0], ir2 = 1 / (R * R);
+  let ss = 0, gs = 0, ws = 0;
   for (let j = 0; j < nz; j++) {
     let m = 0;
     for (let i = 0; i < nx; i++) m += T[j * nx + i];
     mean[j] = m / nx;
   }
-  for (let j = 1; j < nz - 1; j++) for (let i = 0; i < nx; i++) ss += (T[j * nx + i] - mean[j]) ** 2;
-  S.sig += (sqrt(ss / (nx * (nz - 2))) - S.sig) * 0.05;
-  const is = 1 / max(1e-3, S.sig);
+  for (let j = 1; j < nz - 1; j++)
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i, l = j * nx + ((i + 1) & mx), r = j * nx + ((i - 1) & mx);
+      ss += (T[k] - mean[j]) ** 2;
+      gs += ((T[l] - T[r]) * ir2) ** 2 * 0.25 + (T[k + nx] - T[k - nx]) ** 2 * 0.25;
+      ws += W[k] * W[k];
+    }
+  const cnt = nx * (nz - 2);
+  S.sig += (sqrt(ss / cnt) - S.sig) * 0.05;
+  S.grm += (sqrt(gs / cnt) - S.grm) * 0.05;
+  S.wrm += (sqrt(ws / cnt) - S.wrm) * 0.05;
+  const is = 1 / max(1e-3, S.sig), il = 1 / (1.5 * max(1e-4, S.grm)), iw = 1 / max(1e-4, S.wrm), vh = (VORH * PI) / 180;
   for (let y = 0; y < nz; y++)
     for (let x = 0; x < nx; x++) {
       const k = y * nx + x, q = (T[k] - mean[y]) * is;
-      let t = 0.5 + 0.5 * Math.tanh(0.9 * q) * 0.95 + 0.5 * (T[k] - 0.5) * PARAM_WR;
+      let t = 0.5 + 0.5 * 0.9 * Math.tanh(GAIN * q) + WR * (T[k] - 0.5);
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const idx = 3 * ((t * (LN - 1) + 0.5) | 0);
-      let L = lut[idx];
-      const g = (T[y * nx + ((x + 1) & mx)] - T[y * nx + ((x - 1) & mx)]) * is;
-      L += PARAM_SCH * Math.tanh(g);
-      const gx = 0.5 * (T[k + ((x + 1) & mx) - x] - T[k + ((x - 1) & mx) - x]), gy = 0.5 * (T[min(nz - 1, y + 1) * nx + x] - T[max(0, y - 1) * nx + x]);
-      const gm = sqrt(gx * gx + gy * gy) + 1e-6;
-      const fd = (PARAM_DEL / gm - 2) * 0.5;
-      L += PARAM_FA * cos((TAU * T[k]) / PARAM_DEL) * (fd < 0 ? 0 : fd > 1 ? 1 : fd);
-      lin(L, lut[idx + 1], lut[idx + 2], o);
+      let L = lut[idx], A = lut[idx + 1], B = lut[idx + 2];
+      if (y > 0 && y < nz - 1) {
+        const lap = (T[y * nx + ((x + 1) & mx)] + T[y * nx + ((x - 1) & mx)] - 2 * T[k]) * ir2 + T[k + nx] + T[k - nx] - 2 * T[k];
+        L += RIM * Math.tanh(lap * il);
+      }
+      if (VORH) {
+        const th = vh * Math.tanh(W[k] * iw), c = cos(th), s = sin(th), A1 = A * c - B * s;
+        B = A * s + B * c;
+        A = A1;
+      }
+      L = L < 0.05 ? 0.05 : L > 0.98 ? 0.98 : L;
+      lin(L, A, B, o);
       display.setPixel(x, y, gam(o[0]), gam(o[1]), gam(o[2]));
     }
 }
