@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Quantum Turbulence
 // Family:  physics
-// Idea:    A two-dimensional superfluid, the Gross-Pitaevskii equation solved by split-step Fourier on the panel's own 64 by 128 torus, is stirred by four wandering laser spots that shed vortex dipoles once they move faster than about 0.45 times the speed of sound, and its phase is drawn as hue and its density as brightness, so each quantised vortex is a dark core round which every hue turns once, dipoles swim off, meet and annihilate, ripples of sound ring out from the spots, and the panel keeps boiling with vortices of both signs for as long as it runs.
+// Idea:    A two-dimensional superfluid, the Gross-Pitaevskii equation solved by split-step Fourier on the panel's own 64 by 128 torus, is stirred by four wandering laser spots that shed vortex dipoles once they move faster than about 0.45 times the speed of sound, and its phase is drawn as hue and its density as brightness, so each quantised vortex is a dark core round which every hue turns once, dipoles swim off, meet and annihilate, faint arcs of sound ring out from the spots, and the panel keeps boiling with vortices of both signs for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-08
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Stir=1.6..2.8, Scale=-0.5..1, Damping=0.035..0.1
 //
-// Knob 1: Hue. Turns the wheel the phase is drawn on, and one full turn comes back to where it began. At 0 phase zero is azure and the hues run azure, blue, magenta, red, gold, green, cyan as the phase grows; the blue is pulled toward periwinkle so it does not read as a hole. On top of the knob the whole wheel drifts forward by 0.04 of a turn a second on average (between 0.005 and 0.075), one turn in 25 s, and the phase is read against a reference wave of 1.1 turns of hue across 64 LEDs whose heading swings by up to 1.5 radians either way over minutes.
+// Knob 1: Hue. Turns the colour ramp the phase is drawn on, and one full turn comes back to where it began. At 0 phase zero is peach, and as the phase grows the colour runs peach, rose, violet, indigo, azure, cyan, mint, pale gold. The ramp is a curve in Oklab through indigo, cyan, pale gold and magenta, from lightness 0.50 to 0.92, kept far enough inside the gamut that the panel's 1.62 saturation lift clips no channel; the dark side of a ripple is drawn toward indigo rather than darkened. On top of the knob the whole ramp drifts forward by 0.04 of a turn a second on average (between 0.005 and 0.075), one turn in 25 s, and the phase is read against a reference wave of 1.1 turns of colour across 64 LEDs whose heading swings by up to 1.5 radians either way over minutes.
 // Knob 2: Stir. How fast the four laser spots are dragged through the fluid. Their mean speed is 3.6 LEDs a second times Stir, 5.8 at 1.6, 7.2 at 2 and 10.1 at 2.8, which is 0.52, 0.65 and 0.92 of the speed of sound (11 LEDs a second), and each spot's speed swings between 0.5 and 1.5 of that. Measured over 300 s with the other knobs at the opening, the panel holds a mean of 17 vortices at 1.6, 24 at 2 and 30 at 2.8, and the density in the bulk is rougher the harder the stirring (standard deviation 0.14, 0.16 and 0.21 of the mean).
 // Knob 3: Scale. The healing length xi = 1.5 LEDs times 1.6 to the Scale: 1.2 at -0.5, 1.5 at the opening 0, 2.4 at 1. A core is 3.6, 4.5 and 7.0 LEDs across at half the bulk density, and the spots, whose Gaussians have sigma 1.5 xi, grow with it. The clock follows xi so the speed of sound stays 11 LEDs a second, and the mean vortex count is 24, 24 and 17. A change eases in over 0.3 s.
 // Knob 4: Damping. The gamma of the (1 - i gamma) damping. Mean vortices on the panel are 29 at 0.035, 24 at the opening 0.06 and 15 at 0.1, and the density in the bulk is rougher the less damping there is (standard deviation 0.20, 0.16 and 0.13), so at 0.035 the ripples run longer and the surface is busier.
@@ -263,14 +263,48 @@ function advance(S, ft, k) {
 }
 
 // ---- colour ---------------------------------------------------------------------------------
-// The hue wheel. The saturation dips to 0.62 round blue (hue 0.665), so blue comes out as periwinkle.
-const HL = 1024, HUE = new Float32Array(HL * 3);
-for (let i = 0; i < HL; i++) {
-  const h = i / HL, s = 1 - 0.38 * exp(-(((h - 0.665) / 0.06) ** 2)), q = (h * 6) % 6, f = q - floor(q), k = floor(q);
-  const p = 1 - s, qq = 1 - f * s, tt = 1 - (1 - f) * s;
-  HUE[i * 3] = k === 0 || k === 5 ? 1 : k === 1 ? qq : k === 4 ? tt : p;
-  HUE[i * 3 + 1] = k === 1 || k === 2 ? 1 : k === 0 ? tt : k === 3 ? qq : p;
-  HUE[i * 3 + 2] = k === 3 || k === 4 ? 1 : k === 2 ? tt : k === 5 ? qq : p;
+// A cyclic ramp in Oklab (Bjorn Ottosson, 2020), three-quarters of the way round through four stops, each [lightness, chroma, hue in degrees]: indigo, cyan,
+// pale gold, magenta, at 0, 0.15, 0.42 and 0.72 of the cycle, joined by a Catmull-Rom curve. Lightness runs from 0.50 to 0.92, so neighbouring hues differ in
+// brightness too. The second axis is the shadow: the colour is drawn toward a deep indigo, [0.20, 0.08, 275], by the relief, not dimmed where it stands, so
+// gold does not go brown. Chroma is pulled in until the colour fits sRGB after the panel's 1.62 saturation lift, which keeps the lift from clipping a channel.
+const STOPS = [[0.5, 0.19, 272], [0.8, 0.13, 215], [0.92, 0.1, 95], [0.68, 0.21, 345]], POS = [0, 0.15, 0.42, 0.72, 1], SHADOW = [0.2, 0.08, 275];
+const PU = 512, PS = 24;
+function oklab2rgb(L, a, b) {
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, bb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+  const e = (x) => (x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / 2.4) - 0.055);
+  return [e(r), e(g), e(bb)];
+}
+function fit(L, a, b) {
+  for (let k = 0; k < 40; k++) {
+    const c = oklab2rgb(L, a, b), y = (c[0] * 77 + c[1] * 150 + c[2] * 29) / 256;
+    if (c.every((v) => v >= 0 && v <= 1 && y + (v - y) * 1.62 >= -0.01 && y + (v - y) * 1.62 <= 1.01)) return c;
+    a *= 0.96;
+    b *= 0.96;
+  }
+  return oklab2rgb(L, a, b).map((v) => cl(v, 0, 1));
+}
+// PAL[(shadow level * PU + place on the ramp) * 3]: 23 is lit, 0 is all the way to indigo, and the shadow comes in as the square of the distance from lit.
+const PAL = new Float32Array(PU * PS * 3);
+{
+  const lab = STOPS.map(([L, C, h]) => [L, C * cos((h * PI) / 180), C * sin((h * PI) / 180)]), n = lab.length;
+  const sh = [SHADOW[0], SHADOW[1] * cos((SHADOW[2] * PI) / 180), SHADOW[1] * sin((SHADOW[2] * PI) / 180)];
+  for (let ui = 0; ui < PU; ui++) {
+    let j = 0;
+    while (ui / PU >= POS[j + 1]) j++;
+    const q = j + (ui / PU - POS[j]) / (POS[j + 1] - POS[j]), i = floor(q), f = q - i, P = [0, 0, 0];
+    const p0 = lab[(i + n - 1) % n], p1 = lab[i % n], p2 = lab[(i + 1) % n], p3 = lab[(i + 2) % n];
+    for (let k = 0; k < 3; k++) {
+      const m1 = 0.5 * (p2[k] - p0[k]), m2 = 0.5 * (p3[k] - p1[k]);
+      P[k] = (2 * f * f * f - 3 * f * f + 1) * p1[k] + (f * f * f - 2 * f * f + f) * m1 + (-2 * f * f * f + 3 * f * f) * p2[k] + (f * f * f - f * f) * m2;
+    }
+    for (let si = 0; si < PS; si++) {
+      const w = (1 - si / (PS - 1)) ** 2, c = fit(P[0] + (sh[0] - P[0]) * w, P[1] + (sh[1] - P[1]) * w, P[2] + (sh[2] - P[2]) * w), o = (si * PU + ui) * 3;
+      PAL[o] = c[0];
+      PAL[o + 1] = c[1];
+      PAL[o + 2] = c[2];
+    }
+  }
 }
 
 export function update(dt, input, params) {
@@ -287,10 +321,10 @@ export function update(dt, input, params) {
   advance(S, cl(dt || 0, 0, 0.1), k);
 }
 
-// Phase is the hue, read against a reference wave tilted across the panel, as an interferometer reads a condensate; the wave's heading turns slowly. Density
-// is the brightness, 0 under 0.03 of the bulk and full from 0.5, so a core is dark and sharp. The density's slope is a relief on top of that, lit from the
-// lower right, which is how the sound shows. Without the relief the brightest channel is the same wherever the density is flat, and the least-changing
-// 16 by 16 cell moves by 0.10 of its level in half a second; with it the figure is 0.36 to 0.49.
+// Phase is the place on the colour ramp, read against a reference wave tilted across the panel, as an interferometer reads a condensate; the wave's heading
+// turns slowly, and it gives a calm stretch of fluid a slow band of colour to be seen through. Density is the brightness, 0 under 0.03 of the bulk and full
+// from 0.5, so a core is dark and sharp. The density's slope is a light relief on top of that, lit from the lower right: it is what shows the sound, and it
+// gives the jet between two vortices a dark side. Its dark side is drawn toward indigo, and it only bites where the slope is steep, so a flat sea stays lit.
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
@@ -301,13 +335,12 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++, p++) {
       let hu = atan2(im[p], re[p]) / TAU + h0 + gx * (x - 31.5) + gy * (y - 63.5);
       hu -= floor(hu);
-      const hi = ((hu * HL) | 0) * 3;
       let v = cl((RR[p] - 0.03) / 0.47, 0, 1);
       v *= v * (3 - 2 * v);
       const xp = y * W + (x + 1) % W, xm = y * W + (x + W - 1) % W, yp = ((y + 1) % H) * W + x, ym = ((y + H - 1) % H) * W + x;
-      v *= cl(0.65 + 6 * (RR[xm] - RR[xp] + RR[ym] - RR[yp]), 0.25, 1.2);
-      if (v > 1) v = 1;
+      const lit = cl((cl(0.9 + 3 * (RR[xm] - RR[xp] + RR[ym] - RR[yp]), 0.25, 1) - 0.25) / 0.75, 0, 1);
+      const o = (((lit * (PS - 1) + 0.5) | 0) * PU + (((hu * PU) | 0) & (PU - 1))) * 3;
       v *= 255;
-      display.setPixel(x, y, v * HUE[hi], v * HUE[hi + 1], v * HUE[hi + 2]);
+      display.setPixel(x, y, v * PAL[o], v * PAL[o + 1], v * PAL[o + 2]);
     }
 }
