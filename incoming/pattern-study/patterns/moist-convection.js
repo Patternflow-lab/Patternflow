@@ -1,20 +1,68 @@
 // ===== Patternflow pattern =====
 // Title:   Moist Convection
 // Family:  weather
-// Idea:    draft
+// Idea:    A vertical slice of sky, 64 columns of air by 128 rows, in which damp air from a warm surface rises, condenses into white towers that the heat of condensation drives on, spreads into anvils under a stable layer and rains out into cold air that runs along the ground and starts the next tower, while a slow wind shear tilts it all and radiative cooling keeps it going for ever.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: Moist convection in a two-dimensional vertical slice (Joseph Klemp and Robert Wilhelmson, 1978; Christopher Bretherton, 1987), Boussinesq (Joseph Boussinesq, 1903), with the liquid-water potential temperature (Alan Betts, 1973) and total water as the conserved variables and a saturation adjustment that finds the cloud (Kerry Emanuel, Atmospheric Convection, 1994); warm rain after Edwin Kessler (1969); radiative-convective equilibrium (Syukuro Manabe and Robert Strickler, 1964; Isaac Held, Richard Hemler and V. Ramaswamy, 1993, in two dimensions) as a Newtonian relaxation, a surface exchange and a mean shear that tilts the towers and shapes the cold pools (Richard Rotunno, Joseph Klemp and Morris Weisman, 1988); stream function and vorticity by a Fourier transform across the columns (James Cooley and John Tukey, 1965) and a tridiagonal solve up the rows (Llewellyn Thomas, 1949), as in rayleigh-benard.js; scalars in flux form with monotonised central slopes (Bram van Leer, 1977), a two-stage strong-stability-preserving Runge-Kutta step (Chi-Wang Shu and Stanley Osher, 1988) and a stream function on the cell corners (Akio Arakawa and Vivian Lamb, 1977); vorticity semi-Lagrangian (Andre Robert, 1981) with Catmull-Rom look-up (Edwin Catmull and Raphael Rom, 1974); colour in OKLab (Bjorn Ottosson, 2020). Every name, year and constant is from memory. Pattern round 119.
 // Round:   119
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Moisture=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Flow. draft
-// Knob 3: Scale. draft
-// Knob 4: Moisture. draft
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of sky, cloud shade and ground, so one turn comes back. At 0 the sky runs from pale cyan (84, 187, 209) at the horizon to ultramarine (0, 64, 160) at the top, clouds white on the sunward side and blue-grey in their own shade. Warm hues come up in lightness so nothing goes brown: 0.5 is an orange sky, 0.625 lime, 0.75 green.
+// Knob 2: Flow. A clock: 33 s x Flow x sqrt(Scale metres / 40) of model time per panel second, 16.5, 66 and 132 s at Flow 0.5, 2 and 4 on the middle Scale. The physics is in seconds, so Flow only changes the number of steps a frame takes. Over 4 model hours at Flow 0.5, 2 and 4: cloud fraction 0.260, 0.259, 0.257, mean cloud top 4.28, 4.24, 4.20 km, rain 0.71, 0.68, 0.74 mm/h, rms vertical speed 2.34, 2.44, 2.52 m/s (the step size shows, 8 percent). Air in cloud, 3.0 m/s rms, goes up the panel at 1.2, 5.0 and 9.9 LEDs a second.
+// Knob 3: Scale. Metres per LED, 40 x 1.6^Scale: 25, 40, 64 m, so the panel is 1.6 x 3.2, 2.6 x 5.1 and 4.1 x 8.2 km. The sounding is fixed in metres, so this is a zoom: at 64 m the lid is 8.2 km up, mean cloud tops reach 5.1 km and cloud covers 16 percent of the panel; at 25 m the lid is 3.2 km up, tops reach 3.0 km and cloud covers 32 percent. Rain 1.14, 0.68, 0.24 mm/h. A tower 800 m wide is 12, 20 or 32 LEDs across.
+// Knob 4: Moisture. i = (Moisture + 1) / 2 sets the sea surface temperature 299.3 + 3.2 i K, the wetness of the surface 0.82 + 0.1 i, the humidity the free air is drawn toward, 0.2 + 0.4 i of saturation, and a stable layer of 7 (1 - i)^1.3 K whose base is 2.6 + 3.4 i km up. At -1: sparse cumulus under that lid, mean top 2.25 km, 11 percent cloud, 3.2 towers across, 0.15 mm/h. At the opening 0.06: tops 4.24 km, 26 percent cloud, 0.68 mm/h. At 1: towers fill the box to the lid, top 5.02 km, 34 percent cloud, 2.40 mm/h.
+
+// What the field is. Air in a box 64 columns wide (periodic) and 128 rows tall between a free-slip floor and lid. A cell holds theta_l, q_t (vapour plus cloud water) and q_r (rain).
+// Cloud water is not stored: each step a saturation adjustment finds q_c >= 0 with q_v = q_t - q_c at saturation and T = Pi theta_l + (L/cp) q_c, e_s by Clausius-Clapeyron with
+// L = 2.5e6 J/kg, Pi(z) = 1 - g z / (cp 310 K). B = g (theta_v - 300 K) / 300 K, theta_v = (theta_l + L q_c / (cp Pi)) (1 + 0.608 q_v - q_c - q_r): condensation warms a cloud and
+// its water weighs it down. The stream function psi sits on the cell corners, u = -dpsi/dz, w = dpsi/dx, eta = -del^2 psi,
+//   d eta/dt + u.grad eta = -dB/dx + nu del^2 eta - alpha eta,   del^2 psi = -eta,
+// by FFT across the columns and a tridiagonal solve up the rows. The flux through a cell face is a difference of psi, so the flow has zero divergence over every cell to rounding and
+// theta_l, q_t, q_r advected in flux form are conserved to rounding. Warm rain: autoconversion 2.5e-3 /s above 0.5 g/kg, accretion 2.2 q_c q_r^0.875, fall speed 6 (1000 q_r)^0.25 m/s
+// between 2 and 10, evaporation into unsaturated air up to what saturates it. Above the freezing level (3.8 to 5.6 km, and from 72 percent of the box height up) cloud turns to snow
+// four times as fast and the snow falls at a third of the speed, so an anvil sheds fall streaks and does not hang under the lid.
+// What keeps it going. The lowest 160 m relax toward the sea surface temperature and 0.82 to 0.92 of its saturation in 800 s, under waves across the columns that drift at incommensurate
+// rates. theta_l relaxes toward a sounding 2.2 K cooler in 3 h (the radiative cooling; 30 min from 78 percent of the height up); above the stable layer q_t relaxes in 1 h toward its target
+// humidity. The mean wind relaxes in 40 min toward a linear shear, -A at the floor to +A at the lid, A = 7 m/s x (0.65 sin + 0.45 sin) of model time (periods 4700 and 7919 s), so
+// towers lean one way, stand, lean the other. Eddy viscosity and diffusivity 2 m^2/s at 40 m, as D^(4/3). The step is limited by the outflow Courant number 0.6 of the busiest cell: 2.0 steps a frame at the opening, 3.5
+// (2 to 6) at the busiest corner, 1 at the quietest. The picture reads cloud water, rain, humidity, buoyancy and vertical velocity; the sun wanders in the upper left.
+
+// What was checked (harnesses are in the creator's scratch folder, not the repo; every number is from this file's physics).
+// 1. Saturation adjustment, 327,680 random (theta_l, q_t, level) states, 41,884 cloudy: q_c never below 0; q_v above q_s by at most 6.1e-15 of q_s, within 6.2e-15 of it in every
+//    cloudy state; cp T + L q_v equals cp Pi theta_l + L q_t to 4.4e-16 with (theta_l, q_t) untouched; against a bisection on T, q_c differs by 2.6e-17 kg/kg.
+// 2. A parcel of theta_l 300 K, q_t 17 g/kg lifted from the ground: LCL 647.3 m by bisection on the dry adiabat (621 m by the 125 m per K rule), first cloudy 40 m row at 660 m.
+//    Hand integration of dT/dz along the saturated adiabat (RK4, 0.5 m) against the model: 1.5e-12 K, 1e-15 in q_c, up to the lid. Moist lapse rate 3.9 K/km at 1 km, 4.4 at 3 km, 5.0
+//    at 5 km (textbooks give 4 to 5 near 20 C, from memory). The dry adiabat is 9.46 K/km here, 3 percent under the real one: Pi uses a reference theta of 310 K, not the parcel's.
+// 3. Dry limit (q_t = 0, nothing forced). A gravity wave (N = 9.9e-3 /s, k = 2 x 2pi/L, m = 6 pi/H) has a period 0.20, 0.28, 0.30 percent over theory (793.0 s) for steps of 20, 10, 5 s.
+//    Rayleigh-Benard with fixed-temperature free-slip plates, Pr 1, 64 x 22 cells, a = 2.16: neutral Ra 658.2 for that mode (657.5 at the minimum 27 pi^4/4). Growth rates extrapolated
+//    to a step of nothing against (s + nu K^2)(s + kappa K^2) = g/theta (dT/d) k^2/K^2: -5.757e-5 against -5.765e-5 at 0.8 Ra_n, 6.94e-6 against 7.17e-6 at 1.03, 2.25e-5 against
+//    2.27e-5 at 1.1, 1.427e-4 against 1.430e-4 at 2; the zero is at 1.0014 Ra_n. First order in the step. With the surface and radiation off, 4500 s of moist convection: sum theta_l
+//    changes by the rain's latent heat (-677, evaporation) to 1.1e-15 of itself, sum q_t + q_r by 1.6e-13 of 57.8; with the rain off too, 3.9e-15 and 3.6e-14.
+// 4. Step halving, 30 s from a developed state at Courant 0.58 /s, error against a step of 1/32 s: theta_l 1.0e-2, 5.7e-3, 3.0e-3, 1.5e-3 K for 1, 1/2, 1/4, 1/8 s (order 0.83, 0.91,
+//    1.05), psi 0.8, 0.6, 0.5, 0.3 percent. First order: buoyancy and vorticity are coupled one step behind. The usual step is about 1 s.
+// 5. Divergence over every cell of the flow that carries the scalars: 8e-17 of the largest flux; of the node velocities that carry the vorticity, 2e-17 /s against 6e-2.
+// 6. Long runs of update() at dt = 1/30 and Flow 4. Opening knobs, 3600 s of panel time (132 model hours): cloud fraction 0.258 (0.007 to 0.377; ten-minute means 0.253, 0.271, 0.271,
+//    0.252, 0.256, 0.256), towers (runs of columns with w > 2 m/s) 1.9 (1 to 7), stickiness (the most cloud water one column holds over 20 s against the mean column) 1.32 (1.07 to
+//    2.22; one 12-column tower holding all the cloud would give 5.3), mean q_t 8.51 to 8.63 g/kg and mean theta_l 305.63 to 305.75 K in every ten-minute stretch, theta_l 295.6 to
+//    318.8 K and q_t 1.8 to 19.7 g/kg at the sampled instants, w to 25 m/s, nothing non-finite, the restart guard never fired. Budgets (sum theta_l): radiation -1.056e6, surface
+//    +4.50e5, latent heat of rain +6.06e5, residual 1.2e-13 of the total; water in 170.0, rain out 151.8 (the rest is the first hours' wetting), residual 7.5e-12. All knobs at their
+//    minimum but Flow, 1800 s: cloud 0.218, towers 2.7, stickiness 1.39 (to 2.51), mean top 2.70 km, budgets 1e-15 and 2.4e-13. All at maximum, 1800 s: cloud 0.255 (0.071 to 0.347),
+//    towers 1.6, stickiness 1.36 (to 1.86), top 7.92 km of 8.19, w to 34 m/s, budgets 3.2e-14 and 9.4e-12. The sparse corner (Scale -1, Moisture -1) at Flow 2 has clear spells: cloud
+//    under 0.05 for 17 percent of the time, once for 46 panel s (a shallow cloud layer in a box 1.6 km wide fills and empties together); haze, sun and boundary layer keep moving.
+// What failed first. The first heat budget missed by 1e-3: sum(theta_l + L q_t / (cp Pi)) is not conserved, theta_l and q_t being two scalars and Pi differing level to level; it is
+// now sum theta_l = radiation + surface + the rain's latent heat. The first sounding ended at 83 percent humidity everywhere with cloud at every height and Moisture changed nothing:
+// the drying toward a target and the stable layer came from that. Drying that began at 700 m grew the boundary layer 2 km deep and dry, a clear sky at the low end; it begins above
+// the stable layer now. An anvil under the lid never cleared (top blocks at 0.21 of the mean change): the snow above the freezing level. The Lab calls setup(params) with no knobs, so
+// a state built there came from the default Moisture and the knob took hours of model time to show (response 0.003); it is built in the first update, from the knobs it is handed.
+// The sky under the clouds sat still at the small Scale (the quietest block 0.12 to 0.19 of the mean in three seeds of six); three bands of faint haze drifting in panel time fixed that.
+// My first gravity-wave probe read cos where w goes as sin and found 1e-14 m/s: a bug in the test.
+// What could not be checked. Nothing is compared with a cloud-resolving model or an observed sounding; the constants, the sounding and the time compression (forcing and cooling about
+// 20 times faster than the atmosphere's, to reach a steady state in a few model hours) were chosen by looking. Two dimensions: thermals are vortex pairs and have no third-dimension
+// entrainment. Boussinesq: air does not thin with height, so a tower does not widen as it rises.
 
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh, log } = Math;
 const TAU = 2 * PI;
@@ -32,7 +80,7 @@ const qsat = (T, p) => {
 };
 
 // ---- tunables
-const FLOORS = 0.004, SKYB = 0.035, SKYW = 0.12; // the clear sky's share in the picture: floor of the per-row normalisation, lightness swing of buoyancy, hue swing of vertical velocity
+const FLOORS = 0.004, SKYB = 0.035, SKYW = 0.12, VEIL = 0.012; // the clear sky's share in the picture: floor of the per-row normalisation, lightness swing of buoyancy, hue swing of vertical velocity
 const NX = 64, NZ = 128;
 const D0 = 40; // metres per LED at Scale 0
 const SPS0 = 33; // simulated seconds per panel second at Flow 1
@@ -740,7 +788,7 @@ export function draw(display, params) {
   gw /= nz;
   for (let j = 0; j < nz; j++) ws[j] = 1 / max(ws[j], FLOORS * gw, 1e-9);
   // the sun wanders slowly across the upper sky (two sines of incommensurate periods); what lies on the ray toward it shades a cell
-  const t = S.pt, xs = 32 - 30 * (0.62 + 0.38 * (0.6 * sin((TAU * t) / 157 + 0.9) + 0.4 * sin((TAU * t) / 241 + 2.3))), ys = 14 + 8 * sin((TAU * t) / 197 + 1.7), sl = (32 - xs) / 24;
+  const t = S.pt, v1 = 0.33 * t, v2 = 0.52 * t, v3 = 0.79 * t, xs = 32 - 30 * (0.62 + 0.38 * (0.6 * sin((TAU * t) / 157 + 0.9) + 0.4 * sin((TAU * t) / 241 + 2.3))), ys = 14 + 8 * sin((TAU * t) / 197 + 1.7), sl = (32 - xs) / 24;
   for (let i = 0; i < nx; i++) SH[(nz - 1) * nx + i] = 0;
   for (let j = nz - 2; j >= 0; j--) {
     const o1 = j * nx, o2 = o1 + nx;
@@ -756,7 +804,8 @@ export function draw(display, params) {
       const w = (0.5 * (WZ[k] + WZ[k + nx])) / D;
       const hz = sm(0.15, 1, RH[k]);
       const gx = x - xs, gy = y - ys, glow = exp(-(gx * gx + gy * gy) / 500), am = 1 + 2 * bl[j];
-      let L = Lr + 0.08 * hz + 0.09 * glow + SKYB * am * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.3 * hz), h = Hr + SKYW * (1 + 0.5 * bl[j]) * tanh(w * ws[j]);
+      const vl = VEIL * (sin(0.098 * x + 0.049 * y - v1) + sin(-0.147 * x + 0.025 * y - v2 + 1.9) + sin(0.049 * x - 0.074 * y - v3 + 4.1));
+      let L = Lr + 0.08 * hz + 0.09 * glow + vl + SKYB * am * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.3 * hz), h = Hr + SKYW * (1 + 0.5 * bl[j]) * tanh(w * ws[j]);
       const cold = sm(0.01, 0.08, bm[j] - B[k]) * bl[j];
       L -= 0.09 * cold;
       h -= 0.12 * cold;
