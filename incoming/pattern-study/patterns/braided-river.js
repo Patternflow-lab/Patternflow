@@ -35,7 +35,8 @@ const CFG = {
   rep: 0.12, // slope between neighbours across the flow at which a bank collapses (2.4 times s0)
   rrate: 0.25, // share of the excess slope that slides in a step
   dzmax: 0.03, // largest bed change per step; the step is scaled so that it is never exceeded
-  gmax: 3,
+  stab: 0.8, // and the step times the fastest growth of flux with slope, per cell, stays under this: above about 0.5 the bed of a busy channel rings with a period of two rows
+  gmax: 6,
   z0: 0.06, // rms of the first bed
   spin: 700, // steps before the first frame
 };
@@ -97,7 +98,7 @@ function step(S, qb) {
   const { z, Q, dz, qsm, sbm, Q0 } = S;
   const SQ = Math.SQRT1_2, s0 = CFG.s0, emax = CFG.emax, eps = CFG.eps, qg = qb / CFG.uc;
   const noise = CFG.noise * 2 * eps, base = 1 - eps;
-  let rs = S.rs;
+  let rs = S.rs, epmax = 0;
   dz.fill(0);
   for (let x = 0; x < ST; x++) Q[x] = Q0[x]; // row 0 is last step's row 127, routed on, renewed and renormalised
   Q0.fill(0);
@@ -130,6 +131,8 @@ function step(S, qb) {
         const u = qi * qg * sb;
         const p = u * u * sqrt(u);
         e = (emax * p) / (1 + p);
+        const ep = (2.5 * e) / (sb * (1 + p)); // how fast the flux grows with the slope, which sets how long a step may be
+        if (ep > epmax) epmax = ep;
         const g = e / tot;
         dz[i] -= e;
         dz[j - 1] += g * wl;
@@ -178,7 +181,7 @@ function step(S, qb) {
       if (b > mx) mx = b;
     }
   }
-  const dt = min(CFG.gmax, CFG.dzmax / (mx + 1e-12));
+  const dt = min(CFG.gmax, CFG.dzmax / (mx + 1e-12), CFG.stab / (epmax + 1e-9));
   for (let y = 0; y < NY; y++) {
     const o = y * ST;
     for (let x = 1; x <= NX; x++) z[o + x] += dz[o + x] * dt;
@@ -192,9 +195,9 @@ function step(S, qb) {
 
 // ---- knobs ---------------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
-const scaleOf = (k) => 1.5 * pow(1.5, cl(k, -1, 1)); // LEDs to a cell: 1.0, 1.5, 2.25
+const scaleOf = (k) => 1.4 * pow(k < 0 ? 1.4 : 1.7, cl(k, -1, 1)); // LEDs to a cell: 1.0, 1.4, 2.38
 const waterOf = (k) => 0.8 * (k < 0 ? pow(2.3, cl(k, -1, 1)) : pow(1.6, cl(k, -1, 1))); // 0.35, 0.8, 1.28
-const STEPS_PER_FLOW = 60; // bed steps a second per unit of Flow
+const STEPS_BASE = 50, STEPS_PER_FLOW = 45; // bed steps a second: 50 + 45 Flow
 
 function start(params, k) {
   const S = makeState((Math.random() * 4294967296) >>> 0);
@@ -219,7 +222,7 @@ export function update(dt, input, params) {
   params.sc += (scaleOf(k[2]) - params.sc) * f;
   params.qb += (waterOf(k[3]) - params.qb) * f;
   params.hue = k[0];
-  params.acc += ft * STEPS_PER_FLOW * cl(k[1], 0.5, 4);
+  params.acc += ft * (STEPS_BASE + STEPS_PER_FLOW * cl(k[1], 0.5, 4));
   let n = 0;
   while (params.acc >= 1 && n < 10) {
     step(params.s, params.qb);
