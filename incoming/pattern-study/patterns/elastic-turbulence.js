@@ -122,7 +122,9 @@ function relax(cxx, cxy, cyy, delta, LL) {
   const s = cxx + cyy, B = LL - s - LL * delta, sq = sqrt(B * B + 4 * LL * delta * (LL - 2));
   const fb = B > 0 ? (2 * (LL - 2)) / (B + sq) : (sq - B) / (2 * LL * delta), inv = 1 / (1 + fb * delta), sb = (s + 2 * delta) * inv, sm = 0.5 * (s + sb);
   if (sm < LL * 0.999) {
-    const f = (LL - 2) / (LL - sm), e = exp(-f * delta), c = (1 - e) / f;
+    const f = (LL - 2) / (LL - sm), x = f * delta;
+    // g = (1 - e^-x) / x, from its series when x is small
+    const g = x < 0.25 ? 1 - x * (0.5 - x * (1 / 6 - x * (1 / 24 - x * (1 / 120 - x / 720)))) : (1 - exp(-x)) / x, e = 1 - x * g, c = delta * g;
     if (e * s + 2 * c < LL) {
       CO[0] = e * cxx + c;
       CO[1] = e * cxy;
@@ -139,17 +141,18 @@ function relax(cxx, cxy, cyy, delta, LL) {
 function stretch(cxx, cxy, cyy, l11, l12, l21, dt) {
   const q2 = l11 * l11 + l12 * l21, x2 = q2 * dt * dt;
   let c, sn;
-  if (x2 > 1e-8) {
+  if (x2 < 0.25 && x2 > -0.25) {
+    // cosh and sinh(x) / x of x = q dt, as series in x2 = x^2 (a rotation, q2 < 0, is the same series with x2 negative)
+    c = 1 + x2 * (0.5 + x2 * (1 / 24 + x2 * (1 / 720 + x2 / 40320)));
+    sn = dt * (1 + x2 * (1 / 6 + x2 * (1 / 120 + x2 * (1 / 5040 + x2 / 362880))));
+  } else if (x2 > 0) {
     const q = sqrt(q2), e = exp(q * dt), ei = 1 / e;
     c = 0.5 * (e + ei);
     sn = (0.5 * (e - ei)) / q;
-  } else if (x2 < -1e-8) {
+  } else {
     const w = sqrt(-q2);
     c = cos(w * dt);
     sn = sin(w * dt) / w;
-  } else {
-    c = 1 + 0.5 * x2;
-    sn = dt * (1 + x2 / 6);
   }
   const f11 = c + sn * l11, f12 = sn * l12, f21 = sn * l21, f22 = c - sn * l11;
   const t11 = f11 * cxx + f12 * cxy, t12 = f11 * cxy + f12 * cyy, t21 = f21 * cxx + f22 * cxy, t22 = f21 * cxy + f22 * cyy;
@@ -322,19 +325,19 @@ function flow(S, dt) {
 
 // ---- look-up -------------------------------------------------------------------------------------------------
 // bilinear, for the velocity and its gradient (smooth)
-let b00 = 0, b10 = 0, b01 = 0, b11 = 0, bwx = 0, bwy = 0;
+const BI = new Int32Array(4), BW = new Float64Array(2);
 function locate(x, y) {
   const ix = floor(x), iy = floor(y), r0 = (iy & HM) * W, r1 = ((iy + 1) & HM) * W, x0 = ix & WM, x1 = (ix + 1) & WM;
-  bwx = x - ix;
-  bwy = y - iy;
-  b00 = r0 + x0;
-  b10 = r0 + x1;
-  b01 = r1 + x0;
-  b11 = r1 + x1;
+  BW[0] = x - ix;
+  BW[1] = y - iy;
+  BI[0] = r0 + x0;
+  BI[1] = r0 + x1;
+  BI[2] = r1 + x0;
+  BI[3] = r1 + x1;
 }
 function samp(F) {
-  const t0 = F[b00] + (F[b10] - F[b00]) * bwx, t1 = F[b01] + (F[b11] - F[b01]) * bwx;
-  return t0 + (t1 - t0) * bwy;
+  const t0 = F[BI[0]] + (F[BI[1]] - F[BI[0]]) * BW[0], t1 = F[BI[2]] + (F[BI[3]] - F[BI[2]]) * BW[0];
+  return t0 + (t1 - t0) * BW[1];
 }
 // cubic Lagrange over 4 by 4 nodes, then held between the smallest and the largest of the four nearest nodes
 const XI = new Int32Array(4), YR = new Int32Array(4), WX = new Float64Array(4), WY = new Float64Array(4);
@@ -356,12 +359,14 @@ function locate4(x, y) {
   }
 }
 function cubic(F) {
-  let v = 0;
-  for (let j = 0; j < 4; j++) {
-    const o = YR[j];
-    v += WY[j] * (WX[0] * F[o + XI[0]] + WX[1] * F[o + XI[1]] + WX[2] * F[o + XI[2]] + WX[3] * F[o + XI[3]]);
-  }
-  const q = F[YR[1] + XI[1]], r = F[YR[1] + XI[2]], s = F[YR[2] + XI[1]], w = F[YR[2] + XI[2]];
+  const x0 = XI[0], x1 = XI[1], x2 = XI[2], x3 = XI[3], wx0 = WX[0], wx1 = WX[1], wx2 = WX[2], wx3 = WX[3];
+  const o0 = YR[0], o1 = YR[1], o2 = YR[2], o3 = YR[3];
+  const q = F[o1 + x1], r = F[o1 + x2], s = F[o2 + x1], w = F[o2 + x2];
+  const v =
+    WY[0] * (wx0 * F[o0 + x0] + wx1 * F[o0 + x1] + wx2 * F[o0 + x2] + wx3 * F[o0 + x3]) +
+    WY[1] * (wx0 * F[o1 + x0] + wx1 * q + wx2 * r + wx3 * F[o1 + x3]) +
+    WY[2] * (wx0 * F[o2 + x0] + wx1 * s + wx2 * w + wx3 * F[o2 + x3]) +
+    WY[3] * (wx0 * F[o3 + x0] + wx1 * F[o3 + x1] + wx2 * F[o3 + x2] + wx3 * F[o3 + x3]);
   const lo = min(min(q, r), min(s, w)), hi = max(max(q, r), max(s, w));
   return v < lo ? lo : v > hi ? hi : v;
 }
@@ -543,7 +548,7 @@ function buildLut(hue) {
 // ---- the pattern --------------------------------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
 const DT0 = 0.05, MAXSTEPS = 6, CLOCK = 0.5, KF0 = 0.2, PRE = 10; // step (units of 1 / gamma0), most steps a frame, model time a second per unit of Flow, forcing wavenumber at Scale 0
-const LAM0 = 2.5, LAMB = 2.4; // Weissenberg number lam gamma0 = 2.5 times 2.4 to the knob
+const LAM0 = 1.8, LAMB = 3; // Weissenberg number lam gamma0 = 1.8 times 3 to the knob
 const KFB = 1.3, GAM = 1.8;
 
 export function setup(params) {
