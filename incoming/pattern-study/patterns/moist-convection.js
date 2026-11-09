@@ -36,7 +36,7 @@ const FLOORS = 0.004, SKYB = 0.035, SKYW = 0.12; // the clear sky's share in the
 const NX = 64, NZ = 128;
 const D0 = 40; // metres per LED at Scale 0
 const SPS0 = 33; // simulated seconds per panel second at Flow 1
-const CFL = 0.5; // sum of Courants allowed in one step
+const CFL = 0.6; // sum of Courants allowed in one step
 const KE0 = 2; // eddy viscosity and diffusivity at D0, m^2/s
 const ZF = 160; // depth the surface exchange is spread over, m
 const TAUS = 800; // surface exchange time, s
@@ -94,20 +94,20 @@ function newState(nx, nz) {
   const F = () => new Float64Array(n), N = () => new Float64Array(nn), Z = () => new Float64Array(nz);
   const S = {
     nx, nz, n, nn, h, D: D0, time: 0,
-    TL: F(), QT: F(), QR: F(), QC: F(), B: F(), RH: F(), TH: F(),
-    TL1: F(), QT1: F(), DA: F(), DB: F(), SX: F(), SZ: F(), GX: F(), GZ: N(), TLn: F(), QTn: F(),
+    TL: F(), QT: F(), QR: F(), QC: F(), B: F(), RH: F(),
+    TL1: F(), QT1: F(), DA: F(), SX: F(), SZ: F(), GX: F(), GZ: N(), TLn: F(), QTn: F(),
     P: N(), W: N(), W2: N(), FX: F(), WZ: N(), U: N(), V: N(), Wp: new Float64Array(nx * (nz + 5)),
     fft: makeFft(nx), zr: new Float64Array(nx), zi: new Float64Array(nx),
     Sr: new Float64Array((nz + 1) * h), Si: new Float64Array((nz + 1) * h), Pr: new Float64Array((nz + 1) * h), Pi: new Float64Array((nz + 1) * h),
     cx: new Float64Array(h), ivm: new Float64Array(h * nz), dr: new Float64Array(nz), di: new Float64Array(nz),
-    PI: Z(), PRS: Z(), LCJ: Z(), ICE: Z(), QC0J: Z(), KAUJ: Z(), VTF: Z(), THEQ: Z(), KR: Z(), KS: Z(), QEQ: Z(), KQ: Z(), ALP: Z(), VT: Z(), ETN: new Float64Array(nz + 1), UTN: Z(),
+    PI: Z(), PRS: Z(), LCJ: Z(), ICE: Z(), QC0J: Z(), KAUJ: Z(), VTF: Z(), THEQ: Z(), KR: Z(), KS: Z(), QEQ: Z(), KQ: Z(), ALP: Z(), ETN: new Float64Array(nz + 1), UTN: Z(),
     TS: new Float64Array(nx), QSF: new Float64Array(nx), ph: new Float64Array(8), wv: new Float64Array(8), kv: new Float64Array(8),
     // knob state
     ks: 0, kq: 0, kf: 2, Ts: 300, wet: 0.85, rhr: 0.4, Jinv: 0, zinv: 3000, qBL: 0.015, cmax: 0, wmax: 0,
     // switches the tests use
     forcing: true, wallB: NaN, wallT: NaN, shearOn: true,
     // budgets
-    srcH: 0, srcQ: 0, rainOut: 0, radH: 0, surfH: 0, surfQ: 0, relQ: 0, micH: 0,
+    srcQ: 0, rainOut: 0, radH: 0, surfH: 0, micH: 0,
   };
   for (let k = 0; k < h; k++) S.cx[k] = 2 * cos((TAU * k) / nx) - 2;
   for (let k = 0; k < h; k++) {
@@ -192,10 +192,11 @@ function seedState(S) {
       S.QT[j * nx + i] = envQ(S, j, z);
     }
   }
-  // warm moist swells at several heights, so that the first frame already has thermals standing and rising
-  const top = min(S.zinv, nz * D * 0.7);
+  // warm moist swells at several heights, so that the first frame already has thermals standing and rising: shallow and weak
+  // under a strong inversion, wide and strong where the air is moist
+  const top = min(S.zinv, nz * D * 0.9) - 400, iq = (S.kq + 1) / 2;
   for (let b = 0; b < 9; b++) {
-    const x0 = Math.random() * nx, z0 = 250 + Math.random() * (top - 500), wd = (230 + 200 * Math.random()) / D, a = 0.5 + 0.7 * Math.random();
+    const x0 = Math.random() * nx, z0 = 250 + Math.random() * (top - 250), wd = ((230 + 200 * Math.random()) / D) * (0.8 + 0.5 * iq), a = (0.45 + 0.7 * Math.random()) * (0.55 + 0.9 * iq);
     for (let j = 0; j < nz; j++) {
       const dz = ((j + 0.5) * D - z0) / D;
       if (abs(dz) > 3 * wd) continue;
@@ -303,33 +304,16 @@ function fluxes(S) {
   S.wmax = mw / S.D;
 }
 
-// ---- conservative scalar advection: limited slopes (monotonised central), upwind face values, SSP-RK2.
+// ---- conservative scalar advection: monotonised-central slopes, upwind face values, SSP-RK2.
+const lim = (a, b) => (a * b <= 0 ? 0 : a > 0 ? min(0.5 * (a + b), 2 * a, 2 * b) : max(0.5 * (a + b), 2 * a, 2 * b));
 function tendency(S, Q, out, c) {
   const { nx, nz, SX, SZ, GX, GZ, FX, WZ } = S, mx = nx - 1;
   for (let j = 0; j < nz; j++) {
-    const o = j * nx;
+    const o = j * nx, edge = j === 0 || j === nz - 1;
     for (let i = 0; i < nx; i++) {
-      const k = o + i, q = Q[k], a = q - Q[o + ((i - 1) & mx)], b = Q[o + ((i + 1) & mx)] - q;
-      if (a * b <= 0) SX[k] = 0;
-      else {
-        const m = 0.5 * (a + b), aa = 2 * a, bb = 2 * b;
-        SX[k] = a > 0 ? min(m, aa, bb) : max(m, aa, bb);
-      }
-    }
-  }
-  for (let j = 0; j < nz; j++) {
-    const o = j * nx;
-    for (let i = 0; i < nx; i++) {
-      const k = o + i;
-      if (j === 0 || j === nz - 1) SZ[k] = 0;
-      else {
-        const q = Q[k], a = q - Q[k - nx], b = Q[k + nx] - q;
-        if (a * b <= 0) SZ[k] = 0;
-        else {
-          const m = 0.5 * (a + b), aa = 2 * a, bb = 2 * b;
-          SZ[k] = a > 0 ? min(m, aa, bb) : max(m, aa, bb);
-        }
-      }
+      const k = o + i, q = Q[k];
+      SX[k] = lim(q - Q[o + ((i - 1) & mx)], Q[o + ((i + 1) & mx)] - q);
+      SZ[k] = edge ? 0 : lim(q - Q[k - nx], Q[k + nx] - q);
     }
   }
   for (let j = 0; j < nz; j++) {
@@ -340,12 +324,9 @@ function tendency(S, Q, out, c) {
     }
   }
   for (let i = 0; i < nx; i++) GZ[i] = GZ[nz * nx + i] = 0;
-  for (let j = 1; j < nz; j++) {
-    const o = j * nx;
-    for (let i = 0; i < nx; i++) {
-      const k = o + i, f = WZ[k], kd = k - nx;
-      GZ[k] = f * (f >= 0 ? Q[kd] + 0.5 * SZ[kd] : Q[k] - 0.5 * SZ[k]);
-    }
+  for (let k = nx; k < nz * nx; k++) {
+    const f = WZ[k], kd = k - nx;
+    GZ[k] = f * (f >= 0 ? Q[kd] + 0.5 * SZ[kd] : Q[k] - 0.5 * SZ[k]);
   }
   for (let j = 0; j < nz; j++) {
     const o = j * nx;
@@ -367,8 +348,8 @@ function advectScalars(S, c) {
 }
 
 // rain: first-order upwind with the air's velocity, plus its own fall out of the cell above
-function advectRain(S, c, dt) {
-  const { nx, nz, QR, FX, WZ, GX, GZ, DA, VT } = S, mx = nx - 1, D = S.D;
+function advectRain(S, c) {
+  const { nx, nz, QR, FX, WZ, GX, GZ, DA } = S, mx = nx - 1, D = S.D;
   // fall speed of each cell's rain, m/s
   for (let j = 0; j < nz; j++) {
     const vf = S.VTF[j], o = j * nx;
@@ -431,24 +412,18 @@ function diffuse(S, dt) {
 
 // ---- the surface, the radiation and the dry upper air. Each relaxes exactly over the step.
 function forcing(S, dt) {
-  const { nx, nz, TL, QT, THEQ, KR, KS, QEQ, KQ, LCJ, TS, QSF } = S;
-  S.tphase = (S.tphase || 0) + dt;
+  const { nx, nz, TL, QT, THEQ, KR, KS, QEQ, KQ, TS, QSF } = S;
   for (let m = 0; m < 8; m++) S.ph[m] += S.wv[m] * dt;
   // the surface is not quite uniform: waves across the columns drift at slow incommensurate rates
   for (let i = 0; i < nx; i++) {
-    let a = 0, b = 0;
-    for (let m = 0; m < 6; m++) {
-      const v = cos((TAU * S.kv[m] * i) / nx + S.ph[m]);
-      a += (v * 0.5) / sqrt(S.kv[m]);
-      b += (v * 0.5) / sqrt(S.kv[m]);
-    }
-    TS[i] = S.Ts + 0.5 * a;
-    QSF[i] = S.wet * qsat(S.Ts + 0.5 * a, P0) * (1 + 0.02 * b);
+    let a = 0;
+    for (let m = 0; m < 6; m++) a += cos((TAU * S.kv[m] * i) / nx + S.ph[m]) / sqrt(S.kv[m]);
+    TS[i] = S.Ts + 0.25 * a;
+    QSF[i] = S.wet * qsat(TS[i], P0) * (1 + 0.01 * a);
   }
-  let dH = 0, dQ = 0;
+  let dQ = 0;
   for (let j = 0; j < nz; j++) {
-    const o = j * nx;
-    const kr = KR[j], kq = KQ[j], ks = KS[j];
+    const o = j * nx, kr = KR[j], kq = KQ[j], ks = KS[j];
     if (kr > 0) {
       const f = 1 - exp(-dt * kr), th = THEQ[j];
       let s = 0;
@@ -458,7 +433,6 @@ function forcing(S, dt) {
         s += d;
       }
       S.radH += s;
-      dH += s;
     }
     if (kq > 1e-12) {
       const f = 1 - exp(-dt * kq), q = QEQ[j];
@@ -468,8 +442,6 @@ function forcing(S, dt) {
         QT[o + i] += d;
         s += d;
       }
-      S.relQ += s;
-      dH += LCJ[j] * s;
       dQ += s;
     }
     if (ks > 1e-7) {
@@ -483,18 +455,15 @@ function forcing(S, dt) {
         sq += d2;
       }
       S.surfH += st;
-      S.surfQ += sq;
-      dH += st + LCJ[j] * sq;
       dQ += sq;
     }
   }
-  S.srcH += dH;
   S.srcQ += dQ;
 }
 
 // ---- saturation adjustment, warm rain and buoyancy in one pass over the cells
 function thermo(S, dt) {
-  const { n, nx, nz, TL, QT, QR, QC, B, RH, TH, PI, PRS, LCJ, QC0J, KAUJ } = S;
+  const { nx, nz, TL, QT, QR, QC, B, RH, PI, PRS, LCJ, QC0J, KAUJ } = S;
   let mic = 0;
   for (let j = 0; j < nz; j++) {
     const pi = PI[j], p = PRS[j], lcj = LCJ[j], o = j * nx;
@@ -548,7 +517,6 @@ function thermo(S, dt) {
       QC[k] = qc;
       RH[k] = rh;
       const th = tl + lcj * qc;
-      TH[k] = th;
       B[k] = (G * (th * (1 + 0.608 * (qt - qc) - qc - qr) - TH0)) / TH0;
     }
   }
@@ -655,7 +623,7 @@ function shearAt(t) {
 function step(S, dt) {
   const c = dt / (S.D * S.D);
   advectScalars(S, c);
-  advectRain(S, c, dt);
+  advectRain(S, c);
   diffuse(S, dt);
   if (S.forcing) forcing(S, dt);
   thermo(S, dt);
@@ -739,6 +707,7 @@ function setupDraw(S) {
   S.bs = new Float64Array(nz);
   S.ws = new Float64Array(nz);
   S.hueDone = -999;
+  S.pt = 0;
 }
 
 export function draw(display, params) {
@@ -767,13 +736,14 @@ export function draw(display, params) {
   }
   gw /= nz;
   for (let j = 0; j < nz; j++) ws[j] = 1 / max(ws[j], FLOORS * gw, 1e-9);
-  // sunlight from the upper left: what lies on the ray above and to the left of a cell shades it
+  // the sun wanders slowly across the upper sky (two sines of incommensurate periods); what lies on the ray toward it shades a cell
+  const t = S.pt, xs = 32 - 30 * (0.62 + 0.38 * (0.6 * sin((TAU * t) / 157 + 0.9) + 0.4 * sin((TAU * t) / 241 + 2.3))), ys = 14 + 8 * sin((TAU * t) / 197 + 1.7), sl = (32 - xs) / 24;
   for (let i = 0; i < nx; i++) SH[(nz - 1) * nx + i] = 0;
   for (let j = nz - 2; j >= 0; j--) {
     const o1 = j * nx, o2 = o1 + nx;
     for (let i = 0; i < nx; i++) {
-      const im = (i - 1) & mx;
-      SH[o1 + i] = 0.84 * (SH[o2 + im] + QC[o2 + im]);
+      const xf = i - sl, x0 = floor(xf), f = xf - x0, a = o2 + (x0 & mx), b = o2 + ((x0 + 1) & mx);
+      SH[o1 + i] = 0.84 * ((1 - f) * (SH[a] + QC[a]) + f * (SH[b] + QC[b]));
     }
   }
   for (let y = 0; y < nz; y++) {
@@ -781,9 +751,9 @@ export function draw(display, params) {
     for (let x = 0; x < nx; x++) {
       const k = j * nx + x, qc = QC[k], qr = QR[k];
       const w = (0.5 * (WZ[k] + WZ[k + nx])) / D;
-      const hz = sm(0.4, 1, RH[k]);
-      const am = 1 + 2 * bl[j];
-      let L = Lr + 0.05 * hz + SKYB * am * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.25 * hz), h = Hr + SKYW * (1 + 0.5 * bl[j]) * tanh(w * ws[j]);
+      const hz = sm(0.15, 1, RH[k]);
+      const gx = x - xs, gy = y - ys, glow = exp(-(gx * gx + gy * gy) / 500), am = 1 + 2 * bl[j];
+      let L = Lr + 0.08 * hz + 0.09 * glow + SKYB * am * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.3 * hz), h = Hr + SKYW * (1 + 0.5 * bl[j]) * tanh(w * ws[j]);
       const cold = sm(0.01, 0.08, bm[j] - B[k]) * bl[j];
       L -= 0.09 * cold;
       h -= 0.12 * cold;
@@ -795,8 +765,8 @@ export function draw(display, params) {
       }
       const a = 1 - exp(-qc * 4000);
       if (a > 0.002) {
-        const lit = exp(-(SH[k] + 0.5 * qc) * 450);
-        L += (0.4 + 0.6 * lit - L) * a;
+        const lit = exp(-(SH[k] + 0.25 * qc) * 360);
+        L += (0.42 + 0.58 * lit - L) * a;
         C += (0.015 + 0.045 * (1 - lit) - C) * a;
       }
       if (j < 3) {
@@ -810,14 +780,15 @@ export function draw(display, params) {
   }
 }
 
-export function setup(params, knobValues) {
+// The Lab calls setup(params) with no knobs, so the state is built on the first update, from the knobs it is handed: a panel that
+// opens at Moisture 1 starts as a deep-convective sky, not as the default one that then has to be turned into it.
+function build(params, k) {
   const S = (params.s = newState(NX, NZ));
-  const k = knobValues || KNOB;
   S.Hd = 0;
   applyKnobs(S, cl(k[1], 0.5, 4), cl(k[2], -1, 1), cl(k[3], -1, 1));
   seedState(S);
   setupDraw(S);
-  skyRows(S, 0);
+  skyRows(S, cl(k[0], 0, 1) * 360);
   // a spin-up of 500 s of model time, so that the first frame has clouds standing
   let left = 500;
   while (left > 1e-6) {
@@ -828,13 +799,19 @@ export function setup(params, knobValues) {
   S.time = 0;
 }
 
+export function setup(params, knobValues) {
+  params.s = null;
+  if (knobValues) build(params, knobValues);
+}
+
 export function update(dt, input, params) {
   const k = input.knobValues || KNOB;
-  if (!params.s) setup(params, k);
+  if (!params.s) build(params, k);
   const S = params.s, h = cl(dt || 0, 0, 0.1);
   const hue = cl(k[0], 0, 1) * 360;
   if (abs(hue - S.hueDone) > 0.5) skyRows(S, hue);
   if (h <= 0) return;
+  S.pt += h;
   const f = 1 - exp(-4 * h);
   applyKnobs(S, S.kf + (cl(k[1], 0.5, 4) - S.kf) * f, S.ks + (cl(k[2], -1, 1) - S.ks) * f, S.kq + (cl(k[3], -1, 1) - S.kq) * f);
   let left = h * SPS0 * S.kf * pow(S.D / D0, 0.5);
@@ -843,4 +820,6 @@ export function update(dt, input, params) {
     step(S, d);
     left -= d;
   }
+  // never reached in the runs below; if a value ever went bad, start the sky over rather than stay dark
+  if (!isFinite(S.TL[S.n >> 1] + S.QT[S.n >> 2] + S.P[S.nn >> 1] + S.W[S.nn >> 2])) build(params, k);
 }
