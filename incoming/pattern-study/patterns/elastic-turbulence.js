@@ -198,7 +198,7 @@ function makeState() {
     zr: mk(), zi: mk(), ar: mk(), ai: mk(), br: mk(), bi: mk(), cr: mk(), ci: mk(),
     t: 0, dtp: 0, lam: 4, tauU: 0.5, LL: LLMAX, beta: BETA,
     modes: [], force: true, ou: true,
-    nclip: 0, steps: 0,
+    steps: 0,
   };
 }
 
@@ -286,41 +286,18 @@ function flow(S, dt) {
   fft2(ar, ai, true);
   fft2(br, bi, true);
   fft2(cr, ci, true);
-  // the flow of the step before moves back one place, the new one is read off the transforms
-  let t = S.pu;
-  S.pu = S.u;
-  S.u = t;
-  t = S.pv;
-  S.pv = S.v;
-  S.v = t;
-  t = S.p11;
-  S.p11 = S.l11;
-  S.l11 = t;
-  t = S.p12;
-  S.p12 = S.l12;
-  S.l12 = t;
-  t = S.p21;
-  S.p21 = S.l21;
-  S.l21 = t;
-  // the flow follows its Stokes solution with a lag tauU, y' = (g - y) / tauU, stepped exactly for a g that is linear over the step
-  const { u, v, l11, l12, l21, pu, pv, p11, p12, p21, gu, gv, g11, g12, g21 } = S, h = dt / S.tauU, ee = dt > 0 ? exp(-h) : 0, c1 = dt > 0 ? 1 - ee : 0, c2 = dt > 0 ? 1 - c1 / h : 1;
-  for (let p = 0; p < N; p++) {
-    let g = ar[p];
-    u[p] = ee * pu[p] + c1 * gu[p] + c2 * (g - gu[p]);
-    gu[p] = g;
-    g = ai[p];
-    l11[p] = ee * p11[p] + c1 * g11[p] + c2 * (g - g11[p]);
-    g11[p] = g;
-    g = br[p];
-    v[p] = ee * pv[p] + c1 * gv[p] + c2 * (g - gv[p]);
-    gv[p] = g;
-    g = bi[p];
-    l12[p] = ee * p12[p] + c1 * g12[p] + c2 * (g - g12[p]);
-    g12[p] = g;
-    g = cr[p];
-    l21[p] = ee * p21[p] + c1 * g21[p] + c2 * (g - g21[p]);
-    g21[p] = g;
+  // the new flow follows its Stokes solution g (read off the transforms) with a lag tauU, y' = (g - y) / tauU, stepped exactly for a g that is
+  // linear over the step; it is written over the flow of the step before, which moves back one place
+  const Y = [S.u, S.v, S.l11, S.l12, S.l21], PY = [S.pu, S.pv, S.p11, S.p12, S.p21], GG = [S.gu, S.gv, S.g11, S.g12, S.g21], SRC = [ar, br, ai, bi, cr];
+  const h = dt / S.tauU, ee = dt > 0 ? exp(-h) : 0, c1 = dt > 0 ? 1 - ee : 0, c2 = dt > 0 ? 1 - c1 / h : 1;
+  for (let k = 0; k < 5; k++) {
+    const y = Y[k], out = PY[k], g0 = GG[k], g1 = SRC[k];
+    for (let p = 0; p < N; p++) {
+      out[p] = ee * y[p] + c1 * g0[p] + c2 * (g1[p] - g0[p]);
+      g0[p] = g1[p];
+    }
   }
+  [S.u, S.v, S.l11, S.l12, S.l21, S.pu, S.pv, S.p11, S.p12, S.p21] = [...PY, ...Y];
 }
 
 // ---- look-up -------------------------------------------------------------------------------------------------
@@ -375,13 +352,9 @@ function cubic(F) {
 function step(S, dt) {
   const { a, b, d, a2, b2, d2, u, v, l11, l12, l21, pu, pv, p11, p12, p21, eu, ev, e11, e12, e21 } = S, lam = S.lam, LL = S.LL;
   const r = S.dtp > 0 ? dt / (2 * S.dtp) : 0, hd = 0.5 * dt;
-  for (let p = 0; p < N; p++) {
-    eu[p] = u[p] + (u[p] - pu[p]) * r;
-    ev[p] = v[p] + (v[p] - pv[p]) * r;
-    e11[p] = l11[p] + (l11[p] - p11[p]) * r;
-    e12[p] = l12[p] + (l12[p] - p12[p]) * r;
-    e21[p] = l21[p] + (l21[p] - p21[p]) * r;
-  }
+  [[u, pu, eu], [v, pv, ev], [l11, p11, e11], [l12, p12, e12], [l21, p21, e21]].forEach(([y, py, ex]) => {
+    for (let p = 0; p < N; p++) ex[p] = y[p] + (y[p] - py[p]) * r;
+  });
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       locate(x - hd * eu[p], y - hd * ev[p]);
@@ -404,12 +377,7 @@ function step(S, dt) {
       b2[p] = CS[1];
       d2[p] = CS[2];
     }
-  S.a = a2;
-  S.b = b2;
-  S.d = d2;
-  S.a2 = a;
-  S.b2 = b;
-  S.d2 = d;
+  [S.a, S.b, S.d, S.a2, S.b2, S.d2] = [a2, b2, d2, a, b, d];
   S.t += dt;
   S.dtp = dt;
   S.steps++;
@@ -440,12 +408,7 @@ function reset(S) {
 const NQ = 128, hist = new Int32Array(NQ);
 function shade(S) {
   const { a, b, d, l12, l21 } = S, il = 1 / log(S.LL / 2);
-  let t = S.eA;
-  S.eA = S.eB;
-  S.eB = t;
-  t = S.wA;
-  S.wA = S.wB;
-  S.wB = t;
+  [S.eA, S.eB, S.wA, S.wB] = [S.eB, S.eA, S.wB, S.wA];
   const { eB, wB } = S;
   hist.fill(0);
   let om = 0, bad = 0;
@@ -471,24 +434,25 @@ function shade(S) {
 }
 
 // ---- colour: two ramps in Oklab, a cool one for fluid turning one way and a warm one for the other, both from a dark base ------------
-function okLab(L, a0, b0, out) {
-  for (let k = 1; k >= 0; k -= 0.05) {
-    const a = a0 * k, b = b0 * k;
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
-    const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
-    const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-    const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-    const bb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
-    if (k < 0.01 || (r > -0.002 && r < 1.002 && g > -0.002 && g < 1.002 && bb > -0.002 && bb < 1.002)) {
-      out[0] = r;
-      out[1] = g;
-      out[2] = bb;
-      return;
-    }
+const RGB = [0, 0, 0];
+// Oklab to linear sRGB in RGB; the colour is in gamut when every channel is within e of [0, 1]
+function lin(L, a, b) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  RGB[0] = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  RGB[1] = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  RGB[2] = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+}
+const inside = (e) => RGB[0] > -e && RGB[0] < 1 + e && RGB[1] > -e && RGB[1] < 1 + e && RGB[2] > -e && RGB[2] < 1 + e;
+// the colour with its chroma pulled in until sRGB can show it
+function okLab(L, a0, b0) {
+  for (let i = 0; i <= 20; i++) {
+    const k = 1 - i / 20;
+    lin(L, a0 * k, b0 * k);
+    if (i === 20 || inside(0.002)) return;
   }
 }
 const enc = (v) => ((((v = cl(v, 0, 1)) <= 0.0031308 ? 12.92 * v : 1.055 * pow(v, 1 / 2.4) - 0.055) * 255 + 0.5) | 0);
-const RGB = [0, 0, 0];
 // stops [v, L, C, hue] of the warm ramp (w = +1) and of the cool one (w = -1). The stop at zero does not turn with Hue, so the dark between
 // the filaments stays a deep indigo or plum at every setting.
 const WARM = [[0, 0.2, 0.07, 335], [0.3, 0.46, 0.17, 12], [0.62, 0.7, 0.18, 45], [0.88, 0.9, 0.1, 85], [1, 0.99, 0.03, 100]];
@@ -496,14 +460,11 @@ const COOL = [[0, 0.2, 0.07, 265], [0.3, 0.46, 0.15, 258], [0.62, 0.7, 0.13, 220
 const NW = 17, LUT = new Uint8Array(NQ * NW * 3);
 // the largest chroma sRGB holds at lightness L and hue h (radians), by bisection
 function cmax(L, h) {
-  const ch = cos(h), sh = sin(h);
   let lo = 0, hi = 0.4;
   for (let i = 0; i < 12; i++) {
-    const c = 0.5 * (lo + hi), a = c * ch, b = c * sh;
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
-    const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
-    const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, bb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
-    if (r > 0 && r < 1 && g > 0 && g < 1 && bb > 0 && bb < 1) lo = c;
+    const c = 0.5 * (lo + hi);
+    lin(L, c * cos(h), c * sin(h));
+    if (inside(0)) lo = c;
     else hi = c;
   }
   return lo;
@@ -536,7 +497,7 @@ function buildLut(hue) {
     ramp(sc, v, RB);
     for (let k = 0; k < NW; k++) {
       const m = k / (NW - 1);
-      okLab(RB[0] + (RA[0] - RB[0]) * m, RB[1] + (RA[1] - RB[1]) * m, RB[2] + (RA[2] - RB[2]) * m, RGB);
+      okLab(RB[0] + (RA[0] - RB[0]) * m, RB[1] + (RA[1] - RB[1]) * m, RB[2] + (RA[2] - RB[2]) * m);
       const o = (i * NW + k) * 3;
       LUT[o] = enc(RGB[0]);
       LUT[o + 1] = enc(RGB[1]);
@@ -547,9 +508,10 @@ function buildLut(hue) {
 
 // ---- the pattern --------------------------------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
-const DT0 = 0.05, MAXSTEPS = 6, CLOCK = 0.5, KF0 = 0.2, PRE = 10; // step (units of 1 / gamma0), most steps a frame, model time a second per unit of Flow, forcing wavenumber at Scale 0
+const DT0 = 0.05, MAXSTEPS = 6, CLOCK = 0.5, KF0 = 0.2, PRE = 6; // step (units of 1 / gamma0), most steps a frame, model time a second per unit of Flow, forcing wavenumber at Scale 0
 const LAM0 = 1.8, LAMB = 3; // Weissenberg number lam gamma0 = 1.8 times 3 to the knob
 const KFB = 1.3, GAM = 1.8;
+const GT = new Float64Array(256).map((_, i) => pow(i / 255, GAM)); // the contrast curve
 
 export function setup(params) {
   const S = makeState();
@@ -569,6 +531,7 @@ function spin(S) {
     step(S, DT0);
   }
   S.lam = S.lamT;
+  shade(S);
   shade(S);
 }
 export function update(dt, input, params) {
@@ -595,7 +558,12 @@ export function update(dt, input, params) {
     step(S, DT0);
     S.acc -= DT0;
     n++;
-    if (shade(S)) S.nbad++;
+    // a state that has gone bad starts again from rest (it does not happen in any run below)
+    if (shade(S)) {
+      S.nbad++;
+      spin(S);
+      break;
+    }
   }
   if (n === MAXSTEPS) S.acc = min(S.acc, DT0);
   const g = 1 - exp(-ft / 6);
@@ -613,7 +581,7 @@ export function draw(display, params) {
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       const e = eA[p] + (eB[p] - eA[p]) * ph, w = wA[p] + (wB[p] - wA[p]) * ph;
-      const v = pow(cl((e - lo) * il, 0, 1), GAM), m = tanh(w * iw) * 0.5 + 0.5, o = ((((v * (NQ - 1) + 0.5) | 0) * NW) + ((m * (NW - 1) + 0.5) | 0)) * 3;
+      const v = GT[(cl((e - lo) * il, 0, 1) * 255) | 0], m = tanh(w * iw) * 0.5 + 0.5, o = ((((v * (NQ - 1) + 0.5) | 0) * NW) + ((m * (NW - 1) + 0.5) | 0)) * 3;
       display.setPixel(x, y, LUT[o], LUT[o + 1], LUT[o + 2]);
     }
 }
