@@ -32,6 +32,7 @@ const qsat = (T, p) => {
 };
 
 // ---- tunables
+const FLOORS = 0.004, SKYB = 0.035, SKYW = 0.12; // the clear sky's share in the picture: floor of the per-row normalisation, lightness swing of buoyancy, hue swing of vertical velocity
 const NX = 64, NZ = 128;
 const D0 = 40; // metres per LED at Scale 0
 const SPS0 = 33; // simulated seconds per panel second at Flow 1
@@ -41,7 +42,7 @@ const ZF = 160; // depth the surface exchange is spread over, m
 const TAUS = 800; // surface exchange time, s
 const TAUR = 10800; // radiative relaxation time in the troposphere, s
 const TAUQ = 3600; // drying of the free troposphere toward its target humidity, s
-const QC0 = 0.6e-3, KAUTO = 1.5e-3, KACC = 2.2, KEVAP = 0.0176; // Kessler warm rain
+const QC0 = 0.5e-3, KAUTO = 2.5e-3, KACC = 2.2, KEVAP = 0.06; // Kessler warm rain
 const ALPHA = 1 / 10800; // drag on vorticity, 1/s
 const TAUU = 2400; // relaxation of the mean wind to the shear profile, s
 const SHEAR0 = 7; // m/s, the wind at the top relative to the bottom is twice this
@@ -157,13 +158,13 @@ function profiles(S) {
     S.PRS[j] = P0 * pow(S.PI[j], CP / RD);
     S.LCJ[j] = LCP / S.PI[j];
     S.THEQ[j] = thEnv(S, z) - 2.2;
-    S.KR[j] = (1 / TAUR) * (1 + 5 * sm(7000, 8500, z));
+    S.KR[j] = (1 / TAUR) * (1 + 5 * max(sm(7000, 8500, z), sm(0.78 * H, 0.95 * H, z)));
     S.KS[j] = exp(-z / ZF) / TAUS;
     S.QEQ[j] = max(2e-4, qFree(S, j, z));
-    S.KQ[j] = sm(S.zinv - 300, S.zinv + 300, z) / TAUQ + sm(6500, 8000, z) / 1800;
+    S.KQ[j] = sm(S.zinv - 300, S.zinv + 300, z) / TAUQ + max(sm(6500, 8000, z), sm(0.78 * H, 0.95 * H, z)) / 1800;
     S.ALP[j] = ALPHA + sm(nz - 14, nz, j + 0.5) / 900;
     // above the freezing level cloud turns to snow quickly and the snow falls slowly: anvils shed fall streaks instead of staying
-    const fi = sm(3800, 5600, z);
+    const fi = max(sm(3800, 5600, z), sm(0.72 * H, 0.95 * H, z));
     S.ICE[j] = fi;
     S.QC0J[j] = QC0 * (1 - 0.9 * fi);
     S.KAUJ[j] = KAUTO * (1 + 3 * fi);
@@ -718,6 +719,7 @@ function skyRows(S, shift) {
     let dh = (((hd - 85) % 360) + 360) % 360;
     if (dh > 180) dh -= 360;
     S.bw[j] = exp(-(dh * dh) / 4200);
+    S.bl[j] = 1 - sm(0.1, 0.3, u);
     S.sL[j] = L;
     S.sC[j] = C;
     S.sH[j] = (hd * PI) / 180;
@@ -733,14 +735,16 @@ function setupDraw(S) {
   S.SH = new Float64Array(S.n);
   S.bm = new Float64Array(nz);
   S.bw = new Float64Array(nz);
+  S.bl = new Float64Array(nz);
   S.bs = new Float64Array(nz);
+  S.ws = new Float64Array(nz);
   S.hueDone = -999;
 }
 
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const { nx, nz, QC, QR, RH, B, WZ, D, SH, sL, sC, sH, bm, bs, bw } = S, mx = nx - 1, o = [0, 0, 0];
+  const { nx, nz, QC, QR, RH, B, WZ, D, SH, sL, sC, sH, bm, bs, bw, bl, ws } = S, mx = nx - 1, o = [0, 0, 0];
   // buoyancy against its level mean, in units of that level's rms (never less than a share of the panel's)
   let gs = 0;
   for (let j = 0; j < nz; j++) {
@@ -753,7 +757,16 @@ export function draw(display, params) {
     gs += bs[j];
   }
   gs /= nz;
-  for (let j = 0; j < nz; j++) bs[j] = 1 / max(bs[j], 0.04 * gs, 1e-6);
+  for (let j = 0; j < nz; j++) bs[j] = 1 / max(bs[j], FLOORS * gs, 1e-9);
+  let gw = 0;
+  for (let j = 0; j < nz; j++) {
+    let v = 0;
+    for (let i = 0; i < nx; i++) v += (WZ[j * nx + i] + WZ[(j + 1) * nx + i]) ** 2;
+    ws[j] = sqrt(v / nx) / 2 / D;
+    gw += ws[j];
+  }
+  gw /= nz;
+  for (let j = 0; j < nz; j++) ws[j] = 1 / max(ws[j], FLOORS * gw, 1e-9);
   // sunlight from the upper left: what lies on the ray above and to the left of a cell shades it
   for (let i = 0; i < nx; i++) SH[(nz - 1) * nx + i] = 0;
   for (let j = nz - 2; j >= 0; j--) {
@@ -769,7 +782,11 @@ export function draw(display, params) {
       const k = j * nx + x, qc = QC[k], qr = QR[k];
       const w = (0.5 * (WZ[k] + WZ[k + nx])) / D;
       const hz = sm(0.4, 1, RH[k]);
-      let L = Lr + 0.05 * hz + 0.025 * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.5 * hz), h = Hr + 0.2 * tanh(w / 2);
+      const am = 1 + 2 * bl[j];
+      let L = Lr + 0.05 * hz + SKYB * am * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.25 * hz), h = Hr + SKYW * (1 + 0.5 * bl[j]) * tanh(w * ws[j]);
+      const cold = sm(0.01, 0.08, bm[j] - B[k]) * bl[j];
+      L -= 0.09 * cold;
+      h -= 0.12 * cold;
       if (qr > 1e-6) {
         // rain darkens and deepens the sky behind it; snow above the freezing level whitens it
         const ar = 1 - exp(-qr * 2500), ic = S.ICE[j];
