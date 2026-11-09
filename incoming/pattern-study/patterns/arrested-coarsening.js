@@ -1,20 +1,61 @@
 // ===== Patternflow pattern =====
 // Title:   Arrested Coarsening
 // Family:  sim
-// Idea:    draft
+// Idea:    Amber and teal liquids that do not mix are stirred in two-dimensional turbulence on the panel's own 64 by 128 torus: left alone each would coarsen into one domain, but the stirring breaks the domains as fast as surface tension rounds them up, so droplets stretch, pinch off, collide and merge at a size that holds for ever, while a marker carried by the same flow marbles the inside of each liquid.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: the Cahn-Hilliard equation for a mixture that separates in two (John Cahn and John Hilliard, 1958, from memory), coupled to the flow it drives through the capillary force, "Model H" (Pierre Hohenberg and Bertrand Halperin, 1977, from memory); the arrest of coarsening by the inverse energy cascade of two-dimensional turbulence (Prasad Perlekar, Nairita Pal and Rahul Pandit, Scientific Reports, 2017, from memory), after arrested phase separation in a chaotic flow (Ludovic Berthier, Jean-Louis Barrat and Jorge Kurchan, 2001, from memory); the two-thirds rule for a pseudo-spectral method (Steven Orszag, 1971, from memory); exponential time differencing with Adams-Bashforth extrapolation (Steven Cox and Paul Matthews, 2002, from memory); a marker carried semi-Lagrangian (Jos Stam, 1999, from memory); colour mixed in OKLab (Bjorn Ottosson, 2020, from memory); pattern round 120, made on the creator's turn of 8 November toward fields that flow for ever
 // Round:   120
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Stir=0.8..3.2, Scale=-1..1, Fraction=0.25..0.75
 //
-// Knob 1: Hue. draft
-// Knob 2: Stir. draft
-// Knob 3: Scale. draft
-// Knob 4: Fraction. draft
+// Knob 1: Hue. Turns the two liquids round the colour wheel together, 122 degrees apart in OKLab hue. At 0 the first is amber (hue 78) and the second a deep teal (200); at 0.25 they are mint and violet, at 0.5 periwinkle and copper, at 0.75 pink and olive. In the warm hues the dark liquid comes up in lightness by as much as 0.2, so that it does not go brown. One turn of the knob comes back to where it started.
+// Knob 2: Stir. The power of the random stirring. Its rms is FA = (K2 / 2)^0.75 LEDs a second squared, 0.5 at 0.8, 1 at 2 and 1.42 at 3.2, and the capillary coefficient follows as the 1.3 power of it. At Fraction 0.25 and Scale 0 the water's rms speed is 1.0 LEDs a second at 0.8, 1.9 at 2 and 2.7 at 3.2, and the area-weighted radius of the amber droplets is 11.7 LEDs at 0.8, 8.5 at 2 and 7.4 at 3.2 (means over 60 to 240 s).
+// Knob 3: Scale. The wavelength of the stirring and, with it, the size of the droplets: 64 / k_f with k_f = 4.5 x 2^(-0.6 K3) whole waves across the width, 14 LEDs at 0, 9.4 at -1 and 21.5 at 1. Below 0 the stirring also grows as (k_f / 4.5)^1.2, 1.65 times at -1; above 0 the capillary coefficient rises as 2^(2.2 K3), 4.6 times at 1. At Stir 2 and Fraction 0.25 the droplet radius is 7.1 LEDs at -1, 8.5 at 0 and 11.9 at 1, and the water's rms speed 2.7, 1.9 and 2.1 LEDs a second.
+// Knob 4: Fraction. The volume fraction of the amber liquid: amber drops in teal at 0.25, a labyrinth at 0.5, teal drops in amber at 0.75. Nothing in the flow or the dynamics changes the mean of phi. The knob adds a source, (target - mean) / 3 s (at most 0.25 a second) times (1 - phi^2) / mean(1 - phi^2), that lives only where the liquids meet, so the interfaces move and the two bulk values stay at plus and minus one. A swing from 0.25 to 0.75 passes the 50:50 mix after 2 s and is within a tenth of the end after 7 s, with phi staying between -1.01 and 1.00.
+
+// What the field is. Two liquids that do not mix, phi = +1 (amber) and phi = -1 (teal), on a torus 64 LEDs wide and 128 tall, the panel's own grid, in the flow
+// u = (psi_y, -psi_x) that they and a random stirring make between them:
+//   phi_t + u.grad phi = M del^2 mu,   mu = phi^3 - phi - xi^2 del^2 phi                          (Cahn and Hilliard)
+//   w_t + u.grad w = nu del^2 w - alpha w + Cap curl(-phi grad mu) + curl f,   del^2 psi = -w    (Model H, as a vorticity equation)
+// xi = 1.4 LEDs, M = 6 LED^2/s, nu = 0.25 LED^2/s, alpha = 0.2/s, Cap = 4 at the opening. mu is zero on phi = tanh(x / (sqrt 2 xi)), whose surface tension is
+// sigma = 2 sqrt2 xi / 3 = 1.32 and whose 10 to 90 percent width is 4.4 LEDs. f is a random force in a ring of wavenumbers round k_f, each mode an Ornstein-Uhlenbeck
+// process with a correlation time of 1.2 s, so it never repeats; alpha stops the inverse cascade at a finite scale. The capillary torque is written as the curl of the
+// Korteweg stress, Cap xi^2 [d_xy (phi_x^2 - phi_y^2) - (d_xx - d_yy)(phi_x phi_y)], the same torque without mu. A marker c, carried by the flow and pulled back
+// with a time constant of 4 s to a pattern of seven drifting large waves, tints each liquid with the filaments of its own flow; it takes no part in the dynamics.
+//
+// How it is solved. Pseudo-spectral, the modes inside a circle of 18 whole waves across the width kept (3.6 LEDs, inside the two-thirds rule for the quadratic terms),
+// six transforms a step with two real fields in each. The linear terms are exact (viscosity, drag, a hyperviscosity reaching 3/s at the cut, M xi^2 k^4 and a
+// stabilising M (STAB - 1) k^2 for phi); the rest goes through exponential time differencing with a third-order Adams-Bashforth extrapolation, one step a frame (two or
+// three when the fastest water would move more than 0.7 LED in one). The spectrum is put back to F(-k) = conj F(k) every step: without that, round-off in the imaginary
+// part grows at the spinodal rate M / (4 xi^2) and ruins the mean. setup stirs the field for 5.5 s of flow time, so it opens on a picture already in motion.
+//
+// Checks on this file, times in panel seconds.
+// 1. Mean of phi, source off: it moved by 0 in 900 s at the opening knobs (the k = 0 tendency is below 1.3e-17 a step), and by 0 with Cap 0 and no flow.
+// 2. A static drop, relaxed for 40 s with no stirring. The phi = 0 contour has radius 6.8, 10.3 and 14.6 LEDs; the profile fits tanh((R - r) / a) with a = 2.12, 2.04, 2.00
+//    (theory 1.98), rms error 0.031, 0.022, 0.018. The pressure inside minus outside, from the Poisson equation for the divergence of the Korteweg force, is 0.746, 0.501
+//    and 0.355. Cap sigma / R is 0.744, 0.501 and 0.358 with the tension the drop has (1.257, 1.291, 1.304) and 0.781, 0.513 and 0.363 with 1.320 of a flat interface.
+// 3. An ellipse with axes 17 and 8 LEDs, no stirring: aspect ratio 2.13, 2.27, 2.14, 1.87, 1.45, 1.10 at 0, 2, 5, 10, 20, 40 s; with Cap 0 (diffusion only) 2.13, 2.28,
+//    2.21, 2.09, 1.86, 1.54.
+// 4. Free energy mean((phi^2 - 1)^2 / 4 + xi^2 |grad phi|^2 / 2). With no stirring and no flow it did not rise once in 601 samples 0.1 s apart (0.1440 to 0.0927 in 60 s);
+//    with the flow, Cap F plus the kinetic energy fell from 0.536 to 0.311 without a rise.
+// 5. Coarsening from the same start at Fraction 0.5, at 10, 30, 100, 300 and 900 s (means over 20 s). L1 = 64 / <k> of the structure factor, L_I = 2 / mean|grad phi|.
+//    No stirring, no flow: L1 21, 24, 29, 40, 46; L_I 11.2, 12.7, 15.4, 23.0, 27.9. No stirring, with the capillary flow: L1 22, 26, 33, 44, 53; L_I 11.8, 13.8, 17.7, 25.7, 32.5.
+//    Stirred as at the opening: L1 18.5, 19.5, 21.7, 23.6, 20.9; L_I 10.4, 10.8, 11.5, 12.4, 11.3.
+// 6. Step size: the relative error of phi_hat after 2 s against a run at 1/480 s is 1.2e-3, 3.1e-4, 7.9e-5 and 1.9e-5 for steps of 1/15, 1/30, 1/60 and 1/120 s. The
+//    ratios 3.8, 3.9 and 4.1 are second order, because a run starts with no history. A constant right-hand side gives its exact steady state at any step.
+// 7. Spectrum of the water at the opening over 300 s: 38 percent of the energy is at wavenumbers up to 3 (shells of whole waves across the width; k_f = 4.5), 53 at 4 and 5, 9 above.
+// 8. Cost in Node: update 2.8 ms, draw 0.4, setup 0.4 s. One step a frame for 120 s at the opening and at three corners of the knobs (fastest |u| + |v| 7 to 18 LEDs a
+//    second; a second step starts at 21).
+// Not checked: a finer grid, other box shapes, the dependence of the arrested size on the Reynolds number. The flowcheck numbers are in the pull request.
+//
+// What it does not do. Both liquids have one density and one viscosity and nothing falls or rises: a symmetric emulsion and no more. In the flow the interface is wider than
+// the equilibrium profile (the gradient of phi at its core is 0.84 of tanh's, median; 0.63 and 0.95 at the 10th and 90th percentile). A droplet that gets too small dissolves
+// (Ostwald ripening) and shows as a pale smudge for a few seconds. At the weakest stirring and Fraction 0.5 the labyrinth is not quite arrested: L_I goes 14.8 to 17.5 over 900 s
+// at Scale 1 and 13.5 to 18.3 at Scale -1 (means over 150 s), and a longer run was not made. The marker is carried semi-Lagrangian, so its finest filaments are smoother than
+// the flow made them.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, exp, sqrt, abs, cos, sin, PI, log2, pow, log, round, tanh } = Math;
