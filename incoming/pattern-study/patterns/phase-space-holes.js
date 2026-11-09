@@ -64,10 +64,11 @@
 // Hours through update() at 30 frames a second and Flow 4 (6 time units a second). The opening Scale and Drive for three hours
 // (64,800 time units), hour by hour: the field energy of the box 0.400, 0.401 and 0.397 (0.09 spread within an hour), 4.58, 4.61
 // and 4.63 holes at a time (spread 0.85 to 0.89), the mean of f along x 47.3, 47.5 and 47.0 percent from f0 in L1 (the beams
-// are flattened and the gap between them filled, and it stays so), the mass 0.9997, 0.9996 and 0.9993, the largest mean
-// velocity 0.033, 0.045 and 0.044, and the smallest u or l 1.5e-28, so never below zero. One hour at Scale and Drive 1: field
-// energy 0.388, 3.95 holes, f 39 percent from f0, mass 0.9996; at -1: 0.316, 5.11 holes, 52 percent, mass 0.9932 (the end rows
-// lose more than a slow source gives back). Nothing was ever non-finite and the restart in update() was never used.
+// are flattened and the gap between them filled, and it stays so), the largest mean velocity 0.033, 0.045 and 0.044, and the
+// smallest u or l 1.5e-28, so never below zero. The mass in twelve ten-minute means over two hours (another seed) stays between
+// 0.9987 and 0.9991 with no trend. One hour at Scale and Drive 1: field energy 0.388, 3.95 holes, f 39 percent from f0, mass
+// 0.9996; at -1: 0.316, 5.11 holes, 52 percent, mass 0.9932 (the end rows lose more than a slow source gives back). Nothing was
+// ever non-finite and the restart in update() was never used.
 // What went wrong first. A spectral shift in v with an exponential filter spread the ringing of every sharp filament over the whole
 // column, 1e-6 of the peak and as much as the far tails hold, so the dye there was noise, and the velocity ends wrapped: the
 // momentum jumped to -5 once a large vortex reached them. The flux-balance slide has neither. A shift of f in x by Fourier
