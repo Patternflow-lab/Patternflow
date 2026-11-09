@@ -281,6 +281,7 @@ export function update(dt, input, params) {
   S.G = CFG.disp * S.sc * S.dp;
   advance(S, ft * flow * 0.07);
   gather(S);
+  if (!isFinite(S.dens[1] + S.dens[N >> 1])) start(params);
 }
 
 // ---- colour ----
