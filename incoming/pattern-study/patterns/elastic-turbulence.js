@@ -1,30 +1,63 @@
 // ===== Patternflow pattern =====
 // Title:   Elastic Turbulence
 // Family:  sim
-// Idea:    draft
+// Idea:    A polymer solution with almost no inertia is solved as a Stokes flow on the panel's own 64 by 128 torus, its stress the conformation tensor of finitely extensible chains and a wandering large-scale force the only stirring, and drawn as how far the chains are stretched, so thin white-hot filaments wind into hooks and spirals between dark relaxed fluid, warm where the fluid turns one way and cool where it turns the other, and keep stretching, folding and re-forming for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: Elastic turbulence in a polymer solution at Reynolds number far under one (Groisman and Steinberg, Nature 2000); its two-dimensional numerics in a periodic box (Berti and Boffetta, 2010; Gupta and Vincenzi, 2019; Thomases and Shelley, 2007 and 2009); Oldroyd-B (1950) and FENE-P (Peterlin, 1966; Bird, Dotson and Johnson, 1980); the conformation tensor carried as its symmetric square root (Balci, Thomases, Renardy and Doering, 2011) where Fattal and Kupferman (2004) take its logarithm; semi-Lagrangian transport (Robert, 1981); an Ornstein-Uhlenbeck force (1930); Oklab (Ottosson, 2020); every name and year here is from memory
 // Round:   119
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Weissenberg=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Flow. draft
-// Knob 3: Scale. draft
-// Knob 4: Weissenberg. draft
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of both ramps but the dark base, so one turn comes back. At 0 the cool ramp (fluid turning one way) runs from deep indigo (6, 19, 53) through blue (22, 84, 169) and azure (28, 176, 211) to ice (177, 236, 239) and white, the warm one from plum (40, 6, 34) through crimson (160, 22, 62) and orange (246, 115, 44) to pale gold (253, 219, 146), and they stay about 200 degrees apart at every setting (0.25 rose and lilac against gold and lime, 0.5 amber against teal, 0.75 green against violet). The base does not turn, the stops are joined in a and b so that a turn goes through grey, and a dark yellow-green, which is olive, is lifted by at most 0.12 in lightness.
+// Knob 2: Flow. Model time per panel second: 0.5 per unit of the knob times the forcing wavenumber over 0.2, so the speed in LEDs does not follow Scale: 0.25 at 0.5, 1.0 at the opening 2, 2.0 at 4. The rms speed at Scale 0 is 1.04, 4.08 and 8.39 LEDs a second. Flow only sets how many steps of the fixed size 0.05 run in a frame (0.17 to 1.7), so the state after the same number of steps is the same bit for bit at 0.5, 2 and 4 (largest difference 0 over 1500 steps) and the statistics cannot depend on it; the last two steps are mixed on the panel. Cost in Node: 0.8 ms a frame at 0.5 and Scale 1, 2.6 at the opening, 6.7 at 4 and Scale -1, plus 0.2 to draw; the first frame runs 6 time units from rest, 0.45 s.
+// Knob 3: Scale. The wavenumber of the force, 0.2 times 1.3 to the minus knob per LED: a wavelength of 24.2 LEDs at -1, 31.4 at 0 and 40.8 at 1. All 81 lattice modes under |k| 0.5 are kept and weighted by a bump of width 0.3 kf, 30, 18 and 11 of them above half weight at -1, 0 and 1, scaled so that the rms shear of the force alone stays 1. The 1/e length of ln tr C across the panel and down is 3.4 and 3.1 LEDs at -1, 4.2 and 3.9 at 0, 5.9 and 5.5 at 1 (mean of 90 s), and the speed is 4.35, 4.08 and 4.21 LEDs a second: the cells change size and the pace does not. It follows the knob with a time constant of 1.2 s.
+// Knob 4: Weissenberg. Wi = lam gamma0, 1.8 times 3 to the knob: 0.6 at -1, 1.9 at the opening, 5.4 at 1 (same smoothing). gamma0 is the rms shear that the force alone makes in a Newtonian fluid of the total viscosity, 1 by construction (1.06 and 1.13 measured over 150 s for two seeds, which is the sampling of the force). Mean tr C is 2.62, 6.70 and 19.05, the share of the panel over 10 is 0.1, 16.5 and 59.0 per cent, the speed 4.74, 4.08 and 3.49 LEDs a second. The picture is drawn between percentiles of the frame, so Wi shows as shape and not as brightness: smooth cells with a few short arcs at 0.6, hooks and spirals at 1.9, broad ribbons over most of the panel at 5.4.
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, and time in units of 1 / gamma0. C is the 2 by 2 conformation tensor of the chains, L = [[u_x, u_y], [v_x, v_y]]:
+//   C_t + u.grad C = L C + C L^T - (f C - I) / lam,   f = (LL - 2) / (LL - tr C),   LL = 200      (FENE-P in two dimensions: f = 1 at rest, tr C stays under LL)
+//   beta lap u - grad p + div tau + F = 0,   tau = ((1 - beta) / lam) (f C - I),   div u = 0,   beta = 0.6      (no inertia)
+// The flow is solved in Fourier space with u = (psi_y, -psi_x) and beta k^4 psi = (ky^2 - kx^2) tau_xy - kx ky (tau_yy - tau_xx) + curl F: the stress goes in through one transform as tau_xy + i (tau_yy - tau_xx),
+// the velocity and its gradient come back through three, a filter exp(-36 r^16) of the radius r (the cut is 1) takes the highest modes and there is no mean flow. F is 81 modes of wavevector (nx / 64, ny / 128) whose complex amplitudes
+// wander, Ornstein-Uhlenbeck with a correlation time of 8, so nothing repeats and nothing stops. C is carried as S = C^(1/2), so any look-up of S gives a positive semi-definite S S. One step of 0.05: the flow of the
+// last two steps extrapolated to its middle, each cell traced back along it (bilinear at the middle point), S there by cubic Lagrange held between the smallest and largest of the four nearest nodes, then relax half a
+// step, stretch (C -> F C F^T, F = exp(L dt), exact, det F = 1, with L at the middle of the path), relax half a step (C+ = e C + (1 - e) I / f, e = exp(-f dt / lam), f taken at the middle of the step from a backward-Euler
+// estimate of its end; backward Euler alone for a cell within 0.1 per cent of LL), take the root, solve the flow. The flow follows that Stokes solution with a lag of 0.5, y' = (g - y) / 0.5, stepped exactly for a g that is
+// linear over the step: a small inertia, there for the reason in the last block. The picture is e = ln(tr C / 2) / ln(LL / 2) between its 6th and 99.5th percentile of the frame (followed over 6 s), to the power 1.8; the
+// sign of the vorticity v_x - u_y, as tanh of it over its rms, mixes the cool and the warm ramp.
+//
+// What was checked, with the file's own step (scripts of mine, not in the repo):
+// - Steady simple shear of one cell (lam 4) against the FENE-P cubic f^3 - f^2 = 2 Wi^2 / LL (my derivation, C_yy = 1/f, C_xy = Wi / f^2, C_xx = (1 + 2 Wi^2 / f^2) / f): largest relative error of the components at dt 0.05
+//   is 6.7e-6 at Wi 0.5, 2.1e-5 at 5, 1.6e-4 at 20, 8.4e-4 at 50, a quarter of that for each halving; at LL 1e12 against Oldroyd-B (C_xy = Wi, C_xx = 1 + 2 Wi^2) 6.5e-6. Backward Euler for the relaxation was first order, 5.4e-3 at Wi 2.
+// - Laminar Kolmogorov flow with the stress in, one force mode (wavelength 42.7): the shear rate against the exact steady profile of beta g + (1 - beta) g / f(lam g) = force shear cos(ky) is within 2e-4 of its peak at Wi 0.5 to 10 (lam g).
+// - Step halving from 0.2 to 0.0125, smooth start, force off, against 0.003125: second order without the look-up (error ratios 4.2, 4.0, 4.2, errors 2.6e-3 down to 5.8e-6); with it 3.4 then 2.4 (1.1e-4 at 0.05 down to 1.9e-5):
+//   the cubic look-up costs the same at every step, so its error grows as steps shrink.
+// - Positive definiteness and bound, 16 runs of 300 s with the knobs thrown to their ends and between every 0.5 to 10 s: smallest det C 0.25, largest tr C 160 (LL 200), largest |L| 3.8; no cell used backward Euler alone, none was
+//   held at the cap on |L| of 12 and none was non-finite. [LONG]
+// - div u from the spectrum 9e-15 (4.7e-15 of the largest gradient), the gradients against spectral derivatives of u and v 1.1e-14, 4e-15 left imaginary. The state lives in the plane and each flow solve builds Hermitian spectra
+//   from scratch (the stress by the packed extraction, the force as a mode and its conjugate), so there is nothing to drift. A second Stokes solve (three stress components apart, force and curl as vectors) agrees to 1.1e-14 in u and v.
+// - The look-up on a Gaussian ridge at 0.1 to 0.5 LED a step: sigma 2.5 LEDs loses 10 per cent of its peak in 5 time units, sigma 1.5 loses 28, sigma 1 loses 45 (effective diffusivity 0.03 to 0.6 LED^2 per time unit, more for the narrow and fast).
+// - The same force over the same box on 128 by 256 cells: ln tr C at the same places correlates 0.989 with this grid after 40 time units, the peak tr C is 61 against 50, the means agree (tr C 6.70 and 6.70, strain rate 0.790 and 0.793).
+// - Not chaotic by itself: with the same force a kick of 7e-5 in ln tr C is 0.03, 0.13 and 0.28 ten time units on (partly the restart of the lag) and 1e-2, 3e-2 and 4e-2 a hundred on, at Wi 0.6, 1.9 and 5.4. The laminar
+//   flow of one force mode is stable below Wi 3.5 and its x-dependent noise grows above that at 0.05 per time unit at most, so the force carries the variety.
+// - flowcheck, 240 s, six sets: recur 0.64 to 0.76, dim 0.84 to 0.94, quiet 0.75 to 0.91, last quarter dim over 0.65 and quiet over 0.57, luma 0.8 to 9.9 per cent first to last quarter; 900 s: open 0.676, 0.944, 0.944.
+//
+// What failed first. With the flow solved from the stress of the same step and no lag, a few cells passed tr C 100 to 120 of LL 200 and |L| then doubled every step to NaN, within 2 to 17 time units in every run (the stress f C grows as
+// 1 / (LL - tr C), so the coupling is stiff). The lag of 0.5 and a step of 0.05 stop it; at a step of 0.1 the start from rest at lam 12 failed in 11 of 40 seeds, at 0.05 in 1 of 60. So lam comes in over the first 4.8 time units, and a hold
+// of |L| at 12 stays in the file, which never acted. The first palette had a hue wrap (green fringes) and an olive wash at Hue 0.25 to 0.5. The first flowcheck of the max set ended in NaN from that start at 0.1.
+// What was not checked: the literature values, the grid at other settings, and any real Navier-Stokes flow; the lag is a stand-in.
 
 const { floor, ceil, exp, sqrt, abs, sin, cos, log, PI, min, max, pow, tanh, atan2 } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-// ---- grid: 64 LEDs across (x), 128 down (y), one cell per LED, a torus ---------------------------------
+// ---- grid: 64 across (x), 128 down (y), one cell to an LED, a torus ----
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 
-// ---- radix-2 FFT, rows contiguous, columns by butterflies across rows ------------------------------------
+// ---- radix-2 FFT, rows contiguous, columns by butterflies across rows ----
 function plan(n) {
   const lg = Math.round(Math.log2(n)), rev = new Uint16Array(n), c = new Float64Array(n / 2), s = new Float64Array(n / 2);
   for (let i = 0; i < n; i++) {
@@ -101,21 +134,11 @@ function fft2(re, im, inv) {
   fftCols(re, im, inv);
 }
 
-// ---- the model -------------------------------------------------------------------------------------------
-// Lengths are LEDs. Time is in units of 1 / gamma0, gamma0 the rms shear rate that the forcing alone would make in a Newtonian
-// fluid of the total viscosity (set to 1). C is the polymer conformation tensor, carried as its symmetric square root S (C = S S), whose
-// advected copy can be interpolated without leaving the cone of positive semi-definite matrices.
-//   C_t + u.grad C = L C + C L^T - (f(tr C) C - I) / lam,       L = [[u_x, u_y], [v_x, v_y]],   f = (LL - 2) / (LL - tr C)   (FENE-P in 2D)
-//   beta nabla^2 u - grad p + div tau + F = 0,                  tau = ((1 - beta) / lam) (f C - I),   div u = 0     (Stokes: no inertia)
-const BETA = 0.6; // solvent share of the zero-shear viscosity (total viscosity 1)
-const LLMAX = 200; // L squared, the squared extensibility of the dumbbell: tr C stays under it
-
-// the position of a 3x3 matrix power is not needed: the one local update of a cell is (a half step of relaxation, the exact stretch, a half step of relaxation)
-const CO = new Float64Array(3);
-// Relaxation, C' = (I - f C) / lam with f = (LL - 2) / (LL - tr C), over a step with delta = dt / lam. With f held constant the answer is exact,
-// C+ = e C + (1 - e) / f I with e = exp(-f delta), so f is taken at the middle of the step: first backward Euler gives the end of the step
-// (C+ = (C + delta I) / (1 + f delta), where f solves LL delta f^2 + (LL - s - LL delta) f - (LL - 2) = 0, s = tr C), then f is read at the mean
-// of the two traces. Backward Euler alone is kept for a cell within 0.1 per cent of the bound, where it is the stable one.
+// ---- the model (equations in the header) ----
+const BETA = 0.6, LLMAX = 200; // solvent share of the viscosity, and LL
+const CO = new Float64Array(3), CS = new Float64Array(3); // results of the local update and of the root
+// Relaxation over delta = dt / lam. Backward Euler, C+ = (C + delta I) / (1 + f delta), has f from LL delta f^2 + (LL - s - LL delta) f - (LL - 2) = 0 (s = tr C);
+// the exponential at f of the mean of the two traces is the answer used.
 let NBE = 0, NCAP = 0; // cells that used backward Euler alone, and cells whose velocity gradient was held at LCAP
 const LCAP = 12, LCAP2 = LCAP * LCAP;
 function relax(cxx, cxy, cyy, delta, LL) {
@@ -137,7 +160,7 @@ function relax(cxx, cxy, cyy, delta, LL) {
   CO[1] = cxy * inv;
   CO[2] = (cyy + delta) * inv;
 }
-// The stretch alone, C' = L C + C L^T, is C -> F C F^T with F = exp(L dt) = c I + (sn) L, since L has no trace, L L = q2 I.
+// The stretch, C -> F C F^T with F = exp(L dt) = c I + sn L, since L has no trace and L L = q2 I.
 function stretch(cxx, cxy, cyy, l11, l12, l21, dt) {
   const q2 = l11 * l11 + l12 * l21, x2 = q2 * dt * dt;
   let c, sn;
@@ -161,7 +184,6 @@ function stretch(cxx, cxy, cyy, l11, l12, l21, dt) {
   CO[2] = t21 * f21 + t22 * f22;
 }
 // One local update: relax half a step, stretch a whole one, relax half a step.
-const CS = new Float64Array(3);
 function local(cxx, cxy, cyy, l11, l12, l21, dt, lam, LL) {
   const dl = (0.5 * dt) / lam;
   relax(cxx, cxy, cyy, dl, LL);
@@ -189,21 +211,13 @@ for (let j = 0; j < H; j++)
 
 const mk = () => new Float64Array(N);
 function makeState() {
-  return {
-    a: mk(), b: mk(), d: mk(), a2: mk(), b2: mk(), d2: mk(), // S and the next S
-    u: mk(), v: mk(), l11: mk(), l12: mk(), l21: mk(), // the flow of the current state
-    pu: mk(), pv: mk(), p11: mk(), p12: mk(), p21: mk(), // and the one before
-    gu: mk(), gv: mk(), g11: mk(), g12: mk(), g21: mk(), // the Stokes solution the flow is lagging behind
-    eu: mk(), ev: mk(), e11: mk(), e12: mk(), e21: mk(), // extrapolated to the middle of the step
-    zr: mk(), zi: mk(), ar: mk(), ai: mk(), br: mk(), bi: mk(), cr: mk(), ci: mk(),
-    t: 0, dtp: 0, lam: 4, tauU: 0.5, LL: LLMAX, beta: BETA,
-    modes: [], force: true, ou: true,
-    steps: 0,
-  };
+  // S = (a, b, d) and the next S; the flow u, v, l11 l12 l21 (the gradient) and the one before (p...), the Stokes solution it lags (g...), its extrapolation (e...), the transforms
+  const S = { t: 0, dtp: 0, lam: 4, tauU: 0.5, LL: LLMAX, beta: BETA, modes: [], force: true, ou: true, steps: 0 };
+  for (const k of "a b d a2 b2 d2 u v l11 l12 l21 pu pv p11 p12 p21 gu gv g11 g12 g21 eu ev e11 e12 e21 zr zi ar ai br bi cr ci".split(" ")) S[k] = mk();
+  return S;
 }
 
-// ---- forcing: a field of large-scale modes whose complex amplitudes wander (Ornstein-Uhlenbeck) ---------------
-// Every lattice mode (nx / 64, ny / 128) with |k| under KMAX is kept; the weight of each one is a bump about the forcing wavenumber kf.
+// ---- forcing: lattice modes under |k| KMAX, complex Ornstein-Uhlenbeck amplitudes, weighted by a bump about kf ----
 const KMAX = 0.5, KXN = 5, KYN = 10, TAUF = 8;
 const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
 function makeModes() {
@@ -233,9 +247,7 @@ function forceOU(S, dt) {
   }
 }
 
-// ---- the flow: Stokes, solved in Fourier space from the polymer stress and the forcing ---------------------------
-// With u = (psi_y, -psi_x): beta k^4 psi = curl(div tau + F) = (ky^2 - kx^2) tau_xy - kx ky (tau_yy - tau_xx) + curl F. The stress is the FFT of
-// z = tau_xy + i (tau_yy - tau_xx), two real fields in one transform. The velocity and its gradient come back in three transforms.
+// ---- the flow: Stokes in Fourier space from the stress and the force (header) ----
 function flow(S, dt) {
   const { a, b, d, zr, zi, ar, ai, br, bi, cr, ci } = S, LL = S.LL, G = (1 - S.beta) / S.lam, iN = 1 / N;
   for (let p = 0; p < N; p++) {
@@ -300,8 +312,7 @@ function flow(S, dt) {
   [S.u, S.v, S.l11, S.l12, S.l21, S.pu, S.pv, S.p11, S.p12, S.p21] = [...PY, ...Y];
 }
 
-// ---- look-up -------------------------------------------------------------------------------------------------
-// bilinear, for the velocity and its gradient (smooth)
+// ---- look-up: bilinear for the smooth velocity, cubic for S ----
 const BI = new Int32Array(4), BW = new Float64Array(2);
 function locate(x, y) {
   const ix = floor(x), iy = floor(y), r0 = (iy & HM) * W, r1 = ((iy + 1) & HM) * W, x0 = ix & WM, x1 = (ix + 1) & WM;
@@ -316,7 +327,6 @@ function samp(F) {
   const t0 = F[BI[0]] + (F[BI[1]] - F[BI[0]]) * BW[0], t1 = F[BI[2]] + (F[BI[3]] - F[BI[2]]) * BW[0];
   return t0 + (t1 - t0) * BW[1];
 }
-// cubic Lagrange over 4 by 4 nodes, then held between the smallest and the largest of the four nearest nodes
 const XI = new Int32Array(4), YR = new Int32Array(4), WX = new Float64Array(4), WY = new Float64Array(4);
 function locate4(x, y) {
   const ix = floor(x), iy = floor(y);
@@ -348,7 +358,7 @@ function cubic(F) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// ---- one step: extrapolate the flow to the middle of the step, trace each cell back along it, and update locally there ------------
+// ---- one step ----
 function step(S, dt) {
   const { a, b, d, a2, b2, d2, u, v, l11, l12, l21, pu, pv, p11, p12, p21, eu, ev, e11, e12, e21 } = S, lam = S.lam, LL = S.LL;
   const r = S.dtp > 0 ? dt / (2 * S.dtp) : 0, hd = 0.5 * dt;
@@ -401,10 +411,7 @@ function reset(S) {
   S.p21.set(S.l21);
 }
 
-// ---- the picture --------------------------------------------------------------------------------------------------
-// e = ln(tr C / 2) / ln(LL / 2) is how far a cell is stretched, 0 for relaxed fluid and 1 at the bound; the picture shows e between its
-// 6th and 99.5th percentile of the frame (followed over about 6 s, so the contrast does not depend on Wi). The vorticity w = v_x - u_y gives
-// the colour pair: the sense of the turning. Two frames are kept, the newest step and the one before, and the panel shows the mix.
+// ---- the picture: e and the vorticity of the last two steps, and the percentiles of e ----
 const NQ = 128, hist = new Int32Array(NQ);
 function shade(S) {
   const { a, b, d, l12, l21 } = S, il = 1 / log(S.LL / 2);
@@ -433,7 +440,7 @@ function shade(S) {
   return bad;
 }
 
-// ---- colour: two ramps in Oklab, a cool one for fluid turning one way and a warm one for the other, both from a dark base ------------
+// ---- colour: two ramps in Oklab from a dark base ----
 const RGB = [0, 0, 0];
 // Oklab to linear sRGB in RGB; the colour is in gamut when every channel is within e of [0, 1]
 function lin(L, a, b) {
@@ -506,11 +513,10 @@ function buildLut(hue) {
   }
 }
 
-// ---- the pattern --------------------------------------------------------------------------------------------------
+// ---- the pattern ----
 const OPEN = [0, 2, 0, 0.06];
-const DT0 = 0.05, MAXSTEPS = 6, CLOCK = 0.5, KF0 = 0.2, PRE = 6; // step (units of 1 / gamma0), most steps a frame, model time a second per unit of Flow, forcing wavenumber at Scale 0
-const LAM0 = 1.8, LAMB = 3; // Weissenberg number lam gamma0 = 1.8 times 3 to the knob
-const KFB = 1.3, GAM = 1.8;
+const DT0 = 0.05, MAXSTEPS = 6, CLOCK = 0.5, KF0 = 0.2, PRE = 6; // step, most steps a frame, model time a second per unit of Flow, kf at Scale 0, start-up time
+const LAM0 = 1.8, LAMB = 3, KFB = 1.3, GAM = 1.8; // Wi = LAM0 LAMB^knob, kf = KF0 KFB^-knob, contrast power
 const GT = new Float64Array(256).map((_, i) => pow(i / 255, GAM)); // the contrast curve
 
 export function setup(params) {
@@ -525,7 +531,7 @@ function spin(S) {
   reset(S);
   shade(S);
   shade(S);
-  // the polymer is let in slowly, lam from 0.3 to its value over the first 8 / 10 of the run: from fluid at rest the first stretch has nothing to push back
+  // lam is let in over the first 0.8 of the run: from rest the first stretch has nothing to push back
   while (S.t < PRE) {
     S.lam = S.lamT * (0.1 + 0.9 * sm(0, 0.8 * PRE, S.t));
     step(S, DT0);
