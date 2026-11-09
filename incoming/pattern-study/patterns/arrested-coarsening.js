@@ -17,27 +17,29 @@
 // Knob 4: Fraction. draft
 
 const W = 64, H = 128, N = W * H;
-const { floor, ceil, min, max, exp, sqrt, abs, cos, sin, PI, log2, pow, log, round, tanh, atan2 } = Math;
+const { floor, ceil, min, max, exp, sqrt, abs, cos, sin, PI, log2, pow, log, round, tanh } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 
-// ---- tunables
+// ---- tunables. Lengths are LEDs, times seconds.
 const KU = TAU / W; // rad per LED of one whole-number wave across the width
-const KC = 18; // retained wavenumber (index units): a wavelength of 3.6 LEDs
-const XI = 1.4; // interface length of the Cahn-Hilliard free energy, LEDs
-const MOB = 6; // mobility, LED^2/s
-const STAB = 3; // linear stabilisation of the cubic term
-const CAP = 12; // capillary coefficient
-const NU = 0.25; // viscosity, LED^2/s
-const ALPHA = 0.2; // linear drag, 1/s
-const TAUF = 1.2; // forcing correlation time, s
-const CAPX = 1.25; // how fast the capillary coefficient follows Scale, octaves per unit
-const KFX = 0.4; // how fast the forcing wavenumber follows Scale, octaves per unit
-const KF = 4.5;
-const HV = 3; // hyperviscosity at the highest retained wavenumber, 1/s
-const CFLMAX = 0.34; // fastest |u| + |v| times the step, LEDs // forcing wavenumber, index units
-const FA = 1.0; // rms of the forcing in velocity units, LEDs/s^2, at Stir 1: the vorticity forcing is FA k_f
+const KC = 18; // retained wavenumber, in whole waves across the width: a wavelength of 3.6 LEDs
+const XI = 1.4; // interface length of the free energy: the profile is tanh(x / (sqrt(2) XI))
+const MOB = 6; // mobility M of phi
+const STAB = 3; // linear stabilisation of the cubic term, taken out of the explicit part and put into the exact one
+const CAP = 4; // capillary coefficient at Scale 0 and Stir 2: the body force is -CAP phi grad(mu)
+const CAPS = 1.3; // how fast CAP follows the stirring, so that a weakly stirred tank does not coarsen to one domain
+const CAPX = 2; // how fast CAP follows Scale below its middle, octaves per unit of the knob
+const CAPY = 1.2; // and above it
+const NU = 0.25; // viscosity
+const ALPHA = 0.2; // linear drag on the vorticity, 1/s
+const HV = 3; // extra damping at the highest retained wavenumber, 1/s, rising as the eighth power of k / KC
+const TAUF = 1.2; // correlation time of the stirring, s
+const KF = 4.5; // wavenumber of the stirring at Scale 0, in whole waves across the width: a wavelength of 14 LEDs
+const KFX = 0.35; // how fast KF follows Scale, octaves per unit of the knob
+const FA = 1.0; // rms of the stirring in velocity units, LEDs/s^2, at Stir 2: the vorticity forcing is FA k_f
+const CFLMAX = 0.7; // the largest |u| + |v| times a step, LEDs
 
 // ---- radix-2 FFT, in place on (re, im) at off, off + st, off + 2 st, ...
 function plan(n) {
@@ -95,16 +97,16 @@ function newState() {
   const S = {
     px: plan(W), py: plan(H),
     kx: F(), ky: F(), k2: F(), ik2: F(), kk: F(), neg: new Int32Array(N), keep: null,
-    w: mkF(), p: mkF(), Ew: F(), Ep: F(), hE: -1,
+    w: mkF(), p: mkF(), kc: new Map(),
     // work arrays: three inverse transforms and three forward ones
     ar: F(), ai: F(), br: F(), bi: F(), cr: F(), ci: F(), dr: F(), di: F(), er: F(), ei: F(), gr: F(), gi: F(),
     // physical fields at the start of the last step
     om: F(), ph: F(), phx: F(), phy: F(), uu: F(), vv: F(),
     fr: F(), fi: F(), ring: null, wring: null,
-    h1: 0, h2: 0, steps: 0, acc: 0, vmax: 1,
-    stir: 1, kf: KF, target: -0.5, src: 0, hue: 0, cap: CAP,
+    h1: 0, h2: 0, steps: 0, vmax: 1,
+    stir: 1, kf: KF, target: -0.5, src: 0, cap: CAP,
     C: new Float32Array(N), C2: new Float32Array(N), c0: new Float32Array(N), cm: [], ex: new Float64Array(8 * W * 2), ey: new Float64Array(8 * H * 2),
-    lut: [new Float32Array(3 * 256), new Float32Array(3 * 256)], hueDone: -1, wk: null,
+    lut: [new Float32Array(3 * 256), new Float32Array(3 * 256)], hueDone: -1,
   };
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
@@ -193,39 +195,68 @@ function tend(S) {
     p.nr[i] = (-Tr - mk * (Cr - STAB * p.r[i] * N)) * iN;
     p.ni[i] = (-Ti - mk * (Ci - STAB * p.i[i] * N)) * iN;
   }
-  // the k = 0 mode of phi: -mean(u.grad phi) + source, exactly the change of the mean
-  return vm;
 }
 
-function ab3(S, F, E, h) {
-  const h1 = S.h1, h2 = S.h2;
-  let c0 = h, c1 = 0, c2 = 0;
-  if (h1 && h2) {
-    const a = (h * h * h) / 3, b = (h * h) / 2;
-    c0 = (a + (2 * h1 + h2) * b + h1 * (h1 + h2) * h) / (h1 * (h1 + h2));
-    c1 = -(a + (h1 + h2) * b) / (h1 * h2);
-    c2 = (a + h1 * b) / ((h1 + h2) * h2);
-  } else if (h1) (c0 = h * (1 + h / (2 * h1))), (c1 = -(h * h) / (2 * h1));
-  const keep = S.keep, nk = keep.length;
+// Exponential time differencing with a third-order Adams-Bashforth extrapolation of the nonlinear part N (Cox and Matthews, 2002; Hochbruck and
+// Ostermann, 2010, both from memory): v' = L v + N  gives  v1 = e^{Lh} v + h phi1 N_n + J1 a1 + (J2 + h1 J1) a2, where a1 and a2 are the first and
+// second divided differences of N over the last three steps, J1 = h^2 phi2(Lh), J2 = 2 h^3 phi3(Lh). A constant N gives v = -N / L exactly, at any
+// step: the stiff modes of phi keep the right steady state, which an integrating factor does not.
+function phis(z, o) {
+  if (abs(z) < 0.06) {
+    o[0] = 1 + z * (1 / 2 + z * (1 / 6 + z * (1 / 24 + z * (1 / 120 + z / 720))));
+    o[1] = 1 / 2 + z * (1 / 6 + z * (1 / 24 + z * (1 / 120 + z * (1 / 720 + z / 5040))));
+    o[2] = 1 / 6 + z * (1 / 24 + z * (1 / 120 + z * (1 / 720 + z * (1 / 5040 + z / 40320))));
+  } else {
+    const e = exp(z);
+    o[0] = (e - 1) / z;
+    o[1] = (e - 1 - z) / (z * z);
+    o[2] = (e - 1 - z - (z * z) / 2) / (z * z * z);
+  }
+}
+function coefs(S, h) {
+  let K = S.kc.get(h);
+  if (K) return K;
+  if (S.kc.size > 5) S.kc.clear();
+  const A = () => new Float64Array(N);
+  K = { w: { E: A(), P1: A(), J1: A(), J2: A() }, p: { E: A(), P1: A(), J1: A(), J2: A() } };
+  const o = [0, 0, 0];
+  for (let t = 0; t < S.keep.length; t++) {
+    const i = S.keep[t], q = S.k2[i], r = S.kk[i] / KC, r2 = r * r, r4 = r2 * r2;
+    for (let f = 0; f < 2; f++) {
+      const L = f ? -MOB * ((STAB - 1) * q + XI * XI * q * q) : -(NU * q + ALPHA + HV * r4 * r4), z = L * h, C = f ? K.p : K.w;
+      phis(z, o);
+      C.E[i] = exp(z);
+      C.P1[i] = h * o[0];
+      C.J1[i] = h * h * o[1];
+      C.J2[i] = 2 * h * h * h * o[2];
+    }
+  }
+  S.kc.set(h, K);
+  return K;
+}
+function etd(S, F, C, h) {
+  const h1 = S.h1, h2 = S.h2, o1 = h1 ? 1 / h1 : 0, o3 = h2 ? 1 / h2 : 0, o2 = h1 && h2 ? 1 / (h1 + h2) : 0;
+  const { keep, hf, sf, neg } = S, nk = keep.length;
   for (let t = 0; t < nk; t++) {
-    const i = keep[t], e = E[i];
-    F.r[i] = e * (F.r[i] + c0 * F.nr[i] + c1 * F.p1r[i] + c2 * F.p2r[i]);
-    F.i[i] = e * (F.i[i] + c0 * F.ni[i] + c1 * F.p1i[i] + c2 * F.p2i[i]);
-    F.p2r[i] = e * F.p1r[i];
-    F.p2i[i] = e * F.p1i[i];
-    F.p1r[i] = e * F.nr[i];
-    F.p1i[i] = e * F.ni[i];
+    const i = keep[t], e = C.E[i], p1 = C.P1[i], j1 = C.J1[i], j2 = C.J2[i] + h1 * j1;
+    const nr = F.nr[i], ni = F.ni[i], a1r = (nr - F.p1r[i]) * o1, a1i = (ni - F.p1i[i]) * o1;
+    const a2r = (a1r - (F.p1r[i] - F.p2r[i]) * o3) * o2, a2i = (a1i - (F.p1i[i] - F.p2i[i]) * o3) * o2;
+    F.r[i] = e * F.r[i] + p1 * nr + j1 * a1r + j2 * a2r;
+    F.i[i] = e * F.i[i] + p1 * ni + j1 * a1i + j2 * a2i;
+    F.p2r[i] = F.p1r[i];
+    F.p2i[i] = F.p1i[i];
+    F.p1r[i] = nr;
+    F.p1i[i] = ni;
   }
   // A field that is real has a spectrum with F(-k) = conj F(k). The spinodal growth of phi would lift the tiny
   // departure from that (round-off) at 0.25 a second, so each step puts it back.
-  const hf = S.hf, neg = S.neg;
   for (let t = 0; t < hf.length; t++) {
     const i = hf[t], j = neg[i], r = 0.5 * (F.r[i] + F.r[j]), m = 0.5 * (F.i[i] - F.i[j]);
     F.r[i] = F.r[j] = r;
     F.i[i] = m;
     F.i[j] = -m;
   }
-  for (let t = 0; t < S.sf.length; t++) F.i[S.sf[t]] = 0;
+  for (let t = 0; t < sf.length; t++) F.i[sf[t]] = 0;
 }
 
 function forceStep(S, h) {
@@ -262,7 +293,7 @@ function buildRing(S) {
 
 // ---- the marker. A second scalar c carried by the same flow (semi-Lagrangian, midpoint back-trace, Catmull-Rom look-up) and
 // pulled slowly back to a large-scale pattern c0 that drifts, so it never goes uniform. It paints the flow inside each liquid.
-const CTAU = 7; // relaxation time of c towards c0, s
+const CTAU = 4; // relaxation time of c towards c0, s
 function bil(f, fi, fj) {
   const i0 = floor(fi), j0 = floor(fj), a = fi - i0, b = fj - j0;
   const x0 = i0 & (W - 1), x1 = (i0 + 1) & (W - 1), r0 = (j0 & (H - 1)) * W, r1 = ((j0 + 1) & (H - 1)) * W;
@@ -316,20 +347,12 @@ function advectC(S, h) {
 }
 
 function step(S, h) {
-  if (S.hE !== h) {
-    const { keep, k2, Ew, Ep } = S;
-    for (let t = 0; t < keep.length; t++) {
-      const i = keep[t], q = k2[i], r = S.kk[i] / KC, r2 = r * r, r4 = r2 * r2;
-      Ew[i] = exp(-h * (NU * q + ALPHA + HV * r4 * r4));
-      Ep[i] = exp(-h * MOB * ((STAB - 1) * q + XI * XI * q * q));
-    }
-    S.hE = h;
-  }
+  const K = coefs(S, h);
   forceStep(S, h);
   tend(S);
   advectC(S, h);
-  ab3(S, S.w, S.Ew, h);
-  ab3(S, S.p, S.Ep, h);
+  etd(S, S.w, K.w, h);
+  etd(S, S.p, K.p, h);
   S.h2 = S.h1;
   S.h1 = h;
   S.steps++;
@@ -337,7 +360,7 @@ function step(S, h) {
 
 // ---- one frame of flow time. The steps are short enough that the fastest water moves at most CFL of a wavelength's inverse.
 function advance(S, dt) {
-  const n = min(3, ceil((dt * S.vmax) / CFLMAX));
+  const n = max(1, min(3, ceil((dt * S.vmax) / CFLMAX)));
   for (let j = 0; j < n; j++) step(S, dt / n);
 }
 
@@ -383,10 +406,9 @@ function respin(S) {
   S.fi.fill(0);
   for (const F of [S.w, S.p]) for (const a of [F.nr, F.ni, F.p1r, F.p1i, F.p2r, F.p2i]) a.fill(0);
   S.h1 = S.h2 = 0;
-  S.hE = -1;
   S.vmax = 4;
-  // the forcing starts at its stationary spread
-  forceWarm(S);
+  // the forcing starts at its stationary spread: an Ornstein-Uhlenbeck step of infinite length
+  forceStep(S, Infinity);
   for (let t = 0; t < S.ring.length; t++) {
     const i = S.ring[t], j = S.neg[i], k2 = S.k2[i], a = 1 / (1 / TAUF + NU * k2 + ALPHA);
     S.w.r[i] = S.fr[i] * a;
@@ -397,19 +419,8 @@ function respin(S) {
   for (let k = 0; k < N; k++) S.C[k] = 0;
   patternC0(S, 0);
   for (let k = 0; k < N; k++) S.C[k] = S.c0[k];
-  // eight seconds of flow time in steps of 1/20 s
-  for (let n = 0; n < 160; n++) advance(S, 0.05);
-}
-
-function forceWarm(S) {
-  const { ring, wring, neg } = S;
-  for (let t = 0; t < ring.length; t++) {
-    const i = ring[t], j = neg[i], a = wring[t] * S.stir * 0.7071;
-    S.fr[i] = a * randn();
-    S.fi[i] = a * randn();
-    S.fr[j] = S.fr[i];
-    S.fi[j] = -S.fi[i];
-  }
+  // five and a half seconds of flow time in steps of 1/20 s
+  for (let n = 0; n < 110; n++) advance(S, 0.05);
 }
 
 export function setup(params) {
@@ -437,7 +448,7 @@ export function update(dt, input, params) {
   if (h <= 0) return;
   S.stir = pow(cl(k[1], 0.8, 3.2) / 2, 0.75);
   const sc = cl(k[2], -1, 1);
-  S.cap = CAP * pow(2, CAPX * sc);
+  S.cap = CAP * pow(2, (sc < 0 ? CAPX : CAPY) * sc) * pow(S.stir, CAPS);
   const kf = KF * pow(2, -KFX * sc);
   if (abs(kf - S.kf) > 0.02) {
     S.kf += (kf - S.kf) * (1 - exp(-3 * h));
@@ -469,8 +480,8 @@ const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
 const TMP = [0, 0, 0];
 const LIQ = [
   // L, chroma, hue (degrees), how far the marker moves L and the hue
-  [0.8, 0.15, 78, 0.1, 24],
-  [0.52, 0.1, 200, 0.1, 28],
+  [0.8, 0.15, 78, 0.15, 24],
+  [0.58, 0.1, 200, 0.2, 28],
 ];
 function buildLut(S, shift) {
   for (let q = 0; q < 2; q++) {
@@ -478,10 +489,10 @@ function buildLut(S, shift) {
     for (let n = 0; n < 256; n++) {
       const c = (n / 255) * 2 - 1;
       const hd = H0 + shift + dH * c;
-      let dh = ((hd - 75) % 360 + 360) % 360;
+      let dh = ((hd - 60) % 360 + 360) % 360;
       if (dh > 180) dh -= 360;
-      const warm = exp(-(dh * dh) / 2500);
-      const L = L0 + dL * c + (q ? 0.12 * warm : 0);
+      const warm = exp(-(dh * dh) / 3600);
+      const L = L0 + dL * c + (q ? 0.2 * warm : 0.04 * warm);
       let C = C0;
       const h = (hd * PI) / 180;
       for (let it = 0; it < 8; it++) {
@@ -502,7 +513,9 @@ export function draw(display, params) {
   if (!S || !S.steps) return;
   const o = [0, 0, 0], { ph, C, lut } = S, A = lut[0], B = lut[1];
   for (let k = 0; k < N; k++) {
-    const f = cl(ph[k], -1, 1), t = 0.5 + 0.5 * f, e = 1 - f * f, g = e * e * e * 0.95;
+    const f = cl(ph[k], -1, 1), t = sm(-0.5, 0.5, f), gx = S.phx[k], gy = S.phy[k];
+    // an interface in equilibrium has |grad phi| sqrt(2) xi = 1 - phi^2; a blob of half-mixed liquid does not, and does not glow
+    const e = min(1 - f * f, sqrt(gx * gx + gy * gy) * 2.1 * XI), g = e * e * e * e * 0.92;
     const n = 3 * round((cl(C[k], -1, 1) * 0.5 + 0.5) * 255);
     let L = B[n] + (A[n] - B[n]) * t, a = B[n + 1] + (A[n + 1] - B[n + 1]) * t, b = B[n + 2] + (A[n + 2] - B[n + 2]) * t;
     L += g * (0.97 - L);
