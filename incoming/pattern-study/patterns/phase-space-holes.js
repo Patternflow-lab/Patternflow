@@ -37,6 +37,43 @@
 // held under 0.85 by a tanh), with the density, and so the charge, unchanged. Without it the holes settle into a regular lattice
 // and recur stays under 0.3 at the small boxes.
 
+// What the checks showed (source, sponge and unevenness off unless said; double precision; linear theory is a root of
+// D(k, w) = 1 + sum w_j / (k s_j)^2 (1 + xi_j Z(xi_j)), xi_j = (w / k - c_j) / (s_j sqrt 2), by a secant search in the complex plane,
+// Z from the trapezoid sum of exp(-t^2) / (t - xi) with Landau's continuation below the real axis).
+// Landau damping. A Maxwellian of spread 1 on this grid (velocity to +-6), a 1e-3 ripple at k = 0.5, 40 time units, field frequency
+// from the zero crossings of E and rate from its peaks (17 of them): 1.4161 and -0.1534 at dt 0.1 against 1.4157 and -0.1534 from
+// the root (1.4156 and -0.1533 as I remember the tables); the frequency error is 1.4e-3, 4.4e-4 and 1.8e-4 at dt 0.2, 0.1 and 0.05.
+// As shipped, with the limiter: 1.4188 and -0.1531. At k = 0.3: -0.0126 against -0.0126 and 1.163 against 1.160.
+// Two-stream growth. This f0, a seed of 1e-6 in one wavelength of box, k = 0.3 to 1.2: the roots give 0.2087, 0.2636, 0.2845,
+// 0.2749, 0.2369, 0.1698 and 0.0672 (the best k is 0.62 at 0.2846, the cut-off 1.26), the runs at dt 0.1 give 0.2082, 0.2623, 0.2855,
+// 0.2747, 0.2372, 0.1701 and 0.0677, ratios 0.995 to 1.007 (1.026 at k = 1.2 for dt 0.2).
+// Conservation, with the limiter off and on. Momentum stays at rounding (1e-15 for the wave, 1e-14 for the saturated two-stream).
+// Mass falls only by what leaves through the end rows: 6.5e-10 of it in 60 time units for the wave, 1.2e-5 in 100 for the two-stream.
+// The total energy of the wave (alpha 0.05, 9.5 plasma periods) drifts
+// by 3.8e-5, 9.1e-6 and 1.8e-6 at dt 0.2, 0.1 and 0.05, a factor 4.2 and 5.0 each time the step halves, so second order; with the
+// limiter it is 9.8e-5, 6.7e-5 and 5.9e-5, a floor that the clipped filaments set. Through the saturation of the two-stream
+// (T = 100) the energy at the end is off by 3.1e-3, 1.7e-3, 8.6e-4 and 6.1e-4 at dt 0.2 to 0.025 without the limiter and by 5e-3
+// with it, 0.5 percent of the total that the grid takes where a vortex winds finer than a row. The field energy U(60)
+// converges to the dt 0.0125 run with errors 1.7e-2, 1.05e-2, 3.3e-3 and 8.4e-4, ratios 1.65, 3.2 and 3.9, so second order.
+// A hole's width against the depth of its well. An electron in a well that stands still has v^2 / 2 + phi constant, so the
+// separatrix, the orbit that just reaches the top, is sqrt(2 depth) wide on either side at the bottom. One hole in the box
+// (k = 0.9 to 0.3, depth 0.58 to 1.3, 910 samples from 40 to 160 time units): the half-width of the part of the column where the
+// dye is mixed (u / f between 0.15 and 0.85) is 1.08 to 1.12 times sqrt(2 depth), the beams' own spread adds the rest, and the
+// log of it goes against the log of sqrt(2 depth) with slope 0.73 (correlation 0.76; 1 is the root). With the source on,
+// 3292 wells at L = 68, nu 0.074: slope 0.90, correlation 0.62, ratio 1.14, wells that are not standing still scatter.
+LONGRUN
+// What went wrong first. A spectral shift in v with an exponential filter spread the ringing of every sharp filament over the whole
+// column, 1e-6 of the peak and as much as the far tails hold, so the dye there was noise, and the velocity ends wrapped: the
+// momentum jumped to -5 once a large vortex reached them. The flux-balance slide has neither. A shift of f in x by Fourier
+// filters did the same along the rows at the tails (f changes by e^3 between neighbouring columns there): now the same slide.
+// With a ripple of a few percent and a uniform feed the box fell into a steady lattice of two or three holes (the field energy
+// moved by 0.011 round its mean) and recur, which I first read off a grey copy of the picture, was 0.14 to 0.33 at every box
+// length. An uneven feed fixes it (Flow 4, Scale 1, three seeds: 0.26 with a feed of three drifting waves, 0.44 with the
+// random one); making the box length and nu drift by three sines made it worse (0.19: the sines come round
+// and so does the picture); two bumps of 3 percent at +-2 beam speeds on the tails and a feed of three drifting waves
+// gave nothing; an unbounded feed went negative and the state died (recur 0.06). A three-beam equilibrium is nearly stable
+// (U = 0.01). Dye read from rows where f is under e^-7 of the peak is noise, so there the hue goes to the beam's own.
+
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh, log } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -67,7 +104,7 @@ function newSim(nx, nv, beam, wid) {
     oc: new Float64Array(NM), os: new Float64Array(NM),
     cs: new Float64Array(nx * (nx >> 1)), sn: new Float64Array(nx * (nx >> 1)),
     pad: new Float64Array(nv + 8), flux: new Float64Array(nv + 8), rate: V(), edge: V(),
-    time: 0, mass: 1,
+    time: 0, mass: 1, restarts: 0,
   };
   for (let k = 1; k < nx >> 1; k++)
     for (let i = 0; i < nx; i++) {
@@ -344,6 +381,7 @@ export function update(dt, input, params) {
   for (let i = 0; i < n; i++) step(S, T / n);
   if (!isFinite(S.mass + S.E[0])) {
     // never reached in the runs below; if a value ever went bad, the plasma starts over from its ripple rather than stay dark
+    S.restarts++;
     seedRipple(S, 0.03, 8);
     for (let i = 0; i < 400; i++) step(S, 0.12);
   }
