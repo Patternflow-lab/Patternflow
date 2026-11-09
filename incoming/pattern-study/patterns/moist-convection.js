@@ -99,7 +99,7 @@ function newState(nx, nz) {
     fft: makeFft(nx), zr: new Float64Array(nx), zi: new Float64Array(nx),
     Sr: new Float64Array((nz + 1) * h), Si: new Float64Array((nz + 1) * h), Pr: new Float64Array((nz + 1) * h), Pi: new Float64Array((nz + 1) * h),
     cx: new Float64Array(h), ivm: new Float64Array(h * nz), dr: new Float64Array(nz), di: new Float64Array(nz),
-    PI: Z(), PRS: Z(), LCJ: Z(), THEQ: Z(), KR: Z(), KS: Z(), QEQ: Z(), KQ: Z(), ALP: Z(), VT: Z(), ETN: new Float64Array(nz + 1), UTN: Z(),
+    PI: Z(), PRS: Z(), LCJ: Z(), ICE: Z(), QC0J: Z(), KAUJ: Z(), VTF: Z(), THEQ: Z(), KR: Z(), KS: Z(), QEQ: Z(), KQ: Z(), ALP: Z(), VT: Z(), ETN: new Float64Array(nz + 1), UTN: Z(),
     TS: new Float64Array(nx), QSF: new Float64Array(nx), ph: new Float64Array(8), wv: new Float64Array(8), kv: new Float64Array(8),
     // knob state
     ks: 0, kq: 0, kf: 2, Ts: 300, wet: 0.85, rhr: 0.4, Jinv: 0, zinv: 3000, qBL: 0.015, cmax: 0, wmax: 0,
@@ -162,6 +162,12 @@ function profiles(S) {
     S.QEQ[j] = max(2e-4, qFree(S, j, z));
     S.KQ[j] = sm(S.zinv - 300, S.zinv + 300, z) / TAUQ + sm(6500, 8000, z) / 1800;
     S.ALP[j] = ALPHA + sm(nz - 14, nz, j + 0.5) / 900;
+    // above the freezing level cloud turns to snow quickly and the snow falls slowly: anvils shed fall streaks instead of staying
+    const fi = sm(3800, 5600, z);
+    S.ICE[j] = fi;
+    S.QC0J[j] = QC0 * (1 - 0.9 * fi);
+    S.KAUJ[j] = KAUTO * (1 + 3 * fi);
+    S.VTF[j] = 1 - 0.65 * fi;
   }
   // target mean wind: linear shear, depth-mean zero, at cell centres; vorticity target at the corners
   let m = 0;
@@ -363,9 +369,12 @@ function advectScalars(S, c) {
 function advectRain(S, c, dt) {
   const { nx, nz, QR, FX, WZ, GX, GZ, DA, VT } = S, mx = nx - 1, D = S.D;
   // fall speed of each cell's rain, m/s
-  for (let k = 0; k < S.n; k++) {
-    const q = QR[k];
-    DA[k] = q > 1e-9 ? cl(6 * sqrt(sqrt(q * 1000)), 2, 10) : 0;
+  for (let j = 0; j < nz; j++) {
+    const vf = S.VTF[j], o = j * nx;
+    for (let i = 0; i < nx; i++) {
+      const q = QR[o + i];
+      DA[o + i] = q > 1e-9 ? vf * cl(6 * sqrt(sqrt(q * 1000)), 2, 10) : 0;
+    }
   }
   for (let j = 0; j < nz; j++) {
     const o = j * nx;
@@ -484,7 +493,7 @@ function forcing(S, dt) {
 
 // ---- saturation adjustment, warm rain and buoyancy in one pass over the cells
 function thermo(S, dt) {
-  const { n, nx, nz, TL, QT, QR, QC, B, RH, TH, PI, PRS, LCJ } = S;
+  const { n, nx, nz, TL, QT, QR, QC, B, RH, TH, PI, PRS, LCJ, QC0J, KAUJ } = S;
   let mic = 0;
   for (let j = 0; j < nz; j++) {
     const pi = PI[j], p = PRS[j], lcj = LCJ[j], o = j * nx;
@@ -510,7 +519,7 @@ function thermo(S, dt) {
       if (qr > 0 || qc > 0) {
         let conv = 0, ev = 0;
         if (qc > 0) {
-          let r = KAUTO * (qc > QC0 ? qc - QC0 : 0);
+          let r = KAUJ[j] * (qc > QC0J[j] ? qc - QC0J[j] : 0);
           if (qr > 1e-8) r += KACC * qc * pow(qr, 0.875);
           conv = r * dt;
           if (conv > qc) conv = qc;
@@ -703,12 +712,12 @@ function skyRows(S, shift) {
   const { nz } = S;
   for (let j = 0; j < nz; j++) {
     const u = j / (nz - 1);
-    let L = 0.86 - 0.32 * pow(u, 0.75), C = 0.06 + 0.06 * u;
-    const hd = 218 + 36 * pow(u, 0.9) + shift;
+    let L = 0.74 - 0.34 * pow(u, 0.75), C = 0.1 + 0.07 * u;
+    const hd = 214 + 44 * pow(u, 0.9) + shift;
     // a dark orange or olive reads as brown on the panel, so the warm hues come up in lightness
-    let dh = (((hd - 75) % 360) + 360) % 360;
+    let dh = (((hd - 85) % 360) + 360) % 360;
     if (dh > 180) dh -= 360;
-    L += 0.28 * exp(-(dh * dh) / 3200) * (1 - sm(0.45, 0.85, L));
+    S.bw[j] = exp(-(dh * dh) / 4200);
     S.sL[j] = L;
     S.sC[j] = C;
     S.sH[j] = (hd * PI) / 180;
@@ -723,6 +732,7 @@ function setupDraw(S) {
   S.sH = new Float64Array(nz);
   S.SH = new Float64Array(S.n);
   S.bm = new Float64Array(nz);
+  S.bw = new Float64Array(nz);
   S.bs = new Float64Array(nz);
   S.hueDone = -999;
 }
@@ -730,7 +740,7 @@ function setupDraw(S) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const { nx, nz, QC, QR, RH, B, WZ, D, SH, sL, sC, sH, bm, bs } = S, mx = nx - 1, o = [0, 0, 0];
+  const { nx, nz, QC, QR, RH, B, WZ, D, SH, sL, sC, sH, bm, bs, bw } = S, mx = nx - 1, o = [0, 0, 0];
   // buoyancy against its level mean, in units of that level's rms (never less than a share of the panel's)
   let gs = 0;
   for (let j = 0; j < nz; j++) {
@@ -743,7 +753,7 @@ export function draw(display, params) {
     gs += bs[j];
   }
   gs /= nz;
-  for (let j = 0; j < nz; j++) bs[j] = 1 / max(bs[j], 0.2 * gs, 1e-4);
+  for (let j = 0; j < nz; j++) bs[j] = 1 / max(bs[j], 0.04 * gs, 1e-6);
   // sunlight from the upper left: what lies on the ray above and to the left of a cell shades it
   for (let i = 0; i < nx; i++) SH[(nz - 1) * nx + i] = 0;
   for (let j = nz - 2; j >= 0; j--) {
@@ -759,22 +769,24 @@ export function draw(display, params) {
       const k = j * nx + x, qc = QC[k], qr = QR[k];
       const w = (0.5 * (WZ[k] + WZ[k + nx])) / D;
       const hz = sm(0.4, 1, RH[k]);
-      let L = Lr + 0.07 * hz + 0.025 * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.5 * hz), h = Hr + 0.2 * tanh(w / 2);
+      let L = Lr + 0.05 * hz + 0.025 * tanh((B[k] - bm[j]) * bs[j]), C = Cr * (1 - 0.5 * hz), h = Hr + 0.2 * tanh(w / 2);
       if (qr > 1e-6) {
-        const ar = 1 - exp(-qr * 2500);
-        L *= 1 - 0.35 * ar;
-        C *= 1 + 0.25 * ar;
+        // rain darkens and deepens the sky behind it; snow above the freezing level whitens it
+        const ar = 1 - exp(-qr * 2500), ic = S.ICE[j];
+        L = L * (1 - 0.35 * ar * (1 - ic)) + 0.12 * ar * ic;
+        C *= 1 + 0.25 * ar * (1 - ic);
       }
       const a = 1 - exp(-qc * 4000);
       if (a > 0.002) {
-        const lit = exp(-(SH[k] + 0.5 * qc) * 160);
-        L += (0.55 + 0.45 * lit - L) * a;
-        C += (0.015 + 0.035 * (1 - lit) - C) * a;
+        const lit = exp(-(SH[k] + 0.5 * qc) * 450);
+        L += (0.4 + 0.6 * lit - L) * a;
+        C += (0.015 + 0.045 * (1 - lit) - C) * a;
       }
       if (j < 3) {
-        L = 0.3;
-        C = 0.07;
+        L = 0.24 + 0.1 * tanh((S.TS[x] - S.Ts) * 2);
+        C = 0.08;
       }
+      L += 0.3 * bw[j] * (1 - sm(0.5, 0.9, L));
       lin(L, C * cos(h), C * sin(h), o);
       display.setPixel(x, y, gam(o[0]), gam(o[1]), gam(o[2]));
     }
