@@ -56,7 +56,7 @@
 // model time units before the first frame. It is drawn toward white, by at most 0.85, after twice and a half of its
 // departure from a blur of itself is added, which lifts thin wisps over broad cloud; a front glows by at most 0.3.
 //
-// What was checked, on this file's solver (harnesses are in the creator's scratch folder).
+// What was checked, on this file's solver (the harnesses are not in the repository).
 // 1. Linear growth. A single mode of amplitude 1e-9 against sigma = kx sqrt(U^2 K^4 (4 F^2 - K^4) - beta^2 F^2) / (K^2 (K^2 + 2 F)),
 //    derived here from the 2 x 2 problem for layers +-U, over a window after a spin-up of 8 / sigma. Ld 3.3: mode (2,0)
 //    0.125507 against 0.125511 at steps of 0.2; at steps of 0.4 (1,0) 0.99938, (3,0) 0.99963, (2,2) 0.99983 of the formula, and
