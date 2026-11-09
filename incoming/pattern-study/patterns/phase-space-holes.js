@@ -16,6 +16,27 @@
 // Knob 3: Scale. The length of the box in beam speeds over omega_p, 68 times 1.5 to the power of minus the knob: 102, 68 and 45 at -1, 0 and 1, so a column is 1.6, 1.06 and 0.70 of them wide. The fastest-growing wavelength is 10.5 (k = 0.6), so 9.7, 6.5 and 4.3 of them fit across; there are 5.7, 4.6 and 3.3 holes at a time and a well is 10.8, 13.4 and 18.5 columns wide, 17.3, 14.3 and 13.1 in box units. A turn of the knob stretches the box over about a second and the holes follow in a few plasma periods.
 // Knob 4: Drive. The rate nu at which every electron is relaxed to the two beams, 0.07 times 2.5 to the knob: 0.028, 0.074 and 0.175 per time unit, so a hole's particles are replaced in 36, 13.5 and 5.7 time units, 12, 4.5 and 1.9 s at Flow 2. At -1 holes live long enough to grow, wind and merge into broad ones (3.8 holes, 16.2 columns wide, 37 percent of the dense rows mixed); at 1 the beams stay nearly whole and the holes are small and brief (4.9 holes, 12.6 columns, 17 percent mixed). The field energy per box length is 0.0035, 0.0058 and 0.0084.
 
+// What the field is. Electrons of mean density 1 in a periodic box of length L on a fixed, uniform background of ions, in units
+// where the plasma frequency is 1 and the beams' speed is 1. Their distribution f(x, v, t) obeys
+//   f_t + v f_x - E f_v = nu (f0 - f) ,    E_x = 1 - integral of f dv ,
+// f0 two Maxwellians of weight 1/2 at v = +-1 and spread 1/3 (24 rows to a unit of velocity, so 8 rows of spread). x is the 64
+// columns and v the 128 rows, row 0 the fastest to the right, so the panel is f on its own grid and the velocity runs to +-2.67.
+// Two arrays carry it: u, the electrons that began in the upper beam, and l, those of the lower one. Both obey the same equation
+// with the same E, so f = u + l and u / f is where a particle came from, and that is the hue.
+// One step of dt: half a drift (every row slides along the columns by v dt / 2), the field from the density (a sum over the box's
+// harmonics), the kick (every column slides down the rows by E dt), half a drift again, the source. A slide is flux balance:
+// each cell hands the part of itself next to its far edge to the next cell, the part read from the cubic through the running sum
+// of the density and kept between zero, the whole cell and (the limiter) the two cell values; so it keeps the mass exactly,
+// keeps every cell positive and has no wrap across the velocity ends, only round the box. It is fourth order where the density
+// is smooth and clips the finest filaments on the grid. The free-streaming equation brings a wave of wavenumber k back after
+// 2 pi / (k dv) (134 for the Landau wave below, 250 for k = 0.6) and the grid keeps that: with the source off that wave's field
+// is back at 56 percent of its start at 134. At nu 0.028, 0.074 and 0.175 it is back at 1.3 percent, 3e-5 and 5e-11 of it.
+// The source relaxes f to f0 at nu everywhere and at up to 1.5 more in the outer six rows at either end (which also keeps the
+// far tail of one beam from reaching the other end). Its two beams are not fed evenly along the box: the share of the upper
+// beam rides above 1/2 and below it by an amount that wanders in modes 1 to 8 (Ornstein-Uhlenbeck, correlation time 25, rms 0.5
+// held under 0.85 by a tanh), with the density, and so the charge, unchanged. Without it the holes settle into a regular lattice
+// and recur stays under 0.3 at the small boxes.
+
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh, log } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
