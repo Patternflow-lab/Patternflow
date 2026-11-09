@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns every colour of the ramp round the grey axis by the knob times 360 degrees; at 0 the foam runs from deep navy through blue and teal to near white.
 // Knob 2: Flow. Model seconds per panel second, so the speed in LEDs a second and how fast the seams form and move: the rms speed is 1.8 LEDs per model second, 0.9 at 0.5, 3.6 at the opening 2 and 7.2 at 4. The picture at one model time does not depend on it.
-// Knob 3: Scale. The wavelength where the flow has most of its energy, 30 LEDs times 1.4 to the minus the knob: 42 at -1, 30 at 0 and 21 at 1. The seams are 2.8 LEDs wide at half height at -1, 2.4 at 0 and 2.2 at 1 (medians), and their spacing follows the wavelength.
-// Knob 4: Compression. The share c of the flow's energy in the part that converges and spreads rather than the part that turns, 0.5 plus 0.35 times the knob: 0.15 at -1, 0.52 at the opening and 0.85 at 1. At 0.15 the seams are 3.2 LEDs wide and the density is half as spread out (sd of ln 0.73 against 1.00); at 0.85 they are 2.1 wide and the white nodes where seams meet are brightest.
+// Knob 3: Scale. The wavelength where the flow has most of its energy, 30 LEDs times 1.4 to the minus the knob: 42 at -1, 30 at 0 and 21 at 1. The seams are 2.8 LEDs wide at half height at -1, 2.4 at 0 and 2.2 at 1 (medians).
+// Knob 4: Compression. The share c of the flow's energy in the part that converges and spreads rather than the part that turns, 0.5 plus 0.35 times the knob: 0.15 at -1, 0.52 at the opening and 0.85 at 1. At 0.15 the seams are 3.2 LEDs wide and the density is less spread out (sd of ln(rho + 0.05) 0.73, against 1.00 at the opening and 1.06 at 1); at 0.85 the seams are 2.1 wide.
 
 // What the field is. A torus of 64 by 128 cells, one to an LED, carrying the density rho of floaters, mean 1, in model seconds:
 //   rho_t + div(rho u) = D lap rho + (1 - rho) / tau,   D = 0.04 LED^2 per model second, tau = 12
@@ -34,7 +34,7 @@
 //   Two cells is about what the scheme can hold.
 // - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.73 to 0.82, dim 0.86 to 0.97, quiet 0.70 to 0.92, last quarter dim 0.68 to 0.93 and quiet 0.53 to 0.84, luma -1.7 to +2.4 per cent first to last quarter.
 //   900 s (recur, dim, quiet): open 0.741, 0.974, 0.929; all minimum 0.754, 0.927, 0.786; all maximum 0.733, 0.987, 0.964. Measured on this file under its name, which seeds the phases.
-// - Cost: 1.3 to 2.1 ms a frame in Node (update and draw), the worst of 300 frames 9.9 ms at the opening, the start 0.2 s.
+// - Cost: 1.3 to 2.1 ms a frame in Node (update and draw), the worst of 300 frames 3.7 ms at the opening and 4.0 at the maximum, the start 0.24 s.
 //
 // What failed first. On led.png the pools between seams of the first ramp, whose darkest stop was (4, 8, 30), showed nearly off; the ramp now starts at (6, 12, 44).
 // What was not checked: a grid finer than 64 by 128 (a seam is two cells wide, so it is the grid that sets it); the correlation dimension of the clusters against the literature; a surface flow taken from a real three-dimensional

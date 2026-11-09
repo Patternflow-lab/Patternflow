@@ -25,7 +25,7 @@
 // it seeds the next row of billows once the layers are straight.
 // The scheme: u and the gradient of w by two inverse transforms (the pairs packed in one), their product by one forward, that term times exp(-36 (k / 1.8)^16) (above 0.5 up to |k| 1.41, a wavelength of 4.5 LEDs), Shu and Osher's third order scheme
 // at a step of 0.05, which is three of those a step. The dye goes with the velocity on the cell faces (a fourth packed transform with a half-cell phase shift) in x, y, x sweeps of the flux-form second order upwind scheme with the monotonised central
-// limiter, in as many substeps as keep a crossing under 0.45. Once a frame w is transformed back for the picture: the dye plus 0.24 tanh(w / its rms), on a six-stop ramp (violet-indigo, violet, rose, coral, peach, pale gold) over c from -1.1 to 1.1. The
+// limiter, in as many substeps as keep a crossing under 0.45. Before the first frame 14 model seconds run, the first 8 with the stirring at five times and without the dye, so that billows are up. Once a frame w is transformed back for the picture: the dye plus 0.24 tanh(w / its rms), on a six-stop ramp (violet-indigo, violet, rose, coral, peach, pale gold) over c from -1.1 to 1.1. The
 // vorticity moves a cell along the ramp, so the flat insides of the layers have a grain, and the cores of billows show.
 //
 // What was checked, with the file's own step (scripts of mine, not in the repo):
@@ -33,17 +33,17 @@
 //   for U = tanh(y), shot by my own routine (0.1897 at alpha 0.4446, Michalke's value; 0.1465, 0.1896 and 0.1611 at alpha 0.2166, 0.4325 and 0.6498), times U0 / dl = 1.4545 gives 0.213, 0.276 and 0.234. With the cut, the viscosities and the
 //   hyperviscosity taken out and a quarter of the step: 0.218, 0.276 and 0.218. The short billows lose most to the cut and the viscosity, the longest to nothing: the file keeps them, since its first version (Heun's scheme, nu 0.01, a cut at 2.2) went to
 //   |u| 62 at model time 48 at the maximum knobs.
-// - 900 s, the open, all-minimum and all-maximum sets through update(): at 0, 20, 100, 300, 600 and 900 s the largest |u| on a face is 5.5 to 8.3 LEDs per model second, the energy (sum of |w|^2 / k^2) 7 to 19, the mean of the dye within 0.015 of 0, and 27 to 47 per cent of the cells at the clamp; no frame was non-finite.
-// - The mean shear: its vorticity (the kx = 0 modes) stays 22 to 59 per cent off the target profile w0, since the billows mix momentum faster than 0.3 a second puts it back.
-// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.56 to 0.75, dim 0.58 to 0.84, quiet 0.51 to 0.79, last quarter dim 0.57 to 0.84 and quiet 0.39 to 0.67, luma -0.4 to +0.6 per cent first to last quarter.
-//   900 s (recur, dim, quiet): open 0.534, 0.613, 0.729; all minimum 0.556, 0.588, 0.658; all maximum 0.573, 0.624, 0.727. Measured on this file under its name, which seeds the noise and the wander.
-// - Cost: 1.7 to 9 ms a frame in Node (update and draw), the worst of 300 frames 14 ms at the opening and 21 ms at the maximum, the start 1.6 s (30 model seconds first, so that billows are up).
+// - 900 s, the open, all-minimum and all-maximum sets through update(): at 0, 20, 100, 300, 600 and 900 s the largest |u| on a face is 4.2 to 8.8 LEDs per model second, the energy (sum of |w|^2 / k^2) 5 to 19, the mean of the dye within 0.012 of 0, and 27 to 47 per cent of the cells at the clamp; no frame was non-finite.
+// - The mean shear: its vorticity (the kx = 0 modes) stays 30 to 51 per cent off the target profile w0 from 20 s on (48, 93 and 58 per cent at the first frame of the open, minimum and maximum sets), since the billows mix momentum faster than 0.3 a second puts it back.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.54 to 0.66, dim 0.57 to 0.84, quiet 0.50 to 0.83, last quarter dim 0.57 to 0.83 and quiet 0.42 to 0.73, luma -0.5 to +1.0 per cent first to last quarter.
+//   900 s (recur, dim, quiet): open 0.538, 0.612, 0.750; all minimum 0.575, 0.588, 0.639; all maximum 0.539, 0.635, 0.784. Measured on this file under its name, which seeds the noise and the wander.
+// - Cost: 1.6 to 8.8 ms a frame in Node (update and draw), the worst of 300 frames 15.6 ms at the opening and 15.8 at the maximum, the start 0.9 and 0.8 s.
 //
 // What failed first. 1. Relaxation 0.05 for the shear and 0.07 for the dye and no drag: the layers dissolved into a few big vortices in two-dimensional turbulence and the picture read as Marbling. Drag 0.15 on every eddy and relaxation 0.3 brought the layers
 // back. 2. The dye reached 2.3 times its band value: the shift that brings a row's mean back adds the same number to every cell of the row, so a row of cells at +0.8 and -0.8 whose mean is wrong goes past both. Taking c times the divergence of the face velocity
 // out of the flux form changed nothing (the range stayed +-2.3), so the cause was the shift, and a clamp at +-0.8 fixed it; 27 to 47 per cent of the cells sit at the clamp, the insides of the bands. 3. The first ramp began at (22, 16, 80), luma 25, and the
 // all-minimum set (three bands of 43 LEDs) had a 16 by 16 cell of one colour: dim 0.30; the open set's last quarter was 0.37. The ramp now starts at (60, 40, 146), luma 58, and dim is 0.56 or more in every set below. 4. Scale first moved only the seam thickness, by 1.35 to the knob,
-// and the stills at -1 and 1 looked alike; it now also moves the stirring and the range is 1.7. 5. Heun's scheme blew up, as above.
+// and the stills at -1 and 1 looked alike; it now also moves the stirring and the range is 1.7.
 // What was not checked: the pairing of billows (Winant and Browand) is not counted; a finer grid than 64 by 128 (the half thickness at Scale 1 is 1.3 cells); three dimensions, where the braids break into streaks; whether 4 LEDs a model second
 // for a band is where the Reynolds number belongs. The drag, the relaxation and the stirring are the picture's own: they keep a row of billows coming, and none of them is in the equation of a shear layer.
 
