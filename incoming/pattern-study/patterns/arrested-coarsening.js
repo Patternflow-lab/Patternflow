@@ -30,14 +30,15 @@ const MOB = 6; // mobility M of phi
 const STAB = 3; // linear stabilisation of the cubic term, taken out of the explicit part and put into the exact one
 const CAP = 4; // capillary coefficient at Scale 0 and Stir 2: the body force is -CAP phi grad(mu)
 const CAPS = 1.3; // how fast CAP follows the stirring, so that a weakly stirred tank does not coarsen to one domain
-const CAPX = 2; // how fast CAP follows Scale below its middle, octaves per unit of the knob
-const CAPY = 1.2; // and above it
+const CAPX = 0.8; // how fast CAP follows Scale below its middle, octaves per unit of the knob
+const CAPY = 2.2; // and above it
 const NU = 0.25; // viscosity
 const ALPHA = 0.2; // linear drag on the vorticity, 1/s
 const HV = 3; // extra damping at the highest retained wavenumber, 1/s, rising as the eighth power of k / KC
 const TAUF = 1.2; // correlation time of the stirring, s
 const KF = 4.5; // wavenumber of the stirring at Scale 0, in whole waves across the width: a wavelength of 14 LEDs
-const KFX = 0.35; // how fast KF follows Scale, octaves per unit of the knob
+const KFX = 0.6; // how fast KF follows Scale, octaves per unit of the knob
+const FAX = 1.2; // how fast the stirring grows with k_f above KF
 const FA = 1.0; // rms of the stirring in velocity units, LEDs/s^2, at Stir 2: the vorticity forcing is FA k_f
 const CFLMAX = 0.7; // the largest |u| + |v| times a step, LEDs
 
@@ -288,7 +289,7 @@ function buildRing(S) {
   let sg = 0;
   for (const g of wt) sg += 2 * g * g;
   S.ring = Int32Array.from(half);
-  S.wring = Float64Array.from(wt.map((g) => (FA * KU * S.kf * g) / sqrt(sg)));
+  S.wring = Float64Array.from(wt.map((g) => (FA * pow(max(1, S.kf / KF), FAX) * KU * S.kf * g) / sqrt(sg)));
 }
 
 // ---- the marker. A second scalar c carried by the same flow (semi-Lagrangian, midpoint back-trace, Catmull-Rom look-up) and
