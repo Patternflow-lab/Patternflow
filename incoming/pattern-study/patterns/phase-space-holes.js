@@ -30,7 +30,7 @@
 // keeps every cell positive and has no wrap across the velocity ends, only round the box. It is fourth order where the density
 // is smooth and clips the finest filaments on the grid. The free-streaming equation brings a wave of wavenumber k back after
 // 2 pi / (k dv) (134 for the Landau wave below, 250 for k = 0.6) and the grid keeps that: with the source off that wave's field
-// is back at 56 percent of its start at 134. At nu 0.028, 0.074 and 0.175 it is back at 1.3 percent, 3e-5 and 5e-11 of it.
+// is back at 56 percent of its start at 134. At nu 0.028, 0.074 and 0.175 it is back at 0.013, 3e-5 and 5e-11 of it.
 // The source relaxes f to f0 at nu everywhere and at up to 1.5 more in the outer six rows at either end (which also keeps the
 // far tail of one beam from reaching the other end). Its two beams are not fed evenly along the box: the share of the upper
 // beam rides above 1/2 and below it by an amount that wanders in modes 1 to 8 (Ornstein-Uhlenbeck, correlation time 25, rms 0.5
