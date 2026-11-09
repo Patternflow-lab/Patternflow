@@ -25,9 +25,9 @@
 // What was checked, with this file's own gather and a scripted surface (scripts of mine, not in the repo):
 // - The ray map against a surface h = a cos(kx) on the torus, where the density along x is 1 / |1 + f cos(kx)|, f = G a k^2: the peak 1.386, 1.807 and 2.737 at f 0.3, 0.5 and 0.8 against 1.429, 2.000 and 5.000, the low 0.759, 0.672 and 0.542
 //   against 0.769, 0.667 and 0.556, the mean 1.0000 at every f. The peak falls short because an LED averages over the ridge, which is 1 / sqrt of the distance from the fold: the web is as sharp as one LED and no sharper.
-// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.52 to 0.73, dim 0.97 to 0.99, quiet 0.85 to 0.96; the last quarter dim 0.87 to 0.99 and quiet 0.87 to 0.95; luma first to last quarter within 0.3 per cent. The opening: recur 0.726, dim 0.985, quiet 0.930.
-//   900 s (recur, dim, quiet): open 0.665, 0.993, 0.970; all minimum 0.515, 0.990, 0.945; all maximum 0.691, 0.990, 0.982. Measured on this file under its name, which seeds the sea.
-// - Cost: 2.7 to 4.7 ms a frame in Node (update and draw), the lattice built once at load.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.52 to 0.73, dim 0.97 to 0.99, quiet 0.85 to 0.96; the last quarter dim 0.90 to 0.99 and quiet 0.87 to 0.95; luma first to last quarter within 0.4 per cent. The opening: recur 0.726, dim 0.985, quiet 0.931.
+//   900 s (recur, dim, quiet): open 0.665, 0.993, 0.971; all minimum 0.515, 0.991, 0.947; all maximum 0.691, 0.991, 0.981. Measured on this file under its name, which seeds the sea.
+// - Cost: 2.0 to 4.4 ms a frame in Node (update and draw), the lattice built once at load.
 //
 // What failed first. 1. The first speed was 0.5 wave seconds a second at Flow 1: the web was a different web every third of a second, and a strip of twelve frames a third of a second apart read as twelve pictures. It is 0.07 now, and the web turns over in about two seconds at the opening.
 // 2. The first correlation time of the weights was 60 wave seconds, which at the opening is seven minutes of panel time: the sea never veered in any run anybody would watch. It is 24.
