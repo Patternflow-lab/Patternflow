@@ -35,7 +35,10 @@
 // - Step halving from 0.2 to 0.0125, smooth start, force off, against 0.003125: second order without the look-up (error ratios 4.2, 4.0, 4.2, errors 2.6e-3 down to 5.8e-6); with it 3.4 then 2.4 (1.1e-4 at 0.05 down to 1.9e-5):
 //   the cubic look-up costs the same at every step, so its error grows as steps shrink.
 // - Positive definiteness and bound, 16 runs of 300 s with the knobs thrown to their ends and between every 0.5 to 10 s: smallest det C 0.25, largest tr C 160 (LL 200), largest |L| 3.8; no cell used backward Euler alone, none was
-//   held at the cap on |L| of 12 and none was non-finite. [LONG]
+//   held at the cap on |L| of 12 and none was non-finite.
+// - Long runs through update(): open 3 h (10806 time units), Flow 4 and Scale -1 for 2 h (18726, the fastest clock), the min set 1 h (1176), the max set 2 h (11083). Largest tr C 98, 91, 27, 157, smallest det C 0.68, 0.46,
+//   0.94, 0.58, |L| never over 3.6, nothing non-finite, no cell at backward Euler alone or at the cap. Mean tr C by quarter 6.99, 7.08, 7.00, 7.07 (open, last over first 1.012), 6.99 to 7.04 (fast, 1.002), 2.66 to 2.67 (min, 1.003),
+//   20.22, 20.01, 20.04, 20.16 (max, 0.997); the share over 10 sits at 18.2 to 18.6, 18.2 to 18.5, 0.1 and 60.0 to 60.4 per cent with a spread over time of 4, 3, 0.1 and 6; kinetic energy last over first quarter 0.99, 0.99, 0.99, 1.00.
 // - div u from the spectrum 9e-15 (4.7e-15 of the largest gradient), the gradients against spectral derivatives of u and v 1.1e-14, 4e-15 left imaginary. The state lives in the plane and each flow solve builds Hermitian spectra
 //   from scratch (the stress by the packed extraction, the force as a mode and its conjugate), so there is nothing to drift. A second Stokes solve (three stress components apart, force and curl as vectors) agrees to 1.1e-14 in u and v.
 // - The look-up on a Gaussian ridge at 0.1 to 0.5 LED a step: sigma 2.5 LEDs loses 10 per cent of its peak in 5 time units, sigma 1.5 loses 28, sigma 1 loses 45 (effective diffusivity 0.03 to 0.6 LED^2 per time unit, more for the narrow and fast).
@@ -49,7 +52,7 @@
 // of |L| at 12 stays in the file, which never acted. The first palette had a hue wrap (green fringes) and an olive wash at Hue 0.25 to 0.5. The first flowcheck of the max set ended in NaN from that start at 0.1.
 // What was not checked: the literature values, the grid at other settings, and any real Navier-Stokes flow; the lag is a stand-in.
 
-const { floor, ceil, exp, sqrt, abs, sin, cos, log, PI, min, max, pow, tanh, atan2 } = Math;
+const { floor, exp, sqrt, sin, cos, log, PI, min, max, pow, tanh } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
