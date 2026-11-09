@@ -45,7 +45,7 @@
 // - The same force over the same box on 128 by 256 cells: ln tr C at the same places correlates 0.989 with this grid after 40 time units, the peak tr C is 61 against 50, the means agree (tr C 6.70 and 6.70, strain rate 0.790 and 0.793).
 // - Not chaotic by itself: with the same force a kick of 7e-5 in ln tr C is 0.03, 0.13 and 0.28 ten time units on (partly the restart of the lag) and 1e-2, 3e-2 and 4e-2 a hundred on, at Wi 0.6, 1.9 and 5.4. The laminar
 //   flow of one force mode is stable below Wi 3.5 and its x-dependent noise grows above that at 0.05 per time unit at most, so the force carries the variety.
-// - flowcheck, 240 s, six sets: recur 0.64 to 0.76, dim 0.84 to 0.94, quiet 0.75 to 0.91, last quarter dim over 0.65 and quiet over 0.57, luma 0.8 to 9.9 per cent first to last quarter; 900 s: open 0.676, 0.944, 0.944.
+// - flowcheck, 240 s, six sets: recur 0.70 to 0.79, dim 0.86 to 0.89, quiet 0.73 to 0.93, last quarter dim over 0.73 and quiet over 0.67, luma 1.7 to 4.9 per cent first to last quarter; 900 s (recur, dim, quiet): open 0.695, 0.934, 0.932, all-min 0.644, 0.946, 0.873, all-max 0.682, 0.940, 0.927. Measured again on this file under its name, which seeds the force.
 //
 // What failed first. With the flow solved from the stress of the same step and no lag, a few cells passed tr C 100 to 120 of LL 200 and |L| then doubled every step to NaN, within 2 to 17 time units in every run (the stress f C grows as
 // 1 / (LL - tr C), so the coupling is stiff). The lag of 0.5 and a step of 0.05 stop it; at a step of 0.1 the start from rest at lam 12 failed in 11 of 40 seeds, at 0.05 in 1 of 60. So lam comes in over the first 4.8 time units, and a hold
