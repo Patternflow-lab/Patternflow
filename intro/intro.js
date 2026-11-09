@@ -153,6 +153,7 @@
     });
     deltas.fill(0);
     showKnobs();
+    if (audio) soundNote.textContent = whatSoundTurns();
   }
 
   // ── Knobs ─────────────────────────────────────────────────────────────────
@@ -270,6 +271,11 @@
     };
   }
 
+  function whatSoundTurns() {
+    const labels = LABELS[patterns[active].id] || ["노브 1", "노브 2", "노브 3", "노브 4"];
+    return `저음은 「${labels[1]}」, 중음은 「${labels[3]}」, 고음은 「${labels[0]}」 노브로 갑니다.`;
+  }
+
   function soundOff() {
     if (!audio) return;
     audio.stream.getTracks().forEach((t) => t.stop());
@@ -286,7 +292,8 @@
     for (const name of ["low", "mid", "high"]) {
       const [a, b] = audio.bands[name];
       let sum = 0;
-      for (let k = a; k <= b; k++) sum += audio.bins[k];
+      // Silence reads -Infinity; the floor of a quiet microphone is well above -120.
+      for (let k = a; k <= b; k++) sum += Math.max(-120, audio.bins[k]);
       const db = sum / (b - a + 1);
       audio.floor[name] = Math.min(db, audio.floor[name] + dt * 2);
       audio.peak[name] = Math.max(db, audio.peak[name] - dt * 4, audio.floor[name] + 12);
@@ -315,7 +322,7 @@
         await soundOn();
         soundButton.textContent = "마이크 끄기";
         soundButton.setAttribute("aria-pressed", "true");
-        soundNote.textContent = "저음은 속도를, 고음은 색을 돌립니다.";
+        soundNote.textContent = whatSoundTurns();
         if (paused) togglePause();
       } catch (error) {
         soundNote.textContent =

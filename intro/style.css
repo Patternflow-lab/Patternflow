@@ -171,7 +171,7 @@ p {
 /* ── Device ─────────────────────────────────────────────────────────────── */
 
 .play {
-  max-width: 1040px;
+  max-width: 880px;
 }
 
 .play > h2,
@@ -183,8 +183,8 @@ p {
 
 .device {
   display: grid;
-  grid-template-columns: 1fr 168px;
-  gap: 28px;
+  grid-template-columns: 1fr 160px;
+  gap: 24px;
   align-items: center;
   margin: 24px 0 0;
   padding: 22px;
@@ -303,10 +303,13 @@ p {
 }
 
 .note {
-  min-height: 1.6em;
   margin-top: 8px;
   font-size: 14px;
   color: var(--quiet);
+}
+
+.note:empty {
+  margin: 0;
 }
 
 /* ── Record ─────────────────────────────────────────────────────────────── */
@@ -354,6 +357,7 @@ p {
 }
 
 footer {
+  max-width: 728px;
   padding: 56px 24px 40px;
   font-size: 13px;
   color: var(--quiet);
