@@ -29,8 +29,8 @@ const sm = (a, b, x) => {
 const CFG = {
   eps: 0.3, // distance above onset
   mu: 2.5, // (g+ - g0) / (g0 - g-)
-  a0: 0.3, // 1 - g-/g0 at Rotation 0
-  ar: 1.8,
+  a0: 0.32, // 1 - g-/g0 at Rotation 0
+  ar: 1.58, // and the ratio per unit of Rotation
   lam0: 7,
   lamr: 1.25,
   kc: 0.8, // cut wavenumber of the amplitudes, in units of q0
@@ -138,12 +138,11 @@ function start(params, k) {
     tr: vec(), ti: vec(),
     E: [vec(), vec(), vec()], eh: -1, lam: -1,
     kx: vec(), ky: vec(),
-    epsMap: vec(), keep: new Int32Array(GN), nk: 0,
+    keep: new Int32Array(GN), nk: 0,
     lam: -1, a: 0, t: 0, hue: 0,
     gp: 0, gm: 0,
   };
   params.s = S;
-  S.epsMap.fill(CFG.eps);
   prepare(S, lamOf(k[2]), aOf(k[3]));
   // a smooth random start: three random fields on the first modes, amplitudes of a few per cent of sqrt(eps)
   for (let j = 0; j < 3; j++) {
@@ -207,11 +206,10 @@ function linear(S, h) {
 
 // pointwise: A_j' = A_j (eps - |A_j|^2 - g+ |A_j+1|^2 - g- |A_j-1|^2)
 function local(S, tau) {
-  const { ar, ai, gp, gm, epsMap } = S;
+  const { ar, ai, gp, gm } = S, e = CFG.eps;
   const a0 = ar[0], b0 = ai[0], a1 = ar[1], b1 = ai[1], a2 = ar[2], b2 = ai[2];
   for (let q = 0; q < GN; q++) {
     const i0 = a0[q] * a0[q] + b0[q] * b0[q], i1 = a1[q] * a1[q] + b1[q] * b1[q], i2 = a2[q] * a2[q] + b2[q] * b2[q];
-    const e = epsMap[q];
     const r0 = e - i0 - gp * i1 - gm * i2, r1 = e - i1 - gp * i2 - gm * i0, r2 = e - i2 - gp * i0 - gm * i1;
     const h = 0.5 * tau;
     const j0 = i0 * exp(2 * h * r0), j1 = i1 * exp(2 * h * r1), j2 = i2 * exp(2 * h * r2);
@@ -269,9 +267,13 @@ export function update(dt, input, params) {
   const S = params.s, ft = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
   prepare(S, lamOf(k[2]), aOf(k[3]));
-  for (let q = 0; q < GN; q++) S.epsMap[q] = CFG.eps;
   const ell = S.lam / TAU, tps = (CFG.v1 * cl(k[1], 0.5, 3)) / (2 * sqrt(CFG.eps * S.a) * ell);
   advance(S, ft * tps, CFG.hmax);
+  // Never reached in the runs in the header. If the amplitudes ever went bad, start over.
+  if (!(S.ar[0][0] * S.ar[0][0] + S.ai[1][GN >> 1] * S.ai[1][GN >> 1] < 100 * CFG.eps)) {
+    params.s = null;
+    update(dt, input, params);
+  }
 }
 
 // ---- colour --------------------------------------------------------------------------------
@@ -317,7 +319,6 @@ function buildLut(S, hue) {
   }
 }
 
-const UR = new Float64Array(N), UI = new Float64Array(N);
 const PR = [new Float64Array(N), new Float64Array(N), new Float64Array(N)], PI_ = [new Float64Array(N), new Float64Array(N), new Float64Array(N)];
 
 // A_j on the LEDs by zero padding the spectrum of the grid
@@ -350,37 +351,41 @@ export function draw(display, params) {
   const hue = cl(S.hue, 0, 1);
   if (S.lutHue !== hue || !S.lut) buildLut(S, hue);
   upsample(S);
-  const q = TAU / S.lam, lut = S.lut;
-  const ref = 1 / (2 * sqrt(CFG.eps));
+  const q = TAU / S.lam, lut = S.lut, ref = 1.5 / (2 * sqrt(CFG.eps));
+  const [d0, d1, d2] = DIR;
+  const dc0 = cos(q * d0[0]), ds0 = sin(q * d0[0]), dc1 = cos(q * d1[0]), ds1 = sin(q * d1[0]), dc2 = cos(q * d2[0]), ds2 = sin(q * d2[0]);
+  const A0r = PR[0], A0i = PI_[0], A1r = PR[1], A1i = PI_[1], A2r = PR[2], A2i = PI_[2];
   for (let y = 0; y < H; y++) {
+    // the carrier of each orientation along the row, by rotating a unit vector one LED at a time
+    const yy = y - 63.5;
+    let p0 = q * (-31.5 * d0[0] + yy * d0[1]), p1 = q * (-31.5 * d1[0] + yy * d1[1]), p2 = q * (-31.5 * d2[0] + yy * d2[1]);
+    let c0 = cos(p0), s0 = sin(p0), c1 = cos(p1), s1 = sin(p1), c2 = cos(p2), s2 = sin(p2);
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
-      let U = 0, wsum = 0;
-      const w = [0, 0, 0];
-      for (let j = 0; j < 3; j++) {
-        const ph = q * (DIR[j][0] * (x - 31.5) + DIR[j][1] * (y - 63.5));
-        const ar = PR[j][p], ai = PI_[j][p];
-        U += 2 * (ar * cos(ph) - ai * sin(ph));
-        const I = ar * ar + ai * ai;
-        w[j] = I * I;
-        wsum += w[j];
-      }
-      const t = 0.5 + 0.5 * tanh(1.5 * U * ref);
-      const i = (t * (NT - 1)) | 0, inv = 1 / (wsum + 1e-12);
-      // how far the three weights are from one: the length of their sum on the colour wheel
-      const vx = (w[0] - 0.5 * (w[1] + w[2])) * inv, vy = 0.8660254 * (w[1] - w[2]) * inv, m = vx * vx + vy * vy;
-      let r = 0, g = 0, b = 0;
-      for (let j = 0; j < 3; j++) {
-        const o = (j * NT + i) * 3, f = w[j] * inv * m;
-        r += lut[o] * f;
-        g += lut[o + 1] * f;
-        b += lut[o + 2] * f;
-      }
-      const o = (3 * NT + i) * 3, f = 1 - m;
-      r += lut[o] * f;
-      g += lut[o + 1] * f;
-      b += lut[o + 2] * f;
-      display.setPixel(x, y, (r + 0.5) | 0, (g + 0.5) | 0, (b + 0.5) | 0);
+      const a0 = A0r[p], b0 = A0i[p], a1 = A1r[p], b1 = A1i[p], a2 = A2r[p], b2 = A2i[p];
+      const U = 2 * (a0 * c0 - b0 * s0 + a1 * c1 - b1 * s1 + a2 * c2 - b2 * s2);
+      const i0 = a0 * a0 + b0 * b0, i1 = a1 * a1 + b1 * b1, i2 = a2 * a2 + b2 * b2;
+      const w0 = i0 * i0, w1 = i1 * i1, w2 = i2 * i2, inv = 1 / (w0 + w1 + w2 + 1e-12);
+      const t = 0.5 + 0.5 * tanh(U * ref), i = (t * (NT - 1)) | 0;
+      // the length of the three weights summed on the colour wheel: 1 in one orientation's domain, 0 where all three are equal
+      const vx = (w0 - 0.5 * (w1 + w2)) * inv, vy = 0.8660254 * (w1 - w2) * inv, m = vx * vx + vy * vy;
+      const o0 = i * 3, o1 = (NT + i) * 3, o2 = (2 * NT + i) * 3, o3 = (3 * NT + i) * 3, f0 = w0 * inv * m, f1 = w1 * inv * m, f2 = w2 * inv * m, f3 = 1 - m;
+      display.setPixel(
+        x,
+        y,
+        (lut[o0] * f0 + lut[o1] * f1 + lut[o2] * f2 + lut[o3] * f3 + 0.5) | 0,
+        (lut[o0 + 1] * f0 + lut[o1 + 1] * f1 + lut[o2 + 1] * f2 + lut[o3 + 1] * f3 + 0.5) | 0,
+        (lut[o0 + 2] * f0 + lut[o1 + 2] * f1 + lut[o2 + 2] * f2 + lut[o3 + 2] * f3 + 0.5) | 0,
+      );
+      let t0 = c0 * dc0 - s0 * ds0;
+      s0 = s0 * dc0 + c0 * ds0;
+      c0 = t0;
+      t0 = c1 * dc1 - s1 * ds1;
+      s1 = s1 * dc1 + c1 * ds1;
+      c1 = t0;
+      t0 = c2 * dc2 - s2 * ds2;
+      s2 = s2 * dc2 + c2 * ds2;
+      c2 = t0;
     }
   }
 }
