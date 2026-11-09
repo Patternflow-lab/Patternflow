@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Phase Space Holes
 // Family:  physics
-// Idea:    draft
+// Idea:    The phase-space plane of a two-stream plasma, the 64 columns one box length of space and the 128 rows velocity, the electrons that came from the upper beam amber and those from the lower beam azure, where electron holes grow out of the instability as dark-cored vortices with bright rims, wind the two beams into violet filaments, merge when they catch each other and fade where a slow relaxation to the beams refills them, so a changing crowd of holes goes on for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: the Vlasov equation for electrons on a fixed background of ions (Anatoly Vlasov, 1938, from memory) with Poisson's equation, in one space and one velocity dimension; the two-stream instability (John Pierce, 1948; David Bohm and Eugene Gross, 1949; both from memory) and the collisionless damping of a plasma wave (Lev Landau, 1946, from memory); the steady holes, BGK modes (Ira Bernstein, John Greene and Martin Kruskal, 1957, from memory), and holes as vortices in phase space that trap particles and merge (Keith Roberts and Herbert Berk, 1967; Herbert Berk, C. E. Nielsen and Keith Roberts, 1970; from memory); the drift and kick splitting of Cheng and Knorr (1976, from memory) after Strang (1968), with the positive flux-conservative advection of Filbet, Sonnendruecker and Bertrand (2001, from memory) in place of their spline; relaxation to an equilibrium at a rate nu (Bhatnagar, Gross and Krook, 1954, from memory); the plasma dispersion function (Burton Fried and Samuel Conte, 1961, from memory) for the checks; colour in OKLab (Bjorn Ottosson, 2020, from memory); pattern round 119
 // Round:   119
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Drive=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Flow. draft
-// Knob 3: Scale. draft
-// Knob 4: Drive. draft
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every colour, so one turn comes back to where it began. At 0 the electrons of the upper beam are amber (150, 77, 5 at mid lightness, 255, 166, 102 on a ridge), those of the lower beam azure (10, 107, 149 up to 111, 201, 252) and where the two have mixed, in a hole, orchid (167, 77, 173 up to 244, 148, 249); the hue is 235 degrees for the lower beam, 325 for an even mix and 55 for the upper beam. At 0.25 the beams are green over magenta, at 0.5 azure over amber, at 0.75 magenta over green.
+// Knob 2: Flow. Plasma time per second of panel, 1.5 times the knob: 0.75, 3 and 6 time units a second at 0.5, 2 and 4, so one plasma period (2 pi) takes 8.4, 2.1 and 1.05 s. Only the clock moves. Over 400 s at the opening Scale and Drive there are 4.60, 4.61 and 4.67 holes at a time (wells of the potential deeper than 0.02), the field energy per box length is 0.0056, 0.0058 and 0.0059, a well is 13.4, 13.4 and 13.3 columns wide and the dye is mixed in 26.1, 26.2 and 26.6 percent of the dense rows. A frame takes whole steps of at most 0.12: one of 0.025 at 0.5, one of 0.1 at 2 and two of 0.1 at 4.
+// Knob 3: Scale. The length of the box in beam speeds over omega_p, 68 times 1.5 to the power of minus the knob: 102, 68 and 45 at -1, 0 and 1, so a column is 1.6, 1.06 and 0.70 of them wide. The fastest-growing wavelength is 10.5 (k = 0.6), so 9.7, 6.5 and 4.3 of them fit across; there are 5.7, 4.6 and 3.3 holes at a time and a well is 10.8, 13.4 and 18.5 columns wide, 17.3, 14.3 and 13.1 in box units. A turn of the knob stretches the box over about a second and the holes follow in a few plasma periods.
+// Knob 4: Drive. The rate nu at which every electron is relaxed to the two beams, 0.07 times 2.5 to the knob: 0.028, 0.074 and 0.175 per time unit, so a hole's particles are replaced in 36, 13.5 and 5.7 time units, 12, 4.5 and 1.9 s at Flow 2. At -1 holes live long enough to grow, wind and merge into broad ones (3.8 holes, 16.2 columns wide, 37 percent of the dense rows mixed); at 1 the beams stay nearly whole and the holes are small and brief (4.9 holes, 12.6 columns, 17 percent mixed). The field energy per box length is 0.0035, 0.0058 and 0.0084.
 
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, tanh, log } = Math;
 const TAU = 2 * PI;
@@ -46,7 +46,7 @@ function newSim(nx, nv, beam, wid) {
     oc: new Float64Array(NM), os: new Float64Array(NM),
     cs: new Float64Array(nx * (nx >> 1)), sn: new Float64Array(nx * (nx >> 1)),
     pad: new Float64Array(nv + 8), flux: new Float64Array(nv + 8), rate: V(), edge: V(),
-    clampMass: 0, time: 0, mass: 1,
+    time: 0, mass: 1,
   };
   for (let k = 1; k < nx >> 1; k++)
     for (let i = 0; i < nx; i++) {
@@ -216,24 +216,6 @@ function step(S, dt) {
   drift(S, 0.5 * dt);
   source(S, dt);
   S.time += dt;
-}
-
-// energy, momentum, mass of the state as it stands; the field is solved fresh
-function diag(S) {
-  const { nx, nv, u, l, dv, dx, E } = S;
-  field(S);
-  let m = 0, p = 0, K = 0, U = 0;
-  for (let i = 0; i < nx; i++) {
-    const o = i * nv;
-    for (let r = 0; r < nv; r++) {
-      const v = (nv / 2 - 0.5 - r) * dv, w = u[o + r] + l[o + r];
-      m += w;
-      p += w * v;
-      K += w * v * v;
-    }
-    U += E[i] * E[i];
-  }
-  return { mass: m * dv * dx, mom: p * dv * dx, K: 0.5 * K * dv * dx, U: 0.5 * U * dx, E: 0.5 * K * dv * dx + 0.5 * U * dx };
 }
 
 // a start: the two beams with a ripple in the first modes, random phases; eps is the amplitude of the electric field it makes
