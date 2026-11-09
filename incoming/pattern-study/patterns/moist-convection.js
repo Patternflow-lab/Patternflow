@@ -103,7 +103,7 @@ function newState(nx, nz) {
     PI: Z(), PRS: Z(), LCJ: Z(), ICE: Z(), QC0J: Z(), KAUJ: Z(), VTF: Z(), THEQ: Z(), KR: Z(), KS: Z(), QEQ: Z(), KQ: Z(), ALP: Z(), ETN: new Float64Array(nz + 1), UTN: Z(),
     TS: new Float64Array(nx), QSF: new Float64Array(nx), ph: new Float64Array(8), wv: new Float64Array(8), kv: new Float64Array(8),
     // knob state
-    ks: 0, kq: 0, kf: 2, Ts: 300, wet: 0.85, rhr: 0.4, Jinv: 0, zinv: 3000, qBL: 0.015, cmax: 0, wmax: 0,
+    ks: 0, kq: 0, kf: 2, Ts: 300, wet: 0.85, rhr: 0.4, Jinv: 0, zinv: 3000, qBL: 0.015, cmax: 0, wmax: 0, vt: 0,
     // switches the tests use
     forcing: true, wallB: NaN, wallT: NaN, shearOn: true,
     // budgets
@@ -351,13 +351,16 @@ function advectScalars(S, c) {
 function advectRain(S, c) {
   const { nx, nz, QR, FX, WZ, GX, GZ, DA } = S, mx = nx - 1, D = S.D;
   // fall speed of each cell's rain, m/s
+  let vt = 0;
   for (let j = 0; j < nz; j++) {
     const vf = S.VTF[j], o = j * nx;
     for (let i = 0; i < nx; i++) {
-      const q = QR[o + i];
-      DA[o + i] = q > 1e-9 ? vf * cl(6 * sqrt(sqrt(q * 1000)), 2, 10) : 0;
+      const q = QR[o + i], v = q > 1e-9 ? vf * cl(6 * sqrt(sqrt(q * 1000)), 2, 10) : 0;
+      DA[o + i] = v;
+      if (v > vt) vt = v;
     }
   }
+  S.vt = vt;
   for (let j = 0; j < nz; j++) {
     const o = j * nx;
     for (let i = 0; i < nx; i++) {
@@ -637,7 +640,7 @@ function step(S, dt) {
 function dtMax(S) {
   // the outflow Courant number of the advection, the rain's own fall on top of the vertical wind, and the diffusion
   const D = S.D;
-  return min((CFL * D * D) / (S.cmax + 1e-9), (0.8 * D) / (S.wmax + 10), (0.2 * D * D) / S.KE);
+  return min((CFL * D * D) / (S.cmax + 1e-9), (0.8 * D) / (S.wmax + max(S.vt, 4) + 3), (0.2 * D * D) / S.KE);
 }
 
 // ---- knobs
@@ -789,8 +792,8 @@ function build(params, k) {
   seedState(S);
   setupDraw(S);
   skyRows(S, cl(k[0], 0, 1) * 360);
-  // a spin-up of 500 s of model time, so that the first frame has clouds standing
-  let left = 500;
+  // a spin-up of 300 s of model time, so that the first frame has clouds standing
+  let left = 300;
   while (left > 1e-6) {
     const dm = dtMax(S), n = ceil(left / dm - 1e-9), d = left / n;
     step(S, d);
