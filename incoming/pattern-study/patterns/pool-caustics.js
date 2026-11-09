@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Pool Caustics
-// Family:  physics
+// Family:  light
 // Idea:    Wind-ruffled water over a pool floor throws a web of bright refracted lines that folds, drifts, splits and rejoins as the waves run across it, and the whole floor keeps shimmering without ever settling to a picture that comes back.
 // Author:  patternflow-lab
 // Date:    2026-11-09
