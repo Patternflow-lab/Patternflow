@@ -28,7 +28,7 @@ const NM = 8; // how many modes of the box the unevenness of the feed has
 const MTAU = 25; // how long it keeps its shape, in plasma time
 const DTMAX = 0.12; // longest step of plasma time
 const TAU0 = 1.5; // plasma time per second of panel, at Flow 1
-const L0 = 80; // box length at Scale 0, in beam speeds over omega_p
+const L0 = 60; // box length at Scale 0, in beam speeds over omega_p
 const NU0 = 0.07; // relaxation rate at Drive 0
 const KNOB = [0, 2, 0, 0.06];
 
@@ -83,9 +83,9 @@ function newSim(nx, nv, beam, wid) {
   const S = {
     nx, nv, beam, wid, u: A(), l: A(), u0: V(), l0: V(),
     E: X(), phi: X(), n: X(), mod: X(),
-    L: 30, dx: 30 / nx, dv: 1 / beam, nu: 0, modAmp: 0, filtRate: 12, filtPow: 8, limit: 1,
+    L: 30, dx: 30 / nx, dv: 1 / beam, nu: 0, modAmp: 0, limit: 1,
     oc: new Float64Array(NM), os: new Float64Array(NM),
-    fftx: makeFft(nx), xr: X(), xi: X(), ex: X(), ey: X(), px: X(), py: X(), filtX: new Float64Array(nx),
+    fftx: makeFft(nx), xr: X(), xi: X(), ex: X(), ey: X(), px: X(), py: X(),
     pad: new Float64Array(nv + 8), flux: new Float64Array(nv + 8), rate: V(), edge: V(),
     clampMass: 0, time: 0, mass: 1,
   };
@@ -124,53 +124,14 @@ function setEdge(S, w, peak) {
   }
 }
 
-// drift by dt: each row moves in x at its own velocity, by an exact shift in Fourier space. u and l ride one complex FFT, and
-// the same phase turns both. The top wavenumbers are filtered, the Nyquist one not at all.
+// drift by dt: each row moves along the columns at its own velocity, by the flux balance below with a wrap round the box
 function drift(S, dt) {
-  const { nx, nv, u, l, fftx, xr, xi, dx, dv, filtX } = S, h = nx >> 1;
-  for (let k = 0; k <= h; k++) filtX[k] = k === h ? 0 : exp(-S.filtRate * dt * pow(k / h, S.filtPow));
-  let clamp = 0;
+  const { nx, nv, u, l, dx, dv } = S;
   for (let r = 0; r < nv; r++) {
-    for (let i = 0; i < nx; i++) {
-      xr[i] = u[i * nv + r];
-      xi[i] = l[i * nv + r];
-    }
-    fftx(xr, xi, -1);
-    const th = (TAU * ((nv / 2 - 0.5 - r) * dv * dt)) / (dx * nx), c = cos(th), n = sin(th);
-    let pr = 1, pi = 0;
-    for (let k = 1; k <= h; k++) {
-      const q = pr * c + pi * n;
-      pi = pi * c - pr * n;
-      pr = q;
-      const g = filtX[k], j = nx - k;
-      // exp(-i k th) on +k, exp(+i k th) on -k
-      let a = xr[k], b = xi[k];
-      xr[k] = g * (a * pr - b * pi);
-      xi[k] = g * (a * pi + b * pr);
-      if (j !== k) {
-        a = xr[j];
-        b = xi[j];
-        xr[j] = g * (a * pr + b * pi);
-        xi[j] = g * (-a * pi + b * pr);
-      }
-    }
-    fftx(xr, xi, 1);
-    const inv = 1 / nx;
-    for (let i = 0; i < nx; i++) {
-      let a = xr[i] * inv, b = xi[i] * inv;
-      if (a < 0) {
-        clamp -= a;
-        a = 0;
-      }
-      if (b < 0) {
-        clamp -= b;
-        b = 0;
-      }
-      u[i * nv + r] = a;
-      l[i * nv + r] = b;
-    }
+    const d = ((nv / 2 - 0.5 - r) * dv * dt) / dx;
+    pfc(S, u, r, nv, nx, d, true);
+    pfc(S, l, r, nv, nx, d, true);
   }
-  S.clampMass += (clamp * dv) / nx;
 }
 
 // Poisson: dE/dx = 1 - n, the mean of n taken out (the ions are the mean). E_k = i n_k / k, no Nyquist.
@@ -226,36 +187,38 @@ function part(a, b, c, e, lim) {
   return p < 0 ? 0 : p > b ? b : p;
 }
 
-// kick by dt: dv/dt = -E, so every column moves down the rows by d = E dt / dv, a number of whole rows and a part of one,
-// by flux balance: it keeps the mass, stays positive, and nothing crosses the first and last row.
-function kick(S, dt) {
-  kickOne(S, S.u, dt);
-  kickOne(S, S.l, dt);
+// Moves n cells of F, F[off + j * stride], on by d cells (d may be negative and larger than one) by flux balance: every cell
+// gives the part of itself next to its far edge to the next cell. It keeps the sum, it keeps the cells positive, and with
+// `per` the line wraps round, otherwise nothing crosses its two ends.
+function pfc(S, F, off, stride, n, d, per) {
+  const { pad, flux } = S, P = 4, lim = S.limit;
+  for (let j = 0; j < n; j++) pad[P + j] = F[off + j * stride];
+  for (let j = 1; j <= P; j++) {
+    pad[P - j] = per ? pad[P + n - j] : 0;
+    pad[P + n - 1 + j] = per ? pad[P + j - 1] : 0;
+  }
+  const sg = d >= 0 ? 1 : -1, m = d * sg, k = floor(m), e = m - k;
+  // flux[j]: what cell j gives to cell j + sg
+  for (let j = -1; j <= n; j++) flux[P + j] = e > 0 ? part(pad[P + j - sg], pad[P + j], pad[P + j + sg], e, lim) : 0;
+  for (let r = 0; r < n; r++) {
+    let q = r - sg * k;
+    if (per) q = ((q % n) + n) % n;
+    else if (q < 0 || q >= n) {
+      F[off + r * stride] = 0;
+      continue;
+    }
+    F[off + r * stride] = pad[P + q] - flux[P + q] + flux[P + q - sg];
+  }
 }
-function kickOne(S, F, dt) {
-  const { nx, nv, E, pad, flux, dv } = S, P = 4, lim = S.limit;
+
+// kick by dt: dv/dt = -E, so every column moves down the rows by d = E dt / dv rows
+function kick(S, dt) {
+  const { nx, nv, E, dv } = S;
   for (let i = 0; i < nx; i++) {
-    const o = i * nv;
     let d = (E[i] * dt) / dv;
     d = d < -3 ? -3 : d > 3 ? 3 : d;
-    for (let r = 0; r < nv; r++) pad[P + r] = F[o + r];
-    if (d >= 0) {
-      const n = floor(d), e = d - n;
-      // flux[j] leaves cell j through its lower edge into cell j + 1
-      for (let j = -1; j < nv; j++) flux[P + j] = e > 0 ? part(pad[P + j - 1], pad[P + j], pad[P + j + 1], e, lim) : 0;
-      for (let r = 0; r < nv; r++) {
-        const q = r - n;
-        F[o + r] = q < 0 ? 0 : pad[P + q] - flux[P + q] + flux[P + q - 1];
-      }
-    } else {
-      const m = -d, n = floor(m), e = m - n;
-      // flux[j] leaves cell j through its upper edge into cell j - 1
-      for (let j = 0; j <= nv; j++) flux[P + j] = e > 0 ? part(pad[P + j + 1], pad[P + j], pad[P + j - 1], e, lim) : 0;
-      for (let r = 0; r < nv; r++) {
-        const q = r + n;
-        F[o + r] = q > nv - 1 ? 0 : pad[P + q] - flux[P + q] + flux[P + q + 1];
-      }
-    }
+    pfc(S, S.u, i * nv, 1, nv, d, false);
+    pfc(S, S.l, i * nv, 1, nv, d, false);
   }
 }
 
@@ -425,7 +388,7 @@ export function update(dt, input, params) {
 
 // the three terms of the lightness: how the density stands against the row it is in (a hole is below its row, a ridge above),
 // its fine structure (against a 3 x 3 blur), and the rim where the origin of the particles changes quickly
-const LP = { base: 0.5, lev: 0, ratio: 0.3, fine: 0.2, rim: 0.25, floor: 0.35 };
+const LP = { base: 0.5, mix: 0.07, ratio: 0.3, fine: 0.2, rim: 0.25, floor: 0.35 };
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
@@ -477,13 +440,16 @@ export function draw(display, params) {
     sh[y + nv] = 1 / max(sqrt(0.25 * sh[y0] + 0.5 * sh[y] + 0.25 * sh[y1]), ah);
   }
   for (let y = 0; y < nv; y++) {
-    const lev = sm(0, 1, 1 + (log(fbar[y]) - lfm) / 9), lfb = log(fbar[y]), gr = 0.9 * sr[y + nv], gh = 1.2 * sh[y + nv];
+    // far out on the tails the density falls by e^8 or more and the columns can no longer hold its steep ripple (it changes
+    // by e^3 between neighbours), so there the fine structure and the rim fade out, the ratio is read from the blurred density and
+    // the hue goes to that of the beam the row belongs to
+    const lfb = log(fbar[y]), tr = sm(-11, -7, lfb - lfm), gr = 0.9 * sr[y + nv], gh = 1.2 * sh[y + nv] * tr, qp = y < nv / 2 ? 1 : 0;
     for (let x = 0; x < nx; x++) {
       const k = x * nv + y;
-      const q = qq[k];
+      const q = qp + tr * (qq[k] - qp);
       const qx = qq[((x + 1) & mx) * nv + y] - qq[((x - 1) & mx) * nv + y];
       const qy = qq[x * nv + (y < nv - 1 ? y + 1 : y)] - qq[x * nv + (y > 0 ? y - 1 : y)];
-      const Lm = LP.base + LP.lev * lev + LP.ratio * tanh(gr * (lf[k] - lfb)) + LP.fine * tanh(gh * (lf[k] - lb[k])) + LP.rim * tanh(3 * sqrt(qx * qx + qy * qy));
+      const Lm = LP.base + LP.mix * 4 * q * (1 - q) + LP.ratio * tanh(gr * (lb[k] + tr * (lf[k] - lb[k]) - lfb)) + LP.fine * tanh(gh * (lf[k] - lb[k])) + LP.rim * tr * tanh(3 * sqrt(qx * qx + qy * qy));
       const idx = 3 * (((q * (NQ - 1) + 0.5) | 0) * NLV + (((Lm < 0.1 ? 0.1 : Lm > 0.98 ? 0.98 : Lm) - 0.1) * ((NLV - 1) / 0.88) + 0.5 | 0));
       lin(lut[idx], lut[idx + 1], lut[idx + 2], o);
       display.setPixel(x, y, gam(o[0]), gam(o[1]), gam(o[2]));
