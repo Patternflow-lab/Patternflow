@@ -24,10 +24,12 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const NX = 64, NV = 128;
 const BEAM = 24; // rows from the middle to each beam
 const WID = 8; // rows, the thermal width of a beam
+const NM = 8; // how many modes of the box the unevenness of the feed has
+const MTAU = 25; // how long it keeps its shape, in plasma time
 const DTMAX = 0.12; // longest step of plasma time
 const TAU0 = 1.5; // plasma time per second of panel, at Flow 1
-const L0 = 47; // box length at Scale 0, in beam speeds over omega_p
-const NU0 = 0.05; // relaxation rate at Drive 0
+const L0 = 80; // box length at Scale 0, in beam speeds over omega_p
+const NU0 = 0.07; // relaxation rate at Drive 0
 const KNOB = [0, 2, 0, 0.06];
 
 // ---- in-place complex FFT, N a power of two (sign -1 forward, +1 inverse, neither divided by N)
@@ -82,7 +84,7 @@ function newSim(nx, nv, beam, wid) {
     nx, nv, beam, wid, u: A(), l: A(), u0: V(), l0: V(),
     E: X(), phi: X(), n: X(), mod: X(),
     L: 30, dx: 30 / nx, dv: 1 / beam, nu: 0, modAmp: 0, filtRate: 12, filtPow: 8, limit: 1,
-    mw: [{ n: 1, om: 0.0137, ph: 0.3, c: 0.6 }, { n: 2, om: -0.0211, ph: 2.1, c: 0.5 }, { n: 3, om: 0.0329, ph: 4.0, c: 0.4 }],
+    oc: new Float64Array(NM), os: new Float64Array(NM),
     fftx: makeFft(nx), xr: X(), xi: X(), ex: X(), ey: X(), px: X(), py: X(), filtX: new Float64Array(nx),
     pad: new Float64Array(nv + 8), flux: new Float64Array(nv + 8), rate: V(), edge: V(),
     clampMass: 0, time: 0, mass: 1,
@@ -263,7 +265,7 @@ function source(S, dt) {
   const { nx, nv, u, l, u0, l0, rate, mod } = S;
   for (let r = 0; r < nv; r++) rate[r] = 1 - exp(-(S.nu + S.edge[r]) * dt);
   for (let i = 0; i < nx; i++) {
-    const o = i * nv, am = S.modAmp * mod[i];
+    const o = i * nv, am = 0.85 * tanh((S.modAmp * mod[i]) / 0.85);
     for (let r = 0; r < nv; r++) {
       u[o + r] += rate[r] * (u0[r] * (1 + am) - u[o + r]);
       l[o + r] += rate[r] * (l0[r] * (1 - am) - l[o + r]);
@@ -271,12 +273,21 @@ function source(S, dt) {
   }
 }
 
+function gauss() {
+  return sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
+}
+// the unevenness of the feed along the box: modes 1 .. NM, each a cosine and a sine whose amplitudes wander with a
+// correlation time of MTAU (Ornstein-Uhlenbeck), and a variance of one over NM in all
 function waves(S, dt) {
-  const k1 = TAU / S.L, mod = S.mod, nx = S.nx;
+  const mod = S.mod, nx = S.nx, a = exp(-dt / MTAU), b = sqrt((1 - a * a) / NM);
   mod.fill(0);
-  for (const w of S.mw) {
-    w.ph += w.om * dt;
-    for (let i = 0; i < nx; i++) mod[i] += w.c * sin(k1 * w.n * (i * S.dx) - w.ph);
+  for (let m = 0; m < NM; m++) {
+    S.oc[m] = a * S.oc[m] + b * gauss();
+    S.os[m] = a * S.os[m] + b * gauss();
+    for (let i = 0; i < nx; i++) {
+      const ph = (TAU * (m + 1) * i) / nx;
+      mod[i] += S.oc[m] * cos(ph) + S.os[m] * sin(ph);
+    }
   }
 }
 function step(S, dt) {
@@ -370,10 +381,10 @@ function knobTargets(k) {
   return [cl(k[1], 0.5, 4), cl(k[2], -1, 1), cl(k[3], -1, 1)];
 }
 function applyKnobs(S) {
-  S.L = L0 * pow(2, -S.ks);
+  S.L = L0 * pow(1.7, -S.ks);
   S.dx = S.L / S.nx;
-  S.nu = NU0 * pow(4, S.kq);
-  S.modAmp = 0.3;
+  S.nu = NU0 * pow(2.5, S.kq);
+  S.modAmp = 0.5;
 }
 
 export function setup(params, knobValues) {
@@ -385,6 +396,8 @@ export function setup(params, knobValues) {
   S.qq = new Float64Array(n);
   S.tt = new Float64Array(n);
   S.fbar = new Float64Array(NV);
+  S.sr = new Float64Array(2 * NV);
+  S.sh = new Float64Array(2 * NV);
   S.hueDone = -1e9;
   [S.kp, S.ks, S.kq] = knobTargets(knobValues || KNOB);
   applyKnobs(S);
@@ -412,7 +425,7 @@ export function update(dt, input, params) {
 
 // the three terms of the lightness: how the density stands against the row it is in (a hole is below its row, a ridge above),
 // its fine structure (against a 3 x 3 blur), and the rim where the origin of the particles changes quickly
-const LP = { base: 0.3, lev: 0.2, ratio: 0.22, fine: 0.25, rim: 0.3 };
+const LP = { base: 0.5, lev: 0, ratio: 0.3, fine: 0.2, rim: 0.25, floor: 0.35 };
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
@@ -439,14 +452,38 @@ export function draw(display, params) {
     const x0 = x * nv;
     for (let y = 0; y < nv; y++) lb[x0 + y] = 0.25 * tt[x0 + (y > 0 ? y - 1 : 0)] + 0.5 * tt[x0 + y] + 0.25 * tt[x0 + (y < nv - 1 ? y + 1 : nv - 1)];
   }
+  // how far the density strays from its row, and how much fine structure it has, row by row, so that a faint tail is read as
+  // boldly as the beams; the spread of a row is never taken below LP.floor of the whole panel's
+  const sr = S.sr, sh = S.sh;
+  let ar = 0, ah = 0;
   for (let y = 0; y < nv; y++) {
-    const lev = sm(0, 1, 1 + (log(fbar[y]) - lfm) / 9), lfb = log(fbar[y]);
+    const lfb = log(fbar[y]);
+    let a = 0, b = 0;
+    for (let x = 0; x < nx; x++) {
+      const k = x * nv + y, d = lf[k] - lfb, e = lf[k] - lb[k];
+      a += d * d;
+      b += e * e;
+    }
+    sr[y] = a / nx;
+    sh[y] = b / nx;
+    ar += sr[y];
+    ah += sh[y];
+  }
+  ar = sqrt(ar / nv) * LP.floor;
+  ah = sqrt(ah / nv) * LP.floor;
+  for (let y = 0; y < nv; y++) {
+    const y0 = y > 0 ? y - 1 : 0, y1 = y < nv - 1 ? y + 1 : nv - 1;
+    sr[y + nv] = 1 / max(sqrt(0.25 * sr[y0] + 0.5 * sr[y] + 0.25 * sr[y1]), ar);
+    sh[y + nv] = 1 / max(sqrt(0.25 * sh[y0] + 0.5 * sh[y] + 0.25 * sh[y1]), ah);
+  }
+  for (let y = 0; y < nv; y++) {
+    const lev = sm(0, 1, 1 + (log(fbar[y]) - lfm) / 9), lfb = log(fbar[y]), gr = 0.9 * sr[y + nv], gh = 1.2 * sh[y + nv];
     for (let x = 0; x < nx; x++) {
       const k = x * nv + y;
       const q = qq[k];
       const qx = qq[((x + 1) & mx) * nv + y] - qq[((x - 1) & mx) * nv + y];
       const qy = qq[x * nv + (y < nv - 1 ? y + 1 : y)] - qq[x * nv + (y > 0 ? y - 1 : y)];
-      const Lm = LP.base + LP.lev * lev + LP.ratio * tanh(0.6 * (lf[k] - lfb)) + LP.fine * tanh(2.5 * (lf[k] - lb[k])) + LP.rim * tanh(3 * sqrt(qx * qx + qy * qy));
+      const Lm = LP.base + LP.lev * lev + LP.ratio * tanh(gr * (lf[k] - lfb)) + LP.fine * tanh(gh * (lf[k] - lb[k])) + LP.rim * tanh(3 * sqrt(qx * qx + qy * qy));
       const idx = 3 * (((q * (NQ - 1) + 0.5) | 0) * NLV + (((Lm < 0.1 ? 0.1 : Lm > 0.98 ? 0.98 : Lm) - 0.1) * ((NLV - 1) / 0.88) + 0.5 | 0));
       lin(lut[idx], lut[idx + 1], lut[idx + 2], o);
       display.setPixel(x, y, gam(o[0]), gam(o[1]), gam(o[2]));
