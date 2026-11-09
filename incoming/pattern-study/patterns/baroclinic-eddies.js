@@ -1,20 +1,89 @@
 // ===== Patternflow pattern =====
 // Title:   Baroclinic Eddies
 // Family:  weather
-// Idea:    draft
+// Idea:    A two-layer atmosphere on the panel's own torus, kept warm to the south and cold to the north by a mean wind shear, grows waves that steepen into fronts and curl into cut-off eddies, and folds its air into amber and azure bands that never come back.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: two-layer quasi-geostrophic flow with a uniform vertical shear on a doubly periodic box: baroclinic instability (Jule Charney, 1947; Eric Eady, 1949), the two-layer model and its instability criterion (Norman Phillips, 1951), baroclinic turbulence in a periodic box (Rick Salmon, 1980; Kerry Smith and Geoffrey Vallis, 2002), the relaxation of the temperature toward an imposed gradient (Isaac Held and Max Suarez, 1994), all from memory; Fourier modes with the two-thirds rule (Steven Orszag, 1971) and an integrating-factor three-stage SSP Runge-Kutta (Chi-Wang Shu and Stanley Osher, 1988), both from memory, with the transforms and the stepper reworked from Surface Quasigeostrophic, round 115
 // Round:   120
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Shear=1.5..4, Scale=-1..1, Drag=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Shear. draft
-// Knob 3: Scale. draft
-// Knob 4: Drag. draft
+// Knob 1: Hue. Adds the knob to the hue of both air masses, so one turn comes back. At 0 the warm air is amber (hue 0.115) and the cold air azure (0.585) with a pale seam between them. At 0.25 they are green and magenta, at 0.5 blue and orange, at 0.75 magenta and green. Colours are lifted to a luma of at least 0.42 by mixing in white; over hues sampled every 0.05 the dimmest entry has a brightest channel of 209 and a luma of 87 of 255.
+// Knob 2: Shear. The mean wind U that holds the temperature gradient, and so the clock: model time per panel second is 1.5 times the knob, 3 at the opening 2, 2.25 at 1.5 and 6 at 4. Drag and relaxation are given in units of kd U, so the knob changes the pace and the wind speeds, not the kind of weather. At the opening the winds have an rms speed of 2.7 U (8 LEDs a second), the mean panel maximum of |u| + |v| is 10.7 U (32 LEDs a second), and a steering wind of 1 U carries the picture east at 3 LEDs a second. Waves grow by a factor e in 5.8 s. A frame takes at most 8 steps; past that the weather runs slower than the clock.
+// Knob 3: Scale. The deformation radius Ld = 3.3 x 1.3^Scale LEDs: 2.54, 3.3 and 4.29. The fastest growing wave is 9.76 Ld long, 24.8, 32.2 and 41.9 LEDs, two waves across the 64 LED width at 0. Measured over 900 s at the opening drag the energy-weighted wavelength of the flow is 33.2, 43.0 and 49.1 LEDs at -1, 0 and 1. Turning the knob keeps the stream functions and re-forms the potential vorticity from them, so the picture changes by degrees.
+// Knob 4: Drag. Bottom drag on the lower layer, r = 0.4 x 1.4^Drag x kd U: 0.29 at -1, 0.41 at the opening, 0.56 at 1. Thermal relaxation stays at 0.3 kd U. The mean energy over 900 s at Shear 2 is 31.2 U^2 at -1, 14.8 at the opening and 5.3 at 1, and the isotherms stand 11.3, 8.6 and 5.1 LEDs (rms) off the places the mean gradient gives them. At -1 the bands fold over each other and shed many eddies; at 1 they run as long waves with a few.
+
+// What the field is. Two layers of air of equal depth lie on a torus 64 LEDs wide (x, east, to the right) and 128 tall (y,
+// north, up the panel). The upper layer has a mean wind +U and the lower -U. By thermal wind balance that shear is a
+// temperature gradient of U per LED across the panel, warm at the bottom and cold at the top, and the tilt is a store of
+// potential energy that a wave can release. With stream functions psi_1, psi_2, F = kd^2 / 2 and kd = 1 / Ld, the potential
+// vorticity is q_1 = del^2 psi_1 + F (psi_2 - psi_1) and q_2 = del^2 psi_2 + F (psi_1 - psi_2). Its departures from the
+// mean flow obey
+//   d q_i / dt + (U_i + c) d q_i / dx + J(psi_i, q_i) + B_i d psi_i / dx = - kappa s_i - r del^2 psi_2 (layer 2 only) - nu_k q_i,
+//   B_1 = beta + kd^2 U,  B_2 = beta - kd^2 U,  s_i = F (psi_j - psi_i),  nu_k = 3 (kappa / 8)^8 per model time.
+// B_i is the gradient of the layer's mean PV, beta plus the tilt of the interface; the two have opposite signs when beta
+// is under kd^2 U, which is the instability. s_i is the stretching part of q_i, so kappa relaxes the interface back toward
+// the imposed tilt (the Newtonian cooling of Held and Suarez). r is bottom drag. c is a steering wind, the same in both
+// layers, which moves the picture and nothing else. Nothing is stirred in: the shear is the only source. The picture is
+// the interface height tau = (psi_1 - psi_2) / 2, which is the temperature, added to the mean tilt, T = -U y + tau.
+// The scheme. Fourier modes with m 2 pi / 64 across and n 2 pi / 128 up, kappa^2 = m^2 + n^2 / 4 up to 8, wavelengths down
+// to 8 LEDs, on a 32 x 64 grid of 2 x 2 LED cells. The two-thirds rule is exact: two modes of 8 make at most 16, which
+// aliases to 16 or more, outside the retained 8. One inverse transform per frame puts tau on the panel's 64 x 128 grid.
+// The step is the integrating-factor form of the three-stage SSP Runge-Kutta: the mean winds, the steering wind and the
+// hyperviscosity go in exactly. A step is at most 1.1 over the fastest eddy's |u| + |v| times the largest wavenumber, and
+// a frame takes 1 to 8 of them.
+// What keeps it going. With bottom drag alone the energy never settled: at r = 0.15 kd U an early trial on the 64 x 128
+// grid reached E = 200, 80 to 95 percent of it barotropic, with gusts of 50 U, and at r = 8 kd U it was still doubling
+// every 50 time units at t = 300, since drag acts on the relative vorticity of one layer and the damped linear problem
+// stays unstable. The relaxation of the interface bounds it. Beta stays at 0.1 kd^2 U: at 0.4 a trial went to stiff zonal
+// bands. E falls about as r^-2.6 between 0.29 and 0.56 kd U. The pre-run starts from random phases scaled to that energy.
+// The picture. The isotherm a point sits on is y - tau / U LEDs up from the bottom. Four isotherm bands fit the 128 rows, so
+// phase = 4 (y - tau / U) / 128 is periodic over the edges. One turn of the colour table is s = tanh(1.8 sin 2 pi phase):
+// amber for s > 0, azure for s < 0, saturation falling to a pale seam where s = 0. A thin darker line (18 percent, 0.03 of
+// a band wide) runs down the middle of each air mass, and a front, where |grad T| is over 1.3 times the mean gradient,
+// glows toward white, fully from 2.6 times, by at most 0.6. On saved fields |grad T| over its mean had a median of 1.2 and
+// a 99th percentile of 2.3 at E = 9 and 2.7 at E = 33, so fronts are soft; the seams, which narrow where isotherms crowd,
+// carry the read. Contours of psi_2 and shading by relative vorticity were tried and dropped.
+//
+// What was checked, on this file's solver (harnesses are in the creator's scratch folder).
+// 1. Linear growth. A single mode of amplitude 1e-9 against sigma = kx sqrt(U^2 K^4 (4 F^2 - K^4) - beta^2 F^2) / (K^2 (K^2 + 2 F)),
+//    derived here from the 2 x 2 problem for layers +-U, over a window after a spin-up of 8 / sigma. Ld 3.3: mode (2,0)
+//    0.125507 against 0.125511 at steps of 0.2; at steps of 0.4 (1,0) 0.99938, (3,0) 0.99963, (2,2) 0.99983 of the formula, and
+//    (2,0) with beta / (kd^2 U) = 0.3, 0.6, 0.7 0.99964, 0.99902, 0.99793. At Ld 2.54, K / kd = 0.997, (4,0) is 0.99708,
+//    0.99966, 0.99996 at steps of 0.4, 0.2, 0.1. For beta = 0 the fastest wave has k = 0.6435 kd, a wavelength of 9.76 Ld
+//    (32.2 LEDs at the opening, two waves on the torus) and sigma = (sqrt 2 - 1) kd U = 0.1255. The margin is K = kd, not
+//    sqrt 2 kd, since F_1 = F_2 = F gives K^2 = 2 F = kd^2: (4,0) at 0.997 grows at 0.01982, (5,0) at 1.247 held its
+//    amplitude to 0.05 percent per 150 time units. Phillips' criterion beta < F (U_1 - U_2) = kd^2 U: the fastest mode of
+//    the torus, by the eigenvalues of every mode's 2 x 2 matrix, has sigma 0.1255, 0.1154, 0.0947, 0.0527, 0.0373, 0.0180 at
+//    beta / (kd^2 U) = 0, 0.3, 0.5, 0.8, 0.9, 0.97 and 0 at 1 and 1.05; the code gives them to 3e-5 at steps of 0.1 and
+//    0.23 percent at 0.4.
+// 2. Energy. With U = 0, beta = 0 and no drag, relaxation or viscosity, E changed over 20 time units from E = 10 by -2.6e-3,
+//    -4.7e-4, -4.6e-5, -6.7e-6 at steps of 0.2, 0.1, 0.05, 0.025 (the pattern runs at a CFL of about 1.1).
+//    With the shear and no friction, E(t) - E(0) from E = 0.02 to 3 against the integral of 2 kd^2 U <v tau> (the conversion
+//    of the tilt, v the barotropic northward wind): 2.99234 and 2.99235 at steps of 0.04, 2.98372 and 2.98372 at 0.01. The
+//    heat flux was positive in all but 3 of 807 steps.
+// 3. Time stepping. From a developed state, 2 time units against 1024 steps: relative error 7.8e-5, 1.0e-5, 1.3e-6, 1.6e-7,
+//    2.0e-8 for 10, 20, 40, 80, 160 steps, a ratio of 7.8 to 8.0 per halving. The pattern takes about 15.
+// 4. The steering wind. Runs from one state with and without c, 9 time units: they differ by the shift c t = 4.5 LEDs to 4.7e-14.
+// 5. Resolution. In 3000 time units at the opening, mean E is 11.1, 14.9 and 16.0 with the modes cut at kappa 6, 8 and 10,
+//    isotherm displacement 7.54, 8.48 and 8.74 LEDs, so 8 loses 7 percent of the energy against 10 and 6 loses 31. The shell
+//    at the cut-off holds 2.9e-5 of the peak shell's energy at the opening, 1.5e-4 at the smallest Ld and lowest drag.
+// 6. Steady state, 900 s, Scale 0, Shear 2, mean of E (min to max), barotropic kinetic share of E, energy-weighted
+//    wavelength, rms isotherm displacement: opening 14.8 (4.8 to 31), 0.42, 43.0 LEDs, 8.6; Drag -1 31.2 (12 to 77), 0.53,
+//    46.8, 11.3; Drag 1 5.3 (2.6 to 11), 0.42, 36.8, 5.1; at Drag 0.06 Scale -1 11.3 (6.5 to 18), 0.42, 33.2, 5.9; Scale 1
+//    14.8 (5.1 to 51), 0.51, 49.1, 9.9. No NaN or blow-up at any corner, nor in four runs of 600 s with the knobs jumped at
+//    random every 3 s (E 2.05 to 54.7).
+// 7. Cost. A frame (update and draw) takes 1.81 ms at the opening, 1.90 with every knob at its minimum, 2.41 at its maximum;
+//    the first frame, with its 25 time units of pre-run, 170 to 365 ms.
+//
+// Weak spots. The shear is imposed, not set by the eddies, so there is no equilibrated mean state and no jet, and energy goes
+// as a steep power of drag. The fields are smooth (the energy spectrum falls as kappa^-4.6 to -5.6 between 3 and 6), so
+// fronts do not sharpen into lines. The picture is statistically steady, not a life cycle: curled fronts and cut-off eddies
+// come and go, but a whole comma-shaped cyclone with its warm and cold sectors is rare and nothing occludes on purpose. Four
+// isotherm bands is a choice of contour interval; at Drag -1 the bands fold narrow.
 
 const W = 64, H = 128, N = W * H; // the panel and the picture
 const GW = 32, GH = 64, GN = GW * GH; // the grid the equations are solved on
@@ -31,6 +100,8 @@ const sm = (a, b, x) => {
 // Modes above kappa KC are dropped after every product.
 const K0 = TAU / W, KC = 8, KMAX = K0 * KC;
 
+// The tunables. Model time is the time of the equations above, in units where U = 1 LED per time unit. Rates marked "over
+// kd U" are multiplied by kd U, so a change of Shear or Scale leaves the kind of weather alone.
 const CFG = {
   ld: 3.3, // deformation radius at Scale 0, LEDs
   ldr: 1.3, // factor per unit of Scale
@@ -41,8 +112,8 @@ const CFG = {
   drift: 1, // steering wind, over U
   clock: 1.5, // model time per panel second per unit of Shear
   nuc: 3, // hyperviscous rate at kappa = KC, per model time
-  up: 8,
-  e0: 12, // energy the flow settles at, Drag 0, Scale 0
+  up: 8, // power of kappa / KC in the hyperviscosity
+  e0: 14, // energy the flow settles at, Drag 0, Scale 0
   pre: 25, // model time of the pre-run
   bands: 4, // isotherm bands over the panel height
   g: 1.8, // sharpness of the colour step at a band edge
@@ -176,6 +247,7 @@ function gauss() {
 // Two layers of equal depth, q1 and q2 the potential vorticity departures of the upper (mean wind
 // +U) and lower (-U) layer, stored as one array of 2 M modes each for real and imaginary parts.
 const OPEN = [0, 2, 0, 0.06];
+const STEPS = 8; // most steps a frame takes; past that the weather runs slower than the clock
 const rateOf = (k) => CFG.rate * pow(CFG.rdr, cl(k[3], -1, 1));
 const ldOf = (k) => CFG.ld * pow(CFG.ldr, cl(k[2], -1, 1));
 
@@ -202,7 +274,7 @@ function build(params, k) {
       S.qi[o] = a * gauss();
       S.qi[o + 1] = -S.qi[o];
     }
-  const e0 = energy(S), sc = sqrt((CFG.e0 * pow(CFG.rate / S.r * S.kd, 3.2)) / e0);
+  const e0 = energy(S), sc = sqrt((CFG.e0 * pow((CFG.rate * S.kd) / S.r, 2.6)) / e0);
   for (let q = 0; q < 2 * M; q++) {
     S.qr[q] *= sc;
     S.qi[q] *= sc;
@@ -366,7 +438,8 @@ function advance(S, Ht, upto) {
     return;
   }
   const n = max(1, ceil(Ht / hmax));
-  for (let i = 0; i < n; i++) step(S, Ht / n);
+  if (n > STEPS) for (let i = 0; i < STEPS; i++) step(S, hmax);
+  else for (let i = 0; i < n; i++) step(S, Ht / n);
 }
 
 // ---- the frame ------------------------------------------------------------------------------
