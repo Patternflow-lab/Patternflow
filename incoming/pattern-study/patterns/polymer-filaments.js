@@ -1,5 +1,5 @@
 // ===== Patternflow pattern =====
-// Title:   Elastic Turbulence
+// Title:   Polymer Filaments
 // Family:  sim
 // Idea:    A polymer solution with almost no inertia is solved as a Stokes flow on the panel's own 64 by 128 torus, its stress the conformation tensor of finitely extensible chains and a wandering large-scale force the only stirring, and drawn as how far the chains are stretched, so thin white-hot filaments wind into hooks and spirals between dark relaxed fluid, warm where the fluid turns one way and cool where it turns the other, and keep stretching, folding and re-forming for as long as it runs.
 // Author:  patternflow-lab
