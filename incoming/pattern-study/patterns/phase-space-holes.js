@@ -32,47 +32,6 @@ const L0 = 68; // box length at Scale 0, in beam speeds over omega_p
 const NU0 = 0.07; // relaxation rate at Drive 0
 const KNOB = [0, 2, 0, 0.06];
 
-// ---- in-place complex FFT, N a power of two (sign -1 forward, +1 inverse, neither divided by N)
-function makeFft(N) {
-  const rev = new Uint16Array(N), cs = new Float64Array(N / 2), sn = new Float64Array(N / 2);
-  const bits = Math.round(Math.log2(N));
-  for (let i = 0; i < N; i++) {
-    let r = 0;
-    for (let b = 0; b < bits; b++) if (i & (1 << b)) r |= 1 << (bits - 1 - b);
-    rev[i] = r;
-  }
-  for (let k = 0; k < N / 2; k++) {
-    cs[k] = cos((TAU * k) / N);
-    sn[k] = sin((TAU * k) / N);
-  }
-  return function fft(re, im, sign) {
-    for (let i = 0; i < N; i++) {
-      const j = rev[i];
-      if (j > i) {
-        let t = re[i];
-        re[i] = re[j];
-        re[j] = t;
-        t = im[i];
-        im[i] = im[j];
-        im[j] = t;
-      }
-    }
-    for (let len = 2; len <= N; len <<= 1) {
-      const half = len >> 1, step = N / len;
-      for (let s = 0; s < N; s += len)
-        for (let k = 0, t = 0; k < half; k++, t += step) {
-          const wr = cs[t], wi = sign * sn[t];
-          const a = s + k, b = a + half;
-          const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
-          re[b] = re[a] - xr;
-          im[b] = im[a] - xi;
-          re[a] += xr;
-          im[a] += xi;
-        }
-    }
-  };
-}
-
 // ---- the plasma. Two arrays, u and l, hold the electrons that started in the upper and in the lower beam, each on nx columns
 // (one box length L, periodic) and nv rows of velocity, row 0 the fastest to the right; the index is x * nv + r. Both obey the
 // same equation, so f = u + l is the distribution and u / f says where a particle came from. Units: omega_p = 1, the beams sit
@@ -85,10 +44,15 @@ function newSim(nx, nv, beam, wid) {
     E: X(), phi: X(), n: X(), mod: X(),
     L: 30, dx: 30 / nx, dv: 1 / beam, nu: 0, modAmp: 0, limit: 1,
     oc: new Float64Array(NM), os: new Float64Array(NM),
-    fftx: makeFft(nx), xr: X(), xi: X(), ex: X(), ey: X(), px: X(), py: X(),
+    cs: new Float64Array(nx * (nx >> 1)), sn: new Float64Array(nx * (nx >> 1)),
     pad: new Float64Array(nv + 8), flux: new Float64Array(nv + 8), rate: V(), edge: V(),
     clampMass: 0, time: 0, mass: 1,
   };
+  for (let k = 1; k < nx >> 1; k++)
+    for (let i = 0; i < nx; i++) {
+      S.cs[k * nx + i] = cos((TAU * k * i) / nx);
+      S.sn[k * nx + i] = sin((TAU * k * i) / nx);
+    }
   setEquilibrium(S);
   setEdge(S, 6, 1.5);
   return S;
@@ -134,10 +98,11 @@ function drift(S, dt) {
   }
 }
 
-// Poisson: dE/dx = 1 - n, the mean of n taken out (the ions are the mean). E_k = i n_k / k, no Nyquist.
-// phi is the potential energy of an electron, dphi/dx = E.
+// Poisson: dE/dx = 1 - n with the mean of n taken out (the ions are the mean), a sum over the box's harmonics 1 .. nx/2 - 1.
+// With n_k = a - i b the field is E = (2 / nx) sum (b cos - a sin) / k and phi, the potential energy of an electron
+// (dphi/dx = E), is (2 / nx) sum (a cos + b sin) / k^2, k the wavenumber 2 pi m / L.
 function field(S) {
-  const { nx, nv, u, l, fftx, xr, xi, ex, ey, px, py, n, E, phi, dv, L } = S, h = nx >> 1;
+  const { nx, nv, u, l, n, E, phi, dv, cs, sn } = S, h = nx >> 1, k1 = TAU / S.L;
   let mean = 0;
   for (let i = 0; i < nx; i++) {
     let s = 0;
@@ -145,32 +110,22 @@ function field(S) {
     for (let r = 0; r < nv; r++) s += u[o + r] + l[o + r];
     n[i] = s * dv;
     mean += n[i];
-    xr[i] = n[i];
-    xi[i] = 0;
   }
   S.mass = mean / nx;
-  fftx(xr, xi, -1);
-  const k1 = TAU / L;
-  ex.fill(0);
-  ey.fill(0);
-  px.fill(0);
-  py.fill(0);
-  for (let k = 1; k < h; k++) {
-    const kk = k1 * k, nr = xr[k], ni = xi[k];
-    ex[k] = -ni / kk;
-    ey[k] = nr / kk;
-    ex[nx - k] = ex[k];
-    ey[nx - k] = -ey[k];
-    px[k] = ey[k] / kk;
-    py[k] = -ex[k] / kk;
-    px[nx - k] = px[k];
-    py[nx - k] = -py[k];
-  }
-  fftx(ex, ey, 1);
-  fftx(px, py, 1);
-  for (let i = 0; i < nx; i++) {
-    E[i] = ex[i] / nx;
-    phi[i] = px[i] / nx;
+  E.fill(0);
+  phi.fill(0);
+  for (let m = 1; m < h; m++) {
+    let a = 0, b = 0;
+    const o = m * nx, kk = k1 * m;
+    for (let i = 0; i < nx; i++) {
+      a += n[i] * cs[o + i];
+      b += n[i] * sn[o + i];
+    }
+    const ce = (2 / nx) / kk, cp = (2 / nx) / (kk * kk);
+    for (let i = 0; i < nx; i++) {
+      E[i] += ce * (b * cs[o + i] - a * sn[o + i]);
+      phi[i] += cp * (a * cs[o + i] + b * sn[o + i]);
+    }
   }
 }
 
