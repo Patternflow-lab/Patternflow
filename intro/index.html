@@ -1,0 +1,112 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Patternflow · 이승훈</title>
+  <meta name="description" content="Patternflow는 오픈소스 LED 신디사이저입니다. 손끝으로 빛을 연주합니다.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <span class="mark">Patternflow</span>
+  <span class="by">이승훈</span>
+</header>
+
+<main>
+
+  <figure class="film">
+    <button class="film-play" type="button" data-film="1tkV8-AgdpA" aria-label="Patternflow 소개 영상 재생">
+      <img src="media/poster.jpg" width="1600" height="900" alt="흰 케이스에 노브 네 개, 검은 LED 패널에 파란 패턴이 켜진 Patternflow">
+      <span class="film-icon" aria-hidden="true"></span>
+    </button>
+    <figcaption>소개 영상, <a href="https://youtu.be/1tkV8-AgdpA">YouTube</a>. 짧은 <a href="https://www.instagram.com/p/DbD2z1VSG09/">릴</a>은 인스타그램에서 40만 회 넘게 재생됐습니다.</figcaption>
+  </figure>
+
+  <section class="lead">
+    <h1>Patternflow는 오픈소스 LED 신디사이저입니다.<br>손끝으로 빛을 연주합니다.</h1>
+    <p class="en" lang="en">An open-source LED synthesizer. Play light patterns with your fingertips.</p>
+  </section>
+
+  <section>
+    <h2>이승훈의 데뷔작</h2>
+    <p>Patternflow는 미디어 아티스트 이승훈의 데뷔작입니다. 2026년 1월 백남준아트센터에서 《Participation TV》 앞에 섰고, 두 달 뒤 처음으로 LED 매트릭스에 노브를 달았습니다.</p>
+    <p>백남준의 《Participation TV》(1963)에 대한 동시대적 재해석입니다. 백남준은 관객이 이미지를 바꾸게 했고, Patternflow는 당신이 그것을 만들고 건네주게 합니다.</p>
+    <p class="en" lang="en">SeungHun Lee's debut work as a media artist, and a contemporary reinterpretation of Nam June Paik's <i>Participation TV</i> (1963).</p>
+  </section>
+
+  <section>
+    <h2>누구나 패턴을 만듭니다</h2>
+    <p>코드를 몰라도 됩니다. 원하는 빛을 말로 적어 AI에 건네면 패턴 코드가 돌아오고, 붙여 넣으면 바로 움직입니다. Pattern Lab에서 색과 노브를 다듬어 보내면 10초쯤 뒤 Wi-Fi로 기기에 올라갑니다.</p>
+    <p>만든 패턴은 커뮤니티에 올립니다. 다른 사람이 가져가 고쳐 쓰고, 원작자 이름을 달고 다시 올립니다. 지금 백 개가 넘습니다. 패턴은 작은 파일 하나라서 어디서 만들었든 그대로 돕니다.</p>
+    <p class="line">모든 Patternflow는 우리가 만든 모든 패턴을 연주합니다.</p>
+    <p class="en" lang="en">Describe a light to an AI, paste back the code, and it plays on every Patternflow in the world.</p>
+  </section>
+
+  <section class="play" aria-labelledby="play-title">
+    <h2 id="play-title">돌려 보세요</h2>
+    <p>기기에 들어가는 패턴의 원본 코드가 이 화면에서 그대로 돕니다. 노브를 위아래로 끌어 돌립니다. 휠과 방향키도 됩니다.</p>
+
+    <div class="device">
+      <canvas class="panel" data-panel width="768" height="384" aria-label="128 × 64 LED 패널"></canvas>
+      <div class="knobs" data-knobs></div>
+    </div>
+    <div class="controls">
+      <span class="now"><b data-pattern-name>Origin</b> <span data-pattern-count></span></span>
+      <button type="button" data-next>다음 패턴</button>
+      <button type="button" data-pause aria-pressed="false">멈춤</button>
+      <button type="button" data-sound aria-pressed="false">마이크 켜기</button>
+    </div>
+    <p class="note" data-sound-note aria-live="polite"></p>
+    <p class="en" lang="en">Turn the knobs. This is the pattern's own source, running in your browser.</p>
+  </section>
+
+  <section>
+    <h2>소리와 함께</h2>
+    <p>Audio 에디션에서는 소리가 노브를 돌립니다. 노브마다 저음이나 고음을 맡기면 어떤 패턴이든 음악을 따라 움직이고, 패턴 쪽에는 소리 코드가 한 줄도 없습니다.</p>
+    <p>기기에 5달러짜리 마이크를 달면 컴퓨터 없이 방의 소리를 듣습니다. DAW에서는 Wi-Fi로 MIDI 포트가 됩니다. 위에서 마이크를 켜면 이 화면의 노브가 지금 들리는 소리로 돌아갑니다.</p>
+    <p class="en" lang="en">In the Audio edition, sound turns the knobs, so every pattern moves with the music.</p>
+  </section>
+
+  <section>
+    <h2>세계에서</h2>
+    <ul class="record">
+      <li><span class="when">2026.04</span><span>인스타그램과 Arduino 서브레딧에서 조회 15만 회, 추천 3,700개. 제품보다 파일을 달라는 말이 많아 전부 공개했습니다.</span></li>
+      <li><span class="when">2026.07</span><span>Creative Applications Network 소개</span></li>
+      <li><span class="when">2026.08</span><span>Mixmag Asia, Synthtopia, AMAZONA.de, MATRIXSYNTH 기사</span></li>
+      <li><span class="when">2026.09</span><span>Patternflow 한 대가 처음으로 작품으로 팔렸습니다.</span></li>
+      <li><span class="when">2026.10</span><span>Crowd Supply 크라우드펀딩 목표의 200%, 세계로 배송</span></li>
+      <li><span class="when">2026.10</span><span>샌프란시스코 팝업 갤러리 《USER EXPERIENCE》 전시. 서울역 근처 Modu Art Space의 시각장애 작가 전시 《Anbu》에서는 작가들의 작품을 Patternflow로 옮겨 손으로 연주했습니다.</span></li>
+      <!-- 기록을 더 넣으려면 위와 같은 꼴로 <li> 한 줄을 더한다. -->
+    </ul>
+    <figure class="builds">
+      <img src="media/builds.jpg" width="1600" height="933" loading="lazy" alt="세계 곳곳에서 사람들이 직접 만든 Patternflow 일곱 대. 둘은 DJ 부스에 있다">
+      <figcaption>영국, 폴란드, 프랑스, 노르웨이, UAE, 미국에서 사람들이 공개된 파일만 보고 직접 만든 Patternflow. 이란의 Azmano는 이 패턴으로 자기 악기 MOTIFLOW를 만들어 갤러리에 걸었습니다.</figcaption>
+    </figure>
+    <p class="en" lang="en">Built by hand from the published files in the UK, Poland, France, Norway, the UAE and the USA.</p>
+  </section>
+
+  <section>
+    <h2>공간에서</h2>
+    <p>관람객이 휴대폰으로 AI에게 원하는 빛을 말하고 보내면, 10초쯤 뒤 그 패턴이 벽의 Patternflow에 뜹니다. 옆 사람이 노브를 돌려 그 패턴을 연주합니다.</p>
+    <p class="en" lang="en">A visitor describes a light to an AI, and seconds later it is on the wall for the next person to play.</p>
+  </section>
+
+  <section class="contact">
+    <h2>연락</h2>
+    <p><a href="mailto:contact@patternflow.work">contact@patternflow.work</a> · <a href="https://patternflow.work">patternflow.work</a> · <a href="https://www.instagram.com/patternflow.work">Instagram</a></p>
+  </section>
+
+</main>
+
+<footer>
+  <p>빠르게 바뀌는 빛이 광과민성 발작을 일으킬 수 있습니다. 불편하면 바로 멈추세요.</p>
+  <p>Patternflow · 이승훈 · 서울, 2026</p>
+</footer>
+
+<script src="patterns.js"></script>
+<script src="intro.js"></script>
+</body>
+</html>

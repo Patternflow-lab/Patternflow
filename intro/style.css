@@ -1,0 +1,431 @@
+/* SPDX-License-Identifier: MIT */
+
+:root {
+  --paper: #f2f1ed;
+  --ink: #1b1b19;
+  --quiet: #6e6d67;
+  --rule: #d8d6cf;
+  --case: #fbfbf9;
+  --cap: #1d1d1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px 24px 0;
+  font-size: 15px;
+}
+
+.mark {
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.by {
+  color: var(--quiet);
+}
+
+main {
+  padding: 0 24px;
+}
+
+section,
+.film,
+footer {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+section {
+  padding: 56px 0 0;
+}
+
+h1 {
+  font-size: 26px;
+  line-height: 1.5;
+  font-weight: 700;
+  margin: 0;
+}
+
+h2 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+
+p {
+  margin: 0 0 14px;
+}
+
+.en {
+  color: var(--quiet);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.lead {
+  padding-top: 36px;
+}
+
+.lead .en {
+  margin-top: 10px;
+}
+
+.line {
+  font-weight: 700;
+}
+
+/* ── Film ───────────────────────────────────────────────────────────────── */
+
+.film {
+  max-width: 1040px;
+  margin-top: 20px;
+}
+
+.film-play,
+.film iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 4px;
+  background: #ddd;
+}
+
+.film-play {
+  position: relative;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.film-play img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.film-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  border-radius: 50%;
+  background: rgba(20, 20, 20, 0.82);
+}
+
+.film-icon::after {
+  content: "";
+  position: absolute;
+  left: 29px;
+  top: 23px;
+  border-style: solid;
+  border-width: 13px 0 13px 21px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.film-play:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.film figcaption,
+.builds figcaption {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--quiet);
+}
+
+/* ── Device ─────────────────────────────────────────────────────────────── */
+
+.play {
+  max-width: 1040px;
+}
+
+.play > h2,
+.play > p {
+  max-width: 680px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.device {
+  display: grid;
+  grid-template-columns: 1fr 168px;
+  gap: 28px;
+  align-items: center;
+  margin: 24px 0 0;
+  padding: 22px;
+  background: var(--case);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+}
+
+.panel {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 2 / 1;
+  background: #000;
+  border-radius: 2px;
+}
+
+.knobs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 16px;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.knob.is-turning {
+  cursor: grabbing;
+}
+
+.knob-cap {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--cap);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.18);
+}
+
+.knob-mark {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 3px;
+  height: 14px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #f2f1ed;
+}
+
+.knob:focus-visible .knob-cap {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.knob-name {
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--quiet);
+  text-align: center;
+  min-height: 2.6em;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 14px auto 0;
+}
+
+.now {
+  margin-right: auto;
+  font-size: 15px;
+}
+
+.now span {
+  color: var(--quiet);
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+.controls button {
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.controls button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.controls button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.controls button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.note {
+  min-height: 1.6em;
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--quiet);
+}
+
+/* ── Record ─────────────────────────────────────────────────────────────── */
+
+.record {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.record li {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.record li:last-child {
+  border-bottom: 0;
+}
+
+.when {
+  color: var(--quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+.builds {
+  margin: 0 0 16px;
+}
+
+.builds img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* ── End ────────────────────────────────────────────────────────────────── */
+
+.contact p {
+  font-size: 18px;
+}
+
+footer {
+  padding: 56px 24px 40px;
+  font-size: 13px;
+  color: var(--quiet);
+}
+
+footer p {
+  margin: 0 0 4px;
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 16px;
+  }
+
+  .top,
+  main {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  footer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  h1 {
+    font-size: 21px;
+  }
+
+  section {
+    padding-top: 44px;
+  }
+
+  .film {
+    margin-top: 14px;
+  }
+
+  .film-icon {
+    width: 56px;
+    height: 56px;
+    margin: -28px 0 0 -28px;
+  }
+
+  .film-icon::after {
+    left: 22px;
+    top: 17px;
+    border-width: 11px 0 11px 17px;
+  }
+
+  .device {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 12px;
+  }
+
+  .knobs {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .knob-cap {
+    width: 52px;
+    height: 52px;
+  }
+
+  .knob-mark {
+    top: 6px;
+    height: 12px;
+  }
+
+  .record li {
+    grid-template-columns: 64px 1fr;
+    font-size: 15px;
+  }
+}
