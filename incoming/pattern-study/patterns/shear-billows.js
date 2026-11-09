@@ -1,20 +1,51 @@
 // ===== Patternflow pattern =====
 // Title:   Shear Billows
 // Family:  sim
-// Idea:    Layers of fluid slide past each other at different speeds, each seam rolls up into a row of curling billows that pair, wind up and smear out, and the layers are pulled straight again so a new row curls up from the wreck
+// Idea:    Layers of fluid slide past each other at different speeds, each seam rolls up into a row of curling billows that wind up, tear and smear out, and the layers are pulled straight again so that a new row curls up from the wreck
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Kelvin-Helmholtz instability of a shear layer (Helmholtz, 1868; Kelvin, 1871) in two dimensions, pseudo-spectral on a torus; the forced shear layer with a relaxed mean profile as in Corcos and Sherman (1984) and Winant and Browand (1974) for the pairing of billows
+// Lineage: Kelvin-Helmholtz instability of a shear layer (Helmholtz, 1868; Kelvin, 1871; the growth rate of the tanh layer from Michalke, 1964) in two dimensions, pseudo-spectral on a torus; the mean shear held by relaxation, a device of forced-box simulations that is mine in this form; Shu and Osher's third order scheme (1988); the dye carried as in Floating Foam
 // Round:   121
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Layers=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Flow.
-// Knob 3: Scale.
-// Knob 4: Layers.
+// Knob 1: Hue. Turns every colour of the ramp round the grey axis by the knob times 360 degrees; at 0 the layers are pale peach and violet, with rose and coral where they mix.
+// Knob 2: Flow. Model seconds per panel second. Neighbouring layers slide past each other at 6.4 LEDs per model second (and about 2.0 rms more or less, as the speeds wander), so 3.2 LEDs a second at 0.5, 12.8 at the opening 2 and 25.6 at 4; a billow grows by e every 4 model seconds, 2 s at the opening.
+// Knob 3: Scale. Two sizes move together. The half thickness of a seam is 2.2 LEDs times 1.7 to the minus the knob (3.7 at -1, 1.3 at 1), and the fastest growing billow is 14.1 half thicknesses long (53, 31 and 18 LEDs at -1, 0 and 1). The small eddies that seed new billows are stirred round the wavenumber 0.22 times 1.6 to the knob (wavelengths 46, 29 and 18 LEDs).
+// Knob 4: Layers. The number of bands, floor(4.6 + 1.5 times the knob) from 3 to 6: 3 below -0.4, 4 up to 0.27 (the opening 0.06 has 4, 32 LEDs a band), 5 up to 0.93, 6 above. Neighbours carry opposite dye; with an odd count the last band carries none and sits midway on the ramp.
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, with the vorticity w (u = (psi_y, -psi_x), w = -lap psi) and a dye c that goes with the flow, in model seconds:
+//   w_t + u.grad w = -nu k^2 w - nu4 k^4 w - mu w + relU (w0 - w) + stir,   nu 0.03, nu4 0.004, mu 0.15 (every mode with kx not 0), relU 0.3 (kx = 0 only)
+//   c_t + u.grad c = 0.02 lap c, then in each row c goes up or down by 0.3 dt times (c0 - its mean), and no cell passes +-0.8
+// w0 is the vorticity of the target mean flow u0: n bands, band b at U_b = 4 (+-0.8 + v_b), signs alternating, v_b wandering (Ornstein-Uhlenbeck, correlation 25, rms 0.35), a seam between bands b and b+1 the tanh step of half thickness dl,
+// the mean over y taken out because the torus carries no mean flow. c0 is the same layout with the dye +-0.8 (0 for the odd band). Only the kx = 0 modes are pulled back to w0, so a billow is free to mix the layers; the drag mu takes every other
+// mode, so that no vortex grows past a band. stir is complex Gaussian noise, 0.01 sqrt(dt) a step, on 70 modes with 0.1 < k < 0.5 and kx not 0, weighted round the wavenumber of Scale and scaled to the same total power at every Scale:
+// it seeds the next row of billows once the layers are straight.
+// The scheme: u and the gradient of w by two inverse transforms (the pairs packed in one), their product by one forward, that term times exp(-36 (k / 1.8)^16) (above 0.5 up to |k| 1.41, a wavelength of 4.5 LEDs), Shu and Osher's third order scheme
+// at a step of 0.05, which is three of those a step. The dye goes with the velocity on the cell faces (a fourth packed transform with a half-cell phase shift) in x, y, x sweeps of the flux-form second order upwind scheme with the monotonised central
+// limiter, in as many substeps as keep a crossing under 0.45. Once a frame w is transformed back for the picture: the dye plus 0.24 tanh(w / its rms), on a six-stop ramp (violet-indigo, violet, rose, coral, peach, pale gold) over c from -1.1 to 1.1. The
+// vorticity moves a cell along the ramp, so the flat insides of the layers have a grain, and the cores of billows show.
+//
+// What was checked, with the file's own step (scripts of mine, not in the repo):
+// - Growth of a billow against the inviscid theory. Four bands at +-3.2 (U0 3.2, dl 2.2), no drag, noise 3e-7, no wander: the energy in kx = 1, 2 and 3 grows at 0.210, 0.250 and 0.163 per model second (read between 12 and 24), where the Rayleigh equation
+//   for U = tanh(y), shot by my own routine (0.1897 at alpha 0.4446, Michalke's value; 0.1465, 0.1896 and 0.1611 at alpha 0.2166, 0.4325 and 0.6498), times U0 / dl = 1.4545 gives 0.213, 0.276 and 0.234. With the cut, the viscosities and the
+//   hyperviscosity taken out and a quarter of the step: 0.218, 0.276 and 0.218. The short billows lose most to the cut and the viscosity, the longest to nothing: the file keeps them, since its first version (Heun's scheme, nu 0.01, a cut at 2.2) went to
+//   |u| 62 at model time 48 at the maximum knobs.
+// - 900 s, the open, all-minimum and all-maximum sets through update(): at 0, 20, 100, 300, 600 and 900 s the largest |u| on a face is 5.5 to 8.3 LEDs per model second, the energy (sum of |w|^2 / k^2) 7 to 19, the mean of the dye within 0.015 of 0, and 27 to 47 per cent of the cells at the clamp; no frame was non-finite.
+// - The mean shear: its vorticity (the kx = 0 modes) stays 22 to 59 per cent off the target profile w0, since the billows mix momentum faster than 0.3 a second puts it back.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.56 to 0.75, dim 0.58 to 0.84, quiet 0.51 to 0.79, last quarter dim 0.57 to 0.84 and quiet 0.39 to 0.67, luma -0.4 to +0.6 per cent first to last quarter.
+//   900 s (recur, dim, quiet): open 0.534, 0.613, 0.729; all minimum 0.556, 0.588, 0.658; all maximum 0.573, 0.624, 0.727. Measured on this file under its name, which seeds the noise and the wander.
+// - Cost: 1.7 to 9 ms a frame in Node (update and draw), the worst of 300 frames 14 ms at the opening and 21 ms at the maximum, the start 1.6 s (30 model seconds first, so that billows are up).
+//
+// What failed first. 1. Relaxation 0.05 for the shear and 0.07 for the dye and no drag: the layers dissolved into a few big vortices in two-dimensional turbulence and the picture read as Marbling. Drag 0.15 on every eddy and relaxation 0.3 brought the layers
+// back. 2. The dye reached 2.3 times its band value: the shift that brings a row's mean back adds the same number to every cell of the row, so a row of cells at +0.8 and -0.8 whose mean is wrong goes past both. Taking c times the divergence of the face velocity
+// out of the flux form changed nothing (the range stayed +-2.3), so the cause was the shift, and a clamp at +-0.8 fixed it; 27 to 47 per cent of the cells sit at the clamp, the insides of the bands. 3. The first ramp began at (22, 16, 80), luma 25, and the
+// all-minimum set (three bands of 43 LEDs) had a 16 by 16 cell of one colour: dim 0.30; the open set's last quarter was 0.37. The ramp now starts at (60, 40, 146), luma 58, and dim is 0.56 or more in every set below. 4. Scale first moved only the seam thickness, by 1.35 to the knob,
+// and the stills at -1 and 1 looked alike; it now also moves the stirring and the range is 1.7. 5. Heun's scheme blew up, as above.
+// What was not checked: the pairing of billows (Winant and Browand) is not counted; a finer grid than 64 by 128 (the half thickness at Scale 1 is 1.3 cells); three dimensions, where the braids break into streaks; whether 4 LEDs a model second
+// for a band is where the Reynolds number belongs. The drag, the relaxation and the stirring are the picture's own: they keep a row of billows coming, and none of them is in the equation of a shear layer.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, ceil, abs, sqrt, exp, log, cos, sin, tanh, PI, min, max, pow } = Math;
@@ -32,9 +63,10 @@ const CFG = {
   fric: 0.15, // drag on every eddy, not on the mean shear, so that no vortex grows past a seam's row
   relU: 0.3, // the mean shear is pulled back to its profile at this rate
   relC: 0.3, // and so is the dye
+  cmax: 0.8, // the dye of a band, which no cell passes: the shift that restores a row's mean put cells to 2.3 times it before the clamp
   noise: 0.01, // forcing of small eddies, vorticity per sqrt(model second)
   dt: 0.05,
-  pre: 30,
+  pre: 14, // model seconds before the first frame; the dye only goes with the flow for the last 6 of them
   cfl: 0.45,
 };
 
@@ -128,7 +160,7 @@ for (let j = 0; j < H; j++)
     const r = sqrt(K2[p]) / 1.8; // the cut: 1.8 rad per LED, 0.6 of the Nyquist
     FIL[p] = exp(-36 * pow(r, 16));
     const km = sqrt(K2[p]);
-    if (nx !== 0 && km > 0.1 && km < 0.5 && (ny > 0 || (ny === 0 && nx > 0))) NS.push([p, ((H - j) & HM) * W + ((W - i) & WM)]);
+    if (nx !== 0 && km > 0.1 && km < 0.5 && (ny > 0 || (ny === 0 && nx > 0))) NS.push([p, ((H - j) & HM) * W + ((W - i) & WM), km]);
   }
 
 // half-cell shifts that put the velocity on the faces of the foam-style grid, for the dye
@@ -176,6 +208,17 @@ function setBands(S, n) {
     S.wb[b] = gauss() * CFG.wanderS;
   }
   if (n % 2) S.Cb[n - 1] = 0;
+}
+// the stirring is weighted round a wavenumber kn, so Scale moves the size of the small eddies that seed new billows
+function setNoise(S, kn) {
+  let e = 0;
+  for (let m = 0; m < NS.length; m++) {
+    const z = log(NS[m][2] / kn) / 0.4;
+    S.nw[m] = exp(-0.5 * z * z);
+    e += S.nw[m] * S.nw[m];
+  }
+  const a = sqrt(NS.length / (e || 1));
+  for (let m = 0; m < NS.length; m++) S.nw[m] *= a;
 }
 function wander(S, mt) {
   const d = exp(-mt / CFG.wanderT), q = sqrt(1 - d * d);
@@ -270,14 +313,16 @@ function sweepY(R, V, dt) {
   }
 }
 
-function step(S) {
+function step(S, nodye) {
   const dt = CFG.dt, { wr, wi, k1r, k1i, k2r, k2i, tr, ti, c } = S;
   // the dye goes with the velocity at the start of the step
-  const um = faces(S), n = max(1, ceil((um * dt) / CFG.cfl)), ds = dt / n;
-  for (let i = 0; i < n; i++) {
-    sweepX(c, S.U, 0.5 * ds);
-    sweepY(c, S.V, ds);
-    sweepX(c, S.U, 0.5 * ds);
+  if (!nodye) {
+    const um = faces(S), n = max(1, ceil((um * dt) / CFG.cfl)), ds = dt / n;
+    for (let i = 0; i < n; i++) {
+      sweepX(c, S.U, 0.5 * ds);
+      sweepY(c, S.V, ds);
+      sweepX(c, S.U, 0.5 * ds);
+    }
   }
   // Shu and Osher's third order scheme
   rhs(S, wr, wi, k1r, k1i);
@@ -293,9 +338,9 @@ function step(S) {
     wr[p] += a * (S.w0r[j] - wr[p]);
     wi[p] += a * (S.w0i[j] - wi[p]);
   }
-  const q = CFG.noise * sqrt(dt);
+  const q = CFG.noise * sqrt(dt) * (S.boost || 1);
   for (let m = 0; m < NS.length; m++) {
-    const [p, pm] = NS[m], gr = q * gauss(), gi = q * gauss();
+    const [p, pm] = NS[m], gr = q * S.nw[m] * gauss(), gi = q * S.nw[m] * gauss();
     wr[p] += gr;
     wi[p] += gi;
     wr[pm] += gr;
@@ -309,7 +354,7 @@ function step(S) {
     const o = j * W;
     for (let i = 0; i < W; i++) m += c[o + i];
     const sh = rc * (S.c0[j] - m / W);
-    for (let i = 0; i < W; i++) c[o + i] += sh;
+    for (let i = 0; i < W; i++) c[o + i] = cl(c[o + i] + sh, -CFG.cmax, CFG.cmax);
   }
   const t = S.t2;
   for (let j = 0; j < H; j++) {
@@ -327,11 +372,12 @@ function start(params, k) {
   const mk = () => new Float64Array(N);
   const S = {
     wr: mk(), wi: mk(), ar: mk(), ai: mk(), br: mk(), bi: mk(), k1r: mk(), k1i: mk(), k2r: mk(), k2i: mk(), tr: mk(), ti: mk(),
-    U: mk(), V: mk(), c: mk(), t2: mk(), om: new Float32Array(N), os: 0,
+    U: mk(), V: mk(), c: mk(), t2: mk(), om: new Float32Array(N), os: 0, nw: new Float64Array(NS.length),
     u0: new Float64Array(H), c0: new Float64Array(H), w0r: new Float64Array(H), w0i: new Float64Array(H),
-    n: 0, dl: dlOf(k[2]), hue: 0, lutHue: -9, lut: new Uint8Array(256 * 3), acc: 0, time: 0, ready: false,
+    n: 0, dl: dlOf(k[2]), kn: knOf(k[2]), hue: 0, lutHue: -9, lut: new Uint8Array(256 * 3), acc: 0, time: 0, ready: false,
   };
   params.s = S;
+  setNoise(S, knOf(k[2]));
   setBands(S, nOf(k[3]));
   wander(S, 1000);
   profiles(S);
@@ -349,11 +395,14 @@ function start(params, k) {
   for (let j = 0; j < H; j++) (S.wr[j * W] = S.w0r[j]), (S.wi[j * W] = S.w0i[j]);
   for (let t = 0; t < CFG.pre; t += CFG.dt) {
     if (((t / CFG.dt) | 0) % 10 === 0) (wander(S, 0.5), profiles(S));
-    step(S);
+    S.boost = t < CFG.pre - 6 ? 5 : 1;
+    step(S, t < CFG.pre - 6);
   }
+  S.boost = 1;
   S.ready = true;
 }
-const dlOf = (v) => CFG.dl * pow(1.35, cl(v, -1.2, 1.2));
+const dlOf = (v) => CFG.dl * pow(1.7, -cl(v, -1.2, 1.2));
+const knOf = (v) => 0.22 * pow(1.6, cl(v, -1.2, 1.2));
 const nOf = (v) => cl(floor(4.6 + 1.5 * cl(v, -1.2, 1.2)), 3, 6);
 
 export function update(dt, input, params) {
@@ -362,12 +411,12 @@ export function update(dt, input, params) {
   const S = params.s, ft = cl(dt || 0, 0, 0.1), flow = cl(k[1], 0.1, 8);
   S.hue = cl(k[0], 0, 1);
   S.dl += (dlOf(k[2]) - S.dl) * (1 - exp(-ft / 0.5));
+  S.kn += (knOf(k[2]) - S.kn) * (1 - exp(-ft / 0.5));
+  setNoise(S, S.kn);
   const nt = nOf(k[3]);
   if (nt !== S.n) {
-    const old = S.n;
     setBands(S, nt);
     wander(S, 1000);
-    if (old) S.acc += 0;
   }
   S.acc += ft * flow;
   let steps = 0;

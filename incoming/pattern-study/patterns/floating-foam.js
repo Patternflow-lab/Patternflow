@@ -1,20 +1,44 @@
 // ===== Patternflow pattern =====
 // Title:   Floating Foam
 // Family:  ocean
-// Idea:    Foam on a restless water surface is swept by a flow that also converges and spreads, so its density piles into thin bright seams where the surface flow runs together and thins out in the dark pools between, and the seams keep tearing, closing and bending along the flow
+// Idea:    Foam on a restless water surface is swept by a flow that converges and spreads as well as turns, so its density piles up into thin bright seams where the surface flow runs together and thins out in dark pools between, and the seams keep tearing, closing and bending along the flow
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Lagrangian clustering of floaters on a compressible surface flow (Sommerer and Ott, Nature 1993; Cressman, Davoudi, Goldburg and Schumacher, New Journal of Physics 2004; Schumacher and Eckhardt, Europhysics Letters 2002); the flow is a random field of Fourier modes in the style of Kraichnan, and the density is carried in flux form by a MUSCL scheme with the monotonised central limiter (van Leer, 1977)
+// Lineage: Clustering of floaters on a compressible surface flow (Sommerer and Ott, Science 1993; Cressman, Davoudi, Goldburg and Schumacher, New Journal of Physics 2004); a random kinematic flow of lattice Fourier modes with wandering phases, the kind of model Kraichnan began (1968) with a finite correlation time; the density carried in flux form by a second order upwind scheme with the monotonised central limiter (van Leer, 1977)
 // Round:   121
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Compression=-1..1
 //
 // Knob 1: Hue. Turns every colour of the ramp round the grey axis by the knob times 360 degrees; at 0 the foam runs from deep navy through blue and teal to near white.
-// Knob 2: Flow. Model seconds per panel second, so the speed in LEDs a second and how fast the seams form and move; the shape of the picture at one model time does not change.
-// Knob 3: Scale. The wavelength where the flow has most of its energy, 30 LEDs at 0 and 1.4 to the minus the knob times that: seams a hand's width apart at 1, a pool wide at -1.
-// Knob 4: Compression. The share of the flow's energy in the part that converges and spreads rather than the part that turns: 0.15 at -1, 0.5 at the opening, 0.85 at 1; at 0.15 the seams are soft and wide.
+// Knob 2: Flow. Model seconds per panel second, so the speed in LEDs a second and how fast the seams form and move: the rms speed is 1.8 LEDs per model second, 0.9 at 0.5, 3.6 at the opening 2 and 7.2 at 4. The picture at one model time does not depend on it.
+// Knob 3: Scale. The wavelength where the flow has most of its energy, 30 LEDs times 1.4 to the minus the knob: 42 at -1, 30 at 0 and 21 at 1. The seams are 2.8 LEDs wide at half height at -1, 2.4 at 0 and 2.2 at 1 (medians), and their spacing follows the wavelength.
+// Knob 4: Compression. The share c of the flow's energy in the part that converges and spreads rather than the part that turns, 0.5 plus 0.35 times the knob: 0.15 at -1, 0.52 at the opening and 0.85 at 1. At 0.15 the seams are 3.2 LEDs wide and the density is half as spread out (sd of ln 0.73 against 1.00); at 0.85 they are 2.1 wide and the white nodes where seams meet are brightest.
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, carrying the density rho of floaters, mean 1, in model seconds:
+//   rho_t + div(rho u) = D lap rho + (1 - rho) / tau,   D = 0.04 LED^2 per model second, tau = 12
+// u = sqrt(1 - c) u_s + sqrt(c) u_p. Each of 185 lattice modes of the torus (half the plane, 0.08 < k < 0.75 rad per LED) has a part u_s = (ky, -kx) / k that turns and a part u_p = (kx, ky) / k that converges
+// and spreads, each with its own phase. The energy of a mode goes as exp(-(ln(k / kf) / 0.45)^2 / 2), 2 pi / kf the Scale wavelength, scaled so that the rms speed is 1.8 at every Scale and Compression. A phase turns at 0.2 to 0.9
+// of 1.8 k, either way, and that rate wanders (Ornstein-Uhlenbeck, correlation time 4, rms 0.35 of itself), so the phases random-walk and nothing comes round again. Once a frame the modes go through an inverse FFT with a half-cell
+// phase shift, which gives the velocity on the faces of the cells (two transforms with the pair packed in one). The density moves in x, y, x sweeps (Strang) of the flux-form scheme in as many substeps as keep a crossing of
+// one cell under 0.45, then relaxes and diffuses (floor 1e-4). The picture is ln(rho + 0.05) between its 4th and 99.5th percentile (followed over 4 s) on a six-stop ramp (navy, blue, teal, cyan, ice, white) turned by Hue.
+//
+// What was checked, with the file's own sweep (scripts of mine, not in the repo):
+// - One sinusoidal velocity u = A sin(kx) along x on the 64 cells (A 0.8, k = 2 pi / 64), the x sweep alone at a step of 0.1, against the density the characteristics give (tan(kx/2) = tan(kx0/2) e^(Akt), rho = dx0/dx):
+//   at A k t = 0.63, 1.10 and 1.49 the sink cell holds 1.869, 2.988 and 4.412 against 1.872, 2.988 and 4.397, the relative L2 error over the row is 2.3, 4.6 and 7.3 per cent, and the mass stays 1 to twelve places.
+// - 900 s at the opening: the mean density is 1 + 1e-12 from 100 s on (1 + 2e-5 after the 40 s before the first frame, which the relaxation takes out), the smallest cell 0.053 (the floor never acts), the largest 34 to 108, sd of
+//   ln(rho + 0.05) 0.98 to 1.04 at 20, 100, 300 and 900 s, 9.5 to 11.4 per cent of the cells above 2, and the brightest 2 per cent of the cells hold 25 to 33 per cent of the foam. Nothing drifts.
+// - The flow at the opening: the rms speed is 1.80; over the grid the divergence takes 52.1 per cent of div^2 + curl^2 where c is 0.521.
+// - Seams, by the full width at half height between the density 1 and the peak, along x and y, 10,213 seams over 120 s: quartiles 1.9, 2.4 and 3.1 LEDs at the opening. Compression -1 and 1: median 3.2 and 2.1. Scale -1 and 1: 2.8 and 2.2.
+//   Two cells is about what the scheme can hold.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.73 to 0.82, dim 0.86 to 0.97, quiet 0.70 to 0.92, last quarter dim 0.68 to 0.93 and quiet 0.53 to 0.84, luma -1.7 to +2.4 per cent first to last quarter.
+//   900 s (recur, dim, quiet): open 0.741, 0.974, 0.929; all minimum 0.754, 0.927, 0.786; all maximum 0.733, 0.987, 0.964. Measured on this file under its name, which seeds the phases.
+// - Cost: 1.3 to 2.1 ms a frame in Node (update and draw), the worst of 300 frames 9.9 ms at the opening, the start 0.2 s.
+//
+// What failed first. On led.png the pools between seams of the first ramp, whose darkest stop was (4, 8, 30), showed nearly off; the ramp now starts at (6, 12, 44).
+// What was not checked: a grid finer than 64 by 128 (a seam is two cells wide, so it is the grid that sets it); the correlation dimension of the clusters against the literature; a surface flow taken from a real three-dimensional
+// flow. The spectrum, the wave speeds and the correlation time are my choices, and the relaxation at 1 / 12 a second, which makes and removes foam, is the picture's own.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, ceil, abs, sqrt, exp, log, cos, sin, PI, min, max, pow } = Math;
