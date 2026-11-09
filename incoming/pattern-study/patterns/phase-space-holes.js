@@ -28,7 +28,7 @@ const NM = 8; // how many modes of the box the unevenness of the feed has
 const MTAU = 25; // how long it keeps its shape, in plasma time
 const DTMAX = 0.12; // longest step of plasma time
 const TAU0 = 1.5; // plasma time per second of panel, at Flow 1
-const L0 = 60; // box length at Scale 0, in beam speeds over omega_p
+const L0 = 68; // box length at Scale 0, in beam speeds over omega_p
 const NU0 = 0.07; // relaxation rate at Drive 0
 const KNOB = [0, 2, 0, 0.06];
 
@@ -344,7 +344,7 @@ function knobTargets(k) {
   return [cl(k[1], 0.5, 4), cl(k[2], -1, 1), cl(k[3], -1, 1)];
 }
 function applyKnobs(S) {
-  S.L = L0 * pow(1.7, -S.ks);
+  S.L = L0 * pow(1.5, -S.ks);
   S.dx = S.L / S.nx;
   S.nu = NU0 * pow(2.5, S.kq);
   S.modAmp = 0.5;
@@ -384,11 +384,16 @@ export function update(dt, input, params) {
   applyKnobs(S);
   const T = h * TAU0 * S.kp, n = max(1, ceil(T / DTMAX - 1e-6));
   for (let i = 0; i < n; i++) step(S, T / n);
+  if (!isFinite(S.mass + S.E[0])) {
+    // never reached in the runs below; if a value ever went bad, the plasma starts over from its ripple rather than stay dark
+    seedRipple(S, 0.03, 8);
+    for (let i = 0; i < 400; i++) step(S, 0.12);
+  }
 }
 
 // the three terms of the lightness: how the density stands against the row it is in (a hole is below its row, a ridge above),
 // its fine structure (against a 3 x 3 blur), and the rim where the origin of the particles changes quickly
-const LP = { base: 0.5, mix: 0.07, ratio: 0.3, fine: 0.2, rim: 0.25, floor: 0.35 };
+const LP = { base: 0.5, mix: 0.07, tail: 0.08, ratio: 0.3, fine: 0.2, rim: 0.25, floor: 0.35 };
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
@@ -449,7 +454,7 @@ export function draw(display, params) {
       const q = qp + tr * (qq[k] - qp);
       const qx = qq[((x + 1) & mx) * nv + y] - qq[((x - 1) & mx) * nv + y];
       const qy = qq[x * nv + (y < nv - 1 ? y + 1 : y)] - qq[x * nv + (y > 0 ? y - 1 : y)];
-      const Lm = LP.base + LP.mix * 4 * q * (1 - q) + LP.ratio * tanh(gr * (lb[k] + tr * (lf[k] - lb[k]) - lfb)) + LP.fine * tanh(gh * (lf[k] - lb[k])) + LP.rim * tr * tanh(3 * sqrt(qx * qx + qy * qy));
+      const Lm = LP.base + LP.tail * (1 - tr) + LP.mix * 4 * q * (1 - q) + LP.ratio * tanh(gr * (lb[k] + tr * (lf[k] - lb[k]) - lfb)) + LP.fine * tanh(gh * (lf[k] - lb[k])) + LP.rim * tr * tanh(3 * sqrt(qx * qx + qy * qy));
       const idx = 3 * (((q * (NQ - 1) + 0.5) | 0) * NLV + (((Lm < 0.1 ? 0.1 : Lm > 0.98 ? 0.98 : Lm) - 0.1) * ((NLV - 1) / 0.88) + 0.5 | 0));
       lin(lut[idx], lut[idx + 1], lut[idx + 2], o);
       display.setPixel(x, y, gam(o[0]), gam(o[1]), gam(o[2]));
