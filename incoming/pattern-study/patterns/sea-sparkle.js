@@ -1,15 +1,42 @@
 // ===== Patternflow pattern =====
 // Title:   Sea Sparkle
 // Family:  microbe
-// Idea:    A restless bloom of glowing plankton flashes wherever the water is sheared hardest, so the dark round vortices are ringed in blue light and bridges of glow run between them, and the glow is carried off, stretched and left fading in thin curling threads.
+// Idea:    A restless bloom of glowing plankton flashes wherever the water is sheared hardest, so threads of blue light run along the strained seams between the eddies, glints crackle on them, and the glow is carried off, stretched and left fading in curling trails while new threads light behind it.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Bioluminescence of dinoflagellates such as Noctiluca scintillans, which flash when the water around them is sheared hard enough (the threshold flow of Latz and co-workers, 1990s, from memory), over forced two-dimensional turbulence solved pseudo-spectrally on a torus (Kraichnan, 1967), the glow carried as in Shear Billows
+// Lineage: Bioluminescence of dinoflagellates such as Noctiluca scintillans, which flash when the water round them is sheared past a threshold (work of Michael Latz, Jim Rohr and co-workers, 1990s, from memory), over forced two-dimensional turbulence solved pseudo-spectrally on a torus (Robert Kraichnan, 1967, from memory), the glow carried by the flux-form scheme of Shear Billows
 // Round:   122
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Afterglow=-1..1
+//
+// Knob 1: Hue. Turns every colour of the water round the grey axis by the knob times 360 degrees; at 0 the sea is deep blue, the threads electric blue and their knots near white.
+// Knob 2: Flow. Model seconds per panel second, 0.32 times the knob: 0.16 at 0.5, 0.64 at the opening 2, 1.28 at 4. The water moves at 4.5 LEDs per model second rms, so 2.9 LEDs a second at the opening. The glow is 0.81 correlated with itself half a second on, 0.57 a second on, 0.30 two seconds on and 0.12 four seconds on.
+// Knob 3: Scale. The wavelength the water is stirred at, 2 pi over 0.3 times 1.5 to the minus the knob: 14 LEDs at -1, 21 at 0, 31 at 1. The stirring is scaled so that the water keeps the same speed (4.5 LEDs per model second rms at all three), and the strain, which goes with speed over size, falls from 3.0 at -1 to 2.1 and 1.46 per model second.
+// Knob 4: Afterglow. How long the light lasts once lit, 1.5 model seconds times 2.4 to the knob: 0.63 at -1, 1.5 at 0, 3.6 at 1, which is 1.0, 2.3 and 5.6 panel seconds at the opening Flow. Short gives bare threads (the glow is over 0.3 on 2.7 per cent of the panel), long gives wide wakes (12.8 per cent; 6.3 at the opening).
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, with the vorticity w (u = (psi_y, -psi_x), w = -lap psi) and a glow c between 0 and 1 that goes with the flow, in model seconds:
+//   w_t + u.grad w = -nu k^2 w - nu4 k^4 w - mu w + stir,   nu 0.03, nu4 0.004, mu 0.1
+//   c_t + u.grad c = g q (1 - c) - c / tau,   q = max(0, |S| - 1.5 S_rms) / S_rms,  g = 2.6
+// |S| = sqrt((u_x - v_y)^2 + (u_y + v_x)^2) is the strain rate, the rate at which the water is deformed without turning, which is what a dinoflagellate answers to: it is nought in the rigid core of a vortex and largest in the seams between eddies. S_rms is its rms over the panel,
+// followed with a time constant of ten steps, so that the threshold is the same share of the strain at every Scale. stir is complex Gaussian noise, 0.03 sqrt(dt) a step, on the half plane of modes with 0.12 < k < 1, weighted in log k as a Gaussian of width 0.35
+// round the wavenumber of Scale and by k, so that it is the velocity that is forced evenly. The flow is Shu and Osher's third order scheme at a step of 0.05 with the product cut by exp(-36 (k / 1.8)^16); the glow goes with the velocity on the cell faces in x, y, x
+// sweeps of the flux-form second order upwind scheme with the monotonised central limiter, as in Shear Billows, in as many substeps as keep a crossing under 0.45. Flashes: a second field f, not carried by the flow, jumps to 0.65 to 1 on a cell with the chance
+// 3 c^2 min(2, |S| / S_rms) a second, and goes out in a fifth of a second. The picture is 1.1 c^0.6 + 0.14 tanh(|S| / 2 S_rms) + 0.5 f on a five-stop ramp from (8, 28, 88) to (238, 253, 255). Before the first frame 30 model seconds run, with the light in the last 10.
+//
+// What was checked, with this file's own functions and scripts of mine, not in the repo:
+// - The strain against direct sums over the modes at five points of a developed flow: they agree to 5e-15 (the file adds the cut, and so does the sum).
+// - The convective term against direct sums for a smooth field (random modes below k 0.55, no dissipation) at five points: -u.grad w agrees to 2.3e-4 of itself, which is what the cut takes off at k of 1.1.
+// - The speed of the water at 10 to 60 s through update(): 4.35 to 4.75 LEDs per model second rms in seven sets of knobs (the opening; all least; all most; Scale and Afterglow at each end).
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.67 to 0.79, dim 0.88 to 0.94, quiet 0.74 to 0.91; the last quarter dim 0.78 to 0.89 and quiet 0.44 to 0.78; luma first to last quarter within 2.7 per cent. The opening: recur 0.732, dim 0.896, quiet 0.815.
+//   900 s (recur, dim, quiet): open 0.653, 0.931, 0.872; all minimum 0.688, 0.949, 0.868; all maximum 0.625, 0.969, 0.943; the last quarter dim 0.89 to 0.95 and quiet 0.74 to 0.92. Measured on this file under its name, which seeds the stirring and the flashes.
+// - Cost: 1.6 to 6.8 ms a frame in Node (update and draw).
+//
+// What failed first. 1. The first stirring was round k 0.42 (15 LEDs) with drag 0.25 and a threshold of 1 rms: the glow filled the panel with curls three to five LEDs long and the picture was blue smoke with nothing to hold on to. 2. Stirring at k 0.8 and drag 0.07 made the same smoke dimmer,
+// since the energy did not climb to bigger scales in two minutes. 3. A threshold of 2.5 rms lit almost nothing; 1.5 with the stirring at 0.35 gave the long bright strokes this file has. 4. The first palette started at (6, 20, 64) and the mean luma was 29 to 45 in the three sets, so a dim panel
+// went dimmer; with the gain, ramp and curve here it is 47 to 96. 5. The stirring forced the vorticity evenly, which puts more speed into the big eddies; weighting it by k to force the velocity evenly holds the water at 4.5 LEDs per model second at every Scale. 6. The water first ran at 6.3 LEDs per model second, too quick for a glow to be followed; noise 0.03 brought it to 4.5.
+// What was not checked: the flash of a real dinoflagellate is a few tenths of a second long and cells that have flashed are spent for a while, and neither is in this (the glow only decays); the water is two-dimensional, where the sea is not; the threshold in real water is in tens of inverse seconds, and none of this is scaled to it; a finer grid than 64 by 128.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, ceil, abs, sqrt, exp, log, cos, sin, tanh, PI, min, max, pow } = Math;
@@ -21,7 +48,7 @@ const CFG = {
   nu: 0.03, // viscosity, LED^2 per model second
   hyp: 0.004, // and the fourth-order one
   fric: 0.1, // drag on every mode
-  noise: 0.04, // forcing, vorticity per sqrt(model second)
+  noise: 0.03, // forcing, vorticity per sqrt(model second)
   dt: 0.05,
   cfl: 0.45,
   pre: 30, // model seconds before the first frame
@@ -277,11 +304,11 @@ function setNoise(S, kn) {
     S.nw[m] = exp(-0.5 * z * z) * NS[m][2]; // vorticity forcing weighted by k, so the energy goes in at kn
     e += S.nw[m] * S.nw[m];
   }
-  const a = sqrt(NS.length / (e || 1));
+  const a = sqrt(NS.length / (e || 1)) * (kn / 0.3); // the same velocity forcing at every scale
   for (let m = 0; m < NS.length; m++) S.nw[m] *= a;
 }
 
-const knOf = (v) => 0.35 * pow(1.5, -cl(v, -1.2, 1.2));
+const knOf = (v) => 0.3 * pow(1.5, -cl(v, -1.2, 1.2));
 const tauOf = (v) => 1.5 * pow(2.4, cl(v, -1.2, 1.2));
 
 function start(params, k) {
@@ -309,7 +336,7 @@ export function update(dt, input, params) {
   S.kn += (knOf(k[2]) - S.kn) * f;
   S.tau += (tauOf(k[3]) - S.tau) * f;
   setNoise(S, S.kn);
-  S.acc += ft * flow * 0.5;
+  S.acc += ft * flow * 0.32;
   let steps = 0;
   while (S.acc >= CFG.dt && steps < 24) {
     if (steps === 0) strain(S);

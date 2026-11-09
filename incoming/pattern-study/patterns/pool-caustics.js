@@ -1,20 +1,40 @@
 // ===== Patternflow pattern =====
 // Title:   Pool Caustics
 // Family:  light
-// Idea:    Wind-ruffled water over a pool floor throws a web of bright refracted lines that folds, drifts, splits and rejoins as the waves run across it, and the whole floor keeps shimmering without ever settling to a picture that comes back.
+// Idea:    Wind-ruffled water over a pool floor throws a web of bright refracted lines that folds, drifts, splits and rejoins as the waves run across it, and the floor keeps shimmering without ever settling to a picture that comes back.
 // Author:  patternflow-lab
 // Date:    2026-11-09
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Caustics of a rippled water surface, the ray map r' = r - D (1 - 1/n) grad h with the light gathered where the rays land (Michael Berry, Nye and Berry on caustics, 1970s; Stam, Caustics on rippled water, 1996, in the graphics form), over a linear wave sea of random phases on the deep-water dispersion (Tessendorf, Simulating Ocean Water, 2001)
+// Lineage: Caustics of a rippled water surface: every ray leaves the surface straight down, is bent by the slope of the surface and drops its share of the light where it lands (the gathering form of Jos Stam, Random Caustics, 1996, from memory), over a linear sea of random phases on the deep-water dispersion (Jerry Tessendorf, Simulating Ocean Water, 2001, from memory); the caustic as a fold of the ray map is the catastrophe optics of Michael Berry and John Nye (1970s, from memory)
 // Round:   122
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Depth=-1..1
 //
-// Knob 1: Hue. Turns every colour of the pool round the grey axis by the knob times 360 degrees; at 0 the floor is deep teal and the lines pale aqua.
-// Knob 2: Flow. Wave seconds per panel second: 0.5 is a slow lap of the water, 2 at the opening, 4 a stiff breeze.
-// Knob 3: Scale. How long the waves are; the lines and their web get coarser as the knob goes up and finer as it goes down.
-// Knob 4: Depth. How far below the water the floor lies: shallow gives a loose mesh of thin lines, deep gives a dense hot tangle.
+// Knob 1: Hue. Turns every colour of the pool round the grey axis by the knob times 360 degrees; at 0 the floor is deep blue, the light teal to aqua and its knots near white.
+// Knob 2: Flow. Wave seconds per panel second, 0.07 times the knob: 0.035 at 0.5, 0.14 at the opening 2, 0.28 at 4. At the opening the web is 0.82 correlated with itself half a second on, 0.61 a second on, 0.34 two seconds on and nought four seconds on; with all four knobs at their least it is 0.96 a second on and 0.62 four seconds on, with all at their most 0.37 a second on.
+// Knob 3: Scale. How long the waves are: the band of the sea is stretched by 1.2 times 1.45 to the knob, and the displacement of a ray with it, so that the web keeps its look and only its size changes. At 0 the waves have half their amplitude between about 29 and 9 LEDs long, at -1 between 20 and 6.3, at 1 between 42 and 13.
+// Knob 4: Depth. How far below the water the floor lies, as the rms distance a ray is thrown sideways by the slope of the surface: 2.4 LEDs times the Scale factor times 0.74 at -1, 1.3 at the opening and 2.14 at 1, so 3.7 LEDs at the opening (2.1 at -1, 6.2 at 1). Shallow gives thin lines on wide dark cells, the opening lets the folds overlap into veils of light with bright knots where they cross, and deep leaves no cell whole.
+
+// What the field is. A torus of 64 by 128 LEDs. The surface is the sum of three seas, each a lobe of wavevectors that run one way, cos^8 of half the angle off its heading (about +-45 degrees), with random complex amplitudes
+// in a power law k^-1.7 and the band of Knob 3 (exp(-(0.24/k')^4) exp(-(k'/0.9)^4), k' = 1.2 times 1.45^Knob 3 times k), and every mode turning with its own phase at omega = sqrt(g k) + k.U, g = 20 LEDs per second squared, in wave seconds. The three weights wander on their own,
+// as log weights (Ornstein-Uhlenbeck, rms 0.9, correlation 24 wave seconds), and so does the current U (rms 0.7 LEDs per wave second), so the sea veers and the wind changes its mind. The slope field (gx, gy) is one inverse transform of the two packed in one complex array.
+// The light: 3 by 3 rays to an LED, left on a fixed lattice, each reads the slope under it by bilinear weights, is thrown to r - G (gx, gy), and puts 1/9 of an LED's light into the four LEDs round its landing point. The LED value is the density of that light, mean 1 exactly.
+// Where the ray map folds (G times a principal curvature of the surface, as scaled to unit slope, is 1) the density runs to a ridge, and that is the line on the floor. Colour: 1 - exp(-0.9 density) on a five-stop ramp from (22, 72, 128) to (250, 255, 238).
+//
+// What was checked, with this file's own gather and a scripted surface (scripts of mine, not in the repo):
+// - The ray map against a surface h = a cos(kx) on the torus, where the density along x is 1 / |1 + f cos(kx)|, f = G a k^2: the peak 1.386, 1.807 and 2.737 at f 0.3, 0.5 and 0.8 against 1.429, 2.000 and 5.000, the low 0.759, 0.672 and 0.542
+//   against 0.769, 0.667 and 0.556, the mean 1.0000 at every f. The peak falls short because an LED averages over the ridge, which is 1 / sqrt of the distance from the fold: the web is as sharp as one LED and no sharper.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.52 to 0.73, dim 0.97 to 0.99, quiet 0.85 to 0.96; the last quarter dim 0.87 to 0.99 and quiet 0.87 to 0.95; luma first to last quarter within 0.3 per cent. The opening: recur 0.726, dim 0.985, quiet 0.930.
+//   900 s (recur, dim, quiet): open 0.665, 0.993, 0.970; all minimum 0.515, 0.990, 0.945; all maximum 0.691, 0.990, 0.982. Measured on this file under its name, which seeds the sea.
+// - Cost: 2.7 to 4.7 ms a frame in Node (update and draw), the lattice built once at load.
+//
+// What failed first. 1. The first speed was 0.5 wave seconds a second at Flow 1: the web was a different web every third of a second, and a strip of twelve frames a third of a second apart read as twelve pictures. It is 0.07 now, and the web turns over in about two seconds at the opening.
+// 2. The first correlation time of the weights was 60 wave seconds, which at the opening is seven minutes of panel time: the sea never veered in any run anybody would watch. It is 24.
+// 3. The first depth was 2.4 LEDs and the first band 24 to 8 LEDs: a net of thin lines on wide cells, which is what Floating Foam's seams and the floor of Lap Pool already are. At 3.7 LEDs and a band stretched by 1.2 the folds overlap into translucent veils, and that is the opening now.
+// 4. A second pass that showed the floor as the surface sees it, each LED taking the colour where its own ray lands, turned the picture inside out: the many rays that land on a bright ridge are many LEDs, so the ridges became wide bright cells and the dark ground thin seams. It is not in the file.
+// What was not checked: the sea is linear, so no crest is ever sharp and nothing breaks; the sun is a point, so a caustic has no penumbra that grows with depth; the light is not scattered in the water, so the floor has no haze; the surface is not seen from above, so nothing of it shows but the floor.
+// The panel is 64 by 128 and a finer grid would show nested caustics that this one averages into one LED.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, abs, sqrt, exp, log, cos, sin, atan2, PI, min, max, pow } = Math;
@@ -26,7 +46,7 @@ const CFG = {
   g: 20, // gravity, LEDs per second squared: omega = sqrt(g k)
   kLo: 0.24, // longest wave in the sea, rad per LED (26 LEDs)
   kHi: 0.9, // shortest (7 LEDs)
-  disp: 2.4, // rms displacement of a ray by the surface, LEDs, at the opening depth
+  disp: 2.4, // rms displacement of a ray by the surface, LEDs, at a scale factor and a depth factor of 1
   nSets: 3,
   ss: 3, // rays per LED along each side
 };
@@ -178,7 +198,7 @@ function start(params) {
     zr: new Float64Array(N), zi: new Float64Array(N),
     dens: new Float32Array(N),
     lw: [], ux: 0, uy: 0, // log weight of each sea, and the current: both wander
-    sc: 1, dp: 1, hue: 0, lutHue: -9, lut: new Uint8Array(256 * 3), G: CFG.disp,
+    sc: 1.2, dp: 1.3, hue: 0, lutHue: -9, lut: new Uint8Array(256 * 3), G: CFG.disp,
     ready: false,
   };
   const h0 = TAU * Math.random();
@@ -190,13 +210,13 @@ function start(params) {
   S.ready = true;
 }
 
-const scOf = (v) => pow(1.45, cl(v, -1.2, 1.2));
-const dpOf = (v) => pow(1.7, cl(v, -1.2, 1.2));
+const scOf = (v) => 1.2 * pow(1.45, cl(v, -1.2, 1.2));
+const dpOf = (v) => 1.3 * pow(1.7, cl(v, -1.2, 1.2) - 0.06);
 
 // one step of the sea, dtw wave seconds: the packed slope field Z = gx + i gy in the spectrum
 function advance(S, dtw) {
   const sc = S.sc, g = CFG.g, kl = CFG.kLo / sc, kh = CFG.kHi / sc;
-  const a = exp(-dtw / 60), b = sqrt(1 - a * a);
+  const a = exp(-dtw / 24), b = sqrt(1 - a * a);
   for (let s = 0; s < S.sets.length; s++) S.lw[s] = a * S.lw[s] + b * 0.9 * gauss();
   S.ux = a * S.ux + b * 0.7 * gauss();
   S.uy = a * S.uy + b * 0.7 * gauss();
@@ -259,7 +279,7 @@ export function update(dt, input, params) {
   S.sc += (scOf(k[2]) - S.sc) * f;
   S.dp += (dpOf(k[3]) - S.dp) * f;
   S.G = CFG.disp * S.sc * S.dp;
-  advance(S, ft * flow * 0.12);
+  advance(S, ft * flow * 0.07);
   gather(S);
 }
 
