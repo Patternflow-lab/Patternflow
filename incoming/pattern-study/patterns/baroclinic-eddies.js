@@ -551,7 +551,7 @@ function render(S) {
       gm[y * W + x] = sqrt(tx * tx + (1 + ty) * (1 + ty));
     }
   }
-  // the source of cloud: where the air is warm, along fronts, and under a slowly wandering large-scale pattern
+  // the source of cloud: the warm side and the fronts, plus a slowly wandering large-scale pattern
   const { src, nph, nax, nay } = S, t = S.t;
   for (let k = 0; k < NZ.length; k++) {
     const z = NZ[k], th = (TAU * z[0]) / W, tv = (TAU * z[1]) / H, ps = nph[k] + z[2] * t;
