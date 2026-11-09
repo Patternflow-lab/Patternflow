@@ -61,7 +61,7 @@
 // dye is mixed (u / f between 0.15 and 0.85) is 1.08 to 1.12 times sqrt(2 depth), the beams' own spread adds the rest, and the
 // log of it goes against the log of sqrt(2 depth) with slope 0.73 (correlation 0.76; 1 is the root). With the source on,
 // 3292 wells at L = 68, nu 0.074: slope 0.90, correlation 0.62, ratio 1.14, wells that are not standing still scatter.
-LONGRUN
+// LONGRUN
 // What went wrong first. A spectral shift in v with an exponential filter spread the ringing of every sharp filament over the whole
 // column, 1e-6 of the peak and as much as the far tails hold, so the dye there was noise, and the velocity ends wrapped: the
 // momentum jumped to -5 once a large vortex reached them. The flux-balance slide has neither. A shift of f in x by Fourier
