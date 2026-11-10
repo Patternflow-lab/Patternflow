@@ -108,7 +108,7 @@ export function backOut(x: number, over = 1.25): number {
 //
 // The pins of a group used to leave the shared point as one. Now each leaves
 // a moment after the one before it and arrives a hair past its place, so the
-// fan is dealt out, left to right, and gathered back in the other order.
+// fan is dealt out from the left and gathered back in from the right.
 
 export const FAN_PIN_S = 0.28;        // one pin's way out, seconds
 export const FAN_STAGGER_S = 0.05;    // between one pin leaving and the next
