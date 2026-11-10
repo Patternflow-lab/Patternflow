@@ -30,7 +30,7 @@
 // Past 18 steps of kx the cut leaves nothing, so the column transforms skip those 27 columns. Once a step the stream function, shifted half a cell in x and y, goes through one transform with w (two real fields packed), and the velocity on a face is the difference of two corner values, so its divergence is zero to rounding.
 // T and s go with the face velocities in x, y, x sweeps of the flux form second order upwind scheme, in as many substeps as keep a crossing under 0.8 cell; then sources, sinks and diffusion, and a clamp to 0 and 1.2. Last the force on w, once: central differences of T, G and |w|, the sponge drag on the cells, one transform, the cut, held for the three stages. 24 model seconds run before the first frame.
 // The picture. Smoke over a sky of three stops at opacity 1 - exp(-3 s). Its colour is its temperature on a log scale, ln(1 + T / 0.004) / ln 251, on a six-stop ramp from grey-lilac at 0 through rose and apricot to gold at 1. The light is up and to the left: the optical depth tau to it is a running sum along (-1, -2), (-1, -1) and (0, -1)
-// with 0.8 kept a step, the shade is 0.5 + 0.55 exp(-2.4 tau), and the gradient of s over two cells against the light adds a rim from -0.25 to 0.45.
+// with 0.8 kept a step, the shade is 0.5 + 0.55 exp(-2.4 tau), the gradient of s over two cells against the light adds a rim from -0.25 to 0.45, and in the smoke the vorticity adds 0.12 tanh(w / its rms), so the cores of the curls show.
 //
 // What was checked, with the file's own step (scripts of mine, not in the repo):
 // - Divergence of the face velocities, every second for 20 s at the open, all-minimum and all-maximum knobs: 1.3e-15, 0.9e-15 and 1.8e-15, with the fastest face at 6.6, 4.4 and 8.7 LEDs per model second.
@@ -48,7 +48,7 @@
 //
 // What failed first. 1. The first build had no draft, drag 0.1 and confinement 0.5: rms speed 10 LEDs per model s at every height and the smoke stuck in the lower half (mean s 0.7 at the floor, 0.03 at row 40). The draft carried the smoke to the top and left the speed at 10; drag 0.12, beta 2.2 and
 // confinement 0.07 brought it to 1.7. 2. Confinement at 0.5 froze the vorticity into a lattice of equal vortices a curl wide all over the panel; 0.07, in smoke only, leaves plumes. 3. The wind profile first had a step at the wrap, which rang in the rows beside it. Made periodic, at 1.5 rms it still drew the smoke out into flat sheets,
-// and after a minute the panel was one haze. At 1.0 rms, with a profile that is never zero, the structure lasts the 900 s. 4. Smoke density settles near 0.7, so brightness from s alone was flat grey, and embossing it with one cell differences gave wrinkled foil; the colour follows T on a log scale now, which keeps the structure to the top, and the rim looks two cells out.
+// and after a minute the panel was one haze. At 1.0 rms, with a profile that is never zero, the structure lasts the 900 s. 4. Smoke density settles near 0.7, so brightness from s alone was flat grey, and embossing it with one cell differences gave wrinkled foil; the colour follows T on a log scale now, which keeps the structure to the top, the rim looks two cells out, and the vorticity shade brings out the curls that a smooth density hides.
 // 5. With the sponge at 0.35 a pink band of smoke and heat gathered along the top rows; at 1.2 it is taken out. 6. The first build cost 15 ms a frame at the maximum knobs (two substeps of the scalars, every column transformed); the time scale 0.8, the looser crossing limit and the skipped columns brought it to 6 to 8.
 // What was not checked: a grid finer than 64 by 128 (a plume's edge is a cell or two wide); three dimensions, where a plume does not meander in a plane; the constant of the plume against the books; the Boussinesq limit (T is a number up to 1, not a temperature ratio); how the confinement coefficient compares with Fedkiw's, whose units are of the grid.
 // The draft, the sponge, the drag a and the way the vents wander are the picture's own.
@@ -448,7 +448,7 @@ function start(params, k) {
     G: new Float64Array(W), bx: new Float64Array(MAXV), bt: new Float64Array(MAXV), dv: new Float64Array(MAXV), az: new Float64Array(MAXV),
     am: new Float64Array(MAXV), pr: new Float64Array(MAXV), pt: new Float64Array(MAXV),
     nv: 0, off: Math.random() * W, wa: gauss() * CFG.wind, ubar: 0, sig: sigOf(k[2]), beta: betaOf(k[3]), conf: confOf(k[2]),
-    um: 4, time: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3),
+    um: 4, os: 0, time: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3),
   };
   S.ubar = S.wa * GBAR;
   params.s = S;
@@ -472,6 +472,9 @@ export function update(dt, input, params) {
   // the step is the longest that keeps the fastest face under 1.5 / 1.8 model seconds per LED (the cut is at 1.8 rad per LED), so the Runge-Kutta stays in its stable range
   const dm = ft * flow * CFG.tscale, lim = min(CFG.dt, 1.5 / (1.8 * S.um)), ns = max(1, ceil(dm / lim - 1e-9));
   if (dm > 0) for (let i = 0; i < ns; i++) step(S, dm / ns);
+  let e = 0;
+  for (let p = 0; p < N; p++) e += S.omp[p] * S.omp[p];
+  S.os = S.os ? S.os + (sqrt(e / N) - S.os) * 0.05 : sqrt(e / N);
   if (!isFinite(S.wr[1] + S.sm[N >> 1] + S.T[N >> 1])) start(params, k);
 }
 
@@ -521,12 +524,13 @@ for (let i = 0; i <= 256; i++) {
 for (let i = 0; i <= 1024; i++) TONE[i] = cl(log(1 + ((i / 1024) * (i / 1024)) / 0.004) / log(251), 0, 1) * 255;
 
 const LX = -0.45, LY = -0.89; // towards the light: up and to the left
+const VW = 0.12;
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   if (S.lutHue !== S.hue) (S.lutHue = S.hue), buildPalette(S, S.hue);
-  const { sm, T, tau, sky, lut } = S;
+  const { sm, T, tau, sky, lut, omp } = S, il = 1 / max(1e-6, S.os);
   // the optical depth towards the light, which is up and to the left: a running sum along (-1, -2), (-1, -1) and (0, -1)
   for (let y = 0; y < H; y++) {
     const o = y * W, o1 = ((y - 1) & HM) * W, o2 = ((y - 2) & HM) * W;
@@ -542,7 +546,7 @@ export function draw(display, params) {
       const s = cl(sm[p], 0, 1.2), al = ALPHA[(s * 213) | 0];
       const L = LEXP[min(256, (tau[p] * 256) | 0)], o = TONE[(sqrt(cl(T[p], 0, 1)) * 1024) | 0] * 3;
       const gx = 0.25 * (sm[y * W + ((x + 2) & WM)] - sm[y * W + ((x - 2) & WM)]), gy = 0.25 * (sm[((y + 2) & HM) * W + x] - sm[((y - 2) & HM) * W + x]);
-      const f = 0.5 + 0.55 * L + cl(-4 * (gx * LX + gy * LY), -0.25, 0.45);
+      const f = 0.5 + 0.55 * L + cl(-4 * (gx * LX + gy * LY), -0.25, 0.45) + VW * tanh(omp[p] * il) * smooth(0.05, 0.4, s);
       display.setPixel(x, y, cl(sr + (lut[o] * f - sr) * al, 0, 255), cl(sg + (lut[o + 1] * f - sg) * al, 0, 255), cl(sb + (lut[o + 2] * f - sb) * al, 0, 255));
     }
   }
