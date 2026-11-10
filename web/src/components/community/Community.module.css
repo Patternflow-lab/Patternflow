@@ -44,7 +44,12 @@
 .pageHeader {
   display: flex;
   align-items: center;
-  gap: 18px;
+  /* The row may wrap. A moderator's two extra sections, or a long handle,
+     made it wider than the screen, and while it could not wrap the whole
+     page scrolled sideways (138px at 769px wide for a moderator, 96px for a
+     member with a 20-character handle). */
+  flex-wrap: wrap;
+  gap: 10px 18px;
   padding: 16px 40px;
   border-bottom: 1px solid var(--pfc-hair);
   flex: none;
@@ -86,6 +91,8 @@
   align-items: center;
   gap: 14px;
   font-size: 13px;
+  /* Right-aligned on whichever row it lands on. */
+  margin-left: auto;
 }
 
 .headerNav a {
@@ -141,6 +148,32 @@
 .sectionNav a[data-active="true"] {
   color: var(--pfc-ink);
   border-bottom-color: var(--pfc-led);
+}
+
+/* Below 1024px the CTA is "Make ↗", as on a phone: the full sentence is
+   152px that the row does not have. The title attribute still says the rest.
+   With the full sentence every header measured fits one line from 960px up,
+   a moderator's included. Tighter gaps under 900px keep a member's row on one
+   line down to the width where the phone layout takes over. */
+@media (max-width: 1023px) {
+  .ctaRest {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .pageHeader {
+    column-gap: 12px;
+  }
+
+  .sectionNav {
+    gap: 14px;
+    margin-left: 6px;
+  }
+
+  .headerNav {
+    gap: 12px;
+  }
 }
 
 .userChip {
@@ -658,6 +691,9 @@
   text-decoration: none;
   color: inherit;
   box-sizing: border-box;
+  /* The caption sizes itself to the card it is in (see "Narrow cards"). */
+  container: card / inline-size;
+  min-width: 0;
 }
 
 .cardThumb {
@@ -840,14 +876,29 @@
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  margin-left: auto;
-  flex: none;
+  /* Three counts and a date are 204px. As a fixed block they ran 10px past a
+     deck's 160px slot, and on a 213px wall card they left the handle 1px. So
+     this takes the width the handle leaves, 40% of the row at the least, and
+     what does not fit wraps onto a second line that is cut off. Whole items
+     go, last first: the date leaves before the counts do. */
+  flex: 1 1 0;
+  min-width: 40%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-height: 1.2em;
+  overflow: hidden;
   font-variant-numeric: tabular-nums;
   font-family: var(--pf-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--pfc-ink-faint);
+}
+
+/* Nothing to show (no counts, and the age chip stands in for the date): the
+   handle may have the whole row. */
+.cardStats:empty {
+  display: none;
 }
 
 .cardDate {
@@ -901,6 +952,47 @@
   right: 4px;
   gap: 4px;
   padding: 5px 6px;
+}
+
+/* ── Narrow cards ──
+   The same furniture as the small view, by the card's own width. The wall
+   says "small" with data-view. A profile and a deck page have no grid to say
+   it, and on a phone they put cards three across at 114px, where the full
+   byline ran past the card and widened the page. */
+@container card (max-width: 140px) {
+  .cardMeta {
+    gap: 2px;
+  }
+
+  .cardTitle {
+    font-size: 11.5px;
+    gap: 4px;
+  }
+
+  .cardByline {
+    font-size: 10px;
+    gap: 4px;
+  }
+
+  .cardStats,
+  .frameChip {
+    display: none;
+  }
+
+  .cardHwBadge,
+  .ageChip {
+    font-size: 9px;
+    padding: 0 4px;
+    top: 6px;
+  }
+
+  .cardHwBadge {
+    left: 6px;
+  }
+
+  .ageChip {
+    right: 6px;
+  }
 }
 
 /* ── Knob overlay ──
@@ -2427,9 +2519,17 @@
 
 .commentBody {
   line-height: 1.6;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--pfc-ink-2);
+}
+
+/* A comment keeps the line breaks it was typed with, inside a paragraph. This
+   was pre-wrap on the whole body, from when a comment was plain text. Now it
+   is markdown, and the newlines react-markdown puts between blocks each
+   rendered as an empty line: 45px above a code fence where the composer's
+   preview of the same text has 12px. */
+.commentBody p {
+  white-space: pre-wrap;
 }
 
 .commentForm {
@@ -2531,7 +2631,12 @@
 .modalCard {
   width: min(460px, 100%);
   max-height: 90vh;
+  /* 90vh is measured against a phone's tallest viewport, the one with its
+     toolbars hidden. With them showing the card came out taller than the
+     overlay and its header, close button included, sat above the screen. */
+  max-height: calc(100dvh - 40px);
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--pfc-panel);
   border: 1px solid var(--pfc-edge);
   color: var(--pfc-ink);
@@ -4006,6 +4111,16 @@
   word-break: break-word;
   overflow-x: auto;
   border: 1px solid var(--pfc-hair);
+}
+
+/* A fence with no language after the backticks reaches PostBody with no
+   class, the same as inline code, and so took the inline chip's border and
+   padding inside this box. The box is the only frame a fence gets. */
+.codeFence code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
 }
 
 /* ── Moderation queue (/community/reports) ──
