@@ -98,6 +98,8 @@ function HeroEmbed({ onEnded }: { onEnded: () => void }) {
       frameBorder="0"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
       allowFullScreen
+      // Nothing in it answers a key (disablekb) or a click, so Tab passes it by.
+      tabIndex={-1}
       style={{
         position: 'absolute',
         top: 0,
@@ -120,7 +122,12 @@ function HeroEmbed({ onEnded }: { onEnded: () => void }) {
 // to the link over the embed. Stop takes the embed away
 // and the poster under it stays. Play mounts a fresh embed, which starts from
 // the top, and so does Play after the video has ended.
-function HeroVideo() {
+//
+// The embed is on the page only while the hero is (isActive). Under the
+// Build or Pattern tab it kept streaming where nobody could see it, and a
+// link straight to /build started it too. Coming back to the hero starts a
+// fresh one from the top, unless Stop was pressed: that stays as it was left.
+function HeroVideo({ isActive }: { isActive: boolean }) {
   const [state, setState] = useState<'playing' | 'ended' | 'stopped'>('playing');
   const [take, setTake] = useState(0);
   const onEnded = useCallback(() => setState('ended'), []);
@@ -128,7 +135,7 @@ function HeroVideo() {
 
   return (
     <>
-      {state !== 'stopped' && <HeroEmbed key={take} onEnded={onEnded} />}
+      {isActive && state !== 'stopped' && <HeroEmbed key={take} onEnded={onEnded} />}
       <button
         type="button"
         className="hero-video-toggle"
@@ -154,7 +161,11 @@ function HeroVideo() {
   );
 }
 
-export default function Hero() {
+/**
+ * isActive: the hero is the tab on screen. RightPanel keeps it mounted,
+ * folded away, under the other tabs.
+ */
+export default function Hero({ isActive = true }: { isActive?: boolean }) {
   // The embed starts by itself, so someone who has asked their system for less
   // motion gets the poster and no embed at all. The server cannot know, so it
   // sends the poster alone and the client adds the video after hydration.
@@ -187,14 +198,16 @@ export default function Hero() {
               most on a desktop, so it goes through the image optimizer at the
               column's width. The column is the viewport less the deck's 24px
               gutters up to 900px, and the copy's 580px cap above. It is the
-              largest thing on the first screen, so it loads at once. */}
+              largest thing on the first screen, so it loads at once. Under a
+              link straight to another tab it is not on the screen at all, and
+              waits until the hero is wanted. */}
           <Image
             src="/product_v2.jpg"
             alt="Patternflow physical device"
             fill
             sizes="(max-width: 900px) calc(100vw - 48px), 580px"
-            loading="eager"
-            fetchPriority="high"
+            loading={isActive ? 'eager' : 'lazy'}
+            fetchPriority={isActive ? 'high' : 'auto'}
             style={{ objectFit: 'cover' }}
           />
           {/* The whole frame opens the film on YouTube, poster or video, and
@@ -211,7 +224,7 @@ export default function Hero() {
               destination: 'youtube',
             })}
           />
-          {!reducedMotion && <HeroVideo />}
+          {!reducedMotion && <HeroVideo isActive={isActive} />}
         </div>
         {/* L3 — the strongest line we have, per the manifesto: a description of
             how the system works, with nothing in it to disbelieve. */}

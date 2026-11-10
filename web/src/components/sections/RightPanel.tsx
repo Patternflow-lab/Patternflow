@@ -170,7 +170,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
               Inert takes the hero's h1 with it, so each tab's title is an h1
               of its own. */}
           <div className={`panel-wrapper ${activeTab === 'hero' ? 'active' : ''}`} inert={activeTab !== 'hero'}>
-            <Hero />
+            <Hero isActive={activeTab === 'hero'} />
             <Milestones />
             <Sponsor />
             <Footer />
