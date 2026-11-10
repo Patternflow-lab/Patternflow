@@ -37,9 +37,11 @@
   line-height: 1.55;
 }
 
+/* --pf-danger, the token globals.css keeps for errors. This was the accent
+   orange, which is 3.2:1 on the cream at 14 px. */
 .bad {
   margin-top: 20px;
-  color: var(--pf-led);
+  color: var(--pf-danger);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -90,6 +92,29 @@
 .hostRow input:focus {
   outline: none;
   border-color: var(--pf-ink);
+}
+
+.hostRow input[aria-invalid="true"] {
+  border-color: var(--pf-danger);
+}
+
+.hostBad {
+  margin-top: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--pf-danger);
+}
+
+.hostBad code {
+  font-family: var(--pf-mono);
+  font-size: 0.92em;
+}
+
+/* iOS zooms the page into any field set under 16 px when it takes focus. */
+@media (max-width: 640px) {
+  .hostRow input {
+    font-size: 16px;
+  }
 }
 
 .hostNote {
