@@ -191,7 +191,10 @@
   }
 }
 
-/* Keyboard focus stays visible on the blend picker, as on the panel bars. */
+/* Keyboard focus stays visible on a layer row, its eye and the blend picker,
+   as on the panel bars. */
+.layerRow:focus-visible,
+.layerEye:focus-visible,
 .layerControlRow select:focus-visible {
   outline: 2px solid #9b4827;
   outline-offset: 2px;

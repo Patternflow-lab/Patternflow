@@ -102,3 +102,48 @@ describe("LayersPanel + Text", () => {
     expect(names()).toEqual(["Code 1"]);
   });
 });
+
+// A row was a div with role="button" and no tabindex, so Tab skipped it, and
+// reordering was drag and drop only, which most phones do not start.
+describe("LayersPanel without a mouse", () => {
+  const row = (name: string) => screen.getByText(name).closest<HTMLElement>("[data-layer-id]")!;
+
+  it("takes focus on a row, and Enter selects it", () => {
+    store().addPixelLayer();
+    render(<LayersPanel />);
+    expect(row("Code 1").tabIndex).toBe(0);
+    fireEvent.keyDown(row("Code 1"), { key: "Enter" });
+    expect(store().activeLayerId).toBe(store().layers[1].id);
+  });
+
+  it("moves a row with Alt and an arrow", () => {
+    store().addPixelLayer();
+    render(<LayersPanel />);
+    fireEvent.keyDown(row("Code 1"), { key: "ArrowUp", altKey: true });
+    expect(names()).toEqual(["Code 1", "Pixel 1"]);
+    fireEvent.keyDown(row("Code 1"), { key: "ArrowUp" });
+    expect(names()).toEqual(["Code 1", "Pixel 1"]);
+  });
+
+  it("moves the selected layer with the bar's arrows", () => {
+    store().addPixelLayer();
+    render(<LayersPanel />);
+    const up = screen.getByRole("button", { name: "Move the selected layer up" });
+    const down = screen.getByRole("button", { name: "Move the selected layer down" });
+    expect(up).toBeDisabled();
+    fireEvent.click(down);
+    expect(names()).toEqual(["Code 1", "Pixel 1"]);
+    expect(down).toBeDisabled();
+    fireEvent.click(up);
+    expect(names()).toEqual(["Pixel 1", "Code 1"]);
+  });
+
+  it("renames on F2", () => {
+    render(<LayersPanel />);
+    fireEvent.keyDown(row("Code 1"), { key: "F2" });
+    const field = screen.getByDisplayValue("Code 1");
+    fireEvent.change(field, { target: { value: "Bars" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(names()).toEqual(["Bars"]);
+  });
+});

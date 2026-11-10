@@ -53,4 +53,16 @@ describe("KnobsPanel", () => {
     }
     expect(store().knobs[1]).toBe(2);
   });
+
+  it("takes the range bounds into the Tab order, with arrows, Page keys and Enter", () => {
+    render(<KnobsPanel />);
+    const max = screen.getByRole("spinbutton", { name: "Freq max" });
+    expect(max.tabIndex).toBe(0);
+    fireEvent.keyDown(max, { key: "ArrowUp" });
+    expect(store().ranges[3]).toEqual([10, 120.1]);
+    fireEvent.keyDown(max, { key: "PageDown" });
+    expect(store().ranges[3]).toEqual([10, 119.1]);
+    fireEvent.keyDown(max, { key: "Enter" });
+    expect(screen.getByRole("textbox", { name: "Freq max" })).toHaveValue("119.100");
+  });
 });
