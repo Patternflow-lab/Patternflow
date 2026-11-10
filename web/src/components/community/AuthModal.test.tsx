@@ -7,8 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import AuthModal from "./AuthModal";
 
 const signIn = vi.hoisted(() => vi.fn());
+const refresh = vi.hoisted(() => vi.fn());
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 vi.mock("@/lib/community/auth-client", () => ({
   authClient: {
     signIn: { username: signIn },
@@ -53,6 +54,21 @@ describe("the sign-in form", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(signIn).toHaveBeenCalledWith({ username: "ada", password: "correct horse" });
     expect(onAuthed).toHaveBeenCalledTimes(1);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  // A card's heart opens this with no onAuthed. The header's handle follows
+  // the session, but the server's CTA, Alerts link and Liked tab did not.
+  it("refreshes the page itself when its caller has nothing to do after", async () => {
+    signIn.mockResolvedValue({ data: {}, error: null });
+    const onClose = vi.fn();
+    render(<AuthModal onClose={onClose} />);
+    const { username, password, form } = fields();
+    fireEvent.change(username, { target: { value: "ada" } });
+    fireEvent.change(password, { target: { value: "correct horse" } });
+    fireEvent.submit(form);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("is a form embedded in another window too", () => {

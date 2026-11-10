@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { authClient, dummyEmailFor } from "@/lib/community/auth-client";
 import { PASSWORD_MIN, USERNAME_RE } from "@/lib/community/validate";
 import { useDialog } from "@/lib/hooks/useDialog";
@@ -12,13 +13,15 @@ import styles from "./Community.module.css";
 
 type Props = {
   onClose: () => void;
-  /** Called after a successful sign-in/up (session is established). */
+  /** Called after a successful sign-in/up (session is established). Without
+   *  one, the modal refreshes the route itself. */
   onAuthed?: () => void;
   /** Renders without its own overlay when embedded in another modal. */
   embedded?: boolean;
 };
 
 export default function AuthModal({ onClose, onAuthed, embedded = false }: Props) {
+  const router = useRouter();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [usernameInput, setUsernameInput] = useState("");
   const [password, setPassword] = useState("");
@@ -60,7 +63,13 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
           return;
         }
       }
-      onAuthed?.();
+      // The header's handle follows the session by itself, but what the server
+      // rendered does not: after signing in from a card's heart, which passed
+      // no onAuthed, the page kept the signed-out CTA and had no Alerts link
+      // and no Liked tab until a reload. So a caller with nothing of its own to
+      // do gets the refresh every other caller was already asking for.
+      if (onAuthed) onAuthed();
+      else router.refresh();
       onClose();
     } finally {
       setBusy(false);
