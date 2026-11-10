@@ -126,7 +126,7 @@ import { stageFocus } from "../look/focus";
 import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, OPENING_GONE, smooth, span } from "./beats";
 import { Path, Tube } from "./cable";
 import { buildFocus } from "./focus";
-import { ease, fall, glide, grow, land, latch, past, press, reach, rock, scatter, setDown, shake, sway, swing, windUp } from "./motion";
+import { ease, glide, grow, land, latch, past, press, reach, rock, runPace, scatter, setDown, shake, sway, swing, windUp } from "./motion";
 import {
   BACK_HINGE,
   BACK_OPEN_ANGLE,
@@ -1487,7 +1487,8 @@ export default function BuildStage() {
 
   // Frames since mount, for the one-off warm-up draw below.
   const warmed = useRef(0);
-  const clock = useRef({ beat: -1, start: 0, since: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN });
+  // run: how far the run in hand had to go when it set off, in beats (0 with none in hand).
+  const clock = useRef({ beat: -1, start: 0, since: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN, run: 0 });
   const tmp = useMemo(
     () => ({
       a: pose(),
@@ -1717,8 +1718,16 @@ export default function BuildStage() {
       // Its own pace forward within the beat; quick from another beat, and
       // quick back to the beat's start.
       const sameBeat = Math.floor(c.t) === B && dlt >= 0;
-      const rate = sameBeat ? 1.6 / beatSeconds(B) : Math.max(2.6, Math.abs(dlt) / 1.1);
-      c.t += Math.sign(dlt) * Math.min(Math.abs(dlt), rate * dt);
+      if (sameBeat) {
+        c.run = 0;
+        c.t += Math.min(dlt, (1.6 / beatSeconds(B)) * dt);
+      } else {
+        // A run: it gathers pace, and loses it as it comes in (motion.ts runPace).
+        const left = Math.abs(dlt);
+        if (left > c.run) c.run = left;
+        const rate = Math.max(2.6, c.run / 1.1) * runPace(1 - left / c.run);
+        c.t += Math.sign(dlt) * Math.min(left, rate * dt);
+      }
     }
     if (process.env.NODE_ENV !== "production") {
       // For the filming and measuring scripts (scratchpad build3d/): the
@@ -1914,6 +1923,7 @@ export default function BuildStage() {
     // the iron (look/materials.ts solderMaterial: its heat is in its
     // surface, not in a glow).
     let ironTip: THREE.Vector3 | null = null;
+    let ironSize = 1;
     {
       const m = tmp.m;
       const heat = kit.jointHeat.array as Float32Array;
@@ -1956,13 +1966,24 @@ export default function BuildStage() {
         // Lifted between pads by how far apart they are; in before the first, out after the last.
         const hop = Math.sin(Math.PI * go) * b.hop;
         const coming = 1 - span(t, round.from - lead, round.from, reach);
-        const leaving = span(t, round.to + dwell, round.to + dwell + lead, fall);
+        // Away at once, and slower the further it has got. It left slowly at
+        // first (fall), and the board is turned back 0.1 to 0.4 s after the
+        // last joint: on all four rounds the board went over with the tip
+        // still on its pad.
+        const leaving = span(t, round.to + dwell, round.to + dwell + lead, ease);
         ironTip.addScaledVector(IRON_AXIS, hop + (coming + leaving) * 4.4);
+        // It comes into the picture from nothing, as a part does (motion.ts
+        // grow), and goes out of it the same way: it was put there at full
+        // size, 44 mm off its pad, and taken away in mid-air.
+        const from = round.from - lead;
+        const gone = round.to + dwell + lead;
+        ironSize = span(t, from, from + lead * 0.35, ease) * (1 - span(t, gone - lead * 0.7, gone, glide));
       }
     }
     kit.iron.visible = !!ironTip;
     if (ironTip) {
       kit.iron.position.copy(ironTip);
+      kit.iron.scale.setScalar(Math.max(0.001, ironSize));
       kit.iron.quaternion.setFromUnitVectors(Y, IRON_AXIS);
       buildFocus.on = true;
       buildFocus.size = 0.06;
