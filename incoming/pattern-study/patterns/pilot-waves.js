@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Adds the knob times 360 degrees to the OKLab hue of crest and trough together; the dark ground between them stays blue-grey at every setting. At 0 the crests are cyan (hue 205, pale at the top of the ramp) and the troughs magenta (340); at 0.3 lavender crests on orange troughs, at 0.5 salmon crests on green ones; a full turn comes back. Where a turn lands on orange or olive the dark steps of the ramp give up their chroma and come up in lightness, so those hues stay amber and gold and never turn to brown.
 // Knob 2: Pace. A clock: Pace / 2 story seconds pass in each second, and the walkers' speed, drag, the memory time and the growth of a drop all go with it, so the same wanderings play faster or slower. A free walker's top speed is 3.8, 7.65 and 13.4 LEDs a second at Pace 1, 2 and 3.5 (at the opening wavelength); a ring is laid every 1/30 of a story second at most, so the track stays unbroken at every setting.
-// Knob 3: Scale. The Faraday wavelength, which is the spacing of the rings: 6.5 LEDs at -1, 8.5 at the opening 0 and 16 at 1, so the panel is 9.8, 7.5 or 4 wavelengths wide. Walkers walk at 0.9 wavelengths a story second and the envelope of their rings is 1.6 wavelengths, so a lone walker's ribbon is about 8 stripes across at every setting, bright in the middle and fading out to the sides. A bath holds as many walkers as fit: 14 at -1, 8 at the opening and 6 at 1 (with Memory at its opening 0.06; 16 at -1 when Memory is also at -1).
-// Knob 4: Memory. T_F Me, the time a bounce's rings take to fall to 1/e: 0.8 story seconds at -1, 3.65 at the opening 0.06 and 14 at 1. A walker's wake behind it is about its speed times that long: 5 LEDs at -1, where each walker is a few rings and a short tail and the rest of the bath is calm, 27 at the opening, and 105 at 1, longer than the panel is wide, where every place holds wakes of several walkers laid across each other. It changes the picture within 1 to 3 seconds because the field is made to decay at the new rate at once.
+// Knob 3: Scale. The Faraday wavelength, which is the spacing of the rings: 6.5 LEDs at -1, 8.5 at the opening 0 and 16 at 1, so the panel is 9.8, 7.5 or 4 wavelengths wide. Walkers walk at 0.9 wavelengths a story second and the envelope of their rings is 1.6 wavelengths, so a lone walker's ribbon is about 8 stripes across at every setting, bright in the middle and fading out to the sides. A bath holds as many walkers as fit: 14 at -1, 8 at the opening and 8 at 1 (with Memory at its opening 0.06; 20 at -1 when Memory is also at -1).
+// Knob 4: Memory. T_F Me, the time a bounce's rings take to fall to 1/e: 0.8 story seconds at -1, 3.65 at the opening 0.06 and 14 at 1. A walker's wake behind it is about its speed times that long: 5 LEDs at -1, where each walker is a few rings and a short tail and the rest of the bath is calm, 27 at the opening, and 105 at 1, longer than the panel is wide, where every place holds wakes of several walkers laid across each other. It changes the picture within 1 to 3 seconds because the field is made to decay at the new rate at once, and the bath holds fewer walkers as memory grows (16 at -1 and 8 at 1, at the opening wavelength).
 
 // What the field is. A bath shakes at just under the threshold where it would throw Faraday waves by itself, and droplets bounce on it.
 // Each bounce leaves a standing ring pattern J0(k r), k = 2 pi / lambda, that fades with a time T (the knob called Memory), so the
@@ -29,17 +29,21 @@
 // The field is stamped, not solved. Each step of at most 1/30 story second the grid decays by exp(-ds / T) and every walker adds its
 // ring from a table of J0 (the polynomial fit, 0.0625 LED apart) out to 2.5 envelope radii, never past 60 LEDs. The ring is added
 // over every image of the panel it reaches, which is the minimal-image distance on the torus, and the field has no seam. The slope
-// at a walker is the central difference of the four nearest cells, bilinear between them, divided by sin(k)/k. 8192 cells and 6 to
-// 16 rings a step cost 0.6 to 1.9 ms a frame in node.
-// Why an envelope. Plain J0 falls only as r^-1/2. A panel 7.5 wavelengths wide shows a walker its own rings coming round the other
-// side, and the whole field settles into one standing pattern; with a minimal-image cut it also has a seam where the image flips.
-// With E at 1.0 wavelength a walker's wake looked like a worm with a round head and the panel stayed dark between worms; at 3.0
-// six walkers drew one lattice of crossing stripes over all of it. 1.6 gives ribbons that cross and show their crossings.
+// at a walker is the central difference at the four nearest cells, bilinear between them, divided by sin(k)/k. 8192 cells and 8 to
+// 20 rings a step cost 1 to 2 ms a frame in node.
+// Why an envelope. Plain J0 falls only as r^-1/2, and on a panel 7.5 wavelengths wide a walker's rings come round the other side and
+// meet themselves. With the rings cut at 60 LEDs and no envelope, Memory 1 gave one lattice of dots over the whole panel and nothing
+// that read as a ribbon (a hard minimal-image cut would also leave a seam where the image flips). E(r) is the spatial decay a Faraday
+// wave has in the real bath. At 3.0 wavelengths the picture was still mostly lattice with patches of stripes; at 1.0 a walker at short
+// memory was a worm with a round head and the panel stayed dark between the worms. 1.6 keeps ribbons that cross and show it.
 // How many walkers. A bath of one size holds as many as fit, so the count goes as the area a walker's rings cover, which goes with
-// lambda squared and with the length of its wake: N = 9 (lambda / 8.5)^-2 (1 + 0.45 T_open) / (1 + 0.45 T), kept between 6 and 16. At
-// all-minimum an early version had 8 walkers on 5.6 LED rings with a 0.55 s memory and the last quarter's quiet came out 0.094 (a
-// 16 by 16 block that no walker passed for a minute); with 16 walkers on 6.5 LED rings it is QMIN. A drop comes in over 1.5 story seconds where the
-// field is calmest of eight random tries, and goes out over the same, its rings fading after it.
+// lambda squared and with the length of its wake: N = 9 (lambda / 8.5)^-2 (1 + 0.45 T_open) / (1 + 0.45 T), at least 8 (14 at the
+// smallest wavelength) and at most 20. The floor is there because the last quarter of a run is judged in blocks 16 LEDs across,
+// and a block that no wake reaches for a minute does not change. An early version with 8 walkers on 5.6 LED rings and a 0.55 s
+// memory scored 0.094 for that at all-minimum (the least-changing block, over the mean); with a floor of 6 rising to 10 the worst of
+// twelve knob places spread over the slow and fine corners was 0.48, and with the counts above it is 0.60 (dim 0.63). A drop
+// bounces for 40 to 110 story seconds, then shrinks away over 1.5 while another lands where the field is calmest of ten tries, which
+// also breaks up any pair or ring that has settled and is what keeps a void from lasting.
 // The picture. h divided by its rms (smoothed over 1.5 s, so Memory and Scale do not act as a brightness knob), tanh(0.7 x), a
 // power of 1.15 on the faint end, and a ramp from trough to crest in OKLab: pale rose, magenta, plum, an ink ground (L 0.2, chroma
 // 0.035), azure, cyan, pale aqua. Pale ends are reached only where wakes add to more than about 3 times the rms.
@@ -62,24 +66,24 @@
 // energy stays within 0.3 and 1.9 of its mean. A turning bath, one walker (the 2010 measurement): the radius it circles at, over the
 // inertial radius v / omega, for inertial radii of 0.5 to 6 wavelengths is 1.12 +- 0.01 at T = 0.8 (the orbit follows the bath
 // smoothly) and 0.99 +- 0.17 at T = 14, where the radius jumps between values and is not monotone in omega.
-// On the torus. One or two walkers fall into a loop and come back to their own path (position autocorrelation 0.10 to 0.24 beyond 60 s);
-// three or more do not (0.03 to 0.08 for three to six, and for eight at the opening 0.03). The floor is 6 anyway. Over 900 s, at six
-// places across the knobs and two seeds, the walkers sit as a random set would: nearest-neighbour distance 0.98 to 1.04 of the random
-// value, velocities as unaligned as chance (polarisation 0.20 to 0.39 against 0.25 to 0.41), and the worst walker spends 6.6 to 8.8
-// percent of its time within 0.1 rad of an axis against 6.4 for a random heading, so nobody runs along an edge. Position
-// autocorrelation (2 pi x / width) beyond 60 s stays under 0.06 at six places. The field's rms is the same in the first and last
-// quarter of 900 s to within 5 percent.
-// Noise. The velocity autocorrelation reaches 1/e at 8.0 to 8.5 s at the opening with the noise off, with the 0.05 it has, and at
-// three times that; at Memory 1 at 4.0 to 4.5 s, 4.0 and 3.5 to 4.0. The turn of the bath alone would give 9.9 s; the wakes take
-// that circle apart, which is why no revival shows.
+// On the torus. One or two walkers fall into a loop and come back to their own path (position autocorrelation 0.10 to 0.24 beyond
+// 60 s); three or more do not (0.03 to 0.08 for three to six). Over 900 s, at six places across the knobs and two seeds each, the
+// walkers sit as a random set would: nearest-neighbour distance 0.98 to 1.03 of the random value, velocities as unaligned as chance
+// (polarisation 0.18 to 0.35 against 0.24 to 0.36), and the worst walker spends 7.3 to 11.7 percent of its time within 0.1 rad of an
+// axis against 6.4 for a random heading, so nobody runs along an edge. Position autocorrelation (2 pi x / width) beyond 60 s stays
+// under 0.07 at five of the places and reaches 0.12 at all-minimum, where 900 s is 450 story seconds. The field's rms is the same
+// in the first and last quarter of 900 s to within 3 percent.
+// Noise. The velocity autocorrelation reaches 1/e at 8.0 to 8.5 s at the opening with the noise off, 7.5 to 8.5 with the 0.05 it
+// has and 7.0 to 8.0 with three times that; at Memory 1 it is 3.0 s, 2.5 to 3.0 and 2.5 to 3.0. The turn of the bath alone would
+// give 9.9 s, and the wakes take that circle apart, which is why no revival shows.
 
 const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, PI, pow, log } = Math;
 const W = 64, H = 128, NC = W * H;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- tunables. Lengths are LEDs, times are story seconds (Pace sets how many of them pass in a real second).
-const NMAX = 18;                         // walker slots
-const N_MIN = 6, N_MAX = 16, N_OPEN = 9; // walkers on the panel, at least, at most, and the count the opening wavelength and memory ask for
+const NMAX = 20;                         // walker slots
+const N_MIN = 8, N_MAX = 20, N_OPEN = 9; // walkers on the panel, at least, at most, and the count the opening wavelength and memory ask for
 const LAM_MIN = 6.5, LAM_OPEN = 8.5, LAM_MAX = 16; // Faraday wavelength at Scale -1, 0 and 1, geometric between
 const TM_MIN = 0.8, TM_OPEN = 3, TM_MAX = 14;      // memory time T_F Me at Memory -1 and 1 (geometric), and the one N_OPEN is counted at
 const NU = 0.9;           // free walking speed at long memory, wavelengths per story second
@@ -90,6 +94,7 @@ const NOISE = 0.05;       // random push, wavelengths per story second per root 
 const DROP_SPREAD = 0.15; // drops differ in size by this fraction either way
 const DT_MAX = 1 / 30;    // longest step of the walkers
 const GROW = 1.5;         // a drop grows in, or shrinks away, over this long
+const LIFE_MIN = 40, LIFE_MAX = 110; // a drop bounces this long before it is let go and another lands somewhere calm
 const GAIN = 0.7;         // exposure: the rms of the field sits at this many units of tanh before the clip
 const GAMMA = 1.15;       // above 1 darkens the faint tails of a wake
 const KNOB = [0, 2, 0, 0.06];
@@ -169,7 +174,7 @@ function newState() {
     tab: new Float32Array(2048), rc: 30, tabLam: -1,
     lam: LAM_OPEN, tm: TM_OPEN, pace: 1,
     px: new Float64Array(NMAX), py: new Float64Array(NMAX), vx: new Float64Array(NMAX), vy: new Float64Array(NMAX),
-    dr: new Float64Array(NMAX), w: new Float64Array(NMAX), on: new Uint8Array(NMAX),
+    dr: new Float64Array(NMAX), w: new Float64Array(NMAX), on: new Uint8Array(NMAX), age: new Float64Array(NMAX), life: new Float64Array(NMAX),
     rms: 0.3, lut: new Uint8Array(3 * 512), hueDone: -999,
     acc: 0, hold: -1, want: N_OPEN, noise: NOISE, env: ENV, rot: OMEGA,
   };
@@ -188,15 +193,18 @@ function seedWalkers(S) {
     S.dr[i] = 1 + DROP_SPREAD * (2 * Math.random() - 1);
     S.on[i] = i < S.want ? 1 : 0;
     S.w[i] = S.on[i];
+    S.life[i] = LIFE_MIN + (LIFE_MAX - LIFE_MIN) * Math.random();
+    S.age[i] = S.life[i] * Math.random();
   }
 }
 
-// How many walkers the bath holds. A bath of fixed size holds as many as fit:
-// the area a walker rings over goes with lambda squared, and with its wake,
-// which goes with the memory.
+// How many walkers the bath holds. A bath of fixed size holds as many as fit: the area a walker rings over goes with lambda
+// squared, and with its wake, which goes with the memory. The floor rises from 8 at the opening wavelength to 14 at the smallest,
+// where a block of the panel 16 LEDs across is two rings wide and has to be passed by a wake all the time.
 function wanted(lam, tm) {
   const a = ((lam / LAM_OPEN) * (lam / LAM_OPEN) * (1 + 0.45 * tm)) / (1 + 0.45 * TM_OPEN);
-  return cl(Math.round(N_OPEN / a), N_MIN, N_MAX);
+  const floorN = N_MIN + 6 * cl((LAM_OPEN - lam) / (LAM_OPEN - LAM_MIN), 0, 1);
+  return cl(Math.round(N_OPEN / a), Math.round(floorN), N_MAX);
 }
 
 // Drops come and go with the count: a new one lands where the wave field is
@@ -209,16 +217,20 @@ function crowd(S) {
     for (let i = 0; i < NMAX; i++) if (!S.on[i] && S.w[i] < 0.02) { j = i; break; }
     if (j < 0) break;
     let bx = 0, by = 0, bq = 1e30;
-    for (let c = 0; c < 8; c++) {
-      const x = Math.random() * W, y = Math.random() * H;
-      const q = abs(S.h[(floor(y) & 127) * W + (floor(x) & 63)]);
+    for (let c = 0; c < 10; c++) {
+      const x = Math.random() * W, y = Math.random() * H, r = 0.8 * S.lam;
+      let q = 0;
+      for (let m = 0; m < 5; m++) {
+        const ax = m ? (m & 1 ? r : -r) * (m < 3 ? 1 : 0) : 0, ay = m ? (m & 1 ? r : -r) * (m < 3 ? 0 : 1) : 0;
+        q += abs(S.h[(floor(y + ay) & 127) * W + (floor(x + ax) & 63)]);
+      }
       if (q < bq) { bq = q; bx = x; by = y; }
     }
     const a = Math.random() * 2 * PI;
     S.px[j] = bx; S.py[j] = by;
     S.vx[j] = cos(a) * 0.5 * NU * S.lam; S.vy[j] = sin(a) * 0.5 * NU * S.lam;
     S.dr[j] = 1 + DROP_SPREAD * (2 * Math.random() - 1);
-    S.on[j] = 1; S.w[j] = 0;
+    S.on[j] = 1; S.w[j] = 0; S.age[j] = 0; S.life[j] = LIFE_MIN + (LIFE_MAX - LIFE_MIN) * Math.random();
     have++;
   }
   while (have > S.want) {
@@ -244,6 +256,7 @@ function stepSim(S, ds) {
   const rc = cos(S.rot * ds), rs = sin(S.rot * ds);
   const gw = 1 - exp(-ds / GROW);
   for (let i = 0; i < NMAX; i++) {
+    if (S.on[i] && S.hold < 0 && (S.age[i] += ds) > S.life[i]) S.on[i] = 0;
     S.w[i] += (S.on[i] - S.w[i]) * gw;
     if (!S.on[i] && S.w[i] < 0.02) S.w[i] = 0;
     if (S.w[i] === 0) continue;
