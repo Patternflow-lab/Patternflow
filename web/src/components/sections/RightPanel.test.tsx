@@ -13,7 +13,9 @@ vi.mock('./Milestones', () => ({ default: () => null }));
 vi.mock('./Sponsor', () => ({ default: () => null }));
 vi.mock('../layout/Footer', () => ({ default: () => null }));
 vi.mock('./BuildPanel', () => ({ default: () => <section>build panel</section> }));
+const preloadEditor = vi.hoisted(() => vi.fn());
 vi.mock('./PatternPanel', () => ({
+  preloadPatternEditor: preloadEditor,
   default: ({ isActive }: { isActive: boolean }) => (
     <section data-testid="pattern-panel" data-active={String(isActive)}>
       pattern panel
@@ -108,5 +110,20 @@ describe('RightPanel', () => {
 
     fireEvent.click(within(desktop).getByRole('button', { name: 'Build' }));
     expect(panel).toHaveAttribute('data-active', 'false');
+  });
+
+  // The editor waits for the tab; a pointer arriving on either Pattern
+  // button, or the focus, gives it a head start. The other tabs leave it be.
+  it('starts the editor loading on a hover or a focus of a Pattern button', () => {
+    preloadEditor.mockClear();
+    renderAt('/', 'hero');
+    const [desktop, phone] = screen.getAllByRole('navigation', { name: 'Sections' });
+    fireEvent.pointerEnter(within(desktop).getByRole('button', { name: 'Build' }));
+    fireEvent.focus(within(phone).getByRole('button', { name: 'Inside' }));
+    expect(preloadEditor).not.toHaveBeenCalled();
+
+    fireEvent.pointerEnter(within(desktop).getByRole('button', { name: 'Pattern' }));
+    fireEvent.focus(within(phone).getByRole('button', { name: 'Pattern' }));
+    expect(preloadEditor).toHaveBeenCalledTimes(2);
   });
 });
