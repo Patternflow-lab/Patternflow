@@ -53,7 +53,10 @@ export default function ArticleLayout({
           <Link href={indexHref}>All writing</Link>
         </div>
 
-        <header className="journal-article-header">
+        {/* The root layout says the whole site is English. A Korean post says
+            so itself, on its own words, for a screen reader's voice and a
+            browser's translate offer. The labels around it stay English. */}
+        <header className="journal-article-header" lang={lang}>
           <h1>{post.title}</h1>
           <p>{post.excerpt}</p>
           <div className="journal-dateline">
@@ -73,12 +76,12 @@ export default function ArticleLayout({
               />
             </div>
             {post.coverCaption && (
-              <figcaption>{post.coverCaption}</figcaption>
+              <figcaption lang={lang}>{post.coverCaption}</figcaption>
             )}
           </figure>
         )}
 
-        <div className="journal-reading">{children}</div>
+        <div className="journal-reading" lang={lang}>{children}</div>
 
         <div className="journal-end-mark">
           <span />
@@ -88,7 +91,7 @@ export default function ArticleLayout({
       </article>
 
       <footer className="journal-article-footer">
-        <ol className="journal-context-list">
+        <ol className="journal-context-list" lang={lang}>
           {windowPosts.map((p) => {
             const globalNum = postNumbers.get(p.slug);
             const isCurrent = p.slug === post.slug;
