@@ -435,6 +435,24 @@ describe("community dialogs", () => {
   });
 });
 
+// In Chromium a fenced block in a comment sat 45px under its paragraph and 33px
+// over the next, where the composer's preview of the same text has 12px and
+// 10px, and a fence with no language drew the inline chip inside its box.
+describe("a code fence in a comment", () => {
+  const community = css("Community.module.css");
+
+  it("keeps typed line breaks inside a paragraph only", () => {
+    expect(rule(community, ".commentBody")).not.toMatch(/white-space/);
+    expect(rule(community, ".commentBody p")).toMatch(/white-space: pre-wrap;/);
+  });
+
+  it("takes the inline chip off the code inside it", () => {
+    const code = rule(community, ".codeFence code");
+    expect(code).toMatch(/padding: 0;/);
+    expect(code).toMatch(/border: 0;/);
+  });
+});
+
 describe("atlas", () => {
   const atlas = css("Atlas.module.css");
 

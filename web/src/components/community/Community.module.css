@@ -2519,9 +2519,17 @@
 
 .commentBody {
   line-height: 1.6;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   color: var(--pfc-ink-2);
+}
+
+/* A comment keeps the line breaks it was typed with, inside a paragraph. This
+   was pre-wrap on the whole body, from when a comment was plain text. Now it
+   is markdown, and the newlines react-markdown puts between blocks each
+   rendered as an empty line: 45px above a code fence where the composer's
+   preview of the same text has 12px. */
+.commentBody p {
+  white-space: pre-wrap;
 }
 
 .commentForm {
@@ -4103,6 +4111,16 @@
   word-break: break-word;
   overflow-x: auto;
   border: 1px solid var(--pfc-hair);
+}
+
+/* A fence with no language after the backticks reaches PostBody with no
+   class, the same as inline code, and so took the inline chip's border and
+   padding inside this box. The box is the only frame a fence gets. */
+.codeFence code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: inherit;
 }
 
 /* ── Moderation queue (/community/reports) ──
