@@ -1,15 +1,11 @@
 import { create } from 'zustand';
 import type { CaseId } from '@/components/sections/build-cases-data';
 
-export type SectionType = 'hero' | 'case' | 'pcb' | 'assembly' | 'firmware' | 'inside';
-
 // Which top-level home tab is open. Mirrored from RightPanel so sibling
 // components (e.g. the 3D viewer panel) can react without prop drilling.
 export type HomeTabType = 'hero' | 'build' | 'pattern' | 'inside';
 
 interface AppState {
-  activeSection: SectionType;
-  setActiveSection: (section: SectionType) => void;
   homeTab: HomeTabType;
   setHomeTab: (tab: HomeTabType) => void;
   // Which build pin is open on the globe. Lifted out of the globe itself so
@@ -30,8 +26,6 @@ interface AppState {
   setIsDraggingKnob: (isDragging: boolean) => void;
   activeKnobId: 'c1' | 'c2' | 'c3' | 'c4' | null;
   setActiveKnobId: (id: 'c1' | 'c2' | 'c3' | 'c4' | null) => void;
-  isBloomEnabled: boolean;
-  setIsBloomEnabled: (enabled: boolean) => void;
   activePatternId: string;
   setActivePatternId: (id: string) => void;
   customJsCode: string;
@@ -60,8 +54,6 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set) => ({
-  activeSection: 'hero',
-  setActiveSection: (section) => set({ activeSection: section }),
   homeTab: 'hero',
   setHomeTab: (tab) => set({ homeTab: tab }),
   selectedBuildId: null,
@@ -85,8 +77,6 @@ export const useAppStore = create<AppState>((set) => ({
   setIsDraggingKnob: (isDragging) => set({ isDraggingKnob: isDragging }),
   activeKnobId: null,
   setActiveKnobId: (id) => set({ activeKnobId: id }),
-  isBloomEnabled: true,
-  setIsBloomEnabled: (enabled) => set({ isBloomEnabled: enabled }),
   activePatternId: 'patternFlowOriginal',
   setActivePatternId: (id) => set({ activePatternId: id }),
   customJsCode: `// Patternflow live editor starter.

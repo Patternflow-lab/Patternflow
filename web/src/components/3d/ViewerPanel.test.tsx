@@ -30,10 +30,16 @@ function Scene({ name }: { name: string }) {
 vi.mock('./HeroScene', () => ({ default: () => <Scene name="product" /> }));
 vi.mock('next/dynamic', () => ({ default: () => () => <Scene name="globe" /> }));
 
+// Wider than 900px unless a test says otherwise: the panel is on screen on
+// every tab there, the hero's too.
+const screenWidth = vi.hoisted(() => ({ wide: true }));
+vi.mock('@/lib/hooks/useMediaQuery', () => ({ useMediaQuery: () => screenWidth.wide }));
+
 const LINE = 'This browser can’t draw the 3D view.';
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  screenWidth.wide = true;
   webgl.answer = true;
   webgl.asked = 0;
   scenes.throws.clear();
@@ -136,6 +142,30 @@ describe('ViewerPanel', () => {
     const html = renderToString(<Page tab="build" />);
     expect(html).toContain('viewer-panel is-open');
     expect(renderToString(<Page />)).not.toContain('is-open');
+  });
+
+  // Under 901px the panel is off screen while the hero is up, and a globe in
+  // it fetched its code and the coastlines for nobody.
+  it('puts no scene in the panel under a phone’s hero, and the one wanted once a tab opens', () => {
+    screenWidth.wide = false;
+    render(<Page />);
+    expect(screen.queryByTestId('scene')).not.toBeInTheDocument();
+    expect(screen.queryByText(LINE)).not.toBeInTheDocument();
+
+    act(() => useAppStore.getState().setHomeTab('build'));
+    expect(screen.getByTestId('scene')).toHaveTextContent('product');
+    act(() => vi.advanceTimersByTime(200));
+    expect(scenes.made).not.toContain('globe');
+
+    // Back to the hero: the panel leaves the screen and is emptied.
+    act(() => useAppStore.getState().setHomeTab('hero'));
+    expect(screen.queryByTestId('scene')).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.queryByTestId('scene')).not.toBeInTheDocument();
+
+    // Inside, from there: the globe, with no fade from a scene nobody saw.
+    act(() => useAppStore.getState().setHomeTab('inside'));
+    expect(screen.getByTestId('scene')).toHaveTextContent('globe');
   });
 
   it.each(['hero', 'build'] as const)('sends %s as it was from the server, and the browser without WebGL takes it up without a mismatch', async (tab) => {
