@@ -11,10 +11,63 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=1..3.5, Scale=-1..1, Facets=-1..1
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the orientation hue wheel. At 0 the grains run from teal through blue and violet to rose, with a pale amber and a green among them.
-// Knob 2: Pace. The clock of everything at once: front speed, melt speed and both event rates. Front speed is 1.5 LEDs a second at 1, 3.0 at the opening 2 and 5.2 at 3.5.
-// Knob 3: Scale. Grain size, 14 LEDs across at -1, 22 at 0 and 35 at 1, which is about 40, 17 and 7 grains on the panel. Grains and melt discs scale together, so the picture is the same process seen larger.
-// Knob 4: Facets. How directional the growth is. At -1 every crystal grows as a disc and the boundaries are hyperbola arcs; at 0 hexagons with straight edges; to 1 the six facets grow at different speeds, so the fast ones disappear and the crystals become pentagons, rhomboids and triangles. Crystals already grown keep the shape they were born with.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue wheel the crystals take their colour from. A crystal's orientation, taken modulo 60 degrees because a hexagon looks the same turned by 60, picks its hue along 250 degrees of the wheel: at 0 from green-teal through cyan, azure, blue and violet to magenta, rose and coral. Turned up, the wheel reaches the yellows, and hues between 84 and 124 degrees are never shown: a grain that would fall there takes a pale amber or a lime, because on the panel that stretch comes out khaki.
+// Knob 2: Pace. The clock of everything at once: front speed, melt speed and the rates of both kinds of event. The growth fronts move 3.4 LEDs a second at 1, 6.8 at the opening 2 and 11.8 at 3.5 (the apothem speed of the hexagons), the melt fronts twice that, and at Scale 0 a melt event starts every 1.4 s at 1, 0.9 s at 2 and 0.3 s at 3.5.
+// Knob 3: Scale. Grain size, 13.8 LEDs across at -1, 22 at 0 and 35.2 at 1, and the melt discs go with it. Crystals holding at least 30 LEDs: 68 at -1, 35 at 0 and 19 at 1, and the share of the panel that is solid 0.94, 0.90 and 0.79.
+// Knob 4: Facets. How directional the growth is, for crystals born from now on. At -1 every crystal grows as a disc and meets its neighbours along hyperbola arcs; at 0 as a hexagon with straight edges and its own tilt; from 0 to 1 the six facets get unequal speeds, up to plus or minus 66 percent, so the fast ones grow out of the shape and what is left is a pentagon, a rhomboid or a triangle. The area a crystal gains a second does not change with the knob.
+
+// What the field is. Johnson, Mehl, Avrami and Kolmogorov asked how fast a melt turns solid when crystals nucleate at random
+// places and times and each grows outward. Here each crystal grows at a speed that depends on direction, so its front is a
+// Wulff shape, the polygon cut by six half-planes with normals 60 degrees apart, and the time the front needs to reach a point
+// x is T_i(x) = t_i + g_i(x - x_i), where g_i is the gauge of the shape, max over the facets of (n_k . d) / v_k. The pattern
+// never steps a front: a LED is owned by the crystal that arrives first, and the arrival time is that formula. The shape
+// mixes in the round gauge |d| / v with weight 1 - sharp, so Facets from -1 to 0 goes from the disc to the hexagon, and the six
+// speeds are scaled so the area gained a second is always that of the regular hexagon, 2 sqrt 3 v^2.
+// Melting is the reverse. A melt event is a round front from a point at a time that runs at speed v_m out to a radius R and
+// leaves liquid behind it. With m*(x, t) the latest time a melt front passed x by t, a LED is solid when some crystal i has
+// m* < T_i(x) <= t, and the owner is the one with the smallest such T_i(x); otherwise it is liquid. Three rules keep the picture
+// honest. A crystal is born only on liquid, at least EXCL grain-crossing times before any front reaches the spot (JMAK's own
+// rule, nuclei in transformed ground are phantoms, and the second part keeps out crystals that would be a few LEDs wide). A crystal
+// stops growing when a melt front reaches its nucleus, at D_i, and keeps the LEDs it had by then until a front crosses them. And
+// it stops at a reach of 30.5 LEDs, which is under half the 64 columns, so on the torus the nearest image of a nucleus is the only
+// one that can matter and no front has to be looked up through the wrap.
+// Book-keeping. Each LED holds three numbers: the earliest valid arrival T_min, its crystal, and the last melt passage m*. A new
+// crystal compares itself with those at the LEDs inside its reach. A melt front writes m* into the LEDs it crosses and, at each,
+// finds the owner again among the live crystals. Nothing else is stored, so the state is the formula, not an update rule.
+// Retiring. A crystal can be dropped once it owns no LED and its growth has ended (its nucleus melted, or it reached the cap),
+// because every arrival it could still win at any LED is then in the past and under a later melt passage, and m* never goes
+// back. A melt event goes when its front has stopped. Tested against the same run with RETIRE false and 4096 slots, at the
+// opening, at Pace 3.5 with Scale 1 and Facets 1, and at Pace 1 with Scale -1 and Facets -1, one minute each: not one channel
+// value differs in 1800 frames at any of the three.
+// Events. Nucleation proposals and melt events are Poisson clocks whose rates are multiplied by exp(z), with z an
+// Ornstein-Uhlenbeck process (relaxation 90 s, spread 0.3), so the rates wander and nothing repeats. A proposal is kept with a
+// probability that is 1/12 for liquid that has just melted and rises to 1 over a few seconds, because a pocket of liquid with no
+// front coming, such as the part of a hexagon a melt cut off, would otherwise stay dark until a nucleus happened to land in it. A melt centre is the stalest
+// of 3 random LEDs, the one longest since a front crossed it, which spreads the melting so no 16 by 16 block waits.
+// Setup runs 170 s of this at the knobs of the first update, in 680 steps of 0.25 s, so the first frame already stands.
+
+// What the checks showed. The 64 by 128 torus, the harness's seeded Math.random, no melting, I = 0.00145 per LED and second.
+// Avrami, round crystals at v = 1.575 LEDs a second, 300 runs: the solid share against 1 - exp(-pi/3 I v^2 t^3) at t = 2, 4, 6, 8,
+// 10, 12 s is off by +0.0007, +0.0039, +0.0044, +0.0019, -0.0005, -0.0001, and the grains per LED at saturation are 8.34e-3
+// against 0.879 (I/v)^(2/3) = 8.32e-3, a mean grain of 119.9 LEDs against 120.2. The same test with 40 runs scatters by
+// 0.013, so 300 is the number that shows the bias is under 0.005.
+// One crystal grown alone: its area at t = 4, 6, 8, 10 s is 0.991 to 1.010 of 2 sqrt 3 (v t)^2, the hexagon of apothem v t, for two
+// tilts, and the disc is 0.96 to 1.01 of pi (1.05 v t)^2 (the round part runs at 1.05 v so that its area matches the hexagon's).
+// Hexagons of random tilt at v = 1.5 (apothem), 300 runs, against 1 - exp(-(2 sqrt 3 / 3) I v^2 t^3): within 0.0037 at every t,
+// and 8.43e-3 grains per LED against 0.851 (I/v)^(2/3) = 8.32e-3, which is Gamma(4/3) 3^(1/3) (2 sqrt 3)^(-1/3).
+// Retiring, as above: 0 of 1800 frames differ at each of the three places, with 64, 64 and 120 crystals held at most against
+// 263, 442 and 332 without retiring. With everything running (the opening, 900 s) the share of the panel that is solid
+// goes between 0.64 and 0.97 from minute to minute, the mean luma stays between 83 and 108 and 43 to 67 crystals are held.
+// What broke. The Lab calls setup before it has any knob, so the history is run on the first update. The first version froze a
+// crystal when a melt reached its nucleus and left the unreached part of its hexagon as a liquid pocket that nothing arrived at,
+// a dark wedge inside a pink grain at 8 s, hence the rising nucleation. A flat nucleation rate gave 64 crystals at one instant
+// with 20 of them under 20 LEDs (melt radius 0.9 D), hence EXCL, and 0.6 gave 31 with 2. A melt passage every 60 s per LED gave
+// recur 0.33 at the opening and 24 s gives 0.7. At Pace 1 and Scale 1 the grains are few and a 16 by 16 block sees about 6 melts a
+// minute (worked out from the rates). With the swell at 0.06, 2 of 8 draws failed there, recur 0.32 and last-quarter quiet 0.27.
+// Each grain now fades up and down in lightness by 0.12 with its own period of about 14 s, which keeps a block inside one old
+// grain from standing still, and the lowest quiet of the 8 draws went to 0.36. The melt interval going as (22/D)^1.2, 13.7 s at
+// Scale 1, brought the lowest recur of 4 draws at that corner to 0.62 and the lowest last-quarter quiet to 0.66. The scaling of the facet
+// speeds to a fixed area rate turned out to matter little to the picture: the solid share is 0.867 at Facets 1 with it and 0.874 without.
 
 const { floor, ceil, exp, log, sqrt, abs, sin, cos, PI, min, pow, random } = Math;
 const TAU = 2 * PI;
