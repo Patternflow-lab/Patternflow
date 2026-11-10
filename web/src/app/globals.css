@@ -205,9 +205,6 @@
   .app-layout {
     display: flex;
   }
-  .mobile-page-links {
-    display: none;
-  }
   .viewer-panel {
     position: sticky;
     top: 0;
@@ -252,12 +249,6 @@
     .viewer-panel { display: none; }
     .content-panel { width: 100%; }
     .viewer-hint { display: none; }
-
-    /* Page links (Journal / Contact) live as a fixed, layered header in the
-       top-right — independent of the 3D preview, sitting above everything. */
-    .mobile-page-links {
-      display: none;
-    }
 
     /* The 3D preview is hidden while the hero is full-screen, then "drops down"
        and pins to the top once a section tab is opened from the bottom nav.
@@ -795,6 +786,13 @@
       --pf-fs-ghost-row: 52px;
     }
     .pf-section-panel { padding: 36px 22px 44px; }
+  }
+  /* Under 901px .deck-content supplies the page's 24px gutter (above), and a
+     section panel's own came on top of it: 46px either side of a 390px
+     phone, which left the Build panel's cards and the code editor 298px.
+     The deck's gutter is the one the hero has, so the panels keep to it. */
+  @media (max-width: 900px) {
+    .deck-content .pf-section-panel { padding-left: 0; padding-right: 0; }
   }
 
   /* ───── Sponsor ───── */
@@ -2119,4 +2117,15 @@
       gap: 8px !important;
       letter-spacing: 0.04em;
     }
+  }
+
+  /* Less motion asked for. On the landing view the sections cut in where they
+     slid: the viewer dropping down a phone, the bar riding up under it, the
+     panel rising 16px as it fades. The fades themselves stay. After the rules
+     it answers, because a media query adds no specificity. */
+  @media (prefers-reduced-motion: reduce) {
+    .viewer-panel.is-open { animation: none; }
+    .deck-content { animation: none; }
+    .panel-wrapper { transform: none; transition: opacity 0.2s ease; }
+    .mobile-bottom-nav { transition: none; }
   }
