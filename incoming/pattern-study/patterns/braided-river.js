@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Water=-1..1
 //
 // Knob 1: Hue. Turns the water round the wheel by the knob times 360 degrees, shallow to deep; the sand does not turn. At 0 the water runs from mint (126, 230, 195) in the shallows through teal (0, 156, 154) to deep blue-green (5, 71, 88) over wet sand (109, 82, 59) that dries to pale gravel (180, 170, 146) with a sun-lit side (234, 214, 194). At 0.25 it is lavender (179, 208, 253), violet (126, 124, 215) and plum (88, 30, 118), at 0.5 pink (253, 181, 215), rose (205, 99, 113) and burnt orange (177, 74, 30), at 0.75 amber (244, 198, 120), olive (161, 147, 14) and green (63, 105, 0). Between red and green the dark water is lifted so that it does not read as brown.
-// Knob 2: Flow. The clock of the bed: 50 + 45 times Flow steps of the model a second, 72, 140 and 230 at 0.5, 2 and 4, each step about 1.1 to 1.3 of the model's time unit (the step is cut so that no cell's bed moves more than 0.03). The picture changes by 2.9, 5.3 and 7.7 of 255 in luma (mean over the panel) every half second, and by 18, 34 and 34 over ten seconds, at Flow 0.5 with the other knobs at their minimum, at 2 at the opening and at 4 with the other three at their maximum. The picture is the same at every Flow and only goes faster: the bed correlates at 0.74 with itself 5 s later at the opening, 0.52 after 10 s, 0.29 after 20 s and 0.11 after 40 s.
+// Knob 2: Flow. The clock of the bed: 50 + 45 times Flow steps of the model a second, 72, 140 and 230 at 0.5, 2 and 4, each step about 1.1 to 1.3 of the model's time unit (the step is cut so that no cell's bed moves more than 0.03). The picture changes by 2.9, 5.3 and 7.7 of 255 in luma (mean over the panel) every half second, and by 18, 34 and 34 over ten seconds, at Flow 0.5 with the other knobs at their minimum, at 2 at the opening and at 4 with the other three at their maximum. The picture is the same at every Flow and only goes faster: the bed correlates at 0.77 with itself 5 s later at the opening, 0.55 after 10 s, 0.30 after 20 s and 0.16 after 40 s.
 // Knob 3: Scale. How many LEDs a cell of the model covers: 1.0 at -1, 1.4 at 0 and 2.38 at 1, so the panel shows the whole 64 by 128 cell torus, a window 46 by 91 cells, and a window 27 by 54 cells of it, magnified and smoothed. The braid is the same braid; what changes is how many channels the 64 LEDs hold. A row crosses 9.0, 6.5 and 4.0 channels at -1, 0 and 1 (wet runs of the cover above one half, mean of rows and of 300 s; 7.6 to 9.8, 5.5 to 7.4 and 3.3 to 4.9 over time), each wet channel about 2.3 cells wide, which is 2.4, 3.2 and 5.4 LEDs.
 // Knob 4: Water. The discharge of the river against the discharge that carries a bar, 0.5, 0.82 and 1.28 at -1, 0 and 1. It does two things. In the bed it multiplies the stream power in the bedload law, so a low river moves sediment only in its few strongest channels and a high one moves it nearly everywhere, which lowers the relief (rms 0.04 at 1.5 against 0.09 at 0.6), and from about 2 the bed flattens into a sheet and the braid dies (the reason the knob stops at 1.28). In the picture it is the stage: the same discharge covers more of the bed the higher the river stands, so Water is seen at once and the bed follows over a minute. The wet share of a row is 0.20 at -1, 0.32 at 0 and 0.56 at 1, with 5.0, 6.5 and 7.1 channels.
 
@@ -77,16 +77,18 @@
 //    slope. The bedload-weighted slope along the water's path is 0.041 (0.0409, 0.0408 and 0.0411), 82 percent of the valley's; part of
 //    that is the sqrt 2 of the diagonal links and the rest water running down flatter reaches. Every row of Q carries 64 to 2e-8.
 // 3. Channels in a row (LED rows, wet runs of the cover above one half, 900 s sampled every 2 s, 32 rows): at the opening 6.5 on average,
-//    5.5 to 7.4 as the mean of a sample and 3 to 9 in single rows (300 s); at every knob at its minimum 8.4 (7.6 to 9.3), at its maximum
-//    4.5 (3.6 to 5.4); Scale alone 9.0 and 4.0, Water alone 5.0 and 7.1. The brief asked for 5 to 9 at the opening, and it is 6.5.
+//    5.5 to 7.4 as the mean of a sample and 3 to 9 in single rows (300 s); at every knob at its minimum 7.2 (6.4 to 8.4), at its maximum
+//    4.5 (3.6 to 5.3); Scale alone 9.0 and 4.0, Water alone 5.0 and 7.1. The brief asked for 5 to 9 at the opening, and it is 6.5.
 //    The lab flume range from memory is 2 to 6 for the number of active channels in a section (Ashmore 1991 and later); the panel is wider
 //    in channel widths than a flume, 40 to 60 channel widths against 10 to 30, so the opening is a little over the top of that range and
 //    the finest corner well over, while Scale 1 is inside it.
-// 4. Bar motion at the opening. The bed's correlation with itself falls to 0.52 in 10 s and 0.11 in 40 s; the best match of the bed after
-//    20 s is 2.3 cells (3.2 LEDs) downstream, 4.8 cells after 40 s, so the bars migrate downstream at about 0.11 cells a second (0.16
-//    LED), slowly against the channels, which move sideways: the nearest wet-run centre one second on is 0.6 LED away on average
-//    (a high figure, since a channel that is born or dies counts as a jump). A bar leaves its place by a channel spacing, about 10 LEDs
-//    at the opening, in some 40 s, and a random walk of such steps carries one across the 64 LEDs in about 25 minutes. A rough figure.
+// 4. Bar motion at the opening (900 s). The bed's correlation with itself falls to 0.55 in 10 s and 0.16 in 40 s. The best match of the bed
+//    after 20 s is 1.0 cell downstream and after 40 s 1.9 cells (a 300 s run on another seed gave 2.3 and 4.8), so bars migrate
+//    downstream at 0.05 to 0.11 cells a second, 0.07 to 0.16 LED, and slowly against how fast the channels change: the nearest wet-run
+//    centre one second on is 0.6 LED away on average, 1.2 after three seconds (high figures, since a channel that is born or dies counts
+//    as a jump). A bar leaves its place by a channel spacing, about 10 LEDs at the opening, in some 40 s, and a random walk of such steps
+//    carries one across the 64 LEDs in about 25 minutes. A rough figure. At every knob at its maximum the bed is new in 10 s (0.13), at the
+//    minimum it holds 0.80 for 20 s.
 // The flowcheck of this study. 240 s at the opening, every knob at its minimum and its maximum, and three random positions: recur 0.603
 // to 0.703, dim 0.950 to 0.983, quiet 0.817 to 0.877, drift 0.0 to 0.6 percent; the last quarter dim 0.935 to 0.964, quiet 0.601 to
 // 0.832. Seeds 1 to 4 at the minimum: recur 0.525 to 0.555, last-quarter quiet 0.662 to 0.764; at the maximum recur 0.583 to 0.636,
