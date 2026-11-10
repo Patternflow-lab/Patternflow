@@ -9,7 +9,8 @@ import CodePanel from "./CodePanel";
 import { useLabStore } from "@/lib/lab/store";
 
 // A textarea standing in for Monaco: typing is onChange, and leaving it is the
-// blur listener the panel registers in onMount.
+// blur listener the panel registers in onMount. It counts its renders.
+const editorRenders = vi.hoisted(() => ({ count: 0 }));
 vi.mock("@monaco-editor/react", async () => {
   const { useEffect, useRef } = await import("react");
   type Props = {
@@ -19,6 +20,7 @@ vi.mock("@monaco-editor/react", async () => {
   };
   return {
     default: function Editor({ value, onChange, onMount }: Props) {
+      editorRenders.count += 1;
       const blur = useRef<(() => void) | null>(null);
       const mount = useRef(onMount);
       useEffect(() => {
@@ -227,5 +229,18 @@ describe("CodePanel on another layer", () => {
     expect(
       screen.getByText("The selected layer is pixel art. Edit it in the Pixel panel, or select a code layer."),
     ).toBeTruthy();
+  });
+});
+
+// The panel subscribed to the knobs and the ranges for the prompt alone, so
+// every knob step rendered it again and handed Monaco a new options object.
+describe("CodePanel and the knobs", () => {
+  it("does not render the editor again while a knob turns", () => {
+    render(<CodePanel />);
+    const before = editorRenders.count;
+    for (let step = 1; step <= 20; step++) {
+      act(() => useLabStore.getState().setKnob(0, step / 20));
+    }
+    expect(editorRenders.count).toBe(before);
   });
 });

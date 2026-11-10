@@ -35,11 +35,22 @@ const OTHER_LAYER_HINT: Record<Exclude<Layer["type"], "code">, string> = {
   text: "The selected layer is text. Edit it in the Text panel, or select a code layer.",
 };
 
+// One object for the life of the page. The Editor compares its options by
+// identity and calls monaco's updateOptions when they differ, so a literal in
+// the JSX reconfigured the editor on every render of this panel.
+const EDITOR_OPTIONS = {
+  minimap: { enabled: false },
+  fontSize: 14,
+  lineHeight: 22,
+  padding: { top: 8 },
+  scrollBeyondLastLine: false,
+  automaticLayout: true,
+  overviewRulerLanes: 0,
+};
+
 export default function CodePanel() {
   const layer = useActiveLayer();
   const matrix = useLabStore((state) => state.matrix);
-  const knobs = useLabStore((state) => state.knobs);
-  const ranges = useLabStore((state) => state.ranges);
   const gen = useLabStore((state) => state.gen);
   const setGen = useLabStore((state) => state.setGen);
   const updateLayerCode = useLabStore((state) => state.updateLayerCode);
@@ -104,7 +115,11 @@ export default function CodePanel() {
 
   // A browser can refuse the write (no permission, a page served over plain
   // http). The button says so, the way Pixel's "Copy as code" does.
+  // The knobs and ranges are read when the button is pressed. Subscribing to
+  // them re-rendered this panel, editor included, on every knob step for the
+  // sake of a prompt nobody was copying.
   const copyVariantPrompt = async () => {
+    const { knobs, ranges } = useLabStore.getState();
     try {
       await navigator.clipboard.writeText(
         buildVariantCopyPrompt(layer.code, knobs, ranges, gen.colorMode, matrix),
@@ -223,15 +238,7 @@ export default function CodePanel() {
           value={layer.code}
           onChange={(value) => updateLayerCode(layer.id, value ?? "", { holdMatrix: true })}
           onMount={applyMatrixOnBlur}
-          options={{
-            minimap: { enabled: false },
-            fontSize: 14,
-            lineHeight: 22,
-            padding: { top: 8 },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            overviewRulerLanes: 0,
-          }}
+          options={EDITOR_OPTIONS}
         />
       </div>
 
