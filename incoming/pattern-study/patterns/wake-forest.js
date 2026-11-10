@@ -488,7 +488,7 @@ export function update(dt, input, params) {
 }
 
 // ---- colour: a ground and two dyes that add, with a soft shoulder ----
-const GROUND = [30, 28, 40], DYE_A = [255, 84, 60], DYE_B = [255, 206, 80], POST = [10, 8, 12], RIM = [150, 118, 64], TINT = [14, 4, -8];
+const GROUND = [36, 32, 44], DYE_A = [255, 80, 66], DYE_B = [255, 212, 90], POST = [10, 8, 12], RIM = [150, 118, 64], TINT = [18, 6, -8];
 function setColors(S, hue) {
   const a = hue * TAU, c = cos(a), s = sin(a), k1 = (1 - c) / 3, k2 = sqrt(1 / 3) * s;
   const m = [c + k1, k1 - k2, k1 + k2, k1 + k2, c + k1, k1 - k2, k1 - k2, k1 + k2, c + k1];
@@ -496,7 +496,7 @@ function setColors(S, hue) {
   S.col = [rot(GROUND), rot(DYE_A), rot(DYE_B), rot(POST), rot(RIM), rot(TINT)];
 }
 const EASE = new Float32Array(1025);
-for (let i = 0; i <= 1024; i++) EASE[i] = pow(1 - exp(-(i / 1024) * 1.25 / 0.4), 2);
+for (let i = 0; i <= 1024; i++) EASE[i] = pow(1 - exp(-(i / 1024) * 1.25 / 0.34), 1.8);
 const ease = (c) => (c <= 0 ? 0 : EASE[min(1024, (c * 819.2) | 0)]);
 const shoulder = (v) => (v < 0 ? 0 : v < 170 ? v : 170 + 85 * tanh((v - 170) / 85));
 
