@@ -36,12 +36,12 @@ const CFG = {
   kappa: 0.03, // diffusion of T and smoke
   rv: 1.5, // vent relaxation rate
   jet: 0.5, // upward push of a vent
-  conf: 0.08, // vorticity confinement
+  conf: 0.07, // vorticity confinement at Scale 0
   draft: 2.5, // the draft up the whole panel, LEDs per model second
   sp: 20, // rows of sponge at the top
   muTop: 1.0, // vorticity drag at the top row
   sTop: 1.2, // smoke removal rate at the top row
-  wind: 1.5, // rms of the wind, LEDs per model second
+  wind: 1.0, // rms of the wind, LEDs per model second
   windT: 40,
   relU: 0.3,
   pre: 24,
@@ -153,7 +153,7 @@ for (let y = 0; y < H; y++) {
   const t = cl((CFG.sp - y) / CFG.sp, 0, 1);
   SPONGE[y] = t * t;
   VENTY[y] = smooth(H - 14, H - 6, y + 0.5);
-  WINDG[y] = 0.5 * (1 - cos((TAU * (y + 0.5 - (H - 6))) / H));
+  WINDG[y] = 0.4 + 0.3 * (1 - cos((TAU * (y + 0.5 - (H - 6))) / H));
   GBAR += WINDG[y] / H;
 }
 // the spectrum of the wind's vorticity for a profile of unit amplitude, on the kx = 0 column: -d u / dy of (g - mean g)
@@ -309,6 +309,7 @@ function ventField(S, sig) {
 function step(S, dt) {
   const { wr, wi, k1r, k1i, k2r, k2i, tr, ti, T, sm, U, V, omp, F } = S;
   const um = prep(S), nsub = max(1, ceil((um * dt) / CFG.cfl)), ds = dt / nsub;
+  S.um = um;
   for (let n = 0; n < nsub; n++)
     for (const R of [sm, T]) {
       sweepX(R, U, 0.5 * ds);
@@ -387,9 +388,9 @@ function step(S, dt) {
 }
 
 const sigOf = (v) => 2.4 * pow(1.5, cl(v, -1.2, 1.2));
-const confOf = (v) => CFG.conf * pow(1.6, -cl(v, -1.2, 1.2));
+const confOf = (v) => CFG.conf * pow(2.2, -cl(v, -1.2, 1.2));
 const betaOf = (v) => CFG.beta * pow(1.7, cl(v, -1.2, 1.2));
-const nvOf = (v) => cl(floor(4.5 + 1.7 * cl(v, -1.2, 1.2)), 3, 6);
+const nvOf = (v) => cl(floor(5 + 1.7 * cl(v, -1.2, 1.2)), 3, 6);
 
 function start(params, k) {
   const mk = () => new Float64Array(N);
@@ -399,13 +400,13 @@ function start(params, k) {
     G: new Float64Array(W), bx: new Float64Array(MAXV), bt: new Float64Array(MAXV), dv: new Float64Array(MAXV), az: new Float64Array(MAXV),
     am: new Float64Array(MAXV), pr: new Float64Array(MAXV), pt: new Float64Array(MAXV),
     nv: 0, off: Math.random() * W, wa: gauss() * CFG.wind, ubar: 0, sig: sigOf(k[2]), beta: betaOf(k[3]), conf: confOf(k[2]),
-    time: 0, acc: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3),
+    um: 4, time: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3),
   };
   S.ubar = S.wa * GBAR;
   params.s = S;
   ventLayout(S, nvOf(k[3]));
   for (let v = 0; v < MAXV; v++) (S.bx[v] = S.bt[v]), (S.pr[v] = S.pt[v]), (S.dv[v] = 0.3 * (W / S.nv) * gauss()), (S.az[v] = gauss());
-  for (let t = 0; t < CFG.pre; t += 0.08) step(S, 0.08);
+  for (let t = 0; t < CFG.pre; t += 0.1) step(S, 0.1);
   S.ready = true;
 }
 
@@ -420,7 +421,8 @@ export function update(dt, input, params) {
   S.beta += (betaOf(k[3]) - S.beta) * r;
   const nt = nvOf(k[3]);
   if (nt !== S.nv) ventLayout(S, nt);
-  const dm = ft * flow * CFG.tscale, ns = max(1, ceil(dm / CFG.dt - 1e-9));
+  // the step is the longest that keeps the fastest face under 1.5 / 1.8 model seconds per LED (the cut is at 1.8 rad per LED), so the Runge-Kutta stays in its stable range
+  const dm = ft * flow * CFG.tscale, lim = min(CFG.dt, 1.5 / (1.8 * S.um)), ns = max(1, ceil(dm / lim - 1e-9));
   if (dm > 0) for (let i = 0; i < ns; i++) step(S, dm / ns);
   if (!isFinite(S.wr[1] + S.sm[N >> 1] + S.T[N >> 1])) start(params, k);
 }
@@ -428,14 +430,14 @@ export function update(dt, input, params) {
 // ---- colour ----
 // The smoke's colour follows its temperature on a log scale, so young smoke is gold and orange, then apricot and rose, then
 // the grey of smoke that has cooled. All colours are turned round the grey axis by Hue, so one turn comes back.
-const SKY = [[98, 78, 104], [138, 90, 90], [190, 100, 66]]; // top, middle, horizon
+const SKY = [[50, 42, 66], [98, 66, 72], [170, 84, 52]]; // top, middle, horizon
 const RAMP = [
-  [0.0, 150, 140, 164],
-  [0.28, 176, 150, 156],
-  [0.5, 214, 160, 140],
-  [0.72, 244, 150, 80],
-  [0.88, 255, 190, 100],
-  [1.0, 255, 238, 176],
+  [0.0, 174, 168, 184],
+  [0.26, 198, 172, 172],
+  [0.5, 226, 168, 142],
+  [0.72, 246, 152, 86],
+  [0.88, 255, 196, 108],
+  [1.0, 255, 236, 176],
 ];
 function rotate(c, a) {
   const co = cos(a), si = sin(a), k1 = (1 - co) / 3, k2 = sqrt(1 / 3) * si;
@@ -493,7 +495,7 @@ export function draw(display, params) {
       const L = LEXP[min(256, (tau[p] * 256) | 0)], o = TONE[(sqrt(cl(T[p], 0, 1)) * 1024) | 0] * 3;
       const gx = 0.25 * (sm[y * W + ((x + 2) & WM)] - sm[y * W + ((x - 2) & WM)]), gy = 0.25 * (sm[((y + 2) & HM) * W + x] - sm[((y - 2) & HM) * W + x]);
       const f = 0.5 + 0.55 * L + cl(-4 * (gx * LX + gy * LY), -0.25, 0.45);
-      display.setPixel(x, y, sr + (lut[o] * f - sr) * al, sg + (lut[o + 1] * f - sg) * al, sb + (lut[o + 2] * f - sb) * al);
+      display.setPixel(x, y, cl(sr + (lut[o] * f - sr) * al, 0, 255), cl(sg + (lut[o + 1] * f - sg) * al, 0, 255), cl(sb + (lut[o + 2] * f - sb) * al, 0, 255));
     }
   }
 }
