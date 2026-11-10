@@ -1,20 +1,57 @@
 // ===== Patternflow pattern =====
 // Title:   Smoke Plumes
 // Family:  sim
-// Idea:    Hot smoke pours out of vents along the floor of the panel, picks up speed as it rises, rolls into curls that crowd and fold into one another, and leaves through the top
+// Idea:    Hot smoke pours out of vents along the floor of the panel, glows gold and cools to grey as it climbs, rolls into curls that crowd and fold into one another under a light from the upper left, and bleeds away through the top
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Visual simulation of smoke (Ronald Fedkiw, Jos Stam and Henrik Wann Jensen, 2001): buoyancy from temperature, vorticity confinement (Steinhoff and Underhill, 1994), incompressible flow
+// Lineage: Smoke as an incompressible flow that carries a density and a temperature, with a buoyancy force that goes with the temperature and a vorticity confinement force (Ronald Fedkiw, Jos Stam and Henrik Wann Jensen, Visual Simulation of Smoke, 2001; the confinement is John Steinhoff and David Underhill's, 1994); the Boussinesq approximation (Joseph Boussinesq, 1903); the planar plume, which rises as the one third power of its buoyancy flux (Hunter Rouse, C. S. Yih and H. W. Humphreys, 1952); pseudo-spectral vorticity with Shu and Osher's third order scheme (1988) as in Shear Billows; stream function on the corners of the cells (Francis Harlow and J. Eddie Welch, 1965); flux form scalars with the monotonised central limiter (Bram van Leer, 1977)
 // Round:   125
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..3, Scale=-1..1, Heat=-1..1
 //
-// Knob 1: Hue. Turns the palette round the grey axis.
-// Knob 2: Flow. Model seconds per panel second.
-// Knob 3: Scale. Vent width and curl size.
-// Knob 4: Heat. Buoyancy and the number of vents.
+// Knob 1: Hue. Turns every colour of the sky and the smoke round the grey axis by the knob times 360 degrees. At 0 the sky runs from dusk violet at the top to rust at the floor, young smoke is gold, old smoke a grey with some lilac in it, and apricot and rose lie between.
+// Knob 2: Flow. Model seconds per panel second are 0.8 times the knob, 1.6 at the opening 2. The draft lifts the air 4.0 LEDs a second at 2 (1.0 at 0.5, 6.0 at 3), the hot cores of the plumes rise at 5.6 (1.3, 8.7), and the eddies move at 1.4 LEDs a second rms across and 2.4 along.
+// Knob 3: Scale. A vent is a Gaussian of sigma 2.4 LEDs times 1.5 to the knob (1.6, 2.4, 3.6) and the confinement is 0.07 times 2.2 to the minus the knob (0.154, 0.07, 0.032). The curls, as 2 pi over the mean wavenumber of the vorticity, are 8.1, 9.3 and 10.5 LEDs across at -1, 0 and 1, and the smoke in rows 40 to 80 averages 0.30, 0.39 and 0.45.
+// Knob 4: Heat. The buoyancy beta = 2.2 times 1.7 to the knob (1.29 at -1, 3.74 at 1) and the number of vents, floor(5 + 1.7 times the knob) from 3 to 6: 3 below -0.59, 4 up to 0, 5 up to 0.59 (the opening 0.06 has 5, 12.8 LEDs apart), 6 above. At -1 three slim plumes stand with sky between them (smoke over 0.1 in 76 per cent of rows 40 to 80); at 1 six merge into one bank (100 per cent). The eddies' rms speed across and along, in LEDs per model second: 0.56 and 1.01 at -1, 0.88 and 1.48 at the opening, 1.29 and 2.25 at 1.
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, row 0 at the top, so up is -y. Three fields live on it: the vorticity w (u = (psi_y, -psi_x), w = -lap psi), a temperature T above the air and a smoke density s. In model seconds:
+//   w_t + (u + U).grad w = -beta T_x - j G_x h(y) - eps m(s) div(w N) - mu(y) w - (nu k^2 + nu4 k^4 + a) w
+//   T_t + (u + U).grad T = kappa lap T + 1.5 G h (1 - T) - (0.1 + 2 sig(y)) T
+//   s_t + (u + U).grad s = kappa lap s + 1.5 G h (0.5 - s) - sig(y) s
+// -beta T_x is the curl of the buoyancy force (0, -beta T), the lifting part of Fedkiw's f = beta T - alpha s. N = grad|w| / |grad|w||, so -eps div(w N) is the curl of their confinement force eps N x w; m is a smoothstep of s from 0.04 to 0.3, so it acts in smoke only, and it is off in the sponge.
+// nu 0.05, nu4 0.003, kappa 0.03, and a = 0.12 on every mode that varies along x, a drag on the big eddies so that the flow does not gather into one roll the size of the panel. G(x) = 1 - exp(-sum a_i exp(-d_i^2 / 2 sigma^2)) is the vents (d_i the distance round the torus to vent i),
+// h(y) a smoothstep over rows 114 to 122, and j = 0.5 pushes up. sig(y) and mu(y) are the sponge, 1.2 and 1.0 times (1 - y / 20)^2 in rows 0 to 20: smoke, heat and vorticity bleed away there, and what is left wraps round to the floor.
+// A vent's place is its even share of the width plus an Ornstein-Uhlenbeck deviation (rms 0.3 of the spacing, correlation 35 model s), its strength a = 1 + 0.4 z with z another such process (correlation 20 s) held between 0.35 and 1.6; when Heat changes the count, a vent fades in or out in 2 s and the shares glide in 3 s.
+// U = (wind g(y), -2.5). The wind is an Ornstein-Uhlenbeck process (rms 1.0 LED per model s, correlation 40 s) times g(y) = 0.4 + 0.3 (1 - cos(2 pi (y - 122) / 128)); its mean goes into U and the rest into the kx = 0 modes of w, pulled to it at 0.3 a second. The 2.5 up is a steady draft through the whole panel, mine and not Fedkiw's:
+// a stream function carries no net flow through a row, so on a torus the volume a plume takes in must come back down beside it, and without the draft the panel was a boiling cloud (below). With it the air is replaced from the floor, as in a chimney. Nothing in the drive repeats: no sine of the clock, no remainder of it by a period.
+// The scheme. w is pseudo-spectral: the product (u + U).grad w by three transforms a stage (pairs packed in one), the cut exp(-36 (k / 1.8)^16), and the third order scheme at the step a frame calls for, never over 0.1 and short enough that the fastest face speed times 1.8 rad per LED times the step is under 1.5 (the scheme holds to 1.73).
+// Past 18 steps of kx the cut leaves nothing, so the column transforms skip those 27 columns. Once a step the stream function, shifted half a cell in x and y, goes through one transform with w (two real fields packed), and the velocity on a face is the difference of two corner values, so its divergence is zero to rounding.
+// T and s go with the face velocities in x, y, x sweeps of the flux form second order upwind scheme, in as many substeps as keep a crossing under 0.8 cell; then sources, sinks and diffusion, and a clamp to 0 and 1.2. Last the force on w, once: central differences of T, G and |w|, the sponge drag on the cells, one transform, the cut, held for the three stages. 24 model seconds run before the first frame.
+// The picture. Smoke over a sky of three stops at opacity 1 - exp(-3 s). Its colour is its temperature on a log scale, ln(1 + T / 0.004) / ln 251, on a six-stop ramp from grey-lilac at 0 through rose and apricot to gold at 1. The light is up and to the left: the optical depth tau to it is a running sum along (-1, -2), (-1, -1) and (0, -1)
+// with 0.8 kept a step, the shade is 0.5 + 0.55 exp(-2.4 tau), and the gradient of s over two cells against the light adds a rim from -0.25 to 0.45.
+//
+// What was checked, with the file's own step (scripts of mine, not in the repo):
+// - Divergence of the face velocities, every second for 20 s at the open, all-minimum and all-maximum knobs: 1.3e-15, 0.9e-15 and 1.8e-15, with the fastest face at 6.6, 4.4 and 8.7 LEDs per model second.
+// - Buoyancy against energy. A hot Gaussian (sigma 4 LEDs, T 0.8) at rest with only the buoyancy on (beta 2, steps of 0.02): the energy the flow gains over the work beta times the integral of T v_up is 0.9959 at 0.5, 1, 1.5 and 2 s. The blob rises (its centroid from row 64 to 63.26 in 2 s)
+//   at 0.375 LEDs per model s after 1 s; free space gives beta / 2 times the integral of T^2 over that of T, 0.40, and the 6 per cent is the central difference of T_x.
+// - One vent, buoyancy only (no wind, drag, push or confinement; the draft on), beta 0.15, 0.3, 0.6 and 1.2, 130 model s, the last 80 averaged. w is the speed of the T-weighted fluid against the draft, F is beta times the integral of T w over a row, at rows 40 to 90: the slope of ln w against ln F is 0.385 over the 24 points (the planar plume: one third)
+//   and w / F^(1/3) is 2.06, sd 0.43 (the books give about 1.7 on the centre line, from memory; a T-weighted mean is another average, so the exponent is the check and not the factor). It does not hold on up: at beta 2.4 and 4.8 w stops growing (4.7 to 6.9 and 3.2 to 7.3, against 5.0 to 5.9 at 1.2) and the slope over all six betas is 0.295.
+//   I have not found why. A vent only gives T at 1.5 a second, and a plume meanders in a box 64 wide.
+// - Confinement against the size of the curls, Scale 0, 90 s at Flow 2 (144 model s, the second half averaged), the mean wavenumber of the vorticity spectrum (kx not 0): eps 0, 0.04, 0.07, 0.16 and 0.32 give curls of 9.9, 9.5, 9.2, 8.2 and 6.1 LEDs, and the rms vorticity in smoke is 0.49, 0.51, 0.53, 0.59 and 1.23 per s. Past 0.2 it gathers the vorticity into a lattice of small vortices.
+// - Smoke budget, 900 s of the open set through update(): the vents put in 89,331 units and the top took out 87,721. The difference is the box filling (1,459 at the first frame, 2,572 at 300 s, 3,069 at 900 s), and mass in minus mass out closes to 3e-8. From 300 s on out over in is 0.992. In windows of 100 s the mean s is
+//   0.31, 0.35, 0.34, 0.33, 0.36, 0.36, 0.36, 0.34 and 0.35, the smoke's centroid sits at row 63.6 to 65.1 and the mean T is 0.158 to 0.174. The clamp never acted.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.59 to 0.65, dim 0.74 to 0.94, quiet 0.53 to 0.75, last quarter dim 0.77 to 0.94 and quiet 0.40 to 0.60, luma 0.5 to 3.3 per cent apart first and last quarter.
+//   900 s (recur, dim, quiet): open 0.599, 0.913, 0.710; all minimum 0.602, 0.774, 0.665; all maximum 0.568, 0.945, 0.617. Measured on this file under its name, which seeds the vents, the wind and the drive.
+// - Cost: 5.5 to 8.0 ms a frame in Node (update and draw) with other work on the machine, the start about 1.5 s.
+//
+// What failed first. 1. The first build had no draft, drag 0.1 and confinement 0.5: rms speed 10 LEDs per model s at every height and the smoke stuck in the lower half (mean s 0.7 at the floor, 0.03 at row 40). The draft carried the smoke to the top and left the speed at 10; drag 0.12, beta 2.2 and
+// confinement 0.07 brought it to 1.7. 2. Confinement at 0.5 froze the vorticity into a lattice of equal vortices a curl wide all over the panel; 0.07, in smoke only, leaves plumes. 3. The wind profile first had a step at the wrap, which rang in the rows beside it. Made periodic, at 1.5 rms it still drew the smoke out into flat sheets,
+// and after a minute the panel was one haze. At 1.0 rms, with a profile that is never zero, the structure lasts the 900 s. 4. Smoke density settles near 0.7, so brightness from s alone was flat grey, and embossing it with one cell differences gave wrinkled foil; the colour follows T on a log scale now, which keeps the structure to the top, and the rim looks two cells out.
+// 5. With the sponge at 0.35 a pink band of smoke and heat gathered along the top rows; at 1.2 it is taken out. 6. The first build cost 15 ms a frame at the maximum knobs (two substeps of the scalars, every column transformed); the time scale 0.8, the looser crossing limit and the skipped columns brought it to 6 to 8.
+// What was not checked: a grid finer than 64 by 128 (a plume's edge is a cell or two wide); three dimensions, where a plume does not meander in a plane; the constant of the plume against the books; the Boussinesq limit (T is a number up to 1, not a temperature ratio); how the confinement coefficient compares with Fedkiw's, whose units are of the grid.
+// The draft, the sponge, the drag a and the way the vents wander are the picture's own.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, ceil, abs, sqrt, exp, log, cos, sin, tanh, PI, min, max, pow } = Math;
@@ -90,7 +127,7 @@ function fftRows(re, im, inv) {
   }
 }
 // The columns that can hold anything: the cut leaves nothing above |kx| of 18 steps (1.77 rad per LED), so the transforms down the
-// columns skip the 26 columns in between. Anything the forward transform leaves there is multiplied by the cut, which is 1e-27 by then.
+// columns skip the 27 columns in between. Anything the forward transform leaves there is multiplied by the cut, which is 1e-27 by then.
 const XA = 19, XR0 = [0, W - XA + 1], XR1 = [XA, W];
 function fftCols(re, im, inv) {
   const { n, rev, c, s } = PH, sg = inv ? -1 : 1;
