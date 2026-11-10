@@ -1,20 +1,51 @@
 // ===== Patternflow pattern =====
 // Title:   Wake Forest
 // Family:  sim
-// Idea:    Water runs down the panel through a stand of round posts, every post sheds its own street of eddies that run into the posts behind, and the lines of dye let into the top are split, caught in the wakes and braided
+// Idea:    Water runs down the panel through a stand of round posts, every post sheds a street of eddies that runs into the posts behind it, and twelve lines of dye let in at the top are split, caught in the wakes and braided
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: Flow past circular cylinders and the vortex street behind them (Strouhal, 1878; von Karman, 1911; the Strouhal number against the Reynolds number as fitted by Roshko, 1954, and Williamson, 1989); an array of cylinders in a periodic box by a pseudo-spectral solver with Brinkman penalization (Angot, Bruneau and Fabrie, 1999; Kevlahan and Ghidaglia, 2001); Shu and Osher's third order scheme (1988); the dye in flux form with the monotonised central limiter (van Leer, 1977). The screen at the top, the drag on the largest eddies and the wandering push are mine.
 // Round:   125
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Reynolds=-1..1
+// @knobs Hue=0..1, Flow=0.5..3.2, Scale=-1..1, Lean=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Flow. draft
-// Knob 3: Scale. draft
-// Knob 4: Reynolds. draft
+// Knob 1: Hue. Turns every colour round the grey axis by the knob times 360 degrees; at 0 the dyes are coral red and gold on a dark plum ground, and the ground warms where the water turns one way and cools where it turns the other.
+// Knob 2: Flow. Model seconds per panel second. The water is pushed at 3 LEDs per model second, so 1.5 LEDs a second at 0.5, 6 at the opening 2 and 9.6 at 3.2. A post of the opening size sheds an eddy every 9.3 model seconds, 4.6 s at the opening.
+// Knob 3: Scale. The size and the number of the posts together. The radius is 2.9 LEDs times 1.2 to the knob (2.4 at -1, 2.9 at 0, 3.5 at 1) and the posts number 15 minus 3 times the knob (18, 15, 12). The ones that come or go grow from, or shrink to, nothing over about a second.
+// Knob 4: Lean. The direction of the push. At 0 the water runs straight down; the knob turns the push by 0.25 radian (14 degrees) to the left at -1 and to the right at 1, on top of the wander of 6 degrees rms. The mean flow follows in about 2 model seconds, 1 s at the opening, the wakes swing sideways with it and a different set of posts stands in the wake of each post.
+
+// What the field is. A torus of 64 by 128 cells, one to an LED, with the vorticity w of an incompressible flow (u = (psi_y, -psi_x), w = -lap psi) and the mean velocity U that vorticity cannot carry, in model seconds:
+//   w_t + (u + U).grad w = -nu k^2 w - nu4 k^4 w - mu(k) w + the curl of the posts' drag,   nu 0.109 (a post of 5.8 LEDs in a push of 3 is at Reynolds 160), nu4 0.004, mu(k) = 0.5 / (1 + (k / 0.12)^4)
+// mu is 0.49 a second at the panel's own size and 0.23 at a wavelength of 50 LEDs, 0.025 at 25 and nothing below 12: the largest eddies are drained and the wake eddies, 6 to 25 LEDs, are left alone, which keeps the wakes of 15 posts from piling into one vortex the size of the panel.
+// The posts are disks of a mask chi = (1 - tanh((r - R) / 0.75)) / 2, up to 18 of them in rows 21 to 118. Each step ends with the Brinkman step of penalization: the whole velocity u + U is multiplied by 1 / (1 + dt chi / eta), eta = 0.002 model seconds,
+// which holds it near zero inside a post and is stable at any step. The product is not free of divergence, but its curl is the vorticity the next step starts from, so no pressure is solved: what the curl leaves out is the part a pressure would take away.
+// U is the mean of that product, then pulled toward the push at a rate of 1 / 2 per second, which is the body force. The push is u0 (1 + s) (sin(theta + lean), cos(theta + lean)), u0 = 3 LEDs per model second, theta an Ornstein-Uhlenbeck process (rms 0.11 rad, 6 degrees, correlation time 14 s, so 20 degrees is a rare lean) and lean the knob's 0.25 rad and s another
+// (rms 0.22, correlation 9 s, kept between -0.55 and 0.6), so the wakes lean and surge and none of them settles into a beat. The top 12 rows are a screen: the velocity is pulled to the mean flow there, at 0.4 a second at the top row and down to 0 by row 12, so what enters the stand is calm and every street starts on a post.
+// The scheme: u and the gradient of w by two inverse transforms (the pairs packed in one), (u + U).grad w by one forward, that term times exp(-36 (k / 1.8)^16), Shu and Osher's third order scheme at a step of 0.1 (half of it when 1.8 times the fastest speed times the step passes 1.4), nine transforms a step; then the Brinkman step by two more. The dye is two scalars
+// carried by the velocity at the start of the step (cell values averaged to the faces) in x, y, x sweeps of the flux-form second order upwind scheme with the monotonised central limiter, at most 0.8 of a cell a sweep, with a diffusion of 0.03. Twelve stripes, spacing 5.3 LEDs and 2.6 wide at half height, are let in over the top 8 rows
+// (relaxed to the stripes at up to 3 a second), alternately dye A and dye B, each with a strength 0.72 plus an Ornstein-Uhlenbeck wander (rms 0.5, correlation 3 s, kept between 0.2 and 1) and a sideways wander (rms 0.8 LED, correlation 6 s); the last 9 rows relax the dye to 0 at up to 1.4 a second, so the water comes round to the top clean.
+// Dye is taken out where chi is above 0.55. Before the first frame 28 model seconds run from straight stripes and a little vorticity at the wavelengths of the wakes (0.02 per mode, 0.12 < k < 0.9). Each LED is the ground plus the two dyes through a curve that lifts thin dye (1 - exp(-c / 0.34))^1.8, with a soft shoulder over 170,
+// lit by the vorticity (z = 1.5 w / its rms, w' = z / (1 + |z|), the colour times 1 + 0.3 w' and a tint of (18, 6, -8) times w'), and the posts a dark disk (10, 8, 12) with a rim of (150, 118, 64) times 2.4 chi (1 - chi).
+//
+// What was checked, with the file's own step (scripts of mine, not in the repo):
+// - The Strouhal number of one post. A single post of the opening size (diameter 5.8 LEDs) alone in the 64 by 128 torus, no wander, the same screen and drag, the cross-stream velocity 16 LEDs behind it read from 96 to 240 model seconds, the strongest line of its spectrum: f = 0.0930, 0.1075 and 0.1070 per model second at the push of 3,
+//   Reynolds 100, 160 and 256, so f D / U = 0.180, 0.208 and 0.207. Williamson's fit for a cylinder in open water (-3.3265 / Re + 0.1816 + 1.6e-4 Re, from memory) gives 0.164 and 0.186 at 100 and 160 and Roshko's 0.212 (1 - 21.2 / Re) 0.167, 0.184 and 0.195 at 100, 160 and 256: the panel's post is 6 to 11 per cent fast. I did
+//   not separate the causes; the post is 9 per cent of the width of the torus, which raises the number, and the edge of the mask is 1.5 LEDs soft. The number does not move with the step (0.208, 0.208 and 0.209 at 0.1, 0.05 and 0.025), with eta from 0.0005 to 0.008 (0.208 to 0.209) or with the edge half width from 0.5 to 1.0 (0.210).
+// - The posts hold. In the open set from 20 to 70 s the water inside the posts (chi above 0.9) goes at 0.15 LEDs a second on average and 0.5 at most, against a push of 2.8 (5 and 18 per cent). The mean velocity follows the push within 13 per cent (0.27, 2.45 against 0.22, 2.81 at 70 s), the lag being the posts' drag and the push moving.
+// - The stand. For twelve seeds of the layout, 67 to 83 per cent of the posts have another post 12 to 52 LEDs downstream inside a cone of half width 6 + 0.12 times the distance, whether 12, 15 or 18 stand; centres are 12 to 18 LEDs apart at the nearest (diameter 5.8 at most 7).
+// - 900 s, the open, all-minimum and all-maximum sets through update(): see the table below; no frame was non-finite.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.62 to 0.75, dim 0.67 to 0.72, quiet 0.36 to 0.54 (the last quarter 0.36 to 0.52), luma +0.0 to 6.5 per cent first to last quarter.
+// - Cost: see the table below.
+//
+// What failed first. 1. No drag at all: one post alone in the torus did not make a street, it made a flow. The cross-stream speed 16 LEDs behind it had an rms of 2.1 LEDs a second against a push of 3, the vorticity of the wake piled into eddies as big as the panel. Drag of 0.1 on every mode went the other way: no street at all, a standing wake (rms 0.000) at Reynolds 197. Drag on the largest scales only, the mu(k) above, gave a street at f D / U 0.21. 2. The screen at 4 a second made the stand too calm: the same picture at Reynolds 83, 228 and 418, no street behind most posts (the rms of the
+// cross-stream speed 10 LEDs behind a post was 0.2 to 2.3, against 0.5 to 3.0 with no screen). At 0.4 enough noise gets through to keep the posts shedding while the stripes still come in straight. 3. The dye was one scalar on a ramp from coral through the ground to gold, and the two
+// dyes cancelled where they mixed: below the first few posts the picture was the dark middle of the ramp. Two dyes that add give a glow where they mix. 4. Dye was killed in the whole soft edge of a post, 0.05 < chi, and every post trailed a dye-free tail; killing above 0.55 only left the water at the edge its dye. 5. The tile that
+// changed least in flowcheck was at the bottom, with the dye gone and the posts ending at row 113: the all-minimum set had quiet 0.31 (0.28 in the last quarter). Posts to row 118, the ground tinted by the sign of the vorticity and the curve that lifts thin dye took it to 0.52 and 0.50.
+// What was not checked. A grid finer than the panel's: a post is 5.8 cells across, so the boundary layer, 0.4 of a cell at Reynolds 200, is not resolved and the Reynolds number is the viscosity's, not a measured drag (I did not compare the drag coefficient of one post with the 1.3 to 1.4 a cylinder has at 100 to 200, from memory). The
+// time order of the Brinkman step, which is first order (the Strouhal number did not move from 0.1 to 0.025). Three dimensions, where the street goes oblique and then irregular from about Reynolds 190. A post that moves. The drag, the screen, the wandering push, the dye's rows of inlet and outlet and the lighting by vorticity are the picture's own: none of them is in the
+// equation of a flow past a post.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { floor, ceil, abs, sqrt, exp, log, cos, sin, tanh, PI, min, max, pow } = Math;
@@ -29,8 +60,9 @@ const CFG = {
   angT: 14, // its correlation time, model seconds
   spdS: 0.22, // rms of the push's strength as a share of u0
   spdT: 9,
-  re0: 160, // Reynolds number on the post of the nominal diameter at Reynolds 0
+  re0: 160, // Reynolds number of a post of the nominal diameter at the push u0
   d0: 5.8, // nominal post diameter
+  lean: 0.25, // radians the push turns at Lean 1
   hyp: 0.004,
   fric: 0.5, // drag on the largest eddies, fric / (1 + (k / fricK)^4), so that wakes do not pile into one big vortex
   fricK: 0.12,
@@ -330,8 +362,8 @@ function drift(S, dt) {
   S.th = ou(S.th, CFG.angT, CFG.angS, dt);
   S.sp = ou(S.sp, CFG.spdT, CFG.spdS, dt);
   const u = CFG.u0 * cl(1 + S.sp, 0.45, 1.6);
-  S.Ux = u * sin(S.th);
-  S.Uy = u * cos(S.th);
+  S.Ux = u * sin(S.th + S.lean);
+  S.Uy = u * cos(S.th + S.lean);
   for (let i = 0; i < CFG.nStripe; i++) {
     S.sv[i] = ou(S.sv[i], 3.0, 0.5, dt);
     S.sj[i] = ou(S.sj[i], 6.0, 0.8, dt);
@@ -390,10 +422,8 @@ function step(S, dt) {
     }
     c.set(t);
   }
-  S.time += dt;
 }
 
-const nuOf = (v) => (CFG.u0 * CFG.d0) / (CFG.re0 * pow(1.6, cl(v, -1.2, 1.2)));
 const radOf = (v) => 2.9 * pow(1.2, cl(v, -1.2, 1.2));
 const cntOf = (v) => 15 - 3 * cl(v, -1.2, 1.2);
 
@@ -404,7 +434,7 @@ function start(params, k) {
     U: mk(), V: mk(), ca: mk(), cb: mk(), t2: mk(), chi: mk(), om: new Float32Array(N), os: 0, c0a: new Float64Array(W), c0b: new Float64Array(W),
     rin: new Float64Array(H), spg: new Float64Array(H), rout: new Float64Array(H), sv: new Float64Array(CFG.nStripe), sj: new Float64Array(CFG.nStripe),
     um: 0, Um: 0, Vm: CFG.u0, Ux: 0, Uy: CFG.u0, th: 0, sp: 0,
-    nu: nuOf(k[3]), R: radOf(k[2]), cnt: cntOf(k[2]), grow: new Float64Array(18), posts: null, rr: -1, hue: 0, lutHue: -9, col: null, acc: 0, time: 0, ready: false,
+    nu: (CFG.u0 * CFG.d0) / CFG.re0, lean: cl(k[3], -1.2, 1.2) * CFG.lean, R: radOf(k[2]), cnt: cntOf(k[2]), grow: new Float64Array(18), posts: null, hue: 0, lutHue: -9, col: null, acc: 0, ready: false,
   };
   params.s = S;
   S.posts = makeLayout();
@@ -452,7 +482,7 @@ export function update(dt, input, params) {
   const S = params.s, ft = cl(dt || 0, 0, 0.1), flow = cl(k[1], 0.1, 8);
   S.hue = cl(k[0], 0, 1);
   const f = 1 - exp(-ft / 0.5);
-  S.nu += (nuOf(k[3]) - S.nu) * f;
+  S.lean += (cl(k[3], -1.2, 1.2) * CFG.lean - S.lean) * f;
   const Rt = radOf(k[2]), nt = cntOf(k[2]);
   S.R += (Rt - S.R) * f;
   S.cnt += (nt - S.cnt) * f;
@@ -484,7 +514,7 @@ export function update(dt, input, params) {
   S.os = S.os ? S.os + (sqrt(e / N) - S.os) * 0.05 : sqrt(e / N);
   for (let p = 0; p < N; p++) S.om[p] = S.ar[p];
   const chk = S.wr[1] + S.ca[N >> 1] + S.cb[N >> 1] + S.Um;
-  if (!isFinite(chk)) start(params, k);
+  if (!isFinite(chk) || S.um > 40) start(params, k);
 }
 
 // ---- colour: a ground and two dyes that add, with a soft shoulder ----
