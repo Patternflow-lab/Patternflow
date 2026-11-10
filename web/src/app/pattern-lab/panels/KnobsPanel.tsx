@@ -4,7 +4,9 @@
 // physical encoders on the device: every code layer reads the same input.
 // Sliders + Blender-style digit dragging on the range bounds, and the encoder
 // Push buttons routed to the engine (buttons hit the ACTIVE code layer).
-// An arrow key on a slider turns one detent, as on the device.
+// An arrow key on a slider turns one detent, as on the device. A range bound
+// takes focus too: arrows change it by a tenth, Page Up and Page Down by a
+// whole unit, and Enter opens the number to type.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { labEngine } from "@/lib/lab/engine";
@@ -84,6 +86,7 @@ export default function KnobsPanel() {
   const [activeRangeId, setActiveRangeId] = useState<string | null>(null);
   const [editingRange, setEditingRange] = useState<RangeEditState | null>(null);
   const rangeDragRef = useRef<RangeDragState | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
 
   const updateRange = useCallback(
     (index: number, edge: "min" | "max", value: number) => {
@@ -177,6 +180,7 @@ export default function KnobsPanel() {
         <input
           className={local.rangeInput}
           value={editingRange.value}
+          aria-label={`${knobLabels[index]} ${edge}`}
           autoFocus
           inputMode="decimal"
           onChange={(event) =>
@@ -187,8 +191,14 @@ export default function KnobsPanel() {
           onBlur={commitRangeEdit}
           onFocus={(event) => event.currentTarget.select()}
           onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== "Escape") return;
             if (event.key === "Enter") event.currentTarget.blur();
-            if (event.key === "Escape") setEditingRange(null);
+            else setEditingRange(null);
+            // The field unmounts either way. Focus goes back to the bound
+            // it replaced, so Tab carries on from there.
+            requestAnimationFrame(() => {
+              bodyRef.current?.querySelector<HTMLElement>(`[data-range-id="${rangeId}"]`)?.focus();
+            });
           }}
           onPointerDown={(event) => event.stopPropagation()}
         />
@@ -199,12 +209,31 @@ export default function KnobsPanel() {
       <div
         className={`${local.rangeValue}${activeRangeId ? ` ${local.anyRangeDragging}` : ""}${activeRangeId === rangeId ? ` ${local.rangeDragging}` : ""}`}
         role="spinbutton"
+        tabIndex={0}
+        data-range-id={rangeId}
         aria-label={`${knobLabels[index]} ${edge}`}
         aria-valuenow={value}
         onDoubleClick={(event) => {
           event.preventDefault();
           finishRangeDrag();
           setEditingRange({ index, edge, value: formatRangeControlValue(value) });
+        }}
+        onKeyDown={(event) => {
+          // The spinbutton keys: arrows a tenth, Page Up and Page Down a
+          // whole unit, Enter to type the number.
+          const step =
+            event.key === "ArrowUp" ? 0.1
+            : event.key === "ArrowDown" ? -0.1
+            : event.key === "PageUp" ? 1
+            : event.key === "PageDown" ? -1
+            : 0;
+          if (step !== 0) {
+            event.preventDefault();
+            updateRange(index, edge, roundRangeValue(value + step));
+          } else if (event.key === "Enter" || event.key === "F2") {
+            event.preventDefault();
+            setEditingRange({ index, edge, value: formatRangeControlValue(value) });
+          }
         }}
       >
         {[...text].map((char, charIndex) => {
@@ -242,7 +271,7 @@ export default function KnobsPanel() {
           shared · all layers
         </label>
       </div>
-      <div className={dock.panelBody}>
+      <div className={dock.panelBody} ref={bodyRef}>
         <div className={`${local.controls} ${local.knobsDock}`}>
           {knobs.map((value, index) => (
             <div key={index} className={local.knobLine}>
