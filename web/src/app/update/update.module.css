@@ -117,11 +117,14 @@
   }
 }
 
+/* Muted, not faint. One of these lines says the button replaces an edition
+   with the standard firmware, and at 12 px in --pf-ink-faint it was 2.6:1 on
+   the card. */
 .hostNote {
   margin-top: 7px;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--pf-ink-faint);
+  color: var(--pf-ink-muted);
 }
 
 .hostNote code,
