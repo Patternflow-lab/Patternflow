@@ -416,7 +416,7 @@ function step(S) {
   return dt;
 }
 
-// ---- the mean profile: layers, interfaces, and what is done about them ----------------------------
+// ---- the mean profile: layers and interfaces, and what is done about them ------------------------
 // The x-averages of T' and s' are the modes with no x variation, ZL. Their profile along z (64 values, in d) is a sawtooth when layers stand:
 // slope +1 inside a layer, where the background is cancelled, and a drop at each interface.
 const NJ = 2 * JM + 1;
