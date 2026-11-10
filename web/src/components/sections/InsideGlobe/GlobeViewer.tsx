@@ -1,16 +1,23 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Globe from './Globe';
 import BuildFilters from './BuildFilters';
 import PhotoLightbox from './PhotoLightbox';
 import PinLink from './PinLink';
-import { builds, formatBuildDate, CARD_TILES, STRIP_TILES } from './builds';
+import { builds, fetchesAhead, formatBuildDate, CARD_TILES, STRIP_TILES, TILE_SIZES } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import { useAppStore } from '@/store/useAppStore';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import styles from './GlobeViewer.module.css';
+
+// The description is set smaller, a step at a time, until it fits the band it
+// is given. Never below 60% (about 11px): past that it is cut, as it was.
+const DESC_SCALE_STEP = 0.04;
+const DESC_SCALE_MIN = 0.6;
+// Kept clear above and below the text, in pixels.
+const DESC_GAP = 6;
 
 // The Inside section's viewer: an interactive globe with the picked build's
 // details overlaid on a translucent scrim. Tap a marker (or empty space, or
@@ -31,9 +38,13 @@ export default function GlobeViewer() {
   // hero globe sent for all of them, in the large variant a 3× screen picks.
   // The query reads false until measured, so a phone never renders them.
   const wide = useMediaQuery('(min-width: 901px)');
-  const warm = wide || homeTab === 'inside';
+  // Nothing is fetched ahead for somebody who has told their browser to save data.
+  const [ahead] = useState(fetchesAhead);
+  const warm = ahead && (wide || homeTab === 'inside');
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [hasSelected, setHasSelected] = useState(false);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const linksRef = useRef<HTMLDivElement>(null);
 
   const selectedIndex = useMemo(
     () => visibleBuilds.findIndex((build) => build.id === selectedId),
@@ -76,6 +87,56 @@ export default function GlobeViewer() {
     select(visibleBuilds[next].id);
   };
 
+  // The band under the arrows is a fixed share of the viewer, and a
+  // description is as long as its maker wrote it. The longest (487 characters,
+  // from Ajman) ran off the bottom edge at 1440x900 and up over its own link,
+  // and at 1366x768 half of it was gone. So the text is measured against the
+  // band and stepped down in size until it fits, links above it included.
+  const selectedKey = selected?.id ?? null;
+  useLayoutEffect(() => {
+    const band = detailRef.current;
+    const text = band?.firstElementChild;
+    if (!band || !(text instanceof HTMLElement)) return;
+
+    const fit = () => {
+      band.style.removeProperty('--desc-scale');
+      // On a phone the band is not shown; the card below has the description.
+      if (band.clientHeight === 0) return;
+      // The text is centred in the band, so what the links take off the top
+      // comes off the bottom as well.
+      const linksBottom = linksRef.current?.getBoundingClientRect().bottom ?? 0;
+      const taken = Math.max(0, linksBottom - band.getBoundingClientRect().top);
+      const room = band.clientHeight - 2 * (taken + DESC_GAP);
+      for (let scale = 1; text.offsetHeight > room && scale > DESC_SCALE_MIN;) {
+        scale = Math.max(DESC_SCALE_MIN, scale - DESC_SCALE_STEP);
+        band.style.setProperty('--desc-scale', scale.toFixed(2));
+      }
+    };
+
+    fit();
+    if (typeof ResizeObserver === 'undefined') return;
+    // The band changes with the window, the text with the web font arriving.
+    const observer = new ResizeObserver(fit);
+    observer.observe(band);
+    observer.observe(text);
+    return () => observer.disconnect();
+  }, [selectedKey]);
+
+  // Esc lets the selected build go. With a mouse a click on the bare globe
+  // does it, and on a phone the card has a close button; a keyboard on the
+  // desktop layout had no way back out. An Esc the photo popup has already
+  // used is left alone (PhotoLightbox marks it handled).
+  useEffect(() => {
+    if (!selectedKey) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      selectBuild(null);
+      setGalleryIndex(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedKey, selectBuild]);
+
   return (
     <div className={styles.viewer}>
       {/* Offscreen preloader: fetch each pin's opening tiles (the same optimized
@@ -87,11 +148,19 @@ export default function GlobeViewer() {
         <div className={styles.preload} aria-hidden>
           {allImages.map((image) => (
             <span key={image.src} className={styles.preloadBox}>
-              <Image src={image.src} alt="" fill sizes="280px" loading="eager" fetchPriority="low" />
+              <Image src={image.src} alt="" fill sizes={TILE_SIZES} loading="eager" fetchPriority="low" />
             </span>
           ))}
         </div>
       )}
+
+      {/* What was picked, said once for a screen reader: the details land in
+          the overlay or the card, away from the link or pin that was used. */}
+      <p className={styles.announce} aria-live="polite">
+        {selected
+          ? `${selected.title}. ${selected.maker}, ${selected.location.label}, ${formatBuildDate(selected.date)}. ${selected.description}`
+          : ''}
+      </p>
 
       <Globe entries={visibleBuilds} selectedBuildId={selectedId ?? undefined} onSelectBuild={select} />
       {!onHero && <BuildFilters />}
@@ -120,7 +189,7 @@ export default function GlobeViewer() {
                     onClick={() => setGalleryIndex(index)}
                     aria-label={image.alt}
                   >
-                    <Image src={image.src} alt="" fill sizes="280px" />
+                    <Image src={image.src} alt="" fill sizes={TILE_SIZES} />
                   </button>
                 ))}
               </div>
@@ -129,6 +198,7 @@ export default function GlobeViewer() {
             {visibleBuilds.length > 1 && (
               <>
                 <button
+                  type="button"
                   className={`${styles.arrow} ${styles.arrowPrev}`}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -141,6 +211,7 @@ export default function GlobeViewer() {
                   </svg>
                 </button>
                 <button
+                  type="button"
                   className={`${styles.arrow} ${styles.arrowNext}`}
                   onClick={(event) => {
                     event.stopPropagation();
@@ -178,7 +249,7 @@ export default function GlobeViewer() {
               </span>
 
               {selected.links && selected.links.length > 0 && (
-                <div className={styles.links}>
+                <div className={styles.links} ref={linksRef}>
                   {selected.links.map((link) => (
                     <PinLink
                       key={link.href}
@@ -196,7 +267,7 @@ export default function GlobeViewer() {
                 bottom edge. The inner wrapper is what the band centres — put
                 the span in directly and being a grid item would blockify it,
                 turning the per-line highlight into one big rectangle. */}
-            <div className={styles.detail}>
+            <div className={styles.detail} ref={detailRef}>
               <div className={styles.detailInner}>
                 <span className={styles.desc}>{selected.description}</span>
               </div>

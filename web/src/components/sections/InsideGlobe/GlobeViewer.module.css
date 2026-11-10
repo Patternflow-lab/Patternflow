@@ -69,6 +69,19 @@
   opacity: 0;
 }
 
+/* Read out, never shown. */
+.announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* One wording per input method — the mobile card says "tap" too, and having
    the map say "click" beside it read as a leftover. */
 .hintTouch {
@@ -207,9 +220,12 @@
   letter-spacing: 0.06em;
 }
 
+/* --desc-scale is set by GlobeViewer when a description is too long for the
+   band at full size. The line-height is relative, so the lines close up with
+   the type and the fills still do not touch. */
 .desc {
   padding: 3px 10px;
-  font-size: 19px;
+  font-size: calc(19px * var(--desc-scale, 1));
   line-height: 1.9;
   text-align: center;
 }
@@ -268,6 +284,18 @@
 }
 .thumb img {
   object-fit: cover;
+}
+
+/* The browser's own ring is a thin dark line, which is lost against a photo
+   and against the map. The same ring the filters above have. */
+.thumb:focus-visible,
+.arrow:focus-visible,
+.link:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: 2px;
+}
+.thumb:focus-visible {
+  opacity: 1;
 }
 
 @media (max-width: 900px) {
