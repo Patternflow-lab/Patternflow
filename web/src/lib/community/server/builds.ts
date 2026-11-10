@@ -19,7 +19,7 @@ export type BuildStatus = "queued" | "running" | "done" | "error";
  * (c5e0907) until 12 August (4c13474), and POST /builds has answered "bin"
  * with 410 since. The worker builds modules whatever a row says (processSend
  * in buildJobs.ts). "bin" is still the default here and on the column
- * (schema.ts), and `npm run build:enqueue` writes it when run without --pfm.
+ * (schema.ts), though every caller in the repository passes "pfm".
  * See moduleRunner.ts for why the difference is 14 s vs ½ s.
  */
 export type BuildFormat = "bin" | "pfm";

@@ -4,7 +4,7 @@
 //
 // The old lab was one pattern + one fixed two-column layout. This shell hosts
 // nine dockable panels (dockview) over a layer-stack project (zustand):
-// Preview, Layers, Code, Pixel, Gallery, Knobs, Color Ramp, Graphic Export,
+// Preview, Layers, Code, Pixel, Text, Knobs, Color Ramp, Graphic Export,
 // Director — the list is panels/registry.tsx. Panels rearrange
 // Photoshop-style — drag tabs, split groups, float — and the arrangement
 // persists to localStorage alongside the project itself.
@@ -20,6 +20,7 @@ import type { DockviewTheme } from "dockview";
 import "dockview/dist/styles/dockview.css";
 import "./lab-dock.css";
 
+import { useDismiss } from "@/lib/hooks/useDismiss";
 import { withMatrixAnnotation } from "@/lib/pattern/matrix";
 import { codeUsesValueField, withRampAnnotation } from "@/lib/pattern/ramp";
 import {
@@ -31,16 +32,23 @@ import {
 import { withKnobsAnnotation } from "@/lib/lab/annotations";
 import { currentPerformanceJson } from "@/lib/lab/director/publish";
 import { onEditorReveal } from "@/lib/lab/editorReveal";
-import { flattenLayers, needsFlatten } from "@/lib/lab/flatten";
-import { readStorage, removeStorage, writeStorage } from "@/lib/lab/persist";
-import { LAYOUT_STORAGE, layoutViewCount } from "@/lib/lab/serialize";
+import { flattenLayers, loneCodeLayer } from "@/lib/lab/flatten";
+import { readStorage, removeStorage, writeStorage, type LabStorageKey } from "@/lib/lab/persist";
+import { LAYOUT_NARROW_STORAGE, LAYOUT_STORAGE, dropRetiredPanels, layoutViewCount } from "@/lib/lab/serialize";
 import { listSessions, type SessionMeta } from "@/lib/lab/sessions";
 import { buildStackAnnotation, stripStackAnnotation } from "@/lib/lab/stackShare";
 import { flushLabProject, saveLabProjectNow, useLabStore } from "@/lib/lab/store";
-import type { CodeLayer } from "@/lib/lab/types";
 import HardwareModal from "./HardwareModal";
 import { openIncomingPattern } from "./openIncomingPattern";
-import { PANELS, buildDefaultLayout, panelComponents, panelDef, type PanelId } from "./panels/registry";
+import {
+  PANELS,
+  buildDefaultLayout,
+  isNarrowDock,
+  panelComponents,
+  panelDef,
+  togglePanel,
+  type PanelId,
+} from "./panels/registry";
 
 import styles from "./PatternLab.module.css";
 import dock from "./LabPanels.module.css";
@@ -75,7 +83,8 @@ function premultiplyHex(hex: string, alpha: number): string {
 
 async function buildExportCode(): Promise<string> {
   const state = useLabStore.getState();
-  if (needsFlatten(state.layers)) {
+  const layer = loneCodeLayer(state.layers);
+  if (!layer) {
     const flat = flattenLayers(state.layers, state.matrix, {
       labels: state.knobLabels,
       ranges: state.ranges,
@@ -104,9 +113,6 @@ async function buildExportCode(): Promise<string> {
     const withStack = stackLine ? `${flat}\n\n${stackLine}\n` : flat;
     return withStack.length <= CODE_MAX ? withStack : flat;
   }
-  const layer = state.layers.find(
-    (entry) => entry.visible && entry.opacity > 0 && entry.type === "code",
-  ) as CodeLayer;
   // A layer that arrived from a shared composition may still carry that
   // composition's @stack line; published as-is it would reopen as the
   // original author's layers rather than this pattern.
@@ -141,8 +147,17 @@ export default function PatternLabClient() {
   const [sharePerfJson, setSharePerfJson] = useState<string | null>(null);
   const [hardwareOpen, setHardwareOpen] = useState(false);
   const [workError, setWorkError] = useState<string | null>(null);
+  // A header menu closes when the mouse leaves it, which a finger never does
+  // and a keyboard cannot. So a press outside closes it too, and so do the
+  // keys (useDismiss).
+  const recentRef = useDismiss<HTMLDivElement>(recentOpen, () => setRecentOpen(false));
+  const panelsMenuRef = useDismiss<HTMLDivElement>(panelsMenuOpen, () => setPanelsMenuOpen(false));
   const apiRef = useRef<DockviewApi | null>(null);
   const layoutSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Where this dock's layout is saved, chosen with the layout itself: a dock
+  // built narrow keeps saving as narrow after the window widens, until Reset
+  // layout builds it again for the width it has then.
+  const layoutKey = useRef<LabStorageKey>(LAYOUT_STORAGE);
 
   const hydrate = useLabStore((state) => state.hydrate);
   const restoredAt = useLabStore((state) => state.restoredAt);
@@ -234,12 +249,16 @@ export default function PatternLabClient() {
     (event: DockviewReadyEvent) => {
       const api = event.api;
       apiRef.current = api;
+      const narrow = isNarrowDock();
+      layoutKey.current = narrow ? LAYOUT_NARROW_STORAGE : LAYOUT_STORAGE;
 
       let restored = false;
       try {
-        const raw = readStorage(LAYOUT_STORAGE);
+        const raw = readStorage(layoutKey.current);
         if (raw) {
-          const parsed = JSON.parse(raw);
+          // A panel the registry no longer has (Gallery, 23 October 2026)
+          // comes out first; fromJSON would throw on it.
+          const parsed = dropRetiredPanels(JSON.parse(raw), new Set(Object.keys(panelComponents)));
           // Restoring a layout that places nothing gives you an empty
           // workspace: every panel gone, and Reset layout the only way out.
           // dockview will happily do it, so the check has to happen here.
@@ -255,12 +274,12 @@ export default function PatternLabClient() {
         // Drop the unusable one rather than leaving it to be rejected again on
         // every future load — onDidLayoutChange is subscribed below, so
         // nothing overwrites it until the first panel is moved.
-        removeStorage(LAYOUT_STORAGE);
+        removeStorage(layoutKey.current);
         try {
           // Whatever a failed fromJSON managed to add is still in there, and
           // building the default on top of it collides on panel ids.
           api.clear();
-          buildDefaultLayout(api);
+          buildDefaultLayout(api, narrow);
         } catch {
           // A half-built layout is still usable; panels can be opened manually.
         }
@@ -287,7 +306,7 @@ export default function PatternLabClient() {
             // taken then is a layout that restores as nothing at all. It is
             // never a state worth remembering, so it is never written.
             if (layoutViewCount(next) === 0) return;
-            writeStorage(LAYOUT_STORAGE, JSON.stringify(next));
+            writeStorage(layoutKey.current, JSON.stringify(next));
           } catch {
             // Quota/private mode — layout just won't persist.
           }
@@ -297,14 +316,17 @@ export default function PatternLabClient() {
     [syncOpenPanels],
   );
 
-  const togglePanel = (id: PanelId, title: string) => {
+  // Opening and closing leave the menu up for the next panel. Fronting one is
+  // going to it, so the menu gets out of the way: at 390×844 it covered 30%
+  // of the panel it had just brought forward.
+  const pickPanel = (id: PanelId) => {
     const api = apiRef.current;
     if (!api) return;
-    const existing = api.getPanel(id);
-    if (existing) {
-      api.removePanel(existing);
-    } else {
-      api.addPanel({ id, component: id, title });
+    if (togglePanel(api, id) === "fronted") {
+      const wrap = panelsMenuRef.current;
+      const hadFocus = wrap?.contains(document.activeElement) ?? false;
+      setPanelsMenuOpen(false);
+      if (hadFocus) wrap?.querySelector<HTMLElement>("[aria-expanded]")?.focus();
     }
     syncOpenPanels(api);
   };
@@ -312,9 +334,11 @@ export default function PatternLabClient() {
   const resetLayout = () => {
     const api = apiRef.current;
     if (!api) return;
-    removeStorage(LAYOUT_STORAGE);
+    const narrow = isNarrowDock();
+    layoutKey.current = narrow ? LAYOUT_NARROW_STORAGE : LAYOUT_STORAGE;
+    removeStorage(layoutKey.current);
     api.clear();
-    buildDefaultLayout(api);
+    buildDefaultLayout(api, narrow);
     syncOpenPanels(api);
   };
 
@@ -322,34 +346,34 @@ export default function PatternLabClient() {
     <main className={dock.dockShell}>
       <header className={dock.dockHeader}>
         <div className={dock.dockHeaderGroup}>
-          <Link href="/" className={styles.labBrand}>
+          <Link href="/" className={dock.labBrand}>
             Patternflow
           </Link>
-          <span className={styles.labTitle}>Pattern Lab</span>
+          <span className={dock.labTitle}>Pattern Lab</span>
         </div>
-        <div className={styles.projectIdentity}>
+        <div className={dock.projectIdentity}>
           <input
             type="text"
             aria-label="Pattern name"
-            className={styles.labName}
+            className={dock.labName}
             value={pieceName}
             maxLength={60}
             placeholder="name this pattern"
             title="The piece's name — To hardware uses it as NAME (so the .pfm module matches), the Director stamps it into the show, and publishing suggests it. Layer names stay layer names."
             onChange={(event) => setPieceName(event.target.value)}
           />
-          <div className={styles.projectMeta}>
+          <div className={dock.projectMeta}>
             <span
-              className={styles.saveStatus}
+              className={dock.saveStatus}
               data-state={saveStatus}
               title={`Saved only in this browser.${restoredAt !== null ? ` Restored your last session (${new Date(restoredAt).toLocaleString()}). Earlier work is under Recent.` : ""}`}
             >
-              <span className={styles.saveDot} aria-hidden="true" />
+              <span className={dock.saveDot} aria-hidden="true" />
               {saveStatus === "error" ? "Unsaved" : saveStatus === "pending" ? "Saving…" : saveStatus === "idle" && restoredAt === null ? "Local draft" : "Saved locally"}
             </span>
             {forkOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Sharing to the community will publish this as a fork of the linked pattern. Click × if this is no longer a remix of it."
               >
                 <span>forking from {forkOf.title}</span>
@@ -360,7 +384,7 @@ export default function PatternLabClient() {
             )}
             {editOf && (
               <span
-                className={styles.forkBadge}
+                className={dock.forkBadge}
                 title="Your own post, reopened. Sharing UPDATES it — same page, same likes, comments and forks. Click × to publish this as a separate new pattern instead; the version you started from is under Recent ▾."
               >
                 <span>editing {editOf.title}</span>
@@ -407,7 +431,7 @@ export default function PatternLabClient() {
           )}
           {/* Recent works. The list is only read when the menu opens, so
               nothing polls localStorage while you are editing. */}
-          <div className={dock.menuWrap}>
+          <div className={dock.menuWrap} ref={recentRef}>
             <button
               type="button"
               className={styles.headerToggle}
@@ -467,7 +491,7 @@ export default function PatternLabClient() {
               </div>
             )}
           </div>
-          <div className={dock.menuWrap}>
+          <div className={dock.menuWrap} ref={panelsMenuRef}>
             <button
               type="button"
               className={styles.headerToggle}
@@ -482,20 +506,21 @@ export default function PatternLabClient() {
                   <button
                     key={def.id}
                     type="button"
-                    onClick={() => togglePanel(def.id, def.title)}
+                    aria-pressed={openPanels.has(def.id)}
+                    onClick={() => pickPanel(def.id)}
                   >
                     {def.title}
-                    <em>{openPanels.has(def.id) ? "●" : "○"}</em>
+                    <em aria-hidden="true">{openPanels.has(def.id) ? "●" : "○"}</em>
                   </button>
                 ))}
                 <button type="button" onClick={resetLayout}>
                   Reset layout
-                  <em>⟲</em>
+                  <em aria-hidden="true">⟲</em>
                 </button>
               </div>
             )}
           </div>
-          <nav className={styles.labNav}>
+          <nav className={dock.labNav}>
             <Link href="/community" title="Patternflow Community">
               Community ↗
             </Link>
@@ -504,7 +529,7 @@ export default function PatternLabClient() {
       </header>
 
       {(workError || saveStatus === "error") && (
-        <div className={styles.storageNotice} role="alert">
+        <div className={dock.storageNotice} role="alert">
           <span>{workError ?? "Changes could not be saved in this browser. Keep this tab open and copy your code before leaving. Browser storage may be full or unavailable, or this project may exceed the save limits."}</span>
           {saveStatus === "error" && (
             <button type="button" className={styles.headerToggle} onClick={saveLabProjectNow}>Retry save</button>

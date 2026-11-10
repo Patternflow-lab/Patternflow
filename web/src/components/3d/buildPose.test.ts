@@ -38,6 +38,30 @@ describe('poseFor and shows', () => {
   });
 });
 
+describe('poseFor at idle', () => {
+  const TIMES = [0, 5, 10.5, 21, 30, 600];
+
+  it('sways the device by itself', () => {
+    const turns = TIMES.map((t) => poseFor(STEPS.idle, 0, t).turn);
+    expect(new Set(turns).size).toBe(TIMES.length);
+    expect(Math.max(...turns.map(Math.abs))).toBeLessThanOrEqual(0.45);
+  });
+
+  it('holds it still, facing the reader, for someone who has asked for less motion', () => {
+    for (const t of TIMES) {
+      const pose = poseFor(STEPS.idle, 0, t, true);
+      expect(pose.turn, `turn at ${t}s`).toBe(0);
+      expect(pose.lift, `lift at ${t}s`).toBe(0);
+    }
+  });
+
+  it('leaves the Build steps as they were', () => {
+    for (const step of [STEPS.print, STEPS.solder, STEPS.assemble, STEPS.power]) {
+      expect(poseFor(step, 0.6, 12, true), `step ${step}`).toEqual(poseFor(step, 0.6, 12));
+    }
+  });
+});
+
 describe('fitAcross', () => {
   // The view's height at rest where the device stands (HeroScene: fov 28°,
   // the camera at (0, 6, 10.3) on the target (0, 1.7, 0)), and its width on
@@ -65,5 +89,36 @@ describe('fitAcross', () => {
     expect(fit).toBeGreaterThan(0.7);
     // At rest it takes 72% of the view's width, no more and no less.
     expect((HORIZONTAL * REST_SCALE * fit) / DESKTOP).toBeCloseTo(0.72, 9);
+  });
+});
+
+describe('a boardless build', () => {
+  it('cuts and glues its sheets, drawn apart then closing up, nothing bought among them', () => {
+    const cut = poseFor(1, 0.6, 12, false, true);
+    const glue = poseFor(2, 0.6, 12, false, true);
+    for (const pose of [cut, glue]) {
+      expect(pose.show).toEqual({ shell: true, knob: false, led: false, pcb: false, devkit: false, gear: false, cover: true });
+      expect(pose.lit).toBe(false);
+      expect(pose.board).toBe(false);
+      expect(pose.turn).toBeLessThan(0);
+    }
+    // The slider draws them apart: all the way on Cut, half as far on Glue.
+    expect(cut.spread).toBe(0.6);
+    expect(glue.spread).toBeCloseTo(0.27, 9);
+    expect(poseFor(1, 0, 12, false, true).spread).toBe(0);
+    expect(poseFor(1, 1, 12, false, true).scale).toBeLessThan(poseFor(1, 0, 12, false, true).scale);
+  });
+
+  it('is wired from the back, its cover off, and faces the front again once it is lit', () => {
+    const wire = poseFor(3, 0.6, 12, false, true);
+    expect(Math.cos(wire.turn)).toBeLessThan(-0.5);
+    expect(wire.show.cover).toBe(false);
+    expect(wire.show.gear).toBe(true);
+    expect(wire.spread).toBe(0);
+    const lit = poseFor(4, 0.6, 12, false, true);
+    expect(Math.cos(lit.turn)).toBeGreaterThan(0.5);
+    expect(lit.lit).toBe(true);
+    expect(lit).toEqual(poseFor(4, 0.6, 12));
+    expect(poseFor(0, 0.6, 12, false, true)).toEqual(poseFor(0, 0.6, 12));
   });
 });

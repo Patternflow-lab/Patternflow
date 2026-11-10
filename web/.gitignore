@@ -42,3 +42,8 @@ next-env.d.ts
 
 # community database (SQLite) — data never enters the public repo
 /data
+
+# Cloudflare Workers (OpenNext, wrangler)
+/.open-next/
+/.wrangler/
+.dev.vars*

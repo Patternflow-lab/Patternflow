@@ -1,0 +1,198 @@
+/* ── LayersPanel: its own classes ──────────────────────────────────────────
+   Moved out of LabPanels.module.css on 2026-10-25; only this file uses them. */
+
+.layerList {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.layerRow {
+  min-height: 34px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  background: #fbf7ee;
+  cursor: pointer;
+  user-select: none;
+}
+
+.layerRow:hover {
+  border-color: rgba(23, 21, 18, 0.25);
+}
+
+.layerRowActive {
+  background: #171512;
+  color: #f7f3ea;
+  border-color: #171512;
+}
+
+.layerRow[data-dragover="true"] {
+  border-top: 2px solid #ff4d00;
+}
+
+.layerEye {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  width: 20px;
+  padding: 0;
+  opacity: 0.85;
+}
+
+.layerEyeOff {
+  opacity: 0.3;
+}
+
+.layerName {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.layerRenameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid rgba(23, 21, 18, 0.4);
+  background: #fffdf8;
+  color: #171512;
+  font: inherit;
+  font-size: 12px;
+  padding: 1px 4px;
+}
+
+.layerType {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border: 1px solid currentColor;
+  opacity: 0.65;
+  flex: 0 0 auto;
+}
+
+.layerErrDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d63e2e;
+  flex: 0 0 auto;
+}
+
+.layerMeta {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  opacity: 0.55;
+  flex: 0 0 auto;
+}
+
+.layerControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid rgba(23, 21, 18, 0.12);
+  background: #fbf7ee;
+  flex: 0 0 auto;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 12px;
+}
+
+.layerControlRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.layerControlRow > span {
+  width: 58px;
+  flex: 0 0 auto;
+  text-transform: none;
+  color: rgba(23, 21, 18, 0.6);
+  font-size: 11px;
+}
+
+.layerControlRow input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: #171512;
+}
+
+.layerControlRow select {
+  min-height: 28px;
+  border-radius: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+.layerControlValue {
+  width: 40px;
+  text-align: right;
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.layerMaskLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  text-transform: none;
+  cursor: pointer;
+}
+
+/* Touch screens get fingertip-sized targets, as in the Text panel. On a
+   390px phone the bar buttons were 28px tall, Del 37px wide, the eye 20×17px
+   and the mask box 13×13px. The row grows to 46px so the eye can take its
+   whole height. `.layerBar button` beats `.panelBar button` in
+   LabPanels.module.css only by coming after it, which is why LayersPanel.tsx
+   imports that file before this one. */
+@media (hover: none) {
+  .layerBar button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .layerRow {
+    min-height: 46px;
+    padding-block: 0;
+  }
+
+  .layerEye {
+    align-self: stretch;
+    width: 44px;
+  }
+
+  .layerMaskLabel {
+    min-height: 44px;
+  }
+
+  .layerControlRow input[type="range"],
+  .layerControlRow select {
+    min-height: 44px;
+  }
+}
+
+/* Keyboard focus stays visible on the blend picker, as on the panel bars. */
+.layerControlRow select:focus-visible {
+  outline: 2px solid #9b4827;
+  outline-offset: 2px;
+}

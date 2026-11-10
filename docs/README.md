@@ -58,6 +58,7 @@ The interactive guide at [patternflow.work/guide](https://patternflow.work/guide
 ## Records
 
 - [`investigations/`](investigations/) — dated post-mortems, and the cleanup's plans. `npm run doc-map` in `web/` writes the two lists here: `2026-10-doc-map.csv`, every link in the tree and whether it resolves, and `2026-10-doc-parity.csv`, every Korean/English pair and which side is missing or short
+- [`rfc-cleanup.md`](rfc-cleanup.md) and its [progress log](rfc-cleanup-progress.md) — the October 2026 tidy-up before the any-resolution work, done on 16 October. It changed where things live and what CI checks, and nothing the firmware or the site does. §2.9 lists the writing it locked
 - [`releases/`](releases/) — every release's changelog section as written, one file each (`vX.Y.Z.md`), back to v1.0.0; `CHANGELOG.md` at the root keeps the three newest in full and links the rest. `v3.0.0-notes.md` and `v3.1.0-notes.md` are long-form notes for two July 2026 releases, beside the v3.0.0 launch checklist; notes since 3.2 are on [GitHub Releases](https://github.com/engmung/Patternflow/releases)
 - [`manifesto.md`](manifesto.md) — why Patternflow exists, and (section 6) how we treat each other
 - [`images/`](images/), [`media/`](media/) — assets the guides and the site reference

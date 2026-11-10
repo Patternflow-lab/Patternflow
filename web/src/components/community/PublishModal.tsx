@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useDialog } from "@/lib/hooks/useDialog";
+import { useBackdropClose } from "@/lib/hooks/useBackdropClose";
 import { authClient } from "@/lib/community/auth-client";
 import { COMMUNITY_FETCH_INIT, communityApiUrl } from "@/lib/community/apiBase";
 import { useSubmitLatch } from "@/lib/community/submitLatch";
@@ -24,6 +26,7 @@ import {
   LICENSE_OPTIONS,
   forkLicenseOptions,
   licenseById,
+  stripShareWrapping,
 } from "@/lib/pattern/share";
 import { captureEvent } from "@/lib/posthogEvents";
 import AuthModal from "./AuthModal";
@@ -120,6 +123,18 @@ export default function PublishModal({
   const latch = useSubmitLatch();
   const [includeShow, setIncludeShow] = useState(true);
 
+  // The card takes the focus first, so the hook sees the Share button that
+  // opened the window and hands the focus back to it on close. The title
+  // field's autoFocus used to move it before the hook could look, and the
+  // field is not there yet while the session is being checked.
+  const cardRef = useDialog<HTMLDivElement>(onClose);
+  const closeOnBackdrop = useBackdropClose(onClose);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const formShown = !isPending && Boolean(session);
+  useEffect(() => {
+    if (formShown) titleRef.current?.focus({ preventScroll: true });
+  }, [formShown]);
+
   const licenseChoices = parentLicense ? forkLicenseOptions(parentLicense) : LICENSE_OPTIONS;
   // Default to the recommended licence, unless the parent's terms rule it out.
   const [licenseId, setLicenseId] = useState(
@@ -149,11 +164,16 @@ export default function PublishModal({
   const send = async (): Promise<boolean> => {
     const trimmed = title.trim();
     setError(null);
-    if (code.length > CODE_MAX) {
+    // Measured the way the API measures it, with the licence header and
+    // footer off. "Open in Pattern Lab" hands back the stored code with both
+    // still on, a few hundred characters the server never counts, and
+    // counting them here refused a pattern the server takes unchanged.
+    const codeLength = (code.length <= CODE_MAX * 2 ? stripShareWrapping(code) : code).length;
+    if (codeLength > CODE_MAX) {
       // The server says the same thing, but after a round trip that costs
       // one of five publishes a minute — and without the likely cause.
       setError(
-        `This pattern is ${Math.round(code.length / 1000)} KB of code; the community takes up to ${
+        `This pattern is ${Math.round(codeLength / 1000)} KB of code; the community takes up to ${
           CODE_MAX / 1000
         } KB. Imported images as pixel layers are the usual reason — hide or delete one and share again.`,
       );
@@ -245,8 +265,13 @@ export default function PublishModal({
   };
 
   return (
-    <div className={styles.modalOverlay} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={styles.modalCard} onClick={(event) => event.stopPropagation()}>
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true" {...closeOnBackdrop}>
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className={styles.modalCard}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className={styles.modalHeader}>
           <span>{editOf ? "Update your pattern" : "Share to Community"}</span>
           <button type="button" onClick={onClose} aria-label="Close">
@@ -311,10 +336,10 @@ export default function PublishModal({
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Title</span>
               <input
+                ref={titleRef}
                 className={styles.textInput}
                 value={title}
                 maxLength={TITLE_MAX}
-                autoFocus
                 onChange={(event) => setTitle(event.target.value)}
               />
             </label>

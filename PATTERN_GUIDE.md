@@ -122,10 +122,6 @@ chapters use all of this.
 
 ![A pattern's detail page](docs/images/pattern-guide/10-pattern-detail.png)
 
-One more thing in the top nav — **Workshop** is where directions get discussed
-and decided. It's under heavy construction, so this guide leaves it alone for
-now.
-
 ---
 
 ## 3. Putting someone else's pattern on your device
@@ -216,8 +212,7 @@ Now for the making side. Click **Pattern Lab ↗** at the community's top right.
 
 Pattern Lab has a lot of panels, but **this guide uses exactly two things:
 pattern generation and the color ramp.** They're enough to take a pattern from
-nothing to your device. Layers, pixel art, the gallery — all of that is for a
-later guide.
+nothing to your device. Layers and pixel art are for a later guide.
 
 ### 4-1. Pick a resolution first
 
@@ -384,5 +379,5 @@ onto their device. The loop has come all the way around.
 
 ---
 
-*The rest of Pattern Lab — layer compositing, pixel art, the gallery — gets
-its own guide later.*
+*The rest of Pattern Lab, layer compositing and pixel art, gets its own guide
+later.*

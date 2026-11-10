@@ -1,5 +1,6 @@
 /* ── PreviewPanel: its own classes ─────────────────────────────────────────
-   Moved out of PatternLab.module.css on 2026-09; only this file uses them. */
+   Moved out of PatternLab.module.css on 2026-09, and the body and frame out
+   of LabPanels.module.css on 2026-10-25; only this file uses them. */
 
 /* Direct W×H entry, sitting next to the frame picker. */
 .customMatrix {
@@ -71,4 +72,52 @@
   font-weight: 600;
   text-transform: none;
   cursor: help;
+}
+
+/* ── Body: the frame and anything under it ── */
+
+.previewBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.previewCanvasBox {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.previewFrame {
+  background: #060505;
+  border: 1px solid #171512;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  max-width: 100%;
+  max-height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.previewFrame canvas {
+  image-rendering: pixelated;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Camera view frames arrive at output resolution — smooth them down, the
+   way the export will actually look, instead of nearest-neighbor grit. */
+.previewFrame canvas.cameraCanvas {
+  image-rendering: auto;
 }

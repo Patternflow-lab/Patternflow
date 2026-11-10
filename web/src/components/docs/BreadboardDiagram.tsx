@@ -1,6 +1,3 @@
-'use client';
-
-import React from 'react';
 
 type DiagramMode = 'layout' | 'encoders' | 'encoders_gnd' | 'hubconn' | 'hub_esp' | 'encoders_esp' | 'rail';
 

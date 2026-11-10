@@ -130,6 +130,10 @@
     word-break: break-all;
   }
 
+  .link:hover {
+    text-decoration: none;
+  }
+
   /* Step through builds without going back up to the map. */
   .pager {
     display: flex;

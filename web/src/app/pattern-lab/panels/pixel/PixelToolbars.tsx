@@ -11,6 +11,7 @@ import type { PixelSelection } from "./usePixelSelection";
 import type { PixelToolState } from "./usePixelToolState";
 import type { PixelViewport } from "./usePixelViewport";
 import dock from "../../LabPanels.module.css";
+import local from "../PixelPanel.module.css";
 
 export function PixelToolBar({ tools, switchTool }: { tools: PixelToolState; switchTool: (tool: Tool) => void }) {
   const { tool, size, setSize, colorHex, setColorHex, alpha, setAlpha, swatches } = tools;
@@ -27,7 +28,7 @@ export function PixelToolBar({ tools, switchTool }: { tools: PixelToolState; swi
           {entry.label}
         </button>
       ))}
-      <span className={dock.toolSep} />
+      <span className={local.toolSep} />
       <label title="Brush size ( [ and ] )">
         size
         <input
@@ -60,12 +61,12 @@ export function PixelToolBar({ tools, switchTool }: { tools: PixelToolState; swi
           onChange={(event) => setAlpha(Number(event.target.value))}
         />
       </label>
-      <span className={dock.swatchRow}>
+      <span className={local.swatchRow}>
         {swatches.slice(0, 8).map((hex) => (
           <button
             key={hex}
             type="button"
-            className={dock.swatch}
+            className={local.swatch}
             style={{ background: hex }}
             title={hex}
             aria-label={`Use ${hex}`}
@@ -129,7 +130,7 @@ export function PixelActionBar({
             <button type="button" onClick={cancelFloating} title="Put the pixels back (Esc)">
               Cancel
             </button>
-            <span className={dock.toolSep} />
+            <span className={local.toolSep} />
           </>
         ) : (
           <label>drag a box · drag inside it to lift &amp; move</label>
@@ -172,7 +173,7 @@ export function PixelActionBar({
       <button type="button" onClick={onClear} title="Clear the layer to transparent">
         Clear
       </button>
-      <span className={dock.toolSep} />
+      <span className={local.toolSep} />
       <button type="button" onClick={onImport} title="Import an image into this layer">
         Import image
       </button>

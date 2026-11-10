@@ -1,6 +1,6 @@
 # Patternflow Server Services & Worker Management
 
-Patternflow 커뮤니티 웹 서버 및 C++ 펌웨어 웹플래시 컴파일 빌드 워커 서비스 구성과 운영 방법 가이드입니다.
+Patternflow 커뮤니티 웹 서버와, 패턴 C++ 헤더를 `.pfm` 모듈로 굽는 빌드 워커 서비스 구성과 운영 방법 가이드입니다.
 
 ---
 
@@ -31,11 +31,73 @@ RestartSec=3
 `sudo journalctl -u patternflow-community.service | grep -i "main process exited"`,
 OOM 킬은 `dmesg -T | grep -i "killed process"` 로 봅니다.
 
+#### 웹 서버도 격리한다 — `hardening.conf` (2026-10-29)
+
+이 날까지 웹 서버는 샌드박스 없이 `pi`로 돌았다. 앱에 원격 코드 실행이 하나
+뚫리면 `~/.ssh`와 R2 백업을 지울 수 있는 rclone 키까지 닿는 구조였다. 터널
+인증 파일은 같은 날 `~/.cloudflared/`에서 `/etc/cloudflared/`(root, 0600)로
+옮겼다. `/etc/systemd/system/patternflow-community.service.d/hardening.conf`:
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/opt/node22/bin/node /home/pi/Patternflow/web/node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+SuccessExitStatus=143
+TimeoutStopSec=20
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+PrivatePIDs=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/patternflow-data /home/pi/Patternflow/web/.next
+ReadOnlyPaths=-/home/pi/patternflow-data/variants
+InaccessiblePaths=-/home/pi/.ssh -/home/pi/.config -/home/pi/backups -/home/pi/.cloudflared -/run/user
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+UMask=0077
+```
+
+`PrivatePIDs`가 핵심이다. 워커와 04:00 백업, 배포 단계의 `npm ci`는 모두 같은
+`pi`로 돌고, 같은 uid끼리는 `/proc/<pid>/root`로 상대의 파일 시스템을 그대로
+걸어 들어갈 수 있다. `ProtectProc=invisible`은 다른 uid만 숨겨서 이걸 못 막는다.
+`ExecStart`에서 npm을 뺀 것도 이 설정 때문이다. 첫 프로세스가 네임스페이스의
+PID 1이 되는데, npm은 자식이 SIGTERM으로 죽으면 그 신호를 자기에게 다시 보내고
+PID 1은 핸들러 없는 신호를 버린다. 0.5초 뒤 npm이 exit 1로 끝나면 커널이 드레인
+중인 Next를 SIGKILL한다. Next가 PID 1이면 자기 핸들러로 드레인하고 143으로
+끝난다. `/run/user`는 읽기 전용이어도 그 안 소켓에 접속이 되기 때문에 막았다.
+`systemd --user`로 샌드박스 밖에서 실행하는 길이다.
+
+쓰기 경로는 둘이다. DB 디렉터리(WAL, 첨부, 산출물)와 `.next`(이미지 캐시,
+`/api/roadmap`의 ISR). `systemd-analyze security`가 9.2(UNSAFE)에서 1.8(OK)로
+내려갔다. 유닛 안에 `pi`로 들어가 확인했다. `.ssh`, rclone 설정, `backups`,
+`/run/user`는 읽히지 않고, 레포와 `.env.local`은 읽기 전용이고, sudo는 거부되고,
+워커 PID는 보이지 않는다. 재시작은 `Deactivated successfully`로 0.35초, 재부팅
+뒤에도 같다.
+
+막지 못하는 것도 있다. 앱은 DB와 `.env.local`을 읽어야 하니 비밀번호 해시와 세션
+시크릿은 그대로 읽힌다. `.next/server`가 쓰기 가능해서 서버 코드를 고쳐 다음
+배포까지 남길 수 있다. 워커에는 아직 `PrivatePIDs`가 없다. bwrap이 안에서
+`/proc`을 새로 마운트하기 때문에 따로 시험한 뒤에 넣는다.
+
 ### ② `patternflow-worker.service`
-- **역할**: C++ 펌웨어 빌드 워커 (`scripts/build-worker.ts`)
-- **설명**: 웹플래시 요청 대기열(`queued`)을 수신하여 `arduino-cli`를 이용해 ESP32-S3 바이너리를 컴파일합니다.
+- **역할**: 패턴 모듈 빌드 워커 (`scripts/build-worker.ts`)
+- **설명**: 빌드 대기열(`queued`)에서 잡을 하나씩 가져가 헤더마다 `firmware/toolchain/build_module.py`와 Xtensa 컴파일러로 ESP32-S3용 `.pfm` 모듈을 굽습니다. 펌웨어 이미지 통째 빌드는 2026-08-12(`4c13474`)에 끝났고, 그 뒤로 워커는 `arduino-cli`를 부르지 않습니다.
 - **위치**: `/etc/systemd/system/patternflow-worker.service`
-- **환경변수 중요 사항**: `Environment=PATH`에 `arduino-cli` 설치 경로(`~/.local/bin` 또는 `/usr/local/bin`) 포함 필수
+- **환경변수 중요 사항**: 워커는 `python`(다른 이름이면 `PYTHON_PATH`)과 `PF_XTENSA_BIN`이 가리키는 컴파일러(아래 2단계)를 띄웁니다. `Environment=PATH`에는 Python이 있어야 하고, 예전에 넣은 `arduino-cli` 경로는 이제 쓰이지 않습니다.
 
 #### 워커는 격리된 채로 돈다 — `hardening.conf` (2026-09-04)
 
@@ -93,9 +155,10 @@ strace로 확인한 전부다: 데이터 디렉터리(DB·WAL·산출물), 워�
 것으로 재현했다. 두 단계 중 첫째는 끝났다:
 
 1. **시크릿은 유닛 밖 (완료, 2026-09-04).** 워커가 필요로 하는 변수
-   (`COMMUNITY_ENABLED`, `BUILD_ENABLED`, `BUILD_FQBN`, `COMMUNITY_DB_PATH`)는
-   root 전용 `/etc/patternflow/worker.env`(0600)에서 `EnvironmentFile=`로
-   받는다. `.env.local`은 `InaccessiblePaths`로 막으면 워커가 못 뜬다 —
+   (`COMMUNITY_ENABLED`, `BUILD_ENABLED`, `COMMUNITY_DB_PATH`, 2단계의
+   `PF_XTENSA_BIN`)는 root 전용 `/etc/patternflow/worker.env`(0600)에서
+   `EnvironmentFile=`로 받는다. 그날 같이 넣은 `BUILD_FQBN`은 통째 이미지
+   빌드의 보드 옵션이라 8월 12일 뒤로 읽는 코드가 없다. `.env.local`은 `InaccessiblePaths`로 막으면 워커가 못 뜬다 —
    `scripts/loadEnv.ts`의 `existsSync`는 접근 불가 파일에도 `true`를 돌려주고,
    그다음 `process.loadEnvFile`이 EACCES에 예외를 던진다. 그래서
    `BindReadOnlyPaths=/dev/null:…/.env.local`로 **빈 파일로 보이게** 한다:
@@ -314,8 +377,11 @@ npm run build:enqueue
 
 ## 3. 자주 발생하는 문제 & 조치법 (Troubleshooting)
 
-- **웹플래시 요청이 계속 `queued`에서 안 넘어감**:
+- **빌드 요청이 계속 `queued`에서 안 넘어감**:
   - `patternflow-worker.service`가 켜져 있는지 확인: `sudo systemctl status patternflow-worker.service`
   - 꺼져 있다면 재시작: `sudo systemctl restart patternflow-worker.service`
-- **`spawn arduino-cli ENOENT` 에러 발생**:
-  - `patternflow-worker.service` 파일 내 `PATH` 환경변수에 `arduino-cli` 설치 경로가 올바르게 지정되었는지 확인.
+- **빌드 오류가 `The build service's compiler is not available right now. No Xtensa compiler found`로 시작함**:
+  - 워커가 `xtensa-esp32s3-elf-g++`를 찾지 못했습니다. `/etc/patternflow/worker.env`의 `PF_XTENSA_BIN`이 래퍼 디렉터리(`/etc/patternflow/xtensa-sandbox`)를 가리키는지, 래퍼가 부르는 `~/.arduino15/packages/esp32/tools/esp-x32/2601`이 그대로 있는지 확인.
+  - 오류 전문은 `npm run build:status -- <BUILD_ID>`의 `--- error ---` 아래에 나옵니다.
+- **빌드 오류에 `[cannot run python: spawn python ENOENT]`가 나옴**:
+  - 유닛의 `PATH`에 `python`이 없습니다. `worker.env`에 `PYTHON_PATH=python3`처럼 실행 파일 이름이나 경로를 넣고 워커를 재시작.

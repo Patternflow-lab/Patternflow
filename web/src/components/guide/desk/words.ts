@@ -23,6 +23,8 @@ export type DeskWords = {
   labBadge: string;
   /** The Lab in another tab saved the same draft. */
   otherTab: string;
+  /** The button that puts that notice away. */
+  otherTabOk: string;
   /** The desk as a whole, for assistive tech. */
   deskLabel: string;
 };
@@ -38,6 +40,7 @@ export const DESK_WORDS: Record<GuideLang, DeskWords> = {
     labTitle: "Pattern Lab / Patternflow",
     labBadge: "Your Lab",
     otherTab: "Pattern Lab just saved from another tab. Edit in one place: two open Labs overwrite each other's saves.",
+    otherTabOk: "OK",
     deskLabel: "Practice desk",
   },
   ko: {
@@ -50,6 +53,7 @@ export const DESK_WORDS: Record<GuideLang, DeskWords> = {
     labTitle: "Pattern Lab / Patternflow",
     labBadge: "내 랩",
     otherTab: "다른 탭의 패턴 랩이 방금 저장했어요. 한 곳에서만 고쳐 주세요. 둘 다 열려 있으면 서로의 저장을 덮어써요.",
+    otherTabOk: "확인",
     deskLabel: "연습 창",
   },
 };

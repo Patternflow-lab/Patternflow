@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLabStore } from "@/lib/lab/store";
-import { cloneRampState, type RampState } from "@/lib/lab/types";
+import { drawTextLayer } from "@/lib/lab/text";
+import { cloneRampState, isRampLayer, type RampState } from "@/lib/lab/types";
 
 const HISTORY_LIMIT = 40;
 type Snapshot = { ramp: RampState; recolor: boolean; selection: number };
@@ -10,9 +11,12 @@ const emptyHistory = (): History => ({ past: [], future: [] });
 function readSnapshot(id: string): Snapshot | null {
   const state = useLabStore.getState();
   const layer = state.layers.find((entry) => entry.id === id);
-  return layer?.type === "code"
-    ? { ramp: cloneRampState(layer.ramp), recolor: layer.recolor, selection: state.rampSelection[id] ?? 0 }
-    : null;
+  if (!isRampLayer(layer)) return null;
+  return {
+    ramp: cloneRampState(layer.ramp),
+    recolor: layer.type === "code" && layer.recolor,
+    selection: state.rampSelection[id] ?? 0,
+  };
 }
 
 function changed(before: Snapshot, after: Snapshot): boolean {
@@ -32,8 +36,8 @@ export function useRampHistory(id: string) {
     if (ownUpdate.current) return;
     const layer = state.layers.find((entry) => entry.id === id);
     const before = previous.layers.find((entry) => entry.id === id);
-    if (layer?.type !== "code" || before?.type !== "code" ||
-        layer.ramp !== before.ramp || layer.recolor !== before.recolor) {
+    if (!isRampLayer(layer) || !isRampLayer(before) || layer.ramp !== before.ramp ||
+        (layer.type === "code" && before.type === "code" && layer.recolor !== before.recolor)) {
       gesture.current = null;
       setHistory(emptyHistory());
     }
@@ -70,9 +74,13 @@ export function useRampHistory(id: string) {
     try {
       // One store notification, preserving code, knobs, and every other layer.
       useLabStore.setState((state) => ({
-        layers: state.layers.map((layer) => layer.id === id && layer.type === "code"
-          ? { ...layer, ramp: cloneRampState(snapshot.ramp), recolor: snapshot.recolor }
-          : layer),
+        layers: state.layers.map((layer) => layer.id !== id
+          ? layer
+          : layer.type === "code"
+            ? { ...layer, ramp: cloneRampState(snapshot.ramp), recolor: snapshot.recolor }
+            : layer.type === "text"
+              ? drawTextLayer({ ...layer, ramp: cloneRampState(snapshot.ramp) })
+              : layer),
         rampSelection: { ...state.rampSelection, [id]: snapshot.selection },
       }));
     } finally {

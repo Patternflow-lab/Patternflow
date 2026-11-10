@@ -76,9 +76,17 @@ export function clampMatrixDimension(value: number): number | null {
  */
 export const MATRIX_HEAVY_PIXELS = DEFAULT_MATRIX.width * DEFAULT_MATRIX.height * 4;
 
-export function isValidMatrix(size: Partial<MatrixSize> | null | undefined): boolean {
-  if (!size) return false;
-  return clampDimension(Number(size.width)) !== null && clampDimension(Number(size.height)) !== null;
+/**
+ * The frame a stored size names, or null when a side is out of range. A side
+ * saved as "128" reads as 128. One between two whole numbers rounds, as a
+ * typed one does.
+ */
+export function parseMatrixSize(size: Partial<MatrixSize> | null | undefined): MatrixSize | null {
+  if (!size) return null;
+  const width = clampDimension(Number(size.width));
+  const height = clampDimension(Number(size.height));
+  if (width === null || height === null) return null;
+  return { width, height };
 }
 
 export function parseMatrixAnnotation(code: string): MatrixSize | null {

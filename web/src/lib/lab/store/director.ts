@@ -5,7 +5,7 @@
 import type { LabStore } from "../store";
 import type { SliceSet } from "./kinds";
 
-export type DirectorSlice = Pick<LabStore, "updateDirector">;
+type DirectorSlice = Pick<LabStore, "updateDirector">;
 
 export function createDirectorSlice(set: SliceSet): DirectorSlice {
   return {

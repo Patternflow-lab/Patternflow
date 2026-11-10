@@ -15,7 +15,7 @@
 // panel to sit next to and the side, and buildDefaultLayout() adds panels in
 // whatever order satisfies that.
 //
-// The heavy editors — Pixel, Director, Graphic Export, Gallery — are loaded
+// The heavy editors — Pixel, Text, Director, Graphic Export — are loaded
 // on demand. They are a third of the lab's code and most sessions open one
 // of them at most; before this every panel sat in the route's first chunk.
 
@@ -35,15 +35,15 @@ export type PanelId =
   | "layers"
   | "code"
   | "pixel"
-  | "gallery"
+  | "text"
   | "knobs"
   | "ramp"
   | "capture"
   | "director";
 
-export type DockDirection = "right" | "below" | "within";
+type DockDirection = "right" | "below" | "within";
 
-export type PanelDef = {
+type PanelDef = {
   id: PanelId;
   /** The tab title. Belongs here, not to a saved layout — a rename reaches everyone. */
   title: string;
@@ -79,7 +79,7 @@ export const PANELS: readonly PanelDef[] = [
   { id: "layers", title: "Layers", component: LayersPanel, dock: { ref: "preview", dir: "below" }, size: { height: 0.34 } },
   { id: "code", title: "Code", component: CodePanel, dock: { ref: "preview", dir: "right" }, active: true },
   { id: "pixel", title: "Pixel", component: lazy(() => import("./PixelPanel")), dock: { ref: "code", dir: "within" } },
-  { id: "gallery", title: "Gallery", component: lazy(() => import("./GalleryPanel")), dock: { ref: "code", dir: "within" } },
+  { id: "text", title: "Text", component: lazy(() => import("./TextPanel")), dock: { ref: "code", dir: "within" } },
   { id: "knobs", title: "Knobs", component: KnobsPanel, dock: { ref: "code", dir: "right" }, size: { width: 0.24 } },
   { id: "ramp", title: "Color Ramp", component: RampPanel, dock: { ref: "knobs", dir: "below" }, size: { height: 0.42 } },
   // Output stage (stills/clips at print sizes) — an add-on module, see lib/lab/capture.
@@ -92,10 +92,53 @@ export function panelDef(id: string): PanelDef | undefined {
   return PANELS.find((entry) => entry.id === id);
 }
 
+type PanelPress = "opened" | "fronted" | "closed";
+
+/**
+ * A press on a panel's name in the Panels menu. A closed panel opens, a panel
+ * in front closes, and an open panel behind another tab comes to the front.
+ *
+ * The menu marks every open panel ●, in front or not. On a phone every panel
+ * but Preview is a tab in one group, so Knobs wore a ● while Code covered it,
+ * and pressing it closed the panel it was meant to show. A second press put
+ * it back as the last tab: four presses to reach Knobs at 390×844.
+ */
+export function togglePanel(api: DockviewApi, id: PanelId): PanelPress {
+  const existing = api.getPanel(id);
+  if (!existing) {
+    api.addPanel({ id, component: id, title: panelDef(id)?.title ?? id });
+    return "opened";
+  }
+  if (!existing.api.isVisible) {
+    existing.api.setActive();
+    return "fronted";
+  }
+  api.removePanel(existing);
+  return "closed";
+}
+
 /** What DockviewReact wants: component name → component. Names are panel ids. */
 export const panelComponents: Record<string, FunctionComponent<IDockviewPanelProps>> = Object.fromEntries(
   PANELS.map((entry) => [entry.id, entry.component as FunctionComponent<IDockviewPanelProps>]),
 );
+
+/**
+ * At this width the default layout stacks instead of splitting into columns.
+ * Three columns on a 390px phone left each panel about 110px: the frame
+ * picker read "128 × 64 (Patter" and the Knobs range fields ran off the
+ * edge. 800px is where the header above the dock folds to two rows
+ * (LabPanels.module.css).
+ */
+export const NARROW_DOCK_QUERY = "(max-width: 800px)";
+
+/** Asked once, when the dock is built. Turning a phone does not re-lay it; Reset layout does. */
+export function isNarrowDock(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia(NARROW_DOCK_QUERY).matches;
+}
+
+/** Share of a narrow dock's height that Preview keeps at the top: a 2:1 frame at full width, and its bar. */
+export const NARROW_PREVIEW_HEIGHT = 0.42;
 
 /**
  * Lay every panel out from scratch, in an order that satisfies the references
@@ -107,8 +150,14 @@ export const panelComponents: Record<string, FunctionComponent<IDockviewPanelPro
  * relative to the grid as it stands, so "layers below preview" issued while
  * preview is the only column becomes a full-width strip at root level — the
  * layout this replaced had exactly that comment above its hand-ordered calls.
+ *
+ * A narrow dock ignores `dock` and `size`: see buildNarrowLayout.
  */
-export function buildDefaultLayout(api: DockviewApi) {
+export function buildDefaultLayout(api: DockviewApi, narrow = false) {
+  if (narrow) {
+    buildNarrowLayout(api);
+    return;
+  }
   const placed = new Set<PanelId>();
   const pending = [...PANELS];
   const place = (def: PanelDef) => {
@@ -145,4 +194,37 @@ export function buildDefaultLayout(api: DockviewApi) {
     if (def.size.width !== undefined) panel.api.setSize({ width: Math.round(total * def.size.width) });
     if (def.size.height !== undefined) panel.api.setSize({ height: Math.round(height * def.size.height) });
   }
+}
+
+/**
+ * The phone layout: the root panel (Preview) across the top, and every other
+ * panel a tab in one group below it. Each panel gets the full width, and the
+ * frame stays in sight while Code or Knobs is in front.
+ *
+ * The fronted panel is the first tab and the rest follow in menu order. In
+ * menu order Layers came first, and a 374px tab strip scrolled it out of
+ * sight to the left of Code.
+ */
+function buildNarrowLayout(api: DockviewApi) {
+  const root = PANELS.find((entry) => entry.dock === null);
+  if (!root) return;
+  const active = PANELS.find((entry) => entry.active && entry !== root);
+  const tabs = [...(active ? [active] : []), ...PANELS.filter((entry) => entry !== root && entry !== active)];
+  api.addPanel({ id: root.id, component: root.id, title: root.title });
+  let stack: PanelId | null = null;
+  for (const def of tabs) {
+    api.addPanel({
+      id: def.id,
+      component: def.id,
+      title: def.title,
+      position: stack
+        ? { referencePanel: stack, direction: "within" }
+        : { referencePanel: root.id, direction: "below" },
+    });
+    stack ??= def.id;
+  }
+  if (active) api.getPanel(active.id)?.api.setActive();
+
+  const height = api.height || 700;
+  api.getPanel(root.id)?.api.setSize({ height: Math.round(height * NARROW_PREVIEW_HEIGHT) });
 }

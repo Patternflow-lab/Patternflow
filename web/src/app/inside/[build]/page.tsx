@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import HomeView from "@/components/HomeView";
 import { builds, buildBySlug } from "@/components/sections/InsideGlobe/builds";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 const SITE_URL = "https://patternflow.work";
 
@@ -26,10 +27,12 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
     description: build.description,
     alternates: { canonical: `/inside/${build.slug}` },
     openGraph: {
+      ...SITE_OPEN_GRAPH,
       title,
       description: build.description,
       url,
-      images: photo ? [{ url: `${SITE_URL}${photo.src}`, alt: photo.alt }] : undefined,
+      // The build's own photo when it has one, the site's picture when not.
+      ...(photo ? { images: [{ url: `${SITE_URL}${photo.src}`, alt: photo.alt }] } : {}),
     },
   };
 }

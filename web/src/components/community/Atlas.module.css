@@ -13,8 +13,9 @@
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px 12px;
   padding: 14px 0;
 }
 
@@ -24,8 +25,16 @@
   margin: 0;
 }
 
-.toolbarSpacer {
-  flex: 1;
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-left: auto;
+}
+
+.toolbarActions .toolBtn {
+  white-space: nowrap;
 }
 
 .toolBtn {
@@ -74,27 +83,41 @@
   cursor: default;
 }
 
-/* ── filter chips ── */
+/* ── filter chips, over the map ── */
 
-.chips {
+.mapTop {
   position: absolute;
   top: 12px;
   left: 16px;
+  right: 16px;
+  z-index: 2;
   display: flex;
-  z-index: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  /* The strip spans the map; only what is drawn in it takes the pointer. */
+  pointer-events: none;
 }
 
+.mapTop > * {
+  pointer-events: auto;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+/* Each chip pulls the next one over its right border and the next row up
+   over its bottom one, so the chips read as one strip on any number of rows. */
 .chip {
   composes: toolBtn;
-  border-right-width: 0;
   padding: 5px 10px;
-}
-
-.chip:last-child {
-  border-right-width: 1px;
+  margin: 0 -1px -1px 0;
 }
 
 .chip[data-on="true"] {
+  position: relative;
   color: var(--pfc-ink);
   background: var(--pfc-well-2);
   border-color: var(--pfc-edge);
@@ -133,130 +156,12 @@
   margin-left: 10px;
 }
 
-.mapWrap[data-placing="true"] .map {
-  cursor: crosshair;
-}
-
-/* ── "Add my pattern" picker ── */
-
-.pickerWrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.picker {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 6;
-  width: 396px;
-  max-height: 420px;
-  overflow-y: auto;
-  background: var(--pfc-panel);
-  border: 1px solid var(--pfc-edge);
-  padding: 4px;
-}
-
-/* You recognise your own work by looking at it — the picker is a contact
-   sheet of thumbnails, newest first, not a list of titles. */
-.pickerGrid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-  padding: 2px 4px 6px;
-}
-
-.pickerItem {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-
-.pickerTile {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 1 / 2;
-  border: 1px solid var(--pfc-hair);
-  background: var(--pfc-well);
-  overflow: hidden;
-}
-
-.pickerItem:hover .pickerTile {
-  border-color: var(--pfc-led);
-}
-
-.pickerCaption {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--pf-mono, monospace);
-  font-size: 8.5px;
-  color: var(--pfc-ink-muted);
-}
-
-.pickerItem:hover .pickerCaption {
-  color: var(--pfc-ink);
-}
-
-/* Private patterns in the picker can only become research notes — the tag
-   says where the drop will land before anything is dropped. */
-.researchTag {
-  color: var(--pfc-led, #e8552e);
-  opacity: 0.85;
-}
-
-.pickerHead {
-  font-family: var(--pf-mono, monospace);
-  font-size: 9.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--pfc-ink-faint);
-  padding: 6px 10px 8px;
-}
-
-.pickerSearch {
-  width: calc(100% - 8px);
-  margin: 0 4px 6px;
-  background: var(--pfc-well);
-  border: 1px solid var(--pfc-hair);
-  border-radius: 0;
-  color: var(--pfc-ink);
-  font-family: var(--pf-sans, sans-serif);
-  font-size: 12px;
-  padding: 6px 8px;
-}
-
-.pickerSearch:focus {
-  outline: none;
-  border-color: var(--pfc-edge);
-}
-
-.placeBanner {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--pfc-led-wash);
-  border: 1px solid var(--pfc-led-edge);
-  color: var(--pfc-led);
-  font-size: 12.5px;
-  white-space: nowrap;
-}
-
-.bannerLink {
-  color: var(--pfc-ink);
+/* Zoom is on the wheel and a drag pans only once zoomed, so a touch screen
+   has none of the three gestures the hint names. */
+@media (hover: none) {
+  .zoomHint {
+    display: none;
+  }
 }
 
 /* ── pattern pins: live tiles on the map ── */
@@ -268,10 +173,6 @@
   align-items: center;
   gap: 3px;
   cursor: pointer;
-}
-
-.pin[data-draggable="true"] {
-  cursor: grab;
 }
 
 .pinTile {
@@ -286,6 +187,24 @@
 .pin[data-selected="true"] .pinTile {
   border-color: var(--pfc-ink);
   box-shadow: 0 0 8px rgba(244, 239, 230, 0.25);
+}
+
+.pin:focus-visible {
+  outline: none;
+}
+
+/* Drawn inside the tile: the foreignObject is the tile's width and clips
+   anything outside it, so an outline around the tile shows only below. */
+.pin:focus-visible .pinTile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--pfc-ink);
+  pointer-events: none;
+}
+
+.pin:focus-visible .pinCaption {
+  color: var(--pfc-ink);
 }
 
 .pinWell {
@@ -310,15 +229,6 @@
   margin: 6px 0 14px;
 }
 
-.panelWell {
-  position: relative;
-  width: 140px;
-  height: 280px;
-  border: 1px solid var(--pfc-hair);
-  background: var(--pfc-well);
-  overflow: hidden;
-}
-
 .openLink {
   display: inline-block;
   margin-top: 4px;
@@ -334,23 +244,6 @@
   color: var(--pfc-led);
 }
 
-.moveHint {
-  margin: 14px 0 8px;
-  font-size: 12px;
-  color: var(--pfc-ink-faint);
-}
-
-.removeBtn {
-  composes: toolBtn;
-  color: var(--pfc-danger);
-  border-color: rgba(232, 107, 94, 0.4);
-}
-
-.removeBtn:hover {
-  color: var(--pfc-danger);
-  border-color: var(--pfc-danger);
-}
-
 .legendTile {
   width: 8px;
   height: 16px;
@@ -359,7 +252,7 @@
   flex: 0 0 auto;
 }
 
-/* ── lineage: made-from chip / owner select ── */
+/* ── lineage: the made-from chip ── */
 
 .fromChip {
   composes: toolBtn;
@@ -367,17 +260,6 @@
   letter-spacing: 0.02em;
   font-size: 12px;
   color: var(--pfc-ink);
-}
-
-.fromSelect {
-  width: 100%;
-  background: var(--pfc-well);
-  color: var(--pfc-ink);
-  border: 1px solid var(--pfc-hair);
-  border-radius: 0;
-  font-family: var(--pf-sans, sans-serif);
-  font-size: 12.5px;
-  padding: 7px 8px;
 }
 
 /* ── the player: sandboxed live run + knobs ── */
@@ -477,8 +359,27 @@
   transition: r 0.12s;
 }
 
-.node:hover .core {
+.node:hover .core,
+.node:focus-visible .core {
   r: 8;
+}
+
+/* The keyboard's place on the map. The browser's outline would box the
+   label too, so the ring is drawn: cream, like selection, since orange here
+   means live. */
+.focusRing {
+  fill: none;
+  stroke: var(--pfc-ink);
+  stroke-width: 1.5;
+  visibility: hidden;
+}
+
+.node:focus-visible .focusRing {
+  visibility: visible;
+}
+
+.node:focus-visible .nodeLabel {
+  fill: var(--pfc-ink);
 }
 
 .node[data-selected="true"] .core {
@@ -499,6 +400,14 @@
 
 .pulseRing {
   animation: pulse 2.2s ease-in-out infinite;
+}
+
+/* Held at the middle of its beat: the ring still marks the entry as live. */
+@media (prefers-reduced-motion: reduce) {
+  .pulseRing {
+    animation: none;
+    opacity: 0.5;
+  }
 }
 
 /* ── side panel ── */
@@ -707,11 +616,24 @@
   .body {
     flex-direction: column;
     height: auto;
+    min-height: 0;
   }
 
+  /* At 390px the chips wrap to two rows, and over the map they hid 21 of its
+     83 labels. Here they stand above it. */
+  .mapTop {
+    position: static;
+    padding: 12px 16px 8px;
+  }
+
+  /* The map is as tall as its 1000:640 drawing. The old 380px box held a
+     drawing 228px tall at 390px and left the 152px under it blank. */
   .mapWrap {
-    height: 60vh;
-    min-height: 380px;
+    flex: none;
+  }
+
+  .map {
+    height: auto;
   }
 
   .panel {

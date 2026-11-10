@@ -126,6 +126,7 @@
 .go:hover {
   background: transparent;
   color: var(--pf-ink);
+  text-decoration: none;
 }
 
 .goDisabled {

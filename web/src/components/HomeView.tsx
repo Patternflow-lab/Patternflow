@@ -23,7 +23,7 @@ export default function HomeView({ initialTab = 'hero', initialBuildId = null }:
       <div className="mobile-page-links">
         <HeroJournalLink />
       </div>
-      <ViewerPanel />
+      <ViewerPanel initialTab={initialTab} />
       <RightPanel
         initialTab={initialTab}
         buildContent={buildContent}

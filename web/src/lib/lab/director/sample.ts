@@ -11,7 +11,7 @@ import { BUS_WIRE_MAX } from "@/lib/pattern/controls";
 import { bakeShowV2, resolveLane, resolvedLaneValue } from "./bake";
 import type { DirectorShow } from "./types";
 
-export type SampledShow = {
+type SampledShow = {
   /** Samples per second. */
   fps: number;
   /** Number of samples per lane; sample i sits at t = i / fps. */

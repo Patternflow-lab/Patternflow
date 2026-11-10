@@ -15,6 +15,7 @@
 // take, warmed a couple of seconds in so patterns never export cold.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useResettingState } from "@/lib/hooks/useResettingState";
 import { useLabStore } from "@/lib/lab/store";
 import { isCodeLayer } from "@/lib/lab/types";
 import { buildAnySizePrompt } from "@/lib/lab/capture/anySizePrompt";
@@ -111,8 +112,8 @@ export default function CapturePanel() {
   const [exporting, setExporting] = useState<ExportState | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
-  const [promptCopied, setPromptCopied] = useState(false);
-  const [shaderPromptCopied, setShaderPromptCopied] = useState(false);
+  const [promptCopied, setPromptCopied] = useResettingState(false, 1200);
+  const [shaderPromptCopied, setShaderPromptCopied] = useResettingState(false, 1200);
 
   // ── the shader twin ──
   // Source lives per code layer in the capture module's own storage; the panel
@@ -323,7 +324,6 @@ export default function CapturePanel() {
     try {
       await navigator.clipboard.writeText(buildAnySizePrompt(layer.code, matrix));
       setPromptCopied(true);
-      window.setTimeout(() => setPromptCopied(false), 1200);
       setMessage({
         text: `Prompt for "${layer.name}" copied — paste it into any AI, then paste the code it returns into the Code panel. Auto re-checks the new code by itself.`,
         error: false,
@@ -345,7 +345,6 @@ export default function CapturePanel() {
         buildShaderPrompt(layer.code, matrix, layer.ramp, state.ranges),
       );
       setShaderPromptCopied(true);
-      window.setTimeout(() => setShaderPromptCopied(false), 1200);
       setMessage({
         text: `GLSL prompt for "${layer.name}" copied — paste it into any AI, then paste the shader it returns into the box below. The pattern itself is left alone.`,
         error: false,

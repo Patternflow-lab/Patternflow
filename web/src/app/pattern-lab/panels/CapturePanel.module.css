@@ -107,39 +107,6 @@
   overflow: auto;
 }
 
-.stageBox {
-  flex: 1 1 auto;
-  min-height: 120px;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  background: #1a1816;
-  border: 1px solid #171512;
-}
-
-/* The canvas is sized by its own bitmap and only ever scaled DOWN to fit —
-   a replaced element keeps its ratio under max-width/max-height. */
-.stageCanvas {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-/* Transparency shows as the usual checkerboard, under the picture only. */
-.stageCanvasTransparent {
-  background-color: #d9d4ca;
-  background-image:
-    linear-gradient(45deg, #bdb7aa 25%, transparent 25%, transparent 75%, #bdb7aa 75%),
-    linear-gradient(45deg, #bdb7aa 25%, transparent 25%, transparent 75%, #bdb7aa 75%);
-  background-size: 16px 16px;
-  background-position: 0 0, 8px 8px;
-}
-
 /* The auto look's verdict, full width under the output controls. */
 .verdict {
   flex: 1 1 100%;

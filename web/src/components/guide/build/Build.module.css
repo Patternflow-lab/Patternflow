@@ -49,6 +49,7 @@
 .link:focus-visible {
   border-color: var(--g-led);
   background: var(--g-led-wash);
+  text-decoration: none;
 }
 
 /* ── the parts list ── */
@@ -292,6 +293,7 @@ summary.bomHead:hover .bomChev,
 .where:hover,
 .where:focus-visible {
   color: var(--g-led);
+  text-decoration: none;
 }
 
 /* ── figures ── */
@@ -354,6 +356,7 @@ summary.bomHead:hover .bomChev,
 .fileName:hover,
 .fileName:focus-visible {
   color: var(--g-led);
+  text-decoration: none;
 }
 .fileNote {
   font-size: 12.5px;

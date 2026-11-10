@@ -3,7 +3,7 @@ import { DeviceSim } from "@/lib/guide/deviceSim";
 import { knobIsTurned, turnBackNow, turnOn } from "../hubKnob";
 import { useGuideStore } from "../store";
 import { handBackNow, handIsOn, handSteer } from "./hubHand";
-import { makeNext, makeRestore } from "./hubMake";
+import { RESTORE_MS, makeClock, makeNext, makeRestore } from "./hubMake";
 
 // The hub's panel answers the hand: a mouse over it turns K1 and K2 a few
 // clicks. The board is the one every guide shares, so whatever comes next —
@@ -14,17 +14,26 @@ import { makeNext, makeRestore } from "./hubMake";
 const FRAME = 1 / 60;
 const MS = 1000 * FRAME;
 
+/**
+ * The page's clock, which Make's redraw runs on (hubMake.ts makeClock), moved
+ * by the frames here. On the wall clock a test that followed a redraw found
+ * it still running on a fast machine, and the hand never turned at all.
+ */
+let now = 0;
+
 /** The pointer held at one place on the panel for `frames` frames (null: off the panel). */
 function hold(sim: DeviceSim, at: { u: number; v: number } | null, frames: number) {
   for (let i = 0; i < frames; i++) {
     handSteer(sim, at, MS);
     sim.tick(FRAME);
+    now += MS;
   }
 }
 
 describe("the hub's panel under the hand", () => {
   let sim: DeviceSim;
   beforeEach(() => {
+    makeClock.now = () => now;
     useGuideStore.setState({ page: "hub", preview: null, leaving: null, handsOn: false });
     sim = new DeviceSim();
     sim.tick(FRAME);
@@ -35,6 +44,9 @@ describe("the hub's panel under the hand", () => {
     handBackNow(sim);
     makeRestore(sim);
     turnBackNow(sim);
+    // Origin is drawn back before the next test's board is looked at.
+    now += RESTORE_MS;
+    makeClock.now = () => performance.now();
   });
 
   it("does nothing with the pointer off the panel", () => {
@@ -108,6 +120,7 @@ describe("the hub's panel under the hand", () => {
 
   it("gives the board back before the reader's own turn, and keeps out of it afterwards", () => {
     hold(sim, { u: 1, v: 0 }, 90);
+    expect(sim.snapshot().turns.slice(0, 2)).toEqual([9, 0]);
     // The reader takes K3: Device presses it and says so (store.handsOn); HubAnswers calls handBackNow.
     sim.press(2);
     useGuideStore.setState({ handsOn: true });

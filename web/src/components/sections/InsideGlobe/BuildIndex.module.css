@@ -23,6 +23,10 @@
   background: var(--pf-hover, rgba(20, 20, 20, 0.05));
 }
 
+.item:hover {
+  text-decoration: none;
+}
+
 .item:focus-visible {
   outline: 2px solid var(--pf-led);
   outline-offset: 2px;

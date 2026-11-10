@@ -219,7 +219,7 @@ export function clearSurface(surface: PixelSurface) {
 export type ImportFit = "contain" | "cover" | "stretch" | "center";
 
 /** User placement on top of the base fit: a scale factor and a pixel offset. */
-export type ImportTransform = { scale: number; offsetX: number; offsetY: number };
+type ImportTransform = { scale: number; offsetX: number; offsetY: number };
 
 /**
  * Rasterize an image into a layer-sized RGBA buffer. `smooth: false` keeps

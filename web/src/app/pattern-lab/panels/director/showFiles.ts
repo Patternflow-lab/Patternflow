@@ -4,19 +4,11 @@
 // blank title falls back to it, so the file downloads as <pattern>.pfs.
 
 import { encodePfst, pfsFilename, serializePerformance, validatePerformance } from "@/lib/pattern/pfst";
+import { downloadBlob } from "@/lib/lab/capture/download";
 import { bakeShowV2, showFromPerformance } from "@/lib/lab/director/bake";
 import { midiFilename, showToMidi } from "@/lib/lab/director/exporters/midi";
 import type { DirectorShow } from "@/lib/lab/director/types";
 import { readPerformanceFile } from "../../community";
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 const named = (director: DirectorShow, patternName: string) =>
   director.title.trim() ? director : { ...director, title: patternName };

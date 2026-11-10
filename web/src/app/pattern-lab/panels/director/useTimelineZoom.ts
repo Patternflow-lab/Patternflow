@@ -75,5 +75,3 @@ export function useTimelineZoom({
 
   return { pps, focusH, zoomBy };
 }
-
-export type TimelineZoom = ReturnType<typeof useTimelineZoom>;

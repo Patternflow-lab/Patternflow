@@ -1,8 +1,10 @@
-// ── Pixel layer → standalone pattern code ────────────────────────────────────
-// Turns one pixel-art layer into a self-contained JS pattern whose whole
-// reason to exist is being PASTED INTO AN AI CHAT: the user draws a sprite,
-// copies it as code, and asks an AI to animate or distort it. The pixel
-// layer itself is untouched — this is a copy, not a conversion.
+// ── Pixel or text layer → standalone pattern code ────────────────────────────
+// Turns one pixel-art or text layer into a self-contained JS pattern whose
+// whole reason to exist is being PASTED INTO AN AI CHAT: the user draws a
+// sprite or sets a word, copies it as code, and asks an AI to animate or
+// distort it. The layer itself is untouched — this is a copy, not a
+// conversion. A text layer goes as the pixels it was last drawn as, so the
+// pattern needs no font; new words in the Lab mean copying again.
 //
 // What an AI needs to work on pixel art without wrecking it, learned the
 // hard way in hExport.ts ("the LLM never sees machine data"):
@@ -11,7 +13,9 @@
 //   · an ASCII preview comment so the model can SEE what it is distorting
 //   · an inverse-mapping draw loop (screen pixel → sprite coordinate) with
 //     a marked DISTORT block — coordinate warps are the natural lever, and
-//     inverse mapping leaves no holes
+//     inverse mapping leaves no holes — and a marked LIGHT block after the
+//     sample, where a pixel's colour and opacity can change (a twinkle, a
+//     colour running through the letters)
 //   · the harness contract in the header, because the chat has no other
 //     way to know what draw(display, params, time) means
 //
@@ -21,9 +25,11 @@
 // canvas with a small drawing in it shrinks from ~44 KB to a few KB.
 
 import { withMatrixAnnotation } from "@/lib/pattern/matrix";
-import { rleEncodeRGBA } from "./flatten";
+import { commentSafe, rleEncodeRGBA } from "./flatten";
 import { bytesToBase64 } from "./serialize";
-import type { PixelLayer } from "./types";
+import { activeTextEffect } from "./textEffects";
+import { fontLabel } from "./textFonts";
+import type { RasterLayer } from "./types";
 
 type SpriteCrop = {
   x: number;
@@ -33,9 +39,21 @@ type SpriteCrop = {
   data: Uint8ClampedArray;
 };
 
-/** Tight bounding box of non-transparent pixels; null when nothing is drawn. */
-function cropToSprite(layer: PixelLayer): SpriteCrop | null {
-  const { width, height, data } = layer;
+/**
+ * Tight bounding box of non-transparent pixels; null when nothing is drawn.
+ * A scrolling text crops its source instead, the whole line from wherever
+ * it starts, so the letters past the frame's edges come along to be
+ * scrolled in the chat too.
+ */
+function cropToSprite(layer: RasterLayer): SpriteCrop | null {
+  if (layer.type === "text" && activeTextEffect(layer) === "scroll" && layer.source) {
+    const crop = cropBuffer(layer.source.data, layer.source.width, layer.height);
+    return crop && { ...crop, x: crop.x + layer.source.x };
+  }
+  return cropBuffer(layer.data, layer.width, layer.height);
+}
+
+function cropBuffer(data: Uint8ClampedArray, width: number, height: number): SpriteCrop | null {
   let minX = width;
   let minY = height;
   let maxX = -1;
@@ -104,11 +122,6 @@ function asciiPreview(sprite: SpriteCrop): string[] {
   return rows;
 }
 
-/** A layer name inside a `//` comment: no line terminators. */
-function commentSafe(name: string): string {
-  return name.replace(/[\r\n\u2028\u2029]/g, " ");
-}
-
 const B64_DECODER = `function decodeB64(s, n) {
   const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   const out = new Uint8ClampedArray(n);
@@ -134,11 +147,41 @@ function decodeRLE(s, n) {
   return out;
 }`;
 
+/** What the code says it is, and the warps it suggests: a sprite bends, a word moves. */
+function describeLayer(layer: RasterLayer) {
+  if (layer.type === "text") {
+    const { text, size, font } = layer.spec;
+    const words = text.length > 48 ? `${text.slice(0, 47)}…` : text;
+    return {
+      title: `Text: ${commentSafe(JSON.stringify(words))}`,
+      what: `As it stands it draws the text below, unchanged, exactly where it sits in
+// the Lab. The letters were drawn in ${commentSafe(fontLabel(font))} at ${size} px and are carried
+// here as pixels, so the pattern needs no font. It exists to be modified:
+// scroll it, wave it, make it twinkle, run colour through it.`,
+      object: "the letters",
+      warps: `//   const span = display.width + SPRITE_W;                    // scroll left, and in
+//   sx = ((Math.round(sx + time * 20) % span) + span) % span; //   again from the right
+//   sy += Math.sin(sx * 0.3 + time * 4) * 2;                  // wave along the line
+//   sy += Math.sin(time) * 4;                                  // bob up and down`,
+    };
+  }
+  return {
+    title: `Pixel sprite: ${commentSafe(layer.name)}`,
+    what: `As it stands it draws the sprite below, unchanged, exactly where it was drawn.
+// It exists to be modified: animate the sprite, distort it, add effects.`,
+    object: "the image",
+    warps: `//   sx += Math.sin(sy * 0.4 + time * 2) * 2;          // wavy
+//   sy += Math.sin(time) * 4;                          // bob up and down
+//   const s = 1 + 0.2 * Math.sin(time * 3);            // breathe: divide
+//   sx = SPRITE_W / 2 + (sx - SPRITE_W / 2) / s;       // around the centre`,
+  };
+}
+
 /**
  * Build the standalone pattern. Returns null when the layer is fully
  * transparent — there is no sprite to export.
  */
-export function buildPixelPatternCode(layer: PixelLayer): string | null {
+export function buildPixelPatternCode(layer: RasterLayer): string | null {
   const sprite = cropToSprite(layer);
   if (!sprite) return null;
 
@@ -155,16 +198,16 @@ export function buildPixelPatternCode(layer: PixelLayer): string | null {
   const preview = asciiPreview(sprite)
     .map((row) => `//   ${row}`)
     .join("\n");
+  const about = describeLayer(layer);
 
-  const code = `// Pixel sprite: ${commentSafe(layer.name)} — exported by Patternflow Pattern Lab.
+  const code = `// ${about.title} — exported by Patternflow Pattern Lab.
 //
-// WHAT THIS IS — a JavaScript pattern for a ${layer.width}×${layer.height} LED matrix. As it
-// stands it draws the sprite below, unchanged, exactly where it was drawn.
-// It exists to be modified: animate the sprite, distort it, add effects.
+// WHAT THIS IS — a JavaScript pattern for a ${layer.width}×${layer.height} LED matrix.
+// ${about.what}
 //
 // THE ONE RULE — never retype, reflow, or shorten the SPRITE_DATA string
 // or the decoder functions. They are machine data; one wrong character
-// destroys the image. Copy them through verbatim and make every change in
+// destroys ${about.object}. Copy them through verbatim and make every change in
 // draw() (or an added update()).
 //
 // THE HARNESS — draw(display, params, time) runs every frame. time is in
@@ -177,10 +220,13 @@ export function buildPixelPatternCode(layer: PixelLayer): string | null {
 // HOW TO DISTORT — draw() walks every screen pixel and computes which
 // sprite pixel lands there (sx, sy), then samples nearest-neighbour so the
 // art stays crisp. Warp sx/sy inside the DISTORT block:
-//   sx += Math.sin(sy * 0.4 + time * 2) * 2;          // wavy
-//   sy += Math.sin(time) * 4;                          // bob up and down
-//   const s = 1 + 0.2 * Math.sin(time * 3);            // breathe: divide
-//   sx = SPRITE_W / 2 + (sx - SPRITE_W / 2) / s;       // around the centre
+${about.warps}
+//
+// HOW TO LIGHT — after the sample, r, g, b (0–255) and a (0–1) are that
+// pixel's colour and opacity. Change them inside the LIGHT block:
+//   const tw = 0.6 + 0.4 * Math.sin(time * 6 + x * 1.7 + y * 2.3);   // twinkle
+//   r *= tw; g *= tw; b *= tw;
+//   a *= 0.5 + 0.5 * Math.sin(time * 2);                              // fade in and out
 //
 // The sprite, roughly (. = transparent, : dim → @ bright):
 ${preview}
@@ -213,10 +259,14 @@ export function draw(display, params, time) {
 
       const i = sample(sx, sy);
       if (i < 0) continue;
-      const a = SPRITE[i + 3] / 255;
+      let r = SPRITE[i], g = SPRITE[i + 1], b = SPRITE[i + 2];
+      let a = SPRITE[i + 3] / 255;
+
+      // ── LIGHT HERE ── change r, g, b or a (examples in header)
+
       if (a <= 0) continue;
       // Alpha premultiplies onto the black panel: LEDs emit light.
-      display.setPixel(x, y, SPRITE[i] * a, SPRITE[i + 1] * a, SPRITE[i + 2] * a);
+      display.setPixel(x, y, r * a, g * a, b * a);
     }
   }
 }`;

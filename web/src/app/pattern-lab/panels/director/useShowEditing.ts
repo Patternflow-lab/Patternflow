@@ -4,7 +4,7 @@
 // panel's two keys (Delete, Space).
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { resolveLane, resolvedLaneValue } from "@/lib/lab/director/bake";
+import { resolveLane, resolvedLaneValue, sortedLane } from "@/lib/lab/director/bake";
 import {
   DEFAULT_CURVE_CP,
   DIRECTOR_MAX_SECONDS,
@@ -17,7 +17,7 @@ import { useLabStore } from "@/lib/lab/store";
 import { wireToY, yToWire } from "../directorGeometry";
 import { CURVE_MAGNET_PX, FOCUS_PAD } from "./constants";
 
-export type Selection =
+type Selection =
   | { kind: "key"; lane: number; id: string }
   | { kind: "msg"; id: string }
   | null;
@@ -27,10 +27,6 @@ export type Interp = "auto" | "manual" | "hold";
 export function interpOf(k: DirectorKeyframe): Interp {
   if (k.mode === "hold") return "hold";
   return k.h === "auto" ? "auto" : "manual";
-}
-
-export function sortedLane(lane: DirectorKeyframe[]): DirectorKeyframe[] {
-  return [...lane].sort((a, b) => a.t - b.t);
 }
 
 export function useShowEditing({

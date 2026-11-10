@@ -1,5 +1,21 @@
 /* ── RampPanel: its own classes ─────────────────────────────────────────
-   Moved out of PatternLab.module.css on 2026-09; only this file uses them. */
+   Moved out of PatternLab.module.css on 2026-09, and the dock body and the
+   alpha row out of LabPanels.module.css on 2026-10-25; only this file uses
+   them. */
+
+/* The panel body. Its width is what the @container rule at the end reads. */
+.rampDock {
+  container: ramp-controls / inline-size;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Scrolling keeps the ramp and controls at their intended height. */
+.rampDock > * {
+  flex-shrink: 0;
+}
 
 .rampToggle {
   display: inline-flex;
@@ -215,12 +231,49 @@
   background: #f0eae1;
 }
 
+.rampAlphaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: 11px;
+  text-transform: none;
+  color: rgba(23, 21, 18, 0.65);
+}
+
+.rampAlphaRow input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: #171512;
+}
+
+.rampAlphaValue {
+  width: 36px;
+  text-align: right;
+}
+
 .rampHint {
   margin-left: auto;
   font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 11px;
   color: #756f64;
   text-transform: none;
+}
+
+.rampHint button {
+  min-height: 28px;
+  border-radius: 4px;
+  border: 1px solid rgba(23, 21, 18, 0.3);
+  background: #fffdf8;
+  color: #171512;
+  font: inherit;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.rampHint button:hover {
+  background: #171512;
+  color: #f7f3ea;
 }
 
 @container ramp-controls (max-width: 210px) {

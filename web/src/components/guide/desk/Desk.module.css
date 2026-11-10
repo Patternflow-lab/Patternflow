@@ -14,7 +14,6 @@
   --d-ink: #efe9dd;
   --d-ink-2: rgba(239, 233, 221, 0.72);
   --d-ink-3: rgba(239, 233, 221, 0.46);
-  --d-hair: rgba(239, 233, 221, 0.1);
   --d-hair-2: rgba(239, 233, 221, 0.18);
   --d-led: var(--g-led, #ff6a3d);
   --d-chrome: #1b1a18;
@@ -245,15 +244,6 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-}
-.appEmpty {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  font-family: var(--pf-mono, ui-monospace, monospace);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  color: var(--d-ink-3);
 }
 
 /* ── the Lab ─────────────────────────────────────────────────────────────── */

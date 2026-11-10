@@ -8,7 +8,7 @@ import { cutRegion, scaleNearest, stampRegionOver, type PixelSurface } from "@/l
 import { normRect, type Cell, type Floating, type SelRect } from "./tools";
 
 /** The drag in progress: drawing the box, or moving the lifted cut. */
-export type SelectAction = {
+type SelectAction = {
   mode: "select" | "move";
   startX: number;
   startY: number;

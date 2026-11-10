@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { reports } from "@/lib/community/server/schema";
 
@@ -34,13 +35,9 @@ async function handlePatch(request: Request, context: { params: Promise<{ id: st
     return Response.json({ error: "Not found." }, { status: 404 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const status = (body as Record<string, unknown>).status;
+  const body = await readJsonObject(request);
+  if (body instanceof Response) return body;
+  const status = body.status;
   if (typeof status !== "string" || !STATUSES.includes(status as never)) {
     return Response.json({ error: "Unknown status." }, { status: 400 });
   }

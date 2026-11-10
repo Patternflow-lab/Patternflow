@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import styles from "./Terms.module.css";
 
 // Terms of use + privacy notice, deliberately as one page. Two documents means
@@ -15,6 +16,7 @@ export const metadata: Metadata = {
   title: "Terms & Privacy / Patternflow",
   description:
     "Terms of use and privacy notice for the Patternflow community: who owns what, what we do with your patterns, how to report something, and what data we keep.",
+  openGraph: { ...SITE_OPEN_GRAPH, url: "/terms" },
 };
 
 const UPDATED = "24 September 2026";
@@ -25,7 +27,7 @@ export default function TermsPage() {
     <main className={styles.page}>
       <article className={styles.doc}>
         <header className={styles.head}>
-          <Link href="/" className={styles.brand}>
+          <Link href="/" prefetch={false} className={styles.brand}>
             Patternflow
           </Link>
           <h1>Terms &amp; Privacy</h1>

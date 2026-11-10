@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, DM_Sans, Silkscreen, Newsreader } from "next/font/google";
+import { Inter, JetBrains_Mono, Silkscreen, Newsreader } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { PostHogProvider } from "@/providers/PostHogProvider";
-import { Analytics } from "@vercel/analytics/next";
 import DeviceHostCapture from "@/components/DeviceHostCapture";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { LEGACY_GUIDE_REDIRECT } from "@/components/guide/legacy";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -17,15 +17,15 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-});
-
+// Next puts a preload link for each font loaded here in the head of every
+// page. Silkscreen (the guide's kickers) and Newsreader (the journal, /terms,
+// the guide's notes) are fetched only by the pages whose text uses them
+// (app/fonts.test.ts).
 const silkscreen = Silkscreen({
   weight: ['400', '700'],
   variable: "--font-silkscreen",
   subsets: ["latin"],
+  preload: false,
 });
 
 const newsreader = Newsreader({
@@ -33,6 +33,7 @@ const newsreader = Newsreader({
   style: ["normal", "italic"],
   variable: "--font-newsreader",
   subsets: ["latin"],
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -64,27 +65,13 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
     shortcut: "/favicon.ico",
   },
-  openGraph: {
-    type: "website",
-    url: "https://patternflow.work",
-    title: "Patternflow — An LED synthesizer",
-    description:
-      "An open-source LED synthesizer. Play light patterns with your fingertips — and every Patternflow plays every pattern we make.",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        type: "image/png",
-      },
-    ],
-  },
+  // No title, description or url: those are each page's (lib/siteMetadata.ts).
+  // The home page's own are in page.tsx.
+  openGraph: SITE_OPEN_GRAPH,
+  // The card only. Next copies the title, description and picture into it
+  // from the page's openGraph, and it copies nothing over a title set here.
   twitter: {
     card: "summary_large_image",
-    title: "Patternflow — An LED synthesizer",
-    description:
-      "Patternflow is an open-source LED synthesizer. Play light with your fingertips.",
-    images: ["/og-image.png"],
   },
   alternates: {
     types: {
@@ -99,6 +86,12 @@ export const metadata: Metadata = {
 };
 
 const siteUrl = "https://patternflow.work";
+
+// Cloudflare Web Analytics: visits and Core Web Vitals, without cookies. The
+// token is the site's own, from the Cloudflare dashboard (Web Analytics, the
+// manual setup), and it is read when the page is built, so it has to be in
+// the environment of the build. Unset, the beacon is left out.
+const webAnalyticsToken = process.env.NEXT_PUBLIC_CF_WEB_ANALYTICS_TOKEN;
 
 // Structured data (schema.org / JSON-LD) so search engines and AI crawlers can
 // resolve Patternflow as an entity: who makes it, what category it belongs to,
@@ -184,12 +177,17 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} ${dmSans.variable} ${silkscreen.variable} ${newsreader.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} ${silkscreen.variable} ${newsreader.variable} antialiased`}
       >
         <DeviceHostCapture />
         <PostHogProvider>{children}</PostHogProvider>
-        <Analytics />
-        <SpeedInsights />
+        {webAnalyticsToken && (
+          <Script
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: webAnalyticsToken })}
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );

@@ -34,6 +34,7 @@
 
 .brand:hover {
   color: var(--pf-led);
+  text-decoration: none;
 }
 
 .head h1 {

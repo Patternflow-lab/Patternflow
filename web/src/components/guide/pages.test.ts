@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GUIDE_ORDER, HUB_PATH, PAGES, pagePath } from "./pages";
+import { GUIDE_ORDER, HUB_PATH, PAGES, linkWay, pagePath } from "./pages";
 import { scriptMismatches } from "./checks";
 import { scenesOf, type Step } from "./scenes";
 import { HUB_COPY } from "./copy/hub";
@@ -132,6 +132,27 @@ describe("guide pages", () => {
 
   it("links every guide's opening back to the hub", () => {
     for (const page of pages) for (const lang of ["en", "ko"] as const) expect(PAGES[page].text(lang).opening.back?.to).toBe("hub");
+  });
+
+  it("sorts each guide's end links into the guide, the site and away", () => {
+    expect(linkWay("/guide")).toEqual({ way: "guide", page: "hub", lang: "en" });
+    expect(linkWay("/guide/ko")).toEqual({ way: "guide", page: "hub", lang: "ko" });
+    expect(linkWay("/guide/play/ko")).toEqual({ way: "guide", page: "play", lang: "ko" });
+    expect(linkWay("/guide/play#flash")).toEqual({ way: "site" });
+    expect(linkWay("/pattern-lab")).toEqual({ way: "site" });
+    expect(linkWay("https://community.patternflow.work/community")).toEqual({ way: "away" });
+    expect(linkWay("//example.com/")).toEqual({ way: "away" });
+    for (const page of pages) {
+      for (const lang of ["en", "ko"] as const) {
+        for (const { href } of PAGES[page].text(lang).next.links) {
+          const to = linkWay(href);
+          if (to.way === "away") expect(href).toMatch(/^https:\/\//);
+          // A link back into the guide stays in the reader's language.
+          if (to.way === "guide") expect(to.lang).toBe(lang);
+        }
+      }
+    }
+    expect(PAGES.audio.text("en").next.links.map((l) => linkWay(l.href).way)).toEqual(["away", "away", "away", "away", "away", "site", "guide"]);
   });
 
   it("never offers a kit or an assembled board", () => {

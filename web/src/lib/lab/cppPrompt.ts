@@ -8,17 +8,13 @@ import {
   PATTERN_MATRIX_WIDTH,
   buildRampLUTRGBA,
 } from "@/lib/pattern/harness";
-import { knobDetentStep } from "@/lib/pattern/controls";
+import { knobDetentStep, roundRangeValue } from "@/lib/pattern/controls";
 import { withMatrixAnnotation, type MatrixSize } from "@/lib/pattern/matrix";
 import { codeUsesValueField } from "@/lib/pattern/ramp";
 import type { KnobRange, RampState } from "./types";
 import { rampStateToHarness } from "./engine";
 
-function roundRangeValue(value: number) {
-  return Math.round(value * 1000) / 1000;
-}
-
-export type CppPromptArgs = {
+type CppPromptArgs = {
   code: string;
   matrix: MatrixSize;
   knobs: number[];
@@ -86,7 +82,7 @@ export function buildCppPrompt({
     .join("\n");
 
   // Value-field patterns carry no color of their own. The ramp LUT is
-  // precomputed HERE (same buildRampLUT as the live preview) and emitted as
+  // precomputed HERE (same buildRampLUTRGBA as the live preview) and emitted as
   // a finished C array — models must not write sorting/interpolation code,
   // which is exactly where weaker models broke (unsorted stops → all-black
   // LUT, hallucinated tokens in hand-rolled lerp loops). The shared detector

@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/useAppStore';
 import BuildFilters from './BuildFilters';
 import BuildIndex from './BuildIndex';
 import BuildRouteSync from './BuildRouteSync';
-import { builds } from './builds';
+import { builds, originOf } from './builds';
 
 beforeEach(() => {
   useAppStore.setState({ selectedBuildId: null, insideFilter: 'all' });
@@ -22,9 +22,11 @@ describe('Inside browsing', () => {
     expect(list.getAllByRole('link')).toHaveLength(builds.length);
     expect(list.queryByRole('img')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Projects' }));
-    expect(list.getAllByRole('link')).toHaveLength(2);
+    expect(list.getAllByRole('link')).toHaveLength(4);
     expect(list.getByRole('link', { name: /MOTIFLOW/ })).toHaveAttribute('href', '/inside/azmano-iran');
     expect(list.getByRole('link', { name: /Raspberry Pi port/ })).toBeInTheDocument();
+    expect(list.getByRole('link', { name: /over MQTT/ })).toHaveAttribute('href', '/inside/simonepda-mqtt-uae');
+    expect(list.getByRole('link', { name: /Norns screen mirror/ })).toHaveAttribute('href', '/inside/jonwtr-belgium');
     expect(screen.getByRole('button', { name: 'Projects' })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -37,11 +39,21 @@ describe('Inside browsing', () => {
     fireEvent.click(screen.getByRole('button', { name: 'In use' }));
     expect(useAppStore.getState().selectedBuildId).toBeNull();
     expect(window.location.pathname).toBe('/inside');
-    // "In use" now holds the first sale, so MOTIFLOW (a project) is what the filter hides.
-    expect(list.getAllByRole('link')).toHaveLength(1);
+    // "In use" holds the first sale and the showings, so MOTIFLOW (a project) is what the filter hides.
+    expect(list.getAllByRole('link')).toHaveLength(5);
     expect(list.getByRole('link', { name: /The first sale/ })).toHaveAttribute('href', '/inside/seunghun-san-francisco');
+    expect(list.getByRole('link', { name: /Played at Anbu/ })).toHaveAttribute('href', '/inside/seunghun-anbu-seoul');
     fireEvent.click(screen.getByRole('button', { name: 'Builds' }));
     expect(list.getByRole('link', { name: /In the DJ booth/ })).toBeInTheDocument();
+  });
+
+  it('files every showing under In use, hanging off a pin that exists', () => {
+    const showings = builds.filter((build) => build.kind === 'showing');
+    expect(showings.length).toBeGreaterThan(0);
+    for (const showing of showings) {
+      expect(showing.category).toBe('in-use');
+      expect(originOf(showing)).toBeDefined();
+    }
   });
 
   it('reveals a directly linked entry even after browsing another category', () => {

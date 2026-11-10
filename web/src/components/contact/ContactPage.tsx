@@ -7,7 +7,7 @@ export default function ContactPage() {
   return (
     <main className="business-page">
       <header className="business-head">
-        <Link className="business-lockup" href="/">
+        <Link className="business-lockup" href="/" prefetch={false}>
           Patternflow
         </Link>
         <div className="business-meta">Contact / 2026</div>

@@ -130,7 +130,7 @@ async function main() {
     knobLabels: ["A", "B", "C", "D"],
     forkOf: null,
     editOf: EDIT,
-    gen: { count: 5, thinking: "LOW" as const, refs: 6, colorMode: "vfield" as const },
+    gen: { colorMode: "vfield" as const },
     director: emptyShow(),
     name: "Edit Smoke",
   };

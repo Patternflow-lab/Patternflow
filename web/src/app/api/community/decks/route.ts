@@ -1,6 +1,7 @@
 import { isAdminSession } from "@/lib/community/server/admin";
 import { getAuth } from "@/lib/community/server/auth";
 import { originBlocked, preflight, withCors } from "@/lib/community/cors";
+import { readJsonObject } from "@/lib/community/jsonBody";
 import { communityEnabled, getDb } from "@/lib/community/server/db";
 import { DECK_MAX, PUBLIC_DECKS_MAX } from "@/lib/community/deck";
 import { checkDeckPattern, cleanPatternIds } from "@/lib/community/deckShare";
@@ -8,7 +9,7 @@ import { notifyDeckInclusion } from "@/lib/community/server/notify";
 import { countPublicDecksByUser, getPatternsForDeck, newId } from "@/lib/community/server/queries";
 import { rateLimit } from "@/lib/community/ratelimit";
 import { deckPatterns, decks } from "@/lib/community/server/schema";
-import { cleanDescription, cleanTitle } from "@/lib/community/validate";
+import { TITLE_ERROR, cleanDescription, cleanTitle } from "@/lib/community/validate";
 import { cleanVisibility } from "@/lib/community/visibility";
 
 // POST /api/community/decks — share the working deck as a deck other people
@@ -42,16 +43,11 @@ async function handlePost(request: Request) {
     return Response.json({ error: "Too many deck updates — wait a minute and try again." }, { status: 429 });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-  const raw = body as Record<string, unknown>;
+  const raw = await readJsonObject(request);
+  if (raw instanceof Response) return raw;
 
   const title = cleanTitle(raw.title);
-  if (!title) return Response.json({ error: "Title is required (max 80 chars)." }, { status: 400 });
+  if (!title) return Response.json({ error: TITLE_ERROR }, { status: 400 });
 
   const description = cleanDescription(raw.description);
   if (description === undefined) {

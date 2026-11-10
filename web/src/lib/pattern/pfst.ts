@@ -184,21 +184,6 @@ export function durationOf(perf: Performance): number {
   return Math.max(perf.length, maxCue);
 }
 
-/** Distinct display names the timeline actually selects (for availability checks). */
-export function timelinePatternNames(perf: Performance): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const cue of perf.timeline) {
-    const name = (cue.pattern ?? "").trim();
-    if (!name) continue;
-    const key = name.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(name);
-  }
-  return out;
-}
-
 /** JSON-facing form: dense param arrays stay arrays, sparse become 1-based objects. */
 export function serializePerformance(perf: Performance): Record<string, unknown> {
   return {

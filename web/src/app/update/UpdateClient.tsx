@@ -36,7 +36,7 @@ function appImagePath(manifest: Manifest): string | null {
 }
 
 export default function UpdateClient() {
-  const { deviceHost, changeDeviceHost } = useDeviceHost();
+  const { deviceHost, host, changeDeviceHost } = useDeviceHost();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -60,7 +60,6 @@ export default function UpdateClient() {
       ? new URL(`/flash/${imagePath}`, window.location.origin).toString()
       : null;
 
-  const host = deviceHost.trim() || "patternflow.local";
   const wirelessUrl = imageUrl
     ? `http://${host}/update?src=${encodeURIComponent(imageUrl)}`
     : null;

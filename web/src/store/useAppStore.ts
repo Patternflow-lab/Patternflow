@@ -36,6 +36,10 @@ interface AppState {
   setActivePatternId: (id: string) => void;
   customJsCode: string;
   setCustomJsCode: (code: string) => void;
+  // Why the Live Editor's code is not running, as the preview's
+  // LedMatrixTexture reports it; null while it runs.
+  customJsError: string | null;
+  setCustomJsError: (message: string | null) => void;
   buildStep: number;
   setBuildStep: (step: number) => void;
   // How far the device is pulled apart on build step 3, 0 (assembled) to 1
@@ -118,6 +122,8 @@ export function draw(display, params, globalTime) {
   }
 }`,
   setCustomJsCode: (code) => set({ customJsCode: code }),
+  customJsError: null,
+  setCustomJsError: (message) => set({ customJsError: message }),
   buildStep: 0,
   setBuildStep: (step) => set({ buildStep: step }),
   explode: 1,

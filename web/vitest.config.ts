@@ -1,14 +1,16 @@
-// Component tests for the Pattern Lab panels — the one place React behaviour
-// (pointer gestures, keyboard shortcuts, undo, selection, the Director's
-// keyframes) is exercised under a DOM. The rest of the test surface is the
-// bespoke `check:*` smoke scripts; this is the harness they could not be.
+// Every src/**/*.test.ts and *.test.tsx, each beside the file it tests. The
+// Pattern Lab panels came first, which is where `check:panels` gets its name:
+// React behaviour (pointer gestures, keyboard shortcuts, undo, selection, the
+// Director's keyframes) exercised under a DOM. The guide, the landing
+// sections, the community and lib/ have tests here now too. The rest of the
+// test surface is the bespoke `check:*` smoke scripts.
 //
 //   npm run check:panels          (part of check:ci)
 //
 // jsdom has no canvas; test/setup.ts stubs a 2D context that accepts the
 // calls the panels make and asserts nothing about pixels on screen — the
-// tests read the layer's RGBA buffer in the store instead, which is what the
-// device receives.
+// Lab tests read the layer's RGBA buffer in the store instead, which is what
+// the device receives.
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 

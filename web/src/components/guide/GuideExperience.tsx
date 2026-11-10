@@ -9,7 +9,7 @@ import { sceneById } from "./scenes";
 import { useGuideStore, type GuideLang, type GuidePageId } from "./store";
 import Extras, { LiveThumbs } from "./Extras";
 import { hereFor, reportUrl } from "./report";
-import { PAGES, type PageChapter } from "./pages";
+import { PAGES, linkWay, type PageChapter } from "./pages";
 import { scriptMismatches } from "./checks";
 import { useDeskFits } from "./desk/query";
 import DeskCue from "./desk/DeskCue";
@@ -345,7 +345,7 @@ function Chapter({
 // stands the resident (ui/resident/RailResident): it runs along as the
 // reader goes on. It is play — hidden from assistive technology, outside the
 // rail's box — and the rail is what it was without it.
-function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
+function ChapterRail({ chapters, label }: { chapters: PageChapter[]; label: string }) {
   const scene = useGuideStore((s) => s.scene);
   const step = useGuideStore((s) => s.step);
   const cardIn = useGuideStore((s) => s.cardIn);
@@ -391,7 +391,7 @@ function ChapterRail({ chapters }: { chapters: PageChapter[] }) {
   }, [index]);
 
   return (
-    <nav ref={nav} className={styles.rail} aria-label="Chapters" data-leaves="">
+    <nav ref={nav} className={styles.rail} aria-label={label} data-leaves="">
       <span ref={marker} className={styles.railMarker} style={{ "--f": fill } as CSSProperties} aria-hidden="true" />
       {chapters.map(({ id, label, copy, first }) => (
         <Fragment key={id}>
@@ -473,10 +473,10 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
             WIP
           </span>
         </div>
-        <ChapterRail chapters={chapters} />
+        <ChapterRail chapters={chapters} label={copy.ui.chapters} />
         {/* The same guide in the other language, at the step the reader is on. */}
         <GuideLink to={page} lang={other} keepPlace className={styles.lang} hrefLang={other}>
-          {copy.langSwitch.label}
+          <span lang={other}>{copy.langSwitch.label}</span>
         </GuideLink>
       </header>
 
@@ -585,12 +585,29 @@ export default function GuideExperience({ lang, page = "play" }: { lang: GuideLa
               {next.until}
             </p>
             <div className={styles.nextLinks} data-line="" style={{ "--n": next.groups.length + 2 } as CSSProperties}>
-              {next.links.map((l) => (
-                <a key={l.href} href={l.href} className={styles.nextLink}>
-                  {l.label}
-                  <span aria-hidden="true">↗</span>
-                </a>
-              ))}
+              {next.links.map((l) => {
+                const to = linkWay(l.href);
+                if (to.way === "guide")
+                  return (
+                    <GuideLink key={l.href} to={to.page} lang={to.lang} className={styles.nextLink} data-in="">
+                      {l.label}
+                      <span aria-hidden="true">→</span>
+                    </GuideLink>
+                  );
+                if (to.way === "site")
+                  return (
+                    <Link key={l.href} href={l.href} className={styles.nextLink} data-in="">
+                      {l.label}
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                  );
+                return (
+                  <a key={l.href} href={l.href} className={styles.nextLink} target="_blank" rel="noopener noreferrer">
+                    {l.label}
+                    <span aria-hidden="true">↗</span>
+                  </a>
+                );
+              })}
             </div>
             <div data-line="" style={{ "--n": next.groups.length + 3 } as CSSProperties}>
               <Report

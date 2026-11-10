@@ -101,7 +101,7 @@ export function snapWireTime(t: number): number {
 }
 
 export const DIRECTOR_MAX_SECONDS = 3600;
-export const DIRECTOR_DEFAULT_SECONDS = 30;
+const DIRECTOR_DEFAULT_SECONDS = 30;
 
 export function directorId(): string {
   return `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -120,15 +120,4 @@ export function emptyShow(): DirectorShow {
 /** Anything worth playing, exporting, or publishing? */
 export function showHasContent(show: DirectorShow): boolean {
   return show.lanes.some((lane) => lane.length > 0) || show.messages.length > 0;
-}
-
-export function cloneShow(show: DirectorShow): DirectorShow {
-  return {
-    title: show.title,
-    length: show.length,
-    loop: show.loop,
-    lanes: show.lanes.map((lane) => lane.map((k) => ({ ...k, cp: [...k.cp] }))) as DirectorShow["lanes"],
-    messages: show.messages.map((m) => ({ ...m })),
-    patternCues: show.patternCues?.map((c) => ({ ...c })),
-  };
 }

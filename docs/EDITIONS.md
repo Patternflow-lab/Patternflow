@@ -218,7 +218,7 @@ deliberately re-pinned in the same commit.
 feature code that recompiles against a checkout, in-tree or out. Widening
 is tail-append only (the rule and its reason are written on the struct);
 the compiler surfaces every break at build, and `build.sh all` makes sure
-"builds" means all three compositions. The two composition filenames and
+"builds" means all five compositions. The two composition filenames and
 their macros are the out-of-tree seam - renamed spellings are shimmed, and
 shims get deleted only after their consumers migrate.
 

@@ -1,4 +1,11 @@
-import { DETENTS_PER_TURN, KNOB_COUNT, PANEL_GEOMETRIES, PANEL_GEOM_DEFAULT } from "@/lib/shared/constants";
+import {
+  DETENTS_PER_TURN,
+  KNOB_COUNT,
+  PANEL_GEOMETRIES,
+  PANEL_GEOM_DEFAULT,
+  TURNS_PER_FULL_RANGE,
+} from "@/lib/shared/constants";
+import { wrapKnobDelta } from "@/lib/pattern/controls";
 
 export const PATTERN_MATRIX_WIDTH: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resW;
 export const PATTERN_MATRIX_HEIGHT: number = PANEL_GEOMETRIES[PANEL_GEOM_DEFAULT].resH;
@@ -43,20 +50,6 @@ export type PatternModule = {
 export type PatternRenderResult = {
   ok: boolean;
   error?: string;
-};
-
-export type PatternStillOptions = {
-  width?: number;
-  height?: number;
-  seconds?: number;
-  fps?: number;
-  knobStart?: number[];
-  knobTargets?: number[];
-  knobRanges?: Array<[number, number]>;
-  knobWrap?: boolean[];
-  knobUnitsPerTurn?: number[];
-  ramp?: ColorRamp | null;
-  recolor?: boolean;
 };
 
 function clampByte(value: number) {
@@ -421,14 +414,171 @@ function getFunctionPreambleLines(): number {
   return functionPreambleLines;
 }
 
+// ── Code that stops early ───────────────────────────────────────────────────
+// A paste cut off partway is the commonest syntax error, and the engine blames
+// a token the author never typed. Cut inside `display.setPixel(x, y, ` and the
+// `return` compilePatternCode appends below the code lands inside the call:
+// "Unexpected token 'return'". Lose only the last `}` and it is the `)` that
+// `new Function` closes the body with: "Unexpected token ')'". Neither is in
+// the editor. What is still open where the code ends says it was cut.
+
+const OPENER_OF: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+
+// After one of these words a `/` starts a regular expression, not a division.
+const REGEX_AFTER_WORDS = new Set([
+  "return", "typeof", "instanceof", "in", "of", "new", "delete", "void",
+  "throw", "case", "do", "else", "yield", "await",
+]);
+
+function regexCanStart(prev: string, word: string) {
+  if (word) return REGEX_AFTER_WORDS.has(word);
+  return prev === "" || "(,=:[!&|?{};+-*%<>~^".includes(prev);
+}
+
+/**
+ * What is still open where the code ends, innermost first: `(`, `[`, `{`, a
+ * template's `${`, and the quote, backtick or `/*` the code stops inside.
+ * Brackets inside strings, comments and regular expressions do not count.
+ * Null when the code is broken in the middle instead (a closer that meets the
+ * wrong opener, a string that runs into a newline): there the engine's own
+ * message is the better guess.
+ */
+function openAtEnd(code: string): string[] | null {
+  // Each entry is "(", "[", "{", "${" or "`"; a "`" on top means the scan is
+  // in template text.
+  const stack: string[] = [];
+  const innermostFirst = (inside?: string) =>
+    inside ? [inside, ...stack.slice().reverse()] : stack.slice().reverse();
+  // The last significant character outside strings and comments, and the word
+  // it ends, to tell a regular expression from a division.
+  let prev = "";
+  let word = "";
+  let i = 0;
+
+  while (i < code.length) {
+    const c = code[i];
+
+    if (stack[stack.length - 1] === "`") {
+      if (c === "\\") i += 2;
+      else if (c === "`") {
+        stack.pop();
+        prev = c;
+        word = "";
+        i++;
+      } else if (c === "$" && code[i + 1] === "{") {
+        stack.push("${");
+        prev = "{";
+        word = "";
+        i += 2;
+      } else i++;
+      continue;
+    }
+
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (/[\w$]/.test(c)) {
+      let j = i + 1;
+      while (j < code.length && /[\w$]/.test(code[j])) j++;
+      word = code.slice(i, j);
+      prev = code[j - 1];
+      i = j;
+      continue;
+    }
+
+    const next = code[i + 1];
+    if (c === "/" && next === "/") {
+      const end = code.indexOf("\n", i);
+      if (end < 0) break;
+      i = end;
+      continue;
+    }
+    if (c === "/" && next === "*") {
+      const end = code.indexOf("*/", i + 2);
+      if (end < 0) return innermostFirst("/*");
+      i = end + 2;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== c) {
+        if (code[j] === "\n") return null;
+        j += code[j] === "\\" ? 2 : 1;
+      }
+      if (j >= code.length) return innermostFirst(c);
+      prev = c;
+      word = "";
+      i = j + 1;
+      continue;
+    }
+    if (c === "/" && regexCanStart(prev, word)) {
+      let j = i + 1;
+      let inClass = false;
+      while (j < code.length && (inClass || code[j] !== "/")) {
+        if (code[j] === "\n") return null;
+        if (code[j] === "[") inClass = true;
+        else if (code[j] === "]") inClass = false;
+        j += code[j] === "\\" ? 2 : 1;
+      }
+      if (j >= code.length) return null;
+      // The flags that follow scan as a word; with none, a `/` after the
+      // literal divides.
+      prev = c;
+      word = "";
+      i = j + 1;
+      continue;
+    }
+
+    if (c === "`" || c === "(" || c === "[" || c === "{") stack.push(c);
+    else if (c === "}" && stack[stack.length - 1] === "${") stack.pop();
+    else if (c in OPENER_OF && stack.pop() !== OPENER_OF[c]) return null;
+    prev = c;
+    word = "";
+    i++;
+  }
+
+  return innermostFirst();
+}
+
+/**
+ * "The code stops before it ends: 1 ( and 3 { never close." with the last line
+ * the code has, or null when nothing is left open at the end.
+ */
+function describeCutOff(code: string): string | null {
+  const open = openAtEnd(code);
+  if (!open || open.length === 0) return null;
+
+  const counts = new Map<string, number>();
+  for (const token of open) counts.set(token, (counts.get(token) ?? 0) + 1);
+  const parts = [...counts].map(([token, count]) => `${count} ${token}`);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  const verb = open.length === 1 ? "never closes" : "never close";
+
+  const lines = code.split("\n");
+  let last = lines.length;
+  while (last > 1 && !lines[last - 1].trim()) last--;
+  // The end of the line is where the paste stopped, so a long one keeps its tail.
+  const source = lines[last - 1].trim();
+  const quoted = source.length > 80 ? `…${source.slice(-79)}` : source;
+  return `The code stops before it ends: ${list} ${verb}. Was the paste cut off?\nline ${last} (the last): ${quoted}`;
+}
+
 /**
  * Message plus, when the stack allows it, the pattern's own line number and the
- * source of that line. Falls back to the bare message — a syntax error carries
- * no usable frame, and a wrong line number would be worse than none.
+ * source of that line. A syntax error carries no usable frame, so it gets the
+ * bare message, unless the code ends with brackets still open: then it says the
+ * code was cut off and quotes the last line. A wrong line number would be worse
+ * than none.
  */
 export function describePatternError(error: unknown, code: string | null): string {
   const message = error instanceof Error ? error.message : String(error);
   if (!code) return message;
+
+  if (error instanceof Error && error.name === "SyntaxError") {
+    const cutOff = describeCutOff(code);
+    if (cutOff) return cutOff;
+  }
 
   const location = stackLocation(error);
   if (!location) return message;
@@ -474,8 +624,7 @@ export class PatternRuntime {
   // is mapped through the ramp. Lets the ramp restyle ordinary RGB patterns.
   public recolor = false;
 
-  private rampLUT: Uint8Array | null = null; // 256×3 RGB (recolor path)
-  private rampLUTA: Uint8Array | null = null; // 256×4 RGBA (setValue path)
+  private rampLUTA: Uint8Array | null = null; // 256×4 RGBA (setValue and recolor paths)
   private module: PatternModule | null = null;
   private params: PatternParams = {};
   private source: string | null = null;
@@ -545,7 +694,6 @@ export class PatternRuntime {
 
   public setRamp(ramp: ColorRamp | null) {
     this.ramp = ramp;
-    this.rampLUT = ramp && ramp.stops.length > 0 ? buildRampLUT(ramp) : null;
     this.rampLUTA = ramp && ramp.stops.length > 0 ? buildRampLUTRGBA(ramp) : null;
   }
 
@@ -640,65 +788,8 @@ export function createIdleInput(
 }
 
 export function knobTargetToDelta(previous: number, next: number, wrap = false, unitsPerTurn = 1) {
-  let delta = next - previous;
-  if (wrap) {
-    if (delta > 0.5) delta -= 1;
-    if (delta < -0.5) delta += 1;
-  }
+  // The range is TURNS_PER_FULL_RANGE turns wide, so the seam sits half of
+  // that away from any reading.
+  const delta = wrap ? wrapKnobDelta(next - previous, unitsPerTurn * TURNS_PER_FULL_RANGE) : next - previous;
   return delta * (PATTERN_DETENTS_PER_TURN / unitsPerTurn);
-}
-
-export function renderPatternStill(
-  code: string,
-  {
-    width = PATTERN_MATRIX_WIDTH,
-    height = PATTERN_MATRIX_HEIGHT,
-    seconds = 2.4,
-    fps = 30,
-    knobStart = [0.5, 0.5, 0.5, 0.5],
-    knobTargets = [0.5, 0.5, 0.5, 0.5],
-    knobRanges,
-    knobWrap,
-    knobUnitsPerTurn,
-    ramp,
-    recolor,
-  }: PatternStillOptions = {},
-) {
-  const runtime = new PatternRuntime(width, height);
-  if (ramp) runtime.setRamp(ramp);
-  runtime.recolor = Boolean(recolor && ramp);
-  const loadResult = runtime.loadCode(code);
-  if (!loadResult.ok) {
-    return { ...loadResult, data: runtime.data };
-  }
-
-  const frameCount = Math.max(1, Math.floor(seconds * fps));
-  const firstDeltas = knobTargets.map((target, index) =>
-    knobTargetToDelta(
-      knobStart[index] ?? 0.5,
-      target,
-      knobWrap?.[index] ?? false,
-      knobUnitsPerTurn?.[index] ?? 1,
-    ),
-  );
-  const knobNormalized = knobTargets.map((target, index) => {
-    const range = knobRanges?.[index];
-    if (!range) return target;
-    const span = Math.max(0.0001, range[1] - range[0]);
-    return (target - range[0]) / span;
-  });
-
-  for (let frame = 0; frame < frameCount; frame++) {
-    const input = createIdleInput(frame === 0 ? firstDeltas : undefined, {
-      knobValues: knobTargets,
-      knobNormalized,
-      knobRanges,
-    });
-    const result = runtime.renderFrame(1 / fps, frame / fps, input);
-    if (!result.ok) {
-      return { ...result, data: runtime.data };
-    }
-  }
-
-  return { ok: true, data: new Uint8ClampedArray(runtime.data) };
 }

@@ -44,6 +44,10 @@
   --dv-tab-border-radius: 0;
 
   --dv-background-color: #f7f3ea;
+
+  /* dockview's own themes set 999. Without it the tab overflow menu ("⌄ 4")
+     gets z-index auto and opens under the panel below it. */
+  --dv-overlay-z-index: 999;
 }
 
 .dockview-theme-patternflow .dv-tab {
@@ -61,4 +65,18 @@
 /* Keep every panel's content clipped and scrollable on its own terms. */
 .dockview-theme-patternflow .dv-content-container {
   overflow: hidden;
+}
+
+/* On a touch screen dockview shows the × on every tab, not only the front
+   one. Tapping a tab that is half out of the strip scrolls it in on
+   pointerdown, and the click that follows lands on whichever × slid under
+   the finger: at 390×844, tapping Knobs and then Text closed Graphic Export
+   and Text. Without the × the tabs are narrower too, so Knobs fits in the
+   strip.
+   Panels close from the Panels menu. Four classes and display, because
+   dockview's rule (also four classes) sets visibility. */
+@media (hover: none) {
+  .dockview-theme-patternflow .dv-tab .dv-default-tab .dv-default-tab-action {
+    display: none;
+  }
 }

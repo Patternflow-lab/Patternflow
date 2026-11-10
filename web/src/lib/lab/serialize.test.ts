@@ -30,7 +30,7 @@ function projectFixture(): LabProject {
     knobLabels: ["A", "B", "C", "D"],
     forkOf: null,
     editOf: null,
-    gen: { count: 5, thinking: "LOW", refs: 6, colorMode: "vfield" },
+    gen: { colorMode: "vfield" },
     director: emptyShow(),
   };
 }

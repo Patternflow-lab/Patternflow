@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Cloudflare build's output and wrangler's local state (npm run
+    // cf:build, cf:preview): generated, and big enough to run lint out of memory.
+    ".open-next/**",
+    ".wrangler/**",
     // The guide's console demo is generated, not written: the core's console
     // pages plus a simulated board, by firmware/toolchain/console_demo.py, with
     // fflate vendored beside them. `console_demo.py --check` keeps it in step

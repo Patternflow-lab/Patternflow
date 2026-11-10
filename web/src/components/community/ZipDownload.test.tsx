@@ -58,6 +58,27 @@ describe("zip surfaces", () => {
     expect(screen.getByRole("link", { name: "http://192.168.0.44/patterns" })).toBeInTheDocument();
   });
 
+  it("sends a pasted http:// address and an emptied field to a real board", async () => {
+    window.localStorage.setItem("pf-device-host", "http://192.168.0.44/");
+    const { unmount } = render(
+      <SendModuleModal patternTitle="Wave" patternId="p123" onClose={() => {}} />,
+    );
+    await waitFor(() => expect(screen.getByText(/Wave is ready/)).toBeInTheDocument());
+    let href = screen.getByText("Send over Wi-Fi").closest("a")?.getAttribute("href") ?? "";
+    expect(new URL(href).host).toBe("192.168.0.44");
+    expect(screen.getByRole("link", { name: "http://192.168.0.44/patterns" })).toBeInTheDocument();
+    unmount();
+
+    window.localStorage.setItem("pf-device-host", "");
+    render(<SendModuleModal patternTitle="Wave" patternId="p123" onClose={() => {}} />);
+    await waitFor(() => expect(screen.getByText(/Wave is ready/)).toBeInTheDocument());
+    href = screen.getByText("Send over Wi-Fi").closest("a")?.getAttribute("href") ?? "";
+    expect(new URL(href).host).toBe("patternflow.local");
+    expect(screen.getByRole("link", { name: "http://patternflow.local/patterns" })).toBeInTheDocument();
+    // The field keeps what was typed: nothing, over the placeholder.
+    expect(screen.getByRole("textbox", { name: "Board address" })).toHaveValue("");
+  });
+
   it("pattern mode disables sending a header that cannot compile", async () => {
     fetchMock.mockImplementation(() =>
       Promise.resolve(
@@ -131,6 +152,57 @@ describe("zip surfaces", () => {
     expect(screen.getByText("2 of 4 patterns included.")).toBeInTheDocument();
     expect(screen.getByText(/Slot 2 · Tide — its header does not compile/)).toBeInTheDocument();
     expect(screen.getByText(/Slot 4 · Tide — same module name/)).toBeInTheDocument();
+  });
+
+  it("says how long a compile has taken against what it was promised", () => {
+    const { rerender } = render(
+      <ZipProgress
+        kind="pattern"
+        phase="building"
+        status={{ state: "building" }}
+        error={null}
+        detail={null}
+        waited={3}
+        expectedS={8}
+      />,
+    );
+    expect(
+      screen.getByText("Preparing the module — the first download compiles it (usually under 8 s) · 3 s"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/may be busy/)).toBeNull();
+
+    rerender(
+      <ZipProgress
+        kind="pattern"
+        phase="building"
+        status={{ state: "building" }}
+        error={null}
+        detail={null}
+        waited={8}
+        expectedS={8}
+      />,
+    );
+    expect(
+      screen.getByText("Preparing the module — the first download compiles it (longer than usual) · 8 s"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/build server may be busy, or stopped/)).toHaveTextContent(/up to 3 minutes/);
+  });
+
+  it("gives a deck the promise its compiling patterns need", () => {
+    render(
+      <ZipProgress
+        kind="deck"
+        phase="building"
+        status={{ state: "building", total: 6, included: 3, pending: 3, skipped: [] }}
+        error={null}
+        detail={null}
+        waited={4}
+        expectedS={11}
+      />,
+    );
+    expect(
+      screen.getByText("Preparing the pack — 3 of its patterns compile on first use (usually under 11 s) · 4 s"),
+    ).toBeInTheDocument();
   });
 
   it("renders nothing while idle", () => {

@@ -1,9 +1,13 @@
 /**
  * Put one build on the queue, for testing the worker without the web UI.
  *
- *   npm run build:enqueue                    # whole image from the template
- *   npm run build:enqueue -- path/to.h       # or a header of your choosing
- *   npm run build:enqueue -- --pfm path/to.h # loadable modules instead
+ *   npm run build:enqueue                 # the pattern template
+ *   npm run build:enqueue -- path/to.h    # or a header of your choosing
+ *
+ * The worker compiles the header into a .pfm module and zips it, as it does
+ * for a pattern sent from the site. Whole-image builds ended on 12 August
+ * (4c13474). --pfm, which used to pick modules over an image, is still
+ * accepted and changes nothing.
  *
  * Prints the build id, then poll it with:  npm run build:status -- <id>
  */
@@ -18,9 +22,7 @@ async function main() {
   const { getDb } = await import("../src/lib/community/server/db");
   const { user } = await import("../src/lib/community/server/schema");
 
-  const args = process.argv.slice(2);
-  const pfm = args.includes("--pfm");
-  const headerArg = args.find((a) => a !== "--pfm");
+  const headerArg = process.argv.slice(2).find((a) => a !== "--pfm");
   const headerPath = headerArg
     ? path.resolve(process.cwd(), headerArg)
     : path.resolve(process.cwd(), "../firmware/patternflow/_TEMPLATE.h");
@@ -38,13 +40,9 @@ async function main() {
   }
 
   const code = fs.readFileSync(headerPath, "utf8");
-  const id = await enqueueBuild(
-    accounts[0].id,
-    [{ label: path.basename(headerPath), code }],
-    pfm ? "pfm" : "bin",
-  );
+  const id = await enqueueBuild(accounts[0].id, [{ label: path.basename(headerPath), code }], "pfm");
 
-  console.log(`queued ${pfm ? "module" : "image"} build ${id}`);
+  console.log(`queued module build ${id}`);
   console.log(`  header : ${headerPath} (${(code.length / 1024).toFixed(1)} KB)`);
   console.log(`  as     : ${accounts[0].name}`);
   console.log(`\nnpm run build:status -- ${id}`);

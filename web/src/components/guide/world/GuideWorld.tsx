@@ -3,11 +3,14 @@
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Component, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { preload } from "react-dom";
+import { hasWebGL } from "@/lib/webgl";
 import styles from "../Guide.module.css";
 import { useDarkDocument } from "../darkDocument";
 import { screenAt } from "../pages";
 import { useGuideStore, type GuideScreen } from "../store";
 import { stageLoad } from "../ui/stageLoad";
+import { BUILD_MODELS, DEVICE_MODELS, DRACO_FILES } from "../stage/files";
 
 // The guide's world: one stage for /guide, /guide/build, /guide/play and
 // /guide/make, in both languages. app/guide/layout.tsx mounts this once and
@@ -36,22 +39,9 @@ const WorldStage = dynamic(() => import("./WorldStage"), { ssr: false });
 
 // A browser that cannot give the stage a WebGL 2 context (turned off, an old
 // machine, a blocked GPU) gets the guide without it: the words, the cards and
-// the pictures are all there. Asked once, before the stage's chunk is; the
-// stage used to be loaded regardless, throw as it made its renderer, and
+// the pictures are all there. Asked (lib/webgl) before the stage's chunk is;
+// the stage used to be loaded regardless, throw as it made its renderer, and
 // leave the page waiting on a canvas that would never draw.
-let webgl: boolean | null = null;
-function hasWebGL(): boolean {
-  if (webgl !== null) return webgl;
-  try {
-    // (A 1×1 canvas nobody holds: its context goes with it.)
-    const probe = document.createElement("canvas");
-    probe.width = probe.height = 1;
-    webgl = !!probe.getContext("webgl2");
-  } catch {
-    webgl = false;
-  }
-  return webgl;
-}
 
 /**
  * The stage is the guide's picture, not the guide. If it throws as it is
@@ -62,14 +52,14 @@ function hasWebGL(): boolean {
  * told, as where there is no WebGL at all.
  */
 class StageGuard extends Component<{ children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };
   }
-  componentDidCatch() {
+  override componentDidCatch() {
     stageLoad.set({ failed: true });
   }
-  render() {
+  override render() {
     return this.state.failed ? null : this.props.children;
   }
 }
@@ -98,6 +88,19 @@ function World({ screen, children }: { screen: GuideScreen; children: ReactNode 
   // The stage loads the first time a page with the device is on screen, and stays.
   const [staged, setStaged] = useState(false);
   if (!staged && entered && page !== "make" && hasWebGL()) setStaged(true);
+  // The stage's models, and the decoder they are packed for, start down with
+  // its code, not after it. They were asked for only once three.js had
+  // arrived and run (the decoder once the first model was in), and on a slow
+  // line that is seconds. The stage fetches them the same way later (same
+  // address, CORS, no credentials of another site's) and the browser hands
+  // it these.
+  useEffect(() => {
+    if (!staged) return;
+    for (const url of [...DEVICE_MODELS, ...DRACO_FILES]) preload(url, { as: "fetch", crossOrigin: "anonymous" });
+  }, [staged]);
+  useEffect(() => {
+    if (staged && page === "build") for (const url of BUILD_MODELS) preload(url, { as: "fetch", crossOrigin: "anonymous" });
+  }, [staged, page]);
   // No stage is coming: whoever waits for it (the first visit's counter) is told.
   useEffect(() => {
     if (entered && page !== "make" && !hasWebGL()) stageLoad.set({ failed: true });

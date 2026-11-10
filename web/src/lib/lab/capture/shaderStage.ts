@@ -28,7 +28,7 @@ import {
   type ShaderPass,
 } from "./shaderSource";
 
-export type ShaderFrame = {
+type ShaderFrame = {
   geometry: CaptureGeometry;
   /** The picture at `geometry.render`, for the painter to place. */
   canvas: OffscreenCanvas;

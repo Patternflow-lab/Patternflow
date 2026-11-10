@@ -24,6 +24,7 @@ import {
   type PatternInput,
 } from "../lib/pattern/harness";
 import { hexToRgb } from "../lib/pattern/color";
+import { normalizeKnob } from "../lib/pattern/controls";
 import { matrixFromCode, type MatrixSize } from "../lib/pattern/matrix";
 import { parseRampAnnotation } from "../lib/pattern/ramp";
 
@@ -85,11 +86,7 @@ function makeInput(
 }
 
 function normalize(values: number[], ranges: KnobRange[]): number[] {
-  return values.map((v, i) => {
-    const range = ranges[i] ?? [0, 1];
-    const span = Math.max(0.001, range[1] - range[0]);
-    return (v - range[0]) / span;
-  });
+  return values.map((v, i) => normalizeKnob(v, ranges[i] ?? [0, 1]));
 }
 
 // ── Live view state ──────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { authClient } from "@/lib/community/auth-client";
 import AuthModal from "@/components/community/AuthModal";
 import { renderPatternThumb } from "@/lib/community/thumbs";
 import { knobSetupFromCode } from "@/lib/community/knobs";
+import { knobWheelValue, normalizeKnob } from "@/lib/pattern/controls";
 import {
   describeMatrixShape,
   formatMatrix,
@@ -14,7 +15,12 @@ import {
   matrixFromCode,
 } from "@/lib/pattern/matrix";
 import SandboxPreview from "@/components/community/SandboxPreview";
-import { buildsConfigured, communityApiUrl, COMMUNITY_FETCH_INIT } from "@/lib/community/apiBase";
+import {
+  buildsConfigured,
+  communityApiUrl,
+  COMMUNITY_FETCH_INIT,
+  readApiError,
+} from "@/lib/community/apiBase";
 import {
   COLLECTION_EVENT,
   DECK_DRAG_TYPE,
@@ -145,7 +151,16 @@ export default function PatternCard({
   // Deck membership, kept in step with every other deck surface on the page.
   const [inDeck, setInDeck] = useState(false);
   const [deckBusy, setDeckBusy] = useState(false);
-  const [deckNote, setDeckNote] = useState<string | null>(null);
+  // One line over the thumbnail for 2.5 s: a deck that is full, a like the
+  // server turned down. A second note restarts the clock instead of being
+  // cleared early by the first note's timer.
+  const [cardNote, setCardNote] = useState<string | null>(null);
+  const noteTimer = useRef<number | undefined>(undefined);
+  const flashNote = (text: string) => {
+    window.clearTimeout(noteTimer.current);
+    setCardNote(text);
+    noteTimer.current = window.setTimeout(() => setCardNote(null), 2500);
+  };
   useEffect(() => {
     const sync = () => setInDeck(deckHas(item.id));
     sync();
@@ -189,6 +204,7 @@ export default function PatternCard({
       if (!response.ok) {
         setLiked(previous.liked);
         setLikeCount(previous.likeCount);
+        flashNote(await readApiError(response, "Like not saved"));
         return;
       }
       const payload = (await response.json()) as { liked: boolean; count: number };
@@ -197,6 +213,7 @@ export default function PatternCard({
     } catch {
       setLiked(previous.liked);
       setLikeCount(previous.likeCount);
+      flashNote("Network error.");
     } finally {
       setLikeBusy(false);
     }
@@ -212,16 +229,15 @@ export default function PatternCard({
       return;
     }
     setDeckBusy(true);
-    setDeckNote(null);
+    setCardNote(null);
     // `code` is the .h the deck builds; `js` is the source this card is
     // already rendering, carried so the dock can draw the slot.
     const added = await collectPattern(
       { patternId: item.id, title: item.title, js: item.code },
       fetchPatternHeader,
     );
-    if (!added.ok) setDeckNote(added.reason ?? "Deck is full.");
+    if (!added.ok) flashNote(added.reason ?? "Deck is full.");
     setDeckBusy(false);
-    window.setTimeout(() => setDeckNote(null), 2500);
   };
 
   // Dragging a card onto the dock is the same act as pressing its "+", so it
@@ -374,16 +390,12 @@ export default function PatternCard({
     if (e.ctrlKey) return;
     e.preventDefault();
 
-    const [min, max] = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
-    const span = Math.max(0.001, max - min);
-    const step = span / 25;
+    const range = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
     const direction = e.deltaY < 0 ? 1 : -1;
 
     setKnobValues((prev) => {
       const next = [...prev];
-      const current = next[activeKnobIdx] ?? min;
-      const updated = Math.max(min, Math.min(max, current + direction * step));
-      next[activeKnobIdx] = Number(updated.toFixed(3));
+      next[activeKnobIdx] = knobWheelValue(next[activeKnobIdx] ?? range[0], range, direction);
       return next;
     });
   };
@@ -391,7 +403,7 @@ export default function PatternCard({
   const activeLabel = knobSetup.labels[activeKnobIdx] ?? `Knob ${activeKnobIdx + 1}`;
   const activeValue = knobValues[activeKnobIdx] ?? 0;
   const [activeMin, activeMax] = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
-  const activeNorm = (activeValue - activeMin) / Math.max(0.001, activeMax - activeMin);
+  const activeNorm = normalizeKnob(activeValue, [activeMin, activeMax]);
 
   // Dynamic detail page URL query carrying modified knob values
   const detailUrl = `/community/p/${item.id}?k=${knobValues.join(",")}`;
@@ -449,7 +461,7 @@ export default function PatternCard({
 
         <div className={rotateThumb ? styles.screenRotator : styles.screenUpright}>
           {thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
+            // eslint-disable-next-line @next/next/no-img-element -- a data URL this browser just rendered; there is no file for the optimizer to fetch
             <img src={thumb} alt={`${item.title} preview`} />
           ) : (
             <div className={styles.cardThumbNote}>{failed ? "render error" : "rendering…"}</div>
@@ -505,11 +517,9 @@ export default function PatternCard({
         >
           <HeartIcon filled={liked} />
         </button>
-        {deckNote && (
-          <span
-            className={`${styles.cardDeckNote} ${deckNoteEdge}`}
-          >
-            {deckNote}
+        {cardNote && (
+          <span role="alert" className={`${styles.cardDeckNote} ${deckNoteEdge}`}>
+            {cardNote}
           </span>
         )}
 

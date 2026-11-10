@@ -127,6 +127,10 @@ describe("02 Pattern Lab: the Lab's own words", () => {
       [{ ...two, visible: false }, one],
       [{ ...two, role: "mask" }, one],
       [{ ...two, opacity: 0 }, one],
+      [{ ...one, opacity: 0.5 }],
+      [{ ...one, blend: "multiply" }],
+      [{ ...one, blend: "screen" }],
+      [{ ...two, opacity: 0 }, { ...one, opacity: 0.5 }],
       [px, one],
       [{ ...px, visible: false }, one],
       [{ ...one, role: "mask" }],
@@ -135,7 +139,7 @@ describe("02 Pattern Lab: the Lab's own words", () => {
     ];
     for (const layers of cases) {
       // As the Lab saves them: plain JSON (serialize.ts).
-      const saved = JSON.parse(JSON.stringify(layers.map((l) => ({ type: l.type, visible: l.visible, role: l.role, opacity: l.opacity }))));
+      const saved = JSON.parse(JSON.stringify(layers.map((l) => ({ type: l.type, visible: l.visible, role: l.role, opacity: l.opacity, blend: l.blend }))));
       expect(stackOf(saved)).toBe(needsFlatten(layers));
     }
   });

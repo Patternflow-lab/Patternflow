@@ -67,13 +67,10 @@ vec4 ramp(float v) {
 #line 1
 `;
 
-/** How many lines the preamble adds before the user's line 1. */
-export const SHADER_PREAMBLE_LINES = SHADER_PREAMBLE.split("\n").length - 1;
-
 export type ShaderPass = "image" | "state";
 
 /** The name of the entry point a pass calls. */
-export const SHADER_ENTRY: Record<ShaderPass, string> = {
+const SHADER_ENTRY: Record<ShaderPass, string> = {
   image: "mainImage",
   state: "mainState",
 };
@@ -122,7 +119,7 @@ export function remapShaderLog(log: string): string {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) =>
-      line.replace(/\b0:(\d+):/g, (whole, digits: string) =>
+      line.replace(/\b0:(\d+):/g, (_, digits: string) =>
         Number(digits) >= 100000 ? "wrapper:" : `line ${digits}:`,
       ),
     )
@@ -130,7 +127,7 @@ export function remapShaderLog(log: string): string {
     .join("\n");
 }
 
-export type ShaderSourceCheck = { ok: true; hasState: boolean } | { ok: false; error: string };
+type ShaderSourceCheck = { ok: true; hasState: boolean } | { ok: false; error: string };
 
 /** What can be said about a source without a GPU. */
 export function checkShaderSource(source: string): ShaderSourceCheck {
