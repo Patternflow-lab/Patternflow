@@ -450,7 +450,7 @@ export function update(dt, input, params) {
 }
 
 // ---- colour: the balanced part (potential vorticity) picks the metal, the slope of the surface lights it ----
-// stops over b = 0 (a hollow, turning the way a low turns), 0.5 (flat sea) and 1 (a hill)
+// stops over b = 0 for a hollow, 0.5 for the flat sea and 1 for a hill
 const STOPS = [
   [0.0, 138, 92, 156],
   [0.3, 144, 122, 156],
