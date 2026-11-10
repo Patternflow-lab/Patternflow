@@ -540,7 +540,7 @@ export default function RoadmapMap() {
   const drawnMap = useMemo(
     () => (
       <>
-        {/* Infinite Seamless Horizontal Lane Dividers */}
+        {/* Lane dividers, drawn far past the map on both sides */}
         {Array.from({ length: 24 }, (_, i) => i - 6).map((idx) => {
           const y = TOP + idx * LANE_H;
           return (
@@ -563,7 +563,7 @@ export default function RoadmapMap() {
           height={7000}
         />
 
-        {/* Infinite Seamless Vertical Month Ticks */}
+        {/* Month ticks, drawn far past the map above and below */}
         {ticks.map((tick) => {
           const x = GUTTER + dateToT(isoDay(tick.utc)) * innerW;
           return (
