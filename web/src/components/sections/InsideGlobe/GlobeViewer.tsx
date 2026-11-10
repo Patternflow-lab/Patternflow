@@ -7,6 +7,7 @@ import BuildFilters from './BuildFilters';
 import PhotoLightbox from './PhotoLightbox';
 import PinLink from './PinLink';
 import { builds, fetchesAhead, formatBuildDate, CARD_TILES, STRIP_TILES, TILE_SIZES } from './builds';
+import type { Build } from './builds';
 import { useBuildSelection } from './useBuildSelection';
 import { useAppStore } from '@/store/useAppStore';
 import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
@@ -18,6 +19,8 @@ const DESC_SCALE_STEP = 0.04;
 const DESC_SCALE_MIN = 0.6;
 // Kept clear above and below the text, in pixels.
 const DESC_GAP = 6;
+// How long the overlay takes to fade (.overlay in the stylesheet), ms.
+const OVERLAY_FADE_MS = 300;
 
 // The Inside section's viewer: an interactive globe with the picked build's
 // details overlaid on a translucent scrim. Tap a marker (or empty space, or
@@ -52,6 +55,22 @@ export default function GlobeViewer() {
   );
   const selected = selectedIndex === -1 ? null : visibleBuilds[selectedIndex];
 
+  // What the overlay shows: the picked build, and for the third of a second
+  // the overlay takes to fade, the build just let go. Its photos and words
+  // used to be taken away the moment it was let go, so the fade was of an
+  // empty box and the card cut out.
+  const [kept, setKept] = useState<{ build: Build; index: number } | null>(null);
+  if (selected && (kept?.build !== selected || kept.index !== selectedIndex)) {
+    setKept({ build: selected, index: selectedIndex });
+  }
+  useEffect(() => {
+    if (selected || !kept) return;
+    const timer = setTimeout(() => setKept(null), OVERLAY_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [selected, kept]);
+  const shown = selected ?? kept?.build ?? null;
+  const shownIndex = selected ? selectedIndex : kept?.index ?? -1;
+
   // Only the tiles a pin shows the moment it opens are warmed up front (see the
   // preloader below). The rest of a build's photos live in the lightbox and can
   // load when it is opened, which keeps the warm-up flat as pins are added
@@ -63,7 +82,7 @@ export default function GlobeViewer() {
   );
   const images = selected?.images;
   // The strip only has room for a few; the rest are reachable through any tile.
-  const stripImages = images?.slice(0, STRIP_TILES);
+  const stripImages = shown?.images?.slice(0, STRIP_TILES);
   const galleryOpen = galleryIndex !== null && !!images?.length;
 
   const select = (id: string | null) => {
@@ -93,6 +112,7 @@ export default function GlobeViewer() {
   // and at 1366x768 half of it was gone. So the text is measured against the
   // band and stepped down in size until it fits, links above it included.
   const selectedKey = selected?.id ?? null;
+  const shownKey = shown?.id ?? null;
   useLayoutEffect(() => {
     const band = detailRef.current;
     const text = band?.firstElementChild;
@@ -120,7 +140,7 @@ export default function GlobeViewer() {
     observer.observe(band);
     observer.observe(text);
     return () => observer.disconnect();
-  }, [selectedKey]);
+  }, [shownKey]);
 
   // Esc lets the selected build go. With a mouse a click on the bare globe
   // does it, and on a phone the card has a close button; a keyboard on the
@@ -176,7 +196,7 @@ export default function GlobeViewer() {
         className={`${styles.overlay} ${selected ? styles.overlayOpen : ''}`}
         aria-hidden={!selected}
       >
-        {selected && (
+        {shown && (
           <>
             {/* Photo strip, pinned to the top edge. */}
             {stripImages && stripImages.length > 0 && (
@@ -234,23 +254,23 @@ export default function GlobeViewer() {
             <div className={styles.nav}>
               <div className={styles.info}>
                 <div>
-                  <span className={styles.maker}>{selected.maker}</span>
+                  <span className={styles.maker}>{shown.maker}</span>
                 </div>
                 <div>
                   <span className={styles.meta}>
-                    {selected.location.label} · {formatBuildDate(selected.date)}
+                    {shown.location.label} · {formatBuildDate(shown.date)}
                   </span>
                 </div>
               </div>
 
               <span className={styles.kicker}>
-                {String(selectedIndex + 1).padStart(2, '0')} /{' '}
+                {String(shownIndex + 1).padStart(2, '0')} /{' '}
                 {String(visibleBuilds.length).padStart(2, '0')}
               </span>
 
-              {selected.links && selected.links.length > 0 && (
+              {shown.links && shown.links.length > 0 && (
                 <div className={styles.links} ref={linksRef}>
-                  {selected.links.map((link) => (
+                  {shown.links.map((link) => (
                     <PinLink
                       key={link.href}
                       className={styles.link}
@@ -269,7 +289,7 @@ export default function GlobeViewer() {
                 turning the per-line highlight into one big rectangle. */}
             <div className={styles.detail} ref={detailRef}>
               <div className={styles.detailInner}>
-                <span className={styles.desc}>{selected.description}</span>
+                <span className={styles.desc}>{shown.description}</span>
               </div>
             </div>
           </>

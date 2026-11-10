@@ -48,6 +48,19 @@
   pointer-events: auto;
 }
 
+/* As the overlay opens its two ends come in: the photos down from the top
+   edge, the description up from the bottom one, 10px each, while the card
+   fades up. Only then. Both stay in place from one build to the next, so a
+   step along the arrows moves nothing (see .detail). */
+@keyframes stripIn {
+  from { transform: translateY(-10px); }
+  to { transform: none; }
+}
+@keyframes detailIn {
+  from { transform: translateY(10px); }
+  to { transform: none; }
+}
+
 /* Top-center prompt, matching the product preview's hint style. */
 .hint {
   position: absolute;
@@ -179,6 +192,7 @@
   box-sizing: border-box;
   text-align: center;
   pointer-events: none;
+  animation: detailIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Highlight backgrounds that hug the text itself, line by line. Translucent,
@@ -262,6 +276,14 @@
   padding: 0 30px;
   box-sizing: border-box;
   pointer-events: none;
+  animation: stripIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thumbs,
+  .detail {
+    animation: none;
+  }
 }
 .thumb {
   position: relative;
