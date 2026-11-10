@@ -20,7 +20,7 @@
 // of them at most; before this every panel sat in the route's first chunk.
 
 import dynamic from "next/dynamic";
-import type { ComponentType, FunctionComponent } from "react";
+import { useCallback, useState, useSyncExternalStore, type ComponentType, type FunctionComponent } from "react";
 import type { DockviewApi, IDockviewPanelProps } from "dockview-react";
 
 import PreviewPanel from "./PreviewPanel";
@@ -68,9 +68,30 @@ function PanelLoading() {
 }
 
 // Panels take dockview's props or none at all; both fit the component map,
-// which is why the cast at the end is safe.
+// which is why the cast is safe.
+//
+// dockview renders every panel's component the moment the panel is added,
+// fronted or not, so dynamic() alone fetched all four editors on first load
+// and mounted them behind their tabs. Mounted, Graphic Export started its
+// worker and was sent the whole project on every knob step. The gate waits
+// for the tab to come to the front once. After that the panel stays mounted,
+// as it always has, and keeps its state while another tab is in front.
 function lazy<P>(load: () => Promise<{ default: ComponentType<P> }>) {
-  return dynamic(load, { ssr: false, loading: PanelLoading }) as unknown as ComponentType<IDockviewPanelProps>;
+  const Loaded = dynamic(load, { ssr: false, loading: PanelLoading }) as unknown as ComponentType<IDockviewPanelProps>;
+  return function LazyPanel(props: IDockviewPanelProps) {
+    const panelApi = props.api;
+    const subscribe = useCallback(
+      (notify: () => void) => {
+        const subscription = panelApi.onDidVisibilityChange(notify);
+        return () => subscription.dispose();
+      },
+      [panelApi],
+    );
+    const visible = useSyncExternalStore(subscribe, () => panelApi.isVisible);
+    const [opened, setOpened] = useState(visible);
+    if (visible && !opened) setOpened(true);
+    return opened || visible ? <Loaded {...props} /> : null;
+  };
 }
 
 /** In menu order. Placement is by reference, so this order is free to be the reader's. */
