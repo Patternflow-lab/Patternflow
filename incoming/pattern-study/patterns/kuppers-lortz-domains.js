@@ -9,7 +9,7 @@
 // Round:   124
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0.5..3, Scale=-1..1.2, Rotation=-1..1
+// @knobs Hue=0..1, Flow=0.5..3, Scale=-1..1, Rotation=-1..1
 //
 // Knob 1: x
 // Knob 2: x
@@ -36,7 +36,7 @@ const CFG = {
   kc: 0.8, // cut wavenumber of the amplitudes, in units of q0
   noise: 0.035, // white noise per square root of model time, on the 2 by 2 LED grid, in the retained modes
   hmax: 0.5,
-  v1: 1.25, // LEDs a second the front of an invader runs along its own roll normal at Flow 1
+  v1: 1.25, // LEDs a second the front of an invader runs along its own roll normal at Flow 1 and Rotation 0
   pre: 300,
   modm: 0.0, // eps modulation depth
   theta0: 0.3, // direction of the first wavevector
@@ -126,7 +126,7 @@ function gauss() {
 
 // ---- the state -----------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
-const lamOf = (s) => CFG.lam0 * pow(CFG.lamr, cl(s, -1, 1.2));
+const lamOf = (s) => CFG.lam0 * pow(CFG.lamr, cl(s, -1, 1));
 const aOf = (s) => CFG.a0 * pow(CFG.ar, cl(s, -1, 1));
 
 const DIR = [0, 1, 2].map((j) => [cos(CFG.theta0 + (TAU * j) / 3), sin(CFG.theta0 + (TAU * j) / 3)]);
@@ -267,7 +267,7 @@ export function update(dt, input, params) {
   const S = params.s, ft = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
   prepare(S, lamOf(k[2]), aOf(k[3]));
-  const ell = S.lam / TAU, tps = (CFG.v1 * cl(k[1], 0.5, 3)) / (2 * sqrt(CFG.eps * S.a) * ell);
+  const ell = S.lam / TAU, tps = (CFG.v1 * cl(k[1], 0.5, 3)) / (2 * sqrt(CFG.eps * CFG.a0) * ell);
   advance(S, ft * tps, CFG.hmax);
   // Never reached in the runs in the header. If the amplitudes ever went bad, start over.
   if (!(S.ar[0][0] * S.ar[0][0] + S.ai[1][GN >> 1] * S.ai[1][GN >> 1] < 100 * CFG.eps)) {
