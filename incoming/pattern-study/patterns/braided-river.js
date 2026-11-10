@@ -90,7 +90,7 @@
 //    carries one across the 64 LEDs in about 25 minutes. A rough figure. At every knob at its maximum the bed is new in 10 s (0.13), at the
 //    minimum it holds 0.80 for 20 s.
 // The flowcheck of this study. 240 s at the opening, every knob at its minimum and its maximum, and three random positions: recur 0.603
-// to 0.703, dim 0.950 to 0.983, quiet 0.817 to 0.877, drift 0.0 to 0.6 percent; the last quarter dim 0.935 to 0.964, quiet 0.601 to
+// to 0.717, dim 0.950 to 0.985, quiet 0.817 to 0.925, drift 0.0 to 0.6 percent; the last quarter dim 0.936 to 0.970, quiet 0.601 to
 // 0.832. Seeds 1 to 4 at the minimum: recur 0.525 to 0.555, last-quarter quiet 0.662 to 0.764; at the maximum recur 0.583 to 0.636,
 // last-quarter quiet 0.655 to 0.869. 900 s: opening recur 0.618, dim 0.976, quiet 0.915, last quarter 0.978 and 0.880, drift 0.0 percent;
 // minimum 0.531, 0.964, 0.900, last quarter 0.927 and 0.794, drift 0.2; maximum 0.582, 0.988, 0.951, last quarter 0.982 and 0.853, drift 0.6.
