@@ -17,7 +17,7 @@
 // Knob 4: Water. PLACEHOLDER
 
 const W = 64, H = 128;
-const { floor, ceil, max, min, abs, sqrt, exp, log, pow, sin, cos, tanh, atan2, PI } = Math;
+const { floor, ceil, max, min, abs, sqrt, exp, log, pow, sin, cos, tanh, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
@@ -196,7 +196,7 @@ function step(S, qb) {
 // ---- knobs ---------------------------------------------------------------------------------
 const OPEN = [0, 2, 0, 0.06];
 const scaleOf = (k) => 1.4 * pow(k < 0 ? 1.4 : 1.7, cl(k, -1, 1)); // LEDs to a cell: 1.0, 1.4, 2.38
-const waterOf = (k) => 0.8 * (k < 0 ? pow(2.3, cl(k, -1, 1)) : pow(1.6, cl(k, -1, 1))); // 0.35, 0.8, 1.28
+const waterOf = (k) => 0.8 * pow(1.6, cl(k, -1, 1)); // 0.5, 0.8, 1.28
 const STEPS_BASE = 50, STEPS_PER_FLOW = 45; // bed steps a second: 50 + 45 Flow
 
 function start(params, k) {
@@ -230,6 +230,8 @@ export function update(dt, input, params) {
     n++;
   }
   if (params.acc > 4) params.acc = 4;
+  // Never reached in the runs in the header. If the bed ever went bad, start over.
+  if (!isFinite(params.s.z[(NY >> 1) * ST + (NX >> 1)] + params.s.Q[(NY >> 2) * ST + (NX >> 2)])) start(params, k);
   derive(params);
 }
 
@@ -303,6 +305,8 @@ function buildLuts(P, hue) {
 const NF = 6;
 function derive(P) {
   const S = P.s, z = S.z, Q = S.Q, sbm = S.sbm;
+  // The bed only knows the discharge in proportion; the stage rises and falls with the real one, so Water shows at once.
+  const qr = P.qb / 0.82;
   if (!P.F) {
     P.F = new Float32Array(NC * NF);
     P.A = new Float32Array(NC);
@@ -313,11 +317,11 @@ function derive(P) {
   for (let y = 0; y < NY; y++) {
     const o = y * ST, ou = (y > 0 ? y - 1 : NY - 1) * ST, od = (y < NY - 1 ? y + 1 : 0) * ST;
     for (let x = 1; x <= NX; x++) {
-      const i = o + x, q = Q[i];
+      const i = o + x, q = Q[i] * qr;
       A[i] = sm(0.45, 1.5, q);
       // light low in the north-west
       const gx = (z[i - 1] - z[i + 1]) * 0.5, gy = (z[ou + x] - z[od + x]) * 0.5;
-      const sh = 0.5 + 0.5 * tanh((gx * 0.9 + gy * 0.4) * 20);
+      const sh = 0.5 + 0.5 * tanh((gx * 0.9 + gy * 0.4) * 34);
       const c = i * NF;
       F[c + 1] = cl(log(q / 0.7) / log(6.5), 0, 1);
       F[c + 2] = cl(sqrt(sbm[i] / CFG.s0) / 1.5, 0, 1);
