@@ -67,8 +67,17 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
     }
   };
 
+  // A form, so Enter signs in from the username field as well as the password
+  // one, and a password manager finds a pair of fields to fill.
   const body = (
-    <>
+    <form
+      className={styles.modalBody}
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!busy) void submit();
+      }}
+    >
       <div className={styles.authTabs}>
         <button type="button" data-active={tab === "signin"} onClick={() => setTab("signin")}>
           Sign in
@@ -100,9 +109,6 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
           value={password}
           autoComplete={tab === "signup" ? "new-password" : "current-password"}
           onChange={(event) => setPassword(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") void submit();
-          }}
         />
         {tab === "signup" && <span className={styles.fieldHint}>At least 8 characters.</span>}
       </label>
@@ -123,15 +129,19 @@ export default function AuthModal({ onClose, onAuthed, embedded = false }: Props
         </label>
       )}
 
-      {error && <div className={styles.formError}>{error}</div>}
+      {error && (
+        <div className={styles.formError} role="alert">
+          {error}
+        </div>
+      )}
 
-      <button type="button" className={styles.btnPrimary} disabled={busy} onClick={() => void submit()}>
+      <button type="submit" className={styles.btnPrimary} disabled={busy}>
         {busy ? "…" : tab === "signup" ? "Create account" : "Sign in"}
       </button>
-    </>
+    </form>
   );
 
-  if (embedded) return <div className={styles.modalBody}>{body}</div>;
+  if (embedded) return body;
 
   return <AuthWindow onClose={onClose}>{body}</AuthWindow>;
 }
@@ -155,7 +165,7 @@ function AuthWindow({ onClose, children }: { onClose: () => void; children: Reac
             ×
           </button>
         </div>
-        <div className={styles.modalBody}>{children}</div>
+        {children}
       </div>
     </div>
   );
