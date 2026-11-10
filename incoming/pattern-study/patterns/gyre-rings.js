@@ -37,17 +37,24 @@ const CFG = {
   wn0: 4.6, // wind: delta_I / delta_M at Wind 0
   wnr: 1.15, // ratio per unit of Wind
   rf: 0.3, // bottom friction in units of beta delta_M
-  ld: 2, // deformation radius over delta_M
-  rq: 0.05, // relaxation of the interface, per tu
-  nz: 0.8, // the gusts, as a share of the wind curl amplitude
+  nz: 1.2, // the gusts, as a share of the wind curl amplitude
   nzTau: 0.5, // their correlation time, tu
-  nzK: 0.8, // their wavenumber in units of 1 / delta_M
+  nzK: 0.57, // their wavenumber in units of 1 / sqrt(delta_M)
   tauT: 3, // relaxation of the temperature, tu
   vel: 5, // peak jet speed per unit of Flow, LEDs per second
   ukf: 3, // peak jet speed over beta (delta_I)^2
   cfl: 0.5, // (|u| + |v|) h per step
   warm: 700, // steps of hidden warm-up
   base: 0.0,
+  v0: 0.36, // brightest channel at the cold end, of 255
+  v1: 0.95, // and at the warm end
+  vg: 0.8, // exponent of the ramp between
+  vs: 0.32, // how far the shading takes it either way, as a share
+  sa: 0.6, // lightness given to the temperature anomaly
+  sw: 1.2, // anomaly over its block scale that saturates it
+  sz: 0.6, // lightness given to the vorticity
+  zfl: 0.15, // share of the panel's mean square vorticity every block gets at least
+  zk: 1.2, // vorticity over its scale that saturates the shading
 };
 
 // ---------------------------------------------------------------- sine transform
@@ -176,10 +183,10 @@ function start(params, k) {
     Lam: new Float64Array(NM), lam: new Float64Array(NM), ninv: new Float64Array(NM),
     nm: [], nw: null, xi: null,
     hs: [1, 1], nstep: 0, t: 0, umax: 100,
-    delta: 0, wn: 0, W0: 0, A: 0, kd2: -1,
+    delta: 0, wn: 0, W0: 0, A: 0,
     TW: NX + 4, T: new Float64Array((NX + 4) * (NY + 4)), T1: new Float64Array((NX + 4) * (NY + 4)),
     UF: new Float64Array(SX * NY), VF: new Float64Array(NX * (NY + 1)), FX: new Float64Array(SX * NY), FY: new Float64Array(NX * (NY + 1)),
-    Ts: new Float64Array(NY), hue: 0, lutHue: -1, lut: null,
+    Ts: new Float64Array(NY), hue: 0, lutHue: -1, lut: null, env: new Float64Array(32), envT: new Float64Array(32),
     kd: k[2], kw: k[3],
   };
   params.s = S;
@@ -187,6 +194,7 @@ function start(params, k) {
     for (let m = 0; m < MX; m++) {
       const L = 4 * sin(((m + 1) * PI) / (2 * NX)) ** 2 + 4 * sin(((n + 1) * PI) / (2 * NY)) ** 2;
       S.Lam[n * MX + m] = L;
+      S.ninv[n * MX + m] = -1 / L;
     }
   // modes the gusts may use: wavenumber up to 0.9 per LED
   for (let n = 0; n < MY; n++)
@@ -217,15 +225,9 @@ function setParams(S, kd, kw) {
   S.W0 = (wn ** 3 * A * CFG.beta) / NX;
   if (abs(A - S.A) > 0.002 * A) {
     S.A = A;
-    const rf = CFG.rf * CFG.beta * delta, kd2 = 1 / (CFG.ld * delta) ** 2;
-    for (let q = 0; q < NM; q++) {
-      const L = S.Lam[q], ni = -1 / (L + kd2);
-      if (S.kd2 >= 0) S.qh[q] *= ni === 0 ? 1 : S.ninv[q] / ni; // keep psi when the radius moves
-      S.ninv[q] = ni;
-      S.lam[q] = CFG.rq + ((rf + A * L) * L) / (L + kd2);
-    }
-    S.kd2 = kd2;
-    const k0 = CFG.nzK / delta;
+    const rf = CFG.rf * CFG.beta * delta;
+    for (let q = 0; q < NM; q++) S.lam[q] = rf + A * S.Lam[q];
+    const k0 = CFG.nzK / sqrt(delta);
     for (let q = 0; q < S.nm.length; q++) {
       const L = S.Lam[S.nm[q]], kk = sqrt(L), z = (kk - k0) / (0.45 * k0);
       S.nw[q] = exp(-z * z);
@@ -259,7 +261,7 @@ function initial(S) {
       psi[j * SX + i] += 0.5 * W0 * NX * 0.15 * env * sin(((3 * PI) / NX) * i + 1) * sin((PI * i) / NX) * cos(3 * y);
     }
   lap(S);
-  for (let j = 1; j < NY; j++) for (let i = 1; i < NX; i++) S.g[j * SX + i] = S.zeta[j * SX + i] - S.kd2 * psi[j * SX + i];
+  for (let j = 1; j < NY; j++) for (let i = 1; i < NX; i++) S.g[j * SX + i] = S.zeta[j * SX + i];
   passX(S.g, SX + 1, SX, S.t1, 0, MX);
   passY(S.t1, 0, MX, S.qh, 0, MX);
   for (let q = 0; q < NM; q++) S.qh[q] *= SC;
@@ -458,7 +460,7 @@ const STOPS = [
   [0.72, 0.84, 0.12, 110],
   [1.0, 0.82, 0.15, 75],
 ];
-const NT = 128, NS = 17;
+const NT = 128, NS = 25;
 function buildLut(S, hue) {
   const lut = new Uint8Array(NT * NS * 3);
   for (let i = 0; i < NT; i++) {
@@ -467,12 +469,16 @@ function buildLut(S, hue) {
     while (a < STOPS.length - 1 && x > STOPS[a][0]) a++;
     const s0 = STOPS[a - 1], s1 = STOPS[a], u = sm(0, 1, cl((x - s0[0]) / (s1[0] - s0[0]), 0, 1));
     const L = s0[1] + (s1[1] - s0[1]) * u, C = s0[2] + (s1[2] - s0[2]) * u, hh = s0[3] + (s1[3] - s0[3]) * u + hue * 360;
+    oklab(L, C, hh);
+    // the colour keeps its hue and the ratios of its channels, and the brightest channel is set directly: it is what the
+    // panel's dim end and the eye's sense of a change both follow, which is no longer a thing of the ramp's lightness
+    const mx = max(RGB[0], RGB[1], RGB[2], 0.01), vb = CFG.v0 + (CFG.v1 - CFG.v0) * pow(x, CFG.vg);
     for (let j = 0; j < NS; j++) {
-      oklab(cl(L + ((j - 8) / 8) * 0.09, 0.05, 0.97), C, hh);
+      const k = (vb * (1 + (CFG.vs * (j - 12)) / 12)) / mx * 255;
       const o = (i * NS + j) * 3;
-      lut[o] = (RGB[0] * 255 + 0.5) | 0;
-      lut[o + 1] = (RGB[1] * 255 + 0.5) | 0;
-      lut[o + 2] = (RGB[2] * 255 + 0.5) | 0;
+      lut[o] = min(255, (RGB[0] * k + 0.5) | 0);
+      lut[o + 1] = min(255, (RGB[1] * k + 0.5) | 0);
+      lut[o + 2] = min(255, (RGB[2] * k + 0.5) | 0);
     }
   }
   S.lut = lut;
@@ -484,18 +490,36 @@ export function draw(display, params) {
   if (!S) return;
   const hue = S.hue + CFG.base;
   if (abs(S.lutHue - hue) > 0.002) buildLut(S, hue);
-  const { T, TW, zeta, lut } = S;
-  // zeta shading scale: the root mean square of the vorticity
-  let s2 = 0;
-  for (let p = 0; p < NVT; p += 3) s2 += zeta[p] * zeta[p];
-  const zs = 1 / (sqrt(s2 / (NVT / 3)) * 1.5 + 1e-6);
+  const { T, TW, Ts, zeta, lut, env, envT } = S;
+  // the scales of the vorticity and of the temperature anomaly, one value to every 16 by 16 block, each floored by a
+  // share of the whole panel's, so the shading shows what the water is doing in the quiet corners as in the jet
+  env.fill(0);
+  envT.fill(0);
+  let tot = 0, totT = 0;
+  for (let j = 0; j < NY; j++)
+    for (let i = 0; i < NX; i++) {
+      const p = j * SX + i, z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25, d = T[(j + 2) * TW + i + 2] - Ts[j];
+      env[(j >> 4) * 4 + (i >> 4)] += z * z;
+      envT[(j >> 4) * 4 + (i >> 4)] += d * d;
+      tot += z * z;
+      totT += d * d;
+    }
+  const fl = (CFG.zfl * tot) / NVT, flT = (CFG.zfl * totT) / NVT;
+  for (let b = 0; b < 32; b++) {
+    env[b] = sqrt(env[b] / 256 + fl) * CFG.zk;
+    envT[b] = sqrt(envT[b] / 256 + flT) * CFG.sw;
+  }
   for (let py = 0; py < H; py++) {
-    const j = NY - 1 - py;
+    const j = NY - 1 - py, fy = cl((j + 0.5) / 16 - 0.5, 0, 6.999), by = fy | 0, ty = fy - by;
     for (let px = 0; px < W; px++) {
+      const fx = cl((px + 0.5) / 16 - 0.5, 0, 2.999), bx = fx | 0, tx = fx - bx, e0 = by * 4 + bx;
+      const en = (env[e0] * (1 - tx) + env[e0 + 1] * tx) * (1 - ty) + (env[e0 + 4] * (1 - tx) + env[e0 + 5] * tx) * ty;
+      const et = (envT[e0] * (1 - tx) + envT[e0 + 1] * tx) * (1 - ty) + (envT[e0 + 4] * (1 - tx) + envT[e0 + 5] * tx) * ty;
       const t = cl(T[(j + 2) * TW + px + 2], 0, 1);
       const p = j * SX + px;
-      const z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25 * zs;
-      const si = cl(8 + 8 * tanh(z) * 0.8 + 0.5, 0, NS - 1) | 0, ti = (t * (NT - 1) + 0.5) | 0, o = (ti * NS + si) * 3;
+      const z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25 / en;
+      const sh = CFG.sa * tanh((t - Ts[j]) / et) + CFG.sz * tanh(z);
+      const si = cl(12 + 12 * sh + 0.5, 0, NS - 1) | 0, ti = (t * (NT - 1) + 0.5) | 0, o = (ti * NS + si) * 3;
       display.setPixel(px, py, lut[o], lut[o + 1], lut[o + 2]);
     }
   }
