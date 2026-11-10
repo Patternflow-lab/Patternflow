@@ -391,9 +391,13 @@ export default function PatternCard({
 
   // Mouse wheel adjusts active knob value. With Ctrl held it is the feed's
   // zoom gesture instead — let it bubble to the wall.
+  //
+  // No preventDefault here. React listens for wheel passively, so the call did
+  // nothing except log "Unable to preventDefault inside passive event listener
+  // invocation" on every tick. The native listener on the card (above) is the
+  // one that keeps the page still.
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey) return;
-    e.preventDefault();
 
     const range = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
     const direction = e.deltaY < 0 ? 1 : -1;
