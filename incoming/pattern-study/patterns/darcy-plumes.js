@@ -487,7 +487,7 @@ export function update(dt, input, params) {
 // ---- the picture. The colour is read from the anomaly of c against its mean along the row, over the rms of that anomaly in
 // the neighbourhood (11 columns by 21 rows, never less than LFLOOR of the whole panel's), with a share of the raw c added back
 // so that the saturated skin and the sink still read, and a rim from the laplacian of c.
-const GAIN = 0.8, WALL = 0.5, RIM = 0.25, LFLOOR = 0.6;
+const GAIN = 0.8, WALL = 0.8, RIM = 0.25, LFLOOR = 0.6;
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
