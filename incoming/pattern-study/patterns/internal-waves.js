@@ -21,20 +21,23 @@ const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- tunables --------------------------------------------------------------------------------------
-const LW = 6, NX = 1 << LW, NZ = 2 * NX, N = NX * NZ; // 64 columns, 128 rows, one cell per LED
-const KXM = 21, KZM = 42; // modes kept: |m| <= KXM, |n| <= KZM (two-thirds rule)
+const LX = 64, LZ = 128, NP = LX * LZ; // the panel: 64 columns, 128 rows, one LED is one length unit
+const RS = 2; // LEDs per cell of the simulation grid
+const SX = LX / RS, SZ = LZ / RS, NS_ = SX * SZ;
+const KXM = floor(SX / 3), KZM = floor(SZ / 3); // modes kept: |m| <= KXM, |n| <= KZM (two-thirds rule)
+const KMAX = max((TAU * KXM) / LX, (TAU * KZM) / LZ);
 const NBV = 1; // buoyancy frequency N, the unit of inverse time
-const NU = 0.3, KAP = 0.3, NU4 = 0.1, KAP4 = 0.1, DRAG = 0.02, DRAGM = 0.12, BREL = 0.03; // viscosity, diffusivity (LED^2 per time unit), the same at fourth order (LED^4), drag, extra drag on modes with no x variation, and a relaxation of the mean of b' along a row to zero
-const NS = 3; // wavemakers
-const SRC = [[14, 100], [47, 62], [20, 22]]; // where they sit, x and z (z up, rows from the bottom)
+const NU = 0.3, KAP = 0.3, NU4 = 0.8, KAP4 = 0.8, DRAG = 0.02, DRAGM = 0.12, BREL = 0.1; // viscosity, diffusivity (LED^2 per time unit), the same at fourth order (LED^4), drag, extra drag on modes with no x variation, and a relaxation of the mean of b' along a row to zero
+const NW = 4; // wavemakers
+const SRC = [[17, 104], [47, 76], [17, 44], [47, 14]]; // where they sit, x and z (z up, rows from the bottom)
 const SIG0 = 3.0; // radius of a wavemaker in LEDs at Scale 0
 const EPS = 0.52; // rms of the buoyancy gradient b'_z / N^2 the forcing amplitude is steered to hold
 const DTL = []; // time step ladder, 0.25 down to 0.005 in steps of 2^(1/4)
 for (let l = 0; l < 24; l++) DTL.push(0.25 * pow(2, -l / 4));
 const CFL_UP = 0.45, CFL_OK = 0.6, CFL_DN = 0.8;
-const TMS = 1.3; // model time units per panel second at Pace 1
+const TMS = 2.2; // model time units per panel second at Pace 1
 
-// ---- radix-2 FFT, rows contiguous, columns by butterflies across rows -------------------------------
+// ---- radix-2 FFT of nx by nz, rows contiguous, columns by butterflies across rows ----------------------------
 function plan(n) {
   const lg = Math.round(Math.log2(n)), rev = new Uint16Array(n), c = new Float64Array(n / 2), s = new Float64Array(n / 2);
   for (let i = 0; i < n; i++) {
@@ -45,96 +48,105 @@ function plan(n) {
   for (let i = 0; i < n / 2; i++) (c[i] = cos((TAU * i) / n)), (s[i] = -sin((TAU * i) / n));
   return { n, rev, c, s };
 }
-const PW = plan(NX), PD = plan(NZ);
-function fftRows(re, im, inv) {
-  const { n, rev, c, s } = PW, sg = inv ? -1 : 1;
-  for (let y = 0; y < NZ; y++) {
-    const o = y * NX;
-    for (let i = 0; i < n; i++) {
-      const j = rev[i];
-      if (j > i) {
-        let t = re[o + i];
-        re[o + i] = re[o + j];
-        re[o + j] = t;
-        t = im[o + i];
-        im[o + i] = im[o + j];
-        im[o + j] = t;
-      }
-    }
-    for (let len = 2; len <= n; len <<= 1) {
-      const half = len >> 1, step = n / len;
-      for (let i = o; i < o + n; i += len)
-        for (let k = 0, t = 0; k < half; k++, t += step) {
-          const wr = c[t], wi = sg * s[t], a = i + k, b = a + half;
-          const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
-          re[b] = re[a] - xr;
-          im[b] = im[a] - xi;
-          re[a] += xr;
-          im[a] += xi;
+// The columns of the spectrum that can hold a kept mode are 0 to KXM and nx - KXM to nx - 1, so the transforms down the columns run over
+// those two stretches only: the inverse does its columns first, the forward its rows first.
+function makeFft(nx, nz) {
+  const PX = plan(nx), PZ = plan(nz);
+  function rows(re, im, inv) {
+    const { n, rev, c, s } = PX, sg = inv ? -1 : 1;
+    for (let y = 0; y < nz; y++) {
+      const o = y * nx;
+      for (let i = 0; i < n; i++) {
+        const j = rev[i];
+        if (j > i) {
+          let t = re[o + i];
+          re[o + i] = re[o + j];
+          re[o + j] = t;
+          t = im[o + i];
+          im[o + i] = im[o + j];
+          im[o + j] = t;
         }
+      }
+      for (let len = 2; len <= n; len <<= 1) {
+        const half = len >> 1, step = n / len;
+        for (let i = o; i < o + n; i += len)
+          for (let k = 0, t = 0; k < half; k++, t += step) {
+            const wr = c[t], wi = sg * s[t], a = i + k, b = a + half;
+            const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
+            re[b] = re[a] - xr;
+            im[b] = im[a] - xi;
+            re[a] += xr;
+            im[a] += xi;
+          }
+      }
     }
   }
-}
-// The columns of the spectrum that can hold a kept mode are 0 to KXM and NX - KXM to NX - 1, so the transforms down the columns
-// run over those two stretches only (43 of the 64): the inverse does its columns first, the forward its rows first.
-function fftCols(re, im, inv) {
-  const { n, rev, c, s } = PD, sg = inv ? -1 : 1;
-  for (let pass = 0; pass < 2; pass++) {
-    const x0 = pass ? NX - KXM : 0, x1 = pass ? NX : KXM + 1;
-    for (let i = 0; i < n; i++) {
-      const j = rev[i];
-      if (j > i) {
-        const a = i * NX, b = j * NX;
-        for (let x = x0; x < x1; x++) {
-          let t = re[a + x];
-          re[a + x] = re[b + x];
-          re[b + x] = t;
-          t = im[a + x];
-          im[a + x] = im[b + x];
-          im[b + x] = t;
-        }
-      }
-    }
-    for (let len = 2; len <= n; len <<= 1) {
-      const half = len >> 1, step = n / len;
-      for (let i = 0; i < n; i += len)
-        for (let k = 0, t = 0; k < half; k++, t += step) {
-          const wr = c[t], wi = sg * s[t], a = (i + k) * NX, b = a + half * NX;
+  function cols(re, im, inv) {
+    const { n, rev, c, s } = PZ, sg = inv ? -1 : 1;
+    for (let pass = 0; pass < 2; pass++) {
+      const x0 = pass ? nx - KXM : 0, x1 = pass ? nx : KXM + 1;
+      for (let i = 0; i < n; i++) {
+        const j = rev[i];
+        if (j > i) {
+          const a = i * nx, b = j * nx;
           for (let x = x0; x < x1; x++) {
-            const xr = re[b + x] * wr - im[b + x] * wi, xi = re[b + x] * wi + im[b + x] * wr;
-            re[b + x] = re[a + x] - xr;
-            im[b + x] = im[a + x] - xi;
-            re[a + x] += xr;
-            im[a + x] += xi;
+            let t = re[a + x];
+            re[a + x] = re[b + x];
+            re[b + x] = t;
+            t = im[a + x];
+            im[a + x] = im[b + x];
+            im[b + x] = t;
           }
         }
+      }
+      for (let len = 2; len <= n; len <<= 1) {
+        const half = len >> 1, step = n / len;
+        for (let i = 0; i < n; i += len)
+          for (let k = 0, t = 0; k < half; k++, t += step) {
+            const wr = c[t], wi = sg * s[t], a = (i + k) * nx, b = a + half * nx;
+            for (let x = x0; x < x1; x++) {
+              const xr = re[b + x] * wr - im[b + x] * wi, xi = re[b + x] * wi + im[b + x] * wr;
+              re[b + x] = re[a + x] - xr;
+              im[b + x] = im[a + x] - xi;
+              re[a + x] += xr;
+              im[a + x] += xi;
+            }
+          }
+      }
     }
   }
+  return (re, im, inv) => {
+    if (inv) {
+      cols(re, im, true);
+      rows(re, im, true);
+    } else {
+      rows(re, im, false);
+      cols(re, im, false);
+    }
+  };
 }
-function fft2(re, im, inv) {
-  if (inv) {
-    fftCols(re, im, true);
-    fftRows(re, im, true);
-  } else {
-    fftRows(re, im, false);
-    fftCols(re, im, false);
-  }
-}
+const fftS = makeFft(SX, SZ), fftO = makeFft(LX, LZ);
 
-// ---- modes. The half plane (ni > 0, or ni = 0 and nj > 0) is stepped, the other half is its conjugate. -------
-const MP = [], MQ = [], MKX = [], MKZ = [], MT = [];
+// ---- modes. The half plane (ni > 0, or ni = 0 and nj > 0) is stepped, the other half is its conjugate. ---------------------
+// A mode's number is its index m in these lists; the state is kept per mode, and mP, mQ (the mode and its mirror) place it on the
+// simulation grid, oP, oQ on the panel's grid.
+const MP = [], MQ = [], OP = [], OQ = [], MKX = [], MKZ = [], MT = [], MNI = [], MNJ = [];
 for (let nj = -KZM; nj <= KZM; nj++)
   for (let ni = 0; ni <= KXM; ni++) {
     if (ni === 0 && nj <= 0) continue;
-    const i = ni, j = (nj + NZ) % NZ, iq = (NX - ni) % NX, jq = (NZ - j) % NZ;
-    MP.push(j * NX + i);
-    MQ.push(jq * NX + iq);
-    MKX.push((TAU * ni) / NX);
-    MKZ.push((TAU * nj) / NZ);
+    MP.push(((nj + SZ) % SZ) * SX + ni);
+    MQ.push(((SZ - nj) % SZ) * SX + ((SX - ni) % SX));
+    OP.push(((nj + LZ) % LZ) * LX + ni);
+    OQ.push(((LZ - nj) % LZ) * LX + ((LX - ni) % LX));
+    MKX.push((TAU * ni) / LX);
+    MKZ.push((TAU * nj) / LZ);
     MT.push(ni * (KZM + 1) + abs(nj));
+    MNI.push(ni);
+    MNJ.push(nj);
   }
 const NM = MP.length;
-const mP = Int32Array.from(MP), mQ = Int32Array.from(MQ), mKX = Float64Array.from(MKX), mKZ = Float64Array.from(MKZ), mT = Int32Array.from(MT);
+const mP = Int32Array.from(MP), mQ = Int32Array.from(MQ), oP = Int32Array.from(OP), oQ = Int32Array.from(OQ), mT = Int32Array.from(MT);
+const mKX = Float64Array.from(MKX), mKZ = Float64Array.from(MKZ), mNI = Int32Array.from(MNI), mNJ = Int32Array.from(MNJ);
 const mK2 = new Float64Array(NM), mIK2 = new Float64Array(NM);
 for (let m = 0; m < NM; m++) {
   mK2[m] = mKX[m] * mKX[m] + mKZ[m] * mKZ[m];
@@ -143,7 +155,7 @@ for (let m = 0; m < NM; m++) {
 const NT = (KXM + 1) * (KZM + 1);
 
 // The exact propagator of one step for the linear terms of a mode (eta, b):
-//   eta_t = -a eta - i kx b,   b_t = -d b - i (N^2 kx / k2) eta,   a = nu k2 + drag, d = kappa k2.
+//   eta_t = -a eta - i kx b,   b_t = -d b - i (N^2 kx / k2) eta,   a = nu k2 + nu4 k4 + drag, d = kappa k2 + kappa4 k4 (+ relaxation).
 // With m = (a + d) / 2, delta = (a - d) / 2, omega^2 = N^2 kx^2 / k2 this is exp(-m dt) (C I + S M0) with M0 the traceless part and
 // (M0)^2 = (delta^2 - omega^2) I, so C = cos, S = sin / Omega for Omega^2 = omega^2 - delta^2 (cosh and sinh when it is negative).
 // Four numbers per mode and step: e11, e22, f12 = kx S e, f21 = (N^2 kx / k2) S e.
@@ -152,9 +164,10 @@ function makeTables(dt) {
   for (let ni = 0; ni <= KXM; ni++)
     for (let nj = 0; nj <= KZM; nj++) {
       const q = (ni * (KZM + 1) + nj) * 4;
-      const kx = (TAU * ni) / NX, kz = (TAU * nj) / NZ, k2 = kx * kx + kz * kz;
+      const kx = (TAU * ni) / LX, kz = (TAU * nj) / LZ, k2 = kx * kx + kz * kz;
       if (k2 === 0) continue;
-      const a = NU * k2 + NU4 * k2 * k2 + (ni === 0 ? DRAGM : DRAG), d = KAP * k2 + KAP4 * k2 * k2 + (ni === 0 ? BREL : 0), m = 0.5 * (a + d), dl = 0.5 * (a - d), w2 = (NBV * NBV * kx * kx) / k2;
+      const a = NU * k2 + NU4 * k2 * k2 + (ni === 0 ? DRAGM : DRAG), d = KAP * k2 + KAP4 * k2 * k2 + (ni === 0 ? BREL : 0);
+      const m = 0.5 * (a + d), dl = 0.5 * (a - d), w2 = (NBV * NBV * kx * kx) / k2;
       const s2 = dl * dl - w2, ef = exp(-m * dt);
       let C, S;
       if (s2 < -1e-12) {
@@ -181,18 +194,17 @@ const TABS = DTL.map(makeTables);
 // ---- state --------------------------------------------------------------------------------------------
 const F64 = (n) => new Float64Array(n);
 function makeState() {
-  const mk = () => ({ er: F64(N), ei: F64(N), br: F64(N), bi: F64(N) });
   const hist = () => ({ er: F64(NM), ei: F64(NM), br: F64(NM), bi: F64(NM) });
   const S = {
     ready: false, t: 0, acc: 0, lv: 8, ord: 0, up: 0, umax: 0, wmax: 0, uw: 0,
-    X: mk(), A: mk(), Nn: hist(), H1: hist(), H2: hist(), // A: scratch spectra; Nn, H1, H2: tendency and histories on the half modes
-    ar: F64(N), ai: F64(N), br_: F64(N), bi_: F64(N), cr: F64(N), ci: F64(N),
-    pr: F64(N), pi: F64(N), bR: new Float32Array(N), bZ: new Float32Array(N), dirty: true,
+    X: hist(), Nn: hist(), H1: hist(), H2: hist(), // the state, the tendency and two histories, per kept mode
+    ar: F64(NS_), ai: F64(NS_), br_: F64(NS_), bi_: F64(NS_), cr: F64(NS_), ci: F64(NS_), pr: F64(NS_), pi: F64(NS_),
+    fr: F64(NP), fi: F64(NP), bR: new Float32Array(NP), bZ: new Float32Array(NP), dirty: true,
     src: [], gA: 1, epsS: EPS, eps: EPS, om: 0.62, omT: 0.62, sig: SIG0, sigT: SIG0, sc: 1, scT: 1, pace: 2, hue: 0, lutHue: -1,
-    lut: new Float32Array(LUTN * 3), ex: F64(2 * KXM + 2), ez: F64(2 * (2 * KZM + 1)),
+    lut: new Float32Array(LUTN * 4), ex: F64(2 * KXM + 2), ez: F64(2 * (2 * KZM + 1)),
   };
-  for (let s = 0; s < NS; s++)
-    S.src.push({ x0: SRC[s][0], z0: SRC[s][1], ph: Math.random() * TAU, a0: 0.5 * PI + (Math.random() - 0.5) * 1.2, fz: 0, az: 0, pz: 0, qz: 0, ox: 0, oz: 0, oa: 0 });
+  for (let s = 0; s < NW; s++)
+    S.src.push({ x0: SRC[s][0], z0: SRC[s][1], ph: Math.random() * TAU, a0: 0.5 * PI + (Math.random() - 0.5) * 1.2, fz: 0, az: 0, pz: 0, qz: 0, oa: 0 });
   return S;
 }
 const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
@@ -200,18 +212,13 @@ const ou = (x, dt, tau) => {
   const e = exp(-dt / tau);
   return x * e + sqrt(1 - e * e) * gauss();
 };
-const mNI = new Int32Array(NM), mNJ = new Int32Array(NM);
-for (let m = 0; m < NM; m++) {
-  mNI[m] = Math.round((mKX[m] * NX) / TAU);
-  mNJ[m] = Math.round((mKZ[m] * NZ) / TAU);
-}
 
 // ---- the wavemakers --------------------------------------------------------------------------------
 // Each is a Gaussian blob of force of radius sig, pointing along the angle a0 (mostly up and down), whose strength goes as cos(phase).
 // The phase runs at om (the frequency, in units of N) and the frequency, the strength, the direction and the place wander as
 // slow Ornstein-Uhlenbeck processes, so that the four beams of a cross swing a few degrees and nothing repeats. The force has no mean along a
 // row (modes with no x variation are left out): a horizontal push on a whole row would only shear it.
-const FWAND = 0.07, AWAND = 0.3, PWAND = 6, ZWAND = 8, OWAND = 0.5;
+const FWAND = 0.1, AWAND = 0.3, PWAND = 6, ZWAND = 8, OWAND = 0.5;
 function advanceSources(S, dt) {
   for (const q of S.src) {
     q.fz = ou(q.fz, dt, 40);
@@ -222,21 +229,21 @@ function advanceSources(S, dt) {
     q.ph = (q.ph + S.om * (1 + FWAND * q.fz) * dt) % TAU;
   }
 }
-// adds the force on the vorticity to the tendency (half modes)
+// adds the force on the vorticity to the tendency
 function addForcing(S, O) {
-  const sig = S.sig, s2 = sig * sig, c0 = (TAU * s2) / N;
+  const sig = S.sig, s2 = sig * sig, c0 = (TAU * s2) / NS_;
   const { ex, ez } = S;
   for (const q of S.src) {
     const xs = q.x0 + PWAND * q.pz, zs = q.z0 + ZWAND * q.qz, al = q.a0 + OWAND * q.oa;
     const amp = S.gA * max(0.2, 1 + AWAND * q.az) * cos(q.ph), ca = cos(al), sa = sin(al);
-    // x factor: exp(-s2 kx^2 / 2) e^{-i kx xs}, stored for kx = 2 pi ni / NX as (re, im) interleaved
+    // x factor: exp(-s2 kx^2 / 2) e^{-i kx xs}, (re, im) interleaved, for kx = 2 pi ni / LX
     for (let ni = 1; ni <= KXM; ni++) {
-      const kx = (TAU * ni) / NX, g = exp(-0.5 * s2 * kx * kx);
+      const kx = (TAU * ni) / LX, g = exp(-0.5 * s2 * kx * kx);
       ex[2 * ni - 2] = g * cos(kx * xs);
       ex[2 * ni - 1] = -g * sin(kx * xs);
     }
     for (let nj = -KZM; nj <= KZM; nj++) {
-      const kz = (TAU * nj) / NZ, g = exp(-0.5 * s2 * kz * kz) * c0;
+      const kz = (TAU * nj) / LZ, g = exp(-0.5 * s2 * kz * kz) * c0;
       ez[2 * (nj + KZM)] = g * cos(kz * zs);
       ez[2 * (nj + KZM) + 1] = -g * sin(kz * zs);
     }
@@ -270,7 +277,7 @@ function evalN(S, O, lin) {
     ci.fill(0);
     for (let m = 0; m < NM; m++) {
       const p = mP[m], q = mQ[m], kx = mKX[m], kz = mKZ[m], ik2 = mIK2[m];
-      const er = X.er[p], ei = X.ei[p], bR = X.br[p], bI = X.bi[p];
+      const er = X.er[m], ei = X.ei[m], bR = X.br[m], bI = X.bi[m];
       const sr = -er * ik2, si = -ei * ik2; // psi
       const ur = -kz * si, ui = kz * sr, wr = kx * si, wi = -kx * sr; // u^ = i kz psi^, w^ = -i kx psi^
       ar[p] = ur - wi;
@@ -293,11 +300,11 @@ function evalN(S, O, lin) {
       cr[q] = xr + zi;
       ci[q] = -xi + zr;
     }
-    fft2(ar, ai, true);
-    fft2(br_, bi_, true);
-    fft2(cr, ci, true);
+    fftS(ar, ai, true);
+    fftS(br_, bi_, true);
+    fftS(cr, ci, true);
     let um = 0, wm = 0, uw = 0;
-    for (let p = 0; p < N; p++) {
+    for (let p = 0; p < NS_; p++) {
       const u = ar[p], w = ai[p];
       const au = u < 0 ? -u : u, aw = w < 0 ? -w : w;
       if (au > um) um = au;
@@ -309,8 +316,8 @@ function evalN(S, O, lin) {
     S.umax = um;
     S.wmax = wm;
     S.uw = uw;
-    fft2(pr, pi, false);
-    const s1 = 0.5 / N;
+    fftS(pr, pi, false);
+    const s1 = 0.5 / NS_;
     for (let m = 0; m < NM; m++) {
       const p = mP[m], q = mQ[m], a = pr[p], b = pi[p], c = pr[q], d = pi[q];
       O.er[m] = s1 * (a + c);
@@ -329,7 +336,7 @@ function step(S, lin) {
   advanceSources(S, DTL[S.lv]);
   evalN(S, O, lin);
   if (!lin) {
-    const om = 2.06 * S.uw;
+    const om = KMAX * S.uw;
     let l = S.lv;
     if (DTL[l] * om > CFL_DN) {
       while (l < DTL.length - 1 && DTL[l] * om > CFL_OK) l++;
@@ -343,21 +350,16 @@ function step(S, lin) {
   const dt = DTL[S.lv], E = TABS[S.lv], { X, H1, H2 } = S;
   const c0 = S.ord === 0 ? 1 : S.ord === 1 ? 1.5 : 23 / 12, c1 = S.ord === 0 ? 0 : S.ord === 1 ? -0.5 : -16 / 12, c2 = S.ord >= 2 ? 5 / 12 : 0;
   for (let m = 0; m < NM; m++) {
-    const p = mP[m], q = mQ[m], t = mT[m] * 4, e11 = E[t], e22 = E[t + 1], f12 = E[t + 2], f21 = E[t + 3];
-    const er = X.er[p] + dt * (c0 * O.er[m] + c1 * H1.er[m] + c2 * H2.er[m]);
-    const ei = X.ei[p] + dt * (c0 * O.ei[m] + c1 * H1.ei[m] + c2 * H2.ei[m]);
-    const br = X.br[p] + dt * (c0 * O.br[m] + c1 * H1.br[m] + c2 * H2.br[m]);
-    const bi = X.bi[p] + dt * (c0 * O.bi[m] + c1 * H1.bi[m] + c2 * H2.bi[m]);
+    const t = mT[m] * 4, e11 = E[t], e22 = E[t + 1], f12 = E[t + 2], f21 = E[t + 3];
+    const er = X.er[m] + dt * (c0 * O.er[m] + c1 * H1.er[m] + c2 * H2.er[m]);
+    const ei = X.ei[m] + dt * (c0 * O.ei[m] + c1 * H1.ei[m] + c2 * H2.ei[m]);
+    const br = X.br[m] + dt * (c0 * O.br[m] + c1 * H1.br[m] + c2 * H2.br[m]);
+    const bi = X.bi[m] + dt * (c0 * O.bi[m] + c1 * H1.bi[m] + c2 * H2.bi[m]);
     // propagate: eta' = e11 eta + (-i f12) b,  b' = e22 b + (-i f21) eta
-    const nr = e11 * er + f12 * bi, ni = e11 * ei - f12 * br, mr = e22 * br + f21 * ei, mi = e22 * bi - f21 * er;
-    X.er[p] = nr;
-    X.ei[p] = ni;
-    X.br[p] = mr;
-    X.bi[p] = mi;
-    X.er[q] = nr;
-    X.ei[q] = -ni;
-    X.br[q] = mr;
-    X.bi[q] = -mi;
+    X.er[m] = e11 * er + f12 * bi;
+    X.ei[m] = e11 * ei - f12 * br;
+    X.br[m] = e22 * br + f21 * ei;
+    X.bi[m] = e22 * bi - f21 * er;
     // H2 <- E H1, H1 <- E N0
     let a = H1.er[m], b = H1.ei[m], c = H1.br[m], d = H1.bi[m];
     H2.er[m] = e11 * a + f12 * d;
@@ -382,21 +384,17 @@ function step(S, lin) {
 function epsilon(S) {
   const { X } = S;
   let s = 0;
-  for (let m = 0; m < NM; m++) {
-    const p = mP[m], kz = mKZ[m];
-    s += kz * kz * (X.br[p] * X.br[p] + X.bi[p] * X.bi[p]);
-  }
+  for (let m = 0; m < NM; m++) s += mKZ[m] * mKZ[m] * (X.br[m] * X.br[m] + X.bi[m] * X.bi[m]);
   return sqrt(2 * s);
 }
 function energy(S) {
   const { X } = S;
   let ke = 0, pe = 0;
   for (let m = 0; m < NM; m++) {
-    const p = mP[m];
-    ke += (X.er[p] * X.er[p] + X.ei[p] * X.ei[p]) * mIK2[m];
-    pe += X.br[p] * X.br[p] + X.bi[p] * X.bi[p];
+    ke += (X.er[m] * X.er[m] + X.ei[m] * X.ei[m]) * mIK2[m];
+    pe += X.br[m] * X.br[m] + X.bi[m] * X.bi[m];
   }
-  return [ke, pe / (NBV * NBV)]; // 2 x half modes x (1/2): E = sum over half modes of |eta|^2/k2 and |b|^2/N^2
+  return [ke, pe / (NBV * NBV)]; // sums over the half plane of |eta|^2 / k2 and |b|^2 / N^2, the kinetic and potential energy per unit area
 }
 
 // ---- knobs and the clock --------------------------------------------------------------------------------------
@@ -404,7 +402,7 @@ const OPEN = [0, 2, 0, 0.06];
 function targets(S, k) {
   S.hue = cl(k[0], 0, 1);
   S.pace = cl(k[1], 0.5, 4);
-  S.scT = pow(1.4, cl(k[2], -1.2, 1.2));
+  S.scT = pow(1.3, cl(k[2], -1.2, 1.2));
   S.sigT = SIG0 * pow(1.45, cl(k[2], -1.2, 1.2));
   const phi = ((52 - 24 * cl(k[3], -1.2, 1.2)) * PI) / 180; // beam angle from the vertical
   S.omT = cos(phi);
@@ -438,6 +436,7 @@ function advance(S, ft) {
   if (!isFinite(S.eps) || S.eps > 6) spin(S);
 }
 
+const LIN_T = 260, PRE_T = 10;
 function spin(S) {
   for (const f of [S.X, S.Nn, S.H1, S.H2]) for (const key in f) f[key].fill(0);
   S.ord = 0;
@@ -447,11 +446,10 @@ function spin(S) {
   S.gA = 1;
   // the linear response first: no transforms, big steps, the propagators carry the waves exactly
   while (S.t < LIN_T) step(S, true);
-  const e = epsilon(S);
-  const g = EPS / max(1e-9, e);
+  const g = EPS / max(1e-9, epsilon(S));
   for (const key in S.X) {
     const a = S.X[key];
-    for (let i = 0; i < N; i++) a[i] *= g;
+    for (let i = 0; i < NM; i++) a[i] *= g;
   }
   S.gA = g;
   S.epsS = EPS;
@@ -464,7 +462,6 @@ function spin(S) {
     thermostat(S, dt);
   }
 }
-const LIN_T = 260, PRE_T = 10;
 
 export function setup(params, knobValues) {
   const S = (params.s = makeState());
@@ -518,92 +515,107 @@ const PAL = [
   [0.72, 0.14, 25, 1],
   [0.55, 0.16, 358, 1],
 ];
-const PALW = PAL.reduce((a, c) => a + c[3], 0);
+// slabs come from a shuffled bag that holds each colour as many times as its weight, so that the stack uses all of them
+let BAG = [];
 function pick() {
-  let r = Math.random() * PALW, i = 0;
-  while (i < PAL.length - 1 && r >= PAL[i][3]) r -= PAL[i++][3];
-  return i;
+  if (!BAG.length) {
+    for (let i = 0; i < PAL.length; i++) for (let k = 0; k < PAL[i][3]; k++) BAG.push(i);
+    for (let i = BAG.length - 1; i > 0; i--) {
+      const j = floor(Math.random() * (i + 1)), t = BAG[i];
+      BAG[i] = BAG[j];
+      BAG[j] = t;
+    }
+  }
+  return BAG.pop();
 }
+// two slabs that are close in lightness and in hue would read as one
+const near = (a, b) => abs(a[0] - b[0]) < 0.16 && abs((((a[2] - b[2]) % 360) + 540) % 360 - 180) < 45;
+// The lightness of the stack follows two slow swells (periods near 26 and 13 units), and each slab is the colour from the bag that is
+// closest to the swell at its height. So a window of 16 rows always holds a light part and a dark one, and the water moving past it
+// changes its mean light wherever the window is, which a stack drawn at random does not do.
 function makeStrata() {
   const nodes = [];
   let u = LUT0 - 10, prev = -1;
+  const P1 = 22 + 8 * Math.random(), P2 = 11 + 5 * Math.random(), f1 = Math.random() * TAU, f2 = Math.random() * TAU;
+  BAG = [];
   while (u < LUT0 + LUTN / LUTR + 10) {
-    let c, tries = 0;
-    do c = pick();
-    while (++tries < 20 && (c === prev || (prev >= 0 && abs(PAL[c][0] - PAL[prev][0]) < 0.14 && Math.random() < 0.85)));
-    const w = 3 + 8 * pow(Math.random(), 1.7);
-    nodes.push({ u, c, w, sharp: Math.random() < 0.3, line: Math.random() < 0.4, lam: 2.4 + 1.6 * Math.random(), ph: Math.random() * TAU });
+    const want = 0.58 + 0.2 * sin((TAU * u) / P1 + f1) + 0.12 * sin((TAU * u) / P2 + f2);
+    let c = -1, best = 9;
+    for (let t = 0; t < 7; t++) {
+      const k = pick();
+      const e = abs(PAL[k][0] - want) + 0.08 * Math.random() + (k === prev || (prev >= 0 && near(PAL[k], PAL[prev])) ? 1 : 0);
+      if (e < best) (best = e), (c = k);
+    }
+    const w = 4 + 6 * pow(Math.random(), 1.4);
+    nodes.push({ u, c, w, sharp: Math.random() < 0.3, line: Math.random() < 0.4, lam: 4 + 2 * Math.random(), ph: Math.random() * TAU });
     u += w;
     prev = c;
   }
   return nodes;
 }
 function buildLut(S) {
-  const nodes = S.strata, lut = S.lut, hue = S.hue * 360;
-  const col = (c, o) => {
-    const [L, C, h0] = PAL[c], hd = h0 + hue, h = (hd * PI) / 180;
+  const nodes = S.strata, lut = S.lut, hue = S.hue * 360, HC = [];
+  for (const [L, C, h0] of PAL) {
+    const hd = h0 + hue, h = (hd * PI) / 180;
     // a dark orange, olive or brown reads as mud on the panel: in that stretch of hues the lightness comes up and the chroma eases
-    let dd = (((hd - 80) % 360) + 360) % 360;
+    let dd = (((hd - 90) % 360) + 360) % 360;
     if (dd > 180) dd -= 360;
-    const g = exp(-(dd * dd) / (2 * 42 * 42));
-    const L2 = L + (0.8 - L) * g * (1 - sm(0.6, 0.8, L)), C2 = C * (1 - 0.35 * g);
-    let Cc = C2;
+    const g = exp(-(dd * dd) / (2 * 45 * 45)), L2 = L + (0.88 - L) * g * (1 - sm(0.6, 0.88, L));
+    let Cc = C * (1 - 0.4 * g);
     for (let it = 0; it < 8; it++) {
       lin2(L2, Cc * cos(h), Cc * sin(h), TMP);
       if (TMP[0] >= -0.002 && TMP[1] >= -0.002 && TMP[2] >= -0.002 && TMP[0] <= 1.002 && TMP[1] <= 1.002 && TMP[2] <= 1.002) break;
       Cc *= 0.9;
     }
-    o[0] = L2;
-    o[1] = Cc * cos(h);
-    o[2] = Cc * sin(h);
-  };
-  const A = [0, 0, 0], B = [0, 0, 0], O = [0, 0, 0];
+    HC.push([L2, Cc * cos(h), Cc * sin(h), 1 - 0.9 * g]); // the last is how far the light may darken this colour
+  }
   let k = 0;
   for (let i = 0; i < LUTN; i++) {
     const uu = LUT0 + i / LUTR;
     while (k < nodes.length - 2 && nodes[k + 1].u <= uu) k++;
-    const n0 = nodes[k], n1 = nodes[k + 1], t = (uu - n0.u) / n0.w;
-    col(n0.c, A);
-    col(n1.c, B);
+    const n0 = nodes[k], n1 = nodes[k + 1], t = (uu - n0.u) / n0.w, A = HC[n0.c], B = HC[n1.c];
     // a sharp slab keeps its colour and changes over its last 1.5 units, a soft one over the whole slab
     const x = n0.sharp ? sm(1 - 1.5 / n0.w, 1, t) : sm(0, 1, t);
     let L = A[0] + (B[0] - A[0]) * x;
-    O[1] = A[1] + (B[1] - A[1]) * x;
-    O[2] = A[2] + (B[2] - A[2]) * x;
     // fine lamination inside the slab, so that the water shows its motion where the colour is flat
     L += LAMP * sin((TAU * (uu - n0.u)) / n0.lam + n0.ph) * sm(0, 0.12, t) * (1 - sm(0.88, 1, t));
     // a thin pale line where a slab begins
-    if (n0.line) L += (0.97 - L) * exp(-(t * n0.w * t * n0.w) / 0.5) * 0.7;
-    lin2(L, O[1], O[2], TMP);
-    lut[3 * i] = gam(TMP[0]);
-    lut[3 * i + 1] = gam(TMP[1]);
-    lut[3 * i + 2] = gam(TMP[2]);
+    if (n0.line) L += (0.97 - L) * exp(-(t * n0.w * t * n0.w) / 1.6) * 0.7;
+    lin2(L, A[1] + (B[1] - A[1]) * x, A[2] + (B[2] - A[2]) * x, TMP);
+    lut[4 * i] = gam(TMP[0]);
+    lut[4 * i + 1] = gam(TMP[1]);
+    lut[4 * i + 2] = gam(TMP[2]);
+    lut[4 * i + 3] = A[3] + (B[3] - A[3]) * x;
   }
   S.lutHue = S.hue;
 }
 const LAMP = 0.035;
 
-// b' and b'_z on the panel's grid, one inverse transform with the two packed
+// b' and b'_z on the panel's grid, one inverse transform with the two packed; the spectrum is padded with zeros up to the panel's size
 function fields(S) {
-  const { pr, pi, X, bR, bZ } = S;
-  pr.fill(0);
-  pi.fill(0);
+  const { fr, fi, X, bR, bZ } = S;
+  fr.fill(0);
+  fi.fill(0);
   for (let m = 0; m < NM; m++) {
-    const p = mP[m], q = mQ[m], kz = mKZ[m], br = X.br[p], bi = X.bi[p];
+    const p = oP[m], q = oQ[m], kz = mKZ[m], br = X.br[m], bi = X.bi[m];
     // X^ = b^, Y^ = i kz b^ ; packed X + iY
     const yr = -kz * bi, yi = kz * br;
-    pr[p] = br - yi;
-    pi[p] = bi + yr;
-    pr[q] = br + yi;
-    pi[q] = -bi + yr;
+    fr[p] = br - yi;
+    fi[p] = bi + yr;
+    fr[q] = br + yi;
+    fi[q] = -bi + yr;
   }
-  fft2(pr, pi, true);
-  for (let p = 0; p < N; p++) {
-    bR[p] = pr[p];
-    bZ[p] = pi[p];
+  fftO(fr, fi, true);
+  for (let p = 0; p < NP; p++) {
+    bR[p] = fr[p];
+    bZ[p] = fi[p];
   }
 }
 
+// The colour is the isopycnal; the light on it is the synthetic schlieren of the experiments: brighter where the waves squeeze the layers
+// together (b'_z above zero), darker where they pull them apart, so the phase fronts of the beams show as tilted light and dark bands
+// across the dyed layers; and where the stratification is reversed the water goes pale, the foam of a breaking wave.
+const SH = 0.55, FOAM = 0.45;
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
@@ -612,13 +624,16 @@ export function draw(display, params) {
     fields(S);
   }
   if (S.lutHue !== S.hue) buildLut(S);
-  const { bR, lut, sc } = S, isc = 1 / sc;
-  for (let y = 0; y < NZ; y++) {
-    const z = NZ - 1 - y;
-    for (let x = 0; x < NX; x++) {
-      const beta = z + bR[z * NX + x];
-      const f = ((beta - 64) * isc + 64 - LUT0) * LUTR, i0 = f | 0, t = f - i0, i = 3 * cl(i0, 0, LUTN - 2);
-      display.setPixel(x, y, lut[i] + (lut[i + 3] - lut[i]) * t, lut[i + 1] + (lut[i + 4] - lut[i + 1]) * t, lut[i + 2] + (lut[i + 5] - lut[i + 2]) * t);
+  const { bR, bZ, lut, sc } = S, isc = 1 / sc;
+  for (let y = 0; y < LZ; y++) {
+    const z = LZ - 1 - y;
+    for (let x = 0; x < LX; x++) {
+      const o = z * LX + x, bz = bZ[o], beta = z + bR[o];
+      const f = ((beta - 64) * isc + 64 - LUT0) * LUTR, i0 = f | 0, t = f - i0, i = 4 * cl(i0, 0, LUTN - 2);
+      const q = 1.3 * bz, g0 = (SH * q) / (1 + (q < 0 ? -q : q)), fo = FOAM * sm(0.15, -0.5, 1 + bz);
+      const kd = lut[i + 3] + (lut[i + 7] - lut[i + 3]) * t, g = 1 + (g0 < 0 ? g0 * kd : g0);
+      const r = (lut[i] + (lut[i + 4] - lut[i]) * t) * g, gg = (lut[i + 1] + (lut[i + 5] - lut[i + 1]) * t) * g, b = (lut[i + 2] + (lut[i + 6] - lut[i + 2]) * t) * g;
+      display.setPixel(x, y, r + (255 - r) * fo, gg + (255 - gg) * fo, b + (255 - b) * fo);
     }
   }
 }
