@@ -18,7 +18,7 @@
 
 // Read this first. The stack is seeded, not grown from noise: the first frame is a sawtooth of 3 or 4 layers (see The stack below). A small forcing step, keep(), is not
 // part of the model: it adds an interface when fewer layers stand than Knob 3 asks for, removes the weakest when more stand, and seeds the stack again when none is left
-// or the convection has stopped. The equations alone merge layers and never make new ones, so without keep() the stack ends as one layer.
+// or the convection has stopped. In the Ratio range (1.27 to 1.77) the equations alone merge layers and make none, so without keep() the stack ends as one layer.
 
 // What the field is. Perturbations T', s' and a stream function psi (u = -psi_z, w = psi_x, x across, z up) about linear background gradients that fall with
 // height, in the units d = (nu kappa_T / (g alpha |T_z|))^(1/4), d^2 / kappa_T, with T in |T_z| d and the salt as s = (beta / alpha) S / R_rho in the same unit, so
