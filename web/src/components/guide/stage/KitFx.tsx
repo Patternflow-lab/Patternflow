@@ -141,6 +141,8 @@ function buildCable() {
 
   const mat = new THREE.MeshStandardMaterial({ color: "#e9e4da", roughness: 0.6, transparent: true });
   const uniforms = { uMove: { value: new THREE.Vector3() } };
+  // Where the stage's signature reads it (look/rest.ts).
+  mat.userData.uniforms = uniforms;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uMove = uniforms.uMove;
     shader.vertexShader = shader.vertexShader

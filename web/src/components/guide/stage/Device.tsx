@@ -14,6 +14,7 @@ import { FIRMWARE, PANEL_H, PANEL_W } from "@/lib/guide/panelScreens";
 import { ledPanelMaterial, ledPanelTexture } from "./look/ledPanel";
 import { knobMaterial, plaMaterial, tunePcbMaterials } from "./look/materials";
 import { readPanelGlow } from "./look/panelGlow";
+import { wakeStage } from "./look/rest";
 import { getSim, useGuideStore } from "../store";
 import { stepOf } from "../scenes";
 import { micLiftStep, micReseatStep } from "../scenes/audio";
@@ -40,6 +41,7 @@ import {
   sliderPose,
 } from "./parts";
 import KitFx from "./KitFx";
+import { explodeState, explodeWanted } from "./explodeParts";
 import { kitPress } from "./hand";
 import { kitState } from "../timing";
 import { devkitMaterials } from "./kitMaterials";
@@ -80,6 +82,8 @@ void main() {
 
 type Kit = {
   pivot: THREE.Group;
+  /** The DevKit itself. What is drawn on and round it hangs on the pivot beside it (KitFx). */
+  model: THREE.Object3D;
   boot: THREE.Object3D | null;
   rst: THREE.Object3D | null;
 };
@@ -89,6 +93,8 @@ type Parts = {
   led: THREE.Mesh | null;
   knobs: (THREE.Mesh | null)[]; // by logical index
   slider: THREE.Mesh | null;
+  /** What the shut case hides: the DevKit, the bare board and its parts, less the encoders. */
+  inside: THREE.Object3D[];
   all: THREE.Mesh[];
 };
 
@@ -122,6 +128,13 @@ const FOCUS_RING_R = 2.06;
 const DIAL_Z = KNOB_BASE_Z - 0.06;
 /** How long a knob keeps its readout after it last moved, ms. */
 const READOUT_HOLD = 1400;
+/**
+ * The board's parts that show with the case shut: the encoders, whose
+ * bushings stand in the 0.8 mm between each knob's skirt and the front face.
+ */
+const SHOWS_WHEN_SHUT = /^SW[1-4]$/;
+/** The inside of the case is first hidden after this many of the renderer's passes: its buffers are on the GPU by then. */
+const INSIDE_WARM = 60;
 
 function formatReadout(value: number, span: number) {
   const digits = span >= 20 ? 0 : span >= 2 ? 1 : 2;
@@ -246,7 +259,7 @@ export default function Device() {
       m.receiveShadow = true;
     });
     pivot.add(model);
-    return { pivot, boot: model.getObjectByName("boot_button") ?? null, rst: model.getObjectByName("rst_button") ?? null };
+    return { pivot, model, boot: model.getObjectByName("boot_button") ?? null, rst: model.getObjectByName("rst_button") ?? null };
   }, [kitGltf]);
 
   useEffect(() => {
@@ -262,7 +275,10 @@ export default function Device() {
   const ledMat = useMemo(() => ledPanelMaterial(texture), [texture]);
 
   const parts = useMemo<Parts>(() => {
-    const p: Parts = { devkit: kit, led: null, knobs: [null, null, null, null], slider: null, all: [] };
+    const p: Parts = { devkit: kit, led: null, knobs: [null, null, null, null], slider: null, inside: [kit.model], all: [] };
+    // The board's file is one node holding the bare board and each part on it (pcb-v39.glb).
+    const board = scene.getObjectByName("pcb_v39")?.children[0];
+    for (const part of board?.children ?? []) if (!SHOWS_WHEN_SHUT.test(part.name)) p.inside.push(part);
     scene.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
@@ -569,7 +585,8 @@ export default function Device() {
   // back: sliderPose's travel (0 shut, SLIDER_OFF off its rails, 1 laid
   // down); esp: devkitPose's travel (0 seated, 1 presented).
   // power: the panel's, as shown (it dies away when cut); held: a lit frame is still on it.
-  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, held: false, tick: 0, back: 0, esp: 0 });
+  // born: the renderer's pass count when this first ran (the case's inside is not hidden before it has been drawn).
+  const shown = useRef({ turns: [0, 0, 0, 0], press: [0, 0, 0, 0], power: 0, held: false, tick: 0, back: 0, esp: 0, born: -1 });
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), quat: new THREE.Quaternion() }), []);
   const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Where each knob's zone was last put, px (r 0: hidden).
@@ -646,10 +663,21 @@ export default function Device() {
     if (on) {
       const src = sim.frame;
       const row = PANEL_W * 4;
+      // Only a frame that differs goes to the GPU, from its first row that
+      // does: a screen that stands still (a menu, a pattern held) is not sent
+      // again sixty times a second, and the stage can rest on it (look/rest.ts).
+      let differs = false;
       for (let y = 0; y < PANEL_H; y++) {
-        dst.set(src.subarray(y * row, (y + 1) * row), (PANEL_H - 1 - y) * row);
+        const from = y * row;
+        const to = (PANEL_H - 1 - y) * row;
+        for (let i = 0; !differs && i < row; i++) differs = dst[to + i] !== src[from + i];
+        if (differs) dst.set(src.subarray(from, from + row), to);
       }
-      texture.needsUpdate = true;
+      if (differs) {
+        texture.needsUpdate = true;
+        // A pattern playing is a new picture every frame: said outright, so the stage is not read for it.
+        wakeStage();
+      }
       sh0.power += (1 - sh0.power) * Math.min(1, dt * 9);
       sh0.held = true;
     } else if (sh0.held) {
@@ -684,6 +712,8 @@ export default function Device() {
       const focusTarget = s.focus === i ? 1 : 0;
       ring.uniforms.uFocus.value += (focusTarget - ring.uniforms.uFocus.value) * Math.min(1, dt * 5);
       rings[i].position.z = KNOB_TOP_Z + 0.08 - shown.current.press[i] * KNOB_PRESS;
+      // Unlit, a ring is nothing on screen, and its clock runs on all the same: it is not drawn then.
+      rings[i].visible = ring.uniforms.uFocus.value > 0.004 || ring.uniforms.uFill.value > 0;
 
       // Has it moved lately, or is a hand on it?
       const ro = readout.current;
@@ -910,6 +940,26 @@ export default function Device() {
         slider.visible = fade > 0.01;
         slider.castShadow = fade > 0.5;
       }
+
+      // Inside the shut case. The board and the DevKit are nine tenths of the
+      // device's triangles (222,000 of 237,000), and with the cover shut and
+      // the DevKit on its pins none of them can be seen: they were drawn, and
+      // drawn again into the shadow map, behind the case's walls on every
+      // frame of the hub and of Play. They are drawn while they can be seen:
+      // the cover off, the DevKit out, the device apart (Explode), and on the
+      // Build guide, whose stage has the device's parts as its own. Hidden,
+      // they keep their buffers, so coming back costs nothing.
+      const passes = state.gl.info.render.frame;
+      if (sh.born < 0) sh.born = passes;
+      const shut =
+        sh.back === 0 &&
+        sh.esp === 0 &&
+        explodeState.amount === 0 &&
+        !explodeWanted() &&
+        page !== "build" &&
+        !useGuideStore.getState().buildLive &&
+        passes - sh.born > INSIDE_WARM;
+      for (const o of parts.inside) o.visible = !shut;
     }
   });
 

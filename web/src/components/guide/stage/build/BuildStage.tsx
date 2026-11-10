@@ -279,6 +279,9 @@ const CUT_DARK_MS = 170;
 /** Before it takes the device over, the stage builds its shaders only while the camera is slower than this, world units a second (the opening's own sway is a quarter of it). */
 const WARM_STILL = 1.2;
 
+/** The reader's "reduce motion" setting. The list is live, so it is asked for once and not again every frame. */
+const lessMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+
 /** The print's layer, model units (0.2 mm). */
 const LAYER = 0.02;
 /** How many pieces of the bead behind the nozzle are drawn, and how long each is (a share of the tour). */
@@ -445,6 +448,28 @@ function placeCentre(c: THREE.Vector3, p: THREE.Vector3, q: THREE.Quaternion): R
 function setRigid(o: THREE.Object3D, r: Rigid) {
   o.quaternion.copy(r.q);
   o.position.copy(r.T);
+}
+
+// The frame loop writes every joint, screw, washer and nut every frame, and
+// for as long as a step holds its end it writes the same numbers. A buffer
+// goes to the GPU only when its numbers differ from the ones last sent: a
+// held step sends nothing, and the stage can rest on it (look/rest.ts).
+const sent = new WeakMap<THREE.BufferAttribute, Float32Array>();
+function send(attr: THREE.BufferAttribute) {
+  const now = attr.array as Float32Array;
+  let was = sent.get(attr);
+  if (!was) {
+    // Nothing sent yet: NaN is equal to nothing, so the first comparison differs.
+    was = new Float32Array(now.length).fill(NaN);
+    sent.set(attr, was);
+  }
+  for (let i = 0; i < now.length; i++) {
+    if (now[i] !== was[i]) {
+      was.set(now);
+      attr.needsUpdate = true;
+      return;
+    }
+  }
 }
 
 /**
@@ -1663,7 +1688,7 @@ export default function BuildStage() {
       c.start = now;
       c.t = B;
     }
-    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const reduced = lessMotion?.matches ?? false;
     // On the guide, the step's own motion; off it, the end the build is being run to.
     const target = onPage ? B + Math.min(0.999, (now - c.start) / 1000 / beatSeconds(B)) : B === 0 ? 0 : B + 0.999;
     // It takes over a whole device: until told otherwise, the build stands at its opening.
@@ -1909,8 +1934,8 @@ export default function BuildStage() {
         kit.joints.setMatrixAt(i, m);
         heat[i] = 1 - glide((age - 0.1) / 0.9);
       });
-      kit.joints.instanceMatrix.needsUpdate = true;
-      kit.jointHeat.needsUpdate = true;
+      send(kit.joints.instanceMatrix);
+      send(kit.jointHeat);
       kit.joints.visible = boardOn;
       for (const round of kit.rounds) {
         const lead = 0.36 / round.secs;
@@ -2433,8 +2458,8 @@ export default function BuildStage() {
         kit.screws.setMatrixAt(k, m);
         kit.screwSlots.setMatrixAt(k, m);
       });
-      kit.screws.instanceMatrix.needsUpdate = true;
-      kit.screwSlots.instanceMatrix.needsUpdate = true;
+      send(kit.screws.instanceMatrix);
+      send(kit.screwSlots.instanceMatrix);
     }
 
     // ── washers and nuts on the encoder bushings ────────────────────────────
@@ -2495,8 +2520,8 @@ export default function BuildStage() {
           }
         }
       }
-      kit.washers.instanceMatrix.needsUpdate = true;
-      kit.nuts.instanceMatrix.needsUpdate = true;
+      send(kit.washers.instanceMatrix);
+      send(kit.nuts.instanceMatrix);
     }
 
     // ── the power bank, the plug, the J4 lead ───────────────────────────────
@@ -2811,14 +2836,14 @@ export default function BuildStage() {
       const pos = kit.dash.geometry.getAttribute("position") as THREE.BufferAttribute;
       pos.setXYZ(0, j3Plus.x, j3Plus.y, j3Plus.z - 0.9);
       pos.setXYZ(1, j4Plus.x, j4Plus.y, j4Plus.z - 0.9);
-      pos.needsUpdate = true;
+      send(pos);
       // The dashes' distances along it, written in place. (computeLineDistances
       // makes a new attribute every call, and three a new buffer for each one
       // it draws — one a frame for as long as the line was on screen, and one
       // more on every visit, none of them ever let go.)
       const along = kit.dash.geometry.getAttribute("lineDistance") as THREE.BufferAttribute;
       along.setX(1, Math.hypot(j4Plus.x - j3Plus.x, j4Plus.y - j3Plus.y, j4Plus.z - j3Plus.z));
-      along.needsUpdate = true;
+      send(along);
       const lm = kit.dash.material as THREE.LineDashedMaterial;
       lm.opacity += ((plusOn ? 1 : 0) - lm.opacity) * Math.min(1, dt * 6);
       kit.dash.visible = lm.opacity > 0.01;
