@@ -1,5 +1,5 @@
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useAppStore } from '@/store/useAppStore';
 import type { SectionContent } from '@/lib/content';
@@ -46,24 +46,12 @@ const MAKERWORLD =
   'https://makerworld.com/en/models/3072492-patternflow-open-source-led-synthesizer-case#profileId-3459015';
 
 beforeEach(() => {
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
   // The store outlives a render the way it outlives a panel on the page, so
   // each test starts from a fresh page's.
   useAppStore.setState({ buildStep: 0, explode: 1, buildCase: 'official', caseFinish: {} });
   window.history.replaceState(null, '', '/build');
   capture.mockClear();
   preload.mockClear();
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 const card = () => within(screen.getByRole('tabpanel'));
@@ -395,5 +383,30 @@ describe('the rest of the panel', () => {
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Build your own.']);
     expect(card().getByRole('heading', { level: 2, name: 'The official printed case' })).toBeInTheDocument();
     expect(screen.queryAllByRole('heading', { level: 3 })).toEqual([]);
+  });
+
+  it('holds a step from the keyboard, says so, and puts the device back together when it is let go', () => {
+    render(<BuildPanel content={content} isActive />);
+    const solder = screen.getByRole('button', { name: /Solder the PCB/ });
+    expect(solder).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.keyDown(solder, { key: 'Enter' });
+    expect(useAppStore.getState().buildStep).toBe(2);
+    expect(solder).toHaveAttribute('aria-pressed', 'true');
+
+    // No pointer is over the row to go on previewing it: the step is over.
+    fireEvent.keyDown(solder, { key: ' ' });
+    expect(useAppStore.getState().buildStep).toBe(0);
+    expect(solder).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('keeps previewing a step a click lets go of, while the pointer is still on it', () => {
+    render(<BuildPanel content={content} isActive />);
+    const solder = screen.getByRole('button', { name: /Solder the PCB/ });
+    fireEvent.mouseEnter(solder);
+    fireEvent.click(solder);
+    fireEvent.click(solder);
+    expect(solder).toHaveAttribute('aria-pressed', 'false');
+    expect(useAppStore.getState().buildStep).toBe(2);
   });
 });
