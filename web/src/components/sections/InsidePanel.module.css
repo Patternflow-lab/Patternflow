@@ -88,12 +88,27 @@
   outline-offset: 4px;
 }
 
+/* On a 390px phone the two did not fit side by side, and each broke in the
+   middle of its own phrase. Now neither breaks, and the count drops to a
+   line of its own when there is no room beside the label. The label's usual
+   16px beneath it is the heading's padding here, so that line sits close
+   under the label instead of 20px below it. */
 .listHeading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
   margin-top: 16px;
+  padding-bottom: 16px;
+}
+
+.listHeading > * {
+  white-space: nowrap;
+}
+
+.listHeading > :global(.pf-kicker) {
+  margin-bottom: 0;
 }
 
 .count {

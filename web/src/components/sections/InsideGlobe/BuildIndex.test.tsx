@@ -63,6 +63,38 @@ describe('Inside browsing', () => {
     expect(list.getByRole('link', { name: /MOTIFLOW/ })).toHaveAttribute('aria-current', 'true');
   });
 
+  it('carries the tab title with the address, and gives it back when the pin is let go', () => {
+    document.title = 'What the page came with';
+    const list = mount();
+    const motiflow = builds.find((build) => build.id === 'iran-azmano')!;
+    const port = builds.find((build) => build.id === 'france-day')!;
+    const titleOf = (build: typeof motiflow) =>
+      `${build.title} — ${build.maker} · ${build.location.label} | Patternflow`;
+
+    expect(document.title).toBe('What the page came with');
+    fireEvent.click(list.getByRole('link', { name: /MOTIFLOW/ }));
+    expect(document.title).toBe(titleOf(motiflow));
+    act(() => {
+      window.history.replaceState(null, '', '/inside/day-france');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(document.title).toBe(titleOf(port));
+    // "In use" hides the port, which lets it go.
+    fireEvent.click(screen.getByRole('button', { name: 'In use' }));
+    expect(window.location.pathname).toBe('/inside');
+    expect(document.title).toBe('What the page came with');
+  });
+
+  it("goes back to Inside's own title on a page that was opened on a build", () => {
+    const port = builds.find((build) => build.id === 'france-day')!;
+    document.title = `${port.title} — ${port.maker} · ${port.location.label} | Patternflow`;
+    window.history.replaceState(null, '', '/inside/day-france');
+    mount('france-day');
+    expect(document.title).toContain(port.title);
+    fireEvent.click(screen.getByRole('button', { name: 'In use' }));
+    expect(document.title).toBe("Inside Patternflow — How It's Built");
+  });
+
   it('reveals a pin restored by browser history without pushing another URL', () => {
     const list = mount();
     fireEvent.click(screen.getByRole('button', { name: 'In use' }));

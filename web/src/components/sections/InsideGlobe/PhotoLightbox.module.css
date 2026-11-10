@@ -12,6 +12,9 @@
   padding: 48px 40px;
   background: rgba(18, 18, 18, 0.92);
   cursor: zoom-out;
+  /* A sideways drag is the page's to read (it steps through the photos);
+     up, down and pinch stay the browser's. */
+  touch-action: pan-y pinch-zoom;
 }
 
 .galleryClose {
@@ -79,6 +82,22 @@
   object-fit: contain;
   display: block;
   cursor: default;
+  transition: opacity 0.15s ease;
+}
+
+/* The photo asked for has not arrived yet: the one before it stays up,
+   dimmed, until it has. */
+.galleryMainLoading {
+  opacity: 0.45;
+}
+
+/* The photos either side of the one on show, fetched but never seen. */
+.galleryAhead {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .galleryThumbs {
@@ -114,10 +133,37 @@
   object-fit: cover;
 }
 
+.galleryClose:focus-visible,
+.galleryNav:focus-visible,
+.galleryThumb:focus-visible {
+  outline: 2px solid var(--pf-led);
+  outline-offset: 3px;
+}
+
 @media (max-width: 640px) {
   .galleryThumb { width: 36px; }
   .galleryMain { max-width: 94vw; max-height: 72vh; }
-  .galleryFrame { gap: 8px; }
   .galleryNav svg { width: 36px; height: 36px; }
+
+  /* The photo takes 94vw, which left the arrows no room beside it: they sat
+     off both edges of the screen. Here they lie over the photo's own edges,
+     on the same dark highlight the map's labels use. */
+  .galleryFrame {
+    position: relative;
+    gap: 0;
+  }
+  .galleryNav {
+    position: absolute;
+    top: 50%;
+    z-index: 1;
+    padding: 10px 2px;
+    background: rgba(13, 13, 13, 0.6);
+    transform: translateY(-50%);
+  }
+  .galleryNav:hover {
+    transform: translateY(-50%);
+  }
+  .galleryPrev { left: 0; }
+  .galleryNext { right: 0; }
 }
 
