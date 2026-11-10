@@ -9,7 +9,7 @@
 // Round:   124
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Wind=-1..1
+// @knobs Hue=0..1, Flow=0.8..4, Scale=-1..1, Wind=-1..1
 //
 // Knob 1: Hue. draft
 // Knob 2: Flow. draft
@@ -34,8 +34,8 @@ const CFG = {
   beta: 1, // planetary vorticity gradient: model units are LEDs and tu, so beta is 1
   d0: 2.0, // Munk width at Scale -1, LEDs
   d1: 3.1, // and at Scale 1
-  wn0: 4.6, // wind: delta_I / delta_M at Wind 0
-  wnr: 1.15, // ratio per unit of Wind
+  wn0: 5.0, // wind: delta_I / delta_M at Wind 0
+  wnr: 1.12, // ratio per unit of Wind
   rf: 0.3, // bottom friction in units of beta delta_M
   nz: 1.8, // the gusts, as a share of the wind curl amplitude
   nzTau: 0.2, // their correlation time, tu
@@ -433,7 +433,7 @@ export function update(dt, input, params) {
   S.hue = k[0];
   // the clock: the peak jet speed is vel LEDs a second per unit of Flow
   const ujet = CFG.ukf * CFG.beta * (S.wn * S.delta) ** 2;
-  const rate = (CFG.vel * cl(k[1], 0.5, 4)) / ujet;
+  const rate = (CFG.vel * cl(k[1], 0.8, 4)) / ujet;
   const Ht = ft * rate;
   const n = max(1, ceil((Ht * S.umax) / CFG.cfl));
   for (let i = 0; i < n; i++) step(S, Ht / n, true);
