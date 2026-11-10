@@ -17,8 +17,8 @@
 // Knob 4: Rain. test.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
-const { floor, ceil, abs, sqrt, exp, log, cos, sin, tanh, PI, min, max, pow } = Math;
-const TAU = 2 * PI;
+const { ceil, abs, sqrt, exp, log, cos, sin, max, pow } = Math;
+const TAU = 2 * Math.PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const OPEN = [0, 2, 0, 0.06];
 
@@ -32,15 +32,15 @@ const CFG = {
   nu4: 0.05, // and the fourth-order one
   nud: 1.5, // extra damping of the waves (divergence), LED^2 per model second
   muW: 0.02, // drag on the waves
-  muP: 0.025, // drag on the balanced flow at small scales, per model second
-  muL: 0.06, // and an extra damping of the balanced flow at the largest scales
-  kL: 0.1, // that is, below this wavenumber
-  rain: 0.55, // bumps per model second at Rain 0
-  rainBase: 2,
+  muP: 0.02, // drag on the balanced flow at small scales, per model second
+  muL: 0.04, // and an extra damping of the balanced flow at the largest scales
+  kL: 0.09, // that is, below this wavenumber
+  rain: 0.62, // bumps per model second at Rain 0
+  rainBase: 1.8,
   ampLo: 0.14,
   ampHi: 0.25,
   k0: 0.2, // corner of the high pass on the slope that lights the surface, rad per LED
-  pre: 40,
+  pre: 30, // model seconds run before the first frame, at three times the rain
 };
 
 // ---- radix-2 FFT, rows contiguous, columns by butterflies across rows ----
@@ -157,7 +157,7 @@ function setRadius(S, lr) {
     S.dW[q] = CFG.muW + (CFG.nu + CFG.nud) * k2 + CFG.nu4 * k4;
     S.dP[q] = CFG.muP * (kl2 / (1 + kl2)) + CFG.nu * k2 + CFG.nu4 * k4 + CFG.muL * exp(-k2 / (CFG.kL * CFG.kL));
   }
-  S.tauF = S.tauH = -1;
+  S.tauF = -1;
 }
 // propagator for a time tau: the waves turn at w = sqrt(f^2 + c^2 k^2) and decay at dW, the balanced part decays at dP
 function setTables(S, tau) {
@@ -371,10 +371,10 @@ function start(params, k) {
   const S = newState(lrOf(k[2]));
   params.s = S;
   S.rate = rainRate(S, k[3]);
-  nextDrop(S, 4 * S.rate);
+  nextDrop(S, 3 * S.rate);
   const n = ceil(CFG.pre / CFG.dtMax);
   for (let i = 0; i < n; i++) {
-    while (S.next <= S.time) (drop(S), nextDrop(S, 4 * S.rate));
+    while (S.next <= S.time) (drop(S), nextDrop(S, 3 * S.rate));
     step(S, CFG.dtMax);
   }
   nextDrop(S, S.rate);
