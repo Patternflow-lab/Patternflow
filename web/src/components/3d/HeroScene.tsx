@@ -151,6 +151,14 @@ const KEY_DETENTS: Record<string, number> = {
   PageDown: -6,
 };
 
+/**
+ * How near and how far the wheel or a pinch takes the camera, from the 11.2
+ * it rests at. Unbounded, it went through the front of the case and out of
+ * the back, or off until the device was a dot.
+ */
+const ZOOM_NEAREST = 5;
+const ZOOM_FARTHEST = 24;
+
 /** Where the preview looks: OrbitControls' target, and where the device is centred. */
 const TARGET = new THREE.Vector3(0, 1.7, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -321,8 +329,11 @@ function ProductPreview({
     vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
+  useEffect(() => () => customMat.dispose(), [customMat]);
 
   const blackMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 }), []);
+  useEffect(() => () => blackMat.dispose(), [blackMat]);
+  useEffect(() => () => ledMatrix.texture.dispose(), [ledMatrix]);
 
   // --- Knob Interaction Logic ---
   const drag = useRef<{ rig: KnobRig; knob: KnobId; cx: number; cy: number; lastAngle: number } | null>(null);
@@ -439,12 +450,17 @@ function ProductPreview({
   useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
     const { knobValues, buildStep, explode, activeKnobId } = useAppStore.getState();
+    const pose = poseFor(buildStep, explode, t, still);
 
-    // The pattern on the panel.
-    if (activePatternId === 'custom') {
+    // The pattern on the panel, while the panel is lit. On the three Build
+    // steps that show it dark the pattern's code is not run: it drew all
+    // 8192 pixels and uploaded them every frame for a panel painted black.
+    // What the knobs were turned meanwhile reaches the pattern as one delta
+    // when the panel comes back on.
+    if (pose.lit && activePatternId === 'custom') {
       ledMatrix.render(delta, t, knobValues, prevKnobValues.current);
       prevKnobValues.current = { ...knobValues };
-    } else {
+    } else if (pose.lit) {
       ledMat.uniforms.uTime.value = t;
       ledMat.uniforms.uParam1.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[0]]; // Hue
       ledMat.uniforms.uSpeed.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[1]];  // Speed
@@ -456,13 +472,13 @@ function ProductPreview({
     const device = deviceRef.current;
     if (!group || !device) return;
 
-    const pose = poseFor(buildStep, explode, t, still);
     // A model that has just arrived starts where the step has everything,
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;
     device.root.userData.settled = true;
-    const kPart = fresh ? 1 : ease(0.08, delta);
-    const kView = ease(0.05, delta);
+    // With less motion asked for, a Build step is a cut to its pose as well.
+    const kPart = fresh || still ? 1 : ease(0.08, delta);
+    const kView = still ? 1 : ease(0.05, delta);
 
     // The panel: the pattern while there is power, black while it is being built.
     const ledTarget = !pose.lit ? blackMat : activePatternId === 'custom' ? customMat : ledMat;
@@ -784,7 +800,14 @@ export default function HeroScene() {
             </Suspense>
           </ModelGuard>
         )}
-        <OrbitControls target={[0, 1.7, 0]} enablePan={false} enableZoom={true} enableRotate={!isDraggingKnob} />
+        <OrbitControls
+          target={[0, 1.7, 0]}
+          enablePan={false}
+          enableZoom={true}
+          minDistance={ZOOM_NEAREST}
+          maxDistance={ZOOM_FARTHEST}
+          enableRotate={!isDraggingKnob}
+        />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
 
         {/* The frame, in order: the tone curve, on each pixel's own colour
