@@ -15,7 +15,12 @@ export function GET() {
     description: "Writing and notes from Patternflow.",
     id: `${siteUrl}/journal`,
     link: `${siteUrl}/journal`,
-    language: "en",
+    // The items are the Korean posts (getAllJournalPosts defaults to "ko")
+    // and link to the Korean pages, so the feed says Korean. It said "en".
+    language: "ko",
+    // Without this the library stamps the moment the feed was built, and a
+    // reader sees it change with every deploy, new post or not.
+    updated: posts[0] ? new Date(posts[0].date) : undefined,
     feedLinks: {
       rss2: `${siteUrl}/feed.xml`,
     },
