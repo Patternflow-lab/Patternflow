@@ -1,20 +1,59 @@
 // ===== Patternflow pattern =====
 // Title:   Rossby Adjustment
 // Family:  sim
-// Idea:    Bumps of random size and sign fall on a rotating shallow sea, each sheds a ring of waves and leaves a round lens that turns, drifts, merges or pairs off while new rings run across them.
+// Idea:    Bumps of random size and sign fall on a rotating shallow sea; each sends out a ring of waves and leaves a round lens that turns, drifts and fades while new rings cross it, the surface lit from the upper left like silver, with bronze hills and amethyst hollows.
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: geostrophic adjustment (Carl-Gustaf Rossby, 1937 and 1938) in the rotating shallow water equations on an f-plane torus, pseudo-spectral
+// Lineage: geostrophic adjustment (Carl-Gustaf Rossby, 1937 and 1938) in the shallow water equations on an f-plane (Laplace's tidal equations, 1776), with the potential vorticity the lenses keep (Rossby, 1940; Hans Ertel, 1942); Fourier modes on a torus with a filter on the nonlinear terms in the spirit of the two-thirds rule (Steven Orszag, 1971); the waves and the damping carried exactly by an integrating factor (John Lawson, 1967) under Kutta's third order scheme (1901); all from memory
 // Round:   125
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=1..5, Scale=-1..1, Rain=-1..1
+// @knobs Hue=0..1, Flow=1.5..5, Scale=-1..1, Rain=-1..1
 //
-// Knob 1: Hue. test.
-// Knob 2: Flow. test.
-// Knob 3: Scale. test.
-// Knob 4: Rain. test.
+// Knob 1: Hue. Turns every colour of the palette round the grey axis by the knob times 360 degrees. At 0 the flat sea is silver grey, a hill is bronze and a hollow amethyst; at 0.33 the sea is pale mint with copper hills and green hollows; at 0.66 it is lilac with green hills and magenta hollows.
+// Knob 2: Flow. Model seconds per panel second. The waves run at c = f L_R = 8.5 LEDs per model second at the opening Scale, so 12.8 LEDs a panel second at Flow 1.5, 17 at the opening 2 and 42.5 at 5; one turn of the rotation (2 pi / f, 6.3 model seconds) takes 4.2, 3.1 and 1.3 panel seconds. The lenses are about 17 times slower than the waves: the water has an rms speed of 0.49 LEDs per model second.
+// Knob 3: Scale. The Rossby radius L_R = 8.5 x 1.41 to the Scale LEDs: 6.0 at -1, 8.5 at 0 and 12.0 at 1, which is also the wave speed in LEDs per model second. A bump has a half-height radius of L_R times 0.5 to 1.3, so 3.0 to 7.8, 4.3 to 11 and 6.0 to 16 LEDs. The number of bumps in a given area goes as 1 / L_R^2, so lenses cover about the same share of the sea at every Scale.
+// Knob 4: Rain. Bumps per model second 0.7 x 1.5 to the Rain x (8.5 / L_R)^2: at Scale 0 that is 0.47 at -1, 0.72 at the opening 0.06 and 1.05 at 1, and at the opening Flow a bump every 0.7 panel seconds. Each has a height of 0.14 to 0.25 of the rest depth, up or down with equal odds.
+
+// What the field is. Water of rest depth H on a torus 64 LEDs wide (x) and 128 tall (y, up the panel), turning at f = 1 per model second (a model second is 1 / Flow panel seconds). With u, v the velocity, h = eta / H the height of the surface over the rest depth and c^2 = g H = (f L_R)^2 the squared speed of long waves,
+//   u_t + u u_x + v u_y - f v = - c^2 h_x,   v_t + u v_x + v v_y + f u = - c^2 h_y,   h_t + div((1 + h) u) = 0,
+// less the damping below. The state is the vorticity z = v_x - u_y, the divergence d = u_x + v_y and h, each as 64 x 128 Fourier modes, one to an LED, and the same equations read
+//   z_t = - f d - div(z u),   d_t = f z - c^2 lap h + dx(z v) - dy(z u) - lap K,   h_t = - d - div(h u),   K = (u^2 + v^2) / 2.
+// Two things decide what a bump becomes. The linear part has waves of frequency w = sqrt(f^2 + c^2 k^2), which leave, and one mode of frequency 0, P = z - f h, which stays. A bump at rest has P = - f h, so it keeps the share 1 / (1 + k^2 L_R^2) of each of its modes as a lens in geostrophic balance (Rossby, 1938). A bump much smaller than L_R is mostly ring and hardly a lens (0.18 of its height is left at a half-height radius of 0.5 L_R, 0.38 at 1.0 and 0.53 at 1.5); a much larger one keeps its shape.
+// The other thing is the potential vorticity q = (z + f) / (1 + h), which each parcel of water keeps: a lens is a patch of q that the flow carries and stretches and that merges with the next, and the waves hardly move it.
+// Damping is set mode by mode in the basis of the linear part, so that the lens and the waves get their own. The balanced part P decays at 0.02 (k L_R)^2 / (1 + (k L_R)^2) + 0.02 k^2 + 0.05 k^4 + 0.04 exp(-k^2 / 0.09^2) per model second: the first term is a drag on the velocity as a lens feels it, and the last acts only on the largest scales, so that the lenses do not merge into one patch the size of the panel. The waves (d, and f z + c^2 k^2 h) decay at 0.02 + 1.52 k^2 + 0.05 k^4,
+// where 1.5 of the 1.52 is a damping of the divergence that stops a ring from circling the torus for ever. None of this is in the equations of the sea; it is the picture's own. The mean of h is never set, so it stays 0.
+// Rain. Bumps fall at exponentially distributed intervals (no period) at the rate of Knob 4. Each is a Gaussian of half-height radius L_R (0.5 + 0.8 u) and height +-(0.14 + 0.11 u), u uniform, at a uniform place, added to h with the water at rest around it. 30 model seconds run at three times the rain before the first frame.
+// The scheme. A stage takes two inverse transforms (u + i v and z + i h, two real fields in one complex) and three forward ones (z u + i z v, h u + i h v and K); the nonlinear terms they give are multiplied by exp(-36 (k / 1.8)^16), a cut at 1.8 rad per LED. The linear part, waves and damping, is applied exactly with a table per (|nx|, |ny|) in Lawson's integrating-factor form of Kutta's third order scheme,
+// so the step is limited by the speed of the lenses and not by the waves: one step a frame of at most 0.2 model seconds (0.167 at Flow 5), landing each frame on the model time the knob asks for, so Flow 1.5 is as smooth as Flow 5. With the two transforms of the picture a frame costs 17 of 64 x 128.
+// The picture. The panel's y is the model's y turned over, so a hill turns clockwise as a high does. Colour comes from the anomaly of the potential vorticity, (1 + z / f) / (1 + h) - 1, with its sign turned and 0.6 h added so that a ring tints a little as it passes. Below 0.72 of its rms (followed over 8 s) the value leaves the sea silver grey; above that it goes by a smoothstep to bronze for a hill and amethyst for a hollow, full at 2.6 times its rms.
+// Light is the slope of h along the line to the upper left, i (kx - ky) h in the Fourier modes with the broad part taken off by k^2 / (k^2 + 0.2^2), then g / (|g| + rms g). A 64 x 64 table of colour and shade does the rest: the shade multiplies the colour by 0.64 to 1.3 and adds pale cream above 0.6.
+//
+// What was checked, with this file's own step (scripts of mine, not in the repo):
+// - The nonlinear terms with two real fields packed in one transform, against each field transformed alone: the relative difference is 6e-16 in z, 6e-15 in d and 1e-15 in h. Of the energy E = the sum of (1 + h)(u^2 + v^2) / 2 + c^2 h^2 / 2, the quadratic part changes by 0.026671 a model second through the nonlinear terms and the cubic part by -0.026671 through the linear part, which sum to 4e-11, as the equations ask.
+// - The energy of one bump of 0.2 at L_R 8 over 30 model seconds with the damping off changes by 7e-8 of E at a step of 0.2, 1.7e-6 at 0.1 and 2.8e-7 at 0.05.
+// - The speed of the waves. A straight pulse with no variation along y splits in two, and its front (where h reaches 5% of the crest), read from 0.5 to 2 model seconds, runs at 8.015 LEDs per model second for c = 8 with f near 0, at 7.907 for c = 8 with f = 1, at 11.955 for c = 12 and at 5.888 for c = 6. With the turning, a pulse 3 LEDs wide runs a little under c, since a wave of wavenumber k has the group speed c / sqrt(1 + 1 / (k L_R)^2).
+// - Potential vorticity. A sea spun up by the rain (q from 0.7545 to 1.3096), then 30 model seconds with the damping and the rain off. The sum of (1 + h) q, which is the sum of z + f and so fixed by the mean of z being 0, stays 8192.000000 to 4e-15. The variance of q weighted by 1 + h changes by -1.4e-4 after 10 s, and after 30 s by -1.56e-3, -1.28e-3 and -1.25e-3 at steps of 0.2, 0.1 and 0.05; the sum of (1 + h) q^2 by -1.2e-5, -1.0e-5 and -9.8e-6; E by 6e-5 at most.
+//   The extremes of q go from 0.7545 and 1.3096 to 0.7538 and 1.3081, so none is new. What is left at a small step is the cut, which takes the finest scales the flow makes, and not the step.
+// - The lens that is left. One bump on the plane leaves a lens that the balance with the potential vorticity fixes. Three results side by side: this solver with the waves damped (0.15 and 0.3 k^2) and the balanced part not, read from 40 to 60 model seconds with the mean of h that the torus takes out (0.2 times the bump's volume over 8192, 0.0038 at 0.2) put back; an axisymmetric solver of mine on the plane in Lagrangian form,
+//   where each ring of water keeps its mass and its angular momentum f r0^2 / 2 (nodes 0.25 LEDs apart out to 600, no damping, averaged from 40 to 70 model seconds); and the linear result 1 / (1 + k^2 L_R^2). Centre height and half-height radius at L_R 8, bump height 0.2, for a half-height radius r_b of 0.5 L_R: 0.0355 and 7.5 LEDs here, 0.0355 and 7.5 Lagrangian, 0.0378 and 7.1 linear; for 1.0 L_R: 0.0756 and 11.9, 0.0755 and 11.8, 0.0800 and 11.3;
+//   for 1.5 L_R: 0.1064 and 15.9, 0.1058 and 15.8, 0.1112 and 15.2. At a bump of 0.02 and 1.0 L_R the three agree at 0.008 and 11.3 to 11.4. So the solver is on the nonlinear lens to 0.6% in height and 0.1 LED in size, and the linear result is 5% too high at 0.2.
+// - 900 s through update() at the opening, all minimum and all maximum, 30 fps: no restart (the guard fires at |h| over 0.8); the largest |h| in any frame 0.43, 0.40 and 0.41, where two bumps fell on one place, and 0.29 at most at the minute marks; the mean of h 1e-17 and the share of the sea above the rest depth 0.51 at each, so the thickness drifts to neither side. The energy E has a mean of 1970, 860 and 5990, and at the minute marks after the first it runs from 1080 to 3010, 510 to 1330 and 2500 to 8890, with no trend.
+//   The balanced part holds 0.67, 0.82 and 0.59 of the energy on average and the waves the rest. The energy in modes under k = 0.115, wavelength over 55 LEDs, is 0.58, 0.41 and 0.86 of the balanced part, and the largest single balanced mode 0.07 to 0.39 of it: at all maximum L_R is 12, so the lenses themselves sit at that scale and the panel is not condensing into one vortex.
+// - Eight seeds, 100 s each, at all maximum and all minimum: E means 4500 to 7110 and 640 to 1190, rms h 0.053 to 0.066 and 0.046 to 0.065, balanced share 0.49 to 0.61 and 0.79 to 0.87. None goes its own way.
+// - flowcheck, 240 s, six sets (recur, dim, quiet, then the last quarter's dim and quiet): open 0.605, 0.910, 0.864, 0.903, 0.845; all minimum 0.561, 0.864, 0.786, 0.853, 0.522; all maximum 0.526, 0.968, 0.921, 0.895, 0.777; random 0.93/3.56/0.96/-0.61 0.532, 0.955, 0.897, 0.897, 0.736; random 0.24/3.52/-0.02/-0.82 0.625, 0.958, 0.869, 0.922, 0.726;
+//   random 0.42/3.31/-0.96/0.11 0.653, 0.937, 0.828, 0.890, 0.755. The brightness of the last quarter is within 0.6% of the first in all six. 900 s (recur, dim, quiet): open 0.569, 0.943, 0.941; all minimum 0.486, 0.943, 0.915; all maximum 0.494, 0.976, 0.951. Measured on this file under its name, which seeds the rain.
+// - Cost: 6.6 to 9.1 ms a frame (update and draw) in Node on a machine shared with two other jobs, of which update is 6.3 to 8.1 ms; the start takes 0.9 to 1.2 s.
+//
+// What failed first.
+// 1. The K term of d_t came out N times too small: the filter table already held the 1 / N of the forward transform and I divided by it again. A bump of 0.2 lost 3% of its energy in two model seconds, whatever the step and the cut. Evaluating the terms with each field transformed alone found it (a difference of 2.3 in d, 6e-15 once fixed).
+// 2. The light, taken from the raw slope of h, was two huge areas, one lit and one dark, since waves 30 to 55 LEDs long carry most of the slope. The high pass at 0.2 rad per LED and the soft sign g / (|g| + rms g) brought out the rings and the sides of the lenses.
+// 3. Colour taken straight from the potential vorticity covered the panel in bronze and violet with no sea between, and the first bronze, a pale gold with its lit side clipped at 255 in red and green, came out lemon yellow on the panel. The dead zone and a bronze that stays under 255 when lit fixed both.
+// 4. recur at all minimum was 0.20 (Flow 0.5, Rain -1, Scale -1), 0.29 at Flow 1, and 0.36 at Flow 1 over 900 s: the sea was thin, and frames 20 s apart looked alike. The rain went up (at Rain -1 and Scale 0, 0.2 to 0.47 a model second), the number of bumps began to go as 1 / L_R^2, and Flow now starts at 1.5. A drag of 0.06 on the balanced part made lenses that lost half their height in 15 model seconds; at 0.02 with the large-scale term 0.04 it is 34, and recur at the opening went from 0.46 to 0.61 (the rain fell from 0.8 to 0.55 with it).
+// 5. Pairs that cross the panel did not come. A hill and a hollow 12 to 16 LEDs apart (bumps of 1.5 L_R) moved to 26 apart in 10 model seconds as the bumps adjusted, and then stood within 2 LEDs for 50 more. With a bump of 0.25 at most, the Rossby number of the sea is 0.063 (rms z over f), the water moves at 0.49 LEDs per model second, and the neighbour of a lens is screened by exp(-r / L_R). Lenses turn, drift a little, fade and merge; they do not travel.
+// What was not checked. The merging of like lenses and the speed of a pair against the theory of modons (Melvin Stern, 1975; Vladimir Larichev and Gregory Reznik, 1976) are not counted; I looked at pictures only. A bump of 0.25 steepens into a bore in a tank without rotation, and here the cut and the damping of the divergence take it: no shock-capturing scheme was tried, and the largest |h| of 0.43 is where bumps overlap.
+// A finer grid than 64 x 128 was not run, and the smallest bump, 3 LEDs in half-height radius at Scale -1, is 3 cells. f = 1 per model second is the one value tried. Three dimensions, where a bump also launches internal waves, are not in the equations. The damping, the rain and the light are the picture's own.
 
 const W = 64, H = 128, N = W * H, WM = W - 1, HM = H - 1;
 const { ceil, abs, sqrt, exp, log, cos, sin, max, pow } = Math;
@@ -35,8 +74,8 @@ const CFG = {
   muP: 0.02, // drag on the balanced flow at small scales, per model second
   muL: 0.04, // and an extra damping of the balanced flow at the largest scales
   kL: 0.09, // that is, below this wavenumber
-  rain: 0.62, // bumps per model second at Rain 0
-  rainBase: 1.8,
+  rain: 0.7, // bumps per model second at Rain 0
+  rainBase: 1.5,
   ampLo: 0.14,
   ampHi: 0.25,
   k0: 0.2, // corner of the high pass on the slope that lights the surface, rad per LED
