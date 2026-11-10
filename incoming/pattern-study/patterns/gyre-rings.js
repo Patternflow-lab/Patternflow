@@ -37,8 +37,8 @@ const CFG = {
   wn0: 4.6, // wind: delta_I / delta_M at Wind 0
   wnr: 1.15, // ratio per unit of Wind
   rf: 0.3, // bottom friction in units of beta delta_M
-  nz: 1.2, // the gusts, as a share of the wind curl amplitude
-  nzTau: 0.5, // their correlation time, tu
+  nz: 1.6, // the gusts, as a share of the wind curl amplitude
+  nzTau: 0.2, // their correlation time, tu
   nzK: 0.57, // their wavenumber in units of 1 / sqrt(delta_M)
   tauT: 3, // relaxation of the temperature, tu
   vel: 5, // peak jet speed per unit of Flow, LEDs per second
@@ -53,6 +53,8 @@ const CFG = {
   sa: 0.6, // lightness given to the temperature anomaly
   sw: 1.2, // anomaly over its block scale that saturates it
   sz: 0.6, // lightness given to the vorticity
+  ss: 1.0, // and to the speed
+  sk: 1.2, // speed over the rms speed that saturates it
   zfl: 0.15, // share of the panel's mean square vorticity every block gets at least
   zk: 1.2, // vorticity over its scale that saturates the shading
 };
@@ -490,7 +492,7 @@ export function draw(display, params) {
   if (!S) return;
   const hue = S.hue + CFG.base;
   if (abs(S.lutHue - hue) > 0.002) buildLut(S, hue);
-  const { T, TW, Ts, zeta, lut, env, envT } = S;
+  const { T, TW, Ts, zeta, lut, env, envT, UF, VF } = S;
   // the scales of the vorticity and of the temperature anomaly, one value to every 16 by 16 block, each floored by a
   // share of the whole panel's, so the shading shows what the water is doing in the quiet corners as in the jet
   env.fill(0);
@@ -504,6 +506,9 @@ export function draw(display, params) {
       tot += z * z;
       totT += d * d;
     }
+  let sp2 = 0;
+  for (let p = 0; p < NVT; p += 5) sp2 += UF[p % (SX * NY)] * UF[p % (SX * NY)] + VF[p % (NX * (NY + 1))] * VF[p % (NX * (NY + 1))];
+  const isp = 1 / (CFG.sk * sqrt((sp2 / (NVT / 5)) * 1) + 1e-6);
   const fl = (CFG.zfl * tot) / NVT, flT = (CFG.zfl * totT) / NVT;
   for (let b = 0; b < 32; b++) {
     env[b] = sqrt(env[b] / 256 + fl) * CFG.zk;
@@ -518,7 +523,8 @@ export function draw(display, params) {
       const t = cl(T[(j + 2) * TW + px + 2], 0, 1);
       const p = j * SX + px;
       const z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25 / en;
-      const sh = CFG.sa * tanh((t - Ts[j]) / et) + CFG.sz * tanh(z);
+      const uc = UF[j * SX + px] + UF[j * SX + px + 1], vc = VF[j * NX + px] + VF[(j + 1) * NX + px];
+      const sh = CFG.sa * tanh((t - Ts[j]) / et) + CFG.sz * tanh(z) + CFG.ss * (tanh(0.5 * sqrt(uc * uc + vc * vc) * isp) - 0.4);
       const si = cl(12 + 12 * sh + 0.5, 0, NS - 1) | 0, ti = (t * (NT - 1) + 0.5) | 0, o = (ti * NS + si) * 3;
       display.setPixel(px, py, lut[o], lut[o + 1], lut[o + 2]);
     }
