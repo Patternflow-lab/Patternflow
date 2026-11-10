@@ -45,6 +45,7 @@ export async function generateMetadata({
       type: "article",
       publishedTime: post.date,
       url: `/journal/${post.slug}`,
+      locale: "ko_KR",
       images: [{ url: `/journal/${post.slug}/opengraph-image` }],
     },
   };

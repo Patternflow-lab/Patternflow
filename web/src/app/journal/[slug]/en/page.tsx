@@ -45,7 +45,7 @@ export async function generateMetadata({
       type: "article",
       publishedTime: post.date,
       url: `/journal/${post.slug}/en`,
-      images: [{ url: `/journal/${post.slug}/opengraph-image` }],
+      images: [{ url: `/journal/${post.slug}/en/opengraph-image` }],
     },
   };
 }
