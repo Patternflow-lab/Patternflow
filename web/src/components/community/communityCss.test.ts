@@ -84,6 +84,30 @@ describe("the wall's grid", () => {
   });
 });
 
+// A profile and a deck page put cards three across on a phone, 109px each in
+// Chromium at 390px, with the full caption: the counts ran 108px past the card
+// and the page 77px past the screen. Neither has a data-view to say small.
+describe("a narrow card", () => {
+  const community = css("Community.module.css");
+  const narrow = community.slice(community.indexOf("\n@container card (max-width: 140px) {"));
+
+  it("measures itself, wherever it is drawn", () => {
+    expect(rule(community, ".card")).toMatch(/container: card \/ inline-size;/);
+    expect(community).toContain("\n@container card (max-width: 140px) {");
+  });
+
+  it("drops the counts the way the small view does", () => {
+    const stats = narrow.slice(narrow.indexOf("\n  .cardStats,\n  .frameChip {"));
+    expect(stats.slice(0, stats.indexOf("}"))).toMatch(/display: none;/);
+  });
+
+  it("lets the counts give way to the handle instead of running past the card", () => {
+    const stats = declarations(rule(community, ".cardStats"));
+    expect(stats).toContain("overflow: hidden");
+    expect(stats).not.toContain("flex: none");
+  });
+});
+
 // On 26 October one public deck named in 62 characters made /community/decks
 // and its owner's profile 578px wide on a 390px phone. Every card in the
 // column grew to 562px with it, and the tab bar to 578px, which put YOU off

@@ -691,6 +691,9 @@
   text-decoration: none;
   color: inherit;
   box-sizing: border-box;
+  /* The caption sizes itself to the card it is in (see "Narrow cards"). */
+  container: card / inline-size;
+  min-width: 0;
 }
 
 .cardThumb {
@@ -873,14 +876,29 @@
   display: inline-flex;
   align-items: baseline;
   gap: 8px;
-  margin-left: auto;
-  flex: none;
+  /* Three counts and a date are 204px. As a fixed block they ran 10px past a
+     deck's 160px slot, and on a 213px wall card they left the handle 1px. So
+     this takes the width the handle leaves, 40% of the row at the least, and
+     what does not fit wraps onto a second line that is cut off. Whole items
+     go, last first: the date leaves before the counts do. */
+  flex: 1 1 0;
+  min-width: 40%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-height: 1.2em;
+  overflow: hidden;
   font-variant-numeric: tabular-nums;
   font-family: var(--pf-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--pfc-ink-faint);
+}
+
+/* Nothing to show (no counts, and the age chip stands in for the date): the
+   handle may have the whole row. */
+.cardStats:empty {
+  display: none;
 }
 
 .cardDate {
@@ -934,6 +952,47 @@
   right: 4px;
   gap: 4px;
   padding: 5px 6px;
+}
+
+/* ── Narrow cards ──
+   The same furniture as the small view, by the card's own width. The wall
+   says "small" with data-view. A profile and a deck page have no grid to say
+   it, and on a phone they put cards three across at 114px, where the full
+   byline ran past the card and widened the page. */
+@container card (max-width: 140px) {
+  .cardMeta {
+    gap: 2px;
+  }
+
+  .cardTitle {
+    font-size: 11.5px;
+    gap: 4px;
+  }
+
+  .cardByline {
+    font-size: 10px;
+    gap: 4px;
+  }
+
+  .cardStats,
+  .frameChip {
+    display: none;
+  }
+
+  .cardHwBadge,
+  .ageChip {
+    font-size: 9px;
+    padding: 0 4px;
+    top: 6px;
+  }
+
+  .cardHwBadge {
+    left: 6px;
+  }
+
+  .ageChip {
+    right: 6px;
+  }
 }
 
 /* ── Knob overlay ──
