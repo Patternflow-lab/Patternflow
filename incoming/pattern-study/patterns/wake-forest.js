@@ -42,7 +42,7 @@
 // What failed first. 1. No drag at all: one post alone in the torus did not make a street, it made a flow. The cross-stream speed 16 LEDs behind it had an rms of 2.1 LEDs a second against a push of 3, the vorticity of the wake piled into eddies as big as the panel. Drag of 0.1 on every mode went the other way: no street at all, a standing wake (rms 0.000) at Reynolds 197. Drag on the largest scales only, the mu(k) above, gave a street at f D / U 0.21. 2. The screen at 4 a second made the stand too calm: the same picture at Reynolds 83, 228 and 418, no street behind most posts (the rms of the
 // cross-stream speed 10 LEDs behind a post was 0.2 to 2.3, against 0.5 to 3.0 with no screen). At 0.4 enough noise gets through to keep the posts shedding while the stripes still come in straight. 3. The dye was one scalar on a ramp from coral through the ground to gold, and the two
 // dyes cancelled where they mixed: below the first few posts the picture was the dark middle of the ramp. Two dyes that add give a glow where they mix. 4. Dye was killed in the whole soft edge of a post, 0.05 < chi, and every post trailed a dye-free tail; killing above 0.55 only left the water at the edge its dye. 5. The tile that
-// changed least in flowcheck was at the bottom, with the dye gone and the posts ending at row 113: the all-minimum set had quiet 0.31 (0.28 in the last quarter). Posts to row 118, the ground tinted by the sign of the vorticity and the curve that lifts thin dye took it to 0.52 and 0.50.
+// changed least in flowcheck was at the bottom, with the dye gone and the posts ending at row 113: the all-minimum set had quiet 0.31 (0.28 in the last quarter). Posts to row 118, the ground tinted by the sign of the vorticity and the curve that lifts thin dye took it to 0.52 and 0.50. 6. The fourth knob was Reynolds, 100 to 256 on the same viscosity law. Over that range the rms vorticity moved 8 per cent (0.94 to 1.02 per model second) and the spread of the dye in rows 10 to 30 and 90 to 118 about 5 per cent, which nobody turning a knob would see in 3 s; the pictures at the ends were two draws of one picture. It is Lean now, which swings every wake in about a second, and the Reynolds number stays at 160.
 // What was not checked. A grid finer than the panel's: a post is 5.8 cells across, so the boundary layer, 0.4 of a cell at Reynolds 200, is not resolved and the Reynolds number is the viscosity's, not a measured drag (I did not compare the drag coefficient of one post with the 1.3 to 1.4 a cylinder has at 100 to 200, from memory). The
 // time order of the Brinkman step, which is first order (the Strouhal number did not move from 0.1 to 0.025). Three dimensions, where the street goes oblique and then irregular from about Reynolds 190. A post that moves. The drag, the screen, the wandering push, the dye's rows of inlet and outlet and the lighting by vorticity are the picture's own: none of them is in the
 // equation of a flow past a post.
@@ -69,7 +69,7 @@ const CFG = {
   eta: 0.002, // Brinkman time
   delta: 0.75, // half width of a post's edge, LEDs
   dt: 0.1,
-  pre: 28,
+  pre: 20,
   cfl: 0.8,
   nStripe: 12,
   stripeS: 1.1,
@@ -78,9 +78,9 @@ const CFG = {
   ysp: 12,
   yin: 8,
   rout: 1.4,
-  yout: 9,
+  yout: 5,
   postTop: 21,
-  postBot: 118,
+  postBot: 121,
   cdiff: 0.03,
 };
 
@@ -365,8 +365,8 @@ function drift(S, dt) {
   S.Ux = u * sin(S.th + S.lean);
   S.Uy = u * cos(S.th + S.lean);
   for (let i = 0; i < CFG.nStripe; i++) {
-    S.sv[i] = ou(S.sv[i], 3.0, 0.5, dt);
-    S.sj[i] = ou(S.sj[i], 6.0, 0.8, dt);
+    S.sv[i] = ou(S.sv[i], 3.0, 0.2, dt);
+    S.sj[i] = ou(S.sj[i], 6.0, 0.3, dt);
   }
 }
 function stripes(S) {
@@ -444,7 +444,7 @@ function start(params, k) {
     const e = y - (H - CFG.yout);
     if (e >= 0) S.rout[y] = CFG.rout * 0.5 * (1 - cos((PI * (e + 0.5)) / CFG.yout));
   }
-  for (let i = 0; i < CFG.nStripe; i++) (S.sv[i] = gauss() * 0.5), (S.sj[i] = gauss() * 0.8);
+  for (let i = 0; i < CFG.nStripe; i++) (S.sv[i] = gauss() * 0.2), (S.sj[i] = gauss() * 0.3);
   S.th = gauss() * CFG.angS;
   S.sp = gauss() * CFG.spdS;
   drift(S, 0);
