@@ -9,7 +9,7 @@
 // Round:   125
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0.5..4, Scale=-1..1, Rain=-1..1
+// @knobs Hue=0..1, Flow=1..5, Scale=-1..1, Rain=-1..1
 //
 // Knob 1: Hue. test.
 // Knob 2: Flow. test.
@@ -26,19 +26,20 @@ const CFG = {
   f: 1.0, // Coriolis parameter, 1 per model second
   lr: 8.5, // Rossby radius at Scale 0, LEDs
   lrBase: 1.41, // Scale multiplies it by lrBase to the knob
-  dtMax: 0.12, // longest step, model seconds
+  dtMax: 0.2, // longest step, model seconds
   cut: 1.8, // rad per LED, the filter on the nonlinear terms
   nu: 0.02, // viscosity, LED^2 per model second
   nu4: 0.05, // and the fourth-order one
   nud: 1.5, // extra damping of the waves (divergence), LED^2 per model second
   muW: 0.02, // drag on the waves
-  muP: 0.04, // drag on the balanced flow at small scales, per model second
+  muP: 0.025, // drag on the balanced flow at small scales, per model second
   muL: 0.06, // and an extra damping of the balanced flow at the largest scales
   kL: 0.1, // that is, below this wavenumber
-  rain: 0.45, // bumps per model second at Rain 0
-  rainBase: 2.2,
-  ampLo: 0.1,
+  rain: 0.55, // bumps per model second at Rain 0
+  rainBase: 2,
+  ampLo: 0.14,
   ampHi: 0.25,
+  k0: 0.2, // corner of the high pass on the slope that lights the surface, rad per LED
   pre: 40,
 };
 
@@ -207,19 +208,18 @@ function prop(S, T, a, b, kb, out, add, sc) {
 // three forward ones (zu + izv, hu + ihv and K), the pairs separated by the mirror mode.
 function rhs(S, V, O) {
   const { ar, ai, br, bi, cr, ci } = S, inv = 1 / N;
+  const { zr, zi, dr, di, hr, hi } = V;
   for (let p = 0; p < N; p++) {
     const k2 = K2[p];
     if (k2 === 0) {
       ar[p] = ai[p] = 0;
     } else {
-      const kx = KX[p], ky = KY[p], i2 = 1 / k2, zr = V.zr[p], zi = V.zi[p], dr = V.dr[p], di = V.di[p];
-      const ur = (-ky * zi + kx * di) * i2, ui = (ky * zr - kx * dr) * i2;
-      const vr = (kx * zi + ky * di) * i2, vi = (-kx * zr - ky * dr) * i2;
-      ar[p] = ur - vi;
-      ai[p] = ui + vr;
+      const kx = KX[p], ky = KY[p], i2 = 1 / k2, a = zr[p], b = zi[p], c = dr[p], d = di[p];
+      ar[p] = (-ky * b + kx * d + kx * a + ky * c) * i2; // the spectrum of u + i v
+      ai[p] = (ky * a - kx * c + kx * b + ky * d) * i2;
     }
-    br[p] = V.zr[p] - V.hi[p];
-    bi[p] = V.zi[p] + V.hr[p];
+    br[p] = zr[p] - hi[p];
+    bi[p] = zi[p] + hr[p];
   }
   fft2(ar, ai, true);
   fft2(br, bi, true);
@@ -235,6 +235,7 @@ function rhs(S, V, O) {
   fft2(ar, ai, false);
   fft2(br, bi, false);
   fft2(cr, ci, false);
+  const { zr: Zr, zi: Zi, dr: Dr, di: Di, hr: Hr, hi: Hi } = O;
   for (let p = 1; p < N; p++) {
     const m = MIR[p], kx = KX[p], ky = KY[p], fl = FIL[p] * inv;
     // F1 = z u, F2 = z v
@@ -244,19 +245,16 @@ function rhs(S, V, O) {
     const g1r = 0.5 * (br[p] + br[m]), g1i = 0.5 * (bi[p] - bi[m]);
     const g2r = 0.5 * (bi[p] + bi[m]), g2i = -0.5 * (br[p] - br[m]);
     // N_z = -i (kx F1 + ky F2)
-    const xr = kx * f1r + ky * f2r, xi = kx * f1i + ky * f2i;
-    O.zr[p] = xi * fl;
-    O.zi[p] = -xr * fl;
+    Zr[p] = (kx * f1i + ky * f2i) * fl;
+    Zi[p] = -(kx * f1r + ky * f2r) * fl;
     // N_d = i (kx F2 - ky F1) + k^2 K
-    const yr = kx * f2r - ky * f1r, yi = kx * f2i - ky * f1i;
-    O.dr[p] = (-yi + K2[p] * cr[p]) * fl;
-    O.di[p] = (yr + K2[p] * ci[p]) * fl;
+    Dr[p] = (-(kx * f2i - ky * f1i) + K2[p] * cr[p]) * fl;
+    Di[p] = (kx * f2r - ky * f1r + K2[p] * ci[p]) * fl;
     // N_h = -i (kx G1 + ky G2)
-    const wr = kx * g1r + ky * g2r, wi = kx * g1i + ky * g2i;
-    O.hr[p] = wi * fl;
-    O.hi[p] = -wr * fl;
+    Hr[p] = (kx * g1i + ky * g2i) * fl;
+    Hi[p] = -(kx * g1r + ky * g2r) * fl;
   }
-  for (const nm of NAMES) O[nm][0] = 0;
+  Zr[0] = Zi[0] = Dr[0] = Di[0] = Hr[0] = Hi[0] = 0;
 }
 
 function combine(out, a, b, kb) {
@@ -310,14 +308,16 @@ function addBump(S, amp, rad, x0, y0) {
     }
 }
 
-function rainRate(k) {
-  return CFG.rain * pow(CFG.rainBase, cl(k, -1.2, 1.2));
+// bumps per model second; the number per area goes as 1 / lr^2, so the share of the sea a lens covers does not change with Scale
+function rainRate(S, k) {
+  const r = CFG.lr / S.lr;
+  return CFG.rain * pow(CFG.rainBase, cl(k, -1.2, 1.2)) * r * r;
 }
 function nextDrop(S, rate) {
   S.next = S.time - log(1 - Math.random()) / rate;
 }
 function drop(S) {
-  const sgn = Math.random() < 0.5 ? -1 : 1, size = pow(3, Math.random() - 0.5) * 1.0, rad = S.lr * (0.5 + Math.random());
+  const sgn = Math.random() < 0.5 ? -1 : 1, rad = S.lr * (0.5 + 0.8 * Math.random());
   const amp = sgn * (CFG.ampLo + (CFG.ampHi - CFG.ampLo) * Math.random());
   addBump(S, amp, rad, Math.random() * W, Math.random() * H);
 }
@@ -332,37 +332,45 @@ function newState(lr) {
     ar: mk(), ai: mk(), br: mk(), bi: mk(), cr: mk(), ci: mk(),
     cK: mk(), iw2: mk(), dW: new Float64Array(NQ), dP: new Float64Array(NQ), TF: tb(), TH: tb(),
     lr: lr, c2: 0, tauF: -1, time: 0, next: 0, acc: 0, ready: false, rate: 1,
-    pz: new Float64Array(N), ph: new Float64Array(N), hue: 0, lutHue: -9, lut: new Uint8Array(NB * NS * 3), qs: 0.06, gs: 20,
+    pz: new Float64Array(N), ph: new Float64Array(N), cz: new Float64Array(N), cg: new Float64Array(N), hue: 0, lutHue: -9, lut: new Uint8Array(NB * NS * 3), qs: 0.06, gs: 20,
   };
   setRadius(S, lr);
   return S;
 }
 
 function physical(S) {
-  const { ar, ai, U } = S;
+  const { ar, ai, br, bi, U } = S, f = CFG.f;
   for (let p = 0; p < N; p++) {
     ar[p] = U.zr[p] - U.hi[p];
     ai[p] = U.zi[p] + U.hr[p];
+    // the slope of the height along the light, i (kx - ky) h, with the broad part taken off (high pass of corner k0)
+    const k2 = K2[p], hp = k2 / (k2 + CFG.k0 * CFG.k0), c = KX[p] - KY[p];
+    br[p] = -c * U.hi[p] * hp;
+    bi[p] = c * U.hr[p] * hp;
   }
   fft2(ar, ai, true);
+  fft2(br, bi, true);
   let q2 = 0, g2 = 0;
-  const f = CFG.f;
   for (let p = 0; p < N; p++) {
     S.pz[p] = ar[p];
     S.ph[p] = ai[p];
-    const q = (1 + ar[p] / f) / (1 + ai[p]) - 1;
-    q2 += q * q;
-    const hx = ai[(p & ~WM) + ((p + 1) & WM)] - ai[(p & ~WM) + ((p - 1) & WM)], hy = ai[(p + W) & (N - 1)] - ai[(p - W) & (N - 1)];
-    g2 += hx * hx + hy * hy;
+    const z = 0.6 * ai[p] - ((1 + ar[p] / f) / (1 + ai[p]) - 1);
+    S.cz[p] = z;
+    S.cg[p] = br[p];
+    q2 += z * z;
+    g2 += br[p] * br[p];
   }
   S.qr = sqrt(q2 / N);
   S.gr = sqrt(g2 / N);
+  let hm = 0;
+  for (let p = 0; p < N; p++) hm = max(hm, abs(S.ph[p]));
+  S.hmax = hm;
 }
 
 function start(params, k) {
   const S = newState(lrOf(k[2]));
   params.s = S;
-  S.rate = rainRate(k[3]);
+  S.rate = rainRate(S, k[3]);
   nextDrop(S, 4 * S.rate);
   const n = ceil(CFG.pre / CFG.dtMax);
   for (let i = 0; i < n; i++) {
@@ -383,7 +391,7 @@ export function update(dt, input, params) {
   S.hue = cl(k[0], 0, 1);
   const lt = lrOf(k[2]);
   if (abs(lt - S.lr) > 1e-4) setRadius(S, S.lr + (lt - S.lr) * (1 - exp(-ft / 0.5)));
-  S.rate = rainRate(k[3]);
+  S.rate = rainRate(S, k[3]);
   let rest = ft * flow;
   const n = max(1, ceil(rest / CFG.dtMax - 1e-9)), tau = rest / n;
   if (rest > 1e-9) {
@@ -397,21 +405,20 @@ export function update(dt, input, params) {
   const ea = 1 - exp(-ft / 8);
   S.qe += (S.qr - S.qe) * ea;
   S.ge += (S.gr - S.ge) * ea;
-  S.qs = max(0.012, 4 * S.qe);
-  S.gs = 1.6 * S.ge;
-  if (!isFinite(S.pz[N >> 1] + S.ph[N >> 2])) start(params, k);
+  S.qs = max(0.012, 2.4 * S.qe);
+  S.gs = 1.0 * S.ge;
+  if (!isFinite(S.pz[N >> 1] + S.ph[N >> 2] + S.hmax) || S.hmax > 0.8) start(params, k);
 }
 
 // ---- colour: the balanced part (potential vorticity) picks the metal, the slope of the surface lights it ----
 // stops over b = 0 (a hollow, turning the way a low turns), 0.5 (flat sea) and 1 (a hill)
 const STOPS = [
-  [0.0, 118, 92, 176],
-  [0.3, 156, 138, 172],
-  [0.5, 182, 172, 160],
-  [0.7, 226, 192, 124],
-  [1.0, 250, 206, 100],
+  [0.0, 138, 92, 156],
+  [0.3, 144, 122, 156],
+  [0.5, 156, 152, 148],
+  [0.7, 196, 176, 128],
+  [1.0, 210, 182, 118],
 ];
-const DBG = 0;
 const NB = 64, NS = 64;
 function buildLut(S, hue) {
   const a = hue * TAU, c = cos(a), s = sin(a), k1 = (1 - c) / 3, k2 = sqrt(1 / 3) * s;
@@ -424,8 +431,8 @@ function buildLut(S, hue) {
     const r0 = A[1] + (B[1] - A[1]) * t, g0 = A[2] + (B[2] - A[2]) * t, b0 = A[3] + (B[3] - A[3]) * t;
     for (let is = 0; is < NS; is++) {
       const sh = (is / (NS - 1)) * 2 - 1;
-      const mul = 1 + 0.42 * sh, spec = cl((sh - 0.5) / 0.5, 0, 1) * 0.3;
-      let r = r0 * mul + (255 - r0 * mul) * spec, g = g0 * mul + (244 - g0 * mul) * spec, bl = b0 * mul + (214 - b0 * mul) * spec;
+      const mul = sh < 0 ? 1 + 0.36 * sh : 1 + 0.3 * sh, spec = cl((sh - 0.6) / 0.4, 0, 1) * 0.3;
+      let r = r0 * mul + (255 - r0 * mul) * spec, g = g0 * mul + (248 - g0 * mul) * spec, bl = b0 * mul + (225 - b0 * mul) * spec;
       const o = (ib * NS + is) * 3;
       S.lut[o] = cl(m[0] * r + m[1] * g + m[2] * bl, 0, 255);
       S.lut[o + 1] = cl(m[3] * r + m[4] * g + m[5] * bl, 0, 255);
@@ -438,13 +445,12 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   if (S.lutHue !== S.hue) (S.lutHue = S.hue), buildLut(S, S.hue);
-  const { ph, pz, lut } = S, f = CFG.f, gq = 1 / S.qs, gs = S.gs;
+  const { cz, cg, lut } = S, gq = 1 / S.qs, gs = S.gs;
   for (let y = 0; y < H; y++) {
-    const j = HM - y, o = j * W, ou = ((j + 1) & HM) * W, od = ((j - 1) & HM) * W; // the model's y runs up the panel
+    const o = (HM - y) * W; // the model's y runs up the panel
     for (let x = 0; x < W; x++) {
-      const p = o + x, hx = ph[o + ((x + 1) & WM)] - ph[o + ((x - 1) & WM)], hy = ph[od + x] - ph[ou + x];
-      const q = (1 + pz[p] / f) / (1 + ph[p]) - 1;
-      const g = hx + hy, b = DBG === 1 ? 0.5 : 0.5 - 0.5 * tanh(q * gq), sh = DBG === 2 ? 0 : g / (abs(g) + gs);
+      const p = o + x, u = cz[p] * gq, au = abs(u), g = cg[p];
+      const t = cl((au - 0.3) / 0.8, 0, 1), b = 0.5 + (u < 0 ? -0.5 : 0.5) * t * t * (3 - 2 * t), sh = g / (abs(g) + gs);
       const lo = ((((b * (NB - 1) + 0.5) | 0) * NS + (((sh + 1) * 0.5 * (NS - 1) + 0.5) | 0)) * 3);
       display.setPixel(x, y, lut[lo], lut[lo + 1], lut[lo + 2]);
     }
