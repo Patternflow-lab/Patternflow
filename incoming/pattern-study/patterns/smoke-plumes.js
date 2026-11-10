@@ -25,7 +25,7 @@ const MAXV = 6;
 
 const CFG = {
   dt: 0.1, // the longest step, model seconds
-  tscale: 1, // model seconds per panel second at Flow 1
+  tscale: 0.8, // model seconds per panel second at Flow 1
   nu: 0.05, // viscosity, LED^2 per model second
   hyp: 0.003, // fourth order
   fric: 0.12, // drag on every mode with kx not 0
@@ -45,7 +45,7 @@ const CFG = {
   windT: 40,
   relU: 0.3,
   pre: 24,
-  cfl: 0.45,
+  cfl: 0.8,
 };
 
 // ---- radix-2 FFT, rows contiguous, columns by butterflies across rows ----
@@ -89,40 +89,51 @@ function fftRows(re, im, inv) {
     }
   }
 }
+// The columns that can hold anything: the cut leaves nothing above |kx| of 18 steps (1.77 rad per LED), so the transforms down the
+// columns skip the 26 columns in between. Anything the forward transform leaves there is multiplied by the cut, which is 1e-27 by then.
+const XA = 19, XR0 = [0, W - XA + 1], XR1 = [XA, W];
 function fftCols(re, im, inv) {
   const { n, rev, c, s } = PH, sg = inv ? -1 : 1;
-  for (let i = 0; i < n; i++) {
-    const j = rev[i];
-    if (j > i) {
-      const a = i * W, b = j * W;
-      for (let x = 0; x < W; x++) {
-        let t = re[a + x];
-        re[a + x] = re[b + x];
-        re[b + x] = t;
-        t = im[a + x];
-        im[a + x] = im[b + x];
-        im[b + x] = t;
-      }
-    }
-  }
-  for (let len = 2; len <= n; len <<= 1) {
-    const half = len >> 1, step = n / len;
-    for (let i = 0; i < n; i += len)
-      for (let k = 0, t = 0; k < half; k++, t += step) {
-        const wr = c[t], wi = sg * s[t], a = (i + k) * W, b = a + half * W;
-        for (let x = 0; x < W; x++) {
-          const xr = re[b + x] * wr - im[b + x] * wi, xi = re[b + x] * wi + im[b + x] * wr;
-          re[b + x] = re[a + x] - xr;
-          im[b + x] = im[a + x] - xi;
-          re[a + x] += xr;
-          im[a + x] += xi;
+  for (let r = 0; r < 2; r++) {
+    const x0 = XR0[r], x1 = XR1[r];
+    for (let i = 0; i < n; i++) {
+      const j = rev[i];
+      if (j > i) {
+        const a = i * W, b = j * W;
+        for (let x = x0; x < x1; x++) {
+          let t = re[a + x];
+          re[a + x] = re[b + x];
+          re[b + x] = t;
+          t = im[a + x];
+          im[a + x] = im[b + x];
+          im[b + x] = t;
         }
       }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const half = len >> 1, step = n / len;
+      for (let i = 0; i < n; i += len)
+        for (let k = 0, t = 0; k < half; k++, t += step) {
+          const wr = c[t], wi = sg * s[t], a = (i + k) * W, b = a + half * W;
+          for (let x = x0; x < x1; x++) {
+            const xr = re[b + x] * wr - im[b + x] * wi, xi = re[b + x] * wi + im[b + x] * wr;
+            re[b + x] = re[a + x] - xr;
+            im[b + x] = im[a + x] - xi;
+            re[a + x] += xr;
+            im[a + x] += xi;
+          }
+        }
+    }
   }
 }
 function fft2(re, im, inv) {
-  fftRows(re, im, inv);
-  fftCols(re, im, inv);
+  if (inv) {
+    fftCols(re, im, true);
+    fftRows(re, im, true);
+  } else {
+    fftRows(re, im, false);
+    fftCols(re, im, false);
+  }
 }
 
 const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
