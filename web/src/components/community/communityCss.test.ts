@@ -384,6 +384,15 @@ describe("community dialogs", () => {
     expect(button).toMatch(/min-width: 44px;/);
     expect(button).toMatch(/min-height: 44px;/);
   });
+
+  // 90vh is a phone's height with its toolbars hidden. With them showing, a
+  // long card ran past the overlay and its × sat above the screen.
+  it("keep the card inside the height a phone shows", () => {
+    const card = rule(css("Community.module.css"), ".modalCard");
+    const heights = [...card.matchAll(/max-height: ([^;]+);/g)].map((match) => match[1]);
+    expect(heights.at(-1)).toBe("calc(100dvh - 40px)");
+    expect(card).toMatch(/overscroll-behavior: contain;/);
+  });
 });
 
 describe("atlas", () => {
