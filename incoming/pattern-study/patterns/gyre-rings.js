@@ -33,11 +33,11 @@ const MX = NX - 1, MY = NY - 1, NM = MX * MY; // interior corners, which is the 
 const CFG = {
   beta: 1, // planetary vorticity gradient: model units are LEDs and tu, so beta is 1
   d0: 2.0, // Munk width at Scale -1, LEDs
-  d1: 3.1, // and at Scale 1
+  d1: 2.8, // and at Scale 1
   wn0: 5.0, // wind: delta_I / delta_M at Wind 0
   wnr: 1.12, // ratio per unit of Wind
   rf: 0.3, // bottom friction in units of beta delta_M
-  nz: 1.8, // the gusts, as a share of the wind curl amplitude
+  nz: 2.0, // the gusts, as a share of the wind curl amplitude
   nzTau: 0.2, // their correlation time, tu
   nzK: 0.57, // their wavenumber in units of 1 / sqrt(delta_M)
   tc: 0.5, // share of the relaxation target that is a step at the middle latitude, the rest a ramp
@@ -48,12 +48,12 @@ const CFG = {
   cfl: 0.5, // (|u| + |v|) h per step
   warm: 700, // steps of hidden warm-up
   base: 0.0,
-  v0: 0.36, // brightest channel at the cold end, of 255
-  v1: 0.95, // and at the warm end
+  v0: 0.45, // brightest channel at the cold end, of 255
+  v1: 0.8, // and at the warm end
   vg: 0.8, // exponent of the ramp between
-  vs: 0.32, // how far the shading takes it either way, as a share
+  vs: 0.2, // how far the shading takes it either way, of 255
   sa: 0.6, // lightness given to the temperature anomaly
-  sw: 1.2, // anomaly over its block scale that saturates it
+  sw: 0.8, // anomaly over its block scale that saturates it
   sz: 0.6, // lightness given to the vorticity
   ss: 1.0, // and to the speed
   sk: 1.2, // speed over the rms speed that saturates it
@@ -190,7 +190,7 @@ function start(params, k) {
     delta: 0, wn: 0, W0: 0, A: 0,
     TW: NX + 4, T: new Float64Array((NX + 4) * (NY + 4)), T1: new Float64Array((NX + 4) * (NY + 4)),
     UF: new Float64Array(SX * NY), VF: new Float64Array(NX * (NY + 1)), FX: new Float64Array(SX * NY), FY: new Float64Array(NX * (NY + 1)),
-    Ts: new Float64Array(NY), hue: 0, lutHue: -1, lut: null, env: new Float64Array(32), envT: new Float64Array(32),
+    Ts: new Float64Array(NY), hue: 0, lutHue: -1, lut: null, env: new Float64Array(32), envT: new Float64Array(32), cz: new Float32Array(NX * NY), cs: new Float32Array(NX * NY),
     kd: k[2], kw: k[3],
   };
   params.s = S;
@@ -481,7 +481,7 @@ function buildLut(S, hue) {
     // panel's dim end and the eye's sense of a change both follow, which is no longer a thing of the ramp's lightness
     const mx = max(RGB[0], RGB[1], RGB[2], 0.01), vb = CFG.v0 + (CFG.v1 - CFG.v0) * pow(x, CFG.vg);
     for (let j = 0; j < NS; j++) {
-      const k = (vb * (1 + (CFG.vs * (j - 12)) / 12)) / mx * 255;
+      const k = (cl(vb + (CFG.vs * (j - 12)) / 12, 0.1, 1) / mx) * 255;
       const o = (i * NS + j) * 3;
       lut[o] = min(255, (RGB[0] * k + 0.5) | 0);
       lut[o + 1] = min(255, (RGB[1] * k + 0.5) | 0);
@@ -497,40 +497,42 @@ export function draw(display, params) {
   if (!S) return;
   const hue = S.hue + CFG.base;
   if (abs(S.lutHue - hue) > 0.002) buildLut(S, hue);
-  const { T, TW, Ts, zeta, lut, env, envT, UF, VF } = S;
-  // the scales of the vorticity and of the temperature anomaly, one value to every 16 by 16 block, each floored by a
-  // share of the whole panel's, so the shading shows what the water is doing in the quiet corners as in the jet
+  const { T, TW, Ts, zeta, lut, env, envT, UF, VF, cz, cs } = S;
+  // Vorticity, speed and the temperature's departure from its target at the centre of every cell, and the scales of
+  // the vorticity and the departure in each 16 by 16 block, floored by a share of the whole panel's, so that the
+  // shading shows what the water does in a quiet corner as it does in the jet.
   env.fill(0);
   envT.fill(0);
-  let tot = 0, totT = 0;
-  for (let j = 0; j < NY; j++)
+  let tz = 0, tt = 0, ts = 0;
+  for (let j = 0; j < NY; j++) {
+    const row = (j + 2) * TW + 2;
     for (let i = 0; i < NX; i++) {
-      const p = j * SX + i, z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25, d = T[(j + 2) * TW + i + 2] - Ts[j];
-      env[(j >> 4) * 4 + (i >> 4)] += z * z;
-      envT[(j >> 4) * 4 + (i >> 4)] += d * d;
-      tot += z * z;
-      totT += d * d;
+      const p = j * SX + i, c = j * NX + i, b = (j >> 4) * 4 + (i >> 4);
+      const z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25, d = T[row + i] - Ts[j];
+      const u = (UF[p] + UF[p + 1]) * 0.5, v = (VF[c] + VF[c + NX]) * 0.5, s2 = u * u + v * v;
+      cz[c] = z;
+      cs[c] = sqrt(s2);
+      env[b] += z * z;
+      envT[b] += d * d;
+      tz += z * z;
+      tt += d * d;
+      ts += s2;
     }
-  let sp2 = 0;
-  for (let p = 0; p < NVT; p += 5) sp2 += UF[p % (SX * NY)] * UF[p % (SX * NY)] + VF[p % (NX * (NY + 1))] * VF[p % (NX * (NY + 1))];
-  const isp = 1 / (CFG.sk * sqrt((sp2 / (NVT / 5)) * 1) + 1e-6);
-  const fl = (CFG.zfl * tot) / NVT, flT = (CFG.zfl * totT) / NVT;
+  }
+  const fz = (CFG.zfl * tz) / (NX * NY), ft = (CFG.zfl * tt) / (NX * NY), isp = 1 / (CFG.sk * sqrt(ts / (NX * NY)) + 1e-9);
   for (let b = 0; b < 32; b++) {
-    env[b] = sqrt(env[b] / 256 + fl) * CFG.zk;
-    envT[b] = sqrt(envT[b] / 256 + flT) * CFG.sw;
+    env[b] = sqrt(env[b] / 256 + fz) * CFG.zk;
+    envT[b] = sqrt(envT[b] / 256 + ft) * CFG.sw;
   }
   for (let py = 0; py < H; py++) {
-    const j = NY - 1 - py, fy = cl((j + 0.5) / 16 - 0.5, 0, 6.999), by = fy | 0, ty = fy - by;
+    const j = NY - 1 - py, fy = cl((j + 0.5) / 16 - 0.5, 0, 6.999), by = fy | 0, ty = fy - by, row = (j + 2) * TW + 2;
     for (let px = 0; px < W; px++) {
-      const fx = cl((px + 0.5) / 16 - 0.5, 0, 2.999), bx = fx | 0, tx = fx - bx, e0 = by * 4 + bx;
-      const en = (env[e0] * (1 - tx) + env[e0 + 1] * tx) * (1 - ty) + (env[e0 + 4] * (1 - tx) + env[e0 + 5] * tx) * ty;
+      const fx = cl((px + 0.5) / 16 - 0.5, 0, 2.999), bx = fx | 0, tx = fx - bx, e0 = by * 4 + bx, c = j * NX + px;
+      const ez = (env[e0] * (1 - tx) + env[e0 + 1] * tx) * (1 - ty) + (env[e0 + 4] * (1 - tx) + env[e0 + 5] * tx) * ty;
       const et = (envT[e0] * (1 - tx) + envT[e0 + 1] * tx) * (1 - ty) + (envT[e0 + 4] * (1 - tx) + envT[e0 + 5] * tx) * ty;
-      const t = cl(T[(j + 2) * TW + px + 2], 0, 1);
-      const p = j * SX + px;
-      const z = (zeta[p] + zeta[p + 1] + zeta[p + SX] + zeta[p + SX + 1]) * 0.25 / en;
-      const uc = UF[j * SX + px] + UF[j * SX + px + 1], vc = VF[j * NX + px] + VF[(j + 1) * NX + px];
-      const sh = CFG.sa * tanh((t - Ts[j]) / et) + CFG.sz * tanh(z) + CFG.ss * (tanh(0.5 * sqrt(uc * uc + vc * vc) * isp) - 0.4);
-      const si = cl(12 + 12 * sh + 0.5, 0, NS - 1) | 0, ti = (t * (NT - 1) + 0.5) | 0, o = (ti * NS + si) * 3;
+      const t = cl(T[row + px], 0, 1);
+      const sh = CFG.sa * tanh((t - Ts[j]) / et) + CFG.sz * tanh(cz[c] / ez) + CFG.ss * (tanh(cs[c] * isp) - 0.4);
+      const si = cl(12 + 12 * sh + 0.5, 0, NS - 1) | 0, o = (((t * (NT - 1) + 0.5) | 0) * NS + si) * 3;
       display.setPixel(px, py, lut[o], lut[o + 1], lut[o + 2]);
     }
   }
