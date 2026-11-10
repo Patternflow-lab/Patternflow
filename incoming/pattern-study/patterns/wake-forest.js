@@ -29,16 +29,16 @@ const CFG = {
   angT: 14, // its correlation time, model seconds
   spdS: 0.22, // rms of the push's strength as a share of u0
   spdT: 9,
-  re0: 220, // Reynolds number on the post of the nominal diameter at Reynolds 0
+  re0: 160, // Reynolds number on the post of the nominal diameter at Reynolds 0
   d0: 5.8, // nominal post diameter
   hyp: 0.004,
   fric: 0.5, // drag on the largest eddies, fric / (1 + (k / fricK)^4), so that wakes do not pile into one big vortex
   fricK: 0.12,
   eta: 0.002, // Brinkman time
   delta: 0.75, // half width of a post's edge, LEDs
-  dt: 0.08,
+  dt: 0.1,
   pre: 28,
-  cfl: 0.45,
+  cfl: 0.8,
   nStripe: 12,
   stripeS: 1.1,
   rin: 3.0,
@@ -46,9 +46,9 @@ const CFG = {
   ysp: 12,
   yin: 8,
   rout: 1.4,
-  yout: 10,
-  postTop: 15,
-  postBot: 113,
+  yout: 9,
+  postTop: 21,
+  postBot: 118,
   cdiff: 0.03,
 };
 
@@ -142,10 +142,6 @@ for (let j = 0; j < H; j++)
     FIL[p] = exp(-36 * pow(sqrt(K2[p]) / 1.8, 16));
     MIR[p] = ((H - j) & HM) * W + ((W - i) & WM);
   }
-// half-cell shifts that put the velocity on the faces of the cells, for the dye
-const CXH = new Float64Array(N), SXH = new Float64Array(N), CYH = new Float64Array(N), SYH = new Float64Array(N);
-for (let p = 0; p < N; p++) (CXH[p] = cos(0.5 * KX[p])), (SXH[p] = sin(0.5 * KX[p])), (CYH[p] = cos(0.5 * KY[p])), (SYH[p] = sin(0.5 * KY[p]));
-
 // distance across the seam of a torus
 const wrapd = (d, L) => {
   d = ((d % L) + L) % L;
@@ -215,7 +211,7 @@ function buildMask(S) {
 }
 
 // ---- the flow ----
-function rhs(S, wr, wi, oR, oI) {
+function rhs(S, wr, wi, oR, oI, save) {
   const { ar, ai, br, bi } = S, Um = S.Um, Vm = S.Vm;
   for (let p = 0; p < N; p++) {
     const k2 = K2[p];
@@ -231,6 +227,18 @@ function rhs(S, wr, wi, oR, oI) {
   }
   fft2(ar, ai, true);
   fft2(br, bi, true);
+  if (save) {
+    // the velocity of the start of the step, which the dye is carried by
+    let mx = 0.5;
+    for (let p = 0; p < N; p++) {
+      const a = ar[p] + Um, b = ai[p] + Vm;
+      S.U[p] = a;
+      S.V[p] = b;
+      if (abs(a) > mx) mx = abs(a);
+      if (abs(b) > mx) mx = abs(b);
+    }
+    S.um = mx;
+  }
   for (let p = 0; p < N; p++) {
     ar[p] = (ar[p] + Um) * br[p] + (ai[p] + Vm) * bi[p];
     ai[p] = 0;
@@ -284,33 +292,6 @@ function penalize(S, dt) {
   wr[0] = wi[0] = 0;
 }
 
-function faces(S) {
-  const { wr, wi, ar, ai, U, V } = S, Um = S.Um, Vm = S.Vm;
-  for (let p = 0; p < N; p++) {
-    const k2 = K2[p];
-    if (k2 === 0) {
-      ar[p] = ai[p] = 0;
-      continue;
-    }
-    const sr = wr[p] / k2, si = wi[p] / k2;
-    const ur = -KY[p] * si, ui = KY[p] * sr, vr = KX[p] * si, vi = -KX[p] * sr;
-    const Ar = ur * CXH[p] - ui * SXH[p], Ai = ur * SXH[p] + ui * CXH[p];
-    const Br = vr * CYH[p] - vi * SYH[p], Bi = vr * SYH[p] + vi * CYH[p];
-    ar[p] = Ar - Bi;
-    ai[p] = Ai + Br;
-  }
-  fft2(ar, ai, true);
-  let mx = 0.5;
-  for (let p = 0; p < N; p++) {
-    const a = ar[p] + Um, b = ai[p] + Vm;
-    U[p] = a;
-    V[p] = b;
-    if (abs(a) > mx) mx = abs(a);
-    if (abs(b) > mx) mx = abs(b);
-  }
-  return mx;
-}
-
 // ---- the dye: flux form, second order upwind with the monotonised central limiter ----
 const SL = new Float64Array(max(W, H) + 2), FX = new Float64Array(max(W, H) + 2);
 const mc = (a, b) => {
@@ -323,7 +304,7 @@ function sweepX(R, U, dt) {
     const o = j * W;
     for (let i = 0; i < W; i++) SL[i] = mc(R[o + i] - R[o + ((i - 1) & WM)], R[o + ((i + 1) & WM)] - R[o + i]);
     for (let i = 0; i < W; i++) {
-      const u = U[o + i], ip = (i + 1) & WM, nu = u * dt;
+      const ip = (i + 1) & WM, u = 0.5 * (U[o + i] + U[o + ip]), nu = u * dt;
       FX[i] = u > 0 ? u * (R[o + i] + 0.5 * (1 - nu) * SL[i]) : u * (R[o + ip] - 0.5 * (1 + nu) * SL[ip]);
     }
     for (let i = 0; i < W; i++) R[o + i] -= dt * (FX[i] - FX[(i - 1) & WM]);
@@ -333,7 +314,7 @@ function sweepY(R, V, dt) {
   for (let i = 0; i < W; i++) {
     for (let j = 0; j < H; j++) SL[j] = mc(R[j * W + i] - R[((j - 1) & HM) * W + i], R[((j + 1) & HM) * W + i] - R[j * W + i]);
     for (let j = 0; j < H; j++) {
-      const v = V[j * W + i], jp = (j + 1) & HM, nu = v * dt;
+      const jp = (j + 1) & HM, v = 0.5 * (V[j * W + i] + V[jp * W + i]), nu = v * dt;
       FX[j] = v > 0 ? v * (R[j * W + i] + 0.5 * (1 - nu) * SL[j]) : v * (R[jp * W + i] - 0.5 * (1 + nu) * SL[jp]);
     }
     for (let j = 0; j < H; j++) R[j * W + i] -= dt * (FX[j] - FX[(j - 1) & HM]);
@@ -370,24 +351,23 @@ function stripes(S) {
   for (let x = 0; x < W; x++) (ca[x] = min(ca[x], 1)), (cb[x] = min(cb[x], 1));
 }
 
-function step(S, nodye) {
-  const dt = CFG.dt, { wr, wi, k1r, k1i, k2r, k2i, tr, ti } = S;
-  if (!nodye) {
-    const um = faces(S), n = max(1, ceil((um * dt) / CFG.cfl)), ds = dt / n;
-    for (let i = 0; i < n; i++)
-      for (const c of [S.ca, S.cb]) {
-        sweepX(c, S.U, 0.5 * ds);
-        sweepY(c, S.V, ds);
-        sweepX(c, S.U, 0.5 * ds);
-      }
-  }
+function step(S, dt) {
+  const { wr, wi, k1r, k1i, k2r, k2i, tr, ti } = S;
   // Shu and Osher's third order scheme
-  rhs(S, wr, wi, k1r, k1i);
+  rhs(S, wr, wi, k1r, k1i, true);
   for (let p = 0; p < N; p++) (tr[p] = wr[p] + dt * k1r[p]), (ti[p] = wi[p] + dt * k1i[p]);
   rhs(S, tr, ti, k2r, k2i);
   for (let p = 0; p < N; p++) (tr[p] = 0.75 * wr[p] + 0.25 * (tr[p] + dt * k2r[p])), (ti[p] = 0.75 * wi[p] + 0.25 * (ti[p] + dt * k2i[p]));
   rhs(S, tr, ti, k2r, k2i);
   for (let p = 0; p < N; p++) (wr[p] = (wr[p] + 2 * (tr[p] + dt * k2r[p])) / 3), (wi[p] = (wi[p] + 2 * (ti[p] + dt * k2i[p])) / 3);
+  // the dye goes with the velocity at the start of the step
+  const n = max(1, ceil((S.um * dt) / CFG.cfl)), ds = dt / n;
+  for (let i = 0; i < n; i++)
+    for (const c of [S.ca, S.cb]) {
+      sweepX(c, S.U, 0.5 * ds);
+      sweepY(c, S.V, ds);
+      sweepX(c, S.U, 0.5 * ds);
+    }
   penalize(S, dt);
   // the push: the mean velocity is pulled to its target
   const a = dt / CFG.tauU;
@@ -413,7 +393,7 @@ function step(S, nodye) {
   S.time += dt;
 }
 
-const nuOf = (v) => (CFG.u0 * CFG.d0) / (CFG.re0 * pow(1.9, cl(v, -1.2, 1.2)));
+const nuOf = (v) => (CFG.u0 * CFG.d0) / (CFG.re0 * pow(1.6, cl(v, -1.2, 1.2)));
 const radOf = (v) => 2.9 * pow(1.2, cl(v, -1.2, 1.2));
 const cntOf = (v) => 15 - 3 * cl(v, -1.2, 1.2);
 
@@ -423,7 +403,7 @@ function start(params, k) {
     wr: mk(), wi: mk(), ar: mk(), ai: mk(), br: mk(), bi: mk(), k1r: mk(), k1i: mk(), k2r: mk(), k2i: mk(), tr: mk(), ti: mk(),
     U: mk(), V: mk(), ca: mk(), cb: mk(), t2: mk(), chi: mk(), om: new Float32Array(N), os: 0, c0a: new Float64Array(W), c0b: new Float64Array(W),
     rin: new Float64Array(H), spg: new Float64Array(H), rout: new Float64Array(H), sv: new Float64Array(CFG.nStripe), sj: new Float64Array(CFG.nStripe),
-    Um: 0, Vm: CFG.u0, Ux: 0, Uy: CFG.u0, th: 0, sp: 0,
+    um: 0, Um: 0, Vm: CFG.u0, Ux: 0, Uy: CFG.u0, th: 0, sp: 0,
     nu: nuOf(k[3]), R: radOf(k[2]), cnt: cntOf(k[2]), grow: new Float64Array(18), posts: null, rr: -1, hue: 0, lutHue: -9, col: null, acc: 0, time: 0, ready: false,
   };
   params.s = S;
@@ -455,9 +435,13 @@ function start(params, k) {
   }
   stripes(S);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) (S.ca[j * W + i] = j < H - CFG.yout ? S.c0a[i] : 0), (S.cb[j * W + i] = j < H - CFG.yout ? S.c0b[i] : 0);
-  for (let t = 0; t < CFG.pre; t += CFG.dt) {
-    if (((t / CFG.dt) | 0) % 4 === 0) (drift(S, CFG.dt * 4), stripes(S));
-    step(S, false);
+  S.um = CFG.u0;
+  for (let t = 0; t < CFG.pre; ) {
+    const h = S.um * 1.8 * CFG.dt > 1.4 ? 0.5 * CFG.dt : CFG.dt;
+    drift(S, h);
+    stripes(S);
+    step(S, h);
+    t += h;
   }
   S.ready = true;
 }
@@ -481,10 +465,14 @@ export function update(dt, input, params) {
   if (ch || abs(Rt - S.R) > 1e-3) buildMask(S);
   S.acc += ft * flow;
   let steps = 0;
-  while (S.acc >= CFG.dt && steps < 24) {
-    if (steps === 0 || steps % 4 === 0) (drift(S, CFG.dt * (steps === 0 ? max(1, floor(S.acc / CFG.dt)) : 4)), stripes(S));
-    step(S);
-    S.acc -= CFG.dt;
+  while (steps < 24) {
+    // half a step when the fastest water would cross more than 1.4 / 1.8 of a cell, the limit of the scheme in time
+    const h = S.um * 1.8 * CFG.dt > 1.4 ? 0.5 * CFG.dt : CFG.dt;
+    if (S.acc < h) break;
+    drift(S, h);
+    stripes(S);
+    step(S, h);
+    S.acc -= h;
     steps++;
   }
   if (steps === 24) S.acc = min(S.acc, CFG.dt);
@@ -500,28 +488,27 @@ export function update(dt, input, params) {
 }
 
 // ---- colour: a ground and two dyes that add, with a soft shoulder ----
-const GROUND = [52, 46, 50], DYE_A = [255, 84, 60], DYE_B = [255, 206, 80], POST = [10, 8, 12], RIM = [150, 118, 64];
+const GROUND = [30, 28, 40], DYE_A = [255, 84, 60], DYE_B = [255, 206, 80], POST = [10, 8, 12], RIM = [150, 118, 64], TINT = [14, 4, -8];
 function setColors(S, hue) {
   const a = hue * TAU, c = cos(a), s = sin(a), k1 = (1 - c) / 3, k2 = sqrt(1 / 3) * s;
   const m = [c + k1, k1 - k2, k1 + k2, k1 + k2, c + k1, k1 - k2, k1 - k2, k1 + k2, c + k1];
   const rot = (v) => [m[0] * v[0] + m[1] * v[1] + m[2] * v[2], m[3] * v[0] + m[4] * v[1] + m[5] * v[2], m[6] * v[0] + m[7] * v[1] + m[8] * v[2]];
-  S.col = [rot(GROUND), rot(DYE_A), rot(DYE_B), rot(POST), rot(RIM)];
+  S.col = [rot(GROUND), rot(DYE_A), rot(DYE_B), rot(POST), rot(RIM), rot(TINT)];
 }
-const ease = (c) => {
-  const t = c < 0.05 ? 0 : c > 0.7 ? 1 : (c - 0.05) / 0.65;
-  return t * t * (3 - 2 * t);
-};
+const EASE = new Float32Array(1025);
+for (let i = 0; i <= 1024; i++) EASE[i] = pow(1 - exp(-(i / 1024) * 1.25 / 0.4), 2);
+const ease = (c) => (c <= 0 ? 0 : EASE[min(1024, (c * 819.2) | 0)]);
 const shoulder = (v) => (v < 0 ? 0 : v < 170 ? v : 170 + 85 * tanh((v - 170) / 85));
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   if (S.lutHue !== S.hue) (S.lutHue = S.hue), setColors(S, S.hue);
-  const { ca, cb, chi, col } = S, il = 1 / max(1e-6, S.os), [G, A, B, P, R] = col;
+  const { ca, cb, chi, col } = S, il = 1.5 / max(1e-6, S.os), [G, A, B, P, R, T] = col;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
-      const x2 = chi[p], sh = 1 + 0.3 * tanh(S.om[p] * il) * (1 - x2), a = ease(ca[p]), b = ease(cb[p]);
-      let r = (G[0] + A[0] * a + B[0] * b) * sh, g = (G[1] + A[1] * a + B[1] * b) * sh, bl = (G[2] + A[2] * a + B[2] * b) * sh;
+      const x2 = chi[p], z = S.om[p] * il, w = (z / (1 + (z < 0 ? -z : z))) * (1 - x2), sh = 1 + 0.3 * w, a = ease(ca[p]), b = ease(cb[p]);
+      let r = (G[0] + T[0] * w + A[0] * a + B[0] * b) * sh, g = (G[1] + T[1] * w + A[1] * a + B[1] * b) * sh, bl = (G[2] + T[2] * w + A[2] * a + B[2] * b) * sh;
       r = shoulder(r);
       g = shoulder(g);
       bl = shoulder(bl);
