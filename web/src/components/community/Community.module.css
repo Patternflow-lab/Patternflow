@@ -44,7 +44,12 @@
 .pageHeader {
   display: flex;
   align-items: center;
-  gap: 18px;
+  /* The row may wrap. A moderator's two extra sections, or a long handle,
+     made it wider than the screen, and while it could not wrap the whole
+     page scrolled sideways (138px at 769px wide for a moderator, 96px for a
+     member with a 20-character handle). */
+  flex-wrap: wrap;
+  gap: 10px 18px;
   padding: 16px 40px;
   border-bottom: 1px solid var(--pfc-hair);
   flex: none;
@@ -86,6 +91,8 @@
   align-items: center;
   gap: 14px;
   font-size: 13px;
+  /* Right-aligned on whichever row it lands on. */
+  margin-left: auto;
 }
 
 .headerNav a {
@@ -141,6 +148,32 @@
 .sectionNav a[data-active="true"] {
   color: var(--pfc-ink);
   border-bottom-color: var(--pfc-led);
+}
+
+/* Below 1024px the CTA is "Make ↗", as on a phone: the full sentence is
+   152px that the row does not have. The title attribute still says the rest.
+   With the full sentence every header measured fits one line from 960px up,
+   a moderator's included. Tighter gaps under 900px keep a member's row on one
+   line down to the width where the phone layout takes over. */
+@media (max-width: 1023px) {
+  .ctaRest {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .pageHeader {
+    column-gap: 12px;
+  }
+
+  .sectionNav {
+    gap: 14px;
+    margin-left: 6px;
+  }
+
+  .headerNav {
+    gap: 12px;
+  }
 }
 
 .userChip {

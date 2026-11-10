@@ -116,6 +116,22 @@ function mediaRules(source: string, query: string) {
     .map(([, selectors, body]) => ({ selectors: selectors.split(",").map((s) => s.trim()), body }));
 }
 
+// Between the phone layout and 900px a moderator's header ran 138px past a
+// 769px screen, and a member's with a 20-character handle 96px, so the whole
+// page scrolled sideways.
+describe("the header between a phone and a wide desktop", () => {
+  const community = css("Community.module.css");
+
+  it("lets the row wrap, the account links right-aligned on their line", () => {
+    expect(rule(community, ".pageHeader")).toMatch(/flex-wrap: wrap;/);
+    expect(rule(community, ".headerNav")).toMatch(/margin-left: auto;/);
+  });
+
+  it("shortens the CTA to Make below 1024px", () => {
+    expect(mediaRule(community, "(max-width: 1023px)", ".ctaRest")).toMatch(/display: none;/);
+  });
+});
+
 // On 26 October a bare `.headerSpacer { display: none }` in the phone block,
 // meant for the page header's gap, took out the same span in eight other rows.
 // At 390px the comment Post button sat at x 16 instead of 316, the deck
