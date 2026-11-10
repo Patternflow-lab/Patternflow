@@ -57,6 +57,26 @@
   top: 108px;
 }
 
+/* The keyboard's knobs (HeroScene, KnobKeys): four sliders that take focus
+   and draw nothing. What shows the focus is the knob in the picture, which
+   wears its ring, and the hint over the device. */
+
+.knobKeys input {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 /* The arrows either side of the device on the Build tab, stepping through the
    cases: the Inside globe's arrows (GlobeViewer.module.css), at the middle of
    the frame, where the device is. */

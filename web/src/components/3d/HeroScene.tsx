@@ -26,7 +26,13 @@ import { ledPanel, ledVert } from './patterns/common';
 import patterns from './patterns';
 import { useAppStore } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
-import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
+import {
+  LOGICAL_KNOB_RANGES,
+  LOGICAL_KNOB_TO_WEB_KNOB,
+  LOGICAL_KNOB_WRAP,
+  knobDetentStep,
+  knobUnitsPerTurn,
+} from '@/lib/pattern/controls';
 import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -95,6 +101,54 @@ const MESH_TO_KNOB: Record<string, KnobId> = {
   c2: 'c1',
   c3: 'c3',
   c4: 'c4',
+};
+
+/**
+ * The four knobs as pattern code counts them, Knob 1 to 4 (K1 to K4 on the
+ * board): which value each turns, the mesh that is drawn for it, and its
+ * range, whether it runs round the end of it, and one detent's worth of it.
+ */
+const KNOBS = LOGICAL_KNOB_TO_WEB_KNOB.map((knob, index) => ({
+  knob,
+  mesh: (Object.keys(MESH_TO_KNOB).find((mesh) => MESH_TO_KNOB[mesh] === knob) ?? knob) as KnobId,
+  number: index + 1,
+  range: LOGICAL_KNOB_RANGES[index],
+  wrap: LOGICAL_KNOB_WRAP[index],
+  step: knobDetentStep(LOGICAL_KNOB_RANGES[index]),
+}));
+type Knob = (typeof KNOBS)[number];
+const knobOf = (id: KnobId) => KNOBS.find((k) => k.knob === id) ?? KNOBS[0];
+
+/**
+ * Turns a knob by `delta` of its value, by the one rule the pointer and the
+ * keyboard share: a knob that wraps comes round the end of its range, any
+ * other stops there. The pointer used to keep its own copy of the four
+ * ranges.
+ */
+function turnKnob({ knob, range: [min, max], wrap }: Knob, delta: number) {
+  const store = useAppStore.getState();
+  const value = store.knobValues[knob] + delta;
+  const span = max - min;
+  store.setKnobValue(
+    knob,
+    wrap ? min + ((((value - min) % span) + span) % span) : THREE.MathUtils.clamp(value, min, max),
+  );
+}
+
+/** The angle a knob turns through for `delta` of its value, radians. */
+const turnAngle = ({ range }: Knob, delta: number) => (delta / knobUnitsPerTurn(range)) * 2 * Math.PI;
+
+/**
+ * How far a key turns a knob, in detents: an arrow one click, as on the
+ * community's knobs (knobArrowValue), and Page Up and Down a quarter turn.
+ */
+const KEY_DETENTS: Record<string, number> = {
+  ArrowRight: 1,
+  ArrowUp: 1,
+  ArrowLeft: -1,
+  ArrowDown: -1,
+  PageUp: 6,
+  PageDown: -6,
 };
 
 /** Where the preview looks: OrbitControls' target, and where the device is centred. */
@@ -207,10 +261,13 @@ function ProductPreview({
   caseId,
   finish,
   onFailed,
+  keyTurn,
 }: {
   caseId: CaseId;
   finish: CaseFinish | undefined;
   onFailed: (id: CaseId) => void;
+  /** How far the keyboard has turned each knob since the last frame, by mesh name, radians. */
+  keyTurn: RefObject<Partial<Record<string, number>>>;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<PreparedCase | null>(null);
@@ -294,17 +351,8 @@ function ProductPreview({
 
       // Sensitivity: the same rule as the physical encoder, the whole range
       // in a set number of turns (knobUnitsPerTurn).
-      const knobName = d.knob;
-      const currentVal = useAppStore.getState().knobValues[knobName];
-      const deltaVal = deltaAngle * (knobUnitsPerTurn(webKnobRange(knobName)) / (2 * Math.PI));
-
-      let newVal = currentVal + deltaVal;
-      if (knobName === 'c1') newVal = (newVal % 1.0 + 1.0) % 1.0; // Hue
-      if (knobName === 'c2') newVal = THREE.MathUtils.clamp(newVal, 0.1, 10.0); // Speed
-      if (knobName === 'c3') newVal = (newVal % 1.0 + 1.0) % 1.0; // Freq/Offset
-      if (knobName === 'c4') newVal = THREE.MathUtils.clamp(newVal, 0.0, 4.9); // Mode
-
-      useAppStore.getState().setKnobValue(knobName, newVal);
+      const knob = knobOf(d.knob);
+      turnKnob(knob, deltaAngle * (knobUnitsPerTurn(knob.range) / (2 * Math.PI)));
     };
 
     const handlePointerUp = () => {
@@ -441,8 +489,14 @@ function ProductPreview({
       p.node.visible = p.presence > 0.01;
     }
 
-    // The knob in hand wears its ring and goes grey.
+    // The knob in hand wears its ring and goes grey, and one the keyboard
+    // has turned turns as far.
     for (const k of device.knobs) {
+      const turned = keyTurn.current[k.node.name];
+      if (turned) {
+        k.node.rotation.z -= turned;
+        keyTurn.current[k.node.name] = 0;
+      }
       const held = activeKnobId === k.node.name;
       k.ring.visible = held;
       for (const tint of k.tints) {
@@ -490,6 +544,73 @@ function ProductPreview({
   );
 }
 
+/**
+ * The knobs for a keyboard, and for whatever reads the page aloud: the four
+ * on the device are drawn in the canvas, where neither reaches. One slider
+ * each, Knob 1 to 4, with nothing of its own to see. The knob in the picture
+ * wears its ring while its slider has the focus, and the line over the
+ * device says which keys turn it.
+ */
+function KnobKeys({
+  keyTurn,
+  onFocusChange,
+}: {
+  keyTurn: RefObject<Partial<Record<string, number>>>;
+  /** The number of the knob whose slider has the focus, or null. */
+  onFocusChange: (knob: number | null) => void;
+}) {
+  const knobValues = useAppStore((state) => state.knobValues);
+  // Solder shows the board alone, with no knobs to turn.
+  const away = useAppStore((state) => state.buildStep) === 2;
+
+  const turn = (knob: Knob, delta: number) => {
+    turnKnob(knob, delta);
+    keyTurn.current[knob.mesh] = (keyTurn.current[knob.mesh] ?? 0) + turnAngle(knob, delta);
+  };
+
+  return (
+    <div className={styles.knobKeys} role="group" aria-label="Knobs">
+      {KNOBS.map((knob) => {
+        const value = knobValues[knob.knob];
+        return (
+          <input
+            key={knob.knob}
+            type="range"
+            aria-label={`Knob ${knob.number}`}
+            aria-valuetext={value.toFixed(2)}
+            min={knob.range[0]}
+            max={knob.range[1]}
+            step="any"
+            value={value}
+            disabled={away}
+            onFocus={() => {
+              useAppStore.getState().setActiveKnobId(knob.mesh);
+              onFocusChange(knob.number);
+            }}
+            onBlur={() => {
+              // A knob taken by the pointer keeps its ring until it is let go.
+              const store = useAppStore.getState();
+              if (!store.isDraggingKnob) store.setActiveKnobId(null);
+              onFocusChange(null);
+            }}
+            onKeyDown={(event) => {
+              // With Alt, Ctrl or Cmd the key is the browser's, as knobArrowValue leaves it.
+              if (event.altKey || event.ctrlKey || event.metaKey) return;
+              const detents = KEY_DETENTS[event.key];
+              if (!detents) return;
+              // The slider's own arrows would stop at the end of the range,
+              // where a knob that wraps goes on round.
+              event.preventDefault();
+              turn(knob, detents * knob.step);
+            }}
+            onChange={(event) => turn(knob, Number(event.target.value) - value)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 const caseName = (id: CaseId) => BUILD_CASES.find((c) => c.id === id)?.tab ?? id;
 
 export default function HeroScene() {
@@ -506,6 +627,10 @@ export default function HeroScene() {
   if (activeKnobId && !hasInteracted) {
     setHasInteracted(true);
   }
+  // The keyboard's knobs (KnobKeys): which one has the focus, for the hint,
+  // and how far each has been turned, for the frame loop to turn its mesh.
+  const [keyKnob, setKeyKnob] = useState<number | null>(null);
+  const keyTurn = useRef<Partial<Record<string, number>>>({});
 
   // The case on screen, and the one wanted: the picked case once its model is
   // in, the official one for a case whose model would not load. While the
@@ -571,7 +696,8 @@ export default function HeroScene() {
         </div>
       )}
 
-      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐) */}
+      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐). While a knob's slider
+          has the keyboard's focus it comes back to say which keys turn it. */}
       <div
         className={`viewer-hint${titled ? ` ${styles.hintUnderTitle}` : ''}`}
         style={{
@@ -584,12 +710,12 @@ export default function HeroScene() {
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
           pointerEvents: 'none',
-          opacity: hasInteracted ? 0 : 1,
-          transition: 'opacity 1.5s ease-in-out',
+          opacity: keyKnob !== null || !hasInteracted ? 1 : 0,
+          transition: keyKnob !== null ? 'opacity 0.2s ease' : 'opacity 1.5s ease-in-out',
           zIndex: 10,
         }}
       >
-        Rotate the knobs to explore
+        {keyKnob !== null ? `Knob ${keyKnob}: arrow keys turn it` : 'Rotate the knobs to explore'}
       </div>
 
       <div className={styles.note} data-on={note ? '1' : '0'} role="status" aria-live="polite">
@@ -624,6 +750,8 @@ export default function HeroScene() {
         />
       )}
 
+      <KnobKeys keyTurn={keyTurn} onFocusChange={setKeyKnob} />
+
       <Canvas camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
         <ambientLight intensity={0.3} color="#fef6e8" />
         <directionalLight position={[2.3, 3.9, 6]} intensity={2.60} color="#ffffff" castShadow
@@ -648,7 +776,7 @@ export default function HeroScene() {
           <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} scale={[0.35, 6, 1]} />
           <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} scale={[0.25, 5, 1]} />
         </Environment>
-        <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} />
+        <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} keyTurn={keyTurn} />
         {loading && (
           <ModelGuard key={wanted} onError={() => onFailed(wanted)}>
             <Suspense fallback={null}>
