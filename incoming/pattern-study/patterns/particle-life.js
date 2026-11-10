@@ -1,0 +1,386 @@
+// ===== Patternflow pattern =====
+// Title:   Particle Life
+// Family:  particle
+// Idea:    Six species of dots, a thousand in all, feel one another through a force that depends on who meets whom, a hard core and a finite reach, and because the table of attractions is not symmetric, one species chases another that runs from it, so soft coloured cells, orbiting pairs and chains of pursuit form, break and form again all over the panel while the table itself slowly wanders.
+// Author:  patternflow-lab
+// Date:    2026-11-10
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Lineage: Particle Life, a table of attractions between species of particles with a repulsive core and a finite reach (Jeffrey Ventrella, Clusters, 2005 onward; Tom Mohr, Particle Life, 2021; the force law from memory); the primordial particle system (Thomas Schmickl, Martin Stefanec and Karl Crailsheim, 2016, from memory); an Ornstein-Uhlenbeck drift of the table (Leonard Ornstein and George Uhlenbeck, 1930, from memory); colour in OKLab (Bjorn Ottosson, 2020, from memory), pattern round 124
+// Round:   126
+// ===============================
+// @matrix 64x128
+// @knobs Hue=0..1, Pace=1..4, Scale=-1..1, Chase=-1..1
+//
+// Knob 1: Hue. Turns the six species' colours round the wheel together.
+// Knob 2: Pace. The clock.
+// Knob 3: Scale. The reach.
+// Knob 4: Chase. The asymmetry of the table.
+
+const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, log } = Math;
+const TAU = 2 * PI;
+const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+// ---- tunables
+const W = 64, H = 128, NS = 6; // panel, species
+const NMAX = 2400; // arrays are this long
+const BETA = 0.3; // the core, as a share of the reach
+const CORE = 1; // push of the core at zero distance, against 1 for the pull of the bump
+const T_HALF = 0.04; // friction half-life, seconds of model time
+const GAMMA = 10; // acceleration, in reaches a second squared, of a force of 1
+const VMAX = 2; // speed clamp, reaches a second
+const VT = 0.05; // thermal speed, reaches a second, per component
+const HMAX = 1 / 60; // largest step, seconds of model time
+const R0 = 8.4, RK = 1.68; // reach in LEDs: R0 * RK^Scale
+const N0 = 1000, NP = 1.5, NLO = 400, NHI = 1700; // particle count: N0 * (R0 / R)^NP
+const TAU_RULE = 7; // wander time of the table, seconds of model time
+const TSC = 0.65; // rms of a table entry
+const MU = 0.05; // mean of the symmetric part of the table
+const PHI0 = 20, PHI1 = 30; // the angle between symmetric and antisymmetric, degrees: PHI0 + PHI1 (1 + Chase)
+const CLOCK = 0.5; // model seconds per second per unit of Pace
+
+// ---- the force. u is the distance over the reach, a the pair's attraction (-1..1).
+const IB = 1 / BETA, IB1 = 1 / (1 - BETA);
+function force(u, a) {
+  if (u >= 1) return 0;
+  if (u < BETA) return CORE * (u * IB - 1);
+  return a * (1 - abs(2 * u - 1 - BETA) * IB1);
+}
+
+// ---- colour
+function lin(L, a, b, o) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b, m_ = L - 0.1055613458 * a - 0.0638541728 * b, s_ = L - 0.0894841775 * a - 1.291485548 * b;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  o[0] = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  o[1] = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  o[2] = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+}
+const GAM = new Float32Array(4097);
+for (let k = 0; k <= 4096; k++) {
+  const x = k / 4096;
+  GAM[k] = 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * pow(x, 1 / 2.4) - 0.055);
+}
+const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
+const HUES = [40, 100, 158, 216, 274, 334]; // degrees in OKLab at Hue 0
+const LS = [0.8, 0.88, 0.8, 0.78, 0.74, 0.76], CS = [0.15, 0.15, 0.16, 0.14, 0.15, 0.17];
+const TMP = [0, 0, 0];
+function buildColours(S, shift) {
+  for (let k = 0; k < NS; k++) {
+    const h = ((HUES[k] + shift) * PI) / 180;
+    let C = CS[k];
+    for (let it = 0; it < 10; it++) {
+      lin(LS[k], C * cos(h), C * sin(h), TMP);
+      if (TMP[0] >= 0 && TMP[1] >= 0 && TMP[2] >= 0 && TMP[0] <= 1 && TMP[1] <= 1 && TMP[2] <= 1) break;
+      C *= 0.92;
+    }
+    const m = max(TMP[0], TMP[1], TMP[2], 1e-6);
+    S.col[3 * k] = TMP[0] / m;
+    S.col[3 * k + 1] = TMP[1] / m;
+    S.col[3 * k + 2] = TMP[2] / m;
+  }
+  S.hueDone = shift;
+}
+
+// ---- state
+const rg = () => {
+  const u = 1 - Math.random(), v = Math.random();
+  return sqrt(-2 * log(u)) * cos(TAU * v);
+};
+function newState() {
+  const F = (n) => new Float64Array(n);
+  const S = {
+    n: 0, id: 0,
+    x: F(NMAX), y: F(NMAX), vx: F(NMAX), vy: F(NMAX), sp: new Uint8Array(NMAX), pid: new Int32Array(NMAX),
+    x2: F(NMAX), y2: F(NMAX), vx2: F(NMAX), vy2: F(NMAX), sp2: new Uint8Array(NMAX), pid2: new Int32Array(NMAX),
+    ax: F(NMAX), ay: F(NMAX), cell: new Int32Array(NMAX), cnt: new Int32Array(400), fill: new Int32Array(400),
+    gx: 8, gy: 16,
+    ou: F(NS * NS), // symmetric entries in the upper triangle, antisymmetric in the lower
+    tab: new Float64Array(NS * NS), sy: new Float64Array(NS * NS), an: new Float64Array(NS * NS), rs: new Float64Array(NS), ra: new Float64Array(NS),
+    R: R0, phi: PI / 4, pace: 2, kp: 2, ks: 0, kc: 0.06, hueDone: -1, time: 0,
+    col: new Float32Array(3 * NS),
+    br: new Float32Array(W * H), bg: new Float32Array(W * H), bb: new Float32Array(W * H),
+    cr: new Float32Array(W * H), cg: new Float32Array(W * H), cb: new Float32Array(W * H),
+    noise: VT, fric: 0.5,
+    hr: new Float32Array(GW * GH), hg: new Float32Array(GW * GH), hb: new Float32Array(GW * GH), ht: new Float32Array(GW * GH),
+  };
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NS; j++) S.ou[i * NS + j] = rg();
+  return S;
+}
+
+// the table a(i, j) from the wandering entries: the symmetric part S_ij = S_ji and the antisymmetric part A_ij = -A_ji,
+// mixed by the angle phi. phi 0 is a symmetric table and phi 90 degrees a purely antisymmetric one.
+function makeTable(S) {
+  const c = cos(S.phi), s = sin(S.phi), { ou, tab } = S, sy = S.sy, an = S.an, rs = S.rs, ra = S.ra;
+  let m = 0;
+  for (let i = 0; i < NS; i++) {
+    rs[i] = ra[i] = 0;
+    for (let j = 0; j < NS; j++) {
+      sy[i * NS + j] = i <= j ? ou[i * NS + j] : ou[j * NS + i];
+      an[i * NS + j] = i < j ? ou[j * NS + i] : i > j ? -ou[i * NS + j] : 0;
+      rs[i] += sy[i * NS + j] / NS;
+      ra[i] += an[i * NS + j] / NS;
+    }
+    m += rs[i] / NS;
+  }
+  // every species gets the same mean attraction MU over the others and the same mean chasing, so none of them repels all the
+  // rest and sits still in a lattice, none is only prey, and the population as a whole can neither lump nor spread out
+  for (let i = 0; i < NS; i++)
+    for (let j = 0; j < NS; j++) {
+      const sc = sy[i * NS + j] - rs[i] - rs[j] + m, ac = an[i * NS + j] - ra[i] + ra[j];
+      tab[i * NS + j] = cl(TSC * (c * sc + s * ac) + MU, -1, 1);
+    }
+}
+function wander(S, h) {
+  const k = h / TAU_RULE, d = exp(-k), q = sqrt(1 - d * d), { ou } = S;
+  for (let i = 0; i < NS; i++) for (let j = 0; j < NS; j++) ou[i * NS + j] = ou[i * NS + j] * d + q * rg();
+}
+
+function setCount(S, n) {
+  while (S.n > n) {
+    const i = floor(Math.random() * S.n), j = --S.n;
+    S.x[i] = S.x[j]; S.y[i] = S.y[j]; S.vx[i] = S.vx[j]; S.vy[i] = S.vy[j]; S.sp[i] = S.sp[j]; S.pid[i] = S.pid[j];
+  }
+  while (S.n < n) {
+    const i = S.n++;
+    S.x[i] = Math.random() * W;
+    S.y[i] = Math.random() * H;
+    S.vx[i] = S.vy[i] = 0;
+    S.sp[i] = floor(Math.random() * NS);
+    S.pid[i] = S.id++;
+  }
+}
+
+// ---- the step: sort into cells a reach wide, sum the pair forces over the nine cells round each, integrate
+function sortCells(S) {
+  const R = S.R, gx = (S.gx = floor(W / R)), gy = (S.gy = floor(H / R)), cx = W / gx, cy = H / gy, nc = gx * gy;
+  const { cell, cnt, fill, n, x, y } = S;
+  cnt.fill(0, 0, nc + 1);
+  for (let i = 0; i < n; i++) {
+    const k = min(gx - 1, floor(x[i] / cx)) + gx * min(gy - 1, floor(y[i] / cy));
+    cell[i] = k;
+    cnt[k + 1]++;
+  }
+  for (let k = 0; k < nc; k++) cnt[k + 1] += cnt[k];
+  for (let k = 0; k < nc; k++) fill[k] = cnt[k];
+  const X = S.x2, Y = S.y2, VX = S.vx2, VY = S.vy2, SP = S.sp2, PI_ = S.pid2;
+  for (let i = 0; i < n; i++) {
+    const o = fill[cell[i]]++;
+    X[o] = x[i]; Y[o] = y[i]; VX[o] = S.vx[i]; VY[o] = S.vy[i]; SP[o] = S.sp[i]; PI_[o] = S.pid[i];
+  }
+  let t;
+  t = S.x; S.x = S.x2; S.x2 = t;
+  t = S.y; S.y = S.y2; S.y2 = t;
+  t = S.vx; S.vx = S.vx2; S.vx2 = t;
+  t = S.vy; S.vy = S.vy2; S.vy2 = t;
+  t = S.sp; S.sp = S.sp2; S.sp2 = t;
+  t = S.pid; S.pid = S.pid2; S.pid2 = t;
+}
+
+function forces(S) {
+  const { x, y, sp, ax, ay, cnt, tab, n, gx, gy } = S, R = S.R, ir = 1 / R, R2 = R * R;
+  ax.fill(0, 0, n);
+  ay.fill(0, 0, n);
+  for (let cy = 0; cy < gy; cy++) {
+    const dn = (cy + 1 === gy ? 0 : cy + 1) * gx, r0 = cy * gx;
+    for (let cx = 0; cx < gx; cx++) {
+      const k0 = r0 + cx, a0 = cnt[k0], a1 = cnt[k0 + 1];
+      if (a0 === a1) continue;
+      const xr = cx + 1 === gx ? 0 : cx + 1, xl = cx === 0 ? gx - 1 : cx - 1;
+      for (let q = 0; q < 5; q++) {
+        const k = q === 0 ? k0 : q === 1 ? r0 + xr : q === 2 ? dn + xl : q === 3 ? dn + cx : dn + xr;
+        const b0 = cnt[k], b1 = cnt[k + 1];
+        for (let i = a0; i < a1; i++) {
+          const xi = x[i], yi = y[i], ti = sp[i] * NS;
+          let fx = 0, fy = 0;
+          for (let j = q === 0 ? i + 1 : b0; j < b1; j++) {
+            let dx = x[j] - xi, dy = y[j] - yi;
+            dx = dx > 32 ? dx - W : dx < -32 ? dx + W : dx;
+            dy = dy > 64 ? dy - H : dy < -64 ? dy + H : dy;
+            const r2 = dx * dx + dy * dy;
+            if (r2 >= R2 || r2 === 0) continue;
+            const r = sqrt(r2), u = r * ir;
+            let fi, fj;
+            if (u < BETA) fi = fj = CORE * (u * IB - 1);
+            else {
+              const h = 1 - abs(2 * u - 1 - BETA) * IB1, tj = sp[j];
+              fi = tab[ti + tj] * h;
+              fj = tab[tj * NS + sp[i]] * h;
+            }
+            const k1 = 1 / r;
+            fx += fi * dx * k1;
+            fy += fi * dy * k1;
+            ax[j] -= fj * dx * k1;
+            ay[j] -= fj * dy * k1;
+          }
+          ax[i] += fx;
+          ay[i] += fy;
+        }
+      }
+    }
+  }
+}
+
+function integrate(S, h) {
+  const { x, y, vx, vy, ax, ay, n } = S, R = S.R, g = GAMMA * R * h, fr = S.fric, vm = VMAX * R, vm2 = vm * vm;
+  const kick = S.noise * R * sqrt((2 * h * 0.69314718) / T_HALF) * 2;
+  for (let i = 0; i < n; i++) {
+    let u = vx[i] * fr + g * ax[i], v = vy[i] * fr + g * ay[i];
+    if (kick > 0) {
+      u += kick * (Math.random() + Math.random() + Math.random() - 1.5);
+      v += kick * (Math.random() + Math.random() + Math.random() - 1.5);
+    }
+    const s2 = u * u + v * v;
+    if (s2 > vm2) {
+      const f = vm / sqrt(s2);
+      u *= f;
+      v *= f;
+    }
+    vx[i] = u;
+    vy[i] = v;
+    let px = x[i] + u * h, py = y[i] + v * h;
+    px = px < 0 ? px + W : px >= W ? px - W : px;
+    py = py < 0 ? py + H : py >= H ? py - H : py;
+    x[i] = px;
+    y[i] = py;
+  }
+}
+
+function step(S, h) {
+  S.fric = pow(0.5, h / T_HALF);
+  wander(S, h);
+  makeTable(S);
+  sortCells(S);
+  forces(S);
+  integrate(S, h);
+  S.time += h;
+}
+
+function advance(S, total) {
+  const m = max(1, ceil(total / HMAX - 1e-9)), h = total / m;
+  for (let i = 0; i < m; i++) step(S, h);
+}
+
+// ---- the knobs
+const KNOB = [0, 2, 0, 0.06];
+function applyKnobs(S) {
+  S.pace = S.kp;
+  S.R = R0 * pow(RK, S.ks);
+  S.phi = ((PHI0 + PHI1 * (1 + S.kc)) * PI) / 180;
+}
+function wantCount(R) {
+  return cl(round(N0 * pow(R0 / R, NP)), NLO, NHI);
+}
+const round = Math.round;
+
+export function setup(params, knobValues) {
+  const S = (params.s = newState());
+  const k = knobValues || KNOB;
+  S.kp = cl(k[1], 1, 4);
+  S.ks = cl(k[2], -1, 1);
+  S.kc = cl(k[3], -1, 1);
+  applyKnobs(S);
+  buildColours(S, 0);
+  setCount(S, wantCount(S.R));
+  advance(S, 20);
+  S.time = 0;
+}
+
+export function update(dt, input, params) {
+  const k = input.knobValues || KNOB;
+  if (!params.s) setup(params, k);
+  const S = params.s, h = cl(dt || 0, 0, 0.1);
+  const hue = cl(k[0], 0, 1) * 360;
+  if (abs(hue - S.hueDone) > 0.5) buildColours(S, hue);
+  if (h <= 0) return;
+  const f = 1 - exp(-4 * h);
+  S.kp += (cl(k[1], 1, 4) - S.kp) * f;
+  S.ks += (cl(k[2], -1, 1) - S.ks) * f;
+  S.kc += (cl(k[3], -1, 1) - S.kc) * f;
+  applyKnobs(S);
+  const want = wantCount(S.R), dn = max(8, floor(S.n * 0.04));
+  if (want > S.n) setCount(S, min(want, S.n + dn));
+  else if (want < S.n) setCount(S, max(want, S.n - dn));
+  advance(S, h * S.pace * CLOCK);
+  splat(S, h);
+}
+
+// ---- the picture
+const KR = 2.25; // squared radius of a dot, LEDs
+const GAIN = 0.55, TK = 1.3, TRAIL = 0.16; // light of one dot, the tone map, the trail's life in seconds
+const SHADE = 0.6, VSHADE = 0.35; // a resting dot shines at SHADE of full, one moving VSHADE reaches a second is full
+const GW = 16, GH = 32, HZ = 0.014, HD0 = 1.5; // the ghost: a 4 LED grid, its gain, the density it is brightest at
+function splat(S, h) {
+  const { x, y, vx, vy, sp, n, col, cr, cg, cb, br, bg, bb, hr, hg, hb, ht } = S, R = S.R, iv = 1 / (VSHADE * R);
+  cr.fill(0);
+  cg.fill(0);
+  cb.fill(0);
+  hr.fill(0);
+  hg.fill(0);
+  hb.fill(0);
+  for (let i = 0; i < n; i++) {
+    const px = x[i], py = y[i], ix = floor(px), iy = floor(py), c = sp[i] * 3;
+    const sh = SHADE + (1 - SHADE) * min(1, sqrt(vx[i] * vx[i] + vy[i] * vy[i]) * iv), r = col[c] * GAIN * sh, g = col[c + 1] * GAIN * sh, b = col[c + 2] * GAIN * sh;
+    for (let yy = iy - 1; yy <= iy + 1; yy++) {
+      const dy = yy + 0.5 - py, row = ((yy + H) & 127) * W;
+      for (let xx = ix - 1; xx <= ix + 1; xx++) {
+        const dx = xx + 0.5 - px, q = 1 - (dx * dx + dy * dy) / KR;
+        if (q <= 0) continue;
+        const w = q * q, o = row + ((xx + W) & 63);
+        cr[o] += w * r;
+        cg[o] += w * g;
+        cb[o] += w * b;
+      }
+    }
+    // the ghost: the same particle spread over four cells of the coarse grid
+    const gx = px * 0.25 - 0.5, gy = py * 0.25 - 0.5, i0 = floor(gx), j0 = floor(gy), fx = gx - i0, fy = gy - j0;
+    const a0 = i0 & (GW - 1), a1 = (i0 + 1) & (GW - 1), r0 = (j0 & (GH - 1)) * GW, r1 = ((j0 + 1) & (GH - 1)) * GW;
+    const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy, k0 = col[c], k1 = col[c + 1], k2 = col[c + 2];
+    hr[r0 + a0] += w00 * k0; hg[r0 + a0] += w00 * k1; hb[r0 + a0] += w00 * k2;
+    hr[r0 + a1] += w10 * k0; hg[r0 + a1] += w10 * k1; hb[r0 + a1] += w10 * k2;
+    hr[r1 + a0] += w01 * k0; hg[r1 + a0] += w01 * k1; hb[r1 + a0] += w01 * k2;
+    hr[r1 + a1] += w11 * k0; hg[r1 + a1] += w11 * k1; hb[r1 + a1] += w11 * k2;
+  }
+  for (let rep = 0; rep < 2; rep++)
+    for (const A of [hr, hg, hb]) {
+      for (let j = 0; j < GH; j++)
+        for (let i = 0; i < GW; i++) ht[j * GW + i] = 0.25 * A[j * GW + ((i + GW - 1) & (GW - 1))] + 0.5 * A[j * GW + i] + 0.25 * A[j * GW + ((i + 1) & (GW - 1))];
+      for (let j = 0; j < GH; j++)
+        for (let i = 0; i < GW; i++) A[j * GW + i] = 0.25 * ht[((j + GH - 1) & (GH - 1)) * GW + i] + 0.5 * ht[j * GW + i] + 0.25 * ht[((j + 1) & (GH - 1)) * GW + i];
+    }
+  for (let k = 0; k < GW * GH; k++) {
+    const m = max(hr[k], hg[k], hb[k], 1e-6), f = (HZ * exp(-m / HD0));
+    hr[k] *= f;
+    hg[k] *= f;
+    hb[k] *= f;
+  }
+  const d = exp(-h / TRAIL);
+  for (let p = 0; p < W * H; p++) {
+    const r = br[p] * d, g = bg[p] * d, b = bb[p] * d;
+    br[p] = cr[p] > r ? cr[p] : r;
+    bg[p] = cg[p] > g ? cg[p] : g;
+    bb[p] = cb[p] > b ? cb[p] : b;
+  }
+}
+
+export function draw(display, params) {
+  const S = params.s;
+  if (!S) return;
+  const { br, bg, bb, hr, hg, hb } = S;
+  for (let y = 0, p = 0; y < H; y++) {
+    const gy = (y + 0.5) * 0.25 - 0.5, j0 = floor(gy), fy = gy - j0, r0 = (j0 & (GH - 1)) * GW, r1 = ((j0 + 1) & (GH - 1)) * GW;
+    for (let x = 0; x < W; x++, p++) {
+      const gx = (x + 0.5) * 0.25 - 0.5, i0 = floor(gx), fx = gx - i0, a0 = i0 & (GW - 1), a1 = (i0 + 1) & (GW - 1);
+      const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+      let r = br[p] + w00 * hr[r0 + a0] + w10 * hr[r0 + a1] + w01 * hr[r1 + a0] + w11 * hr[r1 + a1];
+      let g = bg[p] + w00 * hg[r0 + a0] + w10 * hg[r0 + a1] + w01 * hg[r1 + a0] + w11 * hg[r1 + a1];
+      let b = bb[p] + w00 * hb[r0 + a0] + w10 * hb[r0 + a1] + w01 * hb[r1 + a0] + w11 * hb[r1 + a1];
+      const m = max(r, g, b);
+      if (m > 1e-6) {
+        const s = (1 - exp(-TK * m)) / m;
+        r *= s;
+        g *= s;
+        b *= s;
+      }
+      display.setPixel(x, y, gam(r + 0.004), gam(g + 0.004), gam(b + 0.012));
+    }
+  }
+}
