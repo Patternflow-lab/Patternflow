@@ -153,8 +153,10 @@ export default function CodePanel() {
     } catch {
       // Permission blocked or unsupported in WebView — fall back to window.prompt
     }
+    // The box left empty and confirmed is not a paste. It used to replace the
+    // layer's code with nothing and answer "Pasted ✓".
     const fallbackText = window.prompt("Paste the pattern code here and press OK.");
-    if (fallbackText !== null) {
+    if (fallbackText && fallbackText.trim()) {
       applyPastedCode(fallbackText);
     }
   };

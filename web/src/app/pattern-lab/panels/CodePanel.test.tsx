@@ -210,6 +210,19 @@ describe("CodePanel paste", () => {
     expect(useLabStore.getState().layers).toBe(before);
     expect(screen.getByText("Paste")).toBeTruthy();
   });
+
+  it("leaves the layer alone when the box is confirmed empty", async () => {
+    setClipboard({ readText: () => Promise.reject(new Error("no clipboard")) });
+    vi.spyOn(window, "prompt").mockReturnValue("  \n");
+    const before = useLabStore.getState().layers;
+    render(<CodePanel />);
+
+    fireEvent.click(screen.getByText("Paste"));
+    await act(async () => {});
+
+    expect(useLabStore.getState().layers).toBe(before);
+    expect(screen.getByText("Paste")).toBeTruthy();
+  });
 });
 
 // The hint named every other layer pixel art, written before the Lab had
