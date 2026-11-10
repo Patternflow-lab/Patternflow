@@ -13,37 +13,39 @@
 //
 // Knob 1: Hue. Adds the knob times 360 degrees to the OKLab hue of all six species, so one turn comes back to where it began. At 0 they are coral (40 degrees), yellow (100), green (158), azure (216), violet (274) and pink (334); at 0.5 the same six sit at 220, 280, 338, 36, 94 and 154. A faint warm light is drawn towards grey further than a cool one, so a yellow or coral trail fading out turns pale and does not go olive or brown.
 // Knob 2: Pace. The clock of the model, Pace / 2 model seconds a second, a little faster for a short reach. The friction half-life stays 40 ms of model time and the table wanders on the same clock, so the same population runs faster or slower. The dots' rms speed is 3.2 LEDs a second at 1, 6.4 at the opening 2 and 13.4 at 4.
-// Knob 3: Scale. The reach R of the force, 8.4 times 1.68 to the Scale in LEDs: 5.0 at -1, 8.4 at 0 and 14.1 at 1, with the core ending at 0.3 R (1.5, 2.5 and 4.2 LEDs) and the pull peaking at 0.65 R (3.3, 5.5 and 9.2). The number of dots follows, 1,140 at -1, 610 at 0 and 400 at 1 (the least allowed). Bonded groups of three or more dots number 81 and hold 12 dots on average at -1, 28 and 21 at 0, 7 and 71 at 1: many small cells, then a few large clusters.
-// Knob 4: Chase. The angle phi between the symmetric part of the table (a pair attracts alike) and the antisymmetric part (one chases, the other flees): 30 degrees at -1, 53 at the opening 0.06 and 74 at 1, which moves the mean of |a(i,j) - a(j,i)| / 2 from 0.20 to 0.33 to 0.40 and the symmetric share |a(i,j) + a(j,i)| / 2 from 0.36 to 0.25 to 0.12. The count falls from 1.22 to 0.62 of its Scale value, so the knob is not a brightness knob: at -1 bonded groups hold 32 dots on average and clump into cells, at 1 they hold 11 and the dots stream after each other in chains.
+// Knob 3: Scale. The reach R of the force, 8.4 times 1.68 to the Scale in LEDs: 5.0 at -1, 8.4 at 0 and 14.1 at 1, with the core ending at 0.3 R (1.5, 2.5 and 4.2 LEDs) and the pull peaking at 0.65 R (3.3, 5.5 and 9.2). The number of dots follows, 1,140 at -1, 610 at 0 and 400 at 1 (the least allowed). Bonded groups of three or more dots number 79 and hold 13 dots on average at -1, 27 and 21 at 0, 7 and 71 at 1: many small cells, then a few large clusters.
+// Knob 4: Chase. The angle phi between the symmetric part of the table (a pair attracts alike) and the antisymmetric part (one chases, the other flees): 30 degrees at -1, 53 at the opening 0.06 and 74 at 1, which moves the mean of |a(i,j) - a(j,i)| / 2 from 0.20 to 0.33 to 0.40 and the symmetric share |a(i,j) + a(j,i)| / 2 from 0.36 to 0.25 to 0.12. Below 0 the mean pull of the species goes down from 0.05 to -0.07, because a symmetric table lumps. The number of dots falls from 1.22 to 0.62 of its Scale value, so the knob is not a brightness knob: at -1 there are 32 bonded groups of 26 dots on average, rounded cells, and at 1 there are 33 of 11 and the dots stream after each other in chains.
 
-// What the model is. Dots on the periodic 64 x 128 panel, each of one of six species. Two dots a distance r apart, u = r / R, push
-// along the line between them with the force
+// What the model is. Dots on the periodic 64 x 128 panel, each of one of six species. Two dots a distance r apart, with u = r / R,
+// push along the line between them with the force
 //   F(u) = CORE (u / beta - 1)                       for u < beta, the same for every pair, always a push apart
 //   F(u) = a (1 - |2u - 1 - beta| / (1 - beta))      for beta < u < 1, a triangle of height a, a pull when a is positive
 //   F(u) = 0                                         beyond the reach
-// with beta = 0.3 and a = a(species of i, species of j) from the table, in -1..1. The table is not symmetric, so a(i,j) and a(j,i)
-// can differ and then A pulls toward B while B is pushed from A. A step of h seconds of model time: v = v 0.5^(h / 0.04 s) +
-// h GAMMA R F-sum (the sum over the dots within R, squeezed towards AMAX when large) plus a thermal kick, the speed clamped to
-// 2 R a second, then x = x + h v, wrapped. The dots are sorted into cells R wide each step, and a dot meets the nine cells round
-// it, so 600 dots cost 0.2 ms a step and 1,500 dots 0.45 ms.
-// The table is six by six numbers that each wander: a symmetric part and an antisymmetric part follow independent Ornstein-
-// Uhlenbeck paths of e-folding time 7 model seconds, are mixed by phi, then centred so that every species has the same mean pull
-// MU = 0.05 on the others and the same mean chasing, and clipped to -1..1. Without that centring a species that repelled all the rest sat
-// still in a lattice, and one that attracted all of them made a lump that ran across the panel at the speed clamp.
+// with beta = 0.3 and a taken from the table by the species of the two dots, in -1..1. The table is not symmetric, so a(i,j) and
+// a(j,i) can differ, and then dot i is pulled towards dot j while j is pushed away from i. One step of h seconds of model time:
+// the velocity is multiplied by 0.5^(h / 0.04 s), the sum of the forces on the dot within R times h GAMMA R is added (a sum above
+// AMAX is squeezed towards it), a thermal kick is added, the speed is clamped to 2 R a second, and the dot moves by h times its
+// velocity, wrapped round the panel. The dots are sorted into cells R wide each step and a dot meets the nine cells round it, so
+// 600 dots cost 0.2 ms a step and 1,500 dots 0.45 ms.
+// The table is six by six numbers that each wander. A symmetric part and an antisymmetric part follow independent Ornstein-
+// Uhlenbeck paths with an e-folding time of 7 model seconds and are mixed by phi. Then each species is given the same mean pull
+// MU = 0.05 on the others (less, down to -0.07, as Chase goes below 0) and the same mean chasing, and the entries are clipped to
+// -1..1. Without that centring a species that repelled all the rest sat still in a lattice, and a table that attracted too many
+// made a lump that ran across the panel at the speed clamp.
 
 // What the checks showed. The force peaks at u = (1 + beta) / 2 = 0.65 with the value a and is zero at u = 0.3 (below it F is
 // negative, so a pair of attracting dots settles at the contact distance beta R) and at u = 1; found on a grid of 1e5 points
 // at 0.6500 and 1.0000, F(0) = -2. At R = 8.4 the core ends at 2.52 LEDs and the pull peaks at 5.46. Newton's third law: with a
 // symmetric table, no friction, no kicks and no clamps, 1,000 dots over 600 steps keep the sum of their velocities at 3e-12
 // LEDs a second while the sum of their speeds is 4e4 (1e-16 of it, rounding); an antisymmetric table gives 4e3, the pursuit
-// that the table is there for. A lone dot thrown at 10 LEDs a second is at 4.2045 after 50 ms against 10 (0.5)^(50 / 40) =
-// 4.2045, and a fit of ln v gives a half-life of 40.000 ms. At the opening, over 900 s, the rms speed is 6.4 LEDs a second
-// (0.76 reaches per model second) with a deviation of 1.3 over time, between 3.9 and 10.6, and 6.16, 6.43, 6.40 and 6.54 in
-// the four quarters; 0.9 percent of the dots are at the speed clamp at any moment, so the clamp is a safety and the asymmetric
+// that the table is there for. A lone dot thrown at 10 LEDs a second is at 4.2045 after 50 ms, and 10 times 0.5 to the power of
+// 50 / 40 is 4.2045; a fit of ln v gives a half-life of 40.000 ms. At the opening, over 900 s, the rms speed is 6.5 LEDs a second
+// (0.77 reaches per model second) with a deviation of 1.3 over time, between 4.0 and 10.3, and 6.21, 6.62, 6.39 and 6.66 in
+// the four quarters; 1.1 percent of the dots are at the speed clamp at any moment, so the clamp is a safety and the asymmetric
 // forces do not heat the dots up. How often the population re-organises: the pairs of dots closer than 1.35 contact
-// distances survive 2.5, 5, 10, 20 and 80 s at 0.34, 0.20, 0.10, 0.05 and 0.02. With a table that does not wander the same
-// numbers are 0.72, 0.61, 0.49, 0.40 and 0.32: a third of the pairs never part, and the rms speed falls from 10.6 to 7.3 over
-// 300 s as the dots set into clumps. That is why the table wanders.
+// distances survive 2.5, 5, 10, 20 and 80 s at 0.36, 0.22, 0.11, 0.06 and 0.02. With a table that does not wander the same
+// numbers are 0.72, 0.61, 0.50, 0.41 and 0.34: a third of the pairs never part, and 8 percent of the dots sit at the speed clamp,
+// where 1 percent do with the wander, because the heavy clumps that formed keep chasing each other. That is why the table wanders.
 
 const { floor, ceil, exp, sqrt, abs, sin, cos, PI, min, max, pow, log } = Math;
 const TAU = 2 * PI;
@@ -64,7 +66,7 @@ const R0 = 8.4, RK = 1.68; // reach in LEDs: R0 * RK^Scale
 const N0 = 680, NP = 1.2, NLO = 400, NHI = 1700; // dots: N0 (R0 / R)^NP times a factor that falls with Chase, held between NLO and NHI
 const TAU_RULE = 7; // e-folding time of the table's wander, seconds of model time
 const TSC = 0.65; // size of a table entry before centring and the clip at 1; the entries then have an rms of 0.51
-const MU = 0.05; // the mean pull of every species on the others
+const MU = 0.05, MUC = 0.12; // the mean pull of every species on the others: MU, less by up to MUC as Chase goes below 0 (a symmetric table lumps)
 const PHI0 = 30, PHI1 = 22; // the angle between symmetric and antisymmetric table, degrees: PHI0 + PHI1 (1 + Chase)
 const CLOCK = 0.5; // model seconds a second for each unit of Pace
 const CKS = 0.5; // the clock runs (R0 / R)^CKS faster for a short reach, so a fine population does not crawl in LEDs a second
@@ -128,7 +130,7 @@ function newState() {
     gx: 8, gy: 16,
     ou: F(NS * NS), // symmetric entries in the upper triangle, antisymmetric in the lower
     tab: new Float64Array(NS * NS), sy: new Float64Array(NS * NS), an: new Float64Array(NS * NS), rs: new Float64Array(NS), ra: new Float64Array(NS),
-    R: R0, phi: PI / 4, pace: 2, kp: 2, ks: 0, kc: 0.06, hueDone: -1, time: 0,
+    R: R0, phi: PI / 4, mu: MU, pace: 2, kp: 2, ks: 0, kc: 0.06, hueDone: -1, time: 0,
     col: new Float32Array(3 * NS),
     br: new Float32Array(W * H), bg: new Float32Array(W * H), bb: new Float32Array(W * H),
     cr: new Float32Array(W * H), cg: new Float32Array(W * H), cb: new Float32Array(W * H),
@@ -159,7 +161,7 @@ function makeTable(S) {
   for (let i = 0; i < NS; i++)
     for (let j = 0; j < NS; j++) {
       const sc = sy[i * NS + j] - rs[i] - rs[j] + m, ac = an[i * NS + j] - ra[i] + ra[j];
-      tab[i * NS + j] = cl(TSC * (c * sc + s * ac) + MU, -1, 1);
+      tab[i * NS + j] = cl(TSC * (c * sc + s * ac) + S.mu, -1, 1);
     }
 }
 function wander(S, h) {
@@ -299,6 +301,7 @@ function applyKnobs(S) {
   S.pace = S.kp;
   S.R = R0 * pow(RK, S.ks);
   S.phi = ((PHI0 + PHI1 * (1 + S.kc)) * PI) / 180;
+  S.mu = MU + MUC * min(0, S.kc);
 }
 function wantCount(R, kc) {
   return cl(round(N0 * pow(R0 / R, NP) * (1.22 - 0.3 * (1 + kc))), NLO, NHI);
