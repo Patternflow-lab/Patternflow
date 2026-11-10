@@ -125,19 +125,6 @@ describe("LayersPanel without a mouse", () => {
     expect(names()).toEqual(["Code 1", "Pixel 1"]);
   });
 
-  it("moves the selected layer with the bar's arrows", () => {
-    store().addPixelLayer();
-    render(<LayersPanel />);
-    const up = screen.getByRole("button", { name: "Move the selected layer up" });
-    const down = screen.getByRole("button", { name: "Move the selected layer down" });
-    expect(up).toBeDisabled();
-    fireEvent.click(down);
-    expect(names()).toEqual(["Code 1", "Pixel 1"]);
-    expect(down).toBeDisabled();
-    fireEvent.click(up);
-    expect(names()).toEqual(["Pixel 1", "Code 1"]);
-  });
-
   it("renames on F2", () => {
     render(<LayersPanel />);
     fireEvent.keyDown(row("Code 1"), { key: "F2" });

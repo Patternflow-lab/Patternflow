@@ -5,8 +5,7 @@
 // The active layer's opacity + blend live at the bottom of the panel.
 //
 // A row also takes focus: Enter or Space selects it, F2 renames it, and
-// Alt+Up / Alt+Down move it. The ↑ ↓ buttons in the bar do the same move for
-// a finger, which HTML drag and drop does not follow on most phones.
+// Alt+Up / Alt+Down move it.
 
 import { useRef, useState } from "react";
 import { BLEND_MODES, type Layer } from "@/lib/lab/types";
@@ -57,7 +56,6 @@ export default function LayersPanel() {
   const listRef = useRef<HTMLOListElement | null>(null);
 
   const active = layers.find((layer) => layer.id === activeLayerId);
-  const activeIndex = layers.findIndex((layer) => layer.id === activeLayerId);
 
   const startRename = (id: string, name: string) => {
     setRenamingId(id);
@@ -120,24 +118,6 @@ export default function LayersPanel() {
           + Text
         </button>
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          onClick={() => moveLayer(activeIndex, -1, false)}
-          disabled={activeIndex <= 0}
-          aria-label="Move the selected layer up"
-          title="Move the selected layer up the stack"
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          onClick={() => moveLayer(activeIndex, 1, false)}
-          disabled={activeIndex < 0 || activeIndex >= layers.length - 1}
-          aria-label="Move the selected layer down"
-          title="Move the selected layer down the stack"
-        >
-          ↓
-        </button>
         <button
           type="button"
           onClick={() => {
