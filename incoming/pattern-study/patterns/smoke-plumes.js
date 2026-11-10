@@ -29,8 +29,9 @@
 // The scheme. w is pseudo-spectral: the product (u + U).grad w by three transforms a stage (pairs packed in one), the cut exp(-36 (k / 1.8)^16), and the third order scheme at the step a frame calls for, never over 0.1 and short enough that the fastest face speed times 1.8 rad per LED times the step is under 1.5 (the scheme holds to 1.73).
 // Past 18 steps of kx the cut leaves nothing, so the column transforms skip those 27 columns. Once a step the stream function, shifted half a cell in x and y, goes through one transform with w (two real fields packed), and the velocity on a face is the difference of two corner values, so its divergence is zero to rounding.
 // T and s go with the face velocities in x, y, x sweeps of the flux form second order upwind scheme, in as many substeps as keep a crossing under 0.8 cell; then sources, sinks and diffusion, and a clamp to 0 and 1.2. Last the force on w, once: central differences of T, G and |w|, the sponge drag on the cells, one transform, the cut, held for the three stages. 24 model seconds run before the first frame.
-// The picture. Smoke over a sky of three stops at opacity 1 - exp(-3 s). Its colour is its temperature on a log scale, ln(1 + T / 0.004) / ln 251, on a six-stop ramp from grey-lilac at 0 through rose and apricot to gold at 1. The light is up and to the left: the optical depth tau to it is a running sum along (-1, -2), (-1, -1) and (0, -1)
-// with 0.8 kept a step, the shade is 0.5 + 0.55 exp(-2.4 tau), the gradient of s over two cells against the light adds a rim from -0.25 to 0.45, and in the smoke the vorticity adds 0.12 tanh(w / its rms), so the cores of the curls show.
+// The picture. Smoke over a sky of three stops at opacity 1 - exp(-4 s). Its colour is its temperature on a log scale, ln(1 + T / 0.004) / ln 251, on a six-stop ramp from grey-lilac at 0 through rose and apricot to gold at 1. The light is up and to the left: the optical depth tau to it is a running sum along (-1, -2), (-1, -1) and (0, -1)
+// with 0.8 kept a step, and the smoke is shaded by f = 0.38 + 0.95 exp(-2.4 tau), plus a rim of 6 times the gradient of s over two cells against the light (from -0.5 to 0.6), minus 1.2 times the one cell gradient of s (a crease where the density steps, at most 0.35), plus 0.18 tanh(w / its rms) in smoke, so the cores of the curls show; f is never under 0.15.
+// The sky takes the same shadow (0.7 + 0.55 exp(-2.4 tau)), glows gold above the vents by their field blurred over 8 LEDs, and above row 60 is shaded by 0.2 (0.4 at the top row) tanh(3 w / its rms) with w smoothed over the neighbours, which fades out by row 96, fades in over the top 5 rows and counts 9 times over at the top row, where the sponge has taken most of w: the top band moves.
 //
 // What was checked, with the file's own step (scripts of mine, not in the repo):
 // - Divergence of the face velocities, every second for 20 s at the open, all-minimum and all-maximum knobs: 1.3e-15, 0.9e-15 and 1.8e-15, with the fastest face at 6.6, 4.4 and 8.7 LEDs per model second.
@@ -42,8 +43,8 @@
 // - Confinement against the size of the curls, Scale 0, 90 s at Flow 2 (144 model s, the second half averaged), the mean wavenumber of the vorticity spectrum (kx not 0): eps 0, 0.04, 0.07, 0.16 and 0.32 give curls of 9.9, 9.5, 9.2, 8.2 and 6.1 LEDs, and the rms vorticity in smoke is 0.49, 0.51, 0.53, 0.59 and 1.23 per s. Past 0.2 it gathers the vorticity into a lattice of small vortices.
 // - Smoke budget, 900 s of the open set through update(): the vents put in 89,331 units and the top took out 87,721. The difference is the box filling (1,459 at the first frame, 2,572 at 300 s, 3,069 at 900 s), and mass in minus mass out closes to 3e-8. From 300 s on out over in is 0.992. In windows of 100 s the mean s is
 //   0.31, 0.35, 0.34, 0.33, 0.36, 0.36, 0.36, 0.34 and 0.35, the smoke's centroid sits at row 63.6 to 65.1 and the mean T is 0.158 to 0.174. The clamp never acted.
-// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.61 to 0.70, dim 0.74 to 0.94, quiet 0.48 to 0.74, last quarter dim 0.77 to 0.93 and quiet 0.37 to 0.66, luma 0.4 to 3.2 per cent apart first and last quarter.
-//   900 s (recur, dim, quiet): open 0.649, 0.914, 0.609; all minimum 0.624, 0.774, 0.642; all maximum 0.609, 0.941, 0.499. Measured on this file under its name, which seeds the vents, the wind and the drive.
+// - flowcheck, 240 s, six sets (open; all minimum; all maximum; three random): recur 0.61 to 0.69, dim 0.88 to 0.94, quiet 0.50 to 0.77, last quarter dim 0.86 to 0.91 and quiet 0.34 to 0.57, luma 0.2 to 4.3 per cent apart first and last quarter. The weakest is the last quarter's quiet of the third random set (0.344, Scale -1), the top band's tile.
+//   900 s (recur, dim, quiet): open 0.649, 0.914, 0.609; all minimum 0.624, 0.774, 0.642; all maximum 0.609, 0.941, 0.499. These three were measured before the picture was shaded as it is now (the flow is the same; the shading is the picture's alone). Measured on this file under its name, which seeds the vents, the wind and the drive.
 // - Eight seeds (vent places, wind, first phases), 100 s, the last 40 averaged, at the open, all-minimum and all-maximum knobs: the mean s is 0.351, 0.144 and 0.428 (sd 0.015, 0.008, 0.006), the mean T 0.167, 0.078 and 0.213, the smoke's centroid at row 64.4, 59.7 and 66.4.
 //   The one thing that varies is how much of rows 40 to 80 the smoke covers at all-minimum, 67 per cent with sd 8 (49 to 75), three slim plumes that meander. None died or went non-finite.
 // - Cost: 5.2 to 6.3 ms a frame in Node (update and draw) in the 900 s runs, 8.6 to 10.6 in the 240 s runs, when two of them and other work shared four cores; the start 1.2 to 1.5 s.
@@ -52,6 +53,8 @@
 // confinement 0.07 brought it to 1.7. 2. Confinement at 0.5 froze the vorticity into a lattice of equal vortices a curl wide all over the panel; 0.07, in smoke only, leaves plumes. 3. The wind profile first had a step at the wrap, which rang in the rows beside it. Made periodic, at 1.5 rms it still drew the smoke out into flat sheets,
 // and after a minute the panel was one haze. At 1.0 rms, with a profile that is never zero, the structure lasts the 900 s. 4. Smoke density settles near 0.7, so brightness from s alone was flat grey, and embossing it with one cell differences gave wrinkled foil; the colour follows T on a log scale now, which keeps the structure to the top, the rim looks two cells out, and the vorticity shade brings out the curls that a smooth density hides.
 // 5. With the sponge at 0.35 a pink band of smoke and heat gathered along the top rows; at 1.2 it is taken out. 6. The first build cost 15 ms a frame at the maximum knobs (two substeps of the scalars, every column transformed); the time scale 0.8, the looser crossing limit and the skipped columns brought it to 6 to 8.
+// 7. On the panel's own colours the first picture was an orange to violet gradient with the curls barely there (on a raw frame at 60 s, detail 0.018 and edges 0.001 by the study's measure): the shade ran only from 0.5 to 1.1 and the sky was flat. The wider shade, the rim and the crease, and the sky shadows give 0.032 and 0.028. The sky's vorticity shade drew diagonal stripes in the
+// rows by the floor (the vorticity rings there), hence the fade.
 // What was not checked: a grid finer than 64 by 128 (a plume's edge is a cell or two wide); three dimensions, where a plume does not meander in a plane; the constant of the plume against the books; the Boussinesq limit (T is a number up to 1, not a temperature ratio); how the confinement coefficient compares with Fedkiw's, whose units are of the grid.
 // The draft, the sponge, the drag a and the way the vents wander are the picture's own.
 
@@ -450,7 +453,7 @@ function start(params, k) {
     G: new Float64Array(W), bx: new Float64Array(MAXV), bt: new Float64Array(MAXV), dv: new Float64Array(MAXV), az: new Float64Array(MAXV),
     am: new Float64Array(MAXV), pr: new Float64Array(MAXV), pt: new Float64Array(MAXV),
     nv: 0, off: Math.random() * W, wa: gauss() * CFG.wind, ubar: 0, sig: sigOf(k[2]), beta: betaOf(k[3]), conf: confOf(k[2]),
-    um: 4, os: 0, time: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3),
+    um: 4, os: 0, time: 0, ready: false, hue: 0, lutHue: -9, tau: mk(), sky: new Float64Array(H * 3), lut: new Float64Array(256 * 3), glow: new Float64Array(W),
   };
   S.ubar = S.wa * GBAR;
   params.s = S;
@@ -520,13 +523,14 @@ function buildPalette(S, hue) {
 }
 const ALPHA = new Float64Array(257), LEXP = new Float64Array(257), TONE = new Uint8Array(1025);
 for (let i = 0; i <= 256; i++) {
-  ALPHA[i] = 1 - exp((-3 * i) / 213);
+  ALPHA[i] = 1 - exp((-4 * i) / 213);
   LEXP[i] = exp((-i / 256) * 2.4);
 }
 for (let i = 0; i <= 1024; i++) TONE[i] = cl(log(1 + ((i / 1024) * (i / 1024)) / 0.004) / log(251), 0, 1) * 255;
 
 const LX = -0.45, LY = -0.89; // towards the light: up and to the left
-const VW = 0.12;
+const SKYF0 = 0.7, SKYF1 = 0.55, SKYW = 0.2;
+const VW = 0.18, FB = 0.38, FL = 0.95, RIM = 6, CREASE = 1.2;
 
 export function draw(display, params) {
   const S = params.s;
@@ -542,13 +546,22 @@ export function draw(display, params) {
       tau[o + x] = 0.8 * (up + ul) + 0.35 * sm[o + x];
     }
   }
+  const glow = S.glow, G = S.G;
+  for (let x = 0; x < W; x++) {
+    let a = 0;
+    for (let k = -8; k <= 8; k++) a += G[(x + k) & WM] * (9 - abs(k));
+    glow[x] = a / 81;
+  }
   for (let y = 0, p = 0; y < H; y++) {
-    const sr = sky[y * 3], sg = sky[y * 3 + 1], sb = sky[y * 3 + 2];
+    const sk = 1 + 8 * SPONGE[y], sw = (1 - smooth(60, 96, y)) * smooth(0, 5, y), gy0 = exp(-(HM - y) / 24) * 0.5, er = lut[190 * 3], eg = lut[190 * 3 + 1], eb = lut[190 * 3 + 2];
     for (let x = 0; x < W; x++, p++) {
+      const gl = glow[x] * gy0, sh = (SKYF0 + SKYF1 * LEXP[min(256, (tau[p] * 256) | 0)]) * (1 + SKYW * (1 + SPONGE[y]) * sw * tanh(3 * sk * (4 * omp[p] + omp[y * W + ((x + 1) & WM)] + omp[y * W + ((x - 1) & WM)] + omp[((y + 1) & HM) * W + x] + omp[((y - 1) & HM) * W + x]) * 0.125 * il));
+      const sr = sky[y * 3] * sh + (er - sky[y * 3]) * gl, sg = sky[y * 3 + 1] * sh + (eg - sky[y * 3 + 1]) * gl, sb = sky[y * 3 + 2] * sh + (eb - sky[y * 3 + 2]) * gl;
       const s = cl(sm[p], 0, 1.2), al = ALPHA[(s * 213) | 0];
       const L = LEXP[min(256, (tau[p] * 256) | 0)], o = TONE[(sqrt(cl(T[p], 0, 1)) * 1024) | 0] * 3;
       const gx = 0.25 * (sm[y * W + ((x + 2) & WM)] - sm[y * W + ((x - 2) & WM)]), gy = 0.25 * (sm[((y + 2) & HM) * W + x] - sm[((y - 2) & HM) * W + x]);
-      const f = 0.5 + 0.55 * L + cl(-4 * (gx * LX + gy * LY), -0.25, 0.45) + VW * tanh(omp[p] * il) * smooth(0.05, 0.4, s);
+      const hx = sm[y * W + ((x + 1) & WM)] - sm[y * W + ((x - 1) & WM)], hy = sm[((y + 1) & HM) * W + x] - sm[((y - 1) & HM) * W + x];
+      const f = max(0.15, FB + FL * L + cl(-RIM * (gx * LX + gy * LY), -0.5, 0.6) - min(0.35, CREASE * sqrt(hx * hx + hy * hy)) + VW * tanh(omp[p] * il) * smooth(0.05, 0.4, s));
       display.setPixel(x, y, cl(sr + (lut[o] * f - sr) * al, 0, 255), cl(sg + (lut[o + 1] * f - sg) * al, 0, 255), cl(sb + (lut[o + 2] * f - sb) * al, 0, 255));
     }
   }
