@@ -24,19 +24,21 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const W = 64, H = 128, NS = 6; // panel, species
 const NMAX = 2400; // arrays are this long
 const BETA = 0.3; // the core, as a share of the reach
-const CORE = 1; // push of the core at zero distance, against 1 for the pull of the bump
+const CORE = 2; // push of the core at zero distance, against 1 for the pull of the bump
 const T_HALF = 0.04; // friction half-life, seconds of model time
-const GAMMA = 10; // acceleration, in reaches a second squared, of a force of 1
+const GAMMA = 16; // acceleration, in reaches a second squared, of a force of 1
 const VMAX = 2; // speed clamp, reaches a second
-const VT = 0.05; // thermal speed, reaches a second, per component
-const HMAX = 1 / 60; // largest step, seconds of model time
+const AMAX = 3; // the push a particle can take, in units of one pair's greatest pull; more is squeezed towards this
+const VT = 0.2; // thermal speed, reaches a second, per component
+const HMAX = 1 / 45; // largest step, seconds of model time
 const R0 = 8.4, RK = 1.68; // reach in LEDs: R0 * RK^Scale
-const N0 = 1000, NP = 1.5, NLO = 400, NHI = 1700; // particle count: N0 * (R0 / R)^NP
+const N0 = 680, NP = 1.2, NLO = 400, NHI = 1700; // particle count: N0 * (R0 / R)^NP, less when Chase is high (fewer to chase)
 const TAU_RULE = 7; // wander time of the table, seconds of model time
 const TSC = 0.65; // rms of a table entry
 const MU = 0.05; // mean of the symmetric part of the table
-const PHI0 = 20, PHI1 = 30; // the angle between symmetric and antisymmetric, degrees: PHI0 + PHI1 (1 + Chase)
+const PHI0 = 30, PHI1 = 22; // the angle between symmetric and antisymmetric, degrees: PHI0 + PHI1 (1 + Chase)
 const CLOCK = 0.5; // model seconds per second per unit of Pace
+const CKS = 0.5; // the clock runs faster for a short reach by (R0 / R)^CKS, so a fine population does not crawl in LEDs a second
 
 // ---- the force. u is the distance over the reach, a the pair's attraction (-1..1).
 const IB = 1 / BETA, IB1 = 1 / (1 - BETA);
@@ -220,10 +222,11 @@ function forces(S) {
 }
 
 function integrate(S, h) {
-  const { x, y, vx, vy, ax, ay, n } = S, R = S.R, g = GAMMA * R * h, fr = S.fric, vm = VMAX * R, vm2 = vm * vm;
+  const { x, y, vx, vy, ax, ay, n } = S, R = S.R, iA = 1 / AMAX, g = GAMMA * R * h, fr = S.fric, vm = VMAX * R, vm2 = vm * vm;
   const kick = S.noise * R * sqrt((2 * h * 0.69314718) / T_HALF) * 2;
   for (let i = 0; i < n; i++) {
-    let u = vx[i] * fr + g * ax[i], v = vy[i] * fr + g * ay[i];
+    const fa = sqrt(ax[i] * ax[i] + ay[i] * ay[i]), sq = 1 / (1 + fa * iA);
+    let u = vx[i] * fr + g * ax[i] * sq, v = vy[i] * fr + g * ay[i] * sq;
     if (kick > 0) {
       u += kick * (Math.random() + Math.random() + Math.random() - 1.5);
       v += kick * (Math.random() + Math.random() + Math.random() - 1.5);
@@ -266,10 +269,38 @@ function applyKnobs(S) {
   S.R = R0 * pow(RK, S.ks);
   S.phi = ((PHI0 + PHI1 * (1 + S.kc)) * PI) / 180;
 }
-function wantCount(R) {
-  return cl(round(N0 * pow(R0 / R, NP)), NLO, NHI);
+function wantCount(R, kc) {
+  return cl(round(N0 * pow(R0 / R, NP) * (1.22 - 0.3 * (1 + kc))), NLO, NHI);
 }
 const round = Math.round;
+
+// A random table is tried by letting a scatter of particles run for SPIN seconds and then measuring, over PROBE more, how fast
+// they move in reaches a second. A table that has frozen them into crystals (under DULL) is thrown away and another drawn, up to
+// TRIES times, and the liveliest of the tries stays if none passes.
+const SPIN = 7, PROBE = 2, TRIES = 4, DULL = 0.25;
+function scatter(S) {
+  for (let i = 0; i < NS * NS; i++) S.ou[i] = rg();
+  for (let i = 0; i < S.n; i++) {
+    S.x[i] = Math.random() * W;
+    S.y[i] = Math.random() * H;
+    S.vx[i] = S.vy[i] = 0;
+    S.sp[i] = floor(Math.random() * NS);
+  }
+}
+function probe(S) {
+  advance(S, SPIN);
+  let v = 0;
+  const m = round(PROBE * 60);
+  for (let k = 0; k < m; k++) {
+    advance(S, 1 / 60);
+    if (k % 10 === 0) {
+      let s2 = 0;
+      for (let i = 0; i < S.n; i++) s2 += S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i];
+      v += sqrt(s2 / S.n) / S.R;
+    }
+  }
+  return v / ceil(m / 10);
+}
 
 export function setup(params, knobValues) {
   const S = (params.s = newState());
@@ -278,10 +309,26 @@ export function setup(params, knobValues) {
   S.ks = cl(k[2], -1, 1);
   S.kc = cl(k[3], -1, 1);
   applyKnobs(S);
-  buildColours(S, 0);
-  setCount(S, wantCount(S.R));
-  advance(S, 20);
+  buildColours(S, cl(k[0], 0, 1) * 360);
+  setCount(S, wantCount(S.R, S.kc));
+  let best = null, top = -1;
+  for (let t = 0; t < TRIES; t++) {
+    scatter(S);
+    const v = probe(S);
+    S.tries = t + 1;
+    S.probe = v;
+    if (v > top) {
+      top = v;
+      best = { ou: S.ou.slice(), x: S.x.slice(), y: S.y.slice(), vx: S.vx.slice(), vy: S.vy.slice(), sp: S.sp.slice(), pid: S.pid.slice() };
+    }
+    if (v >= DULL) break;
+  }
+  if (S.probe < top) {
+    for (const key of Object.keys(best)) S[key].set(best[key]);
+    S.probe = top;
+  }
   S.time = 0;
+  splat(S, 1);
 }
 
 export function update(dt, input, params) {
@@ -296,17 +343,18 @@ export function update(dt, input, params) {
   S.ks += (cl(k[2], -1, 1) - S.ks) * f;
   S.kc += (cl(k[3], -1, 1) - S.kc) * f;
   applyKnobs(S);
-  const want = wantCount(S.R), dn = max(8, floor(S.n * 0.04));
+  const want = wantCount(S.R, S.kc), dn = max(8, floor(S.n * 0.04));
   if (want > S.n) setCount(S, min(want, S.n + dn));
   else if (want < S.n) setCount(S, max(want, S.n - dn));
-  advance(S, h * S.pace * CLOCK);
+  advance(S, h * S.pace * CLOCK * pow(R0 / S.R, CKS));
   splat(S, h);
 }
 
 // ---- the picture
 const KR = 2.25; // squared radius of a dot, LEDs
-const GAIN = 0.55, TK = 1.3, TRAIL = 0.16; // light of one dot, the tone map, the trail's life in seconds
-const SHADE = 0.6, VSHADE = 0.35; // a resting dot shines at SHADE of full, one moving VSHADE reaches a second is full
+const GAIN = 0.8, TK = 1.3, TRAIL = 0.16; // light of one dot, the tone map, the trail's life in seconds
+const DIM = 0.45; // how far faint light is drawn towards grey
+const SHADE = 0.85, VSHADE = 0.35; // a resting dot shines at SHADE of full, one moving VSHADE reaches a second is full
 const GW = 16, GH = 32, HZ = 0.014, HD0 = 1.5; // the ghost: a 4 LED grid, its gain, the density it is brightest at
 function splat(S, h) {
   const { x, y, vx, vy, sp, n, col, cr, cg, cb, br, bg, bb, hr, hg, hb, ht } = S, R = S.R, iv = 1 / (VSHADE * R);
@@ -346,11 +394,12 @@ function splat(S, h) {
       for (let j = 0; j < GH; j++)
         for (let i = 0; i < GW; i++) A[j * GW + i] = 0.25 * ht[((j + GH - 1) & (GH - 1)) * GW + i] + 0.5 * ht[j * GW + i] + 0.25 * ht[((j + 1) & (GH - 1)) * GW + i];
     }
+  // the ghost is half the colour of what is near and half a cool grey, so a faint halo round a yellow cell never goes olive
   for (let k = 0; k < GW * GH; k++) {
-    const m = max(hr[k], hg[k], hb[k], 1e-6), f = (HZ * exp(-m / HD0));
-    hr[k] *= f;
-    hg[k] *= f;
-    hb[k] *= f;
+    const m = max(hr[k], hg[k], hb[k], 1e-6), f = HZ * exp(-m / HD0), q = 0.5 / m;
+    hr[k] = f * (hr[k] * q + 0.3);
+    hg[k] = f * (hg[k] * q + 0.33);
+    hb[k] = f * (hb[k] * q + 0.5);
   }
   const d = exp(-h / TRAIL);
   for (let p = 0; p < W * H; p++) {
@@ -379,6 +428,11 @@ export function draw(display, params) {
         r *= s;
         g *= s;
         b *= s;
+        // what is faint goes towards grey, so a warm dot fading out turns pale instead of brown
+        const t = m * s, k = DIM * (1 - (t > 0.45 ? 1 : t * 2.2222)), y = 0.3 * r + 0.55 * g + 0.15 * b;
+        r += (y - r) * k;
+        g += (y - g) * k;
+        b += (y - b) * k;
       }
       display.setPixel(x, y, gam(r + 0.004), gam(g + 0.004), gam(b + 0.012));
     }
