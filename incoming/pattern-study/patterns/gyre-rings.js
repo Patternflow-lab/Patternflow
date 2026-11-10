@@ -33,13 +33,15 @@ const MX = NX - 1, MY = NY - 1, NM = MX * MY; // interior corners, which is the 
 const CFG = {
   beta: 1, // planetary vorticity gradient: model units are LEDs and tu, so beta is 1
   d0: 2.0, // Munk width at Scale -1, LEDs
-  d1: 3.4, // and at Scale 1
+  d1: 3.1, // and at Scale 1
   wn0: 4.6, // wind: delta_I / delta_M at Wind 0
   wnr: 1.15, // ratio per unit of Wind
   rf: 0.3, // bottom friction in units of beta delta_M
-  nz: 1.6, // the gusts, as a share of the wind curl amplitude
+  nz: 1.8, // the gusts, as a share of the wind curl amplitude
   nzTau: 0.2, // their correlation time, tu
   nzK: 0.57, // their wavenumber in units of 1 / sqrt(delta_M)
+  tc: 0.5, // share of the relaxation target that is a step at the middle latitude, the rest a ramp
+  tw: 0.3, // width of the step, as a share of half the panel
   tauT: 3, // relaxation of the temperature, tu
   vel: 5, // peak jet speed per unit of Flow, LEDs per second
   ukf: 3, // peak jet speed over beta (delta_I)^2
@@ -206,7 +208,10 @@ function start(params, k) {
     }
   S.nw = new Float64Array(S.nm.length);
   S.xi = new Float64Array(S.nm.length);
-  for (let j = 0; j < NY; j++) S.Ts[j] = 1 - (j + 0.5) / NY;
+  for (let j = 0; j < NY; j++) {
+    const y = (j + 0.5 - NY / 2) / (NY / 2);
+    S.Ts[j] = 0.5 - 0.5 * ((1 - CFG.tc) * y + CFG.tc * tanh(y / CFG.tw));
+  }
   for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) S.T[(j + 2) * S.TW + i + 2] = S.Ts[j];
   ghost(S.T, S.TW);
   setParams(S, k[2], k[3]);
