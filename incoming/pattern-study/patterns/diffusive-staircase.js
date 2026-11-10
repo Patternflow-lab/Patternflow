@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Diffusive Staircase
 // Family:  ocean
-// Idea:    Cold fresh water over warm salty water is stable in density, yet heat leaks across a thin interface faster than salt (a hundred times faster in the sea, ten here), so the interface stays sharp and drives convection on both sides, and the stack settles into a thermohaline staircase, solved as two-dimensional double-diffusive flow in a box with fixed background gradients and drawn as four well-mixed layers, each dyed by the salt it holds, deep blue at the top, teal, magenta, coral at the bottom, a pale seam on every interface, plumes of one layer pushing up into the next as domes, and from time to time two layers sliding into one and a new interface freezing in.
+// Idea:    Cold fresh water over warm salty water is stable in density, yet heat leaks across a thin interface faster than salt (a hundred times faster in the sea, ten here), so the interface stays sharp and drives convection on both sides, and the stack settles into a thermohaline staircase, solved as two-dimensional double-diffusive flow in a box with fixed background gradients and drawn as four well-mixed layers, each dyed by the salt it holds, pale aqua at the top through cyan and azure to deep violet at the bottom, a pale mint seam on every interface, plumes of one layer pushing up into the next as domes, and from time to time two layers sliding into one and a new interface freezing in.
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,14 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0.5..6, Layers=-1..1, Ratio=-1..1
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the dye ramp, so one full turn comes back. At 0 the freshest water at the top is deep blue (hue 262, lightness 0.40), then teal (215), magenta (335) and coral at the bottom (hue 15, lightness 0.62). Dark orange, olive and brown are mud on the panel: where a color's hue falls between 25 and 150 degrees its lightness is lifted by up to 0.16, which makes it peach, gold or lime (0.25 gives gold at the bottom over a mauve top, 0.5 peach over green, 0.75 green over blue and violet).
+// Knob 1: Hue. Adds the knob times 360 degrees to the Oklab hue of every stop of the dye ramp and of the seam colour, so one full turn comes back. At 0 the freshest water at the top is pale aqua (hue 182, lightness 0.66), then cyan (205), azure (238), ultramarine (266) and deep violet at the bottom (hue 298, lightness 0.38), with the seams pulled toward pale mint (lightness 0.96, hue 170). Dark orange, olive and brown are mud on the panel: where a color's hue falls between 25 and 150 degrees its lightness is lifted by 0.16, and by up to 0.15 more where it starts dark, which makes it peach, gold or lime (0.25 gives lilac over crimson, 0.5 salmon and orange over lime, 0.75 yellow over teal).
 // Knob 2: Pace. Model time units per panel second, Pace times h / 2 (h is the width of a column and of a model cell in d, below; a row is h / 2): 0.5 gives 0.53, the opening 2 gives 2.1, 6 gives 4.1 because a frame takes at most 8 steps (the step is 0.016 to 0.023 time units with the plumes at 10 to 15 d per time unit). The rms vertical speed of the water is 2.7 d per time unit, so 5.7 d a second at the opening, 5 rows a second up the panel. Cost per frame in Node, mean over 90 s with drawing: 1.2 ms at 0.5, 3.3 at 2 and 4.5 at 6, and the first frame takes the 8 time units of spin-up from the seeded stack, 0.4 to 0.6 s in Node.
 // Knob 3: Layers. How tall the box is in layers of 32 d: h = 32 L / 64 d per column for L from 3.0 at -1 through 4.2 at the opening to 4.4 at 1, so 1.5, 2.1 and 2.2 d. Below L = 3.8 (the knob at -0.33) the stack seeds as three layers (32 to 40 d thick), above as four (30 to 35 d). With the knob moving, a stack with fewer layers than it asks for gets a new interface in the thickest layer wherever one is 58 d or more, and one with more loses its weakest, eased in over 25 time units. A layer is 43 rows tall at three layers and 32 at four.
 // Knob 4: Ratio. R_rho = beta |S_z| / (alpha |T_z|), the stabilising salt gradient over the destabilising heat gradient, 1.5 times 1.18 to the knob: 1.27 at -1, 1.51 at the opening 0.06 and 1.77 at 1. It enters only the buoyancy. The interface is 7.9 to 8.4 d thick at all three (3.8 to 4.0 cells at half height, so 8 rows), its peak gradient 4 to 5 times the background. At -1 the layers are lively: plumes cross the interface as domes, the rms w inside a layer is 3.6 and the first merge came at about 1000 time units. At 1 they stay apart: the rms w is 3.4 and four layers kept all four through 1500 time units at 1.7 (at the opening the first merge came at 1770).
+
+// Read this first. The stack is seeded, not grown from noise: the first frame is a sawtooth of 3 or 4 layers (see The stack below). A small forcing step, keep(), is not
+// part of the model: it adds an interface when fewer layers stand than Knob 3 asks for, removes the weakest when more stand, and seeds the stack again when none is left
+// or the convection has stopped. In the Ratio range (1.27 to 1.77) the equations alone merge layers and make none, so without keep() the stack ends as one layer.
 
 // What the field is. Perturbations T', s' and a stream function psi (u = -psi_z, w = psi_x, x across, z up) about linear background gradients that fall with
 // height, in the units d = (nu kappa_T / (g alpha |T_z|))^(1/4), d^2 / kappa_T, with T in |T_z| d and the salt as s = (beta / alpha) S / R_rho in the same unit, so
@@ -63,9 +67,9 @@
 //   smallest rms w 2.0.
 //
 // The picture. The colour is the salt of the layer: a = mean(s')/(64 h) + 1 - z/(128 rows), 0 at the fresh top and 1 at the salty bottom, which in a stack is one value
-// per layer, plus 6 times the local anomaly of s' over the x-mean, so a plume carries the dye of the layer it came from into the next as a dome. The ramp runs deep blue,
-// teal, magenta, coral; the lightness rises by up to 0.22 with the anomaly (rms over about 8 s, 1.8 times it for full), and a pixel where G = 1 - ds'/dz passes 1.8 to 4.5 is
-// pulled toward white by up to 0.7, a pale seam on every interface and on the sheared fronts of the domes.
+// per layer, plus 12 times the local anomaly of s' over the x-mean, so a plume carries the dye of the layer it came from into the next as a dome. The ramp runs pale aqua,
+// cyan, azure, ultramarine, deep violet; the lightness rises by up to 0.22 with the anomaly (rms over about 8 s, 1.8 times it for full), and a pixel where G = 1 - ds'/dz passes 1.8 to 4.5 is
+// pulled toward pale mint by up to 0.7, a seam on every interface and on the sheared fronts of the domes.
 
 const LW = 6, W = 1 << LW, H = W, N = W * H, HD = 2 * H, ND = W * HD;
 const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, pow, PI } = Math;
@@ -698,14 +702,18 @@ const enc = (v) => {
 const RGB = [0, 0, 0];
 // stops of the dye ramp, [position 0..1, L, C, hue]: 0 is the freshest water at the top, 1 the saltiest at the bottom
 const STOPS = [
-  [0, 0.4, 0.12, 262],
-  [0.33, 0.55, 0.11, 215],
-  [0.66, 0.55, 0.16, 335],
-  [1, 0.62, 0.15, 15],
+  [0, 0.66, 0.1, 182],
+  [0.25, 0.6, 0.12, 205],
+  [0.5, 0.53, 0.14, 238],
+  [0.75, 0.45, 0.17, 266],
+  [1, 0.38, 0.15, 298],
 ];
+const SEAM = [0, 0, 0]; // the colour the seams are pulled toward, pale mint at Hue 0, turned with the ramp
 const NV = 96, NT = 9;
 const LUT = new Uint8Array(NV * NT * 3);
 function buildLut(hue) {
+  okLab(0.96, 0.035 * cos(((170 + hue * 360) * PI) / 180), 0.035 * sin(((170 + hue * 360) * PI) / 180), RGB);
+  for (let i = 0; i < 3; i++) SEAM[i] = enc(RGB[i]);
   const lab = STOPS.map(([x, L, C, h]) => {
     const r = ((h + hue * 360) * PI) / 180;
     return [x, L, C * cos(r), C * sin(r)];
@@ -718,9 +726,9 @@ function buildLut(hue) {
     for (let u = 0; u < NT; u++) {
       const lift = u / (NT - 1); // plume heads and fronts lighter
       let L = a[1] + (b[1] - a[1]) * t + 0.22 * lift, ca = a[2] + (b[2] - a[2]) * t, cb = a[3] + (b[3] - a[3]) * t;
-      // dark orange, olive and brown are mud on the panel: between hue 25 and 150 the lightness is lifted by up to 0.16, which makes them peach, gold and lime
+      // dark orange, olive and brown are mud on the panel: between hue 25 and 150 the lightness is lifted by 0.16, and by up to 0.15 more where it starts dark, which makes them peach, gold and lime
       const hd = (Math.atan2(cb, ca) * 180) / PI, w = sm(25, 55, hd) * (1 - sm(120, 150, hd));
-      L = min(0.9, L + 0.16 * w);
+      L = min(0.9, L + w * (0.16 + 0.9 * max(0, 0.55 - L)));
       okLab(L, ca * (1 - 0.4 * lift), cb * (1 - 0.4 * lift), RGB);
       const o = (v * NT + u) * 3;
       LUT[o] = enc(RGB[0]);
@@ -782,9 +790,9 @@ export function draw(display, params) {
       const e = sm(E0, E1, g) * EW;
       const o = (((a * (NV - 1) + 0.5) | 0) * NT + ((lift * (NT - 1) + 0.5) | 0)) * 3;
       const r = LUT[o], gg = LUT[o + 1], b = LUT[o + 2];
-      display.setPixel(x, y, r + (255 - r) * e, gg + (255 - gg) * e, b + (255 - b) * e);
+      display.setPixel(x, y, r + (SEAM[0] - r) * e, gg + (SEAM[1] - gg) * e, b + (SEAM[2] - b) * e);
     }
   }
 }
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
-const KA = 6, CA = 1.8, E0 = 1.8, E1 = 4.5, EW = 0.7;
+const KA = 12, CA = 1.8, E0 = 1.8, E1 = 4.5, EW = 0.7;
