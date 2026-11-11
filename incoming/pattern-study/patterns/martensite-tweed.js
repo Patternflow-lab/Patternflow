@@ -9,10 +9,10 @@
 // Round:   129
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.8..3, Scale=-1..1, Disorder=-1..1
+// @knobs Hue=0..1, Speed=1..3, Scale=-1..1, Disorder=-1..1
 //
 // Knob 1: Hue. Turns the whole palette round the wheel. At 0 the two variants are amber and blue with a lilac grey between them for the parent phase.
-// Knob 2: Speed. How fast the crystal is cooled, warmed and relaxed: the model runs 4 time units a panel second times Speed.
+// Knob 2: Speed. How fast the crystal is cooled, warmed and relaxed: the model runs 8 time units a panel second times Speed.
 // Knob 3: Scale. Stiffness of the walls and of the long wavelengths: low gives fine twins and a sharp weave, high gives wide bands with soft walls.
 // Knob 4: Disorder. Strength of the frozen impurities that seed the tweed: low gives clean laminates, high gives a mottled cloth that never settles into bands.
 
@@ -88,14 +88,14 @@ function fft2(re, im, inv) {
 // deep below it the bands are clean, near it they thin into tweed, above it the strain is thermal fluctuation drawn out along the diagonals.
 
 const DT = 0.5; // largest model step, time units
-const RATE = 4; // model time units a panel second at Speed 1
-const A = 4, KAP = 0.3, D1 = 0.12, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.03;
+const RATE = 8; // model time units a panel second at Speed 1
+const A = 8, KAP = 0.12, D1 = 0.25, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.03;
 const OPEN = [0, 2, 0, 0.06];
 // the temperature and the stress, as functions of model time
 const W1 = 0.0197, W2 = 0.0113, W3 = 0.0271, WD = 0.002;
-const tauAt = (t) => -0.07 + 0.13 * sin(W1 * t + 0.4) + 0.1 * sin(W2 * t + 2.1) + 0.06 * sin(W3 * t + 4.0);
+const tauAt = (t) => -0.05 + 0.09 * sin(W1 * t + 0.4) + 0.07 * sin(W2 * t + 2.1) + 0.04 * sin(W3 * t + 4.0);
 // the stress: a smooth random field built from long waves, each wave travelling at its own slow rate
-const HAMP = 0.08, XS = 5, WMIN = 0.004, WSPAN = 0.012;
+const HAMP = 0.14, XS = 5, WMIN = 0.004, WSPAN = 0.012;
 
 function setup(params) {
   const f = () => new Float64Array(N);
@@ -209,7 +209,7 @@ function stressSetup(S) {
 }
 
 function advance(S, ft, k) {
-  const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 0.8, 3);
+  const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 1, 3);
   if (abs(scale - S.ls) > 0.01) operator(S, S.ls + (scale - S.ls) * (1 - exp(-ft / 0.3)));
   const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n;
   stressField(S, S.t);
@@ -260,24 +260,26 @@ const STOPS = [
   [0.07, 0.65, 0.95],
   [0.02, 0.9, 1.0],
 ];
-function buildLut(S) {
+function buildLut(S, hue) {
   const tmp = [0, 0, 0];
   for (let i = 0; i < 512; i++) {
     const u = (i / 511) * 2 - 1, x = (u + 1) * 2, a = min(3, floor(x)), f = x - a, p = STOPS[a], q = STOPS[a + 1];
     let dh = q[0] - p[0];
     dh -= Math.round(dh);
-    hsv(p[0] + dh * f + S.hue, p[1] + (q[1] - p[1]) * f, p[2] + (q[2] - p[2]) * f, tmp, 0);
+    hsv(p[0] + dh * f + hue, p[1] + (q[1] - p[1]) * f, p[2] + (q[2] - p[2]) * f, tmp, 0);
     S.lut[i * 3] = tmp[0];
     S.lut[i * 3 + 1] = tmp[1];
     S.lut[i * 3 + 2] = tmp[2];
   }
-  S.lutHue = S.hue;
+  S.lutHue = hue;
 }
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
-  if (S.lutHue !== S.hue) buildLut(S);
+  // the whole palette drifts a little, the way the colours of a crystal between crossed polarisers shift as it warms and cools
+  const hh = S.hue + 0.12 * sin(0.0071 * S.t + 1) + 0.09 * sin(0.0043 * S.t + 3) + 0.06 * sin(0.0101 * S.t + 5.3);
+  if (abs(S.lutHue - hh) > 0.002) buildLut(S, hh);
   const e = S.e;
   let m = 0;
   for (let p = 0; p < N; p++) m += e[p] * e[p];
