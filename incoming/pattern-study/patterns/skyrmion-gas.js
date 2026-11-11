@@ -24,13 +24,13 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const A_EX = 1;           // exchange stiffness, the unit of energy
 const ALPHA = 0.4;        // Gilbert damping
 const BETA = 0.6;         // non-adiabatic spin torque coefficient
-const DT = 0.06;          // story time step
+const DT = 0.07;          // story time step
 const T_BATH = 0.08;      // temperature in units of A
 const LAM_MIN = 11, LAM_OPEN = 15, LAM_MAX = 28; // helix period at Pitch -1, 0, 1
 const N_AREA = 7000;      // skyrmions seeded: N_AREA / lambda^2
-const TS_PER_DRIVE = 6;   // story time per second, per unit of the Drive knob
+const TS_BASE = 3, TS_PER_DRIVE = 4.5; // story time per second: TS_BASE + TS_PER_DRIVE * Drive
 const AMP_PER_DRIVE = 0.09; // strength of the wandering current, per unit of the Drive knob
-const B_OPEN = 0.58, B_KNOB = 0.17; // B / B_D at the centre of the swing, and what the Field knob moves it by
+const B_OPEN = 0.58, B_KNOB = 0.12; // B / B_D at the centre of the swing, and what the Field knob moves it by
 const SW1 = 0.12, SW2 = 0.08;      // the two swings of the field
 const P1 = 23.7, P2 = 38.3;        // their periods in seconds
 const KNOB = [0, 2, 0, 0.06];
@@ -214,7 +214,7 @@ for (let k = 0; k <= 4096; k++) {
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 // t = (1 - m_z) / 2: 0 where the spin points with the field (the ground), 1 in the core
-const LSTOPS = [[0, 0.17], [0.08, 0.19], [0.25, 0.42], [0.5, 0.63], [0.8, 0.8], [1, 0.94]];
+const LSTOPS = [[0, 0.17], [0.1, 0.18], [0.3, 0.43], [0.5, 0.63], [0.8, 0.8], [1, 0.94]];
 const TMP = [0, 0, 0];
 function buildLut(S) {
   const lut = S.lut;
@@ -226,7 +226,7 @@ function buildLut(S) {
     const L0 = A[1] + (B[1] - A[1]) * w;
     for (let hi = 0; hi < NH; hi++) {
       const hue = ((hi + 0.5) / NH) * 2 * PI, hd = (hi / NH) * 360;
-      let L = L0, C = 0.16 * pow(sn, 1.1);
+      let L = L0, C = 0.16 * pow(sn, 1.1) * sm(0.04, 0.3, t);
       let dh = (((hd - 75) % 360) + 360) % 360;
       if (dh > 180) dh -= 360;
       const warm = exp(-(dh * dh) / 4000);
@@ -266,7 +266,7 @@ function turn(y, x) {
 function targets(k) {
   const lam = LAM_OPEN * pow(k[2] < 0 ? LAM_MIN / LAM_OPEN : LAM_MAX / LAM_OPEN, abs(cl(k[2], -1, 1)));
   const dr = cl(k[1], 0.5, 3.5);
-  return { lam, b0: B_OPEN + B_KNOB * cl(k[3], -1, 1), ts: TS_PER_DRIVE * dr, amp: AMP_PER_DRIVE * dr };
+  return { lam, b0: B_OPEN + B_KNOB * cl(k[3], -1, 1), ts: TS_BASE + TS_PER_DRIVE * dr, amp: AMP_PER_DRIVE * dr };
 }
 
 // the field in units of B_D = 2 A q^2: two slow swings that never line up
@@ -278,6 +278,7 @@ function applyField(S, b) {
   const q0 = (2 * PI) / S.lam;
   S.D = dOfLam(S.lam);
   S.B = b * 2 * A_EX * q0 * q0;
+  S.T = T_BATH * (LAM_OPEN / S.lam) * (LAM_OPEN / S.lam);
   S.bb = b;
 }
 
@@ -288,8 +289,8 @@ export function setup(params, knobValues) {
   S.lam = tg.lam;
   S.hs = floor(cl(k[0], 0, 1) * NH + 0.5);
   applyField(S, tg.b0);
-  S.amp = tg.amp;
-  seedGas(S, Math.round(N_AREA / (S.lam * S.lam)), PI / 2);
+  S.amp = tg.amp * (LAM_OPEN / S.lam);
+  seedGas(S, Math.round((N_AREA / (S.lam * S.lam)) * sqrt(S.lam / LAM_OPEN)), PI / 2);
   stir(S, 0);
   const n = ceil(PREROLL / DT);
   for (let i = 0; i < n; i++) step(S, DT);
@@ -304,7 +305,7 @@ export function update(dt, input, params) {
   const tg = targets(k);
   S.clock += d;
   S.lam += (tg.lam - S.lam) * (1 - exp(-2 * d));
-  S.amp = tg.amp;
+  S.amp = tg.amp * (LAM_OPEN / S.lam);
   S.hs = floor(cl(k[0], 0, 1) * NH + 0.5);
   applyField(S, fieldNow(S, tg.b0));
   stir(S, S.clock);
