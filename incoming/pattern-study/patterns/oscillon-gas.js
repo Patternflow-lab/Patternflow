@@ -13,7 +13,8 @@
 //
 // Knob 1: Hue. Adds 360 degrees a unit to the OKLab hue of all three colours, and a full turn comes back. At 0 a lump that swings one way against the
 // pump is azure (hue 250), one that swings the other way is amber (75) and one between the two, two lumps meeting or a lump whose phase is turning, is
-// rose (335), on a blue-black ground; at 0.5 the pair is yellow-green and blue. Every colour is pulled into the gamut after the panel's 1.62 lift.
+// rose (335), on a blue-black ground that does not turn with them; at 0.5 the pair is yellow-green and blue. Every colour is pulled into the gamut
+// after the panel's 1.62 lift.
 // Knob 2: Speed. Model time runs at 0.5 Speed / m a second, so every mass keeps the same pace and the lumps' energy beats once every 6.5 / Speed
 // seconds: 3.8 s at 1.7, 3.3 s at the opening 2 and 1.6 s at 4. The time-averaged energy field is correlated with itself at 0.87, 0.84 and 0.65 after 2 s
 // (1.7, 2 and 4), and at 0.36, 0.30 and 0.06 after 8 s, so the lumps in view are mostly new after about 8 s at the opening and after 4 s at 4.
@@ -73,11 +74,12 @@
 //   not what keeps it alive.
 // - Lock-in phase. Lumps sit at -0.37 to -0.43 rad against the pump's half frequency (two phases, pi apart, energy-weighted, five knob positions,
 //   coherence 0.16 to 0.33), which is what PSI0 and the sign of the colour are read against.
-// - Staying alive. Over 900 s at the opening, all knobs at their minimum and all at their maximum the lines hold (recur 0.78, 0.76, 0.77; dim 0.96,
-//   0.91, 0.97; last-quarter quiet 0.81, 0.67, 0.89; first against last quarter brightness within 0.7 per cent). The field stays bounded: the largest
+// - Staying alive. Over 900 s at the opening, all knobs at their minimum and all at their maximum the lines hold (recur 0.78, 0.78, 0.77; dim 0.96,
+//   0.91, 0.97; last-quarter quiet 0.81, 0.67, 0.88; first against last quarter brightness within 0.8 per cent). The field stays bounded: the largest
 //   |phi| in 900 s at five knob positions is 7.9 (the dense corner; 0.1 to 8 per cent of the cells are past pi, in the next vacuum, at a sample),
 //   and the mean energy over m^2 keeps to 0.7 to 1.0 at the minimum, 1.1 to 1.5 at the opening and 2.2 to 2.9 at the maximum, sampled every 300 s.
-//   Frame cost in Node is 0.25 ms to step and 0.6 ms to draw, and the first frame takes 0.1 s for the 240 model time units run before it.
+//   A frame costs 0.2 to 0.3 ms to step and 0.6 ms to draw in Node (1.2 to 1.3 ms through the Lab's engine), 2.1 ms to draw while Hue is being turned
+//   and the colour table is rebuilt, and the first frame takes 0.1 s for the 240 model time units run before it.
 
 const W = 64, H = 128, N = W * H;
 const { sqrt, sin, cos, exp, log, min, max, pow, PI } = Math;
@@ -237,7 +239,7 @@ function fit(L, a, b) {
 }
 const HUES = [235, 320, 420]; // cool, middle and warm in degrees of OKLab hue, before the knob's turn
 function buildLut(S) {
-  const lut = S.lut || (S.lut = new Float32Array(GS * LS * 3)), off = 15 + 360 * S.hue, hg = ((HUES[0] + 25 + off) * PI) / 180;
+  const lut = S.lut || (S.lut = new Float32Array(GS * LS * 3)), off = 15 + 360 * S.hue, hg = ((HUES[0] + 40) * PI) / 180; // the ground keeps its blue-black at every Hue
   for (let gi = 0; gi < GS; gi++) {
     const g = (gi / (GS - 1)) * 2 - 1, u = (g + 1) / 2, hd = u < 0.5 ? HUES[0] + (HUES[1] - HUES[0]) * (u * 2) : HUES[1] + (HUES[2] - HUES[1]) * (u * 2 - 1);
     const hr = ((hd + off) * PI) / 180, cg = 0.7 + 0.3 * Math.abs(g);
