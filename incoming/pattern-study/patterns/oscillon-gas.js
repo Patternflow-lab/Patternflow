@@ -11,10 +11,20 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=1.7..4, Scale=-1..1, Pump=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Speed.
-// Knob 3: Scale.
-// Knob 4: Pump.
+// Knob 1: Hue. Adds 360 degrees a unit to the OKLab hue of all three colours, and a full turn comes back. At 0 a lump that swings one way against the
+// pump is azure (hue 250), one that swings the other way is amber (75) and one between the two, two lumps meeting or a lump whose phase is turning, is
+// rose (335), on a blue-black ground; at 0.5 the pair is yellow-green and blue. Every colour is pulled into the gamut after the panel's 1.62 lift.
+// Knob 2: Speed. Model time runs at 0.5 Speed / m a second, so every mass keeps the same pace and the lumps' energy beats once every 6.5 / Speed
+// seconds: 3.8 s at 1.7, 3.3 s at the opening 2 and 1.6 s at 4. The time-averaged energy field is correlated with itself at 0.87, 0.84 and 0.65 after 2 s
+// (1.7, 2 and 4), and at 0.36, 0.30 and 0.06 after 8 s, so the lumps in view are mostly new after about 8 s at the opening and after 4 s at 4.
+// Knob 3: Scale. The mass m = 0.66 x 1.25 to the Scale: 0.53 at -1, 0.66 at the opening 0, 0.83 at 1, and every length in the picture goes as 1 / m.
+// The panel holds 39 lumps at -1, 61 at 0 and 84 at 1 (local maxima of the time-averaged energy over m^2 above 2), each lump with its ring covering
+// about 70, 50 and 36 LEDs. Under the range the lumps are too few and too big for every 16 by 16 tile to keep changing: at m = 0.43 the last-quarter
+// quiet line (0.30) failed in three of four seeds, at 0.22 to 0.24.
+// Knob 4: Pump. The pump A = 0.47 x 0.82 to the |Pump| below 0 and 0.47 x 1.66 to the Pump above it: 0.385 at -1, 0.485 at the opening 0.06, 0.78 at 1. The
+// gas goes from 36 lumps on a dark ground (21 per cent of the panel above e / m^2 = 1.2) through 61 (37) to 137 (84) packed so close that their rings
+// touch. It stays a gas at every position: the knob never sets the pump under 0.385 (its wander moves it by about 5 per cent), and a uniform global pulse
+// takes over only below about 0.25 (see below).
 
 // What the field is. phi(x, y, t) on a 64 by 128 torus, one cell per LED, lengths in LEDs:
 //   phi_tt = lap phi - m^2 (1 + A cos theta) sin phi - gamma phi_t,      theta' = Omega,
@@ -33,11 +43,11 @@
 // What was checked, in the file's own step (a test copy of its functions, 64 by 128 torus, h = 0.25 unless said):
 // - Energy. A = 0, gamma = 0, a smooth field of rms 0.9 (E / N = 0.319 at m = 0.5). The largest |E - E0| / E0 over 500 model time is 1.48e-2 at
 //   h = 0.25, 3.72e-3 at 0.125, 9.29e-4 at 0.0625 and 2.32e-4 at 0.03125, a quarter for each halving. Over 6000 model time at h = 0.25 the offset
-//   settles between -0.9 and -1.1 per cent as the field spreads over its modes, and does not walk.
+//   goes from -0.87 to -1.10 per cent, a creep of 0.05 per cent every 1000 as the field spreads over its modes.
 // - Dispersion. Small waves ring at (2 / h) asin(h w / 2) with w^2 = m^2 + 4 sin^2(kx / 2) + 4 sin^2(ky / 2), the lattice value corrected for the
 //   step, to five digits (mode (8, 0) at m = 0.5: 0.91622 measured and predicted). Against w the step adds 0.07 per cent at k = 0 and 0.6 per cent
-//   at w = 1.5, a quarter of that at h = 0.125. The continuum sqrt(m^2 + k^2) is 1.8 per cent high at w = 0.93 and 9 per cent high at w = 1.65, so
-//   the lattice, not the continuum, is what this picture follows.
+//   at w = 1.5, a quarter of that at h = 0.125. The continuum sqrt(m^2 + k^2) is 1.8 per cent above the lattice value at 0.91 and 10 per cent above
+//   it at 1.5, so the lattice, not the continuum, is what this picture follows.
 // - Parametric growth. For phi'' + m^2 (1 + eps cos 2 m t) phi = 0 on the uniform mode the measured growth rate over eps m / 4 is 0.994, 1.001, 1.0015
 //   and 1.0008 for eps = 0.02, 0.05, 0.1 and 0.2. A standing wave of 8 periods across the width, pumped at twice its lattice frequency 0.9142: 0.00659 at
 //   h = 0.25 and 0.00683 at 0.125, against eps m^2 / (4 w) = 0.00684 (0.00671 with the continuum w); the shortfall at h = 0.25 is the step's frequency
@@ -48,14 +58,26 @@
 //   8 m at m = 0.5 (0.9978 at 0.4, 0.9941 at 0.66, 0.9914 at 0.8, the lattice's discreteness growing with m^2), and relaxed under damping for 500
 //   model time the profile stays within 1.8e-2 rad of the analytic one at m = 0.5 (5.1e-2 at 0.8) with the centre still at 16.000.
 // - One oscillon. A Gaussian of height 4 and sigma 4 at m = 0.5, with a sponge round it for the first 600, then free: it keeps a core of energy 66 (within
-//   r < 10) down to 56.7 after 20000 model time, 3200 periods, at a frequency of 0.850, 0.881 and 0.888 m in the windows 1000 to 3000, 8000 to
+//   r < 10) down to 56.7 after 20000 model time, about 1400 periods, at a frequency of 0.850, 0.881 and 0.888 m in the windows 1000 to 3000, 8000 to
 //   10000 and 16000 to 20000: under the gap, creeping up as it radiates. At h = 0.125 the core is 58.9 against 58.5 at t = 4000 and the frequency
 //   0.8557 against 0.8554 m. With damping and no pump the core's energy falls at 1.85 gamma (gamma = 0.0155) and 1.58 gamma (0.04) and is gone by 500;
 //   pumped at 2 x 0.8375 m a lone one of this size dies at A = 0.5 and lives past 3000 at A = 0.6 and above. In the gas the neighbours' waves help it.
-// - Step. The gas itself is the same at the shipped step and at half and a quarter of it: <e> / m^2 is 1.259, 1.261 and 1.254 at A = 0.47 (the
-//   share of cells above 1.2 is 35.0, 35.1 and 34.8 per cent) and 2.772, 2.759 and 2.793 at A = 0.78, three seeds each, seed to seed 0.03.
-// - The uniform state. TBD
-// - Staying alive. TBD
+// - Step. The gas itself is the same at the shipped step and at half and a quarter of it (m = 0.5, the pump 4 per cent under 2 m, no wander):
+//   <e> / m^2 is 1.259, 1.261 and 1.254 at A = 0.47 (the share of cells above 1.2 is 35.0, 35.1 and 34.8 per cent) and 2.772, 2.759 and 2.793
+//   at A = 0.78, three seeds each, seed to seed 0.01 to 0.03.
+// - The uniform state. A pump kept exactly at 2 m lets one global pulse win when A is small: with A = 0.22 at Scale 0 and Speed 3.6 (6500 model time in
+//   2400 s) all three seeds ended as the uniform oscillation (contrast of the time-averaged energy 0.00 to 0.04, |phi| under 0.3) by 1600, 2400 and
+//   1600 s. With the pump 4 per cent below 2 m, kept still, none of three did. With the wander shipped (detuning 0.04 plus or minus 0.02, size plus or
+//   minus 5 per cent) none did either, though two of the three dipped to a few lumps once and came back. In the knob range (A from 0.385) even
+//   Omega = 2 m with no wander kept the lumps for 3000 s in all three seeds (contrast 0.93 to 1.23), so the detuning and the wander are margin there,
+//   not what keeps it alive.
+// - Lock-in phase. Lumps sit at -0.37 to -0.43 rad against the pump's half frequency (two phases, pi apart, energy-weighted, five knob positions,
+//   coherence 0.16 to 0.33), which is what PSI0 and the sign of the colour are read against.
+// - Staying alive. Over 900 s at the opening, all knobs at their minimum and all at their maximum the lines hold (recur 0.78, 0.76, 0.77; dim 0.96,
+//   0.91, 0.97; last-quarter quiet 0.81, 0.67, 0.89; first against last quarter brightness within 0.7 per cent). The field stays bounded: the largest
+//   |phi| in 900 s at five knob positions is 7.9 (the dense corner; 0.1 to 8 per cent of the cells are past pi, in the next vacuum, at a sample),
+//   and the mean energy over m^2 keeps to 0.7 to 1.0 at the minimum, 1.1 to 1.5 at the opening and 2.2 to 2.9 at the maximum, sampled every 300 s.
+//   Frame cost in Node is 0.25 ms to step and 0.6 ms to draw, and the first frame takes 0.1 s for the 240 model time units run before it.
 
 const W = 64, H = 128, N = W * H;
 const { sqrt, sin, cos, exp, log, min, max, pow, PI } = Math;
@@ -69,7 +91,7 @@ const M0 = 0.66, MR = 1.25; // mass at Scale 0, and the factor per unit of Scale
 const GP = 0.03; // damping over mass
 const DET = 0.04, SO = 0.02, SA = 0.05; // mean detuning of the pump below 2 m, its wander, and the wander of the pump's size
 const PK = 0.5; // share of the instantaneous energy beside its time average
-const PSI0 = -0.6; // the phase the locked lumps sit at against the pump's half frequency
+const PSI0 = -0.4; // the phase the locked lumps sit at against the pump's half frequency, measured
 
 function gauss() {
   return sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
