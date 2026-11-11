@@ -75,13 +75,13 @@ const ANISO = 0.15;                // how much the gain depends on the direction
 const RHO2 = 4;                    // (sigma_inhibition / sigma_excitation) squared
 const DT = 0.12;                   // step
 const RATE0 = 2.65;                // time units a second at Pace 2
-const NOISE = 0.03;
+const NOISE = 0.16;
 // slow patches of excitability: the gain is multiplied by 1 + sum A cos(n theta + KS m s + nu t + phi), at low wavenumbers
 const PATCH = [
   // n, m, amplitude, nu, phi, amplitude modulation rate
-  [1, 1, 0.34, 0.0146, 0.4, 0.0069],
-  [2, -1, 0.30, -0.0087, 2.1, 0.0045],
-  [3, 0, 0.26, 0.0124, 4.0, 0.0057],
+  [1, 1, 0.51, 0.0146, 0.4, 0.0069],
+  [2, -1, 0.45, -0.0087, 2.1, 0.0045],
+  [3, 0, 0.39, 0.0124, 4.0, 0.0057],
 ];
 
 function fftTables(n) {
@@ -152,7 +152,7 @@ function newState() {
     cls: new Uint16Array(NC), conj: new Int32Array(NC),
     e11: new Float64Array(33 * 65), e12: new Float64Array(33 * 65), e21: new Float64Array(33 * 65), e22: new Float64Array(33 * 65),
     pa: new Float64Array(33 * 65), pb: new Float64Array(33 * 65), wk: new Float64Array(33 * 65),
-    kc: 8, kcDone: -1, acc: 0, t: 0, steps: 0, rms: 0.5, pace: 2,
+    kc: 8, kcDone: -1, acc: 0, t: 0, t2: 0, steps: 0, rms: 0.5, pace: 2,
     lut: new Uint8Array(3 * NA * NB), hueDone: -999, lattice: 0,
     cx: 32, cy: 64, cs2: new Float64Array(NC), sn2: new Float64Array(NC),
     q1: new Float64Array(33 * 65), q2: new Float64Array(33 * 65), psi: 0, ani: 0,
@@ -225,7 +225,7 @@ function step(S) {
     zi[i] = ai[i] - bi[i] + ar[i];
   }
   fft2(zr, zi, 1); // real part u = a - b, imaginary part a
-  const t = S.t;
+  const t = S.t2; // the slow things run on their own clock, which does not follow Pace
   const eps = EPS0 * (1 + 0.25 * sin(0.0731 * t + 1.1) + 0.15 * sin(0.0317 * t + 0.4));
   // gain that depends on the direction of the wave vector, turning slowly: the stripes lean towards psi
   const psi = 0.0105 * t + 0.9 * sin(0.00565 * t + 0.5), ani = ANISO * (0.7 + 0.3 * sin(0.0173 * t + 2.1));
@@ -252,7 +252,7 @@ function step(S) {
     const u = zr[i];
     ac[i] = zi[i];
     bcur[i] = zi[i] - u;
-    rr[i] = Gb * (1 + eps * (loc[i] < 0.25 ? 0.25 : loc[i])) * (tnh(u + beta) - p) - g0 * u + sn * gauss();
+    rr[i] = Gb * (1 + eps * (loc[i] < 0 ? 0 : loc[i])) * (tnh(u + beta) - p) - g0 * u + sn * gauss();
     ri[i] = 0;
   }
   fft2(rr, ri, -1);
@@ -270,6 +270,7 @@ function step(S) {
     bi[i] = e21[c] * xi + e22[c] * yi + gi;
   }
   S.t += DT;
+  S.t2 += (DT * 2) / S.pace;
   S.steps++;
   if (S.steps % 25 === 0) {
     const cj = S.conj;
@@ -429,7 +430,7 @@ export function update(dt, input, params) {
   S.rms += (r - S.rms) * (1 - exp(-d / 1.5));
   S.rmsb += (sqrt(sb / NC) - S.rmsb) * (1 - exp(-d / 1.5));
   // the centre of the map wanders, like where the eye rests
-  const t = S.t + al * DT;
+  const t = S.t2 + (al * DT * 2) / S.pace;
   S.cx = 32 + 8 * sin(0.069 * t + 0.7) + 3.2 * sin(0.163 * t + 2);
   S.cy = 64 + 16 * sin(0.053 * t + 1.3) + 6.5 * sin(0.126 * t);
 }
