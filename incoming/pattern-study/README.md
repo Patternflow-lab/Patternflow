@@ -6571,7 +6571,7 @@ K1 Hue 는 색 고리를 값 곱하기 360도 돌려요. 0.25 에서 오른쪽 �
 
 계열은 grep 으로 골랐어요. 패턴 파일 910개(이번 셋은 뺐어요)에서 `skyrmion`, `Landau-Lifshitz`, `ferromagnet`, `spin wave` 를 다룬 파일은 없었어요. `Föppl`, `wave turbulence`, `weak turbulence`, `Zakharov`, `d-cone` 도 한 파일에 안 걸렸고, `von Kármán` 은 Wake Forest 의 소용돌이 길(Kármán 가)로만 나와요. `Wilson-Cowan`, `form constant`, `Klüver`, `hallucination` 도 없었어요. `Amari` 는 낱말 조각으로만 걸리고, `log-polar` 는 Print Gallery 와 Outer Billiards 에 있어요. 닮은 앞 패턴과는 같은 크기로 같은 때의 `led.png` 를 나란히 놓고 봤어요. Skyrmion Gas 는 Abrikosov Lattice 와 Active Nematic 에, Plate Turbulence 는 Cellular Flame 과 Pool Caustics 에, Form Constants 는 Tunnel 과 Print Gallery 와 Moire Rings 에 견줬어요. 계열로는 자성체의 위상 결함(Skyrmion Gas), 탄성판의 파동 난류(Plate Turbulence), 신경장의 환각 무늬(Form Constants)로, 114판부터 126판의 유체와 흐름 풀이, 입자 생명과 다르고, 글자, 숫자, 기호, 구체 사물은 그림에 없어요.
 
-`flowcheck` 는 이번에도 레포에 파일이 없어서 ROUND.md 의 정의대로 레포 밖에 다시 짰어요. 114판 Stable Fluids 열림(recur 0.677, dim 0.849, quiet 0.819)과 121판 Shear Billows 열림(0.586, 0.612, 0.731, 마지막 4분의 1 dim 0.591, quiet 0.676)이 소수 셋째 자리까지 맞는 것을 보고 썼어요. 정의에서 갈리는 곳은 이렇게 정했어요. 반 초마다 한 장은 0.5초에서 시작해서 모으고, 밝기는 Rec. 601 휘도, 장 사이 거리는 8×16×3 값의 유클리드 거리예요. 패턴마다 열림, 모두 최소, 모두 최대, 임의 셋을 240초, 열림과 모두 최소, 모두 최대를 900초 쟀어요. 패턴 셋을 갈래마다 다른 작업 폴더에서 짓고 본체에서 합친 뒤에 모두 다시 돌렸어요.
+`flowcheck` 는 이번에도 레포에 파일이 없어서 ROUND.md 의 정의대로 레포 밖에 다시 짰어요. 114판 Stable Fluids 열림(recur 0.677, dim 0.849, quiet 0.819)과 121판 Shear Billows 열림(0.586, 0.612, 0.731, 마지막 4분의 1 dim 0.591, quiet 0.676)이 소수 셋째 자리까지 맞는 것을 보고 썼어요. 정의에서 갈리는 곳은 이렇게 정했어요. 반 초마다 한 장은 0.5초에서 시작해서 모으고, 밝기는 Rec. 601 휘도, 장 사이 거리는 8×16×3 값의 유클리드 거리예요. 패턴마다 열림, 모두 최소, 모두 최대, 임의 셋을 240초, 열림과 모두 최소, 모두 최대를 900초 쟀어요. 패턴 셋을 갈래마다 다른 작업 폴더에서 짓고 따로 쟀어요. 합친 뒤에 열림, 모두 최소, 모두 최대 240초를 다시 쟀는데 아홉 줄이 모두 소수 셋째 자리까지 같았어요.
 
 ### Skyrmion Gas
 
