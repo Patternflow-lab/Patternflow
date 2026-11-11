@@ -58,10 +58,11 @@ function newState() {
 
 function dOfLam(lam) { return 2 * A_EX * tan((2 * PI) / lam); }
 
-// One half step: the cells of one colour of the checkerboard are advanced by dt. Each one first feels its field B for dt (exactly: a
-// turn about z and a slide of the polar angle, tan(theta / 2) times a constant), then takes a Cayley turn about the part of the
-// exchange, Dzyaloshinskii, spin-torque and thermal field that lies across the spin, which depends on the other colour only. Run on
-// step after step, B for dt then the rest is B for dt / 2, the rest, B for dt / 2 with the halves joined.
+// One half step: the cells of one colour of the checkerboard are advanced by dt. Each one feels its field B for dt / 2 (exactly: a
+// turn about z and a slide of the polar angle, tan(theta / 2) times a constant), takes a Cayley turn about the part of the exchange,
+// Dzyaloshinskii, spin-torque and thermal field that lies across the spin, which depends on the other colour only, and feels B for
+// dt / 2 again. The slide of the polar angle stretches a spin whose length has drifted from 1 where it points against the field, so
+// the length is put back to 1 (one Newton step, 1.5 - n2 / 2) at the start of every update; the Cayley turn itself keeps it exactly.
 function sweep(S, par, dt) {
   const mx = S.mx, my = S.my, mz = S.mz;
   const A2 = 2 * S.A, Dd = S.D, B = S.B, al = S.alpha, be = S.beta;
@@ -72,13 +73,15 @@ function sweep(S, par, dt) {
   const uxa = S.uxa, uya = S.uya, drift = S.amp > 0;
   const hdt = 0.5 * dt;
   let rs = RS;
-  const ph = gp * B * dt, zc = cos(ph), zs = sin(ph), ze = exp(-al * ph), ze2 = ze * ze, ze2x2 = 2 * ze;
+  const ph = gp * B * hdt, zc = cos(ph), zs = sin(ph), ze = exp(-al * ph), ze2 = ze * ze, ze2x2 = 2 * ze;
   for (let y = 0; y < H; y++) {
     const r = y * W, ru = ((y - 1) & 127) * W, rd = ((y + 1) & 127) * W;
     for (let x = (y + par) & 1; x < W; x += 2) {
       const i = r + x, il = r + ((x - 1) & 63), ir = r + ((x + 1) & 63), iu = ru + x, id = rd + x;
-      const p0 = 1 + mz[i], q0 = 1 - mz[i], den = p0 + ze2 * q0, gs = ze2x2 / den, c = (p0 - ze2 * q0) / den;
-      const a = gs * (zc * mx[i] - zs * my[i]), b = gs * (zs * mx[i] + zc * my[i]);
+      const m0 = mx[i], m1 = my[i], m2 = mz[i], rn = 1.5 - 0.5 * (m0 * m0 + m1 * m1 + m2 * m2);
+      const u0 = m0 * rn, u1 = m1 * rn, c0 = m2 * rn;
+      let p = 1 + c0, q = 1 - c0, den = p + ze2 * q, gs = ze2x2 / den;
+      const c = (p - ze2 * q) / den, a = gs * (zc * u0 - zs * u1), b = gs * (zs * u0 + zc * u1);
       let hx = A2 * (mx[il] + mx[ir] + mx[iu] + mx[id] - 4 * a) - Dd * (mz[id] - mz[iu]);
       let hy = A2 * (my[il] + my[ir] + my[iu] + my[id] - 4 * b) + Dd * (mz[ir] - mz[il]);
       let hz = A2 * (mz[il] + mz[ir] + mz[iu] + mz[id] - 4 * c) - Dd * (my[ir] - my[il] - mx[id] + mx[iu]);
@@ -104,9 +107,13 @@ function sweep(S, par, dt) {
       }
       const kx = hdt * wx, ky = hdt * wy, kz = hdt * wz;
       const k2 = kx * kx + ky * ky + kz * kz, f = 1 / (1 + k2), f1 = (1 - k2) * f, f2 = 2 * (kx * a + ky * b + kz * c) * f, f3 = 2 * f;
-      mx[i] = f1 * a + f3 * (ky * c - kz * b) + f2 * kx;
-      my[i] = f1 * b + f3 * (kz * a - kx * c) + f2 * ky;
-      mz[i] = f1 * c + f3 * (kx * b - ky * a) + f2 * kz;
+      const na = f1 * a + f3 * (ky * c - kz * b) + f2 * kx;
+      const nb = f1 * b + f3 * (kz * a - kx * c) + f2 * ky;
+      const nc = f1 * c + f3 * (kx * b - ky * a) + f2 * kz;
+      p = 1 + nc; q = 1 - nc; den = p + ze2 * q; gs = ze2x2 / den;
+      mz[i] = (p - ze2 * q) / den;
+      mx[i] = gs * (zc * na - zs * nb);
+      my[i] = gs * (zs * na + zc * nb);
     }
   }
   RS = rs >>> 0;
