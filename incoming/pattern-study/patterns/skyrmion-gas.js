@@ -22,16 +22,16 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- tunables. Lengths are LEDs, times are story time (Drive sets how much of it passes in a second).
 const A_EX = 1;           // exchange stiffness, the unit of energy
-const ALPHA = 0.3;        // Gilbert damping
-const BETA = 0.45;        // non-adiabatic spin torque coefficient
-const DT = 0.04;          // story time step
+const ALPHA = 0.4;        // Gilbert damping
+const BETA = 0.6;         // non-adiabatic spin torque coefficient
+const DT = 0.06;          // story time step
 const T_BATH = 0.08;      // temperature in units of A
-const LAM_MIN = 12, LAM_OPEN = 18, LAM_MAX = 30; // helix period at Pitch -1, 0, 1
+const LAM_MIN = 11, LAM_OPEN = 15, LAM_MAX = 28; // helix period at Pitch -1, 0, 1
 const N_AREA = 7000;      // skyrmions seeded: N_AREA / lambda^2
 const TS_PER_DRIVE = 6;   // story time per second, per unit of the Drive knob
-const AMP_PER_DRIVE = 0.13; // strength of the wandering current, per unit of the Drive knob
-const B_OPEN = 0.52, B_KNOB = 0.1; // B / B_D at the centre of the swing, and what the Field knob moves it by
-const SW1 = 0.14, SW2 = 0.09;      // the two swings of the field
+const AMP_PER_DRIVE = 0.09; // strength of the wandering current, per unit of the Drive knob
+const B_OPEN = 0.58, B_KNOB = 0.17; // B / B_D at the centre of the swing, and what the Field knob moves it by
+const SW1 = 0.12, SW2 = 0.08;      // the two swings of the field
 const P1 = 23.7, P2 = 38.3;        // their periods in seconds
 const KNOB = [0, 2, 0, 0.06];
 const PREROLL = 60;       // story time run before the first frame
@@ -58,17 +58,10 @@ function newState() {
 
 function dOfLam(lam) { return 2 * A_EX * tan((2 * PI) / lam); }
 
-// One half step: the cells of one colour of the checkerboard are advanced by dt. Each one first feels its field B for dt / 2 (exactly:
-// a turn about z and a slide of the polar angle, tan(theta / 2) times a constant), then takes a Cayley turn about the part of the
-// exchange, Dzyaloshinskii, spin-torque and thermal field that lies across the spin, which depends on the other colour only, then
-// feels B again for dt / 2.
-function zeeman(a, b, c, zc, zs, ze2, ze, out) {
-  const p = 1 + c, q = 1 - c, den = p + ze2 * q, gs = (2 * ze) / den;
-  out[2] = (p - ze2 * q) / den;
-  out[0] = gs * (zc * a - zs * b);
-  out[1] = gs * (zs * a + zc * b);
-}
-const ZT = [0, 0, 0];
+// One half step: the cells of one colour of the checkerboard are advanced by dt. Each one first feels its field B for dt (exactly: a
+// turn about z and a slide of the polar angle, tan(theta / 2) times a constant), then takes a Cayley turn about the part of the
+// exchange, Dzyaloshinskii, spin-torque and thermal field that lies across the spin, which depends on the other colour only. Run on
+// step after step, B for dt then the rest is B for dt / 2, the rest, B for dt / 2 with the halves joined.
 function sweep(S, par, dt) {
   const mx = S.mx, my = S.my, mz = S.mz;
   const A2 = 2 * S.A, Dd = S.D, B = S.B, al = S.alpha, be = S.beta;
@@ -79,13 +72,13 @@ function sweep(S, par, dt) {
   const uxa = S.uxa, uya = S.uya, drift = S.amp > 0;
   const hdt = 0.5 * dt;
   let rs = RS;
-  const ph = gp * B * hdt, zc = cos(ph), zs = sin(ph), ze = exp(-al * ph), ze2 = ze * ze;
+  const ph = gp * B * dt, zc = cos(ph), zs = sin(ph), ze = exp(-al * ph), ze2 = ze * ze, ze2x2 = 2 * ze;
   for (let y = 0; y < H; y++) {
     const r = y * W, ru = ((y - 1) & 127) * W, rd = ((y + 1) & 127) * W;
     for (let x = (y + par) & 1; x < W; x += 2) {
       const i = r + x, il = r + ((x - 1) & 63), ir = r + ((x + 1) & 63), iu = ru + x, id = rd + x;
-      zeeman(mx[i], my[i], mz[i], zc, zs, ze2, ze, ZT);
-      const a = ZT[0], b = ZT[1], c = ZT[2];
+      const p0 = 1 + mz[i], q0 = 1 - mz[i], den = p0 + ze2 * q0, gs = ze2x2 / den, c = (p0 - ze2 * q0) / den;
+      const a = gs * (zc * mx[i] - zs * my[i]), b = gs * (zs * mx[i] + zc * my[i]);
       let hx = A2 * (mx[il] + mx[ir] + mx[iu] + mx[id] - 4 * a) - Dd * (mz[id] - mz[iu]);
       let hy = A2 * (my[il] + my[ir] + my[iu] + my[id] - 4 * b) + Dd * (mz[ir] - mz[il]);
       let hz = A2 * (mz[il] + mz[ir] + mz[iu] + mz[id] - 4 * c) - Dd * (my[ir] - my[il] - mx[id] + mx[iu]);
@@ -110,13 +103,10 @@ function sweep(S, par, dt) {
         wz -= c1 * (a * vy - b * vx) + c2 * vz;
       }
       const kx = hdt * wx, ky = hdt * wy, kz = hdt * wz;
-      const k2 = kx * kx + ky * ky + kz * kz, kd = kx * a + ky * b + kz * c, f = 1 / (1 + k2);
-      const f1 = 1 - k2, f2 = 2 * kd;
-      const na = (f1 * a + 2 * (ky * c - kz * b) + f2 * kx) * f;
-      const nb = (f1 * b + 2 * (kz * a - kx * c) + f2 * ky) * f;
-      const nc = (f1 * c + 2 * (kx * b - ky * a) + f2 * kz) * f;
-      zeeman(na, nb, nc, zc, zs, ze2, ze, ZT);
-      mx[i] = ZT[0]; my[i] = ZT[1]; mz[i] = ZT[2];
+      const k2 = kx * kx + ky * ky + kz * kz, f = 1 / (1 + k2), f1 = (1 - k2) * f, f2 = 2 * (kx * a + ky * b + kz * c) * f, f3 = 2 * f;
+      mx[i] = f1 * a + f3 * (ky * c - kz * b) + f2 * kx;
+      my[i] = f1 * b + f3 * (kz * a - kx * c) + f2 * ky;
+      mz[i] = f1 * c + f3 * (kx * b - ky * a) + f2 * kz;
     }
   }
   RS = rs >>> 0;
@@ -224,7 +214,7 @@ for (let k = 0; k <= 4096; k++) {
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 // t = (1 - m_z) / 2: 0 where the spin points with the field (the ground), 1 in the core
-const LSTOPS = [[0, 0.2], [0.2, 0.4], [0.5, 0.62], [0.8, 0.8], [1, 0.94]];
+const LSTOPS = [[0, 0.17], [0.08, 0.19], [0.25, 0.42], [0.5, 0.63], [0.8, 0.8], [1, 0.94]];
 const TMP = [0, 0, 0];
 function buildLut(S) {
   const lut = S.lut;
@@ -236,7 +226,7 @@ function buildLut(S) {
     const L0 = A[1] + (B[1] - A[1]) * w;
     for (let hi = 0; hi < NH; hi++) {
       const hue = ((hi + 0.5) / NH) * 2 * PI, hd = (hi / NH) * 360;
-      let L = L0, C = 0.17 * pow(sn, 0.9);
+      let L = L0, C = 0.16 * pow(sn, 1.1);
       let dh = (((hd - 75) % 360) + 360) % 360;
       if (dh > 180) dh -= 360;
       const warm = exp(-(dh * dh) / 4000);
