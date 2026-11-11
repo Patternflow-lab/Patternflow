@@ -9,7 +9,7 @@
 // Round:   129
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=1..3, Scale=-1..1, Disorder=-1..1
+// @knobs Hue=0..1, Speed=1..2.5, Scale=-1..1, Disorder=-1..1
 //
 // Knob 1: Hue. Turns the whole palette round the wheel. At 0 the two variants are amber and blue with a lilac grey between them for the parent phase.
 // Knob 2: Speed. How fast the crystal is cooled, warmed and relaxed: the model runs 8 time units a panel second times Speed.
@@ -89,7 +89,7 @@ function fft2(re, im, inv) {
 
 const DT = 0.5; // largest model step, time units
 const RATE = 8; // model time units a panel second at Speed 1
-const A = 8, KAP = 0.12, D1 = 0.25, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.03;
+const A = 40, KAP = 0.06, D1 = 0.25, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.03;
 const OPEN = [0, 2, 0, 0.06];
 // the temperature and the stress, as functions of model time
 const W1 = 0.0197, W2 = 0.0113, W3 = 0.0271, WD = 0.002;
@@ -209,7 +209,7 @@ function stressSetup(S) {
 }
 
 function advance(S, ft, k) {
-  const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 1, 3);
+  const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 1, 2.5);
   if (abs(scale - S.ls) > 0.01) operator(S, S.ls + (scale - S.ls) * (1 - exp(-ft / 0.3)));
   const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n;
   stressField(S, S.t);
@@ -278,7 +278,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
   // the whole palette drifts a little, the way the colours of a crystal between crossed polarisers shift as it warms and cools
-  const hh = S.hue + 0.12 * sin(0.0071 * S.t + 1) + 0.09 * sin(0.0043 * S.t + 3) + 0.06 * sin(0.0101 * S.t + 5.3);
+  const hh = S.hue + 0.07 * sin(0.0071 * S.t + 1) + 0.05 * sin(0.0043 * S.t + 3) + 0.03 * sin(0.0101 * S.t + 5.3);
   if (abs(S.lutHue - hh) > 0.002) buildLut(S, hh);
   const e = S.e;
   let m = 0;
