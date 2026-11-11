@@ -75,7 +75,7 @@
 // 3 magenta, 8 coral 12 pale gold and 20 cream. Chroma is pulled in until the colour fits sRGB after the panel's 1.62 saturation lift, so no channel clips.
 // The tint from the flow is the current j_x = Im(psi* d psi / dx) over rho + 0.3, so a node of the wave does not make noise.
 // What it cost. In a Node loop update takes 1.1 ms at the opening and at the minimum and 2.0 to 2.2 ms at Epoch 4 (two steps a frame), draw 0.2 ms; the first
-// update, 150 steps run before the first frame, takes 0.16 to 0.25 s.
+// update, 150 steps run before the first frame, takes 0.16 to 0.33 s.
 
 const W = 64, H = 128, N = W * H;
 const { floor, sqrt, sin, cos, exp, log, min, max, pow, PI } = Math;
