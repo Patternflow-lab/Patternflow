@@ -83,27 +83,38 @@ function fft2(re, im, inv) {
 // kappa is the envelope's own wavevector and kappa_par its part along the wave; the same with Q k0 for b. The 1 + i beta pushes every phase round at a rate that
 // grows with the local intensity, which is what keeps the phason moving, and the state is not the minimum of anything.
 // The linear part is taken implicitly in Fourier space and the rest explicitly, so one step is 24 transforms of 32 by 64.
-const MU = 0.3, CC = 0.8, ALPHA = 0.9, GAM = 0.5, DLT = 0.5, NOISE = 0.006;
+const MU = 0.3, CC = 0.8, ALPHA = 0.9, GAM = 0.5, DLT = 0.5, NOISE = 0.012;
 const ZETA = 2; // how far the envelope's spreading turns its phase
+const MMAMP = 0.4; // how far the control field m moves the growth rate, as a share of MU
+const MTAU = 80; // its memory, model time units
+const MCUT = 0.36; // it holds only wavevectors below this, rad per LED: patches 17 LEDs across and up
+// the phase push of each mode swells and fades on its own slow beat, so no two modes turn at one rate for long and the weave has no period
+const BMOD = 0.7;
+const BW = [0.0113, 0.0171, 0.0239, 0.0307, 0.0379, 0.0431, 0.0523, 0.0589, 0.0661, 0.0733, 0.0809, 0.0887];
 const RATE = 3; // model time units a panel second at Speed 1
 const HMAX = 0.45;
-const LAM0 = 11; // the coarse ring's wavelength in LEDs at the opening Scale
+const LAM0 = 10.5; // the coarse ring's wavelength in LEDs at the opening Scale
 const OPEN = [0, 2, 0, 0.06];
 
 function setup(params) {
   const f = () => new Float64Array(NC);
   const S = {
-    re: [], im: [], nr: [], ni: [], kx: new Float64Array(WC), ky: new Float64Array(HC),
-    L: [], car: [], sar: [], lam: LAM0, lamK: -1, warm: false, hue: 0, speed: 2, beta: -0.12, rng: 0x9e3779b9,
+    re: [], im: [], nr: [], ni: [], ga: [], kx: new Float64Array(WC), ky: new Float64Array(HC),
+    L: [], car: [], sar: [], lam: LAM0, lamK: -1, warm: false, hue: 0, speed: 2, beta: -0.12, rng: 0x9e3779b9, t: 0,
     psi: new Float64Array(N), p1: new Float64Array(N), sd: 0.5, tr: new Float64Array(N), ti: new Float64Array(N),
   };
-  for (let i = 0; i < 12; i++) (S.re[i] = f()), (S.im[i] = f()), (S.nr[i] = f()), (S.ni[i] = f()), (S.L[i] = f()), (S.car[i] = new Float32Array(N)), (S.sar[i] = new Float32Array(N));
+  for (let i = 0; i < 12; i++) (S.re[i] = f()), (S.im[i] = f()), (S.nr[i] = f()), (S.ni[i] = f()), (S.ga[i] = f()), (S.L[i] = f()), (S.car[i] = new Float32Array(N)), (S.sar[i] = new Float32Array(N));
   S.kx = new Float64Array(NC);
   S.ky = new Float64Array(NC);
+  S.mr = new Float64Array(NC);
+  S.mi = new Float64Array(NC);
+  S.mm = new Float64Array(NC);
+  S.mIdx = [];
   for (let y = 0; y < HC; y++)
     for (let x = 0; x < WC; x++) {
       S.kx[y * WC + x] = (TAU * (x < WC / 2 ? x : x - WC)) / (WC * CS);
       S.ky[y * WC + x] = (TAU * (y < HC / 2 ? y : y - HC)) / (HC * CS);
+      if (S.kx[y * WC + x] ** 2 + S.ky[y * WC + x] ** 2 < MCUT * MCUT && (x || y)) S.mIdx.push(y * WC + x);
     }
   params.s = S;
   return S;
@@ -140,10 +151,27 @@ function retune(S, lam) {
   }
 }
 
+// A control field m(x, t) of unit spread that moves the growth rate from place to place: patches of the panel where the weave is a little stronger or weaker, never the same
+// two minutes running. Each of its low Fourier modes is an Ornstein-Uhlenbeck process; the field is their inverse transform.
+function control(S, h) {
+  const { mr, mi, mm, tr, ti } = S, d = exp(-h / MTAU), sq = sqrt(1 - d * d);
+  for (const p of S.mIdx) {
+    mr[p] = mr[p] * d + sq * 3 * rnd(S);
+    mi[p] = mi[p] * d + sq * 3 * rnd(S);
+  }
+  tr.set(mr);
+  ti.set(mi);
+  fft2(tr, ti, true);
+  let s2 = 0;
+  for (let p = 0; p < NC; p++) s2 += tr[p] * tr[p];
+  const sc = 1 / (sqrt(s2 / NC) + 1e-9);
+  for (let p = 0; p < NC; p++) mm[p] = tr[p] * sc;
+}
+
 // The right side of the nonlinear part into nr, ni; coarse space. AR..BI are the 12 modes of one point with their conjugates, ER..FI what the triads add.
 const AR = new Float64Array(12), AI = new Float64Array(12), BR = new Float64Array(12), BI = new Float64Array(12);
 const ER = new Float64Array(12), EI = new Float64Array(12), FR = new Float64Array(12), FI = new Float64Array(12);
-function nonlinear(S, beta) {
+function nonlinear(S) {
   const re = S.re, im = S.im, nr = S.nr, ni = S.ni;
   for (let p = 0; p < NC; p++) {
     let sa = 0, sb = 0;
@@ -195,17 +223,21 @@ function nonlinear(S, beta) {
     }
     for (let n = 0; n < 6; n++) {
       const ia = AR[n] * AR[n] + AI[n] * AI[n], ib = BR[n] * BR[n] + BI[n] * BI[n];
-      const ga = (1 - GAM) * ia + GAM * sa + DLT * sb, gb = (1 - GAM) * ib + GAM * sb + DLT * sa;
-      nr[n][p] = ER[n] - ga * AR[n] + beta * ga * AI[n];
-      ni[n][p] = EI[n] - ga * AI[n] - beta * ga * AR[n];
-      nr[n + 6][p] = FR[n] - gb * BR[n] + beta * gb * BI[n];
-      ni[n + 6][p] = FI[n] - gb * BI[n] - beta * gb * BR[n];
+      const mu = MMAMP * MU * S.mm[p], ga = (1 - GAM) * ia + GAM * sa + DLT * sb - mu, gb = (1 - GAM) * ib + GAM * sb + DLT * sa - mu;
+      nr[n][p] = ER[n] - ga * AR[n];
+      ni[n][p] = EI[n] - ga * AI[n];
+      nr[n + 6][p] = FR[n] - gb * BR[n];
+      ni[n + 6][p] = FI[n] - gb * BI[n];
+      S.ga[n][p] = ga;
+      S.ga[n + 6][p] = gb;
     }
   }
 }
 
 function step(S, h) {
-  nonlinear(S, S.beta);
+  S.t += h;
+  control(S, h);
+  nonlinear(S);
   const sq = NOISE * sqrt(h);
   for (let i = 0; i < 12; i++) {
     const re = S.re[i], im = S.im[i], nr = S.nr[i], ni = S.ni[i], L = S.L[i], tr = S.tr, ti = S.ti;
@@ -221,14 +253,20 @@ function step(S, h) {
       ti[p] = xr * b + xi * a;
     }
     fft2(tr, ti, true);
-    for (let p = 0; p < NC; p++) (re[p] = tr[p]), (im[p] = ti[p]);
+    // the phase push, 1 + i beta on the cubic term, is applied as an exact turn of the angle beta h ga, so a big beta cannot make the step blow up
+    const ga = S.ga[i], hb = h * S.beta * (1 + BMOD * sin(S.t * BW[i] + 1.7 * i));
+    for (let p = 0; p < NC; p++) {
+      const th = -hb * ga[p], c = cos(th), sn = sin(th);
+      re[p] = tr[p] * c - ti[p] * sn;
+      im[p] = tr[p] * sn + ti[p] * c;
+    }
   }
 }
 
 function knobs(S, ft, k) {
   S.hue = k[0];
   S.speed = cl(k[1], 0.8, 3);
-  const lt = LAM0 * exp(0.25 * cl(k[2], -1, 1)), a = 1 - exp(-ft / 0.3);
+  const lt = LAM0 * exp(0.2 * cl(k[2], -1, 1)), a = 1 - exp(-ft / 0.3);
   S.lam += (lt - S.lam) * a;
   if (abs(S.lam - S.lamK) > 0.01 * S.lamK) retune(S, S.lam);
   S.beta = -(0.1 + 0.5 * cl(k[3], 0, 1));
@@ -239,7 +277,7 @@ export function update(dt, input, params) {
   const ft = cl(dt || 0, 0, 0.1);
   if (!S.warm) {
     S.warm = true;
-    S.lam = LAM0 * exp(0.25 * cl(k[2], -1, 1));
+    S.lam = LAM0 * exp(0.2 * cl(k[2], -1, 1));
     retune(S, S.lam);
     for (let i = 0; i < 12; i++)
       for (let p = 0; p < NC; p++) (S.re[i][p] = 0.4 * rnd(S)), (S.im[i][p] = 0.4 * rnd(S));
