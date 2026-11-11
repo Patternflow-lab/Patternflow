@@ -9,7 +9,7 @@
 // Round:   127
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pace=1..3.5, Spokes=-1..1, Lattice=0..1
+// @knobs Hue=0..1, Pace=1.5..3.5, Spokes=-1..1, Lattice=0..1
 //
 // Knob 1: Hue. Adds the knob times 360 degrees to the hue of the ramp, which at 0 runs from indigo through violet and rose to orange and a pale cream, so the panel opens on indigo and gold and a full turn comes back. The fatigue field b turns the hue a further 22 degrees either way, so the front of a running stripe is a little cooler than its back at every setting.
 // Knob 2: Pace. A clock: the field runs 2.65 time units a second at Pace 2 (1.33 at Pace 1, 4.64 at 3.5), and a stripe's Hopf period is 10.6 units (2 pi over 0.59, the linear value near threshold), which is 8.0, 4.0 and 2.3 seconds at Pace 1, 2 and 3.5. The wandering of the centre, the turning of the stripes' preferred direction and the drift of the excitability patches all go with it.
@@ -76,6 +76,7 @@ const RHO2 = 4;                    // (sigma_inhibition / sigma_excitation) squa
 const DT = 0.12;                   // step
 const RATE0 = 2.65;                // time units a second at Pace 2
 const NOISE = 0.16;
+const VIG = 0.5;                   // how far the contrast has fallen at the far corners
 // slow patches of excitability: the gain is multiplied by 1 + sum A cos(n theta + KS m s + nu t + phi), at low wavenumbers
 const PATCH = [
   // n, m, amplitude, nu, phi, amplitude modulation rate
@@ -371,8 +372,8 @@ function buildLut(S, shift) {
 const KNOB = [0, 2, 0, 0.06];
 function targets(k) {
   return {
-    pace: cl(k[1], 1, 3.5) / 2,
-    kc: 8 * pow(1.732, cl(k[2], -1, 1)),
+    pace: cl(k[1], 1.5, 3.5) / 2,
+    kc: 9 * pow(1.5, cl(k[2], -1, 1)),
     lattice: 0.55 * cl(k[3], 0, 1),
   };
 }
@@ -402,8 +403,8 @@ export function update(dt, input, params) {
   const k = input.knobValues || KNOB;
   if (!params.s) setup(params, k);
   const S = params.s, d = cl(dt || 0, 0, 0.1);
-  const hue = cl(k[0], 0, 1) * 360;
-  if (abs(hue - S.hueDone) > 0.5) buildLut(S, hue);
+  const hue = cl(k[0], 0, 1) * 360 + 30 * sin(0.0211 * S.t2 + 1) + 18 * sin(0.0463 * S.t2 + 2.4);
+  if (abs(hue - S.hueDone) > 1.5) buildLut(S, hue);
   if (d <= 0) return;
   const tg = targets(k), f = 1 - exp(-4 * d);
   S.pace += (tg.pace - S.pace) * f;
@@ -462,7 +463,9 @@ export function draw(display, params) {
         v /= ns * ns;
         vb /= ns * ns;
       }
-      const qa = (0.5 + 0.5 * tnh(v * g)) * (NA - 1), qb = (0.5 + 0.5 * tnh(vb * gb)) * (NB - 1);
+      // contrast falls towards the far corners, as acuity falls with eccentricity: 1 inside 20 LEDs, 1 - VIG at 70
+      const tv = r2 < 400 ? 0 : r2 > 4900 ? 1 : (r2 - 400) / 4500, cv = 1 - VIG * tv * tv * (3 - 2 * tv);
+      const qa = (0.5 + 0.5 * tnh(v * g * cv)) * (NA - 1), qb = (0.5 + 0.5 * tnh(vb * gb * cv)) * (NB - 1);
       const ia = (qa + 0.5) | 0, ib = qb | 0, fb = qb - ib, o = 3 * (ia * NB + ib), o2 = ib + 1 < NB ? o + 3 : o;
       display.setPixel(x, y, lut[o] + (lut[o2] - lut[o]) * fb, lut[o + 1] + (lut[o2 + 1] - lut[o + 1]) * fb, lut[o + 2] + (lut[o2 + 2] - lut[o + 2]) * fb);
     }
