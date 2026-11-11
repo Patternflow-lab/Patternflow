@@ -174,14 +174,15 @@ function fit(L, a, b) {
   }
   return oklab2rgb(L, a, b).map((v) => cl(v, 0, 1));
 }
-const HUES = [235, 320, 420]; // cool, middle, warm, in degrees of OKLab hue
+const HUES = [235, 320, 420]; // cool, middle, warm, in degrees of OKLab hue; the knob adds 360 per unit to all three
 function buildLut(S) {
-  const lut = S.lut || (S.lut = new Float32Array(GS * LS * 3)), off = 15 + 360 * S.hue;
+  const lut = S.lut || (S.lut = new Float32Array(GS * LS * 3)), off = 15 + 360 * S.hue, hg = ((HUES[0] + 25 + off) * PI) / 180;
   for (let gi = 0; gi < GS; gi++) {
     const g = (gi / (GS - 1)) * 2 - 1, u = (g + 1) / 2, hd = u < 0.5 ? HUES[0] + (HUES[1] - HUES[0]) * (u * 2) : HUES[1] + (HUES[2] - HUES[1]) * (u * 2 - 1);
+    const hr = ((hd + off) * PI) / 180, cg = 0.7 + 0.3 * Math.abs(g);
     for (let li = 0; li < LS; li++) {
-      const t = li / (LS - 1), w = cl(t / 0.3, 0, 1), L = 0.17 + 0.75 * t ** 1.6, C = 0.2 * sin(PI * pow(t, 0.75)) * 1.15 + 0.04;
-      const hr = (((hd + off) * w + (265 + off) * (1 - w * w)) * PI) / 180, c = fit(L, C * cos(hr), C * sin(hr)), o = (gi * LS + li) * 3;
+      const t = li / (LS - 1), w = cl((t - 0.04) / 0.41, 0, 1), sw = w * w * (3 - 2 * w), L = 0.17 + 0.75 * t ** 1.6, C = 0.17 * sin(PI * pow(t, 0.7)) * cg;
+      const c = fit(L, (1 - sw) * 0.035 * cos(hg) + sw * C * cos(hr), (1 - sw) * 0.035 * sin(hg) + sw * C * sin(hr)), o = (gi * LS + li) * 3;
       lut[o] = c[0];
       lut[o + 1] = c[1];
       lut[o + 2] = c[2];
@@ -197,7 +198,7 @@ export function draw(display, params) {
   const { E, P, I, Q, lut } = S, c0 = cos(PSI0), s0 = sin(PSI0), ex = pow(cl(S.me, 0.4, 4), 0.85), is = 1 / (S.m * S.m * ex);
   for (let p = 0, y = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
-      const en = (E[p] + PK * (P[p] - E[p])) * is, t = cl(en / 6, 0, 1) ** 0.6;
+      const en = (E[p] + PK * (P[p] - E[p])) * is, t = cl(en / 6, 0, 1) ** 0.8;
       const a = sqrt(I[p] * I[p] + Q[p] * Q[p]) + 1e-9, g = (I[p] * c0 + Q[p] * s0) / a;
       const o = (((g * 0.5 + 0.5) * (GS - 1) + 0.5) | 0) * LS + ((t * (LS - 1) + 0.5) | 0);
       display.setPixel(x, y, lut[o * 3] * 255, lut[o * 3 + 1] * 255, lut[o * 3 + 2] * 255);
