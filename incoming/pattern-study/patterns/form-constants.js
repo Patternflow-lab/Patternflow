@@ -41,7 +41,7 @@
 // tanh and picks the step of the ramp; b over its rms turns the hue.
 // What keeps it alive. A field at 25 percent over threshold settles into a limit cycle of period 4 s that is the same every cycle, and
 // frames 20 seconds apart match (recur 0.05 and quiet 0.11 in the first version). Three slow things take that away, each of them an input
-// to the field and none of them a drawing of stripes. (1) The gain depends on the direction of the wave vector, g (1 + 0.15 cos 2 (phi - psi)),
+// to the field and none of them a drawing of stripes. (1) The gain depends on the direction of the wave vector, g (1 + 0.22 cos 2 (phi - psi)),
 // phi the direction of k in the (theta, s) plane and psi turning at 0.0105 a time unit plus a swing of 0.9 radian at 0.00565, which is a
 // cortex whose lateral connections lean one way, and the stripes lean with them: spokes at psi = 0, rings at psi = pi / 2, spirals between.
 // It is put in as a term of the same size as the nonlinear remainder, held over the step. (2) Patches of excitability: the local eps is
@@ -71,7 +71,7 @@ const TAU_B = 2;                   // fatigue time
 const C_FAT = 0.8;                 // fatigue drive: db/dt = (C a - b) / TAU_B
 const G_H = 1 + 1 / TAU_B;         // gain at which the mode at the kernel's peak starts to oscillate (kernel peak normalised to 1)
 const EPS0 = 0.25;                 // how far above it the field runs, on average
-const ANISO = 0.15;                // how much the gain depends on the direction of the wave vector, at most
+const ANISO = 0.22;                // how much the gain depends on the direction of the wave vector, at most
 const RHO2 = 4;                    // (sigma_inhibition / sigma_excitation) squared
 const DT = 0.12;                   // step
 const RATE0 = 2.65;                // time units a second at Pace 2
