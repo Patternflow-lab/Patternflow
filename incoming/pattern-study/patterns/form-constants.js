@@ -289,10 +289,20 @@ function step(S) {
 // centre, where it covers several cells, is the average of a grid of points across its area.
 const IR02 = 1 / (R0 * R0), CELLS = NT / TAU;
 let VA = 0, VB = 0;
+// atan2 from a polynomial in min / max, good to 1e-5 radian, in 0..2 pi
+function angle(y, x) {
+  const ax = x < 0 ? -x : x, ay = y < 0 ? -y : y;
+  const hi = ax > ay ? ax : ay, lo = ax > ay ? ay : ax;
+  if (hi === 0) return 0;
+  const a = lo / hi, q = a * a;
+  let r = (((-0.0464964749 * q + 0.15931422) * q - 0.327622764) * q * a) + a;
+  if (ay > ax) r = 1.57079637 - r;
+  if (x < 0) r = 3.14159274 - r;
+  return y < 0 ? TAU - r : r;
+}
 function cortexAt(fa, fb, dx, dy) {
   const s = 0.5 * log((dx * dx + dy * dy) * IR02 + 1);
-  let th = atan2(dy, dx);
-  if (th < 0) th += TAU;
+  const th = angle(dy, dx);
   const fi = th * CELLS, fj = s / HC;
   const i0 = fi | 0, j0 = fj | 0, ax = fi - i0, ay = fj - j0;
   const i1 = i0 + 1 === NT ? 0 : i0 + 1, j1 = j0 + 1 >= NS ? j0 + 1 - NS : j0 + 1, jj0 = j0 >= NS ? j0 - NS : j0;
@@ -433,13 +443,13 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const dx = x + 0.5 - cx, dy = y + 0.5 - cy, r2 = dx * dx + dy * dy;
       let v, vb;
-      if (r2 > 576) {
+      if (r2 > 400) {
         cortexAt(tmp, tmb, dx, dy);
         v = VA;
         vb = VB;
       } else {
         const r = max(0.7, sqrt(r2));
-        const ns = cl(ceil(max(1 / (r * HC), r / ((r * r + R0 * R0) * HC))), 1, 8);
+        const ns = cl(ceil(0.6 * max(1 / (r * HC), r / ((r * r + R0 * R0) * HC))), 1, 8);
         v = 0;
         vb = 0;
         for (let sy = 0; sy < ns; sy++)
@@ -451,7 +461,7 @@ export function draw(display, params) {
         v /= ns * ns;
         vb /= ns * ns;
       }
-      const qa = (0.5 + 0.5 * tanh(v * g)) * (NA - 1), qb = (0.5 + 0.5 * tanh(vb * gb)) * (NB - 1);
+      const qa = (0.5 + 0.5 * tnh(v * g)) * (NA - 1), qb = (0.5 + 0.5 * tnh(vb * gb)) * (NB - 1);
       const ia = (qa + 0.5) | 0, ib = qb | 0, fb = qb - ib, o = 3 * (ia * NB + ib), o2 = ib + 1 < NB ? o + 3 : o;
       display.setPixel(x, y, lut[o] + (lut[o2] - lut[o]) * fb, lut[o + 1] + (lut[o2 + 1] - lut[o + 1]) * fb, lut[o + 2] + (lut[o2 + 2] - lut[o + 2]) * fb);
     }
