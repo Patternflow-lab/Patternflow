@@ -373,7 +373,7 @@ const KNOB = [0, 2, 0, 0.06];
 function targets(k) {
   return {
     pace: cl(k[1], 1.5, 3.5) / 2,
-    kc: 9 * pow(1.5, cl(k[2], -1, 1)),
+    kc: 9 * pow(1.4, cl(k[2], -1, 1)),
     lattice: 0.55 * cl(k[3], 0, 1),
   };
 }
