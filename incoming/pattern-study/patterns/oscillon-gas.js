@@ -9,7 +9,7 @@
 // Round:   128
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.5..3, Scale=-1..1, Pump=-1..1
+// @knobs Hue=0..1, Speed=1.4..3.6, Scale=-1..1, Pump=-1..1
 //
 // Knob 1: Hue.
 // Knob 2: Speed.
@@ -21,13 +21,14 @@ const { floor, sqrt, sin, cos, exp, log, min, max, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const OPEN = [0, 2, 0, 0.06];
+const PK = 0.5; // share of the instantaneous energy beside its time average
 const PSI0 = -0.6; // the phase the locked lumps sit at against the pump's half frequency, measured
 
 const HS = 0.25; // model time per step
-const RHO = 0.9; // mass-time units per panel second at Speed 1
-const M0 = 0.5, MR = 1.6; // mass at Scale 0, and the factor per unit of Scale
+const RHO = 0.5; // mass-time units per panel second at Speed 1
+const M0 = 0.66, MR = 1.25; // mass at Scale 0, and the factor per unit of Scale
 const GP = 0.03; // damping over mass
-const A0 = 0.42, AR = 1.9; // pump at Pump 0, and the factor per unit of Pump
+
 
 function gauss() {
   return sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
@@ -35,9 +36,9 @@ function gauss() {
 
 function setup(params, k) {
   const S = {
-    t: 0, th: 0, acc: 0, m: M0, A: A0, Om: 2 * M0, uA: 0, uO: 0, warm: false, sa: 0.15, so: 0.02,
+    t: 0, th: 0, acc: 0, m: M0, A: 0.46, Om: 2 * M0, uA: 0, uO: 0, me: 1, warm: false, sa: 0.05, so: 0.015,
     phi: new Float64Array(N), v: new Float64Array(N), F: new Float64Array(N),
-    E: new Float32Array(N), I: new Float32Array(N), Q: new Float32Array(N), tmp: new Float64Array(N),
+    E: new Float32Array(N), P: new Float32Array(N), I: new Float32Array(N), Q: new Float32Array(N), tmp: new Float64Array(N),
   };
   params.s = S;
   return S;
@@ -91,7 +92,8 @@ function knobs(S, k) {
   S.hue = cl(k[0], 0, 1);
   S.spd = cl(k[1], 0.2, 5);
   S.mt = M0 * pow(MR, cl(k[2], -1, 1));
-  S.A0 = A0 * pow(AR, cl(k[3], -1, 1));
+  const q = cl(k[3], -1, 1);
+  S.A0 = 0.47 * (q < 0 ? pow(0.82, -q) : pow(1.66, q));
 }
 
 // Ornstein-Uhlenbeck step in panel seconds, unit variance, correlation time tc
@@ -105,7 +107,7 @@ function advance(S, d, mdl) {
   S.uO = ou(S.uO, d, 25);
   S.m += (S.mt - S.m) * (1 - exp(-d / 0.5));
   S.A = S.A0 * exp(S.sa * S.uA);
-  S.Om = 2 * S.m * (1 - 0.025 + S.so * S.uO);
+  S.Om = 2 * S.m * (1 - 0.04 + S.so * S.uO);
   S.gam = GP * S.m;
   const model = mdl || d * RHO * S.spd / S.m;
   S.acc = min(S.acc + model, 40 * HS);
@@ -117,18 +119,22 @@ function advance(S, d, mdl) {
   }
   if (!n) return;
   // time averages: energy over about 1.6 / m, and the lock-in of phi against the pump's half frequency over 6 / m
-  const { phi, v, E, I, Q } = S, m2 = S.m * S.m, mdt = n * HS;
+  const { phi, v, E, P, I, Q } = S, m2 = S.m * S.m, mdt = n * HS;
   const ae = 1 - exp(-mdt * S.m / 1.6), ai = 1 - exp(-mdt * S.m / 6), c = cos(0.5 * S.th), sn = sin(0.5 * S.th);
+  let sum = 0;
   for (let y = 0; y < H; y++) {
     const r = y * W, rd = (y === H - 1 ? 0 : y + 1) * W;
     for (let x = 0; x < W; x++) {
       const p = r + x, dx = phi[x === W - 1 ? r : p + 1] - phi[p], dy = phi[rd + x] - phi[p];
       const e = 0.5 * v[p] * v[p] + 0.5 * (dx * dx + dy * dy) + m2 * (1 - cos(phi[p]));
+      P[p] = e;
       E[p] += ae * (e - E[p]);
+      sum += E[p];
       I[p] += ai * (phi[p] * c - I[p]);
       Q[p] += ai * (phi[p] * sn - Q[p]);
     }
   }
+  S.me += (sum / N / m2 - S.me) * (1 - exp(-d / 20));
 }
 
 export function update(dt, input, params) {
@@ -139,9 +145,13 @@ export function update(dt, input, params) {
     S.m = S.mt;
     smoothField(S.phi, 0.4);
     S.A = S.A0;
+    S.me = 1;
     S.gam = GP * S.m;
     force(S);
     for (let i = 0; i < 40; i++) advance(S, 0.2, 6);
+    let sum = 0;
+    for (let p = 0; p < N; p++) sum += S.E[p];
+    S.me = sum / N / (S.m * S.m);
   }
   advance(S, cl(dt || 0, 0, 0.1));
 }
@@ -169,9 +179,9 @@ function buildLut(S) {
   const lut = S.lut || (S.lut = new Float32Array(GS * LS * 3)), off = 15 + 360 * S.hue;
   for (let gi = 0; gi < GS; gi++) {
     const g = (gi / (GS - 1)) * 2 - 1, u = (g + 1) / 2, hd = u < 0.5 ? HUES[0] + (HUES[1] - HUES[0]) * (u * 2) : HUES[1] + (HUES[2] - HUES[1]) * (u * 2 - 1);
-    const hr = ((hd + off) * PI) / 180;
     for (let li = 0; li < LS; li++) {
-      const t = li / (LS - 1), L = 0.2 + 0.72 * t ** 1.2, C = 0.2 * sin(PI * pow(t, 0.75)) * 1.15 + 0.03, c = fit(L, C * cos(hr), C * sin(hr)), o = (gi * LS + li) * 3;
+      const t = li / (LS - 1), w = cl(t / 0.3, 0, 1), L = 0.17 + 0.75 * t ** 1.6, C = 0.2 * sin(PI * pow(t, 0.75)) * 1.15 + 0.04;
+      const hr = (((hd + off) * w + (265 + off) * (1 - w * w)) * PI) / 180, c = fit(L, C * cos(hr), C * sin(hr)), o = (gi * LS + li) * 3;
       lut[o] = c[0];
       lut[o + 1] = c[1];
       lut[o + 2] = c[2];
@@ -184,10 +194,10 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
   if (S.lh !== S.hue) buildLut(S);
-  const { E, I, Q, lut } = S, c0 = cos(PSI0), s0 = sin(PSI0), is = 1 / (S.m * S.m);
+  const { E, P, I, Q, lut } = S, c0 = cos(PSI0), s0 = sin(PSI0), ex = pow(cl(S.me, 0.4, 4), 0.85), is = 1 / (S.m * S.m * ex);
   for (let p = 0, y = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
-      const en = E[p] * is, t = cl(1 - exp(-(en - 0.4) / 1.8), 0, 1);
+      const en = (E[p] + PK * (P[p] - E[p])) * is, t = cl(en / 6, 0, 1) ** 0.6;
       const a = sqrt(I[p] * I[p] + Q[p] * Q[p]) + 1e-9, g = (I[p] * c0 + Q[p] * s0) / a;
       const o = (((g * 0.5 + 0.5) * (GS - 1) + 0.5) | 0) * LS + ((t * (LS - 1) + 0.5) | 0);
       display.setPixel(x, y, lut[o * 3] * 255, lut[o * 3 + 1] * 255, lut[o * 3 + 2] * 255);
