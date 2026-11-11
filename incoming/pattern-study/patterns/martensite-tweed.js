@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=1..2.5, Scale=-1..1, Disorder=-1..1
 //
 // Knob 1: Hue. Turns the whole palette round the wheel. At 0 the two variants are amber and blue with a lilac grey between them for the parent phase.
-// Knob 2: Speed. How fast the crystal is cooled, warmed and relaxed: the model runs 8 time units a panel second times Speed.
+// Knob 2: Speed. How fast the crystal relaxes toward what the temperature and the stress ask of it. The drive itself runs at a fixed pace.
 // Knob 3: Scale. Stiffness of the walls and of the long wavelengths: low gives fine twins and a sharp weave, high gives wide bands with soft walls.
 // Knob 4: Disorder. Strength of the frozen impurities that seed the tweed: low gives clean laminates, high gives a mottled cloth that never settles into bands.
 
@@ -88,18 +88,29 @@ function fft2(re, im, inv) {
 // deep below it the bands are clean, near it they thin into tweed, above it the strain is thermal fluctuation drawn out along the diagonals.
 
 const DT = 0.5; // largest model step, time units
-const RATE = 8; // model time units a panel second at Speed 1
-const A = 40, KAP = 0.06, D1 = 0.25, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.03;
+const RATE = 8; // relaxation time units a panel second at Speed 1
+const DRIVE = 8; // time units a panel second for the temperature, the stress and the impurities, at any Speed
+const A = 15, KAP = 0.06, D1 = 0.6, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.08;
 const OPEN = [0, 2, 0, 0.06];
 // the temperature and the stress, as functions of model time
-const W1 = 0.0197, W2 = 0.0113, W3 = 0.0271, WD = 0.002;
-const tauAt = (t) => -0.05 + 0.09 * sin(W1 * t + 0.4) + 0.07 * sin(W2 * t + 2.1) + 0.04 * sin(W3 * t + 4.0);
+const WD = 0.002, NT = 8, TAU0 = -0.05, TAMP = 0.0425, HAMPL = 0.03;
+// Temperature and palette drift: each a sum of 8 sines with random rates, so there is no pair of times at which both come round together.
+const tauAt = (S, t) => {
+  let v = TAU0;
+  for (let i = 0; i < NT; i++) v += TAMP * sin(S.tw[i] * t + S.tp[i]);
+  return v;
+};
+const hueAt = (S, t) => {
+  let v = 0;
+  for (let i = 0; i < NT; i++) v += HAMPL * sin(S.hw[i] * t + S.hp[i]);
+  return v;
+};
 // the stress: a smooth random field built from long waves, each wave travelling at its own slow rate
-const HAMP = 0.14, XS = 5, WMIN = 0.004, WSPAN = 0.012;
+const HAMP = 0.14, XS = 3.5, XS0 = 2.5, WMIN = 0.004, WSPAN = 0.012;
 
 function setup(params) {
   const f = () => new Float64Array(N);
-  const S = { e: f(), re: f(), im: f(), Lk: f(), n1: f(), n2: f(), hs: f(), hsc: 1, mi: null, ma: null, mb: null, mw: null, tm: f(), gain: 0.2, t: 0, ls: 99, warm: false, hue: 0, lut: new Float32Array(512 * 3), lutHue: -1 };
+  const S = { e: f(), re: f(), im: f(), Lk: f(), n1: f(), n2: f(), hs: f(), mk: null, mi: null, ma: null, mb: null, mw: null, tw: new Float64Array(NT), tp: new Float64Array(NT), hw: new Float64Array(NT), hp: new Float64Array(NT), tm: f(), gain: 0.2, t: 0, ls: 99, warm: false, hue: 0, lut: new Float32Array(512 * 3), lutHue: -1 };
   params.s = S;
   return S;
 }
@@ -126,7 +137,7 @@ function noiseField(S, out, xi) {
 
 // The linear operator L(k), laid out like the FFT output. The mean mode costs D0, so a uniform stress moves walls and does not just tilt the crystal.
 function operator(S, scale) {
-  const kap = KAP * exp(0.7 * scale), kc = KC * exp(0.35 * scale), Lk = S.Lk;
+  const kap = KAP * exp(0.7 * scale), kc = KC * exp(-0.6 * scale), Lk = S.Lk;
   for (let y = 0; y < H; y++) {
     const ky = (TAU * (y < H / 2 ? y : y - H)) / H;
     for (let x = 0; x < W; x++) {
@@ -166,34 +177,39 @@ function step(S, h, tau, sig, cs, sn) {
 // One step at the model time S.t.
 function stepAt(S, h, sig) {
   const t = S.t, d = WD * t;
-  step(S, h, tauAt(t), sig, cos(d), sin(d));
+  step(S, h, tauAt(S, t), sig, cos(d), sin(d));
 }
 
 // The stress field at model time t: every long wave j has a random complex amplitude and a rate, and the field is the real part of their sum.
+// The waves are stored for a correlation length of XS0 LEDs and cut down here to XS exp(0.35 Scale), and the field is scaled to a fixed deviation.
 function stressField(S, t) {
-  const { re, im, hs, mi, ma, mb, mw } = S;
+  const { re, im, hs, mi, ma, mb, mw, mk } = S;
+  const xs = XS * exp(0.35 * cl(S.ls, -1, 1)), q = 0.25 * (xs * xs - XS0 * XS0);
   re.fill(0);
   im.fill(0);
+  let v = 0;
   for (let j = 0; j < mi.length; j++) {
-    const p = mi[j], a = mw[j] * t, c = cos(a), s = sin(a);
-    re[p] = ma[j] * c - mb[j] * s;
-    im[p] = ma[j] * s + mb[j] * c;
+    const p = mi[j], a = mw[j] * t, c = cos(a), s = sin(a), f = exp(-q * mk[j]);
+    re[p] = f * (ma[j] * c - mb[j] * s);
+    im[p] = f * (ma[j] * s + mb[j] * c);
+    v += f * f * (ma[j] * ma[j] + mb[j] * mb[j]);
   }
   fft2(re, im, true);
-  const g = HAMP * S.hsc;
+  const g = HAMP / sqrt(0.5 * v);
   for (let p = 0; p < N; p++) hs[p] = re[p] * g;
 }
 function stressSetup(S) {
-  const idx = [], A = [], B = [], Wr = [];
+  const idx = [], A = [], B = [], Wr = [], K = [];
   const gauss = () => sqrt(-2 * Math.log(Math.random() + 1e-12)) * cos(TAU * Math.random());
   for (let y = 0; y < H; y++) {
     const ky = (TAU * (y < H / 2 ? y : y - H)) / H;
     for (let x = 0; x < W; x++) {
-      const kx = (TAU * (x < W / 2 ? x : x - W)) / W, env = exp(-0.25 * (kx * kx + ky * ky) * XS * XS);
-      if ((x || y) && env > 0.04) {
+      const kx = (TAU * (x < W / 2 ? x : x - W)) / W, k2 = kx * kx + ky * ky, env = exp(-0.25 * k2 * XS0 * XS0);
+      if ((x || y) && env > 0.03) {
         idx.push(y * W + x);
         A.push(env * gauss());
         B.push(env * gauss());
+        K.push(k2);
         Wr.push((WMIN + WSPAN * Math.random()) * (Math.random() < 0.5 ? -1 : 1));
       }
     }
@@ -201,20 +217,17 @@ function stressSetup(S) {
   S.mi = Int32Array.from(idx);
   S.ma = Float64Array.from(A);
   S.mb = Float64Array.from(B);
+  S.mk = Float64Array.from(K);
   S.mw = Float64Array.from(Wr);
-  stressField(S, 0);
-  let m = 0;
-  for (let p = 0; p < N; p++) m += S.hs[p] * S.hs[p];
-  S.hsc = 1 / (sqrt(m / N) / HAMP);
 }
 
 function advance(S, ft, k) {
   const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 1, 2.5);
   if (abs(scale - S.ls) > 0.01) operator(S, S.ls + (scale - S.ls) * (1 - exp(-ft / 0.3)));
-  const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n;
+  const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n, dc = (ft * DRIVE) / n;
   stressField(S, S.t);
   for (let i = 0; i < n; i++) {
-    S.t += h;
+    S.t += dc;
     stepAt(S, h, sig);
   }
 }
@@ -227,6 +240,12 @@ export function update(dt, input, params) {
     noiseField(S, S.n1, XI);
     noiseField(S, S.n2, XI);
     stressSetup(S);
+    for (let i = 0; i < NT; i++) {
+      S.tw[i] = 0.008 + 0.027 * Math.random();
+      S.tp[i] = TAU * Math.random();
+      S.hw[i] = 0.003 + 0.009 * Math.random();
+      S.hp[i] = TAU * Math.random();
+    }
     for (let p = 0; p < N; p++) S.e[p] = 0.05 * (Math.random() - 0.5);
     S.ls = 99;
     operator(S, cl(k[2], -1, 1));
@@ -278,7 +297,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
   // the whole palette drifts a little, the way the colours of a crystal between crossed polarisers shift as it warms and cools
-  const hh = S.hue + 0.07 * sin(0.0071 * S.t + 1) + 0.05 * sin(0.0043 * S.t + 3) + 0.03 * sin(0.0101 * S.t + 5.3);
+  const hh = S.hue + hueAt(S, S.t);
   if (abs(S.lutHue - hh) > 0.002) buildLut(S, hh);
   const e = S.e;
   let m = 0;
