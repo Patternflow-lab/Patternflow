@@ -23,7 +23,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const OPEN = [0, 2, 0, 0.06];
 
 // tunables (draft)
-const CFG = { G0: 7e-5, DT: 0.2, R0: 6, JH: 0.002, KH: 0.5, WH: 0.2, LAM: 0.02, MMIN: 600, MMAX: 1100, TIN: 10, VMAX: 0.2, NSEED: 4, WARM: 150, SGF: 1.0, KS: 2.0, GS: 0.1, PS: 8, TOP: 20, R0T: 0.3, CAP: 30, GCAP: 0.1 };
+const CFG = { G0: 7e-5, DT: 0.2, R0: 6, JH: 0.002, KH: 0.5, WH: 0.2, JC: 0.003, KC: 0.14, WC: 0.1, LAM: 0.02, MMIN: 600, MMAX: 1100, TIN: 10, VMAX: 0.2, NSEED: 4, WARM: 150, SGF: 1.0, KS: 1.6, GS: 0.1, PS: 8, TOP: 20, R0T: 0.3, CAP: 30, GCAP: 0.1, DOP: 0.6 };
 
 // ---- radix-2 FFT ----------------------------------------------------------------------------
 function plan(n) {
@@ -89,7 +89,7 @@ function setup(params) {
     t: 0, warm: false, hue: 0, s: 1, g: 1, R: 6, kdt: 0, kG: 0, ks: 0, dt: CFG.DT, sum: N, nb: 0, bs: 0, hueDone: -1,
     re: new Float64Array(N), im: new Float64Array(N), tr: new Float64Array(N), ti: new Float64Array(N),
     K2: new Float64Array(N), Dr: new Float64Array(N), Di: new Float64Array(N), Pk: new Float64Array(N), SP: new Float64Array(N),
-    bh: [], lumps: [], gx: new Float64Array(64), gy: new Float64Array(64), cx: new Float64Array(64), sx: new Float64Array(64), cy: new Float64Array(64), sy: new Float64Array(64),
+    bh: [], bc: [], lumps: [], gx: new Float64Array(64), gy: new Float64Array(64), cx: new Float64Array(64), sx: new Float64Array(64), cy: new Float64Array(64), sy: new Float64Array(64),
   };
   for (let y = 0; y < H; y++) {
     const ny = y < H / 2 ? y : y - H, ky = (TAU * ny) / H;
@@ -121,7 +121,12 @@ function constants(S) {
   if (S.s !== S.ks) {
     S.ks = S.s;
     S.bh.length = 0;
-    for (let p = 1; p < N; p++) if (abs(sqrt(S.K2[p]) * S.s - CFG.KH) < CFG.WH) S.bh.push(p);
+    S.bc.length = 0;
+    for (let p = 1; p < N; p++) {
+      const kk = sqrt(S.K2[p]) * S.s;
+      if (abs(kk - CFG.KH) < CFG.WH) S.bh.push(p);
+      if (abs(kk - CFG.KC) < CFG.WC) S.bc.push(p);
+    }
   }
 }
 // One step: free flight in k space (with the sea's fresh waves laid in), then the kick of the potential.
@@ -133,11 +138,16 @@ function step(S) {
     re[p] = a * kr - b * ki;
     im[p] = a * ki + b * kr;
   }
-  const nh = S.bh.length, eh = sqrt((CFG.JH * dt) / (2 * nh));
+  const nh = S.bh.length, eh = sqrt((CFG.JH * dt) / (2 * nh)), nc = S.bc.length, ec = sqrt((CFG.JC * dt) / (2 * nc));
   for (let i = 0; i < nh; i++) {
     const p = S.bh[i];
     re[p] += eh * gauss();
     im[p] += eh * gauss();
+  }
+  for (let i = 0; i < nc; i++) {
+    const p = S.bc[i];
+    re[p] += ec * gauss();
+    im[p] += ec * gauss();
   }
   fft2(re, im, true);
   lumps(S, dt);
@@ -212,7 +222,7 @@ function lumps(S, dt) {
 function initField(S) {
   const { re, im, K2 } = S;
   for (let p = 0; p < N; p++) {
-    const a = K2[p] > 0 ? exp(-((sqrt(K2[p]) * S.s - CFG.KH) ** 2) / (2 * CFG.WH * CFG.WH)) : 0;
+    const kk = sqrt(K2[p]) * S.s, a = K2[p] > 0 ? exp(-((kk - CFG.KH) ** 2) / (2 * CFG.WH * CFG.WH)) + 0.6 * exp(-((kk - CFG.KC) ** 2) / (2 * CFG.WC * CFG.WC)) : 0;
     re[p] = a * gauss();
     im[p] = a * gauss();
   }
@@ -253,8 +263,11 @@ function buildLut(S, hue) {
     let j = 0;
     while (j < STOPS.length - 2 && u > STOPS[j + 1][0]) j++;
     const a = STOPS[j], b = STOPS[j + 1], f = cl((u - a[0]) / (b[0] - a[0]), 0, 1);
-    const hh = a[3] + (b[3] - a[3]) * f + hue * 360;
-    const c = fit(a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, (hh * PI) / 180);
+    const L = a[1] + (b[1] - a[1]) * f;
+    let hh = a[3] + (b[3] - a[3]) * f + hue * 360;
+    const ang = ((hh % 360) + 370) % 360 - 10; // -10 .. 350
+    if (ang < 150) hh += 38 * cl((0.5 - L) / 0.25, 0, 1) * sin((PI * (ang - 70)) / 80); // dark orange is brown: push the dark end away to crimson or to green
+    const c = fit(L, a[2] + (b[2] - a[2]) * f, (hh * PI) / 180);
     lut[i * 3] = c[0];
     lut[i * 3 + 1] = c[1];
     lut[i * 3 + 2] = c[2];
@@ -286,10 +299,20 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.warm) return;
   if (abs(S.hue - S.hueDone) > 0.0015) buildLut(S, S.hue);
-  const { re, im, lut } = S, kq = (NL - 1) / MTOP;
+  const { re, im, lut } = S, kq = (NL - 1) / MTOP, dop = CFG.DOP;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
-      const m = sqrt(re[p] * re[p] + im[p] * im[p]), i = (min(m * kq, NL - 1) | 0) * 3;
-      display.setPixel(x, y, lut[i] * 255, lut[i + 1] * 255, lut[i + 2] * 255);
+      const r2 = re[p] * re[p] + im[p] * im[p], m = sqrt(r2), i = (min(m * kq, NL - 1) | 0) * 3;
+      let R = lut[i], G = lut[i + 1], B = lut[i + 2];
+      if (dop) {
+        const xp = y * W + ((x + 1) & (W - 1)), xm = y * W + ((x + W - 1) & (W - 1));
+        const vx = (re[p] * (im[xp] - im[xm]) - im[p] * (re[xp] - re[xm])) / (2 * (r2 + 0.3));
+        const a = dop * cl(vx / 0.6, -1, 1), c = cos(a), sn = sin(a), yy = 0.299 * R + 0.587 * G + 0.114 * B;
+        const I = 0.596 * R - 0.274 * G - 0.322 * B, Q = 0.211 * R - 0.523 * G + 0.312 * B, I2 = I * c - Q * sn, Q2 = I * sn + Q * c;
+        R = cl(yy + 0.956 * I2 + 0.621 * Q2, 0, 1);
+        G = cl(yy - 0.272 * I2 - 0.647 * Q2, 0, 1);
+        B = cl(yy - 1.106 * I2 + 1.703 * Q2, 0, 1);
+      }
+      display.setPixel(x, y, R * 255, G * 255, B * 255);
     }
 }
