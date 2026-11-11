@@ -76,7 +76,7 @@ const RHO2 = 4;                    // (sigma_inhibition / sigma_excitation) squa
 const DT = 0.12;                   // step
 const RATE0 = 2.65;                // time units a second at Pace 2
 const NOISE = 0.16;
-const VIG = 0.5;                   // how far the contrast has fallen at the far corners
+const VIG = 0.65;                  // how far the contrast has fallen at the far corners
 // slow patches of excitability: the gain is multiplied by 1 + sum A cos(n theta + KS m s + nu t + phi), at low wavenumbers
 const PATCH = [
   // n, m, amplitude, nu, phi, amplitude modulation rate
