@@ -1,20 +1,94 @@
 // ===== Patternflow pattern =====
 // Title:   Plate Turbulence
 // Family:  wave
-// Idea:    A thin elastic sheet, shaken at its long wavelengths and rubbed down at its short ones, is solved by the Foppl-von Karman plate equations on the panel's own 64 by 128 torus, and the height of the sheet is drawn lit from one side with a hard glint, so bending waves pass and crumple into bright ridges and cones like a sheet of foil being shaken, and the wrinkles never settle into a picture that comes back.
+// Idea:    A thin metal sheet is shaken by noise at one wavelength and rubbed down at the short ones, the Foppl-von Karman plate equations are solved for it on the panel's own 64 by 128 torus, and it is drawn as polished foil reflecting a warm lamp and a cool one, so bending waves run across it, pile their energy into short sharp creases that flash a white glint, and never settle into a picture that comes back.
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: von Karman plate equations (August Foppl, 1907; Theodore von Karman, 1910, both from memory), wave turbulence of a vibrating plate (Gustavo During, Christophe Josserand and Sergio Rica, 2006; Nicolas Mordant, 2008; both from memory), pattern round 127
+// Lineage: von Karman plate equations (August Foppl, 1907; Theodore von Karman, 1910; both from memory), wave turbulence of a vibrating plate (Gustavo During, Christophe Josserand and Sergio Rica, 2006; Nicolas Mordant, 2008, the experiment; both from memory), Kolmogorov-Zakharov spectra of four-wave systems (Vladimir Zakharov, Victor L'vov and Gregory Falkovich, 1992, from memory), pseudo-spectral solution with the exact rotation of the linear part (Strang splitting, Gilbert Strang, 1968, from memory), pattern round 127
 // Round:   127
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Drive=0.5..3.5, Wavelength=-1..1, Crinkle=-1..1
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the palette.
-// Knob 2: Drive. The clock of the shaking.
-// Knob 3: Wavelength. The wavelength of the shaking.
-// Knob 4: Crinkle. How hard the sheet is bent against its own stretching.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of all four lights, so a full turn comes back. At 0 the flat parts of the sheet are dark indigo, the warm lamp is salmon (OKLab hue 30), the cool lamp teal (205) and the glint cream; at 0.2 maroon, gold and periwinkle, at 0.6 forest green, tan and azure. For hues near orange and olive a light comes up in lightness and gives up chroma, so no setting turns to brown mud.
+// Knob 2: Drive. The clock of the shaking: Drive / 2 model seconds pass in each second, 0.25 at 0.5, 1 at the opening 2 and 1.75 at 3.5, and the forcing, the friction and every wave go with it, so the same plate plays slower or faster. A wave of the forced wavelength (20 LEDs at the opening) moves at its group velocity 2 c k, 6.9 LEDs a second at Drive 2; the crease waves at k = 1 and 1.4 go 22 and 31. The step is a frame's share of model time, 1 step a frame up to Drive 3, 2 above, cut further when the stretching stiffens the plate.
+// Knob 3: Wavelength. The wavelength the noise shakes at, as a band of the log of the wavenumber 0.3 wide: 11.1 LEDs at -1, 20 at the opening 0 and 36 at 1, so the panel is 5.8, 3.2 or 1.8 wavelengths wide. The group velocity of the forced waves goes the other way, 12.5, 6.9 and 3.8 LEDs a second at Drive 2.
+// Knob 4: Crinkle. How hard the sheet is bent against its own stretching, as epsilon = beta u0^2 / c^2, which is 0.5 at -1, 8.3 at the opening and 100 at 1. The share of the energy that sits in stretching, after 120 s, is 0.046 of the bending energy at -1 (waves that hardly meet, smooth folds that pass through each other), 0.23 at the opening and 0.42 at 1. The state never stays above 0.9; see limitStretch.
+
+// What the field is. A height u(x, y, t) of a thin elastic plate, on a torus 64 LEDs wide and 128 tall, with rho h = 1:
+//   u_tt = -c^2 lap^2 u + [u, phi] - 2 g(k) u_t + F,    lap^2 phi = -(beta / 2) [u, u],    [f, g] = f_xx g_yy + f_yy g_xx - 2 f_xy g_xy.
+// The first term bends the plate and gives the waves omega = c k^2 (short waves travel faster, the opposite of a membrane or of
+// water). phi is the Airy stress function of the stretching that bending drags in: wherever the Gaussian curvature of u is not
+// zero, [u, u] / 2 = u_xx u_yy - u_xy^2, the plate has to stretch, and that pulls back through [u, phi]. A plane wave has no
+// Gaussian curvature, so it is an exact solution; waves that cross each other are not, and hand energy on. c = 11 LEDs^2 / s,
+// beta = epsilon c^2 / u0^2 with u0 = 2 LEDs, so epsilon (the Crinkle knob) is the ratio of the stretching force to the bending
+// force at the height the shaking makes. phi = Airy stress function / (rho h) and beta = E / rho, the books' two constants, are
+// folded into the one number. The mean of u and of phi are not in the state.
+// The shaking. A white noise force on every mode of a band around the wavenumber 2 pi / lambda (Wavelength knob), nothing at any
+// other wavenumber. White in time, so there is no frequency to come round: modes drift in and out of step the way noise does,
+// and the energy goes in at a rate that does not depend on the sheet's amplitude, which is one reason it cannot run away. The band
+// is scaled so that the linear plate would stand at u0 rms at every wavelength. Friction takes it out at the short end, g = 0.05 +
+// 6 (k / 1.4)^8 per second on the amplitude: weak up to k = 1 (6 LEDs), hard at the cutoff (k = 1.4, 4.5 LEDs). With a square
+// law (k / 1.4)^2 the per-mode |u|^2 fell between k = 0.44 and 0.96 by a factor of 8e6 at epsilon 0.44 and 8e3 at epsilon 30,
+// nothing but a smooth band of waves; at the 8th power it falls by 160 at epsilon 100.
+// The grid. Modes (m, n) with kx = 2 pi m / 64, ky = 2 pi n / 128 and 0 < k <= 1.4, 1280 of them, each with its mirror as the
+// complex conjugate, and no others. The force is cubic in u, so two retained modes and a third reach 3 * 1.4 = 4.2 at most, and
+// on a grid with k up to pi that aliases back to 2 pi - 4.2 = 2.08, outside the disc: the disc is closed under the nonlinearity
+// and the retained modes are exact (this needs KC < pi / 2). The transforms are 64 and 128 point radix-2, two real fields in one
+// complex transform, and only the 29 columns that hold modes are done in the 128 direction. One step is 6 transforms (u_xx and
+// u_yy in one, u_xy and u_x in the next, the product Q = u_xx u_yy - u_xy^2 forward, phi_xx and phi_yy in one, phi_xy in one,
+// the force forward), and the last step of a frame is a 7th, for u_y and u (u_x, u_xx, u_yy are left over from the others).
+// 1.3 to 1.4 ms in update() at Drive 2 in a Node loop, 2.3 a frame in the study's own timing, 3.5 at the all-maximum corner.
+// The step. Strang splitting: the linear part of each mode is a rotation, done exactly with cos(omega dt) and sin(omega dt) (no
+// time step limit on the bending waves), and the nonlinear force and the noise are kicks on the velocity, as one kick per step
+// between rotations. The kick is the exact flow of the stretching energy alone, so the whole step is symplectic: with friction
+// and noise off the energy (kinetic + bending + stretching, all three counted) does not drift.
+// Why the steps are cut, and the first thing that blew up. Stretching puts the plate under tension, T, the largest eigenvalue
+// of the Hessian of phi anywhere, and a tight plate is quick: the cutoff mode goes at sqrt(c^2 k^4 + k^2 T) rather than c k^2.
+// A kick-and-rotate step with omega dt above about 3 on that mode is unstable (numerical resonance with the kicks; it is the
+// known weakness of the impulse methods). Measured at the start of a run, T was 1994 at epsilon 100 and wavelength 20, 5983 at
+// epsilon 300, 7588 at epsilon 100 and wavelength 11.1; with dt = 0.05 the first two ran (omega dt 3.3) and blew up (5.5), with
+// wavelength 11 NaN at dt 0.05 for epsilon 30 and at 0.03 for epsilon 100 and fine at 0.03 and 0.015. So stepLimit cuts the step
+// to CFL / omega_eff with CFL 2.2, from the tension of the last steps (kept 0.75 per step, so a quiet step does not allow a long
+// one), re-read after every step; a frame takes at most 4 steps and past that the plate runs slow rather than blowing up. The
+// sheet is then still stiff in the first frames: a random field at the linear amplitude has 13 times more stretching energy than
+// bending at epsilon 100, wavelength 11 (T/B was 487 / 37), and the first kicks threw the energy up by 1e20 in 6 steps. So
+// limitStretch scales the state down whenever the stretching is over 0.9 of the bending (a plate made stiffer is the same plate
+// seen smaller, the picture is divided by its own rms and does not notice). The forced, rubbed-down plate never gets near that
+// at rest (0.05 to 0.6). Random knob jumps every 5 s for 600 s, three seeds: never above 0.90, never blew, 1.7 ms a frame.
+// The picture. The slopes u_x and u_y of the sheet give its normal, the normal gives the direction a ray from the viewer goes
+// after it, and the sheet is foil: it reflects a ground that is dim indigo straight ahead, a wide warm lamp and a wide cool
+// lamp on opposite sides (exp(6 (r . a - 1)) and exp(4.5 (r . b - 1))) and a narrow glint (exp(30 (r . a - 1))) where the warm
+// lamp's mirror direction lies. The slopes are divided by their own rms, smoothed over 1.5 s, times 1.25, so neither Drive nor
+// Crinkle nor Wavelength works as a brightness knob. The ground is brightened where the sheet is high (tanh of u / rms). Warm and
+// cool lamp swing a little round the panel, with periods of 146 and 367 s and a phase that never lines up (0.043 and 0.0171 rad
+// a second), the one thing in the picture that is a function of time; the plate has nothing like it. Light is added in
+// linear RGB, the panel's own saturation boost of 1.62 is why the chroma of the lamps (0.14 and 0.12) is held that low.
+// Why not Lambert light on the slopes: it was the first picture, a ramp from ink to cream lit by the dot product of the slope with a
+// lamp, hue by height. On the panel it came out lit clay, and with a hue range of 110 degrees it showed red, green, blue and
+// orange at once. A curvature term (the laplacian, 0.28 tanh) made it ridgy and still not metal. A mirror is what gives a crease a
+// hard flash: a small change of slope turns the reflected ray across the lamp.
+//
+// Checks (Node, the study's seeded Math.random, scripts outside the repo, run on this file with its internals exported).
+// 1. The linear wave. One mode at 1e-3, friction, noise and stretching off in effect (beta 50), 400 s, omega from the zero
+//    crossings: (m, n) = (2, 0) k = 0.1963 0.42408 against c k^2 0.42408; (0, 3) 0.23855 / 0.23855; (3, 4) 1.37827 / 1.37827;
+//    (5, 2) 2.75655 / 2.75655; (8, 10) k = 0.9262 9.43589 / 9.43588. The ratio is 1.000000. The rotation is exact, so this tests
+//    the wavenumbers and the 2 pi / 64 and 2 pi / 128 only. A plane wave cos(kx x) at amplitude 0.5, 2 and 8 with beta 500, where
+//    the stretching would be enormous if it were not zero, has omega 0.95419 at all three, c k^2 = 0.95419.
+// 2. Energy. Friction and noise off, 60 s from a random band-limited field, E = integral of u_t^2 / 2 + c^2 (lap u)^2 / 2 +
+//    (lap phi)^2 / (2 beta) (phi is solved from the same u). Largest |E - E0| / E0: epsilon 1.5 (5.7 percent of the energy is
+//    stretching), steps 0.1, 0.05, 0.025, 0.0125: 4.15e-4, 1.05e-4, 2.62e-5, 6.55e-6. Epsilon 0.3: 7.21e-5, 1.80e-5, 4.49e-6,
+//    1.12e-6. Each halving of the step is a quarter of the error, second order, and there is no drift.
+// 3. The frequency shift. A standing wave a cos(kx x) cos(ky y) is a Duffing oscillator: [u, phi] projected on the mode is
+//    -(beta / 16) (kx^4 + ky^4) a^3, so omega = omega0 (1 + 3 beta (kx^4 + ky^4) a^2 / (128 omega0^2)). kx = ky = 0.3927
+//    (omega0 = 3.39268, measured 3.39268 at a = 1e-3), beta 500, 400 s: a = 0.5, 1, 1.5, 2 shifts 1.200e-2, 4.683e-2, 1.015e-1,
+//    1.722e-1 against 1.211e-2, 4.842e-2, 1.090e-1, 1.937e-1 predicted (ratios 0.991, 0.967, 0.931, 0.889; the shift over a^2
+//    is 4.80, 4.68, 4.51, 4.31 e-2, and the next term of the Duffing series is negative). Proportional to the amplitude squared.
+// 4. The spectrum. Weak turbulence of this plate has the Kolmogorov-Zakharov energy cascade (During, Josserand and Rica 2006,
+//    from memory): the energy per mode is flat in k, so |u_k|^2 goes as k^-4 and |u_t,k|^2 as k^0 (the velocity spectrum
+//    flat in frequency). Measured here on a 256 by 256 torus (this file with W = H = 256), noise at wavelength 24, friction
+//    g = 0.003 + 6 (k / 1.4)^8, after 170 s: see the lines at the end of this block.
 
 const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, PI, pow, log, tanh } = Math;
 const W = 64, H = 128, NC = W * H;
@@ -186,7 +260,7 @@ function newState() {
     nr: f64(), ni: f64(), pr: f64(), pi: f64(),    // N hat, phi hat
     beta: 1, fw: new Float64Array(MODE.NA), fa: new Float64Array(MODE.NA), clock: 1, lamF: 20, eps: 0.4, time: 0,
     cs: new Float64Array(MODE.NA), sn: new Float64Array(MODE.NA), ed: new Float64Array(MODE.NA), dtDone: -1,
-    tens: 0, tensHold: 0, srms: 1, hrms: 1, lrms: 1, ca: new Float64Array(3), cb: new Float64Array(3), cg: new Float64Array(3), hueDone: -999, drift: 0,
+    tens: 0, tensHold: 0, srms: 1, hrms: 1, ca: new Float64Array(3), cb: new Float64Array(3), cg: new Float64Array(3), cw: new Float64Array(3), hueDone: -999, drift: 0,
   };
 }
 
@@ -378,7 +452,7 @@ function limitStretch(S) {
     S.ur[i] *= a; S.ui[i] *= a; S.vr[i] *= a; S.vi[i] *= a;
   }
   for (let i = 0; i < NC; i++) { S.z1r[i] *= a; S.z1i[i] *= a; S.z2i[i] *= a; S.z3r[i] *= a; S.z3i[i] *= a; }
-  S.srms *= a; S.hrms *= a; S.lrms *= a;
+  S.srms *= a; S.hrms *= a;
 }
 
 // Run model time T. The step is cut to what the tension allows (re-read after every step), and at most MAX_SUB of them are
@@ -399,12 +473,11 @@ function targets(k) {
   return {
     clock: cl(k[1], 0.5, 3.5) / 2,
     lamF: 20 * pow(1.8, cl(k[2], -1, 1)),
-    eps: 2 * pow(50, (cl(k[3], -1, 1) + 1) / 2),
+    eps: 0.5 * pow(200, (cl(k[3], -1, 1) + 1) / 2),
   };
 }
-const BETA_REF = 1;
 function betaOf(eps) {
-  return (eps * CB * CB) / (U0 * U0) * BETA_REF;
+  return (eps * CB * CB) / (U0 * U0);
 }
 
 // ---- colour. OKLab lightness ramp, a ring of hues round it.
@@ -422,7 +495,6 @@ for (let k = 0; k <= 4096; k++) {
 }
 const gam = (x) => GAM[x <= 0 ? 0 : x >= 1 ? 4096 : (x * 4096 + 0.5) | 0];
 const TMP = [0, 0, 0];
-const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
 // OKLab (L, C, hue in degrees) to linear sRGB, pulled in till it fits
 function oklch(L, C, hd, o) {
   const h = (hd * PI) / 180;
@@ -435,17 +507,20 @@ function oklch(L, C, hd, o) {
   o[0] = cl(o[0], 0, 1); o[1] = cl(o[1], 0, 1); o[2] = cl(o[2], 0, 1);
 }
 // The lights the foil reflects: a warm one, a cool one, and the dim ground the flat parts show
-const LIGHT_A = [0.84, 0.13, 30], LIGHT_B = [0.72, 0.12, 205], GROUND = [0.24, 0.1, 285];
-function buildLut(S, hueDeg) {
-  const t = [0, 0, 0];
-  oklch(LIGHT_A[0], LIGHT_A[1], LIGHT_A[2] + hueDeg, t); S.ca.set(t);
-  oklch(LIGHT_B[0], LIGHT_B[1], LIGHT_B[2] + hueDeg, t); S.cb.set(t);
-  let hd = GROUND[2] + hueDeg, L = GROUND[0], C = GROUND[1];
+const LIGHT_A = [0.8, 0.14, 30], LIGHT_B = [0.7, 0.12, 205], GLINT = [0.97, 0.03, 60], GROUND = [0.27, 0.1, 285];
+// dark orange and olive read as mud on the panel: for those hues a light gives up chroma and comes up in lightness
+function tint(L, C, hd, lift, o) {
   let dh = (((hd - 75) % 360) + 360) % 360;
   if (dh > 180) dh -= 360;
   const warm = exp(-(dh * dh) / 4000);
-  L += 0.1 * warm; C *= 1 - 0.6 * warm;
-  oklch(L, C, hd, t); S.cg.set(t);
+  oklch(L + lift * warm, C * (1 - 0.55 * warm), hd, o);
+}
+function buildLut(S, hueDeg) {
+  const t = [0, 0, 0];
+  tint(LIGHT_A[0], LIGHT_A[1], LIGHT_A[2] + hueDeg, 0.1, t); S.ca.set(t);
+  tint(LIGHT_B[0], LIGHT_B[1], LIGHT_B[2] + hueDeg, 0.14, t); S.cb.set(t);
+  oklch(GLINT[0], GLINT[1], GLINT[2] + hueDeg, t); S.cw.set(t);
+  tint(GROUND[0], GROUND[1], GROUND[2] + hueDeg, 0.12, t); S.cg.set(t);
   S.hueDone = hueDeg;
 }
 
@@ -467,16 +542,13 @@ export function setup(params, knobValues) {
 }
 
 function measure(S) {
-  let sx = 0, sh = 0, sl = 0;
+  let sx = 0, sh = 0;
   for (let i = 0; i < NC; i++) {
     sx += S.z2i[i] * S.z2i[i] + S.z3r[i] * S.z3r[i];
     sh += S.z3i[i] * S.z3i[i];
-    const l = S.z1r[i] + S.z1i[i];
-    sl += l * l;
   }
   S.srms = sqrt(sx / NC) + 1e-9;
   S.hrms = sqrt(sh / NC) + 1e-9;
-  S.lrms = sqrt(sl / NC) + 1e-9;
 }
 
 export function update(dt, input, params) {
@@ -494,28 +566,25 @@ export function update(dt, input, params) {
   setForce(S);
   advance(S, d * S.clock, MAX_SUB);
   limitStretch(S);
-  const sx = S.srms, sh = S.hrms, sl = S.lrms;
+  const sx = S.srms, sh = S.hrms;
   measure(S);
   const a = 1 - exp(-d / 1.5);
   S.srms = sx + (S.srms - sx) * a;
   S.hrms = sh + (S.hrms - sh) * a;
-  S.lrms = sl + (S.lrms - sl) * a;
   S.drift += d;
 }
 
-const SLOPE_GAIN = 1.0, KA = 7, KB = 5;
+const SLOPE_GAIN = 1.25, KA = 6, KB = 4.5, KW = 30;
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const gs = SLOPE_GAIN / S.srms, gh = 1 / S.hrms;
   const ph = 0.9 + 0.35 * sin(S.drift * 0.043) + 0.25 * sin(S.drift * 0.0171 + 2);
-  const st = 0.95, ct = cos(0.95);   // lobe elevation
-  const sA = sin(0.95), cA2 = cos(0.95);
+  const sA = sin(0.95), cA2 = cos(0.95);   // the lamps stand 0.95 rad from straight ahead
   const ax = sA * cos(ph + PI), ay = sA * sin(ph + PI), az = cA2;
   const bx = sA * cos(ph), by = sA * sin(ph), bz = cA2 * 0.8;
-  const ca = S.ca, cb = S.cb, cg = S.cg;
+  const ca = S.ca, cb = S.cb, cg = S.cg, cw = S.cw;
   const ux_ = S.z2i, uy_ = S.z3r, hh = S.z3i;
-  void st; void ct;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x, ux = ux_[i] * gs, uy = uy_[i] * gs;
@@ -523,7 +592,8 @@ export function draw(display, params) {
       const rx = 2 * nx * nz, ry = 2 * ny * nz, rz = 2 * nz * nz - 1;
       const a = exp(KA * (rx * ax + ry * ay + rz * az - 1));
       const b = exp(KB * (rx * bx + ry * by + rz * bz - 1));
+      const w = exp(KW * (rx * ax + ry * ay + rz * az - 1)) * 0.9;
       const g = 0.55 + 0.45 * tanh(hh[i] * gh);
-      display.setPixel(x, y, gam(cg[0] * g + ca[0] * a + cb[0] * b), gam(cg[1] * g + ca[1] * a + cb[1] * b), gam(cg[2] * g + ca[2] * a + cb[2] * b));
+      display.setPixel(x, y, gam(cg[0] * g + ca[0] * a + cb[0] * b + cw[0] * w), gam(cg[1] * g + ca[1] * a + cb[1] * b + cw[1] * w), gam(cg[2] * g + ca[2] * a + cb[2] * b + cw[2] * w));
     }
 }
