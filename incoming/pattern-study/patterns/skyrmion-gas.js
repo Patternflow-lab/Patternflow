@@ -168,7 +168,7 @@ function sweep(S, par, dt) {
 }
 
 // A current that wanders: u = (d psi / dy, -d psi / dx) for a stream function of three standing modes whose phases drift at their
-// own rates, so the current is divergence free, never uniform, and does not repeat.
+// own rates, so the current has no divergence and is never uniform. It does not repeat.
 const SX = new Float64Array(W * 2), SY = new Float64Array(H * 2);
 function stir(S, t) {
   const amp = S.amp, uxa = S.uxa, uya = S.uya;
