@@ -85,10 +85,15 @@
 //    (omega0 = 3.39268, measured 3.39268 at a = 1e-3), beta 500, 400 s: a = 0.5, 1, 1.5, 2 shifts 1.200e-2, 4.683e-2, 1.015e-1,
 //    1.722e-1 against 1.211e-2, 4.842e-2, 1.090e-1, 1.937e-1 predicted (ratios 0.991, 0.967, 0.931, 0.889; the shift over a^2
 //    is 4.80, 4.68, 4.51, 4.31 e-2, and the next term of the Duffing series is negative). Proportional to the amplitude squared.
-// 4. The spectrum. Weak turbulence of this plate has the Kolmogorov-Zakharov energy cascade (During, Josserand and Rica 2006,
-//    from memory): the energy per mode is flat in k, so |u_k|^2 goes as k^-4 and |u_t,k|^2 as k^0 (the velocity spectrum
-//    flat in frequency). Measured here on a 256 by 256 torus (this file with W = H = 256), noise at wavelength 24, friction
-//    g = 0.003 + 6 (k / 1.4)^8, after 170 s: see the lines at the end of this block.
+// 4. The spectrum. The weak turbulence of this plate has a Kolmogorov-Zakharov energy cascade (During, Josserand and Rica 2006,
+//    from memory): the energy per mode is flat in k, so |u_k|^2 goes as k^-4 and |u_t,k|^2 as k^0 (a velocity spectrum flat in
+//    frequency). A 64 by 128 torus has one octave of room between the noise and the friction, so this was measured on this
+//    file with W = H = 256, noise at wavelength 24 (a band of 640 modes), friction 0.003 + 6 (k / 1.4)^8, the mean of the
+//    shells over 330 s after 170 s. Slopes of the per-mode |u_k|^2 and |u_t,k|^2 against k, least squares over k = 0.25 to 0.7
+//    (0.3 to 0.9): epsilon 8, stretching 0.12 of bending: -5.35 and -1.82 (-5.88, -2.21); epsilon 30, 0.175: -5.06 and -1.72
+//    (-5.38, -1.88); epsilon 100, 0.244: -4.90 and -1.76 (-5.13, -1.80). Steeper than -4 and 0, and flattening as the plate gets more
+//    nonlinear (more energy reaches the short waves before the friction has it); I did not get to -4. At epsilon 300 the steps fall to 0.005 and 500 s did not finish. On the panel's own torus,
+//    epsilon 100 and wavelength 20, the same slopes between k = 0.38 and 0.96 are -5.4 and -2.5.
 
 const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, PI, pow, log, tanh } = Math;
 const W = 64, H = 128, NC = W * H;
