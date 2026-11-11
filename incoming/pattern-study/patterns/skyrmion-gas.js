@@ -11,10 +11,58 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Drive=0.5..3.5, Pitch=-1..1, Field=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Drive.
-// Knob 3: Pitch.
-// Knob 4: Field.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of every spin, where a spin's hue is its in-plane angle. A skyrmion's ring always holds the whole colour wheel, so what turns is which colour sits on which side of each bead (a full turn comes back); the pale core and the blue-black ground stay put, and the dark steps keep some lightness where the wheel passes orange and olive so they read as amber and gold rather than brown.
+// Knob 2: Drive. How much story time passes in a second (3 + 4.5 Drive: 5.25 at 0.5, 12 at the opening 2, 18.75 at 3.5) and how hard the wandering current pushes (0.09 Drive, times 15 / lambda). Low, the beads sit in a slowly shearing liquid and keep their number; at the opening they drift, pair up and pull out into short worms; high, the current drags them into long worms that fork and rejoin.
+// Knob 3: Pitch. The helix period lambda = 4 pi A / D, which is how big every feature is: 11 LEDs at -1, 15 at the opening 0, 28 at 1. A bead is about 0.85 lambda across at the opening field, 9.5 LEDs, and the panel is seeded with 49, 31 and 12 of them. Turning it live regrows the beads in two or three seconds.
+// Knob 4: Field. The centre of the field's swing in units of B_D = D^2 / 2A: 0.46 at -1, 0.59 at the opening, 0.70 at 1, with two slow swings of 0.12 and 0.08 (periods 23.7 s and 38.3 s) that never line up on top of it. Below about 0.3 the beads are pulled into stripes, above about 0.8 they shrink to a cell and vanish. Higher keeps more of the swing in the bead range and the picture stays a gas, lower keeps more of it in the worm range.
+
+// What the field is. A thin film of a chiral magnet, one unit spin m per LED on the panel's own 64 by 128 torus, energy per area
+//   E = A |grad m|^2 + D m . (curl m) - B m_z,
+// so the field that turns a spin is H = 2 A lap m - 2 D curl m + B z, and m moves by dm/dt = -m x H + alpha m x dm/dt (units where
+// the gyromagnetic ratio is 1; A = 1 sets the unit of energy and of time). With B = 0 the ground state is a helix of period
+// lambda = 4 pi A / D (Bogdanov and Yablonskii 1989). A central difference for the curl and a 5-point Laplacian give a lattice helix
+// whose wave number q has tan q = D / 2A instead of q = D / 2A, so D is set as D = 2 A tan(2 pi / lambda) and the helix along an axis
+// is exactly lambda. A field B across the film favours the spins that point with it, which are the dark ground here, and the
+// beads (skyrmions) that point against it in a core are what is left in the gas phase: they sit between helix and uniform state
+// (b = B / B_D from about 0.3 to 0.8 at the pitches used, B_D = 2 A q^2 = D^2 / 2A). Their number Q = (1 / 4 pi) int m . (dm/dx x
+// dm/dy), counted on this lattice as a sum of spherical triangles (Berg and Luscher 1981), is an integer, -1 for each bead with its
+// core against the field and y counted down the panel. Thermal noise alone never changes it: 12 beads at T = 0.25 and 300 time units
+// kept Q = -12, and the swing alone only breathes them (22 beads stayed Q = -22 for 54 s while b went 0.30 to 0.80, until b touched
+// 0.8 and cores shrank to one cell and left).
+// What keeps it alive. The beads are made and unmade by the current. A divergence-free current u = (dpsi/dy, -dpsi/dx), psi a sum of
+// three standing modes whose phases drift at 0.37, 0.23 and 0.31 rad/s on the long axes, pushes the texture with the Zhang-Li torque
+// -(u . grad) m + beta m x (u . grad) m, beta = 1.5 alpha, so a bead moves with the current and a little across it. Where the current
+// shears, a bead is pulled into a worm; where the field swings up, a worm pinches back into beads, so Q wanders instead of holding: over
+// 900 s it ran between -19 and -30 at the opening, between -6 and -10 with every knob up, and at Drive 0.5, Pitch -1 it held -50 for the
+// whole 900 s (the 50 beads only jostle there).
+// A current of strength 1 (the stream function's own unit) tore the texture into fine turbulence within 6 s and Q fell from -22 to -15
+// and kept falling; 0.18 at the opening and 0.32 at Drive 3.5 keep beads and worms.
+// Why this integrator. Landau-Lifshitz-Gilbert is stiff at the cell: the exchange turns a spin at up to 16 A. The two colours of a
+// checkerboard are advanced one after the other (a Gauss-Seidel sweep, the colours alternating which goes first each step), and
+// each spin takes B for dt / 2 exactly, a Cayley turn (the implicit midpoint rotation, which keeps |m| = 1 to 7e-16 over 20000 steps)
+// about the part of its field that lies across it, then B again. A turn about the full field with the neighbour sum 8 A m in it is
+// stable at dt = 0.3 but runs the Larmor turn 19 percent fast at dt = 0.1; about the Laplacian field without cutting the part along
+// m it ran away to the checkerboard state; across the spin only, the energy falls to dt = 0.09 at alpha = 0.4, 0.07 at alpha 0.3, and
+// at alpha 0.05 it was not stable at dt = 0.04. The pattern uses alpha 0.4 and dt 0.07. The price is first order in dt, shown below.
+// Noise. The thermal field of each spin is uniform noise of variance 2 alpha T / dt per component (Brown 1963), added inside the same
+// turn, which is the midpoint (Stratonovich) rule, so the Boltzmann distribution comes out: a single spin in B = 0.3 at T = 0.3, 0.1,
+// 0.6 and 0.03 has m_z = 0.3121, 0.6711, 0.1642, 0.8998 against coth(B/T) - T/B = 0.3130, 0.6716, 0.1640, 0.9000. T = 0.08 (15 / lambda)^2.
+// What the checks showed (alpha = 0.4, dt = 0.06 is the operating point, 0.07 in the pattern; converged means dt = 0.005 to 0.01).
+// Larmor: a tilted uniform state turns at 0.27121 at dt 0.06 and 0.25881 at 0.01 against gamma B / (1 + alpha^2) = 0.25862 (B = 0.3), and
+// at alpha 0.02, dt 0.005 at 0.30000 against gamma B = 0.3. Damping: the tilt tan(theta / 2) falls with time constant 8.73 at dt 0.06 and
+// 9.63 at 0.01 against (1 + alpha^2) / (alpha B) = 9.67 (1 / (alpha B) = 8.33); at alpha 0.1, dt 0.01: 33.55 against 33.67.
+// Spin waves about the uniform state, omega = (B + 2 A k_L^2) / (1 + alpha^2) with k_L^2 = (2 - 2 cos kx) + (2 - 2 cos ky) (D does not enter
+// at the first order for k across z): the error is 8.7, 13.4, 15.9 percent at k = 0.196, 0.393, 0.785 and dt 0.06; 1.7, 3.8, 5.4 at dt 0.02; 0.25,
+// 1.1, 1.4 at dt 0.005, so it goes with dt. Helix: relaxed from random spins, the structure factor peaks at lambda = 15.3 (mean 14.9) for 15, 29.9
+// (27.8) for 28 and 10.0 (10.4) for 11, the bin width being 0.02 rad/LED; the energy per cell is 2 to 6 percent above the ideal helix's
+// (defects). One bead relaxed at b = 0.55: Q = -1.0000 at lambda 15 and 28 (the continuum sum gives -0.979 and -0.993), core radius
+// 0.44 and 0.41 lambda; at b = 0.3 the seed opens into a stripe (Q = -3 at 15, a disc of 1.03 lambda at 28). The current: a bead with
+// beta = alpha moves at 1.178, 1.040 and 1.014 times u at dt 0.06, 0.02 and 0.01 (theory 1) and 14.8, 4.7 and 2.4 degrees across it (theory 0).
+// What it cost. A step of 8192 cells is 0.25 to 0.35 ms in node; the opening takes 6 steps a frame, the loudest corner 9; update and draw take 1.3 ms at
+// every knob down, 2.1 at the opening and 2.7 to 2.9 at the loudest corners.
+// The picture. Smoothing 1-2-1 across and down (the cell-sized thermal speckle goes), then hue from the in-plane angle (a polynomial
+// arctangent) and a lookup on t = (1 - m_z) / 2 for lightness and chroma in OKLab: blue-black ground to t = 0.1, amber-lit rim from 0.3, pale core
+// at 1, chroma rising with the in-plane share of the spin. The lookup is 48 steps of t by 256 of hue and the hue knob only moves the index.
 
 const { floor, ceil, sqrt, sin, cos, exp, abs, min, max, PI, pow, tan } = Math;
 const W = 64, H = 128, NC = W * H;
