@@ -23,19 +23,26 @@ const TAU = 2 * PI;
 const HC = TAU / NT;                   // one cell, in radians of theta and in units of s
 const LS = NS * HC;                    // length of the s axis (pi)
 const KS = TAU / LS;                   // spacing of the wavenumbers along s (2)
-const R0 = 3.5;                        // core radius of the map, LEDs
-const CX = 32, CY = 64;                // the centre of the map, a corner of four LEDs
+const R0 = 4;                          // core radius of the map, LEDs
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- model constants. Time is in units of the activity's decay time.
-const TAU_B = 4;                   // fatigue time
+const TAU_B = 2;                   // fatigue time
 const C_FAT = 0.8;                 // fatigue drive: db/dt = (C a - b) / TAU_B
 const G_H = 1 + 1 / TAU_B;         // gain at which the mode at the kernel's peak starts to oscillate (kernel peak normalised to 1)
-const EPS0 = 0.3;                  // how far above it the field runs, on average
+const EPS0 = 0.25;                 // how far above it the field runs, on average
+const ANISO = 0.15;                // how much the gain depends on the direction of the wave vector, at most
 const RHO2 = 4;                    // (sigma_inhibition / sigma_excitation) squared
 const DT = 0.12;                   // step
-const RATE0 = 3.6;                 // time units a second at Pace 2
+const RATE0 = 2.65;                // time units a second at Pace 2
 const NOISE = 0.03;
+// slow patches of excitability: the gain is multiplied by 1 + sum A cos(n theta + KS m s + nu t + phi), at low wavenumbers
+const PATCH = [
+  // n, m, amplitude, nu, phi, amplitude modulation rate
+  [1, 1, 0.34, 0.0146, 0.4, 0.0069],
+  [2, -1, 0.30, -0.0087, 2.1, 0.0045],
+  [3, 0, 0.26, 0.0124, 4.0, 0.0057],
+];
 
 function fftTables(n) {
   const c = new Float64Array(n / 2), s = new Float64Array(n / 2), rev = new Uint16Array(n);
@@ -101,12 +108,15 @@ function newState() {
     ar: new Float64Array(NC), ai: new Float64Array(NC), br: new Float64Array(NC), bi: new Float64Array(NC),
     zr: new Float64Array(NC), zi: new Float64Array(NC), rr: new Float64Array(NC), ri: new Float64Array(NC),
     ap: new Float32Array(NC), ac: new Float32Array(NC), tmp: new Float32Array(NC),
+    bp: new Float32Array(NC), bc: new Float32Array(NC), tmb: new Float32Array(NC), rmsb: 0.3,
     cls: new Uint16Array(NC), conj: new Int32Array(NC),
     e11: new Float64Array(33 * 65), e12: new Float64Array(33 * 65), e21: new Float64Array(33 * 65), e22: new Float64Array(33 * 65),
     pa: new Float64Array(33 * 65), pb: new Float64Array(33 * 65), wk: new Float64Array(33 * 65),
     kc: 8, kcDone: -1, acc: 0, t: 0, steps: 0, rms: 0.5, pace: 2,
-    lut: new Uint8Array(3 * 512), hueDone: -999, lattice: 0,
-    pixStart: null, smpIdx: null, smpW: null,
+    lut: new Uint8Array(3 * NA * NB), hueDone: -999, lattice: 0,
+    cx: 32, cy: 64, cs2: new Float64Array(NC), sn2: new Float64Array(NC),
+    q1: new Float64Array(33 * 65), q2: new Float64Array(33 * 65), psi: 0, ani: 0,
+    pc: PATCH.map(() => new Float32Array(NC)), ps: PATCH.map(() => new Float32Array(NC)), loc: new Float32Array(NC),
   };
 }
 
@@ -116,6 +126,15 @@ function initIndex(S) {
       const m = j < NS / 2 ? j : j - NS, n = i < NT / 2 ? i : i - NT;
       S.cls[j * NT + i] = abs(m) * 65 + abs(n);
       S.conj[j * NT + i] = ((NS - j) % NS) * NT + ((NT - i) % NT);
+      // direction of the wave vector in the (theta, s) plane, as cos 2phi and sin 2phi
+      const ks = KS * m, k2 = n * n + ks * ks;
+      S.cs2[j * NT + i] = k2 > 0 ? (n * n - ks * ks) / k2 : 0;
+      S.sn2[j * NT + i] = k2 > 0 ? (2 * n * ks) / k2 : 0;
+      PATCH.forEach((q, a) => {
+        const ph = q[0] * i * HC + KS * q[1] * j * HC;
+        S.pc[a][j * NT + i] = cos(ph);
+        S.ps[a][j * NT + i] = sin(ph);
+      });
     }
 }
 
@@ -148,6 +167,8 @@ function buildSpectrum(S, kc) {
       S.e11[c] = e11; S.e12[c] = e12; S.e21[c] = e21; S.e22[c] = e22;
       S.pa[c] = (DT * p11 * w) / NC;
       S.pb[c] = (DT * p21 * w) / NC;
+      S.q1[c] = DT * p11;
+      S.q2[c] = DT * p21;
     }
   S.kcDone = kc;
 }
@@ -165,28 +186,48 @@ function step(S) {
   }
   fft2(zr, zi, 1); // real part u = a - b, imaginary part a
   const t = S.t;
-  const eps = EPS0 * (1 + 0.35 * sin(0.0731 * t + 1.1) + 0.2 * sin(0.0317 * t + 0.4));
+  const eps = EPS0 * (1 + 0.25 * sin(0.0731 * t + 1.1) + 0.15 * sin(0.0317 * t + 0.4));
+  // gain that depends on the direction of the wave vector, turning slowly: the stripes lean towards psi
+  const psi = 0.0105 * t + 0.9 * sin(0.00565 * t + 0.5), ani = ANISO * (0.7 + 0.3 * sin(0.0173 * t + 2.1));
+  const c2 = cos(2 * psi), s2 = sin(2 * psi), ag = G_H * (1 + EPS0) * ani;
+  S.psi = psi;
   const pb0 = S.lattice;
   const p = cl(pb0 + 0.2 * sin(0.0523 * t + 2.3) * (0.3 + pb0) + 0.12 * sin(0.0211 * t), 0, 0.7);
   const beta = 0.5 * log((1 + p) / (1 - p));
-  const gEff = G_H * (1 + eps), G = gEff / (1 - p * p), g0 = G_H * (1 + EPS0);
+  const Gb = G_H / (1 - p * p), g0 = G_H * (1 + EPS0);
   const sn = NOISE / sqrt(DT);
-  const ac = S.ap; // reuse: the old previous becomes the new current
+  const loc = S.loc;
+  loc.fill(1);
+  PATCH.forEach((q, a) => {
+    const am = q[2] * (0.65 + 0.35 * sin(q[5] * t + 1.7 * a)), ph = q[3] * t + q[4], cc = am * cos(ph), ss = am * sin(ph);
+    const pc = S.pc[a], ps = S.ps[a];
+    for (let i = 0; i < NC; i++) loc[i] += pc[i] * cc - ps[i] * ss;
+  });
+  const ac = S.ap, bcur = S.bp; // reuse: the old previous becomes the new current
   S.ap = S.ac;
   S.ac = ac;
+  S.bp = S.bc;
+  S.bc = bcur;
   for (let i = 0; i < NC; i++) {
     const u = zr[i];
     ac[i] = zi[i];
-    rr[i] = G * (tnh(u + beta) - p) - g0 * u + sn * gauss();
+    bcur[i] = zi[i] - u;
+    rr[i] = Gb * (1 + eps * (loc[i] < 0.25 ? 0.25 : loc[i])) * (tnh(u + beta) - p) - g0 * u + sn * gauss();
     ri[i] = 0;
   }
   fft2(rr, ri, -1);
+  const { q1, q2, wk, cs2, sn2 } = S;
   for (let i = 0; i < NC; i++) {
-    const c = cls[i], xr = ar[i], xi = ai[i], yr = br[i], yi = bi[i], Rr = rr[i], Ri = ri[i];
-    ar[i] = e11[c] * xr + e12[c] * yr + pa[c] * Rr;
-    ai[i] = e11[c] * xi + e12[c] * yi + pa[c] * Ri;
-    br[i] = e21[c] * xr + e22[c] * yr + pb[c] * Rr;
-    bi[i] = e21[c] * xi + e22[c] * yi + pb[c] * Ri;
+    const c = cls[i], xr = ar[i], xi = ai[i], yr = br[i], yi = bi[i];
+    // the part of the coupling that the direction adds: ag w(k) cos 2(phi - psi) (a - b)
+    const ex = ag * wk[c] * (cs2[i] * c2 + sn2[i] * s2);
+    const Ri = ri[i];
+    const fr = pa[c] * rr[i] + q1[c] * ex * (xr - yr), fi = pa[c] * Ri + q1[c] * ex * (xi - yi);
+    const gr = pb[c] * rr[i] + q2[c] * ex * (xr - yr), gi = pb[c] * Ri + q2[c] * ex * (xi - yi);
+    ar[i] = e11[c] * xr + e12[c] * yr + fr;
+    ai[i] = e11[c] * xi + e12[c] * yi + fi;
+    br[i] = e21[c] * xr + e22[c] * yr + gr;
+    bi[i] = e21[c] * xi + e22[c] * yi + gi;
   }
   S.t += DT;
   S.steps++;
@@ -203,34 +244,22 @@ function step(S) {
   }
 }
 
-// ---- retina to cortex: for each LED the cortex cells it covers, with weights (area average over the LED, bilinear in the cortex)
-function buildMap(S) {
-  const start = new Int32Array(N + 1);
-  const idx = [], wts = [];
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) {
-      const p = y * W + x;
-      start[p] = idx.length;
-      const dx0 = x + 0.5 - CX, dy0 = y + 0.5 - CY, r = max(0.7, sqrt(dx0 * dx0 + dy0 * dy0));
-      const foot = max(1 / (r * HC), r / ((r * r + R0 * R0) * HC));
-      const ns = cl(ceil(foot), 1, 8), wsub = 1 / (ns * ns);
-      for (let sy = 0; sy < ns; sy++)
-        for (let sx = 0; sx < ns; sx++) {
-          const dx = x + (sx + 0.5) / ns - CX, dy = y + (sy + 0.5) / ns - CY;
-          const s = 0.5 * log((dx * dx + dy * dy + R0 * R0) / (R0 * R0));
-          let th = atan2(dy, dx);
-          if (th < 0) th += TAU;
-          const fi = th / HC, fj = s / HC;
-          const i0 = floor(fi), j0 = min(floor(fj), NS - 2), ax = fi - i0, ay = fj - j0;
-          const i1 = (i0 + 1) % NT, ii0 = i0 % NT;
-          idx.push(j0 * NT + ii0, j0 * NT + i1, (j0 + 1) * NT + ii0, (j0 + 1) * NT + i1);
-          wts.push(wsub * (1 - ax) * (1 - ay), wsub * ax * (1 - ay), wsub * (1 - ax) * ay, wsub * ax * ay);
-        }
-    }
-  start[N] = idx.length;
-  S.pixStart = start;
-  S.smpIdx = Int32Array.from(idx);
-  S.smpW = Float32Array.from(wts);
+// ---- retina to cortex. A point at (dx, dy) from the centre is at s = ln(sqrt(r^2 + R0^2) / R0), theta = atan2(dy, dx):
+// the complex logarithm, rounded off inside R0 so that the centre has a value. The cortex is read bilinearly, and an LED near the
+// centre, where it covers several cells, is the average of a grid of points across its area.
+const IR02 = 1 / (R0 * R0), CELLS = NT / TAU;
+let VA = 0, VB = 0;
+function cortexAt(fa, fb, dx, dy) {
+  const s = 0.5 * log((dx * dx + dy * dy) * IR02 + 1);
+  let th = atan2(dy, dx);
+  if (th < 0) th += TAU;
+  const fi = th * CELLS, fj = s / HC;
+  const i0 = fi | 0, j0 = fj | 0, ax = fi - i0, ay = fj - j0;
+  const i1 = i0 + 1 === NT ? 0 : i0 + 1, j1 = j0 + 1 >= NS ? j0 + 1 - NS : j0 + 1, jj0 = j0 >= NS ? j0 - NS : j0;
+  const r0 = jj0 * NT, r1 = j1 * NT;
+  const w00 = (1 - ax) * (1 - ay), w01 = ax * (1 - ay), w10 = (1 - ax) * ay, w11 = ax * ay;
+  VA = fa[r0 + i0] * w00 + fa[r0 + i1] * w01 + fa[r1 + i0] * w10 + fa[r1 + i1] * w11;
+  VB = fb[r0 + i0] * w00 + fb[r0 + i1] * w01 + fb[r1 + i0] * w10 + fb[r1 + i1] * w11;
 }
 
 // ---- colour
@@ -256,28 +285,34 @@ const STOPS = [
   [1.0, 0.97, 0.05, 100],
 ];
 const TMP = [0, 0, 0];
+// 2D table: activity a picks the step of the ramp, fatigue b turns the hue by up to HB degrees either way
+const NA = 160, NB = 17, HB = 22;
 function buildLut(S, shift) {
   const lut = S.lut;
-  for (let q = 0; q < 512; q++) {
-    const t = q / 511;
+  for (let qa = 0; qa < NA; qa++) {
+    const t = qa / (NA - 1);
     let n = 1;
     while (n < STOPS.length - 1 && STOPS[n][0] < t) n++;
     const A = STOPS[n - 1], B = STOPS[n], u = (t - A[0]) / (B[0] - A[0]), w = u * u * (3 - 2 * u);
     const L = A[1] + (B[1] - A[1]) * w;
-    let C = A[2] + (B[2] - A[2]) * w;
+    const C0 = A[2] + (B[2] - A[2]) * w;
     let dh = B[3] - A[3];
     if (dh > 180) dh -= 360;
     if (dh < -180) dh += 360;
-    const h = ((A[3] + dh * w + shift) * PI) / 180;
-    for (let it = 0; it < 8; it++) {
+    for (let qb = 0; qb < NB; qb++) {
+      const h = ((A[3] + dh * w + shift + HB * ((2 * qb) / (NB - 1) - 1)) * PI) / 180;
+      let C = C0;
+      for (let it = 0; it < 8; it++) {
+        lin(L, C * cos(h), C * sin(h), TMP);
+        if (TMP[0] >= -0.002 && TMP[1] >= -0.002 && TMP[2] >= -0.002 && TMP[0] <= 1.002 && TMP[1] <= 1.002 && TMP[2] <= 1.002) break;
+        C *= 0.9;
+      }
       lin(L, C * cos(h), C * sin(h), TMP);
-      if (TMP[0] >= -0.002 && TMP[1] >= -0.002 && TMP[2] >= -0.002 && TMP[0] <= 1.002 && TMP[1] <= 1.002 && TMP[2] <= 1.002) break;
-      C *= 0.9;
+      const o = 3 * (qa * NB + qb);
+      lut[o] = gam(TMP[0]);
+      lut[o + 1] = gam(TMP[1]);
+      lut[o + 2] = gam(TMP[2]);
     }
-    lin(L, C * cos(h), C * sin(h), TMP);
-    lut[3 * q] = gam(TMP[0]);
-    lut[3 * q + 1] = gam(TMP[1]);
-    lut[3 * q + 2] = gam(TMP[2]);
   }
   S.hueDone = shift;
 }
@@ -286,7 +321,7 @@ const KNOB = [0, 2, 0, 0.06];
 function targets(k) {
   return {
     pace: cl(k[1], 1, 3.5) / 2,
-    kc: 10.4 * pow(1.732, cl(k[2], -1, 1)),
+    kc: 8 * pow(1.732, cl(k[2], -1, 1)),
     lattice: 0.55 * cl(k[3], 0, 1),
   };
 }
@@ -299,7 +334,6 @@ export function setup(params, knobValues) {
   S.lattice = tg.lattice;
   initIndex(S);
   buildSpectrum(S, S.kc);
-  buildMap(S);
   buildLut(S, 0);
   // a small band-limited seed
   for (let i = 0; i < NC; i++) { S.rr[i] = 0.3 * gauss(); S.ri[i] = 0; }
@@ -331,28 +365,54 @@ export function update(dt, input, params) {
     step(S);
     S.acc -= DT;
   }
-  const al = S.acc / DT, ap = S.ap, ac = S.ac, tmp = S.tmp;
-  let ss = 0;
+  const al = S.acc / DT, ap = S.ap, ac = S.ac, tmp = S.tmp, bp = S.bp, bc = S.bc, tmb = S.tmb;
+  let ss = 0, sb = 0;
   for (let i = 0; i < NC; i++) {
-    const v = ap[i] + (ac[i] - ap[i]) * al;
+    const v = ap[i] + (ac[i] - ap[i]) * al, w = bp[i] + (bc[i] - bp[i]) * al;
     tmp[i] = v;
+    tmb[i] = w;
     ss += v * v;
+    sb += w * w;
   }
   const r = sqrt(ss / NC);
   if (!(r < 1e6)) { setup(params, k); return; }
   S.rms += (r - S.rms) * (1 - exp(-d / 1.5));
+  S.rmsb += (sqrt(sb / NC) - S.rmsb) * (1 - exp(-d / 1.5));
+  // the centre of the map wanders, like where the eye rests
+  const t = S.t + al * DT;
+  S.cx = 32 + 8 * sin(0.069 * t + 0.7) + 3.2 * sin(0.163 * t + 2);
+  S.cy = 64 + 16 * sin(0.053 * t + 1.3) + 6.5 * sin(0.126 * t);
 }
 
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const lut = S.lut, tmp = S.tmp, st = S.pixStart, si = S.smpIdx, sw = S.smpW;
-  const g = 0.9 / max(1e-6, S.rms);
-  for (let p = 0; p < N; p++) {
-    let v = 0;
-    for (let q = st[p], e = st[p + 1]; q < e; q++) v += sw[q] * tmp[si[q]];
-    const t = tanh(v * g);
-    const q = ((0.5 + 0.5 * t) * 511 + 0.5) | 0;
-    display.setPixel(p & 63, p >> 6, lut[3 * q], lut[3 * q + 1], lut[3 * q + 2]);
-  }
+  const lut = S.lut, tmp = S.tmp, tmb = S.tmb, cx = S.cx, cy = S.cy;
+  const g = 0.9 / max(1e-6, S.rms), gb = 1.2 / max(1e-6, S.rmsb);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy, r2 = dx * dx + dy * dy;
+      let v, vb;
+      if (r2 > 576) {
+        cortexAt(tmp, tmb, dx, dy);
+        v = VA;
+        vb = VB;
+      } else {
+        const r = max(0.7, sqrt(r2));
+        const ns = cl(ceil(max(1 / (r * HC), r / ((r * r + R0 * R0) * HC))), 1, 8);
+        v = 0;
+        vb = 0;
+        for (let sy = 0; sy < ns; sy++)
+          for (let sx = 0; sx < ns; sx++) {
+            cortexAt(tmp, tmb, x + (sx + 0.5) / ns - cx, y + (sy + 0.5) / ns - cy);
+            v += VA;
+            vb += VB;
+          }
+        v /= ns * ns;
+        vb /= ns * ns;
+      }
+      const qa = (0.5 + 0.5 * tanh(v * g)) * (NA - 1), qb = (0.5 + 0.5 * tanh(vb * gb)) * (NB - 1);
+      const ia = (qa + 0.5) | 0, ib = qb | 0, fb = qb - ib, o = 3 * (ia * NB + ib), o2 = ib + 1 < NB ? o + 3 : o;
+      display.setPixel(x, y, lut[o] + (lut[o2] - lut[o]) * fb, lut[o + 1] + (lut[o2 + 1] - lut[o + 1]) * fb, lut[o + 2] + (lut[o2 + 2] - lut[o + 2]) * fb);
+    }
 }
