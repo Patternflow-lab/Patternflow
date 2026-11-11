@@ -1,20 +1,81 @@
 // ===== Patternflow pattern =====
 // Title:   Fuzzy Dark Matter
 // Family:  physics
-// Idea:    DRAFT
+// Idea:    One wave function on the panel's own 64 by 128 torus obeys the Schrodinger equation with its own gravity, fresh waves keep arriving and a weak absorber keeps the mean density fixed, and its density is drawn on a log scale, so interference granules a few LEDs across glitter over the whole panel and gather into halos, while smooth gold solitons, the self-bound ground states of the same equation, are born, wander through the granules, merge and fade.
 // Author:  patternflow-lab
 // Date:    2026-11-11
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: the Schrodinger-Poisson system as a model of ultralight (fuzzy) dark matter, i psi_t = -1/2 lap psi + Phi psi with lap Phi = 4 pi G (|psi|^2 - mean): the wave equation as a simulation of collisionless matter (Lawrence Widrow and Nick Kaiser, 1993), the wave properties of ultralight dark matter (Wayne Hu, Rennan Barkana and Andrei Gruzinov, 2000), solitonic cores and granules in a cosmic web run on this equation (Hsi-Yu Schive, Tzihong Chiueh and Tom Broadhurst, Nature Physics 2014), the soliton as the ground state of a self-gravitating wave (Remo Ruffini and Silvano Bonazzola, 1969, for the boson star), Strang splitting (Gilbert Strang, 1968), all names and years from memory
 // Round:   128
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Epoch=0.5..4, Scale=-1..1, Pull=-1..1
 //
-// Knob 1: Hue. draft
-// Knob 2: Epoch. draft
-// Knob 3: Scale. draft
-// Knob 4: Pull. draft
+// Knob 1: Hue. Turns the colour ramp round the wheel in OKLCH, and one full turn comes back to where it began. At 0 the voids are deep indigo, a granule runs violet to magenta, a halo coral, and a soliton core gold; at 0.25 the voids are crimson and the granules orange, at 0.5 dark green and lime, at 0.75 teal and sky blue. The dark end of the ramp is bent away from orange, which would read as brown. On top of the knob every LED is tinted by up to 0.6 rad round the wheel by the sign of the flow there along x (the phase gradient of psi), so granules moving right lean one way and granules moving left the other.
+// Knob 2: Epoch. How many model time units pass in a panel second, 3 for each unit of the knob: 1.5 at 0.5, 6 at the opening 2, 12 at 4. Measured at the opening, the granule-sized part of the density has lost half its correlation after 7 units (1.2 s; 4.7 s at 0.5, 0.6 s at 4), a long Jeans fluctuation grows by a factor e every 34 units (5.6 s), and the absorber turns the mass over in 194 units (32 s), so a soliton fades over a quarter of a minute and the panel is never the same twice.
+// Knob 3: Scale. The length unit, 1.45 to the power of the knob: 0.69 at -1, 1 at the opening, 1.45 at 1. It is the panel measured in de Broglie wavelengths: the sea of waves is injected at wave number 0.5 / Scale per LED, a wavelength of 8.7, 12.6 and 18.2 LEDs, and the density autocorrelation of the whole field falls to half at 2.3, 2.9 and 4.7 LEDs (a granule is about twice that across). Solitons grow with it, radius 2.2, 3.2 and 4.6 LEDs for a lump of mass 850, and the panel holds 3.6, 2.9 and 1.9 of them (cores, the maxima of the density smoothed at sigma 2 that stand above 6, averaged over 1200 units after 300 of settling, 200 s at the opening).
+// Knob 4: Pull. The gravity constant, G = 7e-5 times 2.2 to the power of the knob: 3.2e-5, 7e-5 and 1.5e-4. A soliton of mass M has radius sqrt(0.6 / (G M)) and central density 0.34 G M^2, so a lump of 850 is 4.7, 3.2 and 2.1 LEDs in radius and 8, 17 and 37 times the mean density at the middle. On the same average the mass that sits in cells above 8 times the mean is 9, 13 and 40 per cent and the brightest cell averages 18, 25 and 53 times the mean: a granular haze with faint lumps at -1, bound gold cores in a dark sea at 1.
+
+// What the field is. One complex wave function psi(x, y, t) on the panel's own torus, in LEDs, and one equation with hbar over mass 1,
+//   i psi_t = -1/2 lap psi + Phi psi,        lap Phi = 4 pi G (|psi|^2 - 1),
+// the Schrodinger-Poisson system. |psi|^2 is the density, held at a mean of 1, and Phi is the gravity of that density with its mean taken out (the
+// Poisson problem on a periodic box has no solution otherwise). Fuzzy dark matter is this equation for a particle so light that its de Broglie
+// wavelength is the size of a galaxy's core: the density is made of interference granules half a wavelength across, gravity gathers them into halos,
+// and at the middle of a halo sits a soliton, the ground state of the same equation, a lump with no node in it and a size set by M r^2 = 0.6 / G.
+// A step is the free flight in k space, exp(-i k^2 dt / 2), then the kick, exp(-i Phi dt), with Phi taken from the density after the flight; that is
+// Strang splitting seen half a kick late. dt = 0.2 model time units, four 64 by 128 transforms a step. Scale is a change of length unit, x' = x / s:
+// it multiplies k^2 by s^2 in the flight and in the Poisson kernel and moves the injection bands, and G, the rates and the masses stay per scaled area.
+// What keeps it alive (and what did not). A closed box of this equation gathers: gravity only ever pulls the granules into fewer, heavier halos, and it
+// ends as one soliton in a haze. The box is made open instead, and each part is a number to measure. Fresh waves arrive as random complex amplitudes
+// in a ring of wave numbers, 0.5 +- 0.2 (the sea, granules of a few LEDs, J = 0.002 mass a cell a unit of time) and 0.14 +- 0.1 (long smooth swells,
+// J = 0.003). Packets arrive as Gaussian lumps at a random place, a Poisson process of 0.02 a unit of time, mass 600 to 1100, laid in coherently over 10
+// units with a phase gradient of up to 0.2 and sized as the soliton of that mass, sqrt(0.6 / (G M)) in half-density radius; they relax into solitons or
+// break up, and two close ones merge. The mean density is put back to 1 after every step, which is a uniform absorber: with everything counted, the mass
+// turns over with an e-fold time of 194 units (5.15e-3 a unit before the absorber, measured over 3000 units, where the sources put in 7.1e-3, so the sponge and the cap take about 2e-3).
+// A sponge on the amplitude, exp(-0.1 dt (k / 1.6)^8), takes out the shortest waves (a compact core sheds rings of them, still seen at Scale -1
+// and at Pull 1; 0.1 per unit at k = 1.6, 22 at the corner of k space). A cap takes out density above 30 times the mean, psi *= exp(-0.1 dt (rho / 30 - 1)). Without the cap, at G
+// of 1.2e-4 or 2e-4 (an earlier build without the cold swells, 3000 units) one or two cores took 59 to 74 per cent of the mass and reached a
+// density of 990 to 1600, at the grid scale, and stayed; with it the same G holds 5 to 10 cores whose highest density runs 27 to 61 times the mean
+// (G 1.2e-4). The top of the Pull knob, 1.5e-4, is at that edge, and the cap is what lets it run.
+// What the other ways to keep it alive did, each cut out of this same file and drawing, tested as the opening at 240 s and at 900 s (recur, dim, quiet,
+// then the last quarter's dim and quiet, and diff when it is large):
+// - Closed box, no sources and no sponge, the start state only: 0.477 0.639 0.355 (tail 0.624 0.293) at 240 s, which fails on the last quarter's
+//   quiet; at 900 s 0.432 0.638 0.331 (0.638 0.315), which passes by a hair. One halo condenses across the top and bottom edges of the torus and a dark
+//   void stays still in the middle.
+// - A wandering tidal potential (Ornstein-Uhlenbeck on the modes with k up to 0.3, rms 0.05, correlation time 30 units) on a closed box with the
+//   sponge to carry the heat off: 0.022 0.820 0.285 (tail 0.958 0.000, diff 0.467) at 240 s and 0.008 0.922 0.299 (0.960 0.000, diff 0.217) at 900 s.
+//   It drags a soliton about as a whole and its curvature (at most 0.05 k^2 = 4.5e-3) is smaller than the soliton's own (4 pi G rho_c = 0.015 at the
+//   opening): one core eats the box and the rest goes dark. An earlier sweep of rms 0.003 to 0.1 with a different absorber ended at 56 to 67 per cent
+//   of the mass in cells above 6.
+// - A wandering G (log-OU, rms 0.7, 400 units) on a closed box: 0.483 0.758 0.522 (0.854 0.718) at 240 s, which passes, and 0.004 0.870 0.538 (0.874
+//   0.322, diff 0.362) at 900 s, which does not: one soliton ringed with waves is left, with straight standing stripes across the rest, the last quarter is 36 per cent dimmer than the
+//   first, and two frames more than 20 s apart almost match.
+// - Only the sea and the swells, no packets and no cap: 0.673 0.691 0.724 (0.652 0.697) at 240 s and 0.578 0.763 0.776 (0.701 0.743) at 900 s.
+//   It passes everything, and it is a speckle with soft bumps in it; the bright cells are interference, not solitons.
+// - A scale-factor restart was not tried, because a restart is a seam.
+// What was checked, with the file's own step (the tests are scripts outside the repository, run on a copy of this code with the sources off):
+// - Norm. The flight is unitary: the sum of |ln(mass after the flight / N)| over 40 units is 2e-13 at 100 steps and 2e-12 at 800.
+// - Energy. Kinetic plus half the potential, read at the synchronised state, over 40 units with the sea alone: the largest drift is 8.7e-7, 2.2e-7, 5.5e-8
+//   and 1.5e-8 of the energy at dt = 0.4, 0.2, 0.1 and 0.05, second order (each halving falls by 3.9, 4.0, 3.7); in a collapsing box (G 5e-4) 3.8e-4, 1.8e-4,
+//   4.4e-5 and 1.2e-5.
+// - Free wave. A plane wave keeps omega = k^2 / 2: the phase after 30 units is right to 1e-14 rad at three wave vectors, one at Scale 1.5. That is
+//   exact by construction, the flight being exact in k space.
+// - Jeans. A uniform state with a 1e-3 ripple at G = 1e-3, growth rate sqrt(4 pi G - (k^2 / 2)^2): measured from acosh of the growth over 24 units,
+//   0.10995, 0.10286 and 0.08072 at k = 0.196, 0.295 and 0.393 against 0.11043, 0.10337 and 0.08137 (0.4 to 0.8 per cent low at dt = 0.2; 0.08121 at
+//   dt = 0.05). The mode at k = 0.491 oscillates, as k_J = (16 pi G)^(1/4) = 0.4735 says, at 95 per cent of the amplitude of the linear solution.
+// - Speckle. The sea alone has a density with <rho^2> / <rho>^2 = 1.979 (2 for a Gaussian field), 9.42 per cent of cells under 0.1 (9.52) and 4.86 per
+//   cent over 3 (4.98), 60 realisations.
+// - Soliton. Ground states by imaginary time with this Poisson kernel: G M r^2 = 0.6061, 0.6073 and 0.6055 for half-density radius 3.9, 2.76 and 1.95
+//   (0.6174 at 5.6, where the box is no longer large), central density 0.206 M / r^2. Rescaling by 2 gives radius 1.990 times smaller (2), central density
+//   16.13 times (16) and kinetic energy per unit mass 4.04 times (4). The same step then holds one in place: a soliton of all the mass (G 8.1e-6, radius 3.0)
+//   kept its density to 1.1 per cent after 200 units and turned its phase at 0.22724 a unit against the chemical potential 0.22693 from the energies.
+// - Over 900 s of panel time, run as model time at each corner (5400, 1350 and 10800 units), the kinetic energy per mass stays between 0.126 and 0.178 at the
+//   opening, 0.086 and 0.119 at the minimum and 0.154 and 0.217 at the maximum, and 6 to 21 per cent of the mass stays in cores above 8 times the mean.
+// The picture. Density goes through a log, u = ln(1 + rho / 0.3) / ln(1 + 20 / 0.3), into an OKLCH ramp (lightness 0.22 to 0.96): voids indigo, rho = 1 violet,
+// 3 magenta, 8 coral 12 pale gold and 20 cream. Chroma is pulled in until the colour fits sRGB after the panel's 1.62 saturation lift, so no channel clips.
+// The tint from the flow is the current j_x = Im(psi* d psi / dx) over rho + 0.3, so a node of the wave does not make noise.
+// What it cost. In a Node loop update takes 1.1 ms at the opening and at the minimum and 2.0 to 2.2 ms at Epoch 4 (two steps a frame), draw 0.2 ms; the first
+// update, 150 steps run before the first frame, takes 0.16 to 0.25 s.
 
 const W = 64, H = 128, N = W * H;
 const { floor, sqrt, sin, cos, exp, log, min, max, pow, PI } = Math;
@@ -23,7 +84,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const OPEN = [0, 2, 0, 0.06];
 
 // tunables (draft)
-const CFG = { G0: 7e-5, DT: 0.2, R0: 6, JH: 0.002, KH: 0.5, WH: 0.2, JC: 0.003, KC: 0.14, WC: 0.1, LAM: 0.02, MMIN: 600, MMAX: 1100, TIN: 10, VMAX: 0.2, NSEED: 4, WARM: 150, SGF: 1.0, KS: 1.6, GS: 0.1, PS: 8, TOP: 20, R0T: 0.3, CAP: 30, GCAP: 0.1, DOP: 0.6 };
+const CFG = { G0: 7e-5, DT: 0.2, R0: 6, JH: 0.002, KH: 0.5, WH: 0.2, JC: 0.003, KC: 0.14, WC: 0.1, LAM: 0.02, MMIN: 600, MMAX: 1100, TIN: 10, VMAX: 0.2, NSEED: 4, WARM: 150, KS: 1.6, GS: 0.1, PS: 8, TOP: 20, R0T: 0.3, CAP: 30, GCAP: 0.1, DOP: 0.6 };
 
 // ---- radix-2 FFT ----------------------------------------------------------------------------
 function plan(n) {
@@ -181,7 +242,7 @@ function step(S) {
 }
 // A lump is a Gaussian density with sigma sg (scaled units), a phase gradient (vx, vy), laid in coherently over TIN model time units.
 function newLump(S, x, y, age) {
-  const M = CFG.MMIN + (CFG.MMAX - CFG.MMIN) * Math.random(), r = sqrt(0.6 / (S.kG * M)), sg = (r / 1.1774) * CFG.SGF;
+  const M = CFG.MMIN + (CFG.MMAX - CFG.MMIN) * Math.random(), r = sqrt(0.6 / (S.kG * M)), sg = r / 1.1774;
   const v = CFG.VMAX * sqrt(Math.random()), a = Math.random() * TAU;
   S.lumps.push({ x, y, sg, A: sqrt(M / (TAU * sg * sg)), vx: v * cos(a), vy: v * sin(a), age });
 }
@@ -239,7 +300,7 @@ function initField(S) {
 }
 
 // ---- colour ---------------------------------------------------------------------------------
-const NL = 512, MTOP = 3.4;
+const NL = 512, MTOP = sqrt(CFG.TOP);
 const STOPS = [[0, 0.22, 0.09, 285], [0.28, 0.36, 0.15, 295], [0.52, 0.52, 0.2, 335], [0.74, 0.7, 0.17, 385], [0.9, 0.85, 0.14, 440], [1, 0.96, 0.05, 455]];
 function oklab2rgb(L, a, b) {
   const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
@@ -293,6 +354,7 @@ export function update(dt, input, params) {
   constants(S);
   for (let i = 0; i < n; i++) step(S);
   S.t += dm;
+  if (!(S.sum > 0 && S.sum < 1e12)) (S.warm = false), (S.lumps.length = 0); // a blown state starts over rather than showing noise
 }
 
 export function draw(display, params) {
