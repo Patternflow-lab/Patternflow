@@ -1,11 +1,11 @@
 // ===== Patternflow pattern =====
 // Title:   Skyrmion Gas
 // Family:  physics
-// Idea:    draft
+// Idea:    A chiral magnet film is solved as a field of unit spins on the panel's own 64 by 128 torus, with exchange, a Dzyaloshinskii twist, a field across the film, Gilbert damping, thermal noise and a wandering current, and each spin is painted with hue for its in-plane angle and brightness for how far it points against the field, so a skyrmion is a ring holding the whole colour wheel round a pale core, the field's slow swing stretches the beads into worms and pinches them back, and the current tears and rejoins them for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft (from memory)
+// Lineage: the skyrmion as a topological soliton (Tony Skyrme, 1961 and 1962, from memory), the helix and its period 4 pi A / D in a chiral magnet (Igor Dzyaloshinskii, 1958, and Tohru Moriya, 1960, for the twist; Alexei Bogdanov and Dmitry Yablonskii, 1989, for the period and the isolated vortices, from memory), the skyrmion lattice and its place between helix and uniform state as the field grows (Uwe Rossler, Alexei Bogdanov and Christian Pfleiderer, 2006; Sebastian Muhlbauer and others, 2009, from memory), Landau-Lifshitz-Gilbert dynamics (Lev Landau and Evgeny Lifshitz, 1935; Thomas Gilbert, 2004, from memory), the thermal field of a Langevin spin (William Fuller Brown, 1963, from memory), the spin-transfer torque with its non-adiabatic term (Shufeng Zhang and Zhenyu Li, 2004, from memory), skyrmions pushed by a current (Florian Jonietz and others, 2010; Junichi Iwasaki, Masahito Mochizuki and Naoto Nagaosa, 2013, from memory), the lattice topological charge as a sum of spherical triangles (Bernd Berg and Martin Luscher, 1981, from memory), a norm-keeping Cayley turn for each spin (Johan Mentink and others, 2010, from memory), colour in OKLab (Bjorn Ottosson, 2020, from memory), pattern round 127
 // Round:   127
 // ===============================
 // @matrix 64x128
