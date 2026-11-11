@@ -1,20 +1,60 @@
 // ===== Patternflow pattern =====
 // Title:   Form Constants
 // Family:  sim
-// Idea:    A neural field with fatigue is solved on an unrolled visual cortex and drawn back through the complex logarithm onto the panel, so the stripes the field makes on the cortex read as tunnels, funnels, spirals and cobwebs around the centre, running and turning for as long as it runs.
+// Idea:    A neural field with lateral inhibition and fatigue is solved on an unrolled visual cortex and drawn back onto the panel through the complex logarithm, so the stripes it makes on the cortex read as tunnels, funnels, spirals and cobwebs around a centre that wanders, running and turning for as long as it runs.
 // Author:  patternflow-lab
 // Date:    2026-11-10
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: neural field with lateral inhibition and fatigue (Hugh Wilson and Jack Cowan, 1972 and 1973; Shun-ichi Amari, 1977; from memory), geometric hallucinations from its pattern formation on the cortex (Bard Ermentrout and Jack Cowan, 1979; Paul Bressloff, Jack Cowan, Martin Golubitsky, Peter Thomas and Matthew Wiener, 2001; from memory), the complex logarithm as the map from retina to cortex (Eric Schwartz, 1980, from memory), the form constants (Heinrich Kluever, 1926, from memory), pattern round 127
+// Lineage: neural field with lateral inhibition and fatigue (Hugh Wilson and Jack Cowan, 1972 and 1973; Shun-ichi Amari, 1977; from memory), geometric hallucinations as its pattern formation on the cortex (Bard Ermentrout and Jack Cowan, 1979; Paul Bressloff, Jack Cowan, Martin Golubitsky, Peter Thomas and Matthew Wiener, 2001; from memory), the complex logarithm as the map from retina to cortex (Eric Schwartz, 1980, from memory), the form constants (Heinrich Kluever, 1926, from memory), exponential time differencing (Steven Cox and Paul Matthews, 2002, from memory), colour in OKLab (Bjorn Ottosson, 2020, from memory), pattern round 127
 // Round:   127
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=1..3.5, Spokes=-1..1, Lattice=0..1
 //
-// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the ramp.
-// Knob 2: Pace. The clock.
-// Knob 3: Spokes. The cortical wavelength.
-// Knob 4: Lattice. The bias that tips stripes towards spots.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of the ramp, which at 0 runs from indigo through violet and rose to orange and a pale cream, so the panel opens on indigo and gold and a full turn comes back. The fatigue field b turns the hue a further 22 degrees either way, so the front of a running stripe is a little cooler than its back at every setting.
+// Knob 2: Pace. A clock: the field runs 2.65 time units a second at Pace 2 (1.33 at Pace 1, 4.64 at 3.5), and a stripe's Hopf period is 10.6 units (2 pi over 0.59, the linear value near threshold), which is 8.0, 4.0 and 2.3 seconds at Pace 1, 2 and 3.5. The wandering of the centre, the turning of the stripes' preferred direction and the drift of the excitability patches all go with it.
+// Knob 3: Spokes. k_c, the wavenumber the kernel likes best, which is also how many spokes a pure funnel has: 8 at the opening, 4.6 at -1 and 13.9 at 1 (8 times 1.732 to the knob). On the lattice of wavenumbers the cortex has (an integer n round the circle, a multiple of 2 along s) the pictures at the three settings grow in the modes (4,1), (8,0) and (7,6). Rings of a pure tunnel stand a factor exp(2 pi / k_s) apart in radius: 3.9, 2.2 and 1.6 at the three k_c.
+// Knob 4: Lattice. The bias that tips stripes towards spots. The sigmoid f is tanh(u + beta) with tanh(beta) = p, its slope at rest held at the same value for every p, and p = 0.55 times the knob plus a slow swing of 0.2 (0.3 + that) + 0.12 either way, kept between 0 and 0.7. At p = 0 f is odd and the cortex makes stripes, which are tunnels, funnels and spirals; the quadratic term of f, -p times its slope, lets three stripes add up to a hexagonal lattice, which is a cobweb round the centre. At the opening the swing alone takes p up to 0.2 now and then.
+
+// What the field is. On the cortex plane (theta round the circle in 128 cells, s along the radius in 64 cells of the same size, both periodic, so s
+// has a length of pi and theta of 2 pi) the activity a and the fatigue b obey
+//   a_t = -a + w * f(a - b + noise)                    w a difference of two gaussians, the inhibition twice as wide and of the same area,
+//   b_t = (C a - b) / tau                               scaled so that its Fourier transform is 1 at its peak k_c and zero at k = 0.
+// Linearised about a = b = 0 a mode of wavenumber k has the matrix [[-1 + g w(k), -g w(k)], [C / tau, -1 / tau]], where g is the slope of f at
+// rest. Its trace is -1 - 1 / tau + g w and its determinant (1 - g w + C g w) / tau. The trace crosses zero, with a determinant that is still
+// positive, at g w = 1 + 1 / tau: an oscillation (a Hopf bifurcation), of frequency sqrt(det) = sqrt((C (1 + 1 / tau) - 1 / tau) / tau). The
+// stationary (Turing) threshold g w = 1 / (1 - C) is further off (C = 0.8, tau = 2: 5 against 1.5), so the fatigue makes the first stripes
+// run, and the field never settles to a standing pattern by itself. With w = 1 at k_c, g_H = 1 + 1 / tau = 1.5 is the threshold gain
+// and the field runs at g = g_H (1 + eps), eps = 0.25 at the opening, so the stripes are 25 percent over it.
+// Each step is exact in the linear part. The 2 by 2 exponential of L dt and its integral are summed from a Taylor series (ten terms) for
+// every |k| class, once for each k_c; what is left of f, G tanh(u + beta) - G p - g_0 u, is held over the step (exponential time differencing
+// of the first order), so the threshold, the frequency and the decay rate of a mode come out as theory at any step. The state stays in the
+// Fourier domain. One inverse transform per step gives u = a - b and a in a single complex transform (u in the real part, a in the
+// imaginary part), one forward transform takes the nonlinear remainder back. The step is 0.12 of a time unit; the field is the blend of two
+// steps, so that Pace moves it smoothly. 128 by 64 cells, about 0.9 ms a frame in node.
+// The picture. A point of the panel at (dx, dy) from the centre of the map is at theta = atan2(dy, dx) and s = ln(sqrt(r^2 + R0^2) / R0),
+// R0 = 4 LEDs: the complex logarithm of Schwartz's map, rounded off inside R0 so that the centre has a value. The cortex is read bilinearly
+// there, and an LED within 24 of the centre, where it covers several cells, is the average over a grid of up to 8 by 8 points inside it, so
+// the spokes that the panel cannot resolve near the centre average away and no aliasing is left (a point at 5 LEDs of an 8-spoke funnel
+// has spokes 4 LEDs apart). The panel's corners are 71 LEDs out from the middle, s = 2.9 of the 3.14 the cortex has, and when the centre
+// has wandered the far corner reaches s = 3.19 and wraps to the first rows of the cortex, which is the same cortex. The activity a, over its rms (smoothed over 1.5 s), goes through
+// tanh and picks the step of the ramp; b over its rms turns the hue.
+// What keeps it alive. A field at 25 percent over threshold settles into a limit cycle of period 4 s that is the same every cycle, and
+// frames 20 seconds apart match (recur 0.05 and quiet 0.11 in the first version). Three slow things take that away, each of them an input
+// to the field and none of them a drawing of stripes. (1) The gain depends on the direction of the wave vector, g (1 + 0.15 cos 2 (phi - psi)),
+// phi the direction of k in the (theta, s) plane and psi turning at 0.0105 a time unit plus a swing of 0.9 radian at 0.00565, which is a
+// cortex whose lateral connections lean one way, and the stripes lean with them: spokes at psi = 0, rings at psi = pi / 2, spirals between.
+// It is put in as a term of the same size as the nonlinear remainder, held over the step. (2) Patches of excitability: the local eps is
+// multiplied by 1 + 0.34 cos(theta + 2 s + ...) + 0.30 cos(2 theta - 2 s + ...) + 0.26 cos(3 theta + ...), each drifting at about 0.01 of
+// a time unit and swelling and fading at about 0.005, never below a quarter, so there is always somewhere stripes grow and somewhere
+// they barely do. This is what lifted recur from 0.3 to 0.45. (3) The centre of the map wanders, 11 LEDs either way in x and 22 in
+// y, at up to 4 LEDs a second, on two incommensurate sines each. The stripes near the centre are finer than a 16 by 16 block, and a block
+// there changes only when an arm sweeps across it, so the four central blocks changed a tenth to a third as much as the outer ones. The
+// wandering took quiet from 0.11 to 0.23 and the patches on to 0.31 to 0.35 (three seeds). Noise, 0.03 per root time unit, goes in before the kernel, so it is filtered to the band that grows. The gain
+// eps and the bias p swing slowly on sines of 0.073, 0.032, 0.052 and 0.021 radians a unit, none of them dividing another.
+// Why not faster. Turning psi, and the patches, twice as fast lowered recur to 0.30 and 0.34 (three seeds each); as they were it was
+// 0.41, and half as fast 0.43 to 0.49: the same orientations came round twice as often in 240 s, and the nearest pair of frames a
+// little over 20 seconds apart got closer. The wandering of the centre went the other way: a faster one gave quiet more and recur less.
 
 const { floor, ceil, sqrt, sin, cos, exp, log, abs, min, max, PI, pow, atan2, tanh } = Math;
 const W = 64, H = 128, N = W * H;
@@ -343,7 +383,7 @@ export function setup(params, knobValues) {
     S.ar[i] = (S.rr[i] * S.wk[c]) / NC;
     S.ai[i] = (S.ri[i] * S.wk[c]) / NC;
   }
-  for (let i = 0; i < 500; i++) step(S);
+  for (let i = 0; i < 320; i++) step(S);
   S.rms = 0.5;
 }
 
