@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Quasipattern
 // Family:  geometry
-// Idea:    Twelve plane waves on two rings of wavenumber, one in 1.93 of the other, lock each other's phases and weave a dodecagonal quasi-pattern with no repeating cell; it is a live field, so the weave keeps flipping its tiles, and dislocations and rosettes drift through it for good.
+// Idea:    Twelve waves on two rings of wavenumber, one 1.93 times the other, lock each other's phases into a dodecagonal quasi-pattern with no repeating cell, and a dispersive phase push keeps the field turbulent, so rosettes of dots flip, tear and re-form across the panel for good (a dynamical field, not a tiling).
 // Author:  patternflow-lab
 // Date:    2026-11-11
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.8..3, Scale=-1..1, Drift=0..1
 //
-// Knob 1: Hue. Turns the colour ramp round the wheel; at 0 the dots are warm white on a deep teal ground.
+// Knob 1: Hue. Turns the colour ramp round the wheel; at 0 the dots are pale yellow on a teal and indigo ground.
 // Knob 2: Speed. How fast the weave runs, from 0.8 to 3 times the model's own pace.
-// Knob 3: Scale. The wavelength of the coarse ring in LEDs, 10 exp(0.3 Scale): 7.4 at -1, 10 at the opening 0, 13.5 at 1. The fine ring is 1.93 times finer.
-// Knob 4: Drift. How hard the waves' phases are pushed round. Low, the quasi-pattern shimmers and flips a tile at a time; high, rosettes tear and the weave runs in worms.
+// Knob 3: Scale. The wavelength of the coarse ring in LEDs, 10.5 exp(0.2 Scale): 8.6 at -1, 10.5 at the opening 0, 12.8 at 1. The fine ring is 1.93 times finer.
+// Knob 4: Drift. How hard the waves' phases are pushed round, beta = 0.1 + 0.5 Drift. Low, the dots keep their rings and shift a few at a time; high, rosettes tear sooner and the dots stretch into short bars.
 
 const W = 64, H = 128, N = W * H;
 const CS = 2, WC = W / CS, HC = H / CS, NC = WC * HC;
@@ -79,13 +79,14 @@ function fft2(re, im, inv) {
 //   v_n + v_{n+5} = u_{n+3}          (two fine waves 150 degrees apart add to a coarse one)
 // and each such triad feeds the product of two modes into the third, alpha a_n a_{n+1} into b_n, alpha b_n conj(a_{n+1}) into a_n, and so on. That is what ties
 // the phases: of the six phases only four stay free, two that slide the weave and two (the phason) that rearrange it.
-//   d a / dt = (mu - c ((2 k0 kappa_par + kappa^2) / k0^2)^2) a + alpha (triads) - (1 + i beta) a ((1 - g) |a|^2 + g S_a + d S_b)
+//   d a / dt = (1 + i zeta) (- c ((2 k0 kappa_par + kappa^2) / k0^2)^2) a + (mu + m(x, t) mu) a + alpha (triads) - (1 + i beta) a ((1 - g) |a|^2 + g S_a + d S_b) + noise
 // kappa is the envelope's own wavevector and kappa_par its part along the wave; the same with Q k0 for b. The 1 + i beta pushes every phase round at a rate that
-// grows with the local intensity, which is what keeps the phason moving, and the state is not the minimum of anything.
-// The linear part is taken implicitly in Fourier space and the rest explicitly, so one step is 24 transforms of 32 by 64.
+// grows with the local intensity, and the i zeta turns the phase of whatever spreads, so a smooth state is unstable and dislocations are born all the time: the
+// weave is a turbulence of its own phases, and the state is not the minimum of anything. m is a slow random control field; see control().
+// The linear part is taken implicitly in Fourier space and the rest explicitly, so one step is 25 transforms of 32 by 64.
 const MU = 0.3, CC = 0.8, ALPHA = 0.9, GAM = 0.5, DLT = 0.5, NOISE = 0.012;
 const ZETA = 2; // how far the envelope's spreading turns its phase
-const MMAMP = 0.4; // how far the control field m moves the growth rate, as a share of MU
+const MMAMP = 1.0; // how far the control field m moves the growth rate, as a share of MU
 const MTAU = 80; // its memory, model time units
 const MCUT = 0.36; // it holds only wavevectors below this, rad per LED: patches 17 LEDs across and up
 // the phase push of each mode swells and fades on its own slow beat, so no two modes turn at one rate for long and the weave has no period
