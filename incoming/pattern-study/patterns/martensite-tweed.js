@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Martensite Tweed
 // Family:  mineral
-// Idea:    A crystal that keeps being warmed and cooled through its square-to-rectangle change: strain relaxes in a field whose elastic penalty vanishes along the two diagonals, so the two variants lock into 45-degree twin bands that melt into a woven tweed and freeze again differently each time.
+// Idea:    A crystal warmed and cooled through its square-to-rectangle change, where the strain field pays no elastic cost along the two diagonals, so the two variants weave into 45-degree threads that melt to a mottled tweed and freeze again differently each time.
 // Author:  patternflow-lab
 // Date:    2026-11-11
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=1..2.5, Scale=-1..1, Disorder=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the two variants are amber and blue with a lilac grey between them for the parent phase.
-// Knob 2: Speed. How fast the crystal relaxes toward what the temperature and the stress ask of it. The drive itself runs at a fixed pace.
-// Knob 3: Scale. Stiffness of the walls and of the long wavelengths: low gives fine twins and a sharp weave, high gives wide bands with soft walls.
-// Knob 4: Disorder. Strength of the frozen impurities that seed the tweed: low gives clean laminates, high gives a mottled cloth that never settles into bands.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the two variants are amber and blue with a lilac grey between them for the parent phase, and the palette drifts a little either side as the crystal warms and cools.
+// Knob 2: Speed. How fast the crystal relaxes toward what the temperature and the stress ask of it, 8 to 20 relaxation time units a second. The temperature and the stress move at 8 to 14 time units a second.
+// Knob 3: Scale. How coarse the weave is: the stress that bends the crystal has a correlation length of 2.5 LEDs at -1 and 5 at +1, and the long waves are let in at a wavelength of 6 LEDs at -1 and 19 at +1, so low gives fine threads and high gives wide patches with wide bands between them.
+// Knob 4: Disorder. Strength of the frozen impurities that seed the tweed, 0.11 at -1, 0.22 at 0, 0.44 at +1: low gives smooth patches with a few threads, high gives a dense cloth of crossing threads.
 
 const W = 64, H = 128, N = W * H;
 const { floor, sqrt, sin, cos, exp, abs, max, min, PI } = Math;
@@ -75,25 +75,37 @@ function fft2(re, im, inv) {
 }
 
 // What the crystal is. One number e on every LED of the 64 by 128 torus, the deviatoric strain of a square lattice that can turn into a rectangle
-// lying one way (e > 0) or the other (e < 0). It relaxes down a free energy
-//   d e / dt = -(tau + L(k)) e - e^3 - d(x) e + h + noise,     L(k) = kappa k^2 + A ((kx^2 - ky^2) / k^2)^2 + D exp(-k^2 / 2 kc^2)
-// in Fourier space. tau is the temperature: above 0 the parent square phase is stable and below it the rectangles grow. The term that makes this a
-// martensite and not a Cahn-Hilliard coarsening is the middle one, the compatibility penalty. A strain field has to be a displacement field, and
-// that costs energy for every wave vector except those with kx = +-ky: so a band of one variant between two of the other costs nothing when its
-// walls run at 45 degrees, and anything else is pushed back. The last term lets the long waves cost something, so the two variants share the panel.
-// d(x) is a frozen random field of local transition temperatures, smooth over about 1.5 LEDs. It seeds the tweed: where it is below -tau a patch
-// goes over early, and the penalty stretches the patch along a diagonal. It rotates slowly between two random fields, so impurities anneal and the
-// weave is never the same twice. h is a slow uniform stress, which pushes the walls so one variant grows and the other shrinks.
-// The temperature is three sines of incommensurate slow frequencies, so the crystal passes the transition at random-looking times and depths:
-// deep below it the bands are clean, near it they thin into tweed, above it the strain is thermal fluctuation drawn out along the diagonals.
+// lying one way (e > 0) or the other (e < 0). In Fourier space it relaxes as
+//   d e / dt = -(tau + L(k)) e - e^3 - d(x) e + h(x, t) + noise,   L(k) = kappa k^2 + C k^4 + A ((kx^2 - ky^2) / k^2)^2 + D exp(-k^2 / 2 kc^2)
+// tau is the temperature: above 0 the parent square phase is stable, below it the rectangles grow. The term that makes this a martensite and not a
+// Cahn-Hilliard coarsening is the A term, the compatibility penalty. A strain field has to come from a displacement field, and that costs energy for
+// every wave vector except those with kx = +-ky, so a thread of one variant between two of the other is free when its walls run at 45 degrees and
+// anything else is pushed back. kappa is the wall stiffness, C k^4 keeps the field from going to single-LED stripes, and the D term makes the long
+// waves cost something, so the two variants share the panel instead of one taking it. The mean mode costs 0.5, which stops the panel going all one variant.
+// d(x) is a frozen random field of local transition temperatures, smooth over 1.5 LEDs. It seeds the tweed: where it is below -tau a patch goes
+// over early, and the penalty stretches the patch along a diagonal. It turns slowly between two random fields, so the impurities anneal and the
+// weave is not the same twice. h is a stress field, the real part of about 1500 long waves that each travel at their own slow rate, scaled to a fixed
+// deviation of 0.14. It decides which variant each region takes and where the walls sit, and it is what keeps frames 20 s apart far from each other.
+// The temperature is a sum of 8 sines with random rates between 0.008 and 0.035 a time unit, so the crystal passes the transition at times and depths
+// that do not come round together: deep below it there are threads of both variants with white walls, near it they thin into tweed, above it the
+// strain is a thermal fluctuation drawn out along the diagonals. The rates and phases are drawn when the pattern starts, so no two runs match.
+// What was measured, with the file's own code run 240 s at 30 fps and a frame kept every half second, each frame cut to 8 by 8 LED means for recur and
+// to 16 by 16 LED cells for the rest. At the opening, all knobs at their minimum, all at their maximum and three other positions: recur 0.464 to
+// 0.622, the darkest cell 0.957 to 0.982 of the mean, the least-changing cell 0.711 to 0.898 of the mean change, and over the last quarter 0.914 to
+// 0.967 and 0.573 to 0.762. The first and last quarters differ in mean brightness by 0.2% to 1.6%. For 900 s at the opening, at the minimum and at the
+// maximum nothing dies, blows up or drifts: recur 0.402 to 0.586, the least-changing cell 0.903 to 0.944, brightness first against last quarter within 0.3%.
+// Over eight other seeds recur was 0.50 to 0.63 at the opening, 0.48 to 0.61 at all-maximum and 0.57 to 0.74 at all-minimum, so these are not one lucky draw. The slow pieces are what
+// the recur line needs: with the temperature on three sines and the stress on a few long waves, frames 20 s apart came back to 0.31 to 0.39 because
+// the crystal passed through the same few laminate states; many random waves and a short length for the stress broke that.
+// The scheme is semi-implicit, one forward and one inverse transform a step: (1 + h (L + tau)) divides in Fourier space, and the cube, the disorder,
+// the stress and the noise go in explicitly. Heun or a smaller step would change nothing a person could see at h = 0.5.
 
 const DT = 0.5; // largest model step, time units
 const RATE = 8; // relaxation time units a panel second at Speed 1
-const DRIVE = 8; // time units a panel second for the temperature, the stress and the impurities, at any Speed
-const A = 15, KAP = 0.06, D1 = 0.6, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.08;
+const DRIVE = 8; // time units a panel second for the temperature, the stress and the impurities at Speed 1; it grows as Speed to the 0.6
+const A = 20, KAP = 0.06, D1 = 0.6, KC = 0.6, D0 = 0.5, SIG = 0.22, XI = 1.5, NOISE = 0.03, C4 = 0.08;
 const OPEN = [0, 2, 0, 0.06];
-// the temperature and the stress, as functions of model time
-const WD = 0.002, NT = 8, TAU0 = -0.05, TAMP = 0.0425, HAMPL = 0.03;
+const WD = 0.002, NT = 8, TAU0 = -0.05, TAMP = 0.0425, HUEAMP = 0.03;
 // Temperature and palette drift: each a sum of 8 sines with random rates, so there is no pair of times at which both come round together.
 const tauAt = (S, t) => {
   let v = TAU0;
@@ -102,10 +114,10 @@ const tauAt = (S, t) => {
 };
 const hueAt = (S, t) => {
   let v = 0;
-  for (let i = 0; i < NT; i++) v += HAMPL * sin(S.hw[i] * t + S.hp[i]);
+  for (let i = 0; i < NT; i++) v += HUEAMP * sin(S.hw[i] * t + S.hp[i]);
   return v;
 };
-// the stress: a smooth random field built from long waves, each wave travelling at its own slow rate
+// The stress: long waves with a Gaussian spectrum, each travelling at its own rate between WMIN and WMIN + WSPAN time units.
 const HAMP = 0.14, XS = 3.5, XS0 = 2.5, WMIN = 0.004, WSPAN = 0.012;
 
 function setup(params) {
@@ -135,7 +147,7 @@ function noiseField(S, out, xi) {
   for (let p = 0; p < N; p++) out[p] = re[p] * sc;
 }
 
-// The linear operator L(k), laid out like the FFT output. The mean mode costs D0, so a uniform stress moves walls and does not just tilt the crystal.
+// The linear operator L(k), laid out like the FFT output. Scale sets the wall stiffness (kappa) and the wavelength below which the long waves cost D.
 function operator(S, scale) {
   const kap = KAP * exp(0.7 * scale), kc = KC * exp(-0.6 * scale), Lk = S.Lk;
   for (let y = 0; y < H; y++) {
@@ -174,7 +186,7 @@ function step(S, h, tau, sig, cs, sn) {
   for (let p = 0; p < N; p++) e[p] = re[p];
 }
 
-// One step at the model time S.t.
+// One step at the drive time S.t.
 function stepAt(S, h, sig) {
   const t = S.t, d = WD * t;
   step(S, h, tauAt(S, t), sig, cos(d), sin(d));
@@ -199,7 +211,7 @@ function stressField(S, t) {
   for (let p = 0; p < N; p++) hs[p] = re[p] * g;
 }
 function stressSetup(S) {
-  const idx = [], A = [], B = [], Wr = [], K = [];
+  const idx = [], AR = [], BR = [], Wr = [], K = [];
   const gauss = () => sqrt(-2 * Math.log(Math.random() + 1e-12)) * cos(TAU * Math.random());
   for (let y = 0; y < H; y++) {
     const ky = (TAU * (y < H / 2 ? y : y - H)) / H;
@@ -207,16 +219,16 @@ function stressSetup(S) {
       const kx = (TAU * (x < W / 2 ? x : x - W)) / W, k2 = kx * kx + ky * ky, env = exp(-0.25 * k2 * XS0 * XS0);
       if ((x || y) && env > 0.03) {
         idx.push(y * W + x);
-        A.push(env * gauss());
-        B.push(env * gauss());
+        AR.push(env * gauss());
+        BR.push(env * gauss());
         K.push(k2);
         Wr.push((WMIN + WSPAN * Math.random()) * (Math.random() < 0.5 ? -1 : 1));
       }
     }
   }
   S.mi = Int32Array.from(idx);
-  S.ma = Float64Array.from(A);
-  S.mb = Float64Array.from(B);
+  S.ma = Float64Array.from(AR);
+  S.mb = Float64Array.from(BR);
   S.mk = Float64Array.from(K);
   S.mw = Float64Array.from(Wr);
 }
@@ -224,7 +236,7 @@ function stressSetup(S) {
 function advance(S, ft, k) {
   const scale = cl(k[2], -1, 1), sig = SIG * exp(0.7 * cl(k[3], -1, 1)), speed = cl(k[1], 1, 2.5);
   if (abs(scale - S.ls) > 0.01) operator(S, S.ls + (scale - S.ls) * (1 - exp(-ft / 0.3)));
-  const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n, dc = (ft * DRIVE) / n;
+  const hh = ft * RATE * speed, n = max(1, Math.ceil(hh / DT - 1e-9)), h = hh / n, dc = (ft * DRIVE * Math.pow(speed, 0.6)) / n;
   stressField(S, S.t);
   for (let i = 0; i < n; i++) {
     S.t += dc;
@@ -261,9 +273,9 @@ export function update(dt, input, params) {
 }
 
 // ---- colour ---------------------------------------------------------------------------------
-// The strain, divided by a slowly following gain so the weave keeps full contrast whether the crystal is deep in the rectangle phase or just a
+// The strain, divided by a slowly following gain so the weave keeps full contrast whether the crystal is deep in the rectangle phase or only a
 // thermal shimmer above it, goes through a diverging palette from blue (one variant) through a lilac grey (the parent) to amber (the other). Where
-// the strain changes fast, the walls, the colour is pulled toward white.
+// the strain changes fast, the twin walls, the colour is pulled toward white, the way a wall shows between crossed polarisers.
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
   const i = floor(h) % 6, f = h - floor(h), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
@@ -313,8 +325,7 @@ export function draw(display, params) {
       const gx = (e[xp] - e[xm]) / g, gy = (e[op + x] - e[om + x]) / g;
       const w = sstep(0.25, 1.1, sqrt(gx * gx + gy * gy));
       const i = ((u + 1) * 255.5) | 0, r = lut[i * 3], gg = lut[i * 3 + 1], b = lut[i * 3 + 2];
-      const k = 255;
-      display.setPixel(x, y, k * (r + (1 - r) * w * 0.55), k * (gg + (1 - gg) * w * 0.55), k * (b + (1 - b) * w * 0.55));
+      display.setPixel(x, y, 255 * (r + (1 - r) * w * 0.55), 255 * (gg + (1 - gg) * w * 0.55), 255 * (b + (1 - b) * w * 0.55));
     }
   }
 }
