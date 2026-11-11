@@ -83,16 +83,18 @@ function fft2(re, im, inv) {
 // kappa is the envelope's own wavevector and kappa_par its part along the wave; the same with Q k0 for b. The 1 + i beta pushes every phase round at a rate that
 // grows with the local intensity, which is what keeps the phason moving, and the state is not the minimum of anything.
 // The linear part is taken implicitly in Fourier space and the rest explicitly, so one step is 24 transforms of 32 by 64.
-const MU = 0.3, CC = 0.4, ALPHA = 0.6, GAM = 0.5, DLT = 0.5, NOISE = 0.012;
+const MU = 0.3, CC = 0.8, ALPHA = 0.9, GAM = 0.5, DLT = 0.5, NOISE = 0.006;
+const ZETA = 2; // how far the envelope's spreading turns its phase
 const RATE = 3; // model time units a panel second at Speed 1
 const HMAX = 0.45;
+const LAM0 = 11; // the coarse ring's wavelength in LEDs at the opening Scale
 const OPEN = [0, 2, 0, 0.06];
 
 function setup(params) {
   const f = () => new Float64Array(NC);
   const S = {
     re: [], im: [], nr: [], ni: [], kx: new Float64Array(WC), ky: new Float64Array(HC),
-    L: [], car: [], sar: [], lam: 10, lamK: -1, warm: false, hue: 0, speed: 2, beta: -0.12, rng: 0x9e3779b9,
+    L: [], car: [], sar: [], lam: LAM0, lamK: -1, warm: false, hue: 0, speed: 2, beta: -0.12, rng: 0x9e3779b9,
     psi: new Float64Array(N), p1: new Float64Array(N), sd: 0.5, tr: new Float64Array(N), ti: new Float64Array(N),
   };
   for (let i = 0; i < 12; i++) (S.re[i] = f()), (S.im[i] = f()), (S.nr[i] = f()), (S.ni[i] = f()), (S.L[i] = f()), (S.car[i] = new Float32Array(N)), (S.sar[i] = new Float32Array(N));
@@ -125,7 +127,7 @@ function retune(S, lam) {
     const fine = i >= 6, n = i % 6, ang = (PI / 6) * n + (fine ? PI / 12 : 0), kk = fine ? Q * k0 : k0, cx = cos(ang), sy = sin(ang), L = S.L[i];
     for (let p = 0; p < NC; p++) {
       const kp = S.kx[p] * cx + S.ky[p] * sy, g = (2 * kk * kp + S.kx[p] * S.kx[p] + S.ky[p] * S.ky[p]) / (kk * kk);
-      L[p] = MU - CC * g * g;
+      L[p] = -CC * g * g;
     }
     // the carriers, about the middle of the panel
     const car = S.car[i], sar = S.sar[i];
@@ -138,11 +140,11 @@ function retune(S, lam) {
   }
 }
 
-// The right side of the nonlinear part into nr, ni; coarse space.
+// The right side of the nonlinear part into nr, ni; coarse space. AR..BI are the 12 modes of one point with their conjugates, ER..FI what the triads add.
+const AR = new Float64Array(12), AI = new Float64Array(12), BR = new Float64Array(12), BI = new Float64Array(12);
+const ER = new Float64Array(12), EI = new Float64Array(12), FR = new Float64Array(12), FI = new Float64Array(12);
 function nonlinear(S, beta) {
   const re = S.re, im = S.im, nr = S.nr, ni = S.ni;
-  const AR = new Float64Array(12), AI = new Float64Array(12), BR = new Float64Array(12), BI = new Float64Array(12);
-  const ER = new Float64Array(12), EI = new Float64Array(12), FR = new Float64Array(12), FI = new Float64Array(12);
   for (let p = 0; p < NC; p++) {
     let sa = 0, sb = 0;
     for (let n = 0; n < 6; n++) {
@@ -213,9 +215,10 @@ function step(S, h) {
     }
     fft2(tr, ti, false);
     for (let p = 0; p < NC; p++) {
-      const d = 1 / (NC * (1 - h * L[p]));
-      tr[p] *= d;
-      ti[p] *= d;
+      // 1 / (1 - h (mu + (1 + i zeta) lam)): the dispersive part of the linear operator turns the envelope as it spreads
+      const base = 1 - h * (MU + L[p]), hz = h * ZETA * L[p], d = 1 / (NC * (base * base + hz * hz)), a = base * d, b = hz * d, xr = tr[p], xi = ti[p];
+      tr[p] = xr * a - xi * b;
+      ti[p] = xr * b + xi * a;
     }
     fft2(tr, ti, true);
     for (let p = 0; p < NC; p++) (re[p] = tr[p]), (im[p] = ti[p]);
@@ -225,7 +228,7 @@ function step(S, h) {
 function knobs(S, ft, k) {
   S.hue = k[0];
   S.speed = cl(k[1], 0.8, 3);
-  const lt = 10 * exp(0.3 * cl(k[2], -1, 1)), a = 1 - exp(-ft / 0.3);
+  const lt = LAM0 * exp(0.25 * cl(k[2], -1, 1)), a = 1 - exp(-ft / 0.3);
   S.lam += (lt - S.lam) * a;
   if (abs(S.lam - S.lamK) > 0.01 * S.lamK) retune(S, S.lam);
   S.beta = -(0.1 + 0.5 * cl(k[3], 0, 1));
@@ -236,12 +239,12 @@ export function update(dt, input, params) {
   const ft = cl(dt || 0, 0, 0.1);
   if (!S.warm) {
     S.warm = true;
-    S.lam = 10 * exp(0.3 * cl(k[2], -1, 1));
+    S.lam = LAM0 * exp(0.25 * cl(k[2], -1, 1));
     retune(S, S.lam);
     for (let i = 0; i < 12; i++)
       for (let p = 0; p < NC; p++) (S.re[i][p] = 0.4 * rnd(S)), (S.im[i][p] = 0.4 * rnd(S));
     knobs(S, 10, k);
-    for (let i = 0; i < 360; i++) step(S, 0.5);
+    for (let i = 0; i < 240; i++) step(S, 0.6);
   }
   knobs(S, ft, k);
   const h = ft * RATE * S.speed, n = max(1, Math.ceil(h / HMAX - 1e-9));
