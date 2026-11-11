@@ -27,6 +27,9 @@ const G_LOW = 0.05;         // friction rate (amplitude) at long wavelengths
 const G_HIGH = 6;           // friction rate at the cutoff
 const U0 = 2.0;             // rms height the linear sheet would settle at
 const DT_MAX = 0.05;        // longest step
+const CFL = 2.2;            // omega dt allowed on the stiffest mode
+const MAX_SUB = 4;          // steps a frame may take
+const TB_MAX = 0.9;         // stretching over bending energy, at most (the forced, rubbed-down plate sits at 0.2 to 0.5)
 const KNOB = [0, 2, 0, 0.06];
 
 // ---- FFT: radix-2 of length 64 and 128, split into two real arrays
@@ -183,7 +186,7 @@ function newState() {
     nr: f64(), ni: f64(), pr: f64(), pi: f64(),    // N hat, phi hat
     beta: 1, fw: new Float64Array(MODE.NA), fa: new Float64Array(MODE.NA), clock: 1, lamF: 20, eps: 0.4, time: 0,
     cs: new Float64Array(MODE.NA), sn: new Float64Array(MODE.NA), ed: new Float64Array(MODE.NA), dtDone: -1,
-    srms: 1, hrms: 1, lrms: 1, ca: new Float64Array(3), cb: new Float64Array(3), cg: new Float64Array(3), hueDone: -999, drift: 0,
+    tens: 0, tensHold: 0, srms: 1, hrms: 1, lrms: 1, ca: new Float64Array(3), cb: new Float64Array(3), cg: new Float64Array(3), hueDone: -999, drift: 0,
   };
 }
 
@@ -223,11 +226,16 @@ function nonlinear(S, view) {
   }
   ifft2(w1r, w1i);
   ifft2(w2r, w2i);
+  let tmax = 0;
   for (let i = 0; i < NC; i++) {
     // u_xx phi_yy + u_yy phi_xx - 2 u_xy phi_xy
     nr[i] = z1r[i] * w1i[i] + z1i[i] * w1r[i] - 2 * z2r[i] * w2r[i];
     ni[i] = 0;
+    // the larger eigenvalue of the Hessian of phi is the tension in the stiffest direction there
+    const a = 0.5 * (w1r[i] + w1i[i]), b = 0.5 * (w1r[i] - w1i[i]), c = w2r[i], l = a + sqrt(b * b + c * c);
+    if (l > tmax) tmax = l;
   }
+  S.tens = tmax;
   fft2(nr, ni);
   if (view) {
     z3r.fill(0); z3i.fill(0);
@@ -347,6 +355,46 @@ function seedState(S) {
   }
 }
 
+// The longest step the plate lets us take. Tension from the stretching term stiffens the short waves from c k^2 to
+// sqrt(c^2 k^4 + k^2 T), T the largest tension anywhere; a step with omega dt over about 2.5 on the cutoff mode is unstable.
+function stepLimit(S) {
+  // the tension of the last few steps, falling slowly, so one quiet step does not let the next one be long
+  S.tensHold = max(S.tens, 0.75 * S.tensHold);
+  const w0 = CB * KC * KC, we = sqrt(w0 * w0 + KC * KC * S.tensHold);
+  return min(DT_MAX, CFL / we);
+}
+
+// How much of the plate's energy is stretching. A plate the knob has just made stiffer, or a start that is far from where
+// the forcing and the friction settle, can hold ten times more stretching than bending, and the first kicks then throw
+// the short waves off the grid. Past TB_MAX the whole state is scaled down together, which is the same plate seen at a
+// smaller amplitude, and the picture, which is divided by its own rms, does not move.
+function limitStretch(S) {
+  const e = energy(S);
+  const r = e.T / (e.B + 1e-30);
+  if (!(r > TB_MAX)) return;
+  const a = sqrt(TB_MAX / r), { NA, idx } = MODE;
+  for (let j = 0; j < NA; j++) {
+    const i = idx[j];
+    S.ur[i] *= a; S.ui[i] *= a; S.vr[i] *= a; S.vi[i] *= a;
+  }
+  for (let i = 0; i < NC; i++) { S.z1r[i] *= a; S.z1i[i] *= a; S.z2i[i] *= a; S.z3r[i] *= a; S.z3i[i] *= a; }
+  S.srms *= a; S.hrms *= a; S.lrms *= a;
+}
+
+// Run model time T. The step is cut to what the tension allows (re-read after every step), and at most MAX_SUB of them are
+// taken: past that the plate runs slow instead of blowing up. The last step leaves the picture's fields in z1, z2, z3.
+function advance(S, T, maxSub) {
+  let left = T, n = 0;
+  while (left > 1e-9 && n < maxSub) {
+    const lim = stepLimit(S), cnt = ceil(left / lim - 1e-9), h = left / cnt;
+    n++;
+    const last = cnt === 1 || n === maxSub;
+    step(S, h, last, true);
+    left -= h;
+    if (last) break;
+  }
+}
+
 function targets(k) {
   return {
     clock: cl(k[1], 0.5, 3.5) / 2,
@@ -410,8 +458,11 @@ export function setup(params, knobValues) {
   S.beta = betaOf(S.eps);
   seedState(S);
   buildLut(S, 0);
-  const n = 160;
-  for (let i = 0; i < n; i++) step(S, DT_MAX, i === n - 1, true);
+  nonlinear(S, false);
+  limitStretch(S);
+  nonlinear(S, false);
+  S.tensHold = S.tens;
+  advance(S, 8, 400);
   measure(S);
 }
 
@@ -441,8 +492,8 @@ export function update(dt, input, params) {
   S.eps += (tg.eps - S.eps) * f;
   S.beta = betaOf(S.eps);
   setForce(S);
-  const ds = d * S.clock, n = max(1, ceil(ds / DT_MAX - 1e-6)), h = ds / n;
-  for (let i = 0; i < n; i++) step(S, h, i === n - 1, true);
+  advance(S, d * S.clock, MAX_SUB);
+  limitStretch(S);
   const sx = S.srms, sh = S.hrms, sl = S.lrms;
   measure(S);
   const a = 1 - exp(-d / 1.5);
