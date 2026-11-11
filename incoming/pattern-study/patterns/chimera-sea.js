@@ -1,0 +1,273 @@
+// ===== Patternflow pattern =====
+// Title:   Chimera Sea
+// Family:  rhythm
+// Idea:    Every LED is the same phase oscillator, pulled by all the LEDs within a radius with a phase lag a little short of a quarter turn, so the sheet splits by itself into islands that move in step, drawn as smooth glowing colour, and a sea whose phases scatter, drawn as dim speckle, and the islands drift, spiral, merge and dissolve for as long as it runs.
+// Author:  patternflow-lab
+// Date:    2026-11-11
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Lineage: chimera states in a sheet of identical phase oscillators with nonlocal coupling and a phase lag: Yoshiki Kuramoto and Dorjsuren Battogtokh (2002) for the first chimera, Daniel Abrams and Steven Strogatz (2004) for the name, Hidetsugu Sakaguchi and Yoshiki Kuramoto (1986) for the phase-lagged coupling, Shima and Kuramoto (2004) and Erik Martens, Carlo Laing and Steven Strogatz (2010) for the spiral waves with an incoherent core in two dimensions; all from memory
+// Round:   128
+// ===============================
+// @matrix 64x128
+// @knobs Hue=0..1, Speed=0.8..3, Scale=-1..1, Lag=-1..1
+//
+// Knob 1: Hue. Turns a colour ramp round the wheel. The ramp stays inside an arc 0.3 of the wheel wide and is a closed loop in phase, so there is no seam where the phase wraps. At 0 the phase runs violet, bright blue, cyan, dim blue and back to violet; at 0.5 the same loop runs from red through orange and yellow to green and back.
+// Knob 2: Speed. The equation runs 2 of its time units a panel second times Speed: 1.6 at 0.8, 4 at the opening 2 and 6 at 3. A scattered LED turns once round the ramp every 6.35 time units, so every 4.0 s at 0.8, every 1.6 s at the opening and every 1.1 s at 3, while the colours are drawn in the frame that turns with a state in step, so an island without a twist stands still in colour and a twisted one turns slowly (0.07 radians a time unit for one wave across the panel's width at R = 8, 0.5 for three).
+// Measured on the drawn frames at the opening, the mean change in luma between frames 1 s apart is 66% of the change between frames 20 s apart, and 96% by 8 s; at 0.8 it is 54% and 82%, at 3 it is 75% and 100%.
+// Knob 3: Scale. The coupling radius R = 8 exp(0.4 Scale) LEDs: 5.4 at -1, 8 at the opening 0, 11.9 at 1. It sets how big the islands are. At the opening lag the patches where |Z| is above 0.6 and cover at least 12 LEDs are on average 12.8 LEDs across at -1 (about 12 of them on the panel at once), 19.9 at 0 (5 or 6) and 25.0 at 1 (3). A change eases in over 0.3 s.
+// Knob 4: Lag. The lag beta = pi/2 - alpha = 0.145 exp(0.5 Lag) radians: 0.088 at -1, 0.149 at the opening 0.06, 0.239 at 1. It sets how much of the panel moves in step. The share of LEDs with |Z| above 0.6 is 6% at -1, 21% at the opening and 39% at 1, where the islands run together into 2 or 3 patches, 39 LEDs across on average at R = 8, with ring-shaped incoherent cores in them. The knob stops at 0.239 because the sheet does not stay a chimera much beyond: at R = 14 with beta 0.3, and at R = 12 with beta 0.35, two of two starts fell into one state in step. A change eases in over 0.3 s.
+
+const W = 64, H = 128, N = W * H;
+const { floor, sqrt, sin, cos, atan2, exp, max, abs, PI } = Math;
+const TAU = 2 * PI;
+const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+// ---- radix-2 FFT ----------------------------------------------------------------------------
+function plan(n) {
+  const lg = Math.round(Math.log2(n)), rev = new Uint16Array(n), c = new Float64Array(n / 2), s = new Float64Array(n / 2);
+  for (let i = 0; i < n; i++) {
+    let r = 0;
+    for (let b = 0; b < lg; b++) if (i & (1 << b)) r |= 1 << (lg - 1 - b);
+    rev[i] = r;
+  }
+  for (let i = 0; i < n / 2; i++) (c[i] = cos((TAU * i) / n)), (s[i] = -sin((TAU * i) / n));
+  return { n, rev, c, s };
+}
+const PX = plan(W), PY = plan(H);
+const TR = new Float64Array(H), TI = new Float64Array(H);
+
+function fft(p, re, im, o, inv) {
+  const { n, rev, c, s } = p, sg = inv ? -1 : 1;
+  for (let i = 0; i < n; i++) {
+    const j = rev[i];
+    if (j > i) {
+      let t = re[o + i];
+      re[o + i] = re[o + j];
+      re[o + j] = t;
+      t = im[o + i];
+      im[o + i] = im[o + j];
+      im[o + j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const half = len >> 1, step = n / len;
+    for (let i = o; i < o + n; i += len)
+      for (let k = 0, t = 0; k < half; k++, t += step) {
+        const wr = c[t], wi = sg * s[t], a = i + k, b = a + half;
+        const xr = re[b] * wr - im[b] * wi, xi = re[b] * wi + im[b] * wr;
+        re[b] = re[a] - xr;
+        im[b] = im[a] - xi;
+        re[a] += xr;
+        im[a] += xi;
+      }
+  }
+}
+function fft2(re, im, inv) {
+  for (let y = 0; y < H; y++) fft(PX, re, im, y * W, inv);
+  for (let x = 0; x < W; x++) {
+    for (let y = 0; y < H; y++) (TR[y] = re[y * W + x]), (TI[y] = im[y * W + x]);
+    fft(PY, TR, TI, 0, inv);
+    for (let y = 0; y < H; y++) (re[y * W + x] = TR[y]), (im[y * W + x] = TI[y]);
+  }
+}
+
+// What the sheet is. A phase theta on every LED of the panel's own 64 by 128 torus, the same law for all of them, each pulled by every LED within a
+// radius R, a disc that is 1 inside and falls to 0 across the last LED and is normalised to sum to 1, with a lag alpha in the pull:
+//   d theta / dt = omega - sum_x' G(x - x') sin(theta(x) - theta(x') + alpha) = omega - Im(e^{i (theta + alpha)} conj(Z)),   Z = G * e^{i theta},
+// and alpha = pi/2 - beta. Z is the local order parameter: |Z| is 1 where the neighbours agree and about sqrt(pi)/2 / sqrt(n) where their phases
+// are random, 0.06 at R = 8, where n = 1 / sum G^2 = 210 LEDs. The sum is a convolution on a torus, so it is two complex FFTs a stage
+// (radix-2 transforms for 64 and 128, as in Plate Turbulence and Quantum Turbulence) against the transform of G, which is real because G is even.
+// With alpha a little under a quarter turn the state in step is stable (checked below), and yet the sheet does not fall into it: it splits into
+// islands in step and a sea of scattered phases, and stays split. omega = cos beta = sin alpha, so the state in step turns at omega - sin alpha = 0: the frame stands still with the islands,
+// and a scattered LED turns at about omega = 0.99 radians a time unit. The sheet starts from smooth random waves under noise and is run 72 time
+// units before the first frame (0.36 to 0.45 s in Node); the islands are made by then.
+//
+// Heun's method (RK2) with a step of at most 0.3 time units, so a frame is one step, two FFT pairs, at every Speed; a slow frame is cut into equal
+// steps. The drawing takes cos and sin of the phase before the last step and blurs them with a 1-2-1 kernel, so the speckle of the scattered part is
+// 2 LEDs across and not 1: hue is the angle of the blurred vector, and brightness is 0.27 + 0.73 of a smoothstep of |Z| from 0.3 to 0.78, times
+// 0.15 + 0.85 of the square root of the blurred vector's length, which is what puts the dark veins where the neighbours disagree.
+//
+// What was checked, with the file's own code (a Node script that reads this file and calls its kernel, deriv and step):
+// - The sum. FFT convolution against a direct sum over the torus on random phases, at 40 LEDs for each of R = 5, 8 and 13.4: the largest difference
+//   in Z and in d theta / dt is 2.2e-16, and G sums to 1 to 12 digits.
+// - The state in step. With every phase equal, |Z| = 1 and d theta / dt = omega - sin alpha to 12 digits, at beta = 0.15, 0.3 and -0.2.
+// - Its stability. A cosine of 1e-4 radians on that state should decay at sin(beta) (1 - Ghat(k)), Ghat(k) being the disc summed directly against
+//   cos(k.x). At 9 wavevectors for each of (R, beta) = (8, 0.15), (5, 0.15) and (12, 0.3), Heun at h = 0.1 measures that rate to within 0.02%. At
+//   beta = -0.1 the same 9 modes grow at the predicted rates to within 0.005%. The slowest mode, one wave down the panel's height, decays at 2.87e-3
+//   a time unit at R = 8, beta = 0.15 (an e-folding of 350 time units) and at 1.15e-3 at R = 5.
+// - Twisted states. theta = q . x is an exact solution with Z = Ghat(q) e^{i theta} and a frequency omega - sin alpha Ghat(q). At 6 wavevectors for
+//   each of R = 8 and 12 (frequencies from 0.019 to 1.117, |Z| from 0.98 down to 0.069) the file's frequency and |Z| agree with that to the 6
+//   decimals printed, and differ between LEDs by 1e-13. Whether a twist is stable was not tested.
+// - Step size. From a developed state, the rms phase error after 4 time units against a run at h = 0.0125 is, for Heun, 9.6e-3, 2.4e-3 and 6.0e-4 at
+//   h = 0.4, 0.2 and 0.1, a factor of 4.0 a halving, second order; for Euler 5.6e-2, 2.9e-2 and 1.4e-2 at h = 0.2, 0.1 and 0.05, a factor of 2.0,
+//   first order. Over 2000 time units after the first 300 at R = 8, beta = 0.15, the mean |Z| and the share of LEDs above 0.6 are 0.425 and 0.189 for
+//   Heun at h = 0.1 (0.419 and 0.179 from a second start), 0.425 and 0.188 at 0.3 (0.427 and 0.192), 0.433 and 0.206 at 0.5, 0.431 and 0.201 at 0.75;
+//   Euler gives 0.437 and 0.212 at 0.1 and 0.477 and 0.299 at 0.3. The standard deviation of |Z| over time is 0.025, so 0.3 is inside the noise of 0.1
+//   and Euler's is not.
+// - Random phases. The mean |Z| of uniformly random phases should be sqrt(pi)/2 sqrt(sum G^2): 0.0896, 0.0611 and 0.0414 at R = 5.4, 8 and 11.9.
+//   Measured over 20 draws, 0.0903, 0.0614 and 0.0425.
+// - Chaos. Two copies 1e-7 apart (norm over all 8192 phases), brought back to 1e-7 every 5 time units for 600: the largest Lyapunov exponent is
+//   0.062 (standard error 0.006) a time unit at R = 8, beta = 0.15, 0.062 (0.006) at R = 5.4, beta = 0.088 and 0.071 (0.011) at R = 11.9,
+//   beta = 0.239. A difference doubles every 10 to 11 time units, 2.4 to 2.8 s at the opening, so no two runs stay alike and nothing comes round again.
+// - Staying a chimera. Share of LEDs with |Z| above 0.6, sampled every 100 time units after the first 200, with a copy of this solver (the same
+//   disc and Heun step) at fixed knobs: (R, beta) = (11.9, 0.239), three starts, 20000 time units: mean 0.41, 0.40 and 0.41, range 0.13 to 0.81;
+//   (11.9, 0.2), two starts, 12000: 0.32 and 0.34, range 0.11 to 0.66; (8, 0.24): 0.40 and 0.40; (5.4, 0.24): 0.40 and 0.39; (5.4, 0.088): 0.055 and
+//   0.057, range 0.02 to 0.11. None fell into step. With this file's update() at Speed 3 for 3000 s (18000 time units), sampled every 10 s: Scale 1 and Lag 1 gives 0.405
+//   (0.16 to 0.79), Scale -1 and Lag 1 gives 0.393 (0.30 to 0.53), Scale 0 and Lag 1 gives 0.394 (0.18 to 0.56); the largest mean |Z| was 0.70. A
+//   random walk of all the knobs, new targets every 20 s, 3000 s, three starts: the largest mean |Z| was 0.58, 0.59 and 0.54, and never above 0.9.
+//   Past the knob's end the sheet does fall into one state in step, a flat colour or one smooth twist, within 3000 time units from random phases, two starts each: beta 0.3 at R = 14 (both), 0.35 at R = 12 (both),
+//   0.45 at R = 12 and 14 (both) and at R = 8 (one of two). At R = 5 and 8 it stayed a chimera at beta 0.35, and at R = 5 at 0.45.
+// - Cost. In Node, 1.5 ms for the step and 0.33 ms for the drawing at every knob; the Lab's own clock reads 2.1 to 2.9 ms a frame.
+
+const DTMAX = 0.3; // largest model step, time units
+const PREROLL = 240; // steps of DTMAX run before the first frame
+const RATE = 2; // model time units a panel second at Speed 1
+const OPEN = [0, 2, 0, 0.06];
+
+function setup(params) {
+  const f = () => new Float64Array(N);
+  const S = {
+    th: f(), tp: f(), f1: f(), f2: f(), c1: f(), s1: f(), z1r: f(), z1i: f(), c2: f(), s2: f(), z2r: f(), z2i: f(),
+    G: f(), Gi: f(), bc: f(), bs: f(), tm: f(), R: 8, Rk: -1, beta: 0.15, om: 0, ca: 0, sa: 0, hue: 0, speed: 2, warm: false,
+  };
+  params.s = S;
+  return S;
+}
+
+// The disc G, laid out from the origin with its wrap round the torus: 1 within R - 0.5, 0 beyond R + 0.5, linear between, so that R can change
+// smoothly. S.G keeps its transform divided by N, ready for the inverse.
+function disc(R, g) {
+  let sum = 0;
+  for (let y = 0; y < H; y++) {
+    const dy = y < H / 2 ? y : y - H;
+    for (let x = 0; x < W; x++) {
+      const dx = x < W / 2 ? x : x - W, w = cl(R + 0.5 - sqrt(dx * dx + dy * dy), 0, 1);
+      g[y * W + x] = w;
+      sum += w;
+    }
+  }
+  for (let p = 0; p < N; p++) g[p] /= sum;
+}
+function kernel(S) {
+  const g = S.G, gi = S.Gi;
+  disc(S.R, g);
+  gi.fill(0);
+  fft2(g, gi, false);
+  for (let p = 0; p < N; p++) g[p] /= N;
+  S.Rk = S.R;
+}
+
+// The right side. c, s, zr, zi receive cos theta, sin theta and Z, so the first stage's Z is still there to draw.
+function deriv(S, th, out, c, s, zr, zi) {
+  const G = S.G, ca = S.ca, sa = S.sa, om = S.om;
+  for (let p = 0; p < N; p++) {
+    c[p] = zr[p] = cos(th[p]);
+    s[p] = zi[p] = sin(th[p]);
+  }
+  fft2(zr, zi, false);
+  for (let p = 0; p < N; p++) (zr[p] *= G[p]), (zi[p] *= G[p]);
+  fft2(zr, zi, true);
+  for (let p = 0; p < N; p++) out[p] = om - ((s[p] * ca + c[p] * sa) * zr[p] - (c[p] * ca - s[p] * sa) * zi[p]);
+}
+
+// One Heun step of h.
+function step(S, h) {
+  const { th, tp, f1, f2 } = S;
+  deriv(S, th, f1, S.c1, S.s1, S.z1r, S.z1i);
+  for (let p = 0; p < N; p++) tp[p] = th[p] + h * f1[p];
+  deriv(S, tp, f2, S.c2, S.s2, S.z2r, S.z2i);
+  for (let p = 0; p < N; p++) th[p] += 0.5 * h * (f1[p] + f2[p]);
+}
+
+// Knobs to parameters. R and beta follow the knobs with a 0.3 s lag, so turning one moves the state along instead of jumping it.
+function knobs(S, ft, k) {
+  S.hue = k[0];
+  S.speed = cl(k[1], 0.8, 3);
+  const Rt = 8 * exp(0.4 * cl(k[2], -1, 1)), bt = 0.145 * exp(0.5 * cl(k[3], -1, 1)), a = 1 - exp(-ft / 0.3);
+  S.R += (Rt - S.R) * a;
+  S.beta += (bt - S.beta) * a;
+  if (abs(S.R - S.Rk) > 0.03) kernel(S);
+  S.ca = sin(S.beta);
+  S.sa = cos(S.beta);
+  S.om = S.sa;
+}
+
+// One frame of ft seconds: the time is cut into equal steps no longer than DTMAX, so a slow frame costs more steps and the flow keeps its pace.
+function advance(S, ft, k) {
+  knobs(S, ft, k);
+  const h = ft * RATE * S.speed, n = max(1, Math.ceil(h / DTMAX - 1e-9));
+  for (let i = 0; i < n; i++) step(S, h / n);
+  // the phase turns without bound in the frame of the islands: keep it small
+  for (let p = 0; p < N; p++) if (S.th[p] > 100 || S.th[p] < -100) S.th[p] -= TAU * Math.round(S.th[p] / TAU);
+}
+
+export function update(dt, input, params) {
+  const S = params.s || setup(params), k = input.knobValues || OPEN;
+  if (!S.warm) {
+    S.warm = true;
+    S.R = 8 * exp(0.4 * cl(k[2], -1, 1));
+    S.beta = 0.145 * exp(0.5 * cl(k[3], -1, 1));
+    // 40 smooth random waves of up to 4 cycles across the width and 8 down the height, under white noise of half a turn
+    for (let m = 0; m < 40; m++) {
+      const kx = (TAU * (floor(Math.random() * 9) - 4)) / W, ky = (TAU * (floor(Math.random() * 17) - 8)) / H, ph = Math.random() * TAU, am = 2 * Math.random() - 1;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) S.th[y * W + x] += am * cos(kx * x + ky * y + ph);
+    }
+    for (let p = 0; p < N; p++) S.th[p] += (Math.random() - 0.5) * PI;
+    kernel(S);
+    knobs(S, 10, k);
+    for (let i = 0; i < PREROLL; i++) step(S, DTMAX);
+  }
+  advance(S, cl(dt || 0, 0, 0.1), k);
+}
+
+// ---- colour ---------------------------------------------------------------------------------
+// The phase is drawn on a closed ramp that stays inside an arc of hue 0.3 wide, 0.15 either side of a centre: hue = centre + 0.15 cos(phase), and the
+// value runs 0.8 + 0.2 sin(phase), so every phase is its own pair of hue and lightness and the ramp is a loop, with no seam where the phase wraps.
+// At Hue 0 the centre is 0.66 of the wheel: phase 0 is violet, a quarter turn on is bright blue, half a turn is cyan, three quarters is dim blue.
+function hsv(h, s, v, out, o) {
+  h = (h - floor(h)) * 6;
+  const i = floor(h) % 6, f = h - floor(h), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  out[o] = i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p;
+  out[o + 1] = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
+  out[o + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
+}
+const LUT = new Float32Array(1024 * 3);
+const sstep = (a, b, x) => {
+  const t = cl((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+// 1-2-1 blur on the torus of a (re, im) pair, in place, through tm.
+function blur(a, b, tm) {
+  for (const f of [a, b]) {
+    for (let y = 0; y < H; y++) {
+      const o = y * W;
+      for (let x = 0; x < W; x++) tm[o + x] = 0.25 * f[o + (x + W - 1) % W] + 0.5 * f[o + x] + 0.25 * f[o + (x + 1) % W];
+    }
+    for (let y = 0; y < H; y++) {
+      const o = y * W, om = ((y + H - 1) % H) * W, op = ((y + 1) % H) * W;
+      for (let x = 0; x < W; x++) f[o + x] = 0.25 * tm[om + x] + 0.5 * tm[o + x] + 0.25 * tm[op + x];
+    }
+  }
+}
+
+export function draw(display, params) {
+  const S = params.s;
+  if (!S || !S.warm) return;
+  const { z1r, z1i, bc, bs, tm } = S, h0 = S.hue + 0.66;
+  for (let i = 0; i < 1024; i++) {
+    const u = (i / 1024) * TAU;
+    hsv(h0 + 0.15 * cos(u), 0.82, 0.8 + 0.2 * sin(u), LUT, i * 3);
+  }
+  bc.set(S.c1);
+  bs.set(S.s1);
+  blur(bc, bs, tm);
+  for (let y = 0, p = 0; y < H; y++)
+    for (let x = 0; x < W; x++, p++) {
+      let u = atan2(bs[p], bc[p]) / TAU;
+      u -= floor(u);
+      const m = sqrt(bc[p] * bc[p] + bs[p] * bs[p]), z = sqrt(z1r[p] * z1r[p] + z1i[p] * z1i[p]);
+      const v = 255 * (0.27 + 0.73 * sstep(0.3, 0.78, z)) * (0.15 + 0.85 * sqrt(m)), o = ((u * 1024) | 0) * 3;
+      display.setPixel(x, y, v * LUT[o], v * LUT[o + 1], v * LUT[o + 2]);
+    }
+}
