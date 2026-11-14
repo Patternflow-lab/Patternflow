@@ -128,7 +128,9 @@ export default function PostBody({ text }: { text: string }) {
           code: ({ children, className }) =>
             // react-markdown hands fenced code a language class and inline code
             // none; only the inline case needs its own chip styling, since the
-            // block case is already inside .codeFence.
+            // block case is already inside .codeFence. A fence with no language
+            // named has no class either and lands in the inline branch, so the
+            // stylesheet takes the chip off any code inside .codeFence.
             className ? (
               <code className={className}>{children}</code>
             ) : (

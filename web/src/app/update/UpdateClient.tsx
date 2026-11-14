@@ -5,6 +5,13 @@ import { useDeviceHost } from "@/lib/community/deviceHost";
 import { captureEvent } from "@/lib/posthogEvents";
 import styles from "./update.module.css";
 
+const RELEASES = "https://github.com/engmung/Patternflow/releases";
+
+// A name or an IPv4 address with an optional port, or an IPv6 address in
+// brackets. Anything else ("my panel", a comma) is not somewhere a browser
+// can go, and the button would open a tab that cannot load.
+const HOST_PATTERN = /^(\[[0-9a-f:.]+\]|[a-z0-9]([a-z0-9.-]*[a-z0-9])?)(:\d{1,5})?$/i;
+
 // The page the device's console sends you to.
 //
 // A board says "v3.4.0 is out" and links here; this hands the newest release
@@ -60,7 +67,12 @@ export default function UpdateClient() {
       ? new URL(`/flash/${imagePath}`, window.location.origin).toString()
       : null;
 
-  const wirelessUrl = imageUrl
+  // The manifest arrived and names no app image. The button would stay grey
+  // for ever with nothing said, so this counts as the manifest not reading.
+  const unreadable = failed || (manifest !== null && !imagePath);
+
+  const hostOk = HOST_PATTERN.test(host);
+  const wirelessUrl = imageUrl && hostOk
     ? `http://${host}/update?src=${encodeURIComponent(imageUrl)}`
     : null;
 
@@ -75,30 +87,42 @@ export default function UpdateClient() {
         rewrites the program only.
       </p>
 
-      {failed && (
-        <p className={styles.bad}>
+      {unreadable && (
+        <p className={styles.bad} role="alert">
           Could not read the release manifest. Reload, or grab the image from the{" "}
-          <a href="https://github.com/engmung/Patternflow/releases">releases page</a>.
+          <a href={RELEASES}>releases page</a>.
         </p>
       )}
 
       <section className={styles.card}>
         <div className={styles.cardHead}>
           <span className={styles.kicker}>Latest release</span>
-          <span className={styles.version}>{version ? `v${version}` : "…"}</span>
+          <span className={styles.version}>
+            {version ? `v${version}` : unreadable ? "unknown" : "…"}
+          </span>
         </div>
 
         <label className={styles.hostRow}>
           <span>Your device&rsquo;s address</span>
           <input
             type="text"
+            inputMode="url"
             value={deviceHost}
             spellCheck={false}
             autoCapitalize="none"
+            autoCorrect="off"
+            aria-invalid={!hostOk}
+            aria-describedby={hostOk ? undefined : "update-host-bad"}
             onChange={(event) => changeDeviceHost(event.target.value)}
             placeholder="patternflow.local"
           />
         </label>
+        {!hostOk && (
+          <p id="update-host-bad" className={styles.hostBad} role="alert">
+            A browser cannot open that. The address is a name or an IP on its own:{" "}
+            <code>patternflow.local</code> or <code>192.168.0.24</code>.
+          </p>
+        )}
         <p className={styles.hostNote}>
           Android cannot resolve <code>.local</code> — use the IP from the device&rsquo;s
           NETWORK screen (hold K2).
@@ -112,6 +136,7 @@ export default function UpdateClient() {
         <a
           className={wirelessUrl ? styles.go : styles.goDisabled}
           href={wirelessUrl ?? undefined}
+          aria-disabled={wirelessUrl ? undefined : true}
           target="_blank"
           rel="noreferrer"
           onClick={() => {
@@ -144,10 +169,12 @@ export default function UpdateClient() {
               <a href={imageUrl} download>
                 Download the {version ? `v${version} ` : ""}image
               </a>
+            ) : unreadable ? (
+              <a href={RELEASES}>Download the image from the releases page</a>
             ) : (
               "…"
             )}{" "}
-            and drop it on <code>{host}/update</code> yourself.
+            and drop it on <code>{hostOk ? host : "patternflow.local"}/update</code> yourself.
           </li>
           <li>
             <b>USB:</b> the <a href="/pattern">browser flasher</a> writes a complete

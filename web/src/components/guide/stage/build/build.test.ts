@@ -6,7 +6,7 @@ import { BUILD_STEPS } from "./script";
 import { PADS, PAD_COUNT } from "./pads";
 import { BOARD_WORK, CABLE_HOLE, PANEL_CENTRE, PANEL_IN, PANEL_OUT, PANEL_POWER, SCREW_HOLES } from "./layout";
 import { BUILD_VIEWS, settleIn } from "./views";
-import { ease, fall, glide, grow, land, latch, past, press, reach, rock, setDown, swing, windUp } from "./motion";
+import { ease, fall, glide, grow, land, latch, past, press, reach, rock, runPace, setDown, swing, windUp } from "./motion";
 import { footprint, foldedRibbon } from "./props";
 import * as THREE from "three";
 import { VIEWS } from "../views";
@@ -249,5 +249,23 @@ describe("the parts that can be touched", () => {
     const csv = readFileSync(path.resolve(__dirname, "../../../../../..", BOM_FILE), "utf8");
     const lines = parseBom(csv).map(bomKey);
     expect([...TOUCH_KEYS].sort()).toEqual([...lines].sort());
+  });
+});
+
+describe("the run to a step a beat or more away", () => {
+  it("sets off and comes in at two fifths of its pace, and is fastest half way", () => {
+    expect(runPace(0)).toBeCloseTo(0.4, 6);
+    expect(runPace(1)).toBeCloseTo(0.4, 6);
+    expect(runPace(0.5)).toBeCloseTo(1.6, 6);
+    expect(runPace(0.25)).toBeCloseTo(runPace(0.75), 6);
+  });
+
+  it("takes about as long as it did at one pace", () => {
+    // The time to cover the run, in units of the time it took at the plain pace: the mean of 1 / pace over the way.
+    let time = 0;
+    const n = 2000;
+    for (let i = 0; i < n; i++) time += 1 / runPace((i + 0.5) / n) / n;
+    expect(time).toBeGreaterThan(0.85);
+    expect(time).toBeLessThan(1.15);
   });
 });

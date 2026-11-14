@@ -60,7 +60,7 @@ function Person({ name, href }: { name?: string; href?: string }) {
 }
 
 export default function EditionCard({ edition: v }: Props) {
-  const { deviceHost, changeDeviceHost } = useDeviceHost();
+  const { deviceHost, host, changeDeviceHost } = useDeviceHost();
   const [open, setOpen] = useState(false);
   const [latest, setLatest] = useState<string | null>(null);
   const [fromManifest, setFromManifest] = useState<{
@@ -106,7 +106,9 @@ export default function EditionCard({ edition: v }: Props) {
   }, [v.manifest]);
 
   const image = fromManifest ?? v.hosted ?? null;
-  const host = deviceHost.trim() || "patternflow.local";
+  // The host as useDeviceHost reads it, as /update and the try-out button do:
+  // an address pasted from the console's own tab ("http://192.168.0.24/")
+  // made http://http://192.168.0.24//update here.
   const installUrl = image
     ? `http://${host}/update?src=${encodeURIComponent(image.url)}`
     : null;

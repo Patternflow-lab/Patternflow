@@ -4,16 +4,17 @@
    The effects are imperative postprocessing objects driven from the frame
    loop; that is their API and it never feeds back into React. */
 
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, N8AO, ToneMapping, Vignette } from "@react-three/postprocessing";
-import { BlendFunction, BloomEffect, Effect, EffectAttribute, FXAAEffect, ToneMappingMode } from "postprocessing";
-import { memo, useEffect, useMemo, type JSX } from "react";
+import { BlendFunction, BloomEffect, Effect, EffectAttribute, FXAAEffect, ToneMappingMode, type EffectComposer as Composer } from "postprocessing";
+import { memo, useEffect, useMemo, useRef, type JSX, type RefObject } from "react";
 import * as THREE from "three";
 import { useGuideStore } from "../../store";
 import { stageLoad } from "../../ui/stageLoad";
 import { buildFocus } from "../build/focus";
 import { stageFocus } from "./focus";
 import { measureFrame, settingsFor, useTier } from "./quality";
+import { stageSignature, takeWake, watchForRest } from "./rest";
 
 // What the lens and the film do to the frame, in order:
 //
@@ -37,6 +38,9 @@ import { measureFrame, settingsFor, useTier } from "./quality";
 //
 // Which of these a machine gets is its tier (quality.ts), measured from its
 // own frame times. The composer is rebuilt only when the tier changes.
+//
+// And none of it is done for a frame that would be the picture already on
+// the screen: the stage is drawn when it has changed (Draw, at the foot).
 
 // ── the grade ───────────────────────────────────────────────────────────────
 
@@ -151,6 +155,11 @@ const FOCUS_FAR = 9;
 function Focus({ reducedMotion }: { reducedMotion: boolean }) {
   const effect = useMemo(() => new SoftFocusEffect(), []);
   useEffect(() => () => effect.dispose(), [effect]);
+  // The focus is no part of the scene: the stage is drawn for as long as it racks (rest.ts).
+  useEffect(() => {
+    const watches = ["uFocus", "uRange", "uRadius"].map((name) => watchForRest(() => effect.uniforms.get(name)!.value as number));
+    return () => watches.forEach((forget) => forget());
+  }, [effect]);
   const st = useMemo(() => ({ init: false, at: new THREE.Vector3(), range: 8, v: new THREE.Vector3() }), []);
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 0.1);
@@ -233,15 +242,121 @@ function EdgeFilter() {
   return <primitive object={effect} dispose={null} />;
 }
 
-// ── frame times ─────────────────────────────────────────────────────────────
+// ── drawing, and frame times ────────────────────────────────────────────────
+//
+// The composer does not draw itself (it is handed `enabled={false}`): this
+// does, last in the frame, and only a frame that differs from the one on the
+// screen (rest.ts). A frame is due when a part of the stage said so, when the
+// canvas or the composer changed, or when the scene's signature has moved.
+// Then it is drawn for TAIL frames more, for what follows a change a frame
+// late: the focus reads the matrix the camera was drawn with. And once a
+// second whatever happens, so a change the signature has no way to see is
+// never on screen late by more than that.
+//
+// The frame times are measured here too, and only across two drawn frames
+// in a row: a frame after a skipped one says nothing of what drawing costs.
 
-function Probe() {
-  useFrame((_, dt) => {
-    const s = useGuideStore.getState();
-    // Not while the stage is still loading, a page is on its way in or out, a cut is on, or the device has left for Make.
-    measureFrame(dt * 1000, stageLoad.get().ready && s.entered && !s.leaving && !s.cut && s.page !== "make");
-  });
+/** Unchanged, the stage is still drawn this often, ms. */
+const HEARTBEAT_MS = 1000;
+/** Frames drawn after the last change. */
+const TAIL = 2;
+
+type DrawStats = { frames: number; drawn: number; readMs: number };
+
+function Draw({ composer }: { composer: RefObject<Composer | null> }) {
+  const gl = useThree((s) => s.gl);
+  const st = useRef({ sig: NaN, at: 0, tail: 0, drew: false, w: -1, h: -1, ratio: -1, composer: null as Composer | null, passes: -1 });
+  const size = useMemo(() => new THREE.Vector2(), []);
+
+  // A context the GPU took away and gave back is empty: it is drawn at once.
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const again = () => {
+      st.current.at = 0;
+    };
+    canvas.addEventListener("webglcontextrestored", again);
+    return () => canvas.removeEventListener("webglcontextrestored", again);
+  }, [gl]);
+
+  // In development, for finding what will not let the stage rest: each object
+  // the signature reads, with the number so far (window.__pfRestProbe()).
+  // Called on two frames, the first line that differs names what moved.
+  const get = useThree((s) => s.get);
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const none = new THREE.Object3D();
+    none.visible = false;
+    (window as unknown as { __pfRestProbe?: () => [string, number][] }).__pfRestProbe = () => {
+      const { scene, camera } = get();
+      const list: [string, number][] = [["camera and watched", stageSignature(none, camera)]];
+      stageSignature(scene, camera, (o, soFar) => list.push([o.name || o.type, soFar]));
+      return list;
+    };
+  }, [get]);
+
+  useFrame((state, dt) => {
+    const c = composer.current;
+    if (!c) return;
+    const s = st.current;
+    const renderer = state.gl;
+    let due = takeWake();
+    // The composer's buffers follow the canvas (the library sizes them in the frame it draws, and that is this one now).
+    renderer.getSize(size);
+    const ratio = renderer.getPixelRatio();
+    if (size.x !== s.w || size.y !== s.h || ratio !== s.ratio) {
+      c.setSize(size.x, size.y);
+      s.w = size.x;
+      s.h = size.y;
+      s.ratio = ratio;
+      due = true;
+    }
+    // A new composer (the tier changed), or one whose effects have just gone in.
+    if (c !== s.composer || c.passes.length !== s.passes) {
+      s.composer = c;
+      s.passes = c.passes.length;
+      due = true;
+    }
+    const now = performance.now();
+    if (due) {
+      // The scene was not read: the next still frame has nothing to be the same as.
+      s.sig = NaN;
+    } else {
+      const sig = stageSignature(state.scene, state.camera);
+      due = sig !== s.sig;
+      s.sig = sig;
+      if (process.env.NODE_ENV !== "production") stats().readMs += performance.now() - now;
+    }
+    if (due) s.tail = TAIL;
+    else if (s.tail > 0) {
+      s.tail--;
+      due = true;
+    } else if (now - s.at >= HEARTBEAT_MS) due = true;
+
+    // Frame times: not while the stage is still loading, a page is on its way in or out, a cut is on, or the device has left for Make.
+    const g = useGuideStore.getState();
+    const settled = stageLoad.get().ready && g.entered && !g.leaving && !g.cut && g.page !== "make";
+    if (!settled) measureFrame(dt * 1000, false);
+    else if (due && s.drew) measureFrame(dt * 1000, true);
+    s.drew = due;
+    if (process.env.NODE_ENV !== "production") {
+      const n = stats();
+      n.frames++;
+      if (due) n.drawn++;
+    }
+    if (!due) return;
+    s.at = now;
+    const auto = renderer.autoClear;
+    renderer.autoClear = true;
+    c.render(dt);
+    renderer.autoClear = auto;
+  }, 1);
   return null;
+}
+
+/** In development, for measuring: frames run, frames drawn, and the time spent reading the scene (window.__pfRest). */
+function stats(): DrawStats {
+  const w = window as unknown as { __pfRest?: DrawStats };
+  return (w.__pfRest ??= { frames: 0, drawn: 0, readMs: 0 });
 }
 
 type Props = { narrow: boolean; reducedMotion: boolean; ao: boolean; dof: boolean };
@@ -271,10 +386,11 @@ export default memo(function StagePost({ narrow, reducedMotion, ao, dof }: Props
   );
   // Last, on the finished picture: its edges are what the eye sees.
   if (q.fxaa && !q.msaa) effects.push(<EdgeFilter key="fxaa" />);
+  const composer = useRef<Composer | null>(null);
   return (
     <>
-      <Probe />
-      <EffectComposer multisampling={q.msaa} enableNormalPass={false}>
+      <Draw composer={composer} />
+      <EffectComposer ref={composer} enabled={false} multisampling={q.msaa} enableNormalPass={false}>
         {effects}
       </EffectComposer>
     </>

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { Component, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import HeroScene from './HeroScene';
 import { useAppStore, type HomeTabType } from '@/store/useAppStore';
+import { useMediaQuery } from '@/lib/hooks/useMediaQuery';
 import { hasWebGL } from '@/lib/webgl';
 
 // The hero and the Inside section show the build globe; Build and Pattern
@@ -73,6 +74,24 @@ export default function ViewerPanel({ initialTab = 'hero' }: { initialTab?: Home
   // swaps the scene, which ends the fade without extra state.
   const fading = targetScene !== shownScene;
 
+  // Under 901px the panel is not on screen while the hero is (globals.css,
+  // .viewer-panel), so no scene is put in it there. GlobeViewer already
+  // leaves the pins' photos alone on a phone's hero, but the globe drawn
+  // into a box nobody sees still fetched its code, the coastlines with it,
+  // and held a WebGL context. The query reads false until the first effect,
+  // so a wide window's hero waits one commit for its globe, which loads
+  // after hydration either way.
+  const wide = useMediaQuery('(min-width: 901px)');
+  const onScreen = isOpen || wide;
+  // Coming on screen there is nothing to fade out, so the panel opens on the
+  // scene that is wanted. A phone going from the hero to Build would
+  // otherwise mount the globe for the 200 ms of a fade nobody sees.
+  const [wasOnScreen, setWasOnScreen] = useState(onScreen);
+  if (wasOnScreen !== onScreen) {
+    setWasOnScreen(onScreen);
+    if (onScreen) setShownScene(targetScene);
+  }
+
   // Fade the current scene out, swap while invisible, then fade the new one in.
   // Keeping a single scene mounted at a time preserves the original (cheap)
   // memory profile — this is a fade-through, not a true overlapping crossfade.
@@ -89,9 +108,11 @@ export default function ViewerPanel({ initialTab = 'hero' }: { initialTab?: Home
       <div className={`viewer-fade ${fading ? 'is-fading' : ''}`}>
         {/* Keyed by scene: one that failed is tried again only after the other has been shown. */}
         {webgl ? (
-          <SceneGuard key={shownScene}>
-            {shownScene === 'globe' ? <GlobeViewer /> : <HeroScene />}
-          </SceneGuard>
+          onScreen && (
+            <SceneGuard key={shownScene}>
+              {shownScene === 'globe' ? <GlobeViewer /> : <HeroScene />}
+            </SceneGuard>
+          )
         ) : (
           <ViewerOff />
         )}

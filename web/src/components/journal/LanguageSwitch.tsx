@@ -1,4 +1,5 @@
 import type { JournalLang } from "@/lib/journal";
+import styles from "./LanguageSwitch.module.css";
 
 type LanguageSwitchProps = {
   lang: JournalLang;
@@ -14,15 +15,17 @@ export default function LanguageSwitch({ lang, slug }: LanguageSwitchProps) {
   return (
     <nav className="journal-lang-switch" aria-label="Journal language">
       <a
-        className={lang === "ko" ? "active" : ""}
+        className={`${styles.target}${lang === "ko" ? " active" : ""}`}
         href={koHref}
+        hrefLang="ko"
         aria-current={lang === "ko" ? "page" : undefined}
       >
         ko
       </a>
       <a
-        className={lang === "en" ? "active" : ""}
+        className={`${styles.target}${lang === "en" ? " active" : ""}`}
         href={enHref}
+        hrefLang="en"
         aria-current={lang === "en" ? "page" : undefined}
       >
         en

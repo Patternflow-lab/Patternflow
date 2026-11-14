@@ -3,8 +3,11 @@
 // Layer stack — Photoshop-style: top of the list is the top of the stack.
 // Click selects, double-click renames, eye toggles visibility, drag reorders.
 // The active layer's opacity + blend live at the bottom of the panel.
+//
+// A row also takes focus: Enter or Space selects it, F2 renames it, and
+// Alt+Up / Alt+Down move it.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { BLEND_MODES, type Layer } from "@/lib/lab/types";
 import { revealEditor } from "@/lib/lab/editorReveal";
 import { useLabStore } from "@/lib/lab/store";
@@ -50,7 +53,31 @@ export default function LayersPanel() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  const listRef = useRef<HTMLOListElement | null>(null);
+
   const active = layers.find((layer) => layer.id === activeLayerId);
+
+  const startRename = (id: string, name: string) => {
+    setRenamingId(id);
+    setRenameValue(name);
+  };
+
+  // Focus a row once React has committed. A reorder moves the row's node and
+  // a moved node drops focus, so a second Alt+Up would land nowhere. Closing
+  // the rename field from the keyboard unmounts the element that had it.
+  const focusRow = (id: string) => {
+    requestAnimationFrame(() => {
+      listRef.current?.querySelector<HTMLElement>(`[data-layer-id="${id}"]`)?.focus();
+    });
+  };
+
+  const moveLayer = (index: number, delta: number, refocus: boolean) => {
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= layers.length) return;
+    const id = layers[index].id;
+    reorderLayer(index, target);
+    if (refocus) focusRow(id);
+  };
 
   const commitRename = () => {
     if (renamingId) renameLayer(renamingId, renameValue);
@@ -125,7 +152,7 @@ export default function LayersPanel() {
       </div>
 
       <div className={dock.panelBody}>
-        <ol className={local.layerList}>
+        <ol className={local.layerList} ref={listRef}>
           {layers.map((layer, index) => {
             const isActive = layer.id === activeLayerId;
             const error = layerErrors[layer.id];
@@ -163,12 +190,27 @@ export default function LayersPanel() {
                     // already active — clicking a layer means "let me edit it".
                     revealEditor(layer.type);
                   }}
-                  onDoubleClick={() => {
-                    setRenamingId(layer.id);
-                    setRenameValue(layer.name);
+                  onDoubleClick={() => startRename(layer.id, layer.name)}
+                  onKeyDown={(event) => {
+                    // The eye and the rename field keep their own keys.
+                    if (event.target !== event.currentTarget) return;
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectLayer(layer.id);
+                      revealEditor(layer.type);
+                    } else if (event.key === "F2") {
+                      event.preventDefault();
+                      startRename(layer.id, layer.name);
+                    } else if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+                      event.preventDefault();
+                      moveLayer(index, event.key === "ArrowUp" ? -1 : 1, true);
+                    }
                   }}
                   role="button"
+                  tabIndex={0}
+                  data-layer-id={layer.id}
                   aria-pressed={isActive}
+                  aria-keyshortcuts="F2 Alt+ArrowUp Alt+ArrowDown"
                   title="Click to select · double-click to rename · drag to reorder"
                 >
                   <button
@@ -192,8 +234,10 @@ export default function LayersPanel() {
                       onChange={(event) => setRenameValue(event.target.value)}
                       onBlur={commitRename}
                       onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== "Escape") return;
                         if (event.key === "Enter") commitRename();
-                        if (event.key === "Escape") setRenamingId(null);
+                        else setRenamingId(null);
+                        focusRow(layer.id);
                       }}
                       onClick={(event) => event.stopPropagation()}
                     />

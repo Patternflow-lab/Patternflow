@@ -6,7 +6,7 @@ import Milestones from './Milestones';
 import Sponsor from './Sponsor';
 import BuildPanel from './BuildPanel';
 import InsidePanel from './InsidePanel';
-import PatternPanel from './PatternPanel';
+import PatternPanel, { preloadPatternEditor } from './PatternPanel';
 import Footer from '../layout/Footer';
 import { SectionContent } from '@/lib/content';
 import { useAppStore } from '@/store/useAppStore';
@@ -27,6 +27,10 @@ const TAB_PATHS: Record<TabType, string> = {
   pattern: '/pattern',
   inside: '/inside',
 };
+
+// A pointer on its way to a Pattern button, or the focus on one: the code
+// editor starts loading then, a moment before the tab asks for it.
+const editorWarmUp = { onPointerEnter: preloadPatternEditor, onFocus: preloadPatternEditor };
 
 function tabFromPath(pathname: string): TabType {
   // /inside also carries a build id when a pin on the map is open
@@ -146,6 +150,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
         <button 
           className={`v-tab-btn ${activeTab === 'pattern' ? 'active' : ''}`}
           aria-pressed={activeTab === 'pattern'}
+          {...editorWarmUp}
           onClick={() => handleTabClick('pattern')}
         >
           {activeTab === 'pattern' && <span className="close-icon" aria-hidden="true">✕</span>}
@@ -170,7 +175,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
               Inert takes the hero's h1 with it, so each tab's title is an h1
               of its own. */}
           <div className={`panel-wrapper ${activeTab === 'hero' ? 'active' : ''}`} inert={activeTab !== 'hero'}>
-            <Hero />
+            <Hero isActive={activeTab === 'hero'} />
             <Milestones />
             <Sponsor />
             <Footer />
@@ -195,6 +200,7 @@ export default function RightPanel({ initialTab = 'hero', buildContent, patternC
             key={tab}
             className={`mb-tab ${activeTab === tab ? 'active' : ''}`}
             aria-pressed={activeTab === tab}
+            {...(tab === 'pattern' ? editorWarmUp : null)}
             onClick={() => handleTabClick(tab)}
           >
             {tab === 'build' ? 'Build' : tab === 'pattern' ? 'Pattern' : 'Inside'}

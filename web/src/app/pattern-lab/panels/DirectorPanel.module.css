@@ -176,10 +176,13 @@
   stroke-dasharray: 3 3;
 }
 
+/* touch-action: a finger on a key or a handle drags it. Without it the
+   browser scrolls the timeline and cancels the pointer after a few pixels. */
 .key {
   fill: #fff;
   stroke-width: 2;
   cursor: grab;
+  touch-action: none;
 }
 
 .keySelected {
@@ -195,6 +198,7 @@
 .handle {
   fill: #ff4d00;
   cursor: grab;
+  touch-action: none;
 }
 
 .msgChip {

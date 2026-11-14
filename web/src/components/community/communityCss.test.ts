@@ -84,6 +84,30 @@ describe("the wall's grid", () => {
   });
 });
 
+// A profile and a deck page put cards three across on a phone, 109px each in
+// Chromium at 390px, with the full caption: the counts ran 108px past the card
+// and the page 77px past the screen. Neither has a data-view to say small.
+describe("a narrow card", () => {
+  const community = css("Community.module.css");
+  const narrow = community.slice(community.indexOf("\n@container card (max-width: 140px) {"));
+
+  it("measures itself, wherever it is drawn", () => {
+    expect(rule(community, ".card")).toMatch(/container: card \/ inline-size;/);
+    expect(community).toContain("\n@container card (max-width: 140px) {");
+  });
+
+  it("drops the counts the way the small view does", () => {
+    const stats = narrow.slice(narrow.indexOf("\n  .cardStats,\n  .frameChip {"));
+    expect(stats.slice(0, stats.indexOf("}"))).toMatch(/display: none;/);
+  });
+
+  it("lets the counts give way to the handle instead of running past the card", () => {
+    const stats = declarations(rule(community, ".cardStats"));
+    expect(stats).toContain("overflow: hidden");
+    expect(stats).not.toContain("flex: none");
+  });
+});
+
 // On 26 October one public deck named in 62 characters made /community/decks
 // and its owner's profile 578px wide on a 390px phone. Every card in the
 // column grew to 562px with it, and the tab bar to 578px, which put YOU off
@@ -115,6 +139,22 @@ function mediaRules(source: string, query: string) {
     .flatMap((part) => [...part.slice(0, part.indexOf("\n}")).matchAll(/\n {2}([^{}]+) \{([^}]*)\}/g)])
     .map(([, selectors, body]) => ({ selectors: selectors.split(",").map((s) => s.trim()), body }));
 }
+
+// Between the phone layout and 900px a moderator's header ran 138px past a
+// 769px screen, and a member's with a 20-character handle 96px, so the whole
+// page scrolled sideways.
+describe("the header between a phone and a wide desktop", () => {
+  const community = css("Community.module.css");
+
+  it("lets the row wrap, the account links right-aligned on their line", () => {
+    expect(rule(community, ".pageHeader")).toMatch(/flex-wrap: wrap;/);
+    expect(rule(community, ".headerNav")).toMatch(/margin-left: auto;/);
+  });
+
+  it("shortens the CTA to Make below 1024px", () => {
+    expect(mediaRule(community, "(max-width: 1023px)", ".ctaRest")).toMatch(/display: none;/);
+  });
+});
 
 // On 26 October a bare `.headerSpacer { display: none }` in the phone block,
 // meant for the page header's gap, took out the same span in eight other rows.
@@ -383,6 +423,33 @@ describe("community dialogs", () => {
     const button = rule(css("Community.module.css"), ".modalHeader button");
     expect(button).toMatch(/min-width: 44px;/);
     expect(button).toMatch(/min-height: 44px;/);
+  });
+
+  // 90vh is a phone's height with its toolbars hidden. With them showing, a
+  // long card ran past the overlay and its × sat above the screen.
+  it("keep the card inside the height a phone shows", () => {
+    const card = rule(css("Community.module.css"), ".modalCard");
+    const heights = [...card.matchAll(/max-height: ([^;]+);/g)].map((match) => match[1]);
+    expect(heights.at(-1)).toBe("calc(100dvh - 40px)");
+    expect(card).toMatch(/overscroll-behavior: contain;/);
+  });
+});
+
+// In Chromium a fenced block in a comment sat 45px under its paragraph and 33px
+// over the next, where the composer's preview of the same text has 12px and
+// 10px, and a fence with no language drew the inline chip inside its box.
+describe("a code fence in a comment", () => {
+  const community = css("Community.module.css");
+
+  it("keeps typed line breaks inside a paragraph only", () => {
+    expect(rule(community, ".commentBody")).not.toMatch(/white-space/);
+    expect(rule(community, ".commentBody p")).toMatch(/white-space: pre-wrap;/);
+  });
+
+  it("takes the inline chip off the code inside it", () => {
+    const code = rule(community, ".codeFence code");
+    expect(code).toMatch(/padding: 0;/);
+    expect(code).toMatch(/border: 0;/);
   });
 });
 

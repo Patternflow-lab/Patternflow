@@ -123,6 +123,19 @@ describe("DirectorPanel", () => {
     expect(screen.getByText(/\/256 cues/).textContent).not.toMatch(/^0\//);
   });
 
+  it("a drag moves the key, and a cancelled pointer lets go of it", () => {
+    const { container, lanes } = mount();
+    addKeyAt(lanes[0], 1);
+    const key = container.querySelector("svg circle") as SVGCircleElement;
+    fireEvent.pointerDown(key, { clientX: 28, clientY: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 3 * 28, clientY: 0, pointerId: 1 });
+    expect(show().lanes[0][0].t).toBe(3);
+    // No pointerup follows a cancel: a touch the browser took for a scroll.
+    fireEvent.pointerCancel(window, { pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 5 * 28, clientY: 0, pointerId: 1 });
+    expect(show().lanes[0][0].t).toBe(3);
+  });
+
   it("space toggles the shared transport", () => {
     const { root, lanes } = mount();
     addKeyAt(lanes[0], 0);

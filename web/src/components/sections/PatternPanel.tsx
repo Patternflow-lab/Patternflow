@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { SectionContent } from '@/lib/content';
 import Script from 'next/script';
 import { useAppStore } from '@/store/useAppStore';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
 import { showcasePresets } from '@/lib/presets';
 import { captureEvent } from '@/lib/posthogEvents';
 import { communityHref } from '@/lib/community/apiBase';
@@ -24,6 +24,16 @@ const EspWebInstallButton = 'esp-web-install-button' as unknown as React.Element
 interface PatternPanelProps {
   content: SectionContent;
   isActive: boolean;
+}
+
+/**
+ * Starts fetching the code editor before the Pattern tab opens, on a hover or
+ * a focus of its button (RightPanel). The editor waits for the tab, and is
+ * 4.2 MB from jsdelivr once its loader is in; this gives it the moment
+ * between the pointer arriving and the click.
+ */
+export function preloadPatternEditor() {
+  loader.init().catch(() => {});
 }
 
 const EDITOR_LINE_HEIGHT = 20;
@@ -268,6 +278,10 @@ export default function PatternPanel({ content, isActive }: PatternPanelProps) {
                         vertical: 'auto',
                         horizontal: 'auto',
                         handleMouseWheel: true,
+                        // At its first or last line the editor hands the wheel
+                        // back to the page. Kept, the wheel stopped dead over
+                        // the editor, which is taller than half the panel.
+                        alwaysConsumeMouseWheel: false,
                       },
                       overviewRulerLanes: 0,
                       hideCursorInOverviewRuler: true,

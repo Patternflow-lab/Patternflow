@@ -19,6 +19,30 @@ import { builds, latLngToVec3, originOf } from './builds';
 import type { BuildGroup } from './groups';
 import type { FanObstacle } from './groups';
 import { GROUP_ANGLE_DEG, angularDistance, fanAngle, fanChordPx, fanLean, fanRadiusPx, groupBuilds } from './groups';
+import { isLightboxOpen, watchLightbox } from './PhotoLightbox';
+import type { Damped, Sprung } from './motion';
+import {
+  FAN_CLOSE,
+  LINK_AFTER_PIN_S,
+  LINK_DRAW_AGAIN_S,
+  LINK_DRAW_S,
+  PIN_IN_S,
+  WAVE_AGAIN_S,
+  WAVE_S,
+  clamp01,
+  damp,
+  dotSize,
+  fanProgress,
+  fanSeconds,
+  headingGap,
+  pinArrival,
+  pullBack,
+  settled,
+  smoothstep,
+  spring,
+  turnTime,
+  waveDelay,
+} from './motion';
 import landData from './land.json';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
@@ -156,6 +180,12 @@ function ContinentShell() {
   );
 }
 
+// The map data is cut where a ring crosses the antimeridian, and Antarctica is
+// closed along the bottom edge of the map. An edge that runs along either is
+// the map's own, not a coast: drawn, it put a straight black line across
+// Chukotka and another from the Ross Ice Shelf to the pole.
+const onMapEdge = (lng: number, lat: number) => Math.abs(lng) === 180 || lat === -90;
+
 // Bold coastlines drawn just above the white land for crisp continent edges.
 function ContinentOutlines() {
   const geometry = useMemo(() => {
@@ -164,6 +194,10 @@ function ContinentOutlines() {
       const count = ring.length / 2;
       for (let i = 0; i < count; i += 1) {
         const next = (i + 1) % count;
+        if (
+          onMapEdge(ring[i * 2], ring[i * 2 + 1]) &&
+          onMapEdge(ring[next * 2], ring[next * 2 + 1])
+        ) continue;
         points.push(...latLngToVec3(ring[i * 2 + 1], ring[i * 2], OUTLINE_RADIUS));
         points.push(...latLngToVec3(ring[next * 2 + 1], ring[next * 2], OUTLINE_RADIUS));
       }
@@ -219,9 +253,13 @@ const ARC_SAMPLES = 96;
 // mesh. Only actual builds take part: this web means "how far Patternflow has
 // spread", so a collaboration, a sale or a showing joining it would overstate
 // the count. Those get their own line back to where they came from.
-function webArcs(entries: Build[]): number[][] {
+type Place = { lat: number; lng: number };
+// A link: its polyline, and the two places it joins (for the order the map is drawn in).
+type Link = { arc: number[]; from: Place; to: Place };
+
+function webLinks(entries: Build[]): Link[] {
   const built = entries.filter((build) => build.kind === 'build');
-  const arcs: number[][] = [];
+  const links: Link[] = [];
 
   // Collect a unique set of edges: each build reaches to its N nearest.
   const edges = new Set<string>();
@@ -249,58 +287,155 @@ function webArcs(entries: Build[]): number[][] {
     const [i, j] = key.split('-').map(Number);
     const a = built[i].location;
     const b = built[j].location;
-    arcs.push(linkArc(a.lat, a.lng, b.lat, b.lng, WEB_RADIUS, ARC_SAMPLES));
+    links.push({ arc: linkArc(a.lat, a.lng, b.lat, b.lng, WEB_RADIUS, ARC_SAMPLES), from: a, to: b });
   }
-  return arcs;
+  return links;
 }
 
 // One line from each collaboration, sale and showing back to where it came
 // from. None from a pin that sits on its origin's own spot, as the showings in
 // Seoul sit on the first build: that line would have no length, only its dots
 // piled on the pin.
-function collaborationArcs(entries: Build[]): number[][] {
-  const arcs: number[][] = [];
+function collaborationLinks(entries: Build[]): Link[] {
+  const links: Link[] = [];
   for (const build of entries) {
     if (build.kind === 'build') continue;
     const origin = originOf(build);
     if (!origin || !entries.some((entry) => entry.id === origin.id)) continue;
     if (angularDistance(origin.location, build.location) <= (GROUP_ANGLE_DEG * Math.PI) / 180) continue;
-    arcs.push(
-      linkArc(
+    links.push({
+      arc: linkArc(
         origin.location.lat, origin.location.lng,
         build.location.lat, build.location.lng,
         WEB_RADIUS, ARC_SAMPLES,
       ),
-    );
+      from: origin.location,
+      to: build.location,
+    });
   }
-  return arcs;
+  return links;
 }
+
+// How the map comes up (motion.ts, "Arriving"): 'first' is the first time in
+// a visit, 'again' any later time the globe is put back on the page, 'change'
+// a filter picked with the globe already up, and 'still' is for anyone who
+// has asked for less motion: everything is simply there.
+type Arrival = 'first' | 'again' | 'change' | 'still';
+
+// When each link starts to be drawn (seconds after the links are put up), how
+// long one takes, and whether it is drawn from its far end.
+type LinkTiming = { starts: Float32Array; reversed: boolean[]; draw: number };
+
+function linkTiming(links: Link[], origin: Place | undefined, arrival: Arrival): LinkTiming {
+  const starts = new Float32Array(links.length);
+  const reversed = links.map(() => false);
+  if (arrival === 'still') return { starts, reversed, draw: 0 };
+  if (arrival === 'change' || !origin) {
+    // The web redrawn for a filter: every link at once, a hair apart.
+    links.forEach((_, index) => {
+      starts[index] = Math.min(0.24, index * 0.012);
+    });
+    return { starts, reversed, draw: LINK_DRAW_AGAIN_S };
+  }
+  // Each link leaves the end the wave reaches first, a moment after its pin.
+  const wave = arrival === 'first' ? WAVE_S : WAVE_AGAIN_S;
+  links.forEach(({ from, to }, index) => {
+    const a = waveDelay(angularDistance(origin, from), wave);
+    const b = waveDelay(angularDistance(origin, to), wave);
+    starts[index] = Math.min(a, b) + LINK_AFTER_PIN_S;
+    reversed[index] = b < a;
+  });
+  return { starts, reversed, draw: arrival === 'first' ? LINK_DRAW_S : LINK_DRAW_AGAIN_S };
+}
+
+// The first time the map is shown in a visit it is drawn in the order it
+// happened; after that it comes up quickly. (The viewer takes the globe off
+// the page for the Build and Pattern tabs and puts it back for Inside.)
+let shownBefore = false;
 
 
 // The links themselves. Collaboration branches are drawn fainter than the web, so
 // they read as something hanging off it rather than another strand of it.
-function LinkLines({ arcs, opacity }: { arcs: number[][]; opacity: number }) {
+//
+// Each link is drawn on from one end to the other (`timing`): every vertex
+// carries how far along its link it is and when that link starts, and the
+// fragment shader leaves out what the pen has not reached yet. One draw call
+// for the whole web still, and nothing is written to the buffer as it grows.
+function LinkLines({ links, timing, opacity }: { links: Link[]; timing: LinkTiming; opacity: number }) {
   const geometry = useMemo(() => {
     const points: number[] = [];
-    for (const arc of arcs) {
+    const along: number[] = [];
+    const start: number[] = [];
+    links.forEach(({ arc }, index) => {
+      const last = arc.length / 3 - 1;
+      const at = (k: number) => (timing.reversed[index] ? 1 - k / last : k / last);
       // Expand the polyline into discrete segments, so one lineSegments draws
       // every link in a single call.
-      for (let k = 0; k < arc.length - 3; k += 3) {
-        points.push(arc[k], arc[k + 1], arc[k + 2]);
-        points.push(arc[k + 3], arc[k + 4], arc[k + 5]);
+      for (let k = 0; k < last; k += 1) {
+        points.push(arc[k * 3], arc[k * 3 + 1], arc[k * 3 + 2]);
+        points.push(arc[k * 3 + 3], arc[k * 3 + 4], arc[k * 3 + 5]);
+        along.push(at(k), at(k + 1));
+        start.push(timing.starts[index], timing.starts[index]);
       }
-    }
+    });
     const nextGeometry = new BufferGeometry();
     nextGeometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+    nextGeometry.setAttribute('aAlong', new Float32BufferAttribute(along, 1));
+    nextGeometry.setAttribute('aStart', new Float32BufferAttribute(start, 1));
     return nextGeometry;
-  }, [arcs]);
+  }, [links, timing]);
+
+  // A geometry handed over as a prop is not the fiber's to dispose, so each
+  // change of filter used to leave the last web's buffer on the GPU.
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  // The pen: how long it has been going (uPen, seconds; DRAWN once every link
+  // is whole) and how long one link takes it (uDraw). The shader holds these
+  // two objects for as long as the web is up; a new web starts the pen again.
+  const pen = useRef({
+    uPen: { value: 0 },
+    uDraw: { value: 1 },
+    born: -1,
+    whole: 0,
+    timing: null as LinkTiming | null,
+  });
+  useFrame((state) => {
+    const now = pen.current;
+    if (now.timing !== timing) {
+      now.timing = timing;
+      now.born = state.clock.elapsedTime;
+      now.whole = timing.starts.reduce((latest, at) => Math.max(latest, at), 0) + timing.draw;
+      now.uDraw.value = Math.max(timing.draw, 1e-3);
+      now.uPen.value = timing.draw > 0 ? 0 : DRAWN;
+    }
+    if (now.uPen.value === DRAWN) return;
+    const age = state.clock.elapsedTime - now.born;
+    now.uPen.value = age >= now.whole ? DRAWN : age;
+  });
 
   return (
-    <lineSegments geometry={geometry}>
-      <lineBasicMaterial color={COLORS.web} transparent opacity={opacity} />
+    <lineSegments geometry={geometry} frustumCulled={false}>
+      <lineBasicMaterial
+        color={COLORS.web}
+        transparent
+        opacity={opacity}
+        onBeforeCompile={(shader) => {
+          shader.uniforms.uPen = pen.current.uPen;
+          shader.uniforms.uDraw = pen.current.uDraw;
+          shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', '#include <common>\nattribute float aAlong;\nattribute float aStart;\nvarying float vAlong;\nvarying float vStart;')
+            .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAlong = aAlong;\nvStart = aStart;');
+          shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', '#include <common>\nuniform float uPen;\nuniform float uDraw;\nvarying float vAlong;\nvarying float vStart;')
+            .replace('void main() {', 'void main() {\n  if (vAlong > (uPen - vStart) / uDraw) discard;');
+        }}
+      />
     </lineSegments>
   );
 }
+
+// The pen's time once nothing is left to draw: past every link's end.
+const DRAWN = 1e6;
 
 const DOTS_PER_LINK = 2;
 const DOT_SPEED = 0.13;    // arc lengths per second
@@ -323,9 +458,25 @@ const _dotMatrix = new Matrix4();
 // flat to the screen, which is invisible at rest but unmistakable once a pin is
 // picked and the globe dollies in. Being round, they need no orientation — the
 // rotation is left at identity and the scale is uniform.
-function LinkDots({ arcs, opacity, still }: { arcs: number[][]; opacity: number; still: boolean }) {
+//
+// A dot is not on a link that has not been drawn yet (`timing`), and it comes
+// out of the pin at one end and goes into the pin at the other (dotSize).
+function LinkDots({
+  links,
+  timing,
+  opacity,
+  still,
+}: {
+  links: Link[];
+  timing: LinkTiming;
+  opacity: number;
+  still: boolean;
+}) {
   const meshRef = useRef<InstancedMesh>(null);
+  const arcs = useMemo(() => links.map((link) => link.arc), [links]);
   const count = arcs.length * DOTS_PER_LINK;
+  // When these links were put up, on the frame clock.
+  const life = useRef({ born: -1, timing: null as LinkTiming | null });
 
   const phases = useMemo(() => {
     const nextPhases = new Float32Array(count);
@@ -344,10 +495,15 @@ function LinkDots({ arcs, opacity, still }: { arcs: number[][]; opacity: number;
     const mesh = meshRef.current;
     if (!mesh) return;
     const time = still ? 0 : state.clock.elapsedTime;
+    if (life.current.timing !== timing) life.current = { born: state.clock.elapsedTime, timing };
+    const age = state.clock.elapsedTime - life.current.born;
 
     let d = 0;
-    for (const arc of arcs) {
+    for (let a = 0; a < arcs.length; a += 1) {
+      const arc = arcs[a];
       const lastPoint = arc.length / 3 - 1;
+      // Onto its link over a third of a second, once the link is whole.
+      const there = timing.draw > 0 ? smoothstep(age - timing.starts[a] - timing.draw, 0, 0.35) : 1;
       for (let n = 0; n < DOTS_PER_LINK; n += 1, d += 1) {
         const t = (time * DOT_SPEED + phases[d]) % 1;
         // Walk the sampled polyline rather than re-deriving the great circle:
@@ -364,6 +520,8 @@ function LinkDots({ arcs, opacity, still }: { arcs: number[][]; opacity: number;
           arc[a0 + 2] + (arc[a1 + 2] - arc[a0 + 2]) * f,
         );
 
+        // Standing still (reduced motion) a dot is where it is, at full size.
+        _dotScale.setScalar(DOT_RADIUS * there * (still ? 1 : dotSize(t)));
         _dotMatrix.compose(_dotPos, _dotQuat, _dotScale);
         mesh.setMatrixAt(d, _dotMatrix);
       }
@@ -401,9 +559,8 @@ export interface GlobeProps {
 const HIT_SCALE = 3.6;
 const HOVER_SCALE = 1.3;
 const SELECTED_SCALE = 1.45;
-// How fast a pin settles into a new size, and a group into open or closed
-// (1/seconds). Quick, but with a tail: the pin arrives rather than snaps.
-const PIN_EASE = 16;
+// How fast a fan's lean follows what it is avoiding (1/seconds). (A pin's own
+// size is a spring, and a fan opens on a clock: motion.ts.)
 const FAN_EASE = 13;
 
 // A ring pin's own axis before it is turned to face out of the globe.
@@ -412,11 +569,6 @@ const PIN_UP = new Vector3(0, 0, 1);
 // Frame-rate independent easing: the share of the remaining distance to cover
 // in a frame of `delta` seconds.
 const easeShare = (rate: number, delta: number) => 1 - Math.exp(-rate * delta);
-
-const smoothstep = (value: number, from: number, to: number) => {
-  const t = Math.min(1, Math.max(0, (value - from) / (to - from)));
-  return t * t * (3 - 2 * t);
-};
 
 // How far each mark reaches from its centre, in pin radii: the shapes below
 // are drawn to it, and an open fan keeps clear of it.
@@ -459,8 +611,11 @@ function PinShape({ kind }: { kind: Build['kind'] }) {
 }
 
 // The visible part of a pin: its mark, a little larger while hovered, larger
-// and black while selected. No idle pulse - a pin at rest costs one comparison
-// a frame. (It had an orange halo for a while; a glow smudged the flat map.)
+// and black while selected. It takes each size with a small spring, a tenth
+// past and back, and turns up on the map the same way: from nothing, `delay`
+// seconds after it is put there. No idle pulse - a pin at rest costs one
+// comparison a frame. (It had an orange halo for a while; a glow smudged the
+// flat map.)
 //
 // `floating` is a pin of an open group: drawn over everything, since it stands
 // off the surface on its hairline and must not be cut by the globe's edge.
@@ -469,25 +624,50 @@ function PinBody({
   hovered,
   selected,
   floating = false,
+  delay = 0,
+  still = false,
 }: {
   kind: Build['kind'];
   hovered: boolean;
   selected: boolean;
   floating?: boolean;
+  // Seconds after it is mounted before it starts to show.
+  delay?: number;
+  // Less motion asked for: each size is taken at once.
+  still?: boolean;
 }) {
   const bodyRef = useRef<Mesh>(null);
-  const eased = useRef({ scale: 1 });
+  const size = useRef<Sprung>({ value: 1, speed: 0 });
+  const life = useRef({ from: -1, here: false, drawn: -1 });
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const body = bodyRef.current;
     if (!body) return;
-    const now = eased.current;
-    const scale = selected ? SELECTED_SCALE : hovered ? HOVER_SCALE : 1;
-    if (now.scale === scale) return;
+    const now = size.current;
+    const mark = life.current;
+    const target = selected ? SELECTED_SCALE : hovered ? HOVER_SCALE : 1;
+    if (mark.here && now.value === target && now.speed === 0 && mark.drawn === target) return;
 
-    now.scale += (scale - now.scale) * easeShare(PIN_EASE, delta);
-    if (Math.abs(scale - now.scale) < 0.004) now.scale = scale;
-    body.scale.setScalar(now.scale);
+    let arrival = 1;
+    if (!mark.here) {
+      if (mark.from < 0) mark.from = state.clock.elapsedTime + delay;
+      const age = state.clock.elapsedTime - mark.from;
+      mark.here = still || floating || age >= PIN_IN_S;
+      if (!mark.here) arrival = age <= 0 ? 0 : pinArrival(age);
+    }
+    if (still) {
+      now.value = target;
+      now.speed = 0;
+    } else {
+      spring(now, target, delta);
+      if (settled(now, target)) {
+        now.value = target;
+        now.speed = 0;
+      }
+    }
+    mark.drawn = now.value * arrival;
+    body.scale.setScalar(mark.drawn);
+    body.visible = arrival > 0;
   });
 
   return (
@@ -533,6 +713,8 @@ function BuildPin({
   build,
   isSelected,
   isHovered,
+  delay,
+  still,
   fanRef,
   onHover,
   onSelect,
@@ -540,6 +722,8 @@ function BuildPin({
   build: Build;
   isSelected: boolean;
   isHovered: boolean;
+  delay: number;
+  still: boolean;
   fanRef: RefObject<FanClaim | null>;
   onHover: (buildId: string, over: boolean) => void;
   onSelect: (buildId: string | null) => void;
@@ -563,8 +747,11 @@ function BuildPin({
 
   return (
     <group position={position} quaternion={quaternion}>
-      {/* Large invisible hit-box for both easy hover and click (3.6x sensitivity) */}
+      {/* Large hit-box for both easy hover and click (3.6x sensitivity). Not
+          drawn at all: the raycaster does not ask whether a mesh is visible,
+          and as a see-through material it was a draw call a frame per pin. */}
       <mesh
+        visible={false}
         onPointerDown={(event) => {
           if (!fanClaims(fanRef.current, event)) event.stopPropagation();
         }}
@@ -581,11 +768,11 @@ function BuildPin({
         }}
       >
         <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
 
       {/* Small, precise visible pin */}
-      <PinBody kind={build.kind} hovered={isHovered} selected={isSelected} />
+      <PinBody kind={build.kind} hovered={isHovered} selected={isSelected} delay={delay} still={still} />
     </group>
   );
 }
@@ -657,6 +844,7 @@ function GroupPin({
   neighbours,
   fanRef,
   reducedMotion,
+  delay,
   onOpen,
   onLeave,
   onHover,
@@ -675,6 +863,8 @@ function GroupPin({
   neighbours: Neighbour[];
   fanRef: RefObject<FanClaim | null>;
   reducedMotion: boolean;
+  // Seconds after it is mounted before the one pin starts to show.
+  delay: number;
   onOpen: (group: BuildGroup, sticky: boolean) => void;
   onLeave: (group: BuildGroup) => void;
   onHover: (buildId: string, over: boolean) => void;
@@ -700,8 +890,13 @@ function GroupPin({
     geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(count * 6), 3));
     return geometry;
   }, [count]);
+  useEffect(() => () => hairlines.dispose(), [hairlines]);
 
-  const amount = useRef(0);   // 0 closed … 1 fanned out
+  // The fan's clock: 0 shut … 1 open, in plain time. Where each pin is at a
+  // given moment of it is fanProgress (motion.ts).
+  const amount = useRef(0);
+  // The one pin's own arrival on the map: when it starts, and whether it is done.
+  const life = useRef({ from: -1, here: false });
   // How far the fan is tipped over to keep clear of its neighbours: where it
   // is heading, and where it has got to.
   const lean = useRef({ target: 0, now: 0 });
@@ -726,14 +921,33 @@ function GroupPin({
     const facing = _normal.copy(normal).applyQuaternion(world.quaternion).dot(_toCamera);
     const target = open ? smoothstep(facing, 0.02, 0.2) : 0;
 
+    // The one pin turns up on the map as a lone pin does (PinBody).
+    const mark = life.current;
+    let arrival = 1;
+    if (!mark.here) {
+      if (mark.from < 0) mark.from = state.clock.elapsedTime + delay;
+      const age = state.clock.elapsedTime - mark.from;
+      mark.here = reducedMotion || age >= PIN_IN_S;
+      if (!mark.here) arrival = age <= 0 ? 0 : pinArrival(age);
+    }
+
     const before = amount.current;
     if (before === 0 && target === 0) {
       // Shut, and staying shut.
       if (fanRef.current === claim.current) fanRef.current = null;
+      if (rest.scale.x !== arrival) {
+        rest.scale.setScalar(arrival);
+        rest.visible = arrival > 0;
+      }
       return;
     }
-    let now = reducedMotion ? target : before + (target - before) * easeShare(FAN_EASE, delta);
-    if (Math.abs(target - now) < 0.003) now = target;
+    // Plain time towards open or shut, shutting the quicker of the two.
+    const stride = delta / fanSeconds(count);
+    const now = reducedMotion
+      ? target
+      : target > before
+        ? Math.min(target, before + stride)
+        : Math.max(target, before - stride * FAN_CLOSE);
     amount.current = now;
 
     // Everything about the fan is measured in pixels and turned back into
@@ -787,24 +1001,32 @@ function GroupPin({
       taken.xy[i * 2] = ax + cos * radiusPx;
       taken.xy[i * 2 + 1] = ay - sin * radiusPx;
       _slot.set(cos * radius, sin * radius, 0).add(_anchor).applyQuaternion(_inverse);
-      member.position.lerpVectors(homes[i], _slot, now);
+      // Dealt out one after another, each a hair past its slot and back.
+      const out = fanProgress(now, i, count);
+      const grown = 0.35 + 0.65 * out;
+      member.position.lerpVectors(homes[i], _slot, out);
       // Upright to the viewer, whichever way the globe is turned.
       member.quaternion.copy(_inverse);
-      member.scale.setScalar(0.35 + 0.65 * now);
-      member.visible = now > 0;
+      member.scale.setScalar(grown);
+      member.visible = out > 0;
       positions.setXYZ(i * 2, homes[i].x, homes[i].y, homes[i].z);
       positions.setXYZ(i * 2 + 1, member.position.x, member.position.y, member.position.z);
 
-      memberHitRefs.current[i]?.scale.setScalar(hitPx / pxPerUnit / (0.35 + 0.65 * now));
-      originRefs.current[i]?.scale.setScalar(now);
+      memberHitRefs.current[i]?.scale.setScalar(hitPx / pxPerUnit / grown);
+      const origin = originRefs.current[i];
+      if (origin) {
+        origin.scale.setScalar(clamp01(out));
+        origin.visible = out > 0;
+      }
     }
     positions.needsUpdate = true;
     line.visible = now > 0;
-    (line.material as MeshBasicMaterial).opacity = 0.9 * now;
+    (line.material as MeshBasicMaterial).opacity = 0.9 * clamp01(now * 2.5);
 
-    // The rings draw in to the middle as the pins leave it.
-    rest.scale.setScalar(1 - now);
-    rest.visible = now < 1;
+    // The rings draw in to the middle as the first pins leave it.
+    const gathered = 1 - smoothstep(now, 0, 0.7);
+    rest.scale.setScalar(gathered * arrival);
+    rest.visible = gathered > 0;
 
     // Once the pins are most of the way out, they are what a pointer there
     // means (see FanClaim).
@@ -834,6 +1056,17 @@ function GroupPin({
     };
   }, [fanRef]);
 
+  // The pins of the fan are unmounted when the group shuts, and a pin that
+  // goes from under the pointer never reports the pointer leaving. Picking
+  // the selected build again to let it go left the hand cursor on the whole
+  // page until another pin was hovered and left.
+  const onMember = useRef(false);
+  useEffect(() => {
+    if (open || !onMember.current) return;
+    onMember.current = false;
+    setCursor('');
+  }, [open]);
+
   // Over and move both, as for a lone pin: the pointer may arrive under the
   // fan of another group and only later be this pin's to take.
   const over = (event: ThreeEvent<PointerEvent>) => {
@@ -854,6 +1087,7 @@ function GroupPin({
       {/* The one pin, flat against the surface: a dot and its rings. */}
       <group position={anchor} quaternion={surface}>
         <mesh
+          visible={false}
           onPointerDown={(event) => {
             if (!fanClaims(fanRef.current, event)) event.stopPropagation();
           }}
@@ -867,7 +1101,7 @@ function GroupPin({
           }}
         >
           <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          <meshBasicMaterial />
         </mesh>
         <group ref={restRef}>
           <mesh>
@@ -892,6 +1126,7 @@ function GroupPin({
           }}
           position={homes[index]}
           scale={0}
+          visible={false}
           renderOrder={11}
         >
           <sphereGeometry args={[PIN_RADIUS * ORIGIN_DOT, 10, 10]} />
@@ -920,16 +1155,20 @@ function GroupPin({
                   memberHitRefs.current[index] = node;
                 }}
                 scale={PIN_RADIUS}
+                visible={false}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerOver={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   if (isMouse(event)) onHover(build.id, true);
                 }}
                 onPointerMove={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   setCursor('pointer');
                 }}
                 onPointerOut={() => {
+                  onMember.current = false;
                   setCursor('');
                   onHover(build.id, false);
                 }}
@@ -939,7 +1178,7 @@ function GroupPin({
                 }}
               >
                 <sphereGeometry args={[1, 12, 12]} />
-                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                <meshBasicMaterial />
               </mesh>
             )}
             <PinBody
@@ -947,6 +1186,7 @@ function GroupPin({
               hovered={hoveredId === build.id}
               selected={isSelected}
               floating
+              still={reducedMotion}
             />
           </group>
         );
@@ -966,6 +1206,24 @@ const FIT_FRACTION = 0.7;      // share of the limiting dimension to occupy
 const FOCUS_DOLLY = 0.62;      // zoom-in factor when a build is selected
 const DRAG_SPEED = 0.006;      // radians per pixel of drag
 const DRIFT_SPEED = 0.18;      // radians per second, idle; none with less motion
+// How the globe comes round to a picked build and the camera closes in is in
+// motion.ts ("Travel"). The camera's own way in and out, seconds (see `damp`):
+const DOLLY_TIME = 0.34;
+// With less motion asked for the turn is short and the camera does not pull back.
+const TURN_TIME_STILL = 0.16;
+// The first time the map is shown it comes in from a little further off,
+// turning faster than it drifts, and settles: a globe set spinning and let go.
+const SPIN_IN = 1.05;          // radians per second, easing to DRIFT_SPEED
+const DOLLY_IN = 1.16;         // of the resting distance
+const DOLLY_IN_AGAIN = 1.05;
+// How far left of the middle the first build stands as the map opens, radians.
+const OPEN_LEFT = 0.42;
+const OPEN_LEFT_AGAIN = 0.15;
+// A drag let go while still moving leaves the globe turning that way; the
+// drift's own easing then brings it back to its usual pace. Capped, so a
+// flick cannot spin it into a blur.
+const FLING_MAX = 6;           // radians per second
+const FLING_PAUSE_MS = 80;     // a finger held still this long has stopped it
 
 // The globe leans a degree or two towards the pointer - enough to feel that
 // it has noticed, not enough to move a pin out from under it. Mouse only, and
@@ -1014,6 +1272,40 @@ interface SceneProps extends GlobeProps {
   onOpenGroup: (next: OpenGroup | null) => void;
 }
 
+// The frame loop stops while nobody can see the globe: behind a photo opened
+// full-screen, and on a phone back on the hero, where the viewer is
+// display:none and the loop went on drawing every frame into a canvas with no
+// box. Set on the store and not through the Canvas's frameloop prop, because
+// the Canvas hands props on only while it has a size, so a prop never reached
+// the canvas that had just been hidden.
+function useRestWhileUnseen() {
+  const canvas = useThree((state) => state.gl.domElement);
+  const setFrameloop = useThree((state) => state.setFrameloop);
+
+  useEffect(() => {
+    let onScreen = true;
+    let running = true;
+    const apply = () => {
+      const next = onScreen && !isLightboxOpen();
+      if (next === running) return;
+      running = next;
+      setFrameloop(next ? 'always' : 'never');
+    };
+    const observer = typeof IntersectionObserver === 'undefined'
+      ? null
+      : new IntersectionObserver((entries) => {
+        onScreen = entries[entries.length - 1].isIntersecting;
+        apply();
+      });
+    observer?.observe(canvas);
+    const unwatch = watchLightbox(apply);
+    return () => {
+      observer?.disconnect();
+      unwatch();
+    };
+  }, [canvas, setFrameloop]);
+}
+
 function GlobeScene({
   entries = builds,
   selectedBuildId,
@@ -1021,9 +1313,33 @@ function GlobeScene({
   openGroup,
   onOpenGroup,
 }: SceneProps) {
-  const web = useMemo(() => webArcs(entries), [entries]);
-  const collaborations = useMemo(() => collaborationArcs(entries), [entries]);
+  const reducedMotion = useReducedMotion();
+  // How this map comes up, and how what a filter brings in later does.
+  const [arrival] = useState<Arrival>(() => (reducedMotion ? 'still' : shownBefore ? 'again' : 'first'));
+  useEffect(() => {
+    shownBefore = true;
+  }, []);
+  const [timed, setTimed] = useState({ entries, mode: arrival });
+  const later: Arrival = arrival === 'still' ? 'still' : 'change';
+  if (timed.entries !== entries) setTimed({ entries, mode: later });
+  const mode = timed.entries === entries ? timed.mode : later;
+  // Where it began: the first build, whether or not the filter shows it.
+  const origin = builds[0]?.location;
+
+  const web = useMemo(() => webLinks(entries), [entries]);
+  const collaborations = useMemo(() => collaborationLinks(entries), [entries]);
+  const webTiming = useMemo(() => linkTiming(web, origin, mode), [web, origin, mode]);
+  const collaborationTiming = useMemo(
+    () => linkTiming(collaborations, origin, mode),
+    [collaborations, origin, mode],
+  );
   const groups = useMemo(() => groupBuilds(entries), [entries]);
+  // When each pin starts to show, seconds after it is put on the map: outwards
+  // from the first build as the map arrives, at once for one a filter brings in.
+  const pinDelay = (place: Place) =>
+    origin && (mode === 'first' || mode === 'again')
+      ? waveDelay(angularDistance(origin, place), mode === 'first' ? WAVE_S : WAVE_AGAIN_S)
+      : 0;
   // Every pin as an open fan has to see it: where, and how big its mark is.
   const neighbours = useMemo<Neighbour[]>(
     () => groups.map(({ id, members, center }) => {
@@ -1038,22 +1354,46 @@ function GlobeScene({
     }),
     [groups],
   );
-  const reducedMotion = useReducedMotion();
   const canvas = useThree((state) => state.gl.domElement);
 
   const [hoverId, setHoverId] = useState<string | null>(null);
   const worldRef = useRef<Group>(null);
-  const yaw = useRef(0);
+  // The map opens on the first build, a little left of the middle, and the
+  // spin carries it across: the wave of pins starts where the eye already is.
+  // (It opened on longitude 90° west before, which is where a yaw of 0 points:
+  // the Pacific, with the first pin on the far edge.)
+  const yaw = useRef(
+    origin ? headingTo(origin.lat, origin.lng).yaw - (arrival === 'first' ? OPEN_LEFT : OPEN_LEFT_AGAIN) : 0,
+  );
   const pitch = useRef(INITIAL_PITCH);
-  const drift = useRef(DRIFT_SPEED);
+  const drift = useRef(arrival === 'first' ? SPIN_IN : DRIFT_SPEED);
+  // The turn to a picked build and the camera's way in: where each is and how
+  // fast it is going, and which build the turn in hand is for.
+  const turning = useRef<{ yaw: Damped; pitch: Damped; to: string | null; time: number }>({
+    yaw: { value: 0, speed: 0 },
+    pitch: { value: 0, speed: 0 },
+    to: null,
+    time: 0,
+  });
+  const dolly = useRef<Damped>({ value: -1, speed: 0 });
   const lean = useRef({ x: 0, y: 0 });
   // Where a group that was tapped open is being brought round to.
   const focus = useRef<{ yaw: number; pitch: number } | null>(null);
   const dragging = useRef(false);
   const moved = useRef(0);
-  const distRef = useRef(5);
+  // Takes down the window listeners of the drag in progress, if there is one.
+  const stopDrag = useRef<(() => void) | null>(null);
   const pointer = useRef<PointerState>({ x: 0, y: 0, inside: false, mouse: false });
   const fanRef = useRef<FanClaim | null>(null);
+
+  useRestWhileUnseen();
+
+  // Leaving with a drag half done, or with the pointer on a pin, must not
+  // leave listeners on the window or a hand cursor on the page.
+  useEffect(() => () => {
+    stopDrag.current?.();
+    setCursor('');
+  }, []);
 
   useEffect(() => {
     const track = (event: PointerEvent) => {
@@ -1115,21 +1455,44 @@ function GlobeScene({
     if (reducedMotion) drift.current = 0;
     else drift.current += ((held ? 0 : DRIFT_SPEED) - drift.current) * easeShare(held ? 9 : 2.5, delta);
 
-    if (selected) {
-      // Ease the picked location around to face the camera.
-      const target = headingTo(selected.location.lat, selected.location.lng);
-      yaw.current += wrapAngle(target.yaw - yaw.current) * 0.08;
-      pitch.current += (target.pitch - pitch.current) * 0.08;
-    } else if (focus.current) {
-      const dYaw = wrapAngle(focus.current.yaw - yaw.current);
-      const dPitch = clamp(focus.current.pitch, -MAX_PITCH, MAX_PITCH) - pitch.current;
-      yaw.current += dYaw * 0.08;
-      pitch.current += dPitch * 0.08;
-      if (Math.abs(dYaw) + Math.abs(dPitch) < 0.002) focus.current = null;
-    } else if (!dragging.current) {
-      // Idle drift, carrying on around whatever axis the globe was left
-      // tilted on — the way a desk globe keeps turning after a nudge.
-      yaw.current += delta * drift.current;
+    // Where the globe is being turned to, if anywhere: the picked build, or
+    // the group that was tapped open.
+    const turn = turning.current;
+    const heading = selected
+      ? headingTo(selected.location.lat, selected.location.lng)
+      : focus.current
+        ? { yaw: focus.current.yaw, pitch: clamp(focus.current.pitch, -MAX_PITCH, MAX_PITCH) }
+        : null;
+    // How far round it still is, radians: what the camera's distance follows.
+    let gapLeft = 0;
+    if (heading) {
+      turn.yaw.value = yaw.current;
+      turn.pitch.value = pitch.current;
+      gapLeft = headingGap({ yaw: yaw.current, pitch: pitch.current }, heading);
+      // How long the turn is given is settled as it starts, by how far it is.
+      const to = selected ? selected.id : 'group';
+      if (turn.to !== to) {
+        turn.to = to;
+        turn.time = reducedMotion ? TURN_TIME_STILL : turnTime(gapLeft);
+      }
+      // The short way round, from rest up to speed and gently in (motion.ts).
+      yaw.current = damp(turn.yaw, yaw.current + wrapAngle(heading.yaw - yaw.current), turn.time, delta);
+      pitch.current = damp(turn.pitch, heading.pitch, turn.time, delta);
+      if (!selected && gapLeft < 0.002) focus.current = null;
+    } else {
+      if (turn.to !== null) {
+        // Let go in mid-turn, the globe carries on the way it was going and
+        // the drift's easing takes it from there. With less motion it stops.
+        if (!dragging.current && !reducedMotion) drift.current = clamp(turn.yaw.speed, -FLING_MAX, FLING_MAX);
+        turn.to = null;
+        turn.yaw.speed = 0;
+        turn.pitch.speed = 0;
+      }
+      if (!dragging.current) {
+        // Idle drift, carrying on around whatever axis the globe was left
+        // tilted on — the way a desk globe keeps turning after a nudge.
+        yaw.current += delta * drift.current;
+      }
     }
 
     // The lean towards the pointer. It rests at zero whenever a build is
@@ -1161,9 +1524,18 @@ function GlobeScene({
     const aspect = state.size.width / Math.max(1, state.size.height);
     const limit = Math.min(1, aspect);
     const desired = clamp(FIT_RADIUS / (FIT_FRACTION * TAN_HALF_VFOV * limit), 3.4, 8.5);
-    const targetDist = selected ? desired * FOCUS_DOLLY : desired;
-    distRef.current += (targetDist - distRef.current) * 0.08;
-    state.camera.position.set(0, 0, distRef.current);
+    // In on a picked build, but only as it comes round: while it is still far
+    // off the camera stays back, or pulls back from the last one, so a hop
+    // across the world is seen as one (pullBack, motion.ts).
+    const close = desired * FOCUS_DOLLY;
+    const back = reducedMotion ? 0 : pullBack(gapLeft);
+    const targetDist = selected ? close + (desired - close) * back : desired;
+    const camera = dolly.current;
+    if (camera.value < 0) {
+      camera.value = desired * (arrival === 'first' ? DOLLY_IN : arrival === 'again' ? DOLLY_IN_AGAIN : 1);
+    }
+    damp(camera, targetDist, DOLLY_TIME, delta);
+    state.camera.position.set(0, 0, camera.value);
     state.camera.lookAt(0, 0, 0);
   });
 
@@ -1180,30 +1552,62 @@ function GlobeScene({
       return;
     }
     event.stopPropagation();
+    stopDrag.current?.();
     dragging.current = true;
     moved.current = 0;
     focus.current = null;
 
+    // The drag belongs to the pointer that started it, and is measured from
+    // where that pointer last was. The listeners are on the window, so while
+    // this read movementX/Y off whatever moved, a second finger turned the
+    // globe as well and lifting it ended the drag under the first.
+    const { pointerId } = event.nativeEvent;
+    let x = event.nativeEvent.clientX;
+    let y = event.nativeEvent.clientY;
+    let at = event.nativeEvent.timeStamp;
+    let spin = 0;   // radians per second, smoothed over the last few moves
+
     const onMove = (move: PointerEvent) => {
-      const dx = move.movementX || 0;
-      const dy = move.movementY || 0;
+      if (move.pointerId !== pointerId) return;
+      const dx = move.clientX - x;
+      const dy = move.clientY - y;
+      const seconds = (move.timeStamp - at) / 1000;
+      x = move.clientX;
+      y = move.clientY;
+      at = move.timeStamp;
       moved.current += Math.abs(dx) + Math.abs(dy);
       // Sideways spins without limit; up and down stops short of the pole, so
       // the horizon stays level and north stays up no matter how far you drag.
       yaw.current += dx * DRAG_SPEED;
       pitch.current = clamp(pitch.current + dy * DRAG_SPEED, -MAX_PITCH, MAX_PITCH);
+      if (seconds > 0) spin += ((dx * DRAG_SPEED) / seconds - spin) * 0.4;
     };
-    const onUp = () => {
+    const stop = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
       dragging.current = false;
+      stopDrag.current = null;
+    };
+    const onUp = (up: PointerEvent) => {
+      if (up.pointerId !== pointerId) return;
+      stop();
       if (moved.current < 6) {
         onOpenGroup(null);
         onSelectBuild?.(null);
+      } else if (!reducedMotion && up.timeStamp - at < FLING_PAUSE_MS) {
+        drift.current = clamp(spin, -FLING_MAX, FLING_MAX);
       }
     };
+    // The browser took the touch for itself (a system gesture, say). No
+    // pointerup follows, and without this the globe stayed held for good.
+    const onCancel = (cancel: PointerEvent) => {
+      if (cancel.pointerId === pointerId) stop();
+    };
+    stopDrag.current = stop;
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   };
 
   const hover = (buildId: string, over: boolean) => {
@@ -1235,10 +1639,10 @@ function GlobeScene({
       <ContinentShell />
       <ContinentOutlines />
       <GlobeWireframe />
-      <LinkLines arcs={web} opacity={0.45} />
-      <LinkLines arcs={collaborations} opacity={0.22} />
-      <LinkDots arcs={web} opacity={0.9} still={reducedMotion} />
-      <LinkDots arcs={collaborations} opacity={0.5} still={reducedMotion} />
+      <LinkLines links={web} timing={webTiming} opacity={0.45} />
+      <LinkLines links={collaborations} timing={collaborationTiming} opacity={0.22} />
+      <LinkDots links={web} timing={webTiming} opacity={0.9} still={reducedMotion} />
+      <LinkDots links={collaborations} timing={collaborationTiming} opacity={0.5} still={reducedMotion} />
       {groups.map((group) => {
         if (group.members.length === 1) {
           const build = group.members[0];
@@ -1248,6 +1652,8 @@ function GlobeScene({
               build={build}
               isSelected={selectedBuildId === build.id}
               isHovered={hoveredId === build.id}
+              delay={pinDelay(build.location)}
+              still={reducedMotion}
               fanRef={fanRef}
               onHover={hover}
               onSelect={select}
@@ -1267,6 +1673,7 @@ function GlobeScene({
             neighbours={neighbours}
             fanRef={fanRef}
             reducedMotion={reducedMotion}
+            delay={pinDelay(group.center)}
             onOpen={open}
             onLeave={leave}
             onHover={hover}
@@ -1275,10 +1682,12 @@ function GlobeScene({
         );
       })}
 
-      {/* Invisible drag handle behind the markers. */}
-      <mesh onPointerDown={startDrag}>
+      {/* Drag handle behind the markers. Never drawn (see the pins' hit-boxes):
+          as a see-through sphere it was blended over the whole globe on every
+          frame to change nothing. */}
+      <mesh visible={false} onPointerDown={startDrag}>
         <sphereGeometry args={[1.22, 24, 24]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
     </group>
   );
@@ -1309,6 +1718,10 @@ export default function Globe(props: GlobeProps) {
       // this automatically in the Build/Pattern viewer; this globe rolls its own
       // drag handler, so it must opt in explicitly.
       style={{ touchAction: 'none' }}
+      // The pins cannot be reached by keyboard or read by a screen reader.
+      // Every one of them is a link in the list beside the globe.
+      role="img"
+      aria-label="Globe marking where Patternflow has been built and used"
       onPointerMissed={() => {
         setOpenGroup(null);
         props.onSelectBuild?.(null);

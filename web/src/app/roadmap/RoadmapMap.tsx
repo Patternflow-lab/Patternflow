@@ -95,8 +95,15 @@ const LANE_H = 112;
 const NODE_H = 44;
 const HEIGHT = TOP + LANES.length * LANE_H + 120;
 const POPUP_W = 360;
+// Under this canvas width there is no room for the popup beside a node, so
+// it becomes a sheet along the bottom edge. SHEET_PART is how much of the
+// canvas height the sheet may take.
+const SHEET_BELOW = 560;
+const SHEET_PART = 0.55;
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.8;
+
+const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 const laneY = (lane: LaneId) =>
   TOP + LANES.findIndex((l) => l.id === lane) * LANE_H + LANE_H / 2;
@@ -175,6 +182,9 @@ export default function RoadmapMap() {
   const today = useSyncExternalStore(noopSubscribe, todaySeoul, serverToday);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  // Set when a node is opened from the keyboard, so the popup takes focus.
+  const focusPopupRef = useRef(false);
   const dragRef = useRef({
     active: false,
     moved: false,
@@ -185,6 +195,11 @@ export default function RoadmapMap() {
     panX: 0,
     panY: 0,
   });
+  // Every pointer that is down on the canvas. Two of them are a pinch.
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  // The pinch in progress: the finger distance and zoom it started from, and
+  // the map point that was under the midpoint, which stays under it.
+  const pinchRef = useRef<{ dist: number; zoom: number; cx: number; cy: number } | null>(null);
 
   useEffect(() => {
     const el = canvasRef.current;
@@ -201,7 +216,8 @@ export default function RoadmapMap() {
     fetch('/api/roadmap')
       .then((res) => res.json())
       .then((payload: RoadmapApiData) => {
-        if (active) setLive(payload);
+        // A host with no /api/roadmap answers JSON without an issues list.
+        if (active) setLive(Array.isArray(payload?.issues) ? payload : { issues: [] });
       })
       .catch(() => {
         if (active) setLive({ issues: [] });
@@ -302,6 +318,25 @@ export default function RoadmapMap() {
   }, [width, zoom, clampPan]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const pointers = pointersRef.current;
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pointers.size > 2) return;
+    if (pointers.size === 2) {
+      // A second finger: the drag becomes a pinch. The canvas sets
+      // touch-action: none, so the browser's own pinch never arrives and a
+      // phone had no way to zoom at all.
+      const [a, b] = [...pointers.values()];
+      const rect = event.currentTarget.getBoundingClientRect();
+      pinchRef.current = {
+        dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+        zoom,
+        cx: ((a.x + b.x) / 2 - rect.left - pan.x) / zoom,
+        cy: ((a.y + b.y) / 2 - rect.top - pan.y) / zoom,
+      };
+      dragRef.current.active = false;
+      dragRef.current.moved = true;
+      return;
+    }
     dragRef.current = {
       active: true,
       moved: false,
@@ -315,6 +350,21 @@ export default function RoadmapMap() {
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const pointers = pointersRef.current;
+    if (pointers.has(event.pointerId)) {
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    const pinch = pinchRef.current;
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const rect = event.currentTarget.getBoundingClientRect();
+      const nextZoom = clampZoom((pinch.zoom * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.dist);
+      const midX = (a.x + b.x) / 2 - rect.left;
+      const midY = (a.y + b.y) / 2 - rect.top;
+      setZoom(nextZoom);
+      setPan(clampPan(midX - pinch.cx * nextZoom, midY - pinch.cy * nextZoom, nextZoom));
+      return;
+    }
     const drag = dragRef.current;
     if (!drag.active) return;
     const dx = event.clientX - drag.startX;
@@ -335,22 +385,113 @@ export default function RoadmapMap() {
     if (drag.moved) setPan(clampPan(drag.panX + dx, drag.panY + dy));
   };
 
-  const onPointerUp = () => {
-    dragRef.current.active = false;
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    const pointers = pointersRef.current;
+    pointers.delete(event.pointerId);
+    if (pinchRef.current && pointers.size < 2) {
+      pinchRef.current = null;
+      const rest = [...pointers.entries()][0];
+      if (rest) {
+        // One finger stays down after a pinch and carries on as a drag.
+        dragRef.current = {
+          active: true,
+          moved: true,
+          captured: true,
+          pointerId: rest[0],
+          startX: rest[1].x,
+          startY: rest[1].y,
+          panX: pan.x,
+          panY: pan.y,
+        };
+        return;
+      }
+    }
+    if (pointers.size === 0) dragRef.current.active = false;
   };
 
-  const handleNodeClick = (id: string) => {
-    if (dragRef.current.moved) return;
-    setSelectedId((current) => (current === id ? null : id));
+  const sheet = canvasSize.w < SHEET_BELOW;
+
+  // Pan until the node is inside the top `visibleH` pixels of the canvas.
+  // A node already in view is left where it is.
+  const reveal = (n: PlacedNode, visibleH: number) => {
+    const pad = 12;
+    const left = n.x * zoom + pan.x;
+    const right = left + n.w * zoom;
+    const cy = n.y * zoom + pan.y;
+    const half = (NODE_H / 2) * zoom;
+    let { x, y } = pan;
+    if (left < pad || right > canvasSize.w - pad) {
+      x = Math.round(canvasSize.w / 2 - (n.x + n.w / 2) * zoom);
+    }
+    if (cy - half < pad || cy + half > visibleH - pad) {
+      y = Math.round(visibleH / 2 - n.y * zoom);
+    }
+    if (x !== pan.x || y !== pan.y) setPan(clampPan(x, y));
   };
 
+  const toggleNode = (id: string, fromKeyboard: boolean) => {
+    const opening = selectedId !== id;
+    setSelectedId(opening ? id : null);
+    focusPopupRef.current = opening && fromKeyboard;
+    const node = byId.get(id);
+    // The sheet covers the lower part of a narrow canvas. A node tapped
+    // there moves up above it.
+    if (opening && sheet && node) reveal(node, canvasSize.h * (1 - SHEET_PART));
+  };
+
+  const nodeIdAt = (target: EventTarget) =>
+    (target as Element).closest('[data-node]')?.getAttribute('data-node') ?? null;
+
+  // One handler each on the canvas for every node, so the nodes carry none
+  // of their own and the drawn map can be kept between renders (below).
   const onCanvasClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (dragRef.current.moved) return;
-    const target = event.target as HTMLElement | SVGElement;
-    if (!target.closest(`.${styles.nodeGroup}`) && !target.closest(`.${styles.popup}`)) {
-      setSelectedId(null);
-    }
+    const id = nodeIdAt(event.target);
+    if (id) toggleNode(id, false);
+    else setSelectedId(null);
   };
+
+  const onCanvasKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    const id = nodeIdAt(event.target);
+    if (!id) return;
+    event.preventDefault();
+    toggleNode(id, true);
+  };
+
+  // Tabbing to a node that is off the canvas brings it into view. A click
+  // focuses a node too, and that one must not move under the pointer.
+  const onCanvasFocus = (event: React.FocusEvent<HTMLDivElement>) => {
+    const target = event.target as Element;
+    if (!target.matches(':focus-visible')) return;
+    const id = nodeIdAt(target);
+    const node = id ? byId.get(id) : null;
+    if (node) reveal(node, canvasSize.h);
+  };
+
+  // Closing from inside the popup hands focus back to the node it came from.
+  const closePopup = useCallback(() => {
+    const popup = popupRef.current;
+    if (popup && selectedId && popup.contains(document.activeElement)) {
+      canvasRef.current
+        ?.querySelector<SVGGElement>(`[data-node="${selectedId}"]`)
+        ?.focus();
+    }
+    setSelectedId(null);
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    if (focusPopupRef.current) {
+      focusPopupRef.current = false;
+      popupRef.current?.focus();
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closePopup();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedId, closePopup]);
 
   const selectedIssues =
     selected?.issues && live
@@ -363,19 +504,200 @@ export default function RoadmapMap() {
   // max-height doesn't reliably resolve inside this flex layout, and the
   // popup would silently get clipped by an ancestor's overflow:hidden
   // instead of scrolling.
-  let popupPos: { left: number; top: number; maxHeight: number } | null = null;
+  let popupStyle: React.CSSProperties | null = null;
   if (selected) {
     const cw = canvasSize.w;
     const ch = canvasSize.h;
     const margin = 14;
-    const rightEdge = (selected.x + selected.w) * zoom + pan.x;
-    const leftEdge = selected.x * zoom + pan.x;
-    const left =
-      rightEdge + 18 + POPUP_W > cw ? leftEdge - POPUP_W - 18 : rightEdge + 18;
-    const top = Math.min(Math.max(selected.y * zoom + pan.y - 90, margin), ch - 160 - margin);
-    const maxHeight = Math.max(160, ch - top - margin);
-    popupPos = { left, top, maxHeight };
+    if (sheet) {
+      // A phone: 360 px beside a node is off the screen on one side or the
+      // other, so the popup is a sheet along the bottom edge.
+      popupStyle = {
+        left: margin,
+        right: margin,
+        bottom: margin,
+        maxHeight: Math.round(ch * SHEET_PART),
+      };
+    } else {
+      const rightEdge = (selected.x + selected.w) * zoom + pan.x;
+      const leftEdge = selected.x * zoom + pan.x;
+      const beside =
+        rightEdge + 18 + POPUP_W > cw ? leftEdge - POPUP_W - 18 : rightEdge + 18;
+      // Neither side has room when the node is wide or the map is zoomed in.
+      // The popup then stays on the canvas and overlaps the node.
+      const left = Math.max(margin, Math.min(beside, cw - POPUP_W - margin));
+      const top = Math.min(Math.max(selected.y * zoom + pan.y - 90, margin), ch - 160 - margin);
+      const maxHeight = Math.max(160, ch - top - margin);
+      popupStyle = { left, top, width: POPUP_W, maxHeight };
+    }
   }
+
+  // Everything drawn on the map that a pan or a zoom does not change: the
+  // grid, the threads, the edges and the nodes. A drag sets pan on every
+  // pointer move, and without this each move rebuilt all of it (415
+  // elements in the detailed view). Kept as one element, React skips it, and
+  // a move redraws the layer's transform and the pinned labels only.
+  const drawnMap = useMemo(
+    () => (
+      <>
+        {/* Lane dividers, drawn far past the map on both sides */}
+        {Array.from({ length: 24 }, (_, i) => i - 6).map((idx) => {
+          const y = TOP + idx * LANE_H;
+          return (
+            <line
+              key={`lane-divider-${idx}`}
+              className={styles.gridLineHorizontal}
+              x1={-5000}
+              y1={y}
+              x2={10000}
+              y2={y}
+            />
+          );
+        })}
+
+        <rect
+          className={styles.futureZone}
+          x={nowX}
+          y={-2000}
+          width={12000}
+          height={7000}
+        />
+
+        {/* Month ticks, drawn far past the map above and below */}
+        {ticks.map((tick) => {
+          const x = GUTTER + dateToT(isoDay(tick.utc)) * innerW;
+          return (
+            <line
+              key={`grid-line-${tick.label}`}
+              className={styles.gridLineVertical}
+              x1={x}
+              y1={-2000}
+              x2={x}
+              y2={5000}
+            />
+          );
+        })}
+
+        <line
+          className={styles.nowLine}
+          x1={nowX}
+          y1={-2000}
+          x2={nowX}
+          y2={5000}
+        />
+
+        {/* 2. Threads & dependency edges BEHIND nodes */}
+        {LANES.map((lane) => {
+          const row = nodes
+            .filter((n) => n.lane === lane.id)
+            .sort((a, b) => a.x - b.x);
+          return row.slice(1).map((n, i) => {
+            const prev = row[i];
+            const dashed = prev.status === 'planned' || n.status === 'planned';
+            return (
+              <line
+                key={`${prev.id}-${n.id}`}
+                className={dashed ? styles.threadPlanned : styles.thread}
+                x1={prev.x + prev.w}
+                y1={prev.y}
+                x2={n.x}
+                y2={n.y}
+              />
+            );
+          });
+        })}
+
+        {gate && (
+          <g>
+            <rect
+              className={styles.gateRect}
+              x={gate.x}
+              y={gate.y}
+              width={gate.w}
+              height={gate.h}
+              rx={16}
+            />
+            <text className={styles.gateLabel} x={gate.x + 6} y={gate.y - 14}>
+              {lang === 'ko' ? 'v3.0.0 — 빌드 릴리스' : 'v3.0.0 — build release'}
+            </text>
+          </g>
+        )}
+
+        {EDGES.map((edge) => {
+          const from = byId.get(edge.from);
+          const to = byId.get(edge.to);
+          if (!from || !to) return null;
+          const sx = from.x + from.w;
+          const sy = from.y;
+          const tx = to.x;
+          const ty = to.y;
+          const bend = Math.min(90, Math.abs(tx - sx) / 2 + 28);
+          return (
+            <path
+              key={`${edge.from}-${edge.to}`}
+              className={styles.depEdge}
+              d={`M ${sx} ${sy} C ${sx + bend} ${sy}, ${tx - bend} ${ty}, ${tx - 4} ${ty}`}
+              markerEnd="url(#dep-arrow)"
+            />
+          );
+        })}
+
+        {/* 3. Render Nodes */}
+        {nodes.map((n) => {
+          const isSelected = n.id === selectedId;
+          const titleText = nodeTitle(n, lang);
+          const secondary = n.level === 2 && !isSelected;
+          const boxClass = isSelected
+            ? styles.nodeSelected
+            : n.status === 'planned'
+              ? secondary
+                ? styles.nodePlannedSecondary
+                : styles.nodePlanned
+              : secondary
+                ? styles.nodeDoneSecondary
+                : styles.nodeDone;
+          const textClass = isSelected
+            ? styles.nodeTextSelected
+            : n.status === 'planned'
+              ? secondary
+                ? styles.nodeTextPlannedSecondary
+                : styles.nodeTextPlanned
+              : secondary
+                ? styles.nodeTextSecondary
+                : styles.nodeText;
+          return (
+            <g
+              key={n.id}
+              className={styles.nodeGroup}
+              data-node={n.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${titleText}, ${lang === 'ko' ? (n.status === 'planned' ? '계획' : '완료') : n.status}`}
+              aria-expanded={isSelected}
+            >
+              <rect
+                className={boxClass}
+                x={n.x}
+                y={n.y - NODE_H / 2}
+                width={n.w}
+                height={NODE_H}
+                rx={10}
+              />
+              <text
+                className={textClass}
+                x={n.x + n.w / 2}
+                y={n.y + 5}
+                textAnchor="middle"
+              >
+                {titleText}
+              </text>
+            </g>
+          );
+        })}
+      </>
+    ),
+    [nodes, byId, gate, ticks, innerW, nowX, lang, selectedId],
+  );
 
   // Sticky elements positioning:
   // Lane labels stay pinned to the left edge of the viewport when panning horizontally
@@ -452,17 +774,21 @@ export default function RoadmapMap() {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           onClick={onCanvasClick}
+          onKeyDown={onCanvasKeyDown}
+          onFocus={onCanvasFocus}
         >
           <div
             className={styles.layer}
             style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
           >
+            {/* A group, not an image: role="img" hides what is inside it, and
+                the nodes inside are buttons. */}
             <svg
             className={styles.mapSvg}
             viewBox={`0 0 ${width} ${HEIGHT}`}
             width={width}
             height={HEIGHT}
-            role="img"
+            role="group"
             aria-label={
               lang === 'ko'
                 ? 'Patternflow 프로젝트 지도: 분야별로 시간 순에 놓은 지난 릴리스와 계획한 일'
@@ -483,166 +809,7 @@ export default function RoadmapMap() {
               </marker>
             </defs>
 
-            {/* Infinite Seamless Horizontal Lane Dividers */}
-            {Array.from({ length: 24 }, (_, i) => i - 6).map((idx) => {
-              const y = TOP + idx * LANE_H;
-              return (
-                <line
-                  key={`lane-divider-${idx}`}
-                  className={styles.gridLineHorizontal}
-                  x1={-5000}
-                  y1={y}
-                  x2={10000}
-                  y2={y}
-                />
-              );
-            })}
-
-            <rect
-              className={styles.futureZone}
-              x={nowX}
-              y={-2000}
-              width={12000}
-              height={7000}
-            />
-
-            {/* Infinite Seamless Vertical Month Ticks */}
-            {ticks.map((tick) => {
-              const x =
-                GUTTER + dateToT(isoDay(tick.utc)) * innerW;
-              return (
-                <line
-                  key={`grid-line-${tick.label}`}
-                  className={styles.gridLineVertical}
-                  x1={x}
-                  y1={-2000}
-                  x2={x}
-                  y2={5000}
-                />
-              );
-            })}
-
-            <line
-              className={styles.nowLine}
-              x1={nowX}
-              y1={-2000}
-              x2={nowX}
-              y2={5000}
-            />
-
-            {/* 2. Threads & dependency edges BEHIND nodes */}
-            {LANES.map((lane) => {
-              const row = nodes
-                .filter((n) => n.lane === lane.id)
-                .sort((a, b) => a.x - b.x);
-              return row.slice(1).map((n, i) => {
-                const prev = row[i];
-                const dashed = prev.status === 'planned' || n.status === 'planned';
-                return (
-                  <line
-                    key={`${prev.id}-${n.id}`}
-                    className={dashed ? styles.threadPlanned : styles.thread}
-                    x1={prev.x + prev.w}
-                    y1={prev.y}
-                    x2={n.x}
-                    y2={n.y}
-                  />
-                );
-              });
-            })}
-
-            {gate && (
-              <g>
-                <rect
-                  className={styles.gateRect}
-                  x={gate.x}
-                  y={gate.y}
-                  width={gate.w}
-                  height={gate.h}
-                  rx={16}
-                />
-                <text className={styles.gateLabel} x={gate.x + 6} y={gate.y - 14}>
-                  {lang === 'ko' ? 'v3.0.0 — 빌드 릴리스' : 'v3.0.0 — build release'}
-                </text>
-              </g>
-            )}
-
-            {EDGES.map((edge) => {
-              const from = byId.get(edge.from);
-              const to = byId.get(edge.to);
-              if (!from || !to) return null;
-              const sx = from.x + from.w;
-              const sy = from.y;
-              const tx = to.x;
-              const ty = to.y;
-              const bend = Math.min(90, Math.abs(tx - sx) / 2 + 28);
-              return (
-                <path
-                  key={`${edge.from}-${edge.to}`}
-                  className={styles.depEdge}
-                  d={`M ${sx} ${sy} C ${sx + bend} ${sy}, ${tx - bend} ${ty}, ${tx - 4} ${ty}`}
-                  markerEnd="url(#dep-arrow)"
-                />
-              );
-            })}
-
-            {/* 3. Render Nodes */}
-            {nodes.map((n) => {
-              const isSelected = n.id === selectedId;
-              const titleText = nodeTitle(n, lang);
-              const secondary = n.level === 2 && !isSelected;
-              const boxClass = isSelected
-                ? styles.nodeSelected
-                : n.status === 'planned'
-                  ? secondary
-                    ? styles.nodePlannedSecondary
-                    : styles.nodePlanned
-                  : secondary
-                    ? styles.nodeDoneSecondary
-                    : styles.nodeDone;
-              const textClass = isSelected
-                ? styles.nodeTextSelected
-                : n.status === 'planned'
-                  ? secondary
-                    ? styles.nodeTextPlannedSecondary
-                    : styles.nodeTextPlanned
-                  : secondary
-                    ? styles.nodeTextSecondary
-                    : styles.nodeText;
-              return (
-                <g
-                  key={n.id}
-                  className={styles.nodeGroup}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${titleText}, ${lang === 'ko' ? (n.status === 'planned' ? '계획' : '완료') : n.status}`}
-                  onClick={() => handleNodeClick(n.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handleNodeClick(n.id);
-                    }
-                  }}
-                >
-                  <rect
-                    className={boxClass}
-                    x={n.x}
-                    y={n.y - NODE_H / 2}
-                    width={n.w}
-                    height={NODE_H}
-                    rx={10}
-                  />
-                  <text
-                    className={textClass}
-                    x={n.x + n.w / 2}
-                    y={n.y + 5}
-                    textAnchor="middle"
-                  >
-                    {titleText}
-                  </text>
-                </g>
-              );
-            })}
+            {drawnMap}
 
             {/* 4. Sticky Timeline Header Text ON TOP of nodes */}
             <text
@@ -673,7 +840,9 @@ export default function RoadmapMap() {
               const laneName = lang === 'ko' ? lane.labelKo : lane.label;
               const labelW = Math.round(laneName.length * (lang === 'ko' ? 14.5 : 11)) + 20;
               return (
-                <g key={`sticky-lane-${lane.id}`}>
+                // The label rides over the nodes and lets a click through
+                // to the one under it.
+                <g key={`sticky-lane-${lane.id}`} pointerEvents="none">
                   <rect
                     x={stickyLaneX - 8}
                     y={laneY(lane.id) - 15}
@@ -695,15 +864,14 @@ export default function RoadmapMap() {
           </div>
         </div>
 
-        {selected && popupPos && (
+        {selected && popupStyle && (
           <div
+            ref={popupRef}
             className={styles.popup}
-            style={{
-              left: popupPos.left,
-              top: popupPos.top,
-              width: POPUP_W,
-              maxHeight: popupPos.maxHeight,
-            }}
+            style={popupStyle}
+            role="dialog"
+            aria-label={nodeTitle(selected, lang)}
+            tabIndex={-1}
             onPointerDown={(event) => event.stopPropagation()}
           >
               <div className={styles.popupHead}>
@@ -714,7 +882,7 @@ export default function RoadmapMap() {
                 <button
                   type="button"
                   className={styles.popupClose}
-                  onClick={() => setSelectedId(null)}
+                  onClick={closePopup}
                 >
                   {lang === 'ko' ? '닫기' : 'Close'}
                 </button>

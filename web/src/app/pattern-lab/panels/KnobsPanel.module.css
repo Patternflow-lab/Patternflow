@@ -139,8 +139,15 @@
   pointer-events: auto;
 }
 
+.rangeValue:focus-visible {
+  outline: 2px solid #9b4827;
+  outline-offset: 1px;
+}
+
+/* A finger dragging a digit is a drag, not the start of a scroll. */
 .rangeDigit {
   cursor: ns-resize;
+  touch-action: none;
 }
 
 .rangeDigit:hover {

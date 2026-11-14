@@ -72,6 +72,23 @@ export type Build = {
 export const STRIP_TILES = 3;
 export const CARD_TILES = 2;
 
+// How wide an opening tile is, as the browser is told it: the mobile card's
+// two tiles are 45vw each, the desktop strip's stop at 270px. The strip, the
+// card and the preloader share this one string, so the file the preloader
+// warms is the file the tile then asks for. They had drifted apart: on a
+// phone the preloader fetched every tile at the strip's 280px, the card
+// wanted 45vw, and at 3x those are different files, 1080 wide against 640.
+export const TILE_SIZES = '(max-width: 900px) 45vw, 280px';
+
+// Whether a photo may be fetched before it is asked for: the warm-up of the
+// opening tiles, and the neighbours in the lightbox. Not for somebody who has
+// told their browser to save data.
+export function fetchesAhead(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  const { connection } = navigator as Navigator & { connection?: { saveData?: boolean } };
+  return !connection?.saveData;
+}
+
 export const builds: Build[] = [
   {
     id: 'seoul-v1',
@@ -578,6 +595,15 @@ export function matchesBuildFilter(build: Build, filter: BuildFilter): boolean {
 
 export function buildBySlug(slug: string): Build | undefined {
   return builds.find((build) => build.slug === slug);
+}
+
+// What the browser tab says on /inside and on a build's own page. The pages
+// set these as metadata; the map sets them by hand as well (BuildRouteSync),
+// because picking a pin changes the address without loading that page.
+export const INSIDE_PAGE_TITLE = "Inside Patternflow — How It's Built";
+
+export function buildPageTitle(build: Build): string {
+  return `${build.title} — ${build.maker} · ${build.location.label} | Patternflow`;
 }
 
 // The pin a collaboration, a sale or a showing hangs off — its own origin, or

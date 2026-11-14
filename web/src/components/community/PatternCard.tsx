@@ -15,6 +15,7 @@ import {
   matrixFromCode,
 } from "@/lib/pattern/matrix";
 import SandboxPreview from "@/components/community/SandboxPreview";
+import { useIsMobile } from "@/lib/hooks/useMediaQuery";
 import {
   buildsConfigured,
   communityApiUrl,
@@ -111,11 +112,17 @@ export default function PatternCard({
   // false = static thumbnail card (mobile): no live sandbox iframe, no knob
   // overlay — hover doesn't exist there, and dozens of iframes cost real
   // battery. The card is just a tappable preview linking to the detail page.
-  interactive = true,
+  interactive: wantsInteractive = true,
 }: {
   item: PatternCardItem;
   interactive?: boolean;
 }) {
+  // The card asks the question itself as well. The wall passes its answer in,
+  // but a profile and a deck page render cards from the server and cannot: a
+  // phone opening a profile of 26 patterns booted nine sandboxes for a hover
+  // it does not have.
+  const isMobile = useIsMobile();
+  const interactive = wantsInteractive && !isMobile;
   const knobSetup = knobSetupFromCode(item.code);
   // These cards show the pattern as it looks on a device standing upright, so
   // a landscape pattern gets turned a quarter-turn. One composed for a portrait
@@ -284,9 +291,7 @@ export default function PatternCard({
   // approach and the iframe boots (cheap — the sandbox document is
   // immutable-cached); fall far enough behind and it is torn down. The gap is
   // hysteresis, so a card at the boundary does not flap while you scroll past
-  // it. A phone keeps a shorter tail: its cards are a third the size, so the
-  // desktop's two-and-a-bit screens of slack would be thirty live documents
-  // on the device least able to hold them.
+  // it.
   const [warm, setWarm] = useState(false);
   useEffect(() => {
     if (!interactive) return; // a phone never plays, so it never boots one
@@ -302,7 +307,7 @@ export default function PatternCard({
       (entries) => {
         if (entries.some((entry) => !entry.isIntersecting)) setWarm(false);
       },
-      { rootMargin: interactive ? "2400px 0px" : "900px 0px" },
+      { rootMargin: "2400px 0px" },
     );
     warmObserver.observe(el);
     coolObserver.observe(el);
@@ -386,9 +391,13 @@ export default function PatternCard({
 
   // Mouse wheel adjusts active knob value. With Ctrl held it is the feed's
   // zoom gesture instead — let it bubble to the wall.
+  //
+  // No preventDefault here. React listens for wheel passively, so the call did
+  // nothing except log "Unable to preventDefault inside passive event listener
+  // invocation" on every tick. The native listener on the card (above) is the
+  // one that keeps the page still.
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey) return;
-    e.preventDefault();
 
     const range = knobSetup.ranges[activeKnobIdx] ?? [0, 1];
     const direction = e.deltaY < 0 ? 1 : -1;
