@@ -2,7 +2,7 @@
 
 클리오에 들고 갈 패턴은 셋이에요. Finish Field 는 프로 아이 팔레트 에어의 마감에서, Glass Tint 는 크리스탈 글램 틴트의 유리 같은 광에서 왔어요. Stage Haze 는 올데이 프로젝트와 한 Express Yours 캠페인의 무대에서 왔어요. 셋을 한 장에 모은 것이 [reference.html](reference.html) 이에요. 파일 하나라서 디스크에서 바로 열리고, 그 안의 패널 스물다섯 대가 Pattern Lab 미리보기와 같은 엔진으로 돌아요.
 
-![한 장, 폰 너비 390](shots/reference-390.png)
+![한 장, 폰 너비 390](shots/reference-390.jpg)
 
 ## 클리오에서 찾은 것
 
@@ -61,7 +61,7 @@ K4 Depth 는 유리와 바닥 사이 거리예요. -1 에서는 빛이 부드럽
 ```sh
 npx tsx ../incoming/collab-kit/check.ts clio --soak    # 머리 줄, 금지 이름, recur, 채움, 노브 반응, 900초
 npx tsx ../incoming/collab-kit/shoot.ts clio           # shots/<slug>.png, .webp, -looks.png
-npx tsx ../incoming/collab-kit/sheet.ts clio --png     # reference.html 과 shots/reference-1440.png, -390.png
+npx tsx ../incoming/collab-kit/sheet.ts clio --png     # reference.html 과 shots/reference-1440.jpg, -390.jpg (2배율)
 npx tsx ../incoming/collab-kit/lab-shot.ts clio        # npm run dev 를 켠 채로, 진짜 Pattern Lab 에서 연 화면
 ```
 

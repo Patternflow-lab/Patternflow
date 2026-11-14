@@ -7,8 +7,8 @@
 ```sh
 npx tsx ../incoming/collab-kit/check.ts clio            # 머리 줄, 금지 이름, 240초 되풀이, 채움, 노브 반응
 npx tsx ../incoming/collab-kit/check.ts clio --soak     # 그리고 900초
-npx tsx ../incoming/collab-kit/shoot.ts clio            # shots/<slug>.png, .gif, -looks.png (GIF 는 ffmpeg)
-npx tsx ../incoming/collab-kit/sheet.ts clio --png      # reference.html 과 그 화면 1440, 390
+npx tsx ../incoming/collab-kit/shoot.ts clio            # shots/<slug>.png, .webp, -looks.png (움직이는 WebP 는 ffmpeg)
+npx tsx ../incoming/collab-kit/sheet.ts clio --png      # reference.html 과 그 화면 1440, 390 (2배율 JPEG)
 npx tsx ../incoming/collab-kit/lab-shot.ts clio         # npm run dev 를 켠 채로: 진짜 Pattern Lab 에서 연 화면
 ```
 

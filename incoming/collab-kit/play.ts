@@ -21,36 +21,60 @@ const bySlug = new Map(data.patterns.map((p) => [p.slug, p]));
 
 const STEP = 1 / 30;
 const BUDGET_MS = 12;
-const PITCH = 4;
+// Each canvas is drawn at a whole number of device pixels per LED, worked out
+// from how large it shows, so the browser never shrinks a drawing of LED
+// discs: a 4 px disc grid scaled to 1.2 px an LED beats against the screen's
+// pixels into a red and black check. Under 3 device pixels an LED is a plain
+// square; from 3 up it is a disc, as on the panel.
+const MAX_PITCH = 6;
 
-type Target = { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; visible: boolean; image: ImageData | null };
+type Target = { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; visible: boolean; image: ImageData | null; pitch: number };
 type Runner = { entry: Entry; knobs: number[]; engine: LabEngine | null; time: number; owed: number; targets: Target[]; broken: boolean };
 
 const runners = new Map<string, Runner>();
 const byCanvas = new Map<Element, { runner: Runner; target: Target }>();
 
 // How much of each pixel in one LED's square the disc covers (0.84 of the
-// pitch across), worked out once.
-const COVER = (() => {
-  const out = new Float32Array(PITCH * PITCH);
-  const radius = PITCH * 0.42;
-  const SUB = 4;
-  for (let v = 0; v < PITCH; v++)
-    for (let u = 0; u < PITCH; u++) {
-      let inside = 0;
-      for (let sy = 0; sy < SUB; sy++)
-        for (let sx = 0; sx < SUB; sx++) {
-          const dx = u + (sx + 0.5) / SUB - PITCH / 2;
-          const dy = v + (sy + 0.5) / SUB - PITCH / 2;
-          if (dx * dx + dy * dy <= radius * radius) inside++;
-        }
-      out[v * PITCH + u] = inside / (SUB * SUB);
-    }
+// pitch across), worked out once per pitch.
+const covers = new Map<number, Float32Array>();
+function cover(pitch: number) {
+  let out = covers.get(pitch);
+  if (out) return out;
+  out = new Float32Array(pitch * pitch);
+  if (pitch < 3) out.fill(1);
+  else {
+    const radius = pitch * 0.42;
+    const SUB = 4;
+    for (let v = 0; v < pitch; v++)
+      for (let u = 0; u < pitch; u++) {
+        let inside = 0;
+        for (let sy = 0; sy < SUB; sy++)
+          for (let sx = 0; sx < SUB; sx++) {
+            const dx = u + (sx + 0.5) / SUB - pitch / 2;
+            const dy = v + (sy + 0.5) / SUB - pitch / 2;
+            if (dx * dx + dy * dy <= radius * radius) inside++;
+          }
+        out[v * pitch + u] = inside / (SUB * SUB);
+      }
+  }
+  covers.set(pitch, out);
   return out;
-})();
+}
+
+function fit(t: Target, w: number, h: number) {
+  const across = (t.canvas.clientWidth * (window.devicePixelRatio || 1)) / w;
+  const pitch = Math.max(1, Math.min(MAX_PITCH, Math.round(across) || 1));
+  if (pitch === t.pitch && t.canvas.width === w * pitch) return;
+  t.pitch = pitch;
+  t.canvas.width = w * pitch;
+  t.canvas.height = h * pitch;
+  t.image = null;
+}
 
 function draw(frame: EngineFrame, t: Target, w: number, h: number) {
+  const PITCH = t.pitch;
   if (!t.image || t.image.width !== w * PITCH) t.image = t.ctx.createImageData(w * PITCH, h * PITCH);
+  const COVER = cover(PITCH);
   const src = frame.data;
   const dst = t.image.data;
   const row = w * PITCH * 4;
@@ -108,6 +132,13 @@ const seen = new IntersectionObserver(
   { rootMargin: "120px" },
 );
 
+const sized = new ResizeObserver((entries) => {
+  for (const e of entries) {
+    const hit = byCanvas.get(e.target);
+    if (hit) fit(hit.target, hit.runner.entry.matrix.width, hit.runner.entry.matrix.height);
+  }
+});
+
 for (const canvas of document.querySelectorAll<HTMLCanvasElement>("canvas[data-play]")) {
   const entry = bySlug.get(canvas.dataset.play!);
   if (!entry) continue;
@@ -119,12 +150,12 @@ for (const canvas of document.querySelectorAll<HTMLCanvasElement>("canvas[data-p
     runner = { entry, knobs, engine: null, time: Number(canvas.dataset.offset ?? 0), owed: STEP, targets: [], broken: false };
     runners.set(key, runner);
   }
-  canvas.width = entry.matrix.width * PITCH;
-  canvas.height = entry.matrix.height * PITCH;
-  const target: Target = { canvas, ctx: canvas.getContext("2d")!, visible: false, image: null };
+  const target: Target = { canvas, ctx: canvas.getContext("2d")!, visible: false, image: null, pitch: 0 };
+  fit(target, entry.matrix.width, entry.matrix.height);
   runner.targets.push(target);
   byCanvas.set(canvas, { runner, target });
   seen.observe(canvas);
+  sized.observe(canvas);
 }
 
 for (const input of document.querySelectorAll<HTMLInputElement>("input[data-knob-for]")) {

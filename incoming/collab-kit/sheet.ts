@@ -6,7 +6,7 @@
  * renders at the same knobs. From web/:
  *
  *   npx tsx ../incoming/collab-kit/sheet.ts clio          write incoming/collab-clio/reference.html
- *   ... sheet.ts clio --png                               and shots/reference-1440.png, reference-390.png
+ *   ... sheet.ts clio --png                               and shots/reference-1440.jpg, reference-390.jpg
  *   ... sheet.ts clio --check                             write nothing; fail if reference.html is stale
  *
  * Each panel's background is the pattern's still from shoot.ts, so the sheet
@@ -72,7 +72,7 @@ const body = `
 <header class="head">
   <div>
     <div class="kicker">협업 레퍼런스 · 제안 초안</div>
-    <h1>Patternflow<span class="x">×</span>${esc(sheet.brand)}</h1>
+    <h1><span>Patternflow</span> <span><span class="x">×</span>${esc(sheet.brand)}</span></h1>
     <p class="line">${esc(sheet.line)}</p>
     <div class="meta">${esc(sheet.brandKo)} · ${esc(sheet.date)} · 64×128 LED 패널 한 대에서 도는 패턴 ${patterns.length}개</div>
   </div>
@@ -198,7 +198,9 @@ async function shoot() {
   const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
   const browser = await chromium.launch();
   for (const width of [1440, 390]) {
-    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    // At twice the pixels, as a person sees it on a phone or a laptop, and as
+    // JPEG: a full sheet at that size is 6 MB as PNG.
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 2 });
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => m.type() === "warning" && errors.push(m.text()));
@@ -211,10 +213,10 @@ async function shoot() {
     }
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(1500);
-    const file = path.join(dir, "shots", `reference-${width}.png`);
-    await page.screenshot({ path: file, fullPage: true });
+    const file = path.join(dir, "shots", `reference-${width}.jpg`);
+    await page.screenshot({ path: file, fullPage: true, type: "jpeg", quality: 80 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-    console.log(`${path.relative(process.cwd(), file)}${overflow > 0 ? ` · scrolls sideways by ${overflow} px` : ""}${errors.length ? ` · ${errors.join(" | ")}` : ""}`);
+    console.log(`${path.relative(process.cwd(), file)} · ${(fs.statSync(file).size / 1024).toFixed(0)} KB${overflow > 0 ? ` · scrolls sideways by ${overflow} px` : ""}${errors.length ? ` · ${errors.join(" | ")}` : ""}`);
     await page.close();
   }
   await browser.close();

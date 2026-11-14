@@ -1,6 +1,6 @@
 # 페리페라 × Patternflow
 
-페리페라에 들고 갈 패턴 셋과 한 장짜리 레퍼런스예요. 한 장은 [reference.html](reference.html) 이고, 파일 하나라 디스크에서 바로 열려요. 패널은 그 안에서 Pattern Lab 엔진으로 돌아요. 화면은 [shots/reference-1440.png](shots/reference-1440.png) 와 [shots/reference-390.png](shots/reference-390.png) 에 찍어 뒀어요.
+페리페라에 들고 갈 패턴 셋과 한 장짜리 레퍼런스예요. 한 장은 [reference.html](reference.html) 이고, 파일 하나라 디스크에서 바로 열려요. 패널은 그 안에서 Pattern Lab 엔진으로 돌아요. 화면은 [shots/reference-1440.jpg](shots/reference-1440.jpg) 와 [shots/reference-390.jpg](shots/reference-390.jpg) 에 찍어 뒀어요.
 
 ## 페리페라에서 찾은 것
 
@@ -60,7 +60,7 @@ Glassy Ink 는 글로이 틴트의 물먹은 윤기를 옮겼고, Blur Bloom 은
 
 ```sh
 npx tsx ../incoming/collab-kit/check.ts peripera --soak    # 머리 줄, 금지 이름, 되풀이, 채움, 노브, 900초
-npx tsx ../incoming/collab-kit/shoot.ts peripera           # shots/<slug>.png, .gif, -looks.png
+npx tsx ../incoming/collab-kit/shoot.ts peripera           # shots/<slug>.png, .webp, -looks.png
 npx tsx ../incoming/collab-kit/sheet.ts peripera --png     # reference.html 과 그 화면
 npx tsx ../incoming/collab-kit/lab-shot.ts peripera        # npm run dev 를 켠 채로, 진짜 Pattern Lab 에서 연 화면
 ```
@@ -69,4 +69,4 @@ npx tsx ../incoming/collab-kit/lab-shot.ts peripera        # npm run dev 를 켠
 
 ## 하지 않은 것
 
-페리페라나 클리오에 연락하지 않았고, 어디에도 올리지 않았어요. 이 폴더는 제안 초안이고 두 회사와 함께 만들거나 승인받은 것이 아니에요. 로고, 워드마크, 제품 사진, 캐릭터는 쓰지 않았고 이미지는 링크로만 남겼어요. 색 값은 측정한 브랜드 색이 아니에요. 기기에는 올려 보지 않았어요. Blur Bloom 과 Glassy Ink 는 바탕이 밝아요. 펌웨어는 패널을 2.4 A 안에 묶고 흰색에 가까운 프레임은 절반쯤 밝기로 내려서, 이 둘은 기기에서 한 번 봐야 해요. Glassy Ink 는 브라우저에서 한 장에 9ms 남짓 걸려서 ESP32-S3 에서는 다른 둘보다 느릴 거예요. 기기로 옮길 때 물결 수를 여덟에서 줄이는 것이 먼저예요. `shots/glassy-ink.gif` 는 패널 전체가 매 장 바뀌는 그림이라 3 MB 쯤이에요.
+페리페라나 클리오에 연락하지 않았고, 어디에도 올리지 않았어요. 이 폴더는 제안 초안이고 두 회사와 함께 만들거나 승인받은 것이 아니에요. 로고, 워드마크, 제품 사진, 캐릭터는 쓰지 않았고 이미지는 링크로만 남겼어요. 색 값은 측정한 브랜드 색이 아니에요. 기기에는 올려 보지 않았어요. Blur Bloom 과 Glassy Ink 는 바탕이 밝아요. 펌웨어는 패널을 2.4 A 안에 묶고 흰색에 가까운 프레임은 절반쯤 밝기로 내려서, 이 둘은 기기에서 한 번 봐야 해요. Glassy Ink 는 브라우저에서 한 장에 9ms 남짓 걸려서 ESP32-S3 에서는 다른 둘보다 느릴 거예요. 기기로 옮길 때 물결 수를 여덟에서 줄이는 것이 먼저예요. `shots/glassy-ink.webp` 는 패널 전체가 매 장 바뀌는 그림이라 5초에 1.2 MB 예요.
