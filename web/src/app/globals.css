@@ -2075,6 +2075,9 @@
       align-items: center;
       gap: 0;
       margin: 0 -6px;
+      /* The copy under it stops at 580px, and so does the row on a tablet:
+         580px and the 6px it reaches out at each side. */
+      max-width: 592px;
       font-size: 12px;
     }
     .hero-top-links a {

@@ -102,6 +102,24 @@
   font-size: 11px;
 }
 
+/* "Around the world" and "33 entries · 15 countries" need 331px side by side.
+   In a column narrower than that (327px on a 375px phone) each broke in two
+   beside the other. There the count goes under the title, one line each. */
+@container (max-width: 335px) {
+  .listHeading {
+    display: block;
+  }
+
+  .listHeading :global(.pf-kicker) {
+    margin-bottom: 2px;
+  }
+
+  .count {
+    display: block;
+    margin-bottom: 16px;
+  }
+}
+
 .body .mapNote {
   margin: 20px 0 0;
   color: var(--pf-ink-muted);
