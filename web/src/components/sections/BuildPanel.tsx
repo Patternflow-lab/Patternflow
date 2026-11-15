@@ -185,8 +185,15 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
     return () => observer.disconnect();
   }, [setActiveSection]);
 
+  // A step is acted out on a device, so asking for one takes the 3D view off
+  // the shelf it opens on and onto the case the switch is on. Only a step the
+  // reader asked for: the first step a phone opens by itself (above) leaves
+  // the shelf where it is.
+  const leaveShelf = () => useAppStore.getState().setBuildShelf(false);
+
   const handleStepEnter = (stepId: number) => {
     if (isMobile || lockedStep !== null) return;
+    leaveShelf();
     setBuildStep(stepId);
   };
 
@@ -197,6 +204,7 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
 
   const handleStepClick = (stepId: number) => {
     const step = steps.find((item) => item.id === stepId);
+    leaveShelf();
 
     if (isMobile) {
       if (activeTouchStep === stepId) {
