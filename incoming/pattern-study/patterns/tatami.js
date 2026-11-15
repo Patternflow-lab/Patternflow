@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Tatami
 // Family:  geometry
-// Idea:    Rectangular mats of one size are laid so that no four corners ever meet at a point, which is the herringbone with two mats to a step, and the Shape knob stretches the mat from a square through a double square to a long plank while the Turn knob swings the whole floor.
+// Idea:    Rectangular mats of one size are laid so that no four corners ever meet at a point, which is the herringbone with two mats to a step, and the Shape knob stretches the mat from a short block to a long plank while the Turn knob swings the whole floor.
 // Author:  patternflow-lab
 // Date:    2026-11-15
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the colours round the wheel. The upright mats and the lying ones are a few steps apart on it.
 // Knob 2: Mat. How wide a mat is, from 2.5 LEDs to 10; the knob's 2 is 7.5. The length keeps its ratio to the width, so the floor keeps its shape and only the number of mats changes.
-// Knob 3: Shape. How long a mat is against its width, from a square at the left through three widths in the middle to five widths at the right. At the left the mats lie in a brick wall that slides by a mat each course, and from two widths up the herringbone steps show.
+// Knob 3: Shape. How long a mat is against its width, from one and a half widths at the left through three and a third in the middle to five at the right. The short mats make squat steps and the long ones make a stair that climbs a long way before it turns. A square mat is left out, because squares stack in a grid and four corners meet.
 // Knob 4: Turn. The angle of the whole floor, from flat at the left through 45 degrees in the middle to a quarter turn at the right. At 45 degrees the steps stand as chevrons; at the ends the steps climb the panel as stairs.
 
 const W = 64;
@@ -52,7 +52,7 @@ export function update(dt, input, params) {
   const t = params.t;
   // The slow breath widens the mats a little, stretches them and turns the floor a degree or so, and the floor creeps along its steps.
   const w = (2.5 + 2.5 * k[1]) * (1 + 0.02 * Math.sin(t * 0.41));
-  const r = (3 + 2 * k[2]) * (1 + 0.015 * Math.sin(t * 0.33 + 1));
+  const r = (3.25 + 1.75 * k[2]) * (1 + 0.015 * Math.sin(t * 0.33 + 1));
   params.w = w;
   params.l = w * r;
   const th = ((45 + 45 * k[3]) * Math.PI) / 180 + 0.02 * Math.sin(t * 0.27 + 3);
