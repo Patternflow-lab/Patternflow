@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-15
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the harmonic series and the p-series, whose partial sums of one over n to the p diverge for p up to 1 and settle for p above 1 (Nicole Oresme, c. 1360; Leonhard Euler, 1737), original, pattern round 135
+// Lineage: the harmonic series, shown to diverge by Nicole Oresme in the 14th century, and the p-series, whose sums settle for p above 1 (Leonhard Euler, 1735, for p of 2), original, pattern round 135
 // Round:   135
 // ===============================
 // @matrix 64x128
