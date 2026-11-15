@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, First=0..3, Second=-1..1, Slip=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel. The three lines from the corners take three colours a third of the wheel apart, and each step of the walk below takes the colour of its line.
-// Knob 2: First. Where the first cut sits on the left side of the triangle, as the ratio of its two pieces; the knob's start is the first piece longer. The line to the opposite corner and the first step of the walk move with it.
-// Knob 3: Second. Where the second cut sits on the bottom side. Turned down, the cut runs to the left corner and the second step of the walk goes backward.
+// Knob 2: First. Where the first cut sits on the left side of the triangle, as the ratio of its two pieces; the knob's start has the piece nearer the top the longer. The line from the opposite corner to that cut and the first step of the walk move with it.
+// Knob 3: Second. Where the second cut sits on the bottom side. At its start the cut is nearer the left corner and the second step of the walk points left; turned down the cut runs on toward that corner and the step grows, turned up the cut crosses the middle of the side and the step turns to point right.
 // Knob 4: Slip. How far the third cut sits from the place where the three lines meet. At its start the third cut is exactly there and the walk below closes; either way off it, the three lines stop meeting and cut a small white triangle between them, and the walk ends beside where it began.
 
 const W = 64;
@@ -52,6 +52,8 @@ export function setup(params) {
   params.iy = new Float32Array(3);
   // The walk: where it stands after 0, 1, 2 and 3 steps.
   params.wx = new Float32Array(4);
+  // Each line as a x + b y + c, which is the distance in LEDs, with the sign telling the side.
+  params.ln = new Float32Array(9);
   params.col = new Float32Array(18);
 }
 
@@ -99,6 +101,18 @@ export function update(dt, input, params) {
   cross(AX, AY, fx[1], fy[1], BX, BY, fx[2], fy[2], 0, ix, iy);
   cross(BX, BY, fx[2], fy[2], CX, CY, fx[0], fy[0], 1, ix, iy);
   cross(CX, CY, fx[0], fy[0], AX, AY, fx[1], fy[1], 2, ix, iy);
+  const ln = params.ln;
+  for (let i = 0; i < 3; i++) {
+    const sx = i === 0 ? AX : i === 1 ? BX : CX;
+    const sy = i === 0 ? AY : i === 1 ? BY : CY;
+    const f = i === 0 ? 1 : i === 1 ? 2 : 0;
+    const dx = fx[f] - sx;
+    const dy = fy[f] - sy;
+    const len = Math.max(0.001, Math.hypot(dx, dy));
+    ln[i * 3] = -dy / len;
+    ln[i * 3 + 1] = dx / len;
+    ln[i * 3 + 2] = (dy * sx - dx * sy) / len;
+  }
   const wx = params.wx;
   wx[0] = WALK_X;
   wx[1] = wx[0] + l1 * STEP;
@@ -133,6 +147,7 @@ export function draw(display, params, time) {
   const ix = params.ix;
   const iy = params.iy;
   const wx = params.wx;
+  const ln = params.ln;
   const col = params.col;
   // The sign of the corner order tells which side of an edge is inside.
   const sgn = edge(CX, CY, AX, AY, BX, BY) > 0 ? 1 : -1;
@@ -153,9 +168,22 @@ export function draw(display, params, time) {
       let cb = ev + 0.5;
       if (cb > 0) {
         if (cb > 1) cb = 1;
-        r += (col[9] - r) * cb;
-        g += (col[10] - g) * cb;
-        b += (col[11] - b) * cb;
+        // The body is tinted by which side of each line the LED is on: a line's colour is added on its positive side.
+        // The six pieces the lines cut each get their own tint, and when the lines do not meet, the small triangle between
+        // them is the one piece that has all three or none.
+        let tr = col[9];
+        let tg = col[10];
+        let tb = col[11];
+        for (let i = 0; i < 3; i++) {
+          if (ln[i * 3] * xx + ln[i * 3 + 1] * yy + ln[i * 3 + 2] > 0) {
+            tr += col[i * 3] * 0.2;
+            tg += col[i * 3 + 1] * 0.2;
+            tb += col[i * 3 + 2] * 0.2;
+          }
+        }
+        r += (tr - r) * cb;
+        g += (tg - g) * cb;
+        b += (tb - b) * cb;
       }
       const ds = Math.min(seg(xx, yy, AX, AY, BX, BY), seg(xx, yy, BX, BY, CX, CY), seg(xx, yy, CX, CY, AX, AY));
       let cs = 1.3 - ds;
@@ -228,9 +256,11 @@ export function draw(display, params, time) {
             if (hc > 1) hc = 1;
             if (vc > 1) vc = 1;
             const cv = hc * vc;
-            r += (col[i * 3] - r) * cv;
-            g += (col[i * 3 + 1] - g) * cv;
-            b += (col[i * 3 + 2] - b) * cv;
+            // The first step is the cut on AB, which the line from C ends on, the second the cut on BC, the line from A, the third the cut on CA, the line from B.
+            const o = (i === 0 ? 2 : i === 1 ? 0 : 1) * 3;
+            r += (col[o] - r) * cv;
+            g += (col[o + 1] - g) * cv;
+            b += (col[o + 2] - b) * cv;
           }
         }
         // A thin line joins each step's end to the start of the next, and the column the walk began on is a white line.

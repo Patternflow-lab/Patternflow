@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the colours round the wheel. The two circles take two colours half a wheel apart, and the plane on each side of the line takes a dark tint of the colour of the circle on that side.
 // Knob 2: Size. The radius of the lower circle, from a small one to a little larger than the upper one, which stays the same. The line slides toward the circle that shrinks.
 // Knob 3: Gap. The distance between the two centres. Turned down, the lower circle sinks into the upper one without ever being swallowed; turned up, the two come apart and the line stands in the space between them.
-// Knob 4: Slide. Where the white circle's centre sits along the line. Start is a little to the right, where the white circle just clears both; turned left the centre goes into the overlap and the white circle shrinks to the point where the two circles cross and is gone.
+// Knob 4: Slide. Where the white circle's centre sits along the line, to the right of the middle. At its start the white circle crosses both circles at right angles, at four points that its radii reach. Turned left the centre goes into the overlap, the white circle shrinks to the point where the two circles cross, and then it is gone.
 
 const W = 64;
 const H = 128;
@@ -205,7 +205,16 @@ export function draw(display, params, time) {
       let cl = 1.2 - Math.abs(sd);
       // The white circle, thinner, and its four radii to the tangent points, which are the four equal tangents.
       if (wr > 0) {
-        const cw = 1.1 - Math.abs(Math.hypot(xx - mx, yy - my) - wr);
+        const em = Math.hypot(xx - mx, yy - my);
+        // Inside it the plane is lightened, so that the circle is a shape and not only a line.
+        let cv = wr - em + 0.5;
+        if (cv > 0.22) cv = 0.22;
+        if (cv > 0) {
+          r += (250 - r) * cv;
+          gg += (246 - gg) * cv;
+          b += (236 - b) * cv;
+        }
+        const cw = 1.1 - Math.abs(em - wr);
         if (cw > cl) cl = cw;
         let dr = 99;
         for (let i = 0; i < 4; i++) {
