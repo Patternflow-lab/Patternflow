@@ -335,7 +335,7 @@ These names are canonical. Use them exactly, capitalized as shown.
 | --- | --- |
 | **Patternflow** | The instrument, the project, and the ecosystem. One word, capital P only. A trademark of SeungHun Lee. |
 | **Live Editor** | The taster, embedded in the website. A virtual Patternflow — same knobs, same detents, no account, no install, no hardware. |
-| **Pattern Lab** | The studio. A full creation tool: batch generation, color ramps, layering, custom knob frames, compile straight to firmware. |
+| **Pattern Lab** | The studio. A full creation tool: layers of code, pixel art and text, color ramps, custom knob frames, compile straight to firmware. |
 | **Community** | The sharing platform. Publish, browse, fork, and load a pattern onto your own device. |
 | **Origin** | The pattern the device boots into, and the first work in the Patternflow series. |
 
