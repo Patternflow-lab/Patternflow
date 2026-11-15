@@ -115,7 +115,10 @@ export const CLEAR_SECONDS = 0.35;
 /** Seconds a light model takes to fade away over its full model. */
 export const HANDOFF_SECONDS = 0.28;
 
-/** A value walked towards 0 or 1 at a steady rate: `seconds` for the whole way. */
+/**
+ * A value walked towards 0 or 1 at a steady rate: `seconds` for the whole
+ * way. A `delta` of Infinity is there in one step.
+ */
 export function walk(value: number, towards: 0 | 1, delta: number, seconds: number): number {
   const step = delta / seconds;
   return towards === 1 ? Math.min(1, value + step) : Math.max(0, value - step);

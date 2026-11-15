@@ -107,7 +107,7 @@ export const CASE_MODELS: Record<CaseId, CaseModel> = {
 
 /**
  * A case's light model, beside its full one: the same device standing
- * assembled, 20 to 53 KB where the full one is 310 to 550 (tools/case-models,
+ * assembled, 14 to 55 KB where the full one is 317 to 563 (tools/case-models,
  * light.mjs). The Build tab's shelf is made of these, and each stands in for
  * its full model until that has arrived (lightCase.ts).
  */

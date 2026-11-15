@@ -114,7 +114,7 @@ void main() {
 }
 `;
 
-// No full model comes with the page any more. The official one did, 310 KB
+// No full model comes with the page any more. The official one did, 317 KB
 // and the Draco decoder, on every home page, the globe's included. A case's
 // full model is fetched when it is first shown, or when a pointer is on it on
 // the way (preloadCaseModel); its light model covers until then.
@@ -689,6 +689,7 @@ function ProductPreview({
         finishOf={finishOf}
         tags={tags}
         hovered={hovered}
+        still={still}
         onPick={onPick}
         onIntent={preloadCaseModel}
       />

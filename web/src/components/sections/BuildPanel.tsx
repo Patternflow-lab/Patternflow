@@ -157,8 +157,14 @@ export default function BuildPanel({ content, isActive }: BuildPanelProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // A phone has no hover, so the first step is opened for it. Not while the
+  // 3D view is on the shelf: a case picked from there arrives standing, lit,
+  // and would at once be taken apart for a step nobody asked for. Read from
+  // the store when this runs, not followed, so that closing the shelf does
+  // not open the step either.
   useEffect(() => {
     if (!isActive || !isMobile || activeTouchStep !== null) return;
+    if (useAppStore.getState().buildShelf) return;
     const frame = window.requestAnimationFrame(() => {
       setActiveTouchStep(1);
       setBuildStep(1);

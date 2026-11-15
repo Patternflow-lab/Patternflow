@@ -17,8 +17,8 @@
 //   - most of the triangles of what stays: a part keeps at most BUDGET of
 //     them (meshoptimizer), and what only shows through clear acrylic is cut
 //     down further, without regard for its shape's fine detail;
-//   - the normals: the page works them out again from the faces (HeroScene's
-//     light models, toCreasedNormals), so vertices weld on position alone;
+//   - the normals: the page works them out again from the faces (lightCase.ts,
+//     toCreasedNormals), so vertices weld on position alone;
 //   - the parts as separate things: everything is baked into one node,
 //     `body`, one primitive per material.
 // What stays as it is: the lit face of the LED panel, `l`, with its UVs (the
@@ -41,19 +41,30 @@ import { getIO, worldBounds, fmt } from './lib/io.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CASES_DIR = path.resolve(HERE, '../../web/public/cases');
 
-/** The LED panel's node. Its lit face is kept whole; the rest of it is `inside`. */
+/** The LED panel's node. Its lit face is kept whole; the rest of it is cut down like a part inside. */
 const LED = 'l';
-/** A triangle of the panel faces the reader when its normal's z is past this. */
-const LED_FACING = 0.5;
+/**
+ * The lit face is the part of the panel whose UVs are the LED grid: the unit
+ * square, to this much. The rest of the panel's UVs are parked outside it.
+ */
+const LED_UV_SLACK = 0.01;
+/**
+ * The lit face's normal, as the file has it. The pattern's shader takes a
+ * fragment of the panel for an LED when its normal, as stored, points along
+ * -y (web/src/components/3d/patterns/common.ts, ledPanel: the full models'
+ * panel lies that way round in its own node), and for the panel's frame
+ * otherwise. A light model has no other normals; this one is the mark.
+ */
+const LED_NORMAL = [0, -1, 0];
 
 /**
  * The most triangles a top-level node keeps, by what it is. A knob is a
  * cylinder two millimetres across on the shelf; a shell part keeps its holes
  * and its edges; what is inside only has to be there.
  */
-const BUDGET = { knob: 96, shell: 900, inside: 260 };
+const BUDGET = { knob: 96, shell: 900, inside: 260, panel: 220 };
 /** How far a surface may move, as a share of the part's size (meshoptimizer's error). */
-const ERROR = { knob: 0.05, shell: 0.01, inside: 0.2 };
+const ERROR = { knob: 0.05, shell: 0.01, inside: 0.2, panel: 0.02 };
 /** Vertices closer than this are one vertex: a tenth of a millimetre (a unit is 10 mm). */
 const WELD = 1e-3;
 
@@ -167,7 +178,8 @@ class Soup {
     this.uvs = uvs;
   }
 
-  primitive(doc, buffer, material) {
+  /** `normal`, when given, is written for every vertex. */
+  primitive(doc, buffer, material, normal) {
     const count = this.positions.length / 3;
     const accessor = (type, array) => doc.createAccessor().setType(type).setArray(array).setBuffer(buffer);
     const prim = doc
@@ -176,9 +188,18 @@ class Soup {
       .setAttribute('POSITION', accessor('VEC3', new Float32Array(this.positions)))
       .setIndices(accessor('SCALAR', count > 65535 ? new Uint32Array(this.indices) : new Uint16Array(this.indices)));
     if (this.uvs.length) prim.setAttribute('TEXCOORD_0', accessor('VEC2', new Float32Array(this.uvs)));
+    if (normal) {
+      const normals = new Float32Array(count * 3);
+      for (let i = 0; i < count; i += 1) normals.set(normal, i * 3);
+      prim.setAttribute('NORMAL', accessor('VEC3', normals));
+    }
     return prim;
   }
 }
+
+/** The determinant of a column-major 4x4's rotation and scale: below zero, the transform mirrors. */
+const handedness = (m) =>
+  m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
 
 /** A top-level node's triangles, by material name, in the model's frame. `uv` keeps TEXCOORD_0. */
 function gather(node, uv) {
@@ -188,6 +209,9 @@ function gather(node, uv) {
     const mesh = n.getMesh();
     if (!mesh) return;
     const matrix = n.getWorldMatrix();
+    // A mirrored node (the LED panel's is) turns its triangles inside out
+    // once they are baked, so they are wound the other way round.
+    const mirrored = handedness(matrix) < 0;
     for (const prim of mesh.listPrimitives()) {
       const name = prim.getMaterial()?.getName() ?? 'none';
       materials.set(name, prim.getMaterial());
@@ -204,30 +228,33 @@ function gather(node, uv) {
       }
       const index = prim.getIndices();
       const count = index ? index.getCount() : position.getCount();
-      for (let i = 0; i < count; i += 1) soup.indices.push(base + (index ? index.getScalar(i) : i));
+      const at = (i) => base + (index ? index.getScalar(i) : i);
+      for (let i = 0; i < count; i += 3) {
+        if (mirrored) soup.indices.push(at(i), at(i + 2), at(i + 1));
+        else soup.indices.push(at(i), at(i + 1), at(i + 2));
+      }
     }
   });
   return { soups, materials };
 }
 
-/** Splits the LED panel's triangles into the lit face (normal towards +z) and the rest. */
+/** Splits the LED panel's triangles into the lit face (its UVs in the unit square) and the rest. */
 function litFace(soup) {
   const face = new Soup();
   const rest = new Soup();
   face.positions = soup.positions;
   face.uvs = soup.uvs;
   rest.positions = soup.positions;
+  const onGrid = (k) => {
+    const [u, v] = [soup.uvs[k * 2], soup.uvs[k * 2 + 1]];
+    return u >= -LED_UV_SLACK && u <= 1 + LED_UV_SLACK && v >= -LED_UV_SLACK && v <= 1 + LED_UV_SLACK;
+  };
   for (let i = 0; i < soup.indices.length; i += 3) {
     const [a, b, c] = [soup.indices[i], soup.indices[i + 1], soup.indices[i + 2]];
-    const p = (k) => soup.positions.slice(k * 3, k * 3 + 3);
-    const [pa, pb, pc] = [p(a), p(b), p(c)];
-    const u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
-    const w = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
-    const n = [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]];
-    const length = Math.hypot(...n) || 1;
-    (n[2] / length > LED_FACING ? face : rest).indices.push(a, b, c);
+    (onGrid(a) && onGrid(b) && onGrid(c) ? face : rest).indices.push(a, b, c);
   }
   face.compact();
+  rest.uvs = [];
   rest.compact();
   return { face, rest };
 }
@@ -304,7 +331,7 @@ async function lighten(id) {
     for (const [key, from] of used) materialFor(key, from);
 
     if (isLed) {
-      // The lit face as it is; the panel's back and sides as something inside.
+      // The lit face as it is; the panel's back and sides cut down.
       const behind = new Map();
       for (const [key, soup] of soups) {
         const { face, rest } = litFace(soup);
@@ -314,7 +341,7 @@ async function lighten(id) {
         }
         if (rest.triangles) behind.set(key, rest);
       }
-      keep(behind, 'inside');
+      keep(behind, 'panel');
       continue;
     }
     keep(soups, /^c[1-4]$/.test(name) ? 'knob' : matches(name, rules.inside) ? 'inside' : 'shell');
@@ -322,28 +349,32 @@ async function lighten(id) {
 
   const outScene = out.createScene(id).setExtras({ box: { min: fmt(box.min), max: fmt(box.max) } });
   let kept = 0;
-  const build = (name, soups) => {
+  const build = (name, soups, normal) => {
     // The mesh has no name of its own: three's loader keeps names unique, and
     // a mesh called `l` would take the name before its node could.
     const mesh = out.createMesh();
     for (const [key, soup] of soups) {
       if (!soup.triangles) continue;
       kept += soup.triangles;
-      mesh.addPrimitive(soup.primitive(out, buffer, materials.get(key)));
+      mesh.addPrimitive(soup.primitive(out, buffer, materials.get(key), normal));
     }
     if (mesh.listPrimitives().length) outScene.addChild(out.createNode(name).setMesh(mesh));
   };
-  build(LED, led);
+  build(LED, led, LED_NORMAL);
   build('body', body);
 
   out.createExtension(KHRMeshQuantization).setRequired(true);
   out.createExtension(EXTMeshoptCompression).setRequired(true);
   await out.transform(
-    prune(),
-    dedup(),
+    // keepAttributes: the panel's UVs have no texture on them, which is what
+    // prune takes for unused. The pattern's shader reads them.
+    prune({ keepAttributes: true }),
+    // keepUniqueNames: two materials that look alike are still two when their
+    // names differ. The page lights the four knob lights one by one, by name.
+    dedup({ keepUniqueNames: true }),
     // 14 bits of position is 0.02 mm on these models. The panel's UVs are the
     // LED grid, 128 across: 12 bits puts a texel within 1/32 of an LED.
-    quantize({ quantizePosition: 14, quantizeTexcoord: 12 }),
+    quantize({ quantizePosition: 14, quantizeTexcoord: 12, quantizeNormal: 8 }),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   );
 
@@ -353,7 +384,7 @@ async function lighten(id) {
   const full = fs.statSync(path.join(CASES_DIR, id, 'model.glb')).size;
   console.log(
     `${id}: ${Math.round(before).toLocaleString('en')} → ${Math.round(kept).toLocaleString('en')} triangles, ` +
-      `${(full / 1024).toFixed(0)} KB → ${(size / 1024).toFixed(1)} KB` +
+      `${(full / 1000).toFixed(0)} KB → ${(size / 1000).toFixed(1)} KB` +
       `, ${outScene.listChildren().map((n) => n.getName()).join(' + ')}` +
       `, left out: ${dropped.length} nodes`,
   );

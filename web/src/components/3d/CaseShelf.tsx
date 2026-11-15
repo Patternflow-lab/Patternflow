@@ -33,8 +33,8 @@ import {
 // The Build tab's shelf, and the light models it is made of.
 //
 // Every case has two models (caseModels.ts): the full one the preview takes
-// apart, 310 to 550 KB and a decoder to fetch first, and a light one of the
-// same device standing assembled, 20 to 53 KB. The light ones are all here
+// apart, 317 to 563 KB and a decoder to fetch first, and a light one of the
+// same device standing assembled, 14 to 55 KB. The light ones are all here
 // from the start. With the shelf open they stand on its two boards, to pick
 // from. With a case picked, that case's light model goes from its place on
 // the shelf to where the device stands, and stands in for the full model
@@ -132,6 +132,7 @@ export default function CaseShelf({
   finishOf,
   tags,
   hovered,
+  still,
   onPick,
   onIntent,
 }: {
@@ -156,6 +157,8 @@ export default function CaseShelf({
   tags: RefObject<Map<CaseId, HTMLElement | null>>;
   /** The case a pointer or the focus is on, whether on its model or on its name. */
   hovered: RefObject<CaseId | null>;
+  /** The reader has asked for less motion: a case is on the shelf or on the stage, and never on its way. */
+  still: boolean;
   onPick: (id: CaseId) => void;
   /** A pointer is on a case: its full model may as well start on its way. */
   onIntent: (id: CaseId) => void;
@@ -199,7 +202,8 @@ export default function CaseShelf({
   );
 
   useFrame((state, rawDelta) => {
-    const delta = Math.min(rawDelta, 0.1);
+    // With less motion asked for, every move below is over in its first frame.
+    const delta = still ? Infinity : Math.min(rawDelta, 0.1);
     const group = stage.current;
     const was = before.current;
     before.current = { open, staged };
