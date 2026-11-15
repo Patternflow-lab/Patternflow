@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Lean=0..3, Height=-1..1, Angle=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel. The three triangles on the sides take three colours a third of the wheel apart.
-// Knob 2: Lean. Where the top corner of the base triangle stands over its base, from far past the left end to far past the right end; the knob's 2 is a place right of the middle. The two bottom corners stay put.
+// Knob 2: Lean. Where the top corner of the base triangle stands over its base, from a little past the left end to a little past the right end; the knob's 2 is a place right of the middle. The two bottom corners stay put.
 // Knob 3: Height. How high the top corner stands over the base. Near the left end it passes through the flat triangle, where all three corners lie on one line, and comes out the other side with the triangle turned over; the knob's start is a tall triangle.
-// Knob 4: Angle. The angle at the foot of each triangle raised on a side. At 30 degrees, the knob's start, the top is a 120 degree corner and the three tops make an equilateral triangle, drawn in white; away from it they stop being equilateral. Below 0 the triangles are raised inwards.
+// Knob 4: Angle. The angle at the foot of each triangle raised on a side. At 30 degrees, the knob's start, the top is a 120 degree corner and the three tops make an equilateral triangle, drawn in white; away from it they stop being equilateral. Below 0 degrees, near the left end, they are raised inwards.
 
 const W = 64;
 const H = 128;

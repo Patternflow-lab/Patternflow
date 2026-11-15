@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the colours round the wheel. The colour also runs a little round it from the top chord to the bottom one, so the same chord can be found in all three shapes.
 // Knob 2: Lean. How far the middle shape's chords are slid sideways, in step with their height, from leaning one way at the left to leaning the other at the right. The knob's 2 is a lean to the right. At the middle of the range the lean is gone and the middle shape is the disc again.
 // Knob 3: Slices. How many chords the disc is cut into, from 4 to 24; the knob's start is 14. With few chords it is a stepped stack, with many it is a smooth disc.
-// Knob 4: Waves. How many waves the bottom shape's slide makes from top to bottom, from a gentle bend near the left to three waves at the right; the knob's start is one and a half. Every chord keeps its length, so the area stays the same.
+// Knob 4: Waves. How many waves the bottom shape's slide makes from top to bottom, from a gentle bend near the left to two and a half waves at the right; the knob's start is one and a half. Every chord keeps its length, so the area stays the same.
 
 const W = 64;
 const H = 128;

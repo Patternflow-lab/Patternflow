@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns the colours round the wheel. The six stretches of the ray's path take colours a little round it from the first to the last.
 // Knob 2: Lean. Where the top corner of the triangle stands over its base, from near the left corner to near the right one, always short of them so that the triangle stays acute; the knob's 2 is a place right of the middle.
-// Knob 3: Height. How high the top corner stands over the base, from the flattest acute triangle at the left to a tall one at the right, with the knob's start a little under twice as high as the base is wide. The triangle always stays acute.
-// Knob 4: Offset. Where on the base the ray is fired from, in steps from the foot of the altitude out to the farthest start that still closes on six bounces, and past the foot to the other side at the left. At the foot, which is near the left end, the path is the orthic triangle drawn twice; the knob's start is a path out to one side of it.
+// Knob 3: Height. How high the top corner stands over the base, from the flattest acute triangle at the left to a tall one at the right; the knob's start is about as high as the base is wide. The triangle always stays acute.
+// Knob 4: Offset. Where on the base the ray is fired from, as a share of the farthest start that still closes on six bounces, a distance that differs from triangle to triangle: out to one side of the foot of the altitude at the right, out to the other side at the left. A little left of the middle the start is the foot itself and the path is the orthic triangle drawn twice; the knob's start is a path out to one side of it.
 
 const W = 64;
 const H = 128;
