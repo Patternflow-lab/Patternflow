@@ -48,7 +48,8 @@ export function update(dt, input, params) {
   params.t += dt;
   const t = params.t;
   // The slow breath swells the slice a few percent, opens and closes it a few degrees and rocks it about its point.
-  params.r = (8 + (23 * k[1]) / 3) * (1 + 0.07 * Math.sin(t * 0.47));
+  const reach = (8 + (23 * k[1]) / 3) * (1 + 0.07 * Math.sin(t * 0.47));
+  params.r = reach > 31.5 ? 31.5 : reach;
   const open = (135 + 105 * k[2] + 8 * Math.sin(t * 0.37 + 1)) * RAD;
   params.sh = Math.sin(open / 2);
   params.ch = Math.cos(open / 2);
