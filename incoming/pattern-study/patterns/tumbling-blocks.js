@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the colour of the whole lattice round the wheel; the three faces of a cube keep their light, mid and dark tones.
 // Knob 2: Stretch. How tall the cube's vertical edge is against its width. Low, the three faces flatten into thin slats; at 2 the edges are equal and the lattice is the classic isometric cube; high, the cubes become tall columns.
 // Knob 3: Size. The width of one cube, from 20 LEDs to 48.
-// Knob 4: Lean. Leans the vertical edges to one side or the other, from a quarter turn to the left through upright to a quarter turn to the right, so the cubes slide from one view to another.
+// Knob 4: Lean. Leans the vertical edges to one side or the other, from 39 degrees to the left through upright to 39 degrees to the right, so the cubes slide from one view to another. It opens at 3 degrees.
 
 const W = 64;
 const H = 128;
