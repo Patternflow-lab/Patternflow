@@ -19,6 +19,10 @@
   // www are attached as Custom Domains once the workers.dev site checks out.
   "workers_dev": true,
   "preview_urls": true,
+  "routes": [
+    { "pattern": "patternflow.work", "custom_domain": true },
+    { "pattern": "www.patternflow.work", "custom_domain": true }
+  ],
 
   // public/ is answered from here before Next.js runs, so next.config.ts's
   // headers() never reach it; scripts/cf-headers.ts writes them into
