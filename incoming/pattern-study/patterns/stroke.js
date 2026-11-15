@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the line, all the way round the wheel.
 // Knob 2: Thick. How wide the line is, from 2 LEDs at 0 to 14 LEDs at 4.
 // Knob 3: Angle. The line turns about the middle of the panel through half a turn: rising 60 degrees at -1, falling 30 degrees at 0, and at 1 back to the rising 60 degrees it started from.
-// Knob 4: Place. The line slides sideways to its own direction, from the one edge of the panel at -1 to the other at 1, whatever its angle.
+// Knob 4: Place. The line slides sideways to its own direction, from near the one edge of the panel at -1 to near the other at 1, whatever its angle, and it is on the panel at both ends.
 
 const W = 64;
 const H = 128;
@@ -52,9 +52,9 @@ export function update(dt, input, params) {
   // The unit vector across the line, at a right angle to its direction.
   params.nx = -Math.sin(a);
   params.ny = Math.cos(a);
-  // The panel reaches 32|nx| + 64|ny| either side of its middle in the line's sideways direction, so
-  // the knob walks the line from one edge to the other at any angle and it is never pushed off the panel.
-  const reach = 0.96 * (32 * Math.abs(params.nx) + 64 * Math.abs(params.ny));
+  // The panel reaches 32|nx| + 64|ny| either side of its middle in the line's sideways direction. The knob
+  // walks the line four fifths of that way, so at any angle it stays on the panel at either end of the knob.
+  const reach = 0.8 * (32 * Math.abs(params.nx) + 64 * Math.abs(params.ny));
   // The line slides a LED to either side and back on a slow clock, so its edges are never quite still.
   // The knob sets the place.
   params.off = reach * k[3] + Math.sin(params.t * 0.57);
