@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Wire=0..3, Frames=-1..1, Spread=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel. Tall bands and wide ones differ by a quarter of a turn, so the square in the middle sits halfway between them.
-// Knob 2: Wire. How long the wire is, as width plus height of every frame, from 64 LEDs to 118; the knob's 2 is 100, so the square is 50 across. The corners ride out along the diamond as it grows.
+// Knob 2: Wire. How long the wire is, as width plus height of every frame, from 48 LEDs to 96; the knob's 2 is 80, so the square is 40 across. The corners ride out along the diamond as it grows.
 // Knob 3: Frames. How many frames are bent from the wire, from 5 to 15, always an odd number so one of them is the square.
-// Knob 4: Spread. How far the frames stray from the square. At the left they are nearly square, and at the right the thinnest frame is a band two LEDs wide, the tallest a pole and the widest a bar, each running off the panel.
+// Knob 4: Spread. How far the frames stray from the square. At the left they are nearly square, and at the right the thinnest frame is a band about two LEDs wide, the tallest a pole and the widest a bar, each running off the panel.
 
 const W = 64;
 const H = 128;
@@ -49,7 +49,7 @@ export function update(dt, input, params) {
   params.t += dt;
   const t = params.t;
   // The slow breath lengthens and shortens the wire and moves the frames a little nearer the square and away again.
-  const wire = (64 + 18 * k[1]) * (1 + 0.025 * Math.sin(t * 0.43));
+  const wire = (48 + 16 * k[1]) * (1 + 0.025 * Math.sin(t * 0.43));
   const spread = Math.min(0.96, 0.7 * Math.pow(1.5, k[3]) * (1 + 0.03 * Math.sin(t * 0.31 + 1)));
   const n = 2 * Math.round((9 * Math.pow(1.6, k[2]) - 1) / 2) + 1;
   params.n = n;
