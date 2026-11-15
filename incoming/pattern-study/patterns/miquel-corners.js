@@ -58,11 +58,11 @@ export function update(dt, input, params) {
   const p = params.p;
   // The slow breath walks each mark a few LEDs along its side and sways the top corner.
   const ax = 32 + 1.6 * Math.sin(t * 0.27);
-  const ay = 28;
-  const bx = 11;
-  const by = 98;
-  const cx = 53;
-  const cy = 98;
+  const ay = 34;
+  const bx = 15;
+  const by = 96;
+  const cx = 49;
+  const cy = 96;
   const d = Math.min(0.9, Math.max(0.1, 1 / 6 + (2 / 3) * (k[1] / 3) + 0.022 * Math.sin(t * 0.43)));
   const e = Math.min(0.9, Math.max(0.1, 0.5 + (1 / 3) * k[2] + 0.025 * Math.sin(t * 0.37 + 1)));
   const f = Math.min(0.9, Math.max(0.1, 0.25 + 0.55 * k[3] + 0.025 * Math.sin(t * 0.31 + 2)));
