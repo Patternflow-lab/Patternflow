@@ -43,6 +43,7 @@ export function setup(params) {
   // A rectangle's colour for each course and for which of two tones it takes.
   params.tone = new Float32Array(ROWS * 2 * 3);
   params.joint = new Float32Array(3);
+  params.rgb = new Float32Array(3);
 }
 
 export function update(dt, input, params) {
@@ -65,8 +66,7 @@ export function draw(display, params, time) {
   const joint = params.joint;
   const tone = params.tone;
   const half = (JOINT + 1) / 2;
-  // The colour runs round the wheel a little from the top of the panel to the bottom, by the course's height above the middle line.
-  const rgb = new Float32Array(3);
+  const rgb = params.rgb;
   for (let y = 0; y < H; y++) {
     const dy = y + 0.5 - H / 2;
     const r = Math.floor(dy / course + 0.5);
@@ -74,7 +74,7 @@ export function draw(display, params, time) {
     let ay = half - edge;
     ay = ay < 0 ? 0 : ay > 1 ? 1 : ay;
     const row = Math.max(0, Math.min(ROWS - 1, r + ROWS / 2));
-    // The two tones of this course: a light rectangle and a dim one.
+    // The two tones of this course, a light rectangle and a dim one. The hue runs a little round the wheel with the course's height on the panel.
     const base = hue + 0.52 + 0.0012 * r * course;
     hsv(base, 0.75, 1, rgb, 0);
     tone[row * 6] = rgb[0];

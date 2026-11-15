@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Descartes Ovals
 // Family:  geometry
-// Idea:    Two pins stand on the panel's middle line and every curve drawn is where a distance to one pin plus a multiple of the distance to the other stays the same, so a multiple of one is the gardener's ellipse, none is a circle round a single pin, and minus one is a hyperbola.
+// Idea:    Two pins stand on the panel's middle line and every curve is where one distance plus a multiple of the other stays the same: with the multiple at one it is the gardener's ellipse, at nothing a circle round one pin, at minus one a hyperbola.
 // Author:  patternflow-lab
 // Date:    2026-11-15
 // SPDX-License-Identifier: CC-BY-SA-4.0
