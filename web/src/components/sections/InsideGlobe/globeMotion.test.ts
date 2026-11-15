@@ -122,7 +122,7 @@ describe('the drift', () => {
 });
 
 describe('the links growing', () => {
-  it('waits, grows, and is whole', () => {
+  it('waits a fifth of a second and is whole 1.4 seconds after that', () => {
     expect(grownShare(0)).toBe(0);
     expect(grownShare(GROW_DELAY)).toBe(0);
     expect(grownShare(GROW_DELAY + GROW_SECONDS / 2)).toBeCloseTo(0.875, 9);

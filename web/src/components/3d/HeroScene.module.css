@@ -163,12 +163,14 @@
 
 /* Only once it has been placed: before the first frame every name is in the
    frame's corner, one on another, and a pointer resting there would be
-   taken for one on the top one's case. */
-.shelfTags[data-on='1'] .shelfTag[data-placed='1'] {
+   taken for one on the top one's case. And only while its board is up: on
+   the way back from a case the boards wait for that case to be half way
+   home, and the names wait with them. */
+.shelfTags[data-on='1'] .shelfTag[data-placed='1'][data-up='1'] {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition: opacity 0.25s ease 0.2s, visibility 0s, color 0.15s ease, background-color 0.15s ease;
+  transition: opacity 0.25s ease 0.1s, visibility 0s, color 0.15s ease, background-color 0.15s ease;
 }
 
 .shelfTag[data-hot='1'],

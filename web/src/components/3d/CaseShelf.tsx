@@ -301,6 +301,9 @@ export default function CaseShelf({
         if (tag.dataset.hot !== mark) tag.dataset.hot = mark;
         // Until now it sat in the frame's corner, where it takes no pointer.
         if (tag.dataset.placed !== '1') tag.dataset.placed = '1';
+        // A name is up with the board it is on, not before it.
+        const up = shelfUp ? '1' : '0';
+        if (tag.dataset.up !== up) tag.dataset.up = up;
       }
 
       const light = lights.current.get(id);

@@ -15,7 +15,7 @@ export interface ShelfItem<Id extends string = string> {
   depth: number;
 }
 
-/** Where a case stands: the middle of its underside, in world units, and which board it is on. */
+/** Where a case stands, in world units: the middle of its underside. `tier` is the board it is on. */
 export interface ShelfSlot<Id extends string = string> {
   id: Id;
   tier: number;

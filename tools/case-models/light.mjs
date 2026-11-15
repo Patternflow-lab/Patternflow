@@ -302,7 +302,7 @@ async function lighten(id) {
   let before = 0;
   const dropped = [];
 
-  /** Welds and cuts a node's soups to its budget, shared by size, and adds them to the body. */
+  /** Cuts a node's soups to its budget, each to its share by size. What is left joins the body. */
   const keep = (soups, kind) => {
     let total = 0;
     for (const soup of soups.values()) {
