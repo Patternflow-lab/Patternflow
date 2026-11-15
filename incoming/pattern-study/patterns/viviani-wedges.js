@@ -70,8 +70,8 @@ export function update(dt, input, params) {
   // The polygon is centred in the upper part of the panel; a triangle hangs lower than its middle because it is not as deep as it is tall.
   params.cy = 43 + (R - a) * 0.5;
   // The slow breath walks the point a few LEDs about its place.
-  const rho = Math.min(0.92, Math.max(0, (0.9 * k[1]) / 3 + 0.05 * Math.sin(t * 0.47)));
-  const psi = Math.PI * k[2] + 0.6 + 0.16 * Math.sin(t * 0.39 + 1);
+  const rho = Math.min(0.92, Math.max(0, (0.9 * k[1]) / 3 + 0.07 * Math.sin(t * 0.47)));
+  const psi = Math.PI * k[2] + 0.6 + 0.24 * Math.sin(t * 0.39 + 1);
   const pxr = rho * a * Math.cos(psi);
   const pyr = rho * a * Math.sin(psi);
   params.px = pxr;
