@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-15
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the four-bugs pursuit (Pierre Bouguer, 1732) and the square drawn inside a square on the sides' fractions, pattern round 131
+// Lineage: four bugs chasing one another round a square, taken one step at a time (pursuit curves are Pierre Bouguer's, 1732), pattern round 131
 // Round:   131
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the colour of the bands round the wheel, and a band's colour follows how deep it sits.
 // Knob 2: Share. How far along its side each corner walks, from a sliver (nearly the same rectangle again and again) to half (a diamond in each rectangle).
 // Knob 3: Rings. How many rectangles are drawn inside one another, from 10 to 64.
-// Knob 4: Squeeze. The height of the first rectangle, from the whole panel down to a square 64 LEDs tall.
+// Knob 4: Squeeze. The height of the first rectangle, from the panel's whole height down to its width, a square 62 LEDs on a side.
 
 const W = 64;
 const H = 128;
@@ -52,7 +52,7 @@ export function update(dt, input, params) {
   const share = (0.04 + 0.46 * Math.pow(k[1] / 4, 1.2)) * (1 + 0.07 * Math.sin(params.t * 0.4));
   const n = Math.round(10 + 54 * k[2]);
   params.n = n;
-  const hh = 63 + (126 - 63) * (1 - (k[3] - 0.06) / 0.44);
+  const hh = 62 + 64 * (1 - (k[3] - 0.06) / 0.44);
   const px = params.px;
   const py = params.py;
   px[0] = 1; py[0] = H / 2 - hh / 2;

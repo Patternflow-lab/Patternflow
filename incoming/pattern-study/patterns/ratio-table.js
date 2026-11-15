@@ -44,6 +44,10 @@ export function setup(params) {
   params.ry = 1.12;
   params.w0 = 4.6;
   params.col = new Float32Array(3);
+  params.ci = new Int16Array(W);
+  params.cc = new Float32Array(W);
+  params.rj = new Int16Array(H);
+  params.rc = new Float32Array(H);
 }
 
 // Cumulative edges of cells whose sizes start at w0 and grow by r, until the panel's length is passed.
@@ -79,10 +83,10 @@ export function draw(display, params, time) {
   const nx = params.nx;
   const ny = params.ny;
   // Per pixel column: which table column it is in, and how far in from the nearest edge, kept as a cover of the cell.
-  const ci = new Int16Array(W);
-  const cc = new Float32Array(W);
-  const rj = new Int16Array(H);
-  const rc = new Float32Array(H);
+  const ci = params.ci;
+  const cc = params.cc;
+  const rj = params.rj;
+  const rc = params.rc;
   const gap = 0.9;
   let i = 0;
   for (let x = 0; x < W; x++) {
