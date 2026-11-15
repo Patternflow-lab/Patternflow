@@ -9,10 +9,10 @@
 // Round:   130
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Lines=0.6..4.8, Shift=-1..1, Reach=0..0.2
+// @knobs Hue=0..1, Lines=0.8..4.8, Shift=-1..1, Reach=0..0.2
 //
 // Knob 1: Hue. Turns the four corners round the colour wheel together.
-// Knob 2: Lines. How many marks sit on each rail, 3 at the bottom of the knob and 24 at the top, so how fine the weave is.
+// Knob 2: Lines. How many marks sit on each rail, 4 at the bottom of the knob and 24 at the top, so how fine the weave is.
 // Knob 3: Shift. Slides the far end of every line along its rail, so the curves lean away from the corner they began in.
 // Knob 4: Reach. How far along each edge a corner's lines go, from a third of it to all of it, where the four corners cross.
 
@@ -45,7 +45,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   params.hue = k[0] + 0.08;
-  params.n = Math.max(3, Math.min(24, Math.round(k[1] * 5)));
+  params.n = Math.max(4, Math.min(24, Math.round(k[1] * 5)));
   // The far ends drift along their rails a little, so the net never sits quite still.
   params.shift = k[2] * 0.6 + 0.05 * Math.sin(params.t * 0.45);
   params.reach = 0.3 + (k[3] / 0.2) * 0.7;

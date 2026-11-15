@@ -94,7 +94,12 @@ export function update(dt, input, params) {
     n++;
   }
   params.n = n;
-  for (let i = 0; i < n; i++) hsv(params.hue + i * 0.19, 0.88, 0.96 - (i % 2) * 0.12, params.col, i * 3);
+  for (let i = 0; i < n; i++) {
+    // A square under 2 LEDs fades in as it grows, so the smallest cuts never pop.
+    const size = Math.min(params.sq[i * 4 + 2] - params.sq[i * 4], params.sq[i * 4 + 3] - params.sq[i * 4 + 1]);
+    const fade = Math.min(1, (size - 0.9) / 1.2);
+    hsv(params.hue + i * 0.19, 0.88, (0.96 - (i % 2) * 0.12) * fade, params.col, i * 3);
+  }
 }
 
 export function draw(display, params, time) {

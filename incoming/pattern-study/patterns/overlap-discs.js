@@ -9,10 +9,10 @@
 // Round:   130
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0.4..4, Turn=-1..1, Spread=0..0.2
+// @knobs Hue=0..1, Size=1..4, Turn=-1..1, Spread=0..0.2
 //
 // Knob 1: Hue. Turns the three colours around the wheel together, a third of a turn apart.
-// Knob 2: Size. The radius of every disc, from a dot of 4 LEDs to a disc wider than the panel.
+// Knob 2: Size. The radius of every disc, from 10 LEDs to a disc wider than the panel.
 // Knob 3: Turn. Turns the three discs round the middle of the panel, half a turn each way from the start.
 // Knob 4: Spread. How far each disc sits from the middle against its own radius, from all three on one spot (a white disc) to well apart.
 
