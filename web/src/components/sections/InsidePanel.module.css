@@ -114,3 +114,19 @@
   padding-top: 18px;
   border-top: var(--pf-rule-w) solid var(--pf-rule);
 }
+
+/* Below 900px the three are 44px tall to a finger (they were 20px), and the
+   row gives up the 18px over them and the 12px between its lines, which the
+   links now hold themselves. */
+@media (max-width: 900px) {
+  .footerLinks {
+    padding-top: 6px;
+    row-gap: 0;
+  }
+
+  .footerLinks a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
