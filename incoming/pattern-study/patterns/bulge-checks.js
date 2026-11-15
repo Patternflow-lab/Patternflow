@@ -5,15 +5,15 @@
 // Author:  patternflow-lab
 // Date:    2026-11-15
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the checkerboard bent by a radial map, as in Victor Vasarely's Vega series (1968, year from memory), original, pattern round 133
+// Lineage: the checkerboard bent by a radial map, as in Victor Vasarely's Vega paintings (late 1960s, year from memory), original, pattern round 133
 // Round:   133
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Bulge=0..2.5, Checks=-1..1, Turn=0..1
 //
 // Knob 1: Hue. Turns the light squares round the wheel; the dark ones sit just over half a wheel from them.
-// Knob 2: Bulge. How strongly the lens bends the board. At the left it pinches, and the squares in the middle are half their size; a little right of a quarter of the knob the board is flat; at the right the middle square is as wide as the panel.
-// Knob 3: Checks. The size of a square away from the lens, from 7 LEDs to 19; the middle is 12.
+// Knob 2: Bulge. How strongly the lens bends the board. At the left it pinches and the squares in the middle shrink to two thirds of their size; a third of the way along the board is flat; at the right the four squares round the middle are each about 27 LEDs across.
+// Knob 3: Checks. The size of a square away from the lens, from 7.5 LEDs to 19; the middle is 12.
 // Knob 4: Turn. How far the board is turned under the lens, from square to the panel to 45 degrees.
 
 const W = 64;

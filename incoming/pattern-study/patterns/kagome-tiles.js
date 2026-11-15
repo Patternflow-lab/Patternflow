@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the colour of the hexagons round the wheel; the upward triangles are a third of a wheel on from them and the downward ones two thirds.
 // Knob 2: Ratio. How wide the hexagon is against the lattice spacing, from 15 percent to all of it. At the middle of the knob it is two thirds and the three kinds of tile are the same regular hexagon; at the right the hexagons touch at their corners and the gaps are whole triangles.
-// Knob 3: Size. The spacing of the lattice, from 12 LEDs to 43; the middle is 24.
+// Knob 3: Size. The spacing of the lattice, from 13 LEDs to 43; the middle is 24.
 // Knob 4: Turn. How far the whole tiling is turned about the middle of the panel, from 0 to 30 degrees. At the left its rows run across the panel with the hexagon corners pointing sideways; at the right they run up it with the flat sides facing sideways.
 
 const W = 64;

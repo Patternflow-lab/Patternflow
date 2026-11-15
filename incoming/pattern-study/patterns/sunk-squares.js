@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Frames=0..4, Sink=-1..1, Squeeze=0..1
 //
-// Knob 1: Hue. Turns the whole run of colours round the wheel; the outer frame is a cool dark and each frame inward is a step warmer and lighter.
+// Knob 1: Hue. Turns the colours round the wheel. The frames take turns between two hues a third of a wheel apart, and each is lighter than the one outside it.
 // Knob 2: Frames. How many frames sit inside the panel, from 3 to 9. The core stays 20 LEDs wide, so more frames mean thinner bands.
 // Knob 3: Sink. How low each frame sits in the one outside it. At the left of the knob every frame is centred; in the middle the margin under it is a third of the margin over it; at the right it rests on the floor of its parent.
-// Knob 4: Squeeze. How tall the core is against how wide. At the left it is a square; at the right it is as tall as the panel is, twice its width, and the frames between steal the shape one step at a time.
+// Knob 4: Squeeze. How tall the core is against how wide. At the left it is a square; at the right it is twice as tall as wide, the panel's own shape. The frames between step from the panel's shape to the core's.
 
 const W = 64;
 const H = 128;
