@@ -120,8 +120,12 @@ export const HANDOFF_SECONDS = 0.28;
  * way. A `delta` of Infinity is there in one step.
  */
 export function walk(value: number, towards: 0 | 1, delta: number, seconds: number): number {
-  const step = delta / seconds;
-  return towards === 1 ? Math.min(1, value + step) : Math.max(0, value - step);
+  // Never out of 0 to 1, whatever the clock says: a frame timed backwards
+  // (a clock set back under the page) would otherwise walk the value off
+  // below zero, from where it does not come back.
+  const from = Math.min(1, Math.max(0, value));
+  const step = Math.max(0, delta) / seconds;
+  return towards === 1 ? Math.min(1, from + step) : Math.max(0, from - step);
 }
 
 /** Slow out of one end and slow into the other: 0 to 1, flat at both. */

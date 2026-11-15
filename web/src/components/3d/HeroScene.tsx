@@ -251,6 +251,7 @@ function ProductPreview({
   caseId,
   staged,
   shelfOpen,
+  shelfTab,
   finish,
   finishOf,
   tags,
@@ -264,6 +265,8 @@ function ProductPreview({
   staged: CaseId;
   /** The Build tab's shelf is what the view shows. */
   shelfOpen: boolean;
+  /** The view is on the tab that has the shelf, open or not. */
+  shelfTab: boolean;
   finish: CaseFinish | undefined;
   finishOf: (id: CaseId) => CaseFinish | undefined;
   /** The shelf's name buttons and the case a pointer is on (CaseShelf.tsx). */
@@ -680,6 +683,7 @@ function ProductPreview({
       </group>
       <CaseShelf
         open={shelfOpen}
+        all={shelfTab}
         staged={staged}
         stage={groupRef}
         handoff={handoff}
@@ -953,6 +957,7 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           caseId={shown}
           staged={wanted}
           shelfOpen={shelfOpen}
+          shelfTab={homeTab === 'build'}
           finish={shown ? finishOf(shown) : undefined}
           finishOf={finishOf}
           tags={shelfTags}

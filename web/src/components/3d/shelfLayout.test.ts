@@ -127,6 +127,13 @@ describe('moving between the shelf and the stage', () => {
     expect(walk(1, 0, Infinity, FLY_SECONDS)).toBe(0);
   });
 
+  it('stays between its ends when a frame is timed backwards', () => {
+    expect(walk(0.4, 1, -5, FLY_SECONDS)).toBe(0.4);
+    expect(walk(0.4, 0, -5, FLY_SECONDS)).toBe(0.4);
+    expect(walk(-3, 1, 0.06, FLY_SECONDS)).toBeCloseTo(0.1, 9);
+    expect(walk(7, 0, 0.06, FLY_SECONDS)).toBeCloseTo(0.9, 9);
+  });
+
   it('leaves and lands without a jolt', () => {
     expect(glide(0)).toBe(0);
     expect(glide(1)).toBe(1);

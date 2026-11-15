@@ -123,6 +123,7 @@ function LightModel({
 
 export default function CaseShelf({
   open,
+  all,
   staged,
   stage,
   handoff,
@@ -138,6 +139,11 @@ export default function CaseShelf({
 }: {
   /** The shelf is what the view shows. */
   open: boolean;
+  /**
+   * Every case's light model is wanted: the view is on the tab that has the
+   * shelf. Elsewhere only the staged case's is fetched, to stand in for it.
+   */
+  all: boolean;
   /** The case on the stage when it is not. */
   staged: CaseId;
   /** Where the device stands: the preview's own group, as it moves it. */
@@ -203,7 +209,7 @@ export default function CaseShelf({
 
   useFrame((state, rawDelta) => {
     // With less motion asked for, every move below is over in its first frame.
-    const delta = still ? Infinity : Math.min(rawDelta, 0.1);
+    const delta = still ? Infinity : Math.min(Math.max(rawDelta, 0), 0.1);
     const group = stage.current;
     const was = before.current;
     before.current = { open, staged };
@@ -230,7 +236,13 @@ export default function CaseShelf({
     const viewWidth = viewHeight * (state.size.width / Math.max(1, state.size.height));
     const plan = planShelf(items, viewWidth, viewHeight, centreY);
 
-    rack.current = walk(rack.current, open ? 1 : 0, delta, CLEAR_SECONDS);
+    // Coming back to the shelf, the boards and the other cases wait until the
+    // case that was on the stage is half way home. Sooner, and it flew back
+    // through cases already standing in its way.
+    const homing = motions.current.get(staged)?.fly ?? 0;
+    const shelfUp = open && homing < 0.5;
+
+    rack.current = walk(rack.current, shelfUp ? 1 : 0, delta, CLEAR_SECONDS);
     const rackShare = glide(rack.current);
     boardMaterial.opacity = rackShare;
     boardMaterial.transparent = rackShare < 1;
@@ -268,7 +280,7 @@ export default function CaseShelf({
         m.fade = 1;
       }
       m.fly = walk(m.fly, onStage ? 1 : 0, delta, FLY_SECONDS);
-      m.here = walk(m.here, open || onStage ? 1 : 0, delta, CLEAR_SECONDS);
+      m.here = walk(m.here, shelfUp || id === staged ? 1 : 0, delta, CLEAR_SECONDS);
       // Opening the shelf, the light model is whole at once, in the place the
       // full one has just left.
       m.fade = open ? 1 : walk(m.fade, onStage && handoff.current.fullShown ? 0 : 1, delta, HANDOFF_SECONDS);
@@ -380,7 +392,7 @@ export default function CaseShelf({
           <boxGeometry args={[1, 1, 1]} />
         </mesh>
       ))}
-      {ORDER.map((id) => (
+      {ORDER.filter((id) => all || id === staged).map((id) => (
         <LightGuard key={id}>
           <Suspense fallback={null}>
             <LightModel id={id} register={register} handlers={handlersFor(id)} />

@@ -385,7 +385,7 @@ function LinkDots({
   useFrame((state, delta) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    if (!still) seconds.current += Math.min(delta, MAX_FRAME);
+    if (!still) seconds.current += Math.min(Math.max(delta, 0), MAX_FRAME);
     const time = still ? 0 : seconds.current;
     // The globe's scale on screen, at its centre: the camera sits on +z
     // looking at the origin (GlobeScene).
@@ -1010,7 +1010,8 @@ const FIT_RADIUS = 1.35;       // globe radius including markers
 const FIT_FRACTION = 0.7;      // share of the limiting dimension to occupy
 const FOCUS_DOLLY = 0.62;      // zoom-in factor when a build is selected
 // The longest frame the motion will step by, in seconds. A tab that was in
-// the background comes back with one frame minutes long.
+// the background comes back with one frame minutes long. (And none is ever
+// stepped backwards, should a clock be set back under the page.)
 const MAX_FRAME = 0.1;
 
 // The globe leans a degree or two towards the pointer - enough to feel that
@@ -1157,7 +1158,7 @@ function GlobeScene({
   useFrame((state, rawDelta) => {
     const world = worldRef.current;
     if (!world) return;
-    const delta = Math.min(rawDelta, MAX_FRAME);
+    const delta = Math.min(Math.max(rawDelta, 0), MAX_FRAME);
 
     if (!drawn.current) {
       drawn.current = true;

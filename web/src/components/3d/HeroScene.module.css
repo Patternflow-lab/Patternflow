@@ -214,9 +214,13 @@
   outline-offset: 2px;
 }
 
+/* On a phone the top of the frame is the case's name and the hint under it,
+   so the button goes to the bottom left corner, beside the finish switch and
+   nearer a thumb, 44px tall. */
 @media (max-width: 900px) {
   .allCases {
-    top: 10px;
+    top: auto;
+    bottom: 10px;
     left: 10px;
     min-height: 44px;
   }
