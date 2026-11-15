@@ -484,9 +484,12 @@
        these give the 8px back, so Get One is still on the first screen of a
        667px-tall phone. */
     .hero-copy h1 { font-size: 50px; margin-bottom: 10px; }
-    .hero-copy .kicker { font-size: 20px; margin-bottom: 8px; }
-    .hero-spec { font-size: 14.5px; margin: 0 0 14px; }
-    .hero-copy p.lede { font-size: 17.5px; margin-bottom: 12px; }
+    /* Each of these is two lines on a phone, and the second was a word or
+       two: "them.", "we make.", "so far." Balanced, the two lines share the
+       words, and the kicker breaks between its two sentences. */
+    .hero-copy .kicker { font-size: 20px; margin-bottom: 8px; text-wrap: balance; }
+    .hero-spec { font-size: 14.5px; margin: 0 0 14px; text-wrap: balance; }
+    .hero-copy p.lede { font-size: 17.5px; margin-bottom: 12px; text-wrap: balance; }
     /* Single column — keep the note directly under Get One rather than letting
        it fall to the bottom of the stack. */
     .hero-cta-row { gap: 8px; grid-template-columns: 1fr; margin-top: 20px; }
@@ -2042,6 +2045,12 @@
     .mobile-bottom-nav .mb-tab.active {
       color: var(--cream);
       background: var(--ink);
+    }
+    /* The open tab's ✕: a second tap on it closes the section. */
+    .mobile-bottom-nav .mb-close {
+      margin-right: 8px;
+      font-size: 11px;
+      letter-spacing: 0;
     }
     /* Hero (closed): keep the footer clear of the parked nav at the bottom. */
     .content-panel {
