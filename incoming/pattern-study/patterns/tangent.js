@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the disc, all the way round the wheel. The line is the same colour turned almost white.
 // Knob 2: Radius. The disc's radius, 6 LEDs at 0 to 22 LEDs at 4; its 2 is 14.
-// Knob 3: Gap. How far the line is from the disc, in radii. At -1 the line runs through the middle of the disc, at 0 its near edge just touches the disc's edge, at 1 a whole radius of dark lies between them.
+// Knob 3: Gap. How far the line is from the disc, in radii. At -1 the line runs through the middle of the disc, at 0 its near edge just touches the disc's edge, at 1 a whole radius of dark lies between them, or as much as the panel has room for: a disc of radius 22 with the line at its side leaves only 5 LEDs.
 // Knob 4: Side. Where round the disc the line sits. It goes once all the way round the disc, so -1 and 1 are the same place, and the touching point travels with it.
 
 const W = 64;
@@ -61,9 +61,11 @@ export function update(dt, input, params) {
   params.ny = Math.sin(a);
   // How far the line's middle is from the disc's middle: the radius and half the line's width bring it to touching, and the knob adds a radius either way.
   let off = r + THICK / 2 + k[2] * r;
-  // The panel reaches this far from its middle along that direction. The line stays 2 LEDs inside it.
+  // The panel reaches this far from its middle along that direction. A line near that reach only clips a corner, so it is held back
+  // until it still lies 30 LEDs across the panel, and never nearer than 2 LEDs inside the reach.
   const reach = 32 * Math.abs(params.nx) + 64 * Math.abs(params.ny);
-  const most = reach - THICK / 2 - 2;
+  const clip = 30 * Math.abs(params.nx * params.ny);
+  const most = reach - (clip > THICK / 2 + 2 ? clip : THICK / 2 + 2);
   if (off > most) off = most;
   params.off = off;
 }

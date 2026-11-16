@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the shape, all the way round the wheel.
 // Knob 2: Bulge. How far each side swells outward, slowly at first and faster toward the end. At 0 the sides are straight and it is a plain triangle, at 2 they bow a little, at 2.7 each is an arc centred on the opposite corner (the Reuleaux triangle), and at 4 the three arcs have joined into a circle.
-// Knob 3: Size. The distance from the middle to each corner, 16 LEDs at -1 to 30 LEDs at 1; its 0 is 23.
+// Knob 3: Size. The distance from the middle to each corner, 17 LEDs at -1 to 29 LEDs at 1; its 0 is 23. With Bulge at 4 and Size at 1 the circle is 58 LEDs across, 62 at the top of its breath, inside the panel's 64.
 // Knob 4: Turn. The shape turns about the middle through a third of a turn, 60 degrees either way, so at -1 and at 1 it is the same shape. At 0 a corner points up.
 
 const W = 64;
@@ -52,7 +52,7 @@ export function update(dt, input, params) {
   // At 0 the hue knob would open on red; the shape starts a long way round the wheel, on violet.
   hsv(k[0] + 0.76, 0.88, 1, params.col);
   // The size breathes a few percent on a slow clock and the shape sways a couple of degrees on another, only so the edges are never quite still.
-  const R = (23 + 7 * k[2]) * (1 + 0.07 * Math.sin(params.t * 0.47));
+  const R = (23 + 6 * k[2]) * (1 + 0.07 * Math.sin(params.t * 0.47));
   const side = R * SQRT3;
   // The swell of a side at its middle, a length. It grows with the square of the knob, so the circle sits exactly at the end. It never reaches 0, so the radius below stays a number.
   const u = k[1] / 4;

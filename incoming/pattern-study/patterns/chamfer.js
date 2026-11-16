@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Size=0..4, Across=-1..1, Down=-1..1
 //
 // Knob 1: Hue. The colour of the shape, all the way round the wheel.
-// Knob 2: Size. The whole rectangle grows with its proportions kept, 20 LEDs wide and 30 tall at 0 to 58 wide and 87 tall at 4; its 2 is 39 wide and 59 tall.
+// Knob 2: Size. The whole rectangle grows with its proportions kept, 20 LEDs wide and 30 tall at 0 to 58 wide and 87 tall at 4; its 2 is 39 wide and 58.5 tall.
 // Knob 3: Across. How far each cut runs along the top and bottom edges, from nothing at -1 to half the width at 1, where the top and the bottom come to a point.
 // Knob 4: Down. How far each cut runs down the left and right edges, from nothing at -1 to half the height at 1, where the left and the right come to a point.
 
