@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the discs, all the way round the wheel from amber.
 // Knob 2: Count. How many discs stand in the column, 3 at 0 to 7 at 3 as a whole number; its 2 is 6. The column always covers the same 112 LEDs, so more discs means narrower gaps.
 // Knob 3: Ratio. How the gaps between neighbours change down the column, each gap wider than the one above it by the same step. At 0.375 the gaps are all the same and the knob holds there for three clicks. Turned up, the gaps narrow toward the bottom until, from 0.917, the lowest gap is 0 and the last two discs touch. Turned down, the gaps narrow toward the top until, at -0.917, the top two discs touch. Its 0 is a column whose top gap is 0.58 of the bottom one.
-// Knob 4: Follow. How far each disc's size goes the way the gaps go, the big discs where the gaps are wide. At 0 every disc is 12 LEDs across. At 1 the size leans the way the gaps lean, twice as fast, until the big end is 1.85 times and the small end 0.15 times as wide; where the gaps are even it does nothing. Its 0.06 is nearly nothing.
+// Knob 4: Follow. How far each disc's size goes the way the gaps go, the big discs where the gaps are wide. At 0 every disc is 13 LEDs across. At 1 the size leans the way the gaps lean, twice as fast, until the big end is 1.85 times and the small end 0.15 times as wide; where the gaps are even it does nothing. Its 0.06 is nearly nothing.
 
 const W = 64;
 const H = 128;
@@ -23,7 +23,7 @@ const CX = W / 2;
 const SPAN = 112;
 const TOP = (H - SPAN) / 2;
 // How wide each disc is when its size follows nothing.
-const THICK = 12;
+const THICK = 13;
 // How much of its own size a disc can lose or gain when the size follows the gaps all the way.
 const SWAY = 0.85;
 // One click of a knob that has 48 clicks over -1..1. The even place and the two ends of the ratio are whole clicks from the knob's middle.
