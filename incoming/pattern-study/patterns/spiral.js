@@ -1,6 +1,6 @@
 // ===== Patternflow pattern =====
 // Title:   Spiral
-// Family:  geometry
+// Family:  line
 // Idea:    One line winds out from the middle of a bare dark ground at an even pitch, and how many times it winds, how thick the line is and where its tail ends are the knobs.
 // Author:  patternflow-lab
 // Date:    2026-11-16
