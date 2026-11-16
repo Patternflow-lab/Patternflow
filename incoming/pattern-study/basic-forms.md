@@ -2,7 +2,7 @@
 
 140판부터 147판까지 여덟 바퀴가 패턴 스물네 개를 만들었어요. 연구 페이지가 여는 자리 그대로 나란히 놓으면 이래요.
 
-![140판부터 147판까지 스물네 패턴이 열릴 때의 화면](basic-forms/shapes-140-147.png)
+![140판부터 147판까지 스물네 패턴이 열릴 때의 화면](basic-forms/shapes.png)
 
 첫 줄이 Slab, Disc, Bars, Stroke, Triangle, Ring, Sector, Trapezoid 이고, 둘째 줄이 Polygon, Lens, Conic, Rhombus, Segment, Sine, Dots, Arc, 셋째 줄이 Frame, Pill, Parallelogram, Ellipse, Spiral, Steps, Eccentric, Angle 이에요. 스물네 장이 카드 한 벌처럼 보여요. 11월 16일 저녁에 창작자가 「패턴 그렇게 만든것들 계속 똑같이만 하면 의미가 없어」라고 한 것이 이 그림이에요.
 
@@ -33,7 +33,7 @@
 
 130판의 바퀴 128 부터 139판까지 서른 개는 11월 15일 방향으로 만들었어요.
 
-![130판부터 139판까지 서른 패턴이 열릴 때의 화면](basic-forms/principles-130-139.png)
+![130판부터 139판까지 서른 패턴이 열릴 때의 화면](basic-forms/principles.png)
 
 그때 바퀴가 고른 것은 원리의 이름이었어요. 139판의 계열 줄은 앞 바퀴와 겹치지 않는다는 낱말을 스물넷 늘어놓아요. 낱말이 떨어지자 화면을 채우는 타일(Tumbling Blocks, Over Under, Kagome Tiles, Running Bond, Tatami)로 갔고, 137판부터는 이름 붙은 정리(Varignon Nest, Viviani Wedges, Thales Lens, Napoleon Triangle, Cavalieri Chords, Fagnano Orbit, Ptolemy Split, Ceva Walk, Radical Axis)로 갔어요. 정리를 그리려면 원과 선과 점이 여럿 서야 해요.
 
