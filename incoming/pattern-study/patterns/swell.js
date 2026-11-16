@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the bars, all the way round the wheel from green.
 // Knob 2: Count. How many bars there are, 3 at 0 to 7 at 4, rounded to a whole number; its 2 is 5. The stack keeps to the panel, so the bars sit closer as there are more of them: a step of 20 LEDs from one bar's middle to the next for 3, 16 for 5 and 12 for 7. Every bar is 40 LEDs long and 4 LEDs thick.
-// Knob 3: Thick. How much thicker the odd bar is than the others: 4 LEDs like them at -1, and past the middle it reaches the bars either side of it. It touches them at 0.208 and the knob holds there for three clicks, from 0.167 to 0.25, when it is 36 LEDs thick for 3 bars, 28 for 5 and 20 for 7. Past that it overlaps them and the overlap goes dark, up to 3 LEDs deep at 1. Its 0 is four clicks short of the touch.
+// Knob 3: Thick. How much thicker the odd bar is than the others: 4 LEDs like them at -1, and past the middle it reaches the bars either side of it. It touches them at 0.208 and the knob holds there for three clicks, from 0.167 to 0.25, when it is 36 LEDs thick for 3 bars, 28 for 5 and 20 for 7. Past that it overlaps them and the overlap goes dark, 3 LEDs deep at 1. Its 0 is four clicks before the knob holds.
 // Knob 4: Which. Which bar is the odd one: the top one at -1, the bottom one at 1 and the middle one at about 0. With an even count the middle is a bar off one way or the other; its 0.06 is that.
 
 const W = 64;

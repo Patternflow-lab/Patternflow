@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the discs, all the way round the wheel from orange.
 // Knob 2: Count. How many discs there are, 3 at 0 to 7 at 4, rounded to a whole number; its 2 is 5. The column keeps to the panel, so the discs get smaller as there are more of them: 20 LEDs across for 3, 12 for 5, 8 for 7, a step of 30, 20 and 14 LEDs from one middle to the next.
-// Knob 3: Grow. How much bigger the odd disc is than the others: the same size at -1, and past the middle it reaches the discs either side of it. It touches them at 0.208 and the knob holds there for three clicks, from 0.167 to 0.25. Past that it overlaps them and the overlap goes dark, up to a third of a disc deep at 1. Its 0 is four clicks short of the touch.
+// Knob 3: Grow. How much bigger the odd disc is than the others: the same size at -1, and past the middle it reaches the discs either side of it. It touches them at 0.208 and the knob holds there for three clicks, from 0.167 to 0.25. Past that it overlaps them and the overlap goes dark, three tenths of a disc deep at 1. Its 0 is four clicks before the knob holds.
 // Knob 4: Which. Which disc is the odd one: the top one at -1, the bottom one at 1 and the middle one at about 0. With an even count the middle is a disc off one way or the other; its 0.06 is that.
 
 const W = 64;
