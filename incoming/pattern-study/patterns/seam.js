@@ -9,12 +9,12 @@
 // Round:   158
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..4, Turn=-1..1, Dim=0..1
+// @knobs Hue=0..1, Size=0..4, Turn=-1..1, Dim=0.06..1
 //
 // Knob 1: Hue. The colour of the upper square, all the way round the wheel from sky blue.
 // Knob 2: Size. The side of both squares, 16 LEDs at 0 to 60 LEDs at 4; its 2 is 38 LEDs, so the pair stands 38 wide and 76 tall.
 // Knob 3: Turn. How far round the colour wheel the lower square's colour stands from the upper one's. At -1 and at 1 it is half a turn, the opposite colour; moving the knob from -1 the lower colour comes round to the upper one, and at 0.375 it is the same colour and the knob holds there for three clicks, with the seam gone; past that it goes round the other way, back to the opposite colour at 1. Its 0 is 45 degrees short of the same colour.
-// Knob 4: Dim. How much darker the lower square is than the upper one: the same light at 0, a quarter of it at 1. Its 0.06 leaves 95.5 percent of it.
+// Knob 4: Dim. How much darker the lower square is than the upper square: the same light at 0.06, where the knob opens, and a quarter of it at 1.
 
 const W = 64;
 const H = 128;
@@ -73,8 +73,10 @@ export function update(dt, input, params) {
   // The size and the place of the squares do not move on the clock, so the seam stays where the colours change. The colour wanders a few degrees and the light swells and falls, both squares together, only so the panel is never quite still.
   const hue = k[0] + 0.55 + 0.03 * Math.sin(t * 0.43);
   const light = 0.92 + 0.08 * Math.sin(t * 0.61 + 1);
+  // The knob opens at its least, so the two start in the same light and the seam between them is only a change of colour.
+  const dim = (clamp(k[3], 0.06, 1) - 0.06) / 0.94;
   hsv(hue, 0.85, light, params.a);
-  hsv(hue + turn(clamp(k[2], -1, 1)), 0.85, light * (1 - 0.75 * clamp(k[3], 0, 1)), params.b);
+  hsv(hue + turn(clamp(k[2], -1, 1)), 0.85, light * (1 - 0.75 * dim), params.b);
 }
 
 export function draw(display, params, time) {
