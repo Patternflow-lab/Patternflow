@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ruling
 // Family:  geometry
-// Idea:    A column of horizontal lines on a bare dark ground, and the four knobs are the colour, how many lines there are, how the gap between neighbours grows from the top of the column to the bottom, and how far the lines' thickness follows that growth: the gaps run from even to the narrowest one closing to nothing, where the two lines on that end become one thick line.
+// Idea:    A column of horizontal lines on a bare dark ground, and the four knobs are the colour, how many lines there are, how the gap between neighbours changes by one fixed step down the column, and how far the lines' thickness follows that step: the gaps run from even to the narrowest one closing to nothing, where the two lines on that end become one thick line.
 // Author:  patternflow-lab
 // Date:    2026-11-16
 // SPDX-License-Identifier: CC-BY-SA-4.0

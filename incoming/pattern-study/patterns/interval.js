@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Interval
 // Family:  geometry
-// Idea:    A column of discs on a bare dark ground, and the four knobs are the colour, how many discs there are, how the gap between neighbours grows from the top of the column to the bottom, and how far the discs' size follows that growth: the gaps run from even to the narrowest one closing to nothing, where the two discs on that end touch at a point.
+// Idea:    A column of discs on a bare dark ground, and the four knobs are the colour, how many discs there are, how the gap between neighbours changes by one fixed step down the column, and how far the discs' size follows that step: the gaps run from even to the narrowest one closing to nothing, where the two discs on that end touch at a point.
 // Author:  patternflow-lab
 // Date:    2026-11-16
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -23,7 +23,7 @@ const CX = W / 2;
 const SPAN = 112;
 const TOP = (H - SPAN) / 2;
 // How wide each disc is when its size follows nothing.
-const THICK = 13;
+const SIZE = 13;
 // How much of its own size a disc can lose or gain when the size follows the gaps all the way.
 const SWAY = 0.85;
 // One click of a knob that has 48 clicks over -1..1. The even place and the two ends of the ratio are whole clicks from the knob's middle.
@@ -64,7 +64,7 @@ export function setup(params) {
   params.col = new Float32Array(3);
   params.n = 6;
   params.top = new Float32Array(7);
-  params.thick = new Float32Array(7);
+  params.size = new Float32Array(7);
 }
 
 export function update(dt, input, params) {
@@ -81,28 +81,28 @@ export function update(dt, input, params) {
   let sum = 0;
   for (let j = 0; j < n; j++) {
     const v = 1 - (2 * j) / (n - 1);
-    params.thick[j] = THICK * (1 + follow * v);
-    sum += params.thick[j];
+    params.size[j] = SIZE * (1 + follow * v);
+    sum += params.size[j];
   }
   const mean = (SPAN - sum) / (n - 1);
   let y = TOP;
   for (let j = 0; j < n; j++) {
     params.top[j] = y;
     const u = n > 2 ? 1 - (2 * j) / (n - 2) : 0;
-    y += params.thick[j] + (j < n - 1 ? mean * (1 + x * u) : 0);
+    y += params.size[j] + (j < n - 1 ? mean * (1 + x * u) : 0);
   }
   // Neither the gaps nor the discs move on the clock, so the gaps are even and the last gap shuts exactly where the knob says. The colour wanders a few degrees and the light swells and falls, all the discs together, only so the panel is never quite still.
   hsv(k[0] + 0.08 + 0.03 * Math.sin(t * 0.43), 0.9, 0.86 + 0.14 * Math.sin(t * 0.93 + 1), params.col);
 }
 
 export function draw(display, params, time) {
-  const { n, top, thick, col } = params;
+  const { n, top, size, col } = params;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       // A disc covers an LED by how far its rim is from the LED's middle, as a clamped half-LED ramp. Discs only touch, so an LED is covered by one of them or shared by two neighbours.
       let m = 0;
       for (let j = 0; j < n; j++) {
-        const r = thick[j] / 2;
+        const r = size[j] / 2;
         const dy = y + 0.5 - (top[j] + r);
         if (dy > r + 1 || dy < -r - 1) continue;
         const dx = x + 0.5 - CX;
