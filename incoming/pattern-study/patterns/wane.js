@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Wane
 // Family:  geometry
-// Idea:    One square on a ground that the clock slowly lifts and drops, so the square dims into the ground until it is the same brightness and cannot be seen, lingers there, and comes back as a dark hole, with the knobs for its colour, how fast the clock runs, how far it swings either side of the vanishing point and how far the square is slid.
+// Idea:    One square on a ground that the clock slowly lifts and drops, so the square dims into the ground until it is the same brightness and cannot be seen, stays gone for a while, then comes back as a dark hole, with the knobs for its colour, how fast the clock runs, how far it swings either side of the vanishing point and how far the square is slid.
 // Author:  patternflow-lab
 // Date:    2026-11-16
 // SPDX-License-Identifier: CC-BY-SA-4.0
