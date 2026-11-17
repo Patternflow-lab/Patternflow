@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the left line, all the way round the wheel from green.
 // Knob 2: Pace. How fast the clock runs: nothing at 0, where the right line holds whatever colour it has, and a swing of about half a minute at its 2. Two clocks run at once, one 1.618 times as fast as the other, and no whole numbers divide that, so the colours never come back to the same sequence.
-// Knob 3: Swing. How far round the wheel the right line's colour goes either side of the left one's: a quarter of the way to the opposite colour at -1, all the way to it at 1. Its 0 is a little over half. Both lines lose light as the colours part, three quarters of it at the opposite colours, so the pair is brightest, one wide line, whenever the clock passes the middle of the swing, and there it is slowest.
+// Knob 3: Swing. How far round the wheel the right line's colour goes either side of the left one's: a quarter of the way to the opposite colour at -1, all the way to it at 1. Its 0 is a little over half. Both lines lose light as the colours part, three fifths of it at the opposite colours, so the pair is brightest, one wide line, whenever the clock passes the middle of the swing, and there it is slowest.
 // Knob 4: Dim. How much darker the right line is than the left line: the same light at 0.06, where the knob opens, and a quarter of it at 1. Anything above 0.06 leaves a seam in the light when the colours meet.
 
 const W = 64;
@@ -85,9 +85,9 @@ export function update(dt, input, params) {
   const swing = 0.25 + 0.75 * ((clamp(k[2], -1, 1) + 1) / 2);
   // Turns round the wheel: half a turn is the opposite colour, at the end of the swing.
   const turn = 0.5 * swing * bend(s);
-  // The pair loses light as the colours part, three quarters of it at the opposite colours, and is brightest where they meet. Both lines lose the same, so it is only the colour that makes the seam.
+  // The pair loses light as the colours part, three fifths of it at the opposite colours, and is brightest where they meet. Both lines lose the same, so it is only the colour that makes the seam.
   const away = Math.sin(Math.PI * turn);
-  const lose = 1 - 0.75 * away * away;
+  const lose = 1 - 0.6 * away * away;
   // The knob opens at its least, so the two start in the same light and the seam between them is only a change of colour.
   const dim = (clamp(k[3], 0.06, 1) - 0.06) / 0.94;
   const hue = k[0] + 0.3;
