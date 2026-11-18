@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the rectangle, turned all the way round the wheel from amber.
 // Knob 2: Size. How wide the rectangle is, 29 LEDs at 1, 32 where it opens at 2 and 35 at 3; it is always twice as tall.
-// Knob 3: Tilt. How far the rectangle has heeled over from upright, one way only, counted in clicks. Where it opens it has leant about 13 degrees and the steps along its edges are uneven. Turn up and it comes to 26.6 degrees, where the short edges rise one row in two columns and the long edges two rows in a column and every step is the same; the knob holds there for three clicks. Six clicks on two corners reach the walls at the same moment, and four clicks after that it comes to 45 degrees, the steps one to one, and each of those holds for three clicks. At the top, 63.4 degrees, it is the 26.6 degree picture turned over and holds for the last three clicks. Turn down and it comes upright over 18 clicks and holds for the bottom three. The eight clicks before each hold turn it so that its far corners move about a LED a click.
+// Knob 3: Tilt. How far the rectangle has heeled over from upright, one way only, counted in clicks. Where it opens it has leant about 13 degrees and the steps along its edges are uneven. Turn up and in 9 clicks it is at 26.6 degrees, where the short edges rise one row in two columns and the long edges two rows in a column and every step is the same; the knob holds there for three clicks. Eight clicks further two corners reach the walls at the same moment, and six after that it is at 45 degrees, the steps one to one; each of those holds for three clicks. Twelve clicks further, 63.4 degrees is the 26.6 degree picture turned over, held for the last three clicks. Turn down and in 18 clicks it is upright, held for the bottom three. The clicks next to each hold move its far corners about a LED a click.
 // Knob 4: Axis. How far below the middle, and to the right, the point the rectangle turns about has been moved, up to 17 LEDs each way. At the bottom it turns about its own middle; further up it swings away from the middle as it tilts, down and a little to the left, and the corners reach the walls sooner.
 
 const W = 64;
@@ -80,7 +80,7 @@ function contact(hw, hh, a) {
   return -1;
 }
 
-// Where the knob holds, in order, and how many clicks lie between: the clicks hold the heel of every stop for three; the 18 clicks from level to the first stop are 16 that turn the far corner a LED and 2 that turn it less; the other clicks are shared out by how far the corner has to go.
+// Where the knob holds, and how many clicks lie between the holds. Each stop holds its heel for three clicks. The 18 clicks from level to the first stop are 16 that turn the far corner a LED and 2 that turn it less. The other clicks are shared out by how far the corner has to go.
 function plan(P, evs, R) {
   const m = evs.length - 1;
   const rest = 48 - 2 * (m + 1) - 18;

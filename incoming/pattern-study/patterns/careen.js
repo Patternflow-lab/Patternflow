@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. The colour of the square, turned all the way round the wheel from violet.
 // Knob 2: Size. How wide the square is, 42 LEDs at 1, 46 where it opens at 2 and 50 at 3.
-// Knob 3: Turn. How far the square has turned from upright, one way, counted in clicks, up to a quarter turn. Where it opens it has turned about 13 degrees and the steps along its edges are uneven. Turn up and it comes to 26.6 degrees, where every edge rises one row in two columns or two rows in a column and the steps are all alike; the knob holds for three clicks. Eight clicks on it is a diamond at 45 degrees with its four points against the walls, and the steps are one to one; that holds for three clicks, and 63.4 degrees, the 26.6 degree picture turned over, holds for three more. At the top it is upright again and holds for the last three clicks. Turn down and it comes upright over 18 clicks and holds for the bottom three. Between the holds the far corners move 1 to 1.8 LEDs a click, and slightly less for the 18 clicks above upright.
-// Knob 4: Axis. How far below the middle, and to the right, the point the square turns about has been moved, up to 17 LEDs each way. At the bottom it turns about its own middle; further up it swings away as it turns, down and to the left, and at the top of Turn it stands up to 34 LEDs lower than where it began.
+// Knob 3: Turn. How far the square has turned from upright, one way, counted in clicks, up to a quarter turn. Where it opens it has turned about 13 degrees and the steps along its edges are uneven. Turn up and in 9 clicks it is at 26.6 degrees, where every edge rises one row in two columns or two rows in a column and the steps are all alike; the knob holds for three clicks. Eight clicks further it is a diamond at 45 degrees with its four points against the walls and the steps one to one, held for three, and eight after that 63.4 degrees, the 26.6 degree picture turned over, is held for three more. Ten clicks further it is upright again and holds for the last three clicks. Turn down and in 18 clicks it is upright, held for the bottom three. The clicks next to each hold move its far corners at least 0.9 of a LED a click.
+// Knob 4: Axis. How far below the middle, and to the right, the point the square turns about has been moved, up to 17 LEDs each way. At the bottom it turns about its own middle; further up it swings away as it turns, down and to the left, and at the top of Turn it stands 34 LEDs lower than where it began.
 
 const W = 64;
 const H = 128;
@@ -44,15 +44,6 @@ function hsv(h, s, v, out) {
 
 function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
-}
-
-// Where the middle of the square is once it has turned by th about a point a to the right of and a below its middle.
-function centreX(th, a) {
-  return CX + a * (1 - Math.cos(th) - Math.sin(th));
-}
-
-function centreY(th, a) {
-  return CY + a * (1 + Math.sin(th) - Math.cos(th));
 }
 
 // For every click of the Turn knob, how far the square has turned: corners (click, turn) joined by straight lines. Each stop holds for three clicks. The 18 clicks from upright to the first stop are 16 that move the far corner nearly a LED and 2 that move it less; the other clicks are shared out by how far the corner has to go.
