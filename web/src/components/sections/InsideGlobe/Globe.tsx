@@ -902,6 +902,17 @@ function GroupPin({
     };
   }, [fanRef]);
 
+  // The pins of the fan are unmounted when the group shuts, and a pin that
+  // goes from under the pointer never reports the pointer leaving. Picking
+  // the selected build again to let it go left the hand cursor on the whole
+  // page until another pin was hovered and left.
+  const onMember = useRef(false);
+  useEffect(() => {
+    if (open || !onMember.current) return;
+    onMember.current = false;
+    setCursor('');
+  }, [open]);
+
   // Over and move both, as for a lone pin: the pointer may arrive under the
   // fan of another group and only later be this pin's to take.
   const over = (event: ThreeEvent<PointerEvent>) => {
@@ -994,13 +1005,16 @@ function GroupPin({
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerOver={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   if (isMouse(event)) onHover(build.id, true);
                 }}
                 onPointerMove={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   setCursor('pointer');
                 }}
                 onPointerOut={() => {
+                  onMember.current = false;
                   setCursor('');
                   onHover(build.id, false);
                 }}
@@ -1134,6 +1148,9 @@ function GlobeScene({
   const distRef = useRef(5);
   const pointer = useRef<PointerState>({ x: 0, y: 0, inside: false, mouse: false });
   const fanRef = useRef<FanClaim | null>(null);
+
+  // Leaving with the pointer on a pin must not leave a hand cursor on the page.
+  useEffect(() => () => setCursor(''), []);
 
   useEffect(() => {
     const track = (event: PointerEvent) => {
