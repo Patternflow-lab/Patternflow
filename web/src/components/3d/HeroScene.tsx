@@ -334,6 +334,7 @@ function ProductPreview({
     vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
+  useEffect(() => () => customMat.dispose(), [customMat]);
 
   // Patternflood's Obra, for a case whose model names it (CaseModel.demo);
   // it draws only while that case is lit on the Build tab.
@@ -350,6 +351,8 @@ function ProductPreview({
   useEffect(() => () => demoMat.dispose(), [demoMat]);
 
   const blackMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 }), []);
+  useEffect(() => () => blackMat.dispose(), [blackMat]);
+  useEffect(() => () => ledMatrix.texture.dispose(), [ledMatrix]);
 
   // The light models' panels show what a full model's would: the pattern, the
   // editor's code or the case's own demo. The three materials above carry one
