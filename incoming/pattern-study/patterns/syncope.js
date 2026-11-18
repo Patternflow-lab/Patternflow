@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the squares, all the way round the wheel from amber.
 // Knob 2: Count. How many squares stand in the column, five in the lower half of the knob and seven in the upper half; it opens on seven. They are 20 LEDs on a side at five and 14 at seven, and the column fills the height of the panel either way.
-// Knob 3: Balance. How the size is shared between the odd squares (the 1st, 3rd, 5th and 7th, counted from the top) and the even ones. It opens with the odd squares well under the even in size. Turned down, they shrink and 8 clicks on they are single LEDs; they are gone for the last three clicks of the knob, which hold, and the even squares stand alone. Turned up, the odd squares grow until all are alike 13 clicks on, and then the even squares shrink the same way and are gone at the top of the knob, held for three clicks. The eight clicks next to each hold change the small squares by more than a LED a click.
+// Knob 3: Balance. How the size is shared between the odd squares (the 1st, 3rd, 5th and 7th, counted from the top) and the even ones. It opens with the odd squares about two thirds of the even in size. Turned down, the odd squares shrink, a LED or so across 8 clicks on, and are gone for the last three clicks of the knob, which hold: only the even squares are left. Turned up, they grow until all are alike 13 clicks on. Past that the even squares shrink the same way and are gone at the top of the knob, held for three clicks. The eight clicks next to each hold change the small squares by more than a LED a click.
 // Knob 4: Stray. How far the even squares have moved to the right of the column, up to 28 LEDs. It opens with them in line.
 
 const W = 64;

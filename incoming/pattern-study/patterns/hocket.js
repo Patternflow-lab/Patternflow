@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Count=5..7, Balance=-11..37, Stray=0.06..1
 //
 // Knob 1: Hue. The colour of the circles, all the way round the wheel from cyan.
-// Knob 2: Count. How many circles stand in the row, five in the lower half of the knob and seven in the upper half; it opens on five. They are 22 LEDs across at five and 13 at seven, so the row still runs from the top left to the bottom right.
-// Knob 3: Balance. How the size is shared between the odd circles (the 1st, 3rd and 5th, counted from the top left) and the even ones. It opens with the odd circles about half as wide as the even. Turned down, they shrink and in 9 clicks they are small dots; they are gone for the last three clicks of the knob, which hold, and the even circles stand alone. Turned up, the odd circles grow until all are alike 13 clicks on, and then the even circles shrink the same way and are gone at the top of the knob, held for three clicks. The eight clicks next to each hold change the small circles by more than a LED a click.
+// Knob 2: Count. How many circles stand in the row, five in the lower half of the knob and seven in the upper half; it opens on five. They are 20 LEDs across at five and 12 at seven, so the row still runs from the top left to the bottom right.
+// Knob 3: Balance. How the size is shared between the odd circles (the 1st, 3rd and 5th, counted from the top left) and the even ones. It opens with the odd circles about half as wide as the even. Turned down, the odd circles shrink, a LED or so across 8 clicks on, and are gone for the last three clicks of the knob, which hold: only the even circles are left. Turned up, they grow until all are alike 13 clicks on. Past that the even circles shrink the same way and are gone at the top of the knob, held for three clicks. The eight clicks next to each hold change the small circles by more than a LED a click.
 // Knob 4: Stray. How far the even circles have moved off the diagonal, sideways, up to 11 LEDs. It opens with them on the line.
 
 const W = 64;
@@ -22,8 +22,8 @@ const H = 128;
 const OPEN = 11;
 const STRAY_MAX = 11;
 // Across, in LEDs, at five circles and at seven: full size, and the size 8 clicks from a hold.
-const FULL = [22, 13];
-const KNEE = [11, 8.5];
+const FULL = [20, 12];
+const KNEE = [10, 8.5];
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);

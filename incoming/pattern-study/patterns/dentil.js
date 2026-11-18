@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Count=5..7, Balance=-37..11, Stray=0.06..1
 //
 // Knob 1: Hue. The colour of the lines, all the way round the wheel from magenta.
-// Knob 2: Count. How many lines stand in the row, five in the lower half of the knob and seven in the upper half; it opens on five. They are 10 LEDs thick at five and 6.5 at seven, 60 LEDs tall, and the row reaches nearly from wall to wall either way.
-// Knob 3: Balance. How the thickness is shared between the odd lines (the 1st, 3rd and 5th, counted from the left) and the even ones. It opens with the even lines thin and the odd lines thick. Turned up, the even lines thin and in 8 clicks they are single LEDs wide; they are gone for the last three clicks of the knob, which hold, and the odd lines stand alone. Turned down, the even lines thicken until all are alike 13 clicks on, and then the odd lines thin the same way and are gone at the bottom of the knob, held for three clicks. A line is thinner by less than a LED a click next to a hold, because it has so little thickness to lose.
+// Knob 2: Count. How many lines stand in the row, five in the lower half of the knob and seven in the upper half; it opens on five. They are 9 LEDs thick at five and 5.5 at seven, 52 LEDs tall, and the row reaches nearly from wall to wall either way.
+// Knob 3: Balance. How the thickness is shared between the odd lines (the 1st, 3rd and 5th, counted from the left) and the even ones. It opens with the even lines about two thirds as thick as the odd. Turned up, the even lines thin, less than a LED wide 8 clicks on, and are gone for the last three clicks of the knob, which hold: only the odd lines are left. Turned down, they thicken until all are alike 13 clicks on. Past that the odd lines thin the same way and are gone at the bottom of the knob, held for three clicks. A line thins by less than a LED a click next to a hold, because it has so little thickness to lose.
 // Knob 4: Stray. How far the even lines have moved up the panel, up to 46 LEDs. It opens with them in line.
 
 const W = 64;
@@ -22,11 +22,11 @@ const H = 128;
 const OPEN = 37;
 const STRAY_MAX = 46;
 // The lines run from here down.
-const TOP = 60;
-const LENGTH = 60;
+const TOP = 68;
+const LENGTH = 52;
 // Thickness, in LEDs, at five lines and at seven: full, and the thickness 8 clicks from a hold. The spacing from one line to the next is 13 and 9.
-const FULL = [10, 6.5];
-const KNEE = [6.5, 4.2];
+const FULL = [9, 5.5];
+const KNEE = [6, 3.6];
 const PITCH = [13, 9];
 
 function hsv(h, s, v, out) {
