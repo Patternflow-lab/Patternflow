@@ -171,6 +171,12 @@ function ContinentShell() {
   );
 }
 
+// The map data is cut where a ring crosses the antimeridian, and Antarctica is
+// closed along the bottom edge of the map. An edge that runs along either is
+// the map's own, not a coast: drawn, it put a straight black line across
+// Chukotka and another from the Ross Ice Shelf to the pole.
+const onMapEdge = (lng: number, lat: number) => Math.abs(lng) === 180 || lat === -90;
+
 // Bold coastlines drawn just above the white land for crisp continent edges.
 function ContinentOutlines() {
   const geometry = useMemo(() => {
@@ -179,6 +185,10 @@ function ContinentOutlines() {
       const count = ring.length / 2;
       for (let i = 0; i < count; i += 1) {
         const next = (i + 1) % count;
+        if (
+          onMapEdge(ring[i * 2], ring[i * 2 + 1]) &&
+          onMapEdge(ring[next * 2], ring[next * 2 + 1])
+        ) continue;
         points.push(...latLngToVec3(ring[i * 2 + 1], ring[i * 2], OUTLINE_RADIUS));
         points.push(...latLngToVec3(ring[next * 2 + 1], ring[next * 2], OUTLINE_RADIUS));
       }
