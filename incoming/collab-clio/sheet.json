@@ -1,0 +1,98 @@
+{
+  "brand": "CLIO",
+  "brandKo": "클리오",
+  "theme": "dark",
+  "line": "1993년에 색조 전문으로 시작한 브랜드라서, 패턴도 색과 마감이 주인공이에요.",
+  "date": "2026-11-14",
+  "palette": [
+    { "name": "매화빛 댕기", "hex": "#ba345c", "from": "K-헤리티지 에디션 아이팔레트 20호 이름에서 읽은 색 (2025년 9월)" },
+    { "name": "모감주 밑 서재", "hex": "#ce9634", "from": "K-헤리티지 에디션 아이팔레트 21호 이름에서 읽은 색 (2025년 9월)" },
+    { "name": "코랄 달리아", "hex": "#f2765c", "from": "에센셜 블러쉬 탭 M107 이름에서 읽은 색 (2026년 5월)" },
+    { "name": "라일락 페탈", "hex": "#b092d6", "from": "에센셜 블러쉬 탭 M109 이름에서 읽은 색 (2026년 5월)" },
+    { "name": "피오니 미스트", "hex": "#ec9eb6", "from": "에센셜 블러쉬 탭 S206 이름에서 읽은 색 (2026년 5월)" },
+    { "name": "베이비 밀크", "hex": "#ead6c0", "from": "프로 아이 팔레트 에어 23호 베이비 밀크 냥냥에서 읽은 색 (2026년 6월)" }
+  ],
+  "mood": [
+    "클리오는 1993년 메이크업 아티스트용 라인 Clio Professional 로 시작했고, 지금도 스스로를 한국 첫 색조 전문 브랜드라고 불러요. 2025년 11월부터는 혼성 그룹 올데이 프로젝트를 모델로 세우고 'Express Yours' 라는 메시지 아래 캠페인을 펴요. 클리오가 고른 말은 \"무대 위 강렬한 퍼포먼스와 자유분방한 에너지\" 였어요.",
+    "지금 브랜드를 끌고 가는 것은 눈이에요. 프로 아이 팔레트 에어는 열두 칸에 매트, 시머, 글리터를 섞어 담았고, 2025년 9월 국가유산청과 낸 K-헤리티지 에디션 두 가지는 이틀 만에 올리브영 온라인몰에서 다 팔렸어요. 2026년 2분기 실적 발표는 국내 성장을 이끈 제품으로 코숏 에디션 팔레트를, 북미 58% 성장의 까닭으로 아마존 아이 카테고리를 꼽았어요.",
+    "베이스는 킬커버 쿠션이에요. 2026년 미국 NewBeauty 어워즈가 킬커버 메쉬 글로우 에센셜 쿠션을 가장 좋은 쿠션 파운데이션으로 뽑았어요. 립의 크리스탈 글램 틴트는 '색을 입힌 유리 한 겹' 같은 투명한 광으로 소개돼요. 그래서 이 레퍼런스의 패턴 셋은 팔레트의 마감, 틴트의 유리, 캠페인의 무대에서 하나씩 왔어요."
+  ],
+  "keywords": ["Express Yours", "프로 아이 팔레트 에어", "매트·시머·글리터", "크리스탈 글램 틴트", "킬커버", "K-헤리티지", "올데이 프로젝트"],
+  "patterns": [
+    {
+      "slug": "finish-field",
+      "note": "열두 팬이 하나로 섞여 흐르고, 칸마다 매트·시머·글리터가 다르게 빛을 받아요.",
+      "why": "프로 아이 팔레트 에어가 한 팔레트에 세 마감을 담은 것을 그대로 패널에 옮겼어요. 색은 매화빛 댕기, 모감주, 코랄 달리아 같은 클리오 셰이드 이름에서 읽었어요.",
+      "looks": [
+        { "name": "매트", "knobs": [0, 2, 0, -0.95], "note": "시머 결만 조금" },
+        { "name": "글리터", "knobs": [0, 2, 0.5, 0.95], "note": "큰 팬, 반짝임 가득" },
+        { "name": "쿨 톤", "knobs": [0.5, 2, -0.6, 0.2], "note": "Hue 0.5, 잔 팬" }
+      ]
+    },
+    {
+      "slug": "glass-tint",
+      "note": "물결치는 장밋빛 유리 아래 바닥에 빛 그물이 맺혀 천천히 풀렸다 묶여요.",
+      "why": "크리스탈 글램 틴트의 '유리 한 겹' 광을 빛으로 그렸어요. 유리가 두꺼운 데는 진한 장미, 얇은 데는 연한 장미, 빛이 모이는 선은 흰색이에요.",
+      "looks": [
+        { "name": "얕은 빛", "knobs": [0, 2, 0.4, -0.9], "note": "부드럽게 일렁여요" },
+        { "name": "가는 그물", "knobs": [0, 2, -0.5, 0.9], "note": "선이 접혀 겹쳐요" },
+        { "name": "코랄 틴트", "knobs": [0.07, 2, 0, 0.3], "note": "Hue 0.07" }
+      ]
+    },
+    {
+      "slug": "stage-haze",
+      "note": "보이지 않는 무대 조명 다섯이 연기 속을 훑고, 겹치는 데서 색이 하얗게 더해져요.",
+      "why": "올데이 프로젝트와 한 Express Yours 캠페인의 무대 결이에요. 빔 색은 클리오 팔레트에서, 연기는 진한 매화빛에서 왔어요.",
+      "looks": [
+        { "name": "핀 조명 둘", "knobs": [0, 2, -0.5, -1], "note": "가는 빔" },
+        { "name": "워시 일곱", "knobs": [0, 2, 0.7, 1], "note": "넓게 채워요" },
+        { "name": "푸른 무대", "knobs": [0.5, 2, 0, 0.06], "note": "Hue 0.5" }
+      ]
+    }
+  ],
+  "places": [
+    {
+      "kind": "counter",
+      "title": "아이 팔레트 매대 위 한 대",
+      "text": "프로 아이 팔레트 에어 테스터 사이에 Finish Field 를 세워요. 손등에 바르기 전에 세 마감이 빛을 어떻게 받는지 패널이 먼저 보여 줘요. 신제품이 나오면 K1 으로 팔레트 색을 돌려 맞춰요.",
+      "pattern": "finish-field"
+    },
+    {
+      "kind": "mirror",
+      "title": "틴트 바르는 거울 옆 조명",
+      "text": "크리스탈 글램 틴트 테스트 거울 옆에서 Glass Tint 가 장밋빛 빛 그물을 천천히 움직여요. 거울 앞 사람의 얼굴에도 패널 빛이 은은하게 닿아요.",
+      "pattern": "glass-tint"
+    },
+    {
+      "kind": "wall",
+      "title": "팝업 입구 벽, 패널 셋",
+      "text": "Express Yours 캠페인처럼 무대에 들어서는 입구예요. Stage Haze 셋이 같은 조명 배치를 서로 다른 순간으로 비춰요.",
+      "pattern": "stage-haze"
+    },
+    {
+      "kind": "reel",
+      "title": "숏폼 영상 바탕",
+      "text": "64×128 은 세로 1:2 라 9:16 화면에 거의 꽉 차요. 틴트 신제품 영상 뒤에 Glass Tint 를 코랄로 돌려 깔아요.",
+      "pattern": "glass-tint",
+      "knobs": [0.07, 2, 0, 0.3]
+    },
+    {
+      "kind": "window",
+      "title": "쇼윈도 네 대",
+      "text": "밤에 지나가는 사람에게는 글리터가 가장 멀리서 보여요. Finish 를 끝까지 올린 Finish Field 네 대를 창 안에 세워요.",
+      "pattern": "finish-field",
+      "knobs": [0, 2, 0.5, 0.95]
+    }
+  ],
+  "sources": [
+    { "title": "클리오, '올데이 프로젝트' 모델로 발탁 (한경매거진, 2025-11-18)", "url": "https://magazine.hankyung.com/job-joy/article/202511178175d", "what": "Express Yours 캠페인, 모델, 킬커버 파운웨어 쿠션, \"무대 위 강렬한 퍼포먼스와 자유분방한 에너지\"" },
+    { "title": "클리오, 국가유산청과 협업 'K-헤리티지 에디션' 완판 (스마트투데이, 2025-09-17)", "url": "https://www.smarttoday.co.kr/ko-kr/articles/91510", "what": "아이팔레트 20호 매화빛 댕기, 21호 모감주 밑 서재, 출시 이틀 만에 완판, 프로 아이 팔레트 에어 매출 115% 성장" },
+    { "title": "클리오 6월 올영세일 (세계일보, 2026-05-29)", "url": "https://www.segye.com/newsView/20260529512523", "what": "프로 아이 팔레트 에어 23호 베이비 밀크 냥냥, 에센셜 블러쉬 탭 셰이드 이름, 킬커버 쿠션 셰이드" },
+    { "title": "클리오, 2분기 영업이익 116억원 '역대 최대' (코스인코리아, 2026-08-14)", "url": "https://www.cosinkorea.com/mobile/article.html?no=58087", "what": "코숏 에디션 프로 아이팔레트가 국내 성장을 이끎, 북미 58% 성장과 아마존 아이 카테고리" },
+    { "title": "CLIO Pro Eye Palette Air 2026 review (Joybuy, 2026-11)", "url": "https://www.joybuy.de/blog/clio-pro-eye-palette-air-2026-review/Z3VcAsgk", "what": "열두 셰이드, 매트·시머·글리터 마감, 가벼운 파우더" },
+    { "title": "CLIO, la marque K-beauty makeup professionnelle fondée en 1993 (Ma Petite Corée)", "url": "https://mapetitecoree.com/en/blogs/le-blog-mpc/clio-marque-coreenne-professional-kill-lash-kill-cover", "what": "Clio Professional 로 시작, 'Express Your Own Confidence', 크리스탈 글램 틴트의 '색을 입힌 유리 한 겹' 같은 광" },
+    { "title": "Kill Cover Mesh Glow Essential Cushion (NewBeauty Awards 2026)", "url": "https://www.newbeauty.com/awards/2026/makeup/kill-cover-mesh-glow-essential-cushion", "what": "2026년 가장 좋은 쿠션 파운데이션" },
+    { "title": "클리오 6월 신상 (글로우픽 캐스트)", "url": "https://glowpick.com/casts/1794", "what": "토이 스토리 협업 패키지에 킬커버 메쉬 글로우 에센셜 쿠션을 비롯한 다섯 제품" }
+  ],
+  "fineprint": "Patternflow 가 만든 협업 제안 초안이에요. 클리오와 함께 만들거나 클리오가 승인한 것이 아니에요. 로고와 제품 사진은 쓰지 않았고, 팔레트의 색값은 셰이드 이름을 읽고 고른 것이라 제품을 잰 값이 아니에요."
+}
