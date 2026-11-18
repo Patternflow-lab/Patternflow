@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Thick=0..3, Slide=-1.375..0.625, Crack=0..1
 //
-// Knob 1: Hue. The colour of the band, all the way round the wheel from violet.
+// Knob 1: Hue. The colour of the band, all the way round the wheel from magenta.
 // Knob 2: Thick. How thick the band is, 17 LEDs at 0 to 32 LEDs at 3; its 2 is 27 LEDs. The band is the whole 64 LEDs between the side walls.
 // Knob 3: Slide. How far the right half has slid along the crack, more than one LED a click, both ways. It holds for three clicks where the slide is nothing and the band is whole, and for three clicks at each place the slide is as much as the thickness, with the halves touching at one corner. Past that the halves are apart. It opens nine clicks from whole and nine from touching, so the band stands with a step.
 // Knob 4: Crack. Where across the band the crack falls, from the middle at 0 to a quarter of the width to the right of the middle at 1, which leaves the shorter half a quarter of the band. It opens at 0.06.
