@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the square, all the way round the wheel from azure.
 // Knob 2: Size. The side of the square, 40 LEDs at 0 to 52 LEDs at 3; its 2 is 48 LEDs.
-// Knob 3: Hole. How wide the round hole is, counted in clicks: it opens ten clicks short of touching. Turned up the hole widens, slowly at first and by a little over one LED of rim a click for the last eight clicks, until it is as wide as the square and touches all four sides at once. The knob holds that picture for three clicks, four corners on the panel, then the hole goes on widening for the last four clicks. Turned down it shrinks to a pinhole.
+// Knob 3: Hole. How wide the round hole is, counted in clicks: it opens ten clicks short of touching. Turned up the hole widens, slowly at first and by a little over one LED of rim a click for the last eight clicks, until it is as wide as the square and touches all four sides at once. The knob holds that picture for three clicks, four corners on the panel, then the hole goes on widening for the last four clicks. Turned down it shrinks to a small hole.
 // Knob 4: Shift. How far the hole sits off the middle of the square, up at the top of the knob and down at the bottom, 4 LEDs at most; where it opens it is dead centre.
 
 const W = 64;
@@ -50,7 +50,7 @@ function span(lo, hi, p) {
   return v < 0 ? 0 : v;
 }
 
-// How wide the hole is for a knob a number of clicks from where it opens, for a square this wide. Before it touches, the wall between the hole and a side thins by 2.05 LEDs on the last click, which keeps a whole dark row between the two and so keeps the square one piece up to that click, and by 1.05 LEDs a click for the seven before it.
+// How wide the hole is for a knob a number of clicks from where it opens, for a square this wide. Before it touches, the wall between the hole and a side thins by 2.05 LEDs on the last click, which keeps a whole lit row between the two and so keeps the square one piece up to that click, and by 1.05 LEDs a click for the seven before it.
 function holeWidth(clicks, side) {
   let wide;
   if (clicks > HOLD_END) wide = side + 2.1 * (clicks - HOLD_END);

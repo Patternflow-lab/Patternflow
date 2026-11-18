@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the band, all the way round the wheel from amber.
 // Knob 2: Thick. How thick the band is, 32 LEDs at 0 to 44 LEDs at 3; its 2 is 40 LEDs. The band always runs from the left wall to the right wall.
-// Knob 3: Hole. How wide the round hole is, counted in clicks: it opens ten clicks short of touching. Turned up the hole widens, slowly at first and by a little over one LED of rim a click for the last eight clicks, until it is as wide as the band is thick and touches both edges at once. The knob holds that picture for three clicks, two bars on the panel, then the hole goes on widening for the last four clicks. Turned down it shrinks to a pinhole.
+// Knob 3: Hole. How wide the round hole is, counted in clicks: it opens ten clicks short of touching. Turned up the hole widens, slowly at first and by a little over one LED of rim a click for the last eight clicks, until it is as wide as the band is thick and touches both edges at once. The knob holds that picture for three clicks, two bars on the panel, then the hole goes on widening for the last four clicks. Turned down it shrinks to a small hole.
 // Knob 4: Slide. How far the hole has slid along the band, to the right at the top of the knob and to the left at the bottom, 8 LEDs at most; where it opens it is in the middle.
 
 const W = 64;
@@ -50,7 +50,7 @@ function span(lo, hi, p) {
   return v < 0 ? 0 : v;
 }
 
-// How wide the hole is for a knob a number of clicks from where it opens, for a band this thick. Before it touches, the wall between the hole and an edge thins by 2.05 LEDs on the last click, which keeps a whole dark row between the two and so keeps the band one piece up to that click, and by 1.05 LEDs a click for the seven before it.
+// How wide the hole is for a knob a number of clicks from where it opens, for a band this thick. Before it touches, the wall between the hole and an edge thins by 2.05 LEDs on the last click, which keeps a whole lit row between the two and so keeps the band one piece up to that click, and by 1.05 LEDs a click for the seven before it.
 function holeWidth(clicks, thick) {
   let wide;
   if (clicks > HOLD_END) wide = thick + 2.1 * (clicks - HOLD_END);
