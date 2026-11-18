@@ -619,8 +619,11 @@ function BuildPin({
 
   return (
     <group position={position} quaternion={quaternion}>
-      {/* Large invisible hit-box for both easy hover and click (3.6x sensitivity) */}
+      {/* Large hit-box for both easy hover and click (3.6x sensitivity). Not
+          drawn at all: the raycaster does not ask whether a mesh is visible,
+          and as a see-through material it was a draw call a frame per pin. */}
       <mesh
+        visible={false}
         onPointerDown={(event) => {
           if (!fanClaims(fanRef.current, event)) event.stopPropagation();
         }}
@@ -637,7 +640,7 @@ function BuildPin({
         }}
       >
         <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
 
       {/* Small, precise visible pin */}
@@ -852,7 +855,11 @@ function GroupPin({
       positions.setXYZ(i * 2 + 1, member.position.x, member.position.y, member.position.z);
 
       memberHitRefs.current[i]?.scale.setScalar(hitPx / pxPerUnit / (0.35 + 0.65 * now));
-      originRefs.current[i]?.scale.setScalar(now);
+      const origin = originRefs.current[i];
+      if (origin) {
+        origin.scale.setScalar(now);
+        origin.visible = now > 0;
+      }
     }
     positions.needsUpdate = true;
     line.visible = now > 0;
@@ -910,6 +917,7 @@ function GroupPin({
       {/* The one pin, flat against the surface: a dot and its rings. */}
       <group position={anchor} quaternion={surface}>
         <mesh
+          visible={false}
           onPointerDown={(event) => {
             if (!fanClaims(fanRef.current, event)) event.stopPropagation();
           }}
@@ -923,7 +931,7 @@ function GroupPin({
           }}
         >
           <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          <meshBasicMaterial />
         </mesh>
         <group ref={restRef}>
           <mesh>
@@ -948,6 +956,7 @@ function GroupPin({
           }}
           position={homes[index]}
           scale={0}
+          visible={false}
           renderOrder={11}
         >
           <sphereGeometry args={[PIN_RADIUS * ORIGIN_DOT, 10, 10]} />
@@ -976,6 +985,7 @@ function GroupPin({
                   memberHitRefs.current[index] = node;
                 }}
                 scale={PIN_RADIUS}
+                visible={false}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerOver={(event) => {
                   event.stopPropagation();
@@ -995,7 +1005,7 @@ function GroupPin({
                 }}
               >
                 <sphereGeometry args={[1, 12, 12]} />
-                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                <meshBasicMaterial />
               </mesh>
             )}
             <PinBody
@@ -1388,10 +1398,12 @@ function GlobeScene({
         );
       })}
 
-      {/* Invisible drag handle behind the markers. */}
-      <mesh onPointerDown={startDrag}>
+      {/* Drag handle behind the markers. Never drawn (see the pins' hit-boxes):
+          as a see-through sphere it was blended over the whole globe on every
+          frame to change nothing. */}
+      <mesh visible={false} onPointerDown={startDrag}>
         <sphereGeometry args={[1.22, 24, 24]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
     </group>
   );
