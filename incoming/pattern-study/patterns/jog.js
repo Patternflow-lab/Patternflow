@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Count=0..4, Slide=-0.9..0.1, Which=0..1
 //
-// Knob 1: Hue. The colour of the squares, all the way round the wheel from blue-green.
+// Knob 1: Hue. The colour of the squares, all the way round the wheel from cyan.
 // Knob 2: Count. How many squares stand in the column, 3 at 0 to 7 at 4; its 2 is five. Each is 16 LEDs on a side and they touch, so the column is 48 LEDs tall at 3 and 112 at 7.
 // Knob 3: Slide. How far the chosen square has slid sideways out of the column. The knob opens with the square 26 LEDs to the right, clear of the column. Turned down it comes in and the three clicks at the square's own width, 16 LEDs, hold it touching its neighbours at the corners only. Turned on down it overlaps them and the steps along its sides shrink until, after three more clicks that hold it, it sits in line and the column is a plain band. Past that it slides out to the left and holds again at one width.
 // Knob 4: Which. Which square slides, counted from the top: the first at the bottom of the knob and the last at the top of it. The knob opens on the first, at the end, so that the others stay one piece.
@@ -21,9 +21,9 @@ const H = 128;
 // The squares are 16 LEDs on a side. The column's left edge is X0, so a square that slides a whole width to the left still stands clear of the wall.
 const S = 16;
 const X0 = 17;
-// The Slide knob has 48 clicks over its range of one. KC are the clicks at the corners of the slide and KD the slide in LEDs there: -16 and then 0 and then 16 each hold for three clicks, which is two equal values in a row. The clicks near each hold slide the square more than one LED each. Past the right hold the square keeps going, about one LED a click, and has gone 30.8 LEDs by the top of the knob, which brings it to the right wall.
-const KC = [0, 2, 15, 17, 32, 34, 48];
-const KD = [-S, -S, 0, 0, S, S, 30.84];
+// The Slide knob has 48 clicks over its range of one. KC are the clicks at the corners of the slide and KD the slide in LEDs there: -16 and then 0 and then 16 each hold for three clicks, which is two equal values in a row. The clicks near each hold slide the square more than one LED each. Past the right hold the square goes on at 1.06 LEDs a click for eight clicks, then slows, and has gone 30 LEDs by the top of the knob, which leaves a LED between it and the right wall.
+const KC = [0, 2, 15, 17, 32, 34, 42, 48];
+const KD = [-S, -S, 0, 0, S, S, 24.48, 30];
 const SLIDE_LO = -0.9;
 const SLIDE_HI = 0.1;
 const WHICH_LO = 0;

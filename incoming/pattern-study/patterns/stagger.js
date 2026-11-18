@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Count=0..4, Rise=-0.9..0.1, Which=0..1
 //
-// Knob 1: Hue. The colour of the rectangles, all the way round the wheel from violet.
+// Knob 1: Hue. The colour of the rectangles, all the way round the wheel from magenta.
 // Knob 2: Count. How many rectangles share the row, 3 at 0 to 7 at 4; its 2 is five. The row stays 60 LEDs wide and 24 tall, so each is 20 LEDs wide at three and 8 at seven. Its 2 is 12 LEDs.
 // Knob 3: Rise. How far the chosen rectangle has risen out of the row. The knob opens with it 35 LEDs up, standing clear of the row. Turned down it comes in and the three clicks at its own height, 24 LEDs, hold it touching its neighbours at the corners only. Turned on down it overlaps them and the steps above and below it shrink until, after three more clicks that hold it, it sits in line and the row is a plain band. Past that it sinks below the row and holds again at one height. The row sits with its bottom edge 24 LEDs above the floor, so at the bottom of the knob the rectangle stands on the floor.
 // Knob 4: Which. Which rectangle rises, counted from the left: the first at the bottom of the knob and the last at the top of it. The knob opens on the first, at the end, so that the others stay one piece.
