@@ -9,12 +9,12 @@
 // Round:   164
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..3, Pair=-1..1, Small=0..1
+// @knobs Hue=0..1, Size=0..3, Pair=-1..1, Small=0.06..1
 //
 // Knob 1: Hue. The colour of the diamonds, all the way round the wheel from mint.
-// Knob 2: Size. The width and height of the diamonds, 14 LEDs at 0 to 19 LEDs at 3; its 2 is 17.3 LEDs. The gaps do not change with it, so the column is 111 LEDs tall at its 2.
+// Knob 2: Size. The width and height of the diamonds, 14 LEDs at 0 to 20 LEDs at 3; its 2 is 18 LEDs. The gaps do not change with it, so the column is 114 LEDs tall at its 2.
 // Knob 3: Pair. How far the neighbours have drawn together. At 0 the four stand evenly spaced. Turned up, the top two draw together and the bottom two draw together until each pair meets at its points, and the knob stops there with two pieces on the panel. Turned down, the middle two draw together until they meet, and the knob stops there with three pieces. The diamonds draw in slowly while they are far apart and by a little over one LED a click for the last eight clicks before they meet; the last three clicks at either end hold the meeting picture.
-// Knob 4: Small. How much smaller the first diamond of the top pair and the first of the bottom pair are, the same size as the others at 0 and two fifths of the width at 1. It opens at 0.06.
+// Knob 4: Small. How much smaller the first diamond of the top pair and the first of the bottom pair are, the same size as the others at the bottom of the knob, where it opens, and two fifths of the width at 1.
 
 const W = 64;
 const H = 128;
@@ -22,11 +22,12 @@ const H = 128;
 const CX = 43;
 const CY = H / 2;
 // The gap from the bottom point of one diamond to the top point of the next when the four stand evenly spaced, in LEDs.
-const G = 12;
+const G = 14;
 // The Pair knob has 48 clicks over its range, 24 from its middle to either end. The last three clicks at each end hold the picture, so a pair has been meeting since 22 clicks out.
 const REACH = 22;
-// In the last eight clicks before a pair meets, the gap closes this many LEDs a click.
-const FAST = 1.1;
+// In the last eight clicks before a pair meets the gap closes a little over one LED a click. The very last click closes 2.1 LEDs, so a whole row of LEDs is dark between the two and they count as two pieces until the click they meet.
+const FIRST = 2.1;
+const FAST = 1.05;
 const NEAR = 8;
 // Each LED is sampled four across and four down, so a diamond's slanted edges are not steps.
 const SUB = 4;
@@ -52,8 +53,10 @@ function clamp(v, lo, hi) {
 function pairGap(clicks) {
   const u = REACH - Math.abs(clicks);
   if (u <= 0) return 0;
-  if (u <= NEAR) return FAST * u;
-  return FAST * NEAR + ((G - FAST * NEAR) * (u - NEAR)) / (REACH - NEAR);
+  if (u <= 1) return FIRST * u;
+  const near = FIRST + FAST * (NEAR - 1);
+  if (u <= NEAR) return FIRST + FAST * (u - 1);
+  return near + ((G - near) * (u - NEAR)) / (REACH - NEAR);
 }
 
 export function setup(params) {
@@ -69,8 +72,8 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const wide = 15 + 1.75 * clamp(k[1], 0, 3);
-  const small = 1 - 0.6 * clamp(k[3], 0, 1);
+  const wide = 14 + 2 * clamp(k[1], 0, 3);
+  const small = 1 - 0.6 * ((clamp(k[3], 0.06, 1) - 0.06) / 0.94);
   const size = [wide * small, wide, wide * small, wide];
   const clicks = clamp(k[2], -1, 1) * 24;
   const gap = pairGap(clicks);

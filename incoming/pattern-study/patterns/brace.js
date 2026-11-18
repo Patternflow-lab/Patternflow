@@ -9,12 +9,12 @@
 // Round:   164
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Thick=0..3, Pair=-1..1, Thin=0..1
+// @knobs Hue=0..1, Thick=0..3, Pair=-1..1, Thin=0.06..1
 //
 // Knob 1: Hue. The colour of the lines, all the way round the wheel from violet.
-// Knob 2: Thick. How thick the lines are, 3 LEDs at 0 to 5.25 LEDs at 3; its 2 is 4.5 LEDs. The lines are 72 LEDs tall and the gaps do not change with it, so the four stand about 58 LEDs wide.
+// Knob 2: Thick. How thick the lines are, 3.5 LEDs at 0 to 5.75 LEDs at 3; its 2 is 5 LEDs. The lines are 72 LEDs tall and the gaps do not change with it, so the four stand 56 LEDs wide at its 2.
 // Knob 3: Pair. How far the neighbours have drawn together. At 0 the four stand evenly spaced. Turned up, the left two draw together and the right two draw together until each pair touches, and the knob stops there with two pieces on the panel. Turned down, the middle two draw together until they touch, and the knob stops there with three pieces. The lines draw in slowly while they are far apart and by a little over one LED a click for the last eight clicks before they touch; the last three clicks at either end hold the touching picture.
-// Knob 4: Thin. How much thinner the first line of the left pair and the first of the right pair are, the same as the others at 0 and two fifths as thick at 1. It opens at 0.06.
+// Knob 4: Thin. How much thinner the first line of the left pair and the first of the right pair are, the same as the others at the bottom of the knob, where it opens, and two fifths as thick at 1.
 
 const W = 64;
 const H = 128;
@@ -23,11 +23,12 @@ const CX = W / 2;
 const TOP = 50;
 const BOTTOM = 122;
 // The gap between neighbours when the four stand evenly spaced, in LEDs.
-const G = 12.5;
+const G = 12;
 // The Pair knob has 48 clicks over its range, 24 from its middle to either end. The last three clicks at each end hold the picture, so a pair has been touching since 22 clicks out.
 const REACH = 22;
-// In the last eight clicks before a pair touches, the gap closes this many LEDs a click.
-const FAST = 1.1;
+// In the last eight clicks before a pair touches the gap closes a little over one LED a click. The very last click closes 2.1 LEDs, so a whole row of LEDs is dark between the two and they count as two pieces until the click they touch.
+const FIRST = 2.1;
+const FAST = 1.05;
 const NEAR = 8;
 
 function hsv(h, s, v, out) {
@@ -57,8 +58,10 @@ function span(lo, hi, p) {
 function pairGap(clicks) {
   const u = REACH - Math.abs(clicks);
   if (u <= 0) return 0;
-  if (u <= NEAR) return FAST * u;
-  return FAST * NEAR + ((G - FAST * NEAR) * (u - NEAR)) / (REACH - NEAR);
+  if (u <= 1) return FIRST * u;
+  const near = FIRST + FAST * (NEAR - 1);
+  if (u <= NEAR) return FIRST + FAST * (u - 1);
+  return near + ((G - near) * (u - NEAR)) / (REACH - NEAR);
 }
 
 export function setup(params) {
@@ -75,8 +78,8 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const thick = 3 + 0.75 * clamp(k[1], 0, 3);
-  const thin = 1 - 0.6 * clamp(k[3], 0, 1);
+  const thick = 3.5 + 0.75 * clamp(k[1], 0, 3);
+  const thin = 1 - 0.6 * ((clamp(k[3], 0.06, 1) - 0.06) / 0.94);
   const size = [thick * thin, thick, thick * thin, thick];
   const clicks = clamp(k[2], -1, 1) * 24;
   const gap = pairGap(clicks);
