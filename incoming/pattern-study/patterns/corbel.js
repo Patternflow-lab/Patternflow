@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the bars, all the way round the wheel from sky blue.
 // Knob 2: Count. How many bars are in the stack, 3 at 1 to 5 at 3; its 2 is four. The bars are 8 LEDs thick and 20, 16 and 12 LEDs long for three, four and five, so a stack stepped by one length is 60, 64 and 60 LEDs wide and four reach from wall to wall.
 // Knob 3: Step. How far each bar stands to the side of the bar above it, one click a step of the knob. The knob opens with each bar 9.45 LEDs right of the one above, so four bars overlap by 6.55 LEDs and the stack leans down to the right. Turned up the steps shrink more than a LED a click, and three clicks hold the stack as one block. On up each bar stands left of the one above, and the last three clicks hold the step at a bar's length, where the bars touch at the corners only and the stack spans the panel. Turned down from where it opens the steps grow a little.
-// Knob 4: Kink. How much the step in the middle of the stack leans further than the others, from nothing where it opens to seven eighths of a bar's length at the top. Where it opens the stack breaks in two halfway up the knob.
+// Knob 4: Kink. How much the step in the middle of the stack leans further than the others, from nothing where it opens to a whole bar's length at the top. Where it opens the stack of four breaks in two a little before halfway up the knob, and at every count and every step it stays between the walls.
 
 const W = 64;
 const H = 128;
@@ -84,7 +84,7 @@ export function update(dt, input, params) {
   params.n = n;
   params.len = len;
   const step = stepAt(clamp(k[2], STEP_LO, STEP_HI) - STEP_LO, layout(len));
-  const kink = (0.875 * len * (clamp(k[3], KINK_LO, 1) - KINK_LO)) / (1 - KINK_LO);
+  const kink = (len * (clamp(k[3], KINK_LO, 1) - KINK_LO)) / (1 - KINK_LO);
   // The kink sits on the step into the bar below the middle and leans the same way the stack leans where it opens.
   const p = Math.floor((n - 1) / 2);
   let x = 0;
