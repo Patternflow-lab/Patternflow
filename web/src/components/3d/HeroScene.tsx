@@ -1145,8 +1145,11 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           target={[0, 1.7, 0]}
           enablePan={false}
           enableZoom={!shelfOpen}
-          minDistance={ZOOM_NEAREST}
-          maxDistance={ZOOM_FARTHEST}
+          // Only off the shelf. Bringing the camera back to the shelf runs a
+          // straight line through these bounds (ShelfCamera), and the zoom
+          // is off there anyway.
+          minDistance={shelfOpen ? 0 : ZOOM_NEAREST}
+          maxDistance={shelfOpen ? Infinity : ZOOM_FARTHEST}
           enableRotate={!isDraggingKnob && !shelfOpen}
         />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
