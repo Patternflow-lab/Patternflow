@@ -29,7 +29,7 @@ fasteners,32,M4 x 10 pan head screw,,a metric assortment,,"Panels to the rails, 
 fasteners,32,M3 x 10 self-tapping screw,"pan or low head",a metric assortment,,"Back cover into the screw blocks"
 fasteners,4,M3 x 16 screw with nut,,a metric assortment,,"The card: back cover, two rings, card, nut"
 fasteners,4,M2.5 x 16 screw with nut,,a metric assortment,,"The Pi: back cover, two rings, Pi, nut. Its holes are 2.7 mm"
-fasteners,4,M3 x 6 screw,,a metric assortment,,"Two per supply into the power tray. Each supply takes 3 mm of screw, no more (datasheets: L=3.0)"
+fasteners,6,M3 x 6 screw,,a metric assortment,,"Into the supplies through the power tray: four for the LRS-150F-5, two for the LRS-50-5. Each supply takes 3 mm of screw, no more (datasheets: L=3.0)"
 fasteners,4,M2.5 x 6 screw,,a metric assortment,,"The screen's standoffs through its bracket"
 fasteners,4,M3 x 10 self-tapping screw,"pan head",a metric assortment,,"The screen's bracket into its two posts"
 fasteners,2,M3 x 12 screw with nut and washer,,a metric assortment,,"Inlet flange"

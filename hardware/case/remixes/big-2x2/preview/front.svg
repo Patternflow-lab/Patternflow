@@ -88,14 +88,14 @@
 <text x="437.5" y="224.0" font-size="9" fill="#c2185b" text-anchor="middle">Pi 5</text>
 <rect x="389.0" y="470.0" width="97.0" height="159.0" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>
 <text x="437.5" y="549.5" font-size="9" fill="#9013fe" text-anchor="middle">LRS-150F-5</text>
-<rect x="396.5" y="355.0" width="82.0" height="99.0" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="437.5" y="404.5" font-size="9" fill="#9013fe" text-anchor="middle">LRS-50-5</text>
-<rect x="425.4" y="640.6" width="27.25" height="46.75" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="439.0" y="693.4" font-size="8" fill="#9013fe" text-anchor="middle">inlet (back)</text>
-<circle cx="414.5" cy="81.5" r="10" fill="#1d1d1d"/>
-<text x="414.5" y="84.5" font-size="8" fill="#fff" text-anchor="middle">k0</text>
+<rect x="396.5" y="351.0" width="82.0" height="99.0" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="437.5" y="400.5" font-size="9" fill="#9013fe" text-anchor="middle">LRS-50-5</text>
+<rect x="425.4" y="652.6" width="27.25" height="46.75" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="439.0" y="705.4" font-size="8" fill="#9013fe" text-anchor="middle">inlet (back)</text>
 <circle cx="459.5" cy="81.5" r="10" fill="#1d1d1d"/>
-<text x="459.5" y="84.5" font-size="8" fill="#fff" text-anchor="middle">k1</text>
+<text x="459.5" y="84.5" font-size="8" fill="#fff" text-anchor="middle">k0</text>
+<circle cx="414.5" cy="81.5" r="10" fill="#1d1d1d"/>
+<text x="414.5" y="84.5" font-size="8" fill="#fff" text-anchor="middle">k1</text>
 <circle cx="414.5" cy="126.5" r="10" fill="#1d1d1d"/>
 <text x="414.5" y="129.5" font-size="8" fill="#fff" text-anchor="middle">k2</text>
 <circle cx="459.5" cy="126.5" r="10" fill="#1d1d1d"/>

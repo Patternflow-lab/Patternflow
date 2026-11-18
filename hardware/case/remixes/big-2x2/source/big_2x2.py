@@ -83,6 +83,7 @@ SCREW_SLOT = (5.0, 9.0)    # M4 clamp slot, long in Y
 PIN_HOLE = 3.6             # for the panels' 3.48 mm pins
 KNOB_BORE = 7.3            # EC11 bushing (M7)
 M3_HOLE = 3.4
+PILOT = 2.5                # for an M3 self-tapping screw in birch ply: it keeps the layers lined up and the screw straight
 M2_5_HOLE = 2.8
 
 # Controller: a Raspberry Pi 5 renders, and a Colorlight 5A-75B card running
@@ -107,16 +108,32 @@ PI_ORIGIN = (195.5, 120.0)
 PI_HOLES = [(PI_ORIGIN[0] + x, PI_ORIGIN[1] + y) for x, y in ((3.5, 3.5), (52.5, 3.5), (3.5, 61.5), (52.5, 61.5))]
 PI_TALL = 16.0             # USB and Ethernet stack
 
+
+def _pi(u, v):
+    """A point on the Pi 5's drawing (u along its 85, ports at u = 85; v along its
+    56, header at v = 56), where it lands with the Pi on end and its parts facing
+    the front."""
+    return (PI_ORIGIN[0] + PI[0] - v, PI_ORIGIN[1] + u)
+
+
+PI_USB_C = _pi(11.2, 0.0)          # its power socket, pointing at the right wall
+PI_PIN1 = _pi(8.37, 51.23)         # header pin 1; 3, 5 and 9 follow on up the board
+
 # Knobs: four EC11 encoders on Adafruit 4991 I2C breakouts, 45 mm apart as in
-# patternflood, which clears the breakouts' outline. k0..k3 are I2C 0x37..0x3A.
+# patternflood, which clears the breakouts' 25.4 mm boards. k0..k3 are I2C
+# 0x37..0x3A, and patternflood's renderer hands k0..k3 to a pattern as its
+# parameters 0..3. A Patternflow has parameter 0 on K1, top right, 1 on K2, top
+# left, 2 on K4, bottom left, and 3 on K3, bottom right (docs/rest-api.md, Knob
+# ordering), so the knobs sit the same way here.
 KNOB_PITCH = 45.0
 KNOB_CENTRE = (223.0, 270.0)
 KNOBS = {
-    "k0": (KNOB_CENTRE[0] - KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
-    "k1": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
+    "k0": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
+    "k1": (KNOB_CENTRE[0] - KNOB_PITCH / 2, KNOB_CENTRE[1] + KNOB_PITCH / 2),
     "k2": (KNOB_CENTRE[0] - KNOB_PITCH / 2, KNOB_CENTRE[1] - KNOB_PITCH / 2),
     "k3": (KNOB_CENTRE[0] + KNOB_PITCH / 2, KNOB_CENTRE[1] - KNOB_PITCH / 2),
 }
+KNOB_LEAD = 250.0          # the 4991s' lead to the Pi's header: 150 mm Adafruit 4397 and 100 mm jumpers
 KNOB_POCKET = 35.0         # square, in the inner bezel layer: the bushing clamps the outer sheet alone
 # A touch screen under the knobs: the Raspberry Pi Touch Display 2, 5-inch, on
 # the Pi's DSI port. Its outline, viewing area and standoffs are from Raspberry
@@ -136,27 +153,42 @@ DISPLAY_J1 = (_dx + 21.7, _dbot + 50.0)  # its power lead's socket
 POST_LAYERS = 4                        # 12 mm: the inner layer's back to the standoffs' faces
 POSTS = [(DIVIDER[1], DIVIDER[1] + 8.0), (RIGHT_WALL[0] - 8.0, RIGHT_WALL[0])]
 POST_Y = (_dy - 40.0, _dy + 25.0)
-BRACKET = (DIVIDER[1] + 1.0, _dy - 47.0, RIGHT_WALL[0] - 1.0, _dy + 28.0)
+# The bracket comes within 0.5 mm of the divider and the right wall, which
+# leaves 1.8 mm of wood between its edge and the screws on the posts' centres.
+BRACKET = (DIVIDER[1] + 0.5, _dy - 47.0, RIGHT_WALL[0] - 0.5, _dy + 28.0)
 BRACKET_SCREWS = [((a + b) / 2, _dy + d) for a, b in POSTS for d in (-30.0, 15.0)]
 
-# Supplies on the power tray, terminals down, bases on the tray.
+# Supplies on the power tray, terminals down, bases on the tray. Their screw
+# terminals sit in a step in the cover and the wires leave along the supply's
+# length, so each needs room past its terminal end for the forks and the bend.
+WIRE_ROOM = 20.0
 # Panels: Mean Well LRS-150F-5, 159 x 97 x 30, 22 A.
 PSU = (175.0, -255.0, 272.0, -96.0)
 PSU_HOLES = [(x, PSU[1] + d) for d in (24.0, 102.0) for x in (PSU[0] + 32.0, PSU[2] - 32.0)]
 # Pi and card: Mean Well LRS-50-5, 99 x 82 x 30, 10 A. Its two base holes are
-# 40.5 mm from one long side of 82, so either way round lands within 1 mm: slots.
-PSU_PI = (182.5, -80.0, 264.5, 19.0)
+# 20.5 and 75.5 mm from the terminal end and 40.5 mm from one long side of 82
+# (Mean Well's STEP, which patternflood keeps), so either way round lands
+# within 1 mm: slots. Its five terminals span the middle 60 mm of the 82.
+PSU_PI = (182.5, -76.0, 264.5, 23.0)
 PSU_PI_HOLES = [((PSU_PI[0] + PSU_PI[2]) / 2, PSU_PI[1] + d) for d in (20.5, 75.5)]
-# IEC C14 inlet with switch and fuse (AC-14-F16A): cut-out and flange screws as
-# measured for patternflood.
+PSU_PI_TERMINALS = (PSU_PI[0] + 11.0, PSU_PI[2] - 11.0)
+# IEC C14 inlet with switch and fuse (AC-14-F16A), as patternflood measured it:
+# a 27.25 x 46.75 cut-out, and the two flange screws 40 mm apart ACROSS the short
+# 27.25 side, in the flange's lobes. The flange runs 6.25 mm past the cut-out's
+# short ends and its lobes 10.75 mm past the long sides; the body is 37.45 deep.
 IEC_CUT = (27.25, 46.75)
-IEC_CENTRE = (225.0, -290.0)
+IEC_CENTRE = (225.0, -302.0)
 IEC_SCREW_PITCH = 40.0
+IEC_FLANGE = (IEC_CUT[0] + 2 * 10.75, IEC_CUT[1] + 2 * 6.25)
+IEC_DEPTH = 37.45
+IEC_SCREWS = [(IEC_CENTRE[0] + s * IEC_SCREW_PITCH / 2, IEC_CENTRE[1]) for s in (-1, 1)]
 
 STIFF_Y = [111.333, -111.333]
 COL_SPLIT = 100.0          # the column's back: Pi piece above, power tray below
 COL_INNER_SPLIT = 75.0     # the column's inner face layer is cut here, under the display's pocket
-DIV_WINDOWS = [(215.0, 275.0), (-70.0, -20.0), (-250.0, -190.0)]   # Ethernet, card power, panel power
+# Ethernet; the card's power, level with the small supply's terminals; the
+# panels' power, level with the big supply's.
+DIV_WINDOWS = [(215.0, 275.0), (-100.0, -50.0), (-280.0, -220.0)]
 WINDOW_DEPTH = (20.0, 50.0)
 
 # --------------------------------------------------------------------------
@@ -502,16 +534,18 @@ def back_parts():
             cx, cy = IEC_CENTRE
             w, h = IEC_CUT
             shapes.append(rect(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2))
-            shapes += [circle(cx, cy + s * IEC_SCREW_PITCH / 2, M3_HOLE) for s in (-1, 1)]
+            shapes += [circle(x, y, M3_HOLE) for x, y in IEC_SCREWS]
             shapes += [circle(x, y, M3_HOLE) for x, y in PSU_HOLES]
             shapes += [obround(x, y, 4.4, M3_HOLE) for x, y in PSU_PI_HOLES]
-            shapes += vent_row(190.0, 206.0, -318.0, -268.0, pitch=8.0)
-            shapes += vent_row(244.0, 260.0, -318.0, -268.0, pitch=8.0)
+            # either side of the inlet's flange, clear of the bottom screw blocks
+            shapes += vent_row(184.0, 198.0, -310.0, -270.0, pitch=8.0)
+            shapes += vent_row(252.0, 266.0, -310.0, -270.0, pitch=8.0)
             shapes += vent_row(192.0, 256.0, 30.0, 78.0)
         parts.append(Part(name, 1, what.get(name, "Back cover"), shapes))
     n = sum(len(v) for v in blocks.values())
     parts.append(Part("screw-block", n * BLOCK_LAYERS,
-                      f"Screw block, {BLOCK_LAYERS} glued per block, {n} blocks", [rect(0, 0, BLOCK, BLOCK)]))
+                      f"Screw block, {BLOCK_LAYERS} glued per block, {n} blocks",
+                      [rect(0, 0, BLOCK, BLOCK), circle(BLOCK / 2, BLOCK / 2, PILOT)]))
     parts.append(Part("ring-card", len(CARD_HOLES) * RING_LAYERS, "Spacer ring under the card, M3",
                       [circle(0, 0, RING[0]), circle(0, 0, M3_HOLE)]))
     parts.append(Part("ring-pi", len(PI_HOLES) * RING_LAYERS, "Spacer ring under the Pi, M2.5",
@@ -529,9 +563,10 @@ def display_parts():
     shapes += [circle(x, y, M3_HOLE) for x, y in BRACKET_SCREWS]
     parts = [Part("display-bracket", 1, "Holds the touch screen against the face: its standoffs and two posts", shapes)]
     w = POSTS[0][1] - POSTS[0][0]
+    pilots = [circle(w / 2, y - POST_Y[0], PILOT) for _, y in BRACKET_SCREWS[:2]]
     parts.append(Part("display-post", POST_LAYERS * len(POSTS),
                       f"Display post, {POST_LAYERS} glued per post, {len(POSTS)} posts",
-                      [rect(0, 0, w, POST_Y[1] - POST_Y[0])]))
+                      [rect(0, 0, w, POST_Y[1] - POST_Y[0])] + pilots))
     return parts
 
 
@@ -572,7 +607,7 @@ def test_cut_parts():
     # Inlet cut-out and flange screws.
     w, h = IEC_CUT
     shapes = [rect(-35, -40, 35, 40), rect(-w / 2, -h / 2, w / 2, h / 2)]
-    shapes += [circle(0, s * IEC_SCREW_PITCH / 2, M3_HOLE) for s in (-1, 1)]
+    shapes += [circle(x - IEC_CENTRE[0], y - IEC_CENTRE[1], M3_HOLE) for x, y in IEC_SCREWS]
     parts.append(Part("test-04-inlet", 1, "IEC inlet cut-out and flange screws", shapes))
     return parts
 
@@ -911,25 +946,404 @@ def write_manifest(parts, tests, sheets):
 # --------------------------------------------------------------------------
 
 
+# --------------------------------------------------------------------------
+# Reading DXFs back: outlines, holes, webs, joints
+# --------------------------------------------------------------------------
+
+MIN_WEB = 1.5              # thinnest wood the checks accept between two cuts
+PART_GEOMETRY = {}         # part name -> {"holes": n, "web": thinnest web}, filled by geometry_checks
+
+
+def read_part(path, dx=0.0, dy=0.0):
+    """A DXF's cuts as (polygons, circles, open polylines), shifted by dx, dy."""
+    import ezdxf
+    msp = ezdxf.readfile(path).modelspace()
+    polys, circles, open_ = [], [], 0
+    for e in msp.query("LWPOLYLINE"):
+        pts = [(q[0] + dx, q[1] + dy) for q in e.get_points("xy")]
+        polys.append(pts)
+        if not e.closed:
+            open_ += 1
+    for e in msp.query("CIRCLE"):
+        circles.append((e.dxf.center.x + dx, e.dxf.center.y + dy, e.dxf.radius))
+    return polys, circles, open_
+
+
+def _segs(pts):
+    return [(pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+
+
+def _pt_seg(p, a, b):
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    L = dx * dx + dy * dy
+    t = 0.0 if L == 0 else max(0.0, min(1.0, ((p[0] - ax) * dx + (p[1] - ay) * dy) / L))
+    return math.hypot(p[0] - ax - t * dx, p[1] - ay - t * dy)
+
+
+def _cross(o, a, b):
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _seg_seg(a, b, c, d):
+    d1, d2, d3, d4 = _cross(c, d, a), _cross(c, d, b), _cross(a, b, c), _cross(a, b, d)
+    if ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0)) and 0 not in (d1, d2, d3, d4):
+        return 0.0
+    return min(_pt_seg(a, c, d), _pt_seg(b, c, d), _pt_seg(c, a, b), _pt_seg(d, a, b))
+
+
+def _inside(p, pts):
+    x, y = p
+    n, c = len(pts), False
+    for i in range(n):
+        (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % n]
+        if (y0 > y) != (y1 > y) and x < x0 + (y - y0) * (x1 - x0) / (y1 - y0):
+            c = not c
+    return c
+
+
+def _bbox(sh):
+    if sh[0] == "c":
+        _, x, y, r = sh
+        return x - r, y - r, x + r, y + r
+    xs = [p[0] for p in sh[1]]
+    ys = [p[1] for p in sh[1]]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _gap(a, b, limit):
+    """Distance between the edges of two cuts (0 where they cross), or limit if
+    their boxes are further apart than that."""
+    ax0, ay0, ax1, ay1 = _bbox(a)
+    bx0, by0, bx1, by1 = _bbox(b)
+    if ax0 - bx1 > limit or bx0 - ax1 > limit or ay0 - by1 > limit or by0 - ay1 > limit:
+        return limit
+    if a[0] == "c" and b[0] == "c":
+        return math.hypot(a[1] - b[1], a[2] - b[2]) - a[3] - b[3]
+    if a[0] == "c":
+        a, b = b, a
+    if b[0] == "c":
+        _, x, y, r = b
+        return min(_pt_seg((x, y), p, q) for p, q in _segs(a[1])) - r
+    return min(_seg_seg(p, q, u, v) for p, q in _segs(a[1]) for u, v in _segs(b[1]))
+
+
+def _rep(sh):
+    return (sh[1], sh[2]) if sh[0] == "c" else sh[1][0]
+
+
+def _simple(pts):
+    segs = _segs(pts)
+    n = len(segs)
+    for i in range(n):
+        for j in range(i + 2, n):
+            if i == 0 and j == n - 1:
+                continue
+            if _seg_seg(*segs[i], *segs[j]) == 0.0:
+                return False
+    return True
+
+
+def geometry_checks(ok, covered):
+    """Every part: closed outlines that do not cross themselves, every hole inside
+    the outline, and no two cuts closer than MIN_WEB. Every sheet: no two parts
+    touching."""
+    bad = []
+    for p in all_parts():
+        polys, circles, open_ = read_part(os.path.join(ROOT, "parts", f"{p.name}.dxf"))
+        cuts = [("p", q) for q in polys] + [("c",) + c for c in circles]
+        area = lambda c: (_bbox(c)[2] - _bbox(c)[0]) * (_bbox(c)[3] - _bbox(c)[1])
+        outline = max(cuts, key=area)
+        holes = [c for c in cuts if c is not outline]
+        web = 99.0
+        why = []
+        if open_:
+            why.append(f"{open_} open polyline(s)")
+        if outline[0] == "p" and not _simple(outline[1]):
+            why.append("outline crosses itself")
+        for i, h in enumerate(holes):
+            r = _rep(h)
+            inside = (_inside(r, outline[1]) if outline[0] == "p"
+                      else math.hypot(r[0] - outline[1], r[1] - outline[2]) < outline[3])
+            if not inside:
+                why.append("a hole outside the outline")
+            web = min(web, _gap(outline, h, 99.0) if outline[0] == "p" or h[0] == "p"
+                      else outline[3] - math.hypot(h[1] - outline[1], h[2] - outline[2]) - h[3])
+            for g in holes[i + 1:]:
+                if (g[0] == "p" and _inside(_rep(h), g[1])) or (h[0] == "p" and _inside(_rep(g), h[1])):
+                    why.append("a hole inside another")
+                web = min(web, _gap(h, g, 99.0))
+        if web < MIN_WEB:
+            why.append(f"web {web:.2f} mm")
+        PART_GEOMETRY[p.name] = {"holes": len(holes), "web": web if holes else float("nan")}
+        covered[p.name].append("closed cuts, holes inside, webs")
+        if why:
+            bad.append(f"{p.name}: {', '.join(dict.fromkeys(why))}")
+    webs = [(g["web"], n) for n, g in PART_GEOMETRY.items() if g["holes"]]
+    thin = min(webs)
+    ok(not bad, f"every part: closed cuts, outline does not cross itself, every hole inside it, no two cuts "
+       f"closer than {MIN_WEB} mm (thinnest {thin[0]:.2f} mm, {thin[1]})" + (": " + "; ".join(bad) if bad else ""))
+
+    bad = []
+    for f in sorted(x for x in os.listdir(os.path.join(ROOT, "sheets")) if x.endswith(".dxf")):
+        polys, circles, open_ = read_part(os.path.join(ROOT, "sheets", f))
+        boxes = [_bbox(("p", q)) for q in polys]
+        # a part's outline is a polygon not inside any other polygon
+        outlines = [q for i, q in enumerate(polys)
+                    if not any(j != i and boxes[j][0] <= boxes[i][0] and boxes[j][1] <= boxes[i][1] and
+                               boxes[j][2] >= boxes[i][2] and boxes[j][3] >= boxes[i][3] and _inside(q[0], polys[j])
+                               for j in range(len(polys)))]
+        for i in range(len(outlines)):
+            for j in range(i + 1, len(outlines)):
+                if _gap(("p", outlines[i]), ("p", outlines[j]), GAP) < GAP - 0.5:
+                    bad.append(f)
+        if open_:
+            bad.append(f + " (open polylines)")
+    ok(not bad, f"sheets: no part closer than {GAP - 0.5:.1f} mm to the next" + (": " + ", ".join(sorted(set(bad))) if bad else ""))
+
+
+def _placed(name):
+    """A part's cuts read back from its DXF, in the box's own coordinates."""
+    part = [p for p in all_parts() if p.name == fname(name)][0]
+    x0, y0, _, _ = part.bbox()
+    return read_part(os.path.join(ROOT, "parts", f"{part.name}.dxf"), x0, y0)
+
+
+def _tabs(outline, axis, at):
+    """Spans of an outline's tabs whose tips lie on the line axis = at (axis 0: x,
+    1: y), as sorted (lo, hi) along the other axis."""
+    other = 1 - axis
+    out = []
+    for p, q in _segs(outline):
+        if abs(p[axis] - at) < 0.01 and abs(q[axis] - at) < 0.01:
+            out.append(tuple(sorted((round(p[other], 2), round(q[other], 2)))))
+    return sorted(out)
+
+
+def _rects(polys, xr=None, yr=None):
+    """Four-sided holes, optionally only those whose x (or y) span is xr (or yr)."""
+    out = []
+    for q in polys:
+        if len(q) != 4:
+            continue
+        xs = (round(min(p[0] for p in q), 2), round(max(p[0] for p in q), 2))
+        ys = (round(min(p[1] for p in q), 2), round(max(p[1] for p in q), 2))
+        if xr and (abs(xs[0] - xr[0]) > 0.01 or abs(xs[1] - xr[1]) > 0.01):
+            continue
+        if yr and (abs(ys[0] - yr[0]) > 0.01 or abs(ys[1] - yr[1]) > 0.01):
+            continue
+        out.append((xs, ys))
+    return out
+
+
+def joint_checks(ok, covered):
+    """Each tab against the hole it goes into, both read back from the DXFs."""
+    tip = D_BEZEL - T
+    inner = {n: _placed(n)[0] for n in ("bezel-inner-top", "bezel-inner-bottom", "bezel-inner-left-1", "bezel-inner-left-2",
+                                        "bezel-inner-left-3", "bezel-inner-column-1", "bezel-inner-column-2", "bezel-inner-column-3")}
+    # Top and bottom walls' front tabs into the inner face layer.
+    for wall, strip, wy in (("wall-top", "bezel-inner-top", TOP_WALL), ("wall-bottom", "bezel-inner-bottom", BOT_WALL)):
+        polys, _, _ = _placed(wall)
+        tabs = _tabs(polys[0], 1, tip)
+        morts = sorted(xs for xs, _ in _rects(inner[strip], yr=wy))
+        ok(tabs == morts, f"{fname(wall)}: {len(tabs)} front tabs, each on a mortise in {fname(strip)}")
+        covered[fname(wall)].append("front tabs into the face")
+        covered[fname(strip)].append("mortises under the wall tabs")
+    # Side walls and the divider: both halves' front tabs into the inner layer's strips.
+    for kind, wx, strips in (("wall-left", LEFT_WALL, ("left-1", "left-2", "left-3")),
+                             ("divider", DIVIDER, ("column-1", "column-2", "column-3")),
+                             ("wall-right", RIGHT_WALL, ("column-1", "column-2", "column-3"))):
+        tabs = []
+        for half in ("lower", "upper"):
+            n = f"{kind}-{half}"
+            part = [p for p in all_parts() if p.name == fname(n)][0]
+            x0, y0, _, _ = part.bbox()
+            polys, _, _ = read_part(os.path.join(ROOT, "parts", f"{part.name}.dxf"), x0, y0)
+            tabs += _tabs(polys[0], 1, tip)
+            covered[part.name].append("front tabs into the face")
+        morts = sorted(ys for s_ in strips for _, ys in _rects(inner[f"bezel-inner-{s_}"], xr=wx))
+        ok(sorted(tabs) == morts, f"{fname(kind)}: {len(tabs)} front tabs, each on a mortise in the face's inner layer")
+        for s_ in strips:
+            covered[fname(f"bezel-inner-{s_}")].append("mortises under the wall tabs")
+    # End tabs of the side walls and divider through the top and bottom walls,
+    # and the rails' end tabs too.
+    for wall, end, at in (("wall-top", "upper", TOP_WALL[0] + T), ("wall-bottom", "lower", BOT_WALL[1] - T)):
+        polys, _, _ = _placed(wall)
+        missing = []
+        for kind, wx in (("wall-left", LEFT_WALL), ("divider", DIVIDER), ("wall-right", RIGHT_WALL)):
+            tp, _, _ = _placed(f"{kind}-{end}")
+            tabs = _tabs(tp[0], 0, at)
+            morts = sorted(ds for _, ds in _rects(polys, xr=wx))
+            if tabs != morts or not tabs:
+                missing.append(kind)
+        for rname, (cx, w) in RAILS.items():
+            for layer in RAIL_SPLITS:
+                tp, _, _ = _placed(f"rail-{rname}-{layer}-{end}")
+                tabs = _tabs(tp[0], 1, at)
+                morts = sorted(xs for xs, ds in _rects(polys, xr=(cx - RAIL_TAB / 2, cx + RAIL_TAB / 2)))
+                if tabs != morts or not tabs:
+                    missing.append(f"rail {rname} {layer}")
+                covered[fname(f"rail-{rname}-{layer}-{end}")].append(f"end tab through {fname(wall)}")
+        rail_d = sorted(ds for cx, w in RAILS.values() for _, ds in _rects(polys, xr=(cx - RAIL_TAB / 2, cx + RAIL_TAB / 2)))
+        ok(not missing and all(d == (D_RAIL[0], D_RAIL[1]) for d in rail_d),
+           f"{fname(wall)}: a mortise for each end tab of the left wall, divider and right wall, and one "
+           f"{RAIL_TAB:.0f} x {2 * T:.0f} for both layers of each rail" + (": " + ", ".join(missing) if missing else ""))
+        covered[fname(wall)].append("mortises for the walls' and rails' end tabs")
+        for kind in ("wall-left", "divider", "wall-right"):
+            covered[fname(f"{kind}-{end}")].append(f"end tabs through {fname(wall)}")
+    # Stiffeners' tabs into the left wall, divider and right wall.
+    walls = {}
+    for kind in ("wall-left", "divider", "wall-right"):
+        walls[kind] = []
+        for half in ("lower", "upper"):
+            walls[kind] += _placed(f"{kind}-{half}")[0]
+    missing = []
+    for name, y, a, b in [(f"stiffener-display-{i + 1}", y, "wall-left", "divider") for i, y in enumerate(STIFF_Y)] + \
+                         [("stiffener-column", COL_SPLIT, "divider", "wall-right")]:
+        tp, _, _ = _placed(name)
+        x0, _, x1, _ = _bbox(("p", tp[0]))
+        for kind, at in ((a, x0), (b, x1)):
+            tabs = _tabs(tp[0], 0, at)
+            morts = sorted(ds for (ys, ds) in _rects(walls[kind], xr=(round(y - T / 2, 2), round(y + T / 2, 2))))
+            if tabs != morts or not tabs:
+                missing.append(f"{fname(name)} into {kind}")
+        covered[fname(name)].append("tabs into the walls")
+    ok(not missing, "stiffeners: each tab on a 3 mm mortise in the wall it meets" + (": " + ", ".join(missing) if missing else ""))
+    # The screen's window and pocket, and each knob bore inside its pocket.
+    outer, oc, _ = _placed("bezel-outer-column-upper")
+    pocket = _rects(inner["bezel-inner-column-1"], xr=(round(_dx - DISPLAY[0] / 2 - DISPLAY_CLEAR, 2), round(_dx + DISPLAY[0] / 2 + DISPLAY_CLEAR, 2)))
+    win = [r for r in _rects(outer) if r[0][1] - r[0][0] < 80]
+    kp = _rects(inner["bezel-inner-column-1"])
+    bores_in = all(any(xs[0] < x - r and x + r < xs[1] and ys[0] < y - r and y + r < ys[1] for xs, ys in kp
+                       if xs[1] - xs[0] < 40) for x, y, r in oc)
+    ok(len(pocket) == 1 and len(win) == 1 and pocket[0][0][0] < win[0][0][0] and win[0][0][1] < pocket[0][0][1]
+       and pocket[0][1][0] < win[0][1][0] and win[0][1][1] < pocket[0][1][1] and bores_in,
+       "face: the screen's window inside its pocket, each knob bore inside its 35 mm pocket")
+    covered["bezel_outer_column_upper"].append("window and bores over the inner layer's pockets")
+    covered["bezel_inner_column_1"].append("screen pocket and knob pockets")
+
+
+def inlet_checks(ok, covered):
+    polys, circles, _ = _placed("back-column-lower")
+    cut = [q for q in polys if len(q) == 4 and abs((max(p[0] for p in q) - min(p[0] for p in q)) - IEC_CUT[0]) < 0.01]
+    cx0, cx1 = min(p[0] for p in cut[0]), max(p[0] for p in cut[0])
+    cy0, cy1 = min(p[1] for p in cut[0]), max(p[1] for p in cut[0])
+    screws = [c for c in circles if abs(c[1] - (cy0 + cy1) / 2) < 0.01 and abs(abs(c[0] - (cx0 + cx1) / 2) - IEC_SCREW_PITCH / 2) < 0.01]
+    outside = all(not (cx0 < x < cx1 and cy0 < y < cy1) for x, y, _ in screws)
+    fw, fh = IEC_FLANGE
+    fx0, fx1 = (cx0 + cx1) / 2 - fw / 2, (cx0 + cx1) / 2 + fw / 2
+    fy0, fy1 = (cy0 + cy1) / 2 - fh / 2, (cy0 + cy1) / 2 + fh / 2
+    tray = _bbox(("p", max(polys, key=lambda q: _bbox(("p", q))[2] - _bbox(("p", q))[0])))
+    tray_outline = max(polys, key=lambda q: _bbox(("p", q))[2] - _bbox(("p", q))[0])
+    under = [c for c in [("p", q) for q in polys if q is not cut[0] and q is not tray_outline]
+             + [("c",) + c for c in circles if c not in screws]
+             if _bbox(c)[0] < fx1 and fx0 < _bbox(c)[2] and _bbox(c)[1] < fy1 and fy0 < _bbox(c)[3]
+             and _bbox(c)[2] - _bbox(c)[0] < 200]
+    ok(len(screws) == 2 and outside and not under and tray[0] <= fx0 and fx1 <= tray[2] and tray[1] <= fy0 and fy1 <= tray[3],
+       f"inlet: cut-out {cx1 - cx0:.2f} x {cy1 - cy0:.2f} mm, flange screws {IEC_SCREW_PITCH:.0f} mm apart across its "
+       f"{IEC_CUT[0]} side and outside the cut-out, and the {fw:.2f} x {fh:.2f} flange on the tray with no other cut under it")
+    covered["back_column_lower"].append("inlet cut-out, flange screws and flange footprint")
+    tp, tc, _ = read_part(os.path.join(ROOT, "test_cuts", "test_04_inlet.dxf"))
+    ok(len(tc) == 2 and abs(math.hypot(tc[0][0] - tc[1][0], tc[0][1] - tc[1][1]) - IEC_SCREW_PITCH) < 0.01
+       and abs(tc[0][1] - tc[1][1]) < 0.01,
+       "test_04_inlet: the same two flange holes, across the cut-out's short side")
+
+
+def bom_rows():
+    import csv
+    with open(os.path.join(ROOT, "bom.csv")) as f:
+        return list(csv.DictReader(f))
+
+
+def bom_checks(ok, covered):
+    """Quantities in bom.csv against the holes and parts in the drawings."""
+    rows = bom_rows()
+
+    def qty(part, spec=None, note=None):
+        hits = [r for r in rows if r["part"] == part and (spec is None or spec in r["spec"]) and (note is None or note in r["notes"])]
+        return sum(int(r["qty"]) for r in hits) if hits else -1
+
+    def count(name, d):
+        _, circles, _ = _placed(name)
+        return sum(1 for c in circles if abs(2 * c[2] - d) < 0.01)
+
+    def slots(name, w):
+        polys, _, _ = _placed(name)
+        return sum(1 for q in polys if abs((max(p[0] for p in q) - min(p[0] for p in q)) - w) < 0.01 and len(q) > 4)
+
+    panel_slots = sum(slots(f"rail-{r}-front-{e}", SCREW_SLOT[0]) for r in RAILS for e in ("lower", "upper"))
+    blocks = sum(len(v) for v in block_centres().values())
+    tray_psu = count("back-column-lower", M3_HOLE) - len(IEC_SCREWS) - len(block_centres()["back-column-lower"]) \
+        + sum(1 for q in _placed("back-column-lower")[0] if len(q) > 4 and abs(max(p[1] for p in q) - min(p[1] for p in q) - M3_HOLE) < 0.01)
+    n_sheets = len([f for f in os.listdir(os.path.join(ROOT, "sheets")) if f.endswith(".dxf")])
+    want = [
+        ("M4 x 10 pan head screw", None, None, panel_slots, "panel screws, one per rail slot"),
+        ("M3 x 10 self-tapping screw", None, "Back cover", blocks, "back cover screws, one per screw block"),
+        ("M3 x 16 screw with nut", None, None, len(CARD_HOLES), "card screws"),
+        ("M2.5 x 16 screw with nut", None, None, count("back-column-upper", M2_5_HOLE), "Pi screws"),
+        ("M3 x 6 screw", None, None, tray_psu, "supply screws, one per hole and slot in the power tray"),
+        ("M2.5 x 6 screw", None, None, count("display-bracket", M2_5_HOLE), "screen standoff screws"),
+        ("M3 x 10 self-tapping screw", None, "bracket", count("display-bracket", M3_HOLE), "bracket screws into the posts"),
+        ("M3 x 12 screw with nut and washer", None, None, len(IEC_SCREWS), "inlet flange screws"),
+        ("LED matrix panel", None, None, len(PANEL_CENTRES), "panels"),
+        ("HUB75 ribbon", None, None, len(PANEL_CENTRES), "ribbons, one per panel"),
+        ("Panel power cable", None, None, len(PANEL_CENTRES) + 1, "power cables, the panels' and the card's"),
+        ("Adafruit 4991", None, None, len(KNOBS), "encoder breakouts"),
+        ("Rotary encoder with push switch", None, None, len(KNOBS), "encoders"),
+        ("Knob", None, None, len(KNOBS), "knobs"),
+        ("STEMMA QT cable", None, None, len(KNOBS) - 1, "cables between the breakouts"),
+        ("Birch plywood", None, None, n_sheets + 2, "sheets: the box's, one for the test cuts, one spare"),
+    ]
+    bad = [f"{part}: {qty(part, s_, n_)} in bom.csv, {w} {what}" for part, s_, n_, w, what in want if qty(part, s_, n_) != w]
+    ok(not bad, f"bom.csv: {len(want)} quantities match the drawings ({panel_slots} panel screws, {blocks} back cover "
+       f"screws, {tray_psu} supply screws, {n_sheets + 2} sheets)" + (": " + "; ".join(bad) if bad else ""))
+    for name in ("screw_block", "back_column_lower", "display_bracket", "back_column_upper", "back_display_middle") + \
+            tuple(fname(f"rail-{r}-front-{e}") for r in RAILS for e in ("lower", "upper")):
+        covered[name].append("hole count against bom.csv")
+
+
+def svg_checks(ok, covered):
+    """Each part's SVG carries the same cuts as its DXF, at the same size."""
+    import re
+    bad = []
+    for p in all_parts():
+        polys, circles, _ = read_part(os.path.join(ROOT, "parts", f"{p.name}.dxf"))
+        svg = open(os.path.join(ROOT, "parts", f"{p.name}.svg")).read()
+        w, h = p.size()
+        m = re.search(r'width="([\d.]+)mm" height="([\d.]+)mm"', svg)
+        if (svg.count("<polygon") != len(polys) or svg.count("<circle") != len(circles) or not m
+                or abs(float(m.group(1)) - w) > 0.01 or abs(float(m.group(2)) - h) > 0.01):
+            bad.append(p.name)
+        covered[p.name].append("SVG same as DXF")
+    ok(not bad, f"every part's SVG has its DXF's cuts at its DXF's size, in millimetres" + (": " + ", ".join(bad) if bad else ""))
+
+
 def check():
     import ezdxf
     from ezdxf import bbox as ebbox
+    from collections import defaultdict
     bad = []
+    covered = defaultdict(list)
     def ok(cond, msg):
         print(("ok    " if cond else "FAIL  ") + msg)
         if not cond:
             bad.append(msg)
 
     files = sorted(f for f in os.listdir(os.path.join(ROOT, "parts")) if f.endswith(".dxf"))
+    fails = 0
     for f in files:
         doc = ezdxf.readfile(os.path.join(ROOT, "parts", f))
         auditor = doc.audit()
         b = ebbox.extents(doc.modelspace())
         w, h = b.size.x, b.size.y
         fits = (w <= BED[0] and h <= BED[1]) or (h <= BED[0] and w <= BED[1])
-        if auditor.has_errors or not fits:
-            ok(False, f"{f}: {w:.1f} x {h:.1f} mm, audit errors {len(auditor.errors)}")
-    ok(True, f"{len(files)} part DXFs open, pass ezdxf's audit and fit a {BED[0]:.0f} x {BED[1]:.0f} bed")
+        mm = doc.header.get("$INSUNITS") == 4
+        if auditor.has_errors or not fits or not mm:
+            fails += 1
+            ok(False, f"{f}: {w:.1f} x {h:.1f} mm, audit errors {len(auditor.errors)}, units mm {mm}")
+        covered[f[:-4]].append("ezdxf audit, millimetres, fits the bed")
+    ok(not fails, f"{len(files)} part DXFs open, pass ezdxf's audit, are in millimetres and fit a {BED[0]:.0f} x {BED[1]:.0f} bed")
 
     sheets = sorted(f for f in os.listdir(os.path.join(ROOT, "sheets")) if f.endswith(".dxf"))
     for f in sheets:
@@ -1073,8 +1487,21 @@ def check():
     boxes["screen ribbon"] = (DISPLAY_FFC[0] - 13, DISPLAY_FFC[1] - 6, post_back, DISPLAY_FFC[0] + 13, DISPLAY_FFC[1] + 6, post_back + 15)
     boxes["supply, panels"] = (PSU[0], PSU[1], D_WALL_BACK - 30.0, PSU[2], PSU[3], D_WALL_BACK)
     boxes["supply, Pi and card"] = (PSU_PI[0], PSU_PI[1], D_WALL_BACK - 30.0, PSU_PI[2], PSU_PI[3], D_WALL_BACK)
+    # room past each supply's terminal end for the forks and the turn of the wires
+    boxes["wiring, panel supply"] = (PSU[0], PSU[1] - WIRE_ROOM, D_WALL_BACK - 30.0, PSU[2], PSU[1], D_WALL_BACK)
+    boxes["wiring, Pi supply"] = (PSU_PI_TERMINALS[0], PSU_PI[1] - WIRE_ROOM, D_WALL_BACK - 30.0,
+                                  PSU_PI_TERMINALS[1], PSU_PI[1], D_WALL_BACK)
     cx, cy = IEC_CENTRE
-    boxes["inlet"] = (cx - IEC_CUT[0] / 2, cy - IEC_CUT[1] / 2, D_WALL_BACK - 35.0, cx + IEC_CUT[0] / 2, cy + IEC_CUT[1] / 2, D_WALL_BACK)
+    back_face = D_WALL_BACK + T
+    boxes["inlet"] = (cx - IEC_CUT[0] / 2, cy - IEC_CUT[1] / 2, back_face - IEC_DEPTH, cx + IEC_CUT[0] / 2, cy + IEC_CUT[1] / 2, D_WALL_BACK)
+    # its spade terminals and their wires, forward of the body
+    boxes["inlet's spades"] = (cx - IEC_CUT[0] / 2, cy - IEC_CUT[1] / 2, back_face - IEC_DEPTH - 12.0,
+                               cx + IEC_CUT[0] / 2, cy + IEC_CUT[1] / 2, back_face - IEC_DEPTH)
+    for i, (x, y) in enumerate(IEC_SCREWS):
+        boxes[f"inlet flange nut {i}"] = (x - 3.5, y - 3.5, D_WALL_BACK - 4.0, x + 3.5, y + 3.5, D_WALL_BACK)
+    # the Pi's power: a right-angle USB-C plug on the pigtail
+    ux, uy = PI_USB_C
+    boxes["Pi's USB-C plug"] = (ux, uy - 6.0, board_face - 1.6 - 10.0, ux + 15.0, uy + 6.0, board_face - 1.6)
     boxes["splice left"] = (LEFT_WALL[1], WALL_SPLIT - 30, 10, LEFT_WALL[1] + T, WALL_SPLIT + 30, 50)
     boxes["splice divider"] = (DIVIDER[1], WALL_SPLIT - 30, 10, DIVIDER[1] + T, WALL_SPLIT + 30, 50)
     boxes["splice right"] = (RIGHT_WALL[0] - T, WALL_SPLIT - 30, 10, RIGHT_WALL[0], WALL_SPLIT + 30, 50)
@@ -1086,6 +1513,97 @@ def check():
             if all(overlaps(a[k], a[k + 3], b[k], b[k + 3]) for k in range(3)):
                 hits.append(f"{names[i]} / {names[j]}")
     ok(not hits, f"{len(names)} bodies inside the box, no two in the same place" + (": " + ", ".join(hits) if hits else ""))
+
+    for n in ("top", "bottom", "left-upper", "left-lower", "column-upper", "column-lower"):
+        covered[fname(f"bezel-outer-{n}")].append("aperture against two panels each way")
+    covered["bezel_outer_column_upper"] += ["knob bores 45 mm apart", "screen window = viewing area, centred"]
+    covered["display_bracket"].append("standoff holes 49 × 58")
+    covered["back_display_middle"].append("the 5A-75B's four holes")
+    covered["back_column_upper"].append("the Pi 5's 49 × 58")
+    for r in RAILS:
+        for layer in RAIL_SPLITS:
+            for e in ("lower", "upper"):
+                covered[fname(f"rail-{r}-{layer}-{e}")].append("screw slots and pin holes against the panel drawing")
+    for e in ("lower", "upper"):
+        covered[fname(f"wall-left-{e}")].append("length between the top and bottom walls")
+    in_layout = {
+        "rail": [p.name for p in all_parts() if p.name.startswith("rail_")],
+        "wall": ["wall_top", "wall_bottom"] + [fname(f"{k}-{e}") for k in ("wall-left", "divider", "wall-right") for e in ("lower", "upper")],
+        "stiffener": ["stiffener_display_1", "stiffener_display_2", "stiffener_column"],
+        "block": ["screw_block"] + [p.name for p in all_parts() if p.name.startswith("back_")],
+        "card": ["back_display_middle", "ring_card"], "Pi": ["back_column_upper", "ring_pi"],
+        "knob": ["bezel_outer_column_upper", "bezel_inner_column_1"], "screen": ["bezel_inner_column_1"],
+        "screen post": ["display_post"], "screen bracket": ["display_bracket"],
+        "supply": ["back_column_lower"], "inlet": ["back_column_lower"], "splice": ["splice"],
+    }
+    for key, parts_ in in_layout.items():
+        if any(n.startswith(key) for n in names):
+            for n in parts_:
+                covered[n].append("3D layout: no overlap")
+
+    # Rings: two under each of the card's and the Pi's screws, bored for them.
+    rc = read_part(os.path.join(ROOT, "parts", "ring_card.dxf"))[1]
+    rp = read_part(os.path.join(ROOT, "parts", "ring_pi.dxf"))[1]
+    qty_ = {p.name: p.qty for p in all_parts()}
+    ok(qty_["ring_card"] == RING_LAYERS * len(CARD_HOLES) and qty_["ring_pi"] == RING_LAYERS * len(PI_HOLES)
+       and abs(2 * min(c[2] for c in rc) - M3_HOLE) < 0.01 and abs(2 * min(c[2] for c in rp) - M2_5_HOLE) < 0.01
+       and RING_LAYERS * T + 1.6 + 2.4 + T <= 16.0,
+       f"rings: {qty_['ring_card']} for the card bored {M3_HOLE} and {qty_['ring_pi']} for the Pi bored {M2_5_HOLE}, "
+       f"{RING_LAYERS} under each screw; back, rings, board and nut take {RING_LAYERS * T + 1.6 + 2.4 + T:.1f} of a 16 mm screw")
+    covered["ring_card"].append("count and bore against the card's screws")
+    covered["ring_pi"].append("count and bore against the Pi's screws")
+
+    # Cradles: the box drops into the notch, and the front lip stays below the LEDs.
+    cp = read_part(os.path.join(ROOT, "parts", "cradle.dxf"))[0][0]
+    ys = sorted({round(q[1], 2) for q in cp})
+    floor = sorted(q[0] for q in cp if abs(q[1] - 15.0) < 0.01)
+    notch = max(floor[i + 1] - floor[i] for i in range(len(floor) - 1))
+    lip_front = max(q[1] for q in cp if q[0] < floor[0] + 0.01) - 15.0
+    ok(D_WALL_BACK + T < notch < D_WALL_BACK + T + 1.0 and lip_front < Y_T - AP_Y,
+       f"cradle: notch {notch:.1f} mm for a box {D_WALL_BACK + T:.0f} deep; front lip {lip_front:.0f} mm, "
+       f"under the {Y_T - AP_Y:.2f} mm of face below the LEDs")
+    covered["cradle"].append("notch against the box's depth, lip below the LEDs")
+
+    # Test cuts: the same holes as the parts they stand for.
+    kp_, kc_, _ = read_part(os.path.join(ROOT, "test_cuts", "test_01_kerf_comb.dxf"))
+    widths = sorted(round(max(q[0] for q in r) - min(q[0] for q in r), 2) for r in kp_[1:])
+    t2 = read_part(os.path.join(ROOT, "test_cuts", "test_02_knob_and_display.dxf"))[1]
+    st = sorted((round(c[0], 2), round(c[1], 2)) for c in t2 if abs(2 * c[2] - M2_5_HOLE) < 0.01)
+    t3p, t3c, _ = read_part(os.path.join(ROOT, "test_cuts", "test_03_panel_rail.dxf"))
+    ok(widths == [round(T + d, 2) for d in (-0.2, -0.1, 0.0, 0.1, 0.2)]
+       and any(abs(2 * c[2] - KNOB_BORE) < 0.01 for c in t2) and len(st) == 4
+       and abs(st[2][0] - st[0][0] - 49.0) < 0.01 and abs(st[1][1] - st[0][1] - 58.0) < 0.01
+       and len(t3p) - 1 == 4 and len(t3c) == 2,
+       f"test cuts: comb {widths[0]}..{widths[-1]} mm, a {KNOB_BORE} knob bore and the screen's 49 x 58, "
+       f"one panel side's 4 slots and 2 pin holes")
+
+    # The knobs' lead: from k2's breakout over the top of the screen, down behind
+    # it and its bracket to the header's pin 1. Its length has to cover that and
+    # leave slack for the plugs and the bends.
+    k2x, k2y = KNOBS["k2"]
+    top = _dy + DISPLAY[1] / 2
+    behind = post_back + T + 3.0
+    route = ((k2y - top - 2.0) + (behind - 12.0) + (top + 2.0 - PI_PIN1[1])
+             + abs(PI_PIN1[0] - (k2x - 12.7)) + (board_face - 1.6 - 8.5 - 4.0 - behind))
+    ok(KNOB_LEAD >= route + 40.0, f"knob lead: k2 to the Pi's pin 1 is {route:.0f} mm round the screen; "
+       f"the lead is {KNOB_LEAD:.0f}, {KNOB_LEAD - route:.0f} to spare")
+    covered["display-bracket"].append("bracket, posts, ribbon and lead in the 3D layout")
+
+    geometry_checks(ok, covered)
+    joint_checks(ok, covered)
+    inlet_checks(ok, covered)
+    bom_checks(ok, covered)
+    svg_checks(ok, covered)
+
+    if "--parts" in sys.argv:
+        print()
+        print("| Part | Pieces | Size (mm) | Holes | Thinnest web (mm) | Checked against |")
+        print("| :--- | ---: | :--- | ---: | ---: | :--- |")
+        for p in all_parts():
+            g = PART_GEOMETRY.get(p.name, {})
+            w, h = p.size()
+            print(f"| `{p.name}` | {p.qty} | {w:.1f} × {h:.1f} | {g.get('holes', 0)} | "
+                  f"{g.get('web', float('nan')):.1f} | {'; '.join(dict.fromkeys(covered[p.name]))} |")
     print()
     print("all checks pass" if not bad else f"{len(bad)} check(s) failed")
     return not bad

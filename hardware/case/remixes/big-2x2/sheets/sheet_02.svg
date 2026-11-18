@@ -73,8 +73,11 @@
 <polygon points="440.00,24.33 439.85,23.57 439.41,22.92 438.76,22.49 438.00,22.33 437.24,22.49 436.59,22.92 436.15,23.57 436.00,24.33 436.00,44.33 436.15,45.10 436.59,45.75 437.24,46.18 438.00,46.33 438.76,46.18 439.41,45.75 439.85,45.10 440.00,44.33" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="466.00,69.33 526.00,69.33 526.00,29.33 466.00,29.33" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="530.00,69.33 544.00,69.33 544.00,55.33 530.00,55.33" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="537.00" cy="62.33" r="1.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="548.00,69.33 562.00,69.33 562.00,55.33 548.00,55.33" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="555.00" cy="62.33" r="1.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <polygon points="566.00,69.33 580.00,69.33 580.00,55.33 566.00,55.33" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="573.00" cy="62.33" r="1.25" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <circle cx="588.50" cy="64.83" r="4.50" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <circle cx="588.50" cy="64.83" r="1.70" fill="none" stroke="#ff0000" stroke-width="0.1"/>
 <circle cx="591.50" cy="293.00" r="3.00" fill="none" stroke="#ff0000" stroke-width="0.1"/>

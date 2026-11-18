@@ -36,7 +36,7 @@ rail_right_back_upper,7
 rail_right_front_lower,7
 rail_right_front_upper,7
 ring_card,2 3 4 5 5 5 5 5
-ring_pi,2 3 4 5 5 6 6 6
+ring_pi,2 3 5 5 6 6 6 6
 screw_block,2 2 2 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7 7
 splice,1 1 2
 stiffener_column,4

@@ -505,7 +505,7 @@ $SPLINESEGS
   9
 $HANDSEED
   5
-83
+86
   9
 $SURFTAB1
  70
@@ -1485,7 +1485,7 @@ ACAD
   0
 APPID
   5
-80
+83
 330
 3
 100
@@ -1499,7 +1499,7 @@ HATCHBACKGROUNDCOLOR
   0
 APPID
   5
-81
+84
 330
 3
 100
@@ -6983,9 +6983,29 @@ AcDbPolyline
  20
 244.667
   0
-LWPOLYLINE
+CIRCLE
   5
 7A
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+537.0
+ 20
+237.667
+ 30
+0.0
+ 40
+1.25
+  0
+LWPOLYLINE
+  5
+7B
 330
 17
 100
@@ -7015,9 +7035,29 @@ AcDbPolyline
  20
 244.667
   0
+CIRCLE
+  5
+7C
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+555.0
+ 20
+237.667
+ 30
+0.0
+ 40
+1.25
+  0
 LWPOLYLINE
   5
-7B
+7D
 330
 17
 100
@@ -7049,7 +7089,27 @@ AcDbPolyline
   0
 CIRCLE
   5
-7C
+7E
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+573.0
+ 20
+237.667
+ 30
+0.0
+ 40
+1.25
+  0
+CIRCLE
+  5
+7F
 330
 17
 100
@@ -7069,7 +7129,7 @@ AcDbCircle
   0
 CIRCLE
   5
-7D
+80
 330
 17
 100
@@ -7089,7 +7149,7 @@ AcDbCircle
   0
 CIRCLE
   5
-7E
+81
 330
 17
 100
@@ -7109,7 +7169,7 @@ AcDbCircle
   0
 CIRCLE
   5
-7F
+82
 330
 17
 100
@@ -8117,7 +8177,7 @@ CREATED_BY_EZDXF
   3
 WRITTEN_BY_EZDXF
 350
-82
+85
   0
 DICTIONARYVAR
   5
@@ -8133,7 +8193,7 @@ DictionaryVariables
   0
 DICTIONARYVAR
   5
-82
+85
 330
 2D
 100
