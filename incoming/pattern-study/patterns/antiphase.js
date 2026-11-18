@@ -12,14 +12,14 @@
 // @knobs Hue=0..1, Size=0..3, Edge=-1..1, Tone=0.06..1
 //
 // Knob 1: Hue. The colour of the triangle and of the lit half, one colour.
-// Knob 2: Size. How wide the triangle's base is, from 20 LEDs at 0 to 38 at 3, and it is a quarter taller than wide; the knob's 2 is 32 wide and 40 tall.
+// Knob 2: Size. How wide the triangle's base is, from 18 LEDs at 0 to 44 at 3, and it is a quarter taller than wide; the knob's 2 is 36 wide and 46 tall.
 // Knob 3: Edge. Where the edge of the lit half is. At -1 it is at the left of the triangle with a gap, and turning up it moves right. At -0.417 it touches the triangle's lower left corner and the knob holds there for three clicks. It cuts the triangle down, the left part a hole and the right part lit, and at 0.417 it is one LED right of the triangle's lower right corner and the hole has a rim all round, held for three clicks again. It opens at 0, nine clicks from both.
 // Knob 4: Tone. How far the lit half is dimmer than the triangle. At 0.06 they are the same brightness and the triangle is a black hole where it is over the lit half; at 1 the lit half is half as bright and the triangle cannot be seen over it at all.
 
 const W = 64;
 const H = 128;
-const CX = 38;
-const CY = 62;
+const CX = 34;
+const CY = 66;
 // The triangle's brightness, and the lit half's when the knob has not moved. Under half so a dim LED is not pushed to white.
 const LEVEL = 0.44;
 // The third knob turns 48 clicks across its range of 2. The edge touches the triangle at click 14 and stands one LED past it at click 34, and holds the click either side of each.
@@ -55,9 +55,9 @@ function advance(u, travel) {
 export function setup(params) {
   params.t = 0;
   params.col = [255, 120, 0];
-  params.base = 32;
-  params.tall = 40;
-  params.edge = 54;
+  params.base = 36;
+  params.tall = 46;
+  params.edge = 52;
   params.lit = LEVEL;
   params.gain = 1;
 }
@@ -68,7 +68,7 @@ export function update(dt, input, params) {
   // A hue of 0 is red, and a dim red is brown; the colour starts a long way round the wheel, on magenta.
   hsv(k[0] + 0.83, 0.85, 1, params.col);
   // The base and the height are even so the corners fall between two LEDs; the height is a quarter more than the base.
-  params.base = 2 * Math.round((20 + 6 * k[1]) / 2);
+  params.base = 2 * Math.round((18 + 8.5 * k[1]) / 2);
   params.tall = 2 * Math.round((params.base * 1.25) / 2);
   // The lit half lies left of the edge. The edge touches the lower left corner first and moves right through the triangle.
   const left = CX - params.base / 2;

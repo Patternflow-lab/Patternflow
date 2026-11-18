@@ -19,7 +19,7 @@
 const W = 64;
 const H = 128;
 const CX = W / 2;
-const CY = 84;
+const CY = 48;
 // The rectangle's brightness, and the lit half's when the knob has not moved. Under half so a dim LED is not pushed to white.
 const LEVEL = 0.44;
 // The third knob turns 48 clicks across its range of 2. The edge touches the rectangle at click 14 and stands one LED past it at click 34, and holds the click either side of each.
