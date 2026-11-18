@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. The colour of the frame, all the way round the wheel from yellow.
 // Knob 2: Size. How big the frame is, 50 LEDs wide and 75 tall at 1, 56 by 84 where it opens at 2, and 62 by 93 at 3. The sides are 10 LEDs thick whatever the size.
-// Knob 3: Close. How far the sides have drawn back from the corners, counted in clicks; turn it up and they come back. Where it opens, 0, each side stops 19 LEDs short of the corner and the four bars stand well apart. The corners shut nine clicks on: every gap closes on the same click, the four bars become one frame with a notch at each corner, and the knob holds for three clicks. Seven clicks after that the notches have gone, the frame is whole and the knob holds again, three clicks to the top end.
-// Knob 4: Slide. How far each side has slid along its edge, all the same way round the frame, up to 5 LEDs. At its bottom, where it opens, the four bars are centred on their sides. Turned up, the corners close earlier on the Close knob and the notches go earlier, and at the top both happen together.
+// Knob 3: Close. How far the sides have drawn back from the corners, counted in clicks; turn it up and they come back. Where it opens, 0, each side stops 20 LEDs short of the corner and the four bars stand well apart. With Slide at its bottom the corners shut nine clicks on: every gap closes on the same click, the four bars become one frame with a notch at each corner, and the knob holds for three clicks. Seven clicks after that the notches have gone, the frame is whole and the knob holds again, three clicks to the top end. The eight clicks before each hold move every side more than a LED.
+// Knob 4: Slide. How far each side has slid along its edge, all the same way round the frame, up to 10 LEDs, one thickness. At its bottom, where it opens, the four bars are centred on their sides. Turned up to 5 LEDs the corners shut later on the Close knob and the notches go earlier, until both happen on the same click; turned further the notches go first and the corners shut last, and at the top the knob holds twice, where the notches go and where the corners shut.
 
 const W = 64;
 const H = 128;
@@ -55,16 +55,19 @@ function span(lo, hi, p) {
 function plan(slide, P) {
   const shut = slide <= THICK / 2 ? THICK - Math.max(slide, 1) : THICK / 2;
   const whole = slide;
-  const hi = Math.max(shut, whole);
   const lo = Math.min(shut, whole);
-  const gap = hi - lo;
+  const gap = Math.max(shut, whole) - lo;
   const n = gap < 0.8 ? 0 : Math.max(1, Math.ceil(gap / 1.3));
+  // Two meetings less than a LED apart are one: the knob holds once, where the second comes.
+  const hi = n > 0 ? lo + gap : lo;
   const first = n > 0 ? 44 - n : 46;
+  // Where Close opens the sides stand R_OPEN back; if the first meeting is far up the knob (a big slide), a click or two below the eight before it, the sides keep moving at 0.4 LEDs a click so the knob has no dead clicks.
+  const open = Math.max(R_OPEN, hi + 9.8 + (first - 8 - OPEN) * 0.4);
   let c = 0;
   P.qs[c] = 0;
-  P.rs[c++] = P.wide;
+  P.rs[c++] = Math.max(P.end, open + 0.5);
   P.qs[c] = OPEN;
-  P.rs[c++] = R_OPEN;
+  P.rs[c++] = open;
   P.qs[c] = first - 8;
   P.rs[c++] = hi + 9.8;
   P.qs[c] = first - 1;
@@ -112,7 +115,7 @@ export function setup(params) {
   params.t = 0;
   params.col = new Float32Array(3);
   params.cov = new Float32Array(W * H);
-  params.P = { qs: new Float32Array(12), rs: new Float32Array(12), count: 0, wide: 22 };
+  params.P = { qs: new Float32Array(12), rs: new Float32Array(12), count: 0, end: 22 };
 }
 
 export function update(dt, input, params) {
@@ -128,7 +131,7 @@ export function update(dt, input, params) {
   const y1 = CY + tall / 2;
   const slide = SLIDE_MAX * clamp((k[3] - 0.06) / 0.94, 0, 1);
   const P = params.P;
-  P.wide = wide / 2 - 3;
+  P.end = wide / 2 - 3;
   plan(slide, P);
   const back = backAt(P, clamp(k[2], -OPEN, 48 - OPEN) + OPEN);
   // A side never slides past its corner, so where it has not drawn back as far as it has slid the slide is the draw back.

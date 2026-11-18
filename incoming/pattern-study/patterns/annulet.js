@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the ring, all the way round the wheel from green.
 // Knob 2: Size. How big the ring is, 25.5 LEDs in outside radius at 1, 28.5 where it opens at 2 and 31.5 at 3, where it just fits between the side walls. The ring is 12 LEDs thick whatever the size.
-// Knob 3: Close. How wide the four gaps are, counted in clicks; turn it up and they narrow. Where it opens, 0, each gap is 12 LEDs wide along the middle of the ring and the four arcs are two thirds of the way round between them. Ten clicks on the gaps have shut: each arc has grown back to the next, the ring is whole, and the knob holds for three clicks to the top end. The eight clicks before that each shut the gaps by more than a LED.
+// Knob 3: Close. How wide the four gaps are, counted in clicks; turn it up and they narrow. Where it opens, 0, each gap is 12 LEDs wide along the middle of the ring and each arc covers two thirds of its quarter of the ring. Ten clicks on the gaps have shut: each arc has grown back to the next, the ring is whole, and the knob holds for three clicks to the top end. The eight clicks before that each shut the gaps by more than a LED.
 // Knob 4: Turn. How far the four gaps have turned round the ring, up to an eighth of a turn. At its bottom, where it opens, the arcs end straight up, down, left and right; at the top they end on the diagonals.
 
 const W = 64;
