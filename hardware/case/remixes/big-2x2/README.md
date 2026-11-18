@@ -3,11 +3,11 @@ License: CC-BY-SA-4.0
 Based on: original design, with what [patternflood](https://github.com/jof/patternflood) by Jonathan Lassoff (CC BY-SA 4.0) worked out for its own 2 × 2: the Raspberry Pi and Colorlight controller, the panels held from behind, the knobs, the web remote the screen shows, and the inlet cut-out  
 Fits: a Raspberry Pi 5, a Colorlight 5A-75B receiving card and four 320 × 160 mm, 128 × 64 P2.5 panels with the hole pattern on page 6 of [Simone's drawing](../simonepda-lasercut/lasercut_layout.pdf). No Patternflow board  
 Material: 3 mm birch plywood, laser cut. Every part fits a 480 × 270 mm bed; the nested sheets are 600 × 300 mm  
-Verified: not built yet. Drawn 2026-11-07, and `source/big_2x2.py --check` measures the DXFs against the panel drawing, the card's and the Pi's hole positions and the supplies' datasheets
+Verified: not built yet. Drawn 2026-11-07 and checked 2026-11-18: `source/big_2x2.py --check` reads every DXF back and measures it against the panel drawing, the card's, the Pi's and the screen's holes, the supplies, the inlet, the other parts and `bom.csv` (Checks, below)
 
 # 2 × 2
 
-Four of the standard panels, two across and two down, make a display of 320 × 640 mm and 128 × 256 LEDs. That is a Patternflow twice over in both directions. It stands upright like the printed case: the panels on the left, and on the right a column with four knobs and a 5-inch touch screen at the top and two mains supplies below them. A Raspberry Pi 5 draws the frames and sends them over Ethernet to a Colorlight 5A-75B, a receiving card made for LED walls, which drives the four panels. The box is 458 × 668 × 65 mm, cut from eight sheets of 3 mm birch plywood.
+Four of the standard panels, two across and two down, make a display of 320 × 640 mm and 128 × 256 LEDs. That is a Patternflow twice over in both directions. It stands upright like the printed case: the panels on the left, and on the right a column with four knobs and a 5-inch touch screen at the top and two mains supplies below them. A Raspberry Pi 5 draws the frames and sends them over Ethernet to a Colorlight 5A-75B, a receiving card made for LED walls, which drives the four panels. The box is 458 × 668 × 65 mm, cut from seven sheets of 3 mm birch plywood.
 
 <img src="preview/front.png" alt="Front view of the 2 × 2 box: four dark panels in a plywood frame, the Colorlight card behind the centre with a ribbon to each panel, the rails behind the panels dashed, and in the column on the right the knobs, the touch screen, the Pi behind it, two supplies and the inlet" width="70%">
 
@@ -59,18 +59,18 @@ Two other routes stay open and are not drawn. The card's stock firmware, set up 
 | Colorlight 5A-75B | about 0.8 A (patternflood) | the same LRS-50-5 |
 | Touch Display 2, 5-inch | 0.3 A (1.4 W, Raspberry Pi's brief) | the same LRS-50-5, through the Pi's pin 2 |
 
-The Pi and the card have a supply of their own. Four white panels can ask for more than 22 A, and on a shared rail that dip would reach the Pi, which throttles and can reset when its 5 V sags. On its own supply, nothing the panels do reaches it. The big supply still needs the renderer's per-frame power cap, set from the bench test's measurement to keep the four panels under 20 A; its overload protection is the backstop. Both supplies run from 85 to 264 VAC with no selector switch, and both fit the 109 mm column.
+The Pi and the card have a supply of their own. Four white panels can ask for more than 22 A, and on a shared rail that dip would reach the Pi, which throttles and can reset when its 5 V sags. On its own supply, nothing the panels do reaches it. The big supply still needs the renderer's per-frame power cap, set from the bench test's measurement to keep the four panels under 20 A; its overload protection is the backstop. Both supplies run from 85 to 264 VAC with no selector switch, and both fit the 109 mm column. Each stands with its terminals down and 20 mm clear under them, for the forks and the turn of the wires: the small supply above the big one, the inlet under it.
 
-Mains comes in through an IEC C14 inlet with a rocker switch and a 5 × 20 mm fuse, the AC-14-F16A that patternflood uses (cut-out 46.75 × 27.25 mm, flange screws 40 mm apart). The two supplies draw 2.3 A together at 230 V and 4 A at 115 V (their datasheets, typical), and their cold-start inrush is 60 A and 45 A. Fit a time-delay fuse: T4A on 220 to 240 V mains, T6.3A on 100 to 120 V.
+Mains comes in through an IEC C14 inlet with a rocker switch and a 5 × 20 mm fuse, the AC-14-F16A that patternflood uses. Its cut-out is 46.75 × 27.25 mm, and its two flange screws are 40 mm apart across the short side, in the lobes of the flange. Along the long side they would land inside the opening. The two supplies draw 2.3 A together at 230 V and 4 A at 115 V (their datasheets, typical), and their cold-start inrush is 60 A and 45 A. Fit a time-delay fuse: T4A on 220 to 240 V mains, T6.3A on 100 to 120 V.
 
 | Run | Wire | Longest | Why that size |
 | :--- | :--- | :--- | :--- |
 | Inlet to the big supply, and on to the small one: L, N, earth | 18 AWG (0.75 mm²), rated 300 V, insulated spades and forks | 20 cm | mains |
-| Big supply to each panel | 16 AWG (1.3 mm²), or the cable the panel ships with where it reaches | 50 cm, to P3 | 6 A; 1 m of loop drops 79 mV |
+| Big supply to each panel | 16 AWG (1.3 mm²), or the cables the panels ship with if all four reach | 50 cm each, what P3 needs | 6 A; 1 m of loop drops 79 mV |
 | Small supply to the card's 4-pin input | a spare panel power cable | 50 cm | 2.7 A, the Pi's and the screen's included |
 | Card's 5 V terminal to the Pi | 5 V to USB-C pigtail, 20 AWG | 20 cm | the Pi |
 
-The big supply has two +V and two −V screws, and each takes the forks of two panels: P0 and P1 on one pair, P2 and P3 on the other. The small supply's one pair feeds the card's 4-pin input, and the card passes 5 V on to the Pi from its screw terminal, as in patternflood. The pigtail does no USB-PD, so set `PSU_MAX_CURRENT=5000` with `sudo rpi-eeprom-config -e`, or the Pi warns about its supply and limits its USB ports. Trim the small supply to 5.15 V with its SVR1 so the Pi sees at least 5.0 V. The two supplies share a ground through the ribbons' ground wires; no panel current takes that path, because each panel returns its current on its own lead.
+The big supply has two +V and two −V screws, and each takes the forks of two panels: P0 and P1 on one pair, P2 and P3 on the other. The small supply's one pair feeds the card's 4-pin input, and the card passes 5 V on to the Pi from its screw terminal, as in patternflood. Give the pigtail a right-angle plug: the Pi's power socket faces the right wall 26 mm away. It does no USB-PD, so set `PSU_MAX_CURRENT=5000` with `sudo rpi-eeprom-config -e`, or the Pi warns about its supply and limits its USB ports. Trim the small supply to 5.15 V with its SVR1 so the Pi sees at least 5.0 V. The two supplies share a ground through the ribbons' ground wires. Cut the four panel leads to one length, the 50 cm that P3 needs, so the four panels' grounds sit at the same voltage and no panel current takes that path.
 
 This box has mains inside it. The supplies' L and N screws are bare, so cover them: heatshrink over the forks and a boot over each terminal block. Earth the inlet to both supplies' FG terminals. If mains wiring is new to you, have someone who knows it check the power tray before the first switch-on.
 
@@ -78,7 +78,7 @@ This box has mains inside it. The supplies' L and N screws are bare, so cover th
 
 Every part is 3 mm plywood. The face is two layers glued together. The outer layer is what you see; the inner layer has a mortise for every wall's front tab, so the outer layer hides all the joints. Their seams are staggered, and the outer layer's seams sit where the display has its own: across the middle, and at the column's corners. Behind the face, the walls and the divider stand 56 mm deep, inset 3 mm, so the face and the back overhang them by a small lip.
 
-Three vertical rails run between the top and bottom walls, 14 mm behind the face, on the panels' screw faces. Each rail is two layers glued with their cuts 200 mm apart, so the glued rail is one piece 662 mm long; its end tabs go through the top and bottom walls. Three stiffeners across the back carry the back cover's joints. The back comes off in five pieces, held by 32 M3 screws into blocks glued inside.
+Three vertical rails run between the top and bottom walls, 14 mm behind the face, on the panels' screw faces. Each rail is two layers glued with their cuts 200 mm apart, so the glued rail is one piece 662 mm long; its end tabs go through the top and bottom walls. Three stiffeners across the back carry the back cover's joints. The back comes off in five pieces, held by 32 M3 screws into blocks glued inside, each with a 2.5 mm pilot hole.
 
 Three of the back pieces carry the electronics, each on its inside face. The middle display piece holds the card, behind the centre of the panels, on two 3 mm rings per screw. The column's upper piece holds the Pi, on end with its ports up, behind the screen. The column's lower piece is the power tray, with the inlet and both supplies, so the mains wiring lives on one piece and is done flat on a bench. Lifting a piece off means unplugging its board's cables at the board. Vents in the top and bottom walls and in those three pieces let the box breathe like a chimney.
 
@@ -93,13 +93,13 @@ Three of the back pieces carry the electronics, each on its inside face. The mid
 | `back_*` | 5 | The back cover, with vents. `back_display_middle` carries the card, `back_column_upper` the Pi, `back_column_lower` is the power tray |
 | `ring_card`, `ring_pi` | 16 | Spacer rings, two under each of the card's and the Pi's screws |
 | `display_bracket` | 1 | Screws to the screen's four standoffs and to its two posts, and holds the glass against the face; a notch clears its ribbon and power sockets |
-| `display_post` | 8 | Two posts of four layers, glued into the column's corners beside the screen |
-| `screw_block` | 96 | 32 blocks of three squares |
+| `display_post` | 8 | Two posts of four layers, glued into the column's corners beside the screen, with pilot holes for the bracket's screws |
+| `screw_block` | 96 | 32 blocks of three squares, a pilot hole through each |
 | `cradle` | 6 | Two cradles of three profiles; the box stands in them |
 
-<img src="preview/cuts.png" alt="The eight 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, the card's and the Pi's holes, rails with slots, the face strips, cradles, spacer rings and the small screw-block squares" width="100%">
+<img src="preview/cuts.png" alt="The seven 600 × 300 mm sheets, drawn from the sheet DXFs: walls with vents and mortises, back cover pieces with screw holes, the card's and the Pi's holes, rails with slots, the face strips, cradles, spacer rings and the small screw-block squares" width="100%">
 
-The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every file comes twice, as DXF and as SVG at 1:1 in millimetres, for cutters that take one and not the other. Every line is a cut: on one layer named `CUT` in the DXFs, a red hairline in the SVGs.
+The sheets in `sheets/` nest everything onto seven 600 × 300 mm sheets, and `sheets/manifest.csv` says which part is on which. A smaller bed takes the single parts in `parts/` instead; none is bigger than 480 × 270 mm. Every file comes twice, as DXF and as SVG at 1:1 in millimetres, for cutters that take one and not the other. Every line is a cut: on one layer named `CUT` in the DXFs, a red hairline in the SVGs. Each file shows its part as seen from the front of the box, so the face up on the laser bed is the front of a face strip and the inside of a back piece, the side the card, the Pi and the supplies go on.
 
 ### Test cuts
 
@@ -108,9 +108,9 @@ The sheets in `sheets/` nest everything onto eight 600 × 300 mm sheets, and `sh
 1. `test_01_kerf_comb`: five slots from T − 0.2 to T + 0.2 mm, narrow end at the small hole. Push a strip of the same sheet into each. If T is not the slot that fits snugly, measure the sheet and change `T` in `source/big_2x2.py`.
 2. `test_02_knob_and_display`: a 7.3 mm knob bore, and the four holes of the screen's bracket. An encoder's bushing should go in without forcing, and the screen's standoffs should sit on the four holes. Raspberry Pi calls its drawing approximate, so check the screen's outline against the face's pocket too.
 3. `test_03_panel_rail`: one long side of a panel, with its four screw slots and its pin holes. Screw it to a real panel. If the holes miss, change `PANEL_SCREWS` and `PANEL_PINS`; the rails follow.
-4. `test_04_inlet`: the inlet cut-out and its two flange holes.
+4. `test_04_inlet`: the inlet cut-out and its two flange holes, across its short side. Push the inlet in and both screws should find their holes.
 
-Print `parts/back_display_middle.svg` and `parts/back_column_upper.svg` at 1:1 and hold the card and the Pi against them before cutting the back. Their holes come from patternflood's scan of a v8.2 card and from the Pi 5's drawing.
+Print `parts/back_display_middle.svg`, `parts/back_column_upper.svg` and `parts/back_column_lower.svg` at 1:1 and hold the card, the Pi and both supplies against them before cutting the back. The card's holes come from patternflood's scan of a v8.2 card, the Pi's from the Pi 5's drawing, and the LRS-50-5's from Mean Well's own model of it.
 
 ### Order of assembly
 
@@ -118,16 +118,16 @@ Print `parts/back_display_middle.svg` and `parts/back_column_upper.svg` at 1:1 a
 2. Glue the inner face layer onto the outer one, face down on a flat table.
 3. Fit the top and bottom walls, with the three rails' end tabs through them, and the left wall, the divider and the right wall between them, all into the inner layer's mortises. Glue the splices across the long walls' cuts.
 4. Fit the stiffeners into the left wall, the divider and the right wall.
-5. Glue the screw blocks. Screw each block loosely to its back cover piece, set the piece in place, and glue the blocks to the walls and stiffeners where they land.
+5. Glue each block's three squares with an M3 screw through their pilot holes to line them up. Screw each block loosely to its back cover piece, set the piece in place, and glue the blocks to the walls and stiffeners where they land.
 6. Seat the panels from the front, one at a time, with their power cables and ribbons plugged in first or reached through the gaps between the rails. Screw them on from behind.
 7. Fit the knobs from the front, chain the 4991s and run their cable toward the Pi's corner. Glue the screen's two posts into the column's corners, set the screen face down into its pocket, and screw the bracket to its standoffs and to the posts.
 8. Build the power tray on the bench: inlet, both supplies, mains wiring, covers on the terminals.
 9. Screw the card to the middle back piece and the Pi to the column's upper piece, each on its rings. Plug in the ribbons, the Ethernet cable, the power, the knob lead and the screen's ribbon and power lead, and screw the pieces on.
-10. Glue three profiles per cradle and stand the box in the two cradles, one under each end of the display.
+10. Glue three profiles per cradle and stand the box in the two cradles, about 140 mm either side of the display's centre. There they clear the heads of the back's bottom screws, which the cradles' back lips would otherwise sit on.
 
 ## Knobs and the touch screen
 
-The four knobs are EC11 encoders on Adafruit 4991 I²C breakouts, as in patternflood, 45 mm apart so the breakouts clear each other. The encoder is the standard build's PEC11R-4220F-S0024, so the 24 detents and the printed knobs in [`knobs/`](../../knobs/) are the same as on any Patternflow. Each bushing clamps the outer 3 mm layer alone; the inner layer is pocketed 35 mm square round it. Set the breakouts' address jumpers to 0x37, 0x38, 0x39 and 0x3A for k0 (top left), k1 (top right), k2 (bottom left) and k3 (bottom right). They chain on STEMMA QT cables, and the last one goes to the Pi's 3V3, SDA, SCL and ground on pins 1, 3, 5 and 9. Never 5 V: each breakout pulls SDA and SCL up to its own supply, and the Pi's pins are not 5 V tolerant.
+The four knobs are EC11 encoders on Adafruit 4991 I²C breakouts, as in patternflood, 45 mm apart so the breakouts clear each other. The encoder is the standard build's PEC11R-4220F-S0024, so the 24 detents and the printed knobs in [`knobs/`](../../knobs/) are the same as on any Patternflow. Each bushing clamps the outer 3 mm layer alone; the inner layer is pocketed 35 mm square round it. Set the breakouts' address jumpers to 0x37, 0x38, 0x39 and 0x3A for k0 (top right), k1 (top left), k2 (bottom left) and k3 (bottom right). patternflood's renderer gives k0 to k3 to a pattern as its parameters 0 to 3, and a Patternflow has those on K1, top right, K2, top left, K4, bottom left, and K3, bottom right, so a pattern's knobs sit where they sit on any Patternflow. patternflood's own knob toys want k0 on the left; for those, swap the first two jumpers. The breakouts chain on STEMMA QT cables, and the last one, k2, goes to the Pi's 3V3, SDA, SCL and ground on pins 1, 3, 5 and 9. That lead runs over the top of the screen and down behind it, about 160 mm, so the 150 mm Adafruit 4397 ends in four 10 cm jumpers onto the header. Never 5 V: each breakout pulls SDA and SCL up to its own supply, and the Pi's pins are not 5 V tolerant.
 
 Below them is a Raspberry Pi Touch Display 2, the 5-inch one: 720 × 1280, portrait like the column, capacitive five-finger touch, 40 USD. Its glass sits in a pocket in the inner face layer, behind a window in the outer one cut to its viewing area, and a bracket screwed to its four M2.5 standoffs and to two posts in the column's corners holds it there. Its ribbon goes to the Pi's DSI port, the narrow 22-way end at the Pi, and its power lead to the Pi's 5 V and ground on pins 2 and 6. That is why the knobs' ground is on pin 9.
 
@@ -154,15 +154,35 @@ What a Patternflow board brings and this box does not: the `.pfm` modules the Pa
 
 ## Parts to buy
 
-[`bom.csv`](bom.csv) lists every part with where to get it. The 2 × 2 needs four panels and their ribbons, the Pi 5 with its cooler and card, the Colorlight 5A-75B and a JTAG probe to flash it once, a patch cable and a USB-C pigtail, four 4991 breakouts with their encoders, cables and the printed knobs, the 5-inch Touch Display 2, the two supplies, the inlet with its fuse and cord, about 5 m of wire, ten sheets of plywood (eight for the box, one for the test cuts, one spare), PVA glue, and screws. The prices in it come from the build guide and from patternflood's list of 2026-10-30; the big supply, the probe, the encoders, the ribbons, the fuse, the wire and the screws are not priced.
+[`bom.csv`](bom.csv) lists every part with where to get it. The 2 × 2 needs four panels and their ribbons, the Pi 5 with its cooler and card, the Colorlight 5A-75B and a JTAG probe to flash it once, a patch cable and a USB-C pigtail, four 4991 breakouts with their encoders, cables, four jumper wires and the printed knobs, the 5-inch Touch Display 2, the two supplies, the inlet with its fuse and cord, about 5 m of wire, nine sheets of plywood (seven for the box, one for the test cuts, one spare), PVA glue, and screws. The prices in it come from the build guide and from patternflood's list of 2026-10-30; the big supply, the probe, the encoders, the ribbons, the fuse, the wire and the screws are not priced.
+
+## Checks
+
+`python3 source/big_2x2.py --check` reads every DXF back and measures it. It ends with `all checks pass`, or with what failed.
+
+| What | Measured against | Result |
+| :--- | :--- | :--- |
+| Rails | Page 6 of Simone's drawing: twelve M4 blind nuts, two 3.48 mm pins standing 4 mm proud, a body 159.8 × 319.8 × 14.0 mm | Each rail's slots and pin holes land on eight of the nuts and on the pins |
+| Aperture | Two panels each way | 320.5 × 640.5 mm, 0.35 mm clear a side |
+| Joints | Each tab against its mortise, both read from the DXFs | The walls into the face, the walls and rails through the top and bottom walls, the stiffeners into the walls |
+| Cuts | Every part | Closed outlines, every hole inside its part, no two cuts closer than 1.5 mm (the thinnest is a Pi spacer ring, 1.6 mm) |
+| Sheets | All 172 pieces | Seven 600 × 300 mm sheets, 4 mm between parts, none bigger than 480 × 270 |
+| Boards | The card's holes from patternflood's scan, the Pi 5's 49 × 58, the screen's 49 × 58 standoffs | On their holes |
+| Inside | 79 bodies in 3D, among them the room under each supply's terminals, the inlet's body and spades, the Pi's USB-C plug and the screen's ribbon | No two in the same place |
+| Inlet | The AC-14-F16A as patternflood measured it | Flange screws across the short side, no other cut under the flange |
+| Knob lead | k2 to the Pi's pin 1, round the screen | 162 mm, against a 250 mm lead |
+| `bom.csv` | The holes and parts in the drawings | 16 quantities match, screws and sheets among them |
+| SVGs | Each part's DXF | The same cuts at the same size |
+
+Two sets of holes have no model here to check against: the LRS-150F-5's four base holes, from Mean Well's datasheet, and the Touch Display 2's standoffs, from Raspberry Pi's brief. The printed power tray and test cut 2 check them against the real parts.
 
 ## Files
 
 | Path | What |
 | :--- | :--- |
-| [`source/big_2x2.py`](source/big_2x2.py) | Draws every file below from the numbers at its top. `--check` reads the DXFs back and measures them; `--render` draws `preview/cuts.png` from the sheet DXFs. Needs `ezdxf` (and `matplotlib` for `--render`) |
+| [`source/big_2x2.py`](source/big_2x2.py) | Draws every file below from the numbers at its top. `--check` reads the DXFs back and measures them, and `--check --parts` adds a table of what each part was measured against; `--render` draws `preview/cuts.png` from the sheet DXFs. Needs `ezdxf` (and `matplotlib` for `--render`) |
 | [`parts/`](parts/) | One DXF and one SVG per part, and `manifest.csv` with each part's size and count |
-| [`sheets/`](sheets/) | Eight nested 600 × 300 mm sheets as DXF and SVG, and `manifest.csv` |
+| [`sheets/`](sheets/) | Seven nested 600 × 300 mm sheets as DXF and SVG, and `manifest.csv` |
 | [`test_cuts/`](test_cuts/) | The four test pieces, singly and on one sheet, as DXF and SVG |
 | [`preview/`](preview/) | Front view, wiring and the sheets, as SVG and PNG |
 | [`bom.csv`](bom.csv) | What to buy |

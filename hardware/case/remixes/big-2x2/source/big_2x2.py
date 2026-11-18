@@ -3,6 +3,7 @@
 
     python3 big_2x2.py            write parts/, sheets/, test_cuts/, preview/*.svg
     python3 big_2x2.py --check    read every DXF back and measure it
+    python3 big_2x2.py --check --parts    and print what each part was measured against
     python3 big_2x2.py --render   draw preview/cuts.png from the sheet DXFs (matplotlib)
 
 Needs ezdxf (pip install ezdxf). Change a number, run it again, and every file
@@ -684,40 +685,65 @@ def svg_shapes(placed, stroke="#d0021b", sw=0.35, fill="none", flip_h=None):
 
 
 def nest(parts, sheet=SHEET, gap=GAP):
-    """Shelf packing, tallest first. Returns sheets of (part name, shapes, dx, dy)."""
+    """MaxRects packing, longest part first, each part on the earliest sheet with
+    room, turned if that fits better. Every part keeps gap to the next and to the
+    sheet's edge. Returns sheets of (part name, shapes, dx, dy)."""
     items = []
     for p in parts:
         base = to_origin(p)
         w, h = p.size()
-        for i in range(p.qty):
-            sh, sw_, hh = base, w, h
-            # Lie long parts along the sheet's long side.
-            if hh > sw_ and hh <= sheet[0] - 2 * gap and sw_ <= sheet[1] - 2 * gap:
-                sh, sw_, hh = rotate90(base, h), h, w
-            items.append((p.name, sh, sw_, hh))
-    items.sort(key=lambda it: (-it[3], -it[2]))
-    sheets = []
-    for name, sh, w, h in items:
-        placed = False
-        for s in sheets:
-            for shelf in s["shelves"]:
-                if h <= shelf["h"] and shelf["x"] + w <= sheet[0] - gap:
-                    s["items"].append((name, sh, shelf["x"], shelf["y"]))
-                    shelf["x"] += w + gap
-                    placed = True
-                    break
-            if placed:
+        items += [(p.name, base, w, h)] * p.qty
+    items.sort(key=lambda it: (-max(it[2], it[3]), -it[2] * it[3], it[0]))
+    sheets = []                      # each: {"free": [(x, y, w, h)], "items": [...]}
+
+    def fits(free, w, h):
+        best = None
+        for fx, fy, fw, fh in free:
+            if w <= fw + 1e-9 and h <= fh + 1e-9:
+                score = (min(fw - w, fh - h), max(fw - w, fh - h), fy, fx)
+                if best is None or score < best[0]:
+                    best = (score, fx, fy)
+        return best
+
+    def place(free, x, y, w, h):
+        out = []
+        for fx, fy, fw, fh in free:
+            if x >= fx + fw or x + w <= fx or y >= fy + fh or y + h <= fy:
+                out.append((fx, fy, fw, fh))
+                continue
+            if x > fx:
+                out.append((fx, fy, x - fx, fh))
+            if x + w < fx + fw:
+                out.append((x + w, fy, fx + fw - x - w, fh))
+            if y > fy:
+                out.append((fx, fy, fw, y - fy))
+            if y + h < fy + fh:
+                out.append((fx, y + h, fw, fy + fh - y - h))
+        out = [r for r in out if r[2] > 1e-9 and r[3] > 1e-9]
+        keep = []
+        for i, a in enumerate(out):
+            inside = any(j != i and b[0] <= a[0] and b[1] <= a[1] and a[0] + a[2] <= b[0] + b[2] and
+                         a[1] + a[3] <= b[1] + b[3] and (b != a or j < i) for j, b in enumerate(out))
+            if not inside:
+                keep.append(a)
+        return keep
+
+    for name, base, w, h in items:
+        for s in sheets + [None]:
+            if s is None:
+                s = {"free": [(gap, gap, sheet[0] - gap, sheet[1] - gap)], "items": []}
+                sheets.append(s)
+            options = []
+            for turned, (ww, hh) in ((False, (w, h)), (True, (h, w))):
+                f = fits(s["free"], ww + gap, hh + gap)
+                if f:
+                    options.append((f[0], turned, f[1], f[2], ww, hh))
+            if options:
+                _, turned, x, y, ww, hh = min(options)
+                sh = rotate90(base, h) if turned else base
+                s["items"].append((name, sh, round(x, 3), round(y, 3)))
+                s["free"] = place(s["free"], x, y, ww + gap, hh + gap)
                 break
-            if s["y"] + h <= sheet[1] - gap:
-                shelf = {"y": s["y"], "h": h, "x": gap + w + gap}
-                s["shelves"].append(shelf)
-                s["items"].append((name, sh, gap, s["y"]))
-                s["y"] += h + gap
-                placed = True
-                break
-        if not placed:
-            s = {"shelves": [{"y": gap, "h": h, "x": gap + w + gap}], "items": [(name, sh, gap, gap)], "y": gap + h + gap}
-            sheets.append(s)
     return [s["items"] for s in sheets]
 
 
@@ -739,10 +765,14 @@ def write_all():
     # Test cuts on one small sheet.
     tsize = (400.0, 360.0)
     tsheets = nest(tests, sheet=tsize)
+    assert len(tsheets) == 1, "the test cuts no longer fit one sheet"
     placed = [(sh, dx, dy) for _, sh, dx, dy in tsheets[0]]
     write_dxf(os.path.join(ROOT, "test_cuts", "all_test_cuts.dxf"), placed)
     write_svg(os.path.join(ROOT, "test_cuts", "all_test_cuts.svg"), placed, *tsize)
     sheets = nest(parts)
+    for f in os.listdir(os.path.join(ROOT, "sheets")):
+        if f.startswith("sheet_"):
+            os.remove(os.path.join(ROOT, "sheets", f))
     for i, items in enumerate(sheets, 1):
         placed = [(sh, dx, dy) for _, sh, dx, dy in items]
         write_dxf(os.path.join(ROOT, "sheets", f"sheet_{i:02d}.dxf"), placed)
@@ -815,16 +845,21 @@ def write_front_svg():
             "P2": (hdr[6], (-80.0, -130.0)), "P1": (hdr[7], (80.0, -130.0))}
     for (hx, hy), (px, py) in ends.values():
         o.append(f'<line x1="{X(hx):.1f}" y1="{Y(hy):.1f}" x2="{X(px):.1f}" y2="{Y(py):.1f}" stroke="#f5a623" stroke-width="2.2" stroke-dasharray="7 4" marker-end="url(#ar)"/>')
-    # Column: knobs, buttons, the Pi behind them, the supplies and the inlet.
-    o.append(f'<rect x="{X(PI_ORIGIN[0]):.1f}" y="{Y(PI_ORIGIN[1] + PI[1]):.1f}" width="{PI[0]}" height="{PI[1]}" fill="none" stroke="#c2185b" stroke-width="1" stroke-dasharray="4 3"/>')
-    o.append(f'<text x="{X(PI_ORIGIN[0] + PI[0] / 2):.1f}" y="{Y(PI_ORIGIN[1] + 30):.1f}" font-size="9" fill="#c2185b" text-anchor="middle">Pi 5</text>')
+    # Column: knobs, the screen, the Pi behind it, the supplies and the inlet.
     for box, label in ((PSU, "LRS-150F-5"), (PSU_PI, "LRS-50-5")):
         x0, y0, x1, y1 = box
         o.append(f'<rect x="{X(x0):.1f}" y="{Y(y1):.1f}" width="{x1 - x0}" height="{y1 - y0}" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>')
         o.append(f'<text x="{X((x0 + x1) / 2):.1f}" y="{Y((y0 + y1) / 2):.1f}" font-size="9" fill="#9013fe" text-anchor="middle">{label}</text>')
     cx, cy = IEC_CENTRE
     o.append(f'<rect x="{X(cx - IEC_CUT[0] / 2):.1f}" y="{Y(cy + IEC_CUT[1] / 2):.1f}" width="{IEC_CUT[0]}" height="{IEC_CUT[1]}" fill="none" stroke="#9013fe" stroke-width="1" stroke-dasharray="4 3"/>')
-    o.append(f'<text x="{X(cx):.1f}" y="{Y(cy - IEC_CUT[1] / 2 - 6):.1f}" font-size="8" fill="#9013fe" text-anchor="middle">inlet (back)</text>')
+    # its flange on the outside of the back, lobed across the short side where the screws are
+    hw_, hh_ = IEC_CUT[0] / 2, IEC_FLANGE[1] / 2
+    fl = [(-hw_, -hh_), (-IEC_FLANGE[0] / 2, 0), (-hw_, hh_), (hw_, hh_), (IEC_FLANGE[0] / 2, 0), (hw_, -hh_)]
+    pts = " ".join(f"{X(cx + u):.1f},{Y(cy + v):.1f}" for u, v in fl)
+    o.append(f'<polygon points="{pts}" fill="none" stroke="#9013fe" stroke-width="0.6"/>')
+    for x, y in IEC_SCREWS:
+        o.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="1.7" fill="#9013fe"/>')
+    o.append(f'<text x="{X(cx):.1f}" y="{Y(cy + IEC_FLANGE[1] / 2) - 3:.1f}" font-size="8" fill="#9013fe" text-anchor="middle">inlet (back)</text>')
     for name, (x, y) in KNOBS.items():
         o.append(f'<circle cx="{X(x):.1f}" cy="{Y(y):.1f}" r="10" fill="#1d1d1d"/>')
         o.append(f'<text x="{X(x):.1f}" y="{Y(y) + 3:.1f}" font-size="8" fill="#fff" text-anchor="middle">{name}</text>')
@@ -835,6 +870,9 @@ def write_front_svg():
         o.append(f'<rect x="{X(_dx - vw / 2 + 6):.1f}" y="{Y(yy):.1f}" width="{vw - 12}" height="15" rx="3" fill="#24406b"/>')
         o.append(f'<text x="{X(_dx):.1f}" y="{Y(yy) + 10.5:.1f}" font-size="8" fill="#dfe8f5" text-anchor="middle">{t}</text>')
     o.append(f'<text x="{X(_dx):.1f}" y="{Y(_dy - vh / 2) + 12:.1f}" font-size="7" fill="#333" text-anchor="middle">5-inch touch screen</text>')
+    # the Pi behind the screen, dashed over it
+    o.append(f'<rect x="{X(PI_ORIGIN[0]):.1f}" y="{Y(PI_ORIGIN[1] + PI[1]):.1f}" width="{PI[0]}" height="{PI[1]}" fill="none" stroke="#e05a8a" stroke-width="1" stroke-dasharray="4 3"/>')
+    o.append(f'<text x="{X(PI_ORIGIN[0] + PI[0] - 3):.1f}" y="{Y(PI_ORIGIN[1]) - 4:.1f}" font-size="8" fill="#e05a8a" text-anchor="end">Pi 5</text>')
     def hdim(x0, x1, y, text):
         o.append(f'<line x1="{X(x0)}" y1="{Y(y)}" x2="{X(x1)}" y2="{Y(y)}" stroke="#555" stroke-width="0.6"/>')
         for x in (x0, x1):
@@ -906,7 +944,7 @@ def write_wiring_svg():
     wire([(480, 335), (560, 335)], "#c77700", w=2.2)
     label(486, 328, "18 AWG, 4-pin", "#c77700")
     wire([(600, 380), (600, 400)], "#c77700", w=1.6)
-    label(606, 395, "USB-C pigtail", "#c77700", 9)
+    label(606, 395, "USB-C pigtail, right-angle", "#c77700", 9)
     wire([(690, 380), (690, 400)], "#1565c0", w=2, dash="4 2")
     label(696, 395, "Ethernet", "#1565c0", 9)
     for i in range(4):
@@ -1086,6 +1124,7 @@ def geometry_checks(ok, covered):
        f"closer than {MIN_WEB} mm (thinnest {thin[0]:.2f} mm, {thin[1]})" + (": " + "; ".join(bad) if bad else ""))
 
     bad = []
+    pieces = 0
     for f in sorted(x for x in os.listdir(os.path.join(ROOT, "sheets")) if x.endswith(".dxf")):
         polys, circles, open_ = read_part(os.path.join(ROOT, "sheets", f))
         boxes = [_bbox(("p", q)) for q in polys]
@@ -1094,13 +1133,20 @@ def geometry_checks(ok, covered):
                     if not any(j != i and boxes[j][0] <= boxes[i][0] and boxes[j][1] <= boxes[i][1] and
                                boxes[j][2] >= boxes[i][2] and boxes[j][3] >= boxes[i][3] and _inside(q[0], polys[j])
                                for j in range(len(polys)))]
-        for i in range(len(outlines)):
-            for j in range(i + 1, len(outlines)):
-                if _gap(("p", outlines[i]), ("p", outlines[j]), GAP) < GAP - 0.5:
+        loose = [c for c in circles
+                 if not any(_inside((c[0], c[1]), q) for q in polys)
+                 and not any(d[2] > c[2] and math.hypot(c[0] - d[0], c[1] - d[1]) < d[2] for d in circles)]
+        pieces += len(outlines) + len(loose)
+        cuts_ = [("p", q) for q in outlines] + [("c",) + c for c in loose]
+        for i in range(len(cuts_)):
+            for j in range(i + 1, len(cuts_)):
+                if _gap(cuts_[i], cuts_[j], GAP) < GAP - 0.5:
                     bad.append(f)
         if open_:
             bad.append(f + " (open polylines)")
-    ok(not bad, f"sheets: no part closer than {GAP - 0.5:.1f} mm to the next" + (": " + ", ".join(sorted(set(bad))) if bad else ""))
+    want = sum(p.qty for p in all_parts())
+    ok(not bad and pieces == want, f"sheets: all {pieces} of the {want} pieces, none closer than {GAP - 0.5:.1f} mm to the next"
+       + (": " + ", ".join(sorted(set(bad))) if bad else ""))
 
 
 def _placed(name):
