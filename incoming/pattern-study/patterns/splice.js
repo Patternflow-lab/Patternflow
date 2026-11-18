@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of both lines, all the way round the wheel from mint.
 // Knob 2: Width. The width of both lines, 10 LEDs at 0 to 22 LEDs at 3; its 2 is 18 LEDs. They stay 96 LEDs long.
 // Knob 3: Overlap. How bright the strip the two lines share is, counted in clicks from where it opens. A line alone is lit at half strength. At the bottom of the knob the strip is dark and two thinner lines are left with a slit between them. At the top it is the two lights added, twice as bright as a line. It opens with the strip a little over half as bright again as a line. Twelve clicks down it is exactly as bright as a line, the two edges inside are gone and the pair is one wider line, and the knob holds that picture for three clicks. The first click past it either way moves the strip by a fifth of a line's light, so the edges are back at once.
-// Knob 4: Apart. How far apart the two lines stand. Where it opens, a third of each line's width lies under the other, 6 LEDs of 18. Turned up, the lines draw apart until the strip is a ninth of a width.
+// Knob 4: Apart. How far apart the two lines stand. Where it opens, a third of each line's width lies under the other, 6 LEDs of 18. Turned up, the lines draw apart until the strip is one LED wide.
 
 const W = 64;
 const H = 128;
@@ -79,8 +79,8 @@ export function update(dt, input, params) {
   params.t += dt;
   const t = params.t;
   const width = 10 + 4 * clamp(k[1], 0, 3);
-  // The second line stands two thirds of a width to the right where the knob opens, so a third of each lies under the other, and eight ninths of a width at the top of the knob.
-  const dx = width * (2 / 3 + ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (2 / 9));
+  // The second line stands two thirds of a width to the right where the knob opens, so a third of each lies under the other, and one LED short of a whole width at the top of the knob.
+  const dx = (2 * width) / 3 + ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (width / 3 - 1);
   params.width = width;
   params.ax = CX - (width + dx) / 2;
   params.bx = params.ax + dx;
@@ -88,7 +88,7 @@ export function update(dt, input, params) {
   params.extra = shared(clamp(k[2], LOW, HIGH)) - 2;
   // Nothing on the panel moves on the clock. Its light swells and falls, both lines and the strip together, so the panel is never quite still. A line is lit at half of that, which leaves room for two.
   const light = 0.88 + 0.12 * Math.sin(t * 0.63 - 0.1);
-  hsv(k[0] + 0.44, 0.7, 0.5 * light, params.c);
+  hsv(k[0] + 0.44, 0.66, 0.5 * light, params.c);
 }
 
 export function draw(display, params, time) {

@@ -9,11 +9,11 @@
 // Round:   168
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..3, Overlap=-14..34, Apart=0..1
+// @knobs Hue=0..1, Size=0..3, Overlap=-20..28, Apart=0..1
 //
 // Knob 1: Hue. The colour of both discs, all the way round the wheel from sky blue.
 // Knob 2: Size. The diameter of both discs, 24 LEDs at 0 to 54 LEDs at 3; its 2 is 44 LEDs.
-// Knob 3: Overlap. How bright the part the two discs share is, counted in clicks from where it opens. A disc alone is lit at half strength. At the bottom of the knob the shared part is dark and two crescents are left. At the top it is the two lights added, twice as bright as a disc. It opens with the shared part about half as bright as a disc. Ten clicks up it is exactly as bright as a disc, the two arcs inside are gone and the pair is one shape, and the knob holds that picture for three clicks. The first click past it either way moves the shared part by a fifth of a disc's light, so the arcs are back at once.
+// Knob 3: Overlap. How bright the part the two discs share is, counted in clicks from where it opens. A disc alone is lit at half strength. At the bottom of the knob the shared part is dark and two crescents are left. At the top it is the two lights added, twice as bright as a disc. It opens with the shared part half as bright as a disc. Twelve clicks up it is exactly as bright as a disc, the two arcs inside are gone and the pair is one shape, and the knob holds that picture for three clicks. The first click past it either way moves the shared part by a fifth of a disc's light, so the arcs are back at once.
 // Knob 4: Apart. How far apart the two middles stand. Where it opens, a third of each disc lies under the other. Turned up, the discs draw apart until the shared part is a thin lens.
 
 const W = 64;
@@ -21,11 +21,11 @@ const H = 128;
 // The pair stands above the middle of the panel, so the bottom of the panel is bare.
 const CX = 32;
 const CY = 54;
-// Knob 3 is counted in clicks and the knob has 48 of them, 14 below where it opens and 34 above. Clicks 10, 11 and 12 are the picture with no arcs inside.
-const LOW = -14;
-const HIGH = 34;
-const HOLD = 10;
-const HOLD_END = 12;
+// Knob 3 is counted in clicks and the knob has 48 of them, 20 below where it opens and 28 above. Clicks 12, 13 and 14 are the picture with no arcs inside.
+const LOW = -20;
+const HIGH = 28;
+const HOLD = 12;
+const HOLD_END = 14;
 // One click either side of that picture the shared part is this much of a disc's light brighter or darker. At the dimmest of the breath that is 21 of the 255 steps an LED has, and five steps, an even share of the knob, left the arcs too faint to see.
 const STEP = 0.22;
 // Middles this many diameters apart put exactly a third of each disc under the other.
