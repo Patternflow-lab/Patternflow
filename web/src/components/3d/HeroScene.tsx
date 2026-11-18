@@ -290,6 +290,9 @@ function ProductPreview({
   // Whether the device on the stage has power this frame: a light model
   // standing there is lit, or dark, as the full one would be.
   const stageLit = useRef(true);
+  // Whether a light model has been painted lit since the frame loop last
+  // looked: one on the shelf, or on its way to or from it (paintLight).
+  const lightLit = useRef(false);
   // Where the view is centred, in the group's own frame; eased like the rest.
   const focus = useRef(FRAME_CENTRE.clone());
   const lift = useRef(0);
@@ -392,6 +395,7 @@ function ProductPreview({
   // shelf has power, and one on the stage has it when the step does.
   const paintLight = useCallback((light: PreparedLight, onStage: boolean) => {
     const lit = onStage ? stageLit.current : true;
+    if (lit) lightLit.current = true;
     const demo = useAppStore.getState().homeTab === 'build' && light.model.demo === 'obra';
     const panels = lightPanels.of(light.model.ledGrid ?? LED_GRID);
     const target = !lit ? blackMat : demo ? panels.demo : activePatternId === 'custom' ? panels.custom : panels.pattern;
@@ -535,10 +539,20 @@ function ProductPreview({
     const caseDemo = homeTab === 'build' && deviceRef.current?.model.demo === 'obra';
     // ...and so does its light model, on the shelf or standing in.
     const lightDemo = homeTab === 'build' && handoff.current.demoShown;
+    const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
+    // A panel on screen shows the pattern: the stage's, on a step that has it
+    // lit, or a light model's off the stage, which always is.
+    const panelLit = pose.lit || shelfOpen || lightLit.current;
+    lightLit.current = false;
 
     // The pattern on the panel.
     if (caseDemo) {
       // Drawn below, once the step says the panel is lit.
+    } else if (!panelLit) {
+      // Not run on the three Build steps that show the panel dark, with no
+      // light model lit: the editor's code drew all 8192 pixels and uploaded
+      // them every frame for a panel painted black. What the knobs were
+      // turned meanwhile reaches it as one delta when a panel comes back on.
     } else if (activePatternId === 'custom') {
       ledMatrix.render(delta, t, knobValues, prevKnobValues.current);
       prevKnobValues.current = { ...knobValues };
@@ -566,7 +580,6 @@ function ProductPreview({
     // With less motion asked for, a Build step is a cut to its pose, as the
     // shelf's moves are (CaseShelf.tsx).
     const kView = still ? 1 : ease(0.05, delta);
-    const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
     stageLit.current = pose.lit;
     // The case's own demo, drawn once a frame for whichever is showing it.
     if ((caseDemo && pose.lit) || lightDemo) obra.render(delta, knobValues, prevKnobValues.current);
