@@ -136,6 +136,14 @@ const MESH_TO_KNOB: Record<string, KnobId> = {
 const KNOB_LIGHT_IDLE: [number, number, number] = [0.55, 0.5, 0.42];
 const KNOB_LIGHT_GAIN = 6;
 
+/**
+ * How near and how far the wheel or a pinch takes the camera, from the 11.2
+ * it rests at. Unbounded, it went through the front of the case and out of
+ * the back, or off until the device was a dot.
+ */
+const ZOOM_NEAREST = 5;
+const ZOOM_FARTHEST = 24;
+
 /** Where the preview looks: OrbitControls' target, and where the device is centred. */
 const TARGET = new THREE.Vector3(0, 1.7, 0);
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
@@ -982,6 +990,8 @@ export default function HeroScene({ tab }: { tab?: HomeTabType }) {
           target={[0, 1.7, 0]}
           enablePan={false}
           enableZoom={!shelfOpen}
+          minDistance={ZOOM_NEAREST}
+          maxDistance={ZOOM_FARTHEST}
           enableRotate={!isDraggingKnob && !shelfOpen}
         />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
