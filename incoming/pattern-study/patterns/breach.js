@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Breach
 // Family:  geometry
-// Idea:    A panel lit all over, dimly, with one rectangular hole cut out of it a little above the middle, and the four knobs are the colour, how tall the hole stretches, how wide it has grown and how high it sits: the hole widens until it runs from wall to wall, and the lit panel, one piece until then, is a strip above it and a strip below.
+// Idea:    A panel lit all over, dimly, with one rectangular hole cut out of it in the upper part, and the four knobs are the colour, how tall the hole stretches, how wide it has grown and how high it sits: the hole widens until it runs from wall to wall, and the lit panel, one piece until then, is a strip above it and a strip below.
 // Author:  patternflow-lab
 // Date:    2026-11-18
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the lit panel, all the way round the wheel from pink.
 // Knob 2: Tall. How much taller than wide the hole is, 1 to 1 at 2 (where it opens, a square) to 1 to 1.75 at 4. A hole as wide as the panel and that tall leaves a strip of 8 LEDs above it and below.
 // Knob 3: Hole. How wide the hole is, 43 LEDs where it opens, 2.1 LEDs wider with every click up to 64 LEDs, ten clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole runs from wall to wall, the lit panel is two strips where it was one piece a click before, and the knob holds that for three clicks. Past it the hole is wider than the panel and only grows taller, 2.1 LEDs a click, until it is 6 LEDs from the top and bottom walls.
-// Knob 4: Rise. How high the hole sits, 22 LEDs up at 1 and 22 LEDs down at -0.88; where it opens, 0.06, it is a little above the middle. A tall hole cannot go far: it keeps 6 LEDs from the top and bottom walls.
+// Knob 4: Rise. How high the hole sits, up to 22 LEDs up at 1 and up to 22 LEDs down at -0.88; where it opens, 0.06, it is in the upper part. The hole keeps 6 LEDs from the top and bottom walls, so a bigger hole has less room and the same turn carries it less far.
 
 const W = 64;
 const H = 128;
@@ -42,6 +42,15 @@ function hsv(h, s, v, out) {
 
 function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+// Where the hole's middle is for a Rise of -1 to 1, and a hole this many LEDs from its middle to its top: REST at 0, and carried up or down by up to SHIFT LEDs. It keeps MARGIN LEDs from the top and bottom walls, so the bigger it is the less room it has and the less far the same turn carries it; a hole too tall for the margin stays in the middle.
+function centreFor(rise, half) {
+  const lo = half + MARGIN;
+  const hi = H - half - MARGIN;
+  if (lo > hi) return H / 2;
+  const base = clamp(REST, lo, hi);
+  return rise >= 0 ? base - rise * Math.min(SHIFT, base - lo) : base - rise * Math.min(SHIFT, hi - base);
 }
 
 // How much of the LED between p and p + 1 the span from lo to hi covers.
@@ -80,9 +89,7 @@ export function update(dt, input, params) {
   params.x1 = W / 2 + wide / 2;
   // Rise is -1 to 1 either side of its middle, 0.06.
   const rise = clamp((k[3] - 0.06) / 0.94, -1, 1);
-  const lo = high / 2 + MARGIN;
-  const hi = H - high / 2 - MARGIN;
-  const cy = lo > hi ? H / 2 : clamp(REST - rise * SHIFT, lo, hi);
+  const cy = centreFor(rise, high / 2);
   params.y0 = cy - high / 2;
   params.y1 = cy + high / 2;
   // The hole does not move on the clock. The colour wanders a few degrees and the light swells and falls over the whole panel, so the panel is never quite still. The lit part stays under half strength.

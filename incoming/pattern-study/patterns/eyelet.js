@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Eyelet
 // Family:  geometry
-// Idea:    A panel lit all over, dimly, with one round hole cut out of it in the upper half, and the four knobs are the colour, how tall the hole stretches, how wide it has grown and how high it sits: the hole widens until it is as wide as the panel and touches both walls, and the lit panel, one piece until then, is a top and a bottom.
+// Idea:    A panel lit all over, dimly, with one round hole cut out of it in the middle, and the four knobs are the colour, how tall the hole stretches, how wide it has grown and how high it sits: the hole widens until it is as wide as the panel and touches both walls, and the lit panel, one piece until then, is a top and a bottom.
 // Author:  patternflow-lab
 // Date:    2026-11-18
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -14,12 +14,12 @@
 // Knob 1: Hue. The colour of the lit panel, all the way round the wheel from teal.
 // Knob 2: Tall. How much taller than wide the hole is, 1 to 1 at 2 (where it opens, a circle) to 1 to 2 at 4. At 4, with the hole as wide as the panel, it is as tall as the panel too and touches all four walls.
 // Knob 3: Hole. How wide the hole is, 38.8 LEDs where it opens, 2.1 LEDs wider with every click up to 64 LEDs, twelve clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole is as wide as the panel and touches both walls, the lit panel is a top and a bottom where it was one piece a click before, and the knob holds that for three clicks. Past it the hole grows a click at a time by a LED and a half, off the walls.
-// Knob 4: Rise. How high the hole sits, 22 LEDs up at 1 and 22 LEDs down at -0.88; where it opens, 0.06, it is in the upper half. A tall hole cannot go far: it keeps 6 LEDs from the top and bottom walls until it is as tall as the panel.
+// Knob 4: Rise. How high the hole sits, up to 22 LEDs up at 1 and up to 22 LEDs down at -0.88; where it opens, 0.06, it is in the middle. The hole keeps 6 LEDs from the top and bottom walls, so a bigger hole has less room and the same turn carries it less far, none at all once it is as tall as the panel.
 
 const W = 64;
 const H = 128;
 // Where the hole's middle is when Rise is at its own middle, and how far Rise carries it either way.
-const REST = 52;
+const REST = 64;
 const SHIFT = 22;
 // The hole keeps this far from the top and bottom walls unless it is too tall for that.
 const MARGIN = 6;
@@ -42,6 +42,15 @@ function hsv(h, s, v, out) {
 
 function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+// Where the hole's middle is for a Rise of -1 to 1, and a hole this many LEDs from its middle to its top: REST at 0, and carried up or down by up to SHIFT LEDs. It keeps MARGIN LEDs from the top and bottom walls, so the bigger it is the less room it has and the less far the same turn carries it; a hole too tall for the margin stays in the middle.
+function centreFor(rise, half) {
+  const lo = half + MARGIN;
+  const hi = H - half - MARGIN;
+  if (lo > hi) return H / 2;
+  const base = clamp(REST, lo, hi);
+  return rise >= 0 ? base - rise * Math.min(SHIFT, base - lo) : base - rise * Math.min(SHIFT, hi - base);
 }
 
 // The hole's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 38.8 where it opens, 64 on the three held clicks, 82 at the top. Each click up to the walls moves the hole's edge by 1.05 LEDs.
@@ -70,9 +79,7 @@ export function update(dt, input, params) {
   params.ry = (tall * wide) / 2;
   // Rise is -1 to 1 either side of its middle, 0.06.
   const rise = clamp((k[3] - 0.06) / 0.94, -1, 1);
-  const lo = params.ry + MARGIN;
-  const hi = H - params.ry - MARGIN;
-  params.cy = lo > hi ? H / 2 : clamp(REST - rise * SHIFT, lo, hi);
+  params.cy = centreFor(rise, params.ry);
   // The hole does not move on the clock. The colour wanders a few degrees and the light swells and falls over the whole panel, so the panel is never quite still. The lit part stays under half strength.
   hsv(k[0] + 0.52 + 0.03 * Math.sin(t * 0.43), 0.68, 0.49 * (0.92 + 0.08 * Math.sin(t * 0.61 + 1)), params.col);
 }
