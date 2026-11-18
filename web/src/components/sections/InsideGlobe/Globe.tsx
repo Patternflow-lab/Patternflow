@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -33,6 +33,7 @@ import {
   trackSpin,
   wrapAngle,
 } from './globeMotion';
+import { isLightboxOpen, watchLightbox } from './PhotoLightbox';
 import landData from './land.json';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
@@ -1401,6 +1402,12 @@ function useOnScreen(ref: RefObject<Element | null>): boolean {
   return onScreen;
 }
 
+// Whether a photo is open full-screen over the page (PhotoLightbox). The
+// observer above still reports the globe on screen under it.
+function usePhotoOpen(): boolean {
+  return useSyncExternalStore(watchLightbox, isLightboxOpen, () => false);
+}
+
 export default function Globe(props: GlobeProps) {
   // Held out here, beside the canvas, because a click that misses everything
   // in the scene is reported to the canvas and has to close the group too.
@@ -1410,6 +1417,9 @@ export default function Globe(props: GlobeProps) {
   // drew the globe 60 times a second into a canvas of no size.
   const holderRef = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(holderRef);
+  // It stops behind a photo opened full-screen as well, where it went on
+  // drawing every frame for nobody to see.
+  const photoOpen = usePhotoOpen();
   // The globe fades in over its first frame, where it used to appear at once.
   const [drawn, setDrawn] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -1436,7 +1446,7 @@ export default function Globe(props: GlobeProps) {
     >
       <Canvas
         flat
-        frameloop={onScreen ? 'always' : 'never'}
+        frameloop={onScreen && !photoOpen ? 'always' : 'never'}
         camera={{ position: [0, 0, 5], fov: VFOV_DEG }}
         gl={{ alpha: true, antialias: true }}
         dpr={[1, 2]}
