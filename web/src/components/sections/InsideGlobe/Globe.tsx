@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { ThreeEvent } from '@react-three/fiber';
@@ -33,6 +33,7 @@ import {
   trackSpin,
   wrapAngle,
 } from './globeMotion';
+import { isLightboxOpen, watchLightbox } from './PhotoLightbox';
 import landData from './land.json';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 
@@ -170,6 +171,12 @@ function ContinentShell() {
   );
 }
 
+// The map data is cut where a ring crosses the antimeridian, and Antarctica is
+// closed along the bottom edge of the map. An edge that runs along either is
+// the map's own, not a coast: drawn, it put a straight black line across
+// Chukotka and another from the Ross Ice Shelf to the pole.
+const onMapEdge = (lng: number, lat: number) => Math.abs(lng) === 180 || lat === -90;
+
 // Bold coastlines drawn just above the white land for crisp continent edges.
 function ContinentOutlines() {
   const geometry = useMemo(() => {
@@ -178,6 +185,10 @@ function ContinentOutlines() {
       const count = ring.length / 2;
       for (let i = 0; i < count; i += 1) {
         const next = (i + 1) % count;
+        if (
+          onMapEdge(ring[i * 2], ring[i * 2 + 1]) &&
+          onMapEdge(ring[next * 2], ring[next * 2 + 1])
+        ) continue;
         points.push(...latLngToVec3(ring[i * 2 + 1], ring[i * 2], OUTLINE_RADIUS));
         points.push(...latLngToVec3(ring[next * 2 + 1], ring[next * 2], OUTLINE_RADIUS));
       }
@@ -315,6 +326,10 @@ function LinkLines({ arcs, opacity, grown }: { arcs: number[][]; opacity: number
     nextGeometry.setAttribute('position', new Float32BufferAttribute(points, 3));
     return nextGeometry;
   }, [arcs]);
+
+  // A geometry handed over as a prop is not the fiber's to dispose, so each
+  // change of filter used to leave the last web's buffer on the GPU.
+  useEffect(() => () => geometry.dispose(), [geometry]);
 
   useFrame(() => {
     geometry.setDrawRange(0, grownVertices(arcs.length, ARC_SAMPLES, grown.current));
@@ -608,8 +623,11 @@ function BuildPin({
 
   return (
     <group position={position} quaternion={quaternion}>
-      {/* Large invisible hit-box for both easy hover and click (3.6x sensitivity) */}
+      {/* Large hit-box for both easy hover and click (3.6x sensitivity). Not
+          drawn at all: the raycaster does not ask whether a mesh is visible,
+          and as a see-through material it was a draw call a frame per pin. */}
       <mesh
+        visible={false}
         onPointerDown={(event) => {
           if (!fanClaims(fanRef.current, event)) event.stopPropagation();
         }}
@@ -626,7 +644,7 @@ function BuildPin({
         }}
       >
         <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
 
       {/* Small, precise visible pin */}
@@ -745,6 +763,7 @@ function GroupPin({
     geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(count * 6), 3));
     return geometry;
   }, [count]);
+  useEffect(() => () => hairlines.dispose(), [hairlines]);
 
   const amount = useRef(0);   // 0 closed … 1 fanned out
   // How far the fan is tipped over to keep clear of its neighbours: where it
@@ -841,7 +860,11 @@ function GroupPin({
       positions.setXYZ(i * 2 + 1, member.position.x, member.position.y, member.position.z);
 
       memberHitRefs.current[i]?.scale.setScalar(hitPx / pxPerUnit / (0.35 + 0.65 * now));
-      originRefs.current[i]?.scale.setScalar(now);
+      const origin = originRefs.current[i];
+      if (origin) {
+        origin.scale.setScalar(now);
+        origin.visible = now > 0;
+      }
     }
     positions.needsUpdate = true;
     line.visible = now > 0;
@@ -879,6 +902,17 @@ function GroupPin({
     };
   }, [fanRef]);
 
+  // The pins of the fan are unmounted when the group shuts, and a pin that
+  // goes from under the pointer never reports the pointer leaving. Picking
+  // the selected build again to let it go left the hand cursor on the whole
+  // page until another pin was hovered and left.
+  const onMember = useRef(false);
+  useEffect(() => {
+    if (open || !onMember.current) return;
+    onMember.current = false;
+    setCursor('');
+  }, [open]);
+
   // Over and move both, as for a lone pin: the pointer may arrive under the
   // fan of another group and only later be this pin's to take.
   const over = (event: ThreeEvent<PointerEvent>) => {
@@ -899,6 +933,7 @@ function GroupPin({
       {/* The one pin, flat against the surface: a dot and its rings. */}
       <group position={anchor} quaternion={surface}>
         <mesh
+          visible={false}
           onPointerDown={(event) => {
             if (!fanClaims(fanRef.current, event)) event.stopPropagation();
           }}
@@ -912,7 +947,7 @@ function GroupPin({
           }}
         >
           <sphereGeometry args={[PIN_RADIUS * HIT_SCALE, 12, 12]} />
-          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          <meshBasicMaterial />
         </mesh>
         <group ref={restRef}>
           <mesh>
@@ -937,6 +972,7 @@ function GroupPin({
           }}
           position={homes[index]}
           scale={0}
+          visible={false}
           renderOrder={11}
         >
           <sphereGeometry args={[PIN_RADIUS * ORIGIN_DOT, 10, 10]} />
@@ -965,16 +1001,20 @@ function GroupPin({
                   memberHitRefs.current[index] = node;
                 }}
                 scale={PIN_RADIUS}
+                visible={false}
                 onPointerDown={(event) => event.stopPropagation()}
                 onPointerOver={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   if (isMouse(event)) onHover(build.id, true);
                 }}
                 onPointerMove={(event) => {
                   event.stopPropagation();
+                  onMember.current = true;
                   setCursor('pointer');
                 }}
                 onPointerOut={() => {
+                  onMember.current = false;
                   setCursor('');
                   onHover(build.id, false);
                 }}
@@ -984,7 +1024,7 @@ function GroupPin({
                 }}
               >
                 <sphereGeometry args={[1, 12, 12]} />
-                <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+                <meshBasicMaterial />
               </mesh>
             )}
             <PinBody
@@ -1108,6 +1148,9 @@ function GlobeScene({
   const distRef = useRef(5);
   const pointer = useRef<PointerState>({ x: 0, y: 0, inside: false, mouse: false });
   const fanRef = useRef<FanClaim | null>(null);
+
+  // Leaving with the pointer on a pin must not leave a hand cursor on the page.
+  useEffect(() => () => setCursor(''), []);
 
   useEffect(() => {
     const track = (event: PointerEvent) => {
@@ -1377,10 +1420,12 @@ function GlobeScene({
         );
       })}
 
-      {/* Invisible drag handle behind the markers. */}
-      <mesh onPointerDown={startDrag}>
+      {/* Drag handle behind the markers. Never drawn (see the pins' hit-boxes):
+          as a see-through sphere it was blended over the whole globe on every
+          frame to change nothing. */}
+      <mesh visible={false} onPointerDown={startDrag}>
         <sphereGeometry args={[1.22, 24, 24]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <meshBasicMaterial />
       </mesh>
     </group>
   );
@@ -1401,6 +1446,12 @@ function useOnScreen(ref: RefObject<Element | null>): boolean {
   return onScreen;
 }
 
+// Whether a photo is open full-screen over the page (PhotoLightbox). The
+// observer above still reports the globe on screen under it.
+function usePhotoOpen(): boolean {
+  return useSyncExternalStore(watchLightbox, isLightboxOpen, () => false);
+}
+
 export default function Globe(props: GlobeProps) {
   // Held out here, beside the canvas, because a click that misses everything
   // in the scene is reported to the canvas and has to close the group too.
@@ -1410,6 +1461,9 @@ export default function Globe(props: GlobeProps) {
   // drew the globe 60 times a second into a canvas of no size.
   const holderRef = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(holderRef);
+  // It stops behind a photo opened full-screen as well, where it went on
+  // drawing every frame for nobody to see.
+  const photoOpen = usePhotoOpen();
   // The globe fades in over its first frame, where it used to appear at once.
   const [drawn, setDrawn] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -1436,7 +1490,7 @@ export default function Globe(props: GlobeProps) {
     >
       <Canvas
         flat
-        frameloop={onScreen ? 'always' : 'never'}
+        frameloop={onScreen && !photoOpen ? 'always' : 'never'}
         camera={{ position: [0, 0, 5], fov: VFOV_DEG }}
         gl={{ alpha: true, antialias: true }}
         dpr={[1, 2]}
@@ -1445,6 +1499,10 @@ export default function Globe(props: GlobeProps) {
         // this automatically in the Build/Pattern viewer; this globe rolls its own
         // drag handler, so it must opt in explicitly.
         style={{ touchAction: 'none' }}
+        // The pins cannot be reached by keyboard or read by a screen reader.
+        // Every one of them is a link in the list beside the globe.
+        role="img"
+        aria-label="Globe marking where Patternflow has been built and used"
         onPointerMissed={() => {
           setOpenGroup(null);
           props.onSelectBuild?.(null);
