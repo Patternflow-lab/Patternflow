@@ -44,7 +44,7 @@
 <polyline points="480,335 560,335" fill="none" stroke="#c77700" stroke-width="2.2"/>
 <text x="486" y="328" font-size="10" fill="#c77700">18 AWG, 4-pin</text>
 <polyline points="600,380 600,400" fill="none" stroke="#c77700" stroke-width="1.6"/>
-<text x="606" y="395" font-size="9" fill="#c77700">USB-C pigtail, right-angle</text>
+<text x="606" y="395" font-size="9" fill="#c77700">USB-C pigtail</text>
 <polyline points="690,380 690,400" fill="none" stroke="#1565c0" stroke-width="2" stroke-dasharray="4 2"/>
 <text x="696" y="395" font-size="9" fill="#1565c0">Ethernet</text>
 <polyline points="710,300 745,300 745,52 780,52" fill="none" stroke="#1565c0" stroke-width="2" stroke-dasharray="6 3"/>
@@ -57,5 +57,5 @@
 <text x="718" y="452" font-size="9" fill="#2e7d32">DSI ribbon</text>
 <text x="22" y="400" font-size="11" fill="#1565c0">Pi ⇄ card: gigabit Ethernet, a 50 cm patch. The card will not link at 100 Mbit.</text>
 <text x="22" y="420" font-size="11" fill="#333">Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.</text>
-<text x="22" y="440" font-size="11" fill="#333">Grounds meet through the ribbons; each panel returns its current on its own lead.</text>
+<text x="22" y="440" font-size="11" fill="#333">Grounds meet through the ribbons. Four panel leads of one length keep panel current off them.</text>
 </svg>

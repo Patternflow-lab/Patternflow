@@ -944,7 +944,7 @@ def write_wiring_svg():
     wire([(480, 335), (560, 335)], "#c77700", w=2.2)
     label(486, 328, "18 AWG, 4-pin", "#c77700")
     wire([(600, 380), (600, 400)], "#c77700", w=1.6)
-    label(606, 395, "USB-C pigtail, right-angle", "#c77700", 9)
+    label(606, 395, "USB-C pigtail", "#c77700", 9)
     wire([(690, 380), (690, 400)], "#1565c0", w=2, dash="4 2")
     label(696, 395, "Ethernet", "#1565c0", 9)
     for i in range(4):
@@ -956,7 +956,7 @@ def write_wiring_svg():
     label(718, 452, "DSI ribbon", "#2e7d32", 9)
     label(22, 400, "Pi ⇄ card: gigabit Ethernet, a 50 cm patch. The card will not link at 100 Mbit.", "#1565c0", 11)
     label(22, 420, "Each supply's earth goes to its FG terminal. No panel current reaches the Pi's supply.", "#333", 11)
-    label(22, 440, "Grounds meet through the ribbons; each panel returns its current on its own lead.", "#333", 11)
+    label(22, 440, "Grounds meet through the ribbons. Four panel leads of one length keep panel current off them.", "#333", 11)
     o.append("</svg>")
     with open(os.path.join(ROOT, "preview", "wires.svg"), "w") as f:
         f.write("\n".join(o))
@@ -1633,7 +1633,6 @@ def check():
              + abs(PI_PIN1[0] - (k2x - 12.7)) + (board_face - 1.6 - 8.5 - 4.0 - behind))
     ok(KNOB_LEAD >= route + 40.0, f"knob lead: k2 to the Pi's pin 1 is {route:.0f} mm round the screen; "
        f"the lead is {KNOB_LEAD:.0f}, {KNOB_LEAD - route:.0f} to spare")
-    covered["display-bracket"].append("bracket, posts, ribbon and lead in the 3D layout")
 
     geometry_checks(ok, covered)
     joint_checks(ok, covered)
@@ -1648,8 +1647,9 @@ def check():
         for p in all_parts():
             g = PART_GEOMETRY.get(p.name, {})
             w, h = p.size()
+            web = g.get("web", float("nan"))
             print(f"| `{p.name}` | {p.qty} | {w:.1f} × {h:.1f} | {g.get('holes', 0)} | "
-                  f"{g.get('web', float('nan')):.1f} | {'; '.join(dict.fromkeys(covered[p.name]))} |")
+                  f"{'-' if web != web else f'{web:.1f}'} | {'; '.join(dict.fromkeys(covered[p.name]))} |")
     print()
     print("all checks pass" if not bad else f"{len(bad)} check(s) failed")
     return not bad
