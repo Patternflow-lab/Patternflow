@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70.000mm" height="80.000mm" viewBox="0 0 70.000 80.000">
+<polygon points="0.00,80.00 70.00,80.00 70.00,0.00 0.00,0.00" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<polygon points="21.38,63.38 48.62,63.38 48.62,16.62 21.38,16.62" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="35.00" cy="60.00" r="1.70" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+<circle cx="35.00" cy="20.00" r="1.70" fill="none" stroke="#ff0000" stroke-width="0.1"/>
+</svg>
