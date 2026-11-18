@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Thick=0..3, Slide=-1.375..0.625, Crack=0..1
 //
 // Knob 1: Hue. The colour of the band, all the way round the wheel from violet.
-// Knob 2: Thick. How thick the band is, 16 LEDs at 0 to 31 LEDs at 3; its 2 is 26 LEDs. The band is the whole 64 LEDs between the side walls.
-// Knob 3: Slide. How far the right half has slid along the crack, at least one LED a click, both ways. It holds for three clicks where the slide is nothing and the band is whole, and for three clicks at each place the slide is as much as the thickness, with the halves touching at one corner. Past that the halves are apart. It opens nine clicks from whole and nine from touching, so the band stands with a step.
+// Knob 2: Thick. How thick the band is, 17 LEDs at 0 to 32 LEDs at 3; its 2 is 27 LEDs. The band is the whole 64 LEDs between the side walls.
+// Knob 3: Slide. How far the right half has slid along the crack, more than one LED a click, both ways. It holds for three clicks where the slide is nothing and the band is whole, and for three clicks at each place the slide is as much as the thickness, with the halves touching at one corner. Past that the halves are apart. It opens nine clicks from whole and nine from touching, so the band stands with a step.
 // Knob 4: Crack. Where across the band the crack falls, from the middle at 0 to a quarter of the width to the right of the middle at 1, which leaves the shorter half a quarter of the band. It opens at 0.06.
 
 const W = 64;
@@ -50,11 +50,11 @@ function span(lo, hi, p) {
   return v < 0 ? 0 : v;
 }
 
-// How far the right half has slid for a knob at k, given the thickness. Nothing for the click the knob rests on and one either side; then a run out to the slide the knob opens at, nine clicks from the middle; then a run to the thickness at 17 clicks out, held there for three clicks; then the halves part. The opening slide is the thickness less 9.6 LEDs, which is 1.2 LEDs for each of the eight clicks before touching, and at 16 LEDs thick it is half the thickness, so every click on either run is at least one LED.
+// How far the right half has slid for a knob at k, given the thickness. Nothing for the click the knob rests on and one either side; then a run out to the slide the knob opens at, nine clicks from the middle; then a run to the thickness at 17 clicks out, held there for three clicks; then the halves part. The opening slide is the thickness less 9.6 LEDs, which is 1.2 LEDs for each of the eight clicks before touching, and at 17 LEDs thick it is half the thickness, so every click on either run is more than one LED.
 function slide(k, thick) {
   const d = (clamp(k, -1.375, 0.625) + 1.375) * 24 - MID;
   const a = Math.abs(d);
-  const open = clamp(thick - 9.6, 8, thick - 8);
+  const open = clamp(thick - 9.6, 8.5, thick - 8.5);
   let s;
   if (a <= 1 + 1e-6) s = 0;
   else if (a <= 9) s = (open * (a - 1)) / 8;
@@ -67,7 +67,7 @@ function slide(k, thick) {
 export function setup(params) {
   params.t = 0;
   params.c = new Float32Array(3);
-  params.thick = 26;
+  params.thick = 27;
   params.s = 0;
   params.cut = CX;
   params.light = 1;
@@ -81,7 +81,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const thick = 16 + 5 * clamp(k[1], 0, 3);
+  const thick = 17 + 5 * clamp(k[1], 0, 3);
   params.thick = thick;
   params.s = slide(k[2], thick);
   // The crack falls between two columns of LEDs, so touching at a corner is touching at one point and no LED holds a piece of both halves.

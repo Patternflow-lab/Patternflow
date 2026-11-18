@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Thick=0..3, Slide=-1.375..0.625, Crack=0..1
 //
 // Knob 1: Hue. The colour of the line, all the way round the wheel from sky blue.
-// Knob 2: Thick. How thick the line is, 16 LEDs at 0 to 26.5 LEDs at 3; its 2 is 23 LEDs. The line is 100 LEDs long.
-// Knob 3: Slide. How far the lower half has slid along the crack, a little over one LED a click, both ways. It holds for three clicks where the slide is nothing and the line is whole, and for three clicks at each place the slide is as much as the thickness, with the halves touching at one corner. Past that the halves are apart. It opens halfway between whole and touching, so the line stands with a step.
+// Knob 2: Thick. How thick the line is, 17 LEDs at 0 to 27.5 LEDs at 3; its 2 is 24 LEDs. The line is 100 LEDs long.
+// Knob 3: Slide. How far the lower half has slid along the crack, a little over one LED a click at the thinnest and more as the line thickens, both ways. It holds for three clicks where the slide is nothing and the line is whole, and for three clicks at each place the slide is as much as the thickness, with the halves touching at one corner. Past that the halves are apart. It opens halfway between whole and touching, so the line stands with a step.
 // Knob 4: Crack. Where along the line the crack falls, from the middle at 0 to a quarter of the length below the middle at 1, which leaves the shorter half a quarter of the line. It opens at 0.06.
 
 const W = 64;
@@ -65,7 +65,7 @@ function slide(k, thick) {
 export function setup(params) {
   params.t = 0;
   params.c = new Float32Array(3);
-  params.thick = 23;
+  params.thick = 24;
   params.s = 0;
   params.cut = CY;
   params.light = 1;
@@ -79,7 +79,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const thick = 16 + 3.5 * clamp(k[1], 0, 3);
+  const thick = 17 + 3.5 * clamp(k[1], 0, 3);
   params.thick = thick;
   params.s = slide(k[2], thick);
   // The crack falls between two rows of LEDs, so touching at a corner is touching at one point and no LED holds a piece of both halves.
