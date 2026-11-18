@@ -327,6 +327,10 @@ function LinkLines({ arcs, opacity, grown }: { arcs: number[][]; opacity: number
     return nextGeometry;
   }, [arcs]);
 
+  // A geometry handed over as a prop is not the fiber's to dispose, so each
+  // change of filter used to leave the last web's buffer on the GPU.
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   useFrame(() => {
     geometry.setDrawRange(0, grownVertices(arcs.length, ARC_SAMPLES, grown.current));
   });
@@ -759,6 +763,7 @@ function GroupPin({
     geometry.setAttribute('position', new Float32BufferAttribute(new Float32Array(count * 6), 3));
     return geometry;
   }, [count]);
+  useEffect(() => () => hairlines.dispose(), [hairlines]);
 
   const amount = useRef(0);   // 0 closed … 1 fanned out
   // How far the fan is tipped over to keep clear of its neighbours: where it
