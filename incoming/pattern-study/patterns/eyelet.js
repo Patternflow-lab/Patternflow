@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the lit panel, all the way round the wheel from teal.
 // Knob 2: Tall. How much taller than wide the hole is, 1 to 1 at 2 (where it opens, a circle) to 1 to 2 at 4. At 4, with the hole as wide as the panel, it is as tall as the panel too and touches all four walls.
-// Knob 3: Hole. How wide the hole is, 40 LEDs where it opens, 2 LEDs wider with every click up to 64 LEDs, twelve clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole is as wide as the panel and touches both walls, the lit panel is a top and a bottom where it was one piece a click before, and the knob holds that for three clicks. Past it the hole grows a click at a time by a LED and a half, off the walls.
+// Knob 3: Hole. How wide the hole is, 38.8 LEDs where it opens, 2.1 LEDs wider with every click up to 64 LEDs, twelve clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole is as wide as the panel and touches both walls, the lit panel is a top and a bottom where it was one piece a click before, and the knob holds that for three clicks. Past it the hole grows a click at a time by a LED and a half, off the walls.
 // Knob 4: Rise. How high the hole sits, 22 LEDs up at 1 and 22 LEDs down at -0.88; where it opens, 0.06, it is in the upper half. A tall hole cannot go far: it keeps 6 LEDs from the top and bottom walls until it is as tall as the panel.
 
 const W = 64;
@@ -44,10 +44,10 @@ function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// The hole's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 40 where it opens, 64 on the three held clicks, 82 at the top.
+// The hole's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 38.8 where it opens, 64 on the three held clicks, 82 at the top. Each click up to the walls moves the hole's edge by 1.05 LEDs.
 function widthAt(c) {
-  if (c <= 0) return 40 + ((40 - 4) / 22) * c;
-  if (c < STOP) return 40 + 2 * c;
+  if (c <= 0) return 38.8 + ((38.8 - 4) / 22) * c;
+  if (c < STOP) return 38.8 + 2.1 * c;
   if (c <= STOP_END + 1e-6) return 64;
   return 64 + 1.5 * (c - STOP_END);
 }

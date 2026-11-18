@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the lit panel, all the way round the wheel from violet.
 // Knob 2: Tall. How much taller than wide the diamond is, 1 to 1 at 2 (where it opens, a square stood on a corner) to 1 to 2 at 4. At 4, with the diamond as wide as the panel, its four points are on the four walls.
-// Knob 3: Hole. How wide the diamond is from side point to side point, 45 LEDs where it opens, 2 LEDs wider with every click up to 65 LEDs, ten clicks on, and down to 4 LEDs at the bottom of the knob. At 65 LEDs the side points are a half LED past the walls, the lit panel is a top and a bottom where it was one piece a click before, and the knob holds that for three clicks. Past it the diamond grows a click at a time by a LED and a half.
+// Knob 3: Hole. How wide the diamond is from side point to side point, 44 LEDs where it opens, 2.1 LEDs wider with every click up to 65 LEDs, ten clicks on, and down to 4 LEDs at the bottom of the knob. At 65 LEDs the side points are a half LED past the walls, the lit panel is a top and a bottom where it was one piece a click before, and the knob holds that for three clicks. Past it the diamond grows a click at a time by a LED and a half.
 // Knob 4: Rise. How high the diamond sits, 18 LEDs up at 1 and 18 LEDs down at -0.88; where it opens, 0.06, it is in the lower half. A tall diamond cannot go far: it keeps 6 LEDs from the top and bottom walls until it is as tall as the panel.
 
 const W = 64;
@@ -44,10 +44,10 @@ function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// The diamond's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 45 where it opens, 65 on the three held clicks, 83 at the top. A point is one LED wide where it meets a wall, so the diamond goes a half LED past each wall to cut the lit panel there; 64 would leave a faint thread.
+// The diamond's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 44 where it opens, 65 on the three held clicks, 83 at the top. A point is one LED wide where it meets a wall, so the diamond goes a half LED past each wall to cut the lit panel there; 64 would leave a faint thread.
 function widthAt(c) {
-  if (c <= 0) return 45 + ((45 - 4) / 24) * c;
-  if (c < STOP) return 45 + 2 * c;
+  if (c <= 0) return 44 + ((44 - 4) / 24) * c;
+  if (c < STOP) return 44 + 2.1 * c;
   if (c <= STOP_END + 1e-6) return 65;
   return 65 + 1.5 * (c - STOP_END);
 }
@@ -55,8 +55,8 @@ function widthAt(c) {
 export function setup(params) {
   params.t = 0;
   params.col = new Float32Array(3);
-  params.rx = 22.5;
-  params.ry = 22.5;
+  params.rx = 22;
+  params.ry = 22;
   params.cy = REST;
 }
 

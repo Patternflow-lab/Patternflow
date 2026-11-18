@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the lit panel, all the way round the wheel from pink.
 // Knob 2: Tall. How much taller than wide the hole is, 1 to 1 at 2 (where it opens, a square) to 1 to 1.75 at 4. A hole as wide as the panel and that tall leaves a strip of 8 LEDs above it and below.
-// Knob 3: Hole. How wide the hole is, 44 LEDs where it opens, 2 LEDs wider with every click up to 64 LEDs, ten clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole runs from wall to wall, the lit panel is two strips where it was one piece a click before, and the knob holds that for three clicks. Past it the hole is wider than the panel and only grows taller, 2 LEDs a click, until it is 6 LEDs from the top and bottom walls.
+// Knob 3: Hole. How wide the hole is, 43 LEDs where it opens, 2.1 LEDs wider with every click up to 64 LEDs, ten clicks on, and down to 4 LEDs at the bottom of the knob. At 64 LEDs the hole runs from wall to wall, the lit panel is two strips where it was one piece a click before, and the knob holds that for three clicks. Past it the hole is wider than the panel and only grows taller, 2.1 LEDs a click, until it is 6 LEDs from the top and bottom walls.
 // Knob 4: Rise. How high the hole sits, 22 LEDs up at 1 and 22 LEDs down at -0.88; where it opens, 0.06, it is a little above the middle. A tall hole cannot go far: it keeps 6 LEDs from the top and bottom walls.
 
 const W = 64;
@@ -50,21 +50,21 @@ function span(lo, hi, p) {
   return v < 0 ? 0 : v;
 }
 
-// The hole's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 44 where it opens, 64 on the three held clicks. Past them the width is 2 LEDs a click more, which the panel's walls hide; it is only what the height follows.
+// The hole's width in LEDs for a knob this many clicks from where it opens: 4 at the bottom, 43 where it opens, 64 on the three held clicks. Past them the width is 2.1 LEDs a click more, which the panel's walls hide; it is only what the height follows.
 function widthAt(c) {
-  if (c <= 0) return 44 + ((44 - 4) / 32) * c;
-  if (c < STOP) return 44 + 2 * c;
+  if (c <= 0) return 43 + ((43 - 4) / 32) * c;
+  if (c < STOP) return 43 + 2.1 * c;
   if (c <= STOP_END + 1e-6) return 64;
-  return 64 + 2 * (c - STOP_END);
+  return 64 + 2.1 * (c - STOP_END);
 }
 
 export function setup(params) {
   params.t = 0;
   params.col = new Float32Array(3);
-  params.x0 = 10;
-  params.x1 = 54;
-  params.y0 = 24;
-  params.y1 = 68;
+  params.x0 = 10.5;
+  params.x1 = 53.5;
+  params.y0 = 24.5;
+  params.y1 = 67.5;
   params.colHole = new Float32Array(W);
 }
 
