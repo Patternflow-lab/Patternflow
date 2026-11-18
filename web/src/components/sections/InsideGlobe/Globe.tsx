@@ -1499,6 +1499,10 @@ export default function Globe(props: GlobeProps) {
         // this automatically in the Build/Pattern viewer; this globe rolls its own
         // drag handler, so it must opt in explicitly.
         style={{ touchAction: 'none' }}
+        // The pins cannot be reached by keyboard or read by a screen reader.
+        // Every one of them is a link in the list beside the globe.
+        role="img"
+        aria-label="Globe marking where Patternflow has been built and used"
         onPointerMissed={() => {
           setOpenGroup(null);
           props.onSelectBuild?.(null);
