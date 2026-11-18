@@ -20,19 +20,15 @@ import {
 } from 'react';
 import * as THREE from 'three';
 import { useGLTF, ContactShadows, Environment, Lightformer, OrbitControls } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { EffectComposer, Bloom, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { ledPanel, ledVert } from './patterns/common';
+import { LED_GRID, ledPanel, ledVert } from './patterns/common';
 import patterns from './patterns';
-import { useAppStore } from '@/store/useAppStore';
+import { useAppStore, type HomeTabType } from '@/store/useAppStore';
 import { LedMatrixTexture } from './LedMatrixTexture';
-import {
-  LOGICAL_KNOB_RANGES,
-  LOGICAL_KNOB_TO_WEB_KNOB,
-  LOGICAL_KNOB_WRAP,
-  knobDetentStep,
-  knobUnitsPerTurn,
-} from '@/lib/pattern/controls';
+import { ObraDemo } from './demos/obra';
+import { LOGICAL_KNOB_TO_WEB_KNOB, knobUnitsPerTurn, webKnobRange } from '@/lib/pattern/controls';
 import { BUILD_CASES, findCase, stepCase, writeCaseToUrl, type CaseId } from '@/components/sections/build-cases-data';
 import { captureEvent } from '@/lib/posthogEvents';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -47,8 +43,10 @@ import {
   type KnobRig,
   type PreparedCase,
 } from './heroCase';
-import { fitAcross, poseFor, shows } from './buildPose';
+import { REST_SCALE, fitAcross, poseFor, shows } from './buildPose';
 import CaseFinishSwitch from './CaseFinishSwitch';
+import CaseShelf, { newHandoff, type Handoff } from './CaseShelf';
+import type { PreparedLight } from './lightCase';
 import { PageAlpha, StraightAlpha } from './canvasAlpha';
 import { NeutralToeBack } from './neutralToe';
 import styles from './HeroScene.module.css';
@@ -56,9 +54,14 @@ import styles from './HeroScene.module.css';
 // The product preview on the Build and Pattern tabs: the device in the case
 // the Build panel's switch is on (caseModels.ts), its LED panel running the
 // pattern, its knobs turning the pattern's controls, and the Build panel's
-// four steps acted out on it. Each case is its own model; the official one
-// loads with the page, a remix's when it is picked, and until it has arrived
-// the case on screen stays.
+// four steps acted out on it.
+//
+// Each case has two models. The light one is small and is there at once: the
+// Build tab opens on a shelf of all five (CaseShelf.tsx), and a picked case's
+// light model stands where the device stands until its full model has
+// arrived. The full one is what the steps take apart and whose knobs turn;
+// it is fetched when its case is first shown, and takes over from the light
+// one in the same place.
 
 const customFragmentShader = `
 uniform sampler2D uTex;
@@ -67,10 +70,18 @@ ${ledPanel}
 
 void main() {
   vec2 rotatedUV = vec2(vUv.y, 1.0 - vUv.x);
-  vec2 gridUV = rotatedUV * vec2(128.0, 64.0);
+  vec2 gridUV = rotatedUV * uGrid;
+
+  // The code draws 128 x 64. On a panel with more rows it stands in the
+  // middle, letterboxed, as a 128 x 64 pattern does on that device.
+  vec2 cell = floor(gridUV) - vec2(0.0, floor((uGrid.y - 64.0) / 2.0));
+  if (cell.y < 0.0 || cell.y >= 64.0) {
+    gl_FragColor = vec4(ledPanel(vec3(0.0)), 1.0);
+    return;
+  }
 
   // Sample discrete pixels to enforce pixelation
-  vec2 pxUV = (floor(gridUV) + 0.5) / vec2(128.0, 64.0);
+  vec2 pxUV = (cell + 0.5) / vec2(128.0, 64.0);
   vec4 texColor = texture2D(uTex, pxUV);
 
   vec3 col = texColor.rgb;
@@ -86,9 +97,27 @@ void main() {
 }
 `;
 
-// Only the official case comes with the page; a remix's model is fetched
-// when it is picked, or when its tab is hovered on the way (preloadCaseModel).
-useGLTF.preload(CASE_MODELS.official.url, DRACO_DECODER);
+// A case's own demo (CaseModel.demo), drawn by the CPU into a texture the size
+// of its panel, one texel per LED. The top ink runs hot, as the editor's
+// patterns' whites do, so it glows.
+const demoFragmentShader = `
+uniform sampler2D uTex;
+varying vec2 vUv;
+${ledPanel}
+
+void main() {
+  vec2 cell = floor(vec2(vUv.y, 1.0 - vUv.x) * uGrid);
+  vec3 col = texture2D(uTex, (cell + 0.5) / uGrid).rgb;
+  float luma = dot(col, vec3(0.299, 0.587, 0.114));
+  col *= luma > 0.75 ? 2.35 : 0.9;
+  gl_FragColor = vec4(ledPanel(col), 1.0);
+}
+`;
+
+// No full model comes with the page any more. The official one did, 317 KB
+// and the Draco decoder, on every home page, the globe's included. A case's
+// full model is fetched when it is first shown, or when a pointer is on it on
+// the way (preloadCaseModel); its light model covers until then.
 
 type KnobId = 'c1' | 'c2' | 'c3' | 'c4';
 
@@ -103,61 +132,9 @@ const MESH_TO_KNOB: Record<string, KnobId> = {
   c4: 'c4',
 };
 
-/**
- * The four knobs as pattern code counts them, Knob 1 to 4 (K1 to K4 on the
- * board): which value each turns, the mesh that is drawn for it, and its
- * range, whether it runs round the end of it, and one detent's worth of it.
- */
-const KNOBS = LOGICAL_KNOB_TO_WEB_KNOB.map((knob, index) => ({
-  knob,
-  mesh: (Object.keys(MESH_TO_KNOB).find((mesh) => MESH_TO_KNOB[mesh] === knob) ?? knob) as KnobId,
-  number: index + 1,
-  range: LOGICAL_KNOB_RANGES[index],
-  wrap: LOGICAL_KNOB_WRAP[index],
-  step: knobDetentStep(LOGICAL_KNOB_RANGES[index]),
-}));
-type Knob = (typeof KNOBS)[number];
-const knobOf = (id: KnobId) => KNOBS.find((k) => k.knob === id) ?? KNOBS[0];
-
-/**
- * Turns a knob by `delta` of its value, by the one rule the pointer and the
- * keyboard share: a knob that wraps comes round the end of its range, any
- * other stops there. The pointer used to keep its own copy of the four
- * ranges.
- */
-function turnKnob({ knob, range: [min, max], wrap }: Knob, delta: number) {
-  const store = useAppStore.getState();
-  const value = store.knobValues[knob] + delta;
-  const span = max - min;
-  store.setKnobValue(
-    knob,
-    wrap ? min + ((((value - min) % span) + span) % span) : THREE.MathUtils.clamp(value, min, max),
-  );
-}
-
-/** The angle a knob turns through for `delta` of its value, radians. */
-const turnAngle = ({ range }: Knob, delta: number) => (delta / knobUnitsPerTurn(range)) * 2 * Math.PI;
-
-/**
- * How far a key turns a knob, in detents: an arrow one click, as on the
- * community's knobs (knobArrowValue), and Page Up and Down a quarter turn.
- */
-const KEY_DETENTS: Record<string, number> = {
-  ArrowRight: 1,
-  ArrowUp: 1,
-  ArrowLeft: -1,
-  ArrowDown: -1,
-  PageUp: 6,
-  PageDown: -6,
-};
-
-/**
- * How near and how far the wheel or a pinch takes the camera, from the 11.2
- * it rests at. Unbounded, it went through the front of the case and out of
- * the back, or off until the device was a dot.
- */
-const ZOOM_NEAREST = 5;
-const ZOOM_FARTHEST = 24;
+/** A case's knob lights with a pattern that does not colour them, and how bright they shine (into the bloom). */
+const KNOB_LIGHT_IDLE: [number, number, number] = [0.55, 0.5, 0.42];
+const KNOB_LIGHT_GAIN = 6;
 
 /** Where the preview looks: OrbitControls' target, and where the device is centred. */
 const TARGET = new THREE.Vector3(0, 1.7, 0);
@@ -165,7 +142,12 @@ const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
 /** The camera as the page opens: where it stands, and its vertical field of view. */
 const CAMERA_POSITION: [number, number, number] = [0.0, 6.0, 10.3];
+const CAMERA_REST = new THREE.Vector3(...CAMERA_POSITION);
 const CAMERA_FOV = 28;
+/** The shelf's middle: a little under the device's, since the top of the frame is the hint's. */
+const SHELF_CENTRE_Y = TARGET.y - 0.25;
+/** The width a case is fitted across before its light model has said its own: the official case's. */
+const UNMEASURED_WIDTH = 24.7;
 /**
  * How tall the view is where the device stands, with the camera at rest, in
  * world units; times the canvas's aspect, how wide (buildPose.ts, fitAcross).
@@ -267,18 +249,39 @@ function CaseDevice({
  */
 function ProductPreview({
   caseId,
+  staged,
+  shelfOpen,
+  shelfTab,
   finish,
+  finishOf,
+  tags,
+  hovered,
   onFailed,
-  keyTurn,
+  onPick,
 }: {
-  caseId: CaseId;
+  /** The case whose full model is on the stage, or on its way there; none before the stage is first used. */
+  caseId: CaseId | null;
+  /** The case the stage is for: its light model stands there until the full one is `caseId` and has arrived. */
+  staged: CaseId;
+  /** The Build tab's shelf is what the view shows. */
+  shelfOpen: boolean;
+  /** The view is on the tab that has the shelf, open or not. */
+  shelfTab: boolean;
   finish: CaseFinish | undefined;
+  finishOf: (id: CaseId) => CaseFinish | undefined;
+  /** The shelf's name buttons and the case a pointer is on (CaseShelf.tsx). */
+  tags: RefObject<Map<CaseId, HTMLElement | null>>;
+  hovered: RefObject<CaseId | null>;
   onFailed: (id: CaseId) => void;
-  /** How far the keyboard has turned each knob since the last frame, by mesh name, radians. */
-  keyTurn: RefObject<Partial<Record<string, number>>>;
+  onPick: (id: CaseId) => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const deviceRef = useRef<PreparedCase | null>(null);
+  // What this preview and the shelf's light models tell each other (CaseShelf.tsx).
+  const handoff = useRef<Handoff>(newHandoff());
+  // Whether the device on the stage has power this frame: a light model
+  // standing there is lit, or dark, as the full one would be.
+  const stageLit = useRef(true);
   // Where the view is centred, in the group's own frame; eased like the rest.
   const focus = useRef(FRAME_CENTRE.clone());
   const lift = useRef(0);
@@ -316,6 +319,7 @@ function ProductPreview({
       uParam3: { value: 0.29 },  // LOD fadeEnd
       uParam4: { value: defaults.uParam4 ?? 0.0 },
       uAspect: { value: 2.0 },
+      uGrid: { value: new THREE.Vector2(...LED_GRID) },
     },
     vertexShader: ledVert,
     fragmentShader: pattern.fragmentShader,
@@ -325,15 +329,71 @@ function ProductPreview({
   const customMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uTex: { value: ledMatrix.texture },
+      uGrid: { value: new THREE.Vector2(...LED_GRID) },
     },
     vertexShader: ledVert,
     fragmentShader: customFragmentShader,
   }), [ledMatrix.texture]);
-  useEffect(() => () => customMat.dispose(), [customMat]);
+
+  // Patternflood's Obra, for a case whose model names it (CaseModel.demo);
+  // it draws only while that case is lit on the Build tab.
+  const obra = useMemo(() => new ObraDemo(), []);
+  useEffect(() => () => obra.texture.dispose(), [obra]);
+  const demoMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uTex: { value: obra.texture },
+      uGrid: { value: new THREE.Vector2(...LED_GRID) },
+    },
+    vertexShader: ledVert,
+    fragmentShader: demoFragmentShader,
+  }), [obra]);
+  useEffect(() => () => demoMat.dispose(), [demoMat]);
 
   const blackMat = useMemo(() => new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.8 }), []);
-  useEffect(() => () => blackMat.dispose(), [blackMat]);
-  useEffect(() => () => ledMatrix.texture.dispose(), [ledMatrix]);
+
+  // The light models' panels show what a full model's would: the pattern, the
+  // editor's code or the case's own demo. The three materials above carry one
+  // grid between them, the staged device's, and the shelf has every case on
+  // it at once, so each grid there is gets its own copies. They read the same
+  // textures, and the frame loop hands them the same clock and knobs.
+  const lightPanels = useMemo(() => {
+    const byGrid = new Map<string, { pattern: THREE.ShaderMaterial; custom: THREE.ShaderMaterial; demo: THREE.ShaderMaterial }>();
+    return {
+      byGrid,
+      of(grid: readonly [number, number]) {
+        const key = grid.join('x');
+        let set = byGrid.get(key);
+        if (!set) {
+          set = { pattern: ledMat.clone(), custom: customMat.clone(), demo: demoMat.clone() };
+          for (const m of Object.values(set)) m.uniforms.uGrid.value = new THREE.Vector2(grid[0], grid[1]);
+          byGrid.set(key, set);
+        }
+        return set;
+      },
+    };
+  }, [ledMat, customMat, demoMat]);
+  useEffect(
+    () => () => lightPanels.byGrid.forEach((set) => Object.values(set).forEach((m) => m.dispose())),
+    [lightPanels],
+  );
+
+  // Lights a light model as its full model would be lit: every case on the
+  // shelf has power, and one on the stage has it when the step does.
+  const paintLight = useCallback((light: PreparedLight, onStage: boolean) => {
+    const lit = onStage ? stageLit.current : true;
+    const demo = useAppStore.getState().homeTab === 'build' && light.model.demo === 'obra';
+    const panels = lightPanels.of(light.model.ledGrid ?? LED_GRID);
+    const target = !lit ? blackMat : demo ? panels.demo : activePatternId === 'custom' ? panels.custom : panels.pattern;
+    for (const mesh of light.led) {
+      if (mesh.material !== target) mesh.material = target;
+    }
+    light.knobLights.forEach((m, k) => {
+      const c = !lit ? null : demo ? obra.lights()[k] : KNOB_LIGHT_IDLE;
+      if (c) m.emissive.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+      else m.emissive.setRGB(0, 0, 0);
+      m.emissiveIntensity = KNOB_LIGHT_GAIN;
+    });
+  }, [lightPanels, blackMat, activePatternId, obra]);
 
   // --- Knob Interaction Logic ---
   const drag = useRef<{ rig: KnobRig; knob: KnobId; cx: number; cy: number; lastAngle: number } | null>(null);
@@ -362,8 +422,17 @@ function ProductPreview({
 
       // Sensitivity: the same rule as the physical encoder, the whole range
       // in a set number of turns (knobUnitsPerTurn).
-      const knob = knobOf(d.knob);
-      turnKnob(knob, deltaAngle * (knobUnitsPerTurn(knob.range) / (2 * Math.PI)));
+      const knobName = d.knob;
+      const currentVal = useAppStore.getState().knobValues[knobName];
+      const deltaVal = deltaAngle * (knobUnitsPerTurn(webKnobRange(knobName)) / (2 * Math.PI));
+
+      let newVal = currentVal + deltaVal;
+      if (knobName === 'c1') newVal = (newVal % 1.0 + 1.0) % 1.0; // Hue
+      if (knobName === 'c2') newVal = THREE.MathUtils.clamp(newVal, 0.1, 10.0); // Speed
+      if (knobName === 'c3') newVal = (newVal % 1.0 + 1.0) % 1.0; // Freq/Offset
+      if (knobName === 'c4') newVal = THREE.MathUtils.clamp(newVal, 0.0, 4.9); // Mode
+
+      useAppStore.getState().setKnobValue(knobName, newVal);
     };
 
     const handlePointerUp = () => {
@@ -449,18 +518,20 @@ function ProductPreview({
 
   useFrame((state, delta) => {
     const t = state.clock.getElapsedTime();
-    const { knobValues, buildStep, explode, activeKnobId } = useAppStore.getState();
-    const pose = poseFor(buildStep, explode, t, still);
+    const { knobValues, buildStep, explode, activeKnobId, homeTab } = useAppStore.getState();
+    // On the Build tab a case with a demo of its own shows that, not the
+    // pattern picked on the Pattern tab.
+    const caseDemo = homeTab === 'build' && deviceRef.current?.model.demo === 'obra';
+    // ...and so does its light model, on the shelf or standing in.
+    const lightDemo = homeTab === 'build' && handoff.current.demoShown;
 
-    // The pattern on the panel, while the panel is lit. On the three Build
-    // steps that show it dark the pattern's code is not run: it drew all
-    // 8192 pixels and uploaded them every frame for a panel painted black.
-    // What the knobs were turned meanwhile reaches the pattern as one delta
-    // when the panel comes back on.
-    if (pose.lit && activePatternId === 'custom') {
+    // The pattern on the panel.
+    if (caseDemo) {
+      // Drawn below, once the step says the panel is lit.
+    } else if (activePatternId === 'custom') {
       ledMatrix.render(delta, t, knobValues, prevKnobValues.current);
       prevKnobValues.current = { ...knobValues };
-    } else if (pose.lit) {
+    } else {
       ledMat.uniforms.uTime.value = t;
       ledMat.uniforms.uParam1.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[0]]; // Hue
       ledMat.uniforms.uSpeed.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[1]];  // Speed
@@ -468,20 +539,76 @@ function ProductPreview({
       ledMat.uniforms.uParam4.value = knobValues[LOGICAL_KNOB_TO_WEB_KNOB[3]]; // Freq/Offset
     }
 
+    // The light models' panels run on the same clock and the same knobs.
+    lightPanels.byGrid.forEach((set) => {
+      const to = set.pattern.uniforms;
+      const from = ledMat.uniforms;
+      to.uTime.value = from.uTime.value;
+      to.uSpeed.value = from.uSpeed.value;
+      to.uParam1.value = from.uParam1.value;
+      to.uParam3.value = from.uParam3.value;
+      to.uParam4.value = from.uParam4.value;
+    });
+
     const group = groupRef.current;
-    const device = deviceRef.current;
-    if (!group || !device) return;
+    if (!group) return;
+    const kView = ease(0.05, delta);
+    const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
+    stageLit.current = pose.lit;
+    // The case's own demo, drawn once a frame for whichever is showing it.
+    if ((caseDemo && pose.lit) || lightDemo) obra.render(delta, knobValues, prevKnobValues.current);
+    if (caseDemo || lightDemo) prevKnobValues.current = { ...knobValues };
+
+    // The full model is drawn once it is the staged case's and that case's
+    // light model has reached the stage: until then the light one stands
+    // there, and the full one, loaded or not, stays out of sight.
+    const loaded = deviceRef.current;
+    const device = loaded && loaded.model.id === staged ? loaded : null;
+    const fullShown = !!device && !shelfOpen && handoff.current.arrived;
+    handoff.current.fullShown = fullShown;
+    if (loaded) loaded.root.visible = loaded === device && fullShown;
+
+    if (!device) {
+      // A light model on the stage, or on its way there: the stage is kept
+      // where the full model will stand at this step, so the one can take
+      // over from the other without either moving. A light model is the
+      // device assembled, so it is framed whole whatever the step.
+      const width = handoff.current.width ?? UNMEASURED_WIDTH;
+      const scale =
+        (pose.board ? REST_SCALE : pose.scale) *
+        fitAcross(width, REST_VIEW_HEIGHT * (state.size.width / state.size.height));
+      group.rotation.y = THREE.MathUtils.lerp(group.rotation.y, pose.turn, kView);
+      const nextScale = THREE.MathUtils.lerp(group.scale.x, scale, kView);
+      group.scale.setScalar(nextScale);
+      focus.current.lerp(FRAME_CENTRE, kView);
+      lift.current = THREE.MathUtils.lerp(lift.current, pose.lift, kView);
+      tmp.v.copy(focus.current).multiplyScalar(nextScale).applyAxisAngle(Y_AXIS, group.rotation.y);
+      group.position.copy(TARGET).sub(tmp.v);
+      group.position.y += lift.current;
+      return;
+    }
 
     // A model that has just arrived starts where the step has everything,
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;
     device.root.userData.settled = true;
-    // With less motion asked for, a Build step is a cut to its pose as well.
-    const kPart = fresh || still ? 1 : ease(0.08, delta);
-    const kView = still ? 1 : ease(0.05, delta);
+    const kPart = fresh ? 1 : ease(0.08, delta);
 
     // The panel: the pattern while there is power, black while it is being built.
-    const ledTarget = !pose.lit ? blackMat : activePatternId === 'custom' ? customMat : ledMat;
+    const ledTarget = !pose.lit ? blackMat : caseDemo ? demoMat : activePatternId === 'custom' ? customMat : ledMat;
+    // The knobs' lights, where the case has them: the demo's colours while
+    // it runs, a soft white with any other pattern, dark without power.
+    device.knobLights.forEach((m, k) => {
+      const c = !pose.lit ? null : caseDemo ? obra.lights()[k] : KNOB_LIGHT_IDLE;
+      if (c) m.emissive.setRGB(c[0], c[1], c[2], THREE.SRGBColorSpace);
+      else m.emissive.setRGB(0, 0, 0);
+      m.emissiveIntensity = KNOB_LIGHT_GAIN;
+    });
+    // Drawn on this case's panel's LEDs: 128 x 64, or as many as it has.
+    const [gridLong, gridAcross] = device.model.ledGrid ?? LED_GRID;
+    ledMat.uniforms.uGrid.value.set(gridLong, gridAcross);
+    customMat.uniforms.uGrid.value.set(gridLong, gridAcross);
+    demoMat.uniforms.uGrid.value.set(gridLong, gridAcross);
     for (const mesh of device.led) {
       if (mesh.material !== ledTarget) mesh.material = ledTarget;
     }
@@ -505,14 +632,8 @@ function ProductPreview({
       p.node.visible = p.presence > 0.01;
     }
 
-    // The knob in hand wears its ring and goes grey, and one the keyboard
-    // has turned turns as far.
+    // The knob in hand wears its ring and goes grey.
     for (const k of device.knobs) {
-      const turned = keyTurn.current[k.node.name];
-      if (turned) {
-        k.node.rotation.z -= turned;
-        keyTurn.current[k.node.name] = 0;
-      }
       const held = activeKnobId === k.node.name;
       k.ring.visible = held;
       for (const tint of k.tints) {
@@ -550,108 +671,91 @@ function ProductPreview({
   });
 
   return (
-    <group ref={groupRef} scale={[0.1, 0.1, 0.1]}>
-      <ModelGuard key={caseId} onError={() => onFailed(caseId)}>
-        <Suspense fallback={null}>
-          <CaseDevice id={caseId} finish={finish} deviceRef={deviceRef} handlers={handlers} />
-        </Suspense>
-      </ModelGuard>
-    </group>
+    <>
+      <group ref={groupRef} scale={[0.1, 0.1, 0.1]}>
+        {caseId && (
+          <ModelGuard key={caseId} onError={() => onFailed(caseId)}>
+            <Suspense fallback={null}>
+              <CaseDevice id={caseId} finish={finish} deviceRef={deviceRef} handlers={handlers} />
+            </Suspense>
+          </ModelGuard>
+        )}
+      </group>
+      <CaseShelf
+        open={shelfOpen}
+        all={shelfTab}
+        staged={staged}
+        stage={groupRef}
+        handoff={handoff}
+        viewHeight={REST_VIEW_HEIGHT}
+        centreY={SHELF_CENTRE_Y}
+        paint={paintLight}
+        finishOf={finishOf}
+        tags={tags}
+        hovered={hovered}
+        still={still}
+        onPick={onPick}
+        onIntent={preloadCaseModel}
+      />
+    </>
   );
 }
 
 /**
- * The knobs for a keyboard, and for whatever reads the page aloud: the four
- * on the device are drawn in the canvas, where neither reaches. One slider
- * each, Knob 1 to 4, with nothing of its own to see. The knob in the picture
- * wears its ring while its slider has the focus, and the line over the
- * device says which keys turn it.
+ * While the shelf is open the camera goes back to where the page opened it
+ * and stays: the shelf is laid out for that view (shelfLayout.ts), and a view
+ * someone had turned round the device would show it from behind.
  */
-function KnobKeys({
-  keyTurn,
-  onFocusChange,
-}: {
-  keyTurn: RefObject<Partial<Record<string, number>>>;
-  /** The number of the knob whose slider has the focus, or null. */
-  onFocusChange: (knob: number | null) => void;
-}) {
-  const knobValues = useAppStore((state) => state.knobValues);
-  // Solder shows the board alone, with no knobs to turn.
-  const away = useAppStore((state) => state.buildStep) === 2;
-
-  const turn = (knob: Knob, delta: number) => {
-    turnKnob(knob, delta);
-    keyTurn.current[knob.mesh] = (keyTurn.current[knob.mesh] ?? 0) + turnAngle(knob, delta);
-  };
-
-  return (
-    <div className={styles.knobKeys} role="group" aria-label="Knobs">
-      {KNOBS.map((knob) => {
-        const value = knobValues[knob.knob];
-        return (
-          <input
-            key={knob.knob}
-            type="range"
-            aria-label={`Knob ${knob.number}`}
-            aria-valuetext={value.toFixed(2)}
-            min={knob.range[0]}
-            max={knob.range[1]}
-            step="any"
-            value={value}
-            disabled={away}
-            onFocus={() => {
-              useAppStore.getState().setActiveKnobId(knob.mesh);
-              onFocusChange(knob.number);
-            }}
-            onBlur={() => {
-              // A knob taken by the pointer keeps its ring until it is let go.
-              const store = useAppStore.getState();
-              if (!store.isDraggingKnob) store.setActiveKnobId(null);
-              onFocusChange(null);
-            }}
-            onKeyDown={(event) => {
-              // With Alt, Ctrl or Cmd the key is the browser's, as knobArrowValue leaves it.
-              if (event.altKey || event.ctrlKey || event.metaKey) return;
-              const detents = KEY_DETENTS[event.key];
-              if (!detents) return;
-              // The slider's own arrows would stop at the end of the range,
-              // where a knob that wraps goes on round.
-              event.preventDefault();
-              turn(knob, detents * knob.step);
-            }}
-            onChange={(event) => turn(knob, Number(event.target.value) - value)}
-          />
-        );
-      })}
-    </div>
-  );
+function ShelfCamera({ open, controls }: { open: boolean; controls: RefObject<OrbitControlsImpl | null> }) {
+  useFrame((state, delta) => {
+    if (!open || state.camera.position.distanceToSquared(CAMERA_REST) < 1e-6) return;
+    state.camera.position.lerp(CAMERA_REST, ease(0.14, delta));
+    if (state.camera.position.distanceToSquared(CAMERA_REST) < 1e-4) state.camera.position.copy(CAMERA_REST);
+    controls.current?.update();
+  });
+  return null;
 }
 
 const caseName = (id: CaseId) => BUILD_CASES.find((c) => c.id === id)?.tab ?? id;
 
-export default function HeroScene() {
+/**
+ * `tab` is the tab the viewer is on, from the panel that mounts this scene
+ * (ViewerPanel). The store learns the page's tab one render late, and read
+ * from there /build opened as if on the home page: off the shelf, with the
+ * official case's full model sent for.
+ */
+export default function HeroScene({ tab }: { tab?: HomeTabType }) {
   const isDraggingKnob = useAppStore((state) => state.isDraggingKnob);
   const activeKnobId = useAppStore((state) => state.activeKnobId);
   const buildCase = useAppStore((state) => state.buildCase);
   const setBuildCase = useAppStore((state) => state.setBuildCase);
-  const homeTab = useAppStore((state) => state.homeTab);
+  const storeTab = useAppStore((state) => state.homeTab);
+  const homeTab = tab ?? storeTab;
   const caseFinish = useAppStore((state) => state.caseFinish);
   const setCaseFinish = useAppStore((state) => state.setCaseFinish);
+  const buildShelf = useAppStore((state) => state.buildShelf);
+  const setBuildShelf = useAppStore((state) => state.setBuildShelf);
+  // The shelf is the Build tab's. The Pattern tab shows the device alone,
+  // since it is there for its knobs.
+  const shelfOpen = homeTab === 'build' && buildShelf;
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  // The shelf's name buttons, and the case a pointer or the focus is on.
+  const shelfTags = useRef(new Map<CaseId, HTMLElement | null>());
+  const shelfHover = useRef<CaseId | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   // Latch on first knob interaction — adjusting state during render (guarded)
   // avoids an extra effect-driven render pass.
   if (activeKnobId && !hasInteracted) {
     setHasInteracted(true);
   }
-  // The keyboard's knobs (KnobKeys): which one has the focus, for the hint,
-  // and how far each has been turned, for the frame loop to turn its mesh.
-  const [keyKnob, setKeyKnob] = useState<number | null>(null);
-  const keyTurn = useRef<Partial<Record<string, number>>>({});
 
-  // The case on screen, and the one wanted: the picked case once its model is
-  // in, the official one for a case whose model would not load. While the
-  // wanted one loads, the shown one stays.
-  const [shown, setShown] = useState<CaseId>(() => (arrived.has(buildCase) ? buildCase : 'official'));
+  // The case whose full model is on the stage, and the one wanted: the picked
+  // case once its model is in, the official one for a case whose model would
+  // not load. While the wanted one loads, the shown one stays mounted, out of
+  // sight, and the wanted case's light model stands on the stage. No full
+  // model is shown, or fetched, until the view first shows a case and not the
+  // shelf.
+  const [shown, setShown] = useState<CaseId | null>(() => (arrived.has(buildCase) ? buildCase : null));
   const [failed, setFailed] = useState<CaseId[]>([]);
   // Picking a case whose model failed tries it again: its failure was let go
   // of in drei's cache (onFailed), so this is a fresh request. Adjusted during
@@ -662,7 +766,12 @@ export default function HeroScene() {
     if (failed.includes(buildCase)) setFailed(failed.filter((id) => id !== buildCase));
   }
   const wanted: CaseId = failed.includes(buildCase) ? 'official' : buildCase;
-  const loading = wanted !== shown;
+  // The first case the stage is used for is fetched as the one shown: there
+  // is no other on it to keep. Adjusted during render, guarded, as above.
+  // Only on a tab that shows the product: this scene is still mounted for the
+  // fifth of a second the viewer takes to fade to the globe.
+  if (!shelfOpen && shown === null && (homeTab === 'build' || homeTab === 'pattern')) setShown(wanted);
+  const loading = shown !== null && wanted !== shown;
   const onReady = useCallback((id: CaseId) => setShown(id), []);
   const onFailed = useCallback((id: CaseId) => {
     // suspend-react keeps a failed load as a thrown error; without this, the
@@ -675,33 +784,50 @@ export default function HeroScene() {
     setShown((current) => (current === id || id === 'official' ? 'official' : current));
   }, []);
 
-  const finishes = CASE_MODELS[shown].finishes ?? [];
-  const finishId = caseFinish[shown] ?? finishes[0]?.id;
-  const finish = finishes.find((f) => f.id === finishId);
+  // The finish each case is shown in: the reader's pick, or its first. The
+  // switch is for the case on the stage, whose light model takes a finish as
+  // its full one does, so it is there before the full model is.
+  const finishOf = useCallback(
+    (id: CaseId) => {
+      const all = CASE_MODELS[id].finishes ?? [];
+      return all.find((f) => f.id === (caseFinish[id] ?? all[0]?.id));
+    },
+    [caseFinish],
+  );
+  const finishes = CASE_MODELS[wanted].finishes ?? [];
+  const finishId = caseFinish[wanted] ?? finishes[0]?.id;
 
-  // Under the device: the picked case on its way, or why it is not there.
-  const note = loading
-    ? `Loading ${caseName(wanted)}…`
-    : failed.includes(buildCase)
-      ? `${caseName(buildCase)}’s model did not load`
-      : null;
+  // Under the device: the picked case's full model on its way, or why it is
+  // not there.
+  const note = shelfOpen
+    ? null
+    : loading
+      ? `Loading ${caseName(wanted)}…`
+      : failed.includes(buildCase)
+        ? `${caseName(buildCase)}’s model did not load`
+        : null;
 
   // On the Build tab, arrows either side of the device step through the
   // cases, as the Inside globe's step through the builds. It is the Build
   // panel's switch from the other side: the card, the address and the model
-  // follow it the same way.
-  const pickCase = (id: CaseId) => {
-    setBuildCase(id);
-    if (window.location.pathname === '/build') writeCaseToUrl(id);
-    captureEvent('build_case_selected', { case_id: id, interaction: 'click', surface: 'product_preview' });
-  };
+  // follow it the same way. So does a case picked off the shelf.
+  const pickCase = useCallback(
+    (id: CaseId, surface: 'product_preview' | 'case_shelf' = 'product_preview') => {
+      setBuildCase(id);
+      if (window.location.pathname === '/build') writeCaseToUrl(id);
+      captureEvent('build_case_selected', { case_id: id, interaction: 'click', surface });
+    },
+    [setBuildCase],
+  );
+  const pickFromShelf = useCallback((id: CaseId) => pickCase(id, 'case_shelf'), [pickCase]);
 
   // Over the device on the Build tab, whose case it is, in the build map's
   // label: the name on its tab of the panel's switch, and nothing else. It
   // changes with the pick, as the tab does, ahead of a model still loading
   // (the note under the device says so), and reads Official for a case whose
-  // model did not load, since that is the one drawn.
-  const titled = homeTab === 'build' ? findCase(wanted) : undefined;
+  // model did not load, since that is the one drawn. The shelf has a name
+  // under each case and no title.
+  const titled = homeTab === 'build' && !shelfOpen ? findCase(wanted) : undefined;
 
   return (
     <div id="three-canvas" style={{ width: '100%', height: '100%', position: 'relative' }}>
@@ -712,8 +838,7 @@ export default function HeroScene() {
         </div>
       )}
 
-      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐). While a knob's slider
-          has the keyboard's focus it comes back to say which keys turn it. */}
+      {/* 조작 안내 문구 (최초 1회 조작 시 서서히 사라짐) */}
       <div
         className={`viewer-hint${titled ? ` ${styles.hintUnderTitle}` : ''}`}
         style={{
@@ -726,19 +851,57 @@ export default function HeroScene() {
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
           pointerEvents: 'none',
-          opacity: keyKnob !== null || !hasInteracted ? 1 : 0,
-          transition: keyKnob !== null ? 'opacity 0.2s ease' : 'opacity 1.5s ease-in-out',
+          opacity: shelfOpen || !hasInteracted ? 1 : 0,
+          transition: 'opacity 1.5s ease-in-out',
           zIndex: 10,
         }}
       >
-        {keyKnob !== null ? `Knob ${keyKnob}: arrow keys turn it` : 'Rotate the knobs to explore'}
+        {shelfOpen ? 'Pick a case' : 'Rotate the knobs to explore'}
       </div>
+
+      {/* The shelf's cases by name, each a button on the front edge of its
+          board (CaseShelf places them every frame). They are the shelf for a
+          keyboard or a screen reader, which the canvas gives nothing to. */}
+      {homeTab === 'build' && (
+        <div className={styles.shelfTags} role="group" aria-label="Cases" data-on={shelfOpen ? '1' : '0'}>
+          {BUILD_CASES.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              ref={(el) => { shelfTags.current.set(item.id, el); }}
+              className={styles.shelfTag}
+              tabIndex={shelfOpen ? 0 : -1}
+              aria-hidden={!shelfOpen}
+              onPointerEnter={() => { shelfHover.current = item.id; preloadCaseModel(item.id); }}
+              onPointerLeave={() => { if (shelfHover.current === item.id) shelfHover.current = null; }}
+              onFocus={() => { shelfHover.current = item.id; preloadCaseModel(item.id); }}
+              onBlur={() => { if (shelfHover.current === item.id) shelfHover.current = null; }}
+              onClick={() => { shelfHover.current = null; pickFromShelf(item.id); }}
+            >
+              {item.tab}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {homeTab === 'build' && !shelfOpen && (
+        <button
+          type="button"
+          className={styles.allCases}
+          onClick={() => {
+            setBuildShelf(true);
+            captureEvent('build_shelf_opened', { surface: 'product_preview' });
+          }}
+        >
+          All cases
+        </button>
+      )}
 
       <div className={styles.note} data-on={note ? '1' : '0'} role="status" aria-live="polite">
         {note}
       </div>
 
-      {homeTab === 'build' && BUILD_CASES.length > 1 && [-1, 1].map((step) => {
+      {homeTab === 'build' && !shelfOpen && BUILD_CASES.length > 1 && [-1, 1].map((step) => {
         const target = stepCase(buildCase, step);
         return (
           <button
@@ -757,16 +920,14 @@ export default function HeroScene() {
         );
       })}
 
-      {!loading && finishes.length > 1 && finishId && (
+      {!shelfOpen && finishes.length > 1 && finishId && (
         <CaseFinishSwitch
-          label={`${caseName(shown)} case material`}
+          label={`${caseName(wanted)} case material`}
           finishes={finishes}
           value={finishId}
-          onChange={(id) => setCaseFinish(shown, id)}
+          onChange={(id) => setCaseFinish(wanted, id)}
         />
       )}
-
-      <KnobKeys keyTurn={keyTurn} onFocusChange={setKeyKnob} />
 
       <Canvas camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }} dpr={[1, 2]} shadows={{ type: THREE.PCFShadowMap }}>
         <ambientLight intensity={0.3} color="#fef6e8" />
@@ -792,7 +953,19 @@ export default function HeroScene() {
           <Lightformer form="rect" intensity={4} color="#ffffff" position={[-4.5, 3, 5]} scale={[0.35, 6, 1]} />
           <Lightformer form="rect" intensity={3} color="#ffffff" position={[5, 2, 4.5]} scale={[0.25, 5, 1]} />
         </Environment>
-        <ProductPreview caseId={shown} finish={finish} onFailed={onFailed} keyTurn={keyTurn} />
+        <ProductPreview
+          caseId={shown}
+          staged={wanted}
+          shelfOpen={shelfOpen}
+          shelfTab={homeTab === 'build'}
+          finish={shown ? finishOf(shown) : undefined}
+          finishOf={finishOf}
+          tags={shelfTags}
+          hovered={shelfHover}
+          onFailed={onFailed}
+          onPick={pickFromShelf}
+        />
+        <ShelfCamera open={shelfOpen} controls={controlsRef} />
         {loading && (
           <ModelGuard key={wanted} onError={() => onFailed(wanted)}>
             <Suspense fallback={null}>
@@ -800,13 +973,13 @@ export default function HeroScene() {
             </Suspense>
           </ModelGuard>
         )}
+        {/* The shelf is looked at from where the page opened: no turning it, no zooming in. */}
         <OrbitControls
+          ref={controlsRef}
           target={[0, 1.7, 0]}
           enablePan={false}
-          enableZoom={true}
-          minDistance={ZOOM_NEAREST}
-          maxDistance={ZOOM_FARTHEST}
-          enableRotate={!isDraggingKnob}
+          enableZoom={!shelfOpen}
+          enableRotate={!isDraggingKnob && !shelfOpen}
         />
         <ContactShadows position={[0, -2.5, 0]} opacity={0.35} scale={20} blur={2.5} far={6} color="#1a1814" />
 

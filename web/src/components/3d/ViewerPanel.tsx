@@ -110,7 +110,7 @@ export default function ViewerPanel({ initialTab = 'hero' }: { initialTab?: Home
         {webgl ? (
           onScreen && (
             <SceneGuard key={shownScene}>
-              {shownScene === 'globe' ? <GlobeViewer /> : <HeroScene />}
+              {shownScene === 'globe' ? <GlobeViewer /> : <HeroScene tab={homeTab} />}
             </SceneGuard>
           )
         ) : (

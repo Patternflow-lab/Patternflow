@@ -581,6 +581,93 @@ export const builds: Build[] = [
       { src: '/builds/jonwtr/surface.jpg', alt: 'A shieldXL and a Synthux Simple Touch resting on the glowing panel, played with both hands' },
     ],
   },
+  {
+    id: 'russia-dmitryleeo',
+    title: 'On air',
+    category: 'builds',
+    slug: 'dmitryleeo-russia',
+    kind: 'build',
+    location: { lat: 55.7558, lng: 37.6173, label: 'Moscow, Russia' },
+    maker: "Dmitry Lee'O",
+    date: '2026-10',
+    description:
+      'A black Patternflow connected to Cubase over RTP-MIDI and used in live performance. The maker plays original electronic music on YouTube, and the panel is joining the Friday stream.',
+    links: [
+      { href: 'https://www.youtube.com/@dmitryleeo', label: 'youtube.com/@dmitryleeo' },
+    ],
+    images: [
+      { src: '/builds/dmitryleeo/on-air.jpg', alt: "Dmitry Lee'O's black Patternflow standing on a desk in a home studio, a red and white tile pattern on the panel and an ON AIR sign behind it" },
+      { src: '/builds/dmitryleeo/space.jpg', alt: 'The same Patternflow on its side, a pixel-art spaceship and a planet on the panel' },
+      { src: '/builds/dmitryleeo/studio.jpg', alt: 'The same Patternflow on its side between a mixer and a keyboard, a pixel-art platform game on the panel' },
+    ],
+  },
+  {
+    id: 'usa-jof-patternflood',
+    title: 'Patternflood',
+    category: 'builds',
+    slug: 'jof-patternflood-usa',
+    kind: 'build',
+    location: { lat: 37.7749, lng: -122.4194, label: 'San Francisco, USA' },
+    maker: 'jof',
+    date: '2026-10',
+    description:
+      'Four P2 panels in a 2 × 2, 128 × 128 pixels, in a finger-jointed birch box laser-cut and etched at Sequoia Fabrica, a community makerspace. A Raspberry Pi 5 and a Colorlight card stand in for the v3 board; it runs every Patternflow pattern and the community’s, alongside its own.',
+    links: [
+      { href: 'https://github.com/jof/patternflood', label: 'Patternflood on GitHub' },
+      { href: '/build?case=jof-patternflood', label: 'Build this one' },
+    ],
+    images: [
+      { src: '/cases/jof-patternflood/front.jpg', alt: 'Patternflood upright on the floor: the dark 2 × 2 LED panel in the etched birch front, four black knobs below it on the left' },
+      { src: '/cases/jof-patternflood/top.jpg', alt: 'Patternflood at an angle, its four push buttons along the top wall' },
+      { src: '/cases/jof-patternflood/inside.jpg', alt: 'Patternflood with its back off: the Colorlight card and the Pi 5 on a birch tray, the ribbons above, the supply and the encoders below' },
+      { src: '/cases/jof-patternflood/back.jpg', alt: 'The back cover, etched all over with circuit traces, a title block and two QR codes' },
+    ],
+  },
+  {
+    id: 'usa-angryrobot',
+    title: 'Colours reversed',
+    category: 'builds',
+    slug: 'angryrobot-usa',
+    kind: 'build',
+    location: { lat: 47.3653, lng: -122.1031, label: 'Covington, USA' },
+    maker: 'Angry Robot',
+    date: '2026-11',
+    description:
+      'A first build. The case is black and the knobs are white, the other way round from the original.',
+    images: [
+      { src: '/builds/angryrobot/squares.jpg', alt: "Angry Robot's black Patternflow lit with a red and blue square pattern, four white knobs beside the panel" },
+      { src: '/builds/angryrobot/case.jpg', alt: 'The same Patternflow switched off on a counter: a black case with four white knobs' },
+      { src: '/builds/angryrobot/blue.jpg', alt: 'The same Patternflow showing a fine blue tile pattern' },
+    ],
+  },
+  {
+    id: 'milan-saladman',
+    title: 'On show at Devcon26',
+    category: 'in-use',
+    slug: 'saladman-italy',
+    kind: 'build',
+    location: { lat: 45.4642, lng: 9.19, label: 'Milan, Italy' },
+    maker: 'saladman',
+    date: '2026-11',
+    description:
+      'A Patternflow on the table at the Wokwi booth during Espressif’s Devcon26 in Milan, showing the conference’s name in light for the people stopping by.',
+    images: [
+      { src: '/builds/saladman/devcon26.jpg', alt: "saladman's Patternflow on the Wokwi booth table at Devcon26 in Milan, the panel reading DEVCON26 beside a laptop" },
+    ],
+  },
+  {
+    id: 'naples-rele-connect',
+    title: 'A media partner’s panel',
+    category: 'in-use',
+    slug: 'rele-connect-italy',
+    kind: 'build',
+    location: { lat: 40.8518, lng: 14.2681, label: 'Naples, Italy' },
+    maker: 'RELE',
+    date: '2026-11',
+    description:
+      'Patternflow sent to RELE in Naples, who take it on as a media partner. It has just arrived, and what it will light up is still to come.',
+    links: [{ href: 'https://www.instagram.com/rele_connect/', label: 'RELE on Instagram' }],
+  },
 ];
 
 // One order for the text list and the globe's previous/next controls.
