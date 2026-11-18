@@ -5,7 +5,7 @@ import { useAppStore } from '@/store/useAppStore';
 import type { SectionContent } from '@/lib/content';
 import BuildPanel from './BuildPanel';
 
-// The Build panel's case switch: four tabs over one card, the official case
+// The Build panel's case switch: five tabs over one card, the official case
 // first; switching changes the card, step 01 and the Start here row, writes
 // ?case= while /build is on screen, and a ?case= link opens on that case. The
 // case lives in the app store, where the 3D preview reads it, so the switch
@@ -56,7 +56,7 @@ beforeEach(() => {
   );
   // The store outlives a render the way it outlives a panel on the page, so
   // each test starts from a fresh page's.
-  useAppStore.setState({ buildStep: 0, explode: 1, buildCase: 'official', caseFinish: {} });
+  useAppStore.setState({ buildStep: 0, explode: 1, buildCase: 'official', caseFinish: {}, buildShelf: true });
   window.history.replaceState(null, '', '/build');
   capture.mockClear();
   preload.mockClear();
@@ -77,7 +77,7 @@ const startRow = (name: RegExp) =>
 describe('the case switch', () => {
   it('opens on the official case, with the build.md lead above it', () => {
     render(<BuildPanel content={content} isActive />);
-    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     expect(tab(/Besoiobiy/)).toHaveAttribute('aria-selected', 'false');
     expect(screen.getByText('Every case here holds the same v3 board.')).toBeInTheDocument();
@@ -188,8 +188,7 @@ describe('the case switch', () => {
       'href',
       `${GH}/tree/main/hardware/case/remixes/simonepda-lasercut`,
     );
-    // false: the key was consumed, so End does not also scroll the panel.
-    expect(fireEvent.keyDown(tab(/SimonePDA/), { key: 'End' })).toBe(false);
+    fireEvent.keyDown(tab(/SimonePDA/), { key: 'ArrowRight' });
     expect(tab(/mbchars/)).toHaveAttribute('aria-selected', 'true');
     expect(tab(/mbchars/)).toHaveFocus();
     expect(screen.getByRole('tabpanel')).toHaveAccessibleName(/mbchars/);
@@ -211,11 +210,27 @@ describe('the case switch', () => {
       'href',
       `${GH}/tree/main/hardware/case/remixes/mbchars-horizontal-desktop-printed`,
     );
-    fireEvent.keyDown(tab(/mbchars/), { key: 'ArrowRight' });
+    // false: the key was consumed, so End does not also scroll the panel.
+    expect(fireEvent.keyDown(tab(/mbchars/), { key: 'End' })).toBe(false);
+    expect(tab(/^jof/)).toHaveAttribute('aria-selected', 'true');
+    expect(tab(/^jof/)).toHaveFocus();
+    expect(screen.getByRole('tabpanel')).toHaveAccessibleName(/jof/);
+    expect(card().getByRole('heading', { name: 'Patternflood, jof’s birch box' })).toBeInTheDocument();
+    expect(card().getByRole('link', { name: 'Jonathan Lassoff' })).toHaveAttribute('href', 'https://thejof.com/');
+    expect(card().getByText(/No Patternflow board/)).toBeInTheDocument();
+    expect(readme()).toHaveAttribute('href', 'https://github.com/jof/patternflood/blob/main/README.md');
+    expect(card().getByText(/built from its cut files/)).toBeInTheDocument();
+    expect(useAppStore.getState().buildCase).toBe('jof-patternflood');
+    expect(stepOne()).toHaveTextContent('Cut the box from six sheets of 3 mm birch');
+    expect(startRow(/^The cut files\s*hardware\/laser\//)).toHaveAttribute(
+      'href',
+      'https://github.com/jof/patternflood/tree/main/hardware/laser',
+    );
+    fireEvent.keyDown(tab(/^jof/), { key: 'ArrowRight' });
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     fireEvent.keyDown(tab(/Official/), { key: 'ArrowLeft' });
-    expect(tab(/mbchars/)).toHaveAttribute('aria-selected', 'true');
-    expect(fireEvent.keyDown(tab(/mbchars/), { key: 'Home' })).toBe(false);
+    expect(tab(/^jof/)).toHaveAttribute('aria-selected', 'true');
+    expect(fireEvent.keyDown(tab(/^jof/), { key: 'Home' })).toBe(false);
     expect(tab(/Official/)).toHaveAttribute('aria-selected', 'true');
     expect(tab(/Official/)).toHaveFocus();
     // Home on the first tab picks nothing new, so it sends nothing: like a
@@ -369,6 +384,90 @@ describe('the case switch', () => {
   });
 });
 
+// The 3D view beside the panel opens on a shelf of every case (CaseShelf.tsx)
+// and shows one case by itself once one has been asked for. The panel is one
+// of the places that asks: its switch, a ?case= address, and a step, which is
+// acted out on a device.
+describe('the shelf beside the panel', () => {
+  const shelf = () => useAppStore.getState().buildShelf;
+
+  it('is open on a bare /build, and stays open while nothing is asked for', () => {
+    render(<BuildPanel content={content} isActive />);
+    expect(shelf()).toBe(true);
+    expect(useAppStore.getState().buildStep).toBe(0);
+  });
+
+  it('steps aside for a case picked on the switch, the official one included', () => {
+    render(<BuildPanel content={content} isActive />);
+    fireEvent.click(tab(/Besoiobiy/));
+    expect(shelf()).toBe(false);
+
+    act(() => useAppStore.getState().setBuildShelf(true));
+    fireEvent.click(tab(/Official/));
+    expect(shelf()).toBe(false);
+    expect(useAppStore.getState().buildCase).toBe('official');
+  });
+
+  it('steps aside for a case the address names', () => {
+    window.history.replaceState(null, '', '/build?case=jof-patternflood');
+    render(<BuildPanel content={content} isActive />);
+    expect(shelf()).toBe(false);
+    expect(useAppStore.getState().buildCase).toBe('jof-patternflood');
+  });
+
+  it('steps aside for a step under the pointer, and for one that is clicked', () => {
+    render(<BuildPanel content={content} isActive />);
+    const step = screen.getByRole('button', { name: /Solder the PCB/ });
+    fireEvent.mouseEnter(step);
+    expect(shelf()).toBe(false);
+    expect(useAppStore.getState().buildStep).toBe(2);
+
+    act(() => useAppStore.getState().setBuildShelf(true));
+    fireEvent.click(screen.getByRole('button', { name: /Print the case/ }));
+    expect(shelf()).toBe(false);
+  });
+
+  it('comes back when it is asked for, with the picked case kept', () => {
+    render(<BuildPanel content={content} isActive />);
+    fireEvent.click(tab(/SimonePDA/));
+    act(() => useAppStore.getState().setBuildShelf(true));
+    expect(shelf()).toBe(true);
+    expect(useAppStore.getState().buildCase).toBe('simonepda-lasercut');
+    expect(tab(/SimonePDA/)).toHaveAttribute('aria-selected', 'true');
+  });
+
+  describe('on a phone', () => {
+    const frames: FrameRequestCallback[] = [];
+    beforeEach(() => {
+      frames.length = 0;
+      vi.stubGlobal('innerWidth', 390);
+      vi.stubGlobal('requestAnimationFrame', (run: FrameRequestCallback) => frames.push(run));
+      vi.stubGlobal('cancelAnimationFrame', () => {});
+    });
+    const runFrames = () => act(() => frames.splice(0).forEach((run) => run(0)));
+
+    // A phone has no hover, so the panel opens the first step for it. With
+    // the shelf up that took a case picked there apart as it arrived.
+    it('does not open the first step while the shelf is up, or when a case is picked from it', () => {
+      render(<BuildPanel content={content} isActive />);
+      runFrames();
+      expect(useAppStore.getState().buildStep).toBe(0);
+
+      act(() => useAppStore.getState().setBuildCase('simonepda-lasercut'));
+      runFrames();
+      expect(shelf()).toBe(false);
+      expect(useAppStore.getState().buildStep).toBe(0);
+    });
+
+    it('still opens the first step on an address that names a case', () => {
+      window.history.replaceState(null, '', '/build?case=besoiobiy-printed');
+      render(<BuildPanel content={content} isActive />);
+      runFrames();
+      expect(useAppStore.getState().buildStep).toBe(1);
+    });
+  });
+});
+
 describe('the rest of the panel', () => {
   it('keeps the hover preview and points at the current routes', () => {
     render(<BuildPanel content={content} isActive />);
@@ -395,5 +494,41 @@ describe('the rest of the panel', () => {
     expect(screen.getAllByRole('heading', { level: 1 }).map((h) => h.textContent)).toEqual(['Build your own.']);
     expect(card().getByRole('heading', { level: 2, name: 'The official printed case' })).toBeInTheDocument();
     expect(screen.queryAllByRole('heading', { level: 3 })).toEqual([]);
+  });
+});
+
+describe('a build of its own', () => {
+  // Patternflood holds no v3 board: its facts, its four steps and its Start
+  // here are its own (BuildCase.flow), and none of the main path's is shown.
+  it('brings its own facts, steps and guide, and gives them back on the official case', () => {
+    render(<BuildPanel content={content} isActive />);
+    const steps = () => screen.getAllByRole('button').filter((el) => /^0[1-4]/.test(el.textContent ?? ''));
+    const start = () => within(screen.getByText('Start here').parentElement as HTMLElement);
+    expect(screen.getByText('Solder the PCB')).toBeInTheDocument();
+
+    fireEvent.click(tab(/^jof/));
+    expect(screen.getByText('A laser-cut birch box with its own electronics, on mains.')).toBeInTheDocument();
+    expect(screen.queryByText(content.subtitle!)).not.toBeInTheDocument();
+    expect(screen.getByText('6 sheets')).toBeInTheDocument();
+    expect(screen.queryByText('$100–200')).not.toBeInTheDocument();
+    expect(steps().map((el) => el.textContent?.slice(2))).toEqual([
+      expect.stringMatching(/^Cut the box/),
+      expect.stringMatching(/^Glue up the box/),
+      expect.stringMatching(/^Wire it/),
+      expect.stringMatching(/^Flash and power on/),
+    ]);
+    expect(screen.queryByText('Solder the PCB')).not.toBeInTheDocument();
+    expect(start().getByRole('link', { name: /Patternflood’s build guide/ })).toHaveAttribute(
+      'href',
+      'https://github.com/jof/patternflood/blob/main/docs/desktop/BUILD.md',
+    );
+    expect(start().queryByRole('link', { name: /Order the PCB/ })).not.toBeInTheDocument();
+    expect(start().queryByRole('link', { name: /assembly map/ })).not.toBeInTheDocument();
+
+    fireEvent.click(tab(/Official/));
+    expect(screen.getByText(content.subtitle!)).toBeInTheDocument();
+    expect(screen.getByText('$100–200')).toBeInTheDocument();
+    expect(screen.getByText('Solder the PCB')).toBeInTheDocument();
+    expect(start().getByRole('link', { name: /Order the PCB/ })).toBeInTheDocument();
   });
 });

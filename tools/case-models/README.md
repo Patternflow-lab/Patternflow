@@ -8,15 +8,21 @@ The 3D models the [/build](https://patternflow.work/build) page's preview shows,
 | Besoiobiy | `web/public/cases/besoiobiy-printed/model.glb` | `hardware/case/remixes/besoiobiy-printed/source/patternbox.stl` | `besoiobiy.py`, then `assemble.mjs` |
 | SimonePDA | `web/public/cases/simonepda-lasercut/model.glb` | `hardware/case/remixes/simonepda-lasercut/lasercut_layout.pdf` | `simonepda.py`, then `assemble.mjs` |
 | mbchars | `web/public/cases/mbchars-horizontal-desktop-printed/model.glb` | `hardware/case/remixes/mbchars-horizontal-desktop-printed/stl/` | `mbchars.py`, then `assemble.mjs` |
+| jof | `web/public/cases/jof-patternflood/model.glb` | `tools/case-models/source/jof-patternflood/dxf/` | `patternflood.py`, then `assemble.mjs` |
 
-Run `./build.sh` to make all four again (or `./build.sh <case>` for one). The models are committed; nothing here runs when the site builds. Every step is deterministic: the same files in give the same bytes out.
+Run `./build.sh` to make all five again (or `./build.sh <case>` for one). The models are committed; nothing here runs when the site builds. Every step is deterministic: the same files in give the same bytes out.
 
-| Model | Size | Loads |
-| :--- | ---: | :--- |
-| `official/model.glb` | 317 KB | with the page (the guide uses it too) |
-| `besoiobiy-printed/model.glb` | 345 KB | when its tab is hovered or picked |
-| `simonepda-lasercut/model.glb` | 332 KB | when its tab is hovered or picked |
-| `mbchars-horizontal-desktop-printed/model.glb` | 380 KB | when its tab is hovered or picked |
+Each case has two models. `model.glb` is the full one, every part its own node, which the preview takes apart. `light.glb` is made from it by `light.mjs` (below): the same device standing assembled, small enough that all five load with the tab.
+
+| Case | `model.glb` | `light.glb` |
+| :--- | ---: | ---: |
+| `official` | 317 KB | 14 KB |
+| `besoiobiy-printed` | 345 KB | 30 KB |
+| `simonepda-lasercut` | 332 KB | 33 KB |
+| `mbchars-horizontal-desktop-printed` | 380 KB | 22 KB |
+| `jof-patternflood` | 563 KB | 55 KB |
+
+The five light models load with the Build or Pattern tab, 154 KB between them. A full model loads when its case is first shown by itself, or when a pointer is on it on the way.
 
 The landing page's model before these, `web/public/3dforweb.glb` (a v3.0 device), was 1,155 KB and loaded with the page.
 
@@ -38,7 +44,7 @@ A case script makes the case's *shell*: one mesh per part, assembled, in the mod
 { "board": [dx, dy, dz], "led": [x, y, z], "ledTurn": degrees, "knobs": "official" | "shell", "knobBaseZ": z, "knobLook": material }
 ```
 
-`board` is added to where the official case has the board, the DevKit and the knobs; `led` is the panel node's translation, its z the LED face, and `ledTurn` turns the panel about its own middle (anticlockwise seen from the front), for a case that holds it on its side; `knobs` says whether the shell has its own `c1` … `c4` or takes the official ones (standing at `knobBaseZ`, in `knobLook`, black PLA unless it says otherwise). Everything but `board` and `knobs` can be left out. `assemble.mjs` then adds what every case has, from the files the guide uses and the knob's STL:
+`board` is added to where the official case has the board, the DevKit and the knobs (`null` for a build with no Patternflow board: then neither the board nor the DevKit is added); `led` is the panel node's translation, its z the LED face (or `"shell"`, when the shell draws its own `l` for other panels), and `ledTurn` turns the panel about its own middle (anticlockwise seen from the front), for a case that holds it on its side; `knobs` says whether the shell has its own `c1` … `c4` or takes the official ones (standing at `knobBaseZ`, in `knobLook`, black PLA unless it says otherwise). Everything but `board` and `knobs` can be left out. `assemble.mjs` then adds what every case has, from the files the guide uses and the knob's STL:
 
 - the LED panel, `source/led_panel.glb`: the node `l` of the landing page's old model, its name, transform, geometry and UVs unchanged. `extract_led.mjs` took it out; the old file is at `git show v3.11.0:web/public/3dforweb.glb`;
 - the v3.9 board, `web/public/guide/pcb-v39.glb`, and the DevKit, `web/public/guide/devkit.glb`, simplified with meshoptimizer — the preview shows them small, through a case;
@@ -121,11 +127,33 @@ Then it checks the result: 410.28 × 176.16 × 42 mm against the README's "appro
 
 Into the model frame it is a half turn about y, 10 mm to the unit, the outline centred and the front face set where the official case's are. The panel lies the long way across here, a quarter turn from the other three, so `ledTurn` turns it a quarter turn clockwise, which puts the top of the pattern at the top as the author mounts the panel (its arrows point up in the rear photo). The board is centred on the encoder holes and bears on the inside of the control section's 3 mm front, as in the official case; the panel's face is flush with the front, on tabs 17.8 mm behind it. Each part is one node: `outer_frame`, `inner_frame`, `rear_display_cover`, `rear_control_cover` and the four `joint_bar_*` in `pla_white`; `control_section`, `usb_retainer`, `stand_left` and `stand_right` in `pla_orange`, the orange of the author's 3MF. Normals as on Besoiobiy's case (`crease_shaded`, imported from `besoiobiy.py`).
 
+## The light models: `light.mjs`
+
+`light.glb` is a case as two nodes: `l`, the lit face of the LED panel with its UVs, and `body`, everything else, one primitive per material. The Build tab opens on a shelf of all five. A picked case's light model then stands where the device stands until its full model has arrived, so the page draws a case before it has fetched 317 KB of it or the Draco decoder.
+
+`node light.mjs` makes all five from their full models (`node light.mjs <case>` for one), and `build.sh` runs it after `assemble.mjs`.
+
+- It leaves out what nobody sees while the case is closed, by node name (`CASES` in the script): the board and the DevKit, mbchars' joint bars, Patternflood's braces and wiring, SimonePDA's loose feet. SimonePDA's case is clear, so its board and DevKit stay, cut down to 260 triangles each.
+- It cuts each part that stays to a budget with meshoptimizer: 900 triangles for a part of the shell, 96 for a knob.
+- It drops the normals and welds vertices by position. The page works the normals out again from the faces (`toCreasedNormals` in `web/src/components/3d/lightCase.ts`), with an edge wherever two faces meet at more than 36°.
+- It keeps the LED panel's lit face as it is, the triangles whose UVs are the LED grid, and gives them the one normal the pattern's shader takes for an LED (`ledPanel` in `patterns/common.ts`).
+- It writes the full model's box into the scene's `extras`, so a light model is centred exactly where its full model is, dropped parts or not.
+- It writes with `EXT_meshopt_compression`, whose decoder is built into three's loader. Nothing else is fetched before a light model draws.
+
+| Case | Triangles, full | Triangles, light |
+| :--- | ---: | ---: |
+| `official` | 104,377 | 2,900 |
+| `besoiobiy-printed` | 107,154 | 7,946 |
+| `simonepda-lasercut` | 103,320 | 3,640 |
+| `mbchars-horizontal-desktop-printed` | 125,806 | 5,222 |
+| `jof-patternflood` | 110,956 | 10,551 |
+
 ## How the preview uses a model
 
 `web/src/components/3d/HeroScene.tsx` with `heroCase.ts` draws whichever model the Build panel's case switch is on.
 
-- **Loading.** Only the official model is preloaded with the page. A remix's model loads when it is picked, or when its tab is hovered (`preloadCaseModel.ts`). The current case stays on screen until the new model has arrived. A model that fails to load is caught, and the official case stays up.
+- **Loading.** No full model loads with the page. A case's full model loads when the case is first shown by itself, or when a pointer is on it on the shelf, on its tab or on the arrow that leads to it (`preloadCaseModel.ts`). Until it has arrived the case's light model stands in its place. The full one then takes over in the same place, at the same size and turn, and the light one fades out over it (`CaseShelf.tsx`). A model that fails to load is caught, and the official case stays up.
+- **The shelf.** The Build tab's view opens on all five light models standing on two boards, at one scale (`shelfLayout.ts`). A case picked there, by its model or by the name under it, goes from its place on the shelf to where the device stands, and All cases takes it back.
 - **Its own copy.** The preview works on a deep clone of drei's cached scene, with its own copy of each material, so it never changes the cached scene, which the guide may be given too. It finds the parts by the node names above; every other top-level node is treated as a piece of the case.
 - **Placement.** The model is measured once when it arrives and centred on the preview's orbit target. Every case is drawn at the same scale: the LED panel is the same part in each (and the knobs, except Besoiobiy's own caps), so it is the same size on screen, and what differs is the case round it (up to 4% across the front's diagonal among the three that stand upright; Besoiobiy's case is 8% wider than the official one). mbchars' case lies the long way and is two thirds wider than the official one: on a view too narrow for it, a desktop's tall one, it is drawn smaller, by as little as keeps it within 72% of the view's width, clear of the arrows (`fitAcross` in `buildPose.ts`). On a phone all four fit at the one scale, and on a desktop the other three do. A script does not need to match the official case's origin, only the frame's axes and units.
 - **The Build steps** use what `web/src/components/3d/cases/<case>.ts` gives: step 1 shows the case pieces and knobs at 40% of their explode vectors; step 2 shows the board and DevKit, framed on their box; step 3 moves every top-level node by its explode vector times the panel's slider.
@@ -135,8 +163,27 @@ Into the model frame it is a half turn about y, 10 mm to the unit, the outline c
 
 ## Adding a case
 
-A remix with 3D files (or a drawing exact enough to stand up) gets a model the same way: a script in this folder that writes a shell and a `placement.json` in the frame above, a line in `build.sh`, an entry in `web/src/components/3d/cases/`, and the case's card in `web/src/components/sections/build-cases-data.ts`.
+A remix with 3D files (or a drawing exact enough to stand up) gets a model the same way: a script in this folder that writes a shell and a `placement.json` in the frame above, a line in `build.sh`, a line in `light.mjs`'s `CASES` saying which of its nodes the light model leaves out, an entry in `web/src/components/3d/cases/`, and the case's card in `web/src/components/sections/build-cases-data.ts`.
 
 ## License
 
 The scripts are MIT, like the rest of `tools/`. The models they make are drawings of the cases, and take the cases' license: CC BY-SA 4.0, crediting each remix's author as its README names them.
+
+## jof: `patternflood.py`
+
+Patternflood is not a case for the v3 board: it is a birch box round a Raspberry Pi 5, a Colorlight card and four P2 panels in a 2 × 2, 256 mm square. Its model is an Onshape part studio; what this repository has of it is the cut files, `tools/case-models/source/jof-patternflood/dxf/`, one DXF per part, every part drawn as seen from outside the box. The script reads the outside of the box from them (the two sheets of the front, the four walls, the back cover), extrudes each outline by the 3.18 mm the files are compensated for, and stands it where it goes. It stops unless the box comes out at the 293 × 373 × 60.7 mm the build guide gives.
+
+- **Which way round each wall goes** is not in a DXF. The script tries every wall four ways (turned half round, and mirrored) and keeps the set whose fingers overlap the front and the neighbouring walls least (manifold3d). The finger pattern is symmetric, so 16 of the 256 sets fit equally (the files' kerf allowance, 328 mm³ in all); of those it keeps the one with no wall mirrored or turned, the way the files are drawn. That puts the right wall's mains inlet low, beside the supply, as built.
+- **The panel** is its own node `l`: one 256 mm square block 14.5 mm deep, centred on the front's window, its face against the back of the outer sheet (the inner sheet's window is as large). It is built in the frame the page's LED shader knows the official panel by (its face looks along −y in the node's own frame; the node is turned a quarter about x), and its UVs put a pattern's x left to right and row 0 at the top. Its entry in `caseModels.ts` has `ledGrid: [128, 128]`, so the page draws the patterns on 128 × 128 LEDs, as the device runs upstream's.
+- **The buttons** are four more nodes, `button_previous`, `button_select`, `button_next` and `button_sleep`, on the top wall's keyed holes in the order BUILD.md §7.3 fits them: a black bezel and a domed cap, `button_blue`, `button_orange` or `button_red`, sized by eye from the build photo.
+- **The knobs** are its own `c1` … `c4`: a plain 1" skirted knob, turned, on each of the front's four 7 mm encoder bores, 2.5 mm off the front on the jam nut.
+- **The knobs are named for what they are on the device**, k0 to k3 in reading order: through the page's mapping for the official board's wiring (`MESH_TO_KNOB`, then `LOGICAL_KNOB_TO_WEB_KNOB`) that makes top-left `c2`, top-right `c1`, bottom-left `c4` and bottom-right `c3`.
+- **Inside**, every sheet goes where the cut files put it: the side walls' mortises place the three panel braces (the middle one three sheets), rail C top and bottom and the shelf; rails B and A stack behind rail C; the back cover's doubler sits flush with rail A; the walls' doublers run back from the front's inner sheet. The tray hangs on the middle brace's screws, and the Colorlight card and the Pi sit on its nut pockets, which their hole patterns (from `enclosure.fs`) fit to 0.00 mm. The two knob ribs' x is by eye (`RIB_X`).
+- **The bought parts are drawn plainly** from the numbers Patternflood's repository records, not from vendor CAD: the Mean Well LRS-50-5 on the bottom wall's two screws, the IEC inlet in the right wall's cutout, the two boards, and an EC11 with its 4991 behind each knob. **The wiring is schematic**: mains, 5 V, the HUB75 ribbons, Ethernet, the I2C chain and the buttons' leads, on plausible routes.
+- **Roles:** the bought parts and the wiring are the entry's `gear` and the back cover with its doubler its `cover` (`caseModels.ts`), so the Build steps can show the sheets alone to cut and glue, and the inside with the cover off to wire (`buildPose.ts`).
+- **The etched art** is on the front, the back, the side walls and the top: art.py's decals (copied to `source/jof-patternflood/art/`), each a greyscale JPEG at a power-of-two size on its part's outer face (material `birch_art_<part>`, which `lib/looks.mjs` draws as birch), darker where the laser burned.
+- **The knobs' lights:** a paper ring behind each knob's twelve slits, and the slits themselves filled with light, in `knob_glow_k0` … `knob_glow_k3`. The page lights them (`knobLights` in the entry) while the device has power, in Obra's colours.
+- **The wiring** is splines through plausible routes, sagging a little where they run level: laced mains, twisted 5 V pairs with cable ties, four-colour STEMMA QT runs, the ribbons in easy bends; nothing passes behind the back doubler. The 5 V is wired as BUILD.md §8 has it: the supply to a bus of two barrier strips on the lower brace (`power_bus`), three harnesses off it to the four panels' plugs and the card's power input (and a spare, tied back), and the Pi's pigtail from the card's screw terminal. The panels' own HUB75 and power connectors are on their backs (`panel_connectors`). The HUB75 ribbons are cabled as built: each panel to the header at the card's corner nearest it, so the four are short and none crosses another. Each is a 16-way cable with a ridge over every conductor and the red stripe down pin 1, in IDC plugs at both ends: it leaves its header lying along it, curves onto a straight diagonal, and twists back to land square on its panel's input header. The 5 V pairs run in a layer of their own behind the ribbons, the Ethernet cable and the Pi's pigtail in front of them, and the script checks that no wire cuts into a ribbon or into any sheet inside the box, holes and all, following every wire's centre line every half millimetre (it drops any cable tie that would). The supply's +V and −V leave its terminal end and go back behind it, clear of the mains at the front of its terminals, and up through the gap behind the shelf to the bus; the Ethernet cable ends in a plug seated in the card's jack, and the Pi's pigtail goes into the side of the card's 5 V terminal block. The knobs' STEMMA QT chain goes in one socket of each 4991 and out the other, round the square as a big C, its hops through the knob rib's cable holes; the buttons' leads gather in front of the upper rails and run down the side to the Pi.
+- **Left out:** nothing on the outside. `placement.json` is `{"board": null, "led": "shell", "knobs": "shell"}`, and the entry is `boardless`, so the page frames the whole device where it would frame the board.
+
+The sheets are `birch_face` and `birch_edge` (pale birch, edges burnt dark), the knobs `pla_black`.
