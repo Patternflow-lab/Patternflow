@@ -563,7 +563,9 @@ function ProductPreview({
 
     const group = groupRef.current;
     if (!group) return;
-    const kView = ease(0.05, delta);
+    // With less motion asked for, a Build step is a cut to its pose, as the
+    // shelf's moves are (CaseShelf.tsx).
+    const kView = still ? 1 : ease(0.05, delta);
     const pose = poseFor(buildStep, explode, t, still, CASE_MODELS[staged].boardless);
     stageLit.current = pose.lit;
     // The case's own demo, drawn once a frame for whichever is showing it.
@@ -603,7 +605,7 @@ function ProductPreview({
     // not assembled and easing out from there: a swap is a cut, not a move.
     const fresh = !device.root.userData.settled;
     device.root.userData.settled = true;
-    const kPart = fresh ? 1 : ease(0.08, delta);
+    const kPart = fresh || still ? 1 : ease(0.08, delta);
 
     // The panel: the pattern while there is power, black while it is being built.
     const ledTarget = !pose.lit ? blackMat : caseDemo ? demoMat : activePatternId === 'custom' ? customMat : ledMat;
