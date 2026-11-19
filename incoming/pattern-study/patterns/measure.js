@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the squares, all the way round the wheel from a cyan.
 // Knob 2: Size. The side of each square, 12 LEDs at the bottom of the knob to 18 at the top; it opens at 16. The frame at the hold is always three sides wide.
-// Knob 3: Frame. How wide the frame is, in clicks, 48 of them; its left side is the left wall and turning up narrows it. It opens with four LEDs between the squares of the first row. Eight clicks on, the gaps have shut and the three squares are one bar, as wide as the frame; the knob holds there for three clicks. The click after, the frame is one LED too narrow for three, the third square goes down to the second row and the two left in the first spread across the frame.
+// Knob 3: Frame. How wide the frame is, in clicks, 48 of them; its left side is the left wall and turning up narrows it. It opens with 4.3 LEDs between the squares of the first row. Eight clicks on, the gaps have shut and the three squares are one bar, as wide as the frame; the knob holds there for three clicks. The click after, the frame is one LED too narrow for three, the third square goes down to the second row and the two left in the first spread across the frame.
 // Knob 4: Skew. How far each row stands to the right of the one above it, 0 to 16 LEDs, held back where the panel's right edge would cut a square. It opens at 0.06, which is no skew.
 
 const W = 64;
@@ -23,7 +23,7 @@ const CLICKS = 48;
 const HOLD = 34;
 const OPEN = 25;
 // LEDs a click narrows the frame in the eight clicks beside the hold.
-const STEP = 1;
+const STEP = 1.05;
 const NEAR = 8;
 const COUNT = 5;
 const PER = 3;

@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the squares, all the way round the wheel from a gold.
 // Knob 2: Count. How many squares, 3 at the bottom of the knob to 6 at the top. It opens on four, which are 16 LEDs on a side when they fill the row from wall to wall.
-// Knob 3: Size. How big the squares are, in clicks, 48 of them. It opens at 20 LEDs, with three squares in the first row and the last one alone below. Turning down, the squares shrink until at 16 LEDs the four are one band against both walls; the knob holds there for three clicks. The click after, they have grown past the wall and one drops below. Further down, the four stand apart.
+// Knob 3: Size. How big the squares are, in clicks, 48 of them. It opens at 18.9 LEDs, with three squares in the first row, 3.7 LEDs apart, and the last one alone below. Turning down, the squares shrink until at 16 LEDs the four are one band against both walls; the knob holds there for three clicks. The click after, they have grown past the wall and one drops below. Further down, the four stand apart.
 // Knob 4: Align. Where the lone square of the second row stands, from under the first of the row above at 0.06 to against the right wall at 1.
 
 const W = 64;

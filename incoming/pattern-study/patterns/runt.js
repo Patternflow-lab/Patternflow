@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the circles, all the way round the wheel from a violet.
 // Knob 2: Size. The diameter of each circle, 12 LEDs at the bottom of the knob to 18 at the top; it opens at 16. The ceiling at the hold is always four diameters high.
-// Knob 3: Ceiling. How high the columns may stand above the floor, in clicks, 48 of them; turning up lowers it. It opens with four LEDs between the circles of the first column. Eight clicks on, the gaps have shut and the four circles touch from the floor up; the knob holds there for three clicks. The click after, the ceiling is one LED too low for four, the top circle goes to the next column, and the three left in the first spread up to the ceiling.
+// Knob 3: Ceiling. How high the columns may stand above the floor, in clicks, 48 of them; turning up lowers it. It opens with three LEDs between the circles of the first column. Eight clicks on, the gaps have shut and the four circles touch from the floor up; the knob holds there for three clicks. The click after, the ceiling is one LED too low for four, the top circle goes to the next column, and the three left in the first spread up to the ceiling.
 // Knob 4: Lean. How far each column to the left stands above the one to its right, 0 to 10 LEDs a column. It opens at 0.06, which is no lean.
 
 const W = 64;
@@ -23,7 +23,7 @@ const CLICKS = 48;
 const HOLD = 34;
 const OPEN = 25;
 // LEDs a click lowers the ceiling in the eight clicks beside the hold.
-const STEP = 1;
+const STEP = 1.05;
 const NEAR = 8;
 const COUNT = 7;
 const PER = 4;
