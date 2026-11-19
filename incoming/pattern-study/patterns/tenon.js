@@ -12,15 +12,15 @@
 // @knobs Hue=0..1, Count=-2..2, Reach=-36..12, Short=0.06..1
 //
 // Knob 1: Hue. The colour of the bars, all the way round the wheel from cyan.
-// Knob 2: Count. How many bars, 3 at the bottom of the knob to 7 at the top, where it opens. The bars are 20 LEDs thick at three and 8 at seven, so the ink at the middle hold is about a quarter of the panel at any count.
+// Knob 2: Count. How many bars, 3 at the bottom of the knob to 7 at the top, where it opens. The bars are 16 LEDs thick at three and 8 at seven, so the ink at the middle hold is a fifth to a quarter of the panel at any count.
 // Knob 3: Reach. How far the bars reach in from their walls, counted in clicks, 48 of them from a stub of 6 LEDs to a bar that spans the panel. Where it opens the bars from the left wall reach 48 LEDs and the right ones the same, so the two sets lap by 32. Turn down and in 10 clicks the two sets end on one line at the middle of the panel and the dark valley between them is shut, held for three clicks; below that the valley is open. Turn up and in 10 clicks the bars touch the walls opposite, held for the top three clicks. The clicks next to each hold move the bar ends more than a LED a click.
 // Knob 4: Short. How much shorter the bars from the right wall reach than the ones from the left, up to a half. At the bottom they reach alike. The middle hold stays on its three clicks and moves out with it, from 32 LEDs to 43, wherever the two sets still end on one line.
 
 const W = 64;
 const H = 128;
 // Thickness and gap in LEDs for three bars to seven. The two even numbers of LEDs make the first and last bar sit on whole LEDs, and the stack is centred.
-const THICK = [20, 16, 12, 10, 8];
-const GAP = [24, 16, 12, 10, 9];
+const THICK = [16, 14, 12, 10, 8];
+const GAP = [28, 18, 12, 10, 9];
 const KINK_MAX = 0.5;
 const LEAD = 6;
 const EPS = 1e-6;
