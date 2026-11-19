@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Girth=0..3, Tone=-1..1, Shade=0.06..1
 //
-// Knob 1: Hue. The colour of the line, all the way round the wheel from green; the ground's colour goes round with it.
+// Knob 1: Hue. The colour of the line, all the way round the wheel from cyan; the ground's colour goes round with it.
 // Knob 2: Girth. How thick the line is, 4 LEDs at 0 to 22 at 3; its 2 is 16. It stands 108 LEDs tall with its middle 14 LEDs right of the panel's middle, and the thickness grows on both sides of that.
-// Knob 3: Tone. How far round the colour wheel the ground's colour stands from the line's. At -1 and at 1 it is half a turn, the opposite colour. Moving the knob up from -1 the ground comes round to the line's colour, and at 0.708 it is the same colour and the line is gone; the knob holds there for three clicks (0.667 to 0.75). Past that the ground goes round the other way, back to the opposite colour at 1. Its 0 is 141 degrees short of the same colour, sixteen clicks before the hold.
+// Knob 3: Tone. How far round the colour wheel the ground's colour stands from the line's, 7.5 degrees a click. At 0.75 it is the same colour and the line is gone; the knob holds there for three clicks (0.708 to 0.792). Below that the ground is turned back from the line's colour and above it turned on. Its 0 is 127.5 degrees back, seventeen clicks below the hold; at -1 it is 307.5 degrees back and at 1 it is 37.5 on.
 // Knob 4: Shade. How much darker the ground is than the line: the same brightness at 0.06, where the knob opens, and 0.28 of it at 1. Dimmed, the line stays in view even where the colours are the same.
 
 const W = 64;
@@ -24,12 +24,12 @@ const TOP = 10;
 const BOTTOM = H - 10;
 // One click of a knob that has 48 clicks over -1..1. The place the knob holds at is a whole number of clicks from its middle, and it holds for the click either side as well.
 const CLICK = 2 / 48;
-const STOP = 17;
+const STOP = 18;
 // The line and the ground are lit to this much of full, under half so the whole panel lit stays inside the current budget.
 const LEVEL = 0.46;
 const SAT = 0.85;
-// The first colour: a green, so the open ground comes out a pink red.
-const BASE = 0.36;
+// The first colour: a cyan, so the open ground comes out an olive.
+const BASE = 0.52;
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
@@ -54,15 +54,12 @@ function span(lo, hi, p) {
   return v < 0 ? 0 : v;
 }
 
-// How far round the wheel, in turns, the ground's colour stands from the line's for a knob at k: half a turn back at -1, none for the three clicks at STOP, half a turn on at 1. Each side comes round fast at first and slows, so the open ground is already well away.
+// How far round the wheel, in turns, the ground's colour stands from the line's for a knob at k: none for the three clicks at STOP, and from there a 48th of a turn for each click further, back below and on above, so every click turns the ground by the same 7.5 degrees.
 function turn(k) {
   const d = k / CLICK - STOP;
   const run = Math.abs(d) - 1;
   if (run <= 1e-6) return 0;
-  const room = d < 0 ? STOP + 23 : 23 - STOP;
-  const x = Math.min(1, run / room);
-  const a = 0.5 * (1 - Math.pow(1 - x, 3));
-  return d < 0 ? -a : a;
+  return (d < 0 ? -run : run) / 48;
 }
 
 export function setup(params) {
