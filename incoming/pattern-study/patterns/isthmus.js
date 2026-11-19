@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. The colour of all three, all the way round the wheel from blue.
 // Knob 2: Size. The two squares, the circle and the room between them grow together: squares 12 LEDs across and a circle 16 across at the bottom of the knob, 18 and 24 where it opens at 2, 20 and 26 at the top. The squares stand 14 LEDs either side of the middle across and 10 up and down at 2, and every number is kept to whole LEDs.
-// Knob 3: Pass. How far the circle has come up its line, counted in clicks. It opens at the bottom of the knob 27 LEDs down the lower left, nine clicks short of the first touch, and each click up takes it 1.2 LEDs. On click 9 it touches the upper left square and the three pieces are two; it holds there for two clicks, comes on 1.1 LEDs a click, and touches the lower right square on click 15, where the three are one, and holds for two clicks again. The click of the second touch moves with Size and Aim, from 12 to 33, and at the ends of Aim it does not come at all. It then goes on through the gap and past the middle at about 0.65 LED a click, all one piece, and stops half an LED short of letting go of the lower right square.
-// Knob 4: Aim. How far the circle's line sits off the middle between the two squares, 8 LEDs at most to the lower right at the top of the knob and 8 to the upper left at the bottom. Where it opens it runs through the middle and touches the upper left square first. Aimed towards one square the circle meets that one first, the two touches come nearer in the knob, and at the ends of the knob it only ever touches one square and the three never become one.
+// Knob 3: Pass. How far the circle has come up its line, counted in clicks. It opens at the bottom of the knob 27 LEDs down the lower left, nine clicks short of the first touch, and each click up takes it 1.2 LEDs. On click 9 it touches the upper left square and the three pieces are two; it holds there for two clicks, comes on 1.1 LEDs a click, and touches the lower right square on click 15, where the three are one, and holds for two clicks again. The click of the second touch moves with Size and Aim, from 12 to 33, and at the ends of Aim it does not come at all. It then goes on through the gap and past the middle at about 0.6 LED a click, all one piece, and stops half an LED short of letting go of the lower right square.
+// Knob 4: Aim. How far the circle's line sits off the middle between the two squares, 8 LEDs at most to the lower right at the top of the knob and 8 to the upper left at the bottom. Where it opens it runs through the middle and touches the upper left square first. Aimed away from the lower right square the two touches come further apart in the knob. Aimed 2 to 4 LEDs towards it the second touch comes three clicks after the first, and past that the circle meets the lower right square first. At the ends of the knob it only ever touches one square and the three never become one.
 
 const W = 64;
 const H = 128;
@@ -204,14 +204,15 @@ function route(P) {
   add(FIRST, P.p1);
   add(FIRST + 1, P.p1);
   if (P.join) {
-    // As many clicks between the touches as it takes to cross at a click's step.
-    const gap = Math.max(GAP_MIN, 2 + Math.round((P.pa - P.p1) / STEP));
+    // As many clicks between the touches as it takes to cross at a click's step. The click after each hold takes a full step, so a hold is two clicks and no more.
+    const gap = clamp(2 + Math.round((P.pa - P.p1) / STEP), GAP_MIN, 30);
     const s2 = FIRST + gap;
     add(s2 - 1, P.pa);
     add(s2, P.p2);
     add(s2 + 1, P.p2);
+    add(s2 + 2, Math.min(P.pend, P.p2 + STEP));
     P.s2 = s2;
-  }
+  } else add(FIRST + 2, Math.min(P.pend, P.p1 + STEP));
   add(CLICKS, P.pend);
   P.n = n;
 }

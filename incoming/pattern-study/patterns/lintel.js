@@ -203,14 +203,15 @@ function route(P) {
   add(FIRST, P.p1);
   add(FIRST + 1, P.p1);
   if (P.join) {
-    // As many clicks between the touches as it takes to cross at a click's step.
-    const gap = Math.max(GAP_MIN, 2 + Math.round((P.pa - P.p1) / STEP));
+    // As many clicks between the touches as it takes to cross at a click's step. The click after each hold takes a full step, so a hold is two clicks and no more.
+    const gap = clamp(2 + Math.round((P.pa - P.p1) / STEP), GAP_MIN, 30);
     const s2 = FIRST + gap;
     add(s2 - 1, P.pa);
     add(s2, P.p2);
     add(s2 + 1, P.p2);
+    add(s2 + 2, Math.min(P.pend, P.p2 + STEP));
     P.s2 = s2;
-  }
+  } else add(FIRST + 2, Math.min(P.pend, P.p1 + STEP));
   add(CLICKS, P.pend);
   P.n = n;
 }
