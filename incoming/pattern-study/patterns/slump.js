@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Weight=1..3, Height=-24..24, Lift=0.06..1
 //
 // Knob 1: Hue. The colour of the bar, turned all the way round the wheel from a pale green.
-// Knob 2: Weight. How thick the bar is, 5 LEDs at 1, 10 where it opens at 2 and 15 at 3; its length stays 64.
+// Knob 2: Weight. How thick the bar is, 5 LEDs at 1, 12 where it opens at 2 and 19 at 3; its length stays 64.
 // Knob 3: Height. How high the end on the left wall is, counted in clicks of about one and a half LEDs, 44 of them from the floor to 64 LEDs. Where it opens it is 32 LEDs up and the bar leans at 30 degrees. Turn down and in 22 clicks it lies on the floor from one side wall to the other, held for the bottom three clicks. Turn up and in 22 clicks it stands against the left wall with its foot in the corner, held for the top three. Next to each hold the end on the wall moves about a LED and a half a click.
 // Knob 4: Lift. How far above the floor the whole bar is held, up to 48 LEDs. At the bottom its low end is on the floor; raised, the bar is still level where it lies and still upright where it stands, but it touches only the left wall.
 
@@ -52,7 +52,7 @@ export function setup(params) {
   params.t = 0;
   params.col = new Float32Array(3);
   params.h = 32;
-  params.thick = 10;
+  params.thick = 12;
   params.lift = 0;
 }
 
@@ -60,11 +60,11 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  params.thick = 10 + 5 * (clamp(k[1], 1, 3) - 2);
+  params.thick = 12 + 7 * (clamp(k[1], 1, 3) - 2);
   params.h = heightAt(clamp(k[2], -OPEN, 48 - OPEN) + OPEN);
   params.lift = (LIFT_MAX * clamp(k[3] - 0.06, 0, 0.94)) / 0.94;
   // Nothing on the panel moves on the clock. The light swells and falls and the colour wanders a few degrees, so the panel is never quite still. The bar lights few LEDs, so the swell is wide.
-  hsv(k[0] + 0.4 + 0.02 * Math.sin(t * 0.37), 0.5, 0.86 * (0.76 + 0.24 * Math.sin(t * 0.9 + 2.1)), params.col);
+  hsv(k[0] + 0.4 + 0.02 * Math.sin(t * 0.37), 0.75, 0.95 * (0.8 + 0.2 * Math.sin(t * 0.9 + 2.1)), params.col);
 }
 
 export function draw(display, params, time) {

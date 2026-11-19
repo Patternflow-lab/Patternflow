@@ -12,14 +12,14 @@
 // @knobs Hue=0..1, Size=1..3, Tilt=-28..20, Lift=0.06..1
 //
 // Knob 1: Hue. The colour of the bar, turned all the way round the wheel from magenta.
-// Knob 2: Size. The width of the bar, 12 LEDs at 1, 16 where it opens at 2 and 20 at 3; it is always twice as tall.
+// Knob 2: Size. The width of the bar, 12 LEDs at 1, 16 where it opens at 2 and 21 at 3; it is always twice as tall.
 // Knob 3: Tilt. How far the bar has tipped to the left over its bottom left corner, counted in clicks, 48 of them for a quarter turn. Where it opens it has tipped about 52 degrees. Turn down and in 12 clicks it balances at 26.6 degrees with its long diagonal straight up, held for three clicks, and 12 more it stands on its short side, held for the bottom three. Turn up and in 30 clicks it lies on its long side, held for the top three. Between the holds it swings about two degrees a click.
 // Knob 4: Lift. How far above the floor the corner it turns on is held, up to 48 LEDs. At the bottom the corner is on the floor; raised, the sides are still level at the holds but nothing touches the floor.
 
 const W = 64;
 const H = 128;
-// The corner the bar turns on: 42 columns in, on the floor. At rest the bar is to its right and lying down it is 2 widths to its left.
-const PX = 42;
+// The corner the bar turns on: 43 columns in, on the floor. At rest the bar is to its right and lying down it is 2 widths to its left, so the widest bar, 21, spans the panel from column 1 to its right edge.
+const PX = 43;
 const LIFT_MAX = 48;
 // Knob 3 has 48 clicks and opens 28 above its bottom.
 const OPEN = 28;
@@ -73,11 +73,12 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  params.w = 16 + 4 * (clamp(k[1], 1, 3) - 2);
+  const size = clamp(k[1], 1, 3);
+  params.w = size < 2 ? 12 + 4 * (size - 1) : 16 + 5 * (size - 2);
   params.th = tipAt(clamp(k[2], -OPEN, 48 - OPEN) + OPEN);
   params.lift = (LIFT_MAX * clamp(k[3] - 0.06, 0, 0.94)) / 0.94;
   // Nothing on the panel moves on the clock. The light swells and falls and the colour wanders a few degrees, so the panel is never quite still.
-  hsv(k[0] + 0.83 + 0.02 * Math.sin(t * 0.39), 0.7, 0.86 * (0.8 + 0.2 * Math.sin(t * 0.9 + 1.1)), params.col);
+  hsv(k[0] + 0.83 + 0.02 * Math.sin(t * 0.39), 0.8, 0.95 * (0.8 + 0.2 * Math.sin(t * 0.9 + 1.1)), params.col);
 }
 
 export function draw(display, params, time) {
