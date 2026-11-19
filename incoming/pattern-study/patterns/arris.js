@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the plate, all the way round the wheel from green.
 // Knob 2: Size. The plate and the hole grow together, 34 LEDs across with a 26 LED hole at 0, 48 with 36 where it opens at 2 and 54 with 40 at 3. Both are kept to whole LEDs.
-// Knob 3: Turn. How far the hole has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 2.8 degrees at the size where it opens, which takes its corners 1.2 LEDs a click, until the corners reach the sides: found from the size by lighting the plate LED by LED, that is 24.6 degrees at 2 and between 20.3 and 26.9 across the sizes. The knob holds there for three clicks, four corners on the panel, then goes on slowly to 40 degrees, short of the hole standing on its corner. Turned down it goes back 6 clicks.
+// Knob 3: Turn. How far the hole has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 2.8 degrees at the size where it opens, which takes its corners 1.2 LEDs a click, until the corners reach the sides: found from the size by lighting the plate LED by LED, that is 24.65 degrees at 2 and between 20.35 and 26.9 across the sizes. The knob holds there for three clicks, four corners on the panel, then goes on slowly to 40 degrees, short of the hole standing on its corner. Turned down it goes back 6 clicks.
 // Knob 4: Slide. How far the hole sits right (up) or left (down) of the middle, 5 LEDs at most each way; where it opens it is dead centre. Slid, the wall on its near side breaks once the hole has turned 3 degrees, a C well before the break, and at the break the frame is three pieces, not four.
 
 const W = 64;
