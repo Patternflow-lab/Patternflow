@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the plate, all the way round the wheel from green.
 // Knob 2: Size. The plate and the hole grow together, 34 LEDs across with a 26 LED hole at 0, 48 with 36 where it opens at 2 and 54 with 40 at 3. Both are kept to whole LEDs.
 // Knob 3: Turn. How far the hole has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 2.8 degrees at the size where it opens, which takes its corners 1.2 LEDs a click, until the corners reach the sides: found from the size by lighting the plate LED by LED, that is 24.6 degrees at 2 and between 20.3 and 26.9 across the sizes. The knob holds there for three clicks, four corners on the panel, then goes on slowly to 40 degrees, short of the hole standing on its corner. Turned down it goes back 6 clicks.
-// Knob 4: Slide. How far the hole sits left or right of the middle, 5 LEDs at most each way; where it opens it is dead centre. Slid, the corners on its near side break through the wall first, a C well before the break, and at the break the frame is three pieces, not four.
+// Knob 4: Slide. How far the hole sits right (up) or left (down) of the middle, 5 LEDs at most each way; where it opens it is dead centre. Slid, the wall on its near side breaks once the hole has turned 3 degrees, a C well before the break, and at the break the frame is three pieces, not four.
 
 const W = 64;
 const H = 128;
@@ -61,8 +61,9 @@ function measure(z, P) {
   const s = z < 2 ? 0.7 + 0.15 * z : 1 + 0.12 * (z - 2);
   P.A = Math.round(PA * s);
   P.B = Math.round(PB * s);
-  P.a = Math.round(HA * s);
-  P.b = Math.round(HB * s);
+  // The hole keeps the plate's proportions however the sizes round, or a small plate's hole would not reach its sides by the end of the turn.
+  P.b = Math.round((P.B * HB) / PB);
+  P.a = Math.round((P.A * HA) / PA);
   P.x0 = PX - P.A;
   P.y0 = PY - P.B;
 }
@@ -175,7 +176,7 @@ export function update(dt, input, params) {
   params.ox = ox;
   params.oy = oy;
   // Nothing on the panel moves on the clock. The light swells and falls, so the panel is never quite still.
-  hsv(k[0] + 0.3, 0.65, 0.84 + 0.16 * Math.sin(t * 0.53 + 0.9), params.c);
+  hsv(k[0] + 0.3, 0.4, 0.88 + 0.12 * Math.sin(t * 0.83 + 0.9), params.c);
 }
 
 export function draw(display, params, time) {

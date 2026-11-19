@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Size=0..3, Turn=-6..42, Slide=-1..1
 //
 // Knob 1: Hue. The colour of the plate, all the way round the wheel from violet.
-// Knob 2: Size. The plate and the slot grow together, 28 by 56 LEDs with a 12 by 40 slot at 0, 40 by 80 with 16 by 56 where it opens at 2 and 44 by 90 with 18 by 62 at 3. Both are kept to whole LEDs.
-// Knob 3: Turn. How far the slot has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 3.2 degrees at the size where it opens, which takes its ends 1.6 LEDs a click, until they reach the sides: found from the size by lighting the plate LED by LED, that is 27.7 degrees at 2 and between 24.7 and 27.7 across the sizes. The knob holds there for three clicks, then goes on slowly to 40 degrees. Turned down it goes back 6 clicks.
-// Knob 4: Slide. How far the slot sits left or right of the middle of the plate, 9 LEDs at most each way; where it opens it is dead centre. Slid, only the end on the near side reaches a side, so the plate stays one piece with a notch to the end of the turn.
+// Knob 2: Size. The plate and the slot grow together, 28 by 56 LEDs with a 12 by 40 slot at 0, 40 by 80 with 16 by 56 where it opens at 2 and 44 by 90 with 18 by 64 at 3. Both are kept to whole LEDs.
+// Knob 3: Turn. How far the slot has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 3.2 degrees at the size where it opens, which takes its ends 1.6 LEDs a click, until they reach the sides: found from the size by lighting the plate LED by LED, that is 27.7 degrees at 2 and between 24.7 and 27.8 across the sizes. The knob holds there for three clicks, then goes on slowly to 40 degrees. Turned down it goes back 6 clicks.
+// Knob 4: Slide. How far the slot sits right (up) or left (down) of the middle of the plate, 9 LEDs at most each way; where it opens it is dead centre. Slid, only the end on the near side reaches a side, from 6 degrees on, so the plate is one piece with a notch when the turn ends.
 
 const W = 64;
 const H = 128;
@@ -59,8 +59,9 @@ function measure(z, P) {
   const s = z < 2 ? 0.7 + 0.15 * z : 1 + 0.12 * (z - 2);
   P.A = Math.round(PA * s);
   P.B = Math.round(PB * s);
-  P.a = Math.round(HA * s);
-  P.b = Math.round(HB * s);
+  // The hole keeps the plate's proportions however the sizes round, or a small plate's hole would not reach its sides by the end of the turn.
+  P.b = Math.round((P.B * HB) / PB);
+  P.a = Math.round((P.A * HA) / PA);
   P.x0 = PX - P.A;
   P.y0 = PY - P.B;
 }
@@ -173,7 +174,7 @@ export function update(dt, input, params) {
   params.ox = ox;
   params.oy = oy;
   // Nothing on the panel moves on the clock. The light swells and falls, so the panel is never quite still.
-  hsv(k[0] + 0.72, 0.65, 0.84 + 0.16 * Math.sin(t * 0.53 + 0.9), params.c);
+  hsv(k[0] + 0.72, 0.4, 0.88 + 0.12 * Math.sin(t * 0.83 + 0.9), params.c);
 }
 
 export function draw(display, params, time) {

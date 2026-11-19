@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Size=0..3, Turn=-6..42, Lift=-1..1
 //
 // Knob 1: Hue. The colour of the band, all the way round the wheel from orange.
-// Knob 2: Size. The band and the hole grow together, a band 30 LEDs deep with a 22 LED hole at 0, 44 with 32 where it opens at 2 and 50 with 36 at 3. The band always runs from wall to wall. Both are kept to whole LEDs.
-// Knob 3: Turn. How far the hole has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 3.4 degrees at the size where it opens, which takes its corners 1.3 LEDs a click, until two corners reach the top and the bottom: found from the size by lighting the band LED by LED, that is 30.2 degrees at 2 and between 25.7 and 32.2 across the sizes. The knob holds there for three clicks, then goes on slowly to 40 degrees. Turned down it goes back 6 clicks.
-// Knob 4: Lift. How far the hole sits above or below the middle of the band, 5 LEDs at most each way; where it opens it is dead centre. Lifted, the corner on its near side goes through first and the band is one piece with a notch, and it stays one piece to the end of the turn.
+// Knob 2: Size. The band and the hole grow together, a band 32 LEDs deep with a 24 LED hole at 0, 46 with 34 where it opens at 2 and 52 with 38 at 3. The band always runs from wall to wall. Both are kept to whole LEDs.
+// Knob 3: Turn. How far the hole has turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, nine clicks short of the break. Each click up turns it 3.0 degrees at the size where it opens, which takes its corners 1.2 LEDs a click, until two corners reach the top and the bottom: found from the size by lighting the band LED by LED, that is 26.4 degrees at 2 and between 23.7 and 28.6 across the sizes. The knob holds there for three clicks, then goes on slowly to 40 degrees. Turned down it goes back 6 clicks.
+// Knob 4: Lift. How far the hole sits above or below the middle of the band, 5 LEDs at most each way; where it opens it is dead centre. Lifted, the wall on its near side breaks once the hole has turned 3 degrees, a notch in the band, and the band is still one piece when the turn ends.
 
 const W = 64;
 const H = 128;
@@ -23,9 +23,9 @@ const DEG = Math.PI / 180;
 const PX = 32;
 const PY = 96;
 const PA = 32;
-const PB = 22;
-const HA = 16;
-const HB = 16;
+const PB = 23;
+const HA = 17;
+const HB = 17;
 const SHIFT = 5;
 // Knob 3 is counted in clicks and the knob has 48 of them. It opens at 0 with the hole upright, OPEN clicks above the bottom of the knob, and the picture breaks nine clicks on: clicks 9, 10 and 11 are the broken picture.
 const OPEN = 6;
@@ -59,8 +59,9 @@ function measure(z, P) {
   const s = z < 2 ? 0.7 + 0.15 * z : 1 + 0.12 * (z - 2);
   P.A = PA;
   P.B = Math.round(PB * s);
-  P.a = Math.round(HA * s);
-  P.b = Math.round(HB * s);
+  // The hole keeps the plate's proportions however the sizes round, or a small plate's hole would not reach its sides by the end of the turn.
+  P.b = Math.round((P.B * HB) / PB);
+  P.a = P.b;
   P.x0 = PX - P.A;
   P.y0 = PY - P.B;
 }
@@ -157,7 +158,7 @@ export function update(dt, input, params) {
   const u = clamp(k[3], -1, 1) - 0.06;
   const off = Math.round((SHIFT * u * 10) / (u > 0 ? 0.94 : 1.06)) / 10;
   const ox = 0;
-  const oy = off;
+  const oy = -off;
   const key = P.A + "/" + P.B + "/" + P.a + "/" + P.b + "/" + off;
   if (key !== params.key) {
     params.key = key;
@@ -173,7 +174,7 @@ export function update(dt, input, params) {
   params.ox = ox;
   params.oy = oy;
   // Nothing on the panel moves on the clock. The light swells and falls, so the panel is never quite still.
-  hsv(k[0] + 0.08, 0.65, 0.84 + 0.16 * Math.sin(t * 0.53 + 0.9), params.c);
+  hsv(k[0] + 0.08, 0.4, 0.88 + 0.12 * Math.sin(t * 0.83 + 0.9), params.c);
 }
 
 export function draw(display, params, time) {
