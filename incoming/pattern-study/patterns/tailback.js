@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of every square, all the way round the wheel from amber.
 // Knob 2: Speed. How fast the squares run where the road is clear, from standing still at the bottom of the knob to 24 LEDs a second at the top; in the slow place they run at a share of that. Two slow clocks, one 1.618 times the other, bend the pace by a fifth either way, so the stream never settles into one beat.
 // Knob 3: Jam. How hard the flow slows in the slow place, counted in clicks. It opens at 0 with the squares 12 LEDs apart there, and each click up closes the gap by 1.2 LEDs until on click 10 the squares touch and the three or so in the slow place are one block. The knob holds there for clicks 11 and 12 as well. Past that the flow slows nearly to a stop and the queue backs up the road, up to 24 LEDs by click 24, so more squares run into the block. Below 0 the gap opens by 0.58 LED a click, up to the free flow's 26 LEDs at the bottom of the knob.
-// Knob 4: Span. How long the slow place is, from 30 LEDs at the bottom of the knob to 76 at the top, centred low on the panel. It does not go shorter, because a slow place that cannot hold two squares at once has nothing to close.
+// Knob 4: Span. How long the slow place is, from 30 LEDs at the bottom of the knob to 64 at the top, centred low on the panel. It does not go shorter, because a slow place that cannot hold two squares at once has nothing to close.
 
 const W = 64;
 const H = 128;
@@ -35,7 +35,7 @@ const TOUCH = Math.min(SW / Math.abs(UX || 1e-9), SH / Math.abs(UY || 1e-9));
 const MIDC = 92;
 const RAMP = 22;
 const SPAN_MIN = 30;
-const SPAN_MAX = 76;
+const SPAN_MAX = 64;
 // Knob 3 has 48 clicks and opens on click 0. The gap between two shapes in the slow place closes on click STOP and the knob holds there for HOLD more clicks. GAP0 is that gap where the knob opens, and the gap grows by LEFT a click below it, up to the free flow's. Past the hold the slow place slows to at most SLOWEST and backs up BACK LEDs upstream.
 const STOP = 10;
 const HOLD = 2;
