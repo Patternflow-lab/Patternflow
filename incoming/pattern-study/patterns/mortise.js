@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Size=0..3, Reach=0..48, Turn=0.06..1
 //
 // Knob 1: Hue. The colour of the band and the square, all the way round the wheel from violet.
-// Knob 2: Size. The hole, the square and the band grow together: a 16 LED square in a band 26 LEDs wide at the bottom of the knob, 20 in 30 where it opens at 2 and 24 in 34 at the top. The band keeps 5 LEDs either side of the hole and its right edge stays 3 LEDs off the right wall.
-// Knob 3: Reach. How far the square has come across, counted in clicks. It opens at the bottom of the knob with the square 10 LEDs short of the band, nine clicks before it meets it, and each click brings it 1.1 LEDs. On click 9 it meets the band's edge and the two pieces are one; the knob holds there for two clicks. It then goes in under the 5 LEDs of band, where it cannot be seen, and comes out into the hole, 1.25 LEDs a click where the knob opens. On click 30 it sits in the hole, the hole is gone and the band is plain, and the knob holds for two clicks again. Past that it goes on by 1.2 LEDs a click, the hole opens again behind it and the square leaves through the right wall.
-// Knob 4: Turn. How far the square and the line it comes along are turned about the hole's middle, 30 degrees at the top of the knob. Where it opens the square comes straight across and fits. Turned, it comes down from the upper left on its corner, meets the band corner first, and on click 30 it lies across the hole with its corners under the band and the hole's own corners still dark, so the hole never closes.
+// Knob 2: Size. The hole, the square and the band grow together: an 18 LED square in a band 26 LEDs wide at the bottom of the knob, 22 in 30 where it opens at 2 and 26 in 34 at the top. The band keeps 4 LEDs either side of the hole and its right edge stays 3 LEDs off the right wall.
+// Knob 3: Reach. How far the square has come across, counted in clicks. It opens at the bottom of the knob with the square 10 LEDs short of the band, nine clicks before it meets it, and each click brings it 1.1 LEDs. Where it opens the square stands against the left wall with one column of it still behind the wall. On click 9 it stands flush against the band's edge and the two pieces are one; the knob holds there for two clicks. It then goes in under the 4 LEDs of band, where it cannot be seen, and comes out into the hole, 1.3 LEDs a click where the knob opens, 1.08 at the smallest size and 1.5 at the biggest. On click 29 a slit 2 LEDs wide is left down the far side of the hole and click 30 closes it: the square sits in the hole, the hole is gone and the band is plain. The knob holds there for two clicks again. Click 32 takes the square 2 LEDs on and each click after it 1.2, the hole opens again behind it and the square goes out through the right wall. It stops no further than where the whole hole is open again.
+// Knob 4: Turn. How far the square and the line it comes along are turned about the hole's middle, 30 degrees at the top of the knob. Where it opens the square comes straight across and fits. Turned, it comes down from the upper left, meets the band corner first, and on click 30 it lies across the hole with its corners under the band and the hole's own corners still dark, so the hole never closes.
 
 const W = 64;
 const H = 128;
@@ -136,8 +136,9 @@ function plan(P) {
   ps[6] = 0;
   qs[7] = FIT + 2;
   ps[7] = SNAP;
+  // It goes on from there, and no further than where the whole hole is open again.
   qs[8] = CLICKS;
-  ps[8] = SNAP + PAST * (CLICKS - FIT - 2);
+  ps[8] = Math.min(SNAP + PAST * (CLICKS - FIT - 2), P.side);
 }
 
 function placeAt(P, q) {

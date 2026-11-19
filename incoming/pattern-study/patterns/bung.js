@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Bung
 // Family:  geometry
-// Idea:    The lower half of the panel is lit with a round hole in it and a disc the size of the hole hangs in the dark above, and the knob lowers the disc: it holds where the disc lands on the lit edge and the two pieces are one, and again where the disc sits in the hole and the hole is gone.
+// Idea:    The lower half of the panel is lit with a round hole in it, left of the middle, and a disc the size of the hole hangs in the dark above it, and the knob lowers the disc: it holds where the disc lands on the lit edge and the two pieces are one, and again where the disc sits in the hole and the hole is gone.
 // Author:  patternflow-lab
 // Date:    2026-11-19
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,15 +12,15 @@
 // @knobs Hue=0..1, Size=0..3, Drop=0..48, Slack=0.06..1
 //
 // Knob 1: Hue. The colour of the lit half and the disc, all the way round the wheel from teal.
-// Knob 2: Size. The hole and the disc grow together, 24 LEDs across at the bottom of the knob, 36 where it opens at 2 and 42 at the top. The hole's middle stays 24 LEDs below the lit edge, so the rim above it is 12 LEDs at the bottom of the knob, 6 where it opens and 3 at the top.
-// Knob 3: Drop. How far the disc has come down, counted in clicks. It opens at the bottom of the knob with the disc 11 LEDs clear of the lit edge, nine clicks short of landing, and each click lowers it 1.3 LEDs. On click 9 it lands on the edge and the two pieces are one; the knob holds there for two clicks. It then sinks through the rim, where it cannot be seen, and comes out into the hole from the top, 1.4 LEDs a click where the knob opens. On click 40 it sits in the hole, the hole is gone and the lit half is plain, and the knob holds for two clicks again. Past that it sinks on by 1.2 LEDs a click and the hole opens again from the top.
-// Knob 4: Slack. How much smaller than the hole the disc is. Where it opens they are the same size. At the top of the knob the disc is under half as wide as the hole, and on click 40 it floats in the middle of the hole with a dark ring round it, so the hole never closes.
+// Knob 2: Size. The hole and the disc grow together, 26 LEDs across at the bottom of the knob, 36 where it opens at 2 and 42 at the top. The top of the hole stays 4 LEDs under the lit edge and the hole grows downward.
+// Knob 3: Drop. How far the disc has come down, counted in clicks. It opens at the bottom of the knob with the disc 11.7 LEDs clear of the lit edge, nine clicks short of landing, and each click lowers it 1.3 LEDs. On click 9 its lowest LEDs stand on the edge and the two pieces are one; the knob holds there for two clicks. It then sinks through the 4 LEDs of rim, where it cannot be seen, and comes out into the hole from the top, 1.45 LEDs a click where the knob opens, 1.05 at the smallest size and 1.7 at the biggest. On click 35 a gap 4 LEDs deep is left along the bottom of the hole and click 36 closes it: the disc sits in the hole, the hole is gone and the lit half is plain. The knob holds there for two clicks again. Click 38 takes the disc 4 LEDs on and each click after it 1.2, and the hole opens again from the top. A small disc stops with two LEDs of it still showing in the hole.
+// Knob 4: Slack. How much smaller than the hole the disc is. Where it opens they are the same size, and at the top of the knob the disc is half as wide as the hole. A smaller disc lands later, floats free inside the hole on its way down, and on click 36 it rests on the hole's lower side with a dark crescent left above it, so the hole never closes.
 
 const W = 64;
 const H = 128;
 // The lit half starts at this row. The hole's middle is on this column and its top is RIM LEDs below the lit edge.
 const EDGE = 64;
-const HX = 32;
+const HX = 26;
 const RIM = 4;
 // Knob 3 has 48 clicks and opens at the bottom of the knob, FIRST clicks short of landing. The disc sits in the hole on click FIT.
 const CLICKS = 48;
@@ -113,17 +113,19 @@ function plan(P) {
   ps[2] = hold;
   qs[3] = FIRST + 1;
   ps[3] = hold;
-  // The last click into the hole and the first click out of it each take SNAP LEDs.
+  // On click FIT the disc is as far into the hole as it goes: against the hole's lower side. A disc the size of the hole fills it there. The last click in and the first click out each take SNAP LEDs.
+  const seat = P.r - P.rd;
   qs[4] = FIT - 1;
-  ps[4] = Math.max(hold, -SNAP);
+  ps[4] = Math.max(hold, seat - SNAP);
   qs[5] = FIT;
-  ps[5] = 0;
+  ps[5] = seat;
   qs[6] = FIT + 1;
-  ps[6] = 0;
+  ps[6] = seat;
   qs[7] = FIT + 2;
-  ps[7] = SNAP;
+  ps[7] = seat + SNAP;
+  // It sinks on from there, and stops with two LEDs of the disc still showing in the hole.
   qs[8] = CLICKS;
-  ps[8] = SNAP + PAST * (CLICKS - FIT - 2);
+  ps[8] = Math.min(seat + SNAP + PAST * (CLICKS - FIT - 2), Math.max(seat + SNAP, P.r + P.rd - 2));
 }
 
 function placeAt(P, q) {
@@ -159,7 +161,7 @@ export function update(dt, input, params) {
   const r = Math.round((z < 2 ? 13 + 2.5 * z : 18 + 3 * (z - 2)) * 20) / 20;
   // The last knob opens at 0.06, the bottom of its travel, where the disc is the size of the hole.
   const slack = clamp((k[3] - 0.06) / 0.94, 0, 1);
-  const rd = slack > 0 ? Math.round(r * (1 - 0.55 * slack) * 20) / 20 : r;
+  const rd = slack > 0 ? Math.round(r * (1 - 0.5 * slack) * 20) / 20 : r;
   const key = r + "/" + rd;
   if (key !== params.key) {
     params.key = key;

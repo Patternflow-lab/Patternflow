@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Cotter
 // Family:  geometry
-// Idea:    A lit band runs wall to wall across the top of the panel with a triangular hole in it, point up, and a triangle the size of the hole stands in the dark below, and the knob raises the triangle: it holds where its point goes into the band's lower edge and the two pieces are one, and again where the triangle sits in the hole and the hole is gone.
+// Idea:    A lit band runs wall to wall across the upper half of the panel with a triangular hole in it, point up, and a triangle the size of the hole stands in the dark below, and the knob raises the triangle: it holds where its point goes into the band's lower edge and the two pieces are one, and again where the triangle sits in the hole and the hole is gone.
 // Author:  patternflow-lab
 // Date:    2026-11-19
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Size=0..3, Rise=0..48, Lean=0.06..1
 //
 // Knob 1: Hue. The colour of the band and the triangle, all the way round the wheel from green.
-// Knob 2: Size. The hole and the triangle grow together, 32 LEDs along the base and 27 tall at the bottom of the knob, 40 by 34 where it opens at 2 and 48 by 41 at the top. The hole's base stays 6 LEDs above the band's lower edge and the band stays where it is, 58 LEDs deep.
-// Knob 3: Rise. How far the triangle has come up, counted in clicks. It opens at the bottom of the knob with its point 11 LEDs below the band, nine clicks short of going in, and each click raises it 1.2 LEDs. On click 9 the point is two LEDs into the band's lower edge and the two pieces are one; the knob holds there for two clicks. The point then goes up under the 6 LEDs of band, where it cannot be seen, and comes out into the hole from the base, 1.3 LEDs a click where the knob opens. On click 39 the triangle sits in the hole, the hole is gone and the band is plain, and the knob holds for two clicks again. Past that it rises on by 1.1 LEDs a click and the hole opens again along its base.
-// Knob 4: Lean. How far the triangle and the line it comes along are turned about the hole's middle, 24 degrees at the top of the knob. Where it opens the triangle comes straight up and fits. Leaned, it comes up from the lower left with its point ahead of it, and on click 39 it lies across the hole with its corners under the band and three slivers of the hole still dark, so the hole never closes.
+// Knob 2: Size. The hole, the triangle and the band grow together: a triangle 34 LEDs along the base and 29 tall in a band 47 LEDs deep at the bottom of the knob, 40 by 34 in 52 where it opens at 2 and 48 by 41 in 59 at the top. The band keeps 4 LEDs under the hole's base and 14 over its point, and its lower edge stays where it is.
+// Knob 3: Rise. How far the triangle has come up, counted in clicks. It opens at the bottom of the knob with its point 9 LEDs below the band, nine clicks short of going in, and each click raises it 1.2 LEDs. On click 9 the point is two LEDs into the band's lower edge and the two pieces are one; the knob holds there for two clicks. The point then goes up under the 4 LEDs of band, where it cannot be seen, and comes out into the hole from the base, 1.27 LEDs a click where the knob opens, 1.07 at the smallest size and 1.53 at the biggest. On click 36 a gap 3 LEDs deep is left along the hole's two slanted sides and click 37 closes it: the triangle sits in the hole, the hole is gone and the band is plain. The knob holds there for two clicks again. Click 39 takes the triangle 3 LEDs on and each click after it 1, the hole opens again along its base, and the point stops 2 LEDs short of the band's upper edge.
+// Knob 4: Lean. How far the triangle and the line it comes along are turned about the hole's middle, 18 degrees at the top of the knob. Where it opens the triangle comes straight up and fits. Leaned, it comes up from the lower left with its point ahead of it, and on click 37 it lies across the hole with its corners under the band and slivers of the hole still dark, so the hole never closes.
 
 const W = 64;
 const H = 128;
