@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the triangle, all the way round the wheel from teal. The square is a paler tint of the colour half way round the wheel from it.
 // Knob 2: Size. The base of the triangle, 36 LEDs at the bottom of the knob to 46 at the top, with the height a quarter more than the base. It opens on 43. The square stays 14 LEDs on a side.
-// Knob 3: Hide. How far the square has gone along its slope, counted in clicks, 48 of them from near the top right corner to wholly behind the triangle. Where it opens the square is about 10 LEDs short of the triangle's slanted side. Turn up and in 10 clicks the square's corner meets the side, held for three clicks; after that the square slides in. Turn up to the last three clicks and it is wholly hidden, only the triangle left. The clicks next to each hold move the square more than a LED a click.
+// Knob 3: Hide. How far the square has gone along its slope, counted in clicks, 48 of them from near the top right corner to wholly behind the triangle. Where it opens the square is about 8 LEDs short of the triangle's slanted side. Turn up and in 10 clicks the square's corner meets the side, held for three clicks; after that the square slides in. Turn up to the last three clicks and it is wholly hidden, only the triangle left. The clicks next to each hold move the square more than a LED a click.
 // Knob 4: Aside. How far the triangle sits off the square's way, up and to the left, up to 11 LEDs on the biggest triangle and 5.5 on the smallest, which has less room to hide a square. At the bottom the way runs through the triangle's middle. Both holds stay on their clicks and move with the triangle.
 
 const W = 64;

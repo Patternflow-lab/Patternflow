@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the circle, all the way round the wheel from magenta. The square is a paler tint of a colour about a third of the way off it on the wheel.
 // Knob 2: Size. The width of the circle, 36 LEDs at the bottom of the knob to 48 at the top. It opens on 44. The square stays 14 LEDs on a side.
-// Knob 3: Hide. How far the square has gone up the diagonal, counted in clicks, 48 of them from the bottom left corner region to wholly behind the circle. Where it opens the square's corner is about 10 LEDs short of the circle. Turn up and in 10 clicks the corner meets the circle's edge, held for three clicks; after that the square slides in. Turn up to the last three clicks and it is wholly hidden, only the circle left. The clicks next to each hold move the square more than a LED a click.
+// Knob 3: Hide. How far the square has gone up the diagonal, counted in clicks, 48 of them from the bottom left corner region to wholly behind the circle. Where it opens the square's corner is about 12 LEDs short of the circle. Turn up and in 10 clicks the corner meets the circle's edge, held for three clicks; after that the square slides in. Turn up to the last three clicks and it is wholly hidden, only the circle left. The clicks next to each hold move the square more than a LED a click.
 // Knob 4: Aside. How far the circle sits off the square's way, up and to the left, up to 6.5 LEDs. At the bottom the way runs through the circle's middle. Both holds stay on their clicks and move with the circle.
 
 const W = 64;
