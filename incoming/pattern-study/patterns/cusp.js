@@ -9,12 +9,12 @@
 // Round:   194
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..3, Out=-14..34, Aside=0.06..1
+// @knobs Hue=0..1, Size=0..3, Out=-15..33, Aside=0.06..1
 //
-// Knob 1: Hue. The colour of the disc, all the way round the wheel from violet. The triangle behind it is a colour about half the wheel away.
-// Knob 2: Size. How wide the disc is. Both holds are worked out from the disc, so they stay on their clicks and the triangle grows with it.
-// Knob 3: Out. How big the triangle behind the disc is, counted in clicks.
-// Knob 4: Aside. How far the disc has slid toward the triangle's lower right point. The triangle stays put.
+// Knob 1: Hue. The colour of the disc, all the way round the wheel from orange. The triangle behind it is a colour half the wheel away, and dimmer.
+// Knob 2: Size. How wide the disc is, 20 LEDs at the bottom of the knob, 28 where it opens at 2 and 30 at the top. Both holds are worked out from the disc, so they stay on their clicks and the triangle grows with the disc.
+// Knob 3: Out. How big the triangle behind the disc is, counted in clicks. On the bottom click it is wholly hidden and the disc stands alone. Click 1 brings its three points out 4 LEDs past the disc's edge, three pieces, and the knob holds there for two clicks. Each click from there moves the points out three eighths of a LED, and it opens thirteen clicks on with the points 9 LEDs out. Twelve clicks up from where it opens 6 LEDs of the disc's edge still cross the middle of each side, and the thirteenth takes the points 3.7 LEDs on and clears all three sides at once: one frame, 1.5 LEDs thick at its thinnest. The knob holds there for two clicks. From there the points move out a quarter of a LED a click to the top of the knob, where the two lower points stop 1 LED short of the walls.
+// Knob 4: Aside. How far the disc has slid toward the triangle's lower right point, up to 10 LEDs, or 6 with the smallest disc. The triangle stays put. The two points the disc has left show first and the two sides beside the lower right point clear last; both holds stay on their clicks. With the disc slid past halfway the triangle that closes the frame is wider than the panel and the walls cut its two lower points, 3.5 LEDs off each with the disc slid all the way.
 
 const W = 64;
 const H = 128;
@@ -23,19 +23,19 @@ const BX = 32;
 const BY = 70;
 // Knob 3 has 48 clicks and opens on click OPEN. The triangle is hidden on click 0, shows first on click 1 and is a whole frame on click RIM.
 const CLICKS = 48;
-const OPEN = 14;
-const RIM = 24;
+const OPEN = 15;
+const RIM = 28;
 // How far a point stands out past the disc when it first shows, and how thick the frame is at its thinnest when it closes.
-const SHOW = 3;
+const SHOW = 4;
 const SEAL = 1.5;
 // The three pieces stop growing with this much of the disc's edge still showing through the nearest side; the next click closes it in one go.
-const GAP = 4;
+const GAP = 6;
 // The biggest triangle, from its middle to a point: its lower points stop 1 LED short of the walls. A frame that closes later than that, behind a disc slid far aside, still gets SPARE LEDs of growing, and the walls cut those.
 const HALF = 0.8660254;
 const TOP = 31 / HALF;
 const SPARE = 2;
 // How far the last knob slides the disc.
-const SLIDE = 9;
+const SLIDE = 10;
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
@@ -138,7 +138,10 @@ export function draw(display, params, time) {
       // How far outside the nearest of the triangle's three sides the LED is: the base, the right side, the left side.
       const out = Math.max(dy, HALF * dx - 0.5 * dy, -HALF * dx - 0.5 * dy) - inner;
       const c = clamp(0.5 - out, 0, 1) * (1 - disc);
-      display.setPixel(x, y, front[0] * disc + back[0] * c, front[1] * disc + back[1] * c, front[2] * disc + back[2] * c);
+      // An LED the two share takes the colour of the one that has more of it, so no LED on the line between them is a mix of the two.
+      const lit = disc + c;
+      const col = disc >= c ? front : back;
+      display.setPixel(x, y, col[0] * lit, col[1] * lit, col[2] * lit);
     }
   }
 }

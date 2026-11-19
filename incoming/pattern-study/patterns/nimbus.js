@@ -9,12 +9,12 @@
 // Round:   194
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..3, Out=-13..35, Aside=0.06..1
+// @knobs Hue=0..1, Size=0..3, Out=-12..36, Aside=0.06..1
 //
-// Knob 1: Hue. The colour of the square, all the way round the wheel from teal. The disc behind it is a colour a little under half the wheel away.
-// Knob 2: Size. The side of the square, 24 LEDs at the bottom of the knob, 32 where it opens at 2 and 34 at the top. Both holds are worked out from the square, so they stay on their clicks and the disc grows with it.
-// Knob 3: Out. How big the disc behind the square is, counted in clicks. On the bottom click it is wholly hidden and the square stands alone. Click 1 brings it out 1 LED past the middle of each side, four pieces, and the knob holds there for two clicks. It opens eleven clicks on, the pieces 21 LEDs wide and 3 thick. Each click adds about a fifth of a LED to the radius and close to a LED to the width of each piece. Nine clicks up from where it opens 3 LEDs of dark are left at each corner and the next click closes all four at once: one rim, 1.5 LEDs thick at the corners. The knob holds there for two clicks. From there the rim thickens to the top of the knob, where the disc stops 1 LED short of both walls.
-// Knob 4: Aside. How far the square has slid down and to the right off the disc's middle, up to 5 LEDs where it opens. The disc stays put. The side of the disc the square leaves shows first and the far corner closes last; both holds stay on their clicks. A big square slides less, so that the rim can still close inside the walls.
+// Knob 1: Hue. The colour of the square, all the way round the wheel from teal. The disc behind it is a colour a little under half the wheel away, and dimmer.
+// Knob 2: Size. The side of the square, 24 LEDs at the bottom of the knob, 32 where it opens at 2 and 34 at the top. Both holds are worked out from the square, so they stay on their clicks and the disc grows with the square.
+// Knob 3: Out. How big the disc behind the square is, counted in clicks. On the bottom click it is wholly hidden and the square stands alone. Click 1 brings it out 1.5 LEDs past the middle of each side, four pieces 14 LEDs wide, and the knob holds there for two clicks. Each click from there adds a fifth of a LED to the radius, and it opens ten clicks on with the pieces 22 LEDs wide and 3.5 thick. Eight clicks up from where it opens 3 LEDs of dark are left at each corner, and the ninth takes the radius 3 LEDs on and closes all four at once: one rim, 1.5 LEDs thick at the corners and 8 at the sides. The knob holds there for two clicks. From there the rim thickens a quarter of a LED a click to the top of the knob, where the disc stops 1 LED short of both walls.
+// Knob 4: Aside. How far the square has slid down and to the right off the disc's middle, up to 5 LEDs each way. The disc stays put. The disc shows first on the two sides the square has left and the corner the square has slid toward closes last; both holds stay on their clicks. With the square slid all the way, a disc at the top of the third knob runs up to 3 LEDs into the walls.
 
 const W = 64;
 const H = 128;
@@ -23,10 +23,10 @@ const BX = 32;
 const BY = 40;
 // Knob 3 has 48 clicks and opens on click OPEN. The disc is hidden on click 0, shows first on click 1 and is a whole rim on click RIM.
 const CLICKS = 48;
-const OPEN = 13;
-const RIM = 22;
+const OPEN = 12;
+const RIM = 21;
 // How far the disc stands out past a side when it first shows, and how thick the rim is at the far corner when it closes.
-const SHOW = 1;
+const SHOW = 1.5;
 const SEAL = 1.5;
 // The pieces stop growing with this much dark left between their ends at the far corner; the next click closes it in one go.
 const GAP = 3;
@@ -146,7 +146,10 @@ export function draw(display, params, time) {
       const sq = my * span(fx - h, fx + h, x);
       const dist = Math.hypot(x + 0.5 - BX, y + 0.5 - BY);
       const c = clamp(r + 0.5 - dist, 0, 1) * (1 - sq);
-      display.setPixel(x, y, front[0] * sq + back[0] * c, front[1] * sq + back[1] * c, front[2] * sq + back[2] * c);
+      // An LED the two share takes the colour of the one that has more of it, so no LED on the line between them is a mix of the two.
+      const lit = sq + c;
+      const col = sq >= c ? front : back;
+      display.setPixel(x, y, col[0] * lit, col[1] * lit, col[2] * lit);
     }
   }
 }
