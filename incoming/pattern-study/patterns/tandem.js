@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of both squares, all the way round the wheel from sky blue.
 // Knob 2: Pace. How fast the left square swings: still at 0, once every 8 seconds at its 2, and every 5.3 seconds at 3.
-// Knob 3: Ratio. How much faster the right square swings than the left, counted in clicks. At the bottom it takes 0.618 times the left one's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the left one's pace: the two squares then swing as one, and the step between their tops stays what Step sets. The knob opens ten clicks above the hold, where the right square swings 1.233 times as fast and drifts away from the left one and back again. The click either side of the hold drifts it nearly 4 LEDs apart every swing.
+// Knob 3: Ratio. How much faster the right square swings than the left, counted in clicks. At the bottom it takes 0.618 times the left one's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the left one's pace: the two squares then swing as one, and the step between their tops stays what Step sets. The knob opens ten clicks above the hold, where the right square swings 1.233 times as fast and drifts away from the left one and back again. The click either side of the hold drifts it nearly 4 LEDs apart every swing, and turned back onto the hold it falls into step at once.
 // Knob 4: Step. How far below the left square the right one hangs when the two keep the same pace: level at 0, 1.4 LEDs at 0.06 where the knob opens, and 24 LEDs at 1, past the bottom of the left square.
 
 const W = 64;
@@ -67,6 +67,7 @@ function ratioAt(c) {
 
 export function setup(params) {
   params.turn = 0;
+  params.gain = 0;
   params.rgb = new Float32Array(3);
   params.a = new Float32Array(H);
   params.b = new Float32Array(H);
@@ -74,12 +75,16 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
-  params.turn += dt * RATE * clamp(k[1], 0, 3);
   const r = ratioAt(clamp(k[2], -35, 13));
-  // The right square's clock is not counted on its own: it is the left one's turn times the ratio,
-  // so whenever the ratio comes back to 1 the two are in step again at the set Step.
+  const step = dt * RATE * clamp(k[1], 0, 3);
+  params.turn += step;
+  // The right square's clock is the left one's turn and what it has gained on it, the ratio less 1 of
+  // every step. With the knobs left alone that is the left one's turn times the ratio. On the hold the
+  // gain is cleared, so the two come back in step at the set Step instead of keeping whatever gap they
+  // had, and a click off the hold starts the drift from there instead of jumping.
+  params.gain = r === 1 ? 0 : params.gain + step * (r - 1);
   const y1 = MID + SWING * Math.sin(params.turn);
-  const y2 = MID + STEP * clamp(k[3], 0, 1) + SWING * Math.sin(params.turn * r);
+  const y2 = MID + STEP * clamp(k[3], 0, 1) + SWING * Math.sin(params.turn + params.gain);
   hsv(k[0] + 0.55, 0.8, 0.95, params.rgb);
   for (let y = 0; y < H; y++) {
     params.a[y] = span(y1, y1 + SIDE, y);

@@ -13,19 +13,19 @@
 //
 // Knob 1: Hue. The colour of the rectangle, all the way round the wheel from yellow green.
 // Knob 2: Pace. How fast the top side swings: still at 0, once every 8 seconds at its 2, and every 5.3 seconds at 3.
-// Knob 3: Ratio. How much faster the bottom side swings than the top, counted in clicks. At the bottom it takes 0.618 times the top side's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the top side's pace: the rectangle then keeps one height and moves up and down whole. The knob opens ten clicks above the hold, where the bottom side swings 1.233 times as fast and the rectangle stretches and squashes. The click either side of the hold changes its height by nearly 2 LEDs more every swing.
-// Knob 4: Height. How tall the rectangle is when both sides keep the same pace: 40 LEDs at 0, 42 at 0.06 where the knob opens, and 72 at 1. Each side swings 14 LEDs either way, so out of step the rectangle is never less than 12 LEDs tall.
+// Knob 3: Ratio. How much faster the bottom side swings than the top, counted in clicks. At the bottom it takes 0.618 times the top side's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the top side's pace: the rectangle then keeps one height and moves up and down whole. The knob opens ten clicks above the hold, where the bottom side swings 1.233 times as fast and the rectangle stretches and squashes. The click either side of the hold changes its height by 1.6 LEDs more every swing, and turned back onto the hold it takes the set height at once.
+// Knob 4: Height. How tall the rectangle is when both sides keep the same pace: 36 LEDs at 0, 38 at 0.06 where the knob opens, and 68 at 1. It is 52 LEDs wide, and each side swings 12 LEDs either way, so out of step it is never less than 12 LEDs tall.
 
 const W = 64;
 const H = 128;
-// The rectangle is 40 LEDs wide and starts 12 columns in.
-const LEFT = 12;
-const WIDE = 40;
-// The bottom side swings 14 LEDs either side of row 110, from row 96 to row 124.
-const FLOOR = 110;
-const SWING = 14;
-const LOW = 40;
-const HIGH = 72;
+// The rectangle is 52 LEDs wide and starts 6 columns in.
+const LEFT = 6;
+const WIDE = 52;
+// The bottom side swings 12 LEDs either side of row 112, from row 100 to row 124.
+const FLOOR = 112;
+const SWING = 12;
+const LOW = 36;
+const HIGH = 68;
 // One swing of the top side takes 16 / Pace seconds.
 const RATE = (2 * Math.PI) / 16;
 // Knob 3: the hold runs from HOLD_LO to HOLD_HI clicks, and 23 clicks each side of it reach the golden ratio.
@@ -67,6 +67,7 @@ function ratioAt(c) {
 
 export function setup(params) {
   params.turn = 0;
+  params.gain = 0;
   params.rgb = new Float32Array(3);
   params.cy = new Float32Array(H);
   params.cx = new Float32Array(W);
@@ -75,13 +76,17 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
-  params.turn += dt * RATE * clamp(k[1], 0, 3);
   const r = ratioAt(clamp(k[2], -35, 13));
+  const step = dt * RATE * clamp(k[1], 0, 3);
+  params.turn += step;
   const tall = LOW + (HIGH - LOW) * clamp(k[3], 0, 1);
-  // The bottom side's clock is not counted on its own: it is the top side's turn times the ratio,
-  // so whenever the ratio comes back to 1 the rectangle is the set height again.
+  // The bottom side's clock is the top side's turn and what it has gained on it, the ratio less 1 of
+  // every step. With the knobs left alone that is the top side's turn times the ratio. On the hold the
+  // gain is cleared, so the rectangle comes back to the set height instead of keeping whatever height
+  // it had, and a click off the hold starts from there instead of jumping.
+  params.gain = r === 1 ? 0 : params.gain + step * (r - 1);
   const top = FLOOR - tall + SWING * Math.sin(params.turn);
-  const bottom = FLOOR + SWING * Math.sin(params.turn * r);
+  const bottom = FLOOR + SWING * Math.sin(params.turn + params.gain);
   hsv(k[0] + 0.2, 0.8, 0.95, params.rgb);
   for (let y = 0; y < H; y++) params.cy[y] = span(top, bottom, y);
 }

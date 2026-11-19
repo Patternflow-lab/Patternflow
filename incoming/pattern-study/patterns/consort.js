@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of both circles, all the way round the wheel from magenta.
 // Knob 2: Pace. How fast the first circle runs round the frame, clockwise: still at 0, once round every 18 seconds at its 2, and every 12 seconds at 3.
-// Knob 3: Ratio. How much faster the second circle runs than the first, counted in clicks. At the bottom it takes 0.618 times the first one's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the first one's pace: the two then run round as one and keep the distance Offset sets. The knob opens ten clicks above the hold, where the second circle runs 1.233 times as fast, catches the first and runs through it. The click either side of the hold moves it about 6 LEDs along the frame every lap.
+// Knob 3: Ratio. How much faster the second circle runs than the first, counted in clicks. At the bottom it takes 0.618 times the first one's pace and at the top 1.618 times, the golden ratio either way, with every click in between the same step on a log scale. The three clicks -12, -11 and -10 hold it at exactly the first one's pace: the two then run round as one and keep the distance Offset sets. The knob opens ten clicks above the hold, where the second circle runs 1.233 times as fast, catches the first and runs through it. The click either side of the hold moves it about 6 LEDs along the frame every lap, and turned back onto the hold it falls back to the set distance at once.
 // Knob 4: Offset. How far along the frame the second circle falls short of straight across the panel when the two keep the same pace: straight across at 0, 7 LEDs short at 0.06 where the knob opens, and at 1 just ahead of the first circle, touching it on a straight wall.
 
 const W = 64;
@@ -85,19 +85,24 @@ function along(s, out, i) {
 
 export function setup(params) {
   params.run = 0;
+  params.gain = 0;
   params.rgb = new Float32Array(3);
   params.at = new Float32Array(4);
 }
 
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
-  params.run += dt * SPEED * clamp(k[1], 0, 3);
   const r = ratioAt(clamp(k[2], -35, 13));
+  const step = dt * SPEED * clamp(k[1], 0, 3);
+  params.run += step;
   const behind = (HALF - 2 * R) * clamp(k[3], 0, 1);
+  // The second circle's run is the first one's run and what it has gained on it, the ratio less 1 of
+  // every step. With the knobs left alone that is the first one's run times the ratio. On the hold the
+  // gain is cleared, so the two come back the set distance apart instead of keeping whatever gap they
+  // had, and a click off the hold starts from there instead of jumping.
+  params.gain = r === 1 ? 0 : params.gain + step * (r - 1);
   along(params.run, params.at, 0);
-  // The second circle's run is not counted on its own: it is the first one's run times the ratio,
-  // so whenever the ratio comes back to 1 the two are the set distance apart again.
-  along(params.run * r + HALF - behind, params.at, 2);
+  along(params.run + params.gain + HALF - behind, params.at, 2);
   hsv(k[0] + 0.88, 0.75, 0.95, params.rgb);
 }
 
