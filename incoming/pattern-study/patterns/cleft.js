@@ -78,7 +78,8 @@ export function update(dt, input, params) {
   const gap = C1 - C0 - width;
   const q = clamp(k[2], -OPEN, 48 - OPEN) + OPEN;
   const d = partAt(q, gap, gap + width / 2) / 2;
-  const cut = ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (width / 3);
+  // A quarter LED right of the middle where it opens, so the cut's edges cross the LEDs between the clicks where the outer edges do, and no click near the hold leaves the picture as it was.
+  const cut = 0.25 + ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (width / 3);
   for (let i = 0; i < 2; i++) {
     const c = i === 0 ? C0 : C1;
     const left = c - width / 2;

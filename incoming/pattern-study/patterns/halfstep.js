@@ -82,7 +82,8 @@ export function update(dt, input, params) {
   const part = partAt(q, gap, gap + side / 2);
   const d = part / 2;
   // The cut, from the middle at 0.06 to a sixth of the side above the bottom at 1.
-  const cut = ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (side / 3);
+  // A quarter LED below the middle where it opens, so the cut's edges cross the LEDs between the clicks where the outer edges do, and no click near the hold leaves the picture as it was.
+  const cut = 0.25 + ((clamp(k[3], 0, 1) - 0.06) / 0.94) * (side / 3);
   const top0 = CY - (3 * pitch + side) / 2;
   for (let i = 0; i < N; i++) {
     const top = top0 + i * pitch;
