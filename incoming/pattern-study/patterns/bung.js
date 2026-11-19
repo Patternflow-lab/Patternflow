@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the lit half and the disc, all the way round the wheel from teal.
 // Knob 2: Size. The hole and the disc grow together, 26 LEDs across at the bottom of the knob, 36 where it opens at 2 and 42 at the top. The top of the hole stays 4 LEDs under the lit edge and the hole grows downward.
-// Knob 3: Drop. How far the disc has come down, counted in clicks. It opens at the bottom of the knob with the disc 11.7 LEDs clear of the lit edge, nine clicks short of landing, and each click lowers it 1.3 LEDs. On click 9 its lowest LEDs stand on the edge and the two pieces are one; the knob holds there for two clicks. It then sinks through the 4 LEDs of rim, where it cannot be seen, and comes out into the hole from the top, 1.45 LEDs a click where the knob opens, 1.05 at the smallest size and 1.7 at the biggest. On click 35 a gap 4 LEDs deep is left along the bottom of the hole and click 36 closes it: the disc sits in the hole, the hole is gone and the lit half is plain. The knob holds there for two clicks again. Click 38 takes the disc 4 LEDs on and each click after it 1.2, and the hole opens again from the top. A small disc stops with two LEDs of it still showing in the hole.
+// Knob 3: Drop. How far the disc has come down, counted in clicks. It opens at the bottom of the knob with the disc 11.6 LEDs clear of the lit edge, nine clicks short of landing, and each click lowers it 1.3 LEDs. On click 9 its lowest row, ten LEDs wide, stands on the edge and the two pieces are one; the knob holds there for two clicks. It then sinks through the 4 LEDs of rim, where it cannot be seen, and comes out into the hole from the top, 1.44 LEDs a click where the knob opens, 1.03 at the smallest size and 1.68 at the biggest. On click 35 a gap 4 LEDs deep is left along the bottom of the hole and click 36 closes it: the disc sits in the hole, the hole is gone and the lit half is plain. The knob holds there for two clicks again. Click 38 takes the disc 4 LEDs on and each click after it 1.2, and the hole opens again from the top. A small disc stops with two LEDs of it still showing in the hole.
 // Knob 4: Slack. How much smaller than the hole the disc is. Where it opens they are the same size, and at the top of the knob the disc is half as wide as the hole. A smaller disc lands later, floats free inside the hole on its way down, and on click 36 it rests on the hole's lower side with a dark crescent left above it, so the hole never closes.
 
 const W = 64;
@@ -32,7 +32,7 @@ const PAST = 1.2;
 // The last click into the hole closes a gap this many LEDs deep in one go. A thinner sliver of a round hole breaks up into loose LEDs along its sides.
 const SNAP = 4;
 // The knob holds where at least this many of the disc's LEDs are on or against the lit half, and no further than REACH LEDs past the first of them.
-const PAIRS = 6;
+const PAIRS = 10;
 const REACH = 2;
 // The coarse and the fine step of the search for the landing, in LEDs, and where the search starts: this many LEDs short of the hole.
 const COARSE = 0.5;
