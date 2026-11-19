@@ -54,7 +54,7 @@ function clamp(v, lo, hi) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// The plate and the hole for a Size knob value, in whole LEDs. Plate and hole keep to whole half sides about a corner of four LEDs, so at 0 degrees no LED's middle sits on an edge.
+// The plate and the hole for a Size knob value, in whole LEDs. Their half sides are whole numbers and their middle is where four LEDs meet, so at 0 degrees no LED's middle sits on an edge.
 function measure(z, P) {
   const s = z < 2 ? 0.7 + 0.15 * z : 1 + 0.12 * (z - 2);
   P.A = PA;
