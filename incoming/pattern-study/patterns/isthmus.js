@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of all three, all the way round the wheel from blue.
 // Knob 2: Size. The two squares, the circle and the room between them grow together: squares 12 LEDs across and a circle 16 across at the bottom of the knob, 18 and 24 where it opens at 2, 20 and 26 at the top. The squares stand 14 LEDs either side of the middle across and 10 up and down at 2, and every number is kept to whole LEDs.
-// Knob 3: Pass. How far the circle has come up its line, counted in clicks. It opens at the bottom of the knob 27 LEDs down the lower left, nine clicks short of the first touch, and each click up takes it 1.2 LEDs. On click 9 it touches the upper left square and the three pieces are two; it holds there for two clicks, comes on 1.1 LEDs a click, and touches the lower right square on click 15, where the three are one, and holds for two clicks again. The click of the second touch moves with Size and Aim, from 12 to 33, and at the ends of Aim it does not come at all. It then goes on through the gap and past the middle at about 0.6 LED a click, all one piece, and stops half an LED short of letting go of the lower right square.
+// Knob 3: Pass. How far the circle has come up its line, counted in clicks. It opens at the bottom of the knob 27 LEDs down the lower left, nine clicks short of the first touch, and each click up takes it 1.2 LEDs. On click 9 it reaches the upper left square, a LED into its lower edge, and the three pieces are two; the knob holds there for two clicks. It comes on 1.1 LEDs a click and reaches the lower right square on click 14, where the three are one, and holds for two clicks again. The click of the second touch moves with Size and Aim, from 12 to 32, and at the ends of Aim it does not come at all. The click after each hold takes a full step. The circle then goes on through the gap and past the middle at about 0.6 LED a click, all one piece, and stops half an LED short of letting go of the lower right square.
 // Knob 4: Aim. How far the circle's line sits off the middle between the two squares, 8 LEDs at most to the lower right at the top of the knob and 8 to the upper left at the bottom. Where it opens it runs through the middle and touches the upper left square first. Aimed away from the lower right square the two touches come further apart in the knob. Aimed 2 to 4 LEDs towards it the second touch comes three clicks after the first, and past that the circle meets the lower right square first. At the ends of the knob it only ever touches one square and the three never become one.
 
 const W = 64;
@@ -24,6 +24,8 @@ const FIRST = 9;
 // How many LEDs the third piece goes in a click on the way in and between the two touches, and the fewest clicks between them.
 const STEP = 1.2;
 const GAP_MIN = 3;
+// How far past the first LED of a touch the knob holds, in LEDs. A circle that only just reaches a straight edge meets it in one pair of LEDs, which the eye does not take for a touch. A LED further it has pressed into the edge a few LEDs wide.
+const HOLD = 1;
 // The coarse and the fine step of the search for the touching positions, in LEDs.
 const COARSE = 0.5;
 const FINE = 0.05;
@@ -134,7 +136,6 @@ function plan(P, o) {
       p1 = a;
       break;
     }
-  P.p1 = p1;
   // One click short of the touch the third piece is a click's step back, as long as the picture there is still three pieces.
   let pre = p1 - STEP;
   for (let i = 0; i < 60 && pieces(P, o, pre) !== 3; i++) pre -= FINE;
@@ -161,9 +162,12 @@ function plan(P, o) {
     k = e + 1;
   }
   P.join = ra >= 0;
-  let ref = p1;
   let end = lastEnd - 0.5;
-  if (P.join) {
+  let ref;
+  if (!P.join) {
+    P.p1 = p1 + Math.min(HOLD, 0.5 * (lastEnd - p1));
+    ref = P.p1;
+  } else {
     let p2 = at(ra);
     for (let a = at(ra - 1) + FINE; a < at(ra); a += FINE)
       if (pieces(P, o, a) === 1) {
@@ -172,12 +176,13 @@ function plan(P, o) {
       }
     let out = at(rb);
     for (let a = at(rb); a < at(rb) + COARSE; a += FINE) if (pieces(P, o, a) === 1) out = a;
-    P.p2 = p2;
+    P.p1 = p1 + Math.min(HOLD, 0.5 * (p2 - p1));
+    P.p2 = p2 + Math.min(HOLD, 0.5 * (out - p2));
     // One click short of the join the third piece has touched the first and not the second.
-    let pa = Math.max(p1, p2 - STEP);
-    for (let i = 0; i < 60 && pa > p1 && pieces(P, o, pa) !== 2; i++) pa -= FINE;
+    let pa = Math.max(P.p1, p2 - STEP);
+    for (let i = 0; i < 60 && pa > P.p1 && pieces(P, o, pa) !== 2; i++) pa -= FINE;
     P.pa = pa;
-    ref = p2;
+    ref = P.p2;
     end = out - 0.5;
   }
   P.pend = Math.max(ref + 0.3, Math.min(end, ref + P.tail));

@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of all three, all the way round the wheel from green.
 // Knob 2: Size. The bars, the gap between their ends and the square grow together: bars 6 LEDs thick, the right one 4 lower, a gap of 10 and a square 18 across at the bottom of the knob, 9 thick, 6 lower, 14 and 26 where it opens at 2, and 10 thick, 7 lower, 16 and 30 at the top. The gap and the square are even, so the square overhangs both bar ends by the same whole number of LEDs.
-// Knob 3: Drop. How far the square has come down, counted in clicks. It opens at the bottom of the knob with its lower edge 11 LEDs above the left bar, nine clicks short of the first landing, and each click up takes it 1.2 LEDs. On click 9 it lands on the left bar and the three pieces are two; it holds there for two clicks, comes on, and lands on the right bar on click 15 where the three are one, and holds for two clicks again. The click of the second landing moves with Size and Side, from 13 to 16. It then goes on down through the gap at about 0.9 LED a click, all one piece, to half an LED short of the square's top clearing the left bar.
+// Knob 3: Drop. How far the square has come down, counted in clicks. It opens at the bottom of the knob with its lower edge 11 LEDs above the left bar, nine clicks short of the first landing, and each click up takes it 1.2 LEDs. On click 9 it lands on the left bar, a LED down into it, and the three pieces are two; the knob holds there for two clicks. It comes on 1.1 LEDs a click and lands on the right bar on click 14, where the three are one, and holds for two clicks again. The click of the second landing moves with Size and Side, from 12 to 15. The square then goes on down through the gap at about 0.85 LED a click, all one piece, to half an LED short of its top clearing the left bar.
 // Knob 4: Side. How far the square sits off the middle of the gap, 12 LEDs at most each way. Where it opens it overhangs each bar end by 6 LEDs (4 at the bottom of Size, 7 at the top). Slid by more than the overhang it clears one of the bars and only ever lands on the other, so the three never become one.
 
 const W = 64;
@@ -24,6 +24,8 @@ const FIRST = 9;
 // How many LEDs the third piece goes in a click on the way in and between the two touches, and the fewest clicks between them.
 const STEP = 1.2;
 const GAP_MIN = 3;
+// How far past the first LED of a touch the knob holds, in LEDs. A circle that only just reaches a straight edge meets it in one pair of LEDs, which the eye does not take for a touch. A LED further it has pressed into the edge a few LEDs wide.
+const HOLD = 1;
 // The coarse and the fine step of the search for the touching positions, in LEDs.
 const COARSE = 0.5;
 const FINE = 0.05;
@@ -133,7 +135,6 @@ function plan(P, o) {
       p1 = a;
       break;
     }
-  P.p1 = p1;
   // One click short of the touch the third piece is a click's step back, as long as the picture there is still three pieces.
   let pre = p1 - STEP;
   for (let i = 0; i < 60 && pieces(P, o, pre) !== 3; i++) pre -= FINE;
@@ -160,9 +161,12 @@ function plan(P, o) {
     k = e + 1;
   }
   P.join = ra >= 0;
-  let ref = p1;
   let end = lastEnd - 0.5;
-  if (P.join) {
+  let ref;
+  if (!P.join) {
+    P.p1 = p1 + Math.min(HOLD, 0.5 * (lastEnd - p1));
+    ref = P.p1;
+  } else {
     let p2 = at(ra);
     for (let a = at(ra - 1) + FINE; a < at(ra); a += FINE)
       if (pieces(P, o, a) === 1) {
@@ -171,12 +175,13 @@ function plan(P, o) {
       }
     let out = at(rb);
     for (let a = at(rb); a < at(rb) + COARSE; a += FINE) if (pieces(P, o, a) === 1) out = a;
-    P.p2 = p2;
+    P.p1 = p1 + Math.min(HOLD, 0.5 * (p2 - p1));
+    P.p2 = p2 + Math.min(HOLD, 0.5 * (out - p2));
     // One click short of the join the third piece has touched the first and not the second.
-    let pa = Math.max(p1, p2 - STEP);
-    for (let i = 0; i < 60 && pa > p1 && pieces(P, o, pa) !== 2; i++) pa -= FINE;
+    let pa = Math.max(P.p1, p2 - STEP);
+    for (let i = 0; i < 60 && pa > P.p1 && pieces(P, o, pa) !== 2; i++) pa -= FINE;
     P.pa = pa;
-    ref = p2;
+    ref = P.p2;
     end = out - 0.5;
   }
   P.pend = Math.max(ref + 0.3, Math.min(end, ref + P.tail));
