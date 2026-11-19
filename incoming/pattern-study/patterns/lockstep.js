@@ -12,16 +12,16 @@
 // @knobs Hue=0..1, Size=0..3, Turn=-26..22, Lag=-1..1
 //
 // Knob 1: Hue. The colour of the squares, all the way round the wheel from rose.
-// Knob 2: Size. The squares and the step between them grow together, a side of 14.7 LEDs on a 19 LED step at the bottom of the knob, 21 on 27 where it opens and 24.2 on 31 at the top, so the gap is always about two ninths of the step.
-// Knob 3: Turn. How far all four have turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, 9 clicks from the hold. Turn up and every click turns them a ninth of the way to the angle where the corners first touch their neighbours, worked out from the size by lighting the squares LED by LED: about 35 degrees, where the four become one piece. The knob holds there for three clicks and then goes on more slowly to 42 degrees, short of the diamonds that would stand point to point. Turned down it goes back to 24 degrees the other way, and the gaps stay open.
-// Knob 4: Lag. How much further each square down the column has turned than the one above it, up to 8 degrees more at either end, the opposite way at the bottom. Where it opens they turn as one; away from there the corners meet one pair at a time instead of all at once.
+// Knob 2: Size. The squares and the step between them grow together: a side of 14.7 LEDs on a 19 LED step at the bottom of the knob, 21 on 27 where it opens at 2 and 23.5 on 30 at the top. The step is kept to whole LEDs.
+// Knob 3: Turn. How far all four have turned, clockwise up and anticlockwise down, counted in clicks. It opens upright, 9 clicks below the hold. Each click up turns them a ninth of the way to the angle from which two neighbours light LEDs side by side, found from the size by lighting the squares LED by LED: 36.4 degrees where it opens, between 33.8 and 38.3 across the sizes. There the four become one piece on a single click and the knob holds for three clicks; past the hold it goes on slowly to 42 degrees, short of diamonds standing point to point. Turned down it goes back to 24 degrees the other way and the gaps stay open.
+// Knob 4: Lag. How much further each square down the column has turned than the one above it, up to 8 degrees more at the top of the knob and 8 degrees less at the bottom. Where it opens they turn as one; away from there the corners meet one pair at a time.
 
 const W = 64;
 const H = 128;
-const CX = 32;
-const CY = 64;
+const CX = 32.25;
+const CY = 64.25;
 const N = 4;
-// Knob 3 has 48 clicks and opens 28 above its bottom.
+// Knob 3 has 48 clicks and opens 26 above its bottom.
 const OPEN = 26;
 const DEG = Math.PI / 180;
 const LOW = -24 * DEG;
@@ -122,7 +122,9 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const scale = 0.7 + 0.15 * clamp(k[1], 0, 3);
+  // 0.7 of the size at the bottom of the knob, the whole of it where it opens at 2 and 1.12 at the top, which keeps the end corners two LEDs off the ceiling and the floor when they turn.
+  const z = clamp(k[1], 0, 3);
+  const scale = z < 2 ? 0.7 + 0.15 * z : 1 + 0.12 * (z - 2);
   const hw = (21 * scale) / 2;
   // The step is kept to whole LEDs, so every square lights the same LEDs as the one above it moved down, and all the gaps close on the same click.
   const pitch = Math.round(27 * scale);
@@ -143,7 +145,7 @@ export function update(dt, input, params) {
   params.hw = hw;
   params.pitch = pitch;
   // Nothing on the panel moves on the clock. The light swells and falls and the colour wanders a few degrees, so the panel is never quite still.
-  hsv(k[0] + 0.93 + 0.02 * Math.sin(t * 0.41), 0.4, 1.0 * (0.92 + 0.08 * Math.sin(t * 0.9 + 1.3)), params.col);
+  hsv(k[0] + 0.93 + 0.02 * Math.sin(t * 0.41), 0.4, 0.92 + 0.08 * Math.sin(t * 0.9 + 1.3), params.col);
 }
 
 export function draw(display, params, time) {
