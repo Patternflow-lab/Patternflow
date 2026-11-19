@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Size=0..3, Pass=-16..32, Height=-0.2..1
 //
 // Knob 1: Hue. The colour of the circle, all the way round the wheel from a coral.
-// Knob 2: Size. The circle's width, 14 LEDs at the bottom of the knob to 38 at the top; it opens at 30. The circle never grows past the walls: the panel is 64 wide.
-// Knob 3: Pass. How far the circle has gone round to the right, in clicks, 48 of them. One turn of the whole knob is one trip round the panel, 64 LEDs, so its two ends are the same picture. Where it opens the circle stands 27 LEDs from the left wall. Turn up 16 clicks and the circle's edge touches the right wall: the knob holds there for three clicks. The click after that, a slice of the circle stands at the left wall and the circle is two pieces. Every click either side of the hold walks it 1.4 LEDs.
+// Knob 2: Size. The circle's width, 14 LEDs at the bottom of the knob to 38 at the top; it opens at 30. At 38 it is still 26 LEDs narrower than the panel.
+// Knob 3: Pass. How far the circle has gone round to the right, in clicks, 48 of them. One turn of the whole knob is one trip round the panel, 64 LEDs, so its two ends are the same picture. Where it opens the circle's middle is 27 LEDs from the left wall. Turn up 16 clicks and the circle's edge touches the right wall: the knob holds there for three clicks. The click after that, a slice of the circle stands at the left wall and the circle is two pieces. Every click either side of the hold walks it 1.4 LEDs.
 // Knob 4: Height. How high the circle stands, from near the top at the bottom of the knob to near the floor at the top. It never goes through the ceiling or the floor. It opens at 0.06, in the upper part of the panel.
 
 const W = 64;
