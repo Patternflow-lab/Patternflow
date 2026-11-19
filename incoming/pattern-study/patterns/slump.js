@@ -14,7 +14,7 @@
 // Knob 1: Hue. The colour of the bar, turned all the way round the wheel from a pale green.
 // Knob 2: Weight. How thick the bar is, 5 LEDs at 1, 12 where it opens at 2 and 19 at 3; its length stays 64.
 // Knob 3: Height. How high the end on the left wall is, counted in clicks of about one and a half LEDs, 44 of them from the floor to 64 LEDs. Where it opens it is 32 LEDs up and the bar leans at 30 degrees. Turn down and in 22 clicks it lies on the floor from one side wall to the other, held for the bottom three clicks. Turn up and in 22 clicks it stands against the left wall with its foot in the corner, held for the top three. Next to each hold the end on the wall moves about a LED and a half a click.
-// Knob 4: Lift. How far above the floor the whole bar is held, up to 48 LEDs. At the bottom its low end is on the floor; raised, the bar is still level where it lies and still upright where it stands, but it touches only the left wall.
+// Knob 4: Lift. How far above the floor the whole bar is held, up to 48 LEDs. At the bottom its low end is on the floor; raised, it no longer touches the floor, but it is still level where it lies, still upright where it stands, and still reaches the walls it reached.
 
 const W = 64;
 const H = 128;

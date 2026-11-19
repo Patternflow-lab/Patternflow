@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the bar, turned all the way round the wheel from magenta.
 // Knob 2: Size. The width of the bar, 12 LEDs at 1, 16 where it opens at 2 and 21 at 3; it is always twice as tall.
-// Knob 3: Tilt. How far the bar has tipped to the left over its bottom left corner, counted in clicks, 48 of them for a quarter turn. Where it opens it has tipped about 52 degrees. Turn down and in 12 clicks it balances at 26.6 degrees with its long diagonal straight up, held for three clicks, and 12 more it stands on its short side, held for the bottom three. Turn up and in 30 clicks it lies on its long side, held for the top three. Between the holds it swings about two degrees a click.
+// Knob 3: Tilt. How far the bar has tipped to the left over its bottom left corner, counted in clicks, 48 of them for a quarter turn. Where it opens it has tipped about 52 degrees. Turn down and in 12 clicks it balances at 26.6 degrees with its long diagonal straight up, held for three clicks, and 12 more it stands on its short side, held for the bottom three. Turn up and in 18 clicks it lies on its long side, held for the top three. Between the holds it swings about two degrees a click.
 // Knob 4: Lift. How far above the floor the corner it turns on is held, up to 48 LEDs. At the bottom the corner is on the floor; raised, the sides are still level at the holds but nothing touches the floor.
 
 const W = 64;
