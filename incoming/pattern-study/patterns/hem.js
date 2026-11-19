@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Size=0..3, Height=-19..29, Slant=0.06..1
 //
 // Knob 1: Hue. The colour of the bar, all the way round the wheel from a teal. The turned part shows its back, the same colour at 40 percent.
-// Knob 2: Size. The bar's thickness, 16 LEDs at the bottom of the knob to 34 at the top; it opens at 28. Its length stays 58 LEDs.
+// Knob 2: Size. The bar's thickness, 16 LEDs at the bottom of the knob to 34 at the top; it opens at 28. Its length stays 62 LEDs.
 // Knob 3: Height. How high the bar stands, in clicks, 48 of them; the crease is the ceiling, and whatever of the bar is above it is turned back down. Where it opens the middle of the bar is 9.5 LEDs below the ceiling and its top edge is already through, so a dim strip 4.5 LEDs thick hangs from the ceiling over the bright bar. Turn up 9 clicks and the middle of the bar is on the ceiling: the turned half lies exactly on the rest, the bright front is gone and the knob holds there for three clicks. Every click either side of the hold walks the bar 1.05 LEDs. Past the hold the bar goes on up and its dim copy comes down from the ceiling, until the whole bar is turned and slides away down the panel.
 // Knob 4: Slant. How far the bar leans, 0 to 10 degrees, turning about the middle of its left end with the right end rising into the ceiling, so more of it is turned. It opens at 0.06, level. At the hold the front stays gone at every slant.
 
@@ -24,7 +24,7 @@ const HOLD = 28;
 const OPEN = 19;
 // LEDs a click walks the bar.
 const STEP = 1.05;
-const LONG = 58;
+const LONG = 62;
 const BACK = 0.4;
 const SAT = 0.75;
 const PEAK = 0.95;
@@ -76,7 +76,7 @@ function fold(params, thick, mid, theta) {
     return along >= -eps && along <= LONG + eps && Math.abs(across) <= thick / 2 + eps;
   };
   params.lum.fill(0);
-  const reach = LONG * s + (thick / 2) * c;
+  const reach = LONG * Math.abs(s) + (thick / 2) * c;
   // The bar is above or below the ceiling; its turned copy is as far below as the bar is above.
   const y1 = clamp(Math.ceil(Math.abs(mid) + reach) + 1, 0, H);
   for (let y = 0; y < y1; y++) {
