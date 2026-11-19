@@ -79,7 +79,7 @@ export function update(dt, input, params) {
   // The knob opens at 0.06, and that is even. Up from there the steps part one way and down from there the other.
   const u = clamp(k[3], -1, 1) - 0.06;
   const e = (most * u) / (u > 0 ? 0.94 : 1.06);
-  // The step after square i: narrow, wide, and again. Any two in a row add up to two even steps.
+  // The step after square i is narrow after an even square and wide after an odd one, so any two in a row add up to two even steps.
   const st = (i) => step + (i % 2 === 0 ? -e : e);
   // The left edge of square i, counted from square 0's.
   const at = (i) => {
