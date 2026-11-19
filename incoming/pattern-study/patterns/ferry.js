@@ -40,7 +40,7 @@ const MORE = 1;
 const PACE = 10;
 const BEND = 0.25;
 const SLOW = 0.21;
-const TURN0 = 0.57;
+const TURN0 = 0.6;
 
 function hsv(h, s, v, out) {
   h = h - Math.floor(h);
