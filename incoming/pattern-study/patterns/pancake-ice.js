@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 206
+// Lineage: Cundall and Strack's discrete element method (1979) for the contacts, a spring and dashpot along the normal and Coulomb friction along the tangent; the pancake, grease and frazil ice of the WMO sea ice nomenclature; pattern round 206
 // Round:   206
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Swell=0.4..4, Plate=-3..3, Cover=-24..24
 //
-// Knob 1: Hue.
-// Knob 2: Swell.
-// Knob 3: Plate.
-// Knob 4: Cover.
+// Knob 1: Hue. Turns the whole palette round the wheel from the mint plates, rose-white rims and violet water it opens on; at 0.25 lavender plates on plum water, at 0.5 rose on brown, at 0.75 pale lime on green.
+// Knob 2: Swell. How hard three crossing swells (wavelengths 128, 64 and 57 LEDs, periods 13.7, 11.1 and 9.3 s) work the plates: at 0.4 they sway half an LED with thin rims, at 2 about 3 LEDs at 1 to 2 LEDs a second and freeze together in pairs, at 4 about 5 LEDs at 2 to 3 LEDs a second with thick bright rims and no fusing.
+// Knob 3: Plate. The typical plate radius, 4.3 LEDs at -3, 7.3 at 0 and 10.3 at 3, each plate taking its own size from 0.6 to 1.5 times that: about 70 plates at -3, 13 at 3.
+// Knob 4: Cover. How much of the sea the ice may hold. The plates settle at about 40% of the area at -24, 64% at 0 and 77% at 24, from 17 plates in slush-streaked open water to 45 nearly touching, new ones freezing out and old ones melting to keep to it.
 
 const W = 64;
 const H = 128;
@@ -56,20 +56,19 @@ for (const g of GY) {
   g.px = -g.ky / kk;
   g.py = g.kx / kk;
 }
-// The low sun: direction toward it in the picture, and how high it stands.
+// The low sun: the direction toward it in the picture.
 const SX = -0.6;
 const SY = -0.8;
-const SZ = 0.5;
 
 export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
     sw: 2, rt: 7.3, cover: 0.68, sl: 0.5, nuc: 3,
-    plates: [], bonds: [], nid: 0,
+    plates: [], bonds: [], seeds: [], nid: 0,
     ph: [0, 1, 2].map(() => random() * TAU),
     ph2: [0, 1, 2].map(() => random() * TAU),
     ph3: [0, 1, 2].map(() => random() * TAU),
-    gph: [0, 1, 2].map(() => random() * TAU),
+    gph: [0, 0, 0],
     arg: [0, 0, 0], ai: [0, 0, 0], gc: [0, 0, 0],
     buf: new Float32Array(W * H * 3),
     sd: new Float32Array(W * H),
@@ -79,7 +78,6 @@ export function setup(params) {
     M: new Float32Array(9),
     pal: {},
     ev: [0, 0, 0],
-    stat: { bump: 0, brk: 0, bond: 0, nuc: 0, melt: 0 },
   };
   params.s = S;
 }
@@ -96,11 +94,11 @@ const coverOf = (v) => {
 function newPlate(S, x, y, R, f) {
   const p = {
     id: S.nid++, x, y, vx: 0, vy: 0, th: random() * TAU, om: (random() - 0.5) * 0.2,
-    R, f, Rt: S.rt * f,
+    R, f, Rt: min(14, S.rt * f),
     a2: 0.025 + 0.04 * random(), q2: random() * TAU, a3: 0.012 + 0.025 * random(), q3: random() * TAU,
     rim: new Float32Array(NB), rimE: new Float32Array(NB), fl: new Float32Array(NB),
-    touch: {}, partners: [], age: 60, life: 300 + 600 * random(), alpha: 1, melt: false, crowd: false,
-    v: 0.92 + 0.14 * random(), tint: random() * 2 - 1,
+    touch: {}, partners: [], age: 60, life: (300 + 600 * random()) * (0.7 + 0.4 * f), alpha: 1, melt: false, crowd: false,
+    v: 0.92 + 0.14 * random(), tint: random() * 2 - 1, rb: random() * 0.26 - 0.08,
     ax: 0, ay: 0, al: 0, C2: 0, S2: 0, C3: 0, S3: 0,
   };
   for (let b = 0; b < NB; b++) p.rim[b] = 0.05 * random();
@@ -108,9 +106,9 @@ function newPlate(S, x, y, R, f) {
 }
 
 function sizeFactor() {
-  let f = exp(0.27 * gauss());
-  if (random() < 0.1) f *= 1.35;
-  return cl(f, 0.58, 1.55);
+  let f = exp(0.25 * gauss());
+  if (random() < 0.16) f *= 1.4;
+  return cl(f, 0.58, 1.7);
 }
 
 function radiusAtAngle(p, ang) {
@@ -130,8 +128,8 @@ function raiseRim(p, ang, amount, arr) {
   }
 }
 
-function bondedWith(a, b) {
-  return a.partners.indexOf(b) >= 0;
+function bondOf(S, a, b) {
+  return S.bonds.find((z) => (z.a === a && z.b === b) || (z.b === a && z.a === b));
 }
 
 function clusterSize(p, seen) {
@@ -159,7 +157,6 @@ function makeBond(S, a, b, dx, dy) {
   S.bonds.push(bd);
   a.partners.push(b);
   b.partners.push(a);
-  S.stat.bond++;
 }
 
 function breakBond(S, bd) {
@@ -175,7 +172,6 @@ function breakBond(S, bd) {
   raiseRim(b, ang + PI, 0.55);
   a.touch[b.id] = -14;
   b.touch[a.id] = -14;
-  S.stat.brk++;
 }
 
 function flow(S, p) {
@@ -212,8 +208,8 @@ function substep(S, dt) {
     const w = WV[i];
     S.arg[i] = -w.om * t + S.ph[i] + 0.9 * sin(w.nu * t + S.ph2[i]);
     S.ev[i] = 0.62 + 0.38 * sin(w.ev * t + S.ph3[i]);
-    S.ai[i] = 1.7 * S.sw * w.sh * S.ev[i];
-    S.gph[i] = GY[i].om * t + S.gph[i] * 0 + S.ph3[i];
+    S.ai[i] = 2.1 * S.sw * w.sh * S.ev[i];
+    S.gph[i] = GY[i].om * t + S.ph3[i];
   }
   const gs = 0.5 + 0.1 * S.sw;
   for (let j = 0; j < 3; j++) S.gc[j] = GY[j].s * gs * (0.7 + 0.3 * sin(0.0173 * (j + 1.3) * t + S.ph[j]));
@@ -245,7 +241,7 @@ function substep(S, dt) {
       const tx = -ny;
       const ty = nx;
       const vt0 = rvx * tx + rvy * ty;
-      const bonded = bondedWith(a, b);
+      const bonded = a.partners.indexOf(b) >= 0;
       if (!bonded && gap < 0.4) {
         const rv = sqrt(rvx * rvx + rvy * rvy);
         const k = b.id;
@@ -299,7 +295,6 @@ function substep(S, dt) {
         const amt = 0.3 * diss * dt;
         raiseRim(a, phi, amt);
         raiseRim(b, phi + PI, amt);
-        S.stat.bump += amt;
       }
     }
   }
@@ -356,11 +351,14 @@ function substep(S, dt) {
     p.om += p.al * dt;
     p.th += p.om * dt;
     // growth toward the plate's own size; melting runs it down
-    if (p.melt) p.R = max(0, p.R - 0.45 * dt);
+    if (p.melt) {
+      p.R = max(0, p.R - 0.45 * dt);
+      p.alpha = min(p.alpha, cl((p.R - 1.2) / 2.2, 0, 1));
+    }
     else if (!p.crowd) p.R += cl((p.Rt - p.R) * (1 - e), -0.6 * dt, 0.17 * dt);
     else if (p.R > p.Rt) p.R -= 0.3 * dt;
     p.age += dt;
-    if (p.alpha < 1) p.alpha = min(1, p.alpha + dt / 2.5);
+    if (!p.melt && p.alpha < 1) p.alpha = min(1, p.alpha + dt / 2.5);
   }
 }
 
@@ -368,10 +366,8 @@ function startMelt(S, p) {
   p.melt = true;
   p.Rt = 0;
   for (const q of p.partners.slice()) {
-    const bd = S.bonds.find((x) => (x.a === p && x.b === q) || (x.b === p && x.a === q));
-    if (bd) breakBond(S, bd);
+    breakBond(S, bondOf(S, p, q));
   }
-  S.stat.melt++;
 }
 
 function clearance(S, x, y) {
@@ -384,28 +380,41 @@ function clearance(S, x, y) {
   return c;
 }
 
-function nucleate(S) {
+// A new plate does not appear: the slush clots at a spot for several seconds
+// (a seed), and when it has gathered a small disc freezes out of it.
+function seedSite(S) {
   let bx = 0;
   let by = 0;
   let best = -1e9;
   for (let i = 0; i < 30; i++) {
     const x = random() * W;
     const y = random() * H;
-    const c = clearance(S, x, y) + 2 * random();
+    let c = clearance(S, x, y) + 2 * random();
+    for (const sd of S.seeds) c = min(c, sqrt(wx(sd.x - x) ** 2 + wy(sd.y - y) ** 2) - 7);
     if (c > best) {
       best = c;
       bx = x;
       by = y;
     }
   }
-  if (clearance(S, bx, by) < 3.6) return false;
-  const p = newPlate(S, bx, by, 1.9, sizeFactor());
-  p.alpha = 0;
-  p.age = 0;
-  S.plates.push(p);
-  S.sl = max(0.15, S.sl - 0.07);
-  S.stat.nuc++;
+  if (best < 3.2) return false;
+  S.seeds.push({ x: bx, y: by, t: 0, dur: 7 + 5 * random(), f: sizeFactor() });
+  S.sl = max(0.25, S.sl - 0.04);
   return true;
+}
+
+function stepSeeds(S, dt) {
+  for (let i = S.seeds.length - 1; i >= 0; i--) {
+    const sd = S.seeds[i];
+    sd.t += dt;
+    if (sd.t < sd.dur) continue;
+    S.seeds.splice(i, 1);
+    if (clearance(S, sd.x, sd.y) < 2.4) continue;
+    const p = newPlate(S, sd.x, sd.y, 2.1, sd.f);
+    p.alpha = 0.3;
+    p.age = 0;
+    S.plates.push(p);
+  }
 }
 
 function advance(S, dt) {
@@ -415,14 +424,15 @@ function advance(S, dt) {
   S.rt += (7.3 + cl(k[2], -3, 3) - S.rt) * e;
   S.cover += (coverOf(k[3]) - S.cover) * (1 - exp(-dt / 2));
   const ps = S.plates;
-  for (const p of ps) if (!p.melt) p.Rt = S.rt * p.f;
+  for (const p of ps) if (!p.melt) p.Rt = min(14, S.rt * p.f);
   // How much ice the surface is meant to carry, against what is committed to it.
   let committed = 0;
   for (const p of ps) if (!p.melt) committed += PI * p.Rt * p.Rt;
+  for (const sd of S.seeds) committed += PI * S.rt * S.rt * sd.f * sd.f;
   const want = S.cover * W * H;
   const mean = PI * S.rt * S.rt * 1.15;
   const q = (want - committed) / want;
-  S.sl += (cl(0.45 + 0.9 * q, 0.2, 0.85) - S.sl) * (dt / 45);
+  S.sl += (cl(0.5 + 0.9 * q, 0.32, 0.9) - S.sl) * (dt / 45);
   S.nuc -= dt * (0.4 + S.sl) * (q < -0.2 ? 2.5 : 1);
   if (S.nuc <= 0) {
     S.nuc = 2.5 + 5 * random();
@@ -432,13 +442,14 @@ function advance(S, dt) {
       if (p.melt) melting++;
       else if (p.age > p.life && (!oldest || p.age - p.life > oldest.age - oldest.life)) oldest = p;
     }
-    if (committed < want - 0.5 * mean && ps.length < 80) nucleate(S);
+    if (committed < want - 0.5 * mean && ps.length < 80) seedSite(S);
     else if (committed > want + 0.55 * mean) {
       let pick = null;
       for (const p of ps) if (!p.melt && (!pick || p.Rt < pick.Rt)) pick = p;
       if (pick) startMelt(S, pick);
     } else if (oldest && melting < 2) startMelt(S, oldest);
   }
+  stepSeeds(S, dt);
   const n = Math.ceil(dt / 0.012);
   for (let i = 0; i < n; i++) substep(S, dt / n);
   // rims relax and spread; melted plates go
@@ -454,6 +465,7 @@ function advance(S, dt) {
     for (let b = 0; b < NB; b++) p.rim[b] = cl(p.rimE[b], 0, 2.5);
     for (let b = 0; b < NB; b++) p.fl[b] *= fd;
     if (p.melt && p.R < 1.6) {
+      for (const q2 of ps) delete q2.touch[p.id];
       ps.splice(i, 1);
     }
   }
@@ -468,7 +480,7 @@ function prime(S) {
   let committed = 0;
   for (let tries = 0; tries < 600 && committed < want; tries++) {
     const f = sizeFactor();
-    const R = S.rt * f;
+    const R = min(14, S.rt * f);
     const x = random() * W;
     const y = random() * H;
     if (clearance(S, x, y) < R * 0.85 + 0.5) continue;
@@ -515,13 +527,13 @@ function palette(S) {
   setMatrix(S.M, TAU * S.k[0]);
   const M = S.M;
   const P = S.pal;
-  P.deep = rot(M, 0.14, 0.06, 0.3);
-  P.teal = rot(M, 0.02, 0.26, 0.34);
+  P.deep = rot(M, 0.17, 0.065, 0.32);
+  P.teal = rot(M, 0.03, 0.27, 0.36);
   P.glint = rot(M, 0.25, 0.55, 0.65);
   P.slush = rot(M, 0.56, 0.63, 0.67);
-  P.ice = rot(M, 0.66, 0.92, 0.86);
-  P.warm = rot(M, 0.9, 0.95, 0.8);
-  P.cool = rot(M, 0.6, 0.85, 0.96);
+  P.ice = rot(M, 0.84, 0.94, 0.9);
+  P.warm = rot(M, 0.95, 0.96, 0.82);
+  P.cool = rot(M, 0.72, 0.88, 0.97);
   P.young = rot(M, 0.42, 0.58, 0.58);
   P.rose = rot(M, 1.0, 0.76, 0.84);
   P.crest = rot(M, 0.97, 1.0, 0.98);
@@ -587,6 +599,7 @@ function waterPass(S) {
     }
   }
   const sl = S.sl * (1.5 - 0.8 * S.cover);
+  const ns = S.seeds.length;
   const ox = 1;
   const oy = 2;
   for (let y = 0; y < H; y++) {
@@ -615,7 +628,16 @@ function waterPass(S) {
       const u = x + 4 * sin(0.07 * y + 0.09 * t + 1);
       const v = y + 4 * sin(0.09 * x - 0.07 * t);
       const nz = 0.5 + 0.17 * sin(0.21 * u + 0.17 * v + 0.031 * t) + 0.17 * sin(0.13 * u - 0.24 * v - 0.043 * t + 2) + 0.16 * sin(0.07 * u + 0.05 * v + 0.017 * t + 4);
-      const sa = cl(sl * (0.2 + 0.8 * halo) * (0.3 + 0.9 * nz), 0, 0.8);
+      let sa = sl * (0.2 + 0.8 * halo) * (0.3 + 0.9 * nz);
+      for (let j = 0; j < ns; j++) {
+        const sd2 = S.seeds[j];
+        const u2 = sm(sd2.t / sd2.dur);
+        const sg = lerp(7, 3.6, u2);
+        const ex = wx(x + 0.5 - sd2.x);
+        const ey = wy(y + 0.5 - sd2.y);
+        sa += 0.7 * u2 * exp(-(ex * ex + ey * ey) / (2 * sg * sg));
+      }
+      sa = cl(sa, 0, 0.85);
       r = lerp(r, pal.slush[0], sa);
       g = lerp(g, pal.slush[1], sa);
       b = lerp(b, pal.slush[2], sa);
@@ -632,31 +654,31 @@ function waterPass(S) {
   }
 }
 
+const px = [0, 0, 0];
+function toward(c, to, k) {
+  c[0] += (to[0] - c[0]) * k;
+  c[1] += (to[1] - c[1]) * k;
+  c[2] += (to[2] - c[2]) * k;
+}
+
 function drawPlate(S, p) {
   const { buf, tl, pal } = S;
   if (p.R < 0.9) return;
   platePrep(p);
   const R = p.R;
   const reach = R * 1.12 + 2.5;
-  const ice = pal.ice;
-  const rose = pal.rose;
-  const crestC = pal.crest;
-  const shade = pal.shade;
-  const warm = pal.warm;
-  const cool = pal.cool;
-  const young = pal.young;
-  // lip: the rim seen through the seam mask of its bonds
-  const rimE = p.rimE;
-  for (let b = 0; b < NB; b++) rimE[b] = p.rim[b];
+  const { ice, warm, cool, young } = pal;
+  // lip height per angle, hushed where a bond has cemented it to a neighbour
+  const hb = p.rimE;
+  const yg = exp(-p.age / 30) * 0.7;
+  for (let b = 0; b < NB; b++) hb[b] = (0.42 + p.rb + 0.58 * (1 - exp(-0.9 * p.rim[b]))) * (1 - 0.5 * yg);
   for (const q of p.partners) {
-    const bd = S.bonds.find((z) => (z.a === p && z.b === q) || (z.b === p && z.a === q));
-    if (!bd) continue;
+    const bd = bondOf(S, p, q);
     const ang = atan2(wy(q.y - p.y), wx(q.x - p.x)) - p.th;
     for (let b = 0; b < NB; b++) {
       let da = ((b + 0.5) / NB) * TAU - ang;
       da -= TAU * round(da / TAU);
-      const w = cl(1.4 - abs(da) / 0.7, 0, 1);
-      rimE[b] *= 1 - 0.92 * bd.s * w;
+      hb[b] *= 1 - 0.92 * bd.s * cl(1.4 - abs(da) / 0.7, 0, 1);
     }
   }
   const x0 = floor(p.x - reach);
@@ -686,46 +708,32 @@ function drawPlate(S, p) {
       const lu = dx * cth + dy * sth;
       const lv = -dx * sth + dy * cth;
       const frost = 0.045 * (sin(0.55 * lu + 1.3 * sin(0.4 * lv + p.id)) + sin(0.47 * lv - 0.31 * lu + p.id * 2.3));
-      const body = (0.8 + 0.2 * tilt + frost) * p.v;
+      const body = (0.84 + 0.14 * tilt + 0.07 * ((dx * SX + dy * SY) / R) + frost) * p.v;
       const tw = abs(p.tint) * 0.4;
       const tc = p.tint > 0 ? warm : cool;
-      const yg = exp(-p.age / 30) * 0.7;
-      let cr = (ice[0] + (tc[0] - ice[0]) * tw + (young[0] - ice[0]) * yg) * body;
-      let cg = (ice[1] + (tc[1] - ice[1]) * tw + (young[1] - ice[1]) * yg) * body;
-      let cb = (ice[2] + (tc[2] - ice[2]) * tw + (young[2] - ice[2]) * yg) * body;
+      for (let c = 0; c < 3; c++) px[c] = (ice[c] + (tc[c] - ice[c]) * tw + (young[c] - ice[c]) * yg) * body;
       if (depth < 5) {
         let a = atan2(dy, dx) - p.th;
         a -= TAU * floor(a / TAU);
         const fb = (a / TAU) * NB;
         const b0 = floor(fb) % NB;
-        const rv = lerp(rimE[b0], rimE[(b0 + 1) % NB], fb - floor(fb));
-        const fv = min(1, lerp(p.fl[b0], p.fl[(b0 + 1) % NB], fb - floor(fb)));
-        const hv = (0.42 + 0.58 * (1 - exp(-0.9 * rv))) * (1 - 0.5 * yg) * (1 + 0.35 * fv);
+        const fr = fb - floor(fb);
+        const fv = min(1, lerp(p.fl[b0], p.fl[(b0 + 1) % NB], fr));
+        const hv = lerp(hb[b0], hb[(b0 + 1) % NB], fr) * (1 + 0.35 * fv);
         const dc = 1.15 + 0.8 * hv;
         const wl = 0.8 + 0.6 * hv;
         const z = (depth - dc) / wl;
-        const hl = hv * exp(-z * z);
-        const dh = (hl * (-2 * z)) / wl;
-        const term = dh * (cx * SX + sy * SY) * 1.4;
-        const lit = max(0, term);
-        const dark = max(0, -term);
-        const cf = cl(hl * 0.95 + 0.4 * fv * exp(-z * z), 0, 0.95);
-        cr += (crestC[0] - cr) * cf;
-        cg += (crestC[1] - cg) * cf;
-        cb += (crestC[2] - cb) * cf;
-        const lw = cl(lit * 1.2, 0, 0.9);
-        cr += (rose[0] - cr) * lw;
-        cg += (rose[1] - cg) * lw;
-        cb += (rose[2] - cb) * lw;
-        const dw = cl(dark * 1.0, 0, 0.5);
-        cr += (shade[0] - cr) * dw;
-        cg += (shade[1] - cg) * dw;
-        cb += (shade[2] - cb) * dw;
+        const e = exp(-z * z);
+        // the lip is a ridge; light from the sun side lifts its outer slope, and the far side's inner slope
+        const term = ((hv * e * (-2 * z)) / wl) * (cx * SX + sy * SY) * 1.4;
+        toward(px, pal.crest, cl(hv * e * 0.95 + 0.4 * fv * e, 0, 0.95));
+        toward(px, pal.rose, cl(term * 1.2, 0, 0.9));
+        toward(px, pal.shade, cl(-term, 0, 0.5));
       }
       const o = idx * 3;
-      buf[o] += (cr - buf[o]) * cov;
-      buf[o + 1] += (cg - buf[o + 1]) * cov;
-      buf[o + 2] += (cb - buf[o + 2]) * cov;
+      buf[o] += (px[0] - buf[o]) * cov;
+      buf[o + 1] += (px[1] - buf[o + 1]) * cov;
+      buf[o + 2] += (px[2] - buf[o + 2]) * cov;
     }
   }
 }
