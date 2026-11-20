@@ -6,7 +6,7 @@
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: magnetic stripes of the spreading seafloor (Frederick Vine and Drummond Matthews, 1963; Lawrence Morley, 1963)
-// Round:   199
+// Round:   200
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Spread=0..4, Reversals=-1..1, Offset=-1..1

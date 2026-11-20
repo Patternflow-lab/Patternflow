@@ -6,7 +6,7 @@
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: halos of hexagonal ice crystals (Auguste Bravais, 1847)
-// Round:   199
+// Round:   200
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sun=0..4, Ice=-1..1, Tilt=-1..1
