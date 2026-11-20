@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Leidenfrost Stars
 // Family:  leidenfrost
-// Idea:    Mercury-bright water drops skitter on their own vapour across a dark steel plate glowing red-orange at its edges, each drop's rim ringing in a mode of its own so it turns into a slowly rotating star with two to nine points, the point count falling as the drop evaporates, drops bouncing off the plate's edge, merging when they touch and ringing down into a new star, shrinking to a last round bead, while new drops fall in from above.
+// Idea:    Mercury-bright water drops skitter on their own vapour across a dark steel plate glowing red-orange at its edges, each drop's rim ringing in a mode of its own so the drop turns into a slowly rotating star of two to ten points, the point count falling as the drop evaporates, drops bouncing off the plate's edge, merging when they touch and ringing down into a new star, shrinking to a last round bead, while new drops fall in from above.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Heat=0.5..4, Size=0..1, Feed=0..1
 //
-// Knob 1: Hue. Turns drops and plate round the wheel together from the ice-blue silver on a red-orange plate it opens on; at 0.5 the plate is teal and the drops are copper.
-// Knob 2: Heat. How far above the boiling point the plate is: at 0.5 the drops creep at about 2 LEDs a second, ring faintly and last four minutes; at 2 they skitter at 5 to 9 LEDs a second with points a quarter of the radius long; at 4 they race at 15 LEDs a second, the points are a third of the radius, a drop is gone in half a minute, and the plate glows hot orange.
-// Knob 3: Size. The radius drops are fed in at and the radius they swell to: at 0 they are 5 to 10 LEDs in radius (stars of 3 to 6 points), at 1 they are 8 to 14 LEDs in radius (stars of up to nine points); the point count follows the radius as drops evaporate.
-// Knob 4: Feed. How many drops the plate is kept at and how hard they land: 4 at 0, 5 at the start, 9 at 1, with a harder splash and a wilder first ringing at the top.
+// Knob 1: Hue. Turns drops and plate round the wheel together from the ice-blue silver on a red-orange plate it opens on; at 0.25 the plate is green and the drops pink, at 0.5 the plate is teal and the drops copper.
+// Knob 2: Heat. How far above the boiling point the plate is: at 0.5 drops creep at 2 to 4 LEDs a second, ring faintly (points a sixth of the radius long) and a drop 10 LEDs in radius lasts about three minutes; at 2 they skitter at 4 to 9 LEDs a second, points a quarter of the radius, 50 seconds; at 4 they race at up to 16 LEDs a second, points a third of the radius, 25 seconds, and the plate glows hot orange.
+// Knob 3: Size. The radius drops are fed in at: at 0 they are 5 to 10.5 LEDs in radius and start with 3 to 8 points, at 1 they are 7 to 12.6 LEDs and start with 5 to 9; the point count then falls as each one evaporates, about one point for every 1.6 LEDs of radius lost.
+// Knob 4: Feed. How many drops the plate is kept at and how hard they land: 4 at 0, 5 at the start, 9 at 1 when there is room (water never covers more than a quarter of the plate), and a harder splash and wilder first ringing the higher it goes.
 
 const W = 64;
 const H = 128;
@@ -67,7 +67,7 @@ export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
     heat: 2, size: 0, feed: 0.06, sz: 1, N: 5, viol: 0.5,
-    drops: [], rings: [], timer: 2, stat: { merge: 0, bounce: 0, spawn: 0, vanish: 0 },
+    drops: [], rings: [], timer: 2, still: false,
     M: new Float32Array(9),
     buf: new Float32Array(W * H * 3),
     lut: new Float32Array(GLN * 3),
@@ -127,13 +127,13 @@ function clearSpot(S, R, tries) {
 
 // The plate has room for about a quarter of its area in water; a new drop is
 // fed no bigger than what is left, and none at all when there is no room.
-function birthRadius(S) {
+function birthRadius(S, u) {
   const lo = lerp(5, 7.2, S.size);
   const hi = lerp(10.5, 12.6, S.size);
   let area = 0;
   for (const d of S.drops) if (d.st !== 3 && !d.dead) area += PI * d.R2 * S.sz * S.sz;
   const room = sqrt(max(0, 0.26 * W * H - area) / PI) / S.sz;
-  return min(lerp(lo, hi, random() ** 0.9) / S.sz, room);
+  return min(lerp(lo, hi, u === undefined ? random() ** 0.9 : u) / S.sz, room);
 }
 
 function spawn(S) {
@@ -144,7 +144,6 @@ function spawn(S) {
   }
   const [x, y] = clearSpot(S, Rb * S.sz, 16);
   const d = newDrop(x, y, Rb * Rb, true);
-  S.stat.spawn++;
   const a = random() * TAU;
   const sp = 1.5 + 3 * random();
   d.vx = sp * cos(a);
@@ -200,16 +199,13 @@ function stepDrop(S, d, dt) {
     if (d.mt >= 0.5 || d.R2 < 0.7) d.dead = true;
   } else {
     // Evaporation takes the area, so the radius goes as the root of what is left.
-    d.R2 = max(0.5, d.R2 - 1.05 * heat * (d.fast ? 4 : 1) * dt);
+    if (!S.still) d.R2 = max(0.5, d.R2 - 1.05 * heat * (d.fast ? 4 : 1) * dt);
   }
   const R = radiusOf(d, S);
   if (d.st === 1 && !d.bead && R < 2.5) d.bead = true;
   if (d.bead && R < 1.75) {
     d.alpha -= dt / 0.7;
-    if (d.alpha <= 0) {
-      d.dead = true;
-      S.stat.vanish++;
-    }
+    if (d.alpha <= 0) d.dead = true;
   }
   // Which mode the drop rings in follows its radius, with a margin so it does not flutter between two.
   let nWant = 0;
@@ -350,8 +346,7 @@ function collide(S) {
       const small = big === a ? b : a;
       const Rm = sqrt(a.R2 + b.R2) * S.sz;
       const nice = a.bead || b.bead || Rm <= capR;
-      if (nice && random() < 0.65) {
-        S.stat.merge++;
+      if (nice && !S.still && random() < 0.65) {
         // Merge: the small one flows into the big one in half a second, and the whole rings in a low mode.
         small.st = 3;
         small.tgt = big;
@@ -367,7 +362,6 @@ function collide(S) {
         kick(big, 4, sg * 0.5 * w);
         if (big.n) big.T[big.n] = 0;
       } else {
-        S.stat.bounce++;
         const nx = dx / dist;
         const ny = dy / dist;
         const ma = a.R2;
@@ -421,7 +415,8 @@ function advance(S, dt) {
   } else {
     for (const d of ds) d.fast = false;
   }
-  if (live < S.N && ds.length < 12) {
+  if (S.still) S.timer = 3;
+  else if (live < S.N && ds.length < 12) {
     S.timer -= dt;
     if (S.timer <= 0) {
       spawn(S);
@@ -446,8 +441,12 @@ function prime(S) {
   S.sz = lerp(0.92, 1.06, S.size);
   S.N = 4 + floor(5.99 * sqrt(S.feed));
   S.viol = 0.35 + 0.9 * S.feed;
+  // The first drops are spread evenly over the size range, one of each, so the plate opens with big ones and small ones.
+  const ord = [];
+  for (let i = 0; i < S.N; i++) ord.push(i);
+  ord.sort(() => random() - 0.5);
   for (let i = 0; i < S.N; i++) {
-    const Rb = max(4.6 / S.sz, birthRadius(S) * (0.55 + 0.45 * random()));
+    const Rb = max(4.6 / S.sz, birthRadius(S, (ord[i] + random()) / S.N));
     const [x, y] = clearSpot(S, Rb * S.sz, 24);
     const d = newDrop(x, y, Rb * Rb, false);
     const a = random() * TAU;
@@ -459,8 +458,11 @@ function prime(S) {
     d.A[d.n] = modeAmp(d.n, R, S.heat);
     S.drops.push(d);
   }
+  // Ten seconds of skitter with the water held still, so the opening already has its ringing and its places.
   S.first = false;
-  for (let t = 0; t < 30; t += 0.05) advance(S, 0.05);
+  S.still = true;
+  for (let t = 0; t < 10; t += 0.05) advance(S, 0.05);
+  S.still = false;
 }
 
 export function update(dt, input, params) {
@@ -519,7 +521,9 @@ function plate(S) {
       for (let k = 0; k < 3; k++) g += bp[k] * bx[k * W + x] * by[k * H + y];
       // Heat shimmer: faint bands that climb the plate, bent by a second slow wave.
       g *= 1 + 0.1 * sin(0.62 * y + 2.1 * t + 1.6 * sin(0.17 * x - 0.5 * t)) + 0.06 * sin(0.37 * x - 0.31 * y + 1.3 * t);
-      let gi = ((g * lvl) * 256) | 0;
+      let v = g * lvl;
+      if (v > 0.7) v = 0.7 + 0.35 * (1 - exp((0.7 - v) / 0.35));
+      let gi = (v * 256) | 0;
       if (gi < 0) gi = 0;
       else if (gi >= GLN) gi = GLN - 1;
       const sheen = 0.7 + 0.3 * sin(0.06 * x + 0.035 * y + 0.021 * t);
