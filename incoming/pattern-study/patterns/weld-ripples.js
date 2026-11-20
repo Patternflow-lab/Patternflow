@@ -9,12 +9,12 @@
 // Round:   205
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Travel=1.5..8, Current=60..160, Weave=4..13
+// @knobs Hue=0..1, Travel=1.5..6.5, Current=60..130, Weave=4..12
 //
 // Knob 1: Hue. Turns the heat-tint palette round the wheel from the true order it opens on, straw, gold, bronze, magenta, blue, grey, moving outward from the bead; the white-hot pool and the red-orange glow of cooling steel keep their own colour.
-// Knob 2: Travel. How fast the torch moves over the plate, from 1.5 LEDs a second, where the ripples sit 2.8 LEDs apart, the tints spread wide and the glowing tail is about 14 LEDs long, to 8 LEDs a second, where they sit 5.7 LEDs apart, the pool stretches into a teardrop and the glow trails past 35 LEDs; it opens at 2.
-// Knob 3: Current. The arc current in amperes. At 60 the pool is about 6 LEDs across and the tints reach about 15 LEDs from the bead axis; at 160 the pool is 12 LEDs across and the tints reach past 20, so the halo takes most of the 64 LED width.
-// Knob 4: Weave. How far the torch swings from side to side across the seam, from 3 LEDs, a narrow bead with scalloped edges, to 13 LEDs, a wide zigzag whose swings overlap in crescents; the swing takes 3.5 to 9 seconds and wanders.
+// Knob 2: Travel. How fast the torch moves over the plate, from 1.5 LEDs a second to 6.5, opening at 2. Ripples sit 3.4 LEDs apart at 1.5, 3.7 at the opening 2 and 6.2 at 6.5, and the glowing finger behind the arc grows from about 10 LEDs to over 30 while the pool stretches into a teardrop.
+// Knob 3: Current. The arc current in amperes. At 60 the pool is about 8 LEDs across and the tints reach about 16 LEDs from the seam; at 130 the pool is about 20 LEDs across, the ripples are broad scales, and the tints reach 22 LEDs, so the halo takes most of the 64 LED width.
+// Knob 4: Weave. How far the torch swings from side to side across the seam, from 4 LEDs, a bead with scalloped edges, to 12 LEDs, a wide zigzag whose swings overlap in crescents; one swing takes 20 to 44 LEDs of seam and its length wanders.
 
 const W = 64;
 const H = 128;
@@ -220,9 +220,9 @@ function slide(S) {
 function path(S, dt) {
   const k = S.k;
   const e = 1 - exp(-dt / 0.8);
-  S.spd += (cl(k[1], 1.5, 8) - S.spd) * e;
-  S.amp += (cl(k[2], 60, 160) - S.amp) * e;
-  S.wv += (cl(k[3], 4, 13) - S.wv) * e;
+  S.spd += (cl(k[1], 1.5, 6.5) - S.spd) * e;
+  S.amp += (cl(k[2], 60, 130) - S.amp) * e;
+  S.wv += (cl(k[3], 4, 12) - S.wv) * e;
   // The speed of the plate breathes a little.
   S.us += -S.us / 25 * dt + sqrt(2 / 25 * dt) * gauss();
   const vs = S.spd * exp(0.1 * S.us);
@@ -332,7 +332,8 @@ function stamp(S, dt) {
       const yp = -dx * hy + dy * hx;
       const R = sqrt(d2 + R0 * R0);
       const z = kp * R;
-      const F = Q * exp(-kap * xp - z) * k0e(z);
+      // The far tail behind the arc is cut short, so a turn of the seam leaves no thin needle of tint.
+      const F = Q * exp(-kap * xp - z - (xp < -12 ? (-xp - 12) * 0.125 : 0)) * k0e(z);
       Fnow[i] = F;
       Vis[i] = fr;
       if (F < 8) continue;
@@ -348,7 +349,8 @@ function stamp(S, dt) {
 
 function cool(S, dt) {
   const { Tcur } = S;
-  const c2 = 2 * COOL * dt;
+  // Faster travel leaves a longer glowing tail, though not in proportion.
+  const c2 = 2 * COOL * sqrt(max(S.spd, 2) / 2) * dt;
   for (let i = 0; i < NC; i++) {
     const E = Tcur[i];
     if (E > 0) Tcur[i] = E > 3 ? E / sqrt(1 + c2 * E * E) : 0;
@@ -372,9 +374,9 @@ export function update(dt, input, params) {
   S.k = input.knobValues || [0, 2, 60, 4];
   dt = cl(dt || 0, 0, 0.1);
   if (S.first) {
-    S.spd = cl(S.k[1], 1.5, 8);
-    S.amp = cl(S.k[2], 60, 160);
-    S.wv = cl(S.k[3], 4, 13);
+    S.spd = cl(S.k[1], 1.5, 6.5);
+    S.amp = cl(S.k[2], 60, 130);
+    S.wv = cl(S.k[3], 4, 12);
     // Open on a plate that has been welded for as long as the bead takes to cross the panel.
     const T = cl(120 / S.spd, 24, 80);
     for (let t = 0; t < T; t += 0.1) advance(S, 0.1);
@@ -452,12 +454,21 @@ export function draw(display, params) {
         // at this spot has fallen below its peak: ahead of the torch there is no tint.
         // A spot the torch no longer reaches is not being heated.
         const fn = (Vis[i00] > fr ? Fnow[i00] * w00 : 0) + (Vis[i01] > fr ? Fnow[i01] * w01 : 0) + (Vis[i10] > fr ? Fnow[i10] * w10 : 0) + (Vis[i11] > fr ? Fnow[i11] * w11 : 0);
-        const ta = tl[ti * 4 + 3] * (1 - sstep(0.6, 0.93, fn / tp));
+        const f = 1 - sstep(0.6, 0.93, fn / tp);
+        const ta = tl[ti * 4 + 3] * f;
         if (ta > 0) {
           const gm = 0.86 + 0.28 * gn;
           r += (tl[ti * 4] * gm - r) * ta;
           g += (tl[ti * 4 + 1] * gm - g) * ta;
           b += (tl[ti * 4 + 2] * gm - b) * ta;
+        }
+        if (f < 1) {
+          // Before the film forms the heated steel shows only the light of the arc: a pale steel sheen.
+          const as = 0.8 * (1 - f) * sstep(40, 380, tp);
+          const gm = 0.8 + 0.4 * gn;
+          r += (90 * gm - r) * as;
+          g += (102 * gm - g) * as;
+          b += (128 * gm - b) * as;
         }
         let sh = 1, sv = 0.5;
         if (ms > 0.01) {
