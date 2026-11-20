@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the whole palette round the wheel from the mint plates, rose-white rims and violet water it opens on; at 0.25 lavender plates on plum water, at 0.5 rose on brown, at 0.75 pale lime on green.
 // Knob 2: Swell. How hard three crossing swells (wavelengths 128, 64 and 57 LEDs, periods 13.7, 11.1 and 9.3 s) work the plates: at 0.4 they sway half an LED with thin rims, at 2 about 3 LEDs at 1 to 2 LEDs a second and freeze together in pairs, at 4 about 5 LEDs at 2 to 3 LEDs a second with thick bright rims and no fusing.
-// Knob 3: Plate. The typical plate radius, 4.3 LEDs at -3, 7.3 at 0 and 10.3 at 3, each plate taking its own size from 0.6 to 1.5 times that: about 70 plates at -3, 13 at 3.
+// Knob 3: Plate. The typical plate radius, 4.3 LEDs at -3, 7.3 at 0 and 10.3 at 3, each plate taking its own size from 0.6 to 1.7 times that: about 70 plates at -3, 13 at 3.
 // Knob 4: Cover. How much of the sea the ice may hold. The plates settle at about 40% of the area at -24, 64% at 0 and 77% at 24, from 17 plates in slush-streaked open water to 45 nearly touching, new ones freezing out and old ones melting to keep to it.
 
 const W = 64;
@@ -28,7 +28,7 @@ const gauss = () => sqrt(-2 * log(1 - random())) * cos(TAU * random());
 const wx = (d) => d - W * round(d / W);
 const wy = (d) => d - H * round(d / H);
 
-// Three plane swells on the torus of the panel: wavelengths 128, 57 and 64 LEDs,
+// Three plane swells on the torus of the panel: wavelengths 128, 64 and 57 LEDs,
 // periods that share no factor, each with an envelope of its own.
 const WV = [
   { mx: 0, my: 1, T: 13.7, sh: 0.62, nu: 0.0171, ev: 0.0213 },
