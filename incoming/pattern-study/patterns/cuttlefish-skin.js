@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the chromatophore organ as described by Cloney and Florey (1968), the uniform, mottle and disruptive body patterns and the passing cloud of Sepia officinalis in Hanlon and Messenger (1988, 1996), the iridophore layer under the pigment in Mathger and colleagues (2009), and the skin map that the motor neurons draw in Reiter and colleagues (2018); pattern round 206
+// Lineage: the chromatophore organ as described by Cloney and Florey (1968), the uniform, mottle and disruptive body patterns and the passing cloud of Sepia officinalis in Hanlon and Messenger (1988, 1996), the iridophore layer under the pigment in Mathger and colleagues (2009), and the motor neuron map behind the chromatophores in Reiter and colleagues (2018); pattern round 206
 // Round:   206
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Drive=0.5..4, Cell=-1..1, Wave=-1..1
 //
-// Knob 1: Hue. Turns the iridescent layer round the wheel from the teal-green it opens on (at 0.25 it is blue, at 0.5 magenta-red); the pigments only lean a little, up to 29 degrees either way, so they stay yellow, rust and brown.
-// Knob 2: Drive. How far the nerves hold the sacs open: at 0.5 most sacs are shut and the skin is pale with a few warm spots, at 2 about half of the large brown sacs are open, at 4 the skin is dark brown with the teal showing in gaps; waves and bands also run faster, from 3 to 8 LEDs a second.
-// Knob 3: Cell. The spacing of the lattice, from 3.6 LEDs at -1 through 5 at 0 to 7 at 1; the sacs grow with it, so at 7 a single open brown sac is 13 LEDs across, and turning the knob stretches the skin like a sheet.
-// Knob 4: Wave. What the drive paints: at -1 fine mottle and stipple, blotches 8 to 16 LEDs across, at 1 broad bands 30 LEDs wide that cross the skin from one edge to the other in about 25 seconds; in between both show, and the next mode is picked from the same weights.
+// Knob 1: Hue. Turns the iridescent layer round the wheel from the teal it opens on (0.25 is violet-blue, 0.5 red-pink, 0.75 lime); the pigments only lean up to 18 degrees either way, so they stay yellow, rust and brown.
+// Knob 2: Drive. How far the nerves hold the sacs open, from 0.5 to 4: at 0.5 about a quarter of the skin shows pigment and the rest of the sacs are small shadows, at the opening 2 it is a little under half, at 4 about two thirds with the teal left in the gaps; bands and waves also run faster, from 3 to 8 LEDs a second.
+// Knob 3: Cell. The spacing of the lattice, 3.6 LEDs at -1, 5 at 0 where it opens and 7 at 1; the sacs grow with it, so an open brown sac is about 9 LEDs across at 5 and 12 at 7, and turning the knob stretches the skin like a sheet.
+// Knob 4: Wave. What the drive paints: at -1 fine mottle and stipple, blotches 8 LEDs across and spots of one sac, at 1 almost only passing-cloud bands 24 to 37 LEDs wide, each taking about 25 seconds to cross the panel at Drive 2; the body pattern the skin changes to next is drawn with the same lean.
 
 const W = 64;
 const H = 128;
@@ -38,7 +38,7 @@ const RMAX = [0.46, 0.64, 0.86];
 // Where the drive opens each class: yellow first, brown last.
 const THETA = [0.75, 0.55, 0.3];
 // What each body pattern adds to the drive of each class: stipple opens the small yellow sacs and keeps the brown ones shut.
-const BONUS = [[0, 0, 0], [0.3, 0.18, -0.2], [-0.1, -0.04, 0.1]];
+const BONUS = [[0, 0, 0], [0.32, 0.2, -0.1], [-0.1, -0.04, 0.1]];
 const TOPEN = [0.09, 0.11, 0.14];
 const TCLOSE = [0.8, 1.0, 1.4];
 
@@ -78,11 +78,11 @@ export function setup(params) {
     ox: 0, oy: 0, ox2: 0, oy2: 0, dir: random() * TAU,
     bw: [0.3, 0.15, 0.55], bt: [0.3, 0.15, 0.55], mode: 2, timer: 46,
     ew: [0.3, 0.15, 0.55],
-    events: [], glints: [], gtimer: 3, events0: 0, bdir: PI / 2 + (random() - 0.5) * 0.8, btimer: 0,
+    events: [], glints: [], gtimer: 3, bdir: PI / 2 + (random() - 0.5) * 0.8, btimer: 0,
     ux: new Float32Array(NC), uy: new Float32Array(NC),
     cls: new Uint8Array(NC), gain: new Float32Array(NC), pers: new Float32Array(NC),
     o: new Float32Array(NC), tw: new Float32Array(NC), cx: new Float32Array(NC), cy: new Float32Array(NC),
-    vis: new Uint8Array(NC), shut: new Float32Array(NC), tone: new Float32Array(NC), th: new Float32Array(NC), id: new Float32Array(NC),
+    vis: new Uint8Array(NC), shut: new Float32Array(NC), tone: new Float32Array(NC), id: new Float32Array(NC),
     order: new Int32Array(NC),
     buf: new Float32Array(W * H * 3),
     dens: new Float32Array(W * H),
@@ -99,7 +99,6 @@ export function setup(params) {
       S.pers[n] = gauss() * 0.11;
       S.tone[n] = 0.84 + 0.3 * random();
       S.shut[n] = 0.62 + 0.3 * random();
-      S.th[n] = (random() - 0.5) * 0.03;
       S.id[n] = random() * 900;
       n++;
     }
@@ -191,7 +190,7 @@ function advance(S, dt) {
     const w = lerp(14, 30, kwn);
     const ev = newEvent(S, w);
     S.events.push(ev);
-    S.btimer = (ev.w * (1.0 + 1.1 * random())) / bv;
+    S.btimer = (ev.w * (1.7 + 1.1 * random())) / bv;
   }
   for (let i = S.events.length - 1; i >= 0; i--) {
     const ev = S.events[i];
@@ -221,12 +220,11 @@ function advance(S, dt) {
   }
 
   // The sacs.
-  const L = 0.1 + 0.56 * u2;
-  const A = 0.7;
+  const L = 0.14 + 0.46 * u2;
+  const A = 0.62 + 0.3 * u2;
   const lm = lerp(8, 27, kwn);
   const ls = 1.25 * sp;
   const tr = 0.004 + 0.012 * u2;
-  const zr = 0.05 + 0.06 * u2;
   const sd = S.sd;
   const { ux, uy, cls, pers, o, tw, cx, cy, vis, id } = S;
   const margin = 1.2 * sp + 1;
@@ -273,7 +271,7 @@ function advance(S, dt) {
       o[n] = tg;
       vis[n] = 1;
     } else {
-      const k = tg > o[n] ? 1 - exp(-dt / TOPEN[c]) : 1 - exp(-dt / (TCLOSE[c] / (0.6 + 0.4 * (1 + zr))));
+      const k = tg > o[n] ? 1 - exp(-dt / TOPEN[c]) : 1 - exp(-dt / (TCLOSE[c] * (1.1 - 0.25 * u2)));
       o[n] += (tg - o[n]) * k;
     }
   }
