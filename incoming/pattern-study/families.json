@@ -74,5 +74,10 @@
   "liquidmetal": { "label": "액체 금속", "color": "#9aa5b1" },
   "comet": { "label": "혜성", "color": "#2b6fff" },
   "entoptic": { "label": "눈 속 그림자", "color": "#c8ffd4" },
-  "wood": { "label": "목재·나뭇결", "color": "#c08a4b" }
+  "wood": { "label": "목재·나뭇결", "color": "#c08a4b" },
+  "seismology": { "label": "지진파", "color": "#bf138c" },
+  "acoustics": { "label": "음향 실험", "color": "#3613bf" },
+  "crystallography": { "label": "결정 회절", "color": "#139dbf" },
+  "dryland": { "label": "마른 땅", "color": "#bfae13" },
+  "detector": { "label": "입자 검출기", "color": "#f29b85" }
 }
