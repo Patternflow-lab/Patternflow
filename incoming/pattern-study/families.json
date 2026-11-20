@@ -62,7 +62,7 @@
   "sensing": { "label": "탐지·스캔", "color": "#e0a000" },
   "supersonic": { "label": "초음속", "color": "#ff9a3c" },
   "kinetic": { "label": "키네틱", "color": "#6f8fb0" },
-  "longexposure": { "label": "장노출", "color": "#2a3a8c" },
+  "skyoptics": { "label": "대기 광학", "color": "#a0c4ff" },
   "tectonic": { "label": "판 구조", "color": "#2aa198" },
   "polarization": { "label": "편광", "color": "#b36bff" }
 }
