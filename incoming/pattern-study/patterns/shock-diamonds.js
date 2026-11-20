@@ -145,7 +145,7 @@ export function update(dt, input, params) {
     const ramp = Math.pow(Math.min(1, s / 130), 1.3);
     params.cx[y] = CX + sway * ramp * (Math.sin(0.43 * t - 0.035 * s) + 0.6 * Math.sin(0.97 * t - 0.06 * s + 1.3) + 0.4 * Math.sin(0.2917 * t - 0.02 * s + 2.2));
 
-    // Diamond size: half-width of the diamond, half-height of it, and how bright it is.
+    // Diamond size as half-width and half-height; its brightness is set further down.
     const wdm = (0.67 - 0.1 * dm) * rb * (1 + 0.7 * wander * Math.sin((0.53 + 0.1219 * idx) * t + 0.9 * idx + 2));
     const hdm = first ? 0.34 * L * (1 - dm) + 2.6 * dm : 0.34 * L;
     params.wd[y] = wdm;

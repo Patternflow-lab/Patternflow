@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Wind=0..3, Scale=-1..1, Sun=0..1
 //
 // Knob 1: Hue. The metal the scales are cut from, and the colour the sun's glint takes on it: blued steel with gold glints where the knob opens, then silver with cold white ones, bronze with copper ones, a purple alloy with lilac ones, and steel again at the top.
-// Knob 2: Wind. How hard it blows. At the bottom no gust comes and the scales hang still while only the sun's band creeps over the wall; where the knob opens a front crosses every few seconds and a breeze ripples the band between them, and at the top the fronts come more often, faster, and swing the scales much further.
+// Knob 2: Wind. How hard it blows. At the bottom no gust comes and the scales hang still while only the sun's band creeps over the wall; where the knob opens a front crosses every few seconds and a breeze ripples the band between them, and at the top the fronts come more often and faster, and they swing the scales much further.
 // Knob 3: Scale. How big each scale is, from 4 LEDs across at the bottom to 8 at the top, in whole LEDs so the dark gap between scales stays one LED wide; it opens on 5.
 // Knob 4: Sun. Where the sun starts from. It climbs and falls by itself over a couple of minutes; low, where the knob opens, the band of light sits low on the wall and is deep gold, and turned up the band rides higher and its glint goes paler.
 
