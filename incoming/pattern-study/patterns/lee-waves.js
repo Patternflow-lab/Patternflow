@@ -86,8 +86,8 @@ export function setup(params) {
     lf: new Float32Array(W * H),
     gl: new Float32Array(W * H),
     ground: new Float32Array(W),
+    far: new Float32Array(W),
     slope: new Float32Array(W),
-    pal: {},
     P: {},
   };
   params.s = S;
@@ -109,7 +109,7 @@ export function update(dt, input, params) {
   const ph = S.ph;
   S.gust = 1 + 0.12 * sin((TAU * t) / 9.3 + ph[10]) + 0.08 * sin((TAU * t) / 14.1 + ph[11]) + 0.05 * sin((TAU * t) / 5.7 + ph[12]);
   const wind = cl(S.sk[1], 1, 8);
-  const U = 1.6 * pow(wind, 0.9) * S.gust;
+  const U = 2.4 * pow(wind, 0.8) * S.gust;
   for (let j = 0; j < NL; j++) {
     const uj = U * (0.8 + 0.1 * j);
     S.X[j] += uj * dt;
@@ -134,8 +134,8 @@ function derive(S) {
   P.c2 = 0.35 * P.lam2;
   P.tau1 = 0.09 * (1 + 0.25 * sin((TAU * t) / 121 + ph[3]));
   P.tau2 = -0.04;
-  P.A1 = 0.52 * P.h0;
-  P.A2 = 0.3 * P.h0;
+  P.A1 = 4 + 0.28 * P.h0;
+  P.A2 = 2.5 + 0.15 * P.h0;
   P.za1 = 70 + 14 * sin((TAU * t) / 173 + ph[4]);
   P.za2 = 100 + 22 * sin((TAU * t) / 131 + ph[6]);
 }
@@ -145,14 +145,14 @@ function fieldRows(S) {
   const t = S.t;
   const ph = S.ph;
   const { cb1, sb1, cb2, sb2, RH, RL } = S;
-  const sTh = 1 + 0.2 * P.moist;
+  const sTh = 1 + 0.09 * P.moist;
   const zj = [];
   const sj = [];
   const hj = [];
   for (let j = 0; j < NL; j++) {
     zj.push(LZ[j] + 2.2 * sin((TAU * t) / LP[j] + ph[20 + j]));
     sj.push(LS[j] * sTh);
-    hj.push(LH[j] + 0.085 * P.moist + 0.045 * sin((TAU * t) / LQ[j] + ph[26 + j]));
+    hj.push(LH[j] + 0.05 * P.moist + 0.045 * sin((TAU * t) / LQ[j] + ph[26 + j]));
   }
   for (let i = 0; i < NZ; i++) {
     const z0 = i + 0.5;
@@ -249,8 +249,7 @@ function clouds(S) {
       const beta = 0.04 + 0.34 * (1 - exp(-age / 12));
       const qi = sm(0, 0.15 + 0.1 * (1 - exp(-age / 8)), sat + beta * (n - 0.5));
       m = max(qi, m * exp(-(0.4 + 1.9 * (1 - n)) / 10));
-      if (qi > 0.25 || m > 0.15) age++;
-      else age = 0;
+      age = m > 0.15 ? age + 1 : max(0, age - 3);
       Q[o + xi] = m;
       T[o + xi] = n;
     }
@@ -287,48 +286,67 @@ function mapDisplay(S) {
   }
 }
 
-function setMatrix(M, a) {
-  const c = cos(a);
-  const s = sin(a);
-  const k = (1 - c) / 3;
-  const q = s * 0.57735027;
-  M[0] = c + k; M[1] = k - q; M[2] = k + q;
-  M[3] = k + q; M[4] = c + k; M[5] = k - q;
-  M[6] = k - q; M[7] = k + q; M[8] = c + k;
-}
-function rot(M, c) {
-  return [
-    cl(M[0] * c[0] + M[1] * c[1] + M[2] * c[2], 0, 255),
-    cl(M[3] * c[0] + M[4] * c[1] + M[5] * c[2], 0, 255),
-    cl(M[6] * c[0] + M[7] * c[1] + M[8] * c[2], 0, 255),
-  ];
-}
-function ramp(stops, v, out) {
-  let k = 0;
-  while (k < stops.length - 2 && v > stops[k + 1][0]) k++;
-  const a = stops[k];
-  const b = stops[k + 1];
-  const u = cl((v - a[0]) / (b[0] - a[0]), 0, 1);
-  out[0] = a[1] + (b[1] - a[1]) * u;
-  out[1] = a[2] + (b[2] - a[2]) * u;
-  out[2] = a[3] + (b[3] - a[3]) * u;
-}
-
-const SKY = [
-  [0, 190, 196, 240],
-  [18, 168, 190, 245],
-  [45, 96, 150, 240],
-  [80, 44, 100, 225],
-  [110, 22, 58, 190],
-  [128, 12, 36, 150],
+// The sky, one palette per fifth of K1, each one a dusk of its own. The knob
+// walks through them and comes back to the first at 1. Per palette: zenith,
+// mid sky, low sky, horizon, the four steps of the sun's glow (from the pale
+// halo to the core), the sunlit underside of a cloud, its top, its shadow, the
+// ridge at its foot and at its crest, and the light along the ridge's edge.
+const PAL = [
+  [[12, 36, 150], [44, 100, 225], [96, 150, 240], [168, 190, 245], [214, 150, 220], [255, 150, 140], [255, 176, 96], [255, 214, 130], [255, 188, 122], [232, 238, 255], [150, 160, 222], [44, 26, 70], [70, 44, 96], [255, 150, 74]],
+  [[30, 10, 120], [86, 44, 196], [160, 96, 226], [226, 150, 226], [230, 130, 230], [255, 120, 170], [255, 150, 100], [255, 208, 120], [255, 170, 150], [240, 232, 255], [170, 150, 225], [40, 14, 72], [70, 34, 100], [255, 130, 110]],
+  [[120, 16, 110], [200, 40, 140], [248, 110, 140], [255, 176, 140], [255, 140, 150], [255, 150, 110], [255, 180, 90], [255, 224, 130], [255, 200, 140], [255, 238, 240], [200, 140, 190], [60, 12, 50], [100, 30, 70], [255, 170, 80]],
+  [[150, 36, 60], [225, 90, 60], [255, 160, 80], [255, 215, 140], [255, 170, 130], [255, 190, 100], [255, 215, 110], [255, 240, 170], [255, 215, 150], [255, 246, 235], [190, 130, 150], [50, 16, 28], [88, 34, 46], [255, 200, 110]],
+  [[10, 70, 60], [40, 150, 80], [140, 210, 110], [235, 240, 150], [230, 240, 150], [255, 230, 120], [255, 200, 90], [255, 236, 150], [255, 225, 150], [245, 255, 240], [130, 190, 150], [8, 36, 28], [24, 70, 50], [255, 210, 90]],
+  [[6, 16, 120], [10, 84, 200], [40, 170, 235], [150, 226, 245], [170, 200, 255], [200, 170, 240], [255, 170, 150], [255, 216, 130], [255, 200, 150], [236, 246, 255], [140, 170, 230], [20, 22, 64], [40, 50, 100], [255, 170, 100]],
 ];
-const GLOW = [
-  [0, 130, 150, 240],
-  [0.25, 214, 150, 220],
-  [0.5, 255, 150, 140],
-  [0.75, 255, 176, 96],
-  [1, 255, 214, 130],
-];
+const NC = 14;
+function toHsv(c, o) {
+  const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+  const mx = max(r, g, b), mn = min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d > 1e-6) {
+    if (mx === r) h = ((g - b) / d + 6) % 6;
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  o[0] = h;
+  o[1] = mx > 0 ? d / mx : 0;
+  o[2] = mx;
+}
+function fromHsv(h, s, v, o) {
+  const k = (n) => (n + h) % 6;
+  const f = (n) => 255 * v * (1 - s * max(0, min(k(n), 4 - k(n), 1)));
+  o[0] = f(5);
+  o[1] = f(3);
+  o[2] = f(1);
+}
+// Colours are blended round the hue circle, not through grey, so two dusks
+// that sit opposite each other pass through the colours between them.
+const HA = [0, 0, 0];
+const HB = [0, 0, 0];
+function palette(k, out) {
+  const n = PAL.length;
+  const pos = cl(k, 0, 1) * n;
+  const a = min(floor(pos), n - 1);
+  const f = pos - a;
+  const A = PAL[a];
+  const B = PAL[(a + 1) % n];
+  for (let c = 0; c < NC; c++) {
+    toHsv(A[c], HA);
+    toHsv(B[c], HB);
+    let dh = HB[0] - HA[0];
+    if (dh > 3) dh -= 6;
+    else if (dh < -3) dh += 6;
+    // an almost grey colour has no hue of its own to carry
+    const wa = HA[1] < 0.06 ? 0 : 1;
+    const wb = HB[1] < 0.06 ? 0 : 1;
+    let h = HA[0] + dh * f;
+    if (!wa) h = HB[0];
+    else if (!wb) h = HA[0];
+    fromHsv((h + 6) % 6, lerp(HA[1], HB[1], f), lerp(HA[2], HB[2], f), out[c]);
+  }
+}
+const PALOUT = Array.from({ length: NC }, () => [0, 0, 0]);
 
 export function draw(display, params) {
   const S = params.s;
@@ -341,19 +359,10 @@ export function draw(display, params) {
   const P = S.P;
   const t = S.t;
   const ph = S.ph;
-  const { qd, qn, ab, be, lf, gl, ground, slope } = S;
+  const { qd, qn, ab, be, lf, gl, ground, slope, far } = S;
 
-  // palette, turned round the wheel together
-  const M = [0, 0, 0, 0, 0, 0, 0, 0, 0];
-  setMatrix(M, TAU * (S.sk[0] || 0));
-  const sky = SKY.map((s) => [s[0], ...rot(M, [s[1], s[2], s[3]])]);
-  const glow = GLOW.map((s) => [s[0], ...rot(M, [s[1], s[2], s[3]])]);
-  const CT = rot(M, [232, 238, 255]);
-  const CB = rot(M, [255, 188, 122]);
-  const CS = rot(M, [150, 160, 222]);
-  const RB = rot(M, [44, 26, 70]);
-  const RT = rot(M, [70, 44, 96]);
-  const RM = rot(M, [255, 150, 74]);
+  palette(S.sk[0], PALOUT);
+  const [ZEN, MID, LOW, HOR, G1, G2, G3, G4, CB, CT, CS, RB, RT, RM] = PALOUT;
 
   // sun glow
   const gx = 54 + 6 * sin((TAU * t) / 311 + ph[14]) + 4 * sin((TAU * t) / 487 + ph[15]);
@@ -368,13 +377,14 @@ export function draw(display, params) {
     }
   }
 
-  // ground: a Witch of Agnesi ridge and a low foothill
+  // ground: a Witch of Agnesi ridge and a low foothill, and a range of hills behind
   for (let x = 0; x < W; x++) {
     const d1 = (x + 0.5 - XR) / RA;
     const d2 = (x + 0.5 - 57) / 8;
     ground[x] = 3 + P.h0 / (1 + d1 * d1) + 0.3 * P.h0 / (1 + d2 * d2);
+    far[x] = 9 + 3.6 * sin((TAU * x) / 52 + 0.9) + 2.4 * sin((TAU * x) / 23 + 2.3) + 1.2 * sin((TAU * x) / 11.5 + 5.1);
   }
-  for (let x = 0; x < W; x++) slope[x] = ((ground[min(W - 1, x + 1)] - ground[max(0, x - 1)]) / (min(W - 1, x + 1) - max(0, x - 1)));
+  for (let x = 0; x < W; x++) slope[x] = (ground[min(W - 1, x + 1)] - ground[max(0, x - 1)]) / (min(W - 1, x + 1) - max(0, x - 1));
 
   // leaky sums of cloud above, below and to the left of every LED
   for (let x = 0; x < W; x++) {
@@ -397,16 +407,28 @@ export function draw(display, params) {
     }
   }
 
-  const sc = [0, 0, 0];
   const gc = [0, 0, 0];
   for (let y = 0; y < H; y++) {
     const Z = H - y - 0.5;
-    ramp(sky, Z, sc);
-    const sr = sc[0], sg = sc[1], sb = sc[2];
+    // the sky by height
+    let s0, s1, f;
+    if (Z < 22) { s0 = HOR; s1 = HOR; f = 0; }
+    else if (Z < 50) { s0 = HOR; s1 = LOW; f = (Z - 22) / 28; }
+    else if (Z < 84) { s0 = LOW; s1 = MID; f = (Z - 50) / 34; }
+    else { s0 = MID; s1 = ZEN; f = (Z - 84) / 44; }
+    const sr = lerp(s0[0], s1[0], f), sg = lerp(s0[1], s1[1], f), sb = lerp(s0[2], s1[2], f);
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
       const g = gl[p];
-      ramp(glow, g, gc);
+      // the glow runs pale halo, coral, orange, gold
+      let c0, c1, u;
+      if (g < 0.25) { c0 = null; c1 = G1; u = g / 0.25; }
+      else if (g < 0.5) { c0 = G1; c1 = G2; u = (g - 0.25) / 0.25; }
+      else if (g < 0.75) { c0 = G2; c1 = G3; u = (g - 0.5) / 0.25; }
+      else { c0 = G3; c1 = G4; u = (g - 0.75) / 0.25; }
+      if (c0) {
+        gc[0] = lerp(c0[0], c1[0], u); gc[1] = lerp(c0[1], c1[1], u); gc[2] = lerp(c0[2], c1[2], u);
+      } else { gc[0] = c1[0]; gc[1] = c1[1]; gc[2] = c1[2]; }
       const ga = sm(0, 0.4, g);
       let r = lerp(sr, gc[0], ga);
       let gg = lerp(sg, gc[1], ga);
@@ -417,7 +439,7 @@ export function draw(display, params) {
         const bl = be[p];
         const wv = a / (a + bl + 1e-3);
         // light from the lower right: the right end of a lens is lit
-        const right = lf[p] / (lf[p] + (qd[p] > 0 ? 0 : 0) + 3.5);
+        const right = lf[p] / (lf[p] + 3.5);
         const warm = sm(0.2, 0.95, 0.75 * wv + 0.25 * right) * (0.66 + 0.34 * g);
         let cr = lerp(CT[0], CB[0], warm);
         let cg = lerp(CT[1], CB[1], warm);
@@ -431,6 +453,15 @@ export function draw(display, params) {
         r = lerp(r, cr, al);
         gg = lerp(gg, cg, al);
         b = lerp(b, cb, al);
+      }
+      // the hills behind the ridge take the sky's own light, deepened
+      const fcov = cl(far[x] - (Z - 0.5), 0, 1);
+      if (fcov > 0) {
+        const dd = far[x] - Z;
+        const k = 0.6 + 0.12 * cl(dd / 12, 0, 1);
+        r = lerp(r, lerp(r, RT[0], k) * 0.8, fcov);
+        gg = lerp(gg, lerp(gg, RT[1], k) * 0.8, fcov);
+        b = lerp(b, lerp(b, RT[2], k) * 0.8, fcov);
       }
       // ground
       const cov = cl(ground[x] - (Z - 0.5), 0, 1);
