@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Sun Dapples
 // Family:  pinhole
-// Idea:    The patches of sunlight on the ground under a tree, each one a pinhole image of the Sun made by a gap in the leaves, so high gaps throw big round spots, low gaps small ones, overlapping gaps fuse, and in an eclipse every spot is a crescent pointing the same way.
+// Idea:    The patches of sunlight on the ground under a tree, each one a pinhole image of the Sun made by a gap in the leaves, so high gaps throw big round spots and low gaps small ones, and in an eclipse every spot is a crescent pointing the same way.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
