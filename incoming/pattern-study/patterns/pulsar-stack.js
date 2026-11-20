@@ -24,7 +24,7 @@ const PITCH = 4;
 const Y0 = H + 18;
 const NR = 44;
 const HMAX = 12.5;
-const { floor, ceil, sin, cos, exp, sqrt, abs, tanh, log, PI, min, max, pow } = Math;
+const { floor, ceil, sin, cos, exp, sqrt, tanh, log, PI, min, max, pow } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(2 * PI * Math.random());
 const TAU = 2 * PI;
@@ -51,10 +51,10 @@ function hash(m, salt) {
 // sub-pulses in LEDs, sub the strength of the drifting part, core and cone the
 // steady components, sw the sub-pulse width.
 const MODES = [
-  { dm: 1.0, P2: 15, sub: 1.2, core: 0.7, cone: 0.8, sw: 3.0 },
+  { dm: 1.0, P2: 15, sub: 1.3, core: 0.5, cone: 0.55, sw: 3.0 },
   { dm: 0.15, P2: 19, sub: 0.6, core: 1.3, cone: 1.0, sw: 3.5 },
-  { dm: 1.8, P2: 11.5, sub: 1.0, core: 0.55, cone: 0.6, sw: 2.5 },
-  { dm: -0.6, P2: 16, sub: 1.2, core: 0.8, cone: 0.7, sw: 3.2 },
+  { dm: 1.8, P2: 11.5, sub: 1.1, core: 0.4, cone: 0.45, sw: 2.5 },
+  { dm: -0.6, P2: 16, sub: 1.3, core: 0.55, cone: 0.5, sw: 3.2 },
 ];
 const MKEYS = ["dm", "P2", "sub", "core", "cone", "sw"];
 
@@ -64,7 +64,7 @@ export function setup(params) {
     off: 0, n: 0,
     rows: [],
     // the mode machine
-    mode: 0, modeLeft: 40, mp: { dm: 1, P2: 15, sub: 1.2, core: 0.7, cone: 0.8, sw: 3.0 },
+    mode: 0, modeLeft: 30 + floor(6 * Math.random()), mp: { dm: 1, P2: 15, sub: 1.3, core: 0.5, cone: 0.55, sw: 3.0 },
     // the null machine
     on: true, nullLeft: 0, gate: 1, burst: 0,
     // the drifting phase, in sub-pulse spacings, and its wander
@@ -92,6 +92,7 @@ function scint(S, t) {
 // One pulse: 64 heights in LEDs above the baseline.
 function genRow(S) {
   const k = S.k;
+  S.n++;
   const nul = cl(k[3], 0.15, 1);
   const f = 0.04 + 0.5 * pow(nul, 0.9);
   const v = 0.18 + 0.85 * nul;
@@ -110,8 +111,13 @@ function genRow(S) {
   for (let i = 0; i < MKEYS.length; i++) mp[MKEYS[i]] += (tm[MKEYS[i]] - mp[MKEYS[i]]) * 0.5;
 
   // nulling: off for 2 to 18 rows, back with a short bright burst
-  if (S.on) {
-    const pStart = f / (1 - f) / 6.5;
+  // The stack it opens on has one short null near the far end and none after it.
+  const pre = S.first;
+  if (pre && S.n === 12) {
+    S.on = false;
+    S.nullLeft = 3;
+  } else if (S.on) {
+    const pStart = pre ? 0 : f / (1 - f) / 6.5;
     if (Math.random() < pStart) {
       S.on = false;
       S.nullLeft = 2 + floor(min(16, -log(1 - Math.random()) * 4.5));
@@ -139,12 +145,12 @@ function genRow(S) {
   const sc = scint(S, S.t);
   S.sc += -0.02 * S.sc + 0.03 * gauss();
   const gate = S.gate * (1 + S.burst);
-  const flux = gate * sc * exp(S.ap);
+  const flux = gate * pow(sc, 0.65) * exp(S.ap);
 
   const I = new Float32Array(W);
   const c0 = S.c0;
   // steady components: the core and a cone on either side
-  const ac = 3.4 * mp.core * exp(S.ac), al = 2.0 * mp.cone * exp(S.al), ar = 2.2 * mp.cone * exp(S.ar);
+  const ac = 3.6 * mp.core * exp(S.ac), al = 2.1 * mp.cone * exp(S.al), ar = 2.3 * mp.cone * exp(S.ar);
   for (let x = 0; x < W; x++) {
     const xc = x + 0.5;
     const d0 = (xc - c0) / 3.1, dl = (xc - (c0 - 10.5)) / 4.2, dr = (xc - (c0 + 11.5)) / 4.6;
@@ -157,7 +163,7 @@ function genRow(S) {
   for (let m = m0; m <= m1; m++) {
     const xm = c0 + (m - S.b) * P2 + 0.5 * v * gauss();
     const e = exp(-0.5 * ((xm - c0) / 11) ** 2);
-    const amp = 4.6 * mp.sub * e * (0.3 + 1.0 * hash(m, S.salt)) * exp(0.45 * v * gauss());
+    const amp = 6.2 * mp.sub * e * (0.3 + 1.0 * hash(m, S.salt)) * exp(0.45 * v * gauss());
     const sw = mp.sw * (0.8 + 0.45 * hash(m, S.salt + 7));
     const x0 = max(0, floor(xm - 4 * sw)), x1 = min(W - 1, ceil(xm + 4 * sw));
     for (let x = x0; x <= x1; x++) {
@@ -174,10 +180,10 @@ function genRow(S) {
     const nz = 0.8 * (w[x] + 2 * w[x + 1] + w[x + 2]) * 0.25;
     const s = I[x] * flux;
     const hgt = HMAX * tanh(s / HMAX);
-    hn[x] = min(1, hgt / 9);
+    hn[x] = min(1, hgt / 7.5);
     hh[x] = max(-1.6, hgt + nz);
   }
-  return { h: hh, hn, lum: cl((0.72 + 0.4 * min(1.4, sc)) * exp(0.28 * gauss()), 0.4, 1.5) };
+  return { h: hh, hn, lum: cl((0.9 + 0.3 * min(1.4, sc)) * exp(0.28 * gauss()), 0.4, 1.5) };
 }
 
 export function update(dt, input, params) {
@@ -204,13 +210,13 @@ export function update(dt, input, params) {
   }
 }
 
-// The lift is a table: level to the power 0.8, in steps of 1/256 up to 1.
+// The lift is a table: level to the power 1.05, in steps of 1/256 up to 1.
 const LIFT_N = 257;
 const LIFT = new Float32Array(LIFT_N);
-for (let i = 0; i < LIFT_N; i++) LIFT[i] = min(1, pow(i / 256, 0.8));
+for (let i = 0; i < LIFT_N; i++) LIFT[i] = min(1, pow(i / 256, 1.05));
 const GLOW_N = 6;
 const GLOW = new Float32Array(GLOW_N);
-for (let i = 0; i < GLOW_N; i++) GLOW[i] = 0.1 * exp(-(i + 0.5) / 1.3);
+for (let i = 0; i < GLOW_N; i++) GLOW[i] = 0.045 * exp(-(i + 0.5) / 1.3);
 
 export function draw(display, params) {
   const S = params.s;
@@ -225,7 +231,7 @@ export function draw(display, params) {
     const row = rows[r];
     const base = Y0 - (n - 1 - r) * PITCH - S.off * PITCH;
     if (base < -4) break;
-    const depth = 0.34 + 0.66 * pow(cl(base / H, 0, 1), 0.85);
+    const depth = 0.46 + 0.54 * pow(cl(base / H, 0, 1), 0.85);
     const hh = row.h, hn = row.hn;
     for (let x = 0; x < W; x++) {
       const xl = x > 0 ? x - 1 : 0, xr = x < W - 1 ? x + 1 : W - 1;
@@ -241,8 +247,8 @@ export function draw(display, params) {
       if (top < L) {
         // brighter at the peaks, whiter too
         const pk = hn[x];
-        const br = depth * row.lum * (0.34 + 0.9 * pk);
-        const wh = 0.1 + 0.8 * pk * pk;
+        const br = depth * row.lum * (0.32 + 0.85 * pk);
+        const wh = 0.12 + 0.55 * pk * pk;
         const cr = br * (B[0] + (1 - B[0]) * wh);
         const cg = br * (B[1] + (1 - B[1]) * wh);
         const cb = br * (B[2] + (1 - B[2]) * wh);
