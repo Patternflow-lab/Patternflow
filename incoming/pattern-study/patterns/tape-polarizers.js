@@ -6,7 +6,7 @@
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Lineage: interference colours of birefringent layers between crossed polarizers (Michel-Lévy chart, Auguste Michel-Lévy, 1888), Jones calculus (R. Clark Jones, 1941), the multi-lobe fit of the CIE 1931 colour matching functions (Chris Wyman, Peter-Pike Sloan and Peter Shirley, 2013), cellophane-tape art on a lightbox
-// Round:   199
+// Round:   200
 // ===============================
 // @matrix 64x128
 // @knobs Retard=0..1, Drift=0..3, Width=24..46, Analyzer=0..1
