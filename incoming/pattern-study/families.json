@@ -64,5 +64,10 @@
   "precipitate": { "label": "침전·띠", "color": "#3b5bdb" },
   "cilia": { "label": "섬모", "color": "#e64980" },
   "solar": { "label": "태양", "color": "#f4a261" },
-  "desert": { "label": "사막·모래", "color": "#cc7722" }
+  "desert": { "label": "사막·모래", "color": "#cc7722" },
+  "corrosion": { "label": "녹·부식", "color": "#d9774b" },
+  "liquidmetal": { "label": "액체 금속", "color": "#9aa5b1" },
+  "comet": { "label": "혜성", "color": "#2b6fff" },
+  "entoptic": { "label": "눈 속 그림자", "color": "#c8ffd4" },
+  "wood": { "label": "목재·나뭇결", "color": "#c08a4b" }
 }
