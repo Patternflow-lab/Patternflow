@@ -27,44 +27,62 @@ const sstep = (a, b, v) => {
 };
 const rnd = (a, b) => a + (b - a) * random();
 
-// Colour ramp from calm dark sea to the brightest glint, at Hue = 0.
-const RAMP = [
-  [0.0, 6, 48, 76],
-  [0.18, 10, 80, 108],
-  [0.34, 20, 110, 136],
-  [0.46, 100, 160, 176],
-  [0.56, 196, 206, 196],
-  [0.66, 244, 206, 130],
-  [0.78, 252, 172, 56],
-  [0.9, 255, 214, 128],
-  [1.0, 255, 246, 214],
+// Colour ramp from calm dark sea to the brightest glint, built from two hues:
+// the sea's and the glint's. Each stop is [v, which hue (0 sea, 1 glint, 0.5 grey), saturation, value].
+const STOPS = [
+  [0.0, 0, 0.9, 0.27],
+  [0.18, 0, 0.9, 0.38],
+  [0.34, 0, 0.85, 0.5],
+  [0.46, 0, 0.43, 0.69],
+  [0.56, 0.5, 0.08, 0.79],
+  [0.66, 1, 0.46, 0.96],
+  [0.78, 1, 0.78, 0.99],
+  [0.9, 1, 0.5, 1],
+  [1.0, 1, 0.16, 1],
+];
+// Hue knob: [position, sea hue, sea saturation, glint hue, glint saturation kept], degrees.
+// Between keys the hues turn the short way round.
+const KEYS = [
+  [0.0, 197, 1, 42, 1],
+  [0.2, 208, 0.62, 30, 1],
+  [0.4, 268, 0.52, 12, 0.8],
+  [0.6, 322, 0.6, 50, 0.7],
+  [0.8, 158, 0.82, 68, 0.7],
+  [1.0, 188, 0.55, 190, 0.15],
 ];
 const NL = 512;
 
-// Rotate the ramp round the grey axis by `hue` turns and put each entry's
-// luminance back, so a dark teal turned orange stays a bright orange.
-function buildLut(L, hue) {
-  const th = TAU * hue;
-  const c = cos(th), s = sin(th), k = 1 / 3, q = 0.577350269 * s;
-  const m00 = c + (1 - c) * k, m01 = (1 - c) * k - q, m02 = (1 - c) * k + q;
+function hsv(h, s, v) {
+  h = ((h % 360) + 360) % 360;
+  const c = v * s, x = c * (1 - abs(((h / 60) % 2) - 1)), m = v - c;
+  const i = floor(h / 60);
+  const r = [c, x, 0, 0, x, c][i], g = [x, c, c, x, 0, 0][i], b = [0, 0, x, c, c, x][i];
+  return [255 * (r + m), 255 * (g + m), 255 * (b + m)];
+}
+function turn(a, b, u) {
+  return a + (((b - a + 540) % 360) - 180) * u;
+}
+
+function buildLut(L, k) {
+  let n = 0;
+  while (n < KEYS.length - 2 && k > KEYS[n + 1][0]) n++;
+  const A = KEYS[n], B = KEYS[n + 1];
+  const u = cl((k - A[0]) / (B[0] - A[0]), 0, 1);
+  const hs = turn(A[1], B[1], u), hg = turn(A[3], B[3], u);
+  const ss = A[2] + (B[2] - A[2]) * u, gs = A[4] + (B[4] - A[4]) * u;
+  // Blue and violet are dim on the panel, so the sea's value is lifted a little there.
+  const blue = cl(1 - abs(hs - 265) / 55, 0, 1);
+  const st = STOPS.map(([v, w, sat, val]) => {
+    const rgb = w === 0.5 ? hsv(0, 0, val) : w === 0 ? hsv(hs, sat * ss, min(1, val * (1 + 0.3 * blue))) : hsv(hg, sat * gs, val);
+    return [v, rgb[0], rgb[1], rgb[2]];
+  });
   for (let i = 0; i < NL; i++) {
     const v = i / (NL - 1);
-    let n = 0;
-    while (n < RAMP.length - 2 && v > RAMP[n + 1][0]) n++;
-    const a = RAMP[n], b = RAMP[n + 1];
-    const u = cl((v - a[0]) / (b[0] - a[0]), 0, 1);
-    const r = a[1] + (b[1] - a[1]) * u, g = a[2] + (b[2] - a[2]) * u, bl = a[3] + (b[3] - a[3]) * u;
-    let R = max(0, m00 * r + m01 * g + m02 * bl);
-    let G = max(0, m02 * r + m00 * g + m01 * bl);
-    let B = max(0, m01 * r + m02 * g + m00 * bl);
-    const L0 = 0.299 * r + 0.587 * g + 0.114 * bl;
-    const L1 = 0.299 * R + 0.587 * G + 0.114 * B + 1e-3;
-    let sc = L0 / L1;
-    const mx = max(R, G, B) * sc;
-    if (mx > 255) sc *= 255 / mx;
-    L[i * 3] = R * sc;
-    L[i * 3 + 1] = G * sc;
-    L[i * 3 + 2] = B * sc;
+    let j = 0;
+    while (j < st.length - 2 && v > st[j + 1][0]) j++;
+    const p = st[j], q = st[j + 1];
+    const t = cl((v - p[0]) / (q[0] - p[0]), 0, 1);
+    for (let c = 0; c < 3; c++) L[i * 3 + c] = p[c + 1] + (q[c + 1] - p[c + 1]) * t;
   }
 }
 
@@ -85,15 +103,14 @@ const TSTEP = 0.5;
 
 // One packet: a source point far off the panel, so its fronts are circles
 // round it; a train of solitons, rank-ordered, the tallest in front.
-function makePacket(S, ang, lead, amp0) {
+function makePacket(S, ang, lead, amp0, lat) {
   const hx0 = sin(ang), hy0 = cos(ang);
   const D = rnd(58, 140);
-  const lat = rnd(-34, 34);
   const cx = 32 - D * hx0 - lat * hy0, cy = 64 - D * hy0 + lat * hx0;
   const Dp = sqrt((32 - cx) * (32 - cx) + (64 - cy) * (64 - cy));
   const hx = (32 - cx) / Dp, hy = (64 - cy) / Dp;
   const e = 32 * abs(hx) + 64 * abs(hy);
-  const n = 4 + floor(random() * 6);
+  const n = 5 + floor(random() * 5);
   const lam = rnd(0.76, 0.86);
   const a = [], f = [], g = [];
   for (let j = 0; j < n; j++) {
@@ -122,7 +139,7 @@ function makePacket(S, ang, lead, amp0) {
     ca: rnd(0, TAU), cb: rnd(0, TAU),
     ph1: rnd(0, TAU), ph2: rnd(0, TAU), ph3: rnd(0, TAU),
     kl: TAU / rnd(22, 40),
-    amp: lead === undefined ? rnd(0.6, 1) : amp0,
+    amp: lead === undefined ? rnd(0.65, 1) : amp0, sf: rnd(0.8, 1.25),
     tx: rnd(0, 100), ty: rnd(0, 100), tx2: rnd(0, 100), ty2: rnd(0, 100), tv: rnd(0.5, 0.9),
   };
   P.T = lead === undefined ? 0 : lead + e + 16;
@@ -134,17 +151,17 @@ function pow2(b, j) {
   return r;
 }
 
-const LIFE = 270;
+const LIFE = 200;
 
 export function setup(params) {
   const lat = new Float32Array(NN * NN);
   for (let i = 0; i < lat.length; i++) lat[i] = random();
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
-    w: 3, c0: 2, u: 0.53,
+    w: 3, c0: 2.9, u: 0.53,
     dist: 0, next: 0,
-    psi: (random() < 0.5 ? -1 : 1) * rnd(0.45, 0.8) + (random() < 0.5 ? 0 : PI),
-    pk: [],
+    psi: 0, pb: (random() < 0.5 ? -0.8 : 0.8) + (random() < 0.5 ? 0 : PI), pp: [rnd(0, TAU), rnd(0, TAU)],
+    pk: [], hist: [],
     lat,
     lut: new Float32Array(NL * 3), hueBuilt: -9,
     wx: random() * 100, wy: random() * 100, wdir: rnd(0, TAU), wdirV: 0,
@@ -152,33 +169,36 @@ export function setup(params) {
     sw: [rnd(0, TAU), rnd(0, TAU)],
     vb: new Float32Array(W * H),
   };
+  S.psi = S.pb + 0.3 * sin(S.pp[0]) + 0.15 * sin(S.pp[1]);
   params.s = S;
 }
 
 function spawn(S, lead, amp0) {
   const sp = (10 + 65 * S.u) * PI / 180;
-  let best = 0, bestScore = -1;
+  // Of eight tries take the heading and sideways offset least like the last few packets.
+  let best = 0, bl = 0, bestScore = -1;
   for (let tries = 0; tries < 8; tries++) {
     const ang = S.psi + (random() < 0.5 ? -1 : 1) * sp * rnd(0.25, 1);
+    const lat = rnd(-36, 36);
     let score = 9;
-    for (const P of S.pk) {
-      let d = abs(((Math.atan2(P.hx, P.hy) - ang + 3 * PI) % TAU) - PI);
-      score = min(score, d);
-    }
+    for (const h of S.hist) score = min(score, abs(((h[0] - ang + 3 * PI) % TAU) - PI) + abs(h[1] - lat) / 50);
     if (score > bestScore) {
       bestScore = score;
       best = ang;
+      bl = lat;
     }
   }
-  S.pk.push(makePacket(S, best, lead, amp0));
+  S.hist.push([best, bl]);
+  if (S.hist.length > 3) S.hist.shift();
+  S.pk.push(makePacket(S, best, lead, amp0, bl));
 }
 
 function stepPackets(S, dt) {
   const dl = S.c0 * dt;
   S.dist += dl;
-  for (const P of S.pk) P.T += dl;
-  // The family of headings drifts slowly.
-  S.psi += 0.004 * dt * (random() - 0.5) * 6;
+  for (const P of S.pk) P.T += dl * P.sf;
+  // The family of headings turns slowly, but stays diagonal.
+  S.psi = S.pb + 0.3 * sin(0.0113 * S.t + S.pp[0]) + 0.15 * sin(0.0071 * S.t + S.pp[1]);
   const w = S.w;
   S.pk = S.pk.filter((P) => {
     const j = P.n - 1;
@@ -187,7 +207,7 @@ function stepPackets(S, dt) {
   });
   if (S.dist >= S.next) {
     spawn(S, undefined, undefined);
-    S.next = S.dist + (LIFE / (1 + 3 * S.u)) * rnd(0.75, 1.25);
+    S.next = S.dist + (LIFE / (0.85 + 2 * S.u)) * rnd(0.82, 1.18);
   }
 }
 function sumGap(P, j) {
@@ -203,15 +223,15 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   S.k = k;
   const e = 1 - exp(-dt / 0.9);
-  S.c0 += (cl(k[1], 0.4, 4) - S.c0) * (S.first ? 1 : e);
+  S.c0 += (1.45 * cl(k[1], 0.4, 4) - S.c0) * (S.first ? 1 : e);
   S.w += (3 * Math.pow(1.7, cl(k[2], -1, 1)) - S.w) * (S.first ? 1 : e);
   S.u = cl(0.5 + 0.5 * k[3], 0, 1);
   if (S.first) {
     S.first = false;
-    const n = 1 + 3 * S.u;
+    const n = 0.85 + 2 * S.u;
     const m = Math.round(n);
-    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(15, 35) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.45, 0.65));
-    S.next = S.dist + (LIFE / n) * rnd(0.4, 0.8);
+    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(4, 20) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55));
+    S.next = S.dist + (LIFE / n) * rnd(0.3, 0.7);
   }
   S.t += dt;
   stepPackets(S, dt);
@@ -260,7 +280,7 @@ export function draw(display, params) {
   if (!S || S.first) return;
   const hue = S.k[0] || 0;
   if (abs(hue - S.hueBuilt) > 0.0005) {
-    buildLut(S.lut, hue);
+    buildLut(S.lut, cl(hue, 0, 1));
     S.hueBuilt = hue;
   }
   const lut = S.lut;
@@ -268,9 +288,11 @@ export function draw(display, params) {
   const t = S.t;
   const pk = S.pk;
   for (const P of pk) buildTable(S, P);
-  // The sun's glint: a broad patch off the top left corner, wandering a little.
-  const sx = -24 + 14 * sin(0.021 * t + S.sw[0]) + 7 * sin(0.0137 * t + S.sw[1]);
-  const sy = -38 + 11 * sin(0.0173 * t + S.sw[1]) + 6 * sin(0.0097 * t + S.sw[0]);
+  // The sun's glint: a broad patch off the top left corner that wanders and breathes.
+  const sp = S.sp;
+  const sx = -24 + 8 * sin(0.043 * t + sp[0]) + 5 * sin(0.0291 * t + sp[1]);
+  const sy = -38 + 6 * sin(0.037 * t + sp[2]) + 4 * sin(0.0211 * t + sp[3]);
+  const gamp = 0.6 * (1 + 0.06 * sin(0.051 * t + S.sw[0]));
   const wx = S.wx, wy = S.wy;
   const ca = cos(S.wdir), sa = sin(S.wdir);
   const c2 = cos(S.wdir + 0.9), s2 = sin(S.wdir + 0.9);
@@ -304,7 +326,10 @@ export function draw(display, params) {
         }
       }
       const ddx = px - sx, ddy = py - sy;
-      const vb = 0.1 + 0.54 * exp(-(ddx * ddx + ddy * ddy) / (2 * 95 * 95));
+      // Slow patches of calmer and more ruffled water.
+      const m1 = vnoise(lat, (px + 0.17 * t + 40) / 36, (py - 0.11 * t + 9) / 36);
+      const m2 = vnoise(lat, (px - 0.2 * t + 77) / 52, (py + 0.14 * t + 21) / 52);
+      const vb = 0.07 + gamp * exp(-(ddx * ddx + ddy * ddy) / (2 * 95 * 95)) + 0.07 * (m1 - 0.5);
       const Rs = R / (1 + 0.35 * abs(R));
       // Wind chop: two layers of stretched value noise that slide over the water.
       const qx = px + wx, qy = py + wy;
@@ -314,7 +339,7 @@ export function draw(display, params) {
       const rough = Rs > 0 ? Rs : 0;
       const slick = Rs < 0 ? -Rs : 0;
       // Near the sun the haze is bright and the slicks cut dark bands in it; far from it the rough lines stand out bright on dark water.
-      const gain = min(1, 0.12 + 0.55 * (vb - 0.1) + 0.7 * sstep(0.05, 0.5, rough)) * (1 - 0.85 * slick);
+      const gain = min(1, (0.14 + 0.55 * (vb - 0.1)) * (0.45 + 1.1 * m2) + 0.7 * sstep(0.05, 0.5, rough)) * (1 - 0.85 * slick);
       let v = vb + (Rs > 0 ? 0.62 * Rs : (0.3 + 0.75 * vb) * Rs) + 0.3 * ch * gain + 0.3 * streak;
       v = v > 0.85 ? 0.85 + 0.15 * tanh((v - 0.85) / 0.15) : v < 0.1 ? 0.1 - 0.1 * tanh((0.1 - v) / 0.1) : v;
       const li = ((cl(v, 0, 1) * (NL - 1)) | 0) * 3;
