@@ -69,5 +69,10 @@
   "kinetic": { "label": "키네틱", "color": "#6f8fb0" },
   "skyoptics": { "label": "대기 광학", "color": "#a0c4ff" },
   "tectonic": { "label": "판 구조", "color": "#2aa198" },
-  "polarization": { "label": "편광", "color": "#b36bff" }
+  "polarization": { "label": "편광", "color": "#b36bff" },
+  "corrosion": { "label": "녹·부식", "color": "#d9774b" },
+  "liquidmetal": { "label": "액체 금속", "color": "#9aa5b1" },
+  "comet": { "label": "혜성", "color": "#2b6fff" },
+  "entoptic": { "label": "눈 속 그림자", "color": "#c8ffd4" },
+  "wood": { "label": "목재·나뭇결", "color": "#c08a4b" }
 }
