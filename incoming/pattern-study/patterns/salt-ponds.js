@@ -463,7 +463,7 @@ function seedStates(S) {
   const key = (p) => (p.bx0 + p.bx1) * Math.cos(ph) + (p.by0 + p.by1) * 0.5 * Math.sin(ph) + 60 * gauss();
   const order = list.map((p) => [key(p), p]).sort((a, b) => a[0] - b[0]).map((a) => a[1]);
   order.forEach((p, i) => {
-    p.s = cl(((i + 0.5) / n) * 0.9 - 0.12 + 0.04 * gauss(), 0, 0.8);
+    p.s = cl(((i + 0.5) / n) * 0.94 - 0.1 + 0.04 * gauss(), 0, 0.84);
     p.rate = newRate();
   });
   for (const p of S.list) {
@@ -562,7 +562,7 @@ function advance(S, dt, events) {
   S.wa1 += vw * dt;
   S.wa2 += vw * 1.35 * dt;
   S.wph += (1.4 + 3.2 * kw) * dt;
-  S.wpsi += 0.0021 * sin(0.013 * S.t + 1.3) * dt * 20;
+  S.wpsi += (0.0078 * sin(0.013 * S.t + 1.3) + 0.004 * sin(0.0291 * S.t)) * dt;
   S.mdir += 0.01 * gauss() * sqrt(dt);
   S.mo[0] += 0.45 * cos(S.mdir) * dt;
   S.mo[1] += 0.45 * sin(S.mdir) * dt;
@@ -752,6 +752,11 @@ export function draw(display, params) {
       r *= mod;
       g *= mod;
       b *= mod;
+      // A hard wind also stirs up silt, which pales the brine.
+      const tb = wf * kw * 0.14;
+      r += (236 - r) * tb;
+      g += (228 - g) * tb;
+      b += (212 - b) * tb;
       // A hard wind lays pale chop along the crests of the streaks.
       const chop = wf * kw * kw * sm(0.25, 0.95, stk) * 0.4;
       r += (255 - r) * chop;
@@ -760,7 +765,7 @@ export function draw(display, params) {
       {
         const gx = x - glx, gy = y - gly;
         const ga = gx * gca + gy * gsa, gc = -gx * gsa + gy * gca;
-        const gi = exp(-(ga * ga) / (2 * 15 * 15) - (gc * gc) / (2 * 5.2 * 5.2)) * (0.45 + 0.9 * max(0, stk * 0.5 + 0.5)) * wf * 0.4;
+        const gi = exp(-(ga * ga) / (2 * 19 * 19) - (gc * gc) / (2 * 3.8 * 3.8)) * (0.35 + 1.1 * max(0, stk * 0.5 + 0.5)) * wf * 0.5;
         r += (255 - r) * min(0.9, gi);
         g += (244 - g) * min(0.9, gi);
         b += (214 - b) * min(0.9, gi);
