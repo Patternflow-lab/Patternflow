@@ -52,16 +52,16 @@ function vn(x, y) {
 const STOPS = [
   [0.0, 58, 176, 188],
   [0.17, 72, 184, 152],
-  [0.32, 118, 184, 118],
-  [0.45, 168, 172, 74],
-  [0.57, 224, 158, 54],
-  [0.67, 226, 118, 74],
-  [0.78, 224, 100, 108],
-  [0.89, 204, 64, 126],
-  [1.0, 156, 30, 108],
+  [0.32, 112, 182, 128],
+  [0.45, 160, 170, 82],
+  [0.57, 222, 160, 62],
+  [0.67, 224, 122, 82],
+  [0.78, 220, 104, 112],
+  [0.89, 200, 68, 126],
+  [1.0, 154, 34, 108],
 ];
 const CREAM = [232, 216, 180];
-const SALT = [246, 244, 240];
+const SALT = [252, 249, 244];
 const BED = [204, 178, 168];
 const WARM = [250, 226, 172];
 const NL = 128;
@@ -116,7 +116,7 @@ function mkLeaf(e, par, src) {
     bx0: 0, bx1: 0, by0: 0, by1: 0, area: 0,
   };
 }
-const newRate = () => exp(log(0.67) + Math.random() * (log(1.67) - log(0.67)));
+const newRate = () => exp(log(0.6) + Math.random() * (log(1.7) - log(0.6)));
 
 function leafAt(n, u, v) {
   while (n.kids) n = n.kids[(n.cut.vert ? u : v) < n.cut.pos ? 0 : 1];
@@ -251,34 +251,33 @@ function liquid(p) {
   return !p.kids && p.stage === 0 && p.s < 0.85 && p.area >= 70;
 }
 
-function doEvent(S) {
-  const n = S.n;
-  let want = n < S.tgt ? 1 : n > S.tgt ? -1 : S.flip;
-  if (want === 1) {
-    const c = S.list.filter((p) => liquid(p) && !(p.par && p.par.merging));
-    let best = null, bv = 0;
-    for (const p of c) {
-      const w = Math.pow(p.area, 1.5) * (0.4 + Math.random());
-      if (w > bv) {
-        bv = w;
-        best = p;
-      }
-    }
-    if (best && split(S, best, false)) {
-      S.flip = -1;
-      return true;
-    }
-    return false;
-  }
+function trySplit(S) {
+  const c = S.list.filter((p) => liquid(p) && !(p.par && p.par.merging)).map((p) => [Math.pow(p.area, 1.5) * (0.4 + Math.random()), p]);
+  c.sort((a, b) => b[0] - a[0]);
+  for (const [, p] of c) if (split(S, p, false)) return true;
+  return false;
+}
+function tryMerge(S) {
   const c = [];
   for (const X of internalNodes(S.rootL, []).concat(internalNodes(S.rootR, []))) {
     const [A, B] = X.kids;
-    if (!A.kids && !B.kids && !X.merging && liquid(A) && liquid(B) && A.area + B.area < 1500) c.push(X);
+    if (!A.kids && !B.kids && !X.merging && liquid(A) && liquid(B) && A.area + B.area < 2200) c.push(X);
   }
   if (!c.length) return false;
   startMerge(c[floor(Math.random() * c.length)]);
-  S.flip = 1;
   return true;
+}
+// A split or a merge, toward the number of ponds the knob asks for; at that number
+// the layout still rearranges itself, one pond split and then two joined.
+function doEvent(S) {
+  const dev = S.n - S.tgt;
+  const first = dev > 0 ? -1 : dev < 0 ? 1 : S.flip;
+  let ok = first === 1 ? trySplit(S) : tryMerge(S);
+  if (!ok && dev === 0) {
+    ok = first === 1 ? tryMerge(S) : trySplit(S);
+    if (ok) S.flip = -first;
+  } else if (ok) S.flip = -first;
+  return ok;
 }
 
 // ---------------------------------------------------------------------------
@@ -328,7 +327,7 @@ function startCrust(S, p) {
   p.stage = 1;
   p.tc = 0;
   p.Fmax = p.dmax + 3.5;
-  p.cd = 13 * sqrt(2 / S.K2) * (0.8 + 0.5 * Math.random());
+  p.cd = 13 * Math.pow(2 / S.K2, 0.75) * (0.8 + 0.5 * Math.random());
 }
 function startScrape(S, p) {
   boxes(S);
@@ -371,7 +370,7 @@ function stepPond(S, p, dt) {
       p.F = 1.8 + (p.Fmax - 1.8) * min(1, p.tc);
       if (p.tc >= 1) {
         p.stage = 2;
-        p.tm = (3 + 3 * Math.random()) * sqrt(2 / K2);
+        p.tm = (3 + 3 * Math.random()) * Math.pow(2 / K2, 0.75);
       }
       break;
     case 2:
@@ -464,7 +463,7 @@ function seedStates(S) {
   const key = (p) => (p.bx0 + p.bx1) * Math.cos(ph) + (p.by0 + p.by1) * 0.5 * Math.sin(ph) + 60 * gauss();
   const order = list.map((p) => [key(p), p]).sort((a, b) => a[0] - b[0]).map((a) => a[1]);
   order.forEach((p, i) => {
-    p.s = cl(((i + 0.5) / n) * 1.0 - 0.12 + 0.04 * gauss(), 0, 0.92);
+    p.s = cl(((i + 0.5) / n) * 0.9 - 0.12 + 0.04 * gauss(), 0, 0.8);
     p.rate = newRate();
   });
   for (const p of S.list) {
@@ -477,7 +476,7 @@ function seedStates(S) {
 
 // One pond is put into each of the three short stages if the prime left none there.
 function ensureStages(S) {
-  const live = () => S.list.filter((p) => p.area >= 200);
+  const live = () => S.list.filter((p) => p.area >= 260);
   const has = (...st) => live().some((p) => st.includes(p.stage));
   const take = (cmp) => {
     const c = live().filter((p) => p.stage === 0);
@@ -494,7 +493,7 @@ function ensureStages(S) {
     }
   }
   const scrape = (frac, fill) => {
-    const p = take((a, b) => b.area * Math.random() - a.area * Math.random());
+    const p = take((a, b) => a.area * (0.5 + Math.random()) - b.area * (0.5 + Math.random()));
     if (!p) return;
     startScrape(S, p);
     const lo = p.su + 3;
@@ -552,7 +551,7 @@ function advance(S, dt, events) {
     S.evT -= dt;
     if (S.evT <= 0) {
       const ok = doEvent(S);
-      S.evT = !ok ? 3 : S.n === S.tgt ? 40 + 50 * Math.random() : 2.5;
+      S.evT = !ok ? 3 : abs(S.n - S.tgt) >= 2 ? 2.5 : 40 + 50 * Math.random();
     }
   }
   // Wind, drift of the mottling, clouds and the sun glint all accumulate.
@@ -582,7 +581,9 @@ export function update(dt, input, params) {
   const S = params.s;
   S.k = input.knobValues || [0, 2, 0, 0.06];
   dt = cl(dt || 0, 0, 0.1);
-  S.tgt = cl(Math.round(11 * exp(0.45 * cl(S.k[2], -1, 1))), 7, 17);
+  const tgt = cl(Math.round(11 * exp(0.45 * cl(S.k[2], -1, 1))), 7, 17);
+  if (tgt !== S.tgt && !S.first) S.evT = min(S.evT, 0.8);
+  S.tgt = tgt;
   if (S.first) {
     S.K2 = cl(S.k[1], 0.8, 8);
     layout(S);
@@ -610,8 +611,8 @@ export function draw(display, params) {
   const kw = cl(k[3], 0, 1);
   const { PU, PV, pidL, pidR, list, lutD, lutS, can: cn } = S;
   const cw = cos(S.wpsi), sw = sin(S.wpsi);
-  const aw = 0.09 + 0.17 * kw;
-  const ripA = 0.012 + 0.05 * kw;
+  const aw = 0.07 + 0.27 * kw;
+  const ripA = 0.02 + 0.05 * kw;
   const glx = 32 + (5 + 24 * kw) * sin(S.gph[0]) + 5 * sin(S.gph[1]);
   const gly = 64 + (26 + 30 * kw) * sin(S.gph[2]) + 8 * sin(S.gph[3]);
   const gca = cos(S.wpsi + 1.5708), gsa = sin(S.wpsi + 1.5708);
@@ -746,11 +747,16 @@ export function draw(display, params) {
       // Wind streaks, ripples and the sun glint lie on the water only.
       const al = x * cw + y * sw, ac = -x * sw + y * cw;
       const stk = (vn((al - S.wa1) * 0.034, ac * 0.17 + 7) * 0.65 + vn((al - S.wa2) * 0.07 + 3, ac * 0.3 + 11) * 0.35 - 0.5) * 2;
-      const rip = sin(al * 0.85 - S.wph + 7.2 * vn(ac * 0.09, al * 0.03 + 5)) * (0.5 + 0.5 * vn(ac * 0.11 + 4, al * 0.05));
+      const rip = sin(al * 0.8 - S.wph + 7.2 * vn(ac * 0.09, al * 0.03 + 5)) * sm(0.35, 0.75, vn(ac * 0.07 + 4, al * 0.045 - S.wa1 * 0.02));
       const mod = 1 + wf * (aw * stk + ripA * rip);
       r *= mod;
       g *= mod;
       b *= mod;
+      // A hard wind lays pale chop along the crests of the streaks.
+      const chop = wf * kw * kw * sm(0.25, 0.95, stk) * 0.4;
+      r += (255 - r) * chop;
+      g += (252 - g) * chop;
+      b += (246 - b) * chop;
       {
         const gx = x - glx, gy = y - gly;
         const ga = gx * gca + gy * gsa, gc = -gx * gsa + gy * gca;
