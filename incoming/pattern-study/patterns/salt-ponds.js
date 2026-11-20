@@ -50,20 +50,20 @@ function vn(x, y) {
 
 // Brine by salinity s (0 sea water, 1 saturated): the real order of the stages.
 const STOPS = [
-  [0.0, 34, 190, 196],
-  [0.14, 46, 198, 160],
-  [0.27, 116, 204, 104],
-  [0.4, 184, 190, 52],
-  [0.52, 244, 166, 30],
-  [0.63, 248, 116, 46],
-  [0.75, 244, 88, 100],
-  [0.88, 228, 44, 128],
-  [1.0, 206, 28, 140],
+  [0.0, 58, 176, 188],
+  [0.17, 72, 184, 152],
+  [0.32, 118, 184, 118],
+  [0.45, 168, 172, 74],
+  [0.57, 224, 158, 54],
+  [0.67, 226, 118, 74],
+  [0.78, 224, 100, 108],
+  [0.89, 204, 64, 126],
+  [1.0, 156, 30, 108],
 ];
-const CREAM = [244, 230, 196];
-const SALT = [248, 245, 240];
-const BED = [206, 198, 194];
-const WARM = [252, 234, 178];
+const CREAM = [232, 216, 180];
+const SALT = [246, 244, 240];
+const BED = [204, 178, 168];
+const WARM = [250, 226, 172];
 const NL = 128;
 
 function buildColours(S, hue) {
@@ -92,11 +92,11 @@ function buildColours(S, hue) {
     const lum = 0.299 * base[0] + 0.587 * base[1] + 0.114 * base[2];
     for (let ch = 0; ch < 3; ch++) {
       // Deep water is richer and a touch darker, shallows paler and warmer.
-      S.lutD[i * 3 + ch] = cl((lum + (base[ch] - lum) * 1.14) * 0.9, 0, 255);
-      S.lutS[i * 3 + ch] = lerp(base[ch], WARM[ch], 0.4);
+      S.lutD[i * 3 + ch] = cl((lum + (base[ch] - lum) * 1.18) * 0.82, 0, 255);
+      S.lutS[i * 3 + ch] = lerp(base[ch], WARM[ch], 0.5);
     }
   }
-  rot(14, 104, 120, S.canal, 0);
+  rot(22, 112, 124, S.canal, 0);
   rot(34, 92, 112, S.wet, 0);
 }
 
@@ -111,7 +111,8 @@ function mkLeaf(e, par, src) {
     s: src ? src.s : 0, rate: 0, so: 0.03 * gauss(), seed: 100 * Math.random(),
     stage: 0, tc: 0, cd: 12, tm: 0, F: 0, Fmax: 12,
     su: 0, sv: 6, send: 0, dir: 0, ax: 0, sg: 1,
-    pr: 0, vf: 8, pu: 0, pv: 0, rmax: 30, cg: null, cgPerm: false,
+    pr: 0, vf: 8, pu: 0, pv: 0, rmax: 30, cg: null, gate: null,
+    fa: floor(4 * Math.random()), fg: 0.06 * (0.5 + Math.random()) * (Math.random() < 0.5 ? -1 : 1),
     bx0: 0, bx1: 0, by0: 0, by1: 0, area: 0,
   };
 }
@@ -186,7 +187,7 @@ function boxes(S) {
 function split(S, P, instant) {
   const bw = P.bx1 - P.bx0, bh = P.by1 - P.by0;
   const MIN = 12;
-  let vert = bw > bh * 1.12 || (bw > bh * 0.85 && Math.random() < 0.5);
+  let vert = bw > bh * 0.95 || (bw > bh * 0.7 && Math.random() < 0.5);
   const room = (v) => (v ? bw : bh) >= 2 * MIN + 2;
   if (!room(vert)) vert = !vert;
   if (!room(vert)) return false;
@@ -198,17 +199,15 @@ function split(S, P, instant) {
   hi -= MIN;
   if (hi < lo) return false;
   const mid = (lo + hi) / 2;
-  const pos = cl(mid + (Math.random() - 0.5) * 0.6 * (hi - lo), lo, hi);
-  const cut = { vert, pos, str: instant ? 1 : 0, tgt: 1, gaps: [], tone: 0.94 + 0.1 * Math.random(), hw: 0.85 + 0.3 * Math.random() };
-  if (Math.random() < 0.4) {
-    const a0 = vert ? P.by0 : P.bx0, a1 = vert ? P.by1 : P.bx1;
-    cut.gaps.push({ pos: lerp(a0, a1, 0.3 + 0.4 * Math.random()), amt: instant ? 1 : 0, tgt: 1, perm: true, use: 0 });
-  }
+  const pos = cl(mid + (Math.random() - 0.5) * 0.8 * (hi - lo), lo, hi);
+  const cut = { vert, pos, str: instant ? 1 : 0, tgt: 1, gaps: [], tone: 0.95 + 0.08 * Math.random(), hw: 0.62 + 0.2 * Math.random() };
   const A = mkLeaf(vert ? [P.e[0], cut, P.e[2], P.e[3]] : [P.e[0], P.e[1], P.e[2], cut], P, P);
   const B = mkLeaf(vert ? [cut, P.e[1], P.e[2], P.e[3]] : [P.e[0], P.e[1], cut, P.e[3]], P, P);
   for (const c of [A, B]) {
     c.rate = newRate();
-    c.cg = P.cg ? { pos: P.cg.pos, amt: P.cg.amt, tgt: P.cg.tgt, perm: P.cg.perm } : null;
+    c.cg = P.cg ? { pos: P.cg.pos, amt: P.cg.amt, tgt: P.cg.tgt } : null;
+    c.fa = P.fa;
+    c.fg = P.fg;
   }
   // A child that is not beside the canal loses its canal gate.
   if (vert) (P.e[1] === CANAL ? A : B).cg = null;
@@ -285,50 +284,36 @@ function doEvent(S) {
 // ---------------------------------------------------------------------------
 // ponds
 
-function pickGate(S, p) {
-  // The sluice the pond fills through: the canal side if it has one, else its longest levee.
-  boxes(S);
-  const cand = [];
-  for (let k = 0; k < 4; k++) {
-    const e = p.e[k];
-    if (!e) continue;
-    const len = k < 2 ? p.by1 - p.by0 : p.bx1 - p.bx0;
-    cand.push([k, e, len * (e === CANAL ? 2.2 : 1)]);
-  }
-  let tot = 0;
-  for (const c of cand) tot += c[2];
-  let r = Math.random() * tot, pick = cand[0];
-  for (const c of cand) {
-    r -= c[2];
-    if (r <= 0) {
-      pick = c;
-      break;
-    }
-  }
-  const [k, e] = pick;
-  if (e === CANAL) {
-    const v = lerp(p.by0, p.by1, 0.25 + 0.5 * Math.random());
-    const [uc] = canalAt(S, v);
-    if (!p.cg) p.cg = { pos: v, amt: 0, tgt: 1, perm: false };
+// The sluice a pond fills through, on the side the scraper started from.
+function pickGate(S, p, k) {
+  const e = p.e[k];
+  const along = k < 2 ? [p.by0, p.by1] : [p.bx0, p.bx1];
+  const side = [p.bx0, p.bx1, p.by0, p.by1][k];
+  const off = k === 0 || k === 2 ? 1.2 : -1.2;
+  const q = lerp(along[0], along[1], 0.25 + 0.5 * Math.random());
+  if (!e) {
+    // The pond runs off the panel on this side: the water comes in from there.
+    p.pu = k < 2 ? side + off : q;
+    p.pv = k < 2 ? q : side + off;
+  } else if (e === CANAL) {
+    const [uc] = canalAt(S, q);
+    if (!p.cg) p.cg = { pos: q, amt: 0, tgt: 1 };
     else {
-      p.cg.pos = v;
+      p.cg.pos = q;
       p.cg.tgt = 1;
     }
     p.pu = uc + (k === 0 ? 2.6 : -2.6);
-    p.pv = v;
+    p.pv = q;
   } else {
-    const vert = e.vert;
-    const a0 = vert ? p.by0 : p.bx0, a1 = vert ? p.by1 : p.bx1;
-    let g = e.gaps.find((q) => q.pos > a0 + 2 && q.pos < a1 - 2);
+    let g = e.gaps.find((h) => h.pos > along[0] + 2 && h.pos < along[1] - 2);
     if (!g) {
-      g = { pos: lerp(a0, a1, 0.25 + 0.5 * Math.random()), amt: 0, tgt: 1, perm: false, use: 0 };
+      g = { pos: q, amt: 0, tgt: 1, use: 0 };
       e.gaps.push(g);
     }
     g.tgt = 1;
     g.use++;
     p.gate = g;
-    const off = k === 0 || k === 2 ? 1.2 : -1.2;
-    if (vert) {
+    if (e.vert) {
       p.pu = e.pos + off;
       p.pv = g.pos;
     } else {
@@ -353,15 +338,19 @@ function startScrape(S, p) {
   p.sg = p.dir % 2 === 0 ? 1 : -1;
   const a0 = p.ax === 0 ? p.bx0 : p.by0, a1 = p.ax === 0 ? p.bx1 : p.by1;
   const lo = p.sg > 0 ? a0 : -a1, hi = p.sg > 0 ? a1 : -a0;
+  const f = cl(sqrt(S.K2 / 2), 0.7, 2);
   p.su = lo - 3;
-  p.send = hi + 19;
-  p.sv = cl(6.5 * sqrt(S.K2 / 2) * (0.8 + 0.4 * Math.random()), 4, 14);
-}
-function startRefill(S, p) {
-  p.stage = 5;
-  pickGate(S, p);
+  p.send = hi + 17;
+  // The water follows the blade in once it is a third of the way across.
+  p.fs = lo + 0.38 * (hi - lo);
+  p.sv = 6.5 * f * (0.85 + 0.3 * Math.random());
+  p.vf = 8.5 * f * (0.9 + 0.2 * Math.random());
+  p.filling = false;
   p.pr = -2;
-  p.vf = cl((7 + 3 * Math.random()) * sqrt(S.K2 / 2), 5, 16);
+}
+function startFill(S, p) {
+  p.filling = true;
+  pickGate(S, p, p.dir);
   let r = 0;
   for (const [u, v] of [[p.bx0, p.by0], [p.bx1, p.by0], [p.bx0, p.by1], [p.bx1, p.by1]]) r = max(r, hypot(u - p.pu, v - p.pv));
   p.rmax = r + 15;
@@ -390,22 +379,23 @@ function stepPond(S, p, dt) {
       if (p.tm <= 0) startScrape(S, p);
       break;
     case 3:
-      p.su += p.sv * dt;
-      if (p.su > p.send) startRefill(S, p);
-      break;
-    case 5:
-      p.pr += p.vf * dt;
-      if (p.pr > p.rmax) {
-        p.stage = 0;
-        p.s = 0.02;
-        p.F = 0;
-        p.rate = newRate();
-        if (p.gate) {
-          p.gate.use = max(0, p.gate.use - 1);
-          if (!p.gate.perm && p.gate.use === 0) p.gate.tgt = 0;
-          p.gate = null;
+      if (p.su < p.send) p.su += p.sv * dt;
+      if (!p.filling && p.su > p.fs) startFill(S, p);
+      if (p.filling) {
+        p.pr += p.vf * dt;
+        if (p.pr > p.rmax) {
+          p.stage = 0;
+          p.s = 0.02;
+          p.F = 0;
+          p.rate = newRate();
+          p.filling = false;
+          if (p.gate) {
+            p.gate.use = max(0, p.gate.use - 1);
+            if (p.gate.use === 0) p.gate.tgt = 0;
+            p.gate = null;
+          }
+          if (p.cg) p.cg.tgt = 0;
         }
-        if (p.cg && !p.cgPerm) p.cg.tgt = 0;
       }
       break;
   }
@@ -431,11 +421,14 @@ export function setup(params) {
     th,
   };
   const c = cos(th), s = sin(th);
+  const wp = [TAU * Math.random(), TAU * Math.random(), TAU * Math.random(), TAU * Math.random()];
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const px = x + 0.5 - 32, py = y + 0.5 - 64, i = y * W + x;
-      S.PU[i] = 32 + px * c + py * s;
-      S.PV[i] = 64 - px * s + py * c;
+      const u0 = 32 + px * c + py * s, v0 = 64 - px * s + py * c;
+      // The levees were laid by hand: they wander about a LED off the ruler.
+      S.PU[i] = u0 + 0.7 * sin(v0 * 0.17 + wp[0]) + 0.35 * sin(v0 * 0.43 + wp[1]);
+      S.PV[i] = v0 + 0.6 * sin(u0 * 0.19 + wp[2]) + 0.3 * sin(u0 * 0.47 + wp[3]);
     }
   params.s = S;
 }
@@ -465,10 +458,13 @@ function layout(S) {
 function seedStates(S) {
   const list = S.list.filter((p) => p.area >= 70);
   const n = list.length;
-  // Stratified salinities, so the first picture already holds every stage.
-  const order = list.map((p, i) => [Math.random(), p]).sort((a, b) => a[0] - b[0]).map((a) => a[1]);
+  // Salinities are stratified, so the first picture already holds every stage, and
+  // laid out along a random direction with some jitter, so neighbours are near kin.
+  const ph = TAU * Math.random();
+  const key = (p) => (p.bx0 + p.bx1) * Math.cos(ph) + (p.by0 + p.by1) * 0.5 * Math.sin(ph) + 60 * gauss();
+  const order = list.map((p) => [key(p), p]).sort((a, b) => a[0] - b[0]).map((a) => a[1]);
   order.forEach((p, i) => {
-    p.s = cl(((i + Math.random()) / n) * 1.04 - 0.02, 0, 0.99);
+    p.s = cl(((i + 0.5) / n) * 1.0 - 0.12 + 0.04 * gauss(), 0, 0.92);
     p.rate = newRate();
   });
   for (const p of S.list) {
@@ -497,20 +493,19 @@ function ensureStages(S) {
       p.F = 1.8 + (p.Fmax - 1.8) * 0.5;
     }
   }
-  if (!has(3)) {
+  const scrape = (frac, fill) => {
     const p = take((a, b) => b.area * Math.random() - a.area * Math.random());
-    if (p) {
-      startScrape(S, p);
-      p.su = lerp(p.su, p.send - 19, 0.5);
+    if (!p) return;
+    startScrape(S, p);
+    const lo = p.su + 3;
+    p.su = lo + frac * (p.send - 17 - lo);
+    if (fill > 0) {
+      startFill(S, p);
+      p.pr = fill * p.rmax * 0.5;
     }
-  }
-  if (!has(5)) {
-    const p = take((a, b) => b.area * Math.random() - a.area * Math.random());
-    if (p) {
-      startRefill(S, p);
-      p.pr = p.rmax * 0.3;
-    }
-  }
+  };
+  if (!has(3)) scrape(0.3, 0);
+  if (S.list.filter((p) => p.stage === 3 && p.filling).length === 0) scrape(0.8, 0.4);
 }
 
 function advance(S, dt, events) {
@@ -532,7 +527,7 @@ function advance(S, dt, events) {
     stepPond(S, p, dt);
     if (p.cg) {
       p.cg.amt += (p.cg.tgt - p.cg.amt) * min(1, dt * 1.2);
-      if (!p.cg.perm && p.cg.tgt === 0 && p.cg.amt < 0.02) p.cg = null;
+      if (p.cg.tgt === 0 && p.cg.amt < 0.02) p.cg = null;
     }
   }
   let done = null;
@@ -543,7 +538,7 @@ function advance(S, dt, events) {
     for (let i = cut.gaps.length - 1; i >= 0; i--) {
       const g = cut.gaps[i];
       g.amt += (g.tgt - g.amt) * min(1, dt * 1.2);
-      if (!g.perm && g.tgt === 0 && g.amt < 0.02) cut.gaps.splice(i, 1);
+      if (g.tgt === 0 && g.amt < 0.02) cut.gaps.splice(i, 1);
     }
   }
   for (const X of S.list.length ? internalNodes(S.rootL, []).concat(internalNodes(S.rootR, [])) : []) if (X.merging && X.cut.str <= 0.001) done = X;
@@ -587,13 +582,13 @@ export function update(dt, input, params) {
   const S = params.s;
   S.k = input.knobValues || [0, 2, 0, 0.06];
   dt = cl(dt || 0, 0, 0.1);
-  S.tgt = cl(Math.round(12 * exp(0.52 * cl(S.k[2], -1, 1))), 7, 20);
+  S.tgt = cl(Math.round(11 * exp(0.45 * cl(S.k[2], -1, 1))), 7, 17);
   if (S.first) {
     S.K2 = cl(S.k[1], 0.8, 8);
     layout(S);
     seedStates(S);
-    // Twenty-five seconds of sun before the first frame, at this evaporation.
-    for (let t = 0; t < 25; t += 0.1) advance(S, 0.1, false);
+    // Twelve seconds of sun before the first frame, at this evaporation.
+    for (let t = 0; t < 12; t += 0.1) advance(S, 0.1, false);
     ensureStages(S);
     S.first = false;
   }
@@ -615,13 +610,14 @@ export function draw(display, params) {
   const kw = cl(k[3], 0, 1);
   const { PU, PV, pidL, pidR, list, lutD, lutS, can: cn } = S;
   const cw = cos(S.wpsi), sw = sin(S.wpsi);
-  const aw = 0.07 + 0.16 * kw;
+  const aw = 0.09 + 0.17 * kw;
   const ripA = 0.012 + 0.05 * kw;
   const glx = 32 + (5 + 24 * kw) * sin(S.gph[0]) + 5 * sin(S.gph[1]);
   const gly = 64 + (26 + 30 * kw) * sin(S.gph[2]) + 8 * sin(S.gph[3]);
   const gca = cos(S.wpsi + 1.5708), gsa = sin(S.wpsi + 1.5708);
   const [cr, cg2, cb] = S.canal;
   const [wr, wg, wb] = S.wet;
+  const FD = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -633,19 +629,17 @@ export function draw(display, params) {
       const p = list[(dc < 0 ? pidL : pidR)[i]];
       const ed = p.e;
 
-      // Distances to the pond's edges; levee mask, shadow and channel mask from them.
-      let dEdge = 99, lev = 0, shade = 0, lit = 0, chan = 0, levHw = 0.85, ltone = 1;
+      // Distances to the pond's edges; levee mask, shadow and gate mask from them.
+      let dEdge = 99, lev = 0, shade = 0, gate = 0, ltone = 1;
       for (let kk = 0; kk < 4; kk++) {
         const e = ed[kk];
         if (!e) continue;
-        let d, str = 1, hw = 0.85, tone = 1;
-        if (e === CANAL) {
-          d = (kk === 0 ? dc : -dc) - 2.3;
-          hw = 0.5;
-        } else {
+        let d, str = 1, hw = 0.4, tone = 1;
+        if (e === CANAL) d = (kk === 0 ? dc : -dc) - 1.9;
+        else {
           d = kk === 0 ? u - e.pos : kk === 1 ? e.pos - u : kk === 2 ? v - e.pos : e.pos - v;
           str = e.str;
-          hw = e.hw * (0.45 + 0.55 * str);
+          hw = e.hw * (0.4 + 0.6 * str);
           tone = e.tone;
         }
         const de = d + (1 - str) * 10;
@@ -654,118 +648,105 @@ export function draw(display, params) {
         const m = str * (1 - sm(hw, hw + 0.85, ad));
         // Sun from the upper left: levees to the left and above cast a shadow on this pond.
         if (kk === 0 || kk === 2) {
-          const sh = str * (1 - sm(hw + 0.1, hw + 2.3, d)) * (d > hw - 0.5 ? 1 : 0);
+          const sh = str * (1 - sm(hw + 0.1, hw + 2.2, d)) * (d > hw - 0.4 ? 1 : 0);
           if (sh > shade) shade = sh;
         }
-        // A gap in the levee: the dark canal water runs through.
+        // A sluice standing open: bright water runs through the levee.
         let gm = 0;
         if (e === CANAL) {
-          if (p.cg) gm = p.cg.amt * (1 - sm(1.4, 2.6, abs(v - p.cg.pos)));
-          if (gm > 0) gm *= 1 - sm(0.2, 1.3, abs(d));
+          if (p.cg) gm = p.cg.amt * (1 - sm(1.2, 2.2, abs(v - p.cg.pos))) * (1 - sm(0.3, 1.8, abs(d + 0.4)));
         } else {
           const a = e.vert ? v : u;
           for (const g of e.gaps) {
-            const q = g.amt * (1 - sm(1.4, 2.6, abs(a - g.pos)));
+            const q = g.amt * (1 - sm(1.4, 2.3, abs(a - g.pos)));
             if (q > gm) gm = q;
           }
-          if (gm > 0) gm *= str * (1 - sm(0.3, 1.5, ad));
+          if (gm > 0) gm *= str * (1 - sm(0.2, 1.6, ad));
         }
-        if (gm > chan) chan = gm;
+        if (gm > gate) gate = gm;
         if (m > lev) {
           lev = m;
-          levHw = hw;
-          ltone = tone * (kk === 1 || kk === 3 ? 1.04 : 0.95);
+          ltone = tone * (kk === 1 || kk === 3 ? 1.04 : 0.94);
         }
-        if (m > lit) lit = m;
       }
 
-      // Brine colour from salinity, mottled, deeper toward the middle.
-      const t = sm(0.4, 7.2, dEdge);
-      const mott =
-        (vn(u * 0.062 + S.mo[0], v * 0.056 + S.mo[1]) - 0.5) * 1.2 +
-        (vn(u * 0.13 + S.mo[2], v * 0.115 + S.mo[3]) - 0.5) * 0.8;
-      const sl = cl(p.s + p.so + 0.055 * mott + 0.07 * (1 - t), 0, 1);
+      // Brine colour from salinity: marbled by a warped noise, stronger along the pond's
+      // flow, richer toward the middle and paler and warmer in the shallows.
+      const t = sm(0.3, 8.5, dEdge);
+      const wx = vn(u * 0.04 + S.mo[2] * 0.3 + 11, v * 0.04 + 3), wy = vn(u * 0.04 - 5, v * 0.04 + S.mo[3] * 0.3 + 19);
+      const wu = u + 10 * (wx - 0.5), wv = v + 10 * (wy - 0.5);
+      const mott = (vn(wu * 0.07 + S.mo[0], wv * 0.063 + S.mo[1]) - 0.5) * 1.3 + (vn(wu * 0.15 + S.mo[2], wv * 0.14 + S.mo[3]) - 0.5) * 0.7;
+      const fd = FD[p.fa];
+      const hl = max(6, (p.fa < 2 ? p.bx1 - p.bx0 : p.by1 - p.by0) * 0.5);
+      const flow = cl(((u - (p.bx0 + p.bx1) * 0.5) * fd[0] + (v - (p.by0 + p.by1) * 0.5) * fd[1]) / hl, -1, 1);
+      const sl = cl(p.s + p.so + 0.07 * mott + p.fg * flow + 0.06 * (1 - t), 0, 1);
       const li = (sl * (NL - 1) + 0.5) | 0;
       let r = lerp(lutS[li * 3], lutD[li * 3], t);
       let g = lerp(lutS[li * 3 + 1], lutD[li * 3 + 1], t);
       let b = lerp(lutS[li * 3 + 2], lutD[li * 3 + 2], t);
       let wf = 1;
 
-      // The pond's stage.
+      // The pond's stage: salt crust growing in from the levees, then the blade, then fresh water.
       const st = p.stage;
       if (st === 1 || st === 2 || (st === 0 && p.F > 0) || st === 3) {
-        let C = 0;
-        let bed = false;
-        let rim = 0;
         const crease = abs(vn(u * 0.15 + p.seed, v * 0.15) - 0.5) * 2;
         const Fe = p.F + (crease - 0.5) * 3.0;
-        C = sm(0, 1.7, Fe - dEdge);
-        rim = exp(-((Fe - dEdge - 0.6) * (Fe - dEdge - 0.6)) / 1.4) * (C > 0.02 ? 1 : 0);
-        if (st === 3) {
-          const a = p.sg * (p.ax === 0 ? u : v);
-          const behind = p.su - a;
-          C = 1;
-          rim = 0;
-          if (behind > -0.6) {
-            const sc = sm(-0.6, 0.9, behind);
-            bed = true;
-            const wt = (1 - sm(0, 15, behind));
-            const wetK = wt * wt;
-            const bn = 0.94 + 0.12 * vn(u * 0.2 + p.seed, v * 0.2);
-            const br = lerp(BED[0] * bn, wr, wetK), bgc = lerp(BED[1] * bn, wg, wetK), bbc = lerp(BED[2] * bn, wb, wetK);
-            // The blade pushes a low white windrow of salt ahead of it.
-            const wind = exp(-((behind + 0.9) * (behind + 0.9)) / 1.3);
-            const cr = lerp(SALT[0], 255, wind), cg = lerp(SALT[1], 255, wind), cb2 = lerp(SALT[2], 255, wind);
-            r = lerp(cr, br, sc);
-            g = lerp(cg, bgc, sc);
-            b = lerp(cb2, bbc, sc);
-            wf = 0.35 + 0.65 * (1 - sc);
-          } else {
-            const wind = exp(-((behind + 0.9) * (behind + 0.9)) / 1.3);
-            r = lerp(SALT[0], 255, wind);
-            g = lerp(SALT[1], 255, wind);
-            b = lerp(SALT[2], 255, wind);
-            wf = 0.2;
-            bed = true;
-          }
-        }
-        if (!bed && C > 0.001) {
-          const grain = 0.93 + 0.1 * vn(u * 0.5 + p.seed, v * 0.5) + 0.04 * (vn(u * 1.1, v * 1.1) - 0.5);
-          const tint = 0.1;
+        const C = st === 3 ? 1 : sm(0, 1.7, Fe - dEdge);
+        const rim = st === 3 ? 0 : exp(-((Fe - dEdge - 0.6) * (Fe - dEdge - 0.6)) / 1.4) * (C > 0.02 ? 1 : 0);
+        if (C > 0.001) {
+          const grain = 0.92 + 0.09 * vn(u * 0.45 + p.seed, v * 0.45) + 0.05 * vn(u * 0.12, v * 0.12 + p.seed) + 0.03 * (vn(u * 1.1, v * 1.1) - 0.5);
+          const tint = 0.05;
+          const fr = rim * 0.35 * C;
           const sr = (SALT[0] * (1 - tint) + r * tint) * grain;
           const sg = (SALT[1] * (1 - tint) + g * tint) * grain;
           const sb = (SALT[2] * (1 - tint) + b * tint) * grain;
-          const fr = rim * 0.35 * C;
           r = lerp(r, min(255, sr + (255 - sr) * fr), C);
           g = lerp(g, min(255, sg + (255 - sg) * fr), C);
           b = lerp(b, min(255, sb + (255 - sb) * fr), C);
           wf = 1 - 0.8 * C;
         }
-      } else if (st === 5) {
-        const dx = u - p.pu, dy = v - p.pv;
-        const rr = hypot(dx, dy) + (vn(u * 0.18 + p.seed, v * 0.18) - 0.5) * 3.2;
-        const inW = 1 - sm(p.pr - 0.9, p.pr + 0.9, rr);
-        const fresh = exp(-(p.pr - rr) / 6) * 0.35 * inW;
-        // Water at the sea-water end of the palette; bare bed beyond the front.
-        const li0 = 2;
-        const wr0 = lerp(lutS[li0 * 3], lutD[li0 * 3], t), wg0 = lerp(lutS[li0 * 3 + 1], lutD[li0 * 3 + 1], t), wb0 = lerp(lutS[li0 * 3 + 2], lutD[li0 * 3 + 2], t);
-        const foam = exp(-((rr - p.pr) * (rr - p.pr)) / 1.6) * 0.8;
-        const bn = 0.94 + 0.12 * vn(u * 0.2 + p.seed, v * 0.2);
-        let rr2 = lerp(BED[0] * bn, wr0, inW), gg2 = lerp(BED[1] * bn, wg0, inW), bb2 = lerp(BED[2] * bn, wb0, inW);
-        rr2 += (255 - rr2) * (fresh + foam);
-        gg2 += (252 - gg2) * (fresh + foam);
-        bb2 += (245 - bb2) * (fresh + foam);
-        r = rr2;
-        g = gg2;
-        b = bb2;
-        wf = 0.3 + 0.7 * inW;
+        if (st === 3) {
+          const behind = p.su - p.sg * (p.ax === 0 ? u : v);
+          const sc = sm(-0.6, 0.9, behind);
+          // The blade pushes a low white windrow of salt ahead of it.
+          const wind = exp(-((behind + 0.9) * (behind + 0.9)) / 1.3) * (1 - sc);
+          r += (255 - r) * 0.7 * wind;
+          g += (255 - g) * 0.7 * wind;
+          b += (255 - b) * 0.7 * wind;
+          if (sc > 0.001) {
+            // Behind it the wet bed, drying from the dark film the blade leaves.
+            const wt = 1 - sm(0, 15, behind);
+            const wetK = wt * wt;
+            const bn = 0.94 + 0.12 * vn(u * 0.2 + p.seed, v * 0.2);
+            let br = lerp(BED[0] * bn, wr, wetK), bg = lerp(BED[1] * bn, wg, wetK), bb = lerp(BED[2] * bn, wb, wetK);
+            let wfl = 0.35;
+            if (p.filling) {
+              const rr = hypot(u - p.pu, v - p.pv) + (vn(u * 0.18 + p.seed, v * 0.18) - 0.5) * 3.2;
+              const inW = 1 - sm(p.pr - 0.9, p.pr + 0.9, rr);
+              if (inW > 0.001) {
+                const fresh = exp(-(p.pr - rr) / 6) * 0.3;
+                const foam = exp(-((rr - p.pr) * (rr - p.pr)) / 1.6) * 0.8;
+                const k0 = (fresh + foam) * inW;
+                const w0 = (1 + 0.12 * mott) * inW;
+                const wr0 = lerp(lutS[6], lutD[6], t) * w0, wg0 = lerp(lutS[7], lutD[7], t) * w0, wb0 = lerp(lutS[8], lutD[8], t) * w0;
+                br = lerp(br, wr0, inW) + (255 - br) * k0;
+                bg = lerp(bg, wg0, inW) + (252 - bg) * k0;
+                bb = lerp(bb, wb0, inW) + (245 - bb) * k0;
+                wfl = 0.35 + 0.65 * inW;
+              }
+            }
+            r = lerp(r, br, sc);
+            g = lerp(g, bg, sc);
+            b = lerp(b, bb, sc);
+            wf = lerp(wf, wfl, sc);
+          }
+        }
       }
 
       // Wind streaks, ripples and the sun glint lie on the water only.
       const al = x * cw + y * sw, ac = -x * sw + y * cw;
-      const stk =
-        (vn((al - S.wa1) * 0.034, ac * 0.2 + 7) * 0.65 + vn((al - S.wa2) * 0.07 + 3, ac * 0.34 + 11) * 0.35 - 0.5) * 2;
-      const rip = sin(al * 0.85 - S.wph + 2.4 * vn(ac * 0.09, al * 0.03 + 5) * 3) * (0.5 + 0.5 * vn(ac * 0.11 + 4, al * 0.05));
+      const stk = (vn((al - S.wa1) * 0.034, ac * 0.17 + 7) * 0.65 + vn((al - S.wa2) * 0.07 + 3, ac * 0.3 + 11) * 0.35 - 0.5) * 2;
+      const rip = sin(al * 0.85 - S.wph + 7.2 * vn(ac * 0.09, al * 0.03 + 5)) * (0.5 + 0.5 * vn(ac * 0.11 + 4, al * 0.05));
       const mod = 1 + wf * (aw * stk + ripA * rip);
       r *= mod;
       g *= mod;
@@ -785,23 +766,21 @@ export function draw(display, params) {
         g *= 1 - q * 0.9;
         b *= 1 - q * 0.75;
       }
-      // Levee.
+      // Levee, with a notch where a sluice stands open and the water runs through.
+      lev *= 1 - gate;
       if (lev > 0.002) {
         const gr = 0.95 + 0.08 * vn(u * 0.7, v * 0.7);
-        const lr = CREAM[0] * ltone * gr, lg = CREAM[1] * ltone * gr, lb = CREAM[2] * ltone * gr;
-        r = lerp(r, lr, lev);
-        g = lerp(g, lg, lev);
-        b = lerp(b, lb, lev);
+        r = lerp(r, CREAM[0] * ltone * gr, lev);
+        g = lerp(g, CREAM[1] * ltone * gr, lev);
+        b = lerp(b, CREAM[2] * ltone * gr, lev);
       }
-      // Canal water, and the sluice channels.
-      let cw0 = 1 - sm(0.75, 1.65, abs(dc));
-      if (chan > cw0) cw0 = chan;
+      // Canal water, and the open sluices.
+      const cw0 = 1 - sm(0.55, 1.45, abs(dc));
       if (cw0 > 0.002) {
         const fl = 0.9 + 0.22 * vn(v * 0.12 - S.wph * 0.1, dc * 0.5);
-        const ca = cw0;
-        r = lerp(r, cr * fl, ca);
-        g = lerp(g, cg2 * fl, ca);
-        b = lerp(b, cb * fl, ca);
+        r = lerp(r, cr * fl, cw0);
+        g = lerp(g, cg2 * fl, cw0);
+        b = lerp(b, cb * fl, cw0);
       }
       // A drifting cloud shadow over the whole picture.
       const cs = sm(0.5, 0.78, vn(x * 0.024 + S.cl0, y * 0.018 + S.cl1) * 0.7 + vn(x * 0.05 + 40 - S.cl1, y * 0.04 + S.cl0) * 0.3);
