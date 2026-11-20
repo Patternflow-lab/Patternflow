@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Segmentation Clock
 // Family:  embryo
-// Idea:    A zebrafish tail bud sits at the bottom of the panel and every cell of the tissue above it carries a genetic oscillator that slows as the cell is pushed away from the bud, so arcs of green expression climb the tissue, slow down, and freeze into a rising column of chevron stripes with magenta boundaries, while Delta-Notch coupling keeps neighbours in step and noise, a wandering period and a wandering growth speed leave the odd fused or dropped segment.
+// Idea:    A zebrafish tail bud at the bottom of the panel pushes tissue up while every cell carries a genetic clock that slows with age, so arcs of green expression climb the tissue, slow down and freeze into a rising column of chevron stripes with magenta boundaries, kept in step by Delta-Notch coupling and thrown off now and then by noise, a wandering period and a wandering growth speed that leave a fused or dropped segment.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: clock and wavefront model (Jonathan Cooke and Christopher Zeeman, 1976), the chick segmentation clock c-hairy1 (Isabel Palmeirim and others, 1997), Delta-Notch coupling of the oscillators (Yun-Jin Jiang and others, 2000; Julian Lewis, 2003), salt-and-pepper tissue when coupling is weak (Ertugrul Ozbudak and Julian Lewis, 2008), live her1 and her7 reporters in the zebrafish presomitic mesoderm; pattern round 205
+// Lineage: clock and wavefront model (Jonathan Cooke and Christopher Zeeman, 1976), the chick segmentation clock c-hairy1 (Palmeirim and others, 1997), Delta-Notch coupling of the oscillators (Jiang and others, 2000; Lewis, 2003), salt-and-pepper tissue when coupling is weak (Ozbudak and Lewis, 2008), live her1 and her7 reporters in the zebrafish presomitic mesoderm; pattern round 205
 // Round:   205
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=1.2..3.2, Period=7..13, Decoupling=0..1
 //
-// Knob 1: Hue. Turns the expression colour round the wheel from the green it opens on; the boundary stain and the notochord stay opposite to it.
-// Knob 2: Growth. How fast the tail bud pushes the tissue up, from 1.2 LEDs a second (the 64 LED panel height takes about 100 s to cross) to 3.2 LEDs a second; a segment is growth times period long, so it is 8 LEDs long at the slow end and 14 LEDs at the start.
-// Knob 3: Period. The clock period at the tail bud, from 7 s at the start to 13 s: one stripe leaves the bud every period, so slower means fewer, fatter arcs and longer segments (14 LEDs at 7 s and 2 LEDs a second, 26 LEDs at 13 s).
-// Knob 4: Decoupling. How much Delta-Notch signalling is blocked: at 0.06 the cells keep step and the arcs are clean and smooth, at 0.5 the stripes break into patches and forks, at 1 neighbours lose each other and the tissue goes to salt and pepper.
+// Knob 1: Hue. Turns the expression colour round the wheel from the green it opens on; the boundary stain and the notochord line stay opposite to it.
+// Knob 2: Growth. How fast the tail bud pushes the tissue up, from 1.2 LEDs a second (a cell needs about 100 s to climb from the bud to the top edge) through 2 at the start to 3.2 (about 40 s); a segment is growth times period long, so 9 LEDs at the slow end and 14 LEDs at the start, and the growth speed wanders by a third either way on its own.
+// Knob 3: Period. The clock period at the tail bud, 7 s at the start up to 13 s: one stripe leaves the bud every period, so a longer period gives fewer, fatter arcs and longer segments (14 LEDs at 7 s and 26 LEDs at 13 s with growth at 2).
+// Knob 4: Decoupling. How much Delta-Notch signalling is blocked: at 0.06 the cells keep step and the arcs are clean and smooth, at 0.5 the stripes wobble and fork and a magenta haze spreads along the boundaries, at 1 neighbours lose each other and the tissue goes to soft green and magenta patches about 4 LEDs across.
 
 const W = 64;
 const H = 128;
@@ -60,7 +60,7 @@ export function setup(params) {
     z: 0, rNew: -1, thb: Math.random() * TAU,
     vk: 2, tk: 7, dc: 0.06,
     aT: 0, aV: 0, aA: 0, aG: 0, dfw: 0, hww: 0, lean: 0,
-    fT: 0, fV: 0, fA: 0, fG: 0, fD: 0, fH: 0, fL: 0, ra: new Float32Array(NR).fill(1), slip: 0, slipLeft: 0, slipRate: 0,
+    fT: 0, fV: 0, fA: 0, fG: 0, fD: 0, fH: 0, fL: 0, ra: new Float32Array(NR).fill(1), slipLeft: 0, slipRate: 0,
     ph: [Math.random() * TAU, Math.random() * TAU, Math.random() * TAU, Math.random() * TAU],
     wob: new Float32Array(NX), P: new Float32Array(NX),
     lum: new Float32Array(W * H), mag: new Float32Array(W * H), tmp: new Float32Array(W * H),
@@ -112,7 +112,7 @@ function advance(S, dt) {
   S.hww += (-S.hww / 70) * dt + 2.2 * sqrt((2 * dt) / 70) * gauss();
   S.aG = cl(S.aG, -0.45, 0.2);
   S.dfw = cl(S.dfw, -11, 11);
-  S.hww = cl(S.hww, -4, 3.5);
+  S.hww = cl(S.hww, -4, 2);
   S.lean += (-S.lean / 40) * dt + 0.12 * sqrt((2 * dt) / 40) * gauss();
   S.aT = cl(S.aT, -0.4, 0.4);
   S.aV = cl(S.aV, -0.7, 0.6);
@@ -286,6 +286,8 @@ export function draw(display, params) {
   // worked out on the phase interpolated to each LED, so a thin line follows
   // its contour instead of blinking between cells.
   const Lnom = cl(S.vNow * S.TNow, 8, 50);
+  // Longer segments get a sharper cosine, so a stripe grows as the square root of its segment, not with it.
+  const pw = cl((5.5 * Lnom) / 14, 3.2, 11);
   const bw2 = ((6.4 * (1 + 1.2 * S.dc)) / Lnom) ** 2;
   // The phase the pixels read is the cells' phasors averaged over a small
   // neighbourhood. In step it changes nothing; out of step it turns a speck
@@ -356,7 +358,7 @@ export function draw(display, params) {
       dd = phi[j10 + 1] - t00;
       const t11 = dd - TAU * Math.round(dd / TAU);
       const e0 = 0.5 + 0.5 * cos(t00 + a01 * t01 + a10 * t10 + a11 * t11);
-      const E = pow(e0, 5.5) * amp + bud * (0.45 + 0.55 * e0);
+      const E = pow(e0, pw) * amp + bud * (0.45 + 0.55 * e0);
       const B = exp((-4 * e0) / bw2) * bamp * sqrt(ras);
       const p = y * W + x;
       lum[p] = m * (0.1 + 0.9 * E * (0.55 + 0.45 * m));
