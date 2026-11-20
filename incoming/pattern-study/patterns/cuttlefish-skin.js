@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the iridescent layer round the wheel from the teal it opens on (0.25 is violet-blue, 0.5 red-pink, 0.75 lime); the pigments only lean up to 18 degrees either way, so they stay yellow, rust and brown.
 // Knob 2: Drive. How far the nerves hold the sacs open, from 0.5 to 4: at 0.5 about a quarter of the skin shows pigment and the rest of the sacs are small shadows, at the opening 2 it is a little under half, at 4 about two thirds with the teal left in the gaps; bands and waves also run faster, from 3 to 8 LEDs a second.
 // Knob 3: Cell. The spacing of the lattice, 3.6 LEDs at -1, 5 at 0 where it opens and 7 at 1; the sacs grow with it, so an open brown sac is about 9 LEDs across at 5 and 12 at 7, and turning the knob stretches the skin like a sheet.
-// Knob 4: Wave. What the drive paints: at -1 fine mottle and stipple, blotches 8 LEDs across and spots of one sac, at 1 almost only passing-cloud bands 24 to 37 LEDs wide, each taking about 25 seconds to cross the panel at Drive 2; the body pattern the skin changes to next is drawn with the same lean.
+// Knob 4: Wave. What the drive paints: at -1 fine mottle and stipple, blotches 8 LEDs across and spots of one sac, at 1 mostly passing-cloud bands 24 to 37 LEDs wide, each taking about 25 seconds to cross the panel at Drive 2; the body pattern the skin changes to next is drawn with the same lean.
 
 const W = 64;
 const H = 128;
@@ -142,7 +142,7 @@ function advance(S, dt) {
 
   // Which body pattern the skin is in: weights ease towards a target that is
   // redrawn every 14 to 34 seconds, and the Wave knob leans the weights.
-  const bias = [exp(-0.9 * kw), exp(-1.4 * kw), exp(2.4 * kw)];
+  const bias = [exp(-0.9 * kw), exp(-1.4 * kw), exp(1.8 * kw)];
   S.timer -= dt;
   if (S.timer <= 0) {
     S.timer = 14 + 20 * random();
