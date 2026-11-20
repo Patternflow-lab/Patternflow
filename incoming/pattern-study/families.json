@@ -64,5 +64,10 @@
   "precipitate": { "label": "침전·띠", "color": "#3b5bdb" },
   "cilia": { "label": "섬모", "color": "#e64980" },
   "solar": { "label": "태양", "color": "#f4a261" },
-  "desert": { "label": "사막·모래", "color": "#cc7722" }
+  "desert": { "label": "사막·모래", "color": "#cc7722" },
+  "supersonic": { "label": "초음속", "color": "#ff9a3c" },
+  "kinetic": { "label": "키네틱", "color": "#6f8fb0" },
+  "skyoptics": { "label": "대기 광학", "color": "#a0c4ff" },
+  "tectonic": { "label": "판 구조", "color": "#2aa198" },
+  "polarization": { "label": "편광", "color": "#b36bff" }
 }
