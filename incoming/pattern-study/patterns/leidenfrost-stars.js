@@ -67,7 +67,7 @@ export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
     heat: 2, size: 0, feed: 0.06, sz: 1, N: 5, viol: 0.5,
-    drops: [], rings: [], timer: 2,
+    drops: [], rings: [], timer: 2, stat: { merge: 0, bounce: 0, spawn: 0, vanish: 0 },
     M: new Float32Array(9),
     buf: new Float32Array(W * H * 3),
     lut: new Float32Array(GLN * 3),
@@ -103,8 +103,8 @@ function newDrop(x, y, R2, landing) {
 const radiusOf = (d, S) => sqrt(d.R2) * S.sz;
 const wantMode = (R, bias) => round(0.62 * R + 0.75 + bias);
 function modeAmp(n, R, heat) {
-  const a = min(0.11 + 0.065 * heat, 1.85 / n, 0.37);
-  return min(max(a, 1.25 / R), 0.37);
+  const a = min(0.14 + 0.055 * heat, 1.85 / n, 0.34);
+  return min(max(a, 1.25 / R), 0.34);
 }
 const omega = (m, R) => cl((3 * sqrt((m * (m * m - 1)) / 6)) / pow(max(R, 3) / 8, 0.75), 2, 11);
 
@@ -125,16 +125,26 @@ function clearSpot(S, R, tries) {
   return [bx, by];
 }
 
+// The plate has room for about a quarter of its area in water; a new drop is
+// fed no bigger than what is left, and none at all when there is no room.
 function birthRadius(S) {
   const lo = lerp(5, 7.2, S.size);
-  const hi = lerp(10.5, 13, S.size);
-  return lerp(lo, hi, random() ** 0.9) / S.sz;
+  const hi = lerp(10.5, 12.6, S.size);
+  let area = 0;
+  for (const d of S.drops) if (d.st !== 3 && !d.dead) area += PI * d.R2 * S.sz * S.sz;
+  const room = sqrt(max(0, 0.26 * W * H - area) / PI) / S.sz;
+  return min(lerp(lo, hi, random() ** 0.9) / S.sz, room);
 }
 
 function spawn(S) {
   const Rb = birthRadius(S);
+  if (Rb * S.sz < 4.3) {
+    S.timer = 1.5;
+    return;
+  }
   const [x, y] = clearSpot(S, Rb * S.sz, 16);
   const d = newDrop(x, y, Rb * Rb, true);
+  S.stat.spawn++;
   const a = random() * TAU;
   const sp = 1.5 + 3 * random();
   d.vx = sp * cos(a);
@@ -190,13 +200,16 @@ function stepDrop(S, d, dt) {
     if (d.mt >= 0.5 || d.R2 < 0.7) d.dead = true;
   } else {
     // Evaporation takes the area, so the radius goes as the root of what is left.
-    d.R2 = max(0.5, d.R2 - 0.5 * heat * (d.fast ? 4 : 1) * dt);
+    d.R2 = max(0.5, d.R2 - 1.05 * heat * (d.fast ? 4 : 1) * dt);
   }
   const R = radiusOf(d, S);
   if (d.st === 1 && !d.bead && R < 2.5) d.bead = true;
   if (d.bead && R < 1.75) {
     d.alpha -= dt / 0.7;
-    if (d.alpha <= 0) d.dead = true;
+    if (d.alpha <= 0) {
+      d.dead = true;
+      S.stat.vanish++;
+    }
   }
   // Which mode the drop rings in follows its radius, with a margin so it does not flutter between two.
   let nWant = 0;
@@ -235,9 +248,11 @@ function stepDrop(S, d, dt) {
   // Skitter: random pushes from the vapour, spread over a fifth of a second.
   const rate = 0.16 + 0.22 * heat;
   if (random() < dt * rate) {
+    // Near an edge the push leans back toward the middle; elsewhere it is any direction.
     const away = atan2(H / 2 - d.y, W / 2 - d.x);
+    const near = cl(1 - (min(d.x, W - d.x, d.y, H - d.y) - R) / 16, 0, 1);
     let a = random() * TAU;
-    a = atan2(sin(a) + 0.5 * sin(away), cos(a) + 0.5 * cos(away));
+    a = atan2(sin(a) + near * sin(away), cos(a) + near * cos(away));
     const mag = (1.8 + 2.4 * pow(heat, 0.8)) * (0.5 + random()) * pow(9 / max(R, 4), 0.35);
     d.px += mag * cos(a);
     d.py += mag * sin(a);
@@ -288,9 +303,37 @@ function stepDrop(S, d, dt) {
   }
 }
 
+// The cushions push neighbours apart a little before they touch, so a slow
+// drop turns away and only one with some speed behind it reaches the other.
+function repel(S, dt) {
+  const ds = S.drops;
+  for (let i = 0; i < ds.length; i++) {
+    const a = ds[i];
+    if (a.st !== 1 || a.dead) continue;
+    for (let j = i + 1; j < ds.length; j++) {
+      const b = ds[j];
+      if (b.st !== 1 || b.dead) continue;
+      const Ra = radiusOf(a, S);
+      const Rb = radiusOf(b, S);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = sqrt(dx * dx + dy * dy) + 1e-6;
+      const gap = dist - 1.12 * (Ra + Rb);
+      if (gap > 4) continue;
+      const f = 10 * (1 - max(gap, 0) / 4) * dt;
+      const ma = a.R2;
+      const mb = b.R2;
+      a.vx -= (dx / dist) * f * 2 * (mb / (ma + mb));
+      a.vy -= (dy / dist) * f * 2 * (mb / (ma + mb));
+      b.vx += (dx / dist) * f * 2 * (ma / (ma + mb));
+      b.vy += (dy / dist) * f * 2 * (ma / (ma + mb));
+    }
+  }
+}
+
 function collide(S) {
   const ds = S.drops;
-  const capR = lerp(12.5, 14.5, S.size);
+  const capR = lerp(12, 13.5, S.size);
   for (let i = 0; i < ds.length; i++) {
     const a = ds[i];
     if (a.st !== 1 || a.dead) continue;
@@ -302,12 +345,13 @@ function collide(S) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = sqrt(dx * dx + dy * dy) + 1e-6;
-      if (dist >= (Ra + Rb) * 1.03) continue;
+      if (dist >= (Ra + Rb) * 1.1) continue;
       const big = a.R2 >= b.R2 ? a : b;
       const small = big === a ? b : a;
       const Rm = sqrt(a.R2 + b.R2) * S.sz;
       const nice = a.bead || b.bead || Rm <= capR;
-      if (nice && random() < 0.85) {
+      if (nice && random() < 0.65) {
+        S.stat.merge++;
         // Merge: the small one flows into the big one in half a second, and the whole rings in a low mode.
         small.st = 3;
         small.tgt = big;
@@ -323,6 +367,7 @@ function collide(S) {
         kick(big, 4, sg * 0.5 * w);
         if (big.n) big.T[big.n] = 0;
       } else {
+        S.stat.bounce++;
         const nx = dx / dist;
         const ny = dy / dist;
         const ma = a.R2;
@@ -336,7 +381,7 @@ function collide(S) {
           b.vx += jb * nx;
           b.vy += jb * ny;
         }
-        const over = (Ra + Rb) * 1.04 - dist;
+        const over = (Ra + Rb) * 1.14 - dist;
         a.x -= nx * over * (mb / (ma + mb));
         a.y -= ny * over * (mb / (ma + mb));
         b.x += nx * over * (ma / (ma + mb));
@@ -383,6 +428,7 @@ function advance(S, dt) {
       S.timer = (1 + 4 * random()) / (0.5 + S.viol);
     }
   } else S.timer = max(S.timer, 0.8 + 2 * random());
+  repel(S, dt);
   for (const d of ds) stepDrop(S, d, dt);
   collide(S);
   for (let i = ds.length - 1; i >= 0; i--) if (ds[i].dead) ds.splice(i, 1);
@@ -401,7 +447,7 @@ function prime(S) {
   S.N = 4 + floor(5.99 * sqrt(S.feed));
   S.viol = 0.35 + 0.9 * S.feed;
   for (let i = 0; i < S.N; i++) {
-    const Rb = birthRadius(S) * (0.55 + 0.45 * random());
+    const Rb = max(4.6 / S.sz, birthRadius(S) * (0.55 + 0.45 * random()));
     const [x, y] = clearSpot(S, Rb * S.sz, 24);
     const d = newDrop(x, y, Rb * Rb, false);
     const a = random() * TAU;
@@ -538,12 +584,12 @@ function prep(d, S) {
   }
   d.nm = nm;
   for (let k = 0; k < nm; k++) tot += abs(d.am[k]);
-  const s = tot > 0.46 ? 0.46 / tot : 1;
+  const s = tot > 0.4 ? 0.4 / tot : 1;
   for (let k = 0; k < nm; k++) {
     d.am[k] *= s;
     d.omm[k] = d.off[d.mm[k]] - d.mm[k] * d.psi;
   }
-  d.Rmax = d.Rr * (1 + 1.2 * min(tot, 0.46)) + 2.5;
+  d.Rmax = d.Rr * (1 + 1.2 * min(tot, 0.4)) + 2.5;
 }
 
 function radiusAt(d, th) {
