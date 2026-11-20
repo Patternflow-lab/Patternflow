@@ -8,6 +8,10 @@ All notable changes to Patternflow will be documented in this file, newest first
 
 - **Patterns can read the time on a clock build.** The input frame ends with `timeValid`, `hour`, `minute` and `second`, and the clock feature fills them once NTP has synced. Every other build gives a pattern `timeValid` false and 0 in the other three. A module that reads `timeValid` is stamped ABI 3, and v3.12.0 refuses to install it. Modules that do not read the fields stay at 1 or 2 and install as before ([#540](https://github.com/engmung/Patternflow/pull/540) by [@didusee](https://github.com/didusee)).
 
+### Hardware
+
+- **2 × 2 case, drawn and checked, not yet built.** `hardware/case/remixes/big-2x2/` lays out four 320 × 160 mm panels as one 320 × 640 mm display driven by a Raspberry Pi 5 and a Colorlight 5A-75B receiving card running receiver75, after patternflood: a laser-cut 3 mm plywood box on seven 600 × 300 mm sheets (DXF and SVG, every part under 480 × 270 mm), one card output per panel, separate supplies for the panels (LRS-150F-5) and for the Pi and card (LRS-50-5), four I²C knobs in the standard Patternflow order with a 5-inch Raspberry Pi Touch Display 2 under them, a BOM, and the software path for running Patternflow's patterns on the Pi. `source/big_2x2.py` draws every file, and `--check` reads every DXF back and measures it against the panel drawing, the boards' and the screen's holes, the inlet, the supplies' wiring room, the other parts and the BOM.
+
 ### Web
 
 - **Next is on 16.4.6.** `next` and `eslint-config-next` 16.4.6 in `web/package.json`, `@next/mdx` 16.4.6 in `web/package-lock.json`. 16.4.1 was in the range of two advisories about `use cache` results leaking across root params, GHSA-mfr8-8qww-v76h and GHSA-vc7v-qv4w-wrv8, and `next build` stopped on them after generating the pages. The build now runs through.
