@@ -27,8 +27,8 @@ const sm = (a, b, v) => {
 };
 const lerp = (a, b, t) => a + (b - a) * t;
 
-const NZ = 152; // streamline rows: z0 = i + 0.5 LEDs above the foot of the panel
-const XS = -24; // the sweep along each streamline starts this far left of the panel
+const NZ = 152; // flow line rows: z0 = i + 0.5 LEDs above the foot of the panel
+const XS = -24; // the sweep along each flow line starts this far left of the panel
 const NX = W - XS;
 const XR = 9; // column of the ridge crest
 const RA = 10; // half width of the ridge, the a of the Witch of Agnesi
@@ -39,7 +39,7 @@ const LH = [1.0, 0.99, 0.985, 0.975, 0.97, 0.96]; // layer humidity
 const LP = [41, 59, 73, 101, 137, 89]; // seconds, rise and fall of each layer
 const LQ = [29, 43, 67, 89, 113, 53]; // seconds, humidity of each layer
 const CSAT = 0.046; // relative humidity gained per LED of lift
-const DISP = 0.1; // share of that lift the streamline is drawn lifted by
+const DISP = 0.1; // share of that lift the flow line is drawn lifted by
 
 function hh(i, j) {
   let h = (imul(i, 374761393) + imul(j, 668265263)) | 0;
@@ -198,8 +198,8 @@ function fieldCols(S) {
   }
 }
 
-// Vertical displacement of every streamline at every column, and then the
-// cloud that condenses along each streamline: the air is lifted into the
+// Vertical displacement of every flow line at every column, and then the
+// cloud that condenses along each flow line: the air is lifted into the
 // saturation at a crest and carries its cloud down the other side, where it
 // frays and clears.
 function clouds(S) {
@@ -258,7 +258,7 @@ function clouds(S) {
   }
 }
 
-// Lay each streamline's cloud into display rows: a streamline at height z0
+// Lay each flow line's cloud into display rows: a flow line at height z0
 // is drawn at z0 plus its displacement.
 function mapDisplay(S) {
   const { E, Q, T, zp, qd, qn } = S;

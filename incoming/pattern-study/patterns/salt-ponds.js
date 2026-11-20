@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Salt Ponds
 // Family:  saltworks
-// Idea:    Solar salt ponds seen from above: a chain of rectangular evaporation ponds beside a winding canal, whose brine turns from turquoise through green and orange to pink and deep red as it thickens, then crusts white with salt, is scraped clean, and is filled with fresh sea water again.
+// Idea:    Solar salt ponds seen from above: a chain of rectangular evaporation ponds beside a winding canal, whose brine turns from turquoise through green and orange to pink and deep red as it thickens. Once a pond crusts white with salt a blade scrapes it clean, and fresh sea water fills it again.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
