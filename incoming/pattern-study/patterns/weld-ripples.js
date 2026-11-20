@@ -173,7 +173,7 @@ function hash2(i, j) {
 export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 60, 4],
-    Tpk: new Float32Array(NC), Tcur: new Float32Array(NC), Phi: new Float32Array(NC), Msk: new Float32Array(NC), Fnow: new Float32Array(NC),
+    Tpk: new Float32Array(NC), Tcur: new Float32Array(NC), Phi: new Float32Array(NC), Msk: new Float32Array(NC), Fnow: new Float32Array(NC), Vis: new Int32Array(NC), frame: 0,
     ox: 0, oy: 0, ix0: 0, iy0: 0,
     spd: 2, amp: 60, wv: 3,
     za: mkosc(2 * PI / 190, 0.5, 0.55), zd: 0,
@@ -192,8 +192,8 @@ export function setup(params) {
 }
 
 function clearCol(S, c) {
-  const { Tpk, Tcur, Phi, Msk, Fnow } = S;
-  for (let j = 0, i = c; j < GH; j++, i += GW) Tpk[i] = Tcur[i] = Phi[i] = Msk[i] = Fnow[i] = 0;
+  const { Tpk, Tcur, Phi, Msk, Fnow, Vis } = S;
+  for (let j = 0, i = c; j < GH; j++, i += GW) Tpk[i] = Tcur[i] = Phi[i] = Msk[i] = Fnow[i] = Vis[i] = 0;
 }
 function clearRow(S, r) {
   const a = r * GW, b = a + GW;
@@ -202,6 +202,7 @@ function clearRow(S, r) {
   S.Phi.fill(0, a, b);
   S.Msk.fill(0, a, b);
   S.Fnow.fill(0, a, b);
+  S.Vis.fill(0, a, b);
 }
 const mod = (a, n) => ((a % n) + n) % n;
 
@@ -300,15 +301,14 @@ function path(S, dt) {
 // every cell has seen is its peak, and a cell inside the melt is rewritten with
 // the phase of the arc pulse, which is what freezes into a ripple.
 function stamp(S, dt) {
-  const { Tpk, Tcur, Phi, Msk, Fnow } = S;
+  const { Tpk, Tcur, Phi, Msk, Fnow, Vis } = S;
+  const fr = S.frame;
   // Arc pulses follow the speed of the pool over the plate, so the ripples stay
   // 2.8 to 5.7 LEDs apart along the path however it swings.
   const v = S.veff;
   S.uf += -S.uf / 4 * dt + sqrt(2 / 4 * dt) * gauss();
   const spacing = 2.6 + 0.55 * v;
   S.pulse += (S.vtot / spacing) * exp(0.13 * S.uf) * dt;
-  const ph = S.pulse - floor(S.pulse);
-  const pp = exp(-4.5 * ph) * 2 - 0.5;
   const kap = 0.04 * v;
   const kp = sqrt(kap * kap + LOSS);
   const Q = (1050 + 280 * v) * (S.amp / 60);
@@ -326,17 +326,15 @@ function stamp(S, dt) {
     for (let ci = ci0; ci <= ci1; ci++, col = col + 1 === GW ? 0 : col + 1) {
       const dx = (ci + 0.5 - px) * 0.5;
       const d2 = dx * dx + dy * dy;
+      if (d2 > 900) continue;
       const i = row + col;
-      if (d2 > 900) {
-        Fnow[i] = 0;
-        continue;
-      }
       const xp = dx * hx + dy * hy;
       const yp = -dx * hy + dy * hx;
       const R = sqrt(d2 + R0 * R0);
       const z = kp * R;
       const F = Q * exp(-kap * xp - z) * k0e(z);
       Fnow[i] = F;
+      Vis[i] = fr;
       if (F < 8) continue;
       if (F > Tcur[i]) Tcur[i] = F;
       if (F > Tpk[i]) Tpk[i] = F;
@@ -359,6 +357,7 @@ function cool(S, dt) {
 
 function advance(S, dt) {
   S.t += dt;
+  S.frame++;
   path(S, dt);
   slide(S);
   cool(S, dt);
@@ -401,7 +400,8 @@ function vnoise(s, t) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || S.first) return;
-  const { Tpk, Tcur, Phi, Msk, Fnow, tl } = S;
+  const { Tpk, Tcur, Phi, Msk, Fnow, Vis, tl } = S;
+  const fr = S.frame - 2;
   const hue = S.k[0] || 0;
   if (abs(hue - S.hueBuilt) > 0.001) {
     buildTint(tl, hue);
@@ -450,8 +450,9 @@ export function draw(display, params) {
         const ti = min(TN - 1, (tq / TSTEP) | 0);
         // The film forms once the metal has begun to cool, that is, once the field
         // at this spot has fallen below its peak: ahead of the torch there is no tint.
-        const fn = Fnow[i00] * w00 + Fnow[i01] * w01 + Fnow[i10] * w10 + Fnow[i11] * w11;
-        const ta = tl[ti * 4 + 3] * (1 - sstep(0.8, 0.93, fn / tp));
+        // A spot the torch no longer reaches is not being heated.
+        const fn = (Vis[i00] > fr ? Fnow[i00] * w00 : 0) + (Vis[i01] > fr ? Fnow[i01] * w01 : 0) + (Vis[i10] > fr ? Fnow[i10] * w10 : 0) + (Vis[i11] > fr ? Fnow[i11] * w11 : 0);
+        const ta = tl[ti * 4 + 3] * (1 - sstep(0.6, 0.93, fn / tp));
         if (ta > 0) {
           const gm = 0.86 + 0.28 * gn;
           r += (tl[ti * 4] * gm - r) * ta;
