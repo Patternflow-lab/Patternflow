@@ -59,5 +59,10 @@
   "shadow": { "label": "그림자", "color": "#5a46c8" },
   "strata": { "label": "지층", "color": "#7a4a20" },
   "dew": { "label": "이슬·맺힘", "color": "#b8f4ff" },
-  "sensing": { "label": "탐지·스캔", "color": "#e0a000" }
+  "sensing": { "label": "탐지·스캔", "color": "#e0a000" },
+  "comic": { "label": "만화·효과선", "color": "#f0e4b8" },
+  "fountain": { "label": "분수·물줄기", "color": "#48b8e8" },
+  "architecture": { "label": "건축", "color": "#b89b7a" },
+  "blot": { "label": "잉크 얼룩", "color": "#7d88b5" },
+  "network": { "label": "망·연결", "color": "#d6ff3f" }
 }
