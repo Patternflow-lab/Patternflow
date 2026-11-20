@@ -151,8 +151,6 @@ function pow2(b, j) {
   return r;
 }
 
-const LIFE = 200;
-
 export function setup(params) {
   const lat = new Float32Array(NN * NN);
   for (let i = 0; i < lat.length; i++) lat[i] = random();
@@ -205,9 +203,11 @@ function stepPackets(S, dt) {
     const rho = P.rho0 + P.f[j] * P.T - sumGap(P, j) * w;
     return rho - 5 * w < P.Dp + P.e + 6;
   });
-  if (S.dist >= S.next) {
+  // A new packet starts when the newest one has crossed a share of the panel that falls as Packets goes up.
+  const nw = S.pk[S.pk.length - 1];
+  if (!nw || (nw.T - 16) / (2 * nw.e) >= S.next) {
     spawn(S, undefined, undefined);
-    S.next = S.dist + (LIFE / (0.85 + 2 * S.u)) * rnd(0.82, 1.18);
+    S.next = (1 / (1 + 1.9 * S.u)) * rnd(0.85, 1.15);
   }
 }
 function sumGap(P, j) {
@@ -228,10 +228,10 @@ export function update(dt, input, params) {
   S.u = cl(0.5 + 0.5 * k[3], 0, 1);
   if (S.first) {
     S.first = false;
-    const n = 0.85 + 2 * S.u;
+    const n = 1 + 1.9 * S.u;
     const m = Math.round(n);
     for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(4, 20) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55));
-    S.next = S.dist + (LIFE / n) * rnd(0.3, 0.7);
+    S.next = (1 / n) * rnd(0.85, 1.15);
   }
   S.t += dt;
   stepPackets(S, dt);
