@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the whole stepped palette round the wheel. At 0 it is the true radar table, cyan and blue for drizzle, then green, yellow, orange, red, magenta and white for the hardest echo, and a full turn brings it back.
 // Knob 2: Intensity. How strong the storm is. At 0 a depression with no eye, a ragged green centre and arms at 20 to 30 dBZ; at 1 a filled, uneven eye; at 2 (start) an eye about 12 LEDs across (9 to 18) in a ring about 8 LEDs thick at 40 dBZ and over, with red and magenta cores; at 3 an eye 10 LEDs across and a ring 10 LEDs thick that peaks in white.
 // Knob 3: Spiral. How many arms and how tightly they wind. At -1 two open arms at 36 degrees to the circle that leave the panel almost straight; at 0 (start) four arms at 25 degrees; at 1 six arms at 14 degrees that wrap the eye in near-circles.
-// Knob 4: Replacement. How often a second eyewall is born from a band, in births per ten seconds. At 0 never; at 0.06 (start) about one every 170 s, and the swap takes about 95 s; at 0.2 one every 50 s and the swap takes 28 s. After a swap the eye is 17 to 21 LEDs across and shrinks back over about three minutes.
+// Knob 4: Replacement. How often a second eyewall is born from a band, in births per ten seconds. At 0 never; at 0.06 (start) about one every 170 s, and the swap takes about 95 s; at 0.2 one every 50 s and the swap takes 28 s. After a swap the eye is 13 to 19 LEDs across, 16 on average against 12 before, and shrinks back over about three minutes.
 
 const W = 64;
 const H = 128;
