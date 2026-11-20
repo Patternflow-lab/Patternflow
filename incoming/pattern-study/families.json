@@ -94,5 +94,10 @@
   "embryo": { "label": "배아 발생", "color": "#36d836" },
   "stormradar": { "label": "폭풍 레이더", "color": "#ff0cb6" },
   "leidenfrost": { "label": "라이덴프로스트", "color": "#71d80a" },
-  "welding": { "label": "용접", "color": "#ffcc00" }
+  "welding": { "label": "용접", "color": "#ffcc00" },
+  "cephalopod": { "label": "두족류 피부", "color": "#bf69a9" },
+  "seaice": { "label": "바다 얼음", "color": "#41fef1" },
+  "internalwave": { "label": "내부파", "color": "#e82b24" },
+  "lenticular": { "label": "렌즈 구름", "color": "#2ac9e8" },
+  "saltworks": { "label": "염전", "color": "#cd0a58" }
 }
