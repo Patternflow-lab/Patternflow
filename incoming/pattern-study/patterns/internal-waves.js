@@ -172,12 +172,12 @@ export function setup(params) {
   params.s = S;
 }
 
-function spawn(S, lead, amp0) {
+function spawn(S, lead, amp0, turn0) {
   const sp = (10 + 65 * S.u) * PI / 180;
   // Of eight tries take the heading and sideways offset least like the last few packets.
   let best = 0, bl = 0, bestScore = -1;
   for (let tries = 0; tries < 8; tries++) {
-    const ang = S.psi + (random() < 0.5 ? -1 : 1) * sp * rnd(0.25, 1);
+    const ang = S.psi + (turn0 === undefined ? (random() < 0.5 ? -1 : 1) * sp * rnd(0.25, 1) : turn0 === 0 ? rnd(-0.12, 0.12) : turn0 * sp * rnd(0.6, 1));
     const lat = rnd(-36, 36);
     let score = 9;
     for (const h of S.hist) score = min(score, abs(((h[0] - ang + 3 * PI) % TAU) - PI) + abs(h[1] - lat) / 50);
@@ -230,7 +230,8 @@ export function update(dt, input, params) {
     S.first = false;
     const n = 1 + 1.9 * S.u;
     const m = Math.round(n);
-    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(14, 34) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55));
+    // The first packet runs along the diagonal; the others come in from either side of it, not as strong.
+    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(14, 34) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55) + 0.25 * S.u, i === 0 ? 0 : i % 2 ? 1 : -1);
     S.next = (1 / n) * rnd(0.85, 1.15);
   }
   S.t += dt;
