@@ -28,7 +28,7 @@ const CAM = 62;
 const CAM_DISH = 24;
 // The rim, sampled round the drop at this many angles each frame.
 const NA = 1024;
-// Ripples: speed in LEDs a second, wavelength, half-width of the packet, height, and how long they take to fade.
+// Ripples, one constant a line: speed in LEDs a second, wavelength, packet half-width, height, fade time.
 const RIP_V = 17;
 const RIP_L = 7.5;
 const RIP_W = 4.5;
