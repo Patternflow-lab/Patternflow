@@ -9,7 +9,7 @@
 // Round:   205
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Travel=1.5..8, Current=60..160, Weave=3..13
+// @knobs Hue=0..1, Travel=1.5..8, Current=60..160, Weave=4..13
 //
 // Knob 1: Hue. Turns the heat-tint palette round the wheel from the true order it opens on, straw, gold, bronze, magenta, blue, grey, moving outward from the bead; the white-hot pool and the red-orange glow of cooling steel keep their own colour.
 // Knob 2: Travel. How fast the torch moves over the plate, from 1.5 LEDs a second, where the ripples sit 2.8 LEDs apart, the tints spread wide and the glowing tail is about 14 LEDs long, to 8 LEDs a second, where they sit 5.7 LEDs apart, the pool stretches into a teardrop and the glow trails past 35 LEDs; it opens at 2.
@@ -37,9 +37,9 @@ const TM = 1430;
 const T0 = 20;
 // Cooling of hot metal after the torch has passed: dE/dt = -C E^3, which is the
 // E ~ t^(-1/2) law of a line source in a thin plate.
-const COOL = 0.8e-7;
+const COOL = 0.6e-7;
 // Surface-loss term of the thin-plate solution and the width the arc melts over.
-const LOSS = 0.014;
+const LOSS = 0.010;
 const R0 = 1.2;
 
 // K0 of the modified Bessel function, times e^z, tabulated (Abramowitz & Stegun 9.8.5 and 9.8.6).
@@ -97,8 +97,8 @@ const GLOW = [
   [1340, 255, 186, 70],
   [1440, 255, 214, 114],
   [1560, 255, 226, 140],
-  [1900, 255, 234, 158],
-  [2800, 255, 240, 178],
+  [1900, 255, 238, 176],
+  [2800, 255, 246, 214],
 ];
 const GN = 520;
 const GSTEP = 5;
@@ -142,7 +142,7 @@ function buildTint(L, hue) {
     L[i * 4] = R * sc;
     L[i * 4 + 1] = G * sc;
     L[i * 4 + 2] = B * sc;
-    L[i * 4 + 3] = sstep(205, 245, T);
+    L[i * 4 + 3] = sstep(214, 236, T);
   }
 }
 
@@ -152,8 +152,8 @@ function osc(o, dt, w, z, sd) {
   o.v += (-2 * z * w * o.v - w * w * o.x) * dt + sqrt(q * dt) * gauss();
   o.x += o.v * dt;
 }
-const MLAM = [140, 85, 55];
-const MAMP = [11, 4.5, 1.3];
+const MLAM = [170, 100, 60];
+const MAMP = [16, 6, 1.5];
 const mkosc = (w, z, sd) => ({ x: sd * gauss(), v: sd * w * 0.6 * gauss(), w, z, sd });
 
 const soft = (v, lo, hi) => {
@@ -172,11 +172,11 @@ function hash2(i, j) {
 
 export function setup(params) {
   const S = {
-    t: 0, first: true, k: [0, 2, 60, 3],
-    Tpk: new Float32Array(NC), Tcur: new Float32Array(NC), Phi: new Float32Array(NC), Msk: new Float32Array(NC), Age: new Float32Array(NC),
+    t: 0, first: true, k: [0, 2, 60, 4],
+    Tpk: new Float32Array(NC), Tcur: new Float32Array(NC), Phi: new Float32Array(NC), Msk: new Float32Array(NC), Fnow: new Float32Array(NC),
     ox: 0, oy: 0, ix0: 0, iy0: 0,
     spd: 2, amp: 60, wv: 3,
-    za: mkosc(2 * PI / 190, 0.5, 0.62), zd: 0,
+    za: mkosc(2 * PI / 190, 0.5, 0.55), zd: 0,
     mph: [6 * Math.random(), 6 * Math.random(), 6 * Math.random()], mll: [0, 0, 0], mla: [gauss(), gauss(), gauss()], ud: gauss(), us: gauss(), uw: gauss(), uf: gauss(),
     wph: Math.random() * 2 * PI, lam: 30, vtot: 2, havePrev2: false,
     pulse: 0, hx: 0, hy: -1, veff: 2,
@@ -192,8 +192,8 @@ export function setup(params) {
 }
 
 function clearCol(S, c) {
-  const { Tpk, Tcur, Phi, Msk, Age } = S;
-  for (let j = 0, i = c; j < GH; j++, i += GW) Tpk[i] = Tcur[i] = Phi[i] = Msk[i] = Age[i] = 0;
+  const { Tpk, Tcur, Phi, Msk, Fnow } = S;
+  for (let j = 0, i = c; j < GH; j++, i += GW) Tpk[i] = Tcur[i] = Phi[i] = Msk[i] = Fnow[i] = 0;
 }
 function clearRow(S, r) {
   const a = r * GW, b = a + GW;
@@ -201,7 +201,7 @@ function clearRow(S, r) {
   S.Tcur.fill(0, a, b);
   S.Phi.fill(0, a, b);
   S.Msk.fill(0, a, b);
-  S.Age.fill(0, a, b);
+  S.Fnow.fill(0, a, b);
 }
 const mod = (a, n) => ((a % n) + n) % n;
 
@@ -221,19 +221,19 @@ function path(S, dt) {
   const e = 1 - exp(-dt / 0.8);
   S.spd += (cl(k[1], 1.5, 8) - S.spd) * e;
   S.amp += (cl(k[2], 60, 160) - S.amp) * e;
-  S.wv += (cl(k[3], 3, 13) - S.wv) * e;
+  S.wv += (cl(k[3], 4, 13) - S.wv) * e;
   // The speed of the plate breathes a little.
   S.us += -S.us / 25 * dt + sqrt(2 / 25 * dt) * gauss();
   const vs = S.spd * exp(0.1 * S.us);
   S.vs0 = vs;
-  // The line the plate slides along turns slowly, between straight down and 63 degrees off it.
-  osc(S.za, dt, 2 * PI / 190, 0.5, 0.62);
-  const a = 1.1 * tanh(S.za.x / 1.1);
+  // The line the plate slides along turns slowly, between straight down and 50 degrees off it.
+  osc(S.za, dt, 2 * PI / 190, 0.5, 0.55);
+  const a = 0.9 * tanh(S.za.x / 0.9);
   const ex = sin(a), ey = cos(a), nx = cos(a), ny = -sin(a);
   // Where the torch sits along that line and across it. Along, it can move
-  // against the plate's motion at any speed and with it at half the plate's.
+  // with the plate at up to a third of the plate's speed, never faster.
   S.ud += -S.ud / 5 * dt + sqrt(2 / 5 * dt) * gauss();
-  S.zd += (0.5 * vs * tanh(S.ud) - S.zd / 14) * dt;
+  S.zd += (0.35 * vs * tanh(S.ud) - S.zd / 14) * dt;
   // The seam wanders across the plate as three slow waves of different length;
   // their lengths and heights drift, so the line never repeats. Their phase
   // runs with the distance the plate has moved, so the shape does not depend on speed.
@@ -300,7 +300,7 @@ function path(S, dt) {
 // every cell has seen is its peak, and a cell inside the melt is rewritten with
 // the phase of the arc pulse, which is what freezes into a ripple.
 function stamp(S, dt) {
-  const { Tpk, Tcur, Phi, Msk, Age } = S;
+  const { Tpk, Tcur, Phi, Msk, Fnow } = S;
   // Arc pulses follow the speed of the pool over the plate, so the ripples stay
   // 2.8 to 5.7 LEDs apart along the path however it swings.
   const v = S.veff;
@@ -311,10 +311,10 @@ function stamp(S, dt) {
   const pp = exp(-4.5 * ph) * 2 - 0.5;
   const kap = 0.04 * v;
   const kp = sqrt(kap * kap + LOSS);
-  const Q = (1200 + 230 * v) * (S.amp / 60) * (1 + 0.035 * pp);
+  const Q = (1050 + 280 * v) * (S.amp / 60);
   const hx = S.hx, hy = S.hy;
   const px = S.ox + 2 * S.tx, py = S.oy + 2 * S.ty;
-  const BR = 56;
+  const BR = 61;
   const lo0 = S.ix0 - M2, lo1 = S.iy0 - M2;
   const ci0 = max(floor(px) - BR, lo0), ci1 = min(floor(px) + BR, lo0 + GW - 1);
   const cj0 = max(floor(py) - BR, lo1), cj1 = min(floor(py) + BR, lo1 + GH - 1);
@@ -326,17 +326,19 @@ function stamp(S, dt) {
     for (let ci = ci0; ci <= ci1; ci++, col = col + 1 === GW ? 0 : col + 1) {
       const dx = (ci + 0.5 - px) * 0.5;
       const d2 = dx * dx + dy * dy;
-      if (d2 > 900) continue;
+      const i = row + col;
+      if (d2 > 900) {
+        Fnow[i] = 0;
+        continue;
+      }
       const xp = dx * hx + dy * hy;
       const yp = -dx * hy + dy * hx;
       const R = sqrt(d2 + R0 * R0);
       const z = kp * R;
       const F = Q * exp(-kap * xp - z) * k0e(z);
+      Fnow[i] = F;
       if (F < 8) continue;
-      const i = row + col;
       if (F > Tcur[i]) Tcur[i] = F;
-      // A cell that is at or near its peak is still heating, and its film has not formed.
-      if (F > 0.93 * Tpk[i]) Age[i] = 0;
       if (F > Tpk[i]) Tpk[i] = F;
       if (F >= TM) {
         Msk[i] = 1;
@@ -347,14 +349,11 @@ function stamp(S, dt) {
 }
 
 function cool(S, dt) {
-  const { Tcur, Age } = S;
+  const { Tcur } = S;
   const c2 = 2 * COOL * dt;
   for (let i = 0; i < NC; i++) {
     const E = Tcur[i];
-    if (E > 0) {
-      Tcur[i] = E > 3 ? E / sqrt(1 + c2 * E * E) : 0;
-      Age[i] += dt;
-    }
+    if (E > 0) Tcur[i] = E > 3 ? E / sqrt(1 + c2 * E * E) : 0;
   }
 }
 
@@ -364,19 +363,19 @@ function advance(S, dt) {
   slide(S);
   cool(S, dt);
   stamp(S, dt);
-  S.flick += (-S.flick * 6 * dt) + sqrt(dt) * 4 * gauss();
+  S.flick += (-S.flick * 7 * dt) + sqrt(dt) * 5.5 * gauss();
   S.flick2 += (-S.flick2 * 1.5 * dt) + sqrt(dt) * 1.3 * gauss();
 }
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s;
-  S.k = input.knobValues || [0, 2, 60, 3];
+  S.k = input.knobValues || [0, 2, 60, 4];
   dt = cl(dt || 0, 0, 0.1);
   if (S.first) {
     S.spd = cl(S.k[1], 1.5, 8);
     S.amp = cl(S.k[2], 60, 160);
-    S.wv = cl(S.k[3], 3, 13);
+    S.wv = cl(S.k[3], 4, 13);
     // Open on a plate that has been welded for as long as the bead takes to cross the panel.
     const T = cl(120 / S.spd, 24, 80);
     for (let t = 0; t < T; t += 0.1) advance(S, 0.1);
@@ -402,7 +401,7 @@ function vnoise(s, t) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || S.first) return;
-  const { Tpk, Tcur, Phi, Msk, Age, tl } = S;
+  const { Tpk, Tcur, Phi, Msk, Fnow, tl } = S;
   const hue = S.k[0] || 0;
   if (abs(hue - S.hueBuilt) > 0.001) {
     buildTint(tl, hue);
@@ -423,7 +422,7 @@ export function draw(display, params) {
     S.ry1[y] = mod(j0 + 1, GH) * GW;
     S.rfy[y] = v - j0;
   }
-  const flare = 0.85 + 0.12 * S.flick + 0.08 * S.flick2;
+  const flare = cl(0.85 + 0.14 * S.flick + 0.08 * S.flick2, 0.45, 1.25);
   const ph = S.pulse - floor(S.pulse);
   const arcBoost = flare * (0.9 + 0.35 * exp(-5 * ph));
   const tx = S.tx, ty = S.ty;
@@ -447,11 +446,12 @@ export function draw(display, params) {
         const ms = m00 + m01 + m10 + m11;
         // Tint of the oxide film, by the peak.
         // The film is a little thicker here and thinner there, so band edges wander.
-        const tq = tp * (1 + 0.16 * (vnoise(u * 0.11 + 7.3, v * 0.11 + 2.1) - 0.5));
+        const tq = tp * (1 + 0.12 * (vnoise(u * 0.09 + 7.3, v * 0.09 + 2.1) - 0.5));
         const ti = min(TN - 1, (tq / TSTEP) | 0);
-        const age = Age[i00] * w00 + Age[i01] * w01 + Age[i10] * w10 + Age[i11] * w11;
-        // The oxide film takes a second or two to form once the metal starts to cool.
-        const ta = tl[ti * 4 + 3] * sstep(0.6, 2.4, age);
+        // The film forms once the metal has begun to cool, that is, once the field
+        // at this spot has fallen below its peak: ahead of the torch there is no tint.
+        const fn = Fnow[i00] * w00 + Fnow[i01] * w01 + Fnow[i10] * w10 + Fnow[i11] * w11;
+        const ta = tl[ti * 4 + 3] * (1 - sstep(0.8, 0.93, fn / tp));
         if (ta > 0) {
           const gm = 0.86 + 0.28 * gn;
           r += (tl[ti * 4] * gm - r) * ta;
@@ -473,13 +473,14 @@ export function draw(display, params) {
           g += (162 * bm - g) * k;
           b += (186 * bm - b) * k;
         }
-        if (tc > 740) {
-          const gi = min(GN - 1, ((tc + T0 - 700) / GSTEP) | 0) * 3;
-          const gx = sstep(740, 980, tc + T0);
-          const gmod = ms > 0.5 ? 1 + (0.42 + 0.9 * sv - 1) * (1 - sstep(1250, 1550, tc)) : 1;
-          r = r * (1 - gx * 0.92) + GLOWLUT[gi] * gx * gmod;
-          g = g * (1 - gx * 0.92) + GLOWLUT[gi + 1] * gx * gmod;
-          b = b * (1 - gx * 0.92) + GLOWLUT[gi + 2] * gx * gmod;
+        if (tc > 700) {
+          // Ripples that have just frozen: crests run hotter than the troughs between them.
+          const te = tc * (ms > 0.5 ? 1 + (0.96 + 0.16 * sv - 1) * (1 - sstep(1250, 1550, tc)) : 1);
+          const gi = cl(((te + T0 - 700) / GSTEP) | 0, 0, GN - 1) * 3;
+          const gx = sstep(760, 980, te + T0);
+          r = r * (1 - gx * 0.92) + GLOWLUT[gi] * gx;
+          g = g * (1 - gx * 0.92) + GLOWLUT[gi + 1] * gx;
+          b = b * (1 - gx * 0.92) + GLOWLUT[gi + 2] * gx;
         }
       }
       // The arc: a blue-white core and a corona that flickers, laid over with a screen blend.
@@ -488,7 +489,7 @@ export function draw(display, params) {
       if (da < 150) {
         const core = min(1, exp(-da / 2.2) * arcBoost);
         const cor = exp(-da / 14) * arcBoost * 0.75;
-        const hal = exp(-da / 55) * flare * 0.42;
+        const hal = exp(-da / 60) * flare * 0.6;
         const fr = min(1, core * 0.92 + cor * 0.36 + hal * 0.14);
         const fg = min(1, core * 0.96 + cor * 0.55 + hal * 0.26);
         const fb = min(1, core + cor * 0.95 + hal * 0.62);
