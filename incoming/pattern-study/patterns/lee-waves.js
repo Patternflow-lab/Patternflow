@@ -11,14 +11,14 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Wind=1..8, Moisture=-1..1, Ridge=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Wind.
-// Knob 3: Moisture.
-// Knob 4: Ridge.
+// Knob 1: Hue. Turns the sky through six dusks and back to the first: blue with a peach and gold sun at 0 and 1, violet and pink at 0.17, rose and orange at 0.33, crimson to gold at 0.5, green and lemon at 0.67, cyan at 0.83. The clouds stay near white, and their undersides take the colour of the glow.
+// Knob 2: Wind. The speed of the air through the clouds, 2.4 LEDs a second at 1, 4.2 at the opening 2 and 12.7 at 8, the upper layers up to 1.6 times faster than the lowest, with gusts of about 15% every 6 to 14 seconds. It also spaces the lenses, 28 LEDs apart at 1, 32 at 2 and 53 at 8, and sets how far a cloud is carried before it clears: trailing streamers of about 8 LEDs, 10 at the opening and 20.
+// Knob 3: Moisture. How damp the six layers are, opening at 0. At -1 the sky is a clear deep blue and the lenses are thin, about 15 LEDs wide and 7 through their bright core, with the sun's glow drawn in to 0.7 of its size; at +1 they are about 19 wide and 9 through, the blue thins towards a pale horizon by up to a third and the glow swells to 1.3 times its size.
+// Knob 4: Ridge. The height of the ridge's crest above the foot of the panel, 9 LEDs at -1, 21 at the opening 0.06 and 31 at 1, and with it the swing of the wave: the lenses are 6 LEDs thick at -1 and 9 at 1, and at the top of the range neighbouring layers begin to touch.
 
 const W = 64;
 const H = 128;
-const { floor, sqrt, exp, sin, cos, abs, min, max, pow, PI, imul, random } = Math;
+const { floor, exp, sin, cos, abs, min, max, pow, PI, imul } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
@@ -66,10 +66,10 @@ export function setup(params) {
     first: true,
     k: [0, 2, 0, 0.06],
     sk: [0, 2, 0, 0.06],
-    ph: Array.from({ length: 40 }, () => random() * TAU),
-    X: Array.from({ length: NL }, () => random() * 500),
-    X2: Array.from({ length: NL }, () => random() * 500),
-    zo: Array.from({ length: NL }, () => random() * 50),
+    ph: Array.from({ length: 40 }, () => Math.random() * TAU),
+    X: Array.from({ length: NL }, () => Math.random() * 500),
+    X2: Array.from({ length: NL }, () => Math.random() * 500),
+    zo: Array.from({ length: NL }, () => Math.random() * 50),
     gust: 1,
     E: new Float32Array(NZ * NX),
     Q: new Float32Array(NZ * NX),
@@ -125,19 +125,19 @@ function derive(S) {
   const P = S.P;
   P.moist = cl(S.sk[2], -1, 1);
   P.h0 = 17 + 11 * cl(S.sk[3], -1, 1);
-  const nb = 1 + 0.07 * sin((TAU * t) / 157 + ph[0]) + 0.05 * sin((TAU * t) / 241 + ph[1]) + 0.04 * sin((TAU * t) / 83 + ph[2]);
-  P.lam1 = (32 + 2.6 * wind) * nb;
+  const nb = 1 + 0.07 * sin((TAU * t) / 157 + ph[0]) + 0.05 * sin((TAU * t) / 241 + ph[1]) + 0.04 * sin((TAU * t) / 83 + ph[2]) + 0.035 * sin((TAU * t) / 37.7 + ph[34]);
+  P.lam1 = (25 + 3.5 * wind) * nb;
   P.lam2 = 0.62 * P.lam1 * (1 + 0.04 * sin((TAU * t) / 197 + ph[5]));
   P.k1 = TAU / P.lam1;
   P.k2 = TAU / P.lam2;
-  P.c1 = 0.4 * P.lam1;
+  P.c1 = 0.3 * P.lam1;
   P.c2 = 0.35 * P.lam2;
   P.tau1 = 0.09 * (1 + 0.25 * sin((TAU * t) / 121 + ph[3]));
   P.tau2 = -0.04;
-  P.A1 = 4 + 0.28 * P.h0;
-  P.A2 = 2.5 + 0.15 * P.h0;
-  P.za1 = 70 + 14 * sin((TAU * t) / 173 + ph[4]);
-  P.za2 = 100 + 22 * sin((TAU * t) / 131 + ph[6]);
+  P.A1 = 5 + 0.28 * P.h0;
+  P.A2 = 3 + 0.15 * P.h0;
+  P.za1 = 70 + 14 * sin((TAU * t) / 173 + ph[4]) + 7 * sin((TAU * t) / 61 + ph[32]);
+  P.za2 = 100 + 22 * sin((TAU * t) / 131 + ph[6]) + 8 * sin((TAU * t) / 47 + ph[33]);
 }
 
 function fieldRows(S) {
@@ -145,14 +145,14 @@ function fieldRows(S) {
   const t = S.t;
   const ph = S.ph;
   const { cb1, sb1, cb2, sb2, RH, RL } = S;
-  const sTh = 1 + 0.09 * P.moist;
+  const sTh = 1 + (P.moist < 0 ? 0.12 : 0.09) * P.moist;
   const zj = [];
   const sj = [];
   const hj = [];
   for (let j = 0; j < NL; j++) {
     zj.push(LZ[j] + 2.2 * sin((TAU * t) / LP[j] + ph[20 + j]));
     sj.push(LS[j] * sTh);
-    hj.push(LH[j] + 0.05 * P.moist + 0.045 * sin((TAU * t) / LQ[j] + ph[26 + j]));
+    hj.push(LH[j] + (P.moist < 0 ? 0.055 : 0.05) * P.moist + 0.075 * sin((TAU * t) / LQ[j] + ph[26 + j]));
   }
   for (let i = 0; i < NZ; i++) {
     const z0 = i + 0.5;
@@ -188,7 +188,7 @@ function fieldCols(S) {
     const d = xi + XS + 0.5 - XR;
     dx[xi] = d;
     up[xi] = sm(-8, 5, d);
-    const D = sm(-4, 14, d) * exp(-max(0, d) / 95);
+    const D = sm(-6, 6, d) * exp(-max(0, d) / 95);
     const a1 = P.k1 * (d - P.c1);
     const a2 = P.k2 * (d - P.c2);
     ca1[xi] = D * cos(a1);
@@ -206,6 +206,8 @@ function clouds(S) {
   const P = S.P;
   const { E, Q, T, RH, RL, cb1, sb1, cb2, sb2, ca1, sa1, ca2, sa2, dx, up, X, X2, zo } = S;
   const lift = 0.7 * P.h0 * RA;
+  // the faster the air, the further a cloud is carried before it clears
+  const ell = 5 + 1.2 * 2.4 * pow(cl(S.sk[1], 1, 8), 0.8);
   for (let i = 0; i < NZ; i++) {
     const z0 = i + 0.5;
     const rz = RA + z0;
@@ -248,7 +250,7 @@ function clouds(S) {
       const n = cl(0.5 + 2.0 * (0.62 * n1 + 0.38 * n2 - 0.5), 0, 1);
       const beta = 0.04 + 0.34 * (1 - exp(-age / 12));
       const qi = sm(0, 0.15 + 0.1 * (1 - exp(-age / 8)), sat + beta * (n - 0.5));
-      m = max(qi, m * exp(-(0.4 + 1.9 * (1 - n)) / 10));
+      m = max(qi, m * exp(-(0.4 + 1.9 * (1 - n)) / ell));
       age = m > 0.15 ? age + 1 : max(0, age - 3);
       Q[o + xi] = m;
       T[o + xi] = n;
@@ -368,11 +370,12 @@ export function draw(display, params) {
   const gx = 54 + 6 * sin((TAU * t) / 311 + ph[14]) + 4 * sin((TAU * t) / 487 + ph[15]);
   const gz = 14 + 6 * sin((TAU * t) / 397 + ph[16]) + 3 * sin((TAU * t) / 233 + ph[17]);
   const gI = 0.92 + 0.08 * sin((TAU * t) / 151 + ph[18]);
+  const gs = 1 + 0.3 * P.moist;
   for (let y = 0; y < H; y++) {
     const Z = H - y - 0.5;
-    const dz = (Z - gz) / 11;
+    const dz = (Z - gz) / (11 * gs);
     for (let x = 0; x < W; x++) {
-      const dxx = (x + 0.5 - gx) / 20;
+      const dxx = (x + 0.5 - gx) / (20 * gs);
       gl[y * W + x] = gI * exp(-0.5 * (dxx * dxx + dz * dz));
     }
   }
@@ -416,7 +419,13 @@ export function draw(display, params) {
     else if (Z < 50) { s0 = HOR; s1 = LOW; f = (Z - 22) / 28; }
     else if (Z < 84) { s0 = LOW; s1 = MID; f = (Z - 50) / 34; }
     else { s0 = MID; s1 = ZEN; f = (Z - 84) / 44; }
-    const sr = lerp(s0[0], s1[0], f), sg = lerp(s0[1], s1[1], f), sb = lerp(s0[2], s1[2], f);
+    let sr = lerp(s0[0], s1[0], f), sg = lerp(s0[1], s1[1], f), sb = lerp(s0[2], s1[2], f);
+    // damp air thins the blue toward the horizon's pale, dry air clears and deepens it
+    const hz = P.moist > 0 ? 0.34 * P.moist * exp(-Z / 80) : 0.26 * P.moist * (1 - Z / 170);
+    const hc = P.moist > 0 ? HOR : ZEN;
+    sr = lerp(sr, hc[0], abs(hz));
+    sg = lerp(sg, hc[1], abs(hz));
+    sb = lerp(sb, hc[2], abs(hz));
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
       const g = gl[p];
