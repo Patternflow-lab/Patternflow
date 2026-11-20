@@ -79,5 +79,10 @@
   "acoustics": { "label": "음향 실험", "color": "#3613bf" },
   "crystallography": { "label": "결정 회절", "color": "#139dbf" },
   "dryland": { "label": "마른 땅", "color": "#bfae13" },
-  "detector": { "label": "입자 검출기", "color": "#f29b85" }
+  "detector": { "label": "입자 검출기", "color": "#f29b85" },
+  "cortex": { "label": "대뇌 피질", "color": "#884599" },
+  "blackhole": { "label": "블랙홀", "color": "#990850" },
+  "quantum": { "label": "양자", "color": "#084999" },
+  "signal": { "label": "통신 신호", "color": "#08996d" },
+  "mirage": { "label": "신기루", "color": "#f26d6d" }
 }
