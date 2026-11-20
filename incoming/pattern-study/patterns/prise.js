@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Prise
 // Family:  geometry
-// Idea:    Two squares stand side by side as one bar high on the dark and a circle comes up from below onto the seam between them: one knob drives it up, the squares ride apart over its shoulders, and the knob holds where both squares meet the side walls with the circle caught between them, too wide to go on.
+// Idea:    Two squares hang side by side from the ceiling as one bar and a circle comes up from below onto the seam between them: one knob drives it up, the squares ride apart over its shoulders, and the knob holds where both squares sit in the top corners with the circle caught between them, too wide to go on.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,11 +9,11 @@
 // Round:   197
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Size=0..3, Rise=-36..12, Lag=0.06..1
+// @knobs Hue=0..1, Size=1..4, Rise=-36..12, Lag=0.06..1
 //
 // Knob 1: Hue. The colour of all three shapes, all the way round the wheel from a periwinkle blue.
-// Knob 2: Size. The side of each square, 14 LEDs at the bottom of the knob to 20 at the top; it opens at 18. The circle is always 2 LEDs wider than the gap the squares can open, 38 LEDs across beside the smallest squares and 26 beside the largest, 30 as it opens.
-// Knob 3: Rise. How far the circle has come up, in clicks, 48 of them. For the first 26 it comes up the dark towards the bar, 2 LEDs a click, and at the 26th its top meets the seam. From there every click lifts it and the squares part over it, quickly at first, because the top of a circle is blunt. It opens 10 clicks in. For the eight clicks before the walls each square goes 1.05 LEDs a click, and the last three clicks are one picture: both squares against the walls.
+// Knob 2: Size. The side of each square, 16 LEDs at the bottom of the knob to 22 at the top; it opens at 18. The circle is always 2 LEDs wider than the gap the squares can open, 34 LEDs across beside the smallest squares and 22 beside the largest, 30 as it opens.
+// Knob 3: Rise. How far the circle has come up, in clicks, 48 of them. For the first 26 it comes up the dark towards the bar, 3 LEDs a click, and at the 26th its top meets the seam. From there every click lifts it and the squares part over it, and they part faster than it rises, because the top of a circle is blunt. It opens 10 clicks in. For the eight clicks before the walls each square goes 1.05 LEDs a click, and the last three clicks are one picture: both squares against the walls.
 // Knob 4: Lag. How much less the right square gives way than the left, from the same to not at all. The circle drifts left as it comes up, the left square reaches its wall first and the right one makes up the rest, so the hold is the same picture wherever this knob is. It opens at 0.06, which is no lag.
 
 const W = 64;
@@ -27,11 +27,9 @@ const TOUCH = 26;
 const STEP = 1.05;
 const NEAR = 8;
 // LEDs a click brings the circle up before it touches.
-const CLIMB = 2;
+const CLIMB = 3;
 // The circle is this much wider than the widest gap, so it never goes through.
 const OVER = 2;
-// The row the squares' bottom edge stands on.
-const FOOT = 40;
 const SAT = 0.5;
 const PEAK = 0.95;
 // The first colour: a periwinkle blue.
@@ -102,9 +100,9 @@ function lay(params, s, q, lag) {
   const below = Math.sqrt(r * r - p * p);
   const lum = params.lum;
   lum.fill(0);
-  rect(lum, W / 2 - left - s, W / 2 - left, FOOT - s, FOOT);
-  rect(lum, W / 2 + right, W / 2 + right + s, FOOT - s, FOOT);
-  disc(lum, mid, FOOT + below + Math.max(0, TOUCH - q) * CLIMB, r);
+  rect(lum, W / 2 - left - s, W / 2 - left, 0, s);
+  rect(lum, W / 2 + right, W / 2 + right + s, 0, s);
+  disc(lum, mid, s + below + Math.max(0, TOUCH - q) * CLIMB, r);
   for (let j = 0; j < lum.length; j++) if (lum[j] > 1) lum[j] = 1;
 }
 
@@ -112,7 +110,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   params.t += dt;
   const t = params.t;
-  const s = 14 + 2 * clamp(k[1], 0, 3);
+  const s = 14 + 2 * clamp(k[1], 1, 4);
   const q = clamp(k[2], -OPEN, CLICKS - OPEN) + OPEN;
   const lag = (clamp(k[3], 0.06, 1) - 0.06) / 0.94;
   const key = s + "," + q + "," + lag;
