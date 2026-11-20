@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Jacques Queney's 1948 and R. S. Scorer's 1949 linear theory of air flow over a ridge, the Witch of Agnesi ridge profile (Maria Gaetana Agnesi, 1748), and the standing lee waves and rotors that the Sierra Wave Project glided into in the 1950s; pattern round 206
+// Lineage: Jacques Queney's 1948 and R. S. Scorer's 1949 linear theory of air flow over a ridge, the Witch of Agnesi ridge profile (Maria Gaetana Agnesi, 1748), and the standing lee waves that the Sierra Wave Project glided into in the 1950s; pattern round 206
 // Round:   206
 // ===============================
 // @matrix 64x128
