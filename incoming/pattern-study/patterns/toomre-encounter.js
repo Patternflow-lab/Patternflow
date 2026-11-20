@@ -12,8 +12,8 @@
 // @knobs Hue=0..1, Pace=0.6..6, Mass=-1..1, View=-1..1
 //
 // Knob 1: Hue. Turns the pair of tints round the wheel together and comes back at 1: blue-white and gold at 0 and 1, violet and lime at 0.17, rose and green at 0.33, orange and blue at 0.5, lime and purple at 0.67, green and pink at 0.83. The two tints stay about 170 degrees apart, so the bridge between the galaxies always shows both, and each new pair moves both tints by up to 29 degrees either way.
-// Knob 2: Pace. How fast the encounter runs: the model clock runs at Pace divided by 2, so 0.3 times at 0.6, 1 time at the opening 2 and 3 times at 6. At 1 time a model unit is 3.4 s: the first pass comes at about 8 s, the cores merge between 70 and 105 s, and a new pair fades in 34 s after that, so an encounter lasts 100 to 140 s. The leapfrog step never exceeds 0.02 units, so every pace is stable.
-// Knob 3: Mass. The mass of the second galaxy relative to the first, 0.2 at -1, 0.75 at the opening 0 and 1.3 at 1. Its disk starts about 19 LEDs across at -1, 33 at 0 and 40 at 1. The pull on the other disk and on the orbit follows the knob within 1 to 2 s, so the bridge and the tails bend while the second core's glow swells or shrinks; a new pair takes this mass times a random 0.85 to 1.2.
+// Knob 2: Pace. How fast the encounter runs: the model clock runs at Pace divided by 2, so 0.3 times at 0.6, 1 time at the opening 2 and 3 times at 6. At 1 time a model unit is 3.4 s: the first pass comes about 4 s after the opening, the cores merge between 60 and 105 s, and a new pair fades in 15 s after that, so an encounter lasts 90 to 120 s. The leapfrog step never exceeds 0.02 units, so every pace is stable.
+// Knob 3: Mass. The mass of the second galaxy relative to the first, 0.2 at -1, 0.75 at the opening 0 and 1.3 at 1. Its disk starts about half as wide as the first one at -1, as wide at 0 and a quarter wider at 1; the first is about 48 LEDs across at the opening. The pull on the other disk and on the orbit follows the knob within 1 to 2 s, so the bridge and the tails bend while the second core's glow swells or shrinks; a new pair takes this mass times a random 0.85 to 1.2.
 // Knob 4: View. The yaw of the camera round the panel's long axis: 33 degrees at the opening, minus 12 at -1 (looking down on the orbit, the tails read in plan) and 72 at 1 (nearly edge on, the disks flatten to thin lenses and the tails stack in depth). A slow turn of about 12 degrees every 47 s and a tilt of 15 degrees come on top.
 
 const W = 64;
@@ -65,7 +65,7 @@ function newEnc(qk, first) {
     gal: new Uint8Array(2 * NG), bin: new Uint8Array(2 * NG), bri: new Float32Array(2 * NG),
   };
   // the relative orbit: the second core falls toward the first from 3 units, at 96 to 99% of escape speed
-  const rp = 0.8 + 0.4 * Math.random();
+  const rp = 1.0 + 0.45 * Math.random();
   const ys = Math.random() < 0.5 ? -1 : 1;
   const sg = Math.random() < 0.5 ? -1 : 1;
   const M = 1 + m2;
@@ -87,7 +87,7 @@ function newEnc(qk, first) {
   // the two disks: random tilt from the orbital plane, mostly in the sense of the orbit
   for (let g = 0; g < 2; g++) {
     const bind = g ? m2 : 1;
-    const R = g ? 0.7 * sqrt(m2 / 0.75) * 0.9 + 0.07 : 0.7;
+    const R = g ? 0.85 * (0.9 * sqrt(m2 / 0.75) + 0.08) : 0.85;
     const th = 0.12 + 0.8 * Math.random();
     const ph = TAU * Math.random();
     const pro = Math.random() < 0.85 ? 1 : -1;
@@ -106,16 +106,16 @@ function newEnc(qk, first) {
     const rin = 0.015;
     for (let i = 0; i < NG; i++) {
       let r, phi;
-      const inArm = Math.random() < 0.62;
+      const inArm = Math.random() < 0.8;
       for (let k = 0; k < 80; k++) {
-        r = 0.5 * R * -log(Math.random() * Math.random() + 1e-9);
+        r = (inArm ? 0.55 : 0.4) * R * -log(Math.random() * Math.random() + 1e-9);
         phi = TAU * Math.random();
         if (r < rin || r > R) continue;
         if (!inArm) break;
         const arm = phi0 - cotp * log(r / (0.25 * R));
         const A = sm(0.06 * R, 0.35 * R, r);
         // narrow arms: density falls to a few percent between them
-        if (Math.random() < exp(2.8 * A * (cos(2 * (phi - arm)) - 1))) break;
+        if (Math.random() < exp(4.2 * A * (cos(2 * (phi - arm)) - 1))) break;
       }
       r = cl(r, rin, R);
       const c = cos(phi), s = sin(phi);
@@ -133,10 +133,15 @@ function newEnc(qk, first) {
       e.vz[j] = vc * (c * taz + s * tbz) + 0.02 * gauss();
       e.gal[j] = g;
       e.bin[j] = min(NB - 1, floor((NB * r) / R));
-      e.bri[j] = 0.7 + 0.6 * Math.random();
+      e.bri[j] = (inArm ? 1.25 : 0.55) * (0.75 + 0.5 * Math.random());
     }
   }
   e.n = 2 * NG;
+  // run up to the approach, so a pair opens with its disks nearly touching and arms still fresh
+  for (let i = 0; i < 150; i++) {
+    advance(e, 0.02);
+    if ((e.x2 - e.x1) * (e.x2 - e.x1) + (e.y2 - e.y1) * (e.y2 - e.y1) < 2.2 * 2.2) break;
+  }
   return e;
 }
 
@@ -154,7 +159,7 @@ function step(e, h) {
   // dynamical friction: the relative velocity decays while the disks overlap, hard once the cores do
   const d = sqrt(d2);
   const cs = sm(0.55, 0.25, d);
-  const g = 0.09 * exp(-(d2 / 1.69)) + 0.01 + 11 * cs;
+  const g = 0.12 * exp(-(d2 / 1.69)) + 0.01 + 11 * cs;
   const dec = exp(-g * h) - 1;
   const rvx = e.u2 - e.u1;
   const rvy = e.w2 - e.w1;
@@ -237,7 +242,7 @@ function camera(e, S, dt, snap) {
   const c = max(1, floor(e.n / 2));
   const ey = 1.5 * sqrt(sy / c) + 0.35;
   const ex = 1.5 * sqrt(sx / c) + 0.35;
-  e.st = cl(min(60 / ey, 31 / ex), 12, 27) * (e.tm >= 0 ? e.zoom * (1 + 0.1 * sin((TAU * S.t) / 61 + e.pp)) : 1);
+  e.st = cl(min(54 / ey, 31 / ex), e.tm >= 0 ? 12 : 18, 32) * (e.tm >= 0 ? e.zoom * (1 + 0.1 * sin((TAU * S.t) / 61 + e.pp)) : 1);
   e.sc += (e.st - e.sc) * (snap ? 1 : 1 - exp(-dt / 3.5));
   // once the cores have merged the remnant drifts off the middle of the panel
   const pa = snap ? 1 : 1 - exp(-dt / 4);
@@ -264,7 +269,7 @@ export function setup(params) {
     lut: new Float32Array(4097),
     stars: [],
   };
-  for (let i = 0; i <= 4096; i++) S.lut[i] = Math.pow(1 - exp(-i / 512), 0.68);
+  for (let i = 0; i <= 4096; i++) S.lut[i] = Math.pow(1 - exp(-i / 512), 0.74);
   // a faint fixed field of distant stars
   const used = new Set();
   while (S.stars.length < 34) {
@@ -299,7 +304,7 @@ function rotation(S, e, dt, snap) {
       best = d;
     }
   }
-  e.rho += best * (snap ? 1 : (1 - exp(-dt / 3)) * sm(0.15, 0.7, sep));
+  e.rho += best * (snap ? 1 : (1 - exp(-dt / 2.2)) * sm(0.15, 0.7, sep));
   const yaw = ((30 + 42 * cl(S.sk[3], -1, 1)) * PI) / 180 + 0.21 * sin((TAU * t) / 47 + ph[0]) + 0.12 * sin((TAU * t) / 83 + ph[1]);
   const tilt = 0.26 + 0.1 * sin((TAU * t) / 61 + ph[2]) + 0.05 * sin((TAU * t) / 29 + ph[3]);
   const cb = cos(yaw), sb = sin(yaw), ca = cos(tilt), sa = sin(tilt);
@@ -325,12 +330,6 @@ export function update(dt, input, params) {
     S.first = false;
     S.cur = newEnc(qOf(cl(S.sk[2], -1, 1)), true);
     S.cur.front = 9;
-    // run up to the approach, so the picture opens just before the first pericentre
-    for (let i = 0; i < 150; i++) {
-      advance(S.cur, 0.02);
-      const e = S.cur;
-      if ((e.x2 - e.x1) * (e.x2 - e.x1) + (e.y2 - e.y1) * (e.y2 - e.y1) < 2.4 * 2.4) break;
-    }
     rotation(S, S.cur, 0, true);
     camera(S.cur, S, 0, true);
   }
@@ -360,7 +359,7 @@ export function update(dt, input, params) {
   } else {
     const e = S.cur;
     const sep = sqrt((e.x2 - e.x1) * (e.x2 - e.x1) + (e.y2 - e.y1) * (e.y2 - e.y1));
-    if ((e.tm >= 0 && e.t - e.tm > 10) || e.t > 48 || sep > 12) {
+    if ((e.tm >= 0 && e.t - e.tm > 4.5) || e.t > 42 || sep > 12) {
       S.old = e;
       S.fade = 0;
       S.cur = newEnc(q, false);
@@ -414,6 +413,8 @@ function splat(e, S, wgal0, wgal1) {
   const T0 = e.tint[0];
   const T1 = e.tint[1];
   const front = e.front;
+  // once the cores have merged the far debris is dimmed, so the remnant reads as a ball and not a cloud
+  const mf = e.tm >= 0 ? sm(0, 2.5, e.t - e.tm) : 0;
   for (let i = 0; i < e.n; i++) {
     const x = px[i] - e.cx, y = py[i] - e.cy, z = pz[i] - e.cz;
     const u = R[0] * x + R[1] * y + R[2] * z;
@@ -431,10 +432,10 @@ function splat(e, S, wgal0, wgal1) {
     const g = gal[i];
     const T = g ? T1 : T0;
     const bi = bin[i] * 3;
-    const w = bri[i] * (g ? wgal1 : wgal0) * zf * a * (0.8 + 0.2 * cl(dz / 1.1, -1, 1));
-    // far from the cores the stars are sparse: most of their light goes to the soft layer
+    // far from the cores the stars are sparse: they shine brighter and most of their light goes to the soft layer
     const ax = px[i] - e.x1, ay = py[i] - e.y1, bx = px[i] - e.x2, by = py[i] - e.y2;
     const far = sm(0.8, 2.4, sqrt(min(ax * ax + ay * ay, bx * bx + by * by) + z * z));
+    const w = bri[i] * (g ? wgal1 : wgal0) * zf * a * (1 + 0.3 * far - 0.6 * far * mf) * (0.8 + 0.2 * cl(dz / 1.1, -1, 1));
     const hf = 0.2 + 0.65 * far;
     const wr = w * T[bi], wg = w * T[bi + 1], wb = w * T[bi + 2];
     const fr = wr * (1 - hf), fg = wg * (1 - hf), fb = wb * (1 - hf);
@@ -551,9 +552,10 @@ export function draw(display, params) {
     const lm = sqrt(e.m2 / e.bind2);
     // the merged cores pack the stars into one dense bulge, so the exposure comes down by half
     const ex = e.tm >= 0 ? 1 - 0.5 * sm(0, 2.5, e.t - e.tm) : 1;
-    splat(e, S, 0.085 * ex, 0.085 * ex * Math.pow(e.bind2 / 0.75, 0.5) * lm);
+    splat(e, S, 0.15 * ex, 0.15 * ex * Math.pow(e.bind2 / 0.75, 0.5) * lm);
   }
   blur(F, T, W, H);
+  blur(HB, HT, HW, HH);
   blur(HB, HT, HW, HH);
   blur(HB, HT, HW, HH);
   // join the fine layer and the soft layer; a star's light is split between them
