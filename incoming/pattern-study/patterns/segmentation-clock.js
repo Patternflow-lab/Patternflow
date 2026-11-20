@@ -59,7 +59,8 @@ export function setup(params) {
     xi: new Float32Array(n), om: new Float32Array(n), ka: new Float32Array(n), dth: new Float32Array(n),
     z: 0, rNew: -1, thb: Math.random() * TAU,
     vk: 2, tk: 7, dc: 0.06,
-    aT: 0, aV: 0, lean: 0, slip: 0, slipLeft: 0, slipRate: 0,
+    aT: 0, aV: 0, aA: 0, aG: 0, dfw: 0, hww: 0, lean: 0,
+    fT: 0, fV: 0, fA: 0, fG: 0, fD: 0, fH: 0, fL: 0, ra: new Float32Array(NR).fill(1), slip: 0, slipLeft: 0, slipRate: 0,
     ph: [Math.random() * TAU, Math.random() * TAU, Math.random() * TAU, Math.random() * TAU],
     wob: new Float32Array(NX), P: new Float32Array(NX),
     lum: new Float32Array(W * H), mag: new Float32Array(W * H), tmp: new Float32Array(W * H),
@@ -70,11 +71,12 @@ export function setup(params) {
 function newRow(S, dc) {
   const r = ++S.rNew;
   const row = rowIndex(r);
+  S.ra[r % NR] = exp(S.fA);
   const sig = 0.08 + 1.8 * pow(dc, 1.5);
   for (let c = 0; c < NX; c++) {
     const i = row + c;
     // The bud hands each new row the bud's phase, a little behind at the sides.
-    S.th[i] = S.thb - 1.8 * pow(abs(U[c] - S.lean), 1.2) + sig * gauss();
+    S.th[i] = S.thb - 1.3 * pow(abs(U[c] - S.fL), 1.2) + sig * gauss();
     S.ep[i] = gauss();
     S.xi[i] = 0;
     S.fj[i] = 1.4 * gauss();
@@ -97,14 +99,37 @@ function advance(S, dt) {
 
   // The period wanders about a minute-long mean, the growth speed wanders
   // slower and further, and the lean of the chevrons drifts.
-  S.aT += (-S.aT / 14) * dt + 0.11 * sqrt((2 * dt) / 14) * gauss();
-  S.aV += (-S.aV / 45) * dt + 0.2 * sqrt((2 * dt) / 45) * gauss();
+  // The first minutes are tamer, so the panel opens on segments near their set length.
+  const ws = 0.3 + 0.7 * rise(0, 220, t);
+  S.aT += (-S.aT / 10) * dt + ws * 0.19 * sqrt((2 * dt) / 10) * gauss();
+  S.aV += (-S.aV / 50) * dt + ws * 0.36 * sqrt((2 * dt) / 50) * gauss();
+  S.aA += (-S.aA / 8) * dt + 0.3 * sqrt((2 * dt) / 8) * gauss();
+  S.aA = cl(S.aA, -0.5, 0.3);
+  // Over minutes the reporter's brightness, the position of the front and the
+  // width of the tissue drift as well.
+  S.aG += (-S.aG / 45) * dt + 0.22 * sqrt((2 * dt) / 45) * gauss();
+  S.dfw += (-S.dfw / 50) * dt + 6 * sqrt((2 * dt) / 50) * gauss();
+  S.hww += (-S.hww / 70) * dt + 2.2 * sqrt((2 * dt) / 70) * gauss();
+  S.aG = cl(S.aG, -0.45, 0.2);
+  S.dfw = cl(S.dfw, -11, 11);
+  S.hww = cl(S.hww, -4, 3.5);
   S.lean += (-S.lean / 40) * dt + 0.12 * sqrt((2 * dt) / 40) * gauss();
-  S.aT = cl(S.aT, -0.35, 0.35);
-  S.aV = cl(S.aV, -0.45, 0.45);
+  S.aT = cl(S.aT, -0.4, 0.4);
+  S.aV = cl(S.aV, -0.7, 0.6);
   S.lean = cl(S.lean, -0.3, 0.3);
-  const T = S.tk * exp(S.aT);
-  const v = S.vk * exp(S.aV);
+  // The random walks above are rough from frame to frame; what the picture
+  // reads is a 3 s low-pass of them, so a brightness or an edge never jitters.
+  const fa = 1 - exp(-dt / 3);
+  S.fT += (S.aT - S.fT) * fa;
+  S.fV += (S.aV - S.fV) * fa;
+  S.fA += (S.aA - S.fA) * fa;
+  S.fG += (S.aG - S.fG) * fa;
+  S.fD += (S.dfw - S.fD) * fa;
+  S.fH += (S.hww - S.fH) * fa;
+  S.fL += (S.lean - S.fL) * fa;
+  const T = S.tk * exp(S.fT);
+  // A segment is never shorter than 9 LEDs: the cells could not draw it.
+  const v = cl(S.vk * exp(S.fV), 9 / T, 3.8);
   const w0 = TAU / T;
 
   // Now and then the bud skips a beat or runs one early: the next segment comes
@@ -112,7 +137,7 @@ function advance(S, dt) {
   if (S.slipLeft > 0) {
     S.slipLeft -= dt;
     if (S.slipLeft <= 0) S.slipRate = 0;
-  } else if (Math.random() < dt / 55) {
+  } else if (Math.random() < dt / 40) {
     const mag = (0.4 + 0.45 * Math.random()) * TAU * (Math.random() < 0.55 ? -1 : 1);
     S.slipLeft = 4;
     S.slipRate = mag / 4;
@@ -121,7 +146,7 @@ function advance(S, dt) {
   S.thb -= TAU * floor(S.thb / TAU);
 
   // Coupling and the spread of cell clocks.
-  const Kc = 1.0 * pow(0.04, dc);
+  const Kc = 1.0 * pow(0.06, dc);
   const sigE = 0.03 + 0.12 * dc;
   // Noise on each cell's clock rate, correlated for about 2.5 s so the speckle
   // drifts instead of flickering.
@@ -132,7 +157,7 @@ function advance(S, dt) {
   for (let c = 0; c < NX; c++) {
     const u = U[c];
     S.wob[c] = 0.55 * sin(2.3 * u + 0.21 * t + S.ph[0]) + 0.45 * sin(4.1 * u - 0.13 * t + S.ph[1]) + 0.3 * sin(7.3 * u + 0.29 * t + S.ph[2]);
-    S.P[c] = 1 - 0.18 * pow(abs(u - S.lean), 1.2);
+    S.P[c] = 0.5 * (1 - 0.65 * dc) * pow(abs(u - S.fL), 1.2);
   }
 
   S.z += v * dt;
@@ -147,15 +172,17 @@ function advance(S, dt) {
     const d = S.z - r * CS;
     for (let c = 0; c < NX; c++) {
       const i = row + c;
-      const df = DF0 * (1 + 0.09 * wob[c]) + fj[i];
+      const df = (DF0 + S.fD) * (1 + 0.09 * wob[c]) + fj[i];
       const s = d / df;
       dth[i] = 0;
       if (s >= 1) {
         ka[i] = -1;
         continue;
       }
-      const g = pow(1 - s, 1.8);
-      om[i] = w0 * P[c] * g * (1 + sigE * ep[i]);
+      // the clock slows at once as a cell leaves the bud, then more gently, then stops at the front
+      const g = (1 - 0.28 * (1 - exp(-d / 5))) * pow(1 - s, 1.8);
+      // the sides run slower than the middle, but only once the cell has left the bud
+      om[i] = w0 * (1 - P[c] * rise(0, 16, d)) * g * (1 + sigE * ep[i]);
       ka[i] = 1 - rise(0.8, 1, s);
     }
   }
@@ -192,7 +219,7 @@ function advance(S, dt) {
   // Defects: a patch of cells gets knocked out of phase.
   if (Math.random() < (dt * (1 + 4 * dc)) / 26) {
     const u0 = (Math.random() * 2 - 1) * 0.8;
-    const d0 = 8 + Math.random() * 0.75 * DF0;
+    const d0 = 8 + Math.random() * 0.75 * (DF0 + S.fD);
     const rad = 4 + 3 * Math.random();
     const amp = (0.5 + 1.2 * Math.random()) * (Math.random() < 0.5 ? -1 : 1);
     S.kick = { u0, d0, rad, amp };
@@ -226,11 +253,17 @@ export function update(dt, input, params) {
     S.vk = cl(S.k[1], 1.2, 3.2);
     S.tk = cl(S.k[2], 7, 13);
     S.dc = cl(S.k[3], 0, 1);
-    S.aT = 0.1 * gauss();
-    S.aV = 0.15 * gauss();
+    S.aT = 0.03 * gauss();
+    S.aV = 0.05 * gauss();
     S.lean = 0.1 * gauss();
+    S.fT = S.aT;
+    S.fV = S.aV;
+    S.fL = S.lean;
     const span = min(170, (YB + 10) / S.vk + 40);
     for (let t = 0; t < span; t += 1 / 15) advance(S, 1 / 15);
+    // Open with the bud at the dark end of its beat, so the first seconds show
+    // an arc leaving it.
+    for (let n = 0; n < 400 && cos(S.thb - 1.35 * PI) < 0.95; n++) advance(S, 1 / 15);
     S.first = false;
   }
   const r = advance(S, dt);
@@ -253,11 +286,11 @@ export function draw(display, params) {
   // worked out on the phase interpolated to each LED, so a thin line follows
   // its contour instead of blinking between cells.
   const Lnom = cl(S.vNow * S.TNow, 8, 50);
-  const bw2 = (6.4 / Lnom) * (6.4 / Lnom);
+  const bw2 = ((6.4 * (1 + 1.2 * S.dc)) / Lnom) ** 2;
   // The phase the pixels read is the cells' phasors averaged over a small
   // neighbourhood. In step it changes nothing; out of step it turns a speck
   // of one cell into a soft patch about three LEDs across.
-  const wb = 0.1 + 0.15 * S.dc;
+  const wb = 0.1 + 0.15 * min(1, S.dc * 1.5);
   const { ps, cs, sn, cx } = S;
   for (let r = rMin; r <= rNew; r++) {
     const row = rowIndex(r);
@@ -286,6 +319,8 @@ export function draw(display, params) {
   }
   const phi = cs;
 
+  const DFn = DF0 + S.fD;
+  const gain = 1.1 * exp(S.fG);
   lum.fill(0);
   mag.fill(0);
   for (let y = 0; y < H; y++) {
@@ -293,14 +328,15 @@ export function draw(display, params) {
     const ds = d + 3;
     if (ds <= 0) continue;
     const s2 = cl(ds / 34, 0, 1);
-    const hw = HW * (0.14 + 0.86 * sqrt(1 - (1 - s2) * (1 - s2)));
+    const hw = (HW + S.fH) * (0.14 + 0.86 * sqrt(1 - (1 - s2) * (1 - s2)));
     let rf = (S.z - d) / CS;
     if (rf > rNew - 1e-4) rf = rNew - 1e-4;
     if (rf < rMin) continue;
     const r0 = floor(rf), ra = rf - r0;
-    const amp = (0.78 + 0.22 * rise(0, 34, d)) * (1 - 0.42 * rise(DF0, DF0 + 60, d));
+    const ras = S.ra[r0 % NR] * (1 - ra) + S.ra[(r0 + 1) % NR] * ra;
+    const amp = ras * gain * (0.6 + 0.4 * rise(0, 40, d)) * (1 - 0.42 * rise(DFn, DFn + 60, d));
     const bud = 0.34 * exp(-(d * d) / 150);
-    const bamp = rise(0.7, 1.08, d / DF0) * (1 - 0.35 * rise(DF0, DF0 + 60, d));
+    const bamp = rise(0.7, 1.08, d / DFn) * (1 - 0.35 * rise(DFn, DFn + 60, d)) * (1 - 0.6 * S.dc * S.dc);
     const i0 = rowIndex(r0), i1 = rowIndex(r0 + 1);
     const xa = max(0, floor(XC - hw - 3)), xb = min(W - 1, floor(XC + hw + 3));
     for (let x = xa; x <= xb; x++) {
@@ -321,7 +357,7 @@ export function draw(display, params) {
       const t11 = dd - TAU * Math.round(dd / TAU);
       const e0 = 0.5 + 0.5 * cos(t00 + a01 * t01 + a10 * t10 + a11 * t11);
       const E = pow(e0, 5.5) * amp + bud * (0.45 + 0.55 * e0);
-      const B = exp((-4 * e0) / bw2) * bamp;
+      const B = exp((-4 * e0) / bw2) * bamp * sqrt(ras);
       const p = y * W + x;
       lum[p] = m * (0.1 + 0.9 * E * (0.55 + 0.45 * m));
       // The notochord: a faint stain down the axis, fading with height.
