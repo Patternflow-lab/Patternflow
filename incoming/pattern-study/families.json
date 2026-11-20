@@ -89,5 +89,10 @@
   "pinhole": { "label": "바늘구멍 상", "color": "#f0c24a" },
   "geodesy": { "label": "측지", "color": "#4fb87a" },
   "hotspring": { "label": "온천", "color": "#17c3b2" },
-  "adaptiveoptics": { "label": "보정 광학", "color": "#8fb4ff" }
+  "adaptiveoptics": { "label": "보정 광학", "color": "#8fb4ff" },
+  "pulsar": { "label": "맥동 전파원", "color": "#1a1aff" },
+  "embryo": { "label": "배아 발생", "color": "#36d836" },
+  "stormradar": { "label": "폭풍 레이더", "color": "#ff0cb6" },
+  "leidenfrost": { "label": "라이덴프로스트", "color": "#71d80a" },
+  "welding": { "label": "용접", "color": "#ffcc00" }
 }
