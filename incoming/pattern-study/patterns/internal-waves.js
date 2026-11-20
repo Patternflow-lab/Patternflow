@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.4..4, Width=-1..1, Packets=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel from the gold glint over deep teal sea it opens on.
-// Knob 2: Speed. How fast the leading soliton travels, from 0.4 LEDs a second to 4, opening at 2; the smaller solitons behind it are up to 30% slower, so a packet spreads by about 0.3 LEDs for every LED it travels.
-// Knob 3: Width. How wide each soliton is, and so how far apart the bands sit: 2.7 LEDs at -1 with bands 11 LEDs apart, 5 at 0 with bands 21 apart, 9 at 1 with only two or three bands across the panel.
-// Knob 4: Packets. At -1 one packet at a time, all travelling the same way; at 1 up to four at once, heading up to 75 degrees apart, so they cross in chequers.
+// Knob 1: Hue. Six looks, opening on gold glint over deep teal sea; at 0.2 amber on slate blue, at 0.4 coral on violet, at 0.6 champagne on plum, at 0.8 lemon on pine green, at 1 silver-white on grey teal, with the hues turning between.
+// Knob 2: Speed. How fast the leading soliton travels, from 0.6 LEDs a second at 0.4 to 5.8 at 4, opening at 2.9. The small solitons behind it are up to 30% slower, so a train spreads by up to 0.3 LEDs for every LED it travels.
+// Knob 3: Width. How wide each soliton is, and so how far apart the bands sit: 1.8 LEDs at -1 with bands about 8 LEDs apart, 3 at 0 with bands about 13 apart, 5.1 at 1 with bands about 22 apart, so two or three cross the panel.
+// Knob 4: Packets. At -1 one packet at a time and every packet heads within 10 degrees of the same diagonal; at 1 about three at once (a new one starts when the last has crossed a third of the panel) heading up to 75 degrees either side of it, so they cross in chequers.
 
 const W = 64;
 const H = 128;
@@ -134,14 +134,16 @@ function makePacket(S, ang, lead, amp0, lat) {
     tab: new Float32Array(NT + 4),
     wa: rnd(1.4, 2.6), wb: rnd(0.8, 1.6),
     ka: TAU / rnd(48, 90), kb: TAU / rnd(24, 44),
-    da: rnd(0, TAU), db: rnd(0, TAU), ua: rnd(0, TAU), ub: rnd(0, TAU),
-    ra: rnd(0, TAU), rb: rnd(0, TAU),
-    ca: rnd(0, TAU), cb: rnd(0, TAU),
+    da: rnd(0, TAU), db: rnd(0, TAU), cda: 0, sda: 0, cdb: 0, sdb: 0,
     ph1: rnd(0, TAU), ph2: rnd(0, TAU), ph3: rnd(0, TAU),
     kl: TAU / rnd(22, 40),
     amp: lead === undefined ? rnd(0.65, 1) : amp0, sf: rnd(0.8, 1.25),
     tx: rnd(0, 100), ty: rnd(0, 100), tx2: rnd(0, 100), ty2: rnd(0, 100), tv: rnd(0.5, 0.9),
   };
+  P.cda = cos(P.da);
+  P.sda = sin(P.da);
+  P.cdb = cos(P.db);
+  P.sdb = sin(P.db);
   P.T = lead === undefined ? 0 : lead + e + 16;
   return P;
 }
@@ -157,7 +159,7 @@ export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
     w: 3, c0: 2.9, u: 0.53,
-    dist: 0, next: 0,
+    next: 0,
     psi: 0, pb: (random() < 0.5 ? -0.8 : 0.8) + (random() < 0.5 ? 0 : PI), pp: [rnd(0, TAU), rnd(0, TAU)],
     pk: [], hist: [],
     lat,
@@ -165,7 +167,6 @@ export function setup(params) {
     wx: random() * 100, wy: random() * 100, wdir: rnd(0, TAU), wdirV: 0,
     sp: [rnd(0, TAU), rnd(0, TAU), rnd(0, TAU), rnd(0, TAU)],
     sw: [rnd(0, TAU), rnd(0, TAU)],
-    vb: new Float32Array(W * H),
   };
   S.psi = S.pb + 0.3 * sin(S.pp[0]) + 0.15 * sin(S.pp[1]);
   params.s = S;
@@ -193,7 +194,6 @@ function spawn(S, lead, amp0) {
 
 function stepPackets(S, dt) {
   const dl = S.c0 * dt;
-  S.dist += dl;
   for (const P of S.pk) P.T += dl * P.sf;
   // The family of headings turns slowly, but stays diagonal.
   S.psi = S.pb + 0.3 * sin(0.0113 * S.t + S.pp[0]) + 0.15 * sin(0.0071 * S.t + S.pp[1]);
@@ -230,12 +230,12 @@ export function update(dt, input, params) {
     S.first = false;
     const n = 1 + 1.9 * S.u;
     const m = Math.round(n);
-    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(4, 20) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55));
+    for (let i = 0; i < m; i++) spawn(S, i === 0 ? rnd(14, 34) : rnd(-60, -10) - 30 * (i - 1), i === 0 ? 1 : rnd(0.4, 0.55));
     S.next = (1 / n) * rnd(0.85, 1.15);
   }
   S.t += dt;
   stepPackets(S, dt);
-  // Chop drift and the sun's slow wander.
+  // The wind turns slowly and carries the chop with it.
   S.wdirV += (-S.wdirV * 0.2 * dt) + 0.12 * sqrt(dt) * (random() - 0.5) * 3.4;
   S.wdir += S.wdirV * dt;
   const ws = 0.9 + 0.35 * S.c0;
@@ -309,7 +309,7 @@ export function draw(display, params) {
         const cs = (dx * P.hx + dy * P.hy) / d;
         const e = sstep(cos(P.alpha * 1.3), cos(P.alpha * 0.55), cs);
         if (e <= 0) continue;
-        const wob = P.wa * sin(P.ka * (px * cos(P.da) + py * sin(P.da)) + P.ph1 + 0.07 * t) + P.wb * sin(P.kb * (px * cos(P.db) + py * sin(P.db)) + P.ph2 - 0.11 * t);
+        const wob = P.wa * sin(P.ka * (px * P.cda + py * P.sda) + P.ph1 + 0.07 * t) + P.wb * sin(P.kb * (px * P.cdb + py * P.sdb) + P.ph2 - 0.11 * t);
         const lt = dx * P.nx + dy * P.ny;
         const along = 0.8 + 0.2 * sin(lt * P.kl + P.ph3);
         const dd = d + wob;
