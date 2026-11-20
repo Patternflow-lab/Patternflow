@@ -38,7 +38,7 @@ const RMAX = [0.46, 0.64, 0.86];
 // Where the drive opens each class: yellow first, brown last.
 const THETA = [0.75, 0.55, 0.3];
 // What each body pattern adds to the drive of each class: stipple opens the small yellow sacs and keeps the brown ones shut.
-const BONUS = [[0, 0, 0], [0.2, 0.1, -0.24], [-0.1, -0.04, 0.1]];
+const BONUS = [[0, 0, 0], [0.3, 0.18, -0.2], [-0.1, -0.04, 0.1]];
 const TOPEN = [0.09, 0.11, 0.14];
 const TCLOSE = [0.8, 1.0, 1.4];
 
@@ -73,12 +73,12 @@ function hsv(h, s, v, out) {
 export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
-    u2: 0.43, kw: 0.06, sp: 5, ksp: 5,
+    u2: 0.43, kw: 0.06, sp: 5, ksp: 5, rs: 1,
     sd: random() * 500,
     ox: 0, oy: 0, ox2: 0, oy2: 0, dir: random() * TAU,
-    bw: [0.62, 0.0, 0.38], bt: [0.62, 0.0, 0.38], mode: 0, timer: 12,
-    ew: [0.6, 0, 0.4],
-    events: [], bdir: PI / 2 + (random() - 0.5) * 0.8, btimer: 0,
+    bw: [0.3, 0.15, 0.55], bt: [0.3, 0.15, 0.55], mode: 2, timer: 46,
+    ew: [0.3, 0.15, 0.55],
+    events: [], glints: [], gtimer: 3, events0: 0, bdir: PI / 2 + (random() - 0.5) * 0.8, btimer: 0,
     ux: new Float32Array(NC), uy: new Float32Array(NC),
     cls: new Uint8Array(NC), gain: new Float32Array(NC), pers: new Float32Array(NC),
     o: new Float32Array(NC), tw: new Float32Array(NC), cx: new Float32Array(NC), cy: new Float32Array(NC),
@@ -91,14 +91,14 @@ export function setup(params) {
   let n = 0;
   for (let j = -NJ; j <= NJ; j++)
     for (let i = -NI; i <= NI; i++) {
-      S.ux[n] = i + 0.5 * (j & 1) + (random() - 0.5) * 0.56;
-      S.uy[n] = j * ROWH + (random() - 0.5) * 0.56 * ROWH;
+      S.ux[n] = i + 0.5 * (j & 1) + (random() - 0.5) * 0.8;
+      S.uy[n] = j * ROWH + (random() - 0.5) * 0.8 * ROWH;
       const r = random();
       S.cls[n] = r < 0.2 ? 0 : r < 0.45 ? 1 : 2;
       S.gain[n] = 0.78 + 0.44 * random();
       S.pers[n] = gauss() * 0.11;
       S.tone[n] = 0.84 + 0.3 * random();
-      S.shut[n] = 0.55 + 0.35 * random();
+      S.shut[n] = 0.62 + 0.3 * random();
       S.th[n] = (random() - 0.5) * 0.03;
       S.id[n] = random() * 900;
       n++;
@@ -174,10 +174,11 @@ function advance(S, dt) {
   }
   for (let m = 0; m < 3; m++) S.ew[m] = (S.bw[m] * bias[m]) / bs;
   const [wm, ws, wb] = S.ew;
+  S.rs = 1 - 0.3 * ws;
 
   // Mottle and stipple drift over the skin on a slow wandering heading.
   S.dir += 0.05 * sqrt(dt) * gauss();
-  const dv = 0.5 + 0.7 * u2;
+  const dv = 1.0 + 1.4 * u2;
   S.ox += cos(S.dir) * dv * dt;
   S.oy += sin(S.dir) * dv * dt;
   S.ox2 += cos(S.dir + 2) * dv * 0.6 * dt;
@@ -198,11 +199,32 @@ function advance(S, dt) {
     if (ev.q > ev.hi) S.events.splice(i, 1);
   }
 
+  // Glints: a soft flash of the iridescent layer sweeps across now and then, as the skin turns to the light.
+  S.gtimer -= dt;
+  if (S.gtimer <= 0) {
+    S.gtimer = 14 + 26 * random();
+    const a = random() * TAU;
+    const n = [cos(a), sin(a)];
+    let lo = 1e9, hi = -1e9;
+    for (const [px, py] of [[-32, -64], [32, -64], [-32, 64], [32, 64]]) {
+      const v = px * n[0] + py * n[1];
+      lo = min(lo, v);
+      hi = max(hi, v);
+    }
+    const w = 14 + 12 * random();
+    S.glints.push({ n, w, q: lo - w, hi: hi + w, v: 8 + 6 * random(), amp: 0.7 + 0.3 * random(), ph: random() * TAU });
+  }
+  for (let i = S.glints.length - 1; i >= 0; i--) {
+    const g = S.glints[i];
+    g.q += g.v * dt;
+    if (g.q > g.hi) S.glints.splice(i, 1);
+  }
+
   // The sacs.
-  const L = 0.13 + 0.56 * u2;
+  const L = 0.1 + 0.56 * u2;
   const A = 0.7;
-  const lm = lerp(11, 27, kwn);
-  const ls = 1.8 * sp;
+  const lm = lerp(8, 27, kwn);
+  const ls = 1.25 * sp;
   const tr = 0.004 + 0.012 * u2;
   const zr = 0.05 + 0.06 * u2;
   const sd = S.sd;
@@ -219,14 +241,14 @@ function advance(S, dt) {
     let f = 0;
     const pn = (vn3(id[n], t * 0.11, sd) - 0.5) * 2;
     if (wm > 0.02) {
-      const a = vn3((x + S.ox) / lm, (y + S.oy) / lm, t * 0.05 + sd) - 0.5;
-      const b = vn3((x + S.ox) / (0.5 * lm) + 17.1, (y + S.oy) / (0.5 * lm) + 3.3, t * 0.09 + sd) - 0.5;
+      const a = vn3((x + S.ox) / lm, (y + S.oy) / lm, t * 0.1 + sd) - 0.5;
+      const b = vn3((x + S.ox) / (0.5 * lm) + 17.1, (y + S.oy) / (0.5 * lm) + 3.3, t * 0.17 + sd) - 0.5;
       const m = tanh(2.2 * (a + 0.42 * b));
       f += wm * (0.72 * m + 0.28 * pn);
     }
     if (ws > 0.02) {
       const s = vn3((x + S.ox2) / ls + 40.2, (y + S.oy2) / ls + 11.7, t * 0.3 + sd);
-      f += ws * (tanh(3.4 * (2 * s - 1 - 0.2)) * 0.9 + 0.1 * pn);
+      f += ws * (tanh(3.2 * (2 * s - 1)) * 0.55 + 0.45 * pn);
     }
     if (wb > 0.02) {
       let g = 0;
@@ -287,13 +309,23 @@ export function draw(display, params) {
   const ph1 = 0.071 * t, ph2 = 0.043 * t + 1.3, ph3 = 0.029 * t + 4.1;
   const tz = t * 0.04;
   const rgb = [0, 0, 0];
+  const gls = S.glints;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const w1 = sin(0.047 * x + 0.021 * y + ph1);
       const w2 = sin(-0.018 * x + 0.052 * y + ph2);
       const w3 = sin(0.031 * x - 0.037 * y + ph3);
       const tex = vn3(x / 2.7 + S.sd, y / 2.7, tz) - 0.5;
-      hsv(h0 + 0.05 * w1 + 0.035 * w2, 0.84 - 0.08 * w3, 0.5 + 0.3 * (0.5 + 0.5 * w3) + 0.12 * (0.5 + 0.5 * w1) + 0.22 * tex, rgb);
+      const tex2 = vn3(x / 5.1 + S.sd * 1.7, y / 5.1, tz * 1.3 + 9) - 0.5;
+      // Leucophore: milky patches, 25 to 40 LEDs across, that wash the iridescence out.
+      const lk = sstep(0.5, 0.85, vn3(x / 30 + S.sd * 0.3, y / 30, t * 0.02 + 3));
+      let gl = 0;
+      for (let e = 0; e < gls.length; e++) {
+        const g = gls[e];
+        const u = (x - 32) * g.n[0] + (y - 64) * g.n[1] - g.q + 4.5 * sin(0.21 * x + 0.17 * y + g.ph + 0.9 * t);
+        gl += g.amp * exp(-0.5 * u * u / (g.w * g.w * 0.17));
+      }
+      hsv(h0 + 0.05 * w1 + 0.035 * w2 + 0.06 * tex2 + 0.05 * gl, (0.84 - 0.08 * w3) * (1 - 0.5 * lk) * (1 - 0.2 * gl), 0.5 + 0.3 * (0.5 + 0.5 * w3) + 0.12 * (0.5 + 0.5 * w1) + 0.24 * tex + 0.14 * lk + 0.3 * gl, rgb);
       const i = (y * W + x) * 3;
       buf[i] = rgb[0] * 255;
       buf[i + 1] = rgb[1] * 255;
@@ -301,17 +333,17 @@ export function draw(display, params) {
     }
   }
   // Pigments: the hue leans a little with the Hue knob.
-  const dh = 0.08 * sin(TAU * k1);
+  const dh = 0.05 * sin(TAU * k1);
   hsv(0.1 + dh, 0.8, 0.93, pig[0]);
   hsv(0.047 + dh, 0.74, 0.74, pig[1]);
-  hsv(0.07 + dh, 0.76, 0.45, pig[2]);
+  hsv(0.055 + dh, 0.78, 0.46, pig[2]);
   dens.fill(0);
   for (let q = 0; q < order.length; q++) {
     const n = order[q];
     if (!vis[n]) continue;
     const c = cls[n];
     const op = o[n];
-    const r = lerp(0.8 + 0.5 * shut[n], RMAX[c] * sp * gain[n], pow(op, 0.85));
+    const r = lerp(0.8 + 0.5 * shut[n], RMAX[c] * sp * gain[n] * S.rs, pow(op, 0.85));
     const ca = 0.86;
     const sh0 = sstep(0, 0.5, op);
     const x0 = max(0, floor(cx[n] - r - 1.3)), x1 = min(W - 1, ceil(cx[n] + r + 1.3));
@@ -323,7 +355,7 @@ export function draw(display, params) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - cx[n], dy = y + 0.5 - cy[n];
         const d = sqrt(dx * dx + dy * dy);
-        const a = (1 - sstep(r - 0.8, r + 0.8, d)) * ca;
+        const a = (1 - sstep(r - 0.6, r + 0.6, d)) * ca;
         if (a <= 0.002) continue;
         const u = d / r;
         // An open sac is darkest at its core and thins towards the rim, where the pigment turns warmer and lighter.
@@ -339,7 +371,7 @@ export function draw(display, params) {
           lu *= 1 - 0.13 * min(dn, 2.2);
           dens[i / 3] = dn + a * sh0;
         }
-        const wr = 1 + 0.38 * rim, wg = 1 + 0.62 * rim, wb = 1 + 0.5 * rim;
+        const wr = 1 + 0.3 * rim, wg = 1 + 0.34 * rim, wb = 1 + 0.3 * rim;
         buf[i] += (lerp(buf[i] * sk, min(255, rr * lu * wr), sh0) - buf[i]) * a;
         buf[i + 1] += (lerp(buf[i + 1] * sk, min(255, gg * lu * wg), sh0) - buf[i + 1]) * a;
         buf[i + 2] += (lerp(buf[i + 2] * sk, min(255, bb * lu * wb), sh0) - buf[i + 2]) * a;
