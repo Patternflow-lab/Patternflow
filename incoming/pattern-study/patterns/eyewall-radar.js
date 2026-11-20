@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Eyewall Radar
 // Family:  stormradar
-// Idea:    A mature hurricane as a weather radar paints it in stepped reflectivity colour, with a clear eye, a ring of red and magenta eyewall, spiral rainbands whose cells grow and die, and now and then a second eyewall that forms from a band, opens a moat and takes over from the inner ring.
+// Idea:    A mature hurricane as a weather radar paints it in stepped reflectivity colour: a clear eye, a ring of red and magenta eyewall, spiral rainbands whose convective cells grow and die, and now and then a second eyewall that forms from a band, opens a moat and takes over from the inner ring.
 // Author:  patternflow-lab
 // Date:    2026-11-20
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Intensity=0..3, Spiral=-1..1, Replacement=0..0.2
 //
-// Knob 1: Hue. Turns the whole stepped palette round the wheel; at 0 it is the true radar table, light cyan and blue for drizzle up through green, yellow, orange and red to a magenta and white core, and at 1 it is back there.
-// Knob 2: Intensity. The strength of the storm: at 0 a tropical depression with no eye, bands at 20 to 30 dBZ in blue and green; at 2 (start) a hurricane with a 13 LED clear eye, a ring about 7 LEDs thick and red-magenta cores; at 3 an eye 11 LEDs across and a ring that peaks in white.
-// Knob 3: Spiral. How tightly and how many: at -1 two open arms that run almost straight off the panel, at 0 four arms at about 25 degrees to the wind, at 1 five or six arms wound close to the eye.
-// Knob 4: Replacement. How often a second eyewall is born from a rainband and how fast it takes over, in births per ten seconds: at 0 never, at 0.06 (start) about one every three minutes with the swap taking 95 s, at 0.2 one every 50 s and the swap in 28 s.
+// Knob 1: Hue. Turns the whole stepped palette round the wheel. At 0 it is the true radar table, cyan and blue for drizzle, then green, yellow, orange, red, magenta and white for the hardest echo, and a full turn brings it back.
+// Knob 2: Intensity. How strong the storm is. At 0 a depression with no eye, a ragged green centre and arms at 20 to 30 dBZ; at 1 a filled, uneven eye; at 2 (start) an eye about 12 LEDs across (9 to 18) in a ring about 8 LEDs thick at 40 dBZ and over, with red and magenta cores; at 3 an eye 10 LEDs across and a ring 10 LEDs thick that peaks in white.
+// Knob 3: Spiral. How many arms and how tightly they wind. At -1 two open arms at 36 degrees to the circle that leave the panel almost straight; at 0 (start) four arms at 25 degrees; at 1 six arms at 14 degrees that wrap the eye in near-circles.
+// Knob 4: Replacement. How often a second eyewall is born from a band, in births per ten seconds. At 0 never; at 0.06 (start) about one every 170 s, and the swap takes about 95 s; at 0.2 one every 50 s and the swap takes 28 s. After a swap the eye is 17 to 21 LEDs across and shrinks back over about three minutes.
 
 const W = 64;
 const H = 128;
@@ -85,6 +85,7 @@ for (let j = 0; j < NRG; j++) {
   RG[j] = exp(LRG[j]);
 }
 const LR20 = log(20);
+const LN7 = log(7);
 const NB = 96; // azimuth bins of a ring table
 const NSLOT = 6;
 const NCELL = 160;
@@ -92,20 +93,17 @@ const TL = 80; // texture lattice, 2.4 LEDs a cell, in the storm's own frame
 const TS = 2.4;
 const TH = (TL * TS) / 2;
 
-function newRing() {
-  return {
-    R: 10, Z: 55, wi: 1.5, wo: 3.4, cov: 1, phi: 0, act: 1,
-    ps: [0, 1, 2, 3, 4, 5].map(() => rnd(0, TAU)),
-    a2: 0.05, a3: 0.03,
-    tR: new Float32Array(NB), tZ: new Float32Array(NB), tW: new Float32Array(NB),
-  };
-}
+const newRing = () => ({
+  R: 10, Z: 55, wi: 1.5, wo: 3.4, cov: 1, phi: 0, act: 1, a2: 0, a3: 0,
+  ps: [0, 1, 2, 3, 4, 5].map(() => rnd(0, TAU)),
+  tR: new Float32Array(NB), tZ: new Float32Array(NB), tW: new Float32Array(NB),
+});
 
 export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06],
     I: 0.67, u3: 0.5, v: 0.06,
-    iw: 0, rou: 0, zou: 0, om0: 0.15, omou: 0,
+    iw: 0, is: 0, rou: 0, rs: 0, zou: 0, zs: 0, om0: 0.15, omou: 0,
     px: 0, py: 0, vx: 0, vy: 0, wph: rnd(0, TAU), wom: 0.27, wr: 1.4, w2: rnd(0, TAU),
     cx: HX, cy: HY,
     r1: newRing(), r2: newRing(), rx: 0,
@@ -113,11 +111,10 @@ export function setup(params) {
     bands: [], gen: 0,
     cells: [],
     nx: 0,
-    tx: [0, 1].map((m) => ({ age: m * 24, rot: 0, T: rnd(44, 60), lat: new Float32Array(TL * TL) })),
+    tx: [0, 1].map((m) => ({ age: m * 25, rot: 0, T: 50, lat: new Float32Array(TL * TL) })),
     pc: new Float32Array(N), pr: new Float32Array(N), Z: new Float32Array(N), cl: new Float32Array(N),
     CA: new Float32Array(33 * 65), CB: new Float32Array(33 * 65), cb: 0,
     pal: PAL.map(() => [0, 0, 0]),
-    tmp: [0, 0, 0],
   };
   for (let i = 0; i < 33 * 65; i++) {
     S.CA[i] = Math.random();
@@ -133,21 +130,21 @@ export function setup(params) {
 
 const omega = (S, r) => S.om0 * pow(7 / max(r, 7), 0.55);
 
-// ---------------------------------------------------------------- bands
-
+// bands
 function bandIdeal(bd, lr) {
   return bd.ang - (lr - LR20) / bd.b;
 }
 
-function newBand(S, k, first) {
+function newBand(S, k, first, slot) {
   const bd = S.bands[k];
   const u = S.u3;
   bd.dead = false;
   bd.gen = ++S.gen;
   bd.life = rnd(230, 430);
-  bd.age = first ? rnd(0, bd.life * 0.8) : 0;
-  bd.amp = rnd(0.85, 1.12);
-  const alpha = (36 - 22 * u) * (PI / 180) * exp(0.14 * gauss());
+  // The first arms are spread through their lives so they do not all die together.
+  bd.age = first ? bd.life * 0.7 * ((slot + Math.random()) / NSLOT) : 0;
+  bd.amp = rnd(0.7, 1.15); // a few dBZ hotter or cooler than the others
+  const alpha = (36 - 22 * u) * (PI / 180) * exp(0.22 * gauss());
   bd.b0 = Math.tan(alpha);
   bd.b = bd.b0;
   bd.sina = bd.b / sqrt(1 + bd.b * bd.b);
@@ -155,9 +152,11 @@ function newBand(S, k, first) {
   bd.rin0 = rnd(28, 50);
   bd.rin1 = rnd(19, 26);
   bd.bx = 0;
-  // Of a few tries, the angle farthest from the arms already out there.
-  let best = 0, bestD = -1;
-  for (let t = 0; t < 5; t++) {
+  bd.bs = 0;
+  // A random angle that is not on top of an arm already out there. Arms that
+  // sweep down the long side of the panel are kept more often.
+  let best = rnd(0, TAU);
+  for (let t = 0; t < 8; t++) {
     const a = rnd(0, TAU);
     let d = 9;
     for (let j = 0; j < NSLOT; j++) {
@@ -165,11 +164,9 @@ function newBand(S, k, first) {
       if (j === k || o.dead) continue;
       d = min(d, abs(wrap(a - (o.ang - (log(30) - LR20) / o.b))));
     }
-    // The panel is twice as tall as wide: favour arms that sweep down the long side.
-    d -= 0.3 * sin(a - (log(60) - log(30)) / bd.b0);
-    if (d > bestD) {
-      bestD = d;
+    if (d > 0.55 && Math.random() < 0.6 - 0.4 * sin(a - (log(60) - log(30)) / bd.b0)) {
       best = a;
+      break;
     }
   }
   bd.ang = best + (log(30) - LR20) / bd.b;
@@ -177,7 +174,7 @@ function newBand(S, k, first) {
 }
 
 const rin = (bd) => bd.rin0 + (bd.rin1 - bd.rin0) * sst(0, 0.4 * bd.life, bd.age);
-const strOf = (bd) => sst(0, 16, bd.age) * (1 - sst(bd.life - 26, bd.life, bd.age)) * bd.amp;
+const strOf = (bd) => sst(0, 12, bd.age) * (1 - sst(bd.life - 18, bd.life, bd.age));
 
 function phiAt(bd, r) {
   const x = cl((log(r) - LRMIN) / DLR, 0, NRG - 1.001);
@@ -186,12 +183,11 @@ function phiAt(bd, r) {
 }
 
 function updateBands(S, dt) {
-  const count = 2.5 + 3.6 * S.u3;
+  const count = 2.3 + 3.7 * S.u3;
   const relax = 1 - exp(-dt / 28);
   for (let k = 0; k < NSLOT; k++) {
     const bd = S.bands[k];
-    const wk = cl(count - k, 0, 1);
-    bd.wk = wk;
+    const wk = cl((count - k - 0.3) / 0.5, 0, 1);
     if (bd.dead) {
       bd.str = 0;
       bd.wait -= dt;
@@ -207,7 +203,7 @@ function updateBands(S, dt) {
     }
     // The pitch breathes: the arm winds in and out about its own mean.
     bd.bx += (-bd.bx / 60) * dt + 0.2 * sqrt((2 * dt) / 60) * gauss();
-    bd.bs = (bd.bs || 0) + (bd.bx - (bd.bs || 0)) * (1 - exp(-dt / 7));
+    bd.bs += (bd.bx - bd.bs) * (1 - exp(-dt / 7));
     bd.b = bd.b0 * exp(0.45 * bd.bs);
     bd.sina = bd.b / sqrt(1 + bd.b * bd.b);
     bd.om += (0.055 - bd.om) * dt / 90 + 0.003 * sqrt(dt) * gauss() * 0.3;
@@ -220,8 +216,7 @@ function updateBands(S, dt) {
   }
 }
 
-// ---------------------------------------------------------------- rings
-
+// rings
 const zRing = (I) => 25 + 30 * pow(I, 0.9);
 const rBase = (I) => 12.4 - 3.8 * I;
 
@@ -229,16 +224,17 @@ function updateRings(S, dt) {
   const I = S.Ie;
   S.rou += (-S.rou / 40) * dt + 0.9 * sqrt((2 * dt) / 40) * gauss();
   S.zou += (-S.zou / 40) * dt + 2.2 * sqrt((2 * dt) / 40) * gauss();
-  S.rs = (S.rs || 0) + (S.rou - (S.rs || 0)) * (1 - exp(-dt / 6));
-  S.zs = (S.zs || 0) + (S.zou - (S.zs || 0)) * (1 - exp(-dt / 6));
+  S.rs += (S.rou - S.rs) * (1 - exp(-dt / 6));
+  S.zs += (S.zou - S.zs) * (1 - exp(-dt / 6));
   S.rx *= exp(-dt / 170);
   const r1 = S.r1;
   S.Rb = rBase(I) + 0.6 * S.rs;
   r1.R += (S.Rb + S.rx - r1.R) * (1 - exp(-dt / 12));
   const zt = zRing(I) + S.zs;
   r1.Z += (zt - r1.Z) * (1 - exp(-dt / 25));
-  r1.wi = 1.1 + 0.4 * (1 - I);
-  r1.wo = 2.3 + 1.0 * (1 - I);
+  const ek = 1 - exp(-dt / 8);
+  r1.wi += (1.1 + 0.4 * (1 - I) - r1.wi) * ek;
+  r1.wo += (2.3 + 1.0 * (1 - I) - r1.wo) * ek;
   const om = omega(S, r1.R);
   for (let i = 0; i < 6; i++) r1.ps[i] += dt * om * [0.7, 1.25, 0.35, 0.5, 0.8, 0.2][i] * (1 + 0.1 * i);
   r1.act = 1;
@@ -259,7 +255,7 @@ function ringTables(S) {
       let z = g.Z + 5.5 * cos(th - g.ps[2]) + 4 * cos(2 * th - g.ps[3]) + 2.5 * cos(3 * th - g.ps[4]);
       if (g.cov < 0.999) {
         const d = abs(wrap(th - g.phi));
-        z -= 38 * (1 - (1 - sst(PI * g.cov - 0.9, PI * g.cov + 0.35, d)));
+        z -= 38 * sst(PI * g.cov - 0.9, PI * g.cov + 0.35, d);
       }
       g.tZ[b] = z;
       g.tW[b] = g.wo * (1 + 0.22 * cos(th - g.ps[5]));
@@ -332,6 +328,8 @@ function updateErc(S, dt) {
     const r1 = S.r1;
     r1.R = r2.R;
     r1.Z = r2.Z;
+    r1.wi = r2.wi;
+    r1.wo = r2.wo;
     r1.ps = r2.ps.slice();
     S.rx = r1.R - S.Rb;
     e.on = false;
@@ -342,8 +340,7 @@ function updateErc(S, dt) {
   }
 }
 
-// ---------------------------------------------------------------- cells
-
+// cells
 function spawn(S, kind, ring, bandIdx) {
   let c = null;
   for (const q of S.cells) if (!q.on) {
@@ -436,17 +433,16 @@ function splat(S) {
     let pk, grid = pc;
     if (c.kind === 1) {
       const g = c.ring === 2 ? S.r2 : S.r1;
-      pk = ringZ(g, c.th) + c.dz;
+      pk = ringZ(g, c.th) + c.dz - (c.ring === 1 && S.erc.on ? 34 * S.erc.s[3] : 0);
       grid = pr;
     } else {
       const bd = S.bands[c.band];
-      pk = bandPk(S, bd, c.r) + c.dz - 40 * (1 - cl(bd.str * bandEnv(bd, c.r), 0, 1));
+      pk = bandPk(S, bd, c.r) + c.dz - 45 * (1 - cl(bd.str * bandEnv(bd, c.r), 0, 1));
     }
     const amp = exp(pk * LN10) * env * env;
     if (amp < 2) continue;
     const ct = cos(c.th), st = sin(c.th);
     const px = cx + c.r * ct, py = cy - c.r * st;
-    // Radial unit (ct, -st), tangential unit (-st, -ct).
     const rad = 3.6 * max(c.sr, c.st);
     const x0 = max(0, floor(px - rad)), x1 = min(W - 1, floor(px + rad));
     const y0 = max(0, floor(py - rad)), y1 = min(H - 1, floor(py + rad));
@@ -467,22 +463,21 @@ function splat(S) {
 const bandEnv = (bd, r) => sst(rin(bd) - 5, rin(bd) + 9, r) * (1 - sst(80, 105, r));
 
 function bandPk(S, bd, r) {
-  return 17 + 19 * S.Ie - 8 * sst(30, 100, r) + 4 * (1 - sst(15, 45, r));
+  return 17 + 19 * S.Ie - 8 * sst(30, 100, r) + 4 * (1 - sst(15, 45, r)) + 7 * (bd.amp - 0.9);
 }
 
-// ---------------------------------------------------------------- storm
-
+// storm
 function stormMove(S, dt) {
-  S.vx += (-S.vx / 30) * dt + 0.14 * sqrt((2 * dt) / 30) * gauss();
-  S.vy += (-S.vy / 30) * dt + 0.15 * sqrt((2 * dt) / 30) * gauss();
-  S.px += (S.vx - S.px * 0.012) * dt;
-  S.py += (S.vy - S.py * 0.012) * dt;
+  S.vx += (-S.vx / 30) * dt + 0.2 * sqrt((2 * dt) / 30) * gauss();
+  S.vy += (-S.vy / 30) * dt + 0.22 * sqrt((2 * dt) / 30) * gauss();
+  S.px += (S.vx - S.px * 0.009) * dt;
+  S.py += (S.vy - S.py * 0.009) * dt;
   // The eye does not go straight: it loops, a trochoid on top of the track.
   S.nx += (-S.nx / 50) * dt + 0.25 * sqrt((2 * dt) / 50) * gauss();
   S.wom = 0.27 * exp(0.25 * tanh(S.nx));
   S.wph += S.wom * dt;
-  S.cx = HX + 11 * tanh(S.px / 11) + S.wr * cos(S.wph) + 0.45 * S.wr * cos(2.31 * S.wph + S.w2);
-  S.cy = HY + 12 * tanh(S.py / 12) + S.wr * sin(S.wph) + 0.45 * S.wr * sin(2.31 * S.wph + S.w2);
+  S.cx = HX + 13 * tanh(S.px / 13) + S.wr * cos(S.wph) + 0.45 * S.wr * cos(2.31 * S.wph + S.w2);
+  S.cy = HY + 15 * tanh(S.py / 15) + S.wr * sin(S.wph) + 0.45 * S.wr * sin(2.31 * S.wph + S.w2);
   S.omou += (-S.omou / 50) * dt + 0.5 * sqrt((2 * dt) / 50) * gauss();
   S.om0 = 0.15 * exp(0.12 * tanh(S.omou));
 }
@@ -494,7 +489,7 @@ function advance(S, dt) {
   S.u3 += (cl((S.k[2] + 1) / 2, 0, 1) - S.u3) * e;
   S.v += (cl(S.k[3], 0, 0.2) - S.v) * e;
   S.iw += (-S.iw / 60) * dt + 0.06 * sqrt((2 * dt) / 60) * gauss();
-  S.is = (S.is || 0) + (S.iw - (S.is || 0)) * (1 - exp(-dt / 8));
+  S.is += (S.iw - S.is) * (1 - exp(-dt / 8));
   S.Ie = cl(S.I + S.is * (0.3 + S.I), 0, 1);
   stormMove(S, dt);
   updateRings(S, dt);
@@ -507,9 +502,8 @@ function advance(S, dt) {
     L.age += dt;
     L.rot += S.om0 * dt;
     if (L.age >= L.T) {
-      L.age = 0;
+      L.age -= L.T;
       L.rot = 0;
-      L.T = rnd(40, 62);
       for (let i = 0; i < L.lat.length; i++) L.lat[i] = Math.random();
     }
   }
@@ -535,7 +529,7 @@ export function update(dt, input, params) {
     S.r1.Z = zRing(S.I);
     S.Rb = S.r1.R;
     for (let k = 0; k < NSLOT; k++) {
-      if (cl(2.5 + 3.6 * S.u3 - k, 0, 1) > 0.1) newBand(S, k, true);
+      if (cl((2.3 + 3.7 * S.u3 - k - 0.3) / 0.5, 0, 1) > 0.1) newBand(S, k, true, k);
     }
     // Open on a storm that has been turning for a minute.
     for (let t = 0; t < 55; t += 0.1) advance(S, 0.1);
@@ -544,11 +538,10 @@ export function update(dt, input, params) {
   advance(S, dt);
 }
 
-// ---------------------------------------------------------------- picture
-
+// picture
 function paint(S, k0) {
   const pal = S.pal;
-  const rgb = S.tmp;
+  const rgb = [0, 0, 0];
   for (let i = 0; i < NP; i++) {
     const h = PALHSV[i];
     hsv2rgb(h[0] + k0, h[1], h[2], rgb);
@@ -566,7 +559,7 @@ export function draw(display, params) {
   const cx = S.cx, cy = S.cy;
   const I = S.Ie;
   const eyeOpen = sst(0.1, 0.5, I);
-  const zFill = 12 + 15 * (1 - eyeOpen);
+  const zFill = 12 + 18 * (1 - eyeOpen);
   const pFill = exp(zFill * LN10);
   const e = erc;
   const sm = e.on ? e.s[2] : 0;
@@ -576,6 +569,10 @@ export function draw(display, params) {
   const tCl = cl(S.cb, 0, 1);
   const tw = tCl * tCl * (3 - 2 * tCl);
   const { CA, CB } = S;
+  const act = S.bands.filter((bd) => bd.str >= 0.02);
+  for (const bd of act) bd.rn = rin(bd);
+  // Two lattices half a period apart, so their weights always make a whole.
+  const tws = S.tx.map((L) => sin((PI * L.age) / L.T));
   for (let y = 0; y < H; y++) {
     const dy = y + 0.5 - cy;
     // Sea clutter lattice, 2 LEDs a cell, drifting between two random draws.
@@ -599,21 +596,19 @@ export function draw(display, params) {
       P += pFill * (1 - sst(R1 - 1.5, R1 + 0.5, r));
       // Spiral arms.
       const lr = log(r);
-      for (let k = 0; k < NSLOT; k++) {
-        const bd = S.bands[k];
-        if (bd.str < 0.02) continue;
-        const rn = rin(bd);
+      for (const bd of act) {
+        const rn = bd.rn;
         if (r < rn - 6) continue;
         const gx = cl((lr - LRMIN) / DLR, 0, NRG - 1.001);
         const gi = floor(gx);
         const ph = bd.phi[gi] + (bd.phi[gi + 1] - bd.phi[gi]) * (gx - gi);
         const d = wrap(th - ph);
         const dp = r * abs(d) * bd.sina;
-        const w = 1.6 + 1.4 * sst(15, 85, r);
+        const w = 1.6 + 2 * sst(15, 85, r);
         const q = dp / w;
         if (q > 7) continue;
         const env = bandEnv(bd, r);
-        const z0 = bandPk(S, bd, r) - 40 * (1 - cl(bd.str * env, 0, 1));
+        const z0 = bandPk(S, bd, r) - 45 * (1 - cl(bd.str * env, 0, 1));
         // A skirt of light rain about every arm.
         const zs = z0 - 19 - 12 * (q / 2.2) * (q / 2.2);
         let pb = exp((z0 - 12 * q * q) * LN10);
@@ -649,14 +644,17 @@ export function draw(display, params) {
         const a = CA[o] + (CB[o] - CA[o]) * tw, b = CA[o + 1] + (CB[o + 1] - CA[o + 1]) * tw;
         const c = CA[o + 33] + (CB[o + 33] - CA[o + 33]) * tw, d = CA[o + 34] + (CB[o + 34] - CA[o + 34]) * tw;
         const n = (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
-        S.cl[i] = sst(0.74, 0.99, n);
+        S.cl[i] = sst(0.73, 0.97, n);
       }
       let z = P > 1e-3 ? log(P) / LN10 : -30;
       if (z > 12) {
+        // The filled middle of a weak storm gets the mottle too, whatever its level.
+        const gain = max(sst(14, 32, z), 2.2 * (1 - eyeOpen) * (1 - sst(R1 - 1.5, R1 + 0.5, r)));
         // Convective mottle, stronger where the echo is.
-        const fr = pow(7 / max(r, 7), 0.55);
+        const fr = exp(-0.55 * max(lr - LN7, 0));
         let tn = 0;
         for (let m = 0; m < 2; m++) {
+          if (tws[m] < 0.01) continue;
           const L = S.tx[m];
           const a = th - L.rot * fr;
           const gx = (r * cos(a) + TH) / TS, gy = (r * sin(a) + TH) / TS;
@@ -666,10 +664,9 @@ export function draw(display, params) {
           fy2 = fy2 * fy2 * (3 - 2 * fy2);
           const o = iy2 * TL + ix, lat = L.lat;
           const v = (lat[o] * (1 - fx) + lat[o + 1] * fx) * (1 - fy2) + (lat[o + TL] * (1 - fx) + lat[o + TL + 1] * fx) * fy2;
-          const wgt = sin((PI * L.age) / L.T);
-          tn += (v - 0.5) * wgt * wgt;
+          tn += (v - 0.5) * tws[m];
         }
-        z += 12 * tn * sst(14, 32, z);
+        z += 12 * tn * gain;
       }
       Z[i] = z;
     }
@@ -682,7 +679,7 @@ export function draw(display, params) {
       const z = Z[i];
       if (z < 11) {
         const q = S.cl[i];
-        if (q > 0.02) display.setPixel(x, y, pal[0][0] * 0.5 * q, pal[0][1] * 0.5 * q, pal[0][2] * 0.5 * q);
+        if (q > 0.2) display.setPixel(x, y, pal[0][0] * 0.6 * q, pal[0][1] * 0.6 * q, pal[0][2] * 0.6 * q);
         continue;
       }
       const u = z / 5;
