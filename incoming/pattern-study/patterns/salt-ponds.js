@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Evaporation=0.8..8, Ponds=-1..1, Wind=0..1
 //
 // Knob 1: Hue. Turns the brine palette round the wheel from the true order it opens on, turquoise, green, amber, coral, rose, magenta; salt white and the cream levees keep their colour.
-// Knob 2: Evaporation. How fast the sun thickens the brine: a pond runs from sea water to salt crust in about 250 s at 0.8, 100 s at 2, where it opens, and 25 s at 8, and the scraping and refilling speed up with it.
-// Knob 3: Ponds. How many ponds the levees cut the panel into: about 7 at -1, 12 at 0, 20 at 1. Turning it splits or joins one pond every 2.5 s until the count is right, and a levee takes 6 s to rise or melt.
-// Knob 4: Wind. How hard the wind works the brine: at 0 faint streaks drift at about 1 LED a second, at 1 they stand out 4 times stronger and race at 5 LEDs a second, ripples run across the water and the sun glint sweeps 30 LEDs instead of 8.
+// Knob 2: Evaporation. How fast the sun thickens the brine: a pond (each keeps its own rate, 0.6 to 1.7 times this) runs from sea water to salt crust in about 250 s at 0.8, 100 s at 2, where it opens, and 25 s at 8; the crust, the blade and the refill speed up with it.
+// Knob 3: Ponds. How many ponds the levees cut the panel into: about 7 at -1, 11 at 0, 17 at 1. Turning it splits or joins one pond every 2.5 s until the count is right, and a levee takes about 6 s to rise or melt.
+// Knob 4: Wind. How hard the wind works the water: at 0 faint streaks drift at about 1 LED a second and the sun glint wanders 10 LEDs either side of the middle; at 1 the streaks are five times stronger and drift at 5 LEDs a second, ripples run, silt pales the brine and the glint sweeps the whole panel.
 
 const W = 64;
 const H = 128;
@@ -28,7 +28,6 @@ const sm = (a, b, v) => {
 };
 const lerp = (a, b, t) => a + (b - a) * t;
 const gauss = () => sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
-const INF = 1e4;
 
 function hash2(i, j) {
   let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0;
@@ -108,11 +107,10 @@ const CANAL = { canal: true };
 function mkLeaf(e, par, src) {
   return {
     kids: null, cut: null, par, e, idx: 0,
-    s: src ? src.s : 0, rate: 0, so: 0.03 * gauss(), seed: 100 * Math.random(),
+    s: src ? src.s : 0, rate: 0, seed: 100 * Math.random(),
     stage: 0, tc: 0, cd: 12, tm: 0, F: 0, Fmax: 12,
     su: 0, sv: 6, send: 0, dir: 0, ax: 0, sg: 1,
     pr: 0, vf: 8, pu: 0, pv: 0, rmax: 30, cg: null, gate: null,
-    fa: floor(4 * Math.random()), fg: 0.06 * (0.5 + Math.random()) * (Math.random() < 0.5 ? -1 : 1),
     bx0: 0, bx1: 0, by0: 0, by1: 0, area: 0,
   };
 }
@@ -206,8 +204,6 @@ function split(S, P, instant) {
   for (const c of [A, B]) {
     c.rate = newRate();
     c.cg = P.cg ? { pos: P.cg.pos, amt: P.cg.amt, tgt: P.cg.tgt } : null;
-    c.fa = P.fa;
-    c.fg = P.fg;
   }
   // A child that is not beside the canal loses its canal gate.
   if (vert) (P.e[1] === CANAL ? A : B).cg = null;
@@ -219,10 +215,6 @@ function split(S, P, instant) {
 }
 
 // Two sibling leaves are joined: their levee melts, their brine mixes, then they are one pond.
-function startMerge(X) {
-  X.cut.tgt = 0;
-  X.merging = true;
-}
 function finishMerge(S, X) {
   const [A, B] = X.kids;
   const e = X.cut.vert ? [A.e[0], B.e[1], A.e[2], A.e[3]] : [A.e[0], A.e[1], A.e[2], B.e[3]];
@@ -264,7 +256,10 @@ function tryMerge(S) {
     if (!A.kids && !B.kids && !X.merging && liquid(A) && liquid(B) && A.area + B.area < 2200) c.push(X);
   }
   if (!c.length) return false;
-  startMerge(c[floor(Math.random() * c.length)]);
+  const X = c[floor(Math.random() * c.length)];
+  X.cut.tgt = 0;
+  X.merging = true;
+  S.merges.push(X);
   return true;
 }
 // A split or a merge, toward the number of ponds the knob asks for; at that number
@@ -327,7 +322,7 @@ function startCrust(S, p) {
   p.stage = 1;
   p.tc = 0;
   p.Fmax = p.dmax + 3.5;
-  p.cd = 13 * Math.pow(2 / S.K2, 0.75) * (0.8 + 0.5 * Math.random());
+  p.cd = 11 * Math.pow(2 / S.K2, 0.75) * (0.8 + 0.5 * Math.random());
 }
 function startScrape(S, p) {
   boxes(S);
@@ -370,7 +365,7 @@ function stepPond(S, p, dt) {
       p.F = 1.8 + (p.Fmax - 1.8) * min(1, p.tc);
       if (p.tc >= 1) {
         p.stage = 2;
-        p.tm = (3 + 3 * Math.random()) * Math.pow(2 / K2, 0.75);
+        p.tm = (2.5 + 2.5 * Math.random()) * Math.pow(2 / K2, 0.75);
       }
       break;
     case 2:
@@ -407,7 +402,7 @@ export function setup(params) {
   const S = {
     t: 0, first: true, k: [0, 2, 0, 0.06], K2: 2, tgt: 12, n: 0, flip: -1, evT: 50,
     PU: new Float32Array(N), PV: new Float32Array(N), pidL: new Int16Array(N), pidR: new Int16Array(N),
-    rootL: null, rootR: null, list: [], cuts: [], boxT: 3,
+    rootL: null, rootR: null, list: [], cuts: [], merges: [], boxT: 3,
     lutD: new Float32Array(NL * 3), lutS: new Float32Array(NL * 3), canal: [0, 0, 0], wet: [0, 0, 0], hueBuilt: -9,
     can: {
       cx: 32, b: 0, a1: 4.6, a2: 1.7, k1: TAU / 66, k2: TAU / 25, p1: TAU * Math.random(), p2: TAU * Math.random(),
@@ -415,9 +410,8 @@ export function setup(params) {
     },
     wpsi: 0.95 + 0.4 * Math.random(), wa1: 100 * Math.random(), wa2: 100 * Math.random(), wg1: 6 * Math.random(), wg2: 6 * Math.random(), wph: 0,
     mo: [100 * Math.random(), 100 * Math.random(), 100 * Math.random(), 100 * Math.random()], mdir: Math.random() * TAU,
-    cl0: 100 * Math.random(), cl1: 100 * Math.random(), cg: 6 * Math.random(),
+    cl0: 100 * Math.random(), cl1: 100 * Math.random(),
     gph: [TAU * Math.random(), TAU * Math.random(), TAU * Math.random(), TAU * Math.random()],
-    th,
   };
   const c = cos(th), s = sin(th);
   const wp = [TAU * Math.random(), TAU * Math.random(), TAU * Math.random(), TAU * Math.random()];
@@ -529,7 +523,6 @@ function advance(S, dt, events) {
       if (p.cg.tgt === 0 && p.cg.amt < 0.02) p.cg = null;
     }
   }
-  let done = null;
   for (const cut of S.cuts) {
     cut.str += (cut.tgt - cut.str) * min(1, dt * 0.75);
     if (cut.tgt === 1 && cut.str > 0.995) cut.str = 1;
@@ -540,8 +533,11 @@ function advance(S, dt, events) {
       if (g.tgt === 0 && g.amt < 0.02) cut.gaps.splice(i, 1);
     }
   }
-  for (const X of S.list.length ? internalNodes(S.rootL, []).concat(internalNodes(S.rootR, [])) : []) if (X.merging && X.cut.str <= 0.001) done = X;
-  if (done) finishMerge(S, done);
+  const X = S.merges.find((m) => m.cut.str <= 0.001);
+  if (X) {
+    S.merges.splice(S.merges.indexOf(X), 1);
+    finishMerge(S, X);
+  }
   S.boxT -= dt;
   if (S.boxT <= 0) {
     boxes(S);
@@ -618,7 +614,6 @@ export function draw(display, params) {
   const gca = cos(S.wpsi + 1.5708), gsa = sin(S.wpsi + 1.5708);
   const [cr, cg2, cb] = S.canal;
   const [wr, wg, wb] = S.wet;
-  const FD = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
@@ -671,16 +666,14 @@ export function draw(display, params) {
         }
       }
 
-      // Brine colour from salinity: marbled by a warped noise, stronger along the pond's
-      // flow, richer toward the middle and paler and warmer in the shallows.
+      // Brine colour from salinity: marbled by a warped noise and swelling slowly from
+      // one pond to the next, richer toward the middle, paler and warmer in the shallows.
       const t = sm(0.3, 8.5, dEdge);
       const wx = vn(u * 0.04 + S.mo[2] * 0.3 + 11, v * 0.04 + 3), wy = vn(u * 0.04 - 5, v * 0.04 + S.mo[3] * 0.3 + 19);
       const wu = u + 10 * (wx - 0.5), wv = v + 10 * (wy - 0.5);
       const mott = (vn(wu * 0.07 + S.mo[0], wv * 0.063 + S.mo[1]) - 0.5) * 1.3 + (vn(wu * 0.15 + S.mo[2], wv * 0.14 + S.mo[3]) - 0.5) * 0.7;
-      const fd = FD[p.fa];
-      const hl = max(6, (p.fa < 2 ? p.bx1 - p.bx0 : p.by1 - p.by0) * 0.5);
-      const flow = cl(((u - (p.bx0 + p.bx1) * 0.5) * fd[0] + (v - (p.by0 + p.by1) * 0.5) * fd[1]) / hl, -1, 1);
-      const sl = cl(p.s + p.so + 0.07 * mott + p.fg * flow + 0.06 * (1 - t), 0, 1);
+      const swell = (vn(u * 0.022 + S.mo[2] * 0.2 + 30, v * 0.022 + S.mo[3] * 0.2) - 0.5) * 2;
+      const sl = cl(p.s + 0.07 * mott + 0.09 * swell + 0.06 * (1 - t), 0, 1);
       const li = (sl * (NL - 1) + 0.5) | 0;
       let r = lerp(lutS[li * 3], lutD[li * 3], t);
       let g = lerp(lutS[li * 3 + 1], lutD[li * 3 + 1], t);
