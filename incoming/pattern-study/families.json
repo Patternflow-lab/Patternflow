@@ -84,5 +84,10 @@
   "blackhole": { "label": "블랙홀", "color": "#990850" },
   "quantum": { "label": "양자", "color": "#084999" },
   "signal": { "label": "통신 신호", "color": "#08996d" },
-  "mirage": { "label": "신기루", "color": "#f26d6d" }
+  "mirage": { "label": "신기루", "color": "#f26d6d" },
+  "upperlightning": { "label": "고층 번개", "color": "#e8365d" },
+  "pinhole": { "label": "바늘구멍 상", "color": "#f0c24a" },
+  "geodesy": { "label": "측지", "color": "#4fb87a" },
+  "hotspring": { "label": "온천", "color": "#17c3b2" },
+  "adaptiveoptics": { "label": "보정 광학", "color": "#8fb4ff" }
 }
