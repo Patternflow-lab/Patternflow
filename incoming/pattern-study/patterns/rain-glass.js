@@ -28,22 +28,22 @@ const sm = (a, b, v) => {
 };
 
 // The glass.
-const SPAWN = 0.65; // drops condensing a second at Rain 1 on an empty pane
+const SPAWN = 1.0; // drops condensing a second at Rain 1 on an empty pane
 const GROW = 0.03; // LEDs of radius a second a drop swells by, at Rain 1
-const RMAX = 4.4; // the largest a clinging drop gets, radius in LEDs
+const RMAX = 4.2; // the largest a clinging drop gets, radius in LEDs
 const LOSS = 0.075; // area of water a running drop leaves behind per LED run
 const LENS = 2.2; // how many LEDs of the lights a drop shows for each LED of its own radius
 const TRAIL_TAU = 4.5; // seconds for a wet trail to fade to a third
-const PRE_S = 60; // seconds of rain the first update has already run
+const PRE_S = 150; // seconds of rain the first update has already run
 const MAXD = 160; // drops, as a safety stop
 
 const PALETTE = [
   // hue, saturation, weight, a pale one (only the small lights take those)
-  [0.89, 0.88, 3, 0], // magenta
-  [0.95, 0.76, 0.8, 0], // pink
+  [0.89, 0.88, 2.2, 0], // magenta
+  [0.95, 0.76, 0.5, 0], // pink
   [0.5, 0.92, 3, 0], // cyan
-  [0.58, 0.88, 0.8, 0], // azure
-  [0.105, 0.96, 3.4, 0], // amber
+  [0.58, 0.88, 0.6, 0], // azure
+  [0.105, 0.96, 4.4, 0], // amber
   [0.77, 0.72, 0.6, 0], // violet
   [0.995, 0.88, 1, 0], // red
   [0.12, 0.16, 1.6, 1], // warm white
@@ -62,14 +62,14 @@ function hsv(h, s, v, out) {
 const rnd = () => Math.random();
 const between = (a, b) => a + (b - a) * rnd();
 
-function pickColour(redCount, pale) {
+function pickColour(redCount, pale, noRed) {
   for (;;) {
     let tot = 0;
     for (const p of PALETTE) tot += p[2];
     let u = rnd() * tot, k = 0;
     while (k < PALETTE.length - 1 && u > PALETTE[k][2]) u -= PALETTE[k++][2];
     if (PALETTE[k][3] && !pale) continue;
-    if (k === RED && redCount.n >= 2) continue;
+    if (k === RED && (noRed || redCount.n >= 2)) continue;
     if (k === RED) redCount.n++;
     return PALETTE[k];
   }
@@ -90,7 +90,7 @@ function makeLights() {
   ];
   for (const [n, r0, r1, ratio, v0, v1, slide, pale] of classes) {
     for (let i = 0; i < n; i++) {
-      const col = pickColour(reds, pale);
+      const col = pickColour(reds, pale, r1 > 10);
       const rx = between(r0, r1);
       const ry = ratio === 1 ? rx : rx * ratio * between(0.8, 1.3);
       let bx = 0, by = 0, best = -1e9;
@@ -150,6 +150,7 @@ export function setup(params) {
     fogB: new Float32Array(NPX * 3),
     shB: new Float32Array(NPX * 3),
     lnB: new Float32Array(NPX * 3),
+    clB: new Float32Array(NPX * 3),
     fr: new Float32Array(NPX * 3),
     col: [0, 0, 0],
   };
@@ -203,11 +204,11 @@ function stamp(S, x, y0, y1, r) {
 function step(S, d) {
   const drops = S.drops;
   const rain = S.rain, s = S.slope;
-  const rc = s < 0.08 ? 99 : 1.7 + 1.0 / sqrt(s); // radius at which a drop lets go
-  const covMax = 0.09 + 0.05 * rain;
+  const rc = s < 0.08 ? 99 : 1.9 + 0.9 / sqrt(s); // radius at which a drop lets go
+  const covMax = 0.08 + 0.035 * rain;
   const crowd = cl(1 - S.cov / covMax, 0, 1);
   // new drops condense on clear glass
-  S.acc += SPAWN * rain * crowd * d;
+  S.acc += SPAWN * 0.5 * rain * rain * crowd * d;
   while (S.acc >= 1) {
     S.acc -= 1;
     if (drops.length < MAXD) spawn(S);
@@ -230,7 +231,7 @@ function step(S, d) {
         const m = a.r * a.r - LOSS * dy;
         a.r = sqrt(max(m, 1));
         stamp(S, a.x, y0, a.y, a.r);
-        if (rnd() < 0.045 * dy * (a.r - 1.4) && drops.length < MAXD) {
+        if (rnd() < 0.03 * dy * (a.r - 1.4) && drops.length < MAXD) {
           const b = newDrop(a.x + between(-0.7, 0.7) * a.r, y0 - a.r * 0.4, between(0.85, 1.2));
           b.rd = b.r;
           drops.push(b);
@@ -274,7 +275,7 @@ function step(S, d) {
         big.x = (big.x * ma + small.x * mb) / (ma + mb);
         big.y = (big.y * ma + small.y * mb) / (ma + mb);
       }
-      big.r = min(sqrt(ma + mb), 5.2);
+      big.r = min(sqrt(ma + mb), 4.5);
       big.age = max(big.age, small.age);
       if (!big.mov && big.r > rc && big.wait > 0.5) big.wait = 0.2 + 0.4 * rnd();
       small.dead = true;
@@ -310,7 +311,7 @@ export function update(dt, input, params) {
   const d = cl(dt || 0, 0, 0.1);
   if (!S.ready) {
     S.ready = true;
-    for (let i = 0; i < PRE_S * 20; i++) step(S, 0.05);
+    for (let i = 0; i < PRE_S / 0.15; i++) step(S, 0.15);
     for (const a of S.drops) {
       a.xd = a.x;
       a.yd = a.y;
@@ -369,10 +370,11 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const t = S.t, hue = S.hue, f = S.fog;
-  const fogB = S.fogB, shB = S.shB, lnB = S.lnB, fr = S.fr, T = S.trail;
+  const fogB = S.fogB, shB = S.shB, lnB = S.lnB, clB = S.clB, fr = S.fr, T = S.trail;
   const rgb = S.col;
   const bf = 1.6 + 8 * f; // half width of the edge of a light through the fogged glass
-  const bs = 0.8; // and through a clear drop or a wet trail
+  const bs = 0.8; // through a clear drop
+  const bc = 1.2 + 2 * f; // and through a wet trail, which is clear but a little soft
 
   // the night behind the glass
   const nv = [0, 0, 0];
@@ -381,9 +383,9 @@ export function draw(display, params) {
     const g = 0.03 + 0.02 * (y / H);
     for (let x = 0; x < W; x++) {
       const i = (y * W + x) * 3;
-      fogB[i] = shB[i] = nv[0] * g * 0.55;
-      fogB[i + 1] = shB[i + 1] = nv[1] * g * 0.7;
-      fogB[i + 2] = shB[i + 2] = nv[2] * g * 1.5;
+      fogB[i] = shB[i] = clB[i] = nv[0] * g * 0.55;
+      fogB[i + 1] = shB[i + 1] = clB[i + 1] = nv[1] * g * 0.7;
+      fogB[i + 2] = shB[i + 2] = clB[i + 2] = nv[2] * g * 1.5;
     }
   }
   for (const L of S.lights) {
@@ -397,12 +399,13 @@ export function draw(display, params) {
     hsv(L.hue + hue, L.sat, 1, rgb);
     // blue and red carry less light than yellow and cyan; even them out so the palette keeps its balance as it turns
     const lum = 0.3 * rgb[0] + 0.59 * rgb[1] + 0.11 * rgb[2];
-    const sc = L.val * pulse * cl(pow(0.66 / lum, 0.5), 0.8, 1.25);
+    const sc = L.val * pulse * cl(pow(0.66 / lum, 0.5), 0.95, 1.3);
     rgb[0] *= sc;
     rgb[1] *= sc;
     rgb[2] *= sc;
     splat(fogB, x, y, L.rx * rs, L.ry * rs, bf, rgb[0], rgb[1], rgb[2]);
     splat(shB, x, y, L.rx * rs, L.ry * rs, bs, rgb[0], rgb[1], rgb[2]);
+    splat(clB, x, y, L.rx * rs, L.ry * rs, bc, rgb[0], rgb[1], rgb[2]);
   }
 
   // what a drop sees: the lights crisp, with a share of their halos so that it holds light where they thin out
@@ -410,14 +413,14 @@ export function draw(display, params) {
 
   // the fogged glass: the lights blurred, dimmed and lifted with mist
   hsv(0.62 + hue, 0.4, 1, nv);
-  const mist = 0.02 + 0.13 * f, dim = 0.8 - 0.2 * f;
+  const mist = 0.02 + 0.13 * f, dim = 0.64 - 0.17 * f;
   const m0 = nv[0] * mist, m1 = nv[1] * mist, m2 = nv[2] * mist;
   for (let i = 0, p = 0; p < NPX; p++, i += 3) {
-    const w = T[p] > 0.02 ? min(1, T[p] * 0.9) : 0;
-    const tg = 1.18;
-    fr[i] = (fogB[i] * dim + m0) * (1 - w) + shB[i] * tg * w;
-    fr[i + 1] = (fogB[i + 1] * dim + m1) * (1 - w) + shB[i + 1] * tg * w;
-    fr[i + 2] = (fogB[i + 2] * dim + m2) * (1 - w) + shB[i + 2] * tg * w;
+    const w = T[p] > 0.02 ? min(1, T[p] * 1.1) * 0.9 : 0;
+    const tg = 1.45;
+    fr[i] = (fogB[i] * dim + m0) * (1 - w) + (clB[i] * tg + 0.03) * w;
+    fr[i + 1] = (fogB[i + 1] * dim + m1) * (1 - w) + (clB[i + 1] * tg + 0.04) * w;
+    fr[i + 2] = (fogB[i + 2] * dim + m2) * (1 - w) + (clB[i + 2] * tg + 0.07) * w;
   }
 
   // the drops, each a small lens
@@ -428,7 +431,9 @@ export function draw(display, params) {
     const mv = a.mov ? cl(a.v / 16, 0, 1) : 0;
     const rx = R * (1 - 0.06 * mv), ry = R * (1 + 0.32 * mv);
     const cx = a.xd, cy = a.yd;
-    const alpha = sm(0, 2.5, a.age) * sm(0.7, 1.9, R);
+    const big = sm(1.1, 2.6, R);
+    const alpha = sm(0, 2.5, a.age) * (0.2 + 0.8 * sm(0.7, 2.0, R)) * (0.3 + 0.7 * big);
+    const ew = 1.15 + 0.9 * (1 - big); // the smallest are soft blobs
     if (alpha <= 0) continue;
     const rim = cl((R - 1.2) / 1.5, 0, 1) * 0.62;
     const gl = sm(1.6, 3.2, R);
@@ -442,7 +447,7 @@ export function draw(display, params) {
         const u = dx / rx, v = dy / ry;
         const q = sqrt(u * u + v * v);
         const sd = (q - 1) * rr;
-        const cov = cl(0.5 - sd / 1.15, 0, 1);
+        const cov = cl(0.5 - sd / ew, 0, 1);
         if (cov <= 0) continue;
         const k = LENS * (1 + 0.5 * q * q);
         sample(lnB, cx + a.ox - dx * k, cy + a.oy - dy * k, sp);
@@ -450,7 +455,7 @@ export function draw(display, params) {
         const dk = 1 - rim * exp(-((ein - 0.5) * (ein - 0.5)) / 0.6);
         const w = cov * alpha;
         const i = (y * W + x) * 3;
-        const gain = (1.45 + 0.3 * (v < -1 ? -1 : v > 1 ? 1 : v)) * dk;
+        const gain = (0.85 + 0.6 * big + 0.3 * (v < -1 ? -1 : v > 1 ? 1 : v)) * dk;
         // light the bead takes in from the glass round it, so it never reads as a hole
         let l0 = sp[0] * gain + 0.07 * dk, l1 = sp[1] * gain + 0.08 * dk, l2 = sp[2] * gain + 0.13 * dk;
         let hi = 0;
