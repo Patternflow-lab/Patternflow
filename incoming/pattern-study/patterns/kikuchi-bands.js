@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Kikuchi Bands
 // Family:  ebsd
-// Idea:    The backscatter diffraction pattern of a tumbling nickel-like crystal as an EBSD camera sees it, a dark blue ground crossed edge to edge by luminous bands, pale cyan for the {111} planes, violet for {200} and gold for {220}, with fainter and wider ones for the higher indices, where every band is the strip of directions within the Bragg angle of one set of lattice planes and the bands pile up into bright hubs wherever they meet at a zone axis, so that as the crystal turns the whole net slides, rotates and passes through itself without ever coming back.
+// Idea:    The Kikuchi pattern an EBSD camera sees when an electron beam strikes a tumbling nickel-like crystal, a dark blue screen crossed edge to edge by luminous bands that are the strips of directions within the Bragg angle of each set of lattice planes, pale cyan for the {111} planes and violet for {200}, gold for {220} and fainter and wider for the higher indices, which pile up into bright hubs at the zone axes where four or six bands cross, while the crystal turns about a wandering axis so that the whole net slides, rotates and passes through itself without coming back.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,21 +11,29 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Tumble=0..3, Voltage=-1..1, Stretch=-0.14..0.38
 //
-// Knob 1: Hue. Added to every hue in the picture, ground and bands together. At 0 the ground is dark blue, the {111} bands pale cyan, the {200} bands violet and the {220} bands gold. At 0.5 the cyan has gone to rose and the gold to blue, and at 1 it is back where it began.
-// Knob 2: Tumble. How fast the crystal turns, 0.07 radians a second (4 degrees a second) for each unit of the knob, on average. At 0 the net stands still. At 2, where it opens, a band that crosses the screen straight on moves about 9 LEDs a second and a hub takes 6 to 14 seconds to cross the 64 LEDs of the width. At 3 it is a half faster again.
-// Knob 3: Voltage. The wavelength of the electrons, as the beam voltage would set it. The bands are 2 theta_B wide, sin theta_B = lambda |g| / 2, so every band gets narrower as the voltage rises: the {111} band is 4.8 LEDs across at 0, 9 at -1 and 2.6 at 1, and the wider and fainter bands follow it in step. Bands of higher index also come in with the voltage, the highest order shown being {220} at -1, {400} at 0 and {422} at 1. The physical widths would be 1.75 times narrower than these at the same wavelength, which at 20 kV would leave the {111} bands under 3 LEDs, so the knob's zero is set to 0.0149 nm, the wavelength of electrons at about 6.8 kV, and the span of the knob is 1.9 kV to 24 kV.
-// Knob 4: Stretch. The lattice is stretched along its c axis, c/a = 0.94 plus the knob, from 0.85 at -0.09 to 1.25 at 0.31 and cubic at the opening 0.06. A plane (h k l) now has the reciprocal vector (h/a, k/a, l/c), so a band whose index has an l in it narrows as c grows and the {200} and {111} families split into bands of different width, and the four-fold hubs lose their four-fold symmetry.
+// Knob 1: Hue. Added to every hue in the picture, ground and bands together. At 0 the ground is dark blue, the {111} bands pale cyan, the {200} bands violet and the {220} bands gold. At 0.5 the {111} bands are pale rose, the {200} bands yellow-green, the {220} bands blue and the ground a dark olive, and at 1 it is back where it began.
+// Knob 2: Tumble. How fast the crystal turns, 0.045 radians a second (2.6 degrees a second) for each unit of the knob, about an axis that wanders over the sphere, with the speed swelling and ebbing between 0.45 and 1.55 of that over 37 seconds. At 0 the net stands still. At 2, where it opens, the crystal turns 5.1 degrees a second on average, from 2.3 to 8, so the bands near the middle of the screen slide 5.7 LEDs a second on average (2.6 to 8.9) and a hub takes about 11 seconds to cross the 64 LEDs of the width. At 3 it is a half faster again.
+// Knob 3: Voltage. The wavelength of the electrons, as the beam voltage sets it, sin theta_B = lambda |g| / 2 for a band of reciprocal vector g, so every band gets narrower as the voltage rises. The screen sees 55 by 103 degrees at 63.8 LEDs to the radian, and at the opening the wavelength is 0.0108 nm, the wavelength of 12.7 kV (20 kV is 0.0086 nm), where the {111} band is 3.4 LEDs across and the {220} band 5.6. At -1 the wavelength is 1.87 times longer (3.7 kV) and the {111} band 6.3 LEDs across. At 1 it is 1.62 times shorter (32.8 kV) and the {111} band 2.1 LEDs, the thinnest band there is. The highest order shown is {220} at -1, {222} at 0 and {420} at 1, and the high orders are lit more at the fine end, the strength of a band of N = h2 + k2 + l2 falling as exp(-(N - 3) / L) with L = 3 at -1, 4.5 at 0 and 6 at 1.
+// Knob 4: Stretch. The lattice is stretched along its c axis, c/a = 0.94 plus the knob, so 0.80 at -0.14, 1.32 at 0.38 and cubic at 0.06, where the Lab opens it. A plane (h k l) has the reciprocal vector (h/a, k/a, l/c), so a family splits. The (002) band is 4.9 LEDs wide at c/a 0.80, 3.9 at 1 and 3.0 at 1.32, while (200) stays at 3.9, and the hue of a band moves by 0.6 times the change in its |g| as a fraction, which takes the (002) violet to magenta at 0.80 and to blue at 1.32. The bands still meet at zone axes, but at other angles, so the six-armed star of a [111] hub goes uneven and the four-armed [100] hub loses its four-fold look.
 
-// What the picture is. A point source at the sample and a flat screen seen from it. A LED looks along the direction d,
-// and the crystal turns by a rotation R, so that the plane normal n of a set of planes points along R n on the screen.
-// The plane sends back a band where |d . n| < sin theta_B, the strip within the Bragg angle of the plane, and the
-// strip of one plane family is a great circle on the sphere of directions, seen on the screen as a stripe.
-// Planes that are all odd or all even in (h k l) are the ones a face-centred lattice lets through. The 84 of them up to
-// order 27 in h2 + k2 + l2 are made once. A plane's band is lit with exp(-(N - 3) / 9) of the strength of {111}, N being
-// h2 + k2 + l2, and is shown at all only when N is below a limit that rises with the voltage.
+// What the picture is. A point source at the sample and a flat screen seen from it. A LED looks along the direction d, and
+// the crystal turns by a rotation R, so that the normal n of a set of planes points along R n on the screen. The planes send
+// back a band where |d . n| < sin theta_B, the strip within the Bragg angle of the planes. That strip is a great circle on
+// the sphere of directions, seen on the screen as a stripe. The screen is the sphere laid out with radius tan(0.6 r) / 0.6 for
+// an angle r from the axis (1 would be gnomonic, which keeps every band straight and stretches it near the edge, and 0
+// equidistant), 63.8 LEDs to the radian at the middle, 27.5 degrees to the side edges and 51.4 to the top and bottom. The
+// bands bend a little at the corners, and a band grows to at most 1.45 times its width at the middle.
+// Planes whose (h k l) are all odd or all even are the ones a face-centred lattice lets through. The 84 of them up to 27 in
+// h2 + k2 + l2 are made once. A band is drawn as a flat strip of 45 percent strength with soft shoulders and a ridge of 62
+// percent along each edge, 0.85 LEDs in sigma at least, so that a band reads as a lit strip with bright edges, which is how the
+// lines of a Kikuchi pattern show. The strength falls with N and the bands add, so that a crossing is brighter than
+// either band and a zone axis, where several cross, is the brightest place. A soft glow, 2.6 LEDs in sigma, sits on each zone
+// axis [u v w] with u2 + v2 + w2 up to 9 (49 of them, each with its opposite), at strength 1 for [100], 0.85 for [110], 0.75 for
+// [111], 0.4 for the next 24 and 0.22 for the last 12. The ground is a dark blue of about (5, 8, 32), a little brighter at the middle.
+// The opening orientation was picked from 6000 random ones for a [111], a [100] and a [110] hub inside the panel at once.
 
 const W = 64, H = 128, NPX = W * H;
-const { floor, sqrt, abs, exp, sin, cos, tan, atan, asin, PI, min, max } = Math;
+const { floor, sqrt, abs, exp, sin, cos, tan, atan, PI, min, max } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -205,13 +213,13 @@ export function draw(display, params) {
 
   // ground and tone
   const g0 = [0, 0, 0];
-  hsv(hue + 0.64, 0.8, 1, g0);
+  hsv(hue + 0.645, 0.85, 0.125, g0);
   for (let i = 0; i < NPX; i++) {
     const env = 0.7 + 0.3 * DZ[i];
-    const base = 0.07 * env;
-    const r = base * g0[0] * 0.5 + (1 - base * g0[0] * 0.5) * tone(ar[i]);
-    const g = base * g0[1] * 0.5 + (1 - base * g0[1] * 0.5) * tone(ag[i]);
-    const b = base * g0[2] * 0.9 + (1 - base * g0[2] * 0.9) * tone(ab[i]);
+    const r0 = g0[0] * env, g1 = g0[1] * env, b0 = g0[2] * env;
+    const r = r0 + (1 - r0) * tone(ar[i]);
+    const g = g1 + (1 - g1) * tone(ag[i]);
+    const b = b0 + (1 - b0) * tone(ab[i]);
     display.setPixel(i % W, (i / W) | 0, (r * 255 + 0.5) | 0, (g * 255 + 0.5) | 0, (b * 255 + 0.5) | 0);
   }
 }
