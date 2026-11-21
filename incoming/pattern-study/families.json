@@ -104,5 +104,10 @@
   "discharge": { "label": "방전관", "color": "#fd04e3" },
   "galaxy": { "label": "은하 충돌", "color": "#1151fe" },
   "tides": { "label": "조석", "color": "#0dfdd6" },
-  "market": { "label": "호가 창", "color": "#c45315" }
+  "market": { "label": "호가 창", "color": "#c45315" },
+  "lidar": { "label": "라이다 점구름", "color": "#18c8f0" },
+  "magnetism": { "label": "자기장", "color": "#7a8bb0" },
+  "interferometry": { "label": "간섭계 영상", "color": "#ff6a3d" },
+  "mirrorball": { "label": "미러볼", "color": "#f2e6ff" },
+  "rainglass": { "label": "빗물 유리", "color": "#5b7cff" }
 }
