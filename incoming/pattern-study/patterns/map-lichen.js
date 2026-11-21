@@ -35,18 +35,18 @@ const CLEAR = 3; // a spore needs this many LEDs of bare rock round it, each way
 const V0 = 0.33; // LEDs a second for each unit of Growth, before a colony's own factor
 const STEP = 0.1; // seconds a simulation step covers once the picture is running
 const PRE = 330; // seconds of growth played before the first frame
-const DIE = 3; // seconds a ring of dead crust takes to fade, past the live age's share (see colony())
+const DIE = 2; // seconds a ring of dead crust takes to fade, past the live age's share (see colony())
 
 // species: edge (young, pale), main, old (dull) as OKLCH [L, C, hue]; the hue turns with Hue
 const SPECIES = [
-  { w: 0.3, e: [0.86, 0.065, 106], m: [0.78, 0.08, 109], o: [0.64, 0.05, 104] }, // sulphur yellow-green
-  { w: 0.18, e: [0.8, 0.06, 74], m: [0.68, 0.078, 58], o: [0.56, 0.05, 54] }, // orange, as Xanthoria
+  { w: 0.3, e: [0.88, 0.07, 106], m: [0.8, 0.088, 109], o: [0.66, 0.055, 104] }, // sulphur yellow-green
+  { w: 0.18, e: [0.82, 0.055, 74], m: [0.7, 0.07, 60], o: [0.56, 0.045, 54] }, // orange, as Xanthoria
   { w: 0.2, e: [0.82, 0.012, 100], m: [0.76, 0.02, 104], o: [0.63, 0.016, 100] }, // grey-white
   { w: 0.15, e: [0.6, 0.055, 122], m: [0.5, 0.065, 120], o: [0.42, 0.04, 114] }, // dark olive
-  { w: 0.17, e: [0.8, 0.05, 142], m: [0.7, 0.065, 138], o: [0.6, 0.04, 134] }, // sage
+  { w: 0.17, e: [0.82, 0.04, 140], m: [0.72, 0.055, 136], o: [0.6, 0.035, 130] }, // sage
 ];
-const ROCK = [0.58, 0.016, 76];
-const SCAR = [0.66, 0.014, 85];
+const ROCK = [0.53, 0.016, 76];
+const SCAR = [0.66, 0.02, 85];
 const DARK = [0.32, 0.03, 105];
 
 function oklch(L, C, hDeg, out, o) {
@@ -111,8 +111,8 @@ function areoles(S, size) {
   for (let j = 0; j < gy; j++)
     for (let i = 0; i < gx; i++) {
       const k = j * gx + i;
-      px[k] = (i + 0.12 + 0.76 * hash(i, j, S.seed + 1)) * sx;
-      py[k] = (j + 0.12 + 0.76 * hash(i, j, S.seed + 2)) * sy;
+      px[k] = (i + 0.04 + 0.92 * hash(i, j, S.seed + 1)) * sx;
+      py[k] = (j + 0.04 + 0.92 * hash(i, j, S.seed + 2)) * sy;
       pid[k] = hash(i, j, S.seed + 3);
     }
   for (let y = 0; y < TH; y++) {
@@ -168,7 +168,6 @@ function colony(S, x, y, sp) {
   c.es = sin(rot);
   c.ay = 0.82 + 0.18 * r();
   c.br = 0.93 + 0.14 * r();
-  c.hj = (r() - 0.5) * 12;
   c.a2 = 0.05 + 0.07 * r();
   c.a3 = 0.03 + 0.06 * r();
   c.a5 = 0.015 + 0.04 * r();
@@ -179,7 +178,7 @@ function colony(S, x, y, sp) {
   c.q3 = (r() - 0.5) * 0.12;
   c.q5 = (r() - 0.5) * 0.16;
   c.live = S.ring / c.v;
-  c.fade = 0.35 * c.live + DIE;
+  c.fade = 0.65 * c.live + DIE;
   c.spread = 3.5 / c.v + 2;
   c.ox = floor(r() * TW);
   c.oy = floor(r() * TH);
@@ -357,15 +356,15 @@ function step(S, dt) {
   }
   // one pass over the rock: crust that is too old goes back to bare stone, young crust at the
   // edge spreads to free cells it reaches and that no other colony stands close to
-  const start = floor(Math.random() * N);
-  const stride = 4099;
-  for (let n = 0; n < N; n++) {
-    const i = (start + n * stride) % N;
+  let i = floor(Math.random() * N);
+  for (let n = 0; n < N; n++, i += 4099) {
+    if (i >= N) i -= N;
+    if (i >= N) i %= N;
     const k = own[i];
     if (k < 0) continue;
     const c = cols[k];
     const age = G - cg[i];
-    if (age > c.live + c.fade * (0.5 + 0.6 * S.rj[i])) {
+    if (age > c.live + c.fade * (0.45 + 0.55 * S.rj[i])) {
       own[i] = FREE;
       c.n--;
       continue;
@@ -406,6 +405,8 @@ function step(S, dt) {
         if (xx < 0 || xx >= W) continue;
         const o = own[yy * W + xx];
         if (o < 0) continue;
+        const co = cols[o];
+        if (G - cg[yy * W + xx] > co.live + 0.3 * co.fade) continue;
         if (first < 0) first = o;
         else if (o !== first) {
           has = true;
@@ -470,7 +471,7 @@ export function setup(params) {
       }
     return dst;
   };
-  const sm1 = blur(blur(white));
+  const sm1 = blur(blur(blur(blur(white))));
   // spread the blurred values back over 0..1
   const sorted = Float32Array.from(sm1).sort();
   for (let i = 0; i < N; i++) {
@@ -504,8 +505,8 @@ function knobs(S, kn) {
   S.rmax = 13 / sqrt(S.sporeFac);
   const cr = cl(kn[3], -1, 1);
   S.crust = cr;
-  S.ring = 7 * pow(1.25, cr);
-  S.areole = 3.6 * pow(1.3, cr);
+  S.ring = 8.5 * pow(1.25, cr);
+  S.areole = 4 * pow(1.28, cr);
 }
 
 export function update(dt, input, params) {
@@ -515,8 +516,8 @@ export function update(dt, input, params) {
   if (!S.rolled) {
     S.rolled = true;
     // Let the rock grow before the first frame: PRE seconds of growth with the knobs as they are.
-    const real = cl(PRE / S.gs, PRE * 0.7, PRE * 5);
-    const ds = cl(0.4 / max(S.gs, 0.5), 0.2, 0.8);
+    const real = cl(PRE / S.gs, PRE * 0.7, PRE * 3.3);
+    const ds = cl(0.9 / max(S.gs, 0.5), 0.3, 3.5);
     const n = floor(real / ds);
     S.nextSpore = S.T;
     for (let k = 0; k < n; k++) step(S, real / n);
@@ -605,29 +606,32 @@ export function draw(display, params) {
         const t = age / c.live;
         // crust colour by age: pale at the edge, full in the ring, duller behind
         const s1 = sm(t / 0.3);
-        const s2 = sm((t - 0.3) / 0.7);
+        const s2 = sm((t - 0.5) / 0.5);
         let cr = P[sp] + (P[sp + 3] - P[sp]) * s1 + (P[sp + 6] - P[sp + 3]) * s2;
         let cgc = P[sp + 1] + (P[sp + 4] - P[sp + 1]) * s1 + (P[sp + 7] - P[sp + 4]) * s2;
         let cb = P[sp + 2] + (P[sp + 5] - P[sp + 2]) * s1 + (P[sp + 8] - P[sp + 5]) * s2;
         // dead: d runs 0..1 from the end of the live age to this cell's weathering
-        const rel = c.fade * (0.5 + 0.6 * S.rj[i]);
+        const rel = c.fade * (0.45 + 0.55 * S.rj[i]);
         const d = cl((age - c.live) / rel, 0, 1);
-        const pale = sm(d / 0.4);
-        cr += (sr - cr) * pale;
-        cgc += (sg - cgc) * pale;
-        cb += (sb - cb) * pale;
+        const pale = sm(d / 0.25) * 0.8;
+        // the scar keeps a little of the species' own colour
+        cr += (sr * 0.8 + P[sp + 6] * 0.2 - cr) * pale;
+        cgc += (sg * 0.8 + P[sp + 7] * 0.2 - cgc) * pale;
+        cb += (sb * 0.8 + P[sp + 8] * 0.2 - cb) * pale;
         // large soft lumps, and the colony's own brightness
         const lx = ((y + c.ly) & (TH - 1)) * TW + ((x + c.lx) & (TW - 1));
         const lumpv = (S.lump[lx] - 0.5) * 0.42 + (S.lump2[lx] - 0.5) * 0.08;
         // cracked areoles: none in the young crust, deeper with age, widest in the dying middle
         const ci = ((y + c.oy) & (TH - 1)) * TW + ((x + c.ox) & (TW - 1));
         const D = S.crackD[ci];
-        const ca = sm(t / 0.45) * 0.9 * (1 - 0.8 * sm(d / 0.6));
-        const edge = sm(D / (0.55 + 0.9 * ca * crack));
-        const dome = sm(D / (0.75 * asz));
-        let shade = 1 + lumpv + (S.crackId[ci] - 0.5) * 0.1 * ca;
-        shade *= 1 - ca * 0.12 * (1 - dome);
-        const cm = ca * (1 - edge) * (0.55 + 0.25 * crack);
+        const gone = sm((d - 0.7) / 0.3);
+        const ca = sm((t - 0.08) / 0.6) * (1 - gone);
+        const wide = 0.45 + 0.55 * sm(t / 1.3);
+        const edge = sm((D - (0.35 + 0.45 * wide * crack)) / 0.55);
+        const dome = sm(D / (0.6 * asz));
+        let shade = 1 + lumpv + (S.crackId[ci] - 0.5) * 0.12 * ca;
+        shade *= 1 - ca * 0.24 * (1 - dome);
+        const cm = ca * (1 - edge) * (0.45 + 0.2 * crack);
         shade *= c.br;
         cr = cr * shade;
         cgc = cgc * shade;
@@ -635,8 +639,6 @@ export function draw(display, params) {
         cr += (dr * 1.1 - cr) * cm;
         cgc += (dg * 1.1 - cgc) * cm;
         cb += (db * 1.1 - cb) * cm;
-        // the weathering: the dead crust gives way to rock
-        const gone = sm((d - 0.55) / 0.45);
         // a thin darker rim where crust meets open rock
         let nf = 0;
         if (x > 0 && own[i - 1] === FREE) nf++;
