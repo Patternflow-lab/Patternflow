@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Growth=0.4..3, Colonies=-1..1, Crust=-1..1
 //
 // Knob 1: Hue. Turns the palette of the lichen species round the colour wheel once. It opens on sulphur yellow-green, orange, grey-white, olive and sage; a quarter turn takes them through green and teal to blue, and at 1 they are back. The bare rock stays warm grey.
-// Knob 2: Growth. How fast the colonies spread and age: the front moves 0.09 LEDs a second at 0.4, 0.45 at the opening 2 (one LED every 2.2 s, a colony 28 LEDs across in about 30 s) and 0.67 at 3. Spores keep landing at their own rate, so fast growth gives fewer, larger colonies and slow growth a crowd of small ones.
-// Knob 3: Colonies. How often a spore lands and how big a colony gets before it stops: about one spore every 9 s and colonies up to 36 LEDs across at -1, one every 4 s and 26 across at the opening 0, one every 1.7 s and 17 across at 1.
-// Knob 4: Crust. How coarse the crust is: areoles (the cracked islands) 2.8 LEDs across at -1 and a thin living ring, 3.6 at the opening 0.06, 4.9 at 1 with a thick ring about 9 LEDs wide, and deeper cracks as it goes up.
+// Knob 2: Growth. How fast the colonies spread and age: each colony's edge moves 0.23 to 0.57 LEDs a second at the opening 2 (about 0.4, one LED every 2.5 s), a fifth of that at 0.4 and 1.5 times it at 3. Spores keep landing at their own rate, so at 3 the colonies are bigger and fewer (about 28 alive, 16 LEDs across) and at 0.4 there is a crowd of small ones (about 55, 10 across) that age for minutes.
+// Knob 3: Colonies. How often a spore lands, and with it how big a colony can get: one new colony every 5.5 s and about 20 alive at -1, half of them 16 LEDs across or more and a quarter 23 or more; every 3 s and 33 alive at the opening 0, median 14 across; every 2 s and 47 alive at 1, median 12 across, with bare rock showing between them.
+// Knob 4: Crust. How coarse the crust is: the cracked islets (areoles) are about 3.5 LEDs across at -1, 4.6 at the opening 0.06 and 5.8 at 1, the cracks deepen as it goes up, and so does the living ring, 12 LEDs wide on average at -1, 15 at the opening and 19 at 1 (each colony has its own width, 0.6 to 1.5 times that), the part of the colony that is still bright before its middle starts to die.
 
 const W = 64;
 const H = 128;
@@ -30,12 +30,12 @@ const NCOL = 72; // colony slots
 const TW = 128; // the crack and lump fields live on a torus this big, and each colony reads it at its own offset
 const TH = 256;
 
-const SPORE0 = 0.8; // spores a second at Colonies 0 and Growth 2
+const SPORE0 = 0.7; // spores a second at Colonies 0 and Growth 2
 const CLEAR = 3; // a spore needs this many LEDs of bare rock round it, each way
 const V0 = 0.38; // LEDs a second for each unit of Growth, before a colony's own factor
 const STEP = 0.1; // seconds a simulation step covers once the picture is running
-const PRE = 330; // seconds of growth played before the first frame
-const DIE = 2; // seconds a ring of dead crust takes to fade, past the live age's share (see colony())
+const PRE = 330; // growth seconds played before the first frame
+const DIE = 2; // growth seconds added to the weathering of dead crust, on top of its share of the live age
 
 // species: edge (young, pale), main, old (dull) as OKLCH [L, C, hue]; the hue turns with Hue
 const SPECIES = [
@@ -345,7 +345,7 @@ function step(S, dt) {
   const cg = S.cg;
   const cols = S.cols;
   // spores land at their own rate in panel time
-  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.4) * (0.55 + 1.6 * S.free);
+  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.25) * (0.55 + 1.6 * S.free);
   while (S.T >= S.nextSpore) {
     spore(S);
     S.nextSpore += -log(1 - Math.random()) / lam;
@@ -528,7 +528,7 @@ export function update(dt, input, params) {
   if (!S.rolled) {
     S.rolled = true;
     // Let the rock grow before the first frame: PRE seconds of growth with the knobs as they are.
-    const real = cl(PRE / S.gs, PRE * 0.7, PRE * 3.3);
+    const real = cl(PRE / S.gs, PRE * 0.7, PRE * 2.4);
     const ds = cl(0.9 / max(S.gs, 0.5), 0.3, 3.5);
     const n = floor(real / ds);
     S.nextSpore = S.T;
@@ -619,8 +619,8 @@ export function draw(display, params) {
         const sp = c.sp * 9;
         const t = age / c.live;
         // crust colour by age: pale at the edge, full in the ring, duller behind
-        const s1 = sm(t / 0.3);
-        const s2 = sm((t - 0.5) / 0.5);
+        const s1 = sm(t / 0.2);
+        const s2 = sm((t - 0.3) / 0.6);
         let cr = P[sp] + (P[sp + 3] - P[sp]) * s1 + (P[sp + 6] - P[sp + 3]) * s2;
         let cgc = P[sp + 1] + (P[sp + 4] - P[sp + 1]) * s1 + (P[sp + 7] - P[sp + 4]) * s2;
         let cb = P[sp + 2] + (P[sp + 5] - P[sp + 2]) * s1 + (P[sp + 8] - P[sp + 5]) * s2;
@@ -639,7 +639,7 @@ export function draw(display, params) {
         const ci = ((y + c.oy) & (TH - 1)) * TW + ((x + c.ox) & (TW - 1));
         const D = S.crackD[ci];
         const gone = sm((d - 0.7) / 0.3);
-        const ca = sm((t - 0.08) / 0.6) * (1 - sm((d - 0.15) / 0.55));
+        const ca = sm((t - 0.04) / 0.4) * (1 - sm((d - 0.15) / 0.55));
         const wide = 0.45 + 0.55 * sm(t / 1.3);
         const edge = sm((D - (0.35 + 0.45 * wide * crack)) / 0.55);
         const dome = sm(D / (0.6 * asz));
