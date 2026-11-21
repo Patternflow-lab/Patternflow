@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Rain=0.5..3.5, Fog=-1..1, Slope=0..0.12
 //
-// Knob 1: Hue. Turns the neon of the lights round the colour wheel together with the navy night behind them. It opens on magenta, cyan and amber with a few pale whites and a red or two, and comes back to that at 1.
-// Knob 2: Rain. How fast new drops condense out of the haze and how fast the small ones swell, from a few dozen specks of rain on the glass at 0.5 to a crowded pane at 3.5. It opens at 2, with a few dozen drops from 2 to 8 LEDs across. The pane holds its own count: a drop that gets too big runs off and a crowded glass condenses nothing new.
-// Knob 3: Fog. How far the glass between the drops is out of focus and how milky it is. At 0.2 the lights behind are soft discs with a faint lift of mist, at 1 a deep haze that melts them into one colour field, while the drops and their trails stay clear and show the lights crisp.
-// Knob 4: Slope. How much the glass is tilted, as how readily a drop lets go and how far it lurches. At 0 every drop clings where it formed. The opening 0.06 sends a drop down once it is about 6 LEDs across, in a lurch every second or so, and at 0.12 even small ones run, in long jerks that leave trails the length of the pane.
+// Knob 1: Hue. Turns the neon of the lights round the colour wheel together with the navy night behind them. It opens on magenta, cyan and amber, with a few pale whites among the small lights and a red or two, and comes back to that at 1.
+// Knob 2: Rain. How fast new drops condense out of the haze and how fast the small ones swell. At 0.5 there are about a dozen drops on the pane, at the opening 2 about forty from 2 to 8 LEDs across, and at 3.5 sixty or so, crowded together. The pane holds its own count: a drop that gets big enough runs off, and a crowded glass condenses nothing new.
+// Knob 3: Fog. How far out of focus the glass between the drops is, and how milky. At -1 the lights are plain soft discs on deep navy, at the opening 0 they are blurred and lifted with a light mist, and at 1 they melt into one haze of colour. The drops and their trails stay clear and show the lights crisper whatever the glass does.
+// Knob 4: Slope. How far the glass is tilted, as how readily a drop lets go and how far it lurches. At 0 every drop clings where it formed and grows until it is about 8 LEDs across. The opening 0.06 sends a drop down once it is about 6 LEDs across, in a lurch every second or so, and at 0.12 drops 5 LEDs across run, in longer jerks, and leave trails that reach a third of the pane.
 
 const W = 64;
 const H = 128;
@@ -306,7 +306,7 @@ export function update(dt, input, params) {
   const kn = input.knobValues || [0, 2, 0, 0.06];
   S.hue = cl(kn[0], 0, 1);
   S.rain = cl(kn[1], 0.5, 3.5);
-  S.fog = (cl(kn[2], -1, 1) + 1) / 2;
+  S.fog = pow((cl(kn[2], -1, 1) + 1) / 2, 1.5); // the opening 0 is a light mist, not half the haze
   S.slope = cl(kn[3], 0, 0.12) / 0.06;
   const d = cl(dt || 0, 0, 0.1);
   if (!S.ready) {
