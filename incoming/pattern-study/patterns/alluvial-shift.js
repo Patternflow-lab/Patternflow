@@ -81,10 +81,10 @@ const SC = [0.8719, 0.7933, 0.9437, 0.8311, 0.7589, 0.9109, 0.8627];
 const OA = [0.1417, 0.1093, 0.1759, 0.1237, 0.1561, 0.1181, 0.1649];
 const OB = [0.0713, 0.0937, 0.0617, 0.0829, 0.0761, 0.0691, 0.0887];
 const PH = (i, n) => i * 2.3999632 * n + 0.7 * n; // a phase for module i, spread by the golden angle
-const TIER_PH = [0.9, 1.1, 0.8]; // how far each sine moves from one tier to the next
+const TIER_PH = [1.3, 1.5, 1.2]; // how far each sine moves from one tier to the next
 
 // ---- the ribbons
-const ALPHA = 0.64;
+const ALPHA = [0.7, 0.58, 0.66, 0.8, 0.68, 0.58, 0.66]; // how strongly each module's ribbons are laid, so that amber does not sink to brown and teal does not outshine azure
 const BAR_V = 0.96;
 const BG = [14, 4, 19];
 const STAY = 5.8; // the diagonal's weight at Mixing 0 is exp(STAY)
@@ -127,7 +127,7 @@ function ranksAt(S) {
   const tau = S.tau, key = S.tmp.key, idx = S.tmp.idx;
   for (let k = 0; k < T; k++) {
     for (let i = 0; i < M; i++)
-      key[i] = sin(OA[i] * tau + PH(i, 4) + k * 0.55) + 0.6 * sin(OB[i] * tau + PH(i, 5) + k * 0.8);
+      key[i] = sin(OA[i] * tau + PH(i, 4) + k * 0.45) + 0.6 * sin(OB[i] * tau + PH(i, 5) + k * 0.6);
     for (let i = 0; i < M; i++) idx[i] = i;
     // Insertion sort by key, ascending.
     for (let a = 1; a < M; a++) {
@@ -261,14 +261,8 @@ function build(S) {
       }
     fit(A, r, c, F, u, w);
     // Give up the ribbons that would be too thin to see, and fit again.
-    const yspan = TOPS[k + 1] - (TOPS[k] + BH);
     for (let i = 0; i < M; i++)
-      for (let j = 0; j < M; j++) {
-        const dx = (S.bx[o + i] + S.bw[o + i] / 2 - (S.bx[o2 + j] + S.bw[o2 + j] / 2));
-        const sl = (1.5 * dx) / yspan;
-        const q = (F[i * M + j] * U) / sqrt(1 + sl * sl);
-        A[i * M + j] *= 0.05 + 0.95 * ss((q - 1.7) / 1.5);
-      }
+      for (let j = 0; j < M; j++) A[i * M + j] *= 0.05 + 0.95 * ss((F[i * M + j] * U - 1.5) / 1.5);
     fit(A, r, c, F, u, w);
     for (let i = 0; i < M * M; i++) S.flow[k * M * M + i] = F[i];
   }
@@ -302,12 +296,8 @@ function build(S) {
         const iwa = max(0, S.bw[o + i] - 1), iwb = max(0, S.bw[o2 + j] - 1);
         const ta = S.bx[o + i] + 0.5 + la * iwa, wa = fa * iwa;
         const tb = S.bx[o2 + j] + 0.5 + lb * iwb, wb = fb * iwb;
-        // The thinnest stretch of the ribbon, counting how a steep S narrows it.
-        const yspan = TOPS[k + 1] - (TOPS[k] + BH);
-        const dx = tb + wb / 2 - (ta + wa / 2);
-        const sl = (1.5 * dx) / yspan;
-        const q = min(wa, wb, (wa + wb) / 2 / sqrt(1 + sl * sl));
-        const al = ALPHA * ss((q - 1.3) / 0.9);
+        const q = min(wa, wb);
+        const al = ALPHA[i] * ss((q - 1.3) / 0.9);
         if (al <= 0.002) continue;
         ribs.push({ k, i, ta, wa, tb, wb, al });
       }
@@ -332,7 +322,7 @@ function palette(S) {
   S.colKey = key;
   for (let i = 0; i < M; i++) {
     hsv(HUE[i] + S.hue, SAT[i], 1, S.col, i * 3);
-    hsv(HUE[i] + S.hue, SAT[i] * 0.97, BAR_V, S.barCol, i * 3);
+    hsv(HUE[i] + S.hue, SAT[i] * 0.72, BAR_V, S.barCol, i * 3);
   }
 }
 
@@ -376,10 +366,15 @@ export function draw(display, params) {
   for (const R of S.rib) {
     const yt = TOPS[R.k] + BH, yb = TOPS[R.k + 1];
     const cr = S.col[R.i * 3] * R.al, cg = S.col[R.i * 3 + 1] * R.al, cb = S.col[R.i * 3 + 2] * R.al;
+    const ca = R.ta + R.wa / 2, cb2 = R.tb + R.wb / 2, dx = cb2 - ca, span = yb - yt;
     for (let y = yt; y < yb; y++) {
-      const u = ss((y + 0.5 - yt) / (yb - yt));
-      const xl = R.ta + (R.tb - R.ta) * u, xr = R.ta + R.wa + (R.tb + R.wb - R.ta - R.wa) * u;
-      addSpan(buf, y, xl, xr, cr, cg, cb);
+      const t = (y + 0.5 - yt) / span, u = ss(t);
+      // The centre line is the S-curve; the band keeps its thickness across the
+      // line, so where the line runs steeply the band is wider along the row.
+      const sl = (6 * t * (1 - t) * dx) / span;
+      const hw = ((R.wa + (R.wb - R.wa) * u) / 2) * sqrt(1 + sl * sl);
+      const xc = ca + dx * u;
+      addSpan(buf, y, xc - hw, xc + hw, cr, cg, cb);
     }
   }
   // Bars, painted over the ribbons.
