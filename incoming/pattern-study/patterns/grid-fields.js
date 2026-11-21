@@ -67,20 +67,20 @@ const POW = 2.2; // the rate is max(0, g) to this power
 const RMAX = 10; // spikes a second at the peak of a field
 
 // ---- the animal
-const SPEED = 12; // mean speed, LEDs a second
+const SPEED = 14; // mean speed, LEDs a second
 const SU = SPEED / sqrt(PI / 2); // standard deviation of one velocity component: a Rayleigh speed has this mean
 const TAUV = 1.1; // velocity correlation time, seconds
 const MARGIN = 7; // the walls start pushing this far in
 const PUSH = 70; // acceleration at the wall, LEDs a second squared
-const SIGMA_OCC = 2.0; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
-const A_OCC = 6; // occupancy a second at the stamp's centre
+const SIGMA_OCC = 2.5; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
+const A_OCC = 8; // occupancy a second at the stamp's centre
 const LADDER = 6; // memory times kept: 8 s up to 240 s
 const PRE = 300; // seconds the animal runs before the first frame
 const STEP = 1 / 30; // longest step of the walk
 
 // ---- the picture
 const BG = [3, 5, 13]; // the arena floor, out of 255
-const SEEN = [3, 6, 20]; // added where the animal has been
+const SEEN = [2, 4, 11]; // added where the animal has been
 const FLOOR = 0.045; // rate below this is not drawn: a field ends in a clean edge
 const LIFE = 0.42; // seconds a spike takes to fade
 const TRAIL = 3; // seconds of path kept as the grey trail
@@ -329,7 +329,7 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x, b = p * 3;
       const O = s0 * o0[p] + s1 * o1[p];
-      const C = 1 - exp(-O);
+      const C = smooth((1 - exp(-O) - 0.04) / 0.8);
       let r = BG[0] / 255, g = BG[1] / 255, bl = BG[2] / 255;
       if (C > 0.004) {
         r += (SEEN[0] / 255) * C;
@@ -342,7 +342,7 @@ export function draw(display, params) {
           if (gg <= 0) continue;
           const rate = pow(gg, POW);
           if (rate < FLOOR) continue;
-          const v = C * (rate - FLOOR) / (1 - FLOOR);
+          const v = C * pow((rate - FLOOR) / (1 - FLOOR), 0.8);
           const c = S.col[i];
           r += c[0] * v;
           g += c[1] * v;
