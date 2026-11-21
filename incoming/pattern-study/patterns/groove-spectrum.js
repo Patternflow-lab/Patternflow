@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Groove Spectrum
 // Family:  grating
-// Idea:    The data side of a compact disc seen so close that the panel is a few millimetres of it, the grooves running in arcs about a centre far off the panel and one small lamp wandering overhead, so the whole panel is bands of spectrum: the first order, a stretch of violet to red, then a dark gap, then the broader second order, with the third coming up through it as pastel and a faint white glint of scratches crossing them, the bands sliding, fanning and curving as the lamp and the eye move.
+// Idea:    The data side of a compact disc seen so close that the panel is a few millimetres of it, the grooves running in arcs about a centre far off the panel and one small lamp wandering overhead, so the whole panel is bands of spectrum: it opens on a single first-order rainbow between gaps of dark gunmetal where faint scratches glint, with the second order a violet hint at the edge, and as the lamp and the eye move the bands slide, fan and curve and the second and third orders press up against the first, pastel where they overlap.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,12 +9,12 @@
 // Round:   212
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Sweep=0.2..3, Pitch=-1..1, Lamp=0.01..0.4
+// @knobs Hue=0..1, Sweep=0.2..3, Pitch=-1..1, Lamp=0.01..0.2
 //
 // Knob 1: Hue. Turns every colour of the spectrum round the colour wheel together, keeping the white where the orders pile up. At 0 the colours are the physical ones, violet to red in the first order; at 0.25 that order runs from teal to yellow and out to violet; at 0.5 from green to orange and magenta to cyan.
-// Knob 2: Sweep. How fast the lamp runs along its path, from 0.2 to 3, opening at 2. The path is sines that never close. One slow swing of it, from the lamp low over the panel to far out to one side, takes about 90 seconds at 2, a minute at 3 and 6 minutes at 0.2. The hand that holds the lamp shakes a little in real time whatever the knob says, so the bands still sway at 0.2.
-// Knob 3: Pitch. The spacing of the grooves, 0.74 micrometres at -1, 1.6 at 0 where it opens and 3.2 at 1. At -1 it is a DVD: the first order is the only one in view, a single rainbow that lies from u of 0.51 to 1.0, and the lamp stays where that is, so the panel is never dark. At 0 it is a CD, and the first, second and third orders lie against each other with a dark gap where the first ends. At 1 the orders are narrower and there are more of them, and they pile up into pastel.
-// Knob 4: Lamp. The radius of the lamp, twice the knob in panel heights, from 0.01 to 0.4 and opening at 0.06. Small, it is nearly a point and each band is a crisp stretch of single wavelengths; large, each LED sees a wide stretch of the spectrum at once and the bands wash out to pastel.
+// Knob 2: Sweep. How fast the lamp runs along its path, from 0.2 to 3, opening at 2. The path is sines that never close. One slow swing of it, from the lamp low over the panel to far out to one side, takes about 67 seconds at 2, 47 at 3 and 5 minutes at 0.2. The hand that holds the lamp shakes a little in real time whatever the knob says, so the bands still sway at 0.2.
+// Knob 3: Pitch. The spacing of the grooves, 0.74 micrometres at -1, 1.05 at 0 where it opens and 3.2 at 1. At -1 it is a DVD: the first order is the only one in view, a single rainbow that lies from u of 0.51 to 1.0, and the lamp stays where that is, so the panel is never dark. At 0 the first order lies from u of 0.36 to 0.71 as one rainbow with dark gunmetal on either side, and the second order only begins at 0.72, so it shows as a violet hint. Near 0.4 it is the 1.6 micrometres of a CD, and the first, second and third orders lie against each other. At 1 the orders are narrower and there are more of them, and they pile up into pastel.
+// Knob 4: Lamp. The radius of the lamp, twice the knob in panel heights, from 0.01 to 0.2 and opening at 0.06. Small, it is nearly a point and each band is a crisp stretch of single wavelengths; large, each LED sees a wide stretch of the spectrum at once and the bands wash out to pastel.
 
 // Concentric grooves of spacing d about a centre c. At a point p let t be the unit
 // vector across the grooves, L the unit vector to the lamp and V the unit vector to
@@ -45,12 +45,12 @@ const WID0 = 0.035; // the half width of the lamp in u at which its light stops 
 const ZERO = 0.1; // the zero-order streak, against a first order near 1
 const ZERO_W = 0.07; // its width in u
 
-// The disc centre is 1.4 to 2.6 panel heights from the middle of the panel, up and to one side, and it
+// The disc centre is 1.25 to 2.75 panel heights from the middle of the panel, up and to one side, and it
 // wanders slowly round the panel, which is the same as the eye and the lamp together going round the disc.
 const SC_N = 2048, SC_R0 = 0.7, SC_R1 = 3.5; // the scratches, as a table over the distance from the centre
 const GLINT = 0.45; // how white the scratches' glint gets at most
 const GLINT_W = 0.11; // half width in w of the glint, for a point lamp
-const PH0 = 574; // where on the lamp's path the pattern opens, in seconds of path
+const PH0 = 464; // where on the lamp's path the pattern opens, in seconds of path
 
 // ---- colour of one wavelength: Wyman, Sloan and Shirley's multi-lobe fit of the CIE 1931 curves
 function lobe(l, mu, s1, s2) {
@@ -90,9 +90,10 @@ function spectrum(l, out) {
   return 1;
 }
 
-// The pitch knob in micrometres: 0.74 at -1, 1.6 at 0, 3.2 at 1.
+// The pitch knob in micrometres: 0.74 at -1, 1.05 at 0 and 3.2 at 1.
+const P0 = 1.05;
 function pitchOf(k) {
-  return k < 0 ? 1.6 * pow(0.74 / 1.6, -k) : 1.6 * pow(2, k);
+  return k < 0 ? P0 * pow(0.74 / P0, -k) : P0 * pow(3.2 / P0, k);
 }
 
 // All the orders at one pitch, as a function of |u|, in linear light, and the zero order beside them.
@@ -138,7 +139,7 @@ export function setup(params) {
     px, py, scr, sw: GLINT_W,
     raw: new Float32Array(NU * 3), lut: new Float32Array(NU * 3),
     pitch: -99, hue: -1, cs: 1, sn: 0,
-    t: 0, ph: PH0, sf: 1.34, hueT: 0, sfT: 1.34, pk: 0, lk: 0.06,
+    t: 0, ph: PH0, sf: 1.75, hueT: 0, sfT: 1.75, pk: 0, lk: 0.06,
     lx: 0, ly: 0, lz: 1, ex: 0, ey: 0, ez: 1, cx: 0, cy: -1.9, uc: 0, wid: 0,
   };
 }
@@ -149,24 +150,24 @@ export function setup(params) {
 // the path does not close.
 function place(S, ph, t) {
   const tau = 2 * PI;
-  // x swings between 0 and 1 on four periods that never meet. U is 0.28 at 0 and 1.28 at 1,
+  // x swings between 0 and 1 on four periods that never meet. U is 0.33 at 0 and 1.15 at 1,
   // and bent so that the lamp spends most of its time where the first and second orders are.
   const x = cl(0.5 + 0.27 * sin((tau * ph) / 233.7 + 0.3) + 0.15 * sin((tau * ph) / 83.1 + 2.1) + 0.08 * sin((tau * ph) / 29.7 + 4.2), 0, 1);
   // The hand holding the lamp is never quite still, whatever the Sweep knob says: it shakes in real time.
   const hand = 0.012 * sin((tau * t) / 5.3 + 0.7) + 0.008 * sin((tau * t) / 3.1 + 2.2);
-  const U0 = 0.28 + pow(x, 1.7) + 0.03 * sin((tau * ph) / 14.3 + 1.0) + 0.02 * sin((tau * ph) / 6.1 + 4.4);
+  const U0 = 0.33 + 0.82 * pow(x, 1.7) + 0.03 * sin((tau * ph) / 14.3 + 1.0) + 0.02 * sin((tau * ph) / 6.1 + 4.4);
   // A finer pitch pushes its first order out to larger u and narrows it, and the lamp follows: at 0.74 the
   // panel stays within u of 0.6 to 0.93, where the first order of a DVD lies, and so is never dark.
-  const fine = cl((1.6 - pitchOf(S.pk)) / 0.86, 0, 1);
+  const fine = cl((P0 - pitchOf(S.pk)) / (P0 - 0.74), 0, 1);
   const U = U0 * (1 - fine) + fine * (0.76 + 0.33 * (U0 - 0.78)) + hand;
   const fi = 0.45 * sin((tau * ph) / 97.3 + 1.0) + 0.25 * sin((tau * ph) / 41.1 + 3.0) + 0.08 * sin((tau * ph) / 17.3 + 5.1);
-  const D = 2.6 + 0.5 * sin((tau * ph) / 53.9 + 0.6) + 0.3 * sin((tau * ph) / 19.7 + 2.0);
+  const D = 2.7 + 0.8 * sin((tau * ph) / 53.9 + 0.6) + 0.4 * sin((tau * ph) / 19.7 + 2.0);
   const te = 0.32 + 0.14 * sin((tau * ph) / 311.3 + 1.7) + 0.07 * sin((tau * ph) / 131.1 + 0.2);
   const fe = 0.5 + 1.2 * sin((tau * ph) / 421.7 + 0.9) + 0.5 * sin((tau * ph) / 163.9 + 2.5);
-  const De = 5.6 + 0.8 * sin((tau * ph) / 251.3 + 1.2) + 0.4 * sin((tau * ph) / 71.9 + 3.3);
+  const De = 5.5 + 1.3 * sin((tau * ph) / 251.3 + 1.2) + 0.6 * sin((tau * ph) / 71.9 + 3.3);
   // The disc: the direction across its grooves at the middle of the panel, and how far off the centre is.
-  const al = 0.3 + 0.5 * sin((tau * ph) / 351.7 + 1.1) + 0.28 * sin((tau * ph) / 127.3 + 4.0) + 0.1 * sin((tau * ph) / 47.9 + 0.4);
-  const rc = 2.0 + 0.4 * sin((tau * ph) / 191.3 + 2.0) + 0.2 * sin((tau * ph) / 73.1 + 5.0);
+  const al = 0.3 + 0.55 * sin((tau * ph) / 251.7 + 1.1) + 0.4 * sin((tau * ph) / 107.3 + 4.0) + 0.15 * sin((tau * ph) / 37.9 + 0.4);
+  const rc = 2.0 + 0.5 * sin((tau * ph) / 191.3 + 2.0) + 0.25 * sin((tau * ph) / 73.1 + 5.0);
   const t0x = sin(al), t0y = cos(al), s0x = -t0y, s0y = t0x;
   S.cx = -rc * t0x;
   S.cy = -rc * t0y;
@@ -192,9 +193,9 @@ export function update(dt, input, params) {
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt || 0, 0, 0.1);
   S.hueT = cl(kn[0], 0, 1);
-  S.sfT = 0.2 + 0.57 * cl(kn[1], 0.2, 3);
+  S.sfT = 0.25 + 0.75 * cl(kn[1], 0.2, 3);
   S.pk = cl(kn[2], -1, 1);
-  S.lk = cl(kn[3], 0.01, 0.4);
+  S.lk = cl(kn[3], 0.01, 0.2);
   S.sf += (S.sfT - S.sf) * (1 - exp(-d / 0.4));
   S.ph += d * S.sf;
   S.t += d;
@@ -231,7 +232,7 @@ function makeTable(S) {
   const cs = S.cs, sn = S.sn;
   // A lamp wider than WID0 puts more light on the LED, in proportion to its width, and so does a
   // coarser pitch, which has more orders to share it with. Without that the pastels go grey.
-  const gain = pow(max(1, S.wid / WID0), 0.75) * max(1, S.pitch / 1.6);
+  const gain = pow(max(1, S.wid / WID0), 0.4) * max(1, S.pitch / 1.6);
   for (let i = 0; i < NU; i++) {
     let r = 0, g = 0, b = 0;
     for (let k = 0; k < nt; k++) {
