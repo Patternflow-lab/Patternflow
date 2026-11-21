@@ -9,7 +9,7 @@
 // Round:   215
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0..4, Drive=-1..1, Width=-1..1
+// @knobs Hue=0..1, Flow=0..8, Drive=-1..1, Width=-1..1
 //
 // Knob 1: Hue. Placeholder.
 // Knob 2: Flow. Placeholder.
@@ -28,7 +28,7 @@ const Y0 = -40, Y1 = 150; // the river enters above the panel and leaves below i
 const CAP = 1400;
 const OMEGA = 1; // local curvature term, which pulls a bend back toward its centre
 const GAM0 = 1.9; // upstream-weighted term, which pushes it out and downstream
-const K3F = 1.45; // how much the Drive knob scales the upstream term, per unit
+const K3F = 1.2; // how much the Drive knob scales the upstream term, per unit
 const E0 = 1.6; // bank erodibility at the 3.5 LED channel
 const ALPHA0 = 0.9; // 1 / (length of the upstream memory), times the channel width
 const W0 = 3.5;
@@ -74,10 +74,10 @@ function rgbOf(h, s, v) {
 
 // Colours at hue 0. Every one is turned round the wheel by Hue when it changes.
 const COLS = {
-  deep: [16, 96, 112], mid: [30, 142, 154], core: [58, 184, 188], glint: [168, 240, 232],
+  deep: [16, 96, 112], mid: [30, 142, 154], core: [58, 184, 188], glint: [214, 252, 244],
   lakeA: [20, 108, 112], lakeB: [48, 104, 62],
   sand: [238, 216, 150], crest: [222, 190, 120], swale: [78, 110, 50],
-  g1: [44, 94, 52], g2: [66, 116, 56], och: [160, 134, 64],
+  g1: [44, 94, 52], g2: [66, 116, 56], och: [158, 138, 70],
   hill: [34, 70, 40], hill2: [64, 80, 44], rim: [30, 74, 46],
 };
 const KEYS = Object.keys(COLS);
@@ -157,7 +157,7 @@ function initialLine(S, ds) {
 }
 
 // ---- one step of the migration
-function step(S, h, gam, E0w, alpha, ds, W) {
+function step(S, h, gam, E0w, alpha, W, wd) {
   const { X, Y, X2, Y2, dx, dy, ln, kap, kap2, U } = S;
   const n = S.n;
   for (let i = 0; i < n - 1; i++) {
@@ -185,7 +185,7 @@ function step(S, h, gam, E0w, alpha, ds, W) {
     const e = exp(-alpha * ln[i - 1]);
     U[i] = U[i - 1] * e + kap[i] * (1 - e);
   }
-  const vmax = 0.9 * (W / W0);
+  const vmax = 0.9 * (wd / W0);
   X2[0] = X[0];
   Y2[0] = Y[0];
   X2[n - 1] = X[n - 1];
@@ -200,13 +200,13 @@ function step(S, h, gam, E0w, alpha, ds, W) {
     const er = 1 + 0.4 * (2 * S.er(x, y - Y0 + 8) - 1);
     const damp = sm((y - Y0) / 10) * sm((Y1 - y) / 10);
     const nz = mix(S.nzA(x, y - Y0 + 8), S.nzB(x, y - Y0 + 8), 0.5 + 0.5 * sin(0.0083 * S.t + 1));
-    let d = (E0w * er * (OMEGA * kap[i] - gam * U[i]) + VN * (W / W0) * (2 * nz - 1)) * damp;
+    let d = (E0w * er * (OMEGA * kap[i] - gam * U[i]) + VN * (wd / W0) * (2 * nz - 1)) * damp;
     d = vmax * tanh(d / vmax);
     let mx = nx * d * h;
     const my = ny * d * h;
     if (mx < 0) mx *= sm((x - WALL) / 5);
     else mx *= sm((W_PANEL - WALL - x) / 5);
-    mx += h * 0.12 * (W / W0) * (sm((WALL + 6 - x) / 6) - sm((x - (W_PANEL - WALL - 6)) / 6));
+    mx += h * 0.12 * (wd / W0) * (sm((WALL + 6 - x) / 6) - sm((x - (W_PANEL - WALL - 6)) / 6));
     X2[i] = cl(x + mx, WALL - 0.5, W_PANEL - WALL + 0.5);
     Y2[i] = cl(y + my, Y0 - 6, Y1 + 6);
   }
@@ -255,7 +255,7 @@ function cutOff(S, a, b, W) {
     lx[k] = X[a + k];
     ly[k] = Y[a + k];
   }
-  if (m >= 16) S.lakes.push({ x: lx, y: ly, n: m, t0: S.t, w: W });
+  if (m >= 20) S.lakes.push({ x: lx, y: ly, n: m, t0: S.t, w: W });
   if (S.lakes.length > 14) S.lakes.shift();
   const k = b - a - 1;
   for (let i = b; i < S.n; i++) {
@@ -289,7 +289,9 @@ function par(S) {
   const kn = S.knobs;
   const k3 = cl(kn[2], -1, 1);
   const W = S.Wc;
-  return { gam: GAM0 * pow(K3F, k3), alpha: ALPHA0 / W, E: E0 * (W / W0) * (W / W0), ds: 0.34 * W, W };
+  // The bends follow the square root of the width, so that a 5 LED channel still has room to bend.
+  const wd = W0 * sqrt(W / W0);
+  return { gam: GAM0 * pow(K3F, k3), alpha: ALPHA0 / wd, E: E0 * (wd / W0) * (wd / W0), ds: 0.34 * wd, W, wd };
 }
 
 function advance(S, mdt) {
@@ -299,13 +301,13 @@ function advance(S, mdt) {
     const hmax = 0.1;
     const h = min(rest, hmax);
     rest -= h;
-    step(S, h, p.gam, p.E, p.alpha, p.ds, p.W);
+    step(S, h, p.gam, p.E, p.alpha, p.W, p.wd);
     S.t += h;
     S.since += h;
     S.X[0] = entryX(S, S.t);
     S.Y[0] = Y0;
     if (needsResample(S, p.ds)) resample(S, p.ds);
-    const c = findCut(S, CUTF * p.W, max(12, Math.round((3.2 * p.W) / p.ds)));
+    const c = findCut(S, CUTF * p.wd, max(12, Math.round((3.2 * p.wd) / p.ds)));
     if (c) {
       stamp(S, p.W);
       cutOff(S, c[0], c[1], p.W);
@@ -385,8 +387,8 @@ export function update(dt, input, params) {
     prerun(S);
   }
   S.Wc += (wt - S.Wc) * (1 - exp(-d / 0.35));
-  const f = cl(kn[1], 0, 4) * 0.5;
-  S.flowT += d * f;
+  const f = cl(kn[1], 0, 8) * 0.5;
+  S.flowT += (d * 1.1 * f) / (1 + 0.25 * f);
   advance(S, d * f);
 }
 
@@ -496,9 +498,9 @@ export function draw(display, params) {
       const p = y * W + x;
       // field and valley wall
       const fa = S.fa[p], fb = S.fb[p], tx = S.ft[p] * 0.1;
-      let fr = mix(mix(P[I.g1], P[I.g2], fb), P[I.och], fa * 0.8);
-      let fg = mix(mix(P[I.g1 + 1], P[I.g2 + 1], fb), P[I.och + 1], fa * 0.8);
-      let fbl = mix(mix(P[I.g1 + 2], P[I.g2 + 2], fb), P[I.och + 2], fa * 0.8);
+      let fr = mix(mix(P[I.g1], P[I.g2], fb), P[I.och], fa * 0.6);
+      let fg = mix(mix(P[I.g1 + 1], P[I.g2 + 1], fb), P[I.och + 1], fa * 0.6);
+      let fbl = mix(mix(P[I.g1 + 2], P[I.g2 + 2], fb), P[I.och + 2], fa * 0.6);
       const hf = S.hf[p];
       if (hf > 0) {
         const hm = fb;
@@ -556,9 +558,12 @@ export function draw(display, params) {
       const wc = cl(r + 0.5 - dd, 0, 1);
       if (wc > 0) {
         const q = cl(abs(rq[p]) / r, 0, 1), c = 1 - q * q;
-        const st = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 10.5 - ft * 0.5) + 1.6 * rq[p] / r);
+        const qq = rq[p] / r;
+        const b1 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 12 - ft * 0.45) + 1.3 * qq);
+        const b2 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 21 - ft * 0.7) - 0.8 * qq + 1.9);
+        const st = cl(0.75 * b1 * b1 + 0.45 * b2 * b2 * b1, 0, 1);
         let wr = mix(P[I.deep], P[I.core], c), wg = mix(P[I.deep + 1], P[I.core + 1], c), wb = mix(P[I.deep + 2], P[I.core + 2], c);
-        const gl = st * 0.35 * (0.4 + 0.6 * c);
+        const gl = st * 0.9 * (0.3 + 0.7 * c);
         wr = mix(wr, P[I.glint], gl);
         wg = mix(wg, P[I.glint + 1], gl);
         wb = mix(wb, P[I.glint + 2], gl);
