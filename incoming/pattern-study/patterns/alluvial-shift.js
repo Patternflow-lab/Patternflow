@@ -11,18 +11,20 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Churn=0.2..3, Modules=-2..2, Mixing=0..1
 //
-// Knob 1: Hue. Adds the knob to the hue of every module, so one turn comes back to where it began. At 0 the five modules are coral, amber, teal, azure and violet; at 0.5 they are teal, azure, red, orange and yellow-green.
-// Knob 2: Churn. How fast the modules swell, shrink and change places, from 0.2 to 3 and opening at 2. The size and order clocks run at this many times a base rate of 0.5 a second, so at 0.2 a bar takes a minute to change its width visibly and at 3 it takes about five seconds.
-// Knob 3: Modules. How many module identities are alive, as 5 plus the knob: 3 at -2, 5 at the opening 0 and 7 at 2. The count is continuous. A module past the count has its size multiplied by a smoothstep of how far the count falls short of its place, so between 4 and 5 the fifth bar thins to nothing over the whole turn of the knob and the others widen to fill the row, and the two extras (green and rose) come in the same way between 5 and 7.
-// Knob 4: Mixing. How much the members change module between two moments. At 0 almost every ribbon runs down its own module, straight where the bar stays under the bar above, and only the share a module gains or loses crosses to a neighbour; at 1 every module sends members to every other, and the ribbons braid across the whole width. Ribbons that would be too thin are given up and the others take their mass.
+// Knob 1: Hue. Adds the knob to the hue of every module, so one turn comes back to where it began. At 0 the five modules are coral, amber, teal, azure and violet. At 0.5 coral has become cyan, amber azure, teal red, azure orange and violet green, and at 0.25 coral is yellow-green, teal violet-blue, amber green, azure magenta and violet coral. Ribbons of yellow and orange are laid harder than the rest, so no hue sinks to brown.
+// Knob 2: Churn. How fast the modules swell, shrink and change places, from 0.2 to 3. The Lab opens it at 2, and the base rate is set so that 2 is a calm morph. The clock for sizes and for order runs at 0.22 times the knob a second. Measured on the opening picture, a bar's width changes by 0.15 LED a second at 0.2, 1.4 at 2 and 2.1 at 3, and a bar passes another, in one of the four tiers, 5 times a minute at 0.2, 48 at 2 and 71 at 3. The bars follow their ranks with a spring that settles in about 19 s at 0.2, 3 s at 2 and 2 s at 3.
+// Knob 3: Modules. How many module identities are alive, as 5 plus the knob: 3 at -2, 5 at the opening 0 and 7 at 2. The count is continuous. Module i has the weight of a smoothstep of the count minus its place, so between -1 and 0 the azure bar thins from full width to nothing while the others widen to fill the row, between -2 and -1 amber goes the same way and coral, teal and violet are left, and the two extras, green and rose, come in between 0 and 1 and between 1 and 2. A bar is 21 LEDs wide on average at 3 modules, 13 at 5 and 9 at 7, and the picture carries 14 ribbons at 3, 21 at 5 and 26 at 7. The count follows the knob with a 0.3 s lag, so a jump from 0 to -2 is a fade of about a second.
+// Knob 4: Mixing. How far members move to other modules between two moments. Measured as the share of members that stay in their own module, averaged over time and over the three gaps between tiers: 0.78 at 0 (not 1, since a module that grows from one tier to the next must take members from another), 0.77 at the opening 0.06, 0.75 at 0.25, 0.64 at 0.5, 0.44 at 0.75 and 0.32 at 1. At 0 every ribbon runs down its own module and only what a module gains or loses crosses to a neighbour; at 1 each module sends members to all the others and the ribbons braid across the whole width. The picture carries 21 ribbons at 0.06, 29 at 0.5 and 38 at 1.
 
 // The picture is Rosvall and Bergstrom's. There are four moments, one to a tier, and
 // seven module identities, each with a fixed colour. In a tier the modules sit side by
 // side as bars, each as wide as its share of the members. Between two tiers a ribbon
 // runs from module i above to module j below, as wide as the share of members that go
 // from i to j. Its edges are S-curves (smoothstep over the rows between the bars), so
-// it leaves its bar and arrives at its bar straight down, and the width at any row is
-// the straight blend of its width at both ends.
+// it leaves its bar and arrives at its bar straight down, and its width along any row
+// is the blend of its widths at both ends. A steep S would leave a thin ribbon across
+// its own line, so the width along a row is kept above what gives two LEDs across the
+// line. Thick ribbons keep their edges and thin ones are held at two LEDs.
 //
 // Nothing scrolls and nothing repeats. The size of a module in a tier is a smooth
 // positive function of the clock: two sines and a small third one, whose rates are all
@@ -37,9 +39,9 @@
 // with the distance between the two bars, and has a slowly changing weight for each
 // pair, so that who trades with whom drifts. Rows and columns are then scaled in turn
 // until the row sums are the sizes above and the column sums the sizes below. A ribbon
-// whose thinnest stretch would be under two LEDs, counting how much a steep S-curve
-// narrows it, is given a small weight and the fit is run again, so its members go
-// into ribbons that can be seen.
+// narrower than about two LEDs is given a small weight and the fit is run again, so its
+// members go into ribbons that can be seen. A ribbon that is still under 2 LEDs at
+// either end is drawn fainter, and gone below 1.5.
 //
 // The order of the bars in a tier comes from a second set of slow sines, one for each
 // module and tier. Every module has a position that eases toward its rank with a
@@ -51,10 +53,12 @@
 // bars they come from, by the same smooth count, so ribbons trade places without a jump
 // too.
 //
-// A ribbon is its source module's colour at 0.64. Ribbons add in a float buffer
-// and the sum is rolled off softly above 0.85, so where ribbons cross the colours mix
-// and glow. The bars are painted over them, solid, with a dark LED between neighbours.
-// The background is a deep plum-black.
+// A ribbon is its source module's colour laid at 0.6 to 0.82, by hue. Ribbons add in a
+// float buffer and the sum is rolled off softly above 0.85, so where two ribbons cross the
+// colours mix and glow, to white for complementary hues. The bars are painted over them,
+// solid and a little paler, with a dark LED between neighbours. The share of an LED that
+// an edge covers goes through a smoothstep so the edges stay crisp. The background is a
+// deep plum-black.
 
 const W = 64, H = 128, N = W * H;
 const M = 7; // module identities
