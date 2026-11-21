@@ -84,11 +84,22 @@ const PH = (i, n) => i * 2.3999632 * n + 0.7 * n; // a phase for module i, sprea
 const TIER_PH = [0.8, 0.9, 0.7]; // how far each sine moves from one tier to the next
 
 // ---- the ribbons
-const ALPHA = [0.7, 0.58, 0.7, 0.8, 0.76, 0.68, 0.68]; // how strongly each module's ribbons are laid, so that amber does not sink to brown and teal does not outshine azure
+// How strongly a ribbon of hue h is laid, about 0.6: yellow and orange are laid harder, since
+// they sink to brown and olive when dim, and so is blue, which looks dark at the same level.
+const hueGap = (h, c) => abs(((h - c + 1.5) % 1) - 0.5);
+const ribbonAlpha = (h) => 0.62 + 0.2 * exp(-((hueGap(h, 0.13) / 0.13) ** 2)) + 0.16 * exp(-((hueGap(h, 0.62) / 0.1) ** 2)) - 0.04 * exp(-((hueGap(h, 0.5) / 0.08) ** 2));
 const BAR_V = [0.97, 0.86, 0.97, 0.95, 0.97, 0.9, 0.97]; // bars are paler than their ribbons, and teal and green are held back from neon
 const BG = [14, 4, 19];
-const STAY_A = 4.6; // the diagonal's weight at Mixing 0 is exp(STAY_A) and falls to exp(STAY_A - STAY_B), about the weight of any other pair, at 1
-const STAY_B = 7.4;
+// The diagonal's weight against a typical other pair, as its logarithm at a few places of Mixing,
+// joined by straight lines: members hardly leave at 0, and by 1 a module sends more
+// members away than it keeps.
+const STAY_AT = [[0, 6.2], [0.06, 3.3], [0.25, 1.5], [0.5, 0.45], [0.75, -0.3], [1, -1.1]];
+function stayWeight(m) {
+  let k = 0;
+  while (k < STAY_AT.length - 2 && m > STAY_AT[k + 1][0]) k++;
+  const a = STAY_AT[k], b = STAY_AT[k + 1];
+  return 0.2 * exp(a[1] + ((b[1] - a[1]) * cl((m - a[0]) / (b[0] - a[0]), 0, 1)));
+}
 
 export function setup(params) {
   params.s = {
@@ -100,7 +111,7 @@ export function setup(params) {
     flow: new Float64Array((T - 1) * M * M),
     rib: [], built: false,
     tmp: { A: new Float64Array(M * M), F: new Float64Array(M * M), u: new Float64Array(M), w: new Float64Array(M), key: new Float64Array(M), idx: [0, 1, 2, 3, 4, 5, 6] },
-    col: new Float64Array(M * 3), barCol: new Float64Array(M * 3), colKey: "",
+    col: new Float64Array(M * 3), barCol: new Float64Array(M * 3), alpha: new Float64Array(M), colKey: "",
   };
 }
 
@@ -242,7 +253,7 @@ function pairWeight(S, k, i, j) {
 function build(S) {
   for (let k = 0; k < T; k++) layout(S, k);
   const { A, F, u, w } = S.tmp, m = S.m;
-  const stay = exp(STAY_A - STAY_B * pow(m, 0.7));
+  const stay = stayWeight(m);
   const lam = 0.3 + 0.9 * m;
   const off = 0.05 + 0.3 * m;
   const r = new Float64Array(M), c = new Float64Array(M);
@@ -298,7 +309,7 @@ function build(S) {
         const ta = S.bx[o + i] + 0.5 + la * iwa, wa = fa * iwa;
         const tb = S.bx[o2 + j] + 0.5 + lb * iwb, wb = fb * iwb;
         const q = min(wa, wb);
-        const al = ALPHA[i] * ss((q - 1.3) / 0.9);
+        const al = ss((q - 1.3) / 0.9);
         if (al <= 0.002) continue;
         ribs.push({ k, i, ta, wa, tb, wb, al });
       }
@@ -324,15 +335,17 @@ function palette(S) {
   for (let i = 0; i < M; i++) {
     hsv(HUE[i] + S.hue, SAT[i], 1, S.col, i * 3);
     hsv(HUE[i] + S.hue, SAT[i] * 0.72, BAR_V[i], S.barCol, i * 3);
+    S.alpha[i] = ribbonAlpha(HUE[i] + S.hue);
   }
 }
 
-// Add colour a over the columns of [xl, xr] on one row, by how much of each LED the span covers.
+// Add colour over the columns of [xl, xr] on one row, by how much of each LED the span covers.
+// The share is passed through a smoothstep so a sliver of an LED stays dark and the edge is crisp.
 function addSpan(buf, y, xl, xr, r, g, b) {
   if (xr <= xl) return;
   const x0 = max(0, floor(xl)), x1 = min(W - 1, ceil(xr) - 1);
   for (let x = x0; x <= x1; x++) {
-    const cov = min(x + 1, xr) - max(x, xl);
+    const cov = ss(min(x + 1, xr) - max(x, xl));
     if (cov <= 0) continue;
     const p = (y * W + x) * 3;
     buf[p] += r * cov;
@@ -345,7 +358,7 @@ function paintSpan(buf, y, xl, xr, r, g, b, al) {
   if (xr <= xl) return;
   const x0 = max(0, floor(xl)), x1 = min(W - 1, ceil(xr) - 1);
   for (let x = x0; x <= x1; x++) {
-    const cov = (min(x + 1, xr) - max(x, xl)) * al;
+    const cov = ss(min(x + 1, xr) - max(x, xl)) * al;
     if (cov <= 0) continue;
     const p = (y * W + x) * 3;
     buf[p] += (r - buf[p]) * cov;
@@ -366,7 +379,8 @@ export function draw(display, params) {
   // Ribbons.
   for (const R of S.rib) {
     const yt = TOPS[R.k] + BH, yb = TOPS[R.k + 1];
-    const cr = S.col[R.i * 3] * R.al, cg = S.col[R.i * 3 + 1] * R.al, cb = S.col[R.i * 3 + 2] * R.al;
+    const a = R.al * S.alpha[R.i];
+    const cr = S.col[R.i * 3] * a, cg = S.col[R.i * 3 + 1] * a, cb = S.col[R.i * 3 + 2] * a;
     const ca = R.ta + R.wa / 2, cb2 = R.tb + R.wb / 2, dx = cb2 - ca, span = yb - yt;
     for (let y = yt; y < yb; y++) {
       const t = (y + 0.5 - yt) / span, u = ss(t);
