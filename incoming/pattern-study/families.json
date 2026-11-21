@@ -119,5 +119,10 @@
   "hydraulics": { "label": "물막", "color": "#c9d6e4" },
   "ctenophore": { "label": "빗해파리", "color": "#ff7ee8" },
   "alpine": { "label": "고산 설원", "color": "#ffd1a0" },
-  "longexposure": { "label": "장노출", "color": "#d13cff" }
+  "longexposure": { "label": "장노출", "color": "#d13cff" },
+  "cochlea": { "label": "달팽이관", "color": "#d9ed92" },
+  "landform": { "label": "침식 지형", "color": "#b5838d" },
+  "swingby": { "label": "스윙바이", "color": "#bdb2ff" },
+  "doppler": { "label": "도플러", "color": "#ffc6ff" },
+  "conduction": { "label": "열 전도", "color": "#74c69d" }
 }
