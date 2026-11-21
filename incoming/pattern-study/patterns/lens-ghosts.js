@@ -31,7 +31,7 @@ const CY = 64;
 const HALO_R = 26; // the ring round the light, in LEDs
 const EPS = [0.07, 0, -0.07]; // red, green and blue are drawn at these scales
 const SHIFT = 0.3; // and slid along the ghost line by this much of the same
-const T0 = 285; // where on its ring the first light stands when the Lab starts
+const T0 = 294; // where on its ring the first light stands when the Lab starts
 const TT0 = 176; // and where the slow clock of the lens (zoom, roll, tints, strength) stands
 const SRC_HUE = 235; // OKLCH degrees of the light's tint at Hue 0: a cool white
 
@@ -167,8 +167,8 @@ function pose(S) {
   S.lh = 75 * sin(0.0283 * t + 1.3) + 30 * sin(0.0617 * t + 0.2);
   // the light itself swells and dims a quarter either way, on two periods that do not divide
   S.ex = 1 + 0.26 * sin(0.0457 * t + 3.1) + 0.1 * sin(0.1033 * t + 1.0);
-  // the lens zooms slowly: the whole chain of ghosts spreads and packs by a fifth either way
-  S.kz = 1 + 0.26 * sin(0.0337 * t + 0.8) + 0.1 * sin(0.0791 * t + 2.4);
+  // the lens zooms slowly: the whole chain of ghosts spreads and packs by a fifth or so either way
+  S.kz = 1.08 + 0.22 * sin(0.0337 * t + 0.8) + 0.08 * sin(0.0791 * t + 2.4);
   // and the lens sits a little off true: the line of ghosts pivots about a point that wanders
   S.ax = 12 * sin(0.0229 * t + 2.9) + 5 * sin(0.0571 * t + 0.4);
   S.ay = 20 * sin(0.0191 * t + 0.6) + 7 * sin(0.0663 * t + 3.3);
@@ -284,12 +284,12 @@ export function draw(display, params) {
   lightPass(S, acc, x1, y1, 1.0 * vis1, nA, nB, wB, alpha, g, t, 1);
   if (w2 > 0.01) {
     const vis2 = (1 - sm(8, 44, outside(s2x, s2y))) * S.ex;
-    lightPass(S, acc, x2, y2, 0.55 * w2 * vis2, nA, nB, wB, alpha, g, t, 2);
+    lightPass(S, acc, x2, y2, 0.42 * w2 * vis2, nA, nB, wB, alpha, g, t, 2);
   }
 
   // ---- ghosts ----
   ghostPass(S, acc, s1x, s1y, vis1, nA, nB, wB, alpha, g, t, 0);
-  if (w2 > 0.01) ghostPass(S, acc, s2x, s2y, 0.55 * w2 * (1 - sm(8, 44, outside(s2x, s2y))) * S.ex, nA, nB, wB, alpha, g, t, 1);
+  if (w2 > 0.01) ghostPass(S, acc, s2x, s2y, 0.42 * w2 * (1 - sm(8, 44, outside(s2x, s2y))) * S.ex, nA, nB, wB, alpha, g, t, 1);
 
   // ---- out ----
   const sc = NLUT / 2.5;
@@ -323,13 +323,13 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
   const dA = TAU / nsA;
   const dB = TAU / nsB;
   const wA = 1 - wB;
-  const Ls = (14 + 42 * g) * (id === 2 ? 0.62 : 1); // spike length in LEDs
+  const Ls = (14 + 42 * g) * (id === 2 ? 0.55 : 1); // spike length in LEDs
   const spA = amp * (0.95 + 0.4 * g) * (0.92 + 0.08 * sin(0.7 * t + id));
   const sig = 0.95;
   const inv2s = 1 / (2 * sig * sig);
   const wideA = 0.022 * (0.35 + g);
   // the ring: three radii, red inside and blue outside, the way a prism lays it out
-  const ringA = amp * 0.55 * g * g * (0.4 + 0.6 * g);
+  const ringA = id === 2 ? 0 : amp * 0.55 * g * g * (0.4 + 0.6 * g);
   const rr0 = HALO_R * 0.95;
   const rr1 = HALO_R;
   const rr2 = HALO_R * 1.05;
