@@ -208,7 +208,7 @@ function prepare(S) {
     }
   // The mottle: two octaves of value noise in LED coordinates of the crystal, one node every 2 LEDs.
   // A pixel centre sits a quarter or three quarters of the way between nodes, so the weights are fixed.
-  const oL = S.oL, mo = S.mot, tt = S.t, e0 = 0.5 * tt, e1 = -0.37 * tt, e2 = 0.29 * tt;
+  const oL = S.oL, mo = S.mot, tt = S.t, e0 = 0.8 * tt, e1 = -0.6 * tt, e2 = 0.45 * tt;
   for (let my = 0; my < MY; my++)
     for (let mx = 0; mx < MX; mx++) {
       const X = mx * 2 - 32, Y = my * 2 - 64;
@@ -321,10 +321,10 @@ export function draw(display, params) {
         free *= 1 - covR;
         if (covK > 0) {
           const pc = cl(dsg / h, -1, 1);
-          const Lk = 0.8 + 0.07 * pb[ii] + 0.2 * m * pc;
+          const Lk = 0.8 + 0.07 * pb[ii] + 0.28 * m * pc;
           const inL = (h - ads) / gg;
           let gl = 1 - abs(inL - 0.6) / 1.3;
-          gl = gl > 0 ? gl * (0.25 + 0.75 * max(0, sgn * m)) * 0.5 : 0;
+          gl = gl > 0 ? gl * (0.25 + 0.75 * max(0, sgn * m)) * 0.6 : 0;
           LR[nl] = kam[0] * Lk + (white[0] - kam[0] * Lk) * gl;
           LG[nl] = kam[1] * Lk + (white[1] - kam[1] * Lk) * gl;
           LB[nl] = kam[2] * Lk + (white[2] - kam[2] * Lk) * gl;
