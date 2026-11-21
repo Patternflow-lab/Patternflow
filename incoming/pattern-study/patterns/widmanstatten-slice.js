@@ -60,14 +60,14 @@ const E1 = [[R2, -R2, 0], [R2, -R2, 0], [R2, R2, 0], [R2, R2, 0]];
 const E2 = [[R6, R6, -2 * R6], [R6, R6, 2 * R6], [R6, -R6, -2 * R6], [R6, -R6, 2 * R6]];
 const PH = [0.13, 0.41, 0.67, 0.89]; // where each family's plates sit, as a share of d
 const JITTER = 0.15; // plate positions move this far either way from the regular stack, in d
-const G = 7.4; // side of the grid of lenses in a plate's plane, in d
-const RMIN = 2.3, RSPAN = 1.4; // lens radius from 2.3 to 3.7 d, so a lens always fits its cell
-const EXIST = 232; // of 256: the share of cells that hold a plate
-const HALF0 = 0.17, HALFSPAN = 0.08; // half thickness at a lens's centre, from 0.17 to 0.25 d
-// Half thickness goes as the square root of (1 - r^2) across the lens, where r is 0 at its centre and 1 at its rim.
+const G = 10.4; // side of the grid of plates in a plate's plane, in d
+const RMIN = 3.3, RSPAN = 1.8; // half length of a plate along each in-plane axis, 3.3 to 5.1 d, so it always fits its cell
+const EXIST = 240; // of 256: the share of cells that hold a plate
+const HALF0 = 0.21, HALFSPAN = 0.04; // half thickness of a plate over its flat middle, from 0.21 to 0.25 d
+const END = 0.3; // a plate is flat out to this share of its half length from its edge, then thins as a square root to nothing
 const WARP = 0.14; // how far the noise bends the bands, in d
 const WARP_LEN = 3.4, THICK_LEN = 2.2; // wavelengths of the bending and of the thickness noise, in d
-const RIM_PER_D = 0.15, RIM_MIN = 1.0, RIM_MAX = 1.8; // width of the taenite rim in LEDs: 0.15 d, between 1 and 1.8
+const RIM_PER_D = 0.14, RIM_MIN = 1.3, RIM_MAX = 1.7; // width of the taenite rim in LEDs: 0.14 d, between 1.3 and 1.7
 const NK = 128; // plate indices kept for a family in a frame
 
 // ---- the slab's motion
@@ -223,9 +223,9 @@ function prepare(S) {
   // The warm tones turn with the metal but lose up to two thirds of their colour at the far side of the
   // wheel, so a tinted slab stays a metal and does not turn into a two-colour poster.
   const f = 1 - 0.32 * (1 - cos(2 * PI * S.hue));
-  hsv(h0 - 0.47, 0.56 * f, 1, S.rim);
-  hsv(h0 - 0.47, 0.32 * f, 1, S.gold);
-  hsv(h0 - 0.47, 0.06 * f, 1, S.grey);
+  hsv(h0 - 0.47, 0.6 * f, 1, S.rim);
+  hsv(h0 - 0.47, 0.5 * f, 1, S.gold);
+  hsv(h0, 0.2, 1, S.grey);
   for (let j = 0; j < 3; j++) S.white[j] = S.white[j] * 0.7 + 0.3;
   S.ok = true;
 }
@@ -268,7 +268,7 @@ export function draw(display, params) {
   if (!S || !S.ok) return;
   const { fs0, fsx, fsy, fg, fm, fr, fa0, fax, fay, fb0, fbx, fby, kmin, jit, hp, offA, offB, pb, grid } = S;
   const { kam, rim, white, gold, grey, mot: mo } = S;
-  const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.55 + 0.25 * dt, fadeHi = 1.05 + 0.3 * dt, thick = 1 + 0.25 * (1 - dt);
+  const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.85 + 0.55 * dt, fadeHi = 1.3 + 0.8 * dt, thick = 1 + 0.12 * (1 - dt);
   for (let y = 0; y < H; y++) {
     const py = y + 0.5, gyf = py / GSTEP, jy = min(floor(gyf), GY - 2), fy = gyf - jy;
     for (let x = 0; x < W; x++) {
@@ -285,7 +285,7 @@ export function draw(display, params) {
         const ii = i * NK + idx;
         const dsg = s - (k + PH[i] + jit[ii]);
         const ads = dsg < 0 ? -dsg : dsg, g = fg[i], gg = g > 0.004 ? g : 0.004;
-        if (ads > 0.34 * thick * tm + fr[i] + gg) continue;
+        if (ads > 0.36 * thick * tm + fr[i] + gg) continue;
         const A = fa0[i] + fax[i] * px + fay[i] * py + offA[ii];
         const B = fb0[i] + fbx[i] * px + fby[i] * py + offB[ii];
         const ci = floor(A * invG), cj = floor(B * invG);
@@ -295,9 +295,12 @@ export function draw(display, params) {
         const Ra = RMIN + RSPAN * ((hd & 255) / 255), Rb = RMIN + RSPAN * (((hd >>> 8) & 255) / 255);
         const cx = (ci + 0.5) * G + (((hc >>> 8) & 255) / 127.5 - 1) * (G * 0.5 - Ra);
         const cy = (cj + 0.5) * G + (((hc >>> 16) & 255) / 127.5 - 1) * (G * 0.5 - Rb);
-        const da = (A - cx) / Ra, db = (B - cy) / Rb, r2 = da * da + db * db;
-        if (r2 >= 1) continue;
-        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * thick * tm * sqrt(1 - r2);
+        // A plate is a rounded rectangle in its plane (a superellipse of power 4), flat over its
+        // middle and thinning only within END of its edge.
+        const da = (A - cx) / Ra, db = (B - cy) / Rb, da2 = da * da, db2 = db * db, r4 = da2 * da2 + db2 * db2;
+        if (r4 >= 1) continue;
+        const edge = (1 - sqrt(sqrt(r4))) / END;
+        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * thick * tm * (edge >= 1 ? 1 : sqrt(edge));
         // A band narrower than about two LEDs (a little more at a coarse spacing) fades out with its rim.
         let fade = (h / gg - fadeLo) / (fadeHi - fadeLo);
         if (fade <= 0) continue;
@@ -308,7 +311,7 @@ export function draw(display, params) {
         const covK = cl((h - ads) / gg + 0.5, 0, 1) * fade;
         const sgn = dsg < 0 ? -1 : 1, m = fm[i];
         // Taenite rim, a little brighter on the face the light reaches.
-        const Lr = 0.42 + 0.06 * m * sgn;
+        const Lr = 0.42 + 0.07 * m * sgn;
         LR[nl] = rim[0] * Lr;
         LG[nl] = rim[1] * Lr;
         LB[nl] = rim[2] * Lr;
@@ -318,8 +321,8 @@ export function draw(display, params) {
           const pc = cl(dsg / h, -1, 1);
           const Lk = 0.8 + 0.07 * pb[ii] + 0.2 * m * pc;
           const inL = (h - ads) / gg;
-          let gl = 1 - abs(inL - 0.45) / 0.85;
-          gl = gl > 0 ? gl * (0.28 + 0.72 * max(0, sgn * m)) * 0.9 : 0;
+          let gl = 1 - abs(inL - 0.6) / 1.3;
+          gl = gl > 0 ? gl * (0.25 + 0.75 * max(0, sgn * m)) * 0.5 : 0;
           LR[nl] = kam[0] * Lk + (white[0] - kam[0] * Lk) * gl;
           LG[nl] = kam[1] * Lk + (white[1] - kam[1] * Lk) * gl;
           LB[nl] = kam[2] * Lk + (white[2] - kam[2] * Lk) * gl;
@@ -334,15 +337,18 @@ export function draw(display, params) {
         const q0 = (my * MX + mx) * 2, q1 = q0 + 2, q2 = q0 + MX * 2, q3 = q2 + 2;
         const c00 = (1 - ax) * (1 - ay), c10 = ax * (1 - ay), c01 = (1 - ax) * ay, c11 = ax * ay;
         const mot = mo[q0] * c00 + mo[q1] * c10 + mo[q2] * c01 + mo[q3] * c11;
-        const n2 = mo[q0 + 1] * c00 + mo[q1 + 1] * c10 + mo[q2 + 1] * c01 + mo[q3 + 1] * c11, gm = cl(0.5 + 0.9 * n2, 0, 1);
-        const Lp = 0.52 + 0.14 * mot;
-        r = (grey[0] + (gold[0] - grey[0]) * gm) * Lp;
-        g2 = (grey[1] + (gold[1] - grey[1]) * gm) * Lp;
-        b = (grey[2] + (gold[2] - grey[2]) * gm) * Lp;
+        // Dark cool steel, with a few soft small patches that turn to bronze.
+        const n2 = mo[q0 + 1] * c00 + mo[q1 + 1] * c10 + mo[q2 + 1] * c01 + mo[q3 + 1] * c11;
+        let gm = (n2 - 0.35) / 0.4;
+        gm = gm <= 0 ? 0 : gm >= 1 ? 1 : gm * gm * (3 - 2 * gm);
+        const Lp = 0.245 + 0.075 * mot, Lg = 0.36 + 0.06 * mot;
+        r = grey[0] * Lp * (1 - gm) + gold[0] * Lg * gm;
+        g2 = grey[1] * Lp * (1 - gm) + gold[1] * Lg * gm;
+        b = grey[2] * Lp * (1 - gm) + gold[2] * Lg * gm;
       } else {
-        r = gold[0] * 0.52;
-        g2 = gold[1] * 0.52;
-        b = gold[2] * 0.52;
+        r = grey[0] * 0.245;
+        g2 = grey[1] * 0.245;
+        b = grey[2] * 0.245;
       }
       for (let l = 0; l < nl; l++) {
         const a = LA[l];
