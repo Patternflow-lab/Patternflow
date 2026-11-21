@@ -124,5 +124,10 @@
   "landform": { "label": "침식 지형", "color": "#b5838d" },
   "swingby": { "label": "스윙바이", "color": "#bdb2ff" },
   "doppler": { "label": "도플러", "color": "#ffc6ff" },
-  "conduction": { "label": "열 전도", "color": "#74c69d" }
+  "conduction": { "label": "열 전도", "color": "#74c69d" },
+  "grating": { "label": "회절 격자", "color": "#b06cf0" },
+  "kelp": { "label": "켈프 숲", "color": "#7aa83a" },
+  "mirrorroom": { "label": "거울 방", "color": "#ff5fa8" },
+  "glacier": { "label": "빙하", "color": "#7fd8f0" },
+  "pillars": { "label": "빛기둥", "color": "#ffb347" }
 }
