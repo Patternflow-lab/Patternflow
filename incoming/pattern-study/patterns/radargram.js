@@ -1,20 +1,53 @@
 // ===== Patternflow pattern =====
 // Title:   Radargram
 // Family:  georadar
-// Idea:    A ground-penetrating radar section on a 64 by 128 panel, with the 64 traces of the cart's last stretch side by side and two-way travel time running down the 128 rows, in which gently bent soil layers show as long bands of amber and teal stripes, a fault now and then steps them by several rows, a lens of sand pinches out between two of them, and every pipe, boulder, void and run of rebar the cart passes draws its own hyperbola with a ringing tail, all of it sliding left as the cart rolls on over ground that is made from the track coordinate and never repeats.
+// Idea:    A ground-penetrating radar section of the last 64 traces of a cart's track, two-way travel time running down the 128 rows and the whole picture sliding left as the cart rolls on, in which soil layers bend across the panel as bands of amber and teal stripes, a fault steps them by 3 to 8 rows now and then and a sand lens pinches out between two of them, while each pipe, boulder, void and run of rebar the cart passes draws its own hyperbola, a pipe with a ringing tail and a void in reversed colours, over ground that is made from the track coordinate and never repeats.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: ground-penetrating radar as a sounding of the ground by pulse echoes along a line (David Daniels, Ground Penetrating Radar, 2004), the Ricker wavelet (Norman Ricker, 1953), the diffraction hyperbola of a point reflector in a time section; pattern round 213
+// Lineage: ground-penetrating radar as a sounding of the ground by pulse echoes along a line (David Daniels, Ground Penetrating Radar, 2004), the Ricker wavelet (Norman Ricker, 1953), the two echoes of a thin bed that tune and fade as it thins (M. B. Widess, 1973), the diffraction hyperbola of a point reflector in a time section; pattern round 213
 // Round:   215
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Cart=0..4, Moisture=0.1..0.6, Antenna=-1..1
 //
-// Knob 1: Hue. placeholder
-// Knob 2: Cart. placeholder
-// Knob 3: Moisture. placeholder
-// Knob 4: Antenna. placeholder
+// Knob 1: Hue. Turns both signs of the echo round the wheel together. At 0 the positive lobes are amber and the negative ones teal. At 0.5 they are blue and red, and at 1 they are back where they began.
+// Knob 2: Cart. How fast the cart is pushed along the track, 2.5 traces a second for each unit of the knob, with a wobble of up to 20 percent. At 0 it stands and the section stays where it is, with only the arrival times swaying by up to half a row and the gain by 6.5 percent. At 2, where it opens, it is 5 traces a second, so the 64 traces are all new after 13 s and a pipe takes about 8 s to cross the panel. At 4 it is 10 traces a second.
+// Knob 3: Moisture. The share of water in the soil, which sets how fast the wave travels and how much of it is lost. Where it opens, at 0.1, the time axis is stretched by 0.85 and a hyperbola's arms fall 0.85 rows for each LED they run out, so a pipe 30 rows down has fallen 10 rows by 29 LEDs from its apex. At 0.6 the axis is stretched by 1.15 and the arms fall 1.56 rows an LED, 10 rows in 18 LEDs, steep and narrow. The loss per row goes from 0.0137 to 0.0235, and an echo is weighted by exp(g t) with g = 0.0081 minus 0.39 of that loss, so one 100 rows down is 1.3 times its surface strength on dry soil and 0.9 on wet.
+// Knob 4: Antenna. The centre frequency, as the centre period of the wavelet: 10.3 rows at -1, 6.6 where it opens at 0.06 and 4.5 at 1. The bright lobe of each echo is 0.45 of that, 4.6 rows, 3.0 and 2.0, with a darker lobe of the other sign either side. A fine antenna shows thin separate stripes and loses depth sooner, a low one fills the panel with wide soft bands that carry to the bottom (loss per row 0.0106 at -1 on dry soil, 0.0297 at 1 on wet soil).
+
+// What the section is. A column of the panel is one trace, the echo of one radar pulse laid down against the two-way travel time t in rows
+// (row 0 is the pulse leaving, row 127 the latest echo). The cart's track has a coordinate in LEDs, and the left edge of the panel stands
+// at track coordinate 8216 + the distance rolled. Every column is worked out from its own coordinate, with no stored picture, so the
+// ground scrolls a fraction of an LED at a time and a place looks the same each time it is passed. A sample is the sum of
+//   a_j * ricker((t - t_j) / P)
+// over the echoes j, where the Ricker wavelet is (1 - 2 q^2) exp(-q^2) with q = pi (t - t_j) / P and P its centre period in rows.
+// It has a bright lobe and a darker lobe of the other sign on each side, so a reflector is a stack of three stripes. The echo is
+// drawn for 0.95 P either side of t_j and not beyond.
+// The first echo is the direct wave, at row 4.5 plus or minus 1.5 and 1.2 in strength, followed by the antenna ringing, three more
+// wavelets 0.62 P apart at -0.45, 0.2 and -0.08 of it.
+// The layers are 9 reflectors 17 to 189 rows down (unscaled, so 5 to 7 show), 18 to 25 rows apart, with signed coefficients of 0.4 to 0.72
+// that swell and fade by 35 percent over 24 to 80 LEDs. The undulation they share is a sum of sines of 173 and 97 LEDs, 4.6 and 3 rows tall,
+// and a slower one of 331 LEDs and 2 rows. Each layer takes 0.55 to 1.25 of it, so the spacing between layers breathes, and adds two
+// sines of its own with wavelengths of 60 to 400 LEDs and 0.9 to 2.5 rows. Six weaker beds sit between them and come and go along the track.
+// Everything below is made from hashes of a 72 LED chunk of track number, and each chunk keeps its own few things.
+// A fault is in 45 percent of the chunks: a block of 70 to 240 LEDs raised or dropped by 3 to 8 rows over 4 LEDs at each edge,
+// from a top 30 to 85 rows down, the edges leaning by up to half an LED a row so they are slanted planes. It moves only the layers
+// below its top. A sand lens is in half of them: 60 to 180 LEDs long and up to 14 rows thick, one echo off its top and 0.85 of
+// the opposite sign off its bottom. As it thins the two come together and cancel, which is the tuning of a thin bed, so it fades
+// out before it ends.
+// Diffractors average 2 a chunk: a pipe in 44 percent of them, a boulder in 20, a run of rebar in 22 and a void in 14. A reflector
+// that is a point comes back as the hyperbola
+//   t(x) = sqrt(t0^2 + (K (x - x0))^2),
+// with K, the slope of its arms in rows an LED, set by the moisture. A pipe has its first wavelet and then -0.6 and 0.35 of it
+// 6 to 10 rows later, the two walls of the pipe. A boulder has 0.55 of the slope, a strength of 0.75 against the pipe's 1.05, and arms 1.5 times as wide.
+// Rebar is 8 to 12 small hyperbolas 7 to 9 LEDs apart, 12 to 24 rows down, with narrow arms. A void has a strength of 0.95 with the
+// sign reversed, and a second echo 10 to 16 rows later at 0.7 of it, reversed again. Each hyperbola is weighted by t0 / t, the spreading of the wave, and by
+// exp(-(dx / hw)^2), hw = 0.55 t0 / K + 6 LEDs, the beam of the antenna, so an arm dies out instead of crossing the panel.
+// Every echo is weighted by exp(g t), g = 0.0081 - 0.39 a, with a the loss per row of the ground and the antenna, and the sum goes through
+// a dead zone of 0.1 and 1 - exp(-1.9 x) to a colour whose zero is black. The clutter is a lattice of 5 LEDs by 3.5 rows, each point
+// swelling and fading on its own period of 10 to 42 s. The soft smudges it makes mostly stay under the dead zone and show only
+// where an echo is already there.
 
 const W = 64, H = 128;
 const { floor, ceil, sqrt, exp, sin, cos, PI, abs, min, max, pow } = Math;
@@ -39,11 +72,11 @@ const CH = 72; // a chunk of track, in LEDs
 const SEED = 7919;
 
 // ---- the layers: unscaled two-way times in rows, signed reflection coefficients
-const LAYER_T = [17, 40, 63, 86, 108, 131, 155, 180];
-const LAYER_A = [0.55, -0.42, 0.75, -0.46, 0.66, -0.72, 0.6, 0.66];
+const LAYER_T = [17, 35, 54, 74, 95, 117, 140, 164, 189];
+const LAYER_A = [0.55, -0.4, 0.72, -0.42, 0.66, -0.7, 0.52, 0.66, -0.5];
 const NL = LAYER_T.length;
 // weaker beds between them, each present along stretches of the track only
-const MINOR_T = [28, 51, 75, 97, 120, 143];
+const MINOR_T = [26, 45, 64, 85, 106, 128];
 const MINOR_A = [0.42, -0.38, 0.44, -0.4, 0.42, -0.38];
 const NM = MINOR_T.length;
 const LAYER_C = [], LAYER_OWN = [];
@@ -256,7 +289,7 @@ export function draw(display, params) {
     }
     // the weaker beds
     for (let i = 0; i < NM; i++) {
-      const w = sm((sin(xw / (61 + 23 * i) + 1.7 * i) - 0.05) * 1.6);
+      const w = sm((sin(xw / (61 + 23 * i) + 1.7 * i) + 0.45) * 1.3);
       if (w <= 0.01) continue;
       const t = (MINOR_T[i] + 0.8 * sh1 + 2.4 * sin(xw / (29 + 5 * i) + i)) * s + jit;
       addW(col, t, MINOR_A[i] * w * exp(gam * t), P);
