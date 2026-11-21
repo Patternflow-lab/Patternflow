@@ -9,7 +9,7 @@
 // Round:   215
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0..8, Drive=-1..1, Width=-1..1
+// @knobs Hue=0..1, Flow=0..12, Drive=-1..1, Width=-1..1
 //
 // Knob 1: Hue. Placeholder.
 // Knob 2: Flow. Placeholder.
@@ -387,7 +387,7 @@ export function update(dt, input, params) {
     prerun(S);
   }
   S.Wc += (wt - S.Wc) * (1 - exp(-d / 0.35));
-  const f = cl(kn[1], 0, 8) * 0.5;
+  const f = cl(kn[1], 0, 12) * 0.5;
   S.flowT += (d * 1.1 * f) / (1 + 0.25 * f);
   advance(S, d * f);
 }
@@ -561,7 +561,7 @@ export function draw(display, params) {
         const qq = rq[p] / r;
         const b1 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 12 - ft * 0.45) + 1.3 * qq);
         const b2 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 21 - ft * 0.7) - 0.8 * qq + 1.9);
-        const st = cl(0.75 * b1 * b1 + 0.45 * b2 * b2 * b1, 0, 1);
+        const st = sm(1.35 * b1 * b1 + 0.6 * b2 * b2 * b1 - 0.25);
         let wr = mix(P[I.deep], P[I.core], c), wg = mix(P[I.deep + 1], P[I.core + 1], c), wb = mix(P[I.deep + 2], P[I.core + 2], c);
         const gl = st * 0.9 * (0.3 + 0.7 * c);
         wr = mix(wr, P[I.glint], gl);
