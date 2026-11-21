@@ -29,6 +29,7 @@ const CX = 28, CY = 184; // centre of the expansion, below the panel; the root o
 const G0 = 0.04; // relative growth rate at Growth 2, per second
 const ITER = 0.1; // seconds of tissue time per colonization pass
 const TTL = 4.5; // a source that no vein has reached in this many seconds is dropped
+const MAJOR = 6; // tips downstream that make a vein permanent
 const STEP = 1.5; // how far a vein node sprouts in one pass, LEDs
 const RINF = 12; // a source calls the nearest vein node inside this radius
 const TROP = 0.5; // forward bias of a sprout, along the line out from the centre
@@ -65,7 +66,7 @@ export function setup(params) {
   const S = {
     n: 0, ns: 0, nl: 0,
     x: new Float32Array(NM), y: new Float32Array(NM), par: new Int32Array(NM),
-    rb: new Float32Array(NM), bs: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
+    rb: new Float32Array(NM), bs: new Float32Array(NM), maj: new Uint8Array(NM), rk: new Float32Array(NM), vis: new Float32Array(NM), wd: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
     nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
     ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
     cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
@@ -93,6 +94,8 @@ function seed(S) {
     S.par[j] = j - 1;
     S.rb[j] = max(d, 1);
     S.bs[j] = 99;
+    S.maj[j] = 1;
+    S.rk[j] = 0;
     S.ms[j] = 1;
   }
 }
@@ -265,6 +268,8 @@ function sprout(S) {
     ry = ny - CY;
     S.rb[q] = sqrt(rx * rx + ry * ry);
     S.bs[q] = S.sc;
+    S.maj[q] = 0;
+    S.rk[q] = S.maj[j] || Math.random() < 0.3 ? Math.random() : S.rk[j];
     S.ms[q] = 1;
     // Loop: the nearest node of another branch, not within eight generations of j.
     if (S.nl >= LM) continue;
@@ -300,17 +305,16 @@ function sprout(S) {
 // Leaves outside the box go, and so do the finest leaves when the net has been
 // asked to be coarser than they were born. Compacts the arrays.
 function prune(S) {
-  const { x, y, par, nch, stack, dead, map, bs } = S, n = S.n;
+  const { x, y, par, nch, stack, dead, map } = S, n = S.n;
   nch.fill(0, 0, n);
   for (let j = 1; j < n; j++) nch[par[j]]++;
   dead.fill(0, 0, n);
   let sp = 0;
   for (let j = 1; j < n; j++) if (!nch[j]) stack[sp++] = j;
-  const fineCut = 0.72 * S.sc;
   while (sp > 0) {
     const j = stack[--sp];
     const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1 || abs(x[j] - (CX + LEAN * (CY - y[j]))) > KW * (CY - y[j]) + 8;
-    if (!out && bs[j] >= fineCut) continue;
+    if (!out) continue;
     dead[j] = 1;
     const p = par[j];
     if (p > 0 && --nch[p] === 0) stack[sp++] = p;
@@ -328,6 +332,8 @@ function prune(S) {
       par[k] = par[j];
       S.rb[k] = S.rb[j];
       S.bs[k] = S.bs[j];
+      S.maj[k] = S.maj[j];
+      S.rk[k] = S.rk[j];
       S.ms[k] = S.ms[j];
     }
     k++;
@@ -359,6 +365,8 @@ function split(S) {
     par[j] = m;
     S.rb[m] = (S.rb[j] + S.rb[p]) / 2;
     S.bs[m] = S.bs[j];
+    S.maj[m] = S.maj[j];
+    S.rk[m] = S.rk[j];
     S.ms[m] = S.ms[j];
   }
   // A loop edge is split the same way, the new node hanging off its first end.
@@ -373,6 +381,8 @@ function split(S) {
     par[m] = a;
     S.rb[m] = (S.rb[a] + S.rb[b]) / 2;
     S.bs[m] = S.bs[a];
+    S.maj[m] = 0;
+    S.rk[m] = Math.random();
     S.ms[m] = 1;
     S.l0[i] = m;
   }
@@ -441,6 +451,8 @@ function weigh(S) {
     mass[p] += mass[j];
     if (--nch[p] === 0) stack[sp++] = p;
   }
+  // A node that has ever carried this many tips is a vein to keep, whatever the spacing asks.
+  for (let j = 0; j < n; j++) if (mass[j] >= MAJOR) S.maj[j] = 1;
 }
 
 function buildColours(S) {
@@ -494,18 +506,21 @@ export function update(dt, input, params) {
 
 let CV, GL, BL, TN;
 
-function seg(x0, y0, x1, y1, w, ff) {
-  const h = w * 0.5 < 0.5 ? 0.5 : w * 0.5;
-  const sig = 1.1 + 0.55 * w, rg = h + 2.3 * sig;
+function seg(x0, y0, x1, y1, wa, wb, ff) {
+  const ha = max(0.5, wa * 0.5), hb = max(0.5, wb * 0.5), wm = max(wa, wb);
+  const sig = 1.1 + 0.55 * wm, rg = max(ha, hb) + 2.3 * sig;
   const minx = min(x0, x1), maxx = max(x0, x1), miny = min(y0, y1), maxy = max(y0, y1);
-  const wf = sm(2.0, 4.8, w) * ff, sb = 2.0 + 0.9 * w, rbm = wf > 0.02 ? 2.2 * sb : 0;
+  // Glow, vein alpha, tone and bloom follow the width at each end and are blended along the edge.
+  const ga = (0.38 + 0.55 * sm(1.2, 4, wa)) * ff, gb = (0.38 + 0.55 * sm(1.2, 4, wb)) * ff;
+  const aa = (0.55 + 0.45 * sm(0.95, 2.4, wa)) * ff, ab = (0.55 + 0.45 * sm(0.95, 2.4, wb)) * ff;
+  const ta = sm(1.0, 5, wa), tb = sm(1.0, 5, wb);
+  const ba = sm(2.0, 4.8, wa) * ff, bb = sm(2.0, 4.8, wb) * ff, sbl = 2.0 + 0.9 * wm, rbm = max(ba, bb) > 0.02 ? 2.2 * sbl : 0;
   const R = max(rg, rbm);
   if (maxx + R < 0 || minx - R > W || maxy + R < 0 || miny - R > H) return;
   const vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1e-6;
-  const amp = (0.38 + 0.55 * sm(1.2, 4, w)) * ff, alpha = (0.55 + 0.45 * sm(0.95, 2.4, w)) * ff, tone = sm(1.0, 5, w);
   const ya = max(0, floor(miny - R)), yb = min(H - 1, ceil(maxy + R));
   const xa = max(0, floor(minx - R)), xb = min(W - 1, ceil(maxx + R));
-  const rg2 = rg * rg, rb2 = rbm * rbm, isg = 1 / (sig * sig), isb = 1 / (sb * sb);
+  const rg2 = rg * rg, rb2 = rbm * rbm, isg = 1 / (sig * sig), isb = 1 / (sbl * sbl);
   for (let yy = ya; yy <= yb; yy++) {
     const py = yy + 0.5;
     for (let xx = xa; xx <= xb; xx++) {
@@ -514,24 +529,24 @@ function seg(x0, y0, x1, y1, w, ff) {
       t = t < 0 ? 0 : t > 1 ? 1 : t;
       const dx = px - x0 - t * vx, dy = py - y0 - t * vy, d2 = dx * dx + dy * dy, p = yy * W + xx;
       if (d2 < rg2) {
-        const d = sqrt(d2), e = d > h ? d - h : 0, q = e * e * isg;
+        const hh = ha + (hb - ha) * t, d = sqrt(d2), e = d > hh ? d - hh : 0, q = e * e * isg;
         if (q < 5.4) {
-          const g = amp * EXPT[(q * 96) | 0];
+          const g = (ga + (gb - ga) * t) * EXPT[(q * 96) | 0];
           if (g > GL[p]) GL[p] = g;
         }
-        const c = (h + 0.75 - d) * 0.6667;
+        const c = (hh + 0.75 - d) * 0.6667;
         if (c > 0) {
-          const cc = (c > 1 ? 1 : c) * alpha;
+          const cc = (c > 1 ? 1 : c) * (aa + (ab - aa) * t);
           if (cc > CV[p]) {
             CV[p] = cc;
-            TN[p] = tone;
+            TN[p] = ta + (tb - ta) * t;
           }
         }
       }
       if (d2 < rb2) {
         const q = d2 * isb;
         if (q < 5.4) {
-          const b = wf * EXPT[(q * 96) | 0];
+          const b = (ba + (bb - ba) * t) * EXPT[(q * 96) | 0];
           if (b > BL[p]) BL[p] = b;
         }
       }
@@ -549,20 +564,30 @@ function raster(S) {
   BL.fill(0);
   TN.fill(0);
   const { x, y, par, ms, rb, bs } = S, n = S.n, sc = S.sc;
-  const width = new Float32Array(0);
+  // How much of each minor vein shows. A net asked to be coarser than a vein was born keeps a share
+  // of the veins that goes with the ratio of the spacings; a chain of nodes shares one rank.
+  const { vis, rk, maj } = S;
+  for (let j = 0; j < n; j++) {
+    const f = min(1, bs[j] / sc), v = maj[j] || f >= 1 ? 1 : sm(rk[j] - 0.1, rk[j] + 0.1, f);
+    vis[j] = v + (1 - v) * sm(3, 6, ms[j]);
+  }
+  // Width of the vein that ends in each node: the pipe model, tips downstream under a square root,
+  // and a little more for the stretch the tissue has had since the node was made.
+  const wd = S.wd;
+  for (let j = 1; j < n; j++) {
+    const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
+    wd[j] = min(4.8, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
+  }
+  wd[0] = wd[1];
   for (let j = 1; j < n; j++) {
     const p = par[j];
-    const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
-    const w = min(4.8, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
-    const vis = sm(0.74, 0.92, bs[j] / sc);
-    const ff = vis + (1 - vis) * sm(3, 6, ms[j]);
-    seg(x[p], y[p], x[j], y[j], w, ff);
+    if (vis[j] > 0.01) seg(x[p], y[p], x[j], y[j], p > 0 ? wd[p] : wd[j], wd[j], vis[j]);
   }
   for (let i = 0; i < S.nl; i++) {
     const a = S.l0[i], b = S.l1[i];
-    seg(x[a], y[a], x[b], y[b], 0.8, 0.7);
+    const v = min(vis[a], vis[b]);
+    if (v > 0.01) seg(x[a], y[a], x[b], y[b], 0.8, 0.8, 0.7 * v);
   }
-  return width;
 }
 
 export function draw(display, params) {
