@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Forbes bands and ogives (James David Forbes, Travels through the Alps of Savoy, 1843), the plug-like cross-flow profile of a glacier with a nonlinear ice law (John Nye, 1965), wave ogives (Edwin Waddington, 1986), band ogives below an icefall at the Bossons Glacier (Goodsell, Hambrey and Glasser, 2005), hill shading (Berthold Horn, 1981), pattern round 212
+// Lineage: Forbes bands and ogives (James David Forbes, Travels through the Alps of Savoy, 1843), the plug-like cross-flow profile of a glacier with a nonlinear ice law (John Nye, 1965), wave ogives (Edwin Waddington, 1986), band ogives below an icefall at Bas Glacier d'Arolla (Goodsell, Hambrey and Glasser, 2005), hill shading (Berthold Horn, 1981), pattern round 212
 // Round:   212
 // ===============================
 // @matrix 64x128
