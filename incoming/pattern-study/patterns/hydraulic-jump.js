@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Hydraulic Jump
 // Family:  hydraulics
-// Idea:    The bottom of a kitchen sink seen from above: a tap's jet lands at one point and spreads as a thin dark film that deepens at a sharp white ring, the hydraulic jump, whose outline slowly turns from a circle into a rounded triangle, square or pentagon, with ripples running out over thick steel-grey water that mirrors two soft warm lamps.
+// Idea:    The bottom of a kitchen sink seen from above: a tap's jet lands at one point and spreads as a thin dark film that deepens at a sharp white ring, the hydraulic jump, whose outline slowly turns from a circle into a rounded triangle, square, pentagon or hexagon and back, with ripples running out over thick steel-grey water that mirrors two soft warm lamps.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the circular hydraulic jump of a jet on a flat plate and the polygonal rings it can take, with three to eight corners (Ellegaard et al., "Creating corners in kitchen sinks", Nature 1998); pattern round 210
+// Lineage: the circular hydraulic jump of a jet on a flat plate and the polygonal rings it can take (Ellegaard et al., "Creating corners in kitchen sinks", Nature 1998); pattern round 210
 // Round:   210
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..3.5, Corners=0..7, Ripple=-1..1
 //
-// Knob 1: Hue. Tints the whole scene round the wheel. At 0 the steel is a neutral grey with a faint cool cast and the lamps are warm white; at 0.25 the steel goes rose, at 0.5 brass, at 0.75 green; at 1 it is back where it began. The lamps stay close to warm white throughout.
-// Knob 2: Flow. How hard the tap runs, and so how far out the jump stands. At 0.5 the ring has a mean radius of 13 LEDs and sits small in a lot of calm steel; at the opening 2 it is 26 LEDs; at 3.5 it is 44 and runs off the left and right edges. The ring thickens from about 3 to 5 LEDs, the film streaks harden, and its fine ripples run out from the jet from 5 to 21 LEDs a second. On top of the knob the radius breathes about 7 per cent on periods of about 60 and 140 seconds.
-// Knob 3: Corners. How many corners the ring has. At the opening 3 it is a rounded triangle; 4, 5, 6, 7 and 8 give a square, a pentagon and so on, and between two counts one shape melts into the next over the middle third of the turn, the ring going soft and nearly round on the way. At 9 it is a circle. The polygon also goes round and back on its own: its corners swell and sink over a minute or two, it turns slowly and sometimes stands still or backs up, and now and then it takes a count more or less than the knob for a while.
-// Knob 4: Ripple. How rough the water is. At -1 it is nearly flat: the lamps are clean soft blobs and the rings running out of the jump are faint. At the opening 0.06 the rings are clearly there, a few LEDs apart, and bend each lamp into a wobbling blob. At 1 the rings are strong, 7 LEDs from crest to crest, and tear each lamp into arcs.
+// Knob 1: Hue. Tints the whole scene round the wheel. At 0 the steel is a neutral grey with a faint cool cast and the lamps are warm white; at 0.25 the steel goes rose, at 0.5 brass, at 0.75 green; at 1 it is back where it began. The foam of the ring and the jet stay near white, the lamps near warm white.
+// Knob 2: Flow. How hard the tap runs, and so how far out the jump stands. At 0.5 the ring has a mean radius of 13 LEDs and sits small in a lot of calm steel; at the opening 2 it is 24; at 3.5 it is 40 and runs off the left and right edges. The crest widens from about 3 to 4 LEDs, the film's streaks harden, and the fine ripples run out from the jet at 5 LEDs a second at 0.5 and 20 at 3.5. On top of the knob the radius breathes up to about 17 per cent, on periods from half a minute to six.
+// Knob 3: Corners. A wheel of shapes, 0 to 7, that ends where it began. At the opening 0 the ring is a rounded pentagon; 1 is a hexagon, 2 a heptagon, 3 an octagon, 4 a circle, 5 a triangle, 6 a square and 7 the pentagon again. Between two stops one shape melts into the next over the middle third of the turn, the ring going soft and nearly round on the way. The ring also goes round and back on its own: its corners swell and sink over a minute or two, it turns slowly and sometimes stands still or backs up, and now and then it takes the shape a step either side of the knob for a while.
+// Knob 4: Ripple. How rough the water is. At -1 it is nearly flat: the lamps are clean, bright soft blobs and the rings running out of the jump are faint. At the opening 0.06 the rings are clearly there, 7 and 11 LEDs from crest to crest, and bend each lamp into a wobbling blob. At 1 the rings are strong, the whole sheet chops, and each lamp is torn into dimmer arcs.
 
 const W = 64;
 const H = 128;
@@ -58,7 +58,7 @@ const SC = NLUT / 2;
 const KAPPA = [0, 0, 0, 0.36, 0.31, 0.28, 0.26, 0.24, 0.23];
 // the real polygons are rounder than a regular one; the higher counts are pushed out
 // of true so a corner still stands out of the circle at LED scale
-const GAIN = [0, 0, 0, 0.92, 1.0, 1.12, 1.32, 1.55, 1.8, 0];
+const GAIN = [0, 0, 0, 0.92, 1.0, 1.12, 1.25, 1.4, 1.55, 0];
 const POLY = [];
 function buildPoly(n) {
   const arr = new Float32Array(NT + 2);
@@ -259,15 +259,16 @@ export function draw(display, params) {
   const crestOut0 = 1.0 + 0.4 * q; // and on the far side, before turbulence feathers it
   const stK = 0.03 + 0.03 * q; // contrast of the radial streaks in the film
   const capA = (0.02 + 0.016 * q) * (0.5 + kr); // the film's fine ripples
-  const rA1 = 0.004 + 0.12 * kr; // the rings running out of the jump, in brightness
-  const rA2 = 0.003 + 0.075 * kr;
+  const rA1 = 0.004 + 0.14 * kr; // the rings running out of the jump, in brightness
+  const rA2 = 0.003 + 0.085 * kr;
   const dA1 = 0.3 + 4.8 * kr; // and in how far they push a lamp's reflection, LEDs
   const dA2 = 0.2 + 3 * kr;
   const aA = 0.3 + 2.4 * kr;
   const chop = 0.05 * kr; // and how much the chop lightens and darkens the steel // the little ambient chop
   // the lamps swell and dim a little, and the whole sheet of water sways under them
-  const lampPulse1 = 1 + 0.2 * sin(0.0713 * t + 0.4) + 0.1 * sin(0.173 * t + 1.1);
-  const lampPulse2 = 1 + 0.2 * sin(0.0531 * t + 5.54) + 0.1 * sin(0.131 * t + 0.3);
+  const mirror = 1.3 - 0.5 * kr; // calm water holds a lamp's light in one place, rough water spreads it
+  const lampPulse1 = mirror * (1 + 0.2 * sin(0.0713 * t + 0.4) + 0.1 * sin(0.173 * t + 1.1));
+  const lampPulse2 = mirror * (1 + 0.2 * sin(0.0531 * t + 5.54) + 0.1 * sin(0.131 * t + 0.3));
   const sw1x = 3.5 * sin(0.0811 * t + 1) + 2 * sin(0.0337 * t + 2.2);
   const sw1y = 4 * sin(0.0613 * t + 4) + 2.5 * sin(0.0239 * t + 0.4);
   const sw2x = 3.5 * sin(0.0711 * t + 3) + 2 * sin(0.0297 * t + 5.2);
