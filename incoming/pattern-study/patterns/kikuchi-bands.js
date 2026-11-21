@@ -9,7 +9,7 @@
 // Round:   215
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Tumble=0..3, Voltage=-1..1, Stretch=-0.09..0.31
+// @knobs Hue=0..1, Tumble=0..3, Voltage=-1..1, Stretch=-0.14..0.38
 //
 // Knob 1: Hue. Added to every hue in the picture, ground and bands together. At 0 the ground is dark blue, the {111} bands pale cyan, the {200} bands violet and the {220} bands gold. At 0.5 the cyan has gone to rose and the gold to blue, and at 1 it is back where it began.
 // Knob 2: Tumble. How fast the crystal turns, 0.07 radians a second (4 degrees a second) for each unit of the knob, on average. At 0 the net stands still. At 2, where it opens, a band that crosses the screen straight on moves about 9 LEDs a second and a hub takes 6 to 14 seconds to cross the 64 LEDs of the width. At 3 it is a half faster again.
@@ -50,7 +50,7 @@ for (let y = 0; y < H; y++)
 
 // ---- the crystal
 const LAMBDA0 = 0.01083 / 0.352; // wavelength in units of the lattice constant a (nickel, a = 0.352 nm)
-const NMAX_AT = (k3) => 14 + 8 * k3; // the highest h2 + k2 + l2 shown, at the voltage knob k3
+const NMAX_AT = (k3) => (k3 < 0 ? 13 + 4 * k3 : 13 + 9 * k3); // the highest h2 + k2 + l2 shown, at the voltage knob k3
 const PLANES = [];
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 for (let h = 0; h <= 5; h++)
@@ -67,8 +67,8 @@ for (let h = 0; h <= 5; h++)
 const FAMILY = {
   111: [0.5, 0.32, 1.0],
   100: [0.72, 0.7, 1.0],
-  110: [0.11, 0.8, 1.0],
-  311: [0.93, 0.5, 0.5],
+  110: [0.12, 0.68, 1.5],
+  311: [0.93, 0.5, 0.38],
   331: [0.4, 0.45, 0.8],
   210: [0.6, 0.5, 1.0],
   211: [0.84, 0.4, 1.0],
@@ -95,21 +95,19 @@ function hsv(h, s, v, out) {
   out[2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
 
-// ---- the tumble: an angular velocity that is a constant plus three sines on each axis, every one with its own period
-const BIAS = [0.5, -0.12, 0.2];
-const WAVES = [
-  [[0.9, 23.7, 0.4], [0.55, 41.3, 2.1], [0.35, 67.9, 4.4]],
-  [[0.8, 29.9, 1.2], [0.5, 47.1, 3.3], [0.3, 83.3, 0.2]],
-  [[0.7, 19.1, 5.0], [0.45, 37.7, 1.9], [0.3, 59.3, 3.7]],
-];
-const OMEGA = 0.045; // radians a second for each unit of Tumble, per unit of the sum above
+// ---- the tumble: the axis the crystal turns about wanders over the sphere and the speed swells and ebbs, each on its own period
+const AXIS = [[0.9, 31.7, 0.7], [0.45, 52.9, 2.4]]; // amplitude in radians, period in seconds, phase: the polar angle of the axis
+const SPIN = [2 * PI / 77.3, 0.8, 3.1, 0.9, 43.1]; // the azimuth runs 2 pi in 77.3 s and swings 0.8 rad every 43.1 s
+const SWELL = [0.55, 37.3, 1.9]; // the speed is 1 plus 0.55 sin(...) of the nominal
+const OMEGA = 0.045; // radians a second for each unit of Tumble, at the nominal speed
 
 function omegaAt(tau, out) {
-  for (let a = 0; a < 3; a++) {
-    let s = BIAS[a];
-    for (const [amp, per, ph] of WAVES[a]) s += amp * sin((2 * PI * tau) / per + ph);
-    out[a] = s * OMEGA;
-  }
+  const pol = 0.5 * PI + AXIS[0][0] * sin((2 * PI * tau) / AXIS[0][1] + AXIS[0][2]) + AXIS[1][0] * sin((2 * PI * tau) / AXIS[1][1] + AXIS[1][2]);
+  const azi = SPIN[0] * tau + SPIN[1] * sin((2 * PI * tau) / SPIN[4] + SPIN[2]) + SPIN[3];
+  const m = OMEGA * (1 + SWELL[0] * sin((2 * PI * tau) / SWELL[1] + SWELL[2])), sp = sin(pol);
+  out[0] = m * sp * cos(azi);
+  out[1] = m * sp * sin(azi);
+  out[2] = m * cos(pol);
 }
 
 function makeState() {
@@ -157,11 +155,11 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const kn = S.kn, hue = cl(kn[0], 0, 1), k3 = cl(kn[2], -1, 1), ca = 0.94 + cl(kn[3], -0.09, 0.31);
+  const kn = S.kn, hue = cl(kn[0], 0, 1), k3 = cl(kn[2], -1, 1), ca = 0.94 + cl(kn[3], -0.14, 0.38);
   const { ar, ag, ab, R } = S;
   matrixOf(S.q, R);
   ar.fill(0); ag.fill(0); ab.fill(0);
-  const lam = LAMBDA0 * Math.pow(2, -0.7 * k3), nmax = NMAX_AT(k3), rgb = [0, 0, 0], decay = 2.2 + 1.7 * (k3 + 1);
+  const lam = LAMBDA0 * Math.pow(2, k3 < 0 ? -0.9 * k3 : -0.7 * k3), nmax = NMAX_AT(k3), rgb = [0, 0, 0], decay = 3 + 1.5 * (k3 + 1);
 
   for (let pi = 0; pi < PLANES.length; pi++) {
     const P = PLANES[pi];
@@ -170,14 +168,14 @@ export function draw(display, params) {
     const gx = P.h, gy = P.k, gz = P.l / ca, gl = sqrt(gx * gx + gy * gy + gz * gz);
     const nx = (R[0] * gx + R[1] * gy + R[2] * gz) / gl, ny = (R[3] * gx + R[4] * gy + R[5] * gz) / gl, nz = (R[6] * gx + R[7] * gy + R[8] * gz) / gl;
     const hw = min(0.5 * lam * gl, 0.45), sg = max(0.3 * hw, 0.85 / PPU), cut = max(1.15 * hw, hw + 1.7 * sg), inv = 1 / hw, isg = 1 / sg;
-    hsv(hue + P.col[0], P.col[1], 1, rgb);
+    hsv(hue + P.col[0] + 0.6 * (gl / sqrt(P.n2) - 1), P.col[1], 1, rgb);
     const amp = exp(-P.w / decay) * vis * P.col[2], cr = rgb[0] * amp, cg = rgb[1] * amp, cb = rgb[2] * amp;
     for (let i = 0; i < NPX; i++) {
       const a = abs(DX[i] * nx + DY[i] * ny + DZ[i] * nz);
       if (a > cut) continue;
       const fill = 1 - sm(0.85, 1.15, a * inv);
       const e = (a - hw) * isg, ridge = exp(-e * e);
-      const f = 0.6 * fill + 0.5 * ridge;
+      const f = 0.45 * fill + 0.62 * ridge;
       ar[i] += cr * f; ag[i] += cg * f; ab[i] += cb * f;
     }
   }
