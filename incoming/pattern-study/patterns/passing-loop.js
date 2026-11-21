@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Passing Loop
 // Family:  timetable
-// Idea:    A graphic timetable of a single-track railway with six passing loops, distance across and time down, where every train leaves a line that runs down the panel, and the trains that must wait for one another in the loops leave hot red-orange stubs that spread as delays along the line.
+// Idea:    A graphic timetable of a single-track railway with six passing loops, distance across and time down, where every train leaves a line that runs down the panel and the trains that must wait for one another in the loops leave hot red-orange stubs that spread as delays along the line.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,59 +11,65 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.6..6, Traffic=-1..1, Delay=-0.3..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the three train colours and the waiting colour together. At 0 the express is amber, the stopping train cyan-white, the freight violet and a train that waits red-orange, on navy.
-// Knob 2: Speed. How fast the history scrolls down the panel, k/2 times 6 rows a second: 0.3 times (1.8 rows a second) at 0.6, 1 time (6 rows) at the opening 2 and 3 times (18 rows) at 6. The whole railway runs in panel time, so the slopes of the lines and the lengths of the stubs do not change.
-// Knob 3: Traffic. Trains entering at the two ends, 2.4 per screen of 128 rows at -1 (one train every 53 rows at each end, a few lone diagonals), 5.4 at the opening 0 and 12 at 1 (the line holds 13 trains and the panel is woven). At the opening speed a screen is 21 seconds.
-// Knob 4: Delay. The chance and length of extra dwell and how ragged the arrivals are. At -0.3 the chance is 0 and the arrivals are 30 percent ragged: every wait is a crossing wait and the lines run parallel. At the opening 0.06 a visit to a station is held 15 percent of the time, for 6 rows on average. At 1 it is held 55 percent of the time for 12 rows, the arrivals are Poisson, and the delays ripple.
+// Knob 1: Hue. Adds the knob to the hue of the three train colours and the waiting colour together, so one turn comes back to where it began. At 0 the express is amber (255, 179, 31), the stopping train cyan-white (128, 255, 255), the freight violet (202, 51, 255) and a train that waits red-orange (255, 40, 10), on navy. At 0.25 they are green, lilac, orange and lime; at 0.5 blue, pink, green and cyan; at 0.75 magenta, pale green, sky blue and purple.
+// Knob 2: Speed. How fast the history scrolls down the panel, the knob over 2 times 6 rows a second: 1.8 rows a second at 0.6 (a screen of 128 rows takes 71 seconds), 6 at the opening 2 (21 seconds) and 18 at 6 (7 seconds). The railway runs in panel time, so the slopes of the lines and the lengths of the stubs are the same at every setting.
+// Knob 3: Traffic. Trains entering at the two ends together, per screen of 128 rows: 3.0 at -1 (one train every 85 rows at each end, about 2.5 on the line at a time, a few lone diagonals), 4.9 at the opening 0 (4.5 on the line, a crossing or two in every frame) and 8.1 at 1 (9 on the line, 37 rows of waiting in a 125-row trip; the line takes about 8 a screen, so it is full and woven). At the opening speed that is 8, 14 and 23 trains a minute.
+// Knob 4: Delay. The chance and length of extra dwell, and how ragged the arrivals are. At -0.3 there is no extra dwell, the gaps between arrivals are 88 percent fixed and each end runs a fixed round of classes: the lines run parallel and the only waits are crossing waits, 14 rows of a 111-row trip at the opening traffic. At the opening 0.06 a visit to a station is held 17 percent of the time for 5 rows on average, the gaps are 36 percent random and 18 rows of the trip are waiting. At 1 a visit is held 55 percent of the time for 10 rows on average (25 at most), the arrivals are Poisson, every class is drawn at random, 39 rows of a 125-row trip are waiting and the delays ripple.
 
 // The railway is one line of six stations at columns 5, 16, 28, 39, 51 and 59,
 // so five sections of 11, 12, 11, 12 and 8 columns. Between the stations the
 // track is single. At each station a loop lets a train stand aside, and the
-// diagram is that history: x is the position on the line, and the row is how
-// long ago, the newest moment in the top row, so a train that runs leaves a
-// slanting line, a train that stands leaves a vertical stub and a train that
-// is hotter has waited longer than its timetable said.
+// diagram is the history of the line: x is the position on it and the row is
+// how long ago, the newest moment in the top row. A train that runs leaves a
+// slanting line, a train that stands leaves a vertical stub, and a stub is hot
+// when the train has waited past its timetable.
 //
-// Three kinds of train run, at 1.6, 0.8 and 0.4 columns a row. The express
-// (amber) stops at the ends and at the fourth station only, the stopping
-// train (cyan-white) at every station, the freight (violet) at the ends only.
-// Trains enter at both ends by a seeded random process whose rate is the
-// Traffic knob. A train may leave a station into a section only under the
-// rules a single line works by:
+// Three kinds of train run, at 1.7, 0.9 and 0.45 columns a row. The express
+// (amber) stops at the ends and at the fourth station only, the stopping train
+// (cyan-white) at every station, the freight (violet) at the ends only. Trains
+// enter at both ends by a seeded random process whose rate is the Traffic knob.
+// A train leaves a station into a section only under the rules a single line
+// works by:
 //   1. Token. The section has no train in it that runs the other way.
 //   2. Headway. The nearest train ahead in the section is at least 4.2 times
-//      the square root of 1 plus its speed squared columns away, so that two
-//      lines keep four LEDs between them, measured square across the lines.
-//      A train that catches a slower one in a section cannot pass it and is
-//      held to its speed.
-//   3. Overtaking only in a loop. A train that is ready to go while a faster
-//      one of the same way is at its station, or is coming to it within 30
-//      rows, stands aside, hot, until the faster one has gone.
-//   4. The oldest wins. If a train going the other way has been ready longer
-//      (an express counts as 14 rows older, a stopping train as 6), it goes
-//      first, so that a platoon of trains cannot keep the token for ever.
-// A station has room for any number of trains, so a train in a section can
-// always arrive, and every wait is for a train that is moving; the oldest
-// ready train is only ever held back by a section that is draining. That is
-// why the line cannot lock. The line holds at most 13 trains, and a train
-// that would enter beyond that, or into a terminus that is still occupied,
-// waits outside, where the panel does not show it.
+//      the square root of 1 plus its speed squared columns away, which keeps
+//      two lines four LEDs apart measured square across them. A train that
+//      catches a slower one in a section cannot pass it and takes its speed.
+//   3. Overtaking only in a loop. A train that is ready while a faster one of
+//      its own way is at its station, or is coming to it within 30 rows,
+//      stands aside, hot, until the faster one has gone. It stands aside for
+//      24 rows at most.
+//   4. The oldest goes first. A train that has been ready 12 rows longer than
+//      this one, going the other way, takes the token first (an express counts
+//      as 14 rows older, a stopping train as 6), so that a platoon cannot hold
+//      the token for ever.
+//   5. Room. A station takes three trains of one way, those standing at it and
+//      those running to it. A train that has waited 80 rows for room goes anyway.
+// A train that arrives is never refused, so every train in a section reaches
+// its station, and every wait is for a section that is draining. The longest
+// wait over four seeds and 900 seconds at the highest traffic and delay is 93
+// rows. The line holds 12 trains. A train that would enter beyond that, or
+// while 5 trains stand late in the loops, or while the first section has a
+// train coming towards it, waits outside, where the panel does not show it.
 //
 // The pre-run is 440 rows of railway at the knobs the pattern opens with, so
-// the first frame already has the line full and the 128 rows of history.
-// Delay: with the chance the knob gives, a visit to a station adds an extra
-// dwell drawn from an exponential law. The extra is hot like any other wait.
+// the first frame has the line full and the 128 rows of history. A visit to a
+// station that is held adds an extra dwell drawn from an exponential law, and
+// the extra is hot like any other wait. At Delay 0 each end runs its own
+// fixed round of classes and the next arrival comes at a regular gap; the more
+// Delay, the more often the class is drawn at random and the more the gaps
+// are Poisson.
 //
 // The line of each train is a polyline of (time, x) vertices kept as long as
-// it is on the panel. It is drawn as a capsule 2 LEDs wide, with the
-// distance from each LED centre to the segment setting its coverage, so a
-// shallow line has no gaps and a scrolling one moves smoothly between rows.
-// A train's pixels are the highest coverage of its own segments, then the
-// trains add and clip. The head of a live train is whitened over its first
-// few rows. Trains going up the line (towards column 5) are drawn one column
-// to the left of the station and the others one to the right, so that two
-// stubs of a crossing stand side by side: 4 LEDs for the platform, which is
-// the faint band at each station.
+// it is on the panel. It is drawn as a capsule 2 LEDs wide, with the distance
+// from each LED centre to the segment setting its coverage, so a shallow line
+// has no gaps and a scrolling one moves smoothly between rows. A train's
+// pixels take the highest coverage of its own segments, then the trains add
+// and clip, so a crossing of two lines is lighter than either. The head of a
+// live train is whitened over its first few rows. Trains going up the line
+// (towards column 5) are drawn one column to the left of the station and the
+// others one to the right, so that the two stubs of a crossing stand side by
+// side. The faint band behind each station is the 4 LEDs of its platform.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, abs, sqrt, exp, log, round } = Math;
@@ -100,7 +106,7 @@ const COL = [
 ];
 const BG = [4, 6, 18];
 const BAND = [9, 15, 38];
-const RULE = [8, 12, 30];
+const RULE = [10, 16, 40];
 
 function hsv(h, s, v, out) {
   h = (h - floor(h)) * 6;
@@ -309,11 +315,9 @@ function dispatch(S, now) {
   }
   elig.sort((a, b) => a.key - b.key);
   for (const U of elig) {
-    U.why = 0;
-    if (U.held || U.full) { U.why = U.held ? 1 : 2; continue; }
+    if (U.held || U.full) continue;
     const s = U.st, d = U.dir, j = d > 0 ? s : s - 1, i = d > 0 ? 0 : 1;
-    if (sc[j][1 - i] > 0) { U.why = 3; continue; }
-    if (wk[j][1 - i] < U.key - SLACK) { U.why = 4; continue; }
+    if (sc[j][1 - i] > 0 || wk[j][1 - i] < U.key - SLACK) continue;
     let ok = true;
     for (const tr of S.trains) {
       if (tr.mode === 0 && tr.sec === j && tr.dir === d && (tr.x - XS[s]) * d < GAP[tr.cls]) {
@@ -321,7 +325,7 @@ function dispatch(S, now) {
         break;
       }
     }
-    if (!ok) { U.why = 5; continue; }
+    if (!ok) continue;
     U.mode = 0;
     U.sec = j;
     U.st = s + d;
@@ -412,14 +416,14 @@ function stroke(S, X0, Y0, X1, Y1, c, live) {
     }
     const xa = X0 + dX * sa, xb = X0 + dX * sb;
     const c0 = max(0, floor(min(xa, xb) - 1.5)), c1 = min(W - 1, ceil(max(xa, xb) + 1.5));
-    const f = 1 - (0.42 * yc) / H, hw = live ? 0.62 * exp(-yc / 2.6) : 0;
+    const f = 1 - (0.35 * yc) / H, hw = live ? 0.62 * exp(-yc / 2.6) : 0;
     for (let x = c0; x <= c1; x++) {
       const px = x + 0.5;
       let u = len2 > 0 ? ((px - X0) * dX + (yc - Y0) * dY) / len2 : 0;
       u = u < 0 ? 0 : u > 1 ? 1 : u;
       const ex = px - (X0 + u * dX), ey = yc - (Y0 + u * dY);
       let a = (1.45 - sqrt(ex * ex + ey * ey)) / 0.9;
-      if (a <= 0.12) continue;
+      if (a < 0.4) continue;
       if (a > 1) a = 1;
       const p = r * W + x;
       if (a > cov[p]) {
@@ -470,9 +474,9 @@ export function draw(display, params) {
       if (w <= 0) continue;
       for (let x = 0; x < W; x++) {
         const p = (r * W + x) * 3;
-        buf[p] += (RULE[0] - BG[0]) * w * 0.5;
-        buf[p + 1] += (RULE[1] - BG[1]) * w * 0.5;
-        buf[p + 2] += (RULE[2] - BG[2]) * w * 0.5;
+        buf[p] += (RULE[0] - BG[0]) * w;
+        buf[p + 1] += (RULE[1] - BG[1]) * w;
+        buf[p + 2] += (RULE[2] - BG[2]) * w;
       }
     }
   }
