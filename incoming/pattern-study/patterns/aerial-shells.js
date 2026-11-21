@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0.3..3, Size=-1..1, Drift=-1..1
 //
-// Knob 1: Hue. Turns the palette of the shells once round the wheel. At 0 the willows and the brocade are gold and the colour shells are crimson, emerald, azure and magenta; at 0.5 the gold has become a blue-white, the crimson a cyan, and so on. A colour-change star always changes between two palette colours.
-// Knob 2: Pace. How often a shell goes up. At 0.3 about one in six seconds, so the sky is often down to one display and its haze; at the opening 2 one in 1.6 seconds on average, two or three displays alive at once; at 3 one in 0.4 seconds, a rapid volley that lights most of the panel. The gaps are never even, and a short finale of four to eight shells fires now and then whatever the pace.
-// Knob 3: Size. The size of a shell and its count of stars. At -1 a shell opens about 11 LEDs in radius with about 45% of the usual stars; at the opening 0 about 20 LEDs, and bursts vary between 16 and 24; at 1 about 29 LEDs, a big shell that spans nearly the width of the panel, with 45% more stars.
-// Knob 4: Drift. A wind blowing the air the stars fly in. At 0 the sky is nearly still; at 1 the wind is 9 LEDs a second to the right, willow tails bend into long diagonals, shells sail sideways as they burn and the smoke slides off the right edge; at -1 it blows left.
+// Knob 1: Hue. Turns the palette of the shells once round the wheel. At 0 the willows and the brocade are gold and the colour shells are crimson, emerald, azure and violet; at 0.5 the gold has become a blue-white and the crimson a cyan. A colour-change star always changes between two palette colours.
+// Knob 2: Pace. How often a shell goes up. At 0.3 about one in six seconds, so the sky is often down to one display and its haze; at the opening 2 about one a second, three or four displays alive at once; at 3 one in half a second, a rapid volley. The gaps are never even, and a short finale of four to eight shells fires now and then whatever the pace.
+// Knob 3: Size. The size of a shell and its count of stars. At -1 a shell opens about 11 LEDs in radius with 45% of the usual stars; at the opening 0 about 20 LEDs, and bursts vary between 14 and 25 by type and by chance; at 1 about 27 LEDs, a big shell that spans most of the panel's width, with 30% more stars.
+// Knob 4: Drift. A wind blowing the air the stars fly in. At 0 the sky is nearly still; at 1 the wind is 7 LEDs a second to the right, willow tails bend into long diagonals, shells sail sideways as they burn and the smoke slides toward the right edge; at -1 it blows left.
 
 const W = 64;
 const H = 128;
@@ -38,7 +38,7 @@ const GH = H / CELL + 1;
 const GLOWK = 0.0007; // light a star lends the air in a frame, at full brightness
 const TW = W / 2 + 2; // the smoke's lumps, on a grid of 2 LEDs
 const TH = H / 2 + 2;
-const UMAX = 5.5; // LEDs a second of wind at Drift 1
+const UMAX = 7; // LEDs a second of wind at Drift 1
 
 // ---- two private random streams, so a knob that changes nothing about the
 // plan of the show changes nothing about which shell goes where ----
@@ -157,9 +157,9 @@ function palette(S, k1) {
   const h0 = HUE0 + k1;
   const P = S.pal;
   const off = [0, -0.13, 0.2, 0.4, 0.68];
-  const ch = [0.12, 0.17, 0.15, 0.13, 0.16];
+  const ch = [0.14, 0.19, 0.17, 0.15, 0.18];
   for (let i = 0; i < 5; i++) tint(h0 + off[i], 0.8, ch[i], P, i * 3);
-  tint(h0, 0.88, 0.1, S.gold, 0);
+  tint(h0, 0.86, 0.13, S.gold, 0);
 }
 
 // ---- drawing a soft dot into a layer, the brighter dot keeping the LED ----
@@ -359,19 +359,19 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
     sphere(S, n, DIR);
     for (let i = 0; i < n; i++) {
       const v = v0 * (0.93 + 0.14 * rs());
-      const dz = 0.78 + 0.22 * DIR[i * 3 + 2];
+      const dz = 0.57 + 0.215 * (1 + DIR[i * 3 + 2]);
       addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.9 + 0.2 * rs()), k, 7, chrys ? 1 : 0, chrys ? 1.3 : 1.2, chrys ? 0.9 : 1, ca, change ? cb : ca, tc, 0, 0, 0, 0, dz);
     }
   } else if (type === WILLOW) {
     n = min(399, floor(44 * nS * (0.9 + 0.2 * rs())));
     const burn = 4.2 + 1.0 * rs();
-    const k = 1.05;
+    const k = 1.4;
     const v0 = (R * 0.9 * k) / (1 - exp(-k * 2.6));
     sphere(S, n, DIR);
     for (let i = 0; i < n; i++) {
-      const v = v0 * (0.9 + 0.2 * rs());
-      const dz = 0.8 + 0.2 * DIR[i * 3 + 2];
-      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.85 + 0.3 * rs()), k, 15, 2, 1.15, 0.45 + 0.55 * rs(), gold, gold, -1, 0, 1, 0, 0, dz);
+      const v = v0 * (0.8 + 0.4 * rs());
+      const dz = 0.57 + 0.215 * (1 + DIR[i * 3 + 2]);
+      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.85 + 0.3 * rs()), k, 19, 2, 1.15, 0.45 + 0.55 * rs(), gold, gold, -1, 0, 1, 0, 0, dz);
     }
   } else if (type === PALM) {
     const arms = 5 + floor(rs() * 3);
@@ -422,7 +422,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
       const v1 = (R * 0.4 * k) / (1 - exp(-k * burn * 0.8));
       for (let i = 0; i < m; i++) {
         const v = v1 * (0.9 + 0.2 * rs());
-        addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * 0.85 * (0.9 + 0.2 * rs()), k, 5, 0, 1.3, 0.9, cb, cb, -1, 0, 0, 0, 0, 0.8 + 0.2 * DIR[i * 3 + 2]);
+        addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * 0.85 * (0.9 + 0.2 * rs()), k, 5, 0, 1.3, 0.9, cb, cb, -1, 0, 0, 0, 0, 0.57 + 0.215 * (1 + DIR[i * 3 + 2]));
       }
     }
   } else if (type === CROSS) {
@@ -434,7 +434,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
     sphere(S, n, DIR);
     for (let i = 0; i < n; i++) {
       const v = v0 * (0.95 + 0.1 * rs());
-      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, ts, k, 6, 1, 1.5, 1.1, ca, aux < 0.35 ? cb : ca, aux < 0.35 ? 0.3 : -1, 0, 0, 1, R, 0.8 + 0.2 * DIR[i * 3 + 2]);
+      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, ts, k, 6, 1, 1.5, 1.1, ca, aux < 0.35 ? cb : ca, aux < 0.35 ? 0.3 : -1, 0, 0, 1, R, 0.57 + 0.215 * (1 + DIR[i * 3 + 2]));
     }
   } else {
     // brocade
@@ -446,7 +446,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
     for (let i = 0; i < n; i++) {
       const v = v0 * (0.85 + 0.3 * rs());
       const crackle = rs() < 0.65;
-      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.8 + 0.4 * rs()), k, 9, 0, 1.3, 1, gold, gold, -1, 1, 1, crackle ? 2 : 0, 1.0 + (burn - 1.4) * 0.6 * rs(), 0.8 + 0.2 * DIR[i * 3 + 2]);
+      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.8 + 0.4 * rs()), k, 9, 0, 1.3, 1, gold, gold, -1, 1, 1, crackle ? 2 : 0, 1.0 + (burn - 1.4) * 0.6 * rs(), 0.57 + 0.215 * (1 + DIR[i * 3 + 2]));
     }
   }
   // smoke the shell leaves where it burst
@@ -502,14 +502,14 @@ function launchOne(S, forced) {
   const nS = k3 < 0 ? lerp(0.45, 1, k3 + 1) : lerp(1, 1.3, k3);
   // where: the best of three, far from the bursts still glowing
   const mx = 0.3 * R + 2;
-  const ytop = 0.38 * R + 3;
+  const ytop = 0.3 * R + 2;
   const ybot = 112 - 0.3 * R;
   let bx = 0;
   let by = 0;
   let bd = -1;
   for (let c = 0; c < 3; c++) {
     const cx = mx + rx[c] * (W - 2 * mx);
-    const cy = lerp(ytop, ybot, ry[c]);
+    const cy = lerp(ytop, ybot, Math.pow(ry[c], 1.25));
     let d = 1e9;
     for (const q of S.recent) {
       const age = S.t - q.t;
@@ -630,7 +630,7 @@ function step(S, dt) {
     const x = r.x0 + (r.xa - r.x0) * uu;
     const y = H + 2 + (r.ya - H - 2) * e;
     // head, warm white, its comet dragged behind by the layer's own fade
-    seg(B[0], r.px, r.py, x, y, 1, 0.82, 0.55, 1.45);
+    seg(B[0], r.px, r.py, x, y, 0.5 + 0.5 * S.gold[0], 0.55 + 0.45 * S.gold[1], 0.45 + 0.4 * S.gold[2], 1.45);
     lend(glow, x, y, 0.004, 0.0028, 0.0014);
     const sp = ca2(S);
     if (S.rs() < 0.8) addStar(S, x + (S.rs() - 0.5) * 1.2, y + 1, (S.rs() - 0.5) * 9, 6 + 14 * S.rs(), 0.25 + 0.3 * S.rs(), 3, 22, 0, 1.1, 0.35 + 0.6 * S.rs() * S.rs(), sp, sp, -1, 0, 1, 0, 0, 1);
@@ -756,9 +756,16 @@ function step(S, dt) {
       g = lerp(g, f[CB + 1][i], m);
       b = lerp(b, f[CB + 2][i], m);
     }
-    const hot = 1 - sm(0, 0.16, age);
+    // a few stars burn whiter than their neighbours
+    const wh = u[PHI][i] / 255;
+    const wv = wh * wh * wh * 0.35;
+    r += (1 - r) * wv;
+    g += (0.96 - g) * wv;
+    b += (0.9 - b) * wv;
+    // the willow's heavy stars stay white-hot for the first half second
+    const hot = 1 - sm(0, u[EMBER][i] && u[CLS][i] === 2 ? 0.5 : 0.16, age);
     if (hot > 0) {
-      const h = hot * 0.85;
+      const h = hot * 0.75;
       r += (1 - r) * h;
       g += (0.96 - g) * h;
       b += (0.88 - b) * h;
@@ -782,16 +789,20 @@ function step(S, dt) {
     }
     if (br > 0.02) {
       seg(B[u[CLS][i]], px, py, x, y, r * br, g * br, b * br, f[RAD][i]);
-      lend(glow, x, y, r * br * GLOWK, g * br * GLOWK, b * br * GLOWK);
+      // the light a star lends the air leans a little toward the cool, so the haze stays a night haze
+      const lm = (r + g + b) * 0.3333;
+      lend(glow, x, y, (0.8 * r + 0.15 * lm) * br * GLOWK * 1.15, (0.8 * g + 0.17 * lm) * br * GLOWK * 1.15, (0.8 * b + 0.21 * lm) * br * GLOWK * 1.15);
     }
     i++;
   }
 }
 function ca2(S) {
+  // the spark of a comet tail: the palette's gold, a little warmer
   const o = S.out;
-  o[0] = 1;
-  o[1] = 0.62;
-  o[2] = 0.28;
+  const g = S.gold;
+  o[0] = g[0];
+  o[1] = g[1] * 0.85;
+  o[2] = g[2] * 0.6;
   return o;
 }
 
@@ -930,12 +941,13 @@ export function draw(display, params) {
       const lit = (0.45 + 1.5 * dens) * lump;
       const fli = (0.3 + 1.2 * dens) * (0.5 + 0.5 * lump);
       const haze = lowv * (0.006 + 0.02 * dens);
+      const hg = S.gold;
       // the lit air is a little pale: a third of its colour goes to grey
       const gm = (gr + gg + gb) * 0.3333;
       const gq = (fr + fg + fb) * 0.3333;
-      let r = B0[o] + B1[o] + B2[o] + (gr * 0.7 + gm * 0.3) * lit + (fr * 0.8 + gq * 0.2) * fli + haze;
-      let g = B0[o + 1] + B1[o + 1] + B2[o + 1] + (gg * 0.7 + gm * 0.3) * lit + (fg * 0.8 + gq * 0.2) * fli + haze * 0.55;
-      let b = B0[o + 2] + B1[o + 2] + B2[o + 2] + (gb * 0.7 + gm * 0.3) * lit + (fb * 0.8 + gq * 0.2) * fli + haze * 0.22;
+      let r = B0[o] + B1[o] + B2[o] + (gr * 0.8 + gm * 0.2) * lit + (fr * 0.8 + gq * 0.2) * fli + haze * hg[0];
+      let g = B0[o + 1] + B1[o + 1] + B2[o + 1] + (gg * 0.8 + gm * 0.2) * lit + (fg * 0.8 + gq * 0.2) * fli + haze * hg[1] * hg[1] * 0.7;
+      let b = B0[o + 2] + B1[o + 2] + B2[o + 2] + (gb * 0.8 + gm * 0.2) * lit + (fb * 0.8 + gq * 0.2) * fli + haze * hg[2] * hg[2] * 0.4;
       // a bright core turns white
       const m = max(r, g, b);
       if (m > 0.55) {
