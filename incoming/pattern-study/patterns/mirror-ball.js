@@ -9,12 +9,12 @@
 // Round:   208
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Spin=0..3, Tile=-1..1, Tilt=-0.3..1
+// @knobs Hue=0..1, Spin=0..3, Tile=-1..1, Tilt=-0.7..1
 //
 // Knob 1: Hue. The tint of the second spotlight; the first lamp stays a warm white. At 0 the second is a pale sky blue, and turning the wheel takes it through violet, rose, amber and green and back to blue at 1. Where a warm spot and a tinted one overlap on the wall the two lights add and the colours mix.
 // Knob 2: Spin. How fast the ball turns: 0.1 rad/s at the opening 2, a turn in 65 seconds, with the middle spot sliding about 8 LEDs a second and the quickest 12. The speed breathes round that by up to a third on periods that do not divide. At 0 the ball stops and the spots stand where they are, creeping only as the two lamps wander; at 3 the middle spot runs about 12 LEDs a second.
 // Knob 3: Tile. The size of one mirror tile on the ball, from 2.8 LEDs at -1, a ball of about 1200 tiles and a fine glitter, through 3.7 at the opening 0, about 730 tiles and spots 4 to 5 LEDs across, to 6.2 at 1, 250 tiles and fewer, larger spots that each show their own parallelogram.
-// Knob 4: Tilt. How far the ball's axis leans from the vertical, from 2 degrees at -0.3, where it hangs straight and the spots run in level rows, through 20 degrees at the opening 0.06, where the rows bend into arcs, to 69 degrees at 1 and steep sweeping curves. The lean direction wanders a little as the ball swings on its cord.
+// Knob 4: Tilt. How far the ball's axis leans from the vertical, from 5 degrees at -0.7, where it hangs straight and the spots run in level rows, through 35 degrees at the opening 0.06, where the rows bend into arcs, to 73 degrees at 1 and steep sweeping curves. The lean direction wanders a little as the ball swings on its cord.
 
 const W = 64;
 const H = 128;
@@ -30,7 +30,7 @@ const RB = 28; // radius of the ball, in LEDs
 const NMAX = 1800; // most tiles
 const GROUT = 0.86; // the mirror's share of a tile pitch
 const WALL_MIN = 0.45; // a reflected ray flatter than this to the wall is not thrown (about 72 degrees)
-const T0 = 9; // the lamps and the cord have been moving this long when the Lab starts
+const T0 = 18; // the lamps and the cord have been moving this long when the Lab starts
 const SPIN0 = 0.048; // rad/s for each unit of Spin: a turn in 65 s at the opening 2
 const HALO = 0.1;
 const AMBIENT = 0.007;
@@ -148,7 +148,7 @@ export function setup(params) {
     hue: 0.6,
     spin: 1,
     size: 3.7,
-    tilt: 0.35,
+    tilt: 0.61,
     ball,
     m: new Float32Array(9), // ball to world
     bx: 32,
@@ -177,7 +177,7 @@ function pose(S) {
   const a1 = (74 + 8 * sin(0.0613 * t + 2.1) + 3 * sin(0.1393 * t)) * DEG;
   const f1 = (25 + 80 * sin(0.0431 * t + 0.9) + 16 * sin(0.1187 * t)) * DEG;
   const a2 = (72 + 8 * sin(0.0359 * t + 0.4) + 3 * sin(0.1217 * t + 2)) * DEG;
-  const f2 = f1 + (150 + 42 * sin(0.0517 * t + 2.4) + 12 * sin(0.0971 * t + 1)) * DEG;
+  const f2 = f1 + (125 + 40 * sin(0.0517 * t + 2.4) + 12 * sin(0.0971 * t + 1)) * DEG;
   l[0] = sin(a1) * cos(f1);
   l[1] = sin(a1) * sin(f1);
   l[2] = -cos(a1);
@@ -234,7 +234,7 @@ export function update(dt, input, params) {
   const kn = input.knobValues || [0, 2, 0, 0.06];
   S.hue = cl(kn[0], 0, 1);
   S.spin = cl(kn[1], 0, 3);
-  S.tilt = cl(0.3 + 0.9 * cl(kn[3], -0.3, 1), 0, 1.22);
+  S.tilt = cl(0.57 + 0.7 * cl(kn[3], -0.7, 1), 0, 1.27);
   const k3 = cl(kn[2], -1, 1);
   const size = k3 < 0 ? 3.7 + 0.9 * k3 : 3.7 + 2.5 * k3;
   if (abs(size - S.size) > 0.03) {
