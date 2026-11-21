@@ -68,7 +68,7 @@ const TOPS = [9, 43, 77, 111]; // the first row of each tier's bars
 const BH = 8; // bar height, rows
 const SPAN = 63; // the bars fill the row from x 0.5 to 63.5
 const X0 = 0.5;
-const RATE = 0.5; // the clock runs at churn times this
+const RATE = 0.22; // the clock runs at churn times this
 const TAU0 = 14; // where the clock opens
 
 // ---- the modules
@@ -84,10 +84,10 @@ const PH = (i, n) => i * 2.3999632 * n + 0.7 * n; // a phase for module i, sprea
 const TIER_PH = [1.3, 1.5, 1.2]; // how far each sine moves from one tier to the next
 
 // ---- the ribbons
-const ALPHA = [0.7, 0.58, 0.66, 0.8, 0.68, 0.58, 0.66]; // how strongly each module's ribbons are laid, so that amber does not sink to brown and teal does not outshine azure
+const ALPHA = [0.7, 0.58, 0.7, 0.8, 0.76, 0.68, 0.68]; // how strongly each module's ribbons are laid, so that amber does not sink to brown and teal does not outshine azure
 const BAR_V = 0.96;
 const BG = [14, 4, 19];
-const STAY = 5.8; // the diagonal's weight at Mixing 0 is exp(STAY)
+const STAY = 6.5; // the diagonal's weight at Mixing 0 is exp(STAY)
 
 export function setup(params) {
   params.s = {
@@ -241,7 +241,7 @@ function pairWeight(S, k, i, j) {
 function build(S) {
   for (let k = 0; k < T; k++) layout(S, k);
   const { A, F, u, w } = S.tmp, m = S.m;
-  const stay = exp(STAY * pow(1 - m, 1.15));
+  const stay = exp(STAY * pow(1 - m, 1.8));
   const lam = 0.3 + 0.9 * m;
   const off = 0.015 + 0.95 * m;
   const r = new Float64Array(M), c = new Float64Array(M);
