@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Minor Veins
 // Family:  venation
-// Idea:    A leaf blade held up against the light keeps growing past the top of the panel while its veins form by auxin canalization, so a thick midrib and a few secondaries stream down to the petiole below the bottom edge and a fresh fine net keeps appearing inside every areole that the stretching tissue opens.
+// Idea:    A leaf blade held up against the light keeps growing past the top of the panel while its veins form by space colonization toward auxin sources, so a thick midrib and a few arching secondaries stream down to the petiole below the bottom edge and a fresh fine net keeps appearing inside every areole that the stretching tissue opens.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,13 +11,34 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0.6..5, Fineness=-1..1, Light=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Growth.
-// Knob 3: Fineness.
-// Knob 4: Light.
+// Knob 1: Hue. Adds the knob to the hue of lamina, veins and bloom, so one turn comes back to where it began. At 0 the lamina runs from deep emerald (14, 117, 24) in an areole to yellow-lime (234, 233, 75) beside a vein, and the veins from pale lime (203, 229, 103) to cream (229, 221, 194). At 0.25 it is blue (14, 55, 117) to mint (75, 234, 172) with mint veins; at 0.5 violet (117, 14, 107) to blue-violet (92, 75, 234) with lavender veins; at 0.75 amber (201, 126, 24) to rose (234, 75, 137) with rose veins. Where the hue falls between orange and yellow the lamina is lifted to amber and gold, since dark orange reads as brown on a panel.
+// Knob 2: Growth. The blade's relative growth rate, 0.04 a second times the knob over 2: 0.012 at 0.6, 0.04 at the opening 2 and 0.10 at 5. Tissue moves away from the centre at that rate times its distance, so the middle of the panel, 120 LEDs out, drifts up at 1.4 LEDs a second at 0.6, 4.8 at 2 and 12 at 5. Vein tips run at 15 LEDs a second whatever the knob says, so at 5 the top outruns them and the net is sparser: 2,200 LEDs of vein in the panel, against 2,360 at 2 and 2,650 at 0.6.
+// Knob 3: Fineness. The spacing of the auxin sources, 2.6 times 1.35 to the power of minus the knob: 3.5 LEDs at -1, 2.6 at the opening 0 and 1.93 at 1. A source goes wherever a point is farther than the spacing from every vein and source, so finer settings fill each areole with more minor veins: 1,855 LEDs of vein in the panel at -1, 2,360 at 0 and 3,300 at 1, with 30, 37 and 49 percent of the LEDs on a vein. Turned finer, new veins grow from the old within three or four seconds. Turned coarser, a minor vein born at a finer spacing stays only with the chance (its spacing over the new one), so the net thins at once; veins that carry six tips or more stay.
+// Knob 4: Light. The backlight, (knob + 1) / 2, opening at 0.53. It sets the light the lamina passes, 0.68 plus 0.45 of it, and the warm bloom round every vein wider than 2 LEDs, 0.95 times it to the power 1.3. At -1 the lamina is dark green (the darkest LED is 58 of 255 in its brightest channel), the veins stay pale, there is no bloom, and the mean of every LED's brightest channel is 124. At 0.06 it is 163 and at 1 it is 193: a translucent leaf with a cream and gold glow round the midrib and secondaries.
+
+// The blade is a wedge of tissue that grows about a fixed point, the root of the vein network, at x 28
+// and y 184, below the panel, where the petiole joins it. Each frame every node and auxin source is carried
+// straight away from that point by exp(rate dt), so the tissue streams up and out, the leaf tip is far
+// beyond the top row, and a vein reaches the top about 30 s after it crossed the bottom edge.
+// The veins grow by space colonization. A source is scattered wherever a point is farther than the spacing
+// from every vein node and source. Every 0.1 s each source calls the nearest vein node within 12 LEDs,
+// unless that node would have to turn back for it or already has three children. A called node sprouts one
+// node 1.5 LEDs away along the mean direction of its sources, bent forward by a tropism away from the root
+// and held to its heading by inertia, so veins arch. A source dies when a node comes within half the
+// spacing of it. A sprout that lands near another branch joins it, closing a loop, an areole. An edge the
+// stretch pulls past 3.4 LEDs gets a node in the middle. Width follows the pipe model: the tips downstream
+// go under a square root, with a little extra for the stretch since the vein was made, from about 1 LED
+// for a minor vein to 4 for the midrib, tapering along each edge.
+// Each segment is drawn into float buffers: its core, a soft glow that makes the lamina brighter and
+// yellower the nearer a vein it is, and a wide bloom for the thick veins.
+// Leaf nodes outside the box round the panel are dropped, so coordinates stay within a few hundred LEDs
+// and the node count between 2,000 and 3,700, capped at 5,400, where new sources stop. Setup grows a
+// seedling 32 LEDs long for 56 s of tissue time, so the opening frame has a midrib, secondaries and a
+// fine net; if the first update finds Growth or Fineness away from what setup assumed, it grows again
+// at the knob values.
 
 const W = 64, H = 128, N = W * H;
-const { floor, ceil, min, max, exp, sqrt, abs, round, pow } = Math;
+const { floor, ceil, min, max, exp, sqrt, abs, pow } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -40,42 +61,37 @@ const KW = 0.85; // the blade is a wedge about the midrib: half-width KW times t
 const R0 = 32; // the seedling blade is this long, LEDs
 const LEAN = 0.03; // the midrib leans this much to the right per LED of height
 const NM = 5400, SM = 1500, LM = 1800; // capacity of nodes, sources, loop edges
-// Where sources live, and how far a node may go before it is dropped.
+// The box sources live in, and the one a leaf node is dropped outside of.
 const SX0 = -8, SX1 = 72, SY0 = -8, SY1 = CY - 4;
 const PX0 = -14, PX1 = 78, PY0 = -18, PY1 = CY + 6;
 const CS = 12; // cell of the grid the passes look up neighbours in
 const GX = ceil((PX1 - PX0) / CS) + 1, GY = ceil((PY1 - PY0) / CS) + 1, GN = GX * GY;
 
 // ---- the picture
-const WA = 0.82; // display width of a vein: WA * (tips downstream * stretch)^0.25, LEDs
 const EXPT = new Float32Array(560);
 for (let i = 0; i < EXPT.length; i++) EXPT[i] = exp(-i / 96);
 
 function hsv(h, s, v, out, o) {
-  h = (h - floor(h)) * 6;
-  const i = floor(h) % 6, f = h - floor(h), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
-  const r = i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p;
-  const g = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
-  const b = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
-  out[o] = r;
-  out[o + 1] = g;
-  out[o + 2] = b;
+  const f = (n) => {
+    const k = (n + (h - floor(h)) * 6) % 6;
+    return v - v * s * max(0, min(k, 4 - k, 1));
+  };
+  out[o] = f(5);
+  out[o + 1] = f(3);
+  out[o + 2] = f(1);
 }
+
+const F = (n) => new Float32Array(n), I = (n) => new Int32Array(n), U = (n) => new Uint8Array(n);
 
 export function setup(params) {
   const S = {
-    n: 0, ns: 0, nl: 0,
-    x: new Float32Array(NM), y: new Float32Array(NM), par: new Int32Array(NM),
-    rb: new Float32Array(NM), bs: new Float32Array(NM), maj: new Uint8Array(NM), rk: new Float32Array(NM), vis: new Float32Array(NM), wd: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
-    nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
-    ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), kids: new Uint8Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
-    cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
-    sx: new Float32Array(SM), sy: new Float32Array(SM), sa: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
-    l0: new Int32Array(LM), l1: new Int32Array(LM),
-    cv: new Float32Array(N), gl: new Float32Array(N), bl: new Float32Array(N), tn: new Float32Array(N),
-    lam: new Float32Array(256 * 3), vein: new Float32Array(256 * 3), bloom: [1, 0.8, 0.4], key: "",
-    hue: 0, gk: 1, sc: 2.6, u: 0.53, apex: R0,
-    assumed: [1, 2.6], warm: false,
+    n: 0, ns: 0, nl: 0, stamp: 0, key: "", hue: 0, gk: 1, sc: 2.6, u: 0.53, apex: R0, assumed: [1, 2.6], bloom: [1, 0.8, 0.4],
+    x: F(NM), y: F(NM), par: I(NM), rb: F(NM), bs: F(NM), maj: U(NM), rk: F(NM), ms: F(NM), mass: F(NM), // nodes
+    vis: F(NM), wd: F(NM), nch: I(NM), stack: I(NM), dead: U(NM), map: I(NM), kids: U(NM), mark: I(NM),
+    ax: F(NM), ay: F(NM), hx: F(NM), hy: F(NM), cnt: I(NM), cc: I(NM), cs: I(GN + 1), fp: I(GN), ci: I(NM), // working
+    sx: F(SM), sy: F(SM), sa: F(SM), shead: I(GN), snext: I(SM), // sources
+    l0: I(LM), l1: I(LM), // loop edges
+    cv: F(N), gl: F(N), bl: F(N), tn: F(N), lam: F(768), vein: F(768), // picture
   };
   params.s = S;
   seed(S);
@@ -109,7 +125,6 @@ function prerun(S) {
   }
   for (let j = 0; j < S.n; j++) S.ms[j] = S.mass[j];
   S.assumed = [S.gk, S.sc];
-  S.warm = true;
 }
 
 function stretch(S, f) {
@@ -220,50 +235,43 @@ function attract(S) {
   S.ns = m;
 }
 
-// A node that some sources called sprouts one step toward their mean direction,
-// bent forward by the tropism. A sprout that lands within DLOOP of another
+// The nearest node within r2 of a point, leaving out any marked with the stamp st and any whose parent is.
+function nearNode(S, px, py, r2, st) {
+  const { x, y, par, cs, ci, mark } = S, c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
+  let best = -1;
+  for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
+    for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++)
+      for (let k = cs[yy * GX + xx], e = cs[yy * GX + xx + 1]; k < e; k++) {
+        const m = ci[k];
+        if (st && (mark[m] === st || mark[par[m]] === st)) continue;
+        const ex = x[m] - px, ey = y[m] - py, d = ex * ex + ey * ey;
+        if (d < r2) {
+          r2 = d;
+          best = m;
+        }
+      }
+  return best;
+}
+
+// A node that some sources called sprouts one step toward their mean direction, bent forward by the
+// tropism and held to its heading by inertia. A sprout that lands within LOOPF spacings of another
 // branch joins it, which closes a loop.
 function sprout(S) {
-  const { x, y, par, cnt, ax, ay, cs, ci, mark } = S, n0 = S.n;
+  const { x, y, par, cnt, ax, ay, hx, hy, mark } = S, n0 = S.n;
   for (let j = 0; j < n0; j++) {
     if (!cnt[j]) continue;
     if (S.n >= NM) break;
     let dx = ax[j] / cnt[j], dy = ay[j] / cnt[j];
     const l = sqrt(dx * dx + dy * dy);
     if (l < 1e-3) continue;
-    dx /= l;
-    dy /= l;
     let rx = x[j] - CX, ry = y[j] - CY;
     const rl = sqrt(rx * rx + ry * ry) || 1;
-    dx += (TROP * rx) / rl;
-    dy += (TROP * ry) / rl;
-    // Inertia: a vein keeps its heading, so it bends in arcs instead of corners.
-    const pj = par[j];
-    if (pj >= 0) {
-      const hx = x[j] - x[pj], hy = y[j] - y[pj], hl = sqrt(hx * hx + hy * hy) || 1;
-      dx += (INERTIA * hx) / hl;
-      dy += (INERTIA * hy) / hl;
-    }
+    dx = dx / l + (TROP * rx) / rl + INERTIA * hx[j];
+    dy = dy / l + (TROP * ry) / rl + INERTIA * hy[j];
     const dl = sqrt(dx * dx + dy * dy) || 1;
     const nx = x[j] + (STEP * dx) / dl, ny = y[j] + (STEP * dy) / dl;
     if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1 || abs(nx - (CX + LEAN * (CY - ny))) > KW * (CY - ny) + 8) continue;
-    // Not on top of a node that is already there.
-    {
-      const c0 = cellOf(nx, ny), cx0 = c0 % GX, cy0 = (c0 / GX) | 0;
-      let crowd = false;
-      for (let yy = max(0, cy0 - 1); !crowd && yy <= min(GY - 1, cy0 + 1); yy++)
-        for (let xx = max(0, cx0 - 1); !crowd && xx <= min(GX - 1, cx0 + 1); xx++) {
-          const cc = yy * GX + xx;
-          for (let k = cs[cc]; k < cs[cc + 1]; k++) {
-            const m = ci[k], ex = x[m] - nx, ey = y[m] - ny;
-            if (ex * ex + ey * ey < 0.5) {
-              crowd = true;
-              break;
-            }
-          }
-        }
-      if (crowd) continue;
-    }
+    if (nearNode(S, nx, ny, 0.5, 0) >= 0) continue; // not on top of a node that is already there
     const q = S.n++;
     x[q] = nx;
     y[q] = ny;
@@ -275,39 +283,25 @@ function sprout(S) {
     S.maj[q] = 0;
     S.rk[q] = S.maj[j] || Math.random() < 0.3 ? Math.random() : S.rk[j];
     S.ms[q] = 1;
-    // Loop: the nearest node of another branch, not within eight generations of j.
     if (S.nl >= LM) continue;
+    // Loop: the nearest node of another branch, not within eight generations of j.
     const st = ++S.stamp;
-    let a = j;
-    for (let g = 0; g < 8 && a >= 0; g++) {
-      mark[a] = st;
-      a = par[a];
-    }
-    const c = cellOf(nx, ny), gx = c % GX, gy = (c / GX) | 0;
-    let best = -1, bd = (LOOPF * S.sc) ** 2;
-    for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
-      for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++) {
-        const cc = yy * GX + xx;
-        for (let k = cs[cc]; k < cs[cc + 1]; k++) {
-          const m = ci[k];
-          if (mark[m] === st || mark[par[m]] === st) continue;
-          const ex = x[m] - nx, ey = y[m] - ny, d = ex * ex + ey * ey;
-          if (d < bd) {
-            bd = d;
-            best = m;
-          }
-        }
-      }
-    if (best >= 0) {
+    for (let g = 0, a = j; g < 8 && a >= 0; g++, a = par[a]) mark[a] = st;
+    const m = nearNode(S, nx, ny, (LOOPF * S.sc) ** 2, st);
+    if (m >= 0) {
       S.l0[S.nl] = q;
-      S.l1[S.nl] = best;
+      S.l1[S.nl] = m;
       S.nl++;
     }
   }
 }
 
-// Leaves outside the box go, and so do the finest leaves when the net has been
-// asked to be coarser than they were born. Compacts the arrays.
+const FIELDS = ["x", "y", "par", "rb", "bs", "maj", "rk", "ms"];
+function copyNode(S, to, from) {
+  for (const f of FIELDS) S[f][to] = S[f][from];
+}
+
+// Leaf nodes outside the box go, and a node left a leaf outside goes with them. Compacts the arrays.
 function prune(S) {
   const { x, y, par, nch, stack, dead, map } = S, n = S.n;
   nch.fill(0, 0, n);
@@ -330,16 +324,7 @@ function prune(S) {
       continue;
     }
     map[j] = k;
-    if (k !== j) {
-      x[k] = x[j];
-      y[k] = y[j];
-      par[k] = par[j];
-      S.rb[k] = S.rb[j];
-      S.bs[k] = S.bs[j];
-      S.maj[k] = S.maj[j];
-      S.rk[k] = S.rk[j];
-      S.ms[k] = S.ms[j];
-    }
+    if (k !== j) copyNode(S, k, j);
     k++;
   }
   for (let j = 1; j < k; j++) par[j] = map[par[j]];
@@ -363,15 +348,12 @@ function split(S) {
     const p = par[j], dx = x[j] - x[p], dy = y[j] - y[p];
     if (dx * dx + dy * dy <= L2) continue;
     const m = S.n++;
+    copyNode(S, m, j);
     x[m] = x[p] + dx / 2;
     y[m] = y[p] + dy / 2;
     par[m] = p;
     par[j] = m;
     S.rb[m] = (S.rb[j] + S.rb[p]) / 2;
-    S.bs[m] = S.bs[j];
-    S.maj[m] = S.maj[j];
-    S.rk[m] = S.rk[j];
-    S.ms[m] = S.ms[j];
   }
   // A loop edge is split the same way, the new node hanging off its first end.
   const nl0 = S.nl;
@@ -380,11 +362,11 @@ function split(S) {
     const a = S.l0[i], b = S.l1[i], dx = x[b] - x[a], dy = y[b] - y[a];
     if (dx * dx + dy * dy <= L2 * 1.3) continue;
     const m = S.n++;
+    copyNode(S, m, a);
     x[m] = x[a] + dx / 2;
     y[m] = y[a] + dy / 2;
     par[m] = a;
     S.rb[m] = (S.rb[a] + S.rb[b]) / 2;
-    S.bs[m] = S.bs[a];
     S.maj[m] = 0;
     S.rk[m] = Math.random();
     S.ms[m] = 1;
@@ -495,9 +477,7 @@ export function update(dt, input, params) {
   S.gk = cl(k[1], 0.6, 5) / 2;
   S.sc = 2.6 * 1.35 ** -cl(k[2], -1, 1);
   S.u = (cl(k[3], -1, 1) + 1) / 2;
-  if (abs(S.gk - S.assumed[0]) > 0.02 || abs(S.sc - S.assumed[1]) > 0.02) {
-    if (!S.opened) prerun(S);
-  }
+  if (!S.opened && (abs(S.gk - S.assumed[0]) > 0.02 || abs(S.sc - S.assumed[1]) > 0.02)) prerun(S);
   S.opened = true;
   stretch(S, exp(G0 * S.gk * d));
   S.tacc = (S.tacc || 0) + d;
