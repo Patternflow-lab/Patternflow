@@ -35,8 +35,10 @@ const TAILS = [0.075, 0.38, 0.8]; // seconds a trail takes to fade: crisp, taile
 const CELL = 4; // LEDs per node of the smoke and light grids
 const GW = W / CELL + 1;
 const GH = H / CELL + 1;
-const GLOWK = 0.001; // light a star lends the air in a frame, at full brightness
-const UMAX = 9; // LEDs a second of wind at Drift 1
+const GLOWK = 0.0007; // light a star lends the air in a frame, at full brightness
+const TW = W / 2 + 2; // the smoke's lumps, on a grid of 2 LEDs
+const TH = H / 2 + 2;
+const UMAX = 5.5; // LEDs a second of wind at Drift 1
 
 // ---- two private random streams, so a knob that changes nothing about the
 // plan of the show changes nothing about which shell goes where ----
@@ -115,7 +117,8 @@ function setupState() {
     recent: [],
     pal: new Float32Array(15),
     gold: new Float32Array(3),
-    hue: -1,
+    k1: 0,
+    hueDone: -1,
     // light: three decaying layers of coloured stars, max-blended inside a layer
     B: [new Float32Array(N * 3), new Float32Array(N * 3), new Float32Array(N * 3)],
     smoke: new Float32Array(GW * GH),
@@ -139,6 +142,8 @@ function setupState() {
     rs: stream(seed ^ 0x85ebca6b),
     started: false,
     wx: 0,
+    wy: 0,
+    tex: new Float32Array(TW * TH),
     px: new Float32Array(W),
     out: new Float32Array(3),
   };
@@ -155,7 +160,6 @@ function palette(S, k1) {
   const ch = [0.12, 0.17, 0.15, 0.13, 0.16];
   for (let i = 0; i < 5; i++) tint(h0 + off[i], 0.8, ch[i], P, i * 3);
   tint(h0, 0.88, 0.1, S.gold, 0);
-  S.hue = k1;
 }
 
 // ---- drawing a soft dot into a layer, the brighter dot keeping the LED ----
@@ -345,7 +349,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
   flare(S, x, y, R, [0.5 + 0.5 * flashc[0], 0.5 + 0.5 * flashc[1], 0.5 + 0.5 * flashc[2]], 0.3 + 0.004 * R);
   if (type === PEONY || type === CHRYS) {
     const chrys = type === CHRYS;
-    n = floor((chrys ? 105 : 78) * nS * (0.9 + 0.2 * rs()));
+    n = floor((chrys ? 90 : 64) * nS * (0.9 + 0.2 * rs()));
     n = min(n, 399);
     const burn = chrys ? 2.5 + 0.5 * rs() : 1.9 + 0.5 * rs();
     const k = chrys ? 1.8 : 2.1;
@@ -356,7 +360,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
     for (let i = 0; i < n; i++) {
       const v = v0 * (0.93 + 0.14 * rs());
       const dz = 0.78 + 0.22 * DIR[i * 3 + 2];
-      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.9 + 0.2 * rs()), k, 7, chrys ? 1 : 0, chrys ? 1.35 : 1.3, chrys ? 0.9 : 1, ca, change ? cb : ca, tc, 0, 0, 0, 0, dz);
+      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.9 + 0.2 * rs()), k, 7, chrys ? 1 : 0, chrys ? 1.3 : 1.2, chrys ? 0.9 : 1, ca, change ? cb : ca, tc, 0, 0, 0, 0, dz);
     }
   } else if (type === WILLOW) {
     n = min(399, floor(44 * nS * (0.9 + 0.2 * rs())));
@@ -367,7 +371,7 @@ function burst(S, type, x, y, R, nS, ci, cj, aux) {
     for (let i = 0; i < n; i++) {
       const v = v0 * (0.9 + 0.2 * rs());
       const dz = 0.8 + 0.2 * DIR[i * 3 + 2];
-      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.85 + 0.3 * rs()), k, 15, 2, 1.15, 0.6 + 0.4 * rs(), gold, gold, -1, 0, 1, 0, 0, dz);
+      addStar(S, x, y, DIR[i * 3] * v, DIR[i * 3 + 1] * v, burn * (0.85 + 0.3 * rs()), k, 15, 2, 1.15, 0.45 + 0.55 * rs(), gold, gold, -1, 0, 1, 0, 0, dz);
     }
   } else if (type === PALM) {
     const arms = 5 + floor(rs() * 3);
@@ -492,14 +496,14 @@ function launchOne(S, forced) {
   const cj = (ci + 1 + floor(rc2 * 4)) % 5;
   // size
   const k3 = S.size;
-  const R0 = k3 < 0 ? lerp(11, 20, k3 + 1) : lerp(20, 29, k3);
-  const TF = [1, 1.04, 0.78, 1.1, 0.95, 1.25, 0.95];
+  const R0 = k3 < 0 ? lerp(11, 20, k3 + 1) : lerp(20, 27, k3);
+  const TF = [1, 1.04, 0.66, 1.1, 0.95, 1.25, 0.95];
   const R = R0 * TF[type] * (0.8 + 0.4 * rsz);
-  const nS = k3 < 0 ? lerp(0.45, 1, k3 + 1) : lerp(1, 1.45, k3);
+  const nS = k3 < 0 ? lerp(0.45, 1, k3 + 1) : lerp(1, 1.3, k3);
   // where: the best of three, far from the bursts still glowing
-  const mx = 0.4 * R + 4;
-  const ytop = 0.55 * R + 4;
-  const ybot = 104 - 0.25 * R;
+  const mx = 0.3 * R + 2;
+  const ytop = 0.38 * R + 3;
+  const ybot = 112 - 0.3 * R;
   let bx = 0;
   let by = 0;
   let bd = -1;
@@ -540,8 +544,8 @@ function launchOne(S, forced) {
 }
 
 function meanGap(p) {
-  // seconds between shells: 6 at 0.3, 1.6 at 2, 0.42 at 3
-  const l = p < 2 ? lerp(log(6), log(1.6), (p - 0.3) / 1.7) : lerp(log(1.6), log(0.42), p - 2);
+  // seconds between shells: 6 at 0.3, 0.85 at 2, 0.5 at 3
+  const l = p < 2 ? lerp(log(6), log(0.85), (p - 0.3) / 1.7) : lerp(log(0.85), log(0.5), p - 2);
   return exp(l);
 }
 
@@ -553,8 +557,10 @@ function direct(S, dt) {
     S.queue.shift();
     launchOne(S);
   }
+  // nothing in the air and nothing on its way: the next shell goes now
+  if (S.n < 140 && S.rise.length === 0 && S.queue.length === 0 && S.next > 0.4) S.next = 0.4;
   if (S.next > 0) return;
-  if (S.n > NS * 0.78) {
+  if (S.n > NS * 0.6) {
     S.next = 0.3;
     return;
   }
@@ -576,9 +582,9 @@ function direct(S, dt) {
     S.next = 0.3 + mg * 1.8 + at - S.t;
   } else {
     // uneven gaps, many short and a few long
-    const f = (0.25 + 1.5 * Math.pow(a, 1.6)) / 0.827;
+    const f = (0.45 + 1.1 * Math.pow(a, 1.3)) / 0.927;
     S.next = mg * f;
-    if (S.next > 2.2 * mg) S.next = 2.2 * mg;
+    if (S.next > 1.8 * mg) S.next = 1.8 * mg;
   }
 }
 
@@ -589,6 +595,10 @@ function step(S, dt) {
   const B = S.B;
   S.t += dt;
   const t = S.t;
+  if (S.k1 !== S.hueDone) {
+    palette(S, S.k1);
+    S.hueDone = S.k1;
+  }
   // the wind: a set speed and a slow gust round it
   S.gust = 0.22 * sin(0.37 * t + 1.3) + 0.14 * sin(0.91 * t + 0.4) + 0.08 * sin(2.3 * t);
   const wind = UMAX * S.drift * (1 + 0.3 * S.gust) + 0.6 * S.gust;
@@ -601,7 +611,7 @@ function step(S, dt) {
     const b = B[c];
     for (let i = 0; i < b.length; i++) b[i] *= d;
   }
-  const dg = exp(-dt / 1.5);
+  const dg = exp(-dt / 2.6);
   const df = exp(-dt / 0.22);
   const glow = S.glow;
   const fl = S.flare;
@@ -805,16 +815,30 @@ function smokeStep(S, dt) {
         decay * ((1 - fy) * ((1 - fx) * s[o] + fx * s[o + 1]) + fy * ((1 - fx) * s[o + GW] + fx * s[o + GW + 1]));
     }
   }
-  // the smoke and the light it carries cross at the edge: the air beyond is clear
   S.smoke = s2;
   S.smoke2 = s;
-  // light is carried by the same wind
-  const g = S.glow;
-  const fl = S.flare;
-  const sh = (S.wind * 0.33 * dt) / CELL;
-  S.wx += sh;
-  void g;
-  void fl;
+  // the lumps in the smoke ride the same wind
+  S.wx += S.wind * 0.33 * dt;
+  S.wy += 0.4 * dt;
+}
+
+// smooth value noise on an integer lattice
+function lat(i, j) {
+  const h = sin(i * 127.1 + j * 311.7) * 43758.5453;
+  return h - floor(h);
+}
+function vnoise(x, y) {
+  const i = floor(x);
+  const j = floor(y);
+  let fx = x - i;
+  let fy = y - j;
+  fx = fx * fx * (3 - 2 * fx);
+  fy = fy * fy * (3 - 2 * fy);
+  const a = lat(i, j);
+  const b = lat(i + 1, j);
+  const c = lat(i, j + 1);
+  const d = lat(i + 1, j + 1);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
 }
 
 export function update(dt, input, params) {
@@ -826,7 +850,7 @@ export function update(dt, input, params) {
   S.pace = cl(kn[1], 0.3, 3);
   S.size = cl(kn[2], -1, 1);
   S.drift = cl(kn[3], -1, 1);
-  if (abs(k1 - S.hue) > 0.0015) palette(S, k1);
+  S.k1 = k1;
   if (!S.started) {
     S.started = true;
     // the sky has been firing for a while already
@@ -852,6 +876,15 @@ export function draw(display, params) {
   const smoke = S.smoke;
   const glow = S.glow;
   const fl = S.flare;
+  // the lumps of the smoke: two octaves of noise riding the wind
+  const tex = S.tex;
+  for (let j = 0; j < TH; j++) {
+    for (let i = 0; i < TW; i++) {
+      const px = i * 2 - S.wx;
+      const py = j * 2 - S.wy;
+      tex[j * TW + i] = 0.62 * vnoise(px / 11 + 3.1, py / 13 + 7.7) + 0.38 * vnoise(px / 5 + 17.3, py / 6 + 2.9);
+    }
+  }
   // the horizontal weights of the grids, once
   for (let x = 0; x < W; x++) {
     const u = (x + 0.5) / CELL;
@@ -864,7 +897,16 @@ export function draw(display, params) {
     const fy = v - j0;
     // the faint warm haze that lies low, brightest at the bottom edge
     const lowv = exp(-(H - y) / 15);
+    const tv = (y + 1) / 2;
+    const tj = floor(tv);
+    const tfy = tv - tj;
     for (let x = 0; x < W; x++) {
+      const tu = (x + 1) / 2;
+      const ti = floor(tu);
+      const tfx = tu - ti;
+      const t0 = tj * TW + ti;
+      const nz = (1 - tfy) * ((1 - tfx) * tex[t0] + tfx * tex[t0 + 1]) + tfy * ((1 - tfx) * tex[t0 + TW] + tfx * tex[t0 + TW + 1]);
+      const lump = 0.25 + 1.5 * nz;
       const u = S.px[x];
       const i0 = min(GW - 2, floor(u));
       const fx = u - i0;
@@ -874,7 +916,7 @@ export function draw(display, params) {
       const w2 = (1 - fx) * fy;
       const w3 = fx * fy;
       const sk = w0 * smoke[a] + w1 * smoke[a + 1] + w2 * smoke[a + GW] + w3 * smoke[a + GW + 1];
-      const dens = 1 - exp(-0.5 * sk);
+      const dens = (1 - exp(-0.5 * sk)) * (0.4 + 1.2 * nz);
       const a3 = a * 3;
       const b3 = a3 + 3;
       const c3 = a3 + GW * 3;
@@ -885,11 +927,15 @@ export function draw(display, params) {
       const fr = w0 * fl[a3] + w1 * fl[b3] + w2 * fl[c3] + w3 * fl[d3];
       const fg = w0 * fl[a3 + 1] + w1 * fl[b3 + 1] + w2 * fl[c3 + 1] + w3 * fl[d3 + 1];
       const fb = w0 * fl[a3 + 2] + w1 * fl[b3 + 2] + w2 * fl[c3 + 2] + w3 * fl[d3 + 2];
-      const lit = 0.45 + 1.5 * dens;
+      const lit = (0.45 + 1.5 * dens) * lump;
+      const fli = (0.3 + 1.2 * dens) * (0.5 + 0.5 * lump);
       const haze = lowv * (0.006 + 0.02 * dens);
-      let r = B0[o] + B1[o] + B2[o] + gr * lit + fr * (0.3 + 1.2 * dens) + haze;
-      let g = B0[o + 1] + B1[o + 1] + B2[o + 1] + gg * lit + fg * (0.3 + 1.2 * dens) + haze * 0.55;
-      let b = B0[o + 2] + B1[o + 2] + B2[o + 2] + gb * lit + fb * (0.3 + 1.2 * dens) + haze * 0.22;
+      // the lit air is a little pale: a third of its colour goes to grey
+      const gm = (gr + gg + gb) * 0.3333;
+      const gq = (fr + fg + fb) * 0.3333;
+      let r = B0[o] + B1[o] + B2[o] + (gr * 0.7 + gm * 0.3) * lit + (fr * 0.8 + gq * 0.2) * fli + haze;
+      let g = B0[o + 1] + B1[o + 1] + B2[o + 1] + (gg * 0.7 + gm * 0.3) * lit + (fg * 0.8 + gq * 0.2) * fli + haze * 0.55;
+      let b = B0[o + 2] + B1[o + 2] + B2[o + 2] + (gb * 0.7 + gm * 0.3) * lit + (fb * 0.8 + gq * 0.2) * fli + haze * 0.22;
       // a bright core turns white
       const m = max(r, g, b);
       if (m > 0.55) {
