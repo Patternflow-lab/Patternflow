@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Growth=0.6..5, Fineness=-1..1, Light=-1..1
 //
 // Knob 1: Hue. Adds the knob to the hue of lamina, veins and bloom, so one turn comes back to where it began. At 0 the lamina runs from deep emerald (14, 117, 24) in an areole to yellow-lime (234, 233, 75) beside a vein, and the veins from pale lime (203, 229, 103) to cream (229, 221, 194). At 0.25 it is blue (14, 55, 117) to mint (75, 234, 172) with mint veins; at 0.5 violet (117, 14, 107) to blue-violet (92, 75, 234) with lavender veins; at 0.75 amber (201, 126, 24) to rose (234, 75, 137) with rose veins. Where the hue falls between orange and yellow the lamina is lifted to amber and gold, since dark orange reads as brown on a panel.
-// Knob 2: Growth. The blade's relative growth rate, 0.04 a second times the knob over 2: 0.012 at 0.6, 0.04 at the opening 2 and 0.10 at 5. Tissue moves away from the centre at that rate times its distance, so the middle of the panel, 120 LEDs out, drifts up at 1.4 LEDs a second at 0.6, 4.8 at 2 and 12 at 5. Vein tips run at 15 LEDs a second whatever the knob says, so at 5 the top outruns them and the net is sparser: 2,200 LEDs of vein in the panel, against 2,360 at 2 and 2,650 at 0.6.
+// Knob 2: Growth. The blade's relative growth rate, 0.04 a second times the knob over 2: 0.012 at 0.6, 0.04 at the opening 2 and 0.10 at 5. Tissue moves away from the centre at that rate times its distance: the middle of the panel, 120 LEDs out, drifts up at 1.4 LEDs a second at 0.6, 4.8 at 2 and 12 at 5. Vein tips run at 15 LEDs a second whatever the knob says, so at 5 the top outruns them and the net is sparser: 2,200 LEDs of vein in the panel, against 2,360 at 2 and 2,650 at 0.6.
 // Knob 3: Fineness. The spacing of the auxin sources, 2.6 times 1.35 to the power of minus the knob: 3.5 LEDs at -1, 2.6 at the opening 0 and 1.93 at 1. A source goes wherever a point is farther than the spacing from every vein and source, so finer settings fill each areole with more minor veins: 1,855 LEDs of vein in the panel at -1, 2,360 at 0 and 3,300 at 1, with 30, 37 and 49 percent of the LEDs on a vein. Turned finer, new veins grow from the old within three or four seconds. Turned coarser, a minor vein born at a finer spacing stays only with the chance (its spacing over the new one), so the net thins at once; veins that carry six tips or more stay.
 // Knob 4: Light. The backlight, (knob + 1) / 2, opening at 0.53. It sets the light the lamina passes, 0.68 plus 0.45 of it, and the warm bloom round every vein wider than 2 LEDs, 0.95 times it to the power 1.3. At -1 the lamina is dark green (the darkest LED is 58 of 255 in its brightest channel), the veins stay pale, there is no bloom, and the mean of every LED's brightest channel is 124. At 0.06 it is 163 and at 1 it is 193: a translucent leaf with a cream and gold glow round the midrib and secondaries.
 
@@ -32,10 +32,9 @@
 // Each segment is drawn into float buffers: its core, a soft glow that makes the lamina brighter and
 // yellower the nearer a vein it is, and a wide bloom for the thick veins.
 // Leaf nodes outside the box round the panel are dropped, so coordinates stay within a few hundred LEDs
-// and the node count between 2,000 and 3,700, capped at 5,400, where new sources stop. Setup grows a
-// seedling 32 LEDs long for 56 s of tissue time, so the opening frame has a midrib, secondaries and a
-// fine net; if the first update finds Growth or Fineness away from what setup assumed, it grows again
-// at the knob values.
+// and the node count between 2,000 and 3,700, capped at 5,400. Setup grows a seedling 32 LEDs long for
+// 56 s of tissue time, so the opening frame has a midrib, secondaries and a fine net; if the first update
+// finds Growth or Fineness away from what setup assumed, it grows again at the knob values.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, exp, sqrt, abs, pow } = Math;
@@ -446,12 +445,8 @@ function buildColours(S) {
   if (key === S.key) return;
   S.key = key;
   const c = [0, 0, 0], h = S.hue;
-  const LAM = [
-    [0.0, 0.35, 0.88, 0.5],
-    [0.35, 0.3, 0.86, 0.66],
-    [0.7, 0.235, 0.8, 0.88],
-    [1.0, 0.185, 0.68, 1.0],
-  ];
+  // Lamina ramp over the glow: where, hue, saturation, value.
+  const LAM = [[0, 0.35, 0.88, 0.5], [0.35, 0.3, 0.86, 0.66], [0.7, 0.235, 0.8, 0.88], [1, 0.185, 0.68, 1]];
   for (let i = 0; i < 256; i++) {
     const g = i / 255;
     let k = 0;
