@@ -109,5 +109,10 @@
   "magnetism": { "label": "자기장", "color": "#7a8bb0" },
   "interferometry": { "label": "간섭계 영상", "color": "#ff6a3d" },
   "mirrorball": { "label": "미러볼", "color": "#f2e6ff" },
-  "rainglass": { "label": "빗물 유리", "color": "#5b7cff" }
+  "rainglass": { "label": "빗물 유리", "color": "#5b7cff" },
+  "fiberoptic": { "label": "광섬유 램프", "color": "#ff62c6" },
+  "nebula": { "label": "성운", "color": "#7a5cff" },
+  "fireworks": { "label": "불꽃놀이", "color": "#ff6f3c" },
+  "lichen": { "label": "지의류", "color": "#a8c256" },
+  "lensflare": { "label": "렌즈 플레어", "color": "#7de3ff" }
 }
