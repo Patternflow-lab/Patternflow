@@ -83,8 +83,8 @@ function makeLights() {
   const reds = { n: 0 };
   const classes = [
     // count, radius range, ratio of ry to rx, brightness range, slide chance
-    [10, 7.5, 12.5, 1, 0.6, 0.9, 0.1, 0],
-    [20, 4.6, 8, 1, 0.68, 1.0, 0.4, 0],
+    [10, 7.5, 12.5, 1, 0.7, 1.0, 0.1, 0],
+    [20, 4.6, 8, 1, 0.75, 1.05, 0.4, 0],
     [9, 3, 5, 1, 0.9, 1.1, 0.5, 1],
     [3, 13, 19, 0.15, 0.5, 0.7, 0.9, 0],
   ];
@@ -413,7 +413,7 @@ export function draw(display, params) {
 
   // the fogged glass: the lights blurred, dimmed and lifted with mist
   hsv(0.62 + hue, 0.4, 1, nv);
-  const mist = 0.02 + 0.13 * f, dim = 0.64 - 0.17 * f;
+  const mist = 0.02 + 0.13 * f, dim = 0.7 - 0.18 * f;
   const m0 = nv[0] * mist, m1 = nv[1] * mist, m2 = nv[2] * mist;
   for (let i = 0, p = 0; p < NPX; p++, i += 3) {
     const w = T[p] > 0.02 ? min(1, T[p] * 1.1) * 0.9 : 0;
