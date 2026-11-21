@@ -33,7 +33,7 @@ const RP = 0.12; // push of crowding
 const SLOW = 4; // steps between the slow fields
 const WARM = 1500; // warm-up steps
 // ---- trails
-const KM = 3, ALPHA = 0.04, M0 = 2, BETA = 0.03, MDIF = 0.05;
+const KM = 3, BETA = 0.06, DMT = 0.14, GSRC = 1.4, REACH = 0.9; // the stream field: pull, fade, spread a tick, strength, LEDs a second the streams grow
 // ---- pacemakers and mounds
 const SHED = 1 / 45; // chance a second that a cell in a mound is let go
 const NPM = 4, RMASS = 7, MFORM = 250, MBIG = 1000, FLY = 26;
@@ -133,10 +133,34 @@ const tor2 = (ax, ay, bx, by) => {
   return dx * dx + dy * dy;
 };
 
+// The streams of a mound: a few stems that leave it at even angles, bend slowly, and fork twice on the way out.
+function buildTree(q) {
+  const pts = [];
+  const n0 = 7 + floor(Math.random() * 3), bend = (Math.random() < 0.5 ? -1 : 1) * (0.008 + 0.01 * Math.random());
+  const walk = (x, y, th, len0, len1, depth, w) => {
+    let wob = 0;
+    for (let l = len0; l < len1; l += 1) {
+      wob += (Math.random() - 0.5) * 0.05;
+      wob *= 0.92;
+      th += bend + wob * 0.2;
+      x += cos(th);
+      y += sin(th);
+      pts.push(x, y, w * (1 - 0.35 * (l / 40)), l);
+      if (depth < 2 && l > len0 + 6 && l < len1 - 8 && Math.random() < 0.045) {
+        walk(x, y, th + (Math.random() < 0.5 ? -1 : 1) * (0.35 + 0.3 * Math.random()), l, len1 - 3 * Math.random() * 6, depth + 1, w * 0.85);
+      }
+    }
+  };
+  for (let k = 0; k < n0; k++) walk(q.x, q.y, (6.2832 * (k + 0.5 * Math.random())) / n0, 3, 20 + 18 * Math.random(), 0, 1);
+  q.pts = Float32Array.from(pts);
+}
+
 // The next pacemaker starts a few LEDs from the old one, after a pause.
 function newPacemaker(S, q, tm) {
   const a = 6.2832 * Math.random(), r = 5 + 8 * Math.random();
-  return { x: (((q.x + r * cos(a)) % W) + W) % W, y: (((q.y + r * sin(a)) % H) + H) % H, born: tm, formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: tm + 6 + 4 * Math.random(), mass: 0 };
+  const n = { x: (((q.x + r * cos(a)) % W) + W) % W, y: (((q.y + r * sin(a)) % H) + H) % H, born: tm, formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: tm + 6 + 4 * Math.random(), mass: 0, pts: null };
+  buildTree(n);
+  return n;
 }
 
 // A mound culminates: most of its cells are thrown out round it as fresh cells.
@@ -146,7 +170,7 @@ function burst(S, q, tm) {
     if (S.fly[p]) continue;
     const dx = wrapd(S.px[p] - q.x, W), dy = wrapd(S.py[p] - q.y, H);
     if (dx * dx + dy * dy > RMASS * RMASS * 2.2 || Math.random() > 0.94) continue;
-    const a = 6.2832 * Math.random(), r = 10 + 28 * sqrt(Math.random());
+    const a = 6.2832 * Math.random(), r = 3 + 36 * sqrt(Math.random());
     S.tx[p] = ((((q.x + r * cos(a)) % W) + W) % W);
     S.ty[p] = ((((q.y + r * sin(a)) % H) + H) % H);
     S.fly[p] = 1;
@@ -163,8 +187,27 @@ function slow(S, dts) {
   const { rho, tmp, tmp2, mt, rgx, rgy, px, py } = S;
   splat(S, tmp2);
   blur(tmp2, rho, tmp, 2);
-  blur(mt, tmp2, tmp, 1);
-  for (let i = 0; i < N; i++) mt[i] += MDIF * (tmp2[i] - mt[i]);
+  // the stream field: the grown part of every tree is a source, which spreads and fades
+  tmp2.fill(0);
+  for (const q of S.pm) {
+    const reach = (S.tm - q.born - 4) * REACH, pts = q.pts;
+    for (let k = 0; k < pts.length; k += 4) {
+      if (pts[k + 3] > reach) continue;
+      const x = pts[k], y = pts[k + 1], w = pts[k + 2] * GSRC * dts;
+      const xw = ((x % W) + W) % W, yw = ((y % H) + H) % H, x0 = floor(xw), y0 = floor(yw), fx = xw - x0, fy = yw - y0;
+      const xa = x0, xb = (x0 + 1) % W, ya = y0, yb = (y0 + 1) % H;
+      tmp2[ya * W + xa] += w * (1 - fx) * (1 - fy);
+      tmp2[ya * W + xb] += w * fx * (1 - fy);
+      tmp2[yb * W + xa] += w * (1 - fx) * fy;
+      tmp2[yb * W + xb] += w * fx * fy;
+    }
+  }
+  const dec = 1 - dts * BETA;
+  for (let i = 0; i < N; i++) {
+    const m = mt[i];
+    tmp[i] = (m + DMT * (mt[XP[i]] + mt[XM[i]] + mt[YP[i]] + mt[YM[i]] - 4 * m)) * dec + tmp2[i];
+  }
+  mt.set(tmp);
   for (let i = 0; i < N; i++) {
     const a = rho[XP[i]], b = rho[XM[i]], c = rho[YP[i]], d = rho[YM[i]];
     const pa = a > 6 ? (a - 6) * (a - 6) : 0, pb = b > 6 ? (b - 6) * (b - 6) : 0, pc = c > 6 ? (c - 6) * (c - 6) : 0, pd = d > 6 ? (d - 6) * (d - 6) : 0;
@@ -218,11 +261,14 @@ function step(S, P, h) {
       }
     q.next = S.tm + P.tpm * q.f * (0.94 + 0.12 * Math.random());
   }
-  // the potential the cells climb, and its slope
-  for (let i = 0; i < N; i++) phi[i] = U[i] * (1 + (KM * mt[i]) / (mt[i] + M0));
+  // the slope the cells climb: the wave, and the stream field in proportion to the wave
   for (let i = 0; i < N; i++) {
-    gx[i] = 0.5 * (phi[XP[i]] - phi[XM[i]]);
-    gy[i] = 0.5 * (phi[YP[i]] - phi[YM[i]]);
+    const m = mt[i] > 1 ? 1 : mt[i];
+    phi[i] = m;
+  }
+  for (let i = 0; i < N; i++) {
+    gx[i] = 0.5 * (U[XP[i]] - U[XM[i]]) + KM * U[i] * 0.5 * (phi[XP[i]] - phi[XM[i]]);
+    gy[i] = 0.5 * (U[YP[i]] - U[YM[i]]) + KM * U[i] * 0.5 * (phi[YP[i]] - phi[YM[i]]);
   }
   // the cells
   const sx = P.ch * h, sd = sqrt(6 * D0 * h), rpush = RP * h, fstep = FLY * h;
@@ -249,15 +295,6 @@ function step(S, P, h) {
         vx *= k; vy *= k;
       }
       const sp = sqrt(sp2 > CAP * CAP ? CAP * CAP : sp2);
-      if (sp > 1e-4) {
-        // the cell leaves a trail where it walks
-        const x0 = floor(x), y0 = floor(y), fx = x - x0, fy = y - y0, dep = ALPHA * sp;
-        const xa = x0 >= W ? 0 : x0, xb = xa + 1 >= W ? 0 : xa + 1, ya = y0 >= H ? 0 : y0, yb = ya + 1 >= H ? 0 : ya + 1;
-        mt[ya * W + xa] += dep * (1 - fx) * (1 - fy);
-        mt[ya * W + xb] += dep * fx * (1 - fy);
-        mt[yb * W + xa] += dep * (1 - fx) * fy;
-        mt[yb * W + xb] += dep * fx * fy;
-      }
       vx += -rpush * rgx[c] + sd * (Math.random() * 2 - 1);
       vy += -rpush * rgy[c] + sd * (Math.random() * 2 - 1);
       x += vx; y += vy;
@@ -266,8 +303,6 @@ function step(S, P, h) {
     if (y < 0) y += H; else if (y >= H) y -= H;
     px[p] = x; py[p] = y;
   }
-  const dec = 1 - h * BETA;
-  for (let i = 0; i < N; i++) mt[i] *= dec;
 }
 
 function seedField(S) {
@@ -275,7 +310,8 @@ function seedField(S) {
   const spots = [[18, 26], [46, 58], [14, 94], [44, 116]];
   for (let k = 0; k < NPM; k++) {
     const [x, y] = spots[k];
-    S.pm.push({ x, y, born: -70 * Math.random(), formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: Math.random() * 4, mass: 0 });
+    S.pm.push({ x, y, born: -70 * Math.random(), formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: Math.random() * 4, mass: 0, pts: null });
+    buildTree(S.pm[S.pm.length - 1]);
   }
   const clump = 0.08;
   for (let p = 0; p < NP; p++) {
