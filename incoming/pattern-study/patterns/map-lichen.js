@@ -39,13 +39,13 @@ const DIE = 2; // growth seconds added to the weathering of dead crust, on top o
 
 // species: edge (young, pale), main, old (dull) as OKLCH [L, C, hue]; the hue turns with Hue
 const SPECIES = [
-  { w: 0.3, e: [0.84, 0.065, 106], m: [0.75, 0.085, 109], o: [0.6, 0.055, 104] }, // sulphur yellow-green
-  { w: 0.18, e: [0.82, 0.055, 74], m: [0.7, 0.07, 60], o: [0.56, 0.045, 54] }, // orange, as Xanthoria
-  { w: 0.2, e: [0.82, 0.012, 100], m: [0.76, 0.02, 104], o: [0.63, 0.016, 100] }, // grey-white
-  { w: 0.15, e: [0.6, 0.055, 122], m: [0.5, 0.065, 120], o: [0.42, 0.04, 114] }, // dark olive
-  { w: 0.17, e: [0.79, 0.035, 140], m: [0.69, 0.048, 136], o: [0.58, 0.032, 130] }, // sage
+  { w: 0.3, e: [0.84, 0.065, 106], m: [0.76, 0.088, 109], o: [0.67, 0.07, 106] }, // sulphur yellow-green
+  { w: 0.18, e: [0.82, 0.055, 74], m: [0.7, 0.072, 60], o: [0.62, 0.06, 56] }, // orange, as Xanthoria
+  { w: 0.2, e: [0.84, 0.012, 100], m: [0.79, 0.02, 104], o: [0.7, 0.018, 100] }, // grey-white
+  { w: 0.15, e: [0.6, 0.055, 122], m: [0.5, 0.065, 120], o: [0.45, 0.05, 116] }, // dark olive
+  { w: 0.17, e: [0.79, 0.035, 140], m: [0.69, 0.05, 136], o: [0.63, 0.04, 132] }, // sage
 ];
-const ROCK = [0.53, 0.016, 76];
+const ROCK = [0.5, 0.016, 76];
 const SCAR = [0.66, 0.02, 85];
 const DARK = [0.32, 0.03, 105];
 
@@ -199,16 +199,16 @@ function spore(S) {
   let bx = -1;
   let by = -1;
   let bs = 1e9;
-  for (let t = 0; t < 8; t++) {
+  for (let t = 0; t < 14; t++) {
     const x = floor(Math.random() * W);
     const y = floor(Math.random() * H);
     if (S.own[y * W + x] !== FREE) continue;
     let near = 0;
     let bad = false;
-    for (let dy = -9; dy <= 9 && !bad; dy++) {
+    for (let dy = -12; dy <= 12 && !bad; dy++) {
       const yy = y + dy;
       if (yy < 0 || yy >= H) continue;
-      for (let dx = -9; dx <= 9; dx++) {
+      for (let dx = -12; dx <= 12; dx++) {
         const xx = x + dx;
         if (xx < 0 || xx >= W) continue;
         if (S.own[yy * W + xx] === FREE) continue;
@@ -345,7 +345,7 @@ function step(S, dt) {
   const cg = S.cg;
   const cols = S.cols;
   // spores land at their own rate in panel time
-  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.25) * (0.55 + 1.6 * S.free);
+  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.25) * (0.4 + 3 * S.free);
   while (S.T >= S.nextSpore) {
     spore(S);
     S.nextSpore += -log(1 - Math.random()) / lam;
@@ -359,6 +359,7 @@ function step(S, dt) {
   // edge spreads to free cells it reaches and that no other colony stands close to
   let i = floor(Math.random() * N);
   let nfree = 0;
+  let nlive = 0;
   for (let n = 0; n < N; n++, i += 4099) {
     if (i >= N) i -= N;
     if (i >= N) i %= N;
@@ -369,6 +370,7 @@ function step(S, dt) {
     }
     const c = cols[k];
     const age = G - cg[i];
+    if (age < c.live) nlive++;
     if (age > c.live + c.fade * (0.45 + 0.55 * S.rj[i])) {
       own[i] = FREE;
       S.prev[i] = c.id;
@@ -399,6 +401,7 @@ function step(S, dt) {
   // dark lines stay while a colony stands near them, then fade
   S.zph = (S.zph + 1) & 7;
   S.free = nfree / N;
+  S.live = nlive / N;
   for (let i = S.zph; i < N; i += 8) {
     if (own[i] !== ZONE) continue;
     const x = i % W;
@@ -438,6 +441,7 @@ export function setup(params) {
     seed: floor(Math.random() * 1e6),
     serial: 0,
     free: 0.5,
+    live: 0,
     G: 0,
     T: 0,
     gs: 1,
@@ -534,7 +538,7 @@ export function update(dt, input, params) {
     S.nextSpore = S.T;
     for (let k = 0; k < n; k++) step(S, real / n);
     // then on to a moment when the rock is well covered, so the first frame is a full map
-    for (let k = 0; k < 70 && S.free > 0.3; k++) step(S, real / n);
+    for (let k = 0; k < 200 && (S.free > 0.25 || S.live < 0.48); k++) step(S, real / n);
     S.acc = 0;
   }
   S.acc += cl(dt || 0, 0, 0.2);
@@ -620,7 +624,7 @@ export function draw(display, params) {
         const t = age / c.live;
         // crust colour by age: pale at the edge, full in the ring, duller behind
         const s1 = sm(t / 0.2);
-        const s2 = sm((t - 0.3) / 0.6);
+        const s2 = sm((t - 0.45) / 0.55);
         let cr = P[sp] + (P[sp + 3] - P[sp]) * s1 + (P[sp + 6] - P[sp + 3]) * s2;
         let cgc = P[sp + 1] + (P[sp + 4] - P[sp + 1]) * s1 + (P[sp + 7] - P[sp + 4]) * s2;
         let cb = P[sp + 2] + (P[sp + 5] - P[sp + 2]) * s1 + (P[sp + 8] - P[sp + 5]) * s2;
