@@ -18,7 +18,7 @@
 
 const W = 64;
 const H = 128;
-const { sin, cos, sqrt, exp, floor, max, min, abs, PI, atan2 } = Math;
+const { sin, cos, sqrt, exp, floor, max, min, abs, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
@@ -421,7 +421,6 @@ export function draw(display, params) {
         nys[q] = qy;
         dd[q] = qx * px[q] + qy * py[q];
       }
-      if (S.trace) S.trace.push(k, li, mx, my);
       const x1 = max(0, floor(minx - reach));
       const x2 = min(W - 1, floor(maxx + reach));
       const y1 = max(0, floor(miny - reach));
