@@ -9,12 +9,12 @@
 // Round:   214
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.4..1
+// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.3..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all three cells, so one turn comes back to where it began. At 0 the cells are coral (hue 0.035), cyan (0.50) and violet (0.77). At 0.25 they are yellow-green, purple and red; at 0.5 azure, red and green; at 0.75 violet, chartreuse and cyan.
 // Knob 2: Spacing. The module scale, which multiplies the three spacings together. It is the knob over 2, because the Lab opens this knob at 2: 0.7 at the bottom, 1.0 at the opening and 1.6 at the top. The spacings, nearest field to nearest field, are 18, 25.2 and 35.3 LEDs at the opening, 12.6, 17.6 and 24.7 at the bottom and 28.8, 40.3 and 56.5 at the top. A field is about 0.3 of its spacing across at half height: 5.4 LEDs for the first cell at the opening, 3.8 at the bottom, 8.6 at the top. The lattices dilate about the middle of the panel.
 // Knob 3: Orientation. Rotates all three lattices together about the middle of the panel, from -30 to +30 degrees, opening at 0. A hexagonal lattice maps onto itself every 60 degrees, so the two ends have the same orientation; the turn is about the middle of the panel and not about a field, so the fields land on other places and the ends still differ. At the top and bottom edge, 64 LEDs from the middle, one degree moves the fields 1.1 LEDs, and half that at the sides.
-// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale: 8 s at -1, 49 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 130 LEDs of path, and 16 percent of the arena shows. At the opening 73 percent shows, and at 240 s 99 percent, every lattice complete. The shares are of the LEDs whose confidence is above one half, averaged over twenty frames.
+// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale: 8 s at -0.3, 20 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 160 LEDs of path, and 24 percent of the arena shows. At the opening 57 percent shows, and at 240 s all of it, every lattice complete. The shares are of the LEDs whose confidence is above one half, averaged over twenty frames.
 
 // What is drawn is what a neuroscientist plots. A grid cell fires on the
 // vertices of a triangular lattice. The standard model sums three cosines
@@ -27,7 +27,7 @@
 // is max(0, g) to the power 2.2, which cuts the peaks into compact fields.
 // Three cells come from three modules: spacings in a ratio of 1.4, each turned
 // a few degrees from the others (-4, 2 and 7), each with a phase of its own.
-// The animal runs an Ornstein-Uhlenbeck velocity with a mean speed of 16 LEDs
+// The animal runs an Ornstein-Uhlenbeck velocity with a mean speed of 20 LEDs
 // a second and a correlation time of 1.1 s, pushed softly off the walls and
 // bent by four slow currents whose periods have no common factor, so its path
 // never closes. Each cell fires as a Poisson process, up to 10 spikes a second
@@ -36,7 +36,7 @@
 // it reads on a bright field, and the last 3 s of its path is a faint grey trail.
 // The map that is shown is not the one the animal measured. It is the cell's
 // analytic rate field times a confidence, the animal's smoothed occupancy:
-// every step stamps a gaussian of 2.7 LEDs sigma (5 LEDs radius) into it, and
+// every step stamps a gaussian of 3.2 LEDs sigma (3.8 LEDs radius at half height, cut at 8) into it, and
 // it decays with the memory time, so the lattice comes up along the path and
 // fades behind it. Because the field is analytic, Hue, Spacing and Orientation
 // act on every LED at once. Memory acts at once too: the occupancy is kept at
@@ -77,8 +77,9 @@ const SU = SPEED / sqrt(PI / 2); // standard deviation of one velocity component
 const TAUV = 1.1; // velocity correlation time, seconds
 const MARGIN = 7; // the walls start pushing this far in
 const PUSH = 70; // acceleration at the wall, LEDs a second squared
-const SIGMA_OCC = 2.7; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
-const A_OCC = 11.2; // occupancy a second at the stamp's centre
+const SIGMA_OCC = 3.2; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
+const A_OCC = 9.4; // occupancy a second at the stamp's centre
+const R_OCC = ceil(2.5 * SIGMA_OCC); // a stamp is cut at this radius, LEDs
 const LADDER = 6; // memory times kept: 8 s up to 240 s
 const PRE = 300; // seconds the animal runs before the first frame
 const STEP = 1 / 30; // longest step of the walk
@@ -124,12 +125,12 @@ export function setup(params) {
     x: 12 + rng() * 40, y: 20 + rng() * 88, vx: 0, vy: 0,
     ph: [rng() * 6.28, rng() * 6.28, rng() * 6.28, rng() * 6.28],
     occ: [], tref: new Float64Array(LADDER),
-    w: new Float64Array(121),
+    w: new Float64Array((2 * R_OCC + 1) ** 2),
     trail: [], trailT: 0,
     sp: [],
     cell: [],
     next: 0,
-    hue: 0, scale: 1, rot: 0, mem: 24,
+    hue: 0, scale: 1, rot: 0, mem: 20,
     buf: new Float32Array(N * 3),
     col: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
   };
@@ -253,7 +254,7 @@ function advance(S, h, spikes) {
 
   // Occupancy: one gaussian stamp into every memory map, grown by exp(age / tau)
   // so that reading it back only needs one scale per map.
-  const R = 5, x0 = round(S.x) - R, y0 = round(S.y) - R, w = S.w, inv = 1 / (2 * SIGMA_OCC * SIGMA_OCC);
+  const R = R_OCC, x0 = round(S.x) - R, y0 = round(S.y) - R, w = S.w, inv = 1 / (2 * SIGMA_OCC * SIGMA_OCC);
   for (let j = 0, q = 0; j <= 2 * R; j++)
     for (let i = 0; i <= 2 * R; i++, q++) {
       const dx = x0 + i - S.x, dy = y0 + j - S.y;
@@ -302,7 +303,7 @@ export function update(dt, input, params) {
   S.hue = k[0];
   S.scale = cl(k[1], 1.4, 3.2) / 2;
   S.rot = cl(k[2], -30, 30);
-  S.mem = 8 * pow(30, cl((k[3] + 0.4) / 1.4, 0, 1));
+  S.mem = 8 * pow(30, cl((k[3] + 0.3) / 1.3, 0, 1));
   let span = cl(dt || 0, 0, 0.1);
   while (span > 1e-9) {
     const h = min(span, STEP);
