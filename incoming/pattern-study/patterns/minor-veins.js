@@ -461,7 +461,7 @@ function buildColours(S) {
   S.key = key;
   const c = [0, 0, 0], h = S.hue;
   const LAM = [
-    [0.0, 0.35, 0.88, 0.46],
+    [0.0, 0.35, 0.88, 0.5],
     [0.35, 0.3, 0.86, 0.66],
     [0.7, 0.235, 0.8, 0.88],
     [1.0, 0.185, 0.68, 1.0],
@@ -471,7 +471,11 @@ function buildColours(S) {
     let k = 0;
     while (k < LAM.length - 2 && g > LAM[k + 1][0]) k++;
     const a = LAM[k], b = LAM[k + 1], u = cl((g - a[0]) / (b[0] - a[0]), 0, 1);
-    hsv(a[1] + (b[1] - a[1]) * u + h, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u, c, 0);
+    // Dark orange and dark yellow read as brown and olive on a panel, so where the hue falls in that
+    // band the lamina is lifted to amber and gold instead.
+    const hh = a[1] + (b[1] - a[1]) * u + h, d = hh - floor(hh) - 0.095, zone = abs(d) < 0.14 ? 0.5 + 0.5 * Math.cos((d / 0.14) * Math.PI) : 0;
+    const vv = a[3] + (b[3] - a[3]) * u;
+    hsv(hh - zone * 0.75 * d, a[2] + (b[2] - a[2]) * u, vv + zone * (0.86 + 0.14 * g - vv), c, 0);
     S.lam.set(c, i * 3);
     const t = i / 255;
     hsv(0.2 - 0.07 * t + h, 0.55 - 0.4 * t, 1, c, 0);
@@ -596,12 +600,12 @@ export function draw(display, params) {
   buildColours(S);
   raster(S);
   const { cv, gl, bl, tn, lam, vein, bloom } = S, u = S.u;
-  const lamGain = 0.58 + 0.55 * u, veinGain = 0.78 + 0.22 * u, bloomGain = 0.95 * pow(u, 1.3);
+  const lamGain = 0.68 + 0.45 * u, veinGain = 0.78 + 0.22 * u, bloomGain = 0.95 * pow(u, 1.3);
   for (let p = 0, yy = 0; yy < H; yy++) {
     const vy = (yy - 63.5) / 68;
     for (let xx = 0; xx < W; xx++, p++) {
       const vx = (xx - 31.5) / 34, rr = sqrt(vx * vx + vy * vy);
-      const shade = 1 - 0.42 * sm(0.5, 1.15, rr);
+      const shade = 1 - 0.34 * sm(0.5, 1.15, rr);
       const gi = ((pow(cl(gl[p], 0, 1), 1.25) * 255) | 0) * 3;
       const lg = lamGain * shade;
       let r = lam[gi] * lg, g = lam[gi + 1] * lg, b = lam[gi + 2] * lg;
