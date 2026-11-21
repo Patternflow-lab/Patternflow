@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the spinning multi-beam laser scanner (David Hall, Velodyne HDL-64E, 2007) as the sensor of the DARPA Grand Challenge cars (2005), the point-cloud viewers of driving-data sets, the turbo colour map (Anthony Mikhailov, Google, 2019) for height, value noise (Ken Perlin, 1985) for terrain, hashed world cells for the scenery; pattern round 208
+// Lineage: the spinning multi-beam laser scanner (David Hall, Velodyne HDL-64E, 2007) as the sensor of the DARPA Grand Challenge cars (2005), the point-cloud viewers of driving-data sets, the turbo colour map (Anton Mikhailov, Google, 2019) for height, value noise (Ken Perlin, 1985) for terrain, hashed world cells for the scenery; pattern round 208
 // Round:   208
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0..4, Beams=-1..1, Memory=-1..1
 //
-// Knob 1: Hue. Turns the height colours round the wheel. At 0 it is the turbo ramp: violet and blue on the road, cyan and green on the banks, yellow and orange on the hills, red on the tallest pillar. It comes back to that at 1.
-// Knob 2: Speed. How fast the vehicle drives, from standing still at 0 to about 10 metres a second at 4; it opens at 2, 5 metres a second. The sensor spins at the same rate whatever the speed, so at 0 the rings stay where they are and are only redrawn.
-// Knob 3: Beams. How many laser beams the sensor carries. At -1 there are 4, a ring of points at the horizon, one near the vehicle and a couple of beams looking up at the pillars. It opens at 0 with 10. At 1 there are 24, and the rings crowd into a bundle that fills the ground.
-// Knob 4: Memory. How long a point stays lit before it has faded out, a second at -1, about 2.4 at the opening 0 and 6 at 1. Short and the cloud is only the last few rings and a bright fan of fresh returns, long and the road is drawn out behind the vehicle until the nearest points slide off the bottom.
+// Knob 1: Hue. Turns the height colours round the wheel. At 0 it is the turbo ramp: violet and blue on the road, cyan and green on the banks, yellow and orange on the pillars, red at the top of the tallest. It comes back to that at 1.
+// Knob 2: Speed. How fast the vehicle drives, from standing still at 0 to about 10 metres a second at 4; it opens at 2, 5 metres a second. The sensor keeps turning when the car stops, at 1.6 turns a second, and a little faster as the car does, 2.75 at the opening and 3.9 at 4, so the rings stay close enough to read as rings. At 0 they stand where they are and are only redrawn.
+// Knob 3: Beams. How many laser beams the sensor carries. At -1 there are 4: a ring of points at the horizon, one close to the vehicle and two beams looking up at the pillars. It opens at 0 with 10. At 1 there are 24, and the rings crowd into a bundle that fills the ground.
+// Knob 4: Memory. How long a point stays lit before it has faded out: a second at -1, 3.3 at the opening 0 and 6 at 1. Short and the cloud is only the last rings and a bright fan of fresh returns; long and the road is drawn out behind the vehicle until the nearest points slide off the bottom.
 
 const W = 64;
 const H = 128;
@@ -30,13 +30,13 @@ const sm = (a, b, v) => {
 const F = 44; // focal length, in LEDs
 const CY = 42; // the horizon row, a third of the way down
 const HC = 4.4; // camera height above the road
-const BACK = 6; // how far behind the sensor the camera rides
+const BACK = 5; // how far behind the sensor the camera rides
 const HS = 2.0; // sensor height above the road
 const RANGE = 46; // longest return, metres
 const NPT = 20000; // the ring buffer of points
 const REV = 2.2; // sensor revolutions a second
 const CS = 5; // scenery cell, metres
-const HMAX = 14; // metres above the road that read as red
+const HMAX = 16; // metres above the road that read as red
 
 // ---------------------------------------------------------------- the world
 
@@ -153,7 +153,7 @@ function fillObj(o, ix, iz) {
   if (h3 < 0.36) {
     OBJ[o] = 0; // a pillar
     OBJ[o + 4] = 0.24 + 0.26 * h4;
-    OBJ[o + 5] = y0 + 6 + 13 * h5;
+    OBJ[o + 5] = y0 + 6 + 17 * h5;
   } else if (h3 < 0.6) {
     OBJ[o] = 1; // a cypress, a slender rounded column
     OBJ[o + 4] = 0.1;
@@ -162,7 +162,7 @@ function fillObj(o, ix, iz) {
     OBJ[o + 6] = 0.42 + 0.4 * h5;
     OBJ[o + 7] = y0 + 0.85 * hc;
     OBJ[o + 8] = hc;
-  } else if (h3 < 0.82) {
+  } else if (h3 < 0.8) {
     OBJ[o] = 2; // a boulder, half sunk
     const r = 0.5 + 0.7 * h4;
     OBJ[o + 4] = r;
@@ -171,7 +171,7 @@ function fillObj(o, ix, iz) {
   } else {
     OBJ[o] = 0; // a mast, thin and very tall
     OBJ[o + 4] = 0.12;
-    OBJ[o + 5] = y0 + 12 + 10 * h5;
+    OBJ[o + 5] = y0 + 14 + 12 * h5;
   }
 }
 
@@ -366,7 +366,7 @@ function buildLut(lut, rot) {
 
 // n beams. The lower half look down, in rings whose radii on flat ground are
 // spaced geometrically from 44 metres to 2. The rest look up, from the horizon
-// to 30 degrees, and meet only the things that stand on the land. Each of
+// to 42 degrees, and meet only the things that stand on the land. Each of
 // those nods a little of its own, so that over a second the dots on a pillar
 // run together into a column instead of one dot a beam.
 function setBeams(S, n) {
@@ -388,8 +388,8 @@ function setBeams(S, n) {
     } else {
       const j = i - nDn;
       const u = nUp > 1 ? j / (nUp - 1) : 0.5;
-      S.eB[i] = ((0.8 + 29 * u) * PI) / 180;
-      S.eA[i] = ((0.7 * 29) / Math.max(nUp - 1, 1) / 180) * PI;
+      S.eB[i] = ((0.8 + 41 * u) * PI) / 180;
+      S.eA[i] = ((0.7 * 41) / Math.max(nUp - 1, 1) / 180) * PI;
       S.eF[i] = TAU * (0.31 + 0.137 * j + 0.019 * j * j);
       S.eP[i] = 1.7 * i;
       r = 40;
@@ -464,9 +464,11 @@ function step(S, dt) {
   S.zp = S.zv;
   S.zv += (v * dt) / sqrt(1 + roadDXf(zp) * roadDXf(zp));
   const zv = S.zv;
-  S.xv = roadXf(zv) + 1.1 * sin(0.29 * t + 1.7) + 0.7 * sin(0.71 * t + 0.4);
+  // the car sways in its lane and yaws a little only while it is moving
+  const mv = min(1, S.sp / 1.5);
+  S.xv = roadXf(zv) + mv * (1.1 * sin(0.29 * t + 1.7) + 0.7 * sin(0.71 * t + 0.4));
   S.yv = roadYf(zv) + HS + 0.025 * sin(1.7 * t) + 0.015 * sin(4.3 * t + 1);
-  S.psiV = atan(roadDXf(zv)) + 0.06 * sin(0.37 * t + 0.6) + 0.04 * sin(0.93 * t + 2.8);
+  S.psiV = atan(roadDXf(zv)) + mv * (0.06 * sin(0.37 * t + 0.6) + 0.04 * sin(0.93 * t + 2.8));
   S.psiC += (S.psiV - S.psiC) * (1 - exp(-dt / 0.7));
   if (S.first) {
     S.psiC = S.psiV;
@@ -481,7 +483,8 @@ function step(S, dt) {
     S.eS[k] = sin(el);
     S.eC[k] = cos(el);
   }
-  const dphi = TAU * REV * dt;
+  // the sensor turns a little faster as the car does, so the rings stay close enough to read as rings
+  const dphi = TAU * REV * (0.75 + 0.5 * min(2, S.sp / 5.2)) * dt;
   const phi0 = S.phi;
   S.phi += dphi;
   const psiC = S.psiC;
@@ -601,7 +604,7 @@ export function draw(display, params) {
     const sy = cyh + (cy - py[i]) * inv;
     if (sy < -3 || sy > 131) continue;
     const a = age / life;
-    const fade = 1 - sm(0.3, 1, a);
+    const fade = 1 - sm(0.5, 1, a);
     const near = pk[i] ? cl(1.3 - d * 0.012, 0.6, 1.15) : cl(1.2 - d * 0.03, 0.18, 1.15);
     let flash = 0;
     if (age < 0.14) {
@@ -609,9 +612,10 @@ export function draw(display, params) {
       flash *= flash;
     }
     const inten = near * fade * (0.8 + 1.1 * flash) * (pk[i] ? 1.2 : 1);
-    const s = pk[i] ? cl(0.7 + 5 / d, 1.0, 1.5) : cl(0.6 + 12 / d, 0.85, 2.0);
+    const wo = cl(0.75 + 4 / d, 1.15, 1.5);
+    const s = pk[i] ? wo * 1.7 : cl(0.6 + 12 / d, 0.85, 2.0);
     // far ring dots are drawn wider than tall so they run together into a line; things stay round
-    const wx = pk[i] ? cl(0.7 + 5 / d, 1.0, 1.5) : s * (1 + 0.9 * cl((d - 14) / 30, 0, 1));
+    const wx = pk[i] ? wo : s * (1 + 0.9 * cl((d - 14) / 30, 0, 1));
     const ci = pc[i] * 3;
     const cr = lut[ci] * (1 - 0.5 * flash) + 0.5 * flash;
     const cg = lut[ci + 1] * (1 - 0.5 * flash) + 0.5 * flash;
