@@ -83,7 +83,7 @@ const HOLDH = 30; // rows within which a faster train coming makes a slow one st
 const HOLDMAX = 24; // rows a slow train stands aside for faster ones before it goes anyway
 const NMAX = 12; // trains on the line
 const HOTMAX = 5; // trains standing late in the loops, beyond which a train waits outside
-const STACK = 2; // trains of one way at a station or on their way to it, beyond which the next waits behind
+const STACK = 3; // trains of one way at a station or on their way to it, beyond which the next waits behind
 const PATIENCE = 80; // rows a train waits for room in the next loop before it goes anyway
 const SLACK = 12; // rows an oldest-first claim of the other way has to be older by to hold a train
 const TERM = 7; // rows a train stands at the end where it starts and where it stops
@@ -130,8 +130,8 @@ function knobs(S, k) {
   S.mult = cl(k[1] / 2, 0.3, 3);
   S.rate = (3.0 * 2.7 ** ((cl(k[2], -1, 1) + 1) / 2)) / 2 / 128; // trains a row at one end
   S.d = cl((k[3] + 0.3) / 1.3, 0, 1);
-  S.pExtra = 0.62 * S.d ** 0.9;
-  S.mExtra = 4 + 9 * S.d;
+  S.pExtra = 0.55 * S.d ** 0.9;
+  S.mExtra = 3 + 7 * S.d;
 }
 
 // The next arrival at an end comes when the rate, summed over rows, has added
@@ -186,8 +186,7 @@ function spawn(S, e) {
     dwellLeft: dw, extraLeft: 0, waited: 0, term: false, readyAt: 0, key: 0, held: false, full: false, end: 0,
     pt: [S.t], px: [XS[s]], pk: [1],
   };
-  addExtra(S, tr);
-  tr.readyAt = S.t + dw + tr.extraLeft;
+  tr.readyAt = S.t + dw;
   S.trains.push(tr);
   S.stat.spawned++;
 }
@@ -304,9 +303,11 @@ function dispatch(S, now) {
   }
   elig.sort((a, b) => a.key - b.key);
   for (const U of elig) {
-    if (U.held || U.full) continue;
+    U.why = 0;
+    if (U.held || U.full) { U.why = U.held ? 1 : 2; continue; }
     const s = U.st, d = U.dir, j = d > 0 ? s : s - 1, i = d > 0 ? 0 : 1;
-    if (sc[j][1 - i] > 0 || wk[j][1 - i] < U.key - SLACK) continue;
+    if (sc[j][1 - i] > 0) { U.why = 3; continue; }
+    if (wk[j][1 - i] < U.key - SLACK) { U.why = 4; continue; }
     let ok = true;
     for (const tr of S.trains) {
       if (tr.mode === 0 && tr.sec === j && tr.dir === d && (tr.x - XS[s]) * d < GAP[tr.cls]) {
@@ -314,7 +315,7 @@ function dispatch(S, now) {
         break;
       }
     }
-    if (!ok) continue;
+    if (!ok) { U.why = 5; continue; }
     U.mode = 0;
     U.sec = j;
     U.st = s + d;
@@ -343,7 +344,8 @@ function step(S, h) {
   for (let e = 0; e < 2; e++) {
     if (!S.q[e].length || on >= NMAX || late >= HOTMAX) continue;
     const dir = e === 0 ? 1 : -1;
-    let busy = false;
+    // A train goes out onto the line only when the first section is free of trains coming the other way.
+    let busy = S.sc[e === 0 ? 0 : NS - 2][e === 0 ? 1 : 0] > 0;
     for (const tr of S.trains) if (tr.mode === 1 && tr.dir === dir && tr.st === (e === 0 ? 0 : NS - 1)) busy = true;
     if (!busy) {
       spawn(S, e);
