@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Gravity Assist
 // Family:  swingby
-// Idea:    A planet crosses the panel on a slow arc while a curtain of probes pours down past it, test particles that only the planet pulls on, so the probes that cross behind the planet are swung into its wake and leave faster, as long pale lemon streaks, and the probes that cross in front of it are swung back and leave slower, as short plum ones, with a small second planet passing now and then.
+// Idea:    A planet crosses the panel on a slow arc while a curtain of probes pours down past it, half of them aimed at its path, test particles that only the planet pulls on, so the probes that cross behind the planet are swung into its wake and leave faster, as long pale lemon streaks, and the probes that cross in front of it are swung back and leave slower, as short plum ones, with a small second planet passing now and then.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Mass=0.3..3, Speed=-1..1, Curtain=0..1
 //
 // Knob 1: Hue. Turns the speed ramp once round the colour wheel from 0 to 1, so 1 looks like 0. At 0 a probe at its launch speed is orange, a slower one runs through crimson to plum, and a faster one runs through amber to pale lemon. The planets stay sky white at every setting.
-// Knob 2: Mass. How hard the big planet pulls and how big it is. GM is 1800 times the knob, in LEDs cubed per second squared: 540 at 0.3, 3600 at the opening 2 and 5400 at 3. Its radius is 3.2 LEDs plus half the knob, 3.35, 4.2 and 4.7, and its glow grows with it. At 0.3 nine probes in ten stay within 10 percent of their launch speed and the curtain stays orange; at 3 one probe in six falls into the planet.
-// Knob 3: Speed. How fast the big planet crosses, 14 LEDs a second times 2 to the power of the knob: 7 at -1, 14 at 0 and 28 at 1, and the small planet goes at 0.8 of that. The curtain falls at 22 LEDs a second. A faster planet takes more speed from the probes it crosses in front of: the slowest probe in a hundred runs at 0.76 of launch speed at -1, 0.57 at 0 and 0.39 at 1.
-// Knob 4: Curtain. How wide the curtain is, 76 LEDs at 0, wider than the panel, down to 32 LEDs at 1, a ribbon that the planet fans out. The number of probes goes with the width, about 67 in flight at the opening 0.06 and 29 at 1, and it swells and thins by almost half over several seconds at any setting while the whole curtain sways 12 LEDs either way.
+// Knob 2: Mass. How hard the big planet pulls and how big it is. GM is 1800 times the knob, in LEDs cubed per second squared: 540 at 0.3, 3600 at the opening 2 and 5400 at 3. Its radius is 3.2 LEDs plus half the knob, 3.35, 4.2 and 4.7, and its glow grows with it. At 0.3 nine probes in ten stay within 10 percent of their launch speed and the picture is a bundle that only leans; at 3 one probe in four falls into the planet.
+// Knob 3: Speed. How fast the big planet crosses, 14 LEDs a second times 2 to the power of the knob: 7 at -1, 14 at 0 and 28 at 1, and the small planet goes at 0.8 of that. The curtain falls at 22 LEDs a second. A faster planet takes more speed from the probes it crosses in front of: the slowest probe in a hundred runs at 0.76 of launch speed at -1, 0.54 at 0 and 0.37 at 1. The big planet is off the panel for at most 2 s between passes at any setting.
+// Knob 4: Curtain. How wide the curtain is, 76 LEDs at 0, wider than the panel, down to 32 LEDs at 1. Half the probes are aimed: each starts where the big planet will be when it gets down to the planet's height, 5 to 21.7 LEDs to one side or the other at 0 and 5 to 13.8 at 1, so the planet always has a bundle to bend. The rest fall across the whole width and show 72 percent of their light until a planet has changed their speed by a fifth. About 57 probes are in flight at the opening 0.06 and 26 at 1, swelling and thinning by almost half over several seconds, and the unaimed half sways 12 LEDs either way.
 
 // How the picture is made. A probe is a test particle: it feels the planets and
 // nothing else, not the other probes. Each planet is a softened point mass,
@@ -28,6 +28,12 @@
 // opening settings (GM 3600, planet at 14 LEDs a second), a probe that passes
 // 6.6 LEDs behind the planet leaves at 1.45 times its launch speed and one
 // that passes 6.6 in front leaves at 0.52 times.
+// Left to fall evenly the probes read as rain with a few bent strands, so the
+// planet gets a bundle of its own. The big planet's arc is followed forward
+// to the time a probe launched now reaches its height, and half the probes
+// start there, spread on both sides of its path but not within 5 LEDs of it.
+// The planet is on the panel from the first frame: the pre-run puts it 12 LEDs
+// in and moving right when the Lab opens, so it stands in the middle 2 s later.
 // A probe that reaches the disk is taken in: it rides on the planet while its
 // tail runs out. A probe nearly stopped fades out where it is.
 
@@ -39,7 +45,7 @@ const fr = (v) => v - floor(v);
 const V0 = 22; // the speed every probe is born with, LEDs a second, straight down
 const STEP = 1 / 60; // physics step, s
 const MAXP = 130; // probe slots
-const NT = 16; // tail samples a probe keeps
+const NT = 20; // tail samples a probe keeps
 const HS = 2 * STEP; // seconds between tail samples
 const TAILT = NT * HS; // seconds of tail
 const GM0 = 1800; // GM per unit of the Mass knob
@@ -47,13 +53,16 @@ const PRE = 7; // seconds run before the first frame
 const SLOW = 0.28 * V0; // below this speed a probe fades out
 const FADE = 0.7; // seconds that takes
 const PHI = 0.6180339887498949;
+const FOCUS = 0.5; // share of the probes that are aimed at the big planet
+const BGDIM = 0.72; // light of an unaimed probe the planet has not touched
+const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 
 // ---- the colour ramp: speed ratio -> LUT index, rebuilt when Hue moves
 const LN = 128;
 const RAMP = [
   // t, hue in turns, saturation, value
-  [0.0, 0.8, 0.9, 0.4],
-  [0.2, 0.93, 0.92, 0.62],
+  [0.0, 0.8, 0.9, 0.5],
+  [0.2, 0.93, 0.92, 0.7],
   [0.4, 1.08, 0.97, 0.9], // orange, a probe at its launch speed
   [0.7, 1.14, 0.78, 1.0],
   [1.0, 1.16, 0.2, 1.0], // pale lemon
@@ -80,11 +89,11 @@ function buildLut(S, hue) {
   S.lutHue = hue;
 }
 // A speed, as LEDs a second, to a place in the LUT: slower than launch runs
-// plum to orange over 0.6..1 of the launch speed, faster runs orange to lemon
+// plum to orange over 0.75..1 of the launch speed, faster runs orange to lemon
 // over 1..1.4.
 const lutAt = (sp) => {
   const r = sp / V0;
-  const t = r <= 1 ? 0.4 * cl((r - 0.6) / 0.4, 0, 1) : 0.4 + 0.6 * cl((r - 1) / 0.4, 0, 1);
+  const t = r <= 1 ? 0.4 * cl((r - 0.75) / 0.25, 0, 1) : 0.4 + 0.6 * cl((r - 1) / 0.4, 0, 1);
   return (t * (LN - 1) + 0.5) | 0;
 };
 
@@ -94,17 +103,18 @@ const lutAt = (sp) => {
 // pass takes its height, tilt, bend and wait from golden-ratio fractions of
 // its own count, so no two passes are alike and none repeats.
 function makeBody(big, o) {
-  return { big, o, k: 0, run: false, wait: 0, x: -99, y: 0, hd: 0, kap: 0, side: 1, R: 4, gm: 0 };
+  return { big, o, k: 0, run: false, seen: true, wait: 0, x: -99, y: 0, hd: 0, kap: 0, side: 1, R: 4, gm: 0 };
 }
 function startPass(B, first) {
-  const k = B.k++, o = B.o;
+  const k = B.k++, o = B.o, big = B.big;
   B.side = first ? 1 : fr(k * 0.7548776662 + o) < 0.5 ? 1 : -1;
-  B.y = first ? 58 : 44 + 42 * fr(k * PHI + o * 3);
-  const tilt = first ? -0.06 : (fr(k * 0.5698402909 + o * 5) - 0.5) * 0.56;
-  const bend = (fr(k * 0.4142135624 + o * 7) < 0.5 ? -1 : 1) * (1 / (170 + 230 * fr(k * 0.3247179572 + o * 2)));
+  B.y = first ? 58 : big ? 48 + 32 * fr(k * PHI + o * 3) : 30 + 68 * fr(k * PHI + o * 3);
+  const tilt = first ? -0.05 : (fr(k * 0.5698402909 + o * 5) - 0.5) * (big ? 0.4 : 0.6);
+  const bend = (fr(k * 0.4142135624 + o * 7) < 0.5 ? -1 : 1) / ((big ? 400 : 180) + (big ? 300 : 200) * fr(k * 0.3247179572 + o * 2));
   B.hd = B.side > 0 ? tilt : PI - tilt;
-  B.kap = first ? 1 / 260 : bend * B.side;
-  B.x = B.side > 0 ? -B.R - 7 : W + B.R + 7;
+  B.kap = first ? 1 / 450 : bend * B.side;
+  B.x = B.side > 0 ? -B.R - 2 : W + B.R + 2;
+  B.seen = true;
   B.run = true;
 }
 function moveBody(S, B, h) {
@@ -117,20 +127,44 @@ function moveBody(S, B, h) {
   B.x += cos(B.hd) * v * h;
   B.y += sin(B.hd) * v * h;
   B.hd += B.kap * v * h;
-  const m = B.R + 8;
-  if (B.x < -m - 2 || B.x > W + m + 2 || B.y < -m || B.y > H + m) {
+  const m = B.R + 3;
+  if (B.x > -m && B.x < W + m) B.seen = true;
+  if (B.seen && (B.x < -m - 1 || B.x > W + m + 1 || B.y < -m || B.y > H + m)) {
     B.run = false;
-    B.wait = B.big ? 0.6 + 3.2 * fr(B.k * 0.3247179572 + 0.4) : 14 + 22 * fr(B.k * 0.7548776662 + 0.2);
+    B.wait = B.big ? 0.1 + 0.9 * fr(B.k * 0.3247179572 + 0.4) : 10 + 16 * fr(B.k * 0.7548776662 + 0.2);
   }
 }
 
 // ---- probes
-function spawn(S) {
+// Where along the top a probe has to start to come down on the big planet:
+// its arc is followed forward to the moment a probe launched now would reach
+// the planet's height, 22 LEDs a second and a little under 3 s away.
+function aim(S) {
+  const B = S.bodies[0];
+  if (!B.run) return S.cx;
+  let x = B.x, y = B.y;
+  for (let n = 0; n < 2; n++) {
+    const d = (S.vp * (y + 5)) / V0;
+    x = B.x + (sin(B.hd + B.kap * d) - sin(B.hd)) / B.kap;
+    y = B.y - (cos(B.hd + B.kap * d) - cos(B.hd)) / B.kap;
+  }
+  return cl(x, 10, 54);
+}
+
+function spawn(S, focus) {
   let i = 0;
   while (i < MAXP && S.st[i]) i++;
   if (i === MAXP) return;
   const k = S.births++;
-  S.x[i] = S.cx + (fr(k * PHI + 0.31) - 0.5) * S.width + 3 * (fr(k * 0.4142135624) - 0.5);
+  const u = fr(k * PHI + 0.31);
+  const jit = 3 * (fr(k * 0.4142135624) - 0.5);
+  if (focus) {
+    // impact parameters b spread evenly on both sides of the planet's path,
+    // none inside 5 LEDs of it, where a probe would only fall in
+    const side = fr(k * 0.7548776662 + 0.2) < 0.5 ? -1 : 1;
+    S.x[i] = aim(S) + side * (5 + u * (0.18 * S.width + 3)) + 0.5 * jit;
+  } else S.x[i] = S.cx + (u - 0.5) * S.width + jit;
+  S.bg[i] = focus ? 0 : 1;
   S.y[i] = -5;
   S.vx[i] = 0;
   S.vy[i] = V0;
@@ -163,14 +197,19 @@ function accel(S, x, y, out) {
 function step(S, h) {
   S.clock += h;
   for (const B of S.bodies) moveBody(S, B, h);
+  // The curtain sways and thickens and thins on periods that share no factor.
+  const t = S.clock;
+  S.cx = 32 + 12 * sin(0.37 * t + 1.1 * sin(0.113 * t));
+  const rate = (0.13 * S.width + 1.5) * (1 + 0.45 * sin(0.71 * t) * sin(0.263 * t + 0.8));
   S.sp -= h;
   if (S.sp <= 0) {
-    spawn(S);
-    // The curtain sways and thickens and thins on periods that share no factor.
-    const t = S.clock;
-    S.cx = 32 + 12 * sin(0.37 * t + 1.1 * sin(0.113 * t));
-    const rate = (0.13 * S.width + 1.5) * (1 + 0.45 * sin(0.71 * t) * sin(0.263 * t + 0.8));
-    S.sp += (1 / rate) * (0.7 + 0.6 * fr(S.births * 0.7548776662));
+    spawn(S, false);
+    S.sp += (1 / (rate * (1 - FOCUS))) * (0.7 + 0.6 * fr(S.births * 0.7548776662));
+  }
+  S.sf -= h;
+  if (S.sf <= 0) {
+    spawn(S, true);
+    S.sf += (1 / (rate * FOCUS)) * (0.7 + 0.6 * fr(S.births * 0.5698402909));
   }
   const a = S.acc;
   for (let i = 0; i < MAXP; i++) {
@@ -246,12 +285,12 @@ export function setup(params) {
   params.s = {
     x: f(MAXP), y: f(MAXP), vx: f(MAXP), vy: f(MAXP), ax: f(MAXP), ay: f(MAXP), ox: f(MAXP), oy: f(MAXP),
     age: f(MAXP), tm: f(MAXP), hacc: f(MAXP),
-    st: new Uint8Array(MAXP), inn: new Uint8Array(MAXP), hn: new Uint8Array(MAXP), hh: new Uint32Array(MAXP),
+    st: new Uint8Array(MAXP), bg: new Uint8Array(MAXP), inn: new Uint8Array(MAXP), hn: new Uint8Array(MAXP), hh: new Uint32Array(MAXP),
     att: new Int8Array(MAXP),
     hx: f(MAXP * NT), hy: f(MAXP * NT), hs: f(MAXP * NT),
     lut: f(LN * 3), lutHue: -1,
     bodies: [makeBody(true, 0.13), makeBody(false, 0.57)],
-    acc: [0, 0], births: 0, sp: 0, rem: 0, clock: 0, cx: 32,
+    acc: [0, 0], births: 0, sp: 0, sf: 0, rem: 0, clock: 0, cx: 32,
     width: 76, vp: 14, hue: 0, mass: 2, ready: false,
     buf: new Float32Array(W * H * 3),
   };
@@ -276,17 +315,20 @@ export function update(dt, input, params) {
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06];
   knobs(S, kn);
   if (!S.ready) {
-    // The planet comes in early enough to stand near the middle when the
-    // pre-run ends, with the probes it has bent already on their way down.
+    // The first pass is already under way: the planet starts far enough
+    // left to be 12 LEDs in when the pre-run ends, so it stands in the middle
+    // two seconds later, with the probes aimed at it bending on their way down.
     S.ready = true;
     const a = S.bodies[0], b = S.bodies[1];
     b.wait = 16;
-    a.wait = 1e9;
-    const t0 = max(0, PRE - (a.R + 7 + 30) / S.vp);
-    for (let t = 0; t < PRE; t += STEP) {
-      if (a.k === 0 && t >= t0) startPass(a, true);
-      step(S, STEP);
-    }
+    startPass(a, true);
+    // run the arc backward from where it should be at the end of the pre-run
+    const d = S.vp * PRE, he = -0.05, h0 = he - a.kap * d;
+    a.hd = h0;
+    a.x = 12 - (sin(he) - sin(h0)) / a.kap;
+    a.y = 60 + (cos(he) - cos(h0)) / a.kap;
+    a.seen = false;
+    for (let t = 0; t < PRE; t += STEP) step(S, STEP);
     return;
   }
   S.rem += cl(dt || 0, 0, 0.1);
@@ -295,6 +337,10 @@ export function update(dt, input, params) {
     S.rem -= STEP;
   }
 }
+
+// How much of its light an unaimed probe shows: little while it keeps its
+// launch speed, all of it once a planet has changed that by a fifth.
+const bgw = (sp) => BGDIM + (1 - BGDIM) * cl(abs(sp / V0 - 1) / 0.2, 0, 1);
 
 // Draw one capsule of a tail into the float buffer, keeping the brighter of
 // what is there and what the capsule adds, so joints between segments do not
@@ -326,10 +372,11 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   const buf = S.buf, lut = S.lut;
-  // ink: a violet black, a little lighter at the top
+  // ink: the darkest plum of the ramp turned down to a violet black, a little
+  // lighter at the top, so it turns round the wheel with Hue
   for (let y = 0; y < H; y++) {
     const k = 1 - 0.4 * (y / H);
-    const r = 9 * k, g = 4 * k, b = 17 * k;
+    const r = 0.09 * lut[0] * k, g = (0.09 * lut[1] + 2) * k, b = (0.09 * lut[2] + 3) * k;
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3;
       buf[o] = r;
@@ -343,7 +390,9 @@ export function draw(display, params) {
     const R = B.R, RG = R + 22;
     const x0 = max(0, floor(B.x - RG)), x1 = min(W - 1, floor(B.x + RG));
     const y0 = max(0, floor(B.y - RG)), y1 = min(H - 1, floor(B.y + RG));
-    const big = (B.big ? 1 : 0.6) * (0.4 + 0.6 * (S.mass / 3));
+    // the glow comes up as the planet comes in over an edge
+    const pres = sm((min(B.x, W - B.x, B.y, H - B.y) + R + 2) / (R + 12));
+    const big = (B.big ? 1 : 0.6) * (0.4 + 0.6 * (S.mass / 3)) * pres;
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - B.x, dy = y + 0.5 - B.y, d = sqrt(dx * dx + dy * dy);
@@ -364,13 +413,14 @@ export function draw(display, params) {
     if (!S.st[i]) continue;
     const n = S.hn[i];
     let px = S.x[i], py = S.y[i];
-    let pc = lutAt(sqrt(S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i]));
+    const sp0 = sqrt(S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i]), dim = S.bg[i];
+    let pc = lutAt(sp0);
     const fd = S.st[i] === 3 ? S.tm[i] / FADE : 1;
-    let pw = fd;
+    let pw = fd * (dim ? bgw(sp0) : 1);
     for (let j = 0; j < n; j++) {
       const c = i * NT + ((S.hh[i] - 1 - j + NT * 4) % NT);
       const cx = S.hx[c], cy = S.hy[c], cc = lutAt(S.hs[c]);
-      const cw = pow(1 - (j + 1) / (NT + 1), 0.9) * fd;
+      const cw = pow(1 - (j + 1) / (NT + 1), 1.1) * fd * (dim ? bgw(S.hs[c]) : 1);
       capsule(buf, px, py, cx, cy, pc, cc, pw, cw, lut);
       px = cx;
       py = cy;
