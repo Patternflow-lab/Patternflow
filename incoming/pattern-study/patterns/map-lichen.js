@@ -30,20 +30,20 @@ const NCOL = 72; // colony slots
 const TW = 128; // the crack and lump fields live on a torus this big, and each colony reads it at its own offset
 const TH = 256;
 
-const SPORE0 = 0.4; // spores a second at Colonies 0 and Growth 2
+const SPORE0 = 0.8; // spores a second at Colonies 0 and Growth 2
 const CLEAR = 3; // a spore needs this many LEDs of bare rock round it, each way
-const V0 = 0.33; // LEDs a second for each unit of Growth, before a colony's own factor
+const V0 = 0.38; // LEDs a second for each unit of Growth, before a colony's own factor
 const STEP = 0.1; // seconds a simulation step covers once the picture is running
 const PRE = 330; // seconds of growth played before the first frame
 const DIE = 2; // seconds a ring of dead crust takes to fade, past the live age's share (see colony())
 
 // species: edge (young, pale), main, old (dull) as OKLCH [L, C, hue]; the hue turns with Hue
 const SPECIES = [
-  { w: 0.3, e: [0.88, 0.07, 106], m: [0.8, 0.088, 109], o: [0.66, 0.055, 104] }, // sulphur yellow-green
+  { w: 0.3, e: [0.84, 0.065, 106], m: [0.75, 0.085, 109], o: [0.6, 0.055, 104] }, // sulphur yellow-green
   { w: 0.18, e: [0.82, 0.055, 74], m: [0.7, 0.07, 60], o: [0.56, 0.045, 54] }, // orange, as Xanthoria
   { w: 0.2, e: [0.82, 0.012, 100], m: [0.76, 0.02, 104], o: [0.63, 0.016, 100] }, // grey-white
   { w: 0.15, e: [0.6, 0.055, 122], m: [0.5, 0.065, 120], o: [0.42, 0.04, 114] }, // dark olive
-  { w: 0.17, e: [0.82, 0.04, 140], m: [0.72, 0.055, 136], o: [0.6, 0.035, 130] }, // sage
+  { w: 0.17, e: [0.79, 0.035, 140], m: [0.69, 0.048, 136], o: [0.58, 0.032, 130] }, // sage
 ];
 const ROCK = [0.53, 0.016, 76];
 const SCAR = [0.66, 0.02, 85];
@@ -157,12 +157,13 @@ function colony(S, x, y, sp) {
   if (!c) return;
   const r = Math.random;
   c.alive = true;
+  c.id = ++S.serial;
   c.x = x + 0.5;
   c.y = y + 0.5;
   c.g0 = S.G;
   c.sp = sp;
-  c.v = V0 * (0.72 + 0.62 * r());
-  c.rmax = S.rmax * (0.78 + 0.5 * r());
+  c.v = V0 * (0.6 + 0.9 * r());
+  c.rmax = S.rmax * (0.55 + 0.95 * r());
   const rot = r() * PI;
   c.ec = cos(rot);
   c.es = sin(rot);
@@ -177,8 +178,8 @@ function colony(S, x, y, sp) {
   c.q2 = (r() - 0.5) * 0.09;
   c.q3 = (r() - 0.5) * 0.12;
   c.q5 = (r() - 0.5) * 0.16;
-  c.live = S.ring / c.v;
-  c.fade = 0.65 * c.live + DIE;
+  c.live = (S.ring * (0.6 + 0.9 * r())) / c.v;
+  c.fade = 0.4 * c.live + DIE;
   c.spread = 3.5 / c.v + 2;
   c.ox = floor(r() * TW);
   c.oy = floor(r() * TH);
@@ -344,7 +345,7 @@ function step(S, dt) {
   const cg = S.cg;
   const cols = S.cols;
   // spores land at their own rate in panel time
-  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.4);
+  const lam = SPORE0 * S.sporeFac * pow(S.gs, -0.4) * (0.55 + 1.6 * S.free);
   while (S.T >= S.nextSpore) {
     spore(S);
     S.nextSpore += -log(1 - Math.random()) / lam;
@@ -357,15 +358,20 @@ function step(S, dt) {
   // one pass over the rock: crust that is too old goes back to bare stone, young crust at the
   // edge spreads to free cells it reaches and that no other colony stands close to
   let i = floor(Math.random() * N);
+  let nfree = 0;
   for (let n = 0; n < N; n++, i += 4099) {
     if (i >= N) i -= N;
     if (i >= N) i %= N;
     const k = own[i];
-    if (k < 0) continue;
+    if (k < 0) {
+      if (k === FREE) nfree++;
+      continue;
+    }
     const c = cols[k];
     const age = G - cg[i];
     if (age > c.live + c.fade * (0.45 + 0.55 * S.rj[i])) {
       own[i] = FREE;
+      S.prev[i] = c.id;
       c.n--;
       continue;
     }
@@ -378,6 +384,8 @@ function step(S, dt) {
       if (xx < 0 || xx >= W || yy < 0 || yy >= H) continue;
       const j = yy * W + xx;
       if (own[j] !== FREE) continue;
+      // a colony does not grow back over stone its own crust has left
+      if (S.prev[j] === c.id) continue;
       if (!inside(c, xx, yy, j, G, S)) continue;
       if (blocked(S, xx, yy, k)) {
         toZone(S, xx, yy, k);
@@ -390,6 +398,7 @@ function step(S, dt) {
   }
   // dark lines stay while a colony stands near them, then fade
   S.zph = (S.zph + 1) & 7;
+  S.free = nfree / N;
   for (let i = S.zph; i < N; i += 8) {
     if (own[i] !== ZONE) continue;
     const x = i % W;
@@ -427,6 +436,8 @@ function step(S, dt) {
 export function setup(params) {
   const S = {
     seed: floor(Math.random() * 1e6),
+    serial: 0,
+    free: 0.5,
     G: 0,
     T: 0,
     gs: 1,
@@ -445,6 +456,7 @@ export function setup(params) {
   S.cg = new Float32Array(N);
   S.zdie = new Float32Array(N);
   S.zg = new Float32Array(N);
+  S.prev = new Int32Array(N);
   S.jit = new Float32Array(N);
   S.rj = new Float32Array(N);
   S.grain = new Float32Array(N);
@@ -502,10 +514,10 @@ function knobs(S, kn) {
   S.gs = grow / 2;
   const col = cl(kn[2], -1, 1);
   S.sporeFac = pow(2.4, col);
-  S.rmax = 13 / sqrt(S.sporeFac);
+  S.rmax = 17 / sqrt(S.sporeFac);
   const cr = cl(kn[3], -1, 1);
   S.crust = cr;
-  S.ring = 8.5 * pow(1.25, cr);
+  S.ring = 15 * pow(1.25, cr);
   S.areole = 4 * pow(1.28, cr);
 }
 
@@ -521,6 +533,8 @@ export function update(dt, input, params) {
     const n = floor(real / ds);
     S.nextSpore = S.T;
     for (let k = 0; k < n; k++) step(S, real / n);
+    // then on to a moment when the rock is well covered, so the first frame is a full map
+    for (let k = 0; k < 70 && S.free > 0.3; k++) step(S, real / n);
     S.acc = 0;
   }
   S.acc += cl(dt || 0, 0, 0.2);
@@ -620,12 +634,12 @@ export function draw(display, params) {
         cb += (sb * 0.8 + P[sp + 8] * 0.2 - cb) * pale;
         // large soft lumps, and the colony's own brightness
         const lx = ((y + c.ly) & (TH - 1)) * TW + ((x + c.lx) & (TW - 1));
-        const lumpv = (S.lump[lx] - 0.5) * 0.42 + (S.lump2[lx] - 0.5) * 0.08;
+        const lumpv = (S.lump[lx] - 0.5) * 0.4 + (S.lump2[lx] - 0.5) * 0.22;
         // cracked areoles: none in the young crust, deeper with age, widest in the dying middle
         const ci = ((y + c.oy) & (TH - 1)) * TW + ((x + c.ox) & (TW - 1));
         const D = S.crackD[ci];
         const gone = sm((d - 0.7) / 0.3);
-        const ca = sm((t - 0.08) / 0.6) * (1 - gone);
+        const ca = sm((t - 0.08) / 0.6) * (1 - sm((d - 0.15) / 0.55));
         const wide = 0.45 + 0.55 * sm(t / 1.3);
         const edge = sm((D - (0.35 + 0.45 * wide * crack)) / 0.55);
         const dome = sm(D / (0.6 * asz));
