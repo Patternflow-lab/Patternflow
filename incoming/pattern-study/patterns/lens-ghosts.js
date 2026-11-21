@@ -31,8 +31,9 @@ const CY = 64;
 const HALO_R = 26; // the ring round the light, in LEDs
 const EPS = [0.07, 0, -0.07]; // red, green and blue are drawn at these scales
 const SHIFT = 0.3; // and slid along the ghost line by this much of the same
-const T0 = 138; // where on its path the light stands when the Lab starts
-const TT0 = 60; // and the clock of the slower breathing
+const T0 = 156; // where on its path the light stands when the Lab starts
+const TT0 = 170;
+const SRC_HUE = 235; // OKLCH degrees of the light's tint at Hue 0: a cool white // and the clock of the slower breathing
 
 // ---- colour ----
 // OKLCH to linear sRGB, then scaled so the brightest channel is 1.
@@ -100,6 +101,9 @@ const KIND = [
 const TANS = [0, 0, 0, 0, 0, tan(PI / 5), tan(PI / 6), tan(PI / 7), tan(PI / 8), tan(PI / 9)];
 
 // the spikes: each direction has its own length, drawn once per blade count
+// more spikes share the same light, so each is a little dimmer
+const SPKGAIN = {};
+for (const ns of [6, 8, 10, 14, 18]) SPKGAIN[ns] = Math.sqrt(10 / ns);
 const SPK = {};
 for (let n = 5; n <= 9; n++) {
   const ns = n % 2 ? 2 * n : n;
@@ -123,7 +127,13 @@ export function setup(params) {
     y2: 0,
     w2: 0,
     alpha: 0, // the aperture's turn
+    lh: 0, // how far the light's tint has drifted, degrees
+    kz: 1, // the zoom
+    ax: 0, // where the ghost line pivots, off the frame centre
+    ay: 0,
+    ex: 1, // the light's strength
     src: [1, 1, 1],
+    vc: [1, 1, 1],
     cs: [new Float32Array(3), new Float32Array(3)],
     gcol: [],
     acc: new Float32Array(W * H * 3),
@@ -140,8 +150,8 @@ function pose(S) {
   const t = S.t;
   // light 1: round the frame centre on a squashed ring whose radius breathes and whose
   // angular speed swells and stalls, all on periods that do not divide
-  const th1 = 0.9 + 0.06 * tau + 1.3 * sin(0.037 * tau + 0.4) + 0.7 * sin(0.083 * tau + 1.3);
-  const rh1 = 1.1 + 0.32 * sin(0.0531 * tau + 2.2) + 0.12 * sin(0.1117 * tau + 0.6);
+  const th1 = 0.9 + 0.06 * tau + 1.3 * sin(0.037 * tau + 0.4) + 0.7 * sin(0.083 * tau + 1.3) + 0.5 * sin(0.0153 * tau + 5.1);
+  const rh1 = 1.06 + 0.28 * sin(0.0531 * tau + 2.2) + 0.12 * sin(0.1117 * tau + 0.6) + 0.12 * sin(0.0197 * tau + 4.0);
   S.x1 = 31 * rh1 * cos(th1);
   S.y1 = 62 * rh1 * sin(th1);
   // light 2: a weaker one on another ring, a little slower, the other way round
@@ -150,8 +160,17 @@ function pose(S) {
   S.x2 = 31 * rh2 * cos(th2);
   S.y2 = 60 * rh2 * sin(th2);
   // light 2 comes and goes over a minute or so
-  S.w2 = sm(0.35, 0.7, 0.5 + 0.34 * sin(0.0517 * t + 0.8) + 0.2 * sin(0.0211 * t + 2.0));
-  S.alpha = -1.2 + 0.4 * sin(0.0173 * t + 0.5) + 0.2 * sin(0.0431 * t + 2.0);
+  S.w2 = sm(0.3, 0.6, 0.5 + 0.34 * sin(0.0517 * t + 0.8) + 0.2 * sin(0.0211 * t + 2.0));
+  // the lens rolls slowly about its axis, a turn in about eight minutes
+  S.alpha = -1.2 + 0.0131 * t + 0.25 * sin(0.0173 * t + 0.5) + 0.12 * sin(0.0431 * t + 2.0);
+  S.lh = 75 * sin(0.0283 * t + 1.3) + 30 * sin(0.0617 * t + 0.2);
+  // the light itself swells and dims a quarter either way, on two periods that do not divide
+  S.ex = 1 + 0.26 * sin(0.0457 * t + 3.1) + 0.1 * sin(0.1033 * t + 1.0);
+  // the lens zooms slowly: the whole chain of ghosts spreads and packs by a fifth either way
+  S.kz = 1 + 0.26 * sin(0.0337 * t + 0.8) + 0.1 * sin(0.0791 * t + 2.4);
+  // and the lens sits a little off true: the line of ghosts pivots about a point that wanders
+  S.ax = 12 * sin(0.0229 * t + 2.9) + 5 * sin(0.0571 * t + 0.4);
+  S.ay = 20 * sin(0.0191 * t + 0.6) + 7 * sin(0.0663 * t + 3.3);
 }
 
 export function update(dt, input, params) {
@@ -203,13 +222,20 @@ export function draw(display, params) {
 
   // ---- colours ----
   const src = S.src;
-  tint(((72 / 360 + S.hue) % 1 + 1) % 1, 0.93, 0.07, tmp);
+  tint(((((SRC_HUE + S.lh) / 360 + S.hue) % 1) + 1) % 1, 0.9, 0.11, tmp);
   src[0] = tmp[0];
   src[1] = tmp[1];
   src[2] = tmp[2];
+  const vc = S.vc;
+  tint(((((SRC_HUE + S.lh) / 360 + S.hue) % 1) + 1) % 1, 0.74, 0.09, tmp);
+  vc[0] = tmp[0];
+  vc[1] = tmp[1];
+  vc[2] = tmp[2];
   for (let k = 0; k < NG; k++) {
     const G = GHOSTS[k];
-    tint((((G.hue / 360 + S.hue) % 1) + 1) % 1, G.L, G.C, tmp);
+    // each ghost's tint wanders about 45 degrees either side of its own, on its own period
+    const dh = 45 * sin(G.w * 0.31 * t + G.p * 1.7);
+    tint(((((G.hue + dh) / 360 + S.hue) % 1) + 1) % 1, G.L, G.C, tmp);
     const c = S.gcol[k];
     // a floor under each channel keeps the rainbow rim alive on a deep tint
     c[0] = 0.2 + 0.8 * tmp[0];
@@ -232,7 +258,7 @@ export function draw(display, params) {
   const w2 = S.w2;
   const near1 = exp(-((s1x / 40) * (s1x / 40) + (s1y / 70) * (s1y / 70)) * 1.6);
   const near2 = exp(-((s2x / 40) * (s2x / 40) + (s2y / 70) * (s2y / 70)) * 1.6);
-  const veil = (0.001 + 0.03 * g * g) * (0.5 + 0.5 * (near1 + 0.3 * w2 * near2));
+  const veil = (0.0025 + 0.018 * g * g) * (0.5 + 0.5 * (near1 + 0.3 * w2 * near2));
   const x1 = CX + s1x;
   const y1 = CY + s1y;
   const x2 = CX + s2x;
@@ -244,25 +270,25 @@ export function draw(display, params) {
         // a little brighter on the side the light is on
         const dd1 = ((x - x1) * (x - x1) + (y - y1) * (y - y1)) / 2600;
         const v = veil * (0.55 + 0.9 * exp(-dd1));
-        acc[o] = v * (0.8 + 0.2 * src[0]);
-        acc[o + 1] = v * (0.88 + 0.12 * src[1]);
-        acc[o + 2] = v * 1.0;
+        acc[o] = v * vc[0];
+        acc[o + 1] = v * vc[1];
+        acc[o + 2] = v * vc[2];
         o += 3;
       }
     }
   }
 
   // ---- the lights: bloom, spikes, ring, streak ----
-  const vis1 = 1 - sm(8, 44, outside(s1x, s1y));
+  const vis1 = (1 - sm(8, 44, outside(s1x, s1y))) * S.ex;
   lightPass(S, acc, x1, y1, 1.0 * vis1, nA, nB, wB, alpha, g, t, 1);
   if (w2 > 0.01) {
-    const vis2 = 1 - sm(8, 44, outside(s2x, s2y));
-    lightPass(S, acc, x2, y2, 0.34 * w2 * vis2, nA, nB, wB, alpha, g, t, 2);
+    const vis2 = (1 - sm(8, 44, outside(s2x, s2y))) * S.ex;
+    lightPass(S, acc, x2, y2, 0.55 * w2 * vis2, nA, nB, wB, alpha, g, t, 2);
   }
 
   // ---- ghosts ----
   ghostPass(S, acc, s1x, s1y, vis1, nA, nB, wB, alpha, g, t, 0);
-  if (w2 > 0.01) ghostPass(S, acc, s2x, s2y, 0.3 * w2 * (1 - sm(8, 44, outside(s2x, s2y))), nA, nB, wB, alpha, g, t, 1);
+  if (w2 > 0.01) ghostPass(S, acc, s2x, s2y, 0.55 * w2 * (1 - sm(8, 44, outside(s2x, s2y))) * S.ex, nA, nB, wB, alpha, g, t, 1);
 
   // ---- out ----
   const sc = NLUT / 2.5;
@@ -300,7 +326,7 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
   const spA = amp * (0.95 + 0.4 * g) * (0.92 + 0.08 * sin(0.7 * t + id));
   const sig = 0.95;
   const inv2s = 1 / (2 * sig * sig);
-  const wideA = 0.03 * (0.35 + g);
+  const wideA = 0.022 * (0.35 + g);
   // the ring: three radii, red inside and blue outside, the way a prism lays it out
   const ringA = amp * 0.55 * g * g * (0.4 + 0.6 * g);
   const rr0 = HALO_R * 0.95;
@@ -325,10 +351,10 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
       const r2 = dx * dx + dy * dy;
       const r = sqrt(r2);
       // bloom: a white core and two tinted shoulders
-      const q0 = 1 + r2 / 1.5;
+      const q0 = 1 + r2 / 1.3;
       const q1 = 1 + r2 / 16;
       const q2 = 1 + r2 / 190;
-      const core = (2.6 * amp) / (q0 * sqrt(q0));
+      const core = (2.3 * amp) / (q0 * sqrt(q0));
       const mid = (0.22 * amp) / (q1 * sqrt(q1));
       const wide = wideA * amp / (q2 * sqrt(q2));
       let R = core + (mid + wide) * (0.72 + 0.28 * cr);
@@ -357,7 +383,7 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
             if (gw > 6) continue;
             const idx = ((jj % ns) + ns) % ns;
             const len = Ls * tab[idx];
-            const f = wt * (exp(-gw) + 0.06 * exp(-gw / 9));
+            const f = wt * SPKGAIN[ns] * (exp(-gw) + 0.06 * exp(-gw / 9));
             sp0 += f * exp(-r / (0.5 * len * LR[0])) * (1 - sm(len * LR[0], 1.7 * len * LR[0], r));
             sp1 += f * exp(-r / (0.5 * len * LR[1])) * (1 - sm(len * LR[1], 1.7 * len * LR[1], r));
             sp2 += f * exp(-r / (0.5 * len * LR[2])) * (1 - sm(len * LR[2], 1.7 * len * LR[2], r));
@@ -365,9 +391,9 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
         }
         // fade the spike in over the first LEDs so it grows out of the core
         const ff = sm(1.5, 6, r) * spA;
-        R += sp0 * ff * (0.14 * cr + 0.8);
-        G += sp1 * ff * (0.14 * cg + 0.8);
-        B += sp2 * ff * (0.14 * cb + 0.82);
+        R += sp0 * ff * (0.5 * cr + 0.45);
+        G += sp1 * ff * (0.5 * cg + 0.45);
+        B += sp2 * ff * (0.5 * cb + 0.47);
       }
       // ring
       if (ringA > 0.004 && abs(r - HALO_R) < 9) {
@@ -400,23 +426,29 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
 }
 
 // the ghosts of one light
-function ghostPass(S, acc, sx, sy, amp, nA, nB, wB, alpha, g, t, id) {
+function ghostPass(S, acc, px, py, amp, nA, nB, wB, alpha, g, t, id) {
   if (amp < 0.01) return;
+  // the light's offset from the lens's own centre, which sits a little off the frame's
+  const sx = px - S.ax;
+  const sy = py - S.ay;
   const rho = sqrt((sx / 32) * (sx / 32) + (sy / 64) * (sy / 64));
   // ghosts bunch near the centre; hold them back a little when they do
   const crowd = 0.72 + 0.28 * sm(0.25, 0.9, rho);
   for (let k = 0; k < NG; k++) {
     const G = GHOSTS[k];
-    const gx = CX + G.m * sx;
-    const gy = CY + G.m * sy;
+    const mm = G.m * S.kz;
+    const gx = CX + S.ax + mm * sx;
+    const gy = CY + S.ay + mm * sy;
     // the aperture image grows a little as the light goes out toward the edge
-    const R = G.R * (0.9 + 0.2 * rho) * (1 + 0.05 * sin(G.w * 1.9 * t + G.p));
+    const R = G.R * (0.9 + 0.2 * rho) * (1 + 0.05 * sin(G.w * 1.9 * t + G.p)) * (1 + 0.2 * sin(G.w * 0.23 * t + G.p * 3.1));
     // dim toward the corners of the frame, the way a lens vignettes its ghosts
     const gdn = sqrt(((gx - CX) / 38) * ((gx - CX) / 38) + ((gy - CY) / 78) * ((gy - CY) / 78));
     const vig = 1 - 0.6 * sm(0.8, 1.5, gdn);
-    const b = G.b * amp * crowd * vig * (0.85 + 0.15 * sin(G.w * t + G.p));
+    // how squarely this reflection catches the light changes slowly, so a ghost fades out for a minute and comes back
+    const env = 0.1 + 0.9 * sm(-0.35, 0.55, sin(G.w * 0.27 * t + G.p * 2.3 + id * 1.7));
+    const b = G.b * amp * crowd * vig * env * (0.85 + 0.15 * sin(G.w * t + G.p));
     if (b < 0.02) continue;
-    const reach = R * (1 + EPS[0]) + G.soft + 2.5 + abs(SHIFT * EPS[0] * G.m * sqrt(sx * sx + sy * sy));
+    const reach = R * (1 + EPS[0]) + G.soft + 2.5 + abs(SHIFT * EPS[0] * mm * sqrt(sx * sx + sy * sy));
     if (gx + reach < 0 || gx - reach > W || gy + reach < 0 || gy - reach > H) continue;
     const kd = KIND[G.kind];
     const col = S.gcol[k];
@@ -427,8 +459,8 @@ function ghostPass(S, acc, sx, sy, amp, nA, nB, wB, alpha, g, t, id) {
     const aps = [0, 0, 0];
     const rcs = [0, 0, 0];
     for (let c = 0; c < 3; c++) {
-      cxs[c] = gx + G.m * sx * SHIFT * EPS[c];
-      cys[c] = gy + G.m * sy * SHIFT * EPS[c];
+      cxs[c] = gx + mm * sx * SHIFT * EPS[c];
+      cys[c] = gy + mm * sy * SHIFT * EPS[c];
       const Rc = R * (1 + EPS[c]);
       aps[c] = Rc * cos(PI / 7);
       rcs[c] = 0.14 * Rc;
@@ -444,8 +476,8 @@ function ghostPass(S, acc, sx, sy, amp, nA, nB, wB, alpha, g, t, id) {
     const wsd = kd[3] * (R / 8);
     const soft = G.soft;
     // direction of the frame centre as seen from this ghost, for the gradient across it
-    const toCx = -G.m * sx;
-    const toCy = -G.m * sy;
+    const toCx = -mm * sx;
+    const toCy = -mm * sy;
     const tcl = sqrt(toCx * toCx + toCy * toCy) + 1e-3;
     const gdx = toCx / tcl;
     const gdy = toCy / tcl;
