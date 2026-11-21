@@ -232,12 +232,11 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  // paper and ink
-  // the light on the sheet warms, cools and brightens a little over the
-  // minutes, so the paper itself is never the same twice
-  const tl0 = (S.T + T0) * 0.7;
-  const hdeg = HUE0 + 360 * S.hue + 9 * sin(0.043 * tl0 + 0.5) + 6 * sin(0.087 * tl0 + 3.1);
-  const expo = 1 + 0.045 * sin(0.039 * tl0 + 1.2) + 0.03 * sin(0.101 * tl0 + 4.4);
+  // Paper and ink. The light on the sheet warms, cools and brightens a
+  // little over the minutes, so the paper is never the same twice.
+  const tl = (S.T + T0) * 0.7;
+  const hdeg = HUE0 + 360 * S.hue + 9 * sin(0.043 * tl + 0.5) + 6 * sin(0.087 * tl + 3.1);
+  const expo = 1 + 0.045 * sin(0.039 * tl + 1.2) + 0.03 * sin(0.101 * tl + 4.4);
   oklch(PAPER_L, PAPER_C, hdeg, S.paper);
   oklch(INK_L, INK_C, hdeg + 190, S.ink);
   const pr = S.paper[0];
@@ -245,12 +244,11 @@ export function draw(display, params) {
   const pb = S.paper[2];
   const buf = S.buf;
   const bar = S.bar;
-  // a lamp over the sheet that wanders very slowly: a broad pool of light
-  const tl = (S.T + T0) * 0.7;
+  // A lamp over the sheet that wanders very slowly: a broad pool of light.
   const lx = 32 + 34 * sin(0.083 * tl + 1.7) + 12 * sin(0.151 * tl);
   const ly = 64 + 66 * sin(0.057 * tl + 0.3) + 20 * sin(0.113 * tl + 2.6);
   const lw = 1 / (2 * 46 * 46);
-  // and a shade that wanders against it, a broad dim patch
+  // And a shade that wanders against it, a broad dim patch.
   const sx = 32 + 36 * sin(0.067 * tl + 4.1) + 10 * sin(0.173 * tl + 1.1);
   const sy = 64 + 70 * sin(0.091 * tl + 2.2) + 16 * sin(0.139 * tl + 0.4);
   const nm = MAG.length;
@@ -332,7 +330,7 @@ export function draw(display, params) {
       const y0 = max(0, floor(cyp - reach));
       const y1 = min(H - 1, floor(cyp + reach));
       // the side that faces the light
-      const nl = -s * -0.55 + c * -0.83;
+      const nl = 0.55 * s - 0.83 * c;
       const nsg = nl >= 0 ? 1 : -1;
       const nla = abs(nl);
       for (let y = y0; y <= y1; y++) {
