@@ -262,7 +262,7 @@ export function draw(display, params) {
       const v = (yc - cy) / half;
       const ends = sm(-0.96, -0.74, v) * (1 - sm(0.64, 0.84, v)) * sm(0.14, 0.52, r / RMAX);
       if (ends < 0.004) continue;
-      // the beat phase here, in turns, and where in the stroke this plate is
+      // the beat phase here in turns; its fraction says where in the stroke this plate is
       const ps = (ph - (TAU * kap * (yc - 64)) / lam) / TAU + off;
       const n = floor(ps);
       const p = ps - n;
