@@ -44,7 +44,7 @@ const LAYER_A = [0.55, -0.42, 0.75, -0.46, 0.66, -0.72, 0.6, 0.66];
 const NL = LAYER_T.length;
 // weaker beds between them, each present along stretches of the track only
 const MINOR_T = [28, 51, 75, 97, 120, 143];
-const MINOR_A = [0.34, -0.3, 0.36, -0.32, 0.34, -0.3];
+const MINOR_A = [0.42, -0.38, 0.44, -0.4, 0.42, -0.38];
 const NM = MINOR_T.length;
 const LAYER_C = [], LAYER_OWN = [];
 for (let i = 0; i < NL; i++) {
@@ -193,15 +193,15 @@ function addW(col, tj, a, P) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const kn = S.knobs, hue = cl(kn[0], 0, 1) + 0.0;
+  const kn = S.knobs, hue = cl(kn[0], 0, 1);
   if (S.lutHue !== hue) buildLut(S, hue);
   const xm = cl((kn[2] - 0.1) / 0.5, 0, 1);
   const ant = cl(kn[3], -1, 1);
   const P = 6.8 * exp(-0.41 * ant);
-  const s = 0.8 + 0.45 * xm; // the whole time axis stretches as the soil gets slower
-  const K0 = 1.3 * s * s; // asymptote of a hyperbola, rows a LED
+  const s = 0.85 + 0.3 * xm; // the whole time axis stretches as the soil gets slower
+  const K0 = 1.18 * s * s; // asymptote of a hyperbola, rows a LED
   const alpha = 0.019 * (0.6 + 1 * (0.1 + 0.5 * xm)) * pow(7 / P, 0.6);
-  const gam = 0.018 - alpha; // receiver gain minus loss, per row
+  const gam = 0.0081 - 0.39 * alpha; // receiver gain minus loss, per row
   const cart = S.cart, tau = S.tau;
   const breathe = 1 + 0.04 * sin(0.7 * tau) + 0.025 * sin(1.9 * tau + 0.8);
 
@@ -229,8 +229,10 @@ export function draw(display, params) {
   for (let x = 0; x < W; x++) {
     const xw = cart + x;
     col.fill(0);
+    // the antenna never couples twice the same way: every arrival time sways by up to half a row
+    const jit = 0.3 * sin(0.75 * tau + 0.17 * x) + 0.2 * sin(0.43 * tau - 0.11 * x + 1);
     // the direct wave through the air and the top of the ground, ringing
-    const tw = 4.5 + 0.6 * sin(xw / 41 + 1) + 0.35 * sin(xw / 17.3);
+    const tw = 4.5 + jit + 0.6 * sin(xw / 41 + 1) + 0.35 * sin(xw / 17.3);
     const aw = 1.2 * (1 + 0.15 * sin(xw / 29));
     addW(col, tw, aw, P);
     addW(col, tw + 0.62 * P, -0.45 * aw, P);
@@ -248,7 +250,7 @@ export function draw(display, params) {
         const xa = F.xa + F.slope * (LAYER_T[i] - F.top);
         t += F.d * (sm((xw - xa) / 4 + 0.5) - sm((xw - xa - F.len) / 4 + 0.5));
       }
-      t *= s;
+      t = t * s + jit;
       const a = LAYER_A[i] * (1 + 0.35 * sin(xw / (24 + 6 * i) + i));
       addW(col, t, a * exp(gam * t), P);
     }
@@ -256,7 +258,7 @@ export function draw(display, params) {
     for (let i = 0; i < NM; i++) {
       const w = sm((sin(xw / (61 + 23 * i) + 1.7 * i) - 0.05) * 1.6);
       if (w <= 0.01) continue;
-      const t = (MINOR_T[i] + 0.8 * sh1 + 2.4 * sin(xw / (29 + 5 * i) + i)) * s;
+      const t = (MINOR_T[i] + 0.8 * sh1 + 2.4 * sin(xw / (29 + 5 * i) + i)) * s + jit;
       addW(col, t, MINOR_A[i] * w * exp(gam * t), P);
     }
     // lenses
@@ -264,7 +266,7 @@ export function draw(display, params) {
       const L = lens[l], dx = (xw - L.x0) / L.hl;
       if (dx <= -1 || dx >= 1) continue;
       const w = 1 - dx * dx, th = L.th * w * w;
-      const tc = (L.t0 + 4 * sin(xw / 70 + L.ph) + 0.3 * sh1) * s;
+      const tc = (L.t0 + 4 * sin(xw / 70 + L.ph) + 0.3 * sh1) * s + jit;
       addW(col, tc - 0.5 * th * s, L.a * exp(gam * tc), P);
       addW(col, tc + 0.5 * th * s, -0.85 * L.a * exp(gam * tc), P);
     }
@@ -274,7 +276,7 @@ export function draw(display, params) {
       const kk = K0 * D.km, hw = (0.55 * D.t0 * s) / kk * D.hw + 6;
       if (abs(dx) > 2.1 * hw) continue;
       const t0 = D.t0 * s;
-      const t = sqrt(t0 * t0 + kk * kk * dx * dx);
+      const t = sqrt(t0 * t0 + kk * kk * dx * dx) + jit;
       const env = exp(-(dx * dx) / (hw * hw)) * (t0 / t);
       for (let e = 0; e < D.ech.length; e++) addW(col, t + D.ech[e][0], D.a * D.ech[e][1] * env * exp(gam * t), P);
     }
