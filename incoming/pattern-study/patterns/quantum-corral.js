@@ -43,6 +43,7 @@ const NTMAX = 32; // most incoming plane waves
 const CN = 33; // coarse grid: 33 by 33 samples, one every 2 LEDs, over a half
 const CNN = CN * CN;
 const NGROUPS = 8; // the coarse grid is refreshed one eighth at a time
+const L1 = 0.8; // density of states where the colour scale turns from linear to logarithmic
 const XS = 0.025, XINV = 1 / XS, XN = 2000; // Bessel table, to x = 50
 
 // ---- J0 and Y0 on a table. The power series up to x = 14, the Hankel asymptotic series after it.
@@ -97,12 +98,13 @@ function rgbOf(h, s, v) {
 }
 // False colour of the density of states: black-blue, cobalt, azure, cyan, ice, warm white.
 const STOPS = [
-  [0.0, 2, 4, 20],
-  [0.2, 6, 18, 100],
-  [0.4, 14, 62, 176],
-  [0.6, 24, 140, 214],
-  [0.78, 100, 214, 226],
-  [0.92, 206, 240, 236],
+  [0.0, 1, 2, 12],
+  [0.14, 4, 10, 66],
+  [0.32, 8, 34, 128],
+  [0.52, 16, 92, 192],
+  [0.7, 40, 168, 220],
+  [0.84, 130, 224, 230],
+  [0.94, 220, 244, 236],
   [1.0, 255, 246, 214],
 ];
 function stopColour(t, out) {
@@ -135,7 +137,7 @@ function makeCorral(ell) {
 
 function makeState() {
   const S = {
-    t: 0, q: 6.4, dir: 1, gate: 1, dosS: 0, frame: 0,
+    t: 0, q: 6.62, dir: 1, gate: 1, dosS: 1.5, frame: 0,
     top: makeCorral(false), bot: makeCorral(true),
     knobs: [0, 2, 0, 0.5],
     lut: new Float32Array(256 * 3), atomCol: [255, 196, 64], coCol: [255, 150, 160], hueDone: -1,
@@ -145,22 +147,24 @@ function makeState() {
   return S;
 }
 
-// Where the atoms are. The round ring is 48 atoms on a circle of 26 LEDs. Its radius also breathes by up to about a
-// third of an LED in each of the multipoles 2 to 12, every one turning at its own slow rate, which is what splits a
-// mode with 2m lobes into its two orientations and turns the lobes. The lower ring is an ellipse with the same atom
-// count, equal steps along its length, deformed in the same way, and a different atom at the left focus.
-const NMUL = 8;
+// Where the atoms are. The round ring is 48 atoms on a circle of 26 LEDs. Its radius also breathes, by 0.23 LEDs in the
+// multipole 2 up to 0.38 in the multipole 12 (even ones only, since a mode with m nodes pairs with its twin through
+// the multipole 2m), each turning at its own rate between 0.055 and 0.095 radians a second divided by its order. That
+// splits a mode with 2m lobes into its two orientations, one at a time, and turns the lobes. The lower ring is an
+// ellipse with the same atom count, equal steps along its length, deformed in the same way, and a different atom at
+// the left focus.
+const NMUL = 4;
 const MP = [], MW = [];
 for (let i = 0; i < NMUL; i++) {
   MP.push(TAU * ((i * 0.6180339887 + 0.13) % 1));
-  MW.push((i % 2 ? -1 : 1) * (0.021 + 0.0137 * ((i * 0.7548776662 + 0.3) % 1)));
+  MW.push((i % 2 ? -1 : 1) * (0.055 + 0.04 * ((i * 0.7548776662 + 0.3) % 1)));
 }
 function breath(u, t, seed) {
   let s = 0;
-  for (let i = 0; i < NMUL; i++) s += cos((i + 2) * u + MP[(i + seed * 5) % NMUL] + seed + MW[i] * t * (seed ? 1.3 : 1));
-  return 0.13 * s;
+  for (let i = 0; i < NMUL; i++) s += (0.15 + 0.03 * i) * cos((2 * i + 2) * u + MP[(i + seed * 2) % NMUL] + seed + MW[i] * t * (seed ? 1.3 : 1));
+  return s;
 }
-const jit = (i, s) => 0.14 * (((sin(i * 12.9898 + s * 78.233) * 43758.5453) % 1) + 0) ;
+const jit = (i, s) => 0.08 * ((sin(i * 12.9898 + s * 78.233) * 43758.5453) % 1);
 
 function placeAtoms(C, t, e) {
   const n = NAT;
@@ -244,7 +248,7 @@ function refresh(C, S, e, leak) {
       const y = 2 * cy + 0.5 - 32 - ay[i];
       for (let cx = 0; cx < CN; cx++, c++) {
         const x = 2 * cx + 0.5 - 32 - ax[i];
-        dist[c * n + i] = max(0.8, sqrt(x * x + y * y));
+        dist[c * n + i] = sqrt(x * x + y * y + 4.5);
       }
     }
   const stride = n + NTMAX;
@@ -378,6 +382,11 @@ function innerStats(C) {
   }
   C.dos = s / max(1, inside.length);
   C.mx = mx;
+  // the 96th percentile of the density inside the ring sets the gain
+  const m = inside.length, tmp = C.qs || (C.qs = new Float32Array(CNN));
+  for (let q = 0; q < m; q++) tmp[q] = L[inside[q]];
+  tmp.subarray(0, m).sort();
+  C.p96 = tmp[min(m - 1, floor(m * 0.96))];
 }
 
 export function update(dt, input, params) {
@@ -394,12 +403,15 @@ export function update(dt, input, params) {
   evalGroup(S.bot, g);
   innerStats(S.top);
   innerStats(S.bot);
-  const ex = 0.5 * (max(0, S.top.dos - 1) + max(0, S.bot.dos - 1));
-  S.dosS += (ex - S.dosS) * (1 - exp(-d / 0.3));
-  S.gate = 1 / (1 + S.dosS / 0.8);
+  // The sweep slows down on a resonance: the mean density of states inside the rings climbs from under 1 between
+  // resonances to 1.5 and well above on one, and the speed falls to a fifth of its free value there.
+  const dm = max(S.top.dos, S.bot.dos);
+  S.dm = dm;
+  S.dosS += (dm - S.dosS) * (1 - exp(-d / (dm > S.dosS ? 0.12 : 0.6)));
+  S.gate = 1 - 0.75 * sm((S.dosS - 1.25) / 0.9);
   const sw = cl(kn[1], 0, 3);
   const wob = 1 + 0.3 * sin(0.23 * S.t + 1) + 0.2 * sin(0.071 * S.t + 2.2) + 0.12 * sin(0.53 * S.t);
-  S.q += S.dir * sw * 0.045 * wob * (0.12 + 0.88 * S.gate) * d;
+  S.q += S.dir * sw * 0.06 * wob * S.gate * sqrt(7 / S.q) * d;
   if (S.q > QMAX) {
     S.q = QMAX;
     S.dir = -1;
@@ -416,7 +428,7 @@ function buildLut(S, hue) {
     const [h, s, v] = hsvOf(t[0], t[1], t[2]);
     S.lut.set(rgbOf(h + hue, s, v), k * 3);
   }
-  S.atomCol = rgbOf(0.12 + hue, 0.74, 1);
+  S.atomCol = rgbOf(0.125 + hue, 0.62, 1);
   S.coCol = rgbOf(0.97 + hue, 0.45, 1);
   S.hueDone = hue;
 }
@@ -448,10 +460,10 @@ function upsample(C, S, out, y0) {
 function paintHalf(C, S, yoff, flip) {
   const img = S.img, buf = S.buf, lut = S.lut;
   upsample(C, S, img, 0);
-  // gain follows the tallest ripple inside the ring
-  const lref = C.lref;
-  const k1 = 1 / log(1 + lref / 0.5);
+  // gain follows the tallest ripple inside the ring, and blends from one half to the other over rows 52 to 76
+  const lt = log(S.top.lref), lb = log(S.bot.lref);
   for (let y = 0; y < HALF; y++) {
+    const w = sm((yoff + y - 52) / 24), k1 = 1 / log(1 + exp(lt + (lb - lt) * w) / L1);
     // fade of the ground ripple towards the seam between the halves
     const ds = flip ? y + 0.5 : HALF - y - 0.5;
     const fade = sm(ds / 6);
@@ -459,7 +471,7 @@ function paintHalf(C, S, yoff, flip) {
       let L = img[y * W + x];
       L = 1 + (L - 1) * fade;
       if (L < 0) L = 0;
-      const u = cl(log(1 + L / 0.5) * k1, 0, 1);
+      const u = cl(log(1 + L / L1) * k1, 0, 1);
       const li = ((u * 255) | 0) * 3, o = ((yoff + y) * W + x) * 3;
       buf[o] = lut[li];
       buf[o + 1] = lut[li + 1];
@@ -477,8 +489,8 @@ function paintHalf(C, S, yoff, flip) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - px, dy = y + 0.5 - py, d2 = dx * dx + dy * dy;
         const o = ((yoff + y) * W + x) * 3;
-        const halo = 0.4 * exp(-d2 / (2 * 1.8 * 1.8 * sg));
-        const a = cl(1.2 * exp(-d2 / (2 * 0.95 * 0.95 * sg)), 0, 1);
+        const halo = 0.7 * exp(-d2 / (2 * 1.7 * 1.7 * sg));
+        const a = cl(1.7 * exp(-d2 / (2 * 0.85 * 0.85 * sg)), 0, 1);
         for (let c = 0; c < 3; c++) {
           let v = buf[o + c] * (1 - halo);
           v += (col[c] - v) * a;
@@ -494,7 +506,7 @@ export function draw(display, params) {
   const hue = cl(S.knobs[0], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
   for (const C of [S.top, S.bot]) {
-    const target = cl(C.mx || 8, 6, 60);
+    const target = cl((C.p96 || 6) * 1.1, 6, 60);
     C.lref += (target - C.lref) * 0.08;
   }
   paintHalf(S.top, S, 0, false);
