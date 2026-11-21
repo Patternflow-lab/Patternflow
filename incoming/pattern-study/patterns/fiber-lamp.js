@@ -27,17 +27,17 @@ const sm = (a, b, v) => {
 };
 
 const NS = 96; // strands
-const HERO = 6; // every HERO-th strand is a bright one, drawn clear to the hub; the rest make the haze behind
+const HERO = 7; // every HERO-th strand is a bright one, drawn clear to the hub; the rest make the haze behind
 const HX = 32; // the hub, low at the bottom centre
 const HY = 130;
 const DS = 0.5; // distance between samples along a strand, in LEDs
 const NSEG = 6; // segments on the colour wheel
-const B0 = 0.035; // how much light a strand carries at the hub, against 1 at its tip
-const B1 = 0.07; // the share that grows with the square of the way along
+const B0 = 0.025; // how much light a strand carries at the hub, against 1 at its tip
+const B1 = 0.09; // the share that grows with the square of the way along
 const TAIL = 10; // LEDs: how far back from its tip a strand's own bright end reaches
-const LINE_GAIN = 2.06 * 0.5; // makes a strand's centre a given brightness after the two-LED blur
+const LINE_GAIN = 2.06 * 0.62; // makes a strand's centre a given brightness after the two-LED blur
 const T0 = 53; // the waves have been running this long when the Lab starts
-const HAZE = 0.05; // how bright a haze strand is against a bright one
+const HAZE = 0.03; // how bright a haze strand is against a bright one
 const R_IN = 0.72; // the radius, against the dome's, inside which no strand ends
 const DOME_P = 2.4; // the dome of tips is a rounded bell, wider than an ellipse
 const PHI_MAX = 1.25; // the widest tip angle round the hub, radians (77 degrees)
@@ -48,14 +48,27 @@ const WHEEL_UNIT = 0.14; // wheel speed in segments a second at the opening 0
 // ---- colour ----
 // the wheel's segments in OKLab (L, a, b), from OKLCH
 const SEG_LCH = [
-  [0.5, 0.24, 264], // deep blue
-  [0.66, 0.26, 337], // magenta
-  [0.82, 0.17, 72], // amber
-  [0.8, 0.25, 145], // green
-  [0.98, 0.012, 90], // pale white
-  [0.8, 0.12, 205], // cyan
+  [0.5, 0.24, 264, 1.2], // deep blue
+  [0.66, 0.26, 337, 1], // magenta
+  [0.84, 0.17, 85, 1.15], // amber
+  [0.8, 0.25, 145, 0.95], // green
+  [0.98, 0.03, 250, 1.5], // pale white, a shade cool
+  [0.8, 0.12, 205, 1.05], // cyan
 ];
-const SEG = SEG_LCH.map(([L, C, h]) => [L, C * cos((h * PI) / 180), C * sin((h * PI) / 180)]);
+// the last number is how bright the segment is run: blue needs more light to read, and so
+// does a white, which looks grey when it is no brighter than a colour beside it
+const SEG = SEG_LCH.map(([L, C, h, g]) => [L, C * cos((h * PI) / 180), C * sin((h * PI) / 180), g]);
+// each segment's hue also wanders by up to 45 degrees either way on periods that do not divide,
+// so a second turn of the wheel is not the first one again
+function tuneWheel(t) {
+  for (let k = 0; k < NSEG; k++) {
+    const [L, C, h] = SEG_LCH[k];
+    const d = (45 * (0.6 * sin(0.061 * t + k * 2.3) + 0.4 * sin(0.103 * t + k * 1.1 + 0.7)) * PI) / 180;
+    const a = (h * PI) / 180 + d;
+    SEG[k][1] = C * cos(a);
+    SEG[k][2] = C * sin(a);
+  }
+}
 
 // OKLab to linear sRGB, then scaled so the brightest channel is 1
 function lab2rgb(L, a, b, out) {
@@ -90,6 +103,10 @@ function wheel(p, rot, out) {
   const c = cos(rot);
   const s = sin(rot);
   lab2rgb(L, a * c - b * s, a * s + b * c, out);
+  const gn = A[3] + (B[3] - A[3]) * w;
+  out[0] *= gn;
+  out[1] *= gn;
+  out[2] *= gn;
 }
 
 // encode: linear light, soft knee above 0.6, then 1/2.2
@@ -192,7 +209,7 @@ export function update(dt, input, params) {
   S.t += d;
   const t = S.t;
   // the wheel turns at the set speed, breathing on periods that do not divide
-  const breath = 1 + 0.28 * sin(0.0713 * t + 0.9) + 0.15 * sin(0.1931 * t + 2.4) + 0.07 * sin(0.4337 * t);
+  const breath = 1 + 0.4 * sin(0.0713 * t + 0.9) + 0.22 * sin(0.1931 * t + 2.4) + 0.08 * sin(0.4337 * t);
   S.wp += d * WHEEL_UNIT * pow(8, S.speed) * breath;
   if (S.wp > 1e4) S.wp -= NSEG * floor(S.wp / NSEG);
 }
@@ -200,9 +217,9 @@ export function update(dt, input, params) {
 // a slow wave across the fan: three sines that travel at rates sharing no divisor
 function wave(f, t, k, a1, a2, a3) {
   return (
-    a1 * sin(2.3 * f + 0.231 * t + k) +
-    a2 * sin(4.1 * f - 0.173 * t + 2.2 + k * 1.7) +
-    a3 * sin(6.7 * f + 0.389 * t + 0.3 + k * 0.6)
+    a1 * sin(2.3 * f + 0.371 * t + k) +
+    a2 * sin(4.1 * f - 0.283 * t + 2.2 + k * 1.7) +
+    a3 * sin(6.7 * f + 0.529 * t + 0.3 + k * 0.6)
   );
 }
 
@@ -234,19 +251,24 @@ export function draw(display, params) {
   const t = S.t;
   const sw = S.sway;
   const sp = S.spread; // -1 to 1
-  const rot = S.hue * TAU;
+  // every colour of the wheel also creeps round the hue circle, once in about three minutes
+  const rot = (S.hue + (t - T0) * 0.006 + 0.03 * sin(0.0217 * t)) * TAU;
   const c0 = S.c0;
   const c1 = S.c1;
   const px = S.px;
   const py = S.py;
   const cu = S.cu;
   acc.fill(0);
+  tuneWheel(t);
 
   // the fan's shape from Spread: how wide and how tall the dome of tips is, and how far from
   // the vertical the strands leave the hub
-  const k = 0.5 * (sp + 1); // 0 to 1
-  const domeX = 15 + 15 * k; // half width of the dome of tips, in LEDs
-  const domeY = 124 - 24 * k; // half height
+  // the fan also opens and closes a little round the set Spread, over a minute or two
+  const k = cl(0.5 * (sp + 1) + sw * (0.14 * sin(0.0431 * t + 1.1) + 0.08 * sin(0.1117 * t + 0.2)), 0, 1); // 0 to 1
+  // the whole fan also leans, widens and stretches on periods of a minute or more
+  const lean = sw * (0.1 * sin(0.0213 * t + 1) + 0.07 * sin(0.0517 * t + 2.1));
+  const domeX = (12 + 18 * sqrt(k)) * (1 + sw * (0.1 * sin(0.0317 * t) + 0.06 * sin(0.0719 * t + 1.3))); // half width of the dome of tips, in LEDs
+  const domeY = (134 - 14 * k) * (1 + sw * 0.04 * sin(0.0391 * t + 0.4)); // half height
   const launch = 0.88; // how much of its tip's angle a strand leaves the hub with
 
   for (let i = 0; i < NS; i++) {
@@ -256,7 +278,7 @@ export function draw(display, params) {
     const o2 = S.ph[i * 6 + 1];
     const o3 = S.ph[i * 6 + 2];
     // the tip: an angle and a radius round the hub, swung by waves across the fan
-    const phi = S.pa[i] + wave(f, t, 0.4, 0.07, 0.05, 0.035) * sw + 0.03 * sw * sin(own * t + o1);
+    const phi = S.pa[i] + lean + wave(f, t, 0.4, 0.1, 0.07, 0.05) * sw + 0.03 * sw * sin(own * t + o1);
     const rn = S.pr[i] * (1 + 0.06 * sw * sin(S.wi[i * 4 + 3] * t + o2) + 0.04 * sw * sin(0.173 * t + 3 * f));
     const sph = sin(phi);
     const cph = cos(phi);
@@ -267,16 +289,16 @@ export function draw(display, params) {
     const rho = sqrt((Tx - HX) * (Tx - HX) + (Ty - HY) * (Ty - HY));
     // the launch direction at the hub, and the direction it arrives at its tip: an arch,
     // leaving steeper than the chord and arriving bent outward past it
-    const th0 = chord * launch * S.arch[i] + wave(f, t, 1.9, 0.1, 0.07, 0.05) * sw + 0.02 * sw * sin(own * 1.3 * t + o3);
-    const thT = chord * (1 + 0.35 * S.arch[i]) + wave(f, t, 3.1, 0.12, 0.08, 0.06) * sw * 0.8;
+    const th0 = chord * launch * S.arch[i] + 0.5 * lean + wave(f, t, 1.9, 0.16, 0.1, 0.07) * sw + 0.02 * sw * sin(own * 1.3 * t + o3);
+    const thT = chord * (1 + 0.6 * S.arch[i]) + wave(f, t, 3.1, 0.14, 0.09, 0.07) * sw * 0.8;
     const l1 = 0.5 * rho;
     const l2 = 0.4 * rho;
     const P0x = HX + S.rim[i * 2];
     const P0y = HY + S.rim[i * 2 + 1];
     // sideways swing of the two inner control points, on waves that run along the strand
     const sc = rho / 100;
-    const n1 = wave(f, t, 0.8, 2.4, 1.6, 1.1) * sw * sc;
-    const n2 = wave(f, t, 2.6, 5.5, 3.6, 2.4) * sw * sc;
+    const n1 = wave(f, t, 0.8, 3, 2, 1.4) * sw * sc;
+    const n2 = wave(f, t, 2.6, 7, 4.5, 3) * sw * sc;
     const P1x = P0x + l1 * sin(th0) + cos(th0) * n1;
     const P1y = P0y - l1 * cos(th0) + sin(th0) * n1;
     const P2x = Tx - l2 * sin(thT) + cos(thT) * n2;
@@ -308,7 +330,10 @@ export function draw(display, params) {
     const w1 = S.wi[i * 4 + 1];
     const w2 = S.wi[i * 4 + 2];
     const tw1 = 0.78 + 0.16 * sin(w1 * t + S.ph[i * 6 + 3]) + 0.1 * sin(w2 * t + S.ph[i * 6 + 4]);
-    const tip = tw1;
+    // the light does not reach every part of the bunch alike: sectors of the fan run brighter or
+    // dimmer as the wheel's spot moves across the bundle
+    const sector = 0.78 + 0.26 * (0.6 * sin(2.2 * f + 0.071 * t + 0.5) + 0.4 * sin(4.7 * f - 0.049 * t + 1.7));
+    const tip = tw1 * sector;
     const gn = S.gain[i];
     // light along the strand
     const invLen = 1 / max(len, 1e-3);
@@ -319,7 +344,7 @@ export function draw(display, params) {
       const y = 0.5 * (py[m] + py[m + 1]);
       if (x < -1 || x > W || y < -1 || y > H) continue;
       const u2 = u * u;
-      const shape = (B0 + B1 * u2) * sm(0.04, 0.34, u) + exp(-((1 - u) * len) / TAIL);
+      const shape = (B0 + B1 * u2) * sm(0.08, 0.45, u) + exp(-((1 - u) * len) / TAIL);
       const val = LINE_GAIN * gn * shape * tip * ds;
       const cm = sm(0, 1, u);
       const r = (c0[0] + (c1[0] - c0[0]) * cm) * val;
@@ -348,7 +373,7 @@ export function draw(display, params) {
         S.tipC[i * 4] = c1[0];
     S.tipC[i * 4 + 1] = c1[1];
     S.tipC[i * 4 + 2] = c1[2];
-    S.tipC[i * 4 + 3] = tip * (0.25 + 0.75 * gn);
+    S.tipC[i * 4 + 3] = tip * (0.14 + 0.86 * gn);
   }
 
   // blur the strands by [1 2 1] along each axis: a line of samples becomes two LEDs wide
