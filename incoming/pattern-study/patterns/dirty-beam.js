@@ -27,12 +27,12 @@ const CAP = 21000; // slots in the ring of u-v samples
 const RATE = 1150; // u-v samples taken a second at the opening rotation, more when the Earth turns faster
 const LMAX = 8.5; // the longest window, seconds
 const LMIN = 0.9; // and the shortest, which is a snapshot
-const NS = 16; // sources in the sky
+const NS = 24; // sources in the sky
 const NANT = 27; // dishes, nine on each arm of the Y
 const UMAX = 0.2; // the longest baseline, cycles per LED at the opening wavelength
 const TAPER = 0.2; // roll-off of the longest baselines
 const ROBUST = 0.06;
-const SHORT = 2; // extra weight on the shortest baselines, which carry the diffuse light
+const SHORT = 3; // extra weight on the shortest baselines, which carry the diffuse light
 const RINGS = 0.15; // small: the weight grows with baseline length, a thickened annulus, and the rings stand out // 0 is uniform weighting, large is natural
 const EPS = 0.86; // the foreshortening of v: the beam is that much longer than it is wide
 
@@ -71,31 +71,60 @@ function knots(t, slot, dir, P, v, A, dist, ex, ey, cx, cy, tag) {
   for (; j < 3; j++) sa[slot + j] = 0;
 }
 
+// Faint compact sources spread over the field, each on a slow wandering path
+// and brightening and fading on its own beat.
+const BASE = [[9, 10], [53, 10], [6, 50], [58, 44], [8, 110], [32, 121], [58, 84]];
+const BG = BASE.map((p, i) => ({
+  x: p[0],
+  y: p[1],
+  ax: 4 + 5 * hash2(i, 1),
+  ay: 4 + 6 * hash2(i, 2),
+  fx: 0.045 + 0.08 * hash2(i, 3),
+  fy: 0.043 + 0.08 * hash2(i, 4),
+  fa: 0.12 + 0.3 * hash2(i, 5),
+  px: TAU * hash2(i, 6),
+  py: TAU * hash2(i, 7),
+  pa: TAU * hash2(i, 8),
+  a: 0.3 + 0.35 * hash2(i, 9),
+  sg: 0.9 + 0.5 * hash2(i, 10),
+}));
+
 function skyAt(t) {
-  const th = 0.38 + 0.2 * sin(0.047 * t + 0.9) + 0.09 * sin(0.113 * t + 2.2);
+  const th = 0.6 * sin(0.071 * t + 0.7) + 0.32 * sin(0.137 * t + 0.1) + 0.05 * sin(0.29 * t);
   const ex = sin(th);
   const ey = -cos(th);
-  const cx = 32 + 2.2 * sin(0.071 * t + 0.4);
-  const cy = 62 + 2.6 * sin(0.053 * t + 1.3);
-  const da = 36 + 3.5 * sin(0.083 * t + 0.2);
-  const db = 31 + 3 * sin(0.061 * t + 2.4);
+  // the far lobe is bent off the line, as in a wide-angle tail
+  const tb = th + 0.55 * sin(0.093 * t + 2.1) + 0.2 * sin(0.21 * t);
+  const bx2 = sin(tb);
+  const by2 = -cos(tb);
+  const cx = 32 + 8 * sin(0.047 * t + 0.4) + 4 * sin(0.113 * t + 1);
+  const cy = 64 + 10 * sin(0.039 * t + 1.3) + 4 * sin(0.101 * t + 0.2);
+  // the lobes keep inside the panel however the axis turns
+  const room = (23 - abs(cx - 32)) / max(abs(ex), 0.01);
+  const da = max(16, min(35 + 5 * sin(0.151 * t + 0.2), room));
+  const db = max(15, min(30 + 4 * sin(0.127 * t + 2.4), (23 - abs(cx - 32)) / max(abs(bx2), 0.01)));
   put(0, cx, cy, 1.5 * (1 + 0.1 * sin(0.77 * t + 0.5)), 0.9);
-  put(1, cx, cy, 0.8, 6.5);
-  put(2, cx + da * ex, cy + da * ey, 3.4 * (1 + 0.12 * sin(0.13 * t + 1)), 2.5);
-  put(3, cx - db * ex, cy - db * ey, 2.6 * (1 + 0.15 * sin(0.097 * t + 4)), 2.3);
+  put(1, cx + 0.8 * da * ex, cy + 0.8 * da * ey, 2.2, 6);
+  put(23, cx - 0.8 * db * bx2, cy - 0.8 * db * by2, 1.8, 6);
+  put(2, cx + da * ex, cy + da * ey, 3.4 * (1 + 0.35 * sin(0.21 * t + 1)), 2.5);
+  put(3, cx - db * bx2, cy - db * by2, 2.9 * (1 + 0.35 * sin(0.173 * t + 4)), 2.3);
   put(4, cx + (da + 5.5) * ex, cy + (da + 5.5) * ey, 0.9 * (1 + 0.25 * sin(0.41 * t)), 1.5);
-  put(5, cx - (db + 5) * ex, cy - (db + 5) * ey, 0.6 * (1 + 0.3 * sin(0.37 * t + 2)), 1.5);
+  put(5, cx - (db + 5) * bx2, cy - (db + 5) * by2, 0.6 * (1 + 0.3 * sin(0.37 * t + 2)), 1.5);
   knots(t, 6, 1, 3.4, 6.5, 1.5, da, ex, ey, cx, cy, 1);
-  knots(t, 9, -1, 4.9, 5.4, 0.9, db, ex, ey, cx, cy, 2);
+  knots(t, 9, -1, 4.9, 5.4, 0.9, db, bx2, by2, cx, cy, 2);
   const bph = 0.63 * t + 0.6 * sin(0.11 * t);
   const br = 5 + 1.1 * sin(0.29 * t + 0.6);
-  const bx = 47 + 3 * sin(0.043 * t + 1);
-  const by = 107 + 3 * sin(0.037 * t + 2);
+  const bx = 46 + 6 * sin(0.061 * t + 1) + 2 * sin(0.127 * t);
+  const by = 106 + 6 * sin(0.049 * t + 2);
   put(12, bx + 0.4 * br * cos(bph), by + 0.4 * br * sin(bph), 0.8, 0.6);
   put(13, bx - 0.6 * br * cos(bph), by - 0.6 * br * sin(bph), 0.55, 0.6);
   const f = 0.5 + 0.5 * sin(0.171 * t + 0.7);
-  put(14, 14 + 4 * sin(0.067 * t + 0.3), 28 + 5 * sin(0.049 * t + 1.9), 0.1 + 0.9 * f * f * f * f * (0.65 + 0.35 * sin(0.063 * t + 2)), 0.7);
-  put(15, 12 + 5 * sin(0.057 * t), 70 + 7 * sin(0.041 * t + 0.4), 0.28 + 0.1 * sin(0.19 * t + 2), 0.8);
+  put(14, 16 + 6 * sin(0.067 * t + 0.3) + 2 * sin(0.151 * t), 26 + 6 * sin(0.083 * t + 1.9), 0.1 + 0.9 * f * f * f * f * (0.65 + 0.35 * sin(0.063 * t + 2)), 0.7);
+  put(15, 12 + 6 * sin(0.057 * t), 72 + 8 * sin(0.061 * t + 0.4), 0.28 + 0.1 * sin(0.19 * t + 2), 0.8);
+  for (let i = 0; i < BG.length; i++) {
+    const g = BG[i];
+    put(16 + i, g.x + g.ax * sin(g.fx * t + g.px), g.y + g.ay * sin(g.fy * t + g.py), g.a * (1 + 0.6 * sin(g.fa * t + g.pa)), g.sg);
+  }
 }
 
 // ---- the array ---------------------------------------------------------------
