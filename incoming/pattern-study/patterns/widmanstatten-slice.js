@@ -268,7 +268,7 @@ export function draw(display, params) {
   if (!S || !S.ok) return;
   const { fs0, fsx, fsy, fg, fm, fr, fa0, fax, fay, fb0, fbx, fby, kmin, jit, hp, offA, offB, pb, grid } = S;
   const { kam, rim, white, gold, grey, mot: mo } = S;
-  const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.5 + 0.3 * dt, fadeHi = 1.0 + 0.4 * dt;
+  const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.55 + 0.25 * dt, fadeHi = 1.05 + 0.3 * dt, thick = 1 + 0.25 * (1 - dt);
   for (let y = 0; y < H; y++) {
     const py = y + 0.5, gyf = py / GSTEP, jy = min(floor(gyf), GY - 2), fy = gyf - jy;
     for (let x = 0; x < W; x++) {
@@ -285,7 +285,7 @@ export function draw(display, params) {
         const ii = i * NK + idx;
         const dsg = s - (k + PH[i] + jit[ii]);
         const ads = dsg < 0 ? -dsg : dsg, g = fg[i], gg = g > 0.004 ? g : 0.004;
-        if (ads > 0.34 * tm + fr[i] + gg) continue;
+        if (ads > 0.34 * thick * tm + fr[i] + gg) continue;
         const A = fa0[i] + fax[i] * px + fay[i] * py + offA[ii];
         const B = fb0[i] + fbx[i] * px + fby[i] * py + offB[ii];
         const ci = floor(A * invG), cj = floor(B * invG);
@@ -297,7 +297,7 @@ export function draw(display, params) {
         const cy = (cj + 0.5) * G + (((hc >>> 16) & 255) / 127.5 - 1) * (G * 0.5 - Rb);
         const da = (A - cx) / Ra, db = (B - cy) / Rb, r2 = da * da + db * db;
         if (r2 >= 1) continue;
-        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * tm * sqrt(1 - r2);
+        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * thick * tm * sqrt(1 - r2);
         // A band narrower than about two LEDs (a little more at a coarse spacing) fades out with its rim.
         let fade = (h / gg - fadeLo) / (fadeHi - fadeLo);
         if (fade <= 0) continue;
