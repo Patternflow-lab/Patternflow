@@ -24,17 +24,20 @@ const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 const mix = (a, b, u) => a + (b - a) * u;
 
 // ---- the model
-const Y0 = -14, Y1 = 142; // the river enters above the panel and leaves below it
+const Y0 = -40, Y1 = 150; // the river enters above the panel and leaves below it
 const CAP = 1400;
 const OMEGA = 1; // local curvature term, which pulls a bend back toward its centre
-const GAM0 = 2.5; // upstream-weighted term, which pushes it out and downstream
-const E0 = 2.7; // bank erodibility at the 3.5 LED channel
-const ALPHA0 = 0.77; // 1 / (length of the upstream memory), times the channel width
+const GAM0 = 1.9; // upstream-weighted term, which pushes it out and downstream
+const K3F = 1.45; // how much the Drive knob scales the upstream term, per unit
+const E0 = 1.6; // bank erodibility at the 3.5 LED channel
+const ALPHA0 = 0.9; // 1 / (length of the upstream memory), times the channel width
 const W0 = 3.5;
 const WALL = 7.5; // the valley wall: migration toward an edge stops this far from it
-const CUTF = 1.1; // a neck narrower than this many channel widths is cut
+const CUTF = 1.8; // a neck narrower than this many channel widths is cut
 const T_STAMP = 0.3; // seconds between two stampings of the channel into the raster
 const SILT = 170; // seconds an oxbow takes to fill
+const EA = 12; // swing of the entry point, in LEDs
+const VN = 0; // a sideways push from patchy banks, in LEDs a second
 const PRE = 420; // seconds the river has run before the first frame
 
 const NBR_CELL = 6.5;
@@ -71,11 +74,11 @@ function rgbOf(h, s, v) {
 
 // Colours at hue 0. Every one is turned round the wheel by Hue when it changes.
 const COLS = {
-  deep: [18, 92, 110], mid: [32, 148, 160], core: [66, 196, 198], glint: [170, 240, 232],
-  lakeA: [22, 110, 116], lakeB: [56, 106, 64],
-  sand: [232, 212, 160], crest: [206, 176, 110], swale: [112, 130, 62],
-  g1: [80, 120, 56], g2: [108, 138, 66], och: [180, 152, 84],
-  hill: [58, 84, 46], hill2: [94, 90, 58], rim: [40, 86, 52],
+  deep: [16, 96, 112], mid: [30, 142, 154], core: [58, 184, 188], glint: [168, 240, 232],
+  lakeA: [20, 108, 112], lakeB: [48, 104, 62],
+  sand: [238, 216, 150], crest: [222, 190, 120], swale: [78, 110, 50],
+  g1: [44, 94, 52], g2: [66, 116, 56], och: [160, 134, 64],
+  hill: [34, 70, 40], hill2: [64, 80, 44], rim: [30, 74, 46],
 };
 const KEYS = Object.keys(COLS);
 const IDX = {};
@@ -89,7 +92,7 @@ function makeState() {
     tL: new Float32Array(RW * RH).fill(-1e9),
     head: new Int32Array(GW * GH), nxt: new Int32Array(CAP),
     lakes: [], nCuts: 0,
-    er: null, fa: new Float32Array(N), fb: new Float32Array(N), ft: new Float32Array(N), hf: new Float32Array(N),
+    er: null, nzA: null, nzB: null, fa: new Float32Array(N), fb: new Float32Array(N), ft: new Float32Array(N), hf: new Float32Array(N),
     pal: new Float32Array(KEYS.length * 3), hueDone: -1,
     rd: new Float32Array(N), ra: new Float32Array(N), rq: new Float32Array(N),
     avgT: new Float32Array(N), cov: new Float32Array(N), lk: new Float32Array(N), lks: new Float32Array(N),
@@ -98,7 +101,7 @@ function makeState() {
 }
 
 function entryX(S, t) {
-  return 32 + 6.5 * sin(0.0207 * t + S.ph[0]) + 3.5 * sin(0.0529 * t + S.ph[1]);
+  return 32 + EA * (0.62 * sin(0.0207 * t + S.ph[0]) + 0.38 * sin(0.0529 * t + S.ph[1]) + 0.3 * sin(0.0371 * t + S.ph[2]));
 }
 
 // ---- the centreline: nodes from the entry at the top to the exit at the bottom
@@ -196,12 +199,14 @@ function step(S, h, gam, E0w, alpha, ds, W) {
     const x = X[i], y = Y[i];
     const er = 1 + 0.4 * (2 * S.er(x, y - Y0 + 8) - 1);
     const damp = sm((y - Y0) / 10) * sm((Y1 - y) / 10);
-    let d = E0w * er * (OMEGA * kap[i] - gam * U[i]) * damp;
+    const nz = mix(S.nzA(x, y - Y0 + 8), S.nzB(x, y - Y0 + 8), 0.5 + 0.5 * sin(0.0083 * S.t + 1));
+    let d = (E0w * er * (OMEGA * kap[i] - gam * U[i]) + VN * (W / W0) * (2 * nz - 1)) * damp;
     d = vmax * tanh(d / vmax);
     let mx = nx * d * h;
     const my = ny * d * h;
     if (mx < 0) mx *= sm((x - WALL) / 5);
     else mx *= sm((W_PANEL - WALL - x) / 5);
+    mx += h * 0.12 * (W / W0) * (sm((WALL + 6 - x) / 6) - sm((x - (W_PANEL - WALL - 6)) / 6));
     X2[i] = cl(x + mx, WALL - 0.5, W_PANEL - WALL + 0.5);
     Y2[i] = cl(y + my, Y0 - 6, Y1 + 6);
   }
@@ -250,7 +255,7 @@ function cutOff(S, a, b, W) {
     lx[k] = X[a + k];
     ly[k] = Y[a + k];
   }
-  S.lakes.push({ x: lx, y: ly, n: m, t0: S.t, w: W });
+  if (m >= 16) S.lakes.push({ x: lx, y: ly, n: m, t0: S.t, w: W });
   if (S.lakes.length > 14) S.lakes.shift();
   const k = b - a - 1;
   for (let i = b; i < S.n; i++) {
@@ -284,7 +289,7 @@ function par(S) {
   const kn = S.knobs;
   const k3 = cl(kn[2], -1, 1);
   const W = S.Wc;
-  return { gam: GAM0 * pow(1.5, k3), alpha: ALPHA0 / W, E: E0 * (W / W0) * (W / W0), ds: 0.34 * W, W };
+  return { gam: GAM0 * pow(K3F, k3), alpha: ALPHA0 / W, E: E0 * (W / W0) * (W / W0), ds: 0.34 * W, W };
 }
 
 function advance(S, mdt) {
@@ -313,11 +318,14 @@ export function setup(params) {
   const S = (params.s = makeState());
   S.ph = [Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28];
   S.er = lattice(15, W, Y1 - Y0 + 16);
-  const fA = lattice(12, W, H), fB = lattice(5, W, H), fC = lattice(3, W, H), hA = lattice(7, W, H);
+  S.nzA = lattice(17, W, Y1 - Y0 + 16);
+  S.nzB = lattice(17, W, Y1 - Y0 + 16);
+  const fA = lattice(13, 160, 160), fD = lattice(6, W, H), fB = lattice(5, W, H), fC = lattice(3, W, H), hA = lattice(7, W, H);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const p = y * W + x, e = min(x + 0.5, W - x - 0.5);
-      S.fa[p] = sm((fA(x, y) - 0.5) * 4.2 + 0.5);
+      const rx = 0.8 * x - 0.6 * y, ry = 0.6 * x + 0.8 * y;
+      S.fa[p] = sm((0.65 * fA(rx + 80, ry) + 0.35 * fD(x, y) - 0.6) * 6 + 0.5);
       S.fb[p] = fB(x, y);
       S.ft[p] = fC(x, y) - 0.5;
       S.hf[p] = sm(1 - (e - 1) / 7);
@@ -328,10 +336,41 @@ export function setup(params) {
   S.pre = true;
 }
 
+// How many times the river turns across the panel, and how long it is against the valley.
+function shape(S) {
+  let len = 0, turns = 0, cum = 0, lo = 0, hi = 0, dir = 0;
+  for (let i = 1; i < S.n - 1; i++) {
+    len += Math.hypot(S.X[i] - S.X[i - 1], S.Y[i] - S.Y[i - 1]);
+    if (S.Y[i] < 0 || S.Y[i] > H) continue;
+    const a1 = atan2(S.Y[i] - S.Y[i - 1], S.X[i] - S.X[i - 1]), a2 = atan2(S.Y[i + 1] - S.Y[i], S.X[i + 1] - S.X[i]);
+    let d = a2 - a1;
+    if (d > PI) d -= 2 * PI;
+    else if (d < -PI) d += 2 * PI;
+    cum += d;
+    if (cum < lo) lo = cum;
+    if (cum > hi) hi = cum;
+    if (dir !== 1 && cum - lo > 1.2) {
+      dir = 1;
+      turns++;
+      hi = cum;
+    } else if (dir !== -1 && hi - cum > 1.2) {
+      dir = -1;
+      turns++;
+      lo = cum;
+    }
+  }
+  return { sin: len / (Y1 - Y0), turns };
+}
+
+// The river runs PRE seconds before the first frame, and a while longer if it has
+// straightened out, so that the opening picture always has bends and bars.
 function prerun(S) {
-  const p = par(S);
-  const total = PRE;
-  advance(S, total);
+  advance(S, PRE);
+  for (let k = 0; k < 40; k++) {
+    const sh = shape(S);
+    if (sh.sin >= 1.7 && sh.turns >= 4) break;
+    advance(S, 10);
+  }
 }
 
 export function update(dt, input, params) {
@@ -416,13 +455,13 @@ export function draw(display, params) {
   for (const L of S.lakes) {
     const age = t - L.t0, s = age / SILT;
     if (s >= 1) continue;
-    const tap = sm(age / 25);
+    const tap = sm(age / 25), fade = 1 - sm((s - 0.45) / 0.55);
     const lm = L.n;
     for (let i = 0; i < lm - 1; i++) {
       const u = (i + 0.5) / (lm - 1), prof = pow(sin(PI * u), 0.5);
-      const rr = (L.w * 0.5) * (1 - pow(s, 1.3)) * (1 - tap * (1 - prof));
-      if (rr < 0.8) continue;
-      const al = sm((rr - 0.8) / 0.6);
+      const rr = L.w * 0.5 * (1 - 0.3 * s) * (1 - 0.45 * tap * (1 - prof));
+      const al = fade * sm((rr - 0.7) / 0.5);
+      if (al <= 0) continue;
       const x0 = L.x[i], y0 = L.y[i], sx = L.x[i + 1] - x0, sy = L.y[i + 1] - y0, l2 = sx * sx + sy * sy + 1e-9;
       const rch = rr + 1;
       const bx0 = max(0, floor(min(x0, x0 + sx) - rch)), bx1 = min(W - 1, Math.ceil(max(x0, x0 + sx) + rch));
@@ -457,9 +496,9 @@ export function draw(display, params) {
       const p = y * W + x;
       // field and valley wall
       const fa = S.fa[p], fb = S.fb[p], tx = S.ft[p] * 0.1;
-      let fr = mix(mix(P[I.g1], P[I.g2], fb), P[I.och], fa * 0.85);
-      let fg = mix(mix(P[I.g1 + 1], P[I.g2 + 1], fb), P[I.och + 1], fa * 0.85);
-      let fbl = mix(mix(P[I.g1 + 2], P[I.g2 + 2], fb), P[I.och + 2], fa * 0.85);
+      let fr = mix(mix(P[I.g1], P[I.g2], fb), P[I.och], fa * 0.8);
+      let fg = mix(mix(P[I.g1 + 1], P[I.g2 + 1], fb), P[I.och + 1], fa * 0.8);
+      let fbl = mix(mix(P[I.g1 + 2], P[I.g2 + 2], fb), P[I.och + 2], fa * 0.8);
       const hf = S.hf[p];
       if (hf > 0) {
         const hm = fb;
