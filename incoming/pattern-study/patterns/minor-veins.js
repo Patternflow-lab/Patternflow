@@ -68,7 +68,7 @@ export function setup(params) {
     x: new Float32Array(NM), y: new Float32Array(NM), par: new Int32Array(NM),
     rb: new Float32Array(NM), bs: new Float32Array(NM), maj: new Uint8Array(NM), rk: new Float32Array(NM), vis: new Float32Array(NM), wd: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
     nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
-    ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
+    ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), kids: new Uint8Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
     cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
     sx: new Float32Array(SM), sy: new Float32Array(SM), sa: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
     l0: new Int32Array(LM), l1: new Int32Array(LM),
@@ -179,6 +179,10 @@ function attract(S) {
     hy[j] = ey / el;
   }
   hx[0] = hy[0] = 0;
+  // A node with three children already calls no more sources, so no vein fans out from one point.
+  const kids = S.kids;
+  kids.fill(0, 0, n);
+  for (let j = 1; j < n; j++) kids[par[j]]++;
   let m = 0;
   for (let i = 0; i < S.ns; i++) {
     const px = sx[i], py = sy[i];
@@ -195,7 +199,7 @@ function attract(S) {
             best = j;
           }
           // A node does not turn back on itself for a source: it calls only those ahead of its heading or abeam of it.
-          if (d < cd && (dx * hx[j] + dy * hy[j]) * -1 >= -0.17 * sqrt(d)) {
+          if (d < cd && kids[j] < 3 && (dx * hx[j] + dy * hy[j]) * -1 >= -0.17 * sqrt(d)) {
             cd = d;
             call = j;
           }
@@ -580,7 +584,7 @@ function raster(S) {
   const wd = S.wd;
   for (let j = 1; j < n; j++) {
     const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
-    wd[j] = min(4.8, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
+    wd[j] = min(4.2, (0.8 + 0.21 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
   }
   wd[0] = wd[1];
   for (let j = 1; j < n; j++) {
