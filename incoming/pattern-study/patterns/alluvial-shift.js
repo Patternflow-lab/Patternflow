@@ -90,6 +90,7 @@ const hueGap = (h, c) => abs(((h - c + 1.5) % 1) - 0.5);
 const ribbonAlpha = (h) => 0.62 + 0.2 * exp(-((hueGap(h, 0.13) / 0.13) ** 2)) + 0.16 * exp(-((hueGap(h, 0.62) / 0.1) ** 2)) - 0.04 * exp(-((hueGap(h, 0.5) / 0.08) ** 2));
 const BAR_V = [0.97, 0.86, 0.97, 0.95, 0.97, 0.9, 0.97]; // bars are paler than their ribbons, and teal and green are held back from neon
 const BG = [14, 4, 19];
+const TMIN = 2; // the least a ribbon is across its own line, LEDs
 // The diagonal's weight against a typical other pair, as its logarithm at a few places of Mixing,
 // joined by straight lines: members hardly leave at 0, and by 1 a module sends more
 // members away than it keeps.
@@ -309,7 +310,7 @@ function build(S) {
         const ta = S.bx[o + i] + 0.5 + la * iwa, wa = fa * iwa;
         const tb = S.bx[o2 + j] + 0.5 + lb * iwb, wb = fb * iwb;
         const q = min(wa, wb);
-        const al = ss((q - 1.3) / 0.9);
+        const al = ss((q - 1.5) / 0.6);
         if (al <= 0.002) continue;
         ribs.push({ k, i, ta, wa, tb, wb, al });
       }
@@ -384,10 +385,11 @@ export function draw(display, params) {
     const ca = R.ta + R.wa / 2, cb2 = R.tb + R.wb / 2, dx = cb2 - ca, span = yb - yt;
     for (let y = yt; y < yb; y++) {
       const t = (y + 0.5 - yt) / span, u = ss(t);
-      // The centre line is the S-curve; the band keeps its thickness across the
-      // line, so where the line runs steeply the band is wider along the row.
+      // The edges are S-curves, so the band is as wide along the row as the blend of its
+      // two ends. Where the line runs steeply that would leave a thin band across the line,
+      // so the width along the row is kept above what gives the band TMIN across it.
       const sl = (6 * t * (1 - t) * dx) / span;
-      const hw = ((R.wa + (R.wb - R.wa) * u) / 2) * sqrt(1 + sl * sl);
+      const hw = max(R.wa + (R.wb - R.wa) * u, TMIN * sqrt(1 + sl * sl)) / 2;
       const xc = ca + dx * u;
       addSpan(buf, y, xc - hw, xc + hw, cr, cg, cb);
     }
