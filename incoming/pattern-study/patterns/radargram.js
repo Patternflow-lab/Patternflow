@@ -34,14 +34,18 @@ function h32(a, b) {
   return (h >>> 0) / 4294967296;
 }
 
-const START = 5512; // track coordinate of the left edge when the cart is first seen
+const START = 8216; // track coordinate of the left edge when the cart is first seen
 const CH = 72; // a chunk of track, in LEDs
 const SEED = 7919;
 
 // ---- the layers: unscaled two-way times in rows, signed reflection coefficients
 const LAYER_T = [17, 40, 63, 86, 108, 131, 155, 180];
-const LAYER_A = [0.45, -0.34, 0.62, -0.38, 0.55, -0.6, 0.5, 0.55];
+const LAYER_A = [0.55, -0.42, 0.75, -0.46, 0.66, -0.72, 0.6, 0.66];
 const NL = LAYER_T.length;
+// weaker beds between them, each present along stretches of the track only
+const MINOR_T = [28, 51, 75, 97, 120, 143];
+const MINOR_A = [0.34, -0.3, 0.36, -0.32, 0.34, -0.3];
+const NM = MINOR_T.length;
 const LAYER_C = [], LAYER_OWN = [];
 for (let i = 0; i < NL; i++) {
   LAYER_C.push(0.55 + 0.7 * fr(0.618034 * (i + 1) + 0.21));
@@ -63,30 +67,30 @@ function genChunk(c) {
   const base = c * CH;
   const out = { dif: [], lens: [], fault: [] };
   const rn = r(0);
-  const n = rn < 0.05 ? 0 : rn < 0.3 ? 1 : rn < 0.65 ? 2 : rn < 0.9 ? 3 : 4;
+  const n = rn < 0.06 ? 0 : rn < 0.34 ? 1 : rn < 0.72 ? 2 : rn < 0.92 ? 3 : 4;
   for (let i = 0; i < n; i++) {
     const q = (k) => r(10 + i * 11 + k);
     const x0 = base + q(0) * CH;
     const ty = q(1);
     const t0 = 8 + 82 * pow(q(2), 1.35);
     const dsz = 6 + 4 * q(3); // pipe wall to wall, in rows
-    if (ty < 0.4) {
+    if (ty < 0.44) {
       // a pipe: the wavelet, then 0.6 and 0.35 of it between the walls
-      out.dif.push({ x0, t0, a: 1.25, km: 1, hw: 1, ech: [[0, 1], [dsz, -0.6], [2 * dsz, 0.35]] });
-    } else if (ty < 0.58) {
+      out.dif.push({ x0, t0, a: 1.05, km: 1, hw: 1, ech: [[0, 1], [dsz, -0.6], [2 * dsz, 0.35]] });
+    } else if (ty < 0.64) {
       // a boulder: fainter, flatter and wider
       out.dif.push({ x0, t0: max(t0, 14), a: 0.75, km: 0.55, hw: 1.5, ech: [[0, 1]] });
-    } else if (ty < 0.76) {
+    } else if (ty < 0.86) {
       // rebar: a run of small identical hyperbolas, a few LEDs apart, near the surface
-      const cnt = 8 + floor(q(4) * 5), sp = 5 + q(5) * 2, tt = 12 + 12 * q(6);
+      const cnt = 8 + floor(q(4) * 5), sp = 7 + q(5) * 2, tt = 12 + 12 * q(6);
       for (let k = 0; k < cnt; k++) out.dif.push({ x0: x0 + k * sp, t0: tt, a: 0.75, km: 1, hw: 0.55, ech: [[0, 1]] });
     } else {
       // a void: reversed polarity, the far wall coming back opposite again
-      out.dif.push({ x0, t0: max(t0, 16), a: -1.15, km: 0.8, hw: 1.2, ech: [[0, 1], [dsz * 1.6, -0.7]] });
+      out.dif.push({ x0, t0: max(t0, 16), a: -0.95, km: 0.8, hw: 1.2, ech: [[0, 1], [dsz * 1.6, -0.7]] });
     }
   }
-  if (r(1) < 0.4) {
-    out.lens.push({ x0: base + r(2) * CH, hl: 45 + 65 * r(3), t0: 22 + 80 * r(4), th: 9 + 8 * r(5), a: (r(6) < 0.5 ? -1 : 1) * 0.6, ph: TAU * r(7) });
+  if (r(1) < 0.5) {
+    out.lens.push({ x0: base + r(2) * CH, hl: 30 + 60 * r(3), t0: 14 + 90 * r(4), th: 6 + 8 * r(5), a: (r(6) < 0.5 ? -1 : 1) * 0.55, ph: TAU * r(7) });
   }
   if (r(8) < 0.45) {
     out.fault.push({
@@ -193,11 +197,11 @@ export function draw(display, params) {
   if (S.lutHue !== hue) buildLut(S, hue);
   const xm = cl((kn[2] - 0.1) / 0.5, 0, 1);
   const ant = cl(kn[3], -1, 1);
-  const P = 7.2 * exp(-0.45 * ant);
+  const P = 6.8 * exp(-0.41 * ant);
   const s = 0.8 + 0.45 * xm; // the whole time axis stretches as the soil gets slower
   const K0 = 1.3 * s * s; // asymptote of a hyperbola, rows a LED
   const alpha = 0.019 * (0.6 + 1 * (0.1 + 0.5 * xm)) * pow(7 / P, 0.6);
-  const gam = 0.021 - alpha; // receiver gain minus loss, per row
+  const gam = 0.018 - alpha; // receiver gain minus loss, per row
   const cart = S.cart, tau = S.tau;
   const breathe = 1 + 0.04 * sin(0.7 * tau) + 0.025 * sin(1.9 * tau + 0.8);
 
@@ -248,6 +252,13 @@ export function draw(display, params) {
       const a = LAYER_A[i] * (1 + 0.35 * sin(xw / (24 + 6 * i) + i));
       addW(col, t, a * exp(gam * t), P);
     }
+    // the weaker beds
+    for (let i = 0; i < NM; i++) {
+      const w = sm((sin(xw / (61 + 23 * i) + 1.7 * i) - 0.05) * 1.6);
+      if (w <= 0.01) continue;
+      const t = (MINOR_T[i] + 0.8 * sh1 + 2.4 * sin(xw / (29 + 5 * i) + i)) * s;
+      addW(col, t, MINOR_A[i] * w * exp(gam * t), P);
+    }
     // lenses
     for (let l = 0; l < lens.length; l++) {
       const L = lens[l], dx = (xw - L.x0) / L.hl;
@@ -260,8 +271,8 @@ export function draw(display, params) {
     // diffractors
     for (let d = 0; d < dif.length; d++) {
       const D = dif[d], dx = xw - D.x0;
-      const kk = K0 * D.km, hw = (0.95 * D.t0 * s) / kk * D.hw + 7;
-      if (abs(dx) > 1.9 * hw) continue;
+      const kk = K0 * D.km, hw = (0.55 * D.t0 * s) / kk * D.hw + 6;
+      if (abs(dx) > 2.1 * hw) continue;
       const t0 = D.t0 * s;
       const t = sqrt(t0 * t0 + kk * kk * dx * dx);
       const env = exp(-(dx * dx) / (hw * hw)) * (t0 / t);
@@ -274,7 +285,7 @@ export function draw(display, params) {
       const l00 = lat[ax * NY + by], l10 = lat[(ax + 1) * NY + by], l01 = lat[ax * NY + by + 1], l11 = lat[(ax + 1) * NY + by + 1];
       const nz = l00 + (l10 - l00) * sx + (l01 - l00 + (l11 - l10 - l01 + l00) * sx) * sy;
       const v = (col[y] + 0.14 * nz) * breathe;
-      const m = 1 - exp(-2.5 * max(0, abs(v) - 0.04));
+      const m = 1 - exp(-1.9 * max(0, abs(v) - 0.1));
       const u = v >= 0 ? m : -m;
       const li = ((u * 0.5 + 0.5) * 1023 + 0.5) | 0, o = li * 3;
       display.setPixel(x, y, lut[o], lut[o + 1], lut[o + 2]);
