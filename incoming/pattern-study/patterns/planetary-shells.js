@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns the whole palette once round the colour wheel. At 0 the inner shell is the teal of [O III] over a deep blue interior, the outer skin is the red of H-alpha and [N II], and a thin violet fringe lies between; at 0.25 the rim is lavender and the skin olive, at 0.5 rose and cyan, at 0.75 amber and violet, and 1 is back to teal and red.
 // Knob 2: Turn. How fast the nebula turns and ages. At the opening 2 the axis swings round its cone in 76 seconds and leans up to 28 degrees toward or away from you, the shells run out at 0.3 LEDs a second and a new one leaves the star every 12 to 38 seconds, and the gas turns about the axis once in 3.5 minutes. At 3 everything runs half as fast again; at 0.2 it crawls at a tenth. The pose the picture opens on is the one 78 seconds at the opening speed has reached.
-// Knob 3: Shape. From a round bubble at -1, 46 LEDs across and 55 tall, through the opening 0 with a waist 29 LEDs across, to two lobes that meet at a waist 14 LEDs across at 1, a bipolar nebula 71 LEDs from tip to tip. The dust lane across the waist and the red of the skin grow with it, and the lane is faint at -1.
-// Knob 4: Knots. How broken the gas is. At -1 the shells are mostly whole skins, with two knots and a faint interior; at the opening 0.06 the rims have gaps, about seventeen knots can stand and about eleven are lit at once, each with a tail 8 LEDs long; at 1 the rims break into short arcs, thirty-eight knots can stand, the tails reach 12 LEDs and the interior fills with rays of blue gas.
+// Knob 3: Shape. From a round bubble at -1, 46 LEDs across and 60 tall, through the opening 0 with a waist 27 LEDs across and 68 LEDs from tip to tip, to two lobes that meet at a waist 13 LEDs across at 1, a bipolar nebula 76 LEDs from tip to tip. The dust lane across the waist and the red of the skin grow with it, and the lane is faint at -1.
+// Knob 4: Knots. How broken the gas is. At -1 the shells are mostly whole skins, with two knots and a faint interior; at the opening 0.06 the rims have gaps, twenty-one knots can stand and about fourteen are lit at once, each with a tail 9 LEDs long; at 1 the rims break into short arcs, forty-eight knots can stand, the tails reach 14 LEDs and the interior fills with rays of blue gas.
 
 const W = 64;
 const H = 128;
@@ -29,7 +29,7 @@ const sm = (a, b, v) => {
 // ---- tunables ----
 const CX = 32; // where the star sits on the panel, in LEDs from the left
 const CY = 64; // and from the top
-const TIP = 31.5; // distance from the star to the tip of the inner shell, along the axis, at Shape 0
+const TIP = 34; // distance from the star to the tip of the inner shell, along the axis, at Shape 0
 const XMIN = -12; // the shell coordinate x is the distance in LEDs outward from the inner shell
 const XMAX = 13; // nothing glows beyond this
 const BOUND = 14; // how far past the inner shell the bounding ellipsoid reaches
@@ -40,8 +40,8 @@ const NM = 512; // bins of the shape table over |cos| of the polar angle
 const PRE = 78; // seconds of turning already played when the picture opens
 const AGE0 = -80; // the first shell left the star this long before the picture opens
 const RING_AGE = 60; // a shell older than this has faded out
-const BEND = 0.006; // how far the lobes lean sideways: LEDs per LED squared of height
-const NK = 40; // knots that can stand at once
+const BEND = 0.007; // how far the lobes lean sideways: LEDs per LED squared of height
+const NK = 48; // knots that can stand at once
 // strengths of each part, as light per LED of path
 const G_TEAL = 0.042;
 const G_HAZE = 0.0022;
@@ -208,7 +208,6 @@ export function setup(params) {
     scDn: 1,
     RL: new Float64Array(NM),
     CL: new Float64Array(NM),
-    TC: new Float64Array(NM),
     // the emission along the shell coordinate: two sets of RGB (inner and outer gas)
     LA: new Float64Array(NL * 3),
     LB: new Float64Array(NL * 3),
@@ -328,13 +327,12 @@ function buildShape(S) {
   const tip = TIP + 4 * sh;
   const c = q * tip;
   const b = tip - c;
-  const a = sh < 0 ? 16.5 - 6.5 * sh : 16.5 - 3 * sh;
+  const a = sh < 0 ? 15.8 - 7 * sh : 15.8 - 2.6 * sh;
   S.a = a;
   S.tip = tip;
   const eps = 0.14;
   const RL = S.RL;
   const CL = S.CL;
-  const TC = S.TC;
   const ia2 = 1 / (a * a);
   const ib2 = 1 / (b * b);
   const Cq = c * c * ib2 - 1;
@@ -350,7 +348,6 @@ function buildShape(S) {
     RL[i] = r;
     const dr = (rr(min(1, mu + 0.004)) - rr(max(0, mu - 0.004))) / 0.008;
     const tb = (dr * sqrt(max(0, 1 - mu * mu))) / r;
-    TC[i] = tb;
     CL[i] = max(0.55, 1 / sqrt(1 + tb * tb));
   }
   S.waist = RL[0];
@@ -359,10 +356,10 @@ function buildShape(S) {
   S.scUp = 1 + lean;
   S.scDn = 1 - lean;
   // the outline is never quite round: a slow lean, a squash and a shear, as a sum of low terms of the direction
-  S.wob[0] = 0.07 * sin(0.0263 * t + 0.4) + 0.03 * sin(0.0711 * t + 1.9);
-  S.wob[1] = 0.07 * sin(0.0347 * t + 2.8) + 0.03 * sin(0.0589 * t + 0.2);
-  S.wob[2] = 0.09 * sin(0.0191 * t + 4.1) + 0.04 * sin(0.0523 * t + 2.5);
-  S.wob[3] = 0.09 * sin(0.0229 * t + 5.3) + 0.04 * sin(0.0467 * t + 1.1);
+  S.wob[0] = 0.09 * sin(0.0263 * t + 0.4) + 0.04 * sin(0.0711 * t + 1.9);
+  S.wob[1] = 0.09 * sin(0.0347 * t + 2.8) + 0.04 * sin(0.0589 * t + 0.2);
+  S.wob[2] = 0.12 * sin(0.0191 * t + 4.1) + 0.05 * sin(0.0523 * t + 2.5);
+  S.wob[3] = 0.12 * sin(0.0229 * t + 5.3) + 0.05 * sin(0.0467 * t + 1.1);
 }
 
 // the emission along the shell coordinate
@@ -482,7 +479,8 @@ function renderKnots(S) {
   const e2y = S.e2[1];
   const axx = S.ax;
   const ayy = S.ay;
-  const nAct = 2 + 36 * Math.pow(S.clump, 1.4);
+  const kg = G_KNOT * (0.7 + 0.6 * S.clump);
+  const nAct = 2 + 46 * Math.pow(S.clump, 1.4);
   const RL = S.RL;
   const CL = S.CL;
   for (let i = 0; i < NK; i++) {
@@ -501,7 +499,7 @@ function renderKnots(S) {
     mu = cl(mu, -0.999, 0.999);
     const ph = TAU * hash01(hb + 2);
     const xh = -1.5 + 9 * hash01(hb + 3) + 0.05 * f * per;
-    const len = (4 + 8 * S.clump) * (0.6 + 0.7 * hash01(hb + 4));
+    const len = (4 + 10 * S.clump) * (0.6 + 0.7 * hash01(hb + 4));
     const gain = alpha * (0.65 + 0.7 * hash01(hb + 5));
     const sn = sqrt(1 - mu * mu);
     const nu = sn * cos(ph);
@@ -538,11 +536,11 @@ function renderKnots(S) {
         const tail = 0.6 * exp(-2.2 * st) * exp(-e2d / (2 * wd * wd)) * (1 - exp(-d2 / 1.5));
         const mix = sm(0, 0.45, st);
         const o = (y * W + x) * 3;
-        const hh = head * gain * G_KNOT;
-        const tt = tail * gain * G_KNOT;
-        kb[o] += col[18] * hh * (1 - mix) + col[3] * (hh * mix + tt);
-        kb[o + 1] += col[19] * hh * (1 - mix) + col[4] * (hh * mix + tt);
-        kb[o + 2] += col[20] * hh * (1 - mix) + col[5] * (hh * mix + tt);
+        const hh = head * gain * kg;
+        const tt = tail * gain * kg;
+        kb[o] += col[18] * hh * (1 - mix) + col[6] * 1.5 * (hh * mix + tt);
+        kb[o + 1] += col[19] * hh * (1 - mix) + col[7] * 1.5 * (hh * mix + tt);
+        kb[o + 2] += col[20] * hh * (1 - mix) + col[8] * 1.5 * (hh * mix + tt);
       }
     }
   }
@@ -556,7 +554,6 @@ export function draw(display, params) {
   const LH = S.LH;
   const RL = S.RL;
   const CL = S.CL;
-  const TC = S.TC;
   const kb = S.kb;
   const e1x = S.e1[0];
   const e1y = S.e1[1];
@@ -571,7 +568,7 @@ export function draw(display, params) {
   const pinch = 0.5 + 0.5 * cl(S.shape, -1, 1);
   const depth = 0.3 + 0.65 * Math.pow(clump, 0.9);
   const mainDepth = 0.35 + 0.5 * Math.pow(clump, 0.9);
-  const hazeK = 0.15 + 3.6 * clump;
+  const hazeK = 0.1 + 4.5 * clump;
   // the more broken the gas, the higher the bar a pattern must clear to show
   const g0 = 0.36 + 0.12 * clump;
   const g1 = GAP_LO - 0.06 + 0.12 * clump;
@@ -587,9 +584,9 @@ export function draw(display, params) {
   const FREQ = 5.5;
   const KAP = 0.011;
   // noise coordinates are kept positive so that truncation cuts the table on a regular grid
-  const ox8 = (S.noff[0] + 32) * 8;
-  const oy8 = (S.noff[1] + 32) * 8;
-  const oz8 = (S.noff[2] + 32) * 8;
+  const ox8 = (((S.noff[0] % 8) + 8) % 8 + 8) * 8;
+  const oy8 = (((S.noff[1] % 8) + 8) % 8 + 8) * 8;
+  const oz8 = (((S.noff[2] % 8) + 8) % 8 + 8) * 8;
   const bx8 = 0.8 * KAP * 8;
   const by8 = 0.55 * KAP * 8;
   const bz8 = 0.35 * KAP * 8;
@@ -603,11 +600,11 @@ export function draw(display, params) {
   const dustOut2 = dustOut * dustOut;
   const ringAt = S.waist + 3;
   const ringK = G_WAIST * (0.3 + 1.4 * pinch);
-  const dustIn = 11;
+  const dustIn = max(5, min(11, S.waist * 0.8));
   const dustIn2 = dustIn * dustIn;
   const tauK = (0.45 + 0.2 * S.dust) * DZ * (0.5 + 1.5 * pinch * pinch);
   const sc = NLUT / 2.5;
-  const dOff = (S.noff[0] * 0.5 + 40) * 2;
+  const dOff = (((S.noff[0] * 0.5) % 32) + 32) * 2 + 40;
 
   let ko = 0;
   for (let y = 0; y < H; y++) {
@@ -698,7 +695,7 @@ export function draw(display, params) {
           if (xs < OUT_FROM) {
             // a finer pattern for the fibres in the rim and the rays of faint gas inside
             const f2 = f * 2;
-            let t2 = (NTAB[(((((w * f2 + oy8 * 1.7 + r * bz8 * 3) | 0) & NTM) * NT + (((v * f2 + oz8 * 1.3 + r * bx8 * 3) | 0) & NTM)) * NT + (((ub * f2 + ox8 * 0.7 + r * by8 * 3) | 0) & NTM)) << 1] * (1 / 255) - 0.25) * 2.2;
+            let t2 = (NTAB[(((((w * f2 + oy8 * 1.7 + 96 + r * bz8 * 3) | 0) & NTM) * NT + (((v * f2 + oz8 * 1.3 + 96 + r * bx8 * 3) | 0) & NTM)) * NT + (((ub * f2 + ox8 * 0.7 + 96 + r * by8 * 3) | 0) & NTM)) << 1] * (1 / 255) - 0.25) * 2.2;
             t2 = t2 < 0 ? 0 : t2 > 1 ? 1 : t2;
             fib = t2 * t2 * (3 - 2 * t2);
             if (xs < IN_ONLY) {
