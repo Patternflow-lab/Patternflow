@@ -9,7 +9,7 @@
 // Round:   215
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0..12, Drive=-1..1, Width=-1..1
+// @knobs Hue=0..1, Flow=0..16, Drive=-1..1, Width=-1..1
 //
 // Knob 1: Hue. Placeholder.
 // Knob 2: Flow. Placeholder.
@@ -74,7 +74,7 @@ function rgbOf(h, s, v) {
 
 // Colours at hue 0. Every one is turned round the wheel by Hue when it changes.
 const COLS = {
-  deep: [16, 96, 112], mid: [30, 142, 154], core: [58, 184, 188], glint: [214, 252, 244],
+  deep: [16, 96, 112], mid: [30, 142, 154], core: [58, 184, 188], glint: [200, 248, 240],
   lakeA: [20, 108, 112], lakeB: [48, 104, 62],
   sand: [238, 216, 150], crest: [222, 190, 120], swale: [78, 110, 50],
   g1: [44, 94, 52], g2: [66, 116, 56], och: [158, 138, 70],
@@ -387,7 +387,7 @@ export function update(dt, input, params) {
     prerun(S);
   }
   S.Wc += (wt - S.Wc) * (1 - exp(-d / 0.35));
-  const f = cl(kn[1], 0, 12) * 0.5;
+  const f = cl(kn[1], 0, 16) * 0.5;
   S.flowT += (d * 1.1 * f) / (1 + 0.25 * f);
   advance(S, d * f);
 }
@@ -559,11 +559,11 @@ export function draw(display, params) {
       if (wc > 0) {
         const q = cl(abs(rq[p]) / r, 0, 1), c = 1 - q * q;
         const qq = rq[p] / r;
-        const b1 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 12 - ft * 0.45) + 1.3 * qq);
-        const b2 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 21 - ft * 0.7) - 0.8 * qq + 1.9);
-        const st = sm(1.35 * b1 * b1 + 0.6 * b2 * b2 * b1 - 0.25);
+        const b1 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 17 - ft * 0.4) + 0.9 * qq);
+        const b2 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 29 - ft * 0.65) - 0.6 * qq + 1.9);
+        const st = 0.7 * b1 + 0.3 * b2;
         let wr = mix(P[I.deep], P[I.core], c), wg = mix(P[I.deep + 1], P[I.core + 1], c), wb = mix(P[I.deep + 2], P[I.core + 2], c);
-        const gl = st * 0.9 * (0.3 + 0.7 * c);
+        const gl = st * 0.62 * (0.3 + 0.7 * c);
         wr = mix(wr, P[I.glint], gl);
         wg = mix(wg, P[I.glint + 1], gl);
         wb = mix(wb, P[I.glint + 2], gl);
