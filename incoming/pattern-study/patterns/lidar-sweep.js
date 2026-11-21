@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the spinning multi-beam laser scanner (David Hall, Velodyne HDL-64E, 2007) as the sensor of the DARPA Grand Challenge cars (2005), the point-cloud viewers of driving-data sets, the turbo colour map (Anton Mikhailov, Google, 2019) for height, value noise (Ken Perlin, 1985) for terrain, hashed world cells for the scenery; pattern round 208
+// Lineage: the spinning multi-beam laser scanner (David Hall, Velodyne HDL-64E, 2007) as the sensor of the DARPA Urban Challenge cars (2007), the point-cloud viewers of driving-data sets, the turbo colour map (Anton Mikhailov, Google, 2019) for height, smooth lattice noise (the family of Ken Perlin's 1985 noise) for terrain, hashed world cells for the scenery; pattern round 208
 // Round:   208
 // ===============================
 // @matrix 64x128
