@@ -42,8 +42,9 @@ const QMIN = 2.2, QMAX = 10.3; // k R at the two ends of the sweep
 const NTMAX = 32; // most incoming plane waves
 const CN = 33; // coarse grid: 33 by 33 samples, one every 2 LEDs, over a half
 const CNN = CN * CN;
-const NGROUPS = 8; // the coarse grid is refreshed one eighth at a time
+const NGROUPS = 4; // the coarse grid is refreshed a quarter at a time, in a scrambled order
 const L1 = 0.8; // density of states where the colour scale turns from linear to logarithmic
+const GORDER = [0, 3, 1, 2];
 const XS = 0.025, XINV = 1 / XS, XN = 2000; // Bessel table, to x = 50
 
 // ---- J0 and Y0 on a table. The power series up to x = 14, the Hankel asymptotic series after it.
@@ -203,9 +204,9 @@ function placeAtoms(C, t, e) {
   C.ay[n] = 0;
 }
 
-// tau = (S - 1) / 2 with S = eta exp(2 i delta). delta falls from pi / 2, an atom that turns back as much as a point can, to 0.45 with Leak.
+// tau = (S - 1) / 2 with S = eta exp(2 i delta). delta falls from pi / 2, an atom that turns back as much as a point can, to 0.72 with Leak.
 function setTau(C, leak) {
-  const delta = 1.5708 - 1.12 * leak, eta = 1 - 0.06 * leak;
+  const delta = 1.5708 - 0.85 * leak, eta = 1 - 0.05 * leak;
   for (let i = 0; i < NAT; i++) {
     C.tr[i] = (eta * cos(2 * delta) - 1) / 2;
     C.ti[i] = (eta * sin(2 * delta)) / 2;
@@ -335,8 +336,9 @@ function solve(C, nt) {
 // The density of states at one group of coarse samples: the mean of |psi|^2 over the incoming waves.
 function evalGroup(C, g) {
   const n = C.n, nt = C.nt, k = C.ksnap, { dist, ar, ai, ct, st, hr, hi, L } = C;
-  for (let cy = (g >> 1) & 3; cy < CN; cy += 4)
-    for (let cx = g & 1; cx < CN; cx += 2) {
+  const gg = GORDER[g];
+  for (let cy = gg >> 1; cy < CN; cy += 2)
+    for (let cx = gg & 1; cx < CN; cx += 2) {
       const c = cy * CN + cx, x = 2 * cx + 0.5 - 32, y = 2 * cy + 0.5 - 32, o = c * n;
       for (let i = 0; i < n; i++) {
         const xx = k * dist[o + i] * XINV;
@@ -403,22 +405,20 @@ export function update(dt, input, params) {
   evalGroup(S.bot, g);
   innerStats(S.top);
   innerStats(S.bot);
-  // The sweep slows down on a resonance: the mean density of states inside the rings climbs from under 1 between
-  // resonances to 1.5 and well above on one, and the speed falls to a fifth of its free value there.
+  // The sweep slows down on a resonance and hurries between them. The mean density of states inside the rings sits
+  // under 0.6 between resonances and climbs to 1.5 and well above on one: the speed is 1.9 times its base value in the
+  // gaps, 1 at a density of 0.9 and a fifth of it above 2.2.
   const dm = max(S.top.dos, S.bot.dos);
-  S.dm = dm;
   S.dosS += (dm - S.dosS) * (1 - exp(-d / (dm > S.dosS ? 0.12 : 0.6)));
-  S.gate = 1 - 0.75 * sm((S.dosS - 1.25) / 0.9);
+  S.gate = (0.2 + 0.8 * (1 - sm((S.dosS - 0.9) / 1.3))) * (1 + 0.9 * (1 - sm((S.dosS - 0.3) / 0.6)));
   const sw = cl(kn[1], 0, 3);
   const wob = 1 + 0.3 * sin(0.23 * S.t + 1) + 0.2 * sin(0.071 * S.t + 2.2) + 0.12 * sin(0.53 * S.t);
   S.q += S.dir * sw * 0.06 * wob * S.gate * sqrt(7 / S.q) * d;
-  if (S.q > QMAX) {
-    S.q = QMAX;
-    S.dir = -1;
-  } else if (S.q < QMIN) {
-    S.q = QMIN;
-    S.dir = 1;
-  }
+  // The two turning points wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom, so that the sweep never
+  // runs the same stretch twice.
+  const qhi = QMAX - 1.1 * (0.5 + 0.5 * sin(0.0151 * S.t + 0.9)), qlo = QMIN + 0.9 * (0.5 + 0.5 * sin(0.0113 * S.t + 2.1));
+  if (S.q > qhi) S.dir = -1;
+  else if (S.q < qlo) S.dir = 1;
 }
 
 function buildLut(S, hue) {
@@ -471,7 +471,7 @@ function paintHalf(C, S, yoff, flip) {
       let L = img[y * W + x];
       L = 1 + (L - 1) * fade;
       if (L < 0) L = 0;
-      const u = cl(log(1 + L / L1) * k1, 0, 1);
+      const u = pow(cl(log(1 + L / L1) * k1, 0, 1), 1.3);
       const li = ((u * 255) | 0) * 3, o = ((yoff + y) * W + x) * 3;
       buf[o] = lut[li];
       buf[o + 1] = lut[li + 1];
@@ -503,10 +503,10 @@ function paintHalf(C, S, yoff, flip) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const hue = cl(S.knobs[0], 0, 1);
+  const hue = cl(S.knobs[0], 0, 1), leak = cl(S.knobs[2], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
   for (const C of [S.top, S.bot]) {
-    const target = cl((C.p96 || 6) * 1.1, 6, 60);
+    const target = cl((C.p96 || 6) * 1.1, 2.8 - 0.6 * leak, 60);
     C.lref += (target - C.lref) * 0.08;
   }
   paintHalf(S.top, S, 0, false);
