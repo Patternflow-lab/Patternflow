@@ -23,7 +23,7 @@ const HW = 32;
 const N = HW * H;
 // How far the lobes and the limbs of the outline reach, in LEDs, and how far the warp bends the sheet.
 const ROUGH = 70;
-const LIMB = 13;
+const LIMB = 22;
 const WARP = 11;
 // Splatter: one drop at most in each cell of this many LEDs, and how long a drop stays, in seconds at Creep 1.
 const CELL = 12;
@@ -122,7 +122,7 @@ function press(params, tau, thin) {
     const yy = y + 0.5;
     // How far the body reaches out from the fold at this height: a silhouette that swells and narrows down the sheet.
     const my = smooth(42, 62, Math.abs(yy - 64));
-    const reach = 1 + 23 * (1 - my) * (0.62 * noise3(7.7, (yy - cy) / 27, z1) + 0.38 * noise3(3.1, (yy - cy) / 11, z2));
+    const reach = 1 + 27 * (1 - my) * (0.45 * noise3(7.7, (yy - cy) / 27, z1) + 0.55 * noise3(3.1, (yy - cy) / 9, z2));
     for (let j = 0; j < HW; j++, i++) {
       const xm = j + 0.5;
       const ax = xm * 0.043;
@@ -137,7 +137,7 @@ function press(params, tau, thin) {
       // Limbs: the ink runs out along the lines where a second field crosses its middle.
       const ridge = 1 - Math.abs(2 * noise3(px / 19 + 80, py / 19 + 33, z2 + 100) - 1);
       // Bare paper is left round the blot: the ink thins out towards the edges of the sheet.
-      const mx = smooth(20, 31, xm);
+      const mx = smooth(24, 32, xm);
       field[i] = reach - xm + rough * (n - 0.5) + limb * Math.pow(ridge, sharp) - (34 + 30 * thin) * mx * mx - 44 * my * my;
     }
   }

@@ -9,22 +9,22 @@
 // Round:   200
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pace=0..3, Girth=-1..1, Clear=0..1
+// @knobs Hue=0..1, Pace=0..3, Girth=-1..1, Fog=0..1
 //
 // Knob 1: Hue. The colour of the fog and of the shaded side of the columns, from a cool teal blue where the knob opens round the wheel. The light on the lit flank and in the lamp columns keeps to the other side of the wheel, a warm cream and amber at the opening.
 // Knob 2: Pace. How fast the walker goes. At the bottom the walker stands and only the heading drifts a little; where the knob opens it is about 0.9 cells a second, and at the top about 1.35.
 // Knob 3: Girth. How thick the columns are, from slim poles 0.14 of a cell across at the bottom, through a third of a cell where the knob opens, to fat piers 0.6 across at the top with narrow gaps between them.
-// Knob 4: Clear. How far the eye reaches. At the bottom the fog swallows a column within four or five cells; at the top the hall is clear for twenty and the dark ceiling shows. It opens near the bottom.
+// Knob 4: Fog. How thick the fog is. At the bottom the hall is clear for thirteen cells or so and the dark ceiling shows; at the top the fog swallows a column within four. It opens near the bottom.
 
 const W = 64;
 const H = 128;
 // Rays cast for each column of LEDs, the focal length in LEDs and the row of the horizon.
 const SUB = 4;
 const FOCAL = 60;
-const HOR = 84;
+const HOR = 74;
 // The height of the eye and of the ceiling, in cells, and how far a ray looks.
-const EYE = 0.32;
-const CEIL = 6;
+const EYE = 0.8;
+const CEIL = 5;
 const REACH = 22;
 // Where the walk starts and which way it faces then.
 const HOME = [1.2, 5];
@@ -93,7 +93,7 @@ export function setup(params) {
   params.lean = 0;
   params.a = heading(0);
   params.r = 0.14;
-  params.fog = 5.4;
+  params.fog = 12.4;
   params.hue = 0;
   params.ray = new Float32Array(4);
   params.la = new Float32Array(64);
@@ -181,7 +181,8 @@ export function update(dt, input, params) {
   const r = girth < 0 ? 0.14 + 0.07 * girth : 0.14 + 0.16 * girth;
   params.hue = k[0];
   params.r = r;
-  params.fog = 4.5 + 15.5 * clamp(k[3], 0, 1);
+  const thin = 1 - clamp(k[3], 0, 1);
+  params.fog = 4 + 9.5 * thin * thin;
   // The heading keeps drifting a little when the walker stands.
   params.s += dt * (0.3 + 0.35 * pace);
   const a = heading(params.s);
@@ -266,7 +267,7 @@ export function draw(display, params) {
     return f + (1 - f) * e * e * (3 - 2 * e);
   };
   hsv(params.hue + 0.52, 0.32, 0.84, c.fog);
-  hsv(params.hue + 0.6, 0.62, 0.24, c.shade);
+  hsv(params.hue + 0.6, 0.7, 0.07, c.shade);
   hsv(params.hue + 0.1, 0.3, 1, c.light);
   hsv(params.hue + 0.07, 0.6, 1, c.lamp);
   hsv(params.hue + 0.61, 0.6, 0.12, c.roof);
@@ -280,7 +281,7 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) {
     const j = y * 3;
     const rise = (HOR - y - 0.5) / (y < HOR ? 54 : 70);
-    lift[y] = 0.56 + 0.44 * Math.exp(-rise * rise);
+    lift[y] = 0.7 + 0.3 * Math.exp(-rise * rise);
     // A glow in the fog keeps closer to the horizon, and the floor shows a little of it.
     const band = (HOR - y - 0.5) / (y < HOR ? 30 : 9);
     bloom[y] = Math.exp(-band * band) * (y < HOR ? 1 : 0.6);
@@ -359,8 +360,8 @@ export function draw(display, params) {
       const f = veil(t);
       const g = 1 - f;
       // The light falls from one side and counts for most on a flank; the fog lights both edges a little.
-      const lit = 0.85 * back * Math.pow(clamp(nx * lx + nz * lz, 0, 1), 1.3) * (0.3 + 0.7 * edge);
-      const rim = 0.3 * edge * edge * edge;
+      const lit = 0.9 * back * Math.pow(clamp(nx * lx + nz * lz, 0, 1), 0.9) * (0.45 + 0.55 * edge);
+      const rim = 0.2 * edge * edge * edge;
       let br = c.shade[0] + (c.fog[0] - c.shade[0]) * rim;
       let bg = c.shade[1] + (c.fog[1] - c.shade[1]) * rim;
       let bb = c.shade[2] + (c.fog[2] - c.shade[2]) * rim;
