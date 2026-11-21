@@ -99,5 +99,10 @@
   "seaice": { "label": "바다 얼음", "color": "#41fef1" },
   "internalwave": { "label": "내부파", "color": "#e82b24" },
   "lenticular": { "label": "렌즈 구름", "color": "#2ac9e8" },
-  "saltworks": { "label": "염전", "color": "#cd0a58" }
+  "saltworks": { "label": "염전", "color": "#cd0a58" },
+  "rings": { "label": "행성 고리", "color": "#a8bf4b" },
+  "discharge": { "label": "방전관", "color": "#fd04e3" },
+  "galaxy": { "label": "은하 충돌", "color": "#1151fe" },
+  "tides": { "label": "조석", "color": "#0dfdd6" },
+  "market": { "label": "호가 창", "color": "#c45315" }
 }
