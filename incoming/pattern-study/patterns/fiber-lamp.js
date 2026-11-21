@@ -52,7 +52,7 @@ const SEG_LCH = [
   [0.66, 0.26, 337, 1], // magenta
   [0.84, 0.17, 85, 1.15], // amber
   [0.8, 0.25, 145, 0.95], // green
-  [0.98, 0.03, 250, 1.5], // pale white, a shade cool
+  [0.98, 0.045, 250, 1.85], // pale white, a shade cool
   [0.8, 0.12, 205, 1.05], // cyan
 ];
 // the last number is how bright the segment is run: blue needs more light to read, and so
@@ -60,10 +60,12 @@ const SEG_LCH = [
 const SEG = SEG_LCH.map(([L, C, h, g]) => [L, C * cos((h * PI) / 180), C * sin((h * PI) / 180), g]);
 // each segment's hue also wanders by up to 45 degrees either way on periods that do not divide,
 // so a second turn of the wheel is not the first one again
+const wander = (t, k) => 0.6 * sin(0.061 * t + k * 2.3) + 0.4 * sin(0.103 * t + k * 1.1 + 0.7);
 function tuneWheel(t) {
   for (let k = 0; k < NSEG; k++) {
-    const [L, C, h] = SEG_LCH[k];
-    const d = (45 * (0.6 * sin(0.061 * t + k * 2.3) + 0.4 * sin(0.103 * t + k * 1.1 + 0.7)) * PI) / 180;
+    const [, C, h] = SEG_LCH[k];
+    // measured from where it stands when the Lab starts, so the opening shows the colours as drawn
+    const d = (45 * (wander(t, k) - wander(T0, k)) * PI) / 180;
     const a = (h * PI) / 180 + d;
     SEG[k][1] = C * cos(a);
     SEG[k][2] = C * sin(a);
