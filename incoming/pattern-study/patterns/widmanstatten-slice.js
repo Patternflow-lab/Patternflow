@@ -60,14 +60,14 @@ const E1 = [[R2, -R2, 0], [R2, -R2, 0], [R2, R2, 0], [R2, R2, 0]];
 const E2 = [[R6, R6, -2 * R6], [R6, R6, 2 * R6], [R6, -R6, -2 * R6], [R6, -R6, 2 * R6]];
 const PH = [0.13, 0.41, 0.67, 0.89]; // where each family's plates sit, as a share of d
 const JITTER = 0.15; // plate positions move this far either way from the regular stack, in d
-const G = 6.6; // side of the grid of lenses in a plate's plane, in d
-const RMIN = 1.4, RSPAN = 1.8; // lens radius from 1.4 to 3.2 d, so a lens always fits its cell
-const EXIST = 205; // of 256: the share of cells that hold a plate
+const G = 7.4; // side of the grid of lenses in a plate's plane, in d
+const RMIN = 2.3, RSPAN = 1.4; // lens radius from 2.3 to 3.7 d, so a lens always fits its cell
+const EXIST = 232; // of 256: the share of cells that hold a plate
 const HALF0 = 0.17, HALFSPAN = 0.08; // half thickness at a lens's centre, from 0.17 to 0.25 d
-const TAPER = 0.6; // half thickness goes as (1 - r^2)^TAPER across the lens
+const TAPER = 0.4; // half thickness goes as (1 - r^2)^TAPER across the lens
 const WARP = 0.14; // how far the noise bends the bands, in d
 const WARP_LEN = 3.4, THICK_LEN = 2.2; // wavelengths of the bending and of the thickness noise, in d
-const RIM_LED = 1.7; // width of the taenite rim, in LEDs
+const RIM_PER_D = 0.15, RIM_MIN = 1.0, RIM_MAX = 1.8; // width of the taenite rim in LEDs: 0.15 d, between 1 and 1.8
 const NK = 128; // plate indices kept for a family in a frame
 
 // ---- the slab's motion
@@ -156,7 +156,6 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 // Everything a frame needs about the plane, the plates the panel can reach and the bending noise.
 function prepare(S) {
   const { u, v, oU, d } = S;
-  const NOK = [];
   for (let i = 0; i < 4; i++) {
     const n = NRM[i], e1 = E1[i], e2 = E2[i];
     const sx = dot(n, u) / d, sy = dot(n, v) / d;
@@ -166,7 +165,7 @@ function prepare(S) {
     const g = sqrt(sx * sx + sy * sy);
     S.fg[i] = g;
     S.fm[i] = g > 1e-6 ? (sx * S.lx + sy * S.ly) / g : 0;
-    S.fr[i] = RIM_LED * (g > 0.004 ? g : 0.004);
+    S.fr[i] = cl(RIM_PER_D * d, RIM_MIN, RIM_MAX) * (g > 0.004 ? g : 0.004);
     const ax = dot(e1, u) / d, ay = dot(e1, v) / d, bx = dot(e2, u) / d, by = dot(e2, v) / d;
     S.fax[i] = ax;
     S.fay[i] = ay;
@@ -189,7 +188,6 @@ function prepare(S) {
       S.offB[ii] = (((hp >>> 20) & 1023) / 1023) * G;
       S.pb[ii] = (hq & 255) / 255;
     }
-    NOK.push(k1);
   }
   // The coarse fields: four bendings, one for each family, and a thickness.
   const gr = S.grid;
@@ -207,9 +205,9 @@ function prepare(S) {
   const h0 = HUE0 + S.hue;
   hsv(h0, 0.16, 1, S.kam);
   hsv(h0, 0.04, 1, S.white);
-  hsv(h0 - 0.48, 0.66, 1, S.rim);
-  hsv(h0 - 0.45, 0.46, 1, S.gold);
-  hsv(h0 - 0.45, 0.1, 1, S.grey);
+  hsv(h0 - 0.47, 0.58, 1, S.rim);
+  hsv(h0 - 0.47, 0.34, 1, S.gold);
+  hsv(h0 - 0.47, 0.06, 1, S.grey);
   for (let j = 0; j < 3; j++) S.white[j] = S.white[j] * 0.7 + 0.3;
   S.ok = true;
 }
@@ -292,7 +290,7 @@ export function draw(display, params) {
         const covK = cl((h - ads) / gg + 0.5, 0, 1) * fade;
         const sgn = dsg < 0 ? -1 : 1, m = fm[i];
         // Taenite rim, a little brighter on the face the light reaches.
-        const Lr = 0.4 + 0.05 * m * sgn;
+        const Lr = 0.42 + 0.06 * m * sgn;
         LR[nl] = rim[0] * Lr;
         LG[nl] = rim[1] * Lr;
         LB[nl] = rim[2] * Lr;
@@ -300,7 +298,7 @@ export function draw(display, params) {
         free *= 1 - covR;
         if (covK > 0) {
           const pc = cl(dsg / h, -1, 1);
-          const Lk = 0.8 + 0.07 * pb[ii] + 0.11 * m * pc;
+          const Lk = 0.8 + 0.07 * pb[ii] + 0.16 * m * pc;
           const inL = (h - ads) / gg;
           let gl = 1 - abs(inL - 0.45) / 0.85;
           gl = gl > 0 ? gl * (0.28 + 0.72 * max(0, sgn * m)) * 0.75 : 0;
@@ -315,7 +313,7 @@ export function draw(display, params) {
       let r, g2, b;
       if (free > 0.004) {
         const rx = (oL[0] + (px - 32) * u[0] + (py - 64) * v[0]), ry = (oL[1] + (px - 32) * u[1] + (py - 64) * v[1]), rz = (oL[2] + (px - 32) * u[2] + (py - 64) * v[2]);
-        const n1 = noise3(rx / 3.2, ry / 3.2, rz / 3.2), n2 = noise3(rx / 5.5 + 9.1, ry / 5.5 - 4.7, rz / 5.5 + 2.3);
+        const n1 = noise3(rx / 2.4, ry / 2.4, rz / 2.4), n2 = noise3(rx / 4.2 + 9.1, ry / 4.2 - 4.7, rz / 4.2 + 2.3);
         const mot = 0.65 * n1 + 0.35 * n2, gm = cl(0.5 + 0.9 * n2, 0, 1);
         const Lp = 0.52 + 0.14 * mot;
         r = (grey[0] + (gold[0] - grey[0]) * gm) * Lp;
