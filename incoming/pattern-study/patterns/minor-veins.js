@@ -28,14 +28,15 @@ const sm = (a, b, v) => {
 const CX = 28, CY = 184; // centre of the expansion, below the panel; the root of the network sits on it
 const G0 = 0.04; // relative growth rate at Growth 2, per second
 const ITER = 0.1; // seconds of tissue time per colonization pass
+const TTL = 4.5; // a source that no vein has reached in this many seconds is dropped
 const STEP = 1.5; // how far a vein node sprouts in one pass, LEDs
 const RINF = 12; // a source calls the nearest vein node inside this radius
 const TROP = 0.5; // forward bias of a sprout, along the line out from the centre
-const LOOPF = 0.62; // a new node within this share of the spacing of another branch joins it, closing a loop
-const INERTIA = 0.3; // weight of the vein's own heading against the pull of the sources
+const LOOPF = 0.8; // a new node within this share of the spacing of another branch joins it, closing a loop
+const INERTIA = 0.7; // weight of the vein's own heading against the pull of the sources
 const LMAX = 3.4; // an edge longer than this is split by a new node
 const KW = 0.85; // the blade is a wedge about the midrib: half-width KW times the distance from the root, plus a margin
-const R0 = 24; // the seedling blade is this long, LEDs
+const R0 = 32; // the seedling blade is this long, LEDs
 const LEAN = 0.03; // the midrib leans this much to the right per LED of height
 const NM = 5400, SM = 1500, LM = 1800; // capacity of nodes, sources, loop edges
 // Where sources live, and how far a node may go before it is dropped.
@@ -68,7 +69,7 @@ export function setup(params) {
     nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
     ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
     cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
-    sx: new Float32Array(SM), sy: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
+    sx: new Float32Array(SM), sy: new Float32Array(SM), sa: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
     l0: new Int32Array(LM), l1: new Int32Array(LM),
     cv: new Float32Array(N), gl: new Float32Array(N), bl: new Float32Array(N), tn: new Float32Array(N),
     lam: new Float32Array(256 * 3), vein: new Float32Array(256 * 3), bloom: [1, 0.8, 0.4], key: "",
@@ -99,7 +100,7 @@ function seed(S) {
 function prerun(S) {
   const gk = max(1, S.gk), f = exp(G0 * gk * ITER);
   seed(S);
-  for (let t = 0; t < 62 / gk; t += ITER) {
+  for (let t = 0; t < 56 / gk; t += ITER) {
     stretch(S, f);
     iterate(S);
   }
@@ -163,7 +164,7 @@ function iterate(S) {
 // Each source calls the nearest vein node inside RINF, and dies when a node is
 // within the kill distance of it.
 function attract(S) {
-  const { x, y, sx, sy, cs, ci, ax, ay, cnt } = S, n = S.n;
+  const { x, y, sx, sy, sa, cs, ci, ax, ay, cnt } = S, n = S.n;
   const dk = max(0.9, 0.52 * S.sc), dk2 = dk * dk, R2 = RINF * RINF;
   cnt.fill(0, 0, n);
   ax.fill(0, 0, n);
@@ -178,7 +179,7 @@ function attract(S) {
   let m = 0;
   for (let i = 0; i < S.ns; i++) {
     const px = sx[i], py = sy[i];
-    if (!inLeaf(S, px, py, 6)) continue;
+    if (!inLeaf(S, px, py, 6) || sa[i] > TTL) continue;
     const c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
     let best = -1, bd = 1e9, call = -1, cd = 1e9;
     for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
@@ -200,6 +201,7 @@ function attract(S) {
     if (best >= 0 && bd < dk2) continue;
     sx[m] = px;
     sy[m] = py;
+    sa[m] = sa[i] + ITER;
     m++;
     if (call >= 0 && cd < R2) {
       const d = sqrt(cd);
@@ -238,6 +240,23 @@ function sprout(S) {
     const dl = sqrt(dx * dx + dy * dy) || 1;
     const nx = x[j] + (STEP * dx) / dl, ny = y[j] + (STEP * dy) / dl;
     if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1 || abs(nx - (CX + LEAN * (CY - ny))) > KW * (CY - ny) + 8) continue;
+    // Not on top of a node that is already there.
+    {
+      const c0 = cellOf(nx, ny), cx0 = c0 % GX, cy0 = (c0 / GX) | 0;
+      let crowd = false;
+      for (let yy = max(0, cy0 - 1); !crowd && yy <= min(GY - 1, cy0 + 1); yy++)
+        for (let xx = max(0, cx0 - 1); !crowd && xx <= min(GX - 1, cx0 + 1); xx++) {
+          const cc = yy * GX + xx;
+          for (let k = cs[cc]; k < cs[cc + 1]; k++) {
+            const m = ci[k], ex = x[m] - nx, ey = y[m] - ny;
+            if (ex * ex + ey * ey < 0.5) {
+              crowd = true;
+              break;
+            }
+          }
+        }
+      if (crowd) continue;
+    }
     const q = S.n++;
     x[q] = nx;
     y[q] = ny;
@@ -397,6 +416,7 @@ function scatter(S) {
     const i = S.ns++;
     sx[i] = px;
     sy[i] = py;
+    S.sa[i] = 0;
     snext[i] = shead[c];
     shead[c] = i;
   }
