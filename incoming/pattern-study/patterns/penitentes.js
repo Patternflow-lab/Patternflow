@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Sun=0..4, Height=-1..1, Crowd=-1..1
 //
-// Knob 1: Hue. Turns the sun, the sky and the shade round the wheel together. At 0 the sun is gold (low) or cream (high) and the shade is a steel blue; at 0.5 the light is cold cyan and the shade has gone amber; at 1 the picture is back where it began.
-// Knob 2: Sun. Where the sun stands on average. At 0 it is far to the left and 8 degrees up, so the shadows lie almost level across the field and run off the right edge; at the opening 2 it is 35 degrees round toward the viewer's back and 20 degrees up; at 4 it is behind the viewer and 33 degrees up, the shadows run straight into the distance, both faces of a blade are lit and the contrast drops. On top of the knob the sun wanders about 30 degrees of azimuth and 7 of height on periods of 1 to 5 minutes, so the shadows swing, and its colour drifts from gold to cream to a cooler rose.
-// Knob 3: Height. How tall the blades have grown. At -1 they are low bumps about a fifth of full height, 12 to 24 LEDs in the front rank; at the opening 0 the tallest front blades stand about 85 LEDs and poke above the horizon; at 1 they are 60 to 120 LEDs and reach the top of the panel. Every blade also grows and sublimates by about a fifth on its own slow period.
-// Knob 4: Crowd. How close the blades stand. At -1 there are two or three blades across the front rank with bare snow and long shadows between them; at the opening 0.06 about four, 14 LEDs wide at the foot; at 1 a thicket of nine or ten that overlap, with the ranks behind packed to match.
+// Knob 1: Hue. Turns the sun, the sky and the shade round the wheel together. At 0 the sun is gold (low) or cream (high), the shade a steel blue and the sky navy over an orange horizon; at 0.5 the sun is an ice blue and the sky and shade have gone amber; at 0.75 the faces are rose over a green sky; at 1 the picture is back where it began.
+// Knob 2: Sun. Where the sun stands on average, as a turn from the field's left side toward the viewer's back and a height. At 0 it stands at the far left, 8 degrees up, and the shadows lie almost level across the field and run off the right edge; at the opening 2 it is 27 degrees round and 19 up, and the shadows run away to the right and into the distance; at 4 it is 60 degrees round and 30 up, both faces of a blade take light and the contrast drops. On top of the knob the sun wanders about 30 degrees of azimuth and 7 of height on periods of 30 seconds to 5 minutes, so the shadows swing, its colour drifts from gold to cream to a cooler rose, and the light swells and sags a few percent over 10 to 70 seconds.
+// Knob 3: Height. How tall the blades have grown. At -1 they are low bumps, 9 to 24 LEDs in the front rank and none above the horizon; at the opening 0 the front blades run 40 to 110 LEDs, the tall ones standing well into the sky; at 1 they are 60 to 150 LEDs and the tallest run off the top of the panel. Every blade also grows and sublimates by about a sixth on its own period of one to three minutes.
+// Knob 4: Crowd. How close the blades stand. At -1 there are one or two across the front rank, with bare snow and long shadows between them; at the opening 0.06 about three, 12 to 18 LEDs wide at the foot; at 1 six or seven that overlap, with the ranks behind packed to match. The field also slides past slowly, the viewer walking about 0.4 LEDs a second along the rows, so near blades cross faster than far ones.
 
 const W = 64;
 const H = 128;
@@ -33,21 +33,26 @@ const EYE = 84; // eye height in front-rank LEDs: the front rank's feet stand th
 const FOC = 69; // focal length in the same unit, about a 50 degree view across 64 LEDs
 const NR = 8; // ranks
 const KR = 0.5; // depth step between ranks (depth u = 1 for the front rank, distance 1 + 0.5 per rank)
-const HFULL = 118; // tallest blade in the front rank at Height 1, in LEDs
-const SUNI = 0.98; // strength of the sun on a lit face
+const HFULL = 128; // tallest blade in the front rank at Height 1, in LEDs
+const GAIN_AMB = 0.55; // shade and the sky's light on snow
+const GAIN_SKY = 0.3;
+const GAIN_HOR = 0.7; // horizon glow, haze and far mountains
+const GAIN_FLOOR = 0.42; // sun on level snow
+const EXPO = 0.88; // overall exposure at the output, to keep the mean level moderate
+const SUNI = 0.95; // strength of the sun on a lit face
 const CAP = 260; // blades at most
 const STRAFE = 0.4; // sideways walk, front-rank LEDs a second at the opening spacing
 const T0 = 41; // where the slow clock stands when the Lab starts
 
 // base colours in linear light; the Hue knob turns them all
-const GOLD = [1.0, 0.5, 0.14];
-const CREAM = [1.0, 0.8, 0.56];
+const GOLD = [1.0, 0.44, 0.07];
+const CREAM = [1.0, 0.72, 0.42];
 const ROSE = [1.0, 0.5, 0.58];
-const AMB0 = [0.045, 0.15, 0.42];
+const AMB0 = [0.03, 0.12, 0.5];
 const AMBV = [0.11, 0.13, 0.42];
-const SKYTOP = [0.02, 0.07, 0.38];
-const SKYMID = [0.04, 0.15, 0.5];
-const SKYLOW = [0.3, 0.5, 0.78];
+const SKYTOP = [0.012, 0.045, 0.42];
+const SKYMID = [0.03, 0.14, 0.62];
+const SKYLOW = [0.16, 0.42, 0.8];
 const MTA = [0.3, 0.4, 0.68];
 const MTB = [0.17, 0.25, 0.54];
 const MTLIT = [0.85, 0.62, 0.52];
@@ -167,7 +172,7 @@ function prepare(S) {
   const tmp = S.tmp;
   // the sun: azimuth round from the left toward behind the viewer, and height
   const phi = (-6 + 66 * S.sunK) * DEG + (15 * sin(0.0213 * t + 0.8) + 9 * sin(0.0541 * t + 2.3) + 4 * sin(0.1137 * t + 4.1) + 3.5 * sin(0.2071 * t + 1.3)) * DEG;
-  const el = max(5.5 * DEG, (8 + 25 * S.sunK) * DEG + (5 * sin(0.0307 * t + 1.5) + 2.5 * sin(0.0713 * t + 0.2)) * DEG);
+  const el = max(5.5 * DEG, (8 + 22 * S.sunK) * DEG + (5 * sin(0.0307 * t + 1.5) + 2.5 * sin(0.0713 * t + 0.2)) * DEG);
   P.phi = phi;
   P.el = el;
   P.Sx = -cos(phi) * cos(el);
@@ -175,7 +180,7 @@ function prepare(S) {
   P.Sz = -sin(phi) * cos(el);
   P.Dx = cos(phi);
   P.Dz = sin(phi);
-  P.lenK = min(1 / tan(el), 3.6);
+  P.lenK = min(1 / tan(el), 4.2);
   // the colours: gold when low, cream when high, a cooler rose now and then
   const wh = sm(9 * DEG, 36 * DEG, el);
   const ro = sm(0.55, 0.92, 0.5 + 0.34 * sin(0.0173 * t + 0.6) + 0.26 * sin(0.0411 * t + 2.0));
@@ -216,26 +221,31 @@ function prepare(S) {
   const sun = turn([tmp[0], tmp[1], tmp[2]]);
   P.sun = sun;
   mix3(AMB0, AMBV, 0.5 * ro, tmp);
-  const amb = turn([tmp[0], tmp[1], tmp[2]], 0.1);
+  // the panel is held dim: shade, sky and snow in shadow sit low so only the sunlit faces are bright
+  const dim = (c, g) => [c[0] * g, c[1] * g, c[2] * g];
+  const amb = dim(turn([tmp[0], tmp[1], tmp[2]], 0.1), GAIN_AMB);
   P.amb = amb;
-  P.skyTop = turn(SKYTOP, 0.26);
-  P.skyMid = turn(SKYMID, 0.12);
-  P.skyLow = turn(SKYLOW);
+  // a dark sky turned toward amber or green would go brown, so it opens up as the hue leaves the opening
+  const gs = GAIN_SKY * (1 + 2.5 * far);
+  P.skyTop = dim(turn(SKYTOP, 0.26), gs);
+  P.skyMid = dim(turn(SKYMID, 0.12), gs);
+  P.skyLow = dim(turn(SKYLOW), gs * 1.1);
   // the horizon takes the sun's colour, pale
-  const hor = turn([sun0[0] * 0.6 + 0.08 + 0.1 * ro, sun0[1] * 0.52 + 0.12, sun0[2] * 0.46 + 0.2 + 0.1 * ro]);
+  const hor = dim(turn([sun0[0] * 0.6 + 0.08 + 0.1 * ro, sun0[1] * 0.52 + 0.12, sun0[2] * 0.46 + 0.2 + 0.1 * ro]), GAIN_HOR);
   P.hor = hor;
   P.haze = hor;
   // a far blade fades toward a bluer haze than the floor does
-  const bh = turn([0.3, 0.36, 0.62]);
+  const bh = dim(turn([0.3, 0.36, 0.62]), GAIN_HOR);
   P.bhaze = [hor[0] * 0.45 + bh[0] * 0.55, hor[1] * 0.45 + bh[1] * 0.55, hor[2] * 0.45 + bh[2] * 0.55];
-  P.mtA = turn(MTA, 0.1);
-  P.mtB = turn(MTB, 0.14);
-  P.mtLit = turn(MTLIT);
+  P.mtA = dim(turn(MTA, 0.1), GAIN_HOR);
+  P.mtB = dim(turn(MTB, 0.14), GAIN_HOR);
+  P.mtLit = dim(turn(MTLIT), GAIN_HOR);
   // snow floor: ambient from the sky plus the sun on level ground
-  const fs = 0.54 * P.sunI * (0.55 + 0.45 * sin(el) / 0.34);
-  P.floorAmb = [amb[0] * 0.3, amb[1] * 0.3, amb[2] * 0.3];
-  P.floorSun = [sun[0] * fs, sun[1] * fs, sun[2] * fs];
-  P.shadowC = [amb[0] * 1.05, amb[1] * 1.05, amb[2] * 1.05];
+  const fs = GAIN_FLOOR * P.sunI * (0.62 + 0.38 * sin(el) / 0.34);
+  P.floorAmb = turn([0.15, 0.18, 0.28]);
+  // level snow takes the sun a little paler than a blade's face does, so a dim gold never turns brown
+  P.floorSun = [(sun[0] * 0.62 + 0.38 * 0.95) * fs, (sun[1] * 0.62 + 0.38 * 0.85) * fs, (sun[2] * 0.62 + 0.38 * 0.85) * fs];
+  P.shadowC = [amb[0] * 0.8, amb[1] * 0.85, amb[2] * 0.9];
   // a cloud's shadow drifting over the field now and then
   P.cloudA = sm(0.18, 0.6, 0.5 + 0.4 * sin(0.0071 * t + 4.0) + 0.22 * sin(0.0173 * t + 1.0)) * 0.55;
   P.cx = 230 * sin(0.0113 * t + 0.6) + 80 * sin(0.0301 * t + 2.2);
@@ -254,7 +264,7 @@ function cloud(P, X, u) {
 function buildBlades(S) {
   const t = S.t;
   const P = S.pal;
-  const hmul = 0.18 + 0.97 * pow(S.hK, 0.62);
+  const hmul = 0.16 + 0.9 * pow(S.hK, 0.62);
   const sp0 = 44 * exp(-1.45 * S.cK);
   // the viewer walks slowly along the rows, so the field slides past with parallax and never comes round
   const sidx = (STRAFE * t + 14 * sin(0.0213 * t + 0.7)) / 21.3;
@@ -262,12 +272,12 @@ function buildBlades(S) {
   const sun = P.sun;
   const amb = P.amb;
   // lit faces are a warm white: the sun's colour with a share of white
-  const sw = [0.95, 0.9, 0.85];
+  const sw = [0.95, 0.85, 0.7];
   let nb = 0;
   for (let j = 0; j < NR; j++) {
     S.rstart[j] = nb;
     const uj = 1 + KR * j;
-    const sp = sp0 * pow(uj, 0.75);
+    const sp = sp0 * pow(uj, 0.9);
     const XR = 52 * uj;
     const off = hash(j * 7.7 + 0.3) - 0.5;
     for (let i = floor(sidx - XR / sp - off - 1); i <= ceil(sidx + XR / sp - off + 1); i++) {
@@ -295,7 +305,7 @@ function buildBlades(S) {
         0.09 * sin(0.093 * t * (0.8 + 0.5 * h9) + TAU * h10) +
         0.045 * sin(0.217 * t * (0.7 + 0.6 * h7) + TAU * h8) +
         0.03 * sin(0.0371 * t + 0.9);
-      const Hw = HFULL * hmul * (0.5 + 0.65 * h4) * br;
+      const Hw = min(150, HFULL * hmul * (0.45 + 0.7 * pow(h4, 0.6)) * br);
       const Hs = Hw / u;
       const yf = YH + EYE / u;
       if (yf - Hs > H) continue;
@@ -310,7 +320,7 @@ function buildBlades(S) {
       S.brr[k] = (h7 - 0.5) * 0.5 - 0.08;
       S.bp[k] = 1.0 + 0.35 * h8;
       S.bu[k] = u;
-      S.bhz[k] = 1 - exp(-0.24 * (u - 1));
+      S.bhz[k] = 1 - exp(-0.3 * (u - 1));
       // the two faces: yaw of the blade changes how much sun each takes
       const a = 0.7 + 0.35 * (h9 - 0.5);
       const cf = cloud(P, Xw, u);
@@ -321,8 +331,8 @@ function buildBlades(S) {
       const kl = SUNI * P.sunI * lamL * cf * 0.95;
       const kr = SUNI * P.sunI * lamR * cf * 0.95;
       for (let c = 0; c < 3; c++) {
-        S.lit[k * 3 + c] = amb[c] * aL + (sun[c] * 0.72 + 0.28 * sw[c]) * kl;
-        S.shd[k * 3 + c] = amb[c] * aR + (sun[c] * 0.72 + 0.28 * sw[c]) * kr;
+        S.lit[k * 3 + c] = amb[c] * aL + (sun[c] * 0.88 + 0.12 * sw[c]) * kl;
+        S.shd[k * 3 + c] = amb[c] * aR + (sun[c] * 0.88 + 0.12 * sw[c]) * kr;
       }
       S.bhl[k] = min(1, lamL * 1.3) * cf;
       // the shadow: a quad on the ground running from the foot away from the sun
@@ -333,8 +343,8 @@ function buildBlades(S) {
       const dz = P.Dz;
       const px = -dz;
       const pz = dx;
-      const s0 = hww * 0.85;
-      const s1 = hww * 0.16;
+      const s0 = hww * 1.1;
+      const s1 = hww * 0.3;
       const back = hww * 0.6;
       // ground points (X, Z) with Z in front-rank units from the front rank
       const Zf = FOC * (u - 1);
@@ -401,7 +411,7 @@ function buildBlades(S) {
       S.sinfo[k * 6] = Xw;
       S.sinfo[k * 6 + 1] = Zf;
       S.sinfo[k * 6 + 2] = 1 / max(lh, 1);
-      S.sA[k] = 0.92 * (0.4 + 0.6 * cf);
+      S.sA[k] = 0.97 * (0.4 + 0.6 * cf);
       nb++;
     }
     if (nb >= CAP) {
@@ -494,7 +504,7 @@ export function draw(display, params) {
   }
 
   // ---- out ----
-  const sc = NLUT / 2.5;
+  const sc = (NLUT / 2.5) * EXPO;
   let o = 0;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -592,7 +602,7 @@ function shadowPass(S, ya, yb) {
         // lighter toward the far end of the shadow
         const X = (px - CX) * u;
         const tl = cl(((X - Xf) * Dx + (FOC * (u - 1) - Zf) * Dz) * il, 0, 1);
-        const al = cov * A * (1 - 0.72 * tl);
+        const al = cov * A * (1 - 0.6 * tl * tl);
         const o = (y * W + x) * 3;
         for (let c = 0; c < 3; c++) {
           const col = sc[c] + (haze[c] - sc[c]) * hz;
