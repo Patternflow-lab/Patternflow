@@ -64,7 +64,7 @@ const G = 7.4; // side of the grid of lenses in a plate's plane, in d
 const RMIN = 2.3, RSPAN = 1.4; // lens radius from 2.3 to 3.7 d, so a lens always fits its cell
 const EXIST = 232; // of 256: the share of cells that hold a plate
 const HALF0 = 0.17, HALFSPAN = 0.08; // half thickness at a lens's centre, from 0.17 to 0.25 d
-const TAPER = 0.4; // half thickness goes as (1 - r^2)^TAPER across the lens
+// Half thickness goes as the square root of (1 - r^2) across the lens, where r is 0 at its centre and 1 at its rim.
 const WARP = 0.14; // how far the noise bends the bands, in d
 const WARP_LEN = 3.4, THICK_LEN = 2.2; // wavelengths of the bending and of the thickness noise, in d
 const RIM_PER_D = 0.15, RIM_MIN = 1.0, RIM_MAX = 1.8; // width of the taenite rim in LEDs: 0.15 d, between 1 and 1.8
@@ -76,6 +76,8 @@ const TILT_MAX = 55 * PI / 180;
 
 // ---- the coarse grid for the noise that bends the bands
 const GX = 17, GY = 33, GSTEP = 4, NF = 5;
+// ... and the grid for the plessite mottle, a node every 2 LEDs
+const MX = 33, MY = 65;
 
 // ---- the colours
 const HUE0 = 0.58; // steel blue at Hue 0
@@ -128,6 +130,7 @@ export function setup(params) {
     jit: new Float64Array(4 * NK), hp: new Int32Array(4 * NK), offA: new Float64Array(4 * NK), offB: new Float64Array(4 * NK),
     pb: new Float64Array(4 * NK),
     grid: new Float64Array(GX * GY * NF),
+    mot: new Float64Array(MX * MY * 2),
     kam: [0, 0, 0], rim: [0, 0, 0], white: [0, 0, 0], gold: [0, 0, 0], grey: [0, 0, 0],
     c: [0, 0, 0],
   };
@@ -201,6 +204,18 @@ function prepare(S) {
         gr[base + f] = noise3(qx / L + o[0], qy / L + o[1], qz / L + o[2]);
       }
     }
+  // The mottle: two octaves of value noise in LED coordinates of the crystal, one node every 2 LEDs.
+  // A pixel centre sits a quarter or three quarters of the way between nodes, so the weights are fixed.
+  const oL = S.oL, mo = S.mot, tt = S.t, e0 = 0.3 * tt, e1 = -0.22 * tt, e2 = 0.17 * tt;
+  for (let my = 0; my < MY; my++)
+    for (let mx = 0; mx < MX; mx++) {
+      const X = mx * 2 - 32, Y = my * 2 - 64;
+      const rx = oL[0] + X * u[0] + Y * v[0] + e0, ry = oL[1] + X * u[1] + Y * v[1] + e1, rz = oL[2] + X * u[2] + Y * v[2] + e2;
+      const n1 = noise3(rx / 2.4, ry / 2.4, rz / 2.4), n2 = noise3(rx / 4.2 + 9.1, ry / 4.2 - 4.7, rz / 4.2 + 2.3);
+      const q = (my * MX + mx) * 2;
+      mo[q] = 0.65 * n1 + 0.35 * n2;
+      mo[q + 1] = n2;
+    }
   // The colours.
   const h0 = HUE0 + S.hue;
   hsv(h0, 0.16, 1, S.kam);
@@ -252,10 +267,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ok) return;
   const { fs0, fsx, fsy, fg, fm, fr, fa0, fax, fay, fb0, fbx, fby, kmin, jit, hp, offA, offB, pb, grid } = S;
-  const { kam, rim, white, gold, grey, u, v, oL } = S;
-  // The mottle's lattice drifts a little on the real clock whatever the Sweep knob says, so the
-  // plessite shimmers even when the crystal stands still.
-  const dr0 = 0.3 * S.t, dr1 = -0.22 * S.t, dr2 = 0.17 * S.t;
+  const { kam, rim, white, gold, grey, mot: mo } = S;
   const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.5 + 0.3 * dt, fadeHi = 1.0 + 0.4 * dt;
   for (let y = 0; y < H; y++) {
     const py = y + 0.5, gyf = py / GSTEP, jy = min(floor(gyf), GY - 2), fy = gyf - jy;
@@ -285,7 +297,7 @@ export function draw(display, params) {
         const cy = (cj + 0.5) * G + (((hc >>> 16) & 255) / 127.5 - 1) * (G * 0.5 - Rb);
         const da = (A - cx) / Ra, db = (B - cy) / Rb, r2 = da * da + db * db;
         if (r2 >= 1) continue;
-        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * tm * pow(1 - r2, TAPER);
+        const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * tm * sqrt(1 - r2);
         // A band narrower than about two LEDs (a little more at a coarse spacing) fades out with its rim.
         let fade = (h / gg - fadeLo) / (fadeHi - fadeLo);
         if (fade <= 0) continue;
@@ -318,9 +330,11 @@ export function draw(display, params) {
       // The plessite under all of it, computed only where it shows.
       let r, g2, b;
       if (free > 0.004) {
-        const rx = oL[0] + (px - 32) * u[0] + (py - 64) * v[0] + dr0, ry = oL[1] + (px - 32) * u[1] + (py - 64) * v[1] + dr1, rz = oL[2] + (px - 32) * u[2] + (py - 64) * v[2] + dr2;
-        const n1 = noise3(rx / 2.4, ry / 2.4, rz / 2.4), n2 = noise3(rx / 4.2 + 9.1, ry / 4.2 - 4.7, rz / 4.2 + 2.3);
-        const mot = 0.65 * n1 + 0.35 * n2, gm = cl(0.5 + 0.9 * n2, 0, 1);
+        const mx = x >> 1, my = y >> 1, ax = x & 1 ? 0.75 : 0.25, ay = y & 1 ? 0.75 : 0.25;
+        const q0 = (my * MX + mx) * 2, q1 = q0 + 2, q2 = q0 + MX * 2, q3 = q2 + 2;
+        const c00 = (1 - ax) * (1 - ay), c10 = ax * (1 - ay), c01 = (1 - ax) * ay, c11 = ax * ay;
+        const mot = mo[q0] * c00 + mo[q1] * c10 + mo[q2] * c01 + mo[q3] * c11;
+        const n2 = mo[q0 + 1] * c00 + mo[q1 + 1] * c10 + mo[q2 + 1] * c01 + mo[q3 + 1] * c11, gm = cl(0.5 + 0.9 * n2, 0, 1);
         const Lp = 0.52 + 0.14 * mot;
         r = (grey[0] + (gold[0] - grey[0]) * gm) * Lp;
         g2 = (grey[1] + (gold[1] - grey[1]) * gm) * Lp;
