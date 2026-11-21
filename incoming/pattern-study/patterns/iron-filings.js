@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Iron Filings
 // Family:  magnetism
-// Idea:    Iron filings sprinkled on a sheet of cream paper over three bar magnets that slowly slide and turn beneath it: every filing is a short dark dash that swings to lie along the field at a finite rate, so the lines of force bend through the dashes with a lag, fan out at the poles, and fall apart into loose grit at the points where two fields cancel.
+// Idea:    Iron filings sprinkled on a sheet of cream paper over three bar magnets that slowly slide, turn and breathe beneath it: every filing is a short dark dash that swings to lie along the field at a finite rate, so the lines of force bend through the dashes with a lag, fan out at the poles, and fall apart into loose grit where two fields cancel, all under a lamp that drifts over the sheet.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Michael Faraday's iron-filing pictures of lines of force (1831, Experimental Researches in Electricity, series 28 of 1852 on the lines themselves), the school experiment with a bar magnet under paper, the field of a bar magnet as two point poles, and blue noise from Mitchell's best-candidate sampling (Don Mitchell, 1991); pattern round 208
+// Lineage: Michael Faraday's iron-filing pictures of the lines of magnetic force (1831, and On the Physical Character of the Lines of Magnetic Force, 1852), the school experiment of a bar magnet under a sheet of paper, the field of a bar magnet as two point poles, and blue noise from Mitchell's best-candidate sampling (Don Mitchell, 1991); pattern round 208
 // Round:   208
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Field=0.5..3, Gap=-1..1, Grain=-1..1
 //
-// Knob 1: Hue. Tints the paper and turns it round the colour wheel once. It opens on warm cream, goes through rose, lilac, blue and green paper and comes back to cream at 1; the filings stay near-black with a lean toward the opposite tint.
-// Knob 2: Field. How hard the magnets pull. At 0.5 most filings lie loose at their own angles and only the ones close to a pole line up, at the opening 2 the lines of force run through nearly the whole sheet and fray only at the neutral points and in the far corners, and at 3 every filing is locked on, thick and dark, and the grit near the poles clumps.
-// Knob 3: Gap. How far apart the two poles of each magnet stand, from 12 LEDs at -1, where each bar is a short dipole with closed loops, through 22 at the opening 0, to 42 at 1, where the poles are two separate centres of rays and the lines of force bridge a long way between unlike poles and bend away between like ones.
-// Knob 4: Grain. The size and the spacing of the filings. At -1 there are about a thousand fine ones, 3 LEDs apart and 4 long; at the opening 0 about 520, 4 apart; at 1 about 250 coarse ones 6 apart and 7 LEDs long. A finer grain draws the lines of force sharper, a coarser one lets each dash show.
+// Knob 1: Hue. Tints the paper and turns it round the colour wheel once. It opens on warm cream, goes through green, blue and pink paper and comes back to cream at 1; the filings stay near-black with a lean toward the opposite tint.
+// Knob 2: Field. How hard the magnets pull. At 0.5 most filings lie loose at their own angles, thin on the paper, and only the ones close to a pole line up. At the opening 2 the lines of force run through most of the sheet and fray only at the neutral points and in the far corners. At 3 they reach the corners, and the grit crowds thick and dark round the poles.
+// Knob 3: Gap. How far apart the two poles of a bar magnet stand, 12 LEDs at -1 for the first magnet (the other two are 0.86 and 1.14 of it), 22 at the opening 0 and 42 at 1. Short bars are dipoles with closed loops; long ones are two separate centres of rays, with the lines of force bridging between unlike poles and bending away between like ones.
+// Knob 4: Grain. The size and the spacing of the filings. At -1 there are about a thousand fine ones, 3 LEDs apart and 3 long; at the opening 0 about 500, 4 apart and 4 long; at 1 about 250 coarse ones, 6 apart and 6 long. A finer grain draws the lines of force sharper, a coarser one lets each dash show.
 
 const W = 64;
 const H = 128;
@@ -37,19 +37,22 @@ const PAPER_C = 0.04;
 const INK_L = 0.17;
 const INK_C = 0.03;
 
-// Three bar magnets: centre of a Lissajous path, its half-widths, two
-// frequencies that share no factor, a turning rate and a rocking of the
-// angle, and a strength. All frequencies are rad/s of panel time.
+// Three bar magnets. Each centre rides a Lissajous path, a wide slow figure
+// (ax, ay at wx, wy) with a still slower one added (bx, by at vx, vy), and
+// no two of the frequencies share a factor. The bar turns at wr and rocks
+// by 0.9 rad at wa, so a pair passes through attracting and repelling poses;
+// its strength breathes by a fifth at wq. Frequencies are rad/s of path time.
 const MAG = [
-  { cx: 31, cy: 36, ax: 17, ay: 22, bx: 10, by: 13, wx: 0.137, wy: 0.083, vx: 0.047, vy: 0.031, p0: 0.4, p1: 2.1, p2: 1.3, p3: 5.0, a0: 1.1, wr: 0.152, wa: 0.071, pa: 0.7, q: 1.0, wq: 0.061, pq: 0.8, len: 1.0 },
-  { cx: 33, cy: 93, ax: 18, ay: 22, bx: 10, by: 13, wx: 0.103, wy: 0.121, vx: 0.037, vy: 0.053, p0: 3.3, p1: 0.9, p2: 4.4, p3: 2.2, a0: 4.0, wr: -0.118, wa: 0.089, pa: 2.4, q: 0.9, wq: 0.083, pq: 3.9, len: 0.86 },
-  { cx: 32, cy: 64, ax: 20, ay: 28, bx: 9, by: 12, wx: 0.159, wy: 0.067, vx: 0.029, vy: 0.043, p0: 5.1, p1: 4.2, p2: 0.2, p3: 3.4, a0: 2.3, wr: 0.093, wa: 0.113, pa: 4.9, q: 0.72, wq: 0.047, pq: 5.6, len: 1.14 },
+  { cx: 31, cy: 36, ax: 17, ay: 22, bx: 10, by: 13, wx: 0.137, wy: 0.083, vx: 0.047, vy: 0.031, p0: 0.4, p1: 2.1, p2: 1.3, p3: 5.0, a0: 1.1, wr: 0.152, wa: 0.071, pa: 0.7, q: 1.0, wq: 0.061, pq: 0.8, wl: 0.071, pl: 2.9, len: 1.0 },
+  { cx: 33, cy: 93, ax: 18, ay: 22, bx: 10, by: 13, wx: 0.103, wy: 0.121, vx: 0.037, vy: 0.053, p0: 3.3, p1: 0.9, p2: 4.4, p3: 2.2, a0: 4.0, wr: -0.118, wa: 0.089, pa: 2.4, q: 0.9, wq: 0.083, pq: 3.9, wl: 0.057, pl: 0.6, len: 0.86 },
+  { cx: 32, cy: 64, ax: 20, ay: 28, bx: 9, by: 12, wx: 0.159, wy: 0.067, vx: 0.029, vy: 0.043, p0: 5.1, p1: 4.2, p2: 0.2, p3: 3.4, a0: 2.3, wr: 0.093, wa: 0.113, pa: 4.9, q: 0.72, wq: 0.047, pq: 5.6, wl: 0.093, pl: 4.1, len: 1.14 },
 ];
 const TS = 1.3; // how fast the magnets go, against their own frequencies
 const T0 = 206; // where on its paths each magnet stands at 0 s
 const PREROLL = 9; // seconds of lag already played when the picture opens
 const SPARSE = 0.12; // share of the grit that lies on the paper where the field is nothing
 const LAMP = 0.12; // how much brighter the paper is under the lamp
+const SHADE = 0.07; // and how much dimmer in the shade that wanders against it
 const EPS = 2.6; // a pole's softening radius in LEDs
 const GAIN = 30; // field to a unit that is 1 at about 12 LEDs from a pole at Field 1
 const RMIN = 0.28; // turning rates, 1/s: far from a pole, and next to one
@@ -133,7 +136,7 @@ function poles(S, T) {
     const cx = m.cx + m.ax * sin(m.wx * t + m.p0) + m.bx * sin(m.vx * t + m.p2);
     const cy = m.cy + m.ay * sin(m.wy * t + m.p1) + m.by * sin(m.vy * t + m.p3);
     const th = m.a0 + m.wr * t + 0.9 * sin(m.wa * t + m.pa);
-    const h = 0.5 * L * m.len;
+    const h = 0.5 * L * m.len * (1 + 0.3 * sin(m.wl * t + m.pl));
     const ux = cos(th) * h;
     const uy = sin(th) * h;
     const P = S.P;
@@ -172,9 +175,9 @@ function step(S, dt) {
       by += dy * q;
     }
     const u = sqrt(bx * bx + by * by) * GAIN * f;
-    // how firmly the field holds this filing: it lies along the field
-    // plus its own stray angle, and the stray angle shrinks as the field
-    // grows, from a quarter turn either way to nothing
+    // w is how firmly the field holds this filing. It lies along the field
+    // plus its own stray angle, and the stray angle shrinks as w grows, from
+    // a quarter turn either way to nothing.
     const w = u / (u + 1);
     S.w[i] = w;
     const target = atan2(by, bx) + S.rho[i] * Math.pow(1 - w, 1.3);
@@ -230,7 +233,11 @@ export function draw(display, params) {
   const S = params.s;
   if (!S) return;
   // paper and ink
-  const hdeg = HUE0 + 360 * S.hue;
+  // the light on the sheet warms, cools and brightens a little over the
+  // minutes, so the paper itself is never the same twice
+  const tl0 = (S.T + T0) * 0.7;
+  const hdeg = HUE0 + 360 * S.hue + 9 * sin(0.043 * tl0 + 0.5) + 6 * sin(0.087 * tl0 + 3.1);
+  const expo = 1 + 0.045 * sin(0.039 * tl0 + 1.2) + 0.03 * sin(0.101 * tl0 + 4.4);
   oklch(PAPER_L, PAPER_C, hdeg, S.paper);
   oklch(INK_L, INK_C, hdeg + 190, S.ink);
   const pr = S.paper[0];
@@ -243,6 +250,9 @@ export function draw(display, params) {
   const lx = 32 + 34 * sin(0.083 * tl + 1.7) + 12 * sin(0.151 * tl);
   const ly = 64 + 66 * sin(0.057 * tl + 0.3) + 20 * sin(0.113 * tl + 2.6);
   const lw = 1 / (2 * 46 * 46);
+  // and a shade that wanders against it, a broad dim patch
+  const sx = 32 + 36 * sin(0.067 * tl + 4.1) + 10 * sin(0.173 * tl + 1.1);
+  const sy = 64 + 70 * sin(0.091 * tl + 2.2) + 16 * sin(0.139 * tl + 0.4);
   const nm = MAG.length;
   // The paper: a soft vignette, and a very faint raised look where a bar
   // lies under it, lit from the top left.
@@ -252,7 +262,9 @@ export function draw(display, params) {
       const ex = (x + 0.5 - W / 2) / (W / 2);
       const lxd = x + 0.5 - lx;
       const lyd = y + 0.5 - ly;
-      let g = 0.93 - 0.05 * (0.5 * ex * ex + 0.5 * ey * ey) + LAMP * exp(-(lxd * lxd + lyd * lyd) * lw);
+      const sxd = x + 0.5 - sx;
+      const syd = y + 0.5 - sy;
+      let g = expo * (0.95 - 0.05 * (0.5 * ex * ex + 0.5 * ey * ey) + LAMP * exp(-(lxd * lxd + lyd * lyd) * lw) - SHADE * exp(-(sxd * sxd + syd * syd) * lw));
       const px = x + 0.5;
       const py = y + 0.5;
       let em = 0;
