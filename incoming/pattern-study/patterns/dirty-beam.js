@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Dirty Beam
 // Family:  interferometry
-// Idea:    The panel is the image a radio interferometer makes of a patch of sky: a Y of 27 dishes turns with the Earth, every pair of dishes measures one point of the sky's Fourier transform, and the sum of the last few seconds of those points is drawn as it stands, so a radio galaxy with a streaming jet, a binary and a flaring source rise out of a star of spokes and rings that is the telescope's own blur.
+// Idea:    The panel is the image a radio interferometer makes of a patch of sky: a Y of 27 dishes is turned by the Earth, every pair of dishes measures one point of the sky's Fourier transform, and the last few seconds of those points are gridded and inverted into the dirty image, so a bent radio galaxy with knots streaming down its jets, a binary and a flaring source come out of the telescope's own blur, a core ringed by six lumps and a blue moat, and the blur clears as the window grows.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: aperture synthesis and the dirty image (Martin Ryle and Antony Hewish, Cambridge, 1950s-1974; the Very Large Array's Y of three 21 km arms, 1980), the van Cittert-Zernike theorem (Pieter van Cittert 1934, Frits Zernike 1938), Hogbom's CLEAN, which names the dirty beam and the dirty image (Jan Hogbom, 1974); Cygnus A as the model radio galaxy (Jennison and Das Gupta, 1953); pattern round 208
+// Lineage: aperture synthesis (Martin Ryle and Antony Hewish, Cambridge, 1950s to 1974), the Very Large Array's Y of 27 dishes on three arms (1980), the van Cittert-Zernike theorem (Pieter van Cittert 1934, Frits Zernike 1938), the dirty beam and dirty image named by Jan Hogbom's CLEAN (1974), gridding and an inverse FFT as radio imagers make the dirty image, Cygnus A as the model double radio galaxy (Jennison and Das Gupta, 1953), wide-angle tails (Owen and Rudnick, 1976); pattern round 208
 // Round:   208
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Rotation=0..4, Dropout=0..15, Wavelength=-1..1
 //
-// Knob 1: Hue. Turns the whole ramp round the colour wheel once, the dim blue of the negative bowls with it. It opens on the warm afmhot ramp, black through crimson and orange to a white-hot core, and comes back to that at 1.
-// Knob 2: Rotation. How fast the Earth turns the array, 0.1 radian a second for each unit, so the opening 2 is 0.2. The dishes' tracks across the u-v plane are arcs of that turn, and a window of several seconds covers more of the circle the faster it goes: at 0 only the snapshot is ever known and the picture is the six-spoked star of the Y, at 1 the spokes have fanned half way and at 3 or 4 they have smeared into complete rings.
-// Knob 3: Dropout. How many of the 27 dishes are switched off, from none at the opening to 18, which leaves nine: the three at the ends of the arms and six more. The tips stay, so the beam stays as narrow, but the gaps in the array come back as ripples and one-sided lobes round every source.
-// Knob 4: Wavelength. How long the waves being observed are, from -1, which is 1.9 times finer than the opening, to 1, which is 1.8 times coarser. The beam is a width of sky in LEDs, so the opening's 5 LED core is 3 LED at -1 and 9 at 1, and the binary, 5 LED apart, resolves into two or runs into one.
+// Knob 1: Hue. Turns the whole ramp round the colour wheel once, the dim blue of the negative bowls with it. It opens on the afmhot ramp, black through crimson and orange to a white-hot core, and comes back to that at 1.
+// Knob 2: Rotation. How fast the Earth turns the array: 0.05 radian a second at 0 and 0.45 at 4, 0.25 where it opens. The tracks of the dishes across the u-v plane are arcs of that turn, and the Y's snapshot is a star of six spokes 60 degrees apart, so the window needs 60 degrees of turn to fill the star into rings. At 2 that is 4.2 s of window and the 1.3 s window it opens on has turned a third of that, so the star is still mostly spokes; at 4 it is 2.3 s and the picture is mostly clean; at 0 the window never turns more than 25 degrees and every source keeps its spokes and a speckle of ripples round them.
+// Knob 3: Dropout. How many of the 27 dishes are switched off, from none at the opening to 15, which leaves twelve: the three at the ends of the arms and nine more, in an order that is fixed. The tips stay, so the beam stays as narrow, but the gaps in the array come back as ripples and arcs round every source, and the 351 baselines of the full Y are 66.
+// Knob 4: Wavelength. How long the waves being observed are. The beam is the width of one wavelength over the array, so at -1 the u-v plane is 1.9 times wider than at the opening and the core is under 2 LED across, at the opening it is 4 LED at half power, and at 1 the plane is 0.57 as wide and the core is 7 LED. The binary, 5 LED apart, is two points at -1 and one lump at 1.
 
 const W = 64;
 const H = 128;
@@ -431,6 +431,10 @@ function buildLut(S, rot) {
 
 // ---- the pattern ---------------------------------------------------------------
 export function setup(params) {
+  // the grid is module-wide; a second setup starts it clean
+  GR.fill(0);
+  GI.fill(0);
+  ROWS.fill(0);
   params.s = {
     ready: false,
     acc: new Float32Array(NPX),
