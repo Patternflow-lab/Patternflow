@@ -73,7 +73,8 @@ const NS = 6;
 const XS = [5, 16, 28, 39, 51, 59]; // station columns
 const SPD = [1.7, 0.9, 0.45]; // columns a row: express, stopping, freight
 const BONUS = [14, 6, 0]; // rows older a class counts when two trains want one section
-const MIX = [0.28, 0.5, 0.22]; // share of the trains that enter
+const MIX = [0.28, 0.44, 0.28]; // share of the trains that enter
+const ROUND = [[1, 0, 2, 1, 0, 1, 2, 1], [0, 1, 2, 1, 0, 2, 1]]; // the classes of a timetable at each end
 const GAP = SPD.map((v) => 4.2 * sqrt(1 + v * v)); // columns of headway behind a train of each class
 const STEP = 0.2; // rows of panel time in one step of the railway
 const ROWS_PER_S = 6; // scroll at Speed 2 (the opening), rows a second
@@ -93,7 +94,7 @@ const HOTMIN = 0.6; // rows a train has to be late for its stub to go hot
 // ---- colours (hue, saturation, value) of the three classes and of a wait
 const COL = [
   [0.11, 0.88, 1.0], // express: amber
-  [0.5, 0.42, 1.0], // stopping train: cyan-white
+  [0.5, 0.5, 1.0], // stopping train: cyan-white
   [0.79, 0.8, 1.0], // freight: violet
   [0.02, 0.96, 1.0], // waiting: red-orange
 ];
@@ -114,7 +115,7 @@ export function setup(params) {
   const S = {
     t: 0, warm: false, hue: 0, mult: 1, d: 0.28, rate: 5.4 / 2 / 128,
     pExtra: 0.15, mExtra: 6,
-    trains: [], q: [[], []], prog: [Math.random(), Math.random()], tgt: [1, 1],
+    trains: [], q: [[], []], prog: [Math.random(), Math.random()], tgt: [1, 1], si: [0, 0],
     buf: new Float32Array(N * 3), cov: new Float32Array(N), tc: new Float32Array(N * 3), touch: new Int32Array(N), nt: 0,
     col: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], colKey: "",
     sc: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]], wk: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
@@ -138,11 +139,16 @@ function knobs(S, k) {
 // this much: regular at Delay 0 (0.7 to a bit over 1.3 of the mean gap) and
 // Poisson at Delay 1.
 function target(S) {
-  const j = 0.3 + 0.7 * S.d;
+  const j = 0.12 + 0.88 * S.d;
   return 1 - j + j * -log(1 - Math.random());
 }
 
-function pick() {
+// The classes of the trains that enter. At Delay 0 each end runs its own
+// fixed round of classes, like a timetable; the more Delay, the more often the
+// next class is drawn at random instead.
+function pick(S, e) {
+  const k = S.si[e]++;
+  if (Math.random() < 1 - sqrt(S.d)) return ROUND[e][k % ROUND[e].length];
   const u = Math.random();
   return u < MIX[0] ? 0 : u < MIX[0] + MIX[1] ? 1 : 2;
 }
@@ -330,7 +336,7 @@ function step(S, h) {
     if (S.prog[e] >= S.tgt[e]) {
       S.prog[e] -= S.tgt[e];
       S.tgt[e] = target(S);
-      if (S.q[e].length < 3) S.q[e].push(pick());
+      if (S.q[e].length < 3) S.q[e].push(pick(S, e));
     }
   }
   move(S, t0, h);
