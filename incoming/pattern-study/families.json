@@ -114,5 +114,10 @@
   "nebula": { "label": "성운", "color": "#7a5cff" },
   "fireworks": { "label": "불꽃놀이", "color": "#ff6f3c" },
   "lichen": { "label": "지의류", "color": "#a8c256" },
-  "lensflare": { "label": "렌즈 플레어", "color": "#7de3ff" }
+  "lensflare": { "label": "렌즈 플레어", "color": "#7de3ff" },
+  "meteor": { "label": "유성", "color": "#8affc1" },
+  "hydraulics": { "label": "물막", "color": "#c9d6e4" },
+  "ctenophore": { "label": "빗해파리", "color": "#ff7ee8" },
+  "alpine": { "label": "고산 설원", "color": "#ffd1a0" },
+  "longexposure": { "label": "장노출", "color": "#d13cff" }
 }
