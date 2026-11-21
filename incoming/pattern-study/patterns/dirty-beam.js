@@ -9,7 +9,7 @@
 // Round:   208
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Rotation=0..4, Dropout=0..18, Wavelength=-1..1
+// @knobs Hue=0..1, Rotation=0..4, Dropout=0..15, Wavelength=-1..1
 //
 // Knob 1: Hue. Turns the whole ramp round the colour wheel once, the dim blue of the negative bowls with it. It opens on the warm afmhot ramp, black through crimson and orange to a white-hot core, and comes back to that at 1.
 // Knob 2: Rotation. How fast the Earth turns the array, 0.1 radian a second for each unit, so the opening 2 is 0.2. The dishes' tracks across the u-v plane are arcs of that turn, and a window of several seconds covers more of the circle the faster it goes: at 0 only the snapshot is ever known and the picture is the six-spoked star of the Y, at 1 the spokes have fanned half way and at 3 or 4 they have smeared into complete rings.
@@ -29,11 +29,11 @@ const LMAX = 8.5; // the longest window, seconds
 const LMIN = 0.9; // and the shortest, which is a snapshot
 const NS = 24; // sources in the sky
 const NANT = 27; // dishes, nine on each arm of the Y
-const UMAX = 0.2; // the longest baseline, cycles per LED at the opening wavelength
+const UMAX = 0.165; // the longest baseline, cycles per LED at the opening wavelength
 const TAPER = 0.2; // roll-off of the longest baselines
-const ROBUST = 0.06;
+const ROBUST = 0.06; // 0 is uniform weighting in the u-v plane, large is natural
 const SHORT = 3; // extra weight on the shortest baselines, which carry the diffuse light
-const RINGS = 0.15; // small: the weight grows with baseline length, a thickened annulus, and the rings stand out // 0 is uniform weighting, large is natural
+const RINGS = 0.15; // small: the weight grows with baseline length, so the u-v plane is a thick ring and the beam's rings stand out
 const EPS = 0.86; // the foreshortening of v: the beam is that much longer than it is wide
 
 // ---- the sky ---------------------------------------------------------------
@@ -77,32 +77,32 @@ const BASE = [[9, 10], [53, 10], [6, 50], [58, 44], [8, 110], [32, 121], [58, 84
 const BG = BASE.map((p, i) => ({
   x: p[0],
   y: p[1],
-  ax: 4 + 5 * hash2(i, 1),
-  ay: 4 + 6 * hash2(i, 2),
+  ax: 8 + 8 * hash2(i, 1),
+  ay: 10 + 10 * hash2(i, 2),
   fx: 0.045 + 0.08 * hash2(i, 3),
   fy: 0.043 + 0.08 * hash2(i, 4),
   fa: 0.12 + 0.3 * hash2(i, 5),
   px: TAU * hash2(i, 6),
   py: TAU * hash2(i, 7),
   pa: TAU * hash2(i, 8),
-  a: 0.3 + 0.35 * hash2(i, 9),
+  a: 0.5 + 0.55 * hash2(i, 9),
   sg: 0.9 + 0.5 * hash2(i, 10),
 }));
 
 function skyAt(t) {
-  const th = 0.6 * sin(0.071 * t + 0.7) + 0.32 * sin(0.137 * t + 0.1) + 0.05 * sin(0.29 * t);
+  const th = 0.55 * sin(0.0733 * t + 0.695) + 0.3 * sin(0.1203 * t + 0.133) + 0.14 * sin(0.2503 * t + 1.021);
   const ex = sin(th);
   const ey = -cos(th);
   // the far lobe is bent off the line, as in a wide-angle tail
-  const tb = th + 0.55 * sin(0.093 * t + 2.1) + 0.2 * sin(0.21 * t);
+  const tb = th + 0.42 * sin(0.1088 * t + 2.068) + 0.14 * sin(0.21 * t);
   const bx2 = sin(tb);
   const by2 = -cos(tb);
-  const cx = 32 + 8 * sin(0.047 * t + 0.4) + 4 * sin(0.113 * t + 1);
-  const cy = 64 + 10 * sin(0.039 * t + 1.3) + 4 * sin(0.101 * t + 0.2);
+  const cx = 32 + 8 * sin(0.0464 * t - 0.499) + 4 * sin(0.1204 * t + 0.985);
+  const cy = 64 + 10 * sin(0.0345 * t + 0.209) + 4 * sin(0.0898 * t + 0.222);
   // the lobes keep inside the panel however the axis turns
-  const room = (23 - abs(cx - 32)) / max(abs(ex), 0.01);
+  const room = (19 - abs(cx - 32)) / max(abs(ex), 0.01);
   const da = max(16, min(35 + 5 * sin(0.151 * t + 0.2), room));
-  const db = max(15, min(30 + 4 * sin(0.127 * t + 2.4), (23 - abs(cx - 32)) / max(abs(bx2), 0.01)));
+  const db = max(15, min(30 + 4 * sin(0.127 * t + 2.4), (19 - abs(cx - 32)) / max(abs(bx2), 0.01)));
   put(0, cx, cy, 1.5 * (1 + 0.1 * sin(0.77 * t + 0.5)), 0.9);
   put(1, cx + 0.8 * da * ex, cy + 0.8 * da * ey, 2.2, 6);
   put(23, cx - 0.8 * db * bx2, cy - 0.8 * db * by2, 1.8, 6);
@@ -118,8 +118,8 @@ function skyAt(t) {
   const by = 106 + 6 * sin(0.049 * t + 2);
   put(12, bx + 0.4 * br * cos(bph), by + 0.4 * br * sin(bph), 0.8, 0.6);
   put(13, bx - 0.6 * br * cos(bph), by - 0.6 * br * sin(bph), 0.55, 0.6);
-  const f = 0.5 + 0.5 * sin(0.171 * t + 0.7);
-  put(14, 16 + 6 * sin(0.067 * t + 0.3) + 2 * sin(0.151 * t), 26 + 6 * sin(0.083 * t + 1.9), 0.1 + 0.9 * f * f * f * f * (0.65 + 0.35 * sin(0.063 * t + 2)), 0.7);
+  const f = 0.5 + 0.5 * sin(0.231 * t + 0.7);
+  put(14, 16 + 6 * sin(0.067 * t + 0.3) + 2 * sin(0.151 * t), 26 + 6 * sin(0.083 * t + 1.9), 0.1 + 1.6 * f * f * f * (0.6 + 0.4 * sin(0.083 * t + 2)), 0.7);
   put(15, 12 + 6 * sin(0.057 * t), 72 + 8 * sin(0.061 * t + 0.4), 0.28 + 0.1 * sin(0.19 * t + 2), 0.8);
   for (let i = 0; i < BG.length; i++) {
     const g = BG[i];
@@ -372,7 +372,7 @@ function popSlot(S) {
 // How long a window of the data is used, seconds. It breathes between a
 // couple of seconds, a snapshot, and the whole 8.5, at rates that do not divide.
 function windowAt(t) {
-  const q = 0.5 * (0.55 * sin(0.153 * t - 1.43) + 0.45 * sin(0.0877 * t - 0.32));
+  const q = 0.5 * (0.55 * sin(0.1401 * t - 1.404) + 0.45 * sin(0.0945 * t - 0.334));
   return LMIN + (LMAX - LMIN) * cl(0.5 + 1.6 * q, 0, 1);
 }
 
@@ -471,16 +471,16 @@ export function update(dt, input, params) {
   const d = cl(dt || 0, 0, 0.1);
   const hue = cl(kn[0], 0, 1);
   const rot = cl(kn[1], 0, 4);
-  const drop = floor(cl(kn[2], 0, 18) + 0.5);
+  const drop = floor(cl(kn[2], 0, 15) + 0.5);
   const wl = cl(kn[3], -1, 1);
 
   const sig = floor(rot * 40 + 0.5) + ":" + drop + ":" + floor(wl * 50 + 0.5);
   const ang = floor(hue * 256) / 256;
   if (ang !== S.lutRot) buildLut(S, ang * 360);
 
-  S.om = 0.03 + 0.1 * rot;
-  S.rate = RATE * cl(S.om / 0.23, 0.5, 2.1);
-  S.sc = exp(-0.5 * (wl - 0.06));
+  S.om = 0.05 + 0.1 * rot;
+  S.rate = RATE * cl(S.om / 0.25, 0.5, 2.1);
+  S.sc = exp(-0.6 * (wl - 0.06));
   if (drop !== S.drop || !S.ready) {
     S.drop = drop;
     baselines(S, drop);
@@ -516,7 +516,7 @@ export function update(dt, input, params) {
     const L = windowAt(S.T);
     while (S.count > 0 && S.T - S.t[S.tail] > L) popSlot(S);
     // after a knob has moved, measure the window again, a few dozen slots a frame
-    let budget = 700;
+    let budget = 450;
     while (S.sweep < S.count && budget-- > 0) {
       const i = (S.tail + S.sweep) % CAP;
       addSlot(S, i, -1);
