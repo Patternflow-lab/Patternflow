@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the aerial shell of pyrotechnics (the burst charge, the stars and the lift charge, as Takeo Shimizu described them in Fireworks from a Physicist's Point of View, 1981), stars with a burn time under air drag and gravity, the strontium red and barium green colour-change star, and the shell types of the trade (peony, chrysanthemum, willow, palm, ring, crossette, brocade); pattern round 209
+// Lineage: the aerial shell of pyrotechnics (burst charge, stars and lift charge, as Takeo Shimizu set them out in Fireworks: The Art, Science and Technique, 1981), stars with a burn time under air drag and gravity, the strontium red and barium green colour-change star, and the shell types of the trade (peony, chrysanthemum, willow, palm, ring, crossette, brocade); pattern round 209
 // Round:   209
 // ===============================
 // @matrix 64x128
@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the palette of the shells once round the wheel. At 0 the willows and the brocade are gold and the colour shells are crimson, emerald, azure and violet; at 0.5 the gold has become a blue-white and the crimson a cyan. A colour-change star always changes between two palette colours.
 // Knob 2: Pace. How often a shell goes up. At 0.3 about one in six seconds, so the sky is often down to one display and its haze; at the opening 2 about one a second, three or four displays alive at once; at 3 one in half a second, a rapid volley. The gaps are never even, and a short finale of four to eight shells fires now and then whatever the pace.
-// Knob 3: Size. The size of a shell and its count of stars. At -1 a shell opens about 11 LEDs in radius with 45% of the usual stars; at the opening 0 about 20 LEDs, and bursts vary between 14 and 25 by type and by chance; at 1 about 27 LEDs, a big shell that spans most of the panel's width, with 30% more stars.
+// Knob 3: Size. The size of a shell and its count of stars. At -1 a shell opens about 11 LEDs in radius with 45% of the usual stars; at the opening 0 about 20 LEDs, and bursts run from 11 to 30 by type and by chance; at 1 about 27 LEDs, a big shell that spans most of the panel's width, with 30% more stars.
 // Knob 4: Drift. A wind blowing the air the stars fly in. At 0 the sky is nearly still; at 1 the wind is 7 LEDs a second to the right, willow tails bend into long diagonals, shells sail sideways as they burn and the smoke slides toward the right edge; at -1 it blows left.
 
 const W = 64;
