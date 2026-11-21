@@ -81,13 +81,14 @@ const SC = [0.8719, 0.7933, 0.9437, 0.8311, 0.7589, 0.9109, 0.8627];
 const OA = [0.1417, 0.1093, 0.1759, 0.1237, 0.1561, 0.1181, 0.1649];
 const OB = [0.0713, 0.0937, 0.0617, 0.0829, 0.0761, 0.0691, 0.0887];
 const PH = (i, n) => i * 2.3999632 * n + 0.7 * n; // a phase for module i, spread by the golden angle
-const TIER_PH = [1.3, 1.5, 1.2]; // how far each sine moves from one tier to the next
+const TIER_PH = [0.8, 0.9, 0.7]; // how far each sine moves from one tier to the next
 
 // ---- the ribbons
 const ALPHA = [0.7, 0.58, 0.7, 0.8, 0.76, 0.68, 0.68]; // how strongly each module's ribbons are laid, so that amber does not sink to brown and teal does not outshine azure
-const BAR_V = 0.96;
+const BAR_V = [0.97, 0.86, 0.97, 0.95, 0.97, 0.9, 0.97]; // bars are paler than their ribbons, and teal and green are held back from neon
 const BG = [14, 4, 19];
-const STAY = 6.5; // the diagonal's weight at Mixing 0 is exp(STAY)
+const STAY_A = 4.6; // the diagonal's weight at Mixing 0 is exp(STAY_A) and falls to exp(STAY_A - STAY_B), about the weight of any other pair, at 1
+const STAY_B = 7.4;
 
 export function setup(params) {
   params.s = {
@@ -241,9 +242,9 @@ function pairWeight(S, k, i, j) {
 function build(S) {
   for (let k = 0; k < T; k++) layout(S, k);
   const { A, F, u, w } = S.tmp, m = S.m;
-  const stay = exp(STAY * pow(1 - m, 1.8));
+  const stay = exp(STAY_A - STAY_B * pow(m, 0.7));
   const lam = 0.3 + 0.9 * m;
-  const off = 0.015 + 0.95 * m;
+  const off = 0.05 + 0.3 * m;
   const r = new Float64Array(M), c = new Float64Array(M);
   const U = SPAN - 1;
   const ribs = [];
@@ -262,7 +263,7 @@ function build(S) {
     fit(A, r, c, F, u, w);
     // Give up the ribbons that would be too thin to see, and fit again.
     for (let i = 0; i < M; i++)
-      for (let j = 0; j < M; j++) A[i * M + j] *= 0.05 + 0.95 * ss((F[i * M + j] * U - 1.5) / 1.5);
+      for (let j = 0; j < M; j++) A[i * M + j] *= 0.05 + 0.95 * ss((F[i * M + j] * U - 1.2) / 1.1);
     fit(A, r, c, F, u, w);
     for (let i = 0; i < M * M; i++) S.flow[k * M * M + i] = F[i];
   }
@@ -322,7 +323,7 @@ function palette(S) {
   S.colKey = key;
   for (let i = 0; i < M; i++) {
     hsv(HUE[i] + S.hue, SAT[i], 1, S.col, i * 3);
-    hsv(HUE[i] + S.hue, SAT[i] * 0.72, BAR_V, S.barCol, i * 3);
+    hsv(HUE[i] + S.hue, SAT[i] * 0.72, BAR_V[i], S.barCol, i * 3);
   }
 }
 
