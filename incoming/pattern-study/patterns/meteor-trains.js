@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Rate=0.4..5, Wind=-1..1, Linger=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the colour wheel: the sky, the stars, the white-green flash of the head and the ageing of a train. At 0 a train is green-white, then green, then amber and a dim brick red; at 0.33 the same ageing runs blue to violet, at 0.66 magenta to gold, and at 1 it is back where it began.
-// Knob 2: Rate. How many meteors a minute, three times the knob. At 0.5 one every 40 s, at the opening 2 six a minute (about five trains in the sky), at 6 eighteen a minute, with the sky held to nine trains by letting the oldest fade early. A meteor lasts 0.3 to 0.9 s and draws a 30 to 70 row streak; about every three minutes a fireball lights the whole sky and leaves a thicker train that lasts two or three times as long.
-// Knob 3: Wind. How hard the upper wind shears the trains, and it acts on every train at once, old ones included. At -1 the wind is 0.15 of the opening, so trains stay close to straight lines; at the opening 0 a train 40 s old has an S about 20 LEDs across; at 1 the wind is 2.4 times as strong and the trains fold into kinks with runs nearly flat across the panel.
-// Knob 4: Linger. How long a train lasts and how far it spreads. At -1 a train fades out in about 15 s and stays under 3 LEDs wide; at the opening 0.06 it lasts about 60 s and thickens to a ribbon 5 or 6 LEDs wide; at 1 it lasts 150 s and ends as a wide dim veil, with up to nine trains in the sky at once.
+// Knob 1: Hue. Turns the whole palette round the colour wheel: the sky, the stars, the white-green flash of the head and the ageing of a train. At 0 a train starts white-green, goes green, then yellow, amber and a dim brick red; at 0.25 it starts blue and ends teal; at 0.5 it runs violet to blue; at 0.75 orange to pink; at 1 it is back where it began.
+// Knob 2: Rate. How many meteors a minute, four times the knob. At 0.4 one every 37 s and the sky is nearly empty, at the opening 2 eight a minute (seven or eight trains alive, the oldest nearly faded), at 5 twenty a minute, with the sky held to nine trains by letting the oldest fade early. A meteor lasts 0.3 to 0.9 s and draws a 30 to 70 row streak; about every three minutes a fireball lights the whole sky and leaves a thicker train that lasts 2.4 times as long.
+// Knob 3: Wind. How hard the upper wind shears the trains, and it acts on every train at once, old ones included. At -1 the wind is 0.15 of the opening and a train 40 s old stays within about 4 LEDs of a straight line; at the opening 0 the same train runs about 25 LEDs from its leftmost row to its rightmost, an S or a kink; at 1 the wind is twice as strong and trains fold into runs nearly flat across the panel.
+// Knob 4: Linger. How long a train lasts and how far it spreads. At -1 it lasts 13 to 23 s and stays a thread 2 LEDs across; at the opening 0.06 it lasts 45 to 80 s and thickens from 2 LEDs across to about 3; at 1 it lasts 130 to 230 s and ends 4 or 5 LEDs across and dim, with nine trains in the sky at once.
 
 const W = 64;
 const H = 128;
@@ -40,7 +40,7 @@ const MAMP = [1.0, 0.64, 0.4, 0.22];
 const SINK = [377, 241, 163, 107]; // seconds a mode takes to sink one wavelength
 const MPH = [0.7, 2.9, 4.6, 1.9];
 const BREATH = [611, 887, 1307, 509]; // seconds for a mode's strength to swell and fall
-const U0 = 0.4; // LEDs a second for a mode of amplitude 1, at Wind 0
+const U0 = 0.45; // LEDs a second for a mode of amplitude 1, at Wind 0
 const MEAN = 0.3; // a steady wind that wanders, in the same unit
 const PAD = 20; // rows of wind table above and below the panel
 const NR = H + 2 * PAD;
@@ -95,10 +95,10 @@ function tint(hueTurns, L, C, out) {
 const AGEKEY = [
   [0.0, 165, 0.98, 0.07],
   [0.12, 152, 0.94, 0.16],
-  [0.34, 142, 0.9, 0.2],
-  [0.54, 108, 0.93, 0.19],
-  [0.76, 80, 0.88, 0.17],
-  [0.92, 56, 0.78, 0.16],
+  [0.5, 142, 0.9, 0.2],
+  [0.68, 110, 0.93, 0.19],
+  [0.83, 80, 0.88, 0.17],
+  [0.94, 56, 0.78, 0.16],
   [1.0, 36, 0.66, 0.15],
 ];
 const NA = 33;
@@ -210,10 +210,10 @@ export function setup(params) {
     rowg: new Float32Array(H),
     box: [0, 0],
   };
-  S_need(params.s);
+  nextCost(params.s);
 }
 
-function S_need(S) {
+function nextCost(S) {
   S.need = -log(1e-3 + 0.999 * hash(S.nev * 1.37 + 0.31));
 }
 
@@ -221,7 +221,7 @@ function readKnobs(S, kn) {
   S.hue = cl(kn[0], 0, 1);
   S.rate = 4 * cl(kn[1], 0.4, 5); // meteors a minute
   const w = cl(kn[2], -1, 1);
-  S.wind = w < 0 ? 1 + 0.85 * w : 1 + 1.4 * w;
+  S.wind = w < 0 ? 1 + 0.85 * w : 1 + w;
   const l = cl(kn[3], -1, 1);
   S.lingT = 0.25 * Math.pow(10, (l + 1) / 2);
 }
@@ -285,7 +285,7 @@ function advance(S, d) {
     S.credit -= S.need;
     spawn(S, t);
     S.nev++;
-    S_need(S);
+    nextCost(S);
   }
 }
 
@@ -311,12 +311,32 @@ function spawn(S, t0) {
   if (fire) S.fireAt = t0 + 130 + 110 * h(9);
   const len = fire ? 68 + 16 * h(1) : 30 + 40 * h(1);
   const npts = min(MAXP - 1, floor(len) + 1);
-  const ytop = floor(-6 + (H - len + 12) * h(2));
+  // three places to try; keep the one farthest from every train already in the sky, so
+  // the threads spread over the panel and no part of the window stays empty for long
+  let ytop = 0;
+  let xm = 0;
+  let best = -1;
+  for (let c = 0; c < 3; c++) {
+    const cy = floor(-6 + (H - len + 12) * h(2 + 20 * c));
+    const cx = 7 + 50 * h(3 + 20 * c);
+    let near = 9;
+    for (const tr of S.trains) {
+      if (!tr.on) continue;
+      const mi = tr.n >> 1;
+      const dx = (tr.px0[mi] + S.wind * tr.D[mi] - cx) / 64;
+      const dy = (tr.y0 + mi - (cy + len / 2)) / 128;
+      near = min(near, dx * dx + dy * dy);
+    }
+    if (near > best) {
+      best = near;
+      ytop = cy;
+      xm = cx;
+    }
+  }
   // the radiant stands above the panel and drifts a little through the night, so every
   // meteor leans away from it: within about 25 degrees of straight down
   const xr = 32 + 20 * sin(0.0191 * t0 + 0.7);
   const yr = -55;
-  const xm = 7 + 50 * h(3);
   const ym = ytop + len / 2;
   const slope = cl((xm - xr) / (ym - yr) + 0.05 * (h(4) - 0.5), -0.46, 0.46);
   slot.on = true;
