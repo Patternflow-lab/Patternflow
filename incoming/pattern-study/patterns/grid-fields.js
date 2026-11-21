@@ -58,22 +58,22 @@ const CX = 31.5, CY = 63.5; // the middle of the panel: the lattices dilate and 
 // lam: nearest-neighbour spacing at the opening, LEDs. th: orientation, degrees. hue: at Hue 0.
 // gain: how bright its fields are drawn, set so no colour outshines the others on the panel.
 const CELLS = [
-  { lam: 18.0, th: -4, hue: 0.035, sat: 0.78, gain: 0.95 },
-  { lam: 25.2, th: 2, hue: 0.5, sat: 0.85, gain: 0.82 },
-  { lam: 35.3, th: 7, hue: 0.77, sat: 0.8, gain: 1.0 },
+  { lam: 18.0, th: -4, hue: 0.035, sat: 0.78, gain: 0.8 },
+  { lam: 25.2, th: 2, hue: 0.5, sat: 0.85, gain: 0.7 },
+  { lam: 35.3, th: 7, hue: 0.77, sat: 0.8, gain: 0.66 },
 ];
 const Q1 = (4 * PI) / sqrt(3); // wave number of a lattice of spacing 1
 const POW = 2.2; // the rate is max(0, g) to this power
 const RMAX = 10; // spikes a second at the peak of a field
 
 // ---- the animal
-const SPEED = 14; // mean speed, LEDs a second
+const SPEED = 18; // mean speed, LEDs a second
 const SU = SPEED / sqrt(PI / 2); // standard deviation of one velocity component: a Rayleigh speed has this mean
 const TAUV = 1.1; // velocity correlation time, seconds
 const MARGIN = 7; // the walls start pushing this far in
 const PUSH = 70; // acceleration at the wall, LEDs a second squared
-const SIGMA_OCC = 2.5; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
-const A_OCC = 8; // occupancy a second at the stamp's centre
+const SIGMA_OCC = 2.7; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
+const A_OCC = 10; // occupancy a second at the stamp's centre
 const LADDER = 6; // memory times kept: 8 s up to 240 s
 const PRE = 300; // seconds the animal runs before the first frame
 const STEP = 1 / 30; // longest step of the walk
@@ -342,7 +342,7 @@ export function draw(display, params) {
           if (gg <= 0) continue;
           const rate = pow(gg, POW);
           if (rate < FLOOR) continue;
-          const v = C * pow((rate - FLOOR) / (1 - FLOOR), 0.8);
+          const v = C * pow((rate - FLOOR) / (1 - FLOOR), 0.9);
           const c = S.col[i];
           r += c[0] * v;
           g += c[1] * v;
@@ -355,6 +355,17 @@ export function draw(display, params) {
     }
   }
 
+  // The head sits in a dark halo so it still reads on top of a bright field.
+  {
+    const R = 5, inv = 1 / (2 * 1.9 * 1.9);
+    for (let y = max(0, round(ay) - R); y <= min(H - 1, round(ay) + R); y++)
+      for (let x = max(0, round(ax) - R); x <= min(W - 1, round(ax) + R); x++) {
+        const k = 1 - 0.65 * exp(-((x - ax) ** 2 + (y - ay) ** 2) * inv), b = (y * W + x) * 3;
+        buf[b] *= k;
+        buf[b + 1] *= k;
+        buf[b + 2] *= k;
+      }
+  }
   // The trail, then the spikes, then the head: soft round dots added to the map.
   const dot = (cx, cy, sg, cr, cg, cb) => {
     const R = ceil(2.5 * sg), inv = 1 / (2 * sg * sg);
@@ -371,11 +382,11 @@ export function draw(display, params) {
     if (a > 0) dot(q.x, q.y, 0.9, 0.7 * a, 0.78 * a, 0.95 * a);
   }
   for (const s of S.sp) {
-    const a = (1 - (S.t - s.t) / LIFE) ** 1.5, c = S.col[s.c];
-    // The spike is the cell's colour lifted toward white.
-    dot(s.x, s.y, 0.85, (0.55 * c[0] + 0.45) * a * 1.1, (0.55 * c[1] + 0.45) * a * 1.1, (0.55 * c[2] + 0.45) * a * 1.1);
+    const a = (1 - (S.t - s.t) / LIFE) ** 1.5, c = S.col[s.c], g = CELLS[s.c].gain;
+    // The spike is the cell's own colour at full strength, lifted toward white.
+    dot(s.x, s.y, 0.85, (0.5 * c[0] / g + 0.5) * a * 1.2, (0.5 * c[1] / g + 0.5) * a * 1.2, (0.5 * c[2] / g + 0.5) * a * 1.2);
   }
-  dot(ax, ay, 0.95, 0.95, 0.95, 1.0);
+  dot(ax, ay, 0.95, 1.0, 1.0, 1.0);
 
   // Tone: keep each LED's colour and let only its brightness give way near full.
   for (let p = 0; p < N; p++) {
