@@ -71,7 +71,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 const NS = 6;
 const XS = [5, 16, 28, 39, 51, 59]; // station columns
-const SPD = [1.6, 0.8, 0.4]; // columns a row: express, stopping, freight
+const SPD = [1.7, 0.9, 0.45]; // columns a row: express, stopping, freight
 const BONUS = [14, 6, 0]; // rows older a class counts when two trains want one section
 const MIX = [0.28, 0.5, 0.22]; // share of the trains that enter
 const GAP = SPD.map((v) => 4.2 * sqrt(1 + v * v)); // columns of headway behind a train of each class
@@ -80,7 +80,12 @@ const ROWS_PER_S = 6; // scroll at Speed 2 (the opening), rows a second
 const PRE = 440; // rows of railway run before the first frame
 const KEEP = 136; // rows of history that stay on the polylines
 const HOLDH = 30; // rows within which a faster train coming makes a slow one stand aside
-const NMAX = 13; // trains on the line
+const HOLDMAX = 24; // rows a slow train stands aside for faster ones before it goes anyway
+const NMAX = 12; // trains on the line
+const HOTMAX = 5; // trains standing late in the loops, beyond which a train waits outside
+const STACK = 2; // trains of one way at a station or on their way to it, beyond which the next waits behind
+const PATIENCE = 80; // rows a train waits for room in the next loop before it goes anyway
+const SLACK = 12; // rows an oldest-first claim of the other way has to be older by to hold a train
 const TERM = 7; // rows a train stands at the end where it starts and where it stops
 const GRID = 16; // rows between the faint time rules
 const HOTMIN = 0.6; // rows a train has to be late for its stub to go hot
@@ -123,7 +128,7 @@ export function setup(params) {
 function knobs(S, k) {
   S.hue = k[0];
   S.mult = cl(k[1] / 2, 0.3, 3);
-  S.rate = (2.4 * 5 ** ((cl(k[2], -1, 1) + 1) / 2)) / 2 / 128; // trains a row at one end
+  S.rate = (3.0 * 2.7 ** ((cl(k[2], -1, 1) + 1) / 2)) / 2 / 128; // trains a row at one end
   S.d = cl((k[3] + 0.3) / 1.3, 0, 1);
   S.pExtra = 0.62 * S.d ** 0.9;
   S.mExtra = 4 + 9 * S.d;
@@ -164,13 +169,13 @@ function addV(tr, t, x, kind) {
 // ---- the railway
 
 function dwellAt(cls, s) {
-  if (cls === 1) return 8;
+  if (cls === 1) return 7;
   if (cls === 0 && s === 3) return 5;
   return 0;
 }
 
 function addExtra(S, tr) {
-  tr.extraLeft = Math.random() < S.pExtra ? -log(1 - Math.random()) * S.mExtra : 0;
+  tr.extraLeft = Math.random() < S.pExtra ? min(2.5 * S.mExtra, -log(1 - Math.random()) * S.mExtra) : 0;
 }
 
 function spawn(S, e) {
@@ -178,7 +183,7 @@ function spawn(S, e) {
   const dw = TERM * (1 + (Math.random() - 0.5) * 0.5 * S.d);
   const tr = {
     cls, dir, mode: 1, st: s, sec: -1, x: XS[s], v: SPD[cls] * (1 + (Math.random() - 0.5) * 0.1 * S.d),
-    dwellLeft: dw, extraLeft: 0, waited: 0, term: false, readyAt: 0, key: 0, held: false, end: 0,
+    dwellLeft: dw, extraLeft: 0, waited: 0, term: false, readyAt: 0, key: 0, held: false, full: false, end: 0,
     pt: [S.t], px: [XS[s]], pk: [1],
   };
   addExtra(S, tr);
@@ -223,7 +228,11 @@ function stand(tr, t0, t1) {
 }
 
 function move(S, t0, h) {
-  const mv = S.trains.filter((tr) => tr.mode === 0);
+  const mv = [];
+  for (const tr of S.trains) {
+    if (tr.mode === 0) mv.push(tr);
+    else if (tr.mode === 1) stand(tr, t0, t0 + h);
+  }
   mv.sort((a, b) => b.x * b.dir - a.x * a.dir);
   const last = new Array(10).fill(null);
   for (const tr of mv) {
@@ -249,6 +258,7 @@ function move(S, t0, h) {
 
 // Is a train at a station kept back by a faster one of its own way?
 function held(S, U) {
+  if (U.waited > HOLDMAX) return false;
   const s = U.st, d = U.dir, vu = SPD[U.cls];
   for (const T of S.trains) {
     if (T === U || T.dir !== d || T.mode === 2 || T.st !== s || SPD[T.cls] <= vu) continue;
@@ -256,6 +266,13 @@ function held(S, U) {
     if (abs(XS[s] - T.x) / SPD[T.cls] <= HOLDH) return true;
   }
   return false;
+}
+
+// Trains of one way standing at station s or running to it.
+function crowd(S, s, d) {
+  let n = 0;
+  for (const T of S.trains) if (T.dir === d && T.st === s && T.mode !== 2) n++;
+  return n;
 }
 
 function dispatch(S, now) {
@@ -278,16 +295,18 @@ function dispatch(S, now) {
   for (const U of elig) {
     U.key = U.readyAt - BONUS[U.cls];
     U.held = held(S, U);
-    if (!U.held) {
+    const to = U.st + U.dir;
+    U.full = !(to === 0 || to === NS - 1) && U.waited < PATIENCE && crowd(S, to, U.dir) >= STACK;
+    if (!U.held && !U.full) {
       const j = U.dir > 0 ? U.st : U.st - 1, i = U.dir > 0 ? 0 : 1;
       if (U.key < wk[j][i]) wk[j][i] = U.key;
     }
   }
   elig.sort((a, b) => a.key - b.key);
   for (const U of elig) {
-    if (U.held) continue;
+    if (U.held || U.full) continue;
     const s = U.st, d = U.dir, j = d > 0 ? s : s - 1, i = d > 0 ? 0 : 1;
-    if (sc[j][1 - i] > 0 || wk[j][1 - i] < U.key) continue;
+    if (sc[j][1 - i] > 0 || wk[j][1 - i] < U.key - SLACK) continue;
     let ok = true;
     for (const tr of S.trains) {
       if (tr.mode === 0 && tr.sec === j && tr.dir === d && (tr.x - XS[s]) * d < GAP[tr.cls]) {
@@ -316,10 +335,13 @@ function step(S, h) {
   move(S, t0, h);
   S.t = t1;
   dispatch(S, t1);
-  let on = 0;
-  for (const tr of S.trains) if (tr.mode !== 2) on++;
+  let on = 0, late = 0;
+  for (const tr of S.trains) {
+    if (tr.mode !== 2) on++;
+    if (tr.mode === 1 && !tr.term && tr.waited > 1.5) late++;
+  }
   for (let e = 0; e < 2; e++) {
-    if (!S.q[e].length || on >= NMAX) continue;
+    if (!S.q[e].length || on >= NMAX || late >= HOTMAX) continue;
     const dir = e === 0 ? 1 : -1;
     let busy = false;
     for (const tr of S.trains) if (tr.mode === 1 && tr.dir === dir && tr.st === (e === 0 ? 0 : NS - 1)) busy = true;
