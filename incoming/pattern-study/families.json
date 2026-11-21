@@ -134,5 +134,10 @@
   "kelp": { "label": "켈프 숲", "color": "#7aa83a" },
   "mirrorroom": { "label": "거울 방", "color": "#ff5fa8" },
   "glacier": { "label": "빙하", "color": "#7fd8f0" },
-  "pillars": { "label": "빛기둥", "color": "#ffb347" }
+  "pillars": { "label": "빛기둥", "color": "#ffb347" },
+  "electrophoresis": { "label": "전기영동", "color": "#fb8500" },
+  "dynamo": { "label": "태양 다이나모", "color": "#d00000" },
+  "heliostat": { "label": "태양탑", "color": "#f72585" },
+  "collider": { "label": "충돌기", "color": "#7209b7" },
+  "photonics": { "label": "광결정", "color": "#06d6a0" }
 }
