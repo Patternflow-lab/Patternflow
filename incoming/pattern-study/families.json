@@ -134,5 +134,10 @@
   "kelp": { "label": "켈프 숲", "color": "#7aa83a" },
   "mirrorroom": { "label": "거울 방", "color": "#ff5fa8" },
   "glacier": { "label": "빙하", "color": "#7fd8f0" },
-  "pillars": { "label": "빛기둥", "color": "#ffb347" }
+  "pillars": { "label": "빛기둥", "color": "#ffb347" },
+  "entorhinal": { "label": "격자 세포", "color": "#e0527a" },
+  "venation": { "label": "잎맥", "color": "#6fbf3a" },
+  "timetable": { "label": "열차 시각표", "color": "#3a9be0" },
+  "alluvial": { "label": "흐름 도표", "color": "#e8a33d" },
+  "meteorite": { "label": "운철", "color": "#b8c4cc" }
 }
