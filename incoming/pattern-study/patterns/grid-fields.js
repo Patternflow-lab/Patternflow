@@ -9,7 +9,7 @@
 // Round:   214
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Spacing=1.2..3.2, Orientation=-30..30, Memory=-1.3..1
+// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-1..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all three cells, so one turn comes back to where it began. At 0 the cells are coral (hue 0.035), cyan (0.50) and violet (0.77). At 0.25 they are yellow-green, blue and magenta-red; at 0.5 teal, red-orange and green.
 // Knob 2: Spacing. The module scale, which multiplies the three spacings together: the knob over 2, so 0.6 at the bottom, 1.0 at the opening 2 and 1.6 at the top. The spacings at the opening are 18, 25.2 and 35.3 LEDs (nearest field to nearest field), 10.8, 15.1 and 21.2 at the bottom and 28.8, 40.3 and 56.5 at the top. The lattices dilate about the middle of the panel, so the far fields stream outward as it turns up.
@@ -58,22 +58,22 @@ const CX = 31.5, CY = 63.5; // the middle of the panel: the lattices dilate and 
 // lam: nearest-neighbour spacing at the opening, LEDs. th: orientation, degrees. hue: at Hue 0.
 // gain: how bright its fields are drawn, set so no colour outshines the others on the panel.
 const CELLS = [
-  { lam: 18.0, th: -4, hue: 0.035, sat: 0.78, gain: 0.8 },
-  { lam: 25.2, th: 2, hue: 0.5, sat: 0.85, gain: 0.7 },
-  { lam: 35.3, th: 7, hue: 0.77, sat: 0.8, gain: 0.66 },
+  { lam: 18.0, th: -4, hue: 0.035, sat: 0.78, gain: 0.88 },
+  { lam: 25.2, th: 2, hue: 0.5, sat: 0.85, gain: 0.8 },
+  { lam: 35.3, th: 7, hue: 0.77, sat: 0.8, gain: 0.8 },
 ];
 const Q1 = (4 * PI) / sqrt(3); // wave number of a lattice of spacing 1
 const POW = 2.2; // the rate is max(0, g) to this power
 const RMAX = 10; // spikes a second at the peak of a field
 
 // ---- the animal
-const SPEED = 18; // mean speed, LEDs a second
+const SPEED = 16; // mean speed, LEDs a second
 const SU = SPEED / sqrt(PI / 2); // standard deviation of one velocity component: a Rayleigh speed has this mean
 const TAUV = 1.1; // velocity correlation time, seconds
 const MARGIN = 7; // the walls start pushing this far in
 const PUSH = 70; // acceleration at the wall, LEDs a second squared
 const SIGMA_OCC = 2.7; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
-const A_OCC = 10; // occupancy a second at the stamp's centre
+const A_OCC = 9; // occupancy a second at the stamp's centre
 const LADDER = 6; // memory times kept: 8 s up to 240 s
 const PRE = 300; // seconds the animal runs before the first frame
 const STEP = 1 / 30; // longest step of the walk
@@ -295,9 +295,9 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06];
   S.hue = k[0];
-  S.scale = cl(k[1], 1.2, 3.2) / 2;
+  S.scale = cl(k[1], 1.4, 3.2) / 2;
   S.rot = cl(k[2], -30, 30);
-  S.mem = 8 * pow(30, cl((k[3] + 1.3) / 2.3, 0, 1));
+  S.mem = 8 * pow(30, cl((k[3] + 1) / 2, 0, 1));
   let span = cl(dt || 0, 0, 0.1);
   while (span > 1e-9) {
     const h = min(span, STEP);
