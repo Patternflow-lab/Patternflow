@@ -34,13 +34,13 @@ function h32(a, b) {
   return (h >>> 0) / 4294967296;
 }
 
-const START = 5000; // track coordinate of the left edge when the cart is first seen
-const CH = 90; // a chunk of track, in LEDs
+const START = 5512; // track coordinate of the left edge when the cart is first seen
+const CH = 72; // a chunk of track, in LEDs
 const SEED = 7919;
 
 // ---- the layers: unscaled two-way times in rows, signed reflection coefficients
-const LAYER_T = [13, 26, 39, 53, 67, 81, 97, 110, 126, 141, 158];
-const LAYER_A = [0.62, -0.5, 0.78, -0.4, 0.55, 0.85, -0.45, 0.5, -0.42, 0.6, -0.36];
+const LAYER_T = [17, 40, 63, 86, 108, 131, 155, 180];
+const LAYER_A = [0.45, -0.34, 0.62, -0.38, 0.55, -0.6, 0.5, 0.55];
 const NL = LAYER_T.length;
 const LAYER_C = [], LAYER_OWN = [];
 for (let i = 0; i < NL; i++) {
@@ -63,7 +63,7 @@ function genChunk(c) {
   const base = c * CH;
   const out = { dif: [], lens: [], fault: [] };
   const rn = r(0);
-  const n = rn < 0.1 ? 0 : rn < 0.46 ? 1 : rn < 0.84 ? 2 : 3;
+  const n = rn < 0.05 ? 0 : rn < 0.3 ? 1 : rn < 0.65 ? 2 : rn < 0.9 ? 3 : 4;
   for (let i = 0; i < n; i++) {
     const q = (k) => r(10 + i * 11 + k);
     const x0 = base + q(0) * CH;
@@ -72,17 +72,17 @@ function genChunk(c) {
     const dsz = 6 + 4 * q(3); // pipe wall to wall, in rows
     if (ty < 0.4) {
       // a pipe: the wavelet, then 0.6 and 0.35 of it between the walls
-      out.dif.push({ x0, t0, a: 0.95, km: 1, hw: 1, ech: [[0, 1], [dsz, -0.6], [2 * dsz, 0.35]] });
+      out.dif.push({ x0, t0, a: 1.25, km: 1, hw: 1, ech: [[0, 1], [dsz, -0.6], [2 * dsz, 0.35]] });
     } else if (ty < 0.58) {
       // a boulder: fainter, flatter and wider
-      out.dif.push({ x0, t0: max(t0, 14), a: 0.55, km: 0.55, hw: 1.5, ech: [[0, 1]] });
+      out.dif.push({ x0, t0: max(t0, 14), a: 0.75, km: 0.55, hw: 1.5, ech: [[0, 1]] });
     } else if (ty < 0.76) {
       // rebar: a run of small identical hyperbolas, a few LEDs apart, near the surface
-      const cnt = 8 + floor(q(4) * 5), sp = 5 + q(5) * 2, tt = 9 + 13 * q(6);
-      for (let k = 0; k < cnt; k++) out.dif.push({ x0: x0 + k * sp, t0: tt, a: 0.6, km: 1, hw: 0.55, ech: [[0, 1]] });
+      const cnt = 8 + floor(q(4) * 5), sp = 5 + q(5) * 2, tt = 12 + 12 * q(6);
+      for (let k = 0; k < cnt; k++) out.dif.push({ x0: x0 + k * sp, t0: tt, a: 0.75, km: 1, hw: 0.55, ech: [[0, 1]] });
     } else {
       // a void: reversed polarity, the far wall coming back opposite again
-      out.dif.push({ x0, t0: max(t0, 16), a: -0.9, km: 0.8, hw: 1.2, ech: [[0, 1], [dsz * 1.6, -0.7]] });
+      out.dif.push({ x0, t0: max(t0, 16), a: -1.15, km: 0.8, hw: 1.2, ech: [[0, 1], [dsz * 1.6, -0.7]] });
     }
   }
   if (r(1) < 0.4) {
@@ -196,8 +196,8 @@ export function draw(display, params) {
   const P = 7.2 * exp(-0.45 * ant);
   const s = 0.8 + 0.45 * xm; // the whole time axis stretches as the soil gets slower
   const K0 = 1.3 * s * s; // asymptote of a hyperbola, rows a LED
-  const alpha = 0.022 * (0.55 + 1.3 * (0.1 + 0.5 * xm)) * pow(7 / P, 0.8);
-  const gam = 0.026 - alpha; // receiver gain minus loss, per row
+  const alpha = 0.019 * (0.6 + 1 * (0.1 + 0.5 * xm)) * pow(7 / P, 0.6);
+  const gam = 0.021 - alpha; // receiver gain minus loss, per row
   const cart = S.cart, tau = S.tau;
   const breathe = 1 + 0.04 * sin(0.7 * tau) + 0.025 * sin(1.9 * tau + 0.8);
 
@@ -227,13 +227,13 @@ export function draw(display, params) {
     col.fill(0);
     // the direct wave through the air and the top of the ground, ringing
     const tw = 4.5 + 0.6 * sin(xw / 41 + 1) + 0.35 * sin(xw / 17.3);
-    const aw = 2.4 * (1 + 0.15 * sin(xw / 29));
+    const aw = 1.2 * (1 + 0.15 * sin(xw / 29));
     addW(col, tw, aw, P);
-    addW(col, tw + 0.62 * P, -0.55 * aw, P);
-    addW(col, tw + 1.24 * P, 0.3 * aw, P);
-    addW(col, tw + 1.86 * P, -0.16 * aw, P);
+    addW(col, tw + 0.62 * P, -0.45 * aw, P);
+    addW(col, tw + 1.24 * P, 0.2 * aw, P);
+    addW(col, tw + 1.86 * P, -0.08 * aw, P);
     // the layers
-    const sh1 = 5.5 * sin((TAU * xw) / 173 + 0.7) + 3.4 * sin((TAU * xw) / 97.3 + 2.1) + 2.2 * sin((TAU * xw) / 331 + 4.0);
+    const sh1 = 4.6 * sin((TAU * xw) / 173 + 0.7) + 3 * sin((TAU * xw) / 97.3 + 2.1) + 2 * sin((TAU * xw) / 331 + 4.0);
     for (let i = 0; i < NL; i++) {
       let t = LAYER_T[i] + LAYER_C[i] * sh1;
       const o = LAYER_OWN[i];
@@ -260,7 +260,7 @@ export function draw(display, params) {
     // diffractors
     for (let d = 0; d < dif.length; d++) {
       const D = dif[d], dx = xw - D.x0;
-      const kk = K0 * D.km, hw = (1.6 * D.t0 * s) / kk * D.hw + 5;
+      const kk = K0 * D.km, hw = (0.95 * D.t0 * s) / kk * D.hw + 7;
       if (abs(dx) > 1.9 * hw) continue;
       const t0 = D.t0 * s;
       const t = sqrt(t0 * t0 + kk * kk * dx * dx);
@@ -273,8 +273,8 @@ export function draw(display, params) {
       const yy = y / CY, by = floor(yy), fy = yy - by, sy = fy * fy * (3 - 2 * fy);
       const l00 = lat[ax * NY + by], l10 = lat[(ax + 1) * NY + by], l01 = lat[ax * NY + by + 1], l11 = lat[(ax + 1) * NY + by + 1];
       const nz = l00 + (l10 - l00) * sx + (l01 - l00 + (l11 - l10 - l01 + l00) * sx) * sy;
-      const v = (col[y] + 0.1 * nz) * breathe;
-      const m = 1 - exp(-2.4 * abs(v));
+      const v = (col[y] + 0.14 * nz) * breathe;
+      const m = 1 - exp(-2.5 * max(0, abs(v) - 0.04));
       const u = v >= 0 ? m : -m;
       const li = ((u * 0.5 + 0.5) * 1023 + 0.5) | 0, o = li * 3;
       display.setPixel(x, y, lut[o], lut[o + 1], lut[o + 2]);
