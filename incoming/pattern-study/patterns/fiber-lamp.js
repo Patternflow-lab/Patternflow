@@ -1,24 +1,24 @@
 // ===== Patternflow pattern =====
 // Title:   Fiber Lamp
 // Family:  fiberoptic
-// Idea:    A fibre-optic novelty lamp: about a hundred strands of side-glow fibre spring from one hub low at the bottom centre and arch up and out in a loose fan, each a smooth curve that glows faintly along its body and brightens toward a soft bead at its far tip, while a colour wheel behind the hub turns and washes the whole bunch through its segments, two neighbouring colours blending as one passes; the strands sway on slow travelling waves, bunch, part and cross, and the tips twinkle on their own.
+// Idea:    A fibre-optic novelty lamp: ninety-six strands of side-glow fibre spring from one hub just below the bottom centre and arch up and out in a loose fan, fourteen of them bright and clear and eighty-two a dim haze behind, each a smooth cubic curve that glows faintly along its body and brightens to a soft bead at its far tip, while a colour wheel behind the hub turns and washes the whole bunch through its segments, two neighbouring colours blending as one passes; the strands sway on slow travelling waves, bunch, part and cross, and the tips twinkle on their own.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the fibre-optic lamp (Joseph Kane's fibre-optic lamp, 1970s, as the novelty lamp sold from then on) with its rotating colour wheel, total internal reflection in a fibre (Daniel Colladon and Jacques Babinet, 1840s), and the cubic Bezier curve (Pierre Bezier, 1960s, and Paul de Casteljau, 1959); pattern round 209
+// Lineage: the novelty fibre-optic lamp with its turning colour wheel, light kept inside a fibre by total internal reflection (Daniel Colladon and Jacques Babinet, 1840s, in a jet of water and a bent glass rod), and the cubic Bezier curve (Paul de Casteljau, 1959, and Pierre Bezier, 1960s); pattern round 209
 // Round:   209
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sway=0..3, Spread=-1..1, Wheel=-1..1
 //
-// Knob 1: Hue. Turns every colour of the wheel round the hue circle together. At 0 the wheel is deep blue, magenta, amber, green, a pale white and cyan; at 0.5 each has moved half way round the circle; at 1 they are back where they began. The white segment stays white at every setting.
-// Knob 2: Sway. How hard the breeze moves the strands. At 0 they hang still and only the tips twinkle and the colour wheel goes on turning. At the opening 2 the fan breathes by about 12 LEDs at the outer tips and strands bunch and part and cross, and at 3 the swing grows by half again.
-// Knob 3: Spread. How wide and how tall the bunch fans. At -1 a narrow spray about 24 LEDs across stands tall, its strands leaving the hub within 20 degrees of the vertical. At the opening 0 the fan is 46 LEDs across and tips fill the panel up to its top rows. At 1 it reaches both side edges, 58 LEDs across, and the outer strands bend down to the sides.
-// Knob 4: Wheel. How fast the colour wheel turns, from a very slow turn at -1, one segment in 66 seconds, through 7 seconds a segment at the opening 0.06, to nearly a segment a second at 1. The speed breathes round the set value on periods that do not divide.
+// Knob 1: Hue. Turns every colour of the wheel round the hue circle together. The wheel has six segments, deep blue, magenta, amber, green, a pale white and cyan, each wandering up to 45 degrees either way on its own slow period. At 0 they stand as drawn, at 0.5 each has gone half way round the circle, and at 1 they are back where they began. The white stays white. Whatever Hue says, all the colours also creep round the circle once in about two minutes, so the wheel's second turn is never its first again.
+// Knob 2: Sway. How hard the breeze moves the strands. At 0 they hang still, only the tips twinkle and the wheel goes on turning. At the opening 2 a bright strand's tip swings about 4 LEDs sideways and 18 up and down within 20 seconds (23 for the outer ones), at about 1.8 LEDs a second; at 3 that is 6 and 27. Strands bunch, part and cross, and the whole fan leans, widens and stretches on periods of a minute or more.
+// Knob 3: Spread. How wide and how tall the bunch fans. At -1 a narrow spray stands up to row 3 and is 31 LEDs across at its widest row. At the opening 0 the widest row is 52 LEDs and the tips reach row 4 or 5. At 1 the fan is 58 LEDs across, the top is at row 7 and the outer strands bend down to the sides. The fan also opens and closes a little round the set value over a minute or two.
+// Knob 4: Wheel. How fast the colour wheel turns: a segment in 57 seconds at -1, in 6 seconds at the opening 0.06, in 0.9 seconds at 1. The speed breathes by up to 40 percent either way on periods that do not divide. The colour at a strand's tip is 0.4 of a segment behind the colour at its hub, so each strand shows two neighbouring colours along its length.
 
 const W = 64;
 const H = 128;
-const { sin, cos, sqrt, exp, floor, ceil, max, min, abs, pow, atan2, PI } = Math;
+const { sin, cos, sqrt, exp, floor, ceil, max, min, abs, pow, atan2, tanh, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
@@ -35,8 +35,8 @@ const NSEG = 6; // segments on the colour wheel
 const B0 = 0.025; // how much light a strand carries at the hub, against 1 at its tip
 const B1 = 0.09; // the share that grows with the square of the way along
 const TAIL = 10; // LEDs: how far back from its tip a strand's own bright end reaches
-const LINE_GAIN = 2.06 * 0.62; // makes a strand's centre a given brightness after the two-LED blur
-const T0 = 53; // the waves have been running this long when the Lab starts
+const LINE_GAIN = 2.06 * 0.66; // makes a strand's centre a given brightness after the two-LED blur
+const T0 = 20; // the waves have been running this long when the Lab starts
 const HAZE = 0.03; // how bright a haze strand is against a bright one
 const R_IN = 0.72; // the radius, against the dome's, inside which no strand ends
 const DOME_P = 2.4; // the dome of tips is a rounded bell, wider than an ellipse
@@ -251,8 +251,8 @@ export function draw(display, params) {
   const t = S.t;
   const sw = S.sway;
   const sp = S.spread; // -1 to 1
-  // every colour of the wheel also creeps round the hue circle, once in about three minutes
-  const rot = (S.hue + (t - T0) * 0.006 + 0.03 * sin(0.0217 * t)) * TAU;
+  // every colour of the wheel also creeps round the hue circle, once in about two minutes
+  const rot = (S.hue + (t - T0) * 0.0075 + 0.03 * sin(0.0217 * t)) * TAU;
   const c0 = S.c0;
   const c1 = S.c1;
   const px = S.px;
@@ -261,14 +261,13 @@ export function draw(display, params) {
   acc.fill(0);
   tuneWheel(t);
 
-  // the fan's shape from Spread: how wide and how tall the dome of tips is, and how far from
-  // the vertical the strands leave the hub
-  // the fan also opens and closes a little round the set Spread, over a minute or two
+  // the fan's shape from Spread: how wide and how tall the dome of tips is. The fan also opens
+  // and closes a little round the set Spread, over a minute or two.
   const k = cl(0.5 * (sp + 1) + sw * (0.14 * sin(0.0431 * t + 1.1) + 0.08 * sin(0.1117 * t + 0.2)), 0, 1); // 0 to 1
   // the whole fan also leans, widens and stretches on periods of a minute or more
-  const lean = sw * (0.1 * sin(0.0213 * t + 1) + 0.07 * sin(0.0517 * t + 2.1));
-  const domeX = (12 + 18 * sqrt(k)) * (1 + sw * (0.1 * sin(0.0317 * t) + 0.06 * sin(0.0719 * t + 1.3))); // half width of the dome of tips, in LEDs
-  const domeY = (134 - 14 * k) * (1 + sw * 0.04 * sin(0.0391 * t + 0.4)); // half height
+  const lean = sw * (0.08 * sin(0.0213 * t + 1) + 0.05 * sin(0.0517 * t + 2.1));
+  const domeX = (12 + 22 * sqrt(k)) * (1 + sw * (0.1 * sin(0.0317 * t) + 0.06 * sin(0.0719 * t + 1.3))); // half width of the dome of tips, in LEDs
+  const domeY = (134 - 14 * k) * (1 + sw * 0.04 * sin(0.0391 * t + 0.4)); // and its half height
   const launch = 0.88; // how much of its tip's angle a strand leaves the hub with
 
   for (let i = 0; i < NS; i++) {
@@ -278,13 +277,17 @@ export function draw(display, params) {
     const o2 = S.ph[i * 6 + 1];
     const o3 = S.ph[i * 6 + 2];
     // the tip: an angle and a radius round the hub, swung by waves across the fan
-    const phi = S.pa[i] + lean + wave(f, t, 0.4, 0.1, 0.07, 0.05) * sw + 0.03 * sw * sin(own * t + o1);
+    const phi = S.pa[i] + lean + wave(f, t, 0.4, 0.07, 0.05, 0.03) * sw + 0.03 * sw * sin(own * t + o1);
     const rn = S.pr[i] * (1 + 0.06 * sw * sin(S.wi[i * 4 + 3] * t + o2) + 0.04 * sw * sin(0.173 * t + 3 * f));
     const sph = sin(phi);
     const cph = cos(phi);
     const rb = pow(pow(abs(sph), DOME_P) + pow(abs(cph), DOME_P), -1 / DOME_P);
-    const Tx = HX + domeX * rn * rb * sph;
-    const Ty = HY - domeY * rn * rb * cph;
+    let Tx = HX + domeX * rn * rb * sph;
+    let Ty = HY - domeY * rn * rb * cph;
+    // a tip that would leave the panel eases toward its edge instead
+    if (Ty < 14) Ty = 4 + 10 * exp((Ty - 14) / 10);
+    const dx = abs(Tx - HX);
+    if (dx > 22) Tx = HX + (Tx < HX ? -1 : 1) * (22 + 7 * tanh((dx - 22) / 7));
     const chord = atan2(Tx - HX, HY - Ty); // the angle of the straight line from the hub to the tip
     const rho = sqrt((Tx - HX) * (Tx - HX) + (Ty - HY) * (Ty - HY));
     // the launch direction at the hub, and the direction it arrives at its tip: an arch,
@@ -329,11 +332,11 @@ export function draw(display, params) {
     // how bright this strand is: the tips twinkle on their own
     const w1 = S.wi[i * 4 + 1];
     const w2 = S.wi[i * 4 + 2];
-    const tw1 = 0.78 + 0.16 * sin(w1 * t + S.ph[i * 6 + 3]) + 0.1 * sin(w2 * t + S.ph[i * 6 + 4]);
+    const twink = 0.78 + 0.16 * sin(w1 * t + S.ph[i * 6 + 3]) + 0.1 * sin(w2 * t + S.ph[i * 6 + 4]);
     // the light does not reach every part of the bunch alike: sectors of the fan run brighter or
     // dimmer as the wheel's spot moves across the bundle
-    const sector = 0.78 + 0.26 * (0.6 * sin(2.2 * f + 0.071 * t + 0.5) + 0.4 * sin(4.7 * f - 0.049 * t + 1.7));
-    const tip = tw1 * sector;
+    const sector = 0.68 + 0.34 * (0.6 * sin(2.2 * f + 0.071 * t + 0.5) + 0.4 * sin(4.7 * f - 0.049 * t + 1.7));
+    const tip = twink * sector;
     const gn = S.gain[i];
     // light along the strand
     const invLen = 1 / max(len, 1e-3);
@@ -368,23 +371,23 @@ export function draw(display, params) {
         acc[o + 2] += b * wgt;
       }
     }
-        S.tipX[i * 2] = Tx;
+    S.tipX[i * 2] = Tx;
     S.tipX[i * 2 + 1] = Ty;
-        S.tipC[i * 4] = c1[0];
+    S.tipC[i * 4] = c1[0];
     S.tipC[i * 4 + 1] = c1[1];
     S.tipC[i * 4 + 2] = c1[2];
     S.tipC[i * 4 + 3] = tip * (0.14 + 0.86 * gn);
   }
 
-  // blur the strands by [1 2 1] along each axis: a line of samples becomes two LEDs wide
+  // blur the strands by [1 4 1] along each axis: a line of samples becomes two LEDs wide
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3;
       const l = x > 0 ? o - 3 : o;
       const r = x < W - 1 ? o + 3 : o;
-      tmp[o] = 0.25 * acc[l] + 0.5 * acc[o] + 0.25 * acc[r];
-      tmp[o + 1] = 0.25 * acc[l + 1] + 0.5 * acc[o + 1] + 0.25 * acc[r + 1];
-      tmp[o + 2] = 0.25 * acc[l + 2] + 0.5 * acc[o + 2] + 0.25 * acc[r + 2];
+      tmp[o] = 0.17 * acc[l] + 0.66 * acc[o] + 0.17 * acc[r];
+      tmp[o + 1] = 0.17 * acc[l + 1] + 0.66 * acc[o + 1] + 0.17 * acc[r + 1];
+      tmp[o + 2] = 0.17 * acc[l + 2] + 0.66 * acc[o + 2] + 0.17 * acc[r + 2];
     }
   }
   for (let y = 0; y < H; y++) {
@@ -392,9 +395,9 @@ export function draw(display, params) {
     const yb = y < H - 1 ? W * 3 : 0;
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3;
-      acc[o] = 0.25 * tmp[o + ya] + 0.5 * tmp[o] + 0.25 * tmp[o + yb];
-      acc[o + 1] = 0.25 * tmp[o + ya + 1] + 0.5 * tmp[o + 1] + 0.25 * tmp[o + yb + 1];
-      acc[o + 2] = 0.25 * tmp[o + ya + 2] + 0.5 * tmp[o + 2] + 0.25 * tmp[o + yb + 2];
+      acc[o] = 0.17 * tmp[o + ya] + 0.66 * tmp[o] + 0.17 * tmp[o + yb];
+      acc[o + 1] = 0.17 * tmp[o + ya + 1] + 0.66 * tmp[o + 1] + 0.17 * tmp[o + yb + 1];
+      acc[o + 2] = 0.17 * tmp[o + ya + 2] + 0.66 * tmp[o + 2] + 0.17 * tmp[o + yb + 2];
     }
   }
 
