@@ -154,6 +154,15 @@ export function shake(x: number) {
   return Math.sin(Math.PI * 6 * x) * (1 - x);
 }
 
+/**
+ * How fast the timeline runs to a step a beat or more away, as a share of the
+ * run's pace, `done` (0…1) of the way through it: it sets off at two fifths
+ * of the pace, is at its fastest half way, and comes in at two fifths again.
+ * It ran at one pace from its first frame to its last, and every part on the
+ * stage set off and stopped dead with it.
+ */
+export const runPace = (done: number) => 0.4 + 1.2 * Math.sin(Math.PI * clamp01(done));
+
 /** A small fixed scatter for index `i` (−1…1): the same every time, so the build is the same build. */
 export function scatter(i: number, salt = 0) {
   const s = Math.sin((i + 1) * 12.9898 + salt * 78.233) * 43758.5453;

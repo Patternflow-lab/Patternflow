@@ -6,6 +6,7 @@ import { isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getAllJournalPosts } from "@/lib/journal";
 import OpenGraphImage from "./opengraph-image";
+import EnglishOpenGraphImage from "./en/opengraph-image";
 
 vi.mock("next/og", () => ({
   ImageResponse: class {
@@ -23,8 +24,8 @@ function strings(node: ReactNode): string[] {
   return [];
 }
 
-async function cardText(slug: string) {
-  const card = (await OpenGraphImage({ params: Promise.resolve({ slug }) })) as unknown as {
+async function cardText(slug: string, draw = OpenGraphImage) {
+  const card = (await draw({ params: Promise.resolve({ slug }) })) as unknown as {
     element: ReactElement;
   };
   return strings(card.element);
@@ -53,5 +54,19 @@ describe("journal share card", () => {
     }
 
     expect(raw).toEqual([]);
+  });
+});
+
+describe("the English page's share card", () => {
+  it("carries the English title, where it carried the Korean one", async () => {
+    vi.stubEnv("TZ", "UTC");
+    const ko = getAllJournalPosts({ includeDrafts: true, lang: "ko" }).find((p) => p.slug === "headache");
+    const en = getAllJournalPosts({ includeDrafts: true, lang: "en" }).find((p) => p.slug === "headache");
+    expect(ko && en && ko.title !== en.title).toBe(true);
+
+    const text = await cardText("headache", EnglishOpenGraphImage);
+    expect(text).toContain(en!.title);
+    expect(text).not.toContain(ko!.title);
+    expect(text).toContain("May 14, 2026");
   });
 });

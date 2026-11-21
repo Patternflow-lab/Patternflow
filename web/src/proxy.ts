@@ -92,7 +92,11 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  if (JOURNAL_ASSET_EXTENSION_PATTERN.test(pathname)) {
+  // A post's share card (/journal/<slug>/opengraph-image, and the English one
+  // under /en) has no extension and is not a page. With the English cookie
+  // set it was read as a Korean post and sent on to .../opengraph-image/en,
+  // which is nothing.
+  if (JOURNAL_ASSET_EXTENSION_PATTERN.test(pathname) || pathname.endsWith("/opengraph-image")) {
     return NextResponse.next();
   }
 

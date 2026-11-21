@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 import styles from "./Editions.module.css";
 import EditionCard from "./EditionCard";
 import ShelfTabs from "./ShelfTabs";
@@ -32,6 +33,7 @@ export const metadata: Metadata = {
   description:
     "One panel, more than one firmware. The default does everything and is what ships on the board; the others exist for what it cannot carry. Switching takes one click over Wi-Fi and your patterns, networks and settings come with you.",
   alternates: { canonical: "/editions" },
+  openGraph: { ...SITE_OPEN_GRAPH, url: "/editions" },
 };
 
 export const dynamic = "force-static";

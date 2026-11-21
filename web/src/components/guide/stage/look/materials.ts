@@ -414,6 +414,8 @@ function maskMaterial(from: THREE.MeshStandardMaterial): THREE.MeshPhysicalMater
   });
   m.name = from.name;
   const u = copperUniforms();
+  // The copper arrives after the board has been drawn: the stage is drawn again when it does (rest.ts).
+  m.userData.uniforms = { uLkCopperOn: u.on };
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uLkCopper = u.tex;
     shader.uniforms.uLkCopperOn = u.on;

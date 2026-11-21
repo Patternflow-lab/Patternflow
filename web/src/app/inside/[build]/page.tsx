@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import HomeView from "@/components/HomeView";
-import { builds, buildBySlug } from "@/components/sections/InsideGlobe/builds";
+import { builds, buildBySlug, buildPageTitle } from "@/components/sections/InsideGlobe/builds";
 import { SITE_OPEN_GRAPH } from "@/lib/siteMetadata";
 
 const SITE_URL = "https://patternflow.work";
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: RouteParams): Promise<Metadat
   const build = buildBySlug(slug);
   if (!build) return {};
 
-  const title = `${build.title} — ${build.maker} · ${build.location.label} | Patternflow`;
+  const title = buildPageTitle(build);
   const url = `${SITE_URL}/inside/${build.slug}`;
   const photo = build.images?.[0];
 

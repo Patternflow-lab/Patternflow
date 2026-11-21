@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   title: "Terms & Privacy / Patternflow",
   description:
     "Terms of use and privacy notice for the Patternflow community: who owns what, what we do with your patterns, how to report something, and what data we keep.",
+  alternates: { canonical: "/terms" },
   openGraph: { ...SITE_OPEN_GRAPH, url: "/terms" },
 };
 

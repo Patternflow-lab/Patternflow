@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Silkscreen, Newsreader } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
@@ -79,10 +79,15 @@ export const metadata: Metadata = {
     },
   },
   other: {
-    "theme-color": "#000000",
     "apple-mobile-web-app-capable": "yes",
     "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
+};
+
+// Next writes the viewport tag itself (width=device-width, initial-scale=1).
+// A second one typed into <head> here left every page with two.
+export const viewport: Viewport = {
+  themeColor: "#000000",
 };
 
 const siteUrl = "https://patternflow.work";
@@ -164,7 +169,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         {/* /guide#flash and the like — the Play guide's old anchors, from when
             it was /guide — go on to /guide/play before the hub there is
             parsed (components/guide/legacy.ts). Here, not on the hub's page,

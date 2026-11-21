@@ -126,7 +126,7 @@ import { stageFocus } from "../look/focus";
 import { at, BEATS, beatIndex, beatSeconds, beatStill, clamp01, OPENING_GONE, smooth, span } from "./beats";
 import { Path, Tube } from "./cable";
 import { buildFocus } from "./focus";
-import { ease, fall, glide, grow, land, latch, past, press, reach, rock, scatter, setDown, shake, sway, swing, windUp } from "./motion";
+import { ease, glide, grow, land, latch, past, press, reach, rock, runPace, scatter, setDown, shake, sway, swing, windUp } from "./motion";
 import {
   BACK_HINGE,
   BACK_OPEN_ANGLE,
@@ -278,6 +278,9 @@ const CUT_DARK_MS = 170;
 
 /** Before it takes the device over, the stage builds its shaders only while the camera is slower than this, world units a second (the opening's own sway is a quarter of it). */
 const WARM_STILL = 1.2;
+
+/** The reader's "reduce motion" setting. The list is live, so it is asked for once and not again every frame. */
+const lessMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
 
 /** The print's layer, model units (0.2 mm). */
 const LAYER = 0.02;
@@ -445,6 +448,28 @@ function placeCentre(c: THREE.Vector3, p: THREE.Vector3, q: THREE.Quaternion): R
 function setRigid(o: THREE.Object3D, r: Rigid) {
   o.quaternion.copy(r.q);
   o.position.copy(r.T);
+}
+
+// The frame loop writes every joint, screw, washer and nut every frame, and
+// for as long as a step holds its end it writes the same numbers. A buffer
+// goes to the GPU only when its numbers differ from the ones last sent: a
+// held step sends nothing, and the stage can rest on it (look/rest.ts).
+const sent = new WeakMap<THREE.BufferAttribute, Float32Array>();
+function send(attr: THREE.BufferAttribute) {
+  const now = attr.array as Float32Array;
+  let was = sent.get(attr);
+  if (!was) {
+    // Nothing sent yet: NaN is equal to nothing, so the first comparison differs.
+    was = new Float32Array(now.length).fill(NaN);
+    sent.set(attr, was);
+  }
+  for (let i = 0; i < now.length; i++) {
+    if (now[i] !== was[i]) {
+      was.set(now);
+      attr.needsUpdate = true;
+      return;
+    }
+  }
 }
 
 /**
@@ -1462,7 +1487,8 @@ export default function BuildStage() {
 
   // Frames since mount, for the one-off warm-up draw below.
   const warmed = useRef(0);
-  const clock = useRef({ beat: -1, start: 0, since: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN });
+  // run: how far the run in hand had to go when it set off, in beats (0 with none in hand).
+  const clock = useRef({ beat: -1, start: 0, since: 0, t: -1, mounted: 0, replay: useGuideStore.getState().replay, heldOff: false, cutAt: 0, shown: NaN, run: 0 });
   const tmp = useMemo(
     () => ({
       a: pose(),
@@ -1663,7 +1689,7 @@ export default function BuildStage() {
       c.start = now;
       c.t = B;
     }
-    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const reduced = lessMotion?.matches ?? false;
     // On the guide, the step's own motion; off it, the end the build is being run to.
     const target = onPage ? B + Math.min(0.999, (now - c.start) / 1000 / beatSeconds(B)) : B === 0 ? 0 : B + 0.999;
     // It takes over a whole device: until told otherwise, the build stands at its opening.
@@ -1692,8 +1718,16 @@ export default function BuildStage() {
       // Its own pace forward within the beat; quick from another beat, and
       // quick back to the beat's start.
       const sameBeat = Math.floor(c.t) === B && dlt >= 0;
-      const rate = sameBeat ? 1.6 / beatSeconds(B) : Math.max(2.6, Math.abs(dlt) / 1.1);
-      c.t += Math.sign(dlt) * Math.min(Math.abs(dlt), rate * dt);
+      if (sameBeat) {
+        c.run = 0;
+        c.t += Math.min(dlt, (1.6 / beatSeconds(B)) * dt);
+      } else {
+        // A run: it gathers pace, and loses it as it comes in (motion.ts runPace).
+        const left = Math.abs(dlt);
+        if (left > c.run) c.run = left;
+        const rate = Math.max(2.6, c.run / 1.1) * runPace(1 - left / c.run);
+        c.t += Math.sign(dlt) * Math.min(left, rate * dt);
+      }
     }
     if (process.env.NODE_ENV !== "production") {
       // For the filming and measuring scripts (scratchpad build3d/): the
@@ -1889,6 +1923,7 @@ export default function BuildStage() {
     // the iron (look/materials.ts solderMaterial: its heat is in its
     // surface, not in a glow).
     let ironTip: THREE.Vector3 | null = null;
+    let ironSize = 1;
     {
       const m = tmp.m;
       const heat = kit.jointHeat.array as Float32Array;
@@ -1909,8 +1944,8 @@ export default function BuildStage() {
         kit.joints.setMatrixAt(i, m);
         heat[i] = 1 - glide((age - 0.1) / 0.9);
       });
-      kit.joints.instanceMatrix.needsUpdate = true;
-      kit.jointHeat.needsUpdate = true;
+      send(kit.joints.instanceMatrix);
+      send(kit.jointHeat);
       kit.joints.visible = boardOn;
       for (const round of kit.rounds) {
         const lead = 0.36 / round.secs;
@@ -1931,13 +1966,24 @@ export default function BuildStage() {
         // Lifted between pads by how far apart they are; in before the first, out after the last.
         const hop = Math.sin(Math.PI * go) * b.hop;
         const coming = 1 - span(t, round.from - lead, round.from, reach);
-        const leaving = span(t, round.to + dwell, round.to + dwell + lead, fall);
+        // Away at once, and slower the further it has got. It left slowly at
+        // first (fall), and the board is turned back 0.1 to 0.4 s after the
+        // last joint: on all four rounds the board went over with the tip
+        // still on its pad.
+        const leaving = span(t, round.to + dwell, round.to + dwell + lead, ease);
         ironTip.addScaledVector(IRON_AXIS, hop + (coming + leaving) * 4.4);
+        // It comes into the picture from nothing, as a part does (motion.ts
+        // grow), and goes out of it the same way: it was put there at full
+        // size, 44 mm off its pad, and taken away in mid-air.
+        const from = round.from - lead;
+        const gone = round.to + dwell + lead;
+        ironSize = span(t, from, from + lead * 0.35, ease) * (1 - span(t, gone - lead * 0.7, gone, glide));
       }
     }
     kit.iron.visible = !!ironTip;
     if (ironTip) {
       kit.iron.position.copy(ironTip);
+      kit.iron.scale.setScalar(Math.max(0.001, ironSize));
       kit.iron.quaternion.setFromUnitVectors(Y, IRON_AXIS);
       buildFocus.on = true;
       buildFocus.size = 0.06;
@@ -2433,8 +2479,8 @@ export default function BuildStage() {
         kit.screws.setMatrixAt(k, m);
         kit.screwSlots.setMatrixAt(k, m);
       });
-      kit.screws.instanceMatrix.needsUpdate = true;
-      kit.screwSlots.instanceMatrix.needsUpdate = true;
+      send(kit.screws.instanceMatrix);
+      send(kit.screwSlots.instanceMatrix);
     }
 
     // ── washers and nuts on the encoder bushings ────────────────────────────
@@ -2495,8 +2541,8 @@ export default function BuildStage() {
           }
         }
       }
-      kit.washers.instanceMatrix.needsUpdate = true;
-      kit.nuts.instanceMatrix.needsUpdate = true;
+      send(kit.washers.instanceMatrix);
+      send(kit.nuts.instanceMatrix);
     }
 
     // ── the power bank, the plug, the J4 lead ───────────────────────────────
@@ -2811,14 +2857,14 @@ export default function BuildStage() {
       const pos = kit.dash.geometry.getAttribute("position") as THREE.BufferAttribute;
       pos.setXYZ(0, j3Plus.x, j3Plus.y, j3Plus.z - 0.9);
       pos.setXYZ(1, j4Plus.x, j4Plus.y, j4Plus.z - 0.9);
-      pos.needsUpdate = true;
+      send(pos);
       // The dashes' distances along it, written in place. (computeLineDistances
       // makes a new attribute every call, and three a new buffer for each one
       // it draws — one a frame for as long as the line was on screen, and one
       // more on every visit, none of them ever let go.)
       const along = kit.dash.geometry.getAttribute("lineDistance") as THREE.BufferAttribute;
       along.setX(1, Math.hypot(j4Plus.x - j3Plus.x, j4Plus.y - j3Plus.y, j4Plus.z - j3Plus.z));
-      along.needsUpdate = true;
+      send(along);
       const lm = kit.dash.material as THREE.LineDashedMaterial;
       lm.opacity += ((plusOn ? 1 : 0) - lm.opacity) * Math.min(1, dt * 6);
       kit.dash.visible = lm.opacity > 0.01;
