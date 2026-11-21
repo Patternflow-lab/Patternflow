@@ -59,17 +59,31 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const DEG = PI / 180;
 const CX = 31.5, CY = 63.5; // the middle of the panel: the lattices dilate and turn about it
 
-// ---- the cells
-// lam: nearest-neighbour spacing at the opening, LEDs. th: orientation, degrees. hue: at Hue 0.
-// gain: how bright its fields are drawn, set so no colour outshines the others on the panel.
+// ---- the module
+// One module: three cells with the same spacing and the same orientation,
+// which differ only in phase, as the cells of a real module do. The phases
+// sit a third of the way along (a1 + a2) / 3, the line from a field to the
+// middle of the triangle of its three nearest neighbours: shift a triangular
+// lattice by that vector and by twice it and the three lattices together are a
+// finer triangular lattice, spacing lambda / sqrt(3), each colour on every
+// third site. (A third of a lattice vector itself would not do: the three
+// would line up in rows.) TX, TY is that vector in units of lambda, for a
+// lattice whose wave vectors point at 0, 60 and 120 degrees. Each cell's phase
+// also wanders by up to 0.15 lambda on slow swings with no common period.
+// hue: at Hue 0. gain: how bright its fields are drawn, so no colour outshines the others.
+const LAM = 24; // nearest-neighbour spacing of one colour at the opening, LEDs
+const TX = sqrt(3) / 6, TY = 0.5;
+const JIT = 0.15; // the largest wander of a cell's phase, in lambda
+const REMAP_SECS = 15; // a re-map takes this long
+const ROT0 = 8; // the module's own orientation at the opening, degrees
 const CELLS = [
-  { lam: 18.0, th: -4, hue: 0.035, sat: 0.78, gain: 0.88 },
-  { lam: 25.2, th: 2, hue: 0.5, sat: 0.85, gain: 0.8 },
-  { lam: 35.3, th: 7, hue: 0.77, sat: 0.8, gain: 0.8 },
+  { hue: 0.035, sat: 0.78, gain: 0.88 },
+  { hue: 0.5, sat: 0.85, gain: 0.8 },
+  { hue: 0.77, sat: 0.8, gain: 0.8 },
 ];
 const Q1 = (4 * PI) / sqrt(3); // wave number of a lattice of spacing 1
-const POW = 2.2; // the rate is max(0, g) to this power
-const RMAX = 10; // spikes a second at the peak of a field
+const POW = 4.5; // the rate is max(0, g) to this power
+const RMAX = 6; // spikes a second at the peak of a field
 
 // ---- the animal
 const SPEED = 20; // mean speed, LEDs a second
@@ -129,19 +143,21 @@ export function setup(params) {
     trail: [], trailT: 0,
     sp: [],
     cell: [],
+    mod: null,
     next: 0,
-    hue: 0, scale: 1, rot: 0, mem: 20,
+    hue: 0, scale: 1, rot: 0, mem: 39,
     buf: new Float32Array(N * 3),
     col: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
   };
   for (let i = 0; i < LADDER; i++) S.occ.push(new Float64Array(N));
-  for (const c of CELLS)
+  for (let i = 0; i < 3; i++)
     S.cell.push({
-      dx: rng(), dy: rng(), // phase, in lattice units of the cell's own spacing
-      th: c.th * DEG, // current orientation
-      mv: null, // a re-map in progress: { t0, dx, dy, th }, the values it started from and by how much it moves
+      jw: [0.061 + 0.07 * rng(), 0.061 + 0.07 * rng()], // the swings of its phase wander, rad/s
+      jp: [rng() * 2 * PI, rng() * 2 * PI],
       ax: [0, 0, 0], ay: [0, 0, 0], ps: [0, 0, 0],
     });
+  // The module: orientation, scale (1 at the opening) and a common phase in lattice units; mv is a re-map in progress.
+  S.mod = { rot: ROT0 * DEG, sc: 1, dx: rng(), dy: rng(), mv: null };
   S.vx = SU * gauss(S);
   S.vy = SU * gauss(S);
   S.next = Infinity;
@@ -153,7 +169,7 @@ export function setup(params) {
 }
 
 function remapWait(S) {
-  return 70 + 110 * -log(1 - S.rng());
+  return 40 + 50 * S.rng();
 }
 
 function smooth(u) {
@@ -161,54 +177,63 @@ function smooth(u) {
   return u * u * (3 - 2 * u);
 }
 
-// The state of cell i's lattice now, with any re-map folded in: orientation
-// (radians) and phase in lattice units.
-function cellNow(S, i, out) {
-  const C = S.cell[i], m = C.mv;
+// The module's orientation (radians), scale and common phase now, with any re-map folded in.
+function modNow(S, out) {
+  const M = S.mod, m = M.mv;
   if (!m) {
-    out[0] = C.th;
-    out[1] = C.dx;
-    out[2] = C.dy;
+    out[0] = M.rot;
+    out[1] = M.sc;
+    out[2] = M.dx;
+    out[3] = M.dy;
     return;
   }
-  const s = smooth((S.t - m.t0) / 20);
-  out[0] = C.th + m.dth * s;
-  out[1] = C.dx + m.ddx * s;
-  out[2] = C.dy + m.ddy * s;
+  const s = smooth((S.t - m.t0) / REMAP_SECS);
+  out[0] = M.rot + (m.rot - M.rot) * s;
+  out[1] = M.sc + (m.sc - M.sc) * s;
+  out[2] = M.dx + (m.dx - M.dx) * s;
+  out[3] = M.dy + (m.dy - M.dy) * s;
 }
 
-// Start and finish re-maps.
+// Start and finish re-maps: the whole module turns 5 to 12 degrees, its scale
+// moves to somewhere within 10 percent of the opening, and its phase slides
+// by a third to two thirds of a spacing in a random direction.
 function remap(S) {
-  for (let i = 0; i < 3; i++) {
-    const C = S.cell[i], m = C.mv;
-    if (m && S.t - m.t0 >= 20) {
-      C.th += m.dth;
-      C.dx += m.ddx;
-      C.dy += m.ddy;
-      C.mv = null;
-    }
+  const M = S.mod, m = M.mv;
+  if (m && S.t - m.t0 >= REMAP_SECS) {
+    M.rot = m.rot;
+    M.sc = m.sc;
+    M.dx = m.dx;
+    M.dy = m.dy;
+    M.mv = null;
   }
   if (S.t < S.next) return;
-  const i = floor(S.rng() * 3), C = S.cell[i];
-  if (!C.mv) {
-    const a = S.rng() * 2 * PI, r = 0.3 + 0.2 * S.rng();
-    let d = (2 + 4 * S.rng()) * DEG * (S.rng() < 0.5 ? -1 : 1);
-    // Keep the cell near the orientation it was born with.
-    const base = CELLS[i].th * DEG;
-    if (abs(C.th + d - base) > 9 * DEG) d = -d;
-    C.mv = { t0: S.t, ddx: r * cos(a), ddy: r * sin(a), dth: d };
+  if (!M.mv) {
+    const a = S.rng() * 2 * PI, r = 0.33 + 0.33 * S.rng();
+    let d = (5 + 7 * S.rng()) * DEG * (S.rng() < 0.5 ? -1 : 1);
+    // Keep the module within 25 degrees of the orientation it opened at.
+    if (abs(M.rot + d - ROT0 * DEG) > 25 * DEG) d = -d;
+    M.mv = {
+      t0: S.t,
+      rot: M.rot + d,
+      sc: 1 + (M.sc > 1 ? -1 : 1) * 0.1 * (0.3 + 0.7 * S.rng()),
+      dx: M.dx + r * cos(a),
+      dy: M.dy + r * sin(a),
+    };
   }
   S.next = S.t + remapWait(S);
 }
 
-// Sets up each cell's three wave vectors and phases for the knobs and the
-// re-map under way: g = (1/3) sum cos(ax x + ay y - ps), x and y from the middle of the panel.
+// Sets up each cell's three wave vectors and phases for the knobs, the
+// re-map under way and the wander of its phase:
+// g = (1/3) sum cos(ax x + ay y - ps), x and y from the middle of the panel.
 function aim(S) {
-  const st = [0, 0, 0];
+  const st = [0, 0, 0, 0];
+  modNow(S, st);
+  const th = st[0] + S.rot * DEG, sl = LAM * S.scale * st[1];
+  const amp = JIT * 0.7071;
   for (let i = 0; i < 3; i++) {
     const C = S.cell[i];
-    cellNow(S, i, st);
-    const th = st[0] + S.rot * DEG, sl = CELLS[i].lam * S.scale, dx = st[1], dy = st[2];
+    const dx = st[2] + i * TX + amp * sin(C.jw[0] * S.t + C.jp[0]), dy = st[3] + i * TY + amp * sin(C.jw[1] * S.t + C.jp[1]);
     for (let m = 0; m < 3; m++) {
       const f = m * PI / 3;
       C.ax[m] = (Q1 / sl) * cos(f + th);
@@ -292,7 +317,7 @@ function advance(S, h, spikes) {
     aim(S);
     for (let i = 0; i < 3; i++) {
       const r = RMAX * rateAt(S.cell[i], S.x, S.y);
-      if (S.rng() < 1 - exp(-r * h) && S.sp.length < 300) S.sp.push({ x: S.x + 0.5 * gauss(S), y: S.y + 0.5 * gauss(S), c: i, t: S.t });
+      if (S.rng() < 1 - exp(-r * h) && S.sp.length < 300) S.sp.push({ x: S.x + 0.4 * gauss(S), y: S.y + 0.4 * gauss(S), c: i, t: S.t });
     }
   }
 }
@@ -303,7 +328,7 @@ export function update(dt, input, params) {
   S.hue = k[0];
   S.scale = cl(k[1], 1.4, 3.2) / 2;
   S.rot = cl(k[2], -30, 30);
-  S.mem = 8 * pow(30, cl((k[3] + 0.3) / 1.3, 0, 1));
+  S.mem = 8 * pow(30, pow(cl((k[3] + 0.3) / 1.3, 0, 1), 0.6));
   let span = cl(dt || 0, 0, 0.1);
   while (span > 1e-9) {
     const h = min(span, STEP);
@@ -348,7 +373,7 @@ export function draw(display, params) {
           if (gg <= 0) continue;
           const rate = pow(gg, POW);
           if (rate < FLOOR) continue;
-          const v = C * pow((rate - FLOOR) / (1 - FLOOR), 0.9);
+          const v = C * (rate - FLOOR) / (1 - FLOOR);
           const c = S.col[i];
           r += c[0] * v;
           g += c[1] * v;
@@ -390,7 +415,7 @@ export function draw(display, params) {
   for (const s of S.sp) {
     const a = (1 - (S.t - s.t) / LIFE) ** 1.5, c = S.col[s.c], g = CELLS[s.c].gain;
     // The spike is the cell's own colour at full strength, lifted toward white.
-    dot(s.x, s.y, 0.85, (0.5 * c[0] / g + 0.5) * a * 1.2, (0.5 * c[1] / g + 0.5) * a * 1.2, (0.5 * c[2] / g + 0.5) * a * 1.2);
+    dot(s.x, s.y, 0.7, (0.5 * c[0] / g + 0.5) * a * 0.6, (0.5 * c[1] / g + 0.5) * a * 0.6, (0.5 * c[2] / g + 0.5) * a * 0.6);
   }
   dot(ax, ay, 0.95, 1.0, 1.0, 1.0);
 
