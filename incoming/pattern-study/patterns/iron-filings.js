@@ -41,13 +41,15 @@ const INK_C = 0.03;
 // frequencies that share no factor, a turning rate and a rocking of the
 // angle, and a strength. All frequencies are rad/s of panel time.
 const MAG = [
-  { cx: 31, cy: 36, ax: 21, ay: 26, wx: 0.137, wy: 0.083, p0: 0.4, p1: 2.1, a0: 1.1, wr: 0.152, wa: 0.071, pa: 0.7, q: 1.0, len: 1.0 },
-  { cx: 33, cy: 93, ax: 22, ay: 26, wx: 0.103, wy: 0.121, p0: 3.3, p1: 0.9, a0: 4.0, wr: -0.118, wa: 0.089, pa: 2.4, q: 0.9, len: 0.86 },
-  { cx: 32, cy: 64, ax: 26, ay: 34, wx: 0.159, wy: 0.067, p0: 5.1, p1: 4.2, a0: 2.3, wr: 0.093, wa: 0.113, pa: 4.9, q: 0.72, len: 1.14 },
+  { cx: 31, cy: 36, ax: 17, ay: 22, bx: 10, by: 13, wx: 0.137, wy: 0.083, vx: 0.047, vy: 0.031, p0: 0.4, p1: 2.1, p2: 1.3, p3: 5.0, a0: 1.1, wr: 0.152, wa: 0.071, pa: 0.7, q: 1.0, wq: 0.061, pq: 0.8, len: 1.0 },
+  { cx: 33, cy: 93, ax: 18, ay: 22, bx: 10, by: 13, wx: 0.103, wy: 0.121, vx: 0.037, vy: 0.053, p0: 3.3, p1: 0.9, p2: 4.4, p3: 2.2, a0: 4.0, wr: -0.118, wa: 0.089, pa: 2.4, q: 0.9, wq: 0.083, pq: 3.9, len: 0.86 },
+  { cx: 32, cy: 64, ax: 20, ay: 28, bx: 9, by: 12, wx: 0.159, wy: 0.067, vx: 0.029, vy: 0.043, p0: 5.1, p1: 4.2, p2: 0.2, p3: 3.4, a0: 2.3, wr: 0.093, wa: 0.113, pa: 4.9, q: 0.72, wq: 0.047, pq: 5.6, len: 1.14 },
 ];
-const T0 = 20; // where on its paths each magnet stands at 0 s
+const TS = 1.3; // how fast the magnets go, against their own frequencies
+const T0 = 206; // where on its paths each magnet stands at 0 s
 const PREROLL = 9; // seconds of lag already played when the picture opens
-const SPARSE = 0.4; // share of the grit that lies on the paper where the field is nothing
+const SPARSE = 0.12; // share of the grit that lies on the paper where the field is nothing
+const LAMP = 0.12; // how much brighter the paper is under the lamp
 const EPS = 2.6; // a pole's softening radius in LEDs
 const GAIN = 30; // field to a unit that is 1 at about 12 LEDs from a pole at Field 1
 const RMIN = 0.28; // turning rates, 1/s: far from a pole, and next to one
@@ -127,20 +129,21 @@ function poles(S, T) {
   let n = 0;
   for (let k = 0; k < MAG.length; k++) {
     const m = MAG[k];
-    const t = T + T0;
-    const cx = m.cx + m.ax * sin(m.wx * t + m.p0);
-    const cy = m.cy + m.ay * sin(m.wy * t + m.p1);
+    const t = (T + T0) * TS;
+    const cx = m.cx + m.ax * sin(m.wx * t + m.p0) + m.bx * sin(m.vx * t + m.p2);
+    const cy = m.cy + m.ay * sin(m.wy * t + m.p1) + m.by * sin(m.vy * t + m.p3);
     const th = m.a0 + m.wr * t + 0.9 * sin(m.wa * t + m.pa);
     const h = 0.5 * L * m.len;
     const ux = cos(th) * h;
     const uy = sin(th) * h;
     const P = S.P;
+    const q = m.q * (0.78 + 0.22 * sin(m.wq * t + m.pq));
     P[n++] = cx + ux;
     P[n++] = cy + uy;
-    P[n++] = m.q;
+    P[n++] = q;
     P[n++] = cx - ux;
     P[n++] = cy - uy;
-    P[n++] = -m.q;
+    P[n++] = -q;
     S.bar[k * 5] = cx;
     S.bar[k * 5 + 1] = cy;
     S.bar[k * 5 + 2] = ux;
@@ -235,6 +238,11 @@ export function draw(display, params) {
   const pb = S.paper[2];
   const buf = S.buf;
   const bar = S.bar;
+  // a lamp over the sheet that wanders very slowly: a broad pool of light
+  const tl = (S.T + T0) * 0.7;
+  const lx = 32 + 34 * sin(0.083 * tl + 1.7) + 12 * sin(0.151 * tl);
+  const ly = 64 + 66 * sin(0.057 * tl + 0.3) + 20 * sin(0.113 * tl + 2.6);
+  const lw = 1 / (2 * 46 * 46);
   const nm = MAG.length;
   // The paper: a soft vignette, and a very faint raised look where a bar
   // lies under it, lit from the top left.
@@ -242,7 +250,9 @@ export function draw(display, params) {
     const ey = (y + 0.5 - H / 2) / (H / 2);
     for (let x = 0; x < W; x++) {
       const ex = (x + 0.5 - W / 2) / (W / 2);
-      let g = 1 - 0.09 * (0.5 * ex * ex + 0.5 * ey * ey);
+      const lxd = x + 0.5 - lx;
+      const lyd = y + 0.5 - ly;
+      let g = 0.93 - 0.05 * (0.5 * ex * ex + 0.5 * ey * ey) + LAMP * exp(-(lxd * lxd + lyd * lyd) * lw);
       const px = x + 0.5;
       const py = y + 0.5;
       let em = 0;
@@ -285,7 +295,7 @@ export function draw(display, params) {
       if (act <= 0) continue;
       const w = S.w[i];
       // far from every pole the grit is sparse, near one it is crowded
-      act *= sm((SPARSE + (1 - SPARSE) * min(1, w * 1.5) - S.thr[i]) * 6 + 0.5);
+      act *= sm((SPARSE + (1 - SPARSE) * min(1, w * 1.5) - S.thr[i]) * 10 + 0.5);
       if (act <= 0) continue;
       const ph = S.phi[i];
       const c = cos(ph);
