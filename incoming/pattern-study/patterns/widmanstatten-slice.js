@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Sweep=0..3, Plate=-1..1, Cut=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the metal, so one turn comes back to where it began. At 0 the kamacite is silver with a steel-blue cast (about 190, 215, 235) and the plessite is a grey-gold. At 0.2 the metal is a pale violet, at 0.45 a pale straw gold, at 0.6 a pale rose and at 0.8 a pale green; the taenite rims and the plessite turn with it and keep their dark and mid levels.
-// Knob 2: Sweep. How fast the slab moves through the crystal and the tilt precesses, as (knob / 2) to the power 1.5 of the base rate. At 0 the crystal stands still and only the raking light moves; at 1 the plane moves 0.8 LED of crystal a second along its normal; at the opening 2 it moves 2.2 LEDs a second and the tilt makes a turn of its precession in about 130 s; at 3 it moves 4 LEDs a second.
-// Knob 3: Plate. The plate spacing d, from 5 LEDs at -1 through 9.5 at the opening 0 to 18 at 1 (9.5 times 1.9 to the power of the knob). The whole crystal scales about the middle of the panel: the plate length (radius 1.4 to 3.2 spacings) and the width of the field it sits in scale with d, so at 5 the mosaic is fine and busy and at 18 a plate runs most of the panel's height.
-// Knob 4: Cut. The tilt of the cut away from the cube face of the crystal, 55 degrees times ((knob + 1) / 2) to the power 1.2, which is 0 at -1, 26 degrees at the opening 0.06 and 55 at 1. At 0 the cut is a cube face and the four families fall into two directions at right angles, a field of diamonds with the plates of a pair side by side; tilted, the four directions part into triangles and diamonds. At about 55 degrees the plane comes near the octahedral planes of one family and that family fills wide areas.
+// Knob 1: Hue. Adds the knob to the hue of the metal, so one turn comes back to where it began. At 0 the kamacite is silver with a steel-blue cast (about 188, 207, 224 at mid shading, up to near white on a lit edge), the taenite rims are a dark bronze (about 107, 87, 47) and the plessite a grey-gold (about 133, 118, 90). At 0.2 the plates are a pale violet on a green-grey field, at 0.35 a pale rose, at 0.52 a pale gold on blue-grey, at 0.65 a pale straw and at 0.8 a pale mint. The warm tones turn with the plates and lose up to two thirds of their colour half a turn away, so a tinted slab is still a metal.
+// Knob 2: Sweep. How fast the slab moves through the crystal and the tilt precesses, the base rate times (knob / 2) to the power 1.5. At 0 the crystal stands still, and the raking light and a slow shimmer in the plessite keep the picture alive (motion 0.006 or more at every moment); at 1 the plane moves 0.9 LED of crystal a second along its normal; at the opening 2 it moves 2.6 LEDs a second and the tilt's azimuth makes a turn in about 134 s; at 3 it moves 4.8 LEDs a second.
+// Knob 3: Plate. The plate spacing d, from 5 LEDs at -1 through 9.5 at the opening 0 to 18 at 1 (9.5 times 1.9 to the power of the knob). The whole crystal scales about the middle of the panel: the plates, their length (a radius of 2.3 to 3.7 d) and the cells they sit in all go with d. At 5 the bands are at most 2 to 3 LEDs wide and the mosaic is fine and busy; at 9.5 they reach 4 to 6; at 18 a few plates run across most of the panel.
+// Knob 4: Cut. The tilt of the cut away from the cube face of the crystal, 55 degrees times ((knob + 1) / 2) to the power 1.2: 0 at -1, 26 degrees at the opening 0.06, 55 at 1 (a slow wobble takes up to a tenth off). At 0 the cut is a cube face and the four families fall into two directions at right angles, so the plates run in two sets and a pair of families lies side by side. Tilted, the four directions part into triangles and diamonds. Near 55 degrees, when the tilt's azimuth turns toward a family, the plane comes close to that family's planes and its plates fill wide areas.
 
 // The crystal is the one a kamacite-taenite iron has: four families of plates lying in the
 // planes normal to (1, 1, 1), (1, 1, -1), (1, -1, 1) and (-1, 1, 1). Each family is a stack of
@@ -33,12 +33,12 @@
 // |s - plate| is less than the lens's half thickness there. The cut meets the plate where the
 // two cross: where the cut runs steeply through the stack the plates are narrow bands, where it
 // runs along them one plate fills wide areas, and as the plane passes the lens's edge the band
-// tapers and vanishes. A band whose half width has fallen below an LED fades out together with
-// its rim, so the picture has no one-LED lines.
+// tapers and vanishes. A band narrower than about two LEDs fades out together with its rim, so
+// the picture has no one-LED lines.
 //
-// A plate is drawn as bright kamacite inside a dark taenite rim a little under two LEDs wide,
-// on a plessite field of soft two-octave mottle, a value noise in LED coordinates of the crystal
-// so it slides with the metal. Where plates of two families overlap, the later in the order
+// A plate is drawn as bright kamacite inside a dark taenite rim one to two LEDs wide, on a
+// plessite field of soft two-octave mottle, a value noise in LED coordinates of the crystal so it
+// slides with the metal. Where plates of two families overlap, the later in the order
 // 0, 1, 2, 3 is drawn over the earlier, as on a specimen where one family cuts across another.
 // A raking light whose direction drifts shades the ridge: the in-plane gradient of s, unit length,
 // dotted with the light gives which edge of a plate faces it, and that edge is lit with a thin
@@ -206,7 +206,7 @@ function prepare(S) {
     }
   // The mottle: two octaves of value noise in LED coordinates of the crystal, one node every 2 LEDs.
   // A pixel centre sits a quarter or three quarters of the way between nodes, so the weights are fixed.
-  const oL = S.oL, mo = S.mot, tt = S.t, e0 = 0.3 * tt, e1 = -0.22 * tt, e2 = 0.17 * tt;
+  const oL = S.oL, mo = S.mot, tt = S.t, e0 = 0.5 * tt, e1 = -0.37 * tt, e2 = 0.29 * tt;
   for (let my = 0; my < MY; my++)
     for (let mx = 0; mx < MX; mx++) {
       const X = mx * 2 - 32, Y = my * 2 - 64;
