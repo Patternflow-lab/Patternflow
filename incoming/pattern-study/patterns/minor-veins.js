@@ -1,0 +1,541 @@
+// ===== Patternflow pattern =====
+// Title:   Minor Veins
+// Family:  venation
+// Idea:    A leaf blade held up against the light keeps growing past the top of the panel while its veins form by auxin canalization, so a thick midrib and a few secondaries stream down to the petiole below the bottom edge and a fresh fine net keeps appearing inside every areole that the stretching tissue opens.
+// Author:  patternflow-lab
+// Date:    2026-11-21
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Lineage: Runions, Fuhrer, Lane, Federl, Rolland-Lagan and Prusinkiewicz, Modeling and visualization of leaf venation patterns (SIGGRAPH 2005); the space colonization algorithm of Runions, Lane and Prusinkiewicz (2007)
+// Round:   214
+// ===============================
+// @matrix 64x128
+// @knobs Hue=0..1, Growth=0.6..5, Fineness=-1..1, Light=-1..1
+//
+// Knob 1: Hue.
+// Knob 2: Growth.
+// Knob 3: Fineness.
+// Knob 4: Light.
+
+const W = 64, H = 128, N = W * H;
+const { floor, ceil, min, max, exp, sqrt, abs, round, pow } = Math;
+const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
+const sm = (a, b, v) => {
+  const t = cl((v - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+// ---- the tissue
+const CX = 28, CY = 184; // centre of the expansion, below the panel; the root of the network sits on it
+const G0 = 0.04; // relative growth rate at Growth 2, per second
+const ITER = 0.1; // seconds of tissue time per colonization pass
+const STEP = 1.5; // how far a vein node sprouts in one pass, LEDs
+const RINF = 12; // a source calls the nearest vein node inside this radius
+const TROP = 0.45; // forward bias of a sprout, along the line out from the centre
+const LMAX = 3.4; // an edge longer than this is split by a new node
+const DLOOP = 1.25; // a new node this close to another branch joins it, closing a loop
+const NM = 4600, SM = 1700, LM = 1800; // capacity of nodes, sources, loop edges
+// Where sources live, and how far a node may go before it is dropped.
+const SX0 = -12, SX1 = 76, SY0 = -12, SY1 = 148;
+const PX0 = -22, PX1 = 86, PY0 = -28, PY1 = 160;
+const CS = 12; // cell of the grid the passes look up neighbours in
+const GX = ceil((PX1 - PX0) / CS) + 1, GY = ceil((PY1 - PY0) / CS) + 1, GN = GX * GY;
+
+// ---- the picture
+const WA = 0.82; // display width of a vein: WA * (tips downstream * stretch)^0.25, LEDs
+const EXPT = new Float32Array(560);
+for (let i = 0; i < EXPT.length; i++) EXPT[i] = exp(-i / 96);
+
+function hsv(h, s, v, out, o) {
+  h = (h - floor(h)) * 6;
+  const i = floor(h) % 6, f = h - floor(h), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const r = i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p;
+  const g = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
+  const b = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
+  out[o] = r;
+  out[o + 1] = g;
+  out[o + 2] = b;
+}
+
+export function setup(params) {
+  const S = {
+    n: 0, ns: 0, nl: 0,
+    x: new Float32Array(NM), y: new Float32Array(NM), par: new Int32Array(NM),
+    rb: new Float32Array(NM), bs: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
+    nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
+    ax: new Float32Array(NM), ay: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
+    cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
+    sx: new Float32Array(SM), sy: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
+    l0: new Int32Array(LM), l1: new Int32Array(LM),
+    cv: new Float32Array(N), gl: new Float32Array(N), bl: new Float32Array(N), tn: new Float32Array(N),
+    lam: new Float32Array(256 * 3), vein: new Float32Array(256 * 3), bloom: [1, 0.8, 0.4], key: "",
+    hue: 0, gk: 1, sc: 2.5, u: 0.53,
+    assumed: [1, 2.5], warm: false,
+  };
+  params.s = S;
+  seed(S);
+  prerun(S);
+}
+
+// A midrib along the ray from the centre, leaning a little to the right, out past the top.
+function seed(S) {
+  S.n = S.ns = S.nl = 0;
+  const dx = 6, dy = -204, l = sqrt(dx * dx + dy * dy);
+  for (let d = 0; d < 230; d += 2.2) {
+    const j = S.n++;
+    S.x[j] = CX + (dx / l) * d;
+    S.y[j] = CY + (dy / l) * d;
+    S.par[j] = j - 1;
+    S.rb[j] = max(d, 1);
+    S.bs[j] = 2.5;
+    S.ms[j] = 1;
+  }
+}
+
+function prerun(S) {
+  const T = cl(90 / S.gk, 60, 180);
+  const f = exp(G0 * S.gk * ITER);
+  seed(S);
+  for (let t = 0; t < T; t += ITER) {
+    stretch(S, f);
+    iterate(S);
+  }
+  for (let j = 0; j < S.n; j++) S.ms[j] = S.mass[j];
+  S.assumed = [S.gk, S.sc];
+  S.warm = true;
+}
+
+function stretch(S, f) {
+  const { x, y, sx, sy } = S;
+  for (let j = 0; j < S.n; j++) {
+    x[j] = CX + (x[j] - CX) * f;
+    y[j] = CY + (y[j] - CY) * f;
+  }
+  for (let i = 0; i < S.ns; i++) {
+    sx[i] = CX + (sx[i] - CX) * f;
+    sy[i] = CY + (sy[i] - CY) * f;
+  }
+}
+
+function cellOf(px, py) {
+  let cx = floor((px - PX0) / CS), cy = floor((py - PY0) / CS);
+  cx = cx < 0 ? 0 : cx >= GX ? GX - 1 : cx;
+  cy = cy < 0 ? 0 : cy >= GY ? GY - 1 : cy;
+  return cy * GX + cx;
+}
+
+// Nodes binned into cells, by counting sort.
+function gridNodes(S) {
+  const { x, y, cs, fp, ci, cc } = S, n = S.n;
+  cs.fill(0);
+  for (let j = 0; j < n; j++) {
+    const c = cellOf(x[j], y[j]);
+    cc[j] = c;
+    cs[c + 1]++;
+  }
+  for (let c = 0; c < GN; c++) cs[c + 1] += cs[c];
+  for (let c = 0; c < GN; c++) fp[c] = cs[c];
+  for (let j = 0; j < n; j++) ci[fp[cc[j]]++] = j;
+}
+
+function iterate(S) {
+  gridNodes(S);
+  attract(S);
+  sprout(S);
+  prune(S);
+  split(S);
+  gridNodes(S);
+  scatter(S);
+  weigh(S);
+}
+
+// Each source calls the nearest vein node inside RINF, and dies when a node is
+// within the kill distance of it.
+function attract(S) {
+  const { x, y, sx, sy, cs, ci, ax, ay, cnt } = S, n = S.n;
+  const dk = max(0.9, 0.52 * S.sc), dk2 = dk * dk, R2 = RINF * RINF;
+  cnt.fill(0, 0, n);
+  ax.fill(0, 0, n);
+  ay.fill(0, 0, n);
+  let m = 0;
+  for (let i = 0; i < S.ns; i++) {
+    const px = sx[i], py = sy[i];
+    if (px < SX0 || px > SX1 || py < SY0 || py > SY1) continue;
+    const c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
+    let best = -1, bd = 1e9;
+    for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
+      for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++) {
+        const q = yy * GX + xx;
+        for (let k = cs[q]; k < cs[q + 1]; k++) {
+          const j = ci[k], dx = x[j] - px, dy = y[j] - py, d = dx * dx + dy * dy;
+          if (d < bd) {
+            bd = d;
+            best = j;
+          }
+        }
+      }
+    if (best >= 0 && bd < dk2) continue;
+    sx[m] = px;
+    sy[m] = py;
+    m++;
+    if (best >= 0 && bd < R2) {
+      const d = sqrt(bd);
+      ax[best] += (px - x[best]) / d;
+      ay[best] += (py - y[best]) / d;
+      cnt[best]++;
+    }
+  }
+  S.ns = m;
+}
+
+// A node that some sources called sprouts one step toward their mean direction,
+// bent forward by the tropism. A sprout that lands within DLOOP of another
+// branch joins it, which closes a loop.
+function sprout(S) {
+  const { x, y, par, cnt, ax, ay, cs, ci, mark } = S, n0 = S.n;
+  for (let j = 0; j < n0; j++) {
+    if (!cnt[j]) continue;
+    if (S.n >= NM) break;
+    let dx = ax[j] / cnt[j], dy = ay[j] / cnt[j];
+    const l = sqrt(dx * dx + dy * dy);
+    if (l < 1e-3) continue;
+    dx /= l;
+    dy /= l;
+    let rx = x[j] - CX, ry = y[j] - CY;
+    const rl = sqrt(rx * rx + ry * ry) || 1;
+    dx += (TROP * rx) / rl;
+    dy += (TROP * ry) / rl;
+    const dl = sqrt(dx * dx + dy * dy) || 1;
+    const nx = x[j] + (STEP * dx) / dl, ny = y[j] + (STEP * dy) / dl;
+    if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1) continue;
+    const q = S.n++;
+    x[q] = nx;
+    y[q] = ny;
+    par[q] = j;
+    rx = nx - CX;
+    ry = ny - CY;
+    S.rb[q] = sqrt(rx * rx + ry * ry);
+    S.bs[q] = S.sc;
+    S.ms[q] = 1;
+    // Loop: the nearest node of another branch, not within eight generations of j.
+    if (S.nl >= LM) continue;
+    const st = ++S.stamp;
+    let a = j;
+    for (let g = 0; g < 8 && a >= 0; g++) {
+      mark[a] = st;
+      a = par[a];
+    }
+    const c = cellOf(nx, ny), gx = c % GX, gy = (c / GX) | 0;
+    let best = -1, bd = DLOOP * DLOOP;
+    for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
+      for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++) {
+        const cc = yy * GX + xx;
+        for (let k = cs[cc]; k < cs[cc + 1]; k++) {
+          const m = ci[k];
+          if (mark[m] === st || mark[par[m]] === st) continue;
+          const ex = x[m] - nx, ey = y[m] - ny, d = ex * ex + ey * ey;
+          if (d < bd) {
+            bd = d;
+            best = m;
+          }
+        }
+      }
+    if (best >= 0) {
+      S.l0[S.nl] = q;
+      S.l1[S.nl] = best;
+      S.nl++;
+    }
+  }
+}
+
+// Leaves outside the box go, and so do the finest leaves when the net has been
+// asked to be coarser than they were born. Compacts the arrays.
+function prune(S) {
+  const { x, y, par, nch, stack, dead, map, bs } = S, n = S.n;
+  nch.fill(0, 0, n);
+  for (let j = 1; j < n; j++) nch[par[j]]++;
+  dead.fill(0, 0, n);
+  let sp = 0;
+  for (let j = 1; j < n; j++) if (!nch[j]) stack[sp++] = j;
+  const fineCut = 0.72 * S.sc;
+  while (sp > 0) {
+    const j = stack[--sp];
+    const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1;
+    if (!out && bs[j] >= fineCut) continue;
+    dead[j] = 1;
+    const p = par[j];
+    if (p > 0 && --nch[p] === 0) stack[sp++] = p;
+  }
+  let k = 0;
+  for (let j = 0; j < n; j++) {
+    if (dead[j]) {
+      map[j] = -1;
+      continue;
+    }
+    map[j] = k;
+    if (k !== j) {
+      x[k] = x[j];
+      y[k] = y[j];
+      par[k] = par[j];
+      S.rb[k] = S.rb[j];
+      S.bs[k] = S.bs[j];
+      S.ms[k] = S.ms[j];
+    }
+    k++;
+  }
+  for (let j = 1; j < k; j++) par[j] = map[par[j]];
+  S.n = k;
+  let m = 0;
+  for (let i = 0; i < S.nl; i++) {
+    const a = map[S.l0[i]], b = map[S.l1[i]];
+    if (a < 0 || b < 0) continue;
+    S.l0[m] = a;
+    S.l1[m] = b;
+    m++;
+  }
+  S.nl = m;
+}
+
+// An edge the tissue has stretched past LMAX gets a node in the middle.
+function split(S) {
+  const { x, y, par } = S, n0 = S.n, L2 = LMAX * LMAX;
+  for (let j = 1; j < n0; j++) {
+    if (S.n >= NM) break;
+    const p = par[j], dx = x[j] - x[p], dy = y[j] - y[p];
+    if (dx * dx + dy * dy <= L2) continue;
+    const m = S.n++;
+    x[m] = x[p] + dx / 2;
+    y[m] = y[p] + dy / 2;
+    par[m] = p;
+    par[j] = m;
+    S.rb[m] = (S.rb[j] + S.rb[p]) / 2;
+    S.bs[m] = S.bs[j];
+    S.ms[m] = S.ms[j];
+  }
+  // A loop edge is split the same way, the new node hanging off its first end.
+  const nl0 = S.nl;
+  for (let i = 0; i < nl0; i++) {
+    if (S.n >= NM) break;
+    const a = S.l0[i], b = S.l1[i], dx = x[b] - x[a], dy = y[b] - y[a];
+    if (dx * dx + dy * dy <= L2 * 1.3) continue;
+    const m = S.n++;
+    x[m] = x[a] + dx / 2;
+    y[m] = y[a] + dy / 2;
+    par[m] = a;
+    S.rb[m] = (S.rb[a] + S.rb[b]) / 2;
+    S.bs[m] = S.bs[a];
+    S.ms[m] = 1;
+    S.l0[i] = m;
+  }
+}
+
+// New sources go where a point is farther than the spacing from every node and every source.
+function scatter(S) {
+  const { x, y, sx, sy, cs, ci, shead, snext } = S, s2 = S.sc * S.sc;
+  shead.fill(-1);
+  for (let i = 0; i < S.ns; i++) {
+    const c = cellOf(sx[i], sy[i]);
+    snext[i] = shead[c];
+    shead[c] = i;
+  }
+  const tries = min(700, ceil(260 * (2.5 / S.sc) ** 2));
+  for (let t = 0; t < tries && S.ns < SM; t++) {
+    const px = SX0 + Math.random() * (SX1 - SX0), py = SY0 + Math.random() * (SY1 - SY0);
+    const c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
+    let ok = true;
+    for (let yy = max(0, gy - 1); ok && yy <= min(GY - 1, gy + 1); yy++)
+      for (let xx = max(0, gx - 1); ok && xx <= min(GX - 1, gx + 1); xx++) {
+        const q = yy * GX + xx;
+        for (let k = cs[q]; k < cs[q + 1]; k++) {
+          const j = ci[k], dx = x[j] - px, dy = y[j] - py;
+          if (dx * dx + dy * dy < s2) {
+            ok = false;
+            break;
+          }
+        }
+        for (let i = shead[q]; ok && i >= 0; i = snext[i]) {
+          const dx = sx[i] - px, dy = sy[i] - py;
+          if (dx * dx + dy * dy < s2) ok = false;
+        }
+      }
+    if (!ok) continue;
+    const i = S.ns++;
+    sx[i] = px;
+    sy[i] = py;
+    snext[i] = shead[c];
+    shead[c] = i;
+  }
+}
+
+// Tips downstream of every node: the pipe model, where the squared widths of
+// the children add up to the square of the parent's.
+function weigh(S) {
+  const { par, nch, stack, mass } = S, n = S.n;
+  nch.fill(0, 0, n);
+  mass.fill(0, 0, n);
+  for (let j = 1; j < n; j++) nch[par[j]]++;
+  let sp = 0;
+  for (let j = 0; j < n; j++)
+    if (!nch[j]) {
+      mass[j] = 1;
+      stack[sp++] = j;
+    }
+  while (sp > 0) {
+    const j = stack[--sp], p = par[j];
+    if (p < 0) continue;
+    mass[p] += mass[j];
+    if (--nch[p] === 0) stack[sp++] = p;
+  }
+}
+
+function buildColours(S) {
+  const key = S.hue.toFixed(3);
+  if (key === S.key) return;
+  S.key = key;
+  const c = [0, 0, 0], h = S.hue;
+  const LAM = [
+    [0.0, 0.355, 0.95, 0.3],
+    [0.35, 0.315, 0.9, 0.5],
+    [0.7, 0.255, 0.85, 0.78],
+    [1.0, 0.19, 0.75, 0.98],
+  ];
+  for (let i = 0; i < 256; i++) {
+    const g = i / 255;
+    let k = 0;
+    while (k < LAM.length - 2 && g > LAM[k + 1][0]) k++;
+    const a = LAM[k], b = LAM[k + 1], u = cl((g - a[0]) / (b[0] - a[0]), 0, 1);
+    hsv(a[1] + (b[1] - a[1]) * u + h, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u, c, 0);
+    S.lam.set(c, i * 3);
+    const t = i / 255;
+    hsv(0.2 - 0.08 * t + h, 0.62 - 0.45 * t, 0.98 + 0.02 * t, c, 0);
+    S.vein.set(c, i * 3);
+  }
+  hsv(0.13 + h, 0.65, 1, S.bloom, 0);
+}
+
+export function update(dt, input, params) {
+  if (!params.s) setup(params);
+  const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
+  S.hue = k[0];
+  S.gk = cl(k[1], 0.6, 5) / 2;
+  S.sc = 2.5 * 1.4 ** -cl(k[2], -1, 1);
+  S.u = (cl(k[3], -1, 1) + 1) / 2;
+  if (abs(S.gk - S.assumed[0]) > 0.02 || abs(S.sc - S.assumed[1]) > 0.02) {
+    if (!S.opened) prerun(S);
+  }
+  S.opened = true;
+  stretch(S, exp(G0 * S.gk * d));
+  S.tacc = (S.tacc || 0) + d;
+  let guard = 0;
+  while (S.tacc >= ITER && guard++ < 3) {
+    iterate(S);
+    S.tacc -= ITER;
+  }
+  const a = min(1, d * 4);
+  for (let j = 0; j < S.n; j++) S.ms[j] += (S.mass[j] - S.ms[j]) * a;
+}
+
+// ---- drawing
+
+let CV, GL, BL, TN;
+
+function seg(x0, y0, x1, y1, w, ff) {
+  const h = w * 0.5 < 0.5 ? 0.5 : w * 0.5;
+  const sig = 1.25 + 0.5 * w, rg = h + 2.3 * sig;
+  const minx = min(x0, x1), maxx = max(x0, x1), miny = min(y0, y1), maxy = max(y0, y1);
+  const wf = sm(1.4, 4.5, w) * ff, sb = 2.2 + w, rbm = wf > 0.02 ? 2.2 * sb : 0;
+  const R = max(rg, rbm);
+  if (maxx + R < 0 || minx - R > W || maxy + R < 0 || miny - R > H) return;
+  const vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1e-6;
+  const amp = (0.5 + 0.5 * sm(0.8, 3, w)) * ff, alpha = (0.55 + 0.45 * sm(0.8, 2.2, w)) * ff, tone = sm(0.9, 6.5, w);
+  const ya = max(0, floor(miny - R)), yb = min(H - 1, ceil(maxy + R));
+  const xa = max(0, floor(minx - R)), xb = min(W - 1, ceil(maxx + R));
+  const rg2 = rg * rg, rb2 = rbm * rbm, isg = 1 / (sig * sig), isb = 1 / (sb * sb);
+  for (let yy = ya; yy <= yb; yy++) {
+    const py = yy + 0.5;
+    for (let xx = xa; xx <= xb; xx++) {
+      const px = xx + 0.5;
+      let t = ((px - x0) * vx + (py - y0) * vy) / l2;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const dx = px - x0 - t * vx, dy = py - y0 - t * vy, d2 = dx * dx + dy * dy, p = yy * W + xx;
+      if (d2 < rg2) {
+        const d = sqrt(d2), e = d > h ? d - h : 0, q = e * e * isg;
+        if (q < 5.4) {
+          const g = amp * EXPT[(q * 96) | 0];
+          if (g > GL[p]) GL[p] = g;
+        }
+        const c = (h + 0.75 - d) * 0.6667;
+        if (c > 0) {
+          const cc = (c > 1 ? 1 : c) * alpha;
+          if (cc > CV[p]) {
+            CV[p] = cc;
+            TN[p] = tone;
+          }
+        }
+      }
+      if (d2 < rb2) {
+        const q = d2 * isb;
+        if (q < 5.4) {
+          const b = wf * EXPT[(q * 96) | 0];
+          if (b > BL[p]) BL[p] = b;
+        }
+      }
+    }
+  }
+}
+
+function raster(S) {
+  CV = S.cv;
+  GL = S.gl;
+  BL = S.bl;
+  TN = S.tn;
+  CV.fill(0);
+  GL.fill(0);
+  BL.fill(0);
+  TN.fill(0);
+  const { x, y, par, ms, rb, bs } = S, n = S.n, sc = S.sc;
+  const width = new Float32Array(0);
+  for (let j = 1; j < n; j++) {
+    const p = par[j];
+    const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
+    const w = min(8, WA * pow(ms[j] * st, 0.25));
+    const vis = sm(0.74, 0.92, bs[j] / sc);
+    const ff = vis + (1 - vis) * sm(3, 6, ms[j]);
+    seg(x[p], y[p], x[j], y[j], w, ff);
+  }
+  for (let i = 0; i < S.nl; i++) {
+    const a = S.l0[i], b = S.l1[i];
+    seg(x[a], y[a], x[b], y[b], 0.8, 0.7);
+  }
+  return width;
+}
+
+export function draw(display, params) {
+  const S = params.s;
+  if (!S) return;
+  buildColours(S);
+  raster(S);
+  const { cv, gl, bl, tn, lam, vein, bloom } = S, u = S.u;
+  const lamGain = 0.42 + 0.78 * u, veinGain = 0.74 + 0.26 * u, bloomGain = 0.95 * pow(u, 1.3);
+  for (let p = 0, yy = 0; yy < H; yy++) {
+    const vy = (yy - 63.5) / 68;
+    for (let xx = 0; xx < W; xx++, p++) {
+      const vx = (xx - 31.5) / 34, rr = sqrt(vx * vx + vy * vy);
+      const shade = 1 - 0.5 * sm(0.55, 1.15, rr);
+      const gi = ((cl(gl[p], 0, 1) * 255) | 0) * 3;
+      const lg = lamGain * shade;
+      let r = lam[gi] * lg, g = lam[gi + 1] * lg, b = lam[gi + 2] * lg;
+      const bb = bl[p] * bloomGain;
+      r += bloom[0] * bb;
+      g += bloom[1] * bb;
+      b += bloom[2] * bb;
+      const c = cv[p];
+      if (c > 0) {
+        const ti = ((cl(tn[p], 0, 1) * 255) | 0) * 3;
+        r += (vein[ti] * veinGain - r) * c;
+        g += (vein[ti + 1] * veinGain - g) * c;
+        b += (vein[ti + 2] * veinGain - b) * c;
+      }
+      display.setPixel(xx, yy, min(255, r * 255), min(255, g * 255), min(255, b * 255));
+    }
+  }
+}
