@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Widmanstatten Slice
 // Family:  meteorite
-// Idea:    A polished and acid-etched slab of an iron meteorite is cut through a three-dimensional crystal that is never drawn, and the cut plane slowly sweeps and tilts through it, so bright steel-blue kamacite plates in four crossing families slide, sprout, taper and vanish over a soft grey-gold plessite field while a raking light glints along their edges.
+// Idea:    A polished and acid-etched slab of an iron meteorite is cut through a three-dimensional crystal that is never drawn, and the cut plane slowly sweeps and tilts through it, so long bright steel-blue kamacite plates in four crossing families slide, end and give way to one another over a dark steel plessite field, with thin bronze taenite rims and a raking light that glints along their edges.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,16 +11,17 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Sweep=0..3, Plate=-1..1, Cut=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the metal, so one turn comes back to where it began. At 0 the kamacite is silver with a steel-blue cast (about 188, 207, 224 at mid shading, up to near white on a lit edge), the taenite rims are a dark bronze (about 107, 87, 47) and the plessite a grey-gold (about 133, 118, 90). At 0.2 the plates are a pale violet on a green-grey field, at 0.35 a pale rose, at 0.52 a pale gold on blue-grey, at 0.65 a pale straw and at 0.8 a pale mint. The warm tones turn with the plates and lose up to two thirds of their colour half a turn away, so a tinted slab is still a metal.
+// Knob 1: Hue. Adds the knob to the hue of the metal, so one turn comes back to where it began. At 0 the kamacite is silver with a steel-blue cast (about 175, 195, 210 at mid shading, up to near white on a lit edge), the plessite a dark cool steel (about 50 to 75 of 255) and the taenite rims a bronze (about 107, 85, 43). At 0.2 the plates are a pale violet, at 0.35 a pale rose, at 0.52 a pale gold, at 0.65 a pale straw and at 0.8 a pale mint, each on a dark field of the same cast. The warm rims lose up to two thirds of their colour half a turn away, so a tinted slab is still a metal.
 // Knob 2: Sweep. How fast the slab moves through the crystal and the tilt precesses, the base rate times (knob / 2) to the power 1.5. At 0 the crystal stands still, and the raking light and a slow shimmer in the plessite keep the picture alive (motion 0.006 or more at every moment); at 1 the plane moves 0.9 LED of crystal a second along its normal; at the opening 2 it moves 2.6 LEDs a second and the tilt's azimuth makes a turn in about 134 s; at 3 it moves 4.8 LEDs a second.
-// Knob 3: Plate. The plate spacing d, from 5 LEDs at -1 through 9.5 at the opening 0 to 18 at 1 (9.5 times 1.9 to the power of the knob). The whole crystal scales about the middle of the panel: the plates, their length (a radius of 2.3 to 3.7 d) and the cells they sit in all go with d. At 5 the bands are at most 2 to 3 LEDs wide and the mosaic is fine and busy; at 9.5 they reach 4 to 6; at 18 a few plates run across most of the panel.
+// Knob 3: Plate. The plate spacing d, from 5 LEDs at -1 through 9.5 at the opening 0 to 18 at 1 (9.5 times 1.9 to the power of the knob). The whole crystal scales about the middle of the panel: the plates, their length (a half length of 3.3 to 5.1 d along each axis in their plane) and the cells they sit in all go with d. At 5 the bands are 2 to 3 LEDs wide and the mosaic is fine and busy; at 9.5 they are 4 to 6; at 18 a few plates run across most of the panel.
 // Knob 4: Cut. The tilt of the cut away from the cube face of the crystal, 55 degrees times ((knob + 1) / 2) to the power 1.2: 0 at -1, 26 degrees at the opening 0.06, 55 at 1 (a slow wobble takes up to a tenth off). At 0 the cut is a cube face and the four families fall into two directions at right angles, so the plates run in two sets and a pair of families lies side by side. Tilted, the four directions part into triangles and diamonds. Near 55 degrees, when the tilt's azimuth turns toward a family, the plane comes close to that family's planes and its plates fill wide areas.
 
 // The crystal is the one a kamacite-taenite iron has: four families of plates lying in the
 // planes normal to (1, 1, 1), (1, 1, -1), (1, -1, 1) and (-1, 1, 1). Each family is a stack of
-// plates a spacing d apart, and each plate is a thin lens, not an infinite sheet: it lies in its
-// own plane as an ellipse with a radius of a few d and is thickest at its centre, thinning to
-// nothing at its rim. Nothing in the code is a picture of a plate. The picture is a slice.
+// plates a spacing d apart, and each plate is a finite slab, not an infinite sheet: it lies in its
+// own plane as a rounded rectangle several d long and wide, about half a d thick over its flat
+// middle, thinning to nothing only within the last eighth of its length. Nothing in the code is a
+// picture of a plate. The picture is a slice.
 //
 // The panel is a plane through that crystal. LED (x, y) sits at the crystal point
 //   r = o + (x - 32) u + (y - 64) v,
@@ -29,16 +30,17 @@
 // of d. A smooth three-dimensional noise bends s a little, so the bands wave. For an LED only
 // the nearest k can reach it, so one plate is tested per family per LED: its in-plane position
 // (the two coordinates of r along the plate's own plane) picks a cell of a jittered grid that
-// holds one lens of hashed radius and centre, and the LED is inside the plate where
-// |s - plate| is less than the lens's half thickness there. The cut meets the plate where the
+// holds one plate of hashed size and centre, and the LED is inside the plate where
+// |s - plate| is less than the plate's half thickness there. The cut meets the plate where the
 // two cross: where the cut runs steeply through the stack the plates are narrow bands, where it
-// runs along them one plate fills wide areas, and as the plane passes the lens's edge the band
+// runs along them one plate fills wide areas, and as the plane passes the plate's end the band
 // tapers and vanishes. A band narrower than about two LEDs fades out together with its rim, so
 // the picture has no one-LED lines.
 //
-// A plate is drawn as bright kamacite inside a dark taenite rim one to two LEDs wide, on a
-// plessite field of soft two-octave mottle, a value noise in LED coordinates of the crystal so it
-// slides with the metal. Where plates of two families overlap, the later in the order
+// A plate is drawn as bright kamacite inside a thin bronze taenite rim, on a plessite field of dark
+// cool steel with a soft two-octave mottle, a value noise in LED coordinates of the crystal so it
+// slides with the metal, and a few small patches of it that turn bronze. The plates cover most of
+// the slab at the opening, 55 to 60 percent of the LEDs as kamacite and about 75 with their rims. Where plates of two families overlap, the later in the order
 // 0, 1, 2, 3 is drawn over the earlier, as on a specimen where one family cuts across another.
 // A raking light whose direction drifts shades the ridge: the in-plane gradient of s, unit length,
 // dotted with the light gives which edge of a plate faces it, and that edge is lit with a thin
@@ -64,7 +66,7 @@ const G = 10.4; // side of the grid of plates in a plate's plane, in d
 const RMIN = 3.3, RSPAN = 1.8; // half length of a plate along each in-plane axis, 3.3 to 5.1 d, so it always fits its cell
 const EXIST = 240; // of 256: the share of cells that hold a plate
 const HALF0 = 0.21, HALFSPAN = 0.04; // half thickness of a plate over its flat middle, from 0.21 to 0.25 d
-const END = 0.3; // a plate is flat out to this share of its half length from its edge, then thins as a square root to nothing
+const END = 0.12; // a plate is flat out to this share of its half length from its edge, then thins as a square root to nothing
 const WARP = 0.14; // how far the noise bends the bands, in d
 const WARP_LEN = 3.4, THICK_LEN = 2.2; // wavelengths of the bending and of the thickness noise, in d
 const RIM_PER_D = 0.14, RIM_MIN = 1.3, RIM_MAX = 1.7; // width of the taenite rim in LEDs: 0.14 d, between 1.3 and 1.7
