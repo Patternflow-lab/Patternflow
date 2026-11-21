@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Lens Ghosts
 // Family:  lensflare
-// Idea:    The flare of a camera aimed at a strong light, drawn as optics: a bright source wanders slowly across a dark frame and every internal reflection between the lens elements throws one ghost, a copy of the aperture polygon with a rainbow rim, that sits on the line through the source and the centre of the frame at its own fixed multiple of the source's offset, so some ghosts slide the opposite way to the light, with diffraction spikes round the source, a prismatic ring halo, one long blue-white anamorphic streak and a veil of glare.
+// Idea:    The flare of a camera aimed at a strong light, drawn as optics: a bright source wanders slowly round a dark frame and every internal reflection between the lens elements throws one ghost, a copy of the aperture polygon with a rainbow rim, that sits on the line through the source and the lens centre at its own fixed multiple of the source's offset, so some ghosts slide the opposite way to the light, with diffraction spikes round the source, a prismatic ring halo, one long blue-white anamorphic streak and a veil of glare.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the ghost images of a multi-element lens from internal reflections between glass surfaces (the ghost-and-flare analysis behind multi-coating, Kollmorgen and Bell Labs, 1930s), the polygon aperture as the shape of a ghost and of a bokeh disc, Fraunhofer diffraction at a straight edge for the spikes (an n-blade iris gives n spikes for even n and 2n for odd n), the anamorphic streak of cinema lenses, and the screen-space flare of real-time graphics (Matthias Hullin and others, 2011, ray-traced lens flare; John Chapman's pseudo lens flare, 2013); pattern round 209
+// Lineage: the ghost images a multi-element lens throws from internal reflections between its glass surfaces, the reason for anti-reflection coatings (Alexander Smakula, Zeiss, 1935); Fraunhofer diffraction at a straight edge for the spikes (an n-blade iris gives n spikes for even n and 2n for odd n); the polygon aperture as the shape of a ghost and of a bokeh disc; the anamorphic streak of cinema lenses; and screen-space lens flare in real-time graphics (Physically-Based Real-Time Lens Flare Rendering, Matthias Hullin, Elmar Eisemann, Hans-Peter Seidel and Sungkil Lee, 2011); pattern round 209
 // Round:   209
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Drift=0..3, Blades=5..9, Glare=-1..1
 //
-// Knob 1: Hue. Turns the tints of the ghosts round the wheel and the warmth of the light itself. At 0 the ghosts are teal, amber, violet and magenta and the light is a warm white; at 0.5 teal has become red and amber a blue-green and the light is a cool white, and at 1 the picture is back where it began.
-// Knob 2: Drift. How fast the source wanders. At the opening 2 it travels about 4 LEDs a second and a ghost at -1.3 times its offset runs the other way at 5 LEDs a second; at 3 the light sweeps about 6 LEDs a second, and at 0 it stands still and the picture only breathes and turns with the lens.
-// Knob 3: Blades. The number of blades of the aperture, 5 to 9, and with it the shape of every ghost and the star of spikes. At the opening 5 the ghosts are pentagons and the star has 10 spikes; at 6 they are hexagons with 6 spikes, at 7 heptagons with 14, at 8 octagons with 8 and at 9 nine-sided and almost round with 18. Between two counts one shape melts into the next over the middle of the turn.
-// Knob 4: Glare. How much light the lens scatters. At -1 the source has short stubs for spikes and there is no ring and no veil; at the opening 0.06 the spikes reach about 24 LEDs, the ring stands round the light at 17 LEDs and a dim veil lifts the black; at 1 the spikes cross a third of the panel, the ring is bright and the whole frame glows.
+// Knob 1: Hue. Turns the tints of the ghosts and of the light round the wheel. At 0 the light is a cool white and the ghosts are teal, amber, violet and magenta; at 0.5 the light is a warm white, teal has gone red and amber blue; at 1 the picture is back where it began. On top of the knob the ghosts' tints wander about 45 degrees each on periods of one to three minutes, and the light's about 100 degrees.
+// Knob 2: Drift. How fast the light wanders. At 1 it covers about 2.5 LEDs a second, at the opening 2 about 5, at 3 about 7.5, and a ghost at -0.95 times its offset runs the other way at the same pace. At 0 the light stands still and the picture only breathes, zooms and turns with the lens.
+// Knob 3: Blades. The number of blades of the aperture, 5 to 9, which sets the shape of every ghost and the star of spikes. At the opening 5 the ghosts are pentagons and the star has 10 spikes; at 6 they are hexagons with 6 spikes, at 7 heptagons with 14, at 8 octagons with 8 and at 9 nine-sided and nearly round with 18. Between two counts one shape melts into the next over the middle third of the turn.
+// Knob 4: Glare. How much light the lens scatters. At -1 the spikes are stubs about 17 LEDs long and there is no ring and next to no veil. At the opening 0.06 they run 30 to 55 LEDs, a ring with a red inner edge and a blue outer one stands 26 LEDs from the light and a faint veil lifts the black. At 1 the spikes, the ring and the veil are at full strength and the whole frame glows.
 
 const W = 64;
 const H = 128;
@@ -31,9 +31,9 @@ const CY = 64;
 const HALO_R = 26; // the ring round the light, in LEDs
 const EPS = [0.07, 0, -0.07]; // red, green and blue are drawn at these scales
 const SHIFT = 0.3; // and slid along the ghost line by this much of the same
-const T0 = 156; // where on its path the light stands when the Lab starts
-const TT0 = 170;
-const SRC_HUE = 235; // OKLCH degrees of the light's tint at Hue 0: a cool white // and the clock of the slower breathing
+const T0 = 285; // where on its ring the first light stands when the Lab starts
+const TT0 = 176; // and where the slow clock of the lens (zoom, roll, tints, strength) stands
+const SRC_HUE = 235; // OKLCH degrees of the light's tint at Hue 0: a cool white
 
 // ---- colour ----
 // OKLCH to linear sRGB, then scaled so the brightest channel is 1.
@@ -100,10 +100,10 @@ const KIND = [
 ];
 const TANS = [0, 0, 0, 0, 0, tan(PI / 5), tan(PI / 6), tan(PI / 7), tan(PI / 8), tan(PI / 9)];
 
-// the spikes: each direction has its own length, drawn once per blade count
 // more spikes share the same light, so each is a little dimmer
 const SPKGAIN = {};
 for (const ns of [6, 8, 10, 14, 18]) SPKGAIN[ns] = Math.sqrt(10 / ns);
+// each spike direction has its own length, fixed per blade count
 const SPK = {};
 for (let n = 5; n <= 9; n++) {
   const ns = n % 2 ? 2 * n : n;
@@ -134,11 +134,12 @@ export function setup(params) {
     ex: 1, // the light's strength
     src: [1, 1, 1],
     vc: [1, 1, 1],
-    cs: [new Float32Array(3), new Float32Array(3)],
     gcol: [],
     acc: new Float32Array(W * H * 3),
     tmp: [0, 0, 0],
-    stale: true,
+    vv: new Float32Array(3),
+    cxs: new Float32Array(3),
+    cys: new Float32Array(3),
   };
   for (let k = 0; k < NG; k++) params.s.gcol.push([0, 0, 0]);
   pose(params.s);
@@ -151,7 +152,7 @@ function pose(S) {
   // light 1: round the frame centre on a squashed ring whose radius breathes and whose
   // angular speed swells and stalls, all on periods that do not divide
   const th1 = 0.9 + 0.06 * tau + 1.3 * sin(0.037 * tau + 0.4) + 0.7 * sin(0.083 * tau + 1.3) + 0.5 * sin(0.0153 * tau + 5.1);
-  const rh1 = 1.06 + 0.28 * sin(0.0531 * tau + 2.2) + 0.12 * sin(0.1117 * tau + 0.6) + 0.12 * sin(0.0197 * tau + 4.0);
+  const rh1 = 0.98 + 0.28 * sin(0.0531 * tau + 2.2) + 0.12 * sin(0.1117 * tau + 0.6) + 0.12 * sin(0.0197 * tau + 4.0);
   S.x1 = 31 * rh1 * cos(th1);
   S.y1 = 62 * rh1 * sin(th1);
   // light 2: a weaker one on another ring, a little slower, the other way round
@@ -339,7 +340,7 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
   const stL = 12 + 34 * g;
   const stS = 1.0;
   const inv2t = 1 / (2 * stS * stS);
-  const LR = [0.97, 1.0, 1.06];
+  const LR = [0.97, 1.0, 1.06]; // the spike is a little longer in blue than in red
   const cr = src[0];
   const cg = src[1];
   const cb = src[2];
@@ -366,7 +367,7 @@ function lightPass(S, acc, lx, ly, amp, nA, nB, wB, alpha, g, t, id) {
         let sp0 = 0;
         let sp1 = 0;
         let sp2 = 0;
-                for (let pass = 0; pass < 2; pass++) {
+        for (let pass = 0; pass < 2; pass++) {
           const wt = pass === 0 ? wA : wB;
           if (wt < 0.01) continue;
           const dl = pass === 0 ? dA : dB;
@@ -445,7 +446,7 @@ function ghostPass(S, acc, px, py, amp, nA, nB, wB, alpha, g, t, id) {
     const gdn = sqrt(((gx - CX) / 38) * ((gx - CX) / 38) + ((gy - CY) / 78) * ((gy - CY) / 78));
     const vig = 1 - 0.6 * sm(0.8, 1.5, gdn);
     // how squarely this reflection catches the light changes slowly, so a ghost fades out for a minute and comes back
-    const env = 0.1 + 0.9 * sm(-0.35, 0.55, sin(G.w * 0.27 * t + G.p * 2.3 + id * 1.7));
+    const env = 0.08 + 0.92 * sm(-1.3, -0.1, sin(G.w * 0.27 * t + G.p * 2.3 + id * 1.7));
     const b = G.b * amp * crowd * vig * env * (0.85 + 0.15 * sin(G.w * t + G.p));
     if (b < 0.02) continue;
     const reach = R * (1 + EPS[0]) + G.soft + 2.5 + abs(SHIFT * EPS[0] * mm * sqrt(sx * sx + sy * sy));
@@ -453,18 +454,14 @@ function ghostPass(S, acc, px, py, amp, nA, nB, wB, alpha, g, t, id) {
     const kd = KIND[G.kind];
     const col = S.gcol[k];
     const rot = alpha + G.flip * PI;
-    // per-channel centre and size
-    const cxs = [0, 0, 0];
-    const cys = [0, 0, 0];
-    const aps = [0, 0, 0];
-    const rcs = [0, 0, 0];
+    // each colour channel has its own centre, slid along the ghost line, and its own size
+    const cxs = S.cxs;
+    const cys = S.cys;
     for (let c = 0; c < 3; c++) {
       cxs[c] = gx + mm * sx * SHIFT * EPS[c];
       cys[c] = gy + mm * sy * SHIFT * EPS[c];
-      const Rc = R * (1 + EPS[c]);
-      aps[c] = Rc * cos(PI / 7);
-      rcs[c] = 0.14 * Rc;
     }
+    const vv = S.vv;
     // lumps inside: slow, large, a fixed pattern in the ghost's own frame
     const lx1 = 0.31 + 0.1 * hash(k + 1);
     const lx2 = 0.27 + 0.1 * hash(k + 9);
@@ -484,19 +481,20 @@ function ghostPass(S, acc, px, py, amp, nA, nB, wB, alpha, g, t, id) {
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         let any = false;
-        const vv = [0, 0, 0];
+        vv[0] = 0;
+        vv[1] = 0;
+        vv[2] = 0;
         for (let c = 0; c < 3; c++) {
           const dx = x + 0.5 - cxs[c];
           const dy = y + 0.5 - cys[c];
           const Rc = R * (1 + EPS[c]);
           let sd;
-          const apc = Rc * (nA === 5 ? cos(PI / 5) : cos(PI / nA));
-          const apd = Rc * cos(PI / nB);
-          if (wB < 0.005) sd = polySd(dx, dy, rot, nA, apc, 0.13 * Rc, bulge);
-          else if (wB > 0.995) sd = polySd(dx, dy, rot, nB, apd, 0.13 * Rc, bulge);
+          const rc = 0.13 * Rc;
+          if (wB < 0.005) sd = polySd(dx, dy, rot, nA, Rc * cos(PI / nA), rc, bulge);
+          else if (wB > 0.995) sd = polySd(dx, dy, rot, nB, Rc * cos(PI / nB), rc, bulge);
           else {
-            const sa = polySd(dx, dy, rot, nA, apc, 0.13 * Rc, bulge);
-            const sb = polySd(dx, dy, rot, nB, apd, 0.13 * Rc, bulge);
+            const sa = polySd(dx, dy, rot, nA, Rc * cos(PI / nA), rc, bulge);
+            const sb = polySd(dx, dy, rot, nB, Rc * cos(PI / nB), rc, bulge);
             sd = sa + (sb - sa) * wB;
           }
           if (sd > soft + 0.2) continue;
