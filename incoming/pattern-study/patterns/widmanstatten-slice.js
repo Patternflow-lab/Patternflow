@@ -71,7 +71,7 @@ const RIM_PER_D = 0.15, RIM_MIN = 1.0, RIM_MAX = 1.8; // width of the taenite ri
 const NK = 128; // plate indices kept for a family in a frame
 
 // ---- the slab's motion
-const SWEEP_BASE = 2.2; // LEDs of crystal a second along the normal at the opening
+const SWEEP_BASE = 2.6; // LEDs of crystal a second along the normal at the opening
 const TILT_MAX = 55 * PI / 180;
 
 // ---- the coarse grid for the noise that bends the bands
@@ -205,9 +205,12 @@ function prepare(S) {
   const h0 = HUE0 + S.hue;
   hsv(h0, 0.16, 1, S.kam);
   hsv(h0, 0.04, 1, S.white);
-  hsv(h0 - 0.47, 0.58, 1, S.rim);
-  hsv(h0 - 0.47, 0.34, 1, S.gold);
-  hsv(h0 - 0.47, 0.06, 1, S.grey);
+  // The warm tones turn with the metal but lose up to two thirds of their colour at the far side of the
+  // wheel, so a tinted slab stays a metal and does not turn into a two-colour poster.
+  const f = 1 - 0.32 * (1 - cos(2 * PI * S.hue));
+  hsv(h0 - 0.47, 0.56 * f, 1, S.rim);
+  hsv(h0 - 0.47, 0.32 * f, 1, S.gold);
+  hsv(h0 - 0.47, 0.06 * f, 1, S.grey);
   for (let j = 0; j < 3; j++) S.white[j] = S.white[j] * 0.7 + 0.3;
   S.ok = true;
 }
@@ -237,7 +240,7 @@ export function update(dt, input, params) {
     S.oU[j] += (dr[j] * ds) / S.d;
   }
   frame(S);
-  const t = S.t, al = 0.12 * t + 0.8 * sin(0.231 * t + 0.7) + 0.35 * sin(0.0613 * t + 2.0);
+  const t = S.t, al = 0.2 * t + 0.4 * sin(0.231 * t + 0.7) + 0.2 * sin(0.0613 * t + 2.0);
   S.lx = cos(al);
   S.ly = sin(al);
   prepare(S);
@@ -250,7 +253,10 @@ export function draw(display, params) {
   if (!S || !S.ok) return;
   const { fs0, fsx, fsy, fg, fm, fr, fa0, fax, fay, fb0, fbx, fby, kmin, jit, hp, offA, offB, pb, grid } = S;
   const { kam, rim, white, gold, grey, u, v, oL } = S;
-  const invG = 1 / G;
+  // The mottle's lattice drifts a little on the real clock whatever the Sweep knob says, so the
+  // plessite shimmers even when the crystal stands still.
+  const dr0 = 0.3 * S.t, dr1 = -0.22 * S.t, dr2 = 0.17 * S.t;
+  const invG = 1 / G, dt = cl((S.d - 5) / 13, 0, 1), fadeLo = 0.5 + 0.3 * dt, fadeHi = 1.0 + 0.4 * dt;
   for (let y = 0; y < H; y++) {
     const py = y + 0.5, gyf = py / GSTEP, jy = min(floor(gyf), GY - 2), fy = gyf - jy;
     for (let x = 0; x < W; x++) {
@@ -280,8 +286,8 @@ export function draw(display, params) {
         const da = (A - cx) / Ra, db = (B - cy) / Rb, r2 = da * da + db * db;
         if (r2 >= 1) continue;
         const h = (HALF0 + HALFSPAN * (((hd >>> 16) & 255) / 255)) * tm * pow(1 - r2, TAPER);
-        // A band under an LED and a half wide fades out with its rim.
-        let fade = (h / gg - 0.45) / 0.55;
+        // A band narrower than about two LEDs (a little more at a coarse spacing) fades out with its rim.
+        let fade = (h / gg - fadeLo) / (fadeHi - fadeLo);
         if (fade <= 0) continue;
         if (fade > 1) fade = 1;
         fade = fade * fade * (3 - 2 * fade);
@@ -298,10 +304,10 @@ export function draw(display, params) {
         free *= 1 - covR;
         if (covK > 0) {
           const pc = cl(dsg / h, -1, 1);
-          const Lk = 0.8 + 0.07 * pb[ii] + 0.16 * m * pc;
+          const Lk = 0.8 + 0.07 * pb[ii] + 0.2 * m * pc;
           const inL = (h - ads) / gg;
           let gl = 1 - abs(inL - 0.45) / 0.85;
-          gl = gl > 0 ? gl * (0.28 + 0.72 * max(0, sgn * m)) * 0.75 : 0;
+          gl = gl > 0 ? gl * (0.28 + 0.72 * max(0, sgn * m)) * 0.9 : 0;
           LR[nl] = kam[0] * Lk + (white[0] - kam[0] * Lk) * gl;
           LG[nl] = kam[1] * Lk + (white[1] - kam[1] * Lk) * gl;
           LB[nl] = kam[2] * Lk + (white[2] - kam[2] * Lk) * gl;
@@ -312,7 +318,7 @@ export function draw(display, params) {
       // The plessite under all of it, computed only where it shows.
       let r, g2, b;
       if (free > 0.004) {
-        const rx = (oL[0] + (px - 32) * u[0] + (py - 64) * v[0]), ry = (oL[1] + (px - 32) * u[1] + (py - 64) * v[1]), rz = (oL[2] + (px - 32) * u[2] + (py - 64) * v[2]);
+        const rx = oL[0] + (px - 32) * u[0] + (py - 64) * v[0] + dr0, ry = oL[1] + (px - 32) * u[1] + (py - 64) * v[1] + dr1, rz = oL[2] + (px - 32) * u[2] + (py - 64) * v[2] + dr2;
         const n1 = noise3(rx / 2.4, ry / 2.4, rz / 2.4), n2 = noise3(rx / 4.2 + 9.1, ry / 4.2 - 4.7, rz / 4.2 + 2.3);
         const mot = 0.65 * n1 + 0.35 * n2, gm = cl(0.5 + 0.9 * n2, 0, 1);
         const Lp = 0.52 + 0.14 * mot;
