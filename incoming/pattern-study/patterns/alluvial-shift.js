@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Churn=0.2..3, Modules=-2..2, Mixing=0..1
 //
 // Knob 1: Hue. Adds the knob to the hue of every module, so one turn comes back to where it began. At 0 the five modules are coral, amber, teal, azure and violet. At 0.5 coral has become cyan, amber azure, teal red, azure orange and violet green, and at 0.25 coral is yellow-green, teal violet-blue, amber green, azure magenta and violet coral. Ribbons of yellow and orange are laid harder than the rest, so no hue sinks to brown.
-// Knob 2: Churn. How fast the modules swell, shrink and change places, from 0.2 to 3. The Lab opens it at 2, and the base rate is set so that 2 is a calm morph. The clock for sizes and for order runs at 0.22 times the knob a second. Measured on the opening picture, a bar's width changes by 0.15 LED a second at 0.2, 1.4 at 2 and 2.1 at 3, and a bar passes another, in one of the four tiers, 5 times a minute at 0.2, 48 at 2 and 71 at 3. The bars follow their ranks with a spring that settles in about 19 s at 0.2, 3 s at 2 and 2 s at 3.
+// Knob 2: Churn. How fast the modules swell, shrink and change places, from 0.2 to 3. The Lab opens it at 2, and the base rate is set so that 2 is a calm morph. The clock for sizes and for order runs at 0.22 times the knob a second. Measured on the opening picture, a bar's width changes by 0.13 LED a second at 0.2, 1.4 at 2 and 2.1 at 3, and one bar passes another, counting the four tiers together, 3 times a minute at 0.2, 29 at 2 and 42 at 3. The bars follow their ranks with a spring that settles in about 26 s at 0.2, 4 s at 2 and 3 s at 3.
 // Knob 3: Modules. How many module identities are alive, as 5 plus the knob: 3 at -2, 5 at the opening 0 and 7 at 2. The count is continuous. Module i has the weight of a smoothstep of the count minus its place, so between -1 and 0 the azure bar thins from full width to nothing while the others widen to fill the row, between -2 and -1 amber goes the same way and coral, teal and violet are left, and the two extras, green and rose, come in between 0 and 1 and between 1 and 2. A bar is 21 LEDs wide on average at 3 modules, 13 at 5 and 9 at 7, and the picture carries 14 ribbons at 3, 21 at 5 and 26 at 7. The count follows the knob with a 0.3 s lag, so a jump from 0 to -2 is a fade of about a second.
 // Knob 4: Mixing. How far members move to other modules between two moments. Measured as the share of members that stay in their own module, averaged over time and over the three gaps between tiers: 0.78 at 0 (not 1, since a module that grows from one tier to the next must take members from another), 0.77 at the opening 0.06, 0.75 at 0.25, 0.64 at 0.5, 0.44 at 0.75 and 0.32 at 1. At 0 every ribbon runs down its own module and only what a module gains or loses crosses to a neighbour; at 1 each module sends members to all the others and the ribbons braid across the whole width. The picture carries 21 ribbons at 0.06, 29 at 0.5 and 38 at 1.
 
@@ -44,14 +44,16 @@
 // either end is drawn fainter, and gone below 1.5.
 //
 // The order of the bars in a tier comes from a second set of slow sines, one for each
-// module and tier. Every module has a position that eases toward its rank with a
-// critically damped spring, and the bars are laid out by a smooth count of how many
-// modules are to the left of each, so when two exchange ranks they slide past each
-// other, one over the other, with no jump. A module that has run down to nothing takes
-// its new place at once, where nobody can see it. The ribbons leaving a bar are stacked
-// in the order of the bars they arrive at, and the ribbons arriving in the order of the
-// bars they come from, by the same smooth count, so ribbons trade places without a jump
-// too.
+// module and tier. A module's rank is how many other modules its key is above, each counted
+// by a smoothstep over a small difference of keys, so it is a whole number while the keys
+// are apart and passes through the numbers between while two keys cross. Every module has a
+// position that follows its rank with a critically damped spring, and the bars are laid out
+// by the same kind of smooth count of how many modules are to the left of each, so when two
+// exchange places they slide through each other, one over the other, with no jump. A module
+// that has run down to nothing takes its rank at once, where nobody can see it. The ribbons
+// leaving a bar are stacked in the order of the bars they arrive at, and the ribbons
+// arriving in the order of the bars they come from, by a smooth count again, so ribbons
+// trade places without a jump too.
 //
 // A ribbon is its source module's colour laid at 0.6 to 0.82, by hue. Ribbons add in a
 // float buffer and the sum is rolled off softly above 0.85, so where two ribbons cross the
@@ -82,8 +84,9 @@ const SAT = [0.74, 0.86, 0.68, 0.9, 0.82, 0.76, 0.66];
 const SA = [0.2113, 0.3177, 0.2631, 0.3791, 0.2399, 0.3473, 0.2937];
 const SB = [0.5231, 0.6173, 0.5713, 0.4671, 0.6591, 0.4317, 0.5937];
 const SC = [0.8719, 0.7933, 0.9437, 0.8311, 0.7589, 0.9109, 0.8627];
-const OA = [0.1417, 0.1093, 0.1759, 0.1237, 0.1561, 0.1181, 0.1649];
-const OB = [0.0713, 0.0937, 0.0617, 0.0829, 0.0761, 0.0691, 0.0887];
+const OA = [0.0779, 0.0601, 0.0967, 0.0680, 0.0859, 0.0650, 0.0907];
+const OB = [0.0392, 0.0515, 0.0339, 0.0456, 0.0419, 0.0380, 0.0488];
+const KEYSOFT = 0.18; // how far apart two order keys must be before their modules have changed places
 const PH = (i, n) => i * 2.3999632 * n + 0.7 * n; // a phase for module i, spread by the golden angle
 const TIER_PH = [0.8, 0.9, 0.7]; // how far each sine moves from one tier to the next
 
@@ -115,7 +118,7 @@ export function setup(params) {
     bx: new Float64Array(T * M), bw: new Float64Array(T * M),
     flow: new Float64Array((T - 1) * M * M),
     rib: [], built: false,
-    tmp: { A: new Float64Array(M * M), F: new Float64Array(M * M), u: new Float64Array(M), w: new Float64Array(M), key: new Float64Array(M), idx: [0, 1, 2, 3, 4, 5, 6] },
+    tmp: { A: new Float64Array(M * M), F: new Float64Array(M * M), u: new Float64Array(M), w: new Float64Array(M), key: new Float64Array(M), },
     col: new Float64Array(M * 3), barCol: new Float64Array(M * 3), alpha: new Float64Array(M), colKey: "",
   };
 }
@@ -140,23 +143,20 @@ function sizesAt(S) {
   }
 }
 
+// Where each module stands in the order of its tier, as a smooth rank: how many of the other
+// modules its key is above, each counted by a smoothstep over KEYSOFT of difference in key.
+// A rank is a whole number while the keys are apart, and passes through the numbers between
+// while two keys cross, so no module ever changes rank in one step.
 function ranksAt(S) {
-  const tau = S.tau, key = S.tmp.key, idx = S.tmp.idx;
+  const tau = S.tau, key = S.tmp.key;
   for (let k = 0; k < T; k++) {
     for (let i = 0; i < M; i++)
       key[i] = sin(OA[i] * tau + PH(i, 4) + k * 0.45) + 0.6 * sin(OB[i] * tau + PH(i, 5) + k * 0.6);
-    for (let i = 0; i < M; i++) idx[i] = i;
-    // Insertion sort by key, ascending.
-    for (let a = 1; a < M; a++) {
-      const t = idx[a];
-      let b = a - 1;
-      while (b >= 0 && key[idx[b]] > key[t]) {
-        idx[b + 1] = idx[b];
-        b--;
-      }
-      idx[b + 1] = t;
+    for (let i = 0; i < M; i++) {
+      let r = 0;
+      for (let j = 0; j < M; j++) if (j !== i) r += ss(0.5 + (key[i] - key[j]) / (2 * KEYSOFT));
+      S.rank[k * M + i] = r;
     }
-    for (let r = 0; r < M; r++) S.rank[k * M + idx[r]] = r;
   }
 }
 
@@ -181,7 +181,7 @@ export function update(dt, input, params) {
   ranksAt(S);
   // Each position follows its rank with a critically damped spring, in steps of
   // a sixtieth of a second so the stiffest setting stays stable.
-  const om = 0.9 * pow(churn, 0.8);
+  const om = 0.65 * pow(churn, 0.8);
   const n = max(1, ceil(d * 60)), h = d / n;
   for (let s = 0; s < n; s++)
     for (let j = 0; j < T * M; j++) {
