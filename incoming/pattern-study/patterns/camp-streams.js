@@ -17,20 +17,26 @@
 // Knob 4: Excitability. Placeholder.
 
 const W = 64, H = 128, N = W * H;
-const { floor, sqrt, pow, exp, sin, cos, PI, min, max, abs } = Math;
+const { floor, sqrt, pow, exp, log, sin, cos, atan2, PI, min, max, abs } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 const fr = (v) => v - floor(v);
 
-// ---- the excitable field (Barkley form), lengths in LEDs and time in seconds at Clock 2
+// ---- the excitable field (Barkley form): lengths in LEDs, time in seconds at Clock 2
 const EPS = 0.05, FA = 0.84, FB = 0.07, DL = 1.9, TAUV = 1.0;
-const G_EX = 2, MA = 0, BQ = 10;
-const KM = 3, ALPHA = 0.5, BETA = 0.03, MDIF = 0.05; // trails: how much a trail pulls, how fast flux writes one, how fast it fades, how far it spreads // how much density speeds the relay, and how much cells pull on cells
 const HS = 0.03; // longest step
 // ---- the cells
-const RHO_M = 9; // density cap
-const D0 = 0.15, D1 = 3; // random motility, and the push of crowding
+const NP = 8000, WT = N / NP; // cells, and the density one of them stands for (mean density 1)
+const D0 = 0.03; // random walk, LED^2 a second
+const CAP = 0.3; // longest chemotactic step, LEDs
+const RP = 0.12; // push of crowding
 const SLOW = 4; // steps between the slow fields
+const WARM = 1500; // warm-up steps
+// ---- trails
+const KM = 3, ALPHA = 0.04, M0 = 2, BETA = 0.03, MDIF = 0.05;
+// ---- pacemakers and mounds
+const SHED = 1 / 45; // chance a second that a cell in a mound is let go
+const NPM = 4, RMASS = 7, MFORM = 250, MBIG = 1000, FLY = 26;
 
 const XP = new Int32Array(N), XM = new Int32Array(N), YP = new Int32Array(N), YM = new Int32Array(N);
 for (let y = 0; y < H; y++)
@@ -62,12 +68,13 @@ function rgbOf(h, s, v) {
 }
 
 const STOPS = [
-  [0.0, 10, 8, 32],
-  [0.18, 16, 36, 110],
-  [0.4, 40, 140, 220],
-  [0.62, 150, 225, 245],
-  [0.8, 250, 244, 228],
-  [1.0, 255, 205, 120],
+  [0.0, 8, 6, 28],
+  [0.12, 14, 28, 92],
+  [0.35, 28, 96, 190],
+  [0.55, 76, 186, 236],
+  [0.75, 205, 240, 250],
+  [0.9, 250, 246, 232],
+  [1.0, 255, 214, 140],
 ];
 function stopColour(t, out) {
   let k = 0;
@@ -81,14 +88,15 @@ function stopColour(t, out) {
 function makeState() {
   const F = () => new Float32Array(N);
   return {
-    u: F(), v: F(), un: F(), vn: F(), gate: F(), ph: F(), om: F(), ie: F(), jit: F(),
-    rho: F(), rn: F(), rp: F(), rq: F(), mt: F(), fx: F(), tmp2: F(), rb: F(), tmp: F(), age: F(), phi: F(),
+    u: F(), v: F(), un: F(), vn: F(), gate: F(), phi: F(), gx: F(), gy: F(),
+    rho: F(), rb: F(), rs: F(), tmp: F(), tmp2: F(), mt: F(), rgx: F(), rgy: F(),
+    px: new Float32Array(NP), py: new Float32Array(NP), tx: new Float32Array(NP), ty: new Float32Array(NP), fly: new Uint8Array(NP), age: new Float32Array(NP), comp: new Float32Array(NP),
     lut: new Float32Array(256 * 3), hueDone: -1, knobs: [0, 2, 0, 0.06],
-    tm: 0, nslow: 0, fire: new Int32Array(N), nfire: 0, evK: 0, nextLife: 60, params: null,
+    nslow: 0, evK: 0, tm: 0, pm: [],
   };
 }
 
-// 1-2-1 blur along x and y on the torus, twice for the 5-tap binomial
+// 1-2-1 blur along x and y on the torus; two passes make the 5-tap binomial
 function blur(src, dst, tmp, passes) {
   let a = src;
   for (let p = 0; p < passes; p++) {
@@ -98,118 +106,192 @@ function blur(src, dst, tmp, passes) {
   }
 }
 
-// What the knobs mean in model terms.
+// every cell adds its weight to the four LEDs around it
+function splat(S, out) {
+  const { px, py } = S;
+  out.fill(0);
+  for (let p = 0; p < NP; p++) {
+    const x = px[p], y = py[p], x0 = floor(x), y0 = floor(y), fx = x - x0, fy = y - y0;
+    const xa = x0 >= W ? 0 : x0, xb = xa + 1 >= W ? 0 : xa + 1, ya = y0 >= H ? 0 : y0, yb = ya + 1 >= H ? 0 : ya + 1;
+    const wa = WT * (1 - fx), wb = WT * fx;
+    out[ya * W + xa] += wa * (1 - fy);
+    out[ya * W + xb] += wb * (1 - fy);
+    out[yb * W + xa] += wa * fy;
+    out[yb * W + xb] += wb * fy;
+  }
+}
+
 function derive(S) {
   const k = S.knobs;
   const k3 = cl(k[2], -1, 1), k4 = cl(k[3], -1, 1);
-  return { chi: 7 * pow(2.2, k3), tpm: 7.4 * pow(1.32, -k4), clock: cl(k[1], 0, 3.2) / 2 };
+  return { ch: 9 * pow(2, k3), tpm: 7.4 * pow(1.32, -k4), ie: 1 / (EPS * pow(1.22, -k4)), clock: cl(k[1], 0, 3.2) / 2 };
 }
 
-// The slow fields: the smoothed density, what it does to the excitability and to the pacemaker clocks
-function slow(S, P, h) {
-  const { rho, rp, tmp, ie, om, jit } = S;
-  blur(rho, rp, tmp, 2);
-  blur(rp, S.rq, tmp, BQ);
-  blur(S.mt, S.tmp2, tmp, 1);
-  for (let i = 0; i < N; i++) S.mt[i] += MDIF * (S.tmp2[i] - S.mt[i]);
-  const w1 = 1 / P.tpm;
+const wrapd = (d, L) => (d > L / 2 ? d - L : d < -L / 2 ? d + L : d);
+const tor2 = (ax, ay, bx, by) => {
+  const dx = wrapd(ax - bx, W), dy = wrapd(ay - by, H);
+  return dx * dx + dy * dy;
+};
+
+// The next pacemaker starts a few LEDs from the old one, after a pause.
+function newPacemaker(S, q, tm) {
+  const a = 6.2832 * Math.random(), r = 5 + 8 * Math.random();
+  return { x: (((q.x + r * cos(a)) % W) + W) % W, y: (((q.y + r * sin(a)) % H) + H) % H, born: tm, formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: tm + 6 + 4 * Math.random(), mass: 0 };
+}
+
+// A mound culminates: most of its cells are thrown out round it as fresh cells.
+function burst(S, q, tm) {
+  const n = newPacemaker(S, q, tm);
+  for (let p = 0; p < NP; p++) {
+    if (S.fly[p]) continue;
+    const dx = wrapd(S.px[p] - q.x, W), dy = wrapd(S.py[p] - q.y, H);
+    if (dx * dx + dy * dy > RMASS * RMASS * 2.2 || Math.random() > 0.94) continue;
+    const a = 6.2832 * Math.random(), r = 10 + 28 * sqrt(Math.random());
+    S.tx[p] = ((((q.x + r * cos(a)) % W) + W) % W);
+    S.ty[p] = ((((q.y + r * sin(a)) % H) + H) % H);
+    S.fly[p] = 1;
+  }
+  // the old mound's trails go with it
+  const R2 = 16 * 16;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) if (tor2(x, y, q.x, q.y) < R2) S.mt[y * W + x] = 0;
+  S.pm[S.pm.indexOf(q)] = n;
+}
+
+// The slow fields: smoothed density, the pressure it pushes with, and the mounds' bookkeeping
+function slow(S, dts) {
+  const { rho, tmp, tmp2, mt, rgx, rgy, px, py } = S;
+  splat(S, tmp2);
+  blur(tmp2, rho, tmp, 2);
+  blur(mt, tmp2, tmp, 1);
+  for (let i = 0; i < N; i++) mt[i] += MDIF * (tmp2[i] - mt[i]);
   for (let i = 0; i < N; i++) {
-    const s = sm((rp[i] - 0.5) / 3);
-    ie[i] = (1 + G_EX * s) / EPS;
-    const p = sm((rp[i] - 1.7) / 2.2);
-    om[i] = (1 / 150000 + (w1 - 1 / 150000) * p) * jit[i];
+    const a = rho[XP[i]], b = rho[XM[i]], c = rho[YP[i]], d = rho[YM[i]];
+    const pa = a > 6 ? (a - 6) * (a - 6) : 0, pb = b > 6 ? (b - 6) * (b - 6) : 0, pc = c > 6 ? (c - 6) * (c - 6) : 0, pd = d > 6 ? (d - 6) * (d - 6) : 0;
+    rgx[i] = 0.5 * (pa - pb);
+    rgy[i] = 0.5 * (pc - pd);
+  }
+  for (const q of S.pm) {
+    let m = 0;
+    for (let p = 0; p < NP; p++) {
+      const dx = wrapd(px[p] - q.x, W), dy = wrapd(py[p] - q.y, H);
+      if (dx * dx + dy * dy < RMASS * RMASS) m++;
+    }
+    q.mass = m * WT;
+    if (q.formed < 0 && q.mass > MFORM) q.formed = S.tm;
+  }
+  for (const q of S.pm) {
+    const old = S.tm - q.born > q.life;
+    if (old || q.mass > MBIG) {
+      burst(S, q, S.tm);
+      break;
+    }
   }
 }
 
 function step(S, P, h) {
-  const { u, v, un, vn, gate, ph, om, ie, rho, rn, phi, rq, mt, fx } = S;
-  const ginv = 1 / (0.6 * h);
-  S.nfire = 0;
+  const { u, v, un, vn, gate, phi, mt, gx, gy, px, py, fly, tx, ty, rgx, rgy, age, comp } = S;
+  const ginv = 1 / (0.6 * h), ie = P.ie;
   for (let i = 0; i < N; i++) {
     const ui = u[i], vi = v[i];
     const lap = u[XP[i]] + u[XM[i]] + u[YP[i]] + u[YM[i]] - 4 * ui;
-    let nu = ui + h * (DL * lap + ui * (1 - ui) * (ui - (vi + FB) / FA) * ie[i]);
-    let p = ph[i] + h * om[i];
-    const g0 = (nu - ui) * ginv;
-    if (nu > 0.3 && g0 > 0.3) p = 0;
-    else if (p >= 1) {
-      if (ui < 0.08 && vi < 0.2) S.fire[S.nfire++] = i;
-      p = 1;
-    }
-    ph[i] = p;
+    let nu = ui + h * (DL * lap + ui * (1 - ui) * (ui - (vi + FB) / FA) * ie);
     nu = nu < 0 ? 0 : nu > 1 ? 1 : nu;
     const g = (nu - ui) * ginv;
     gate[i] = g < 0 ? 0 : g > 1 ? 1 : g;
     un[i] = nu;
-    phi[i] = nu * (1 + MA * rq[i] + (KM * mt[i]) / (1 + mt[i]));
     vn[i] = vi + (h * (ui - vi)) / TAUV;
   }
   S.u = un; S.un = u; S.v = vn; S.vn = v;
-  for (let f = 0; f < S.nfire; f++) {
-    const i = S.fire[f], x = i % W, y = (i - x) / W;
-    for (let dy = -2; dy <= 2; dy++)
-      for (let dx = -2; dx <= 2; dx++) {
-        if (dx * dx + dy * dy > 5) continue;
-        const j = ((y + dy + H) % H) * W + ((x + dx + W) % W);
-        S.u[j] = 1;
-        S.ph[j] = 0;
+  const U = S.u;
+  S.tm += h;
+  // pacemakers: a mound fires a ring when the medium under it has recovered
+  for (const q of S.pm) {
+    if (S.tm < q.next) continue;
+    const xi = floor(q.x + 0.5) % W, yi = floor(q.y + 0.5) % H, c = yi * W + xi;
+    if (U[c] > 0.1 || S.v[c] > 0.25) { q.next = S.tm + 0.25; continue; }
+    const rk = 2.4 + 1.2 * min(1, q.mass / 600), ri = floor(rk) + 1;
+    for (let dy = -ri; dy <= ri; dy++)
+      for (let dx = -ri; dx <= ri; dx++) {
+        if (dx * dx + dy * dy > rk * rk) continue;
+        U[((yi + dy + H) % H) * W + ((xi + dx + W) % W)] = 1;
       }
+    q.next = S.tm + P.tpm * q.f * (0.94 + 0.12 * Math.random());
   }
-  // cells: climb the field while it is rising, spread when crowded
-  const uu = phi;
-  rn.set(rho);
-  fx.fill(0);
-  const chi = P.chi * h;
+  // the potential the cells climb, and its slope
+  for (let i = 0; i < N; i++) phi[i] = U[i] * (1 + (KM * mt[i]) / (mt[i] + M0));
   for (let i = 0; i < N; i++) {
-    const ri = rho[i], ui = uu[i], gi = gate[i];
-    for (let f = 0; f < 2; f++) {
-      const j = f === 0 ? XP[i] : YP[i];
-      const rj = rho[j], uj = uu[j], gj = gate[j];
-      let fl = 0;
-      const du = uj - ui;
-      if (du > 0) fl += ri * gi * min(chi * du, 0.15) * (rj < RHO_M ? 1 - rj / RHO_M : 0);
-      else if (du < 0) fl -= rj * gj * min(chi * -du, 0.15) * (ri < RHO_M ? 1 - ri / RHO_M : 0);
-      const q = (ri + rj) * (0.5 / RHO_M);
-      const d = min(D0 + D1 * q * q, 3);
-      fl += h * d * (ri - rj);
-      rn[i] -= fl;
-      rn[j] += fl;
-      const af = fl < 0 ? -fl : fl;
-      fx[i] += af;
-      fx[j] += af;
-    }
+    gx[i] = 0.5 * (phi[XP[i]] - phi[XM[i]]);
+    gy[i] = 0.5 * (phi[YP[i]] - phi[YM[i]]);
   }
-  S.rho = rn; S.rn = rho;
-  const al = ALPHA, de = 1 - h * BETA;
-  for (let i = 0; i < N; i++) mt[i] = mt[i] * de + al * fx[i];
+  // the cells
+  const sx = P.ch * h, sd = sqrt(6 * D0 * h), rpush = RP * h, fstep = FLY * h;
+  for (let p = 0; p < NP; p++) {
+    let x = px[p], y = py[p];
+    if (fly[p]) {
+      const dx = wrapd(tx[p] - x, W), dy = wrapd(ty[p] - y, H), d = sqrt(dx * dx + dy * dy);
+      if (d <= fstep) {
+        x = tx[p]; y = ty[p];
+        fly[p] = 0;
+      } else {
+        x += (dx * fstep) / d;
+        y += (dy * fstep) / d;
+      }
+    } else {
+      let ix = (x + 0.5) | 0, iy = (y + 0.5) | 0;
+      if (ix >= W) ix = 0;
+      if (iy >= H) iy = 0;
+      const c = iy * W + ix, ag = (age[p] += h), cw = 1, gt = gate[c];
+      let vx = gt * sx * gx[c], vy = gt * sx * gy[c];
+      const sp2 = vx * vx + vy * vy;
+      if (sp2 > CAP * CAP) {
+        const k = CAP / sqrt(sp2);
+        vx *= k; vy *= k;
+      }
+      const sp = sqrt(sp2 > CAP * CAP ? CAP * CAP : sp2);
+      if (sp > 1e-4) {
+        // the cell leaves a trail where it walks
+        const x0 = floor(x), y0 = floor(y), fx = x - x0, fy = y - y0, dep = ALPHA * sp;
+        const xa = x0 >= W ? 0 : x0, xb = xa + 1 >= W ? 0 : xa + 1, ya = y0 >= H ? 0 : y0, yb = ya + 1 >= H ? 0 : ya + 1;
+        mt[ya * W + xa] += dep * (1 - fx) * (1 - fy);
+        mt[ya * W + xb] += dep * fx * (1 - fy);
+        mt[yb * W + xa] += dep * (1 - fx) * fy;
+        mt[yb * W + xb] += dep * fx * fy;
+      }
+      vx += -rpush * rgx[c] + sd * (Math.random() * 2 - 1);
+      vy += -rpush * rgy[c] + sd * (Math.random() * 2 - 1);
+      x += vx; y += vy;
+    }
+    if (x < 0) x += W; else if (x >= W) x -= W;
+    if (y < 0) y += H; else if (y >= H) y -= H;
+    px[p] = x; py[p] = y;
+  }
+  const dec = 1 - h * BETA;
+  for (let i = 0; i < N; i++) mt[i] *= dec;
 }
 
 function seedField(S) {
-  const { rho, jit, tmp } = S;
-  for (let i = 0; i < N; i++) tmp[i] = Math.random();
-  blur(tmp, jit, S.rp, 3);
-  let lo = 1e9, hi = -1e9;
-  for (let i = 0; i < N; i++) { lo = min(lo, jit[i]); hi = max(hi, jit[i]); }
-  for (let i = 0; i < N; i++) jit[i] = 0.9 + 0.2 * ((jit[i] - lo) / (hi - lo));
-  for (let i = 0; i < N; i++) tmp[i] = Math.random();
-  blur(tmp, rho, S.rp, 4);
-  lo = 1e9; hi = -1e9;
-  for (let i = 0; i < N; i++) { lo = min(lo, rho[i]); hi = max(hi, rho[i]); }
-  for (let i = 0; i < N; i++) rho[i] = 0.55 + 0.9 * ((rho[i] - lo) / (hi - lo));
-  // a few clumps of cells to start the first pacemakers from
-  const seeds = [[20, 30], [44, 70], [18, 104], [48, 12]];
-  for (const [cx, cy] of seeds)
-    for (let y = 0; y < H; y++)
-      for (let x = 0; x < W; x++) {
-        let dx = abs(x - cx), dy = abs(y - cy);
-        if (dx > W / 2) dx = W - dx;
-        if (dy > H / 2) dy = H - dy;
-        rho[y * W + x] += 4 * exp(-(dx * dx + dy * dy) / 18);
-      }
-  let tot = 0;
-  for (let i = 0; i < N; i++) tot += rho[i];
-  for (let i = 0; i < N; i++) rho[i] *= N / tot;
-  for (let i = 0; i < N; i++) S.ph[i] = 0.6 * Math.random();
+  const { px, py } = S;
+  const spots = [[18, 26], [46, 58], [14, 94], [44, 116]];
+  for (let k = 0; k < NPM; k++) {
+    const [x, y] = spots[k];
+    S.pm.push({ x, y, born: -70 * Math.random(), formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: Math.random() * 4, mass: 0 });
+  }
+  const clump = 0.08;
+  for (let p = 0; p < NP; p++) {
+    if (Math.random() < clump) {
+      const q = S.pm[p % NPM];
+      const g1 = Math.random() + Math.random() + Math.random() - 1.5, g2 = Math.random() + Math.random() + Math.random() - 1.5;
+      px[p] = (((q.x + g1 * 6) % W) + W) % W;
+      py[p] = (((q.y + g2 * 6) % H) + H) % H;
+      S.age[p] = 300;
+    } else {
+      px[p] = Math.random() * W;
+      py[p] = Math.random() * H;
+      S.age[p] = 100 * Math.random();
+    }
+    S.comp[p] = 8 + 70 * Math.random();
+  }
 }
 
 export function setup(params) {
@@ -217,11 +299,10 @@ export function setup(params) {
   seedField(S);
   S.knobs = [0, 2, 0, 0.06];
   const P = derive(S);
-  slow(S, P, HS);
-  const steps = 1800;
-  for (let n = 0; n < steps; n++) {
+  slow(S, HS * SLOW);
+  for (let n = 0; n < WARM; n++) {
     step(S, P, HS);
-    if (++S.nslow % SLOW === 0) slow(S, P, HS * SLOW);
+    if (++S.nslow % SLOW === 0) slow(S, HS * SLOW);
   }
 }
 
@@ -230,12 +311,11 @@ export function update(dt, input, params) {
   const S = params.s;
   S.knobs = input.knobValues || [0, 2, 0, 0.06];
   const P = derive(S);
-  let rest = cl(dt || 0, 0, 0.1) * P.clock * 2 * 0.5;
-  rest = cl(dt || 0, 0, 0.1) * P.clock;
+  let rest = cl(dt || 0, 0, 0.1) * P.clock;
   while (rest > 1e-9) {
     const h = min(rest, HS);
     step(S, P, h);
-    if (++S.nslow % SLOW === 0) slow(S, P, h * SLOW);
+    if (++S.nslow % SLOW === 0) slow(S, h * SLOW);
     rest -= h;
   }
 }
@@ -253,16 +333,17 @@ function buildLut(S, hue) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const hue = cl(S.knobs[0], 0, 1) + 0.0;
+  const hue = cl(S.knobs[0], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
-  const { u, rho, rb, tmp, lut } = S;
-  blur(rho, rb, tmp, 2);
+  const { u, rb, rs, tmp, tmp2, lut, mt } = S;
+  splat(S, tmp2);
+  blur(tmp2, rb, tmp, 2);
+  blur(rb, rs, tmp, 3);
   for (let i = 0; i < N; i++) {
-    const L = 1 - exp(-rb[i] / 2.2);
+    const L = 0.55 * (1 - exp(-rs[i] / 4)) + 0.6 * (1 - exp(-max(0, rb[i] - 1.7) / 2.4));
     const w = u[i];
-    const s = cl(L * 0.8 + w * 0.3 * (0.4 + L), 0, 1);
+    const s = cl((L + 0.1 * mt[i] / (mt[i] + 1)) * (1 + 0.7 * w) + 0.05 * w, 0, 1);
     const li = ((s * 255) | 0) * 3;
-    const f = 1;
-    display.setPixel(i % W, (i / W) | 0, lut[li] * f, lut[li + 1] * f, lut[li + 2] * f);
+    display.setPixel(i % W, (i / W) | 0, lut[li], lut[li + 1], lut[li + 2]);
   }
 }
