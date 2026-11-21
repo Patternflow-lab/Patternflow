@@ -30,13 +30,17 @@ const G0 = 0.04; // relative growth rate at Growth 2, per second
 const ITER = 0.1; // seconds of tissue time per colonization pass
 const STEP = 1.5; // how far a vein node sprouts in one pass, LEDs
 const RINF = 12; // a source calls the nearest vein node inside this radius
-const TROP = 0.45; // forward bias of a sprout, along the line out from the centre
+const TROP = 0.5; // forward bias of a sprout, along the line out from the centre
+const LOOPF = 0.62; // a new node within this share of the spacing of another branch joins it, closing a loop
+const INERTIA = 0.3; // weight of the vein's own heading against the pull of the sources
 const LMAX = 3.4; // an edge longer than this is split by a new node
-const DLOOP = 1.25; // a new node this close to another branch joins it, closing a loop
+const KW = 0.85; // the blade is a wedge about the midrib: half-width KW times the distance from the root, plus a margin
+const R0 = 24; // the seedling blade is this long, LEDs
+const LEAN = 0.03; // the midrib leans this much to the right per LED of height
 const NM = 4600, SM = 1700, LM = 1800; // capacity of nodes, sources, loop edges
 // Where sources live, and how far a node may go before it is dropped.
-const SX0 = -12, SX1 = 76, SY0 = -12, SY1 = 148;
-const PX0 = -22, PX1 = 86, PY0 = -28, PY1 = 160;
+const SX0 = -12, SX1 = 76, SY0 = -12, SY1 = CY - 4;
+const PX0 = -22, PX1 = 86, PY0 = -28, PY1 = CY + 6;
 const CS = 12; // cell of the grid the passes look up neighbours in
 const GX = ceil((PX1 - PX0) / CS) + 1, GY = ceil((PY1 - PY0) / CS) + 1, GN = GX * GY;
 
@@ -62,13 +66,13 @@ export function setup(params) {
     x: new Float32Array(NM), y: new Float32Array(NM), par: new Int32Array(NM),
     rb: new Float32Array(NM), bs: new Float32Array(NM), ms: new Float32Array(NM), mass: new Float32Array(NM),
     nch: new Int32Array(NM), stack: new Int32Array(NM), dead: new Uint8Array(NM), map: new Int32Array(NM),
-    ax: new Float32Array(NM), ay: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
+    ax: new Float32Array(NM), ay: new Float32Array(NM), hx: new Float32Array(NM), hy: new Float32Array(NM), cnt: new Int32Array(NM), mark: new Int32Array(NM), stamp: 0,
     cc: new Int32Array(NM), cs: new Int32Array(GN + 1), fp: new Int32Array(GN), ci: new Int32Array(NM),
     sx: new Float32Array(SM), sy: new Float32Array(SM), shead: new Int32Array(GN), snext: new Int32Array(SM),
     l0: new Int32Array(LM), l1: new Int32Array(LM),
     cv: new Float32Array(N), gl: new Float32Array(N), bl: new Float32Array(N), tn: new Float32Array(N),
     lam: new Float32Array(256 * 3), vein: new Float32Array(256 * 3), bloom: [1, 0.8, 0.4], key: "",
-    hue: 0, gk: 1, sc: 2.5, u: 0.53,
+    hue: 0, gk: 1, sc: 2.5, u: 0.53, apex: 5,
     assumed: [1, 2.5], warm: false,
   };
   params.s = S;
@@ -76,26 +80,26 @@ export function setup(params) {
   prerun(S);
 }
 
-// A midrib along the ray from the centre, leaning a little to the right, out past the top.
+// A midrib along the ray from the centre, a few LEDs of it: the blade is a seedling.
 function seed(S) {
   S.n = S.ns = S.nl = 0;
-  const dx = 6, dy = -204, l = sqrt(dx * dx + dy * dy);
-  for (let d = 0; d < 230; d += 2.2) {
+  S.apex = R0;
+  const l = sqrt(LEAN * LEAN + 1);
+  for (let d = 0; d < R0; d += 2.2) {
     const j = S.n++;
-    S.x[j] = CX + (dx / l) * d;
-    S.y[j] = CY + (dy / l) * d;
+    S.x[j] = CX + (LEAN / l) * d;
+    S.y[j] = CY - (1 / l) * d;
     S.par[j] = j - 1;
     S.rb[j] = max(d, 1);
-    S.bs[j] = 2.5;
+    S.bs[j] = 99;
     S.ms[j] = 1;
   }
 }
 
 function prerun(S) {
-  const T = cl(90 / S.gk, 60, 180);
-  const f = exp(G0 * S.gk * ITER);
+  const gk = max(1, S.gk), f = exp(G0 * gk * ITER);
   seed(S);
-  for (let t = 0; t < T; t += ITER) {
+  for (let t = 0; t < 62 / gk; t += ITER) {
     stretch(S, f);
     iterate(S);
   }
@@ -106,6 +110,7 @@ function prerun(S) {
 
 function stretch(S, f) {
   const { x, y, sx, sy } = S;
+  S.apex = min(S.apex * f, 1500);
   for (let j = 0; j < S.n; j++) {
     x[j] = CX + (x[j] - CX) * f;
     y[j] = CY + (y[j] - CY) * f;
@@ -114,6 +119,13 @@ function stretch(S, f) {
     sx[i] = CX + (sx[i] - CX) * f;
     sy[i] = CY + (sy[i] - CY) * f;
   }
+}
+
+// Is a point on the blade: above the base, inside the wedge, below the apex.
+function inLeaf(S, px, py, margin) {
+  const r = CY - py;
+  if (r < 4 || px < SX0 || px > SX1 || py < SY0) return false;
+  return abs(px - (CX + LEAN * r)) < KW * r + margin && r * r + (px - CX) * (px - CX) < S.apex * S.apex;
 }
 
 function cellOf(px, py) {
@@ -156,12 +168,19 @@ function attract(S) {
   cnt.fill(0, 0, n);
   ax.fill(0, 0, n);
   ay.fill(0, 0, n);
+  const { par, hx, hy } = S;
+  for (let j = 1; j < n; j++) {
+    const p = par[j], ex = x[j] - x[p], ey = y[j] - y[p], el = sqrt(ex * ex + ey * ey) || 1;
+    hx[j] = ex / el;
+    hy[j] = ey / el;
+  }
+  hx[0] = hy[0] = 0;
   let m = 0;
   for (let i = 0; i < S.ns; i++) {
     const px = sx[i], py = sy[i];
-    if (px < SX0 || px > SX1 || py < SY0 || py > SY1) continue;
+    if (!inLeaf(S, px, py, 6)) continue;
     const c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
-    let best = -1, bd = 1e9;
+    let best = -1, bd = 1e9, call = -1, cd = 1e9;
     for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
       for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++) {
         const q = yy * GX + xx;
@@ -171,17 +190,22 @@ function attract(S) {
             bd = d;
             best = j;
           }
+          // A node does not turn back on itself for a source: it calls only those ahead of its heading or abeam of it.
+          if (d < cd && (dx * hx[j] + dy * hy[j]) * -1 >= -0.17 * sqrt(d)) {
+            cd = d;
+            call = j;
+          }
         }
       }
     if (best >= 0 && bd < dk2) continue;
     sx[m] = px;
     sy[m] = py;
     m++;
-    if (best >= 0 && bd < R2) {
-      const d = sqrt(bd);
-      ax[best] += (px - x[best]) / d;
-      ay[best] += (py - y[best]) / d;
-      cnt[best]++;
+    if (call >= 0 && cd < R2) {
+      const d = sqrt(cd);
+      ax[call] += (px - x[call]) / d;
+      ay[call] += (py - y[call]) / d;
+      cnt[call]++;
     }
   }
   S.ns = m;
@@ -204,9 +228,16 @@ function sprout(S) {
     const rl = sqrt(rx * rx + ry * ry) || 1;
     dx += (TROP * rx) / rl;
     dy += (TROP * ry) / rl;
+    // Inertia: a vein keeps its heading, so it bends in arcs instead of corners.
+    const pj = par[j];
+    if (pj >= 0) {
+      const hx = x[j] - x[pj], hy = y[j] - y[pj], hl = sqrt(hx * hx + hy * hy) || 1;
+      dx += (INERTIA * hx) / hl;
+      dy += (INERTIA * hy) / hl;
+    }
     const dl = sqrt(dx * dx + dy * dy) || 1;
     const nx = x[j] + (STEP * dx) / dl, ny = y[j] + (STEP * dy) / dl;
-    if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1) continue;
+    if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1 || abs(nx - (CX + LEAN * (CY - ny))) > KW * (CY - ny) + 16) continue;
     const q = S.n++;
     x[q] = nx;
     y[q] = ny;
@@ -225,7 +256,7 @@ function sprout(S) {
       a = par[a];
     }
     const c = cellOf(nx, ny), gx = c % GX, gy = (c / GX) | 0;
-    let best = -1, bd = DLOOP * DLOOP;
+    let best = -1, bd = (LOOPF * S.sc) ** 2;
     for (let yy = max(0, gy - 1); yy <= min(GY - 1, gy + 1); yy++)
       for (let xx = max(0, gx - 1); xx <= min(GX - 1, gx + 1); xx++) {
         const cc = yy * GX + xx;
@@ -259,7 +290,7 @@ function prune(S) {
   const fineCut = 0.72 * S.sc;
   while (sp > 0) {
     const j = stack[--sp];
-    const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1;
+    const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1 || abs(x[j] - (CX + LEAN * (CY - y[j]))) > KW * (CY - y[j]) + 16;
     if (!out && bs[j] >= fineCut) continue;
     dead[j] = 1;
     const p = par[j];
@@ -337,9 +368,13 @@ function scatter(S) {
     snext[i] = shead[c];
     shead[c] = i;
   }
-  const tries = min(700, ceil(260 * (2.5 / S.sc) ** 2));
+  // Sample the wedge by area, out to the apex or the far corner of the box.
+  const R = min(S.apex - 2, 200), r0 = 4, th = Math.atan(KW);
+  const tries = cl(ceil((0.08 * th * (R * R - r0 * r0)) / s2 * 6.25), 6, 700);
   for (let t = 0; t < tries && S.ns < SM; t++) {
-    const px = SX0 + Math.random() * (SX1 - SX0), py = SY0 + Math.random() * (SY1 - SY0);
+    const r = sqrt(r0 * r0 + Math.random() * (R * R - r0 * r0)), a = (Math.random() * 2 - 1) * th;
+    const px = CX + LEAN * r + r * Math.sin(a), py = CY - r * Math.cos(a);
+    if (!inLeaf(S, px, py, 0)) continue;
     const c = cellOf(px, py), gx = c % GX, gy = (c / GX) | 0;
     let ok = true;
     for (let yy = max(0, gy - 1); ok && yy <= min(GY - 1, gy + 1); yy++)
@@ -393,10 +428,10 @@ function buildColours(S) {
   S.key = key;
   const c = [0, 0, 0], h = S.hue;
   const LAM = [
-    [0.0, 0.355, 0.95, 0.3],
-    [0.35, 0.315, 0.9, 0.5],
-    [0.7, 0.255, 0.85, 0.78],
-    [1.0, 0.19, 0.75, 0.98],
+    [0.0, 0.35, 0.88, 0.46],
+    [0.35, 0.3, 0.86, 0.66],
+    [0.7, 0.235, 0.8, 0.88],
+    [1.0, 0.185, 0.68, 1.0],
   ];
   for (let i = 0; i < 256; i++) {
     const g = i / 255;
@@ -406,7 +441,7 @@ function buildColours(S) {
     hsv(a[1] + (b[1] - a[1]) * u + h, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u, c, 0);
     S.lam.set(c, i * 3);
     const t = i / 255;
-    hsv(0.2 - 0.08 * t + h, 0.62 - 0.45 * t, 0.98 + 0.02 * t, c, 0);
+    hsv(0.2 - 0.07 * t + h, 0.55 - 0.4 * t, 1, c, 0);
     S.vein.set(c, i * 3);
   }
   hsv(0.13 + h, 0.65, 1, S.bloom, 0);
@@ -440,13 +475,13 @@ let CV, GL, BL, TN;
 
 function seg(x0, y0, x1, y1, w, ff) {
   const h = w * 0.5 < 0.5 ? 0.5 : w * 0.5;
-  const sig = 1.25 + 0.5 * w, rg = h + 2.3 * sig;
+  const sig = 1.1 + 0.55 * w, rg = h + 2.3 * sig;
   const minx = min(x0, x1), maxx = max(x0, x1), miny = min(y0, y1), maxy = max(y0, y1);
-  const wf = sm(1.4, 4.5, w) * ff, sb = 2.2 + w, rbm = wf > 0.02 ? 2.2 * sb : 0;
+  const wf = sm(2.0, 4.8, w) * ff, sb = 2.0 + 0.9 * w, rbm = wf > 0.02 ? 2.2 * sb : 0;
   const R = max(rg, rbm);
   if (maxx + R < 0 || minx - R > W || maxy + R < 0 || miny - R > H) return;
   const vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1e-6;
-  const amp = (0.5 + 0.5 * sm(0.8, 3, w)) * ff, alpha = (0.55 + 0.45 * sm(0.8, 2.2, w)) * ff, tone = sm(0.9, 6.5, w);
+  const amp = (0.38 + 0.55 * sm(1.2, 4, w)) * ff, alpha = (0.55 + 0.45 * sm(0.95, 2.4, w)) * ff, tone = sm(1.0, 5, w);
   const ya = max(0, floor(miny - R)), yb = min(H - 1, ceil(maxy + R));
   const xa = max(0, floor(minx - R)), xb = min(W - 1, ceil(maxx + R));
   const rg2 = rg * rg, rb2 = rbm * rbm, isg = 1 / (sig * sig), isb = 1 / (sb * sb);
@@ -497,7 +532,7 @@ function raster(S) {
   for (let j = 1; j < n; j++) {
     const p = par[j];
     const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
-    const w = min(8, WA * pow(ms[j] * st, 0.25));
+    const w = min(5.2, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
     const vis = sm(0.74, 0.92, bs[j] / sc);
     const ff = vis + (1 - vis) * sm(3, 6, ms[j]);
     seg(x[p], y[p], x[j], y[j], w, ff);
@@ -515,13 +550,13 @@ export function draw(display, params) {
   buildColours(S);
   raster(S);
   const { cv, gl, bl, tn, lam, vein, bloom } = S, u = S.u;
-  const lamGain = 0.42 + 0.78 * u, veinGain = 0.74 + 0.26 * u, bloomGain = 0.95 * pow(u, 1.3);
+  const lamGain = 0.58 + 0.55 * u, veinGain = 0.78 + 0.22 * u, bloomGain = 0.95 * pow(u, 1.3);
   for (let p = 0, yy = 0; yy < H; yy++) {
     const vy = (yy - 63.5) / 68;
     for (let xx = 0; xx < W; xx++, p++) {
       const vx = (xx - 31.5) / 34, rr = sqrt(vx * vx + vy * vy);
-      const shade = 1 - 0.5 * sm(0.55, 1.15, rr);
-      const gi = ((cl(gl[p], 0, 1) * 255) | 0) * 3;
+      const shade = 1 - 0.42 * sm(0.5, 1.15, rr);
+      const gi = ((pow(cl(gl[p], 0, 1), 1.25) * 255) | 0) * 3;
       const lg = lamGain * shade;
       let r = lam[gi] * lg, g = lam[gi + 1] * lg, b = lam[gi + 2] * lg;
       const bb = bl[p] * bloomGain;
