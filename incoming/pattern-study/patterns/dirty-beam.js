@@ -29,7 +29,7 @@ const LMAX = 8.5; // the longest window, seconds
 const LMIN = 0.9; // and the shortest, which is a snapshot
 const NS = 24; // sources in the sky
 const NANT = 27; // dishes, nine on each arm of the Y
-const UMAX = 0.165; // the longest baseline, cycles per LED at the opening wavelength
+const UMAX = 0.18; // the longest baseline, cycles per LED at the opening wavelength
 const TAPER = 0.2; // roll-off of the longest baselines
 const ROBUST = 0.06; // 0 is uniform weighting in the u-v plane, large is natural
 const SHORT = 3; // extra weight on the shortest baselines, which carry the diffuse light
@@ -85,7 +85,7 @@ const BG = BASE.map((p, i) => ({
   px: TAU * hash2(i, 6),
   py: TAU * hash2(i, 7),
   pa: TAU * hash2(i, 8),
-  a: 0.5 + 0.55 * hash2(i, 9),
+  a: 0.3 + 0.4 * hash2(i, 9),
   sg: 0.9 + 0.5 * hash2(i, 10),
 }));
 
@@ -420,7 +420,7 @@ function ramp(stops, x, rot, out, o) {
 }
 
 const GAMMA = 0.58; // lifts the faint sidelobes
-const FLOOR = 0.035; // the faintest ripple that is drawn, against the peak
+const FLOOR = 0.05; // the faintest ripple that is drawn, against the peak
 const NEGFULL = 0.4; // a bowl this deep, against the peak, is the dim blue at its brightest
 
 function buildLut(S, rot) {
