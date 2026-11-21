@@ -19,7 +19,7 @@
 const W = 64;
 const H = 128;
 const N = W * H;
-const { floor, round, exp, sin, cos, abs, min, max, sqrt, atan2, log, pow, PI } = Math;
+const { floor, round, sin, cos, abs, min, max, sqrt, atan2, log, pow, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 const mix = (a, b, t) => a + (b - a) * t;
@@ -508,7 +508,6 @@ export function setup(params) {
   S.crackD = new Float32Array(TW * TH);
   S.crackId = new Float32Array(TW * TH);
   S.pal = new Float32Array(SPECIES.length * 9 + 12);
-  S.buf = new Float32Array(3);
   params.s = S;
 }
 
@@ -608,16 +607,15 @@ export function draw(display, params) {
       let r = rr * rl;
       let g = rg * rl;
       let b = rb * rl;
-      if (k === FREE) {
-        // faint stains where crust has died back
-      } else if (k === ZONE) {
+      if (k === ZONE) {
+        // the dark line between two colonies, fading in when it forms and out when it is no longer needed
         let a = sm((G - S.zg[i]) / 2.5);
         if (S.zdie[i] < 1e8) a *= 1 - sm((G - S.zdie[i]) / 4);
         const dk = 0.85 + 0.3 * S.grain[i];
         r += (dr * dk - r) * a;
         g += (dg * dk - g) * a;
         b += (db * dk - b) * a;
-      } else {
+      } else if (k >= 0) {
         const c = cols[k];
         const age = G - cg[i];
         const sp = c.sp * 9;
