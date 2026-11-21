@@ -37,10 +37,10 @@ const LMAX = 3.4; // an edge longer than this is split by a new node
 const KW = 0.85; // the blade is a wedge about the midrib: half-width KW times the distance from the root, plus a margin
 const R0 = 24; // the seedling blade is this long, LEDs
 const LEAN = 0.03; // the midrib leans this much to the right per LED of height
-const NM = 4600, SM = 1700, LM = 1800; // capacity of nodes, sources, loop edges
+const NM = 5400, SM = 1500, LM = 1800; // capacity of nodes, sources, loop edges
 // Where sources live, and how far a node may go before it is dropped.
-const SX0 = -12, SX1 = 76, SY0 = -12, SY1 = CY - 4;
-const PX0 = -22, PX1 = 86, PY0 = -28, PY1 = CY + 6;
+const SX0 = -8, SX1 = 72, SY0 = -8, SY1 = CY - 4;
+const PX0 = -14, PX1 = 78, PY0 = -18, PY1 = CY + 6;
 const CS = 12; // cell of the grid the passes look up neighbours in
 const GX = ceil((PX1 - PX0) / CS) + 1, GY = ceil((PY1 - PY0) / CS) + 1, GN = GX * GY;
 
@@ -72,8 +72,8 @@ export function setup(params) {
     l0: new Int32Array(LM), l1: new Int32Array(LM),
     cv: new Float32Array(N), gl: new Float32Array(N), bl: new Float32Array(N), tn: new Float32Array(N),
     lam: new Float32Array(256 * 3), vein: new Float32Array(256 * 3), bloom: [1, 0.8, 0.4], key: "",
-    hue: 0, gk: 1, sc: 2.5, u: 0.53, apex: 5,
-    assumed: [1, 2.5], warm: false,
+    hue: 0, gk: 1, sc: 2.6, u: 0.53, apex: R0,
+    assumed: [1, 2.6], warm: false,
   };
   params.s = S;
   seed(S);
@@ -237,7 +237,7 @@ function sprout(S) {
     }
     const dl = sqrt(dx * dx + dy * dy) || 1;
     const nx = x[j] + (STEP * dx) / dl, ny = y[j] + (STEP * dy) / dl;
-    if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1 || abs(nx - (CX + LEAN * (CY - ny))) > KW * (CY - ny) + 16) continue;
+    if (nx < PX0 || nx > PX1 || ny < PY0 || ny > PY1 || abs(nx - (CX + LEAN * (CY - ny))) > KW * (CY - ny) + 8) continue;
     const q = S.n++;
     x[q] = nx;
     y[q] = ny;
@@ -290,7 +290,7 @@ function prune(S) {
   const fineCut = 0.72 * S.sc;
   while (sp > 0) {
     const j = stack[--sp];
-    const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1 || abs(x[j] - (CX + LEAN * (CY - y[j]))) > KW * (CY - y[j]) + 16;
+    const out = x[j] < PX0 || x[j] > PX1 || y[j] < PY0 || y[j] > PY1 || abs(x[j] - (CX + LEAN * (CY - y[j]))) > KW * (CY - y[j]) + 8;
     if (!out && bs[j] >= fineCut) continue;
     dead[j] = 1;
     const p = par[j];
@@ -370,6 +370,7 @@ function scatter(S) {
   }
   // Sample the wedge by area, out to the apex or the far corner of the box.
   const R = min(S.apex - 2, 200), r0 = 4, th = Math.atan(KW);
+  if (S.n > NM * 0.9) return;
   const tries = cl(ceil((0.08 * th * (R * R - r0 * r0)) / s2 * 6.25), 6, 700);
   for (let t = 0; t < tries && S.ns < SM; t++) {
     const r = sqrt(r0 * r0 + Math.random() * (R * R - r0 * r0)), a = (Math.random() * 2 - 1) * th;
@@ -452,7 +453,7 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = k[0];
   S.gk = cl(k[1], 0.6, 5) / 2;
-  S.sc = 2.5 * 1.4 ** -cl(k[2], -1, 1);
+  S.sc = 2.6 * 1.35 ** -cl(k[2], -1, 1);
   S.u = (cl(k[3], -1, 1) + 1) / 2;
   if (abs(S.gk - S.assumed[0]) > 0.02 || abs(S.sc - S.assumed[1]) > 0.02) {
     if (!S.opened) prerun(S);
@@ -532,7 +533,7 @@ function raster(S) {
   for (let j = 1; j < n; j++) {
     const p = par[j];
     const rx = x[j] - CX, ry = y[j] - CY, st = min(40, max(1, sqrt(rx * rx + ry * ry) / max(rb[j], 1)));
-    const w = min(5.2, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
+    const w = min(4.8, (0.8 + 0.19 * sqrt(ms[j] - 1 + 1e-3)) * (1 + 0.07 * Math.log(st)));
     const vis = sm(0.74, 0.92, bs[j] / sc);
     const ff = vis + (1 - vis) * sm(3, 6, ms[j]);
     seg(x[p], y[p], x[j], y[j], w, ff);
