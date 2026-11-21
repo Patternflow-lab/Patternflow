@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Grid Fields
 // Family:  entorhinal
-// Idea:    The panel is a rat's arena seen from above while three grid cells from different modules fill in their hexagonal rate maps along the path of a wandering animal, in coral, cyan and violet, with a spike flashing at its head whenever one of them fires.
+// Idea:    The panel is a rat's arena seen from above while three grid cells of one module, in coral, cyan and violet, fill in their rate maps along the path of a wandering animal, so the three lattices interleave into one finer hexagonal array that keeps turning and sliding.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Grid cells in the rat's entorhinal cortex, Hafting, Fyhn, Molden, Moser and Moser (2005); the three-cosine rate model, Solstad, Moser and Moser (2006); module spacings in a ratio near 1.4, Stensola et al. (2012); the lattice realigning when the environment changes, Fyhn et al. (2007)
+// Lineage: Grid cells in the rat's entorhinal cortex, Hafting, Fyhn, Molden, Moser and Moser (2005); the three-cosine rate model, Solstad, Moser and Moser (2006); cells grouped in modules that share a spacing and an orientation, Stensola et al. (2012); the lattice realigning when the environment changes, Fyhn et al. (2007)
 // Round:   214
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.3..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all three cells, so one turn comes back to where it began. At 0 the cells are coral (hue 0.035), cyan (0.50) and violet (0.77). At 0.25 they are yellow-green, purple and red; at 0.5 azure, red and green; at 0.75 violet, chartreuse and cyan.
-// Knob 2: Spacing. The module scale, which multiplies the three spacings together. It is the knob over 2, because the Lab opens this knob at 2: 0.7 at the bottom, 1.0 at the opening and 1.6 at the top. The spacings, nearest field to nearest field, are 18, 25.2 and 35.3 LEDs at the opening, 12.6, 17.6 and 24.7 at the bottom and 28.8, 40.3 and 56.5 at the top. A field is about 0.3 of its spacing across at half height: 5.4 LEDs for the first cell at the opening, 3.8 at the bottom, 8.6 at the top. The lattices dilate about the middle of the panel.
-// Knob 3: Orientation. Rotates all three lattices together about the middle of the panel, from -30 to +30 degrees, opening at 0. A hexagonal lattice maps onto itself every 60 degrees, so the two ends have the same orientation; the turn is about the middle of the panel and not about a field, so the fields land on other places and the ends still differ. At the top and bottom edge, 64 LEDs from the middle, one degree moves the fields 1.1 LEDs, and half that at the sides.
-// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale: 8 s at -0.3, 20 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 160 LEDs of path, and 24 percent of the arena shows. At the opening 57 percent shows, and at 240 s all of it, every lattice complete. The shares are of the LEDs whose confidence is above one half, averaged over twenty frames.
+// Knob 2: Spacing. The module scale, which multiplies the spacing of all three cells together. It is the knob over 2, because the Lab opens this knob at 2: 0.7 at the bottom, 1.0 at the opening and 1.6 at the top. The spacing of one colour, field to field, is 24 LEDs at the opening, 16.8 at the bottom and 38.4 at the top; neighbours of different colours are 13.9, 9.7 and 22.2 apart. A field is about 0.2 of the spacing across at half height: 4.9 LEDs at the opening, 3.5 at the bottom, 7.9 at the top. The lattice dilates about the middle of the panel.
+// Knob 3: Orientation. Rotates the module about the middle of the panel, from -30 to +30 degrees on top of its own orientation (8 degrees at the opening, wandering with the re-maps), opening at 0. A hexagonal lattice maps onto itself every 60 degrees, so the two ends have the same orientation; the turn is about the middle of the panel and not about a field, so the fields land on other places and the ends still differ. At the top and bottom edge, 64 LEDs from the middle, one degree moves the fields 1.1 LEDs, and half that at the sides.
+// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale bent so the opening sits high: 8 s at -0.3, 39 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 160 LEDs of path, and 23 percent of the arena shows. At the opening 75 to 86 percent shows on the first frame, and at 240 s all of it. The shares are of the LEDs whose confidence is above one half.
 
 // What is drawn is what a neuroscientist plots. A grid cell fires on the
 // vertices of a triangular lattice. The standard model sums three cosines
@@ -24,14 +24,18 @@
 // lambda apart (the shortest reciprocal vectors of a triangular lattice with
 // spacing lambda have length 4 pi / (sqrt(3) lambda); a scan of g finds six
 // peaks at 18.0 LEDs from one for lambda 18, the next ring at 31.1). The rate
-// is max(0, g) to the power 2.2, which cuts the peaks into compact fields.
-// Three cells come from three modules: spacings in a ratio of 1.4, each turned
-// a few degrees from the others (-4, 2 and 7), each with a phase of its own.
+// is max(0, g) to the power 4.5, which cuts the peaks into compact fields.
+// The cells of one module share a spacing and an orientation and differ in
+// phase. Offset them by (a1 + a2) / 3 and 2 (a1 + a2) / 3, a third of the way
+// from a field to the middle of its triangle of neighbours, and the three
+// lattices tile a finer triangular one of spacing lambda / sqrt(3), each colour
+// on every third site. The offsets here are that, plus a wander of up to 0.15
+// lambda in each cell, on swings with periods of 48 to 103 s.
 // The animal runs an Ornstein-Uhlenbeck velocity with a mean speed of 20 LEDs
 // a second and a correlation time of 1.1 s, pushed softly off the walls and
 // bent by four slow currents whose periods have no common factor, so its path
-// never closes. Each cell fires as a Poisson process, up to 10 spikes a second
-// at the peak of its field; a spike is a small bright dot where the animal was
+// never closes. Each cell fires as a Poisson process, up to 6 spikes a second
+// at the peak of its field; a spike is a small dim dot where the animal was
 // and fades in 0.42 s. The animal's head is a soft white dot in a dark halo so
 // it reads on a bright field, and the last 3 s of its path is a faint grey trail.
 // The map that is shown is not the one the animal measured. It is the cell's
@@ -44,14 +48,14 @@
 // reads the two rungs nearest the knob and blends them. Each map holds its
 // stamps grown by exp(t / tau), with one scale per map to read it back, so no
 // frame has to decay 8,192 numbers six times over.
-// Every few minutes, at random times (70 s plus an exponential wait of 110 s on
-// average), one cell re-maps as grid cells do when the environment changes:
-// over 20 s its lattice slides by 0.3 to 0.5 of its spacing in a random
-// direction and turns 2 to 6 degrees.
+// Every 40 to 90 s, at random times, the module re-maps as grid cells do when
+// the environment changes: over 15 s the whole lattice turns 5 to 12 degrees,
+// slides by a third to two thirds of a spacing in a random direction, and its
+// scale moves to somewhere within 10 percent of the opening.
 // Nothing here is a function of the clock's value, and the walk and the
 // re-maps draw on a generator seeded when the pattern starts, so no scene
 // returns. The animal is run for 300 s before the first frame, which opens the
-// arena already part revealed.
+// arena mostly revealed.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, cos, exp, sqrt, round, log, pow, PI, abs } = Math;
