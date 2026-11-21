@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Event Display
 // Family:  collider
-// Idea:    The live event display of a proton collider detector, the two standard views of one collision stacked on the tall panel: above, the end view looking down the beam, a disc of faint tracker, calorimeter and muon rings with tracks curling out of the centre; below, the side view of the same event, a long rectangle cut by the beam line, where the same tracks run out as nearly straight or gently bent lines and the same calorimeter towers stand as green and orange-red bars on the barrel and the end caps, and every second or so two bunches meet on the beam line, the vertex flashes, two jets and a few lone tracks and a swarm of soft ones grow outward in a quarter of a second, hold, and fade over the next collision.
+// Idea:    The live event display of a proton collider detector, the two standard views of one collision stacked on the tall panel: above, the end view looking down the beam, a disc of faint tracker, calorimeter and muon rings with tracks curling out of the centre; below, the side view of the same event, a long rectangle cut by the beam line, where the same tracks run out as nearly straight or gently bent lines and the same calorimeter towers stand as green and orange-red bars on the barrel and the end caps, and every second or so two bunches meet on the beam line, the vertex flashes, two jets and a few lone tracks and a swarm of soft ones grow outward in a quarter of a second, then hold and fade over the next collision.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
