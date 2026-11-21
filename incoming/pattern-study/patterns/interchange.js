@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Traffic=0..2.5, Shutter=-1..1, Bend=-1..1
 //
 // Knob 1: Hue. Turns the sky glow and every car light round the colour wheel. At 0 the sky runs from indigo at the top to an orange glow on the horizon at row 33, headlights are warm white, taillights red and trucks amber; at 0.5 the glow is blue-green and the taillights cyan; at 1 it is back where it began.
-// Knob 2: Traffic. How many cars enter each lane. At 0 about 3 a minute, so every lane is a few lone dashes; at the opening 2 about 23 a minute, with ribbons and a queue or two; at 3 about 65 a minute, more than a lane can carry, so queues stand on every road and the ribbons blaze.
-// Knob 3: Shutter. How long the light stays on the film, 0.7 s at -1 to 14 s at 1 (3.1 s at the opening 0). At -1 each car is a bright point with a tail of 15 to 30 LEDs; at 1 the ribbons are continuous and a jam is a smear that takes a quarter of a minute to fade. The picture is kept at about the same brightness all along.
-// Knob 4: Bend. How far the ramps swing. At -1 the roads are nearly straight diagonals that cross once; at the opening 0.06 they sweep in S-curves; at 1 the ramp loops about 40 LEDs out to the left and back, and the flyover bows into an S.
+// Knob 2: Traffic. How many cars enter each lane. At 0 about 5 a minute, so each lane is a few lone comets with long tails; at the opening 2 about 34 a minute, a lane at about four fifths of what it can carry, so a queue forms at a slow patch now and then and fades; at 2.5 about 53 a minute, more than a lane can carry, so queues stand on every road and the ribbons blaze. The picture is metered, so the sparse end is not dark.
+// Knob 3: Shutter. How long the light stays on the film, 0.7 s at -1 to 14 s at 1 (3.1 s at the opening 0). At -1 each car is a bright point with a tail of 8 to 28 LEDs and the ribbons are broken; at the opening they are continuous with a dash here and there; at 1 a jam is a smear that takes about half a minute to fade and the whole picture is about twice as bright.
+// Knob 4: Bend. How far the roads swing, by moving their Bezier control points. At -1 the ramp and the side road are near-straight diagonals that cross the highway once; at the opening 0.06 they sweep in S-curves; at 1 the ramp swings out to the left edge and back across the highway to the right horizon, and the flyover bows into an S.
 
 const W = 64;
 const H = 128;
@@ -105,13 +105,12 @@ const NCAP = 420; // table length of a lane, in world units
 
 // car-following (IDM) in world units: the length of road as the road would
 // measure it at row 128 scale, so a car far away crosses fewer LEDs a second
-const V0 = 17;
+const V0 = 20;
 const ACC = 5;
 const DEC = 7;
 const THW = 1.1; // time headway
 const S0 = 2.2; // standstill gap
-const CARLEN = 1.7;
-const AMAX = ACC;
+const CARLEN = 2.8;
 
 const PX = new Float32Array(NSEG * 4 + 8);
 const PY = new Float32Array(NSEG * 4 + 8);
@@ -133,6 +132,10 @@ export function setup(params) {
     bend: 0.06,
     builtBend: 9,
     builtHue: 9,
+    builtDrift: 99,
+    bendE: 0.06,
+    sway: 0,
+    skyDrift: 0,
     tau: 3,
     flow: 0.4,
     lb: [new Float32Array(NPX * 3), new Float32Array(NPX * 3), new Float32Array(NPX * 3)],
@@ -179,7 +182,6 @@ export function setup(params) {
         p2: hash(idx * 5.3 + 3) * TAU,
         p3: hash(idx * 9.7 + 4) * TAU,
         fb: 1,
-        hot: 0,
       });
       idx++;
     }
@@ -188,26 +190,25 @@ export function setup(params) {
   for (let k = 0; k < 10; k++) {
     S.city.push({
       x: 3 + 58 * hash(k * 2.3 + 7),
-      y: YH + 0.8 + 5.5 * hash(k * 4.1 + 2) * hash(k * 1.7 + 5),
-      sx: 1.7 + 1.8 * hash(k * 6.1 + 3),
+      y: YH + 2.6 + 5.5 * hash(k * 4.1 + 2) * hash(k * 1.7 + 5),
+      sx: 1.5 + 1.5 * hash(k * 6.1 + 3),
       sy: 1.0 + 0.9 * hash(k * 8.3 + 9),
-      a: 0.07 + 0.13 * hash(k * 3.7 + 1),
+      a: 0.09 + 0.16 * hash(k * 3.7 + 1),
       kind: hash(k * 5.9 + 4),
       w: 0.31 + 0.9 * hash(k * 1.3 + 8),
       p: TAU * hash(k * 9.1 + 6),
     });
   }
-  // the sparkle of a distant high-rise light is a soft glow, not a dot
   params.s = S;
 }
 
 // ---- geometry ----
 function buildAll(S) {
-  const u = cl((S.bend + 1) * 0.5, 0, 1);
+  const u = cl((S.bendE + 1) * 0.5, 0, 1);
   S.dk[1].fill(0);
   S.dk[2].fill(0);
   for (let ri = 0; ri < ROADS.length; ri++) buildRoad(S, ri, u);
-  S.builtBend = S.bend;
+  S.builtBend = S.bendE;
 }
 
 function buildRoad(S, ri, u) {
@@ -347,11 +348,12 @@ function buildColours(S) {
   set(S.BW, 245, 0.92, 0.07);
   set(S.TL, 27, 0.63, 0.25);
   set(S.AMB, 68, 0.82, 0.17);
-  set(S.SKYT, 283, 0.4, 0.14);
-  set(S.SKYM, 335, 0.55, 0.17);
-  set(S.SKYG, 42, 0.78, 0.16);
-  set(S.HAZE, 20, 0.7, 0.14);
+  set(S.SKYT, 283 + S.skyDrift, 0.4, 0.14);
+  set(S.SKYM, 335 + S.skyDrift, 0.55, 0.17);
+  set(S.SKYG, 42 + S.skyDrift, 0.78, 0.16);
+  set(S.HAZE, 20 + S.skyDrift, 0.7, 0.14);
   S.builtHue = S.hue;
+  S.builtDrift = S.skyDrift;
 }
 
 // ---- the traffic ----
@@ -368,7 +370,7 @@ function stepSim(S, h) {
     }
   }
   // the film is metered: fewer cars, longer exposure of each
-  const pw = 0.13 * pow(3 / S.tau, 0.55) * pow(0.55 / S.flow, 0.6) * h; // light a unit car leaves per step
+  const pw = 0.23 * pow(3 / S.tau, 0.42) * pow(0.55 / S.flow, S.flow < 0.55 ? 0.6 : 0.3) * h; // light a unit car leaves per step
   for (let k = 0; k < S.cws.length; k++) stepLane(S, S.cws[k], h, T, pw);
 }
 
@@ -389,7 +391,7 @@ function stepLane(S, cw, h, T, pw) {
       const kind = r2 < 0.07 ? 1 : r2 < 0.15 ? 2 : 0;
       const v0 = V0 * (0.9 + 0.2 * r3) * (kind === 1 ? 0.72 : 1);
       const v = min(v0, last ? last.v + 3 : v0) * 0.9;
-      cars.push({ s: 0, sp: 0, v, v0, kind, br: 0, slow: 0, inc: r4 < 0.4 ? (0.2 + 0.6 * hash(cw.cnt * 1.9 + cw.idx)) * nT : -1, len: kind === 1 ? 2.8 : CARLEN });
+      cars.push({ s: 0, sp: 0, v, v0, kind, br: 0, slow: 0, inc: r4 < 0.4 ? (0.2 + 0.6 * hash(cw.cnt * 1.9 + cw.idx)) * nT : -1, len: kind === 1 ? 4.4 : CARLEN });
       cw.cnt++;
       const q = max(0.02, S.flow * cw.dem);
       cw.next = T + max(0.4, -log(1 - 0.985 * r1) / q);
@@ -420,7 +422,7 @@ function stepLane(S, cw, h, T, pw) {
       const star = S0 + max(0, c.v * THW + (c.v * dv) / (2 * sqrt(ACC * DEC)));
       acc = ACC * (1 - r2 * r2 - (star / gap) * (star / gap));
     } else acc = ACC * (1 - r2 * r2);
-    acc = cl(acc, -2 * DEC, AMAX);
+    acc = cl(acc, -2 * DEC, ACC);
     c.v = max(0, c.v + acc * h);
     c.s += c.v * h;
     if (lead && c.s > lead.s - lead.len) {
@@ -437,7 +439,7 @@ function deposit(S, cw, c, lb, pw) {
   const X = cw.X;
   const Y = cw.Y;
   const b = c.s;
-  const a = max(0, b - c.len * 1.7);
+  const a = max(0, b - c.len * 1.5);
   const ia = a | 0;
   const ib = b | 0;
   const fa = a - ia;
@@ -466,7 +468,7 @@ function deposit(S, cw, c, lb, pw) {
   } else {
     const hl = c.kind === 2 ? S.BW : S.HL;
     const tl = 0.8 + 1.1 * c.br;
-    const wh = wt * 1.25;
+    const wh = wt * 1.5;
     const wr = (1 - wt) * tl;
     r = wh * hl[0] + wr * S.TL[0];
     g = wh * hl[1] + wr * S.TL[1];
@@ -515,19 +517,26 @@ export function update(dt, input, params) {
   S.shut = cl(kn[2], -1, 1);
   S.bend = cl(kn[3], -1, 1);
   S.t += d;
+  // the evening moves on its own: the demand swells and ebbs over a minute or two, the
+  // roads sway a little, the sky's tint wanders, all on periods that do not divide
+  const tt = S.t;
+  const swell = 1 + 0.3 * sin(0.043 * tt) + 0.14 * sin(0.0171 * tt + 3.0) - 0.14 * sin(3.0);
+  S.sway = 0.13 * sin(0.0313 * tt) + 0.07 * sin(0.0127 * tt + 2.2) - 0.07 * sin(2.2);
+  S.skyDrift = 14 * sin(0.0211 * tt + 1.2) - 14 * sin(1.2);
+  S.bendE = cl(S.bend + S.sway, -1, 1);
   const tauT = TAU_MIN * pow(TAU_MAX / TAU_MIN, (S.shut + 1) * 0.5);
-  S.flow = 0.06 * pow(18, S.traffic / 2.5);
-  if (S.builtHue !== S.hue) buildColours(S);
+  S.flow = 0.09 * pow(6.2, S.traffic / 2) * swell;
+  if (S.builtHue !== S.hue || abs(S.skyDrift - S.builtDrift) > 0.6) buildColours(S);
   if (!S.warm) {
     S.warm = true;
     S.tau = tauT;
     buildColours(S);
     buildAll(S);
-    for (let i = 0, n = round30(PRERUN); i < n; i++) stepSim(S, SIM_H);
+    for (let i = 0, n = Math.round(PRERUN / SIM_H); i < n; i++) stepSim(S, SIM_H);
     return;
   }
   S.tau += (tauT - S.tau) * (1 - exp(-d / 0.25));
-  if (abs(S.bend - S.builtBend) > 0.002) buildAll(S);
+  if (abs(S.bendE - S.builtBend) > 0.002) buildAll(S);
   S.acc += d;
   while (S.acc >= SIM_H) {
     S.acc -= SIM_H;
@@ -535,19 +544,14 @@ export function update(dt, input, params) {
   }
 }
 
-function round30(s) {
-  return Math.round(s / SIM_H);
-}
-
 // ---- the picture ----
 // the sky at row y (above the horizon) into out, at the sky's slow breathing
 function skyAt(S, y, out, br) {
   const t = cl((y + 0.5) / YH, 0, 1);
-  const tt = t * t;
   const a = 0.021 * pow(1 - t, 1.3);
   const b = 0.07 * pow(t, 1.5) * (1 - pow(t, 5));
-  const c = 0.5 * br * pow(t, 5.5);
-  for (let k = 0; k < 3; k++) out[k] = S.SKYT[k] * a + S.SKYM[k] * b + S.SKYG[k] * c + 0 * tt;
+  const c = 0.4 * br * pow(t, 4.6);
+  for (let k = 0; k < 3; k++) out[k] = S.SKYT[k] * a + S.SKYM[k] * b + S.SKYG[k] * c;
 }
 
 export function draw(display, params) {
@@ -621,6 +625,8 @@ export function draw(display, params) {
       const dy = y + 0.5 - YH;
       const hz = 0.06 * br * exp(-dy / 4.2) + 0.006 * exp(-dy / 16);
       for (let k = 0; k < 3; k++) tmp[k] = S.HAZE[k] * hz;
+      const ridge = 1 - 0.6 * (1 - sm(0, 2.8, dy));
+      for (let k = 0; k < 3; k++) tmp[k] *= ridge;
       tmp[0] += 0.0012;
       tmp[1] += 0.0022;
       tmp[2] += 0.0062 + 0.004 * exp(-dy / 25);
