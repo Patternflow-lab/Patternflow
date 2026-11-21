@@ -49,8 +49,8 @@ for (let y = 0; y < H; y++)
   }
 
 // ---- the crystal
-const LAMBDA0 = 0.0149 / 0.352; // wavelength in units of the lattice constant a (nickel, a = 0.352 nm)
-const NMAX_AT = (k3) => 15 + 8 * k3; // the highest h2 + k2 + l2 shown, at the voltage knob k3
+const LAMBDA0 = 0.01083 / 0.352; // wavelength in units of the lattice constant a (nickel, a = 0.352 nm)
+const NMAX_AT = (k3) => 14 + 8 * k3; // the highest h2 + k2 + l2 shown, at the voltage knob k3
 const PLANES = [];
 const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 for (let h = 0; h <= 5; h++)
@@ -59,17 +59,17 @@ for (let h = 0; h <= 5; h++)
       const n2 = h * h + k * k + l * l;
       if (n2 === 0 || n2 > 27) continue;
       if (h === 0 && (k < 0 || (k === 0 && l < 0))) continue;
-      if (((h ^ k ^ l) & 1) !== 0 || ((h + 1) & 1) !== ((k + 1) & 1) || ((k + 1) & 1) !== ((l + 1) & 1)) continue;
+      if ((h & 1) !== (abs(k) & 1) || (abs(k) & 1) !== (abs(l) & 1)) continue;
       const g = gcd(gcd(h, abs(k)), abs(l)), p = [h / g, abs(k) / g, abs(l) / g].sort((a, b) => b - a).join("");
-      PLANES.push({ h, k, l, n2, fam: p, w: exp(-(n2 - 3) / 9) });
+      PLANES.push({ h, k, l, n2, fam: p, w: n2 - 3 });
     }
 // Colour of a family, as hue, saturation and a gain. The orders of one set of planes, {222} of {111} and {400} of {200}, share it.
 const FAMILY = {
-  111: [0.5, 0.3, 1.0],
-  100: [0.74, 0.62, 1.0],
-  110: [0.115, 0.7, 1.0],
-  311: [0.93, 0.5, 1.0],
-  331: [0.4, 0.45, 1.0],
+  111: [0.5, 0.32, 1.0],
+  100: [0.72, 0.7, 1.0],
+  110: [0.11, 0.8, 1.0],
+  311: [0.93, 0.5, 0.5],
+  331: [0.4, 0.45, 0.8],
   210: [0.6, 0.5, 1.0],
   211: [0.84, 0.4, 1.0],
 };
@@ -114,7 +114,7 @@ function omegaAt(tau, out) {
 
 function makeState() {
   return {
-    q: [0.8, 0.3, -0.2, 0.5], tau: 0, omega: [0, 0, 0],
+    q: [0.151, 0.208, -0.358, 0.898], tau: 0, omega: [0, 0, 0],
     kn: [0, 2, 0, 0.06],
     R: new Float64Array(9),
     ar: new Float32Array(NPX), ag: new Float32Array(NPX), ab: new Float32Array(NPX),
@@ -161,24 +161,23 @@ export function draw(display, params) {
   const { ar, ag, ab, R } = S;
   matrixOf(S.q, R);
   ar.fill(0); ag.fill(0); ab.fill(0);
-  const lam = LAMBDA0 * Math.pow(3.5, -0.5 * k3) * 1.0, nmax = NMAX_AT(k3), rgb = [0, 0, 0];
+  const lam = LAMBDA0 * Math.pow(2, -0.7 * k3), nmax = NMAX_AT(k3), rgb = [0, 0, 0], decay = 2.2 + 1.7 * (k3 + 1);
 
   for (let pi = 0; pi < PLANES.length; pi++) {
     const P = PLANES[pi];
-    const vis = 1 - sm(nmax - 3, nmax + 3, P.n2);
+    const vis = 1 - sm(nmax - 2, nmax + 2, P.n2);
     if (vis <= 0.004) continue;
     const gx = P.h, gy = P.k, gz = P.l / ca, gl = sqrt(gx * gx + gy * gy + gz * gz);
     const nx = (R[0] * gx + R[1] * gy + R[2] * gz) / gl, ny = (R[3] * gx + R[4] * gy + R[5] * gz) / gl, nz = (R[6] * gx + R[7] * gy + R[8] * gz) / gl;
-    const hw = min(0.5 * lam * gl, 0.45), cut = hw * 1.5, inv = 1 / hw;
+    const hw = min(0.5 * lam * gl, 0.45), sg = max(0.3 * hw, 0.85 / PPU), cut = max(1.15 * hw, hw + 1.7 * sg), inv = 1 / hw, isg = 1 / sg;
     hsv(hue + P.col[0], P.col[1], 1, rgb);
-    const amp = P.w * vis, cr = rgb[0] * amp, cg = rgb[1] * amp, cb = rgb[2] * amp;
+    const amp = exp(-P.w / decay) * vis * P.col[2], cr = rgb[0] * amp, cg = rgb[1] * amp, cb = rgb[2] * amp;
     for (let i = 0; i < NPX; i++) {
       const a = abs(DX[i] * nx + DY[i] * ny + DZ[i] * nz);
       if (a > cut) continue;
-      const u = a * inv;
-      const fill = 1 - sm(0.8, 1.2, u);
-      const e = (u - 1) / 0.45, ridge = exp(-e * e);
-      const f = 0.55 * fill + 0.45 * ridge;
+      const fill = 1 - sm(0.85, 1.15, a * inv);
+      const e = (a - hw) * isg, ridge = exp(-e * e);
+      const f = 0.6 * fill + 0.5 * ridge;
       ar[i] += cr * f; ag[i] += cg * f; ab[i] += cb * f;
     }
   }
@@ -194,13 +193,13 @@ export function draw(display, params) {
       const r = Math.acos(cl(sz, -1, 1)), sr = sin(r), rho = tan(KAPPA * r) / KAPPA;
       const cx = 31.5 + (sr > 1e-6 ? (rho * sx) / sr : 0) * PPU, cy = 63.5 + (sr > 1e-6 ? (rho * sy) / sr : 0) * PPU;
       const rad = 7, x0 = max(0, floor(cx - rad)), x1 = min(W - 1, floor(cx + rad) + 1), y0 = max(0, floor(cy - rad)), y1 = min(H - 1, floor(cy + rad) + 1);
-      const sig = 3.2 / PPU;
+      const sig = 2.6 / PPU;
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
           const i = y * W + x;
           const dd = 2 * (1 - (DX[i] * sx + DY[i] * sy + DZ[i] * sz)), q = dd / (sig * sig);
           if (q > 4) continue;
-          const g = Z.wt * 0.55 * exp(-q);
+          const g = Z.wt * 0.4 * exp(-q);
           ar[i] += g; ag[i] += g * 0.92; ab[i] += g * 0.8;
         }
     }
@@ -220,5 +219,5 @@ export function draw(display, params) {
 }
 
 function tone(c) {
-  return c <= 0 ? 0 : 1 - 1 / (1 + 1.4 * c + 0.7 * c * c);
+  return c <= 0 ? 0 : 1 - 1 / (1 + 1.8 * c + 1.2 * c * c);
 }
