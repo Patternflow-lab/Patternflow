@@ -9,12 +9,12 @@
 // Round:   214
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.3..1
+// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.8..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all three cells, so one turn comes back to where it began. At 0 the cells are coral (hue 0.035), cyan (0.50) and violet (0.77). At 0.25 they are yellow-green, purple and red; at 0.5 azure, red and green; at 0.75 violet, chartreuse and cyan.
 // Knob 2: Spacing. The module scale, which multiplies the spacing of all three cells together. It is the knob over 2, because the Lab opens this knob at 2: 0.7 at the bottom, 1.0 at the opening and 1.6 at the top. The spacing of one colour, field to field, is 24 LEDs at the opening, 16.8 at the bottom and 38.4 at the top; neighbours of different colours are 13.9, 9.7 and 22.2 apart. A field is about 0.2 of the spacing across at half height: 4.9 LEDs at the opening, 3.5 at the bottom, 7.9 at the top. The lattice dilates about the middle of the panel.
 // Knob 3: Orientation. Rotates the module about the middle of the panel, from -30 to +30 degrees on top of its own orientation (8 degrees at the opening, wandering with the re-maps), opening at 0. A hexagonal lattice maps onto itself every 60 degrees, so the two ends have the same orientation; the turn is about the middle of the panel and not about a field, so the fields land on other places and the ends still differ. At the top and bottom edge, 64 LEDs from the middle, one degree moves the fields 1.1 LEDs, and half that at the sides.
-// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale bent so the opening sits high: 8 s at -0.3, 39 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 160 LEDs of path, and 23 percent of the arena shows. At the opening 75 to 86 percent shows on the first frame, and at 240 s all of it. The shares are of the LEDs whose confidence is above one half.
+// Knob 4: Memory. How long the arena stays lit behind the animal, on a logarithmic scale: 8 s at -0.8, 41 s at the opening 0.06 and 240 s at 1. At 8 s only a comet follows the animal, about 160 LEDs of path, and 23 percent of the arena shows; at 19 s, a quarter of the way up the knob, 51 percent. At the opening 77 to 88 percent shows on the first frame, and at 240 s all of it. The shares are of the LEDs whose confidence is above one half.
 
 // What is drawn is what a neuroscientist plots. A grid cell fires on the
 // vertices of a triangular lattice. The standard model sums three cosines
@@ -149,7 +149,7 @@ export function setup(params) {
     cell: [],
     mod: null,
     next: 0,
-    hue: 0, scale: 1, rot: 0, mem: 39,
+    hue: 0, scale: 1, rot: 0, mem: 41,
     buf: new Float32Array(N * 3),
     col: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
   };
@@ -332,7 +332,7 @@ export function update(dt, input, params) {
   S.hue = k[0];
   S.scale = cl(k[1], 1.4, 3.2) / 2;
   S.rot = cl(k[2], -30, 30);
-  S.mem = 8 * pow(30, pow(cl((k[3] + 0.3) / 1.3, 0, 1), 0.6));
+  S.mem = 8 * pow(30, cl((k[3] + 0.8) / 1.8, 0, 1));
   let span = cl(dt || 0, 0, 0.1);
   while (span > 1e-9) {
     const h = min(span, STEP);
