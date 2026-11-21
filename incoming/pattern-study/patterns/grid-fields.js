@@ -9,7 +9,7 @@
 // Round:   214
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-1..1
+// @knobs Hue=0..1, Spacing=1.4..3.2, Orientation=-30..30, Memory=-0.4..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all three cells, so one turn comes back to where it began. At 0 the cells are coral (hue 0.035), cyan (0.50) and violet (0.77). At 0.25 they are yellow-green, purple and red; at 0.5 azure, red and green; at 0.75 violet, chartreuse and cyan.
 // Knob 2: Spacing. The module scale, which multiplies the three spacings together. It is the knob over 2, because the Lab opens this knob at 2: 0.7 at the bottom, 1.0 at the opening and 1.6 at the top. The spacings, nearest field to nearest field, are 18, 25.2 and 35.3 LEDs at the opening, 12.6, 17.6 and 24.7 at the bottom and 28.8, 40.3 and 56.5 at the top. A field is about 0.3 of its spacing across at half height: 5.4 LEDs for the first cell at the opening, 3.8 at the bottom, 8.6 at the top. The lattices dilate about the middle of the panel.
@@ -72,13 +72,13 @@ const POW = 2.2; // the rate is max(0, g) to this power
 const RMAX = 10; // spikes a second at the peak of a field
 
 // ---- the animal
-const SPEED = 16; // mean speed, LEDs a second
+const SPEED = 20; // mean speed, LEDs a second
 const SU = SPEED / sqrt(PI / 2); // standard deviation of one velocity component: a Rayleigh speed has this mean
 const TAUV = 1.1; // velocity correlation time, seconds
 const MARGIN = 7; // the walls start pushing this far in
 const PUSH = 70; // acceleration at the wall, LEDs a second squared
 const SIGMA_OCC = 2.7; // radius of a stamp, LEDs (a gaussian; 4 LEDs is two sigma)
-const A_OCC = 9; // occupancy a second at the stamp's centre
+const A_OCC = 11.2; // occupancy a second at the stamp's centre
 const LADDER = 6; // memory times kept: 8 s up to 240 s
 const PRE = 300; // seconds the animal runs before the first frame
 const STEP = 1 / 30; // longest step of the walk
@@ -129,7 +129,7 @@ export function setup(params) {
     sp: [],
     cell: [],
     next: 0,
-    hue: 0, scale: 1, rot: 0, mem: 49,
+    hue: 0, scale: 1, rot: 0, mem: 24,
     buf: new Float32Array(N * 3),
     col: [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
   };
@@ -302,7 +302,7 @@ export function update(dt, input, params) {
   S.hue = k[0];
   S.scale = cl(k[1], 1.4, 3.2) / 2;
   S.rot = cl(k[2], -30, 30);
-  S.mem = 8 * pow(30, cl((k[3] + 1) / 2, 0, 1));
+  S.mem = 8 * pow(30, cl((k[3] + 0.4) / 1.4, 0, 1));
   let span = cl(dt || 0, 0, 0.1);
   while (span > 1e-9) {
     const h = min(span, STEP);
