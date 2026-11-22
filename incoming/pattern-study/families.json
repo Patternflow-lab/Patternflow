@@ -149,5 +149,10 @@
   "georadar": { "label": "지중 레이더", "color": "#3df273" },
   "fluvial": { "label": "하천 곡류", "color": "#cc14cc" },
   "amoeba": { "label": "점균 모임", "color": "#895ccc" },
-  "corral": { "label": "양자 울타리", "color": "#ad39bf" }
+  "corral": { "label": "양자 울타리", "color": "#ad39bf" },
+  "conoscopy": { "label": "원뿔 간섭무늬", "color": "#ff4dff" },
+  "hrdiagram": { "label": "별무리 도표", "color": "#d93a00" },
+  "kundt": { "label": "쿤트 관", "color": "#ffeb33" },
+  "strainband": { "label": "변형 띠", "color": "#ff0033" },
+  "fourieroptics": { "label": "푸리에 광학", "color": "#00f251" }
 }
