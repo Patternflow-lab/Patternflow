@@ -26,7 +26,7 @@ const fr = (v) => v - floor(v);
 const EPS = 0.05, FA = 0.84, FB = 0.07, DL = 1.9, TAUV = 1.0;
 const HS = 0.03; // longest step
 // ---- the cells
-const NP = 5000, WT = N / NP; // cells, and the density one of them stands for (mean density 1)
+const NP = 6000, WT = N / NP; // cells, and the density one of them stands for (mean density 1)
 const D0 = 0.03; // random walk of a cell outside the streams, LED^2 a second
 const CAP = 0.3; // longest chemotactic step, LEDs
 const SLOW = 4; // steps between the slow fields
@@ -35,7 +35,7 @@ const WARM = 1500; // warm-up steps
 const KM = 3, BETA = 0.06, DMT = 0.14, GSRC = 1.4, REACH = 0.9; // pull of the stream field, its fade and spread, strength, growth in LEDs a second
 const CATCH = 0.12; // chance a step that a cell beside a stream joins it
 // ---- pacemakers and mounds
-const NPM = 4, MBIG = 800, SHED = 1 / 14, FLY = 28;
+const NPM = 5, MBIG = 800, SHED = 1 / 14, FLY = 28;
 
 const XP = new Int32Array(N), XM = new Int32Array(N), YP = new Int32Array(N), YM = new Int32Array(N);
 for (let y = 0; y < H; y++)
@@ -135,7 +135,7 @@ const wrap = (x, L) => (x < 0 ? x + L : x >= L ? x - L : x);
 // Each node knows the node nearer the mound, so a cell can walk in along the files.
 function buildTree(q) {
   const nx = [], ny = [], par = [], len = [];
-  const n0 = 7 + floor(Math.random() * 3), bend = (Math.random() < 0.5 ? -1 : 1) * (0.008 + 0.01 * Math.random());
+  const n0 = 7 + floor(Math.random() * 4), bend = (Math.random() < 0.5 ? -1 : 1) * (0.008 + 0.01 * Math.random());
   const walk = (x, y, th, parent, l0, l1, depth) => {
     let wob = 0, prev = parent;
     for (let l = l0; l < l1; l++) {
@@ -153,7 +153,7 @@ function buildTree(q) {
       }
     }
   };
-  for (let k = 0; k < n0; k++) walk(q.x, q.y, (6.2832 * (k + 0.5 * Math.random())) / n0, -1, 0, 18 + 20 * Math.random(), 0);
+  for (let k = 0; k < n0; k++) walk(q.x, q.y, (6.2832 * (k + 0.5 * Math.random())) / n0, -1, 0, 24 + 22 * Math.random(), 0);
   q.nx = Float32Array.from(nx);
   q.ny = Float32Array.from(ny);
   q.np = Int16Array.from(par);
@@ -258,8 +258,8 @@ function slow(S, dts) {
     if (st[p] !== 2) continue;
     const k = pt[p];
     if (Math.random() < SHED * dts) {
-      // let go: half go back to the open, half join a stream far out
-      if (Math.random() < 0.5 || !joinFile(S, p, k, 0.6)) throwOut(S, p, S.pm[k], 9, 28);
+      // let go: most join a stream far out, a few go back to the open
+      if (Math.random() < 0.2 || !joinFile(S, p, k, 0.55)) throwOut(S, p, S.pm[k], 9, 28);
     } else cnt[k]++;
   }
   for (let k = 0; k < S.pm.length; k++) S.pm[k].mass = cnt[k] * WT;
@@ -308,7 +308,7 @@ function step(S, P, h) {
     gx[i] = 0.5 * (U[XP[i]] - U[XM[i]]) + KM * U[i] * 0.5 * (m1[XP[i]] - m1[XM[i]]);
     gy[i] = 0.5 * (U[YP[i]] - U[YM[i]]) + KM * U[i] * 0.5 * (m1[YP[i]] - m1[YM[i]]);
   }
-  const sx = P.ch * h, sd = sqrt(6 * D0 * h), fstep = FLY * h, sp = P.ch * 0.36 * h;
+  const sx = P.ch * h, sd = sqrt(6 * D0 * h), fstep = FLY * h, sp = P.ch * 0.26 * h;
   for (let p = 0; p < NP; p++) {
     const s = st[p];
     let x = px[p], y = py[p];
@@ -383,7 +383,7 @@ function step(S, P, h) {
 
 function seedField(S) {
   const { px, py } = S;
-  const spots = [[18, 26], [46, 58], [14, 94], [44, 116]];
+  const spots = [[16, 20], [48, 46], [26, 72], [50, 98], [14, 112]];
   for (let k = 0; k < NPM; k++) {
     const q = makePacemaker(spots[k][0], spots[k][1], -(10 + 50 * Math.random()));
     q.next = Math.random() * 4;
@@ -439,12 +439,14 @@ export function draw(display, params) {
   const hue = cl(S.knobs[0], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
   const { u, v, rb, rs, tmp, tmp2, lut } = S;
+  // Chemotaxis shows in the picture straight away: the more it is, the dimmer the haze and the brighter the files.
+  const k3 = cl(S.knobs[2], -1, 1), k4 = cl(S.knobs[3], -1, 1), gh = 1 - 0.55 * k3, gs = 1 + 0.45 * k3, gw = 0.75 + 0.4 * k4;
   splat(S, tmp2);
   blur(tmp2, rb, tmp, 2);
   blur(rb, rs, tmp, 3);
   for (let i = 0; i < N; i++) {
-    const L = 0.45 * (1 - exp(-rs[i] / 3)) + 0.62 * (1 - exp(-max(0, rb[i] - 1.2) / 4.5));
-    const w = u[i] + 0.5 * v[i] * (1 - u[i]);
+    const L = gh * 0.34 * (1 - exp(-rs[i] / 3)) + gs * 0.78 * (1 - exp(-max(0, rb[i] - 0.7) / 3.2));
+    const w = gw * (u[i] + 0.5 * v[i] * (1 - u[i]));
     const s = cl(L * (1 + 0.9 * w) + 0.1 * w, 0, 1);
     const li = ((s * 255) | 0) * 3;
     display.setPixel(i % W, (i / W) | 0, lut[li], lut[li + 1], lut[li + 2]);
