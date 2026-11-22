@@ -11,10 +11,28 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.5..3.5, Selection=-1..1, Size=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Flow.
-// Knob 3: Selection.
-// Knob 4: Size.
+// Knob 1: Hue. Adds the knob, in turns of the colour wheel, to the hue of every clone, so 0 to 1 goes once round. At the opening 0 the clones sit between yellow-green and magenta around a cyan-blue root (0.6 turns), never red. A child's hue is its parent's plus or minus 25 to 70 degrees, whichever of ten tries lies farthest from every clone alive, with saturation 0.72 to 0.9 and value 0.84 to 1.0 for each clone. The whole palette also turns by itself, 0.0011 of a turn a row (0.007 a second at the opening), so a band that runs down the panel changes colour by about 50 degrees from top to bottom.
+// Knob 2: Flow. Sets how fast the plot runs. A row of the plot, one LED line, takes 0.25 s at 0.5, 0.15 s at the opening 2 and 0.09 s at 3.5, which is 4, 6.7 and 11 rows a second, so the 128 rows take 32 s, 19 s or 11.5 s to run down the panel. The model also runs more generations for each row, 1.0 at 0.5, 1.7 at 2 and 2.4 at 3.5, so a faster flow moves the evolution along by more than the scrolling alone.
+// Knob 3: Selection. The scale of the selection coefficient s a generation, 0.13 times e to the 1.1 times the knob: 0.043 at -1, 0.13 at 0 and 0.39 at 1. A new mutant of the clone it grows from takes its parent's s plus 0.3 to 2.5 times the scale (about 1 on average, mostly weak, now and then large), or loses 0.2 to 1.9 times it, which 28 mutants in 100 do. At -1 a sweep takes about as long as the panel is tall, so several lineages run side by side in long braided strands and the mutation supply goes up to 0.8 new cells a generation. At 1 a sweep is over in about ten rows and the picture is a stack of nearly level bands, each a clone that took over.
+// Knob 4: Size. The population size N, 2600 times e to the 2.2 times the knob: 290 cells at -1, 2970 at the opening 0.06 and 23000 at 1. Each generation every clone is resampled from a Poisson with the mean selection leaves it, so a clone holding half the row drifts by 1.9 LEDs a generation at 290 and 0.2 at 23000. At -1 the borders are ragged and one clone can take the row by luck, at 1 they are smooth curves close to the deterministic plot. The supply of mutants rises a little with N (to the power 0.2). The rows also follow the population closely at 290 (the whole of each change) and loosely at 23000 (0.22 of it).
+
+// The panel shows a Muller plot of a population of asexual cells, time running down: the newest row is the top LED line
+// and every row slides down one LED each time a new one is born. A row is the whole population, 64 LEDs wide, and a clone is
+// a colour whose width is its share. A child's band lies inside its parent's, near the middle, so the parent splits to the
+// two sides; the children of one parent are set by the least overlapping move, wide ones moving least. A band of parent
+// thinner than 2.4 LEDs closes, so no hairline of an old clone lingers at the edge.
+// The model is real. Each generation every clone's share is multiplied by e to the s (selection), the cell counts are
+// resampled (Poisson, the Wright-Fisher drift of a population of N), and with a mean of lam a cell of a clone picked in
+// proportion to its size starts a clone of one cell whose s is its parent's plus a draw from a shifted exponential. A clone
+// is drawn once it has 4 cells, as a bud of at least 2.6 LEDs that opens over 5 rows with a paler, brighter colour; when
+// its cells are gone its tip closes over 7 rows. Clones with nothing left in them, and the ancestors that nothing of the
+// living descends from, are dropped and the root moves to the nearest common ancestor, so the tree stays short. Past 48
+// clones with cells the smallest folds into its nearest living ancestor.
+// A row is drawn from the shares smoothed over a few generations, so nothing flashes from row to row, and the panel
+// blends the row above and the row below by how far the next row has got. Where two bands meet the colours cross over
+// 1.7 LEDs in hue, with a faint dark seam and each band a little dimmer toward its own edges.
+// The first update runs the population about 2600 rows ahead with the knobs where they stand, and on until three clones
+// of different hue share a row, none holds 70 percent of it, and a young beneficial mutant is on its way up.
 
 const W = 64, H = 128;
 const HR = 136; // rows of history kept
@@ -223,7 +241,10 @@ function tick(S) {
   S.gacc -= g;
   while (g-- > 0) generation(S);
   S.row++;
-  if (S.ready) S.g += DRIFT * (1 + 0.5 * Math.sin(S.row * 0.0071 + 1.3) + 0.3 * Math.sin(S.row * 0.0173 + 4.1));
+  if (S.ready) {
+    S.g += DRIFT * (1 + 0.5 * Math.sin(S.row * 0.0071 + 1.3) + 0.3 * Math.sin(S.row * 0.0173 + 4.1));
+    S.g -= floor(S.g);
+  }
   for (let i = 0; i < MAXC; i++) if (S.used[i]) S.ft[i] += (S.n[i] / S.T - S.ft[i]) * S.alpha;
   for (let pass = 0; pass < 6; pass++) {
     let changed = false;
@@ -325,7 +346,8 @@ function render(S) {
     const dd = min(dl, dr), rw = min(8, 0.45 * bw);
     v *= 1 - 0.22 * sm(2, 8, bw) * (1 - sm(0, rw, dd)) - 0.2 * min(seam, 1);
     h -= floor(h);
-    S.HH[o + p] = h + S.g;
+    h += S.g;
+    S.HH[o + p] = h - floor(h);
     S.HS[o + p] = cl(s, 0, 1);
     S.HV[o + p] = cl(v, 0, 1);
   }
@@ -468,7 +490,10 @@ function prerun(S) {
   // the rows already drawn are older, so they carry the palette a little behind the new ones
   for (let a = 0; a < HR; a++) {
     const o = ((S.head - a + HR) % HR) * W;
-    for (let p = 0; p < W; p++) S.HH[o + p] -= DRIFT * a;
+    for (let p = 0; p < W; p++) {
+      const v = S.HH[o + p] - DRIFT * a;
+      S.HH[o + p] = v - floor(v);
+    }
   }
 }
 
