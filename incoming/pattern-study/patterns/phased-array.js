@@ -42,9 +42,9 @@ const ZREF = 1 / sqrt(55);
 
 // ---- the scan
 const STEP = 11; // degrees between dwell angles, before the jitter
-const BETA = [[22, 29.3, 0.7], [14, 47.1, 2.9], [9, 73.7, 4.6]]; // amplitude in degrees, period in s, phase
+const BETA = [[18, 29.3, 0.7], [12, 47.1, 2.9], [8, 73.7, 4.6]]; // amplitude in degrees, period in s, phase
 const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
-const THMAX = 56;
+const THMAX = 42;
 const HAND = 2.2; // seconds a hand-over takes at Scan 2
 function betaOf(sc) {
   let b = 0;
@@ -69,7 +69,7 @@ function makeState() {
     ready: false, t: 0, sc: 0, off: 0, nextEv: 24,
     th: 0, vel: 0, hv: -1, thB: 0,
     kn: [0, 2, 0.5, 0.06],
-    d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0,
+    d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0, shift: 0,
     rt: new Float32Array(NE * NPX), at: new Float32Array(NE * NPX),
     Zr: new Float32Array(NPX), Zi: new Float32Array(NPX),
     G: new Float32Array(NPX), C: new Float32Array(NPX), px: new Float32Array(NPX * 3),
@@ -112,10 +112,10 @@ function buildTables(S, ds) {
 // 1.15 at the opening, 2 at 0.35 (Hann), 6 at 1.
 function weights(S, taper) {
   const s = (cl(taper, -1, 1) + 1) / 2;
-  const m = ((6 * (Math.pow(2, 7 * s) - 1)) / 127) * S.mMul, AH = S.ah;
+  const m = ((6 * (Math.pow(2, 7 * s) - 1)) / 127) * S.mMul, AH = S.ah, cx = CX + S.shift;
   let tot = 0;
   for (let n = 0; n < NE; n++) {
-    const dx = abs(S.xs[n] - CX);
+    const dx = abs(S.xs[n] - cx);
     const u = min(1, dx / AH);
     const edge = 1 - sm(AH - 0.5 * S.d, AH + 0.5 * S.d, dx);
     const c = cos((PI * u) / 2);
@@ -130,9 +130,9 @@ function startHandover(S) {
   // a second beam comes up at a new direction while the first goes down, 20 degrees or more away
   let i = 0, th = 0;
   for (let k = 0; k < 8; k++) {
-    i = Math.round((Math.random() * 2 - 1) * 4.2);
+    i = Math.round((Math.random() * 2 - 1) * 3.4);
     th = level(i);
-    if (abs(th - S.th) >= 20 && abs(th) <= 48) break;
+    if (abs(th - S.th) >= 20 && abs(th) <= 40) break;
   }
   S.thB = th;
   S.iB = i;
@@ -168,6 +168,7 @@ function advance(S, dt, kn) {
   S.ah = AH * (1 + 0.16 * sin(T2 / 67.1 + 1.1) + 0.1 * sin(T2 / 109.3 + 4.2));
   S.mMul = Math.pow(2, 0.55 * sin(T2 / 83.7 + 2.0) + 0.3 * sin(T2 / 139.1 + 0.3));
   S.lamE = S.lam * (1 + 0.13 * sin(T2 / 71.3 + 0.9) + 0.08 * sin(T2 / 113.7 + 2.4));
+  S.shift = 7 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
   S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
   if (S.d < 0 || abs(lambdaOf(ds) * ds - S.d) > 1e-4) buildTables(S, ds);
@@ -201,7 +202,7 @@ function advance(S, dt, kn) {
   const bs = S.base;
   for (let r = 0; r < BASE_ROWS; r++) {
     const y = H - BASE_ROWS + r, v = 0.36 * exp(-max(0, AY - y - 0.5) / 2.2);
-    for (let x = 0; x < W; x++) bs[r * W + x] = v * (1 - sm(S.ah, S.ah + 7, abs(x + 0.5 - CX)));
+    for (let x = 0; x < W; x++) bs[r * W + x] = v * (1 - sm(S.ah, S.ah + 7, abs(x + 0.5 - CX - S.shift)));
   }
   // the instantaneous field and the averaged intensity
   const om = S.cph;
@@ -211,11 +212,11 @@ function advance(S, dt, kn) {
     const zr = Zr[i], zi = Zi[i];
     const I = 0.5 * (zr * zr + zi * zi);
     const db = 4.3429 * log(I / IREF + 1e-5);
-    const gv = Math.pow(cl((db + 31) / 34, 0, 1), 1.35);
+    const gv = Math.pow(cl((db + 33) / 36, 0, 1), 1.3);
     const bv = i >= B0 ? bs[i - B0] : 0;
     G[i] = gv > bv ? gv : bv;
     const zm = sqrt(zr * zr + zi * zi) + 1e-9;
-    const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.6));
+    const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.5));
     C[i] = ((zr * co + zi * si) / zm) * A;
   }
 }
@@ -234,8 +235,8 @@ export function update(dt, input, params) {
 
 // ---- colour
 const RAMP = [
-  [0.0, 3, 3, 16],
-  [0.18, 30, 8, 58],
+  [0.0, 5, 4, 22],
+  [0.18, 32, 9, 62],
   [0.38, 30, 22, 108],
   [0.62, 18, 62, 168],
   [0.84, 26, 118, 214],
@@ -270,7 +271,7 @@ function shade(g, c, out) {
   let gg = GLUT[j + 1] + (GLUT[j + 4] - GLUT[j + 1]) * fr;
   let b = GLUT[j + 2] + (GLUT[j + 5] - GLUT[j + 2]) * fr;
   if (c > 0) {
-    const p = Math.pow(c, 1.7), h = sm(0.35, 0.85, g);
+    const p = sm(0.12, 0.92, c), h = sm(0.35, 0.85, g);
     r += (CREST_LO[0] + (CREST[0] - CREST_LO[0]) * h - r) * p;
     gg += (CREST_LO[1] + (CREST[1] - CREST_LO[1]) * h - gg) * p;
     b += (CREST_LO[2] + (CREST[2] - CREST_LO[2]) * h - b) * p;
