@@ -39,15 +39,28 @@ const PARAM = [
   [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.25, 0.5, 2.5],
   // leaning stripes
   [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 0.25, 0.5, 2.5],
+  // wide oblique bands
+  [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5],
   // tents
   [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.25, 0.0, 0.3, 2.2, 2.5],
   // crowd
   [6.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.2, 0.4, 0.0, 1.5, 2.2, 2.5],
 ];
+const HUMP = 0.8;
+const STOPS = [-2, -1.2, -0.6, 0, 1]; // the Regime knob value of each column
 
-function paramsAt(q, out) {
-  const x = cl(q, 0, 1) * 3, k = min(2, floor(x)), u = x - k;
+function paramsAt(k3, out) {
+  const x = cl(k3, STOPS[0], STOPS[STOPS.length - 1]);
+  let k = 0;
+  while (k < STOPS.length - 2 && x > STOPS[k + 1]) k++;
+  const u = (x - STOPS[k]) / (STOPS[k + 1] - STOPS[k]);
   for (let i = 0; i < KEYS.length; i++) out[KEYS[i]] = PARAM[k][i] + (PARAM[k + 1][i] - PARAM[k][i]) * u;
+  // between the Turing stripes and the excitable bands the inhibitor is strengthened for a while, or the lip floods
+  if (k === 1) {
+    out.hk += HUMP * Math.sin(PI * u);
+    out.rate += 0.9 * Math.sin(PI * u);
+    out.amp = 2.2;
+  }
   return out;
 }
 
@@ -158,7 +171,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
-  const P = paramsAt((cl(kn[2], -2, 1) + 2) / 3, S.P), mult = Math.pow(4, cl(kn[3], -1, 1));
+  const P = paramsAt(kn[2], S.P), mult = Math.pow(4, cl(kn[3], -1, 1));
   if (!S.ready) {
     S.ready = true;
     seedState(S, P);
