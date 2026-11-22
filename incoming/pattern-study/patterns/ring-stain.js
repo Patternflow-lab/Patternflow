@@ -31,21 +31,21 @@ const R_MIN = 6, R_MAX = 28;
 const HUE0 = 0.52; // the dye at Hue 0, a blue-green
 const DYE_B = 0.3; // the second dye, round the wheel from the first
 const P_B = 0.3; // share of drops that are the second dye
-const WET_FRAC = 0.34; // share of the panel under a wet drop, at any moment
+const WET_FRAC = 0.24; // share of the panel under a wet drop, at any moment
 const RB0 = 13.5; // mean radius at Drops 0
 const RB_STEP = 1.7; // mean radius is RB0 over RB_STEP to the power of the knob
 const LIFE_SLOW = 40, LIFE_FAST = 6; // seconds, at Dry 0 and Dry 4
 const FADE = 0.7; // the snap: the lens lets go over this long
 const SLIP_T = 0.3; // the contact line's retreat to the next ring
-const DISS_T = 0.75, DISS_K = 1.6; // a landing drop dissolves the older stain under it
+const DISS_T = 0.75, DISS_K = 2.4; // a landing drop dissolves the older stain under it
 const SP_GAP = 4.0; // the least spacing between two rings of one drop
 const R_INNER = 3.5; // the smallest ring
 const PRE = 210, PRE_DT = 0.25; // the glass has seen this much drying when the panel opens
 const MAX_DROPS = 60;
 
 // ---- the stain
-const AF = [0.22, 0.32]; // glaze strength of a drop
-const TAU_F = 85, TAU_R = 150, TAU_E = 110; // seconds for the glaze, the ring and the edge light to fade to 1/e
+const AF = [0.7, 0.9]; // glaze strength of a drop
+const TAU_F = 55, TAU_R = 110, TAU_E = 80; // seconds for the glaze, the ring and the edge light to fade to 1/e
 const DECAY_STEP = 0.25;
 const FILM_GAIN = 0.85;
 
@@ -63,9 +63,9 @@ function hsv(h, s, v, out, o) {
   for (let i = 0; i < HN; i++) {
     const h = i / HN, dh = min(abs(h - 0.13), 1 - abs(h - 0.13));
     const warm = exp(-(dh / 0.12) * (dh / 0.12)); // orange and yellow go brown when dark, so their ring stays bright and goes redder
-    hsv(h, 0.58, 0.58 + 0.08 * warm, FILM, i * 3);
-    hsv(h + 0.03 - 0.07 * warm, 1.0, 0.36 + 0.34 * warm, RING, i * 3);
-    hsv(h, 0.3, 1.0, EDGE, i * 3);
+    hsv(h, 0.78, 0.92, FILM, i * 3);
+    hsv(h + 0.03 - 0.07 * warm, 1.0, 0.17 + 0.3 * warm, RING, i * 3);
+    hsv(h, 0.42, 1.0, EDGE, i * 3);
     hsv(h, 0.74, 0.62, WET, i * 3);
   }
 })();
@@ -148,7 +148,7 @@ function newDrop(S, P, age) {
       rk.push(max(R_INNER, rk[k - 1] - sp * (0.9 + 0.2 * rnd())));
       ts.push(acc * T);
       acc += ((1 - f0) * wts[k - 1]) / tot;
-      wk.push((0.6 + 0.2 * rnd()) * pow(0.88, k - 1));
+      wk.push((0.8 + 0.15 * rnd()) * pow(0.93, k - 1));
       lam.push(1.15 + 0.015 * R);
       es.push(0.9);
     }
@@ -178,10 +178,10 @@ function layersAt(d, r, grow) {
     if (dd < -2.8 || dd > d.lam[k] * 5.5) continue;
     const o = sm(-d.es[k], d.es[k], dd);
     const tl = dd > 0 ? exp(-dd / d.lam[k]) : 1;
-    const p = min(1, 1.15 * o * tl) * d.wk[k] * g;
+    const p = min(1, 1.5 * o * tl) * d.wk[k] * g;
     const hx = (-dd - 0.95) / 0.62;
     nr *= 1 - 0.97 * p;
-    ne *= 1 - 0.42 * exp(-hx * hx) * d.wk[k] * g;
+    ne *= 1 - (k === 0 ? 0.4 : 0.12) * exp(-hx * hx) * g;
   }
   QR = 1 - nr;
   QE = 1 - ne;
@@ -373,7 +373,7 @@ export function draw(display, params) {
     let R = GROUND[0] + GROUND_V[0] * sh, G = GROUND[1] + GROUND_V[1] * sh, B = GROUND[2] + GROUND_V[2] * sh;
     const a = fa[i];
     if (a > 0.003) {
-      const hi = hIdx(fc[i] / a + hue) * 3, q = a * FILM_GAIN;
+      const hi = hIdx(fc[i] / a + hue) * 3, q = pow(a, 1.5) * FILM_GAIN;
       R += (FILM[hi] - R) * q; G += (FILM[hi + 1] - G) * q; B += (FILM[hi + 2] - B) * q;
     }
     const b = ra[i];
