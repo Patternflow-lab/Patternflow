@@ -32,19 +32,19 @@ const sm = (a, b, v) => {
 // Each regime is one column of PARAM; Regime -2 .. 1 walks across them.
 const SUBS = 20, DT = 0.02; // 20 steps of 0.02 time units make one laid row
 const HIST = H + 4;
-const PRE_ROWS = 150;
-const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref'];
+const PRE_ROWS = 400;
+const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref', 'wob'];
 const PARAM = [
   // stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.25, 0.5, 2.5],
+  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.25, 0.5, 1.6, 0.4],
   // leaning stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 0.25, 0.5, 2.5],
+  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 0.25, 0.5, 1.6, 0.4],
   // wide oblique bands
-  [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5],
+  [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.45, 2.2, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.45, 2.2, 2.5, 0.14],
   // crowd
-  [6.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.2, 0.4, 0.0, 1.5, 2.2, 2.5],
+  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 3.0, 2.2, 2.5, 0.1],
 ];
 const HUMP = 0.8;
 const STOPS = [-2, -1.2, -0.6, 0, 1]; // the Regime knob value of each column
@@ -71,7 +71,7 @@ function makeState() {
     na: new Float32Array(N), nh: new Float32Array(N), ns: new Float32Array(N),
     ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N),
     head: 0, // index of the newest laid row in the history
-    sub: 0, acc: 0, quiet: 0, sites: [], time: 0,
+    sub: 0, acc: 0, quiet: 0, sites: [], time: 0, mt: 0, wl: 1,
     P: {}, kn: [0, 2, 0, 0.06],
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -87,7 +87,7 @@ function seedState(S, P) {
 
 function substep(S, P) {
   const { a, h, s, na, nh, ns } = S;
-  const rho = P.rho, kap = P.kap, Da = P.Da, b0 = P.b0, h0 = P.h0, Dh = P.Dh, nu = P.nu, hk = P.hk, sig = P.sig, gam = P.gam;
+  const rho = P.rho, kap = P.kap, Da = P.Da * S.wl, b0 = P.b0, h0 = P.h0, Dh = P.Dh, nu = P.nu, hk = P.hk, sig = P.sig, gam = P.gam;
   for (let i = 0; i < N; i++) {
     const l = i === 0 ? N - 1 : i - 1, r = i === N - 1 ? 0 : i + 1;
     const ai = a[i], hi = h[i], si = s[i];
@@ -145,6 +145,9 @@ function pushRow(S) {
 
 function advanceSteps(S, P, mult, steps) {
   for (let t = 0; t < steps; t++) {
+    // the width of the lip's reach swells and shrinks slowly, so stripes are inserted and withdrawn
+    S.mt += DT;
+    S.wl = 1 + P.wob * (0.7 * sin((2 * PI * S.mt) / 150) + 0.5 * sin((2 * PI * S.mt) / 61 + 1.3));
     seeds(S, P, mult);
     substep(S, P);
     if (++S.sub === SUBS) {
@@ -252,7 +255,7 @@ export function draw(display, params) {
       r += (RIM[0] - r) * rim; g += (RIM[1] - g) * rim; b += (RIM[2] - b) * rim;
       const body = sm(0.3, 0.75, u);
       r += (AMBER[0] - r) * body; g += (AMBER[1] - g) * body; b += (AMBER[2] - b) * body;
-      const core = sm(0.8, 1.15, a);
+      const core = sm(0.85, 1.3, rowA[x] / 2.5);
       r += (CREAM[0] - r) * core; g += (CREAM[1] - g) * core; b += (CREAM[2] - b) * core;
       const lift = gl * (0.16 + 0.12 * u);
       r = r * (1 + lift) + 26 * gl * (1 - u * 0.6); g = g * (1 + lift) + 20 * gl * (1 - u * 0.6); b = b * (1 + lift) + 18 * gl * (1 - u * 0.6);
