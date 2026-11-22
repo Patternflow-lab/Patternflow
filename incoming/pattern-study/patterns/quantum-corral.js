@@ -144,8 +144,9 @@ function makeCorral(ell) {
     ar: new Float64Array(NTMAX * n), ai: new Float64Array(NTMAX * n),
     ct: new Float64Array(NTMAX), st: new Float64Array(NTMAX),
     L: new Float32Array(CNN).fill(1), // density of states on the coarse grid
-    inside: [], // coarse samples well inside the ring
-    ksnap: 0, nt: 16, ecache: -1, arc: null,
+    inside: new Int32Array(CNN), nin: 0, // coarse samples well inside the ring
+    arc: new Float64Array(721),
+    ksnap: 0, nt: 16,
     lref: 8, dos: 0, ex: 0,
     hr: new Float64Array(n), hi: new Float64Array(n),
   };
@@ -153,7 +154,7 @@ function makeCorral(ell) {
 
 function makeState() {
   const S = {
-    t: 0, q: 6.62, dir: 1, gate: 1, dosS: 1.5, frame: 0,
+    t: 0, q: 6.62, dir: 1, gate: 1, dosS: 1.5, frame: 0, trav: 0, sc1: 1, sc2: 1, de: 0,
     top: makeCorral(false), bot: makeCorral(true),
     knobs: [0, 2, 0, 0.5],
     lut: new Float32Array(256 * 3), atomCol: [255, 196, 64], coCol: [255, 150, 160], hueDone: -1,
@@ -182,40 +183,35 @@ function breath(u, t, seed) {
 }
 const jit = (i, s) => 0.08 * ((sin(i * 12.9898 + s * 78.233) * 43758.5453) % 1);
 
-function placeAtoms(C, t, e) {
+function placeAtoms(C, t, e, sc) {
   const n = NAT;
   if (!C.ell) {
     for (let i = 0; i < n; i++) {
-      const u = (TAU * i) / n + 0.05, r = R0 + breath(u, t, 0) + jit(i, 1);
+      const u = (TAU * i) / n + 0.05, r = R0 * sc + breath(u, t, 0) + jit(i, 1);
       C.ax[i] = r * cos(u);
       C.ay[i] = r * sin(u);
     }
     return;
   }
-  const b = EA * sqrt(1 - e * e);
-  if (C.ecache !== e) {
-    // equal steps along the ellipse
-    const M = 720, arc = new Float64Array(M + 1);
-    for (let k = 1; k <= M; k++) {
-      const u = ((k - 0.5) / M) * TAU;
-      arc[k] = arc[k - 1] + sqrt(EA * EA * sin(u) * sin(u) + b * b * cos(u) * cos(u)) * (TAU / M);
-    }
-    C.arc = arc;
-    C.ecache = e;
+  // equal steps along the ellipse
+  const ea = EA * sc, b = ea * sqrt(1 - e * e), M = 720, arc = C.arc;
+  for (let k = 1; k <= M; k++) {
+    const u = ((k - 0.5) / M) * TAU;
+    arc[k] = arc[k - 1] + sqrt(ea * ea * sin(u) * sin(u) + b * b * cos(u) * cos(u)) * (TAU / M);
   }
-  const arc = C.arc, M = 720, P = arc[M];
+  const P = arc[M];
   let k = 0;
   for (let i = 0; i < n; i++) {
     const s = ((i + 0.5) / n) * P;
     while (k < M - 1 && arc[k + 1] < s) k++;
     const f = (s - arc[k]) / max(1e-9, arc[k + 1] - arc[k]);
     const u = ((k + f) / M) * TAU;
-    const nx = b * cos(u), ny = EA * sin(u), nl = sqrt(nx * nx + ny * ny);
+    const nx = b * cos(u), ny = ea * sin(u), nl = sqrt(nx * nx + ny * ny);
     const r = breath(u, t, 1) + jit(i, 2);
-    C.ax[i] = EA * cos(u) + (r * nx) / nl;
+    C.ax[i] = ea * cos(u) + (r * nx) / nl;
     C.ay[i] = b * sin(u) + (r * ny) / nl;
   }
-  C.ax[n] = -EA * e;
+  C.ax[n] = -ea * e;
   C.ay[n] = 0;
 }
 
@@ -234,27 +230,25 @@ function setTau(C, leak) {
 }
 
 // Coarse samples inside the ring, for the gain and the sweep.
-function markInside(C, e) {
-  const list = [];
-  const b = EA * sqrt(1 - e * e);
+function markInside(C, e, sc) {
+  const list = C.inside, ea = EA * sc, b = ea * sqrt(1 - e * e), rr = (R0 * sc - 3.5) * (R0 * sc - 3.5);
+  let m = 0;
   for (let cy = 0; cy < CN; cy++)
     for (let cx = 0; cx < CN; cx++) {
       const x = 2 * cx + 0.5 - 32, y = 2 * cy + 0.5 - 32;
-      const inn = C.ell ? (x * x) / ((EA - 3.5) * (EA - 3.5)) + (y * y) / ((b - 3.5) * (b - 3.5)) < 1 : x * x + y * y < (R0 - 3.5) * (R0 - 3.5);
-      if (inn) list.push(cy * CN + cx);
+      const inn = C.ell ? (x * x) / ((ea - 3.5) * (ea - 3.5)) + (y * y) / ((b - 3.5) * (b - 3.5)) < 1 : x * x + y * y < rr;
+      if (inn) list[m++] = cy * CN + cx;
     }
-  C.inside = Int32Array.from(list);
+  C.nin = m;
 }
 
 // One refresh: atoms, distances, the scattering system and its solution for NT incoming waves at the current k.
-function refresh(C, S, e, leak) {
+function refresh(C, S, eKnob, leak) {
   const n = C.n, k = S.q / R0;
-  placeAtoms(C, S.t, e);
+  const e = C.ell ? min(eKnob + S.de, 0.85) : 0, sc = C.ell ? S.sc2 : S.sc1;
+  placeAtoms(C, S.t, e, sc);
   setTau(C, leak);
-  if (C.insideE !== e) {
-    markInside(C, e);
-    C.insideE = e;
-  }
+  markInside(C, e, sc);
   const nt = S.q < 4.6 ? 16 : S.q < 7.2 ? 24 : 32;
   C.nt = nt;
   C.ksnap = k;
@@ -355,7 +349,9 @@ function evalGroup(C, g) {
   for (let cy = gg >> 1; cy < CN; cy += 2)
     for (let cx = gg & 1; cx < CN; cx += 2) {
       const c = cy * CN + cx, x = 2 * cx + 0.5 - 32, y = 2 * cy + 0.5 - 32, o = c * n;
+      let dmin = 1e9;
       for (let i = 0; i < n; i++) {
+        if (dist[o + i] < dmin) dmin = dist[o + i];
         const xx = k * dist[o + i] * XINV;
         let ix = xx | 0;
         if (ix > XN - 1) ix = XN - 1;
@@ -375,7 +371,9 @@ function evalGroup(C, g) {
         }
         sum += sr * sr + si * si;
       }
-      L[c] = sum / nt;
+      // within 2.2 LEDs of an atom the field is left at the bare value, and it comes in over the next 1.5
+      const w = sm((sqrt(max(0, dmin * dmin - 4.5)) - 2.2) / 1.5);
+      L[c] = 1 + (sum / nt - 1) * w;
     }
 }
 
@@ -392,17 +390,17 @@ export function setup(params) {
 }
 
 function innerStats(C) {
-  const { L, inside } = C;
+  const { L, inside } = C, nin = C.nin;
   let s = 0, mx = 0;
-  for (let q = 0; q < inside.length; q++) {
+  for (let q = 0; q < nin; q++) {
     const v = L[inside[q]];
     s += v;
     if (v > mx) mx = v;
   }
-  C.dos = s / max(1, inside.length);
+  C.dos = s / max(1, nin);
   C.mx = mx;
   // the 96th percentile of the density inside the ring sets the gain
-  const m = inside.length, tmp = C.qs || (C.qs = new Float32Array(CNN));
+  const m = nin, tmp = C.qs || (C.qs = new Float32Array(CNN));
   for (let q = 0; q < m; q++) tmp[q] = L[inside[q]];
   tmp.subarray(0, m).sort();
   C.p96 = tmp[min(m - 1, floor(m * 0.96))];
@@ -430,7 +428,13 @@ export function update(dt, input, params) {
   S.gate = (0.2 + 0.8 * (1 - sm((S.dosS - 0.9) / 1.3))) * (1 + 0.9 * (1 - sm((S.dosS - 0.3) / 0.6)));
   const sw = cl(kn[1], 0, 3);
   const wob = 1 + 0.3 * sin(0.23 * S.t + 1) + 0.2 * sin(0.071 * S.t + 2.2) + 0.12 * sin(0.53 * S.t);
-  S.q += S.dir * sw * 0.06 * wob * S.gate * sqrt(7 / S.q) * d;
+  const dq = sw * 0.06 * wob * S.gate * sqrt(7 / S.q) * d;
+  S.q += S.dir * dq;
+  // The rings breathe with the distance the bias has travelled, not with time, so that Sweep 0 keeps its mode.
+  S.trav += dq;
+  S.sc1 = 1 + 0.022 * sin(0.29 * S.trav) + 0.008 * sin(0.113 * S.trav);
+  S.sc2 = 1 + 0.015 * sin(0.19 * S.trav) + 0.008 * sin(0.087 * S.trav);
+  S.de = 0.045 * sin(0.23 * S.trav) + 0.03 * sin(0.071 * S.trav);
   // The two turning points wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom, so that the sweep never
   // runs the same stretch twice.
   const qhi = QMAX - 2.2 * (0.5 + 0.5 * sin(0.0151 * S.t + 0.9)), qlo = QMIN + 1.8 * (0.5 + 0.5 * sin(0.0113 * S.t + 2.1));
