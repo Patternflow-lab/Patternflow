@@ -37,7 +37,7 @@
 // that moment: radon let out (a leak that lasts, then stops), radium taken out, or the parent's element taken out (uranium, or
 // thorium for the thorium chain, every isotope of it in the chain, so U-234 goes with U-238). Cells below what was lost go on
 // decaying and starve in the order of their half-lives, a dimming front down the chain; when radon is let back they return. An
-// epoch ends when the picture has stopped changing, after a rest, or part of the way; a chain left to grow old goes on to 10^17.5
+// epoch ends after a rest once the picture has stopped changing, or earlier, part of the way down; a chain left to grow old goes on to 10^17.5
 // s. A new crystal, or a separation that darkens the chain, waits while another chain is dark or while neither of the others
 // is lit down its length, so that the panel is never an empty chart. The chains open at ages 10^12.2, 10^10.2 and 10^7.2 s.
 // The sample is a crowd of grains, so a cell never averages quite flat: each wanders by about 0.08 of full brightness over 6 to 20 s. The slate
