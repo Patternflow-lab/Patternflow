@@ -24,7 +24,7 @@ const NVIS = 4; // cells a clone needs before it is drawn
 const M0 = 2.6; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
-const ALPHA = 0.5; // how much of a generation's change in frequency a row takes
+const ALPHA = 0.4; // how much of a generation's change in frequency a row takes
 const ANCHOR = 0.6; // hue the family tree is pulled toward at Hue 0
 const HW = 0.85; // half width of a soft edge between two bands, LEDs
 const { floor, min, max, exp, sqrt, log, abs, cos, pow, PI } = Math;
@@ -76,8 +76,8 @@ export function update(dt, input, params) {
   const u = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k1 = k[0];
   S.sel = 0.05 * exp(1.45 * cl(k[2], -1, 1));
-  S.N = 1600 * exp(2.1 * cl(k[3], -1, 1));
-  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 1600, 0.3), 0.02, 1);
+  S.N = 2600 * exp(2.2 * cl(k[3], -1, 1));
+  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.3), 0.02, 1);
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
   S.gpr = 1 + 1.4 * u;
   if (!S.ready) {
