@@ -38,7 +38,7 @@ const NL = COUNTS.reduce((a, b) => a + b, 0);
 const START = [];
 for (let g = 0, s = 0; g < NG; g++) { START.push(s); s += COUNTS[g]; }
 const TAU = 6.283185307179586;
-const { floor, ceil, sqrt, abs, exp, sin, cos, tanh, pow, min, max, log, atan2, PI } = Math;
+const { floor, ceil, sqrt, abs, exp, sin, cos, tanh, pow, min, max, log, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
@@ -46,15 +46,16 @@ const ss = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const GAP_LEAF = 1.0; // dark between two leaves of a group
 const GAP_GROUP = 2.0; // dark between two groups
 const EDGE = 1.0; // dark between a tile and the edge of the panel
-const HYST = 0.12; // a row break has to be this much better to change
+const HYST_G = 0.22, HYST_L = 0.15; // a row break has to be this much better to change, for groups and for leaves
 
 // ---- weights
-const OU_REL = 22; // seconds a leaf's random walk takes to forget, at Pace 1
+const OU_REL = 40; // seconds a leaf's random walk takes to forget, at Pace 1
 const OU_SD = 0.45; // standard deviation of the walk, in log weight
-const SINE1 = [34, 90, 0.34], SINE2 = [61, 150, 0.24]; // period range in s at Pace 1, then the amplitude
-const BURST_TAU = 3.5; // seconds a burst takes to fade, at Pace 1
+const SINE1 = [60, 150, 0.34], SINE2 = [100, 260, 0.24]; // period range in s at Pace 1, then the amplitude
+const BURST_TAU = 6; // seconds a burst takes to fade, at Pace 1
 const LIM = 2.1; // the log weight is held within this by a tanh
-const G_REL = 60, G_SD = 0.38; // the group's own walk
+const G_REL = 90, G_SD = 0.24; // the group's own walk
+const LAG = 0.8; // seconds the layout's weights lag the leaves' own
 const ALIVE_T = 0.7; // seconds a group takes to follow the Groups knob
 const FADE_LO = 1.4, FADE_HI = 3.8; // shorter visible side where a tile starts to fade in, and where it is whole
 
@@ -71,6 +72,7 @@ const GROUPS = [
   [126, 0.67, 0.105], // moss
 ];
 const BG = [4, 5, 9];
+const SHADOW = 0.5; // how dark the shadow of a fast tile is, at most
 
 function gauss() {
   return sqrt(-2 * log(Math.random() + 1e-9)) * cos(TAU * Math.random());
@@ -82,14 +84,15 @@ function makeState() {
     ready: false, tt: 0,
     alive: f(NG), gy: f(NG), gw: f(NG),
     gx0: f(NG), gy0: f(NG), gx1: f(NG), gy1: f(NG),
-    ou: f(NL), bs: f(NL), bloom: f(NL), w: f(NL), ph1: f(NL), ph2: f(NL), p1: f(NL), p2: f(NL),
+    sx0: f(NG), sy0: f(NG), sx1: f(NG), sy1: f(NG), svx0: f(NG), svy0: f(NG), svx1: f(NG), svy1: f(NG),
+    ou: f(NL), bs: f(NL), bloom: f(NL), w: f(NL), lw: f(NL), ph1: f(NL), ph2: f(NL), p1: f(NL), p2: f(NL),
     dL: f(NL), dH: f(NL), dC: f(NL),
     tx0: f(NL), ty0: f(NL), tx1: f(NL), ty1: f(NL),
     x0: f(NL), y0: f(NL), x1: f(NL), y1: f(NL),
     vx0: f(NL), vy0: f(NL), vx1: f(NL), vy1: f(NL),
     lnA: f(NL), gr: f(NL),
     cr: f(NL), cg: f(NL), cb: f(NL), spd: f(NL),
-    order: new Int16Array(NL), jg: new Uint8Array(NG), jl: new Uint8Array(NL),
+    order: new Int16Array(NL), gi: new Uint8Array(NL), jg: new Uint8Array(NG), jl: new Uint8Array(NL),
     buf: new Float32Array(NPIX * 3),
   };
   for (let l = 0; l < NL; l++) {
@@ -102,6 +105,7 @@ function makeState() {
     S.dC[l] = (Math.random() * 2 - 1) * 0.02;
     S.order[l] = l;
   }
+  for (let g = 0; g < NG; g++) for (let q = 0; q < COUNTS[g]; q++) S.gi[START[g] + q] = g;
   for (let g = 0; g < NG; g++) S.gy[g] = G_SD * gauss();
   return S;
 }
@@ -113,7 +117,7 @@ export function setup(params) {
 // ---- the squarified treemap (Bruls, Huizing, van Wijk 2000) for items off .. off + n of wt, laid into x, y, w, h.
 // The order is the order given. joined[i] says whether item i shared a row with the one before it last time,
 // which gives each row break a little hysteresis.
-function squarify(wt, off, n, x, y, w, h, o0, o1, o2, o3, joined) {
+function squarify(wt, off, n, x, y, w, h, o0, o1, o2, o3, joined, hyst) {
   let tot = 0;
   for (let i = 0; i < n; i++) tot += wt[off + i];
   if (w * h < 1e-6 || tot <= 0) {
@@ -136,7 +140,7 @@ function squarify(wt, off, n, x, y, w, h, o0, o1, o2, o3, joined) {
       a = wt[off + j] * k;
       const ns = sum + a, nmx = max(mx, a), nmn = min(mn, a);
       const nw = max((s2 * nmx) / (ns * ns), (ns * ns) / (s2 * nmn));
-      if (nw <= worst * (joined[off + j] ? 1 + HYST : 1 - HYST)) { sum = ns; mx = nmx; mn = nmn; worst = nw; j++; } else break;
+      if (nw <= worst * (joined[off + j] ? 1 + hyst : 1 - hyst)) { sum = ns; mx = nmx; mn = nmn; worst = nw; j++; } else break;
     }
     joined[off + i] = 0;
     for (let q = i + 1; q < j; q++) joined[off + q] = 1;
@@ -164,7 +168,7 @@ function squarify(wt, off, n, x, y, w, h, o0, o1, o2, o3, joined) {
 
 // ---- the weights
 function stepWeights(S, d, pace, burst, G) {
-  const dtE = d * pace; // time on the weights' own clock
+  const dtE = d * pow(pace, 0.8); // time on the weights' own clock
   S.tt += dtE;
   const lam = 0.03 * sqrt(burst), amp = 0.45 + 1.25 * burst;
   const kOu = OU_SD * sqrt((2 * dtE) / OU_REL) , kG = G_SD * sqrt((2 * dtE) / G_REL);
@@ -192,37 +196,61 @@ function stepWeights(S, d, pace, burst, G) {
   }
 }
 
-// ---- the layout: groups into the panel, leaves into each group
-function layout(S) {
+// ---- the layout: groups into the panel (target rectangles), then the group's own rectangle follows its target on a spring,
+// and the leaves are squarified into that moving rectangle. A group that changes place slides as a block and its tiles keep
+// their order inside it, so only the groups cross each other, not every tile.
+function layoutGroups(S, d, snap) {
+  // the weights the layout reads follow the leaves' own weights with a lag of 0.8 s, so a burst
+  // reaches the rows as a swell and not as a step
+  const k = snap ? 1 : 1 - exp(-d / LAG);
+  for (let l = 0; l < NL; l++) S.lw[l] += (S.w[l] - S.lw[l]) * k;
   for (let g = 0; g < NG; g++) {
     let sum = 0;
-    for (let q = 0; q < COUNTS[g]; q++) sum += S.w[START[g] + q];
+    for (let q = 0; q < COUNTS[g]; q++) sum += S.lw[START[g] + q];
     const n = COUNTS[g];
-    S.gw[g] = max(1e-5, ss(S.alive[g]) * exp(S.gy[g]) * n * sqrt(sum / n));
+    S.gw[g] = max(1e-5, ss(S.alive[g]) * exp(S.gy[g]) * n * pow(sum / n, 0.25));
   }
   const r0 = EDGE - GAP_GROUP / 2;
-  squarify(S.gw, 0, NG, r0, r0, W - 2 * r0, H - 2 * r0, S.gx0, S.gy0, S.gx1, S.gy1, S.jg);
+  squarify(S.gw, 0, NG, r0, r0, W - 2 * r0, H - 2 * r0, S.gx0, S.gy0, S.gx1, S.gy1, S.jg, HYST_G);
+}
+
+function layoutLeaves(S) {
   const ins = (GAP_GROUP - GAP_LEAF) / 2;
   for (let g = 0; g < NG; g++) {
-    let x = S.gx0[g], y = S.gy0[g], w = S.gx1[g] - x, h = S.gy1[g] - y;
+    let x = S.sx0[g], y = S.sy0[g], w = S.sx1[g] - x, h = S.sy1[g] - y;
     const nw = max(w - 2 * ins, 0), nh = max(h - 2 * ins, 0);
     x += (w - nw) / 2; y += (h - nh) / 2;
-    squarify(S.w, START[g], COUNTS[g], x, y, nw, nh, S.tx0, S.ty0, S.tx1, S.ty1, S.jl);
+    squarify(S.lw, START[g], COUNTS[g], x, y, nw, nh, S.tx0, S.ty0, S.tx1, S.ty1, S.jl, HYST_L);
   }
 }
 
 // ---- one spring per tile edge, critically damped, solved exactly for a target that stands still over the step
 function spring(S, d, omega) {
-  const e = exp(-omega * d);
-  const go = (p, v, t, l) => {
-    const x = S[p][l] - t, tmp = (S[v][l] + omega * x) * d;
-    S[p][l] = t + (x + tmp) * e;
-    S[v][l] = (S[v][l] - omega * tmp) * e;
-  };
   for (let l = 0; l < NL; l++) {
-    go("x0", "vx0", S.tx0[l], l); go("y0", "vy0", S.ty0[l], l);
-    go("x1", "vx1", S.tx1[l], l); go("y1", "vy1", S.ty1[l], l);
+    // a group that is arriving or leaving keeps its tiles tight in its own rectangle, so they do not pile up
+    const om = omega * (1 + 3 * (1 - S.alive[S.gi[l]]));
+    const e = exp(-om * d);
+    const go = (p, v, t) => {
+      const x = S[p][l] - t, tmp = (S[v][l] + om * x) * d;
+      S[p][l] = t + (x + tmp) * e;
+      S[v][l] = (S[v][l] - om * tmp) * e;
+    };
+    go("x0", "vx0", S.tx0[l]); go("y0", "vy0", S.ty0[l]);
+    go("x1", "vx1", S.tx1[l]); go("y1", "vy1", S.ty1[l]);
     S.spd[l] = abs(S.vx0[l]) + abs(S.vy0[l]) + abs(S.vx1[l]) + abs(S.vy1[l]);
+  }
+}
+
+function springGroups(S, d, omega) {
+  const e = exp(-omega * d);
+  const go = (p, v, t, g) => {
+    const x = S[p][g] - t, tmp = (S[v][g] + omega * x) * d;
+    S[p][g] = t + (x + tmp) * e;
+    S[v][g] = (S[v][g] - omega * tmp) * e;
+  };
+  for (let g = 0; g < NG; g++) {
+    go("sx0", "svx0", S.gx0[g], g); go("sy0", "svy0", S.gy0[g], g);
+    go("sx1", "svx1", S.gx1[g], g); go("sy1", "svy1", S.gy1[g], g);
   }
 }
 
@@ -248,8 +276,7 @@ function oklch(L, C, hDeg) {
   return [128, 128, 128];
 }
 
-function colours(S, hue, d) {
-  const kr = 1 - exp(-d / 0.9);
+function colours(S, hue) {
   for (let g = 0; g < NG; g++) {
     const G = GROUPS[g];
     for (let q = 0; q < COUNTS[g]; q++) {
@@ -273,7 +300,18 @@ function frame(S, d, snap, kn) {
   } else {
     stepWeights(S, d, pace, burst, G);
   }
-  layout(S);
+  layoutGroups(S, d, snap);
+  // while the Groups knob is being turned the springs are tightened, up to three times, so the panel re-flows in half a second
+  // instead of dragging its tiles across each other for two
+  let churn = 0;
+  for (let g = 0; g < NG; g++) churn += abs(S.alive[g] - cl(G - g, 0, 1));
+  const omega = (3 + 1.6 * pace) * (1 + 2 * min(1, churn));
+  if (snap) {
+    for (let g = 0; g < NG; g++) { S.sx0[g] = S.gx0[g]; S.sy0[g] = S.gy0[g]; S.sx1[g] = S.gx1[g]; S.sy1[g] = S.gy1[g]; }
+  } else {
+    springGroups(S, d, omega * 0.65);
+  }
+  layoutLeaves(S);
   if (snap) {
     for (let l = 0; l < NL; l++) {
       S.x0[l] = S.tx0[l]; S.y0[l] = S.ty0[l]; S.x1[l] = S.tx1[l]; S.y1[l] = S.ty1[l];
@@ -282,7 +320,7 @@ function frame(S, d, snap, kn) {
       S.gr[l] = 0;
     }
   } else {
-    spring(S, d, 2.2 + 0.5 * pace);
+    spring(S, d, omega);
     const kr = 1 - exp(-d / 0.9);
     for (let l = 0; l < NL; l++) {
       const ln = log(max(1, (S.tx1[l] - S.tx0[l]) * (S.ty1[l] - S.ty0[l])));
@@ -291,7 +329,7 @@ function frame(S, d, snap, kn) {
       S.gr[l] += (cl(rate, -3, 3) - S.gr[l]) * kr;
     }
   }
-  colours(S, kn[0], d);
+  colours(S, kn[0]);
 }
 
 export function update(dt, input, params) {
@@ -325,12 +363,31 @@ export function draw(display, params) {
     const w = x1 - x0, h = y1 - y0;
     if (w < 0.4 || h < 0.4) continue;
     const m = min(w, h);
-    const op = ss((m - FADE_LO) / (FADE_HI - FADE_LO));
+    const op = ss((m - FADE_LO) / (FADE_HI - FADE_LO)) * ss(S.alive[S.gi[l]] / 0.2);
     if (op < 0.01) continue;
     const bloom = S.bloom[l] > 0.03 ? S.bloom[l] * op : 0;
     const rad = min(1.3, 0.3 * m);
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, hx = w / 2 - rad, hy = h / 2 - rad;
     const R = S.cr[l], G = S.cg[l], B = S.cb[l];
+    // a tile that is moving casts a soft shadow, so that where it crosses another it reads as a piece lifted over it
+    const sh = SHADOW * ss((spd[l] / 4 - 1.2) / 6) * op;
+    if (sh > 0.02) {
+      const sx = cx + 0.7, sy = cy + 1.1;
+      const xa = max(0, floor(x0 - 4)), xb = min(W - 1, ceil(x1 + 5));
+      const ya = max(0, floor(y0 - 4)), yb = min(H - 1, ceil(y1 + 5));
+      for (let py = ya; py <= yb; py++) {
+        const qy = abs(py + 0.5 - sy) - hy;
+        for (let px = xa; px <= xb; px++) {
+          const qx = abs(px + 0.5 - sx) - hx;
+          const sd = (qx > 0 && qy > 0 ? sqrt(qx * qx + qy * qy) : max(qx, qy)) - rad;
+          const c = 0.5 - sd / 2.2;
+          if (c <= 0) continue;
+          const f = 1 - sh * (c > 1 ? 1 : c);
+          const k = (py * W + px) * 3;
+          buf[k] *= f; buf[k + 1] *= f; buf[k + 2] *= f;
+        }
+      }
+    }
     const pad = bloom > 0 ? 3 : 1;
     const xa = max(0, floor(x0 - pad)), xb = min(W - 1, ceil(x1 + pad));
     const ya = max(0, floor(y0 - pad)), yb = min(H - 1, ceil(y1 + pad));
