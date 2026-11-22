@@ -376,16 +376,22 @@ function shape(S) {
       lo = cum;
     }
   }
-  return { sin: len / (Y1 - Y0), turns };
+  // oxbows still open water and on the panel
+  let lakes = 0;
+  for (const L of S.lakes) {
+    if (S.t - L.t0 > 0.55 * SILT) continue;
+    for (let k = 0; k < L.n; k += 4) if (L.y[k] > 4 && L.y[k] < H - 4 && L.x[k] > 6 && L.x[k] < W - 6) { lakes++; break; }
+  }
+  return { sin: len / (Y1 - Y0), turns, lakes };
 }
 
 // The river runs PRE seconds before the first frame, and a while longer if it has
 // straightened out, so that the opening picture always has bends and bars.
 function prerun(S) {
   advance(S, PRE);
-  for (let k = 0; k < 40; k++) {
+  for (let k = 0; k < 60; k++) {
     const sh = shape(S);
-    if (sh.sin >= 1.7 && sh.turns >= 4) break;
+    if (sh.sin >= 1.7 && sh.turns >= 4 && sh.lakes >= 2) break;
     advance(S, 10);
   }
 }
