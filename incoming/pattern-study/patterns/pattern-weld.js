@@ -9,7 +9,7 @@
 // Round:   221
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Grind=0..4, Layers=8..60, Forging=0..1
+// @knobs Hue=0..1, Grind=0.1..4, Layers=8..44, Forging=0..1
 //
 // Knob 1: Hue.
 // Knob 2: Grind.
@@ -27,7 +27,7 @@ const TAU = 2 * PI;
 
 const GW = W + 2, GH = H + 2; // phase grid with a one LED border for gradients
 const DNOM = 100; // depth that gives Layers pairs at a plane slope of 1
-const P_GROOVE = 21; // LEDs between grooves
+const P_GROOVE = 27; // LEDs between grooves
 const DRILL_DY = 37;
 
 function hash(i) {
@@ -49,7 +49,7 @@ function vnoise2(x, y) {
 
 function makeState() {
   const S = {
-    ready: false, t: 0, T: 11, z0: 0,
+    ready: false, t: 0, T: 161, z0: 0,
     kn: [0, 2, 8, 0.06],
     phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH), ff: new Float32Array(GW * GH), hz: new Float32Array(GW * GH),
     rowC: new Float32Array(GH), rowS: new Float32Array(GH), rowG: new Float32Array(GH),
@@ -74,10 +74,10 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 8, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
-  const k2 = cl(kn[1], 0, 4);
+  const k2 = cl(kn[1], 0.1, 4);
   S.t += d;
   S.T += d * k2 * 0.5;
-  S.z0 += d * k2 * 0.5;
+  S.z0 += d * k2 * 0.7;
   S.ready = true;
 }
 
@@ -99,49 +99,53 @@ function tintAt(h, out) {
   }
 }
 
+// smoothed triangle wave in -1..1: straight flanks with rounded turns
+const tri = (x) => (2 / PI) * Math.asin(0.9 * sin(x)) / Math.asin(0.9);
 function fieldOf(S) {
   const kn = S.kn, T = S.T, zl = S.z0;
-  const Kl = cl(kn[2], 8, 60), kl = Kl / DNOM, ks = sqrt(Kl / 8);
+  const Kl = cl(kn[2], 8, 44), kl = Kl / DNOM, ks = sqrt(Kl / 8);
   const m = cl(kn[3], 0, 1);
   const wob = 0.6 * sin((TAU * T) / 79 + 0.5) + 0.4 * sin((TAU * T) / 131 + 2.2);
-  const u = cl(Math.pow(m, 0.55) * (1 + 0.45 * wob), 0, 1);
+  const u = cl(Math.pow(m, 0.55) * (1 + 0.55 * wob), 0, 1);
   // grinding plane: its height above the twist axis wanders, bounded
   const zc = 14 * sin((TAU * T) / 97 + 0.3) + 9 * sin((TAU * T) / 61 + 2.0) + 5 * sin((TAU * T) / 37 + 4.4);
   const tau = 0.22 * sin((TAU * T) / 53 + 1.0);
-  const alpha = -0.1 + 0.45 * sin((TAU * T) / 61 + 0.7) + 0.3 * sin((TAU * T) / 97 + 2.1) + 0.1 * sin((TAU * T) / 37 + 4.0);
-  const beta = 0.3 + 0.35 * sin((TAU * T) / 109 + 0.2) + 0.2 * sin((TAU * T) / 71 + 3.3);
+  const alpha = -0.1 + 0.5 * sin((TAU * T) / 61 + 0.7) + 0.32 * sin((TAU * T) / 97 + 2.1) + 0.12 * sin((TAU * T) / 37 + 4.0);
+  const beta = 0.3 + 0.4 * sin((TAU * T) / 109 + 0.2) + 0.25 * sin((TAU * T) / 71 + 3.3);
   const s0 = 0.62 * (1 + 0.45 * sin((TAU * T) / 43 + 1.9) * sin((TAU * T) / 131));
   const ca = cos(alpha) * s0, sa = sin(alpha) * s0, cb = cos(beta), sb = sin(beta);
   // forging
   const Dg = (1.3 / kl) * 0.0 + (1.0 * ks) / kl * sm(0.03, 0.2, u) * (1 - sm(0.27, 0.42, u));
-  const kg = 1.0 + 3.5 * sm(0.05, 0.3, u);
+  const kg = 1.0 + 2.6 * sm(0.05, 0.3, u);
   const Th = 1.0 * sm(0.55, 0.95, u);
   const Pc = 46 - 20 * sm(0.6, 1, u) + 5 * sin((TAU * T) / 89);
   const Dd = ((3.2 * ks) / kl) * sm(0.26, 0.4, u) * (1 - sm(0.58, 0.74, u));
-  const Yo = 30 * sin((TAU * T) / 73);
+  const Yo = 40 * sin((TAU * T) / 73) + 16 * sin((TAU * T) / 41 + 1.2);
   const phi = S.phi, rowC = S.rowC, rowS = S.rowS, rowG = S.rowG;
   for (let gy = 0; gy < GH; gy++) {
     const Y = gy - 1 + 0.5 - H / 2;
-    const th = Th * sin((TAU * (Y - Yo)) / Pc);
+    const th = Th * tri((TAU * (Y - Yo)) / Pc);
     rowC[gy] = cos(th);
     rowS[gy] = sin(th);
-    const Yw = Y + 2.6 * sin((TAU * Y) / 131 + 0.7) + 1.6 * sin((TAU * Y) / 53 + 2.5);
+    const Yw = Y * (1 + 0.004 * zc) + 0.55 * zc + 2.6 * sin((TAU * Y) / 131 + 0.7) + 1.6 * sin((TAU * Y) / 53 + 2.5);
     rowG[gy] = Dg * 0.5 * (1 + tanh(kg * sin((TAU * Yw) / P_GROOVE)));
   }
   const dr = S.drills;
+  const w1 = (TAU * T) / 53 + 1, w2 = (TAU * T) / 83 + 2;
   for (let gy = 0; gy < GH; gy++) {
     const Y = gy - 1 + 0.5 - H / 2;
     const c = rowC[gy], s = rowS[gy], g = rowG[gy];
     const near = [];
-    for (let k = 0; k < dr.length; k++) if (abs(Y - dr[k][1]) < 26) near.push(dr[k]);
+    for (let k = 0; k < dr.length; k++) if (abs(Y - dr[k][1] - 0.25 * zc) < 30) near.push(dr[k]);
     for (let gx = 0; gx < GW; gx++) {
       const X = gx - 1 + 0.5 - W / 2;
       const zr = zc + tau * X;
       const X0 = X * c + zr * s, Z0 = zr * c - X * s;
       let f = ca * (cb * X0 + sb * Z0) + sa * Y + g;
+      f += 4.5 * sin(TAU * (X / 150 + Y / 230) + w1) + 3.5 * sin(TAU * (-X / 120 + Y / 180) + w2);
       if (Dd > 0.01) {
         for (let k = 0; k < near.length; k++) {
-          const dx = X - near[k][0], dy = Y - near[k][1], sg = near[k][2];
+          const dx = X - near[k][0] - 0.5 * zc, dy = Y - near[k][1] - 0.25 * zc, sg = near[k][2] * (1 + 0.012 * zc);
           const r2 = (dx * dx + dy * dy) / (sg * sg);
           if (r2 < 9) f += Dd * exp(-0.5 * r2);
         }
