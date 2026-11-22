@@ -142,7 +142,7 @@ export function setup(params) {
       const yy = y + 5 * sin(x / 31 + 1.1) + 3 * sin(x / 13 - y / 40);
       let db =
         5 * box(yy, 46, 62, 8) + 6.5 * box(yy, 117, 122, 3) - 3 * box(yy, 66, 100, 10) + 2.5 * box(yy, 138, 170, 12);
-      db += 5 * vnoise(l4, 4, x + 128, y + 20) + 3 * vnoise(l8, 8, x + 128, y + 20) + 1.5 * vnoise(l16, 16, x + 128, y + 20);
+      db += 8 * vnoise(l4, 4, x + 128, y + 20) + 3.5 * vnoise(l8, 8, x + 128, y + 20) + 1.5 * vnoise(l16, 16, x + 128, y + 20);
       st[j * SN + i] = pow(10, db / 20);
     }
   params.st = st;
@@ -198,7 +198,7 @@ export function setup(params) {
 // same at every depth and frequency; they change only when the knob does.
 function kernels(P, f) {
   P.fc = f;
-  const sg = 1.15 / f, sl = 0.022 / f / DTH;
+  const sg = 1.0 / f, sl = 0.019 / f / DTH;
   let a = 0, b = 0;
   for (let j = -KR; j <= KR; j++) a += (P.gk[j + KR] = exp(-(j * j) / (2 * sg * sg))) ** 2;
   for (let j = -KL; j <= KL; j++) b += (P.gl[j + KL] = exp(-(j * j) / (2 * sl * sl))) ** 2;
@@ -296,6 +296,8 @@ function render(P, k) {
       let amp = (st[sy0 + sx0] * (1 - bx) + st[sy0 + sx1] * bx) * (1 - by) + (st[sy1 + sx0] * (1 - bx) + st[sy1 + sx1] * bx) * by;
       let coh = 0;
       let q = 0;
+      // The loss laid down before this sample is what reaches it; its own is for the ones behind.
+      const lg0 = lg;
       // The cyst: no scatterers, a little less loss through it (the bright column
       // behind), and a loss at its rim for beams that skim it (the edge shadows).
       const dxc = px - cx, dyc = py - cy;
@@ -305,7 +307,7 @@ function render(P, k) {
         amp *= 0.05 + 0.95 * m;
         const cs = (dxc * bs + dyc * bc) / d;
         const rw = exp(-((d - RC) * (d - RC)) / 4.5);
-        lg += (0.2 * (1 - m) - 1.4 * rw * (1 - cs * cs)) / 8.686;
+        lg += (0.3 * (1 - m) - 2.5 * rw * (1 - cs * cs)) / 8.686;
       }
       // The membrane: a thin bright line where the beam meets it square on, with
       // a wedge of lost echo behind it.
@@ -317,7 +319,7 @@ function render(P, k) {
           if (wa > 0) {
             const cb = (exm * bs + eym * bc) / rr;
             const g = exp(-dd * dd * 0.78) * wa;
-            coh = 4 * g * cb * cb;
+            coh = 11 * g * cb * cb;
             lg -= (7 * g * (0.3 + 0.7 * cb * cb)) / 8.686;
           }
         }
@@ -340,7 +342,7 @@ function render(P, k) {
         }
       }
       if (vis) flow[fb + kk] = q;
-      const gg = G[kk] * (lg === 0 ? 1 : exp(lg));
+      const gg = G[kk] * (lg0 === 0 ? 1 : exp(lg0));
       re[base + kk] = (tre * amp + coh) * gg;
       im[base + kk] = tim * amp * gg;
     }
@@ -382,13 +384,13 @@ function palettes(P, h0) {
   P.hc = h0;
   for (let i = 0; i < 256; i++) {
     const v = i / 255;
-    const h = h0 + 0.11 * (1 - v) * (1 - v) - 0.04 * v * v;
-    const sat = 0.95 - 0.89 * smooth((v - 0.62) / 0.38);
-    hsv(h, sat, 0.13 + 0.87 * pow(v, 0.9), P.tone, i * 3);
+    const h = h0 + 0.12 * (1 - v) * (1 - v) - 0.05 * v * v;
+    const sat = 0.85 - 0.28 * smooth(v / 0.5) - 0.55 * smooth((v - 0.5) / 0.5);
+    hsv(h, sat, 0.12 + 0.88 * pow(v, 0.8), P.tone, i * 3);
   }
   for (let i = 0; i < 64; i++) {
     const q = i / 63;
-    hsv(h0 + 0.4 + 0.075 * q, 0.98 - 0.2 * q * q, 0.3 + 0.7 * q, P.fl, i * 3);
+    hsv(h0 + 0.42 + 0.1 * q, 0.98 - 0.25 * q * q, 0.3 + 0.7 * q, P.fl, i * 3);
   }
 }
 
@@ -398,7 +400,7 @@ export function update(dt, input, params) {
   const s = pow(2, 1.6 * cl(k[3], -1, 1));
   params.t += d;
   params.tau += d * sqrt(s);
-  const h0 = 0.6 + k[0];
+  const h0 = 0.57 + k[0];
   if (Math.abs(h0 - params.hc) > 1e-4) palettes(params, h0);
   render(params, k);
   params.gainDb = (cl(k[1], 0, 4) - 2) * 4.5;
@@ -406,7 +408,7 @@ export function update(dt, input, params) {
 
 export function draw(display, params) {
   const { env, flow, pIdx, pFl, pFk, pAl, tone, fl } = params;
-  const gain = (params.gainDb || 0) - 1;
+  const gain = (params.gainDb || 0) - 3;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
