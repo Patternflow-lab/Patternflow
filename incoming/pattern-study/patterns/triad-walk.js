@@ -100,8 +100,8 @@ const CHROMA = 0.165; // OKLab chroma before it is cut back to fit sRGB
 const GROUND = [0.0032, 0.0016, 0.0072]; // the ground, linear light (about 10, 6, 19 of 255)
 
 // ---- the walk
-const PRE = 26; // seconds the walker has been walking before the first frame
-const KEEP = 21; // seconds of trail kept, a little over the longest Memory
+const PRE = 32; // seconds the walker has been walking before the first frame
+const KEEP = 28; // seconds of trail kept: the longest Memory, 20 s, and the swell of the memory on top of it
 const AMP = 1.0; // size of the slow swing of each flavour, as a weight exponent
 const PUSH = 2.4; // what Bias adds to a flavour at its end of the knob, as a weight exponent
 const PHASE_PL = 53.7, PHASE_PR = 89.3, PHASE_LR = 131.1; // periods of the flavour swings, s
@@ -110,13 +110,21 @@ const MIN_WAIT = 0.24, MAX_WAIT = 3.4; // limits on the wait between hops, s
 const FOLLOW = 0.8; // time constant of the smoothed camera target, s
 const SPRING = 2.4; // natural frequency of the camera spring, radians a second
 
+// ---- slow drift of the whole window, so no scene comes back
+const HUE_DRIFT = 1 / 240; // turns of hue a second: one full turn of the colour wheel in 4 minutes
+const SWAY = (24 * PI) / 180; // the lattice turns this far either way about the middle, period 131 s, with a smaller swing of 57 s on top
+const SWELL = 0.6; // the Memory time swells and shrinks by this many octaves either way, period 71.3 s
+const FOOT = 0.65; // how brightly a lattice point the walker has touched glows, once its triad has faded, against 1 for a lit corner
+const FOOT_T = 110; // seconds for that glow to fall to 1/e
+const BREATH = 0.07; // the lattice grows and shrinks by this share either way, period 97 s
+
 // ---- the picture
 const TRAIL_TOP = 0.72; // brightness of a triad that has just been left, against 1 for the one lit now
 const TRAIL_SHAPE = 1.15; // the fade runs as (1 - age / Memory) to this power
 const GAP = 1.0; // the glass stops this far inside the lattice edge, LEDs
-const PAD = 7; // how far a triangle's glow reaches past its edge, LEDs
+const PAD = 7; // how far past its edge a triangle's pixels are looked at, LEDs
 const EDGE_REST = 0.014; // brightness of an edge nobody has crossed
-const EDGE_LIT = 0; // brightness of an edge the walker has just crossed, before it fades // brightness of an edge nobody has crossed
+const SEAM = 0.12; // brightness of the line along an edge the walker crossed, which fades with the footprint
 const FLASH_LIFE = 0.38; // a crossed edge flashes down in this many seconds
 
 // ---- the 12 colours
@@ -239,13 +247,14 @@ export function setup(params) {
     ca: 1 / 3, cb: 1 / 3, va: 0, vb: 0, // the window, in lattice coordinates, and its speed
     ta: 1 / 3, tb: 1 / 3, // smoothed target
     k: [0, 2, 0, 0.06],
-    side: 14, life: 5.8, bias: 0.06, hue: 0,
+    side: 14, lifeKnob: 7.9, life: 7.9, bias: 0.06, hue: 0,
     hueBuilt: -1,
     col: [], elut: new Float32Array(3 * 12 * 4 * 3),
     buf: new Float32Array(N * 3),
     heat: new Map(),
+    foot: new Map(), // lattice points the walker has touched: key to the time of the last touch
   };
-  for (let i = 0; i < 8; i++) S.ph.push(rng() * TAU);
+  for (let i = 0; i < 11; i++) S.ph.push(rng() * TAU);
   for (let k = 0; k < 12; k++) S.col.push({ L: 0, a: 0, b: 0, C: 0, rgb: [0, 0, 0] });
   // Start on the major triad on a pitch class whose three corners are teal, blue and magenta.
   S.cur = { o: 0, a: 0, b: 0 };
@@ -303,6 +312,11 @@ function hop(S) {
     else if (e.o === B.o && e.a === B.a && e.b === B.b) S.hist.splice(i, 1);
   }
   S.hist.push({ o: A.o, a: A.a, b: A.b, t: S.nextHop });
+  for (const q of vb) {
+    const key = nodeKey(q[0], q[1]);
+    S.foot.delete(key);
+    S.foot.set(key, S.nextHop);
+  }
   S.cross.push({ a1: shared[0][0], b1: shared[0][1], a2: shared[1][0], b2: shared[1][1], t: S.nextHop });
   const gap = S.nextHop - S.hopT;
   S.from = A;
@@ -320,6 +334,7 @@ function hop(S) {
 
 function advance(S, h) {
   S.t += h;
+  S.life = min(KEEP, S.lifeKnob * pow(2, SWELL * sin((TAU * S.t) / 71.3 + S.ph[10])));
   while (S.t >= S.nextHop) hop(S);
   // The window: a target that smooths the walker's jumps, and a spring after it.
   const e = 1 - exp(-h / FOLLOW);
@@ -331,7 +346,11 @@ function advance(S, h) {
   S.ca += S.va * h;
   S.cb += S.vb * h;
   while (S.hist.length && S.t - S.hist[0].t > KEEP) S.hist.shift();
-  while (S.cross.length && S.t - S.cross[0].t > KEEP) S.cross.shift();
+  while (S.cross.length && S.t - S.cross[0].t > 4 * FOOT_T) S.cross.shift();
+  for (const [key, t] of S.foot) {
+    if (S.t - t <= 6 * FOOT_T) break;
+    S.foot.delete(key);
+  }
 }
 
 export function update(dt, input, params) {
@@ -339,7 +358,7 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06];
   S.hue = k[0];
   S.side = SIDE0 * cl(k[1], 1.3, 3.15);
-  S.life = 0.5 * pow(40, cl((k[2] + 3) / 4, 0, 1));
+  S.lifeKnob = 0.5 * pow(40, cl((k[2] + 3) / 4, 0, 1));
   S.bias = cl(k[3], -1, 1);
   if (!S.pre) {
     S.pre = true;
@@ -363,11 +382,13 @@ export function update(dt, input, params) {
 // ---- drawing
 // Scene geometry of one frame: the lattice vectors on the panel and the inverse.
 function frame(S) {
-  const s = S.side;
-  S.ux = s * cos(ROT);
-  S.uy = s * sin(ROT);
-  S.vx = s * cos(ROT + PI / 3);
-  S.vy = s * sin(ROT + PI / 3);
+  const s = S.side * (1 + BREATH * sin((TAU * S.t) / 97 + S.ph[8]));
+  const rot = ROT + SWAY * (0.8 * sin((TAU * S.t) / 131 + S.ph[9]) + 0.2 * sin((TAU * S.t) / 57 + S.ph[1]));
+  S.ux = s * cos(rot);
+  S.uy = s * sin(rot);
+  S.vx = s * cos(rot + PI / 3);
+  S.vy = s * sin(rot + PI / 3);
+  S.sideNow = s;
   const det = S.ux * S.vy - S.vx * S.uy;
   S.ia = S.vy / det;
   S.ib = -S.vx / det;
@@ -487,8 +508,8 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.pre) return;
   frame(S);
-  buildColours(S, S.hue);
-  const buf = S.buf, side = S.side, col = S.col;
+  buildColours(S, S.hue + HUE_DRIFT * S.t);
+  const buf = S.buf, side = S.sideNow, col = S.col;
 
   // Ground.
   for (let p = 0; p < N; p++) {
@@ -583,8 +604,9 @@ export function draw(display, params) {
       for (let a = floor(amin); a <= ceil(amax); a++) {
         const cx = px(S, a, b), cy = py(S, a, b);
         if (cx < -6 || cx > W + 6 || cy < -6 || cy > H + 6) continue;
-        const h = heat.get(nodeKey(a, b)) || 0;
-        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.13 + 0.45 * h, h);
+        const key = nodeKey(a, b), ts = S.foot.get(key);
+        const h = max(heat.get(key) || 0, ts === undefined ? 0 : FOOT * exp(-(S.t - ts) / FOOT_T));
+        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.13 + 0.55 * h, h);
       }
   }
 
@@ -646,12 +668,10 @@ export function draw(display, params) {
     paintTriangle(S, X, Y, LA, LB, cs, breath + flare);
   }
 
-  // The edges the walker crossed stay lit as long as the triads beside them, and flash as it crosses.
+  // An edge flashes as the walker crosses it, then keeps a faint line as long as the footprint lasts.
   for (const c of S.cross) {
     const age = S.t - c.t;
-    if (age >= S.life && age > 1.5) continue;
-    const keep = age < S.life ? pow(1 - age / S.life, TRAIL_SHAPE) : 0;
-    const amp = EDGE_LIT * keep + 0.9 * exp(-age / FLASH_LIFE);
+    const amp = 0.9 * exp(-age / FLASH_LIFE) + SEAM * exp(-age / FOOT_T);
     if (amp < 0.01) continue;
     paintEdge(S, px(S, c.a1, c.b1), py(S, c.a1, c.b1), px(S, c.a2, c.b2), py(S, c.a2, c.b2), col[mod12(c.a1 + 4 * c.b1)], col[mod12(c.a2 + 4 * c.b2)], amp);
   }
