@@ -1,22 +1,48 @@
 // ===== Patternflow pattern =====
 // Title:   Meander Belt
 // Family:  fluvial
-// Idea:    A river seen from above wanders down a 64 by 128 LED floodplain, each bend sliding sideways and downstream while the inside of the bend builds a pale point bar of curved scroll ridges behind it, and every 20 to 40 seconds a loop closes on itself, the river cuts through the neck, and the old bend is left as a blue-green oxbow lake that silts up into marsh and field.
+// Idea:    A river seen from above wanders down a 64 by 128 LED floodplain, each bend sliding sideways and downstream while the inside of the bend builds a pale point bar of curved scroll ridges behind it, and every 15 to 40 seconds a loop closes on itself, the river cuts through the neck, and the old bend is left as a blue-green oxbow lake that silts up into marsh and field.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: meander migration by an upstream-weighted curvature (Syunsuke Ikeda, Gary Parker and Kenji Sawai, 1981), its simple form (Alan Howard and Thomas Knutson, 1984), a meandering line with cutoffs (Hongbo Sun, Paul Meakin, Torstein Jossang and Karl Schwarz, 1996), pattern round 213
+// Lineage: bend theory of river meanders (Syunsuke Ikeda and colleagues, 1981), its simple form with a local curvature term and an upstream-weighted one (Alan Howard and Thomas Knutson, 1984), a meandering line that cuts off its loops (Sun, Meakin, Jossang and Schwarz, 1996), meander wavelength near 11 channel widths (Luna Leopold and Gordon Wolman, 1960); pattern round 213
 // Round:   215
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0..12, Drive=-1..1, Width=-1..1
 //
-// Knob 1: Hue. Placeholder.
-// Knob 2: Flow. Placeholder.
-// Knob 3: Drive. Placeholder.
-// Knob 4: Width. Placeholder.
+// Knob 1: Hue. Adds the knob to the hue of every colour. At 0 the river is turquoise over green and ochre land with tan and olive scroll ridges and blue-green oxbows. At 0.25 the river is violet over blue-green land, at 0.5 orange-red over blue and violet, at 0.75 yellow-green over magenta, and at 1 the picture is back where it began.
+// Knob 2: Flow. How fast the river's clock runs, (Flow / 2) to the power 1.5 model seconds a second: 0 holds the picture still, 1 gives 0.35, 2 where it opens gives 1, 4 gives 2.8, 8 gives 8 and 12 gives 14.7. At 2 the median node moves 0.08 LEDs a second and the tightest bends 0.2 to 0.3, so a bend crosses 10 LEDs in about 50 seconds. The glints in the water run at 6 LEDs a second at 2 and 23 at 12.
+// Knob 3: Drive. How hard the upstream term pushes a bend out, 2.2 times 1.2 to the power of the knob against a local term of 1: 1.83 at -1, 2.2 where it opens at 0 and 2.64 at 1. At -1 the river wanders in long slow bends and cuts a neck about every 40 seconds at Flow 2. At 0 the cuts come about every 17 seconds, and at 1 every 5 to 10 seconds, with tight loops, many small oxbows and a mean node speed of 0.12 to 0.17 LEDs a second.
+// Knob 4: Width. The channel width in LEDs, 3.5 plus 1.5 times the knob: 2 at -1, 3.59 where it opens, 5 at 1. The scroll ridges, the oxbows and the cutoff distance (1.8 widths) scale with it, and the bend length follows the square root of the width, so at 5 LEDs the river turns 2 or 3 times across the panel and at 2 LEDs 7 to 9 times.
+
+// What the river is. A line of nodes 1.2 LEDs apart runs from y = -40 above the panel to y = 150 below it, 190 LEDs of valley and about 300 nodes
+// at the opening, fixed at both ends. Its curvature k at a node is the turning angle over the mean spacing, smoothed twice and capped at
+// 0.9 / width. U is k averaged over the reach upstream with a memory of 3.9 LEDs. A node moves along its normal toward the outer bank at
+// E (gamma U - k) LEDs a second, E = 1.6 (bend scale / 3.5)^2 times a bank erodibility of 0.6 to 1.4 that varies over 15 LEDs. The -k term
+// pulls a bend back and the upstream term pushes it out and downstream, so a straight reach grows waves 40 to 50 LEDs long. Patches of hard
+// and soft bank push the line sideways by up to 0.1 LEDs a second and seed them. The entry point swings up to 15 LEDs to each side with periods
+// of 304, 169 and 119 seconds and turns the first reach by up to 0.6 radians with periods of 214 and 102 seconds. No node moves faster than
+// 0.9 LEDs a second. A node stops moving toward an edge 7.5 LEDs from it and drifts back at up to 0.12 LEDs a second inside 13.5, so a bend
+// that reaches the valley wall turns back. A Catmull-Rom resample puts the nodes back 1.2 LEDs apart when a gap leaves 0.66 to 1.74.
+// The cutoff. When two nodes at least 22 apart along the river come within 1.8 bend scales (6.4 LEDs at the opening) the nodes between them
+// leave the river. The cut waits while it would take the river under 1.5 valley lengths, unless the banks are 0.9 widths apart. A loop of
+// 20 nodes or more is kept as an oxbow, at most 14 at a time.
+// The floodplain raster has two cells to an LED. Every 0.3 model seconds the channel is stamped into it as discs of radius width / 2 + 0.3
+// LEDs, and each cell keeps the model time T it was last under water. The scroll ridges are the contours of T, cos(2 pi T / TR) with
+// TR = 18 (3.5 / width)^0.68 seconds, so a ridge lies wherever the bank stood at a multiple of TR: 3 to 5 LEDs apart where a bend moves at
+// 0.15 to 0.25 LEDs a second. They fade out as the spacing falls from 3.2 to 1.8 LEDs and again from 6 to 10.
+// Colour goes by the age since the cell was river bed: pale sand at 0, tan and olive ridges after 28 s, the field's own green or ochre after
+// 260 s with a ridge ghost of 4.5 percent left behind. The field is two scales of smooth noise with ochre where they pass 0.6, and 7 LEDs at
+// each edge darken into wooded hillside. The water is deep teal at the bank and turquoise in the middle, with two sets of pale glints running
+// down the channel at wavelengths of 17 and 29 LEDs and a dark green rim 1.6 LEDs wide on the bank.
+// An oxbow is the cut loop drawn at the channel width. Its ends narrow by 45 percent over 25 s, its width falls 30 percent as it silts, it
+// turns from blue-green to marsh green and fades out between 77 and 170 s after the cut, and wherever the river has run since it is hidden.
+// Before the first frame the river has run 420 model seconds, and up to 600 more until it is 1.7 valley lengths long, turns 4 times over
+// the panel and has 2 oxbows on it. Over 4,000 model seconds at the extremes of every knob its length stays between 1.15 and 3 valley lengths.
 
 const W = 64, H = 128, N = W * H;
+const W_PANEL = W;
 const RS = 2, RW = W * RS, RH = H * RS; // the floodplain raster, two cells to an LED
 const { floor, sqrt, pow, exp, sin, cos, PI, min, max, abs, atan2, tanh } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -89,7 +115,7 @@ KEYS.forEach((k, i) => (IDX[k] = i * 3));
 function makeState() {
   const F = () => new Float64Array(CAP);
   return {
-    X: F(), Y: F(), X2: F(), Y2: F(), dx: F(), dy: F(), ln: F(), kap: F(), kap2: F(), U: F(), arc: F(), RX: F(), RY: F(),
+    X: F(), Y: F(), X2: F(), Y2: F(), dx: F(), dy: F(), ln: F(), kap: F(), kap2: F(), U: F(), arc: F(),
     n: 0, t: 0, since: 0, flowT: 0,
     tL: new Float32Array(RW * RH).fill(-1e9),
     head: new Int32Array(GW * GH), nxt: new Int32Array(CAP),
@@ -146,13 +172,12 @@ function needsResample(S, ds) {
 
 function initialLine(S, ds) {
   const { X, Y } = S;
-  const ph = [Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28];
   const n0 = Math.round((Y1 - Y0) / ds);
   const x0 = entryX(S, 0);
   for (let i = 0; i <= n0; i++) {
     const y = Y0 + ((Y1 - Y0) * i) / n0, u = i / n0;
     const env = sm(u * 8) * sm((1 - u) * 8);
-    X[i] = mix(mix(x0, 33, u), 0, 0) + env * (8 * sin((2 * PI * y) / 46 + ph[0]) + 3.5 * sin((2 * PI * y) / 29 + ph[1]));
+    X[i] = mix(x0, 33, u) + env * (8 * sin((2 * PI * y) / 46 + S.ph[0]) + 3.5 * sin((2 * PI * y) / 29 + S.ph[1]));
     Y[i] = y;
   }
   S.n = n0 + 1;
@@ -215,7 +240,6 @@ function step(S, h, gam, E0w, alpha, W, wd) {
   X.set(X2.subarray(0, n));
   Y.set(Y2.subarray(0, n));
 }
-const W_PANEL = W;
 
 // ---- the closest approach of two reaches that are not neighbours along the river
 function findCut(S, cutD, minGap) {
@@ -337,7 +361,7 @@ export function setup(params) {
   S.er = lattice(15, W, Y1 - Y0 + 16);
   S.nzA = lattice(17, W, Y1 - Y0 + 16);
   S.nzB = lattice(17, W, Y1 - Y0 + 16);
-  const fA = lattice(13, 160, 160), fD = lattice(6, W, H), fB = lattice(5, W, H), fC = lattice(3, W, H), hA = lattice(7, W, H);
+  const fA = lattice(13, 160, 160), fD = lattice(6, W, H), fB = lattice(5, W, H), fC = lattice(3, W, H);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const p = y * W + x, e = min(x + 0.5, W - x - 0.5);
