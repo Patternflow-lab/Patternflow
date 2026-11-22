@@ -75,9 +75,9 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const u = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k1 = k[0];
-  S.sel = 0.1 * exp(1.2 * cl(k[2], -1, 1));
+  S.sel = 0.13 * exp(1.1 * cl(k[2], -1, 1));
   S.N = 2600 * exp(2.2 * cl(k[3], -1, 1));
-  S.lam = cl(0.4 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.2), 0.02, 0.8);
+  S.lam = cl(0.55 * pow(0.13 / S.sel, 0.5) * pow(S.N / 2600, 0.2), 0.02, 0.8);
   S.alpha = cl(0.4 * pow(2600 / S.N, 0.45), 0.22, 1); // a small population is shown rough, a large one smooth
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
   S.gpr = 1 + 1.4 * u;
