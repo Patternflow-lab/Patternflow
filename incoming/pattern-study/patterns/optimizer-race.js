@@ -89,7 +89,7 @@ function hsv(h, s, v, out, o) {
 }
 
 // ---- the ground
-const NG = 9; // 0-2 wells, 3 the basin at the valley's end, 4-5 ridges, 6-8 broad swells
+const NG = 13; // 0-2 wells, 3 the basin at the valley's end, 4-5 ridges, 6-8 broad swells, 9-12 knolls and dips
 const HS = 2.6;
 const DW = 1.3; // the walls of the valley level off toward a plateau of about this height
 const HLO = 0.0, HHI = 1.08;
@@ -123,6 +123,19 @@ const SWELL_MOVE = [
   [22, 97.1, 48, 149.3, 5.5, 3.9],
   [28, 73.7, 56, 113.9, 1.1, 5.2],
 ];
+const KNOLL = [
+  // amplitude, sigma
+  [0.16, 8.5],
+  [-0.14, 10],
+  [0.18, 7.5],
+  [-0.12, 9.5],
+];
+const KNOLL_MOVE = [
+  [24, 47.3, 50, 61.7, 0.2, 1.9],
+  [26, 39.1, 46, 53.3, 3.1, 4.4],
+  [22, 59.9, 54, 43.7, 5.2, 0.7],
+  [27, 51.7, 44, 67.1, 2.3, 3.5],
+];
 const RIDGE_MOVE = [
   [22, 109.3, 40, 151.9, 0.9, 3.6],
   [18, 77.9, 48, 63.7, 4.4, 1.7],
@@ -140,12 +153,11 @@ const RIP = [
 const NRIP = RIP.length;
 
 function prepSurface(S, tm, k3, k4) {
-  S.rip = k4 * 0.024;
+  S.rip = k4 * 0.03;
   for (let k = 0; k < NRIP; k++) {
     const r = RIP[k], kk = TAU / r[0];
     S.rkx[k] = kk * cos(r[1]); S.rky[k] = kk * sin(r[1]);
     S.rph[k] = r[3] + r[2] * S.t;
-    S.rcd[k] = cos(S.rkx[k]); S.rsd[k] = sin(S.rkx[k]);
   }
   S.sig = 5 * pow(0.3, k3);
   S.wallA = 0.04 + 0.012 * k3;
@@ -172,6 +184,12 @@ function prepSurface(S, tm, k3, k4) {
       cx = xcOf(S, cy);
       amp = -0.1 * wm;
       sx = 5; sy = 7; ang = 0;
+    } else if (k >= 9) {
+      const j = k - 9, m = KNOLL_MOVE[j], w = KNOLL[j];
+      cx = 32 + m[0] * sin((TAU * tm) / m[1] + m[4]);
+      cy = 64 + m[2] * sin((TAU * tm) / m[3] + m[5]);
+      amp = w[0] * (0.7 + 0.3 * sin((TAU * tm) / (41.3 + 11 * j) + 2.1 * j));
+      sx = w[1]; sy = w[1] * (1.2 + 0.2 * j); ang = 1.1 * j + 0.8 * sin((TAU * tm) / (77.9 + 9 * j));
     } else if (k >= 6) {
       const j = k - 6, m = SWELL_MOVE[j], w = SWELL[j];
       cx = 32 + m[0] * sin((TAU * tm) / m[1] + m[4]);
@@ -209,16 +227,31 @@ function fieldGrad(S, x, y) {
   const fy = (y - S.ym) * (1 / 64);
   u += S.fl * fy * fy;
   uy += (2 * S.fl * fy) / 64;
+  let v = 0, vx = 0, vy = 0;
   for (let k = 0; k < NG; k++) {
     const dx = x - S.gcx[k], dy = y - S.gcy[k], c = S.gc[k], s = S.gs[k];
     const uu = c * dx + s * dy, vv = -s * dx + c * dy;
     const q = uu * uu * S.gix[k] + vv * vv * S.giy[k];
     if (q > 24) continue;
     const e = S.ga[k] * exp(-0.5 * q);
-    u += e;
     const gu = -e * uu * S.gix[k], gv = -e * vv * S.giy[k];
-    ux += c * gu - s * gv;
-    uy += s * gu + c * gv;
+    if (k === 3) {
+      u += e;
+      ux += c * gu - s * gv;
+      uy += s * gu + c * gv;
+    } else {
+      v += e;
+      vx += c * gu - s * gv;
+      vy += s * gu + c * gv;
+    }
+  }
+  {
+    // the faded sum: m(|d|) times the terms, and the slope of m itself
+    const ad = abs(d), t = cl((ad - sg - CLEAR0) / (CLEAR1 - CLEAR0), 0, 1), m = t * t * (3 - 2 * t);
+    const dm = t > 0 && t < 1 ? ((6 * t * (1 - t)) / (CLEAR1 - CLEAR0)) * (d < 0 ? -1 : 1) : 0;
+    u += v * m;
+    ux += vx * m + v * dm;
+    uy += vy * m - v * dm * dxc;
   }
   if (S.rip > 0) {
     for (let k = 0; k < NRIP; k++) {
@@ -239,46 +272,49 @@ function fieldGrad(S, x, y) {
   return u;
 }
 
-// the whole panel, into S.hgt
-function raster(S) {
-  const hgt = S.hgt, sg = S.sig, A = S.wallA;
-  for (let y = 0; y < H; y++) {
-    const yc = y + 0.5;
-    const xc = xcOf(S, yc);
-    const fy = (yc - S.ym) * (1 / 64);
-    const base = HOFF + S.fl * fy * fy;
+// The smooth part of the ground (wells, ridges, swells, tilt, ripple) on a lattice 2 LEDs apart, 33 by 65 points;
+// the valley, the one thing narrower than that, is added per LED in raster().
+const GW = 33, GH = 65;
+const CLEAR0 = 1, CLEAR1 = 13; // the wells, ridges and swells fade out toward the valley floor, so the valley stays the valley
+function lattice(S) {
+  const gl = S.gl, rip = S.rip, sg = S.sig;
+  for (let j = 0; j < GH; j++) {
+    const yy = 2 * j, xc = xcOf(S, yy);
+    const fy = (yy - S.ym) * (1 / 64), base = S.fl * fy * fy;
     for (let k = 0; k < NG; k++) {
-      const dy = yc - S.gcy[k], c = S.gc[k], s = S.gs[k];
+      const dy = yy - S.gcy[k], c = S.gc[k], s = S.gs[k];
       S.ucs[k] = s * dy - c * S.gcx[k];
       S.vcs[k] = c * dy + s * S.gcx[k];
     }
-    const row = y * W;
-    const rip = S.rip;
-    if (rip > 0) {
-      for (let k = 0; k < NRIP; k++) {
-        const th = S.rkx[k] * 0.5 + S.rky[k] * yc + S.rph[k];
-        S.rc[k] = cos(th); S.rs[k] = sin(th);
-      }
-    }
-    for (let x = 0; x < W; x++) {
-      const xx = x + 0.5, d = xx - xc;
-      const wl = A * (sqrt(sg * sg + d * d) - sg);
-      let u = base + (DW * wl) / (DW + wl);
+    for (let i = 0; i < GW; i++) {
+      const xx = 2 * i;
+      let u = base, v = 0;
       for (let k = 0; k < NG; k++) {
         const uu = S.gc[k] * xx + S.ucs[k], vv = S.vcs[k] - S.gs[k] * xx;
         const q = uu * uu * S.gix[k] + vv * vv * S.giy[k];
-        if (q < 24) u += S.ga[k] * exp(-0.5 * q);
+        if (q < 24) { if (k === 3) u += S.ga[k] * exp(-0.5 * q); else v += S.ga[k] * exp(-0.5 * q); }
       }
-      if (rip > 0) {
-        let rs = 0;
-        for (let k = 0; k < NRIP; k++) {
-          const c = S.rc[k], sn = S.rs[k];
-          rs += c;
-          S.rc[k] = c * S.rcd[k] - sn * S.rsd[k];
-          S.rs[k] = sn * S.rcd[k] + c * S.rsd[k];
-        }
-        u += rip * rs;
-      }
+      u += v * sm(sg + CLEAR0, sg + CLEAR1, abs(xx - xc));
+      if (rip > 0) for (let k = 0; k < NRIP; k++) u += rip * cos(S.rkx[k] * xx + S.rky[k] * yy + S.rph[k]);
+      gl[j * GW + i] = u;
+    }
+  }
+}
+
+// the whole panel, into S.hgt
+function raster(S) {
+  lattice(S);
+  const hgt = S.hgt, gl = S.gl, sg = S.sig, A = S.wallA;
+  for (let y = 0; y < H; y++) {
+    const yc = y + 0.5, xc = xcOf(S, yc);
+    const gy = yc * 0.5, j0 = gy | 0, fj = gy - j0, o0 = j0 * GW, o1 = o0 + GW;
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      const xx = x + 0.5, d = xx - xc;
+      const wl = A * (sqrt(sg * sg + d * d) - sg);
+      const gx = xx * 0.5, i0 = gx | 0, fi = gx - i0;
+      const top = gl[o0 + i0] + (gl[o0 + i0 + 1] - gl[o0 + i0]) * fi, bot = gl[o1 + i0] + (gl[o1 + i0 + 1] - gl[o1 + i0]) * fi;
+      const u = HOFF + (DW * wl) / (DW + wl) + top + (bot - top) * fj;
       hgt[row + x] = u > 0 ? u / (1 + u / HS) : u;
     }
   }
@@ -293,7 +329,9 @@ const NOISE0 = 0.007;
 // gradient descent, momentum, Nesterov: the learning rate times the stiffness of the valley across (A / sigma); RMSProp, Adam: LEDs a step; all at Rate 1
 const LR = [1.9, 0.26, 0.34, 1.8, 2.2];
 const EPS = 0.0015;
-const TN = 200, TT = 6;
+const TAU_T = 4.2; // seconds a trail takes to fade to a third
+const ERODE = 0.0035; // taken off a trail every frame, so its soft edges go first and the tail thins as it fades
+const TR = 1.9; // radius of the trail's solid part, LEDs
 
 function gauss() {
   return Math.random() + Math.random() + Math.random() - 1.5;
@@ -303,8 +341,7 @@ function makeRacer(id) {
   return {
     id, phase: 0, wait: 0.5 + id * 1.3 + Math.random() * 1.5, age: 0, life: 24, ha: 0,
     x: 0, y: 0, px: 0, py: 0, dx: 0, dy: 0, vx: 0, vy: 0, mx: 0, my: 0, sx: 0, sy: 0, n: 0, ge: -1, ox: 0, oy: 0, oage: 0, still: 0,
-    tx: new Float32Array(TN), ty: new Float32Array(TN), tt: new Float32Array(TN), tb: new Uint8Array(TN),
-    th: 0, tc: 0, brk: 1,
+    cv: new Float32Array(NPX), hl: new Float32Array(NPX), bx0: 1, bx1: 0, by0: 1, by1: 0, lx: 0, ly: 0, has: false, idle: 0,
   };
 }
 
@@ -315,9 +352,8 @@ function makeState() {
     gcx: new Float64Array(NG), gcy: new Float64Array(NG), ga: new Float64Array(NG),
     gc: new Float64Array(NG), gs: new Float64Array(NG), gix: new Float64Array(NG), giy: new Float64Array(NG),
     ucs: new Float64Array(NG), vcs: new Float64Array(NG), rip: 0, still2: 25,
-    rkx: new Float64Array(NRIP), rky: new Float64Array(NRIP), rph: new Float64Array(NRIP), rc: new Float64Array(NRIP), rs: new Float64Array(NRIP), rcd: new Float64Array(NRIP), rsd: new Float64Array(NRIP),
-    hgt: new Float32Array(NPX), px: new Float32Array(NPX * 3),
-    cov: new Float32Array(NPX), hal: new Float32Array(NPX), touch: new Int32Array(NPX), nt: 0,
+    rkx: new Float64Array(NRIP), rky: new Float64Array(NRIP), rph: new Float64Array(NRIP),
+    hgt: new Float32Array(NPX), gl: new Float32Array(GW * GH), px: new Float32Array(NPX * 3),
     bcol: new Float32Array(NB * 3), rcol: new Float32Array(5 * 3), hueAt: -1,
     racers: [0, 1, 2, 3, 4].map(makeRacer),
     ax: 32, ay: 20, at: -99,
@@ -356,7 +392,7 @@ function launch(S, r) {
   r.n = 0; r.ge = -1; r.age = 0; r.ha = 0; r.phase = 1;
   r.life = 18 + Math.random() * 14;
   r.ox = r.x; r.oy = r.y; r.oage = 0; r.still = 0;
-  r.brk = 1;
+  r.has = false;
 }
 
 function stepRacer(S, r, rho, nz) {
@@ -395,7 +431,7 @@ function stepRacer(S, r, rho, nz) {
 function frame(S, d, kn) {
   S.t += d;
   const k3 = cl(0.5 + 0.5 * kn[2], 0, 1), rho = 0.25 * pow(4, cl(kn[1], 0, 3) / 2), q4 = (cl(kn[3], -1, 1) + 1) / 2, k4 = q4 * q4, nz = k4 * NOISE0;
-  S.tm += d * (0.7 + 1.05 * k3);
+  S.tm += d * (0.9 + 1.0 * k3) * (0.7 + 0.3 * rho);
   prepSurface(S, S.tm, k3, k4);
   const rad = 1.6 + 3.4 * min(1, rho);
   S.still2 = rad * rad;
@@ -438,16 +474,15 @@ function frame(S, d, kn) {
       }
       if (dead) { r.phase = 2; alive--; }
       else {
-        const h = r.th;
-        r.tx[h] = r.dx; r.ty[h] = r.dy; r.tt[h] = S.t; r.tb[h] = r.brk;
-        r.brk = 0;
-        r.th = (h + 1) % TN;
-        if (r.tc < TN) r.tc++;
+        if (r.has) capsule(r, r.lx, r.ly, r.dx, r.dy);
+        r.lx = r.dx; r.ly = r.dy; r.has = true;
+        r.idle = 0;
       }
     } else {
       r.ha -= d / 1.0;
       if (r.ha <= 0) { r.ha = 0; r.phase = 0; r.wait = (alive < 3 ? 0.15 : 0.4) + Math.random() * 1.9; }
     }
+    fadeTrail(r, d);
   }
 }
 
@@ -504,71 +539,73 @@ function bands(S) {
   }
 }
 
-function touch(S, i) {
-  S.touch[S.nt++] = i;
-}
-
-// one capsule of a trail into the coverage and halo buffers (maximum, so joints do not double up)
-function capsule(S, xa, ya, ra, aa, xb, yb, rb, ab) {
-  const pad = max(ra, rb) + 3;
+// one capsule of a racer's trail, into its own coverage and halo buffers (maximum, so joints do not double up)
+function capsule(r, xa, ya, xb, yb) {
+  const pad = TR + 2.8;
   const x0 = max(0, floor(min(xa, xb) - pad)), x1 = min(W - 1, floor(max(xa, xb) + pad));
   const y0 = max(0, floor(min(ya, yb) - pad)), y1 = min(H - 1, floor(max(ya, yb) + pad));
+  if (r.bx1 < r.bx0) { r.bx0 = x0; r.bx1 = x1; r.by0 = y0; r.by1 = y1; }
+  else { if (x0 < r.bx0) r.bx0 = x0; if (x1 > r.bx1) r.bx1 = x1; if (y0 < r.by0) r.by0 = y0; if (y1 > r.by1) r.by1 = y1; }
   const ex = xb - xa, ey = yb - ya, el2 = ex * ex + ey * ey, inv = el2 > 1e-6 ? 1 / el2 : 0;
-  const cov = S.cov, hal = S.hal;
+  const cov = r.cv, hal = r.hl;
   for (let y = y0; y <= y1; y++) {
     const py = y + 0.5 - ya;
     for (let x = x0; x <= x1; x++) {
       const pxx = x + 0.5 - xa;
       const u = cl((pxx * ex + py * ey) * inv, 0, 1);
       const dx = pxx - u * ex, dy = py - u * ey, dist = sqrt(dx * dx + dy * dy);
-      const R = ra + (rb - ra) * u, a = aa + (ab - aa) * u;
-      const e = cl((R + 0.6 - dist) / 1.6, 0, 1);
-      const eh = cl((R + 2.2 - dist) / 2.2, 0, 1);
+      const e = cl((TR + 0.6 - dist) / 1.6, 0, 1);
+      const eh = cl((TR + 2.7 - dist) / 2.7, 0, 1);
       const i = y * W + x;
-      if (cov[i] === 0 && hal[i] === 0) touch(S, i);
-      const c = e * e * (3 - 2 * e) * a, h = eh * eh * (3 - 2 * eh) * a * 0.62;
+      const c = e * e * (3 - 2 * e), h = eh * eh * (3 - 2 * eh) * 0.62;
       if (c > cov[i]) cov[i] = c;
       if (h > hal[i]) hal[i] = h;
     }
   }
 }
 
+// the trail fades by itself: every frame it is multiplied down and its edge eroded a little
+function fadeTrail(r, d) {
+  if (r.bx1 < r.bx0) return;
+  r.idle += d;
+  if (r.idle > 12 && r.phase !== 1) { r.bx0 = 1; r.bx1 = 0; return; }
+  const dec = exp(-d / TAU_T), cov = r.cv, hal = r.hl, er = ERODE * (d * 30);
+  for (let y = r.by0; y <= r.by1; y++) {
+    for (let i = y * W + r.bx0, e = y * W + r.bx1; i <= e; i++) {
+      let c = cov[i];
+      if (c > 0) { c = c * dec - er; cov[i] = c > 0.02 ? c : 0; }
+      let h = hal[i];
+      if (h > 0) { h = h * dec - er * 0.6; hal[i] = h > 0.02 ? h : 0; }
+    }
+  }
+}
+
 function drawRacer(S, r, col) {
   const px = S.px;
-  // the trail, newest point first
-  S.nt = 0;
-  let any = false;
-  for (let j = 0; j < r.tc - 1; j++) {
-    const a = (r.th - 1 - j + 2 * TN) % TN, b = (a - 1 + TN) % TN;
-    const ageA = S.t - r.tt[a];
-    if (ageA > TT) break;
-    if (r.tb[a]) continue;
-    const ageB = S.t - r.tt[b];
-    const fa = 1 - ageA / TT, fb = max(0, 1 - ageB / TT);
-    capsule(S, r.tx[a], r.ty[a], 1.25 + 0.8 * fa, pow(fa, 0.8), r.tx[b], r.ty[b], 1.25 + 0.8 * fb, pow(fb, 0.8));
-    any = true;
-  }
-  if (any) {
-    const cov = S.cov, hal = S.hal, T = S.touch;
-    for (let n = 0; n < S.nt; n++) {
-      const i = T[n], hv = 1 - hal[i], cv = cov[i], o = i * 3;
-      let rr = px[o] * hv, gg = px[o + 1] * hv, bb = px[o + 2] * hv;
-      rr += (col[0] - rr) * cv; gg += (col[1] - gg) * cv; bb += (col[2] - bb) * cv;
-      px[o] = rr; px[o + 1] = gg; px[o + 2] = bb;
-      cov[i] = 0; hal[i] = 0;
+  if (r.bx1 >= r.bx0) {
+    const cov = r.cv, hal = r.hl;
+    for (let y = r.by0; y <= r.by1; y++) {
+      for (let i = y * W + r.bx0, e = y * W + r.bx1; i <= e; i++) {
+        const cv = cov[i], hh = hal[i];
+        if (cv <= 0 && hh <= 0) continue;
+        const o = i * 3, hv = 1 - hh;
+        let rr = px[o] * hv, gg = px[o + 1] * hv, bb = px[o + 2] * hv;
+        rr += (col[0] - rr) * cv; gg += (col[1] - gg) * cv; bb += (col[2] - bb) * cv;
+        px[o] = rr; px[o + 1] = gg; px[o + 2] = bb;
+      }
     }
   }
   // the head
-  if (r.ha > 0 && r.tc > 0) {
+  if (r.ha > 0 && r.has) {
     const hx = r.dx, hy = r.dy, ha = r.ha;
-    const x0 = max(0, floor(hx - 5)), x1 = min(W - 1, floor(hx + 5)), y0 = max(0, floor(hy - 5)), y1 = min(H - 1, floor(hy + 5));
+    const x0 = max(0, floor(hx - 6)), x1 = min(W - 1, floor(hx + 6)), y0 = max(0, floor(hy - 6)), y1 = min(H - 1, floor(hy + 6));
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - hx, dy = y + 0.5 - hy, dd = sqrt(dx * dx + dy * dy);
-        const eh = cl((4.4 - dd) / 3.0, 0, 1), halo = eh * eh * (3 - 2 * eh) * 0.6 * ha;
-        const ec = cl((2.3 - dd) / 1.3, 0, 1), cv = ec * ec * (3 - 2 * ec) * ha;
+        const eh = cl((5.4 - dd) / 3.6, 0, 1), halo = eh * eh * (3 - 2 * eh) * 0.62 * ha;
+        const ec = cl((2.7 - dd) / 1.5, 0, 1), cv = ec * ec * (3 - 2 * ec) * ha;
         if (halo <= 0 && cv <= 0) continue;
-        const o = (y * W + x) * 3, hv = 1 - halo, w = cl((1.45 - dd) / 1.45, 0, 1) * 0.75;
+        const o = (y * W + x) * 3, hv = 1 - halo, w = cl((1.7 - dd) / 1.7, 0, 1) * 0.75;
         const cr = col[0] + (255 - col[0]) * w, cg = col[1] + (255 - col[1]) * w, cb = col[2] + (255 - col[2]) * w;
         let rr = px[o] * hv, gg = px[o + 1] * hv, bb = px[o + 2] * hv;
         rr += (cr - rr) * cv; gg += (cg - gg) * cv; bb += (cb - bb) * cv;
