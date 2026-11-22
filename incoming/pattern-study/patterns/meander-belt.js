@@ -27,7 +27,7 @@ const mix = (a, b, u) => a + (b - a) * u;
 const Y0 = -40, Y1 = 150; // the river enters above the panel and leaves below it
 const CAP = 1400;
 const OMEGA = 1; // local curvature term, which pulls a bend back toward its centre
-const GAM0 = 1.9; // upstream-weighted term, which pushes it out and downstream
+const GAM0 = 2.0; // upstream-weighted term, which pushes it out and downstream
 const K3F = 1.2; // how much the Drive knob scales the upstream term, per unit
 const E0 = 1.6; // bank erodibility at the 3.5 LED channel
 const ALPHA0 = 0.9; // 1 / (length of the upstream memory), times the channel width
@@ -37,7 +37,9 @@ const CUTF = 1.8; // a neck narrower than this many channel widths is cut
 const T_STAMP = 0.3; // seconds between two stampings of the channel into the raster
 const SILT = 170; // seconds an oxbow takes to fill
 const EA = 12; // swing of the entry point, in LEDs
-const VN = 0; // a sideways push from patchy banks, in LEDs a second
+const SMIN = 1.5; // no cut takes the river's length below this many valley lengths
+const ANG = 0.6; // swing of the entry direction, in radians
+const VN = 0.1; // a sideways push from patchy banks, in LEDs a second
 const PRE = 420; // seconds the river has run before the first frame
 
 const NBR_CELL = 6.5;
@@ -244,7 +246,7 @@ function findCut(S, cutD, minGap) {
           }
         }
   }
-  return bi < 0 ? null : [bi, bj];
+  return bi < 0 ? null : [bi, bj, bd];
 }
 
 function cutOff(S, a, b, W) {
@@ -306,8 +308,21 @@ function advance(S, mdt) {
     S.since += h;
     S.X[0] = entryX(S, S.t);
     S.Y[0] = Y0;
+    const th = ANG * (0.6 * sin(0.0293 * S.t + S.ph[1]) + 0.4 * sin(0.0617 * S.t + S.ph[2]));
+    S.X[1] = S.X[0] + p.ds * sin(th);
+    S.Y[1] = Y0 + p.ds * cos(th);
     if (needsResample(S, p.ds)) resample(S, p.ds);
-    const c = findCut(S, CUTF * p.wd, max(12, Math.round((3.2 * p.wd) / p.ds)));
+    let c = findCut(S, CUTF * p.wd, max(22, Math.round((7.5 * p.wd) / p.ds)));
+    // A neck is left alone while the cut would take the river below a sinuosity of SMIN, unless the banks are about to meet.
+    if (c && c[2] > 0.81 * p.W * p.W) {
+      let len = 0, loop = 0;
+      for (let i = 1; i < S.n; i++) {
+        const l = Math.hypot(S.X[i] - S.X[i - 1], S.Y[i] - S.Y[i - 1]);
+        len += l;
+        if (i > c[0] && i <= c[1]) loop += l;
+      }
+      if (len - loop < SMIN * (Y1 - Y0)) c = null;
+    }
     if (c) {
       stamp(S, p.W);
       cutOff(S, c[0], c[1], p.W);
