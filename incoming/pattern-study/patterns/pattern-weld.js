@@ -27,7 +27,7 @@ const TAU = 2 * PI;
 
 const GW = W + 2, GH = H + 2; // phase grid with a one LED border for gradients
 const DNOM = 100; // depth that gives Layers pairs at a plane slope of 1
-const P_GROOVE = 23; // LEDs between grooves
+const P_GROOVE = 21; // LEDs between grooves
 const DRILL_DY = 37;
 
 function hash(i) {
@@ -51,7 +51,7 @@ function makeState() {
   const S = {
     ready: false, t: 0, T: 11, z0: 0,
     kn: [0, 2, 8, 0.06],
-    phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH), ff: new Float32Array(GW * GH),
+    phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH), ff: new Float32Array(GW * GH), hz: new Float32Array(GW * GH),
     rowC: new Float32Array(GH), rowS: new Float32Array(GH), rowG: new Float32Array(GH),
     grain: new Float32Array(W * H),
     drills: [],
@@ -83,12 +83,12 @@ export function update(dt, input, params) {
 
 // ---- colour: bright layer and dark layer of each steel tint
 const TINTS = [
-  [[178, 198, 218], [22, 30, 44]], // etched steel, blue-grey
-  [[218, 220, 222], [28, 30, 36]], // silver and graphite
-  [[226, 206, 150], [44, 34, 20]], // straw
-  [[214, 160, 112], [44, 26, 20]], // bronze
-  [[184, 158, 226], [34, 24, 54]], // violet
-  [[118, 158, 238], [14, 26, 62]], // temper blue
+  [[156, 176, 198], [20, 28, 42]], // etched steel, blue-grey
+  [[192, 194, 198], [26, 28, 34]], // silver and graphite
+  [[200, 180, 130], [42, 32, 20]], // straw
+  [[190, 142, 100], [42, 25, 20]], // bronze
+  [[164, 140, 206], [32, 22, 52]], // violet
+  [[104, 142, 222], [14, 24, 58]], // temper blue
 ];
 function tintAt(h, out) {
   const n = TINTS.length, u = (((h % 1) + 1) % 1) * n, i = floor(u) % n, f = u - floor(u), j = (i + 1) % n;
@@ -113,10 +113,11 @@ function fieldOf(S) {
   const s0 = 0.62 * (1 + 0.45 * sin((TAU * T) / 43 + 1.9) * sin((TAU * T) / 131));
   const ca = cos(alpha) * s0, sa = sin(alpha) * s0, cb = cos(beta), sb = sin(beta);
   // forging
-  const Dg = (1.3 / kl) * 0.0 + (1.15 * ks) / kl * sm(0.03, 0.22, u) * (1 - sm(0.42, 0.75, u));
-  const Th = 1.0 * sm(0.45, 0.95, u);
-  const Pc = 46 - 20 * sm(0.5, 1, u) + 5 * sin((TAU * T) / 89);
-  const Dd = ((3.2 * ks) / kl) * sm(0.25, 0.45, u) * (1 - sm(0.62, 0.85, u));
+  const Dg = (1.3 / kl) * 0.0 + (1.0 * ks) / kl * sm(0.03, 0.2, u) * (1 - sm(0.27, 0.42, u));
+  const kg = 1.0 + 3.5 * sm(0.05, 0.3, u);
+  const Th = 1.0 * sm(0.55, 0.95, u);
+  const Pc = 46 - 20 * sm(0.6, 1, u) + 5 * sin((TAU * T) / 89);
+  const Dd = ((3.2 * ks) / kl) * sm(0.26, 0.4, u) * (1 - sm(0.58, 0.74, u));
   const Yo = 30 * sin((TAU * T) / 73);
   const phi = S.phi, rowC = S.rowC, rowS = S.rowS, rowG = S.rowG;
   for (let gy = 0; gy < GH; gy++) {
@@ -125,7 +126,7 @@ function fieldOf(S) {
     rowC[gy] = cos(th);
     rowS[gy] = sin(th);
     const Yw = Y + 2.6 * sin((TAU * Y) / 131 + 0.7) + 1.6 * sin((TAU * Y) / 53 + 2.5);
-    rowG[gy] = Dg * 0.5 * (1 + tanh(2.2 * sin((TAU * Yw) / P_GROOVE)));
+    rowG[gy] = Dg * 0.5 * (1 + tanh(kg * sin((TAU * Yw) / P_GROOVE)));
   }
   const dr = S.drills;
   for (let gy = 0; gy < GH; gy++) {
@@ -154,7 +155,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   fieldOf(S);
-  const phi = S.phi, hh = S.hh, ff = S.ff;
+  const phi = S.phi, hh = S.hh, ff = S.ff, hz = S.hz;
   const K0 = 2.4;
   for (let gy = 1; gy < GH - 1; gy++) {
     for (let gx = 1; gx < GW - 1; gx++) {
@@ -163,8 +164,11 @@ export function draw(display, params) {
       const g = sqrt(fx * fx + fy * fy);
       const kAA = 1 / (TAU * max(g, 1e-4) * 0.7);
       const k = min(K0, kAA) * (1 - 0.8 * sm(0.3, 0.55, g));
-      hh[p] = 0.5 + 0.5 * tanh(k * cos(TAU * phi[p]));
-      ff[p] = 1 - sm(0.1, 0.22, 3 * g);
+      const hc = 0.5 + 0.5 * tanh(k * cos(TAU * phi[p]));
+      const fa = 1 - sm(0.07, 0.15, 3 * g);
+      hh[p] = hc;
+      ff[p] = fa;
+      hz[p] = hc + 0.3 * fa * cos(TAU * 3 * phi[p] + 0.9) * (0.4 + 0.6 * hc);
     }
   }
   const tint = [0, 0, 0, 0, 0, 0];
@@ -175,13 +179,14 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const p = (y + 1) * GW + (x + 1);
       const Hc = hh[p];
-      const hx = (hh[p + 1] - hh[p - 1]) * 0.5, hy = (hh[p + GW] - hh[p - GW]) * 0.5;
+      const hx = (hz[p + 1] - hz[p - 1]) * 0.5, hy = (hz[p + GW] - hz[p - GW]) * 0.5;
       const shade = (0.707 + 0.5 * RD * (hx + hy)) / sqrt(1 + RD * RD * (hx * hx + hy * hy)) / 0.707;
       const ph = phi[p];
       const vb = 1 + 0.16 * (vnoise(ph + 31.7) - 0.5), vd = 1 + 0.4 * (vnoise(ph + 0.5 + 77.1) - 0.5);
-      const fine = 1 + 0.16 * ff[p] * cos(TAU * 3 * ph + 0.9) * (0.4 + 0.6 * Hc);
+      const fine = 1 + 0.17 * ff[p] * cos(TAU * 3 * ph + 0.9) * (0.4 + 0.6 * Hc);
+      const bevel = 1 + 0.08 * cos(TAU * ph) * Hc;
       const mott = 1 + 0.22 * (vnoise2(x / 26 + 0.013 * S.t, y / 38 - 0.019 * S.t + 9) - 0.5);
-      const gr = (1 + 0.07 * S.grain[y * W + x]) * fine * (Hc > 0.5 ? 1 : mott);
+      const gr = (1 + 0.07 * S.grain[y * W + x]) * fine * bevel * (Hc > 0.5 ? 1 : mott);
       const gl = exp(-(((y + 0.2 * (x - 32) - ys) / 20) ** 2));
       const wb = Hc, wd = 1 - Hc;
       let out = [0, 0, 0];
@@ -189,7 +194,7 @@ export function draw(display, params) {
         const bright = tint[c] * vb, dark = tint[3 + c] * vd;
         let v = (bright * wb + dark * wd) * shade * gr;
         v += gl * (0.22 * tint[c] * wb + 0.04 * tint[c] * wd);
-        out[c] = cl(v, 0, 255) | 0;
+        out[c] = (v > 196 ? 196 + 59 * tanh((v - 196) / 59) : v < 0 ? 0 : v) | 0;
       }
       display.setPixel(x, y, out[0], out[1], out[2]);
     }
