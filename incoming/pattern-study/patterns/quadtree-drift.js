@@ -37,13 +37,15 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET_HI = 62, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
+const BUDGET = [100, 60, 30, 9, 2.5]; // the error a flat tile may have at Budget 0, 1, 2, 3 and 4, between them on a log scale
 const MERGE = 0.62; // a tile merges again under this share of the split error
 const RATE = 1.8; // scene seconds for each second of the panel, at Drift 0
+const SLACK = [1.5, 1.45, 1.3, 1.15, 1.0]; // a big node is let off more error than a small one, by level
+const SAT = 1.25;
 const HOLD = 0.4; // seconds a node keeps a new state
 const SETTLE = [0.5, 0.46, 0.42, 0.38, 0.34]; // seconds a split takes, by level
 const SEAM = 0.32; // how much darker the bottom and right row of a tile is
-const SEAM_MIN = 3; // the smallest tile with a seam, as a level (3 is 8 LEDs)
+const SEAM_W = [1, 1, 1, 0.55, 0]; // how much of the seam a tile of each level gets: 8 LEDs a little, 4 and 2 none // the smallest tile with a seam, as a level (3 is 8 LEDs)
 
 // ---- the hidden scene
 // palette stops: position round the cycle, then the colour
@@ -252,9 +254,10 @@ function treeStep(S, dt, ts, tm) {
     for (let j = 0; j < V.gy; j++) {
       for (let i = 0; i < V.gx; i++) {
         const n = j * V.gx + i;
+        if (!L) { V.st[n] = 1; continue; } // the two roots are always cut once
         if (P && !P.st[(j >> 1) * P.gx + (i >> 1)]) { V.st[n] = 0; V.hold[n] = 0; continue; }
         if (V.hold[n] > 0) V.hold[n] -= dt;
-        const e = V.err[n];
+        const e = V.err[n] / SLACK[L];
         if (V.st[n]) {
           if (e < tm && V.hold[n] <= 0) { V.st[n] = 0; V.hold[n] = HOLD; }
         } else if (e > ts && V.hold[n] <= 0) {
@@ -286,7 +289,7 @@ function frame(S, dt, snap) {
   sceneStep(S, cl(kn[3], -1, 1));
   buildTables(S);
   nodeStats(S);
-  const b = pow(cl(kn[1] / 4, 0, 1), 1.3), ts = exp(log(BUDGET_HI) + (log(BUDGET_LO) - log(BUDGET_HI)) * b);
+  const bq = cl(kn[1], 0, 3.9999), bi = bq | 0, ts = exp(log(BUDGET[bi]) + (log(BUDGET[bi + 1]) - log(BUDGET[bi])) * (bq - bi));
   treeStep(S, dt, ts, ts * MERGE);
   settle(S, dt, snap);
 }
@@ -327,14 +330,16 @@ export function draw(display, params) {
       }
       let sx = 0, sy = 0;
       if (SEAM > 0) {
-        for (let q = 0; q <= SEAM_MIN; q++) {
-          const z = SZ[q];
-          if ((cx + 1) % z === 0 && cx < CW - 1 && lf[q] > sx) sx = lf[q];
-          if ((cy + 1) % z === 0 && cy < CH - 1 && lf[q] > sy) sy = lf[q];
+        for (let q = 0; q < NL - 1; q++) {
+          const z = SZ[q], v = lf[q] * SEAM_W[q];
+          if ((cx + 1) % z === 0 && cx < CW - 1 && v > sx) sx = v;
+          if ((cy + 1) % z === 0 && cy < CH - 1 && v > sy) sy = v;
         }
       }
       const X = cx * 2, Y = cy * 2;
-      const r0 = cl(r, 0, 255), g0 = cl(g, 0, 255), b0 = cl(b, 0, 255);
+      // a mean of two colours is greyer than either, so the tile is pushed back out from its grey
+      const yl = 0.299 * r + 0.587 * g + 0.114 * b;
+      const r0 = cl(yl + (r - yl) * SAT, 0, 255), g0 = cl(yl + (g - yl) * SAT, 0, 255), b0 = cl(yl + (b - yl) * SAT, 0, 255);
       if (sx === 0 && sy === 0) {
         const ri = r0 | 0, gi = g0 | 0, bi = b0 | 0;
         display.setPixel(X, Y, ri, gi, bi); display.setPixel(X + 1, Y, ri, gi, bi);
