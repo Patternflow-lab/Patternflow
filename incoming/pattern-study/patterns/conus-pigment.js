@@ -42,7 +42,7 @@ const PARAM = [
   // wide oblique bands
   [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.25, 0.0, 0.3, 2.2, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.45, 2.2, 2.5],
   // crowd
   [6.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.2, 0.4, 0.0, 1.5, 2.2, 2.5],
 ];
@@ -58,7 +58,7 @@ function paramsAt(k3, out) {
   // between the Turing stripes and the excitable bands the inhibitor is strengthened for a while, or the lip floods
   if (k === 1) {
     out.hk += HUMP * Math.sin(PI * u);
-    out.rate += 0.9 * Math.sin(PI * u);
+    out.rate += 0.6 * Math.sin(PI * u);
     out.amp = 2.2;
   }
   return out;
@@ -71,7 +71,7 @@ function makeState() {
     na: new Float32Array(N), nh: new Float32Array(N), ns: new Float32Array(N),
     ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N),
     head: 0, // index of the newest laid row in the history
-    sub: 0, acc: 0, quiet: 0, sites: [],
+    sub: 0, acc: 0, quiet: 0, sites: [], time: 0,
     P: {}, kn: [0, 2, 0, 0.06],
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -115,15 +115,17 @@ function substep(S, P) {
 }
 
 function seeds(S, P, mult) {
-  // each step has a small chance of a colony starting at a cell; one time in three it is
-  // a cell that seeded lately, which puts a second chevron inside the first
+  // each step has a small chance of a colony starting at a cell where the substrate has
+  // recovered; one time in three it is a cell that seeded lately, which puts a second
+  // chevron inside the first
   if (Math.random() < P.rate * mult * DT) {
-    const a = S.a, big = P.amp > 1, sites = S.sites;
+    const a = S.a, sites = S.sites;
     let c = floor(Math.random() * N);
     if (sites.length > 0 && Math.random() < 0.35) c = (sites[floor(Math.random() * sites.length)] + N + floor(Math.random() * 3) - 1) % N;
+    if (P.amp > 1 && S.s[c] < 0.75) return;
     sites.push(c);
     if (sites.length > 4) sites.shift();
-    if (big) {
+    if (P.amp > 1) {
       a[(c + N - 1) % N] += P.amp;
       a[c] += P.amp;
       a[(c + 1) % N] += P.amp;
@@ -171,6 +173,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
+  S.time += d;
   const P = paramsAt(kn[2], S.P), mult = Math.pow(4, cl(kn[3], -1, 1));
   if (!S.ready) {
     S.ready = true;
@@ -193,15 +196,16 @@ function hueMatrix(S, hue) {
   S.hueAt = hue;
 }
 
-const GROUND = [34, 20, 50], RIM = [90, 34, 24], AMBER = [236, 150, 38], CREAM = [255, 232, 186], TEAL = [26, 96, 110];
+const GROUND = [30, 17, 46], PLUM = [52, 24, 62], RIM = [96, 36, 22], AMBER = [236, 146, 40], CREAM = [255, 238, 212], TEAL = [18, 100, 122];
 
-function rowAt(S, age, ph, outA, outH) {
+function rowAt(S, age, ph, outA, outH, outS) {
   // age in rows from the lip: 0 is the live state, ph is the newest laid row
   if (age <= ph) {
     const f = ph > 0 ? age / ph : 0, o = S.head * N;
     for (let i = 0; i < N; i++) {
       outA[i] = S.a[i] + (S.ha[o + i] - S.a[i]) * f;
       outH[i] = S.h[i] + (S.hh[o + i] - S.h[i]) * f;
+      outS[i] = S.s[i] + (S.hs[o + i] - S.s[i]) * f;
     }
     return;
   }
@@ -211,33 +215,47 @@ function rowAt(S, age, ph, outA, outH) {
   for (let i = 0; i < N; i++) {
     outA[i] = S.ha[o0 + i] + (S.ha[o1 + i] - S.ha[o0 + i]) * f;
     outH[i] = S.hh[o0 + i] + (S.hh[o1 + i] - S.hh[o0 + i]) * f;
+    outS[i] = S.hs[o0 + i] + (S.hs[o1 + i] - S.hs[o0 + i]) * f;
   }
 }
 
-const rowA = new Float32Array(N), rowH = new Float32Array(N);
+const rowA = new Float32Array(N), rowH = new Float32Array(N), rowS = new Float32Array(N);
+
+// a soft band of light that slides over the glaze; x is a column, and the ring wraps
+function sheenAt(t, x, y) {
+  const c1 = 64 * (((t / 61 + 0.15 + (y - 64) * 0.0011) % 1 + 1) % 1);
+  const c2 = 64 * (((0.7 - t / 97 - (y - 64) * 0.0007) % 1 + 1) % 1);
+  let d1 = (x - c1 + 96) % 64 - 32, d2 = (x - c2 + 96) % 64 - 32;
+  return exp(-(d1 * d1) / 98) + 0.55 * exp(-(d2 * d2) / 220);
+}
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   const hue = cl(S.kn[0], 0, 1);
   hueMatrix(S, hue);
-  const m = S.hueMat, P = S.P, aref = P.aref;
+  const m = S.hueMat, P = S.P, aref = P.aref, t = S.time;
   const ph = (S.sub + S.acc) / SUBS;
-  const t = S.tt = (S.tt || 0) + 1 / 30;
+  const hden = max(0.5, P.hk * aref);
   for (let y = 0; y < H; y++) {
-    rowAt(S, H - 1 - y, ph, rowA, rowH);
+    rowAt(S, H - 1 - y, ph, rowA, rowH, rowS);
     for (let x = 0; x < W; x++) {
-      const a = rowA[x] / aref, hh = rowH[x] / aref;
+      const a = rowA[x] / aref;
       const u = sm(0.12, 0.5, a);
+      const wake = sm(0.08, 0.7, (rowH[x] - P.h0) / hden) * (1 - u);
+      const gl = sheenAt(t, x, y);
       let r = GROUND[0], g = GROUND[1], b = GROUND[2];
-      const halo = sm(0.2, 0.9, hh) * (1 - u);
-      r += (TEAL[0] - r) * halo * 0.5; g += (TEAL[1] - g) * halo * 0.5; b += (TEAL[2] - b) * halo * 0.5;
+      const used = (1 - cl(rowS[x], 0, 1)) * (1 - u);
+      r += (PLUM[0] - r) * used * 0.8; g += (PLUM[1] - g) * used * 0.8; b += (PLUM[2] - b) * used * 0.8;
+      r += (TEAL[0] - r) * wake * 0.7; g += (TEAL[1] - g) * wake * 0.7; b += (TEAL[2] - b) * wake * 0.7;
       const rim = sm(0.0, 0.35, u) * (1 - sm(0.35, 0.7, u));
       r += (RIM[0] - r) * rim; g += (RIM[1] - g) * rim; b += (RIM[2] - b) * rim;
       const body = sm(0.3, 0.75, u);
       r += (AMBER[0] - r) * body; g += (AMBER[1] - g) * body; b += (AMBER[2] - b) * body;
-      const core = sm(0.75, 1.0, a);
+      const core = sm(0.8, 1.15, a);
       r += (CREAM[0] - r) * core; g += (CREAM[1] - g) * core; b += (CREAM[2] - b) * core;
+      const lift = gl * (0.16 + 0.12 * u);
+      r = r * (1 + lift) + 26 * gl * (1 - u * 0.6); g = g * (1 + lift) + 20 * gl * (1 - u * 0.6); b = b * (1 + lift) + 18 * gl * (1 - u * 0.6);
       const R = r * m[0] + g * m[1] + b * m[2], G = r * m[3] + g * m[4] + b * m[5], B = r * m[6] + g * m[7] + b * m[8];
       display.setPixel(x, y, cl(R, 0, 255) | 0, cl(G, 0, 255) | 0, cl(B, 0, 255) | 0);
     }
