@@ -69,7 +69,7 @@ const RISE = 0.055; // s
 const AG_TAU = 15; // s
 const WTAU = 20, WAMP = 0.75, FAMP = 0.45; // each tank's resting glow wanders by up to 75 percent on 20 s
 const MAXE = 10, MAXM = 6;
-const LG_LO0 = 1.3, LG_LO1 = 1.0, LG_HI0 = 2.3, LG_HI1 = 1.6; // log10 of the energy range at Energy -1 and the gain across the knob
+const LG_LO0 = 1.15, LG_LO1 = 1.0, LG_HI0 = 2.15, LG_HI1 = 1.6; // log10 of the energy range at Energy -1 and the gain across the knob
 const PRE = 55; // s run before the first frame
 
 // the arrival-time palette: time 0..1, then red, green, blue
@@ -380,7 +380,7 @@ function step(S, dt) {
     if (m.age > 0.1 && !m.f) {
       // a muon leaves a little glow behind, which fades in a few seconds
       m.f = true;
-      const a = m.a * 0.8, i = m.i, tot = S.ag[i] + a;
+      const a = m.a * 1.0, i = m.i, tot = S.ag[i] + a;
       S.agT[i] = mix(S.agT[i], 0, sm(0.2, 0.6, a / (tot + 1e-6)));
       S.ag[i] = min(0.56, tot);
     }
@@ -399,7 +399,7 @@ function step(S, dt) {
       m.i = floor(Math.random() * NT);
       m.age = 0;
       m.f = false;
-      m.a = 0.16 + 0.2 * Math.random();
+      m.a = 0.18 + 0.2 * Math.random();
       break;
     }
     S.nextMu = 1.2 * erl();
