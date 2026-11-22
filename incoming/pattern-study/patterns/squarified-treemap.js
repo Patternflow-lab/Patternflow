@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Pace=0.35..3, Groups=-4..2, Burst=0..1
 //
 // Knob 1: Hue. Turns every group round the colour wheel together, one full turn from 0 to 1. At 0 the seven groups are emerald, indigo, coral, ochre, teal, plum and steel grey; at 0.33 the emerald is a blue and the coral is a green.
-// Knob 2: Pace. How fast the weights drift and how fast the tiles follow, on a clock of Pace to the power 0.8. At 2 (where it opens) a leaf's weight forgets where it was in about 23 s, a tile closes 90 percent of the way to its new place in 0.63 s and a whole group does in 0.97 s; at 0.35 the forgetting takes 93 s and the glide 1.1 s and 1.7 s, at 3 the forgetting takes 17 s and the glide 0.5 s and 0.77 s.
+// Knob 2: Pace. How fast the weights drift and how fast the tiles follow, on a clock of Pace to the power 0.8. At 2 (where it opens) a leaf's weight forgets where it was in about 23 s, a tile closes 90 percent of the way to its new place in 0.63 s and a whole group does in 0.79 s; at 0.35 the forgetting takes 93 s and the glide 1.1 s and 1.4 s, at 3 the forgetting takes 17 s and the glide 0.5 s and 0.62 s.
 // Knob 3: Groups. How many groups share the panel, 7 plus the knob, so 3 groups and 21 tiles at -4, 7 and 44 at 0 (where it opens) and 9 and 58 at 2. The knob is not stepped: at 0.5 the eighth group is at half strength, and a group that goes shrinks over about a second to a sliver and fades as its tiles get under 3 LEDs, while the rest re-flow into its place.
 // Knob 4: Burst. How often and how hard a leaf surges or collapses. At 0 none do. At 0.06 (where it opens) one does about every 2 s and its weight changes by a factor of 1.4 to 2.1; at 1 two or three do a second and the factor is 2.8 to 8. A surge blooms: the tile goes lighter and throws a halo about 2 LEDs wide for about a second.
 
@@ -313,7 +313,7 @@ function frame(S, d, snap, kn) {
   if (snap) {
     for (let g = 0; g < NG; g++) { S.sx0[g] = S.gx0[g]; S.sy0[g] = S.gy0[g]; S.sx1[g] = S.gx1[g]; S.sy1[g] = S.gy1[g]; }
   } else {
-    springGroups(S, d, omega * 0.65);
+    springGroups(S, d, omega * 0.8);
   }
   layoutLeaves(S);
   if (snap) {
