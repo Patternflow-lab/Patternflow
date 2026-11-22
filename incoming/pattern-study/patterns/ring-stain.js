@@ -31,22 +31,22 @@ const R_MIN = 6, R_MAX = 28;
 const HUE0 = 0.52; // the dye at Hue 0, a blue-green
 const DYE_B = 0.3; // the second dye, round the wheel from the first
 const P_B = 0.3; // share of drops that are the second dye
-const WET_FRAC = 0.24; // share of the panel under a wet drop, at any moment
-const RB0 = 13.5; // mean radius at Drops 0
-const RB_STEP = 1.7; // mean radius is RB0 over RB_STEP to the power of the knob
+const WET_FRAC = 0.28; // share of the panel under a wet drop, at any moment
+const RB0 = 11.5; // mean radius at Drops 0
+const RB_STEP = 1.85; // mean radius is RB0 over RB_STEP to the power of the knob
 const LIFE_SLOW = 40, LIFE_FAST = 6; // seconds, at Dry 0 and Dry 4
 const FADE = 0.7; // the snap: the lens lets go over this long
 const SP0 = 0.28; // the radius a drop has on touching, as a share of its own
 const SLIP_T = 0.3; // the contact line's retreat to the next ring
 const DISS_T = 0.75, DISS_K = 2.4; // a landing drop dissolves the older stain under it
-const SP_GAP = 4.0; // the least spacing between two rings of one drop
-const R_INNER = 3.5; // the smallest ring
-const PRE = 210, PRE_DT = 0.25; // the glass has seen this much drying when the panel opens
+const SP_GAP = 3.0; // the least spacing between two rings of one drop
+const R_INNER = 3.0; // the smallest ring
+const PRE = 210, PRE_DT = 0.4; // the glass has seen this much drying when the panel opens
 const MAX_DROPS = 60;
 
 // ---- the stain
 const AF = [0.7, 0.9]; // glaze strength of a drop
-const TAU_F = 55, TAU_R = 110, TAU_E = 80; // seconds for the glaze, the ring and the edge light to fade to 1/e
+const TAU_F = 50, TAU_R = 100, TAU_E = 75; // seconds for the glaze, the ring and the edge light to fade to 1/e
 const DECAY_STEP = 0.25;
 const FILM_GAIN = 0.85;
 
@@ -90,7 +90,7 @@ function noiseTex(gw, gh) {
 
 function makeState() {
   const S = {
-    ready: false, time: 0, drops: [], next: 0, dacc: 0,
+    ready: false, time: 0, drops: [], next: 0, dacc: 0, decayStep: DECAY_STEP,
     fa: new Float32Array(NP), fc: new Float32Array(NP),
     ra: new Float32Array(NP), rc: new Float32Array(NP),
     ea: new Float32Array(NP),
@@ -137,17 +137,18 @@ function newDrop(S, P, age) {
   const T = cl(P.life * pow(R / P.rbar, 0.6) * (0.8 + 0.45 * rnd()), 4, 70);
   // the rings: the outer edge sticks for a good part of the life, then lets go and sticks again further in
   const nmax = 1 + floor((R - R_INNER) / SP_GAP);
-  const n = max(1, min(nmax, 6, 1 + floor(P.extra + rnd())));
+  let n = max(1, min(nmax, 6, 1 + floor(P.extra + rnd())));
+  const sp = n > 1 ? max(SP_GAP, ((R - R_INNER) / (n - 1 + 0.6)) * (0.85 + 0.3 * rnd())) : 0;
+  while (n > 1 && R - (n - 1) * sp * 1.1 < R_INNER) n--;
   const rk = [R], ts = [0], te = [], wk = [1], lam = [2.1 + 0.035 * R], es = [0.55];
   if (n > 1) {
-    const sp = max(SP_GAP, ((R - R_INNER) / (n - 1 + 0.6)) * (0.85 + 0.3 * rnd()));
     const f0 = 0.42 + 0.12 * rnd();
     const wts = [];
     let tot = 0;
     for (let k = 1; k < n; k++) { const w = (0.8 + 0.4 * rnd()) * pow(0.92, k); wts.push(w); tot += w; }
     let acc = f0;
     for (let k = 1; k < n; k++) {
-      rk.push(max(R_INNER, rk[k - 1] - sp * (0.9 + 0.2 * rnd())));
+      rk.push(rk[k - 1] - sp * (0.9 + 0.2 * rnd()));
       ts.push(acc * T);
       acc += ((1 - f0) * wts[k - 1]) / tot;
       wk.push((0.8 + 0.15 * rnd()) * pow(0.93, k - 1));
@@ -203,7 +204,12 @@ function stampDrop(S, d) {
       if (r > d.R + 3.5) continue;
       layersAt(d, r, ONES);
       const i = y * W + x;
-      if (QF > 0.002) { fc[i] = fc[i] * (1 - QF) + QF * e; fa[i] += QF * (1 - fa[i]); }
+      if (QF > 0.002) {
+        // the new glaze lies over the older rings and edge light, as it does while the drop is still wet
+        const cv = 1 - QF * sqrt(QF) * FILM_GAIN;
+        ra[i] *= cv; rc[i] *= cv; ea[i] *= cv;
+        fc[i] = fc[i] * (1 - QF) + QF * e; fa[i] += QF * (1 - fa[i]);
+      }
       if (QR > 0.002) { rc[i] = rc[i] * (1 - QR) + QR * e; ra[i] += QR * (1 - ra[i]); }
       if (QE > 0.002) { ea[i] += QE * (1 - ea[i]); }
     }
@@ -251,7 +257,7 @@ function advance(S, dt, P) {
     }
   }
   S.dacc += dt;
-  if (S.dacc >= DECAY_STEP) {
+  if (S.dacc >= S.decayStep) {
     decay(S, S.dacc);
     S.dacc = 0;
   }
@@ -277,7 +283,9 @@ export function update(dt, input, params) {
   const P = readKnobs(kn);
   if (!S.ready) {
     S.ready = true;
+    S.decayStep = 1;
     for (let t = 0; t < PRE; t += PRE_DT) advance(S, PRE_DT, P);
+    S.decayStep = DECAY_STEP;
   }
   advance(S, d, P);
 }
@@ -349,7 +357,7 @@ function drawDrop(S, d, hue) {
         const wL = lc * ws;
         // the bright rim of the lens, the glint of a lamp and the ripple of the landing
         const rx = (Rc - r - 0.8) / 1.2;
-        let add = exp(-rx * rx) * (0.25 + 0.75 * Hn) * 0.5 * (1 - 0.55 * grow[k]);
+        let add = exp(-rx * rx) * (0.25 + 0.75 * Hn) * 0.5 * (1 - 0.55 * grow[k]) * (1 + 1.4 * sin(PI * f));
         const gd = ((x + 0.5 - gx) * (x + 0.5 - gx) + (y + 0.5 - gy) * (y + 0.5 - gy)) / (2 * gs * gs);
         const gl = gd < 6 ? exp(-gd) * 0.5 * pow(Hn, 0.7) : 0;
         let ripple = 0;
