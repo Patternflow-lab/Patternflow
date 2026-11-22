@@ -21,7 +21,7 @@ const HR = 136; // rows of history kept
 const MAXC = 72; // clone slots
 const CAPLIVE = 48; // most clones with cells in them at once; the smallest folds back past it
 const NVIS = 4; // cells a clone needs before it is drawn
-const M0 = 2.3; // narrowest a bud is drawn, LEDs
+const M0 = 2.6; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
 const ALPHA = 0.5; // how much of a generation's change in frequency a row takes
@@ -61,7 +61,7 @@ export function setup(params) {
     hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), bias: f(MAXC), ft: f(MAXC),
     born: new Float64Array(MAXC), dead: new Float64Array(MAXC), shown: new Uint8Array(MAXC),
     kids: Array.from({ length: MAXC }, () => []), kc: new Int16Array(MAXC),
-    subR: f(MAXC), D: f(MAXC), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
+    subR: f(MAXC), D: f(MAXC), bL: f(MAXC), bW: f(MAXC), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
     segW: f(MAXC * 3), segC: new Int16Array(MAXC * 3), ns: 0,
     sH: f(MAXC * 3), sS: f(MAXC * 3), sV: f(MAXC * 3), sB: f(MAXC * 3),
     HH: f(HR * W), HS: f(HR * W), HV: f(HR * W), head: 0,
@@ -75,7 +75,7 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const u = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k1 = k[0];
-  S.sel = 0.06 * exp(1.4 * cl(k[2], -1, 1));
+  S.sel = 0.05 * exp(1.45 * cl(k[2], -1, 1));
   S.N = 1600 * exp(2.1 * cl(k[3], -1, 1));
   S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 1600, 0.3), 0.02, 1);
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
@@ -287,7 +287,7 @@ function render(S) {
     S.shown[i] = 1;
   }
   S.ns = 0;
-  lay(S, root, W);
+  lay(S, root, 0, W);
   // segment boundaries and colours
   let x = 0;
   for (let k = 0; k < S.ns; k++) {
@@ -299,26 +299,30 @@ function render(S) {
     S.sS[k] = S.sat[c] * (1 - 0.42 * gl);
     S.sV[k] = min(1, S.val[c] + 0.14 * gl);
   }
-  // each LED: the bands' colours crossfaded over the edges, a faint seam and a faint shadow near an edge
+  // each LED: the bands' colours crossfaded over the edges, a faint seam, and each band shaded a little toward its own edges
   const ns = S.ns;
   S.head = (S.head + 1) % HR;
   const o = S.head * W;
+  let kk = 0;
   for (let p = 0; p < W; p++) {
     const xc = p + 0.5;
-    let h = S.sH[0], s = S.sS[0], v = S.sV[0], seam = 0, near = 99;
+    let h = S.sH[0], s = S.sS[0], v = S.sV[0], seam = 0;
     for (let j = 0; j < ns - 1; j++) {
-      const d = xc - S.sB[j], ad = abs(d);
-      if (ad < near) near = ad;
-      if (d < -5) break;
+      const d = xc - S.sB[j];
+      if (d < -2) break;
       let dh = S.sH[j + 1] - S.sH[j];
       dh -= Math.round(dh);
       const t = d >= HW ? 1 : d <= -HW ? 0 : sm(-HW, HW, d);
       h += dh * t;
       s += (S.sS[j + 1] - S.sS[j]) * t;
       v += (S.sV[j + 1] - S.sV[j]) * t;
-      if (ad < 2) seam += exp(-(d * d) / 0.5);
+      if (d < 2) seam += exp(-(d * d) / 0.5);
     }
-    v *= 1 - 0.2 * min(seam, 1) - 0.1 * (1 - sm(0, 5, near));
+    while (kk < ns - 1 && S.sB[kk] <= xc) kk++;
+    const c = S.segC[kk], bl = S.bL[c], bw = S.bW[c];
+    const dl = bl > 0.01 ? xc - bl : 99, dr = bl + bw < W - 0.01 ? bl + bw - xc : 99;
+    const dd = min(dl, dr), rw = min(8, 0.45 * bw);
+    v *= 1 - 0.22 * sm(2, 8, bw) * (1 - sm(0, rw, dd)) - 0.2 * min(seam, 1);
     h -= floor(h);
     S.HH[o + p] = h;
     S.HS[o + p] = cl(s, 0, 1);
@@ -327,19 +331,30 @@ function render(S) {
 }
 
 // A clone's band inside the width it is given: its own cells split to the two sides, its children as one block near the middle.
-function lay(S, i, Wi) {
+function lay(S, i, L, Wi) {
   const ks = S.kids[i];
   let C = 0;
   for (const c of ks) C += S.D[c];
-  let k = 1, own = Wi - C;
-  if (own < 0) {
-    k = Wi / C;
-    own = 0;
+  let left = 0, right = 0;
+  if (Wi > C) {
+    left = (Wi - C) * (0.5 + S.bias[i]);
+    right = Wi - C - left;
+    if (C > 0) {
+      // a sliver of parent thinner than 2 LEDs goes to its children instead of lingering as a hairline
+      left *= sm(0.6, 2.4, left);
+      right *= sm(0.6, 2.4, right);
+    }
   }
-  const left = own * (0.5 + S.bias[i]);
+  const k = C > 0 ? (Wi - left - right) / C : 1;
+  S.bL[i] = L;
+  S.bW[i] = Wi;
   emit(S, i, left);
-  for (const c of ks) lay(S, c, S.D[c] * k);
-  emit(S, i, own - left);
+  let x = L + left;
+  for (const c of ks) {
+    lay(S, c, x, S.D[c] * k);
+    x += S.D[c] * k;
+  }
+  emit(S, i, right);
 }
 
 function emit(S, i, w) {
