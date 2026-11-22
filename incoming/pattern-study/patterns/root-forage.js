@@ -5,18 +5,23 @@
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 220, after the root proliferation response in a nitrate patch (Drew 1975)
+// Lineage: the root proliferation response to a local nitrate supply (M. C. Drew, 1975, on barley), with gravitropism, chemotropism and circumnutation steering each tip; the picture and the rules are original, pattern round 220
 // Round:   220
 // ===============================
 // @matrix 64x128
 // @knobs Hue=-0.08..0.1, Growth=0.6..3, Tropism=-1..1, Rain=-1..1
 //
-// Knob 1: Hue. TODO
-// Knob 2: Growth. TODO
-// Knob 3: Tropism. TODO
-// Knob 4: Rain. TODO
+// Knob 1: Hue. Adds the knob to the hue of the whole section, by a different share for each part so the soil keeps reading as soil: the soil moves by 0.45 times the knob, the roots by 0.4 times, the nitrate by 2.4 times, and the soil is 1 + the knob times as bright. At the opening 0 the topsoil is a brown (69, 48, 30), the strata a red-brown (94, 44, 28), the bottom rows (43, 32, 29), a cloud at full strength a teal (46, 255, 217) and a root cream (255, 244, 217). At -0.08 the soil is a red clay (hue 15 degrees against 28), the roots peach (255, 237, 217) and the clouds a lime green (115, 255, 46). At 0.1 the soil is an ochre brown (hue 44 degrees, 1.1 times as bright), the roots a pale yellow-cream and the clouds a blue-violet (100, 46, 255).
+// Knob 2: Growth. How fast the roots grow. The speed factor goes from 0.45 at 0.6 through 1.12 at the opening 2 to 1.6 at 3. A taproot tip grows 1.4 LEDs a second times it, a lateral 1.3, a lateral of a lateral 1.1 and the next one 0.9, each cut by half in a rich patch and by half again toward the floor. So a lateral tip makes about 0.6 LEDs a second at 0.6, 1.5 at the opening and 2.1 at 3. A tip may starve for 30 s in empty soil at the opening, 45 s at 0.6 and 24 s at 3, so a slow root waits longer for food. The glow on a growing tip is 0.75 times as strong at 0.6 and 1.27 times at 3, and follows the knob at once.
+// Knob 3: Tropism. Between roots that go straight down and roots that bend and spread along the nutrient. A lateral leaves its parent 0.47 to 0.63 rad (27 to 36 degrees) off its heading at -1 and 0.81 to 1.09 rad (46 to 63 degrees) at 1, and settles toward a set angle off the vertical of 0.25 rad (14 degrees) at -1, 0.65 (37 degrees) at 0 and 1.05 (60 degrees) at 1. Gravity pulls with 1.5 at -1 and 0.4 at 1 (a lateral takes 0.8 of it), the pull along the nutrient gradient is 0.1 at -1 and 1.7 at 1, and the rate at which roots put out laterals is 0.35 times at -1, 1.4 at 0 and 2.4 at 1. At -1 a few laterals hang nearly parallel to the taproot, at 1 many wide ones curl into each patch. Turning it bends the tips that are growing and sends new laterals out within seconds. The set angle of the two thick side roots is read once, when the section opens.
+// Knob 4: Rain. How often rain falls and how much stays. A patch of nitrate lands at a random column and depth every 9 s on average at -1, every 6 s at the opening 0.06 and every 4.2 s at 1. It fills in over 3.5 s as a soft blob with a spread of 5.2 LEDs at -1 and 6.4 at 1 (each 85 to 115 percent, stretched 0.8 to 1.5 times down) and a peak of 0.95 to 1.1 times a random 0.7 to 1.3, in units where a cell holds at most 1.3. It spreads at 0.04 cells squared a second at -1 and 0.16 at 1 and drains at 3 percent a second, more where it is thick. At -1 the soil keeps a cloud or two, at 1 a handful that run together. Every cloud is also drawn 0.85 times as bright at -1 and 1.15 at 1, which shows at once.
 
-// TODO design notes
+// The panel is a slice of ground. Rows 0 to 7 are dark air with the stub of a stem, 3.4 LEDs wide, a node at row 3 and a collar that flares into the soil at row 8. Rows 8 to 127 are soil, built once from value noise: a brown and a red-brown blended into strata by a warped low-frequency noise, mottling and grain of 13, 4 and 2 LEDs (up to 0.1, 0.08 and 0.06 either way), darker and cooler with depth (value 0.27 at the top, 0.17 at the bottom, hue 28 degrees down to 11), a lighter lip along the surface, and up to five faint stones 9 to 18 LEDs across that tips walk around.
+// The nutrient is a grid of 32 by 64 cells, 2 LEDs a cell, drawn through a small static warp so it does not show the grid. Rain adds Gaussian blobs, diffusion spreads them, drainage and the roots take them away. A cloud with a root in it is eaten from the root outward and shrinks while the rest spreads in after it.
+// Each root is a tip that leaves a node every 1.25 LEDs. Its heading turns under five things added together: a pull toward its set angle off the vertical (gravitropism), a turn along the nutrient gradient read 2.5, 7 and 14 LEDs ahead (chemotropism), a slow sine of 9 to 20 s (circumnutation), a small random walk, and the push of other roots within 7 LEDs, the walls and the stones. The turn rate is smoothed over 2.4 s, which is the inertia, and capped so that a root bends in an arc of at least 6 LEDs (10 for the thick ones). A tip slows to half in a rich patch, so it lingers where it eats.
+// The 28 nodes behind a tip eat from the cell they lie in, 0.035 a second a node, saturating at 0.12. Every unit eaten pays 6 into a carbon pool of up to 30. Growing costs 0.6 an LED, a new lateral 4, and the shoot adds 5 a second, so what the roots do follows what the clouds give. Every half second the nodes of living roots are tried for a lateral. A node in a thick cloud is four to five times as likely as one in empty soil, and a lateral needs 8.75 LEDs of its own root and 6.5 LEDs of any other root to itself, so the fine roots never close into a mat.
+// A tip stops when it has starved (the nutrient under it under 0.1 for 30, 20 or 12 s by order), reached its length (36, 17 or 9 LEDs, each 70 to 130 percent; the taproot 96 to 112, the side roots 56 to 70) or reached row 121. A stopped lateral stays cream for 26, 20 or 16 s, turns tan and fades over 16 s, and a root is held while any lateral on it lives. The taproot and the two side roots stay. Roots are drawn as capsules of a soft brush: radius 0.97 for a lateral (2 LEDs across), 0.92 at a tip, about 1.6 at the crown (3.2 LEDs) falling toward 0.97 within 60 LEDs. A growing tip shines and every root has a soft shadow.
+// The first update runs 60 to 120 s of this in 0.2 s steps from four to six clouds and lays two more at the end, so the first frame has a branched root system, a few tips still growing and clouds that roots are working on. Nothing depends on the time modulo a period, and the picture is state that builds up.
 
 const W = 64, H = 128, N = W * H;
 const GW = 32, GH = 64, GN = GW * GH; // nutrient grid, 2 LEDs a cell
@@ -35,12 +40,13 @@ const YBOT = 121; // a tip that gets this deep stops
 const NODE_CAP = 3400;
 const V0 = [1.4, 1.3, 1.1, 0.9]; // tip speed by branch order, LEDs a second
 const LIFE = [1e9, 26, 20, 16]; // seconds a stopped root of each order stays
-const STARVE = [1e9, 30, 20, 12];
-const MAXLEN = [88, 36, 17, 9]; // laterals are determinate: each stops at about this length // seconds a tip may sit in empty soil
+const STARVE = [1e9, 30, 20, 12]; // seconds a tip may sit in empty soil
+const MAXLEN = [88, 36, 17, 9]; // laterals are determinate: each stops at about this length
 const GCOST = 0.6, BIRTH = 4, YIELD = 6, BASE = 5, BMAX = 30;
 const VMAX = 0.035, KM = 0.12, NABS = 28;
 const LEACH = 0.03;
 const BCELL = 7, BX = 10, BY = 19;
+const GR = [2.5, 7, 14], GW3 = [0.4, 0.35, 0.25]; // how far ahead a tip reads the gradient, and how much each reach counts
 
 const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) * 1.732;
 
@@ -71,14 +77,14 @@ function vn2(x, y) {
 
 // soil colours down the section as [hue, saturation, value] at depth 0, 0.3, 0.65 and 1: a brown and a red-brown
 const ZS = [0, 0.3, 0.65, 1];
-const SA = [[0.078, 0.56, 0.27], [0.072, 0.58, 0.3], [0.06, 0.48, 0.22], [0.03, 0.32, 0.14]];
-const SB = [[0.045, 0.66, 0.34], [0.04, 0.7, 0.37], [0.025, 0.55, 0.26], [-0.02, 0.38, 0.16]];
+const SA = [[0.078, 0.56, 0.27], [0.072, 0.58, 0.3], [0.06, 0.48, 0.24], [0.03, 0.32, 0.17]];
+const SB = [[0.045, 0.66, 0.34], [0.04, 0.7, 0.37], [0.025, 0.55, 0.28], [-0.02, 0.38, 0.2]];
 
 export function setup(params) {
   const S = {
     t: 0, ready: false, k1: 0, m2: 1, u3: 0.5, u4: 0.5,
-    bm: 1, lmax: 6500, kr: 1.2, kc: 1, kg: 1, gsaM: 0.8, rainMean: 8, rainA: 0.8, rainS: 2.9, D: 0.1,
-    n: F(GN), n2: F(GN), inj: [], B: 16, up: 0,
+    bm: 1, kr: 1.2, kc: 1, kg: 1, gsaM: 0.8, rainMean: 8, rainA: 0.8, rainS: 2.9, D: 0.1,
+    n: F(GN), n2: F(GN), inj: [], B: 16,
     nodes: [], tips: [], roots: [],
     stones: [], lum: F(N), tint: F(N), stone: F(N), wx: F(N), wy: F(N), tex: F(N), ys: F(W),
     cov: F(N), tone: F(N), glow: F(N), halo: F(N), tmp: F(N),
@@ -114,10 +120,9 @@ function knobs(S) {
   S.kg = mix(1.5, 0.4, u3);
   S.gsaM = mix(0.25, 1.05, u3);
   S.rainMean = 9 * pow(4.2 / 9, u4);
-  S.rainA = mix(0.85, 1.05, u4);
-  S.rainS = mix(2.4, 3.2, u4);
+  S.rainA = mix(0.95, 1.1, u4);
+  S.rainS = mix(2.6, 3.2, u4);
   S.D = mix(0.04, 0.16, u4);
-  S.lmax = 6500 * (0.75 + 0.5 * u3) * (0.8 + 0.4 * u4);
 }
 
 // ---- the soil, built once: layers, grain, a few stones
@@ -158,6 +163,16 @@ function nAt(S, x, y) {
   const gx = cl(x * 0.5 - 0.5, 0, GW - 1.001), gy = cl(y * 0.5 - 0.5, G0, GH - 1.001);
   const i = floor(gx), j = floor(gy), fx = gx - i, fy = gy - j, n = S.n, p = j * GW + i;
   return n[p] * (1 - fx) * (1 - fy) + n[p + 1] * fx * (1 - fy) + n[p + GW] * (1 - fx) * fy + n[p + GW + 1] * fx * fy;
+}
+
+// the nutrient gradient along (dx, dy), read 2.5, 7 and 14 LEDs either side of a point
+function ga(S, x, y, dx, dy) {
+  let g = 0;
+  for (let i = 0; i < 3; i++) {
+    const r = GR[i];
+    g += GW3[i] * (nAt(S, x + dx * r, y + dy * r) - nAt(S, x - dx * r, y - dy * r)) / (2 * r);
+  }
+  return g;
 }
 
 function blob(S, gx, gy, sx, sy, amp) {
@@ -215,6 +230,12 @@ function makeRoot(S, ord, par, x, y, th, gsa) {
   return tip;
 }
 
+function extend(S, tp) {
+  const pn = tp.node, nd = newNode(S, tp.rt, pn, tp.x, tp.y, pn.s + sqrt((tp.x - pn.x) ** 2 + (tp.y - pn.y) ** 2));
+  tp.node = nd;
+  tp.rt.len = nd.s;
+}
+
 function crown(S) {
   // a taproot straight down and two sinkers that first run out to the sides
   const x0 = 32, y0 = SOIL + 2, sp = 0.7 + 0.6 * S.u3, side = Math.random() < 0.5 ? 1 : -1;
@@ -235,8 +256,7 @@ function stepTips(S, dt) {
     const n0 = nAt(S, x, y);
     tp.nl += (n0 - tp.nl) * (1 - exp(-dt / 7));
     // chemotropism: the gradient of the nutrient at two reach, the near one counted a little more
-    const gx = 0.4 * (nAt(S, x + 2.5, y) - nAt(S, x - 2.5, y)) / 5 + 0.35 * (nAt(S, x + 7, y) - nAt(S, x - 7, y)) / 14 + 0.25 * (nAt(S, x + 14, y) - nAt(S, x - 14, y)) / 28;
-    const gy = 0.4 * (nAt(S, x, y + 2.5) - nAt(S, x, y - 2.5)) / 5 + 0.35 * (nAt(S, x, y + 7) - nAt(S, x, y - 7)) / 14 + 0.25 * (nAt(S, x, y + 14) - nAt(S, x, y - 14)) / 28;
+    const gx = ga(S, x, y, 1, 0), gy = ga(S, x, y, 0, 1);
     const gm = sqrt(gx * gx + gy * gy);
     let wt = S.kg * (ord === 0 ? 1.6 : 0.8) * -sin(th - tp.gsa);
     if (gm > 1e-6) wt += S.kc * (ord === 0 ? 0.4 : 1) * tanh(gm / 0.006) * ((gx * ex + gy * ey) / gm);
@@ -295,9 +315,7 @@ function stepTips(S, dt) {
     S.B -= GCOST * v * dt;
     if (tp.acc >= DS) {
       tp.acc -= DS;
-      const pn = tp.node, nd = newNode(S, rt, pn, x, y, pn.s + sqrt((x - pn.x) ** 2 + (y - pn.y) ** 2));
-      tp.node = nd;
-      rt.len = nd.s;
+      extend(S, tp);
     }
     // eating: the apex and the young stretch behind it draw on the cells they lie in
     let nd = tp.node, q = 0;
@@ -318,12 +336,12 @@ function stepTips(S, dt) {
     if (ord > 0 && tp.nl < 0.1) tp.hunger += dt;
     else tp.hunger = max(0, tp.hunger - 2 * dt);
     if (tp.hunger > STARVE[ord] * cl(1 / sqrt(S.m2), 0.75, 1.8) || y > YBOT || rt.len > tp.maxLen) {
+      if (tp.acc > 0.1) extend(S, tp);
       tp.alive = false;
       rt.tip = null;
       rt.stall = T;
     }
   }
-  S.up = up;
   S.B = cl(S.B + up * YIELD + BASE * dt, 0, BMAX);
 }
 
@@ -364,13 +382,10 @@ function rebuildHash(S) {
 // Where the soil is rich the old roots put out laterals; where it is poor they do so seldom.
 function branchScan(S, dtScan) {
   if (S.B < BIRTH || S.nodes.length > NODE_CAP) return;
-  let alive = 0, fine = 0;
+  let alive = 0, births = 0;
   for (const tp of S.tips) if (tp.alive) alive++;
-  for (const nd of S.nodes) if (nd.rt.ord > 0) fine += nd.ea;
-  const lim = cl((S.lmax - fine * DS) / (0.3 * S.lmax), 0, 1);
-  const T = S.t, nodes = S.nodes, pmax = S.bm * (1 + 1.5 * cl((8 - alive) / 8, 0, 1)) * lim * 0.03 * dtScan;
-  if (lim <= 0) return;
-  let births = 0;
+  // a plant with few growing tips branches more readily than one with many
+  const T = S.t, nodes = S.nodes, pmax = S.bm * (1 + 1.5 * cl((8 - alive) / 8, 0, 1)) * 0.03 * dtScan;
   for (let i = 0; i < nodes.length && births < 2; i++) {
     const nd = nodes[i], rt = nd.rt;
     if ((nd.lat && nd.lat.alpha > 0.2) || rt.ord >= 3 || rt.alpha < 0.95) continue;
@@ -485,13 +500,9 @@ function palette(S) {
     while (i < 2 && z > ZS[i + 1]) i++;
     const f = (z - ZS[i]) / (ZS[i + 1] - ZS[i]);
     hsv(mix(SA[i][0], SA[i + 1][0], f) + 0.45 * h, mix(SA[i][1], SA[i + 1][1], f), mix(SA[i][2], SA[i + 1][2], f) * (1 + h), t);
-    S.lutA[y * 3] = t[0];
-    S.lutA[y * 3 + 1] = t[1];
-    S.lutA[y * 3 + 2] = t[2];
+    S.lutA.set(t, y * 3);
     hsv(mix(SB[i][0], SB[i + 1][0], f) + 0.45 * h, mix(SB[i][1], SB[i + 1][1], f), mix(SB[i][2], SB[i + 1][2], f) * (1 + h), t);
-    S.lutB[y * 3] = t[0];
-    S.lutB[y * 3 + 1] = t[1];
-    S.lutB[y * 3 + 2] = t[2];
+    S.lutB.set(t, y * 3);
   }
   hsv(0.47 + 2.4 * h, 0.82, 1, c.nut);
   hsv(0.12 + 0.4 * h, 0.15, 1, c.root);
