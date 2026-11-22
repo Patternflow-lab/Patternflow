@@ -1,20 +1,38 @@
 // ===== Patternflow pattern =====
 // Title:   Phased Array
 // Family:  phasedarray
-// Idea:    A row of beads on the bottom edge plays one wave with each bead a little later than the one beside it, and above them a single bright beam leans over without anything turning, with crests running along it, faint fans of sidelobes beside it and dark nulls between.
+// Idea:    A row of beads on the bottom edge plays one wave with each bead a little later than the next, and above them a single beam leans away from straight up without anything turning, its crests running along it, with faint fans of sidelobes beside it and dark nulls between them.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: steering a beam by the delay between neighbouring transmitters (Ferdinand Braun, 1905, with three antennas); the Dolph-Chebyshev amplitude taper that trades beam width for sidelobe level (C. L. Dolph, 1946); grating lobes of a sparse array, pattern round 221
+// Lineage: steering a beam by the delay between neighbouring transmitters (Ferdinand Braun, 1905, with three antennas), and the grating lobes that a sparse row adds to it, pattern round 221
 // Round:   221
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Scan=0..4, Spacing=0.5..1.6, Taper=-1..1
 //
-// Knob 1: Hue. Turns the whole picture round the colour wheel. At 0 the ground is indigo, the beam azure to pale cyan, the crests cyan-white and the troughs and sidelobes violet and magenta.
-// Knob 2: Scan.
-// Knob 3: Spacing.
-// Knob 4: Taper.
+// Knob 1: Hue. Turns the palette round the colour wheel. At 0 the ground is deep indigo that lifts to azure inside the beam, the crests are cyan-white and the troughs and faint fans are violet with a magenta edge; at 0.25 the beam is pink, at 0.5 amber, at 0.75 green, and at 1 it is back where it began.
+// Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4 and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam stays within 42 degrees of straight up.
+// Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 to 11 beads 4 LEDs apart play a wavelength of 8 LEDs and there is one beam. Across the knob the wavelength shortens from 8 to 6 LEDs while the driven width stays 40 LEDs, so the beads thin out to 5, 9.6 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 degrees either side of a straight one.
+// Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 20 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 10 degrees wide and the sidelobes start at -14 dB, 16 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.54, the beam 13 degrees and the first sidelobe -17.5 dB at 20 degrees. At 0.7 the beam is 17 degrees and the first sidelobe -33 dB. At 1 it is 21 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row; the width, the taper and the wavelength each breathe slowly, as described below.
+
+// What the picture is. At most 19 beads sit on the line y = 126.5 at x = 32 + n d, n from -9 to 9, each a source of circular waves. The
+// field at an LED, summed exactly over every bead, is
+//   Z = sum over n of w_n c_n exp(i k r_n) / sqrt(r_n),     field = Re(Z exp(-i w t)),
+// with r_n the distance from LED to bead (not less than 1.3 LEDs), w_n the taper and c_n the delay, c_n = exp(i k d n sin(theta)): bead n
+// leads its neighbour by k d sin(theta), so the wavefronts of the beads line up along a tilted plane and the beam leans to theta with
+// nothing turning. The distances and 1 / sqrt(r) are tabled for each LED and bead once and rebuilt only when Spacing moves (3 to 8 ms
+// a frame while the knob turns), and the sum is two table lookups a term, about 2 ms a frame for the 8192 LEDs.
+// The picture shows two things at once. The glow is the intensity averaged over a wave, |Z|^2 / 2, in dB from -33 at black to +3 at
+// the brightest ramp colour (0 dB is a unit-drive beam 55 LEDs from the row): indigo ground, blue, azure, pale cyan. It is the beam
+// pattern: the lit wedge, the sidelobes as dim violet fans and the nulls between them dark. On top of it run the crests, the field of
+// this instant, cos(phase) times an amplitude factor that falls with the local intensity (as its 0.5 power, so the faint fans still carry
+// moving rings). Where the field is positive the glow turns cyan-white, where it is negative the glow dims and a violet-magenta line
+// shows. The beads at the bottom are two LEDs wide and glow with their own phase, so the phase runs along the row as the beam leans.
+// The scan is a sum of three sines quantised into dwells (every 11 degrees, with a jitter), smoothed by a critically damped follower, and
+// a hand-over to a second beam at a random angle now and then. The width of the driven part of the row (20 LEDs half-width, plus or minus
+// 26%), the taper (a factor up to 1.8 either way on m), the wavelength (plus or minus 21%) and the middle of the row (plus or minus 7 LEDs)
+// each drift on periods of 59 to 139 s that do not divide one another.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, abs, exp, sin, cos, PI, min, max, log } = Math;
@@ -42,7 +60,7 @@ const ZREF = 1 / sqrt(55);
 
 // ---- the scan
 const STEP = 11; // degrees between dwell angles, before the jitter
-const BETA = [[18, 29.3, 0.7], [12, 47.1, 2.9], [8, 73.7, 4.6]]; // amplitude in degrees, period in s, phase
+const BETA = [[18, 36.7, 0.7], [12, 58.9, 2.9], [8, 92.1, 4.6]]; // amplitude in degrees, period in s, phase
 const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
 const THMAX = 42;
 const HAND = 2.2; // seconds a hand-over takes at Scan 2
@@ -108,16 +126,15 @@ function buildTables(S, ds) {
   }
 }
 
-// Element weights: cos(pi u / 2)^m across the driven width, u = |x - 32| / AH. m is 0 at -1 (uniform),
-// 1.15 at the opening, 2 at 0.35 (Hann), 6 at 1.
+// Element weights: cos(pi u / 2)^m across the driven width, u = |x - 32| / AH. m is 0 at -1 (uniform), 0.54 at the opening and 4 at 1.
 function weights(S, taper) {
   const s = (cl(taper, -1, 1) + 1) / 2;
-  const m = ((6 * (Math.pow(2, 7 * s) - 1)) / 127) * S.mMul, AH = S.ah, cx = CX + S.shift;
+  const m = ((4 * (Math.pow(2, 5.8 * s) - 1)) / 54.7) * S.mMul, ah = S.ah, cx = CX + S.shift;
   let tot = 0;
   for (let n = 0; n < NE; n++) {
     const dx = abs(S.xs[n] - cx);
-    const u = min(1, dx / AH);
-    const edge = 1 - sm(AH - 0.5 * S.d, AH + 0.5 * S.d, dx);
+    const u = min(1, dx / ah);
+    const edge = 1 - sm(ah - 0.5 * S.d, ah + 0.5 * S.d, dx);
     const c = cos((PI * u) / 2);
     const wv = (m < 1e-3 ? 1 : Math.pow(c < 0 ? 0 : c, m)) * edge;
     S.w[n] = wv;
@@ -127,15 +144,17 @@ function weights(S, taper) {
 }
 
 function startHandover(S) {
-  // a second beam comes up at a new direction while the first goes down, 20 degrees or more away
-  let i = 0, th = 0;
-  for (let k = 0; k < 8; k++) {
-    i = Math.round((Math.random() * 2 - 1) * 3.4);
-    th = level(i);
-    if (abs(th - S.th) >= 20 && abs(th) <= 40) break;
+  // a second beam comes up at a new direction while the first goes down, at least 20 degrees away
+  const ok = [];
+  let far = 0, farD = -1;
+  for (let i = -3; i <= 3; i++) {
+    const th = level(i), dd = abs(th - S.th);
+    if (dd >= 20 && abs(th) <= 40) ok.push(i);
+    if (dd > farD) { farD = dd; far = i; }
   }
-  S.thB = th;
+  const i = ok.length ? ok[floor(Math.random() * ok.length)] : far;
   S.iB = i;
+  S.thB = level(i);
   S.hv = 0;
 }
 
@@ -161,7 +180,7 @@ function advance(S, dt, kn) {
   const acc = w0 * w0 * (target - S.th) - 2 * w0 * S.vel;
   S.vel += acc * dt;
   S.th += S.vel * dt;
-  S.th = cl(S.th, -THMAX - 4, THMAX + 4);
+  S.th = cl(S.th, -THMAX, THMAX);
 
   // slow drifts of the width, the taper and the frequency, so the beam's shape never settles
   const t = S.t, T2 = 2 * PI * t;
