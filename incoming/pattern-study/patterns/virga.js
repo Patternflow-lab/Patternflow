@@ -121,8 +121,8 @@ function streak(xs, fy, rad) {
 
 // Slow random walks that pull back toward zero (Ornstein-Uhlenbeck), so what they steer never comes round again.
 const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) * 1.732;
-const OU_TAU = [28, 24, 50, 28, 40, 45, 70]; // hue, brightness, sun, glow, lean, dry layer, wind: seconds
-const OU_SIG = [0.04, 0.085, 40, 0.24, 0.04, 4.5, 0.7];
+const OU_TAU = [28, 24, 50, 28, 40, 35, 70]; // hue, brightness, sun, glow, lean, dry layer, wind: seconds
+const OU_SIG = [0.04, 0.085, 40, 0.24, 0.04, 8, 0.7];
 
 export function setup(params) {
   const S = {
@@ -147,7 +147,7 @@ export function update(dt, input, params) {
   S.rn = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k3 = cl(k[2], -1, 1);
   S.u4 = (cl(k[3], -1, 1) + 1) / 2;
-  S.nf = 1.8 + 5.2 * S.rn;
+  S.nf = 2.3 + 4.9 * S.rn;
   if (!S.ready) {
     for (let i = 0; i < OU_SIG.length; i++) {
       if (i !== 2) S.r[i] *= 0.4; // all but the sun start near their middle, so the opening is a good one
@@ -191,7 +191,7 @@ function spawn(S, c, age0) {
   c.on = true;
   c.x = best;
   c.z = bz;
-  c.life = 36 + 54 * Math.random();
+  c.life = 32 + 50 * Math.random();
   c.age = c.life * age0;
   c.hw = mix(4.6, 12.5, bz) * (0.9 + 0.2 * Math.random());
   c.vf = mix(4.5, 10.5, bz) * (0.92 + 0.16 * Math.random());
@@ -298,14 +298,14 @@ function palette(S, T) {
   }
   S.sunX = 32 + 58 * Math.tanh(S.o[2] / 38);
   S.glowG = cl(0.5 + S.o[3], 0.26, 0.7) * mix(0.62, 1.22, S.u4);
-  S.endRow = mix(END_LO, END_HI, S.u4) + cl(S.o[5], -8, 8);
+  S.endRow = mix(END_LO, END_HI, S.u4) + cl(S.o[5], -13, 13);
   const w = S.wind;
   S.lean = 0.1 + 0.28 * S.k3 + cl(S.o[4], -0.045, 0.045) + 0.02 * w;
   S.curve = 0.0014 + 0.005 * S.k3;
 }
 
 function sky(S, T) {
-  const { SR, SG, SB, lutR, lutG, lutB, gx, gw, c } = S, gc = c.glow, sx = S.sunX;
+  const { SR, SG, SB, lutR, lutG, lutB, gx, gw, c } = S, gc = c.glow, gold = c.gold, rose = c.rose, sx = S.sunX;
   for (let x = 0; x < W; x++) {
     const dx = (x + 0.5 - sx) / 27, dw = (x + 0.5 - sx) / 60;
     gx[x] = exp(-dx * dx);
@@ -317,8 +317,20 @@ function sky(S, T) {
     for (let x = 0, p = y * W; x < W; x++, p++) {
       const g = gx[x] * gy, b = 0.84 + 0.16 * gw[x];
       // far banks of haze low in the sky, long and flat, drifting with the wind and changing as they go
-      const bk = (vn2((x - S.cd + S.k3 * (y - 96) * 0.4) * 0.036 + 11.3, y * 0.1 - T * 0.03) - 0.5) * bw, m = 1 + 0.1 * bk, wm = 0.22 * max(bk, 0);
-      let r = (lr * b + gc[0] * g) * m + gc[0] * wm, gg = (lg * b + gc[1] * g) * m + gc[1] * wm, bb = (lb * b + gc[2] * g) * m + gc[2] * wm;
+      const bk = (vn2((x - S.cd + S.k3 * (y - 96) * 0.4) * 0.02 + 11.3, y * 0.14 - T * 0.04) - 0.5) * 2 * bw;
+      let r = lr * b + gc[0] * g, gg = lg * b + gc[1] * g, bb = lb * b + gc[2] * g;
+      if (bk > 0) {
+        // a bank lit gold from below
+        r += gold[0] * 0.24 * bk;
+        gg += gold[1] * 0.24 * bk;
+        bb += gold[2] * 0.24 * bk;
+      } else {
+        // a bank in the shadow of the clouds, as bright but rose
+        const k = max(r, gg, bb) / 0.9, q = -bk * 0.42;
+        r += (rose[0] * k - r) * q;
+        gg += (rose[1] * k - gg) * q;
+        bb += (rose[2] * k - bb) * q;
+      }
       const mx = max(r, gg, bb);
       if (mx > 0.72) {
         // a soft shoulder on the brightest channel with the hue kept, so a strong glow stays orange and does not clip to yellow
@@ -427,7 +439,7 @@ export function draw(display, params) {
       c.str = 0;
       continue;
     }
-    c.xd = c.x + 4.5 * sin(T * c.sw + c.pp);
+    c.xd = c.x + 6 * sin(T * c.sw + c.pp);
     const a = c.age / c.life;
     c.str = sm(0, 0.13, a) * (1 - sm(0.68, 1, a)) * c.w * (0.6 + 0.4 * sin(T * c.pw + c.pp));
     if (c.str < 0.01) continue;
