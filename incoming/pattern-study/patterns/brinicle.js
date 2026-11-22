@@ -13,27 +13,26 @@
 //
 // Knob 1: Hue. Adds the knob to the hue of the water, the ice and the brine. At the opening 0 the water runs from navy (8, 41, 77) under the ice to near-black teal (1, 19, 26) above the seabed, the ice is white with a cold cast and the brine is a blue-white. The range stops short of red and orange, since a dark orange sea reads as mud on a panel: at -0.12 the water is teal, at 0.33 it is violet to magenta.
 // Knob 2: Brine. The flux of brine, the knob over 2, so 0.4 to 2. A tube sinks 1.4 LEDs a second at the opening 2, 0.56 at 0.8 and 2.8 at 4, and each tube runs at 0.8 to 1.25 times that, so a tube takes 74 to 105 s to reach the seabed at the opening, 100 to 200 s at 0.8 and 43 to 54 s at 4. The dye is 16 particles a second at 0.8, 40 at 2 and 80 at 4, each one brighter the higher the flux. A tube is 2.6 LEDs wide at the mouth and, near the roof after 100 s, 6.6 LEDs wide at 0.8, 7.6 at 2 and 9.2 at 4.
-// Knob 3: Current. A sideways drift of the water, signed, 0 in the middle and still. The water moves 2.2 LEDs a second at either end of the knob and the plume leans with it. A tube turns toward that lean, 19 degrees from the vertical, with a time constant of 20 s, so a tube that has reached the seabed has moved 20 to 35 LEDs toward the current. New tubes start upstream so they stay on the panel. The faint light in the water drifts at 0.3 LEDs a second at 0, 2.3 at 1 and -1.7 at -1.
+// Knob 3: Current. A sideways drift of the water, signed, 0 in the middle and still. The water moves 2.2 LEDs a second at either end of the knob and the plume leans with it. A tube turns toward that lean, 19 degrees from the vertical, so one that has reached the seabed has moved 20 to 35 LEDs toward the current. New tubes start upstream so they stay on the panel. The faint light in the water drifts at 0.3 LEDs a second at 0, 2.3 at 1 and -1.7 at -1.
 // Knob 4: Spawn. How many tubes may be sinking at once and how soon the next one starts: one below -0.32, two up to 0.34 and three above it. The wait after the last start is at least 32 s at -1 and 8 s at 1, and about 10 s and 3 s more on average. A tube that has touched down no longer counts, so at -1 one tube sinks while up to two stand. Three tubes is the most the panel ever holds, a dying one included.
 
-// The panel is a side view under polar sea ice. Rows 0 to about 10 are the underside of the ice, rough and
-// thinner in places, and rows about 116 to 127 are the silt of the seabed. Between them the water goes from
-// navy to near black, with a faint soft light drifting through it, brighter near the roof.
+// The panel is a side view under polar sea ice. Rows 0 to about 10 are the underside of the ice, rows about
+// 116 to 127 the silt of the seabed, and between them the water goes from navy to near black, with a faint
+// soft light drifting through it.
 // A brinicle begins as a point inside the ice. Its tip sinks at 1.4 LEDs a second times the flux times the
 // tube's own pace, and the path lays a vertex every 2 LEDs. The heading turns toward the lean of the plume
 // (the arctangent of the current over the 6.2 LEDs a second the dye falls at) with a time constant of 20 s,
 // plus a small wander, so a change of the current bends the tube from there on and leaves the old part where
-// it was. A vertex's radius grows with its age, from 1.3 LEDs at the mouth toward 2.2 + 0.8 times the flux
-// with a time constant of 45 s, and then by 0.007 LEDs a second for 110 s more, so the tube is thick and
-// white near the roof and thin and bright at the mouth. The tube is drawn row by row as a soft white wall,
-// a bluer bore down the middle with a slow pulse, and a cool halo.
+// it was. A vertex's radius grows with its age, from 1.3 LEDs toward 2.2 + 0.8 times the flux with a time
+// constant of 45 s, then by 0.007 LEDs a second for 110 s more, so the tube is thick and white near the roof
+// and thin and bright at the mouth. It is drawn row by row: a soft white wall, a bluer bore, a cool halo.
 // Water pushes the middle of every tube sideways, held at the roof and at the seabed: up to 4 LEDs on
 // two swings of 37 s and 56 s with no common period, so a standing tube still moves.
 // The dye is particles that start at the mouth, 40 a second times the flux. Each is pulled toward a fall
-// speed of 6.2 LEDs a second and toward the speed of the water, which has a sway that changes with depth and
-// time and is the same for all the dye of one brinicle, so the plume sways as one stream. Each takes a random
-// kick that grows with its age, so the plume widens as it falls, and is drawn as a soft gaussian that widens
-// and dims over 3.4 to 6.2 s. A particle that reaches the floor turns sideways and slides along it, much dimmer.
+// speed of 6.2 LEDs a second and toward the speed of the water, which sways with depth and time the same way
+// for all the dye of one brinicle, so the plume sways as one stream. A random kick that grows with age widens
+// it as it falls. Each particle is a soft gaussian that widens and dims over 3.4 to 6.2 s. One that reaches
+// the floor turns sideways and slides along it, much dimmer.
 // When the tip reaches the seabed the brine fans out. Two trunks run along the floor, one each way, at about
 // 5.5 LEDs a second at first and slowing with a time constant of 5 s, so each side reaches 13 to 32 LEDs
 // before the panel edge cuts it. Side twigs leave a trunk every 5 to 9 LEDs, lean forward 40 to 70 degrees
@@ -49,8 +48,7 @@
 // least 8 to 32 s, so at any moment one tube is usually sinking and another is usually standing or dying.
 // The first update runs the sea for as long as the first tube needs to be 38 to 63 percent of the way down,
 // in steps of 0.2 s, at the knob values it opened with, so the picture is formed at second 0.
-// The ice edge is four swells with no common period, the slowest about 2.5 minutes, and a tube hangs from a
-// collar where the edge is pulled down.
+// The ice edge is four swells with no common period, the slowest about 2.5 minutes.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, exp, sqrt, abs, pow, atan, log } = Math;
@@ -66,7 +64,7 @@ const F = (n) => new Float32Array(n);
 const ICE_Y = 8; // mean row of the underside of the ice
 const BED_Y = 117; // mean row of the seabed
 const ROOT_Y = 2; // row where a tube starts, inside the ice, so its top is hidden
-const V_GROW = 1.4; // how fast a tube tip sinks at flux 1, LEDs a second
+const V_GROW = 1.1; // how fast a tube tip sinks at flux 1, LEDs a second
 const V_FALL = 6.2; // how fast the dye falls once it is out of the tube, LEDs a second
 const V_LEAN = 2.2; // sideways speed of the water at Current 1, LEDs a second
 const BOW = 4; // how far the middle of a tube is pushed to either side by the water, LEDs
@@ -555,7 +553,9 @@ function tube(S, b) {
     m++;
   }
   const { R, G, B } = S, ice = pal.ice, br = pal.brine, gl = pal.glow;
-  const bore = (0.42 + 0.3 * min(1, S.f)) * (0.35 + 0.65 * b.ff);
+  // The brine does not flow evenly: the whole tube brightens and dims by a fifth over 30 s or so, and swells a little.
+  const breath = 1 + 0.2 * sin(t * 0.2 + 1.7 * b.ph) + 0.08 * sin(t * 0.31 + b.ph), swell = 1 + 0.1 * sin(t * 0.12 + 2 * b.ph);
+  const bore = (0.42 + 0.3 * min(1, S.f)) * (0.35 + 0.65 * b.ff) * breath;
   for (let i = 0; i < m - 1; i++) {
     if (b.phase === 2 && b.brk >= 0 && i + 1 === b.brk) continue;
     const y0 = vy[i], y1 = vy[i + 1];
@@ -564,9 +564,9 @@ function tube(S, b) {
     for (let yy = max(0, ceil(y0 - 0.5)); yy < min(H, ceil(y1 - 0.5)); yy++) {
       const u = (yy + 0.5 - y0) / (y1 - y0);
       const xc = mix(vx[i], vx[i + 1], u), r = mix(vr[i], vr[i + 1], u), a = mix(va[i], va[i + 1], u), w = mix(vw[i], vw[i + 1], u);
-      const eh = r * sqrt(1 + sl * sl), sb = 0.38 * eh + 0.5, ib = 1 / (2 * sb * sb);
+      const eh = r * swell * sqrt(1 + sl * sl), sb = 0.38 * eh + 0.5, ib = 1 / (2 * sb * sb);
       const pulse = 0.88 + 0.12 * sin(yy * 0.3 - t * 2.4 + b.ph), band = 1 + 0.1 * sin(yy * 0.85 + b.ph * 1.7) + 0.06 * sin(yy * 0.37 + b.ph);
-      const wallK = (0.42 + 0.3 * w) * a * band, boreK = bore * pulse * a, haloK = 0.15 * a;
+      const wallK = (0.42 + 0.3 * w) * a * band * breath, boreK = bore * pulse * a, haloK = 0.15 * a * breath;
       const xa = max(0, floor(xc - eh - 7)), xb = min(W - 1, ceil(xc + eh + 7));
       for (let xx = xa; xx <= xb; xx++) {
         const d = abs(xx + 0.5 - xc), p = yy * W + xx;
