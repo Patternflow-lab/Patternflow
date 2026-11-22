@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Scan=0..4, Spacing=0.5..1.6, Taper=-1..1
 //
 // Knob 1: Hue. Turns the palette round the colour wheel. At 0 the ground is deep indigo, the sidelobe fans are violet with a magenta edge, the beam is blue to azure and its crests cyan-white; at 0.25 the beam is pink, at 0.5 amber, at 0.75 green, and at 1 it is back where it began.
-// Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4 and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam reaches 56 degrees either side of straight up, where the wedge lies along the bottom of the panel, and spends most of its time inside 35.
+// Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4, the whole set sliding by up to 8 degrees over 132 s and 203 s, and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam leans out to 53 degrees either side of straight up now and then (56 at the stop), where the wedge lies along the bottom of the panel; it is past 50 degrees about 3% of the time and inside 30 degrees about three quarters of it. After a hand-over the scan drifts back toward the middle over about 20 s.
 // Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 beads 3.25 LEDs apart play a wavelength that wanders between 6.5 and 7.8 LEDs, and there is one beam. Across the knob the wavelength shortens to 5.5 to 6.6 LEDs while the driven width stays 28 LEDs, so the beads thin out to 3, 8.8 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 to 46 degrees either side of a straight one, nearer 39 when the wavelength is at its shortest.
 // Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 14 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 12 degrees wide and the sidelobes start at -13 dB, 19 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.38, the beam 13 degrees and the first sidelobe -18 dB at 21 degrees. At 0.7 the beam is 19 degrees and the first sidelobe -30 dB. At 1 it is 25 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row at a wavelength of 6.5 LEDs; the width, the taper and the wavelength each breathe slowly, as described below.
 
@@ -70,7 +70,7 @@ const ZREF = 1 / sqrt(55);
 
 // ---- the scan
 const STEP = 11; // degrees between dwell angles, before the jitter
-const BETA = [[26, 36.7, 0.7], [17, 58.9, 2.9], [11, 92.1, 4.6]]; // amplitude in degrees, period in s, phase
+const BETA = [[22, 36.7, 0.7], [15, 58.9, 2.9], [9, 92.1, 4.6]]; // amplitude in degrees, period in s, phase
 const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
 const THMAX = 56;
 const HAND = 2.2; // seconds a hand-over takes at Scan 2
@@ -86,10 +86,15 @@ function wobOf(sc) {
   for (let k = 0; k < WOB.length; k++) wob += WOB[k][0] * sin((2 * PI * sc) / WOB[k][1] + WOB[k][2]);
   return wob;
 }
+// the whole set of dwell angles slides slowly, so a dwell never lands on the same angle twice
+const slide = (sc) => 5.5 * sin((2 * PI * sc) / 131.9) + 3 * sin((2 * PI * sc) / 203.3);
 function targetOf(sc, off) {
-  const u = (betaOf(sc) + off) / STEP, i = floor(u), f = u - i;
+  const v = betaOf(sc) + off, av = abs(v);
+  const u = (av <= 36 ? v : (v < 0 ? -1 : 1) * (36 + 12 * Math.tanh((av - 36) / 12))) / STEP, i = floor(u), f = u - i;
   const l0 = level(i), l1 = level(i + 1);
-  return cl(l0 + (l1 - l0) * sm(0.42, 0.58, f) + wobOf(sc), -THMAX, THMAX);
+  // past 44 degrees the angle is squeezed toward 56 instead of cut off, so the beam does not sit at the stop
+  const r = l0 + (l1 - l0) * sm(0.42, 0.58, f) + wobOf(sc) + slide(sc), a = abs(r);
+  return a <= 44 ? r : (r < 0 ? -1 : 1) * (44 + 12 * Math.tanh((a - 44) / 12));
 }
 
 function makeState() {
@@ -158,13 +163,13 @@ function startHandover(S) {
   const ok = [];
   let far = 0, farD = -1;
   for (let i = -4; i <= 4; i++) {
-    const th = level(i), dd = abs(th - S.th);
-    if (dd >= 20 && abs(th) <= 52) ok.push(i);
+    const th = level(i) + slide(S.sc), dd = abs(th - S.th);
+    if (dd >= 20 && abs(th) <= 46) ok.push(i);
     if (dd > farD) { farD = dd; far = i; }
   }
   const i = ok.length ? ok[floor(Math.random() * ok.length)] : far;
   S.iB = i;
-  S.thB = level(i);
+  S.thB = level(i) + slide(S.sc);
   S.hv = 0;
 }
 
@@ -180,6 +185,7 @@ function advance(S, dt, kn) {
   S.t += dt;
   const rate = Math.pow(cl(kn[1], 0, 4) / 2, 2);
   S.sc += dt * rate;
+  S.off *= exp((-dt * rate) / 20); // after a hand-over the scan drifts back toward the middle
   if (rate > 0 && S.hv < 0 && S.sc >= S.nextEv) startHandover(S);
   if (S.hv >= 0) {
     S.hv += (dt * max(rate, 0.3)) / HAND;
