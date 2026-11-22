@@ -1,20 +1,62 @@
 // ===== Patternflow pattern =====
 // Title:   cAMP Streams
 // Family:  amoeba
-// Idea:    Starving Dictyostelium amoebae seen in dark field on a 64 by 128 panel, where waves of cyclic AMP run out in rings and spirals from pacemaker clumps and each wave front pulls the cells a couple of LEDs toward its source, so that a haze of blue cells gathers into branching white streams that flow into amber mounds, until a mound culminates and scatters its cells as fresh ones and new pacemakers start elsewhere.
+// Idea:    Starving Dictyostelium amoebae in dark field, where five clumps of cells fire rings of cyclic AMP that run out across the panel at about 2.5 LEDs a second, and each ring that passes walks the cells in a stream a couple of LEDs toward their clump, so that branching cyan and white files converge on small amber mounds until a mound culminates, throws its cells back into the field as fresh ones and a new clump starts a few LEDs away.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: cyclic AMP as the signal of slime mould aggregation (Gerisch, 1960s; Konijn, van de Meene, Bonner and Barkley, 1967), chemotactic aggregation as an instability (Evelyn Keller and Lee Segel, 1970), waves in the aggregating field seen in dark field (Alcantara and Monk, 1974), cAMP waves shown by isotope dilution (Tomchik and Devreotes, 1981), excitable models of the relay (Martiel and Goldbeter, 1987; John Tyson and James Murray, 1989), the two-variable excitable medium of Dwight Barkley (1991); pattern round 213
+// Lineage: cyclic AMP as the signal that gathers Dictyostelium (Theo Konijn, John Bonner and David Barkley with Jan van de Meene, 1967), aggregation as an instability of chemotaxis (Evelyn Keller and Lee Segel, 1970), waves running through the aggregating field (Alcantara and Monk, 1974), the waves shown by isotope dilution (Tomchik and Devreotes, 1981), excitable models of the relay (Jean-Louis Martiel and Albert Goldbeter, 1987; John Tyson and James Murray, 1989), the two-variable excitable medium (Dwight Barkley, 1991); pattern round 213
 // Round:   215
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Clock=0..3.2, Chemotaxis=-1..1, Excitability=-1..1
 //
-// Knob 1: Hue. Placeholder.
-// Knob 2: Clock. Placeholder.
-// Knob 3: Chemotaxis. Placeholder.
-// Knob 4: Excitability. Placeholder.
+// Knob 1: Hue. Adds the knob times 360 degrees to the hue of every colour, so one turn comes back. At 0 the ground is indigo (8, 6, 28), free cells and wave bands are blue, streams run from cyan to white and mounds are pale amber (255, 214, 140). At 0.5 the ground is olive-dark, the blues are orange and cream and the mounds are pale blue. At 1 it is back where it began.
+// Knob 2: Clock. How fast the whole dish runs, Clock/2 model seconds for every second on the panel. At 0 the picture holds, rings and cells together. At 2, where it opens, a ring runs 2.55 LEDs a second and a cell in a stream walks in at 0.26 LEDs a second on average. At 1 those are 1.3 and 0.13, and at 3.2 they are 4.1 and 0.42. A mound culminates 150 to 280 model seconds after it starts, which is 2.5 to 4.7 minutes at Clock 2.
+// Knob 3: Chemotaxis. How hard a cell answers the wave. The speed it walks while the front rises under it is 9 LEDs a second times 2 to the power of the knob: 4.5 at -1, 9 at 0, 18 at 1. A cell in a stream then comes in along its file at 0.14, 0.26 and 0.39 LEDs a second, which is 1.0, 1.9 and 2.8 LEDs for each ring at Excitability 0. The picture answers at once too: the haze of free cells is 1.55 times as bright at -1 and 0.45 at 1, and the files are 0.55 times as bright at -1 and 1.45 at 1.
+// Knob 4: Excitability. How often the clumps fire. The ring period is 7.4 seconds at 0, 12.6 at -1 and 5.6 at 1, so the rings are about 19, 29 and 15 LEDs apart (the wave runs 2.3, 2.55 and 2.7 LEDs a second). The medium stops carrying a ring near -1.75, so the knob stops at -1. The wave bands are drawn 0.5 times as bright at -1 and 1.1 times at 1.
+
+// What the dish is. 64 by 128 LEDs with its edges joined: a ring that leaves the right edge comes in on the left, and a stream that
+// runs off the top comes in at the bottom. Two layers live on it, a field of cAMP and 6000 cells.
+//
+// The field. Two numbers on every LED, u for the cAMP a cell makes and v for how worn out the cell is, in the form Dwight Barkley gave
+// the excitable medium,
+//   du/dt = 1.9 lap u + u (1 - u) (u - (v + 0.07) / 0.84) / eps,    dv/dt = u - v,
+// with eps 0.05 at Excitability 0 and 0.056 to 0.045 across the knob. A pulse of u is 3 to 4 LEDs wide at half height and 6 at a tenth,
+// with v above 0.3 for about 5 LEDs behind it. A clump can fire again once v is under 0.25, about 3 seconds after its front, and
+// rings 5.5 seconds apart still get through. At eps 0.058 a ring runs at 2.2 LEDs a second and at 0.061 it dies, so the knob stays
+// inside. Euler steps of 0.03 s, a frame being 1 to 6 steps.
+//
+// The pacemakers. Five clumps, each at a point of the dish, fire a disc of u 2.4 to 3.6 LEDs across (wider the more cells it has) when
+// the field under it has recovered, at the period Excitability sets, give or take 6 percent and times a number between 0.92 and 1.22
+// that belongs to the clump. Where two rings meet they stop each other and leave a cusp, so the dish is cut into five territories that
+// the rings of the faster clumps eat into.
+//
+// The cells. Every cell is in one of four states. In the open it walks at random (0.03 LED^2 a second) and, while u is rising under it
+// (the front is passing), it steps up the slope of u at 9 LEDs a second times Chemotaxis; it rests once the front has gone by. The
+// slope has a second term, 3 times u times the slope of the stream field, which pulls it sideways toward the nearest stream. In a
+// file it walks the nodes of its clump's tree toward the mound, only while u is rising under it, at 0.35 to 1.65 times the speed
+// of the others, so a bunch that came together spreads out over a few rings. In a mound it sits in a disc of radius 1 + 0.07 sqrt(mass).
+// In flight it crosses to a target at 28 LEDs a second. The number of cells never changes.
+//
+// The streams. Each clump has a tree: 7 to 10 stems that leave it at even angles, 24 to 46 LEDs long, bending by 0.5 to 1 degree
+// for each LED, forking up to twice at a chance of 5 percent for each LED. The tree grows outward at 0.9 LEDs a second from 4 seconds
+// after the clump starts. A node that has grown is a place where a cell in the open can step onto the file (12 percent a step), and
+// a source for the stream field, which spreads and fades (a length of about 4 LEDs) and is what pulls the other cells in sideways.
+// So the files are placed, not grown from nothing. The cells choose their own file, their own place in it and their own pace.
+//
+// The mounds. A cell that reaches the mound's node is taken in. Each cell in a mound is let go at 1 chance in 14 a second: four in
+// five join a file in its outer 45 percent, one in five is thrown to a ring 9 to 37 LEDs round the mound. That turns a mound over
+// in about 14 seconds, keeps cells moving in all the files, and holds a mound at 100 to 450 cells. A clump culminates 150 to 280
+// seconds after it starts, or at once when its mound holds about 585 cells: 94 percent of its cells are thrown to a ring 6 to 38 LEDs round it, the cells
+// on its files are let go, its trail is wiped, and a new clump starts 5 to 13 LEDs away after a pause of 6 to 10 seconds with a tree
+// of its own. The five begin at ages between 10 and 60 seconds so that they do not culminate together.
+// No spirals: a cut front was tried in the field and no pair stayed in view among five rings, so the code was dropped.
+//
+// Before the first frame 45 model seconds are run, so the streams have grown and the first cells have come in.
+// Cells weigh 1.37 each in the density, 0.8 of that in the open. The picture is that density, blurred by two passes of a 1-2-1 kernel
+// for the files and the mounds and by five for the haze, run through a ramp from the indigo ground to white and amber, with the
+// wave (u plus half of v behind it) making the cells under it up to 1.9 times as bright.
 
 const W = 64, H = 128, N = W * H;
 const { floor, sqrt, pow, exp, sin, cos, PI, min, max, abs } = Math;
@@ -125,7 +167,7 @@ function splat(S, out) {
 function derive(S) {
   const k = S.knobs;
   const k3 = cl(k[2], -1, 1), k4 = cl(k[3], -1, 1);
-  return { ch: 9 * pow(2, k3), tpm: 7.4 * pow(1.32, -k4), ie: 1 / (EPS * pow(1.22, -k4)), clock: cl(k[1], 0, 3.2) / 2 };
+  return { ch: 9 * pow(2, k3), tpm: 7.4 * pow(k4 < 0 ? 1.7 : 1.32, -k4), ie: 1 / (EPS * pow(1.12, -k4)), clock: cl(k[1], 0, 3.2) / 2 };
 }
 
 const wrapd = (d, L) => (d > L / 2 ? d - L : d < -L / 2 ? d + L : d);
@@ -440,7 +482,7 @@ export function draw(display, params) {
   if (S.hueDone !== hue) buildLut(S, hue);
   const { u, v, rb, rs, tmp, tmp2, lut } = S;
   // Chemotaxis shows in the picture straight away: the more it is, the dimmer the haze and the brighter the files.
-  const k3 = cl(S.knobs[2], -1, 1), k4 = cl(S.knobs[3], -1, 1), gh = 1 - 0.55 * k3, gs = 1 + 0.45 * k3, gw = 0.75 + 0.4 * k4;
+  const k3 = cl(S.knobs[2], -1, 1), k4 = cl(S.knobs[3], -1, 1), gh = 1 - 0.55 * k3, gs = 1 + 0.45 * k3, gw = 0.8 + 0.3 * k4;
   splat(S, tmp2);
   blur(tmp2, rb, tmp, 2);
   blur(rb, rs, tmp, 3);
