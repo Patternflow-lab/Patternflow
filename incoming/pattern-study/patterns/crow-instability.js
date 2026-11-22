@@ -31,11 +31,11 @@
 // l grows. The middle line wanders by 0.6 A before the link (0.3 b at the link) and 0.3 b exp(-l) after.
 // Every ring is thinned by the air: the width of a line grows 0.7 percent a second and 22 percent an e-fold after
 // the link, its density drops with that, and from 1.6 e-folds after the link to 3.6 the rings thin to wisps and go.
-// The drawing is the sum of gaussians: a stamp every 0.6 LED along each of the two lines (and a wide soft one,
-// 2.4 times the sigma, every 1.4 LEDs at 0.16 of the strength), at a sigma of 0.8 LED when the line is laid, which
-// is 2 LEDs wide at half height. The density goes over the sky as an opacity, 1 - exp(-density), so two lines on
-// top of each other brighten and never clip to a flat white. The core is nearly white and the edge, the soft part,
-// takes the colour of the layer it is in.
+// The drawing is the sum of gaussians: a stamp every 0.6 LED along each of the two lines, at a sigma of 0.8 LED when
+// the line is laid (2 LEDs wide at half height), and a wide soft stamp every 1.4 LEDs at 2.4 times that sigma, up to
+// 4.5 LEDs, at 0.16 of the strength. The density goes over the sky as an opacity, 1 - exp(-density), so two lines on
+// top of each other brighten and never clip to a flat white. The core is nearly white and the soft part takes the
+// colour of the layer it is in.
 // Wind carries every trail: each point has drifted by a speed of 0.2 to 0.7 LEDs a second times the time since it was
 // laid (saturating at 60 s, so a trail never leaves for good), in a direction that swings 0.6 rad either way over
 // 370 s. The oldest end drifts most, so a trail pivots on its head. Births come at random at a rate of (target -
@@ -251,18 +251,17 @@ function stamp(S, D, cx, cy, sg, w) {
   }
 }
 
-// A line of stamps along the points x, y (n of them): sigma and density per point are sg and al, scaled by ks and ka.
-function stroke(S, D, x, y, sg, al, n, step, ks, ka) {
+// A line of stamps along the points x, y (n of them): sigma and density per point are sg and al, scaled by ks and ka, with sigma held to cap.
+function stroke(S, D, x, y, sg, al, n, step, ks, ka, cap) {
   const k2 = 1 / sqrt(2 * PI);
   for (let j = 0; j < n - 1; j++) {
     const dx = x[j + 1] - x[j], dy = y[j + 1] - y[j], len = sqrt(dx * dx + dy * dy);
-    const s0 = sg[j] * ks;
-    const R = 3 * max(s0, sg[j + 1] * ks);
+    const R = 3 * min(cap, max(sg[j], sg[j + 1]) * ks);
     if ((x[j] < -R && x[j + 1] < -R) || (x[j] > W + R && x[j + 1] > W + R) || (y[j] < -R && y[j + 1] < -R) || (y[j] > H + R && y[j + 1] > H + R)) continue;
     const m = max(1, ceil(len / step));
     for (let q = 0; q < m; q++) {
       const f = (q + 0.5) / m;
-      const s = (sg[j] + (sg[j + 1] - sg[j]) * f) * ks;
+      const s = min(cap, (sg[j] + (sg[j + 1] - sg[j]) * f) * ks);
       const a = (al[j] + (al[j + 1] - al[j]) * f) * ka;
       if (a < 0.003) continue;
       stamp(S, D, x[j] + dx * f, y[j] + dy * f, s, (a * (len / m) * k2) / s);
@@ -317,17 +316,17 @@ function drawTrail(S, tr) {
     np++;
   }
   if (np < 2) return;
-  stroke(S, S.dc, S.px1, S.py1, S.psg, S.pal, np, 0.6, 1, 1);
-  stroke(S, S.dc, S.px2, S.py2, S.psg, S.pal, np, 0.6, 1, 1);
-  stroke(S, S.dh, S.px1, S.py1, S.psg, S.pal, np, 1.4, 2.4, 0.16);
-  stroke(S, S.dh, S.px2, S.py2, S.psg, S.pal, np, 1.4, 2.4, 0.16);
+  stroke(S, S.dc, S.px1, S.py1, S.psg, S.pal, np, 0.6, 1, 1, 9);
+  stroke(S, S.dc, S.px2, S.py2, S.psg, S.pal, np, 0.6, 1, 1, 9);
+  stroke(S, S.dh, S.px1, S.py1, S.psg, S.pal, np, 1.4, 2.4, 0.16, 4.5);
+  stroke(S, S.dh, S.px2, S.py2, S.psg, S.pal, np, 1.4, 2.4, 0.16, 4.5);
 }
 
 // Three skies, each five stops from the top row to the bottom row as [hue, saturation, value]: the sunset the
 // pattern opens in, a blue dusk and a green-gold dawn. The Hue knob walks round them and back to the sunset, and
 // between two skies the colours cross-fade, so the middle of a change is a soft dusky grey and never a rainbow.
 const SKIES = [
-  [[0.665, 0.92, 0.27], [0.78, 0.88, 0.46], [0.88, 0.72, 0.62], [1.03, 0.62, 0.8], [1.075, 0.8, 0.9]],
+  [[0.665, 0.92, 0.32], [0.78, 0.88, 0.5], [0.88, 0.72, 0.62], [1.03, 0.62, 0.8], [1.075, 0.8, 0.9]],
   [[0.65, 0.9, 0.2], [0.62, 0.85, 0.4], [0.56, 0.75, 0.58], [0.55, 0.55, 0.78], [0.58, 0.3, 0.95]],
   [[0.52, 0.85, 0.2], [0.46, 0.6, 0.38], [0.3, 0.42, 0.6], [0.14, 0.65, 0.85], [0.1, 0.75, 0.95]],
 ];
