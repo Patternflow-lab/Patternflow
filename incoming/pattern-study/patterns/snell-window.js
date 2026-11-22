@@ -83,7 +83,7 @@ export function setup(params) {
     kh: 0, kc: 2, kl: 0, ks: 0.06,
     f: 28, cx: 32, cy: 44, gf: -1, gcy: -1,
     slope: 0.1, hueKey: "", az: 0, el: 1, sux: 1, suy: 0, sun: [0, 0, 1],
-    a1: 0, a2: 0, a3: 0, d1: 0, d2: 0, b1: 0, b2: 0, b3: 0, b4: 0, c1: 0, c2: 0, c3: 0, c4: 0,
+    a1: 0, a2: 0, a3: 0, v1: 0, v2: 0, v3: 0, v4: 0, d1: 0, d2: 0, b1: 0, b2: 0, b3: 0, b4: 0, c1: 0, c2: 0, c3: 0, c4: 0,
     // waves
     DX: F(NW), DY: F(NW), KX: F(NW), KY: F(NW), KK: F(NW), WA: F(NW), OM: F(NW), PH0: F(NW), NU: F(NW), PSI: F(NW), P0: F(NW), AM: F(NW),
     // pixel geometry
@@ -173,8 +173,8 @@ function palette(S, hue) {
   if (key === S.hueKey) return;
   S.hueKey = key;
   const h0 = 0.535 + hue, P = S.P;
-  hsv(h0 + 0.02, 1, 0.12, P.deep);
-  hsv(h0 - 0.01, 0.72, 0.5, P.haze);
+  hsv(h0 + 0.02, 1, 0.15, P.deep);
+  hsv(h0 - 0.01, 0.72, 0.55, P.haze);
   hsv(h0 - 0.03, 0.4, 0.95, P.shaft);
   hsv(h0 - 0.1, 0.42, 0.95, P.sand);
   hsv(h0 + 0.055, 0.92, 0.74, P.zen);
@@ -230,19 +230,23 @@ export function update(dt, input, params) {
   S.a1 = 0.0173 * t + 1.1;
   S.a2 = -0.0231 * t + 0.4;
   S.a3 = 0.0113 * t + 2.6;
+  S.v1 = 0.049 * t;
+  S.v2 = -0.063 * t;
+  S.v3 = 0.037 * t + 2;
+  S.v4 = 0.0431 * t;
   S.d1 = 0.0067 * t + 0.8;
   S.d2 = -0.0043 * t;
   S.b1 = 0.0071 * t;
   S.b2 = 0.0053 * t + 1.3;
   S.b3 = 0.0089 * t;
   S.b4 = 0.0047 * t + 0.5;
-  S.c1 = 0.02 * t; // cloud drift
+  S.c1 = 0.026 * t; // cloud drift
   S.c2 = 0.0173 * t;
   S.c3 = 0.0097 * t;
   S.c4 = 0.0211 * t;
   // ripples: the slope of the surface under every pixel's ray
   const { DX, DY, KX, KY, WA, OM, PH0, NU, PSI, P0, AM, FAC, GX, GY, SXu, SYu } = S;
-  const sl = S.slope;
+  const sl = S.slope * (1 + 0.3 * sin(t * 0.0231 + 1) + 0.15 * sin(t * 0.0517 + 4));
   for (let i = 0; i < NW; i++) {
     P0[i] = PH0[i] - OM[i] * t;
     AM[i] = WA[i] * sl * (1 + 0.5 * sin(NU[i] * t + PSI[i]));
@@ -286,14 +290,19 @@ function under(S, p, Dx, Dy, Dz, sx, sy, gt) {
   // haze, with slow patches of turbidity that belong to the floor, so the haze is not a set of rings
   const tb = ef > 0 ? 0.5 + 0.25 * ts(0.9 * gu + 0.7 * ts(0.7 * gv + S.d1) + S.d2) + 0.25 * ts(0.6 * gv - 0.9 * gu * 0.5 + S.d1 * 1.3) : 0.5;
   const pool = th > 0.8 ? 0.3 * exp(-(th - 0.8) * 1.9) * sm(0.87, 1.0, th) : 0;
-  const hz = (ht * (0.2 + 0.55 * sb) + pool * (0.5 + 0.5 * sb)) * (1 + (tb - 0.5) * 1.1 * ef);
+  // veils of suspended light drifting through the deep water, in panel coordinates so the whole mirror moves
+  const vx = p & 63, vy = p >> 6;
+  const va = ts(vx * 0.083 + vy * 0.027 + S.v1), vb = ts(vx * 0.039 - vy * 0.061 + S.v2 + 1.7), vc = ts((vx + 5 * ts(vy * 0.06 + S.v3)) * 0.121 + S.v4);
+  let vl = 0.45 + 0.4 * va * vb + 0.25 * vc * va;
+  vl = vl < 0 ? 0 : vl * vl;
+  const hz = (ht * (0.15 + 0.5 * sb) + pool * (0.5 + 0.5 * sb)) * (1 + (tb - 0.5) * 1.1 * ef) + 0.45 * vl * (0.45 + 0.55 * vy * 0.0078);
   // light shafts, fanning out from the window, with packets of light along them
   const pp = phi + gt;
   const band = 0.5 + 0.5 * (0.5 * ts(6 * pp + S.a1) + 0.3 * ts(10 * pp + S.a2) + 0.2 * ts(15 * pp + S.a3));
-  const sh = sm(0.36, 0.9, band);
+  const sh = sm(0.4, 0.9, band);
   const fd = th < 0.85 ? 1 : exp(-(th - 0.85) * (1.2 - 0.6 * (uy > 0 ? uy : 0)));
   const along = 0.9 + 0.1 * ts(5 * th - 2.3 * pp + S.a2 * 2);
-  const shaft = 0.85 * sh * fd * along * (0.3 + 0.7 * sb) * (1 - 0.5 * e);
+  const shaft = 1.1 * sh * fd * along * (0.3 + 0.7 * sb) * (1 - 0.5 * e);
   // a halo of the window's light just outside the rim
   const hd = (th - THC) * 7;
   const halo = 0;
@@ -306,7 +315,7 @@ function under(S, p, Dx, Dy, Dz, sx, sy, gt) {
     const bb = ts(gv * 2.4 - 0.7 * ts(gu * 1.6 - S.b3) + 1.7);
     const c = ts((gu + gv) * 1.1 + 0.9 * ts(gu * 0.9 - gv * 1.3 + S.b4));
     const dd = 0.45 * a * bb + 0.35 * c + 0.2 * a;
-    const pat = sm(0.0, 0.7, dd) * ef * (1 - 0.8 * sm(1.7, 2.7, th));
+    const pat = sm(0.0, 0.7, dd) * ef * (1 - 0.97 * sm(1.9, 2.3, th));
     const amt = 0.75 * pat * (0.4 + 0.6 * sh);
     r += sand[0] * amt;
     g += sand[1] * amt;
