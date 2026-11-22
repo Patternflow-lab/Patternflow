@@ -9,7 +9,7 @@
 // Round:   217
 // ===============================
 // @matrix 64x128
-// @knobs Reddening=-0.3..0.8, Rate=0..5, Metals=-2.2..0.4, Binaries=0..0.6
+// @knobs Reddening=-0.3..0.8, Rate=0..6, Metals=-2.2..0.4, Binaries=0..0.6
 //
 // Knob 1: placeholder
 // Knob 2: placeholder
@@ -17,7 +17,7 @@
 // Knob 4: placeholder
 
 const W = 64, H = 128, NPX = W * H;
-const { floor, ceil, sqrt, abs, exp, log10, sin, pow, PI, min, max } = Math;
+const { floor, ceil, sqrt, exp, log10, sin, pow, PI, min, max } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
@@ -37,12 +37,11 @@ function h32(a, b) {
 }
 
 // ---- the plot: temperature runs right to left, luminosity bottom to top, both in log10
-const LT_LEFT = 4.56, X0 = 4, XS = 50; // x = X0 + (LT_LEFT - log T) * XS
-const LL_TOP = 5.0, Y0 = 3, YS = 14.6; // y = Y0 + (LL_TOP - log L) * YS
+const LT_LEFT = 4.56, X0 = 2, XS = 48; // x = X0 + (LT_LEFT - log T) * XS
+const LL_TOP = 5.15, Y0 = 4, YS = 14.6; // y = Y0 + (LL_TOP - log L) * YS
 const NG = 58, NGR = 3, NS = NG * NGR; // three clusters are in view at once, each drawn from its own 58 stars
 const MORPH = 0.55; // dex of cluster age spent turning into the next cluster
-const RIBBON = 1;
-const RATE = 0.008; // dex of age a second at Rate 1; the speed grows as Rate to the power 2.5
+const RATE = 0.0065; // dex of age a second at Rate 1; the speed grows as Rate to the power 2.5
 
 // ---- the zero-age main sequence: mass, log L, log T
 const ZT = [
@@ -79,6 +78,7 @@ function zams(lm) {
 
 // The red giant branch is the Hayashi line, steeper and hotter when metals are few. z is [Fe/H].
 const hay = (ll, z) => 3.665 - 0.03 * z - (0.034 - 0.008 * z) * (ll - 1.0);
+const SL = 1.7; // the phases after the main sequence last 1.7 times as long as the textbook fractions, so that they can be watched
 const tms = (M, z) => 10 * pow(10, 0.03 * z) * pow(M, -2.5) + 0.003; // Gyr
 
 // ---- one star's life: where it stands at an age, for a mass and a metal content
@@ -97,7 +97,7 @@ function evolve(M, age, z, rh, o) {
   }
   const Lto = L0 + 0.3, Tto = T0 + 0.012 * (1 - mid) - 0.045 * mid;
   const low = 1 - sm(1.7, 2.5, M), big = sm(7.5, 9.5, M);
-  const g = 0.14 * low + 0.06 * (1 - low), r = 0.2 * low + 0.04 * (1 - low), hb = 0.1 * low + 0.13 * (1 - low), a = 0.06 * (1 - big), pn = 0.02;
+  const g = SL * (0.14 * low + 0.06 * (1 - low)), r = SL * (0.2 * low + 0.04 * (1 - low)), hb = SL * (0.1 * low + 0.13 * (1 - low)), a = SL * 0.06 * (1 - big), pn = SL * 0.02;
   const b1 = g, b2 = g + r, b3 = b2 + hb, b4 = b3 + a, b5 = b4 + pn;
   const u = tau - 1;
   const Lb = Lto + 0.25 * low + 0.15 * (1 - low), Tb = hay(Lb, z);
@@ -157,6 +157,7 @@ function evolve(M, age, z, rh, o) {
     const f = (u - b4) / pn, Tag1 = hay(Lag1, z) - 0.025;
     o.ll = Lag1;
     o.lt = Tag1 + (5.0 - Tag1) * f * f * (3 - 2 * f);
+    o.w = 1 - f;
     o.kind = 5;
     return;
   }
@@ -190,6 +191,12 @@ for (let i = 0; i < NS; i++) {
   DEL[i] = 0.45 * r(14);
 }
 
+// each cluster's zero point wanders a little, on periods that do not divide one another
+let NOW = 0;
+const DRIFT = [0, 1, 2, 3].map((g) => ({ ax: 6 + 4 * h32(g, 41), px: 140 + 120 * h32(g, 42), fx: TAU * h32(g, 43), ay: 7 + 6 * h32(g, 44), py: 170 + 150 * h32(g, 45), fy: TAU * h32(g, 46) }));
+const driftX = (g) => DRIFT[g].ax * sin((TAU * NOW) / DRIFT[g].px + DRIFT[g].fx);
+const driftY = (g) => DRIFT[g].ay * sin((TAU * NOW) / DRIFT[g].py + DRIFT[g].fy);
+
 const clusters = new Map();
 function clusterAt(g, k) {
   const key = g * 100000 + k;
@@ -198,16 +205,16 @@ function clusterAt(g, k) {
   const r = (j) => h32(k * 131 + j, 8191 + g * 977);
   C = { g, k };
   const first = k === 0;
-  C.a0 = first ? [-1.55, -0.6, 0.5][g] : -2.0 + 2.0 * r(1); // log10 of the age in Gyr at which this cluster comes into view
-  C.a1 = min(1.115, C.a0 + (first ? 3 : 1.5 + 1.5 * r(2))); // and where it leaves, at most 13 Gyr
+  C.a0 = first ? [-1.85, -0.6, 0.5][g] : -2.1 + 2.3 * r(1); // log10 of the age in Gyr at which this cluster comes into view
+  C.a1 = min(1.115, C.a0 + (first ? 3 : 1.2 + 1.5 * r(2))); // and where it leaves, at most 13 Gyr
   C.win = C.a1 - C.a0;
   const old = sm(0.2, 1.1, C.a1);
   C.z = first ? [-0.1, -0.3, -1.25][g] : 0.2 - 0.5 * r(3) - 1.3 * r(9) * old;
-  C.dy = first ? [0, 5, 10][g] : -6 + 18 * r(4); // distance: rows the whole diagram stands lower
-  C.red = first ? [0, 0.3, -0.15][g] : -0.2 + 0.7 * r(10); // reddening in front of this cluster
+  C.dy = first ? [0, 5, 9][g] : -6 + 19 * r(4); // distance: rows the whole diagram stands lower
+  C.red = first ? [0.1, 0.35, -0.3][g] : -0.4 + 1.0 * r(10); // reddening in front of this cluster, in magnitudes of E(B-V) and a bit more
   const alpha = first ? 2.35 : 2.1 + 0.5 * r(5);
-  const mmin = first ? 0.6 : 0.55 + 0.15 * r(6), mmax = first ? 45 : 16 + 40 * r(7);
-  const n = first ? 30 : 26 + floor(10 * r(8));
+  const mmin = first ? 0.6 : 0.5 + 0.7 * r(6) * r(6), mmax = first ? 45 : 9 + 41 * r(7);
+  const n = first ? 30 : 20 + floor(24 * r(8));
   C.M = new Float32Array(NG);
   C.alive = new Float32Array(NG);
   const e = 1 - alpha, a = pow(mmin, e), b = pow(mmax, e);
@@ -247,12 +254,12 @@ function appear(C, i, age, z, E, k4, a) {
   const j = C.g * NG + i;
   evolve(C.M[i], age, z, RH[j], _o);
   let ll = _o.ll, lt = _o.lt;
-  if (_o.kind === 0 && RB[j] < 0.15 + k4) ll += log10(1 + pow(Q[j], 3.5)); // an unresolved pair of nearly equal stars
-  lt += (0.016 + 0.12 * k4) * N1[j];
+  if (_o.kind === 0 && RB[j] < k4) ll += log10(1 + pow(Q[j], 3.5)); // an unresolved pair of nearly equal stars
+  lt += (0.016 + 0.1 * k4) * N1[j];
   ll += (0.02 + 0.1 * k4) * N2[j];
   const e = E + C.red;
-  a.x = X0 + (LT_LEFT - lt) * XS + 10 * e;
-  a.y = Y0 + (LL_TOP - ll) * YS + C.dy;
+  a.x = X0 + (LT_LEFT - lt) * XS + 7 * e + driftX(C.g);
+  a.y = Y0 + (LL_TOP - ll) * YS + C.dy + driftY(C.g);
   a.ll = ll;
   a.lt = lt;
   a.ct = lt - 0.3 * e;
@@ -270,8 +277,6 @@ function makeState() {
   };
 }
 
-const zOf = (C, kn) => cl(C.z + cl(kn[2], -2.2, 0.4), -2.4, 0.45);
-
 export function setup(params) {
   params.s = makeState();
 }
@@ -281,10 +286,11 @@ export function update(dt, input, params) {
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
   S.t += d;
+  NOW = S.t;
   const z0 = cl(kn[2], -2.2, 0.4), E = cl(kn[0], -0.3, 0.8), k4 = cl(kn[3], 0, 0.6), a = S.A;
   for (let g = 0; g < NGR; g++) {
     const G = S.pops[g];
-    G.prog += RATE * pow(cl(kn[1], 0, 5), 2.5) * d;
+    G.prog += RATE * pow(cl(kn[1], 0, 6), 2.5) * d;
     let C = clusterAt(g, G.k);
     while (G.prog >= C.win + MORPH) {
       G.prog -= C.win + MORPH;
@@ -353,8 +359,8 @@ function isochrone(C, age, z, E) {
   const put = (M, dM) => {
     evolve(M, age, z, 0.5, _o);
     if (_o.kind === 7 || n >= 400) return;
-    RBX[n] = X0 + (LT_LEFT - _o.lt) * XS + 10 * (E + C.red);
-    RBY[n] = Y0 + (LL_TOP - _o.ll) * YS + C.dy;
+    RBX[n] = X0 + (LT_LEFT - _o.lt) * XS + 7 * (E + C.red) + driftX(C.g);
+    RBY[n] = Y0 + (LL_TOP - _o.ll) * YS + C.dy + driftY(C.g);
     RBC[n] = _o.lt - 0.3 * (E + C.red);
     RBN[n] = C.n * norm * pow(M, -C.alpha) * dM;
     RBK[n] = _o.kind;
@@ -365,13 +371,13 @@ function isochrone(C, age, z, E) {
     const f = Math.log(top / C.mmin) / 69;
     for (let j = 0; j < 70; j++) put(C.mmin * exp(f * j), C.mmin * exp(f * j) * f);
   }
-  const dt = 0.56 / 119;
+  const dt = 0.96 / 119;
   for (let j = 0; j < 120; j++) {
     const tau = 1 + dt * j, M = Mto * pow(tau, 0.4);
     if (M > C.mmax) break;
     put(M, Mto * 0.4 * pow(tau, -0.6) * dt);
   }
-  const m0 = Mto * pow(1.57, 0.4), m1 = min(8.4, C.mmax);
+  const m0 = Mto * pow(1.97, 0.4), m1 = min(8.4, C.mmax);
   if (m1 > m0 * 1.02 && m0 > C.mmin) {
     const f = Math.log(m1 / m0) / 39;
     for (let j = 0; j < 40; j++) put(m0 * exp(f * j), m0 * exp(f * j) * f);
@@ -380,12 +386,12 @@ function isochrone(C, age, z, E) {
 }
 
 function drawRibbon(S, C, age, z, E, k4, wgt) {
-  if (wgt < 0.01 || !RIBBON) return;
-  const n = isochrone(C, age, z, E), sg = 1.3 + 3.4 * k4;
+  if (wgt < 0.01) return;
+  const n = isochrone(C, age, z, E), sg = 1.2 + 5 * k4;
   for (let j = 0; j + 1 < n; j++) {
     const dx = RBX[j + 1] - RBX[j], dy = RBY[j + 1] - RBY[j], arc = sqrt(dx * dx + dy * dy);
     if (arc < 1e-3 || RBK[j] === 5 || RBK[j + 1] === 5) continue;
-    const dens = RBN[j] / max(arc, 0.8), amp = (0.1 + 0.24 * (1 - exp(-dens / 0.5))) * wgt;
+    const dens = RBN[j] / max(arc, 0.8), amp = 0.26 * (1 - exp(-dens / 0.3)) * wgt;
     if (RBX[j] < -4 && RBX[j + 1] < -4) continue;
     const steps = ceil(arc / 1.0);
     for (let k = 0; k < steps; k++) {
@@ -411,9 +417,9 @@ function drawStar(S, st, i, E) {
     I *= 1 + 0.2 * strip * sin((TAU * t) / PP[i] + P1[i]);
     if (st.kind === 4 && ll > 3) I *= 1 + 0.3 * sin((TAU * t) / PM[i] + P2[i]) * sm(3.0, 3.5, ll);
   }
-  if (st.kind === 0 && C_FLARE(i, t, ll)) I *= 1 + C_FLARE(i, t, ll);
+  if (st.kind === 0) I *= 1 + flare(i, t, ll);
   const sg = 0.74 + 0.95 * pow(lv, 1.3);
-  const core = (0.34 + 0.66 * pow(lv, 1.2)) * I * w * (1 - 0.25 * E);
+  const core = (0.4 + 0.6 * pow(lv, 1.2)) * I * w * (1 - 0.25 * E);
   starRGB(st.ct);
   splat(S, st.x, st.y, sg, _c[0] * core, _c[1] * core, _c[2] * core, true);
   const wc = cl((lv - 0.45) / 0.5, 0, 1);
@@ -421,15 +427,15 @@ function drawStar(S, st, i, E) {
     const hot = 0.35 * wc * wc * I * w;
     splat(S, st.x, st.y, sg * 0.55, hot, hot, hot, true);
   }
-  const ha = 0.3 * pow(lv, 2.6);
-  if (ha > 0.04) {
-    const hs = 1.9 + 2.4 * pow(lv, 1.5), hh = ha * I * w * (1 - 0.25 * E);
+  const ha = 0.04 + 0.3 * pow(lv, 2.6);
+  {
+    const hs = 1.8 + 2.5 * pow(lv, 1.5), hh = ha * I * w * (1 - 0.25 * E);
     splat(S, st.x, st.y, hs, _c[0] * hh, _c[1] * hh, _c[2] * hh, false);
   }
 }
 
 // a red dwarf that now and then brightens for a moment
-function C_FLARE(i, t, ll) {
+function flare(i, t, ll) {
   if (ll > -0.5) return 0;
   const e = t / 2.3 + 3.7 * i, ep = floor(e);
   if (h32(i * 977 + ep, 4711) > 0.04) return 0;
