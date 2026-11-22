@@ -71,13 +71,14 @@ const V0 = 7; // drift of the cloud down the energy gradient, LEDs a second
 const DA = 1.5; // spread of the cloud, LED^2 a second
 const KAP = 0.05; // slump of the bed, LED^2 a second for each unit of h
 const AVA = 0.8, REPOSE = 1.1; // a slope steeper than the angle of repose slides, at up to AVA LEDs a second for each unit of h
-const HCAP = 12;
+const HCAP = 8; // the h a flux counts, so the slump never needs a step shorter than 0.0095 s
 const GRAD0 = 0.12; // energy gradient, in thresholds a LED, over which the drift reaches full speed
 const OMEGA = 0.0654; // sweep phase, radians a second for each unit of the Sweep knob
 const SLOWDOWN = 2.0;
 const SWEEP_AT = 0.55; // octaves
 const GRAD_A = 0.38, GRAD_B = 0.26;
-const PREROLL = 36, PRE_DT = 1 / 20;
+const PREROLL = 36, PRE_DT = 1 / 30;
+const STEP = 0.0095; // the longest step the bed and the cloud take, in seconds
 const START_PHASE = 0.9;
 
 function makeState() {
@@ -177,7 +178,8 @@ function stepTube(S, j, dt) {
   }
 }
 
-function advance(S, dt, kn, subs) {
+function advance(S, dt, kn) {
+  const subs = max(1, Math.ceil(dt / STEP));
   S.tau += dt;
   const k2 = cl(kn[1], 0, 4), a2 = Math.pow(2, 1.6 * cl(kn[2], -1, 1));
   S.theta += (OMEGA * k2 * dt) / (1 + SLOWDOWN * S.R.reduce((m, v) => (v > m ? v : m), 0));
@@ -197,9 +199,9 @@ export function update(dt, input, params) {
     S.ready = true;
     const pre = [kn[0], max(1.2, kn[1]), kn[2], kn[3]];
     modesOf(S, pre);
-    for (let t = 0; t < PREROLL; t += PRE_DT) advance(S, PRE_DT, pre, 3);
+    for (let t = 0; t < PREROLL; t += PRE_DT) advance(S, PRE_DT, pre);
   }
-  advance(S, d, kn, 4);
+  advance(S, d, kn);
 }
 
 // ---- colour
