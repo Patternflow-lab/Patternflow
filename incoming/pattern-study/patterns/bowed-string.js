@@ -112,7 +112,7 @@ export function setup(params) {
     slipSteps: 0, steps: 0, slipFrac: 0, slipSm: 0, shape: false,
     // knobs and the random walks that wander round them
     k1: 0, k2: 2, k3: 0.04, k4: 0.06,
-    wb: 0, wf: 0, wv: 0, wh: 0,
+    wb: 0, wf: 0, wv: 0, wh: 0, cx: 32,
     f: 4, vb: 1,
     // glissando
     Lr: FINGER_MAX, Lv: 0, Lt: FINGER_MAX, Ltime: 18 + 14 * Math.random(),
@@ -154,7 +154,7 @@ function wander(S, dt) {
   S.wb = cl(ou(S.wb, dt, 90, 0.2), -0.3, 0.45);
   S.wf = cl(ou(S.wf, dt, 28, 0.75), -1.4, 0.8);
   S.wv = cl(ou(S.wv, dt, 34, 0.32), -0.6, 0.6);
-  S.wh = ou(S.wh, dt, 70, 0.02);
+  S.wh = ou(S.wh, dt, 60, 0.035);
   // the finger
   S.Ltime -= dt;
   if (S.Ltime <= 0) {
@@ -348,7 +348,7 @@ function spark(buf, cx, cy, q, sig2, rad) {
 function paint(S, dt) {
   const { yd, now, A_s, A_k } = S;
   const Lr = S.Lr, top = FINGER_MAX - Lr, cell = Lr / N;
-  const G = S.G, hw = S.hw;
+  const G = S.G, hw = S.hw, cxs = S.cx;
   now.fill(0);
   // the string, row by row, from its position at three heights inside the row, so a steep stretch stays joined up
   for (let r = 0; r < H; r++) {
@@ -365,10 +365,10 @@ function paint(S, dt) {
     }
     const dead = r + 0.5 < top;
     const o = r * W;
-    const x0 = max(0, floor(CX + lo - hw - 1.5)), x1 = min(W - 1, ceil(CX + hi + hw + 1.5));
+    const x0 = max(0, floor(cxs + lo - hw - 1.5)), x1 = min(W - 1, ceil(cxs + hi + hw + 1.5));
     for (let x = x0; x <= x1; x++) {
       const px = x + 0.5;
-      const dist = max(0, CX + lo - px, px - (CX + hi));
+      const dist = max(0, cxs + lo - px, px - (cxs + hi));
       const a = sm(0, 1, hw + 0.5 - dist), c = sm(0, 1, 0.55 + 0.5 - dist);
       let v = 0.6 * a + 0.34 * c;
       if (dead) v *= 0.16;
@@ -379,13 +379,13 @@ function paint(S, dt) {
   kinksOut(S, cell);
   const kn = S.kinks, pk = S.pk;
   for (const kk of kn) {
-    const cx = CX + kk.x, cy = kk.y;
+    const cx = cxs + kk.x, cy = kk.y;
     let bx = cx, by = cy, bd = 1e9;
     for (const pq of pk) {
-      const dx = CX + pq.x - cx, dy = pq.y - cy, d = dx * dx + dy * dy;
+      const dx = cxs + pq.x - cx, dy = pq.y - cy, d = dx * dx + dy * dy;
       if (d < bd && abs(dy) < 9 && abs(dx) < 18) {
         bd = d;
-        bx = CX + pq.x;
+        bx = cxs + pq.x;
         by = pq.y;
       }
     }
@@ -510,7 +510,7 @@ export function draw(display, params) {
   for (let gy = 0; gy < 33; gy++)
     for (let gx = 0; gx < 17; gx++) {
       const X = gx * 4, Y = gy * 4;
-      hz[gy * 17 + gx] = 0.7 * vn3(X / 26 + tt * 0.021, Y / 36 - tt * 0.012, tt / 10) + 0.3 * vn3(X / 14 - tt * 0.026 + 7, Y / 19 + tt * 0.017 + 3, tt / 6.5 + 4);
+      hz[gy * 17 + gx] = 0.55 * vn3(X / 24 + tt * 0.021, Y / 34 - tt * 0.012, tt / 10) + 0.27 * vn3(X / 13 - tt * 0.026 + 7, Y / 18 + tt * 0.017 + 3, tt / 6.5 + 4) + 0.18 * vn3(X / 9 + tt * 0.031 + 2, Y / 12 - tt * 0.023 + 8, tt / 5 + 9);
     }
   for (let y = 0, p = 0; y < H; y++) {
     const fy = y * 0.25 + 0.125, iy = fy | 0, ay0 = fy - iy;
@@ -519,7 +519,7 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++, p++) {
       const fx = x * 0.25 + 0.125, ix = fx | 0, ax0 = fx - ix, o = iy * 17 + ix;
       const hzv = (hz[o] * (1 - ax0) + hz[o + 1] * ax0) * (1 - ay0) + (hz[o + 17] * (1 - ax0) + hz[o + 18] * ax0) * ay0;
-      const haze = 0.03 + 0.3 * sm(0.2, 0.78, hzv) * (0.8 + 0.4 * bl2[p]);
+      const haze = 0.016 + 0.42 * sm(0.38, 0.8, hzv) * (0.8 + 0.4 * bl2[p]);
       const heat = max(now[p], A_s[p], A_k[p]) + 0.14 * bl1[p] + 0.2 * bl2[p] + haze;
       const i = (cl(heat, 0, 1.25) * (hs / 1.25)) | 0;
       let r = lut[i * 3], g = lut[i * 3 + 1], b = lut[i * 3 + 2];
