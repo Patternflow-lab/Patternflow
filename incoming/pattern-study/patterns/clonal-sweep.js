@@ -18,8 +18,9 @@
 
 const W = 64, H = 128;
 const HR = 136; // rows of history kept
-const MAXC = 40; // clone slots
-const CAPLIVE = 21; // most clones with cells in them at once; the two smallest merge past it
+const MAXC = 72; // clone slots
+const CAPLIVE = 48; // most clones with cells in them at once; the smallest folds back past it
+const NVIS = 4; // cells a clone needs before it is drawn
 const M0 = 2.3; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
@@ -56,7 +57,7 @@ export function setup(params) {
   const S = {
     ready: false, row: 0, phi: 0, gacc: 0, T: 1000,
     k1: 0, sel: 0.075, N: 1600, lam: 0.1, rowT: 0.16, gpr: 1.7,
-    used: new Uint8Array(MAXC), n: new Float64Array(MAXC), sf: new Float64Array(MAXC), par: new Int16Array(MAXC),
+    used: new Uint8Array(MAXC), vis: new Uint8Array(MAXC), n: new Float64Array(MAXC), sf: new Float64Array(MAXC), par: new Int16Array(MAXC),
     hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), bias: f(MAXC), ft: f(MAXC),
     born: new Float64Array(MAXC), dead: new Float64Array(MAXC), shown: new Uint8Array(MAXC),
     kids: Array.from({ length: MAXC }, () => []), kc: new Int16Array(MAXC),
@@ -74,9 +75,9 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const u = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k1 = k[0];
-  S.sel = 0.075 * exp(1.15 * cl(k[2], -1, 1));
+  S.sel = 0.06 * exp(1.4 * cl(k[2], -1, 1));
   S.N = 1600 * exp(2.1 * cl(k[3], -1, 1));
-  S.lam = cl((0.0075 / S.sel) * pow(S.N / 1600, 0.3), 0.02, 0.45);
+  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 1600, 0.3), 0.02, 1);
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
   S.gpr = 1 + 1.4 * u;
   if (!S.ready) {
@@ -130,6 +131,7 @@ function spawn(S, p) {
   const r = Math.random();
   const dl = r < 0.72 ? 0.3 + 0.8 * -log(Math.random() + 1e-9) : -(0.2 + 0.6 * -log(Math.random() + 1e-9));
   S.used[c] = 1;
+  S.vis[c] = p < 0 ? 1 : 0;
   S.n[c] = 1;
   S.par[c] = p;
   S.sf[c] = (p >= 0 ? S.sf[p] : 0) + dl;
@@ -165,6 +167,12 @@ function generation(S) {
     S.n[i] = m;
     T += m;
     if (m === 0) S.dead[i] = S.row;
+    else if (m >= NVIS && !S.vis[i]) {
+      for (let a = i; a >= 0 && !S.vis[a]; a = S.par[a]) {
+        S.vis[a] = 1;
+        S.born[a] = S.row;
+      }
+    }
   }
   S.T = max(T, 1);
   // mutation: a cell of a clone picked in proportion to its size starts a clone of one
@@ -222,14 +230,15 @@ function tick(S) {
     for (let i = 0; i < MAXC; i++) {
       if (!S.used[i] || S.n[i] > 0) continue;
       if (S.kc[i] === 0) {
-        if (!S.shown[i] || (S.row - S.dead[i] >= FADE && S.ft[i] < 0.004)) {
+        if (!S.vis[i] || !S.shown[i] || (S.row - S.dead[i] >= FADE && S.ft[i] < 0.004)) {
           S.used[i] = 0;
           changed = true;
         }
-      } else if (S.kc[i] === 1 && S.ft[i] < 0.003) {
+      } else if (S.kc[i] === 1 && S.vis[i] && S.ft[i] < 0.003) {
         let c = -1;
         for (let j = 0; j < MAXC; j++) if (S.used[j] && S.par[j] === i) c = j;
         S.par[c] = S.par[i];
+        S.vis[c] = 1;
         S.used[i] = 0;
         changed = true;
       }
@@ -248,7 +257,7 @@ function render(S) {
     kids[i].length = 0;
     if (used[i] && S.par[i] < 0) root = i;
   }
-  for (let i = 0; i < MAXC; i++) if (used[i] && S.par[i] >= 0) kids[S.par[i]].push(i);
+  for (let i = 0; i < MAXC; i++) if (used[i] && S.vis[i] && S.par[i] >= 0) kids[S.par[i]].push(i);
   for (let i = 0; i < MAXC; i++) if (kids[i].length > 1) kids[i].sort(S.byOrd);
   // preorder, then size up from the leaves
   const pre = S.pre;
