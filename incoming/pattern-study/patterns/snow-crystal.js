@@ -300,7 +300,7 @@ function spawn(S) {
     rec: new Uint8Array(D.n), fz: new Float32Array(D.n).fill(-1), life: new Float32Array(D.n),
     betaOut: p[1], rmax: 0, hCur: h0,
     state: GROW, age: 0, sa: 0, acc: 0, frac: 0, adj: 1, alpha: 0,
-    Tdur: 0, restDur: 5 + rnd() * 7, meltDur: 13 + rnd() * 4,
+    Tdur: 0, restDur: 3.5 + rnd() * 5, meltDur: 13 + rnd() * 4,
     est: (50 + 135 * h0) * (R - 2) / 13,
     Ac: lerp(30, 50, h0), ph2: rnd(), psi: rnd() * PI * 2, om: (0.045 + rnd() * 0.07) * (rnd() < 0.5 ? -1 : 1), wph: rnd() * 6.28,
     haze: 1, visible: true,
@@ -458,7 +458,10 @@ export function update(dt, input, params) {
   if (!params.S) setup(params);
   const S = params.S, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
-  S.s2 = Math.pow(2, 0.8 * (cl(kn[1], 0, 4) - 2));
+  {
+    const k2 = cl(kn[1], 0, 4) - 2;
+    S.s2 = Math.pow(2, k2 < 0 ? 0.35 * k2 : 0.8 * k2);
+  }
   {
     const k3 = cl(kn[2], -1, 1);
     S.hc = k3 < 0 ? 0.8 + 0.7 * k3 : 0.8 + 0.2 * k3;
