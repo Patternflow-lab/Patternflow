@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns the palette round the colour wheel. At 0 the ground is deep indigo that lifts to azure inside the beam, the crests are cyan-white and the troughs and faint fans are violet with a magenta edge; at 0.25 the beam is pink, at 0.5 amber, at 0.75 green, and at 1 it is back where it began.
 // Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4 and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam stays within 42 degrees of straight up.
-// Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 to 11 beads 4 LEDs apart play a wavelength of 8 LEDs and there is one beam. Across the knob the wavelength shortens from 8 to 6 LEDs while the driven width stays 40 LEDs, so the beads thin out to 5, 9.6 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 degrees either side of a straight one.
+// Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 to 11 beads 4 LEDs apart play a wavelength that wanders between 8 and 9.6 LEDs, and there is one beam. Across the knob the wavelength shortens to 6 to 7.2 LEDs while the driven width stays 40 LEDs, so the beads thin out to 5, 9.6 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 to 49 degrees either side of a straight one, nearer 39 when the wavelength is at its shortest.
 // Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 20 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 10 degrees wide and the sidelobes start at -14 dB, 16 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.54, the beam 13 degrees and the first sidelobe -17.5 dB at 20 degrees. At 0.7 the beam is 17 degrees and the first sidelobe -33 dB. At 1 it is 21 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row; the width, the taper and the wavelength each breathe slowly, as described below.
 
 // What the picture is. At most 19 beads sit on the line y = 126.5 at x = 32 + n d, n from -9 to 9, each a source of circular waves. The
@@ -31,8 +31,8 @@
 // shows. The beads at the bottom are two LEDs wide and glow with their own phase, so the phase runs along the row as the beam leans.
 // The scan is a sum of three sines quantised into dwells (every 11 degrees, with a jitter), smoothed by a critically damped follower, and
 // a hand-over to a second beam at a random angle now and then. The width of the driven part of the row (20 LEDs half-width, plus or minus
-// 26%), the taper (a factor up to 1.8 either way on m), the wavelength (plus or minus 21%) and the middle of the row (plus or minus 7 LEDs)
-// each drift on periods of 59 to 139 s that do not divide one another.
+// 26%), the taper (a factor up to 1.8 either way on m), the wavelength (1 to 1.2 times its nominal value, never shorter, so the opening spacing
+// of 0.5 never lets a grating lobe in) and the middle of the row (plus or minus 7 LEDs) each drift on periods of 59 to 139 s that do not divide one another.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, abs, exp, sin, cos, PI, min, max, log } = Math;
@@ -186,7 +186,7 @@ function advance(S, dt, kn) {
   const t = S.t, T2 = 2 * PI * t;
   S.ah = AH * (1 + 0.16 * sin(T2 / 67.1 + 1.1) + 0.1 * sin(T2 / 109.3 + 4.2));
   S.mMul = Math.pow(2, 0.55 * sin(T2 / 83.7 + 2.0) + 0.3 * sin(T2 / 139.1 + 0.3));
-  S.lamE = S.lam * (1 + 0.13 * sin(T2 / 71.3 + 0.9) + 0.08 * sin(T2 / 113.7 + 2.4));
+  S.lamE = S.lam * (1.1 + 0.1 * (0.6 * sin(T2 / 71.3 + 0.9) + 0.4 * sin(T2 / 113.7 + 2.4)));
   S.shift = 7 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
   S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
