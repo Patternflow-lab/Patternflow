@@ -25,7 +25,7 @@ const M0 = 2.3; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
 const ALPHA = 0.5; // how much of a generation's change in frequency a row takes
-const ANCHOR = 0.58; // hue the family tree is pulled toward at Hue 0
+const ANCHOR = 0.6; // hue the family tree is pulled toward at Hue 0
 const HW = 0.85; // half width of a soft edge between two bands, LEDs
 const { floor, min, max, exp, sqrt, log, abs, cos, pow, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -111,7 +111,7 @@ function pickHue(S, p) {
     }
     let da = abs(h - ANCHOR);
     da = min(da, 1 - da);
-    const score = dmin - 1.2 * max(0, da - 0.27);
+    const score = dmin - 1.2 * max(0, da - 0.33);
     if (score > bs) {
       bs = score;
       best = h;
@@ -129,7 +129,8 @@ function spawn(S, p) {
     }
   if (c < 0) return -1;
   const r = Math.random();
-  const dl = r < 0.72 ? 0.3 + 0.8 * -log(Math.random() + 1e-9) : -(0.2 + 0.6 * -log(Math.random() + 1e-9));
+  const e = min(-log(Math.random() + 1e-9), 2.8);
+  const dl = r < 0.72 ? 0.3 + 0.8 * e : -(0.2 + 0.6 * e);
   S.used[c] = 1;
   S.vis[c] = p < 0 ? 1 : 0;
   S.n[c] = 1;
@@ -238,6 +239,7 @@ function tick(S) {
         let c = -1;
         for (let j = 0; j < MAXC; j++) if (S.used[j] && S.par[j] === i) c = j;
         S.par[c] = S.par[i];
+        S.ord[c] = S.ord[i]; // keep its place among the siblings
         S.vis[c] = 1;
         S.used[i] = 0;
         changed = true;
