@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns both phases round the wheel together, the second always 0.52 of a turn from the first. At 0 the first phase is copper orange and the second steel blue; at 0.25 green and magenta, at 0.5 blue and a brown copper, at 0.75 magenta and green. The liquid and the glow of the front take the first phase's colour.
 // Knob 2: Pull. The pull speed. The window scrolls 2.2 LEDs a second per unit, so 4.4 LEDs a second at the opening 2 (a plate takes 26 s to cross the panel), 2.6 at 1.2 and 11 at 5. The optimum spacing of a pair of plates is 16 LEDs times the square root of 2 over the pull: 21 at 1.2, 16 at 2, 10 at 5. A turn from 2 to 5 takes the plates across the panel from about 6 to 14 within 5 s, in a burst of splits; a turn back squeezes the extra ones out over about 15 s. The pull also wanders by itself, a sixth either way over half a minute.
 // Knob 3: Fraction. The share of the second phase, 0.35 to 0.75. At 0.35 the blue plates are the thin ones, about 5.6 LEDs between copper plates of 10.4; at 0.5 both are 8; at 0.75 the blue is 12 and the copper 4. Turning it makes the thinning phase die out and the other split until the widths fit, over about 20 s.
-// Knob 4: Tilt. How far the temperature gradient at the front leans. At 0.06 the plates are upright apart from the sway the wavy front gives them (up to 0.3 LEDs sideways per LED of growth); at 1 they lean between 0.4 and 1 LED sideways per LED of growth (22 to 45 degrees), more on one side of the panel than on the other so they fan, and the sign picks the side they lean to. A fan opening up makes splits, one closing makes terminations.
+// Knob 4: Tilt. How far the temperature gradient at the front leans. At 0.06 the plates are upright apart from the sway the wavy front gives them (typically 0.1 to 0.3 LEDs sideways per LED of growth); at 1 they lean between 0.4 and 1 LED sideways per LED of growth (22 to 45 degrees), more on one side of the panel than on the other so they fan, and the sign picks the side they lean to. A fan opening up makes splits, one closing makes terminations.
 
 const W = 64, H = 128;
 const L = 64; // the sample is a ring as wide as the panel, so plates leaving at one edge come back at the other
@@ -94,9 +94,9 @@ function frontSlope(S, x) {
   return d;
 }
 
-// Plates grow along the normal of the front, so where the front slopes they lean with it: u is the sideways
-// step per LED of growth. A slow sway of the temperature field adds a drift of its own, 0.2 at most, and the knob
-// adds a lean that is stronger on one side than the other.
+// Plates grow along the normal of the front, so where the front slopes they lean with it. This returns the sideways
+// step of a boundary per LED of growth. A slow sway of the temperature field adds a drift of its own, 0.22 at most,
+// and the knob adds a lean that is stronger on one side than the other.
 function lean(S, x) {
   const k = (TAU * x) / L;
   return 1.0 * frontSlope(S, x) + 0.14 * sin(k + S.sw[0]) + 0.08 * sin(2 * k + S.sw[1]) + 0.7 * S.tilt * (1 + 0.4 * sin(k + S.fan));
@@ -115,14 +115,14 @@ function want(S, x) {
 function seedPlates(S) {
   const r = S.rnd, lam = S.lam;
   const pairs = max(3, Math.round(L / S.lamOpt));
-  const n = pairs * 2, ws = [];
+  const n = pairs * 2, ws = [], ph0 = r() < 0.5 ? 0 : 1;
   let tot = 0;
   for (let i = 0; i < n; i++) {
-    const w = (i & 1 ? S.f : 1 - S.f) * (0.55 + 0.95 * r());
+    const w = ((i & 1) ^ ph0 ? S.f : 1 - S.f) * (0.55 + 0.95 * r());
     ws.push(w);
     tot += w;
   }
-  let x = 0, ph = r() < 0.5 ? 0 : 1;
+  let x = 0, ph = ph0;
   for (let i = 0; i < n; i++) {
     lam.push({ x, ph, age: YOUNG + r() * 20, bs: 1, dying: false, vn: 0 });
     x += (ws[i] / tot) * L;
