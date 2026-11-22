@@ -11,33 +11,34 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Scan=0..4, Spacing=0.5..1.6, Taper=-1..1
 //
-// Knob 1: Hue. Turns the palette round the colour wheel. At 0 the ground is deep indigo that lifts to azure inside the beam, the crests are cyan-white and the troughs and faint fans are violet with a magenta edge; at 0.25 the beam is pink, at 0.5 amber, at 0.75 green, and at 1 it is back where it began.
-// Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4 and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam stays within 34 degrees of straight up.
-// Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 to 11 beads 4 LEDs apart play a wavelength that wanders between 8 and 9.6 LEDs, and there is one beam. Across the knob the wavelength shortens to 6 to 7.2 LEDs while the driven width stays 40 LEDs, so the beads thin out to 5, 9.6 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 to 49 degrees either side of a straight one, nearer 39 when the wavelength is at its shortest.
-// Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 20 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 10 degrees wide and the sidelobes start at -14 dB, 16 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.54, the beam 13 degrees and the first sidelobe -17.5 dB at 20 degrees. At 0.7 the beam is 17 degrees and the first sidelobe -33 dB. At 1 it is 21 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row; the width, the taper and the wavelength each breathe slowly, as described below.
+// Knob 1: Hue. Turns the palette round the colour wheel. At 0 the ground is deep indigo, the sidelobe fans are violet with a magenta edge, the beam is blue to azure and its crests cyan-white; at 0.25 the beam is pink, at 0.5 amber, at 0.75 green, and at 1 it is back where it began.
+// Knob 2: Scan. How fast the beam scans, the pace going as (knob / 2) squared: 0 holds the beam where it is, 2 (the opening) is the pace described here, 4 is four times faster. At 2 the beam dwells a few seconds on a direction and leans to the next in about 1 s. The dwell angles are 11 degrees apart give or take 4 and are picked by a sum of three sines of 36.7, 58.9 and 92.1 s, so the same sweep does not come twice. Every 22 to 70 s a second beam rises at a new angle at least 20 degrees away while the first fades out, 2.2 s for the hand-over. The beam reaches 56 degrees either side of straight up, where the wedge lies along the bottom of the panel, and spends most of its time inside 35.
+// Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 beads 3.25 LEDs apart play a wavelength that wanders between 6.5 and 7.8 LEDs, and there is one beam. Across the knob the wavelength shortens to 5.5 to 6.6 LEDs while the driven width stays 28 LEDs, so the beads thin out to 3, 8.8 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 to 46 degrees either side of a straight one, nearer 39 when the wavelength is at its shortest.
+// Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 14 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 12 degrees wide and the sidelobes start at -13 dB, 19 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.38, the beam 13 degrees and the first sidelobe -18 dB at 21 degrees. At 0.7 the beam is 19 degrees and the first sidelobe -30 dB. At 1 it is 25 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row at a wavelength of 6.5 LEDs; the width, the taper and the wavelength each breathe slowly, as described below.
 
 // What the picture is. At most 19 beads sit on the line y = 126.5 at x = 32 + n d, n from -9 to 9, each a source of circular waves. The
 // field at an LED, summed exactly over every bead, is
 //   Z = sum over n of w_n c_n exp(i k r_n) / sqrt(r_n),     field = Re(Z exp(-i w t)),
 // with r_n the distance from LED to bead (not less than 1.3 LEDs), w_n the taper and c_n the delay, c_n = exp(i k d n sin(theta)): bead n
 // leads its neighbour by k d sin(theta), so the wavefronts of the beads line up along a tilted plane and the beam leans to theta with
-// nothing turning. The distances and 1 / sqrt(r) are tabled for each LED and bead once and rebuilt only when Spacing moves (up to 17 ms
-// a frame while the knob turns), and the sum is two table lookups a term, about 2 ms a frame for the 8192 LEDs.
-// The picture shows two things at once. The glow is the intensity averaged over a wave, |Z|^2 / 2, in dB from -46 at black to +3 at the
-// brightest ramp colour (0 dB is a unit-drive beam 55 LEDs from the row), bent by a power of 1.7 so the weak fans stay dark: indigo ground,
-// blue, azure, pale cyan. It is the beam pattern: the lit wedge, the sidelobes as dim violet fans and the nulls between them dark.
-// On top of it run the crests, the field of this instant: cos(phase) times an amplitude factor that falls as the 0.5 power of the local
-// amplitude, so the faint fans still carry moving rings. Where the field is positive the glow turns cyan-white, where it is negative the
-// glow dims and a violet-magenta line shows. A faint haze, 0.04 at the top corners and 0.15 beside the row, keeps every LED lit. The beads at
-// the bottom are two LEDs wide and glow with their own phase, so the phase runs along the row as the beam leans, and they fade toward the
-// ends of the row with the taper.
+// nothing turning. The row is only 28 LEDs wide, so the beam is a wedge about 33 LEDs across by the top of the panel and its crests are
+// arcs that spread from the row, not straight bars. The distances and 1 / sqrt(r) are tabled for each LED and bead once and rebuilt only
+// when Spacing moves (up to 17 ms a frame while the knob turns), and the sum is two table lookups a term, about 2 ms a frame for the 8192 LEDs.
+// The picture shows two things at once. The glow is the intensity averaged over a wave, |Z|^2 / 2, in dB from -40 at black to +3 at the
+// brightest ramp colour (0 dB is a unit-drive beam 55 LEDs from the row), bent by a power of 1.6 so the weak fans stay dark: deep indigo
+// ground, violet-magenta, blue, azure, pale cyan. It is the beam pattern: the lit wedge, the sidelobes as violet fans and the nulls between
+// them dark. On top of it run the crests, the field of this instant: cos(phase) times an amplitude factor that falls as the 0.8 power of
+// the local amplitude, so the crests live inside the beam and the nearest sidelobes and the far haze stays free of them. Where the field is
+// positive the glow turns cyan-white (lilac in the sidelobes), where it is negative the glow dims and a violet-magenta line shows. A faint
+// haze, 0.03 at the top corners and 0.1 beside the row, keeps every LED lit. The beads at the bottom are two LEDs wide and glow with their
+// own phase, so the phase runs along the row as the beam leans, and they fade toward the ends of the row with the taper.
 // The scan is a sum of three sines quantised into dwells (every 11 degrees, with a jitter), smoothed by a critically damped follower, and
-// a hand-over to a second beam at a random angle now and then. A slow quadratic delay across the row, q times 4.1 radians times u squared,
-// focuses the beam to a waist 44 LEDs out at its most positive (q = 0.8) or spreads it as if from a point 35 LEDs behind the row at its most
-// negative (q = -1); it opens at -0.58, so the beam begins as a wedge. The width of the driven part of the row (20 LEDs half-width, plus or
-// minus 26%), the taper (a factor up to 1.8 either way on m), the wavelength (1 to 1.2 times its nominal value, never shorter, so the opening
-// spacing of 0.5 never lets a grating lobe in), the middle of the row (plus or minus 7 LEDs) and q each drift on periods of 54 to 139 s that
-// do not divide one another.
+// a hand-over to a second beam at a random angle now and then. A slow quadratic delay across the row, q times 1.2 radians times u squared,
+// focuses the beam to a waist about 80 LEDs out at its most positive (q = 0.9) or spreads it as if from a point 100 LEDs behind the row at
+// its most negative (q = -0.7); it opens at -0.13. The width of the driven part of the row (14 LEDs half-width, plus or minus 22%), the
+// taper (a factor up to 1.5 either way on m), the wavelength (1 to 1.15 times its nominal value, never shorter, so the opening spacing of
+// 0.5 never lets a grating lobe in), the middle of the row (plus or minus 9 LEDs) and q each drift on periods of 54 to 139 s that do not
+// divide one another.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, abs, exp, sin, cos, PI, min, max, log } = Math;
@@ -51,17 +52,17 @@ const sm = (a, b, v) => {
 const NM = 9; // elements run from -NM to NM, 19 at most, centre one at x = 32
 const NE = 2 * NM + 1;
 const CX = 32, AY = 126.5; // the line the elements sit on
-const AH = 20; // half the width the elements are driven over
+const AH = 14; // half the width the elements are driven over
 const TABN = 4096, TMASK = TABN - 1;
 const COS = new Float32Array(TABN), SIN = new Float32Array(TABN);
 for (let i = 0; i < TABN; i++) {
   COS[i] = cos((2 * PI * i) / TABN);
   SIN[i] = sin((2 * PI * i) / TABN);
 }
-const Q0 = 2 * PI * 0.65; // radians of curve across the row at the edge of the driven width for a curve of 1
+const Q0 = 1.2; // radians of curve across the row at the edge of the driven width for a curve of 1
 // the faint far-field haze every LED keeps, brighter near the row and thinning with distance, so no corner goes dead black
 const FLOOR = new Float32Array(NPX);
-for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) FLOOR[y * W + x] = 0.04 + 0.11 * exp(-sqrt((x + 0.5 - 32) * (x + 0.5 - 32) + (y - 126) * (y - 126)) / 60);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) FLOOR[y * W + x] = 0.025 + 0.07 * exp(-sqrt((x + 0.5 - 32) * (x + 0.5 - 32) + (y - 126) * (y - 126)) / 60);
 const BASE_ROWS = 10; // the rows, from the bottom, that carry the faint glow along the line of elements
 const PHASE_SPEED = 7; // LEDs a second the crests run
 const IREF = 1 / (2 * 55); // intensity of a unit-drive beam 55 LEDs out
@@ -69,9 +70,9 @@ const ZREF = 1 / sqrt(55);
 
 // ---- the scan
 const STEP = 11; // degrees between dwell angles, before the jitter
-const BETA = [[16, 36.7, 0.7], [11, 58.9, 2.9], [7, 92.1, 4.6]]; // amplitude in degrees, period in s, phase
+const BETA = [[26, 36.7, 0.7], [17, 58.9, 2.9], [11, 92.1, 4.6]]; // amplitude in degrees, period in s, phase
 const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
-const THMAX = 34;
+const THMAX = 56;
 const HAND = 2.2; // seconds a hand-over takes at Scan 2
 function betaOf(sc) {
   let b = 0;
@@ -96,7 +97,7 @@ function makeState() {
     ready: false, t: 0, sc: 0, off: 0, nextEv: 24,
     th: 0, vel: 0, hv: -1, thB: 0,
     kn: [0, 2, 0.5, 0.06],
-    d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0, shift: 0, q: -0.58,
+    d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0, shift: 0, q: -0.13,
     rt: new Float32Array(NE * NPX), at: new Float32Array(NE * NPX),
     Zr: new Float32Array(NPX), Zi: new Float32Array(NPX),
     G: new Float32Array(NPX), C: new Float32Array(NPX), px: new Float32Array(NPX * 3),
@@ -111,7 +112,7 @@ export function setup(params) {
 }
 
 function lambdaOf(ds) {
-  return 8 - (2.0 * (ds - 0.5)) / 1.1;
+  return 6.5 - (1.0 * (ds - 0.5)) / 1.1;
 }
 
 // Distances from every LED to every element, rebuilt only when the spacing moves.
@@ -138,7 +139,7 @@ function buildTables(S, ds) {
 // Element weights: cos(pi u / 2)^m across the driven width, u = |x - 32| / AH. m is 0 at -1 (uniform), 0.54 at the opening and 4 at 1.
 function weights(S, taper) {
   const s = (cl(taper, -1, 1) + 1) / 2;
-  const m = ((4 * (Math.pow(2, 5.8 * s) - 1)) / 54.7) * S.mMul, ah = S.ah, cx = CX + S.shift;
+  const m = ((4 * (Math.pow(2, 7 * s) - 1)) / 127) * S.mMul, ah = S.ah, cx = CX + S.shift;
   let tot = 0;
   for (let n = 0; n < NE; n++) {
     const dx = abs(S.xs[n] - cx);
@@ -156,9 +157,9 @@ function startHandover(S) {
   // a second beam comes up at a new direction while the first goes down, at least 20 degrees away
   const ok = [];
   let far = 0, farD = -1;
-  for (let i = -3; i <= 3; i++) {
+  for (let i = -4; i <= 4; i++) {
     const th = level(i), dd = abs(th - S.th);
-    if (dd >= 20 && abs(th) <= 33) ok.push(i);
+    if (dd >= 20 && abs(th) <= 52) ok.push(i);
     if (dd > farD) { farD = dd; far = i; }
   }
   const i = ok.length ? ok[floor(Math.random() * ok.length)] : far;
@@ -193,11 +194,11 @@ function advance(S, dt, kn) {
 
   // slow drifts of the width, the taper and the frequency, so the beam's shape never settles
   const t = S.t, T2 = 2 * PI * t;
-  S.ah = AH * (1 + 0.16 * sin(T2 / 67.1 + 1.1) + 0.1 * sin(T2 / 109.3 + 4.2));
-  S.mMul = Math.pow(2, 0.55 * sin(T2 / 83.7 + 2.0) + 0.3 * sin(T2 / 139.1 + 0.3));
-  S.lamE = S.lam * (1.1 + 0.1 * (0.6 * sin(T2 / 71.3 + 0.9) + 0.4 * sin(T2 / 113.7 + 2.4)));
-  S.shift = 7 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
-  S.q = cl(-0.3 + 0.5 * sin(T2 / 53.7 - 0.4) + 0.3 * sin(T2 / 89.3 - 0.3), -1, 0.8);
+  S.ah = AH * (1 + 0.14 * sin(T2 / 67.1 + 1.1) + 0.08 * sin(T2 / 109.3 + 4.2));
+  S.mMul = Math.pow(2, 0.4 * sin(T2 / 83.7 + 2.0) + 0.2 * sin(T2 / 139.1 + 0.3));
+  S.lamE = S.lam * (1.075 + 0.075 * (0.6 * sin(T2 / 71.3 + 0.9) + 0.4 * sin(T2 / 113.7 + 2.4)));
+  S.shift = 9 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
+  S.q = cl(0.15 + 0.5 * sin(T2 / 53.7 - 0.4) + 0.3 * sin(T2 / 89.3 - 0.3), -0.7, 0.9);
   S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
   if (S.d < 0 || abs(lambdaOf(ds) * ds - S.d) > 1e-4) buildTables(S, ds);
@@ -242,11 +243,11 @@ function advance(S, dt, kn) {
     const zr = Zr[i], zi = Zi[i];
     const I = 0.5 * (zr * zr + zi * zi);
     const db = 4.3429 * log(I / IREF + 1e-5);
-    const gv = Math.pow(cl((db + 46) / 49, 0, 1), 1.7);
+    const gv = Math.pow(cl((db + 40) / 43, 0, 1), 1.6);
     const bv = i >= B0 ? bs[i - B0] : 0, fv = FLOOR[i] > bv ? FLOOR[i] : bv;
     G[i] = gv > fv ? gv : fv;
     const zm = sqrt(zr * zr + zi * zi) + 1e-9;
-    const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.5));
+    const A = min(1, 1.2 * Math.pow(zm / ZREF, 0.8));
     C[i] = ((zr * co + zi * si) / zm) * A;
   }
 }
@@ -265,12 +266,14 @@ export function update(dt, input, params) {
 
 // ---- colour
 const RAMP = [
-  [0.0, 5, 4, 22],
-  [0.18, 32, 9, 62],
-  [0.38, 30, 22, 108],
-  [0.62, 18, 62, 168],
-  [0.84, 26, 118, 214],
-  [1.0, 80, 188, 240],
+  [0.0, 3, 3, 15],
+  [0.1, 8, 5, 34],
+  [0.22, 32, 8, 70],
+  [0.38, 60, 14, 112],
+  [0.55, 36, 38, 152],
+  [0.72, 22, 92, 204],
+  [0.88, 40, 162, 232],
+  [1.0, 110, 226, 246],
 ];
 const LUTN = 256;
 const GLUT = new Float32Array((LUTN + 1) * 3);
@@ -283,7 +286,7 @@ for (let i = 0; i <= LUTN; i++) {
   GLUT[i * 3 + 1] = a[2] + (b[2] - a[2]) * u;
   GLUT[i * 3 + 2] = a[3] + (b[3] - a[3]) * u;
 }
-const CREST = [225, 252, 255], CREST_LO = [96, 128, 246], UNDER = [140, 24, 150];
+const CREST = [225, 252, 255], CREST_LO = [170, 96, 240], UNDER = [140, 24, 150];
 
 function hueMatrix(S, hue) {
   if (S.hueAt === hue) return;
@@ -314,8 +317,8 @@ function shade(g, c, out) {
   out[0] = r; out[1] = gg; out[2] = b;
 }
 
-const BEAD_ROWS = [0.3, 0.8, 1, 1]; // rows 124 to 127
-const BEAD0 = [70, 30, 150];
+const BEAD_ROWS = [0.35, 0.85, 1, 1]; // rows 124 to 127
+const BEAD0 = [96, 40, 190]; // a bead at the bottom of its swing, still lit so the row always reads
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
@@ -335,13 +338,13 @@ export function draw(display, params) {
     const wr = S.w[n] / wmax;
     if (wr < 0.004) continue;
     const xb = S.xs[n], cr = S.cr[n], ci = S.ci[n], mag = sqrt(cr * cr + ci * ci);
-    const u = 0.5 + 0.5 * cos(om - Math.atan2(ci, cr)), amp = (0.3 + 0.7 * Math.sqrt(wr)) * (0.45 + 0.55 * mag);
+    const u = 0.5 + 0.5 * cos(om - Math.atan2(ci, cr)), amp = (0.4 + 0.6 * Math.sqrt(wr)) * (0.5 + 0.5 * mag);
     const v = u * u * (3 - 2 * u) * amp;
     col[0] = BEAD0[0] + (CREST[0] - BEAD0[0]) * v;
     col[1] = BEAD0[1] + (CREST[1] - BEAD0[1]) * v;
     col[2] = BEAD0[2] + (CREST[2] - BEAD0[2]) * v;
-    for (let x = max(0, floor(xb - 1.6)); x <= min(W - 1, floor(xb + 1.6)); x++) {
-      const cx = cl(1.5 - abs(x + 0.5 - xb), 0, 1);
+    for (let x = max(0, floor(xb - 1)); x <= min(W - 1, floor(xb + 1)); x++) {
+      const cx = cl(min(x + 1, xb + 1) - max(x, xb - 1), 0, 1); // the bead is a box two LEDs wide
       if (cx <= 0) continue;
       for (let r = 0; r < 4; r++) {
         const cov = cx * BEAD_ROWS[r], i = (124 + r) * W + x;
