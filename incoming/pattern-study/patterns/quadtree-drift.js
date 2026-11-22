@@ -37,7 +37,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET_HI = 75, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
+const BUDGET_HI = 62, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
 const MERGE = 0.62; // a tile merges again under this share of the split error
 const RATE = 1.8; // scene seconds for each second of the panel, at Drift 0
 const HOLD = 0.4; // seconds a node keeps a new state
@@ -59,7 +59,7 @@ const STOPS = [
   [1.0, 46, 30, 168], // indigo again
 ];
 const HOT = [255, 232, 176];
-const DEEP = [34, 18, 120];
+const DEEP = [34, 18, 120]; // the wedge's ink stays indigo whatever the Hue, since a dark orange would read as brown
 const PLATEAU = 0.45; // share of each stretch between stops that is a ramp, the rest is flat
 // blobs: period x, period y, phase x, phase y, radius x, radius y, palette shift
 const BLOBS = [
@@ -69,7 +69,6 @@ const BLOBS = [
   [61.7, 71.9, 5.2, 4.4, 15, 15, -0.18],
   [71.3, 47.3, 1.3, 5.6, 21, 12, 0.16],
 ];
-const HUE_MAT = new Float32Array(9);
 
 function makeState() {
   const lv = [];
@@ -88,7 +87,7 @@ function makeState() {
     lv,
     cr: new Float32Array(NC), cg: new Float32Array(NC), cb: new Float32Array(NC),
     sr: new Float64Array(sn), sg: new Float64Array(sn), sb: new Float64Array(sn), sq: new Float64Array(sn),
-    lut: new Float32Array(1024 * 3), hot: [255, 232, 176], deep: [34, 18, 120], hueAt: -1,
+    lut: new Float32Array(1024 * 3), hot: [255, 232, 176], hueAt: -1,
   };
 }
 
@@ -97,42 +96,39 @@ export function setup(params) {
 }
 
 // ---- colour: the palette as a table of 1024, turned by the Hue knob
-function hueMatrix(hue) {
-  const A = TAU * hue, c = cos(A), s = sin(A), m = HUE_MAT;
-  m[0] = 0.213 + c * 0.787 - s * 0.213; m[1] = 0.715 - c * 0.715 - s * 0.715; m[2] = 0.072 - c * 0.072 + s * 0.928;
-  m[3] = 0.213 - c * 0.213 + s * 0.143; m[4] = 0.715 + c * 0.285 + s * 0.14; m[5] = 0.072 - c * 0.072 - s * 0.283;
-  m[6] = 0.213 - c * 0.213 - s * 0.787; m[7] = 0.715 - c * 0.715 + s * 0.715; m[8] = 0.072 + c * 0.928 + s * 0.072;
-}
-
-function turn(m, c) {
-  return [
-    cl(c[0] * m[0] + c[1] * m[1] + c[2] * m[2], 0, 255),
-    cl(c[0] * m[3] + c[1] * m[4] + c[2] * m[5], 0, 255),
-    cl(c[0] * m[6] + c[1] * m[7] + c[2] * m[8], 0, 255),
-  ];
+// The hue goes round in HSV, so saturation and value stay where the palette put them.
+function turn(c, hue) {
+  const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+  const mx = max(r, g, b), mn = min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d > 0) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  h = (h + hue * 6) % 6;
+  const f = (n) => {
+    const k = (n + h) % 6;
+    return 255 * (mx - d * max(0, min(k, 4 - k, 1)));
+  };
+  return [f(5), f(3), f(1)];
 }
 
 function buildLut(S, hue) {
   if (S.hueAt === hue) return;
   S.hueAt = hue;
-  hueMatrix(hue);
-  const m = HUE_MAT, lut = S.lut;
+  const lut = S.lut;
   let k = 0;
   for (let i = 0; i < 1024; i++) {
     const u = i / 1024;
     while (k < STOPS.length - 2 && u >= STOPS[k + 1][0]) k++;
     const a = STOPS[k], b = STOPS[k + 1], f = (u - a[0]) / (b[0] - a[0]);
     const t = ss(cl((f - (1 - PLATEAU) / 2 + 0.0) / PLATEAU, 0, 1));
-    const c = turn(m, [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t]);
+    const c = turn([a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t], hue);
     lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
   }
-  S.hot = turn(m, HOT);
-  S.deep = turn(m, DEEP);
+  S.hot = turn(HOT, hue);
 }
 
 // ---- the scene, sampled at the centre of every cell
 function sceneStep(S, edges) {
-  const t = S.tt, lut = S.lut, hot = S.hot, deep = S.deep, cr = S.cr, cg = S.cg, cb = S.cb;
+  const t = S.tt, lut = S.lut, hot = S.hot, deep = DEEP, cr = S.cr, cg = S.cg, cb = S.cb;
   const e = 1 - pow(1 - (edges + 1) / 2, 2); // 0 soft, 1 hard, and 0.78 where the knob opens
   const E = 2 * pow(11, 1 - e); // width of a shape's edge, LEDs
   const al = 0.5 + 0.5 * e;
@@ -290,7 +286,7 @@ function frame(S, dt, snap) {
   sceneStep(S, cl(kn[3], -1, 1));
   buildTables(S);
   nodeStats(S);
-  const b = cl(kn[1] / 4, 0, 1), ts = exp(log(BUDGET_HI) + (log(BUDGET_LO) - log(BUDGET_HI)) * b);
+  const b = pow(cl(kn[1] / 4, 0, 1), 1.3), ts = exp(log(BUDGET_HI) + (log(BUDGET_LO) - log(BUDGET_HI)) * b);
   treeStep(S, dt, ts, ts * MERGE);
   settle(S, dt, snap);
 }
