@@ -41,7 +41,7 @@
 
 const W = 64, H = 128, NPX = W * H;
 const TAU = 6.283185307179586;
-const { floor, ceil, min, max, sqrt, abs, exp, sin, cos, atan2, pow, imul } = Math;
+const { floor, ceil, min, max, sqrt, abs, exp, sin, cos, atan2, pow, imul, tanh } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -53,12 +53,9 @@ const mix = (a, b, t) => a + (b - a) * t;
 const XR = 50; // depth of the pith in x units
 const DX = 0.25; // step of the depth table
 const NJ = 208; // entries of the depth table, enough for XR plus a margin
-const S0 = 5.2; // width of a ring of mean width at the bark, in x units (about LEDs)
-const XC = 20; // depth where a ring is half as wide as at the bark
-const cam = (x) => {
-  const t = x / XC;
-  return 1 / (1 + t * sqrt(t));
-};
+const S0 = 3.6; // width of a ring of mean width at the bark, in x units (about LEDs)
+const XG = 52; // depth where a ring is down to 0.37 of its width at the bark
+const cam = (x) => exp(-(x / XG) * (x / XG));
 const NS = 40; // colour samples per ring in the running sum
 const MAXR = 140; // most rings in the table
 
@@ -113,13 +110,14 @@ function omega(u) {
       if (d > -3 && d < 3) w *= 1 + BOOM * (0.7 + 0.9 * hh(c, 33)) * exp(-d * d);
     }
   }
-  return w;
+  // soft ceiling: no ring gets wider than about 2.1 times the mean
+  return w < 1.4 ? w : 1.4 + 0.7 * tanh((w - 1.4) / 0.7);
 }
 
 // ---- colour
 const BASE_E0 = [0.91, 0.78, 0.55]; // pale earlywood, #e8c78c
-const BASE_E1 = [0.8, 0.6, 0.36]; // earlywood late in the season
-const BASE_LW = [0.42, 0.235, 0.1]; // latewood, #6b3c1a
+const BASE_E1 = [0.76, 0.54, 0.31]; // earlywood late in the season
+const BASE_LW = [0.43, 0.245, 0.105]; // latewood, #6e3e1b
 const BASE_FR = [0.3, 0.15, 0.07]; // frost band
 const BASE_RIM = [0.95, 0.46, 0.1]; // callus rim of a fire scar
 const CHAR = [0.15, 0.115, 0.1]; // charcoal
@@ -127,9 +125,9 @@ const BARK = [0.2, 0.115, 0.065];
 
 // Hue knob: where the wood sits at the key positions, as a shift of hue (turns), a factor on saturation and one on value.
 const HKEY = [0, 0.22, 0.5, 0.76, 1];
-const HDH = [0, -0.085, 0.065, 0.02, 0];
-const HDS = [1, 1.12, 0.6, 0.12, 1];
-const HDV = [1, 0.86, 0.93, 0.97, 1];
+const HDH = [0, -0.075, 0.055, 0.03, 0];
+const HDS = [1, 1.0, 0.5, 0.16, 1];
+const HDV = [1, 0.8, 0.88, 0.86, 1];
 
 function paletteShift(k, out) {
   k -= floor(k);
@@ -166,7 +164,7 @@ function shift(c, sh, o, i) {
 function tint(c, dry, wet, jit, out) {
   let r = c[0], g = c[1], b = c[2];
   const l = 0.3 * r + 0.59 * g + 0.11 * b;
-  const ds = 1 - 0.4 * dry, dv = (1 - 0.22 * dry) * jit;
+  const ds = 1 - 0.3 * dry, dv = (1 - 0.3 * dry) * jit;
   const ws = 1 + 0.25 * wet;
   r = (l + (r - l) * ds * ws) * dv;
   g = (l + (g - l) * ds * ws) * dv * (1 - 0.04 * wet);
@@ -195,7 +193,7 @@ export function setup(params) {
     cr: F((MAXR + 6) * NS + 2), cg: F((MAXR + 6) * NS + 2), cb: F((MAXR + 6) * NS + 2),
     ev: { sc: F(8 * 6), nsc: 0, ck: F(8 * 12), nck: 0 },
     tmp: [0, 0, 0], tmp2: new Float32Array(3), sh: [0, 1, 1],
-    ring: new Float32Array(24),
+    mr: F(MAXR + 8), mg: F(MAXR + 8), mb: F(MAXR + 8), ow: F(MAXR + 8),
   };
 }
 
@@ -301,7 +299,7 @@ export function draw(display, params) {
   const s3 = (cl(k[2], -1, 1) + 1) / 2, lean = (cl(k[3], -1, 1) + 1) / 2;
   SIG = 0.12 + 0.62 * s3;
   DSTR = 0.08 + 0.92 * s3;
-  BOOM = 0.2 + 1.0 * s3;
+  BOOM = 0.15 + 0.7 * s3;
   FROST = 0.01 + 0.12 * s3;
   geometry(S, lean);
   const sh = S.sh;
@@ -346,7 +344,7 @@ export function draw(display, params) {
     const frost = hh(i, 9) < FROST ? 1 : 0, phf = 0.3 + 0.35 * hh(i, 10);
     for (let s = 0; s < NS; s++) {
       const ph = (s + 0.5) / NS;
-      const te = sm(0, 1, min(ph / phs, 1));
+      const te = pow(sm(0, 1, min(ph / phs, 1)), 1.3);
       const m = sm(phs - 0.02, phs + 0.02, ph);
       const late = 1 + 0.18 * sm(0.93, 1, ph);
       const fb = frost ? 0.8 * exp(-(((ph - phf) / 0.09) ** 2)) : 0;
@@ -358,6 +356,27 @@ export function draw(display, params) {
         arr[o] = arr[o - 1] + v / NS;
       }
     }
+  }
+
+  // The mean colour of the rings, at the middle of each ring: (1, 2, 1) over three rings, each weighted by its
+  // width, since a wide ring is more wood than a narrow one.
+  const { mr, mg, mb, ow } = S;
+  for (let r = 0; r < nR; r++) {
+    const wgt = omega(iLo + r + 0.5);
+    ow[r] = wgt;
+    mr[r] = (cr[(r + 1) * NS] - cr[r * NS]) * wgt;
+    mg[r] = (cg[(r + 1) * NS] - cg[r * NS]) * wgt;
+    mb[r] = (cb[(r + 1) * NS] - cb[r * NS]) * wgt;
+  }
+  for (let r = 0, a0 = mr[0], a1 = mg[0], a2 = mb[0], a3 = ow[0]; r < nR; r++) {
+    const n = min(r + 1, nR - 1);
+    const b0 = mr[r], b1 = mg[r], b2 = mb[r], b3 = ow[r];
+    const den = a3 + 2 * b3 + ow[n];
+    mr[r] = (a0 + 2 * b0 + mr[n]) / den;
+    mg[r] = (a1 + 2 * b1 + mg[n]) / den;
+    mb[r] = (a2 + 2 * b2 + mb[n]) / den;
+    a0 = b0; a1 = b1; a2 = b2; a3 = b3;
+    ow[r] = b3;
   }
 
   paintEvents(S, uMin, uN);
@@ -396,7 +415,7 @@ export function draw(display, params) {
       const ringW = rwn / (XR * GQ[p]); // LEDs per ring here
       const uAge = uN - d0;
       // wander, plus callus rolled over the lips of a fire scar
-      let off = wander(th, uAge);
+      let off = wander(th, uAge) * sm(2, 10, R[p]);
       let scarMask = 0, scarRim = 0, scarIn = 0;
       for (let e = 0; e < ev.nsc; e++) {
         const fire = ev.sc[e * 8], m = ev.sc[e * 8 + 3], th0 = ev.sc[e * 8 + 1], dl = ev.sc[e * 8 + 2];
@@ -414,25 +433,32 @@ export function draw(display, params) {
           const baseD = (uAge - fire) * ringW; // LEDs above the charred base
           const tipD = (fire + m - uAge) * ringW * 0.5;
           const sd = min(sideD, baseD, tipD);
-          const fade = sm(1.4, 3.4, ringW);
-          const mk = sm(-0.7, 0.7, sd) * fade;
-          const rmv = exp(-(((sd + 0.2) / 1.1) ** 2)) * fade;
+          const fade = sm(2.8, 4.4, ringW);
+          const mk = sm(-0.7, 0.7, sd) * fade * sm(0.6, 1.8, halfL);
+          const rmv = exp(-(((sd + 0.2) / 1.1) ** 2)) * fade * sm(0.6, 1.8, halfL);
           if (mk > scarMask) { scarMask = mk; scarIn = sd; }
           if (rmv > scarRim) scarRim = rmv;
         }
       }
       const uu = uAge + off;
-      // filter window in rings
-      const du = max(1.1 / ringW, sm(3.8, 1.8, ringW) * max(1, 2.2 / ringW));
+      // The filter window grows from 1.1 LEDs to 2.3 as the rings narrow, then the picture goes over to the mean.
+      const du = (1.1 + 1.2 * sm(4, 2.2, ringW)) / ringW;
       let da = uN - uu - 0.5 * du, db = uN - uu + 0.5 * du;
       if (da < 0) { db -= da; da = 0; }
       const ta = (uOff - db) * NS, tb = (uOff - da) * NS;
-      const span = (tb - max(ta, 0)) || 1e-6;
-      r = (chartAt(cr, tb) - chartAt(cr, ta)) / (span / NS);
-      g = (chartAt(cg, tb) - chartAt(cg, ta)) / (span / NS);
-      b = (chartAt(cb, tb) - chartAt(cb, ta)) / (span / NS);
-      // grain along the rings
-      const gr = 1 + 0.05 * vn(th * 12 + uu * 7.3, 71);
+      const inv = NS / ((tb - max(ta, 0)) || 1e-6);
+      r = (chartAt(cr, tb) - chartAt(cr, ta)) * inv;
+      g = (chartAt(cg, tb) - chartAt(cg, ta)) * inv;
+      b = (chartAt(cb, tb) - chartAt(cb, ta)) * inv;
+      const wm = sm(2.6, 1.6, ringW);
+      if (wm > 0) {
+        const tm = cl(uOff - (uN - uu) - 0.5, 0, nR - 1.001), i0 = floor(tm), f0 = tm - i0;
+        r = mix(r, mix(mr[i0], mr[i0 + 1], f0), wm);
+        g = mix(g, mix(mg[i0], mg[i0 + 1], f0), wm);
+        b = mix(b, mix(mb[i0], mb[i0 + 1], f0), wm);
+      }
+      // grain along the rings, only where the rings are resolved
+      const gr = 1 + 0.05 * sm(2.2, 3.8, ringW) * vn(th * 12 + uu * 7.3, 71);
       r *= gr; g *= gr; b *= gr;
 
       // radial checks
