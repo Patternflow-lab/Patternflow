@@ -144,5 +144,10 @@
   "venation": { "label": "잎맥", "color": "#6fbf3a" },
   "timetable": { "label": "열차 시각표", "color": "#3a9be0" },
   "alluvial": { "label": "흐름 도표", "color": "#e8a33d" },
-  "meteorite": { "label": "운철", "color": "#b8c4cc" }
+  "meteorite": { "label": "운철", "color": "#b8c4cc" },
+  "tonnetz": { "label": "음정 격자", "color": "#9b5de5" },
+  "dendro": { "label": "나이테", "color": "#8b5a2b" },
+  "brinicle": { "label": "소금물 고드름", "color": "#4cc9f0" },
+  "gravwave": { "label": "중력파", "color": "#ef8354" },
+  "contrail": { "label": "비행운", "color": "#a8dadc" }
 }
