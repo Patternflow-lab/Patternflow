@@ -169,5 +169,10 @@
   "statics": { "label": "구조 정역학", "color": "#c8ff00" },
   "fracture": { "label": "깨짐·균열", "color": "#8a2bff" },
   "wulff": { "label": "결정 모양", "color": "#ffa6c9" },
-  "capillary": { "label": "모세관 불안정", "color": "#0090ff" }
+  "capillary": { "label": "모세관 불안정", "color": "#0090ff" },
+  "bowing": { "label": "활 켜기", "color": "#e0a64a" },
+  "nuclear": { "label": "붕괴 사슬", "color": "#b6e83a" },
+  "roots": { "label": "뿌리", "color": "#b98a5e" },
+  "airshower": { "label": "우주선 샤워", "color": "#78a6ff" },
+  "clonal": { "label": "클론 스윕", "color": "#ff3d8b" }
 }
