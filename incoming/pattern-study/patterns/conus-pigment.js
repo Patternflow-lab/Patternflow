@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the whole glaze round the wheel. At 0 the ground is a deep plum-indigo with a soft lilac sheen, the pigment is umber at its thin edge, amber, then gold, then cream where it lies thick, and a teal shade trails each front. At 0.25 the pigment is green on brown, at 0.5 blue on dark green, at 0.75 pink on dark teal.
 // Knob 2: Growth. How many rows of shell the lip lays down each second: 3 at 0, 6.6 at the opening 2, 24 at 4, so the 128 rows on the panel hold 43 s of history, 19 s and 5 s. The model takes 20 steps per laid row at every speed, so the shapes do not change with Growth, only the scroll does.
 // Knob 3: Regime. Walks the equation across the regimes of real shells. At -2 the pigment settles into 5 or 6 stable stripes along the growth direction. At -1.2 the same stripes lean, the lip sliding 0.8 cell a row. Between -1.2 and -0.6 the stripes break into oblique runs that are born, travel and die, and at -0.6 they are wide leaning bands. At 0, where it opens, chevrons and tents: a colony starts at a random cell, two fronts run away from it at about 45 degrees, and each pair dies where it meets another. At 1 a crowd of short fronts that never settles.
-// Knob 4: Seeds. How often the lip starts a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1. At the opening the lip tries a seed about every 4 rows, at -1 every 17 and at 1 every row, and a seed on eaten substrate is skipped. In the stripe regime a seed is too faint to show and the knob does little.
+// Knob 4: Seeds. How often the lip starts a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1. At the opening the lip tries a seed about every 3 rows, at -1 every 11 and at 1 every 0.7 rows, and a seed on eaten substrate is skipped. In the stripe regime a seed is too faint to show and the knob does little.
 
 // What the picture is. Each column is one of 64 pigment cells along the lip of the shell, and the ring wraps, so cell 63 is the neighbour
 // of cell 0. The bottom row of the panel is the lip now. At the opening a row is laid every 0.15 s and the older rows slide up, so the panel
@@ -67,7 +67,7 @@ const PARAM = [
   // wide oblique bands
   [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18, 3.0],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.6, 2.2, 2.5, 0.14, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.9, 2.2, 2.5, 0.14, 2.5],
   // crowd
   [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 3.0, 2.2, 2.5, 0.1, 2.5],
 ];
@@ -315,7 +315,7 @@ export function draw(display, params) {
       const wake = sm(0.04, 0.45, (rowH[x] - hbase) / hden) * (1 - u);
       const gl = sheenAt(t, x, y);
       const v = coord / 5 + 1.1 * sin((2 * PI * x) / 64 + 0.9) + x * 0.045;
-      const gr = 1 + 0.7 * (0.6 * striae(v) + 0.4 * striae(v * 2.3 + 5.1) - 0.5) * 0.45;
+      const gr = 1 + 0.7 * (0.6 * striae(v) + 0.4 * striae(v * 2.3 + 5.1) - 0.5) * 0.9;
       let r = GROUND[0] * gr, g = GROUND[1] * gr, b = GROUND[2] * gr;
       const used = (1 - cl(rowS[x], 0, 1)) * (1 - u);
       r += (PLUM[0] - r) * used * 0.8; g += (PLUM[1] - g) * used * 0.8; b += (PLUM[2] - b) * used * 0.8;
