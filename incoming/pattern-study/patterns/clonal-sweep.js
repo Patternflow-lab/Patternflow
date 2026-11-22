@@ -60,7 +60,7 @@ export function setup(params) {
     hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), ft: f(MAXC),
     born: new Float64Array(MAXC), dead: new Float64Array(MAXC), shown: new Uint8Array(MAXC),
     kids: Array.from({ length: MAXC }, () => []), kc: new Int16Array(MAXC),
-    subR: f(MAXC), D: f(MAXC), bL: f(MAXC), bW: f(MAXC), kx: f(MAXC), kw: f(MAXC), tp: f(MAXC), tw: f(MAXC), tg: f(MAXC + 1), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
+    subR: f(MAXC), D: f(MAXC), bL: f(MAXC), bW: f(MAXC), kx: f(MAXC), kw: f(MAXC), tp: f(MAXC), tw: f(MAXC), tg: f(MAXC + 1), pv: new Float64Array(MAXC), pw: new Float64Array(MAXC), pc: new Int16Array(MAXC), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
     segW: f(MAXC * 3), segC: new Int16Array(MAXC * 3), ns: 0,
     sH: f(MAXC * 3), sS: f(MAXC * 3), sV: f(MAXC * 3), sB: f(MAXC * 3),
     HH: f(HR * W), HS: f(HR * W), HV: f(HR * W), head: 0,
@@ -111,7 +111,7 @@ function pickHue(S, p) {
     }
     let da = abs(h - ANCHOR);
     da = min(da, 1 - da);
-    const score = dmin - 1.2 * max(0, da - 0.33);
+    const score = dmin - (S.ready ? 0 : 1.2) * max(0, da - 0.33);
     if (score > bs) {
       bs = score;
       best = h;
@@ -350,19 +350,39 @@ function lay(S, i, L, Wi) {
       x += tw[j];
     }
   } else {
+    // Each child wants its centre a little off the parent's middle. Where they overlap they are moved as little as can be,
+    // the wide ones least (weighted isotonic regression on the start less the widths before it), so a thin neighbour never shoves a wide one.
+    let P = 0;
     for (let j = 0; j < nk; j++) {
       tw[j] = S.D[ks[j]];
-      tp[j] = cl(L + Wi * (0.5 + 0.3 * S.ord[ks[j]]) - tw[j] / 2, L, L + Wi - tw[j]);
+      tp[j] = L + Wi * (0.5 + 0.3 * S.ord[ks[j]]) - tw[j] / 2 - P;
+      P += tw[j];
     }
-    let edge = L;
+    const { pv, pw, pc } = S;
+    let nb = 0;
     for (let j = 0; j < nk; j++) {
-      if (tp[j] < edge) tp[j] = edge;
-      edge = tp[j] + tw[j];
+      pv[nb] = tp[j];
+      pw[nb] = tw[j] + 0.05;
+      pc[nb] = 1;
+      nb++;
+      while (nb > 1 && pv[nb - 2] > pv[nb - 1]) {
+        const w2 = pw[nb - 2] + pw[nb - 1];
+        pv[nb - 2] = (pv[nb - 2] * pw[nb - 2] + pv[nb - 1] * pw[nb - 1]) / w2;
+        pw[nb - 2] = w2;
+        pc[nb - 2] += pc[nb - 1];
+        nb--;
+      }
     }
-    edge = L + Wi;
-    for (let j = nk - 1; j >= 0; j--) {
-      if (tp[j] + tw[j] > edge) tp[j] = edge - tw[j];
-      edge = tp[j];
+    let q = 0, run = 0;
+    P = 0;
+    for (let j = 0; j < nk; j++) {
+      if (run >= pc[q]) {
+        q++;
+        run = 0;
+      }
+      run++;
+      tp[j] = cl(pv[q], L, L + Wi - C) + P;
+      P += tw[j];
     }
     // close the thin gaps and hand their width to the children beside them
     let prev = L;
