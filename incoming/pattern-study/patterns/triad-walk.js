@@ -18,79 +18,75 @@
 
 // What is drawn. Pitch classes sit on a triangular lattice. One step along the
 // first axis raises the pitch by a perfect fifth (7 semitones), along the second
-// by a major third (4), and along the third, the difference of the two, by a minor
+// by a major third (4), along the third, the difference of the two, by a minor
 // third (3). Call a lattice point (a, b). Its pitch class is (7a + 4b) mod 12 and
 // its place on the circle of fifths is k = (a + 4b) mod 12.
 // Each small triangle holds three notes that make a triad. The triangle with
-// corners (a, b), (a+1, b) and (a, b+1) is a major triad, and the one with corners
-// (a+1, b), (a, b+1) and (a+1, b+1) is a minor triad. Two triangles that share an
-// edge share two notes, so one voice moves and the other two stay. The three moves
-// of neo-Riemannian theory cross the three edges:
+// corners (a, b), (a+1, b) and (a, b+1) is major, and the one with corners
+// (a+1, b), (a, b+1) and (a+1, b+1) is minor. Triangles that share an edge share
+// two notes, so one voice moves and two stay. The three moves of neo-Riemannian
+// theory cross the three edges:
 //   P (parallel):  C major to C minor, the third moves 1 semitone
 //   L (leading):   C major to E minor, the root moves 1 semitone
 //   R (relative):  C major to A minor, the fifth moves 2 semitones
-// Every triangle has one neighbour per move, so the walk is a path on the
-// triangles. Each move undoes itself (P then P is the start again), so the
-// walker never takes the move it just took.
+// Each move undoes itself (P then P is the start again), so the walker never
+// takes the move it just took.
 // Alternating two moves goes in a straight line across the lattice: P and L along
 // the major-third axis (the hexatonic cycle, six triads, which closes in pitch
 // but not on the lattice), P and R along the minor-third axis (the octatonic
-// cycle, eight triads), L and R along the fifths axis (twenty-four moves to close).
-// Turning at every step instead goes round one lattice point, and P, L, R, P, L, R
-// brings the walker back where it started: a rosette of six triangles.
+// cycle, eight triads), L and R along the fifths axis (24 moves to close). Turning
+// at every step instead goes round one lattice point: P, L, R, P, L, R is back
+// where it started, a rosette of six triangles.
 // The lattice is turned 74 degrees on the panel, so the fifths axis runs almost up
-// and down, and it sways about 24 degrees either way, see below.
+// and down, and it sways 24 degrees either way, see below.
 //
 // Colour. Each pitch class has a hue that follows k: 30 degrees for each fifth, 120
-// for each major third and 90 backwards for each minor third. The colours are OKLCH
+// for each major third, 90 backwards for each minor third. The colours are OKLCH
 // at lightness 0.76 and chroma 0.165, with the chroma cut back until the colour
 // fits in sRGB (to 0.123 for the cyans and blues). Inside a lit triangle the three
 // corner colours are mixed in OKLab and the chroma of the mix is set back to the
 // average chroma of the corners, so the middle of a pane is as clean as its
 // corners. The ground is a dark violet black.
 //
-// How a pane is made. The glass is the triangle drawn 1 LED inside the lattice
-// edge, so two panes that touch are 2 LEDs apart, a dark lead between them. The
-// light is a little stronger toward the edge of a pane than in its middle, and
-// uneven by about 10 percent across the glass. A lattice point is a bead 3.4 to 7
-// LEDs across (4.3 at the opening), brighter while a lit pane has it as a corner.
-// The edges are 2 LEDs wide and very dim until the walker crosses one, when it
-// flashes and falls back in about 0.4 s.
+// A pane is the triangle drawn 1 LED inside the lattice edge, so two panes that
+// touch have a dark lead of 2 LEDs between them. Its light is stronger toward the
+// edge than in the middle and about 10 percent uneven across the glass, and each
+// pane has its own luminosity, 0.62 to 1. A lattice point is a bead 3.4 to 7 LEDs
+// across, brighter while a lit pane has it as a corner. The edges are 2 LEDs wide
+// and very dim until the walker crosses one: it flashes and falls back in 0.4 s.
 //
 // What moves. The walker sits on one triangle for a beat, then hops. A hop takes
 // 0.1 to 0.24 s: the corner opposite the shared edge slides across it to its
-// mirror image, so the pane folds over the edge, and the colour of that corner
-// slides from the note it leaves to the note it takes. The pane it left stays lit
-// and fades over the Memory time. The window follows the walker: the walker's
-// place is smoothed over 0.6 s, the walker may wander 7 LEDs from the middle of
-// the panel before the window moves, and a critically damped spring brings the
-// window after it. A lattice point the walker has touched keeps a faint glow for
-// minutes (down to 1/e in 110 s), so the route stays on the panel after the panes
-// are gone.
+// mirror image, so the pane folds over the edge, and that corner's colour slides
+// from the note it leaves to the note it takes. The pane it left stays lit and
+// fades over the Memory time. The window follows the walker with a spring, after
+// the walker's place is smoothed over 0.6 s, and only once the walker leaves an
+// ellipse of 7 by 18 LEDs about a spot that itself roams the panel (6 LEDs across,
+// 30 up and down, periods 41.3 and 67.7 s). A lattice point the walker has touched
+// keeps a faint glow for minutes (1/e in 110 s), so the route outlasts the panes.
 // Which move comes next. After a move there are two choices: go on in a straight
 // line (the move before the last one) or turn (the third move). The weights are e
 // to the power g, where g belongs to the pair of moves the choice would make. Each
-// pair has one slow sine, P-L, P-R and L-R, with periods of 53.7, 89.3 and
-// 131.1 s and random phases, and the Bias knob adds up to 2.4 to the P-L pair at -1
-// and to the P-R pair at +1. A separate slow sine, period 43.7 s, now and then
-// starts a rosette: five or six turns in a row.
-// When it hops. The wait for the next hop is a tempo that Bias sets (0.95 s times
-// e to the power of -0.55 Bias), times 2 to the power of three slow sines (periods
-// 61.3, 23.9 and 9.7 s), times a swing that makes the hops alternate between a
-// little long and a little short (period 37.1 s), times a random factor with a
-// spread of 0.28 in the logarithm. One hop in fourteen waits twice as long, to
-// breathe. The wait is never under 0.24 s or over 3.4 s.
-// Why no scene comes back. The walker's random choices come from a generator seeded
-// when the pattern starts, and every slow swing has its own period with no common
-// factor. The whole window also drifts: the colour wheel turns once in 4 minutes,
-// the lattice sways 24 degrees either way (periods 131 and 57 s), it grows and
-// shrinks by 7 percent (97 s) and the Memory time swells by 0.3 octave (71 s).
-// A straight run of panes looks the same at any hue that is a multiple of 120
-// degrees away, so without the sway and the wheel's turn the same ribbon came back.
-// Nothing grows without a limit. The trail keeps the last 28 s, the touched lattice
-// points are dropped after 660 s, and only the walker's place on the lattice
-// grows, by a few dozen steps in 900 s. The walker starts 32 s before
-// the first frame, so the panes are already laid down when the picture opens.
+// pair has a slow sine, P-L, P-R and L-R, periods 53.7, 89.3 and 131.1 s, and Bias
+// adds up to 2.4 to the P-L pair at -1 and to the P-R pair at +1. A sine of period
+// 43.7 s now and then starts a rosette, five or six turns in a row.
+// When it hops. The wait is a tempo that Bias sets (0.95 s times e to the power of
+// -0.55 Bias), times 2 to the power of three slow sines (periods 61.3, 23.9 and
+// 9.7 s), times a swing that makes the hops alternate a little long and a little
+// short (37.1 s), times a random factor with a spread of 0.28 in the logarithm.
+// One hop in fourteen waits twice as long, to breathe. It is never under 0.24 s or
+// over 3.4 s.
+// Why no scene comes back. The random choices come from a generator seeded when the
+// pattern starts, and every slow swing has a period of its own with no common
+// factor. The window drifts too: the colour wheel turns once in 4 minutes, the
+// lattice sways (131 and 57 s), grows and shrinks by 7 percent (97 s), the Memory
+// time swells by 0.3 octave (71 s) and slow waves of light cross the resting
+// lattice (53.1 and 79.7 s). A straight run looks the same at any hue 120 degrees
+// away, so without these the same ribbon came back.
+// Nothing grows without a limit. The trail keeps the last 28 s, touched lattice
+// points go after 660 s, and only the walker's place on the lattice grows, by a few
+// dozen steps in 900 s. The walker starts 32 s before the first frame, so the panes
+// are laid down when the picture opens.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, cos, exp, sqrt, round, pow, PI, abs, hypot } = Math;
