@@ -159,5 +159,10 @@
   "hrdiagram": { "label": "별무리 도표", "color": "#d93a00" },
   "kundt": { "label": "쿤트 관", "color": "#ffeb33" },
   "strainband": { "label": "변형 띠", "color": "#ff0033" },
-  "fourieroptics": { "label": "푸리에 광학", "color": "#00f251" }
+  "fourieroptics": { "label": "푸리에 광학", "color": "#00f251" },
+  "learning": { "label": "기계 학습", "color": "#00d2c8" },
+  "statics": { "label": "구조 정역학", "color": "#c8ff00" },
+  "fracture": { "label": "깨짐·균열", "color": "#8a2bff" },
+  "wulff": { "label": "결정 모양", "color": "#ffa6c9" },
+  "capillary": { "label": "모세관 불안정", "color": "#0090ff" }
 }
