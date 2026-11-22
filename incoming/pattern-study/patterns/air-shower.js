@@ -64,12 +64,12 @@ const X0 = (W - (NC - 1) * DX) / 2, Y0 = 5.9;
 const R0 = 8, BETA = 0.8, ETA = 2.5;
 const KAPPA = 0.45, RS = 20; // the fan: more air on the downstream side
 const VSWEEP = 40; // LEDs a second at which the plane sweeps for a shower at 90 degrees
-const RC = 40, TC = 0.5; // the curve of the front: TC seconds at RC LEDs from the axis
+const RC = 40, TC = 0.8; // the curve of the front: TC seconds at RC LEDs from the axis
 const RISE = 0.055; // s
 const AG_TAU = 15; // s
-const WTAU = 20, WAMP = 0.75, FAMP = 0.75; // each tank's resting glow wanders by up to 60 percent on 20 s
+const WTAU = 20, WAMP = 0.75, FAMP = 0.45; // each tank's resting glow wanders by up to 75 percent on 20 s
 const MAXE = 10, MAXM = 6;
-const LG_LO0 = 0.8, LG_LO1 = 1.4, LG_HI0 = 2.0, LG_HI1 = 1.8; // log10 of the energy range at Energy -1 and the gain across the knob
+const LG_LO0 = 1.3, LG_LO1 = 1.0, LG_HI0 = 2.3, LG_HI1 = 1.6; // log10 of the energy range at Energy -1 and the gain across the knob
 const PRE = 55; // s run before the first frame
 
 // the arrival-time palette: time 0..1, then red, green, blue
@@ -88,6 +88,7 @@ const GS = [
   [0.8, 1, 0.48, 0.24],
   [1, 0.95, 0.28, 0.32],
 ];
+const GDES = 0.45; // how far the afterglow is pulled toward grey
 const NL = 32;
 
 function rgb2hsv(r, g, b, o) {
@@ -147,9 +148,11 @@ function buildLut(S, shift) {
       g = tmp[1];
       bl = tmp[2];
     }
-    S.lutA[j * 3] = r;
-    S.lutA[j * 3 + 1] = g;
-    S.lutA[j * 3 + 2] = bl;
+    // the afterglow keeps only half the colour, so footprints that overlap do not turn into confetti
+    const y = 0.3 * r + 0.59 * g + 0.11 * bl;
+    S.lutA[j * 3] = mix(r, y, GDES);
+    S.lutA[j * 3 + 1] = mix(g, y, GDES);
+    S.lutA[j * 3 + 2] = mix(bl, y * 1.15, GDES);
   }
   S.lutK = shift;
 }
@@ -241,7 +244,7 @@ export function setup(params) {
 
 // The resting grid: a ring and a darker fill in the hue of the palette's first colour.
 function rest(S) {
-  hsv2rgb(0.6 + S.k1, 0.5, 0.17, S.rim);
+  hsv2rgb(0.6 + S.k1, 0.5, 0.14, S.rim);
   hsv2rgb(0.6 + S.k1, 0.5, 0.06, S.fill);
   S.restK = S.k1;
 }
@@ -302,7 +305,7 @@ function spawnEvent(S, mode) {
       const re = rho * exp(cl((KAPPA * sT * xu) / RS, -1.2, 1.2));
       const q = sqrt(re * re + (0.3 * R0) ** 2) / R0;
       const ls = lg + (-BETA * log(q) - (BETA + ETA) * log(1 + q)) * 0.4342945 + 0.32 * gauss() * 0.4342945;
-      const b = ls < 0 ? 0.34 * sm(-0.45, 0, ls) : min(1, 0.34 + 0.3 * ls);
+      const b = ls < 0 ? 0.4 * sm(-0.45, 0, ls) : min(1, 0.4 + 0.3 * ls);
       bb[i] = b;
       tt[i] = (sT * xu) / VSWEEP + TC * (rho / RC) ** 2 + 0.018 * gauss();
       if (b > 0.03) n++;
@@ -315,7 +318,7 @@ function spawnEvent(S, mode) {
     if (bb[i] > 0.55 && tt[i] > tmax) tmax = tt[i];
   }
   if (tmin > 1e8) for (let i = 0; i < NT; i++) if (bb[i] > 0.03 && tt[i] < tmin) tmin = tt[i];
-  if (tmax < -1e8) for (let i = 0; i < NT; i++) if (bb[i] > 0.34 && tt[i] > tmax) tmax = tt[i];
+  if (tmax < -1e8) for (let i = 0; i < NT; i++) if (bb[i] > 0.4 && tt[i] > tmax) tmax = tt[i];
   if (tmax < -1e8) tmax = tmin;
   const span = max(0.55, tmax - tmin);
   // the arrays are packed to the tanks that are lit at all
@@ -329,7 +332,7 @@ function spawnEvent(S, mode) {
     e.b[m] = b;
     e.rel[m] = cl((t - 0.03) / span, 0, 1);
     e.td[m] = 0.46 + 0.4 * b;
-    e.gj[m] = 0.55 + 0.45 * Math.random(); // each tank holds a different share of the flash as afterglow
+    e.gj[m] = 0.3 + 0.7 * Math.random(); // each tank holds a different share of the flash as afterglow
     e.fired[m] = 0;
     if (t > last) last = t;
     m++;
@@ -348,14 +351,14 @@ function stepEvent(S, e) {
     e.fired[k] = 1;
     const i = e.idx[k], b = e.b[k];
     if (b < 0.3) continue;
-    const a = (0.075 + 0.45 * sm(0.34, 0.9, b)) * e.gj[k], tot = S.ag[i] + a;
+    const a = (0.075 + 0.45 * sm(0.42, 0.95, b)) * e.gj[k], tot = S.ag[i] + a;
     // the newer colour wins where it is the stronger, so overlapping footprints do not blend to grey
     S.agT[i] = mix(S.agT[i], e.rel[k], sm(0.2, 0.6, a / (tot + 1e-6)));
     S.ag[i] = min(0.56, tot);
   }
 }
 
-const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.45, 1.55);
+const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.6, 1.4);
 
 function step(S, dt) {
   S.t += dt;
@@ -374,11 +377,18 @@ function step(S, dt) {
   }
   for (const m of S.mu) if (m.on) {
     m.age += dt;
+    if (m.age > 0.1 && !m.f) {
+      // a muon leaves a little glow behind, which fades in a few seconds
+      m.f = true;
+      const a = m.a * 0.8, i = m.i, tot = S.ag[i] + a;
+      S.agT[i] = mix(S.agT[i], 0, sm(0.2, 0.6, a / (tot + 1e-6)));
+      S.ag[i] = min(0.56, tot);
+    }
     if (m.age > 2) m.on = false;
   }
   S.nextEv -= dt;
   if (S.nextEv <= 0) {
-    spawnEvent(S, S.big ? 1 : Math.random() < 0.012 ? 2 : 0);
+    spawnEvent(S, S.big ? 1 : Math.random() < 0.005 ? 2 : 0);
     S.big = false;
     S.nextEv = S.mean * erl();
   }
@@ -388,6 +398,7 @@ function step(S, dt) {
       m.on = true;
       m.i = floor(Math.random() * NT);
       m.age = 0;
+      m.f = false;
       m.a = 0.16 + 0.2 * Math.random();
       break;
     }
