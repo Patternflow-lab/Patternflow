@@ -9,7 +9,7 @@
 // Round:   216
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Scale=1.3..3.15, Memory=-2..1, Bias=-1..1
+// @knobs Hue=0..1, Scale=1.3..3.15, Memory=-3..1, Bias=-1..1
 //
 // Knob 1: Hue. Adds the knob to the hue of all twelve pitch classes, so one turn comes back to where it began. At 0 the start triad is teal, blue and magenta, and the wheel is laid out so that the pitch class C is teal (hue 190 degrees in OKLCH) and every step of the circle of fifths moves 30 degrees on.
 // Knob 2: Scale. The side of one lattice triangle, 7 LEDs times the knob: 9.1 LEDs at 1.3, 14 at the opening 2 and 22 at 3.15. At the opening the panel is 4.6 triangles wide; at the bottom 7 wide and about 14 rows tall, at the top 2.9 wide and 6 rows. The lattice grows and shrinks about the middle of the panel, where the walker is.
@@ -96,7 +96,7 @@ const H3 = sqrt(3) / 2; // altitude of a triangle over its side
 // ---- colour
 const HUE0 = 190; // hue of the pitch class on k = 0 at Hue 0, degrees in OKLCH
 const LIGHT = 0.76; // OKLab lightness of every pitch class
-const CHROMA = 0.15; // OKLab chroma before it is cut back to fit sRGB
+const CHROMA = 0.165; // OKLab chroma before it is cut back to fit sRGB
 const GROUND = [0.0032, 0.0016, 0.0072]; // the ground, linear light (about 10, 6, 19 of 255)
 
 // ---- the walk
@@ -107,14 +107,16 @@ const PUSH = 2.4; // what Bias adds to a flavour at its end of the knob, as a we
 const PHASE_PL = 53.7, PHASE_PR = 89.3, PHASE_LR = 131.1; // periods of the flavour swings, s
 const PERIOD_ROSETTE = 43.7; // period of the swing that starts rosettes, s
 const MIN_WAIT = 0.24, MAX_WAIT = 3.4; // limits on the wait between hops, s
-const FOLLOW = 1.0; // time constant of the smoothed camera target, s
-const SPRING = 2.0; // natural frequency of the camera spring, radians a second
+const FOLLOW = 0.8; // time constant of the smoothed camera target, s
+const SPRING = 2.4; // natural frequency of the camera spring, radians a second
 
 // ---- the picture
 const TRAIL_TOP = 0.72; // brightness of a triad that has just been left, against 1 for the one lit now
-const TRAIL_SHAPE = 1.3; // the fade runs as (1 - age / Memory) to this power
+const TRAIL_SHAPE = 1.15; // the fade runs as (1 - age / Memory) to this power
+const GAP = 1.0; // the glass stops this far inside the lattice edge, LEDs
 const PAD = 7; // how far a triangle's glow reaches past its edge, LEDs
-const EDGE_REST = 0.17; // brightness of an edge nobody has crossed
+const EDGE_REST = 0.014; // brightness of an edge nobody has crossed
+const EDGE_LIT = 0; // brightness of an edge the walker has just crossed, before it fades // brightness of an edge nobody has crossed
 const FLASH_LIFE = 0.38; // a crossed edge flashes down in this many seconds
 
 // ---- the 12 colours
@@ -329,7 +331,7 @@ function advance(S, h) {
   S.ca += S.va * h;
   S.cb += S.vb * h;
   while (S.hist.length && S.t - S.hist[0].t > KEEP) S.hist.shift();
-  while (S.cross.length && S.t - S.cross[0].t > 2) S.cross.shift();
+  while (S.cross.length && S.t - S.cross[0].t > KEEP) S.cross.shift();
 }
 
 export function update(dt, input, params) {
@@ -337,7 +339,7 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06];
   S.hue = k[0];
   S.side = SIDE0 * cl(k[1], 1.3, 3.15);
-  S.life = 0.5 * pow(40, cl((k[2] + 2) / 3, 0, 1));
+  S.life = 0.5 * pow(40, cl((k[2] + 3) / 4, 0, 1));
   S.bias = cl(k[3], -1, 1);
   if (!S.pre) {
     S.pre = true;
@@ -400,12 +402,12 @@ function paintTriangle(S, X, Y, LA, LB, cols, B) {
       const d0 = w0 * h0, d1 = w1 * h1, d2 = w2 * h2;
       const dm = d0 < d1 ? (d0 < d2 ? d0 : d2) : d1 < d2 ? d1 : d2;
       if (dm < -PAD) continue;
-      // Fill inside the triangle, a bright line along each edge, a halo outside.
-      const F = dm > 0.5 ? 1 : dm < -0.5 ? 0 : dm + 0.5;
-      const ar = dm < 0 ? -dm : dm;
-      const R = ar < 0.5 ? 1 : ar < 1.5 ? 1.5 - ar : 0;
-      const o = dm < 0 ? -dm : 0;
-      const Hh = o > 0 ? 0.4 * exp(-(o * o) / (2 * 2.6 * 2.6)) : 0;
+      // The glass is a little smaller than the triangle, so a dark gap of about 2 LEDs
+      // (the lead) lies on each lattice edge, with a soft halo outside the glass.
+      const di = dm - GAP;
+      const F = di > 0.5 ? 1 : di < -0.5 ? 0 : di + 0.5;
+      const o = di < 0 ? -di : 0;
+      const Hh = o > 1.5 ? 0.06 * exp(-((o - 1.5) * (o - 1.5)) / (2 * 1.6 * 1.6)) : 0;
       // Colour: the corner colours by their barycentric weights, kept to the triangle outside it.
       let u0 = w0 > 0 ? w0 : 0, u1 = w1 > 0 ? w1 : 0, u2 = w2 > 0 ? w2 : 0;
       const us = u0 + u1 + u2;
@@ -425,7 +427,9 @@ function paintTriangle(S, X, Y, LA, LB, cols, B) {
       // Glass: the light is a little uneven, and fixed to the lattice.
       const la = u0 * la0 + u1 * la1 + u2 * la2, lb = u0 * lb0 + u1 * lb1 + u2 * lb2;
       const tex = 0.9 + 0.1 * sin(5.1 * la + 2.3 * lb + 1.7 * sin(3.7 * lb - 2.9 * la));
-      const I = B * (F * (0.6 + 0.14 * mid) * tex + 0.6 * R + Hh);
+      // Brightest at the edge, like light caught in the rim of a pane, dimmer toward the middle.
+      const bevel = 0.76 + 0.24 * (1 - sm(di / 3.0));
+      const I = B * (F * (bevel + 0.1 * mid) * tex + Hh);
       const p = (y * W + x) * 3;
       buf[p] += (rgb[0] < 0 ? 0 : rgb[0] > 1 ? 1 : rgb[0]) * I;
       buf[p + 1] += (rgb[1] < 0 ? 0 : rgb[1] > 1 ? 1 : rgb[1]) * I;
@@ -438,7 +442,7 @@ function paintTriangle(S, X, Y, LA, LB, cols, B) {
 function paintBead(S, cx, cy, r, c, amp, heat) {
   const buf = S.buf, R = ceil(r * 2.8) + 1;
   const xa = max(0, floor(cx - R)), xb = min(W - 1, ceil(cx + R)), ya = max(0, floor(cy - R)), yb = min(H - 1, ceil(cy + R));
-  const hs = 2 * (1.15 * r) * (1.15 * r), halo = 0.26 * (0.5 + 1.0 * heat);
+  const hs = 2 * (1.15 * r) * (1.15 * r), halo = 0.22 * (0.7 + 0.3 * heat);
   const cr = c.rgb[0], cg = c.rgb[1], cb = c.rgb[2];
   for (let y = ya; y <= yb; y++) {
     const dy = y + 0.5 - cy;
@@ -457,8 +461,8 @@ function paintBead(S, cx, cy, r, c, amp, heat) {
   }
 }
 
-// The flash along an edge the walker just crossed.
-function paintFlash(S, x1, y1, x2, y2, c1, c2, amp) {
+// A crossed edge: a 2-LED line from one note's colour to the other's, with a soft glow.
+function paintEdge(S, x1, y1, x2, y2, c1, c2, amp) {
   const buf = S.buf, dx = x2 - x1, dy = y2 - y1, len2 = dx * dx + dy * dy;
   const xa = max(0, floor(min(x1, x2) - 4)), xb = min(W - 1, ceil(max(x1, x2) + 4));
   const ya = max(0, floor(min(y1, y2) - 4)), yb = min(H - 1, ceil(max(y1, y2) + 4));
@@ -468,10 +472,10 @@ function paintFlash(S, x1, y1, x2, y2, c1, c2, amp) {
       const qx = x + 0.5 - x1, qy = y + 0.5 - y1;
       const t = cl((qx * dx + qy * dy) / len2, 0, 1);
       const ex = qx - t * dx, ey = qy - t * dy, d = sqrt(ex * ex + ey * ey);
-      const v = amp * ((d < 0.5 ? 1 : d < 1.5 ? 1.5 - d : 0) * 0.9 + 0.3 * exp(-(d * d) / (2 * 1.7 * 1.7)));
+      const v = amp * ((d < 0.6 ? 1 : d < 1.4 ? (1.4 - d) / 0.8 : 0) * 0.85 + 0.22 * exp(-(d * d) / (2 * 1.7 * 1.7)));
       if (v < 0.003) continue;
       mixColour(c1, c2, t, m);
-      oklabToLin(m.L + 0.06, m.a, m.b, rgb);
+      oklabToLin(m.L + 0.07, m.a, m.b, rgb);
       const p = (y * W + x) * 3;
       buf[p] += cl(rgb[0], 0, 1) * v;
       buf[p + 1] += cl(rgb[1], 0, 1) * v;
@@ -580,7 +584,7 @@ export function draw(display, params) {
         const cx = px(S, a, b), cy = py(S, a, b);
         if (cx < -6 || cx > W + 6 || cy < -6 || cy > H + 6) continue;
         const h = heat.get(nodeKey(a, b)) || 0;
-        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.36 + 0.64 * h, h);
+        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.13 + 0.45 * h, h);
       }
   }
 
@@ -642,11 +646,14 @@ export function draw(display, params) {
     paintTriangle(S, X, Y, LA, LB, cs, breath + flare);
   }
 
-  // Edges just crossed flash.
+  // The edges the walker crossed stay lit as long as the triads beside them, and flash as it crosses.
   for (const c of S.cross) {
-    const age = S.t - c.t, amp = 0.9 * exp(-age / FLASH_LIFE);
+    const age = S.t - c.t;
+    if (age >= S.life && age > 1.5) continue;
+    const keep = age < S.life ? pow(1 - age / S.life, TRAIL_SHAPE) : 0;
+    const amp = EDGE_LIT * keep + 0.9 * exp(-age / FLASH_LIFE);
     if (amp < 0.01) continue;
-    paintFlash(S, px(S, c.a1, c.b1), py(S, c.a1, c.b1), px(S, c.a2, c.b2), py(S, c.a2, c.b2), col[mod12(c.a1 + 4 * c.b1)], col[mod12(c.a2 + 4 * c.b2)], amp);
+    paintEdge(S, px(S, c.a1, c.b1), py(S, c.a1, c.b1), px(S, c.a2, c.b2), py(S, c.a2, c.b2), col[mod12(c.a1 + 4 * c.b1)], col[mod12(c.a2 + 4 * c.b2)], amp);
   }
 
   // Tone: keep each LED's colour and let only its brightness give way near full.
