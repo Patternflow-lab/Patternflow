@@ -35,7 +35,7 @@ const EDGE = 0.8; // LEDs past the radius that still get a share of the disc
 // ---- the modes
 const LMIN = 2, LMAX = 26, LS = LMAX + 1;
 const L_REF = 9; // the middle degree at Grain 0
-const L_SPAN = 2.2; // Grain -1..1 moves it by this factor either way
+const L_LOW = 2.2, L_HIGH = 1.95; // Grain -1 divides the middle degree by L_LOW, Grain 1 multiplies it by L_HIGH
 const L_WIDTH = 0.36; // width of the degree window, in natural log of l
 const W_FLOOR = 0.04; // a mode with less weight than this is left out of the sum
 const OM_BASE = 0.7, OM_SLOPE = 0.04, OM_SPREAD = 0.35; // rad/s at Time 2
@@ -124,7 +124,7 @@ function makeState() {
     ar: new Float64Array(NM), ai: new Float64Array(NM), om: new Float64Array(NM), gam: new Float64Array(NM), wt: new Float64Array(NM),
     F: new Float32Array(N),
     amp: new Float32Array(N), ld: new Float32Array(N), rim: new Float32Array(N), alpha: new Float32Array(N),
-    glow: new Float32Array(NPX),
+    glow: new Float32Array(NPX), gsrc: new Int32Array(NPX), M: new Float32Array(N), bgr: new Float32Array(NPX * 3),
     // smoothed knobs
     sc: 1, lc: L_REF, rot: 0, gk: 1,
     rms: [1, 1], rmsInit: false,
@@ -158,17 +158,24 @@ function makeState() {
     S.ld[i] = 1 - 0.5 * pow(1 - w, 1.3);
     const e = S.edge[i];
     S.alpha[i] = cl(0.5 - e, 0, 1);
-    S.rim[i] = e <= 0 ? 0.5 * exp(e / 1.5) : 0;
+    S.rim[i] = e <= 0 ? 0.38 * exp(e / 1.5) : 0;
   }
-  // the glow outside the discs
+  // the glow outside the discs: each LED out there takes its glow from the part of the limb nearest it
+  const pj = new Int32Array(NPX).fill(-1);
+  for (let j = 0; j < N; j++) pj[S.idx[j]] = j;
+  S.gsrc.fill(-1);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
-      let dmin = 1e9;
+      let dmin = 1e9, dsel = 0;
       for (let d = 0; d < 2; d++) {
-        const dx = x + 0.5 - CX, dy = y + 0.5 - CY[d];
-        dmin = min(dmin, sqrt(dx * dx + dy * dy) - R);
+        const dx = x + 0.5 - CX, dy = y + 0.5 - CY[d], e = sqrt(dx * dx + dy * dy) - R;
+        if (e < dmin) { dmin = e; dsel = d; }
       }
-      S.glow[y * W + x] = dmin > 0 ? 0.7 * exp(-dmin / 1.4) : 0;
+      if (dmin <= 0) continue;
+      const dx = x + 0.5 - CX, dy = y + 0.5 - CY[dsel], r = sqrt(dx * dx + dy * dy), k = (R - 3) / r;
+      const sx = floor(CX + dx * k), sy = floor(CY[dsel] + dy * k);
+      S.gsrc[y * W + x] = pj[sy * W + sx];
+      S.glow[y * W + x] = 0.6 * exp(-dmin / 1.3) + 0.16 * exp(-dmin / 6);
     }
   }
   return S;
@@ -251,7 +258,7 @@ function buildLut(S, hue) {
     else ramp(STOP_R, hr, dr, m, col);
     S.lut[i * 3] = col[0]; S.lut[i * 3 + 1] = col[1]; S.lut[i * 3 + 2] = col[2];
   }
-  hsv(hr + 0.2 * dr, 0.9, 1, S.warm);
+  hsv(hr + 0.5 * dr, 0.82, 1, S.warm);
   S.lutAt = hue;
 }
 
@@ -260,10 +267,10 @@ function advance(S, dt, kn) {
   S.t += dt;
   const k2 = 1 - exp(-dt / 0.3), k3 = 1 - exp(-dt / 0.45), k4 = 1 - exp(-dt / 0.4);
   const sc = 0.35 * pow(8, cl(kn[1], 0, 4) / 4);
-  const lc = L_REF * pow(L_SPAN, cl(kn[2], -1, 1));
+  const gr = cl(kn[2], -1, 1), lc = L_REF * (gr < 0 ? pow(L_LOW, gr) : pow(L_HIGH, gr));
   const kick = cl(kn[3], -1, 1);
   const rot = OM_ROT * ((kick + 1) / 2) * ((kick + 1) / 2);
-  const gk = pow(2, 0.9 * (kick - 0.06));
+  const gk = pow(2, 0.75 * (kick - 0.06));
   if (!S.ready) { S.sc = sc; S.lc = lc; S.rot = rot; S.gk = gk; }
   S.sc += (sc - S.sc) * k2;
   S.lc = exp(log(S.lc) + (log(lc) - log(S.lc)) * k3);
@@ -326,22 +333,33 @@ export function draw(display, params) {
   const hue = cl(S.kn[0], 0, 1);
   if (S.lutAt !== hue) buildLut(S, hue);
   const g = S.ground, wm = S.warm, lut = S.lut;
-  const N = S.N, F = S.F, amp = S.amp, ld = S.ld, rim = S.rim, alpha = S.alpha, disc = S.disc, idx = S.idx;
+  const N = S.N, F = S.F, amp = S.amp, ld = S.ld, rim = S.rim, alpha = S.alpha, disc = S.disc, idx = S.idx, M = S.M;
+  const gl = S.glow, gs = S.gsrc;
   const scl = [K_GAIN * S.gk / S.rms[0], K_GAIN * S.gk / S.rms[1]];
-  // ground and glow
-  const gl = S.glow;
-  for (let i = 0; i < NPX; i++) {
-    const a = gl[i];
-    display.setPixel(i % W, (i / W) | 0, cl(g[0] * 0.3 + wm[0] * a * 0.5, 0, 255) | 0, cl(g[1] * 0.3 + wm[1] * a * 0.5, 0, 255) | 0, cl(g[2] * 0.3 + wm[2] * a * 0.5, 0, 255) | 0);
-  }
   for (let j = 0; j < N; j++) {
     const x = F[j] * amp[j] * scl[disc[j]];
-    const m = x / pow(1 + pow(abs(x), 2.2), 1 / 2.2);
-    const li = ((m + 1) * 256 + 0.5) | 0, o = li * 3, l = ld[j], rm = rim[j], al = alpha[j];
-    const i = idx[j];
-    const bg = gl[i] * 0.5;
-    const r = lut[o] * l + wm[0] * rm, gg = lut[o + 1] * l + wm[1] * rm, b = lut[o + 2] * l + wm[2] * rm;
-    const br = g[0] * 0.3 + wm[0] * bg, bgg = g[1] * 0.3 + wm[1] * bg, bb = g[2] * 0.3 + wm[2] * bg;
-    display.setPixel(i % W, (i / W) | 0, cl(br + (r - br) * al, 0, 255) | 0, cl(bgg + (gg - bgg) * al, 0, 255) | 0, cl(bb + (b - bb) * al, 0, 255) | 0);
+    M[j] = x / pow(1 + pow(abs(x), 2.2), 1 / 2.2);
   }
+  // ground, and the glow round the discs tinted by the limb beside it
+  const g0 = g[0] * 0.3, g1 = g[1] * 0.3, g2 = g[2] * 0.3;
+  for (let i = 0; i < NPX; i++) {
+    const a = gl[i];
+    let r = g0, gg = g1, b = g2;
+    if (a > 0 && gs[i] >= 0) {
+      const o = (((M[gs[i]] + 1) * 256 + 0.5) | 0) * 3;
+      r += a * (wm[0] * 0.35 + lut[o] * 0.5);
+      gg += a * (wm[1] * 0.35 + lut[o + 1] * 0.5);
+      b += a * (wm[2] * 0.35 + lut[o + 2] * 0.5);
+    }
+    S.bgr[i * 3] = r; S.bgr[i * 3 + 1] = gg; S.bgr[i * 3 + 2] = b;
+  }
+  for (let j = 0; j < N; j++) {
+    const o = (((M[j] + 1) * 256 + 0.5) | 0) * 3, l = ld[j], rm = rim[j], al = alpha[j], i = idx[j];
+    const r = lut[o] * l + wm[0] * rm, gg = lut[o + 1] * l + wm[1] * rm, b = lut[o + 2] * l + wm[2] * rm;
+    S.bgr[i * 3] += (r - S.bgr[i * 3]) * al;
+    S.bgr[i * 3 + 1] += (gg - S.bgr[i * 3 + 1]) * al;
+    S.bgr[i * 3 + 2] += (b - S.bgr[i * 3 + 2]) * al;
+  }
+  const bgr = S.bgr;
+  for (let i = 0; i < NPX; i++) display.setPixel(i % W, (i / W) | 0, cl(bgr[i * 3], 0, 255) | 0, cl(bgr[i * 3 + 1], 0, 255) | 0, cl(bgr[i * 3 + 2], 0, 255) | 0);
 }
