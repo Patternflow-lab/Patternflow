@@ -78,7 +78,7 @@ function vcirc2(r) {
 
 function pickR() {
   const u = Math.random();
-  if (u < 0.09) return 0.07 * sqrt(-2 * log(1 - Math.random()));
+  if (u < 0.06) return 0.08 * sqrt(-2 * log(1 - Math.random()));
   if (u < 0.62) return -0.22 * log((1 - Math.random()) * (1 - Math.random()));
   return sqrt(0.09 + Math.random() * 0.91);
 }
@@ -285,16 +285,16 @@ export function draw(display, params) {
   hueRGB(0.6 + sk[0], 0.52, TC);
   hueRGB(0.76 + sk[0], 0.55, TV);
   // the view: inclination, a slow roll of the line of nodes, and a small wobble of the tilt
-  const incl = min(1.4, ((58 + 18 * cl(sk[3], -1, 1)) * PI) / 180 + 0.09 * sin((TAU * t) / 97 + S.ph[5]) + 0.07 * sin((TAU * t) / 151 + S.ph[8]));
+  const incl = min(1.4, ((58 + 18 * cl(sk[3], -1, 1)) * PI) / 180 + 0.06 * sin((TAU * t) / 97 + S.ph[5]) + 0.05 * sin((TAU * t) / 151 + S.ph[8]));
   const ci = cos(incl), si = sin(incl);
-  const roll = 0.1 * sin((TAU * t) / 83 + S.ph[6]) + 0.06 * sin((TAU * t) / 131 + S.ph[7]) + 0.04 * sin((TAU * t) / 197 + S.ph[9]);
-  const ox = 4.5 * sin((TAU * t) / 109 + S.ph[10]) + 3 * sin((TAU * t) / 167 + S.ph[11]);
-  const oy = 6 * sin((TAU * t) / 127 + S.ph[2]) + 3 * sin((TAU * t) / 181 + S.ph[4]);
+  const roll = 0.12 * sin((TAU * t) / 83 + S.ph[6]) + 0.08 * sin((TAU * t) / 131 + S.ph[7]) + 0.05 * sin((TAU * t) / 197 + S.ph[9]);
+  const ox = 5 * sin((TAU * t) / 109 + S.ph[10]) + 3.5 * sin((TAU * t) / 167 + S.ph[11]);
+  const oy = 7 * sin((TAU * t) / 127 + S.ph[2]) + 3.5 * sin((TAU * t) / 181 + S.ph[4]);
   // young stars come in bursts and the exposure breathes a little, on periods that do not divide the others
-  const sfr = 1 + 0.26 * sin((TAU * t) / 147 + S.ph[0]) + 0.16 * sin((TAU * t) / 233 + S.ph[1]);
-  const expo = 1 + 0.08 * sin((TAU * t) / 71 + S.ph[6]) + 0.05 * sin((TAU * t) / 119 + S.ph[7]);
+  const sfr = 1 + 0.15 * sin((TAU * t) / 147 + S.ph[0]) + 0.1 * sin((TAU * t) / 233 + S.ph[1]);
+  const expo = 1 + 0.05 * sin((TAU * t) / 71 + S.ph[6]) + 0.03 * sin((TAU * t) / 119 + S.ph[7]);
   const cr = cos(roll), sr = sin(roll);
-  const sc = min(56, 29 / max(0.25, ci)) * (0.92 + 0.08 * sin((TAU * t) / 113 + S.ph[3]));
+  const sc = min(58, 34 / max(0.25, ci)) * (0.92 + 0.08 * sin((TAU * t) / 113 + S.ph[3]));
   const coolTop = 0.45 + 2 * max(0, -S.A - 0.2);
   for (let i = 0; i < N; i++) {
     const x = px[i], y = py[i], z = pz[i];
@@ -316,7 +316,7 @@ export function draw(display, params) {
     const dv = vt - vc;
     const hot = sqrt(vr * vr + 2 * dv * dv) / (vc + 0.05);
     const cool = 1 - sm(0.1, coolTop, hot);
-    const w = 0.095 * expo * env * bri[i] * (0.75 + 1.1 * sfr * cool);
+    const w = 0.095 * expo * env * bri[i] * (0.5 + 1.1 * sfr * cool);
     const wr = w * (TW[0] * (1 - cool) + TC[0] * cool);
     const wg = w * (TW[1] * (1 - cool) + TC[1] * cool);
     const wb = w * (TW[2] * (1 - cool) + TC[2] * cool);
