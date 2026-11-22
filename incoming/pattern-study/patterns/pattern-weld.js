@@ -51,7 +51,7 @@ function makeState() {
   const S = {
     ready: false, t: 0, T: 11, z0: 0,
     kn: [0, 2, 8, 0.06],
-    phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH),
+    phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH), ff: new Float32Array(GW * GH),
     rowC: new Float32Array(GH), rowS: new Float32Array(GH), rowG: new Float32Array(GH),
     grain: new Float32Array(W * H),
     drills: [],
@@ -100,45 +100,52 @@ function tintAt(h, out) {
 }
 
 function fieldOf(S) {
-  const kn = S.kn, T = S.T, z0 = S.z0;
-  const Kl = cl(kn[2], 8, 60), kl = Kl / DNOM;
-  const m = cl(kn[3], 0, 1), u = Math.pow(m, 0.55);
-  // grinding plane
-  const alpha = -0.1 + 0.55 * sin((TAU * T) / 61 + 0.7) + 0.32 * sin((TAU * T) / 97 + 2.1) + 0.12 * sin((TAU * T) / 37 + 4.0);
-  const s0 = 0.7 * (1 + 0.4 * sin((TAU * T) / 43 + 1.9) * sin((TAU * T) / 131));
-  const ca = cos(alpha) * s0, sa = sin(alpha) * s0;
+  const kn = S.kn, T = S.T, zl = S.z0;
+  const Kl = cl(kn[2], 8, 60), kl = Kl / DNOM, ks = sqrt(Kl / 8);
+  const m = cl(kn[3], 0, 1);
+  const wob = 0.6 * sin((TAU * T) / 79 + 0.5) + 0.4 * sin((TAU * T) / 131 + 2.2);
+  const u = cl(Math.pow(m, 0.55) * (1 + 0.45 * wob), 0, 1);
+  // grinding plane: its height above the twist axis wanders, bounded
+  const zc = 14 * sin((TAU * T) / 97 + 0.3) + 9 * sin((TAU * T) / 61 + 2.0) + 5 * sin((TAU * T) / 37 + 4.4);
+  const tau = 0.22 * sin((TAU * T) / 53 + 1.0);
+  const alpha = -0.1 + 0.45 * sin((TAU * T) / 61 + 0.7) + 0.3 * sin((TAU * T) / 97 + 2.1) + 0.1 * sin((TAU * T) / 37 + 4.0);
+  const beta = 0.3 + 0.35 * sin((TAU * T) / 109 + 0.2) + 0.2 * sin((TAU * T) / 71 + 3.3);
+  const s0 = 0.62 * (1 + 0.45 * sin((TAU * T) / 43 + 1.9) * sin((TAU * T) / 131));
+  const ca = cos(alpha) * s0, sa = sin(alpha) * s0, cb = cos(beta), sb = sin(beta);
   // forging
-  const Dg = 34 * sm(0.04, 0.3, u) * (1 - 0.6 * sm(0.55, 0.95, u));
-  const om = (PI / 24) * sm(0.3, 1.0, u) * (1 + 0.18 * sin((TAU * T) / 89));
-  const Dd = 22 * sm(0.3, 0.5, u) * (1 - sm(0.7, 0.95, u));
+  const Dg = (1.3 / kl) * 0.0 + (1.15 * ks) / kl * sm(0.03, 0.22, u) * (1 - sm(0.42, 0.75, u));
+  const Th = 1.0 * sm(0.45, 0.95, u);
+  const Pc = 46 - 20 * sm(0.5, 1, u) + 5 * sin((TAU * T) / 89);
+  const Dd = ((3.2 * ks) / kl) * sm(0.25, 0.45, u) * (1 - sm(0.62, 0.85, u));
   const Yo = 30 * sin((TAU * T) / 73);
   const phi = S.phi, rowC = S.rowC, rowS = S.rowS, rowG = S.rowG;
   for (let gy = 0; gy < GH; gy++) {
     const Y = gy - 1 + 0.5 - H / 2;
-    const th = om * (Y - Yo);
+    const th = Th * sin((TAU * (Y - Yo)) / Pc);
     rowC[gy] = cos(th);
     rowS[gy] = sin(th);
-    rowG[gy] = Dg * 0.5 * (1 + tanh(2.2 * sin((TAU * Y) / P_GROOVE)));
+    const Yw = Y + 2.6 * sin((TAU * Y) / 131 + 0.7) + 1.6 * sin((TAU * Y) / 53 + 2.5);
+    rowG[gy] = Dg * 0.5 * (1 + tanh(2.2 * sin((TAU * Yw) / P_GROOVE)));
   }
   const dr = S.drills;
   for (let gy = 0; gy < GH; gy++) {
     const Y = gy - 1 + 0.5 - H / 2;
     const c = rowC[gy], s = rowS[gy], g = rowG[gy];
     const near = [];
-    for (let k = 0; k < dr.length; k++) if (abs(Y - dr[k][1]) < 22) near.push(dr[k]);
+    for (let k = 0; k < dr.length; k++) if (abs(Y - dr[k][1]) < 26) near.push(dr[k]);
     for (let gx = 0; gx < GW; gx++) {
       const X = gx - 1 + 0.5 - W / 2;
-      let z = z0 + ca * X + sa * Y;
-      z += g;
-      z = z * c - X * s;
+      const zr = zc + tau * X;
+      const X0 = X * c + zr * s, Z0 = zr * c - X * s;
+      let f = ca * (cb * X0 + sb * Z0) + sa * Y + g;
       if (Dd > 0.01) {
         for (let k = 0; k < near.length; k++) {
           const dx = X - near[k][0], dy = Y - near[k][1], sg = near[k][2];
           const r2 = (dx * dx + dy * dy) / (sg * sg);
-          if (r2 < 9) z += Dd * exp(-0.5 * r2);
+          if (r2 < 9) f += Dd * exp(-0.5 * r2);
         }
       }
-      phi[gy * GW + gx] = z * kl;
+      phi[gy * GW + gx] = (f + zl) * kl;
     }
   }
 }
@@ -147,7 +154,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   fieldOf(S);
-  const phi = S.phi, hh = S.hh;
+  const phi = S.phi, hh = S.hh, ff = S.ff;
   const K0 = 2.4;
   for (let gy = 1; gy < GH - 1; gy++) {
     for (let gx = 1; gx < GW - 1; gx++) {
@@ -157,6 +164,7 @@ export function draw(display, params) {
       const kAA = 1 / (TAU * max(g, 1e-4) * 0.7);
       const k = min(K0, kAA) * (1 - 0.8 * sm(0.3, 0.55, g));
       hh[p] = 0.5 + 0.5 * tanh(k * cos(TAU * phi[p]));
+      ff[p] = 1 - sm(0.1, 0.22, 3 * g);
     }
   }
   const tint = [0, 0, 0, 0, 0, 0];
@@ -171,7 +179,9 @@ export function draw(display, params) {
       const shade = (0.707 + 0.5 * RD * (hx + hy)) / sqrt(1 + RD * RD * (hx * hx + hy * hy)) / 0.707;
       const ph = phi[p];
       const vb = 1 + 0.16 * (vnoise(ph + 31.7) - 0.5), vd = 1 + 0.4 * (vnoise(ph + 0.5 + 77.1) - 0.5);
-      const gr = 1 + 0.07 * S.grain[y * W + x];
+      const fine = 1 + 0.16 * ff[p] * cos(TAU * 3 * ph + 0.9) * (0.4 + 0.6 * Hc);
+      const mott = 1 + 0.22 * (vnoise2(x / 26 + 0.013 * S.t, y / 38 - 0.019 * S.t + 9) - 0.5);
+      const gr = (1 + 0.07 * S.grain[y * W + x]) * fine * (Hc > 0.5 ? 1 : mott);
       const gl = exp(-(((y + 0.2 * (x - 32) - ys) / 20) ** 2));
       const wb = Hc, wd = 1 - Hc;
       let out = [0, 0, 0];
