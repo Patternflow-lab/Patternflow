@@ -24,7 +24,6 @@ const NVIS = 4; // cells a clone needs before it is drawn
 const M0 = 2.6; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
-const ALPHA = 0.4; // how much of a generation's change in frequency a row takes
 const ANCHOR = 0.6; // hue the family tree is pulled toward at Hue 0
 const HW = 0.85; // half width of a soft edge between two bands, LEDs
 const { floor, min, max, exp, sqrt, log, abs, cos, pow, PI } = Math;
@@ -56,12 +55,12 @@ export function setup(params) {
   const f = (n) => new Float32Array(n);
   const S = {
     ready: false, row: 0, phi: 0, gacc: 0, T: 1000,
-    k1: 0, sel: 0.075, N: 1600, lam: 0.1, rowT: 0.16, gpr: 1.7,
+    k1: 0, sel: 0.05, N: 2600, lam: 0.1, rowT: 0.16, gpr: 1.7, alpha: 0.4,
     used: new Uint8Array(MAXC), vis: new Uint8Array(MAXC), n: new Float64Array(MAXC), sf: new Float64Array(MAXC), par: new Int16Array(MAXC),
-    hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), bias: f(MAXC), ft: f(MAXC),
+    hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), ft: f(MAXC),
     born: new Float64Array(MAXC), dead: new Float64Array(MAXC), shown: new Uint8Array(MAXC),
     kids: Array.from({ length: MAXC }, () => []), kc: new Int16Array(MAXC),
-    subR: f(MAXC), D: f(MAXC), bL: f(MAXC), bW: f(MAXC), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
+    subR: f(MAXC), D: f(MAXC), bL: f(MAXC), bW: f(MAXC), kx: f(MAXC), kw: f(MAXC), tp: f(MAXC), tw: f(MAXC), tg: f(MAXC + 1), live: new Uint8Array(MAXC), wt: new Float64Array(MAXC), pre: [],
     segW: f(MAXC * 3), segC: new Int16Array(MAXC * 3), ns: 0,
     sH: f(MAXC * 3), sS: f(MAXC * 3), sV: f(MAXC * 3), sB: f(MAXC * 3),
     HH: f(HR * W), HS: f(HR * W), HV: f(HR * W), head: 0,
@@ -77,7 +76,8 @@ export function update(dt, input, params) {
   S.k1 = k[0];
   S.sel = 0.05 * exp(1.45 * cl(k[2], -1, 1));
   S.N = 2600 * exp(2.2 * cl(k[3], -1, 1));
-  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.3), 0.02, 1);
+  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.2), 0.02, 0.8);
+  S.alpha = cl(0.4 * pow(2600 / S.N, 0.45), 0.22, 1); // a small population is shown rough, a large one smooth
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
   S.gpr = 1 + 1.4 * u;
   if (!S.ready) {
@@ -143,7 +143,6 @@ function spawn(S, p) {
   S.dead[c] = -1;
   S.shown[c] = 0;
   S.ord[c] = Math.random() * 2 - 1;
-  S.bias[c] = (Math.random() - 0.5) * 0.56;
   S.ft[c] = 1 / S.T;
   return c;
 }
@@ -223,7 +222,7 @@ function tick(S) {
   S.gacc -= g;
   while (g-- > 0) generation(S);
   S.row++;
-  for (let i = 0; i < MAXC; i++) if (S.used[i]) S.ft[i] += (S.n[i] / S.T - S.ft[i]) * ALPHA;
+  for (let i = 0; i < MAXC; i++) if (S.used[i]) S.ft[i] += (S.n[i] / S.T - S.ft[i]) * S.alpha;
   for (let pass = 0; pass < 6; pass++) {
     let changed = false;
     for (let i = 0; i < MAXC; i++) S.kc[i] = 0;
@@ -330,31 +329,79 @@ function render(S) {
   }
 }
 
-// A clone's band inside the width it is given: its own cells split to the two sides, its children as one block near the middle.
+// A clone's band inside the width it is given. Each child sits near the middle, a little to one side by an offset of its own,
+// pushed along only where it would overlap a neighbour; the parent shows in the gaps, and a gap thinner than 2 LEDs closes.
 function lay(S, i, L, Wi) {
-  const ks = S.kids[i];
-  let C = 0;
-  for (const c of ks) C += S.D[c];
-  let left = 0, right = 0;
-  if (Wi > C) {
-    left = (Wi - C) * (0.5 + S.bias[i]);
-    right = Wi - C - left;
-    if (C > 0) {
-      // a sliver of parent thinner than 2 LEDs goes to its children instead of lingering as a hairline
-      left *= sm(0.6, 2.4, left);
-      right *= sm(0.6, 2.4, right);
-    }
-  }
-  const k = C > 0 ? (Wi - left - right) / C : 1;
+  const ks = S.kids[i], nk = ks.length;
   S.bL[i] = L;
   S.bW[i] = Wi;
-  emit(S, i, left);
-  let x = L + left;
-  for (const c of ks) {
-    lay(S, c, x, S.D[c] * k);
-    x += S.D[c] * k;
+  if (nk === 0) {
+    emit(S, i, Wi);
+    return;
   }
-  emit(S, i, right);
+  const { tp, tw, tg } = S;
+  let C = 0;
+  for (let j = 0; j < nk; j++) C += S.D[ks[j]];
+  if (C >= Wi) {
+    let x = L;
+    for (let j = 0; j < nk; j++) {
+      tw[j] = (S.D[ks[j]] * Wi) / C;
+      tp[j] = x;
+      x += tw[j];
+    }
+  } else {
+    for (let j = 0; j < nk; j++) {
+      tw[j] = S.D[ks[j]];
+      tp[j] = cl(L + Wi * (0.5 + 0.3 * S.ord[ks[j]]) - tw[j] / 2, L, L + Wi - tw[j]);
+    }
+    let edge = L;
+    for (let j = 0; j < nk; j++) {
+      if (tp[j] < edge) tp[j] = edge;
+      edge = tp[j] + tw[j];
+    }
+    edge = L + Wi;
+    for (let j = nk - 1; j >= 0; j--) {
+      if (tp[j] + tw[j] > edge) tp[j] = edge - tw[j];
+      edge = tp[j];
+    }
+    // close the thin gaps and hand their width to the children beside them
+    let prev = L;
+    for (let j = 0; j < nk; j++) {
+      tg[j] = tp[j] - prev;
+      prev = tp[j] + tw[j];
+    }
+    tg[nk] = L + Wi - prev;
+    for (let j = 0; j <= nk; j++) {
+      const g = tg[j], g2 = g * sm(0.6, 2.4, g), fr = g - g2;
+      tg[j] = g2;
+      if (fr > 0) {
+        if (j === 0) tw[0] += fr;
+        else if (j === nk) tw[nk - 1] += fr;
+        else {
+          tw[j - 1] += fr / 2;
+          tw[j] += fr / 2;
+        }
+      }
+    }
+    let x = L;
+    for (let j = 0; j < nk; j++) {
+      x += tg[j];
+      tp[j] = x;
+      x += tw[j];
+    }
+  }
+  for (let j = 0; j < nk; j++) {
+    S.kx[ks[j]] = tp[j];
+    S.kw[ks[j]] = tw[j];
+  }
+  let x = L;
+  for (let j = 0; j < nk; j++) {
+    const c = ks[j];
+    emit(S, i, S.kx[c] - x);
+    lay(S, c, S.kx[c], S.kw[c]);
+    x = S.kx[c] + S.kw[c];
+  }
+  emit(S, i, L + Wi - x);
 }
 
 function emit(S, i, w) {
@@ -364,17 +411,28 @@ function emit(S, i, w) {
   S.ns++;
 }
 
-// A good opening: three or more clones sharing the row, none holding most of it, and a young mutant on its way up.
+// A good opening: three or more clones of different colours sharing the row, none holding most of it, and a young mutant on its way up.
 function goodScene(S) {
-  let big = 0, mx = 0, bud = false;
+  let big = 0, mx = 0, bud = false, span = 0, close = false;
+  const hs = [];
   for (let i = 0; i < MAXC; i++) {
     if (!S.used[i] || S.n[i] <= 0) continue;
-    if (S.ft[i] > 0.06) big++;
+    if (S.ft[i] > 0.06) {
+      big++;
+      hs.push(S.hue[i]);
+    }
     if (S.ft[i] > mx) mx = S.ft[i];
     const age = S.row - S.born[i];
     if (age < 30 && S.ft[i] > 0.004 && S.ft[i] < 0.25 && S.par[i] >= 0 && S.sf[i] > S.sf[S.par[i]]) bud = true;
   }
-  return big >= 3 && mx < 0.7 && bud;
+  for (let a = 0; a < hs.length; a++)
+    for (let b = a + 1; b < hs.length; b++) {
+      let d = abs(hs[a] - hs[b]);
+      d = min(d, 1 - d);
+      if (d > span) span = d;
+      if (d < 0.07) close = true;
+    }
+  return big >= 3 && !close && span >= 0.18 && mx < 0.7 && bud;
 }
 
 function prerun(S) {
