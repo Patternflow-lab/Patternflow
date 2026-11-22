@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Sweep=0..3, Leak=0..1, Ellipse=0.5..0.8
 //
 // Knob 1: Hue. Turns every colour round the wheel, the whole picture together. At 0 the ground is cobalt, the ripples climb through azure and cyan to ice-white and the atoms are gold. At 0.25 the ground is violet and the atoms are green, at 0.5 the ground is olive with orange ripples and blue atoms, and at 1 it is back where it began.
-// Knob 2: Sweep. How fast the bias moves, and 0 holds it, so that the opening picture stays on its resonance and only the lobes turn. The bias is k times the radius of the round ring, k R, and it bounces between turning points that wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom. At 2, where it opens, it moves 0.12 a second at k R = 7, 0.23 in the gaps between resonances and 0.024 on one, which makes about 0.06 a second over a whole sweep. At that rate one ring or the other sits on a resonance 58 percent of the time, in stretches of 4 seconds on average. They last about twice as long at 1 and three fifths as long at 3.
+// Knob 2: Sweep. How fast the bias moves, and 0 holds it, so that the opening picture stays on its resonance and only the lobes turn. The bias is k times the radius of the round ring, k R, and it bounces between turning points that wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom. At 2, where it opens, it moves 0.12 a second at k R = 7, 0.23 in the gaps between resonances and 0.024 on one, which makes about 0.05 a second over a whole sweep. At that rate one ring or the other sits on a resonance 58 percent of the time, in stretches of 4.5 seconds on average. They last about twice as long at 1 and three fifths as long at 3.
 // Knob 3: Leak. How much of a wave each atom turns back, which is how well the wall holds the electrons. At 0 an atom scatters as much as a point can (a phase shift of 90 degrees), the lines of the modes are 0.04 wide in k R for the first and 0.25 near k R = 9, the mean density inside stands 14 times the ground at the first mode and 2.6 times near k R = 9, and little shows outside the ring. At 1 each atom scatters 0.64 as much (41 degrees, with 5 percent of the wave lost), the lines are three times as wide and a third as tall, and the ripple runs out through the wall into the ground.
-// Knob 4: Ellipse. The eccentricity of the lower ring, 0.5 where it opens and 0.8 at the top. The long axis is 54 LEDs at every setting and the short one 47 at 0.5 and 32 at 0.8, so the two foci are 27 LEDs apart at 0.5 and 43 at 0.8. The cobalt atom stays on the left focus, and at 0.8 it sits 5 LEDs from the wall. The upper ring does not change.
+// Knob 4: Ellipse. The eccentricity of the lower ring, 0.5 where it opens and 0.8 at the top. The long axis is 54 LEDs at every setting and the short one 47 at 0.5 and 32 at 0.8, so the two foci are 27 LEDs apart at 0.5 and 43 at 0.8. The cobalt atom stays on the left focus, and at 0.8 it sits 5 LEDs from the wall. The eccentricity also wanders by up to 0.075 either way as the bias travels. The upper ring does not change shape.
 
 // What the picture is. Each ring is a set of point scatterers on a flat gas of surface electrons. One bias is one wave
 // number k, the energy going as k squared, and the pattern counts it as k R with R = 26 LEDs, the radius of the round
@@ -43,6 +43,10 @@
 // The round ring has 48 atoms 3.4 LEDs apart. The ellipse has 48 more at equal steps along its length, 2.9 to 3.3 LEDs
 // apart, and one cobalt atom. A bare ring of identical atoms has pairs of modes with the same energy, whose lobes then
 // blur into rings. The breathing of the atoms described below splits each pair into its two orientations.
+// The same bias always lights the same mode of a ring of one size, so the sizes drift. They follow the distance the bias
+// has travelled and not the time, which keeps Sweep 0 on its mode: the round ring's radius by up to 3 percent (26 LEDs
+// plus or minus 0.8), the ellipse by 2.3 percent and its eccentricity by 0.075. A resonance moves with the size, 0.2 in
+// k R at k R = 7, so a stretch of bias that is crossed a second time finds other modes in it.
 //
 const W = 64, H = 128, HALF = 64;
 const { floor, sqrt, pow, exp, log, sin, cos, PI, min, max, abs, atan2 } = Math;
@@ -154,7 +158,7 @@ function makeCorral(ell) {
 
 function makeState() {
   const S = {
-    t: 0, q: 6.62, dir: 1, gate: 1, dosS: 1.5, frame: 0, trav: 0, sc1: 1, sc2: 1, de: 0,
+    t: 0, q: 6.62, dir: 1, gate: 1, dosS: 1.5, frame: 0, trav: 0, sc1: 1, sc2: 1, de: 0, leakNow: 0, eNow: 0.5,
     top: makeCorral(false), bot: makeCorral(true),
     knobs: [0, 2, 0, 0.5],
     lut: new Float32Array(256 * 3), atomCol: [255, 196, 64], coCol: [255, 150, 160], hueDone: -1,
@@ -413,6 +417,18 @@ export function update(dt, input, params) {
   S.t += d;
   const e = cl(kn[3], 0.5, 0.8), leak = cl(kn[2], 0, 1);
   const f = S.frame++;
+  // A turn of Leak or Ellipse redraws the rings it touches at once, all four quarters, instead of a quarter a frame.
+  const leakMoved = leak !== S.leakNow, eMoved = e !== S.eNow;
+  S.leakNow = leak;
+  S.eNow = e;
+  if (leakMoved) {
+    refresh(S.top, S, 0, leak);
+    for (let g = 0; g < NGROUPS; g++) evalGroup(S.top, g);
+  }
+  if (leakMoved || eMoved) {
+    refresh(S.bot, S, e, leak);
+    for (let g = 0; g < NGROUPS; g++) evalGroup(S.bot, g);
+  }
   if (f % 3 === 0) refresh(S.top, S, 0, leak);
   else if (f % 3 === 1) refresh(S.bot, S, e, leak);
   const g = f % NGROUPS;
