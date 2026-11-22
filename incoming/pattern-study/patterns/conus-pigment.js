@@ -36,9 +36,9 @@ const PRE_ROWS = 400;
 const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref', 'wob', 'cref'];
 const PARAM = [
   // stripes
-  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 1.0, 0.15, 2.2, 0.4, 3.9],
+  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 1.0, 0.15, 1.7, 0.4, 3.9],
   // leaning stripes
-  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 1.0, 0.15, 2.2, 0.4, 3.9],
+  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 1.0, 0.15, 1.7, 0.4, 3.9],
   // wide oblique bands
   [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18, 3.0],
   // tents
@@ -58,7 +58,7 @@ function paramsAt(k3, out) {
   // between the Turing stripes and the excitable bands the inhibitor is strengthened for a while, or the lip floods
   if (k === 1) {
     out.hk += HUMP * Math.sin(PI * u);
-    out.rate += 0.6 * Math.sin(PI * u);
+    out.rate += 0.3 * Math.sin(PI * u);
     out.amp = 2.2;
   }
   return out;
@@ -71,7 +71,7 @@ function makeState() {
     na: new Float32Array(N), nh: new Float32Array(N), ns: new Float32Array(N),
     ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N),
     head: 0, // index of the newest laid row in the history
-    sub: 0, acc: 0, quiet: 0, sites: [], time: 0, mt: 0, wl: 1,
+    sub: 0, acc: 0, quiet: 0, sites: [], time: 0, mt: 0, wl: 1, nrows: 0, slide: 0,
     P: {}, kn: [0, 2, 0, 0.06],
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -101,16 +101,23 @@ function substep(S, P) {
   }
   S.a = na; S.h = nh; S.s = ns; S.na = a; S.nh = h; S.ns = s;
   if (P.drift !== 0) {
-    // the whole medium slides along the lip, which leans every stripe
-    const f = abs(P.drift) * DT, dir = P.drift > 0 ? -1 : 1;
-    for (const [src, dst] of [[S.a, S.na], [S.h, S.nh], [S.s, S.ns]]) {
-      for (let i = 0; i < N; i++) {
-        const j = (i + dir + N) % N;
-        dst[i] = src[i] * (1 - f) + src[j] * f;
+    // the whole medium slides along the lip, one whole cell at a time (no interpolation, which would blur the stripes)
+    S.slide += P.drift * DT;
+    while (S.slide >= 1 || S.slide <= -1) {
+      const dir = S.slide > 0 ? 1 : -1;
+      S.slide -= dir;
+      for (const arr of [S.a, S.h, S.s]) {
+        if (dir > 0) {
+          const last = arr[N - 1];
+          for (let i = N - 1; i > 0; i--) arr[i] = arr[i - 1];
+          arr[0] = last;
+        } else {
+          const first = arr[0];
+          for (let i = 0; i < N - 1; i++) arr[i] = arr[i + 1];
+          arr[N - 1] = first;
+        }
       }
     }
-    const ta = S.a, th = S.h, ts = S.s;
-    S.a = S.na; S.h = S.nh; S.s = S.ns; S.na = ta; S.nh = th; S.ns = ts;
   }
 }
 
@@ -137,6 +144,7 @@ function seeds(S, P, mult) {
 
 function pushRow(S) {
   S.head = (S.head + 1) % HIST;
+  S.nrows++;
   const o = S.head * N;
   S.ha.set(S.a, o);
   S.hh.set(S.h, o);
@@ -199,7 +207,7 @@ function hueMatrix(S, hue) {
   S.hueAt = hue;
 }
 
-const GROUND = [30, 17, 46], PLUM = [52, 24, 62], TEAL = [18, 100, 122];
+const GROUND = [30, 17, 46], PLUM = [52, 24, 62], TEAL = [22, 118, 140];
 
 function rowAt(S, age, ph, outA, outH, outS) {
   // age in rows from the lip: 0 is the live state, ph is the newest laid row
@@ -236,6 +244,17 @@ function glaze(t, out) {
 
 const rowA = new Float32Array(N), rowH = new Float32Array(N), rowS = new Float32Array(N);
 
+// growth lines: faint ridges across the ground, one pattern per row laid, bowed across the lip,
+// so the bare ground scrolls with the history too
+const hash = (i) => {
+  const q = sin(i * 127.1 + 311.7) * 43758.5453;
+  return q - floor(q);
+};
+function striae(v) {
+  const i = floor(v), f = v - i, w = f * f * (3 - 2 * f);
+  return hash(i) * (1 - w) + hash(i + 1) * w;
+}
+
 // a soft band of light that slides over the glaze; x is a column, and the ring wraps
 function sheenAt(t, x, y) {
   const c1 = 64 * (((t / 61 + 0.15 + (y - 64) * 0.0011) % 1 + 1) % 1);
@@ -257,15 +276,18 @@ export function draw(display, params) {
     let hm = 0;
     for (let x = 0; x < W; x++) hm += rowH[x];
     const hbase = max(P.h0, 0.9 * hm / W);
+    const coord = S.nrows + ph - (H - 1 - y);
     for (let x = 0; x < W; x++) {
       const a = rowA[x] / aref;
       const u = sm(0.12, 0.5, a);
-      const wake = sm(0.08, 0.7, (rowH[x] - hbase) / hden) * (1 - u);
+      const wake = sm(0.04, 0.45, (rowH[x] - hbase) / hden) * (1 - u);
       const gl = sheenAt(t, x, y);
-      let r = GROUND[0], g = GROUND[1], b = GROUND[2];
+      const v = coord / 5 + 1.1 * sin((2 * PI * x) / 64 + 0.9) + x * 0.045;
+      const gr = 1 + 0.7 * (0.6 * striae(v) + 0.4 * striae(v * 2.3 + 5.1) - 0.5) * 0.45;
+      let r = GROUND[0] * gr, g = GROUND[1] * gr, b = GROUND[2] * gr;
       const used = (1 - cl(rowS[x], 0, 1)) * (1 - u);
       r += (PLUM[0] - r) * used * 0.8; g += (PLUM[1] - g) * used * 0.8; b += (PLUM[2] - b) * used * 0.8;
-      r += (TEAL[0] - r) * wake * 0.7; g += (TEAL[1] - g) * wake * 0.7; b += (TEAL[2] - b) * wake * 0.7;
+      r += (TEAL[0] - r) * wake * 0.85; g += (TEAL[1] - g) * wake * 0.85; b += (TEAL[2] - b) * wake * 0.85;
       if (u > 0) {
         glaze(rowA[x] / P.cref, glz);
         r += (glz[0] - r) * u; g += (glz[1] - g) * u; b += (glz[2] - b) * u;
