@@ -14,7 +14,7 @@
 // Knob 1: Hue. Adds the knob to the hue of both strain colours, so one turn comes back to where it began. At 0 the positive strain is gold (hue 0.12) and the negative strain deep blue (0.64). At 0.25 they are green and magenta, at 0.5 they swap places, blue and a dull yellow, and at 0.75 magenta and green again with the signs the other way round. On top of the knob both colours drift by up to 0.065 of the hue wheel on two slow swings of 83.3 s and 37.1 s, so gold wanders between amber and yellow and blue between azure and indigo.
 // Knob 2: Chirp. How slowly the orbit decays, as a multiple of the opening: 0.5 at 1, 1 at the opening 2, 2 at 4. The first pair is 6.6 s from its merger at the opening, 3.3 s at 1 and 13.2 s at 4. A pair that appears later merges 8 to 22 s after it appears at the opening, 7.5 to 11 s at 1 and 16 to 45 s at 4. Low, the orbit speeds up fast and the arms tighten steeply toward the source. High, the orbit turns slowly for a long time and the arms stay wide. The frequency at the merger does not change, only the time it takes to get there.
 // Knob 3: Speed. The speed of the waves, c, in LEDs a second. The wavelength is c over the wave frequency, so a faster wave is also a wider one. A pair seen at its merger has arms 7.3 LEDs apart at the opening 30 and 12.6 at 52, and its ringdown rings are 6.3 apart at 30 and 10.9 at 52 (pairs with a lower frequency, below, are wider still). The waves cross the 128 LED height in 4.3 s at 30 and in 2.5 s at 52.
-// Knob 4: Ratio. The mass ratio of the two holes, 1 for equal up to 8, which each pair multiplies by its own 0.75 to 1.6. At the opening 1 the holes are equal, and the spiral is an even four-arm one. Raised, the heavy hole grows and sits near the middle of the orbit, the light one shrinks and swings wide, a lopsided third arm grows out of the spiral, and the waves get weaker, to about 60 percent of their strength at 8.
+// Knob 4: Ratio. The mass ratio of the two holes, 1 for equal up to 8, which each pair multiplies by its own 0.75 to 1.6. At the opening 1 the holes are equal, and the spiral is an even four-arm one. Raised, the heavy hole grows and sits near the middle of the orbit, the light one shrinks and swings wide, a lopsided third arm grows out of the spiral, and the waves get weaker, to about 70 percent of their strength at 8.
 
 // What is drawn is the plus strain of a binary seen face on, as a flat field over the whole panel. The strain at a
 // point r from the pair, at angle phi, is
@@ -193,7 +193,7 @@ function advance(e, k, sc) {
 function massNow(S, e) {
   const q = cl(S.ratio * e.f, 1, 12);
   e.q = q;
-  e.gq = pow(4 * q / ((1 + q) * (1 + q)), 0.5);
+  e.gq = pow(4 * q / ((1 + q) * (1 + q)), 0.35);
   e.b3 = THIRD * (q - 1) / (q + 1);
 }
 
