@@ -44,7 +44,6 @@ const NCH = 16;
 const TR = 128;
 const NB = 32;
 const TAU_D = 25;
-const TAU_A = 0.4;
 const DIV = 50;
 const STUCK = 12;
 const PRERUN = 60;
@@ -85,13 +84,21 @@ function hsv(h, s, v) {
 
 // The heat ramp: violet at the cold end, through magenta and red, to orange and then white. The hue
 // offset is the knob plus 0.76 so that knob 0 opens on violet and not on red.
+const RAMP_T = [0, 0.25, 0.5, 0.65, 0.75, 0.85, 0.93, 1];
+const RAMP_H = [0, 0.07, 0.14, 0.21, 0.26, 0.31, 0.34, 0.36];
+function rampHue(t) {
+  let j = 1;
+  while (j < 7 && t > RAMP_T[j]) j++;
+  return RAMP_H[j - 1] + ((RAMP_H[j] - RAMP_H[j - 1]) * (t - RAMP_T[j - 1])) / (RAMP_T[j] - RAMP_T[j - 1]);
+}
+
 function buildPalette(S) {
   const h0 = 0.76 + S.hue;
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
-    const val = Math.pow(min(1, t / 0.7), 0.9);
-    const sat = 1 - 0.92 * sm(0.8, 1.0, t);
-    const c = hsv(h0 + 0.36 * (0.4 * t + 0.6 * t * t), sat, val);
+    const val = Math.pow(min(1, t / 0.6), 0.9);
+    const sat = 1 - 0.95 * sm(0.84, 1.0, t);
+    const c = hsv(h0 + rampHue(t), sat, val);
     S.pal[i * 3] = c[0] * 255;
     S.pal[i * 3 + 1] = c[1] * 255;
     S.pal[i * 3 + 2] = c[2] * 255;
@@ -294,9 +301,9 @@ function advance(S, dt) {
   // The target breathes: its spread in v and the tilt of the neck follow slow sines that do not share
   // a period.
   const t = S.t;
-  S.sv = S.svK * (1 + 0.16 * Math.sin(0.093 * t + 0.9) + 0.1 * Math.sin(0.0413 * t + 2.3));
+  S.sv = S.svK * (1 + 0.16 * Math.sin(0.113 * t + 0.9) + 0.1 * Math.sin(0.0503 * t + 2.3));
   S.isv2 = 1 / (S.sv * S.sv);
-  S.tilt = 6.5 * Math.sin(0.0337 * t + 0.3) + 4 * Math.sin(0.0143 * t + 1.9) + 1.5 * Math.sin(0.071 * t + 4.1);
+  S.tilt = 6.5 * Math.sin(0.0437 * t + 0.3) + 4 * Math.sin(0.0183 * t + 1.9) + 1.5 * Math.sin(0.089 * t + 4.1);
   for (let i = 0; i < NCH; i++) {
     S.life[i] -= dt;
     S.acc[i] += dt * S.rate[i];
@@ -343,7 +350,11 @@ export function setup(params) {
     th: new Int32Array(NCH), tn: new Int32Array(NCH),
     bx: new Float32Array(NB), by: new Float32Array(NB), bage: new Float32Array(NB).fill(9),
     kern: new Float32Array(200),
+    tone: new Uint8Array(1024),
     stat: new Float64Array(4),
+    order: new Int32Array(NCH), score: new Float64Array(NCH), want: new Float64Array(NCH),
+    vis: new Float64Array(NCH).fill(1), crowd: new Float64Array(NCH).fill(1),
+    hx: new Float64Array(NCH), hy: new Float64Array(NCH),
   });
   for (let i = 0; i < NCH; i++) {
     S.rate[i] = 45 * (0.85 + 0.3 * rnd(S));
@@ -355,6 +366,10 @@ export function setup(params) {
     const d2 = k / 8;
     S.kern[k] = exp(-d2 / (2 * 0.8 * 0.8)) + 0.28 * exp(-d2 / (2 * 2.1 * 2.1));
   }
+  // The log map puts the densest part of the funnel at about 0.84 whatever the exposure does, because the
+  // exposure follows the 95th percentile. The curve stretches that to the whole ramp: the broad body stays
+  // in violet and magenta, the dense core goes red, orange and, at the very peak, white-hot.
+  for (let k = 0; k < 1024; k++) S.tone[k] = Math.round(255 * Math.pow(min(1, k / 1023 / 0.84), 1.6));
   buildPalette(S);
 }
 
@@ -380,12 +395,14 @@ export function update(dt, input, params) {
     S.svK = svT;
     for (let n = 0; n < PRERUN * 30; n++) advance(S, 1 / 30);
     gainUpdate(S, true);
+    pickArcs(S, 1);
   }
   const a = 1 - exp(-dt / 0.35);
   S.epsK += (epsT - S.epsK) * a;
   S.lenK += (lenT - S.lenK) * a;
   S.svK += (svT - S.svK) * a;
   advance(S, dt);
+  pickArcs(S, 1 - exp(-dt / 0.3));
   if (++S.frame % 6 === 0) gainUpdate(S, false);
 }
 
@@ -417,7 +434,8 @@ function gainUpdate(S, now) {
 }
 
 // One soft line segment into the arc buffer, brightest value wins where segments meet.
-function segment(S, x0, y0, b0, x1, y1, b1) {
+function segment(S, x0, y0, b0, x1, y1, b1, ws) {
+  const iw2 = 8 / (ws * ws);
   const A = S.arcI;
   const kern = S.kern;
   const dx = x1 - x0;
@@ -435,12 +453,50 @@ function segment(S, x0, y0, b0, x1, y1, b1) {
       if (len2 > 1e-6) t = cl((pxx * dx + py * dy) / len2, 0, 1);
       const ex = pxx - t * dx;
       const ey = py - t * dy;
-      const k = ((ex * ex + ey * ey) * 8) | 0;
+      const k = ((ex * ex + ey * ey) * iw2) | 0;
       if (k >= 200) continue;
-      const v = (b0 + (b1 - b0) * t) * kern[k] * 0.68;
+      const v = (b0 + (b1 - b0) * t) * kern[k] * 1.05;
       const p = y * W + x;
       if (v > A[p]) A[p] = v;
     }
+  }
+}
+
+// Which chains draw an arc at all. Eight of the sixteen do, at most two of them in the top 60 rows, picked by
+// how far down the panel the head is plus a slow turn that is different for each chain, so the neck gets an
+// arc now and then but never a crowd of them. The rest only add to the density. A chain fades in and out over
+// a third of a second, and one with other visible heads close by is dimmed.
+function pickArcs(S, a) {
+  const order = S.order;
+  for (let i = 0; i < NCH; i++) {
+    const k = i * TR + ((S.th[i] + TR - 1) % TR);
+    S.hx[i] = S.tx[k];
+    S.hy[i] = S.ty[k];
+    S.score[i] = S.hy[i] / H + 0.4 * (0.5 + 0.5 * Math.sin(0.55 * S.t + 2.4 * i));
+    order[i] = i;
+  }
+  order.sort((p, q) => S.score[q] - S.score[p]);
+  S.want.fill(0);
+  let shown = 0;
+  let neck = 0;
+  for (let n = 0; n < NCH && shown < 8; n++) {
+    const i = order[n];
+    const inNeck = S.hy[i] < 60;
+    if (inNeck && neck >= 2) continue;
+    S.want[i] = 1;
+    shown++;
+    if (inNeck) neck++;
+  }
+  for (let i = 0; i < NCH; i++) S.vis[i] += (S.want[i] - S.vis[i]) * a;
+  for (let i = 0; i < NCH; i++) {
+    let near = 0;
+    for (let j = 0; j < NCH; j++) {
+      if (j === i || S.vis[j] < 0.2) continue;
+      const dx = S.hx[i] - S.hx[j];
+      const dy = S.hy[i] - S.hy[j];
+      if (dx * dx + dy * dy < 196) near++;
+    }
+    S.crowd[i] = 1 / (1 + 0.3 * near);
   }
 }
 
@@ -448,22 +504,29 @@ function drawArcs(S) {
   S.arcI.fill(0);
   const now = S.t;
   for (let i = 0; i < NCH; i++) {
+    const own = S.vis[i] * S.crowd[i];
+    if (own < 0.03) continue;
     const n = S.tn[i];
     const base = i * TR;
     let prev = -1;
     let pb = 0;
-    // From the oldest point still bright to the head.
+    let pw = 1;
+    // From the oldest point still bright to the head. In the neck an arc is dimmer, thinner and gone
+    // within about 0.3 s; in the mouth it stays bright and lingers for a second.
     for (let j = n - 1; j >= 0; j--) {
       const k = base + ((S.th[i] + TR - 1 - j) % TR);
       const age = now - S.tt[k];
       if (age > 1.5) continue;
-      const b = S.tw[k] * exp(-age / TAU_A);
-      if (prev >= 0 && !S.tb[k]) segment(S, S.tx[prev], S.ty[prev], pb, S.tx[k], S.ty[k], b);
+      const z = sm(10, 62, S.ty[k]);
+      const b = S.tw[k] * exp(-age / (0.15 + 0.3 * z)) * (0.35 + 0.65 * z) * own;
+      const w = 0.72 + 0.28 * z;
+      if (prev >= 0 && !S.tb[k]) segment(S, S.tx[prev], S.ty[prev], pb, S.tx[k], S.ty[k], b, (pw + w) * 0.5);
       prev = k;
       pb = b;
+      pw = w;
     }
     // The head is a little brighter and rounder than the trail.
-    if (prev >= 0) segment(S, S.tx[prev], S.ty[prev], min(1.5, pb * 1.5), S.tx[prev], S.ty[prev], min(1.5, pb * 1.5));
+    if (prev >= 0) segment(S, S.tx[prev], S.ty[prev], min(1.5, pb * 1.5), S.tx[prev], S.ty[prev], min(1.5, pb * 1.5), pw);
   }
 }
 
@@ -509,8 +572,7 @@ function render(S, display) {
     const s = D[p] * gain;
     let t = s > 0.0004 ? log(1 + K * s) * invLogK : 0;
     if (t > 1) t = 1;
-    // A bend that keeps the broad body low in the ramp and lets only the dense knots reach orange.
-    const idx = (((t * Math.sqrt(t)) * 255) | 0) * 3;
+    const idx = S.tone[(t * 1023) | 0] * 3;
     let r = pal[idx];
     let g = pal[idx + 1];
     let b = pal[idx + 2];
@@ -518,7 +580,7 @@ function render(S, display) {
     if (a > 0.01) {
       const ac = a > 1 ? 1 : a;
       const w = sm(0.7, 1.15, a);
-      const k = 1 - 0.8 * ac;
+      const k = 1 - 0.9 * ac;
       r = r * k + (arc[0] * (1 - w) + 255 * w) * ac;
       g = g * k + (arc[1] * (1 - w) + 255 * w) * ac;
       b = b * k + (arc[2] * (1 - w) + 255 * w) * ac;
