@@ -107,14 +107,15 @@ const PUSH = 2.4; // what Bias adds to a flavour at its end of the knob, as a we
 const PHASE_PL = 53.7, PHASE_PR = 89.3, PHASE_LR = 131.1; // periods of the flavour swings, s
 const PERIOD_ROSETTE = 43.7; // period of the swing that starts rosettes, s
 const MIN_WAIT = 0.24, MAX_WAIT = 3.4; // limits on the wait between hops, s
-const FOLLOW = 0.8; // time constant of the smoothed camera target, s
-const SPRING = 2.4; // natural frequency of the camera spring, radians a second
+const FOLLOW = 0.6; // time constant of the smoothed camera target, s
+const SPRING = 3; // natural frequency of the camera spring, radians a second
+const DEAD = 7; // the walker may drift this far from the middle of the panel before the window follows, LEDs
 
 // ---- slow drift of the whole window, so no scene comes back
 const HUE_DRIFT = 1 / 240; // turns of hue a second: one full turn of the colour wheel in 4 minutes
 const SWAY = (24 * PI) / 180; // the lattice turns this far either way about the middle, period 131 s, with a smaller swing of 57 s on top
-const SWELL = 0.6; // the Memory time swells and shrinks by this many octaves either way, period 71.3 s
-const FOOT = 0.65; // how brightly a lattice point the walker has touched glows, once its triad has faded, against 1 for a lit corner
+const SWELL = 0.3; // the Memory time swells and shrinks by this many octaves either way, period 71.3 s
+const FOOT = 0.4; // how brightly a lattice point the walker has touched glows, once its triad has faded, against 1 for a lit corner
 const FOOT_T = 110; // seconds for that glow to fall to 1/e
 const BREATH = 0.07; // the lattice grows and shrinks by this share either way, period 97 s
 
@@ -124,7 +125,7 @@ const TRAIL_SHAPE = 1.15; // the fade runs as (1 - age / Memory) to this power
 const GAP = 1.0; // the glass stops this far inside the lattice edge, LEDs
 const PAD = 7; // how far past its edge a triangle's pixels are looked at, LEDs
 const EDGE_REST = 0.014; // brightness of an edge nobody has crossed
-const SEAM = 0.12; // brightness of the line along an edge the walker crossed, which fades with the footprint
+const SEAM = 0; // brightness of the line along an edge the walker crossed, which fades with the footprint
 const FLASH_LIFE = 0.38; // a crossed edge flashes down in this many seconds
 
 // ---- the 12 colours
@@ -337,12 +338,22 @@ function advance(S, h) {
   S.life = min(KEEP, S.lifeKnob * pow(2, SWELL * sin((TAU * S.t) / 71.3 + S.ph[10])));
   while (S.t >= S.nextHop) hop(S);
   // The window: a target that smooths the walker's jumps, and a spring after it.
+  // The walker may wander DEAD LEDs from the middle before the window moves.
   const e = 1 - exp(-h / FOLLOW);
   S.ta += (S.gta - S.ta) * e;
   S.tb += (S.gtb - S.tb) * e;
+  frame(S);
+  const oa = S.ta - S.ca, ob = S.tb - S.cb;
+  const sx = oa * S.ux + ob * S.vx, sy = oa * S.uy + ob * S.vy, dist = hypot(sx, sy);
+  let da = 0, db = 0;
+  if (dist > DEAD) {
+    const k = 1 - DEAD / dist, mx = sx * k, my = sy * k;
+    da = S.ia * mx + S.ib * my;
+    db = S.ja * mx + S.jb * my;
+  }
   const w2 = SPRING * SPRING, w1 = 2 * SPRING;
-  S.va += (w2 * (S.ta - S.ca) - w1 * S.va) * h;
-  S.vb += (w2 * (S.tb - S.cb) - w1 * S.vb) * h;
+  S.va += (w2 * da - w1 * S.va) * h;
+  S.vb += (w2 * db - w1 * S.vb) * h;
   S.ca += S.va * h;
   S.cb += S.vb * h;
   while (S.hist.length && S.t - S.hist[0].t > KEEP) S.hist.shift();
