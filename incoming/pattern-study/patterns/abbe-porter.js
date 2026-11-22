@@ -23,9 +23,9 @@
 // 0.5 every even order vanishes) and bars between the holes of amplitude ab (0 to 0.4) and delay 0.7 to 1.5 rad. Its Fourier coefficients are
 //   c(m, n) = (1 - t_bar) fx fy sinc(m fx) sinc(n fy), and c(0, 0) = t_bar (1 - fx fy) + fx fy,
 // with t_bar = ab exp(i delay). An order sits at q = S (m b1 + n b2) from the axis, b1 and b2 being the reciprocal vectors, and a dot is drawn there
-// 1.15 LEDs in sigma (2.7 across) at 1.2 log(1 + 30 |c| / |c|max) / log 31 of full, bright when the stop passes it and 0.2 of that when it does not. The stop
+// 1.15 LEDs in sigma (2.7 across) at 1.2 log(1 + 30 |c| / |c|max) / log 31 of full, bright when the stop passes it and 0.25 of that when it does not. The stop
 // is a soft-edged ellipse with a hole, shifted off the axis, a 2 LED edge, cut off by the edges of the plane and by a spatial frequency of 0.26 to
-// 0.36 cycles an LED, so no stripe in the image is finer than 3 LEDs. Its inside is lit at 0.2 so the stop reads as a lit plate.
+// 0.36 cycles an LED, so no stripe in the image is finer than 3 LEDs. Its inside is lit at 0.3 so the stop reads as a lit plate.
 // The image is I = |sum over passed orders of A(q) c(m, n) exp(2 pi i (m s + n t))|^2, with s and t the position in the cell, and the cell is
 // the one the sum is done on: a 64 by 64 table of the field made with two passes of the sum, one down n and one down m, and read back with a bilinear
 // lookup, so 20 to 40 orders cost about 2 ms a frame. The mean of I is the sum of the squares of the passed orders, and a gain of 0.5 over that
@@ -336,7 +336,7 @@ export function draw(display, params) {
   const sig = 1.15, inv = 1 / (2 * sig * sig);
   for (let k = 0; k < nOrd; k++) {
     const b = log(1 + (30 * da[k]) / aref) / log(31);
-    const amp = min(1, 1.2 * b) * (0.2 + 0.8 * dpass[k]);
+    const amp = min(1, 1.2 * b) * (0.25 + 0.75 * dpass[k]);
     if (amp < 0.02) continue;
     const px = CX + dx[k], py = CY + dy[k];
     const x0 = max(0, floor(px - 3.4)), x1 = min(W - 1, ceil(px + 3.4)), y0 = max(0, floor(py - 3.4)), y1 = min(PH - 1, ceil(py + 3.4));
@@ -348,7 +348,7 @@ export function draw(display, params) {
   }
   for (let y = 0; y < PH; y++)
     for (let x = 0; x < W; x++) {
-      const plate = 0.2 * maskA(x - CX, y - CY), d = min(1, plane[y * W + x]);
+      const plate = 0.3 * maskA(x - CX, y - CY), d = min(1, plane[y * W + x]);
       put(x, y, plate + d - plate * d);
     }
   for (let y = PH; y < IY0; y++) for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
