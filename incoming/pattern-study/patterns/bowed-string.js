@@ -86,7 +86,7 @@ const HLUT = 400;
 
 export function setup(params) {
   const S = {
-    t: 0, ready: false, carry: 0,
+    t: 0, t0: Math.random() * 800, ready: false, carry: 0,
     R: F64(N + 1), L: F64(N + 1), y: F64(N + 1), yd: F32(N + 1),
     ny: 0, by: 0, ib: N - 20, m: 20, hopWait: 0, resettle: false, beta: 0.04, Fs: 10, v0: 10, Fd: 1, fb: 0, lastF: 0,
     slipSteps: 0, steps: 0, slipFrac: 0, slipSm: 0, shape: false,
@@ -99,7 +99,7 @@ export function setup(params) {
     G: 0.01, amp: 10, lim: 1,
     A_s: F32(NP), A_k: F32(NP), now: F32(NP), tmp: F32(NP), bl1: F32(NP), bl2: F32(NP), band: F32(NP * 3),
     lut: F32(HLUT * 3), lutKey: -1,
-    texPh: 0, bowRow: 100, bowX: 0, kinks: [],
+    texPh: 0, bowRow: 100, bowX: 0, kinks: [], pk: [],
     hw: 1.1,
   };
   S.lutS = [0, 0, 0];
@@ -132,16 +132,15 @@ function ou(x, dt, tau, sigma) {
 }
 
 function wander(S, dt) {
-  S.wb = cl(ou(S.wb, dt, 55, 0.15), -0.3, 0.3);
-  S.wf = ou(S.wf, dt, 42, 0.4);
-  S.wv = cl(ou(S.wv, dt, 38, 0.2), -0.4, 0.4);
+  S.wb = cl(ou(S.wb, dt, 50, 0.3), -0.5, 0.7);
+  S.wf = ou(S.wf, dt, 32, 0.55);
+  S.wv = cl(ou(S.wv, dt, 34, 0.32), -0.6, 0.6);
   S.wh = ou(S.wh, dt, 70, 0.02);
   // the finger
   S.Ltime -= dt;
   if (S.Ltime <= 0) {
-    const open = Math.random() < 0.35;
-    S.Lt = open ? FINGER_MAX - 4 * Math.random() : FINGER_MIN + 40 * Math.random();
-    S.Ltime = 13 + 24 * Math.random();
+    S.Lt = FINGER_MIN + (FINGER_MAX - FINGER_MIN) * Math.random();
+    S.Ltime = 9 + 14 * Math.random();
   }
   const w = 1 / 2.4;
   S.Lv += ((S.Lt - S.Lr) * w * w - 2 * w * S.Lv) * dt;
@@ -153,12 +152,12 @@ function wander(S, dt) {
   if (abs(dm) > 1.2 && (S.hopWait <= 0 || abs(dm) > 0.25 * S.m)) {
     const big = abs(dm) > 0.25 * S.m;
     S.m = big ? Math.round(mt) : S.m + (dm > 0 ? 1 : -1);
-    S.hopWait = 2.5 * T0;
+    S.hopWait = 1.6 * T0;
     S.ib = N - S.m;
     S.beta = S.m / N;
     if (big && S.ready) S.resettle = true;
   }
-  S.f = fcAt(S.beta) * exp(1.9 * (S.k4 - 0.06) + S.wf);
+  S.f = fcAt(S.beta) * exp(1.5 * (S.k4 - 0.06) + S.wf);
   S.Fs = (S.f * 2) / S.beta;
   S.Fd = RD * S.Fs;
   S.v0 = V0K / S.beta;
@@ -303,13 +302,25 @@ function blurPass(src, dst, r, tmp) {
   }
 }
 
+// a soft round spark of size sig2 (sigma squared) at (cx, cy), written as the larger of what is there and q
+function spark(buf, cx, cy, q, sig2, rad) {
+  const xa = max(0, floor(cx - rad)), xb = min(W - 1, ceil(cx + rad)), ya = max(0, floor(cy - rad)), yb = min(H - 1, ceil(cy + rad));
+  const inv = 1 / (2 * sig2);
+  for (let y = ya; y <= yb; y++)
+    for (let x = xa; x <= xb; x++) {
+      const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+      const v = q * exp(-(dx * dx + dy * dy) * inv);
+      const p = y * W + x;
+      if (v > buf[p]) buf[p] = v;
+    }
+}
+
 function paint(S, dt) {
   const { yd, now, A_s, A_k } = S;
-  const Lr = S.Lr, top = FINGER_MAX - Lr + 0.0, cell = Lr / N;
+  const Lr = S.Lr, top = FINGER_MAX - Lr, cell = Lr / N;
   const G = S.G, hw = S.hw;
   now.fill(0);
-  // where the string is, row by row: the string is drawn from its position at three heights inside the row
-  const xs = S.xrow || (S.xrow = F32(H * 2));
+  // the string, row by row, from its position at three heights inside the row, so a steep stretch stays joined up
   for (let r = 0; r < H; r++) {
     let lo = 0, hi = 0;
     for (let s = 0; s < 3; s++) {
@@ -322,8 +333,6 @@ function paint(S, dt) {
       if (s === 0 || d < lo) lo = d;
       if (s === 0 || d > hi) hi = d;
     }
-    xs[r * 2] = CX + lo;
-    xs[r * 2 + 1] = CX + hi;
     const dead = r + 0.5 < top;
     const o = r * W;
     const x0 = max(0, floor(CX + lo - hw - 1.5)), x1 = min(W - 1, ceil(CX + hi + hw + 1.5));
@@ -331,61 +340,65 @@ function paint(S, dt) {
       const px = x + 0.5;
       const dist = max(0, CX + lo - px, px - (CX + hi));
       const a = sm(0, 1, hw + 0.5 - dist), c = sm(0, 1, 0.55 + 0.5 - dist);
-      let v = 0.72 * a + 0.5 * c;
+      let v = 0.6 * a + 0.34 * c;
       if (dead) v *= 0.16;
       now[o + x] = v;
     }
   }
-  // sparks at the kinks: where the slope changes fastest
+  // the kinks: where the slope changes fastest. Each is a spark, and a line back to where the same kink was a frame ago
   kinksOut(S, cell);
-  const sparks = S.kinks;
-  for (const kk of sparks) {
-    const q = kk.q;
+  const kn = S.kinks, pk = S.pk;
+  for (const kk of kn) {
     const cx = CX + kk.x, cy = kk.y;
-    const rr = 6;
-    const xa = max(0, floor(cx - rr)), xb = min(W - 1, ceil(cx + rr)), ya = max(0, floor(cy - rr)), yb = min(H - 1, ceil(cy + rr));
-    for (let y = ya; y <= yb; y++)
-      for (let x = xa; x <= xb; x++) {
-        const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d2 = dx * dx + dy * dy;
-        const v = q * (0.95 * exp(-d2 / 2.4) + 0.28 * exp(-d2 / 14));
-        const p = y * W + x;
-        if (v > tmpK[p]) tmpK[p] = v;
+    let bx = cx, by = cy, bd = 1e9;
+    for (const pq of pk) {
+      const dx = CX + pq.x - cx, dy = pq.y - cy, d = dx * dx + dy * dy;
+      if (d < bd && abs(dy) < 9 && abs(dx) < 18) {
+        bd = d;
+        bx = CX + pq.x;
+        by = pq.y;
       }
+    }
+    const len = sqrt(bd < 1e8 ? bd : 0), ns = max(1, ceil(len / 0.7));
+    for (let j = 0; j <= ns; j++) spark(tmpK, mix(bx, cx, j / ns), mix(by, cy, j / ns), kk.q, 1.5, 4.5);
+    spark(now, cx, cy, kk.q * 1.25, 2.2, 6);
+    spark(now, cx, cy, kk.q * 0.3, 12, 11);
   }
-  // afterimages: the string and the kink, each held and fading
-  const ds = exp(-dt / 2.6), dk = exp(-dt / 4.4);
+  S.pk = kn;
+  // afterimages: the string and the kink's trail, each held and fading
+  const ds = exp(-dt / 2.4), dk = exp(-dt / 4.6);
   for (let p = 0; p < NP; p++) {
-    const sv = now[p] * 0.34;
-    A_s[p] = max(A_s[p] * ds, sv);
-    const kv = tmpK[p];
-    A_k[p] = max(A_k[p] * dk, kv * 0.85);
+    A_s[p] = max(A_s[p] * ds, now[p] * 0.15);
+    A_k[p] = max(A_k[p] * dk, tmpK[p] * 0.8);
     tmpK[p] = 0;
-    now[p] = max(now[p], kv);
   }
+  // the bow
+  S.bowRow = FINGER_MAX - S.beta * Lr;
+  S.texPh += ((S.G * (2 * N + 2)) / (T0 * (Lr / FINGER_MAX))) * S.vb * dt;
 }
 
 const tmpK = F32(NP);
 
 function kinksOut(S, cell) {
   const yd = S.yd, G = S.G, Lr = S.Lr, top = FINGER_MAX - Lr;
-  // slope in LEDs sideways per row, and its change over 3 cells either side
+  // slope in LEDs sideways per row, and its change over three cells either side
   const span = 3, sl = S.slope || (S.slope = F32(N + 1)), cv = S.curv || (S.curv = F32(N + 1));
   for (let i = 0; i < N; i++) sl[i] = ((yd[i + 1] - yd[i]) * G) / cell;
   sl[N] = sl[N - 1];
-  let best = 0;
-  for (let i = span; i <= N - span; i++) {
-    const c = abs(sl[min(N, i + span - 1)] - sl[max(0, i - span)]);
-    cv[i] = c;
-  }
+  for (let i = span; i <= N - span; i++) cv[i] = abs(sl[min(N, i + span - 1)] - sl[max(0, i - span)]);
   const out = [];
   const sep = max(10, floor(5 / cell));
   for (let i = span + 2; i <= N - span - 2; i++) {
     const c = cv[i];
     if (c < 0.05) continue;
     let isMax = true;
-    for (let j = max(span, i - sep); j <= min(N - span, i + sep); j++) if (cv[j] > c || (cv[j] === c && j < i)) { isMax = false; break; }
+    for (let j = max(span, i - sep); j <= min(N - span, i + sep); j++)
+      if (cv[j] > c || (cv[j] === c && j < i)) {
+        isMax = false;
+        break;
+      }
     if (!isMax) continue;
-    out.push({ x: yd[i] * G, y: top + (i / N) * Lr, q: pow(cl(c / 0.22, 0, 1), 0.7) });
+    out.push({ x: yd[i] * G, y: top + (i / N) * Lr, q: pow(cl(c / 0.28, 0, 1), 0.8) });
   }
   out.sort((a, b) => b.q - a.q);
   S.kinks = out.slice(0, 7);
@@ -412,6 +425,35 @@ function prerun(S) {
   S.Ltime = 16 + 14 * Math.random();
 }
 
+// hair and rosin on the bow: streaks along the bow, sliding with it
+function hash2(ix, iy) {
+  let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) * 2.3283064365386963e-10;
+}
+function vn(x, y) {
+  const ix = floor(x), iy = floor(y), fx = x - ix, fy = y - iy;
+  const wx = fx * fx * (3 - 2 * fx), wy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy), b = hash2(ix + 1, iy), c = hash2(ix, iy + 1), d = hash2(ix + 1, iy + 1);
+  return a + (b - a) * wx + (c - a) * wy + (a - b - c + d) * wx * wy;
+}
+
+function hash3(ix, iy, iz) {
+  let h = (Math.imul(ix, 374761393) + Math.imul(iy, 668265263) + Math.imul(iz, 1442695041)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) * 2.3283064365386963e-10;
+}
+function vn3(x, y, z) {
+  const ix = floor(x), iy = floor(y), iz = floor(z), fx = x - ix, fy = y - iy, fz = z - iz;
+  const wx = fx * fx * (3 - 2 * fx), wy = fy * fy * (3 - 2 * fy), wz = fz * fz * (3 - 2 * fz);
+  const l = (a, b, t) => a + (b - a) * t;
+  return l(
+    l(l(hash3(ix, iy, iz), hash3(ix + 1, iy, iz), wx), l(hash3(ix, iy + 1, iz), hash3(ix + 1, iy + 1, iz), wx), wy),
+    l(l(hash3(ix, iy, iz + 1), hash3(ix + 1, iy, iz + 1), wx), l(hash3(ix, iy + 1, iz + 1), hash3(ix + 1, iy + 1, iz + 1), wx), wy),
+    wz,
+  );
+}
+
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
@@ -422,11 +464,44 @@ export function draw(display, params) {
   const src = S.src || (S.src = F32(NP));
   blurPass(tmp, bl1, 3, src);
   blurPass(tmp, bl2, 9, src);
+  // the bow band: warm white while it holds the string, orange while the string slides under it
+  const key = S.k1 + S.wh, hv = [0, 0, 0], co = [0, 0, 0], cs = [0, 0, 0];
+  rgb2hsv(1, 0.86, 0.6, hv);
+  hsv(hv[0] + key, hv[1], 1, co);
+  rgb2hsv(1, 0.44, 0.1, hv);
+  hsv(hv[0] + key, hv[1], 1, cs);
+  const sl = cl(S.slipSm * 1.4, 0, 1);
+  const br = mix(0.56, 0.8, sl);
+  const bR = (mix(co[0], cs[0], sl) * 255), bG = (mix(co[1], cs[1], sl) * 255), bB = (mix(co[2], cs[2], sl) * 255);
+  const rb = S.bowRow, ph = S.texPh;
   const hs = HLUT - 1;
-  for (let y = 0, p = 0; y < H; y++)
-    for (let x = 0; x < W; x++, p++) {
-      const heat = max(now[p], A_s[p], A_k[p] * 1.0) + 0.2 * bl1[p] + 0.3 * bl2[p];
-      const i = cl(heat, 0, 1.25) * (hs / 1.25) | 0;
-      display.setPixel(x, y, lut[i * 3], lut[i * 3 + 1], lut[i * 3 + 2]);
+  // a slow warm haze that drifts through the dark, strongest round the string, so the sides never go empty
+  const hz = S.hz || (S.hz = F32(17 * 33)), tt = S.t + S.t0;
+  for (let gy = 0; gy < 33; gy++)
+    for (let gx = 0; gx < 17; gx++) {
+      const X = gx * 4, Y = gy * 4;
+      hz[gy * 17 + gx] = 0.6 * vn3(X / 17 + tt * 0.021, Y / 24 - tt * 0.012, tt / 13) + 0.4 * vn3(X / 9.5 - tt * 0.026 + 7, Y / 13 + tt * 0.017 + 3, tt / 8.5 + 4);
     }
+  for (let y = 0, p = 0; y < H; y++) {
+    const fy = y * 0.25 + 0.125, iy = fy | 0, ay0 = fy - iy;
+    const dy = abs(y + 0.5 - rb);
+    const ay = 1 - sm(2.2, 3.6, dy);
+    for (let x = 0; x < W; x++, p++) {
+      const fx = x * 0.25 + 0.125, ix = fx | 0, ax0 = fx - ix, o = iy * 17 + ix;
+      const hzv = (hz[o] * (1 - ax0) + hz[o + 1] * ax0) * (1 - ay0) + (hz[o + 17] * (1 - ax0) + hz[o + 18] * ax0) * ay0;
+      const haze = 0.02 + 0.2 * cl((hzv - 0.3) / 0.45, 0, 1) * (0.6 + 0.6 * bl2[p]);
+      const heat = max(now[p], A_s[p], A_k[p]) + 0.14 * bl1[p] + 0.2 * bl2[p] + haze;
+      const i = (cl(heat, 0, 1.25) * (hs / 1.25)) | 0;
+      let r = lut[i * 3], g = lut[i * 3 + 1], b = lut[i * 3 + 2];
+      if (ay > 0.003) {
+        const ax = sm(0, 9, x + 0.5) * sm(0, 9, W - x - 0.5);
+        const tex = 0.72 + 0.28 * vn((x - ph) * 0.16, y * 0.8 + 3.1) + 0.12 * (vn((x - ph * 1.3) * 0.5, y * 2.3) - 0.5);
+        const a = ay * ax * br * tex * (1 - cl(max(now[p], A_s[p] * 1.5), 0, 1));
+        r += bR * a;
+        g += bG * a;
+        b += bB * a;
+      }
+      display.setPixel(x, y, r > 255 ? 255 : r, g > 255 ? 255 : g, b > 255 ? 255 : b);
+    }
+  }
 }
