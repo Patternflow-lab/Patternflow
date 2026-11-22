@@ -11,13 +11,22 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Rain=0..4, Slope=-1..1, Patchy=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Rain.
-// Knob 3: Slope.
-// Knob 4: Patchy.
+// Knob 1: Hue. Turns through four landscapes and back. At 0, where it opens, the soil is ochre to terracotta and the shrubs run from olive and sage at the thin edge to deep green in the core. At 0.25 the soil is pale stone grey and the shrubs blue-green, at 0.5 the soil is dusty rose and the shrubs teal, at 0.75 the soil is dark mauve-grey ash and the shrubs a fresh green, and at 1 it is terracotta again. The colours blend between the four.
+// Knob 2: Rain. The year's rain a, from 0.95 at 0 to 1.85 at 4 on a flat Slope (it opens at 2, where a is 1.40; on a steeper slope the top is higher, a_c - 0.18 with a_c = 1.25 + 0.0125 v, the rain at which the cover would close up solid). Gusts of wet and dry years of up to 17% ride on it. Dry, the shrubs hold 27% of the ground (n above 1.5) in 5 thin bands about 26 LEDs apart that tear into arcs; at the opening 43% in 8 bands 16 LEDs apart; wet, 55 to 65% in 9 thick bands 14 LEDs apart with only narrow slits of soil between them. The soil darkens a little and the shrubs go greener as it rises, and more of the thin edge shows at once. The band count follows the knob over 20 to 60 s.
+// Knob 3: Slope. How steep the ground is, -1 to 1, opening at 0. The runoff runs v = 62 exp(0.49 K) LEDs per model time unit: 38, 62 and 101. A steeper slope gives fewer, wider-spaced bands (the band count goes as the square root of 62 / v: at the opening Rain 9, 8 and 6 bands), a faster creep (the time scale goes as 2^(0.45 K); at the opening Rain the bands move 0.35 to 0.65 LED a second at -1, 0.5 to 0.9 at 0 and 0.6 to 1.0 at 1, breathing with the gusts) and a longer, darker shade beside each band (x exp(0.35 K)). The creep and the shade show at once; the spacing takes 20 to 60 s to settle.
+// Knob 4: Patchy. How unevenly the rain falls, and how well the bands hold together sideways. Rain at a spot is the year's rain times (1 + p f), f the drifting rain-cell field (rms 0.21, between -1 and 1) and p = 1.0 + 0.35 K, so 0.65 at -1 and 1.35 at 1. The lateral diffusion of the shrubs goes as exp(-0.65 K): 1.9 times the opening at -1, where the bands stay long and level with a few forks, and 0.52 at 1, where they tear into arcs, rings and islands. The rain cells show on the bare soil at once as damp and dry patches (the tone swings about 13% rms at 1.0).
+
+// What the picture is. An aerial photograph of semi-arid ground on a slight slope, uphill at the top of the panel: tiger bush, shrubs in bands across the slope and bare crusted soil between them. The bands creep uphill. Runoff from the bare ground above a band soaks its upper edge, which thickens into a crisp dark line, while the lower edge starves and thins out into a soft olive fringe, so the band moves toward the water.
+// This is Klausmeier's model, run in two dimensions on the 64 x 128 grid, one cell to the LED, with the slope along the long axis and the edges joined (a band that leaves the top comes back at the bottom, the left meets the right):
+//   dw/dt = a - w - w n^2 + v dw/dy      water, running downhill (toward larger y) at speed v
+//   dn/dt = w n^2 - m n + D (n_yy + dx n_xx)    shrub biomass, m = 0.45, D = 0.5 LED^2 per model time unit
+// Water relaxes at 1 + n^2 per model time unit, far faster than a band moves, so each step solves it down each column exactly instead of stepping it: across one cell dw/ds = (a - k w) / v with k = 1 + n^2, so the water leaving a cell is a / k + (the water entering - a / k) exp(-k / v). The last row of one step feeds the first row of the next, which closes the loop. Biomass then takes an explicit step of 0.09 model time units with the five-point Laplacian; 1.35 model time units pass a second at the opening, and a second step is taken whenever a frame is long enough to need one.
+// The rain is a(x, y, t) = a0 gust(t) (1 + p f(x, y, t)), held between 0.58 (below it the shrubs die back) and a_c - 0.07 (above it the cover goes solid). f is the sum of 14 waves of 10 to 128 LEDs across, each drifting along the slope with its own period of 30 to 80 s, so no arrangement of rain cells comes back; gust(t) is three sines of 47, 83 and 151 s. Every 2.5 to 7.5 s a clump takes root on damp bare ground (n + 3, radius 2.6) or a gap is cut in a band (radius 3.4 to 4.6), so bands fork, break and rejoin. The share of the panel with n above 1.5 is read every half second; if it falls under 0.14 or goes over 0.86 the rain is nudged between 0.65 and 1.5 times, which the 900 s runs at every corner of the knobs never needed.
+// The first update starts a 1-D run with the band count the knobs ask for (a cosine start; any count from 3 up to about 11 is stable at the opening), slides its columns up and down by a slow wave across the width so the bands start out bent, and runs the 2-D model on for 30 s of panel time with the rain drifting, so the first frame is already a mature cover.
+// The look: cover is a smooth step of n (broken up a little by two fixed textures, one 2 LEDs across and one 7), the shrub colour runs from dry olive through sage to deep green with n, the shade comes from the gradient of a smoothed canopy height with the sun low on the lower left (it swings by about 25 degrees over minutes), soil is ochre to terracotta in broad fixed blotches with a damp darkening where the runoff has gathered ahead of a band (w / a above 0.08) and a short shadow cast toward the top of the panel. The rain cells show as damp and dry soil. Brightness and warmth of the light drift by a few percent over 97, 121 and 143 s. The colours are set a little under the final saturation because the panel raises it 1.62 times.
 
 const W = 64, H = 128, NP = W * H;
-const { floor, sqrt, abs, exp, sin, cos, PI, min, max } = Math;
+const { floor, sqrt, exp, sin, cos, PI, min, max } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -28,7 +37,6 @@ const mix = (a, b, t) => a + (b - a) * t;
 // ---- the model (Klausmeier 1999, water solved along the slope)
 const M = 0.45; // plant mortality
 const DIFF = 0.5; // diffusion of biomass, LED^2 per model time
-const V0 = 60; // water speed downhill at Slope 0, LEDs per model time
 const DT = 0.09; // model time per step
 const RATE = 1.35; // model time per second of the panel, at Slope 0
 
@@ -91,7 +99,6 @@ function rainField(S, P) {
   const gust = 1 + 0.08 * sin(2 * PI * t / 83 + S.gp[0]) + 0.055 * sin(2 * PI * t / 151 + S.gp[1]) + 0.04 * sin(2 * PI * t / 47 + S.gp[2]);
   const base = P.a0 * gust * S.steer, lo = P.lo, hi = P.hi;
   const rn = S.rain;
-  for (let i = 0; i < NP; i++) rn[i] = 0;
   const cx = S.cx, sx = S.sx, cy = S.cy, sy = S.sy;
   const field = S.field || (S.field = new Float32Array(NP));
   field.fill(0);
@@ -165,7 +172,7 @@ function knobParams(S) {
   const ac = 1.25 + 0.0125 * v; // above this rain the cover goes solid
   const a0 = 0.95 + (ac - 0.18 - 0.95) * u;
   // the bands the cover settles to: more of them in wet years, fewer on a steep slope
-  const bands = cl(Math.round((5 + 6 * u) * sqrt(62 / v)), 4, 12);
+  const bands = cl(Math.round((5 + 6 * u) * sqrt(62 / v)), 4, 9);
   return { a0, v, ac, u, bands, lo: 0.58, hi: ac - 0.07, pat: 1.0 + 0.35 * k4, dx: exp(-0.65 * k4), rate: RATE * Math.pow(2, 0.45 * k3) };
 }
 
@@ -188,10 +195,13 @@ function init(S) {
     }
   }
   rainField(S, P);
-  for (let s = 0; s < 260; s++) {
-    if (s % 20 === 0) rainField(S, P);
+  // run it on for about 30 s of panel time, the rain drifting as it will, so the first frame is not a fresh start
+  for (let s = 0; s < 420; s++) {
+    if (s % 6 === 0) rainField(S, P);
     step(S, 0.1, P.v, P.dx);
+    S.t += 0.1 / P.rate;
   }
+  rainField(S, P);
 }
 
 // Now and then a clump takes root on damp bare ground or a gap opens in a band, so bands branch, break and rejoin.
@@ -247,10 +257,10 @@ export function update(dt, input, params) {
 // ---- colour
 const PAL = [
   // soil lit, soil dark, damp tint, dry plant, mid plant, deep plant, shadow tint
-  { sa: [196, 168, 134], sb: [174, 132, 108], dm: [0.78, 0.7, 0.66], dr: [156, 150, 112], md: [100, 124, 88], dp: [44, 84, 60], sh: [0.72, 0.66, 0.7] },
-  { sa: [190, 186, 174], sb: [158, 160, 160], dm: [0.76, 0.8, 0.86], dr: [146, 148, 118], md: [84, 116, 102], dp: [38, 76, 78], sh: [0.66, 0.7, 0.8] },
-  { sa: [206, 164, 150], sb: [178, 122, 114], dm: [0.76, 0.66, 0.68], dr: [152, 144, 108], md: [74, 120, 104], dp: [30, 82, 78], sh: [0.7, 0.62, 0.72] },
-  { sa: [118, 106, 104], sb: [96, 86, 88], dm: [0.8, 0.78, 0.8], dr: [152, 166, 104], md: [92, 140, 84], dp: [34, 98, 62], sh: [0.7, 0.7, 0.78] },
+  { sa: [198, 172, 138], sb: [176, 138, 114], dm: [0.78, 0.7, 0.66], dr: [156, 150, 112], md: [100, 124, 88], dp: [44, 84, 60], sh: [0.72, 0.66, 0.7] },
+  { sa: [178, 172, 158], sb: [150, 144, 134], dm: [0.82, 0.84, 0.88], dr: [150, 148, 112], md: [88, 118, 98], dp: [40, 78, 76], sh: [0.68, 0.7, 0.78] },
+  { sa: [204, 170, 156], sb: [178, 132, 124], dm: [0.78, 0.7, 0.72], dr: [154, 146, 110], md: [78, 120, 102], dp: [34, 82, 78], sh: [0.72, 0.64, 0.74] },
+  { sa: [122, 110, 106], sb: [100, 90, 90], dm: [0.82, 0.8, 0.82], dr: [146, 154, 100], md: [88, 128, 80], dp: [34, 92, 60], sh: [0.72, 0.72, 0.8] },
 ];
 const KEYS = ["sa", "sb", "dm", "dr", "md", "dp", "sh"];
 
@@ -281,11 +291,11 @@ export function draw(display, params) {
   const lr = lum * (1 + warm), lg = lum, lb = lum * (1 - warm);
   const n = S.n, w = S.w, hg = S.hgt, cv = S.cvr, dn = S.dns, a = S.rain, t1 = S.t1, t2 = S.t2, t3 = S.t3, fld = S.field, P = S.P, u = P.u, pt = P.pat;
   const wk = 7.5 * (0.35 + 0.65 * pt); // rain cells show on the soil as damp and dry patches
-  const c0 = 0.7 - 0.5 * (u - 0.5); // wetter years show more of the thin edge
+  const c0 = 0.75 - 0.3 * (u - 0.5); // wetter years show more of the thin edge
   for (let i = 0; i < NP; i++) {
     const ni = n[i];
     hg[i] = 1 - exp(-ni / 3);
-    const eff = ni * (0.62 + 0.76 * (0.55 * t1[i] + 0.45 * t2[i]));
+    const eff = ni * (0.74 + 0.52 * (0.3 * t1[i] + 0.7 * t2[i]));
     cv[i] = sm(c0, c0 + 1.3, eff);
     dn[i] = sm(1.5, 7.5, eff);
   }
@@ -307,7 +317,7 @@ export function draw(display, params) {
       let pr, pg, pb;
       if (dens < 0.5) { const q = dens * 2; pr = mix(pal.dr[0], pal.md[0], q); pg = mix(pal.dr[1], pal.md[1], q); pb = mix(pal.dr[2], pal.md[2], q); }
       else { const q = dens * 2 - 1; pr = mix(pal.md[0], pal.dp[0], q); pg = mix(pal.md[1], pal.dp[1], q); pb = mix(pal.md[2], pal.dp[2], q); }
-      const lf = (1 + 0.32 * lit) * (0.88 + 0.24 * t1[i]);
+      const lf = (1 + 0.32 * lit) * (0.93 + 0.14 * t1[i]);
       pr *= lf; pg *= lf; pb *= lf;
       const rr = mix(sr, pr, c), gg = mix(sg, pg, c), bb = mix(sb, pb, c);
       display.setPixel(x, y, cl(rr * lr, 0, 255) | 0, cl(gg * lg, 0, 255) | 0, cl(bb * lb, 0, 255) | 0);
