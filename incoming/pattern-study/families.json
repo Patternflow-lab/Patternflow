@@ -140,9 +140,14 @@
   "heliostat": { "label": "태양탑", "color": "#f72585" },
   "collider": { "label": "충돌기", "color": "#7209b7" },
   "photonics": { "label": "광결정", "color": "#06d6a0" },
+  "entorhinal": { "label": "격자 세포", "color": "#e0527a" },
+  "venation": { "label": "잎맥", "color": "#6fbf3a" },
+  "timetable": { "label": "열차 시각표", "color": "#3a9be0" },
+  "alluvial": { "label": "흐름 도표", "color": "#e8a33d" },
+  "meteorite": { "label": "운철", "color": "#b8c4cc" },
   "ebsd": { "label": "후방 산란 회절", "color": "#1439cc" },
   "georadar": { "label": "지중 레이더", "color": "#3df273" },
   "fluvial": { "label": "하천 곡류", "color": "#cc14cc" },
   "amoeba": { "label": "점균 모임", "color": "#895ccc" },
-  "corral": { "label": "양자 울타리", "color": "#e8a317" }
+  "corral": { "label": "양자 울타리", "color": "#ad39bf" }
 }
