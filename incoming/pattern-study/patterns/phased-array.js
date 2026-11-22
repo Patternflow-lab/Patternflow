@@ -27,16 +27,20 @@ const sm = (a, b, v) => {
 // ---- the array
 const NM = 9; // elements run from -NM to NM, 19 at most, centre one at x = 32
 const NE = 2 * NM + 1;
-const CX = 32, AY = 126; // the line the elements sit on
-const HALF = 32, EDGE = 34.5; // elements fade out between |x - 32| = HALF and EDGE
+const CX = 32, AY = 126.5; // the line the elements sit on
+const AH = 20; // half the width the elements are driven over
 const TABN = 4096, TMASK = TABN - 1;
 const COS = new Float32Array(TABN), SIN = new Float32Array(TABN);
 for (let i = 0; i < TABN; i++) {
   COS[i] = cos((2 * PI * i) / TABN);
   SIN[i] = sin((2 * PI * i) / TABN);
 }
+// a faint glow along the line the elements sit on, so the array reads as the source even between beads
+const BASE = new Float32Array(NPX);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) BASE[y * W + x] = 0.42 * exp(-max(0, AY - y - 0.5) / 2.2);
 const PHASE_SPEED = 7; // LEDs a second the crests run
 const IREF = 1 / (2 * 55); // intensity of a unit-drive beam 55 LEDs out
+const ZREF = 1 / sqrt(55);
 
 // ---- the scan
 const STEP = 11; // degrees between dwell angles
@@ -61,7 +65,7 @@ function makeState() {
     d: -1, lam: 8,
     rt: new Float32Array(NE * NPX), at: new Float32Array(NE * NPX),
     Zr: new Float32Array(NPX), Zi: new Float32Array(NPX),
-    G: new Float32Array(NPX), C: new Float32Array(NPX), V: new Float32Array(NPX),
+    G: new Float32Array(NPX), C: new Float32Array(NPX), px: new Float32Array(NPX * 3),
     w: new Float32Array(NE), xs: new Float32Array(NE), ph: new Float32Array(NE),
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -72,7 +76,7 @@ export function setup(params) {
 }
 
 function lambdaOf(ds) {
-  return 8.2 - (2.0 * (ds - 0.5)) / 1.1;
+  return 8 - (2.0 * (ds - 0.5)) / 1.1;
 }
 
 // Distances from every LED to every element, rebuilt only when the spacing moves.
@@ -96,20 +100,18 @@ function buildTables(S, ds) {
   }
 }
 
-// Element weights: a raised cosine on a pedestal, uniform at -1, Hamming at about -0.3, Hann near 0.1, cos^4.6 at 1.
+// Element weights: cos(pi u / 2)^m across the driven width, u = |x - 32| / AH. m is 0 at -1 (uniform),
+// 1.15 at the opening, 2 at 0.35 (Hann), 6 at 1.
 function weights(S, taper) {
   const s = (cl(taper, -1, 1) + 1) / 2;
-  let a, m;
-  if (s <= 0.35) { a = 1 - 0.92 * (s / 0.35); m = 2; }
-  else if (s <= 0.6) { a = 0.08 * (1 - (s - 0.35) / 0.25); m = 2; }
-  else { a = 0; m = 2 + (2.6 * (s - 0.6)) / 0.4; }
+  const m = (6 * (Math.pow(2, 7 * s) - 1)) / 127;
   let tot = 0;
   for (let n = 0; n < NE; n++) {
     const dx = abs(S.xs[n] - CX);
-    const u = min(1, dx / EDGE);
-    const edge = 1 - sm(HALF, EDGE, dx);
+    const u = min(1, dx / AH);
+    const edge = 1 - sm(AH - 0.5 * S.d, AH + 0.5 * S.d, dx);
     const c = cos((PI * u) / 2);
-    const wv = (a + (1 - a) * Math.pow(c < 0 ? 0 : c, m)) * edge;
+    const wv = (m < 1e-3 ? 1 : Math.pow(c < 0 ? 0 : c, m)) * edge;
     S.w[n] = wv;
     tot += wv;
   }
@@ -162,9 +164,11 @@ function advance(S, dt, kn) {
     const zr = Zr[i], zi = Zi[i];
     const I = 0.5 * (zr * zr + zi * zi);
     const db = 4.3429 * log(I / IREF + 1e-5);
-    G[i] = cl((db + 38) / 44, 0, 1);
-    const f = zr * co + zi * si;
-    C[i] = f;
+    const gv = Math.pow(cl((db + 34) / 37, 0, 1), 1.15);
+    G[i] = gv > BASE[i] ? gv : BASE[i];
+    const zm = sqrt(zr * zr + zi * zi) + 1e-9;
+    const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.6));
+    C[i] = ((zr * co + zi * si) / zm) * A;
   }
 }
 
@@ -182,11 +186,11 @@ export function update(dt, input, params) {
 // ---- colour
 const RAMP = [
   [0.0, 4, 4, 20],
-  [0.18, 38, 10, 66],
-  [0.38, 30, 26, 118],
-  [0.62, 20, 76, 180],
-  [0.82, 40, 160, 220],
-  [1.0, 130, 228, 240],
+  [0.2, 36, 10, 64],
+  [0.4, 28, 26, 112],
+  [0.65, 20, 70, 170],
+  [0.85, 28, 120, 215],
+  [1.0, 60, 170, 235],
 ];
 const LUTN = 256;
 const GLUT = new Float32Array((LUTN + 1) * 3);
@@ -199,7 +203,7 @@ for (let i = 0; i <= LUTN; i++) {
   GLUT[i * 3 + 1] = a[2] + (b[2] - a[2]) * u;
   GLUT[i * 3 + 2] = a[3] + (b[3] - a[3]) * u;
 }
-const CREST = [190, 246, 255], UNDER = [150, 28, 150];
+const CREST = [205, 248, 255], UNDER = [140, 24, 150];
 
 function hueMatrix(S, hue) {
   if (S.hueAt === hue) return;
@@ -210,38 +214,64 @@ function hueMatrix(S, hue) {
   S.hueAt = hue;
 }
 
+// colour of one LED from its glow g (0..1, the averaged intensity) and its crest value c (-1..1, the wave now)
+function shade(g, c, out) {
+  const gi = (g > 0.9999 ? 0.9999 : g) * LUTN, k = gi | 0, fr = gi - k, j = k * 3;
+  let r = GLUT[j] + (GLUT[j + 3] - GLUT[j]) * fr;
+  let gg = GLUT[j + 1] + (GLUT[j + 4] - GLUT[j + 1]) * fr;
+  let b = GLUT[j + 2] + (GLUT[j + 5] - GLUT[j + 2]) * fr;
+  if (c > 0) {
+    const p = c * c;
+    r += (CREST[0] - r) * p;
+    gg += (CREST[1] - gg) * p;
+    b += (CREST[2] - b) * p;
+  } else {
+    const p = -c, q = p * p * 0.5;
+    r = r * (1 - 0.55 * p) + UNDER[0] * q;
+    gg = gg * (1 - 0.55 * p) + UNDER[1] * q;
+    b = b * (1 - 0.55 * p) + UNDER[2] * q;
+  }
+  out[0] = r; out[1] = gg; out[2] = b;
+}
+
+const BEAD_ROWS = [0.3, 0.8, 1, 1]; // rows 124 to 127
+const BEAD0 = [70, 30, 150];
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   const hue = cl(S.kn[0], 0, 1);
   hueMatrix(S, hue);
   const m = S.hueMat;
-  const G = S.G, C = S.C;
-  const R = new Float32Array(NPX), Gc = new Float32Array(NPX), B = new Float32Array(NPX);
+  const G = S.G, C = S.C, px = S.px, col = [0, 0, 0];
   for (let i = 0; i < NPX; i++) {
-    const g = G[i], gi = g * LUTN, k = gi | 0, fr = gi - k;
-    const j = k * 3;
-    let r = GLUT[j] + (GLUT[j + 3] - GLUT[j]) * fr;
-    let gg = GLUT[j + 1] + (GLUT[j + 4] - GLUT[j + 1]) * fr;
-    let b = GLUT[j + 2] + (GLUT[j + 5] - GLUT[j + 2]) * fr;
-    const f = C[i];
-    const c = cl(f / 0.2, -1, 1);
-    const vis = sm(0.1, 0.55, g);
-    if (c > 0) {
-      const p = Math.pow(c, 1.5) * vis;
-      r += (CREST[0] - r) * p;
-      gg += (CREST[1] - gg) * p;
-      b += (CREST[2] - b) * p;
-    } else {
-      const p = -c * vis;
-      r = r * (1 - 0.6 * p) + UNDER[0] * p * p;
-      gg = gg * (1 - 0.6 * p) + UNDER[1] * p * p;
-      b = b * (1 - 0.6 * p) + UNDER[2] * p * p;
+    shade(G[i], C[i], col);
+    px[i * 3] = col[0]; px[i * 3 + 1] = col[1]; px[i * 3 + 2] = col[2];
+  }
+  // the elements: a bead two LEDs wide each, glowing with its own phase
+  let wmax = 0;
+  for (let n = 0; n < NE; n++) if (S.w[n] > wmax) wmax = S.w[n];
+  const om = (2 * PI * PHASE_SPEED) / S.lam * S.t;
+  for (let n = 0; n < NE; n++) {
+    const wr = S.w[n] / wmax;
+    if (wr < 0.004) continue;
+    const xb = S.xs[n], u = 0.5 + 0.5 * cos(om - (S.ph[n] * 2 * PI) / TABN), amp = 0.3 + 0.7 * Math.sqrt(wr);
+    const v = u * u * (3 - 2 * u) * amp;
+    col[0] = BEAD0[0] + (CREST[0] - BEAD0[0]) * v;
+    col[1] = BEAD0[1] + (CREST[1] - BEAD0[1]) * v;
+    col[2] = BEAD0[2] + (CREST[2] - BEAD0[2]) * v;
+    for (let x = max(0, floor(xb - 1.6)); x <= min(W - 1, floor(xb + 1.6)); x++) {
+      const cx = cl(1.5 - abs(x + 0.5 - xb), 0, 1);
+      if (cx <= 0) continue;
+      for (let r = 0; r < 4; r++) {
+        const cov = cx * BEAD_ROWS[r], i = (124 + r) * W + x;
+        px[i * 3] += (col[0] - px[i * 3]) * cov;
+        px[i * 3 + 1] += (col[1] - px[i * 3 + 1]) * cov;
+        px[i * 3 + 2] += (col[2] - px[i * 3 + 2]) * cov;
+      }
     }
-    R[i] = r; Gc[i] = gg; B[i] = b;
   }
   for (let i = 0; i < NPX; i++) {
-    const r = R[i], g = Gc[i], b = B[i];
+    const r = px[i * 3], g = px[i * 3 + 1], b = px[i * 3 + 2];
     const rr = r * m[0] + g * m[1] + b * m[2], gg = r * m[3] + g * m[4] + b * m[5], bb = r * m[6] + g * m[7] + b * m[8];
     display.setPixel(i % W, (i / W) | 0, cl(rr, 0, 255) | 0, cl(gg, 0, 255) | 0, cl(bb, 0, 255) | 0);
   }
