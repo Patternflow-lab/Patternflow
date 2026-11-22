@@ -11,37 +11,44 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0.6..4, Climate=-1..1, Lean=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the wood, one turn to come back. At 0 it is pine amber, earlywood (232, 199, 140) and latewood (107, 60, 26). At 0.22 it is cherry red, 0.5 olive oak with the colour pulled down to 0.6 of itself, 0.76 grey driftwood with 0.12 of it left.
-// Knob 2: Growth. Rings born per second, the knob over 4: 0.15 a ring a second at 0.6, 0.5 at the opening 2 and 1 at 4. The pull-back follows, since every ring moves inward by one of its own widths per ring born: a ring 5 LEDs wide at the edge runs inward at 0.75 LEDs a second at 0.6 and 5 at 4. The knob also sets how old the tree is at second 0, 40 s of growth at that rate, so the rings on the panel at the start differ with it.
-// Knob 3: Climate. The spread of the ring record, from steady years at -1 to wild ones at 1, opening at 0. Ring width goes as e to the power of the spread times a slow 1/f series: the spread is 0.12 at -1, 0.43 at 0 and 0.74 at 1. The same knob scales the droughts (a run of 3 to 9 narrow rings, down to 0.15 of normal width and grey), the boom years (up to 3 times wide) and the frost rings (one ring in 100 at -1, one in 14 at 0, one in 8 at 1).
-// Knob 4: Lean. Opens at 0.06, so (knob + 1) / 2 is 0.53. It moves the pith up to 20 LEDs from the middle toward the lower left, which puts wide rings of reaction wood on the other side, and it stretches the rings: at -1 they are 1.0 high to 1.0 wide near the pith and 1.55 high to 1 wide at the edge, at 1 they are 1.3 and 2.0.
+// Knob 1: Hue. Adds the knob to the hue of the wood and carries it through four woods in one turn: pine amber at 0 (earlywood (232, 199, 140), latewood (110, 62, 27)), cherry red at 0.22, olive oak at 0.5 (half the colour of amber, 0.88 of its brightness), grey driftwood at 0.76 (0.16 of the colour, 0.86 of the brightness), and amber again at 1. At every position the dry years are greyer and darker and the wet years richer.
+// Knob 2: Growth. Rings born a second, the knob over 4: 0.15 at 0.6, 0.5 at the opening 2 and 1 at 4. Every ring moves inward by one of its own widths per ring born, so at the bark, where a mean ring is 3.6 LEDs wide across and up to twice that along the panel, the flow is 0.5 LEDs a second at 0.6 and 3.6 at 4. The tree is already 40 s old at second 0 at that rate, which puts a different stretch of the record on the panel at each setting.
+// Knob 3: Climate. The spread of the ring record, steady years at -1 and wild ones at 1, opening at 0. Ring width is e to the power of the spread times a 1/f series, the spread being 0.2 at -1, 0.475 at 0 and 0.75 at 1. The knob also scales the droughts (3 to 9 narrow rings, down to 0.12 of the normal width, greyer and darker), the good years (rings up to 2.1 times the mean) and the frost rings (a thin dark band inside a ring, one ring in 100 at -1, one in 14 at 0 and one in 8 at 1).
+// Knob 4: Lean. Opens at 0.06, so (knob + 1) / 2 is 0.53. It moves the pith up to 20 LEDs from the middle, 12 left and 16 down at the top of the knob, so the rings are wider on the far side, the reaction wood, and it makes the rings oval: a ring is 1.0 high for 1.0 wide near the pith and 1.55 at the edge at -1, and 1.3 and 2.0 at 1.
 
-// The picture is a function of one number, the age of the tree in rings, uN, which grows by Growth rings a
-// second. A ring i is the stretch of age from i to i+1. Its width comes from a record that is made on the fly
-// from hashed noise, so it never repeats and needs no memory: 1/f noise (six octaves of value noise, each half
-// as strong in power as the one below), droughts, boom years, frost rings and fire years from cells of rings,
-// each cell with its own hashed event.
+// The picture is a function of one number, the age of the tree in rings, uN, which grows by the Growth rate
+// every second. Ring i is the stretch of age from i to i + 1. Its width comes from a record that is made on
+// the fly from hashed noise, so it never repeats and needs no memory: a 1/f series (six octaves of value
+// noise, each with half the power of the one below), droughts, good years, frost rings, fire scars and
+// radial checks, each drawn from a cell of rings with its own hashed event.
 //
-// The view is a pull-back of that trunk. A pixel has a depth x below the bark in LED-like units, x = (1 - q) 50,
-// where q is 1 on the bark outline and 0 at the pith. A ring's width on screen is S0 times the ring's width
-// factor times cam(x), which is 1 at the bark and falls to 0.2 at the middle, so rings are 3 to 9 LEDs wide at
-// the edge and shrink inward. One pass of an ODE from the bark inward turns that into the age at every depth, so
-// the newest age uN sits at the bark and a ring born there moves in by its own width per ring born. Nothing
-// jumps when a ring is born: the newest ring is a thin sliver that swells.
+// The view is a pull-back of that trunk. A pixel has a depth x below the bark, x = (1 - q) 50, where q is 1
+// on the bark outline and 0 at the pith (x in units close to LEDs). A ring's width at depth x is S0 times
+// its width factor times cam(x), which is 1 at the bark and 0.4 at 50, so rings are 3 to 9 LEDs wide at the
+// edge and shrink inward. An ODE run from the bark inward turns that into the age at each depth: uN sits at
+// the bark and a ring born there moves in by one of its own widths per ring born, slowly and smoothly.
+// Nothing jumps when a ring is born, since the newest ring is a thin sliver that swells.
 //
-// Where a ring is under 2 LEDs the picture is filtered over a window that grows to a whole ring and then to
-// several, by integrating a table of the ring colours (a running sum of 40 samples per ring), so the middle
-// goes to the average wood colour and nothing shimmers.
+// A ring is drawn as a colour table of 40 samples, kept as a running sum, so the picture at a pixel is the
+// mean of the table over a window of age. The window is 1.1 LEDs wide where the rings are wide and grows to
+// 2.3 as they narrow under 4 LEDs. Under 2.6 LEDs the picture goes over to the smoothed mean colour of the
+// rings, weighted by their width, so the middle is the average wood colour and nothing shimmers.
 //
-// The geometry: the pith is off the middle by the Lean knob, the bark outline is a circle around the middle of
-// the panel in a squashed space (rings are taller than wide, more so at the edge) that passes through the
-// corners, and a ring at depth x is the bark outline scaled about the pith. That gives circles at the pith
-// and offset ovals at the bark, with wide rings on the far side. A smooth wobble in the age, different for
-// every ring, makes the rings wander by a fraction of their width.
+// The geometry: the pith is off the middle by the Lean knob. In a space where the rings are squashed
+// (taller than wide, more so toward the edge) the bark outline is a circle around the middle of the panel
+// that passes through the four corners. A ring at depth x is that outline scaled about the pith: circles at
+// the pith, offset ovals at the bark, wide rings where the pith is far from the bark. A smooth wander of
+// the age with the angle, different for every ring, moves the boundaries by a fraction of a ring width.
+//
+// Events sit in age and angle, so they move with the rings. A fire scar is a charcoal wedge, about one ring
+// wide at its base, that closes from both lips over 3.5 to 6.5 rings with an orange rim, while the rings
+// bulge outward beside it. A radial check starts at some ring, runs inward and ends at the ring it grew in.
+// The bark shows in the corners when the newest rings are narrow, up to 4.5 LEDs deep, and not at all in a
+// good year.
 
 const W = 64, H = 128, NPX = W * H;
 const TAU = 6.283185307179586;
-const { floor, ceil, min, max, sqrt, abs, exp, sin, cos, atan2, pow, imul, tanh } = Math;
+const { floor, min, max, sqrt, abs, exp, sin, atan2, pow, imul, tanh } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -121,7 +128,7 @@ const BASE_LW = [0.43, 0.245, 0.105]; // latewood, #6e3e1b
 const BASE_FR = [0.3, 0.15, 0.07]; // frost band
 const BASE_RIM = [0.95, 0.46, 0.1]; // callus rim of a fire scar
 const CHAR = [0.15, 0.115, 0.1]; // charcoal
-const BARK = [0.2, 0.115, 0.065];
+const BARK = [0.3, 0.17, 0.09];
 
 // Hue knob: where the wood sits at the key positions, as a shift of hue (turns), a factor on saturation and one on value.
 const HKEY = [0, 0.22, 0.5, 0.76, 1];
@@ -192,7 +199,7 @@ export function setup(params) {
     // running sums of colour
     cr: F((MAXR + 6) * NS + 2), cg: F((MAXR + 6) * NS + 2), cb: F((MAXR + 6) * NS + 2),
     ev: { sc: F(8 * 6), nsc: 0, ck: F(8 * 12), nck: 0 },
-    tmp: [0, 0, 0], tmp2: new Float32Array(3), sh: [0, 1, 1],
+    tmp2: new Float32Array(3), sh: [0, 1, 1],
     mr: F(MAXR + 8), mg: F(MAXR + 8), mb: F(MAXR + 8), ow: F(MAXR + 8),
   };
 }
@@ -264,10 +271,10 @@ function wander(th, u) {
 function paintEvents(S, uLo, uN) {
   const ev = S.ev;
   let n = 0;
-  // fire scars, one cell of 18 rings each
-  for (let c = floor(uLo / 18) - 1; c <= floor(uN / 18); c++) {
-    if (hh(c, 41) >= 0.8) continue;
-    const fire = c * 18 + floor(hh(c, 42) * 16), m = 3.5 + hh(c, 45) * 3;
+  // fire scars, one cell of 20 rings each, six cells in ten with a fire
+  for (let c = floor(uLo / 20) - 1; c <= floor(uN / 20); c++) {
+    if (hh(c, 41) >= 0.6) continue;
+    const fire = c * 20 + floor(hh(c, 42) * 18), m = 3.5 + hh(c, 45) * 3;
     if (fire > uN || fire + m + 9 < uLo || n >= 6) continue;
     ev.sc[n * 8] = fire;
     ev.sc[n * 8 + 1] = hh(c, 43) * TAU - Math.PI;
@@ -285,7 +292,7 @@ function paintEvents(S, uLo, uN) {
     ev.ck[n * 8] = end;
     ev.ck[n * 8 + 1] = hh(c, 54) * TAU - Math.PI;
     ev.ck[n * 8 + 2] = len;
-    ev.ck[n * 8 + 3] = 1.6 + 1.0 * hh(c, 55);
+    ev.ck[n * 8 + 3] = 1.5 + 1.2 * hh(c, 55);
     n++;
   }
   ev.nck = n;
@@ -297,7 +304,7 @@ export function draw(display, params) {
   SD = S.seed;
   const k = S.knobs;
   const s3 = (cl(k[2], -1, 1) + 1) / 2, lean = (cl(k[3], -1, 1) + 1) / 2;
-  SIG = 0.12 + 0.62 * s3;
+  SIG = 0.2 + 0.55 * s3;
   DSTR = 0.08 + 0.92 * s3;
   BOOM = 0.15 + 0.7 * s3;
   FROST = 0.01 + 0.12 * s3;
@@ -328,7 +335,6 @@ export function draw(display, params) {
   if (iHi - iLo + 1 > MAXR) iLo = iHi - MAXR + 1;
   const nR = iHi - iLo + 1;
   const { cr, cg, cb, tmp2 } = S;
-  const E0 = [0, 0, 0, 0], E1 = [0, 0, 0, 0], LW = [0, 0, 0, 0], FR = [0, 0, 0, 0];
   const cE0 = [0, 0, 0], cE1 = [0, 0, 0], cLW = [0, 0, 0], cFR = [0, 0, 0];
   cr[0] = cg[0] = cb[0] = 0;
   for (let r = 0; r < nR; r++) {
@@ -381,10 +387,12 @@ export function draw(display, params) {
 
   paintEvents(S, uMin, uN);
   const ev = S.ev;
-  const rim = [0, 0, 0], tmpc = [0, 0, 0];
+  const rim = [0, 0, 0];
   shift(BASE_RIM, [sh[0] * 0.5, mix(1, sh[1], 0.5), mix(1, sh[2], 0.5)], rim, 0);
   const bark = [0, 0, 0];
   shift(BARK, sh, bark, 0);
+  // The bark shows at the corners when the newest rings are narrow, a few LEDs deep in a drought, none in a good year.
+  const barkW = 4.5 * (1 - sm(0.55, 1.15, omega(uN)));
 
   const { R, TH, Q, GQ } = S;
   const uOff = uN - iLo;
@@ -401,13 +409,6 @@ export function draw(display, params) {
       const q = Q[p], th = TH[p];
       const xn = (1 - q) * XR;
       let r, g, b;
-      if (xn < -1.5) {
-        // beyond the bark outline: bark
-        const bt = 0.7 + 0.3 * vn(th * 9, 80);
-        r = bark[0] * bt; g = bark[1] * bt; b = bark[2] * bt;
-        display.setPixel(xx, yy, r * 255, g * 255, b * 255);
-        continue;
-      }
       const xc = max(xn, 0);
       const jf = xc / DX, j = min(floor(jf), NJ - 1), fr = jf - j;
       const d0 = ud[j] + (ud[j + 1] - ud[j]) * fr;
@@ -433,7 +434,7 @@ export function draw(display, params) {
           const baseD = (uAge - fire) * ringW; // LEDs above the charred base
           const tipD = (fire + m - uAge) * ringW * 0.5;
           const sd = min(sideD, baseD, tipD);
-          const fade = sm(2.8, 4.4, ringW);
+          const fade = sm(37, 28, xn);
           const mk = sm(-0.7, 0.7, sd) * fade * sm(0.6, 1.8, halfL);
           const rmv = exp(-(((sd + 0.2) / 1.1) ** 2)) * fade * sm(0.6, 1.8, halfL);
           if (mk > scarMask) { scarMask = mk; scarIn = sd; }
@@ -461,16 +462,30 @@ export function draw(display, params) {
       const gr = 1 + 0.05 * sm(2.2, 3.8, ringW) * vn(th * 12 + uu * 7.3, 71);
       r *= gr; g *= gr; b *= gr;
 
+      // resin canals: short darker streaks along the earlywood of the wider rings
+      if (ringW > 3.6) {
+        const i0 = floor(uAge), ph = uAge - i0;
+        if (ph > 0.1 && ph < 0.6) {
+          for (let c = 0; c < 2; c++) {
+            if (hh(i0, 120 + c) < 0.45) continue;
+            let dc = th - (hh(i0, 122 + c) * TAU - Math.PI);
+            if (dc > Math.PI) dc -= TAU; else if (dc < -Math.PI) dc += TAU;
+            const a = (1 - sm(1.6, 3, abs(dc) * R[p])) * (1 - sm(0.5, 1.3, abs(ph - 0.3) * ringW)) * 0.17 * sm(3.6, 5, ringW);
+            if (a > 0) { r *= 1 - a; g *= 1 - a * 1.15; b *= 1 - a * 1.3; }
+          }
+        }
+      }
+
       // radial checks
       for (let e = 0; e < ev.nck; e++) {
         const end = ev.ck[e * 8], len = ev.ck[e * 8 + 2];
         if (uAge > end || uAge < end - len) continue;
-        let da2 = th - ev.ck[e * 8 + 1] - 0.012 * sin(uAge * 0.9);
+        let da2 = th - ev.ck[e * 8 + 1] - 0.006 * sin(uAge * 0.5);
         if (da2 > Math.PI) da2 -= TAU; else if (da2 < -Math.PI) da2 += TAU;
         const tp = pow(cl(1 - (end - uAge) / len, 0, 1), 0.8);
-        const hw = 0.5 * ev.ck[e * 8 + 3] * tp * cl(ringW / 4.5, 0.5, 1.3);
+        const hw = 0.5 * (0.9 + ev.ck[e * 8 + 3] * tp); // half width in LEDs, 0.45 at the inner end to 1.7 at the outer
         const dist = abs(da2) * R[p];
-        const a = (1 - sm(hw * 0.5, hw + 0.7, dist)) * sm(0.35, 0.9, hw) * sm(1.8, 3.4, ringW) * 0.6;
+        const a = (1 - sm(hw * 0.5, hw + 0.8, dist)) * sm(0.05, 0.3, tp) * sm(34, 25, xn) * (1 - sm(end - 0.3, end, uAge)) * 0.55;
         if (a > 0) {
           r = mix(r, 0.2, a); g = mix(g, 0.1, a); b = mix(b, 0.05, a);
         }
@@ -485,11 +500,15 @@ export function draw(display, params) {
         const cr0 = mix(CHAR[0] * lump, rim[0] * 0.55, glow), cg0 = mix(CHAR[1] * lump, rim[1] * 0.45, glow), cb0 = mix(CHAR[2] * lump, rim[2] * 0.4, glow);
         r = mix(r, cr0, scarMask); g = mix(g, cg0, scarMask); b = mix(b, cb0, scarMask);
       }
-      if (xn < 0.5) {
-        const bm = sm(0.5, -1.5, xn);
-        r = mix(r, bark[0], bm); g = mix(g, bark[1], bm); b = mix(b, bark[2], bm);
+      if (xn < barkW + 0.6) {
+        // bark at the corners: furrows run along the radius, ridges between them
+        const bm = sm(barkW + 0.6, barkW - 0.6, xn);
+        const fz = 0.55 + 0.45 * sm(-0.2, 0.5, vn(th * 16 + uAge * 0.15, 80));
+        r = mix(r, bark[0] * fz, bm); g = mix(g, bark[1] * fz, bm); b = mix(b, bark[2] * fz, bm);
       }
-      display.setPixel(xx, yy, min(255, r * 255), min(255, g * 255), min(255, b * 255));
+      // the cut face is lit a little from the upper left
+      const lt = 255 * (1.05 - 0.1 * (xx * 0.45 / W + yy * 0.55 / H));
+      display.setPixel(xx, yy, min(255, r * lt), min(255, g * lt), min(255, b * lt));
     }
   }
 }
