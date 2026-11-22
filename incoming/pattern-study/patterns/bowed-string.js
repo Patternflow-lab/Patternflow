@@ -38,8 +38,8 @@ const CX = 32; // x of the string at rest
 const FINGER_MAX = 127.5, FINGER_MIN = 80; // sounding length, rows
 
 // Bow force that puts the motion in the middle of its window, against bow position: f = F beta / 2 in units of Z v_bow.
-const FC_B = [0.03, 0.04, 0.06, 0.08, 0.1, 0.13, 0.17, 0.2, 0.25, 0.3, 0.35];
-const FC_V = [7.5, 6, 4.5, 3, 1.8, 0.8, 0.6, 0.6, 0.5, 0.4, 0.35];
+const FC_B = [0.03, 0.08, 0.098, 0.117, 0.141, 0.168, 0.2, 0.234, 0.273, 0.313, 0.35];
+const FC_V = [4, 4, 1.8, 1.0, 0.75, 0.63, 0.7, 0.45, 0.42, 0.35, 0.33];
 function fcAt(b) {
   let i = 0;
   while (i < FC_B.length - 2 && b > FC_B[i + 1]) i++;
@@ -88,7 +88,7 @@ export function setup(params) {
   const S = {
     t: 0, ready: false, carry: 0,
     R: F64(N + 1), L: F64(N + 1), y: F64(N + 1), yd: F32(N + 1),
-    ny: 0, by: 0, ib: N - 20, beta: 0.04, Fs: 10, v0: 10, Fd: 1, fb: 0, lastF: 0,
+    ny: 0, by: 0, ib: N - 20, m: 20, hopWait: 0, resettle: false, beta: 0.04, Fs: 10, v0: 10, Fd: 1, fb: 0, lastF: 0,
     slipSteps: 0, steps: 0, slipFrac: 0, slipSm: 0, shape: false,
     // knobs and the random walks that wander round them
     k1: 0, k2: 2, k3: 0.04, k4: 0.06,
@@ -132,8 +132,8 @@ function ou(x, dt, tau, sigma) {
 }
 
 function wander(S, dt) {
-  S.wb = cl(ou(S.wb, dt, 55, 0.2), -0.35, 0.35);
-  S.wf = ou(S.wf, dt, 42, 0.55);
+  S.wb = cl(ou(S.wb, dt, 55, 0.15), -0.3, 0.3);
+  S.wf = ou(S.wf, dt, 42, 0.4);
   S.wv = cl(ou(S.wv, dt, 38, 0.2), -0.4, 0.4);
   S.wh = ou(S.wh, dt, 70, 0.02);
   // the finger
@@ -146,11 +146,18 @@ function wander(S, dt) {
   const w = 1 / 2.4;
   S.Lv += ((S.Lt - S.Lr) * w * w - 2 * w * S.Lv) * dt;
   S.Lr = cl(S.Lr + S.Lv * dt, FINGER_MIN - 2, FINGER_MAX);
-  // the bow
-  const beta = cl(S.k3 * exp(S.wb), 0.033, 0.34);
-  const m = cl(Math.round(beta * N), 14, 170);
-  S.ib = N - m;
-  S.beta = m / N;
+  // the bow: a cell at a time, and not often, because a hop of the bow shakes the motion
+  const mt = cl(S.k3 * exp(S.wb), 0.035, 0.34) * N;
+  S.hopWait -= dt;
+  const dm = mt - S.m;
+  if (abs(dm) > 1.2 && (S.hopWait <= 0 || abs(dm) > 0.25 * S.m)) {
+    const big = abs(dm) > 0.25 * S.m;
+    S.m = big ? Math.round(mt) : S.m + (dm > 0 ? 1 : -1);
+    S.hopWait = 2.5 * T0;
+    S.ib = N - S.m;
+    S.beta = S.m / N;
+    if (big && S.ready) S.resettle = true;
+  }
   S.f = fcAt(S.beta) * exp(1.9 * (S.k4 - 0.06) + S.wf);
   S.Fs = (S.f * 2) / S.beta;
   S.Fd = RD * S.Fs;
@@ -202,6 +209,11 @@ function stepSim(S) {
 function advance(S, dt, draw) {
   S.t += dt;
   wander(S, dt);
+  if (S.resettle) {
+    // the bow was put somewhere else: let the string find its motion again before the next frame
+    S.resettle = false;
+    for (let i = 0; i < 12 * (2 * N + 2); i++) stepSim(S);
+  }
   const ts = T0 * (S.Lr / FINGER_MAX);
   S.carry += ((2 * N + 2) / ts) * dt;
   const n = floor(S.carry);
@@ -386,17 +398,18 @@ function prerun(S) {
   S.wf = 0;
   S.wv = 0;
   S.Lt = FINGER_MAX;
-  S.Ltime = 20 + 12 * Math.random();
-  const hold = { wb: 0, wf: 0, wv: 0 };
-  const total = 50, fill = 14;
+  const total = 60, fill = 14;
   for (let t = 0; t < total; t += dt) {
+    S.Ltime = 1e9;
+    S.Lt = FINGER_MAX;
     advance(S, dt, t > total - fill);
-    if (t < 12) {
-      S.wb *= 0.2;
-      S.wf *= 0.2;
-      S.wv *= 0.2;
+    if (t < 30) {
+      S.wb *= 0.3;
+      S.wf *= 0.3;
+      S.wv *= 0.3;
     }
   }
+  S.Ltime = 16 + 14 * Math.random();
 }
 
 export function draw(display, params) {
