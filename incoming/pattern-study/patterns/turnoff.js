@@ -1,20 +1,43 @@
 // ===== Patternflow pattern =====
 // Title:   Turnoff
 // Family:  hrdiagram
-// Idea:    placeholder
+// Idea:    Three star clusters of different ages seen at once on a Hertzsprung-Russell diagram, hot blue stars at the left and cool red ones at the right, bright ones at the top, in which each cluster's main sequence is a diagonal string of glowing dots that loses its upper end as the cluster ages on a logarithmic clock, the stars that leave it climbing a red giant branch, settling on a horizontal branch or a red clump and dropping to a faint white dwarf track at the lower left, until the cluster turns into another one with its own metal content, reddening, distance and age.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: placeholder; pattern round 215
+// Lineage: Ejnar Hertzsprung's plot of colour against brightness for the stars of the Pleiades and the Hyades (1911), Henry Norris Russell's plot of spectral type against absolute magnitude (1913), Edwin Salpeter's initial mass function (1955), Allan Sandage's colour-magnitude diagram of the globular cluster M3 read as a stellar clock (1957), the Hayashi line that bounds the red giant branch (Chushiro Hayashi, 1961), the main-sequence lifetime t = 10 Gyr (M/Msun)^-2.5 and Mestel's cooling law for white dwarfs (Leon Mestel, 1952); pattern round 215
 // Round:   217
 // ===============================
 // @matrix 64x128
 // @knobs Reddening=-0.3..0.8, Rate=0..6, Metals=-2.2..0.4, Binaries=0..0.6
 //
-// Knob 1: placeholder
-// Knob 2: placeholder
-// Knob 3: placeholder
-// Knob 4: placeholder
+// Knob 1: Reddening. Dust in front of the clusters, in magnitudes of E(B-V), added to what each cluster already carries (0.1, 0.35 and -0.3 for the opening three, between -0.4 and 0.6 for the later ones). Each magnitude of the knob lowers log T of a star's colour by 0.3, moves its dot 7 LEDs right and dims it by 25 percent. At 0, where it opens, a 25 000 K star is blue, 10 000 K pale blue-white, 5800 K yellow, 4500 K orange and 3200 K red. At 0.8 the 25 000 K star is a pale blue, a 10 000 K one is yellow, anything below 4500 K is red, and the dots stand 5.6 LEDs farther right. At -0.3 the 3800 K stars turn yellow-orange and the diagram sits 2 LEDs left.
+// Knob 2: Rate. How fast the clusters age: 0.0065 dex of log10 age a second at 1, and that times the knob to the power 2.5, so 0.037 at 2 where it opens (age grows tenfold in 27 s), 0.10 at 3, 0.21 at 4 and 0.57 at 6, where a cluster runs through its 3 dex in 5 s. At 0 the ages stand still and only the shimmer, the pulsation and the drift go on. The 0.55 dex a cluster spends turning into the next takes 15 s at the opening rate. The turnoff of the opening cluster, at row 13 at 14 Myr, is at row 77 at 13 Gyr, which it reaches in 80 s.
+// Knob 3: Metals. The iron content [Fe/H] added to each cluster's own (-0.1, -0.3 and -1.25 for the opening three, -1.6 to 0.2 for the later ones, the old ones poorer). A star with fewer metals is hotter at the same luminosity, by 0.075 in log T a dex, so at -2.2 the main sequence has moved 7.9 LEDs left, its life is 14 percent shorter (10^(0.03 [Fe/H])) and the red giant branch is hotter and steeper. Below -0.5 the helium-burning stars leave the red clump at log T 3.675 for a horizontal branch that spreads up to 0.52 in log T (25 LEDs) toward blue, fully at -1.9. At 0.4 the strings stand 1.4 LEDs right of where they open.
+// Knob 4: Binaries. The share of main-sequence stars that are unresolved pairs, 6 percent where it opens and 60 percent at the top. A pair of mass ratio q is brighter by log10(1 + q^3.5), up to 0.30 dex (4.4 rows) for equal stars, so a second sequence grows above the first. The scatter in log T goes from 0.016 to 0.076 (0.8 to 3.6 LEDs, 1 sigma) and in log L from 0.02 to 0.08 (0.3 to 1.2 rows), and the ribbon behind the dots widens from 1.2 to 4.2 LEDs.
+
+// What the picture is. Log L against log T for the stars of three clusters laid over one another, with no tick, number or axis name.
+//   x = 2 + (4.56 - log T) * 48 LEDs    y = 4 + (5.15 - log L) * 14.6 LEDs
+// T is in kelvin and L in suns, so 36 000 K stands 2 LEDs from the left edge, 3 160 K at x = 53, and a star ten times as bright stands 14.6 rows higher.
+// The zero-age main sequence is a table of 17 masses, 0.35 to 80 Msun, joined by cubic Hermite curves. It runs from (3.535, -1.8) to (4.6, 5.35),
+// 51 LEDs across and 104 rows up. A star of mass M stays on it for 10 Gyr 10^(0.03 [Fe/H]) M^-2.5 + 3 Myr, brightening by 0.30 dex and cooling by up to 0.045 in log T.
+// After that it follows a track made of fractions of that lifetime, 1.7 times the textbook ones so that the stages can be watched. A star below 2 Msun
+// crosses the subgiant branch in 0.24, climbs the Hayashi line
+//   log T = 3.665 - 0.03 [Fe/H] - (0.034 - 0.008 [Fe/H]) (log L - 1)
+// in 0.34 to log L 3.4, drops to the horizontal branch in 0.17 and climbs the asymptotic branch in 0.10. A star of 3.6 to 5.5 Msun makes a blue loop of
+// up to 0.34 in log T while it burns helium. One of 8.5 Msun or more climbs to a red supergiant and ends as a flash. The rest cross to the left as a planetary
+// nebula, a streak that fades, and then cool as white dwarfs of 0.109 M + 0.394 Msun with radius 0.0126 Rsun (0.6 / mass)^(1/3), log L = -3.28 - 1.25 log10(t / 1 Gyr) for 0.6 Msun.
+// They sit at the lower left and sink out of the bottom edge after about 1 Gyr.
+// A cluster lights 14 to 35 of a pool of 58 stars, 26 for the opening ones, with masses drawn from a power law of exponent 2.35 (Salpeter) for the opening
+// clusters and 2.1 to 2.6 for the rest, between a faint limit of 0.5 to 1.2 Msun and a top of 9 to 50 Msun. Three clusters are in view at once. They open at 14 Myr, 250 Myr and 3.2 Gyr, and each runs until 13 Gyr at the latest, 1.2 to 2.7 dex
+// for the later ones. Then every dot slides to where the same star stands in the next cluster, each on a delay of up to 0.45 of the slide, and the next
+// cluster opens at an age of 8 Myr to 1.6 Gyr. It has a distance, 6 rows higher to 13 rows lower than the first. Each of the three places also wanders, by up to 6 to 10 LEDs
+// and 7 to 13 rows on periods of 140 to 260 s and 170 to 320 s, which do not divide one another. The turnoff is the clock.
+// A star is a dot of sigma 0.68 LEDs at the faint end and 1.6 at log L 5, with a halo that grows to 4.3 LEDs, in the colour of a black body of its temperature.
+// Cores are added as cubes and read back as the cube root, so that two neighbours stay two dots. Behind them a ribbon marks the isochrone, strongest where
+// the expected stars per LED are most. Every star shimmers by up to 14 percent. Giants in the instability strip (log T 3.72 to 3.9, log L above 1.2) pulse by
+// 20 percent on 1.6 to 5.5 s, an asymptotic giant above log L 3 swells by 30 percent over 12 to 22 s, and a red dwarf flares to 2.2 times for about half a second now and then.
+// A flash is a pale blue bloom that opens from 1.4 to 5 LEDs in sigma and fades over 1.8 s.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, exp, log10, sin, pow, PI, min, max } = Math;
@@ -88,7 +111,6 @@ function evolve(M, age, z, rh, o) {
   const mid = sm(0.9, 1.6, M), L0 = _z[0], T0 = _z[1] - 0.075 * z;
   const tau = age / tms(M, z);
   o.w = 1;
-  o.bump = 0;
   if (tau < 1) {
     o.ll = L0 + 0.3 * pow(tau, 1.3);
     o.lt = T0 + 0.012 * (1 - mid) * tau - 0.045 * mid * pow(tau, 1.5);
@@ -168,7 +190,7 @@ function evolve(M, age, z, rh, o) {
   o.kind = 6;
 }
 const _h = [0, 0];
-const _o = { ll: 0, lt: 0, kind: 0, w: 1, bump: 0 };
+const _o = { ll: 0, lt: 0, kind: 0, w: 1 };
 
 // ---- the pool of stars: what a star keeps from one cluster to the next
 const U = new Float32Array(NS), RB = new Float32Array(NS), Q = new Float32Array(NS), N1 = new Float32Array(NS), N2 = new Float32Array(NS);
@@ -214,7 +236,7 @@ function clusterAt(g, k) {
   C.red = first ? [0.1, 0.35, -0.3][g] : -0.4 + 1.0 * r(10); // reddening in front of this cluster, in magnitudes of E(B-V) and a bit more
   const alpha = first ? 2.35 : 2.1 + 0.5 * r(5);
   const mmin = first ? 0.6 : 0.5 + 0.7 * r(6) * r(6), mmax = first ? 45 : 9 + 41 * r(7);
-  const n = first ? 30 : 20 + floor(24 * r(8));
+  const n = first ? 26 : 14 + floor(22 * r(8));
   C.M = new Float32Array(NG);
   C.alive = new Float32Array(NG);
   const e = 1 - alpha, a = pow(mmin, e), b = pow(mmax, e);
@@ -418,7 +440,7 @@ function drawStar(S, st, i, E) {
     if (st.kind === 4 && ll > 3) I *= 1 + 0.3 * sin((TAU * t) / PM[i] + P2[i]) * sm(3.0, 3.5, ll);
   }
   if (st.kind === 0) I *= 1 + flare(i, t, ll);
-  const sg = 0.74 + 0.95 * pow(lv, 1.3);
+  const sg = 0.68 + 0.95 * pow(lv, 1.3);
   const core = (0.4 + 0.6 * pow(lv, 1.2)) * I * w * (1 - 0.25 * E);
   starRGB(st.ct);
   splat(S, st.x, st.y, sg, _c[0] * core, _c[1] * core, _c[2] * core, true);
