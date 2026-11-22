@@ -95,6 +95,7 @@ const RD = 30; // distance in LEDs over which a wave at the frequency of contact
 const XF = 1 / (2 * OMEGA_C * STEP); // wave phase step per sample to frequency over the frequency at contact
 const THIRD = 1.0; // weight of the third arm at the biggest mass difference
 const MONO = 0.7; // weight of the ring term in the ringdown
+const DRIFT1 = 0.06, DRIFT2 = 0.035; // swing of the hue drift, 83.3 s and 37.1 s periods
 const GLOW = 0.07; // neutral glow per unit of envelope
 const BG = [2, 2.5, 5]; // the floor, out of 255
 
@@ -120,7 +121,7 @@ function hsv(h, s, v, out, o) {
 
 function newEvent() {
   return {
-    on: false, x: 0, y: 0, f: 1, u: 1, P: 0, kStart: 0, kBirth: 0, kMerge: 0, merged: false,
+    on: false, x: 0, y: 0, f: 1, fs: 1, hand: 1, dist: 1, u: 1, P: 0, kStart: 0, kBirth: 0, kMerge: 0, merged: false,
     PH: new Float64Array(RING), A: new Float32Array(RING), SP: new Float32Array(RING), M: new Float32Array(RING),
     q: 1, gq: 1, b3: 0,
   };
@@ -131,7 +132,7 @@ export function setup(params) {
   const S = {
     rng, k: 0, ready: false,
     ev: [newEvent(), newEvent(), newEvent(), newEvent()],
-    lead: 0,
+    lead: 0, hist: [],
     hue: 0, sc: 1, c: 30, ratio: 1, hueBuilt: -1,
     lutP: new Float32Array(256 * 3), lutN: new Float32Array(256 * 3),
     Hs: new Float32Array(N), Gs: new Float32Array(N), Fs: new Float32Array(N), buf: new Float32Array(N * 3),
@@ -162,7 +163,7 @@ function sample(e, k) {
 // One step of one event's orbit, to step k. False once the event is over.
 function advance(e, k, sc) {
   if (!e.merged) {
-    e.P += 2 * OMEGA_C * pow(e.u, -0.375) * STEP;
+    e.P += e.fs * 2 * OMEGA_C * pow(e.u, -0.375) * STEP;
     e.u -= STEP / (TAUC * sc);
     if (e.u <= 1) {
       e.u = 1;
@@ -170,7 +171,7 @@ function advance(e, k, sc) {
       e.kMerge = k;
     }
   } else {
-    e.P += 2 * OMEGA_C * RING_UP * STEP;
+    e.P += e.fs * 2 * OMEGA_C * RING_UP * STEP;
     if ((k - e.kMerge) * STEP > TAIL) return false;
   }
   sample(e, k);
@@ -191,15 +192,30 @@ function spawn(S, first, u0) {
   const rng = S.rng;
   let e = null;
   for (const o of S.ev) if (!o.on) { e = o; break; }
-  let bx = 0, by = 0, bd = -1;
-  for (let i = 0; i < 6; i++) {
-    const cx = 14 + 36 * rng(), cy = 26 + 76 * rng();
-    let d = 1e9;
-    for (const o of S.ev) if (o.on) d = min(d, sqrt((cx - o.x) ** 2 + (cy - o.y) ** 2));
-    if (d > bd) { bd = d; bx = cx; by = cy; }
+  // The first of thirty random points that is 30 LEDs or more from every live event and, from each of the last forty
+  // places, as far as 17 LEDs less 0.35 per place back (so no place comes round again for a few minutes); the
+  // best of them if none is.
+  let bx = 0, by = 0, bd = -1e9, taken = false;
+  for (let i = 0; i < 30; i++) {
+    const cx = 9 + 46 * rng(), cy = 18 + 92 * rng();
+    let dl = 1e9, dh = 1e9;
+    for (const o of S.ev) if (o.on) dl = min(dl, sqrt((cx - o.x) ** 2 + (cy - o.y) ** 2));
+    const nh = S.hist.length;
+    for (let j = 0; j < nh; j++) {
+      const o = S.hist[nh - 1 - j];
+      dh = min(dh, sqrt((cx - o[0]) ** 2 + (cy - o[1]) ** 2) - (17 - 0.35 * j) + 16);
+    }
+    const ok = dl >= 30 && dh >= 16, score = min(dl - 14, dh);
+    if (!taken && (ok || score > bd)) {
+      bd = score;
+      bx = cx;
+      by = cy;
+      if (ok) taken = true;
+    }
   }
   const fx = 24 + 16 * rng(), fy = 50 + 28 * rng();
   const f = 0.75 + 0.85 * rng(), un = 55 + 95 * rng(), P0 = 2 * PI * rng();
+  const fsn = 0.62 + 0.38 * rng(), handn = rng() < 0.5 ? -1 : 1, distn = 0.6 + 0.5 * rng();
   const wait = first ? 2 * rng() : -1 + 4.5 * rng();
   if (!e) return;
   const nPre = first ? 0 : round(PREROLL / STEP);
@@ -207,7 +223,12 @@ function spawn(S, first, u0) {
   e.on = true;
   e.x = first ? fx : bx;
   e.y = first ? fy : by;
+  S.hist.push([e.x, e.y]);
+  if (S.hist.length > 40) S.hist.shift();
   e.f = f;
+  e.fs = first ? 0.92 : fsn;
+  e.hand = first ? 1 : handn;
+  e.dist = first ? 1 : distn;
   e.u = ub + nPre * STEP / (TAUC * S.sc);
   e.P = P0;
   e.merged = false;
@@ -268,18 +289,18 @@ export function update(dt, input, params) {
   }
 }
 
-function buildLuts(S) {
-  S.hueBuilt = S.hue;
+function buildLuts(S, hue) {
+  S.hueBuilt = hue;
   const tmp = [0, 0, 0];
   for (let i = 0; i < 256; i++) {
     const v = i / 255;
     // gold: amber in the dim end, pale gold at the top
-    hsv(0.118 + 0.03 * v + S.hue, sm(0, 0.08, v) * (1 - 0.6 * sm(0.5, 1, v)), pow(v, 0.55) * (0.15 + 0.85 * sm(0.04, 0.4, v)), tmp, 0);
+    hsv(0.118 + 0.03 * v + hue, sm(0, 0.08, v) * (1 - 0.6 * sm(0.5, 1, v)), pow(v, 0.55) * (0.15 + 0.85 * sm(0.04, 0.4, v)), tmp, 0);
     S.lutP[i * 3] = tmp[0];
     S.lutP[i * 3 + 1] = tmp[1];
     S.lutP[i * 3 + 2] = tmp[2];
     // blue: a little brighter for the same step, since blue is dark to the eye
-    hsv(0.64 - 0.05 * v + S.hue, sm(0, 0.08, v) * (1 - 0.5 * sm(0.55, 1, v)), min(1, pow(v, 0.7) * 1.1) * (0.2 + 0.8 * sm(0.03, 0.3, v)), tmp, 0);
+    hsv(0.64 - 0.05 * v + hue, sm(0, 0.08, v) * (1 - 0.5 * sm(0.55, 1, v)), min(1, pow(v, 0.7) * 1.1) * (0.2 + 0.8 * sm(0.03, 0.3, v)), tmp, 0);
     S.lutN[i * 3] = tmp[0];
     S.lutN[i * 3 + 1] = tmp[1];
     S.lutN[i * 3 + 2] = tmp[2];
@@ -292,11 +313,11 @@ function field(S, e) {
   const { PH, A, M } = e;
   const fade = sm(0, FADE_IN, (k - e.kBirth) * STEP);
   if (fade <= 0) return;
-  const b3 = e.b3, gq = e.gq * fade, ex = e.x, ey = e.y;
+  const b3 = e.b3, gq = e.gq * fade * e.dist, ex = e.x, ey = e.y, hand = e.hand;
   const rmax = (k - kS) / rinv, rmax2 = rmax * rmax;
   const Hs = S.Hs, Gs = S.Gs;
   for (let y = 0; y < H; y++) {
-    const dy = y - ey;
+    const dy = (y - ey) * hand;
     for (let x = 0; x < W; x++) {
       const dx = x - ex;
       const r2 = dx * dx + dy * dy + 0.3;
@@ -358,7 +379,9 @@ function flash(S, e) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  if (S.hueBuilt !== S.hue) buildLuts(S);
+  // The knob, and a slow drift of both colours about it so the palette never sits twice at the same place.
+  const tt = S.k * STEP, hue = S.hue + DRIFT1 * sin(2 * PI * tt / 83.3) + DRIFT2 * sin(2 * PI * tt / 37.1);
+  if (abs(S.hueBuilt - hue) > 0.0005) buildLuts(S, hue);
   const { Hs, Gs, Fs, buf } = S;
   Hs.fill(0);
   Gs.fill(0);
@@ -421,12 +444,12 @@ export function draw(display, params) {
         const phi = 0.5 * e.PH[slot], cx = cos(phi), cy = sin(phi);
         const al = (j === 0 ? 1 : 0.4 * (1 - j / 5)) * show;
         const rh = sep / (1 + q), rl = sep * q / (1 + q);
-        pts.push([e.x - rh * cx, e.y - rh * cy, sh, al, j === 0]);
-        pts.push([e.x + rl * cx, e.y + rl * cy, sl, al, j === 0]);
+        pts.push([e.x - rh * cx, e.y - e.hand * rh * cy, sh, al, j === 0]);
+        pts.push([e.x + rl * cx, e.y + e.hand * rl * cy, sl, al, j === 0]);
       }
     } else {
       const age = (k - e.kMerge) * STEP;
-      if (age < 4.5) pts.push([e.x, e.y, 1.7, exp(-age / 1.1) * (1 + 0.25 * cos(2 * OMEGA_C * RING_UP * age)), true]);
+      if (age < 4.5) pts.push([e.x, e.y, 1.7, exp(-age / 1.1) * (1 + 0.25 * cos(e.fs * 2 * OMEGA_C * RING_UP * age)), true]);
     }
   }
   for (const [x, y, sg, al, lead] of pts) if (lead) dim(x, y, 2.6, 0.7 * min(1, al));
