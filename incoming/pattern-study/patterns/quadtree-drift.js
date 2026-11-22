@@ -37,12 +37,12 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET_HI = 56, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
+const BUDGET_HI = 75, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
 const MERGE = 0.62; // a tile merges again under this share of the split error
-const RATE = 1.5; // scene seconds for each second of the panel, at Drift 0
+const RATE = 1.8; // scene seconds for each second of the panel, at Drift 0
 const HOLD = 0.4; // seconds a node keeps a new state
 const SETTLE = [0.5, 0.46, 0.42, 0.38, 0.34]; // seconds a split takes, by level
-const SEAM = 0.26; // how much darker the bottom and right row of a tile is
+const SEAM = 0.32; // how much darker the bottom and right row of a tile is
 const SEAM_MIN = 3; // the smallest tile with a seam, as a level (3 is 8 LEDs)
 
 // ---- the hidden scene
@@ -61,13 +61,13 @@ const STOPS = [
 const HOT = [255, 232, 176];
 const DEEP = [34, 18, 120];
 const PLATEAU = 0.45; // share of each stretch between stops that is a ramp, the rest is flat
-// blobs: period x, period y, phase x, phase y, radius x, radius y, colour offset, strength
+// blobs: period x, period y, phase x, phase y, radius x, radius y, palette shift
 const BLOBS = [
-  [37.1, 53.7, 0.4, 1.2, 17, 13, 0.14, 0.8],
-  [43.9, 61.3, 2.1, 0.3, 14, 19, -0.17, 0.75],
-  [53.3, 41.9, 4.0, 2.7, 19, 15, 0.2, 0.75],
-  [61.7, 71.9, 5.2, 4.4, 15, 15, -0.11, 0.8],
-  [71.3, 47.3, 1.3, 5.6, 21, 12, 0.1, 0.7],
+  [37.1, 53.7, 0.4, 1.2, 17, 13, 0.2],
+  [43.9, 61.3, 2.1, 0.3, 14, 19, -0.24],
+  [53.3, 41.9, 4.0, 2.7, 19, 15, 0.3],
+  [61.7, 71.9, 5.2, 4.4, 15, 15, -0.18],
+  [71.3, 47.3, 1.3, 5.6, 21, 12, 0.16],
 ];
 const HUE_MAT = new Float32Array(9);
 
@@ -137,7 +137,7 @@ function sceneStep(S, edges) {
   const E = 2 * pow(11, 1 - e); // width of a shape's edge, LEDs
   const al = 0.5 + 0.5 * e;
   const A1 = (TAU * t) / 47.3, A2 = (TAU * t) / 71.9 + 1.3, A3 = (TAU * t) / 29.3 + 4.1;
-  const flow = t / 157.3;
+  const flow = t / 113.7;
   // the hot band
   const bc = 0.62, bs = 0.78;
   const bOff = 78 + 36 * sin((TAU * t) / 61.1), bAmp = 9 * sin((TAU * t) / 33.7 + 0.6);
@@ -154,25 +154,24 @@ function sceneStep(S, edges) {
   const barA = 0.5 + 0.8 * sin((TAU * t) / 89.3 + 0.9), bcx = cos(barA), bsy = sin(barA);
   const barX = 32 + 12 * sin((TAU * t) / 53.9), barY = 64 + 56 * sin((TAU * t) / 31.9 + 3.1);
   const barHW = 4.5, barL = 34;
+  const rgX = 32 + 24 * sin((TAU * t) / 73.3 + 5.1), rgY = 64 + 50 * sin((TAU * t) / 47.9 + 2.6), rgR = 16 + 3 * sin((TAU * t) / 35.3), rgT = 2.2;
+  const ringAl = ss(cl((e - 0.3) / 0.5, 0, 1));
   for (let cy = 0; cy < CH; cy++) {
     const y = 2 * cy + 1;
     for (let cx = 0; cx < CW; cx++) {
       const x = 2 * cx + 1;
-      const u = 0.3 * (y / 128) + 0.1 * (x / 64) + 0.07 * sin(0.08 * x + 0.04 * y + A1) + 0.05 * sin(0.05 * y - 0.1 * x + A2) + 0.02 * sin(0.17 * x + 0.11 * y + A3) + flow;
-      let k = ((u * 1024) | 0) & 1023;
-      let r = lut[k * 3], g = lut[k * 3 + 1], b = lut[k * 3 + 2];
-      // hot band
-      const d = (x * bc + y * bs) - bOff + bAmp * sin(0.09 * (-bs * x + bc * y) + A2);
-      const hb = exp(-(d * d) / 160) * 0.6;
-      r += (hot[0] - r) * hb; g += (hot[1] - g) * hb; b += (hot[2] - b) * hb;
-      // blobs
+      let u = 0.42 * (y / 128) + 0.14 * (x / 64) + 0.08 * sin(0.08 * x + 0.04 * y + A1) + 0.06 * sin(0.05 * y - 0.1 * x + A2) + 0.025 * sin(0.17 * x + 0.11 * y + A3) + flow;
+      // a blob slides the palette position under it, so its colour is always a neighbour of the field's
       for (let i = 0; i < nb; i++) {
         const B = BLOBS[i], dx = (x - bx[i]) / B[4], dy = (y - by[i]) / B[5], q = dx * dx + dy * dy;
-        if (q > 5) continue;
-        k = (((u + B[6]) * 1024) | 0) & 1023;
-        const w = exp(-q) * B[7];
-        r += (lut[k * 3] - r) * w; g += (lut[k * 3 + 1] - g) * w; b += (lut[k * 3 + 2] - b) * w;
+        if (q < 5) u += B[6] * exp(-q);
       }
+      let k = ((u * 1024) | 0) & 1023;
+      let r = lut[k * 3], g = lut[k * 3 + 1], b = lut[k * 3 + 2];
+      // the hot band lifts the colour toward a warm white
+      const d = (x * bc + y * bs) - bOff + bAmp * sin(0.09 * (-bs * x + bc * y) + A2);
+      const hb = exp(-(d * d) / 160) * 0.5;
+      r += (hot[0] - r) * hb; g += (hot[1] - g) * hb; b += (hot[2] - b) * hb;
       // the disc
       let dx = x - dX, dy = y - dY;
       let cov = cl(0.5 - (sqrt(dx * dx + dy * dy) - dR) / E, 0, 1);
@@ -203,6 +202,13 @@ function sceneStep(S, edges) {
         k = (((u + 0.2) * 1024) | 0) & 1023;
         const w = ss(cov) * al;
         r += (min(255, lut[k * 3] * 1.12) - r) * w; g += (min(255, lut[k * 3 + 1] * 1.12) - g) * w; b += (min(255, lut[k * 3 + 2] * 1.12) - b) * w;
+      }
+      // the ring
+      dx = x - rgX; dy = y - rgY;
+      cov = cl(0.5 - (abs(sqrt(dx * dx + dy * dy) - rgR) - rgT) / E, 0, 1);
+      if (cov > 0) {
+        const w = ss(cov) * al * ringAl;
+        r += (hot[0] - r) * w; g += (hot[1] - g) * w; b += (hot[2] - b) * w;
       }
       const i = cy * CW + cx;
       cr[i] = r; cg[i] = g; cb[i] = b;
