@@ -11,10 +11,39 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0.4..4, Traffic=-1..1, Sun=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the whole sky palette and of the trail colours, so one turn comes back to where it began.
-// Knob 2: Growth. The growth rate of the Crow wave.
-// Knob 3: Traffic. How many trails are on the sky and how fast the head lays them.
-// Knob 4: Sun. The height of the sunlit layer.
+// Knob 1: Hue. Walks the sky through three palettes and back, so one turn comes back to where it began. At 0 it is a sunset: deep indigo at the top row, then violet, magenta, coral, and orange at the bottom row. At 1/3 it is a blue dusk that ends in a pale blue horizon, at 2/3 a green-gold dawn (teal, sage, gold), and at 1 the sunset again. Between two palettes the colours cross-fade, so the middle of a move is a dusky grey. The trails keep their own colours.
+// Knob 2: Growth. How fast the Crow wave grows, in e-folds a second: 1/14 at the opening 2, times 2 to the power of 0.95 per knob step away from it. At the opening the two lines of a trail touch after 35 s and the rings are gone after 83 s. At 0.4 the rate is 0.025: they touch after 100 s, so a trail stays almost straight until it is cut off at 200 s. At 4 the rate is 0.27: they touch after 9 s and the trail is gone after 22 s.
+// Knob 3: Traffic. How many trails are on the sky and how fast each is laid. At -1 one trail is wanted and the head runs at 20 LEDs a second; at the opening (0) 2.5 and 25; at 1 four and 30. A trail's own speed is within 12 percent of that. The count is a target: births come at random whenever fewer than that many trails are still strong.
+// Knob 4: Sun. The height of the sunlit layer. A trail above it has a near-white core and a gold edge that turns rose higher up; below it the core is blue-grey and the edge slate blue; the change takes about 26 LEDs. At -1 the layer is above the panel and every trail is in shadow, at the opening (0.06) its lower edge is near row 79, and at 1 it is below the panel and every trail is lit. The edge swings up to 23 rows either way on two slow periods (295 s and 459 s) and leans by up to 6 rows across the width. The whole sky is 17 percent darker than at the opening at -1 and 15 percent brighter at 1.
+
+// What is drawn is the wake of aircraft, and no aircraft. Each trail is a straight line across the panel, from one
+// edge to another, that starts and ends 40 LEDs outside it. Its head runs along it at 20 to 30 LEDs a second and
+// lays two vortex lines 2.6 LEDs apart (2.3 to 2.9 from trail to trail) that open from one crisp line over the
+// first 14 s. Every point of the line remembers how long ago it was laid and how many e-folds of growth it has had
+// since (phi, summed with the knob as it was each second), so a trail laid at one setting of Growth and carried to
+// another grows at the new rate from then on.
+// Crow's instability is a wave of 8.6 vortex separations (22 LEDs, 19 to 26) in which the two lines bow toward each
+// other at the troughs. Where the amplitude A is under half the separation b the lines are at the centre line
+// plus or minus (b/2 - A cos(k s)), with A = (b/2) exp(phi - 2.5) and a swell in s, so the first ripple is 0.1 LED
+// and the lines touch when phi has risen by 2.5. After they touch, the lines have linked, and the picture is a chain
+// of rings: plus or minus b (1 + 0.75 l) sin(k s / 2) to the power q, l being the e-folds since the link. q goes
+// from 2 (a pointed lens, what the touch looked like) to 0.5 (round ends) in 0.9 e-folds, and the rings widen as
+// l grows. The middle line wanders by 0.6 A before the link (0.3 b at the link) and 0.3 b exp(-l) after.
+// Every ring is thinned by the air: the width of a line grows 0.7 percent a second and 22 percent an e-fold after
+// the link, its density drops with that, and from 1.6 e-folds after the link to 3.6 the rings thin to wisps and go.
+// The drawing is the sum of gaussians: a stamp every 0.6 LED along each of the two lines (and a wide soft one,
+// 2.4 times the sigma, every 1.4 LEDs at 0.16 of the strength), at a sigma of 0.8 LED when the line is laid, which
+// is 2 LEDs wide at half height. The density goes over the sky as an opacity, 1 - exp(-density), so two lines on
+// top of each other brighten and never clip to a flat white. The core is nearly white and the edge, the soft part,
+// takes the colour of the layer it is in.
+// Wind carries every trail: each point has drifted by a speed of 0.2 to 0.7 LEDs a second times the time since it was
+// laid (saturating at 60 s, so a trail never leaves for good), in a direction that swings 0.6 rad either way over
+// 370 s. The oldest end drifts most, so a trail pivots on its head. Births come at random at a rate of (target -
+// strong + 0.4) / 12 per second, so the sky never repeats. The first update puts down trails of
+// mixed ages for the opening knobs: one just laid and the others from forming to rings.
+// The sky is three palettes of five colour stops, indigo to orange for the sunset, and the stops breathe on swings
+// of 33 to 200 s that have no common period. A faint haze (4.5 and 3.5 percent of the brightness, two drifting
+// waves) and a static dither of under one level keep the gradient from stepping into bands on the panel.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, cos, exp, log, sqrt, pow, abs, round, PI } = Math;
@@ -31,10 +60,10 @@ const LINK = 2.5; // e-folds of growth from the first ripple to the two lines to
 const MARGIN = 40; // a trail starts and ends this far outside the panel, LEDs
 const TUBE = 0.8; // sigma of one vortex line when it is laid, LEDs (2 LEDs wide at half height)
 const SPREAD = 0.007; // the line widens by this fraction of its width each second as the air mixes it
-const ALPHA = 1.5; // density at the middle of one fresh line; two lines on top of each other give twice that
+const ALPHA = 1.3; // density at the middle of one fresh line; two lines on top of each other give twice that
 const FADE_FROM = 1.6; // e-folds after linking that the rings start to thin
 const FADE_TO = 3.6; // and are gone
-const LIFE_CAP = 240; // a trail that has not linked yet is gone after this many seconds
+const LIFE_CAP = 200; // a trail that has not linked yet is gone after this many seconds
 const SDS = 0.6; // spacing of the points the curve is built from, LEDs
 const MAXS = 560;
 
@@ -82,16 +111,14 @@ export function setup(params) {
     ready: false,
     dc: new Float32Array(N),
     dh: new Float32Array(N),
-    di: new Float32Array(N),
     noise,
     sky: new Float32Array(256 * 3),
     sky2: new Float32Array(256 * 3),
-    gx: new Float32Array(64),
-    gy: new Float32Array(64),
+    gx: new Float32Array(128),
+    gy: new Float32Array(128),
     px1: new Float32Array(MAXS), py1: new Float32Array(MAXS),
     px2: new Float32Array(MAXS), py2: new Float32Array(MAXS),
     psg: new Float32Array(MAXS), pal: new Float32Array(MAXS),
-    pcx: new Float32Array(MAXS), pcy: new Float32Array(MAXS), pin: new Float32Array(MAXS), pis: new Float32Array(MAXS),
     col: new Float32Array(24),
     yl: 70, tiltSun: 0.2,
   };
@@ -178,7 +205,7 @@ function advance(S, h) {
   S.trails = T;
   // Births come at random: the fewer trails there are against the knob, the sooner the next one.
   let strong = 0;
-  for (const tr of S.trails) if (S.Phi - tr.phi0 < LINK + FADE_FROM + 0.6) strong++;
+  for (const tr of S.trails) if (S.Phi - tr.phi0 < LINK + FADE_FROM + 0.6 && S.t - tr.t0 < LIFE_CAP * 0.6) strong++;
   const rate = max(0, S.nt - strong + 0.4) / 12;
   if (S.trails.length < 6 && S.rng() < 1 - exp(-rate * h)) spawn(S, 0);
 }
@@ -198,13 +225,13 @@ export function update(dt, input, params) {
     advance(S, h);
     span -= h;
   }
-  S.yl = -34 + 200 * S.sun + 14 * sin(0.0213 * S.t + 1.1) + 9 * sin(0.0137 * S.t + 4.3);
+  S.yl = -45 + 225 * S.sun + 14 * sin(0.0213 * S.t + 1.1) + 9 * sin(0.0137 * S.t + 4.3);
   S.tiltSun = 0.2 * sin(0.0091 * S.t + 2.0);
 }
 
 // A gaussian of sigma sg centred on cx, cy, scaled by w, added into D. Pixel x covers x to x + 1.
 function stamp(S, D, cx, cy, sg, w) {
-  const R = ceil(3 * sg);
+  const R = min(60, ceil(3 * sg));
   const xa = max(0, floor(cx - R)), xb = min(W - 1, floor(cx + R));
   const ya = max(0, floor(cy - R)), yb = min(H - 1, floor(cy + R));
   if (xa > xb || ya > yb) return;
@@ -261,11 +288,13 @@ function drawTrail(S, tr) {
     const ex = 0.28 * sin(0.11 * s + tr.e1) + 0.15 * sin(0.23 * s + tr.e2);
     const lf = phi - LINK + ex; // above zero: the two lines have touched here
     const th = tr.k * s + tr.th0, c = cos(th), u = 0.5 * (1 - c);
+    // A fresh trail is one line: the two vortices open to their separation over the first 14 seconds.
+    const sepf = 0.35 + 0.65 * smooth(ag / 14);
     let hw, mid;
     if (lf <= 0) {
       const A = 0.5 * b * exp(lf);
-      hw = 0.5 * b - A * c;
-      mid = 1.2 * A * sin(th + 1.1);
+      hw = 0.5 * b * sepf - A * c;
+      mid = 0.6 * A * sin(th + 1.1);
     } else {
       const q = 2 - 1.5 * smooth(lf / 0.9);
       hw = b * (1 + 0.75 * lf) * pow(u, q * 0.5);
@@ -307,8 +336,8 @@ const SKIES = [
 // stops goes round the wheel with a smooth step.
 function skyTable(S, k, out, pos) {
   const t = S.t, P = SKIES[k], mul = 0.8 + 0.3 * S.sun, rgb = [0, 0, 0];
-  const hb = [0.012 * sin(0.043 * t + 0.7), 0.015 * sin(0.0613 * t), 0.012 * sin(0.0467 * t + 3.3), 0.012 * sin(0.0521 * t + 1.9), 0.01 * sin(0.0331 * t + 2.6)];
-  const vb = [0.03 * sin(0.057 * t + 2.1), 0.04 * sin(0.0731 * t + 0.4), 0.05 * sin(0.0889 * t + 5.0), 0.03 * sin(0.0397 * t + 3.9), 0.02 * sin(0.0293 * t + 1.2)];
+  const hb = [0.016 * sin(0.043 * t + 0.7), 0.02 * sin(0.0613 * t), 0.018 * sin(0.0467 * t + 3.3), 0.018 * sin(0.0521 * t + 1.9), 0.012 * sin(0.0331 * t + 2.6)];
+  const vb = [0.05 * sin(0.057 * t + 2.1), 0.06 * sin(0.0731 * t + 0.4), 0.08 * sin(0.0889 * t + 5.0), 0.05 * sin(0.0397 * t + 3.9), 0.03 * sin(0.0293 * t + 1.2)];
   let seg = 0;
   for (let i = 0; i < 256; i++) {
     const u = i / 255;
@@ -328,9 +357,9 @@ function buildSky(S) {
   const t = S.t;
   const pos = [
     0,
-    0.34 + 0.06 * sin(0.094 * t + 1.3) + 0.03 * sin(0.0371 * t + 4.1),
-    0.6 + 0.05 * sin(0.0613 * t + 2.2) + 0.025 * sin(0.1217 * t + 0.4),
-    0.82 + 0.03 * sin(0.0709 * t + 0.8),
+    0.34 + 0.07 * sin(0.094 * t + 1.3) + 0.04 * sin(0.0371 * t + 4.1),
+    0.6 + 0.06 * sin(0.0613 * t + 2.2) + 0.03 * sin(0.1217 * t + 0.4),
+    0.82 + 0.04 * sin(0.0709 * t + 0.8),
     1,
   ];
   const u = (S.hue - floor(S.hue)) * 3, i = floor(u), f = smooth(u - i);
