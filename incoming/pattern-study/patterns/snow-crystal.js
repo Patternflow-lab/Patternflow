@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Speed=0..4, Humidity=-1..1, Crowd=-1..1
 //
 // Knob 1: Hue. The light the ice is seen in. At 0 the ground is deep night blue (6, 14, 44 at the top to 13, 33, 78 at the bottom) and the ice runs from violet-blue where it is thin to near white where it is thick; at 0.25 the ground is indigo and the ice violet; at 0.5 a rose-gold dawn, plum ground and ice from rose through coral to peach white; at 0.75 aurora green, a deep teal ground and ice from teal through mint to white; at 1 it is back at ice blue. Each palette is pure over 0.15 of the knob around its own position and blends over the 0.10 between, and the crystals already grown change colour with it.
-// Knob 2: Speed. How fast the whole scene runs: growth, rest, sublimation and births go at 2 to the power 0.35 (knob - 2) below 2 and 2 to the power 0.8 (knob - 2) above, so 0.62 times at 0, 1 times at 2 (where it opens) and 3 times at 4. At 2 the front of a crystal moves 1.0 to 1.5 LEDs a second, so a crystal grows for 7 to 26 s by its size, rests 3.5 to 8.5 s and sublimates for 10 to 13 s. The glints keep their own slow pace at any setting, one turn of the light in 55 to 140 s.
+// Knob 2: Speed. How fast the whole scene runs: growth, rest, sublimation and births go at 2 to the power 0.22 (knob - 2) below 2 and 2 to the power 0.8 (knob - 2) above, so 0.74 times at 0, 1 times at 2 (where it opens) and 3 times at 4. At 2 the front of a crystal moves 1.0 to 1.5 LEDs a second, so a crystal grows for 7 to 26 s by its size, rests 3.5 to 8.5 s and sublimates for 10 to 13 s. The glints keep their own slow pace at any setting, one turn of the light in 55 to 140 s.
 // Knob 3: Humidity. How much vapour the air holds, which moves each crystal's three constants along the morphology diagram, a fat hexagonal plate at 0, a plate with six notched sectors at 0.3, a stellar plate at 0.45 and a feathery fern with side branches at 1 on the diagram's own axis. The knob puts the middle of the crowd at 0.10 on that axis at -1, 0.76 at 0 and 1.0 at 1. Each crystal is drawn off the middle for good, uniformly up to 0.85 either way for three in ten and by up to 0.3 for the rest, so at 0 about seven in ten are stellar dendrites and ferns and the others range from plates up, and at -1 nearly all are plates. It steers crystals that are still growing (they follow it at about a third a second), not just new ones, and it scales the vapour haze at the tips, the glow round each crystal and the mist in the ground by 0.68 times at -1, 1.2 at 0 and 1.4 at 1.
 // Knob 4: Crowd. How many crystals grow at once, 4 at -1, 5 at 0 (where it opens) and 7 at 1, plus the one or two that are melting. A crowded panel holds smaller crystals: the size is 1.0 times at 4 and 0.8 times at 7 of a width of 20 to 52 LEDs. Raising the knob seeds new crystals within a second or two. Lowering it starts the most advanced crystal melting at once, then one more every 1.5 s (in scene time) until the count is down.
 
@@ -97,7 +97,7 @@ const PALS = [
   },
   { // rose gold dawn
     g0: [20, 8, 34], g1: [52, 22, 54],
-    ramp: [[176, 90, 170], [226, 118, 152], [246, 154, 150], [252, 196, 176], [255, 230, 212], [255, 248, 238]],
+    ramp: [[164, 102, 166], [210, 128, 156], [236, 160, 158], [248, 200, 184], [254, 232, 216], [255, 248, 240]],
     alt: [255, 190, 118], haze: [232, 128, 150], spec: [255, 244, 232],
   },
   { // aurora green
@@ -460,7 +460,7 @@ export function update(dt, input, params) {
   S.kn = kn;
   {
     const k2 = cl(kn[1], 0, 4) - 2;
-    S.s2 = Math.pow(2, k2 < 0 ? 0.35 * k2 : 0.8 * k2);
+    S.s2 = Math.pow(2, k2 < 0 ? 0.22 * k2 : 0.8 * k2);
   }
   {
     const k3 = cl(kn[2], -1, 1);
