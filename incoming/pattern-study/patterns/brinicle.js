@@ -12,14 +12,14 @@
 // @knobs Hue=-0.12..0.33, Brine=0.8..4, Current=-1..1, Spawn=-1..1
 //
 // Knob 1: Hue. Adds the knob to the hue of the water, the ice and the brine. At the opening 0 the water runs from navy (8, 41, 77) under the ice to near-black teal (1, 19, 26) above the seabed, the ice is white with a cold cast and the brine is a blue-white. The range stops short of red and orange, since a dark orange sea reads as mud on a panel: at -0.12 the water is teal, at 0.33 it is violet to magenta.
-// Knob 2: Brine. The flux of brine, the knob over 2, so 0.4 to 2. A tube sinks 1.4 LEDs a second at the opening 2, 0.56 at 0.8 and 2.8 at 4, and each tube runs at 0.8 to 1.25 times that, so a tube takes 74 to 105 s to reach the seabed at the opening, 100 to 200 s at 0.8 and 43 to 54 s at 4. The dye is 16 particles a second at 0.8, 40 at 2 and 80 at 4, each one brighter the higher the flux. A tube is 2.6 LEDs wide at the mouth and, near the roof after 100 s, 6.6 LEDs wide at 0.8, 7.6 at 2 and 9.2 at 4.
+// Knob 2: Brine. The flux of brine, the knob over 2, so 0.4 to 2. A tube sinks 1.1 LEDs a second at the opening 2, 0.44 at 0.8 and 2.2 at 4, and each tube runs at 0.8 to 1.25 times that, so a tube takes 83 to 113 s to reach the seabed at the opening, 120 to 260 s at 0.8 and about 60 s at 4. The dye is 16 particles a second at 0.8, 40 at 2 and 80 at 4, each one brighter the higher the flux. A tube is 2.6 LEDs wide at the mouth and, near the roof after 100 s, 6.6 LEDs wide at 0.8, 7.6 at 2 and 9.2 at 4.
 // Knob 3: Current. A sideways drift of the water, signed, 0 in the middle and still. The water moves 2.2 LEDs a second at either end of the knob and the plume leans with it. A tube turns toward that lean, 19 degrees from the vertical, so one that has reached the seabed has moved 20 to 35 LEDs toward the current. New tubes start upstream so they stay on the panel. The faint light in the water drifts at 0.3 LEDs a second at 0, 2.3 at 1 and -1.7 at -1.
 // Knob 4: Spawn. How many tubes may be sinking at once and how soon the next one starts: one below -0.32, two up to 0.34 and three above it. The wait after the last start is at least 32 s at -1 and 8 s at 1, and about 10 s and 3 s more on average. A tube that has touched down no longer counts, so at -1 one tube sinks while up to two stand. Three tubes is the most the panel ever holds, a dying one included.
 
 // The panel is a side view under polar sea ice. Rows 0 to about 10 are the underside of the ice, rows about
 // 116 to 127 the silt of the seabed, and between them the water goes from navy to near black, with a faint
 // soft light drifting through it.
-// A brinicle begins as a point inside the ice. Its tip sinks at 1.4 LEDs a second times the flux times the
+// A brinicle begins as a point inside the ice. Its tip sinks at 1.1 LEDs a second times the flux times the
 // tube's own pace, and the path lays a vertex every 2 LEDs. The heading turns toward the lean of the plume
 // (the arctangent of the current over the 6.2 LEDs a second the dye falls at) with a time constant of 20 s,
 // plus a small wander, so a change of the current bends the tube from there on and leaves the old part where
@@ -343,7 +343,7 @@ function moveDye(S, dt) {
       py[i] = bedAt(S, px[i]) - 1.6;
       continue;
     }
-    const uw = 0.9 * S.u + 3.4 * sin(py[i] * 0.16 + t * 0.9 + pph[i]) + 1.7 * sin(py[i] * 0.33 - t * 1.7 + 2 * pph[i]);
+    const uw = 0.9 * S.u + min(1, pa[i] / 1.6) * (3.4 * sin(py[i] * 0.16 + t * 0.9 + pph[i]) + 1.7 * sin(py[i] * 0.33 - t * 1.7 + 2 * pph[i]));
     pvx[i] += (uw - pvx[i]) * kx + (Math.random() - 0.5) * 2.4 * sq * (0.4 + 0.5 * pa[i]);
     pvy[i] += (V_FALL - pvy[i]) * ky;
     px[i] += pvx[i] * dt;
