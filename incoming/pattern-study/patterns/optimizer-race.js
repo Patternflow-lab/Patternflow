@@ -57,13 +57,13 @@ const BANDS = [
   [0.535, 0.72, 0.50],
   [0.49, 0.62, 0.57],
   [0.42, 0.50, 0.64],
-  [0.32, 0.42, 0.70],
-  [0.20, 0.38, 0.78],
-  [0.13, 0.36, 0.88],
-  [0.095, 0.52, 0.90],
-  [0.065, 0.58, 0.80],
-  [0.04, 0.58, 0.68],
-  [0.025, 0.42, 0.62],
+  [0.32, 0.40, 0.70],
+  [0.20, 0.32, 0.78],
+  [0.13, 0.29, 0.88],
+  [0.095, 0.42, 0.90],
+  [0.065, 0.48, 0.80],
+  [0.04, 0.50, 0.68],
+  [0.025, 0.36, 0.62],
   [0.97, 0.10, 0.93],
 ];
 const RACERS = [
@@ -327,7 +327,7 @@ const BETA = 0.95;
 const MAXSTEP = 4;
 const NOISE0 = 0.007;
 // gradient descent, momentum, Nesterov: the learning rate times the stiffness of the valley across (A / sigma); RMSProp, Adam: LEDs a step; all at Rate 1
-const LR = [1.9, 0.26, 0.34, 1.8, 2.2];
+const LR = [1.9, 0.26, 0.34, 1.2, 2.2];
 const EPS = 0.0015;
 const TAU_T = 4.2; // seconds a trail takes to fade to a third
 const ERODE = 0.0035; // taken off a trail every frame, so its soft edges go first and the tail thins as it fades
@@ -339,7 +339,7 @@ function gauss() {
 
 function makeRacer(id) {
   return {
-    id, phase: 0, wait: 0.5 + id * 1.3 + Math.random() * 1.5, age: 0, life: 24, ha: 0,
+    id, phase: 0, wait: 0.3 + id * 2.4 + Math.random() * 2.2, age: 0, life: 24, ha: 0,
     x: 0, y: 0, px: 0, py: 0, dx: 0, dy: 0, vx: 0, vy: 0, mx: 0, my: 0, sx: 0, sy: 0, n: 0, ge: -1, ox: 0, oy: 0, oage: 0, still: 0,
     cv: new Float32Array(NPX), hl: new Float32Array(NPX), bx0: 1, bx1: 0, by0: 1, by1: 0, lx: 0, ly: 0, has: false, idle: 0,
   };
@@ -431,7 +431,7 @@ function stepRacer(S, r, rho, nz) {
 function frame(S, d, kn) {
   S.t += d;
   const k3 = cl(0.5 + 0.5 * kn[2], 0, 1), rho = 0.25 * pow(4, cl(kn[1], 0, 3) / 2), q4 = (cl(kn[3], -1, 1) + 1) / 2, k4 = q4 * q4, nz = k4 * NOISE0;
-  S.tm += d * (0.9 + 1.0 * k3) * (0.7 + 0.3 * rho);
+  S.tm += d * (1.1 + 1.0 * k3) * (0.8 + 0.2 * rho);
   prepSurface(S, S.tm, k3, k4);
   const rad = 1.6 + 3.4 * min(1, rho);
   S.still2 = rad * rad;
