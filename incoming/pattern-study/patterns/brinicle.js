@@ -11,38 +11,46 @@
 // @matrix 64x128
 // @knobs Hue=-0.12..0.33, Brine=0.8..4, Current=-1..1, Spawn=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the water, the ice and the brine, 0 being a cold blue with white ice. The range stops short of red and orange, since a dark orange sea reads as mud on a panel: at -0.18 the water is teal and the ice is mint, at 0.33 it is violet to magenta.
-// Knob 2: Brine. How much brine leaks: the knob over 2 is the flux, 0.4 to 2. A tube sinks 1.9 LEDs a second at the opening 2, 0.76 at 0.8 and 3.8 at 4; the plume carries more dye and spreads wider the higher it is, and the tube comes out 5 LEDs wide at 0.8 and 8 at 4 near the roof.
-// Knob 3: Current. A sideways drift of the water, signed, 0 in the middle and still. The plume leans with it, up to 2.2 LEDs a second, and a tube bends toward it as it grows: it turns toward 27 degrees from the vertical over about 20 s, so a tube grown at the end of the knob has moved 20 to 30 LEDs sideways by the time it reaches the seabed. New tubes start upstream so they stay on the panel. The faint light in the water moves with it.
-// Knob 4: Spawn. How many brinicles live at once and how soon a new one starts. Below -0.33 one at a time, up to 0.33 two, above it three, and the wait between starts runs from about 27 s at -1 to 13 s at 1. A tube that is finishing still counts as one of the three on the panel.
+// Knob 1: Hue. Adds the knob to the hue of the water, the ice and the brine. At the opening 0 the water runs from navy (8, 41, 77) under the ice to near-black teal (1, 19, 26) above the seabed, the ice is white with a cold cast and the brine is a blue-white. The range stops short of red and orange, since a dark orange sea reads as mud on a panel: at -0.12 the water is teal, at 0.33 it is violet to magenta.
+// Knob 2: Brine. The flux of brine, the knob over 2, so 0.4 to 2. A tube sinks 1.4 LEDs a second at the opening 2, 0.56 at 0.8 and 2.8 at 4, and each tube runs at 0.8 to 1.25 times that, so a tube takes 74 to 105 s to reach the seabed at the opening, 100 to 200 s at 0.8 and 43 to 54 s at 4. The dye is 16 particles a second at 0.8, 40 at 2 and 80 at 4, each one brighter the higher the flux. A tube is 2.6 LEDs wide at the mouth and, near the roof after 100 s, 6.6 LEDs wide at 0.8, 7.6 at 2 and 9.2 at 4.
+// Knob 3: Current. A sideways drift of the water, signed, 0 in the middle and still. The water moves 2.2 LEDs a second at either end of the knob and the plume leans with it. A tube turns toward that lean, 19 degrees from the vertical, with a time constant of 20 s, so a tube that has reached the seabed has moved 20 to 35 LEDs toward the current. New tubes start upstream so they stay on the panel. The faint light in the water drifts at 0.3 LEDs a second at 0, 2.3 at 1 and -1.7 at -1.
+// Knob 4: Spawn. How many tubes may be sinking at once and how soon the next one starts: one below -0.32, two up to 0.34 and three above it. The wait after the last start is at least 32 s at -1 and 8 s at 1, and about 10 s and 3 s more on average. A tube that has touched down no longer counts, so at -1 one tube sinks while up to two stand. Three tubes is the most the panel ever holds, a dying one included.
 
 // The panel is a side view under polar sea ice. Rows 0 to about 10 are the underside of the ice, rough and
 // thinner in places, and rows about 116 to 127 are the silt of the seabed. Between them the water goes from
-// navy to near black, with a very faint light drifting through it.
-// A brinicle begins as a point on the roof. A tip sinks at 1.9 LEDs a second times the flux, and lays a vertex
-// of the tube every 2 LEDs of path. The heading turns toward the lean of the plume (atan of the current over
-// the 4.2 LEDs a second the dye falls at) with a time constant of 20 s, so a change of the current bends the
-// tube from there on and leaves the old part where it was. A vertex's radius grows with its age, from 1.2 LEDs
-// at the mouth to 2.5 to 4 LEDs after about 100 s, so the tube is thick and white near the roof and thin and
-// bright at the mouth. The tube is drawn row by row, as a soft white wall with a bluer bore in the middle.
-// The dye is a few hundred particles that start at the mouth. Each is pulled toward a terminal fall speed and
-// toward the speed of the water, is shaken by a sway that changes with depth and time, and takes a random
-// kick that grows with its age, so the plume widens as it falls. Each is drawn as a soft gaussian that widens
-// and dims. A particle that reaches the floor turns sideways and slides along it.
-// When the tip reaches the seabed the brine fans out. Two trunks run along the floor, one each way, fast at
-// first (about 5 LEDs a second) and slowing with a time constant of 5 s, so each side reaches about 22 to 33
-// LEDs. Side twigs leave a trunk every 3 to 6 LEDs, lean forward 25 to 70 degrees and rise a few LEDs before
-// they stop, and a twig may fork once. Every segment is at least 2 LEDs wide as drawn, with a wide faint
-// frost under the floor between the two fronts.
-// A brinicle stands 90 to 180 s after it touches down, its plume weakening in the second half. Then it dies in
-// 26 to 36 s: a break opens somewhere between a third and three quarters of the way down and the lower piece
+// navy to near black, with a faint soft light drifting through it, brighter near the roof.
+// A brinicle begins as a point inside the ice. Its tip sinks at 1.4 LEDs a second times the flux times the
+// tube's own pace, and the path lays a vertex every 2 LEDs. The heading turns toward the lean of the plume
+// (the arctangent of the current over the 6.2 LEDs a second the dye falls at) with a time constant of 20 s,
+// plus a small wander, so a change of the current bends the tube from there on and leaves the old part where
+// it was. A vertex's radius grows with its age, from 1.3 LEDs at the mouth toward 2.2 + 0.8 times the flux
+// with a time constant of 45 s, and then by 0.007 LEDs a second for 110 s more, so the tube is thick and
+// white near the roof and thin and bright at the mouth. The tube is drawn row by row as a soft white wall,
+// a bluer bore down the middle with a slow pulse, and a cool halo.
+// Water pushes the middle of every tube sideways, held at the roof and at the seabed: up to 4 LEDs on
+// two swings of 37 s and 56 s with no common period, so a standing tube still moves.
+// The dye is particles that start at the mouth, 40 a second times the flux. Each is pulled toward a fall
+// speed of 6.2 LEDs a second and toward the speed of the water, which has a sway that changes with depth and
+// time and is the same for all the dye of one brinicle, so the plume sways as one stream. Each takes a random
+// kick that grows with its age, so the plume widens as it falls, and is drawn as a soft gaussian that widens
+// and dims over 3.4 to 6.2 s. A particle that reaches the floor turns sideways and slides along it, much dimmer.
+// When the tip reaches the seabed the brine fans out. Two trunks run along the floor, one each way, at about
+// 5.5 LEDs a second at first and slowing with a time constant of 5 s, so each side reaches 13 to 32 LEDs
+// before the panel edge cuts it. Side twigs leave a trunk every 5 to 9 LEDs, lean forward 40 to 70 degrees
+// and rise 5 to 8 LEDs at most, and a twig may fork once. Later in a stand a twig now and then grows from the
+// trunk. Every segment is drawn at least 2 LEDs wide, with a faint frost on the floor between the two fronts.
+// A brinicle stands 60 to 135 s after it touches down, its plume and its light weakening. Then it dies in 26
+// to 36 s: a break opens somewhere between a third and three quarters of the way down and the lower piece
 // falls and fades, the rest dissolves from the bottom up in runs a few LEDs long, and the web fades over 46 s,
-// the far ends first. Nothing stays: a tube, its plume and its web are gone about 4 minutes after it began at
-// the opening settings.
+// the far ends first. Nothing stays: from its start a tube, its plume and its web are gone in 3 to 5 minutes
+// at the opening settings.
 // At most three tubes exist at a time. A new one starts after a random wait once fewer than the Spawn knob's
-// share are alive, at a random column that is at least 12 LEDs from the others. The first update runs the
-// sea for as long as the first tube needs to be between 38 and 63 percent of the way down, in steps of 0.2 s,
-// at the knob values it opened with, so the picture is formed at second 0.
+// share are still sinking, at a random column at least 12 LEDs from the others. Starts are spaced by at
+// least 8 to 32 s, so at any moment one tube is usually sinking and another is usually standing or dying.
+// The first update runs the sea for as long as the first tube needs to be 38 to 63 percent of the way down,
+// in steps of 0.2 s, at the knob values it opened with, so the picture is formed at second 0.
+// The ice edge is four swells with no common period, the slowest about 2.5 minutes, and a tube hangs from a
+// collar where the edge is pulled down.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, exp, sqrt, abs, pow, atan, log } = Math;
@@ -65,7 +73,7 @@ const BOW = 4; // how far the middle of a tube is pushed to either side by the w
 const VERT = 2; // path length between tube vertices, LEDs
 const NV = 120; // most vertices a tube has
 const NS = 520; // most web segments a brinicle has
-const NPART = 1100; // most dye particles
+const NPART = 1500; // most dye particles
 const R_MOUTH = 1.3; // half width of a new tube, LEDs
 const TAU_R = 45; // seconds for a vertex to reach most of its full radius
 const STAND = [60, 135]; // seconds a brinicle stands after it touches down
@@ -192,7 +200,7 @@ function spawn(S, force) {
   const lean = cl(S.u / V_LEAN, -1, 1);
   const lo = 8 + 20 * max(0, -lean), hi = 56 - 20 * max(0, lean);
   let best = -1, bd = -1;
-  for (let i = 0; i < 14; i++) {
+  for (let i = 0; i < 14 && bd < 15; i++) {
     const x = mix(lo, hi, Math.random());
     let dm = 99;
     for (const b of S.bs) if (!b.tubeGone) dm = min(dm, abs(x - b.x0));
@@ -239,6 +247,8 @@ function advance(S, b, dt) {
       b.brk = max(2, floor(b.n * mix(0.33, 0.75, Math.random())));
       b.fallT = 0;
       b.fvy = 0.5;
+      // The tube thins out on both sides of the break first, so the gap is ragged and not a clean cut.
+      for (let i = max(0, b.brk - 4); i < min(b.n, b.brk + 3); i++) b.th[i] = min(b.th[i], 0.14 + 0.07 * abs(i - b.brk + 0.5));
     }
     if (b.brk >= 0) {
       b.fallT += dt;
@@ -454,9 +464,9 @@ function palette(S) {
   S.key = key;
   const h = 0.585 + S.hue, p = S.pal;
   hsv(h, 0.9, 0.3, p.top);
-  hsv(h - 0.02, 0.95, 0.075, p.bot);
-  hsv(h - 0.03, 0.45, 0.22, p.silt);
-  hsv(h - 0.04, 0.26, 1, p.ice);
+  hsv(h - 0.04, 0.95, 0.1, p.bot);
+  hsv(h - 0.03, 0.4, 0.3, p.silt);
+  hsv(h - 0.04, 0.2, 1, p.ice);
   hsv(h - 0.01, 0.55, 0.85, p.thin);
   hsv(h - 0.06, 0.62, 1, p.brine);
   hsv(h - 0.04, 0.5, 1, p.glow);
@@ -653,7 +663,7 @@ function roof(S) {
       const yy = y + 0.5, p = y * W + x, cov = cl((e - yy) / 1.2 + 0.5, 0, 1);
       if (cov > 0) {
         const q = cl(yy / max(e, 1), 0, 1), tex = 1 + 0.07 * sin(x * 0.55 + yy * 0.13 + e * 0.5) + 0.12 * sin(x * 0.21 - t * 0.043 + S.ph[7]);
-        const br = (0.98 - 0.38 * pow(q, 1.5)) * (0.72 + 0.28 * k) * tex;
+        const br = (1.18 - 0.48 * pow(q, 1.5)) * (0.72 + 0.28 * k) * tex;
         const m = k * 0.7 + 0.3 * (1 - q);
         R[p] = mix(R[p], mix(th[0], ic[0], m) * br, cov);
         G[p] = mix(G[p], mix(th[1], ic[1], m) * br, cov);
