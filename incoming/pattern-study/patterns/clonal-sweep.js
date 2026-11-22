@@ -25,6 +25,7 @@ const M0 = 2.6; // narrowest a bud is drawn, LEDs
 const GROW = 5; // rows a bud takes to open to full width
 const FADE = 7; // rows a dead clone's tip takes to close
 const ANCHOR = 0.6; // hue the family tree is pulled toward at Hue 0
+const DRIFT = 0.0011; // turns of hue the whole palette moves each row
 const HW = 0.85; // half width of a soft edge between two bands, LEDs
 const { floor, min, max, exp, sqrt, log, abs, cos, pow, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -55,7 +56,7 @@ export function setup(params) {
   const f = (n) => new Float32Array(n);
   const S = {
     ready: false, row: 0, phi: 0, gacc: 0, T: 1000,
-    k1: 0, sel: 0.05, N: 2600, lam: 0.1, rowT: 0.16, gpr: 1.7, alpha: 0.4,
+    k1: 0, g: 0, sel: 0.05, N: 2600, lam: 0.1, rowT: 0.16, gpr: 1.7, alpha: 0.4,
     used: new Uint8Array(MAXC), vis: new Uint8Array(MAXC), n: new Float64Array(MAXC), sf: new Float64Array(MAXC), par: new Int16Array(MAXC),
     hue: f(MAXC), sat: f(MAXC), val: f(MAXC), ord: f(MAXC), ft: f(MAXC),
     born: new Float64Array(MAXC), dead: new Float64Array(MAXC), shown: new Uint8Array(MAXC),
@@ -74,9 +75,9 @@ export function update(dt, input, params) {
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const u = (cl(k[1], 0.5, 3.5) - 0.5) / 3;
   S.k1 = k[0];
-  S.sel = 0.05 * exp(1.45 * cl(k[2], -1, 1));
+  S.sel = 0.1 * exp(1.2 * cl(k[2], -1, 1));
   S.N = 2600 * exp(2.2 * cl(k[3], -1, 1));
-  S.lam = cl(0.25 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.2), 0.02, 0.8);
+  S.lam = cl(0.4 * pow(0.12 / S.sel, 0.5) * pow(S.N / 2600, 0.2), 0.02, 0.8);
   S.alpha = cl(0.4 * pow(2600 / S.N, 0.45), 0.22, 1); // a small population is shown rough, a large one smooth
   S.rowT = 0.25 * pow(0.09 / 0.25, u);
   S.gpr = 1 + 1.4 * u;
@@ -222,6 +223,7 @@ function tick(S) {
   S.gacc -= g;
   while (g-- > 0) generation(S);
   S.row++;
+  if (S.ready) S.g += DRIFT * (1 + 0.5 * Math.sin(S.row * 0.0071 + 1.3) + 0.3 * Math.sin(S.row * 0.0173 + 4.1));
   for (let i = 0; i < MAXC; i++) if (S.used[i]) S.ft[i] += (S.n[i] / S.T - S.ft[i]) * S.alpha;
   for (let pass = 0; pass < 6; pass++) {
     let changed = false;
@@ -323,7 +325,7 @@ function render(S) {
     const dd = min(dl, dr), rw = min(8, 0.45 * bw);
     v *= 1 - 0.22 * sm(2, 8, bw) * (1 - sm(0, rw, dd)) - 0.2 * min(seam, 1);
     h -= floor(h);
-    S.HH[o + p] = h;
+    S.HH[o + p] = h + S.g;
     S.HS[o + p] = cl(s, 0, 1);
     S.HV[o + p] = cl(v, 0, 1);
   }
@@ -463,6 +465,11 @@ function prerun(S) {
   S.hue[r] = ANCHOR;
   for (let t = 0; t < 2600; t++) tick(S);
   for (let t = 0; t < 5000 && !goodScene(S); t++) tick(S);
+  // the rows already drawn are older, so they carry the palette a little behind the new ones
+  for (let a = 0; a < HR; a++) {
+    const o = ((S.head - a + HR) % HR) * W;
+    for (let p = 0; p < W; p++) S.HH[o + p] -= DRIFT * a;
+  }
 }
 
 // ---- drawing
