@@ -71,39 +71,72 @@ function hsv(h, s, v, out, o) {
   out[o + 2] = (k === 3 || k === 4 ? v : k === 2 ? t : k === 5 ? q : p) * 255;
 }
 
-// Gaussian noise tile, blurred round the edges, scaled to unit spread.
-function noiseTile(rand) {
-  const a = new Float32Array(TM);
-  for (let i = 0; i < TM; i += 2) {
-    const r = sqrt(-2 * log(rand() + 1e-9)), p = TAU * rand();
-    a[i] = r * cos(p);
-    a[i + 1] = r * sin(p);
-  }
-  const wts = [];
-  let ws = 0;
-  for (let d = -3; d <= 3; d++) {
-    const w = exp(-(d * d) / (2 * SIG_S * SIG_S));
-    wts.push(w);
-    ws += w;
-  }
-  const tmp = new Float32Array(TM);
-  for (let pass = 0; pass < 2; pass++) {
-    const src = pass === 0 ? a : tmp, dst = pass === 0 ? tmp : a;
-    for (let y = 0; y < TN; y++)
+// A tile of complex Gaussian noise, blurred round the edges, made a few rows a
+// frame so that a new one can be had every quarter turn of the drift without
+// a hitch. The weights are those of the 0.7 LED blur; its two passes cut the
+// spread to the sum of their squares, which the last pass puts back.
+const BW = [];
+let BWS = 0;
+for (let d = -3; d <= 3; d++) {
+  const w = exp(-(d * d) / (2 * SIG_S * SIG_S));
+  BW.push(w);
+  BWS += w;
+}
+let BSQ = 0;
+for (const w of BW) BSQ += (w / BWS) * (w / BWS);
+
+function newTile() {
+  return { re: new Float32Array(TM), im: new Float32Array(TM) };
+}
+function startTile(P, tile, seed) {
+  P.gen = { tile, rand: rng(seed), y: 0, pass: 0 };
+}
+// Do `rows` rows of the job; true when it has finished.
+function stepTile(P, rows) {
+  const g = P.gen;
+  if (!g) return true;
+  const { tile, rand } = g;
+  const { gr, gi } = P;
+  for (let n = 0; n < rows && g.pass < 2; n++) {
+    const y = g.y;
+    if (g.pass === 0) {
+      const rr = new Float32Array(TN), ri = new Float32Array(TN);
       for (let x = 0; x < TN; x++) {
-        let s = 0;
-        for (let d = -3; d <= 3; d++) {
-          const j = pass === 0 ? y * TN + ((x + d) & 255) : (((y + d) & 255) * TN) + x;
-          s += wts[d + 3] * src[j];
-        }
-        dst[y * TN + x] = s / ws;
+        const r = sqrt(-2 * log(rand() + 1e-9)), p = TAU * rand();
+        rr[x] = r * cos(p);
+        ri[x] = r * sin(p);
       }
+      for (let x = 0; x < TN; x++) {
+        let a = 0, b = 0;
+        for (let d = -3; d <= 3; d++) {
+          a += BW[d + 3] * rr[(x + d) & 255];
+          b += BW[d + 3] * ri[(x + d) & 255];
+        }
+        gr[y * TN + x] = a / BWS;
+        gi[y * TN + x] = b / BWS;
+      }
+    } else {
+      for (let x = 0; x < TN; x++) {
+        let a = 0, b = 0;
+        for (let d = -3; d <= 3; d++) {
+          const j = (((y + d) & 255) * TN) + x;
+          a += BW[d + 3] * gr[j];
+          b += BW[d + 3] * gi[j];
+        }
+        tile.re[y * TN + x] = a / BWS / BSQ;
+        tile.im[y * TN + x] = b / BWS / BSQ;
+      }
+    }
+    if (++g.y === TN) {
+      g.y = 0;
+      g.pass++;
+    }
   }
-  let sq = 0;
-  for (let i = 0; i < TM; i++) sq += a[i] * a[i];
-  const norm = 1 / sqrt(sq / TM);
-  for (let i = 0; i < TM; i++) a[i] *= norm;
-  return a;
+  if (g.pass >= 2) {
+    P.gen = null;
+    return true;
+  }
+  return false;
 }
 
 function lattice(rand, n) {
@@ -128,10 +161,18 @@ export function setup(params) {
   const rand = rng(224224);
   params.t = 0;
   params.tau = 3.1;
-  params.t1r = noiseTile(rand);
-  params.t1i = noiseTile(rand);
-  params.t2r = noiseTile(rand);
-  params.t2i = noiseTile(rand);
+  params.gr = new Float32Array(TM);
+  params.gi = new Float32Array(TM);
+  params.tiles = [newTile(), newTile(), newTile()];
+  params.ia = 0;
+  params.ib = 1;
+  params.ic = 2;
+  params.seq = 3;
+  params.psi = 0.4;
+  for (let i = 0; i < 3; i++) {
+    startTile(params, params.tiles[i], 224224 + 7919 * i);
+    stepTile(params, 2 * TN);
+  }
   params.tbr = new Float32Array(TM);
   params.tbi = new Float32Array(TM);
 
@@ -240,7 +281,7 @@ function tileAt(a, x, y) {
 
 function render(P, k) {
   const t = P.t, tau = P.tau;
-  const s = pow(2, 1.6 * cl(k[3], -1, 1));
+  const s = pow(2, 1.9 * cl(k[3], -1, 1));
   const f = pow(2, 0.75 * cl(k[2], -1, 1));
   if (Math.abs(f - P.fc) > 1e-4) kernels(P, f);
 
@@ -251,20 +292,31 @@ function render(P, k) {
     for (let i = 0; i < ps.length; i++) v += ws[i] * sin((TAU * tau) / ps[i] + ph + 1.7 * i);
     return v;
   };
-  const th0 = s * 0.14 * wob(ROCK_P, ROCK_W, 0.7);
-  const x0 = s * 10 * wob(SLIDE_P, SLIDE_W, 2.1);
+  const th0 = s * 0.075 * wob(ROCK_P, ROCK_W, 0.7);
+  const x0 = s * 4.5 * wob(SLIDE_P, SLIDE_W, 2.1);
   const y0 = s * 2 * wob(PRESS_P, PRESS_W, 1.3);
-  // The slow wander across the plane of the scan blends the two noise tiles.
-  const psi = 0.55 * sin(0.23 * t) + 0.45 * sin(0.0917 * t + 1.7) + 0.3 * sin(0.0411 * t + 3.3);
-  const cp = cos(psi), sp = sin(psi);
-  const { t1r, t1i, t2r, t2i, tbr, tbi } = P;
+  // The scan plane drifts through the tissue, out of the plane and on without end:
+  // the grain is a quarter turn from one tile of noise to the next, then the next
+  // after that, each made fresh when it is wanted, so no grain is seen twice.
+  const { tbr, tbi } = P;
+  if (P.psi >= PI / 2) {
+    P.psi -= PI / 2;
+    const old = P.ia;
+    P.ia = P.ib;
+    P.ib = P.ic;
+    P.ic = old;
+    startTile(P, P.tiles[old], 224224 + 7919 * P.seq++);
+  }
+  stepTile(P, 12);
+  const A = P.tiles[P.ia], B = P.tiles[P.ib];
+  const ca1 = cos(P.psi), sa1 = sin(P.psi);
   for (let i = 0; i < TM; i++) {
-    tbr[i] = cp * t1r[i] + sp * t2r[i];
-    tbi[i] = cp * t1i[i] + sp * t2i[i];
+    tbr[i] = ca1 * A.re[i] + sa1 * B.re[i];
+    tbi[i] = ca1 * A.im[i] + sa1 * B.im[i];
   }
   // The cyst drifts through the tissue; the tissue breathes along depth.
-  const cx = -8 + 6 * sin((TAU * t) / 37.1 + 0.9) + 3 * sin((TAU * t) / 14.9 + 3) + 2 * sin((TAU * t) / 71.3 + 5);
-  const cy = 78 + 5 * sin((TAU * t) / 29.7 + 2) + 2 * sin((TAU * t) / 11.1 + 0.2) + 2 * sin((TAU * t) / 53.9 + 1);
+  const cx = -8 + 3 * sin((TAU * t) / 37.1 + 0.9) + 1.5 * sin((TAU * t) / 14.9 + 3) + 1.5 * sin((TAU * t) / 71.3 + 5);
+  const cy = 78 + 2.5 * sin((TAU * t) / 29.7 + 2) + 1 * sin((TAU * t) / 11.1 + 0.2) + 1.5 * sin((TAU * t) / 53.9 + 1);
   const { ux, uy } = P;
   for (let y = 0; y < 256; y++) {
     const w = cl((y - 30) / 50, 0, 1);
@@ -407,8 +459,9 @@ function palettes(P, h0) {
 export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
-  const s = pow(2, 1.6 * cl(k[3], -1, 1));
+  const s = pow(2, 1.9 * cl(k[3], -1, 1));
   params.t += d;
+  params.psi += d * (0.1 + 0.04 * sin(0.37 * params.t + 1));
   params.tau += d * sqrt(s);
   const h0 = 0.57 + k[0];
   if (Math.abs(h0 - params.hc) > 1e-4) palettes(params, h0);
