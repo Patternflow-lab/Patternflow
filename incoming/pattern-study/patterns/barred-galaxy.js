@@ -292,6 +292,8 @@ export function draw(display, params) {
   const oy = 7 * sin((TAU * t) / 127 + S.ph[2]) + 3.5 * sin((TAU * t) / 181 + S.ph[4]);
   // young stars come in bursts and the exposure breathes a little, on periods that do not divide the others
   const sfr = 1 + 0.15 * sin((TAU * t) / 147 + S.ph[0]) + 0.1 * sin((TAU * t) / 233 + S.ph[1]);
+  // one side of the disk is a little brighter than the other, and that side slowly turns, so the two arms are never equal
+  const lc = cos((TAU * t) / 203 + S.ph[8]), ls = sin((TAU * t) / 203 + S.ph[8]);
   const expo = 1 + 0.05 * sin((TAU * t) / 71 + S.ph[6]) + 0.03 * sin((TAU * t) / 119 + S.ph[7]);
   const cr = cos(roll), sr = sin(roll);
   const sc = min(58, 34 / max(0.25, ci)) * (0.92 + 0.08 * sin((TAU * t) / 113 + S.ph[3]));
@@ -316,7 +318,7 @@ export function draw(display, params) {
     const dv = vt - vc;
     const hot = sqrt(vr * vr + 2 * dv * dv) / (vc + 0.05);
     const cool = 1 - sm(0.1, coolTop, hot);
-    const w = 0.095 * expo * env * bri[i] * (0.5 + 1.1 * sfr * cool);
+    const w = 0.095 * expo * env * bri[i] * (0.5 + 1.1 * sfr * cool) * (1 + 0.3 * sm(0.3, 0.7, r) * ((x * lc + y * ls) / (r + 1e-4)));
     const wr = w * (TW[0] * (1 - cool) + TC[0] * cool);
     const wg = w * (TW[1] * (1 - cool) + TC[1] * cool);
     const wb = w * (TW[2] * (1 - cool) + TC[2] * cool);
