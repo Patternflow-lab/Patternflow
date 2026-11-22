@@ -36,6 +36,7 @@ const RB0 = 13.5; // mean radius at Drops 0
 const RB_STEP = 1.7; // mean radius is RB0 over RB_STEP to the power of the knob
 const LIFE_SLOW = 40, LIFE_FAST = 6; // seconds, at Dry 0 and Dry 4
 const FADE = 0.7; // the snap: the lens lets go over this long
+const SP0 = 0.28; // the radius a drop has on touching, as a share of its own
 const SLIP_T = 0.3; // the contact line's retreat to the next ring
 const DISS_T = 0.75, DISS_K = 2.4; // a landing drop dissolves the older stain under it
 const SP_GAP = 4.0; // the least spacing between two rings of one drop
@@ -71,15 +72,16 @@ function hsv(h, s, v, out, o) {
 })();
 const GROUND = [14, 12, 18], GROUND_V = [16, 14, 16];
 
+// Smooth noise that wraps in both directions, so the sheen can slide over the glass for ever.
 function noiseTex(gw, gh) {
-  const g = new Float32Array((gw + 2) * (gh + 2));
+  const g = new Float32Array(gw * gh);
   for (let i = 0; i < g.length; i++) g[i] = rnd();
   const t = new Float32Array(NP);
   for (let y = 0; y < H; y++) {
-    const fy = (y / (H - 1)) * gh, iy = min(gh - 1, floor(fy)), ty = sm(0, 1, fy - iy);
+    const fy = (y / H) * gh, iy = floor(fy), ty = sm(0, 1, fy - iy), y0 = iy % gh, y1 = (iy + 1) % gh;
     for (let x = 0; x < W; x++) {
-      const fx = (x / (W - 1)) * gw, ix = min(gw - 1, floor(fx)), tx = sm(0, 1, fx - ix);
-      const a = g[iy * (gw + 2) + ix], b = g[iy * (gw + 2) + ix + 1], c = g[(iy + 1) * (gw + 2) + ix], d = g[(iy + 1) * (gw + 2) + ix + 1];
+      const fx = (x / W) * gw, ix = floor(fx), tx = sm(0, 1, fx - ix), x0 = ix % gw, x1 = (ix + 1) % gw;
+      const a = g[y0 * gw + x0], b = g[y0 * gw + x1], c = g[y1 * gw + x0], d = g[y1 * gw + x1];
       t[y * W + x] = (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty;
     }
   }
@@ -93,7 +95,7 @@ function makeState() {
     ra: new Float32Array(NP), rc: new Float32Array(NP),
     ea: new Float32Array(NP),
     bufR: new Float32Array(NP), bufG: new Float32Array(NP), bufB: new Float32Array(NP),
-    sheenA: noiseTex(4, 8), sheenB: noiseTex(5, 9),
+    sheenA: noiseTex(6, 12), sheenB: noiseTex(4, 8),
     kn: [0, 2, 0, 0.06],
     grow: new Float32Array(8),
   };
@@ -115,8 +117,8 @@ function readKnobs(kn) {
   };
 }
 
-// The drop's radius as it lands: reaches the full radius at 0.275 s, overshoots by 4.7% at 0.55 s and settles.
-const spread = (t) => (t > 1.6 ? 1 : 1 - exp(-t / 0.18) * cos((2 * PI * t) / 1.1));
+// The drop's radius as it lands: starts at 0.28 of it, reaches the full radius at 0.275 s, overshoots by 3.4% at 0.55 s and settles.
+const spread = (t) => (t > 1.6 ? 1 : SP0 + (1 - SP0) * (1 - exp(-t / 0.18) * cos((2 * PI * t) / 1.1)));
 
 function newDrop(S, P, age) {
   const R = cl(P.rbar * exp(0.28 * gauss()), R_MIN, R_MAX);
@@ -295,7 +297,7 @@ function drawDrop(S, d, hue) {
     const s = t - d.ts[k];
     if (s < SLIP_T) Rc = d.rk[k - 1] + (d.rk[k] - d.rk[k - 1]) * ease(s / SLIP_T);
   }
-  for (let j = 0; j < d.n; j++) grow[j] = t >= T ? 1 : j < k ? 1 : j === k ? pow(cl((t - d.ts[k]) / (d.te[k] - d.ts[k]), 0, 1), 1.5) : 0;
+  for (let j = 0; j < d.n; j++) grow[j] = t >= T ? 1 : j < k ? 1 : j === k ? 0.04 + 0.96 * pow(cl((t - d.ts[k]) / (d.te[k] - d.ts[k]), 0, 1), 0.85) : 0;
   const f = t > T ? cl((t - T) / FADE, 0, 1) : 0; // the snap
   const ws = (1 - f) * (1 - f);
   Rc *= spread(t) * (1 - 0.3 * ease(f));
@@ -321,7 +323,7 @@ function drawDrop(S, d, hue) {
       const lc = cl(Rc - r + 0.5, 0, 1) * (t < 0.04 ? t / 0.04 : 1);
       layersAt(d, r, grow);
       // the glaze: already there in the dry ring left outside the lens, and coming in under the lens as it thins
-      const fw = QF * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f) * FILM_GAIN;
+      const fw = QF * sqrt(QF) * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f) * FILM_GAIN;
       R += (fr - R) * fw; G += (fg - G) * fw; B += (fb - B) * fw;
       if (lc > 0) {
         const wL = lc * ws, u = min(1, r / Rc), u2 = u * u;
@@ -336,8 +338,8 @@ function drawDrop(S, d, hue) {
         // soft streaks running outwards
         if (flow > 0.01) {
           const th = atan2(dy, dx);
-          const st = sin(d.m1 * th + d.p1) * cos(2 * PI * (1.6 * u - 0.3 * t) + d.p2) + 0.6 * sin(d.m2 * th + d.p3) * cos(2 * PI * (2.3 * u - 0.45 * t) + d.p4);
-          const sg = 1 + 0.11 * st * (0.25 + u) * flow * lc;
+          const st = sin(d.m1 * th + d.p1) * cos(2 * PI * (1.0 * u - 0.28 * t) + d.p2) + 0.6 * sin(d.m2 * th + d.p3) * cos(2 * PI * (1.5 * u - 0.4 * t) + d.p4);
+          const sg = 1 + (0.16 * st * sm(0.2, 0.55, u) * (0.3 + u) + 0.2 * sm(0.3, 1, u) * sm(0.3, 1, u)) * flow * lc;
           R *= sg; G *= sg; B *= sg;
         }
       }
@@ -347,7 +349,7 @@ function drawDrop(S, d, hue) {
         const wL = lc * ws;
         // the bright rim of the lens, the glint of a lamp and the ripple of the landing
         const rx = (Rc - r - 0.8) / 1.2;
-        let add = exp(-rx * rx) * (0.25 + 0.75 * Hn) * 0.5;
+        let add = exp(-rx * rx) * (0.25 + 0.75 * Hn) * 0.5 * (1 - 0.55 * grow[k]);
         const gd = ((x + 0.5 - gx) * (x + 0.5 - gx) + (y + 0.5 - gy) * (y + 0.5 - gy)) / (2 * gs * gs);
         const gl = gd < 6 ? exp(-gd) * 0.5 * pow(Hn, 0.7) : 0;
         let ripple = 0;
@@ -368,8 +370,12 @@ export function draw(display, params) {
   const hue = cl(S.kn[0], 0, 1) + HUE0;
   const bufR = S.bufR, bufG = S.bufG, bufB = S.bufB, fa = S.fa, fc = S.fc, ra = S.ra, rc = S.rc, ea = S.ea;
   const ph = S.time * 0.045, wa = cos(ph) * cos(ph), wb = 1 - wa;
+  // two sheens slide over the glass in different directions, a LED in 1.1 s and in 1.6 s
+  const ax = floor(S.time * 0.9), ay = floor(S.time * 0.5), bx = W - floor(S.time * 0.6), by = floor(S.time * 0.8);
   for (let i = 0; i < NP; i++) {
-    const sh = S.sheenA[i] * wa + S.sheenB[i] * wb;
+    const x = i & 63, y = i >> 6;
+    const sh = S.sheenA[((y + ay) & 127) * W + ((x + ax) & 63)] * wa + S.sheenB[((y + by) & 127) * W + ((x + bx) & 63)] * wb;
+    const gm = 0.92 + 0.16 * sh;
     let R = GROUND[0] + GROUND_V[0] * sh, G = GROUND[1] + GROUND_V[1] * sh, B = GROUND[2] + GROUND_V[2] * sh;
     const a = fa[i];
     if (a > 0.003) {
@@ -386,7 +392,7 @@ export function draw(display, params) {
       const hi = hIdx((b > 0.02 ? rc[i] / b : a > 0.02 ? fc[i] / a : 0) + hue) * 3;
       R += (EDGE[hi] - R) * c; G += (EDGE[hi + 1] - G) * c; B += (EDGE[hi + 2] - B) * c;
     }
-    bufR[i] = R; bufG[i] = G; bufB[i] = B;
+    bufR[i] = R * gm; bufG[i] = G * gm; bufB[i] = B * gm;
   }
   for (const d of S.drops) drawDrop(S, d, hue);
   for (let y = 0; y < H; y++) {
