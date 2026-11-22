@@ -179,5 +179,10 @@
   "patternweld": { "label": "무늬 단조강", "color": "#7d8fa6" },
   "quadtree": { "label": "사분트리 압축", "color": "#66d9c2" },
   "coffeering": { "label": "마르는 얼룩", "color": "#a0522d" },
-  "phasedarray": { "label": "위상 배열", "color": "#4d9fff" }
+  "phasedarray": { "label": "위상 배열", "color": "#4d9fff" },
+  "pixelsort": { "label": "픽셀 정렬", "color": "#e639b2" },
+  "tigerbush": { "label": "줄무늬 식생", "color": "#7abf69" },
+  "optimizer": { "label": "최적화 경로", "color": "#39e6d4" },
+  "helioseismology": { "label": "일진학", "color": "#8630bf" },
+  "snowcrystal": { "label": "눈 결정", "color": "#4d7abf" }
 }
