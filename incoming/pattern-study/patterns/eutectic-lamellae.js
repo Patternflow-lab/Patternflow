@@ -9,7 +9,7 @@
 // Round:   224
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pull=0.8..5, Fraction=0.3..0.75, Tilt=-1..1
+// @knobs Hue=0..1, Pull=0.8..5, Fraction=0.35..0.75, Tilt=-1..1
 //
 // Knob 1: Hue. Turns both phases round the wheel together, the second phase always opposite the first. At 0 the first phase is copper orange and the second steel blue; at 0.33 green and violet, at 0.5 teal and red-orange.
 // Knob 2: Pull. The pull speed. The window scrolls 2.2 LEDs a second per unit, so 4.4 LEDs a second at the opening 2 (a plate takes 26 s to cross the panel), 1.8 at 0.8 and 11 at 5. The optimum pair spacing is 14 LEDs times the square root of 2 over the pull: 18 LEDs at 1, 14 at 2, 9 at 4.4. After a turn the plates split to a finer spacing, or the extra ones are squeezed out to a coarser one, over about 10 to 30 LEDs of growth (3 to 10 s).
@@ -22,8 +22,8 @@ const RH = 2, DS = 1 / RH; // history rows per LED of growth, and one step of gr
 const HR = 256, HM = HR - 1; // history ring, in rows
 const Y0 = 12; // row of the front when it is flat
 const SP = 2.2; // LEDs of scroll a second per unit of Pull
-const LAM0 = 14; // optimum spacing of a pair of plates at Pull 2
-const H0 = 0.055; // Hue 0 lands on copper
+const LAM0 = 16; // optimum spacing of a pair of plates at Pull 2
+const H0 = 0.062; // Hue 0 lands on copper
 const KR = 0.04; // how fast neighbouring plates trade width
 const SHR = 0.25; // how fast a dying plate closes, each side, per LED of growth
 const YOUNG = 18; // LEDs of growth before a plate may split or die again
@@ -59,15 +59,15 @@ export function setup(params) {
   const r = rng(2241);
   params.s = {
     ready: false, t: 0, acc: 0, head: 0, rho: 0, rnd: r,
-    v: 2, f: 0.3, tilt: 0.06, wv: 0, ve: 2, hue: 0,
+    v: 2, f: 0.35, tilt: 0.06, wv: 0, ve: 2, hue: 0,
     lam: [],
     P: new Float32Array(HR * W), Lm: new Float32Array(HR * W), D: new Float32Array(HR * W),
     cb: new Float32Array(W), ls: new Float32Array(W), us: new Float32Array(W), ws: new Float32Array(W),
     ov: new Float32Array(W), dk: new Float32Array(W),
     rowU: new Float32Array(W), rowG: new Float32Array(W),
-    w: new Float32Array(64), rr: new Float32Array(64), dx: new Float32Array(64),
+    w: new Float32Array(64), rr: new Float32Array(64), dx: new Float32Array(64), st: new Float32Array(64),
     // phases of the three front waves, of the wanted-spacing noise, and of the fan
-    mp: [r() * TAU, r() * TAU, r() * TAU], np: [r() * TAU, r() * TAU, r() * TAU], fan: r() * TAU,
+    mp: [r() * TAU, r() * TAU, r() * TAU], np: [r() * TAU, r() * TAU, r() * TAU], fan: r() * TAU, sw: [r() * TAU, r() * TAU],
     lamOpt: LAM0,
     nSplit: 0, nElim: 0,
   };
@@ -75,7 +75,7 @@ export function setup(params) {
 
 // ---- the front: its wave, the lean of the plates and the spacing they are asked for
 
-const MA = [2.3, 1.2, 0.6]; // LEDs of the front's waves, 64, 32 and 21 LEDs long
+const MA = [2.6, 1.3, 0.6]; // LEDs of the front's waves, 64, 32 and 21 LEDs long
 
 function frontWave(S, x) {
   const g = 1 + 0.75 * abs(S.tilt);
@@ -95,10 +95,11 @@ function frontSlope(S, x) {
 }
 
 // Plates grow along the normal of the front, so where the front slopes they lean with it: u is the sideways
-// step per LED of growth. The knob adds a lean of its own that is stronger on one side than the other.
+// step per LED of growth. A slow sway of the temperature field adds a drift of its own, 0.2 at most, and the knob
+// adds a lean that is stronger on one side than the other.
 function lean(S, x) {
   const k = (TAU * x) / L;
-  return 0.8 * frontSlope(S, x) + 0.75 * S.tilt * (1 + 0.55 * sin(k + S.fan));
+  return 1.0 * frontSlope(S, x) + 0.14 * sin(k + S.sw[0]) + 0.08 * sin(2 * k + S.sw[1]) + 0.7 * S.tilt * (1 + 0.4 * sin(k + S.fan));
 }
 
 // How much finer or coarser than the optimum the front asks for at x, -1 to 1.
@@ -229,10 +230,18 @@ function step(S) {
 function raster(S) {
   const { lam, cb, ls, us, ws, ov, dk } = S, N = lam.length;
   cb.fill(0); ls.fill(0); us.fill(0); ws.fill(0); ov.fill(0); dk.fill(0);
+  // How sharply each boundary is drawn. It fades in as a new plate is born and out as a plate is squeezed thin, so
+  // that when a plate vanishes its edges are already gone and nothing steps.
+  const st = S.st;
+  for (let i = 0; i < N; i++) {
+    const il = i === 0 ? N - 1 : i - 1;
+    const wl = lam[i].x - lam[il].x + (i === 0 ? L : 0), wr = (i + 1 < N ? lam[i + 1].x : lam[0].x + L) - lam[i].x;
+    st[i] = lam[i].bs * sm(0.3, 1.6, min(wl, wr));
+  }
   for (let i = 0; i < N; i++) {
     const nl = i + 1 < N ? lam[i + 1] : lam[0];
     const a = lam[i].x, b = i + 1 < N ? nl.x : nl.x + L, wd = b - a, mid = a + wd / 2, half = wd / 2 + 1e-6;
-    const ph = lam[i].ph, base = ph ? 0.7 : 0.76, sl = lam[i].bs, sr = nl.bs;
+    const ph = lam[i].ph, base = ph ? 0.7 : 0.76, sl = st[i], sr = st[i + 1 < N ? i + 1 : 0];
     for (let k = -1; k <= 1; k++) {
       const A = a + k * L, B = b + k * L;
       if (B > 0 && A < W) {
@@ -243,8 +252,9 @@ function raster(S) {
           const cx = (lo + hi) / 2, u = (cx - (mid + k * L)) / half;
           // the plate is flat across its middle and turns over in the last 2 or 3 LEDs at each edge, lit from the left
           // (the distance to the edge, not the share of the width, so a plate that widens or splits does not jump)
-          const eL = sl * exp(-(cx - A) / 2.3), eR = sr * exp(-(B - cx) / 2.3);
-          const lt = base + 0.34 * (1 - max(eL, eR)) + 0.12 * (eL - eR);
+          const eL = sl * exp(-(cx - A) / 2.5), eR = sr * exp(-(B - cx) / 2.5);
+          const gL = sl * exp(-(cx - A) / 8), gR = sr * exp(-(B - cx) / 8);
+          const lt = base + 0.32 * (1 - max(eL, eR)) + 0.1 * (eL - eR) + 0.12 * (gL - gR);
           ov[p] += o;
           if (ph) cb[p] += o;
           ls[p] += o * lt;
@@ -288,6 +298,7 @@ function advance(S, dt) {
   S.mp[0] += 0.12 * dt; S.mp[1] -= 0.17 * dt; S.mp[2] += 0.23 * dt;
   S.np[0] += 0.061 * dt; S.np[1] -= 0.089 * dt; S.np[2] += 0.127 * dt;
   S.fan += 0.071 * dt;
+  S.sw[0] += 0.043 * dt; S.sw[1] -= 0.067 * dt;
   S.acc += (SP * S.ve * dt) / DS;
   const n = floor(S.acc);
   S.acc -= n;
@@ -299,7 +310,7 @@ export function update(dt, input, params) {
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = kn[0] + H0;
   S.vT = cl(kn[1], 0.8, 5);
-  S.fT = cl(kn[2], 0.3, 0.75);
+  S.fT = cl(kn[2], 0.35, 0.75);
   S.tiltT = cl(kn[3], -1, 1);
   if (!S.ready) {
     // the sample is already growing when the panel opens, with the knobs where they stand
@@ -322,7 +333,7 @@ const HOT = [255, 236, 172];
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  const ca = hsv(S.hue, 0.74, 1), cb = hsv(S.hue + 0.52, 0.5, 0.9), cl2 = hsv(S.hue - 0.01, 0.85, 1);
+  const ca = hsv(S.hue, 0.64, 1), cb = hsv(S.hue + 0.52, 0.42, 0.9), cl2 = hsv(S.hue - 0.01, 0.85, 1);
   const hot = [mix(HOT[0], ca[0] * 255, 0.12), mix(HOT[1], ca[1] * 255, 0.12), mix(HOT[2], ca[2] * 255, 0.12)];
   const { P, Lm, D, rowU, rowG } = S, off = S.acc;
   const t = S.t;
