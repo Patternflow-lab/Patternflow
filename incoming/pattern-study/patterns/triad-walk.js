@@ -124,7 +124,8 @@ const PERIOD_ROSETTE = 43.7; // period of the swing that starts rosettes, s
 const MIN_WAIT = 0.24, MAX_WAIT = 3.4; // limits on the wait between hops, s
 const FOLLOW = 0.6; // time constant of the smoothed camera target, s
 const SPRING = 3; // natural frequency of the camera spring, radians a second
-const DEAD = 7; // the walker may drift this far from the middle of the panel before the window follows, LEDs
+const ROAM_X = 6, ROAM_Y = 30; // where the walker sits on the panel itself wanders by this much across and up or down, LEDs, periods 41.3 and 67.7 s
+const DEAD_X = 7, DEAD_Y = 18; // the walker may drift this far across and up or down from the middle of the panel before the window follows, LEDs
 
 // ---- the slow swings of the whole window, so no scene comes back, and the footprint
 const HUE_DRIFT = 1 / 240; // turns of hue a second: one full turn of the colour wheel in 4 minutes
@@ -132,11 +133,13 @@ const SWAY = (24 * PI) / 180; // the lattice turns this far either way about the
 const SWELL = 0.3; // the Memory time swells and shrinks by this many octaves either way, period 71.3 s
 const FOOT = 0.4; // how brightly a lattice point the walker has touched glows, once its triad has faded, against 1 for a lit corner
 const FOOT_T = 110; // seconds for that glow to fall to 1/e
+const TIDE = 0.55; // how far the resting lattice (beads and edges) brightens and dims either way as slow waves of light cross it
 const BREATH = 0.07; // the lattice grows and shrinks by this share either way, period 97 s
 
 // ---- the picture
-const TRAIL_TOP = 0.72; // brightness of a triad that has just been left, against 1 for the one lit now
-const TRAIL_SHAPE = 1.15; // the fade runs as (1 - age / Memory) to this power
+const TRAIL_TOP = 0.8; // brightness of a triad that has just been left, against 1 for the one lit now
+const TRAIL_SHAPE = 1.0; // the fade runs as (1 - age / Memory) to this power
+const LUM_LOW = 0.62; // the dimmest glass: each pane gets a luminosity between this and 1, drawn when the walker enters it
 const GAP = 1.0; // the glass stops this far inside the lattice edge, LEDs
 const PAD = 7; // how far past its edge a triangle's pixels are looked at, LEDs
 const EDGE_REST = 0.014; // brightness of an edge nobody has crossed
@@ -250,6 +253,7 @@ export function setup(params) {
     pre: false,
     ph: [], // phases of the slow swings
     cur: { o: 0, a: 0, b: 0 },
+    lum: 1, // luminosity of the glass the walker is on
     from: null,
     hopT: -10, glide: 0.2,
     nextHop: 0.6,
@@ -267,7 +271,7 @@ export function setup(params) {
     heat: new Map(),
     foot: new Map(), // lattice points the walker has touched: key to the time of the last touch
   };
-  for (let i = 0; i < 12; i++) S.ph.push(rng() * TAU);
+  for (let i = 0; i < 16; i++) S.ph.push(rng() * TAU);
   for (let k = 0; k < 12; k++) S.col.push({ L: 0, a: 0, b: 0, C: 0, rgb: [0, 0, 0] });
   params.s = S;
 }
@@ -323,7 +327,8 @@ function hop(S) {
     if (e.o === A.o && e.a === A.a && e.b === A.b) S.hist.splice(i, 1);
     else if (e.o === B.o && e.a === B.a && e.b === B.b) S.hist.splice(i, 1);
   }
-  S.hist.push({ o: A.o, a: A.a, b: A.b, t: S.nextHop });
+  S.hist.push({ o: A.o, a: A.a, b: A.b, t: S.nextHop, lum: S.lum });
+  S.lum = LUM_LOW + (1 - LUM_LOW) * S.rng();
   for (const q of vb) {
     const key = nodeKey(q[0], q[1]);
     S.foot.delete(key);
@@ -349,16 +354,17 @@ function advance(S, h) {
   S.life = min(KEEP, S.lifeKnob * pow(2, SWELL * sin((TAU * S.t) / 71.3 + S.ph[10])));
   while (S.t >= S.nextHop) hop(S);
   // The window: a target that smooths the walker's jumps, and a spring after it.
-  // The walker may wander DEAD LEDs from the middle before the window moves.
+  // The walker may wander inside an ellipse round the middle before the window moves.
   const e = 1 - exp(-h / FOLLOW);
   S.ta += (S.gta - S.ta) * e;
   S.tb += (S.gtb - S.tb) * e;
   frame(S);
   const oa = S.ta - S.ca, ob = S.tb - S.cb;
-  const sx = oa * S.ux + ob * S.vx, sy = oa * S.uy + ob * S.vy, dist = hypot(sx, sy);
+  const rx = ROAM_X * sin((TAU * S.t) / 41.3 + S.ph[12]), ry = ROAM_Y * sin((TAU * S.t) / 67.7 + S.ph[13]);
+  const sx = oa * S.ux + ob * S.vx - rx, sy = oa * S.uy + ob * S.vy - ry, dist = hypot(sx / DEAD_X, sy / DEAD_Y);
   let da = 0, db = 0;
-  if (dist > DEAD) {
-    const k = 1 - DEAD / dist, mx = sx * k, my = sy * k;
+  if (dist > 1) {
+    const k = 1 - 1 / dist, mx = sx * k, my = sy * k;
     da = S.ia * mx + S.ib * my;
     db = S.ja * mx + S.jb * my;
   }
@@ -402,6 +408,14 @@ export function update(dt, input, params) {
 }
 
 // ---- drawing
+// The resting lattice is a little brighter in some places than in others, and the
+// brighter places drift: two slow waves of light on the lattice, periods 53.1 and
+// 79.7 s, one 0.55 and 0.9 radians a lattice step along a and b, the other -0.8 and 0.4.
+function tide(S, a, b) {
+  const w = 0.6 * sin(0.55 * a + 0.9 * b - (TAU * S.t) / 53.1 + S.ph[14]) + 0.4 * sin(-0.8 * a + 0.4 * b + (TAU * S.t) / 79.7 + S.ph[15]);
+  return 1 + TIDE * w;
+}
+
 // Scene geometry of one frame: the lattice vectors on the panel and the inverse.
 function frame(S) {
   const s = S.side * (1 + BREATH * sin((TAU * S.t) / 97 + S.ph[8]));
@@ -579,9 +593,10 @@ export function draw(display, params) {
         }
         if (r + g + bl > 0) {
           const p = (y * W + x) * 3;
-          buf[p] += r * EDGE_REST;
-          buf[p + 1] += g * EDGE_REST;
-          buf[p + 2] += bl * EDGE_REST;
+          const rest = EDGE_REST * tide(S, A, B);
+          buf[p] += r * rest;
+          buf[p + 1] += g * rest;
+          buf[p + 2] += bl * rest;
         }
       }
     }
@@ -595,7 +610,7 @@ export function draw(display, params) {
     // A triad just left is handed over from the folding triangle to its own glow.
     const hand = age < S.glide ? sm(age / S.glide) : 1;
     const B = TRAIL_TOP * pow(1 - age / S.life, TRAIL_SHAPE) * hand;
-    if (B > 0.004) lit.push({ T: e, B });
+    if (B > 0.004) lit.push({ T: e, B: B * e.lum });
   }
 
   // Heat of each lattice point: how lit the triads around it are.
@@ -628,7 +643,7 @@ export function draw(display, params) {
         if (cx < -6 || cx > W + 6 || cy < -6 || cy > H + 6) continue;
         const key = nodeKey(a, b), ts = S.foot.get(key);
         const h = max(heat.get(key) || 0, ts === undefined ? 0 : FOOT * exp(-(S.t - ts) / FOOT_T));
-        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.13 + 0.55 * h, h);
+        paintBead(S, cx, cy, r, col[mod12(a + 4 * b)], 0.13 * tide(S, a, b) + 0.55 * h, h);
       }
   }
 
@@ -687,7 +702,7 @@ export function draw(display, params) {
     // It breathes a little while it waits, and flares as it lands.
     const land = S.hopT + S.glide, flare = S.t > land ? 0.3 * exp(-(S.t - land) / 0.25) : 0;
     const breath = 0.96 + 0.04 * sin(TAU * S.t * 0.53 + S.ph[0]);
-    paintTriangle(S, X, Y, LA, LB, cs, breath + flare);
+    paintTriangle(S, X, Y, LA, LB, cs, (breath + flare) * S.lum);
   }
 
   // An edge flashes as the walker crosses it, then goes back to being a dim edge.
