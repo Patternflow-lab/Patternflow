@@ -1,46 +1,49 @@
 // ===== Patternflow pattern =====
 // Title:   Virga
 // Family:  virga
-// Idea:    At dusk a dark violet cloud base hangs over the top third of the panel, and from its lumpy underside grey-gold curtains of rain slide down in slanted streaks, gold on the side facing the low sun and violet on the other, thinning and ending in ragged tips high above a calm amber, rose and deep blue sky, while one cell of rain builds and another fades.
+// Idea:    A dark violet cloud base hangs over the top 26 rows at dusk and lets down slanted curtains of fine rain streaks, gold on the side that faces the low sun and violet on the other, that thin out and end raggedly in the air above an amber, rose and indigo sky, while one cell of rain builds and another fades.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Virga, the fall streaks of rain that dry up in the air under a cloud base, a supplementary feature of clouds in the WMO International Cloud Atlas (2017 edition); the streaks lean with wind shear and the cloud base hangs in soft pouches, as under mammatus. The streaks are 1D value noise slid down a sheared coordinate.
+// Lineage: Virga, rain that falls from a cloud base and dries up in the air before it reaches the ground, a supplementary feature of clouds in the WMO International Cloud Atlas (2017 edition); the streaks lean with wind shear and the cloud base hangs in soft pouches, as under mammatus. The streaks here are 1D value noise slid down a sheared coordinate.
 // Round:   218
 // ===============================
 // @matrix 64x128
 // @knobs Hue=-0.14..0.1, Rain=0.5..3.5, Shear=-1..1, Dry=-1..1
 //
-// Knob 1: Hue. Adds the knob to the hue of the whole dusk, the sky, the cloud and the rain together, on the cool side in full and on the warm side by half. At the opening 0 the sky runs from deep indigo (66, 54, 164) under the cloud through violet and rose to amber at the horizon, and the rain is gold on its lit side and lilac grey on the other. At -0.14 the dusk is pink over teal, with a rose horizon and a blue-green sky under the cloud. At 0.12 it is a warm orange horizon with a rose-red band above it. The range stops before the sky turns green or yellow.
-// Knob 2: Rain. How heavy the curtains are, the knob over 3 from 0.17 to 1.17. It sets how many cells of rain may hang at once, 2 at 0.5, 4 at the opening 2 and 6 at 3.5, how dense and bright each curtain is, and how wide: a near curtain is 18 LEDs wide at 0.5, 22 at 2 and 26 at 3.5. A cell that is switched off by a lower knob fades over about 6 s and comes back when the knob does. At 0.5 the curtains are faint, gold threads and at 3.5 they are close to opaque grey-gold sheets.
-// Knob 3: Shear. Wind shear, which way the streaks lean and how much the lean grows toward the tips. At the opening 0 a streak moves 0.11 LED sideways for every row it falls and curves another 3 LEDs over 50 rows, so a 50 row curtain ends 8 LEDs to the right of where it starts. At 1 it is 0.31 a row and a 28 LED sweep to the right with a hard curve in it, at -1 the lean is 0.09 a row to the left, curving further. The lean wanders by 0.035 a row on its own, and the near curtains lean 15 percent more than the far ones.
-// Knob 4: Dry. The height of the dry layer, where the last of the rain dries up. The ragged ends sit on row 46 at -1, 79 at the opening 0.06 and 110 at 1, on a layer that itself rises and falls 5 rows over several minutes, so at -1 the rain hangs as stubs 18 LEDs long from the cloud base and at 1 as ropes that stop 18 LEDs above the bottom of the panel. Each streak ends within 20 percent of the layer's row by its own cut-off, and a cell that is still building has only reached a third of the way.
+// Knob 1: Hue. Turns the whole dusk, the sky, the cloud and the rain together. At the opening 0 the sky runs from indigo (104, 83, 138) under the cloud through violet (149, 98, 153) and rose (168, 108, 133) to a peach amber (214, 154, 116) at the bottom row, and the rain is gold (255, 189, 112) on its lit side. The cool side moves every colour by 0.9 times the knob, so at -0.14 the sky under the cloud is blue-green, the middle blue-violet and the horizon pink (214, 116, 152). On the warm side the sky aloft moves by +0.5 times the knob and the horizon by -0.5 times it, so at 0.1 the top goes violet and the horizon turns coral (214, 125, 116). The range stops before yellow and green.
+// Knob 2: Rain. The knob less 0.5, over 3, sets how heavy the rain is. The number of cells that may hang at once is 2.3 at 0.5, 4.75 at the opening 2 and 7 at 3.5, the brightness of a curtain is 1.25 to 2.15 times, and its width grows from 0.85 to 1.15 times, so a near curtain is 21 LEDs wide at 0.5, 25 at 2 and 29 at 3.5, and a far one 8 to 11. A cell that a lower knob switches off fades over about 6 s and comes back when the knob does. At 0.5 the curtains are a few faint gold threads, at 3.5 they are close to solid grey-gold sheets with only the lit streaks standing out.
+// Knob 3: Shear. Wind shear, which way the streaks lean and how much the lean grows with the fall. A streak moves 0.1 + 0.28 times the knob LED sideways for each row it falls and bends by another 0.0014 + 0.005 times the knob per row squared, so after 50 rows it has moved 8.5 LEDs to the right at the opening 0, 35 at 1 with a hard curve in it, and 18 to the left at -1. The lean also wanders by up to 0.045 on its own, and a near curtain leans about 1.3 times as much as a far one. The cloud base tilts with the knob, 0.2 rows per LED of distance from the middle column, so at 1 its left edge is 6 rows higher and its right edge 6 lower, and the low haze banks lean with it.
+// Knob 4: Dry. The height of the dry layer, where the rain has gone. The layer is on row 46 at -1, row 81 at the opening 0.06 and row 113 at 1, and it moves up and down by up to 13 rows over about a minute on its own. At -1 the rain hangs from the cloud as stubs about 20 LEDs long, at 1 as ropes that reach down to within 15 to 30 LEDs of the bottom row. Each streak ends within 20 percent of the layer's depth by its own cut-off, and a cell that is still building has reached only a third of the way. A drier layer also brightens the horizon glow to 1.45 times (0.45 times at -1) and thins the curtains' brightness from 1.2 times to 0.95.
 
-// The panel is a view up at a high cloud base from the ground at dusk. Rows 0 to about 26 are the cloud base, its
-// underside drifting between rows 19 and 33 as slow value noise on a domain warp, with pouches 6 LEDs across
-// riding on it. The cloud is a dark violet body (about 60, 28, 80) mottled by two noise octaves that slide
-// past each other, with a rim of gold and rose along the underside. A flank of a lobe that faces the low sun
-// is lit, so the glow runs along one side of every pouch. Under the cloud the sky is a gradient in six hue
-// stops from indigo at the top through violet, magenta and rose to amber at the bottom row, with a soft glow
-// around the sun, which sits on the horizon off the panel somewhere between 24 LEDs left of it and 88 across
-// and wanders on 330 s and 860 s swings. The glow has its own slow breathing.
-// Rain cells are a small state: six slots, each holding a cell with a column, a distance, an age and a life of
-// 60 to 150 s. A cell rises over the first fifth of its life, hangs, and thins out over the last two fifths.
-// The rain it drops reaches a third of the way to the dry layer when new and the whole way by 0.38 of its life,
-// and draws back a third at the end. The cloud base sags under a cell by up to 5.5 rows. A dead slot waits 4
-// to 30 s and then starts a new cell away from the others. The cells drift with the wind, which changes sign on
-// swings of 410 s and 885 s, and the cloud deck moves with it. The first update gives every cell an age
-// between a third and 0.8 of its life, so the picture is already full at second 0.
-// A curtain is drawn per cell, far ones first. A far curtain is 8 LEDs wide, falls 4.5 LEDs a second and is
-// hazy, a near one is 23 LEDs wide, falls 10.5 a second and is clearer. Every pixel in it is turned into the
-// curtain's own sheared coordinate, the column minus the lean times the rows below the cloud, so each
-// streak is a slanted curve that hangs from the cloud. A coarse streak layer (5.5 LEDs across, long in
-// y) and a fine one (3 LEDs across) are 1D value noise per column slid down at the fall speed, each
-// column with its own phase, and blended between neighbouring columns, so no streak is thinner than 2 LEDs.
-// Going down, the cut-off a streak must reach to show rises, and each column has a random end height, so the
-// rain thins into sparse wisps and ends raggedly. The sun side of a curtain is gold and the other side
-// lilac grey, the top of it is darker as if in the shade of the cloud, and near its end it takes on the colour
-// of the sky behind it.
+// The panel is a view up at a high cloud base from the ground at dusk. Rows 0 to about 26 are the cloud base. Its
+// underside is two octaves of value noise on a domain warp, so it hangs between rows 18 and 34 in pouches about
+// 6 LEDs across, and the whole deck drifts with the wind. The body is a dark violet (58, 36, 71) mottled by two
+// noise layers that slide past each other, with a rim of gold and rose along the underside. A flank of a pouch
+// that faces the sun is lit more, so the glow runs along one side of each. Under the cloud the sky is a gradient
+// in seven stops from indigo to a peach amber at the bottom row, with a soft glow around the sun, which sits
+// beyond the horizon somewhere between 26 LEDs left of the panel and 90 across, and a few flat banks of haze
+// low in the sky, gold where lit and rose where not, that drift with the wind and change as they go.
+// Rain cells are the state: seven slots, each a cell with a column, a distance, an age and a life of 32 to 82 s.
+// A cell rises over the first 13 percent of its life, hangs, and thins out from 68 percent on. Its rain
+// reaches a third of the way to the dry layer when new, the whole way by 26 percent and a third less at the
+// end. It pulses by 40 percent on a period of 13 to 22 s, sways 6 LEDs on 48 to 90 s, and drifts with the wind
+// at 0.3 to 1 LED a second, the near ones faster. The cloud base sags up to 5.5 rows under it. A dead slot waits
+// 0.5 to 5.5 s and starts a new cell away from the others. The first update gives the cells ages spread over a
+// life, with three of them near their peak, at columns shuffled evenly over the panel, so second 0 is full.
+// Hue, brightness, the sun, the glow, the lean, the dry layer and the wind are slow random walks that pull
+// back toward the middle, run through two low-pass stages of 5 s, so the sky never comes round to a scene it
+// has shown.
+// A curtain is drawn per cell, far ones first. A far one is 9 LEDs wide, falls 4.5 LEDs a second and is hazy,
+// a near one is 25 LEDs wide, falls 10.5 and is clearer. Every pixel is turned into the curtain's own sheared
+// coordinate, the column minus the lean times the rows below the cloud, so a streak is a slanted curve that
+// hangs from the cloud. A coarse layer (6 LEDs across, long in y) says where the rain is dense and a fine layer
+// (2.7 LEDs across, about 11 rows long) cuts it into streaks. Each is a row of lattice columns, each with its
+// own centre, a soft bump across x and 1D noise down y, slid down at the fall speed, the fine layer 13 percent
+// faster, so no streak is thinner than 2 LEDs. Going down, the level the noise has to reach to show rises and
+// each column has an end height of its own, so the rain thins into sparse wisps and ends raggedly.
+// The sun side of a curtain is gold and the other side a dark lilac, the top is dimmer as if in the cloud's
+// shade, and near its tip a curtain takes on the colour of the sky behind it.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, exp, sqrt, abs, pow } = Math;
@@ -59,15 +62,9 @@ const END_LO = 46, END_HI = 113; // the dry layer at Dry -1 and Dry 1, rows
 
 // the sky: elevation (0 top row, 1 bottom row), hue, saturation, value
 const ST_E = [0, 0.2, 0.4, 0.6, 0.78, 0.9, 1];
-const ST_H = [0.68, 0.73, 0.82, 0.93, 1.005, 1.035, 1.055];
-const ST_S = [0.55, 0.44, 0.4, 0.42, 0.52, 0.6, 0.64];
+const ST_H = [0.68, 0.73, 0.82, 0.93, 1.01, 1.045, 1.065];
+const ST_S = [0.5, 0.4, 0.36, 0.36, 0.4, 0.44, 0.46];
 const ST_V = [0.42, 0.54, 0.6, 0.66, 0.74, 0.82, 0.84];
-
-const TONE = F(1024); // soft shoulder: linear to 0.7, then rolls toward 1
-for (let i = 0; i < 1024; i++) {
-  const v = i / 256;
-  TONE[i] = v < 0.7 ? v : 0.7 + 0.3 * (1 - exp(-(v - 0.7) / 0.3));
-}
 
 function hsv(h, s, v, out) {
   h -= floor(h);
@@ -128,15 +125,14 @@ export function setup(params) {
   const S = {
     t: 0, t0: Math.random() * 1500, cd: Math.random() * 60, ready: false,
     k1: 0, rn: 0.5, k3: 0, u4: 0.5, nf: 4,
-    r: OU_SIG.map((v) => v * gauss()), q: [0, 0, 0, 0, 0, 0, 0], o: [0, 0, 0, 0, 0, 0, 0], bg: 1, sunX: 32, glowG: 0.6, wind: 0, endRow: 79, lean: 0.11, curve: 0.0009,
+    r: OU_SIG.map((v) => v * gauss()), q: [0, 0, 0, 0, 0, 0, 0], o: [0, 0, 0, 0, 0, 0, 0], bg: 1, sunX: 32, glowG: 0.6, wind: 0, endRow: 80, lean: 0.1, curve: 0.0014,
     R: F(N), G: F(N), B: F(N), SR: F(N), SG: F(N), SB: F(N),
     edge: F(W + 2), sag: F(W), gx: F(W), gw: F(W),
     lutR: F(H), lutG: F(H), lutB: F(H),
     cells: [],
     c: { body: [0, 0, 0], lit: [0, 0, 0], shade: [0, 0, 0], gold: [0, 0, 0], rose: [0, 0, 0], glow: [0, 0, 0], tmp: [0, 0, 0] },
-    ph: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map(() => Math.random() * 6.283),
   };
-  for (let i = 0; i < NSLOT; i++) S.cells.push({ on: false, idle: 0, w: 0, x: 0, hw: 8, z: 0.5, age: 0, life: 100, seed: 0, vf: 7, xd: 0, jit: 1, lm: 1, lb: 0, pw: 0.25, pp: 0, sw: 0.1, str: 0, yb: 26, end: 70, op: 1, side: 0, ewx: 0, wyc: 24, wyf: 14, sx: 0, sx2: 0, sy: 0, sy2: 0, leanC: 0.1, curveC: 0 });
+  for (let i = 0; i < NSLOT; i++) S.cells.push({ on: false, idle: 0, w: 0, x: 0, hw: 8, z: 0.5, age: 0, life: 100, seed: 0, vf: 7, xd: 0, jit: 1, lm: 1, lb: 0, pw: 0.25, pp: 0, sw: 0.1, str: 0, yb: 26, end: 70, op: 1, side: 0, wyc: 24, wyf: 14, sx: 0, sx2: 0, sy: 0, sy2: 0, leanC: 0.1, curveC: 0 });
   params.s = S;
 }
 
@@ -222,19 +218,14 @@ function prerun(S) {
     ages[i] = ages[j];
     ages[j] = t;
   }
-  // The columns of the first cells are shuffled evenly over the panel, so the opening is not a heap on one side.
-  const cols = [10, 36, 56, 23, 46, 2, 62];
-  for (let i = cols.length - 1; i > 0; i--) {
-    const j = floor(Math.random() * (i + 1));
-    const t = cols[i];
-    cols[i] = cols[j];
-    cols[j] = t;
-  }
+  // The first cells stand at columns spread over the panel, in an order that keeps any few of them apart, and
+  // the whole row is mirrored half the time, so the opening is never a heap on one side.
+  const cols = [34, 11, 54, 23, 45, 3, 62], mirror = Math.random() < 0.5;
   for (let i = 0; i < NSLOT; i++) {
     const c = S.cells[i], e = cl(S.nf - i, 0, 1);
     if (e > 0.2) {
       spawn(S, c, ages[i] + 0.06 * Math.random());
-      c.x = cols[i] + 4 * (Math.random() - 0.5);
+      c.x = (mirror ? 64 - cols[i] : cols[i]) + 5 * (Math.random() - 0.5);
     } else c.idle = 1 + 6 * Math.random();
     c.w = e;
   }
@@ -251,7 +242,7 @@ function step(S, dt) {
     c.w += (e - c.w) * kw;
     if (c.on) {
       c.age += dt;
-      c.x += S.wind * 0.75 * (0.4 + 0.8 * c.z) * dt;
+      c.x += S.wind * 1.4 * (0.4 + 0.8 * c.z) * dt;
       if (c.age > c.life || c.x < -26 || c.x > 90) {
         c.on = false;
         c.idle = 0.5 + 5 * Math.random();
@@ -279,12 +270,12 @@ function palette(S, T) {
   const wander = cl(S.o[0], -0.05, 0.025);
   S.bg = 1 + cl(S.o[1], -0.16, 0.16);
   const sh = (e) => wander + (k < 0 ? k * 0.9 : k * (0.5 - e));
-  hsv(0.77 + sh(0.3), 0.55, 0.28, c.body);
-  hsv(1.09 + sh(0.9), 0.8, 1.1, c.lit);
-  hsv(0.76 + sh(0.5), 0.4, 0.34, c.shade);
-  hsv(1.1 + sh(0.9), 0.6, 1.0, c.gold);
-  hsv(0.975 + sh(0.7), 0.5, 0.9, c.rose);
-  hsv(1.05 + sh(1), 0.74, 0.88, c.glow);
+  hsv(0.77 + sh(0.3), 0.5, 0.28, c.body);
+  hsv(1.09 + sh(0.9), 0.56, 1.05, c.lit);
+  hsv(0.76 + sh(0.5), 0.36, 0.34, c.shade);
+  hsv(1.1 + sh(0.9), 0.44, 1.0, c.gold);
+  hsv(0.975 + sh(0.7), 0.4, 0.9, c.rose);
+  hsv(1.06 + sh(1), 0.56, 0.88, c.glow);
   const t = c.tmp;
   for (let y = 0; y < H; y++) {
     const e = (y + 0.5) / H;
@@ -297,7 +288,7 @@ function palette(S, T) {
     S.lutB[y] = t[2];
   }
   S.sunX = 32 + 58 * Math.tanh(S.o[2] / 38);
-  S.glowG = cl(0.5 + S.o[3], 0.26, 0.7) * mix(0.62, 1.22, S.u4);
+  S.glowG = cl(0.5 + S.o[3], 0.26, 0.7) * mix(0.45, 1.45, S.u4);
   S.endRow = mix(END_LO, END_HI, S.u4) + cl(S.o[5], -13, 13);
   const w = S.wind;
   S.lean = 0.1 + 0.28 * S.k3 + cl(S.o[4], -0.045, 0.045) + 0.02 * w;
@@ -317,20 +308,17 @@ function sky(S, T) {
     for (let x = 0, p = y * W; x < W; x++, p++) {
       const g = gx[x] * gy, b = 0.84 + 0.16 * gw[x];
       // far banks of haze low in the sky, long and flat, drifting with the wind and changing as they go
-      const bk = (vn2((x - S.cd + S.k3 * (y - 96) * 0.4) * 0.02 + 11.3, y * 0.14 - T * 0.04) - 0.5) * 2 * bw;
+      const bk = (vn2((x - S.cd + S.k3 * (y - 96) * 0.4) * 0.02 + 11.3, y * 0.085 - T * 0.03) - 0.5) * 2 * bw;
       let r = lr * b + gc[0] * g, gg = lg * b + gc[1] * g, bb = lb * b + gc[2] * g;
-      if (bk > 0) {
-        // a bank lit gold from below
-        r += gold[0] * 0.24 * bk;
-        gg += gold[1] * 0.24 * bk;
-        bb += gold[2] * 0.24 * bk;
-      } else {
-        // a bank in the shadow of the clouds, as bright but rose
-        const k = max(r, gg, bb) / 0.9, q = -bk * 0.42;
-        r += (rose[0] * k - r) * q;
-        gg += (rose[1] * k - gg) * q;
-        bb += (rose[2] * k - bb) * q;
-      }
+      // a bank lit gold from below where bk is above 0, and one in the cloud's shadow, as bright but rose, where it is below
+      const up = bk > 0 ? bk * bk : 0, dn = bk < 0 ? bk * bk : 0;
+      r += gold[0] * 0.24 * up;
+      gg += gold[1] * 0.24 * up;
+      bb += gold[2] * 0.24 * up;
+      const k = max(r, gg, bb) / 0.9, q = dn * 0.5;
+      r += (rose[0] * k - r) * q;
+      gg += (rose[1] * k - gg) * q;
+      bb += (rose[2] * k - bb) * q;
       const mx = max(r, gg, bb);
       if (mx > 0.72) {
         // a soft shoulder on the brightest channel with the hue kept, so a strong glow stays orange and does not clip to yellow
@@ -475,7 +463,15 @@ export function draw(display, params) {
   const { R, G, B } = S, bg = S.bg;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
-      const r = TONE[(cl(R[p] * bg, 0, 3.99) * 256) | 0], g = TONE[(cl(G[p] * bg, 0, 3.99) * 256) | 0], bl = TONE[(cl(B[p] * bg, 0, 3.99) * 256) | 0];
-      display.setPixel(x, y, r * 255, g * 255, bl * 255);
+      let r = R[p] * bg, g = G[p] * bg, b = B[p] * bg;
+      const mx = max(r, g, b);
+      if (mx > 0.8) {
+        // the brightest channel rolls off toward 1 with the hue kept, so gold stays gold where two curtains lie over each other
+        const f = (0.8 + 0.2 * (1 - exp(-(mx - 0.8) / 0.35))) / mx;
+        r *= f;
+        g *= f;
+        b *= f;
+      }
+      display.setPixel(x, y, r * 255, g * 255, b * 255);
     }
 }
