@@ -14,7 +14,7 @@
 // Knob 1: Hue. Adds the knob to the hue of every colour. At 0 the river is turquoise over green and ochre land with tan and olive scroll ridges and blue-green oxbows. At 0.25 the river is violet over blue-green land, at 0.5 orange-red over blue and violet, at 0.75 yellow-green over magenta, and at 1 the picture is back where it began.
 // Knob 2: Flow. How fast the river's clock runs, (Flow / 2) to the power 1.5 model seconds a second: 0 holds the picture still, 1 gives 0.35, 2 where it opens gives 1, 4 gives 2.8, 8 gives 8 and 12 gives 14.7. At 2 the median node moves 0.08 LEDs a second and the tightest bends 0.2 to 0.3, so a bend crosses 10 LEDs in about 50 seconds. The glints in the water run at 6 LEDs a second at 2 and 23 at 12.
 // Knob 3: Drive. How hard the upstream term pushes a bend out, 2.2 times 1.2 to the power of the knob against a local term of 1: 1.83 at -1, 2.2 where it opens at 0 and 2.64 at 1. At -1 the river wanders in long slow bends and cuts a neck about every 40 seconds at Flow 2. At 0 the cuts come about every 17 seconds, and at 1 every 5 to 10 seconds, with tight loops, many small oxbows and a mean node speed of 0.12 to 0.17 LEDs a second.
-// Knob 4: Width. The channel width in LEDs, 3.5 plus 1.5 times the knob: 2 at -1, 3.59 where it opens, 5 at 1. The scroll ridges, the oxbows and the cutoff distance (1.8 widths) scale with it, and the bend length follows the square root of the width, so at 5 LEDs the river turns 2 or 3 times across the panel and at 2 LEDs 7 to 9 times.
+// Knob 4: Width. The channel width in LEDs, 3.5 plus 1.5 times the knob: 2 at -1, 3.59 where it opens, 5 at 1. The scroll ridges, the oxbows and the cutoff distance (1.8 widths) scale with it, and the bend length follows the width to the power 0.4, so at 5 LEDs the river turns 2 or 3 times across the panel and at 2 LEDs 7 to 9 times.
 
 // What the river is. A line of nodes 1.2 LEDs apart runs from y = -40 above the panel to y = 150 below it, 190 LEDs of valley and about 300 nodes
 // at the opening, fixed at both ends. Its curvature k at a node is the turning angle over the mean spacing, smoothed twice and capped at
@@ -315,8 +315,8 @@ function par(S) {
   const kn = S.knobs;
   const k3 = cl(kn[2], -1, 1);
   const W = S.Wc;
-  // The bends follow the square root of the width, so that a 5 LED channel still has room to bend.
-  const wd = W0 * sqrt(W / W0);
+  // The bends follow the width to the power 0.4, so that a 5 LED channel still has room to bend.
+  const wd = W0 * pow(W / W0, 0.4);
   return { gam: GAM0 * pow(K3F, k3), alpha: ALPHA0 / wd, E: E0 * (wd / W0) * (wd / W0), ds: 0.34 * wd, W, wd };
 }
 
