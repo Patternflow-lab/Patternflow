@@ -35,7 +35,7 @@
 // interpolated, since interpolation blurs the stripes away). The reach Da swings by up to 48% (stripes) down to 12% (crowd) with periods of 150
 // and 61 time units, so stripes are inserted and withdrawn and the chevrons swell and thin. Colonies are seeded only on a cell whose substrate is
 // above 0.6, and one time in two on a cell that seeded in the last five, which lays a second chevron inside the first. If the lip has been
-// dark for 12 rows a colony goes in, on the cell with the most substrate left. The substrate is eaten at a rate that swings by 45%
+// dark for 12 rows a colony goes in, on the cell with the most substrate left. The substrate is eaten at a rate that swings by 38%
 // (periods 113 and 47 time units), so some fronts are thin lines and some are wide bands that fill a young tent with solid pigment.
 // The model is run for 400 rows before the first frame, about 20 ms.
 // Drawing. Pigment cover is a smoothstep of a over aref of 1.7 to 2.5, and the colour comes off a glaze ramp on a over cref: umber, deep
@@ -70,9 +70,9 @@ const PARAM = [
   // wide oblique bands
   [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.17, 2.0, 0.6, 1.0, 2.5, 0.18, 3.0],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 2.0, 2.2, 2.5, 0.14, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 2.0, 2.2, 2.5, 0.14, 3.4],
   // crowd
-  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 4.0, 2.2, 2.5, 0.1, 2.5],
+  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 4.0, 2.2, 2.5, 0.1, 3.4],
 ];
 const INK_GAIN = 1.5, INK_DRAIN = 0.15;
 const QUIET_ROWS = 12;
@@ -200,7 +200,7 @@ function advanceSteps(S, P, mult, steps) {
     S.mt += DT;
     S.wl = 1 + P.wob * (0.7 * sin((2 * PI * S.mt) / 150) + 0.5 * sin((2 * PI * S.mt) / 61 + 1.3));
     // the substrate is eaten faster and slower in turn, so some fronts are thin lines and some are thick bands
-    S.gm = 1 + 0.45 * (0.65 * sin((2 * PI * S.mt) / 113 + 0.5) + 0.35 * sin((2 * PI * S.mt) / 47 + 2));
+    S.gm = 1 + 0.38 * (0.65 * sin((2 * PI * S.mt) / 113 + 0.5) + 0.35 * sin((2 * PI * S.mt) / 47 + 2));
     seeds(S, P, mult);
     substep(S, P);
     if (++S.sub === SUBS) {
