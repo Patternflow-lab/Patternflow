@@ -9,7 +9,7 @@
 // Round:   220
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Rate=0.5..4, Energy=-1..1, Zenith=-1..1
+// @knobs Hue=-0.1..0.5, Rate=0.5..3, Energy=-1..1, Zenith=-1..1
 //
 // Knob 1: Hue. Turns the arrival-time palette round the colour wheel by the knob. At the opening 0 the first tanks to fire are blue-white (115, 166, 255), then pale cyan and warm white (255, 247, 230), and the last are amber (255, 199, 97) to orange (242, 97, 15); the afterglow and the stray muons take the colours of the same palette. At 0.5 the order is reversed, amber first and blue last, and at 1 it is back at blue to amber. The resting grid stays a blue-grey.
 // Knob 2: Rate. How often a shower lands. The mean wait is 6 s at 0.5, 3.2 s at the opening 2 and 2 s at 4, and the waits are never the same twice, so two showers often overlap on the grid. At 0.5 the dim map holds three or four old footprints at a time and at 4 about ten, piled over each other.
@@ -66,9 +66,10 @@ const KAPPA = 0.45, RS = 20; // the fan: more air on the downstream side
 const VSWEEP = 40; // LEDs a second at which the plane sweeps for a shower at 90 degrees
 const RC = 40, TC = 0.5; // the curve of the front: TC seconds at RC LEDs from the axis
 const RISE = 0.055; // s
-const AG_TAU = 10; // s
+const AG_TAU = 15; // s
+const WTAU = 20, WAMP = 0.7; // each tank's resting glow wanders by up to 55 percent on 20 s
 const MAXE = 10, MAXM = 6;
-const LG_LO0 = 0.5, LG_LO1 = 1.9, LG_HI0 = 1.9, LG_HI1 = 2.6; // log10 of the energy range at Energy -1 and the gain across the knob
+const LG_LO0 = 0.8, LG_LO1 = 2.0, LG_HI0 = 2.2, LG_HI1 = 2.4; // log10 of the energy range at Energy -1 and the gain across the knob
 const PRE = 55; // s run before the first frame
 
 // the arrival-time palette: time 0..1, then red, green, blue
@@ -79,6 +80,13 @@ const PS = [
   [0.64, 1, 0.78, 0.36],
   [0.84, 1, 0.5, 0.1],
   [1, 0.92, 0.33, 0.05],
+];
+const GS = [
+  [0, 0.3, 0.55, 1],
+  [0.35, 0.4, 0.82, 0.95],
+  [0.55, 1, 0.8, 0.42],
+  [0.8, 1, 0.48, 0.24],
+  [1, 0.95, 0.28, 0.32],
 ];
 const NL = 32;
 
@@ -125,12 +133,29 @@ function buildLut(S, shift) {
     lut[j * 3] = r;
     lut[j * 3 + 1] = g;
     lut[j * 3 + 2] = bl;
+    // the afterglow has its own stops, without the white in the middle, because a dim white is grey and a dim amber is brown on the panel
+    let k = 0;
+    while (k < GS.length - 2 && t > GS[k + 1][0]) k++;
+    const c = GS[k], d = GS[k + 1], h = cl((t - c[0]) / (d[0] - c[0]), 0, 1);
+    r = mix(c[1], d[1], h);
+    g = mix(c[2], d[2], h);
+    bl = mix(c[3], d[3], h);
+    if (shift !== 0) {
+      rgb2hsv(r, g, bl, tmp);
+      hsv2rgb(tmp[0] + shift, tmp[1], tmp[2], tmp);
+      r = tmp[0];
+      g = tmp[1];
+      bl = tmp[2];
+    }
+    S.lutA[j * 3] = r;
+    S.lutA[j * 3 + 1] = g;
+    S.lutA[j * 3 + 2] = bl;
   }
   S.lutK = shift;
 }
 
-function lutAt(S, t, o) {
-  const p = cl(t, 0, 1) * NL, i = min(NL - 1, floor(p)), f = p - i, l = S.lut, q = i * 3;
+function lutAt(S, l, t, o) {
+  const p = cl(t, 0, 1) * NL, i = min(NL - 1, floor(p)), f = p - i, q = i * 3;
   o[0] = l[q] + (l[q + 3] - l[q]) * f;
   o[1] = l[q + 1] + (l[q + 4] - l[q + 1]) * f;
   o[2] = l[q + 2] + (l[q + 5] - l[q + 2]) * f;
@@ -158,12 +183,13 @@ export function setup(params) {
     nextEv: 1, nextMu: 1, big: false,
     tx: F(NT), ty: F(NT),
     off: new Int32Array(NT + 1), pix: null, fw: null, hw: null, aw: null,
-    gndR: F(N), gndG: F(N), gndB: F(N), baseR: F(N), baseG: F(N), baseB: F(N), restK: -9, cv: null, rgw: null,
+    gndR: F(N), gndG: F(N), gndB: F(N), restK: -9, cv: null, rgw: null, rim: [0, 0, 0], fill: [0, 0, 0], wd: F(NT),
     R: F(N), G: F(N), B: F(N),
     ag: F(NT), agT: F(NT), lt: F(NT), lw: F(NT), lr: F(NT),
-    lut: F((NL + 1) * 3), lutK: -9, tmp: [0, 0, 0], c1: [0, 0, 0], c2: [0, 0, 0],
+    lut: F((NL + 1) * 3), lutA: F((NL + 1) * 3), lutK: -9, tmp: [0, 0, 0], c1: [0, 0, 0], c2: [0, 0, 0],
     ev: [], mu: [],
   };
+  for (let i = 0; i < NT; i++) S.wd[i] = 0.8 * gauss();
   for (let i = 0; i < MAXE; i++) S.ev.push(mkEvent());
   for (let i = 0; i < MAXM; i++) S.mu.push({ on: false, i: 0, age: 0, a: 0 });
   for (let c = 0; c < NC; c++)
@@ -213,29 +239,18 @@ export function setup(params) {
   params.s = S;
 }
 
-// The resting grid: a ring and a darker fill in the hue of the palette's first colour, on the ground.
+// The resting grid: a ring and a darker fill in the hue of the palette's first colour.
 function rest(S) {
-  const rim = [0, 0, 0], fill = [0, 0, 0];
-  hsv2rgb(0.6 + S.k1, 0.5, 0.17, rim);
-  hsv2rgb(0.6 + S.k1, 0.5, 0.06, fill);
-  S.baseR.set(S.gndR);
-  S.baseG.set(S.gndG);
-  S.baseB.set(S.gndB);
-  const { pix, cv, rgw } = S;
-  for (let k = 0; k < pix.length; k++) {
-    const p = pix[k], c = cv[k], g = rgw[k];
-    S.baseR[p] += fill[0] * c + rim[0] * g;
-    S.baseG[p] += fill[1] * c + rim[1] * g;
-    S.baseB[p] += fill[2] * c + rim[2] * g;
-  }
+  hsv2rgb(0.6 + S.k1, 0.5, 0.17, S.rim);
+  hsv2rgb(0.6 + S.k1, 0.5, 0.06, S.fill);
   S.restK = S.k1;
 }
 
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
-  S.k1 = cl(k[0], 0, 1);
-  const kr = (cl(k[1], 0.5, 4) - 0.5) / 3.5;
+  S.k1 = cl(k[0], -0.1, 0.5);
+  const kr = (cl(k[1], 0.5, 3) - 0.5) / 2.5;
   S.mean = 1 / (1 / 6 + kr * (1 / 2 - 1 / 6));
   S.k3 = cl(k[2], -1, 1);
   S.zen = ((cl(k[3], -1, 1) + 1) / 2) * 1.0472;
@@ -331,15 +346,15 @@ function stepEvent(S, e) {
     if (e.fired[k] || e.age - e.tt[k] < 0.1) continue;
     e.fired[k] = 1;
     const i = e.idx[k], b = e.b[k];
-    if (b < 0.1) continue;
-    const a = 0.4 * sm(0.4, 0.85, b), tot = S.ag[i] + a;
+    if (b < 0.3) continue;
+    const a = 0.07 + 0.39 * sm(0.34, 0.9, b), tot = S.ag[i] + a;
     // the newer colour wins where it is the stronger, so overlapping footprints do not blend to grey
     S.agT[i] = mix(S.agT[i], e.rel[k], sm(0.2, 0.6, a / (tot + 1e-6)));
     S.ag[i] = min(0.5, tot);
   }
 }
 
-const erl = () => -(log(1 - Math.random()) + log(1 - Math.random())) / 2;
+const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.35, 1.8);
 
 function step(S, dt) {
   S.t += dt;
@@ -348,6 +363,8 @@ function step(S, dt) {
     const a = S.ag[i] * kd;
     S.ag[i] = a < 0.003 ? 0 : a;
   }
+  const kw = sqrt((2 * dt) / WTAU);
+  for (let i = 0; i < NT; i++) S.wd[i] = cl(S.wd[i] - (S.wd[i] * dt) / WTAU + kw * gauss(), -1.8, 1.8);
   for (const e of S.ev) {
     if (!e.on) continue;
     e.age += dt;
@@ -370,10 +387,10 @@ function step(S, dt) {
       m.on = true;
       m.i = floor(Math.random() * NT);
       m.age = 0;
-      m.a = 0.14 + 0.16 * Math.random();
+      m.a = 0.16 + 0.2 * Math.random();
       break;
     }
-    S.nextMu = 2.2 * erl();
+    S.nextMu = 1.2 * erl();
   }
 }
 
@@ -383,9 +400,9 @@ export function draw(display, params) {
   if (S.lutK !== S.k1) buildLut(S, S.k1);
   if (S.restK !== S.k1) rest(S);
   const { R, G, B, lt, lw, lr, ag, agT, c1, c2 } = S;
-  R.set(S.baseR);
-  G.set(S.baseG);
-  B.set(S.baseB);
+  R.set(S.gndR);
+  G.set(S.gndG);
+  B.set(S.gndB);
   lt.fill(0);
   lw.fill(0);
   lr.fill(0);
@@ -412,28 +429,30 @@ export function draw(display, params) {
   }
   const { off, pix, fw, hw, aw } = S;
   for (let i = 0; i < NT; i++) {
-    const Lf = lt[i], A = ag[i];
-    if (Lf < 0.004 && A < 0.004) continue;
+    const Lf = lt[i], A = ag[i], gs = 1 + WAMP * Math.tanh(S.wd[i] * 0.8);
+    const rr = S.rim[0] * gs, rg = S.rim[1] * gs, rb = S.rim[2] * gs, fr0 = S.fill[0] * gs, fg0 = S.fill[1] * gs, fb0 = S.fill[2] * gs;
     let fr = 0, fg = 0, fb = 0, ar = 0, ab = 0, ae = 0;
     if (Lf >= 0.004) {
-      lutAt(S, lw[i] > 0 ? lr[i] / lw[i] : 0, c1);
+      lutAt(S, S.lut, lw[i] > 0 ? lr[i] / lw[i] : 0, c1);
       const w = sm(0.55, 0.95, Lf) * 0.9;
       fr = mix(c1[0], 1, w);
       fg = mix(c1[1], 1, w);
       fb = mix(c1[2], 1, w);
     }
-    if (A >= 0.004) {
-      lutAt(S, agT[i], c2);
-      ar = c2[0] * A;
-      ae = c2[1] * A;
-      ab = c2[2] * A;
+    if (A >= 0.03) {
+      // below about 0.12 a colour is no longer a colour on the panel, so the afterglow lets go early
+      const Ae = A * sm(0.03, 0.17, A);
+      lutAt(S, S.lutA, agT[i], c2);
+      ar = c2[0] * Ae;
+      ae = c2[1] * Ae;
+      ab = c2[2] * Ae;
     }
     const L2 = Lf * Lf;
     for (let k = off[i], ke = off[i + 1]; k < ke; k++) {
-      const p = pix[k], f = Lf * fw[k] + L2 * hw[k], a = aw[k];
-      R[p] += fr * f + ar * a;
-      G[p] += fg * f + ae * a;
-      B[p] += fb * f + ab * a;
+      const p = pix[k], f = Lf * fw[k] + L2 * hw[k], a = aw[k], c = S.cv[k], g = S.rgw[k];
+      R[p] += fr * f + ar * a + fr0 * c + rr * g;
+      G[p] += fg * f + ae * a + fg0 * c + rg * g;
+      B[p] += fb * f + ab * a + fb0 * c + rb * g;
     }
   }
   for (let y = 0, p = 0; y < H; y++)
