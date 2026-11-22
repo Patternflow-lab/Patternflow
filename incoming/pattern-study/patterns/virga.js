@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=-0.14..0.1, Rain=0.5..3.5, Shear=-1..1, Dry=-1..1
 //
-// Knob 1: Hue. Turns the whole dusk, the sky, the cloud and the rain together. At the opening 0 the sky runs from indigo (104, 83, 138) under the cloud through violet (149, 98, 153) and rose (168, 108, 133) to a peach amber (214, 154, 116) at the bottom row, and the rain is gold (255, 189, 112) on its lit side. The cool side moves every colour by 0.9 times the knob, so at -0.14 the sky under the cloud is blue-green, the middle blue-violet and the horizon pink (214, 116, 152). On the warm side the sky aloft moves by +0.5 times the knob and the horizon by -0.5 times it, so at 0.1 the top goes violet and the horizon turns coral (214, 125, 116). The range stops before yellow and green.
-// Knob 2: Rain. The knob less 0.5, over 3, sets how heavy the rain is. The number of cells that may hang at once is 2.3 at 0.5, 4.75 at the opening 2 and 7 at 3.5, the brightness of a curtain is 1.25 to 2.15 times, and its width grows from 0.85 to 1.15 times, so a near curtain is 21 LEDs wide at 0.5, 25 at 2 and 29 at 3.5, and a far one 8 to 11. A cell that a lower knob switches off fades over about 6 s and comes back when the knob does. At 0.5 the curtains are a few faint gold threads, at 3.5 they are close to solid grey-gold sheets with only the lit streaks standing out.
+// Knob 1: Hue. Turns the whole dusk, the sky, the cloud and the rain together. At the opening 0 the sky runs from indigo (102, 80, 138) under the cloud through violet (148, 92, 153) and rose (168, 101, 129) to a peach amber (214, 146, 103) at the bottom row, and the rain is gold (255, 180, 92) on its lit side. The cool side moves every colour by 0.9 times the knob, so at -0.14 the sky under the cloud is blue-green, the middle blue-violet and the horizon pink (214, 103, 144). On the warm side the sky aloft moves by +0.5 times the knob and the horizon by -0.5 times it, so at 0.1 the top goes violet and the horizon turns coral (214, 113, 103). The range stops before yellow and green.
+// Knob 2: Rain. The knob less 0.5, over 3, sets how heavy the rain is. The number of cells that may hang at once is 2.3 at 0.5, 4.75 at the opening 2 and 7 at 3.5, the brightness of a curtain is 1.45 to 2.4 times, and its width grows from 0.85 to 1.15 times, so a near curtain is 19 LEDs wide at 0.5, 22 at 2 and 25 at 3.5, and a far one 8 to 11. A cell that a lower knob switches off fades over about 6 s and comes back when the knob does. At 0.5 the curtains are a few faint gold threads, at 3.5 they are close to solid grey-gold sheets with only the lit streaks standing out.
 // Knob 3: Shear. Wind shear, which way the streaks lean and how much the lean grows with the fall. A streak moves 0.1 + 0.28 times the knob LED sideways for each row it falls and bends by another 0.0014 + 0.005 times the knob per row squared, so after 50 rows it has moved 8.5 LEDs to the right at the opening 0, 35 at 1 with a hard curve in it, and 18 to the left at -1. The lean also wanders by up to 0.045 on its own, and a near curtain leans about 1.3 times as much as a far one. The cloud base tilts with the knob, 0.2 rows per LED of distance from the middle column, so at 1 its left edge is 6 rows higher and its right edge 6 lower, and the low haze banks lean with it.
-// Knob 4: Dry. The height of the dry layer, where the rain has gone. The layer is on row 46 at -1, row 81 at the opening 0.06 and row 113 at 1, and it moves up and down by up to 13 rows over about a minute on its own. At -1 the rain hangs from the cloud as stubs about 20 LEDs long, at 1 as ropes that reach down to within 15 to 30 LEDs of the bottom row. Each streak ends within 20 percent of the layer's depth by its own cut-off, and a cell that is still building has reached only a third of the way. A drier layer also brightens the horizon glow to 1.45 times (0.45 times at -1) and thins the curtains' brightness from 1.2 times to 0.95.
+// Knob 4: Dry. The height of the dry layer, where the rain has gone. The layer is on row 42 at -1, row 81 at the opening 0.06 and row 116 at 1, and it moves up and down by up to 13 rows over about a minute on its own. At -1 the rain hangs from the cloud as stubs 15 to 20 LEDs long, at 1 as ropes that reach down to within 12 to 30 LEDs of the bottom row. Each streak ends within 20 percent of the layer's depth by its own cut-off, and a cell that is still building has reached only a third of the way. A drier layer also brightens the horizon glow to 1.45 times (0.45 times at -1) and thins the curtains' brightness from 1.2 times to 0.95.
 
 // The panel is a view up at a high cloud base from the ground at dusk. Rows 0 to about 26 are the cloud base. Its
 // underside is two octaves of value noise on a domain warp, so it hangs between rows 18 and 34 in pouches about
@@ -35,7 +35,7 @@
 // back toward the middle, run through two low-pass stages of 5 s, so the sky never comes round to a scene it
 // has shown.
 // A curtain is drawn per cell, far ones first. A far one is 9 LEDs wide, falls 4.5 LEDs a second and is hazy,
-// a near one is 25 LEDs wide, falls 10.5 and is clearer. Every pixel is turned into the curtain's own sheared
+// a near one is 22 LEDs wide, falls 10.5 and is clearer. Every pixel is turned into the curtain's own sheared
 // coordinate, the column minus the lean times the rows below the cloud, so a streak is a slanted curve that
 // hangs from the cloud. A coarse layer (6 LEDs across, long in y) says where the rain is dense and a fine layer
 // (2.7 LEDs across, about 11 rows long) cuts it into streaks. Each is a row of lattice columns, each with its
@@ -58,12 +58,12 @@ const F = (n) => new Float32Array(n);
 const NSLOT = 7; // most cells of rain at once
 const EDGE0 = 26; // mean row of the underside of the cloud
 const SAG = 5.5; // rows the cloud base hangs down under a full cell
-const END_LO = 46, END_HI = 113; // the dry layer at Dry -1 and Dry 1, rows
+const END_LO = 42, END_HI = 116; // the dry layer at Dry -1 and Dry 1, rows
 
 // the sky: elevation (0 top row, 1 bottom row), hue, saturation, value
 const ST_E = [0, 0.2, 0.4, 0.6, 0.78, 0.9, 1];
 const ST_H = [0.68, 0.73, 0.82, 0.93, 1.01, 1.045, 1.065];
-const ST_S = [0.5, 0.4, 0.36, 0.36, 0.4, 0.44, 0.46];
+const ST_S = [0.5, 0.42, 0.4, 0.4, 0.44, 0.5, 0.52];
 const ST_V = [0.42, 0.54, 0.6, 0.66, 0.74, 0.82, 0.84];
 
 function hsv(h, s, v, out) {
@@ -189,7 +189,7 @@ function spawn(S, c, age0) {
   c.z = bz;
   c.life = 32 + 50 * Math.random();
   c.age = c.life * age0;
-  c.hw = mix(4.6, 12.5, bz) * (0.9 + 0.2 * Math.random());
+  c.hw = mix(4.6, 11, bz) * (0.9 + 0.2 * Math.random());
   c.vf = mix(4.5, 10.5, bz) * (0.92 + 0.16 * Math.random());
   c.jit = 0.92 + 0.2 * Math.random();
   c.lm = 0.85 + 0.3 * bz;
@@ -271,11 +271,11 @@ function palette(S, T) {
   S.bg = 1 + cl(S.o[1], -0.16, 0.16);
   const sh = (e) => wander + (k < 0 ? k * 0.9 : k * (0.5 - e));
   hsv(0.77 + sh(0.3), 0.5, 0.28, c.body);
-  hsv(1.09 + sh(0.9), 0.56, 1.05, c.lit);
+  hsv(1.09 + sh(0.9), 0.64, 1.05, c.lit);
   hsv(0.76 + sh(0.5), 0.36, 0.34, c.shade);
-  hsv(1.1 + sh(0.9), 0.44, 1.0, c.gold);
-  hsv(0.975 + sh(0.7), 0.4, 0.9, c.rose);
-  hsv(1.06 + sh(1), 0.56, 0.88, c.glow);
+  hsv(1.1 + sh(0.9), 0.5, 1.0, c.gold);
+  hsv(0.975 + sh(0.7), 0.44, 0.9, c.rose);
+  hsv(1.06 + sh(1), 0.62, 0.88, c.glow);
   const t = c.tmp;
   for (let y = 0; y < H; y++) {
     const e = (y + 0.5) / H;
@@ -341,7 +341,7 @@ function drawCell(S, c, T) {
   const y0 = max(0, floor(yb0 - 4)), y1 = min(H - 1, ceil(c.end + 0.3 * span + 6));
   const wxc = 6, wxf = 2.7, fall = c.vf * T;
   const thc = 0.3 - 0.1 * (S.rn - 0.5), thf = 0.3 - 0.1 * (S.rn - 0.5);
-  const gain = (1.25 + 0.9 * S.rn) * mix(1.2, 0.95, S.u4) * c.op * Math.min(1, c.str * 1.6);
+  const gain = (1.45 + 0.95 * S.rn) * mix(1.2, 0.95, S.u4) * c.op * Math.min(1, c.str * 1.6);
   const lr = col.lit, sr = col.shade;
   for (let y = y0; y <= y1; y++) {
     const yy = y + 0.5, d = yy - yb0;
@@ -363,8 +363,8 @@ function drawCell(S, c, T) {
       if (uu > 1.1) continue;
       const g = pow(cl(uu, 0, 1.1), 1.3);
       // a coarse layer says where the rain is dense, a fine one cuts it into streaks, and both ask more of the noise lower down
-      const bun = 0.55 + 0.45 * sm(thc + 0.3 * g, thc + 0.3 * g + 0.34, sc);
-      const fin = 0.4 + 0.6 * sm(thf + 0.34 * g, thf + 0.34 * g + 0.3, sf);
+      const bun = 0.42 + 0.58 * sm(thc + 0.3 * g, thc + 0.3 * g + 0.34, sc);
+      const fin = 0.24 + 0.76 * sm(thf + 0.34 * g, thf + 0.34 * g + 0.3, sf);
       const dens = env * top * (1 - sm(0.72, 1, uu)) * bun * fin * (1 - 0.12 * cl(u, 0, 1));
       const a = cl(dens * gain, 0, 0.93);
       if (a < 0.01) continue;
