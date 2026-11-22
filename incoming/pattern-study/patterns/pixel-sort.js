@@ -41,7 +41,7 @@ const frac = (v) => v - floor(v);
 
 const MB = 14; // rows of grid beyond the panel along the sort, so runs that cross the edge are whole
 const GMAX = 192;
-const PLEAT = 0.1; // how deep the folds in the sorted curtains go
+const PLEAT = 0.16; // how deep the folds in the sorted curtains go
 const HUE0 = 0.6; // the palette at Hue 0 starts in blue
 
 // ---- the shapes. kind 0 is an ellipse, kind 1 a wedge pointing from a pivot
@@ -84,7 +84,7 @@ function makeState() {
     ready: false, t: 13.7, ang: 0, scl: 1, lo: 0.4,
     inv: new Float32Array(n), ws: new Float32Array(n), wp: new Float32Array(n),
     Ic: new Float32Array(n), Pc: new Float32Array(n), Io: new Float32Array(n), Po: new Float32Array(n),
-    key: new Float64Array(GMAX), tmp: new Float32Array(GMAX),
+    key: new Float64Array(GMAX), tmp: new Float32Array(GMAX), tmp2: new Float32Array(GMAX), pre: new Float64Array(GMAX + 1),
     loCol: new Float32Array(GMAX), fa: new Float32Array(GMAX * 6), fb: new Float32Array(GMAX * 6),
     Is: new Float32Array(NPX), Ps: new Float32Array(NPX),
     kn: [0, 2, 0, 0.06],
@@ -207,7 +207,7 @@ function scene(S, t, phi, scl, NA, NB) {
 }
 
 function sortGrid(S, NA, NB) {
-  const { Ic, Pc, Io, Po, key, tmp, loCol, fa, fb } = S;
+  const { Ic, Pc, Io, Po, key, tmp, tmp2, pre, loCol, fa, fb } = S;
   for (let i = 0; i < NA; i++) {
     const base = i * NB, lo = loCol[i], i6 = i * 6;
     let j = 0;
@@ -239,14 +239,17 @@ function sortGrid(S, NA, NB) {
           Io[base + j + q] = Iv * (1 + PLEAT * en * sm(0.06, 0.4, Iv) * (0.62 * f1 + 0.38 * f2));
           tmp[q] = Pc[base + j + kk];
         }
-        // four passes of a 1-2-1 filter on the hue down the run
-        for (let pass = 0; pass < 4; pass++) {
-          let prev = tmp[0];
+        // the hue goes down the run as a moving average a fifth of the run wide, twice, so the order of the pixels
+        // (which interleaves the hues of two shapes of the same brightness) does not stripe it
+        const hw = max(2, (n / 5) | 0);
+        for (let pass = 0; pass < 2; pass++) {
+          pre[0] = 0;
+          for (let q = 0; q < n; q++) pre[q + 1] = pre[q] + tmp[q];
           for (let q = 0; q < n; q++) {
-            const cur = tmp[q], nx = q + 1 < n ? tmp[q + 1] : cur;
-            tmp[q] = (prev + 2 * cur + nx) * 0.25;
-            prev = cur;
+            const lo2 = q - hw < 0 ? 0 : q - hw, hi2 = q + hw + 1 > n ? n : q + hw + 1;
+            tmp2[q] = (pre[hi2] - pre[lo2]) / (hi2 - lo2);
           }
+          for (let q = 0; q < n; q++) tmp[q] = tmp2[q];
         }
         for (let q = 0; q < n; q++) Po[base + j + q] = tmp[q];
       }
@@ -300,7 +303,7 @@ function advance(S, dt, kn) {
   scene(S, t, phi, S.scl, NA, NB);
   for (let i = 0; i < NA; i++) {
     const a = i + 0.5 - NA / 2;
-    S.loCol[i] = S.lo * (1 + 0.1 * sin((TAU * a) / 17.3 + 0.17 * t + 2) + 0.05 * sin((TAU * a) / 7.9 - 0.11 * t));
+    S.loCol[i] = S.lo * (1 + 0.1 * sin((TAU * a) / 17.3 + 0.17 * t + 2) + 0.08 * sin((TAU * a) / 9.7 - 0.11 * t) + 0.06 * sin((TAU * a) / 6.1 + 0.07 * t + 4));
     // fa holds sin and cos of each column's phase for the three waves, fb the same down the rows, so a fold is sin(A + B) with no trig per cell
     const p1 = (TAU * a) / 8.3 + 0.31 * t, p2 = (TAU * a) / 13.7 - 0.23 * t + 1.7, p3 = (TAU * a) / 41 + 0.07 * t + 0.4;
     S.fa[i * 6] = sin(p1); S.fa[i * 6 + 1] = cos(p1);
@@ -335,7 +338,7 @@ export function draw(display, params) {
   const { Is, Ps } = S;
   for (let o = 0; o < NPX; o++) {
     const I = cl(Is[o], 0, 1);
-    let h = hue0 + Ps[o] + 0.1 * sm(0.1, 1, I);
+    let h = hue0 + Ps[o] + 0.14 * sm(0.15, 1, I);
     h -= floor(h);
     const hi = ((h * HN) | 0) * 3;
     const s = 0.86 - 0.42 * sm(0.7, 1.05, I);
