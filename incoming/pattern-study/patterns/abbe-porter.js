@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Abbe Porter
 // Family:  fourieroptics
-// Idea:    DRAFT
+// Idea:    A red laser through a wire gauze, drawn as Abbe saw the microscope image form: the top third of the panel is the focal plane, where the gauze's diffraction orders stand as a lattice of dots and a stop that drifts from circle to slit to ring to off-axis circle lets some of them through, and the rest of the panel is the image those orders make when they meet again, so it sharpens as orders come in, is only stripes through a slit, shows its holes as dark loops through a ring with a quarter-wave dot, and turns to dark field when the stop gives up the central dot.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,28 @@
 // @matrix 64x128
 // @knobs Laser=-0.2..1, Pupil=0..3, Shape=0..3, Pitch=-1..1
 //
-// Knob 1: DRAFT
-// Knob 2: DRAFT
-// Knob 3: DRAFT
-// Knob 4: DRAFT
+// Knob 1: Laser. The laser line. At 0, where it opens, it is 633 nm, the helium-neon red, and the focal plane is drawn at S = 90 LED^2 times the spatial frequency, so the first orders lie 4 to 8 LEDs from the central dot. Each unit of the knob takes 228 nm off: 0.5 is 519 nm green, 1 is 405 nm violet, where the plane is drawn at 0.64 of that size (S = 57.6), the same stop lets 2.4 times as many orders through and the image is sharper, which is Abbe's d = lambda / NA. Below 0 the line goes to 700 nm at -0.2, a deep red, and the plane opens out to 1.11 times.
+// Knob 2: Pupil. The radius of the stop in the focal plane, 12.5 LEDs at 2, where it opens, and 12.5 * 2^(0.8 (K - 2)) elsewhere: 4.3 at 0 and 21.8 at 3. It breathes by up to 54 percent (three sines of 9.7, 23 and 67 s) and never closes below 1.05 times the distance of the first orders, 4 to 9 LEDs, so even at 0 the four or six first orders pass and the image is a soft glow with faint blobs. At the opening 19 orders pass and the gauze is about four round blobs across. At 3 the stop takes the whole plane and the holes come out as rounded rectangles with a ripple at their edges. The slit, ring and off-axis forms all take their size from this radius.
+// Knob 3: Shape. Where the stop is on its round of four forms: 0 a circle, 1 a slit, 2 a ring, 3 an off-axis circle, and a blend of the two nearest in between. The stop moves on by itself, holding a form 4 to 13 s and taking 5 to 10 s to reach the next, one time in five skipping one, and the knob is added to where it is. The slit runs past both edges of the plane and is 0.42 to 0.9 R + 2 wide, its direction swinging over the lattice's rows; the ring has an outer radius of 0.85 to 1.75 R + 1 and an inner one 0.36 to 0.8 of that, with a dot of 2.3 LEDs on the central order that delays it by a quarter wave (pi / 2) and passes 0.45 of its amplitude; the off-axis circle has radius 0.95 R and its centre 0.2 to 1.4 R off the axis, so past R it blocks the central dot. Every form is redrawn a little each visit.
+// Knob 4: Pitch. The pitch of the gauze in the image, 15.5 * 2^(0.55 K) LEDs: 10.6 at -1, 15.9 where it opens at 0.06, 22.8 at 1. The two pitches then wander by 20 percent each and the pair by 12 percent over 17 to 89 s, kept between 11 and 23, so the cell is never a square for long. The focal plane draws its reciprocal, the orders S / pitch apart, 4 LEDs for the coarsest gauze and 8.2 for the finest at 633 nm. A coarse gauze packs more orders under the stop and its image shows more detail, a fine one lets few through and its holes stay soft blobs.
+
+// What the picture is. A mesh of rectangular holes in an opaque screen is lit by a plane laser wave, and a lens takes its Fraunhofer pattern to a focal
+// plane, the top 42 rows, and a second lens turns what passes the stop back into an image, the bottom 82 rows. Abbe's point is that the image is
+// the interference of the orders in the plane, so a stop in the plane edits it. The mesh has lattice vectors a1 and a2 (pitches p1, p2, angle th that
+// turns 1.7 degrees a second on average, and a shear of up to 0.29 rad), a hole of fraction fx by fy of the cell (each wandering over 0.25 to 0.67, so at
+// 0.5 every even order vanishes) and bars between the holes of amplitude ab (0 to 0.4) and delay 0.7 to 1.5 rad. Its Fourier coefficients are
+//   c(m, n) = (1 - t_bar) fx fy sinc(m fx) sinc(n fy), and c(0, 0) = t_bar (1 - fx fy) + fx fy,
+// with t_bar = ab exp(i delay). An order sits at q = S (m b1 + n b2) from the axis, b1 and b2 being the reciprocal vectors, and a dot is drawn there
+// 1.15 LEDs in sigma (2.7 across) at 1.2 log(1 + 30 |c| / |c|max) / log 31 of full, bright when the stop passes it and 0.2 of that when it does not. The stop
+// is a soft-edged ellipse with a hole, shifted off the axis, a 2 LED edge, cut off by the edges of the plane and by a spatial frequency of 0.26 to
+// 0.36 cycles an LED, so no stripe in the image is finer than 3 LEDs. Its inside is lit at 0.2 so the stop reads as a lit plate.
+// The image is I = |sum over passed orders of A(q) c(m, n) exp(2 pi i (m s + n t))|^2, with s and t the position in the cell, and the cell is
+// the one the sum is done on: a 64 by 64 table of the field made with two passes of the sum, one down n and one down m, and read back with a bilinear
+// lookup, so 20 to 40 orders cost about 2 ms a frame. The mean of I is the sum of the squares of the passed orders, and a gain of 0.5 over that
+// (1 to 10 times, glided over 1.2 s) keeps a dark-field image from going out, with a drift of 0.44 to 1 for the laser's power. The beam is a Gaussian
+// with an intensity of exp(-2 r^2 / w^2) at w = 31 to 53 LEDs across and 40 to 72 down, wandering by up to 40 LEDs across and 68 down, with a floor of 0.12,
+// and two faint ripples ride on it, the fringes of a beam expander, 36 and 26 percent deep with wavelengths of 26 to 56 LEDs. They drift at about 1.5 LEDs
+// a second. A mesh turning at a steady rate looks the same again every half turn, and the beam and the ripples never line up twice.
 
 const W = 64, H = 128;
 const { floor, ceil, sqrt, exp, log, sin, cos, PI, abs, min, max, pow } = Math;
@@ -76,7 +94,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   const k1 = cl(kn[0], -0.2, 1), k2 = cl(kn[1], 0, 3), k3 = cl(kn[2], 0, 3), k4 = cl(kn[3], -1, 1);
-  const lam = k1 >= 0 ? 633 - 228 * k1 : 633 - 335 * k1, R = 12.5 * pow(2, 0.7 * (k2 - 2)), p = 15.5 * pow(2, 0.5 * k4);
+  const lam = k1 >= 0 ? 633 - 228 * k1 : 633 - 335 * k1, R = 12.5 * pow(2, 0.8 * (k2 - 2)), p = 15.5 * pow(2, 0.55 * k4);
   const a = S.ready ? 1 - exp(-d / 0.4) : 1;
   S.R += (R - S.R) * a;
   S.p += (p - S.p) * a;
@@ -107,7 +125,7 @@ export function update(dt, input, params) {
 
 // ---- the stop: an ellipse with a hole, shifted off the axis, plus a quarter-wave dot on the zero order
 let mrx = 1, mry = 1, mrin = 0, mcx = 0, mcy = 0, mca = 1, msa = 0, mz = 0, mS = S0;
-const EDGE = 1.0, RZ = 2.3;
+const EDGE = 2.0, RZ = 2.3;
 function maskA(qx, qy) {
   const x = qx - mcx, y = qy - mcy;
   const a = x * mca + y * msa, b = -x * msa + y * mca;
@@ -116,7 +134,7 @@ function maskA(qx, qy) {
   if (mrin > 0) pass *= sm(mrin - EDGE, mrin + EDGE, sqrt(x * x + y * y));
   const r0 = sqrt(qx * qx + qy * qy);
   if (mz > 0) pass = max(pass, mz * (1 - sm(RZ - EDGE, RZ + EDGE, r0)));
-  const win = (1 - sm(27, 33, abs(qx))) * (1 - sm(16, 21.5, abs(qy))) * (1 - sm(0.33, 0.42, r0 / mS));
+  const win = (1 - sm(27, 33, abs(qx))) * (1 - sm(16, 21.5, abs(qy))) * (1 - sm(0.26, 0.36, r0 / mS));
   return pass * win;
 }
 
@@ -127,7 +145,7 @@ function redraw(S, i) {
   i = ((i % 4) + 4) % 4;
   if (i === 0) rt[0] = 0.8 + 0.5 * r();
   else if (i === 1) rt[1] = 0.7 + 0.8 * r();
-  else if (i === 2) (rt[2] = 0.85 + 0.9 * r()), (rt[3] = 0.36 + 0.44 * r()), (rt[6] = (r() - 0.5) * 0.5), (rt[7] = (r() - 0.5) * 0.5);
+  else if (i === 2) (rt[2] = 0.85 + 0.9 * r()), (rt[3] = 0.36 + 0.44 * r()), (rt[6] = (r() - 0.5) * 0.1), (rt[7] = (r() - 0.5) * 0.1);
   else (rt[4] = 0.45 + 0.95 * r()), (rt[5] = S.rv[5] + (r() - 0.5) * 3.5);
 }
 function archetype(i, R, t, rv, out) {
@@ -137,7 +155,7 @@ function archetype(i, R, t, rv, out) {
   } else if (i === 1) {
     out[0] = 90; out[1] = 0.3 * R * rv[1] + 1; out[2] = 0; out[3] = 0; out[4] = 0; out[5] = 0;
   } else if (i === 2) {
-    const ro = R * rv[2] + 1;
+    const ro = min(R * rv[2] + 1, 16);
     out[0] = ro; out[1] = ro; out[2] = rv[3] * ro; out[3] = rv[6] * ro; out[4] = rv[7] * ro; out[5] = 1;
   } else {
     const al = rv[5] + 0.06 * t + 0.5 * sin(0.21 * t + 0.4);
@@ -154,11 +172,11 @@ export function draw(display, params) {
   // ---- the object: a mesh of rectangular holes, its pitches, its angle and its shear all drifting
   const p = S.p;
   const pw = 1 + 0.12 * sin((TAU * t) / 89.3 + 3.1);
-  const p1 = cl(p * pw * (1 + 0.2 * sin((TAU * t) / 53.1 + 1.3) + 0.06 * sin((TAU * t) / 21.7 + 0.2)), 11, 23);
-  const p2 = cl(p * pw * (1 + 0.2 * sin((TAU * t) / 61.3 + 4.1) + 0.06 * sin((TAU * t) / 17.9 + 3.3)), 11, 23);
+  const p1 = cl(p * pw * (1 + 0.2 * sin((TAU * t) / 53.1 + 0.15) + 0.06 * sin((TAU * t) / 21.7 + 0.2)), 11, 23);
+  const p2 = cl(p * pw * (1 + 0.2 * sin((TAU * t) / 61.3 + 3.3) + 0.06 * sin((TAU * t) / 17.9 + 3.3)), 11, 23);
   const sh = 0.2 * sin((TAU * t) / 71.3 + 0.5) + 0.09 * sin((TAU * t) / 27.9 + 2.8);
-  const fx = 0.46 + 0.17 * sin((TAU * t) / 37.7 + 2.0) + 0.04 * sin((TAU * t) / 14.3 + 0.8);
-  const fy = 0.46 + 0.17 * sin((TAU * t) / 43.9 + 5.1) + 0.04 * sin((TAU * t) / 12.1 + 3.4);
+  const fx = 0.46 + 0.17 * sin((TAU * t) / 37.7 + 0.45) + 0.04 * sin((TAU * t) / 14.3 + 0.8);
+  const fy = 0.46 + 0.17 * sin((TAU * t) / 43.9 + 3.3) + 0.04 * sin((TAU * t) / 12.1 + 3.4);
   const th = S.th;
   const a1x = p1 * cos(th), a1y = p1 * sin(th);
   const a2x = p2 * cos(th + PI / 2 + sh), a2y = p2 * sin(th + PI / 2 + sh);
@@ -166,7 +184,7 @@ export function draw(display, params) {
   const b1x = a2y / det, b1y = -a2x / det, b2x = -a1y / det, b2y = a1x / det; // reciprocal vectors, cycles per LED
 
   // bars between the holes: transmission ab, delay phb
-  const ab = 0.29 + 0.25 * (0.6 * sin((TAU * t) / 97.1 + 1.1) + 0.4 * sin((TAU * t) / 41.3 + 2.3));
+  const ab = 0.2 + 0.2 * (0.6 * sin((TAU * t) / 97.1 + 0.4) + 0.4 * sin((TAU * t) / 41.3 + 0.1));
   const phb = 1.1 + 0.4 * sin((TAU * t) / 59.9 + 0.3);
   const tbr = ab * cos(phb), tbi = ab * sin(phb);
   const dr = 1 - tbr, di = -tbi, dmag = sqrt(dr * dr + di * di);
@@ -176,7 +194,8 @@ export function draw(display, params) {
   // ---- the stop
   const lamS = (S0 * S.lam) / 633;
   mS = lamS;
-  const R = S.R * (1 + 0.2 * sin((TAU * t) / 23.3 + 0.6) + 0.12 * sin((TAU * t) / 9.7 + 2.5) + 0.22 * sin((TAU * t) / 67.1 + 4.0));
+  // the stop never closes below the first orders: a pupil that passes only the zero order gives a flat glow
+  const R = max(S.R * (1 + 0.2 * sin((TAU * t) / 23.3 + 0.6) + 0.12 * sin((TAU * t) / 9.7 + 2.5) + 0.22 * sin((TAU * t) / 67.1 + 4.0)), (1.05 * lamS) / min(p1, p2));
   const sE = S.k3 + S.sg, i0 = floor(sE), w = sE - i0, ia = ((i0 % 4) + 4) % 4, ib = (ia + 1) % 4;
   const A = [0, 0, 0, 0, 0, 0], B = [0, 0, 0, 0, 0, 0];
   archetype(ia, R, t, S.rv, A);
@@ -307,9 +326,9 @@ export function draw(display, params) {
       const w00 = (1 - fu) * (1 - fv), w01 = (1 - fu) * fv, w10 = fu * (1 - fv), w11 = fu * fv;
       const er = Fr[o] * w00 + Fr[o + 1] * w01 + Fr[o2] * w10 + Fr[o2 + 1] * w11;
       const ei = Fi[o] * w00 + Fi[o + 1] * w01 + Fi[o2] * w10 + Fi[o2 + 1] * w11;
-      const rip = (0.7 + 0.3 * sin(cka * X + ska * Y + pa)) * (0.78 + 0.22 * sin(ckb * X + skb * Y + pb));
+      const rip = (0.64 + 0.36 * sin(cka * X + ska * Y + pa)) * (0.74 + 0.26 * sin(ckb * X + skb * Y + pb));
       const I = (er * er + ei * ei) * rip * (0.12 + 0.88 * exp(-2 * (ex * ex + ey * ey)));
-      put(x, y, 1 - exp(-2.2 * pow(I * gain, 0.8)));
+      put(x, y, 1 - exp(-2.8 * pow(I * gain, 0.8)));
     }
 
   // ---- draw the focal plane: the stop lit, the orders as dots, the blocked ones dim
@@ -329,7 +348,7 @@ export function draw(display, params) {
   }
   for (let y = 0; y < PH; y++)
     for (let x = 0; x < W; x++) {
-      const plate = 0.15 * maskA(x - CX, y - CY), d = min(1, plane[y * W + x]);
+      const plate = 0.2 * maskA(x - CX, y - CY), d = min(1, plane[y * W + x]);
       put(x, y, plate + d - plate * d);
     }
   for (let y = PH; y < IY0; y++) for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
