@@ -9,7 +9,7 @@
 // Round:   221
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Grind=0.1..4, Layers=8..44, Forging=0..1
+// @knobs Hue=0..1, Grind=0.1..4, Layers=8..34, Forging=0..1
 //
 // Knob 1: Hue.
 // Knob 2: Grind.
@@ -54,7 +54,7 @@ function makeState() {
     phi: new Float32Array(GW * GH), hh: new Float32Array(GW * GH), ff: new Float32Array(GW * GH), hz: new Float32Array(GW * GH),
     rowC: new Float32Array(GH), rowS: new Float32Array(GH), rowG: new Float32Array(GH),
     grain: new Float32Array(W * H),
-    drills: [],
+    drills: [], near: [],
   };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) S.grain[y * W + x] = vnoise2(x / 2.6, y / 24) - 0.5;
   for (let k = -2; k <= 2; k++) {
@@ -85,10 +85,10 @@ export function update(dt, input, params) {
 const TINTS = [
   [[156, 176, 198], [20, 28, 42]], // etched steel, blue-grey
   [[192, 194, 198], [26, 28, 34]], // silver and graphite
-  [[200, 180, 130], [42, 32, 20]], // straw
-  [[190, 142, 100], [42, 25, 20]], // bronze
-  [[164, 140, 206], [32, 22, 52]], // violet
-  [[104, 142, 222], [14, 24, 58]], // temper blue
+  [[196, 184, 148], [40, 34, 24]], // straw
+  [[184, 152, 124], [38, 28, 24]], // bronze
+  [[160, 148, 196], [30, 26, 46]], // violet
+  [[112, 146, 208], [14, 24, 52]], // temper blue
 ];
 function tintAt(h, out) {
   const n = TINTS.length, u = (((h % 1) + 1) % 1) * n, i = floor(u) % n, f = u - floor(u), j = (i + 1) % n;
@@ -103,7 +103,7 @@ function tintAt(h, out) {
 const tri = (x) => (2 / PI) * Math.asin(0.9 * sin(x)) / Math.asin(0.9);
 function fieldOf(S) {
   const kn = S.kn, T = S.T, zl = S.z0;
-  const Kl = cl(kn[2], 8, 44), kl = Kl / DNOM, ks = sqrt(Kl / 8);
+  const Kl = cl(kn[2], 8, 34), kl = Kl / DNOM, ks = sqrt(Kl / 8);
   const m = cl(kn[3], 0, 1);
   const wob = 0.6 * sin((TAU * T) / 79 + 0.5) + 0.4 * sin((TAU * T) / 131 + 2.2);
   const u = cl(Math.pow(m, 0.55) * (1 + 0.55 * wob), 0, 1);
@@ -115,11 +115,11 @@ function fieldOf(S) {
   const s0 = 0.62 * (1 + 0.45 * sin((TAU * T) / 43 + 1.9) * sin((TAU * T) / 131));
   const ca = cos(alpha) * s0, sa = sin(alpha) * s0, cb = cos(beta), sb = sin(beta);
   // forging
-  const Dg = (1.3 / kl) * 0.0 + (1.0 * ks) / kl * sm(0.03, 0.2, u) * (1 - sm(0.27, 0.42, u));
+  const Dg = ((1.0 * ks) / kl) * sm(0.03, 0.2, u) * (1 - sm(0.27, 0.42, u));
   const kg = 1.0 + 2.6 * sm(0.05, 0.3, u);
   const Th = 1.0 * sm(0.55, 0.95, u);
   const Pc = 46 - 20 * sm(0.6, 1, u) + 5 * sin((TAU * T) / 89);
-  const Dd = ((3.2 * ks) / kl) * sm(0.26, 0.4, u) * (1 - sm(0.58, 0.74, u));
+  const Dd = ((3.2 * sqrt(ks)) / kl) * sm(0.26, 0.4, u) * (1 - sm(0.58, 0.74, u));
   const Yo = 40 * sin((TAU * T) / 73) + 16 * sin((TAU * T) / 41 + 1.2);
   const phi = S.phi, rowC = S.rowC, rowS = S.rowS, rowG = S.rowG;
   for (let gy = 0; gy < GH; gy++) {
@@ -130,12 +130,12 @@ function fieldOf(S) {
     const Yw = Y * (1 + 0.004 * zc) + 0.55 * zc + 2.6 * sin((TAU * Y) / 131 + 0.7) + 1.6 * sin((TAU * Y) / 53 + 2.5);
     rowG[gy] = Dg * 0.5 * (1 + tanh(kg * sin((TAU * Yw) / P_GROOVE)));
   }
-  const dr = S.drills;
+  const dr = S.drills, near = S.near;
   const w1 = (TAU * T) / 53 + 1, w2 = (TAU * T) / 83 + 2;
   for (let gy = 0; gy < GH; gy++) {
     const Y = gy - 1 + 0.5 - H / 2;
     const c = rowC[gy], s = rowS[gy], g = rowG[gy];
-    const near = [];
+    near.length = 0;
     for (let k = 0; k < dr.length; k++) if (abs(Y - dr[k][1] - 0.25 * zc) < 30) near.push(dr[k]);
     for (let gx = 0; gx < GW; gx++) {
       const X = gx - 1 + 0.5 - W / 2;
@@ -154,6 +154,9 @@ function fieldOf(S) {
     }
   }
 }
+
+// a soft shoulder above 196 so a highlight does not clip to flat white
+const soft = (v) => (v > 196 ? 196 + 59 * tanh((v - 196) / 59) : v < 0 ? 0 : v) | 0;
 
 export function draw(display, params) {
   const S = params.s;
@@ -177,30 +180,27 @@ export function draw(display, params) {
   }
   const tint = [0, 0, 0, 0, 0, 0];
   tintAt(cl(S.kn[0], 0, 1), tint);
-  const ys = H / 2 + 80 * sin((TAU * S.t) / 53 + 0.4) + 25 * sin((TAU * S.t) / 31);
+  const ys = H / 2 + 62 * sin((TAU * S.t) / 53 + 0.4) + 22 * sin((TAU * S.t) / 31);
   const RD = 2.2;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const p = (y + 1) * GW + (x + 1);
       const Hc = hh[p];
       const hx = (hz[p + 1] - hz[p - 1]) * 0.5, hy = (hz[p + GW] - hz[p - GW]) * 0.5;
-      const shade = (0.707 + 0.5 * RD * (hx + hy)) / sqrt(1 + RD * RD * (hx * hx + hy * hy)) / 0.707;
+      const shade = max(0.3, (0.707 + 0.5 * RD * (hx + hy)) / sqrt(1 + RD * RD * (hx * hx + hy * hy)) / 0.707);
       const ph = phi[p];
       const vb = 1 + 0.16 * (vnoise(ph + 31.7) - 0.5), vd = 1 + 0.4 * (vnoise(ph + 0.5 + 77.1) - 0.5);
       const fine = 1 + 0.17 * ff[p] * cos(TAU * 3 * ph + 0.9) * (0.4 + 0.6 * Hc);
       const bevel = 1 + 0.08 * cos(TAU * ph) * Hc;
       const mott = 1 + 0.22 * (vnoise2(x / 26 + 0.013 * S.t, y / 38 - 0.019 * S.t + 9) - 0.5);
-      const gr = (1 + 0.07 * S.grain[y * W + x]) * fine * bevel * (Hc > 0.5 ? 1 : mott);
-      const gl = exp(-(((y + 0.2 * (x - 32) - ys) / 20) ** 2));
+      const gr = (1 + 0.1 * S.grain[y * W + x]) * fine * bevel * (1 + (mott - 1) * (1 - Hc));
+      const gl = exp(-(((y + 0.2 * (x - 32) - ys) / 22) ** 2));
       const wb = Hc, wd = 1 - Hc;
-      let out = [0, 0, 0];
-      for (let c = 0; c < 3; c++) {
-        const bright = tint[c] * vb, dark = tint[3 + c] * vd;
-        let v = (bright * wb + dark * wd) * shade * gr;
-        v += gl * (0.22 * tint[c] * wb + 0.04 * tint[c] * wd);
-        out[c] = (v > 196 ? 196 + 59 * tanh((v - 196) / 59) : v < 0 ? 0 : v) | 0;
-      }
-      display.setPixel(x, y, out[0], out[1], out[2]);
+      const base = (tint[0] * vb) * wb + (tint[3] * vd) * wd, gg = gl * (0.24 * wb + 0.04 * wd);
+      const v0 = base * shade * gr + gg * tint[0];
+      const v1 = ((tint[1] * vb) * wb + (tint[4] * vd) * wd) * shade * gr + gg * tint[1];
+      const v2 = ((tint[2] * vb) * wb + (tint[5] * vd) * wd) * shade * gr + gg * tint[2];
+      display.setPixel(x, y, soft(v0), soft(v1), soft(v2));
     }
   }
 }
