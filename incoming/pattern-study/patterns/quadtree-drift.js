@@ -37,34 +37,37 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET_HI = 90, BUDGET_LO = 2.2; // the error a flat tile may have, at Budget 0 and 4
+const BUDGET_HI = 56, BUDGET_LO = 2.0; // the error a flat tile may have, at Budget 0 and 4
 const MERGE = 0.62; // a tile merges again under this share of the split error
+const RATE = 1.5; // scene seconds for each second of the panel, at Drift 0
 const HOLD = 0.4; // seconds a node keeps a new state
 const SETTLE = [0.5, 0.46, 0.42, 0.38, 0.34]; // seconds a split takes, by level
-const SEAM = 0.0; // how much darker the bottom and right row of a tile is
+const SEAM = 0.26; // how much darker the bottom and right row of a tile is
 const SEAM_MIN = 3; // the smallest tile with a seam, as a level (3 is 8 LEDs)
 
 // ---- the hidden scene
+// palette stops: position round the cycle, then the colour
 const STOPS = [
-  [40, 28, 170], // indigo
-  [34, 120, 236], // azure
-  [10, 196, 168], // teal
-  [168, 236, 44], // lime
-  [255, 176, 28], // amber
-  [255, 92, 72], // coral
-  [236, 30, 146], // magenta
-  [142, 42, 212], // violet
+  [0.0, 46, 30, 168], // indigo
+  [0.12, 140, 48, 214], // violet
+  [0.25, 234, 44, 150], // magenta
+  [0.37, 255, 100, 80], // coral
+  [0.48, 255, 182, 44], // amber
+  [0.57, 170, 230, 60], // lime
+  [0.68, 22, 194, 170], // teal
+  [0.82, 38, 122, 232], // azure
+  [1.0, 46, 30, 168], // indigo again
 ];
 const HOT = [255, 232, 176];
-const PLATEAU = 0.5; // share of each palette stop that is flat
+const DEEP = [34, 18, 120];
+const PLATEAU = 0.45; // share of each stretch between stops that is a ramp, the rest is flat
 // blobs: period x, period y, phase x, phase y, radius x, radius y, colour offset, strength
 const BLOBS = [
-  [37.1, 53.7, 0.4, 1.2, 15, 11, 0.42, 0.9],
-  [43.9, 61.3, 2.1, 0.3, 12, 17, 0.58, 0.85],
-  [53.3, 41.9, 4.0, 2.7, 17, 13, 0.34, 0.85],
-  [61.7, 71.9, 5.2, 4.4, 13, 13, 0.66, 0.9],
-  [71.3, 47.3, 1.3, 5.6, 19, 10, 0.5, 0.8],
-  [79.1, 67.1, 3.3, 3.1, 11, 19, 0.28, 0.85],
+  [37.1, 53.7, 0.4, 1.2, 17, 13, 0.14, 0.8],
+  [43.9, 61.3, 2.1, 0.3, 14, 19, -0.17, 0.75],
+  [53.3, 41.9, 4.0, 2.7, 19, 15, 0.2, 0.75],
+  [61.7, 71.9, 5.2, 4.4, 15, 15, -0.11, 0.8],
+  [71.3, 47.3, 1.3, 5.6, 21, 12, 0.1, 0.7],
 ];
 const HUE_MAT = new Float32Array(9);
 
@@ -85,7 +88,7 @@ function makeState() {
     lv,
     cr: new Float32Array(NC), cg: new Float32Array(NC), cb: new Float32Array(NC),
     sr: new Float64Array(sn), sg: new Float64Array(sn), sb: new Float64Array(sn), sq: new Float64Array(sn),
-    lut: new Float32Array(1024 * 3), hot: [255, 232, 176], hueAt: -1,
+    lut: new Float32Array(1024 * 3), hot: [255, 232, 176], deep: [34, 18, 120], hueAt: -1,
   };
 }
 
@@ -101,31 +104,36 @@ function hueMatrix(hue) {
   m[6] = 0.213 - c * 0.213 - s * 0.787; m[7] = 0.715 - c * 0.715 + s * 0.715; m[8] = 0.072 + c * 0.928 + s * 0.072;
 }
 
+function turn(m, c) {
+  return [
+    cl(c[0] * m[0] + c[1] * m[1] + c[2] * m[2], 0, 255),
+    cl(c[0] * m[3] + c[1] * m[4] + c[2] * m[5], 0, 255),
+    cl(c[0] * m[6] + c[1] * m[7] + c[2] * m[8], 0, 255),
+  ];
+}
+
 function buildLut(S, hue) {
   if (S.hueAt === hue) return;
   S.hueAt = hue;
   hueMatrix(hue);
-  const m = HUE_MAT, lut = S.lut, n = STOPS.length;
+  const m = HUE_MAT, lut = S.lut;
+  let k = 0;
   for (let i = 0; i < 1024; i++) {
-    const u = (i / 1024) * n, k = floor(u), f = u - k;
-    const a = STOPS[k % n], b = STOPS[(k + 1) % n];
-    const t = ss(cl((f - (0.5 - (1 - PLATEAU) / 2)) / (1 - PLATEAU), 0, 1));
-    const r = a[0] + (b[0] - a[0]) * t, g = a[1] + (b[1] - a[1]) * t, bl = a[2] + (b[2] - a[2]) * t;
-    lut[i * 3] = cl(r * m[0] + g * m[1] + bl * m[2], 0, 255);
-    lut[i * 3 + 1] = cl(r * m[3] + g * m[4] + bl * m[5], 0, 255);
-    lut[i * 3 + 2] = cl(r * m[6] + g * m[7] + bl * m[8], 0, 255);
+    const u = i / 1024;
+    while (k < STOPS.length - 2 && u >= STOPS[k + 1][0]) k++;
+    const a = STOPS[k], b = STOPS[k + 1], f = (u - a[0]) / (b[0] - a[0]);
+    const t = ss(cl((f - (1 - PLATEAU) / 2 + 0.0) / PLATEAU, 0, 1));
+    const c = turn(m, [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t]);
+    lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
   }
-  S.hot = [
-    cl(HOT[0] * m[0] + HOT[1] * m[1] + HOT[2] * m[2], 0, 255),
-    cl(HOT[0] * m[3] + HOT[1] * m[4] + HOT[2] * m[5], 0, 255),
-    cl(HOT[0] * m[6] + HOT[1] * m[7] + HOT[2] * m[8], 0, 255),
-  ];
+  S.hot = turn(m, HOT);
+  S.deep = turn(m, DEEP);
 }
 
 // ---- the scene, sampled at the centre of every cell
 function sceneStep(S, edges) {
-  const t = S.tt, lut = S.lut, hot = S.hot, cr = S.cr, cg = S.cg, cb = S.cb;
-  const e = (edges + 1) / 2; // 0 soft, 1 hard
+  const t = S.tt, lut = S.lut, hot = S.hot, deep = S.deep, cr = S.cr, cg = S.cg, cb = S.cb;
+  const e = 1 - pow(1 - (edges + 1) / 2, 2); // 0 soft, 1 hard, and 0.78 where the knob opens
   const E = 2 * pow(11, 1 - e); // width of a shape's edge, LEDs
   const al = 0.5 + 0.5 * e;
   const A1 = (TAU * t) / 47.3, A2 = (TAU * t) / 71.9 + 1.3, A3 = (TAU * t) / 29.3 + 4.1;
@@ -150,12 +158,12 @@ function sceneStep(S, edges) {
     const y = 2 * cy + 1;
     for (let cx = 0; cx < CW; cx++) {
       const x = 2 * cx + 1;
-      const u = 0.55 * (y / 128) + 0.22 * (x / 64) + 0.15 * sin(0.1 * x + 0.05 * y + A1) + 0.11 * sin(0.065 * y - 0.12 * x + A2) + 0.05 * sin(0.17 * x + 0.11 * y + A3) + flow;
+      const u = 0.3 * (y / 128) + 0.1 * (x / 64) + 0.07 * sin(0.08 * x + 0.04 * y + A1) + 0.05 * sin(0.05 * y - 0.1 * x + A2) + 0.02 * sin(0.17 * x + 0.11 * y + A3) + flow;
       let k = ((u * 1024) | 0) & 1023;
       let r = lut[k * 3], g = lut[k * 3 + 1], b = lut[k * 3 + 2];
       // hot band
       const d = (x * bc + y * bs) - bOff + bAmp * sin(0.09 * (-bs * x + bc * y) + A2);
-      const hb = exp(-(d * d) / 110) * 0.7;
+      const hb = exp(-(d * d) / 160) * 0.6;
       r += (hot[0] - r) * hb; g += (hot[1] - g) * hb; b += (hot[2] - b) * hb;
       // blobs
       for (let i = 0; i < nb; i++) {
@@ -169,9 +177,8 @@ function sceneStep(S, edges) {
       let dx = x - dX, dy = y - dY;
       let cov = cl(0.5 - (sqrt(dx * dx + dy * dy) - dR) / E, 0, 1);
       if (cov > 0) {
-        k = (((u + 0.5) * 1024) | 0) & 1023;
         const w = ss(cov) * al;
-        r += (min(255, lut[k * 3] * 1.1 + 20) - r) * w; g += (min(255, lut[k * 3 + 1] * 1.1 + 20) - g) * w; b += (min(255, lut[k * 3 + 2] * 1.1 + 20) - b) * w;
+        r += (hot[0] - r) * w; g += (hot[1] - g) * w; b += (hot[2] - b) * w;
       }
       // the wedge
       dx = x - wX; dy = y - wY;
@@ -183,9 +190,9 @@ function sceneStep(S, edges) {
         const sdA = o < 0 ? rr * sin(o) : o < 1.5 ? rr * sin(o) : rr;
         cov = cl(0.5 - max(sdA, rr - wR) / E, 0, 1);
         if (cov > 0) {
-          k = (((u + 0.33) * 1024) | 0) & 1023;
+          k = (((u - 0.2) * 1024) | 0) & 1023;
           const w = ss(cov) * al;
-          r += (lut[k * 3] - r) * w; g += (lut[k * 3 + 1] - g) * w; b += (lut[k * 3 + 2] - b) * w;
+          r += (deep[0] * 0.8 + lut[k * 3] * 0.12 - r) * w; g += (deep[1] * 0.8 + lut[k * 3 + 1] * 0.12 - g) * w; b += (deep[2] * 0.8 + lut[k * 3 + 2] * 0.12 - b) * w;
         }
       }
       // the bar
@@ -193,8 +200,9 @@ function sceneStep(S, edges) {
       const along = dx * bcx + dy * bsy, across = -dx * bsy + dy * bcx;
       cov = cl(0.5 - max(abs(across) - barHW, abs(along) - barL) / E, 0, 1);
       if (cov > 0) {
+        k = (((u + 0.2) * 1024) | 0) & 1023;
         const w = ss(cov) * al;
-        r += (hot[0] - r) * w; g += (hot[1] - g) * w; b += (hot[2] - b) * w;
+        r += (min(255, lut[k * 3] * 1.12) - r) * w; g += (min(255, lut[k * 3 + 1] * 1.12) - g) * w; b += (min(255, lut[k * 3 + 2] * 1.12) - b) * w;
       }
       const i = cy * CW + cx;
       cr[i] = r; cg[i] = g; cb[i] = b;
@@ -285,7 +293,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.kn = kn;
-  S.tt += d * pow(2, 1.5 * cl(kn[2], -1, 1));
+  S.tt += d * RATE * pow(2, 1.5 * cl(kn[2], -1, 1));
   if (!S.ready) {
     S.ready = true;
     S.tt = 11;
