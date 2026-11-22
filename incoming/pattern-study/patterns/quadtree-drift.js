@@ -11,23 +11,25 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Budget=0..4, Drift=-1..1, Edges=-1..1
 //
-// Knob 1: Hue. Turns every colour of the hidden scene round the wheel at once. At 0 the field runs indigo, magenta, coral, amber and lime with a pale hot band across it, at 0.33 it is teal, blue and violet, at 0.66 magenta and gold, and 1 is 0 again.
-// Knob 2: Budget. How much error the coder lets one flat tile have, as the root mean square of the three channels. At 0 it is 90, so the panel is a handful of tiles 16 to 32 LEDs across, at 2 (where it opens) it is 14, so smooth colour sits in tiles of 8 to 16 and the edges are cut down to 2 LEDs, and at 4 it is 2.2 and the whole panel is a mosaic of 2 and 4 LED tiles. A tile splits above the number and merges again below 0.62 times it.
-// Knob 3: Drift. How fast the scene under the tree moves, 2 to the power 1.5 times the knob: 0.35 times the opening speed at -1 and 2.8 times at 1. At 0 the disc takes 43 s and 59 s for one swing across and down, the wedge turns once in 23 s and the bar sweeps in 32 s, and the blobs and the colour field have periods that do not divide these, so the picture does not come back.
-// Knob 4: Edges. How hard the moving shapes are. At -1 they are 22 LEDs of soft edge and half strength, a cloud of colour that the tree cuts into a few middle-sized tiles. At 1 the disc, the wedge and the bar have 2 LED edges at full strength, and the tree packs small tiles along every one of them.
+// Knob 1: Hue. Turns the hue of every colour of the hidden scene round the wheel, the ink of the wedge excepted. At 0 the field is indigo, violet, magenta, coral, amber, lime, teal and azure with a cream disc, ring and hot band, and it opens on magenta, coral and amber; at 0.5 the coral has become cyan, the amber blue and the teal red; at 1 it is back at 0.
+// Knob 2: Budget. How much error the coder lets one flat tile have, as the root mean square of the red, green and blue deviations from the tile's mean. The number is 60 at 0, 42 at 1, 29 at 2 (where it opens), 9 at 3 and 2.5 at 4, a tile of 32 LEDs being let off 1.45 times it and a tile of 4 LEDs none. At 0 the panel is eight flat slabs of 32 by 32 LEDs, at 1 about two thirds of it is still slab with 16 and 8 LED tiles on the edges, at 2 the tiles run from 32 to 2 LEDs (a tenth of the area in 32s, a third in 16s, a quarter in 8s, a quarter in 4s and 2s), and at 4 two thirds of the panel is 2 LED tiles. A tile splits above the number and merges again under 0.62 times it.
+// Knob 3: Drift. How fast the scene under the tree moves, 2 to the power 1.5 times the knob times 1.8 scene seconds a second: 0.64 at -1, 1.8 at 0 and 5.1 at 1. At 0 the disc's sideways swing takes 24 s and its swing up and down 33 s, the wedge turns once in 13 s, the bar goes down the panel and back in 18 s and the colour field flows once through its palette in 63 s. The periods of the scene (23 to 114 scene seconds) have no common divisor, so the picture does not come back.
+// Knob 4: Edges. How hard the moving shapes are. At -1 the edges of the disc, wedge and bar are 22 LEDs wide and half strength and the ring is not there, a cloud the tree cuts into a few middle-sized tiles. At 0.06 (where it opens) the edges are 3.4 LEDs wide at 0.89 strength, and at 1 they are 2 LEDs, the width of the smallest tile, at full strength, with the tree packing 2 LED tiles along every one of them.
 
-// What the picture is. The panel is two root squares of 64 by 64 LEDs, one above the other. Each is cut into four squares again and again down to 2 LEDs (32, 16, 8, 4, 2),
-// which makes 2048 cells of 2 by 2 LEDs. Every frame the scene is sampled once per cell, three summed-area tables are built (the red, green and blue sums and the sum
-// of squares), and each node of the tree reads its mean colour and its error from four table entries. The scene is never drawn. Each tile is flat in the mean colour of
-// the scene beneath it, and that is all that is shown.
-// The scene. A field of colour on a palette of eight stops (indigo, azure, teal, lime, amber, coral, magenta, violet, each held for a stretch before it moves to the next, so that
-// there are flat bands as well as ramps), warped by two slow sines and flowing through the palette once every 157 s. A pale hot band bends across it. Six soft blobs
-// drift on Lissajous paths with periods of 37 to 79 s, each in the colour half a turn or so away from the field under it. Over those a disc (radius 11), a wedge
-// turning on a pivot that drifts (half angle 0.45 rad, 40 LEDs long) and a bar 9 LEDs thick and 68 long that tilts and sweeps. The shapes take the colour opposite the field under them.
-// The tree. A node splits when its error passes the budget and merges when it falls under 0.62 of it, and it holds the new state for 0.4 s before it may change again. The
-// four children of a node that splits start in its colour and take their own over 0.3 to 0.5 s, and a merge runs the same way backwards, so no tile pops.
+// What the picture is. The panel is two root squares of 64 by 64 LEDs, one above the other, and each is cut once and then again and again down to 2 LEDs (32, 16, 8, 4, 2),
+// which makes 2048 cells of 2 by 2 LEDs. Every frame the scene is sampled once per cell and three summed-area tables are built (the red, green and blue sums, and the sum of
+// squares), so a node of the tree reads its mean colour and its error from four table entries each. The scene is never drawn. Each tile is flat in the mean colour of the scene
+// beneath it, pushed 1.25 times out from its grey so that the mean of two colours does not go dull, and that is all that is shown. Tiles of 16 LEDs and up get a seam, a bottom and
+// right row 0.32 darker; tiles of 8 get 0.55 of that, and smaller ones none, because a seam on every 4 LED tile was a grid over the whole panel.
+// The scene. A field of colour on a palette of eight stops, indigo, violet, magenta, coral, amber, lime, teal and azure, each held flat for over half of its stretch and ramping to the next
+// over the rest, so there are bands as well as ramps. It spans 0.56 of the palette from corner to corner, is bent by three sines, and flows through the palette once every 113.7 scene
+// seconds. A cream hot band bends across it. Five blobs on Lissajous paths slide the palette position under them by 0.16 to 0.3 either way, so a blob is always a neighbour of the
+// colour round it and the mean of the two never goes grey. Over those lie a cream disc (radius 11), a wedge of indigo ink turning on a pivot that drifts (half angle 0.45 rad, 40 LEDs long),
+// a bar of the palette's colour 0.2 along from the field (9 LEDs thick, 68 long) that tilts and sweeps, and a thin cream ring (radius 16, 4.4 thick).
+// The tree. A node splits when its error passes the budget and merges when it falls under 0.62 of it, and it keeps the new state for 0.4 s. The four children of a node that splits
+// start in its colour and take their own over 0.34 to 0.5 s (the smaller the node the faster), and a merge runs the same way backwards, so no tile pops. The tree is read every
+// frame, and the whole of it, drawing included, costs about 1 ms a frame.
 
-const W = 64, H = 128;
 const CW = 32, CH = 64, NC = CW * CH; // cells of 2 by 2 LEDs
 const NL = 6; // levels: 64, 32, 16, 8, 4 and 2 LEDs
 const SZ = [32, 16, 8, 4, 2, 1]; // a node's side in cells
@@ -37,15 +39,15 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET = [100, 60, 30, 9, 2.5]; // the error a flat tile may have at Budget 0, 1, 2, 3 and 4, between them on a log scale
+const BUDGET = [60, 42, 29, 9, 2.5]; // the error a flat tile may have at Budget 0, 1, 2, 3 and 4, between them on a log scale
 const MERGE = 0.62; // a tile merges again under this share of the split error
 const RATE = 1.8; // scene seconds for each second of the panel, at Drift 0
-const SLACK = [1.5, 1.45, 1.3, 1.15, 1.0]; // a big node is let off more error than a small one, by level
-const SAT = 1.25;
+const SLACK = [1.5, 1.45, 1.3, 1.15, 1.0]; // a big node is let off more error than a small one: the budget is read as the error over this, by level
+const SAT = 1.25; // a tile's colour is pushed this far out from its grey
 const HOLD = 0.4; // seconds a node keeps a new state
 const SETTLE = [0.5, 0.46, 0.42, 0.38, 0.34]; // seconds a split takes, by level
 const SEAM = 0.32; // how much darker the bottom and right row of a tile is
-const SEAM_W = [1, 1, 1, 0.55, 0]; // how much of the seam a tile of each level gets: 8 LEDs a little, 4 and 2 none // the smallest tile with a seam, as a level (3 is 8 LEDs)
+const SEAM_W = [1, 1, 1, 0.55, 0]; // how much of the seam a tile of each level gets: 8 LEDs a little, 4 and 2 none
 
 // ---- the hidden scene
 // palette stops: position round the cycle, then the colour
@@ -69,7 +71,7 @@ const BLOBS = [
   [43.9, 61.3, 2.1, 0.3, 14, 19, -0.24],
   [53.3, 41.9, 4.0, 2.7, 19, 15, 0.3],
   [61.7, 71.9, 5.2, 4.4, 15, 15, -0.18],
-  [71.3, 47.3, 1.3, 5.6, 21, 12, 0.16],
+  [71.3, 49.7, 1.3, 5.6, 21, 12, 0.16],
 ];
 
 function makeState() {
@@ -121,7 +123,7 @@ function buildLut(S, hue) {
     const u = i / 1024;
     while (k < STOPS.length - 2 && u >= STOPS[k + 1][0]) k++;
     const a = STOPS[k], b = STOPS[k + 1], f = (u - a[0]) / (b[0] - a[0]);
-    const t = ss(cl((f - (1 - PLATEAU) / 2 + 0.0) / PLATEAU, 0, 1));
+    const t = ss(cl((f - (1 - PLATEAU) / 2) / PLATEAU, 0, 1));
     const c = turn([a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t], hue);
     lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
   }
@@ -130,7 +132,7 @@ function buildLut(S, hue) {
 
 // ---- the scene, sampled at the centre of every cell
 function sceneStep(S, edges) {
-  const t = S.tt, lut = S.lut, hot = S.hot, deep = DEEP, cr = S.cr, cg = S.cg, cb = S.cb;
+  const t = S.tt, lut = S.lut, hot = S.hot, cr = S.cr, cg = S.cg, cb = S.cb;
   const e = 1 - pow(1 - (edges + 1) / 2, 2); // 0 soft, 1 hard, and 0.78 where the knob opens
   const E = 2 * pow(11, 1 - e); // width of a shape's edge, LEDs
   const al = 0.5 + 0.5 * e;
@@ -184,12 +186,12 @@ function sceneStep(S, edges) {
         let da = abs(atan2(dy, dx) - wA) % TAU;
         if (da > PI) da = TAU - da;
         const o = da - wH;
-        const sdA = o < 0 ? rr * sin(o) : o < 1.5 ? rr * sin(o) : rr;
+        const sdA = o < 1.5 ? rr * sin(o) : rr;
         cov = cl(0.5 - max(sdA, rr - wR) / E, 0, 1);
         if (cov > 0) {
           k = (((u - 0.2) * 1024) | 0) & 1023;
           const w = ss(cov) * al;
-          r += (deep[0] * 0.8 + lut[k * 3] * 0.12 - r) * w; g += (deep[1] * 0.8 + lut[k * 3 + 1] * 0.12 - g) * w; b += (deep[2] * 0.8 + lut[k * 3 + 2] * 0.12 - b) * w;
+          r += (DEEP[0] * 0.8 + lut[k * 3] * 0.12 - r) * w; g += (DEEP[1] * 0.8 + lut[k * 3 + 1] * 0.12 - g) * w; b += (DEEP[2] * 0.8 + lut[k * 3 + 2] * 0.12 - b) * w;
         }
       }
       // the bar
@@ -315,7 +317,7 @@ export function draw(display, params) {
   const lv = S.lv, lf = [0, 0, 0, 0, 0];
   for (let cy = 0; cy < CH; cy++) {
     for (let cx = 0; cx < CW; cx++) {
-      let n = (cy >> 5) * 1 + (cx >> 5), V = lv[0];
+      let n = cy >> 5, V = lv[0];
       let r = V.mr[n], g = V.mg[n], b = V.mb[n], w = 1;
       let L = 0;
       for (; L < NL - 1; L++) {
