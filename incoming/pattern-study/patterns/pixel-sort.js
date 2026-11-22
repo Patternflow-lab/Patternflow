@@ -49,20 +49,20 @@ const SHAPES = [
   { kind: 0, hue: 0.0, rx: 25, ry: 34, peak: 0.86, p: 1.5, rot: 0.2, cx: 22, cy: 24, ax: 18, ay: 22 },
   { kind: 0, hue: 0.1, rx: 22, ry: 26, peak: 0.82, p: 2, rot: 0.0, cx: 48, cy: 40, ax: 16, ay: 24 },
   { kind: 0, hue: 0.05, rx: 34, ry: 14, peak: 0.77, p: 1.5, rot: 0.9, cx: 28, cy: 62, ax: 18, ay: 26 },
-  { kind: 1, hue: 0.26, len: 84, half: 0.5, peak: 0.86, rot: 1.45, cx: 14, cy: 4, ax: 18, ay: 10 },
+  { kind: 1, hue: 0.2, len: 84, half: 0.5, peak: 0.86, rot: 1.45, cx: 14, cy: 4, ax: 18, ay: 10 },
   { kind: 0, hue: 0.02, rx: 22, ry: 28, peak: 0.86, p: 1, rot: -0.3, cx: 50, cy: 96, ax: 16, ay: 16 },
-  { kind: 1, hue: 0.12, len: 100, half: 0.46, peak: 0.82, rot: -1.7, cx: 46, cy: 146, ax: 18, ay: 8 },
-  { kind: 0, hue: 0.24, rx: 20, ry: 22, peak: 0.77, p: 2, rot: 0.0, cx: 16, cy: 100, ax: 18, ay: 22 },
+  { kind: 1, hue: 0.1, len: 100, half: 0.46, peak: 0.82, rot: -1.7, cx: 46, cy: 146, ax: 18, ay: 8 },
+  { kind: 0, hue: 0.19, rx: 20, ry: 22, peak: 0.77, p: 2, rot: 0.0, cx: 16, cy: 100, ax: 18, ay: 22 },
   { kind: 0, hue: 0.08, rx: 26, ry: 12, peak: 0.73, p: 1.5, rot: -0.7, cx: 40, cy: 12, ax: 20, ay: 10 },
   { kind: 0, hue: 0.04, rx: 28, ry: 15, peak: 0.77, p: 1.5, rot: 0.15, cx: 32, cy: 118, ax: 22, ay: 7 },
-  { kind: 0, hue: 0.14, rx: 14, ry: 25, peak: 0.77, p: 2, rot: 0.3, cx: 10, cy: 70, ax: 9, ay: 20 },
+  { kind: 0, hue: 0.12, rx: 14, ry: 25, peak: 0.77, p: 2, rot: 0.3, cx: 10, cy: 70, ax: 9, ay: 20 },
 ];
 // periods and phases: golden-ratio multiples, so no two share a factor and the layout does not come back
 SHAPES.forEach((s, i) => {
   s.per = [];
   s.ph = [];
   for (let k = 0; k < 6; k++) {
-    s.per.push(37 + 83 * frac(0.6180339887 * (i * 6 + k + 1) + 0.137 * i));
+    s.per.push(28 + 68 * frac(0.6180339887 * (i * 6 + k + 1) + 0.137 * i));
     s.ph.push(TAU * frac(0.7548776662 * (i * 6 + k + 1) + 0.3));
   }
 });
@@ -303,11 +303,11 @@ function advance(S, dt, kn) {
   const HB = abs(sin(phi)) * 32 + abs(cos(phi)) * 64 + 1.5 + MB;
   const NA = min(GMAX, 2 * ceil(HA)), NB = min(GMAX, 2 * ceil(HB));
   scene(S, t, phi, S.scl, NA, NB);
-  const lw = 0.4 * sm(0.14, 0.4, S.lo);
+  const lw = 0.3 * sm(0.14, 0.4, S.lo);
   for (let i = 0; i < NA; i++) {
     const a = i + 0.5 - NA / 2;
-    // the threshold differs a little from column to column, so the hems of the curtains are ragged in fingers 5 to 9 LEDs wide; where it sits in the flat ground the spread is closed, or a tiny change would cut teeth a LED wide
-    S.loCol[i] = S.lo * (1 + lw * (0.5 * sin((TAU * a) / 17.3 + 0.17 * t + 2) + 0.3 * sin((TAU * a) / 11.9 - 0.11 * t) + 0.2 * sin((TAU * a) / 8.3 + 0.07 * t + 4)));
+    // the threshold differs a little from column to column, so the hems of the curtains are ragged in fingers 6 to 10 LEDs wide; where it sits in the flat ground the spread is closed, or a tiny change would cut teeth a LED wide
+    S.loCol[i] = S.lo * (1 + lw * (0.55 * sin((TAU * a) / 19.3 + 0.17 * t + 2) + 0.3 * sin((TAU * a) / 12.7 - 0.11 * t) + 0.15 * sin((TAU * a) / 9.1 + 0.07 * t + 4)));
     // fa holds sin and cos of each column's phase for the three waves, fb the same down the rows, so a fold is sin(A + B) with no trig per cell
     const p1 = (TAU * a) / 8.3 + 0.31 * t, p2 = (TAU * a) / 13.7 - 0.23 * t + 1.7, p3 = (TAU * a) / 41 + 0.07 * t + 0.4;
     S.fa[i * 6] = sin(p1); S.fa[i * 6 + 1] = cos(p1);
@@ -338,17 +338,18 @@ export function update(dt, input, params) {
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  const hue0 = HUE0 + cl(S.kn[0], 0, 1);
+  // the whole palette wanders a little on 131 s and 198 s, so even the all-melted picture never returns
+  const hue0 = HUE0 + cl(S.kn[0], 0, 1) + 0.03 * sin((TAU * S.t) / 131.3) + 0.02 * sin((TAU * S.t) / 197.9 + 1);
   const { Is, Ps } = S;
   for (let o = 0; o < NPX; o++) {
     const I = cl(Is[o], 0, 1);
     const hs = sm(0.15, 1, I);
-    let h = hue0 + Ps[o] + 0.22 * hs * sqrt(hs);
+    let h = hue0 + Ps[o] + 0.17 * hs * sqrt(hs);
     h -= floor(h);
     const hi = ((h * HN) | 0) * 3;
-    const s = 0.82 - 0.32 * sm(0.62, 0.95, I);
+    const s = (0.82 - 0.32 * sm(0.62, 0.95, I)) * (0.7 + 0.3 * sm(0.04, 0.25, I));
     const v = VLUT[(I * VN) | 0] * 255;
-    const r = v * (1 - s + s * HLUT[hi]), g = v * (1 - s + s * HLUT[hi + 1]), b = v * (1 - s + s * HLUT[hi + 2]);
+    const r = v * (1 - s + s * HLUT[hi]), g = v * (1 - s + s * 0.9 * HLUT[hi + 1]), b = v * (1 - s + s * HLUT[hi + 2]);
     display.setPixel(o % W, (o / W) | 0, r | 0, g | 0, b | 0);
   }
 }
