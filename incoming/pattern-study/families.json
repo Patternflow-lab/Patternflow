@@ -154,5 +154,10 @@
   "dendro": { "label": "나이테", "color": "#8b5a2b" },
   "brinicle": { "label": "소금물 고드름", "color": "#4cc9f0" },
   "gravwave": { "label": "중력파", "color": "#ef8354" },
-  "contrail": { "label": "비행운", "color": "#a8dadc" }
+  "contrail": { "label": "비행운", "color": "#a8dadc" },
+  "snellwindow": { "label": "스넬의 창", "color": "#3fbabf" },
+  "moirelattice": { "label": "겹격자 무아레", "color": "#c0334e" },
+  "virga": { "label": "비꼬리 구름", "color": "#e98c1f" },
+  "stomata": { "label": "기공", "color": "#62dd3c" },
+  "radiolaria": { "label": "방산충", "color": "#9617db" }
 }
