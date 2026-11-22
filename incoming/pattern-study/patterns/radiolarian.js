@@ -432,8 +432,8 @@ function palette(S) {
   hsv(0.115 + 0.8 * fr(u + 0.8), 0.7, 0.9, S.cx);
   hsv(0.115 + 0.8 * u + 0.012, 0.6, 1.0, S.bx);
   for (let i = 0; i < 3; i++) S.sh[i] = S.ox[i] * 0.22 + 0.78 * COOL[i];
-  hsv(0.62 + 0.03 * u, 0.9, 0.27, S.wat);
-  hsv(0.6 + 0.03 * u, 0.9, 0.12, S.wat2);
+  hsv(0.62 + 0.03 * u, 0.9, 0.3, S.wat);
+  hsv(0.6 + 0.03 * u, 0.9, 0.18, S.wat2);
 }
 
 // ---- drawing
