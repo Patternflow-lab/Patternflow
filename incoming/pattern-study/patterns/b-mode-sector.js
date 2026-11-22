@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   B-Mode Sector
 // Family:  bmode
-// Idea:    The scan-converted sector of an ultrasound probe resting on soft abstract tissue, drawn in a cool blue-white tone map, where a field of random scatterers seen through a pulse short along the beam and wide across it gives marbled speckle grain that rocks, shears and re-forms as the probe sways and the tissue breathes, around a dark round cyst with a bright column behind it, a curved specular membrane with an acoustic shadow wedge, and a vessel carrying a warm red-orange colour-flow pulse.
+// Idea:    The scan-converted sector of an ultrasound probe on soft abstract tissue, in a blue-white tone map, where random scatterers seen through a pulse short along the beam and wide across it make marbled speckle that shears and re-forms as the probe rocks and the tissue breathes, around a dark round cyst with a bright column behind it, a curved membrane with a shadow wedge, and a vessel carrying a red-orange colour-flow pulse.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Gain=0..4, Frequency=-1..1, Sweep=-1..1
 //
-// Knob 1: Hue. Turns the tone map round the wheel. At 0 it runs from indigo through steel blue to ice white and the colour flow is red to orange, the opposite side of the wheel.
-// Knob 2: Gain. The brightness of the tone map, 4.5 dB a step on a 34 dB window: at 2 (where it opens) the mean tissue sits mid-scale, at 0 it sits 9 dB lower and only the bright layers and the membrane show, at 4 it sits 9 dB higher and the bright layers wash out to white.
-// Knob 3: Frequency. The probe frequency as a factor of 2^(0.75 K): 0.6 at -1, 1 at 0 where it opens, 1.7 at +1. The speckle cell along the beam is about 3.2 LEDs at 1, 2.3 at 1.7 and 4.8 at 0.6, and across the beam it is 3 times wider at the bottom; the echo loses 0.16 dB an LED times the factor against 0.145 given back by the time gain, so at 1.7 the bottom of the panel is 15 dB down and dark, at 0.6 it is 6 dB up.
-// Knob 4: Sweep. How far and how fast the probe rocks and slides: 2^(1.6 K) times a rocking of 0.1 rad (5.7 degrees) and a slide of 6 LEDs, so at -1 it is a third of that and at +1 three times, a 17 degree rock that carries the tissue 30 LEDs sideways at the bottom and shears the speckle.
+// Knob 1: Hue. Turns the tone map round the wheel. At 0 it runs from indigo in the fades through steel blue to ice white at the peaks, and the colour flow sits 0.42 to 0.52 of a turn away, red to orange. At 0.5 the map is tan and the flow cyan.
+// Knob 2: Gain. Where the tone map sits on a 34 dB window, 4.5 dB a step. At 2, where it opens, the mean tissue is a little under mid-scale. At 0 it is 9 dB lower and only the bright layers, the membrane and the column behind the cyst show. At 4 it is 9 dB higher and the bright layers wash to white.
+// Knob 3: Frequency. The probe frequency as a factor of 2^(0.75 K): 0.6 at -1, 1 at 0 where it opens, 1.7 at +1. The speckle cell along the beam is 4.3 LEDs at 0.6, 2.9 at 1 and 2.2 at 1.7; across the beam it is 2.6 LEDs wide at the top at 1 and 7.8 at the bottom. The echo loses 0.16 dB an LED times the factor and the time gain gives back 0.145, so at 1.7 the bottom of the panel is 16 dB down and dark, and at 0.6 it is 6 dB up.
+// Knob 4: Sweep. How far and how fast the probe rocks and slides, 2^(1.6 K) times a rock of 0.14 radians (8 degrees) and a slide of 8 LEDs, with the clock running 2^(0.8 K) as fast. At -1 it is a third of that, at 0.06 where it opens a little over once, and at +1 it is 24 degrees and 24 LEDs, which carries the tissue 50 LEDs sideways at the bottom and shears the speckle as it goes.
 
 const W = 64, H = 128;
 const { floor, sqrt, exp, log, sin, cos, atan2, pow, PI } = Math;
@@ -42,6 +42,9 @@ const SN = 128;
 // Display: a 34 dB window, attenuation in dB per LED, the time gain that gives it back.
 const DR = 34, ATT = 0.16, TGC = 0.145;
 // Features, in tissue coordinates with the apex at the origin and depth down.
+const ROCK_P = [61.3, 37.7, 23.1, 13.9, 8.3], ROCK_W = [0.34, 0.28, 0.2, 0.12, 0.06];
+const SLIDE_P = [53.9, 31.7, 19.3, 11.3], SLIDE_W = [0.35, 0.3, 0.2, 0.15];
+const PRESS_P = [23.9, 14.3], PRESS_W = [0.6, 0.4];
 const RC = 9;                 // cyst radius
 const MX = 14, MY = 104, RM = 34; // membrane: an arc of a circle, lowest point at depth 138
 const VY = 112, RV = 3.4;     // vessel: centre line at depth 112 swaying by 9 LEDs
@@ -141,7 +144,7 @@ export function setup(params) {
       const x = i * 2 - 128, y = j * 2 - 20;
       const yy = y + 5 * sin(x / 31 + 1.1) + 3 * sin(x / 13 - y / 40);
       let db =
-        5 * box(yy, 46, 62, 8) + 6.5 * box(yy, 117, 122, 3) - 3 * box(yy, 66, 100, 10) + 2.5 * box(yy, 138, 170, 12);
+        5 * box(yy, 46, 62, 8) + 4.5 * box(yy, 117, 122, 3) - 3 * box(yy, 66, 100, 10) + 2.5 * box(yy, 138, 170, 12);
       db += 8 * vnoise(l4, 4, x + 128, y + 20) + 3.5 * vnoise(l8, 8, x + 128, y + 20) + 1.5 * vnoise(l16, 16, x + 128, y + 20);
       st[j * SN + i] = pow(10, db / 20);
     }
@@ -241,10 +244,16 @@ function render(P, k) {
   const f = pow(2, 0.75 * cl(k[2], -1, 1));
   if (Math.abs(f - P.fc) > 1e-4) kernels(P, f);
 
-  // The probe: a rock about the apex and a slide, each a few incommensurate sines.
-  const th0 = s * 0.1 * (0.5 * sin((TAU * tau) / 29.3 + 0.7) + 0.33 * sin((TAU * tau) / 17.1 + 2.2) + 0.17 * sin((TAU * tau) / 8.3 + 4.1));
-  const x0 = s * 6 * (0.6 * sin((TAU * tau) / 27.9 + 2.1) + 0.4 * sin((TAU * tau) / 11.3 + 0.4));
-  const y0 = s * 1.5 * sin((TAU * tau) / 19.7 + 1.3);
+  // The probe: a rock about the apex and a slide, each a few incommensurate sines,
+  // so the pose wanders over the whole of its range and never comes back to one.
+  const wob = (ps, ws, ph) => {
+    let v = 0;
+    for (let i = 0; i < ps.length; i++) v += ws[i] * sin((TAU * tau) / ps[i] + ph + 1.7 * i);
+    return v;
+  };
+  const th0 = s * 0.14 * wob(ROCK_P, ROCK_W, 0.7);
+  const x0 = s * 10 * wob(SLIDE_P, SLIDE_W, 2.1);
+  const y0 = s * 2 * wob(PRESS_P, PRESS_W, 1.3);
   // The slow wander across the plane of the scan blends the two noise tiles.
   const psi = 0.55 * sin(0.23 * t) + 0.45 * sin(0.0917 * t + 1.7) + 0.3 * sin(0.0411 * t + 3.3);
   const cp = cos(psi), sp = sin(psi);
@@ -254,8 +263,8 @@ function render(P, k) {
     tbi[i] = cp * t1i[i] + sp * t2i[i];
   }
   // The cyst drifts through the tissue; the tissue breathes along depth.
-  const cx = -8 + 4.5 * sin((TAU * t) / 37.1 + 0.9) + 2.2 * sin((TAU * t) / 14.9 + 3);
-  const cy = 78 + 3.5 * sin((TAU * t) / 29.7 + 2) + 1.6 * sin((TAU * t) / 11.1 + 0.2);
+  const cx = -8 + 6 * sin((TAU * t) / 37.1 + 0.9) + 3 * sin((TAU * t) / 14.9 + 3) + 2 * sin((TAU * t) / 71.3 + 5);
+  const cy = 78 + 5 * sin((TAU * t) / 29.7 + 2) + 2 * sin((TAU * t) / 11.1 + 0.2) + 2 * sin((TAU * t) / 53.9 + 1);
   const { ux, uy } = P;
   for (let y = 0; y < 256; y++) {
     const w = cl((y - 30) / 50, 0, 1);
@@ -264,7 +273,8 @@ function render(P, k) {
   }
   // Colour flow: a pulse a little under every 2.3 s whose rate itself wanders,
   // running along the vessel from left to right.
-  const pulse = (TAU * t) / 2.3 + 0.9 * sin((TAU * t) / 11.7);
+  const pulse = (TAU * t) / 2.3 + 1.4 * sin((TAU * t) / 13.1) + 0.9 * sin((TAU * t) / 5.7 + 2);
+  const sway = 0.6 * sin((TAU * t) / 47.3 + 2);
 
   const { re, im, flow, sa, ca, G, st } = P;
   for (let l = 0; l < NL; l++) {
@@ -307,7 +317,7 @@ function render(P, k) {
         amp *= 0.05 + 0.95 * m;
         const cs = (dxc * bs + dyc * bc) / d;
         const rw = exp(-((d - RC) * (d - RC)) / 4.5);
-        lg += (0.3 * (1 - m) - 2.5 * rw * (1 - cs * cs)) / 8.686;
+        lg += (0.25 * (1 - m) - 2.5 * rw * (1 - cs * cs)) / 8.686;
       }
       // The membrane: a thin bright line where the beam meets it square on, with
       // a wedge of lost echo behind it.
@@ -326,7 +336,7 @@ function render(P, k) {
       }
       // The vessel: an empty tube with a bright wall; the colour flow lives in it.
       if (py > VY - 20 && py < VY + 20) {
-        const ph = px / 22 + 0.8;
+        const ph = px / 22 + 0.8 + sway;
         const sl = 0.409 * cos(ph);
         const dv = (py - (VY + 9 * sin(ph))) / sqrt(1 + sl * sl);
         const ad = dv < 0 ? -dv : dv;
