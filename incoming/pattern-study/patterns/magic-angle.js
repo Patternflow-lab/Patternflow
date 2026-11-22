@@ -9,11 +9,11 @@
 // Round:   218
 // ===============================
 // @matrix 64x128
-// @knobs Hue=-0.12..0.38, Twist=0.8..5.5, Drift=0.3..2.3, Relax=-1..1
+// @knobs Hue=-0.12..0.38, Twist=0.8..4.4, Drift=0.3..2.3, Relax=-1..1
 //
 // Knob 1: Hue. Adds the knob to the hue of the AB and BA triangles, the walls and the dark base. At the opening 0 the AB triangles are teal (19, 158, 158), the BA triangles blue-violet (39, 30, 148), the base between them deep indigo (5, 18, 51), the AA spots pale amber (255, 181, 128) and the walls pale cyan (173, 240, 255); the offset is built in, so 0 is not red. At -0.12 the AB triangles are green and the BA steel blue, at 0.38 magenta and orange. The AA spots turn only 0.15 of the knob, so they stay a warm cream, and warm hues are lifted in brightness since a dark orange turns brown.
-// Knob 2: Twist. The centre of the twist angle, 2.6 degrees per unit: 0.8 is 2.1 degrees and a cell 88 LEDs wide, 2 (the opening) is 5.2 degrees and a cell 35 LEDs wide, 5.5 is 14.3 degrees and a cell 13 LEDs wide. The drift swings the cell size around this centre.
-// Knob 3: Drift. How far and how fast the twist wanders. At 0.3 the cell swings between 0.66 and 1.5 times its centre size (23 to 53 LEDs at the opening Twist) on swells of 63, 105 and 176 s; at 2.3 it swings between 0.38 and 2.6 times (13 to 92 LEDs at Twist 2) on swells of 41, 69 and 115 s. The rotation of the sheet and the wandering of the centre do not depend on it.
+// Knob 2: Twist. The centre of the twist angle, 2.6 degrees per unit: 0.8 is 2.1 degrees and a cell 88 LEDs wide, 2 (the opening) is 5.2 degrees and a cell 35 LEDs wide, 4.4 is 11.4 degrees and a cell 16 LEDs wide. The drift swings the cell size around this centre.
+// Knob 3: Drift. How far and how fast the twist wanders. At 0.3 the cell swings between 0.58 and 1.7 times its centre size (20 to 61 LEDs at the opening Twist) on swells of 63, 105 and 176 s; at 2.3 it swings between 0.37 and 2.7 times (13 to 96 LEDs at Twist 2) on swells of 41, 69 and 115 s. The rotation of the sheet and the wandering of the centre do not depend on it.
 // Knob 4: Relax. The reconstruction of the lattice, -1 rigid and 1 fully relaxed, with a curve that puts the opening 0.06 at 0.43 of the way. Rigid, the registry is a soft gradient and the AA spots are broad blobs about 0.6 cells across. Relaxed, the AA spots shrink to discs 0.25 cells across (never under 4.6 LEDs), the AB and BA triangles fill with flat colour, and the domain walls between them show as bright lines 2 LEDs wide.
 
 // The panel is a window onto a bilayer sheet. Layer 1 is a honeycomb lattice with constant a = 3.2 LEDs (bond
@@ -105,7 +105,7 @@ export function update(dt, input, params) {
 
   // How far and how fast the twist wanders.
   const u = cl((k3 - 0.3) / 2, 0, 1);
-  const swing = 0.42 + 0.54 * u;
+  const swing = 0.55 + 0.45 * u;
   const speed = 0.75 + 0.4 * u;
   S.tw[0] += dt * speed * TAU / 47.3;
   S.tw[1] += dt * speed * TAU / 79.1;
@@ -240,7 +240,7 @@ export function draw(display, params) {
 
       // too fine to resolve: fade to the mean colour
       if (q < 1) {
-        const m = 0.5 + 0.5 * sin(0.047 * x + 0.026 * y + 0.21 * S.t) * cos(0.019 * y - 0.033 * x - 0.13 * S.t + 1);
+        const m = cl(0.5 + 0.3 * sin(0.047 * x + 0.026 * y + 0.21 * S.t) + 0.25 * sin(0.021 * y - 0.036 * x - 0.137 * S.t + 1) + 0.15 * sin(0.03 * (x + y) + 0.083 * S.t + 2), 0, 1);
         const gr = mix(cGlowA[0], cGlowB[0], m) * mod, gq = mix(cGlowA[1], cGlowB[1], m) * mod, gb = mix(cGlowA[2], cGlowB[2], m) * mod;
         r = mix(gr, r, q); gg = mix(gq, gg, q); b = mix(gb, b, q);
       }
