@@ -174,5 +174,10 @@
   "nuclear": { "label": "붕괴 사슬", "color": "#b6e83a" },
   "roots": { "label": "뿌리", "color": "#b98a5e" },
   "airshower": { "label": "우주선 샤워", "color": "#78a6ff" },
-  "clonal": { "label": "클론 스윕", "color": "#ff3d8b" }
+  "clonal": { "label": "클론 스윕", "color": "#ff3d8b" },
+  "lightecho": { "label": "빛 메아리", "color": "#fff673" },
+  "multivariate": { "label": "다변량 도표", "color": "#43ff40" },
+  "dislocation": { "label": "전위", "color": "#7039e6" },
+  "adhesion": { "label": "세포 접착", "color": "#b7ff73" },
+  "shoaling": { "label": "얕아지는 물결", "color": "#40ffc2" }
 }
