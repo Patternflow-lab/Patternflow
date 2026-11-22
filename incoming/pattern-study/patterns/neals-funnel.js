@@ -25,7 +25,7 @@
 //
 // Sixteen chains run leapfrog at about 45 steps a second each, with a fresh Normal momentum for every
 // trajectory and a Metropolis test on the energy error at its end. Every state the chains accept is splatted
-// into a float buffer that fades with a 30 second time constant; the picture is that buffer, log tone-mapped,
+// into a float buffer that fades with a 25 second time constant; the picture is that buffer, log tone-mapped,
 // with the arcs of the trajectories on top. A trajectory whose energy error passes DIV stops where it is and
 // bursts: the leapfrog was too coarse for the neck there. Two slow sines breathe sv, and two more tilt the
 // neck left and right, so the target never settles and the picture does not come back.
@@ -43,7 +43,7 @@ const AA = 6;
 const NCH = 16;
 const TR = 128;
 const NB = 32;
-const TAU_D = 30;
+const TAU_D = 25;
 const TAU_A = 0.4;
 const DIV = 50;
 const STUCK = 12;
@@ -294,9 +294,9 @@ function advance(S, dt) {
   // The target breathes: its spread in v and the tilt of the neck follow slow sines that do not share
   // a period.
   const t = S.t;
-  S.sv = S.svK * (1 + 0.13 * Math.sin(0.071 * t + 0.9) + 0.08 * Math.sin(0.0293 * t + 2.3));
+  S.sv = S.svK * (1 + 0.16 * Math.sin(0.093 * t + 0.9) + 0.1 * Math.sin(0.0413 * t + 2.3));
   S.isv2 = 1 / (S.sv * S.sv);
-  S.tilt = 7 * Math.sin(0.0213 * t + 0.3) + 4 * Math.sin(0.0087 * t + 1.9) + 1.5 * Math.sin(0.047 * t + 4.1);
+  S.tilt = 6.5 * Math.sin(0.0337 * t + 0.3) + 4 * Math.sin(0.0143 * t + 1.9) + 1.5 * Math.sin(0.071 * t + 4.1);
   for (let i = 0; i < NCH; i++) {
     S.life[i] -= dt;
     S.acc[i] += dt * S.rate[i];
@@ -411,7 +411,7 @@ function gainUpdate(S, now) {
       break;
     }
   }
-  const target = -log(3.4 * max(q, 1e-3));
+  const target = -log(3.6 * max(q, 1e-3));
   S.lgain = now ? target : S.lgain + (target - S.lgain) * (1 - exp(-0.2 / 8));
   S.gain = exp(S.lgain);
 }
