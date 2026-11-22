@@ -9,12 +9,12 @@
 // Round:   224
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pull=0.8..5, Fraction=0.35..0.75, Tilt=-1..1
+// @knobs Hue=0..1, Pull=1.2..5, Fraction=0.35..0.75, Tilt=-1..1
 //
-// Knob 1: Hue. Turns both phases round the wheel together, the second phase always opposite the first. At 0 the first phase is copper orange and the second steel blue; at 0.33 green and violet, at 0.5 teal and red-orange.
-// Knob 2: Pull. The pull speed. The window scrolls 2.2 LEDs a second per unit, so 4.4 LEDs a second at the opening 2 (a plate takes 26 s to cross the panel), 1.8 at 0.8 and 11 at 5. The optimum pair spacing is 14 LEDs times the square root of 2 over the pull: 18 LEDs at 1, 14 at 2, 9 at 4.4. After a turn the plates split to a finer spacing, or the extra ones are squeezed out to a coarser one, over about 10 to 30 LEDs of growth (3 to 10 s).
-// Knob 3: Fraction. The share of the second phase, 0.3 to 0.75. At 0.3 the blue plates are thin, about 4 LEDs between copper plates of about 10; at 0.5 they are equal; at 0.75 the copper is the thin one. Turning it makes the thin phase die out and the other split until the widths fit.
-// Knob 4: Tilt. How far the front's temperature gradient leans. 0 leaves the plates upright apart from the sway the wavy front gives them; at 1 they lean 0.75 LEDs sideways for every LED of growth (37 degrees), more on one side of the panel than the other so they fan, and the sign picks the side they lean to. A fan opening up makes splits, one closing makes terminations.
+// Knob 1: Hue. Turns both phases round the wheel together, the second always 0.52 of a turn from the first. At 0 the first phase is copper orange and the second steel blue; at 0.25 green and magenta, at 0.5 blue and a brown copper, at 0.75 magenta and green. The liquid and the glow of the front take the first phase's colour.
+// Knob 2: Pull. The pull speed. The window scrolls 2.2 LEDs a second per unit, so 4.4 LEDs a second at the opening 2 (a plate takes 26 s to cross the panel), 2.6 at 1.2 and 11 at 5. The optimum spacing of a pair of plates is 16 LEDs times the square root of 2 over the pull: 21 at 1.2, 16 at 2, 10 at 5. A turn from 2 to 5 takes the plates across the panel from about 6 to 14 within 5 s, in a burst of splits; a turn back squeezes the extra ones out over about 15 s. The pull also wanders by itself, a sixth either way over half a minute.
+// Knob 3: Fraction. The share of the second phase, 0.35 to 0.75. At 0.35 the blue plates are the thin ones, about 5.6 LEDs between copper plates of 10.4; at 0.5 both are 8; at 0.75 the blue is 12 and the copper 4. Turning it makes the thinning phase die out and the other split until the widths fit, over about 20 s.
+// Knob 4: Tilt. How far the temperature gradient at the front leans. At 0.06 the plates are upright apart from the sway the wavy front gives them (up to 0.3 LEDs sideways per LED of growth); at 1 they lean between 0.4 and 1 LED sideways per LED of growth (22 to 45 degrees), more on one side of the panel than on the other so they fan, and the sign picks the side they lean to. A fan opening up makes splits, one closing makes terminations.
 
 const W = 64, H = 128;
 const L = 64; // the sample is a ring as wide as the panel, so plates leaving at one edge come back at the other
@@ -290,9 +290,9 @@ function advance(S, dt) {
   S.v += (S.vT - S.v) * a;
   S.f += (S.fT - S.f) * b;
   S.tilt += (S.tiltT - S.tilt) * a;
-  // the pull speed wanders by a random walk around the knob, a quarter either way over about half a minute
-  S.wv += -(S.wv * dt) / 30 + 0.22 * sqrt((2 * dt) / 30) * gauss(S.rnd);
-  S.wv = cl(S.wv, -0.5, 0.5);
+  // the pull speed wanders by a random walk around the knob, a sixth either way over about half a minute
+  S.wv += -(S.wv * dt) / 30 + 0.16 * sqrt((2 * dt) / 30) * gauss(S.rnd);
+  S.wv = cl(S.wv, -0.35, 0.35);
   S.ve = S.v * exp(S.wv);
   S.lamOpt = LAM0 * sqrt(2 / S.ve);
   S.mp[0] += 0.12 * dt; S.mp[1] -= 0.17 * dt; S.mp[2] += 0.23 * dt;
@@ -309,7 +309,7 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
   S.hue = kn[0] + H0;
-  S.vT = cl(kn[1], 0.8, 5);
+  S.vT = cl(kn[1], 1.2, 5);
   S.fT = cl(kn[2], 0.35, 0.75);
   S.tiltT = cl(kn[3], -1, 1);
   if (!S.ready) {
