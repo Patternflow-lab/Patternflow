@@ -1,20 +1,41 @@
 // ===== Patternflow pattern =====
 // Title:   Pattern Weld
 // Family:  patternweld
-// Idea:    The ground face of a pattern-welded steel bar, 64 LEDs across and 128 along, etched so that bright nickel layers and blackened high-carbon layers show as contour lines of a layered 3-D volume cut by a grinding plane that slowly sinks and tilts, which turns one deformed stack into straight layers, the ladder, the twist with its chevrons and the raindrop rings in turn.
+// Idea:    The ground face of a pattern-welded steel bar, 64 LEDs across and 128 along, is etched so that bright nickel layers and blackened high-carbon layers show as the contour lines of a layered 3-D volume cut by a grinding plane that slowly sinks and tilts, which turns one deformed stack into straight layers, the ladder, the raindrop rings and the twist's chevrons in turn.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: pattern welding, a billet of alternating bright and dark steel layers forge-welded, grooved, drilled or twisted, flattened and etched, as made by Roman and Migration-period sword smiths and later called Damascus steel; pattern round 221
+// Lineage: pattern welding, a billet of alternating bright and dark steel layers forge-welded, then grooved, drilled or twisted, flattened, ground and etched, as made by Roman and Migration-period sword smiths and later called Damascus steel, with the smiths' names ladder, raindrop and twist for the three patterns; pattern round 221
 // Round:   221
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Grind=0.1..4, Layers=8..34, Forging=0..1
 //
-// Knob 1: Hue.
-// Knob 2: Grind.
-// Knob 3: Layers.
-// Knob 4: Forging.
+// Knob 1: Hue. The tint of the steel, six stops round the knob and blended between them. At 0 and 1 it is etched steel, the bright layers blue-grey (146, 165, 186) over blue-black dark ones (17, 25, 38); at 0.17 silver and graphite, at 0.33 straw, at 0.5 bronze, at 0.67 violet and at 0.83 temper blue. The dark layers stay between 25 and 50 on their brightest channel and the bright ones between 190 and 235.
+// Knob 2: Grind. How fast the plane works through the billet. It sinks 0.7 depth units a second for each unit of the knob, so at 2 a layer pair passes any point in 9 s with Layers at 8, and the slow drifts of the tilt, the plane height and the forging run at half the knob's rate: their periods are 37 to 131 s at 2, half that at 4, and 20 times that at 0.1, where the layers only creep. The gloss streak runs on the clock of the panel and does not stop.
+// Knob 3: Layers. How many bright and dark layer pairs the stack holds in 100 depth units, 8 to 34. At the plane's mean slope of 0.62 a pair is 20 LEDs wide at 8, so the bands are 10 LEDs thick where it opens, and 4.7 LEDs wide at 34, where the layers are fine lines. A groove or a drill steepens the layers and thins them, a shallow cut widens them into soft bands, and above 0.3 pair a LED the lines fade to the mean grey instead of aliasing.
+// Knob 4: Forging. How far the billet was worked, taken to the power 0.55 so the first tenth of the knob is not wasted. At 0 the stack is straight and the plane cuts bold slanted bands. At 0.06, where it opens, grooves 27 LEDs apart, one layer pair deep, step the bands sideways, which is the ladder, and its walls sharpen up to 0.1. From 0.1 the ladder fades and holes drilled 37 LEDs apart, 3.2 pairs deep and 7 LEDs wide give nested rings, the raindrop, at full depth from 0.19 to 0.37. From 0.34 to 0.9 the bar twists up to 1 radian either way, reversing every 46 LEDs at 0.4 and every 26 at 1, and the plane cuts it into chevrons. A drift of 55 percent about the setting, with periods of 79 and 131 s at Grind 2, leans every setting toward its neighbours, so the ladder passes into rings and the rings into chevrons and back.
+
+// What the picture is. The bar lies along the panel: X is the LED across it from the centre, Y the LED along it from the centre, and the depth of the
+// stack is z, in units that give 100 units to Layers pairs. The billet is a stack of layers whose coordinate is f(X, Y, z), and a LED is bright where
+// cos(2 pi f Layers / 100) is positive, dark where it is negative, with an edge about 0.07 of a pair wide, so that where the plane cuts
+// a layer at a shallow angle the edge is wide and soft in LEDs. The coordinate is built from the plane and its deformations:
+//   plane   z = zc + tau X, a height zc above the twist axis that wanders within 28 units, and a slant tau of 0.22 at most across the bar;
+//   twist   the bar is turned by an angle th(Y), a smoothed triangle wave of Y, and a point of the plane came from X0 = X cos th + z sin th,
+//           Z0 = z cos th - X sin th, so the layers, standing at the angle beta (0.3 rad on average, between -0.35 and 0.95), cross the surface at
+//           f = s0 (cos alpha (cos beta X0 + sin beta Z0) + sin alpha Y);
+//   ladder  grooves cut across the bar every 27 LEDs displace the layers by Dg (1 + tanh(kg sin(2 pi Y / 27))) / 2, a flat step with a wall, shifted along
+//           the bar by 0.55 LED for each unit of zc because a groove is cut a little aslant;
+//   drill   a Gaussian dent of 7 LEDs at the centres of 12 holes in rows 37 LEDs apart, also aslant, 0.5 and 0.25 LED for each unit of zc, and
+//           a third wider or narrower as zc runs to its two ends;
+//   warp    two slow travelling waves of 4.5 and 3.5 units, with wavelengths of 126 and 100 LEDs, the grinder not being flat.
+// The gradient of the plane s0 runs 0.34 to 0.9, and its direction alpha swings up to 0.9 rad either side of the bar, with the periods 37, 61 and 97 s. All the periods
+// of the plane, the tilt, the twist offset and the morph (37, 41, 43, 53, 61, 71, 73, 79, 83, 89, 97, 109, 131 s at Grind 2) have no common multiple
+// worth waiting for. Separately the stack flows through the plane (f gains 0.7 Grind units a second) so every layer slides along the gradient.
+// Drawing. The height of the surface is the bright and dark profile plus three thin laminations in each pair, which show only where the bands are
+// wider than about 20 LEDs. The relief is lit from the upper left: the slope of that height gives each edge a bright side and a dark side, one LED wide.
+// Bright layers carry a small bevel, each layer has a brightness of its own, the etchant is a little uneven over 26 by 38 LEDs and drifts, a faint
+// brushing runs along the bar (2.6 LEDs across, 24 along), and a soft gloss streak 22 LEDs thick slides along the bar and lights the bright layers.
 
 const W = 64, H = 128;
 const { floor, sqrt, abs, exp, sin, cos, tanh, PI, min, max } = Math;
@@ -83,12 +104,12 @@ export function update(dt, input, params) {
 
 // ---- colour: bright layer and dark layer of each steel tint
 const TINTS = [
-  [[156, 176, 198], [20, 28, 42]], // etched steel, blue-grey
-  [[192, 194, 198], [26, 28, 34]], // silver and graphite
-  [[196, 184, 148], [40, 34, 24]], // straw
-  [[184, 152, 124], [38, 28, 24]], // bronze
-  [[160, 148, 196], [30, 26, 46]], // violet
-  [[112, 146, 208], [14, 24, 52]], // temper blue
+  [[146, 165, 186], [17, 25, 38]], // etched steel, blue-grey
+  [[180, 182, 186], [22, 24, 30]], // silver and graphite
+  [[184, 172, 138], [36, 30, 21]], // straw
+  [[172, 142, 116], [33, 25, 21]], // bronze
+  [[150, 138, 184], [27, 23, 42]], // violet
+  [[106, 138, 196], [12, 21, 48]], // temper blue
 ];
 function tintAt(h, out) {
   const n = TINTS.length, u = (((h % 1) + 1) % 1) * n, i = floor(u) % n, f = u - floor(u), j = (i + 1) % n;
