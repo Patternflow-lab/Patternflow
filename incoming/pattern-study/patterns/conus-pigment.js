@@ -33,18 +33,18 @@ const sm = (a, b, v) => {
 const SUBS = 20, DT = 0.02; // 20 steps of 0.02 time units make one laid row
 const HIST = H + 4;
 const PRE_ROWS = 400;
-const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref', 'wob'];
+const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref', 'wob', 'cref'];
 const PARAM = [
   // stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.25, 0.5, 1.6, 0.4],
+  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 1.0, 0.15, 2.2, 0.4, 3.9],
   // leaning stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 0.25, 0.5, 1.6, 0.4],
+  [1.0, 0.05, 0.24, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 1.0, 0.15, 2.2, 0.4, 3.9],
   // wide oblique bands
-  [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18],
+  [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18, 3.0],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.45, 2.2, 2.5, 0.14],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.6, 2.2, 2.5, 0.14, 2.5],
   // crowd
-  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 3.0, 2.2, 2.5, 0.1],
+  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 3.0, 2.2, 2.5, 0.1, 2.5],
 ];
 const HUMP = 0.8;
 const STOPS = [-2, -1.2, -0.6, 0, 1]; // the Regime knob value of each column
@@ -199,7 +199,7 @@ function hueMatrix(S, hue) {
   S.hueAt = hue;
 }
 
-const GROUND = [30, 17, 46], PLUM = [52, 24, 62], RIM = [96, 36, 22], AMBER = [236, 146, 40], CREAM = [255, 238, 212], TEAL = [18, 100, 122];
+const GROUND = [30, 17, 46], PLUM = [52, 24, 62], TEAL = [18, 100, 122];
 
 function rowAt(S, age, ph, outA, outH, outS) {
   // age in rows from the lip: 0 is the live state, ph is the newest laid row
@@ -222,6 +222,18 @@ function rowAt(S, age, ph, outA, outH, outS) {
   }
 }
 
+// the glaze: umber where the pigment is thin, amber, gold and cream where it is thick
+const GLAZE = [[0.0, 96, 36, 22], [0.1, 150, 64, 24], [0.26, 214, 112, 30], [0.5, 240, 160, 44], [0.8, 252, 208, 124], [1.05, 255, 238, 212]];
+const glz = [0, 0, 0];
+function glaze(t, out) {
+  let k = 0;
+  while (k < GLAZE.length - 2 && t > GLAZE[k + 1][0]) k++;
+  const A = GLAZE[k], B = GLAZE[k + 1], f = cl((t - A[0]) / (B[0] - A[0]), 0, 1);
+  out[0] = A[1] + (B[1] - A[1]) * f;
+  out[1] = A[2] + (B[2] - A[2]) * f;
+  out[2] = A[3] + (B[3] - A[3]) * f;
+}
+
 const rowA = new Float32Array(N), rowH = new Float32Array(N), rowS = new Float32Array(N);
 
 // a soft band of light that slides over the glaze; x is a column, and the ring wraps
@@ -242,21 +254,22 @@ export function draw(display, params) {
   const hden = max(0.5, P.hk * aref);
   for (let y = 0; y < H; y++) {
     rowAt(S, H - 1 - y, ph, rowA, rowH, rowS);
+    let hm = 0;
+    for (let x = 0; x < W; x++) hm += rowH[x];
+    const hbase = max(P.h0, 0.9 * hm / W);
     for (let x = 0; x < W; x++) {
       const a = rowA[x] / aref;
       const u = sm(0.12, 0.5, a);
-      const wake = sm(0.08, 0.7, (rowH[x] - P.h0) / hden) * (1 - u);
+      const wake = sm(0.08, 0.7, (rowH[x] - hbase) / hden) * (1 - u);
       const gl = sheenAt(t, x, y);
       let r = GROUND[0], g = GROUND[1], b = GROUND[2];
       const used = (1 - cl(rowS[x], 0, 1)) * (1 - u);
       r += (PLUM[0] - r) * used * 0.8; g += (PLUM[1] - g) * used * 0.8; b += (PLUM[2] - b) * used * 0.8;
       r += (TEAL[0] - r) * wake * 0.7; g += (TEAL[1] - g) * wake * 0.7; b += (TEAL[2] - b) * wake * 0.7;
-      const rim = sm(0.0, 0.35, u) * (1 - sm(0.35, 0.7, u));
-      r += (RIM[0] - r) * rim; g += (RIM[1] - g) * rim; b += (RIM[2] - b) * rim;
-      const body = sm(0.3, 0.75, u);
-      r += (AMBER[0] - r) * body; g += (AMBER[1] - g) * body; b += (AMBER[2] - b) * body;
-      const core = sm(0.85, 1.3, rowA[x] / 2.5);
-      r += (CREAM[0] - r) * core; g += (CREAM[1] - g) * core; b += (CREAM[2] - b) * core;
+      if (u > 0) {
+        glaze(rowA[x] / P.cref, glz);
+        r += (glz[0] - r) * u; g += (glz[1] - g) * u; b += (glz[2] - b) * u;
+      }
       const lift = gl * (0.16 + 0.12 * u);
       r = r * (1 + lift) + 26 * gl * (1 - u * 0.6); g = g * (1 + lift) + 20 * gl * (1 - u * 0.6); b = b * (1 + lift) + 18 * gl * (1 - u * 0.6);
       const R = r * m[0] + g * m[1] + b * m[2], G = r * m[3] + g * m[4] + b * m[5], B = r * m[6] + g * m[7] + b * m[8];
