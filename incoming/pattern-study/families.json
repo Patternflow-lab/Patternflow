@@ -184,5 +184,10 @@
   "multivariate": { "label": "다변량 도표", "color": "#43ff40" },
   "dislocation": { "label": "전위", "color": "#7039e6" },
   "adhesion": { "label": "세포 접착", "color": "#b7ff73" },
-  "shoaling": { "label": "얕아지는 물결", "color": "#40ffc2" }
+  "shoaling": { "label": "얕아지는 물결", "color": "#40ffc2" },
+  "bargalaxy": { "label": "막대 은하", "color": "#8282eb" },
+  "eutectic": { "label": "공정 조직", "color": "#a02828" },
+  "sampler": { "label": "표본 추출", "color": "#a02873" },
+  "bmode": { "label": "초음파 영상", "color": "#3755a0" },
+  "treemap": { "label": "트리맵", "color": "#37a055" }
 }
