@@ -154,5 +154,10 @@
   "dendro": { "label": "나이테", "color": "#8b5a2b" },
   "brinicle": { "label": "소금물 고드름", "color": "#4cc9f0" },
   "gravwave": { "label": "중력파", "color": "#ef8354" },
-  "contrail": { "label": "비행운", "color": "#a8dadc" }
+  "contrail": { "label": "비행운", "color": "#a8dadc" },
+  "conoscopy": { "label": "원뿔 간섭무늬", "color": "#ff4dff" },
+  "hrdiagram": { "label": "별무리 도표", "color": "#d93a00" },
+  "kundt": { "label": "쿤트 관", "color": "#ffeb33" },
+  "strainband": { "label": "변형 띠", "color": "#ff0033" },
+  "fourieroptics": { "label": "푸리에 광학", "color": "#00f251" }
 }
