@@ -25,7 +25,7 @@
 // beyond the horizon somewhere between 26 LEDs left of the panel and 90 across, and a few flat banks of haze
 // low in the sky, gold where lit and rose where not, that drift with the wind and change as they go.
 // Rain cells are the state: seven slots, each a cell with a column, a distance, an age and a life of 15 to 39 s.
-// A cell rises over the first 13 percent of its life, hangs, and thins out from 68 percent on. Its rain
+// A cell rises over the first 13 percent of its life and hangs, then thins out from 68 percent on. Its rain
 // reaches a third of the way to the dry layer when new, the whole way by 26 percent and a third less at the
 // end. It pulses by 40 percent on a period of 13 to 22 s, sways 9 LEDs on 48 to 90 s, and drifts with the wind
 // at 0.4 to 1.3 LEDs a second in the mean wind, the near ones faster. The cloud base sags up to 5.5 rows under it. A dead slot waits

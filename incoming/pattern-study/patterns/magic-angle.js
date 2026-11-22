@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Magic Angle
 // Family:  moirelattice
-// Idea:    Two honeycomb sheets lie one on the other and one is turned by a few degrees, so a triangular superlattice of warm AA spots joined by cool AB and BA triangles swells out of a fine moire, balloons, and shrinks again as the twist drifts.
+// Idea:    Two honeycomb sheets lie one on the other and one is turned by a few degrees, so a triangular superlattice of warm AA spots joined by cool AB and BA triangles swells out of a fine moire and balloons, then shrinks again as the twist drifts.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0

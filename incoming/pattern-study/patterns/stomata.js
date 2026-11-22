@@ -67,7 +67,7 @@ const SIGMA_C = 1.2; // chloroplast sigma, LEDs
 const LOBE_A = 1.7; // sideways swing of a wall, sheet units
 const LOBE_K = 0.4; // its wave number along the wall
 
-// Stomata: offset from the panel centre in sheet units, lean from vertical, length, and chloroplasts per cell.
+// Stomata: offset from the panel centre in sheet units and lean from vertical, then length and chloroplasts per cell.
 const STO = [
   { ox: -2, oy: -27, th: 0.17, L: 46, nc: 11 },
   { ox: 4, oy: 34, th: -0.93, L: 29, nc: 7 },
