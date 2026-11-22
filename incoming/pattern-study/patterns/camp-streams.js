@@ -173,7 +173,7 @@ function derive(S) {
 const wrapd = (d, L) => (d > L / 2 ? d - L : d < -L / 2 ? d + L : d);
 const wrap = (x, L) => (x < 0 ? x + L : x >= L ? x - L : x);
 
-// The streams of a mound: stems that leave it at even angles, bend slowly, and fork twice on the way out.
+// The streams of a mound: stems that leave it at even angles. Each bends slowly and forks up to twice on the way out.
 // Each node knows the node nearer the mound, so a cell can walk in along the files.
 function buildTree(q) {
   const nx = [], ny = [], par = [], len = [];
@@ -489,7 +489,8 @@ export function draw(display, params) {
   for (let i = 0; i < N; i++) {
     const L = gh * 0.34 * (1 - exp(-rs[i] / 3)) + gs * 0.78 * (1 - exp(-max(0, rb[i] - 0.7) / 3.2));
     const w = gw * (u[i] + 0.5 * v[i] * (1 - u[i]));
-    const s = cl(L * (1 + 0.9 * w) + 0.1 * w, 0, 1);
+    // only a mound is dense enough to reach amber; a bunch in a stream tops out at white
+    const s = min(L * (1 + 0.9 * w) + 0.1 * w, 0.86 + 0.14 * sm((rb[i] - 8) / 10));
     const li = ((s * 255) | 0) * 3;
     display.setPixel(i % W, (i / W) | 0, lut[li], lut[li + 1], lut[li + 2]);
   }
