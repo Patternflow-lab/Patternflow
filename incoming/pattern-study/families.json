@@ -164,5 +164,10 @@
   "moirelattice": { "label": "겹격자 무아레", "color": "#c0334e" },
   "virga": { "label": "비꼬리 구름", "color": "#e98c1f" },
   "stomata": { "label": "기공", "color": "#62dd3c" },
-  "radiolaria": { "label": "방산충", "color": "#9617db" }
+  "radiolaria": { "label": "방산충", "color": "#9617db" },
+  "bowing": { "label": "활 켜기", "color": "#e0a64a" },
+  "nuclear": { "label": "붕괴 사슬", "color": "#b6e83a" },
+  "roots": { "label": "뿌리", "color": "#b98a5e" },
+  "airshower": { "label": "우주선 샤워", "color": "#78a6ff" },
+  "clonal": { "label": "클론 스윕", "color": "#ff3d8b" }
 }
