@@ -41,11 +41,12 @@ const RB = 0.38; // the bar potential turns over here
 const RB3 = RB * RB * RB;
 const EB2 = 0.04 * 0.04; // bar softening, squared
 const OMP0 = 1.9; // bar pattern speed, radians per unit
+const EPS0 = 0.4; // bar strength at Bar = 0: peak tangential force over radial force at the bar end
 const LIFE = 16; // a star's life in units
 const RMAX = 1.18; // a star this far out is born again
 const GROW = 6; // a star feels the bar fully only after this many units
-const PRE = 16; // units run before the first frame
-const HPRE = 0.02; // leapfrog step of the pre-run
+const PRE = 12; // units run before the first frame
+const HPRE = 0.04; // leapfrog step of the pre-run
 
 const gauss = () => {
   let s = 0;
@@ -84,7 +85,8 @@ function spawn(S, i, aged) {
   S.life[i] = LIFE * (0.7 + 0.6 * Math.random());
   S.age[i] = aged ? S.life[i] * Math.random() : 0;
   S.gr[i] = 0;
-  S.bri[i] = 0.7 + 0.6 * Math.random();
+  // now and then a bright young star, so the arms have knots
+  S.bri[i] = (0.7 + 0.6 * Math.random()) * (Math.random() < 0.04 ? 2.6 : 1);
 }
 
 export function setup(params) {
@@ -106,10 +108,11 @@ export function setup(params) {
     HT: new Float32Array(HW * HH * 3),
     lut: new Float32Array(4097),
     ramp: 0,
+    A: 0,
   };
   for (let i = 0; i <= 4096; i++) {
     const x = i / 512;
-    S.lut[i] = Math.pow(Math.log(1 + 8 * x) / Math.log(1 + 8 * 8), 1.35);
+    S.lut[i] = Math.pow(1 - exp(-x * 1.0), 1.6);
   }
   params.s = S;
 }
@@ -123,7 +126,7 @@ function ompOf(S, t) {
 // Strength of the bar potential, as the amplitude A (negative: the bar is a minimum along its axis).
 function ampOf(S, t, bar) {
   const p = S.ph;
-  const eps = bar < 0 ? 0.26 * (1 + bar) : 0.26 * (1 + 0.9 * bar);
+  const eps = bar < 0 ? EPS0 * (1 + bar) : EPS0 * (1 + 0.45 * bar);
   const wob = 1 + 0.12 * sin((TAU * t) / 17.3 + p[3]) + 0.08 * sin((TAU * t) / 29.9 + p[4]);
   return -0.5 * eps * wob * S.ramp;
 }
@@ -207,7 +210,8 @@ export function update(dt, input, params) {
   S.wall += dt;
   const pace = cl(sk[1], 0.3, 8) / 2;
   const h = (dt * pace) / TU;
-  if (h > 0) step(S, h, ampOf(S, S.t, sk[2]));
+  S.A = ampOf(S, S.t, sk[2]);
+  if (h > 0) step(S, h, S.A);
 }
 
 // ---- colour -------------------------------------------------------------
@@ -261,7 +265,7 @@ export function draw(display, params) {
   M.fill(0);
   HB.fill(0);
   hueRGB(0.085 + sk[0], 0.62, TW);
-  hueRGB(0.6 + sk[0], 0.66, TC);
+  hueRGB(0.6 + sk[0], 0.52, TC);
   hueRGB(0.76 + sk[0], 0.55, TV);
   // the view: inclination, a slow roll of the line of nodes, and a small wobble of the tilt
   const incl = ((58 + 18 * cl(sk[3], -1, 1)) * PI) / 180 + 0.05 * sin((TAU * t) / 97 + S.ph[5]);
@@ -269,6 +273,7 @@ export function draw(display, params) {
   const roll = 0.07 * sin((TAU * t) / 83 + S.ph[6]) + 0.04 * sin((TAU * t) / 131 + S.ph[7]);
   const cr = cos(roll), sr = sin(roll);
   const sc = min(56, 29 / max(0.25, ci));
+  const coolTop = 0.45 + 2 * max(0, -S.A - 0.2);
   for (let i = 0; i < N; i++) {
     const x = px[i], y = py[i], z = pz[i];
     const u0 = y * ci - z * si;
@@ -288,8 +293,8 @@ export function draw(display, params) {
     const vc = sqrt(vcirc2(r));
     const dv = vt - vc;
     const hot = sqrt(vr * vr + 2 * dv * dv) / (vc + 0.05);
-    const cool = 1 - sm(0.1, 0.45, hot);
-    const w = 0.075 * env * bri[i] * (0.8 + 0.9 * cool);
+    const cool = 1 - sm(0.1, coolTop, hot);
+    const w = 0.095 * env * bri[i] * (0.75 + 1.1 * cool);
     const wr = w * (TW[0] * (1 - cool) + TC[0] * cool);
     const wg = w * (TW[1] * (1 - cool) + TC[1] * cool);
     const wb = w * (TW[2] * (1 - cool) + TC[2] * cool);
@@ -337,6 +342,7 @@ export function draw(display, params) {
   blur(HB, HT, HW, HH);
   blur(HB, HT, HW, HH);
   const cb = cos(S.phiB), sb = sin(S.phiB);
+  const dustAmp = 0.38 * sm(0.04, 0.14, -S.A);
   for (let y = 0; y < H; y++) {
     const hy = y * 0.5 - 0.25;
     const y0 = max(0, min(HH - 1, floor(hy)));
@@ -364,17 +370,16 @@ export function draw(display, params) {
         if (win > 0) {
           const lane = 0.07 * Math.tanh(bu / 0.09);
           const e = (bv - lane) / 0.045;
-          dust = 1 - 0.38 * win * exp(-e * e);
+          dust = 1 - dustAmp * win * exp(-e * e);
         }
       }
       const hal = 0.035 * exp(-rp2 / 0.9);
       for (let ch = 0; ch < 3; ch++) {
         const hv = (HB[a + ch] * (1 - fx) + HB[b + ch] * fx) * (1 - fy) + (HB[c + ch] * (1 - fx) + HB[d + ch] * fx) * fy;
-        const v = ((F[o + ch] + M[o + ch] + 0.25 * hv) * dust + hal * TV[ch]) * 512;
+        const v = max(0, ((F[o + ch] + M[o + ch] + 0.25 * hv) * dust + hal * TV[ch] - 0.05)) * 512;
         const vi = min(4095, floor(v));
         const e = lut[vi] + (v - vi) * (lut[vi + 1] - lut[vi]);
         px3[ch] = 255 * e;
-        if (S.dbg) S.dbg[(y * W + x) * 3 + ch] = v / 512;
       }
       display.setPixel(x, y, min(255, px3[0]), min(255, px3[1]), min(255, px3[2]));
     }
