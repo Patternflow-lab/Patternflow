@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Bowed String
 // Family:  bowing
-// Idea:    One string stands the full height of the panel and a bow drags it sideways in stick and slip, run so slowly that the bright kink of the Helmholtz motion walks the string in about 2.7 seconds and leaves a leaf of afterimage behind, while the bow force, bow position and bow speed wander through Schelleng's regimes of scratching, clean bowing and raucous slips.
+// Idea:    One string stands the full height of the panel and a bow drags it sideways in stick and slip, slowed so that the bright kink of the Helmholtz motion walks the string once in about 2.7 seconds and leaves a leaf of afterimage, while bow force, bow position and bow speed wander through scratchy, clean and raucous bowing and a finger slides the string shorter and longer.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,13 +11,32 @@
 // @matrix 64x128
 // @knobs Hue=-0.1..0.5, Speed=0.5..4, Position=0.04..0.3, Force=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Speed.
-// Knob 3: Position.
-// Knob 4: Force.
+// Knob 1: Hue. Adds the knob to the hue of everything, the string, the afterimage, the haze and the bow. At the opening 0 the string is brass (255, 217, 120), the kink flashes cream (255, 246, 214), the haze is a dark amber (37, 16, 4) and the bow band is a warm white (255, 219, 153) while it holds the string and orange (255, 112, 25) while the string slides under it. At -0.1 it is a coral red (255, 136, 120), at 0.1 a yellow-green (212, 255, 120), at 0.25 green and at 0.5 a blue (120, 158, 255).
+// Knob 2: Speed. How fast the bow moves. The kink swings out as far as v_bow over beta, so the leaf is 8.8 LEDs wide on each side at 0.5, 15.3 at the opening 2 and 20.2 at 4, with the bow at 0.045 of the string from the bridge and the full string sounding (the picture shows that swing compressed to the 0.4 power so that it stays on the panel, and a limiter keeps it under 22 LEDs). The hair of the bow slides sideways at 1.2 LEDs a second at 0.5, 2 at 2 and 2.7 at 4, and the string rides it while it holds.
+// Knob 3: Position. Where the bow sits, as the share of the string from the bridge, 0.04 to 0.3 (the bow goes one cell of 512 at a time, and 0.04 is placed at 0.045). The bow band stands on row 122 at the opening and on row 89 at 0.3 with the string at full length. The nearer the bridge, the wider the leaf and the sharper the kink: at 0.3 the swing is a narrow 7.1 LEDs and the band is far up the string. The force that holds a clean motion falls from f = 9 at 0.045 to f = 1.15 at 0.27, so the same hand lands in a different regime at a different position.
+// Knob 4: Force. How hard the bow presses, the middle of the clean window at 0.06 and a multiple of it elsewhere, 0.063 times at -1, 1.6 times at 0.5 and 2.8 times at 1. Low, the bow loses its grip and the leaf thins and goes rough with small slips. At the middle there is one kink round the leaf. High, small extra kinks crowd the edge of the leaf, and at 1 the bow chokes the string so that it hangs nearly straight, with glints where it still slips. The wandering of the force is a walk of up to 0.25 to 2.2 times the knob.
+
+// The panel is a string seen from the side, nut at the top and bridge at the bottom, and its sideways swing is the picture. The string is a
+// digital waveguide: right- and left-going velocity waves on 512 cells, reflected at the two ends (flipped, with the slow part given
+// back whole and a share of the rest lost, and a one-pole smoothing that rounds the corner a little). A bow at one cell reads the string's
+// speed there, takes the speed it would have with no push, and pushes with a friction force. The friction is a curve of the speed the
+// string slides under the bow: it holds up to a peak, then falls with the slip speed, with the fall-off set in slip speeds so that the
+// bow speed only scales the swing. Where the bow holds the string, the string rides with it, and the corner of the motion, the kink,
+// runs up and down the string once per round trip while the bow slips for the share beta of the round trip, so stick and slip swap once per
+// round trip. Low force gives scratching, small slips piling into a round trip. A band of force gives Helmholtz motion, two straight
+// pieces of string with one kink. High force gives irregular slips, and past that the string is choked. The window moves with the bow
+// position the way Schelleng drew it, and the middle of it is a table (FC_B, FC_V) read off runs of this very string.
+// One round trip is 2.7 seconds at full length. The finger slides to a new stop every 9 to 23 seconds, glides in about 9 seconds and
+// shortens the string to between 80 and 127 rows, which raises the pitch, so the round trip drops to 1.7 s; the string above the finger is a dim thread.
+// The speed, the position, the force, the finger and the hue each follow a slow random walk round the value the knob gives, so the
+// motion is never in one regime for long and never repeats. The first update runs the string for 66 seconds and brings the force up to
+// the knob as a player would, so the first frame already has a settled motion and a leaf behind it.
+// The picture is built from the string's shape as 2-LED lines, a spark at each kink (and a line from where the kink was a frame
+// ago, so its path is drawn), two afterimages (the string, held for 2.4 s, the kink's path, 4.6 s), a blur of both, a slow haze, and the bow
+// as a band with a hair texture, warm white while it holds and orange while it slides.
 
 const W = 64, H = 128, NP = W * H;
-const { floor, ceil, min, max, abs, sqrt, exp, log, pow, sin, cos } = Math;
+const { floor, ceil, min, max, abs, sqrt, exp, log, pow } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -32,7 +51,7 @@ const N = 512; // cells along the string
 const PN = 0.4, PB = 0.4; // one-pole smoothing of the reflections at the nut and the bridge
 const RD = 0.05; // slip friction as a share of the peak
 const V0K = 0.6; // fall-off speed of the friction curve, in slip speeds (v_bow / beta)
-const KP = 1 / (6 * (2 * 512 + 2)); // the slow part of a reflection is the part that is given back whole
+const KP = 1 / (6 * (2 * N + 2)); // the slow part of a reflection is the part that is given back whole
 const CAP = 0.98; // most of the free relative speed the stick can take up in one step
 const T0 = 2.7; // seconds for one round trip of the kink on the full string
 const CX = 32; // x of the string at rest
@@ -98,12 +117,11 @@ export function setup(params) {
     // glissando
     Lr: FINGER_MAX, Lv: 0, Lt: FINGER_MAX, Ltime: 18 + 14 * Math.random(),
     G: 0.01, amp: 10, lim: 1,
-    A_s: F32(NP), A_k: F32(NP), now: F32(NP), tmp: F32(NP), bl1: F32(NP), bl2: F32(NP), band: F32(NP * 3),
+    A_s: F32(NP), A_k: F32(NP), now: F32(NP), tmp: F32(NP), bl1: F32(NP), bl2: F32(NP),
     lut: F32(HLUT * 3), lutKey: -1,
-    texPh: 0, bowRow: 100, bowX: 0, kinks: [], pk: [],
+    texPh: 0, bowRow: 100, kinks: [], pk: [],
     hw: 1.1,
   };
-  S.lutS = [0, 0, 0];
   params.s = S;
 }
 
@@ -249,11 +267,10 @@ function advance(S, dt, draw) {
 function shapeOut(S) {
   const y = S.y, yd = S.yd, ib = S.ib, fb = S.fb;
   const yN = y[N];
-  const gOff = fb * 0; // the sag under the mean force
   let mx = 0;
   for (let i = 0; i <= N; i++) {
     const tri = i <= ib ? (i * (N - ib)) / N : (ib * (N - i)) / N;
-    const v = y[i] - fb * tri - (yN * i) / N + gOff;
+    const v = y[i] - fb * tri - (yN * i) / N;
     yd[i] = v;
     const a = v < 0 ? -v : v;
     if (a > mx) mx = a;
@@ -261,7 +278,7 @@ function shapeOut(S) {
   // gain: the Helmholtz amplitude is v_bow N / (4 beta); show it compressed so a wide range of speeds and positions stays on the panel
   const ypred = (S.vb * N) / (4 * S.beta), yref = N / (4 * 0.04);
   const A = 16 * pow(ypred / yref, 0.4) * (S.Lr / FINGER_MAX);
-  let G = A / (ypred * 1.0);
+  const G = A / ypred;
   const ex = mx * G;
   const want = ex > 22 ? 22 / ex : 1;
   S.lim = want < S.lim ? want : S.lim + (want - S.lim) * 0.02;
