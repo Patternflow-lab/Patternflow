@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Neal's Funnel
 // Family:  sampler
-// Idea:    Eighteen Hamiltonian Monte Carlo chains swing leapfrog arcs through Neal's funnel, a tall trumpet that is a needle at the top and fills the panel at the bottom, and the samples they accept pile up into a glowing heat map while any trajectory whose step is too big for the neck blows up in a red-white burst.
+// Idea:    Sixteen Hamiltonian Monte Carlo chains swing leapfrog arcs through Neal's funnel, a tall trumpet that is a needle at the top and fills the panel at the bottom, and the samples they accept pile up into a glowing heat map while any trajectory whose step is too big for the neck blows up in a red-white burst.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,18 +12,18 @@
 // @knobs Hue=0..1, Step=0..4, Length=-1..1, Depth=-1..1
 //
 // Knob 1: Hue. Turns the heat ramp round the wheel; at 0 it runs from deep violet through magenta and red-orange to white-hot, the arcs are cyan-white and a divergence burst is red-white, and the arcs and the burst turn with the ramp so the three stay a complementary set.
-// Knob 2: Step. The leapfrog step size epsilon, 0.035 at 0, 0.13 at the opening 2 and 0.49 at 4 (it grows by 14 times over the range). Small steps make short arcs and chains that crawl and never reach the neck; at 2 the arcs swing across the funnel and the neck is reached now and then; near 4 the step is too big for any row above the middle of the neck and the top of the panel fills with red-white bursts and stuck chains.
-// Knob 3: Length. The leapfrog steps in one trajectory, 12 at -1, 26 at the opening 0 and 58 at 1, at about 45 steps a second per chain. Short trajectories are small hops that leave the chains close together; long ones are arcs that run from the middle to the edge of the mouth and bring a chain to a new place every second.
-// Knob 4: Depth. The spread of the log-scale variable v of the funnel, 1.8 at -1, 2.5 at the opening and 3.5 at 1. At -1 the samples gather in the waist and the neck and the mouth stay dark; at 1 they reach the top needle and the wide bottom, and the bottom of the panel fills.
+// Knob 2: Step. The leapfrog step size epsilon, 0.012 at 0, 0.11 at the opening 2 and 0.5 at 4. Small steps make short arcs and chains that crawl and never reach the neck; at 2 the arcs swing across the funnel and the neck is reached now and then; near 4 the step is too big for any row above the middle of the neck and the top of the panel fills with red-white bursts and stuck chains.
+// Knob 3: Length. The leapfrog steps in one trajectory, 10 at -1, 32 at the opening 0 and 100 at 1, at about 45 steps a second per chain. Short trajectories are small hops that leave the chains close together; long ones are arcs that run from the middle to the edge of the mouth and bring a chain to a new place every second.
+// Knob 4: Depth. The spread of the log-scale variable v of the funnel, 1.9 at -1, 3.0 at the opening and 4.7 at 1. At -1 the samples gather in the waist and the neck and the mouth stay dark; at 1 they reach the top needle and the wide bottom, and the bottom of the panel fills.
 
 // The target is Neal's funnel: v ~ Normal(0, sv) and x given v ~ Normal(0, exp(v / 2)), so the cloud is as
 // wide as exp(v / 2) at height v. The panel shows v down the 128 rows, the needle at the top, and x across.
-// The real funnel is far too steep for 64 LEDs (it is 1000 times wider at v = +7 than at v = -7), so x is
+// The real funnel is far too steep for 64 LEDs (it is 665 times wider at v = +6.5 than at v = -6.5), so x is
 // drawn with a per-row scale A(v) = AA exp(-GAM v / 2) that keeps the funnel a trumpet whose standard
-// deviation is 2 LEDs at the top row and 13.5 at the bottom. Dynamics and density are the true ones; only
+// deviation is 2.4 LEDs at the top row and 15 at the bottom. Dynamics and density are the true ones; only
 // the drawing scale of x is changed.
 //
-// Eighteen chains run leapfrog at about 45 steps a second each, with a fresh Normal momentum for every
+// Sixteen chains run leapfrog at about 45 steps a second each, with a fresh Normal momentum for every
 // trajectory and a Metropolis test on the energy error at its end. Every state the chains accept is splatted
 // into a float buffer that fades with a 30 second time constant; the picture is that buffer, log tone-mapped,
 // with the arcs of the trajectories on top. A trajectory whose energy error passes DIV stops where it is and
@@ -39,16 +39,16 @@ const VR = VHI - VLO;
 const YTOP = 2.5;
 const YSPAN = 123;
 const GAM = 0.712;
-const AA = 5.3;
-const NCH = 18;
+const AA = 6;
+const NCH = 16;
 const TR = 128;
 const NB = 32;
 const TAU_D = 30;
-const TAU_A = 0.42;
+const TAU_A = 0.4;
 const DIV = 50;
 const STUCK = 12;
 const PRERUN = 60;
-const SIG = 1.25;
+const SIG = 1.5;
 const R_ARC = 4.5;
 
 const sqrt = Math.sqrt, exp = Math.exp, log = Math.log, abs = Math.abs, min = Math.min, max = Math.max, floor = Math.floor;
@@ -91,7 +91,7 @@ function buildPalette(S) {
     const t = i / 255;
     const val = Math.pow(min(1, t / 0.7), 0.9);
     const sat = 1 - 0.92 * sm(0.8, 1.0, t);
-    const c = hsv(h0 + 0.34 * t, sat, val);
+    const c = hsv(h0 + 0.36 * (0.4 * t + 0.6 * t * t), sat, val);
     S.pal[i * 3] = c[0] * 255;
     S.pal[i * 3 + 1] = c[1] * 255;
     S.pal[i * 3 + 2] = c[2] * 255;
@@ -137,8 +137,10 @@ function screenY(v) {
   return YTOP + ((v - VLO) / VR) * YSPAN;
 }
 
+// A new chain starts from an exact draw of the funnel, so every row gets chains, wide at the mouth too.
 function seedChain(S, i) {
-  const v = cl(1 + 1.6 * gauss(S), -5, 6.5);
+  const v = cl(S.sv * gauss(S), -6.3, 6.3);
+  S.life[i] = 18 + 30 * rnd(S);
   S.cv[i] = v;
   S.cx[i] = axisX(S, v) + gauss(S) * exp(0.5 * v);
   S.st[i] = -1;
@@ -172,36 +174,37 @@ function addBurst(S, sx, sy) {
 }
 
 function splat(D, sx, sy, w) {
-  if (sx < -3 || sx > W + 3 || sy < -3 || sy > H + 3) return;
-  const ix = Math.round(sx - 0.5) - 3;
-  const iy = Math.round(sy - 0.5) - 3;
+  if (sx < -4 || sx > W + 4 || sy < -4 || sy > H + 4) return;
+  const ix = Math.round(sx - 0.5) - 4;
+  const iy = Math.round(sy - 0.5) - 4;
   const gx = SPX;
   const gy = SPY;
-  for (let j = 0; j < 7; j++) {
+  for (let j = 0; j < 9; j++) {
     const dx = ix + j + 0.5 - sx;
     const dy = iy + j + 0.5 - sy;
     gx[j] = exp((-dx * dx) / (2 * SIG * SIG));
     gy[j] = exp((-dy * dy) / (2 * SIG * SIG)) * w;
   }
-  for (let j = 0; j < 7; j++) {
+  for (let j = 0; j < 9; j++) {
     const y = iy + j;
     if (y < 0 || y >= H) continue;
     const row = y * W;
-    for (let l = 0; l < 7; l++) {
+    for (let l = 0; l < 9; l++) {
       const x = ix + l;
       if (x >= 0 && x < W) D[row + x] += gx[l] * gy[j];
     }
   }
 }
-const SPX = new Float32Array(7);
-const SPY = new Float32Array(7);
+const SPX = new Float32Array(9);
+const SPY = new Float32Array(9);
 
 // A sample far up or down in v is rare, so the ends of the funnel would stay dark however long it ran.
-// Each one is weighted by part of how rare its row is (the square root of the odds, at most 4), which keeps
-// the mouth and the needle on the panel without flattening the waist.
+// Each one is weighted by about 0.6 of how rare its row is for a spread of 3 (at most 4 times), which keeps
+// the mouth and the needle on the panel without flattening the waist. The weight does not follow the Depth
+// knob, so turning Depth down still thins the ends.
 function rare(S, v) {
-  const z = v * (1 / S.sv);
-  return min(4, exp(0.22 * z * z));
+  const z = v / 3;
+  return min(4, exp(0.3 * z * z));
 }
 
 function beginTrajectory(S, i) {
@@ -235,7 +238,7 @@ function endTrajectory(S, i, accepted, diverged) {
     splat(S.D, S.tx[i * TR + k], S.ty[i * TR + k], rare(S, S.cv[i]));
     for (let j = 1; j < n - 1; j += 2) {
       k = (S.th[i] + TR - 1 - j) % TR;
-      splat(S.D, S.tx[i * TR + k], S.ty[i * TR + k], 0.2 * rare(S, S.cv[i]));
+      splat(S.D, S.tx[i * TR + k], S.ty[i * TR + k], 0.12 * rare(S, S.cv[i]));
     }
   } else {
     S.rej[i]++;
@@ -244,7 +247,7 @@ function endTrajectory(S, i, accepted, diverged) {
     for (let j = 0; j < n && j < TR; j++) S.tw[i * TR + ((S.th[i] + TR - 1 - j) % TR)] = 0.45;
   }
   S.st[i] = -1;
-  if (S.rej[i] >= STUCK || abs(S.cv[i]) > 8.5) seedChain(S, i);
+  if (S.rej[i] >= STUCK || abs(S.cv[i]) > 8.5 || S.life[i] < 0) seedChain(S, i);
 }
 
 function stepChain(S, i) {
@@ -295,6 +298,7 @@ function advance(S, dt) {
   S.isv2 = 1 / (S.sv * S.sv);
   S.tilt = 7 * Math.sin(0.0213 * t + 0.3) + 4 * Math.sin(0.0087 * t + 1.9) + 1.5 * Math.sin(0.047 * t + 4.1);
   for (let i = 0; i < NCH; i++) {
+    S.life[i] -= dt;
     S.acc[i] += dt * S.rate[i];
     while (S.acc[i] >= 1) {
       S.acc[i] -= 1;
@@ -311,7 +315,7 @@ export function setup(params) {
     hue: 0,
     hueKey: -1,
     epsK: 0.13,
-    lenK: 26,
+    lenK: 32,
     svK: 3,
     sv: 3,
     isv2: 0.111,
@@ -333,7 +337,7 @@ export function setup(params) {
     gx: new Float64Array(NCH), gv: new Float64Array(NCH),
     h0: new Float64Array(NCH), eps: new Float64Array(NCH),
     len: new Int32Array(NCH), st: new Int32Array(NCH), rej: new Int32Array(NCH),
-    acc: new Float64Array(NCH), rate: new Float64Array(NCH),
+    acc: new Float64Array(NCH), rate: new Float64Array(NCH), life: new Float64Array(NCH),
     tx: new Float32Array(NCH * TR), ty: new Float32Array(NCH * TR),
     tt: new Float64Array(NCH * TR), tw: new Float32Array(NCH * TR), tb: new Uint8Array(NCH * TR),
     th: new Int32Array(NCH), tn: new Int32Array(NCH),
@@ -365,8 +369,8 @@ export function update(dt, input, params) {
     buildPalette(S);
   }
   const epsT = 0.012 * Math.pow(42, Math.pow(cl(kn[1], 0, 4) / 4, 0.75));
-  const lenT = 26 * Math.pow(2.2, cl(kn[2], -1, 1) * 1);
-  const svT = 3 * Math.pow(1.4, cl(kn[3], -1, 1));
+  const lenT = 32 * Math.pow(3.2, cl(kn[2], -1, 1));
+  const svT = 3 * Math.pow(1.55, cl(kn[3], -1, 1));
   if (!S.ready) {
     // Sixty seconds of the sampler run before the first frame, with these knobs, so the heat map is
     // already filled and the knobs show from the first second.
@@ -407,7 +411,7 @@ function gainUpdate(S, now) {
       break;
     }
   }
-  const target = -log(5 * max(q, 1e-3));
+  const target = -log(3.4 * max(q, 1e-3));
   S.lgain = now ? target : S.lgain + (target - S.lgain) * (1 - exp(-0.2 / 8));
   S.gain = exp(S.lgain);
 }
@@ -433,7 +437,7 @@ function segment(S, x0, y0, b0, x1, y1, b1) {
       const ey = py - t * dy;
       const k = ((ex * ex + ey * ey) * 8) | 0;
       if (k >= 200) continue;
-      const v = (b0 + (b1 - b0) * t) * kern[k] * 0.8;
+      const v = (b0 + (b1 - b0) * t) * kern[k] * 0.68;
       const p = y * W + x;
       if (v > A[p]) A[p] = v;
     }
@@ -459,7 +463,7 @@ function drawArcs(S) {
       pb = b;
     }
     // The head is a little brighter and rounder than the trail.
-    if (prev >= 0) segment(S, S.tx[prev], S.ty[prev], min(1.4, pb * 1.4), S.tx[prev], S.ty[prev], min(1.4, pb * 1.4));
+    if (prev >= 0) segment(S, S.tx[prev], S.ty[prev], min(1.5, pb * 1.5), S.tx[prev], S.ty[prev], min(1.5, pb * 1.5));
   }
 }
 
@@ -480,7 +484,7 @@ function drawBursts(S, out) {
         const dx = x + 0.5 - S.bx[b];
         const d = sqrt(dx * dx + dy * dy);
         const core = exp((-d * d) / (2 * 1.5 * 1.5)) * 1.3 * A;
-        const ring = exp(-((d - R) * (d - R)) / (2 * 1.1 * 1.1)) * 0.9 * A;
+        const ring = exp(-((d - R) * (d - R)) / (2 * 1.3 * 1.3)) * 1.2 * A;
         const o = (y * W + x) * 3;
         const wv = core * 255;
         const rv = ring;
@@ -505,7 +509,8 @@ function render(S, display) {
     const s = D[p] * gain;
     let t = s > 0.0004 ? log(1 + K * s) * invLogK : 0;
     if (t > 1) t = 1;
-    const idx = ((t * 255) | 0) * 3;
+    // A bend that keeps the broad body low in the ramp and lets only the dense knots reach orange.
+    const idx = (((t * Math.sqrt(t)) * 255) | 0) * 3;
     let r = pal[idx];
     let g = pal[idx + 1];
     let b = pal[idx + 2];
