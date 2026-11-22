@@ -9,12 +9,12 @@
 // Round:   217
 // ===============================
 // @matrix 64x128
-// @knobs Reddening=-0.3..0.8, Rate=0..6, Metals=-2.2..0.4, Binaries=0..0.6
+// @knobs Reddening=-0.3..0.6, Rate=0..6, Metals=-2.2..0.4, Binaries=0..0.6
 //
-// Knob 1: Reddening. Dust in front of the clusters, in magnitudes of E(B-V), added to what each cluster already carries (0.1, 0.35 and -0.3 for the opening three, between -0.4 and 0.6 for the later ones). Each magnitude of the knob lowers log T of a star's colour by 0.3, moves its dot 7 LEDs right and dims it by 25 percent. At 0, where it opens, a 25 000 K star is blue, 10 000 K pale blue-white, 5800 K yellow, 4500 K orange and 3200 K red. At 0.8 the 25 000 K star is a pale blue, a 10 000 K one is yellow, anything below 4500 K is red, and the dots stand 5.6 LEDs farther right. At -0.3 the 3800 K stars turn yellow-orange and the diagram sits 2 LEDs left.
-// Knob 2: Rate. How fast the clusters age: 0.0065 dex of log10 age a second at 1, and that times the knob to the power 2.5, so 0.037 at 2 where it opens (age grows tenfold in 27 s), 0.10 at 3, 0.21 at 4 and 0.57 at 6, where a cluster runs through its 3 dex in 5 s. At 0 the ages stand still and only the shimmer, the pulsation and the drift go on. The 0.55 dex a cluster spends turning into the next takes 15 s at the opening rate. The turnoff of the opening cluster, at row 13 at 14 Myr, is at row 77 at 13 Gyr, which it reaches in 80 s.
+// Knob 1: Reddening. Dust in front of the clusters, in magnitudes of E(B-V), added to what each cluster already carries (0.1, 0.35 and -0.3 for the opening three, between -0.4 and 0.6 for the later ones). Each magnitude of the knob lowers log T of a star's colour by 0.22, moves its dot 5 LEDs right and dims it by 25 percent. At 0, where it opens, a 25 000 K star is blue, 10 000 K pale blue-white, 5800 K yellow, 4500 K orange and 3200 K red. At 0.6 the 25 000 K star is a plainer blue, a 10 000 K one is white, anything below 4500 K is red, and the dots stand 3 LEDs farther right. At -0.3 the 3800 K stars turn orange and the diagram sits 1.5 LEDs left.
+// Knob 2: Rate. How fast the clusters age: 0.0065 dex of log10 age a second at 1, and that times the knob to the power 2.5, so 0.037 at 2 where it opens (age grows tenfold in 27 s), 0.10 at 3, 0.21 at 4 and 0.57 at 6, where a cluster runs through its 3 dex in 5 s. At 0 the ages stand still and only the shimmer, the pulsation and the drift go on. The 0.55 dex a cluster spends turning into the next takes 15 s at the opening rate. The turnoff of the opening cluster, at row 13 at 14 Myr before the drift, is at row 77 at 13 Gyr, which it reaches in 80 s.
 // Knob 3: Metals. The iron content [Fe/H] added to each cluster's own (-0.1, -0.3 and -1.25 for the opening three, -1.6 to 0.2 for the later ones, the old ones poorer). A star with fewer metals is hotter at the same luminosity, by 0.075 in log T a dex, so at -2.2 the main sequence has moved 7.9 LEDs left, its life is 14 percent shorter (10^(0.03 [Fe/H])) and the red giant branch is hotter and steeper. Below -0.5 the helium-burning stars leave the red clump at log T 3.675 for a horizontal branch that spreads up to 0.52 in log T (25 LEDs) toward blue, fully at -1.9. At 0.4 the strings stand 1.4 LEDs right of where they open.
-// Knob 4: Binaries. The share of main-sequence stars that are unresolved pairs, 6 percent where it opens and 60 percent at the top. A pair of mass ratio q is brighter by log10(1 + q^3.5), up to 0.30 dex (4.4 rows) for equal stars, so a second sequence grows above the first. The scatter in log T goes from 0.016 to 0.076 (0.8 to 3.6 LEDs, 1 sigma) and in log L from 0.02 to 0.08 (0.3 to 1.2 rows), and the ribbon behind the dots widens from 1.2 to 4.2 LEDs.
+// Knob 4: Binaries. The share of main-sequence stars that are unresolved pairs, 6 percent where it opens and 60 percent at the top. A pair of mass ratio q is brighter by log10(1 + q^3.5), up to 0.30 dex (4.4 rows) for equal stars, so a second sequence grows above the first. The scatter in log T goes from 0.016 to 0.064 (0.8 to 3.1 LEDs, 1 sigma) and in log L from 0.02 to 0.08 (0.3 to 1.2 rows), and the ribbon behind the dots widens from 1.2 to 3.9 LEDs.
 
 // What the picture is. Log L against log T for the stars of three clusters laid over one another, with no tick, number or axis name.
 //   x = 2 + (4.56 - log T) * 48 LEDs    y = 4 + (5.15 - log L) * 14.6 LEDs
@@ -24,15 +24,15 @@
 // After that it follows a track made of fractions of that lifetime, 1.7 times the textbook ones so that the stages can be watched. A star below 2 Msun
 // crosses the subgiant branch in 0.24, climbs the Hayashi line
 //   log T = 3.665 - 0.03 [Fe/H] - (0.034 - 0.008 [Fe/H]) (log L - 1)
-// in 0.34 to log L 3.4, drops to the horizontal branch in 0.17 and climbs the asymptotic branch in 0.10. A star of 3.6 to 5.5 Msun makes a blue loop of
+// in 0.34 to log L 3.4, burns helium on the horizontal branch for 0.17 and climbs the asymptotic branch in 0.10. A star of 3.6 to 5.5 Msun makes a blue loop of
 // up to 0.34 in log T while it burns helium. One of 8.5 Msun or more climbs to a red supergiant and ends as a flash. The rest cross to the left as a planetary
 // nebula, a streak that fades, and then cool as white dwarfs of 0.109 M + 0.394 Msun with radius 0.0126 Rsun (0.6 / mass)^(1/3), log L = -3.28 - 1.25 log10(t / 1 Gyr) for 0.6 Msun.
 // They sit at the lower left and sink out of the bottom edge after about 1 Gyr.
 // A cluster lights 14 to 35 of a pool of 58 stars, 26 for the opening ones, with masses drawn from a power law of exponent 2.35 (Salpeter) for the opening
 // clusters and 2.1 to 2.6 for the rest, between a faint limit of 0.5 to 1.2 Msun and a top of 9 to 50 Msun. Three clusters are in view at once. They open at 14 Myr, 250 Myr and 3.2 Gyr, and each runs until 13 Gyr at the latest, 1.2 to 2.7 dex
 // for the later ones. Then every dot slides to where the same star stands in the next cluster, each on a delay of up to 0.45 of the slide, and the next
-// cluster opens at an age of 8 Myr to 1.6 Gyr. It has a distance, 6 rows higher to 13 rows lower than the first. Each of the three places also wanders, by up to 6 to 10 LEDs
-// and 7 to 13 rows on periods of 140 to 260 s and 170 to 320 s, which do not divide one another. The turnoff is the clock.
+// cluster opens at an age of 8 Myr to 1.6 Gyr. Its distance sets the whole diagram 6 rows higher to 13 rows lower. Each of the three places also wanders, by up to 8 to 13 LEDs
+// and 9 to 16 rows on periods of 140 to 260 s and 170 to 320 s, which do not divide one another. The turnoff is the clock.
 // A star is a dot of sigma 0.68 LEDs at the faint end and 1.6 at log L 5, with a halo that grows to 4.3 LEDs, in the colour of a black body of its temperature.
 // Cores are added as cubes and read back as the cube root, so that two neighbours stay two dots. Behind them a ribbon marks the isochrone, strongest where
 // the expected stars per LED are most. Every star shimmers by up to 14 percent. Giants in the instability strip (log T 3.72 to 3.9, log L above 1.2) pulse by
@@ -215,7 +215,7 @@ for (let i = 0; i < NS; i++) {
 
 // each cluster's zero point wanders a little, on periods that do not divide one another
 let NOW = 0;
-const DRIFT = [0, 1, 2, 3].map((g) => ({ ax: 6 + 4 * h32(g, 41), px: 140 + 120 * h32(g, 42), fx: TAU * h32(g, 43), ay: 7 + 6 * h32(g, 44), py: 170 + 150 * h32(g, 45), fy: TAU * h32(g, 46) }));
+const DRIFT = [0, 1, 2, 3].map((g) => ({ ax: 8 + 5 * h32(g, 41), px: 140 + 120 * h32(g, 42), fx: TAU * h32(g, 43), ay: 9 + 7 * h32(g, 44), py: 170 + 150 * h32(g, 45), fy: TAU * h32(g, 46) }));
 const driftX = (g) => DRIFT[g].ax * sin((TAU * NOW) / DRIFT[g].px + DRIFT[g].fx);
 const driftY = (g) => DRIFT[g].ay * sin((TAU * NOW) / DRIFT[g].py + DRIFT[g].fy);
 
@@ -277,14 +277,14 @@ function appear(C, i, age, z, E, k4, a) {
   evolve(C.M[i], age, z, RH[j], _o);
   let ll = _o.ll, lt = _o.lt;
   if (_o.kind === 0 && RB[j] < k4) ll += log10(1 + pow(Q[j], 3.5)); // an unresolved pair of nearly equal stars
-  lt += (0.016 + 0.1 * k4) * N1[j];
+  lt += (0.016 + 0.08 * k4) * N1[j];
   ll += (0.02 + 0.1 * k4) * N2[j];
   const e = E + C.red;
-  a.x = X0 + (LT_LEFT - lt) * XS + 7 * e + driftX(C.g);
+  a.x = X0 + (LT_LEFT - lt) * XS + 5 * e + driftX(C.g);
   a.y = Y0 + (LL_TOP - ll) * YS + C.dy + driftY(C.g);
   a.ll = ll;
   a.lt = lt;
-  a.ct = lt - 0.3 * e;
+  a.ct = lt - 0.22 * e;
   a.w = _o.w * C.alive[i];
   a.kind = _o.kind;
 }
@@ -309,7 +309,7 @@ export function update(dt, input, params) {
   S.kn = kn;
   S.t += d;
   NOW = S.t;
-  const z0 = cl(kn[2], -2.2, 0.4), E = cl(kn[0], -0.3, 0.8), k4 = cl(kn[3], 0, 0.6), a = S.A;
+  const z0 = cl(kn[2], -2.2, 0.4), E = cl(kn[0], -0.3, 0.6), k4 = cl(kn[3], 0, 0.6), a = S.A;
   for (let g = 0; g < NGR; g++) {
     const G = S.pops[g];
     G.prog += RATE * pow(cl(kn[1], 0, 6), 2.5) * d;
@@ -381,9 +381,9 @@ function isochrone(C, age, z, E) {
   const put = (M, dM) => {
     evolve(M, age, z, 0.5, _o);
     if (_o.kind === 7 || n >= 400) return;
-    RBX[n] = X0 + (LT_LEFT - _o.lt) * XS + 7 * (E + C.red) + driftX(C.g);
+    RBX[n] = X0 + (LT_LEFT - _o.lt) * XS + 5 * (E + C.red) + driftX(C.g);
     RBY[n] = Y0 + (LL_TOP - _o.ll) * YS + C.dy + driftY(C.g);
-    RBC[n] = _o.lt - 0.3 * (E + C.red);
+    RBC[n] = _o.lt - 0.22 * (E + C.red);
     RBN[n] = C.n * norm * pow(M, -C.alpha) * dM;
     RBK[n] = _o.kind;
     n++;
@@ -409,7 +409,7 @@ function isochrone(C, age, z, E) {
 
 function drawRibbon(S, C, age, z, E, k4, wgt) {
   if (wgt < 0.01) return;
-  const n = isochrone(C, age, z, E), sg = 1.2 + 5 * k4;
+  const n = isochrone(C, age, z, E), sg = 1.2 + 4.5 * k4;
   for (let j = 0; j + 1 < n; j++) {
     const dx = RBX[j + 1] - RBX[j], dy = RBY[j + 1] - RBY[j], arc = sqrt(dx * dx + dy * dy);
     if (arc < 1e-3 || RBK[j] === 5 || RBK[j + 1] === 5) continue;
@@ -467,7 +467,7 @@ function flare(i, t, ll) {
 export function draw(display, params) {
   const S = params.s;
   if (!S) return;
-  const kn = S.kn, E = cl(kn[0], -0.3, 0.8), k4 = cl(kn[3], 0, 0.6), z0 = cl(kn[2], -2.2, 0.4);
+  const kn = S.kn, E = cl(kn[0], -0.3, 0.6), k4 = cl(kn[3], 0, 0.6), z0 = cl(kn[2], -2.2, 0.4);
   const { ar, ag, ab, gr, gg, gb, A, B, M } = S;
   ar.fill(0);
   ag.fill(0);
