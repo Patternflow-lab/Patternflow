@@ -164,5 +164,10 @@
   "moirelattice": { "label": "겹격자 무아레", "color": "#c0334e" },
   "virga": { "label": "비꼬리 구름", "color": "#e98c1f" },
   "stomata": { "label": "기공", "color": "#62dd3c" },
-  "radiolaria": { "label": "방산충", "color": "#9617db" }
+  "radiolaria": { "label": "방산충", "color": "#9617db" },
+  "learning": { "label": "기계 학습", "color": "#00d2c8" },
+  "statics": { "label": "구조 정역학", "color": "#c8ff00" },
+  "fracture": { "label": "깨짐·균열", "color": "#8a2bff" },
+  "wulff": { "label": "결정 모양", "color": "#ffa6c9" },
+  "capillary": { "label": "모세관 불안정", "color": "#0090ff" }
 }
