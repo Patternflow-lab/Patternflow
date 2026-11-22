@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Snow Crystal
 // Family:  snowcrystal
-// Idea:    Several snow crystals grow at once on a deep blue night ground, each from its own speck of ice by Reiter's cellular rule for vapour freezing onto a hexagonal lattice, a fat plate beside a sectored plate beside a stellar plate beside a feathery dendrite, thickening through violet and blue ice tints to white with slow glints along their facets and a cool haze at the growing tips, then resting, sublimating from the tips inward and fading while new seeds are born elsewhere.
+// Idea:    Several snow crystals grow at once on a deep night-blue ground, each from its own speck of ice by Reiter's cellular rule for vapour freezing onto a hexagonal lattice with its own constants from the morphology diagram, so a fat plate, a sectored plate, a stellar plate and a feathery dendrite stand side by side, thickening from violet and blue ice tints to white, with slow glints along their facets and a cool haze at the growing tips, then resting, sublimating from the tips inward and fading while new seeds are born elsewhere.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,15 +11,15 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0..4, Humidity=-1..1, Crowd=-1..1
 //
-// Knob 1: Hue. The light the ice is seen in. At 0 the ground is deep night blue and the ice runs from violet-blue where it is thin to near white where it is thick; at 0.25 the ground is indigo and the ice violet; at 0.5 a rose-gold dawn with plum ground and coral to peach ice; at 0.75 aurora green over a deep teal ground; at 1 it is back at ice blue. Each palette is held over about 40% of the knob and the crystals already grown change colour with it.
-// Knob 2: Speed. How fast the whole scene runs: growth, rest, sublimation and births all go at 2 to the power (knob - 2), so 0.25 times at 0, 1 times at 2 (where it opens) and 4 times at 4. At 2 a crystal grows for 12 to 31 s (the front moves about 1 LED a second), rests 3 to 8 s, then sublimates for 11 to 16 s. The glints on the facets keep their own slow pace at any setting.
-// Knob 3: Humidity. How much vapour the air holds, which moves each crystal's lattice constants along the morphology diagram from a fat hexagonal plate (knob at -1) through sectored and stellar plates to a feathery fern-like dendrite (knob at 1). Every crystal is drawn a little off the knob (up to 0.6 either way along the axis), so at 0 you see plates, stars and dendrites side by side. It steers crystals that are still growing, not just new ones, and it brightens the vapour haze at the tips and the mist in the ground, from 0.6 times to 1.4 times.
-// Knob 4: Crowd. How many crystals grow at once, 3 at -1, 5 at 0 (where it opens) and 7 at 1, plus one or two that are melting. Crowded panels hold smaller crystals (final width 56 LEDs at 3, 42 at 7). Raising it seeds new crystals within a second or two; lowering it starts the most advanced crystal melting at once and then one more every 1.5 s until the count is down.
+// Knob 1: Hue. The light the ice is seen in. At 0 the ground is deep night blue (6, 14, 44 at the top to 13, 33, 78 at the bottom) and the ice runs from violet-blue where it is thin to near white where it is thick; at 0.25 the ground is indigo and the ice violet; at 0.5 a rose-gold dawn, plum ground and ice from rose through coral to peach white; at 0.75 aurora green, a deep teal ground and ice from teal through mint to white; at 1 it is back at ice blue. Each palette is pure over 0.15 of the knob around its own position and blends over the 0.10 between, and the crystals already grown change colour with it.
+// Knob 2: Speed. How fast the whole scene runs: growth, rest, sublimation and births go at 2 to the power 0.35 (knob - 2) below 2 and 2 to the power 0.8 (knob - 2) above, so 0.62 times at 0, 1 times at 2 (where it opens) and 3 times at 4. At 2 the front of a crystal moves 1.0 to 1.5 LEDs a second, so a crystal grows for 7 to 26 s by its size, rests 3.5 to 8.5 s and sublimates for 10 to 13 s. The glints keep their own slow pace at any setting, one turn of the light in 55 to 140 s.
+// Knob 3: Humidity. How much vapour the air holds, which moves each crystal's three constants along the morphology diagram, a fat hexagonal plate at 0, a plate with six notched sectors at 0.3, a stellar plate at 0.45 and a feathery fern with side branches at 1 on the diagram's own axis. The knob puts the middle of the crowd at 0.10 on that axis at -1, 0.76 at 0 and 1.0 at 1. Each crystal is drawn off the middle for good, uniformly up to 0.85 either way for three in ten and by up to 0.3 for the rest, so at 0 about seven in ten are stellar dendrites and ferns and the others range from plates up, and at -1 nearly all are plates. It steers crystals that are still growing (they follow it at about a third a second), not just new ones, and it scales the vapour haze at the tips, the glow round each crystal and the mist in the ground by 0.68 times at -1, 1.2 at 0 and 1.4 at 1.
+// Knob 4: Crowd. How many crystals grow at once, 4 at -1, 5 at 0 (where it opens) and 7 at 1, plus the one or two that are melting. A crowded panel holds smaller crystals: the size is 1.0 times at 4 and 0.8 times at 7 of a width of 20 to 52 LEDs. Raising the knob seeds new crystals within a second or two. Lowering it starts the most advanced crystal melting at once, then one more every 1.5 s (in scene time) until the count is down.
 
-// What the picture is. The ground is a deep night blue that darkens toward the top, with slow cloud-like swells (three travelling cosines) a few percent either way. On it live 3 to 7 snow crystals, each in its own hexagonal lattice domain of radius 7 to 15 cells with the cells 2 LEDs apart, so a full-size crystal is 56 LEDs across and the smallest 20. The lattices sit at random angles and positions, may overlap and are composited with a lighten blend, and a crystal may be cut by the edge of the panel. The seeds are placed by best candidate: of twelve random places the one furthest from the crystals already there wins.
-// The growth is Reiter's rule. Every cell holds a water mass s, starting at the ambient beta except for one frozen seed cell at 1. A cell is frozen when s >= 1 and receptive when it is frozen or touches a frozen cell. A step splits s in two: the receptive part stays put and gains gamma, the rest diffuses, each cell taking the average of its six neighbours blended with itself by alpha (new s = s + alpha/2 (mean of the six - s)), and the border of the domain holds s = beta. Nothing is drawn from a recipe: the arms, the side branches, the notched corners all come from the lattice, so the six-fold symmetry is exact. The three constants come from one axis, the humidity h from 0 to 1, drawn through five anchors found by running the rule at radius 15 and looking: (alpha, beta, gamma) = (0.5, 0.5, 0.1) a fat plate, (0.2, 0.6, 0.03) a plate with six notched sectors, (0.2, 0.7, 0.01) a stellar plate, (0.15, 0.78, 0.002) a stellar dendrite, (0.12, 0.8, 0.0002) a fern with side branches, with alpha and beta interpolated straight and gamma by its logarithm. A crystal's own h is the Humidity knob (h = 0.5 + 0.5 knob) plus its own offset of up to 0.62 either way, drawn at birth and kept, so the crystals differ and the knob steers the ones still growing. The lattice is stepped at a rate that aims for the front to move at 0.42 to 0.62 cells a second; a slow feedback on the front radius corrects the rate when the crystal runs ahead or behind. A step is not drawn as a jump: the picture lerps the last two states, so a cell crossing s = 1 fades in over the fraction of a step.
-// The picture of a crystal is built from its cells. Each cell has an ice amount (1 for a frozen cell, rising from about 0.55 of the way to 1 for a receptive cell that is nearly frozen, so the tip advances smoothly), a thickness that grows with the age of the cell since it froze (1 minus exp of minus age over 8 s for a plate and 26 s for a dendrite, as ice thickens while the vapour keeps landing), and a haze, the excess of s over the ambient in the cells that have not frozen, which is the supersaturated vapour at the growth front. These are splatted onto the LEDs through a soft hexagon kernel of 2.4 LEDs radius (a cell is a soft hexagon, not a dot), weights normalised per LED so that a one-cell arm is still a clean 2 LED stroke after a contrast curve, and the haze through a wider bump 4.2 LEDs across. Thickness picks the colour from a ramp, thin violet-blue to thick near white, with a faint second tint that bands with thickness so growth rings of a plate show as pale hexagonal fringes. Facets glint: the ice is treated as a height field (cover times thickness), the normal comes from its slope, and a light 42 degrees up goes slowly round the compass for each crystal (once in 55 to 140 s, with a wobble), so the facets turned to it flash softly one after another and then go out. The haze is added to the ground and the ice is mixed over it, per crystal, with a lighten blend.
-// A crystal that has frozen a cell 2 cells from its domain border stops growing (so the border is never seen), rests 3 to 8 s while the haze thins, and sublimates: each cell has a life from 1 to 0 that runs down faster the more of its six neighbours are bare and the thinner it is, so the thin tips and edges go first, corners round off, the plate shrinks from its rim and what is left is a small hexagon; the whole crystal fades over its last 3.5 s. Births follow the count the Crowd knob names, no more than one per 1.2 s, so the scene is never in step and never comes back to a first picture. The first update pre-runs the crystals to staggered ages, one of them already melting.
+// What the picture is. The ground is the night blue of Hue 0, darker toward the top, with slow swells (three travelling cosines, periods of 33, 48 and 65 s, taking the ground up or down by a third at the most). On it grow 4 to 7 snow crystals, each in its own hexagonal lattice domain of radius 7 to 15 cells with the cells 2 LEDs apart, so a full-grown crystal is 4 times (radius - 2) LEDs across, 20 for the smallest and 52 for the largest. The domains sit at random angles and places, may overlap and are composited with a lighten blend, and a crystal may be cut by the edge of the panel. The seeds are placed by best candidate: of 48 random places the one furthest from the crystals already there (a melting one counts for less as it goes) wins.
+// The growth is Reiter's rule. Every cell holds a water mass s, starting at the ambient beta except for a seed of seven frozen cells at 1. A cell is frozen when s >= 1 and receptive when it is frozen or touches a frozen cell. A step splits the mass of each cell in two: the receptive part stays where it is and gains gamma, the rest diffuses, each cell taking the average of its six neighbours blended with itself by alpha (new s = s + alpha/2 (mean of the six minus s)), and the border of the domain holds s = beta. Nothing is drawn from a recipe. The arms, the side branches and the notched corners all come from the lattice, so the six-fold symmetry is exact. The three constants come from one axis, the humidity h from 0 to 1, through eight anchors found by running the rule at radius 15 and looking at what it grew: (alpha, beta, gamma) = (0.5, 0.5, 0.1) at h = 0, a fat plate; (0.2, 0.62, 0.025) at 0.3, a plate with six notched sectors; (0.2, 0.7, 0.01) at 0.45, a stellar plate; (0.2, 0.78, 0.0004) at 0.72, a stellar dendrite with side branches; (0.1, 0.82, 0.00005) at 1, a long lacy fern; with alpha and beta interpolated straight and gamma by its logarithm. The lattice is stepped at a rate that aims for the front to move at 0.5 to 0.74 cells a second; a slow feedback on the front radius corrects the rate when a crystal runs ahead or behind. A step is not drawn as a jump: the picture lerps between the last two states, so a cell crossing s = 1 fades in over the fraction of a step. A seed is grown unseen to a radius of 3 cells, where the arms begin to part, and then fades in over 2.4 s.
+// The picture of a crystal is built from its cells. Each cell has an ice amount (1 for a frozen cell, and from about 0.7 of the way to 1 a receptive cell that is nearly frozen counts in part, so the tip advances smoothly; a lone cell inside the ice that the lattice has not yet closed is drawn closed), a thickness that grows with the age of the cell since it froze (1 minus exp of minus the age over 30 s for a plate and 50 s for a dendrite, as ice thickens while vapour keeps landing), and a haze, the excess of s over the ambient in the cells that have not frozen, which is the supersaturated vapour at the growth front. These are splatted onto the LEDs through a soft hexagon kernel 2.1 LEDs in radius, weights normalised per LED so that a one-cell arm is still a clean 2 LED stroke after a contrast curve from 0.34 to 0.62 of cover, and the haze through a wider bump 4.2 LEDs in radius, with a faint glow round the whole crystal, the air it grows in. The thickness steps in 7 terraces with a soft edge, so the growth rings of a plate show as hexagonal bands, and picks the colour from a ramp, thin violet-blue to thick near white, with a second tint that bands with it. Facets glint: the ice is read as a height field (cover times thickness), the normal comes from its slope over 4 LEDs, and a light 42 degrees up goes slowly round the compass for each crystal, so the facets turned to it flash softly one after another and go out. The haze is added to the ground first, then each crystal's ice is mixed over it with a lighten blend.
+// A crystal stops growing when it has frozen a cell 2 cells short of its domain border, so the border is never seen. It rests while the haze thins, and sublimates by running its growth backwards: each frozen cell is given the moment it goes, later the thicker (older) it is and earlier the more of its six neighbours are bare, and no cell outlives all the neighbours that froze before it. So the thin tips and side branches go first, edges and corners round off, the arms shorten toward the hub and the hub is the last to go; the whole crystal fades over its last 5 s and takes the thin tints as it thins. Births follow the count the Crowd knob names, one at most every 1.2 to 2.8 s, so the scene is never in step and never comes back to a first picture. The first update runs the crystals up to staggered ages unseen, one of them already melting, so the first frame is a scene in progress.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, abs, exp, sin, cos, PI, min, max, round } = Math;
@@ -300,7 +300,7 @@ function spawn(S) {
     rec: new Uint8Array(D.n), fz: new Float32Array(D.n).fill(-1), life: new Float32Array(D.n),
     betaOut: p[1], rmax: 0, hCur: h0,
     state: GROW, age: 0, sa: 0, acc: 0, frac: 0, adj: 1, alpha: 0,
-    Tdur: 0, restDur: 3.5 + rnd() * 5, meltDur: 13 + rnd() * 4,
+    Tdur: 0, restDur: 3.5 + rnd() * 5, meltDur: 10 + rnd() * 3,
     est: (50 + 135 * h0) * (R - 2) / 13,
     Ac: lerp(30, 50, h0), ph2: rnd(), psi: rnd() * PI * 2, om: (0.045 + rnd() * 0.07) * (rnd() < 0.5 ? -1 : 1), wph: rnd() * 6.28,
     haze: 1, visible: true,
@@ -379,7 +379,7 @@ function startMelt(c) {
       if (t > tmax) tmax = t;
     } else tau[i] = -1;
   }
-  const L = max(1, c.meltDur - 6.5) / tmax;
+  const L = max(1, c.meltDur - 4.5) / tmax;
   for (let k = 0; k < D.nc; k++) {
     const i = D.cells[k];
     if (tau[i] < 0) { life[i] = -1; continue; }
@@ -464,7 +464,7 @@ export function update(dt, input, params) {
   }
   {
     const k3 = cl(kn[2], -1, 1);
-    S.hc = k3 < 0 ? 0.8 + 0.7 * k3 : 0.8 + 0.2 * k3;
+    S.hc = k3 < 0 ? 0.76 + 0.66 * k3 : 0.76 + 0.24 * k3;
   }
   {
     const k4 = cl(kn[3], -1, 1);
@@ -492,7 +492,7 @@ function renderCrystal(S, c, G, P, hz) {
   const mc = c.mc, tc = c.tc, hc = c.hc, mg = c.mg, tg = c.tg, frac = c.frac, beta = c.betaOut;
   const m0 = max(0.7, beta + 0.55 * (1 - beta)), ib = 1 / max(0.05, 1 - beta);
   const melting = c.state === MELT;
-  c.tauMul = melting ? 0.3 + 0.7 * (1 - sm(c.meltDur - 8, c.meltDur - 1, c.sa)) : 1;
+  c.tauMul = melting ? 0.25 + 0.75 * (1 - sm(c.meltDur - 7, c.meltDur - 1, c.sa)) : 1;
   for (let k = 0; k < nc; k++) {
     const i = cells[k];
     let m, tau = 0.04, h = 0;
@@ -602,7 +602,7 @@ function compositeCrystal(S, c, G, P) {
   const ph2 = c.ph2;
   const breath = 1 + 0.05 * sin(0.37 * t + c.wph);
   for (let y = 0; y < bh; y++) {
-    const row = y * bw, yu = y > 0 ? row - bw : row, yd = y < bh - 1 ? row + bw : row;
+    const row = y * bw;
     for (let x = 0; x < bw; x++) {
       const l = row + x, cv = CV[l];
       if (cv < 0.004) continue;
@@ -615,19 +615,18 @@ function compositeCrystal(S, c, G, P) {
       const fr = 0.45 * wv * (1 - tau) * (0.25 + tau * 2.2);
       r += (ar - r) * fr; g += (ag - g) * fr; b += (ab - b) * fr;
       // glint from the slope of the height field
-      const xl = x > 0 ? l - 1 : l, xr = x < bw - 1 ? l + 1 : l;
-      const gx = (HT[xr] - HT[xl]) * (xr - xl === 2 ? 0.5 : 1), gy = (HT[yd + x] - HT[yu + x]) * (yd - yu === 2 * bw ? 0.5 : 1);
+      const x0 = x > 1 ? x - 2 : 0, x1 = x < bw - 2 ? x + 2 : bw - 1, y0 = y > 1 ? y - 2 : 0, y1 = y < bh - 2 ? y + 2 : bh - 1;
+      const gx = (HT[row + x1] - HT[row + x0]) / (x1 - x0), gy = (HT[y1 * bw + x] - HT[y0 * bw + x]) / (y1 - y0);
       const nx = -gx * KK, ny = -gy * KK, nn = 1 / sqrt(1 + nx * nx + ny * ny);
       let nh = (nx * Hx + ny * Hy + Hz) * nn;
       let sp = 0;
-      if (nh > 0.8) {
-        nh = (nh - 0.8) * 5;
-        const n2 = nh * nh;
-        sp = n2 * n2 * (0.4 + 0.6 * tau);
+      if (nh > 0.78) {
+        nh = (nh - 0.78) * 4.5;
+        sp = nh * nh * nh * (0.4 + 0.6 * tau);
       }
       const R0 = G[gi], G0 = G[gi + 1], B0 = G[gi + 2];
       const nr = R0 + (r - R0) * cv, ng = G0 + (g - G0) * cv, nb = B0 + (b - B0) * cv;
-      const sw = sp * 0.62 * sqrt(cv);
+      const sw = sp * 0.55 * sqrt(cv);
       const fr2 = nr + sr * sw, fg = ng + sg * sw, fb = nb + sb * sw;
       // lighten
       if (fr2 > R0) G[gi] = fr2;
