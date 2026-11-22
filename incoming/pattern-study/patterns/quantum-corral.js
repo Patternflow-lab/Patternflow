@@ -1,34 +1,49 @@
 // ===== Patternflow pattern =====
 // Title:   Quantum Corral
 // Family:  corral
-// Idea:    A scanning tunnelling microscope map of surface electrons on copper, a round ring of 48 gold iron atoms above and an elliptical ring with a different atom at one focus below, where the electrons held inside show as standing ripples and petals of local density of states in cobalt, cyan and ice-white, and the bias creeps up and down so that mode after mode of the two rings lights up in turn, each ring at its own energies, with the ripples leaking out through the wall when the atoms are far apart.
+// Idea:    A scanning tunnelling microscope map of surface electrons on copper, with a round ring of 48 gold iron atoms above and an elliptical ring of 48 below that has a pink cobalt atom on its left focus, where the electrons held inside stand as concentric ripples and petals of local density of states from cobalt blue up to ice-white, and a bias that creeps up and down between k R of 2.2 and 10.3 lights the modes of each ring in turn, each ring at its own energies and each for 2 to 8 seconds, while the ripple leaks out through the atoms when they are made to scatter less.
 // Author:  patternflow-lab
 // Date:    2026-11-21
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: quantum corral of 48 iron atoms on Cu(111) (Michael Crommie, Christopher Lutz and Donald Eigler, 1993), images computed by multiple scattering from the atoms (Eric Heller, Michael Crommie, Christopher Lutz and Donald Eigler, 1994), the quantum mirage of a cobalt atom in an elliptical corral (Hari Manoharan, Christopher Lutz and Donald Eigler, 2000); pattern round 213
+// Lineage: quantum corrals of 48 iron atoms on Cu(111) (Michael Crommie, Christopher Lutz and Donald Eigler, 1993), images computed by multiple scattering from the atoms (Eric Heller, Michael Crommie, Christopher Lutz and Donald Eigler, 1994), the quantum mirage of a cobalt atom in an elliptical corral (Hari Manoharan, Christopher Lutz and Donald Eigler, 2000); pattern round 213
 // Round:   215
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sweep=0..3, Leak=0..1, Ellipse=0.5..0.8
 //
-// Knob 1: Hue. Turns every colour round the wheel, ripples and atoms together. At 0 the ground is cobalt, the ripples climb through cyan to ice-white and the atoms are gold. At 0.5 the ground is brown with orange ripples and blue atoms, and at 1 it is back where it began.
-// Knob 2: Sweep. How fast the bias moves, in units of k times the ring radius, where one standing-wave node in the round ring costs about 1.2 of them. At 0 the bias holds, and the opening picture stays a resonance. At 2, where it opens, it travels about 0.09 a second between resonances and slows to about a tenth of that on one, so a mode shows for 4 to 8 seconds. At 3 it is one and a half times that.
-// Knob 3: Leak. How far apart the atoms look to the electrons. At 0 the wall is tight, the modes are narrow lines that stand 5 to 10 times as high as the ground, and almost nothing shows outside the ring. At 1 each atom scatters about a fifth as much, the lines are three times as wide, and the ripple runs out through the wall into the ground and across the panel.
-// Knob 4: Ellipse. The eccentricity of the lower ring, 0.5 where it opens, as in the 2000 experiment, and 0.8 at the top. The long axis is 54 LEDs at every setting and the short one 47 at 0.5 and 32 at 0.8. The two foci sit 27 LEDs and 43 LEDs apart, and the cobalt atom stays on the left one. The upper ring does not change.
+// Knob 1: Hue. Turns every colour round the wheel, the whole picture together. At 0 the ground is cobalt, the ripples climb through azure and cyan to ice-white and the atoms are gold. At 0.25 the ground is violet and the atoms are green, at 0.5 the ground is olive with orange ripples and blue atoms, and at 1 it is back where it began.
+// Knob 2: Sweep. How fast the bias moves, and 0 holds it, so that the opening picture stays on its resonance and only the lobes turn. The bias is k times the radius of the round ring, k R, and it bounces between turning points that wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom. At 2, where it opens, it moves 0.12 a second at k R = 7, 0.23 in the gaps between resonances and 0.024 on one, which makes about 0.06 a second over a whole sweep. At that rate one ring or the other sits on a resonance 58 percent of the time, in stretches of 4 seconds on average. They last about twice as long at 1 and three fifths as long at 3.
+// Knob 3: Leak. How much of a wave each atom turns back, which is how well the wall holds the electrons. At 0 an atom scatters as much as a point can (a phase shift of 90 degrees), the lines of the modes are 0.04 wide in k R for the first and 0.25 near k R = 9, the mean density inside stands 14 times the ground at the first mode and 2.6 times near k R = 9, and little shows outside the ring. At 1 each atom scatters 0.64 as much (41 degrees, with 5 percent of the wave lost), the lines are three times as wide and a third as tall, and the ripple runs out through the wall into the ground.
+// Knob 4: Ellipse. The eccentricity of the lower ring, 0.5 where it opens and 0.8 at the top. The long axis is 54 LEDs at every setting and the short one 47 at 0.5 and 32 at 0.8, so the two foci are 27 LEDs apart at 0.5 and 43 at 0.8. The cobalt atom stays on the left focus, and at 0.8 it sits 5 LEDs from the wall. The upper ring does not change.
 
-// Model. Each ring is a set of point scatterers on a flat 2D electron gas, and one bias gives one wave number k, the
-// energy being proportional to k squared. An atom scatters an s wave. With a wave psi_in falling on it, it sends out
-// a * H0(k r), where H0 = J0 + i Y0 is the Hankel function and a = (S - 1) / 2 psi_in, S = eta exp(2 i delta). Atoms
-// see each other's waves, so a ring of N atoms is the N by N complex system
-//   a_i - tau_i sum over j not i of a_j H0(k |r_i - r_j|) = tau_i psi_in(r_i),   tau = (S - 1) / 2.
-// The density of states at r is the sum of |psi|^2 over a full set of incoming waves. Plane waves at NT evenly
-// spaced angles are one such set, and a surface with nothing on it gives exactly 1. NT is 16, 24 or 32, as many as the
-// k in use needs to reach the corners of the half panel.
-// One LED is 1 across. The ring is 52 LEDs wide, 48 atoms at 3.4 LEDs. k R runs from 2.2 to 10.3 for the round
-// ring of radius R = 26, where a mode's ripples are 8 LEDs from crest to crest at the top.
-// The panel is cut in two halves of 64 by 64, each with a ring in the middle. The ground ripple is faded to nothing at
-// the seam, so that the two halves do not show a step.
-
+// What the picture is. Each ring is a set of point scatterers on a flat gas of surface electrons. One bias is one wave
+// number k, the energy going as k squared, and the pattern counts it as k R with R = 26 LEDs, the radius of the round
+// ring. The lowest mode of the round ring lights at k R = 2.58, where a hard-walled disc of the same size would give
+// 2.405, so the atoms hold the electrons in a disc 24.2 LEDs in radius, 1.8 inside the ring. At the top of the sweep,
+// k R = 10.3, the ripples are 8 LEDs from crest to crest and a lobe of a mode is 4 LEDs wide.
+// An atom scatters an s wave. Given the wave psi_in on it, it sends out a H0(k r), where H0 = J0 + i Y0 is the Hankel
+// function and a = tau psi_in. tau = (S - 1) / 2, with S = eta exp(2 i delta) the atom's scattering phase. Atoms hear
+// each other, so a ring of N atoms is the complex system
+//   a_i - tau_i sum over j not i of a_j H0(k |r_i - r_j|) = tau_i psi_in(r_i),
+// which is solved once for each of NT incoming plane waves, NT = 16, 24 or 32 as the bias needs, and Gaussian elimination
+// with row pivoting does it in about half a millisecond. The density of states at a point is the mean of |psi|^2 over a full
+// set of incoming waves, 1 on bare surface. The cobalt atom has a tau of its own, delta 0.9 and eta 0.9.
+// The density is worked out on a grid of 33 by 33 samples a LED pair apart over each half, a quarter of it each frame,
+// in a scrambled order, so that a ring is refreshed every 4 frames. The picture is filled in to every LED by the
+// midpoint rule of six taps, (3, -25, 150, 150, -25, 3) / 256, which holds a ripple of 8 LEDs to within 6 percent. The
+// field of an atom has a logarithmic spike at its centre, so the distance to an atom is taken as the square root of
+// r^2 + 4.5, which rounds the spike off at about 2 LEDs, where the dark moat round each atom hides it. The scattering
+// system itself uses the plain distance, never under 0.8 LEDs.
+// The panel is cut in two halves of 64 by 64, a ring in the middle of each. The ground ripple fades to nothing at the
+// seam between them and the gain, set by the 96th percentile of the density inside each ring, blends from one half to
+// the other over rows 52 to 76, so that the seam shows no step. A density L takes the colour
+//   u = (log(1 + L / 0.8) / log(1 + G / 0.8)) ^ 1.3,
+// where the gain G is 1.1 times the 96th percentile and never under 2.8 (2 when Leak is 1), so that a ring between
+// resonances still shows its blend and a ring on one does not wash out.
+// The round ring has 48 atoms 3.4 LEDs apart. The ellipse has 48 more at equal steps along its length, 2.9 to 3.3 LEDs
+// apart, and one cobalt atom. A bare ring of identical atoms has pairs of modes with the same energy, whose lobes then
+// blur into rings. The breathing of the atoms described below splits each pair into its two orientations.
+//
 const W = 64, H = 128, HALF = 64;
 const { floor, sqrt, pow, exp, log, sin, cos, PI, min, max, abs, atan2 } = Math;
 const TAU = 2 * PI;
@@ -150,7 +165,7 @@ function makeState() {
 
 // Where the atoms are. The round ring is 48 atoms on a circle of 26 LEDs. Its radius also breathes, by 0.23 LEDs in the
 // multipole 2 up to 0.38 in the multipole 12 (even ones only, since a mode with m nodes pairs with its twin through
-// the multipole 2m), each turning at its own rate between 0.055 and 0.095 radians a second divided by its order. That
+// the multipole 2m), each turning at its own rate between 0.10 and 0.18 radians a second divided by its order. That
 // splits a mode with 2m lobes into its two orientations, one at a time, and turns the lobes. The lower ring is an
 // ellipse with the same atom count, equal steps along its length, deformed in the same way, and a different atom at
 // the left focus.
@@ -158,7 +173,7 @@ const NMUL = 4;
 const MP = [], MW = [];
 for (let i = 0; i < NMUL; i++) {
   MP.push(TAU * ((i * 0.6180339887 + 0.13) % 1));
-  MW.push((i % 2 ? -1 : 1) * (0.055 + 0.04 * ((i * 0.7548776662 + 0.3) % 1)));
+  MW.push((i % 2 ? -1 : 1) * (0.1 + 0.08 * ((i * 0.7548776662 + 0.3) % 1)));
 }
 function breath(u, t, seed) {
   let s = 0;
@@ -371,6 +386,8 @@ export function setup(params) {
   for (const C of [S.top, S.bot]) {
     refresh(C, S, C.ell ? 0.5 : 0, 0);
     for (let g = 0; g < NGROUPS; g++) evalGroup(C, g);
+    innerStats(C);
+    C.lref = cl(C.p96 * 1.1, 2.8, 60);
   }
 }
 
@@ -416,7 +433,7 @@ export function update(dt, input, params) {
   S.q += S.dir * sw * 0.06 * wob * S.gate * sqrt(7 / S.q) * d;
   // The two turning points wander, 8.1 to 10.3 at the top and 2.2 to 4.0 at the bottom, so that the sweep never
   // runs the same stretch twice.
-  const qhi = QMAX - 1.1 * (0.5 + 0.5 * sin(0.0151 * S.t + 0.9)), qlo = QMIN + 0.9 * (0.5 + 0.5 * sin(0.0113 * S.t + 2.1));
+  const qhi = QMAX - 2.2 * (0.5 + 0.5 * sin(0.0151 * S.t + 0.9)), qlo = QMIN + 1.8 * (0.5 + 0.5 * sin(0.0113 * S.t + 2.1));
   if (S.q > qhi) S.dir = -1;
   else if (S.q < qlo) S.dir = 1;
 }
@@ -506,7 +523,7 @@ export function draw(display, params) {
   const hue = cl(S.knobs[0], 0, 1), leak = cl(S.knobs[2], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
   for (const C of [S.top, S.bot]) {
-    const target = cl((C.p96 || 6) * 1.1, 2.8 - 0.6 * leak, 60);
+    const target = cl((C.p96 || 6) * 1.1, 2.8 - 0.8 * leak, 60);
     C.lref += (target - C.lref) * 0.08;
   }
   paintHalf(S.top, S, 0, false);
