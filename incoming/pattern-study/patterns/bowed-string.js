@@ -32,14 +32,15 @@ const N = 512; // cells along the string
 const PN = 0.4, PB = 0.4; // one-pole smoothing of the reflections at the nut and the bridge
 const RD = 0.05; // slip friction as a share of the peak
 const V0K = 0.6; // fall-off speed of the friction curve, in slip speeds (v_bow / beta)
+const KP = 1 / (6 * (2 * 512 + 2)); // the slow part of a reflection is the part that is given back whole
 const CAP = 0.98; // most of the free relative speed the stick can take up in one step
 const T0 = 2.7; // seconds for one round trip of the kink on the full string
 const CX = 32; // x of the string at rest
 const FINGER_MAX = 127.5, FINGER_MIN = 80; // sounding length, rows
 
 // Bow force that puts the motion in the middle of its window, against bow position: f = F beta / 2 in units of Z v_bow.
-const FC_B = [0.03, 0.08, 0.098, 0.117, 0.141, 0.168, 0.2, 0.234, 0.273, 0.313, 0.35];
-const FC_V = [4, 4, 1.8, 1.0, 0.75, 0.63, 0.7, 0.45, 0.42, 0.35, 0.33];
+const FC_B = [0.03, 0.045, 0.051, 0.059, 0.07, 0.082, 0.098, 0.141, 0.199, 0.273, 0.35];
+const FC_V = [9, 9, 9.8, 11, 10, 5, 2.45, 2, 1.86, 1.15, 0.9];
 function fcAt(b) {
   let i = 0;
   while (i < FC_B.length - 2 && b > FC_B[i + 1]) i++;
@@ -88,7 +89,7 @@ export function setup(params) {
   const S = {
     t: 0, t0: Math.random() * 800, ready: false, carry: 0,
     R: F64(N + 1), L: F64(N + 1), y: F64(N + 1), yd: F32(N + 1),
-    ny: 0, by: 0, ib: N - 20, m: 20, hopWait: 0, resettle: false, beta: 0.04, Fs: 10, v0: 10, Fd: 1, fb: 0, lastF: 0,
+    ny: 0, by: 0, ns: 0, bs: 0, eb: 0.02, en: 0.007, ib: N - 23, m: 23, hopWait: 0, resettle: false, fBlend: 1, beta: 23 / 512, Fs: 10, v0: 10, Fd: 1, fb: 0, lastF: 0,
     slipSteps: 0, steps: 0, slipFrac: 0, slipSm: 0, shape: false,
     // knobs and the random walks that wander round them
     k1: 0, k2: 2, k3: 0.04, k4: 0.06,
@@ -132,8 +133,8 @@ function ou(x, dt, tau, sigma) {
 }
 
 function wander(S, dt) {
-  S.wb = cl(ou(S.wb, dt, 50, 0.3), -0.5, 0.7);
-  S.wf = ou(S.wf, dt, 32, 0.55);
+  S.wb = cl(ou(S.wb, dt, 90, 0.2), -0.3, 0.45);
+  S.wf = cl(ou(S.wf, dt, 28, 0.75), -1.4, 0.8);
   S.wv = cl(ou(S.wv, dt, 34, 0.32), -0.6, 0.6);
   S.wh = ou(S.wh, dt, 70, 0.02);
   // the finger
@@ -146,18 +147,23 @@ function wander(S, dt) {
   S.Lv += ((S.Lt - S.Lr) * w * w - 2 * w * S.Lv) * dt;
   S.Lr = cl(S.Lr + S.Lv * dt, FINGER_MIN - 2, FINGER_MAX);
   // the bow: a cell at a time, and not often, because a hop of the bow shakes the motion
-  const mt = cl(S.k3 * exp(S.wb), 0.035, 0.34) * N;
+  const mt = cl((0.045 + (S.k3 - 0.04) * 0.9808) * exp(S.wb), 0.045, 0.34) * N;
   S.hopWait -= dt;
   const dm = mt - S.m;
   if (abs(dm) > 1.2 && (S.hopWait <= 0 || abs(dm) > 0.25 * S.m)) {
     const big = abs(dm) > 0.25 * S.m;
     S.m = big ? Math.round(mt) : S.m + (dm > 0 ? 1 : -1);
-    S.hopWait = 1.6 * T0;
+    S.hopWait = 1.3 * T0;
     S.ib = N - S.m;
     S.beta = S.m / N;
+    S.eb = 0.012 + 0.2 * S.beta;
+    S.en = S.eb / 3;
     if (big && S.ready) S.resettle = true;
   }
-  S.f = fcAt(S.beta) * exp(1.5 * (S.k4 - 0.06) + S.wf);
+  // at the start the force comes up from the middle of the window to where the knob has it, as a player's does
+  const fc = fcAt(S.beta);
+  const dk = S.k4 - 0.06;
+  S.f = fc * exp(S.fBlend * ((dk < 0 ? 2.6 : 1.1) * dk + S.wf));
   S.Fs = (S.f * 2) / S.beta;
   S.Fd = RD * S.Fs;
   S.v0 = V0K / S.beta;
@@ -169,9 +175,16 @@ function stepSim(S) {
   const R = S.R, L = S.L, ib = S.ib;
   R.copyWithin(1, 0, N);
   L.copyWithin(0, 1, N + 1);
-  S.ny = (1 - PN) * L[0] + PN * S.ny;
+  // the ends give back everything slow and lose a share of the rest to the body of the instrument, and smooth the corner
+  let x = L[0];
+  S.ns += (x - S.ns) * KP;
+  x -= S.en * (x - S.ns);
+  S.ny = (1 - PN) * x + PN * S.ny;
   R[0] = -S.ny;
-  S.by = (1 - PB) * R[N] + PB * S.by;
+  x = R[N];
+  S.bs += (x - S.bs) * KP;
+  x -= S.eb * (x - S.bs);
+  S.by = (1 - PB) * x + PB * S.by;
   L[N] = -S.by;
   if (S.shape) {
     // slope of the string between cells, before this step's push of the bow: y(i+1) - y(i) = L[i] - R[i+1]
@@ -247,7 +260,7 @@ function shapeOut(S) {
   }
   // gain: the Helmholtz amplitude is v_bow N / (4 beta); show it compressed so a wide range of speeds and positions stays on the panel
   const ypred = (S.vb * N) / (4 * S.beta), yref = N / (4 * 0.04);
-  const A = 16 * pow(ypred / yref, 0.55) * (S.Lr / FINGER_MAX);
+  const A = 16 * pow(ypred / yref, 0.4) * (S.Lr / FINGER_MAX);
   let G = A / (ypred * 1.0);
   const ex = mx * G;
   const want = ex > 22 ? 22 / ex : 1;
@@ -411,17 +424,17 @@ function prerun(S) {
   S.wf = 0;
   S.wv = 0;
   S.Lt = FINGER_MAX;
-  const total = 60, fill = 14;
+  const total = 66, fill = 14;
   for (let t = 0; t < total; t += dt) {
+    S.fBlend = cl((t - 28) / 24, 0, 1);
     S.Ltime = 1e9;
     S.Lt = FINGER_MAX;
     advance(S, dt, t > total - fill);
-    if (t < 30) {
-      S.wb *= 0.3;
-      S.wf *= 0.3;
-      S.wv *= 0.3;
-    }
+    S.wb *= 0.3;
+    S.wf *= 0.3;
+    S.wv *= 0.3;
   }
+  S.fBlend = 1;
   S.Ltime = 16 + 14 * Math.random();
 }
 
@@ -480,7 +493,7 @@ export function draw(display, params) {
   for (let gy = 0; gy < 33; gy++)
     for (let gx = 0; gx < 17; gx++) {
       const X = gx * 4, Y = gy * 4;
-      hz[gy * 17 + gx] = 0.6 * vn3(X / 17 + tt * 0.021, Y / 24 - tt * 0.012, tt / 13) + 0.4 * vn3(X / 9.5 - tt * 0.026 + 7, Y / 13 + tt * 0.017 + 3, tt / 8.5 + 4);
+      hz[gy * 17 + gx] = 0.7 * vn3(X / 26 + tt * 0.021, Y / 36 - tt * 0.012, tt / 10) + 0.3 * vn3(X / 14 - tt * 0.026 + 7, Y / 19 + tt * 0.017 + 3, tt / 6.5 + 4);
     }
   for (let y = 0, p = 0; y < H; y++) {
     const fy = y * 0.25 + 0.125, iy = fy | 0, ay0 = fy - iy;
@@ -489,7 +502,7 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++, p++) {
       const fx = x * 0.25 + 0.125, ix = fx | 0, ax0 = fx - ix, o = iy * 17 + ix;
       const hzv = (hz[o] * (1 - ax0) + hz[o + 1] * ax0) * (1 - ay0) + (hz[o + 17] * (1 - ax0) + hz[o + 18] * ax0) * ay0;
-      const haze = 0.02 + 0.2 * cl((hzv - 0.3) / 0.45, 0, 1) * (0.6 + 0.6 * bl2[p]);
+      const haze = 0.03 + 0.3 * sm(0.2, 0.78, hzv) * (0.8 + 0.4 * bl2[p]);
       const heat = max(now[p], A_s[p], A_k[p]) + 0.14 * bl1[p] + 0.2 * bl2[p] + haze;
       const i = (cl(heat, 0, 1.25) * (hs / 1.25)) | 0;
       let r = lut[i * 3], g = lut[i * 3 + 1], b = lut[i * 3 + 2];
