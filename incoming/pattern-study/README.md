@@ -2222,6 +2222,16 @@
 | [Serrated Yield](patterns/serrated-yield.js) | 변형 띠 | 당겨지는 합금 막대에 변형이 몰린 띠가 비스듬히 솟아 번지거나 번쩍이고, 지난 자리에 변형의 단이 남아요. |
 | [Abbe Porter](patterns/abbe-porter.js) | 푸리에 광학 | 렌즈 뒤 초점면의 가림막이 바뀔 때마다 그물의 상이 덩이에서 줄무늬로, 어두운 고리로 변해요. |
 
+### 219판
+
+| 패턴 | 갈래 | 한 줄 |
+| --- | --- | --- |
+| [Decision Boundary](patterns/decision-boundary.js) | 기계 학습 | 작은 신경망이 흘러가는 점들을 쫓아 두 영역의 경계를 쉬지 않고 다시 그려요. 점의 모양이 초승달에서 고리로, 나선으로 바뀌어요. |
+| [Cremona Truss](patterns/cremona-truss.js) | 구조 정역학 | 트러스 위를 하중이 떠돌면 부재마다 당김과 누름이 바뀌고, 아래의 상반 도형이 그 힘의 다각형을 닫아 보여요. |
+| [Branching Fracture](patterns/branching-fracture.js) | 깨짐·균열 | 당겨진 유리판의 흠집에서 균열이 달려 갈라지고, 탄성파가 번졌다 가라앉은 뒤 흉터가 아물어요. |
+| [Wulff Habit](patterns/wulff-habit.js) | 결정 모양 | 면마다 표면 에너지가 흘러서 세로로 선 결정이 침상에서 판상으로, 쌍뿔로 모양을 바꿔요. |
+| [Plateau Jets](patterns/plateau-jets.js) | 모세관 불안정 | 점성이 다른 액체 기둥 넷이 목이 잘록해져 방울로 끊기고, 줄기마다 끊기는 길이와 방울 모양이 달라요. |
+
 ## 1판 갈래마다
 
 노브 넷의 자리는 갈래가 달라도 거의 같아요. K1 은 색이고 K2 는 빠르기예요. K3 은 모양을 바꾸고, K4 는 그 갈래만의 손잡이예요. 그래서 처음 보는 패턴도 K1 과 K2 는 손이 먼저 알아요.
