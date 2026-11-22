@@ -1,42 +1,48 @@
 // ===== Patternflow pattern =====
 // Title:   Kundt Figures
 // Family:  kundt
-// Idea:    Three vertical Kundt tubes stand side by side on a dark teal ground, a loudspeaker sweeping one pitch through all of them, and the cork dust on the floor of each tube is thrown up where the standing sound is loud and falls back where it is still, so that as the pitch finds a tube's resonance its dust runs into evenly spaced transverse heaps at the displacement nodes, sharp and tall at the peak and slumping low between resonances, each tube with its own count of heaps.
+// Idea:    Three vertical Kundt tubes stand side by side on a dark teal ground while one loudspeaker sweeps its pitch through all of them, and the cork dust on the floor of each tube is thrown up where the standing sound is loud and falls back where it is still, so that as the pitch finds a tube's resonance the dust runs into transverse heaps half a wavelength apart at the displacement nodes, sharp and pale-crested at the peak and slumping into low soft mounds between resonances, each tube with its own count of heaps.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the dust figures of a resonating glass tube, whose heap spacing of half a wavelength gives the speed of sound c = lambda f in the gas (August Kundt, 1866), the circulation of air in Kundt's tubes that sorts the dust (Lord Rayleigh, 1884, from memory, with the tube in the Theory of Sound, 1877-78), the resonance of a closed pipe at n half-wavelengths; pattern round 215
+// Lineage: the dust figures of a resonating glass tube, whose heaps lie half a wavelength apart and so give the speed of sound as c = lambda f (August Kundt, 1866); the circulation of air in Kundt's tubes that sorts the dust (Lord Rayleigh, 1884, from memory, with the tube itself in the Theory of Sound, 1877-78); the resonance of a closed pipe at n half-wavelengths; pattern round 215
 // Round:   217
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sweep=0..4, Level=-1..1, Gas=-1..1
 //
-// Knob 1: Hue. Turns the dust and the ground round the wheel together. At 0 the dust is cork brown rising to ochre and pale straw on the crests over a dark teal ground, with a faint teal light where the sound is loud. At 0.5 the dust is blue-grey over a dark maroon ground, and at 1 it is back where it began.
-// Knob 2: Sweep. How fast the loudspeaker's pitch is tuned up and down, 0.131 radians a second of the sweep phase for each unit of the knob, so at 2, where it opens, one slow pass of the pitch takes about 48 s. The sweep sums three sines of 1, 1.735 and 0.414 times that rate, so it never repeats, and it slows to a third of its speed within 0.2 of a mode of a resonance, as a hand does when it hears a tube sing. At 0 the pitch stands still where it was, and the dust settles into whatever the tubes then hold. At 4 a pass takes 24 s and the heaps have little time to form.
-// Knob 3: Level. How loud the speaker plays, the acoustic energy running as 2 to the power 1.6 times the knob, 0.33 of the middle at -1 and 3.0 times it at 1. The dust sits wherever the energy of the standing wave stays below a threshold, so the louder the sound the thinner the still zone round each node: at the opening a heap on resonance is about 5 LEDs across in the tube with six heaps, at -1 it is 9 LEDs and soft and the swept zones between are narrow, and at 1 it is held to 3.4 LEDs, the thinnest the panel keeps clear.
-// Knob 4: Gas. The speed of sound in the tubes, 2 to the power 0.7 times the knob, so 1.62 times slower at -1 (a heavy gas) and 1.62 times faster at 1 (a light one). The wavelength is c over f, so the heaps lie closer in a slow gas: the middle tube meets 13 modes at -1 and 5 at 1 where it meets 8 at 0, and the spacing of its heaps goes from about 9 LEDs to 25 LEDs. The three tubes keep their lengths and gases in the ratio 1 to 1.318 to 0.742, so they never ring at the same moment.
+// Knob 1: Hue. Turns the dust and the ground round the wheel together. At 0 the dust is cork brown on the thin side, ochre in the heaps and pale straw on a sharp crest, over a dark teal ground that glows a little brighter teal where the sound is loud. At 0.25 the dust is green on a dark purple ground, at 0.5 pale blue on dark maroon, at 0.75 pink on dark olive, and at 1 it is back where it began.
+// Knob 2: Sweep. How fast the loudspeaker's pitch is tuned up and down, 0.0654 radians a second of the sweep phase for each unit of the knob, so at 2, where it opens, the main sweep takes 48 s a turn. The pitch is the sum of three triangle waves at 1, 1.735 and 0.414 times the phase rate, 48, 28 and 116 s a turn at 2, so it does not repeat, and it travels up to 0.55 octave either way (the sweep alone takes the first tube between 4.6 and 7.4 modes over 900 s, and the warming of the gas widens that to 4.2 and 7.7). At the top of a resonance the sweep slows to a third of its speed and 0.1 mode off it to a half, as a hand does when it hears a tube sing. At 0 the pitch stands where it was, the dust keeps the heaps it has, and only the slow warming of the gas moves the resonances past it. At 4 a turn takes 24 s and a heap has little time to gather.
+// Knob 3: Level. How loud the speaker plays, the energy going as 2 to the power 1.6 times the knob, 0.33 of the opening at -1 and 3.0 times it at 1. Dust lies still only where the energy of the standing wave stays under a threshold, so the louder the sound the narrower the still zone round each node. On resonance in the tube with six heaps the still zone is 4.4 LEDs across at 0, 7.9 at -1, where the heaps are soft and the swept stretches between them short, and 3.1 at 1, where the energy is held to the value that keeps a zone no narrower than that.
+// Knob 4: Gas. The speed of sound in the tubes, 2 to the power 0.7 times the knob: 1.62 times slower at -1 (a heavy gas) and 1.62 times faster at 1 (a light one). The wavelength is c over f, so a slow gas packs in more heaps. The middle tube is at 12.9 modes at -1, 7.9 at 0 and 4.9 at 1, so its heaps are 9.6, 15.7 and 25.5 LEDs apart, and the first tube is at 9.8, 6.0 and 3.7. The three tubes stand in the ratio 1 to 1.318 to 0.742 of mode number, so they do not ring together, and the sweep is narrowed in the slow gases to keep the heaps from crowding.
 
 // What the picture is. A tube is 124 LEDs long (rows 2 to 125) and 16 LEDs across, closed at the bottom and driven at the top, and
-// there are three of them, at columns 2, 24 and 46. The ground inside is a dark teal and the gaps are near black. No glass is drawn.
-// The dust is a bed of mass h(s, t) per length of tube, mean 1, and a cloud a(s, t) in the air above it, both on 248 cells of half a
-// LED, with no dust passing the two ends. The mass of h plus a is conserved to rounding. s runs down the tube from 0 to 124.
-// The sound is a standing wave of mode number n, 2 L f / c, a real number as the pitch sweeps. Its energy in units of the dust threshold is
-//   E(s) = P sin^2(pi n (1 - s / L)) + 0.02,   P = Pk R(n) 2^(1.6 Level),   R(n) = 1 / (1 + (sin(pi n) / (pi w))^2),
-// with nodes at the closed end and at L (1 - j / n), so that as n rises the nodes slide down the tube and a new one comes in at the top
-// each time n passes a whole number. R is the resonance, a Lorentzian of half-width w = 0.085 to 0.105 in n. Pk is 6.5, and P is held
-// to the value that keeps the still zone 3.4 LEDs across. The mode number is n = 6 2^(-0.7 Gas) r 2^d T, r the tube's ratio, d the sweep
-// (up to 0.3 of an octave either way) and T the warmth of the gas, 1 plus 0.028 sin(2 pi t / 110 to 180 s) and 0.016 sin(2 pi t / 43 to 72 s)
-// with its own phase for each tube, so a resonance wanders by 0.2 mode and the tubes do not fall into step.
-// Dust moves where E is above 0.85, the gate g = smoothstep((E - 0.85) / 0.9). There it is lifted from the bed at g / 0.35 s and falls
-// back at 1 / 0.9 s, and the cloud drifts down the gradient of E at 7 LEDs a second with a spread of 1.5 LED^2 a second, in an upwind scheme
-// that keeps every cell positive. Where E is below the threshold nothing lifts, so the cloud settles there and the dust stays. That is the
-// heap: the still zone round a node, whose width is set by sin^2 = 0.85 / P. Between resonances the bed slumps under its own weight,
-// the flux -0.25 h dh/ds, which lowers a heap with the time of a half minute. The tube is pre-run for 36 s at the opening knobs, so it
-// opens with its dust already sorted.
-// Drawing. The bed seen from above lies in a tube of round section: its thickness across the 16 LEDs is h (1 - 0.85 u^2) less 0.08 for u from -1 to 1,
-// so a thin film is a ribbon along the middle and a heap reaches the walls. The ridge is lit from above and a little aside, which is what makes
-// the heaps read as ridges, and a heap's crest is pale straw. The crests bow by 1.3 LEDs across the tube, as the striae do against the wall.
-// The cloud is a warm haze over the whole width and the loud zones glow faintly teal.
+// there are three of them, at columns 2, 24 and 46. The ground inside is a dark teal of about (8, 44, 50) and the gaps are near black. No glass is drawn.
+// The dust is a bed of mass h(s, t) for each length of tube, mean 1 and starting a little uneven, and a cloud a(s, t) of grains in the
+// air above it, both on 248 cells of half a LED with no dust passing either end. h plus a is conserved to rounding (the mean moves by less than
+// 0.0001 over 900 s). s runs down the tube from 0 to 124.
+// The sound is a standing wave of mode number n = 2 L f / c, a real number as the pitch sweeps. Its energy, in units of the dust threshold, is
+//   E(s) = P sin^2(pi n p(s)) + 0.02,   P = Pk R(n) 2^(1.6 Level),   R(n) = 1 / (1 + (sin(pi n) / (pi w))^2),
+// with p the phase of the wave, 0 at the closed end and 1 at the top. The nodes are at p = j / n, so as n rises they slide down the tube and a
+// new one enters at the top each time n passes a whole number. R is the resonance, a Lorentzian of half-width w = 0.095, 0.085 and 0.105 in n for
+// the three tubes. Pk is 8, and P is held to the value that keeps the still zone 3.1 LEDs across. The mode number is
+// n = 6 2^(-0.7 Gas) r 2^d T, with r the tube's ratio, d the sweep and T the warmth of the gas, 1 plus 0.09 sin(2 pi t / 110 to 182 s) and
+// 0.05 sin(2 pi t / 43 to 72 s), each with a phase of its own, so a tube's resonance wanders by up to 0.85 mode at n = 6 and the
+// tubes do not fall into step. The wave number is not the same all along a tube either: the gas is warmer at one end than the other and warmer in
+// the middle, w = 1 + 0.38 sin(2 pi t / 57 to 90 s) x + 0.26 sin(2 pi t / 80 to 131 s) (1 - x^2 - 2/3) for x from -1 to 1, and p is the running
+// total of w, so the heaps of a tube are crowded at one end and loose at the other, by as much as 2.7 to 1 at the extremes and 1.7 to 1 at the median
+// over 900 s, and the whole comb slides even when the pitch is still.
+// Dust moves where E is above 0.85, by the gate g = smoothstep((E - 0.85) / 0.9). There a grain is lifted from the bed at g / 0.35 s and falls
+// back at 1 / 0.9 s, and the cloud drifts down the gradient of E at up to 7 LEDs a second with a spread of 1.5 LED^2 a second, in an upwind
+// scheme that keeps every cell positive. Where E is below the threshold nothing lifts, so the cloud settles and the dust stays. That is the
+// heap: the still zone round a node, whose half-width is set by sin^2 = 0.85 / P. The bed also slumps under its own weight, a flux of
+// -0.05 h dh/ds, which takes a heap from 6.2 high to 3.5 in a minute with the sound off, and a slope steeper than 1.1 slides at up to 0.8 LEDs a second for each unit of h,
+// the angle of repose. The tube is pre-run for 36 s at the opening knobs, with the sweep at no less than 1.2, so it opens with its dust sorted.
+// Drawing. The bed seen from above lies in a tube of round section: its thickness across the 16 LEDs is h (1 - 0.85 u^2) less 0.12 for u from
+// -1 to 1, so a thin film is a ribbon along the middle and a heap reaches the walls. The ridge is lit from above and a little aside, which is
+// what makes the heaps read as ridges. Thickness 6 is the pale straw of a crest and 0.6 the cork brown of a thin bed. The crests bow by 1.3 LEDs
+// across the tube, as the striae do, and tilt a little, differently at every height. The cloud is a warm haze over the whole width, and
+// the loud zones glow faintly teal.
 
 const W = 64, H = 128;
 const { floor, sqrt, abs, exp, sin, cos, tanh, PI, min, max } = Math;
@@ -49,7 +55,7 @@ const sm = (a, b, v) => {
 // ---- the tubes
 const NT = 3, TW = 16, TX = [2, 24, 46], Y0 = 2, TL = 124;
 const N = 248, DX = TL / N; // cells of half a LED
-const RATIO = [1.0, 1.318, 0.742]; // fundamental frequencies, as the inverse of the mode number at a given pitch
+const RATIO = [1.0, 1.318, 0.742]; // the mode number of each tube at a given pitch, relative to the first
 const HALFW = [0.095, 0.085, 0.105]; // half-width of a resonance in n
 const WARM1 = [[137.3, 0.9], [181.9, 2.3], [109.7, 4.1]]; // period in seconds, phase
 const WARM2 = [[53.1, 0.4], [71.7, 1.6], [43.3, 5.2]];
@@ -113,7 +119,7 @@ function modesOf(S, kn) {
   const nb = 6 * Math.pow(2, -0.7 * cl(kn[3], -1, 1)), sw = Math.pow(2, sweepOf(S.theta, nb)), t = S.tau;
   let rmax = 0;
   for (let j = 0; j < NT; j++) {
-    const warm = 1 + 0.07 * sin((2 * PI * t) / WARM1[j][0] + WARM1[j][1]) + 0.04 * sin((2 * PI * t) / WARM2[j][0] + WARM2[j][1]);
+    const warm = 1 + 0.09 * sin((2 * PI * t) / WARM1[j][0] + WARM1[j][1]) + 0.05 * sin((2 * PI * t) / WARM2[j][0] + WARM2[j][1]);
     const n = nb * RATIO[j] * sw * warm;
     const sp = sin(PI * n) / (PI * HALFW[j]);
     S.n[j] = n;
@@ -245,12 +251,12 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(x, y, GAP[0], GAP[1], GAP[2]);
   for (let j = 0; j < NT; j++) {
     const Hf = S.h[j], Af = S.a[j], Ef = S.E[j];
-    const tilt = 0.5 * sin(0.23 * S.tau + 2.1 * j), tn = TINT[j];
+    const tn = TINT[j], tt = 0.19 * S.tau + 2.1 * j;
     for (let r = 0; r < TL; r++) {
       const py = Y0 + r;
       for (let c = 0; c < TW; c++) {
         const u = (c + 0.5 - TW / 2) / (TW / 2), u2 = u * u;
-        let sp = r + 0.5 + BOW * (1 - u2) + tilt * u;
+        let sp = r + 0.5 + BOW * (1 - u2) + 0.9 * u * sin(0.083 * r + tt);
         sp = cl(sp, 0.01, TL - 0.01);
         const h = samp(Hf, sp), a = samp(Af, sp), e = samp(Ef, sp);
         const z0 = samp(Hf, cl(sp - 0.6, 0, TL)), z1 = samp(Hf, cl(sp + 0.6, 0, TL));
