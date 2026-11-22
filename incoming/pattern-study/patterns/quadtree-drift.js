@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Budget=0..4, Drift=-1..1, Edges=-1..1
 //
-// Knob 1: Hue. Turns the hue of every colour of the hidden scene round the wheel, the ink of the wedge excepted. At 0 the field is indigo, violet, magenta, coral, amber, lime, teal and azure with a cream disc, ring and hot band, and it opens on magenta, coral and amber; at 0.5 the coral has become cyan, the amber blue and the teal red; at 1 it is back at 0.
-// Knob 2: Budget. How much error the coder lets one flat tile have, as the root mean square of the red, green and blue deviations from the tile's mean. The number is 60 at 0, 42 at 1, 29 at 2 (where it opens), 9 at 3 and 2.5 at 4, a tile of 32 LEDs being let off 1.45 times it and a tile of 4 LEDs none. At 0 the panel is eight flat slabs of 32 by 32 LEDs, at 1 about two thirds of it is still slab with 16 and 8 LED tiles on the edges, at 2 the tiles run from 32 to 2 LEDs (a tenth of the area in 32s, a third in 16s, a quarter in 8s, a quarter in 4s and 2s), and at 4 two thirds of the panel is 2 LED tiles. A tile splits above the number and merges again under 0.62 times it.
-// Knob 3: Drift. How fast the scene under the tree moves, 2 to the power 1.5 times the knob times 1.8 scene seconds a second: 0.64 at -1, 1.8 at 0 and 5.1 at 1. At 0 the disc's sideways swing takes 24 s and its swing up and down 33 s, the wedge turns once in 13 s, the bar goes down the panel and back in 18 s and the colour field flows once through its palette in 63 s. The periods of the scene (23 to 114 scene seconds) have no common divisor, so the picture does not come back.
+// Knob 1: Hue. Turns the lighter colours of the hidden scene round the wheel; the darks (ink, indigo, deep teal, plum) and the wedge's ink stay where they are, since a dark orange would read as brown. At 0 the field runs ink, indigo, teal, cream, amber, coral and plum, and it opens on teal, amber and coral over indigo blocks; at 0.33 the cream, amber and coral are green and lime, at 0.5 sky blue and cyan, at 0.83 pink. The saturation gives up to a third at 0.5, where the pure primaries would glare.
+// Knob 2: Budget. How much error the coder lets one flat tile have, as the root mean square of the red, green and blue deviations from the tile's mean. The number is 40 at 0, 33 at 1, 23 at 2 (where it opens), 8 at 3 and 2.5 at 4, a tile of 32 LEDs being let off 1.45 times it and a tile of 4 LEDs none. Below 1.6 each level under 32 LEDs also costs up to 2.4 times more, so the lowest settings keep the tiles big. The two roots are always cut once, so at 0 the panel is a patchwork of 32 LED tiles (55% of the area) and 16 LED tiles (45%) set where the scene is uneven, at 2 the tiles run from 32 to 2 LEDs (17% of the area in 32s, 25% in 16s, 26% in 8s, 32% in 4s and 2s), and at 4 more than half of the panel is 2 LED tiles. A tile splits above the number and merges again under 0.62 times it.
+// Knob 3: Drift. How fast the scene under the tree moves, 2 to the power 1.5 times the knob times 1.8 scene seconds a second: 0.64 at -1, 1.8 at 0 and 5.1 at 1. At 0 the disc's sideways swing takes 24 s and its swing up and down 33 s, the wedge turns once in 13 s, the bar goes down the panel and back in 18 s and the colour field flows once through its palette in 63 s, so the panel swings between bright amber and cream phases (mean level about 190) and dark indigo and plum ones (about 105) every minute. The periods of the scene (23 to 151 scene seconds) have no common divisor, so the picture does not come back.
 // Knob 4: Edges. How hard the moving shapes are. At -1 the edges of the disc, wedge and bar are 22 LEDs wide and half strength and the ring is not there, a cloud the tree cuts into a few middle-sized tiles. At 0.06 (where it opens) the edges are 3.4 LEDs wide at 0.89 strength, and at 1 they are 2 LEDs, the width of the smallest tile, at full strength, with the tree packing 2 LED tiles along every one of them.
 
 // What the picture is. The panel is two root squares of 64 by 64 LEDs, one above the other, and each is cut once and then again and again down to 2 LEDs (32, 16, 8, 4, 2),
@@ -21,11 +21,13 @@
 // squares), so a node of the tree reads its mean colour and its error from four table entries each. The scene is never drawn. Each tile is flat in the mean colour of the scene
 // beneath it, pushed 1.25 times out from its grey so that the mean of two colours does not go dull, and that is all that is shown. Tiles of 16 LEDs and up get a seam, a bottom and
 // right row 0.32 darker; tiles of 8 get 0.55 of that, and smaller ones none, because a seam on every 4 LED tile was a grid over the whole panel.
-// The scene. A field of colour on a palette of eight stops, indigo, violet, magenta, coral, amber, lime, teal and azure, each held flat for over half of its stretch and ramping to the next
-// over the rest, so there are bands as well as ramps. It spans 0.56 of the palette from corner to corner, is bent by three sines, and flows through the palette once every 113.7 scene
-// seconds. A cream hot band bends across it. Five blobs on Lissajous paths slide the palette position under them by 0.16 to 0.3 either way, so a blob is always a neighbour of the
-// colour round it and the mean of the two never goes grey. Over those lie a cream disc (radius 11), a wedge of indigo ink turning on a pivot that drifts (half angle 0.45 rad, 40 LEDs long),
-// a bar of the palette's colour 0.2 along from the field (9 LEDs thick, 68 long) that tilts and sweeps, and a thin cream ring (radius 16, 4.4 thick).
+// The scene. A field of colour on a palette of nine stops, ink, indigo, deep teal, teal, cream, amber, coral, rose and plum, each held flat for over half of its stretch and ramping to the next
+// over the rest, so there are bands as well as ramps. The darks (ink, indigo, deep teal and plum) take about two fifths of the cycle and the bright stops the rest, so a stretch of 0.56 of the palette from corner to
+// corner always holds some of both. It is bent by three sines (0.06, 0.045 and 0.02 of the palette) and flows through the palette once every 113.7 scene seconds. A band bends across the panel and slides
+// the palette position under it by 0.34, which lights a dark field with teal and cream and darkens a bright one with coral and plum. Five blobs on Lissajous paths slide it by 0.1 to 0.2 either way, so a blob is always a neighbour of the
+// colour round it and the mean of the two never goes grey. Over those lie a disc (radius 11), a wedge of indigo ink turning on a pivot that drifts (half angle 0.45 rad, 40 LEDs long),
+// a bar of the palette's colour 0.2 along from the field (9 LEDs thick, 68 long) that tilts and sweeps, and a thin ring (radius 16, 4.4 thick). The disc and the ring are cream where the field is dark and a deep blue
+// where it is bright, changing over between a mean level of 120 and 200, so each stands against what is under it.
 // The tree. A node splits when its error passes the budget and merges when it falls under 0.62 of it, and it keeps the new state for 0.4 s. The four children of a node that splits
 // start in its colour and take their own over 0.34 to 0.5 s (the smaller the node the faster), and a merge runs the same way backwards, so no tile pops. The tree is read every
 // frame, and the whole of it, drawing included, costs about 1 ms a frame.
@@ -39,11 +41,12 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const ss = (t) => t * t * (3 - 2 * t);
 
 // ---- the coder
-const BUDGET = [60, 42, 29, 9, 2.5]; // the error a flat tile may have at Budget 0, 1, 2, 3 and 4, between them on a log scale
+const BUDGET = [40, 33, 23, 8, 2.5]; // the error a flat tile may have at Budget 0, 1, 2, 3 and 4, between them on a log scale
 const MERGE = 0.62; // a tile merges again under this share of the split error
 const RATE = 1.8; // scene seconds for each second of the panel, at Drift 0
 const SLACK = [1.5, 1.45, 1.3, 1.15, 1.0]; // a big node is let off more error than a small one: the budget is read as the error over this, by level
 const SAT = 1.25; // a tile's colour is pushed this far out from its grey
+const DEEP_PEN = 2.4, DEEP_END = 1.6; // extra cost of each level below 32 LEDs at Budget 0, and the Budget where it has gone
 const HOLD = 0.4; // seconds a node keeps a new state
 const SETTLE = [0.5, 0.46, 0.42, 0.38, 0.34]; // seconds a split takes, by level
 const SEAM = 0.32; // how much darker the bottom and right row of a tile is
@@ -52,26 +55,29 @@ const SEAM_W = [1, 1, 1, 0.55, 0]; // how much of the seam a tile of each level 
 // ---- the hidden scene
 // palette stops: position round the cycle, then the colour
 const STOPS = [
-  [0.0, 46, 30, 168], // indigo
-  [0.12, 140, 48, 214], // violet
-  [0.25, 234, 44, 150], // magenta
-  [0.37, 255, 100, 80], // coral
-  [0.48, 255, 182, 44], // amber
-  [0.57, 170, 230, 60], // lime
-  [0.68, 22, 194, 170], // teal
-  [0.82, 38, 122, 232], // azure
-  [1.0, 46, 30, 168], // indigo again
+  [0.0, 10, 14, 58], // ink
+  [0.07, 30, 26, 112], // indigo
+  [0.13, 6, 58, 80], // deep teal
+  [0.23, 12, 108, 112], // teal
+  [0.35, 224, 202, 156], // cream
+  [0.45, 232, 146, 38], // amber
+  [0.55, 214, 68, 58], // coral
+  [0.64, 180, 36, 94], // rose
+  [0.76, 76, 18, 66], // plum
+  [1.0, 10, 14, 58], // ink again
 ];
-const HOT = [255, 232, 176];
+const HOT_C = [232, 210, 162]; // cream
+const INK = [8, 44, 84]; // the disc and the ring on a bright field
+const BAND = 0.34; // how far the hot band slides the palette position
 const DEEP = [34, 18, 120]; // the wedge's ink stays indigo whatever the Hue, since a dark orange would read as brown
 const PLATEAU = 0.45; // share of each stretch between stops that is a ramp, the rest is flat
 // blobs: period x, period y, phase x, phase y, radius x, radius y, palette shift
 const BLOBS = [
-  [37.1, 53.7, 0.4, 1.2, 17, 13, 0.2],
-  [43.9, 61.3, 2.1, 0.3, 14, 19, -0.24],
-  [53.3, 41.9, 4.0, 2.7, 19, 15, 0.3],
-  [61.7, 71.9, 5.2, 4.4, 15, 15, -0.18],
-  [71.3, 49.7, 1.3, 5.6, 21, 12, 0.16],
+  [37.1, 53.7, 0.4, 1.2, 17, 13, 0.14],
+  [43.9, 61.3, 2.1, 0.3, 14, 19, -0.16],
+  [53.3, 41.9, 4.0, 2.7, 19, 15, 0.2],
+  [61.7, 71.9, 5.2, 4.4, 15, 15, -0.12],
+  [71.3, 49.7, 1.3, 5.6, 21, 12, 0.1],
 ];
 
 function makeState() {
@@ -91,7 +97,7 @@ function makeState() {
     lv,
     cr: new Float32Array(NC), cg: new Float32Array(NC), cb: new Float32Array(NC),
     sr: new Float64Array(sn), sg: new Float64Array(sn), sb: new Float64Array(sn), sq: new Float64Array(sn),
-    lut: new Float32Array(1024 * 3), hot: [255, 232, 176], hueAt: -1,
+    lut: new Float32Array(1024 * 3), hueAt: -1,
   };
 }
 
@@ -100,18 +106,22 @@ export function setup(params) {
 }
 
 // ---- colour: the palette as a table of 1024, turned by the Hue knob
-// The hue goes round in HSV, so saturation and value stay where the palette put them.
+// The hue goes round in HSV. The darks stay where they are, indigo, ink, deep teal and plum, and
+// only the lighter colours go round: a dark orange or olive would read as brown. Turned round,
+// the pure primaries glare, so the saturation gives up to a third at the far side of the wheel.
 function turn(c, hue) {
   const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
   const mx = max(r, g, b), mn = min(r, g, b), d = mx - mn;
   let h = 0;
   if (d > 0) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   h = (h + hue * 6) % 6;
-  const f = (n) => {
+  const dd = d * (1 - 0.35 * sin(PI * hue));
+  const keep = cl((0.6 - mx) / 0.3, 0, 1); // how dark the colour is, and so how much of it stays
+  const f = (n, v) => {
     const k = (n + h) % 6;
-    return 255 * (mx - d * max(0, min(k, 4 - k, 1)));
+    return 255 * (mx - dd * max(0, min(k, 4 - k, 1))) * (1 - keep) + v * keep;
   };
-  return [f(5), f(3), f(1)];
+  return [f(5, c[0]), f(3, c[1]), f(1, c[2])];
 }
 
 function buildLut(S, hue) {
@@ -127,17 +137,17 @@ function buildLut(S, hue) {
     const c = turn([a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t, a[3] + (b[3] - a[3]) * t], hue);
     lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
   }
-  S.hot = turn(HOT, hue);
 }
 
 // ---- the scene, sampled at the centre of every cell
 function sceneStep(S, edges) {
-  const t = S.tt, lut = S.lut, hot = S.hot, cr = S.cr, cg = S.cg, cb = S.cb;
+  const t = S.tt, lut = S.lut, cr = S.cr, cg = S.cg, cb = S.cb;
   const e = 1 - pow(1 - (edges + 1) / 2, 2); // 0 soft, 1 hard, and 0.78 where the knob opens
   const E = 2 * pow(11, 1 - e); // width of a shape's edge, LEDs
   const al = 0.5 + 0.5 * e;
   const A1 = (TAU * t) / 47.3, A2 = (TAU * t) / 71.9 + 1.3, A3 = (TAU * t) / 29.3 + 4.1;
-  const flow = t / 113.7;
+  const flow = t / 113.7 + 0.045 * sin((TAU * t) / 151.3 + 0.8);
+  const gy = 0.42 + 0.06 * sin((TAU * t) / 131.9 + 0.5), gx = 0.14 + 0.035 * sin((TAU * t) / 97.7 + 2.0);
   // the hot band
   const bc = 0.62, bs = 0.78;
   const bOff = 78 + 36 * sin((TAU * t) / 61.1), bAmp = 9 * sin((TAU * t) / 33.7 + 0.6);
@@ -160,24 +170,26 @@ function sceneStep(S, edges) {
     const y = 2 * cy + 1;
     for (let cx = 0; cx < CW; cx++) {
       const x = 2 * cx + 1;
-      let u = 0.42 * (y / 128) + 0.14 * (x / 64) + 0.08 * sin(0.08 * x + 0.04 * y + A1) + 0.06 * sin(0.05 * y - 0.1 * x + A2) + 0.025 * sin(0.17 * x + 0.11 * y + A3) + flow;
+      let u = gy * (y / 128) + gx * (x / 64) + 0.06 * sin(0.08 * x + 0.04 * y + A1) + 0.045 * sin(0.05 * y - 0.1 * x + A2) + 0.02 * sin(0.17 * x + 0.11 * y + A3) + flow;
       // a blob slides the palette position under it, so its colour is always a neighbour of the field's
       for (let i = 0; i < nb; i++) {
         const B = BLOBS[i], dx = (x - bx[i]) / B[4], dy = (y - by[i]) / B[5], q = dx * dx + dy * dy;
         if (q < 5) u += B[6] * exp(-q);
       }
+      // the hot band slides the palette position too, toward its bright end
+      const d = (x * bc + y * bs) - bOff + bAmp * sin(0.09 * (-bs * x + bc * y) + A2);
+      u += BAND * exp(-(d * d) / 150);
       let k = ((u * 1024) | 0) & 1023;
       let r = lut[k * 3], g = lut[k * 3 + 1], b = lut[k * 3 + 2];
-      // the hot band lifts the colour toward a warm white
-      const d = (x * bc + y * bs) - bOff + bAmp * sin(0.09 * (-bs * x + bc * y) + A2);
-      const hb = exp(-(d * d) / 160) * 0.5;
-      r += (hot[0] - r) * hb; g += (hot[1] - g) * hb; b += (hot[2] - b) * hb;
+      // the disc and the ring are cream on a dark field and ink on a bright one
+      const lum = max(r, g, b), fl = ss(cl((lum - 120) / 80, 0, 1));
+      const hr = HOT_C[0] + (INK[0] - HOT_C[0]) * fl, hg = HOT_C[1] + (INK[1] - HOT_C[1]) * fl, hb = HOT_C[2] + (INK[2] - HOT_C[2]) * fl;
       // the disc
       let dx = x - dX, dy = y - dY;
       let cov = cl(0.5 - (sqrt(dx * dx + dy * dy) - dR) / E, 0, 1);
       if (cov > 0) {
         const w = ss(cov) * al;
-        r += (hot[0] - r) * w; g += (hot[1] - g) * w; b += (hot[2] - b) * w;
+        r += (hr - r) * w; g += (hg - g) * w; b += (hb - b) * w;
       }
       // the wedge
       dx = x - wX; dy = y - wY;
@@ -208,7 +220,7 @@ function sceneStep(S, edges) {
       cov = cl(0.5 - (abs(sqrt(dx * dx + dy * dy) - rgR) - rgT) / E, 0, 1);
       if (cov > 0) {
         const w = ss(cov) * al * ringAl;
-        r += (hot[0] - r) * w; g += (hot[1] - g) * w; b += (hot[2] - b) * w;
+        r += (hr - r) * w; g += (hg - g) * w; b += (hb - b) * w;
       }
       const i = cy * CW + cx;
       cr[i] = r; cg[i] = g; cb[i] = b;
@@ -250,16 +262,16 @@ function nodeStats(S) {
   }
 }
 
-function treeStep(S, dt, ts, tm) {
+function treeStep(S, dt, ts, tm, pen) {
   for (let L = 0; L < NL - 1; L++) {
     const V = S.lv[L], P = L ? S.lv[L - 1] : null;
     for (let j = 0; j < V.gy; j++) {
       for (let i = 0; i < V.gx; i++) {
         const n = j * V.gx + i;
-        if (!L) { V.st[n] = 1; continue; } // the two roots are always cut once
+        if (!L) { V.st[n] = 1; continue; } // the two roots are always cut once, so no tile is bigger than 32 LEDs
         if (P && !P.st[(j >> 1) * P.gx + (i >> 1)]) { V.st[n] = 0; V.hold[n] = 0; continue; }
         if (V.hold[n] > 0) V.hold[n] -= dt;
-        const e = V.err[n] / SLACK[L];
+        const e = V.err[n] / (SLACK[L] * (1 + (L > 1 ? (L - 1) * pen : 0)));
         if (V.st[n]) {
           if (e < tm && V.hold[n] <= 0) { V.st[n] = 0; V.hold[n] = HOLD; }
         } else if (e > ts && V.hold[n] <= 0) {
@@ -292,7 +304,8 @@ function frame(S, dt, snap) {
   buildTables(S);
   nodeStats(S);
   const bq = cl(kn[1], 0, 3.9999), bi = bq | 0, ts = exp(log(BUDGET[bi]) + (log(BUDGET[bi + 1]) - log(BUDGET[bi])) * (bq - bi));
-  treeStep(S, dt, ts, ts * MERGE);
+  // at the lowest Budget a deep node needs far more error to split, so the tiles stay big
+  treeStep(S, dt, ts, ts * MERGE, DEEP_PEN * cl(1 - kn[1] / DEEP_END, 0, 1));
   settle(S, dt, snap);
 }
 
