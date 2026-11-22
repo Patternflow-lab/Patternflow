@@ -16,7 +16,7 @@
 // Knob 3: Spacing. The distance between neighbouring beads in wavelengths, d over lambda, from 0.5 to 1.6. At 0.5, where it opens, 9 beads 3.25 LEDs apart play a wavelength that wanders between 6.5 and 7.8 LEDs, and there is one beam. Across the knob the wavelength shortens to 5.5 to 6.6 LEDs while the driven width stays 28 LEDs, so the beads thin out to 3, 8.8 LEDs apart, at 1.6. A grating lobe, a copy of the beam at full strength, leaves at sin(theta) = sin(theta0) minus lambda/d once d/lambda passes 1/(1 + |sin(theta0)|): never at 0.5, at 0.6 for a beam leaning past 42 degrees, at 1.6 as a pair of beams 39 to 46 degrees either side of a straight one, nearer 39 when the wavelength is at its shortest.
 // Knob 4: Taper. How the beads fade out from the middle of the row. A bead plays at cos(pi u / 2) to the power m, u being its distance from the middle over the 14 LED half-width, and m runs from 0 at -1 to 4 at 1. At -1 every bead plays at full strength: the beam is 12 degrees wide and the sidelobes start at -13 dB, 19 degrees out, and go on in a ladder. At 0.06, where it opens, m is 0.38, the beam 13 degrees and the first sidelobe -18 dB at 21 degrees. At 0.7 the beam is 19 degrees and the first sidelobe -30 dB. At 1 it is 25 degrees and every sidelobe lies under -46 dB, so the dark fans are gone and what is left is a clean wedge. These are far-field widths for the nominal row at a wavelength of 6.5 LEDs; the width, the taper and the wavelength each breathe slowly, as described below.
 
-// What the picture is. At most 19 beads sit on the line y = 126.5 at x = 32 + n d, n from -9 to 9, each a source of circular waves. The
+// What the picture is. At most 25 beads sit on the line y = 126.5 at x = 32 + n d, n from -12 to 12, only the ones under the driven window playing, each a source of circular waves. The
 // field at an LED, summed exactly over every bead, is
 //   Z = sum over n of w_n c_n exp(i k r_n) / sqrt(r_n),     field = Re(Z exp(-i w t)),
 // with r_n the distance from LED to bead (not less than 1.3 LEDs), w_n the taper and c_n the delay, c_n = exp(i k d n sin(theta)): bead n
@@ -35,9 +35,9 @@
 // The scan is a sum of three sines quantised into dwells (every 11 degrees, with a jitter), smoothed by a critically damped follower, and
 // a hand-over to a second beam at a random angle now and then. A slow quadratic delay across the row, q times 1.2 radians times u squared,
 // focuses the beam to a waist about 80 LEDs out at its most positive (q = 0.9) or spreads it as if from a point 100 LEDs behind the row at
-// its most negative (q = -0.7); it opens at -0.13. The width of the driven part of the row (14 LEDs half-width, plus or minus 22%), the
+// its most negative (q = -0.7); it opens at -0.13. The width of the driven part of the row (14 LEDs half-width, plus or minus 28%), the
 // taper (a factor up to 1.5 either way on m), the wavelength (1 to 1.15 times its nominal value, never shorter, so the opening spacing of
-// 0.5 never lets a grating lobe in), the middle of the row (plus or minus 9 LEDs) and q each drift on periods of 54 to 139 s that do not
+// 0.5 never lets a grating lobe in), the middle of the driven window (plus or minus 15 LEDs, so the whole wedge slides along the row) and q each drift on periods of 54 to 139 s that do not
 // divide one another.
 
 const W = 64, H = 128, NPX = W * H;
@@ -49,7 +49,7 @@ const sm = (a, b, v) => {
 };
 
 // ---- the array
-const NM = 9; // elements run from -NM to NM, 19 at most, centre one at x = 32
+const NM = 12; // elements run from -NM to NM, 25 at most, centre one at x = 32
 const NE = 2 * NM + 1;
 const CX = 32, AY = 126.5; // the line the elements sit on
 const AH = 14; // half the width the elements are driven over
@@ -194,10 +194,10 @@ function advance(S, dt, kn) {
 
   // slow drifts of the width, the taper and the frequency, so the beam's shape never settles
   const t = S.t, T2 = 2 * PI * t;
-  S.ah = AH * (1 + 0.14 * sin(T2 / 67.1 + 1.1) + 0.08 * sin(T2 / 109.3 + 4.2));
+  S.ah = AH * (1 + 0.17 * sin(T2 / 67.1 + 1.1) + 0.11 * sin(T2 / 109.3 + 4.2));
   S.mMul = Math.pow(2, 0.4 * sin(T2 / 83.7 + 2.0) + 0.2 * sin(T2 / 139.1 + 0.3));
   S.lamE = S.lam * (1.075 + 0.075 * (0.6 * sin(T2 / 71.3 + 0.9) + 0.4 * sin(T2 / 113.7 + 2.4)));
-  S.shift = 9 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
+  S.shift = 15 * (0.6 * sin(T2 / 59.3 + 5.1) + 0.4 * sin(T2 / 97.9 + 0.8));
   S.q = cl(0.15 + 0.5 * sin(T2 / 53.7 - 0.4) + 0.3 * sin(T2 / 89.3 - 0.3), -0.7, 0.9);
   S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
