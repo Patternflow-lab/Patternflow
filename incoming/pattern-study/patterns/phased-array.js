@@ -35,9 +35,7 @@ for (let i = 0; i < TABN; i++) {
   COS[i] = cos((2 * PI * i) / TABN);
   SIN[i] = sin((2 * PI * i) / TABN);
 }
-// a faint glow along the line the elements sit on, so the array reads as the source even between beads
-const BASE = new Float32Array(NPX);
-for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) BASE[y * W + x] = 0.42 * exp(-max(0, AY - y - 0.5) / 2.2);
+const BASE_ROWS = 10; // the rows, from the bottom, that carry the faint glow along the line of elements
 const PHASE_SPEED = 7; // LEDs a second the crests run
 const IREF = 1 / (2 * 55); // intensity of a unit-drive beam 55 LEDs out
 const ZREF = 1 / sqrt(55);
@@ -47,7 +45,7 @@ const STEP = 11; // degrees between dwell angles, before the jitter
 const BETA = [[22, 29.3, 0.7], [14, 47.1, 2.9], [9, 73.7, 4.6]]; // amplitude in degrees, period in s, phase
 const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
 const THMAX = 56;
-const sc0 = 0.0;
+const HAND = 2.2; // seconds a hand-over takes at Scan 2
 function betaOf(sc) {
   let b = 0;
   for (let i = 0; i < BETA.length; i++) b += BETA[i][0] * sin((2 * PI * sc) / BETA[i][1] + BETA[i][2]);
@@ -55,24 +53,28 @@ function betaOf(sc) {
 }
 // the dwell angles are 11 degrees apart give or take 4, so the beam does not keep returning to the same few directions
 const level = (i) => STEP * i + 2.6 * sin(1.7 * i + 0.4) + 1.6 * sin(2.9 * i + 1.3);
+function wobOf(sc) {
+  let wob = 0;
+  for (let k = 0; k < WOB.length; k++) wob += WOB[k][0] * sin((2 * PI * sc) / WOB[k][1] + WOB[k][2]);
+  return wob;
+}
 function targetOf(sc, off) {
   const u = (betaOf(sc) + off) / STEP, i = floor(u), f = u - i;
   const l0 = level(i), l1 = level(i + 1);
-  let wob = 0;
-  for (let k = 0; k < WOB.length; k++) wob += WOB[k][0] * sin((2 * PI * sc) / WOB[k][1] + WOB[k][2]);
-  return cl(l0 + (l1 - l0) * sm(0.42, 0.58, f) + wob, -THMAX, THMAX);
+  return cl(l0 + (l1 - l0) * sm(0.42, 0.58, f) + wobOf(sc), -THMAX, THMAX);
 }
 
 function makeState() {
   return {
-    ready: false, t: 0, sc: sc0, off: 0, nextEv: sc0 + 20,
-    th: 0, vel: 0,
+    ready: false, t: 0, sc: 0, off: 0, nextEv: 24,
+    th: 0, vel: 0, hv: -1, thB: 0,
     kn: [0, 2, 0.5, 0.06],
     d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0,
     rt: new Float32Array(NE * NPX), at: new Float32Array(NE * NPX),
     Zr: new Float32Array(NPX), Zi: new Float32Array(NPX),
     G: new Float32Array(NPX), C: new Float32Array(NPX), px: new Float32Array(NPX * 3),
-    w: new Float32Array(NE), xs: new Float32Array(NE), ph: new Float32Array(NE),
+    w: new Float32Array(NE), xs: new Float32Array(NE), cr: new Float32Array(NE), ci: new Float32Array(NE),
+    base: new Float32Array(BASE_ROWS * W),
     hueMat: new Float32Array(9), hueAt: -1,
   };
 }
@@ -124,13 +126,35 @@ function weights(S, taper) {
   for (let n = 0; n < NE; n++) S.w[n] /= tot;
 }
 
+function startHandover(S) {
+  // a second beam comes up at a new direction while the first goes down, 20 degrees or more away
+  let i = 0, th = 0;
+  for (let k = 0; k < 8; k++) {
+    i = Math.round((Math.random() * 2 - 1) * 4.2);
+    th = level(i);
+    if (abs(th - S.th) >= 20 && abs(th) <= 48) break;
+  }
+  S.thB = th;
+  S.iB = i;
+  S.hv = 0;
+}
+
+function endHandover(S) {
+  S.th = S.thB;
+  S.vel = 0;
+  S.off = (S.iB + 0.2) * STEP - betaOf(S.sc);
+  S.hv = -1;
+  S.nextEv = S.sc + 22 + Math.random() * 48;
+}
+
 function advance(S, dt, kn) {
   S.t += dt;
   const rate = Math.pow(cl(kn[1], 0, 4) / 2, 2);
   S.sc += dt * rate;
-  if (rate > 0 && S.sc >= S.nextEv) {
-    S.off = (Math.random() * 2 - 1) * 20;
-    S.nextEv = S.sc + 18 + Math.random() * 40;
+  if (rate > 0 && S.hv < 0 && S.sc >= S.nextEv) startHandover(S);
+  if (S.hv >= 0) {
+    S.hv += (dt * max(rate, 0.3)) / HAND;
+    if (S.hv >= 1) endHandover(S);
   }
   const target = targetOf(S.sc, S.off);
   const w0 = 5 + 3 * sqrt(rate);
@@ -143,41 +167,53 @@ function advance(S, dt, kn) {
   const t = S.t, T2 = 2 * PI * t;
   S.ah = AH * (1 + 0.16 * sin(T2 / 67.1 + 1.1) + 0.1 * sin(T2 / 109.3 + 4.2));
   S.mMul = Math.pow(2, 0.55 * sin(T2 / 83.7 + 2.0) + 0.3 * sin(T2 / 139.1 + 0.3));
-  S.lamE = S.lam * (1 + 0.09 * sin(T2 / 71.3 + 0.9) + 0.05 * sin(T2 / 113.7 + 2.4));
+  S.lamE = S.lam * (1 + 0.13 * sin(T2 / 71.3 + 0.9) + 0.08 * sin(T2 / 113.7 + 2.4));
   S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
   if (S.d < 0 || abs(lambdaOf(ds) * ds - S.d) > 1e-4) buildTables(S, ds);
   weights(S, kn[3]);
 
-  // the delay: element n leads by k d n sin(theta)
-  const sinT = sin((S.th * PI) / 180);
+  // the delay: element n leads by k d n sin(theta). During a hand-over two delays are summed.
+  const kd = (2 * PI * S.d) / S.lamE, kk = TABN / S.lamE;
+  const sA = sin((S.th * PI) / 180), sB = sin((S.thB * PI) / 180);
+  const hs = S.hv < 0 ? 0 : sm(0, 1, S.hv);
+  const wa = cos((PI / 2) * hs), wb = sin((PI / 2) * hs);
   const Zr = S.Zr, Zi = S.Zi;
   Zr.fill(0);
   Zi.fill(0);
-  const phs = (TABN * S.d * sinT) / S.lamE, kk = TABN / S.lamE;
   for (let n = 0; n < NE; n++) {
+    const pA = kd * (n - NM) * sA, pB = kd * (n - NM) * sB;
+    const cr = wa * cos(pA) + wb * cos(pB), ci = wa * sin(pA) + wb * sin(pB);
+    S.cr[n] = cr;
+    S.ci[n] = ci;
     const wn = S.w[n];
-    const p = phs * (n - NM) + TABN * 64;
-    S.ph[n] = p;
     if (wn < 1e-4) continue;
+    const wr = wn * cr, wi = wn * ci;
     const base = n * NPX, rt = S.rt, at = S.at;
     for (let i = 0; i < NPX; i++) {
-      const idx = (rt[base + i] * kk + p) & TMASK;
-      const a = wn * at[base + i];
-      Zr[i] += a * COS[idx];
-      Zi[i] += a * SIN[idx];
+      const idx = (rt[base + i] * kk) & TMASK;
+      const a = at[base + i], c = COS[idx], s2 = SIN[idx];
+      Zr[i] += a * (wr * c - wi * s2);
+      Zi[i] += a * (wr * s2 + wi * c);
     }
+  }
+  // the faint glow along the line of elements, as wide as the driven part of the row
+  const bs = S.base;
+  for (let r = 0; r < BASE_ROWS; r++) {
+    const y = H - BASE_ROWS + r, v = 0.36 * exp(-max(0, AY - y - 0.5) / 2.2);
+    for (let x = 0; x < W; x++) bs[r * W + x] = v * (1 - sm(S.ah, S.ah + 7, abs(x + 0.5 - CX)));
   }
   // the instantaneous field and the averaged intensity
   const om = S.cph;
   const co = cos(om), si = sin(om);
-  const G = S.G, C = S.C;
+  const G = S.G, C = S.C, B0 = (H - BASE_ROWS) * W;
   for (let i = 0; i < NPX; i++) {
     const zr = Zr[i], zi = Zi[i];
     const I = 0.5 * (zr * zr + zi * zi);
     const db = 4.3429 * log(I / IREF + 1e-5);
     const gv = Math.pow(cl((db + 31) / 34, 0, 1), 1.35);
-    G[i] = gv > BASE[i] ? gv : BASE[i];
+    const bv = i >= B0 ? bs[i - B0] : 0;
+    G[i] = gv > bv ? gv : bv;
     const zm = sqrt(zr * zr + zi * zi) + 1e-9;
     const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.6));
     C[i] = ((zr * co + zi * si) / zm) * A;
@@ -191,6 +227,7 @@ export function update(dt, input, params) {
   if (!S.ready) {
     S.ready = true;
     S.th = targetOf(S.sc, S.off);
+    S.thB = S.th;
   }
   advance(S, d, kn);
 }
@@ -266,7 +303,8 @@ export function draw(display, params) {
   for (let n = 0; n < NE; n++) {
     const wr = S.w[n] / wmax;
     if (wr < 0.004) continue;
-    const xb = S.xs[n], u = 0.5 + 0.5 * cos(om - (S.ph[n] * 2 * PI) / TABN), amp = 0.3 + 0.7 * Math.sqrt(wr);
+    const xb = S.xs[n], cr = S.cr[n], ci = S.ci[n], mag = sqrt(cr * cr + ci * ci);
+    const u = 0.5 + 0.5 * cos(om - Math.atan2(ci, cr)), amp = (0.3 + 0.7 * Math.sqrt(wr)) * (0.45 + 0.55 * mag);
     const v = u * u * (3 - 2 * u) * amp;
     col[0] = BEAD0[0] + (CREST[0] - BEAD0[0]) * v;
     col[1] = BEAD0[1] + (CREST[1] - BEAD0[1]) * v;
