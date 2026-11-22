@@ -11,23 +11,27 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Melt=0..4, Fall=-1..1, Scale=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the colour wheel. At 0 the big shapes are blue, violet and magenta with a coral edge on the hottest cores over a deep indigo ground; the palette spans a third of the wheel, and a full turn comes back to the start.
-// Knob 2: Melt. How much of each column is sorted. At 0 the threshold is above every shape and nothing is sorted: the soft shapes alone. At 2 (the opening) the threshold sits at about a third of the brightest level, so every shape and its halo are melted into curtains and a few dim edges stay as they were. At 4 the threshold is below the ground and every column is one run, sorted whole: brightest at the top, darkest at the bottom.
-// Knob 3: Fall. The direction the sort runs. At 0 each column is sorted top to bottom and the curtains hang straight down, with a slow sway of a few degrees; turning it tilts the whole sort round the middle of the panel, to 45 degrees at plus or minus 0.5 and to 90 degrees at plus or minus 1, where the rows are sorted, brightest at the left for -1 and at the right for +1.
-// Knob 4: Scale. The size of the shapes, from 0.62 times at -1 (a dozen small curtains, 10 LEDs across) through 1 at the middle to 1.62 times at 1, where three or four shapes fill the panel and the curtains are 50 LEDs long.
+// Knob 1: Hue. Turns the whole palette round the colour wheel. At 0 the ground is deep indigo, the curtains run from blue at their dark end through violet to magenta at the bright rim, and the hottest cores go coral; at 0.25 the ground is maroon and the curtains orange to yellow, at 0.5 olive and green, at 0.75 teal and azure to violet, and at 1 it is back where it began. The palette also wanders by up to 0.05 of the wheel on 131 s and 198 s, so the same Hue never looks quite the same twice.
+// Knob 2: Melt. How much of each column is sorted. The threshold is 1.45 (1 - K/4) to the power 1.7, in units where the brightest shape is about 0.9, times a breathing factor of 0.75 to 1.25 (37.9 s and 61.7 s): 1.45 at 0, above everything, so nothing is sorted and the soft shapes show alone; 0.89 at 1, where only the cores of the brightest shapes melt; 0.45 at 2 (the opening), where each shape's body melts into a curtain and its dim halo stays unsorted; 0.14 at 3, where the ground joins in and neighbouring curtains merge; 0 at 4, where every column is one run, sorted whole, brightest at the top. Each column's threshold also differs from its neighbours' by up to 30%, in fingers 6 to 10 LEDs wide, so the hems are ragged.
+// Knob 3: Fall. The direction the sort runs. At 0 each column is sorted top to bottom, brightest at the top, and the curtains hang straight down with a sway of up to 5 degrees (57 s and 90 s). The whole sort turns round the middle of the panel by 90 degrees times the knob: 45 degrees at 0.5, and at 1 the rows are sorted, brightest at the left of each run, the curtains hanging to the right. At -1 it is the mirror: brightest at the right, hanging to the left. The picture is not rotated, only the direction the pixels are sorted along.
+// Knob 4: Scale. The size of the shapes, 2 to the power 0.6 K: 0.66 times at -1, where the big ellipses are 16 by 22 LEDs and the curtains 15 to 30 LEDs long with dark ground between them; 1.03 at the opening, where the biggest is 26 by 35; 1.52 times at 1, where it is 38 by 52 and two or three curtains fill the panel from edge to edge.
 
-// What the picture is. A hidden source image is built every frame: seven soft shapes, five ellipses of different aspect and two wedges, each a compact bump
-// (1 - d^2) to a power between 1 and 2, drifting on two sines a axis whose periods (37 to 120 s) are golden-ratio multiples of one another, so the
-// layout does not come back. They are blended as light (1 - the product of 1 - I), so overlaps brighten and never clip, over a dim ground
-// of about 0.07 that a slow broad bump lifts to 0.12. Each shape carries a hue offset, spread over a third of the wheel, and the hue at a
-// pixel is the average of the offsets weighted by I squared, so where two shapes meet the colour blends instead of switching.
-// The sort: the grid is turned to the sort direction (so Fall turns the whole sort, not the picture), and in every column of that grid the
-// cells with I at or above the threshold form runs. The cells of one run are sorted by I, the brightest first, and each carries its own hue
-// along. The hue is then smoothed down the run so two shapes of nearly the same I do not stripe it. The bright end of a run is crisp where
-// the run begins; the dark end is the threshold and meets the unsorted ground with no step. The sorted grid is read back onto the panel by bilinear
-// sampling, and the result is smoothed over about a tenth of a second, which turns the one real discontinuity of pixel sorting, two runs
-// merging when the gap between them crosses the threshold, into a quick melt instead of a pop. The threshold breathes on 37.9 s and 61.7 s.
-// Colour is made at the end from I and the hue: value from I, saturation falling in the hot cores, hue drifting a little with I.
+// What the picture is. A hidden source image is built every frame: ten soft shapes, eight ellipses of different size, aspect and tilt and two wedges that
+// widen away from a pivot at the edge of the panel, each a compact bump (1 - d^2) to a power between 1 and 2, so it has no edge to speak of. They drift on
+// two sines per axis whose periods (28 to 96 s) are golden-ratio multiples of one another, and their size and tilt breathe on periods of their own, so the
+// layout does not come back. The shapes are blended as light (1 minus the product of 1 - I), so overlaps brighten and never clip, over a dim ground of
+// 0.05 to 0.19 that is brighter toward the bottom and under a broad slow bump. Each shape carries a hue offset between 0 and 0.2 of the wheel, and the
+// hue at a pixel is the average of the offsets weighted by I squared, so where two shapes meet the colour blends and does not switch.
+// The sort: the grid the image is built on is turned to the sort direction (so Fall turns the sort, not the picture) and reaches 14 rows past the panel
+// along the sort, so a curtain that crosses the edge is whole. In every column of that grid the cells with I at or above the column's threshold form
+// runs. The cells of a run are sorted by I, the brightest first, and each takes its own hue along. The hue is then averaged down the run over a fifth of
+// its length, twice, because the order of the pixels interleaves the hues of two shapes of the same brightness and would stripe it. The bright end of a
+// run is crisp, where the run begins; the dark end is the threshold, which meets the unsorted ground with almost no step. The folds are laid on after
+// the sort: the sorted brightness is modulated by two waves across the columns of 8.3 and 13.7 LEDs, bent along the fall, under a slow envelope of 41
+// LEDs, so a curtain is fluted and some folds are deep and some shallow. The grid is read back onto the panel by bilinear sampling and the result is
+// smoothed over about a tenth of a second. That turns the one real discontinuity of pixel sorting, two runs merging or splitting when the gap between
+// them crosses the threshold, into a quick melt in place of a pop. Colour is made last from the brightness and the hue: value from the brightness,
+// saturation falling in the hot cores, and the hue climbing 0.17 of the wheel from the dark end of a curtain to its bright rim.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, abs, exp, sin, cos, atan2, pow, PI, min, max } = Math;
