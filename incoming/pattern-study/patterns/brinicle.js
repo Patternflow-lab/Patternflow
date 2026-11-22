@@ -58,16 +58,17 @@ const F = (n) => new Float32Array(n);
 const ICE_Y = 8; // mean row of the underside of the ice
 const BED_Y = 117; // mean row of the seabed
 const ROOT_Y = 2; // row where a tube starts, inside the ice, so its top is hidden
-const V_GROW = 1.9; // how fast a tube tip sinks at flux 1, LEDs a second
-const V_FALL = 5.5; // how fast the dye falls once it is out of the tube, LEDs a second
+const V_GROW = 1.4; // how fast a tube tip sinks at flux 1, LEDs a second
+const V_FALL = 6.2; // how fast the dye falls once it is out of the tube, LEDs a second
 const V_LEAN = 2.2; // sideways speed of the water at Current 1, LEDs a second
+const BOW = 4; // how far the middle of a tube is pushed to either side by the water, LEDs
 const VERT = 2; // path length between tube vertices, LEDs
 const NV = 120; // most vertices a tube has
 const NS = 520; // most web segments a brinicle has
 const NPART = 1100; // most dye particles
 const R_MOUTH = 1.3; // half width of a new tube, LEDs
 const TAU_R = 45; // seconds for a vertex to reach most of its full radius
-const STAND = [90, 180]; // seconds a brinicle stands after it touches down
+const STAND = [60, 135]; // seconds a brinicle stands after it touches down
 const DIE = [26, 36]; // seconds it takes to die
 const WEB_FADE = 46; // seconds the web takes to fade once its tube starts to die
 const REACH = 34; // LEDs of floor a web is measured against when it fades from the far end in
@@ -93,7 +94,7 @@ function hsv(h, s, v, out) {
 
 export function setup(params) {
   const S = {
-    t: 0, cur: 0, hue: 0, f: 1, u: 0, cap: 2, gap: 15, pending: false, nextSpawn: 0, ready: false, key: "",
+    t: 0, cur: 0, hue: 0, f: 1, u: 0, cap: 2, gap: 8, sep: 30, last: 0, pending: false, nextSpawn: 0, ready: false, key: "",
     bs: [], np: 0,
     R: F(N), G: F(N), B: F(N), wb: F(N), // light, and the web's own coverage
     bed: F(W), ice: F(W), thick: F(W),
@@ -110,15 +111,23 @@ export function setup(params) {
   params.s = S;
 }
 
+// How far a tube is bowed sideways at row y and time t: it is held at the roof and, once down, at the seabed,
+// and the water pushes the middle to and fro with two slow swings that have no common period.
+function bowAt(b, y, t) {
+  const u = cl((y - ROOT_Y) / (BED_Y - ROOT_Y), 0, 1);
+  return BOW * sin(3.1416 * u) * (sin(t * 0.17 + b.ph) + 0.65 * sin(t * 0.113 + 2.1 * b.ph)) * 0.62;
+}
+
 function bedAt(S, x) {
   const c = cl(x - 0.5, 0, W - 1.001), i = floor(c), f = c - i;
   return mix(S.bed[i], S.bed[i + 1], f);
 }
 
-// The row of the underside of the ice at column x and time t: three slow swells with no common period.
+// The row of the underside of the ice at column x and time t: four slow swells with no common period, the
+// slowest one about 3 minutes.
 function iceAt(S, x, t) {
   const ph = S.ph;
-  return ICE_Y + 2.3 * sin(x * 0.19 + ph[3] + t * 0.0113) + 1.7 * sin(x * 0.43 + ph[4] - t * 0.0171) + 1 * sin(x * 0.87 + ph[5] + t * 0.0237) + 0.5 * sin(x * 1.7 + ph[6] - t * 0.031);
+  return ICE_Y + 2.3 * sin(x * 0.19 + ph[3] + t * 0.042) + 1.7 * sin(x * 0.43 + ph[4] - t * 0.064) + 1 * sin(x * 0.87 + ph[5] + t * 0.087) + 0.5 * sin(x * 1.7 + ph[6] - t * 0.115);
 }
 
 // ---- knobs and the clock
@@ -128,7 +137,8 @@ function readKnobs(S, k) {
   S.u = V_LEAN * cl(k[2], -1, 1);
   const u4 = (cl(k[3], -1, 1) + 1) / 2;
   S.cap = u4 < 0.34 ? 1 : u4 < 0.67 ? 2 : 3;
-  S.gap = mix(22, 8, u4);
+  S.gap = mix(10, 3, u4);
+  S.sep = mix(32, 8, u4);
 }
 
 export function update(dt, input, params) {
@@ -161,18 +171,19 @@ function step(S, dt) {
   moveDye(S, dt);
 }
 
-// A new brinicle starts after a random wait whenever fewer than the cap are alive and fewer than three tubes
-// are on the panel. A tube that is dying still counts as a tube.
+// A new brinicle starts after a random wait whenever fewer than the cap are still sinking and fewer than
+// three tubes are on the panel. A tube that is dying still counts as a tube, and one that has touched down
+// stands without counting against the cap, so something is nearly always growing.
 function manage(S) {
   let live = 0, tubes = 0;
   for (const b of S.bs) {
     if (!b.tubeGone) tubes++;
-    if (b.phase < 2) live++;
+    if (b.phase === 0) live++;
   }
   if (live < S.cap && tubes < 3) {
     if (!S.pending) {
       S.pending = true;
-      S.nextSpawn = S.t + 5 + -log(1 - Math.random()) * S.gap;
+      S.nextSpawn = max(S.t + 2, live === 0 ? 0 : S.last + S.sep) + -log(1 - Math.random()) * S.gap;
     } else if (S.t >= S.nextSpawn && spawn(S, false)) S.pending = false;
   } else S.pending = false;
 }
@@ -203,6 +214,7 @@ function spawn(S, force) {
   b.py[0] = ROOT_Y;
   b.pt[0] = S.t;
   S.bs.push(b);
+  S.last = S.t;
   return b;
 }
 
@@ -212,8 +224,8 @@ function advance(S, b, dt) {
   if (b.phase === 0) grow(S, b, dt);
   else if (b.phase === 1) {
     const sf = b.tp / b.stand;
-    b.ff = 1 - 0.6 * sm(0.45, 1, sf);
-    b.dim = 1 - 0.28 * sm(0.55, 1, sf);
+    b.ff = 1 - 0.65 * sm(0.1, 1, sf);
+    b.dim = 1 - 0.34 * sm(0.05, 1, sf);
     if (b.tp >= b.stand) {
       b.phase = 2;
       b.tp = 0;
@@ -221,8 +233,8 @@ function advance(S, b, dt) {
     }
   } else {
     b.dp = min(1, b.tp / b.dieLen);
-    b.ff = 0.4 * (1 - sm(0, 0.5, b.dp));
-    b.dim = 0.72;
+    b.ff = 0.35 * (1 - sm(0, 0.5, b.dp));
+    b.dim = 0.66;
     if (b.brk < 0 && b.dp > 0.1) {
       b.brk = max(2, floor(b.n * mix(0.33, 0.75, Math.random())));
       b.fallT = 0;
@@ -248,7 +260,7 @@ function advance(S, b, dt) {
   }
   // Dye leaves the mouth while the flux lasts.
   if (b.ff > 0.02 && !b.tubeGone) {
-    b.acc += 46 * S.f * b.ff * dt;
+    b.acc += 40 * S.f * b.ff * dt;
     while (b.acc >= 1 && S.np < NPART) {
       b.acc -= 1;
       emit(S, b);
@@ -295,14 +307,14 @@ function startDeath(b) {
 // ---- the dye
 function emit(S, b) {
   const i = S.np++;
-  S.px[i] = b.tipx + (Math.random() - 0.5) * R_MOUTH * 1.2;
+  S.px[i] = b.tipx + bowAt(b, b.tipy, S.t) + (Math.random() - 0.5) * R_MOUTH * 1.2;
   S.py[i] = b.tipy - 0.4;
   S.pvx[i] = 0.5 * S.u + (Math.random() - 0.5) * 0.8;
   S.pvy[i] = 7 + 4 * Math.random();
   S.pa[i] = 0;
-  S.pl[i] = 2.8 + 2.6 * Math.random();
-  S.pph[i] = Math.random() * 6.283;
-  S.pam[i] = (0.42 + 0.33 * S.f) * (0.5 + 0.5 * b.ff);
+  S.pl[i] = 3.4 + 2.8 * Math.random();
+  S.pph[i] = b.ph + (Math.random() - 0.5) * 0.5; // the phase of its brinicle's sway, so the plume sways as one
+  S.pam[i] = (0.5 + 0.4 * S.f) * (0.5 + 0.5 * b.ff);
   S.pfl[i] = 0;
 }
 
@@ -323,9 +335,8 @@ function moveDye(S, dt) {
       py[i] = bedAt(S, px[i]) - 1.6;
       continue;
     }
-    const ph = pph[i];
-    const uw = 0.9 * S.u + 1.5 * sin(py[i] * 0.1 + t * 0.8 + ph) + 0.9 * sin(py[i] * 0.21 - t * 1.3 + 2 * ph);
-    pvx[i] += (uw - pvx[i]) * kx + (Math.random() - 0.5) * 3.2 * sq * (0.4 + 0.5 * pa[i]);
+    const uw = 0.9 * S.u + 3.4 * sin(py[i] * 0.16 + t * 0.9 + pph[i]) + 1.7 * sin(py[i] * 0.33 - t * 1.7 + 2 * pph[i]);
+    pvx[i] += (uw - pvx[i]) * kx + (Math.random() - 0.5) * 2.4 * sq * (0.4 + 0.5 * pa[i]);
     pvy[i] += (V_FALL - pvy[i]) * ky;
     px[i] += pvx[i] * dt;
     py[i] += pvy[i] * dt;
@@ -421,9 +432,9 @@ function growWeb(S, b, dt) {
     }
   }
   // Later in a stand a twig now and then grows from the trunk, so the web is not finished in 20 s.
-  if (b.phase === 1 && b.nLate < 9) {
+  if (b.phase === 1 && b.nLate < 20) {
     b.lateT += dt;
-    if (b.lateT > 6 && b.ns > 12) {
+    if (b.lateT > 4 && b.ns > 12) {
       b.lateT = 0;
       b.nLate++;
       const i = floor(Math.random() * min(b.ns, 120));
@@ -462,9 +473,9 @@ function water(S) {
     const sw = sin(yy * 0.05 + t * 0.07);
     for (let x = 0; x < W; x++, p++) {
       const xx = x + 0.5 - c;
-      const a = sin(xx * 0.071 + yy * 0.019 + t * 0.037), b = sin(xx * 0.043 - yy * 0.027 - t * 0.051 + 1.7), e = sin((xx + 3 * sw) * 0.113 + t * 0.029);
+      const a = sin(xx * 0.071 + yy * 0.019 + t * 0.052), b = sin(xx * 0.043 - yy * 0.027 - t * 0.067 + 1.7), e = sin((xx + 3 * sw) * 0.113 + t * 0.041);
       const veil = max(0, 0.45 + 0.4 * a * b + 0.25 * e * a);
-      const lit = 0.11 * veil * veil * env;
+      const lit = 0.22 * veil * veil * env;
       let r = wr + lit * 0.35, g = wg + lit * 0.9, bl = wbl + lit * 1.1;
       const cov = cl((yy - bed[x]) / 1.4 + 0.5, 0, 1);
       if (cov > 0) {
@@ -500,7 +511,7 @@ function dye(S) {
   const { px, py, pa, pl, pam } = S, br = S.pal.brine;
   for (let i = 0; i < S.np; i++) {
     const age = pa[i], u = age / pl[i], sg = min(3.3, 1 + 0.3 * age);
-    const a = pam[i] * pow(1 - u, 1.3) * pow(1 / sg, 1.4) * 0.42 * sm(0, 0.25, age + 0.1);
+    const a = pam[i] * pow(1 - u, 1.7) * pow(1 / sg, 1.4) * 0.42 * sm(0, 0.25, age + 0.1);
     addGauss(S, px[i], py[i], sg, a, br);
   }
 }
@@ -508,17 +519,17 @@ function dye(S) {
 // One tube, row by row: a soft white wall, a bluer bore, and a cool halo.
 function tube(S, b) {
   const { vx, vy, vr, va, vw } = S, n = b.n, t = S.t, pal = S.pal;
-  const rMax = 2.4 + 0.9 * S.f, loose = sm(0.7, 1, b.tp / b.stand) * (b.phase === 1 ? 1 : 0) + (b.phase === 2 ? 1 : 0);
+  const rMax = 2.2 + 0.8 * S.f, loose = sm(0.7, 1, b.tp / b.stand) * (b.phase === 1 ? 1 : 0) + (b.phase === 2 ? 1 : 0);
   let m = 0;
   for (let i = 0; i < n; i++) {
     const age = t - b.pt[i], u = i / max(1, n - 1);
-    const r = (R_MOUTH + (rMax - R_MOUTH) * (1 - exp(-age / TAU_R))) * (1 + 0.1 * sin(b.py[i] * 0.31 + b.ph) + 0.07 * sin(b.py[i] * 0.77 + 2 * b.ph));
+    const r = (R_MOUTH + (rMax - R_MOUTH) * (1 - exp(-age / TAU_R)) + 0.007 * min(age, 110)) * (1 + 0.1 * sin(b.py[i] * 0.31 + b.ph) + 0.07 * sin(b.py[i] * 0.77 + 2 * b.ph) + 0.17 * sin(b.py[i] * 0.11 - t * 0.35 + 3 * b.ph));
     let a = 1;
     if (b.phase === 2) {
       a = 1 - sm(b.th[i] - 0.1, b.th[i] + 0.1, b.dp);
       if (b.brk >= 0 && i >= b.brk) a *= exp(-b.fallT / 3.2);
     }
-    vx[m] = b.px[i] + loose * 1.3 * sin(i * 0.9 + t * 1.9 + b.ph) * (0.3 + 0.7 * u);
+    vx[m] = b.px[i] + bowAt(b, b.py[i], t) + loose * 1.3 * sin(i * 0.9 + t * 1.9 + b.ph) * (0.3 + 0.7 * u);
     vy[m] = b.py[i];
     vr[m] = r + 1.6 * exp(-(b.py[i] - ICE_Y) / 6);
     va[m] = a * b.dim;
@@ -526,7 +537,7 @@ function tube(S, b) {
     m++;
   }
   if (b.phase === 0) {
-    vx[m] = b.tipx;
+    vx[m] = b.tipx + bowAt(b, b.tipy, t);
     vy[m] = b.tipy;
     vr[m] = R_MOUTH;
     va[m] = 1;
@@ -562,7 +573,7 @@ function tube(S, b) {
   }
   // The mouth: where the tube is thinnest, the brightest place.
   if (b.phase < 2 && !b.tubeGone) {
-    addGauss(S, b.tipx, b.tipy + 0.5, 1.5 + 0.4 * S.f, (0.32 + 0.16 * S.f) * (0.4 + 0.6 * b.ff) * (b.phase === 0 ? 1 : 0.45), br);
+    addGauss(S, b.tipx + bowAt(b, b.tipy, t), b.tipy + 0.5, 1.5 + 0.4 * S.f, (0.32 + 0.16 * S.f) * (0.4 + 0.6 * b.ff) * (b.phase === 0 ? 1 : 0.45), br);
   }
 }
 
@@ -641,7 +652,7 @@ function roof(S) {
     for (let y = 0; y <= ymax; y++) {
       const yy = y + 0.5, p = y * W + x, cov = cl((e - yy) / 1.2 + 0.5, 0, 1);
       if (cov > 0) {
-        const q = cl(yy / max(e, 1), 0, 1), tex = 1 + 0.07 * sin(x * 0.55 + yy * 0.13 + e * 0.5);
+        const q = cl(yy / max(e, 1), 0, 1), tex = 1 + 0.07 * sin(x * 0.55 + yy * 0.13 + e * 0.5) + 0.12 * sin(x * 0.21 - t * 0.043 + S.ph[7]);
         const br = (0.98 - 0.38 * pow(q, 1.5)) * (0.72 + 0.28 * k) * tex;
         const m = k * 0.7 + 0.3 * (1 - q);
         R[p] = mix(R[p], mix(th[0], ic[0], m) * br, cov);
