@@ -69,6 +69,7 @@ const FILM_POW = 1.8; // a glaze shows as its strength to this power, so a faded
 
 // ---- colour
 const HN = 256;
+const WARM = new Float32Array(HN);
 const FILM = new Float32Array(HN * 3), RING = new Float32Array(HN * 3), EDGE = new Float32Array(HN * 3), WET = new Float32Array(HN * 3);
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
@@ -79,12 +80,14 @@ function hsv(h, s, v, out, o) {
 }
 (function buildLuts() {
   for (let i = 0; i < HN; i++) {
-    const h = i / HN, dh = min(abs(h - 0.13), 1 - abs(h - 0.13));
-    const warm = exp(-(dh / 0.12) * (dh / 0.12)); // orange and yellow go brown when dark, so their ring stays bright and goes redder
-    hsv(h, 0.78, 0.92, FILM, i * 3);
-    hsv(h + 0.03 - 0.07 * warm, 1.0, 0.17 + 0.3 * warm, RING, i * 3);
+    const h = i / HN, dh = min(abs(h - 0.15), 1 - abs(h - 0.15));
+    // Orange, yellow and olive go brown when they are dim. In that band the glaze is paler and stronger, the lens brighter, and the ring a deep crimson in place of dark orange.
+    const warm = exp(-(dh / 0.13) * (dh / 0.13));
+    hsv(h, 0.78 - 0.22 * warm, 0.92 + 0.08 * warm, FILM, i * 3);
+    hsv(h + 0.03 - 0.21 * warm, 1.0, 0.17 + 0.3 * warm, RING, i * 3);
     hsv(h, 0.42, 1.0, EDGE, i * 3);
-    hsv(h, 0.74, 0.62, WET, i * 3);
+    hsv(h, 0.74, 0.62 + 0.3 * warm, WET, i * 3);
+    WARM[i] = warm;
   }
 })();
 const GROUND = [14, 12, 18], GROUND_V = [16, 14, 16];
@@ -327,7 +330,7 @@ function drawDrop(S, d, hue) {
   const ws = (1 - f) * (1 - f);
   Rc *= spread(t) * (1 - 0.3 * ease(f));
   const prog = cl(t / T, 0, 1), Hn = max(0, 1 - prog);
-  const hi = hIdx(hue + d.eoff) * 3;
+  const hx = hIdx(hue + d.eoff), hi = hx * 3, fgain = FILM_GAIN * (1 + 0.8 * WARM[hx]);
   const fr = FILM[hi], fg = FILM[hi + 1], fb = FILM[hi + 2];
   const rr = RING[hi], rg = RING[hi + 1], rb = RING[hi + 2];
   const er = EDGE[hi], eg = EDGE[hi + 1], eb = EDGE[hi + 2];
@@ -348,7 +351,7 @@ function drawDrop(S, d, hue) {
       const lc = cl(Rc - r + 0.5, 0, 1) * (t < 0.04 ? t / 0.04 : 1);
       layersAt(d, r, grow);
       // the glaze: already there in the dry ring left outside the lens, and coming in under the lens as it thins
-      const fw = pow(QF, FILM_POW) * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f) * FILM_GAIN;
+      const fw = min(1, pow(QF, FILM_POW) * fgain) * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f);
       R += (fr - R) * fw; G += (fg - G) * fw; B += (fb - B) * fw;
       if (lc > 0) {
         const wL = lc * ws, u = min(1, r / Rc), u2 = u * u;
@@ -404,7 +407,7 @@ export function draw(display, params) {
     let R = GROUND[0] + GROUND_V[0] * sh, G = GROUND[1] + GROUND_V[1] * sh, B = GROUND[2] + GROUND_V[2] * sh;
     const a = fa[i];
     if (a > 0.003) {
-      const hi = hIdx(fc[i] / a + hue) * 3, q = pow(a, FILM_POW) * FILM_GAIN;
+      const hx = hIdx(fc[i] / a + hue), hi = hx * 3, q = min(1, pow(a, FILM_POW) * FILM_GAIN * (1 + 0.8 * WARM[hx]));
       R += (FILM[hi] - R) * q; G += (FILM[hi + 1] - G) * q; B += (FILM[hi + 2] - B) * q;
     }
     const b = ra[i];
