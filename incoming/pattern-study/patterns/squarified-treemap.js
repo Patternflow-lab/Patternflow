@@ -9,27 +9,31 @@
 // Round:   224
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pace=0.2..3, Groups=-4..2, Burst=0..1
+// @knobs Hue=0..1, Pace=0.35..3, Groups=-4..2, Burst=0..1
 //
 // Knob 1: Hue. Turns every group round the colour wheel together, one full turn from 0 to 1. At 0 the seven groups are emerald, indigo, coral, ochre, teal, plum and steel grey; at 0.33 the emerald is a blue and the coral is a green.
-// Knob 2: Pace. How fast the weights drift and how fast the tiles follow. At 2 (where it opens) a leaf's weight forgets where it was in about 11 s and a tile closes 90 percent of the way to its new place in about 0.7 s; at 0.2 it is ten times slower in the drift and 1.4 s in the glide, at 3 half as slow again.
-// Knob 3: Groups. How many groups share the panel, 7 plus the knob, so 3 at -4 and 9 at 2. A group is given a third of a knob step to grow in: at 6.5 the seventh is half weight and at 5.2 the sixth has lost most of its area. Changing it re-flows the rest, and the groups that go shrink to nothing and fade as their tiles get under 3 LEDs.
-// Knob 4: Burst. How often and how hard a leaf surges or collapses. At 0 none do. At 0.06 (where it opens) a leaf somewhere does about every 3 s and its weight changes by a factor of about 1.9; at 1 about twice a second and the factor is 5.5. A surge bloom is a brief halo and a lighter tile.
+// Knob 2: Pace. How fast the weights drift and how fast the tiles follow, on a clock of Pace to the power 0.8. At 2 (where it opens) a leaf's weight forgets where it was in about 23 s, a tile closes 90 percent of the way to its new place in 0.63 s and a whole group does in 0.97 s; at 0.35 the forgetting takes 93 s and the glide 1.1 s and 1.7 s, at 3 the forgetting takes 17 s and the glide 0.5 s and 0.77 s.
+// Knob 3: Groups. How many groups share the panel, 7 plus the knob, so 3 groups and 21 tiles at -4, 7 and 44 at 0 (where it opens) and 9 and 58 at 2. The knob is not stepped: at 0.5 the eighth group is at half strength, and a group that goes shrinks over about a second to a sliver and fades as its tiles get under 3 LEDs, while the rest re-flow into its place.
+// Knob 4: Burst. How often and how hard a leaf surges or collapses. At 0 none do. At 0.06 (where it opens) one does about every 2 s and its weight changes by a factor of 1.4 to 2.1; at 1 two or three do a second and the factor is 2.8 to 8. A surge blooms: the tile goes lighter and throws a halo about 2 LEDs wide for about a second.
 
 // What the picture is. The panel is one rectangle, 64 by 128 LEDs. The groups are squarified into it, then each group's leaves are squarified into the group's own rectangle,
-// the way a treemap shows two levels of a hierarchy: a rectangle's area is its weight. The squarified algorithm (Bruls, Huizing and van Wijk) fills the rectangle one row at a time along its
-// shorter side, adds the next item to the row while the worst aspect ratio of the row does not get worse, and starts a new row when it would. The order of the items is fixed,
-// nothing is sorted by size, so a tile stays on its side of the panel and only the places where a row breaks move. Each row break has a little hysteresis, 12 percent, or the tiles at a tie would flip every few frames.
-// Weights. Every leaf has a weight whose log is the sum of a mean-reverting random walk (standard deviation 0.45, relaxing in 22 s at Pace 1), two sines of 34 to 90 s and 61 to 150 s with a fresh
-// period for every leaf, and a burst term that jumps by a random 0.6 to 1.4 times the Burst strength and decays in 3.5 s. A burst is more likely a surge when the leaf is small and a collapse when it is big.
-// The sum is held between a weight of 0.12 and 8 by a tanh, so a tile is never gone for long. A group has a slow weight of its own that wanders too, and its leaves add to it by their count and the root of their mean.
-// The tiles. Each tile is drawn from a spring: all four edges follow the place the layout gives them with a critically damped spring, so they glide, pass each other, and settle without a bounce. A tile that is going
-// faster is painted on top of a slower one, which hides the moment two of them cross. The edge is a rounded rectangle (radius 1.3 LEDs, less on a small tile) and the coverage of each LED comes from its distance
-// to the edge, so an edge in the middle of an LED is half lit and the motion is smooth at a fraction of an LED. Between two leaves of a group there is 1 LED of dark, between two groups 2, and at the panel's edge 1.
-// A tile whose shorter visible side is under 3.8 LEDs fades with it, and is gone at 1.4, so no 1-LED speck or line is ever left on the dark.
-// Colour. Each group is one hue family in OKLCH; its leaves differ by a little lightness (plus or minus 0.07), a little hue (plus or minus 9 degrees) and a little chroma. A leaf that has been growing in the last second
-// is lighter and a touch more saturated, one that has been shrinking is darker, less saturated and a few degrees toward the cool end of its hue. Inside a tile the light falls from the top left: 14 percent lighter in that corner,
-// 14 percent darker in the opposite one, a faint rim, and a soft highlight, so each tile reads as a piece of enamel and not as a box. Nothing else is drawn.
+// the way a treemap shows two levels of a hierarchy: a rectangle's area is its weight. The squarified algorithm (Bruls, Huizing and van Wijk) fills a rectangle one row at a time along its
+// shorter side, adds the next item to the row while the worst aspect ratio in the row does not get worse, and starts a new row when it would. The order of the items is fixed and nothing is sorted
+// by size, so a tile stays on its side of the panel and only the places where a row breaks move. Each row break has some hysteresis (22 percent for the groups, 15 for the leaves), or two tiles at a tie
+// would flip their row every few frames.
+// Weights. Every leaf has a weight whose log is the sum of a mean-reverting random walk (standard deviation 0.5, forgetting in 40 s at Pace 1), two sines with periods of 60 to 150 s and 100 to 260 s
+// that are different for every leaf, and a burst term that jumps by a random 0.6 to 1.4 times the Burst strength and fades in 6 s. A burst is more likely a surge when the leaf is small and a collapse when it is big.
+// The sum is held between a weight of 0.12 and 8.2 by a tanh, so a tile is never gone for long. A group has a slow weight of its own (standard deviation 0.3 in the log, forgetting in 80 s), and its leaves add to it by their
+// count and the fourth root of their mean weight, so the arrangement of the groups changes slowly and the arrangement inside a group changes often. The layout reads the weights with a lag of 0.8 s, so a burst arrives as a swell.
+// The tiles. A group's rectangle follows the place the layout gives it on a critically damped spring, and each leaf is squarified into that moving rectangle and follows its own place on a second, faster spring.
+// So a group that changes place slides as one block with its tiles in order, tiles change places inside it, and nothing bounces. A tile that is going faster is painted on top of a slower one and casts a soft
+// shadow, which makes the moment two of them cross read as one piece lifted over the other. While the Groups knob is moving the springs tighten up to three times, so the panel re-flows in half a second.
+// The edge of a tile is a rounded rectangle (radius 1.3 LEDs, less on a small tile) and the coverage of each LED comes from its distance to the edge, so an edge in the middle of an LED is half lit and the glide
+// is smooth at a fraction of an LED. Between two leaves of a group there is 1 LED of dark, between two groups 2, and at the edge of the panel 1. A tile whose shorter visible side is under 3.8 LEDs fades with it
+// and is gone at 1.4, so there is never a 1-LED speck or line left on the dark.
+// Colour. Each group is one hue family in OKLCH; its leaves differ by a little lightness (plus or minus 0.07), a little hue (plus or minus 9 degrees) and a little chroma. A leaf that has been growing in the last
+// second is lighter and a touch more saturated, one that has been shrinking is darker, less saturated and a few degrees toward the cool end of its hue. Inside a tile the light falls from the top left: 14 percent
+// lighter in that corner, 14 percent darker in the opposite one, a faint rim, and a soft highlight, so each tile reads as a piece of enamel and not as a box. Nothing else is drawn.
 
 const W = 64, H = 128, NPIX = W * H;
 const NG = 9;
@@ -50,11 +54,11 @@ const HYST_G = 0.22, HYST_L = 0.15; // a row break has to be this much better to
 
 // ---- weights
 const OU_REL = 40; // seconds a leaf's random walk takes to forget, at Pace 1
-const OU_SD = 0.45; // standard deviation of the walk, in log weight
+const OU_SD = 0.5; // standard deviation of the walk, in log weight
 const SINE1 = [60, 150, 0.34], SINE2 = [100, 260, 0.24]; // period range in s at Pace 1, then the amplitude
 const BURST_TAU = 6; // seconds a burst takes to fade, at Pace 1
 const LIM = 2.1; // the log weight is held within this by a tanh
-const G_REL = 90, G_SD = 0.24; // the group's own walk
+const G_REL = 80, G_SD = 0.3; // the group's own walk
 const LAG = 0.8; // seconds the layout's weights lag the leaves' own
 const ALIVE_T = 0.7; // seconds a group takes to follow the Groups knob
 const FADE_LO = 1.4, FADE_HI = 3.8; // shorter visible side where a tile starts to fade in, and where it is whole
@@ -281,9 +285,9 @@ function colours(S, hue) {
     const G = GROUPS[g];
     for (let q = 0; q < COUNTS[g]; q++) {
       const l = START[g] + q;
-      const gs = tanh(S.gr[l] / 0.35); // growing is positive
+      const gs = tanh(S.gr[l] / 0.13); // growing is positive
       const bl = S.bloom[l];
-      const L = cl(G[1] + S.dL[l] + 0.1 * gs + 0.07 * bl, 0.34, 0.86);
+      const L = cl(G[1] + S.dL[l] + (gs > 0 ? 0.1 : 0.075) * gs + 0.07 * bl, 0.34, 0.86);
       const C = max(0.02, G[2] * (1 + 0.2 * gs) + S.dC[l]);
       const c = oklch(L, C, G[0] + hue * 360 + S.dH[l] - 9 * gs);
       S.cr[l] = c[0]; S.cg[l] = c[1]; S.cb[l] = c[2];
@@ -292,7 +296,7 @@ function colours(S, hue) {
 }
 
 function frame(S, d, snap, kn) {
-  const pace = cl(kn[1], 0.2, 3), burst = cl(kn[3], 0, 1), G = 7 + cl(kn[2], -4, 2);
+  const pace = cl(kn[1], 0.35, 3), burst = cl(kn[3], 0, 1), G = 7 + cl(kn[2], -4, 2);
   if (snap) for (let g = 0; g < NG; g++) S.alive[g] = cl(G - g, 0, 1);
   if (snap) {
     // the weights are already wandering when the panel opens: 24 s of them, with the knobs where they stand
