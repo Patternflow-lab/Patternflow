@@ -69,7 +69,7 @@ const RISE = 0.055; // s
 const AG_TAU = 15; // s
 const WTAU = 20, WAMP = 0.75, FAMP = 0.75; // each tank's resting glow wanders by up to 60 percent on 20 s
 const MAXE = 10, MAXM = 6;
-const LG_LO0 = 0.8, LG_LO1 = 1.6, LG_HI0 = 2.0, LG_HI1 = 2.0; // log10 of the energy range at Energy -1 and the gain across the knob
+const LG_LO0 = 0.8, LG_LO1 = 1.4, LG_HI0 = 2.0, LG_HI1 = 1.8; // log10 of the energy range at Energy -1 and the gain across the knob
 const PRE = 55; // s run before the first frame
 
 // the arrival-time palette: time 0..1, then red, green, blue
