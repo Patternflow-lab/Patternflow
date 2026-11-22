@@ -30,19 +30,19 @@ const sm = (a, b, v) => {
 // h  inhibitor:    dh/dt = nu (h0 + hk a - h) + Dh h_xx
 // s  substrate:    ds/dt = sig (1 - s) - gam s a
 // Each regime is one column of PARAM; Regime -2 .. 1 walks across them.
-const SUBS = 10, DT = 0.02; // 10 steps of 0.02 time units make one laid row
+const SUBS = 20, DT = 0.02; // 20 steps of 0.02 time units make one laid row
 const HIST = H + 4;
 const PRE_ROWS = 150;
 const KEYS = ['rho', 'kap', 'Da', 'b0', 'h0', 'Dh', 'nu', 'hk', 'sig', 'gam', 'drift', 'rate', 'amp', 'aref'];
 const PARAM = [
   // stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.5, 0.5, 2.5],
+  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 0.0, 0.25, 0.5, 2.5],
   // leaning stripes
-  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 4.0, 0.5, 0.5, 2.5],
+  [1.0, 0.05, 0.35, 0.02, 0.05, 15, 1.5, 1.0, 0.3, 0.0, 2.0, 0.25, 0.5, 2.5],
   // tents
-  [4.0, 0.2, 4.0, 0.01, 1.0, 0.0, 0.6, 1.0, 0.05, 0.3, 0.0, 0.4, 2.0, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.25, 0.0, 0.3, 2.2, 2.5],
   // crowd
-  [4.0, 0.2, 4.0, 0.01, 0.5, 0.0, 0.9, 1.0, 0.1, 0.3, 0.0, 3.0, 1.5, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.2, 0.4, 0.0, 1.5, 2.2, 2.5],
 ];
 
 function paramsAt(q, out) {
@@ -58,7 +58,7 @@ function makeState() {
     na: new Float32Array(N), nh: new Float32Array(N), ns: new Float32Array(N),
     ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N),
     head: 0, // index of the newest laid row in the history
-    sub: 0, acc: 0, quiet: 0,
+    sub: 0, acc: 0, quiet: 0, sites: [],
     P: {}, kn: [0, 2, 0, 0.06],
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -102,13 +102,18 @@ function substep(S, P) {
 }
 
 function seeds(S, P, mult) {
-  // each step has a small chance of a colony starting at a random cell
+  // each step has a small chance of a colony starting at a cell; one time in three it is
+  // a cell that seeded lately, which puts a second chevron inside the first
   if (Math.random() < P.rate * mult * DT) {
-    const c = floor(Math.random() * N), a = S.a, big = P.amp > 1;
+    const a = S.a, big = P.amp > 1, sites = S.sites;
+    let c = floor(Math.random() * N);
+    if (sites.length > 0 && Math.random() < 0.35) c = (sites[floor(Math.random() * sites.length)] + N + floor(Math.random() * 3) - 1) % N;
+    sites.push(c);
+    if (sites.length > 4) sites.shift();
     if (big) {
-      a[(c + N - 1) % N] += P.amp * 0.6;
+      a[(c + N - 1) % N] += P.amp;
       a[c] += P.amp;
-      a[(c + 1) % N] += P.amp * 0.6;
+      a[(c + 1) % N] += P.amp;
     } else {
       a[c] += P.amp;
     }
@@ -137,7 +142,7 @@ function advanceSteps(S, P, mult, steps) {
       else if (++S.quiet > 45) {
         S.quiet = 0;
         const c = floor(Math.random() * N);
-        for (let q = -1; q <= 1; q++) S.a[(c + q + N) % N] += 2 * P.amp + 1;
+        for (let q = -1; q <= 1; q++) S.a[(c + q + N) % N] += 2.5;
       }
     }
   }
