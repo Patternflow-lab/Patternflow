@@ -47,25 +47,25 @@ const R_MIN = 6, R_MAX = 28;
 const HUE0 = 0.52; // the dye at Hue 0, a blue-green
 const DYE_B = 0.3; // the second dye, round the wheel from the first
 const P_B = 0.3; // share of drops that are the second dye
-const WET_FRAC = 0.28; // share of the panel under a wet drop, at any moment
-const RB0 = 11.5; // mean radius at Drops 0
+const WET_FRAC = 0.34; // share of the panel under a wet drop, at any moment
+const RB0 = 10.5; // mean radius at Drops 0
 const RB_STEP = 1.85; // mean radius is RB0 over RB_STEP to the power of the knob
-const LIFE_SLOW = 40, LIFE_FAST = 6; // seconds, at Dry 0 and Dry 4
-const FADE = 0.7; // the snap: the lens lets go over this long
+const LIFE_SLOW = 40, LIFE_FAST = 3.5; // seconds, at Dry 0 and Dry 4
+const FADE = 0.6; // the snap: the lens lets go over this long
 const SP0 = 0.28; // the radius a drop has on touching, as a share of its own
 const SLIP_T = 0.3; // the contact line's retreat to the next ring
-const DISS_T = 0.75, DISS_K = 3.0; // a landing drop dissolves the older stain under it
+const DISS_T = 0.75, DISS_K = 2.0; // a landing drop dissolves the older stain under it
 const SP_GAP = 3.0; // the least spacing between two rings of one drop
 const R_INNER = 3.0; // the smallest ring
 const PRE = 210, PRE_DT = 0.4; // the glass has seen this much drying when the panel opens
 const MAX_DROPS = 60;
 
 // ---- the stain
-const AF = [0.7, 0.9]; // glaze strength of a drop
-const TAU_F = 38, TAU_R = 90, TAU_E = 60; // seconds for the glaze, the ring and the edge light to fade to 1/e
-const DECAY_STEP = 0.25;
-const FILM_GAIN = 0.85;
-const FILM_POW = 1.8; // a glaze shows as its strength to this power, so a faded one goes dim sooner than it goes away
+const AF = [0.55, 0.75]; // glaze strength of a drop
+const TAU_F = 42, TAU_R = 90, TAU_E = 65; // seconds for the glaze, the ring and the edge light to fade to 1/e
+const DECAY_STEP = 0.03; // the stains fade a little every frame
+const FILM_GAIN = 1.0;
+const FILM_POW = 1.4; // a glaze shows as its strength to this power, so a faded one goes dim sooner than it goes away
 
 // ---- colour
 const HN = 256;
@@ -84,9 +84,9 @@ function hsv(h, s, v, out, o) {
     // Orange, yellow and olive go brown when they are dim. In that band the glaze is paler and stronger, the lens brighter, and the ring a deep crimson in place of dark orange.
     const warm = exp(-(dh / 0.13) * (dh / 0.13));
     hsv(h, 0.78 - 0.22 * warm, 0.92 + 0.08 * warm, FILM, i * 3);
-    hsv(h + 0.03 - 0.21 * warm, 1.0, 0.17 + 0.3 * warm, RING, i * 3);
+    hsv(h + 0.03 - 0.21 * warm, 1.0, 0.26 + 0.25 * warm, RING, i * 3);
     hsv(h, 0.42, 1.0, EDGE, i * 3);
-    hsv(h, 0.74, 0.62 + 0.3 * warm, WET, i * 3);
+    hsv(h, 0.7, 1.0, WET, i * 3);
     WARM[i] = warm;
   }
 })();
@@ -115,6 +115,8 @@ function makeState() {
     ra: new Float32Array(NP), rc: new Float32Array(NP),
     ea: new Float32Array(NP),
     bufR: new Float32Array(NP), bufG: new Float32Array(NP), bufB: new Float32Array(NP),
+    baseR: new Float32Array(NP), baseG: new Float32Array(NP), baseB: new Float32Array(NP),
+    grR: new Float32Array(NP), grG: new Float32Array(NP), grB: new Float32Array(NP), gm: new Float32Array(NP),
     sheenA: noiseTex(6, 12), sheenB: noiseTex(4, 8),
     kn: [0, 2, 0, 0.06],
     grow: new Float32Array(8),
@@ -154,7 +156,7 @@ function newDrop(S, P, age) {
     }
     if (sc < best) { best = sc; cx = x; cy = y; }
   }
-  const T = cl(P.life * pow(R / P.rbar, 0.6) * (0.8 + 0.45 * rnd()), 4, 70);
+  const T = cl(P.life * pow(R / P.rbar, 0.4) * (0.8 + 0.45 * rnd()), 3, 70);
   // the rings: the outer edge sticks for a good part of the life, then lets go and sticks again further in
   const nmax = 1 + floor((R - R_INNER) / SP_GAP);
   let n = max(1, min(nmax, 6, 1 + floor(P.extra + rnd())));
@@ -182,7 +184,7 @@ function newDrop(S, P, age) {
     cx, cy, R, T, age, n, rk, ts, te, wk, lam, es,
     eoff: (second ? DYE_B : 0) + cl(0.045 * gauss(), -0.08, 0.08),
     af: AF[0] + (AF[1] - AF[0]) * rnd(),
-    m1: 5 + floor(rnd() * 5), m2: 11 + floor(rnd() * 6),
+    m1: 5 + floor(rnd() * 5), m2: 11 + floor(rnd() * 6), m3: 2 + floor(rnd() * 3), p5: rnd() * 6.283, p6: rnd() * 6.283,
     p1: rnd() * 6.283, p2: rnd() * 6.283, p3: rnd() * 6.283, p4: rnd() * 6.283,
   };
 }
@@ -204,7 +206,7 @@ function layersAt(d, r, grow) {
     const p = min(1, 1.5 * o * tl) * d.wk[k] * g;
     const hx = (-dd - 0.95) / 0.62;
     nr *= 1 - 0.97 * p;
-    ne *= 1 - (k === 0 ? 0.4 : 0.12) * exp(-hx * hx) * g;
+    ne *= 1 - (k === 0 ? 0.32 : 0.1) * exp(-hx * hx) * g;
   }
   QR = 1 - nr;
   QE = 1 - ne;
@@ -213,8 +215,8 @@ function layersAt(d, r, grow) {
 const ONES = new Float32Array(8).fill(1);
 
 // The drop has dried: its film, rings and edge light go onto the glass.
-function stampDrop(S, d) {
-  const e = d.eoff;
+function stampDrop(S, d, hue) {
+  const e = d.eoff, fgain = FILM_GAIN * (1 + 0.8 * WARM[hIdx(hue + d.eoff)]);
   const x0 = max(0, floor(d.cx - d.R - 3.5)), x1 = min(W - 1, ceil(d.cx + d.R + 3.5));
   const y0 = max(0, floor(d.cy - d.R - 3.5)), y1 = min(H - 1, ceil(d.cy + d.R + 3.5));
   const fa = S.fa, fc = S.fc, ra = S.ra, rc = S.rc, ea = S.ea;
@@ -226,7 +228,7 @@ function stampDrop(S, d) {
       const i = y * W + x;
       if (QF > 0.002) {
         // the new glaze lies over the older rings and edge light, as it does while the drop is still wet
-        const cv = 1 - pow(QF, FILM_POW) * FILM_GAIN;
+        const cv = 1 - min(1, pow(QF, FILM_POW) * fgain);
         ra[i] *= cv; rc[i] *= cv; ea[i] *= cv;
         fc[i] = fc[i] * (1 - QF) + QF * e; fa[i] += QF * (1 - fa[i]);
       }
@@ -272,7 +274,7 @@ function advance(S, dt, P) {
     d.age += dt;
     if (d.age < DISS_T + dt) dissolve(S, d, dt);
     if (d.age >= d.T + FADE) {
-      stampDrop(S, d);
+      stampDrop(S, d, P.hue);
       S.drops.splice(j, 1);
     }
   }
@@ -314,9 +316,31 @@ export function update(dt, input, params) {
 const ease = (x) => { const t = cl(x, 0, 1); return t * t * (3 - 2 * t); };
 const hIdx = (h) => ((h - floor(h)) * HN) | 0;
 
+// What the glass looks like at one LED, given the strength and dye of the glaze, the ring and the edge light there. It lands in CR, CG, CB.
+// The canvas and a drying drop both go through it, a drop with the fields as they would be if it dried at once, so nothing jumps when it does.
+let CR = 0, CG = 0, CB = 0;
+function composite(S, i, a, c, b, rcv, e, hue) {
+  let R = S.grR[i], G = S.grG[i], B = S.grB[i];
+  if (a > 0.003) {
+    const hx = hIdx(c / a + hue), hi = hx * 3, q = min(1, pow(a, FILM_POW) * FILM_GAIN * (1 + 0.8 * WARM[hx]));
+    R += (FILM[hi] - R) * q; G += (FILM[hi + 1] - G) * q; B += (FILM[hi + 2] - B) * q;
+  }
+  if (b > 0.003) {
+    const hi = hIdx(rcv / b + hue) * 3;
+    R += (RING[hi] - R) * b; G += (RING[hi + 1] - G) * b; B += (RING[hi + 2] - B) * b;
+  }
+  if (e > 0.003) {
+    const hi = hIdx((b > 0.02 ? rcv / b : a > 0.02 ? c / a : 0) + hue) * 3;
+    R += (EDGE[hi] - R) * e; G += (EDGE[hi + 1] - G) * e; B += (EDGE[hi + 2] - B) * e;
+  }
+  const m = S.gm[i];
+  CR = R * m; CG = G * m; CB = B * m;
+}
+
 function drawDrop(S, d, hue) {
   const t = d.age, T = d.T;
   const bufR = S.bufR, bufG = S.bufG, bufB = S.bufB, grow = S.grow;
+  const fa = S.fa, fc = S.fc, ra = S.ra, rc = S.rc, ea = S.ea;
   // which stage the contact line is in, and where it sits
   let k = 0;
   while (k + 1 < d.n && t >= d.ts[k + 1]) k++;
@@ -328,10 +352,9 @@ function drawDrop(S, d, hue) {
   for (let j = 0; j < d.n; j++) grow[j] = t >= T ? 1 : j < k ? 1 : j === k ? 0.04 + 0.96 * pow(cl((t - d.ts[k]) / (d.te[k] - d.ts[k]), 0, 1), 0.85) : 0;
   const f = t > T ? cl((t - T) / FADE, 0, 1) : 0; // the snap
   const ws = (1 - f) * (1 - f);
-  Rc *= spread(t) * (1 - 0.3 * ease(f));
+  Rc *= spread(t) * (1 - 0.5 * ease(f));
   const prog = cl(t / T, 0, 1), Hn = max(0, 1 - prog);
-  const hx = hIdx(hue + d.eoff), hi = hx * 3, fgain = FILM_GAIN * (1 + 0.8 * WARM[hx]);
-  const fr = FILM[hi], fg = FILM[hi + 1], fb = FILM[hi + 2];
+  const hx = hIdx(hue + d.eoff), hi = hx * 3, fgain = FILM_GAIN * (1 + 0.8 * WARM[hx]), eo = d.eoff;
   const rr = RING[hi], rg = RING[hi + 1], rb = RING[hi + 2];
   const er = EDGE[hi], eg = EDGE[hi + 1], eb = EDGE[hi + 2];
   const wr = WET[hi], wg = WET[hi + 1], wb = WET[hi + 2];
@@ -347,15 +370,24 @@ function drawDrop(S, d, hue) {
       const dx = x + 0.5 - d.cx, dy = y + 0.5 - d.cy, r = sqrt(dx * dx + dy * dy);
       if (r > reach) continue;
       const i = y * W + x;
-      let R = bufR[i], G = bufG[i], B = bufB[i];
       const lc = cl(Rc - r + 0.5, 0, 1) * (t < 0.04 ? t / 0.04 : 1);
       layersAt(d, r, grow);
-      // the glaze: already there in the dry ring left outside the lens, and coming in under the lens as it thins
-      const fw = min(1, pow(QF, FILM_POW) * fgain) * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f);
-      R += (fr - R) * fw; G += (fg - G) * fw; B += (fb - B) * fw;
+      // the fields as they would be if the drop dried now: the glaze is there in the dry ring left outside the lens, and comes in under the lens as it thins
+      let a = fa[i], c = fc[i], b = ra[i], rcv = rc[i], e = ea[i];
+      const q = QF * (k > 0 ? 1 - lc * ws * (1 - pf) : lc * pf * (1 - f) + f);
+      if (q > 0.002) {
+        const cv = 1 - min(1, pow(q, FILM_POW) * fgain);
+        b *= cv; rcv *= cv; e *= cv;
+        c = c * (1 - q) + q * eo; a += q * (1 - a);
+      }
+      if (QR > 0.002) { rcv = rcv * (1 - QR) + QR * eo; b += QR * (1 - b); }
+      if (QE > 0.002) e += QE * (1 - e);
+      composite(S, i, a, c, b, rcv, e, hue);
+      let R = bufR[i] + CR - S.baseR[i], G = bufG[i] + CG - S.baseG[i], B = bufB[i] + CB - S.baseB[i];
       if (lc > 0) {
         const wL = lc * ws, u = min(1, r / Rc), u2 = u * u;
-        const aL = (0.3 + 0.22 * Hn) * wL;
+        // the lens tints what is under it, but lets this drop's own ring through
+        const aL = (0.58 + 0.1 * Hn) * wL * (1 - 0.9 * QR);
         R += (wr - R) * aL; G += (wg - G) * aL; B += (wb - B) * aL;
         // thick in the middle, dark there
         const sh = 1 - 0.34 * Hn * pow(1 - u2, 1.2) * wL;
@@ -366,22 +398,17 @@ function drawDrop(S, d, hue) {
         // soft streaks running outwards
         if (flow > 0.01) {
           const th = atan2(dy, dx);
-          const st = sin(d.m1 * th + d.p1) * cos(2 * PI * (1.0 * u - 0.28 * t) + d.p2) + 0.6 * sin(d.m2 * th + d.p3) * cos(2 * PI * (1.5 * u - 0.4 * t) + d.p4);
-          const sg = 1 + (0.16 * st * sm(0.2, 0.55, u) * (0.3 + u) + 0.2 * sm(0.3, 1, u) * sm(0.3, 1, u)) * flow * lc;
+          const st = 0.5 * sin(d.m1 * th + d.p1) * cos(2 * PI * (1.0 * u - 0.55 * t) + d.p2) + 0.6 * sin(d.m2 * th + d.p3) * cos(2 * PI * (1.5 * u - 0.75 * t) + d.p4) + 0.8 * sin(d.m3 * th + d.p5) * cos(2 * PI * (0.8 * u - 0.45 * t) + d.p6);
+          const sg = 1 + (0.28 * st * sm(0.3, 0.7, u) * (0.3 + u) + 0.3 * sm(0.3, 1, u) * sm(0.3, 1, u)) * flow * lc;
           R *= sg; G *= sg; B *= sg;
         }
-      }
-      if (QR > 0.002) { R += (rr - R) * QR; G += (rg - G) * QR; B += (rb - B) * QR; }
-      if (QE > 0.002) { R += (er - R) * QE; G += (eg - G) * QE; B += (eb - B) * QE; }
-      if (lc > 0) {
-        const wL = lc * ws;
         // the bright rim of the lens, the glint of a lamp and the ripple of the landing
         const rx = (Rc - r - 0.8) / 1.2;
-        let add = exp(-rx * rx) * (0.25 + 0.75 * Hn) * 0.5 * (1 - 0.55 * grow[k]) * (1 + 1.4 * sin(PI * f));
+        let add = exp(-rx * rx) * (0.3 + 0.7 * prog) * 0.85 * (1 - 0.3 * grow[k]) * (1 + 1.8 * sin(PI * f));
         const gd = ((x + 0.5 - gx) * (x + 0.5 - gx) + (y + 0.5 - gy) * (y + 0.5 - gy)) / (2 * gs * gs);
         const gl = gd < 6 ? exp(-gd) * 0.5 * pow(Hn, 0.7) : 0;
         let ripple = 0;
-        if (rip > 0) { const q = (r - ripR) / 1.5; ripple = exp(-q * q) * rip; }
+        if (rip > 0) { const qq = (r - ripR) / 1.5; ripple = exp(-qq * qq) * rip; }
         add = (add + ripple) * wL;
         R += (er - R) * add + (255 - R) * gl * wL * 0.8;
         G += (eg - G) * add + (255 - G) * gl * wL * 0.8;
@@ -403,24 +430,10 @@ export function draw(display, params) {
   for (let i = 0; i < NP; i++) {
     const x = i & 63, y = i >> 6;
     const sh = S.sheenA[((y + ay) & 127) * W + ((x + ax) & 63)] * wa + S.sheenB[((y + by) & 127) * W + ((x + bx) & 63)] * wb;
-    const gm = 0.92 + 0.16 * sh;
-    let R = GROUND[0] + GROUND_V[0] * sh, G = GROUND[1] + GROUND_V[1] * sh, B = GROUND[2] + GROUND_V[2] * sh;
-    const a = fa[i];
-    if (a > 0.003) {
-      const hx = hIdx(fc[i] / a + hue), hi = hx * 3, q = min(1, pow(a, FILM_POW) * FILM_GAIN * (1 + 0.8 * WARM[hx]));
-      R += (FILM[hi] - R) * q; G += (FILM[hi + 1] - G) * q; B += (FILM[hi + 2] - B) * q;
-    }
-    const b = ra[i];
-    if (b > 0.003) {
-      const hi = hIdx(rc[i] / b + hue) * 3;
-      R += (RING[hi] - R) * b; G += (RING[hi + 1] - G) * b; B += (RING[hi + 2] - B) * b;
-    }
-    const c = ea[i];
-    if (c > 0.003) {
-      const hi = hIdx((b > 0.02 ? rc[i] / b : a > 0.02 ? fc[i] / a : 0) + hue) * 3;
-      R += (EDGE[hi] - R) * c; G += (EDGE[hi + 1] - G) * c; B += (EDGE[hi + 2] - B) * c;
-    }
-    bufR[i] = R * gm; bufG[i] = G * gm; bufB[i] = B * gm;
+    S.gm[i] = 0.92 + 0.16 * sh;
+    S.grR[i] = GROUND[0] + GROUND_V[0] * sh; S.grG[i] = GROUND[1] + GROUND_V[1] * sh; S.grB[i] = GROUND[2] + GROUND_V[2] * sh;
+    composite(S, i, fa[i], fc[i], ra[i], rc[i], ea[i], hue);
+    bufR[i] = S.baseR[i] = CR; bufG[i] = S.baseG[i] = CG; bufB[i] = S.baseB[i] = CB;
   }
   for (const d of S.drops) drawDrop(S, d, hue);
   for (let y = 0; y < H; y++) {
