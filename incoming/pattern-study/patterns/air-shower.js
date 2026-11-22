@@ -1,48 +1,54 @@
 // ===== Patternflow pattern =====
 // Title:   Air Shower
 // Family:  airshower
-// Idea:    Seen from above, a hexagonal grid of 104 round surface-detector tanks stands dark on the ground, and every few seconds a cosmic-ray air shower lands somewhere in it: the tanks flash one after another as the shower front sweeps across, blue-white where it arrived first and amber where it arrived last, the footprint stretched into an egg that points along the shower, then left behind as a dim map that fades over twenty seconds under the next ones.
+// Idea:    Seen from above, a hexagonal grid of 104 round surface-detector tanks stands on dark ground, and every two to six seconds a cosmic-ray air shower lands somewhere on it: the tanks flash one after another as the shower front sweeps across, blue-white where it arrived first and amber where it arrived last, the footprint an ellipse or an egg that points along the shower, then left behind as a dim map that fades over twenty seconds under the next ones.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: The surface array of the Pierre Auger Observatory, water-Cherenkov tanks on a triangular grid; Pierre Auger and colleagues found extensive air showers in 1938 by seeing detectors far apart fire together; the signal falls off with distance from the core as the Nishimura-Kamata-Greisen lateral distribution (Kamata and Greisen, 1958); tanks are coloured by the time the front reached them, the way an array's event display is, and the front is a plane with a slight curve.
+// Lineage: The surface detector of the Pierre Auger Observatory, water-Cherenkov tanks on a triangular grid; Pierre Auger and his colleagues found the extensive air showers in 1938 when detectors metres apart fired together; the signal falls off with distance from the core by the NKG lateral distribution (Kamata and Nishimura 1958, in Greisen's form); each tank is coloured by the time the front reached it, the way an array's event display is, and the front is a plane with a slight curve.
 // Round:   220
 // ===============================
 // @matrix 64x128
 // @knobs Hue=-0.1..0.5, Rate=0.5..3, Energy=-1..1, Zenith=-1..1
 //
-// Knob 1: Hue. Turns the arrival-time palette round the colour wheel by the knob. At the opening 0 the first tanks to fire are blue-white (115, 166, 255), then pale cyan and warm white (255, 247, 230), and the last are amber (255, 199, 97) to orange (242, 97, 15); the afterglow and the stray muons take the colours of the same palette. At 0.5 the order is reversed, amber first and blue last, and at 1 it is back at blue to amber. The resting grid stays a blue-grey.
-// Knob 2: Rate. How often a shower lands. The mean wait is 6 s at 0.5, 3.2 s at the opening 2 and 2 s at 4, and the waits are never the same twice, so two showers often overlap on the grid. At 0.5 the dim map holds three or four old footprints at a time and at 4 about ten, piled over each other.
-// Knob 3: Energy. The size and strength of the showers, on a log scale. At -1 a shower is 1 to 12 tanks big and mostly one tank flashes white, at the opening 0 it is 4 to 40 tanks with a saturated white core, and at 1 it is 15 to 90 tanks and now and then a fan from beyond the edge covers the panel. A tank's flash lasts 0.5 s when it is faint and about 1 s when it saturates.
-// Knob 4: Zenith. The angle of the shower from the vertical, 0 degrees at -1, 32 at the opening 0.06 and 60 at 1, with each shower 70 to 130 percent of that. At -1 the footprint is round and the tanks flash in rings out from the core within about 0.6 s. At 1 the footprint is an egg 1.9 times as long as wide with its blunt end at the front, the sweep runs 0.9 s edge to edge of the panel in a direction that is different for every shower, and the colour runs straight from blue to amber along it.
+// Knob 1: Hue. Turns the whole arrival-time palette round the colour wheel by the knob, and the resting ring with it. At the opening 0 the first tanks to fire are blue (102, 158, 255), then pale cyan (158, 214, 255) and warm white (255, 247, 230), and the last ones amber (255, 199, 92) to deep orange (235, 84, 13). At -0.1 it runs cyan to rose-red, at 0.1 violet to yellow, at 0.2 purple to lime, at 0.3 pink to green, at 0.4 red to teal, and at 0.5 the order is turned round, amber first and blue last. The afterglow and the muons take the same colours.
+// Knob 2: Rate. How often a shower lands. The mean wait is 6 s at 0.5, 2.7 s at the opening 2 and 2 s at 3, and each wait is 0.64 to 1.5 times that, so two showers often overlap. Averaged over 4 minutes, 28 of the 104 tanks carry an afterglow at 0.5, 60 at the opening and 70 at 3, and 1.7, 3.8 and 5 tanks are flashing at any moment, so at 0.5 the dim map holds three or four old footprints and at 3 about ten, piled over each other.
+// Knob 3: Energy. The size and strength of the showers, on a log scale. At -1 a shower lights 2 to 9 tanks at half brightness or more and none saturates, at the opening 0 it is 3 to 25 with a saturated white core now and then, and at 1 it is 5 to 73 with up to 7 tanks white, and the footprints then come in from beyond the panel edge as fans. A tank's flash lasts about 0.5 s when it is faint and 0.9 s when it saturates. Averaged over 4 minutes, 28 of the 104 tanks hold an afterglow at -1, 60 at 0 and 91 at 1.
+// Knob 4: Zenith. The angle of the shower from the vertical, 0 degrees at -1, 32 at the opening 0.06 and 60 at 1, each shower 70 to 130 percent of that. At -1 the footprint is round and the tanks flash in a ring that opens from the core in 0.1 to 0.3 s. At 1 the footprint is an egg 1.4 to 2.5 times as long as it is wide, the front crosses the lit tanks in 0.9 s on average (up to 1.6 s) along a direction that is different for every shower, and the colour runs from blue to amber along it. At the opening the sweep takes 0.3 s and the egg is 1.1 to 1.3 times as long as wide.
 
-// The panel is the ground seen from above. Tanks sit on a triangular lattice, 8 columns of 13 with a pitch of
-// 9.3 LEDs between neighbours and the odd columns shifted half a pitch down, so 104 tanks fill the panel, each a
-// disc of 5.4 LEDs with a soft edge. At rest a tank is a dim blue-grey ring (43, 56, 76) round a darker fill, on
-// ground that is a very dark warm brown with a slow mottle, so the lattice reads without anything being lit.
-// A shower is an event: a core on the ground (it may be up to 22 LEDs off the panel when the shower is large), an
-// azimuth, a zenith angle, and an energy that is log-uniform. The signal in tank i is the NKG form
-// S = E (r/r0)^-b (1 + r/r0)^-(b + n) with b = 0.8, n = 2.5 and r0 = 8 LEDs, where r is the distance from the axis
-// of the shower, so it is the ground distance with the part along the shower shrunk by cos(zenith); that makes
-// the footprint an ellipse 1/cos(zenith) times as long along the shower. On the downstream side the shower has
-// gone through more air, so r is stretched by exp(0.45 sin(zenith) x / 20) there and shrunk upstream, which turns
-// the ellipse into an egg with a fan on the upstream end. Every tank also gets its own log-normal wobble of 0.32,
-// so the edge of a footprint is ragged. The brightness is logarithmic in the signal, 0.16 at the threshold, 0.44 at
-// ten times it and 1 at a thousand times, and the brightest ones are white.
-// The front arrives at tank i at (x sin(zenith)) / 70 + 0.3 (r / 40)^2 seconds, x being the distance along the
-// shower from the core, so the plane sweeps at 70 LEDs a second for a shower at 90 degrees and the bowl adds the
-// slight curve: at zenith 0 it is a ring that opens from the core and slows as it goes. Each time carries 0.018 s of
-// jitter. A tank rises in 55 ms and falls on a tail of 0.5 s plus 0.45 s times its brightness. Whiteness is
-// brightness: above 0.6 a tank's colour goes toward white, and as the tail falls it returns to its colour. The
-// colour is the order of arrival: the earliest lit tank is 0 and the last of the bright ones is 1, with at least
-// 0.55 s between them, so a small shower is mostly blue-white and a large one runs the whole palette.
-// The state is the list of showers that are still flashing (at most 10) and, for each tank, how much afterglow it
-// carries and what mean arrival colour. When a tank fires it adds 0.07 + 0.26 times its brightness to the afterglow,
-// capped at 0.5, mixing in its arrival colour by weight, and the afterglow falls with a time constant of 9 s, so a
-// footprint is still there at 20 s. Showers keep adding, so the old footprints pile up and the panel is never
-// empty between them. Muons are single tanks at 0.14 to 0.3 that flash for 0.3 s every 2.2 s on average.
-// Waits are the sum of two exponentials. The first update runs 55 s of this at the opening knobs and then lands a
-// large shower 0.5 s before the first frame, so the first picture has a sweep, an afterglow map and a flash.
+// The panel is the ground seen from above. Tanks sit on a triangular lattice, 8 columns of 13 with 9.3 LEDs between
+// neighbours and the odd columns shifted half a pitch down, so 104 tanks fill the panel, each a disc 5.4 LEDs across
+// with a soft edge. At rest a tank is a dim blue-grey ring (15, 24, 38) round a darker fill (6, 10, 15), on ground
+// that is a very dark warm brown (13, 11, 9) with a slow mottle, so the lattice reads when nothing is lit. Each tank's
+// ring and fill drift on their own, by up to 75 and 45 percent on a memory of 20 s.
+// A shower is an event: a core on the ground (up to 22 LEDs off the panel when the shower is large), an azimuth, a
+// zenith angle and an energy E that is log-uniform between 10^1.15 and 10^2.15 at Energy -1 and 10^1.55 and 10^3.75 at
+// 1. The signal in tank i is the NKG form S = E (r/r0)^-b (1 + r/r0)^-(b + n) with b = 0.8, n = 2.5 and r0 = 8 LEDs, the
+// core softened to 0.3 r0, where r is the distance from the axis of the shower. That is the ground distance with its
+// part along the shower shrunk by cos(zenith), so the footprint is an ellipse 1/cos(zenith) times as long along the
+// shower as across it. On the downstream side the shower has gone through more air, so r is stretched by
+// exp(0.45 sin(zenith) x / 20) there and shrunk upstream, which turns the ellipse into an egg with a fan on the
+// upstream end. Each tank also takes its own log-normal wobble of 0.32, so the edge of a footprint is ragged. The
+// brightness is logarithmic in the signal: 0.4 at the threshold S = 1, 0.7 at ten times it and 1 at a hundred times.
+// The front reaches tank i at (x sin(zenith)) / 40 + 0.6 (r / 40)^2 seconds, x being the distance along the shower
+// from the core: the plane sweeps at 40 LEDs a second for a shower at 90 degrees, and the bowl adds the slight curve,
+// which for a vertical shower is a ring that opens from the core and slows as it goes. Each time carries 0.018 s of
+// jitter. A tank rises in 55 ms and falls on a tail of 0.46 s plus 0.4 s times its brightness. Whiteness is
+// brightness: from 0.55 up a tank's colour goes toward white, to 90 percent at 0.95, and as the tail falls it comes
+// back to its colour. The colour is the order of arrival: the first tank that lights is 0 and the last of the bright
+// ones (half brightness or more) is 1, with at least 0.55 s between them, so a small shower is mostly blue-white and a
+// large one runs the whole palette. About one shower in 200 is the rare one, E = 10^7.2 with its core on the panel and
+// its front four times as fast: all 104 tanks saturate in a white wash that sweeps across in about 1.2 s.
+// The state is the showers still flashing (at most 10), the afterglow of every tank and its mean arrival colour, and
+// the wander of every tank. When a tank fires it adds (0.075 + 0.45 times its brightness) times a share of 0.3 to 1
+// that it draws for itself to its afterglow, capped at 0.56, and the afterglow falls with a time constant of 15 s and
+// lets go below 0.13, so a footprint is gone by about 20 s. The newer colour wins where it is the stronger, and the
+// afterglow keeps 55 percent of the colour and has its own stops (blue, teal, gold, coral, rose), because a dim white is
+// grey and a dim amber is brown on the panel. Showers keep adding, so old footprints pile up and the panel is never
+// empty between them. A muon is one tank flashing at 0.18 to 0.38 for 0.3 s every 1.2 s on average, and it leaves the
+// same level of glow behind for a few seconds. Waits are the sum of two exponentials held between 0.64 and 1.5 times
+// their mean. The first update runs 55 s of this at the opening knobs and then lands a large shower 0.5 s before the
+// first frame and another at 1.3 to 1.7 s, so the first picture has a sweep, an afterglow map and a flash.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sin, cos, exp, sqrt, abs, log, pow } = Math;
@@ -64,7 +70,7 @@ const X0 = (W - (NC - 1) * DX) / 2, Y0 = 5.9;
 const R0 = 8, BETA = 0.8, ETA = 2.5;
 const KAPPA = 0.45, RS = 20; // the fan: more air on the downstream side
 const VSWEEP = 40; // LEDs a second at which the plane sweeps for a shower at 90 degrees
-const RC = 40, TC = 0.8; // the curve of the front: TC seconds at RC LEDs from the axis
+const RC = 40, TC = 0.6; // the curve of the front: TC seconds at RC LEDs from the axis
 const RISE = 0.055; // s
 const AG_TAU = 15; // s
 const WTAU = 20, WAMP = 0.75, FAMP = 0.45; // each tank's resting glow wanders by up to 75 percent on 20 s
@@ -244,8 +250,8 @@ export function setup(params) {
 
 // The resting grid: a ring and a darker fill in the hue of the palette's first colour.
 function rest(S) {
-  hsv2rgb(0.6 + S.k1, 0.5, 0.14, S.rim);
-  hsv2rgb(0.6 + S.k1, 0.5, 0.06, S.fill);
+  hsv2rgb(0.6 + S.k1, 0.62, 0.15, S.rim);
+  hsv2rgb(0.6 + S.k1, 0.6, 0.06, S.fill);
   S.restK = S.k1;
 }
 
@@ -307,7 +313,7 @@ function spawnEvent(S, mode) {
       const ls = lg + (-BETA * log(q) - (BETA + ETA) * log(1 + q)) * 0.4342945 + 0.32 * gauss() * 0.4342945;
       const b = ls < 0 ? 0.4 * sm(-0.45, 0, ls) : min(1, 0.4 + 0.3 * ls);
       bb[i] = b;
-      tt[i] = (sT * xu) / VSWEEP + TC * (rho / RC) ** 2 + 0.018 * gauss();
+      tt[i] = ((sT * xu) / VSWEEP + TC * (rho / RC) ** 2) * (mode === 2 ? 0.35 : 1) + 0.018 * gauss();
       if (b > 0.03) n++;
     }
   }
@@ -358,7 +364,7 @@ function stepEvent(S, e) {
   }
 }
 
-const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.6, 1.4);
+const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.6, 1.4) / 0.935; // mean 1
 
 function step(S, dt) {
   S.t += dt;
