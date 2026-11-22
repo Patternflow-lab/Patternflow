@@ -29,7 +29,7 @@
 // offset round the Hue knob so turning the knob recolours them). A drop that lands dissolves 90% of the older stain under its middle in
 // 0.75 s, and its own glaze covers what rings are left, so the later drop wins where they overlap. Glaze fades with a time constant of 38
 // s, rings 90 s and edge light 60 s, and the glaze shows as its strength to the power 1.8, so a stain is dim after a minute and gone in
-// three. The mean level stays within 7% over 900 s. The canvas is pre-run for 210 s with the opening knobs, so the first frame already
+// three. The mean level stays within 5% over 900 s. The canvas is pre-run for 210 s with the opening knobs, so the first frame already
 // has stains on it.
 
 const W = 64, H = 128, NP = W * H;
