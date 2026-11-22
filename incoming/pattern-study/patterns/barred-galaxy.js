@@ -1,20 +1,38 @@
 // ===== Patternflow pattern =====
 // Title:   Barred Galaxy
 // Family:  bargalaxy
-// Idea:    A barred spiral galaxy built only from orbits, tens of thousands of massless stars circling in a rotating bar potential until the bar glows amber along its length, a blue ring gathers at the outer resonance and spiral arms peel off the bar ends, while new stars keep being born on circular orbits and old ones fade, so the picture never settles.
+// Idea:    A barred spiral galaxy built only from orbits: 48 000 massless stars circle in a rotating bar potential until the bar glows amber along its length, a blue ring gathers near the outer resonance and spiral arms peel off the bar ends, while new stars keep being born on circular orbits and old ones fade, so the picture never settles.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the x1 family of bar-aligned orbits (George Contopoulos and Papayannopoulos, 1980); outer rings and arms as the response of stars to a bar near its Lindblad resonances (Schwarz, 1981); the quadrupole bar with a cubic radial profile (Walter Dehnen, 2000); Sandage and de Vaucouleurs' classes of barred spirals; leapfrog time stepping; pattern round 224
+// Lineage: the x1 family of bar-aligned orbits (George Contopoulos and Papayannopoulos, 1980); rings and arms as the response of a disk to a bar at its Lindblad resonances (Schwarz, 1981); the quadrupole bar with a cubic radial profile (Walter Dehnen, 2000); Edwin Hubble's barred spirals (1926); leapfrog time stepping; pattern round 224
 // Round:   224
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Pace=0.5..6, Bar=-1..1, Tilt=-1..1
+// @knobs Hue=0..1, Pace=0.6..6, Bar=-1..1, Tilt=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Pace.
-// Knob 3: Bar.
-// Knob 4: Tilt.
+// Knob 1: Hue. Turns the two tints round the wheel together and comes back at 1: amber bar with blue ring and arms at 0 and 1, a green bar with rose arms at 0.25, a blue bar in an orange disk at 0.5, a rose bar with green arms at 0.75. The two stay about 185 degrees apart and the faint halo sits 60 degrees past the cool one.
+// Knob 2: Pace. How fast the galaxy runs: the model clock goes at Pace over 2, so 0.3 times at 0.6, once at the opening 2 and 3 times at 6. The bar turns once in 43 s at 2 (143 s at 0.6, 14 s at 6), and a star lives 146 to 270 s at 2, so the ring and arms are renewed in a few minutes. The leapfrog step never goes over 0.04 units, so every pace is stable.
+// Knob 3: Bar. The strength of the bar. Its sideways pull at the bar end is 0 percent of the pull toward the centre at -1, a plain disk with no bar, 25 percent at -0.5, 50 percent at 0 where it opens, 62 percent at 0.5 and 73 percent at 1. Weak bars give a short amber oval inside a smooth blue disk, at 0 a thin bar with a ring and two arms, at 1 a broad bar that heats the whole disk and washes the arms out. The strength also wobbles by 20 percent on periods of 225 s and 390 s at Pace 2, and the pull answers the knob within about a second while the stars take a bar turn or two.
+// Knob 4: Tilt. The inclination of the disk to the line of sight: 40 degrees at -1, almost face on, where the disk is 76 LEDs tall and 58 wide, 59 at the opening 0.06 and 76 at 1, nearly edge on, a thin lens 112 rows tall and 27 wide with the bar a bright spindle in the middle. A wobble of 3 degrees on 97 s and a roll of the line of nodes of up to 6 degrees on 83 s and 131 s come on top.
+
+// What the picture is. The plane of a disk galaxy seen at an angle, its line of nodes along the panel's long axis.
+//   x = 32 + 56 (y cos i - z sin i)     y = 64 - 56 x      (disk plane x, y and height z in model units, then the roll)
+// The unit is the disk radius, 56 LEDs along the long axis at the opening, and the disk ends at 1. Every star is a mass-less point in the plane.
+// It feels a cored halo (circular speed squared 0.78 r^2 / (r^2 + 0.0625)), a Plummer bulge (mass 0.1, softening 0.07) and the bar, a quadrupole
+//   Phi = A cos(2 (phi - phiBar)) (2 - (r / 0.38)^3)  inside r = 0.38,   A cos(2 (phi - phiBar)) (0.38 / r)^3  outside,
+// with A negative so the bar is a minimum along its axis. The circular speed is flat at about 0.9, and the bar turns at 1.9 radians a unit, which puts
+// corotation near r = 0.47 and the outer Lindblad resonance near 0.8. That pattern speed wanders by 10, 7 and 5 percent on periods of 23.1, 37.7 and 61.3 units,
+// which do not divide one another, so the ring slides in and out by a few LEDs and never keeps one place.
+// A star is born at a random angle on a circular orbit with a scatter of 3 to 6 percent in speed, at a radius drawn from three groups: 9 percent in a bulge
+// (Rayleigh, sigma 0.07), 53 percent in an exponential disk (scale 0.22) and 38 percent spread evenly over the area from 0.3 to 1. It lives 16 units, 0.7 to 1.3 times that, fading in over 0.8 and out over the last 3, and is then born again
+// somewhere else. It also feels the bar only gradually, over its first 6 units, so it settles onto an orbit along the bar the way a star would if the bar had grown
+// slowly (a star pushed at full strength from the first moment is hot and fills the bar out into an oval). Time stepping is leapfrog,
+// one step a frame, and the first frame comes after 12 units of steps of 0.04, enough for the bar and the ring to stand.
+// Colour. How far a star's orbit is from circular, sqrt(vr^2 + 2 (vphi - vc)^2) / vc, decides its tint. Orbits trapped by the bar are hot and go amber, the cold
+// ones in the ring and arms go blue-white, and a cold star is 2.5 times as bright as a hot one. One star in 25 is 2.6 times brighter, which puts knots in the arms. Light is added into three layers by radius, a sharp one
+// inside 0.22, a layer blurred to about 1.2 LEDs and a half-resolution layer of about 2.5 LEDs outside 0.55, so the sparse outer disk does not break into dots. A dust lane
+// about 6 LEDs wide runs 4 LEDs off the bar's axis on its leading side at each end and darkens by up to 38 percent, scaled by the bar strength. The light loses a black point of 0.05 and goes through (1 - exp(-x)) to the power 1.6.
 
 const W = 64;
 const H = 128;
@@ -28,7 +46,6 @@ const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
-const lerp = (a, b, t) => a + (b - a) * t;
 
 const N = 48000; // test stars
 const TU = 13; // seconds of display per model unit at Pace 1
@@ -41,7 +58,7 @@ const RB = 0.38; // the bar potential turns over here
 const RB3 = RB * RB * RB;
 const EB2 = 0.04 * 0.04; // bar softening, squared
 const OMP0 = 1.9; // bar pattern speed, radians per unit
-const EPS0 = 0.4; // bar strength at Bar = 0: peak tangential force over radial force at the bar end
+const EPS0 = 0.4; // bar strength at Bar = 0: the bar's sideways pull at its end, in units of 1 / RB (the pull toward the centre there is 0.8 / RB)
 const LIFE = 16; // a star's life in units
 const RMAX = 1.18; // a star this far out is born again
 const GROW = 6; // a star feels the bar fully only after this many units
@@ -120,14 +137,14 @@ export function setup(params) {
 // The pattern speed wanders on three periods that do not divide each other.
 function ompOf(S, t) {
   const p = S.ph;
-  return OMP0 * (1 + 0.1 * sin((TAU * t) / 23.1 + p[0]) + 0.07 * sin((TAU * t) / 37.7 + p[1]) + 0.05 * sin((TAU * t) / 61.3 + p[2]));
+  return OMP0 * (1 + 0.13 * sin((TAU * t) / 23.1 + p[0]) + 0.09 * sin((TAU * t) / 37.7 + p[1]) + 0.06 * sin((TAU * t) / 61.3 + p[2]));
 }
 
 // Strength of the bar potential, as the amplitude A (negative: the bar is a minimum along its axis).
 function ampOf(S, t, bar) {
   const p = S.ph;
   const eps = bar < 0 ? EPS0 * (1 + bar) : EPS0 * (1 + 0.45 * bar);
-  const wob = 1 + 0.12 * sin((TAU * t) / 17.3 + p[3]) + 0.08 * sin((TAU * t) / 29.9 + p[4]);
+  const wob = 1 + 0.18 * sin((TAU * t) / 17.3 + p[3]) + 0.12 * sin((TAU * t) / 29.9 + p[4]);
   return -0.5 * eps * wob * S.ramp;
 }
 
@@ -208,7 +225,7 @@ export function update(dt, input, params) {
   const rate = [0.3, 0.5, 0.8, 0.5];
   for (let i = 0; i < 4; i++) sk[i] += (k[i] - sk[i]) * (1 - exp(-dt / rate[i]));
   S.wall += dt;
-  const pace = cl(sk[1], 0.3, 8) / 2;
+  const pace = cl(sk[1], 0.6, 6) / 2;
   const h = (dt * pace) / TU;
   S.A = ampOf(S, S.t, sk[2]);
   if (h > 0) step(S, h, S.A);
@@ -268,18 +285,23 @@ export function draw(display, params) {
   hueRGB(0.6 + sk[0], 0.52, TC);
   hueRGB(0.76 + sk[0], 0.55, TV);
   // the view: inclination, a slow roll of the line of nodes, and a small wobble of the tilt
-  const incl = ((58 + 18 * cl(sk[3], -1, 1)) * PI) / 180 + 0.05 * sin((TAU * t) / 97 + S.ph[5]);
+  const incl = min(1.4, ((58 + 18 * cl(sk[3], -1, 1)) * PI) / 180 + 0.09 * sin((TAU * t) / 97 + S.ph[5]) + 0.07 * sin((TAU * t) / 151 + S.ph[8]));
   const ci = cos(incl), si = sin(incl);
-  const roll = 0.07 * sin((TAU * t) / 83 + S.ph[6]) + 0.04 * sin((TAU * t) / 131 + S.ph[7]);
+  const roll = 0.1 * sin((TAU * t) / 83 + S.ph[6]) + 0.06 * sin((TAU * t) / 131 + S.ph[7]) + 0.04 * sin((TAU * t) / 197 + S.ph[9]);
+  const ox = 4.5 * sin((TAU * t) / 109 + S.ph[10]) + 3 * sin((TAU * t) / 167 + S.ph[11]);
+  const oy = 6 * sin((TAU * t) / 127 + S.ph[2]) + 3 * sin((TAU * t) / 181 + S.ph[4]);
+  // young stars come in bursts and the exposure breathes a little, on periods that do not divide the others
+  const sfr = 1 + 0.26 * sin((TAU * t) / 147 + S.ph[0]) + 0.16 * sin((TAU * t) / 233 + S.ph[1]);
+  const expo = 1 + 0.08 * sin((TAU * t) / 71 + S.ph[6]) + 0.05 * sin((TAU * t) / 119 + S.ph[7]);
   const cr = cos(roll), sr = sin(roll);
-  const sc = min(56, 29 / max(0.25, ci));
+  const sc = min(56, 29 / max(0.25, ci)) * (0.92 + 0.08 * sin((TAU * t) / 113 + S.ph[3]));
   const coolTop = 0.45 + 2 * max(0, -S.A - 0.2);
   for (let i = 0; i < N; i++) {
     const x = px[i], y = py[i], z = pz[i];
     const u0 = y * ci - z * si;
     const v0 = x;
-    const sx = 32 + sc * (u0 * cr - v0 * sr);
-    const sy = 64 - sc * (u0 * sr + v0 * cr);
+    const sx = 32 + ox + sc * (u0 * cr - v0 * sr);
+    const sy = 64 + oy - sc * (u0 * sr + v0 * cr);
     if (sx < 1 || sx > W - 2 || sy < 1 || sy > H - 2) continue;
     const r2 = x * x + y * y;
     const r = sqrt(r2);
@@ -294,7 +316,7 @@ export function draw(display, params) {
     const dv = vt - vc;
     const hot = sqrt(vr * vr + 2 * dv * dv) / (vc + 0.05);
     const cool = 1 - sm(0.1, coolTop, hot);
-    const w = 0.095 * env * bri[i] * (0.75 + 1.1 * cool);
+    const w = 0.095 * expo * env * bri[i] * (0.75 + 1.1 * sfr * cool);
     const wr = w * (TW[0] * (1 - cool) + TC[0] * cool);
     const wg = w * (TW[1] * (1 - cool) + TC[1] * cool);
     const wb = w * (TW[2] * (1 - cool) + TC[2] * cool);
@@ -348,7 +370,7 @@ export function draw(display, params) {
     const y0 = max(0, min(HH - 1, floor(hy)));
     const y1 = min(HH - 1, y0 + 1);
     const fy = cl(hy - y0, 0, 1);
-    const syr = (64 - (y + 0.5)) / sc;
+    const syr = (64 + oy - (y + 0.5)) / sc;
     for (let x = 0; x < W; x++) {
       const hx = x * 0.5 - 0.25;
       const x0 = max(0, min(HW - 1, floor(hx)));
@@ -357,7 +379,7 @@ export function draw(display, params) {
       const o = (y * W + x) * 3;
       const a = (y0 * HW + x0) * 3, b = (y0 * HW + x1) * 3, c = (y1 * HW + x0) * 3, d = (y1 * HW + x1) * 3;
       // the pixel's place on the disk plane, for the dust lane and the halo
-      const sxr = (x + 0.5 - 32) / sc;
+      const sxr = (x + 0.5 - 32 - ox) / sc;
       const gy = (sxr * cr + syr * sr) / ci;
       const gx = -sxr * sr + syr * cr;
       const rp2 = gx * gx + gy * gy;
