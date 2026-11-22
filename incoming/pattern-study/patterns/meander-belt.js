@@ -9,7 +9,7 @@
 // Round:   215
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Flow=0..16, Drive=-1..1, Width=-1..1
+// @knobs Hue=0..1, Flow=0..12, Drive=-1..1, Width=-1..1
 //
 // Knob 1: Hue. Placeholder.
 // Knob 2: Flow. Placeholder.
@@ -27,7 +27,7 @@ const mix = (a, b, u) => a + (b - a) * u;
 const Y0 = -40, Y1 = 150; // the river enters above the panel and leaves below it
 const CAP = 1400;
 const OMEGA = 1; // local curvature term, which pulls a bend back toward its centre
-const GAM0 = 2.0; // upstream-weighted term, which pushes it out and downstream
+const GAM0 = 2.2; // upstream-weighted term, which pushes it out and downstream
 const K3F = 1.2; // how much the Drive knob scales the upstream term, per unit
 const E0 = 1.6; // bank erodibility at the 3.5 LED channel
 const ALPHA0 = 0.9; // 1 / (length of the upstream memory), times the channel width
@@ -402,7 +402,7 @@ export function update(dt, input, params) {
     prerun(S);
   }
   S.Wc += (wt - S.Wc) * (1 - exp(-d / 0.35));
-  const f = cl(kn[1], 0, 16) * 0.5;
+  const f = pow(cl(kn[1], 0, 12) * 0.5, 1.5);
   S.flowT += (d * 1.1 * f) / (1 + 0.25 * f);
   advance(S, d * f);
 }
@@ -578,7 +578,7 @@ export function draw(display, params) {
         const b2 = 0.5 + 0.5 * sin(TWO_PI * (ra[p] / 29 - ft * 0.65) - 0.6 * qq + 1.9);
         const st = 0.7 * b1 + 0.3 * b2;
         let wr = mix(P[I.deep], P[I.core], c), wg = mix(P[I.deep + 1], P[I.core + 1], c), wb = mix(P[I.deep + 2], P[I.core + 2], c);
-        const gl = st * 0.62 * (0.3 + 0.7 * c);
+        const gl = st * 0.8 * (0.3 + 0.7 * c);
         wr = mix(wr, P[I.glint], gl);
         wg = mix(wg, P[I.glint + 1], gl);
         wb = mix(wb, P[I.glint + 2], gl);
