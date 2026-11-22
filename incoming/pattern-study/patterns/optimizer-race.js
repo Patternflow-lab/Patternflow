@@ -11,35 +11,38 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Rate=0..3, Relief=-1..1, Noise=-1..1
 //
-// Knob 1: Hue. Turns the whole picture round the colour wheel, the bands and the five racers together so they keep their places against each other. At 0 the lowlands are deep blue-teal, then sea green, olive and sand, amber and rust, and pale rose on the highest ground, with the racers pink, violet, azure, lemon and white against it; at 0.33 the lowlands are violet and the rust is green.
-// Knob 2: Rate. The learning rate of all five, one number. Gradient descent steps by rate times the slope, momentum and Nesterov by a smaller rate (they pile steps up), RMSProp and Adam by rate times a fixed length per step. At 0.25 everyone crawls (gradient descent about 4 LEDs a second along the valley floor, Adam about 6) and the loops are tight; at 1, where it opens, the zig-zag of gradient descent is a 4 to 7 LED swing that dies out in a second and momentum rings across the valley with a wavelength of about 14 LEDs; at 2.5 gradient descent is at the edge of stability, swinging 12 LEDs wall to wall for seconds, momentum rings wide and past the end of the valley, and Adam and RMSProp run about 10 times as fast as at 0.25.
-// Knob 3: Relief. How hard the ground is to descend. At 0 the valley is 16 LEDs across the floor and the walls are gentle, the three basins are deep and the hills low, so the landscape is a few wide bowls and everyone arrives; at 0.4, where it opens, the floor is about 9 LEDs across; at 1 it is a 5 LED canyon with steep walls, the basins are half as deep and the ridges twice as high, the contours crowd, and the surface morphs 2.5 times as fast. The narrower the valley the harder it is on gradient descent and the more the adaptive methods win.
-// Knob 4: Noise. Gradient noise, the stochastic part of stochastic gradient descent, added to every gradient the racers read. At 0 the paths are the clean textbook curves; at 0.3, where it opens, they shiver by a fraction of a LED; at 1 the noise is as strong as the slope of the valley floor several times over, gradient descent and momentum wander like drunks along the valley while RMSProp and Adam, which divide by the noise they hear, still make headway in a jittery line.
+// Knob 1: Hue. Turns the bands and the five racers round the colour wheel together, so the racers keep their place against the ground. At 0 the lowlands are deep blue-teal, then sea green, olive and sand, amber and rust, with brown-rose on the high ground and a pale rose peak now and then; the racers are pink (gradient descent), violet (momentum), azure (Nesterov), lemon (RMSProp) and white (Adam). At 0.25 the valley is violet on a green plain, at 0.5 maroon on pale blue, at 0.75 dark green on pink, and at 1 it is back where it began.
+// Knob 2: Rate. The learning rate of all five at once, 0.25 times 4 to the power Rate / 2: a quarter at 0, a half at 1, one at 2 (where it opens), two at 3. Gradient descent steps by the rate times 1.9 over the stiffness of the valley across it, so at 2 it sits just inside the limit of stability, a zig-zag across the floor that takes about twenty steps to die, and above 2.1 it does not converge any more and swings from wall to wall, clipped at 4 LEDs a step. Momentum and Nesterov use 0.26 and 0.34 over the same stiffness (they pile steps up, 0.95 of the last step is kept), RMSProp and Adam step 1.2 and 2.2 LEDs times the rate. Along the valley, over a run's first 3 s, they make about 3 to 6 LEDs a second at 0 (gradient descent slowest), 11 (gradient descent) to 20 (Nesterov, Adam) at 2, and at 3 gradient descent and RMSProp 15 while momentum, Nesterov and Adam make 28 to 32. At 2 momentum rings across the floor in a wave 20 to 30 LEDs long that takes a few seconds to die. The ground drifts with the same clock, 0.85 as fast at 0 and 1.2 times as fast at 3.
+// Knob 3: Relief. How narrow and how rugged the ground is. The valley is a trench 2 sigma across its floor, 10 LEDs at -1, 5.5 at 0 (where it opens) and 3 at 1, with walls that climb 0.040, 0.046 and 0.052 a LED, so the stiffness across rises 4.3 times and gradient descent, which scales its rate to it, crawls about 4 times slower at 1 than at -1 while RMSProp and Adam do not care. The three wells are 1.1 times as deep at -1, 0.83 at 0 and 0.55 at 1, the two ridges 0.65, 1 and 1.35 times as high. At -1 the contours are wide and calm, at 1 they crowd round a narrow canyon with steeper ridges beside it.
+// Knob 4: Noise. How much the gradients the racers read are shaken, the stochastic part of stochastic gradient descent. The level is ((Noise + 1) / 2) squared: 0 at -1, 0.06 at -0.5, 0.25 at 0, 0.28 at 0.06 (the opening), 1 at 1. It does two things. It adds a white shake of 0.007 times the level to each axis of every gradient, and it raises five slow travelling ripples, 13 to 22 LEDs long, out of the ground, 0.03 times the level high each, so the contours wobble and the racers feel their slope: at level 1 the noise is about 0.02 a LED against a floor slope of 0.005 to 0.009 and a wall slope of 0.05. At -1 the paths are the clean curves; at the opening they shiver by a fraction of a LED; at 1 gradient descent and momentum wander along the valley and loop out of it, while RMSProp and Adam, which divide by the noise they hear, still go on in a jittery line.
 
-// What the picture is. The panel is a map, 64 by 128 LEDs, of a height h(x, y), drawn the way a hypsometric map is drawn: twelve flat colour
-// bands from deep blue-teal in the lowest ground through sea green, olive, sand, amber and rust to pale rose on the heights. A band edge is a
-// contour line, anti-aliased over one LED, with no line drawn on it. The ground is a sum of terms: a long banana valley, a pseudo-Huber trench
-// h = A (sqrt(s^2 + d^2) - s) round a centre line x = c(y) (a sine of 170 LEDs or so plus a small travelling ripple), which is stiff across
-// (curvature A / s) and shallow along, the Rosenbrock shape; a tilt along it that drains toward a basin at its end; three anisotropic Gaussian
-// wells; and two Gaussian ridges. All of them are rotated and scaled by amounts that drift on periods of 40 to 165 s that do not divide
-// one another, so the wells deepen and fade, wander through each other and through the valley, the valley bends and shortens, the basin at
-// its end slides up and down, and the contours flow slowly over the panel. The sum is compressed (u / (1 + u / 1.6)) so the far highlands
-// do not go flat. Nothing is cached between frames but the time.
+// What the picture is. A map of a height h(x, y), 64 by 128 LEDs, tinted as a hypsometric map is: twelve flat bands from deep blue-teal in
+// the lowest ground through sea green, olive, sand, amber and rust to rose on the heights, the tops eased so the pale rose is a peak and
+// not a plain. A band edge is a contour, anti-aliased over one LED, with no line drawn on it. The ground is a sum. The valley is a
+// pseudo-Huber trench wall = A (sqrt(s^2 + d^2) - s) round a centre line x = c(y) (a sine of 140 to 210 LEDs plus a 3 LED travelling
+// ripple), d the distance across: stiff across (curvature A / s), shallow along, the Rosenbrock shape, its walls levelling off to a plateau.
+// A parabolic tilt drains it toward a basin that slides up and down the panel. Beside it the plateau has three anisotropic Gaussian
+// wells, two ridges, three broad swells and four knolls and dips, all rotated and scaled on periods of 40 to 165 s of the ground's own clock (it runs about twice as fast as the panel's,
+// and the periods do not divide one another), so pools deepen, fade and wander through each other and the contours flow for as long as it runs; these terms fade out toward
+// the valley floor (gone within s + 1 LED of the axis, whole by s + 13) so the valley stays a valley. The sum is compressed
+// (u / (1 + u / 2.6)), stretched about the plateau by 1.3, and a slow sea level lifts and lowers it all while the whole ground leans a little east, then west. The smooth part is evaluated on a
+// lattice 2 LEDs apart (33 by 65, bilinear), the valley per LED.
 //
-// Five racers each run one update rule on the true gradient of that surface, read analytically, two iterations a frame (60 a second):
+// Five racers each run one update rule on the true gradient, read analytically, 15 iterations a second (the comet is interpolated
+// between iterations at 30 frames a second):
 //   gradient descent   x <- x - lr g                                                   (Cauchy)
-//   momentum           v <- 0.9 v - lr g ; x <- x + v                                  (Polyak's heavy ball)
-//   Nesterov           v <- 0.9 v - lr g(x + 0.9 v) ; x <- x + v                       (gradient read where the step is about to land)
+//   momentum           v <- 0.95 v - lr g ; x <- x + v                                 (Polyak's heavy ball)
+//   Nesterov           v <- 0.95 v - lr g(x + 0.95 v) ; x <- x + v                     (gradient read where the step is about to land)
 //   RMSProp            s <- 0.9 s + 0.1 g^2 ; x <- x - a g / (sqrt(s) + e)             (per axis)
 //   Adam               m <- 0.9 m + 0.1 g ; s <- 0.99 s + 0.01 g^2 ; x <- x - a m^ / (sqrt(s^) + e)   (bias-corrected, per axis)
-// with a step clipped to 3 LEDs so none of them can blow up, and zero-mean noise added to g by the Noise knob. Each racer is always the
-// same optimizer and keeps its own colour, so the eye learns which path is which. A racer is a comet: a bright head 3.6 LEDs across with a
-// white-hot core, and behind it the path of the last 4.6 seconds, 2 to 3 LEDs wide, fading and thinning with age, each drawn over a soft
-// dark halo so it reads on any band. A racer settles when the smoothed gradient it feels has been tiny for a while, or it has run its 18 to 32 s, or it has
-// left the panel; it then fades in a second, waits a random 0.3 to 2.3 s and starts again. Starts come in two kinds: at a high end of the
-// valley, off its axis, so the zig-zag and the rings have something to do; or at the highest of eight random spots. Racers that start
-// within six seconds of each other start within 3 LEDs of the same place, so there is often a real race. The first update runs 10 s of
-// the race with the opening knobs before the first frame, so trails are already on the ground.
+// A step is clipped to 4 LEDs so none of them blows up. Each racer is always the same optimizer in its own colour. A racer is a comet: a
+// head 4 LEDs across with a white-hot core and a dark halo, and behind it a path about 4 LEDs wide, drawn into a buffer of its own that
+// fades with a time constant of 4.2 s while its soft edges erode, so the tail thins as it dims, over a soft dark halo so it reads on any
+// band. A racer is done when it has stayed inside a few LEDs for 2.4 s, or the gradient it feels has been tiny, or it has run its 18 to 32 s,
+// or it has left the panel; it fades in a second, waits 0.4 to 2.3 s and starts again. Starts: upstream on the valley floor, 28 to 78 LEDs
+// from its lowest point and a little off the axis (78 in 100), or the highest of eight random spots on a slope. Racers that start within 6 s
+// of each other start within 3 LEDs of the same place, so there is often a real race. They begin staggered, and the first update runs 10 s
+// of the race with the knobs it is given, so the first frame has comets and trails on the ground.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, abs, exp, sin, cos, PI, min, max, pow } = Math;
@@ -53,19 +56,9 @@ const sm = (a, b, v) => {
 // ---- colours: bands and racers, as HSV, turned together by Hue
 const NB = 12;
 const BANDS = [
-  [0.57, 0.80, 0.42],
-  [0.535, 0.72, 0.50],
-  [0.49, 0.62, 0.57],
-  [0.42, 0.50, 0.64],
-  [0.32, 0.40, 0.70],
-  [0.20, 0.32, 0.78],
-  [0.13, 0.29, 0.88],
-  [0.095, 0.42, 0.90],
-  [0.065, 0.48, 0.80],
-  [0.04, 0.50, 0.68],
-  [0.025, 0.36, 0.62],
-  [0.97, 0.10, 0.93],
-];
+  [0.57, 0.80, 0.42], [0.535, 0.72, 0.50], [0.49, 0.62, 0.57], [0.42, 0.50, 0.64], [0.32, 0.40, 0.70], [0.20, 0.32, 0.78],
+  [0.13, 0.29, 0.88], [0.095, 0.42, 0.90], [0.065, 0.48, 0.80], [0.04, 0.50, 0.68], [0.025, 0.36, 0.62], [0.97, 0.10, 0.93],
+]; // hue, saturation, value, lowest ground first
 const RACERS = [
   [0.915, 0.80, 1.0], // gradient descent
   [0.76, 0.62, 1.0], // momentum
@@ -96,60 +89,19 @@ const HLO = 0.0, HHI = 1.08;
 const BAND_SCALE = NB / (HHI - HLO);
 const CGAIN = 1.3, CMID = 0.5; // contrast about the plateau, so the bands are used from end to end (the slope the racers feel is not touched)
 const HOFF = 0.1;
-const WELL = [
-  // base depth, sigma x, sigma y, angle, side of the valley
-  [0.2, 4.5, 7, 0.6, 1],
-  [0.18, 5.5, 6.5, -0.9, -1],
-  [0.16, 6.5, 9, 1.4, 1],
-];
-const WELL_MOVE = [
-  // offset from the valley, its swing, its period, cy amp, cy period, phases
-  [22, 8, 83.1, 46, 117.3, 0.4, 2.2],
-  [23, 8, 61.7, 40, 97.9, 3.3, 5.0],
-  [25, 9, 143.7, 56, 71.3, 1.2, 4.1],
-];
-const RIDGE = [
-  [0.42, 5, 15, 0.9],
-  [0.38, 7.5, 12, -0.5],
-];
-const SWELL = [
-  // amplitude, sigma
-  [0.4, 17],
-  [-0.3, 21],
-  [0.32, 14],
-];
-const SWELL_MOVE = [
-  [26, 131.3, 52, 89.9, 2.4, 0.3],
-  [22, 97.1, 48, 149.3, 5.5, 3.9],
-  [28, 73.7, 56, 113.9, 1.1, 5.2],
-];
-const KNOLL = [
-  // amplitude, sigma
-  [0.16, 8.5],
-  [-0.14, 10],
-  [0.18, 7.5],
-  [-0.12, 9.5],
-];
-const KNOLL_MOVE = [
-  [24, 47.3, 50, 61.7, 0.2, 1.9],
-  [26, 39.1, 46, 53.3, 3.1, 4.4],
-  [22, 59.9, 54, 43.7, 5.2, 0.7],
-  [27, 51.7, 44, 67.1, 2.3, 3.5],
-];
-const RIDGE_MOVE = [
-  [22, 109.3, 40, 151.9, 0.9, 3.6],
-  [18, 77.9, 48, 63.7, 4.4, 1.7],
-];
+// each term: depth or height, sigma along, sigma across, angle (wells also the side of the valley); then how it wanders:
+// reach, swing, period (s) in x, reach and period in y, two phases
+const WELL = [[0.2, 4.5, 7, 0.6, 1], [0.18, 5.5, 6.5, -0.9, -1], [0.16, 6.5, 9, 1.4, 1]];
+const WELL_MOVE = [[22, 8, 83.1, 46, 117.3, 0.4, 2.2], [23, 8, 61.7, 40, 97.9, 3.3, 5.0], [25, 9, 143.7, 56, 71.3, 1.2, 4.1]];
+const RIDGE = [[0.42, 5, 15, 0.9], [0.38, 7.5, 12, -0.5]];
+const RIDGE_MOVE = [[22, 109.3, 40, 151.9, 0.9, 3.6], [18, 77.9, 48, 63.7, 4.4, 1.7]];
+const SWELL = [[0.4, 17], [-0.3, 21], [0.32, 14]];
+const SWELL_MOVE = [[26, 131.3, 52, 89.9, 2.4, 0.3], [22, 97.1, 48, 149.3, 5.5, 3.9], [28, 73.7, 56, 113.9, 1.1, 5.2]];
+const KNOLL = [[0.16, 8.5], [-0.14, 10], [0.18, 7.5], [-0.12, 9.5]];
+const KNOLL_MOVE = [[24, 47.3, 50, 61.7, 0.2, 1.9], [26, 39.1, 46, 53.3, 3.1, 4.4], [22, 59.9, 54, 43.7, 5.2, 0.7], [27, 51.7, 44, 67.1, 2.3, 3.5]];
 
-// the minibatch ripple: five travelling waves of 8 to 14 LEDs that the Noise knob raises out of the ground
-const RIP = [
-  // wavelength, direction, rate (rad/s), phase
-  [14.1, 0.3, 2.3, 0.4],
-  [17.3, 1.1, -1.9, 2.6],
-  [21.7, 1.9, 2.9, 4.1],
-  [12.9, 2.8, -2.6, 1.2],
-  [15.9, 3.6, 2.1, 5.3],
-];
+// the minibatch ripple: five travelling waves of 13 to 22 LEDs that the Noise knob raises out of the ground
+const RIP = [[14.1, 0.3, 2.3, 0.4], [17.3, 1.1, -1.9, 2.6], [21.7, 1.9, 2.9, 4.1], [12.9, 2.8, -2.6, 1.2], [15.9, 3.6, 2.1, 5.3]]; // wavelength, direction, rate (rad/s), phase
 const NRIP = RIP.length;
 
 function prepSurface(S, tm, k3, k4) {
@@ -161,7 +113,9 @@ function prepSurface(S, tm, k3, k4) {
   }
   S.sig = 5 * pow(0.3, k3);
   S.wallA = 0.04 + 0.012 * k3;
-  S.ac = 13 + 5 * sin((TAU * tm) / 101.3 + 0.7);
+  S.ac = 13 + 7 * sin((TAU * tm) / 101.3 + 0.7);
+  S.hoff = HOFF + 0.1 * sin((TAU * tm) / 173.3 + 1.1) + 0.06 * sin((TAU * tm) / 89.7 + 4.2); // the sea level, as it were, rises and falls under the bands
+  S.ew = 0.12 * sin((TAU * tm) / 77.3 + 0.9) + 0.06 * sin((TAU * tm) / 131.1 + 3.4); // and the whole ground leans a little east, then west
   S.ly = 175 + 35 * sin((TAU * tm) / 163.1 + 2.0);
   S.ys = 24 + 22 * sin((TAU * tm) / 137.9 + 4.1);
   S.lb = 43 + 8 * sin((TAU * tm) / 89.7 + 1.2);
@@ -222,10 +176,11 @@ function fieldGrad(S, x, y) {
   const dxc = ((S.ac * TAU) / S.ly) * cos(a1) + ((3 * TAU) / S.lb) * cos(a2);
   const d = x - xc, sg = S.sig, rr = sqrt(sg * sg + d * d);
   const wl = S.wallA * (rr - sg), wd = DW / (DW + wl), wf = wd * wd;
-  let u = DW * wl / (DW + wl) + HOFF;
+  let u = DW * wl / (DW + wl) + S.hoff;
   let ux = ((S.wallA * d) / rr) * wf, uy = -ux * dxc;
   const fy = (y - S.ym) * (1 / 64);
-  u += S.fl * fy * fy;
+  u += S.fl * fy * fy + S.ew * (x - 32) * (1 / 32);
+  ux += S.ew * (1 / 32);
   uy += (2 * S.fl * fy) / 64;
   let v = 0, vx = 0, vy = 0;
   for (let k = 0; k < NG; k++) {
@@ -288,7 +243,7 @@ function lattice(S) {
     }
     for (let i = 0; i < GW; i++) {
       const xx = 2 * i;
-      let u = base, v = 0;
+      let u = base + S.ew * (xx - 32) * (1 / 32), v = 0;
       for (let k = 0; k < NG; k++) {
         const uu = S.gc[k] * xx + S.ucs[k], vv = S.vcs[k] - S.gs[k] * xx;
         const q = uu * uu * S.gix[k] + vv * vv * S.giy[k];
@@ -314,14 +269,14 @@ function raster(S) {
       const wl = A * (sqrt(sg * sg + d * d) - sg);
       const gx = xx * 0.5, i0 = gx | 0, fi = gx - i0;
       const top = gl[o0 + i0] + (gl[o0 + i0 + 1] - gl[o0 + i0]) * fi, bot = gl[o1 + i0] + (gl[o1 + i0 + 1] - gl[o1 + i0]) * fi;
-      const u = HOFF + (DW * wl) / (DW + wl) + top + (bot - top) * fj;
+      const u = S.hoff + (DW * wl) / (DW + wl) + top + (bot - top) * fj;
       hgt[row + x] = u > 0 ? u / (1 + u / HS) : u;
     }
   }
 }
 
 // ---- the racers
-const IT_HZ = 12; // iterations a second; the drawn comet is interpolated between iterations
+const IT_HZ = 15; // iterations a second; the drawn comet is interpolated between iterations
 const IT_DT = 1 / IT_HZ;
 const BETA = 0.95;
 const MAXSTEP = 4;
@@ -348,7 +303,7 @@ function makeRacer(id) {
 function makeState() {
   return {
     ready: false, t: 0, tm: 0, acc: 0, kn: [0, 2, 0, 0.06],
-    sig: 5, wallA: 0.03, ac: 13, ly: 175, ys: 24, lb: 43, bph: 0, ym: 64, fl: 0.2, gx: 0, gy: 0,
+    sig: 5, hoff: 0.1, ew: 0, wallA: 0.03, ac: 13, ly: 175, ys: 24, lb: 43, bph: 0, ym: 64, fl: 0.2, gx: 0, gy: 0,
     gcx: new Float64Array(NG), gcy: new Float64Array(NG), ga: new Float64Array(NG),
     gc: new Float64Array(NG), gs: new Float64Array(NG), gix: new Float64Array(NG), giy: new Float64Array(NG),
     ucs: new Float64Array(NG), vcs: new Float64Array(NG), rip: 0, still2: 25,
@@ -431,7 +386,7 @@ function stepRacer(S, r, rho, nz) {
 function frame(S, d, kn) {
   S.t += d;
   const k3 = cl(0.5 + 0.5 * kn[2], 0, 1), rho = 0.25 * pow(4, cl(kn[1], 0, 3) / 2), q4 = (cl(kn[3], -1, 1) + 1) / 2, k4 = q4 * q4, nz = k4 * NOISE0;
-  S.tm += d * (1.1 + 1.0 * k3) * (0.8 + 0.2 * rho);
+  S.tm += d * (2.0 + 0.2 * k3) * (0.8 + 0.2 * rho);
   prepSurface(S, S.tm, k3, k4);
   const rad = 1.6 + 3.4 * min(1, rho);
   S.still2 = rad * rad;
