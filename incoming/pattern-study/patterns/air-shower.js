@@ -67,9 +67,9 @@ const VSWEEP = 40; // LEDs a second at which the plane sweeps for a shower at 90
 const RC = 40, TC = 0.5; // the curve of the front: TC seconds at RC LEDs from the axis
 const RISE = 0.055; // s
 const AG_TAU = 15; // s
-const WTAU = 20, WAMP = 0.7; // each tank's resting glow wanders by up to 55 percent on 20 s
+const WTAU = 20, WAMP = 0.75, FAMP = 0.75; // each tank's resting glow wanders by up to 60 percent on 20 s
 const MAXE = 10, MAXM = 6;
-const LG_LO0 = 0.8, LG_LO1 = 2.0, LG_HI0 = 2.2, LG_HI1 = 2.4; // log10 of the energy range at Energy -1 and the gain across the knob
+const LG_LO0 = 0.8, LG_LO1 = 1.6, LG_HI0 = 2.0, LG_HI1 = 2.0; // log10 of the energy range at Energy -1 and the gain across the knob
 const PRE = 55; // s run before the first frame
 
 // the arrival-time palette: time 0..1, then red, green, blue
@@ -175,7 +175,7 @@ function vn2(x, y) {
   return a + (b - a) * wx + (c - a) * wy + (a - b - c + d) * wx * wy;
 }
 
-const mkEvent = () => ({ on: false, age: 0, dur: 0, n: 0, idx: new Int16Array(NT), tt: F(NT), b: F(NT), rel: F(NT), td: F(NT), fired: new Uint8Array(NT) });
+const mkEvent = () => ({ on: false, age: 0, dur: 0, n: 0, idx: new Int16Array(NT), tt: F(NT), b: F(NT), rel: F(NT), td: F(NT), gj: F(NT), fired: new Uint8Array(NT) });
 
 export function setup(params) {
   const S = {
@@ -328,7 +328,8 @@ function spawnEvent(S, mode) {
     e.tt[m] = t;
     e.b[m] = b;
     e.rel[m] = cl((t - 0.03) / span, 0, 1);
-    e.td[m] = 0.5 + 0.45 * b;
+    e.td[m] = 0.46 + 0.4 * b;
+    e.gj[m] = 0.55 + 0.45 * Math.random(); // each tank holds a different share of the flash as afterglow
     e.fired[m] = 0;
     if (t > last) last = t;
     m++;
@@ -347,14 +348,14 @@ function stepEvent(S, e) {
     e.fired[k] = 1;
     const i = e.idx[k], b = e.b[k];
     if (b < 0.3) continue;
-    const a = 0.07 + 0.39 * sm(0.34, 0.9, b), tot = S.ag[i] + a;
+    const a = (0.075 + 0.45 * sm(0.34, 0.9, b)) * e.gj[k], tot = S.ag[i] + a;
     // the newer colour wins where it is the stronger, so overlapping footprints do not blend to grey
     S.agT[i] = mix(S.agT[i], e.rel[k], sm(0.2, 0.6, a / (tot + 1e-6)));
-    S.ag[i] = min(0.5, tot);
+    S.ag[i] = min(0.56, tot);
   }
 }
 
-const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.35, 1.8);
+const erl = () => cl(-(log(1 - Math.random()) + log(1 - Math.random())) / 2, 0.45, 1.55);
 
 function step(S, dt) {
   S.t += dt;
@@ -429,8 +430,8 @@ export function draw(display, params) {
   }
   const { off, pix, fw, hw, aw } = S;
   for (let i = 0; i < NT; i++) {
-    const Lf = lt[i], A = ag[i], gs = 1 + WAMP * Math.tanh(S.wd[i] * 0.8);
-    const rr = S.rim[0] * gs, rg = S.rim[1] * gs, rb = S.rim[2] * gs, fr0 = S.fill[0] * gs, fg0 = S.fill[1] * gs, fb0 = S.fill[2] * gs;
+    const Lf = lt[i], A = ag[i], th = Math.tanh(S.wd[i] * 0.8), gs = 1 + WAMP * th, gf = 1 + FAMP * th;
+    const rr = S.rim[0] * gs, rg = S.rim[1] * gs, rb = S.rim[2] * gs, fr0 = S.fill[0] * gf, fg0 = S.fill[1] * gf, fb0 = S.fill[2] * gf;
     let fr = 0, fg = 0, fb = 0, ar = 0, ab = 0, ae = 0;
     if (Lf >= 0.004) {
       lutAt(S, S.lut, lw[i] > 0 ? lr[i] / lw[i] : 0, c1);
