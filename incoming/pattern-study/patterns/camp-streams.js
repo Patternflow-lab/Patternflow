@@ -17,7 +17,7 @@
 // Knob 4: Excitability. Placeholder.
 
 const W = 64, H = 128, N = W * H;
-const { floor, sqrt, pow, exp, log, sin, cos, atan2, PI, min, max, abs } = Math;
+const { floor, sqrt, pow, exp, sin, cos, PI, min, max, abs } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 const fr = (v) => v - floor(v);
@@ -26,17 +26,16 @@ const fr = (v) => v - floor(v);
 const EPS = 0.05, FA = 0.84, FB = 0.07, DL = 1.9, TAUV = 1.0;
 const HS = 0.03; // longest step
 // ---- the cells
-const NP = 8000, WT = N / NP; // cells, and the density one of them stands for (mean density 1)
-const D0 = 0.03; // random walk, LED^2 a second
+const NP = 5000, WT = N / NP; // cells, and the density one of them stands for (mean density 1)
+const D0 = 0.03; // random walk of a cell outside the streams, LED^2 a second
 const CAP = 0.3; // longest chemotactic step, LEDs
-const RP = 0.12; // push of crowding
 const SLOW = 4; // steps between the slow fields
 const WARM = 1500; // warm-up steps
-// ---- trails
-const KM = 3, BETA = 0.06, DMT = 0.14, GSRC = 1.4, REACH = 0.9; // the stream field: pull, fade, spread a tick, strength, LEDs a second the streams grow
+// ---- streams
+const KM = 3, BETA = 0.06, DMT = 0.14, GSRC = 1.4, REACH = 0.9; // pull of the stream field, its fade and spread, strength, growth in LEDs a second
+const CATCH = 0.12; // chance a step that a cell beside a stream joins it
 // ---- pacemakers and mounds
-const SHED = 1 / 45; // chance a second that a cell in a mound is let go
-const NPM = 4, RMASS = 7, MFORM = 250, MBIG = 1000, FLY = 26;
+const NPM = 4, MBIG = 800, SHED = 1 / 14, FLY = 28;
 
 const XP = new Int32Array(N), XM = new Int32Array(N), YP = new Int32Array(N), YM = new Int32Array(N);
 for (let y = 0; y < H; y++)
@@ -88,11 +87,13 @@ function stopColour(t, out) {
 function makeState() {
   const F = () => new Float32Array(N);
   return {
-    u: F(), v: F(), un: F(), vn: F(), gate: F(), phi: F(), gx: F(), gy: F(),
-    rho: F(), rb: F(), rs: F(), tmp: F(), tmp2: F(), mt: F(), rgx: F(), rgy: F(),
-    px: new Float32Array(NP), py: new Float32Array(NP), tx: new Float32Array(NP), ty: new Float32Array(NP), fly: new Uint8Array(NP), age: new Float32Array(NP), comp: new Float32Array(NP),
+    u: F(), v: F(), un: F(), vn: F(), gate: F(), gx: F(), gy: F(), mt: F(), tmp: F(), tmp2: F(), rb: F(), rs: F(),
+    nodeT: new Int8Array(N).fill(-1), nodeN: new Int16Array(N),
+    px: new Float32Array(NP), py: new Float32Array(NP), tx: new Float32Array(NP), ty: new Float32Array(NP),
+    ex: new Float32Array(NP), ey: new Float32Array(NP), sf: new Float32Array(NP), tt: new Float32Array(NP), nd: new Int16Array(NP),
+    st: new Uint8Array(NP), pt: new Uint8Array(NP),
     lut: new Float32Array(256 * 3), hueDone: -1, knobs: [0, 2, 0, 0.06],
-    nslow: 0, evK: 0, tm: 0, pm: [],
+    nslow: 0, tm: 0, pm: [],
   };
 }
 
@@ -106,14 +107,14 @@ function blur(src, dst, tmp, passes) {
   }
 }
 
-// every cell adds its weight to the four LEDs around it
+// every cell adds its weight to the four LEDs around it; a cell in a stream or a mound weighs more than one in the open
 function splat(S, out) {
-  const { px, py } = S;
+  const { px, py, st } = S;
   out.fill(0);
   for (let p = 0; p < NP; p++) {
     const x = px[p], y = py[p], x0 = floor(x), y0 = floor(y), fx = x - x0, fy = y - y0;
     const xa = x0 >= W ? 0 : x0, xb = xa + 1 >= W ? 0 : xa + 1, ya = y0 >= H ? 0 : y0, yb = ya + 1 >= H ? 0 : ya + 1;
-    const wa = WT * (1 - fx), wb = WT * fx;
+    const w = st[p] === 1 || st[p] === 2 ? WT : 0.8 * WT, wa = w * (1 - fx), wb = w * fx;
     out[ya * W + xa] += wa * (1 - fy);
     out[ya * W + xb] += wb * (1 - fy);
     out[yb * W + xa] += wa * fy;
@@ -128,78 +129,122 @@ function derive(S) {
 }
 
 const wrapd = (d, L) => (d > L / 2 ? d - L : d < -L / 2 ? d + L : d);
-const tor2 = (ax, ay, bx, by) => {
-  const dx = wrapd(ax - bx, W), dy = wrapd(ay - by, H);
-  return dx * dx + dy * dy;
-};
+const wrap = (x, L) => (x < 0 ? x + L : x >= L ? x - L : x);
 
-// The streams of a mound: a few stems that leave it at even angles, bend slowly, and fork twice on the way out.
+// The streams of a mound: stems that leave it at even angles, bend slowly, and fork twice on the way out.
+// Each node knows the node nearer the mound, so a cell can walk in along the files.
 function buildTree(q) {
-  const pts = [];
+  const nx = [], ny = [], par = [], len = [];
   const n0 = 7 + floor(Math.random() * 3), bend = (Math.random() < 0.5 ? -1 : 1) * (0.008 + 0.01 * Math.random());
-  const walk = (x, y, th, len0, len1, depth, w) => {
-    let wob = 0;
-    for (let l = len0; l < len1; l += 1) {
-      wob += (Math.random() - 0.5) * 0.05;
-      wob *= 0.92;
+  const walk = (x, y, th, parent, l0, l1, depth) => {
+    let wob = 0, prev = parent;
+    for (let l = l0; l < l1; l++) {
+      wob = wob * 0.92 + (Math.random() - 0.5) * 0.05;
       th += bend + wob * 0.2;
       x += cos(th);
       y += sin(th);
-      pts.push(x, y, w * (1 - 0.35 * (l / 40)), l);
-      if (depth < 2 && l > len0 + 6 && l < len1 - 8 && Math.random() < 0.045) {
-        walk(x, y, th + (Math.random() < 0.5 ? -1 : 1) * (0.35 + 0.3 * Math.random()), l, len1 - 3 * Math.random() * 6, depth + 1, w * 0.85);
+      nx.push(x);
+      ny.push(y);
+      par.push(prev);
+      len.push(l);
+      prev = nx.length - 1;
+      if (depth < 2 && l > l0 + 6 && l < l1 - 8 && Math.random() < 0.05) {
+        walk(x, y, th + (Math.random() < 0.5 ? -1 : 1) * (0.35 + 0.3 * Math.random()), prev, l, l1 - Math.random() * 18, depth + 1);
       }
     }
   };
-  for (let k = 0; k < n0; k++) walk(q.x, q.y, (6.2832 * (k + 0.5 * Math.random())) / n0, 3, 20 + 18 * Math.random(), 0, 1);
-  q.pts = Float32Array.from(pts);
+  for (let k = 0; k < n0; k++) walk(q.x, q.y, (6.2832 * (k + 0.5 * Math.random())) / n0, -1, 0, 18 + 20 * Math.random(), 0);
+  q.nx = Float32Array.from(nx);
+  q.ny = Float32Array.from(ny);
+  q.np = Int16Array.from(par);
+  q.nl = Float32Array.from(len);
+  q.nn = nx.length;
+  q.maxl = max(...len);
 }
 
-// The next pacemaker starts a few LEDs from the old one, after a pause.
-function newPacemaker(S, q, tm) {
-  const a = 6.2832 * Math.random(), r = 5 + 8 * Math.random();
-  const n = { x: (((q.x + r * cos(a)) % W) + W) % W, y: (((q.y + r * sin(a)) % H) + H) % H, born: tm, formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: tm + 6 + 4 * Math.random(), mass: 0, pts: null };
-  buildTree(n);
-  return n;
+function makePacemaker(x, y, born) {
+  const q = { x, y, born, life: 150 + 130 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: born + 6 + 4 * Math.random(), mass: 0 };
+  buildTree(q);
+  return q;
 }
 
-// A mound culminates: most of its cells are thrown out round it as fresh cells.
-function burst(S, q, tm) {
-  const n = newPacemaker(S, q, tm);
-  for (let p = 0; p < NP; p++) {
-    if (S.fly[p]) continue;
-    const dx = wrapd(S.px[p] - q.x, W), dy = wrapd(S.py[p] - q.y, H);
-    if (dx * dx + dy * dy > RMASS * RMASS * 2.2 || Math.random() > 0.94) continue;
-    const a = 6.2832 * Math.random(), r = 3 + 36 * sqrt(Math.random());
-    S.tx[p] = ((((q.x + r * cos(a)) % W) + W) % W);
-    S.ty[p] = ((((q.y + r * sin(a)) % H) + H) % H);
-    S.fly[p] = 1;
+// The cell p walks along the file it is on: its place is a point between its node and the next one in.
+function placeOnFile(S, p) {
+  const q = S.pm[S.pt[p]], n = S.nd[p], t = S.tt[p], pr = q.np[n];
+  const ax = q.nx[n], ay = q.ny[n], bx = pr >= 0 ? q.nx[pr] : 0, by = pr >= 0 ? q.ny[pr] : 0;
+  S.px[p] = wrap(q.x + ax + (bx - ax) * t + S.ex[p], W) % W;
+  S.py[p] = wrap(q.y + ay + (by - ay) * t + S.ey[p], H) % H;
+  const w = S.px[p];
+  if (w >= W || w < 0) S.px[p] = ((w % W) + W) % W;
+  const z = S.py[p];
+  if (z >= H || z < 0) S.py[p] = ((z % H) + H) % H;
+}
+
+// A cell joins the files of tree k at a node that has grown, in the outer part of the stream where cells come in from the open.
+function joinFile(S, p, k, lo) {
+  const q = S.pm[k], reach = min((S.tm - q.born - 4) * REACH, q.maxl + 1);
+  if (reach < 3) return false;
+  for (let tries = 0; tries < 12; tries++) {
+    const i = floor(Math.random() * q.nn), l = q.nl[i];
+    if (l > reach || l < lo * reach) continue;
+    S.pt[p] = k;
+    S.nd[p] = i;
+    S.tt[p] = Math.random();
+    S.ex[p] = (Math.random() - 0.5) * 1;
+    S.ey[p] = (Math.random() - 0.5) * 1;
+    S.st[p] = 1;
+    placeOnFile(S, p);
+    return true;
   }
-  // the old mound's trails go with it
-  const R2 = 16 * 16;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++) if (tor2(x, y, q.x, q.y) < R2) S.mt[y * W + x] = 0;
-  S.pm[S.pm.indexOf(q)] = n;
+  return false;
 }
 
-// The slow fields: smoothed density, the pressure it pushes with, and the mounds' bookkeeping
+function throwOut(S, p, q, rmin, rspan) {
+  const a = 6.2832 * Math.random(), r = rmin + rspan * sqrt(Math.random());
+  S.tx[p] = (((q.x + r * cos(a)) % W) + W) % W;
+  S.ty[p] = (((q.y + r * sin(a)) % H) + H) % H;
+  S.st[p] = 3;
+}
+
+// A mound culminates: nearly all of its cells are thrown out round it as fresh cells, those on the way in are let go,
+// and the next pacemaker starts a few LEDs off, after a pause.
+function burst(S, k) {
+  const q = S.pm[k];
+  for (let p = 0; p < NP; p++) {
+    if (S.pt[p] !== k) continue;
+    if (S.st[p] === 2 && Math.random() < 0.94) throwOut(S, p, q, 6, 32);
+    else if (S.st[p] === 1 || S.st[p] === 2) S.st[p] = 0;
+  }
+  const a = 6.2832 * Math.random(), r = 5 + 8 * Math.random();
+  const n = makePacemaker(wrap(q.x + r * cos(a), W) % W, wrap(q.y + r * sin(a), H) % H, S.tm);
+  n.next = S.tm + 6 + 4 * Math.random();
+  // the old streams' trail goes with them
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const dx = wrapd(x - q.x, W), dy = wrapd(y - q.y, H);
+      if (dx * dx + dy * dy < 24 * 24) S.mt[y * W + x] = 0;
+    }
+  S.pm[k] = n;
+}
+
+// The slow fields: the streams that have grown so far, the field they leave, the mounds' bookkeeping
 function slow(S, dts) {
-  const { rho, tmp, tmp2, mt, rgx, rgy, px, py } = S;
-  splat(S, tmp2);
-  blur(tmp2, rho, tmp, 2);
-  // the stream field: the grown part of every tree is a source, which spreads and fades
+  const { mt, tmp, tmp2, nodeT, nodeN, st, pt } = S;
   tmp2.fill(0);
-  for (const q of S.pm) {
-    const reach = (S.tm - q.born - 4) * REACH, pts = q.pts;
-    for (let k = 0; k < pts.length; k += 4) {
-      if (pts[k + 3] > reach) continue;
-      const x = pts[k], y = pts[k + 1], w = pts[k + 2] * GSRC * dts;
-      const xw = ((x % W) + W) % W, yw = ((y % H) + H) % H, x0 = floor(xw), y0 = floor(yw), fx = xw - x0, fy = yw - y0;
-      const xa = x0, xb = (x0 + 1) % W, ya = y0, yb = (y0 + 1) % H;
+  nodeT.fill(-1);
+  for (let k = 0; k < S.pm.length; k++) {
+    const q = S.pm[k], reach = (S.tm - q.born - 4) * REACH;
+    for (let i = 0; i < q.nn; i++) {
+      if (q.nl[i] > reach) continue;
+      const xw = wrap(q.x + q.nx[i], W) % W, yw = wrap(q.y + q.ny[i], H) % H, x0 = floor(xw), y0 = floor(yw), fx = xw - x0, fy = yw - y0;
+      const xa = x0, xb = (x0 + 1) % W, ya = y0, yb = (y0 + 1) % H, w = GSRC * dts;
       tmp2[ya * W + xa] += w * (1 - fx) * (1 - fy);
       tmp2[ya * W + xb] += w * fx * (1 - fy);
       tmp2[yb * W + xa] += w * (1 - fx) * fy;
       tmp2[yb * W + xb] += w * fx * fy;
+      const c = ((fx > 0.5 ? xb : xa)) + W * (fy > 0.5 ? yb : ya);
+      nodeT[c] = k;
+      nodeN[c] = i;
     }
   }
   const dec = 1 - dts * BETA;
@@ -208,32 +253,27 @@ function slow(S, dts) {
     tmp[i] = (m + DMT * (mt[XP[i]] + mt[XM[i]] + mt[YP[i]] + mt[YM[i]] - 4 * m)) * dec + tmp2[i];
   }
   mt.set(tmp);
-  for (let i = 0; i < N; i++) {
-    const a = rho[XP[i]], b = rho[XM[i]], c = rho[YP[i]], d = rho[YM[i]];
-    const pa = a > 6 ? (a - 6) * (a - 6) : 0, pb = b > 6 ? (b - 6) * (b - 6) : 0, pc = c > 6 ? (c - 6) * (c - 6) : 0, pd = d > 6 ? (d - 6) * (d - 6) : 0;
-    rgx[i] = 0.5 * (pa - pb);
-    rgy[i] = 0.5 * (pc - pd);
+  const cnt = [0, 0, 0, 0, 0, 0, 0, 0];
+  for (let p = 0; p < NP; p++) {
+    if (st[p] !== 2) continue;
+    const k = pt[p];
+    if (Math.random() < SHED * dts) {
+      // let go: half go back to the open, half join a stream far out
+      if (Math.random() < 0.5 || !joinFile(S, p, k, 0.6)) throwOut(S, p, S.pm[k], 9, 28);
+    } else cnt[k]++;
   }
-  for (const q of S.pm) {
-    let m = 0;
-    for (let p = 0; p < NP; p++) {
-      const dx = wrapd(px[p] - q.x, W), dy = wrapd(py[p] - q.y, H);
-      if (dx * dx + dy * dy < RMASS * RMASS) m++;
-    }
-    q.mass = m * WT;
-    if (q.formed < 0 && q.mass > MFORM) q.formed = S.tm;
-  }
-  for (const q of S.pm) {
-    const old = S.tm - q.born > q.life;
-    if (old || q.mass > MBIG) {
-      burst(S, q, S.tm);
+  for (let k = 0; k < S.pm.length; k++) S.pm[k].mass = cnt[k] * WT;
+  for (let k = 0; k < S.pm.length; k++) {
+    const q = S.pm[k];
+    if (S.tm - q.born > q.life || q.mass > MBIG) {
+      burst(S, k);
       break;
     }
   }
 }
 
 function step(S, P, h) {
-  const { u, v, un, vn, gate, phi, mt, gx, gy, px, py, fly, tx, ty, rgx, rgy, age, comp } = S;
+  const { u, v, un, vn, gate, gx, gy, mt, px, py, st, tx, ty, nodeT, nodeN } = S;
   const ginv = 1 / (0.6 * h), ie = P.ie;
   for (let i = 0; i < N; i++) {
     const ui = u[i], vi = v[i];
@@ -261,47 +301,83 @@ function step(S, P, h) {
       }
     q.next = S.tm + P.tpm * q.f * (0.94 + 0.12 * Math.random());
   }
-  // the slope the cells climb: the wave, and the stream field in proportion to the wave
+  // the slope a cell in the open climbs: the wave, and the stream field in proportion to the wave
+  const m1 = S.tmp;
+  for (let i = 0; i < N; i++) m1[i] = mt[i] > 1 ? 1 : mt[i];
   for (let i = 0; i < N; i++) {
-    const m = mt[i] > 1 ? 1 : mt[i];
-    phi[i] = m;
+    gx[i] = 0.5 * (U[XP[i]] - U[XM[i]]) + KM * U[i] * 0.5 * (m1[XP[i]] - m1[XM[i]]);
+    gy[i] = 0.5 * (U[YP[i]] - U[YM[i]]) + KM * U[i] * 0.5 * (m1[YP[i]] - m1[YM[i]]);
   }
-  for (let i = 0; i < N; i++) {
-    gx[i] = 0.5 * (U[XP[i]] - U[XM[i]]) + KM * U[i] * 0.5 * (phi[XP[i]] - phi[XM[i]]);
-    gy[i] = 0.5 * (U[YP[i]] - U[YM[i]]) + KM * U[i] * 0.5 * (phi[YP[i]] - phi[YM[i]]);
-  }
-  // the cells
-  const sx = P.ch * h, sd = sqrt(6 * D0 * h), rpush = RP * h, fstep = FLY * h;
+  const sx = P.ch * h, sd = sqrt(6 * D0 * h), fstep = FLY * h, sp = P.ch * 0.36 * h;
   for (let p = 0; p < NP; p++) {
+    const s = st[p];
     let x = px[p], y = py[p];
-    if (fly[p]) {
+    if (s === 3) {
       const dx = wrapd(tx[p] - x, W), dy = wrapd(ty[p] - y, H), d = sqrt(dx * dx + dy * dy);
       if (d <= fstep) {
         x = tx[p]; y = ty[p];
-        fly[p] = 0;
+        st[p] = 0;
       } else {
         x += (dx * fstep) / d;
         y += (dy * fstep) / d;
       }
-    } else {
+    } else if (s === 1) {
+      // in a stream: walk in along the file while the wave is rising under the cell
       let ix = (x + 0.5) | 0, iy = (y + 0.5) | 0;
       if (ix >= W) ix = 0;
       if (iy >= H) iy = 0;
-      const c = iy * W + ix, ag = (age[p] += h), cw = 1, gt = gate[c];
+      S.tt[p] += gate[iy * W + ix] * sp * S.sf[p];
+      const q = S.pm[S.pt[p]];
+      while (S.tt[p] >= 1) {
+        S.tt[p] -= 1;
+        const pr = q.np[S.nd[p]];
+        if (pr < 0) {
+          // the mound takes it in
+          st[p] = 2;
+          const a = 6.2832 * Math.random(), r = (1.4 + 0.11 * sqrt(q.mass)) * sqrt(Math.random());
+          px[p] = wrap(q.x + r * cos(a), W) % W;
+          py[p] = wrap(q.y + r * sin(a), H) % H;
+          break;
+        }
+        S.nd[p] = pr;
+      }
+      if (st[p] === 1) placeOnFile(S, p);
+      continue;
+    } else if (s === 0) {
+      let ix = (x + 0.5) | 0, iy = (y + 0.5) | 0;
+      if (ix >= W) ix = 0;
+      if (iy >= H) iy = 0;
+      const c = iy * W + ix, gt = gate[c];
       let vx = gt * sx * gx[c], vy = gt * sx * gy[c];
       const sp2 = vx * vx + vy * vy;
       if (sp2 > CAP * CAP) {
         const k = CAP / sqrt(sp2);
         vx *= k; vy *= k;
       }
-      const sp = sqrt(sp2 > CAP * CAP ? CAP * CAP : sp2);
-      vx += -rpush * rgx[c] + sd * (Math.random() * 2 - 1);
-      vy += -rpush * rgy[c] + sd * (Math.random() * 2 - 1);
-      x += vx; y += vy;
-    }
-    if (x < 0) x += W; else if (x >= W) x -= W;
-    if (y < 0) y += H; else if (y >= H) y -= H;
-    px[p] = x; py[p] = y;
+      vx += sd * (Math.random() * 2 - 1);
+      vy += sd * (Math.random() * 2 - 1);
+      x = wrap(x + vx, W);
+      y = wrap(y + vy, H);
+      if (x >= W) x = 0;
+      if (y >= H) y = 0;
+      // a cell that walks onto a stream joins the file
+      let jx = (x + 0.5) | 0, jy = (y + 0.5) | 0;
+      if (jx >= W) jx = 0;
+      if (jy >= H) jy = 0;
+      const j = jy * W + jx, k = nodeT[j];
+      if (k >= 0 && Math.random() < CATCH) {
+        S.pt[p] = k;
+        S.nd[p] = nodeN[j];
+        S.tt[p] = 0;
+        S.ex[p] = (Math.random() - 0.5) * 1;
+        S.ey[p] = (Math.random() - 0.5) * 1;
+        st[p] = 1;
+        placeOnFile(S, p);
+        continue;
+      }
+    } else continue;
+    px[p] = wrap(x, W) % W;
+    py[p] = wrap(y, H) % H;
   }
 }
 
@@ -309,24 +385,15 @@ function seedField(S) {
   const { px, py } = S;
   const spots = [[18, 26], [46, 58], [14, 94], [44, 116]];
   for (let k = 0; k < NPM; k++) {
-    const [x, y] = spots[k];
-    S.pm.push({ x, y, born: -70 * Math.random(), formed: -1, life: 110 + 80 * Math.random(), f: 0.92 + 0.3 * Math.random(), next: Math.random() * 4, mass: 0, pts: null });
-    buildTree(S.pm[S.pm.length - 1]);
+    const q = makePacemaker(spots[k][0], spots[k][1], -(10 + 50 * Math.random()));
+    q.next = Math.random() * 4;
+    S.pm.push(q);
   }
-  const clump = 0.08;
   for (let p = 0; p < NP; p++) {
-    if (Math.random() < clump) {
-      const q = S.pm[p % NPM];
-      const g1 = Math.random() + Math.random() + Math.random() - 1.5, g2 = Math.random() + Math.random() + Math.random() - 1.5;
-      px[p] = (((q.x + g1 * 6) % W) + W) % W;
-      py[p] = (((q.y + g2 * 6) % H) + H) % H;
-      S.age[p] = 300;
-    } else {
-      px[p] = Math.random() * W;
-      py[p] = Math.random() * H;
-      S.age[p] = 100 * Math.random();
-    }
-    S.comp[p] = 8 + 70 * Math.random();
+    px[p] = Math.random() * W;
+    py[p] = Math.random() * H;
+    S.sf[p] = 0.35 + 1.3 * Math.random();
+    if (Math.random() < 0.5) joinFile(S, p, p % NPM, 0);
   }
 }
 
@@ -371,14 +438,14 @@ export function draw(display, params) {
   if (!S) return;
   const hue = cl(S.knobs[0], 0, 1);
   if (S.hueDone !== hue) buildLut(S, hue);
-  const { u, rb, rs, tmp, tmp2, lut, mt } = S;
+  const { u, v, rb, rs, tmp, tmp2, lut } = S;
   splat(S, tmp2);
   blur(tmp2, rb, tmp, 2);
   blur(rb, rs, tmp, 3);
   for (let i = 0; i < N; i++) {
-    const L = 0.55 * (1 - exp(-rs[i] / 4)) + 0.6 * (1 - exp(-max(0, rb[i] - 1.7) / 2.4));
-    const w = u[i];
-    const s = cl((L + 0.1 * mt[i] / (mt[i] + 1)) * (1 + 0.7 * w) + 0.05 * w, 0, 1);
+    const L = 0.45 * (1 - exp(-rs[i] / 3)) + 0.62 * (1 - exp(-max(0, rb[i] - 1.2) / 4.5));
+    const w = u[i] + 0.5 * v[i] * (1 - u[i]);
+    const s = cl(L * (1 + 0.9 * w) + 0.1 * w, 0, 1);
     const li = ((s * 255) | 0) * 3;
     display.setPixel(i % W, (i / W) | 0, lut[li], lut[li + 1], lut[li + 2]);
   }
