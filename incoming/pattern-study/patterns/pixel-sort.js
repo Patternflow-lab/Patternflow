@@ -46,14 +46,16 @@ const HUE0 = 0.6; // the palette at Hue 0 starts in blue
 
 // ---- the shapes. kind 0 is an ellipse, kind 1 a wedge pointing from a pivot
 const SHAPES = [
-  { kind: 0, hue: 0.0, rx: 25, ry: 34, peak: 1.0, p: 1.5, rot: 0.2, cx: 22, cy: 24, ax: 18, ay: 22 },
-  { kind: 0, hue: 0.2, rx: 22, ry: 26, peak: 0.95, p: 2, rot: 0.0, cx: 48, cy: 40, ax: 16, ay: 24 },
-  { kind: 0, hue: 0.1, rx: 34, ry: 14, peak: 0.9, p: 1.5, rot: 0.9, cx: 28, cy: 62, ax: 18, ay: 26 },
-  { kind: 1, hue: 0.26, len: 84, half: 0.5, peak: 1.0, rot: 1.45, cx: 14, cy: 4, ax: 18, ay: 10 },
-  { kind: 0, hue: 0.05, rx: 22, ry: 28, peak: 1.0, p: 1, rot: -0.3, cx: 50, cy: 96, ax: 16, ay: 16 },
-  { kind: 1, hue: 0.14, len: 80, half: 0.46, peak: 0.95, rot: -1.7, cx: 50, cy: 126, ax: 16, ay: 8 },
-  { kind: 0, hue: 0.24, rx: 20, ry: 22, peak: 0.9, p: 2, rot: 0.0, cx: 16, cy: 100, ax: 18, ay: 22 },
-  { kind: 0, hue: 0.15, rx: 26, ry: 12, peak: 0.85, p: 1.5, rot: -0.7, cx: 40, cy: 12, ax: 20, ay: 10 },
+  { kind: 0, hue: 0.0, rx: 25, ry: 34, peak: 0.86, p: 1.5, rot: 0.2, cx: 22, cy: 24, ax: 18, ay: 22 },
+  { kind: 0, hue: 0.1, rx: 22, ry: 26, peak: 0.82, p: 2, rot: 0.0, cx: 48, cy: 40, ax: 16, ay: 24 },
+  { kind: 0, hue: 0.05, rx: 34, ry: 14, peak: 0.77, p: 1.5, rot: 0.9, cx: 28, cy: 62, ax: 18, ay: 26 },
+  { kind: 1, hue: 0.26, len: 84, half: 0.5, peak: 0.86, rot: 1.45, cx: 14, cy: 4, ax: 18, ay: 10 },
+  { kind: 0, hue: 0.02, rx: 22, ry: 28, peak: 0.86, p: 1, rot: -0.3, cx: 50, cy: 96, ax: 16, ay: 16 },
+  { kind: 1, hue: 0.12, len: 100, half: 0.46, peak: 0.82, rot: -1.7, cx: 46, cy: 146, ax: 18, ay: 8 },
+  { kind: 0, hue: 0.24, rx: 20, ry: 22, peak: 0.77, p: 2, rot: 0.0, cx: 16, cy: 100, ax: 18, ay: 22 },
+  { kind: 0, hue: 0.08, rx: 26, ry: 12, peak: 0.73, p: 1.5, rot: -0.7, cx: 40, cy: 12, ax: 20, ay: 10 },
+  { kind: 0, hue: 0.04, rx: 28, ry: 15, peak: 0.77, p: 1.5, rot: 0.15, cx: 32, cy: 118, ax: 22, ay: 7 },
+  { kind: 0, hue: 0.14, rx: 14, ry: 25, peak: 0.77, p: 2, rot: 0.3, cx: 10, cy: 70, ax: 9, ay: 20 },
 ];
 // periods and phases: golden-ratio multiples, so no two share a factor and the layout does not come back
 SHAPES.forEach((s, i) => {
@@ -198,10 +200,10 @@ function scene(S, t, phi, scl, NA, NB) {
       const x = 32 + a * cs + b * sn, y = 64 - a * sn + b * cs;
       const gx = (x - gcx) / 60, gy = (y - gcy) / 100;
       const gb = max(0, 1 - gx * gx - gy * gy);
-      const Ig = 0.07 + 0.05 * gb;
+      const Ig = 0.05 + 0.075 * gb + 0.07 * sm(40, 128, y);
       const w = Ig * Ig;
       S.Ic[idx] = 1 - inv[idx] * (1 - Ig);
-      S.Pc[idx] = (wp[idx] + w * (0.06 + 0.14 * cl(x / 64, 0, 1))) / (ws[idx] + w);
+      S.Pc[idx] = (wp[idx] + w * (0.04 + 0.1 * cl(x / 64, 0, 1))) / (ws[idx] + w);
     }
   }
 }
@@ -287,10 +289,10 @@ function advance(S, dt, kn) {
   S.t += dt;
   const t = S.t;
   const target = (cl(kn[2], -1, 1) * PI) / 2 + 0.06 * sin((TAU * t) / 57.3 + 0.7) + 0.035 * sin((TAU * t) / 89.9 + 2.1);
-  const sTarget = pow(2, 0.7 * cl(kn[3], -1, 1));
+  const sTarget = pow(2, 0.6 * cl(kn[3], -1, 1));
   const m = cl(kn[1], 0, 4) / 4;
   const breathe = 1 + 0.16 * sin((TAU * t) / 37.9 + 0.5) + 0.09 * sin((TAU * t) / 61.7 + 2.3);
-  const loT = 1.6 * pow(1 - m, 1.7) * breathe;
+  const loT = 1.45 * pow(1 - m, 1.7) * breathe;
   const first = !S.ready;
   const kf = first ? 1 : 1 - exp(-dt / 0.15);
   S.ang += (target - S.ang) * kf;
@@ -301,9 +303,11 @@ function advance(S, dt, kn) {
   const HB = abs(sin(phi)) * 32 + abs(cos(phi)) * 64 + 1.5 + MB;
   const NA = min(GMAX, 2 * ceil(HA)), NB = min(GMAX, 2 * ceil(HB));
   scene(S, t, phi, S.scl, NA, NB);
+  const lw = 0.4 * sm(0.14, 0.4, S.lo);
   for (let i = 0; i < NA; i++) {
     const a = i + 0.5 - NA / 2;
-    S.loCol[i] = S.lo * (1 + 0.1 * sin((TAU * a) / 17.3 + 0.17 * t + 2) + 0.08 * sin((TAU * a) / 9.7 - 0.11 * t) + 0.06 * sin((TAU * a) / 6.1 + 0.07 * t + 4));
+    // the threshold differs a little from column to column, so the hems of the curtains are ragged in fingers 5 to 9 LEDs wide; where it sits in the flat ground the spread is closed, or a tiny change would cut teeth a LED wide
+    S.loCol[i] = S.lo * (1 + lw * (0.5 * sin((TAU * a) / 17.3 + 0.17 * t + 2) + 0.3 * sin((TAU * a) / 11.9 - 0.11 * t) + 0.2 * sin((TAU * a) / 8.3 + 0.07 * t + 4)));
     // fa holds sin and cos of each column's phase for the three waves, fb the same down the rows, so a fold is sin(A + B) with no trig per cell
     const p1 = (TAU * a) / 8.3 + 0.31 * t, p2 = (TAU * a) / 13.7 - 0.23 * t + 1.7, p3 = (TAU * a) / 41 + 0.07 * t + 0.4;
     S.fa[i * 6] = sin(p1); S.fa[i * 6 + 1] = cos(p1);
@@ -338,10 +342,11 @@ export function draw(display, params) {
   const { Is, Ps } = S;
   for (let o = 0; o < NPX; o++) {
     const I = cl(Is[o], 0, 1);
-    let h = hue0 + Ps[o] + 0.14 * sm(0.15, 1, I);
+    const hs = sm(0.15, 1, I);
+    let h = hue0 + Ps[o] + 0.22 * hs * sqrt(hs);
     h -= floor(h);
     const hi = ((h * HN) | 0) * 3;
-    const s = 0.86 - 0.42 * sm(0.7, 1.05, I);
+    const s = 0.82 - 0.32 * sm(0.62, 0.95, I);
     const v = VLUT[(I * VN) | 0] * 255;
     const r = v * (1 - s + s * HLUT[hi]), g = v * (1 - s + s * HLUT[hi + 1]), b = v * (1 - s + s * HLUT[hi + 2]);
     display.setPixel(o % W, (o / W) | 0, r | 0, g | 0, b | 0);
