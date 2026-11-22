@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0..4, Regime=-2..1, Seeds=-1..1
 //
-// Knob 1: Hue. Turns the whole glaze round the wheel. At 0 the ground is a deep plum-indigo with a soft lilac sheen, the pigment is umber at its thin edge, amber, then gold, then cream where it lies thick, and a teal shade trails each front. At 0.25 the pigment is green on brown, at 0.5 blue on dark green, at 0.75 pink on dark teal.
+// Knob 1: Hue. Turns the whole glaze round the wheel. At 0 the ground is a deep plum-indigo with a soft lilac sheen, the pigment is umber at its thin edge, amber, then gold, then cream where it lies thick, and a teal shade trails each front. Inside each tent a dark wine tone fills the ground behind the fronts and drains away over a few dozen rows. At 0.25 the pigment is green on brown, at 0.5 blue on dark green, at 0.75 pink on dark teal.
 // Knob 2: Growth. How many rows of shell the lip lays down each second: 3 at 0, 6.6 at the opening 2, 24 at 4, so the 128 rows on the panel hold 43 s of history, 19 s and 5 s. The model takes 20 steps per laid row at every speed, so the shapes do not change with Growth, only the scroll does.
 // Knob 3: Regime. Walks the equation across the regimes of real shells. At -2 the pigment settles into 5 or 6 stable stripes along the growth direction. At -1.2 the same stripes lean, the lip sliding 0.8 cell a row. Between -1.2 and -0.6 the stripes break into oblique runs that are born, travel and die, and at -0.6 they are wide leaning bands. At 0, where it opens, chevrons and tents: a colony starts at a random cell, two fronts run away from it at about 45 degrees, and each pair dies where it meets another. At 1 a crowd of short fronts that never settles.
-// Knob 4: Seeds. How often the lip starts a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1. At the opening the lip tries a seed about every 3 rows, at -1 every 11 and at 1 every 0.7 rows, and a seed on eaten substrate is skipped. In the stripe regime a seed is too faint to show and the knob does little.
+// Knob 4: Seeds. How often the lip starts a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1. At the opening the lip tries a seed about every 1.3 rows, at -1 every 5 and at 1 every 0.3 rows, and a seed on eaten substrate is skipped. In the stripe regime a seed is too faint to show and the knob does little.
 
 // What the picture is. Each column is one of 64 pigment cells along the lip of the shell, and the ring wraps, so cell 63 is the neighbour
 // of cell 0. The bottom row of the panel is the lip now. At the opening a row is laid every 0.15 s and the older rows slide up, so the panel
@@ -34,11 +34,14 @@
 // Leaning is a slide of the whole medium along the lip, one whole cell every 25 steps at the setting 2 (a cell at a time and never
 // interpolated, since interpolation blurs the stripes away). The reach Da swings by up to 48% (stripes) down to 12% (crowd) with periods of 150
 // and 61 time units, so stripes are inserted and withdrawn and the chevrons swell and thin. Colonies are seeded only on a cell whose substrate is
-// above 0.75, and one time in three on a cell that seeded in the last four, which lays a second chevron inside the first. If the lip has been
-// dark for 45 rows a colony goes in. The model is run for 400 rows before the first frame, about 20 ms.
+// above 0.6, and one time in two on a cell that seeded in the last five, which lays a second chevron inside the first. If the lip has been
+// dark for 12 rows a colony goes in, on the cell with the most substrate left. The substrate is eaten at a rate that swings by 45%
+// (periods 113 and 47 time units), so some fronts are thin lines and some are wide bands that fill a young tent with solid pigment.
+// The model is run for 400 rows before the first frame, about 20 ms.
 // Drawing. Pigment cover is a smoothstep of a over aref of 1.7 to 2.5, and the colour comes off a glaze ramp on a over cref: umber, deep
 // orange, amber, gold, cream. The ground is plum with growth lines bowed across it, one row each laid, darker plum where the substrate
-// has been eaten, teal where the inhibitor is high behind a front. Two soft bands of light, 61 s and 97 s a turn and moving opposite ways,
+// has been eaten, teal where the inhibitor is high behind a front. A second tone, dark wine, is a purely drawn memory m of where a was
+// above 0.6: dm/dt = 1.5 (a - 0.6)+ (1 - m) - 0.15 m. It fills the inside of a tent behind its fronts and drains in about 7 time units, 17 rows. Two soft bands of light, 61 s and 97 s a turn and moving opposite ways,
 // slide over everything.
 
 const W = 64, H = 128;
@@ -67,10 +70,12 @@ const PARAM = [
   // wide oblique bands
   [3.5, 0.125, 0.675, 0.015, 0.775, 7.5, 0.95, 1.3, 0.225, 0.125, 2.0, 0.3, 1.0, 2.5, 0.18, 3.0],
   // tents
-  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 0.9, 2.2, 2.5, 0.14, 2.5],
+  [6.0, 0.2, 1.0, 0.01, 1.5, 0.0, 0.4, 1.0, 0.15, 0.3, 0.0, 2.0, 2.2, 2.5, 0.14, 2.5],
   // crowd
-  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 3.0, 2.2, 2.5, 0.1, 2.5],
+  [4.0, 0.2, 1.0, 0.01, 1.0, 0.0, 0.5, 1.0, 0.3, 0.3, 0.0, 4.0, 2.2, 2.5, 0.1, 2.5],
 ];
+const INK_GAIN = 1.5, INK_DRAIN = 0.15;
+const QUIET_ROWS = 12;
 const HUMP = 0.8;
 const STOPS = [-2, -1.2, -0.6, 0, 1]; // the Regime knob value of each column
 
@@ -92,11 +97,11 @@ function paramsAt(k3, out) {
 function makeState() {
   return {
     ready: false,
-    a: new Float32Array(N), h: new Float32Array(N), s: new Float32Array(N),
+    a: new Float32Array(N), h: new Float32Array(N), s: new Float32Array(N), m: new Float32Array(N),
     na: new Float32Array(N), nh: new Float32Array(N), ns: new Float32Array(N),
-    ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N),
+    ha: new Float32Array(HIST * N), hh: new Float32Array(HIST * N), hs: new Float32Array(HIST * N), hm: new Float32Array(HIST * N),
     head: 0, // index of the newest laid row in the history
-    sub: 0, acc: 0, quiet: 0, sites: [], time: 0, mt: 0, wl: 1, nrows: 0, slide: 0,
+    sub: 0, acc: 0, quiet: 0, sites: [], time: 0, mt: 0, wl: 1, gm: 1, nrows: 0, slide: 0,
     P: {}, kn: [0, 2, 0, 0.06],
     hueMat: new Float32Array(9), hueAt: -1,
   };
@@ -107,12 +112,14 @@ function seedState(S, P) {
     S.a[i] = P.b0 + 0.05 * Math.random();
     S.h[i] = max(0.05, P.h0 + P.hk * S.a[i]);
     S.s[i] = 1;
+    S.m[i] = 0;
   }
 }
 
 function substep(S, P) {
   const { a, h, s, na, nh, ns } = S;
-  const rho = P.rho, kap = P.kap, Da = P.Da * S.wl, b0 = P.b0, h0 = P.h0, Dh = P.Dh, nu = P.nu, hk = P.hk, sig = P.sig, gam = P.gam;
+  const rho = P.rho, kap = P.kap, Da = P.Da * S.wl, b0 = P.b0, h0 = P.h0, Dh = P.Dh, nu = P.nu, hk = P.hk, sig = P.sig, gam = P.gam * S.gm;
+  const m = S.m;
   for (let i = 0; i < N; i++) {
     const l = i === 0 ? N - 1 : i - 1, r = i === N - 1 ? 0 : i + 1;
     const ai = a[i], hi = h[i], si = s[i];
@@ -123,6 +130,9 @@ function substep(S, P) {
     nh[i] = v < 0.03 ? 0.03 : v;
     v = si + DT * (sig * (1 - si) - gam * si * ai);
     ns[i] = v < 0 ? 0 : v > 1 ? 1 : v;
+    // the dark second tone: it fills up wherever the activator has been and drains away over about 25 time units
+    v = m[i] + DT * (INK_GAIN * (ai > 0.6 ? ai - 0.6 : 0) * (1 - m[i]) - INK_DRAIN * m[i]);
+    m[i] = v > 1 ? 1 : v;
   }
   S.a = na; S.h = nh; S.s = ns; S.na = a; S.nh = h; S.ns = s;
   if (P.drift !== 0) {
@@ -131,7 +141,7 @@ function substep(S, P) {
     while (S.slide >= 1 || S.slide <= -1) {
       const dir = S.slide > 0 ? 1 : -1;
       S.slide -= dir;
-      for (const arr of [S.a, S.h, S.s]) {
+      for (const arr of [S.a, S.h, S.s, S.m]) {
         if (dir > 0) {
           const last = arr[N - 1];
           for (let i = N - 1; i > 0; i--) arr[i] = arr[i - 1];
@@ -148,15 +158,15 @@ function substep(S, P) {
 
 function seeds(S, P, mult) {
   // each step has a small chance of a colony starting at a cell where the substrate has
-  // recovered; one time in three it is a cell that seeded lately, which puts a second
+  // recovered; one time in two it is a cell that seeded lately, which puts a second
   // chevron inside the first
   if (Math.random() < P.rate * mult * DT) {
     const a = S.a, sites = S.sites;
     let c = floor(Math.random() * N);
-    if (sites.length > 0 && Math.random() < 0.35) c = (sites[floor(Math.random() * sites.length)] + N + floor(Math.random() * 3) - 1) % N;
-    if (P.amp > 1 && S.s[c] < 0.75) return;
+    if (sites.length > 0 && Math.random() < 0.5) c = (sites[floor(Math.random() * sites.length)] + N + floor(Math.random() * 3) - 1) % N;
+    if (P.amp > 1 && S.s[c] < 0.6) return;
     sites.push(c);
-    if (sites.length > 4) sites.shift();
+    if (sites.length > 5) sites.shift();
     if (P.amp > 1) {
       a[(c + N - 1) % N] += P.amp;
       a[c] += P.amp;
@@ -181,6 +191,7 @@ function pushRow(S) {
   S.ha.set(S.a, o);
   S.hh.set(S.h, o);
   S.hs.set(S.s, o);
+  S.hm.set(S.m, o);
 }
 
 function advanceSteps(S, P, mult, steps) {
@@ -188,6 +199,8 @@ function advanceSteps(S, P, mult, steps) {
     // the width of the lip's reach swells and shrinks slowly, so stripes are inserted and withdrawn
     S.mt += DT;
     S.wl = 1 + P.wob * (0.7 * sin((2 * PI * S.mt) / 150) + 0.5 * sin((2 * PI * S.mt) / 61 + 1.3));
+    // the substrate is eaten faster and slower in turn, so some fronts are thin lines and some are thick bands
+    S.gm = 1 + 0.45 * (0.65 * sin((2 * PI * S.mt) / 113 + 0.5) + 0.35 * sin((2 * PI * S.mt) / 47 + 2));
     seeds(S, P, mult);
     substep(S, P);
     if (++S.sub === SUBS) {
@@ -197,9 +210,14 @@ function advanceSteps(S, P, mult, steps) {
       let m = 0;
       for (let i = 0; i < N; i++) if (S.a[i] > m) m = S.a[i];
       if (m > 0.4 * P.aref) S.quiet = 0;
-      else if (++S.quiet > 45) {
+      else if (++S.quiet > QUIET_ROWS) {
+        // the cell with the most substrate left, out of a few drawn at random
         S.quiet = 0;
-        const c = floor(Math.random() * N);
+        let c = floor(Math.random() * N);
+        for (let q = 0; q < 6; q++) {
+          const d = floor(Math.random() * N);
+          if (S.s[d] > S.s[c]) c = d;
+        }
         for (let q = -1; q <= 1; q++) S.a[(c + q + N) % N] += 2.5;
       }
     }
@@ -239,9 +257,9 @@ function hueMatrix(S, hue) {
   S.hueAt = hue;
 }
 
-const GROUND = [30, 17, 46], PLUM = [52, 24, 62], TEAL = [22, 118, 140];
+const GROUND = [30, 17, 46], PLUM = [52, 24, 62], TEAL = [22, 118, 140], INK = [96, 26, 50];
 
-function rowAt(S, age, ph, outA, outH, outS) {
+function rowAt(S, age, ph, outA, outH, outS, outM) {
   // age in rows from the lip: 0 is the live state, ph is the newest laid row
   if (age <= ph) {
     const f = ph > 0 ? age / ph : 0, o = S.head * N;
@@ -249,6 +267,7 @@ function rowAt(S, age, ph, outA, outH, outS) {
       outA[i] = S.a[i] + (S.ha[o + i] - S.a[i]) * f;
       outH[i] = S.h[i] + (S.hh[o + i] - S.h[i]) * f;
       outS[i] = S.s[i] + (S.hs[o + i] - S.s[i]) * f;
+      outM[i] = S.m[i] + (S.hm[o + i] - S.m[i]) * f;
     }
     return;
   }
@@ -259,6 +278,7 @@ function rowAt(S, age, ph, outA, outH, outS) {
     outA[i] = S.ha[o0 + i] + (S.ha[o1 + i] - S.ha[o0 + i]) * f;
     outH[i] = S.hh[o0 + i] + (S.hh[o1 + i] - S.hh[o0 + i]) * f;
     outS[i] = S.hs[o0 + i] + (S.hs[o1 + i] - S.hs[o0 + i]) * f;
+    outM[i] = S.hm[o0 + i] + (S.hm[o1 + i] - S.hm[o0 + i]) * f;
   }
 }
 
@@ -274,7 +294,7 @@ function glaze(t, out) {
   out[2] = A[3] + (B[3] - A[3]) * f;
 }
 
-const rowA = new Float32Array(N), rowH = new Float32Array(N), rowS = new Float32Array(N);
+const rowA = new Float32Array(N), rowH = new Float32Array(N), rowS = new Float32Array(N), rowM = new Float32Array(N);
 
 // growth lines: faint ridges across the ground, one pattern per row laid, bowed across the lip,
 // so the bare ground scrolls with the history too
@@ -304,7 +324,7 @@ export function draw(display, params) {
   const ph = (S.sub + S.acc) / SUBS;
   const hden = max(0.5, P.hk * aref);
   for (let y = 0; y < H; y++) {
-    rowAt(S, H - 1 - y, ph, rowA, rowH, rowS);
+    rowAt(S, H - 1 - y, ph, rowA, rowH, rowS, rowM);
     let hm = 0;
     for (let x = 0; x < W; x++) hm += rowH[x];
     const hbase = max(P.h0, 0.9 * hm / W);
@@ -319,6 +339,8 @@ export function draw(display, params) {
       let r = GROUND[0] * gr, g = GROUND[1] * gr, b = GROUND[2] * gr;
       const used = (1 - cl(rowS[x], 0, 1)) * (1 - u);
       r += (PLUM[0] - r) * used * 0.8; g += (PLUM[1] - g) * used * 0.8; b += (PLUM[2] - b) * used * 0.8;
+      const ink = sm(0.12, 0.85, rowM[x]) * (1 - u);
+      r += (INK[0] * (0.8 + 0.4 * gr - 0.4) - r) * ink; g += (INK[1] * (0.8 + 0.4 * gr - 0.4) - g) * ink; b += (INK[2] * (0.8 + 0.4 * gr - 0.4) - b) * ink;
       r += (TEAL[0] - r) * wake * 0.85; g += (TEAL[1] - g) * wake * 0.85; b += (TEAL[2] - b) * wake * 0.85;
       if (u > 0) {
         glaze(rowA[x] / P.cref, glz);
