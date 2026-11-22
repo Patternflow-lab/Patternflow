@@ -169,5 +169,10 @@
   "statics": { "label": "구조 정역학", "color": "#c8ff00" },
   "fracture": { "label": "깨짐·균열", "color": "#8a2bff" },
   "wulff": { "label": "결정 모양", "color": "#ffa6c9" },
-  "capillary": { "label": "모세관 불안정", "color": "#0090ff" }
+  "capillary": { "label": "모세관 불안정", "color": "#0090ff" },
+  "conus": { "label": "조개 무늬", "color": "#d9a066" },
+  "patternweld": { "label": "무늬 단조강", "color": "#7d8fa6" },
+  "quadtree": { "label": "사분트리 압축", "color": "#66d9c2" },
+  "coffeering": { "label": "마르는 얼룩", "color": "#a0522d" },
+  "phasedarray": { "label": "위상 배열", "color": "#4d9fff" }
 }
