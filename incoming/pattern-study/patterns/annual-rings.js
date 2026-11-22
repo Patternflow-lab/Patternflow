@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Dendrochronology, A. E. Douglass: tree rings read as a record of wet and dry years and cross-dated between trees, from his 1913 work at the University of Arizona to Climatic Cycles and Tree-Growth (1919); fire scars read from the rings, as in the Southwest fire-history studies that grew out of it
+// Lineage: Dendrochronology, A. E. Douglass: tree rings read as a record of wet and dry years and cross-dated between trees, 1913 into the 1920s (Climatic Cycles and Tree-Growth, 1919); fire scars and frost rings dated by the same cross-dating
 // Round:   216
 // ===============================
 // @matrix 64x128
@@ -184,9 +184,11 @@ function tint(c, dry, wet, jit, out) {
 const F = (n) => new Float32Array(n);
 
 export function setup(params) {
+  const seed = (Math.random() * 2147483647) | 0;
+  SD = seed;
   params.s = {
-    seed: (Math.random() * 2147483647) | 0,
-    uN: 0,
+    seed,
+    uN: 100 + hh(0, 99) * 400 + 20,
     opened: false,
     key: "",
     knobs: [0, 2, 0, 0.06],
