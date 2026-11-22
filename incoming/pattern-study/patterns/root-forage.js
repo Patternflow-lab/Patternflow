@@ -9,7 +9,7 @@
 // Round:   220
 // ===============================
 // @matrix 64x128
-// @knobs Hue=-0.06..0.08, Growth=0.6..3.5, Tropism=-1..1, Rain=-1..1
+// @knobs Hue=-0.08..0.1, Growth=0.6..3, Tropism=-1..1, Rain=-1..1
 //
 // Knob 1: Hue. TODO
 // Knob 2: Growth. TODO
@@ -33,13 +33,13 @@ const F = (n) => new Float32Array(n);
 const DS = 1.25; // LEDs between two nodes of a root
 const YBOT = 121; // a tip that gets this deep stops
 const NODE_CAP = 3400;
-const V0 = [1.5, 1.35, 1.1, 0.9]; // tip speed by branch order, LEDs a second
+const V0 = [1.4, 1.3, 1.1, 0.9]; // tip speed by branch order, LEDs a second
 const LIFE = [1e9, 26, 20, 16]; // seconds a stopped root of each order stays
 const STARVE = [1e9, 30, 20, 12];
 const MAXLEN = [88, 36, 17, 9]; // laterals are determinate: each stops at about this length // seconds a tip may sit in empty soil
-const GCOST = 0.6, BIRTH = 4, YIELD = 6, BASE = 3, BMAX = 30;
+const GCOST = 0.6, BIRTH = 4, YIELD = 6, BASE = 5, BMAX = 30;
 const VMAX = 0.035, KM = 0.12, NABS = 28;
-const LEACH = 0.011;
+const LEACH = 0.03;
 const BCELL = 7, BX = 10, BY = 19;
 
 const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) * 1.732;
@@ -94,8 +94,8 @@ export function setup(params) {
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, k = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.066);
-  S.k1 = cl(k[0], -0.06, 0.08);
-  S.m2 = cl(k[1], 0.6, 3.5) / 2;
+  S.k1 = cl(k[0], -0.08, 0.1);
+  S.m2 = mix(0.45, 1.6, (cl(k[1], 0.6, 3) - 0.6) / 2.4);
   S.u3 = (cl(k[2], -1, 1) + 1) / 2;
   S.u4 = (cl(k[3], -1, 1) + 1) / 2;
   knobs(S);
@@ -112,11 +112,11 @@ function knobs(S) {
   S.bm = mix(0.35, 2.4, u3);
   S.kc = mix(0.1, 1.7, u3);
   S.kg = mix(1.5, 0.4, u3);
-  S.gsaM = mix(0.25, 1.15, u3);
-  S.rainMean = 18 * pow(3.8 / 18, u4);
-  S.rainA = mix(0.7, 1.2, u4);
-  S.rainS = mix(2.3, 3.5, u4);
-  S.D = mix(0.03, 0.18, u4);
+  S.gsaM = mix(0.25, 1.05, u3);
+  S.rainMean = 9 * pow(4.2 / 9, u4);
+  S.rainA = mix(0.85, 1.05, u4);
+  S.rainS = mix(2.4, 3.2, u4);
+  S.D = mix(0.04, 0.16, u4);
   S.lmax = 6500 * (0.75 + 0.5 * u3) * (0.8 + 0.4 * u4);
 }
 
@@ -186,7 +186,7 @@ function diffuse(S, dt) {
       const p = j * GW + i, c = n[p];
       const l = i > 0 ? n[p - 1] : c, r = i < GW - 1 ? n[p + 1] : c;
       let v = c + D * (l + r + n[p + up] + n[p + dn] - 4 * c);
-      v = v * (1 - (LEACH + 0.025 * v) * dt) - 0.002 * dt;
+      v = v * (1 - (LEACH + 0.05 * v) * dt) - 0.002 * dt;
       o[p] = v < 1e-4 ? 0 : v > 1.3 ? 1.3 : v;
     }
   }
@@ -275,14 +275,16 @@ function stepTips(S, dt) {
         }
       }
     }
-    tp.w += (wt - tp.w) * (1 - exp(-dt / 2.4));
+    // how fast: slower in a rich patch and in the deep, and by the plant's reserve
+    const v = tp.v0 * S.m2 * (1 - 0.5 * sm(0.12, 0.7, tp.nl)) * (1 - 0.5 * sm(75, 124, y)) * (0.45 + 0.55 * sm(0, 5, S.B));
+    // the bend of a root is limited, so it turns in an arc of at least 6 LEDs
+    const wm = v * (ord === 0 ? 0.1 : 0.16);
+    tp.w = cl(tp.w + (wt - tp.w) * (1 - exp(-dt / 2.4)), -wm, wm);
     th = cl(th + tp.w * dt, -1.75, 1.75);
     if (y < SOIL + 3) {
       y = SOIL + 3;
       th = cl(th, -1.45, 1.45);
     }
-    // how fast: slower in a rich patch and in the deep, and by the plant's reserve
-    const v = tp.v0 * S.m2 * (1 - 0.5 * sm(0.12, 0.7, tp.nl)) * (1 - 0.5 * sm(75, 124, y)) * (0.45 + 0.55 * sm(0, 5, S.B));
     const hx2 = sin(th), hy2 = cos(th);
     x = cl(x + hx2 * v * dt, 1, 62);
     y += hy2 * v * dt;
@@ -317,8 +319,6 @@ function stepTips(S, dt) {
     else tp.hunger = max(0, tp.hunger - 2 * dt);
     if (tp.hunger > STARVE[ord] * cl(1 / sqrt(S.m2), 0.75, 1.8) || y > YBOT || rt.len > tp.maxLen) {
       tp.alive = false;
-      S.nd = (S.nd || 0) + 1;
-      S.ndf = (S.ndf || 0) + (y > YBOT ? 1 : 0);
       rt.tip = null;
       rt.stall = T;
     }
@@ -368,32 +368,28 @@ function branchScan(S, dtScan) {
   for (const tp of S.tips) if (tp.alive) alive++;
   for (const nd of S.nodes) if (nd.rt.ord > 0) fine += nd.ea;
   const lim = cl((S.lmax - fine * DS) / (0.3 * S.lmax), 0, 1);
-  const T = S.t, nodes = S.nodes, pmax = S.bm * (1 + 1.5 * cl((8 - alive) / 8, 0, 1)) * lim * 0.016 * dtScan;
+  const T = S.t, nodes = S.nodes, pmax = S.bm * (1 + 1.5 * cl((8 - alive) / 8, 0, 1)) * lim * 0.03 * dtScan;
   if (lim <= 0) return;
   let births = 0;
   for (let i = 0; i < nodes.length && births < 2; i++) {
     const nd = nodes[i], rt = nd.rt;
-    const C = S.dbg || (S.dbg = {tot:0,lat:0,tipnear:0,age:0,pmax:0,rate:0,space:0,ok:0});
-    C.tot++;
-    if ((nd.lat && nd.lat.alpha > 0.2) || rt.ord >= 3 || rt.alpha < 0.95) {C.lat++; continue;}
-    if (rt.tip && rt.len - nd.s < 8) {C.tipnear++; continue;}
+    if ((nd.lat && nd.lat.alpha > 0.2) || rt.ord >= 3 || rt.alpha < 0.95) continue;
+    if (rt.tip && rt.len - nd.s < 8) continue;
     if (rt.ord > 0) {
       const age = T - nd.born;
-      if (age < 4 || age > 150) {C.age++; continue;}
+      if (age < 4 || age > 150) continue;
     }
-    if (Math.random() > pmax) {C.pmax++; continue;}
+    if (Math.random() > pmax) continue;
     const nl = nAt(S, nd.x, nd.y), sat = nl / (nl + 0.25);
-    if (Math.random() * 0.016 > 0.004 + 0.012 * sat) {C.rate++; continue;}
-    if (!spacingOK(S, nd)) {C.space++; continue;}
-    C.ok++;
+    if (Math.random() * 0.03 > 0.006 + 0.024 * sat) continue;
+    if (!spacingOK(S, nd)) continue;
     // which side: toward the richer one, mostly
     const pn = nd.par || nd, dx = nd.x - pn.x, dy = nd.y - pn.y, nl2 = sqrt(dx * dx + dy * dy) || 1, th0 = Math.atan2(dx / nl2, dy / nl2);
     const ex = cos(th0), ey = -sin(th0), gside = nAt(S, nd.x + 5 * ex, nd.y + 5 * ey) - nAt(S, nd.x - 5 * ex, nd.y - 5 * ey);
     const side = Math.random() < 0.72 && abs(gside) > 0.01 ? (gside > 0 ? 1 : -1) : Math.random() < 0.5 ? 1 : -1;
     const mag = S.gsaM * (0.85 + 0.35 * Math.random());
-    const th = cl(th0 + side * mix(0.55, 1.05, S.u3) * (0.85 + 0.3 * Math.random()), -1.75, 1.75);
+    const th = cl(th0 + side * mix(0.55, 0.95, S.u3) * (0.85 + 0.3 * Math.random()), -1.75, 1.75);
     nd.lat = makeRoot(S, rt.ord + 1, nd, nd.x, nd.y, th, side * mag).rt;
-    S.nb = (S.nb || 0) + 1;
     S.B -= BIRTH;
     births++;
     if (S.B < BIRTH) break;
@@ -488,20 +484,20 @@ function palette(S) {
     let i = 0;
     while (i < 2 && z > ZS[i + 1]) i++;
     const f = (z - ZS[i]) / (ZS[i + 1] - ZS[i]);
-    hsv(mix(SA[i][0], SA[i + 1][0], f) + h, mix(SA[i][1], SA[i + 1][1], f), mix(SA[i][2], SA[i + 1][2], f), t);
+    hsv(mix(SA[i][0], SA[i + 1][0], f) + 0.45 * h, mix(SA[i][1], SA[i + 1][1], f), mix(SA[i][2], SA[i + 1][2], f) * (1 + h), t);
     S.lutA[y * 3] = t[0];
     S.lutA[y * 3 + 1] = t[1];
     S.lutA[y * 3 + 2] = t[2];
-    hsv(mix(SB[i][0], SB[i + 1][0], f) + h, mix(SB[i][1], SB[i + 1][1], f), mix(SB[i][2], SB[i + 1][2], f), t);
+    hsv(mix(SB[i][0], SB[i + 1][0], f) + 0.45 * h, mix(SB[i][1], SB[i + 1][1], f), mix(SB[i][2], SB[i + 1][2], f) * (1 + h), t);
     S.lutB[y * 3] = t[0];
     S.lutB[y * 3 + 1] = t[1];
     S.lutB[y * 3 + 2] = t[2];
   }
-  hsv(0.47 + 1.8 * h, 0.82, 1, c.nut);
-  hsv(0.12 + 0.6 * h, 0.15, 1, c.root);
-  hsv(0.09 + 0.6 * h, 0.42, 0.7, c.old);
-  hsv(0.13 + 0.6 * h, 0.06, 1, c.tip);
-  hsv(0.16 + 0.5 * h, 0.22, 0.97, c.stem);
+  hsv(0.47 + 2.4 * h, 0.82, 1, c.nut);
+  hsv(0.12 + 0.4 * h, 0.15, 1, c.root);
+  hsv(0.09 + 0.25 * h, 0.42, 0.7, c.old);
+  hsv(0.13 + 0.25 * h, 0.06, 1, c.tip);
+  hsv(0.16 + 0.3 * h, 0.22, 0.97, c.stem);
 }
 
 function capsule(S, ax, ay, bx, by, ra, rb, al, tone) {
@@ -577,6 +573,7 @@ export function draw(display, params) {
   palette(S);
   drawRoots(S);
   const c = S.c, nut = c.nut, rc = c.root, oc = c.old, tc = c.tip, sc = c.stem;
+  const wet = 0.85 + 0.3 * S.u4;
   const { lutA, lutB, lum, tint, stone, wx, wy, tex, ys, cov, tone, glow, halo } = S, n = S.n;
   for (let y = 0; y < H; y++) {
     const yy = y + 0.5, skyv = 0.035 + 0.04 * sm(0, SOIL, yy);
@@ -602,7 +599,7 @@ export function draw(display, params) {
         const gx = cl((xx + wx[p]) * 0.5 - 0.5, 0, GW - 1.001), gy = cl((yy + wy[p]) * 0.5 - 0.5, G0, GH - 1.001);
         const i = floor(gx), j = floor(gy), fx = gx - i, fy = gy - j, q = j * GW + i;
         const ng = n[q] * (1 - fx) * (1 - fy) + n[q + 1] * fx * (1 - fy) + n[q + GW] * (1 - fx) * fy + n[q + GW + 1] * fx * fy;
-        const a = sm(0.03, 0.85, ng) * (0.85 + 0.3 * tex[p]);
+        const a = sm(0.03, 0.85, ng) * (0.85 + 0.3 * tex[p]) * wet;
         const k = 0.4 + 0.3 * a;
         sr = sr * (1 - 0.3 * a) + nut[0] * a * k;
         sg = sg * (1 - 0.3 * a) + nut[1] * a * k;
