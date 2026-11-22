@@ -43,18 +43,24 @@ const IREF = 1 / (2 * 55); // intensity of a unit-drive beam 55 LEDs out
 const ZREF = 1 / sqrt(55);
 
 // ---- the scan
-const STEP = 11; // degrees between dwell angles
-const BETA = [[22, 37.3, 0.7], [14, 61.1, 2.9], [8, 97.7, 4.6]]; // amplitude in degrees, period in s, phase
+const STEP = 11; // degrees between dwell angles, before the jitter
+const BETA = [[22, 29.3, 0.7], [14, 47.1, 2.9], [9, 73.7, 4.6]]; // amplitude in degrees, period in s, phase
+const WOB = [[1.4, 8.3, 0.4], [0.9, 13.7, 3.1]]; // the beam never quite stands still on a dwell
 const THMAX = 56;
-const sc0 = 3.0;
+const sc0 = 0.0;
 function betaOf(sc) {
   let b = 0;
   for (let i = 0; i < BETA.length; i++) b += BETA[i][0] * sin((2 * PI * sc) / BETA[i][1] + BETA[i][2]);
   return b;
 }
+// the dwell angles are 11 degrees apart give or take 4, so the beam does not keep returning to the same few directions
+const level = (i) => STEP * i + 2.6 * sin(1.7 * i + 0.4) + 1.6 * sin(2.9 * i + 1.3);
 function targetOf(sc, off) {
   const u = (betaOf(sc) + off) / STEP, i = floor(u), f = u - i;
-  return cl(STEP * (i + sm(0.42, 0.58, f)), -THMAX, THMAX);
+  const l0 = level(i), l1 = level(i + 1);
+  let wob = 0;
+  for (let k = 0; k < WOB.length; k++) wob += WOB[k][0] * sin((2 * PI * sc) / WOB[k][1] + WOB[k][2]);
+  return cl(l0 + (l1 - l0) * sm(0.42, 0.58, f) + wob, -THMAX, THMAX);
 }
 
 function makeState() {
@@ -62,7 +68,7 @@ function makeState() {
     ready: false, t: 0, sc: sc0, off: 0, nextEv: sc0 + 20,
     th: 0, vel: 0,
     kn: [0, 2, 0.5, 0.06],
-    d: -1, lam: 8,
+    d: -1, lam: 8, lamE: 8, ah: AH, mMul: 1, cph: 0,
     rt: new Float32Array(NE * NPX), at: new Float32Array(NE * NPX),
     Zr: new Float32Array(NPX), Zi: new Float32Array(NPX),
     G: new Float32Array(NPX), C: new Float32Array(NPX), px: new Float32Array(NPX * 3),
@@ -93,7 +99,7 @@ function buildTables(S, ds) {
         const dx = x + 0.5 - x0;
         const r = max(1.3, sqrt(dx * dx + dy * dy));
         const i = n * NPX + y * W + x;
-        S.rt[i] = (r * TABN) / lam;
+        S.rt[i] = r;
         S.at[i] = 1 / sqrt(r);
       }
     }
@@ -104,7 +110,7 @@ function buildTables(S, ds) {
 // 1.15 at the opening, 2 at 0.35 (Hann), 6 at 1.
 function weights(S, taper) {
   const s = (cl(taper, -1, 1) + 1) / 2;
-  const m = (6 * (Math.pow(2, 7 * s) - 1)) / 127;
+  const m = ((6 * (Math.pow(2, 7 * s) - 1)) / 127) * S.mMul, AH = S.ah;
   let tot = 0;
   for (let n = 0; n < NE; n++) {
     const dx = abs(S.xs[n] - CX);
@@ -123,7 +129,7 @@ function advance(S, dt, kn) {
   const rate = Math.pow(cl(kn[1], 0, 4) / 2, 2);
   S.sc += dt * rate;
   if (rate > 0 && S.sc >= S.nextEv) {
-    S.off = (Math.random() * 2 - 1) * 16;
+    S.off = (Math.random() * 2 - 1) * 20;
     S.nextEv = S.sc + 18 + Math.random() * 40;
   }
   const target = targetOf(S.sc, S.off);
@@ -133,6 +139,12 @@ function advance(S, dt, kn) {
   S.th += S.vel * dt;
   S.th = cl(S.th, -THMAX - 4, THMAX + 4);
 
+  // slow drifts of the width, the taper and the frequency, so the beam's shape never settles
+  const t = S.t, T2 = 2 * PI * t;
+  S.ah = AH * (1 + 0.16 * sin(T2 / 67.1 + 1.1) + 0.1 * sin(T2 / 109.3 + 4.2));
+  S.mMul = Math.pow(2, 0.55 * sin(T2 / 83.7 + 2.0) + 0.3 * sin(T2 / 139.1 + 0.3));
+  S.lamE = S.lam * (1 + 0.09 * sin(T2 / 71.3 + 0.9) + 0.05 * sin(T2 / 113.7 + 2.4));
+  S.cph += (2 * PI * PHASE_SPEED * dt) / S.lamE;
   const ds = cl(kn[2], 0.5, 1.6);
   if (S.d < 0 || abs(lambdaOf(ds) * ds - S.d) > 1e-4) buildTables(S, ds);
   weights(S, kn[3]);
@@ -142,7 +154,7 @@ function advance(S, dt, kn) {
   const Zr = S.Zr, Zi = S.Zi;
   Zr.fill(0);
   Zi.fill(0);
-  const phs = (TABN * S.d * sinT) / S.lam;
+  const phs = (TABN * S.d * sinT) / S.lamE, kk = TABN / S.lamE;
   for (let n = 0; n < NE; n++) {
     const wn = S.w[n];
     const p = phs * (n - NM) + TABN * 64;
@@ -150,21 +162,21 @@ function advance(S, dt, kn) {
     if (wn < 1e-4) continue;
     const base = n * NPX, rt = S.rt, at = S.at;
     for (let i = 0; i < NPX; i++) {
-      const idx = (rt[base + i] + p) & TMASK;
+      const idx = (rt[base + i] * kk + p) & TMASK;
       const a = wn * at[base + i];
       Zr[i] += a * COS[idx];
       Zi[i] += a * SIN[idx];
     }
   }
   // the instantaneous field and the averaged intensity
-  const om = (2 * PI * PHASE_SPEED) / S.lam * S.t;
+  const om = S.cph;
   const co = cos(om), si = sin(om);
   const G = S.G, C = S.C;
   for (let i = 0; i < NPX; i++) {
     const zr = Zr[i], zi = Zi[i];
     const I = 0.5 * (zr * zr + zi * zi);
     const db = 4.3429 * log(I / IREF + 1e-5);
-    const gv = Math.pow(cl((db + 34) / 37, 0, 1), 1.15);
+    const gv = Math.pow(cl((db + 31) / 34, 0, 1), 1.35);
     G[i] = gv > BASE[i] ? gv : BASE[i];
     const zm = sqrt(zr * zr + zi * zi) + 1e-9;
     const A = min(1, 1.1 * Math.pow(zm / ZREF, 0.6));
@@ -185,12 +197,12 @@ export function update(dt, input, params) {
 
 // ---- colour
 const RAMP = [
-  [0.0, 4, 4, 20],
-  [0.2, 36, 10, 64],
-  [0.4, 28, 26, 112],
-  [0.65, 20, 70, 170],
-  [0.85, 28, 120, 215],
-  [1.0, 60, 170, 235],
+  [0.0, 3, 3, 16],
+  [0.18, 30, 8, 58],
+  [0.38, 30, 22, 108],
+  [0.62, 18, 62, 168],
+  [0.84, 26, 118, 214],
+  [1.0, 80, 188, 240],
 ];
 const LUTN = 256;
 const GLUT = new Float32Array((LUTN + 1) * 3);
@@ -203,7 +215,7 @@ for (let i = 0; i <= LUTN; i++) {
   GLUT[i * 3 + 1] = a[2] + (b[2] - a[2]) * u;
   GLUT[i * 3 + 2] = a[3] + (b[3] - a[3]) * u;
 }
-const CREST = [205, 248, 255], UNDER = [140, 24, 150];
+const CREST = [225, 252, 255], CREST_LO = [96, 128, 246], UNDER = [140, 24, 150];
 
 function hueMatrix(S, hue) {
   if (S.hueAt === hue) return;
@@ -221,10 +233,10 @@ function shade(g, c, out) {
   let gg = GLUT[j + 1] + (GLUT[j + 4] - GLUT[j + 1]) * fr;
   let b = GLUT[j + 2] + (GLUT[j + 5] - GLUT[j + 2]) * fr;
   if (c > 0) {
-    const p = c * c;
-    r += (CREST[0] - r) * p;
-    gg += (CREST[1] - gg) * p;
-    b += (CREST[2] - b) * p;
+    const p = Math.pow(c, 1.7), h = sm(0.35, 0.85, g);
+    r += (CREST_LO[0] + (CREST[0] - CREST_LO[0]) * h - r) * p;
+    gg += (CREST_LO[1] + (CREST[1] - CREST_LO[1]) * h - gg) * p;
+    b += (CREST_LO[2] + (CREST[2] - CREST_LO[2]) * h - b) * p;
   } else {
     const p = -c, q = p * p * 0.5;
     r = r * (1 - 0.55 * p) + UNDER[0] * q;
@@ -250,7 +262,7 @@ export function draw(display, params) {
   // the elements: a bead two LEDs wide each, glowing with its own phase
   let wmax = 0;
   for (let n = 0; n < NE; n++) if (S.w[n] > wmax) wmax = S.w[n];
-  const om = (2 * PI * PHASE_SPEED) / S.lam * S.t;
+  const om = S.cph;
   for (let n = 0; n < NE; n++) {
     const wr = S.w[n] / wmax;
     if (wr < 0.004) continue;
