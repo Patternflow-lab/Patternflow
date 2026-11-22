@@ -11,14 +11,39 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0..4, Regime=-2..1, Seeds=-1..1
 //
-// Knob 1: Hue. Turns the glaze round the wheel; at 0 the ground is deep indigo-umber, the pigment amber with a cream core and a dark umber rim.
-// Knob 2: Growth. How many rows of shell the lip lays down each second, 3 at 0, 6.6 at the opening 2 and 24 at 4; the model takes the same steps per row at every speed, so the shapes stay the same and only the scroll changes.
-// Knob 3: Regime. Walks the equation through the real shell regimes: -2 stable stripes along the growth direction, -1 the same stripes leaning, 0 where it opens, tents and triangles born at random and run to collision, 1 an irregular crowd of small triangles.
-// Knob 4: Seeds. How often the lip seeds a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1.
+// Knob 1: Hue. Turns the whole glaze round the wheel. At 0 the ground is a deep plum-indigo with a soft lilac sheen, the pigment is umber at its thin edge, amber, then gold, then cream where it lies thick, and a teal shade trails each front. At 0.25 the pigment is green on brown, at 0.5 blue on dark green, at 0.75 pink on dark teal.
+// Knob 2: Growth. How many rows of shell the lip lays down each second: 3 at 0, 6.6 at the opening 2, 24 at 4, so the 128 rows on the panel hold 43 s of history, 19 s and 5 s. The model takes 20 steps per laid row at every speed, so the shapes do not change with Growth, only the scroll does.
+// Knob 3: Regime. Walks the equation across the regimes of real shells. At -2 the pigment settles into 5 or 6 stable stripes along the growth direction. At -1.2 the same stripes lean, the lip sliding 0.8 cell a row. Between -1.2 and -0.6 the stripes break into oblique runs that are born, travel and die, and at -0.6 they are wide leaning bands. At 0, where it opens, chevrons and tents: a colony starts at a random cell, two fronts run away from it at about 45 degrees, and each pair dies where it meets another. At 1 a crowd of short fronts that never settles.
+// Knob 4: Seeds. How often the lip starts a new colony of pigment at a random cell, 4 times rarer at -1 and 4 times more often at 1. At the opening the lip tries a seed about every 4 rows, at -1 every 17 and at 1 every row, and a seed on eaten substrate is skipped. In the stripe regime a seed is too faint to show and the knob does little.
+
+// What the picture is. Each column is one of 64 pigment cells along the lip of the shell, and the ring wraps, so cell 63 is the neighbour
+// of cell 0. The bottom row of the panel is the lip now. At the opening a row is laid every 0.15 s and the older rows slide up, so the panel
+// is the surface of the shell and no row comes back. Nothing but the pigment is drawn.
+// Each cell holds an activator a, an inhibitor h and a substrate s, and the ring is solved in steps of 0.02 time units, 20 to a laid row:
+//   da/dt = rho s a^2 / ((1 + kap a^2) h) - a + Da a_xx + b0        autocatalysis, throttled by h, fed by s, spreading by diffusion
+//   dh/dt = nu (h0 + hk a - h) + Dh h_xx                            the inhibitor follows the activator, with a floor h0
+//   ds/dt = sig (1 - s) - gam s a                                   the activator eats the substrate, which grows back at sig
+// This is the family of Gierer and Meinhardt's equations with a substrate added, as Meinhardt used for shells. The constants are my own
+// choice and are tuned by eye, not taken from the book. a stays between 0.0001 and 20, h above 0.03 and s between 0 and 1, so nothing blows up.
+// Two settings of the constants make two different media. With a small floor h0 and a wide, fast inhibitor (Dh 15, nu 1.5) the ring is a
+// Turing medium: the stripes that form hold still, a column that is pigment stays pigment. With a high floor h0 (1.5) and no spread of h the
+// ring is excitable: a at rest is 0.01, and a seed of 2.2 on three cells crosses the threshold, runs outward as two fronts, and leaves the
+// substrate eaten behind it (it is back to 0.75 after about 8 time units, 21 rows), so the fronts die on meeting each other and a new colony
+// cannot start where one has just run. Regime moves between five columns of constants, listed in PARAM, with the inhibitor strengthened
+// for a while between the second and third, because the straight mix of the two media floods the ring with a solid band.
+// Leaning is a slide of the whole medium along the lip, one whole cell every 25 steps at the setting 2 (a cell at a time and never
+// interpolated, since interpolation blurs the stripes away). The reach Da swings by up to 48% (stripes) down to 12% (crowd) with periods of 150
+// and 61 time units, so stripes are inserted and withdrawn and the chevrons swell and thin. Colonies are seeded only on a cell whose substrate is
+// above 0.75, and one time in three on a cell that seeded in the last four, which lays a second chevron inside the first. If the lip has been
+// dark for 45 rows a colony goes in. The model is run for 400 rows before the first frame, about 20 ms.
+// Drawing. Pigment cover is a smoothstep of a over aref of 1.7 to 2.5, and the colour comes off a glaze ramp on a over cref: umber, deep
+// orange, amber, gold, cream. The ground is plum with growth lines bowed across it, one row each laid, darker plum where the substrate
+// has been eaten, teal where the inhibitor is high behind a front. Two soft bands of light, 61 s and 97 s a turn and moving opposite ways,
+// slide over everything.
 
 const W = 64, H = 128;
 const N = 64; // cells along the lip, the ring: cell 63 neighbours cell 0
-const { floor, sqrt, abs, exp, sin, cos, PI, min, max } = Math;
+const { floor, exp, sin, cos, PI, min, max } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -145,6 +170,13 @@ function seeds(S, P, mult) {
 function pushRow(S) {
   S.head = (S.head + 1) % HIST;
   S.nrows++;
+  let tot = 0;
+  for (let i = 0; i < N; i++) tot += S.a[i] + S.h[i];
+  if (!(tot < 1e4)) {
+    // a runaway or a NaN never gets onto the panel: the lip is cleared and starts again
+    S.sub = 0;
+    seedState(S, S.P);
+  }
   const o = S.head * N;
   S.ha.set(S.a, o);
   S.hh.set(S.h, o);
