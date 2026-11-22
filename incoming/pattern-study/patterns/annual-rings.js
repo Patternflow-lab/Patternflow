@@ -190,12 +190,11 @@ export function setup(params) {
     seed,
     uN: 100 + hh(0, 99) * 400 + 20,
     opened: false,
-    key: "",
     knobs: [0, 2, 0, 0.06],
     leanKey: -9,
     // geometry, per pixel
     R: F(NPX), B: F(NPX), TH: F(NPX), Q: F(NPX), GQ: F(NPX),
-    Rb2: 0, cbx: 0, cby: 0,
+    Rb2: 0, // squared bark radius minus the squared distance from the pith to the bark's centre
     // depth table
     ud: F(NJ + 1), rw: F(NJ + 1),
     // running sums of colour
