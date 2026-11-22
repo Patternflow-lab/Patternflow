@@ -12,25 +12,27 @@
 // @knobs Hue=0..1, Dry=0..4, Slip=-2..2, Drops=-1..1
 //
 // Knob 1: Hue. The dye of the drops. At 0 it is a blue-green (0.52 of the way round the wheel); turning it takes the whole wheel, and the stains already on the glass change colour with it. Each drop is a little off the dye (up to 0.08 either way) and three in ten are a second dye 0.30 of the wheel along, a violet-pink at 0, so where they overlap the stains blend.
-// Knob 2: Dry. How fast the liquid evaporates, which sets a drop's life: 40 s at 0, 15.5 s at 2 (where it opens), 6 s at 4, for a drop of the mean radius (a drop's life goes as its radius to the 0.6, times 0.8 to 1.25). Fast drying also lays down more stain: about 0.13 drops a second at 0, 0.35 at 2 and 0.8 at 4.
+// Knob 2: Dry. How fast the liquid evaporates, which sets a drop's life: 40 s at 0, 11.8 s at 2 (where it opens), 3.5 s at 4, for a drop of the mean radius (a drop's life goes as its radius to the 0.4, times 0.8 to 1.25). Fast drying also lays down more stain: about 0.2 drops a second at 0, 0.65 at 2 and 2 at 4.
 // Knob 3: Slip. How readily the contact line lets go and re-pins as the drop shrinks. At -2 the edge never moves and every drop leaves one clean ring; at 0 it leaves two or three; at 2 as many as the drop has room for, up to six, at least 3.3 LEDs apart (radius 6 holds one, 9 two, 12 three, 15 four, 18 five), so a middling drop of radius 11 shows two or three and a big one all of them.
-// Knob 4: Drops. Size and rate together. At -1 the mean radius is 21 LEDs and a drop lands every 6 s or so; at 0 it is 11.5 and one lands every 3 s; at 1 it is 7 and one lands every second. The drops under their wet lens cover about 28% of the panel at any moment, whatever the knob says, and none is smaller than radius 6 or bigger than 28.
+// Knob 4: Drops. Size and rate together. At -1 the mean radius is 19 LEDs and a drop lands every 4 s; at 0 it is 10.5 and one lands every 1.5 s (7 or 8 lenses are wet at once); at 1 it is 7 and about two land every second (22 wet). The wet lenses cover about a third of the panel at any moment, whatever the knob says, and no drop is smaller than radius 6 or bigger than 28.
 
 // What the picture is. The panel is a slide of glass seen from above, ground a deep warm neutral from (14, 12, 18) to (30, 26, 34), with
 // a cloudy sheen that slides over it. A drop is a disc of radius R (6 to 28) at a random place, kept off the spots where wet drops
 // already lie. On landing it spreads in 0.3 s from 0.28 R to R, overshoots by 3% and settles, and sends one ripple ring from its middle
-// to its rim. Then it dries for T seconds as a tinted lens: dark in the middle where it is thick, a bright refraction rim, a soft glint
-// of a lamp that fades as the drop flattens, and soft streaks running out to the rim, the capillary flow that carries the particles. The
-// particles crowd into a band under the rim and the ring forms there, darker and more saturated every second, 2.7 to 3.2 LEDs thick on
-// the main ring and about 2 on the thinner inner ones. If the contact line lets go it retreats 0.3 s to the next ring radius, 3 to 3.6
-// LEDs or more in, and a thinner ring starts there, until at T the last lens snaps: it shrinks and fades in 0.7 s and what is left is a
-// dark ring, a lighter glaze inside and a pale edge light just outside each outer ring. The stain goes onto a persistent canvas of five
-// fields (the strength of the glaze, of the ring and of the edge light, and for the glaze and the ring the dye each carries, kept as an
-// offset round the Hue knob so turning the knob recolours them). A drop that lands dissolves 90% of the older stain under its middle in
-// 0.75 s, and its own glaze covers what rings are left, so the later drop wins where they overlap. Glaze fades with a time constant of 38
-// s, rings 90 s and edge light 60 s, and the glaze shows as its strength to the power 1.8, so a stain is dim after a minute and gone in
-// three. The mean level stays within 5% over 900 s. The canvas is pre-run for 210 s with the opening knobs, so the first frame already
-// has stains on it.
+// to its rim. Then it dries for T seconds as a bright tinted lens, the brightest thing on the panel: dark in the middle where it is
+// thick, a refraction rim that brightens as the drop thins, a soft glint of a lamp that fades as the drop flattens, and soft streaks
+// running out to the rim, the capillary flow that carries the particles. The particles crowd into a band under the rim and the ring forms
+// there, darker and more saturated every second, 2.7 to 3.2 LEDs thick on the main ring and about 2 on the thinner inner ones. If the
+// contact line lets go it retreats 0.3 s to the next ring radius, 3 to 3.6 LEDs or more in, and a thinner ring starts there, until at T
+// the last lens snaps: the rim flares, the lens shrinks and fades in 0.6 s, and what is left is a dark ring, a lighter glaze inside and a
+// pale edge light just outside each outer ring. The stain goes onto a persistent canvas of five fields (the strength of the glaze, of the
+// ring and of the edge light, and for the glaze and the ring the dye each carries, kept as an offset round the Hue knob so turning the
+// knob recolours them). A wet drop is drawn through the same colour function as the canvas, with the fields as they would be if it dried
+// now, so nothing jumps when it does. A drop that lands dissolves 78% of the older stain under its middle in 0.75 s, and its own glaze
+// covers what rings are left, so the later drop wins where they overlap. Glaze fades with a time constant of 42 s, rings 90 s and edge
+// light 65 s, and the glaze shows as its strength to the power 1.4, so a stain is dim after a minute and gone in three. The mean level is
+// about 98 at the opening and stays within 2% over 900 s. The canvas is pre-run for 210 s with the opening knobs, so the first frame
+// already has stains on it.
 
 const W = 64, H = 128, NP = W * H;
 const { floor, ceil, sqrt, abs, exp, sin, cos, atan2, log, pow, PI, min, max } = Math;
