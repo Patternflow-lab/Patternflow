@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Brinicles, the ice stalactites that grow down from sea ice around sinking brine, Martin and Kauffman (1974); filmed growing to the seabed by Miller and Wilson for the BBC (2011)
+// Lineage: Brinicles, the ice stalactites that grow down from sea ice around sinking brine: seen in McMurdo Sound by Dayton and Martin (1971), flow theory by Seelye Martin (1974); filmed growing to the seabed for the BBC's Frozen Planet (2011)
 // Round:   216
 // ===============================
 // @matrix 64x128
