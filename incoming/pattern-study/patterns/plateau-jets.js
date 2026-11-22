@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the Plateau-Rayleigh instability of a liquid cylinder (Joseph Plateau, 1873; Lord Rayleigh, "On the instability of jets", 1878), the slender-jet equations solved with a minimum-radius cut (Jens Eggers and Todd Dupont, J. Fluid Mech. 262, 1994; Eggers, Rev. Mod. Phys. 69, 1997) and the drops left ringing in Rayleigh's l = 2 mode; Felix Savart's jet photographs (1833); pattern round 217
+// Lineage: the Plateau-Rayleigh instability of a liquid cylinder (Joseph Plateau, 1873; Lord Rayleigh, "On the instability of jets", 1878), the slender-jet equations solved with a minimum-radius cut (Jens Eggers and Todd Dupont, J. Fluid Mech. 262, 1994; Eggers, Rev. Mod. Phys. 69, 1997) and the drops left ringing in Rayleigh's l = 2 mode; Felix Savart's observations of jets breaking into drops (1833); pattern round 217
 // Round:   219
 // ===============================
 // @matrix 64x128
