@@ -9,12 +9,12 @@
 // Round:   229
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Lamp=0.1..2.5, Bounce=-1..1, Spread=-1..1
+// @knobs Hue=0..1, Lamp=0.4..2.5, Bounce=-1..1, Spread=-1..1
 //
-// Knob 1: Hue. Turns the whole palette of wall colours once round the colour wheel; at 0 the middle of the palette is blue-violet with teal and magenta either side, and every wall keeps its own slow drift on top.
-// Knob 2: Lamp. How fast the two lamps travel through the plan and how fast their routes evolve, 0.1 at the left (a lamp takes a minute to cross a room) to 2.5 (it crosses the plan in about ten seconds); the route is steered through the doorways.
-// Knob 3: Bounce. How much of the light a wall gives back, albedo 0.29 at -1 where only the strip of floor beside a wall takes its colour, 0.62 at 0 where it opens, and 0.95 at +1 where colour floods whole rooms through many bounces.
-// Knob 4: Spread. How far apart the wall hues are: at -1 all walls stay within about 12 degrees of one hue and only brightness tells them apart, at 0 they span about 200 degrees, and at +1 every hue round the wheel appears and neighbouring walls are complementary.
+// Knob 1: Hue. Turns the palette of wall colours once round the wheel (the same at 0 and at 1). At 0 the middle of the palette is green-cyan, 140 degrees, with the walls spread yellow to violet round it; on top of that every wall drifts on its own by up to about 100 degrees and the whole palette turns 1.3 degrees a second, so no minute repeats.
+// Knob 2: Lamp. How fast the two lamps travel and how fast their routes evolve, from 1.4 LEDs a second at 0.4 (a lamp takes 40 s to cross a room) to 9 LEDs a second at 2.5, 7 where it opens at 2. A lamp is steered through the doorways towards a point that wanders on three sines per axis.
+// Knob 3: Bounce. How much light a wall gives back, an albedo of 0.29 at -1 where only the floor right beside a wall takes its colour and the walls glow dim, 0.62 at 0 where it opens, and 0.95 at +1 where colour floods whole rooms through several bounces.
+// Knob 4: Spread. How far apart the wall hues are, 10 degrees either side of the middle at -1 (the walls differ only by their drift), 160 at 0.06 where it opens (nearly the whole wheel is in use) and 210 at +1 (the whole wheel, neighbouring walls near complements).
 
 const W = 64, H = 128;
 const { floor, sqrt, exp, log, sin, cos, abs, min, max, PI, atan2, pow } = Math;
@@ -304,15 +304,15 @@ function buildSamples(P) {
   P.fi = fi; P.fw = fw; P.kind = kind; P.ao = ao;
 }
 
-// Wall pixels: the nearest patch, blended along its face with the next patch, and with the nearest patch of
-// another face where two are about as near (inside a partition, in the corners).
+// Wall pixels: the nearest patch, blended along its face with the next patch; a pixel is shaded a little darker
+// the deeper it lies in the wall.
 function buildWallPixels(P) {
   const np = P.np, { pmx, pmy, ptx, pty, plen, pface, pprev, pnext } = P;
   const list = [];
   for (let o = 0; o < W * H; o++) if (P.kind[o] === 1) list.push(o);
   const nw = list.length;
   P.nw = nw; P.wpix = Int32Array.from(list);
-  P.wa = new Int16Array(nw * 4); P.wt = new Float32Array(nw * 2); P.wm = new Float32Array(nw); P.wsh = new Float32Array(nw);
+  P.wa = new Int16Array(nw * 2); P.wt = new Float32Array(nw); P.wsh = new Float32Array(nw);
   for (let n = 0; n < nw; n++) {
     const o = list[n], cx = (o % W) + 0.5, cy = floor(o / W) + 0.5;
     let b1 = -1, d1 = 1e9, s1 = 0;
@@ -323,16 +323,10 @@ function buildWallPixels(P) {
       const d = sqrt(qx * qx + qy * qy);
       if (d < d1 - 0.01) { b1 = i; d1 = d; s1 = s; }
     }
-    const lay = (b, s, slot) => {
-      const u = cl(s / plen[b], -0.5, 0.5);
-      let nb = u >= 0 ? pnext[b] : pprev[b];
-      P.wa[n * 4 + slot * 2] = b;
-      P.wa[n * 4 + slot * 2 + 1] = nb >= 0 ? nb : b;
-      P.wt[n * 2 + slot] = nb >= 0 ? abs(u) : 0;
-    };
-    lay(b1, s1, 0);
-    lay(b1, s1, 1);
-    P.wm[n] = 0;
+    const u = cl(s1 / plen[b1], -0.5, 0.5), nb = u >= 0 ? pnext[b1] : pprev[b1];
+    P.wa[n * 2] = b1;
+    P.wa[n * 2 + 1] = nb >= 0 ? nb : b1;
+    P.wt[n] = nb >= 0 ? abs(u) : 0;
     P.wsh[n] = 1 - 0.25 * cl((d1 - 0.5) / 3, 0, 1);
   }
 }
@@ -480,21 +474,24 @@ function hueRgb(h, out) {
   out[0] = r; out[1] = g; out[2] = b;
 }
 
+const CORE = 0.7, CORE_S2 = 2 * 3.5 * 3.5;
 const J_LAMP = 2.4, R1 = 10, AMB = 0.05, AMB_W = 0.22, AMB_F = 0.015, CHROMA = 2.4, FLOOR_G = 2.6, FLOOR_D = 0.55;
+const HUE_RATE = 1.3; // degrees a second the whole palette turns, so no two minutes look alike
 const NB = 256; // direction bins round a lamp point
 const LAMP_COL = [[1.0, 0.93, 0.8], [0.84, 0.94, 1.0]];
 const SUBR = 3.0;
 
 function setEntityColours(P, kv) {
+  const t = P.t;
   const alb = 0.62 + 0.33 * cl(kv[2], -1, 1);
   const sp = (cl(kv[3], -1, 1) + 1) / 2;
-  const spread = 14 + 170 * sqrt(sp);
-  const centre = 140 + 360 * cl(kv[0], 0, 1);
-  const t = P.t, tmp = P.tmpc;
+  const spread = 10 + 200 * pow(sp, 0.45);
+  const centre = 140 + 360 * cl(kv[0], 0, 1) + HUE_RATE * t;
+  const tmp = P.tmpc;
   for (let e = 0; e < NE; e++) {
     const D = HUE_D[e];
-    const wob = 38 * sin(TAU * (t * P.hfa[e]) + P.hph[e * 2]) + 24 * sin(TAU * (t * P.hfb[e]) + P.hph[e * 2 + 1]);
-    hueRgb(centre + D * spread + wob * (0.35 + 0.65 * sp), tmp);
+    const wob = 70 * sin(TAU * (t * P.hfa[e]) + P.hph[e * 2]) + 42 * sin(TAU * (t * P.hfb[e]) + P.hph[e * 2 + 1]);
+    hueRgb(centre + D * spread + wob * (0.8 + 0.2 * sp), tmp);
     P.rho[e * 3] = alb * (0.04 + 0.96 * tmp[0]);
     P.rho[e * 3 + 1] = alb * (0.04 + 0.96 * tmp[1]);
     P.rho[e * 3 + 2] = alb * (0.04 + 0.96 * tmp[2]);
@@ -509,8 +506,8 @@ export function setup(P) {
   P.tmpc = new Float64Array(3); P.tmp3 = new Float64Array(3);
   P.hfa = new Float64Array(NE); P.hfb = new Float64Array(NE); P.hph = new Float64Array(NE * 2);
   for (let e = 0; e < NE; e++) {
-    P.hfa[e] = (1 / 230) * (0.6 + 0.8 * ((e * 0.7548776662 + 0.2) % 1));
-    P.hfb[e] = (1 / 97) * (0.7 + 0.6 * ((e * 0.5698402909 + 0.45) % 1));
+    P.hfa[e] = (1 / 110) * (0.6 + 0.8 * ((e * 0.7548776662 + 0.2) % 1));
+    P.hfb[e] = (1 / 50) * (0.7 + 0.6 * ((e * 0.5698402909 + 0.45) % 1));
     P.hph[e * 2] = Math.random() * TAU; P.hph[e * 2 + 1] = Math.random() * TAU;
   }
   P.rho = new Float64Array(NE * 3);
@@ -535,7 +532,6 @@ function initWorld(P) {
   P.prho = new Float32Array(np * 3);
   P.dpr = new Float32Array(np); P.dpg = new Float32Array(np); P.dpb = new Float32Array(np);
   P.dsr = new Float32Array(ns); P.dsg = new Float32Array(ns); P.dsb = new Float32Array(ns);
-  P.expo = 1;
   // lamps start at nodes far from each other
   for (let l = 0; l < NL; l++) {
     const [tx, ty] = lampTarget(P, l);
@@ -647,7 +643,6 @@ function frame(P, kv, dt, sweeps) {
     }
   // light on the floor samples
   const { srp, scj, sfv, sx, sy, dsr, dsg, dsb } = P;
-  let lum = 0;
   for (let s = 0; s < ns; s++) {
     let r = 0, g = 0, b = 0;
     for (let k = srp[s]; k < srp[s + 1]; k++) {
@@ -668,13 +663,12 @@ function frame(P, kv, dt, sweeps) {
         v += visFrac(P.bins, q * NB, sx[s] - S[o], sy[s] - S[o + 1]);
       }
       if (!v) continue;
-      const f = (FLOOR_D * v) / (NSUBL * (1 + (dx * dx + dy * dy) / (R1 * R1)));
+      const r2 = dx * dx + dy * dy;
+      const f = (FLOOR_D * v) / (NSUBL * (1 + r2 / (R1 * R1))) + (CORE * v) / NSUBL * exp(-r2 / CORE_S2);
       r += lj[l * 3] * f; g += lj[l * 3 + 1] * f; b += lj[l * 3 + 2] * f;
     }
     dsr[s] = r; dsg[s] = g; dsb[s] = b;
-    lum += 0.3 * r + 0.6 * g + 0.1 * b;
   }
-  return lum / max(1, ns);
 }
 
 // Tone map 1 - exp(-k x) in linear light, then the display gamma.
@@ -715,8 +709,8 @@ function render(P, kf, kw) {
   const { nw, wpix, wa, wt } = P;
   for (let n = 0; n < nw; n++) {
     const o = wpix[n];
-    const a0 = wa[n * 4], a1 = wa[n * 4 + 1];
-    const t0 = wt[n * 2], sh = P.wsh[n];
+    const a0 = wa[n * 2], a1 = wa[n * 2 + 1];
+    const t0 = wt[n], sh = P.wsh[n];
     out[o * 3] = (dpr[a0] + (dpr[a1] - dpr[a0]) * t0) * sh;
     out[o * 3 + 1] = (dpg[a0] + (dpg[a1] - dpg[a0]) * t0) * sh;
     out[o * 3 + 2] = (dpb[a0] + (dpb[a1] - dpb[a0]) * t0) * sh;
@@ -726,7 +720,7 @@ function render(P, kf, kw) {
 export function update(dt, input, P) {
   const kv = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
-  const speed = cl(kv[1], 0.1, 2.5);
+  const speed = cl(kv[1], 0.4, 2.5);
   if (!P.ready) {
     P.ready = true;
     P.t = Math.random() * 400;
@@ -742,11 +736,8 @@ export function update(dt, input, P) {
   const dtl = d * speed;
   P.lt += dtl;
   for (let l = 0; l < NL; l++) lampStep(P, l, dtl);
-  const lum = frame(P, kv, d, 3);
-  // slow exposure: the picture is judged against how bright the floor is on average
-  const target = 1;
-  P.expo += (target - P.expo) * (1 - exp(-d / 2.5));
-  render(P, 1.0 * P.expo, 3.4 * P.expo);
+  frame(P, kv, d, 3);
+  render(P, 1.0, 3.4);
 }
 
 export function draw(display, P) {
