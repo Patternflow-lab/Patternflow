@@ -285,7 +285,7 @@ function step(P, h) {
       }
     }
   }
-  // Each town: infection from itself, recovery, and immunity wearing off stage by stage.
+  // Each town is infected by itself and by sparks. It recovers, then loses immunity stage by stage.
   for (const t of T) {
     const rs = t.rs;
     const wm = K.omega * NSTAGE * t.wv;
