@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: original, pattern round 228; the method is differential growth of a closed line (nodes on springs, a repulsion between every pair closer than a radius, a new node when an edge gets long), as used for generative art by Jonathan McCabe and Anders Hoff around 2010, from memory
+// Lineage: original, pattern round 228; the method is differential growth of a closed line (nodes on springs, a repulsion between every pair closer than a radius, a new node where an edge gets long), taken up in generative art by Anders Hoff and by Nervous System's Hyphae in the 2010s, from memory
 // Round:   230
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Growth=0.8..3, Spacing=-1..1, Unevenness=-1..1
+// @knobs Hue=0..1, Growth=1..3, Spacing=-1..1, Unevenness=-1..1
 //
-// Knob 1: Hue. Turns the whole gradient round the wheel; at 0 the line runs from rose through violet to blue.
-// Knob 2: Growth. How fast the swelling stretches lengthen and the field that picks them drifts, from 0.4 to 1.5 times its pace at the opening 2.
-// Knob 3: Spacing. How far a fold keeps from the next, 4.1 LEDs at -1, 4.9 at 0 and 5.7 at 1, so the labyrinth goes from a tight coral to a loose one with wide black lanes.
-// Knob 4: Unevenness. How much the growth field differs from place to place: at -1 the line swells almost evenly and wanders, at 1 the swelling is confined to a few lobes and the rest dies back hard.
+// Knob 1: Hue. Turns the gradient round the wheel; at 0 the line runs from rose through violet to blue and back along its length.
+// Knob 2: Growth. How fast the swelling stretches lengthen and the field that picks them drifts, from half to one and a half times its pace at the opening 2.
+// Knob 3: Spacing. How far a fold keeps from the next: the repulsion radius is 4.25 LEDs at -1, 5 at 0 and 5.75 at 1, which leaves lanes of about 1.6, 2.2 and 3 dark LEDs between the strands.
+// Knob 4: Unevenness. How different the growth is from place to place: at -1 the contrast of the field is half its opening value and the line swells almost everywhere, at 1 it is 1.8 times that and the swelling is confined to a few lobes while the rest dies back.
 
 const W = 64, H = 128;
 const { floor, ceil, sqrt, sin, cos, exp, abs, max, min, pow, PI } = Math;
@@ -354,9 +354,11 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   dt = min(dt, 0.1);
   P.hue = k[0];
-  const speed = cl(k[1], 0.6, 3.2) / 2;
-  P.R = 4.9 + 0.8 * cl(k[2], -1, 1);
-  P.contrast = 0.78 + 0.7 * cl(k[3], -1, 1);
+  const speed = cl(k[1], 0.8, 3.2) / 2;
+  P.R = 5.0 + 0.75 * cl(k[2], -1, 1);
+  const u4 = cl(k[3], -1, 1);
+  // Even at -1 some places swell more than others, or a full box would jam and stop folding.
+  P.contrast = u4 < 0 ? 0.78 + 0.38 * u4 : 0.78 + 0.7 * u4;
   P.gate = 0.6;
   const run = (h, sub) => {
     P.ft += h * speed;
