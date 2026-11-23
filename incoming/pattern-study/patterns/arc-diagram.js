@@ -23,7 +23,7 @@ const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 const RING = 1024, MASK = RING - 1; // bar memory
 const HIST = 190; // bars searched for repeats
-const AHEAD = 0.3; // how far past the bottom edge the tune is already composed, in spans
+const AHEAD = 0.45; // how far past the bottom edge the tune is already composed, in spans
 const STRIP = 3; // LEDs of the baseline strip
 const GOLD = 137.508;
 const FILL = 0.56; // share of a repeat's length that its band fills
@@ -204,7 +204,7 @@ function planNext(P) {
       P.chorus = sectionBars(P, a).concat(sectionBars(P, lastS));
       if (P.chorus.length > 8) P.chorus = sectionBars(P, lastS);
       P.chorusUses = 0;
-      P.chorusMax = 2 + ((Math.random() * 2) | 0);
+      P.chorusMax = Math.random() < 0.3 ? 2 : 1;
       queue(P, P.chorus.slice(), 2);
     } else {
       queue(P, Math.random() < 0.4 ? vary(P, P.chorus) : P.chorus.slice(), 2);
@@ -219,7 +219,7 @@ function planNext(P) {
     const cand = [];
     for (let j = 0; j < secs.length; j++) {
       const D = n - secs[j].s, L = secs[j].e - secs[j].s;
-      if (L >= 3 && secs[j].gen <= 1 && D + L >= 0.62 * P.span && D + L <= 0.98 * P.span && barAt(P, secs[j].s) !== barAt(P, n - 1)) cand.push(j);
+      if (L >= 3 && secs[j].gen <= 1 && secs[j].uses < 2 && D + L >= 0.62 * P.span && D + L <= 0.98 * P.span && barAt(P, secs[j].s) !== barAt(P, n - 1)) cand.push(j);
     }
     if (cand.length) {
       const j = cand[(Math.random() * cand.length) | 0];
@@ -376,7 +376,7 @@ function layout(P) {
   const top = P.tau - (1 + AHEAD) * span;
   const { ra, rd, rl, ar, ord } = P;
   let m = 0;
-  const maxChord = span * 1.3;
+  const maxChord = span * (1 + AHEAD);
   const lmin = bar >= 2.4 ? 2 : bar >= 1.3 ? 3 : 4; // an arc is at least 3 LEDs thick
   for (let r = 0; r < P.nr; r++) {
     if (rl[r] < lmin) continue;
