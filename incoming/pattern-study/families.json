@@ -194,5 +194,10 @@
   "receptive": { "label": "수용장 사전", "color": "#36c9f0" },
   "launchwindow": { "label": "발사 창 도표", "color": "#f2b84b" },
   "lasermode": { "label": "레이저 공진 모드", "color": "#ff4a3a" },
-  "protodisk": { "label": "원시 행성 원반", "color": "#8f6bff" }
+  "protodisk": { "label": "원시 행성 원반", "color": "#8f6bff" },
+  "dispersion": { "label": "분산 광선", "color": "#e86cff" },
+  "canopy": { "label": "수관 기피", "color": "#5fcf5a" },
+  "ikat": { "label": "이카트 염색", "color": "#2f4fd0" },
+  "zebra": { "label": "곡면 줄무늬 검사", "color": "#d6dbe6" },
+  "cratering": { "label": "충돌 구덩이", "color": "#9a8f86" }
 }
