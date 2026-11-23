@@ -433,8 +433,8 @@ export function update(dt, input, P) {
   const R = 17.5 * (1 + 0.16 * wander(t / 31 + 0.4, 14) + 0.04 * wander(t / 9.3 + 6.6, 17));
   buildPoly(P, 12 + 4 * k4, cx, cy, R);
 
-  // The beam comes from the upper left; its angle sweeps through about 80 degrees on a
-  // random sequence, and it slides across the polygon.
+  // The beam comes from above, mostly from the upper left; its angle sweeps through about
+  // 60 degrees on random sequences, and it slides across the polygon.
   const ang = 1.2 + 0.5 * wander(t / 41 + 3.1, 1) + 0.3 * wander(t / 19 + 1.1, 18) + 0.14 * wander(t / 7.5 + 7.7, 2);
   const dx = cos(ang), dy = sin(ang);
   const nx = -dy, ny = dx;
