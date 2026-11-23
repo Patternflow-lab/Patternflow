@@ -224,5 +224,5 @@
   "bumpchart": { "label": "순위 곡선", "color": "#6364a1" },
   "epidemic": { "label": "유행병", "color": "#ace8a2" },
   "colony": { "label": "군체 띠", "color": "#7cab6d" },
-  "meanshift": { "label": "평균 이동", "color": "#a4c485" }
+  "pareto": { "label": "파레토 전선", "color": "#a4c485" }
 }
