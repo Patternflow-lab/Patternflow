@@ -29,13 +29,13 @@ const gz = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 const rr = (a, b) => a + (b - a) * Math.random();
 
 // ---- ant and trail constants -------------------------------------------------
-const SDIST = 2.4;              // sensor reach, cells
-const CSA = cos(0.7), SSA = sin(0.7);
+const SDIST = 1.9;              // sensor reach, cells
+const CSA = cos(0.6), SSA = sin(0.6);
 const OMEGA = 7;                // fastest turn, rad/s
 const TD = 11;                  // a trail laid this long after the last visit is e-fold weaker, seconds
 const D0 = 1.0;                 // deposit per second at full strength
 const PMAX = 40;
-const WD2 = 1.5;                // road width squared, cells squared, held by D = WD2 / memory
+const WD2 = 0.8;                // road width squared, cells squared, held by D = WD2 / memory
 const GSTEP = 1 / 30;
 
 // ---- palette -----------------------------------------------------------------
@@ -82,7 +82,7 @@ export function setup(P) {
   P.asc = F32(MAXA); P.aage = F32(MAXA); P.ahue = F32(MAXA);
   P.amd = new Uint8Array(MAXA); P.aon = new Uint8Array(MAXA);
   P.ps = new Uint8Array(NSL); P.px = F32(NSL); P.py = F32(NSL); P.pr = F32(NSL); P.pam = F32(NSL);
-  P.pcap = F32(NSL); P.pq = F32(NSL); P.pfade = F32(NSL); P.pw = F32(NSL); P.phue = F32(NSL); P.pflash = F32(NSL);
+  P.pcap = F32(NSL); P.prate = F32(NSL); P.pcool = F32(NSL); P.pq = F32(NSL); P.pfade = F32(NSL); P.pw = F32(NSL); P.phue = F32(NSL); P.pflash = F32(NSL);
   P.rk = [];
   P.recent = [];
   P.gacc = 0; P.rtimer = 0;
@@ -214,8 +214,9 @@ function sdfAt(SD, x, y) {
 
 // ---- food patches --------------------------------------------------------------
 function spawnPatch(P, s) {
-  const cap = cl(rr(45, 115) * P.nA / (22 * P.nf), 28, 560);
-  const pr = cl((2.3 + 2.1 * sqrt(cap / 200)) * rr(0.88, 1.12), 2.6, 5);
+  const rate = rr(0.8, 1.35) * (0.55 + P.nA / 160);
+  const cap = cl(rr(40, 110) * rate * 0.8, 24, 400);
+  const pr = cl((2.2 + 2.2 * sqrt(cap / 120)) * rr(0.88, 1.12), 2.6, 5);
   let bx = 20, by = 30, best = -1;
   for (let tries = 0; tries < 20; tries++) {
     const m = 3.5 + pr;
@@ -225,12 +226,12 @@ function spawnPatch(P, s) {
     let sc = 40;
     for (let o = 0; o < NSL; o++) if (o !== s && P.ps[o]) sc = min(sc, sqrt((x - P.px[o]) ** 2 + (y - P.py[o]) ** 2) - pr - P.pr[o]);
     for (const q of P.recent) sc = min(sc, (sqrt((x - q[0]) ** 2 + (y - q[1]) ** 2) - 5) * 0.8);
-    if (sc < 5) continue;
+    if (sc < 11) continue;
     const score = sc + Math.random() * 8;
     if (score > best) { best = score; bx = x; by = y; }
   }
   if (best < 0) { bx = rr(6, GW - 6); by = rr(6, 50); }
-  P.px[s] = bx; P.py[s] = by; P.pr[s] = pr; P.pam[s] = cap; P.pcap[s] = cap;
+  P.px[s] = bx; P.py[s] = by; P.pr[s] = pr; P.pam[s] = cap; P.pcap[s] = cap; P.prate[s] = rate; P.pcool[s] = 0;
   P.pq[s] = rr(0.75, 1.3); P.pfade[s] = 0; P.ps[s] = 1; P.phue[s] = rr(-0.05, 0.05);
   P.recent.push([bx, by]);
   if (P.recent.length > 4) P.recent.shift();
@@ -241,6 +242,7 @@ function stepPatches(P, dt) {
     const on = s < P.nf;
     const st = P.ps[s];
     P.pflash[s] *= exp(-dt * 4);
+    if (P.pcool[s] > 0) P.pcool[s] -= dt;
     if (st === 0) {
       if (on) { P.pw[s] -= dt; if (P.pw[s] <= 0) spawnPatch(P, s); }
     } else if (st === 1) {
@@ -294,7 +296,7 @@ function stepAnts(P, dt) {
       }
       const level = lv * 0.25 * nrm, gm = sqrt(gx * gx + gy * gy) * nrm;
       sg = (level / (level + 0.1)) * (gm / (gm + 0.04)) * (sc ? 0.35 : 1);
-      if (gm > 1e-9) { const w = 2.4 * sg / (gm / nrm); vx += gx * w; vy += gy * w; }
+      if (gm > 1e-9) { const w = 3.6 * sg / (gm / nrm); vx += gx * w; vy += gy * w; }
     }
     // home: the pull of the nest a carrying ant remembers, and the push away from it of one that has just left
     dxn = NX - x; dyn = NY - y; dn = sqrt(dxn * dxn + dyn * dyn) + 1e-6;
@@ -345,8 +347,8 @@ function stepAnts(P, dt) {
         if (P.ps[p] !== 1) continue;
         const rv = P.pr[p] * (0.4 + 0.6 * sqrt(P.pam[p] / P.pcap[p])) * min(1, P.pfade[p] * 2) + 0.7;
         const dx = x - P.px[p], dy = y - P.py[p];
-        if (dx * dx + dy * dy < rv * rv && P.pam[p] > 0.5) {
-          P.pam[p] -= 1; P.pflash[p] = 1;
+        if (dx * dx + dy * dy < rv * rv && P.pam[p] > 0.5 && P.pcool[p] <= 0) {
+          P.pam[p] -= 1; P.pflash[p] = 1; P.pcool[p] = 1 / P.prate[p];
           amd[i] = 1; adep[i] = P.pq[p]; ahue[i] = P.phue[p]; aage[i] = 0;
           th += PI + gz() * 0.4;
           break;
@@ -396,8 +398,8 @@ function stepGrid(P, h) {
   }
   // the picture's gain follows the busiest road, slowly, so a thin colony and a fat one both read
   const kk = 1 - exp(-h / 5);
-  P.refF += (max(0.25 * tauGain(tau), mxF * 0.5) - P.refF) * kk;
-  P.refH += (max(0.25 * tauGain(tau), mxH * 0.5) - P.refH) * kk;
+  P.refF += (max(0.25 * tauGain(tau), mxF * 0.6) - P.refF) * kk;
+  P.refH += (max(0.25 * tauGain(tau), mxH * 0.6) - P.refH) * kk;
 }
 const tauGain = (tau) => pow(tau / 14, 0.7) * 1.2;
 
@@ -455,7 +457,7 @@ export function draw(display, P) {
   pal(h0 + 0.14, cH); pal(h0 + 0.70, cF); pal(h0 + 0.40, cN); pal(h0 + 0.30, cR); pal(h0 + 0.2, cG);
   ob.fill(0);
   const tw = 0.5 + 0.5 * sin(P.t * 0.071);
-  const gF = 4.5 / P.refF, gH = 3.6 / P.refH;
+  const thF = 0.03 * P.refF, thH = 0.03 * P.refH, nrF = 1 / P.refF, nrH = 1 / P.refH;
   // the nest, a ring and a soft disc
   {
     const lx = (NX + 0.5) * SC, ly = (NY + 0.5) * SC, Rr = NR * SC, R = Rr + 9;
@@ -487,7 +489,7 @@ export function draw(display, P) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - lx, dy = y + 0.5 - ly, d = sqrt(dx * dx + dy * dy);
         const core = 1 - smooth((d - rv * 0.55) / (rv * 0.5 + 0.5));
-        const halo = 0.3 * exp(-(d * d) / (rv * rv * 2.4));
+        const halo = 0.22 * exp(-(d * d) / (rv * rv * 1.6));
         const v = (core * 0.85 + halo) * q, hot = core * core * 0.3 * q;
         const o = (y * W + x) * 3;
         ob[o] += col[0] * v + hot; ob[o + 1] += col[1] * v + hot; ob[o + 2] += col[2] * v + hot * 0.8;
@@ -520,10 +522,14 @@ export function draw(display, P) {
       const sd = SD[ks] * w00 + SD[ks + 1] * w01 + SD[ks + GW] * w10 + SD[ks + GW + 1] * w11;
       const g0 = T1[p] + (T2[p] - T1[p]) * tw;
       const gl = 0.055 + 0.075 * g0;
-      let iF = 1 - exp(-(f > 0.02 * P.refF ? f - 0.02 * P.refF : 0) * gF), iH = 1 - exp(-(h > 0.02 * P.refH ? h - 0.02 * P.refH : 0) * gH);
-      let r = cG[0] * gl + cF[0] * iF + cH[0] * iH * 0.9;
-      let g = cG[1] * gl + cF[1] * iF + cH[1] * iH * 0.9;
-      let b = cG[2] * gl + cF[2] * iF + cH[2] * iH * 0.9 + 0.035 * g0;
+      const fn = f > thF ? (f - thF) * nrF : 0, hn = h > thH ? (h - thH) * nrH : 0, tot = fn + hn;
+      const ratio = tot > 0 ? fn / tot : 0;
+      const I = tot > 0 ? 0.82 * (1 - exp(-1.5 * tot)) * smooth(tot / (0.1 + 0.3 * ratio)) : 0;
+      const hp = (((h0 + 0.14 + 0.56 * ratio) % 1) * 1024 | 0) & 1023, pi = hp * 3;
+      const wv = 0;
+      let r = cG[0] * gl + PL[pi] * I + wv;
+      let g = cG[1] * gl + PL[pi + 1] * I + wv;
+      let b = cG[2] * gl + PL[pi + 2] * I + wv + 0.035 * g0;
       if (sd < 3) {
         const cover = cl(0.5 - sd * 1.2, 0, 1);
         if (sd < 2) {
