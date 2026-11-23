@@ -52,21 +52,21 @@ function hsv(h, s, v, out, o) {
 // The simulation. A leg slides V bins a second, with a random factor on every step.
 const V = 2.7;
 const STEP = 1 / 30;
-const GAP = 1.0;             // a leg stops one bin short of the next leg
+const GAP = 1.8;             // a leg stops this many bins short of the next leg
 const NS = 48;               // slots: 20 rings alive and the ones fading out
 const PRE = 45;              // seconds run before the first frame, so that it opens as a picture
 // CTCF sites: bin, the way the motif faces (+1 forward, which stops a left leg coming from the
 // right; -1 reverse, which stops a right leg), and the strength it opens with. Forward on the
 // left and reverse on the right is a convergent pair, and a TAD lies between.
 const SITES = [
-  [4, 1, 0.92], [11, 1, 0.12], [15, -1, 0.1], [20, -1, 0.95], [23, 1, 0.9], [30, 1, 0.15], [32, -1, 0.3],
-  [38, -1, 0.92], [41, 1, 0.85], [45, 1, 0.1], [50, -1, 0.9], [53, 1, 0.8], [57, -1, 0.2], [61, -1, 0.88],
+  [3, 1, 0.92], [10, 1, 0.12], [14, 1, 0.5], [20, -1, 0.55], [26, -1, 0.95], [29, 1, 0.9], [35, 1, 0.2], [37, -1, 0.3],
+  [44, -1, 0.92], [47, 1, 0.88], [53, 1, 0.1], [57, -1, 0.2], [61, -1, 0.9],
 ];
 const NSITE = SITES.length;
 // Each site's strength wanders around its opening value on two slow sines, periods in seconds that
 // share no factor, so one site fades while another rises and the map's squares merge and split.
-const SPER_A = [97, 131, 163, 113, 149, 181, 127, 107, 139, 173, 89, 157, 119, 151];
-const SPER_B = [311, 257, 389, 283, 347, 421, 269, 331, 367, 293, 401, 241, 317, 379];
+const SPER_A = [97, 131, 163, 113, 149, 181, 127, 107, 139, 173, 89, 157, 119];
+const SPER_B = [311, 257, 389, 283, 347, 421, 269, 331, 367, 293, 401, 241, 317];
 const sprng = rng(225001);
 const SPHASE = SITES.map(() => [sprng() * TAU, sprng() * TAU]);
 const wander = (k, t) => 0.6 * sin((TAU * t) / SPER_A[k] + SPHASE[k][0]) + 0.4 * sin((TAU * t) / SPER_B[k] + SPHASE[k][1]);
@@ -82,17 +82,20 @@ const WF = 0.55, WS = 0.45;
 const WD = 0.34, WM = 0.32;
 const SIGD = 0.85;
 const INV2S = 1 / (2 * SIGD * SIGD);
-const PLAID = 0.45;
+const PLAID = 0.5;
+const HAZE = 0.026;          // contact that does not fall with distance: what the compartments modulate
+const BETA = 0.7;           // how much of the contact across a site, at full strength, a site takes away
 const BG = new Float32Array(NB), DOM = new Float32Array(NB);
 for (let s = 0; s < NB; s++) {
   BG[s] = 0.75 / (1 + 0.8 * s);
   DOM[s] = pow(1 + s, -0.3);
 }
-const LN_LO = log(0.03), INV_R = 1 / (log(1.5) - LN_LO);
+const LN_LO = log(0.022), INV_R = 1 / (log(1.4) - LN_LO);
 
 // Arc diagram geometry: ticks above the baseline, arcs hanging below it.
 const YB = 73;               // top edge of the arcs; the baseline fills rows 71 and 72
 const ARC_ROWS = H - YB;
+const TRACK = 26;            // rows the cohesin track may fill at the bottom
 
 function load(P) {
   const { L, R, ls, rs, st, tm, rand } = P;
@@ -104,7 +107,7 @@ function load(P) {
     let ok = true;
     for (let f = 0; f < NS; f++) {
       if (st[f] !== 1) continue;
-      if (abs(L[f] - c) < 1.7 || abs(R[f] - c) < 1.7) { ok = false; break; }
+      if (abs(L[f] - c) < 2.3 || abs(R[f] - c) < 2.3) { ok = false; break; }
     }
     if (!ok) continue;
     L[e] = c - 0.5;
@@ -228,6 +231,28 @@ function step(P, h) {
   // The instantaneous map of the rings that are alive, folded into the two averages.
   X.fill(0);
   for (let e = 0; e < NS; e++) if (st[e] === 1) addLoop(X, P.L[e], P.R[e]);
+  // Where the legs are, kept for a few seconds: what a ChIP track of cohesin would show.
+  const { O, Z } = P;
+  Z.fill(0);
+  for (let e = 0; e < NS; e++) {
+    if (st[e] !== 1) continue;
+    for (let side = 0; side < 2; side++) {
+      const x = side === 0 ? P.L[e] : P.R[e], w = (side === 0 ? P.ls[e] : P.rs[e]) === 1 ? 1 : 0.3;
+      const i0 = floor(x);
+      for (let i = i0 - 2; i <= i0 + 2; i++) {
+        if (i < 0 || i >= NB) continue;
+        const dx = i + 0.5 - x;
+        Z[i] += w * exp(-dx * dx * 0.9);
+      }
+    }
+  }
+  const ao = 1 - exp(-h / 9);
+  let mx = 0;
+  for (let i = 0; i < NB; i++) {
+    O[i] += (Z[i] - O[i]) * ao;
+    if (O[i] > mx) mx = O[i];
+  }
+  P.omax += (Math.max(mx, 0.5) - P.omax) * (1 - exp(-h / 20));
   const af = 1 - exp(-h / TF), as = 1 - exp(-h / TS);
   for (let i = 0; i < NN; i++) {
     const x = X[i];
@@ -239,7 +264,7 @@ function step(P, h) {
 // The two colour maps. The contact map is a table of 256 colours from black through wine,
 // red and orange to yellow-white; the hue knob moves every entry round the wheel.
 const HEAT = [
-  [0.0, 0, 0, 0], [0.1, 62, 0, 24], [0.3, 150, 4, 28], [0.5, 235, 28, 10],
+  [0.0, 0, 0, 0], [0.1, 70, 0, 28], [0.3, 150, 4, 28], [0.5, 235, 28, 10],
   [0.68, 255, 112, 0], [0.84, 255, 200, 20], [1.0, 255, 248, 205],
 ];
 function palettes(P, h0) {
@@ -270,12 +295,13 @@ function palettes(P, h0) {
   hsv(h0 + 0.58, 0.9, 1, P.cool, 0);
   hsv(h0 + 0.5, 0.45, 1, P.cool, 3);
   hsv(h0 + 0.12, 0.8, 1, P.tick, 0);
+  hsv(h0 + 0.64, 0.7, 1, P.track, 0);
 }
 
 export function setup(params) {
   params.rand = rng(225225);
   params.simT = -PRE;
-  params.T = 12;
+  params.T = 14.7;
   params.q = 0.9;
   params.n = 10;
   params.flip = false;
@@ -290,9 +316,14 @@ export function setup(params) {
   params.F = new Float32Array(NN);
   params.S = new Float32Array(NN);
   params.E = new Float32Array(NB);
+  params.cum = new Float32Array(NB + 1);
+  params.O = new Float32Array(NB);
+  params.Z = new Float32Array(NB);
+  params.omax = 0.5;
   params.heat = new Float32Array(256 * 3);
   params.cool = new Float32Array(6);
   params.tick = new Float32Array(3);
+  params.track = new Float32Array(3);
   params.fr = new Float32Array(W * H * 3);
   params.ab = new Float32Array(W * (H - 64) * 3);
   params.hc = -9;
@@ -305,7 +336,7 @@ export function update(dt, input, params) {
   const P = params;
   const k = input.knobValues || [0, 2, 0, 0.06];
   const kp = cl(k[1], 0, 3), kq = cl(k[2], -1, 1), kn = cl(k[3], -1, 1);
-  P.T = 0.9 * exp(1.3 * kp);
+  P.T = 0.9 * exp(1.4 * kp);
   P.q = kq < 0 ? 0.9 * (1 + kq) : 0.9 + 0.1 * kq;
   P.n = round(kn >= 0 ? 10 + 10 * kn : 10 + 9 * kn);
   if (abs(k[0] - P.hc) > 1e-4) palettes(P, k[0]);
@@ -322,19 +353,26 @@ export function update(dt, input, params) {
     step(P, STEP);
     P.acc -= STEP;
   }
+  // Insulation: the log of what each site takes from the contact across it, summed from the left.
+  const w = new Float32Array(NB);
+  for (let q = 0; q < NSITE; q++) w[SITES[q][0]] += log(1 - BETA * cl(P.q * P.ss[q], 0, 1));
+  P.cum[0] = 0;
+  for (let x = 0; x < NB; x++) P.cum[x + 1] = P.cum[x] + w[x];
   // The compartments: a plaid that shifts along the chromosome a bin in a minute or so.
   const t = P.t, E = P.E;
   for (let i = 0; i < NB; i++)
-    E[i] = tanh(2.2 * (0.55 * sin(i * 0.3 + 0.004 * t + 1) + 0.35 * sin(i * 0.47 - 0.0057 * t + 2.2) + 0.25 * sin(i * 0.19 + 0.0031 * t + 4)));
+    E[i] = tanh(1.5 * (0.55 * sin(i * 0.3 + 0.004 * t + 1) + 0.35 * sin(i * 0.47 - 0.0057 * t + 2.2) + 0.25 * sin(i * 0.19 + 0.0031 * t + 4)));
 }
 
 function drawMap(P, fr) {
-  const { F, S, E, heat, st, L, R, tm } = P;
+  const { F, S, E, heat, st, L, R, tm, cum } = P;
   for (let y = 0; y < NB; y++) {
     for (let x = 0; x < NB; x++) {
       const s = x > y ? x - y : y - x;
+      const lo = x < y ? x : y, hi = x < y ? y : x;
+      const ins = s > 1 ? exp(cum[hi] - cum[lo + 1]) : 1;
       const a = F[y * NB + x], b = F[x * NB + y], c = S[y * NB + x], d = S[x * NB + y];
-      const m = BG[s] * (1 + PLAID * E[x] * E[y]) + (x === y ? WF * a + WS * c : WF * (a + b) + WS * (c + d));
+      const m = (BG[s] * ins + HAZE) * (1 + PLAID * E[x] * E[y]) + (x === y ? WF * a + WS * c : WF * (a + b) + WS * (c + d));
       const v = cl((log(m) - LN_LO) * INV_R, 0, 1);
       const ti = ((v * 255) | 0) * 3, o = (y * W + x) * 3;
       fr[o] = heat[ti];
@@ -382,7 +420,7 @@ function seg(buf, x0, y0, x1, y1, hw, c0, c1, c2, gain) {
 }
 
 function drawArcs(P, fr) {
-  const { ab, cool, tick, st, L, R, ls, rs, tm, ss } = P;
+  const { ab, cool, tick, track, st, L, R, ls, rs, tm, ss } = P;
   ab.fill(0);
   // Baseline, rows 71 and 72.
   for (let y = 71; y <= 72; y++)
@@ -392,6 +430,21 @@ function drawArcs(P, fr) {
       ab[o + 1] += cool[1] * 0.2 / 255;
       ab[o + 2] += cool[2] * 0.2 / 255;
     }
+  // The track: where legs have been held lately, blurred over five bins and filled up from the bottom edge.
+  for (let x = 0; x < W; x++) {
+    let o5 = 0;
+    for (let d = -2; d <= 2; d++) o5 += (3 - abs(d)) * P.O[cl(x + d, 0, NB - 1)];
+    const hgt = TRACK * pow(cl(o5 / 9 / P.omax, 0, 1), 0.85);
+    for (let r = 0; r < ceil(hgt); r++) {
+      const y = H - 1 - r;
+      const top = cl(hgt - r, 0, 1);
+      const lit = top * (hgt - r < 2.2 ? 0.75 : 0.12 + 0.3 * (1 - r / TRACK));
+      const o = ((y - 64) * W + x) * 3;
+      ab[o] += (track[0] / 255) * lit;
+      ab[o + 1] += (track[1] / 255) * lit;
+      ab[o + 2] += (track[2] / 255) * lit;
+    }
+  }
   // The CTCF sites: a tick leaning the way the motif faces, as tall as the site's chance of stopping a leg.
   for (let k = 0; k < NSITE; k++) {
     const e = cl(P.q * ss[k], 0, 1);
@@ -405,7 +458,7 @@ function drawArcs(P, fr) {
     const al = st[e] === 1 ? cl(tm[e] / 0.35, 0, 1) : tm[e] / 0.45;
     const a = L[e], b = R[e];
     const A = Math.max(0.6, (b - a) / 2), cx = (a + b) / 2;
-    const B = Math.min(ARC_ROWS - 4, 0.95 * (b - a) + 1.2);
+    const B = Math.min(ARC_ROWS - 4, 1.25 * (b - a) + 1.2);
     const act = st[e] === 1 ? ((ls[e] === 0 ? 1 : 0) + (rs[e] === 0 ? 1 : 0)) / 2 : 0;
     const c0 = (cool[0] + (cool[3] - cool[0]) * act) / 255, c1 = (cool[1] + (cool[4] - cool[1]) * act) / 255, c2 = (cool[2] + (cool[5] - cool[2]) * act) / 255;
     const g = al * (0.7 + 0.3 * act);
@@ -420,7 +473,7 @@ function drawArcs(P, fr) {
         const gx = dx * iA, gy = dy * iB;
         const dd = abs(f) / (2 * sqrt(gx * gx + gy * gy) + 1e-6);
         if (dd > 3) continue;
-        const v = cl(1.5 - dd, 0, 1) + 0.2 * exp(-(dd * dd) / 3);
+        const v = cl(1.25 - dd, 0, 1) + 0.14 * exp(-(dd * dd) / 3);
         const o = ((y - 64) * W + x) * 3;
         ab[o] += c0 * v * g;
         ab[o + 1] += c1 * v * g;
