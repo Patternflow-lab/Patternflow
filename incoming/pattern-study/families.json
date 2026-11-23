@@ -199,5 +199,10 @@
   "canopy": { "label": "수관 기피", "color": "#5fcf5a" },
   "ikat": { "label": "이카트 염색", "color": "#2f4fd0" },
   "zebra": { "label": "곡면 줄무늬 검사", "color": "#d6dbe6" },
-  "cratering": { "label": "충돌 구덩이", "color": "#9a8f86" }
+  "cratering": { "label": "충돌 구덩이", "color": "#9a8f86" },
+  "rainbow": { "label": "무지개", "color": "#59ff93" },
+  "scoremodel": { "label": "점수 모델 표본", "color": "#26bf7a" },
+  "redistrict": { "label": "구역 재조합", "color": "#bf438e" },
+  "fdmprint": { "label": "적층 출력", "color": "#ff33c2" },
+  "cyanochain": { "label": "남세균 사슬", "color": "#99bf26" }
 }
