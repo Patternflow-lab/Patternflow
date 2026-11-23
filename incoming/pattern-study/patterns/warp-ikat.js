@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Warp Ikat
 // Family:  ikat
-// Idea:    A warp-ikat cloth coming off the loom down a vertical warp of 64 threads, whose diamonds, stepped terraces, zigzags and bars are dyed thread by thread before weaving and so carry the misregistration of every thread as a feathered edge, with now and then a tied bundle slipping a thread sideways.
+// Idea:    A length of warp-ikat cloth coming off the loom down a vertical warp of 64 threads, with diamonds, slanted bars, zigzags and blocks dyed in the bundle before weaving, so that every thread carries its own small error in where its dye stopped and every edge of every motif is a feathered comb, while now and then a tied bundle slips a few LEDs along the warp and one thread across.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: warp ikat, where the warp is tied and dyed in the bundle and woven afterwards, so that each thread carries its own small error in where the dye stopped (Indonesian, Central Asian and Japanese kasuri cloth, from memory), original, pattern round 226
+// Lineage: warp ikat, where the warp is tied, resist-dyed in the bundle and woven afterwards, so that the misregistration of the threads is the look of the cloth (Indonesian, Central Asian and Japanese kasuri cloths, from memory), original, pattern round 226
 // Round:   226
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Weave=0.2..3, Size=-1..1, Slip=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Weave.
-// Knob 3: Size.
-// Knob 4: Slip.
+// Knob 1: Hue. Turns the four dyes together round the wheel and comes back at 1. At 0 they are ivory, ochre, madder red and indigo; at 0.25 pale green, green, olive and plum; at 0.5 pale blue, blue, teal and dark gold; at 0.75 pale pink, magenta, violet and forest green.
+// Knob 2: Weave. How fast the cloth is taken up, 1.1 LEDs a second per unit with a pace that wanders 25 percent either way: 0.22 LEDs a second at 0.2, a panel height in about 10 minutes; 2.2 at 2 where it opens, a panel height in 58 s; 3.3 at 3, in 39 s.
+// Knob 3: Size. The width of one cell of the lattice, 14 LEDs times 1.6 to the power K: 8.8 LEDs at -1, 14 at 0 where it opens, 22 at 1, with each stretch of cloth 10 percent narrower to 15 percent wider than that and its cells 0.85 to 1.45 times as tall. The border stripes and the dots grow with it.
+// Knob 4: Slip. How far each thread's dye lands from where it should, A = 2.8 times ((K + 1) / 2) to the 0.9 LEDs: 0 at -1, where every edge is a knife and no bundle slips; 1.6 at 0.06 where it opens, the edge of a motif spread over 2 LEDs for nine threads in ten and 3.4 at the extremes; 2.8 at 1, 4 LEDs and 6 at the extremes. The slipped bundles move with it.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, sin, abs, min, max, pow, PI } = Math;
@@ -183,8 +183,8 @@ export function update(dt, input, P) {
   for (let y = 0; y < H; y++) {
     const q = y + 0.5 - P.S;
     row[y * 4] = 1 + 0.04 * sin(q * 2.03 + 0.7) + 0.03 * sin(q * 1.19 + 2.1) + 0.04 * vn(0, q / 8.9, P.salt);
-    row[y * 4 + 1] = 1 + 0.1 * sin(q * 2 * PI / 97 + 0.4) + 0.07 * sin(q * 2 * PI / 163 + 2.6);
-    row[y * 4 + 2] = 0.08 * sin(q * 2 * PI / 131 + 1.9) + 0.05 * sin(q * 2 * PI / 211 + 0.3);
+    row[y * 4 + 1] = 1 + 0.1 * sin(q * 2 * PI / 97 + 0.4) + 0.07 * sin(q * 2 * PI / 163 + 2.6) + 0.05 * sin(q * 2 * PI / 241 + 1.3);
+    row[y * 4 + 2] = 0.1 * sin(q * 2 * PI / 131 + 1.9) + 0.07 * sin(q * 2 * PI / 211 + 0.3) + 0.05 * sin(q * 2 * PI / 317 + 4.4);
   }
 
   // Bundles that slip: a run of neighbouring threads whose dye lands a few LEDs off along the cloth and one thread
