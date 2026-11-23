@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Ants=0.4..3, Memory=-1..1, Foods=-1..1
 //
-// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 they are magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan; and back at 1. Whatever the knob says, the whole palette also turns once round the wheel in 140 seconds, so no two minutes have the same colours.
+// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 they are magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan; and back at 1. Whatever the knob says, the whole palette also turns once round the wheel in 120 seconds, so no two minutes have the same colours.
 // Knob 2: Ants. The size of the colony, 45 ants at 0.4, 144 at 2 where it opens and 206 at 3; more ants lay bolder roads and eat a patch down sooner, so the food moves on faster.
-// Knob 3: Memory. How long a trail lasts before it evaporates, 2.3 seconds at -1, 14 seconds at 0 where it opens and 84 seconds at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired, fat and slow to re-route when the food is gone or a rock settles on them.
+// Knob 3: Memory. How long a trail lasts before it evaporates, 2.4 seconds at -1, 12 seconds at 0 where it opens and 60 seconds at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired, fat and slow to re-route when the food is gone or a rock settles on them.
 // Knob 4: Foods. How many food patches the ground carries at once, 1 at -1, 3 at 0.06 where it opens and 5 at +1. With one patch every ant works the same trunk road until it is empty; with five the colony splits into a net of roads.
 
 const W = 64, H = 128;
@@ -142,7 +142,7 @@ function newRock(P, r, first) {
   const va = rr(0, TAU), vs = rr(0.02, 0.07);
   r.vx = cos(va) * vs; r.vy = sin(va) * vs;
   r.state = first ? 1 : 0; r.s = first ? 1 : 0;
-  r.life = rr(35, 95);
+  r.life = rr(28, 75);
 }
 
 function stepRocks(P, dt) {
@@ -406,7 +406,7 @@ const tauGain = (tau) => pow(tau / 14, 0.7) * 1.2;
 // ---- advance -----------------------------------------------------------------
 function advance(P, dt) {
   P.t += dt;
-  P.hd += dt / 140;
+  P.hd += dt / 120;
   P.nest *= exp(-dt * 2.2);
   P.rtimer -= dt;
   stepPatches(P, dt);
@@ -423,7 +423,7 @@ export function update(dt, input, P) {
   P.hue = cl(kv[0], 0, 1);
   const ants = cl(kv[1], 0.4, 3), mem = cl(kv[2], -1, 1), foods = cl(kv[3], -1, 1);
   P.nA = floor(20 + 62 * ants);
-  P.tau = 14 * pow(6, mem);
+  P.tau = 12 * pow(5, mem);
   P.nf = cl(Math.round(3 + 2 * foods), 1, 5);
   if (!P.ready) {
     P.ready = true;
