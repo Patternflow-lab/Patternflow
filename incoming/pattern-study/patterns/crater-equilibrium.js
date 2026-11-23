@@ -12,9 +12,9 @@
 // @knobs Tint=0..1, Rate=0..4, Sun=-1..1, Giants=-1..1
 //
 // Knob 1: Tint. The colour of the ground, which goes round once and comes back at 1: grey-blue regolith where the knob opens, steel blue at 0.25, ochre at 0.5, the rust of Mars at 0.75. The sun and the shaded fill turn with it.
-// Knob 2: Rate. How fast new craters arrive, doubling every 1.25 steps of the knob: 0.33 of the opening rate at 0, one impact on the panel every 8 seconds, where the ground is smooth and holds a few big bowls; the opening rate at 2, one every 2.7 seconds, with bowls of every age; 3 times that at 4, one every 0.8 seconds, a packed field of overlapping bowls.
-// Knob 3: Sun. How high the sun stands: 7 degrees at -1, where a rim 3 LEDs high throws a shadow 24 LEDs long and the flat ground is dim, 22 degrees at 0 where it opens, a shadow of 7, and 55 at +1, a shadow of 2, where the relief goes flat and the ground is bright. Whatever the knob says, the sun goes round once in about three minutes.
-// Knob 4: Giants. The share of the impacts that are large, as the slope b of the size law, cumulative count falling as D^-b with D from 12 to 56 LEDs: b is 2.75 at -1, where the median crater is 17 LEDs across and 14 percent are 30 or more; 1.9 where it opens, 18 across and 25 percent; and 1.15 at +1, 25 across and 31 percent, with basins of 40 to 56 LEDs taking the panel.
+// Knob 2: Rate. How fast new craters arrive, doubling every 1.25 steps of the knob: 0.33 of the opening rate at 0, one impact on the panel every 6.6 seconds, where the ground is smooth and holds a few big bowls; the opening rate at 2, one every 2.4 seconds, with bowls of every age; 3 times that at 4, one every 0.7 seconds, a packed field of overlapping bowls.
+// Knob 3: Sun. How high the sun stands: 7 degrees at -1, where a rim 3 LEDs high throws a shadow 24 LEDs long and the flat ground is dim, 22 degrees at 0 where it opens, a shadow of 7, and 55 at +1, a shadow of 2, where the relief goes flat and the ground is bright. Whatever the knob says, the sun goes round once in about 140 seconds.
+// Knob 4: Giants. The share of the impacts that are large, as the slope b of the size law, cumulative count falling as D^-b with D from 12 to 56 LEDs: b is 2.75 at -1, where the median crater is 17 LEDs across and 12 percent are 30 or more; 1.9 where it opens, 19 across and 23 percent; and 1.15 at +1, 24 across and 27 percent, with basins of 40 to 56 LEDs taking the panel.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, sqrt, exp, log, sin, cos, pow, abs, min, max, PI } = Math;
@@ -28,7 +28,7 @@ const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 // follows from the size law. Centres may lie MARG diameters off the panel, so craters and rays come in over the edge.
 const DMIN = 12, DMAX = 56, MARG = 1.4;
 const AREF = (W + 2 * MARG * DMAX) * (H + 2 * MARG * DMAX);
-const RHO0 = 0.0065;
+const RHO0 = 0.0075;
 // Creep: the flux down a slope is KAP times the slope, nearly three times that where the slope is 0.8, so a rim goes from a
 // sharp crest to a ridge 3 LEDs wide in a few minutes. KMAX stays under 1/4 for the step of 1 s.
 const KAP = 0.015, KMAX = 0.23, ISC2 = 1 / (0.6 * 0.6);
@@ -45,7 +45,7 @@ const STEPD = [1, 1.8, 2.6, 3.5, 4.5, 5.7, 7, 8.5, 10.2, 12.2, 14.5, 17, 20, 23.
 const AMB = 0.36;
 // Ground tone by Tint: albedo, sun, shaded fill.
 const TONES = [
-  [[0.62, 0.66, 0.75], [1.0, 0.9, 0.74], [0.58, 0.66, 0.88]],
+  [[0.64, 0.66, 0.72], [1.0, 0.89, 0.72], [0.62, 0.68, 0.84]],
   [[0.5, 0.64, 0.86], [0.92, 0.96, 1.0], [0.4, 0.58, 1.0]],
   [[0.82, 0.66, 0.4], [1.0, 0.88, 0.64], [0.52, 0.52, 0.8]],
   [[0.8, 0.46, 0.32], [1.0, 0.8, 0.6], [0.6, 0.48, 0.74]],
@@ -375,9 +375,9 @@ function shade(P, az, elev) {
     }
 }
 
-// The sun goes round once in about three minutes, a little faster and slower on two periods that do not divide one another.
+// The sun goes round once in about 140 seconds, a little faster and slower on two periods that do not divide one another.
 function azimuth(T) {
-  return -2.35 + 0.036 * T + 0.22 * sin((TAU * T) / 137 + 1.3) + 0.08 * sin((TAU * T) / 59.3 + 0.4);
+  return -2.35 + 0.045 * T + 0.22 * sin((TAU * T) / 137 + 1.3) + 0.08 * sin((TAU * T) / 59.3 + 0.4);
 }
 
 function paintEvents(P) {
