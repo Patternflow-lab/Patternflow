@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Crater Equilibrium
 // Family:  cratering
-// Idea:    A bare airless surface seen from straight above under a low sun, where meteoroids keep arriving at random with many small ones and few large, each throwing a flash and a ring of dust and then cutting a sharp bowl with a raised rim, bright rays and a blanket of ejecta over whatever lay there, while creep slowly rounds the old rims, so the craters pile up until they wear out as fast as they are made and the count stops growing.
+// Idea:    A bare airless surface seen from straight above under a low sun that goes round it, where meteoroids keep arriving at random, many small and few large, each throwing a flash and a ring of dust and then cutting a sharp bowl with a raised rim, bright rays and a blanket of ejecta over whatever lay there, while ash and creep slowly fill and round the old bowls, so that craters pile up until they wear out as fast as they are made and the count stops growing.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the saturation equilibrium of a crater population, where N(>D) stops growing along D^-2 (Donald Gault, 1970, from memory), crater degradation as slope-dependent diffusion (Lawrence Soderblom, 1970; Caleb Fassett and Bradley Thomson, 2014, from memory), ejecta thickness falling as r^-3 from the rim (Thomas McGetchin and colleagues, 1973, from memory), hill shading under a raking sun (Berthold Horn, 1981, from memory), pattern round 226
+// Lineage: the saturation equilibrium of a crater population, where N(>D) stops growing along D^-2 (Donald Gault, 1970, from memory), crater degradation as slope-dependent diffusion (Lawrence Soderblom, 1970; Caleb Fassett and Bradley Thomson, 2014, from memory), ejecta thickness falling as r^-3 from the rim (Thomas McGetchin and colleagues, 1973, from memory), hill shading under a raking sun (Berthold Horn, 1981, from memory), simple and complex crater shapes with terraced walls and a central peak (Henry Melosh, 1989, from memory), pattern round 226
 // Round:   226
 // ===============================
 // @matrix 64x128
 // @knobs Tint=0..1, Rate=0..4, Sun=-1..1, Giants=-1..1
 //
 // Knob 1: Tint. The colour of the ground, which goes round once and comes back at 1: grey-blue regolith where the knob opens, steel blue at 0.25, ochre at 0.5, the rust of Mars at 0.75. The sun and the shaded fill turn with it.
-// Knob 2: Rate. How fast new craters arrive, doubling every step of 1: a quarter of the opening rate at 0, where the ground is smooth and a crisp new crater is rare, the opening rate at 2, where one lands every second or two and the ground is crowded with bowls of every age, and four times that at 4, where the small bowls overlap into a packed field and the bright rays never get to fade.
-// Knob 3: Sun. How high the sun stands: 7 degrees at -1, where every rim throws a long shadow and the flat ground is nearly dark, 20 at 0 where it opens, 55 at +1, where the shadows have shrunk to dark crescents inside the bowls and the bright rays and halos show more than the relief.
-// Knob 4: Giants. The share of the impacts that are large, as the slope of the size law: cumulative count falls as D^-2.55 at -1, where almost every crater is 8 to 14 LEDs across, 1.95 at 0 where it opens, and D^-1.35 at +1, where a few basins 40 to 76 LEDs across take most of the panel and the small craters sit inside them.
+// Knob 2: Rate. How fast new craters arrive, doubling every 1.25 steps of the knob: 0.33 of the opening rate at 0, one impact on the panel every 8 seconds, where the ground is smooth and holds a few big bowls; the opening rate at 2, one every 2.7 seconds, with bowls of every age; 3 times that at 4, one every 0.8 seconds, a packed field of overlapping bowls.
+// Knob 3: Sun. How high the sun stands: 7 degrees at -1, where a rim 3 LEDs high throws a shadow 24 LEDs long and the flat ground is dim, 22 degrees at 0 where it opens, a shadow of 7, and 55 at +1, a shadow of 2, where the relief goes flat and the ground is bright. Whatever the knob says, the sun goes round once in about three minutes.
+// Knob 4: Giants. The share of the impacts that are large, as the slope b of the size law, cumulative count falling as D^-b with D from 12 to 56 LEDs: b is 2.75 at -1, where the median crater is 17 LEDs across and 14 percent are 30 or more; 1.9 where it opens, 18 across and 25 percent; and 1.15 at +1, 25 across and 31 percent, with basins of 40 to 56 LEDs taking the panel.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, sqrt, exp, log, sin, cos, pow, abs, min, max, PI } = Math;
@@ -28,9 +28,9 @@ const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 // follows from the size law. Centres may lie MARG diameters off the panel, so craters and rays come in over the edge.
 const DMIN = 12, DMAX = 56, MARG = 1.4;
 const AREF = (W + 2 * MARG * DMAX) * (H + 2 * MARG * DMAX);
-const RHO0 = 0.005;
-// Creep: the flux down a slope is KAP times the slope, and up to KMAX times it where the slope is steep, so a sharp
-// rim goes round in a minute and a broad bowl in a quarter of an hour. KMAX stays under 1/4 for the step of 1 s.
+const RHO0 = 0.0065;
+// Creep: the flux down a slope is KAP times the slope, nearly three times that where the slope is 0.8, so a rim goes from a
+// sharp crest to a ridge 3 LEDs wide in a few minutes. KMAX stays under 1/4 for the step of 1 s.
 const KAP = 0.015, KMAX = 0.23, ISC2 = 1 / (0.6 * 0.6);
 const T_FILL = 200;     // s, in which the relief of a crater falls by a factor of e: ash, small falls and gardening fill it
 const FR = exp(-1 / T_FILL);
@@ -41,11 +41,11 @@ const SEED = 226226;
 const TF = 0.4;         // s, the time constant of the shock front that cuts a crater
 const RAYV = 45;        // LEDs a second, the speed of a ray
 // Distances a shadow ray looks at, in LEDs; they grow so that a 7 degree sun still has a reach of 84.
-const STEPD = [1, 2, 3.2, 4.6, 6.4, 8.7, 11.5, 15, 19.5, 25, 32, 41, 52, 66, 84];
+const STEPD = [1, 1.8, 2.6, 3.5, 4.5, 5.7, 7, 8.5, 10.2, 12.2, 14.5, 17, 20, 23.5, 27.5, 32, 37, 43, 50, 58, 67, 78, 90];
 const AMB = 0.36;
 // Ground tone by Tint: albedo, sun, shaded fill.
 const TONES = [
-  [[0.62, 0.66, 0.74], [1.0, 0.91, 0.78], [0.66, 0.7, 0.82]],
+  [[0.62, 0.66, 0.75], [1.0, 0.9, 0.74], [0.58, 0.66, 0.88]],
   [[0.5, 0.64, 0.86], [0.92, 0.96, 1.0], [0.4, 0.58, 1.0]],
   [[0.82, 0.66, 0.4], [1.0, 0.88, 0.64], [0.52, 0.52, 0.8]],
   [[0.8, 0.46, 0.32], [1.0, 0.8, 0.6], [0.6, 0.48, 0.74]],
@@ -186,7 +186,7 @@ function stampRing(P, e, r0, r1) {
       if (u < 1) {
         let uu = u * u;
         // Big craters have terraced walls, a stair that wanders round the bowl, and a central peak.
-        if (cx) uu -= (0.55 * sin(TAU * 3 * uu + 1.1 * (cc * e.c1 + ss * e.s1))) / (TAU * 3);
+        if (cx) uu -= (0.55 * sin(TAU * 3 * uu + 0.45 * (cc * e.c1 + ss * e.s1))) / (TAU * 3);
         z = -d + dd * uu;
         if (cx) z += e.pk * exp(-uu * 39);
         w = 1;
@@ -271,7 +271,7 @@ function diffuse(P, dt) {
 }
 
 function rate(P, k) {
-  return pow(2, cl(k[1], 0, 4) - 2);
+  return pow(2, 0.8 * (cl(k[1], 0, 4) - 2));
 }
 
 // Impacts a second that the size law and the rate come to.
@@ -294,7 +294,7 @@ function prerun(P, rt) {
 
 export function update(dt, input, P) {
   const k = input.knobValues || [0, 2, 0, 0.06];
-  const b = 2.15 - 0.8 * cl(k[3], -1, 1);
+  const b = 1.95 - 0.8 * cl(k[3], -1, 1);
   if (b !== P.b) setSize(P, b);
   const rt = rate(P, k);
   P.k1 = cl(k[0], 0, 1);
@@ -375,9 +375,9 @@ function shade(P, az, elev) {
     }
 }
 
-// The sun goes round once in about four minutes, a little faster and slower on two periods that do not divide one another.
+// The sun goes round once in about three minutes, a little faster and slower on two periods that do not divide one another.
 function azimuth(T) {
-  return -2.35 + 0.026 * T + 0.22 * sin((TAU * T) / 137 + 1.3) + 0.08 * sin((TAU * T) / 59.3 + 0.4);
+  return -2.35 + 0.036 * T + 0.22 * sin((TAU * T) / 137 + 1.3) + 0.08 * sin((TAU * T) / 59.3 + 0.4);
 }
 
 function paintEvents(P) {
