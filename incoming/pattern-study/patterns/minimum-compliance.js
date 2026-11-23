@@ -1,11 +1,11 @@
 // ===== Patternflow pattern =====
 // Title:   Minimum Compliance
 // Family:  topoopt
-// Idea:    The whole panel is a design domain on which a stiff structure is found live, ivory struts on a deep teal void, standing on a few feet at the bottom and carrying two loads at the top whose points and directions never stop wandering, so the struts thicken where the strain energy runs high, thin where it runs low, reroute and now and then snap to a new branching, the way bone remodels.
+// Idea:    The whole panel is a design domain on which a stiff structure is found live, ivory struts on a deep teal void, standing on four feet at the bottom and carrying three loads on the top edge and two pulls on the sides whose points and directions never stop wandering, so the struts thicken where the strain energy runs high, thin where it runs low, reroute and now and then snap to a new branching, the way bone remodels.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: density-based topology optimisation, the material distribution method with a power-law interpolation (Martin Bendsoe, 1989; Michael Zhou and George Rozvany, 1991, from memory), the 99-line Matlab code and the density filter that sets the smallest feature (Ole Sigmund, 2001, from memory), the optimality-criteria update with a move limit (from memory), a Jacobi-preconditioned conjugate gradient solve (Hestenes and Stiefel, 1952, from memory), and trabecular bone adapting to its load (Julius Wolff, 1892, from memory), pattern round 228
+// Lineage: density-based topology optimisation, the material distribution method with a power-law interpolation (Martin Bendsoe, 1989; Michael Zhou and George Rozvany, 1991, from memory), the 99-line Matlab code with its optimality-criteria update (Ole Sigmund, 2001, from memory), the density filter that sets the smallest feature (Thomas Bruns and Daniel Tortorelli, 2001; Blaise Bourdin, 2001, from memory), conjugate gradients (Magnus Hestenes and Eduard Stiefel, 1952, from memory) preconditioned by geometric multigrid (Achi Brandt, 1977, from memory; used for topology optimisation by Oded Amir, Niels Aage and Boyan Lazarov, 2014, from memory), and trabecular bone adapting to the load it carries (Julius Wolff, 1892, from memory), pattern round 228
 // Round:   228
 // ===============================
 // @matrix 64x128
@@ -13,7 +13,7 @@
 //
 // Knob 1: Tint. The hue of the void and of the glow along the struts, which stay ivory: teal-blue at 0 where it opens, cyan-blue at 0.25, blue-violet at 0.5, violet at 0.75, and rose-magenta at 1 (the sweep keeps clear of orange, where a dark tint would turn brown). The warm end of the glow is the opposite hue, pale and light.
 // Knob 2: Load. How fast the loads wander over the panel and swing their direction, and so how fast the structure remodels. The load clock runs at 0.25 of its pace at 0.2, 1 where it opens at 2, and 2 at 4; at 2 a load takes about 4.5 seconds to go from one random place to the next, and the branches re-form in a second or two after it. A faster clock also leaves the struts less time to settle, so the web gets busier.
-// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, struts 3 to 4 LEDs across), 0.35 at 0 where it opens (struts 6 to 9 LEDs across, with braces), and 0.55 at +1 (a dense web with small holes). It also drifts by a fifth either way on its own. The structure settles to a new share in one to three seconds.
+// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, struts 3 to 4 LEDs across), 0.35 at 0 where it opens (struts 6 to 9 LEDs across, with braces), and 0.55 at +1 (a dense web with small holes). It also drifts by a third either way on its own. The structure settles to a new share in one to three seconds.
 // Knob 4: Feature. The radius of the density filter, which sets the thinnest strut and how fine the branching can get: 1.25 elements at -1 (fine trabeculae, 3 LEDs across), 1.5 at 0.06 where it opens, and 3.0 at +1 (chunky struts, 8 LEDs and more). An element is 2 by 2 LEDs. It settles in one to three seconds.
 
 const W = 64, H = 128, NPX = W * H;
@@ -24,18 +24,16 @@ const mix = (a, b, t) => a + (b - a) * t;
 
 // The design domain is NX by NY square elements, each 2 by 2 LEDs, joined at (NX+1) by (NY+1) nodes.
 const NX = 32, NY = 64, NEL = NX * NY;
-// Node arrays carry a ring of zeros round them (NXP by NYP), so the stiffness stencil needs no edge tests.
-const NXP = NX + 3, NYP = NY + 3, NPN = NXP * NYP;
+// Node arrays carry a ring of zeros round them, so the stiffness stencil needs no edge tests.
+const NXP = NX + 3, NPN = NXP * (NY + 3);
 // Element arrays carry RP rings of zeros, so the density filter needs none either.
-const RP = 3, EW = NX + 2 * RP, EH = NY + 2 * RP, NE = EW * EH;
+const RP = 3, EW = NX + 2 * RP, NE = EW * (NY + 2 * RP);
 const EMIN = 1e-3;   // stiffness of the void, against 1 for solid
 const XMIN = 0.01;   // the design variable never goes below this
 const MOVE = 0.2;    // the optimality-criteria move limit
-const PRE_ITERS = 48; // design steps before the first frame
+const PRE_ITERS = 44; // design steps before the first frame
 const NLOADS = 3;    // loads on the top edge
 const SEED_X = [16, 6, 26], SEED_TH = [0, 0.45, -0.45]; // where they start, in nodes and radians
-const NOW = 0.4;     // how much of the drive is this instant's, the rest the average
-const MEM = 4.0, MEM_DT = 0.1; // seconds the structure remembers its loads, and seconds a design step stands for
 const CYC = 3;       // frames to a design step
 const CG_STEPS = [3, 4, 3]; // conjugate gradient steps in each frame of a cycle
 
@@ -116,20 +114,17 @@ export function setup(P) {
   P.x = new Float64Array(NE);      // design variables
   P.xp = new Float64Array(NE);     // filtered densities
   P.xd = new Float64Array(NE);     // the same, eased for drawing
-  P.E = new Float64Array(NE);      // element stiffness
   P.q = new Float64Array(NE);      // strain energy drive, density^2 times the energy of the unit element
-  P.qa = new Float64Array(NE);     // the same, averaged over the last second or two
-  P.first = true;
+  P.ue = new Float64Array(8);
   P.dcs = new Float64Array(NE);
   P.sv = new Float64Array(NE);
-  P.xn = new Float64Array(NE);
   P.lo = new Float64Array(NE);
   P.hi = new Float64Array(NE);
   P.invHs = new Float64Array(NE);
   P.wcol = new Float64Array(NE);
   P.tg = new Float64Array(NE);     // glow target
   P.gl = new Float64Array(NE).fill(0.5); // glow, smoothed
-  P.hl = new Float64Array(NE);     // halo
+  P.hl = new Float64Array(NE);     // light in the void
   P.hl2 = new Float64Array(NE);
   P.gh = new Float64Array(NE);     // where material has been
   P.kw = new Float64Array(64); P.ko = new Int32Array(64); P.nk = 0;
@@ -143,10 +138,9 @@ export function setup(P) {
   // drawing
   P.ix = interpTables(W, NX); P.iy = interpTables(H, NY);
   P.tmp = new Float32Array(NY * W);
-  P.dL = new Float32Array(NPX); P.gL = new Float32Array(NPX); P.hL = new Float32Array(NPX); P.kL = new Float32Array(NPX);
+  P.dL = new Float32Array(NPX); P.gL = new Float32Array(NPX); P.hL = new Float32Array(NPX);
   P.out = new Uint8Array(NPX * 3);
   P.pal = new Float32Array(65 * 3);
-  P.hue = -1;
 }
 
 // ---------- the density filter ----------
@@ -236,22 +230,25 @@ function assembleLevel(L) {
   }
 }
 
+// One row of the stencil: component c (0 for x, 1 for y) of the sum over the 3 by 3 neighbours of node n, where
+// a is the dof of the neighbour above and to the left and w is the dof stride of a row.
+function row(S, u, sb, a, w, c) {
+  let s = 0;
+  for (let r = 0; r < 3; r++) {
+    const o = a + r * w, k = sb + r * 12 + c * 2;
+    s += S[k] * u[o] + S[k + 1] * u[o + 1] + S[k + 4] * u[o + 2] + S[k + 5] * u[o + 3] + S[k + 8] * u[o + 4] + S[k + 9] * u[o + 5];
+  }
+  return s;
+}
+
 function matvec(L, u, q) {
-  const { S, nx, ny, nxp } = L;
+  const { S, nx, ny, nxp } = L, w = 2 * nxp;
   for (let j = 1; j <= ny + 1; j++) {
     let n = j * nxp + 1;
     for (let i = 1; i <= nx + 1; i++, n++) {
-      const sb = n * 36;
-      const a = 2 * (n - nxp - 1), b = a + 2, c = a + 4, d = 2 * (n - 1), e = 2 * n, f = e + 2, g = 2 * (n + nxp - 1), h = g + 2, k = g + 4;
-      const u0 = u[a], u1 = u[a + 1], u2 = u[b], u3 = u[b + 1], u4 = u[c], u5 = u[c + 1];
-      const u6 = u[d], u7 = u[d + 1], u8 = u[e], u9 = u[e + 1], u10 = u[f], u11 = u[f + 1];
-      const u12 = u[g], u13 = u[g + 1], u14 = u[h], u15 = u[h + 1], u16 = u[k], u17 = u[k + 1];
-      q[e] = S[sb] * u0 + S[sb + 1] * u1 + S[sb + 4] * u2 + S[sb + 5] * u3 + S[sb + 8] * u4 + S[sb + 9] * u5
-        + S[sb + 12] * u6 + S[sb + 13] * u7 + S[sb + 16] * u8 + S[sb + 17] * u9 + S[sb + 20] * u10 + S[sb + 21] * u11
-        + S[sb + 24] * u12 + S[sb + 25] * u13 + S[sb + 28] * u14 + S[sb + 29] * u15 + S[sb + 32] * u16 + S[sb + 33] * u17;
-      q[e + 1] = S[sb + 2] * u0 + S[sb + 3] * u1 + S[sb + 6] * u2 + S[sb + 7] * u3 + S[sb + 10] * u4 + S[sb + 11] * u5
-        + S[sb + 14] * u6 + S[sb + 15] * u7 + S[sb + 18] * u8 + S[sb + 19] * u9 + S[sb + 22] * u10 + S[sb + 23] * u11
-        + S[sb + 26] * u12 + S[sb + 27] * u13 + S[sb + 30] * u14 + S[sb + 31] * u15 + S[sb + 34] * u16 + S[sb + 35] * u17;
+      const a = 2 * (n - nxp - 1);
+      q[2 * n] = row(S, u, n * 36, a, w, 0);
+      q[2 * n + 1] = row(S, u, n * 36, a, w, 1);
     }
   }
   for (let k = 0; k < L.nfl; k++) { const n = L.fl[k] * 2; q[n] = 0; q[n + 1] = 0; }
@@ -259,59 +256,48 @@ function matvec(L, u, q) {
 
 // One Gauss-Seidel sweep over the free nodes, a 2 by 2 block at a time, forwards (dir 1) or backwards (dir -1).
 function sweep(L, dir) {
-  const { S, Dinv, fx, x, b, nx, ny, nxp } = L;
+  const { S, Dinv, fx, x, b, nx, ny, nxp } = L, w = 2 * nxp;
   const j0 = dir > 0 ? 1 : ny + 1, j1 = dir > 0 ? ny + 2 : 0, i0 = dir > 0 ? 1 : nx + 1, i1 = dir > 0 ? nx + 2 : 0;
   for (let j = j0; j !== j1; j += dir)
     for (let i = i0; i !== i1; i += dir) {
       const n = j * nxp + i;
       if (fx[n]) continue;
-      const sb = n * 36;
-      const a = 2 * (n - nxp - 1), bb = a + 2, c = a + 4, d = 2 * (n - 1), e = 2 * n, f = e + 2, g = 2 * (n + nxp - 1), h = g + 2, k = g + 4;
-      const u0 = x[a], u1 = x[a + 1], u2 = x[bb], u3 = x[bb + 1], u4 = x[c], u5 = x[c + 1];
-      const u6 = x[d], u7 = x[d + 1], u8 = x[e], u9 = x[e + 1], u10 = x[f], u11 = x[f + 1];
-      const u12 = x[g], u13 = x[g + 1], u14 = x[h], u15 = x[h + 1], u16 = x[k], u17 = x[k + 1];
-      const rx = b[e] - (S[sb] * u0 + S[sb + 1] * u1 + S[sb + 4] * u2 + S[sb + 5] * u3 + S[sb + 8] * u4 + S[sb + 9] * u5
-        + S[sb + 12] * u6 + S[sb + 13] * u7 + S[sb + 16] * u8 + S[sb + 17] * u9 + S[sb + 20] * u10 + S[sb + 21] * u11
-        + S[sb + 24] * u12 + S[sb + 25] * u13 + S[sb + 28] * u14 + S[sb + 29] * u15 + S[sb + 32] * u16 + S[sb + 33] * u17);
-      const ry = b[e + 1] - (S[sb + 2] * u0 + S[sb + 3] * u1 + S[sb + 6] * u2 + S[sb + 7] * u3 + S[sb + 10] * u4 + S[sb + 11] * u5
-        + S[sb + 14] * u6 + S[sb + 15] * u7 + S[sb + 18] * u8 + S[sb + 19] * u9 + S[sb + 22] * u10 + S[sb + 23] * u11
-        + S[sb + 26] * u12 + S[sb + 27] * u13 + S[sb + 30] * u14 + S[sb + 31] * u15 + S[sb + 34] * u16 + S[sb + 35] * u17);
-      const m = n * 4;
-      x[e] = u8 + Dinv[m] * rx + Dinv[m + 1] * ry;
-      x[e + 1] = u9 + Dinv[m + 2] * rx + Dinv[m + 3] * ry;
+      const a = 2 * (n - nxp - 1), e = 2 * n, m = n * 4;
+      const rx = b[e] - row(S, x, n * 36, a, w, 0), ry = b[e + 1] - row(S, x, n * 36, a, w, 1);
+      x[e] += Dinv[m] * rx + Dinv[m + 1] * ry;
+      x[e + 1] += Dinv[m + 2] * rx + Dinv[m + 3] * ry;
     }
 }
 
-// Coarse residual b_c = P^T r, with P the bilinear interpolation from coarse nodes to fine ones.
+// Coarse residual b_c = P^T r, with P the bilinear interpolation from coarse nodes to fine ones, and the
+// correction x_f += P x_c on the way back. A coarse node sits on every second fine node.
 function restrictTo(F, C) {
   const { r } = F, { b, nx, ny, nxp, fx } = C, fp = F.nxp;
   for (let J = 1; J <= ny + 1; J++)
     for (let I = 1; I <= nx + 1; I++) {
-      const cn = J * nxp + I;
-      if (fx[cn]) { b[2 * cn] = 0; b[2 * cn + 1] = 0; continue; }
-      const fn = (2 * J - 1) * fp + (2 * I - 1);
-      const n1 = fn - fp, n2 = fn + fp;
-      for (let c = 0; c < 2; c++)
-        b[2 * cn + c] = r[2 * fn + c] + 0.5 * (r[2 * (fn - 1) + c] + r[2 * (fn + 1) + c] + r[2 * n1 + c] + r[2 * n2 + c])
-          + 0.25 * (r[2 * (n1 - 1) + c] + r[2 * (n1 + 1) + c] + r[2 * (n2 - 1) + c] + r[2 * (n2 + 1) + c]);
+      const cn = J * nxp + I, fn = (2 * J - 1) * fp + (2 * I - 1);
+      let s0 = 0, s1 = 0;
+      if (!fx[cn])
+        for (let dj = -1; dj <= 1; dj++)
+          for (let di = -1; di <= 1; di++) {
+            const w = (1 - 0.5 * abs(di)) * (1 - 0.5 * abs(dj)), o = 2 * (fn + dj * fp + di);
+            s0 += w * r[o]; s1 += w * r[o + 1];
+          }
+      b[2 * cn] = s0; b[2 * cn + 1] = s1;
     }
 }
-// x_f += P x_c.
 function prolongFrom(C, F) {
   const { x } = F, { nx, ny, nxp } = C, fp = F.nxp, e = C.x;
   for (let J = 1; J <= ny + 1; J++)
     for (let I = 1; I <= nx + 1; I++) {
-      const cn = J * nxp + I;
-      const e0 = e[2 * cn], e1 = e[2 * cn + 1];
+      const cn = J * nxp + I, e0 = e[2 * cn], e1 = e[2 * cn + 1];
       if (e0 === 0 && e1 === 0) continue;
       const fn = (2 * J - 1) * fp + (2 * I - 1);
-      const n1 = fn - fp, n2 = fn + fp;
-      x[2 * fn] += e0; x[2 * fn + 1] += e1;
-      const h0 = 0.5 * e0, h1 = 0.5 * e1, q0 = 0.25 * e0, q1 = 0.25 * e1;
-      x[2 * (fn - 1)] += h0; x[2 * (fn - 1) + 1] += h1; x[2 * (fn + 1)] += h0; x[2 * (fn + 1) + 1] += h1;
-      x[2 * n1] += h0; x[2 * n1 + 1] += h1; x[2 * n2] += h0; x[2 * n2 + 1] += h1;
-      x[2 * (n1 - 1)] += q0; x[2 * (n1 - 1) + 1] += q1; x[2 * (n1 + 1)] += q0; x[2 * (n1 + 1) + 1] += q1;
-      x[2 * (n2 - 1)] += q0; x[2 * (n2 - 1) + 1] += q1; x[2 * (n2 + 1)] += q0; x[2 * (n2 + 1) + 1] += q1;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const w = (1 - 0.5 * abs(di)) * (1 - 0.5 * abs(dj)), o = 2 * (fn + dj * fp + di);
+          x[o] += w * e0; x[o + 1] += w * e1;
+        }
     }
   // the ring of padding and the pinned nodes stay at zero
   const nxf = F.nx, nyf = F.ny;
@@ -360,13 +346,12 @@ function setFixedLevels(P) {
 }
 
 function assemble(P) {
-  const L0 = P.L[0], { E, xp } = P;
+  const L0 = P.L[0], xp = P.xp;
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) {
       const xe = xp[e];
       const Ee = EMIN + pow(xe, P.pen) * (1 - EMIN);
-      E[e] = Ee;
       L0.E[j * NX + i] = Ee;
     }
   }
@@ -424,28 +409,25 @@ function cgRun(P, iters) {
 
 // ---------- the optimality-criteria update ----------
 function ocStep(P, vf, move) {
-  const { u, xp, x, q, qa, dcs, invHs, wcol, kw, ko, nk, sv, xn, lo, hi } = P;
-  const al = P.first ? (P.first = false, 1) : 1 - exp(-MEM_DT / MEM);
+  const { u, xp, x, q, dcs, invHs, wcol, kw, ko, nk, sv, lo, hi } = P;
   // The strain energy of every element at unit stiffness, then the sensitivity of the compliance to its density.
   let qs = 0, xs = 1e-9;
+  const ue = P.ue;
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) {
       const n0 = (j + 1) * NXP + i + 1, a = 2 * n0, b = a + 2, c = 2 * (n0 + NXP + 1), d = 2 * (n0 + NXP);
-      const u0 = u[a], u1 = u[a + 1], u2 = u[b], u3 = u[b + 1], u4 = u[c], u5 = u[c + 1], u6 = u[d], u7 = u[d + 1];
+      ue[0] = u[a]; ue[1] = u[a + 1]; ue[2] = u[b]; ue[3] = u[b + 1]; ue[4] = u[c]; ue[5] = u[c + 1]; ue[6] = u[d]; ue[7] = u[d + 1];
       let ce = 0;
       for (let r = 0; r < 8; r++) {
-        const kr = r * 8;
-        ce += (r === 0 ? u0 : r === 1 ? u1 : r === 2 ? u2 : r === 3 ? u3 : r === 4 ? u4 : r === 5 ? u5 : r === 6 ? u6 : u7)
-          * (KE[kr] * u0 + KE[kr + 1] * u1 + KE[kr + 2] * u2 + KE[kr + 3] * u3 + KE[kr + 4] * u4 + KE[kr + 5] * u5 + KE[kr + 6] * u6 + KE[kr + 7] * u7);
+        let t = 0;
+        for (let k = 0; k < 8; k++) t += KE[r * 8 + k] * ue[k];
+        ce += ue[r] * t;
       }
       const xe = xp[e];
-      const qe = pow(xe, P.pen - 1) * ce;
+      const q0 = pow(xe, P.pen - 1) * ce, qe = q0 >= 0 && q0 < 1e30 ? q0 : 0;
       q[e] = qe;
-      // The structure answers to the loads of the last second or two, not to this instant's alone.
-      const qm = qa[e] + (qe - qa[e]) * al;
-      qa[e] = qm;
-      dcs[e] = (NOW * qe + (1 - NOW) * qm) * invHs[e];
+      dcs[e] = qe * invHs[e];
       const w = xe * xe * xe;
       qs += w * Math.log(qe + 1e-12); xs += w;
     }
@@ -471,7 +453,7 @@ function ocStep(P, vf, move) {
   if (!(sm > 1e-30) || !isFinite(sm)) return;
   const target = vf * NEL;
   let a = -9, b = 9;
-  for (let it = 0; it < 26; it++) {
+  for (let it = 0; it < 22; it++) {
     const mu = sm > 0 ? pow(10, 0.5 * (a + b)) / sm : 1;
     let vol = 0;
     for (let j = 0; j < NY; j++) {
@@ -495,7 +477,7 @@ function ocStep(P, vf, move) {
 }
 
 // ---------- the loads and the feet ----------
-// Two loads on the top edge, each a sum of Gaussian weights over a few nodes, with a direction that swings up to
+// Three loads on the top edge, each a sum of Gaussian weights over a few nodes, with a direction that swings up to
 // about 70 degrees from straight down. Each quantity walks on a random sequence of its own.
 function setLoads(P) {
   const { f } = P;
@@ -532,7 +514,7 @@ function setLoads(P) {
     const th0 = cl(1.3 * wander(tl / 3.3 + m * 9.1, ch + 1), -1.3, 1.3);
     const xc = mix(xc0, SEED_X[m], P.seedMix), th = mix(th0, SEED_TH[m], P.seedMix);
     const mag = m === 0 ? 1 : cl(0.7 + 0.5 * wander(tl / 9 + 3.3 + m, ch + 2), 0.35, 1);
-    const sg = 1.5;
+    const sg = 1.7 + 0.5 * wander(tl / 13 + m * 5.1, ch + 3);
     let ws = 0;
     const lo = max(0, floor(xc - 4)), hi = min(NX, Math.ceil(xc + 4));
     for (let i = lo; i <= hi; i++) ws += exp(-((i - xc) * (i - xc)) / (2 * sg * sg));
@@ -581,7 +563,7 @@ function glowTargets(P) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) {
       const v = q[e] / (lam + 1e-30);
-      tg[e] = cl(0.58 + 0.2 * Math.log2(v + 1e-6), 0, 1);
+      tg[e] = cl(0.58 + 0.14 * Math.log2(v + 1e-6), 0, 1);
     }
   }
 }
@@ -623,8 +605,9 @@ export function update(dt, input, P) {
   P.tl += d * rate; P.tf += d;
   // The share of material and the filter radius glide to their knobs.
   const k = 1 - exp(-d / 0.2);
-  P.vf += (vfT * (1 + 0.2 * wander(P.t / 45 + 9, 78)) - P.vf) * k;
-  P.rmin += (rT - P.rmin) * k;
+  // Both drift on their own, slowly, each on a sequence of its own: bone gains and loses mass, and the struts coarsen and fine.
+  P.vf += (vfT * (1 + 0.3 * wander(P.t / 41 + 9, 78)) - P.vf) * k;
+  P.rmin += (max(1.2, rT * (1.05 + 0.15 * wander(P.t / 53 + 2, 79))) - P.rmin) * k;
   // A design cycle takes CYC frames. At its start the loads and the feet move, the filter is rebuilt if the
   // feature size has moved, the stiffness is assembled and the solve is restarted; the solve goes on over the
   // frames after, and the optimality-criteria update closes the cycle.
@@ -641,7 +624,7 @@ export function update(dt, input, P) {
     glowTargets(P);
   }
   const { gl, tg, gh, xp, xd } = P;
-  const kg = 1 - exp(-d / 0.25), kd = exp(-d / 12), kx = 1 - exp(-d / 0.08);
+  const kg = 1 - exp(-d / 0.25), kd = exp(-d / 18), kx = 1 - exp(-d / 0.08);
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) {
@@ -651,20 +634,21 @@ export function update(dt, input, P) {
       gh[e] = xd[e] > g ? xd[e] : g;
     }
   }
-  halo(P);
+  mist(P);
   render(P, tint);
 }
 
-// A soft blur of the density, for the faint light the struts put into the void.
-function halo(P) {
-  const { xd, hl, hl2 } = P;
+// The faint light the struts put into the void: a soft blur of the density, and the fading trace of where
+// material has been, in one field.
+function mist(P) {
+  const { xd, gh, hl, hl2 } = P;
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) hl2[e] = 0.25 * xd[e - 1] + 0.5 * xd[e] + 0.25 * xd[e + 1];
   }
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
-    for (let i = 0; i < NX; i++, e++) hl[e] = 0.25 * hl2[e - EW] + 0.5 * hl2[e] + 0.25 * hl2[e + EW];
+    for (let i = 0; i < NX; i++, e++) hl[e] = 0.5 * (0.25 * hl2[e - EW] + 0.5 * hl2[e] + 0.25 * hl2[e + EW]) + 0.45 * gh[e];
   }
 }
 
@@ -705,30 +689,27 @@ function hsv(h, s, v) {
 }
 
 function render(P, tint) {
-  const { dL, gL, hL, kL, out, pal } = P;
+  const { dL, gL, hL, out, pal } = P;
   interp(P, P.xd, dL);
   interp(P, P.gl, gL);
   interp(P, P.hl, hL);
-  interp(P, P.gh, kL);
   const hue = 0.53 + 0.40 * tint;
   // The colour of a strut by how hard it is working: cool and pale, ivory, warm and pale. Ivory sits at 0.58.
-  const cool = hsv(hue, 0.30, 1.0), warm = hsv(hue + 0.55, 0.36, 1.0), ivory = [0.98, 0.945, 0.87];
+  const cool = hsv(hue, 0.26, 1.0), warm = hsv(hue + 0.55, 0.32, 1.0), ivory = [0.98, 0.945, 0.87];
   for (let i = 0; i <= 64; i++) {
     const t = i / 64;
     for (let c = 0; c < 3; c++)
       pal[i * 3 + c] = 255 * (t < 0.58 ? mix(cool[c], ivory[c], smooth(t / 0.58)) : mix(ivory[c], warm[c], smooth((t - 0.58) / 0.42)));
   }
-  const vd = hsv(hue, 0.9, 0.17), vh = hsv(hue, 0.65, 0.6), vg = hsv(hue + 0.04, 0.6, 0.5);
+  const vd = hsv(hue, 0.9, 0.17), vh = hsv(hue + 0.02, 0.65, 0.58);
   const TH = 0.42, WD = 0.17;
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const p = y * W + x, o = p * 3;
       const d = dL[p];
       const cover = smooth((d - (TH - WD)) / (2 * WD));
-      const hh = hL[p], gg = kL[p];
-      const vr = 255 * vd[0] + 255 * (vh[0] * hh * 0.5 + vg[0] * gg * 0.22);
-      const vgc = 255 * vd[1] + 255 * (vh[1] * hh * 0.5 + vg[1] * gg * 0.22);
-      const vb = 255 * vd[2] + 255 * (vh[2] * hh * 0.5 + vg[2] * gg * 0.22);
+      const hh = hL[p] * 255;
+      const vr = 255 * vd[0] + vh[0] * hh, vgc = 255 * vd[1] + vh[1] * hh, vb = 255 * vd[2] + vh[2] * hh;
       let r = vr, g = vgc, b = vb;
       if (cover > 0.002) {
         const gi = (gL[p] * 64 + 0.5) | 0;
