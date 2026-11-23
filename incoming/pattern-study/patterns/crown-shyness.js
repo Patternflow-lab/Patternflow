@@ -261,10 +261,10 @@ export function update(dt, input, P) {
     }
     amp[i] = sa;
   }
-  render(P, kv, season, wind, gapk);
+  render(P, gapk);
 }
 
-function render(P, kv, season, wind, gapk) {
+function render(P, gapk) {
   const { px, py, ox, oy, rr, amp, lcr, lci, lo, cand, out, ramp: RAMP, tA, tB, tC, tD, i1a, i2a, sva, q1a, q2a, tn, lf } = P;
   const t = P.t;
   const l0r = lcr[0], l0i = lci[0], l1r = lcr[1], l1i = lci[1], l2r = lcr[2], l2i = lci[2];
