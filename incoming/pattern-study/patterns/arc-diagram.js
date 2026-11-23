@@ -23,7 +23,8 @@ const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 const RING = 1024, MASK = RING - 1; // bar memory
 const HIST = 190; // bars searched for repeats
-const STRIP = 2; // LEDs of the baseline strip
+const AHEAD = 0.3; // how far past the bottom edge the tune is already composed, in spans
+const STRIP = 3; // LEDs of the baseline strip
 const GOLD = 137.508;
 const FILL = 0.56; // share of a repeat's length that its band fills
 
@@ -335,6 +336,7 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.5, 4), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
   P.k1 = k1; P.k4 = k4;
+  P.span = 48 * 2.5 ** ((k4 + 1) / 2);
   P.rep = 0.5 + 0.5 * k3;
   if (!P.ready) {
     P.ready = true;
@@ -344,14 +346,18 @@ export function update(dt, input, P) {
     P.t = 0;
   }
   P.t += d;
-  // a plan made for another repeat setting is dropped, so the knob is heard within a few bars
-  if (abs(P.rep - P.repPlan) > 0.2) {
-    if (P.q.length) {
-      P.q.length = 0; P.qb.length = 0; P.qg.length = 0;
-      const last = P.secs[P.secs.length - 1];
-      if (last && last.e > P.n) last.e = P.n;
-    }
+  // the bars below the panel are not yet played, so a new repeat setting recomposes them at once
+  if (abs(P.rep - P.repPlan) > 0.15) {
     P.repPlan = P.rep;
+    const keep = floor(P.tau - AHEAD * P.span) + 1;
+    if (keep < P.n) {
+      P.n = keep;
+      while (P.secs.length && P.secs[P.secs.length - 1].s >= keep) P.secs.pop();
+      const last = P.secs[P.secs.length - 1];
+      if (last && last.e > keep) last.e = keep;
+      P.dirty = true;
+    }
+    P.q.length = 0; P.qb.length = 0; P.qg.length = 0;
   }
   P.tau += d * k2;
   while (P.n < floor(P.tau) + 1) emitBar(P);
@@ -364,10 +370,10 @@ export function update(dt, input, P) {
 // middle of a0 and the end of the repeat, as wide as the repeat is long. The end is the moving "now" while the
 // repeat is still being played.
 function layout(P) {
-  const span = 48 * 2.5 ** ((P.k4 + 1) / 2);
+  const span = P.span;
   const bar = H / span; // LEDs a bar
-  P.span = span; P.bar = bar;
-  const top = P.tau - span;
+  P.bar = bar;
+  const top = P.tau - (1 + AHEAD) * span;
   const { ra, rd, rl, ar, ord } = P;
   let m = 0;
   const maxChord = span * 1.3;
@@ -379,7 +385,7 @@ function layout(P) {
     const le = b1 - b0;
     if (le < 0.9) continue;
     const chord = b1 - a0;
-    if (chord > maxChord || b1 < top) continue;
+    if (chord > maxChord || b1 < top || (a0 - top) * bar >= H) continue;
     const o = m * 5;
     ar[o] = ((a0 + b1) / 2 - top) * bar; // centre row
     const ro = (chord / 2) * bar; // outer radius
@@ -389,7 +395,7 @@ function layout(P) {
     ar[o + 1] = mid + th / 2;
     ar[o + 2] = max(0, mid - th / 2);
     ar[o + 3] = smooth((le - 0.9) / 0.9); // fades in over the first bar
-    ar[o + 4] = barAt(P, a0) * GOLD + (((rd[r] * 37) % 11) - 5) * 9; // the motif's hue, leaning with the distance
+    ar[o + 4] = barAt(P, a0) * GOLD + (((rd[r] * 37) % 11) - 5) * 11; // the motif's hue, leaning with the distance
     ord[m] = m;
     m++;
   }
@@ -445,21 +451,23 @@ export function draw(display, P) {
     const o = ord[i] * 5;
     drawRing(P, ar[o], ar[o + 1], ar[o + 2], 0.94 * ar[o + 3], ar[o + 4], rot);
   }
-  // the strip: the bars themselves, as the arcs see them
-  const top = P.tau - P.span, bar = P.bar;
-  for (let y = 0; y < H; y++) {
-    const p0 = top + y / bar, p1 = p0 + 1 / bar;
-    let r = 0, g = 0, b = 0, w = 0;
-    for (let k = max(0, floor(p0)); k < p1 && k < P.n; k++) {
-      const cov = min(k + 1, p1, P.tau) - max(k, p0);
+  // the strip: the sections of the tune, each in the colour its first bar gives its arcs, a dark seam between
+  const top = P.tau - (1 + AHEAD) * P.span, bar = P.bar;
+  for (let y = 0; y < H; y++) for (let x = 0; x < STRIP; x++) { const o = (y * W + x) * 3; buf[o] = 0; buf[o + 1] = 0; buf[o + 2] = 0; }
+  for (let i = 0; i < P.secs.length; i++) {
+    const sc = P.secs[i];
+    if (sc.s >= P.n) continue;
+    const e = min(sc.e, P.n, P.tau);
+    const y0 = (sc.s - top) * bar + 0.5, y1 = (e - top) * bar - 0.5;
+    if (y1 <= 0 || y0 >= H || y1 <= y0) continue;
+    hueRGB(barAt(P, sc.s) * GOLD + rot, rgb);
+    for (let y = max(0, floor(y0)); y <= min(H - 1, floor(y1)); y++) {
+      const cov = min(y + 1, y1) - max(y, y0);
       if (cov <= 0) continue;
-      hueRGB(barAt(P, k) * GOLD + rot, rgb);
-      r += rgb[0] * cov; g += rgb[1] * cov; b += rgb[2] * cov; w += cov;
-    }
-    const f = w > 0 ? 1 / (p1 - p0) : 0;
-    for (let x = 0; x < STRIP; x++) {
-      const o = (y * W + x) * 3;
-      buf[o] = r * f; buf[o + 1] = g * f; buf[o + 2] = b * f;
+      for (let x = 0; x < STRIP; x++) {
+        const o = (y * W + x) * 3;
+        buf[o] = rgb[0] * cov; buf[o + 1] = rgb[1] * cov; buf[o + 2] = rgb[2] * cov;
+      }
     }
   }
   for (let y = 0; y < H; y++)
