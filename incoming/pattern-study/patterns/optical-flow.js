@@ -23,6 +23,7 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const PRE = 100;        // frames run before the first one is drawn
 const DT0 = 1 / 30;     // step of those frames
+const LEAK = 0.08;      // share of the last flow let go each frame before the sweeps
 
 // ---- the static texture -----------------------------------------------------
 function blur(src, sigma) {
@@ -63,12 +64,12 @@ const noise = () => {
 // gradient, and that is where the solver has nothing to go on.
 function buildTexture() {
   const a = unit(blur(noise(), 1.5)), b = unit(blur(noise(), 3.3));
-  const low = unit(blur(noise(), 7));
+  const low = unit(blur(noise(), 5.2));
   const t = new Float32Array(TS * TS), f = new Float32Array(TS * TS);
   for (let i = 0; i < t.length; i++) {
     const d = Math.tanh(0.8 * (a[i] * 0.8 + b[i] * 0.6));
     const g = smooth((low[i] + 0.7) / 1.3);
-    t[i] = d * (0.06 + 0.94 * g);
+    t[i] = d * (0.16 + 0.84 * g);
     f[i] = d * (0.7 + 0.3 * g);
   }
   for (const q of [t, f]) {
@@ -93,7 +94,7 @@ function hsv(h, s, v) {
   return k === 0 ? [v, t, p] : k === 1 ? [q, v, p] : k === 2 ? [p, v, t] : k === 3 ? [p, q, v] : k === 4 ? [t, p, v] : [v, p, q];
 }
 // Four 256-step tables for the video, dark to light, one per layer, each a little differently tinted.
-const TINT = [-0.015, 0.05, 0.0, 0.075];
+const TINT = [0.0, 0.14, -0.1, 0.09];
 function buildLuts(P, hue) {
   for (let l = 0; l < 4; l++) {
     const h = hue + TINT[l];
@@ -151,11 +152,11 @@ function scene(P, tau, withColour) {
   const { tex, texF, L, out, lut } = P;
   const s = sin, c = cos;
   // background: a slow pan of the field
-  const bgx = 0.2 * tau + 8 * s(0.071 * tau + 1.3) + 4 * s(0.137 * tau + 4.1);
-  const bgy = -0.15 * tau + 7 * s(0.083 * tau + 0.2) + 4 * s(0.151 * tau + 2.6);
+  const bgx = 0.12 * tau + 4 * s(0.071 * tau + 1.3) + 2 * s(0.137 * tau + 4.1);
+  const bgy = -0.1 * tau + 4 * s(0.083 * tau + 0.2) + 2 * s(0.151 * tau + 2.6);
   // blob that grows and shrinks
-  const zx = 17 + 6 * s(0.113 * tau + 2.2) + 3 * s(0.269 * tau + 0.4);
-  const zy = 21 + 5 * s(0.097 * tau + 5.2) + 3 * s(0.233 * tau + 1.7);
+  const zx = 32 + 17 * s(0.113 * tau + 2.2) + 6 * s(0.269 * tau + 0.4);
+  const zy = 32 + 17 * s(0.097 * tau + 5.2) + 6 * s(0.233 * tau + 1.7);
   const zs = exp(0.5 * s(0.41 * tau + 0.9) + 0.14 * s(0.67 * tau + 3.3));
   const za = 0.5 + 0.45 * s(0.071 * tau + 1.0);
   const zc = c(za), zn = s(za), zi = 1 / zs;
@@ -165,18 +166,18 @@ function scene(P, tau, withColour) {
   const da = 0.5 * tau - (0.45 / 0.083) * c(0.083 * tau + 0.7) - (0.2 / 0.29) * c(0.29 * tau + 2.1);
   const dc = c(da), dn = s(da);
   // sliding band
-  const bx0 = 32 + 27 * s(0.157 * tau + 0.9) + 6 * s(0.263 * tau + 1.1);
-  const by0 = 32 + 24 * s(0.113 * tau + 3.2) + 5 * s(0.307 * tau + 0.3);
+  const bx0 = 32 + 29 * s(0.181 * tau + 0.9) + 6 * s(0.263 * tau + 1.1);
+  const by0 = 32 + 26 * s(0.127 * tau + 3.2) + 5 * s(0.307 * tau + 0.3);
   const ba = 0.8 + 0.55 * s(0.083 * tau + 2.1) + 0.2 * s(0.191 * tau + 0.7);
   const bc = c(ba), bn = s(ba);
-  const R = 17, HW = 7, HL = 44, ZA = 14, ZB = 9.5;
+  const R = 17, HW = 5.5, HL = 40, ZA = 14, ZB = 9.5;
   const l0 = lut[0], l1 = lut[1], l2 = lut[2], l3 = lut[3];
   for (let y = 0; y < N; y++) {
     const py = y + 0.5;
     for (let x = 0; x < N; x++) {
       const px = x + 0.5;
       // field
-      let lum = 0.26 + 0.2 * tx(tex, (px + bgx) * 0.85 + 11, (py + bgy) * 0.85 + 37);
+      let lum = 0.23 + 0.18 * tx(tex, (px + bgx) * 0.85 + 11, (py + bgy) * 0.85 + 37);
       let k = (cl(lum, 0, 1) * 255 + 0.5) | 0;
       let r = 0, g = 0, b = 0;
       if (withColour) { r = l0[k * 3]; g = l0[k * 3 + 1]; b = l0[k * 3 + 2]; }
@@ -190,7 +191,7 @@ function scene(P, tau, withColour) {
           const wob = 2.2 * tx(tex, xl * 0.4 + 90, yl * 0.4 + 14);
           const m = smooth(0.5 - (d - wob) / 2.2);
           if (m > 0) {
-            const l = 0.5 + 0.3 * tx(tex, xl * 1.15 + 77, yl * 1.15 + 19);
+            const l = 0.5 + 0.3 * tx(texF, xl * 1.15 + 77, yl * 1.15 + 19);
             lum += (l - lum) * m;
             if (withColour) {
               const kk = (cl(l, 0, 1) * 255 + 0.5) | 0;
@@ -209,7 +210,7 @@ function scene(P, tau, withColour) {
           const wob = 2.4 * tx(tex, xl * 0.42 + 5, yl * 0.42 + 101);
           const m = smooth(0.5 - (d - wob) / 2.2);
           if (m > 0) {
-            const l = 0.62 + 0.3 * tx(texF, xl + 40, yl + 66);
+            const l = 0.68 + 0.22 * tx(texF, xl + 40, yl + 66);
             lum += (l - lum) * m;
             if (withColour) {
               const kk = (cl(l, 0, 1) * 255 + 0.5) | 0;
@@ -301,7 +302,7 @@ function paintFlow(P, dt, hueOff, ref) {
       const fu = (u[a] * w00 + u[b] * w01 + u[c] * w10 + u[d] * w11) * inv;
       const fv = (v[a] * w00 + v[b] * w01 + v[c] * w10 + v[d] * w11) * inv;
       const sp = sqrt(fu * fu + fv * fv);
-      const f = 1 - exp(-2 * sp);
+      const f = Math.pow(1 - exp(-2.2 * max(sp - 0.1, 0)), 1.5);
       const h = ((((atan2(fv, fu) / TAU + hueOff) % 1) + 1) % 1) * 1024;
       const hi = (h | 0) * 3;
       const o = ((y + N) * W + x) * 3;
@@ -315,16 +316,19 @@ function paintFlow(P, dt, hueOff, ref) {
 // ---- one frame ---------------------------------------------------------------------------------------
 function step(P, dt, kv, draw) {
   const rate = 0.5 * cl(kv[1], 0.3, 3);
-  const alpha = 0.06 * exp(1.5 * cl(kv[2], -1, 1));
-  const iters = 1.2 * exp(2.0 * (cl(kv[3], -1, 1) - 0.06));
+  const alpha = 0.045 * exp(1.9 * cl(kv[2], -1, 1));
+  const k4 = cl(kv[3], -1, 1) - 0.06;
+  const iters = 1.4 * exp((k4 < 0 ? 2.4 : 1.7) * k4);
   P.tau += dt * rate;
   scene(P, P.tau, draw);
   lowRes(P);
   if (P.first) { P.prev.set(P.cur); P.first = false; }
   derivatives(P, alpha * alpha);
-  P.acc += (P.boost ? max(iters, 4) : iters) * dt * 30;
+  P.acc += (P.boost ? iters * 2.5 : iters) * dt * 30;
   const n = floor(P.acc);
   P.acc -= n;
+  const dk = 1 - LEAK * (dt / DT0);
+  for (let i = 0; i < S * S; i++) { P.u[i] *= dk; P.v[i] *= dk; }
   if (n > 0) sweeps(P, min(n, 40));
   if (draw) paintFlow(P, dt, cl(kv[0], 0, 1) + 0.12, 6 * (0.4 + 0.6 * rate));
 }
