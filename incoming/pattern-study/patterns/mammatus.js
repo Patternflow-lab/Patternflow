@@ -11,10 +11,23 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Light=0..4, Pouches=-1..1, Sag=-1..1
 //
-// Knob 1: Hue. The whole dusk, pouch and sky together. 0 is a sunset with coral bodies, gold rims, indigo shadow and a sky from deep blue-teal to apricot, 0.25 is rose, 0.5 is violet and mauve, 0.75 is periwinkle, and 1 is cool teal with pearl rims over a pale aqua horizon. No stop is brown or grey.
-// Knob 2: Light. The height of the sun. At 0 it is on the horizon behind the cloud: the pouches are dark indigo with a gold rim 1 to 1.6 LEDs wide on the sunward side and deep shadow on the other, and the sky is dim. Where it opens at 2 the light rakes across them and the bodies glow coral at the thin edges. At 4 the sun is high and in front, the pouches are lit all over in pale pastel, the rims fade to a tenth, and the shadows lift to half.
-// Knob 3: Pouches. How large and how many. At -1 there are about a third as many, 1.65 times as large, so two or three big pouches share the bottom of the panel and the far ones are 4 LEDs across; at 0 where it opens there are about 60 on the panel; at +1 pouches are 0.6 of that size and about three times as many, a field of small ones. The change comes in at once in size and over 10 to 20 seconds in count as crowded pouches dissolve and new bumps fill the gaps.
-// Knob 4: Sag. How far the pouches hang and how fast they dissolve. At -1 they are shallow bumps no longer than a third of their width, at 0.06 where it opens a pouch grows to 1.35 times its width in length, and at +1 it reaches 3.4 widths and droops like a sack. Longer pouches also live longer, 0.85 of the usual life at -1 and 1.15 at +1.
+// Knob 1: Hue. The whole dusk, pouch and sky together, in five looks that blend into each other: 0 is a sunset with coral and apricot bodies, a pale gold rim, indigo shadow and a sky from deep blue-teal through lilac to apricot, 0.25 is rose, 0.5 is violet and mauve, 0.75 is periwinkle, and 1 is cool teal with pearl rims under a pale aqua horizon. No stop is brown, and none is a grey.
+// Knob 2: Light. The height of the sun, 0 to 4, and where it opens at 2 the light rakes. At 0 the sun is on the horizon behind the cloud: the bodies are deep indigo, the shadow floor is 0.07 of the colour ramp, and a gold rim 1.3 to 1.7 LEDs wide runs at full strength down the sunward side of each pouch. At 2 the rims are at 0.65 and the floor at 0.20, and the thin edges glow coral. At 4 the sun is high and in front: the rims are at 0.12, the floor at 0.37, the face of each pouch is lit all over, and the sky is washed 24 percent toward cream.
+// Knob 3: Pouches. How large and how many, from a few big ones to a field of small ones. The tip radius at the bottom row is 25 LEDs at -1, 18 where it opens at 0 and 10 at +1 (each pouch 0.82 to 1.26 of that), and at row 30 it is 9, 6.6 and 3.7. About 35 pouches are on the panel at -1, 55 at 0 and 100 at +1. The size follows in half a second, and the count follows over 10 to 40 seconds: crowded pouches draw up and dissolve in 3 seconds, and new bumps start in the gaps.
+// Knob 4: Sag. How far the pouches hang and how long they last. A full-grown pouch is 1.14 times as tall as it is wide at -1, a shallow bump, 1.7 times at 0.06 where it opens, and 2.7 times at +1, a drooping sack (about, each pouch is 0.7 to 1.3 of that, and shorter toward the horizon). Pouches also live 0.85 of the usual 40 to 120 seconds at -1 and 1.15 of it at +1. The length follows the knob in under a second.
+
+// Method. The panel is a flat cloud base seen from below with the horizon at the top, so a pouch's tip radius follows a
+// perspective law, 14.6 LEDs at the bottom row and 2.6 at row 15, and the rows above 15 are the glowing horizon. A pouch is a
+// tapering egg with lumps in its outline from value noise and a frayed edge, shaded as a height field against a light
+// that points at a far-off sun beyond the top edge. The sun's azimuth wanders about 130 degrees on two clocks of its own, so
+// the lit sides slide round. The light is cut into a lit tone and a shadow tone with a soft wandering line between, and a
+// thin rim and a wider glow are added on the sunward edge. Pouches are sorted by tip row and composited far to near per
+// pixel from 4 by 4 cells, with a soft shadow where a near one lies over a far one and a haze that lifts the far ones.
+// Life. A pouch is placed where there is most room (the best of 22 random places, now and then beside a neighbour so that a few
+// cluster), fades in over 5 seconds as a small bump, swells over 17 percent of its 40 to 120 seconds, sinks (its length grows)
+// up to 70 percent, thins and glows at the tip from 40 percent, and from about 70 percent draws up and frays away from the tip.
+// A void left by a dissolving pouch is where the next bump starts. The first update runs 180 seconds of life, so pouches of
+// every age are there at once. Everything drifts sideways with the wind, near pouches faster than far ones.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, exp, sin, cos, pow, abs, min, max, PI } = Math;
@@ -41,7 +54,12 @@ function wander(t, ch) {
 const NT = 300;            // slots for pouches
 const XW = 112, XL = 32 - XW / 2;
 const YMIN = 15, YMAX = 165;
-const SZ = (y) => 14.6 * pow((y < 6 ? 6 : y > 170 ? 170 : y) / 127, 0.72);
+const SZT = new Float64Array(173);
+for (let i = 0; i < 173; i++) SZT[i] = 14.6 * pow((i < 6 ? 6 : i) / 127, 0.72);
+const SZ = (y) => {
+  const v = y < 6 ? 6 : y > 170 ? 170 : y, i = v | 0;
+  return SZT[i] + (SZT[i + 1] - SZT[i]) * (v - i);
+};
 const KY = (y) => 0.72 + 0.28 * (y > 127 ? 1 : y) / 127; // pouches pile up a little more vertically near the horizon
 
 // Where tips may be: more of them at the far end, the density of a plane in perspective.
@@ -69,19 +87,19 @@ function sampleY(u) {
 // the horizon down to the zenith (horizon, low, mid, high, zenith). They are light enough at every stop that the
 // panel's gamma does not turn them brown, and no stop is a dark orange.
 const LOOKS = [
-  { p: [[50, 44, 126], [116, 70, 154], [210, 98, 138], [255, 142, 106], [255, 226, 146]],
-    s: [[255, 170, 106], [255, 204, 152], [140, 204, 190], [34, 116, 156], [12, 54, 112]] },
+  { p: [[52, 44, 124], [140, 74, 146], [230, 112, 112], [255, 150, 98], [255, 226, 150]],
+    s: [[255, 170, 106], [255, 198, 152], [172, 160, 198], [36, 112, 160], [12, 52, 110]] },
   { p: [[62, 44, 122], [132, 70, 148], [226, 98, 146], [255, 152, 154], [255, 216, 180]],
     s: [[255, 190, 152], [250, 170, 170], [160, 120, 186], [72, 72, 152], [34, 40, 112]] },
   { p: [[46, 42, 124], [98, 70, 168], [172, 110, 204], [228, 152, 222], [255, 218, 242]],
     s: [[255, 196, 206], [236, 150, 204], [150, 112, 196], [60, 64, 156], [22, 32, 104]] },
   { p: [[36, 50, 120], [72, 92, 174], [132, 152, 218], [184, 208, 240], [236, 242, 255]],
-    s: [[240, 232, 248], [190, 204, 238], [100, 142, 204], [36, 74, 152], [14, 38, 100]] },
+    s: [[236, 226, 246], [170, 184, 230], [74, 108, 186], [28, 56, 134], [12, 30, 92]] },
   { p: [[24, 62, 112], [46, 112, 154], [112, 192, 198], [190, 238, 224], [246, 252, 242]],
-    s: [[238, 248, 228], [182, 228, 208], [84, 170, 180], [22, 94, 134], [10, 42, 96]] },
+    s: [[206, 238, 222], [112, 196, 196], [38, 128, 160], [16, 78, 130], [8, 36, 96]] },
 ];
 const PSTOP = [0, 0.25, 0.5, 0.75, 1];
-const SSTOP = [0, 0.26, 0.5, 0.74, 1];
+const SSTOP = [0, 0.24, 0.5, 0.76, 1];
 
 function buildLooks(P, hue, pale) {
   P.hueK = hue; P.paleK = pale;
@@ -143,16 +161,15 @@ export function setup(P) {
   const MI = NT * 2;
   const g = () => new Float32Array(MI);
   P.IX = g(); P.IA = g(); P.IB = g(); P.ICY = g(); P.ITOP = g(); P.IL2 = g(); P.ILE = g(); P.IBE = g(); P.IWA = g(); P.IWP = g();
-  P.IDX = g(); P.IDY = g(); P.ISG = g(); P.ITH = g(); P.ICUT = g(); P.IAL = g(); P.IHZ = g(); P.INX = g(); P.INY = g(); P.IDS = g();
+  P.IDX = g(); P.IDY = g(); P.ISG = g(); P.ITH = g(); P.IAL = g(); P.IHZ = g(); P.INX = g(); P.INY = g(); P.IDS = g();
   P.IX0 = g(); P.IX1 = g(); P.IY0 = g(); P.IY1 = g();
   P.ord = new Int16Array(NT);
-  P.cellN = new Int16Array(128);
-  P.cellL = new Int16Array(128 * 64);
+  P.cellN = new Int16Array(512);
+  P.cellL = new Int16Array(512 * 40);
   P.gx = new Float32Array(W); P.gy = new Float32Array(H);
   P.out = new Float32Array(NPX * 3);
   P.wobT = new Float32Array(256);
   for (let i = 0; i < 256; i++) P.wobT[i] = sin((i / 256) * TAU);
-  P.nowT = 0;
 }
 
 // ---- the sky of pouches --------------------------------------------------------------------------------------
@@ -232,12 +249,12 @@ function tryBirth(P, m, sagN, age0) {
     }
     bd = -1;
   }
-  for (let k = 0; k < 14; k++) {
+  for (let k = 0; k < 22; k++) {
     const x = XL + Math.random() * XW, y = sampleY(Math.random());
     const d = minDist(P, m, x, y, -1);
     if (d > bd) { bd = d; bx = x; by = y; }
   }
-  const need = 1.6 + 0.5 * Math.random();
+  const need = 2.1 + 0.5 * Math.random();
   if (bd < need * need) return false;
   born(P, slot, bx, by, age0, sagN);
   return true;
@@ -265,8 +282,8 @@ function stepSim(P, d, m, sagN, crowd) {
   P.birthT -= d;
   let guard = 0;
   while (P.birthT <= 0 && guard++ < 8) {
-    if (tryBirth(P, m, sagN, 0)) P.birthT += 0.05 + 0.35 * Math.random();
-    else P.birthT += 0.4;
+    if (tryBirth(P, m, sagN, 0)) P.birthT += 0.03 + 0.2 * Math.random();
+    else P.birthT += 0.15;
   }
   // Crowding after the size knob grows: the older of two pouches too close starts to dissolve fast.
   if (crowd) {
@@ -288,13 +305,13 @@ function stepSim(P, d, m, sagN, crowd) {
   }
 }
 
-function texN(A, B, x, y, c, s) {
+// Value noise from one lattice, 64 by 64, wrapped.
+function tex1(A, x, y) {
   const xi = floor(x), yi = floor(y), fx = x - xi, fy = y - yi;
   const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
   const i0 = xi & 63, i1 = (xi + 1) & 63, j0 = (yi & 63) << 6, j1 = ((yi + 1) & 63) << 6;
   const a0 = A[j0 + i0] + (A[j0 + i1] - A[j0 + i0]) * ux, a1 = A[j1 + i0] + (A[j1 + i1] - A[j1 + i0]) * ux;
-  const b0 = B[j0 + i0] + (B[j0 + i1] - B[j0 + i0]) * ux, b1 = B[j1 + i0] + (B[j1 + i1] - B[j1 + i0]) * ux;
-  return (a0 + (a1 - a0) * uy) * c + (b0 + (b1 - b0) * uy) * s;
+  return a0 + (a1 - a0) * uy;
 }
 
 export function update(dt, input, P) {
@@ -328,7 +345,7 @@ function render(P, Ln) {
   // clocks of its own. It is far off, beyond the top edge, and each pouch turns a little toward it.
   const phi = -PI / 2 + cl(1.05 * wander(t / 88, 41) + 0.42 * wander(t / 29.3, 42), -1.4, 1.4);
   const xs = 32 + 95 * cos(phi), ys = 16 + 95 * sin(phi);
-  const Lz = cl(-0.35 + 1.55 * pow(Ln, 1.5), -0.35, 1);
+  const Lz = cl(-0.4 + 1.5 * pow(Ln, 1.8), -0.4, 1);
   const Lxy = sqrt(1 - Lz * Lz);
   const amb = 0.07 + 0.3 * pow(Ln, 1.2);
   const rimGain = cl(1.2 - 1.1 * Ln, 0.12, 1.2);
@@ -349,7 +366,7 @@ function render(P, Ln) {
     while (b >= 0 && sy[ord[b]] > key) { ord[b + 1] = ord[b]; b--; }
     ord[b + 1] = v;
   }
-  const { IX, IA, IB, ICY, ITOP, ILE, IBE, IWA, IWP, IDX, IDY, ISG, ITH, ICUT, IAL, IHZ, INX, INY, IDS, IL2, IX0, IX1, IY0, IY1 } = P;
+  const { IX, IA, IB, ICY, ITOP, ILE, IBE, IWA, IWP, IDX, IDY, ISG, ITH, IAL, IHZ, INX, INY, IDS, IL2, IX0, IX1, IY0, IY1 } = P;
   const cellN = P.cellN, cellL = P.cellL;
   cellN.fill(0);
   let M = 0;
@@ -396,30 +413,30 @@ function render(P, Ln) {
       IAL[k] = al;
       IHZ[k] = 0.55 * (1 - smooth((y - 14) / 90));
       INX[k] = P.nox[i]; INY[k] = P.noy[i];
-      const lim = (1 + 2.9 / aE) * 1.25;
+      const lim = (1 + 2.9 / aE) * 1.12;
       IL2[k] = lim * lim;
       IX0[k] = x0; IX1[k] = x1; IY0[k] = y0; IY1[k] = y1;
-      const cx0 = max(0, floor(x0 / 8)), cx1 = min(7, floor(x1 / 8));
-      const cy0 = max(0, floor(y0 / 8)), cy1 = min(15, floor(y1 / 8));
+      const cx0 = max(0, floor(x0 / 4)), cx1 = min(15, floor(x1 / 4));
+      const cy0 = max(0, floor(y0 / 4)), cy1 = min(31, floor(y1 / 4));
       for (let cy = cy0; cy <= cy1; cy++)
         for (let cx = cx0; cx <= cx1; cx++) {
-          const c = cy * 8 + cx;
-          if (cellN[c] < 64) cellL[c * 64 + cellN[c]++] = k;
+          const c = cy * 16 + cx;
+          if (cellN[c] < 40) cellL[c * 40 + cellN[c]++] = k;
         }
     }
   }
   P.nInst = M;
   const tA = P.tA, tB = P.tB, wobT = P.wobT;
-  const ca = cos(0.04 * t), sa = sin(0.04 * t);
-  for (let cy = 0; cy < 16; cy++)
-    for (let cx = 0; cx < 8; cx++) {
-      const c = cy * 8 + cx, cn = cellN[c], base = c * 64;
-      for (let yy = 0; yy < 8; yy++) {
-        const py = cy * 8 + yy + 0.5, row = (cy * 8 + yy) * 3;
-        const gyv = P.gy[cy * 8 + yy];
-        for (let xx = 0; xx < 8; xx++) {
-          const px = cx * 8 + xx + 0.5;
-          const gl = P.gx[cx * 8 + xx] * gyv * gAmt;
+  const tq = 0.045 * t;
+  for (let cy = 0; cy < 32; cy++)
+    for (let cx = 0; cx < 16; cx++) {
+      const c = cy * 16 + cx, cn = cellN[c], base = c * 40;
+      for (let yy = 0; yy < 4; yy++) {
+        const py = cy * 4 + yy + 0.5, row = (cy * 4 + yy) * 3;
+        const gyv = P.gy[cy * 4 + yy];
+        for (let xx = 0; xx < 4; xx++) {
+          const px = cx * 4 + xx + 0.5;
+          const gl = P.gx[cx * 4 + xx] * gyv * gAmt;
           const sr = SKY[row], sgc = SKY[row + 1], sb = SKY[row + 2];
           let R = sr + (gc0 - sr) * gl, G = sgc + (gc1 - sgc) * gl, B = sb + (gc2 - sb) * gl;
           const skyR = R, skyG = G, skyB = B;
@@ -439,12 +456,12 @@ function render(P, Ln) {
             const rho2u = ux * ux + uy * uy;
             if (rho2u > IL2[k]) continue;
             // lumps: the outline of a pouch is not an ellipse
-            const nzv = texN(tA, tB, ux * 1.6 + INX[k], (hy / a) * 0.7 + INY[k], ca, sa);
+            const nzv = tex1(tA, ux * 1.6 + INX[k], (hy / a) * 0.7 + INY[k] + tq);
             const rho2 = rho2u * (1 + 0.2 * nzv);
             const gx = ux / ax, gy = uy / b;
             const gm = sqrt(gx * gx + gy * gy) + 1e-6;
             let sd = (rho2 - 1) / (2 * gm);
-            if (sd > -2.5 && sd < 3) sd += (0.55 + 0.03 * a) * texN(tB, tA, px * 0.45 + INY[k], py * 0.45 + INX[k], sa, ca);
+            if (sd > -2.5 && sd < 3) sd += (0.42 + 0.025 * a) * tex1(tB, dx * 0.28 + INY[k], hy * 0.28 + INX[k] + tq);
             const ldx = IDX[k], ldy = IDY[k];
             const nl = (gx * ldx + gy * ldy) / gm;
             if (sd > 0.7) {
@@ -461,17 +478,17 @@ function render(P, Ln) {
             alpha *= IAL[k];
             const dis = IDS[k];
             if (dis > 0.001) {
-              const sc = 0.32 * a + 1.2;
-              const val = 0.5 + 0.55 * texN(tA, tB, px / sc + INX[k] * 0.7, py / sc + INY[k] * 0.7, ca, sa);
+              const sc = 0.5 * a + 2.6;
+              const val = 0.5 + 0.55 * tex1(tB, dx / sc + INX[k] * 0.7, hy / sc + INY[k] * 0.7);
               const fe = cl((py - top) / (2 * b), 0, 1);
               const thr = dis * 1.25 * (0.4 + 0.6 * fe) - 0.05;
-              const keep = cl((val - thr) / 0.22 + 0.5, 0, 1);
+              const keep = cl((val - thr) / 0.3 + 0.5, 0, 1);
               alpha *= keep * (1 - smooth((dis - 0.8) / 0.2));
             }
             const th = ITH[k];
             const sg0 = ISG[k];
             const tipw = smooth((f - 0.45) / 0.55);
-            alpha *= 1 - 0.62 * th * tipw;
+            alpha *= 1 - 0.2 * th * tipw;
             if (alpha < 0.004) continue;
             const uz = rho2 >= 1 ? 0 : sqrt(1 - rho2) / a;
             const nrm = sqrt(gx * gx + gy * gy + uz * uz) + 1e-9;
@@ -485,14 +502,13 @@ function render(P, Ln) {
             const rw = 1.0 + 0.025 * a;
             const re = (edge - 0.25) / rw;
             const rim = re <= 0 ? 1 : re >= 1 ? 0 : 1 - re * re * (3 - 2 * re);
-            const rimI = rim * pow(sunf, 0.8) * rimGain;
-            const gw = 1.4 + 0.2 * a;
-            const gl2 = sunf * sunf * exp(-edge / gw) * glowGain;
+            const rimI = rim * sunf * (1.4 - 0.4 * sunf) * rimGain;
+            const gq = edge / (1.4 + 0.2 * a);
+            const gl2 = sunf * sunf * glowGain / (1 + gq * (1 + 0.5 * gq));
             const vf = 1 - 0.4 * sg0 * (1 - smooth(f / 0.7));
-            let tl = amb + (0.72 - amb) * li * vf + 0.26 * gl2 + 0.3 * th * tipw + 0.16 * sg0 * smooth((f - 0.6) / 0.4);
-            const nz2 = texN(tB, tA, ux * 3.1 + INY[k], (hy / a) * 1.3 + INX[k], sa, ca);
-            const nz3 = texN(tB, tA, px * 0.3 + INX[k] * 3, py * 0.06 + INY[k], ca, sa);
-            tl += 0.05 * nz2 * (0.35 + 0.65 * li) + 0.07 * nz3 * (0.3 + 0.7 * li);
+            let tl = amb + (0.72 - amb) * li * vf + 0.26 * gl2 + 0.4 * th * tipw + 0.16 * sg0 * smooth((f - 0.6) / 0.4);
+            const nz3 = tex1(tB, dx * 0.3 + INX[k] * 3, hy * 0.06 + INY[k] + tq * 0.5);
+            tl += 0.09 * nz3 * (0.3 + 0.7 * li);
             tl = tl + (1 - tl) * rimI;
             const hz = IHZ[k];
             if (hz > 0) tl = tl * (1 - 1.1 * hz) + 0.68 * hz;
@@ -500,12 +516,13 @@ function render(P, Ln) {
             const ri = ((tl * 255) | 0) * 3;
             let cr = RAMP[ri], cg = RAMP[ri + 1], cb = RAMP[ri + 2];
             // the shadow side lets a little of the sky through at the very edge
-            const bounce = (1 - sunf) * exp(-edge / 1.1) * 0.3 * (1 - li);
+            const bq = edge * 0.9;
+            const bounce = (1 - sunf) * 0.3 * (1 - li) / (1 + bq * (1 + 0.5 * bq));
             cr += (skyR - cr) * bounce; cg += (skyG - cg) * bounce; cb += (skyB - cb) * bounce;
             R += (cr - R) * alpha; G += (cg - G) * alpha; B += (cb - B) * alpha;
             cvg += (1 - cvg) * alpha;
           }
-          const o = (row / 3 * W + (cx * 8 + xx)) * 3;
+          const o = (row / 3 * W + (cx * 4 + xx)) * 3;
           out[o] = R; out[o + 1] = G; out[o + 2] = B;
         }
       }
