@@ -24,14 +24,15 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 const KAPPA = 110;     // flow strength, LED^2 a second
-const RELAX = 0.018;   // pull of every point back toward the map it started from, a second
+const RELAX = 0.04;    // pull of every point back toward the map it started from, a second
+const DIFF = 4;       // LED^2 a second, the spreading of the coordinates
 const BLUR_R = 1;      // box radius, in cells, of each of the density blur passes
 const BLUR_N = 3;      // number of passes
 const VMAX = 16;       // LEDs a second
 const PEN = 3200;      // power-diagram weight that makes a region vanish
 const DRIFT = 5.5;     // LEDs the seeds wander from where they were placed
 const HWAN = 0.09;     // how far a region's hue wanders from its place in the palette
-const FLOOR = 0.012;   // least share of the panel a region is asked for
+const FLOOR = 0.02;    // least share of the panel a region is asked for
 const ARC = 0.6;       // share of the hue circle the regions' hues spread over
 const PRE = 30;        // seconds run before the first frame, in steps of 0.2 s
 
@@ -308,7 +309,18 @@ function simStep(P, dt) {
       BX2[c] = bx + ((i + 0.5) * CS - bx) * rel;
       BY2[c] = by + ((j + 0.5) * CS - by) * rel;
     }
-  P.BX = BX2; P.BY = BY2; P.BX2 = BX; P.BY2 = BY;
+  // let the coordinates spread a little, so a band that the flow squeezes cannot get thinner than the LEDs can show;
+  // a straight (undeformed) field is left alone, edges included
+  const nu = DIFF * dt / (CS * CS);
+  for (let j = 0; j < NY; j++)
+    for (let i = 0; i < NX; i++) {
+      const c = j * NX + i;
+      let lx = 0, ly = 0, mx = 0, my = 0;
+      if (i > 0 && i < NX - 1) { lx = BX2[c - 1] + BX2[c + 1] - 2 * BX2[c]; mx = BY2[c - 1] + BY2[c + 1] - 2 * BY2[c]; }
+      if (j > 0 && j < NY - 1) { ly = BX2[c - NX] + BX2[c + NX] - 2 * BX2[c]; my = BY2[c - NX] + BY2[c + NX] - 2 * BY2[c]; }
+      BX[c] = BX2[c] + nu * (lx + ly);
+      BY[c] = BY2[c] + nu * (mx + my);
+    }
 }
 
 // ---- update ------------------------------------------------------------------
@@ -318,7 +330,7 @@ export function update(dt, input, P) {
   const tide = kv[1], con = kv[2], reg = kv[3];
   P.hue = kv[0];
   const rate = 0.55 + 0.5 * tide;
-  const g = 0.5 + 1.7 * Math.pow((con + 1) * 0.5, 1.2);
+  const u = (con + 1) * 0.5, g = 0.5 + 0.7 * u + 2.3 * u * u * u;
   const nreg = 8 + 14 * ((reg + 1) * 0.5);
   P.kappa = KAPPA * (0.75 + 0.25 * rate);
   if (!P.ready) {
@@ -350,9 +362,36 @@ export function update(dt, input, P) {
 }
 
 // ---- draw --------------------------------------------------------------------
+// Catmull-Rom reading of the reference coordinates at a point inside cell (i0, j0), so that a border does not
+// bend at every second LED where the map is squeezed hard.
+const cwx = new Float64Array(4), cwy = new Float64Array(4), dwx = new Float64Array(4), dwy = new Float64Array(4);
+let cbx = 0, cby = 0, cxx = 0, cxy = 0, cyx = 0, cyy = 0;
+function cubic(BX, BY, i0, j0, fx, fy) {
+  const fx2 = fx * fx, fx3 = fx2 * fx, fy2 = fy * fy, fy3 = fy2 * fy;
+  cwx[0] = -0.5 * fx3 + fx2 - 0.5 * fx; cwx[1] = 1.5 * fx3 - 2.5 * fx2 + 1; cwx[2] = -1.5 * fx3 + 2 * fx2 + 0.5 * fx; cwx[3] = 0.5 * fx3 - 0.5 * fx2;
+  cwy[0] = -0.5 * fy3 + fy2 - 0.5 * fy; cwy[1] = 1.5 * fy3 - 2.5 * fy2 + 1; cwy[2] = -1.5 * fy3 + 2 * fy2 + 0.5 * fy; cwy[3] = 0.5 * fy3 - 0.5 * fy2;
+  dwx[0] = -1.5 * fx2 + 2 * fx - 0.5; dwx[1] = 4.5 * fx2 - 5 * fx; dwx[2] = -4.5 * fx2 + 4 * fx + 0.5; dwx[3] = 1.5 * fx2 - fx;
+  dwy[0] = -1.5 * fy2 + 2 * fy - 0.5; dwy[1] = 4.5 * fy2 - 5 * fy; dwy[2] = -4.5 * fy2 + 4 * fy + 0.5; dwy[3] = 1.5 * fy2 - fy;
+  let sx = 0, sy = 0, ax = 0, ay = 0, bx = 0, by = 0;
+  for (let q = 0; q < 4; q++) {
+    let jj = j0 + q - 1; jj = jj < 0 ? 0 : jj >= NY ? NY - 1 : jj;
+    const row = jj * NX, wy = cwy[q], dy = dwy[q];
+    let rx = 0, ry = 0, ex = 0, ey = 0;
+    for (let r = 0; r < 4; r++) {
+      let ii = i0 + r - 1; ii = ii < 0 ? 0 : ii >= NX ? NX - 1 : ii;
+      const vx = BX[row + ii], vy = BY[row + ii];
+      rx += cwx[r] * vx; ry += cwx[r] * vy; ex += dwx[r] * vx; ey += dwx[r] * vy;
+    }
+    sx += wy * rx; sy += wy * ry; ax += wy * ex; ay += wy * ey; bx += dy * rx; by += dy * ry;
+  }
+  cbx = sx; cby = sy;
+  cxx = ax / CS; cyx = ay / CS; cxy = bx / CS; cyy = by / CS; // d(Bx)/dx, d(By)/dx, d(Bx)/dy, d(By)/dy
+}
+
 const seen = new Int32Array(K), cand = new Int32Array(8), offs = new Int32Array(4);
+
 export function draw(display, P) {
-  const { I1, I2, GP, GS, SX, SY, pen, col, BX, BY } = P;
+  const { I1, I2, GP, SX, SY, pen, col, BX, BY } = P;
   seen.fill(0);
   let stamp = 0;
   for (let y = 0; y < H; y++) {
@@ -371,8 +410,8 @@ export function draw(display, P) {
         id = a;
         dpx = GP[o] * w00 + GP[o + 1] * w10 + GP[o + NX] * w01 + GP[o + NX + 1] * w11;
       } else {
-        const bx = BX[o] * w00 + BX[o + 1] * w10 + BX[o + NX] * w01 + BX[o + NX + 1] * w11;
-        const by = BY[o] * w00 + BY[o + 1] * w10 + BY[o + NX] * w01 + BY[o + NX + 1] * w11;
+        cubic(BX, BY, i0, j0, fx, fy);
+        const bx = cbx, by = cby;
         warp(P, bx, by);
         const ux = bx + wx_, uy = by + wy_;
         const st = ++stamp;
@@ -392,7 +431,13 @@ export function draw(display, P) {
         }
         id = i1; id2 = i2;
         const sx = SX[i2] - SX[i1], sy = SY[i2] - SY[i1], dd = sqrt(sx * sx + sy * sy) + 1e-6;
-        const gs = GS[o] * w00 + GS[o + 1] * w10 + GS[o + NX] * w01 + GS[o + NX + 1] * w11;
+        let gs = 1;
+        if (n > 1) {
+          const nx = sx / dd, ny = sy / dd;
+          const mx = nx * (1 + wdxx) + ny * wdyx, my = nx * wdxy + ny * (1 + wdyy);
+          const gx = mx * cxx + my * cyx, gy = mx * cxy + my * cyy;
+          gs = cl(sqrt(gx * gx + gy * gy), 0.1, 8);
+        }
         dpx = n > 1 ? (d2 - d1) / (2 * dd * gs) : 9;
       }
       const e = smooth((dpx - 0.2) / 1.2);
