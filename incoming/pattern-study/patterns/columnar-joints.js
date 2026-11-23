@@ -17,7 +17,7 @@
 // Knob 4: Heat. At -1 the front sits near the bottom and only the cracks right above it glow dull red; at 1 the front rises and the cracks burn orange to yellow a quarter of the panel up.
 
 const W = 64, H = 128;
-const { min, max, floor, sin, cos, sqrt, exp, abs, PI } = Math;
+const { min, max, floor, sin, sqrt, exp, abs } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mix = (a, b, t) => a + (b - a) * t;
 const sm = (a, b, v) => ((v = cl((v - a) / (b - a), 0, 1)), v * v * (3 - 2 * v));
@@ -49,7 +49,7 @@ function hsv(out, h, s, v) {
 // Width scales it about the middle at draw time, so a knob turn shows at once.
 const XL = -24, XR = 88, RING = 256, GMIN = 2.2;
 const BASE = 4.2; // reference column width at a flow's surface, in LEDs
-const LEN = 190; // rows over which the width grows by e
+const LEN = 190; // the width grows by a factor of 2.7 over this many rows of depth
 const FRONT = 98; // where the front sits on average, in rows from the top
 
 function newCrack(P, e, x) {
@@ -184,7 +184,7 @@ function genRow(P) {
 }
 
 export function setup(params) {
-  const P = (params.s = { E: 0, eg: 0, nid: 0, open: [], ren: [], seams: [], seam: 0, fresh: false, u: null, tm: 0, t: 0, k: [0, 2, 0, 0.06], lut: new Float32Array(167 * 3), pos: new Float32Array(48), tw: new Float32Array(48), idc: new Int32Array(48), hw: new Float32Array(48) });
+  const P = (params.s = { E: 0, eg: 0, nid: 0, open: [], ren: [], seams: [], seam: 0, fresh: false, u: null, tm: 0, k: [0, 2, 0, 0.06], lut: new Float32Array(167 * 3), pos: new Float32Array(64), tw: new Float32Array(64), idc: new Int32Array(64), hw: new Float32Array(64) });
   // The picture opens with the top of a flow at the top of the panel.
   startUnit(P, -H - 8, H + 8 + 4);
   while (P.eg < 4) genRow(P);
@@ -194,7 +194,6 @@ export function update(dt, input, params) {
   if (!params.s) setup(params);
   const P = params.s, k = (P.k = input.knobValues || P.k);
   dt = cl(dt || 0, 0, 0.1);
-  P.t += dt;
   P.tm += (dt * k[1]) / 2;
   P.E += dt * 1.15 * k[1];
   while (P.eg < P.E + 3) genRow(P);
@@ -204,13 +203,13 @@ export function update(dt, input, params) {
   P.seams = P.seams.filter((s) => s.e1 >= low);
 }
 
-const rock = [0, 0, 0], glow = [0, 0, 0], seamC = [0, 0, 0];
+const rock = [0, 0, 0], seamC = [0, 0, 0];
 const EXP = new Float32Array(257).map((_, i) => exp(-i / 48));
 
 export function draw(display, params) {
   const P = params.s;
   if (!P) return;
-  const k = P.k, tm = P.tm, t = P.t, E = P.E;
+  const k = P.k, tm = P.tm, E = P.E;
   const hue = 0.058 + 0.92 * cl(k[0], 0, 1) + 0.014 * sin(tm * 0.043 + 1) + 0.01 * sin(tm * 0.0171 + 4);
   const sc = 1.15 * exp(0.3 * cl(k[2], -1, 1));
   const heat = cl(k[3], -1, 1);
