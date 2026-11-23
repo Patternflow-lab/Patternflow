@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Ants=0.4..3, Memory=-1..1, Foods=-1..1
 //
-// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan. The whole palette also turns once round the wheel in 120 seconds, so no two minutes share colours.
+// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan. The whole palette also turns once round the wheel in 100 seconds, so no two minutes share colours.
 // Knob 2: Ants. Colony size, 38 ants at 0.4, 128 at 2 where it opens and 184 at 3. More ants lay bolder roads and strip a patch faster, so the food moves on sooner.
 // Knob 3: Memory. How long a trail lasts, 2.4 seconds at -1, 12 at 0 where it opens and 60 at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired and slow to re-route when the food is gone or a rock settles on them.
 // Knob 4: Foods. How many food patches lie on the ground at once, 1 at -1, 3 at 0.06 where it opens and 5 at +1. With one, the whole colony works a single trunk road until it is empty; with five it splits into a net of roads.
@@ -406,7 +406,7 @@ const tauGain = (tau) => pow(tau / 14, 0.7) * 1.2;
 // ---- advance -----------------------------------------------------------------
 function advance(P, dt) {
   P.t += dt;
-  P.hd += dt / 120;
+  P.hd += dt / 100;
   P.nest *= exp(-dt * 2.2);
   P.rtimer -= dt;
   stepPatches(P, dt);
