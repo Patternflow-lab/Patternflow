@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Cavity Modes
 // Family:  lasermode
-// Idea:    The red light a laser cavity puts on a screen, a sum of Hermite-Gauss modes of one order whose phases drift against each other, so that a grid of lobes folds into bright loops, rings and spiral arms as a cylindrical-lens converter turns the grid into the donut modes.
+// Idea:    The red light a laser cavity puts on a screen, a sum of Hermite-Gauss modes of one order whose phases drift against each other, so that a grid of lobes bends into bright loops, curved stripes and rings as a cylindrical-lens converter turns the grid into the donut modes.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,12 +9,12 @@
 // Round:   225
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Order=1..3, Converter=-1..1, Drift=-1..1
+// @knobs Hue=0..1, Order=1..2.75, Converter=-1..1, Drift=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Order.
-// Knob 3: Converter.
-// Knob 4: Drift.
+// Knob 1: Hue. Turns the tone map once round the wheel. At 0 it runs black, ruby, red, red-orange and cream at the white-hot peaks; at 0.5 it runs through teal and cyan to ice white; 1 is the same as 0.
+// Knob 2: Order. The order N = 8K - 6 of the modes, N = m + n, so the cavity holds N + 1 of them: 2 at 1, where a few big lobes fill the panel; 10 at 2, where it opens and the grid is about 4 lobes across and 8 down; 16 at 2.75, a lattice of lobes about 4 LEDs wide. Between whole orders the two pictures cross-fade over the middle 30% of the step.
+// Knob 3: Converter. The turn of the cylindrical-lens converter, 0 degrees at -1, 45 at 0 where it opens, 90 at +1. At -1 the pure Hermite-Gauss grid of lobes under a Gaussian bell; at +1 the Laguerre-Gauss donut, a dark core inside rings; between them the grid bends into a bright rim with the lattice inside. The beam is also stretched along the panel, its x scale 1.45 times the y scale at -1 and 2.0 times at +1, so that the rings fill the panel as an ellipse.
+// Knob 4: Drift. How many modes of the order take part and how fast their phases part. The weights are a bell of width 0.38 modes at -1 (one mode; a step away the weight is 18% in amplitude), 1.5 at 0.06 where it opens (about 6 modes above a tenth of the peak intensity) and 2.4 at +1 (about 10). The phase step between neighbouring modes turns 0.04 radians a second at -1 (the picture holds one mode for minutes), 0.5 at the opening (a turn in 13 s) and 1.4 at +1 (a turn in 4.5 s), and the bell's centre wanders at the same pace.
 
 const W = 64, H = 128, NPIX = W * H;
 const { floor, sqrt, exp, sin, cos, pow, abs, PI } = Math;
@@ -22,17 +22,17 @@ const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
-const NMIN = 2, NMAX = 18, KMAX = NMAX + 1;
+const NMIN = 2, NMAX = 16, KMAX = NMAX + 1;
 const PI4 = pow(PI, -0.25), SQRT2 = sqrt(2);
 // Tone map from the dark screen to the white-hot core: black, ruby, red, red-orange, orange, white.
 const STOPS = [
   [0.0, 0, 0, 0],
-  [0.12, 30, 0, 5],
-  [0.32, 125, 0, 14],
-  [0.52, 220, 12, 10],
-  [0.72, 255, 78, 8],
-  [0.88, 255, 160, 70],
-  [1.0, 255, 238, 215],
+  [0.3, 45, 0, 8],
+  [0.5, 150, 0, 14],
+  [0.68, 235, 20, 10],
+  [0.82, 255, 105, 8],
+  [0.93, 255, 190, 80],
+  [1.0, 255, 240, 220],
 ];
 const NPAL = 1024;
 
@@ -101,7 +101,7 @@ function hsv(h, s, v) {
 function palette(P, h0) {
   P.hc = h0;
   for (let i = 0; i < NPAL; i++) {
-    const x = i / (NPAL - 1), v = pow(x, 0.5);
+    const x = i / (NPAL - 1), v = pow(x, 0.7);
     let s = 1;
     while (s < STOPS.length - 1 && STOPS[s][0] < v) s++;
     const a = STOPS[s - 1], b = STOPS[s], f = (v - a[0]) / (b[0] - a[0]);
@@ -113,6 +113,28 @@ function palette(P, h0) {
     P.pal[i * 3] = c[0] * 255;
     P.pal[i * 3 + 1] = c[1] * 255;
     P.pal[i * 3 + 2] = c[2] * 255;
+  }
+}
+
+// A box blur of radius r, edges repeated, in two passes.
+function boxBlur(src, dst, tmp, r) {
+  const inv = 1 / (2 * r + 1);
+  for (let y = 0; y < H; y++) {
+    const b = y * W;
+    let acc = src[b] * (r + 1);
+    for (let i = 1; i <= r; i++) acc += src[b + (i < W ? i : W - 1)];
+    for (let x = 0; x < W; x++) {
+      tmp[b + x] = acc * inv;
+      acc += src[b + (x + r + 1 < W ? x + r + 1 : W - 1)] - src[b + (x - r < 0 ? 0 : x - r)];
+    }
+  }
+  for (let x = 0; x < W; x++) {
+    let acc = tmp[x] * (r + 1);
+    for (let i = 1; i <= r; i++) acc += tmp[(i < H ? i : H - 1) * W + x];
+    for (let y = 0; y < H; y++) {
+      dst[y * W + x] = acc * inv;
+      acc += tmp[(y + r + 1 < H ? y + r + 1 : H - 1) * W + x] - tmp[(y - r < 0 ? 0 : y - r) * W + x];
+    }
   }
 }
 
@@ -131,10 +153,13 @@ export function setup(params) {
   params.wr = new Float64Array(KMAX);
   params.wi = new Float64Array(KMAX);
   params.I = new Float32Array(NPIX);
+  params.B = new Float32Array(NPIX);
+  params.T = new Float32Array(NPIX);
   params.idx = new Uint16Array(NPIX);
   params.pal = new Float32Array(NPAL * 3);
   params.peak = 0;
   params.hc = -9;
+  for (let n = NMIN; n <= NMAX + 1; n++) jxBasis(n);
 }
 
 // The state of the cavity at order N: amplitudes on the modes HG(N-k, k), k = 0..N,
@@ -227,20 +252,26 @@ export function update(dt, input, P) {
   const kv = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
   const u = cl((kv[3] + 1) / 2, 0, 1);
-  const s = 0.04 + 1.6 * pow(u, 1.6);
+  const s = 0.04 + 1.5 * pow(u, 1.7);
   P.t += d;
   P.tk += d * s;
   P.tr += d * s;
   P.phi += d * s * (0.9 + 0.4 * sin(0.37 * P.tk + 1.1) + 0.25 * sin(0.113 * P.tk + 4));
   const alpha = ((cl(kv[2], -1, 1) + 1) / 2) * (PI / 2);
   const Nc = cl(8 * kv[1] - 6, NMIN, NMAX);
-  let nl = floor(Nc);
+  // Orders are whole numbers; the middle 30% of each step cross-fades two of them.
+  const nl = floor(Nc);
   const b = nl >= NMAX ? 0 : smooth((Nc - nl - 0.35) / 0.3);
   const sigma = 0.38 + 2.05 * u, ripple = 0.3;
+  // The bell's centre sits near 0.72 N, where the lobes come out square on a panel twice
+  // as tall as wide, and wanders by 0.18 N at most; the chirp bends the phase step; the
+  // sine periods do not divide each other, so the figure does not come back.
   const tk = P.tk;
   const kappa = 0.55 * sin(0.77 * tk + 2) + 0.3 * sin(0.241 * tk + 0.4) + 0.15 * sin(1.31 * tk);
   const wob = 0.1 * sin(0.31 * tk + 0.9) + 0.05 * sin(0.53 * tk + 2.4) + 0.03 * sin(0.89 * tk + 4.1);
+  // The screen sits a little nearer or further from the waist: the picture breathes by 4%.
   const breathe = 1 + 0.025 * sin(0.41 * P.t + 1) + 0.015 * sin(0.173 * P.t);
+  // The converter's lens also stretches x against y, so the rings stay round on the stretched panel.
   const asp = 1.45 + 0.55 * sin(alpha);
   P.I.fill(0);
   for (let pass = 0; pass < 2; pass++) {
@@ -255,10 +286,13 @@ export function update(dt, input, P) {
   for (let i = 0; i < NPIX; i++) if (I[i] > mx) mx = I[i];
   if (P.peak <= 0) P.peak = mx;
   else P.peak += (mx - P.peak) * (1 - exp(-d / (mx > P.peak ? 0.15 : 1.2)));
-  const inv = (NPAL - 1) / (P.peak * 0.6);
-  const { idx } = P;
+  // Each LED is shown against a mix of the peak and the local mean, so that the
+  // faint lattice inside the bright rim reads as well as the rim does.
+  const { B, T, idx } = P;
+  boxBlur(I, B, T, 11);
+  const pk = P.peak;
   for (let i = 0; i < NPIX; i++) {
-    const v = I[i] * inv;
+    const v = (I[i] / (0.22 * pk + 1.6 * B[i])) * (NPAL - 1);
     idx[i] = v >= NPAL - 1 ? NPAL - 1 : v | 0;
   }
   const h0 = kv[0];
