@@ -438,10 +438,10 @@ function render(P, Ln) {
           const px = cx * 4 + xx + 0.5;
           const gl = P.gx[cx * 4 + xx] * gyv * gAmt;
           const sr = SKY[row], sgc = SKY[row + 1], sb = SKY[row + 2];
-          let R = sr + (gc0 - sr) * gl, G = sgc + (gc1 - sgc) * gl, B = sb + (gc2 - sb) * gl;
-          const skyR = R, skyG = G, skyB = B;
-          let cvg = 0;
-          for (let e = 0; e < cn; e++) {
+          const skyR = sr + (gc0 - sr) * gl, skyG = sgc + (gc1 - sgc) * gl, skyB = sb + (gc2 - sb) * gl;
+          // near to far, so that a pixel stops once it is covered
+          let T = 1, aR = 0, aG = 0, aB = 0, shf = 0;
+          for (let e = cn - 1; e >= 0 && T > 0.03; e--) {
             const k = cellL[base + e];
             if (px < IX0[k] || px > IX1[k] || py < IY0[k] || py > IY1[k]) continue;
             const a = IA[k], b = IB[k], top = ITOP[k];
@@ -466,11 +466,11 @@ function render(P, Ln) {
             const nl = (gx * ldx + gy * ldy) / gm;
             if (sd > 0.7) {
               // outside the pouch: a soft shadow on whatever is behind it, mostly on the side away from the sun
-              if (cvg > 0.15 && sd < 2.8) {
+              if (sd < 2.8) {
                 const q = 1 - (sd - 0.7) / 2.1;
                 const side = cl(0.5 - 0.6 * nl, 0.1, 1);
-                const sh = 0.28 * cvg * q * q * side * IAL[k] * (1 - IDS[k]) * (1 - IDS[k]);
-                R += (RAMP[0] - R) * sh; G += (RAMP[1] - G) * sh; B += (RAMP[2] - B) * sh;
+                const sh = 0.28 * q * q * side * IAL[k] * (1 - IDS[k]) * (1 - IDS[k]);
+                shf += (1 - shf) * sh;
               }
               continue;
             }
@@ -519,11 +519,13 @@ function render(P, Ln) {
             const bq = edge * 0.9;
             const bounce = (1 - sunf) * 0.3 * (1 - li) / (1 + bq * (1 + 0.5 * bq));
             cr += (skyR - cr) * bounce; cg += (skyG - cg) * bounce; cb += (skyB - cb) * bounce;
-            R += (cr - R) * alpha; G += (cg - G) * alpha; B += (cb - B) * alpha;
-            cvg += (1 - cvg) * alpha;
+            if (shf > 0) { cr += (RAMP[0] - cr) * shf; cg += (RAMP[1] - cg) * shf; cb += (RAMP[2] - cb) * shf; }
+            const w = alpha * T;
+            aR += cr * w; aG += cg * w; aB += cb * w;
+            T *= 1 - alpha;
           }
           const o = (row / 3 * W + (cx * 4 + xx)) * 3;
-          out[o] = R; out[o + 1] = G; out[o + 2] = B;
+          out[o] = aR + skyR * T; out[o + 1] = aG + skyG * T; out[o + 2] = aB + skyB * T;
         }
       }
     }
