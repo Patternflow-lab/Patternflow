@@ -9,10 +9,10 @@
 // Round:   230
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Growth=0.5..3, Spacing=-1..1, Unevenness=-1..1
+// @knobs Hue=0..1, Growth=0.8..3, Spacing=-1..1, Unevenness=-1..1
 //
 // Knob 1: Hue. Turns the whole gradient round the wheel; at 0 the line runs from rose through violet to blue.
-// Knob 2: Growth. How fast the swelling stretches lengthen and the field that picks them drifts, from 0.5 to 3 times the opening pace.
+// Knob 2: Growth. How fast the swelling stretches lengthen and the field that picks them drifts, from 0.4 to 1.5 times its pace at the opening 2.
 // Knob 3: Spacing. How far a fold keeps from the next, 4.1 LEDs at -1, 4.9 at 0 and 5.7 at 1, so the labyrinth goes from a tight coral to a loose one with wide black lanes.
 // Knob 4: Unevenness. How much the growth field differs from place to place: at -1 the line swells almost evenly and wanders, at 1 the swelling is confined to a few lobes and the rest dies back hard.
 
@@ -23,10 +23,10 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // The rounded box the line lives in: a superellipse, centre line positions only.
 const CX = 32, CY = 64, AX = 28.8, AY = 60.8, NEXP = 2.6;
-const MAXN = 1300;
+const MAXN = 1500;
 const SUB = 2;
 // Edge natural length: an edge longer than RLMAX splits, a shorter one merges with the next.
-const RLMAX = 2.8, RLMIN = 1.0;
+const RLMAX = 3.2, RLMIN = 1.2;
 
 // Drifting growth field: five waves, wavelength in LEDs, direction, angular speed and phase.
 const WAVES = [];
@@ -102,14 +102,14 @@ export function setup(params) {
     started: false,
     R: 4.5,
     seedWait: 0,
-    X: new Float32Array(MAXN + 8), Y: new Float32Array(MAXN + 8),
-    DX: new Float32Array(MAXN + 8), DY: new Float32Array(MAXN + 8),
-    LD: new Float32Array(MAXN + 8), S: new Float32Array(MAXN + 8),
-    LI: new Int16Array(MAXN + 8), LN: new Float32Array(MAXN + 8),
-    nxt: new Int32Array(MAXN + 8),
+    X: new Float32Array(MAXN + 64), Y: new Float32Array(MAXN + 64),
+    DX: new Float32Array(MAXN + 64), DY: new Float32Array(MAXN + 64),
+    LD: new Float32Array(MAXN + 64), S: new Float32Array(MAXN + 64),
+    LI: new Int16Array(MAXN + 64), LN: new Float32Array(MAXN + 64),
+    nxt: new Int32Array(MAXN + 64),
     head: new Int32Array(2200),
     buf: new Float32Array(W * H * 3),
-    sa: new Float32Array(MAXN + 8),
+    sa: new Float32Array(MAXN + 64),
     total: 0,
   });
   const starts = [[21, 34, 6.2, 0], [42, 66, 6.8, 0.33], [24, 98, 6.0, 0.66]];
@@ -121,7 +121,7 @@ function physics(P) {
   const R = P.R, R2 = R * R;
   const { X, Y, DX, DY, LD, S, LI, LN, nxt, head } = P;
   let n = 0;
-  const sEx = R * 1.4;
+  const sEx = R * 1.25;
   const live = [];
   for (const L of P.loops) if (!L.dying) live.push(L);
   for (let li = 0; li < live.length; li++) {
@@ -189,7 +189,7 @@ function physics(P) {
   }
 
   // Springs along each loop, a little smoothing so folds stay round, the wall.
-  const GS = 0.34, GB = 0.1;
+  const GS = 0.34, GB = 0.22, G4 = 0.07;
   const wm = R * 0.5;
   for (let li = 0; li < live.length; li++) {
     const L = live[li], m = L.n, o = L.o;
@@ -205,6 +205,10 @@ function physics(P) {
       DY[b] -= dy * e;
       DX[a] += GB * (0.5 * (X[o + p] + X[b]) - X[a]);
       DY[a] += GB * (0.5 * (Y[o + p] + Y[b]) - Y[a]);
+      // Bending stiffness: the fourth difference along the line, which a zigzag at the scale of the nodes feels and a long fold hardly does.
+      const p2 = p === 0 ? m - 1 : p - 1, j2 = j + 1 === m ? 0 : j + 1;
+      DX[a] -= G4 * (X[o + p2] - 4 * X[o + p] + 6 * X[a] - 4 * X[b] + X[o + j2]);
+      DY[a] -= G4 * (Y[o + p2] - 4 * Y[o + p] + 6 * Y[a] - 4 * Y[b] + Y[o + j2]);
       const w = wallG(X[a], Y[a]);
       if (w[0] > 0.8) {
         const gm = sqrt(w[1] * w[1] + w[2] * w[2]) + 1e-9;
@@ -231,6 +235,7 @@ function physics(P) {
         dy *= 0.45 / dd;
       }
       let x = L.x[i] + dx, y = L.y[i] + dy;
+      if (x !== x || y !== y) (x = CX), (y = CY);
       const w = wallG(x, y);
       if (w[0] > 1) {
         const gg = w[1] * w[1] + w[2] * w[2] + 1e-9;
@@ -337,7 +342,7 @@ function seed(P) {
       best = [x, y];
     }
   }
-  if (best && sqrt(bd) > R + 4.2) {
+  if (best && sqrt(bd) > R + 4.2 && P.total < MAXN - 60) {
     newLoop(P, best[0], best[1], 2.6, 12, Math.random(), 0.1);
     return true;
   }
@@ -349,7 +354,7 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 0, 0.06];
   dt = min(dt, 0.1);
   P.hue = k[0];
-  const speed = cl(k[1], 0.3, 3.2) / 2;
+  const speed = cl(k[1], 0.6, 3.2) / 2;
   P.R = 4.9 + 0.8 * cl(k[2], -1, 1);
   P.contrast = 0.78 + 0.7 * cl(k[3], -1, 1);
   P.gate = 0.6;
@@ -370,8 +375,8 @@ export function update(dt, input, params) {
   };
   if (!P.started) {
     P.started = true;
-    // The line starts as three small rings. Thirty seconds of growth in coarse steps get it to a first fold.
-    for (let i = 0; i < 480; i++) run(1 / 16, 1);
+    // The line starts as three small rings. 480 coarse steps; at the opening speed they cover thirty seconds of the field's own time, and a slower Growth starts from a younger line.
+    for (let i = 0; i < 480; i++) run(0.0625 / sqrt(speed), 1);
   }
   run(dt, SUB);
   P.ph += dt * 0.011;
@@ -381,6 +386,34 @@ export function update(dt, input, params) {
 const C0 = [0, 0, 0];
 // Gradient cycles round one loop.
 const CYC = 2;
+// One piece of the line: a 2 LED core with a 1 LED halo, the brightest piece at a pixel giving the pixel its colour.
+function seg(buf, ax, ay, bx, by, vmax) {
+  const x0 = floor(min(ax, bx) - 2.3), x1 = floor(max(ax, bx) + 2.3);
+  const y0 = floor(min(ay, by) - 2.3), y1 = floor(max(ay, by) + 2.3);
+  const ex = bx - ax, ey = by - ay;
+  const el2 = ex * ex + ey * ey + 1e-9;
+  for (let y = max(0, y0); y <= min(H - 1, y1); y++)
+    for (let x = max(0, x0); x <= min(W - 1, x1); x++) {
+      const px = x + 0.5 - ax, py = y + 0.5 - ay;
+      const t = cl((px * ex + py * ey) / el2, 0, 1);
+      const dx = px - t * ex, dy = py - t * ey;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > 5.3) continue;
+      const d = sqrt(d2);
+      const s = cl(1.35 - d, 0, 1);
+      const core = s * s * (3 - 2 * s);
+      // A 1 LED halo that is gone by 2.3 LEDs, so it stays out of the gap between folds.
+      const q = cl(1 - (d - 0.6) / 1.7, 0, 1);
+      const v = max(core, 0.3 * q * q);
+      const o = (y * W + x) * 3;
+      if (v * vmax > max(buf[o], buf[o + 1], buf[o + 2])) {
+        buf[o] = C0[0] * v;
+        buf[o + 1] = C0[1] * v;
+        buf[o + 2] = C0[2] * v;
+      }
+    }
+}
+
 export function draw(display, params) {
   const P = params;
   const buf = P.buf;
@@ -397,42 +430,21 @@ export function draw(display, params) {
       tot += sqrt((L.x[j] - L.x[i]) ** 2 + (L.y[j] - L.y[i]) ** 2);
     }
     for (let i = 0; i < m; i++) {
-      const j = i + 1 === m ? 0 : i + 1;
-      const ax = L.x[i], ay = L.y[i], bx = L.x[j], by = L.y[j];
-      const c = ((sa[i] + 0.5 * sqrt((bx - ax) ** 2 + (by - ay) ** 2)) / tot) * CYC + L.c0 + P.ph;
-      const act = 0.5 * (L.act[i] + L.act[j]);
-      const u = cl(act, -1, 1);
+      const p = i === 0 ? m - 1 : i - 1, j = i + 1 === m ? 0 : i + 1;
+      // Each node draws the bend of a quadratic B-spline through the midpoints of its two edges, in two straight pieces, so the polyline's corners are cut and a fold reads as a curve.
+      const x0 = 0.5 * (L.x[p] + L.x[i]), y0 = 0.5 * (L.y[p] + L.y[i]);
+      const x2 = 0.5 * (L.x[i] + L.x[j]), y2 = 0.5 * (L.y[i] + L.y[j]);
+      const x1 = 0.25 * x0 + 0.5 * L.x[i] + 0.25 * x2, y1 = 0.25 * y0 + 0.5 * L.y[i] + 0.25 * y2;
+      const c = (sa[i] / tot) * CYC + L.c0 + P.ph;
+      const u = cl(0.5 * (L.act[p] + L.act[j]) * 0.5 + 0.5 * L.act[i], -1, 1);
       // Hue runs along the line and back again, so a closed loop has no seam.
       const hue = hb - 0.34 * (0.5 - 0.5 * cos(TAU * c));
       const sat = 0.86 - 0.34 * max(0, u);
       const val = (0.62 + 0.38 * cl(1.8 * u, -0.6, 1)) * fade;
       hsv(C0, hue, sat, val);
-      const x0 = floor(min(ax, bx) - 2.3), x1 = floor(max(ax, bx) + 2.3);
-      const y0 = floor(min(ay, by) - 2.3), y1 = floor(max(ay, by) + 2.3);
-      const ex = bx - ax, ey = by - ay;
-      const el2 = ex * ex + ey * ey + 1e-9;
-      for (let y = max(0, y0); y <= min(H - 1, y1); y++)
-        for (let x = max(0, x0); x <= min(W - 1, x1); x++) {
-          const px = x + 0.5 - ax, py = y + 0.5 - ay;
-          const t = cl((px * ex + py * ey) / el2, 0, 1);
-          const dx = px - t * ex, dy = py - t * ey;
-          const d2 = dx * dx + dy * dy;
-          if (d2 > 5.3) continue;
-          const d = sqrt(d2);
-          const s = cl(1.35 - d, 0, 1);
-          const core = s * s * (3 - 2 * s);
-          // A 1 LED halo that is gone by 2.3 LEDs, so it stays out of the gap between folds.
-          const q = cl(1 - (d - 0.6) / 1.7, 0, 1);
-          const v = max(core, 0.3 * q * q);
-          const o = (y * W + x) * 3;
-          // The brightest edge at a pixel gives the pixel its colour.
-          const cur = max(buf[o], buf[o + 1], buf[o + 2]);
-          if (v * max(C0[0], C0[1], C0[2]) > cur) {
-            buf[o] = C0[0] * v;
-            buf[o + 1] = C0[1] * v;
-            buf[o + 2] = C0[2] * v;
-          }
-        }
+      const vmax = max(C0[0], C0[1], C0[2]);
+      seg(buf, x0, y0, x1, y1, vmax);
+      seg(buf, x1, y1, x2, y2, vmax);
     }
   }
   for (let y = 0; y < H; y++)
