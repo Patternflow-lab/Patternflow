@@ -9,7 +9,7 @@
 // Round:   226
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Dispersion=0.1..3, Strands=-1..1, Facets=-1..1
+// @knobs Hue=0..1, Dispersion=0.3..3, Strands=-1..1, Facets=-1..1
 //
 // Knob 1: Hue. Turns the seven spectral colours once round the colour wheel; at 0 the fan runs red, orange, yellow, green, cyan, blue, violet, at 0.5 it runs cyan through violet and red to green, and 1 is the same as 0. The white beam stays white at every setting.
 // Knob 2: Dispersion. The B of the Cauchy law, 0.0027 at 0.1 (the seven colours leave a face about 1 degree apart, so the fan is nearly white with coloured edges), 0.085 at 2 where it opens (about 14 degrees from red to violet at a 40 degree incidence, and violet is shut in by total reflection at angles red still leaves by) and 0.15 at 3 (a spread past 25 degrees). The index of the middle colour stays 1.65 at every B, so only the width of the fan changes.
@@ -45,7 +45,7 @@ const WB = 0.4; // brightness of the white beam
 const RG = 0.85; // brightness of a coloured ray
 const GAIN = 1.5;
 const AURA = 0.16; // a soft sleeve round the white beam, in the colour of the Hue knob
-const WSUP = 0.65; // how much a ray that is nearly white is held back against a coloured one
+const WSUP = 0.5; // how much a ray that is nearly white is held back against a coloured one
 const NSTACK = 400;
 
 const hash = (n) => {
@@ -113,11 +113,13 @@ export function setup(P) {
 function buildPoly(P, n, cx, cy, R) {
   const { px, py, AX, AY, EX, EY, NX, NY, jit, rj } = P;
   const t = P.t, ct = cos(P.theta), st = sin(P.theta);
+  // The glass is stretched or squeezed along one axis by up to a fifth, on a sequence of its own.
+  const asp = 1.05 + 0.2 * wander(t / 27 + 3.3, 21);
   const nf = floor(n), wp = n - nf;
   for (let p = 0; p < NV; p++) {
     const phi = ((p + jit[p] + 0.14 * wander(t / 17 + p * 1.9, 40 + p)) * TAU) / NV;
     const rr = R * (1 + 0.12 * sin(phi + P.a1) + 0.2 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.09 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
-    const lx = rr * cos(phi), ly = rr * sin(phi) * 1.12;
+    const lx = rr * cos(phi), ly = rr * sin(phi) * asp;
     px[p] = cx + lx * ct - ly * st;
     py[p] = cy + lx * st + ly * ct;
   }
@@ -375,10 +377,10 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   P.t += d;
   const t = P.t;
-  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.1, 3), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
+  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.3, 3), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
 
   // Indices of the seven colours, the middle one held at N0 whatever B is.
-  const B = 0.25 * pow(k2 / 3, 1.4);
+  const B = 0.2 * pow(k2 / 3, 1.1);
   for (let j = 0; j < NL; j++) P.idx[j] = N0 + B * (1 / (LAM[j] * LAM[j]) - 1 / (LAM0 * LAM0));
   for (let j = 0; j < NL; j++) {
     const c = hsv(HUE[j] / 360 + k1, 1, 1);
@@ -398,12 +400,12 @@ export function update(dt, input, P) {
   const mean = (sm[0] + sm[1] + sm[2]) / 3;
   for (let j = 0; j < NL; j++) for (let c = 0; c < 3; c++) P.col[j * 3 + c] *= mean / sm[c];
 
-  // The polygon turns about once in two minutes, a little faster and slower on a random
+  // The polygon turns about once in a minute and a half, a little faster and slower on a random
   // sequence, sways about the middle and breathes.
-  P.theta += d * (0.05 + 0.03 * wander(t / 23 + 1.7, 11));
+  P.theta += d * (0.06 + 0.035 * wander(t / 23 + 1.7, 11));
   const cx = 32 + 6 * wander(t / 37 + 5.2, 12) + 1.5 * wander(t / 11 + 4.1, 15), cy = 62 + 11 * wander(t / 43 + 2.9, 13) + 2 * wander(t / 13 + 0.3, 16);
   const R = 17.5 * (1 + 0.16 * wander(t / 31 + 0.4, 14) + 0.04 * wander(t / 9.3 + 6.6, 17));
-  buildPoly(P, 11 + 5 * k4, cx, cy, R);
+  buildPoly(P, 12 + 4 * k4, cx, cy, R);
 
   // The beam comes from the upper left; its angle sweeps through about 80 degrees on a
   // random sequence, and it slides across the polygon.
@@ -412,8 +414,7 @@ export function update(dt, input, P) {
   const nx = -dy, ny = dx;
   const off = 0.5 * R * wander(t / 19 + 8.8, 3);
   const gap = STRAND * (1 + 0.3 * wander(t / 53 + 2.2, 19));
-  const ns = 3 + 2 * k3;
-  const qx = cx + nx * off - dx * 170, qy = cy + ny * off - dy * 170;
+  const ns = 3 + (k3 < 0 ? 1.5 : 3) * k3;
 
   P.ar.fill(0);
   P.ag.fill(0);
@@ -426,8 +427,11 @@ export function update(dt, input, P) {
   for (let i = 0; i < 6; i++) {
     const wt = cl(ns - i, 0, 1);
     if (wt <= 0) continue;
-    const o = (i - (ns - 1) / 2) * gap;
-    strand(P, qx + nx * o, qy + ny * o, dx, dy, wt);
+    // Each strand also leans a little off the others, on its own random sequence, so the
+    // beam is a loose comb and not a bundle.
+    const o = (i - (ns - 1) / 2) * gap + 1.6 * wander(t / 15 + i * 4.3, 30 + i);
+    const a = ang + 0.075 * wander(t / 13 + i * 3.3, 40 + i), ex = cos(a), ey = sin(a);
+    strand(P, cx + nx * (off + o) - ex * 170, cy + ny * (off + o) - ey * 170, ex, ey, wt);
   }
 
   // Bloom, then the tone. The brightness follows the strongest channel, 1 - exp(-GAIN m),
