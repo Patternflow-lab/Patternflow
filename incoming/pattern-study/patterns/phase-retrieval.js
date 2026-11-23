@@ -1,23 +1,23 @@
 // ===== Patternflow pattern =====
 // Title:   Phase Retrieval
 // Family:  phaseretrieval
-// Idea:    The phase problem solved live: a hidden complex object of soft discs, rings and bars morphs and drifts, only the size of its Fourier transform is known, and a hybrid input-output iteration condenses the object out of phase noise in the top square while the bottom square shows the diffraction fringes it is trying to match.
+// Idea:    A hidden complex object of soft discs, rings and bars morphs and drifts while only the size of its Fourier transform is known, and a hybrid input-output iteration with a support constraint condenses the object out of phase noise in the top square, hue for phase and light for amplitude, while the bottom square shows the diffraction fringes of that estimate in log size and phase, until now and then the estimate is thrown back to noise and a different object is solved from scratch.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: draft
+// Lineage: the phase problem of diffraction imaging, solved by alternating projections between the measured Fourier size and the object's support (Ralph Gerchberg and Owen Saxton, 1972), the error-reduction and hybrid input-output iterations (James Fienup, 1978 and 1982), their twin-image and striped stagnation (Fienup and Wackerman, 1986), the oversampling that makes the answer unique (David Sayre, 1952) and coherent diffraction imaging of a specimen that is not a crystal (Jianwei Miao, Pambos Charalambous, Janos Kirz and Sayre, 1999), the radix-2 fast Fourier transform (James Cooley and John Tukey, 1965), the picture drawn by domain colouring (Frank Farris, 1998), all from memory, pattern round 228
 // Round:   228
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Drive=0.2..3, Support=-1..1, Parts=-1..1
+// @knobs Hue=0..1, Feedback=0.3..3, Support=-1..1, Parts=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Drive.
-// Knob 3: Support.
-// Knob 4: Parts.
+// Knob 1: Hue. Where the circle of phase colours starts, once round: at 0 the object's overall phase is cyan-blue and its parts run from teal to violet and lime-green round it, at 0.25 violet, at 0.5 pink-red, at 0.75 green, and back at 1. The colour of a pixel is its phase against the sum of the estimate, so turning the knob moves no phase, only the colours.
+// Knob 2: Feedback. The negative feedback beta of the hybrid input-output step, 0.22 at 0.3, 0.46 at 1, 0.80 at 2 where it opens and 1.14 at 3, together with the iteration rate, 0.9 a second at 0.3, 2.4 at 1, 9.8 at 2 and 40 at 3. Low beta stagnates: at 0.3 the estimate stays a mottled blob with striped ghosts for minutes; at 2 a blob forms in about 2 seconds and its rings and holes clear in 10 to 40 seconds, some objects staying ghosted for a minute before they break free; at 3 the same takes 1.5 to 12 seconds and the estimate follows the morphing object closely.
+// Knob 3: Support. How tightly the known support hugs the hidden parts, the margin beyond them being 2.2 grid cells (4.4 LEDs, the top square is drawn at two LEDs a cell) at -1, 4.1 cells (8 LEDs) at 0 where it opens, and 7.5 cells (15 LEDs) at +1. Tight, the silhouette is nearly given and the estimate is a clean ring, disc or bar; loose, the estimate has room for ghosts and a twin and grows into a textured field that fills most of the top square at +1.
+// Knob 4: Parts. How many soft shapes the hidden object has, 1.8 at -1 (one ring and part of a bar, whose diffraction is a bull's-eye of rings), 4.8 at 0.06 where it opens, and 7.4 at +1; each shape fades in and out with the knob, so the Fourier plane gets finer and busier with every part added.
 
 const W = 64, H = 128, N = 64, N2 = N * N;
-const { floor, sqrt, exp, log, sin, cos, atan2, abs, min, max, PI } = Math;
+const { floor, sqrt, exp, log, sin, cos, abs, min, max, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
@@ -39,13 +39,12 @@ function wander(t, key) {
 }
 
 // ---- the 64 by 64 complex FFT ---------------------------------------------
-const TAUX = TAU;
 const REV = new Uint8Array(N);
 for (let i = 0; i < N; i++) { let r = 0; for (let b = 0; b < 6; b++) if (i & (1 << b)) r |= 1 << (5 - b); REV[i] = r; }
 const WR = [], WI = [];
 for (let len = 8; len <= N; len <<= 1) {
   const h = len >> 1, a = new Float64Array(h), b = new Float64Array(h);
-  for (let j = 0; j < h; j++) { a[j] = cos((TAUX * j) / len); b[j] = sin((TAUX * j) / len); }
+  for (let j = 0; j < h; j++) { a[j] = cos((TAU * j) / len); b[j] = sin((TAU * j) / len); }
   WR.push(a); WI.push(b);
 }
 const XR = new Float64Array(N), XI = new Float64Array(N);
@@ -100,7 +99,7 @@ function newEpoch(P) {
     P.ty[i] = perm[i % 3];
     P.ro[i] = i === 0 ? R(0, 2.5) : R(2.5, 9);
     P.th0[i] = R(0, TAU); P.thw[i] = S() * R(0.035, 0.13);
-    P.sz[i] = P.ty[i] === 0 ? R(3.4, 5.4) : P.ty[i] === 1 ? R(5, 7.6) : R(3.8, 7);
+    P.sz[i] = P.ty[i] === 0 ? R(3.4, 5.4) : P.ty[i] === 1 ? R(5, 7.6) : R(5.2, 9.2);
     P.wd[i] = P.ty[i] === 1 ? R(2.4, 3.4) : R(1.7, 2.5);
     P.ph0[i] = R(0, TAU); P.phw[i] = S() * R(0.04, 0.17);
     P.cp0[i] = R(0, TAU); P.cpw[i] = S() * R(0.08, 0.3);
@@ -207,8 +206,8 @@ export function setup(P) {
   P.melt = 0;
   P.zr = 1; P.zi = 0;
   P.mref = 100;
-  P.err = 0; P.iters = 0; P.epochs = 0;
-  P.tReset = 60;
+  P.iters = 0; P.epochs = 0;
+  P.tReset = 50;
 }
 
 function measure(P, parts, dil) {
@@ -224,14 +223,15 @@ function measure(P, parts, dil) {
 export function update(dt, input, P) {
   const kv = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
-  const hue = cl(kv[0], 0, 1), drive = cl(kv[1], 0.2, 3), supk = cl(kv[2], -1, 1), prtk = cl(kv[3], -1, 1);
-  const beta = cl(0.12 + 0.34 * drive, 0.1, 1.2);
-  const rate = max(0.3, 17 * Math.pow(drive / 2, 2.6));
-  const dil = 2.2 * Math.pow(5.9, (supk + 1) / 2);
+  const hue = cl(kv[0], 0, 1), fb = cl(kv[1], 0.3, 3), supk = cl(kv[2], -1, 1), prtk = cl(kv[3], -1, 1);
+  const beta = cl(0.12 + 0.34 * fb, 0.1, 1.2);
+  const rate = 0.9 * exp((3.8 * (fb - 0.3)) / 2.7);
+  const dil = 2.2 * Math.pow(3.4, (supk + 1) / 2);
   const parts = 4.6 + 2.8 * prtk;
   const first = !P.ready;
   if (!P.ready) {
     P.ready = true;
+    P.tReset = 30 + -log(1 - Math.random()) * 55;
     newEpoch(P);
     measure(P, parts, dil);
     P.mref = max(...P.Mg);
@@ -338,18 +338,18 @@ function render(P, hueK, dt, rate, first) {
       const v = (amp * (1 + KNEE)) / (amp + KNEE);
       const hc = (((turn(ai, ar) + hueOff) * 1024) & 1023) * 3;
       let o = (y * W + x) * 3;
-      out[o] = 7 + 7 * fi + 245 * v * PL[hc];
-      out[o + 1] = 9 + 8 * fi + 245 * v * PL[hc + 1];
-      out[o + 2] = 20 + 14 * fi + 245 * v * PL[hc + 2];
+      out[o] = 14 + 8 * fi + 241 * v * PL[hc];
+      out[o + 1] = 18 + 9 * fi + 237 * v * PL[hc + 1];
+      out[o + 2] = 52 + 18 * fi + 203 * v * PL[hc + 2];
       // bottom square: log size of the Fourier transform, hue its phase
       const i = y * N + x, sg = ((x + y) & 1) ? -1 : 1;
       const br = sg * Fr[i], bi = sg * Fi[i];
       const lv = Math.pow(cl((0.2171472 * Math.log((br * br + bi * bi) * inv2 + 1e-18) + LOGSPAN) / LOGSPAN, 0, 1), 1.1);
       const hb = (((turn(bi, br) + hueOff) * 1024) & 1023) * 3;
       o = ((y + N) * W + x) * 3;
-      out[o] = 8 * (1 - lv) + 240 * lv * PL[hb];
-      out[o + 1] = 10 * (1 - lv) + 240 * lv * PL[hb + 1];
-      out[o + 2] = 22 * (1 - lv) + 240 * lv * PL[hb + 2];
+      out[o] = 14 * (1 - lv) + 241 * lv * PL[hb];
+      out[o + 1] = 18 * (1 - lv) + 237 * lv * PL[hb + 1];
+      out[o + 2] = 52 * (1 - lv) + 203 * lv * PL[hb + 2];
     }
   }
 }
