@@ -33,9 +33,9 @@ const NSEAM = 3; // curvature seams
 // Order and size of each zonal mode, and the periods, in seconds, of the random sequences that steer its axis and its amplitude.
 const ORD = [2, 2, 3, 3, 4, 4, 5];
 // Size of each mode as a share of the radius at Warp 1. The low orders carry the swell of the outline; a mode's curvature at its pole is its size times l (l + 1) / 2, so the high orders stay small and the surface stays a smooth, mostly convex lump.
-const BASE = [0.1, 0.09, 0.05, 0.045, 0.02, 0.016, 0.008];
-const TAX = [31, 23, 27, 19, 29, 17, 21];
-const TAM = [24, 33, 21, 28, 18, 26, 15];
+const BASE = [0.13, 0.12, 0.07, 0.06, 0.025, 0.02, 0.01];
+const TAX = [23, 17, 20, 14, 22, 13, 16];
+const TAM = [18, 25, 16, 21, 14, 19, 11];
 
 // Smooth random numbers: a new random value at every whole step of t, joined by a
 // Catmull-Rom curve, in about -1..1. Each channel has its own sequence.
@@ -119,7 +119,7 @@ export function update(dt, input, P) {
 
   // The lump: modes with axes that wander on their own sequences and turn about the
   // vertical, slowly.
-  const turn = 0.09 * t;
+  const turn = 0.12 * t;
   for (let k = 0; k < NM; k++) {
     const th = PI / 2 + 1.25 * w(10 * k + 1, TAX[k]), ps = turn * (0.7 + 0.12 * k) + 2.6 * w(10 * k + 2, TAX[k] * 1.3);
     const s = sin(th);
@@ -167,15 +167,21 @@ export function update(dt, input, P) {
   // The environment: two fields of stripes at infinity. The first turns about the
   // line of sight and slides along itself; the second is a coarse one at a right
   // angle that flips the tone where it crosses the first.
-  P.rot += d * (0.04 + 0.28 * spin);
-  P.ph += d * (0.03 + 0.5 * spin);
-  const freq = 1.15 * cl(kv[1], 0.7, 3.2) * (1 + 0.06 * w(210, 31));
+  P.rot += d * (0.09 + 0.3 * spin);
+  P.ph += d * (0.1 + 0.5 * spin);
+  // The lump is about 3.6 times flatter along its height than across it, so stripes
+  // that run across the panel would come out as wide as the panel is tall. The
+  // frequency is raised, up to 2.6 times, as the stripes turn from upright to level.
+  const rr = (P.sy * P.sy) / (P.sx * P.sx);
+  const freq0 = 1.15 * cl(kv[1], 0.7, 3.2) * (1 + 0.06 * w(210, 31));
   const th1 = 1.35 + 0.2 * w(211, 23), ps1 = P.rot + 0.5 * w(212, 41);
   const th2 = 1.2 + 0.3 * w(213, 29), ps2 = ps1 + 1.45 + 0.5 * w(214, 37);
+  const aniso = sqrt(cos(ps1) * cos(ps1) + (sin(ps1) * sin(ps1)) / rr);
+  const freq = freq0 / max(aniso, 1 / 2.6);
   const e1x = sin(th1) * cos(ps1), e1y = sin(th1) * sin(ps1), e1z = cos(th1);
   const e2x = sin(th2) * cos(ps2), e2y = sin(th2) * sin(ps2), e2z = cos(th2);
   const ph1 = P.ph + 0.9 * w(215, 27), ph2 = 0.6 * P.ph + 1.7 * w(216, 43);
-  const f2 = freq * 0.3;
+  const f2 = freq0 * 0.25;
   const mix2 = 1;
 
   // Colour: a deep tone, a pale tone and a dark ground, from the hue knob.
