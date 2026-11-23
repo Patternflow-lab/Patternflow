@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Plasticity=0..4, Sparsity=-1..1, Scene=-1..1
 //
-// Knob 1: Hue. Turns the pair of colours round the wheel. At 0 the positive weights are amber and the negative ones teal; at 0.5 they are violet and olive.
-// Knob 2: Plasticity. The learning rate per patch, 0.0008 at 0 (the atoms hold still, the glow still flickers), 0.02 at 2 where it opens, 0.1 at 4 (an atom turns to a new edge in a few seconds).
-// Knob 3: Sparsity. The soft threshold lambda on a patch of unit length: 0.06 at -1 (dense codes, smooth wide atoms and many tiles glowing), 0.16 at 0, 0.42 at +1 (one or two atoms per patch, sharp localised edges and few tiles glowing).
-// Knob 4: Scene. Turns the preferred edge angle of the scene by up to 75 degrees either way from the slow drift it has already; at -1 the favoured edges lean one way, at +1 the other, and over the next seconds the atoms re-orient to them.
+// Knob 1: Hue. Turns the pair of colours round the wheel together. At 0 the positive weights are amber and the negative ones teal; at 0.5 they are blue and red.
+// Knob 2: Plasticity. The learning rate per patch: 0.0008 at 0 (the atoms hold still and only the glow flickers), 0.35 at 2 where it opens (an atom turns a few degrees a second), 1.0 at 4 (about 15 degrees a second, and an atom now and then hands its edge to a neighbour).
+// Knob 3: Sparsity. The soft threshold lambda on a patch of unit length, 0.13 at -1 (about nine atoms speak for a patch, so a quarter of the tiles glow and the atoms are more mixed), 0.3 at 0 (five atoms), 0.69 at +1 (one or two atoms, clean edges, few tiles glow). The atoms re-learn toward it over the next ten seconds.
+// Knob 4: Scene. Turns the favoured edge angle of the scene by 45 degrees either way on top of its slow drift, so -1 and +1 are 90 degrees apart. The tiles that glow change at once; the atoms re-orient over the next ten or fifteen seconds, faster while the knob is moving.
 
 const W = 64, H = 128;
 const S = 7, N = S * S;          // an atom is 7 x 7 pixels
@@ -34,7 +34,7 @@ const DEAD_T = 6;                // seconds without a hit before an atom is re-s
 const GLOW_T = 0.2;              // seconds for a glow to fall by a factor of e
 const GAMMA = 0.02;              // weight decay of an atom, as a share of its step
 const BETA = 2.5;                  // how hard a dense code pulls an atom toward its blur
-const IDLE = 0.58;               // brightness of an atom that no patch is using
+const IDLE = 0.7;                // brightness of an atom that no patch is using
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -369,7 +369,7 @@ function palettes(P, h0) {
   for (let i = 0; i < 256; i++) {
     const b = i / 255;
     const sat = 0.97 - 0.4 * b * b * b;
-    const v = b === 0 ? 0 : 0.16 + 0.84 * pow(b, 0.85);
+    const v = b === 0 ? 0 : 0.2 + 0.8 * pow(b, 0.8);
     hsv(h0, sat, v, P.pos, i * 3);
     hsv(hn, sat, v, P.neg, i * 3);
   }
@@ -476,10 +476,10 @@ export function draw(display, params) {
       const j = ty * NCOL + tx;
       if (ox < 7 && oy < 7) {
         const o = j * N + oy * S + ox;
-        const sc = 1 / (0.9 * (dmax[j] > 0.12 ? dmax[j] : 0.12));
+        const sc = 1 / (0.72 * (dmax[j] > 0.12 ? dmax[j] : 0.12));
         const u = disp[o] * sc;
         const au = u < 0 ? -u : u;
-        let b = (au - 0.07) / 0.93;
+        let b = (au - 0.1) / 0.9;
         if (b <= 0) {
           display.setPixel(x, y, 0, 0, 0);
           continue;
