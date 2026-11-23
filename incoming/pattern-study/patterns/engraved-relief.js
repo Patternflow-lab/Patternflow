@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Height=0.5..3, Pitch=-1..1, Light=18..70
 //
 // Knob 1: Hue. Turns the ink and the ground round the wheel together from the opening warm ivory on deep indigo.
-// Knob 2: Height. How far the lines are bent, from half a line pitch to three pitches; it opens at 2.
-// Knob 3: Pitch. The gap between line centres, 6.3 LEDs at 0, about 4.3 at -1 and 9.1 at 1.
-// Knob 4: Light. How high the lamp stands above the ground in degrees: 18 rakes the relief into thick lit lines and thin shadowed ones, 70 flattens the lighting to the steep flanks alone.
+// Knob 2: Height. How far the lines are bent, from half a line pitch to three pitches; the hills widen with it, because a tall hill is held to a slope the lines can follow without folding.
+// Knob 3: Pitch. The gap between line centres, 6.4 LEDs at 0, 4.5 at -1 and 9.1 at 1.
+// Knob 4: Light. How high the lamp stands above the ground in degrees: 18 rakes the relief into thick lit lines and thin shadowed ones, 70 puts it overhead so only the steep flanks change weight.
 
 const W = 64;
 const H = 128;
@@ -26,8 +26,8 @@ const sm = (a, b, v) => {
   return t * t * (3 - 2 * t);
 };
 
-const NSRC = 9;
-const SLOPE = 0.5;
+const NSRC = 12;
+const SLOPE = 0.62;
 // Sources live on a frame a little larger than the panel so a hill can slide in from outside.
 const FX0 = -6, FX1 = W + 6, FY0 = -8, FY1 = H + 8;
 
@@ -56,7 +56,7 @@ function born(s, age, all) {
     for (const o of all) if (o !== s && o.life) near = min(near, (o.x - cx) * (o.x - cx) + (o.y - cy) * (o.y - cy));
     if (near > best) (best = near), (s.x = cx), (s.y = cy);
   }
-  const v = 0.25 + 0.75 * Math.random(), a = TAU * Math.random();
+  const v = 0.35 + 0.9 * Math.random(), a = TAU * Math.random();
   s.vx = v * cos(a) * (big ? 0.5 : 1);
   s.vy = v * sin(a) * (big ? 0.5 : 1);
   s.ang = TAU * Math.random();
@@ -64,8 +64,8 @@ function born(s, age, all) {
   s.life = big ? 120 + 120 * Math.random() : 40 + 80 * Math.random();
   s.age = age;
   s.amp = (s.kind === 4 ? 0.3 + 0.2 * Math.random() : big ? 0.7 + 0.4 * Math.random() : 1.0 + 0.5 * Math.random()) * (s.kind === 3 ? -0.8 : 1);
-  s.su = big ? 24 + 12 * Math.random() : s.kind === 1 ? 22 + 12 * Math.random() : s.kind === 4 ? 6 + 3 * Math.random() : 9 + 6 * Math.random();
-  s.sv = big ? s.su : s.kind === 1 ? 6.5 + 3 * Math.random() : s.su;
+  s.su = big ? 15 + 7 * Math.random() : s.kind === 1 ? 16 + 10 * Math.random() : s.kind === 4 ? 4 + 2 * Math.random() : 7 + 4 * Math.random();
+  s.sv = big ? s.su : s.kind === 1 ? 5 + 2.5 * Math.random() : s.su;
   return s;
 }
 
@@ -107,6 +107,9 @@ export function update(dt, input, params) {
     s.x += s.vx * dt;
     s.y += s.vy * dt;
     s.ang += s.spin * dt;
+    // A hill that reaches the edge of the frame turns back, so it keeps wandering over the panel instead of leaving it.
+    if ((s.x < FX0 && s.vx < 0) || (s.x > FX1 && s.vx > 0)) s.vx = -s.vx;
+    if ((s.y < FY0 && s.vy < 0) || (s.y > FY1 && s.vy > 0)) s.vy = -s.vy;
     if (s.age >= s.life) born(s, 0, S.src);
   }
 }
@@ -158,30 +161,30 @@ export function draw(display, params) {
   const [k1, k2, k3, k4] = S.k;
 
   // ---- the controls ----
-  const P = 6.3 * Math.pow(1.45, k3);
+  const P = 6.4 * Math.pow(1.42, k3);
   const A = k2 * P;
   const elev = (k4 * PI) / 180;
-  // Light wanders around the classic upper-left: the azimuth is in screen space, y down.
-  const az = -2.35 + 0.8 * sin(0.0311 * t + S.lp[0]) + 0.55 * sin(0.0173 * t + S.lp[1]) + 0.25 * sin(0.0507 * t + S.lp[2]);
+  // The lamp wanders round the classic upper-left, never below the horizon of the panel, because a relief lit from
+  // underneath turns inside out. The azimuth is in screen space, y down.
+  const az = -2.2 + 0.6 * sin(0.0311 * t + S.lp[0]) + 0.35 * sin(0.0173 * t + S.lp[1]) + 0.15 * sin(0.0507 * t + S.lp[2]);
   const lz = sin(elev), lxy = cos(elev);
   const lx = lxy * cos(az), ly = lxy * sin(az);
-  const contrast = 1.15;
 
   // ---- colour ----
   const hInk = 0.098 + k1 + 0.016 * sin(0.0211 * t + S.hp[0]) + 0.008 * sin(0.0137 * t + S.hp[1]);
-  hsv(hInk, 0.78, 0.72, S.c[0]);
-  hsv(hInk + 0.012, 0.27, 0.96, S.c[1]);
+  hsv(hInk + 0.016, 0.72, 0.72, S.c[0]);
+  hsv(hInk + 0.03, 0.17, 0.97, S.c[1]);
   hsv(hInk + 0.45, 0.05, 1.0, S.c[2]);
   hsv(hInk + 0.52, 0.95, 1, S.g);
   const [c0, c1, c2] = S.c;
 
   // ---- sources ----
-  // Higher relief means broader hills, not steeper ones: a lens of 3 pitches on a 10-LED knoll would fold the lines over.
+  // Higher relief means broader hills, not steeper ones: a knoll 3 pitches tall and 10 LEDs across would fold the lines over.
   const ks = 0.55 + 0.45 * k2;
   const src = S.src;
   for (let i = 0; i < NSRC; i++) {
     const s = src[i];
-    const e = sm(0, 14, s.age) * sm(0, 14, s.life - s.age);
+    const e = sm(0, 18, s.age) * sm(0, 18, s.life - s.age);
     const o = i * 9;
     SC[o] = s.x;
     SC[o + 1] = s.y;
@@ -206,9 +209,9 @@ export function draw(display, params) {
     for (let gx = 0; gx < 20; gx++) {
       field(gx * 3.4 + 1, gy * 3.3 + 1);
       const sl = A * sqrt(FX * FX + FY * FY);
-      // Where the displacement rises up the panel the lines spread, to at most 1.7 pitches apart; where it falls they
-      // close in, to 0.55. The steepest 4% of the panel may exceed this: the distance estimate below copes with a fold.
-      PROBE[np++] = max(sl / 1.0, (-A * FY) / 0.42, (A * FY) / 0.8);
+      // Where the displacement rises up the panel the lines spread, to at most 2 pitches apart; where it falls they
+      // close in, to 0.54. The steepest 4% of the panel may exceed this: the distance estimate below copes with a fold.
+      PROBE[np++] = max(sl / 1.1, (-A * FY) / 0.5, (A * FY) / 0.85);
     }
   PROBE.sort();
   const worst = max(0.001, PROBE[floor(np * 0.96)]);
@@ -244,12 +247,12 @@ export function draw(display, params) {
       // Light on the surface z = A h.
       const zx = fx, zy = Ae * hy;
       const L = (-zx * lx - zy * ly + lz) / sqrt(1 + zx * zx + zy * zy) - lz;
-      const tone = cl(0.5 + contrast * L, 0, 1);
+      const tone = cl(0.5 + L, 0, 1);
 
       // Width by tone, then by what the neighbours leave.
       let w = 0.5 + 4.5 * Math.pow(tone, 1.2);
       w *= 1 + 0.3 * nzAt(x / 7 + n * 5.3 + t * 0.05);
-      w = min(w, 5, gap - 1.6);
+      w = min(w, 4.8, gap - 2.0);
       let alpha = 1;
       if (w < 1.4) {
         alpha = sm(0.5, 1.4, w);
@@ -261,11 +264,11 @@ export function draw(display, params) {
 
       // ink colour by tone: warm in the shadows, cool in the light
       let r, g, b;
-      if (tone < 0.5) {
-        const u = tone * 2;
+      if (tone < 0.45) {
+        const u = tone / 0.45;
         r = c0[0] + (c1[0] - c0[0]) * u; g = c0[1] + (c1[1] - c0[1]) * u; b = c0[2] + (c1[2] - c0[2]) * u;
       } else {
-        const u = (tone - 0.5) * 2;
+        const u = min(1, (tone - 0.45) / 0.5);
         r = c1[0] + (c2[0] - c1[0]) * u; g = c1[1] + (c2[1] - c1[1]) * u; b = c1[2] + (c2[2] - c1[2]) * u;
       }
       const gv0 = 0.15 + 0.07 * tone;
