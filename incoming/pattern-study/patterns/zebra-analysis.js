@@ -9,7 +9,7 @@
 // Round:   226
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Stripe=0.7..3.2, Warp=0.9..2.1, Spin=-1..1
+// @knobs Hue=0..1, Stripe=1.2..3.4, Warp=1.2..2.4, Spin=-1..1
 //
 // Knob 1: Hue.
 // Knob 2: Stripe.
@@ -79,6 +79,7 @@ export function setup(P) {
   }
   P.phi1 = new Float32Array(NPIX);
   P.phi2 = new Float32Array(NPIX);
+  P.phi3 = new Float32Array(NPIX);
   P.nzA = new Float32Array(NPIX);
   P.dmin = new Float32Array(NPIX);
   P.st = new Uint8Array(NPIX); // 0 far, 1 near miss (has data), 2 hit
@@ -113,7 +114,7 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   P.t += d;
   const t = P.t, M = P.M;
-  const warp = cl(kv[2], 0.9, 2.1);
+  const warp = cl(kv[2], 1.2, 2.4);
   const spin = cl(kv[3], -1, 1);
   const w = (ch, T) => wander(P, t / T + ch * 7.3, ch);
 
@@ -173,16 +174,18 @@ export function update(dt, input, P) {
   // that run across the panel would come out as wide as the panel is tall. The
   // frequency is raised, up to 2.6 times, as the stripes turn from upright to level.
   const rr = (P.sy * P.sy) / (P.sx * P.sx);
-  const freq0 = 1.15 * cl(kv[1], 0.7, 3.2) * (1 + 0.06 * w(210, 31));
+  const freq0 = 1.15 * cl(kv[1], 1.2, 3.4) * (1 + 0.06 * w(210, 31));
   const th1 = 1.35 + 0.2 * w(211, 23), ps1 = P.rot + 0.5 * w(212, 41);
   const th2 = 1.2 + 0.3 * w(213, 29), ps2 = ps1 + 1.45 + 0.5 * w(214, 37);
   const aniso = sqrt(cos(ps1) * cos(ps1) + (sin(ps1) * sin(ps1)) / rr);
   const freq = freq0 / max(aniso, 1 / 2.6);
   const e1x = sin(th1) * cos(ps1), e1y = sin(th1) * sin(ps1), e1z = cos(th1);
   const e2x = sin(th2) * cos(ps2), e2y = sin(th2) * sin(ps2), e2z = cos(th2);
+  const th3 = 1.3 + 0.3 * w(218, 31), ps3 = 0.45 * P.rot + 2.8 * w(219, 26);
+  const e3x = sin(th3) * cos(ps3), e3y = sin(th3) * sin(ps3), e3z = cos(th3);
+  const ph3 = 0.4 * P.ph + 1.9 * w(220, 39), f3 = freq0 * 0.37;
   const ph1 = P.ph + 0.9 * w(215, 27), ph2 = 0.6 * P.ph + 1.7 * w(216, 43);
   const f2 = freq0 * 0.25;
-  const mix2 = 1;
 
   // Colour: a deep tone, a pale tone and a dark ground, from the hue knob.
   const hb = 0.6 + kv[0];
@@ -194,7 +197,7 @@ export function update(dt, input, P) {
   hsv(hb, 0.9, 0.3, col, 9); // rim
 
   // ---- trace ----
-  const { phi1, phi2, nzA, dmin: dm, st, cov } = P;
+  const { phi1, phi2, phi3, nzA, dmin: dm, st, cov } = P;
   const eps = 0.5;
   const F = (X, Y, Z) => {
     const qx = (X - ox) / sx, qy = (Y - oy) / sy, qz = Z / sz;
@@ -249,6 +252,7 @@ export function update(dt, input, P) {
       const dn = 1 / (1.1 - rz);
       phi1[i] = (rx * e1x + ry * e1y + rz * e1z) * dn * freq + ph1;
       phi2[i] = (rx * e2x + ry * e2y + rz * e2z) * dn * f2 + ph2;
+      phi3[i] = (rx * e3x + ry * e3y + rz * e3z) * dn * f3 + ph3;
       nzA[i] = abs(nz);
     }
   }
@@ -295,11 +299,18 @@ export function update(dt, input, P) {
         const ex = vl && vr ? (phi2[i + 1] - phi2[i - 1]) * 0.5 : vr ? phi2[i + 1] - q : vl ? q - phi2[i - 1] : 0;
         const ey = vu && vd ? (phi2[i + W] - phi2[i - W]) * 0.5 : vd ? phi2[i + W] - q : vu ? q - phi2[i - W] : 0;
         const g2 = sqrt(ex * ex + ey * ey);
+        const p3 = phi3[i];
+        const hx = vl && vr ? (phi3[i + 1] - phi3[i - 1]) * 0.5 : vr ? phi3[i + 1] - p3 : vl ? p3 - phi3[i - 1] : 0;
+        const hy = vu && vd ? (phi3[i + W] - phi3[i - W]) * 0.5 : vd ? phi3[i + W] - p3 : vu ? p3 - phi3[i - W] : 0;
+        const g3 = sqrt(hx * hx + hy * hy);
         // Square wave of the phase, its edge about 1.25 LEDs wide.
         const t1 = abs(p - 2 * floor(p * 0.5) - 1), t2 = abs(q - 2 * floor(q * 0.5) - 1);
         const s1 = cl(0.5 + (t1 - 0.5) / max(edge * g1, 0.02), 0, 1);
         const s2 = cl(0.5 + (t2 - 0.5) / max(edge * g2, 0.02), 0, 1);
-        const s = s1 + (1 - 2 * s1) * mix2 * s2;
+        const t3 = abs(phi3[i] - 2 * floor(phi3[i] * 0.5) - 1);
+        const s3 = cl(0.5 + (t3 - 0.5) / max(edge * g3, 0.02), 0, 1);
+        const sa = s1 + s2 - 2 * s1 * s2;
+        const s = sa + s3 - 2 * sa * s3;
         let tr = col[0] + (col[3] - col[0]) * s, tg = col[1] + (col[4] - col[1]) * s, tb = col[2] + (col[5] - col[2]) * s;
         // Where the stripes crowd below about 2.5 LEDs they melt into the rim tone.
         const fd = sm(0.4, 0.7, g1);
