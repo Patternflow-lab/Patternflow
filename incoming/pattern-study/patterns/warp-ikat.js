@@ -30,10 +30,10 @@ const EL = 110;    // one chance of a slipped bundle in each block of this many 
 const WLEN = 31;   // wavelength of the slow walk of a thread's own misregistration, LEDs
 
 // Ivory, ochre, madder, indigo.
-const BASE = [[222, 208, 176], [208, 150, 50], [164, 42, 48], [30, 46, 122]];
+const BASE = [[214, 200, 168], [208, 150, 50], [164, 42, 48], [30, 46, 122]];
 // Ground, then the three dyes laid over it: big figure, inner figure, centre.
 const SCH = [
-  [0, 3, 2, 1], [0, 2, 3, 0], [3, 0, 2, 1], [3, 0, 1, 2], [1, 3, 0, 2],
+  [0, 3, 2, 1], [0, 2, 3, 0], [3, 0, 2, 1], [3, 0, 1, 2], [0, 3, 1, 2],
 ];
 
 function rng(seed) {
@@ -95,7 +95,7 @@ function makeZone(P, k) {
   const tr = h(2);
   z.type = tr < 0.34 ? 0 : tr < 0.58 ? 1 : tr < 0.84 ? 2 : 3;
   const sr = h(3);
-  z.sch = SCH[sr < 0.34 ? 0 : sr < 0.5 ? 1 : sr < 0.78 ? 2 : sr < 0.9 ? 3 : 4];
+  z.sch = SCH[sr < 0.32 ? 0 : sr < 0.46 ? 1 : sr < 0.6 ? 4 : sr < 0.82 ? 2 : 3];
   z.asp = 0.85 + 0.6 * h(4);
   z.amp = 0.3 + 0.35 * h(5);
   z.n = h(6) < 0.5 ? 2 : 3;
@@ -133,7 +133,6 @@ const edge = (t, D, w) => sm3((t - D) / (2 * w) + 0.5);
 export function setup(P) {
   P.rand = rng(SEED);
   P.salt = floor(P.rand() * 1e9);
-  P.S = 0;
   P.t = 0;
   P.hc = -9;
   P.pal = new Float32Array(12);
@@ -150,6 +149,15 @@ export function setup(P) {
   for (let i = 0; i < W * 3; i++) P.bl[i] = 2 * P.rand() - 1;
   P.tb = new Float32Array(W);
   for (let x = 0; x < W; x++) P.tb[x] = 1 + 0.035 * (2 * P.rand() - 1);
+  // Open on a stretch of ivory cloth with diamonds on it, a join just above the top of the panel.
+  P.S = 0;
+  for (let k = 0; k < 200; k++) {
+    const z = makeZone(P, k), z1 = makeZone(P, k + 1);
+    if (z.type === 0 && z.sch[0] === 0 && z.border && z1.zs - z.zs >= 90) {
+      P.S = 3 - z.zs;
+      break;
+    }
+  }
   P.evy = new Float32Array(NPX);
   P.evx = new Int8Array(NPX);
   P.row = new Float32Array(H * 4);
