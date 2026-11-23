@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: sparse coding with an overcomplete basis (Bruno Olshausen and David Field, 1996), simple cells of cat visual cortex (David Hubel and Torsten Wiesel, 1959 and 1962), iterative soft-thresholding (Ingrid Daubechies, Michel Defrise and Christine De Mol, 2004, from memory), pattern round 225
+// Lineage: sparse coding with an overcomplete basis (Bruno Olshausen and David Field, 1996), simple cells of cat visual cortex (David Hubel and Torsten Wiesel, 1959 and 1962), iterative soft-thresholding (Ingrid Daubechies, Michel Defrise and Christine De Mol, 2004, from memory) swept one atom at a time, pattern round 225
 // Round:   225
 // ===============================
 // @matrix 64x128
@@ -365,13 +365,14 @@ export function setup(params) {
 
 function palettes(P, h0) {
   P.hc = h0;
-  const hn = h0 + 0.43;
+  const hn = h0 + 0.42;
   for (let i = 0; i < 256; i++) {
     const b = i / 255;
     const sat = 0.97 - 0.4 * b * b * b;
-    const v = b === 0 ? 0 : 0.2 + 0.8 * pow(b, 0.8);
-    hsv(h0, sat, v, P.pos, i * 3);
-    hsv(hn, sat, v, P.neg, i * 3);
+    const w = pow(b, 0.8);
+    // Amber needs a higher floor than teal to read as amber and not brown on the panel.
+    hsv(h0, sat, b === 0 ? 0 : 0.3 + 0.7 * w, P.pos, i * 3);
+    hsv(hn, sat, b === 0 ? 0 : 0.2 + 0.78 * w, P.neg, i * 3);
   }
 }
 
@@ -386,7 +387,7 @@ export function update(dt, input, params) {
   let eta = 0.0008 + ETA_TOP * kp * pow(kp, 0.5);
   const d = cl(dt, 0, 0.1);
 
-  const h0 = 0.085 + k[0];
+  const h0 = 0.1 + k[0];
   if (abs(h0 - P.hc) > 1e-4) palettes(P, h0);
   if (!P.ready) {
     P.ready = true;
