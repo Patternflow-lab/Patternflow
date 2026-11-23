@@ -9,12 +9,12 @@
 // Round:   230
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Sink=0.2..4, Width=-1..1, Heat=-1..1
+// @knobs Hue=0..1, Sink=0.6..4, Width=-1..1, Heat=-1..1
 //
 // Knob 1: Hue. The colour of the glow and of the rock turn together; at 0 an orange front on blue-grey rock.
 // Knob 2: Sink. How fast the section sinks and the front wanders; at 2 a prism takes about a minute to cross the panel.
-// Knob 3: Width. Prisms narrower at -1 and wider at 1, about four LEDs across at the top and eight at the bottom for the first, nine and twenty for the other.
-// Knob 4: Heat. How much of the front shows through: at -1 only the last cracks above it are dull red, at 1 the cracks burn orange a third of the panel up and the front is white at its core.
+// Knob 3: Width. At -1 the prisms are about three and a half LEDs across at the surface of a flow and nine at its base, at 1 they are six and a half and seventeen.
+// Knob 4: Heat. At -1 the front sits near the bottom and only the cracks right above it glow dull red; at 1 the front rises and the cracks burn orange to yellow a quarter of the panel up.
 
 const W = 64, H = 128;
 const { min, max, floor, sin, cos, sqrt, exp, abs, PI } = Math;
@@ -95,7 +95,7 @@ function genRow(P) {
     // The surface: every crack ends under the rust-red seam.
     for (const c of oc) c.hi = U.et;
     oc.length = 0;
-    const SH = 5 + floor(4 * rnd());
+    const SH = 3 + floor(3 * rnd());
     P.seams.push({ e0: U.et, e1: U.et + SH, seed: floor(rnd() * 1000) });
     P.seam = SH;
     genRow(P);
@@ -196,7 +196,7 @@ export function update(dt, input, params) {
   dt = cl(dt || 0, 0, 0.1);
   P.t += dt;
   P.tm += (dt * k[1]) / 2;
-  P.E += dt * 0.9 * k[1];
+  P.E += dt * 1.15 * k[1];
   while (P.eg < P.E + 3) genRow(P);
   // Forget what has sunk out of sight.
   const low = P.E - H - 6;
@@ -230,10 +230,13 @@ export function draw(display, params) {
   hsv(rock, rockHue, 0.22, 0.46);
   hsv(seamC, hue - 0.025, 0.55, 0.42);
   // The front: a slow wander, deeper when the heat is turned up.
-  const yf = FRONT + 7 * sin(tm * 0.021) + 4.5 * sin(tm * 0.0073 + 1.9) + 2.5 * sin(tm * 0.047 + 0.4);
-  const span = 28 + 14 * heat;
+  const yf = FRONT - 8 * heat + 7 * sin(tm * 0.021) + 4.5 * sin(tm * 0.0073 + 1.9) + 2.5 * sin(tm * 0.047 + 0.4);
+  const span = 18 + 16 * heat;
   const hk = 0.62 + 0.4 * heat;
 
+  // The section also slides sideways, slowly: columns that only move straight
+  // down are hard to see moving, and the picture would keep returning to itself.
+  const x0 = 11 * sin(tm * 0.021 + 0.7) + 6 * sin(tm * 0.0087 + 2.2);
   const { pos, tw, idc, hw } = P;
   const seams = P.seams;
   for (let y = 0; y < H; y++) {
@@ -249,7 +252,7 @@ export function draw(display, params) {
       if (c.tip) w = 0.1 + 0.9 * sm(0, 1, (e - c.lo) / 14);
       // insertion sort by x
       let j = n++;
-      const X = 32 + (x - 32) * sc;
+      const X = 32 + (x - 32 - x0) * sc;
       while (j > 1 && pos[j - 1] > X) {
         pos[j] = pos[j - 1];
         idc[j] = idc[j - 1];
@@ -283,13 +286,23 @@ export function draw(display, params) {
       const shade = 0.36 + 0.7 * max(0, -0.38 * nr + 0.92 * z);
       const vc = 0.84 + 0.3 * hash(id, 5);
       const chisel = 1 + 0.2 * (vn1(e * 0.19 + hash(id, 9) * 40, id) - 0.5) + 0.1 * (vn1(e * 0.47 + hash(id, 11) * 40, id + 7) - 0.5);
-      const kk = shade * vc * chisel;
+      // Weathering: patches a few columns wide, a few percent lighter or darker.
+      const kk = shade * vc * chisel * (1 + 0.16 * (vn(((px - 32) / sc + 32 + x0) * 0.06 + 3, e * 0.035 + tm * 0.05) - 0.5));
       let r = rock[0] * kk, g = rock[1] * kk, bl = rock[2] * kk;
       // Heat: each column's front sits a little differently. The cracks are
       // lit well above it, the prism faces only at and below it.
-      const yfc = yf + (hash(id, 3) - 0.5) * 12 + 5 * (vn1(px * 0.07 + tm * 0.05, 3) - 0.5) + 5.5 * z * z, yy = y + 0.5;
-      const Tf = sm(yfc - 5, yfc + 14, yy), Tl = sm(yfc - span - 5.5 * z * z, yfc + 10, yy) ** 1.5, Td = sm(yfc + 2, yfc + 36, yy);
+      const xw = (px - 32) / sc + 32 + x0;
+      const yfc = yf + (hash(id, 3) - 0.5) * 12 + 5 * (vn1(xw * 0.07 + tm * 0.05, 3) - 0.5) + 3.5 * z * z, yy = y + 0.5;
+      const Tf = sm(yfc - 5, yfc + 14, yy), Tl = sm(yfc - span - 3.5 * z * z, yfc + 10, yy) ** 1.5, Td = sm(yfc + 2, yfc + 36, yy);
       let Tcr = 0;
+      // The rock warms to a dull brown well above the front.
+      const Tr = sm(yfc - 64, yfc - 4, yy) * (0.7 + 0.3 * hk);
+      if (Tr > 0.01) {
+        const lm = (0.4 + 0.6 * shade) * 0.3 * Tr;
+        r = mix(r, lut[24 * 3] * 0.8, lm);
+        g = mix(g, lut[24 * 3 + 1] * 0.8, lm);
+        bl = mix(bl, lut[24 * 3 + 2] * 0.8, lm);
+      }
       if (Tl > 0.01) {
         const Tc = cl(0.1 * Tl + 0.3 * Tf + 0.2 * Td + 0.04 * (hash(id, 4) - 0.5), 0, 1);
         const q = ((Tc * 128) | 0) * 3, ms = sm(0.02, 0.2, Tc), lm = 0.45 + 0.55 * shade;
@@ -297,7 +310,7 @@ export function draw(display, params) {
         g = mix(g, lut[q + 1] * lm, ms);
         bl = mix(bl, lut[q + 2] * lm, ms);
         const fl = 0.16 * (vn(px * 0.3 + tm * 0.45, e * 0.2 + tm * 1.1) - 0.5) + 0.1 * (vn(px * 0.19 + 7, e * 0.33 - tm * 0.8) - 0.5);
-        Tcr = cl(Tl * hk + 0.25 * Tf + fl * 3 * Tl, 0, 1.3);
+        Tcr = cl(Tl * hk + 0.25 * Tf + fl * 2.2 * Tl, 0, 1 + 0.3 * max(0, heat));
         if (Tcr > 0.02) {
           const dm = min(max(dl, 0), max(dr, 0)), hl = EXP[min(256, (dm * 70) | 0)] * sm(0.04, 0.4, Tcr) * 0.34;
           const qq = ((Tcr * 128) | 0) * 3;
@@ -318,7 +331,7 @@ export function draw(display, params) {
         if (e < S.e0 - 5 || e > S.e1 + 6) continue;
         // The edges only bulge outwards, so no bare strip is left where the
         // cracks of one flow end and those of the next have not begun.
-        const w0 = vn1(x * 0.13 + S.seed, S.seed) * 3.6, w1 = vn1(x * 0.1 + S.seed * 2, S.seed + 1) * 3.6;
+        const w0 = vn1(x * 0.13 + S.seed, S.seed) * 2.8, w1 = vn1(x * 0.1 + S.seed * 2, S.seed + 1) * 2.8;
         const sa = cl(min(e - (S.e0 - 0.2 - w0), S.e1 + 1.5 + w1 - e) * 1.3 + 0.5, 0, 1);
         if (sa <= 0) continue;
         const mo = 0.74 + 0.5 * vn(x * 0.22 + S.seed, e * 0.45);
