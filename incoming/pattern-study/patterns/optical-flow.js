@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Optical Flow
 // Family:  opticalflow
-// Idea:    The top square is a moving picture of a rotating disc, a sliding streaked band and a breathing blob over a drifting field, and the bottom square is the flow a Horn-Schunck solver reads out of it frame by frame, painted with the motion colour wheel, so the colours flood into flat patches, smear across the edges and settle as the iterations pile up.
+// Idea:    The top square is a moving picture of a turning disc, a sliding streaked band and a breathing blob over a drifting field, and the bottom square is the flow a Horn-Schunck solver reads out of it frame by frame, painted with the motion colour wheel, so the colours creep into flat patches, smear across the edges and settle as the sweeps pile up.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Motion=0.3..3, Smoothness=-1..1, Iterations=-1..1
 //
-// Knob 1: Hue. Where the motion colour wheel starts, and with it the tint of the picture above: at 0 motion to the right is amber, down is green, left is blue and up is magenta, with the picture in teal; 0.25, 0.5 and 0.75 turn all of it a quarter, a half and three quarters round, and 1 is 0 again.
-// Knob 2: Motion. How fast the three moving layers and the drift travel, 0.15 times the base pace at 0.3, 1.0 at 2 where it opens and 1.5 at 3. At 0.3 the disc turns once in about 40 seconds and the flow is faint and pale; at 3 the layers move a LED every two frames and the colours blaze.
-// Knob 3: Smoothness. The weight alpha of the smoothness term, 0.4 times the opening value at -1 and 2.5 times at +1. Low, the flow follows each streak and edge and leaves the flat patches dark; high, it floods the flat patches and the gaps between layers with the colour of their neighbours and the disc, the band and the blob run into one another.
-// Knob 4: Iterations. How many solver sweeps run between two frames, 1 at -1, 4 at 0.06 where it opens and 14 at +1, always warm started from the last frame. At 1 the flow lags behind the motion and its colour creeps out from the edges; at 14 it is settled as soon as the layers move.
+// Knob 1: Hue. Where the motion colour wheel starts, and with it the tint of the picture above, once round. At 0 motion to the right is amber, down is green, left is blue and up is magenta, with the field azure, the disc mint, the blob violet and the band indigo; at 0.25, 0.5 and 0.75 all of it is turned a quarter, a half and three quarters round, and 1 is 0 again. The tint of the picture also drifts a little over minutes, so no hue stays put.
+// Knob 2: Motion. How fast the layers and the drift travel, 0.15 times the base pace at 0.3, 1 at 2 where it opens and 1.5 at 3. At 0.3 the disc takes about 85 seconds for a turn and the flow is faint and pale; at 2 about 12 seconds, its rim moving 8.5 LEDs a second; at 3 about 8 seconds and 13 LEDs a second, where the solver begins to lose the fastest edges and the flow turns ragged.
+// Knob 3: Smoothness. The weight alpha of the smoothness term against brightness constancy, 0.0067 at -1, 0.045 at 0 where it opens and 0.30 at +1 on a grey scale of 0 to 1. At -1 the flow follows each edge and streak, picks up the slow drift of the field and speckles in the flat patches; at +1 it is one broad swirl that floods the gaps between the layers, runs over their edges and goes dim.
+// Knob 4: Iterations. How many solver sweeps run between two frames, 0.11 at -1, 1.4 at 0.06 where it opens and 6.9 at +1. Each frame starts from the last flow with 8 percent of it let go. At -1 the flow is a thin crust of speckled colour along the edges that thickens over seconds and keeps lagging the motion; at +1 it fills at once with settled colour and the wheel on the disc is smooth.
 
 const W = 64, H = 128, N = 64, G = 32, S = G + 2, TS = 128, TM = TS - 1;
 const { floor, sqrt, exp, sin, cos, abs, min, max, atan2, PI } = Math;
@@ -122,7 +122,7 @@ for (let i = 0; i < 1024; i++) {
   const A = WSTOPS[k], B = WSTOPS[k + 1], u = (f - A[0]) / (B[0] - A[0]);
   for (let c = 0; c < 3; c++) WHEEL[i * 3 + c] = A[c + 1] + (B[c + 1] - A[c + 1]) * u;
 }
-const N0 = [9, 11, 24];
+const N0 = [18, 22, 46];
 
 // ---- setup -------------------------------------------------------------------
 export function setup(P) {
@@ -152,8 +152,8 @@ function scene(P, tau, withColour) {
   const { tex, texF, L, out, lut } = P;
   const s = sin, c = cos;
   // background: a slow pan of the field
-  const bgx = 0.12 * tau + 4 * s(0.071 * tau + 1.3) + 2 * s(0.137 * tau + 4.1);
-  const bgy = -0.1 * tau + 4 * s(0.083 * tau + 0.2) + 2 * s(0.151 * tau + 2.6);
+  const bgx = 0.34 * tau + 4 * s(0.071 * tau + 1.3) + 2 * s(0.137 * tau + 4.1);
+  const bgy = -0.22 * tau + 4 * s(0.083 * tau + 0.2) + 2 * s(0.151 * tau + 2.6);
   // blob that grows and shrinks
   const zx = 32 + 17 * s(0.113 * tau + 2.2) + 6 * s(0.269 * tau + 0.4);
   const zy = 32 + 17 * s(0.097 * tau + 5.2) + 6 * s(0.233 * tau + 1.7);
@@ -170,7 +170,7 @@ function scene(P, tau, withColour) {
   const by0 = 32 + 26 * s(0.127 * tau + 3.2) + 5 * s(0.307 * tau + 0.3);
   const ba = 0.8 + 0.55 * s(0.083 * tau + 2.1) + 0.2 * s(0.191 * tau + 0.7);
   const bc = c(ba), bn = s(ba);
-  const R = 17, HW = 5.5, HL = 40, ZA = 14, ZB = 9.5;
+  const R = 17 + 2.4 * s(0.047 * tau + 1.1), HW = 5.5 + 1.3 * s(0.061 * tau + 0.4), HL = 40, ZA = 14 + 2 * s(0.053 * tau + 2.5), ZB = 9.5 + 1.5 * s(0.043 * tau + 0.2);
   const l0 = lut[0], l1 = lut[1], l2 = lut[2], l3 = lut[3];
   for (let y = 0; y < N; y++) {
     const py = y + 0.5;
@@ -314,12 +314,15 @@ function paintFlow(P, dt, hueOff, ref) {
 }
 
 // ---- one frame ---------------------------------------------------------------------------------------
+const hue0 = (kv) => 0.58 + cl(kv[0], 0, 1);
 function step(P, dt, kv, draw) {
   const rate = 0.5 * cl(kv[1], 0.3, 3);
   const alpha = 0.045 * exp(1.9 * cl(kv[2], -1, 1));
   const k4 = cl(kv[3], -1, 1) - 0.06;
   const iters = 1.4 * exp((k4 < 0 ? 2.4 : 1.7) * k4);
   P.tau += dt * rate;
+  const th = hue0(kv) + 0.06 * sin(0.019 * P.tau + 1.0) + 0.03 * sin(0.043 * P.tau + 3.1);
+  if (abs(th - P.lutHue) > 1e-4) buildLuts(P, th);
   scene(P, P.tau, draw);
   lowRes(P);
   if (P.first) { P.prev.set(P.cur); P.first = false; }
@@ -336,8 +339,6 @@ function step(P, dt, kv, draw) {
 export function update(dt, input, P) {
   const kv = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
-  const hue = cl(kv[0], 0, 1);
-  if (abs(hue - P.lutHue) > 1e-4) buildLuts(P, 0.58 + hue);
   if (!P.ready) {
     P.ready = true;
     P.first = true;
