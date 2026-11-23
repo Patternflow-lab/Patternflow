@@ -1,20 +1,34 @@
 // ===== Patternflow pattern =====
 // Title:   Acoustic Streamers
 // Family:  cavitation
-// Idea:    Under an ultrasonic horn at the top of a tank, a few hundred gas bubbles are pushed into flat layers by the standing sound, attract each other into branching pale filaments that run down the jets and sideways along the layers, and now and then one swells, collapses in a white-cyan flash with a faint expanding ring, and breaks into new seeds for the next filament.
+// Idea:    Under an ultrasonic horn at the top of a tank, about a hundred gas bubbles are held in flat layers by the standing sound and hang from one another in thin branching threads of pale light that reach down and sideways from the horn, while now and then one swells, collapses in a white-cyan flash with a faint ring of shock, and its fragments seed new threads.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: acoustic streamers in cavitation (Bjerknes forces on bubbles in a sound field, Vilhelm Bjerknes 1906 and Carl Bjerknes 1880s, from memory; bubble clusters of that kind first filmed by Lauterborn and co-workers in the 1990s, from memory)
+// Lineage: acoustic streamers of cavitation bubbles under an ultrasonic horn, as a particle model with the primary Bjerknes force that gathers bubbles on the pressure antinodes and the secondary one that draws them together (Carl Bjerknes, 1880s, and Vilhelm Bjerknes, 1906, from memory; the particle model of streamer structures, Mettin, Luther, Ohl and Lauterborn, 1999, from memory); original drawing, pattern round 228
 // Round:   230
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Drive=0.7..3, Pitch=-1..1, Gas=-1..1
 //
-// Knob 1: Hue. The colour of the water and the filaments, round the whole wheel from teal-blue at 0; the flashes stay white.
-// Knob 2: Drive. How hard the horn drives the tank: weak, there are few filaments and rare flashes; strong, the layers grip harder and the bubbles collapse more often and brighter.
-// Knob 3: Pitch. The frequency of the horn: up, the antinode layers crowd together from 22 LEDs apart to 8; down, they spread out.
-// Knob 4: Gas. How much gas the water holds: more gas, more nuclei and more filaments, and the bubbly water detunes the sound field faster so the layers swim.
+// Knob 1: Hue. Turns the water and the threads round the colour wheel together, from teal-blue at 0, and the flashes stay white; a slow drift of 0.06 either way, over two to three minutes, moves it as well.
+// Knob 2: Drive. How hard the horn drives the tank: the layers hold the bubbles tighter, nuclei form faster, the tank carries about 60 bubbles at 0.7, 95 at 2 and 115 at 3, and the collapse flashes go from none at 0.7 to 0.7 a second at 2 and 1.7 at 3, and brighter.
+// Knob 3: Pitch. The frequency of the horn: the antinode layers are 22 LEDs apart at -1, 13 at 0 and 8 at 1, and the threads hang closer and more upright as they crowd.
+// Knob 4: Gas. How much gas the water holds: nuclei form 0.35 times as fast at -1 and 2.8 times at 1, the tank carries 60 bubbles at -1 and 150 at 1, and the bubbly water detunes the sound field up to 1.5 times faster so the layers swim.
+
+// What the picture is. The horn is the bright bar across rows 0 to 3, 31 LEDs wide, and the tank is the dark teal water under it.
+// About a hundred bubbles, each with a radius of 0.3 to 1.5 LED, live in it. The sound is a standing wave down from the horn, so its
+// loud layers (the antinodes) lie across the panel Pitch LEDs apart; the layers bow by up to 3 LEDs, slide and breathe, and the
+// sound dies away with depth and with distance from the horn's axis. A bubble is pulled to the nearest layer (primary Bjerknes force),
+// pushed away from a bubble closer than 2.5 LEDs and drawn to one between 2.5 and 6 (secondary), carried along the layer by streaming
+// cells that turn over every 53 s, and shaken a little. Gas goes into it where the sound is loud and out where it is not, so it swells on a
+// layer and shrinks away from one; two that touch merge. A bubble over about 1 LED has a hazard of collapsing: a flash, a shock that
+// shoves the bubbles within 12 LEDs, and one to three seeds a LED and a half off. New nuclei form at the horn face and on the layers
+// wherever there is room, fewer as the tank fills towards about 100, so the count holds for as long as it runs.
+// Drawing. Each bubble is a soft disc about 2 LEDs across. A thread joins every bubble to the nearest one a layer above, or to the horn,
+// leaving along the line to it and arriving along the line the parent's own thread leaves on, so a trunk runs on smoothly; it is
+// as thick as the number of bubbles hanging below it, 1.3 to 1.8 LEDs across at half strength. Bubbles also join their two nearest neighbours along a layer. The
+// glow adds up and is mapped to colour through 1 - exp(-1.6 L), from deep teal through cyan to pale white.
 
 const W = 64, H = 128;
 const { floor, sqrt, abs, exp, sin, cos, PI, min, max, cbrt, pow, log2 } = Math;
@@ -27,7 +41,7 @@ const sm = (a, b, v) => {
 };
 
 const HY = 4; // rows 0 to 3 are the horn, its face is the lower edge of row 3
-const HX0 = 15, HX1 = 49; // horn bar
+const HX0 = 17, HX1 = 47; // horn bar
 const NB = 420; // bubbles at most
 const NF = 48; // flashes at most
 const SUB = 1 / 50; // substep
@@ -35,17 +49,18 @@ const SUB = 1 / 50; // substep
 // The hue the water opens on at Hue 0.
 const H0 = 0.52;
 
-const RP = 6; // reach of the pull between bubbles
-const GS = 1.2; // its top speed, LEDs a second
-const RR = 2.5; // closer than this they push apart
-const GR = 25;
-const TAU_V = 0.22; // how fast a bubble's velocity follows its target
-const VL = 7; // top speed of the pull towards a layer, LEDs a second
+// Bubbles are pushed apart closer than RR, drawn together between RR and RP (the secondary Bjerknes force,
+// kept short in range so a chain of bubbles does not fold up into one lump), and merge when they touch.
+const RR = 2.5, RP = 6;
+const GS = 1.2; // top speed of the draw together, LEDs a second
+const GR = 25; // and of the push apart
+const TAU_V = 0.22; // how fast a bubble's velocity follows what the forces ask of it, seconds
+const VL = 7; // top speed of the pull towards a layer, LEDs a second (the primary Bjerknes force)
 const DIFF = 0.8; // random walk, LED^2 a second
-const UJ = 1;
-const US = 0.7; // streaming along the layers, LEDs a second: neighbouring layers are carried opposite ways // speed of the jets under the horn
+const US = 0.7; // streaming along the layers, LEDs a second: neighbouring layers are carried opposite ways
+// Gas goes into a bubble where the sound is loud and out of it where it is not (rectified diffusion).
 const GROW = 0.035, THR = 0.2, DISS = 0.0015;
-const HZ = 0.55; // collapse hazard
+const HZ = 0.55; // collapse hazard, 1 / s at the loudest
 
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
@@ -180,7 +195,6 @@ function spawn(P, x, y, r, vx, vy) {
   P.vy[i] = vy;
   if (i >= P.hi) P.hi = i + 1;
   P.n++;
-  P.dBirth = (P.dBirth || 0) + 1;
 }
 
 function kill(P, i) {
@@ -240,11 +254,6 @@ function step(P, h) {
   let na = 0;
   for (let i = 0; i < P.hi; i++) if (al[i]) act[na++] = i;
 
-  // Jets run down from the horn face; their columns wander.
-  const jx0 = 32 + 13 * sin((TAU * t) / 83 + 0.5);
-  const jx1 = 32 + 15 * sin((TAU * t) / 61 + 2.6);
-  const jx2 = 32 + 11 * sin((TAU * t) / 107 + 4.4);
-
   // Pull between bubbles, and the merge of two that touch.
   for (let a = 0; a < na; a++) (ax[act[a]] = 0), (ay[act[a]] = 0);
   const R2 = RP * RP;
@@ -269,7 +278,6 @@ function step(P, h) {
         vy[i] = (vy[i] * vi + vy[j] * vj) / vt;
         r[i] = cbrt(vt);
         kill(P, j);
-        P.dMer = (P.dMer || 0) + 1;
         continue;
       }
       const f = d < RR ? (-GR * (RR - d)) / RR : GS * sin((PI * (d - RR)) / (RP - RR));
@@ -301,16 +309,7 @@ function step(P, h) {
     // streaming cells between the layers: each layer slides one way, the next the other, and the sense turns over slowly
     const flow = US * sin((PI * (yi - HY)) / s - P.psi * 0.5 + P.ths) * (0.5 + 0.5 * drive);
     const vtx = pull * gx * gn + ax[i] + flow;
-    let vty = pull * gn + ay[i];
-    // jets
-    const jd = exp(-dep / 45) * UJ * drive;
-    let dj = (xi - jx0) / 5;
-    let g = exp(-dj * dj);
-    dj = (xi - jx1) / 5;
-    g += exp(-dj * dj);
-    dj = (xi - jx2) / 6;
-    g += exp(-dj * dj);
-    vty += jd * g;
+    const vty = pull * gn + ay[i];
     vx[i] += (vtx - vx[i]) * rate;
     vy[i] += (vty - vy[i]) * rate;
     const gn1 = (rnd() + rnd() + rnd() - 1.5) * 2, gn2 = (rnd() + rnd() + rnd() - 1.5) * 2;
@@ -321,8 +320,6 @@ function step(P, h) {
     const eff = env * e;
     r[i] += h * (GROW * (eff - THR) - DISS / r[i] - over);
     if (r[i] < 0.2 || y[i] > H + 6 || x[i] < -6 || x[i] > W + 6) {
-      if (r[i] < 0.2) P.dDis = (P.dDis || 0) + 1;
-      else P.dOut = (P.dOut || 0) + 1;
       kill(P, i);
       continue;
     }
@@ -418,6 +415,7 @@ export function update(dt, input, params) {
   const kv = input.knobValues;
   const k = params.kn;
   for (let i = 0; i < 4; i++) k[i] = kv[i];
+  // The first update grows the web for 28 s at the opening knobs, so the panel opens with it already hung.
   if (!params.started) {
     params.started = true;
     for (let q = 0; q < 28 * 25; q++) step(params, 1 / 25);
@@ -560,13 +558,14 @@ export function draw(display, params) {
         const dx = xx + 0.5 - xi;
         const d = sqrt(dx * dx + dy * dy);
         const c = st * core * exp(-((d / rc) * (d / rc)) * 1.5);
-        const hl = st * glow * 0.45 * exp(-((d / (1.7 * rc)) * (d / (1.7 * rc))));
+        const hl = st * glow * 0.4 * exp(-((d / (1.6 * rc)) * (d / (1.6 * rc))));
         const ring = ringA * exp(-((d - ringR) * (d - ringR)) / 1.6);
-        const warm = st * glow * 0.5 * exp(-((d - rc * 1.3) * (d - rc * 1.3)) / (0.5 * rc * rc)) * (age < 0.5 ? 1 : 0.5);
+        // a thin warm edge on the flash, there for the first third of a second
+        const warm = st * 0.4 * exp(-age / 0.2) * exp(-((d - rc * 1.45) * (d - rc * 1.45)) / (0.22 * rc * rc));
         const o = (yy * W + xx) * 3;
-        buf[o] += c + 0.55 * hl + 0.7 * warm + 0.3 * ring;
-        buf[o + 1] += c + 0.95 * hl + 0.5 * warm + 0.95 * ring;
-        buf[o + 2] += c + 1.0 * hl + 0.25 * warm + ring;
+        buf[o] += 0.9 * c + 0.3 * hl + 1.0 * warm + 0.25 * ring;
+        buf[o + 1] += c + 0.9 * hl + 0.72 * warm + 0.9 * ring;
+        buf[o + 2] += c + hl + 0.35 * warm + ring;
       }
     }
   }
