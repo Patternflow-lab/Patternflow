@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Loop Extrusion
 // Family:  genome
-// Idea:    A Hi-C contact map of a simulated chromosome, built live from the cohesin rings drawn as arcs beneath it: rings land, slide outward, stall at convergent CTCF sites and fall off, and the time average of their loops makes squares along the diagonal, a bright dot in a square's corner and stripes where one leg is stuck and the other slides.
+// Idea:    A Hi-C contact map of a simulated chromosome built live from the cohesin rings drawn as arcs beneath it, where rings land, slide outward, stall at convergent CTCF sites and fall off, and the time average of their loops makes squares along the diagonal, a bright dot in a square's corner and stripes where one leg is held and the other still slides.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Processivity=0..3, CTCF=-1..1, Extruders=-1..1
 //
-// Knob 1: Hue. Turns both colour maps round the wheel. At 0 the contact map runs from near black through wine, red and orange to yellow-white at the brightest contacts and the arcs are cyan; at 0.5 the map is blue-green and the arcs are red.
-// Knob 2: Processivity. How long a ring stays on the chromatin, 0.9 s at 0, 5.7 s at 2 where it opens, 36 s at 4, with each leg sliding about 2.7 LEDs a second. At 0 the loops are 2 to 5 LEDs wide and the map is a bright diagonal and little else; at 2 they reach the CTCF sites and hold there; at 4 they stay on for half a minute and the stripes grow long.
-// Knob 3: CTCF. How often a site facing a leg stops it. At -1 no site stops anything, the loops run to 40 LEDs and more until they slide off the end and the squares dissolve into a haze; at 0 where it opens a site blocks 0.9 times its own strength, so some legs read through; at +1 it is every time its strength allows and the squares are sharp with dots in their corners. The ticks above the baseline grow and shrink with it.
-// Knob 4: Extruders. How many rings are on the chromosome at once: 1 at -1, 13 at 0 and 20 at +1. With one ring the map shows a single loop and its trail on the diagonal; with twenty the dots and stripes crowd the squares.
+// Knob 1: Hue. Turns the contact map, the arcs and the track round the wheel together. At 0 the map runs from near black through wine, red and orange to yellow-white at the brightest contacts and the arcs are cyan; at 0.5 the map is teal to ice blue and the arcs are orange.
+// Knob 2: Processivity. How long a ring stays on the chromatin: 0.9 s at 0, 3.7 s at 1, 14.7 s at 2 where it opens and 59 s at 3, with each leg sliding 3 LEDs a second. At 0 the loops are 2 to 7 LEDs wide and come and go, so the map is a bright diagonal and little else; at 2 they reach the CTCF sites and hold there, which makes the squares, dots and stripes; at 3 they hold for a minute and the loops that read through a site grow long.
+// Knob 3: CTCF. How often a site facing a leg stops it, as a share of the site's own strength. At -1 no site stops anything, the loops run to 30 LEDs and more until they slide off the end, and the squares dissolve into one bright haze; at 0 where it opens a site stops a leg 0.9 times its strength, so some legs read through; at +1 it is every time its strength allows and the squares are sharp with dots in their corners. The ticks above the baseline grow and shrink with it.
+// Knob 4: Extruders. How many rings are on the chromosome at once: 1 at -1, 10 at 0 where it opens and 20 at +1. With one ring the map is the diagonal and one loop; with twenty the loops are 2 to 6 LEDs wide, nested in stacks, and the dots and stripes crowd the diagonal.
 
 const W = 64, H = 128;
 const NB = 64;               // bins along the chromosome: one LED each, in the map and along the baseline
@@ -49,8 +49,9 @@ function hsv(h, s, v, out, o) {
   out[o + 2] = (k === 3 || k === 4 ? v : k === 2 ? t : k === 5 ? q : p) * 255;
 }
 
-// The simulation. A leg slides V bins a second, with a random factor on every step.
-const V = 2.7;
+// The simulation. A leg slides V bins a second, with a random factor on every step. A ring is two
+// legs, left and right, that start one bin apart and move outward.
+const V = 3.0;
 const STEP = 1 / 30;
 const GAP = 1.8;             // a leg stops this many bins short of the next leg
 const NS = 48;               // slots: 20 rings alive and the ones fading out
@@ -63,8 +64,8 @@ const SITES = [
   [44, -1, 0.92], [47, 1, 0.88], [53, 1, 0.1], [57, -1, 0.2], [61, -1, 0.9],
 ];
 const NSITE = SITES.length;
-// Each site's strength wanders around its opening value on two slow sines, periods in seconds that
-// share no factor, so one site fades while another rises and the map's squares merge and split.
+// Each site's strength wanders around its opening value on two slow sines, with periods in seconds
+// that are prime or close to it, so one site fades while another rises and the squares merge and split.
 const SPER_A = [97, 131, 163, 113, 149, 181, 127, 107, 139, 173, 89, 157, 119];
 const SPER_B = [311, 257, 389, 283, 347, 421, 269, 331, 367, 293, 401, 241, 317];
 const sprng = rng(225001);
@@ -75,9 +76,9 @@ const strength = (k, t) => cl(SITES[k][2] + 0.95 * (wander(k, t) - SW0[k]), 0, 1
 
 // The map. Contact falls as 1/(1+0.8 s) with the distance s between two bins; each ring adds a
 // bright blob at the pair its two legs hold, and a plateau over the pairs inside its loop. Two
-// running averages of that, 3 s and 14 s, are the population: the short one keeps the dots
+// running averages of that, 2.6 s and 14 s, are the population: the short one keeps the dots
 // and the trail a sliding leg leaves, the long one keeps the squares steady.
-const TF = 3, TS = 14;
+const TF = 2.6, TS = 14;
 const WF = 0.55, WS = 0.45;
 const WD = 0.34, WM = 0.32, WL = 0.15;
 const SIGD = 0.85;
@@ -131,7 +132,7 @@ function moveLeg(P, e, dir, h) {
   if ((dir < 0 ? ls[e] : rs[e]) === 1) return;
   const x = dir < 0 ? L[e] : R[e];
   let nx = x + dir * V * h * (0.35 + 1.3 * rand());
-  // Another ring's leg in the way: stop one bin short of the nearest one ahead.
+  // Another ring's leg in the way: stop GAP bins short of the nearest one ahead.
   let lim = dir < 0 ? -1e9 : 1e9;
   for (let f = 0; f < NS; f++) {
     if (f === e || st[f] !== 1) continue;
@@ -333,6 +334,7 @@ export function setup(params) {
   params.S = new Float32Array(NN);
   params.E = new Float32Array(NB);
   params.cum = new Float32Array(NB + 1);
+  params.w = new Float32Array(NB);
   params.O = new Float32Array(NB);
   params.Z = new Float32Array(NB);
   params.omax = 0.5;
@@ -370,7 +372,8 @@ export function update(dt, input, params) {
     P.acc -= STEP;
   }
   // Insulation: the log of what each site takes from the contact across it, summed from the left.
-  const w = new Float32Array(NB);
+  const w = P.w;
+  w.fill(0);
   for (let q = 0; q < NSITE; q++) w[SITES[q][0]] += log(1 - BETA * cl(P.q * P.ss[q], 0, 1));
   P.cum[0] = 0;
   for (let x = 0; x < NB; x++) P.cum[x + 1] = P.cum[x] + w[x];
