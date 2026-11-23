@@ -11,12 +11,12 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0..4, Weight=-1..1, Compact=-1..1
 //
-// Knob 1: Hue. Turns the whole palette once round: five hues (teal, blue, violet, rose, amber at 0) in three lightness steps, one colour for each of the fifteen districts for its whole life. The palette also sways about 40 degrees either side of the knob over a minute, and each district breathes a few percent in brightness on periods of its own.
+// Knob 1: Hue. Turns the whole palette once round. The palette is three neighbouring hues (sky blue, blue, indigo at 0) in four lightness steps, deep like glazed ceramic, and a muted terracotta accent in three: fifteen colours, one for each district for its whole life. Over a minute the palette sways about 25 degrees either side of the knob, and each district wobbles in hue by up to 14 degrees and breathes about 20 percent in brightness on periods of its own.
 // Knob 2: Pace. Borders redrawn a second, doubling with each step: 0.5 at 0 (one every 2 s, each drawn over 1.3 s), 2 at 2 where it opens (1 s each), 8 at 4 (0.5 s each, about 7 a second in practice, as a pair being redrawn is not picked again until it settles).
 // Knob 3: Weight. How much the hidden density varies from cell to cell, and so how unequal the districts are. At -1 the biggest district is 1.2 times the smallest (31 to 38 cells of 4 by 4 LEDs); 2.7 times at 0 where it opens (21 to 56 cells); 5.5 times at +1 (14 to 75 cells), small and tight where the density peaks. The shading inside each district shows the density and grows with the knob.
 // Knob 4: Compact. A bias against long borders: a proposed split is drawn with weight exp(-beta times its border length), then passes a Metropolis test. At -1 it is plain ReCom with ragged borders, fjords and peninsulas, 214 cell edges in all; 186 where it opens; 146 at +1, where the districts are smooth rounded blobs. The vote that rounds the outlines widens too, from 0.6 to 1.1 cells.
 
-const CS = 4, CW = 16, CH = 32, N = CW * CH;
+const CS = 4, CW = 16, CH = 32, N = CW * CH, PW = CW * CS, PH = CH * CS;
 const K = 15;
 const SEED = 227227;
 const { floor, sqrt, exp, sin, cos, pow, abs, min, max, tanh, PI } = Math;
@@ -28,12 +28,15 @@ const BL = 0.28;        // s, in which a cell that the front has reached changes
 const TAUH = 0.3;       // s, in which the glow of a cell the front has passed dies away
 const SIG0 = 0.6, SIG1 = 1.1; // cells, the width of the vote that rounds the borders, at Compact -1 and at +1
 const MHB = 0.7, MHF = 0.1, BMAX = 2.9; // Metropolis: the share of beta in the acceptance test, its floor, and beta at Compact +1
+const SEAMW = 0.3, SEAMD = 0.68, SHADE = 0.15, RIM = 0.22; // the seam's width and depth, the shaded edge and the lit rim
 const FSPEED = 0.6;     // the hidden density moves at this share of its table speed
 const PRE = 1100;       // recombinations run in the first update
-const HUE0 = 190;       // degrees on the OKLCH wheel where the palette starts at knob 0: a teal
-const HUES = [0, 45, 95, 150, 205];
-const PAL_L = [0.58, 0.71, 0.81];
-const PAL_C = [0.12, 0.125, 0.1];
+// The fifteen colours, as [hue offset in degrees, OKLCH lightness, chroma]: three neighbouring hues in four lightness
+// steps and a muted accent in three. HUE0 is where the family starts at knob 0.
+const HUE0 = 196;
+const PAL = [];
+for (const dh of [0, 30, 60]) for (const [L, C] of [[0.34, 0.085], [0.47, 0.105], [0.6, 0.115], [0.73, 0.095]]) PAL.push([dh, L, C]);
+for (const [L, C] of [[0.46, 0.07], [0.6, 0.075], [0.74, 0.065]]) PAL.push([195, L, C]);
 
 // The hidden density, in cell units: six soft blobs, dense and thin, on paths whose frequencies do not divide one another,
 // over two long waves.
@@ -118,11 +121,15 @@ export function setup(P) {
   P.pre = I(N); P.tin = I(N); P.sw = F(N); P.sz = I(N); P.stk = I(N);
   P.bestPar = I(N); P.bestSide = U(N); P.dist = I(N); P.que = I(N); P.tmp = I(4);
   // Per frame.
-  P.pal = F(K * 3); P.pl = F(K * 3); P.col = U(K); P.vote = F(K); P.touched = U(20);
+  P.buf = F(PW * PH * 3); P.lbl = U(PW * PH); P.seam = F(PW * PH); P.flash = F(PW * PH);
+  P.pl = F(K * 3); P.col = U(K); P.vote = F(K); P.touched = U(20);
   P.ca = U(N); P.cb = U(N); P.cu = F(N); P.ch = F(N); P.sh = F(N); P.act = U(N);
-  // Two periods for each district's breathing, a frequency and a phase each.
-  P.bp = F(K * 4);
-  for (let i = 0; i < K * 4; i++) P.bp[i] = i & 1 ? TAU * P.rand() : 1 / (i & 2 ? 11 + 14 * P.rand() : 23 + 32 * P.rand());
+  // For each district a frequency and a phase for each of two breathings and one wobble of hue.
+  P.bp = F(K * 6);
+  for (let i = 0; i < K * 6; i++) {
+    const j = i % 6;
+    P.bp[i] = j & 1 ? TAU * P.rand() : 1 / (j === 0 ? 23 + 32 * P.rand() : j === 2 ? 11 + 14 * P.rand() : 31 + 40 * P.rand());
+  }
 }
 
 // The hidden density at time t, and the weight a cell carries (exp of g times it).
@@ -441,24 +448,30 @@ function oklch(L, C, hdeg, out, o) {
   for (let i = 0; i < 3; i++) out[o + i] = 255 * enc(cl(Y + (c[i] - Y) * t, 0, 1));
 }
 
-function palette(P) {
-  // The whole palette sways a little round the knob's hue, on three periods that do not divide one another.
-  const T = P.T;
-  const base = HUE0 + 360 * P.hueK + 32 * sin((TAU * T) / 131 + 1.1) + 18 * sin((TAU * T) / 53 + 4) + 11 * sin((TAU * T) / 23 + 2);
-  for (let c = 0; c < K; c++) {
-    const h = (c / 3) | 0, l = c % 3;
-    oklch(PAL_L[l], PAL_C[l], base + HUES[h], P.pal, c * 3);
+// The colour of each district: its place in the palette, the knob's hue, a sway of the whole palette on periods that do
+// not divide one another, and a slow wobble of hue and breathing of brightness of its own.
+function colours(P) {
+  const T = P.T, bp = P.bp;
+  const base = HUE0 + 360 * P.hueK + 26 * sin((TAU * T) / 131 + 1.1) + 15 * sin((TAU * T) / 53 + 4) + 9 * sin((TAU * T) / 23 + 2);
+  for (let l = 0; l < K; l++) {
+    const e = PAL[P.col[l]], k = l * 6, L = e[1];
+    const h = base + e[0] + 14 * sin(TAU * bp[k + 4] * T + bp[k + 5]);
+    // Dark reds, oranges and yellows turn brown and olive on the panel: there the dark steps are lifted and the chroma raised.
+    const d = abs((((h - 85) % 360) + 540) % 360 - 180), w = smooth(1 - d / 85);
+    oklch(L + 0.24 * w * cl(1 - (L - 0.34) / 0.5, 0, 1), e[2] * (1 + 0.45 * w), h, P.pl, l * 3);
+    const br = 1 + 0.19 * sin(TAU * bp[k] * T + bp[k + 1]) + 0.07 * sin(TAU * bp[k + 2] * T + bp[k + 3]);
+    for (let c = 0; c < 3; c++) P.pl[l * 3 + c] *= br;
   }
 }
 
 // A district keeps its colour for life. They are handed out once, after the first mature plan, so that districts that
 // touch then get colours that are far apart: a few thousand swaps that lower the sum of closeness over shared borders.
 function assignColours(P) {
-  palette(P);
-  const pal = P.pal;
+  // Closeness in OKLab with lightness counted three times, so neighbours differ by lightness as much as by hue.
   const dist = (i, j) => {
-    const dr = pal[i * 3] - pal[j * 3], dg = pal[i * 3 + 1] - pal[j * 3 + 1], db = pal[i * 3 + 2] - pal[j * 3 + 2];
-    return sqrt(2 * dr * dr + 4 * dg * dg + 3 * db * db);
+    const A = PAL[i], B = PAL[j], ha = (A[0] * PI) / 180, hb = (B[0] * PI) / 180;
+    const da = A[2] * cos(ha) - B[2] * cos(hb), db = A[2] * sin(ha) - B[2] * sin(hb), dl = 3 * (A[1] - B[1]);
+    return sqrt(da * da + db * db + dl * dl);
   };
   pickPair(P, true);
   const ac = P.ac;
@@ -474,7 +487,7 @@ function assignColours(P) {
     for (let a = 0; a < K; a++)
       for (let b = a + 1; b < K; b++) {
         const e = ac[a * K + b];
-        if (e) s += e / (dist(perm[a], perm[b]) + 12);
+        if (e) s += e / (dist(perm[a], perm[b]) + 0.04);
       }
     return s;
   };
@@ -542,15 +555,8 @@ export function update(dt, input, P) {
 export function draw(display, P) {
   if (!P.ready) return;
   const T = P.T;
-  const { lab, old, tf, ca, cb, cu, ch, sh, act, f, vote, touched, pl, hw, pa, pb, kw: KW, ki, kn, ku } = P;
-  palette(P);
-  // Each district breathes a little, on two periods of its own.
-  for (let l = 0; l < K; l++) {
-    const k = l * 4;
-    const br = 1 + 0.15 * sin(TAU * P.bp[k] * T + P.bp[k + 1]) + 0.06 * sin(TAU * P.bp[k + 2] * T + P.bp[k + 3]);
-    const o = P.col[l] * 3;
-    for (let c = 0; c < 3; c++) pl[l * 3 + c] = P.pal[o + c] * br;
-  }
+  const { lab, old, tf, ca, cb, cu, ch, sh, act, f, vote, touched, pl, hw, pa, pb, kw: KW, ki, kn, ku, buf, lbl, seam, flash } = P;
+  colours(P);
   // The shading in a district shows the density: brighter where it is dense. It grows with the Weight knob.
   const shAmp = 0.26 * cl((P.g - 0.05) / 0.9, 0, 1.4);
   for (let i = 0; i < N; i++) {
@@ -593,7 +599,7 @@ export function draw(display, P) {
         for (let sx = 0; sx < 4; sx++) {
           const kw = (sy * 4 + sx) * 25, kc = kn[sy * 4 + sx];
           let shade = 0;
-          let r, g, b;
+          let r, g, b, lb = lab[ci], sa = 0, fa = 0;
           if (still) {
             for (let q = 0; q < kc; q++) {
               const n = ki[kw + q];
@@ -633,10 +639,10 @@ export function draw(display, P) {
             let sm = 0, tb = 0, sf = 0;
             if (l2 >= 0) {
               tb = v2 / (v1 + v2);
-              // The seam: dark where the two top votes are close, about one LED wide, and a wider band of the same for the flash.
+              // The seam: dark where the two top votes are close, and a wider band of the same for the flash.
               // The vote gets flatter as sigma grows, so the margin is scaled to keep the seam as wide in LEDs.
               const mg = ((v1 - v2) / (v1 + v2)) * (P.sigma / 0.6);
-              sm = 1 - cl(mg / 0.3, 0, 1);
+              sm = 1 - cl(mg / SEAMW, 0, 1);
               sm = sm * sm * (3 - 2 * sm);
               sf = 1 - cl(mg / 0.55, 0, 1);
               sf = sf * sf * (3 - 2 * sf);
@@ -645,8 +651,6 @@ export function draw(display, P) {
             r = (pl[o1] * (1 - tb) + pl[o2] * tb) * shade;
             g = (pl[o1 + 1] * (1 - tb) + pl[o2 + 1] * tb) * shade;
             b = (pl[o1 + 2] * (1 - tb) + pl[o2 + 2] * tb) * shade;
-            const dk = 1 - 0.88 * sm;
-            r *= dk; g *= dk; b *= dk;
             if (heat > 0.004) {
               // The cells the front has just passed lighten, and the border between the two districts of that move
               // flashes where the front has reached it (not the borders to the districts that took no part).
@@ -661,21 +665,44 @@ export function draw(display, P) {
                   const j = nbc[n];
                   if (ch[j] > 0.01 && ((pa[j] === l1 && pb[j] === l2) || (pa[j] === l2 && pb[j] === l1))) hz += KW[kw + n] * ch[j];
                 }
-                let hf = min(1, hz * 2.6);
-                hf = hf * hf * sf;
-                r += hf * (236 - 0.5 * r);
-                g += hf * (226 - 0.5 * g);
-                b += hf * (200 - 0.5 * b);
+                const hf = min(1, hz * 2.6);
+                fa = hf * hf * sf;
               }
             }
+            lb = l1;
+            sa = sm;
           }
-          // The light steps, the breathing and the shading together can pass white: roll the top off, keeping the hue.
-          const mx = max(r, g, b);
-          if (mx > 205) {
-            const k = (205 + 50 * (1 - exp(-(mx - 205) / 50))) / mx;
-            r *= k; g *= k; b *= k;
-          }
-          display.setPixel(cx * CS + sx, cy * CS + sy, r, g, b);
+          const p = ((cy * CS + sy) * PW + cx * CS + sx);
+          buf[p * 3] = r; buf[p * 3 + 1] = g; buf[p * 3 + 2] = b;
+          lbl[p] = lb; seam[p] = sa; flash[p] = fa;
         }
+    }
+  // A light at the upper left gives the slabs depth: an LED with another district to its left or above is the lit edge of its
+  // slab and takes a rim; one with another to its right or below is the shaded edge and takes the seam, so it reads as a groove.
+  for (let y = 0; y < PH; y++)
+    for (let x = 0; x < PW; x++) {
+      const p = y * PW + x, l = lbl[p];
+      const lit = (x > 0 && lbl[p - 1] !== l) || (y > 0 && lbl[p - PW] !== l);
+      const shd = (x < PW - 1 && lbl[p + 1] !== l) || (y < PH - 1 && lbl[p + PW] !== l);
+      const sm = seam[p], fa = flash[p];
+      let r = buf[p * 3], g = buf[p * 3 + 1], b = buf[p * 3 + 2];
+      let dk = 1 - SEAMD * sm * (lit && !shd ? 0.3 : 1);
+      if (shd && !lit) dk *= 1 - SHADE;
+      const rim = lit && !shd ? RIM : 0;
+      r = r * dk * (1 + rim) + rim * 26;
+      g = g * dk * (1 + rim) + rim * 26;
+      b = b * dk * (1 + rim) + rim * 26;
+      if (fa > 0.003) {
+        r += fa * (236 - 0.5 * r);
+        g += fa * (226 - 0.5 * g);
+        b += fa * (200 - 0.5 * b);
+      }
+      // The light steps, the breathing and the shading together can pass white: roll the top off, keeping the hue.
+      const mx = max(r, g, b);
+      if (mx > 205) {
+        const k = (205 + 50 * (1 - exp(-(mx - 205) / 50))) / mx;
+        r *= k; g *= k; b *= k;
+      }
+      display.setPixel(x, y, r, g, b);
     }
 }
