@@ -219,7 +219,7 @@ function planNext(P) {
     const cand = [];
     for (let j = 0; j < secs.length; j++) {
       const D = n - secs[j].s, L = secs[j].e - secs[j].s;
-      if (L >= 3 && secs[j].gen <= 1 && secs[j].uses < 2 && D + L >= 0.62 * P.span && D + L <= 0.98 * P.span && barAt(P, secs[j].s) !== barAt(P, n - 1)) cand.push(j);
+      if (L >= 3 && secs[j].gen <= 1 && secs[j].uses < 2 && D + L >= 0.62 * P.span && D + L <= 1.55 * P.span && barAt(P, secs[j].s) !== barAt(P, n - 1)) cand.push(j);
     }
     if (cand.length) {
       const j = cand[(Math.random() * cand.length) | 0];
@@ -227,12 +227,15 @@ function planNext(P) {
       if (Math.random() < 0.3) bars = vary(P, bars);
       secs[j].uses++;
       queue(P, bars, 2);
-      P.nextTheme = n + 30 + ((Math.random() * 44) | 0) * (1.3 - 0.6 * rep);
+      P.nextTheme = n + P.span * (0.3 + 0.35 * Math.random()) * (1.2 - 0.5 * rep);
       P.last = 1;
       return;
     }
   }
-  const pCopy = (0.14 + 0.5 * rep + 0.3 * rep * rep) * (P.last ? 0.66 : 1);
+  // how much of the panel the bands cover is steered: when they crowd it, fewer copies; when it thins, more
+  const want = 0.32 + 0.38 * rep;
+  const steer = cl(1 - 1.2 * (P.cover - want) / want, 0.5, 1.5);
+  const pCopy = (0.14 + 0.5 * rep + 0.3 * rep * rep) * steer * (P.last ? 0.66 : 1);
   if (Math.random() < pCopy) {
     // a source: one section or two, from the recent past; short ones may follow right behind, long ones leave a gap
     const k = Math.random() < 0.7 ? 1 : 2;
@@ -240,7 +243,7 @@ function planNext(P) {
     for (let j = 0; j + k <= secs.length; j++) {
       const s0 = secs[j].s, e0 = secs[j + k - 1].e;
       const L = e0 - s0, D = n - s0, g = n - e0;
-      if (D > 0.8 * P.span || L > 8 || g < (L <= 4 ? 0 : 2) || (P.last && g < 2)) continue;
+      if (D > 0.9 * P.span || L > 8 || g < (L <= 4 ? 0 : 2) || (P.last && g < 2)) continue;
       let ok = barAt(P, s0) !== barAt(P, n - 1);
       for (let i = j; i < j + k; i++) if (secs[i].gen > 1 || secs[i].uses >= 2) ok = false;
       if (!ok) continue;
@@ -321,7 +324,7 @@ export function setup(P) {
   P.n = 0; P.tau = 0;
   P.secs = []; P.q = []; P.qb = []; P.qg = []; P.bi = new Map();
   P.act = []; P.nextId = 0; P.fresh = -1;
-  P.last = 0; P.chorus = null; P.chorusUses = 0; P.chorusMax = 3; P.nextChorus = 30; P.nextTheme = 60; P.span = 78;
+  P.last = 0; P.chorus = null; P.chorusUses = 0; P.chorusMax = 3; P.nextChorus = 30; P.nextTheme = 60; P.span = 78; P.cover = 0.5;
   P.rep = 0.5; P.repPlan = 0.5;
   P.ra = new Int32Array(4000); P.rd = new Int32Array(4000); P.rl = new Int32Array(4000);
   P.nr = 0; P.dirty = true;
@@ -336,13 +339,20 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.5, 4), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
   P.k1 = k1; P.k4 = k4;
-  P.span = 48 * 2.5 ** ((k4 + 1) / 2);
+  P.span = 48 * 2 ** ((k4 + 1) / 2);
   P.rep = 0.5 + 0.5 * k3;
   if (!P.ready) {
     P.ready = true;
-    // the tune has been playing for a while
-    P.tau = 170;
-    while (P.n < floor(P.tau) + 1) emitBar(P);
+    P.cover = 0.32 + 0.38 * P.rep; P.repPlan = P.rep;
+    // the tune has been playing for a while: bar by bar, steered the same way as later
+    P.tau = 12;
+    for (let i = 0; i < 260; i++) {
+      P.tau += 1;
+      while (P.n < floor(P.tau) + 1) emitBar(P);
+      findRuns(P);
+      layout(P);
+      P.cover += (1 - Math.exp(-0.57 * P.area) - P.cover) * 0.12;
+    }
     P.t = 0;
   }
   P.t += d;
@@ -363,6 +373,7 @@ export function update(dt, input, P) {
   while (P.n < floor(P.tau) + 1) emitBar(P);
   if (P.dirty) findRuns(P);
   layout(P);
+  P.cover += (1 - Math.exp(-0.57 * P.area) - P.cover) * (1 - Math.exp(-d / 8)); // the share of the panel the bands light, about
 }
 
 // ---- arcs ------------------------------------------------------------------
@@ -375,9 +386,9 @@ function layout(P) {
   P.bar = bar;
   const top = P.tau - (1 + AHEAD) * span;
   const { ra, rd, rl, ar, ord } = P;
-  let m = 0;
-  const maxChord = span * (1 + AHEAD);
-  const lmin = bar >= 2.4 ? 2 : bar >= 1.3 ? 3 : 4; // an arc is at least 3 LEDs thick
+  let m = 0, area = 0;
+  const maxChord = span * 1.6;
+  const lmin = bar >= 2.4 ? 2 : 3; // an arc is at least 3 LEDs thick
   for (let r = 0; r < P.nr; r++) {
     if (rl[r] < lmin) continue;
     const a0 = ra[r], b0 = a0 + rd[r];
@@ -391,7 +402,8 @@ function layout(P) {
     const ro = (chord / 2) * bar; // outer radius
     const ri = max(0, ((rd[r] - le) / 2) * bar); // inner radius
     // drawn a little narrower than the repeat is long, so neighbouring bands keep a dark seam between them
-    const th = min(9, max(min(ro - ri, 3), (ro - ri) * FILL)), mid = (ro + ri) / 2;
+    const th = min(7, max(min(ro - ri, 3), (ro - ri) * FILL)), mid = (ro + ri) / 2;
+    area += th * mid * PI; // what the band covers, overlaps and all
     ar[o + 1] = mid + th / 2;
     ar[o + 2] = max(0, mid - th / 2);
     ar[o + 3] = smooth((le - 0.9) / 0.9); // fades in over the first bar
@@ -400,6 +412,7 @@ function layout(P) {
     m++;
   }
   P.na = m;
+  P.area = area / (W * H);
   // the longest chords at the back
   for (let i = 1; i < m; i++) {
     const v = ord[i], key = ar[v * 5 + 1];
