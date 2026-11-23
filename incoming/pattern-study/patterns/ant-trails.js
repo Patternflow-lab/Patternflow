@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Ant Trails
 // Family:  stigmergy
-// Idea:    Ants wander over dark ground from a glowing nest, find food patches, and carry bits home while every ant leaves a pheromone trail that the others climb, so bright trunk roads grow between the nest and the food, thicken with traffic, fade when a patch is eaten empty, and bend round slowly drifting rocks.
+// Idea:    Ants leave a glowing nest, find food patches and carry bits home, and the pheromone trails they lay and climb grow into bright roads that thicken with traffic, fade when a patch is eaten empty and bend round slowly drifting rocks.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Ants=0.4..3, Memory=-1..1, Foods=-1..1
 //
-// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 they are magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan; and back at 1. Whatever the knob says, the whole palette also turns once round the wheel in 120 seconds, so no two minutes have the same colours.
-// Knob 2: Ants. The size of the colony, 45 ants at 0.4, 144 at 2 where it opens and 206 at 3; more ants lay bolder roads and eat a patch down sooner, so the food moves on faster.
-// Knob 3: Memory. How long a trail lasts before it evaporates, 2.4 seconds at -1, 12 seconds at 0 where it opens and 60 seconds at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired, fat and slow to re-route when the food is gone or a rock settles on them.
-// Knob 4: Foods. How many food patches the ground carries at once, 1 at -1, 3 at 0.06 where it opens and 5 at +1. With one patch every ant works the same trunk road until it is empty; with five the colony splits into a net of roads.
+// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan. The whole palette also turns once round the wheel in 120 seconds, so no two minutes share colours.
+// Knob 2: Ants. Colony size, 38 ants at 0.4, 128 at 2 where it opens and 184 at 3. More ants lay bolder roads and strip a patch faster, so the food moves on sooner.
+// Knob 3: Memory. How long a trail lasts, 2.4 seconds at -1, 12 at 0 where it opens and 60 at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired and slow to re-route when the food is gone or a rock settles on them.
+// Knob 4: Foods. How many food patches lie on the ground at once, 1 at -1, 3 at 0.06 where it opens and 5 at +1. With one, the whole colony works a single trunk road until it is empty; with five it splits into a net of roads.
 
 const W = 64, H = 128;
 const GW = 40, GH = 80, PW = GW + 2, PN = PW * (GH + 2);
@@ -79,7 +79,7 @@ export function setup(P) {
   P.F = F32(PN); P.F2 = F32(PN); P.Hh = F32(PN); P.H2 = F32(PN); P.M = F32(PN);
   P.SD = F32(GW * GH);
   P.ax = F32(MAXA); P.ay = F32(MAXA); P.ath = F32(MAXA); P.adep = F32(MAXA); P.asp = F32(MAXA);
-  P.asc = F32(MAXA); P.aage = F32(MAXA); P.ahue = F32(MAXA);
+  P.asc = F32(MAXA); P.aage = F32(MAXA); P.ahue = F32(MAXA); P.asg = F32(MAXA);
   P.amd = new Uint8Array(MAXA); P.aon = new Uint8Array(MAXA);
   P.ps = new Uint8Array(NSL); P.px = F32(NSL); P.py = F32(NSL); P.pr = F32(NSL); P.pam = F32(NSL);
   P.pcap = F32(NSL); P.prate = F32(NSL); P.pcool = F32(NSL); P.pq = F32(NSL); P.pfade = F32(NSL); P.pw = F32(NSL); P.phue = F32(NSL); P.pflash = F32(NSL);
@@ -89,7 +89,6 @@ export function setup(P) {
   P.nest = 0;
   P.refF = 1; P.refH = 1;
   P.nA = 100; P.nf = 3; P.tau = 14;
-  P.carried = 0;
   // frame tables: where each LED sits in the pheromone grid
   P.tI = new Int32Array(W * H); P.tS = new Int32Array(W * H); P.tX = F32(W * H); P.tY = F32(W * H);
   P.T1 = F32(W * H); P.T2 = F32(W * H);
@@ -114,7 +113,7 @@ function newRock(P, r, first) {
   const oa = rr(0, TAU), od = rr(1.6, 3.2);
   r.ox = cos(oa) * od; r.oy = sin(oa) * od;
   const rad = max(a1, od + a2) + 1;
-  // out of the nest's yard, away from the food and the other rocks; half the time across the line between the nest and a patch
+  // out of the nest's yard, away from the food and the other rocks; two times in three across the line between the nest and a patch
   let bx = 20, by = 30, best = -1;
   for (let tries = 0; tries < 24; tries++) {
     let x, y;
@@ -218,16 +217,16 @@ function spawnPatch(P, s) {
   const cap = cl(rr(16, 55) * rate * 0.8, 16, 400);
   const pr = cl((2.6 + 2.2 * sqrt(cap / 90)) * rr(0.88, 1.12), 3.0, 5.4);
   let bx = 20, by = 30, best = -1;
-  for (let tries = 0; tries < 20; tries++) {
+  for (let tries = 0; tries < 30; tries++) {
     const m = 3.5 + pr;
     const x = rr(m, GW - 1 - m), y = rr(m, GH - 1 - m);
     if (sqrt((x - NX) ** 2 + (y - NY) ** 2) < 16 + pr) continue;
     if (sdfAt(P.SD, x, y) < pr + 3.5) continue;
-    let sc = 40;
-    for (let o = 0; o < NSL; o++) if (o !== s && P.ps[o]) sc = min(sc, sqrt((x - P.px[o]) ** 2 + (y - P.py[o]) ** 2) - pr - P.pr[o]);
-    for (const q of P.recent) sc = min(sc, (sqrt((x - q[0]) ** 2 + (y - q[1]) ** 2) - 5) * 0.8);
-    if (sc < 11) continue;
-    const score = sc + Math.random() * 8;
+    let gap = 40, near = 40;
+    for (let o = 0; o < NSL; o++) if (o !== s && P.ps[o]) gap = min(gap, sqrt((x - P.px[o]) ** 2 + (y - P.py[o]) ** 2) - pr - P.pr[o]);
+    if (gap < 9) continue;
+    for (const q of P.recent) near = min(near, sqrt((x - q[0]) ** 2 + (y - q[1]) ** 2));
+    const score = min(gap, 20) + min(near, 20) + Math.random() * 12;
     if (score > best) { best = score; bx = x; by = y; }
   }
   if (best < 0) { bx = rr(6, GW - 6); by = rr(6, 50); }
@@ -298,6 +297,7 @@ function stepAnts(P, dt) {
       sg = (level / (level + 0.1)) * (gm / (gm + 0.04)) * (sc ? 0.35 : 1);
       if (gm > 1e-9) { const w = 3.6 * sg / (gm / nrm); vx += gx * w; vy += gy * w; }
     }
+    P.asg[i] += (sg - P.asg[i]) * (dt * 3 > 1 ? 1 : dt * 3);
     // home: the pull of the nest a carrying ant remembers, and the push away from it of one that has just left
     dxn = NX - x; dyn = NY - y; dn = sqrt(dxn * dxn + dyn * dyn) + 1e-6;
     if (md >= 1) {
@@ -422,7 +422,7 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   P.hue = cl(kv[0], 0, 1);
   const ants = cl(kv[1], 0.4, 3), mem = cl(kv[2], -1, 1), foods = cl(kv[3], -1, 1);
-  P.nA = floor(20 + 62 * ants);
+  P.nA = floor(16 + 56 * ants);
   P.tau = 12 * pow(5, mem);
   P.nf = cl(Math.round(3 + 2 * foods), 1, 5);
   if (!P.ready) {
@@ -480,12 +480,12 @@ export function draw(display, P) {
   for (let s = 0; s < NSL; s++) {
     if (!P.ps[s] || P.pfade[s] <= 0) continue;
     const fade = smooth(P.pfade[s]);
-    const rv = P.pr[s] * (0.55 + 0.45 * sqrt(P.pam[s] / P.pcap[s])) * SC;
-    const live = P.ps[s] === 1 ? 1 : 0.8;
+    const rv = P.pr[s] * (0.55 + 0.45 * sqrt(P.pam[s] / P.pcap[s])) * (0.3 + 0.7 * fade) * SC;
+    const live = 0.65 + 0.35 * fade;
     const lx = (P.px[s] + 0.5) * SC, ly = (P.py[s] + 0.5) * SC, R = rv * 2.4 + 2;
     const col = [0, 0, 0];
     pal(h0 + 0.70 + P.phue[s], col);
-    const q = (0.7 + 0.4 * P.pq[s]) * fade * live * (1 + 0.5 * P.pflash[s]);
+    const q = (0.7 + 0.4 * P.pq[s]) * live * (1 + 0.5 * P.pflash[s]);
     const x0 = max(0, floor(lx - R)), x1 = min(W - 1, floor(lx + R)), y0 = max(0, floor(ly - R)), y1 = min(H - 1, floor(ly + R));
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++) {
@@ -504,13 +504,14 @@ export function draw(display, P) {
       if (!P.aon[i]) continue;
       const md = P.amd[i];
       let r, g, b;
+      const kb = md === 1 ? 1 : 0.55 + 0.45 * cl(P.asg[i] * 2.5, 0, 1);
       if (md === 1) { pal(h0 + 0.70 + P.ahue[i], pc); r = 0.55 + 0.45 * pc[0]; g = 0.55 + 0.45 * pc[1]; b = 0.4 + 0.3 * pc[2]; }
-      else { r = 0.45 + 0.35 * cH[0]; g = 0.65 + 0.3 * cH[1]; b = 0.8 + 0.2 * cH[2]; }
+      else { r = 0.4 + 0.3 * cH[0]; g = 0.58 + 0.27 * cH[1]; b = 0.72 + 0.2 * cH[2]; }
       const lx = (P.ax[i] + 0.5) * SC, ly = (P.ay[i] + 0.5) * SC;
       const dxl = cos(P.ath[i]) * P.asp[i] * SC, dyl = sin(P.ath[i]) * P.asp[i] * SC;
-      splat(ob, lx - dxl * 0.34, ly - dyl * 0.34, 1.3, 0.6, r, g, b, 0.2);
-      splat(ob, lx - dxl * 0.16, ly - dyl * 0.16, 1.5, 0.7, r, g, b, 0.42);
-      splat(ob, lx, ly, 1.45, 0.75, r, g, b, 1);
+      splat(ob, lx - dxl * 0.34, ly - dyl * 0.34, 1.3, 0.6, r, g, b, 0.2 * kb);
+      splat(ob, lx - dxl * 0.16, ly - dyl * 0.16, 1.5, 0.7, r, g, b, 0.42 * kb);
+      splat(ob, lx, ly, 1.45, 0.75, r, g, b, kb);
     }
   }
   // compose, every pixel
