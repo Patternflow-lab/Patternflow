@@ -31,9 +31,11 @@ const RP = 3, EW = NX + 2 * RP, EH = NY + 2 * RP, NE = EW * EH;
 const EMIN = 1e-3;   // stiffness of the void, against 1 for solid
 const XMIN = 0.01;   // the design variable never goes below this
 const MOVE = 0.2;    // the optimality-criteria move limit
-const PRE_ITERS = 60, PRE_CG = 10; // design steps before the first frame, and conjugate gradient steps for each
+const PRE_ITERS = 48; // design steps before the first frame
 const NLOADS = 3;    // loads on the top edge
-const MEM = 2.0, MEM_DT = 0.1; // seconds the structure remembers its loads, and seconds a design step stands for
+const SEED_X = [16, 6, 26], SEED_TH = [0, 0.45, -0.45]; // where they start, in nodes and radians
+const NOW = 0.4;     // how much of the drive is this instant's, the rest the average
+const MEM = 4.0, MEM_DT = 0.1; // seconds the structure remembers its loads, and seconds a design step stands for
 const CYC = 3;       // frames to a design step
 const CG_STEPS = [3, 4, 3]; // conjugate gradient steps in each frame of a cycle
 
@@ -110,7 +112,7 @@ function interpTables(n, ne) {
 export function setup(P) {
   P.ready = false;
   P.t = 0; P.tl = 0; P.tf = 0; P.frame = 0;
-  P.vf = 0.3; P.rmin = 1.5; P.rUsed = -1; P.pen = 3;
+  P.vf = 0.3; P.rmin = 1.5; P.rUsed = -1; P.pen = 3; P.seedMix = 0; P.sideMix = 1;
   P.x = new Float64Array(NE);      // design variables
   P.xp = new Float64Array(NE);     // filtered densities
   P.xd = new Float64Array(NE);     // the same, eased for drawing
@@ -425,7 +427,7 @@ function ocStep(P, vf, move) {
   const { u, xp, x, q, qa, dcs, invHs, wcol, kw, ko, nk, sv, xn, lo, hi } = P;
   const al = P.first ? (P.first = false, 1) : 1 - exp(-MEM_DT / MEM);
   // The strain energy of every element at unit stiffness, then the sensitivity of the compliance to its density.
-  let qs = 0, xs = 0;
+  let qs = 0, xs = 1e-9;
   for (let j = 0; j < NY; j++) {
     let e = (j + RP) * EW + RP;
     for (let i = 0; i < NX; i++, e++) {
@@ -443,11 +445,14 @@ function ocStep(P, vf, move) {
       // The structure answers to the loads of the last second or two, not to this instant's alone.
       const qm = qa[e] + (qe - qa[e]) * al;
       qa[e] = qm;
-      dcs[e] = qm * invHs[e];
-      qs += qe * xe; xs += xe;
+      dcs[e] = (NOW * qe + (1 - NOW) * qm) * invHs[e];
+      const w = xe * xe * xe;
+      qs += w * Math.log(qe + 1e-12); xs += w;
     }
   }
-  P.lam += (qs / (xs + 1e-9) - P.lam) * (P.lam > 0 ? 0.2 : 1);
+  // lam is the typical q on the struts, a weighted geometric mean; the glow reads against it.
+  const lg = qs / xs;
+  P.lam = P.lam > 0 ? exp(Math.log(P.lam) + (lg - Math.log(P.lam)) * 0.3) : exp(lg);
   // B = the filtered sensitivity over the filtered volume sensitivity, and the update x * sqrt(B / lambda),
   // held to the move limit; lambda is found by bisection so that the filtered volume is the share asked for.
   let sm = 0;
@@ -498,14 +503,35 @@ function setLoads(P) {
     const n = NXP + i + 1;
     f[2 * n] = 0; f[2 * n + 1] = 0;
   }
+  for (let j = 0; j <= NY; j++) {
+    const n = (j + 1) * NXP + 1, n2 = n + NX;
+    f[2 * n] = 0; f[2 * n + 1] = 0; f[2 * n2] = 0; f[2 * n2 + 1] = 0;
+  }
   const tl = P.tl;
+  // Muscle pulls: a push inward on the left edge and another on the right, at heights that wander, that come and go.
+  for (let m = 0; m < 2; m++) {
+    const ch = 30 + m * 7, sgn = m === 0 ? 1 : -1;
+    const yc = NY * (0.14 + 0.58 * (0.5 + 0.5 * cl(1.15 * wander(tl / 6.5 + m * 23.7, ch), -1, 1)));
+    const mag = P.sideMix * cl(0.3 + 0.5 * wander(tl / 8 + m * 4.4, ch + 1), 0, 0.7);
+    const ph = 0.6 * wander(tl / 4.1 + m * 6.3, ch + 2);
+    const sg = 1.6, lo = max(0, floor(yc - 4)), hi = min(NY, Math.ceil(yc + 4));
+    let ws = 0;
+    for (let j = lo; j <= hi; j++) ws += exp(-((j - yc) * (j - yc)) / (2 * sg * sg));
+    for (let j = lo; j <= hi; j++) {
+      const w = mag * exp(-((j - yc) * (j - yc)) / (2 * sg * sg)) / ws;
+      const n = (j + 1) * NXP + 1 + (m === 0 ? 0 : NX);
+      f[2 * n] += sgn * w * cos(ph); f[2 * n + 1] += w * sin(ph);
+    }
+  }
   for (let m = 0; m < NLOADS; m++) {
     const ch = 10 + m * 7;
     // The first load may stand anywhere on the edge, the second keeps to the left part and the third to the right.
     const u01 = 0.5 + 0.5 * cl(1.15 * wander(tl / 5.0 + m * 17.3, ch), -1, 1);
-    const xc = 2 + (NX - 4) * (m === 0 ? 0.25 + 0.5 * u01 : m === 1 ? 0.4 * u01 : 0.6 + 0.4 * u01);
-    const th = cl(1.2 * wander(tl / 3.6 + m * 9.1, ch + 1), -1.2, 1.2);
-    const mag = (1 - 0.3 * m) * (0.85 + 0.15 * wander(tl / 11 + 3.3 + m, ch + 2));
+    const xc0 = 2 + (NX - 4) * (m === 0 ? 0.25 + 0.5 * u01 : m === 1 ? 0.4 * u01 : 0.6 + 0.4 * u01);
+    // Before the first frame the loads start spread evenly and slide over to where they wander.
+    const th0 = cl(1.3 * wander(tl / 3.6 + m * 9.1, ch + 1), -1.3, 1.3);
+    const xc = mix(xc0, SEED_X[m], P.seedMix), th = mix(th0, SEED_TH[m], P.seedMix);
+    const mag = m === 0 ? 1 : cl(0.7 + 0.5 * wander(tl / 9 + 3.3 + m, ch + 2), 0.35, 1);
     const sg = 1.5;
     let ws = 0;
     const lo = max(0, floor(xc - 4)), hi = min(NX, Math.ceil(xc + 4));
@@ -518,19 +544,20 @@ function setLoads(P) {
     }
   }
 }
-// Three feet at the bottom edge. Each drifts on a slow sequence of its own; the nodes in reach of a foot are pinned.
+// Four feet at the bottom edge. Each drifts on a slow sequence of its own, and each has a width of its own that
+// changes too; the nodes in reach of a foot are pinned.
 function setFeet(P) {
   const tf = P.tf;
-  const home = [0.17, 0.5, 0.83], sway = [0.12, 0.14, 0.12];
-  const cen = [];
-  let key = '';
-  for (let m = 0; m < 3; m++) {
-    const c = NX * (home[m] + sway[m] * cl(1.1 * wander(tf / 17 + m * 5.7, 40 + m), -1, 1));
-    cen.push(c);
+  const home = [0.1, 0.37, 0.63, 0.9], sway = [0.1, 0.13, 0.13, 0.1];
+  const cen = [], rad = [];
+  for (let m = 0; m < 4; m++) {
+    cen.push(NX * (home[m] + sway[m] * cl(1.1 * wander(tf / 17 + m * 5.7, 40 + m), -1, 1)));
+    rad.push(1.5 + 0.6 * wander(tf / 31 + m * 3.1, 50 + m));
   }
   const mark = new Uint8Array(NX + 1);
+  let key = '';
   for (let i = 0; i <= NX; i++) {
-    for (let m = 0; m < 3; m++) if (abs(i - cen[m]) <= 1.7) mark[i] = 1;
+    for (let m = 0; m < 4; m++) if (abs(i - cen[m]) <= rad[m]) mark[i] = 1;
     key += mark[i];
   }
   if (key === P.fixKey) return false;
@@ -563,8 +590,8 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   const tint = cl(kv[0], 0, 1), load = cl(kv[1], 0.2, 4), mat = cl(kv[2], -1, 1), feat = cl(kv[3], -1, 1);
   const rate = load < 2 ? 0.1 + 0.9 * (load - 0.2) / 1.8 : 1 + (load - 2) / 2;
-  const vfT = mat < 0 ? 0.30 + 0.15 * mat : 0.30 + 0.25 * mat;
-  const rT = feat < 0.06 ? 1.6 + 0.3 * (feat - 0.06) / 1.06 : 1.6 + 1.4 * (feat - 0.06) / 0.94;
+  const vfT = 0.35 + 0.20 * mat;
+  const rT = feat < 0.06 ? 1.5 + 0.25 * (feat - 0.06) / 1.06 : 1.5 + 1.5 * (feat - 0.06) / 0.94;
   if (!P.ready) {
     P.ready = true;
     P.vf = vfT; P.rmin = rT;
@@ -574,14 +601,17 @@ export function update(dt, input, P) {
       for (let i = 0; i < NX; i++) P.x[(j + RP) * EW + i + RP] = cl(vfT + 0.06 * (Math.random() - 0.5), XMIN, 1);
     applyFilter(P);
     for (let it = 0; it < PRE_ITERS; it++) {
-      P.tl += 0.09; P.tf += 0.09;
+      P.tl += 0.11; P.tf += 0.11;
       P.pen = 1.6 + 1.4 * smooth(it / (PRE_ITERS * 0.8));
+      P.seedMix = 1 - smooth(it / (PRE_ITERS * 0.75));
+      P.sideMix = smooth(it / (PRE_ITERS * 0.75));
       setLoads(P); setFeet(P);
       assemble(P);
       cgStart(P);
-      cgRun(P, it < 3 ? 40 : PRE_CG);
+      cgRun(P, it < 2 ? 40 : it < 30 ? 5 : 9);
       ocStep(P, vfT, it < PRE_ITERS * 0.6 ? 0.3 : MOVE);
     }
+    P.seedMix = 0; P.sideMix = 1;
     glowTargets(P);
     P.gl.set(P.tg);
     P.gh.set(P.xp);
@@ -592,7 +622,7 @@ export function update(dt, input, P) {
   P.tl += d * rate; P.tf += d;
   // The share of material and the filter radius glide to their knobs.
   const k = 1 - exp(-d / 0.2);
-  P.vf += (vfT - P.vf) * k;
+  P.vf += (vfT * (1 + 0.2 * wander(P.t / 45 + 9, 78)) - P.vf) * k;
   P.rmin += (rT - P.rmin) * k;
   // A design cycle takes CYC frames. At its start the loads and the feet move, the filter is rebuilt if the
   // feature size has moved, the stiffness is assembled and the solve is restarted; the solve goes on over the
@@ -680,12 +710,12 @@ function render(P, tint) {
   interp(P, P.hl, hL);
   interp(P, P.gh, kL);
   const hue = 0.53 + 0.40 * tint;
-  // The colour of a strut by how hard it is working: cool and pale, ivory, warm and pale.
-  const cool = hsv(hue, 0.42, 1.0), warm = hsv(hue + 0.47, 0.5, 1.0), ivory = [0.98, 0.945, 0.87];
+  // The colour of a strut by how hard it is working: cool and pale, ivory, warm and pale. Ivory sits at 0.58.
+  const cool = hsv(hue, 0.32, 1.0), warm = hsv(hue + 0.55, 0.42, 1.0), ivory = [0.98, 0.945, 0.87];
   for (let i = 0; i <= 64; i++) {
     const t = i / 64;
     for (let c = 0; c < 3; c++)
-      pal[i * 3 + c] = 255 * (t < 0.5 ? mix(cool[c], ivory[c], smooth(t * 2)) : mix(ivory[c], warm[c], smooth(t * 2 - 1)));
+      pal[i * 3 + c] = 255 * (t < 0.58 ? mix(cool[c], ivory[c], smooth(t / 0.58)) : mix(ivory[c], warm[c], smooth((t - 0.58) / 0.42)));
   }
   const vd = hsv(hue, 0.9, 0.17), vh = hsv(hue, 0.65, 0.6), vg = hsv(hue + 0.04, 0.6, 0.5);
   const TH = 0.42, WD = 0.17;
