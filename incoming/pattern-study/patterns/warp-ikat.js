@@ -25,12 +25,12 @@ const SEED = 226226;
 
 // The cloth is a function of one cloth coordinate q along the warp (q = y + 0.5 - S, where S is how far the
 // weaving has gone) and of the thread x. Nothing is stored along the cloth, so it never runs out and never comes round.
-const ZL = 88;     // zones of cloth run 0.45 to 1.55 of this many LEDs, each with its own motif and dyes
+const ZL = 72;     // zones of cloth run 0.45 to 1.55 of this many LEDs, each with its own motif and dyes
 const EL = 110;    // one chance of a slipped bundle in each block of this many LEDs
 const WLEN = 31;   // wavelength of the slow walk of a thread's own misregistration, LEDs
 
 // Ivory, ochre, madder, indigo.
-const BASE = [[214, 200, 168], [208, 150, 50], [164, 42, 48], [30, 46, 122]];
+const BASE = [[212, 200, 174], [208, 150, 50], [164, 42, 48], [30, 46, 122]];
 // Ground, then the three dyes laid over it: big figure, inner figure, centre.
 const SCH = [
   [0, 3, 2, 1], [0, 2, 3, 0], [3, 0, 2, 1], [3, 0, 1, 2], [0, 3, 1, 2],
@@ -124,7 +124,7 @@ function zoneAt(P, s) {
 }
 
 // Border stripes, in units u of a LED: start, end for each dye.
-const BS = [[1.6, 5.0], [7.0, 9.4], [11.4, 14.0]];
+const BS = [[1.6, 5.4], [7.4, 10.4], [12.4, 15.6]];
 const stripe = (y, a, b, w) => sm3((y - a) / w + 0.5) * sm3((b - y) / w + 0.5);
 
 // Soft edge: 1 where t > D, 0 where t < D, over a width 2w in D.
@@ -144,7 +144,7 @@ export function setup(P) {
   const r = new Float32Array(W + 2);
   for (let i = 0; i < W + 2; i++) r[i] = 2 * P.rand() - 1;
   P.b0 = new Float32Array(W);
-  for (let x = 0; x < W; x++) P.b0[x] = cl(0.5 * r[x + 1] + 0.25 * (r[x] + r[x + 2]), -1, 1) * 1.3;
+  for (let x = 0; x < W; x++) P.b0[x] = cl(0.62 * r[x + 1] + 0.19 * (r[x] + r[x + 2]), -1, 1) * 1.15;
   P.bl = new Float32Array(W * 3);
   for (let i = 0; i < W * 3; i++) P.bl[i] = 2 * P.rand() - 1;
   P.tb = new Float32Array(W);
@@ -153,7 +153,7 @@ export function setup(P) {
   P.S = 0;
   for (let k = 0; k < 200; k++) {
     const z = makeZone(P, k), z1 = makeZone(P, k + 1);
-    if (z.type === 0 && z.sch[0] === 0 && z.border && z1.zs - z.zs >= 90) {
+    if (z.type === 0 && z.sch[0] === 0 && z.border && z1.zs - z.zs >= 76) {
       P.S = 3 - z.zs;
       break;
     }
@@ -182,7 +182,7 @@ export function update(dt, input, P) {
   const row = P.row;
   for (let y = 0; y < H; y++) {
     const q = y + 0.5 - P.S;
-    row[y * 4] = 1 + 0.03 * sin(q * 2.03 + 0.7) + 0.022 * sin(q * 1.19 + 2.1) + 0.03 * vn(0, q / 8.9, P.salt);
+    row[y * 4] = 1 + 0.04 * sin(q * 2.03 + 0.7) + 0.03 * sin(q * 1.19 + 2.1) + 0.04 * vn(0, q / 8.9, P.salt);
     row[y * 4 + 1] = 1 + 0.1 * sin(q * 2 * PI / 97 + 0.4) + 0.07 * sin(q * 2 * PI / 163 + 2.6);
     row[y * 4 + 2] = 0.08 * sin(q * 2 * PI / 131 + 1.9) + 0.05 * sin(q * 2 * PI / 211 + 0.3);
   }
@@ -214,11 +214,11 @@ export function update(dt, input, P) {
 
 // The colour of one zone at depth ys into it, thread offset xl LEDs from the middle. d1..d3 are the extra
 // offsets of the three dyes. Writes into out.
-function zoneColor(P, z, xl, ys, d1, d2, d3, mxs, yw, out) {
+function zoneColor(P, z, xl, ys, d1, d2, d3, mxs, yw, rel, out) {
   const pal = P.pal, sch = z.sch;
   const cwz = P.cw * z.cwm * mxs, chz = cwz * z.asp;
   const u = cwz / 16;
-  const bw = z.border ? 15.5 * u : 0;
+  const bw = z.border ? 17.5 * u : 0;
   const X = xl / cwz + z.px;
   let r = pal[sch[0] * 3], g = pal[sch[0] * 3 + 1], b = pal[sch[0] * 3 + 2];
   const type = z.type;
@@ -231,7 +231,7 @@ function zoneColor(P, z, xl, ys, d1, d2, d3, mxs, yw, out) {
     let mask = 0;
     const lb = ym - bw;
     // border stripes
-    if (ym < bw) mask = stripe(ym, BS[m - 1][0] * u, BS[m - 1][1] * u, 0.8);
+    if (ym - rel < bw) mask = stripe(ym - rel, BS[m - 1][0] * u, BS[m - 1][1] * u, 0.8);
     const gate = sm3(lb / 1.5 + 0.5);
     if (gate > 0) {
       const Y = lb / chz + 0.5 + yw;
@@ -239,7 +239,7 @@ function zoneColor(P, z, xl, ys, d1, d2, d3, mxs, yw, out) {
       let lm = 0;
       if (type === 0) {
         const D = (tx + ty) * 0.5;
-        lm = m === 1 ? edge(0.46, D, wd) : m === 2 ? edge(0.27, D, wd) : max(edge(0.11, D, wd), edge(D, 0.84, wd));
+        lm = m === 1 ? edge(0.46, D, wd) : m === 2 ? edge(0.27, D, wd) : max(edge(0.11, D, wd), edge(D, 0.8, wd));
       } else if (type === 1) {
         // slanted bars: stripes that lean one way across a cell of cloth, cut off square at each end, each row a step over
         const f = fr(Y), sl = z.amp + 0.5;
@@ -281,7 +281,8 @@ export function draw(display, P) {
     for (let x = 0; x < W; x++) {
       const p = y * W + x;
       const wk = vn(x + 100, q / WLEN, P.salt);
-      const d0 = A * (0.8 * b0[x] + 0.3 * wk) + evy[p];
+      const dth = A * (b0[x] + 0.3 * wk), rel = 0.55 * dth;
+      const d0 = dth + evy[p];
       const s0 = q + d0;
       const z = zoneAt(P, s0);
       const xl = x + 0.5 - 32 + evx[p];
@@ -292,11 +293,11 @@ export function draw(display, P) {
       let zA = z, zB = z, w = 1;
       if (zn.zs !== z.zs) { zB = zn; w = sm3((s0 - zn.zs) / 1.8 + 0.5); }
       else if (ys < 0.9) { zA = zoneAt(P, z.zs - 0.01); w = sm3(ys / 1.8 + 0.5); }
-      zoneColor(P, zB, xl, s0 - zB.zs, d1, d2, d3, mxs, yw, col);
+      zoneColor(P, zB, xl, s0 - zB.zs, d1, d2, d3, mxs, yw, rel, col);
       let r = col[0], g = col[1], b = col[2];
       if (zA.zs !== zB.zs) {
         const c2 = P.col2;
-        zoneColor(P, zA, xl, s0 - zA.zs, d1, d2, d3, mxs, yw, c2);
+        zoneColor(P, zA, xl, s0 - zA.zs, d1, d2, d3, mxs, yw, rel, c2);
         r = c2[0] + (r - c2[0]) * w; g = c2[1] + (g - c2[1]) * w; b = c2[2] + (b - c2[2]) * w;
       }
       const f = wf * tb[x] * (1 + 0.03 * wk);
