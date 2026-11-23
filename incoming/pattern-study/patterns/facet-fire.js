@@ -98,7 +98,7 @@ export function setup(P) {
   P.rj = new Float64Array(NV);
   for (let p = 0; p < NV; p++) {
     P.jit[p] = 0.3 * (hash(p * 3.7 + 1.3) * 2 - 1);
-    P.rj[p] = 0.06 * (hash(p * 5.1 + 9.9) * 2 - 1);
+    P.rj[p] = 0.08 * (hash(p * 5.1 + 9.9) * 2 - 1);
   }
   P.a2 = 6.28 * hash(4.4);
   P.a3 = 6.28 * hash(8.8);
@@ -112,7 +112,7 @@ function buildPoly(P, n, cx, cy, R) {
   const nf = floor(n), wp = n - nf;
   for (let p = 0; p < NV; p++) {
     const phi = ((p + jit[p] + 0.14 * wander(t / 17 + p * 1.9, 40 + p)) * TAU) / NV;
-    const rr = R * (1 + 0.22 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.06 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
+    const rr = R * (1 + 0.22 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.09 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
     const lx = rr * cos(phi), ly = rr * sin(phi) * 1.12;
     px[p] = cx + lx * ct - ly * st;
     py[p] = cy + lx * st + ly * ct;
@@ -388,16 +388,17 @@ export function update(dt, input, P) {
   // The polygon turns about once in two minutes, a little faster and slower on a random
   // sequence, sways about the middle and breathes.
   P.theta += d * (0.05 + 0.03 * wander(t / 23 + 1.7, 11));
-  const cx = 32 + 2.5 * wander(t / 21 + 5.2, 12), cy = 60 + 3.5 * wander(t / 26 + 2.9, 13);
-  const R = 18 * (1 + 0.05 * wander(t / 19 + 0.4, 14));
+  const cx = 32 + 6 * wander(t / 37 + 5.2, 12) + 1.5 * wander(t / 11 + 4.1, 15), cy = 62 + 11 * wander(t / 43 + 2.9, 13) + 2 * wander(t / 13 + 0.3, 16);
+  const R = 17.5 * (1 + 0.16 * wander(t / 31 + 0.4, 14) + 0.04 * wander(t / 9.3 + 6.6, 17));
   buildPoly(P, 11 + 5 * k4, cx, cy, R);
 
   // The beam comes from the upper left; its angle sweeps through about 80 degrees on a
   // random sequence, and it slides across the polygon.
-  const ang = 1.25 + 0.6 * wander(t / 29 + 3.1, 1) + 0.2 * wander(t / 8.3 + 7.7, 2);
+  const ang = 1.2 + 0.5 * wander(t / 41 + 3.1, 1) + 0.3 * wander(t / 17 + 1.1, 18) + 0.15 * wander(t / 6.1 + 7.7, 2);
   const dx = cos(ang), dy = sin(ang);
   const nx = -dy, ny = dx;
-  const off = 0.3 * R * wander(t / 19 + 8.8, 3);
+  const off = 0.5 * R * wander(t / 19 + 8.8, 3);
+  const gap = STRAND * (1 + 0.3 * wander(t / 53 + 2.2, 19));
   const ns = 3 + 2 * k3;
   const qx = cx + nx * off - dx * 170, qy = cy + ny * off - dy * 170;
 
@@ -412,7 +413,7 @@ export function update(dt, input, P) {
   for (let i = 0; i < 6; i++) {
     const wt = cl(ns - i, 0, 1);
     if (wt <= 0) continue;
-    const o = (i - (ns - 1) / 2) * STRAND;
+    const o = (i - (ns - 1) / 2) * gap;
     strand(P, qx + nx * o, qy + ny * o, dx, dy, wt);
   }
 
