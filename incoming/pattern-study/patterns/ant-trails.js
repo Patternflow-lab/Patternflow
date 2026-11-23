@@ -85,7 +85,7 @@ export function setup(P) {
   P.pcap = F32(NSL); P.prate = F32(NSL); P.pcool = F32(NSL); P.pq = F32(NSL); P.pfade = F32(NSL); P.pw = F32(NSL); P.phue = F32(NSL); P.pflash = F32(NSL);
   P.rk = [];
   P.recent = [];
-  P.gacc = 0; P.rtimer = 0;
+  P.gacc = 0; P.rtimer = 0; P.hd = 0;
   P.nest = 0;
   P.refF = 1; P.refH = 1;
   P.nA = 100; P.nf = 3; P.tau = 14;
@@ -104,7 +104,7 @@ export function setup(P) {
       }
     }
   P.ob = F32(W * H * 3);
-  P.cF = [0, 0, 0]; P.cH = [0, 0, 0]; P.cN = [0, 0, 0]; P.cR = [0, 0, 0]; P.cG = [0, 0, 0];
+  P.cF = [0, 0, 0]; P.cH = [0, 0, 0]; P.cN = [0, 0, 0]; P.cR = [0, 0, 0];
 }
 
 // ---- rocks -------------------------------------------------------------------
@@ -142,7 +142,7 @@ function newRock(P, r, first) {
   const va = rr(0, TAU), vs = rr(0.02, 0.07);
   r.vx = cos(va) * vs; r.vy = sin(va) * vs;
   r.state = first ? 1 : 0; r.s = first ? 1 : 0;
-  r.life = rr(70, 190);
+  r.life = rr(35, 95);
 }
 
 function stepRocks(P, dt) {
@@ -215,8 +215,8 @@ function sdfAt(SD, x, y) {
 // ---- food patches --------------------------------------------------------------
 function spawnPatch(P, s) {
   const rate = rr(0.8, 1.35) * (0.55 + P.nA / 160);
-  const cap = cl(rr(40, 110) * rate * 0.8, 24, 400);
-  const pr = cl((2.2 + 2.2 * sqrt(cap / 120)) * rr(0.88, 1.12), 2.6, 5);
+  const cap = cl(rr(16, 55) * rate * 0.8, 16, 400);
+  const pr = cl((2.2 + 2.2 * sqrt(cap / 90)) * rr(0.88, 1.12), 2.7, 5);
   let bx = 20, by = 30, best = -1;
   for (let tries = 0; tries < 20; tries++) {
     const m = 3.5 + pr;
@@ -406,6 +406,7 @@ const tauGain = (tau) => pow(tau / 14, 0.7) * 1.2;
 // ---- advance -----------------------------------------------------------------
 function advance(P, dt) {
   P.t += dt;
+  P.hd += dt / 140;
   P.nest *= exp(-dt * 2.2);
   P.rtimer -= dt;
   stepPatches(P, dt);
@@ -434,6 +435,7 @@ export function update(dt, input, P) {
     // a rock may have been placed before the food, so settle them against each other
     buildSdf(P);
     for (let k = 0; k < 1200; k++) advance(P, 0.07);
+    P.hd = 0;
   }
   advance(P, d);
 }
@@ -452,9 +454,9 @@ function splat(ob, lx, ly, rad, soft, r, g, b, k) {
 }
 
 export function draw(display, P) {
-  const { F, Hh, SD, ob, tI, tS, tX, tY, T1, T2, cF, cH, cN, cR, cG } = P;
-  const h0 = 0.02 + P.hue;
-  pal(h0 + 0.14, cH); pal(h0 + 0.70, cF); pal(h0 + 0.40, cN); pal(h0 + 0.30, cR); pal(h0 + 0.2, cG);
+  const { F, Hh, SD, ob, tI, tS, tX, tY, T1, T2, cF, cH, cN, cR } = P;
+  const h0 = 0.02 + P.hue + P.hd;
+  pal(h0 + 0.14, cH); pal(h0 + 0.70, cF); pal(h0 + 0.40, cN); pal(h0 + 0.30, cR);
   ob.fill(0);
   const tw = 0.5 + 0.5 * sin(P.t * 0.071);
   const thF = 0.03 * P.refF, thH = 0.03 * P.refH, nrF = 1 / P.refF, nrH = 1 / P.refH;
@@ -527,9 +529,9 @@ export function draw(display, P) {
       const I = tot > 0 ? 0.82 * (1 - exp(-1.5 * tot)) * smooth(tot / (0.1 + 0.3 * ratio)) : 0;
       const hp = (((h0 + 0.14 + 0.56 * ratio) % 1) * 1024 | 0) & 1023, pi = hp * 3;
       const wv = 0;
-      let r = cG[0] * gl + PL[pi] * I + wv;
-      let g = cG[1] * gl + PL[pi + 1] * I + wv;
-      let b = cG[2] * gl + PL[pi + 2] * I + wv + 0.035 * g0;
+      let r = (0.42 - 0.3 * g0) * gl + PL[pi] * I + wv;
+      let g = (0.3 + 0.5 * g0) * gl + PL[pi + 1] * I + wv;
+      let b = (1.0 - 0.1 * g0) * gl + PL[pi + 2] * I + wv + 0.035 * g0;
       if (sd < 3) {
         const cover = cl(0.5 - sd * 1.2, 0, 1);
         if (sd < 2) {
