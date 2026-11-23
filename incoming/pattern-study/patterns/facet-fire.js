@@ -36,15 +36,16 @@ const RANK = new Int32Array(NV);
 for (let i = 0; i < NV; i++) RANK[ORDER[i]] = i;
 
 const R0 = 2.05; // ribbon radius, LEDs: 2.2 LEDs wide at half height
-const GROW = 0.012; // the ribbon widens by this much per LED of path after the first face
+const GROW = 0.028; // the ribbon widens by this much per LED of path after the first face
 const ALPHA = 0.016; // the glass takes this fraction of a ray per LED of path inside
 const EPS = 0.02; // a ray fainter than this is dropped
 const DMAX = 8; // faces a ray may meet
 const STRAND = 5.2; // LEDs between strands of the beam
-const WB = 0.34; // brightness of the white beam
+const WB = 0.4; // brightness of the white beam
 const RG = 0.85; // brightness of a coloured ray
 const GAIN = 1.5;
-const WSUP = 0.45; // how much a ray that is nearly white is held back against a coloured one
+const AURA = 0.16; // a soft sleeve round the white beam, in the colour of the Hue knob
+const WSUP = 0.65; // how much a ray that is nearly white is held back against a coloured one
 const NSTACK = 400;
 
 const hash = (n) => {
@@ -68,7 +69,8 @@ function hsv(h, s, v) {
 }
 
 export function setup(P) {
-  P.t = 0;
+  // The random sequences are read from a clock that opens at 36 s, where the picture is busy.
+  P.t = 36;
   P.theta = 0.7;
   P.ar = new Float32Array(NPIX);
   P.ag = new Float32Array(NPIX);
@@ -92,6 +94,7 @@ export function setup(P) {
   P.ht = 0;
   P.idx = new Float64Array(NL);
   P.col = new Float64Array(NL * 3);
+  P.tint = new Float64Array(6);
   // A stack of faces still to be met: x, y, dx, dy, intensity, colour, depth, edge, path.
   P.st = new Float64Array(NSTACK * 9);
   P.jit = new Float64Array(NV);
@@ -100,6 +103,7 @@ export function setup(P) {
     P.jit[p] = 0.3 * (hash(p * 3.7 + 1.3) * 2 - 1);
     P.rj[p] = 0.08 * (hash(p * 5.1 + 9.9) * 2 - 1);
   }
+  P.a1 = 6.28 * hash(2.2);
   P.a2 = 6.28 * hash(4.4);
   P.a3 = 6.28 * hash(8.8);
 }
@@ -112,7 +116,7 @@ function buildPoly(P, n, cx, cy, R) {
   const nf = floor(n), wp = n - nf;
   for (let p = 0; p < NV; p++) {
     const phi = ((p + jit[p] + 0.14 * wander(t / 17 + p * 1.9, 40 + p)) * TAU) / NV;
-    const rr = R * (1 + 0.22 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.09 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
+    const rr = R * (1 + 0.12 * sin(phi + P.a1) + 0.2 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.09 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
     const lx = rr * cos(phi), ly = rr * sin(phi) * 1.12;
     px[p] = cx + lx * ct - ly * st;
     py[p] = cy + lx * st + ly * ct;
@@ -202,6 +206,7 @@ function ribbon(P, x0, y0, ux, uy, L, I0, I1, r0, r1, cr, cg, cb, hasPrev, hasNe
   if (i0 < 0) i0 = 0;
   if (i1 > amax - 1) i1 = amax - 1;
   const hb = rmax / abs(ua), slope = ub / ua, iL = 1 / (L > 1e-3 ? L : 1e-3);
+  const g0 = pow(R0 / r0, 0.6), g1 = pow(R0 / r1, 0.6);
   for (let ai = i0; ai <= i1; ai++) {
     const da = ai + 0.5 - a0, bc = b0 + da * slope;
     let j0 = Math.ceil(bc - hb - 0.5), j1 = floor(bc + hb - 0.5);
@@ -222,7 +227,7 @@ function ribbon(P, x0, y0, ux, uy, L, I0, I1, r0, r1, cr, cg, cb, hasPrev, hasNe
       ws = ws < 0 ? 0 : ws > 1 ? 1 : ws;
       let we = hasNext ? 0.5 - (u - L) * 0.5 : (L - u) / 1.2;
       we = we < 0 ? 0 : we > 1 ? 1 : we;
-      const k = (I0 + (I1 - I0) * f) * p * ws * we * (R0 / rr);
+      const k = (I0 + (I1 - I0) * f) * p * ws * we * (g0 + (g1 - g0) * f);
       const idx = steep ? ai * W + bi : bi * W + ai;
       ar[idx] += k * cr;
       ag[idx] += k * cg;
@@ -255,7 +260,7 @@ function spot(P, x, y, rad, amp, cr, cg, cb) {
 
 const rw = (sp) => {
   const w = R0 + GROW * sp;
-  return w > R0 * 1.5 ? R0 * 1.5 : w;
+  return w > R0 * 2.3 ? R0 * 2.3 : w;
 };
 
 // One strand of the beam. It is drawn white up to the first face; there it splits into the
@@ -264,7 +269,9 @@ const rw = (sp) => {
 function strand(P, sx, sy, dx, dy, wt) {
   const e0 = firstHit(P, sx, sy, dx, dy, -1);
   const L0 = e0 >= 0 ? P.ht : 500;
-  ribbon(P, sx, sy, dx, dy, L0, WB * wt, WB * wt, R0, R0, 1, 1, 1, false, e0 >= 0);
+  const { tint } = P;
+  ribbon(P, sx, sy, dx, dy, L0, WB * wt, WB * wt, R0, R0, tint[0], tint[1], tint[2], false, e0 >= 0);
+  ribbon(P, sx, sy, dx, dy, L0, AURA * wt, AURA * wt, 3.8, 3.8, tint[3], tint[4], tint[5], false, e0 >= 0);
   if (e0 < 0) return;
   const { st, col, idx, NX, NY, EX, EY } = P;
   const hx0 = sx + dx * L0, hy0 = sy + dy * L0;
@@ -368,16 +375,22 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   P.t += d;
   const t = P.t;
-  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.1, 3), k3 = cl(kv[2], 0, 1), k4 = cl(kv[3], -1, 1);
+  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.1, 3), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
 
   // Indices of the seven colours, the middle one held at N0 whatever B is.
-  const B = 0.2 * pow(k2 / 3, 1.4);
+  const B = 0.25 * pow(k2 / 3, 1.4);
   for (let j = 0; j < NL; j++) P.idx[j] = N0 + B * (1 / (LAM[j] * LAM[j]) - 1 / (LAM0 * LAM0));
   for (let j = 0; j < NL; j++) {
     const c = hsv(HUE[j] / 360 + k1, 1, 1);
     P.col[j * 3] = c[0];
     P.col[j * 3 + 1] = c[1];
     P.col[j * 3 + 2] = c[2];
+  }
+  // The beam is white with a trace of the knob's colour, and a sleeve of that colour round it.
+  const tc = hsv(0.55 + k1, 0.18, 1), ta = hsv(0.55 + k1, 1, 1);
+  for (let c = 0; c < 3; c++) {
+    P.tint[c] = tc[c];
+    P.tint[3 + c] = ta[c];
   }
   // The seven colours add up to white: each channel is scaled so that the three sums agree.
   const sm = [0, 0, 0];
