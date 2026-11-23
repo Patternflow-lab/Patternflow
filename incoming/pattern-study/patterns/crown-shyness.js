@@ -48,8 +48,8 @@ function wander(t, ch) {
 // Five stops each: deep, dark, mid, lit, sunlit.
 const SEASONS = [
   [[6, 80, 78], [16, 118, 72], [58, 168, 60], [150, 222, 68], [226, 250, 114]],
-  [[22, 104, 56], [84, 158, 42], [158, 196, 40], [210, 230, 70], [244, 252, 132]],
-  [[128, 108, 8], [184, 146, 10], [232, 184, 22], [252, 220, 70], [255, 245, 150]],
+  [[28, 112, 52], [96, 166, 40], [168, 204, 40], [216, 234, 72], [246, 253, 134]],
+  [[162, 136, 8], [206, 162, 10], [240, 192, 24], [254, 224, 76], [255, 246, 156]],
 ];
 const SKY0 = [198, 228, 252], SKY1 = [236, 249, 255], SKYSUN = [255, 250, 228];
 
@@ -94,6 +94,7 @@ export function setup(P) {
   P.lo = f(NT); P.cand = new Int32Array(NT); P.tn = f(NT);
   P.i1a = new Int16Array(NPX); P.i2a = new Int16Array(NPX); P.sva = new Float32Array(NPX);
   P.q1a = new Float32Array(NPX); P.q2a = new Float32Array(NPX);
+  P.alp = new Float32Array(NPX); P.alt = new Float32Array(NPX); P.lf = new Float32Array(NPX * 3);
   P.out = new Uint8Array(NPX * 3);
   P.evT = 40;
   // Trees by best candidate: each new one goes where it is furthest from the ones before it.
@@ -264,7 +265,7 @@ export function update(dt, input, P) {
 }
 
 function render(P, kv, season, wind, gapk) {
-  const { px, py, ox, oy, rr, amp, lcr, lci, lo, cand, out, ramp: RAMP, tA, tB, tC, tD, i1a, i2a, sva, q1a, q2a, tn } = P;
+  const { px, py, ox, oy, rr, amp, lcr, lci, lo, cand, out, ramp: RAMP, tA, tB, tC, tD, i1a, i2a, sva, q1a, q2a, tn, lf } = P;
   const t = P.t;
   const l0r = lcr[0], l0i = lci[0], l1r = lcr[1], l1i = lci[1], l2r = lcr[2], l2i = lci[2];
   // How wide the sky is: half the width, in LEDs.
@@ -373,6 +374,7 @@ function render(P, kv, season, wind, gapk) {
         edge = smooth((g + 0.5 * n2 - hw) / 1.15 + 0.5);
       }
       const alpha = edge * cover;
+      P.alp[p] = alpha;
       // The sky.
       const sk = cl(0.5 + 1.1 * nz(tC, tD, xp / 40 + 9, yp / 40 + 4, cbC, cbS), 0, 1);
       let sr = mix(SKY0[0], SKY1[0], sk), sg = mix(SKY0[1], SKY1[1], sk), sb = mix(SKY0[2], SKY1[2], sk);
@@ -381,22 +383,39 @@ function render(P, kv, season, wind, gapk) {
       const e = min(1, sunS0 * exp(-(ax * ax + ay * ay)) + sunS1 * exp(-(bx2 * bx2 + by2 * by2)));
       const sw = 0.5 * e;
       sr = mix(sr, SKYSUN[0], sw); sg = mix(sg, SKYSUN[1], sw); sb = mix(sb, SKYSUN[2], sw);
-      let R = sr, G = sg, B = sb;
-      if (alpha > 0.004) {
+      const o = p * 3;
+      out[o] = sr; out[o + 1] = sg; out[o + 2] = sb;
+      if (cover > 0 && g + 0.5 * n2 - hw > -3) {
         const n3 = nz(tA, tB, lx / 3.8 + 5, ly / 3.8 + 23, cs[2], sn[2]);
         let m = cl(0.5 + 0.95 * (0.5 * n1 + 0.32 * n2 + 0.18 * n3), 0, 1);
         m = mix(m, smooth((m - 0.3) / 0.4), 0.55); // clumps with soft edges
         const gi = max(0, g - hw);
         const rim = 0.46 * exp(-gi * 0.55) * (1 + 1.1 * e);
-        const dome = 0.36 - 0.2 * smooth(g / (0.8 * q1));
+        const dome = 0.45 - 0.2 * smooth(g / (0.8 * q1));
         const dir = cl(((xp - px[i1]) * sdx + (yp - py[i1]) * sdy) / q1, -1, 1) * 0.1;
         let tl = rim + dome + (m - 0.5) * 0.8 + tn[i1] + 0.45 * e * (0.4 + 0.9 * m) + dir;
         tl = tl < 0 ? 0 : tl > 1 ? 1 : tl;
         const ri = ((tl * 255) | 0) * 3;
-        R = mix(sr, RAMP[ri], alpha); G = mix(sg, RAMP[ri + 1], alpha); B = mix(sb, RAMP[ri + 2], alpha);
+        lf[o] = RAMP[ri]; lf[o + 1] = RAMP[ri + 1]; lf[o + 2] = RAMP[ri + 2];
       }
-      const o = p * 3;
-      out[o] = R > 255 ? 255 : R; out[o + 1] = G > 255 ? 255 : G; out[o + 2] = B > 255 ? 255 : B;
+    }
+  // Pass three rounds the crowns: the leaf mask is blurred a pixel each way and cut again at one half, which
+  // takes the sharp corners off the polygons and leaves a straight edge where it was.
+  const { alp, alt } = P;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const p = y * W + x, l = x > 0 ? p - 1 : p, r = x < W - 1 ? p + 1 : p;
+      alt[p] = 0.25 * alp[l] + 0.5 * alp[p] + 0.25 * alp[r];
+    }
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const p = y * W + x, u = y > 0 ? p - W : p, d = y < H - 1 ? p + W : p;
+      const ab = 0.25 * alt[u] + 0.5 * alt[p] + 0.25 * alt[d];
+      const a = cl((ab - 0.5) * 1.8 + 0.5, 0, 1), o = p * 3;
+      if (a > 0.003) {
+        const R = out[o] + (lf[o] - out[o]) * a, G = out[o + 1] + (lf[o + 1] - out[o + 1]) * a, B = out[o + 2] + (lf[o + 2] - out[o + 2]) * a;
+        out[o] = R > 255 ? 255 : R; out[o + 1] = G > 255 ? 255 : G; out[o + 2] = B > 255 ? 255 : B;
+      }
     }
 }
 
