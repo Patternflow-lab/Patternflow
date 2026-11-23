@@ -29,9 +29,11 @@ const BLUR_R = 1;      // box radius, in cells, of each of the density blur pass
 const BLUR_N = 3;      // number of passes
 const VMAX = 16;       // LEDs a second
 const PEN = 3200;      // power-diagram weight that makes a region vanish
+const DRIFT = 5.5;     // LEDs the seeds wander from where they were placed
+const HWAN = 0.09;     // how far a region's hue wanders from its place in the palette
 const FLOOR = 0.012;   // least share of the panel a region is asked for
 const ARC = 0.6;       // share of the hue circle the regions' hues spread over
-const PRE = 50;        // seconds run before the first frame
+const PRE = 30;        // seconds run before the first frame, in steps of 0.2 s
 
 // ---- random numbers ----------------------------------------------------------
 function ihash(n) {
@@ -132,7 +134,7 @@ function buildReference(P) {
     used[bk] = 1; order.push(bk);
   }
   const inv = new Int32Array(K);
-  order.forEach((o, n) => { P.SX[n] = sx[o]; P.SY[n] = sy[o]; inv[o] = n; });
+  order.forEach((o, n) => { P.SX0[n] = sx[o]; P.SY0[n] = sy[o]; inv[o] = n; });
   // which regions touch (on the full map), then hues that put far-apart hues on neighbours
   const adj = new Uint8Array(K * K);
   for (let j = 0; j < NY; j++)
@@ -186,8 +188,10 @@ export function setup(P) {
   P.WXT = new Float32Array((NX + 1) * (NY + 1));
   P.WYT = new Float32Array((NX + 1) * (NY + 1));
   P.SX = new Float32Array(K); P.SY = new Float32Array(K);
+  P.SX0 = new Float32Array(K); P.SY0 = new Float32Array(K);
   P.slot = new Float32Array(K);
   P.pen = new Float32Array(K);
+  P.live = new Int32Array(K); P.nlive = 0;
   P.act = new Float32Array(K);
   P.fT = new Float32Array(K);   // target share of the panel
   P.area = new Float32Array(K); // area it has, as a share
@@ -200,7 +204,6 @@ export function setup(P) {
   P.M1 = new Float32Array(NC); P.GP = new Float32Array(NC); P.GS = new Float32Array(NC);
   P.S = new Float32Array(NC); P.S2 = new Float32Array(NC);
   P.VX = new Float32Array(NC); P.VY = new Float32Array(NC);
-  P.seen = new Int32Array(K); P.stamp = 0;
   for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { P.BX[j * NX + i] = (i + 0.5) * CS; P.BY[j * NX + i] = (j + 0.5) * CS; }
   buildReference(P);
   P.tv.fill(0.5);
@@ -213,19 +216,24 @@ function setTargets(P, nreg, g) {
   for (let k = 0; k < K; k++) {
     const act = cl(nreg - k, 0, 1);
     P.act[k] = act;
+    P.SX[k] = P.SX0[k] + DRIFT * wander(tp / 30 + k * 2.1, ep + k * 31 + 1);
+    P.SY[k] = P.SY0[k] + DRIFT * wander(tp / 30 + k * 1.3, ep + k * 31 + 2);
     P.pen[k] = PEN * (1 - act) * (1 - act);
     const z = 0.75 * wander(tp / 11 + k * 1.37, ep + k * 17) + 0.5 * wander(tp / 4.3 + k * 0.61, ep + k * 17 + 7);
     const m = act * act * act * exp(g * z);
     P.fT[k] = m;
     sum += m;
   }
+  let nl = 0;
+  for (let k = 0; k < K; k++) if (P.pen[k] < PEN * 0.95) P.live[nl++] = k;
+  P.nlive = nl;
   let n3 = 0;
   for (let k = 0; k < K; k++) n3 += P.act[k] * P.act[k] * P.act[k];
   for (let k = 0; k < K; k++) P.fT[k] = (P.fT[k] / sum) * (1 - FLOOR * n3) + FLOOR * P.act[k] * P.act[k] * P.act[k];
 }
 
 function simStep(P, dt) {
-  const { BX, BY, BX2, BY2, I1, I2, M1, GP, GS, SX, SY, pen, area, lr, S, S2, VX, VY } = P;
+  const { BX, BY, BX2, BY2, I1, I2, M1, GP, GS, SX, SY, pen, area, lr, S, S2, VX, VY, live, nlive } = P;
   area.fill(0);
   for (let j = 0; j < NY; j++) {
     const jm = j > 0 ? j - 1 : 0, jp = j < NY - 1 ? j + 1 : NY - 1;
@@ -235,8 +243,8 @@ function simStep(P, dt) {
       warp(P, bx, by);
       const ux = bx + wx_, uy = by + wy_;
       let d1 = 1e30, d2 = 1e30, i1 = 0, i2 = 0;
-      for (let k = 0; k < K; k++) {
-        const dx = ux - SX[k], dy = uy - SY[k], d = dx * dx + dy * dy + pen[k];
+      for (let q = 0; q < nlive; q++) {
+        const k = live[q], dx = ux - SX[k], dy = uy - SY[k], d = dx * dx + dy * dy + pen[k];
         if (d < d1) { d2 = d1; i2 = i1; d1 = d; i1 = k; } else if (d < d2) { d2 = d; i2 = k; }
       }
       const sx = SX[i2] - SX[i1], sy = SY[i2] - SY[i1], dd = sqrt(sx * sx + sy * sy) + 1e-6;
@@ -309,16 +317,16 @@ export function update(dt, input, P) {
   const kv = input.knobValues;
   const tide = kv[1], con = kv[2], reg = kv[3];
   P.hue = kv[0];
-  const rate = 0.25 + 0.55 * tide;
-  const g = 0.25 + 1.9 * Math.pow((con + 1) * 0.5, 1.2);
+  const rate = 0.55 + 0.5 * tide;
+  const g = 0.5 + 1.7 * Math.pow((con + 1) * 0.5, 1.2);
   const nreg = 8 + 14 * ((reg + 1) * 0.5);
   P.kappa = KAPPA * (0.75 + 0.25 * rate);
   if (!P.ready) {
     P.ready = true;
-    for (let s = 0; s < PRE * 10; s++) {
-      P.tp += 0.1 * rate;
+    for (let s = 0; s < PRE / 0.2; s++) {
+      P.tp += 0.2 * rate;
       setTargets(P, nreg, g);
-      simStep(P, 0.1);
+      simStep(P, 0.2);
     }
   }
   P.t += dt;
@@ -335,16 +343,18 @@ export function update(dt, input, P) {
     const tg = cl(0.5 + 0.5 * log(ratio) / 1.5, 0, 1);
     P.tv[k] += (tg - P.tv[k]) * ka;
     const t = P.tv[k];
-    const h = h0 + ARC * P.slot[k], hf = h - floor(h), hd = min(abs(hf - 0.11), 1 - abs(hf - 0.11));
+    const h = h0 + ARC * P.slot[k] + HWAN * wander(P.tp / 35 + k * 3.1, P.ep + k * 53 + 9), hf = h - floor(h), hd = min(abs(hf - 0.11), 1 - abs(hf - 0.11));
     const vlo = 0.44 + 0.3 * exp(-(hd / 0.11) * (hd / 0.11));
     hsv(h, 0.84 - 0.24 * t, vlo + (1 - vlo) * (0.25 + 0.75 * t), P.col, k * 3);
   }
 }
 
 // ---- draw --------------------------------------------------------------------
+const seen = new Int32Array(K), cand = new Int32Array(8), offs = new Int32Array(4);
 export function draw(display, P) {
-  const { I1, I2, GP, GS, SX, SY, pen, col, BX, BY, seen } = P;
-  const cand = [0, 0, 0, 0, 0, 0, 0, 0];
+  const { I1, I2, GP, GS, SX, SY, pen, col, BX, BY } = P;
+  seen.fill(0);
+  let stamp = 0;
   for (let y = 0; y < H; y++) {
     let v = (y + 0.5) / CS - 0.5;
     v = v < 0 ? 0 : v > NY - 1.001 ? NY - 1.001 : v;
@@ -365,10 +375,16 @@ export function draw(display, P) {
         const by = BY[o] * w00 + BY[o + 1] * w10 + BY[o + NX] * w01 + BY[o + NX + 1] * w11;
         warp(P, bx, by);
         const ux = bx + wx_, uy = by + wy_;
-        const st = ++P.stamp;
+        const st = ++stamp;
         let n = 0;
-        const t0 = [a, b, c, d, I2[o], I2[o + 1], I2[o + NX], I2[o + NX + 1]];
-        for (let q = 0; q < 8; q++) { const k = t0[q]; if (seen[k] !== st) { seen[k] = st; cand[n++] = k; } }
+        offs[0] = o; offs[1] = o + 1; offs[2] = o + NX; offs[3] = o + NX + 1;
+        for (let q = 0; q < 4; q++) {
+          const oo = offs[q];
+          let k = I1[oo];
+          if (seen[k] !== st) { seen[k] = st; cand[n++] = k; }
+          k = I2[oo];
+          if (seen[k] !== st) { seen[k] = st; cand[n++] = k; }
+        }
         let d1 = 1e30, d2 = 1e30, i1 = 0, i2 = 0;
         for (let q = 0; q < n; q++) {
           const k = cand[q], dx = ux - SX[k], dy = uy - SY[k], dd = dx * dx + dy * dy + pen[k];
