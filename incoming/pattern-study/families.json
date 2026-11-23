@@ -214,5 +214,10 @@
   "repeatarcs": { "label": "반복 호", "color": "#6fe3b5" },
   "opticalflow": { "label": "광학 흐름", "color": "#8bd3ff" },
   "cartogram": { "label": "카토그램", "color": "#e6c27a" },
-  "stigmergy": { "label": "개미 길", "color": "#b3e05d" }
+  "stigmergy": { "label": "개미 길", "color": "#b3e05d" },
+  "differentialgrowth": { "label": "차등 성장", "color": "#ff7aa8" },
+  "cavitation": { "label": "공동 기포", "color": "#38d9d0" },
+  "oxidecolor": { "label": "산화막 색", "color": "#d49a3a" },
+  "columnarjoint": { "label": "주상절리", "color": "#b8613f" },
+  "engraving": { "label": "선 새김", "color": "#c9d4ff" }
 }
