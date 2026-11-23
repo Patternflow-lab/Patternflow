@@ -195,7 +195,7 @@ function palette(P, h0) {
     // it is darker the further the hue is from blue.
     const warm = 0.5 - 0.5 * cos(TAU * (h - 0.68));
     const vlow = 0.24 - 0.12 * warm;
-    hsv(h, 0.96 - 0.1 * p * p, vlow + (0.88 - vlow) * pow(p, 0.85), P.fill, i * 3);
+    hsv(h, 0.96 - 0.1 * p * p, (vlow + (0.88 - vlow) * pow(p, 1.15)) * (1 - 0.5 * warm * (1 - p) * (1 - p)), P.fill, i * 3);
     hsv(h, 0.45 - 0.2 * p, 0.62 + 0.38 * pow(p, 0.5), P.line, i * 3);
   }
 }
@@ -295,7 +295,7 @@ function ramp(dg, wl) {
 // Draw the chart: smooth the rows up to the panel, find each LED's delta-v ratio
 // (as a logarithm) and its slope, colour it from the ramp and lay the contour lines
 // over it. A line is about 2 LEDs across with soft edges; where rings would crowd
-// closer than 2.5 LEDs they fade out so the colour shows instead.
+// closer than 3 LEDs they fade out so the colour shows instead.
 function shade(P, delta, wl, L0) {
   const { grid, R, yj, yw, out, fill, line } = P;
   for (let y = 0; y < H; y++) {
@@ -326,7 +326,7 @@ function shade(P, delta, wl, L0) {
         const w0 = sp > 3 ? 0.55 : 0.33 + 0.073 * sp;
         al = smooth(1 - (dist - w0) / 0.9);
         if (al > 0) {
-          al *= smooth((sp - 1.6) / 1.4) * smooth((top - r) / 0.3);
+          al *= smooth((sp - 2.2) / 1.2) * smooth((top - r) / 0.3);
           if (al > 0) {
             const lv = L0 + kk * delta;
             const pk = ramp(lv - R0, wl);
