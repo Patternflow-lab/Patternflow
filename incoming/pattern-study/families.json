@@ -204,5 +204,10 @@
   "scoremodel": { "label": "점수 모델 표본", "color": "#26bf7a" },
   "redistrict": { "label": "구역 재조합", "color": "#bf438e" },
   "fdmprint": { "label": "적층 출력", "color": "#ff33c2" },
-  "cyanochain": { "label": "남세균 사슬", "color": "#99bf26" }
+  "cyanochain": { "label": "남세균 사슬", "color": "#99bf26" },
+  "phylogeny": { "label": "계통수", "color": "#b6e23e" },
+  "topoopt": { "label": "위상 최적화", "color": "#e8d9b8" },
+  "phaseretrieval": { "label": "위상 복원", "color": "#c46bff" },
+  "mammatus": { "label": "주머니 구름", "color": "#ff9a6c" },
+  "seriation": { "label": "행렬 재배열", "color": "#4fb0ff" }
 }
