@@ -362,36 +362,10 @@ export function update(dt, input, P) {
 }
 
 // ---- draw --------------------------------------------------------------------
-// Catmull-Rom reading of the reference coordinates at a point inside cell (i0, j0), so that a border does not
-// bend at every second LED where the map is squeezed hard.
-const cwx = new Float64Array(4), cwy = new Float64Array(4), dwx = new Float64Array(4), dwy = new Float64Array(4);
-let cbx = 0, cby = 0, cxx = 0, cxy = 0, cyx = 0, cyy = 0;
-function cubic(BX, BY, i0, j0, fx, fy) {
-  const fx2 = fx * fx, fx3 = fx2 * fx, fy2 = fy * fy, fy3 = fy2 * fy;
-  cwx[0] = -0.5 * fx3 + fx2 - 0.5 * fx; cwx[1] = 1.5 * fx3 - 2.5 * fx2 + 1; cwx[2] = -1.5 * fx3 + 2 * fx2 + 0.5 * fx; cwx[3] = 0.5 * fx3 - 0.5 * fx2;
-  cwy[0] = -0.5 * fy3 + fy2 - 0.5 * fy; cwy[1] = 1.5 * fy3 - 2.5 * fy2 + 1; cwy[2] = -1.5 * fy3 + 2 * fy2 + 0.5 * fy; cwy[3] = 0.5 * fy3 - 0.5 * fy2;
-  dwx[0] = -1.5 * fx2 + 2 * fx - 0.5; dwx[1] = 4.5 * fx2 - 5 * fx; dwx[2] = -4.5 * fx2 + 4 * fx + 0.5; dwx[3] = 1.5 * fx2 - fx;
-  dwy[0] = -1.5 * fy2 + 2 * fy - 0.5; dwy[1] = 4.5 * fy2 - 5 * fy; dwy[2] = -4.5 * fy2 + 4 * fy + 0.5; dwy[3] = 1.5 * fy2 - fy;
-  let sx = 0, sy = 0, ax = 0, ay = 0, bx = 0, by = 0;
-  for (let q = 0; q < 4; q++) {
-    let jj = j0 + q - 1; jj = jj < 0 ? 0 : jj >= NY ? NY - 1 : jj;
-    const row = jj * NX, wy = cwy[q], dy = dwy[q];
-    let rx = 0, ry = 0, ex = 0, ey = 0;
-    for (let r = 0; r < 4; r++) {
-      let ii = i0 + r - 1; ii = ii < 0 ? 0 : ii >= NX ? NX - 1 : ii;
-      const vx = BX[row + ii], vy = BY[row + ii];
-      rx += cwx[r] * vx; ry += cwx[r] * vy; ex += dwx[r] * vx; ey += dwx[r] * vy;
-    }
-    sx += wy * rx; sy += wy * ry; ax += wy * ex; ay += wy * ey; bx += dy * rx; by += dy * ry;
-  }
-  cbx = sx; cby = sy;
-  cxx = ax / CS; cyx = ay / CS; cxy = bx / CS; cyy = by / CS; // d(Bx)/dx, d(By)/dx, d(Bx)/dy, d(By)/dy
-}
-
 const seen = new Int32Array(K), cand = new Int32Array(8), offs = new Int32Array(4);
 
 export function draw(display, P) {
-  const { I1, I2, GP, SX, SY, pen, col, BX, BY } = P;
+  const { I1, I2, GP, GS, SX, SY, pen, col, BX, BY } = P;
   seen.fill(0);
   let stamp = 0;
   for (let y = 0; y < H; y++) {
@@ -410,8 +384,8 @@ export function draw(display, P) {
         id = a;
         dpx = GP[o] * w00 + GP[o + 1] * w10 + GP[o + NX] * w01 + GP[o + NX + 1] * w11;
       } else {
-        cubic(BX, BY, i0, j0, fx, fy);
-        const bx = cbx, by = cby;
+        const bx = BX[o] * w00 + BX[o + 1] * w10 + BX[o + NX] * w01 + BX[o + NX + 1] * w11;
+        const by = BY[o] * w00 + BY[o + 1] * w10 + BY[o + NX] * w01 + BY[o + NX + 1] * w11;
         warp(P, bx, by);
         const ux = bx + wx_, uy = by + wy_;
         const st = ++stamp;
@@ -431,13 +405,7 @@ export function draw(display, P) {
         }
         id = i1; id2 = i2;
         const sx = SX[i2] - SX[i1], sy = SY[i2] - SY[i1], dd = sqrt(sx * sx + sy * sy) + 1e-6;
-        let gs = 1;
-        if (n > 1) {
-          const nx = sx / dd, ny = sy / dd;
-          const mx = nx * (1 + wdxx) + ny * wdyx, my = nx * wdxy + ny * (1 + wdyy);
-          const gx = mx * cxx + my * cyx, gy = mx * cxy + my * cyy;
-          gs = cl(sqrt(gx * gx + gy * gy), 0.1, 8);
-        }
+        const gs = GS[o] * w00 + GS[o + 1] * w10 + GS[o + NX] * w01 + GS[o + NX + 1] * w11;
         dpx = n > 1 ? (d2 - d1) / (2 * dd * gs) : 9;
       }
       const e = smooth((dpx - 0.2) / 1.2);
