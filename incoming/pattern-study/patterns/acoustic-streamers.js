@@ -9,7 +9,7 @@
 // Round:   230
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Drive=0.4..3, Pitch=-1..1, Gas=-1..1
+// @knobs Hue=0..1, Drive=0.7..3, Pitch=-1..1, Gas=-1..1
 //
 // Knob 1: Hue. The colour of the water and the filaments, round the whole wheel from teal-blue at 0; the flashes stay white.
 // Knob 2: Drive. How hard the horn drives the tank: weak, there are few filaments and rare flashes; strong, the layers grip harder and the bubbles collapse more often and brighter.
@@ -35,14 +35,15 @@ const SUB = 1 / 50; // substep
 // The hue the water opens on at Hue 0.
 const H0 = 0.52;
 
-const RP = 9; // reach of the pull between bubbles
-const GS = 1.6; // its top speed, LEDs a second
-const RR = 2.3; // closer than this they push apart
-const GR = 10;
+const RP = 6; // reach of the pull between bubbles
+const GS = 1.2; // its top speed, LEDs a second
+const RR = 2.5; // closer than this they push apart
+const GR = 25;
 const TAU_V = 0.22; // how fast a bubble's velocity follows its target
-const VL = 6; // top speed of the pull towards a layer, LEDs a second
-const DIFF = 0.5; // random walk, LED^2 a second
-const UJ = 5; // speed of the jets under the horn
+const VL = 7; // top speed of the pull towards a layer, LEDs a second
+const DIFF = 0.8; // random walk, LED^2 a second
+const UJ = 1;
+const US = 0.7; // streaming along the layers, LEDs a second: neighbouring layers are carried opposite ways // speed of the jets under the horn
 const GROW = 0.035, THR = 0.2, DISS = 0.0015;
 const HZ = 0.55; // collapse hazard
 
@@ -61,7 +62,7 @@ function hsv(h, s, v, out, o) {
   out[o + 2] = b;
 }
 
-const RL = 9; // threads reach this far
+const RL = 6.5; // threads reach this far
 const TS = 0.8; // thread half-width
 
 // A soft line from (ax, ay) to (bx, by), strongest where the ends are close.
@@ -146,6 +147,7 @@ export function setup(params) {
     psi: 0,
     th1: 1.1,
     th2: 4.2,
+    ths: 0.6,
     s: 13,
     accF: 0,
     accB: 0,
@@ -155,6 +157,12 @@ export function setup(params) {
     fi: 0,
     col: [0, 0, 0],
   });
+}
+
+function hash2(a, b) {
+  let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 function spawn(P, x, y, r, vx, vy) {
@@ -180,12 +188,12 @@ function kill(P, i) {
   P.n--;
 }
 
-// No bubble within 2.6 LEDs of (x, y): a nucleus does not start inside another bubble.
+// No bubble within 2.9 LEDs of (x, y): a nucleus does not start inside another bubble.
 function free(P, x, y) {
   for (let i = 0; i < P.hi; i++) {
     if (!P.al[i]) continue;
     const dx = P.x[i] - x, dy = P.y[i] - y;
-    if (dx * dx + dy * dy < 6.8) return false;
+    if (dx * dx + dy * dy < 8.4) return false;
   }
   return true;
 }
@@ -202,11 +210,11 @@ function flash(P, x, y, s) {
 // Layer phase at column x: the antinodes sit where it is a multiple of 2 pi.
 function warp(P, x) {
   const a = TAU * (x - 32);
-  return 1.5 * sin(a / 86 + P.th1) + 0.55 * sin(a / 33 + P.th2);
+  return 2.3 * sin(a / 86 + P.th1) + 0.9 * sin(a / 33 + P.th2);
 }
 function dwarp(P, x) {
   const a = TAU * (x - 32);
-  return ((1.5 * TAU) / 86) * cos(a / 86 + P.th1) + ((0.55 * TAU) / 33) * cos(a / 33 + P.th2);
+  return ((2.3 * TAU) / 86) * cos(a / 86 + P.th1) + ((0.9 * TAU) / 33) * cos(a / 33 + P.th2);
 }
 
 function step(P, h) {
@@ -215,13 +223,18 @@ function step(P, h) {
   const s0 = 13.3 * pow(1.66, -k[2]);
   const gas = pow(2, 1.5 * k[3]);
   const det = pow(2, 0.6 * k[3]);
+  // The tank holds about NT bubbles: nuclei stop forming as it fills (the gas is spoken for), so the
+  // count settles near NT however long it runs, and bubbles dissolve faster if the knobs lower NT.
+  const NT = 100 * pow(gas, 0.45) * (0.55 + 0.45 * drive);
+  const over = 0.05 * max(0, P.n / NT - 1.1);
   P.t += h;
   const t = P.t;
   const s = (P.s = s0 * (1 + 0.05 * sin((TAU * t) / 97 + 1.3) + 0.035 * sin((TAU * t) / 57 + 4)));
-  const vd = 0.05 + det * 0.3 * (sin((TAU * t) / 73 + 0.7) + 0.7 * sin((TAU * t) / 41 + 2.1) + 0.5 * sin((TAU * t) / 131 + 4));
+  const vd = 0.05 + det * 0.45 * (sin((TAU * t) / 73 + 0.7) + 0.7 * sin((TAU * t) / 41 + 2.1) + 0.5 * sin((TAU * t) / 131 + 4));
   P.psi += ((TAU * vd) / s) * h;
   P.th1 += (h * TAU) / 110;
   P.th2 += (h * TAU) / 67;
+  P.ths += (h * TAU) / 53;
 
   const { x, y, vx, vy, r, ax, ay, al, act, par, pid, sid, lk } = P;
   let na = 0;
@@ -285,7 +298,9 @@ function step(P, h) {
     const gx = (dwarp(P, xi) * s) / TAU;
     const gn = 1 / sqrt(gx * gx + 1);
     const pull = -VL * env * sp;
-    const vtx = pull * gx * gn + ax[i];
+    // streaming cells between the layers: each layer slides one way, the next the other, and the sense turns over slowly
+    const flow = US * sin((PI * (yi - HY)) / s - P.psi * 0.5 + P.ths) * (0.5 + 0.5 * drive);
+    const vtx = pull * gx * gn + ax[i] + flow;
     let vty = pull * gn + ay[i];
     // jets
     const jd = exp(-dep / 45) * UJ * drive;
@@ -304,7 +319,7 @@ function step(P, h) {
     if (y[i] < HY) (y[i] = HY), (vy[i] = abs(vy[i]));
     // gas moves in and out of the bubble
     const eff = env * e;
-    r[i] += h * (GROW * (eff - THR) - DISS / r[i]);
+    r[i] += h * (GROW * (eff - THR) - DISS / r[i] - over);
     if (r[i] < 0.2 || y[i] > H + 6 || x[i] < -6 || x[i] > W + 6) {
       if (r[i] < 0.2) P.dDis = (P.dDis || 0) + 1;
       else P.dOut = (P.dOut || 0) + 1;
@@ -316,10 +331,10 @@ function step(P, h) {
     let p = par[i];
     if (p >= 0) {
       const dx = x[p] - x[i], dy = y[p] - y[i];
-      if (!al[p] || sid[p] !== pid[i] || dy > -0.25 * s || dx * dx + dy * dy > 1.9 * min(1.7 * s, 24) * min(1.7 * s, 24)) p = -1;
+      if (!al[p] || sid[p] !== pid[i] || dy > -0.25 * s || dx * dx + dy * dy > 1.9 * min(1.5 * s, 20) * min(1.5 * s, 20)) p = -1;
     } else if (p === -2 && y[i] - HY > 1.0 * s) p = -1;
     if (p === -1 && rnd() < 5 * h) {
-      const reach = min(1.7 * s, 24);
+      const reach = min(1.5 * s, 20);
       let best = reach * reach, bj = -1;
       for (let b = 0; b < na; b++) {
         const j = act[b];
@@ -327,7 +342,8 @@ function step(P, h) {
         const dy = y[j] - y[i];
         if (dy > -0.45 * s) continue;
         const dx = x[j] - x[i];
-        const d2 = dx * dx + dy * dy;
+        // a stable liking for some parents over others, so the threads do not all drop straight down
+        const d2 = (dx * dx + dy * dy) * (0.75 + 0.5 * hash2(sid[i], sid[j]));
         if (d2 < best) (best = d2), (bj = j);
       }
       if (bj >= 0) (p = bj), (pid[i] = sid[bj]), (lk[i] = 0);
@@ -354,7 +370,7 @@ function step(P, h) {
         vx[j] += (dx / d) * kick;
         vy[j] += (dy / d) * kick;
       }
-      const nd = 1 + (rnd() < 0.6 ? 1 : 0) + (rnd() < 0.3 ? 1 : 0);
+      const nd = P.n < 1.15 * NT ? 1 + (rnd() < 0.6 ? 1 : 0) + (rnd() < 0.3 ? 1 : 0) : 0;
       const xi2 = x[i], yi2 = y[i];
       kill(P, i);
       for (let q = 0; q < nd; q++) {
@@ -365,7 +381,7 @@ function step(P, h) {
   }
 
   // nucleation, at the horn face and where the sound is loud
-  const capf = max(0, 1 - P.n / 380);
+  const capf = cl((NT - P.n) / (0.25 * NT), 0, 1);
   const lo = P.n < 25 ? 3 : 1;
   P.accF += 1.5 * drive * gas * capf * lo * h;
   while (P.accF >= 1) {
@@ -378,7 +394,7 @@ function step(P, h) {
       }
     }
   }
-  P.accB += 12 * drive * gas * capf * lo * h;
+  P.accB += 9 * drive * gas * capf * lo * h;
   while (P.accB >= 1) {
     P.accB -= 1;
     for (let tries = 0; tries < 8; tries++) {
@@ -429,8 +445,8 @@ export function draw(display, params) {
   for (let i = 0; i < hi; i++) {
     if (!al[i]) continue;
     const r = P.r[i];
-    const sg = 0.75 + 0.5 * r;
-    const amp = 0.5 + 0.22 * r;
+    const sg = 0.7 + 0.4 * r;
+    const amp = (0.42 + 0.18 * r) * (0.88 + 0.12 * sin(P.t * (4 + (P.sid[i] % 5)) + P.sid[i] * 2.3));
     const inv = 1 / (2 * sg * sg);
     const rad = 3 * sg;
     const xi = P.x[i], yi = P.y[i];
@@ -486,7 +502,7 @@ export function draw(display, params) {
     if (p >= 0 && al[p] && sid[p] === pid[i]) wt[p] += wt[i];
   }
   const X = P.x;
-  const sway = P.t * 0.45;
+  const sway = P.t * 0.8;
   for (let q = ord.length - 1; q >= 0; q--) {
     const i = ord[q], p = par[i];
     if (p === -1 || P.lk[i] <= 0) continue;
@@ -508,14 +524,20 @@ export function draw(display, params) {
     }
     const dx = bx - X[i], dy = by - Y[i], dl = sqrt(dx * dx + dy * dy) + 1e-3;
     // leave towards the parent, leaning a little to one side that drifts
-    const sw = 0.35 * sin(sway + P.sid[i] * 1.7);
+    const sw = 0.5 * sin(sway + P.sid[i] * 1.7);
     let tax = dx / dl + sw, tay = dy / dl;
     const tl = sqrt(tax * tax + tay * tay);
     tax /= tl;
     tay /= tl;
     const lg = log2(wt[i]);
     const lk = P.lk[i];
-    curve(L, X[i], Y[i], tax, tay, bx, by, tbx, tby, 0.6 + 0.12 * min(lg, 4), (0.17 + 0.04 * min(lg, 5)) * lk * (1 - 0.35 * min(1, dl / (2.4 * P.s))));
+    curve(L, X[i], Y[i], tax, tay, bx, by, tbx, tby, 0.56 + 0.07 * min(lg, 3), (0.15 + 0.03 * min(lg, 4)) * lk * (1 - 0.35 * min(1, dl / (2.4 * P.s))));
+  }
+
+  // the cavitation haze under the horn face
+  for (let yy = HY; yy < HY + 7; yy++) {
+    const gl = 0.2 * exp(-(yy - HY) / 2.4);
+    for (let xx = HX0 - 2; xx <= HX1 + 2; xx++) L[yy * W + xx] += gl * sm(HX0 - 2, HX0 + 3, xx) * sm(HX1 + 2, HX1 - 3, xx);
   }
 
   // flashes
