@@ -189,5 +189,10 @@
   "eutectic": { "label": "공정 조직", "color": "#a02828" },
   "sampler": { "label": "표본 추출", "color": "#a02873" },
   "bmode": { "label": "초음파 영상", "color": "#3755a0" },
-  "treemap": { "label": "트리맵", "color": "#37a055" }
+  "treemap": { "label": "트리맵", "color": "#37a055" },
+  "genome": { "label": "염색질 접촉 지도", "color": "#da34aa" },
+  "receptive": { "label": "수용장 사전", "color": "#36c9f0" },
+  "launchwindow": { "label": "발사 창 도표", "color": "#f2b84b" },
+  "lasermode": { "label": "레이저 공진 모드", "color": "#ff4a3a" },
+  "protodisk": { "label": "원시 행성 원반", "color": "#8f6bff" }
 }
