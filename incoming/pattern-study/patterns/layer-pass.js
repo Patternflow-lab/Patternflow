@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Layer Pass
 // Family:  fdmprint
-// Idea:    A nozzle seen from above and a little aslant draws a part one layer at a time, laying a two-LED bead that is white-yellow where it was just laid and cools over a few seconds to the filament's colour, tracing two perimeter loops of a slowly changing outline and then filling it with lines at plus and minus 45 degrees, a wavy gyroid, concentric loops, a honeycomb or a grid, with a run of tight solid layers now and then, while every finished layer steps one LED down and aslant and dims, so that the layers below stand behind it as a fading stack, until the part is done, fades, and a different one begins.
+// Idea:    A nozzle seen from above and a little aslant draws a part one layer at a time, laying a two-LED bead that is white-yellow where it was just laid and cools over a few seconds to the filament's colour, which shifts in hue and brightness across each layer like a silk filament, tracing two perimeter loops of a slowly changing outline and then filling it with lines at plus and minus 45 degrees, a wavy gyroid, concentric loops, a honeycomb or a grid, with a run of tight solid layers now and then, while every finished layer steps one LED down and aslant and dims, so that the layers below stand behind it as a fading stack, until the part is done, fades, and a different one begins.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Filament=0..1, Speed=0..3, Infill=-1..1, Twist=0..1
 //
-// Knob 1: Filament. The colour of the plastic, once round the hue circle: cyan-blue at 0 where it opens, blue at 0.1, violet at 0.25, red at 0.45, amber at 0.6, green at 0.75, and back at 1. Each layer's hue is a little off the last, wandering within 0.18 of the circle either way on three slow swings, so the stack behind the layer is in a spread of near colours; the glow of a fresh bead is white, yellow and orange whatever the plastic is.
-// Knob 2: Speed. The head speed in LEDs a second, 20 at 0, 61 at 0.5, 88 at 1, 142 where it opens at 2, and 200 at 3. A layer of this part takes 10 seconds at 142 with a spacing of 7, 21 seconds at 61 and 7 seconds at 200. The bead cools in 1.3 seconds whatever the speed, so the white-to-yellow stretch behind the nozzle is about 16 LEDs long at 20 and 160 at 200.
-// Knob 3: Infill. The distance between infill lines, centre to centre: 4 LEDs at -1, where the beads are 1.8 LEDs apart and the layer is nearly solid, 6.9 at 0 where it opens, and 12 at +1, a sparse lattice. A turn re-slices the layer being printed from where the nozzle stands, and the next layers follow it.
-// Knob 4: Twist. How much the part wanders from layer to layer. At 0 it is nearly a plain tower: the outline ripples by under 1 percent, the profile swells and narrows by about a tenth of the width, and the stack steps 1.0 LED a layer. At 1 the ripples are up to 10 percent and turn up to 0.26 radian a layer, lobes swing by up to 1.5 radian, the profile swells and narrows by a third, the whole part leans 5 LEDs to either side, and the stack steps 1.9 LEDs a layer.
+// Knob 1: Filament. The colour of the plastic, once round the hue circle: the layers run from green to azure at 0 where it opens, cyan to blue at 0.1, blue to violet at 0.25, pink to red at 0.45, orange at 0.6, yellow-green at 0.75, and back at 1. Each layer's hue is a little off the last, within about 0.14 of the circle either way, and each layer has a sheen of its own: along a direction and wavelength it draws for itself, its hue swings 0.05 of the circle and its brightness 24 percent. The glow of a fresh bead is white, yellow and orange whatever the plastic is.
+// Knob 2: Speed. The head speed in LEDs a second, 20 at 0, 61 at 0.5, 88 at 1, 142 where it opens at 2, and 200 at 3, with each layer drawing 0.8 to 1.25 of it. A layer of this part takes 10 seconds on average at 142 with a spacing of 7, 21 seconds at 61 and 7 seconds at 200. The bead cools in 1.3 seconds whatever the speed, so the white-to-yellow stretch behind the nozzle is about 16 LEDs long at 20 and 160 at 200.
+// Knob 3: Infill. The distance between infill lines, centre to centre: 4 LEDs at -1, where the beads are 1.8 LEDs apart and the layer is nearly solid, 6.9 at 0 where it opens, and 12 at +1, a sparse lattice; each layer draws 0.88 to 1.12 of it, and never under 4. A turn re-slices the layer being printed from where the nozzle stands, and the next layers follow it.
+// Knob 4: Twist. How much the part wanders from layer to layer. At 0 it is nearly a plain tower: the outline ripples by under 1 percent, the profile swells and narrows by about a tenth of the width, each layer stands 1.5 LEDs off the last and 5 percent wider or narrower, and the stack steps 1.0 LED a layer. At 1 the ripples are up to 10 percent and turn up to 0.26 radian a layer, lobes swing by up to 1.5 radian, the profile swells and narrows by a third, the whole part leans 5 LEDs to either side, a layer stands 4.5 LEDs off the last, and the stack steps 1.9 LEDs a layer.
 
 const W = 64, H = 128, N = W * H, GW = W + 1, GH = H + 1, GN = GW * GH;
 const { floor, ceil, sqrt, exp, log, sin, cos, pow, abs, min, max, round, PI } = Math;
@@ -65,6 +65,8 @@ export function setup(P) {
   P.rand = rng(SEED);
   P.dep = new Float32Array(N);   // how much plastic is there, 1 for the layer being laid, then DIM per layer
   P.tone = new Float32Array(N);  // which hue the layer that laid it had
+  P.lid = new Float32Array(N);   // which layer laid it, counted over all objects
+  P.sid = 0;
   P.heat = new Float32Array(N);
   P.tmp = new Float32Array(N);
   P.sdf = new Float32Array(GN);  // distance to the outline, positive inside
@@ -139,10 +141,8 @@ function newObject(P) {
   o.sa = (r() < 0.5 ? -1 : 1) * (0.35 + 0.55 * r());
   o.t1 = TAU * r(); o.t2 = TAU * r();
   o.ang = [PI / 4, PI / 4, PI / 4, PI / 6, PI / 3, 0][floor(r() * 6)];
-  o.arot = r() < 0.5 ? 0 : (r() - 0.5) * 0.12;
   o.ga = TAU * r(); o.gx = TAU * r(); o.gy = TAU * r(); o.gz = 0.2 + 0.22 * r(); o.gp = TAU * r();
-  o.hr = TAU * r(); o.hd = (r() - 0.5) * 0.03; o.ph = r();
-  o.seam = TAU * r(); o.seamd = (r() - 0.5) * 1.2;
+  o.hr = TAU * r(); o.c1 = r(); o.c2 = r(); o.c3 = r();
   o.nl = 40 + floor(r() * 31);
   o.solid = new Uint8Array(o.nl);
   o.solid[0] = 1;
@@ -156,6 +156,7 @@ function newObject(P) {
   P.layer = 0;
   P.rph = [0, 0, 0];
   P.accx = 0; P.accy = 0;
+  P.aoff = 0;
 }
 
 function profile(o, zf) {
@@ -218,10 +219,10 @@ function makeOutline(P) {
   const wx = (lean * (sin(0.113 * zl + o.q1) + 0.6 * sin(0.0517 * zl + o.q2))) / 1.6;
   const wy = (0.45 * lean * (sin(0.071 * zl + o.q3) + 0.5 * sin(0.0373 * zl + 1.7 * o.q1))) / 1.5;
   // The stack lies down and aslant of the layer, so the layer stands up and aslant of the middle.
-  const cx = 32 + o.ox - 1.5 * sx + wx, cy = 64 + o.oy - 2.5 * sy + wy;
+  const cx = 32 + o.ox - 1.5 * sx + wx + (0.8 + 2.4 * w) * P.jx, cy = 64 + o.oy - 2.5 * sy + wy + (0.5 + 1.5 * w) * P.jy;
   const pr = cl(1 + (0.45 + 0.55 * w) * (profile(o, zf) - 1), 0.5, 1.06);
-  const Wt = min(o.W * pr, 2 * (min(cx - 2.2, 61.8 - cx) - BEAD_R));
-  const Ht = min(o.H * (0.85 + 0.15 * pr), 2 * (min(cy - 2.2, 125.8 - cy) - BEAD_R));
+  const Wt = min(o.W * pr * (1 + (0.025 + 0.04 * w) * P.jw), 2 * (min(cx - 2.2, 61.8 - cx) - BEAD_R));
+  const Ht = min(o.H * (0.85 + 0.15 * pr) * (1 + (0.01 + 0.02 * w) * P.jh), 2 * (min(cy - 2.2, 125.8 - cy) - BEAD_R));
   const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, hx = (x1 - x0) / 2, hy = (y1 - y0) / 2;
   for (let i = 0; i < NP; i++) {
     ox[i] = cx + ((ux[i] - mx) / hx) * (Wt / 2);
@@ -390,7 +391,7 @@ function clipRuns(P, p, closed, thr, out) {
 }
 
 function infillRect(P, ang, s, out) {
-  const ca = cos(ang), sa = sin(ang), ph = P.obj.ph * s, L = 78, step = 1.5, ns = ceil((2 * L) / step);
+  const ca = cos(ang), sa = sin(ang), ph = P.lph * s, L = 78, step = 1.5, ns = ceil((2 * L) / step);
   const nk = ceil(L / s);
   for (let k = -nk; k <= nk; k++) {
     const off = k * s + ph - s / 2, bx = 32 - sa * off - ca * L, by = 64 + ca * off - sa * L;
@@ -401,11 +402,11 @@ function infillRect(P, ang, s, out) {
 }
 
 function infillHoney(P, s, out) {
-  const o = P.obj, wd = 1.6 * s, a = wd / sqrt(3), rowH = 1.5 * a, rot = o.hr + o.hd * P.layer;
+  const o = P.obj, wd = 1.6 * s, a = wd / sqrt(3), rowH = 1.5 * a, rot = o.hr + 0.6 * P.aoff;
   const cr = cos(rot), sr = sin(rot);
   const tx = (x, y, q) => { q.push(32 + x * cr - y * sr, 64 + x * sr + y * cr); };
   const nj = ceil(80 / rowH), ni = ceil(80 / wd) + 1;
-  const phx = o.ph * wd, phy = o.ph * rowH * 2;
+  const phx = P.lph * wd, phy = fract(P.lph * 7.3) * rowH * 2;
   for (let j = -nj; j <= nj; j++) {
     const yc = j * rowH + phy - rowH, xo = (((j % 2) + 2) % 2) * (wd / 2) + phx - wd * ni;
     const z = [];
@@ -430,7 +431,7 @@ function infillGyroid(P, s, out) {
   for (let j = 0; j < GH; j++)
     for (let i = 0; i < GW; i++) {
       const x = i - 32, y = j - 64;
-      const X = k * (x * ca + y * sa) + o.gx, Y = k * (-x * sa + y * ca) + o.gy;
+      const X = k * (x * ca + y * sa) + o.gx + 2 * P.aoff, Y = k * (-x * sa + y * ca) + o.gy;
       F[j * GW + i] = sin(X) * cos(Y) + sin(Y) * cz + sz * cos(X);
     }
   for (const c of contours(P, F, 0)) clipRuns(P, c.p, c.closed, CLIP, out);
@@ -510,11 +511,25 @@ const spacing = (k3) => 4 * pow(3, (k3 + 1) / 2);
 // Lay out a layer: outline, distance field, the two perimeters. The infill is planned when the perimeters are done.
 function beginLayer(P) {
   const o = P.obj;
+  // What changes from layer to layer by a seeded walk, so that no two layers are laid alike: the lines turn 5 to 25
+  // degrees more each time, the first line stands somewhere new, the spacing and the head speed vary, the seam moves,
+  // and the outline is a little off where the last one stood.
+  const rr = P.rand;
+  P.sid++;
+  P.aoff = 0.14 * (rr() - 0.5);
+  P.lph = rr(); P.lv = 0.8 + 0.45 * rr(); P.lseam = TAU * rr();
+  // A sheen across the layer: its brightness swings between 0.4 and 1 along a direction and with a wavelength of its own.
+  const sa = TAU * rr(), sk = TAU / (40 + 80 * rr());
+  P.skx = sk * cos(sa); P.sky = sk * sin(sa); P.sp = TAU * rr();
+  P.jx = rr() * 2 - 1; P.jy = rr() * 2 - 1; P.jw = rr() * 2 - 1; P.jh = rr() * 2 - 1;
   makeOutline(P);
   buildSdf(P);
-  P.curTone = P.tn;
   P.solid = o.solid[P.layer] === 1;
-  const seam = o.seam + o.seamd * P.layer, sdx = cos(seam), sdy = sin(seam);
+  // Hue, brightness and line spacing of a layer come off a sequence that fills three dimensions evenly (Martin Roberts,
+  // 2018, from memory), so that no two layers of a part are near one another in all three.
+  const zl = P.layer, u1 = fract(zl * 0.8191725 + o.c1), u2 = fract(zl * 0.6710436 + o.c2), u3 = fract(zl * 0.5497005 + o.c3);
+  P.curTone = 0.25 * u1 + 0.75 * P.tn; P.lvl = 0.88 + 0.12 * u2; P.lsj = 0.88 + 0.24 * u3;
+  const sdx = cos(P.lseam), sdy = sin(P.lseam);
   const walls = [];
   const loops = (lv) => contours(P, P.sdf, lv).filter((c) => c.closed && c.p.length > 40);
   let ex = P.cx, ey = P.cy;
@@ -559,12 +574,12 @@ function dropLaid(P, list) {
 }
 
 function planInfill(P, again) {
-  const o = P.obj, solid = P.solid, s = solid ? SOLID_S : spacing(P.k3);
+  const o = P.obj, solid = P.solid, s = solid ? SOLID_S * (0.9 + 0.2 * P.lsj) : max(4, spacing(P.k3) * P.lsj);
   P.sPlanned = solid ? 0 : s;
   P.planT = P.layerT;
   const raw = [];
   const fam = solid && o.fam !== 2 ? 0 : o.fam;
-  const ang = solid ? PI / 4 + (P.layer & 1) * (PI / 2) : o.ang + o.arot * P.layer + (P.layer & 1) * (PI / 2);
+  const ang = (solid ? PI / 4 : o.ang) + (P.layer & 1) * (PI / 2) + P.aoff;
   switch (fam) {
     case 0: infillRect(P, ang, s, raw); break;
     case 1: infillGyroid(P, s, raw); break;
@@ -582,7 +597,9 @@ function planInfill(P, again) {
 // ---------- the nozzle ----------
 
 function stamp(P, x, y) {
-  const { dep, tone, heat } = P, ext = BEAD_R + 0.5;
+  const { dep, tone, heat, lid } = P, ext = BEAD_R + 0.5;
+  const wv = P.skx * x + P.sky * y + P.sp + 0.09 * P.layerT, lvl = P.lvl * (0.76 + 0.24 * sin(wv));
+  const tn = cl(P.curTone + 0.3 * sin(wv + 1.6), 0, 1);
   const i0 = max(0, floor(x - ext - 0.5)), i1 = min(W - 1, ceil(x + ext - 0.5));
   const j0 = max(0, floor(y - ext - 0.5)), j1 = min(H - 1, ceil(y + ext - 0.5));
   for (let j = j0; j <= j1; j++)
@@ -592,7 +609,8 @@ function stamp(P, x, y) {
       if (c <= 0) continue;
       if (c > 1) c = 1;
       const p = j * W + i;
-      if (c > dep[p]) { dep[p] = c; tone[p] = P.curTone; }
+      // The newest layer is on top whatever its brightness, but its edge never rises above what lies under it.
+      if (lid[p] === P.sid ? c * lvl > dep[p] : c > 0.5 || c * lvl > dep[p]) { dep[p] = c * lvl; tone[p] = tn; lid[p] = P.sid; }
       if (c > heat[p]) heat[p] = c;
     }
 }
@@ -654,7 +672,7 @@ function endLayer(P) {
   P.accx += mag * sin(o.sa); P.accy += mag * cos(o.sa);
   const ix = round(P.accx), iy = round(P.accy);
   P.accx -= ix; P.accy -= iy;
-  shiftBuf(P, P.dep, ix, iy); shiftBuf(P, P.tone, ix, iy); shiftBuf(P, P.heat, ix, iy);
+  shiftBuf(P, P.dep, ix, iy); shiftBuf(P, P.tone, ix, iy); shiftBuf(P, P.heat, ix, iy); shiftBuf(P, P.lid, ix, iy);
   const dep = P.dep;
   for (let i = 0; i < N; i++) { const v = dep[i] * DIM; dep[i] = v < 0.025 ? 0 : v; }
   P.gix = ix; P.giy = iy; P.gdim = 1 / DIM;
@@ -673,7 +691,7 @@ function advance(P, dt, v0) {
     const m = P.mode;
     if (m === PRINT) {
       const st = P.strokes[P.si];
-      const v = v0 * MULT[st.kind], rem = st.len - P.sd, can = v * t;
+      const v = v0 * P.lv * MULT[st.kind], rem = st.len - P.sd, can = v * t;
       if (can < rem) { lay(P, st, P.sd, P.sd + can); P.sd += can; t = 0; }
       else {
         lay(P, st, P.sd, st.len);
@@ -743,13 +761,13 @@ export function update(dt, input, P) {
   } else if (P.mode === FINISH) {
     // The part is done: keep its picture to fade out, and lay the next one's first layers behind it.
     P.gd.set(P.dep); P.gt.set(P.tone); P.gh.set(P.heat);
-    P.dep.fill(0); P.tone.fill(0); P.heat.fill(0);
+    P.dep.fill(0); P.tone.fill(0); P.heat.fill(0); P.lid.fill(0);
     newObject(P);
     prerun(P);
     P.ft = 0;
   }
   // A turn of the infill knob re-slices what is left of the layer being laid.
-  if (P.mode === PRINT && P.infillDone && !P.solid && P.si >= P.wallN && abs(log(spacing(P.k3) / P.sPlanned)) > 0.15 && P.layerT - P.planT > 1) {
+  if (P.mode === PRINT && P.infillDone && !P.solid && P.si >= P.wallN && abs(log(max(4, spacing(P.k3) * P.lsj) / P.sPlanned)) > 0.15 && P.layerT - P.planT > 1) {
     P.strokes.length = P.wallN;
     planInfill(P, true);
     P.si = P.wallN; P.sd = 0; P.seg = 0;
@@ -780,7 +798,7 @@ export function draw(display, P) {
   if (!P.ready) return;
   const { dep, tone, heat, fil, out } = P;
   // The filament's colour for each of 64 tones, a layer's hue being a little off the last.
-  const base = 0.55 + P.k1;
+  const base = 0.46 + P.k1;
   for (let i = 0; i < 64; i++) hsv(base + (i / 63 - 0.5) * 0.36, 0.9, 1, fil, i * 3);
   // While the layers step, the picture glides one LED aslant and dims, so that nothing jumps.
   let gx = 0, gy = 0, gain = 1, glide = false;
