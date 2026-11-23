@@ -209,5 +209,10 @@
   "topoopt": { "label": "위상 최적화", "color": "#e8d9b8" },
   "phaseretrieval": { "label": "위상 복원", "color": "#c46bff" },
   "mammatus": { "label": "주머니 구름", "color": "#ff9a6c" },
-  "seriation": { "label": "행렬 재배열", "color": "#4fb0ff" }
+  "seriation": { "label": "행렬 재배열", "color": "#4fb0ff" },
+  "radiosity": { "label": "래디오시티", "color": "#ffb199" },
+  "repeatarcs": { "label": "반복 호", "color": "#6fe3b5" },
+  "opticalflow": { "label": "광학 흐름", "color": "#8bd3ff" },
+  "cartogram": { "label": "카토그램", "color": "#e6c27a" },
+  "stigmergy": { "label": "개미 길", "color": "#b3e05d" }
 }
