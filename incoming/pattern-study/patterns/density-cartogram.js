@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Tide=0..4, Contrast=-1..1, Regions=-1..1
 //
-// Knob 1: Hue. Turns the whole palette once round: at 0 the regions run from teal through blue and violet to rose, at 0.25 from violet through rose to amber, at 0.5 from amber through green to cyan, at 0.75 from green through cyan to blue, and at 1 back to the first. Neighbouring regions are always given hues far apart.
-// Knob 2: Tide. How fast the populations wander, and how fast the borders chase them: at 0 a region takes about 25 seconds to drift from small to large, at 2 where it opens about 6 seconds, at 4 about 3 seconds and the map never stops sliding.
-// Knob 3: Contrast. The spread between the largest and the smallest population. At -1 the regions differ by about a quarter and the map is nearly an even mosaic; at 0 the biggest is 3 to 5 times the smallest; at +1 a few regions take most of the panel and the rest are slivers a few LEDs wide.
-// Knob 4: Regions. How many regions the map has, 8 at -1, 15 at 0.06 where it opens and 22 at +1. A region leaves by shrinking away into its neighbours and a new one is born as a speck that swells, so turning the knob down merges the map and up splits it.
+// Knob 1: Hue. Where the palette starts, turned once round. The regions spread over 0.6 of the hue circle, so at 0 they run from cyan through blue, violet and magenta to red and orange, at 0.25 from violet through magenta and red to yellow and green, at 0.5 from red through yellow and green to cyan and blue, at 0.75 from yellow-green through cyan and blue to violet and magenta, and at 1 back to the first. Neighbouring regions always get hues far apart, and each region's hue also wanders slowly, by up to 0.1 of the circle.
+// Knob 2: Tide. How fast the populations wander and the borders chase them. Every region's population takes a new heading about every 18 seconds at 0, every 6 seconds at 2 where it opens, and every 3.4 seconds at 4, with a faster ripple on top, and the flow that moves the borders is 72 percent stronger at 4 than at 0, so the map keeps up. Even at 0 the borders never stop moving.
+// Knob 3: Contrast. The spread between the largest and the smallest population. With 22 regions the largest region has about 1.6 times the area of the smallest at -1, a nearly even mosaic, 2.5 times at 0 where it opens, and 7 times at +1 (up to 10), when one or two regions take a fifth of the panel and the smallest are held at 2 percent of it, a strip about 160 LEDs in area.
+// Knob 4: Regions. How many regions the map has: 8 at -1, 15 at 0.06 where it opens, 22 at +1. Past a whole number the next region is born as a speck that swells, and going back it is squeezed out and its neighbours take its place, so turning the knob down merges the map and turning it up splits it.
 
 const W = 64, H = 128;
 const NX = 32, NY = 64, NC = NX * NY, CS = 2; // simulation grid, 2 LEDs a cell
@@ -329,7 +329,7 @@ export function update(dt, input, P) {
   const kv = input.knobValues;
   const tide = kv[1], con = kv[2], reg = kv[3];
   P.hue = kv[0];
-  const rate = 0.55 + 0.5 * tide;
+  const rate = 0.6 + 0.65 * tide;
   const u = (con + 1) * 0.5, g = 0.5 + 0.7 * u + 2.3 * u * u * u;
   const nreg = 8 + 14 * ((reg + 1) * 0.5);
   P.kappa = KAPPA * (0.75 + 0.25 * rate);
