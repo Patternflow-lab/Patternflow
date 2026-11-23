@@ -190,7 +190,7 @@ function pickAngle(P) {
 // Where a new chain goes. Several tries, each with its own point, heading, depth and length. For each, every chain already there is moved
 // along with the water to the moment the new one would arrive (so chains still on their way in count), and the try whose beads end up
 // furthest from all of them wins. That fills the water evenly instead of in clumps. A chain placed once the water moves starts upstream
-// of its point, outside the world, and drifts to it.
+// of its point, outside the world. It drifts to the point from there.
 function samples(c, out, vz) {
   const hl = c.cells.length * (LEN + GAP) * 0.5, ca = cos(c.th), sa = sin(c.th);
   for (let s = -hl; s <= hl; s += 7) out.push(c.ax + ca * s, c.ay + sa * s, vz);
