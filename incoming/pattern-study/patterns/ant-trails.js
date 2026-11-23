@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Ants=0.4..3, Memory=-1..1, Foods=-1..1
 //
-// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue and the food trail gold with a magenta nest, at 0.25 they are violet and green, at 0.5 pink and cyan, at 0.75 lime and rose, and back at 1.
+// Knob 1: Hue. Where the palette starts, once round: at 0 the home trail is blue, the food trail gold, the nest magenta and the rocks violet; at 0.25 they are magenta, teal, orange and rose; at 0.5 orange, violet, teal and lime; at 0.75 teal, magenta, blue and cyan; and back at 1. Whatever the knob says, the whole palette also turns once round the wheel in 140 seconds, so no two minutes have the same colours.
 // Knob 2: Ants. The size of the colony, 45 ants at 0.4, 144 at 2 where it opens and 206 at 3; more ants lay bolder roads and eat a patch down sooner, so the food moves on faster.
 // Knob 3: Memory. How long a trail lasts before it evaporates, 2.3 seconds at -1, 14 seconds at 0 where it opens and 84 seconds at +1. Short, the ants wander in a scatter of comet tails; long, the roads are hard-wired, fat and slow to re-route when the food is gone or a rock settles on them.
 // Knob 4: Foods. How many food patches the ground carries at once, 1 at -1, 3 at 0.06 where it opens and 5 at +1. With one patch every ant works the same trunk road until it is empty; with five the colony splits into a net of roads.
@@ -216,7 +216,7 @@ function sdfAt(SD, x, y) {
 function spawnPatch(P, s) {
   const rate = rr(0.8, 1.35) * (0.55 + P.nA / 160);
   const cap = cl(rr(16, 55) * rate * 0.8, 16, 400);
-  const pr = cl((2.2 + 2.2 * sqrt(cap / 90)) * rr(0.88, 1.12), 2.7, 5);
+  const pr = cl((2.6 + 2.2 * sqrt(cap / 90)) * rr(0.88, 1.12), 3.0, 5.4);
   let bx = 20, by = 30, best = -1;
   for (let tries = 0; tries < 20; tries++) {
     const m = 3.5 + pr;
@@ -256,7 +256,7 @@ function stepPatches(P, dt) {
       const k = exp(-dt * 1.3);
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) if ((x - cx) ** 2 + (y - cy) ** 2 < R * R) P.F[(y + 1) * PW + x + 1] *= k;
-      if (P.pfade[s] <= 0) { P.ps[s] = 0; P.pw[s] = rr(2, 9); }
+      if (P.pfade[s] <= 0) { P.ps[s] = 0; P.pw[s] = rr(1.5, 6); }
     }
   }
 }
@@ -345,7 +345,7 @@ function stepAnts(P, dt) {
     if (md === 0) {
       for (let p = 0; p < NSL; p++) {
         if (P.ps[p] !== 1) continue;
-        const rv = P.pr[p] * (0.4 + 0.6 * sqrt(P.pam[p] / P.pcap[p])) * min(1, P.pfade[p] * 2) + 0.7;
+        const rv = P.pr[p] * (0.55 + 0.45 * sqrt(P.pam[p] / P.pcap[p])) * min(1, P.pfade[p] * 2) + 0.7;
         const dx = x - P.px[p], dy = y - P.py[p];
         if (dx * dx + dy * dy < rv * rv && P.pam[p] > 0.5 && P.pcool[p] <= 0) {
           P.pam[p] -= 1; P.pflash[p] = 1; P.pcool[p] = 1 / P.prate[p];
@@ -480,7 +480,7 @@ export function draw(display, P) {
   for (let s = 0; s < NSL; s++) {
     if (!P.ps[s] || P.pfade[s] <= 0) continue;
     const fade = smooth(P.pfade[s]);
-    const rv = P.pr[s] * (0.4 + 0.6 * sqrt(P.pam[s] / P.pcap[s])) * SC;
+    const rv = P.pr[s] * (0.55 + 0.45 * sqrt(P.pam[s] / P.pcap[s])) * SC;
     const live = P.ps[s] === 1 ? 1 : 0.8;
     const lx = (P.px[s] + 0.5) * SC, ly = (P.py[s] + 0.5) * SC, R = rv * 2.4 + 2;
     const col = [0, 0, 0];
@@ -542,9 +542,9 @@ export function draw(display, P) {
           const face = cl((-0.6 * gx - 0.8 * gy) / gl2, -1, 1);
           const rim = exp(-((sd + 0.2) * (sd + 0.2)) / 0.5) * (0.4 + 0.6 * max(face, 0));
           const inner = cover * (0.05 + 0.07 * exp(sd / 2));
-          r = r * (1 - cover) + cR[0] * (rim * 0.85 + inner);
-          g = g * (1 - cover) + cR[1] * (rim * 0.85 + inner);
-          b = b * (1 - cover) + cR[2] * (rim * 0.85 + inner) + 0.02 * cover;
+          r = r * (1 - cover) + (cR[0] * 0.8 + 0.2) * rim + cR[0] * inner;
+          g = g * (1 - cover) + (cR[1] * 0.8 + 0.2) * rim + cR[1] * inner;
+          b = b * (1 - cover) + (cR[2] * 0.8 + 0.2) * rim + cR[2] * inner + 0.02 * cover;
         } else {
           const sh = 1 - 0.35 * (3 - sd);
           r *= sh; g *= sh; b *= sh;
