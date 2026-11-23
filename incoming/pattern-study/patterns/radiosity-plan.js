@@ -491,7 +491,7 @@ function setEntityColours(P, kv) {
   for (let e = 0; e < NE; e++) {
     const D = HUE_D[e];
     const wob = 70 * sin(TAU * (t * P.hfa[e]) + P.hph[e * 2]) + 42 * sin(TAU * (t * P.hfb[e]) + P.hph[e * 2 + 1]);
-    hueRgb(centre + D * spread + wob * (0.8 + 0.2 * sp), tmp);
+    hueRgb(centre + D * spread + wob, tmp);
     P.rho[e * 3] = alb * (0.04 + 0.96 * tmp[0]);
     P.rho[e * 3 + 1] = alb * (0.04 + 0.96 * tmp[1]);
     P.rho[e * 3 + 2] = alb * (0.04 + 0.96 * tmp[2]);
