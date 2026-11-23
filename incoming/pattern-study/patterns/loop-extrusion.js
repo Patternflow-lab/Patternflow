@@ -481,7 +481,7 @@ function drawArcs(P, fr) {
   // The CTCF sites: a tick leaning the way the motif faces, as tall as the site's chance of stopping a leg.
   for (let k = 0; k < NSITE; k++) {
     const e = cl(P.q * ss[k], 0, 1);
-    if (e < 0.04) continue;
+    if (e < 0.22) continue;
     const x = SITES[k][0] + 0.5, f = SITES[k][1];
     seg(ab, x, 70.6, x + f * (1.1 + 0.6 * e), 70.6 - (2.2 + 3 * e), 0.6, tick[0] / 255, tick[1] / 255, tick[2] / 255, 0.28 + 0.5 * e);
   }
