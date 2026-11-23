@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: crown shyness, the channels of sky between the crowns of trees of one species (Marcel Ng and colleagues' survey of Dryobalanops aromatica, 1970s, and Francis Putz and colleagues' tests of the wind-abrasion explanation, 1984, from memory), a multiplicatively weighted Voronoi diagram whose cells are the crowns (Apollonius diagram, from memory), pattern round 226
+// Lineage: crown shyness, the narrow channels of sky between the crowns of neighbouring trees of one species (described since the 1920s, from memory; wind abrasion of the crown tips as one cause, Francis Putz, Geoffrey Parker and Rodney Archibald, 1984, from memory), drawn as a multiplicatively weighted Voronoi diagram, the Apollonius diagram, whose cells are the crowns (from memory), pattern round 226
 // Round:   226
 // ===============================
 // @matrix 64x128
 // @knobs Season=0..1, Wind=0..3, Density=-1..1, Gap=-1..1
 //
-// Knob 1: Season. The colour of the leaves, spring green at 0 (deep teal at the middle of a crown, lime at its rim), lime-yellow at 0.5, and gold at 1; it never goes red or brown, and the sky stays blue-white.
-// Knob 2: Wind. How far the trees sway and how fast the leaves flutter. The crowns stand still at 0; at 2 where it opens each one wanders about 1.9 LEDs from its place on a clock of its own, and the sky net breathes between about 2 and 3.7 LEDs wide; at 3 the sway is 2.9 LEDs and the leaves boil twice as fast.
-// Knob 3: Density. How many trees fill the panel, which is the forest seen from nearer or further. 25 trees with crowns about 19 LEDs across at -1, about 50 at 0 where it opens (crowns 14 across), about 90 at +1 (crowns 10 across).
-// Knob 4: Gap. How wide the sky is between crowns, 2.0 LEDs at -1, 2.6 at 0.06 where it opens, and 6.0 at +1, where the crowns are islands in a bright sky.
+// Knob 1: Season. The colour of the leaves: spring green at 0 (deep teal at the middle of a crown, lime at its rim), lime-yellow at 0.5, and yellow-gold at 1 with an olive middle; it never goes red or brown, and the sky stays blue-white.
+// Knob 2: Wind. How far the trees sway and how fast the leaves flutter. The crowns stand still at 0 and the net stays about 2.6 LEDs wide; at 2 where it opens each crown wanders 1.3 LEDs from its place (rms, on each axis) and the net breathes between 2.0 and 4.0 LEDs wide as neighbours sway apart and together; at 3 the sway is 2.1 LEDs. The leaves also flutter faster, at 0.35 of the clock's rate at 0, 0.95 at 2 and 1.25 at 3.
+// Knob 3: Density. How many trees fill the panel, the forest seen from nearer or further. About 24 trees with crowns 19 LEDs across at -1, 49 at 0 where it opens (crowns 14 across), and 84 at +1 (crowns 11 across).
+// Knob 4: Gap. How wide the sky is between crowns before the sway: 2.0 LEDs at -1, 2.6 at 0.06 where it opens, and 6.0 at +1, where the crowns are islands in a bright sky.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, exp, sin, cos, pow, abs, min, max, PI } = Math;
@@ -49,7 +49,7 @@ function wander(t, ch) {
 const SEASONS = [
   [[6, 80, 78], [16, 118, 72], [58, 168, 60], [150, 222, 68], [226, 250, 114]],
   [[28, 112, 52], [96, 166, 40], [168, 204, 40], [216, 234, 72], [246, 253, 134]],
-  [[162, 136, 8], [206, 162, 10], [240, 192, 24], [254, 224, 76], [255, 246, 156]],
+  [[140, 148, 10], [188, 172, 10], [240, 206, 20], [254, 228, 72], [255, 246, 152]],
 ];
 const SKY0 = [198, 228, 252], SKY1 = [236, 249, 255], SKYSUN = [255, 250, 228];
 
@@ -237,7 +237,7 @@ export function update(dt, input, P) {
   const cw = P.cw, t = P.t;
   // Gusts come and go: the sway is from 0.4 to 1.3 times its steady size.
   const gust = 0.85 + 0.45 * wander(cw / 11 + 5.5, 2);
-  const A = wind * 0.95 * gust;
+  const A = wind * 1.7 * gust;
   const gvx = 0.45 * A * wander(cw / 15, 3), gvy = 0.45 * A * wander(cw / 17, 4);
   const { px, py, ox, oy, rr, amp, cx, cy, lcr, lci } = P;
   for (let i = 0; i < NT; i++) {
@@ -353,7 +353,7 @@ function render(P, gapk) {
         const ex = px[i2] - px[i1], ey = py[i2] - py[i1], el = sqrt(ex * ex + ey * ey) + 1e-6;
         // How far the two trees have swayed apart along the line between them.
         const sep = cl(((ox[i2] - ox[i1]) * ex + (oy[i2] - oy[i1]) * ey) / el, -4, 4);
-        hwPair = max(1.0, hwBase + 0.22 * sep);
+        hwPair = max(1.0, hwBase + 0.17 * sep);
       }
       const xp = x + 0.5, yp = y + 0.5;
       // Slow wander of the width along the net.
