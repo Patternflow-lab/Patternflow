@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Dust Gaps
 // Family:  protodisk
-// Idea:    A young star's dust disk seen tilted, as ALMA sees it, where young planets cut dark gaps into the gas, grains drifting toward each gap's pressure maximum pile up into thin bright rings, and a crescent vortex, a faint spiral wake and short arcs of dust go round at the Keplerian rate of their own radius.
+// Idea:    A young star's dust disk seen tilted, as ALMA sees it: planets cut gaps in the gas, grains drift to each gap's pressure maximum and pile up into thin bright rings, and a crescent vortex, a faint spiral wake and short arcs of dust go round at the Keplerian rate of their own radius.
 // Author:  patternflow-lab
 // Date:    2026-11-22
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Mass=0..4, Grain=-1..1, Tilt=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel and comes back at 1. At 0 the dust runs from plum through rose and amber to a white-yellow core on indigo-black, with a cool blue haze of scattered light; at 0.5 it is teal to ice on a rust ground.
-// Knob 2: Mass. How heavy the planets are, 0.16 Jupiter masses times 2^(0.95 K) for the lightest of them: 0.16 at 0, 0.6 at 2 where it opens, 2.3 at 4. At 0 the gaps are shallow and the rings low and faint and there is no vortex; at 2 there are four clear gaps; at 4 the gaps are deep and 8 to 9 LEDs wide, the rings crowd together and the vortex and the spiral wake are strong.
-// Knob 3: Grain. The Stokes number of the dust, 0.045 times 6^K: 0.0075 at -1, 0.045 at 0, 0.27 at 1. At -1 the grains hold to the gas and the disk is smooth with ghost gaps; at 0 the rings are about 5 LEDs wide on the long axis; at 1 the dust is trapped hard and the rings are thin, about 3 LEDs, with dark gaps between.
-// Knob 4: Tilt. The inclination of the disk, 20 degrees at -1, a round disk 70 LEDs across, 60 at 0.06 where it opens, 75 at 1, a thin lens 124 LEDs tall and 32 wide. The near side, to the right, is up to 30 percent brighter than the far side.
+// Knob 1: Hue. Turns the whole palette round the wheel and comes back at 1. At 0 the dust runs from plum through rose and amber to a white-yellow core on indigo-black, with a cool blue haze of scattered light between the rings; at 0.5 the dust is cyan to ice and the haze yellow-brown, at 0.25 green and at 0.75 magenta.
+// Knob 2: Mass. How heavy the planets are. The lightest of the four is 0.05 Jupiter masses at 0, 0.17 at 1, 0.63 at 2 where it opens, 1.1 at 3 and 2.0 at 4, and the others are 1.2 to 1.7 times that. At 0 the gas at the bottom of a gap is still 85 to 92 percent of the smooth disk, so the dust is a smooth rose disk with ghost rings and there is no vortex; at 1 it is 29 to 46 percent; at 2 it is 3 to 6 percent and four gaps are clear; at 4 it is under 1 percent, the outer gap is 3.5 LEDs wide in sigma against 1.4 for the inner ones, and the vortex and the spiral wake are at full strength.
+// Knob 3: Grain. The Stokes number of the dust, 0.045 times 0.07^(-K) below 0 and 0.045 times 3.1^K above: 0.003 at -1, 0.045 at 0, 0.14 at 1. At -1 the grains cling to the gas and drift 14 times slower than at 0, so the grinding that refills the disk wins: it is smooth and rose, the rings are 4 to 10 LEDs across and the dark between them is 1 to 3 LEDs. At 0 the rings are 3 to 4 LEDs wide on the long axis and the gaps go black for 3 to 6 LEDs. At 1 the dust is trapped hard, the rings are 3 LEDs, brighter, and the gaps are 5 to 6 LEDs. The vortex and the dust arcs also grow stronger with it.
+// Knob 4: Tilt. The inclination of the disk to the line of sight. 20 degrees at -1, almost face on: a round disk 66 LEDs across and 70 tall. 60 degrees at 0.06 where it opens: a tall ellipse 62 wide and 124 tall. 75 degrees at 1: a thin lens 32 wide and 124 tall. The rings keep their width along the long axis and narrow across it, and the near side, to the right, is up to 30 percent brighter than the far side.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, exp, log, sin, cos, atan2, pow, abs, min, max, PI } = Math;
@@ -22,30 +22,42 @@ const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
-// The disk is laid out in radius r, 0 at the star and 1 at the edge, on NC cells.
-// It is a mix of two clocks: the dust moves and gaps drift by the clock of this file,
-// and anything that orbits turns at Omega(r) = OM1 r^(-3/2), so it goes round once in 180 s at r = 1,
-// 64 s at 0.5 and 16 s at 0.2.
+// What the picture is. The disk lives in its own polar coordinates: a radius r from 0 at the star to 1 at the rim, on
+// NC = 128 cells, and an angle theta. The tilt only decides which (r, theta) each LED looks at.
+// Time. The dust drifts and the gaps move on the clock of this file, which is a few seconds a step and not a real
+// year. Everything that orbits turns at the Keplerian rate Omega(r) = OM1 r^(-3/2): once in 90 s at r = 1,
+// 32 s at 0.5 and 8 s at 0.2, so the inner rings go round faster than the outer ones.
 const NC = 128, DRC = 1 / NC;
-const OM1 = TAU / 180;
+const OM1 = TAU / 90;
 const PRE = 90; // seconds of dust evolution run in the first update, from a smooth disk
-const U = 0.4; // drift speed: v = U s(St) r d(ln P)/dr, disk radii a second
-const DIFF = 7e-4; // dust diffusion, disk radii squared a second
-const TRELAX = 130; // s, the time in which grinding of bigger bodies fills the disk back up toward the smooth profile
-const TS = 0.52; // optical depth of the smooth disk at r = 0.5 on the way through
+const U = 0.4; // drift: v = U s(St) r d(ln P)/dr with s = St / (1 + St^2), in disk radii a second
+const DIFF = 4.5e-4; // dust diffusion, disk radii squared a second
+const TRELAX = 70; // s, in which grinding of bigger bodies fills the dust back toward the smooth profile
+const TS = 0.52; // optical depth scale of the dust
 const VCAP = 0.07;
+// How much of the smooth disk's own pressure slope drives the drift, against all of the gaps' slope. With all of it the
+// whole disk drains into the inner ring; the grinding that refills it is not strong enough to keep up.
+const BGW = 0.3;
 
-// Planets. Five slots, each with a home radius, two slow wanders that do not share a period, a mass factor
-// and a breathing of mass. Slots 2 and 4 swap: slot 4 grows into a planet at 0.55 while slot 2 at 0.645 fades
-// (the swap clock has a period of 421 s), so a gap closes, a new one opens a little in, and the rings move.
+// Planets. Five slots. Each has a home radius, two wanders of its own with periods that do not divide one
+// another, a share (cw) in a slow migration that all of them make together, a mass factor and a breathing of its mass.
+// Slots 2 and 4 swap on a clock of 311 s: slot 4 grows into a planet at 0.705 while slot 2, at 0.66, fades, so one
+// gap closes, a new one opens a little further out, and the ring between moves with it.
 const SL = [
-  { r0: 0.30, a1: 0.020, t1: 641, p1: 0.3, a2: 0.010, t2: 233, p2: 3.1, mult: 0.9, te: 389, pe: 1.0 },
-  { r0: 0.48, a1: 0.030, t1: 797, p1: 3.1, a2: 0.012, t2: 311, p2: 0.2, mult: 1.3, te: 457, pe: 2.2 },
-  { r0: 0.66, a1: 0.032, t1: 953, p1: 6.0, a2: 0.010, t2: 277, p2: 3.0, mult: 1.1, te: 0, pe: 0 },
-  { r0: 0.84, a1: 0.018, t1: 877, p1: 0.0, a2: 0.008, t2: 347, p2: 0.0, mult: 1.5, te: 521, pe: 4.1 },
-  { r0: 0.57, a1: 0.026, t1: 701, p1: 0.4, a2: 0.009, t2: 293, p2: 3.1, mult: 1.2, te: 0, pe: 0 },
+  { r0: 0.30, cw: 0.5, a1: 0.016, t1: 109, p1: 0, a2: 0.008, t2: 67, p2: Math.PI, mult: 0.9, te: 139, pe: -2.50 },
+  { r0: 0.48, cw: 0.8, a1: 0.020, t1: 127, p1: Math.PI, a2: 0.009, t2: 79, p2: 0, mult: 1.3, te: 181, pe: -1.55 },
+  { r0: 0.66, cw: 1, a1: 0.020, t1: 113, p1: 0, a2: 0.008, t2: 71, p2: Math.PI, mult: 1.1, te: 0, pe: 0 },
+  { r0: 0.82, cw: 0.7, a1: 0.012, t1: 139, p1: Math.PI, a2: 0.006, t2: 83, p2: 0, mult: 1.5, te: 227, pe: -0.92 },
+  { r0: 0.705, cw: 1, a1: 0.018, t1: 103, p1: 0, a2: 0.008, t2: 73, p2: Math.PI, mult: 1.2, te: 0, pe: 0 },
 ];
 const NS = SL.length;
+const SEED = 225225;
+// Waves of brightness that run along the radius, each with its own period (s), wavenumber, size and phase.
+// They stand for pulses of dust arriving, and they let each ring brighten and dim on its own.
+const WP = [13, 17, 23, 29, 37, 43, 53, 61];
+const WK = [-7.3, 5.9, -2.7, 9.6, 4.1, -12.1, 3.3, -5.2];
+const WA = [0.17, 0.15, 0.17, 0.145, 0.16, 0.13, 0.145, 0.13];
+const WF = [0.5, 2.1, 1, 4.4, 2, 5.5, 3.3, 0.9];
 
 // Palette: plum, rose, amber, peach, white-yellow, on indigo-black.
 const STOPS = [
@@ -101,7 +113,7 @@ function palette(P, turn) {
 }
 
 export function setup(P) {
-  P.rand = rng(225225);
+  P.rand = rng(SEED);
   P.ready = false;
   P.t = 0;
   P.T = 0;
@@ -134,7 +146,7 @@ export function setup(P) {
   P.pf = new Float64Array(NS);
   P.ps = new Float64Array(NS);
   P.ph = new Float64Array(NS);
-  for (let k = 0; k < NS; k++) P.ph[k] = 6.28 * P.rand();
+  for (let k = 0; k < NS; k++) P.ph[k] = TAU * P.rand(); // where each planet is on its orbit
   P.rings = [];
   // Per pixel, by the tilt.
   P.mc = new Float32Array(NPX);
@@ -166,10 +178,10 @@ export function setup(P) {
     }
   // Dust arcs and vortices.
   P.arcs = [];
-  for (let i = 0; i < 7; i++) P.arcs.push({ c: 40, phi: 0, L: 6, amp: 0, age: 0, life: 1 });
+  for (let i = 0; i < 56; i++) P.arcs.push({ c: 40, phi: 0, L: 6, amp: 0, age: 0, life: 1 });
   P.vort = [
-    { age: 95, life: 380, host: 2, phi: 1.3, mf: 0, c: 60 },
-    { age: -230, life: 330, host: 1, phi: 4.4, mf: 0, c: 40 },
+    { age: 95, life: 260, host: 2, phi: 1.3, mf: 0, c: 60 },
+    { age: -150, life: 230, host: 1, phi: 4.4, mf: 0, c: 40 },
   ];
   P.nextHost = 3;
 }
@@ -177,12 +189,13 @@ export function setup(P) {
 // The planets at clock T: radius, mass in Jupiter masses, depth of the gas gap and its width.
 function planets(P, T, M) {
   const alpha = 8e-4 * (1 + 0.3 * sin((TAU * T) / 691 + 0.4));
-  const w = smooth((sin((TAU * T) / 421 - 2.243) - 0.45) / 0.35);
+  const w = smooth((sin((TAU * T) / 311 - 2.94) - 0.3) / 0.3);
   for (let k = 0; k < NS; k++) {
     const s = SL[k];
     const Tw = T - PRE;
-    const r = s.r0 + s.a1 * sin((TAU * Tw) / s.t1 + s.p1) + s.a2 * sin((TAU * Tw) / s.t2 + s.p2);
-    const e = k === 2 ? 1 - 0.92 * w : k === 4 ? w : 0.88 + 0.12 * sin((TAU * T) / s.te + s.pe);
+    const mig = 0.034 * sin((TAU * Tw) / 163) + 0.022 * sin((TAU * Tw) / 257 + 0.9) - 0.0172;
+    const r = s.r0 + s.cw * mig + s.a1 * sin((TAU * Tw) / s.t1 + s.p1) + s.a2 * sin((TAU * Tw) / s.t2 + s.p2);
+    const e = k === 2 ? 1 - 0.92 * w : k === 4 ? w : 0.68 + 0.32 * sin((TAU * T) / s.te + s.pe);
     const m = M * s.mult * e;
     const q = m * 9.5e-4;
     const h = 0.062 * pow(r / 0.5, 0.25);
@@ -190,7 +203,7 @@ function planets(P, T, M) {
     P.pr[k] = r;
     P.pm[k] = m;
     P.pf[k] = 1 / (1 + 0.04 * K);
-    P.ps[k] = cl(0.72 * r * h * (0.5 + 0.08 * pow(K, 0.25)), 0.022, 0.05);
+    P.ps[k] = cl(0.72 * r * h * (0.5 + 0.1 * pow(K, 0.25)), 0.022, 0.056);
   }
 }
 
@@ -205,7 +218,7 @@ function gas(P) {
       if (d < 4 && d > -4) g *= 1 - (1 - pf[k]) * exp(-0.5 * d * d);
     }
     sg[c] = g;
-    lp[c] = log(g * pow(r, -0.5) + 1e-5);
+    lp[c] = log((g + 1e-5) / (sp[c] + 1e-5)) + BGW * log(sp[c] * pow(r, -0.5) + 1e-5);
   }
 }
 
@@ -249,15 +262,12 @@ function dust(P, dt, st) {
 function buildMap(P, inc) {
   P.inc = inc;
   const ci = cos(inc), si = sin(inc);
-  const S = min(62, 35 / ci);
+  const S = min(62, 33 / ci);
   P.S = S;
   const ax = 1 / (S * ci), ay = 1 / S;
   const cnt = new Int32Array(NC + 1);
   const cell = new Int16Array(NPX).fill(-1);
-  const look = (r) => {
-    const u = cl(r / DRC - 0.5, 0, NC + 0.999);
-    return u;
-  };
+  const look = (r) => cl(r / DRC - 0.5, 0, NC + 0.999);
   for (let y = 0; y < H; y++) {
     const dy = (y + 0.5 - 64) * ay;
     for (let x = 0; x < W; x++) {
@@ -276,7 +286,7 @@ function buildMap(P, inc) {
       P.fb[p] = ub - floor(ub);
       // Near side to the right, brighter.
       P.lf[p] = 1 + 0.3 * si * cos(th) * smooth(r / 0.3);
-      P.ho[p] = r > 1 ? 0.3 * exp(-(r - 1) / 0.09) : 0;
+      P.ho[p] = r > 1 ? 0.2 * exp(-(r - 1) / 0.07) : 0;
       if (r < 1) {
         const c = floor(r * NC);
         cell[p] = c;
@@ -294,13 +304,13 @@ function buildMap(P, inc) {
 function findRings(P) {
   const t = P.tau, rings = [];
   for (let c = 6; c < NC - 2; c++)
-    if (t[c] > t[c - 1] && t[c] >= t[c + 1] && t[c] > 0.35 && t[c] > 1.25 * min(t[c - 5], t[c + 4], t[c - 3] + 0.3 * 0)) rings.push(c);
+    if (t[c] > t[c - 1] && t[c] >= t[c + 1] && t[c] > 0.35 && t[c] > 1.25 * min(t[c - 5], t[c + 4])) rings.push(c);
   P.rings = rings;
 }
 
 // Walk uphill in optical depth from cell c to the ring top.
 function climb(t, c) {
-  c = cl(round(c), 1, NC - 2);
+  c = cl(Math.round(c), 1, NC - 2);
   for (let i = 0; i < 9; i++) {
     if (t[c + 1] > t[c]) c++;
     else if (t[c - 1] > t[c]) c--;
@@ -308,7 +318,6 @@ function climb(t, c) {
   }
   return c;
 }
-const round = Math.round;
 
 function rebirth(P, a, first) {
   const rand = P.rand;
@@ -316,13 +325,14 @@ function rebirth(P, a, first) {
   const c = rg.length ? rg[floor(rand() * rg.length)] : 30 + floor(rand() * 80);
   a.c = c + (rand() - 0.5) * 2;
   a.phi = TAU * rand();
-  a.L = 3.5 + 5.5 * rand();
-  a.amp = 0.5 + 0.8 * rand();
-  a.life = 45 + 100 * rand();
-  a.age = first ? -a.life * 0 + (rand() - 0.3) * a.life : 0;
+  a.L = 3.5 + 8 * rand();
+  a.amp = rand() < 0.3 ? -0.45 - 0.3 * rand() : 0.7 + 1.0 * rand();
+  a.life = 11 + 30 * rand();
+  a.age = first ? (rand() - 0.3) * a.life : 0;
 }
 
-// Dust ring and arc features, then the cell lists they are painted through.
+// The features that are not axisymmetric, painted through the lists of LEDs by radius cell. mul scales the optical
+// depth of the rings, add puts dust on top of them, sca is cool scattered light.
 function features(P, dt, M, grain) {
   const { tau, mul, add, sca, mc, ms, bs, bi, rand } = P;
   const S = P.S;
@@ -337,7 +347,7 @@ function features(P, dt, M, grain) {
     if (a.age >= a.life) rebirth(P, a, false);
     a.c += (climb(tau, a.c) - a.c) * min(1, 3 * dt);
     a.phi += OM1 * pow((a.c + 0.5) * DRC, -1.5) * dt;
-    const env = smooth(a.age / 14) * (1 - smooth((a.age - (a.life - 22)) / 22));
+    const env = smooth(a.age / 6) * (1 - smooth((a.age - (a.life - 9)) / 9));
     if (env < 0.01) continue;
     const cp = cos(a.phi), sp = sin(a.phi), am = a.amp * env * (0.45 + 0.55 * grain);
     const ca = floor(a.c);
@@ -358,11 +368,16 @@ function features(P, dt, M, grain) {
   // Vortices at the outer edge of a gap.
   for (const v of P.vort) {
     v.age += dt;
+    // A vortex whose planet has faded away is replaced at once, by one at the gap of a planet that is heavy enough.
+    if (v.age > 5 && P.pm[v.host] < 0.2 * M) v.age = v.life;
     if (v.age >= v.life) {
       v.age = 0;
-      v.life = 300 + 120 * rand();
-      do v.host = P.nextHost = (P.nextHost + 1 + floor(rand() * 2)) % 4;
-      while (P.pm[v.host] < 0.5 * M || (P.vort[0] !== v && P.vort[0].host === v.host) || (P.vort[1] !== v && P.vort[1].host === v.host));
+      v.life = 170 + 90 * rand();
+      for (let tries = 0; tries < 12; tries++) {
+        v.host = P.nextHost = (P.nextHost + 1 + floor(rand() * 2)) % NS;
+        const other = P.vort[0] === v ? P.vort[1] : P.vort[0];
+        if (P.pm[v.host] > 0.5 * M && other.host !== v.host) break;
+      }
       v.phi = TAU * rand();
     }
     if (v.age < 0) continue;
@@ -400,7 +415,7 @@ function features(P, dt, M, grain) {
   // beyond the planet trails it and the arm inside runs ahead.
   for (const k of [1, 3]) {
     const rp = P.pr[k];
-    const aw = 0.08 + 0.4 * smooth((P.pm[k] - 0.15) / 1.0);
+    const aw = 0.2 + 0.7 * smooth((P.pm[k] - 0.1) / 0.9);
     const cLo = max(0, floor((0.55 * rp) / DRC)), cHi = min(NC - 1, ceil((1.62 * rp) / DRC));
     const pp = P.ph[k];
     for (let c = cLo; c <= cHi; c++) {
@@ -410,7 +425,7 @@ function features(P, dt, M, grain) {
       const th = x > 1 ? pp - f : pp + f;
       const ct = cos(th), st = sin(th);
       const fall = aw * exp(-abs(r - rp) / (0.5 * rp)) * (1 - smooth((f - 2.2) / 1.0)) * smooth(f / 0.5 + 0.05);
-      const K = cl((S * r) / 2.3, 1, 40) ** 2;
+      const K = cl((S * r) / 3.2, 1, 40) ** 2;
       for (let j = bs[c]; j < bs[c + 1]; j++) {
         const p = bi[j];
         const u = (1 - (mc[p] * ct + ms[p] * st)) * K;
@@ -424,8 +439,14 @@ function features(P, dt, M, grain) {
   }
 }
 
+// The mass scale of the lightest planet in Jupiter masses: 3.7 times a unit of the knob below 2, 1.8 above.
+const massOf = (k) => {
+  k = cl(k, 0, 4);
+  return k < 2 ? 0.7 * pow(3.7, k - 2) : 0.7 * pow(1.8, k - 2);
+};
+
 function advance(P, d, k) {
-  const M = 0.2 * pow(2, cl(k[1], 0, 4));
+  const M = massOf(k[1]);
   const grain = cl(k[2], -1, 1);
   const st = 0.045 * (grain < 0 ? pow(0.07, -grain) : pow(3.1, grain));
   P.T += d;
@@ -433,7 +454,6 @@ function advance(P, d, k) {
   gas(P);
   dust(P, d, st);
   for (let q = 0; q < NS; q++) P.ph[q] += OM1 * pow(P.pr[q], -1.5) * d;
-  return [M, grain];
 }
 
 function shape(P, k) {
@@ -448,9 +468,14 @@ function shape(P, k) {
   for (let c = 0; c < NC; c++) {
     let a = 0;
     for (let j = -3; j <= 3; j++) a += bw[j + 3] * sd[cl(c + j, 0, NC - 1)] * tf[cl(c + j, 0, NC - 1)];
-    tau[c] = a * tilt;
     const r = (c + 0.5) * DRC;
-    cs[c] = 0.5 * (0.55 + 0.45 * (sg[c] / (sp[c] + 1e-6))) * exp(-r / 0.8);
+    // The dust arrives in pulses: brightness runs in waves along the radius, eight of them with their own
+    // periods and wavelengths, so that each ring brightens and dims on its own.
+    let wv = 1;
+    for (let j = 0; j < 8; j++) wv += WA[j] * sin(TAU * (P.T / WP[j] + WK[j] * r) + WF[j]);
+    wv = max(0.4, wv);
+    tau[c] = a * tilt * wv;
+    cs[c] = 0.4 * (0.55 + 0.45 * (sg[c] / (sp[c] + 1e-6))) * exp(-r / 0.8);
   }
   tau[NC] = tau[NC + 1] = 0;
   cs[NC] = cs[NC + 1] = 0;
@@ -467,14 +492,13 @@ export function update(dt, input, P) {
     for (let t = 0; t < PRE; t += 0.1) advance(P, 0.1, k);
     P.ready = true;
     shape(P, k);
-    for (const a of P.arcs) rebirth(P, a, true);
     findRings(P);
     for (const a of P.arcs) rebirth(P, a, true);
   }
   P.t += d;
   advance(P, d, k);
   shape(P, k);
-  features(P, d, 0.2 * pow(2, cl(k[1], 0, 4)), cl(k[2], -1, 1) * 0.5 + 0.5);
+  features(P, d, massOf(k[1]), cl(k[2], -1, 1) * 0.5 + 0.5);
 }
 
 const ETAB = new Float32Array(1024);
