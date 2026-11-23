@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Tint=0..1, Load=0.2..4, Material=-1..1, Feature=-1..1
 //
-// Knob 1: Tint. The hue of the void and of the glow along the struts, which stay ivory: teal-blue at 0 where it opens, cyan-blue at 0.25, blue-violet at 0.5, violet at 0.75, and rose-magenta at 1 (the sweep keeps clear of orange, where a dark tint would turn brown). The warm end of the glow is the opposite hue, pale and light.
-// Knob 2: Load. How fast the loads wander over the panel and swing their direction, and so how fast the structure remodels. The load clock runs at 0.25 of its pace at 0.2, 1 where it opens at 2, and 2 at 4; at 2 a load takes about 4.5 seconds to go from one random place to the next, and the branches re-form in a second or two after it. A faster clock also leaves the struts less time to settle, so the web gets busier.
-// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, struts 3 to 4 LEDs across), 0.35 at 0 where it opens (struts 6 to 9 LEDs across, with braces), and 0.55 at +1 (a dense web with small holes). It also drifts by a third either way on its own. The structure settles to a new share in one to three seconds.
-// Knob 4: Feature. The radius of the density filter, which sets the thinnest strut and how fine the branching can get: 1.25 elements at -1 (fine trabeculae, 3 LEDs across), 1.5 at 0.06 where it opens, and 3.0 at +1 (chunky struts, 8 LEDs and more). An element is 2 by 2 LEDs. It settles in one to three seconds.
+// Knob 1: Tint. The hue of the void and of the glow along the struts, which stay ivory: teal-blue at 0 where it opens, blue at 0.25, blue-violet at 0.5, magenta-violet at 0.75, and rose at 1 (the sweep keeps clear of orange, where a dark tint would turn brown). The glow runs from a pale tint of that hue on struts that carry less than their share to a pale tint of the opposite hue on struts that carry more.
+// Knob 2: Load. How fast the loads wander over the panel and swing their direction, and so how fast the structure remodels. The load clock runs at 0.25 of its pace at 0.2, 1 where it opens at 2, and 2 at 4; at 2 a load takes about 4.5 seconds to go from one random place to the next, and the branches follow it within a second or two.
+// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, struts 3 to 4 LEDs across), 0.35 at 0 where it opens (a shaft 10 to 16 LEDs across with braces 4 to 6 across), and 0.5 at +1 (a dense web with holes). It also drifts by a quarter either way on its own, never above 0.52. The structure settles to a new share in one to three seconds.
+// Knob 4: Feature. The radius of the density filter, which sets the thinnest strut and how fine the branching can get: 1.25 elements at -1 (fine trabeculae, 3 LEDs across), 1.5 at 0.06 where it opens, and 3.0 at +1 (chunky struts, 8 LEDs and more). An element is 2 by 2 LEDs. It also drifts a little on its own, and settles in one to three seconds.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, exp, sin, cos, pow, abs, min, max } = Math;
@@ -31,7 +31,7 @@ const RP = 3, EW = NX + 2 * RP, NE = EW * (NY + 2 * RP);
 const EMIN = 1e-3;   // stiffness of the void, against 1 for solid
 const XMIN = 0.01;   // the design variable never goes below this
 const MOVE = 0.2;    // the optimality-criteria move limit
-const PRE_ITERS = 44; // design steps before the first frame
+const PRE_ITERS = 50; // design steps before the first frame
 const NLOADS = 3;    // loads on the top edge
 const SEED_X = [16, 6, 26], SEED_TH = [0, 0.45, -0.45]; // where they start, in nodes and radians
 const CYC = 3;       // frames to a design step
@@ -573,7 +573,7 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   const tint = cl(kv[0], 0, 1), load = cl(kv[1], 0.2, 4), mat = cl(kv[2], -1, 1), feat = cl(kv[3], -1, 1);
   const rate = load < 2 ? 0.25 + 0.75 * (load - 0.2) / 1.8 : 1 + (load - 2) / 2;
-  const vfT = 0.35 + 0.20 * mat;
+  const vfT = mat < 0 ? 0.35 + 0.20 * mat : 0.35 + 0.15 * mat;
   const rT = feat < 0.06 ? 1.5 + 0.25 * (feat - 0.06) / 1.06 : 1.5 + 1.5 * (feat - 0.06) / 0.94;
   if (!P.ready) {
     P.ready = true;
@@ -585,9 +585,9 @@ export function update(dt, input, P) {
     applyFilter(P);
     for (let it = 0; it < PRE_ITERS; it++) {
       P.tl += 0.11; P.tf += 0.11;
-      P.pen = 1.6 + 1.4 * smooth(it / (PRE_ITERS * 0.8));
-      P.seedMix = 1 - smooth(it / (PRE_ITERS * 0.75));
-      P.sideMix = smooth(it / (PRE_ITERS * 0.75));
+      P.pen = 1.6 + 1.4 * smooth(it / (PRE_ITERS * 0.6));
+      P.seedMix = 1 - smooth(it / (PRE_ITERS * 0.45));
+      P.sideMix = smooth(it / (PRE_ITERS * 0.45));
       setLoads(P); setFeet(P);
       assemble(P);
       cgStart(P);
@@ -606,8 +606,8 @@ export function update(dt, input, P) {
   // The share of material and the filter radius glide to their knobs.
   const k = 1 - exp(-d / 0.2);
   // Both drift on their own, slowly, each on a sequence of its own: bone gains and loses mass, and the struts coarsen and fine.
-  P.vf += (vfT * (1 + 0.3 * wander(P.t / 41 + 9, 78)) - P.vf) * k;
-  P.rmin += (max(1.2, rT * (1.05 + 0.15 * wander(P.t / 53 + 2, 79))) - P.rmin) * k;
+  P.vf += (min(0.52, vfT * (1 + 0.25 * wander(P.t / 41 + 9, 78))) - P.vf) * k;
+  P.rmin += (cl(rT * (1.05 + 0.15 * wander(P.t / 53 + 2, 79)), 1.2, 3.0) - P.rmin) * k;
   // A design cycle takes CYC frames. At its start the loads and the feet move, the filter is rebuilt if the
   // feature size has moved, the stiffness is assembled and the solve is restarted; the solve goes on over the
   // frames after, and the optimality-criteria update closes the cycle.
