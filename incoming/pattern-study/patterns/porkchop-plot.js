@@ -174,27 +174,31 @@ export function setup(params) {
   P.occ = 0.3;
   P.lit = 0.3;
   palette(P, 0);
-  step(P, 0, [0, 2, 1, 0.06]);
+  step(P, 0, [0, 2, 1, 0.06], true);
+  P.fresh = true;
 }
 
 // The ramp from the cheapest transfer (p = 1) to the far field (p = 0): the fill
 // of the chart, and a lighter, paler copy for the contour lines.
 function palette(P, h0) {
   P.hc = h0;
-  const hs = [0.715, 0.6, 0.475, 0.27, 0.125], ps = [0, 0.28, 0.52, 0.78, 1];
+  const hs = [0.715, 0.6, 0.475, 0.27, 0.15], ps = [0, 0.28, 0.52, 0.78, 1];
   for (let i = 0; i < 256; i++) {
     const p = i / 255;
     let n = 0;
     while (n < 3 && p > ps[n + 1]) n++;
     const u = smooth((p - ps[n]) / (ps[n + 1] - ps[n]));
     const h = h0 + hs[n] + (hs[n + 1] - hs[n]) * u;
-    const s = 0.96 - 0.1 * p * p;
-    hsv(h, s, 0.24 + 0.58 * pow(p, 0.85), P.fill, i * 3);
+    // The dark end is dim indigo; turned to yellow or red it would read as brown, so
+    // it is darker the further the hue is from blue.
+    const warm = 0.5 - 0.5 * cos(TAU * (h - 0.68));
+    const vlow = 0.24 - 0.12 * warm;
+    hsv(h, 0.96 - 0.1 * p * p, vlow + (0.88 - vlow) * pow(p, 0.85), P.fill, i * 3);
     hsv(h, 0.45 - 0.2 * p, 0.62 + 0.38 * pow(p, 0.5), P.line, i * 3);
   }
 }
 
-function step(P, d, k) {
+function step(P, d, k, init) {
   const t = P.t;
   const kt = cl(k[1], 0, 5), ke = cl(k[2], 1, 8), kc = cl(k[3], -1, 1);
   // The destination wanders: its mean radius moves by a few incommensurate slow
@@ -209,7 +213,7 @@ function step(P, d, k) {
   // pace over an island; across the dark saddle between two islands the epoch runs
   // up to four times as fast, so the next window comes soon.
   P.occ += (P.lit - P.occ) * (1 - exp(-d / 1.2));
-  const dE = 0.45 * pow(ke, 1.1) * (1 + 3 * smooth(1 - P.occ / 0.1)) * d;
+  const dE = Math.min(0.45 * pow(ke, 1.1) * (1 + 3 * smooth(1 - P.occ / 0.1)), 5) * d;
   P.th1 = (P.th1 + dE) % TAU;
   P.M2 = (P.M2 + nn * dE) % TAU;
 
@@ -217,6 +221,10 @@ function step(P, d, k) {
   // against the synodic period, so a whole period would draw it as a sliver).
   const WD = cl(3.2 / abs(nn - 1), 3.2, 9);
   const tH = PI * pow((1 + a) / 2, 1.5);
+  // At the start the cheapest island is put a little right of the middle of the
+  // window, whatever the target: the phase at which the destination sits half a turn
+  // ahead of the departure planet one Hohmann time later.
+  if (init) P.M2 = PI + P.th1 - w - nn * tH - (nn - 1) * 0.12 * WD;
   const tau0 = TF_LO * tH, dTau = ((TF_HI - TF_LO) * tH) / (NY - 1);
   const u0 = -WD / 2 + tau0, du = (WD + (TF_HI - TF_LO) * tH) / LATTICE;
   ephemeris(P, u0, du, nn, P.M2, a, e, w);
@@ -247,8 +255,7 @@ function step(P, d, k) {
 
   // Contours: rings at a fixed ratio of delta-v to the cheapest transfer, count
   // and spacing from the knob; the ramp window narrows as the rings crowd in.
-  const nl = 16 * pow(2, 1.1 * kc);
-  shade(P, log(LTOP) / nl, 0.5 + 0.55 * pow(2, -1.1 * kc), log(1.03));
+  shade(P, 0.19 * pow(2, -0.95 * kc), 0.5 + 0.35 * pow(2, -1.1 * kc), log(1.03));
 }
 
 // Draw the chart: smooth the rows up to the panel, find each LED's delta-v ratio
@@ -281,10 +288,11 @@ function shade(P, delta, wl, L0) {
       if (kk >= 0 && r < top) {
         const grad = sqrt(gx * gx + gy * gy) * id;
         const ge = grad > 0.14 ? grad : 0.14;
-        const dist = dl / ge;
-        al = smooth(1 - (dist - 0.45) / 0.85);
+        const dist = dl / ge, sp = 1 / ge;
+        const w0 = sp > 3 ? 0.55 : 0.33 + 0.073 * sp;
+        al = smooth(1 - (dist - w0) / 0.9);
         if (al > 0) {
-          al *= smooth((1 / ge - 2.3) / 1.6) * smooth((top - r) / 0.3);
+          al *= smooth((sp - 1.6) / 1.4) * smooth((top - r) / 0.3);
           if (al > 0) {
             const lv = L0 + kk * delta;
             const pk = exp(-(lv > R0 ? lv - R0 : 0) / wl);
@@ -310,7 +318,9 @@ export function update(dt, input, params) {
   params.t += d;
   const h0 = cl(k[0], 0, 1);
   if (abs(h0 - params.hc) > 1e-4) palette(params, h0);
-  step(params, d, k);
+  const init = params.fresh;
+  params.fresh = false;
+  step(params, d, k, init);
 }
 
 export function draw(display, params) {
