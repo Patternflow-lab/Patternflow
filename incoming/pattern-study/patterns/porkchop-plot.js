@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Target=0..5, Epoch=1..8, Contour=-1..1
 //
-// Knob 1: Hue. Turns the colour ramp round the wheel. At 0 it runs from indigo in the costly far field through teal and lime to warm yellow at the cheapest transfer; at 0.5 it is the complement, from olive through rose to violet.
-// Knob 2: Target. The mean orbit radius of the destination in units of the departure orbit, 0.7 * 7.43^(K/5): 0.7 at 0 (inside, Venus-like), 1.56 at 2 where it opens (Mars-like), 3.2 at 4 and 5.2 at 5 (Jupiter-like). Low targets give islands every 9 time units and high ones every 7, but near 1 the planets nearly share an orbit and one island fills the window.
-// Knob 3: Epoch. How fast the launch dates scroll: 0.35 * K^1.3 time units a second, where one unit is a 1/6.28 of the departure planet's year. At 1 the islands slide 1.5 LEDs a second; at 8 they slide 21 LEDs a second.
-// Knob 4: Contour. Equal delta-v rings and the window of the colour ramp. At -1 there are 6 rings and the ramp is wide; at 0.06 where it opens there are about 14; at +1 there are 28 thin rings and the ramp narrows to a dense topographic map.
+// Knob 1: Hue. Turns the colour ramp round the wheel. At 0 it runs from indigo in the costly far field through teal and lime to warm yellow at the cheapest transfer; at 0.5 it is the complement, from olive through rose to violet. On its own the ramp also drifts up to 0.17 of a turn and back over a few minutes.
+// Knob 2: Target. The mean orbit radius of the destination in units of the departure orbit, 0.7 * 7.43^(K/5): 0.7 at 0 (inside, Venus-like), 1.56 at 2 where it opens (Mars-like), 3.2 at 4 and 5.2 at 5 (Jupiter-like). Islands come every 7 time units at 5, 13 at 2 and 9 at 0, and the target then wanders from this radius by as much as a factor of 1.7 either way over minutes.
+// Knob 3: Epoch. How fast the launch dates scroll: 0.45 * K^1.1 time units a second, where one time unit is 1/6.28 of the departure planet's year. At 1 an island slides about 4 LEDs a second, at 8 about 40. Across the dark gap between islands the epoch runs up to 6 times as fast.
+// Knob 4: Contour. Equal delta-v rings and the window of the colour ramp. At -1 there are 7 rings, each 1.43 times the delta-v of the one inside, and the ramp is wide; at 0.06 where it opens there are 14, 1.2 times apart; at +1 there are 27, 1.1 times apart, and the ramp is narrow, a dense topographic map.
 
 const W = 64, H = 128;
 const { floor, sqrt, exp, log, sin, cos, acos, asinh, abs, pow, PI } = Math;
@@ -28,7 +28,7 @@ const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 // 1, so a time unit is 1/6.28 of its year and delta-v is a fraction of 29.8 km/s.
 const NX = 64, NY = 64;
 const TF_LO = 0.45, TF_HI = 1.65;  // flight time, top and bottom, in Hohmann times
-const LATTICE = 360;               // sample points of the destination's ephemeris
+const LATMAX = 1400;               // most sample points of the destination's ephemeris
 const RMAX = 40;                   // delta-v is shown no higher than 40 times the Hohmann cost
 const LTOP = 14;                   // contour rings stop at 14 times the Hohmann cost
 
@@ -50,7 +50,7 @@ function hsv(h, s, v, out, o) {
 // falls steadily as x grows, so one root is bracketed and a third-order Householder
 // step finds it in one to three rounds. Returns the total delta-v of leaving the
 // departure orbit and joining the arrival one, or -1 when the root is not found.
-function transferCost(c1, s1, X2, Y2, vrp, vtp, tof) {
+function transferCost(c1, s1, X2, Y2, vrp, vtp, tof, wd, wa) {
   const r2 = sqrt(X2 * X2 + Y2 * Y2);
   const dx = X2 - c1, dy = Y2 - s1;
   let c = sqrt(dx * dx + dy * dy);
@@ -110,26 +110,27 @@ function transferCost(c1, s1, X2, Y2, vrp, vtp, tof) {
   const vr2 = (-gam * (ly - x + rho * (ly + x))) / r2;
   const d1 = vr1 * vr1 + (vt - 1) * (vt - 1);
   const d2 = (vr2 - vrp) * (vr2 - vrp) + (vt / r2 - vtp) * (vt / r2 - vtp);
-  const dv = sqrt(d1) + sqrt(d2);
+  const dv = wd * sqrt(d1) + wa * sqrt(d2);
   return dv >= 0 && dv < 1e6 ? dv : -1;
 }
 
 // The cost of the Hohmann transfer from radius 1 to radius a, the cheapest
-// transfer between two circular orbits and the scale every delta-v is shown against.
-function hohmann(a) {
+// transfer between two circular orbits and the scale every delta-v is shown against,
+// with the departure burn weighted by wd and the arrival burn by wa.
+function hohmann(a, wd, wa) {
   const at = 0.5 * (1 + a);
   const d1 = abs(sqrt(2 - 1 / at) - 1);
   const d2 = abs(1 / sqrt(a) - sqrt(2 / a - 1 / at));
-  return d1 + d2;
+  return wd * d1 + wa * d2;
 }
 
 // The destination on its orbit: position and velocity (radial and tangential parts)
 // at `n` evenly spaced epochs from u0, as the planet's mean anomaly M0 + nn * u
 // advances. One Kepler solve per point and a lookup per cell.
-function ephemeris(P, u0, du, nn, M0, a, e, w) {
+function ephemeris(P, u0, du, n, nn, M0, a, e, w) {
   const { LX, LY, LVR, LVT } = P;
   const cw = cos(w), sw = sin(w), q = sqrt(1 - e * e), ip = 1 / sqrt(a * (1 - e * e));
-  for (let k = 0; k <= LATTICE; k++) {
+  for (let k = 0; k <= n; k++) {
     let M = M0 + nn * (u0 + k * du);
     M -= TAU * floor(M / TAU + 0.5);
     let E = M + e * sin(M);
@@ -149,10 +150,10 @@ export function setup(params) {
   P.t = 0;
   P.th1 = 0.4;     // longitude of the departure planet at the middle of the window
   P.M2 = 0.35;     // mean anomaly of the destination there
-  P.LX = new Float32Array(LATTICE + 2);
-  P.LY = new Float32Array(LATTICE + 2);
-  P.LVR = new Float32Array(LATTICE + 2);
-  P.LVT = new Float32Array(LATTICE + 2);
+  P.LX = new Float32Array(LATMAX + 2);
+  P.LY = new Float32Array(LATMAX + 2);
+  P.LVR = new Float32Array(LATMAX + 2);
+  P.LVT = new Float32Array(LATMAX + 2);
   P.c1 = new Float32Array(NX);
   P.s1 = new Float32Array(NX);
   P.grid = new Float32Array(NX * NY);
@@ -172,6 +173,7 @@ export function setup(params) {
   P.line = new Float32Array(256 * 3);
   P.hc = -9;
   P.occ = 0.3;
+  P.zoom = 0.51;
   P.lit = 0.3;
   palette(P, 0);
   step(P, 0, [0, 2, 1, 0.06], true);
@@ -204,37 +206,60 @@ function step(P, d, k, init) {
   // The destination wanders: its mean radius moves by a few incommensurate slow
   // sines (each zero at the start), its eccentricity and its perihelion likewise.
   const drift =
-    0.15 * (sin(0.113 * t + 1.3) - sin(1.3)) + 0.11 * (sin(0.0713 * t + 4.1) - sin(4.1)) + 0.06 * (sin(0.2711 * t + 2.2) - sin(2.2));
-  const a = 0.7 * pow(5.2 / 0.7, kt / 5) * exp(drift);
-  const e = cl(0.11 + 0.06 * (sin(0.093 * t + 2) - sin(2)) + 0.035 * (sin(0.0411 * t + 0.5) - sin(0.5)), 0.02, 0.2);
-  const w = 0.9 + 0.017 * t;
+    0.26 * (sin(0.0371 * t + 1.3) - sin(1.3)) + 0.17 * (sin(0.0217 * t + 4.1) - sin(4.1)) + 0.09 * (sin(0.0649 * t + 2.2) - sin(2.2));
+  const base = 0.7 * pow(5.2 / 0.7, kt / 5);
+  // The drift may not carry it onto the orbit of the departure planet, where the
+  // two share a year and the islands are 30 years apart; the bound is 1.2 on the
+  // far side and 0.85 on the near, and closes to 1 as the knob comes to 1.
+  let a = base * exp(drift);
+  if (base >= 1) {
+    const x = a - (1 + 0.2 * smooth((base - 1) / 0.3));
+    a = a - x + 0.5 * (x + sqrt(x * x + 0.0064));
+  } else {
+    const x = 1 - 0.15 * smooth((1 - base) / 0.25) - a;
+    a = a + x - 0.5 * (x + sqrt(x * x + 0.0064));
+  }
+  const e = cl(0.11 + 0.09 * (sin(0.093 * t + 2) - sin(2)) + 0.05 * (sin(0.0411 * t + 0.5) - sin(0.5)), 0.02, 0.22);
+  const w = 0.9 + 0.03 * t + 0.6 * (sin(0.07 * t + 1.1) - sin(1.1));
   const nn = pow(a, -1.5);
   // The epoch runs; the two planets move on by their own rates. The knob sets the
   // pace over an island; across the dark saddle between two islands the epoch runs
-  // up to four times as fast, so the next window comes soon.
-  P.occ += (P.lit - P.occ) * (1 - exp(-d / 1.2));
-  const dE = Math.min(0.45 * pow(ke, 1.1) * (1 + 3 * smooth(1 - P.occ / 0.1)), 5) * d;
+  // up to six times as fast, so the next window comes soon.
+  P.occ += (P.lit - P.occ) * (1 - exp(-d / 0.6));
+  const dE = Math.min(0.45 * pow(ke, 1.1) * (1 + 5 * smooth(1 - P.occ / 0.12)), 6) * d;
   P.th1 = (P.th1 + dE) % TAU;
   P.M2 = (P.M2 + nn * dE) % TAU;
 
-  // The window is about 0.45 of a synodic period (an island is only a few days wide
-  // against the synodic period, so a whole period would draw it as a sliver).
-  const WD = cl(3.2 / abs(nn - 1), 3.2, 9);
+  // The window is about half a synodic period while an island is in view: an island
+  // is only a few weeks wide against the 2 years between them, so a whole period
+  // would draw it as a sliver. When nothing cheap is in view the chart pulls back to
+  // 1.3 periods, which always holds one, and zooms in again as it comes up.
+  P.zoom += (0.5 + 0.8 * smooth(1 - P.occ / 0.12) - P.zoom) * (1 - exp(-d / 1.0));
+  const WD = cl((TAU * P.zoom) / abs(nn - 1), 3.2, 40);
+  // The flight-time axis pans a little, which moves the island up and down.
+  const pan = 0.2 * (sin(0.083 * t + 0.9) - sin(0.9)) + 0.1 * (sin(0.0517 * t + 3.3) - sin(3.3));
+  const tfl = TF_LO + pan, tfh = TF_HI + pan;
   const tH = PI * pow((1 + a) / 2, 1.5);
   // At the start the cheapest island is put a little right of the middle of the
   // window, whatever the target: the phase at which the destination sits half a turn
   // ahead of the departure planet one Hohmann time later.
   if (init) P.M2 = PI + P.th1 - w - nn * tH - (nn - 1) * 0.12 * WD;
-  const tau0 = TF_LO * tH, dTau = ((TF_HI - TF_LO) * tH) / (NY - 1);
-  const u0 = -WD / 2 + tau0, du = (WD + (TF_HI - TF_LO) * tH) / LATTICE;
-  ephemeris(P, u0, du, nn, P.M2, a, e, w);
+  const tau0 = tfl * tH, dTau = ((tfh - tfl) * tH) / (NY - 1);
+  // One ephemeris point every 0.05 time units or so, 200 to 1400 of them.
+  const span = WD + (tfh - tfl) * tH, nlat = cl(Math.ceil(span / 0.05), 200, LATMAX);
+  const u0 = -WD / 2 + tau0, du = span / nlat;
+  ephemeris(P, u0, du, nlat, nn, P.M2, a, e, w);
   const { LX, LY, LVR, LVT, c1, s1, grid } = P;
   for (let i = 0; i < NX; i++) {
     const th = P.th1 + (i / (NX - 1) - 0.5) * WD;
     c1[i] = cos(th);
     s1[i] = sin(th);
   }
-  const hd = sqrt(pow(hohmann(a), 2) + 0.06 * 0.06);
+  // What is plotted drifts between the launch burn alone (a C3 chart), the sum, and
+  // the arrival burn alone: weights 1 + c and 1 - c.
+  const bl = 0.85 * (sin(0.043 * t + 0.7) - sin(0.7)) + 0.3 * (sin(0.0191 * t + 3.9) - sin(3.9));
+  const wd = 1 + cl(bl, -0.9, 0.9), wa = 1 - cl(bl, -0.9, 0.9);
+  const hd = sqrt(pow(hohmann(a, wd, wa), 2) + 0.06 * 0.06);
   const ih = 1 / hd, idu = 1 / du;
   for (let j = 0; j < NY; j++) {
     const tau = tau0 + dTau * j;
@@ -242,11 +267,11 @@ function step(P, d, k, init) {
     for (let i = 0; i < NX; i++) {
       const f = ((i / (NX - 1) - 0.5) * WD + tau - u0) * idu;
       let n = f | 0;
-      if (n > LATTICE - 1) n = LATTICE - 1;
+      if (n > nlat - 1) n = nlat - 1;
       const fr = f - n;
       const X2 = LX[n] + (LX[n + 1] - LX[n]) * fr, Y2 = LY[n] + (LY[n + 1] - LY[n]) * fr;
       const vr = LVR[n] + (LVR[n + 1] - LVR[n]) * fr, vt = LVT[n] + (LVT[n + 1] - LVT[n]) * fr;
-      const dv = transferCost(c1[i], s1[i], X2, Y2, vr, vt, tau);
+      const dv = transferCost(c1[i], s1[i], X2, Y2, vr, vt, tau, wd, wa);
       // A solve that fails takes its left-hand neighbour's value, so there is never a hole.
       if (dv >= 0) last = dv * ih < RMAX ? dv * ih : RMAX;
       grid[j * NX + i] = log(last);
@@ -255,7 +280,16 @@ function step(P, d, k, init) {
 
   // Contours: rings at a fixed ratio of delta-v to the cheapest transfer, count
   // and spacing from the knob; the ramp window narrows as the rings crowd in.
-  shade(P, 0.19 * pow(2, -0.95 * kc), 0.5 + 0.35 * pow(2, -1.1 * kc), log(1.03));
+  const br = exp(0.3 * (sin(0.057 * t + 2.4) - sin(2.4)) + 0.15 * (sin(0.0313 * t + 0.4) - sin(0.4)));
+  shade(P, 0.19 * pow(2, -0.95 * kc), (0.5 + 0.35 * pow(2, -1.1 * kc)) * br, log(1.03));
+}
+
+// Where a ratio sits on the ramp, 1 at the cheapest transfer, a half at one window
+// width above it, and a long tail so the far field keeps some light.
+function ramp(dg, wl) {
+  if (dg <= 0) return 1;
+  const q = dg / wl;
+  return 1 / (1 + pow(q, 1.4));
 }
 
 // Draw the chart: smooth the rows up to the panel, find each LED's delta-v ratio
@@ -280,7 +314,7 @@ function shade(P, delta, wl, L0) {
       if (r < near) lit++;
       const xa = x > 0 ? -1 : 0, xb = x < W - 1 ? 1 : 0;
       const gx = (R[i + xb] - R[i + xa]) / (xb - xa || 1), gy = (R[i + yb] - R[i + ya]) / ((yb - ya) / W || 1);
-      const p = exp(-(r > R0 ? r - R0 : 0) / wl);
+      const p = ramp(r - R0, wl);
       const pi = ((p * 255) | 0) * 3;
       let cr = fill[pi], cg = fill[pi + 1], cb = fill[pi + 2];
       const u = (r - L0) * id, kk = floor(u + 0.5), dl = abs(u - kk);
@@ -295,7 +329,7 @@ function shade(P, delta, wl, L0) {
           al *= smooth((sp - 1.6) / 1.4) * smooth((top - r) / 0.3);
           if (al > 0) {
             const lv = L0 + kk * delta;
-            const pk = exp(-(lv > R0 ? lv - R0 : 0) / wl);
+            const pk = ramp(lv - R0, wl);
             const li = ((pk * 255) | 0) * 3;
             cr += (line[li] - cr) * al;
             cg += (line[li + 1] - cg) * al;
@@ -316,7 +350,10 @@ export function update(dt, input, params) {
   const k = input.knobValues || [0, 2, 1, 0.06];
   const d = cl(dt, 0, 0.1);
   params.t += d;
-  const h0 = cl(k[0], 0, 1);
+  // The ramp itself turns slowly, up to 0.17 of a turn (indigo to violet, yellow to
+  // green) and back, on two periods that do not divide.
+  const t = params.t;
+  const h0 = cl(k[0], 0, 1) + 0.05 * (1 - cos(0.0271 * t)) + 0.035 * (1 - cos(0.0443 * t));
   if (abs(h0 - params.hc) > 1e-4) palette(params, h0);
   const init = params.fresh;
   params.fresh = false;
