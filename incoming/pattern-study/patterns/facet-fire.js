@@ -9,7 +9,7 @@
 // Round:   226
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Dispersion=0.3..3, Strands=-1..1, Facets=-1..1
+// @knobs Hue=0..1, Dispersion=0.6..3, Strands=-1..1, Facets=-1..1
 //
 // Knob 1: Hue. Turns the seven spectral colours once round the colour wheel; at 0 the fan runs red, orange, yellow, green, cyan, blue, violet, at 0.5 it runs cyan through violet and red to green, and 1 is the same as 0. The white beam stays white at every setting.
 // Knob 2: Dispersion. The B of the Cauchy law, 0.0027 at 0.1 (the seven colours leave a face about 1 degree apart, so the fan is nearly white with coloured edges), 0.085 at 2 where it opens (about 14 degrees from red to violet at a 40 degree incidence, and violet is shut in by total reflection at angles red still leaves by) and 0.15 at 3 (a spread past 25 degrees). The index of the middle colour stays 1.65 at every B, so only the width of the fan changes.
@@ -47,6 +47,8 @@ const GAIN = 1.5;
 const AURA = 0.16; // a soft sleeve round the white beam, in the colour of the Hue knob
 const WSUP = 0.5; // how much a ray that is nearly white is held back against a coloured one
 const NSTACK = 400;
+const STRIDE = 10;
+const CORNER = 1.6; // within this many LEDs of a corner the face normal turns smoothly into its neighbour's
 
 const hash = (n) => {
   const x = sin(n * 12.9898 + 78.233) * 43758.5453;
@@ -90,13 +92,15 @@ export function setup(P) {
   P.EY = new Float64Array(NV + 1);
   P.NX = new Float64Array(NV + 1);
   P.NY = new Float64Array(NV + 1);
+  P.LEN = new Float64Array(NV + 1);
+  P.hs = 0;
   P.ne = 0;
   P.ht = 0;
   P.idx = new Float64Array(NL);
   P.col = new Float64Array(NL * 3);
   P.tint = new Float64Array(6);
-  // A stack of faces still to be met: x, y, dx, dy, intensity, colour, depth, edge, path.
-  P.st = new Float64Array(NSTACK * 9);
+  // A stack of faces still to be met: x, y, dx, dy, intensity, colour, depth, edge, path, place on the edge.
+  P.st = new Float64Array(NSTACK * STRIDE);
   P.jit = new Float64Array(NV);
   P.rj = new Float64Array(NV);
   for (let p = 0; p < NV; p++) {
@@ -111,14 +115,14 @@ export function setup(P) {
 // The polygon: n corners out of the pool, turned by theta, each corner with a position
 // and a radius of its own wandering on its own sequence.
 function buildPoly(P, n, cx, cy, R) {
-  const { px, py, AX, AY, EX, EY, NX, NY, jit, rj } = P;
+  const { px, py, AX, AY, EX, EY, NX, NY, LEN, jit, rj } = P;
   const t = P.t, ct = cos(P.theta), st = sin(P.theta);
   // The glass is stretched or squeezed along one axis by up to a fifth, on a sequence of its own.
   const asp = 1.05 + 0.2 * wander(t / 27 + 3.3, 21);
   const nf = floor(n), wp = n - nf;
   for (let p = 0; p < NV; p++) {
-    const phi = ((p + jit[p] + 0.14 * wander(t / 17 + p * 1.9, 40 + p)) * TAU) / NV;
-    const rr = R * (1 + 0.12 * sin(phi + P.a1) + 0.2 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.09 * wander(t / (9 + p * 0.8) + p * 3.7, 60 + p));
+    const phi = ((p + jit[p] + 0.12 * wander(t / 18 + p * 1.9, 40 + p)) * TAU) / NV;
+    const rr = R * (1 + 0.12 * sin(phi + P.a1) + 0.2 * sin(2 * phi + P.a2) + 0.12 * sin(3 * phi + P.a3)) * (1 + rj[p] + 0.07 * wander(t / (11 + p * 0.9) + p * 3.7, 60 + p));
     const lx = rr * cos(phi), ly = rr * sin(phi) * asp;
     px[p] = cx + lx * ct - ly * st;
     py[p] = cy + lx * st + ly * ct;
@@ -163,6 +167,7 @@ function buildPoly(P, n, cx, cy, R) {
     AY[i] = vy[i];
     EX[i] = ex;
     EY[i] = ey;
+    LEN[i] = len;
     NX[i] = ey / len;
     NY[i] = -ex / len;
   }
@@ -172,7 +177,7 @@ function buildPoly(P, n, cx, cy, R) {
 // The first face a ray meets, skipping the one it has just left; its distance goes in P.ht.
 function firstHit(P, x, y, dx, dy, skip) {
   const { AX, AY, EX, EY } = P;
-  let best = 1e9, be = -1;
+  let best = 1e9, be = -1, bs = 0;
   for (let e = 0; e < P.ne; e++) {
     if (e === skip) continue;
     const ex = EX[e], ey = EY[e];
@@ -185,8 +190,10 @@ function firstHit(P, x, y, dx, dy, skip) {
     if (s < 0 || s > 1) continue;
     best = t;
     be = e;
+    bs = s;
   }
   P.ht = best;
+  P.hs = bs;
   return be;
 }
 
@@ -275,22 +282,40 @@ function strand(P, sx, sy, dx, dy, wt) {
   ribbon(P, sx, sy, dx, dy, L0, WB * wt, WB * wt, R0, R0, tint[0], tint[1], tint[2], false, e0 >= 0);
   ribbon(P, sx, sy, dx, dy, L0, AURA * wt, AURA * wt, 3.8, 3.8, tint[3], tint[4], tint[5], false, e0 >= 0);
   if (e0 < 0) return;
-  const { st, col, idx, NX, NY, EX, EY } = P;
+  const { st, col, idx, NX, NY, EX, EY, LEN } = P;
+  const hs0 = P.hs, ne = P.ne;
   const hx0 = sx + dx * L0, hy0 = sy + dy * L0;
   let sp = 0;
   for (let j = 0; j < NL; j++) {
-    const o = sp * 9;
+    const o = sp * STRIDE;
     st[o] = hx0; st[o + 1] = hy0; st[o + 2] = dx; st[o + 3] = dy;
-    st[o + 4] = wt; st[o + 5] = j; st[o + 6] = 0; st[o + 7] = e0; st[o + 8] = 0;
+    st[o + 4] = wt; st[o + 5] = j; st[o + 6] = 0; st[o + 7] = e0; st[o + 8] = 0; st[o + 9] = hs0;
     sp++;
   }
   while (sp > 0) {
     sp--;
-    const o = sp * 9;
+    const o = sp * STRIDE;
     const hx = st[o], hy = st[o + 1], ddx = st[o + 2], ddy = st[o + 3];
     const I = st[o + 4], j = st[o + 5] | 0, depth = st[o + 6] | 0, e = st[o + 7] | 0, pathLen = st[o + 8];
     const cr = col[j * 3], cg = col[j * 3 + 1], cb = col[j * 3 + 2];
-    const nxo = NX[e], nyo = NY[e];
+    // The face normal at the place hit: the face's own, turned toward the neighbouring
+    // face's within CORNER LEDs of a corner, so that a ray crossing a corner is bent
+    // continuously and the fan does not jump from one direction to another.
+    let nxo = NX[e], nyo = NY[e];
+    const pos = st[o + 9] * LEN[e], rem = LEN[e] - pos;
+    if (pos < CORNER) {
+      const w = 0.5 * (1 - pos / CORNER), q = (e + ne - 1) % ne;
+      nxo += (NX[q] - nxo) * w;
+      nyo += (NY[q] - nyo) * w;
+    }
+    if (rem < CORNER) {
+      const w = 0.5 * (1 - rem / CORNER), q = (e + 1) % ne;
+      nxo += (NX[q] - nxo) * w;
+      nyo += (NY[q] - nyo) * w;
+    }
+    const nl = sqrt(nxo * nxo + nyo * nyo) + 1e-9;
+    nxo /= nl;
+    nyo /= nl;
     const dn = ddx * nxo + ddy * nyo;
     const entering = dn < 0;
     const nj = idx[j];
@@ -336,15 +361,16 @@ function strand(P, sx, sy, dx, dy, wt) {
       cx /= cl2;
       cy /= cl2;
       const inside = cx * nxo + cy * nyo < 0;
-      const ne = firstHit(P, hx, hy, cx, cy, e);
-      const L = ne >= 0 ? P.ht : 500;
+      const nh = firstHit(P, hx, hy, cx, cy, e);
+      const hsn = P.hs;
+      const L = nh >= 0 ? P.ht : 500;
       const Ie = inside ? Ic * exp(-ALPHA * L) : Ic;
-      const cont = ne >= 0 && Ie >= EPS && depth + 1 < DMAX && sp < NSTACK - 1;
+      const cont = nh >= 0 && Ie >= EPS && depth + 1 < DMAX && sp < NSTACK - 1;
       ribbon(P, hx, hy, cx, cy, L, Ic * RG, Ie * RG, rw(pathLen), rw(pathLen + L), cr, cg, cb, true, cont);
       if (cont) {
-        const q = sp * 9;
+        const q = sp * STRIDE;
         st[q] = hx + cx * L; st[q + 1] = hy + cy * L; st[q + 2] = cx; st[q + 3] = cy;
-        st[q + 4] = Ie; st[q + 5] = j; st[q + 6] = depth + 1; st[q + 7] = ne; st[q + 8] = pathLen + L;
+        st[q + 4] = Ie; st[q + 5] = j; st[q + 6] = depth + 1; st[q + 7] = nh; st[q + 8] = pathLen + L; st[q + 9] = hsn;
         sp++;
       }
     }
@@ -377,7 +403,7 @@ export function update(dt, input, P) {
   const d = cl(dt, 0, 0.1);
   P.t += d;
   const t = P.t;
-  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.3, 3), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
+  const k1 = cl(kv[0], 0, 1), k2 = cl(kv[1], 0.6, 3), k3 = cl(kv[2], -1, 1), k4 = cl(kv[3], -1, 1);
 
   // Indices of the seven colours, the middle one held at N0 whatever B is.
   const B = 0.2 * pow(k2 / 3, 1.1);
@@ -400,21 +426,21 @@ export function update(dt, input, P) {
   const mean = (sm[0] + sm[1] + sm[2]) / 3;
   for (let j = 0; j < NL; j++) for (let c = 0; c < 3; c++) P.col[j * 3 + c] *= mean / sm[c];
 
-  // The polygon turns about once in a minute and a half, a little faster and slower on a random
+  // The polygon turns about once in two minutes, a little faster and slower on a random
   // sequence, sways about the middle and breathes.
-  P.theta += d * (0.06 + 0.035 * wander(t / 23 + 1.7, 11));
+  P.theta += d * (0.05 + 0.03 * wander(t / 23 + 1.7, 11));
   const cx = 32 + 6 * wander(t / 37 + 5.2, 12) + 1.5 * wander(t / 11 + 4.1, 15), cy = 62 + 11 * wander(t / 43 + 2.9, 13) + 2 * wander(t / 13 + 0.3, 16);
   const R = 17.5 * (1 + 0.16 * wander(t / 31 + 0.4, 14) + 0.04 * wander(t / 9.3 + 6.6, 17));
   buildPoly(P, 12 + 4 * k4, cx, cy, R);
 
   // The beam comes from the upper left; its angle sweeps through about 80 degrees on a
   // random sequence, and it slides across the polygon.
-  const ang = 1.2 + 0.5 * wander(t / 41 + 3.1, 1) + 0.3 * wander(t / 17 + 1.1, 18) + 0.15 * wander(t / 6.1 + 7.7, 2);
+  const ang = 1.2 + 0.5 * wander(t / 41 + 3.1, 1) + 0.3 * wander(t / 19 + 1.1, 18) + 0.14 * wander(t / 7.5 + 7.7, 2);
   const dx = cos(ang), dy = sin(ang);
   const nx = -dy, ny = dx;
   const off = 0.5 * R * wander(t / 19 + 8.8, 3);
   const gap = STRAND * (1 + 0.3 * wander(t / 53 + 2.2, 19));
-  const ns = 3 + (k3 < 0 ? 1.5 : 3) * k3;
+  const ns = 3 + (k3 < 0 ? 0.5 : 3) * k3;
 
   P.ar.fill(0);
   P.ag.fill(0);
