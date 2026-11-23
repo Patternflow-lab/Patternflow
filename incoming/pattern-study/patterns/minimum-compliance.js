@@ -12,12 +12,12 @@
 // @knobs Tint=0..1, Load=0.2..4, Material=-1..1, Feature=-1..1
 //
 // Knob 1: Tint. The hue of the void and of the glow along the struts, which stay ivory: teal-blue at 0 where it opens, cyan-blue at 0.25, blue-violet at 0.5, violet at 0.75, and rose-magenta at 1 (the sweep keeps clear of orange, where a dark tint would turn brown). The warm end of the glow is the opposite hue, pale and light.
-// Knob 2: Load. How fast the two loads wander along the top edge and swing their direction, and so how fast the structure remodels. The clock runs at 0.1 of its pace at 0.2, 1 where it opens at 2, and 2 at 4; at 2 a load takes about 6 seconds to go from one random place to the next and re-forms the branches in about a second after it.
-// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, about 3 LEDs a strut), 0.30 at 0 where it opens, and 0.55 at +1 (a dense web with small holes). It settles to the new share in one to three seconds.
-// Knob 4: Feature. The radius of the density filter, which sets the thinnest strut: 0.9 elements at -1 (fine trabeculae about 2 to 3 LEDs across), 1.5 at 0.06 where it opens, and 3.0 at +1 (chunky struts about 8 LEDs across). An element is 2 by 2 LEDs. It settles in one to three seconds.
+// Knob 2: Load. How fast the loads wander over the panel and swing their direction, and so how fast the structure remodels. The load clock runs at 0.25 of its pace at 0.2, 1 where it opens at 2, and 2 at 4; at 2 a load takes about 4.5 seconds to go from one random place to the next, and the branches re-form in a second or two after it. A faster clock also leaves the struts less time to settle, so the web gets busier.
+// Knob 3: Material. The share of the panel that is solid, 0.15 at -1 (a thin truss, struts 3 to 4 LEDs across), 0.35 at 0 where it opens (struts 6 to 9 LEDs across, with braces), and 0.55 at +1 (a dense web with small holes). It also drifts by a fifth either way on its own. The structure settles to a new share in one to three seconds.
+// Knob 4: Feature. The radius of the density filter, which sets the thinnest strut and how fine the branching can get: 1.25 elements at -1 (fine trabeculae, 3 LEDs across), 1.5 at 0.06 where it opens, and 3.0 at +1 (chunky struts, 8 LEDs and more). An element is 2 by 2 LEDs. It settles in one to three seconds.
 
 const W = 64, H = 128, NPX = W * H;
-const { floor, sqrt, exp, sin, cos, tanh, pow, abs, min, max, PI } = Math;
+const { floor, sqrt, exp, sin, cos, pow, abs, min, max } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const smooth = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 const mix = (a, b, t) => a + (b - a) * t;
@@ -526,10 +526,10 @@ function setLoads(P) {
   for (let m = 0; m < NLOADS; m++) {
     const ch = 10 + m * 7;
     // The first load may stand anywhere on the edge, the second keeps to the left part and the third to the right.
-    const u01 = 0.5 + 0.5 * cl(1.15 * wander(tl / 5.0 + m * 17.3, ch), -1, 1);
+    const u01 = 0.5 + 0.5 * cl(1.15 * wander(tl / 4.5 + m * 17.3, ch), -1, 1);
     const xc0 = 2 + (NX - 4) * (m === 0 ? 0.25 + 0.5 * u01 : m === 1 ? 0.4 * u01 : 0.6 + 0.4 * u01);
     // Before the first frame the loads start spread evenly and slide over to where they wander.
-    const th0 = cl(1.3 * wander(tl / 3.6 + m * 9.1, ch + 1), -1.3, 1.3);
+    const th0 = cl(1.3 * wander(tl / 3.3 + m * 9.1, ch + 1), -1.3, 1.3);
     const xc = mix(xc0, SEED_X[m], P.seedMix), th = mix(th0, SEED_TH[m], P.seedMix);
     const mag = m === 0 ? 1 : cl(0.7 + 0.5 * wander(tl / 9 + 3.3 + m, ch + 2), 0.35, 1);
     const sg = 1.5;
@@ -548,16 +548,17 @@ function setLoads(P) {
 // changes too; the nodes in reach of a foot are pinned.
 function setFeet(P) {
   const tf = P.tf;
-  const home = [0.1, 0.37, 0.63, 0.9], sway = [0.1, 0.13, 0.13, 0.1];
+  const home = [0.1, 0.37, 0.63, 0.9], sway = [0.12, 0.17, 0.17, 0.12];
   const cen = [], rad = [];
   for (let m = 0; m < 4; m++) {
-    cen.push(NX * (home[m] + sway[m] * cl(1.1 * wander(tf / 17 + m * 5.7, 40 + m), -1, 1)));
-    rad.push(1.5 + 0.6 * wander(tf / 31 + m * 3.1, 50 + m));
+    cen.push(NX * (home[m] + sway[m] * cl(1.1 * wander(tf / 14 + m * 5.7, 40 + m), -1, 1)));
+    // a foot that shrinks below 0.6 of a node is gone, and the structure has to find the others; the second always stays
+    rad.push(m === 1 ? max(1, 1.3 + 1.1 * wander(tf / 23 + m * 3.1, 50 + m)) : 1.3 + 1.1 * wander(tf / 23 + m * 3.1, 50 + m));
   }
   const mark = new Uint8Array(NX + 1);
   let key = '';
   for (let i = 0; i <= NX; i++) {
-    for (let m = 0; m < 4; m++) if (abs(i - cen[m]) <= rad[m]) mark[i] = 1;
+    for (let m = 0; m < 4; m++) if (rad[m] > 0.6 && abs(i - cen[m]) <= rad[m]) mark[i] = 1;
     key += mark[i];
   }
   if (key === P.fixKey) return false;
@@ -589,7 +590,7 @@ export function update(dt, input, P) {
   const kv = input.knobValues || [0, 2, 0, 0.06];
   const d = cl(dt, 0, 0.1);
   const tint = cl(kv[0], 0, 1), load = cl(kv[1], 0.2, 4), mat = cl(kv[2], -1, 1), feat = cl(kv[3], -1, 1);
-  const rate = load < 2 ? 0.1 + 0.9 * (load - 0.2) / 1.8 : 1 + (load - 2) / 2;
+  const rate = load < 2 ? 0.25 + 0.75 * (load - 0.2) / 1.8 : 1 + (load - 2) / 2;
   const vfT = 0.35 + 0.20 * mat;
   const rT = feat < 0.06 ? 1.5 + 0.25 * (feat - 0.06) / 1.06 : 1.5 + 1.5 * (feat - 0.06) / 0.94;
   if (!P.ready) {
@@ -711,7 +712,7 @@ function render(P, tint) {
   interp(P, P.gh, kL);
   const hue = 0.53 + 0.40 * tint;
   // The colour of a strut by how hard it is working: cool and pale, ivory, warm and pale. Ivory sits at 0.58.
-  const cool = hsv(hue, 0.32, 1.0), warm = hsv(hue + 0.55, 0.42, 1.0), ivory = [0.98, 0.945, 0.87];
+  const cool = hsv(hue, 0.30, 1.0), warm = hsv(hue + 0.55, 0.36, 1.0), ivory = [0.98, 0.945, 0.87];
   for (let i = 0; i <= 64; i++) {
     const t = i / 64;
     for (let c = 0; c < 3; c++)
