@@ -62,17 +62,19 @@ const PRE = 45;              // seconds run before the first frame, so that it o
 const SITES = [
   [3, 1, 0.92], [10, 1, 0.12], [14, 1, 0.5], [20, -1, 0.55], [26, -1, 0.95], [29, 1, 0.9], [35, 1, 0.2], [37, -1, 0.3],
   [44, -1, 0.92], [47, 1, 0.88], [53, 1, 0.1], [57, -1, 0.2], [61, -1, 0.9],
+  [7, -1, 0.1], [17, 1, 0.12], [23, -1, 0.1], [32, -1, 0.12], [41, 1, 0.1], [50, 1, 0.1],
 ];
 const NSITE = SITES.length;
 // Each site's strength wanders around its opening value on two slow sines, with periods in seconds
-// that are prime or close to it, so one site fades while another rises and the squares merge and split.
-const SPER_A = [97, 131, 163, 113, 149, 181, 127, 107, 139, 173, 89, 157, 119];
-const SPER_B = [311, 257, 389, 283, 347, 421, 269, 331, 367, 293, 401, 241, 317];
+// that are prime or close to it, and a random walk on top that pulls back to zero over a minute,
+// so one site fades while another rises and the squares merge and split without a repeat.
+const SPER_A = [59, 79, 97, 67, 89, 109, 73, 61, 83, 103, 53, 93, 71, 101, 57, 77, 107, 63, 87];
+const SPER_B = [191, 157, 233, 173, 211, 251, 163, 199, 223, 179, 241, 149, 193, 167, 227, 181, 239, 197, 151];
 const sprng = rng(225001);
 const SPHASE = SITES.map(() => [sprng() * TAU, sprng() * TAU]);
 const wander = (k, t) => 0.6 * sin((TAU * t) / SPER_A[k] + SPHASE[k][0]) + 0.4 * sin((TAU * t) / SPER_B[k] + SPHASE[k][1]);
 const SW0 = SITES.map((_, k) => wander(k, 0));
-const strength = (k, t) => cl(SITES[k][2] + 0.95 * (wander(k, t) - SW0[k]), 0, 1);
+const strength = (k, t, o) => cl(SITES[k][2] + 1.35 * (wander(k, t) - SW0[k]) + o, 0, 1);
 
 // The map. Contact falls as 1/(1+0.8 s) with the distance s between two bins; each ring adds a
 // bright blob at the pair its two legs hold, and a plateau over the pairs inside its loop. Two
@@ -103,8 +105,11 @@ function load(P) {
   let e = -1;
   for (let i = 0; i < NS; i++) if (st[i] === 0) { e = i; break; }
   if (e < 0) return;
-  for (let tries = 0; tries < 8; tries++) {
+  for (let tries = 0; tries < 14; tries++) {
     const c = 2.5 + rand() * 59;
+    // Loading is likelier along stretches that drift along the chromosome.
+    const t = P.simT;
+    if (rand() > 0.2 + 0.8 * (0.5 + 0.5 * sin(c * 0.17 + 0.021 * t + 1.3)) * (0.5 + 0.5 * sin(c * 0.071 - 0.013 * t))) continue;
     let ok = true;
     for (let f = 0; f < NS; f++) {
       if (st[f] !== 1) continue;
@@ -131,7 +136,7 @@ function moveLeg(P, e, dir, h) {
   const { L, R, ls, rs, st, rand, ss } = P;
   if ((dir < 0 ? ls[e] : rs[e]) === 1) return;
   const x = dir < 0 ? L[e] : R[e];
-  let nx = x + dir * V * h * (0.35 + 1.3 * rand());
+  let nx = x + dir * V * P.vmul * h * (0.35 + 1.3 * rand());
   // Another ring's leg in the way: stop GAP bins short of the nearest one ahead.
   let lim = dir < 0 ? -1e9 : 1e9;
   for (let f = 0; f < NS; f++) {
@@ -213,8 +218,15 @@ function addLoop(X, a, b, held) {
 function step(P, h) {
   const { st, tm, rand, ss, X, F, S } = P;
   P.simT += h;
-  for (let k = 0; k < NSITE; k++) ss[k] = strength(k, P.simT);
-  const pu = 1 - exp(-h / P.T);
+  const sq = 0.06 * sqrt(h), pull = h / 60;
+  for (let k = 0; k < NSITE; k++) {
+    P.ou[k] += -P.ou[k] * pull + sq * (rand() + rand() + rand() - 1.5) * 2;
+    ss[k] = strength(k, P.simT, P.ou[k]);
+  }
+  // The rates wander too: the slide speed by about a third and the life by a factor of 1.6 either way.
+  P.vmul = 1 + 0.2 * sin((TAU * P.simT) / 151) + 0.15 * sin((TAU * P.simT) / 233 + 1);
+  const tmul = exp(0.28 * sin((TAU * P.simT) / 197 + 2) + 0.2 * sin((TAU * P.simT) / 313));
+  const pu = 1 - exp(-h / (P.T * tmul));
   let alive = 0;
   for (let e = 0; e < NS; e++) {
     if (st[e] === 2) {
@@ -329,6 +341,7 @@ export function setup(params) {
   params.st = new Uint8Array(NS);
   params.tm = new Float32Array(NS);
   params.ss = new Float32Array(NSITE);
+  params.ou = new Float32Array(NSITE);
   params.X = new Float32Array(NN);
   params.F = new Float32Array(NN);
   params.S = new Float32Array(NN);
@@ -338,6 +351,7 @@ export function setup(params) {
   params.O = new Float32Array(NB);
   params.Z = new Float32Array(NB);
   params.omax = 0.5;
+  params.vmul = 1;
   params.heat = new Float32Array(256 * 3);
   params.cool = new Float32Array(6);
   params.tick = new Float32Array(3);
@@ -377,10 +391,10 @@ export function update(dt, input, params) {
   for (let q = 0; q < NSITE; q++) w[SITES[q][0]] += log(1 - BETA * cl(P.q * P.ss[q], 0, 1));
   P.cum[0] = 0;
   for (let x = 0; x < NB; x++) P.cum[x + 1] = P.cum[x] + w[x];
-  // The compartments: a plaid that shifts along the chromosome a bin in a minute or so.
+  // The compartments: a plaid that shifts along the chromosome a bin in half a minute or so.
   const t = P.t, E = P.E;
   for (let i = 0; i < NB; i++)
-    E[i] = tanh(1.5 * (0.55 * sin(i * 0.3 + 0.004 * t + 1) + 0.35 * sin(i * 0.47 - 0.0057 * t + 2.2) + 0.25 * sin(i * 0.19 + 0.0031 * t + 4)));
+    E[i] = tanh(1.5 * (0.55 * sin(i * 0.3 + 0.012 * t + 1) + 0.35 * sin(i * 0.47 - 0.016 * t + 2.2) + 0.25 * sin(i * 0.19 + 0.009 * t + 4)));
 }
 
 function drawMap(P, fr) {
