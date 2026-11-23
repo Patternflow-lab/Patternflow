@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Facet Fire
 // Family:  dispersion
-// Idea:    A white beam from the upper left goes into an irregular glass polygon that tips and sways in the middle of the panel, and every face bends it and splits it into seven colours by the Cauchy law, bounces what is past the critical angle back inside, and lets the colours out as a spectral fan that sweeps round the polygon as the beam angle and the polygon turn.
+// Idea:    A white beam of a few strands comes from the upper left into an irregular glass polygon that turns and sways in the middle of the panel, and at every face it is bent, split into seven colours by the Cauchy law and, past the critical angle, thrown back inside, so spectral fans leave the polygon in changing directions and sweep round it as the beam angle and the polygon move.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,17 +11,17 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Dispersion=0.6..3, Strands=-1..1, Facets=-1..1
 //
-// Knob 1: Hue. Turns the seven spectral colours once round the colour wheel; at 0 the fan runs red, orange, yellow, green, cyan, blue, violet, at 0.5 it runs cyan through violet and red to green, and 1 is the same as 0. The white beam stays white at every setting.
-// Knob 2: Dispersion. The B of the Cauchy law, 0.0027 at 0.1 (the seven colours leave a face about 1 degree apart, so the fan is nearly white with coloured edges), 0.085 at 2 where it opens (about 14 degrees from red to violet at a 40 degree incidence, and violet is shut in by total reflection at angles red still leaves by) and 0.15 at 3 (a spread past 25 degrees). The index of the middle colour stays 1.65 at every B, so only the width of the fan changes.
-// Knob 3: Beam. The width of the incoming beam, one thin strand at 0 where it opens and 24 LEDs wide at 1, made of strands 2.1 LEDs apart, so a second strand joins at about 0.15, and from about 0.5 up the beam is a band whose middle stays white while the colours show only at its edges; the polygon is 34 LEDs across.
-// Knob 4: Facets. The number of faces of the polygon, 6 at -1, 11 at 0 where it opens and 16 at +1; between two counts the next face grows out of the middle of an edge, so the shape never jumps.
+// Knob 1: Hue. Turns the seven spectral colours and the sleeve of the white beam once round the colour wheel: at 0 the fan runs red, orange, yellow-green, green, cyan-blue, blue, violet and the beam has a faint blue sleeve, at 0.5 the fan runs cyan, azure, violet, magenta, red, yellow, lime, and 1 is the same as 0.
+// Knob 2: Dispersion. The B of the Cauchy law, 0.034 at 0.6, 0.128 at 2 where it opens and 0.2 at 3, with the index of the middle colour held at 2.0, so that red and violet part by 1.2 degrees at 0.6, 4.2 at 2 and 6.4 at 3 inside the glass at a 40 degree face; at 2 violet is shut in by total reflection past 25.6 degrees where red still leaves up to 32.7.
+// Knob 3: Strands. How many strands the beam has, 2.5 at -1, 3 at 0 where it opens and 6 at +1, 5.2 LEDs apart on average and each leaning a few degrees off the others on its own random sequence; the strand that is joining fades in as the count passes it, so the count never jumps.
+// Knob 4: Facets. The number of faces of the polygon, 8 at -1, 12 at 0 where it opens and 16 at +1; between two counts the next face grows out of the middle of an edge, so the shape never jumps, and about 35 LEDs across at every setting.
 
 const W = 64, H = 128, NPIX = W * H;
 const { floor, sqrt, exp, sin, cos, pow, abs, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-// Seven colours, wavelengths in micrometres, evenly spaced in 1 / lambda^2 so that the
+// Seven colours, wavelengths in micrometres, about evenly spaced in 1 / lambda^2 so that the
 // Cauchy law spreads them evenly, and the hue each one is drawn with, in degrees.
 const NL = 7;
 const LAM = [0.70, 0.62, 0.56, 0.51, 0.478, 0.448, 0.42];
