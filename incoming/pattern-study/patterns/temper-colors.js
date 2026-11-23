@@ -1,25 +1,25 @@
 // ===== Patternflow pattern =====
 // Title:   Temper Colors
 // Family:  oxidecolor
-// Idea:    A bare steel plate seen from above is traced by a wandering torch whose heat diffuses through the metal while an oxide film grows wherever it is hot and never shrinks, so the plate keeps the path as straw, gold, brown, magenta, blue and grey bands, until a wire brush sweeps a bright edge across it and leaves polished steel to be written on again.
+// Idea:    A wandering torch heats a bare steel plate seen from above, its heat spreads through the metal and an oxide film grows wherever it is hot and never shrinks, so the plate keeps the torch's road as straw, gold, brown, magenta and blue bands that are the history of its isotherms, until a wire brush sweeps a bright edge across it and leaves polished steel to be written on again.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: temper colours of steel, the thin-film interference of a growing iron oxide (named heat tint; first charted by Karl Karsten, 1830s, from memory), parabolic oxidation (Gustav Tammann, 1920; Nevill Mott, 1947; Nicolas Cabrera and Mott, 1949, all from memory); original otherwise, pattern round 228
+// Lineage: temper colours of steel, the interference colours of a growing oxide film (heat tint), whose thickness follows the parabolic law of oxidation (Gustav Tammann, 1920; Carl Wagner, 1933, from memory); film reflectance by the Airy sum (George Airy, 1833, from memory), colour from the multi-lobe CIE 1931 fit (Chris Wyman, Peter-Pike Sloan and Peter Shirley, 2013, from memory) and the glow from Planck's law (1900); pattern round 228
 // Round:   230
 // ===============================
 // @matrix 64x128
 // @knobs Tint=0..1, Power=1..3.4, Spot=-1..1, Brush=-1..1
 //
-// Knob 1: Tint. The refractive index of the film, 2.0 at 0 to 3.1 at 1, so a film of the same thickness reads further along the colour order: at 0 the hot trail runs bare, straw, gold, brown, purple and blue, at 1 it goes on through pale blue to the second order's gold, magenta and green.
-// Knob 2: Power. The torch's heat input, opening at 2: low power leaves straw and gold with no glow, high power burns a wide blue and grey trail round a yellow-white core.
-// Knob 3: Spot. The width of the flame from 3 LED at -1 to 12 LED at 1, opening at 6: a small spot draws a thin hot line, a large one a broad band that shows the whole colour order across 10 LED or more.
-// Knob 4: Brush. How often the wire brush sweeps the plate, from every 84 seconds at -1 to every 9 seconds at 1, opening at about 24: the more it brushes, the less of the heat's history survives.
+// Knob 1: Tint. The refractive index of the film, 2.0 at 0 to 3.3 at 1, which scales the optical path n h, so the same film reads further along the colour order: at 0 a growing film runs silver, straw at 20 nm, gold, brown, magenta at 50 and blue at 60 to 70, and at 1 blue is already there at 40 nm and the film goes on through green to the second order's gold and pink.
+// Knob 2: Power. The torch's heat input, 1 to 3.4 and opening at 2: at 1 the flame is a dull red and the road stays straw, gold and brown with blue only where it crosses itself, at 3.4 the flame glows orange and the road runs blue and pale blue about 16 LED wide.
+// Knob 3: Spot. The width of the flame, 3 LED at -1, 8 at 0 and 12 at 1: a small flame draws a thin gold line with a blue thread down it, whose colour order takes 6 LED from straw to blue, a wide one a band that takes 12.
+// Knob 4: Brush. How often the wire brush sweeps the plate, every 180 seconds at -1, 56 at the opening 0.06 and 20 at 1; each sweep takes 5 to 10 seconds and wipes the film behind its edge, so the more it brushes, the less of the road survives.
 
 const W = 64;
 const H = 128;
 const N = W * H;
-const { floor, ceil, sqrt, exp, sin, cos, tanh, pow, max, min, abs, PI, log } = Math;
+const { ceil, sqrt, exp, sin, cos, pow, max, min, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sm = (a, b, v) => {
   const t = cl((v - a) / (b - a), 0, 1);
@@ -27,7 +27,7 @@ const sm = (a, b, v) => {
 };
 
 // ---- the plate: temperature in degrees over the room
-const ALPHA = 7.0; // diffusivity, LED^2 a second
+const ALPHA = 4.5; // diffusivity, LED^2 a second
 const LOSS = 0.1; // the face cools to the room, a second
 const EDGE = 0.45; // conductance of an outer face to the frame, against 1 between two cells
 const LAM = 0.22; // alpha dt / dx^2 may not pass a quarter; this is the part used
@@ -55,7 +55,7 @@ const GLOW_N = 192;
 const GLOW_STEP = 8;
 
 // ---- the torch's road
-const SPEED_T = 10; // LED a second
+const SPEED_T = 15; // LED a second
 const EDGE_M = 9; // LED from an edge where the torch starts to turn back
 
 // ---- the brush
@@ -106,6 +106,9 @@ function reflect(n, kk, h, l) {
 // The colour of every film thickness from 0 to HMAX at index n, as the ratio of the film's reflected light to the bare plate's,
 // colour by colour, lifted and made more vivid for the panel.
 function buildFilm(S, n) {
+  // The knob's index scales the optical path n h; the film's own contrast stays that of 2.3.
+  const sc = n / N_FILM;
+  n = N_FILM;
   const kk = 0.45;
   const t = [0, 0, 0];
   const ws = [], wr = [];
@@ -125,7 +128,7 @@ function buildFilm(S, n) {
     const h = (q * HMAX) / (NH - 1);
     const c = [0, 0, 0];
     for (let i = 0; i < NL; i++) {
-      const R = reflect(n, kk, h, ws[i]);
+      const R = reflect(n, kk, h * sc, ws[i]);
       for (let j = 0; j < 3; j++) c[j] += wr[i][j] * R;
     }
     let r = max(0, c[0] / bare[0]) * 0.5, gg = max(0, c[1] / bare[1]) * 0.5, b = max(0, c[2] / bare[2]) * 0.5;
@@ -148,7 +151,7 @@ function buildFilm(S, n) {
       gg /= top;
       b /= top;
     }
-    // a film under 14 nm is not seen: the plate keeps its blue-grey
+    // a film under about 16 nm is not seen: the plate keeps its blue-grey
     const w = sm(0, 16, h);
     out[q * 3] = g[0] + (enc(r) - g[0]) * w;
     out[q * 3 + 1] = g[1] + (enc(gg) - g[1]) * w;
@@ -156,6 +159,7 @@ function buildFilm(S, n) {
   }
 }
 const SAT = 1.0;
+const N_FILM = 2.3;
 const LIFT = 0.42;
 
 // Planck's law on the same eye: the colour of hot steel by temperature, by itself at full brightness in its top channel.
@@ -203,7 +207,7 @@ export function setup(params) {
     power: 1,
     sigma: 2.5,
     interval: 24,
-    // the torch: phases of two swings on each axis, a pending turn on each, the next time to turn
+    // the torch: phases of its sines, its heading, a turn still to be made and when the next one is due
     ph: [Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3, Math.random() * 6.3],
     hd: 1.0,
     pend: 0,
@@ -211,8 +215,8 @@ export function setup(params) {
     pos: [32, 64],
     brushes: [],
     nextBrush: 0,
-    gx: new Float32Array(64),
-    gy: new Float32Array(64),
+    gx: new Float32Array(80),
+    gy: new Float32Array(80),
   };
   for (let p = 0; p < N; p++) {
     const x = p % W, y = (p / W) | 0;
@@ -227,7 +231,7 @@ export function setup(params) {
 }
 
 // Where the torch stands. It runs at a speed that breathes and its heading turns at a rate made of three sines whose rates are not
-// multiples of one another, so the road never closes; now and then a slow turn of a radian or two is added, and near an edge the
+// multiples of one another, so the road never closes; now and then a slow turn of half a radian to a radian and a half is added, and near an edge the
 // heading is steered back in. The road is the one thing the plate remembers, so it should cross the whole panel.
 function walk(S, d) {
   const t = S.t;
@@ -237,7 +241,7 @@ function walk(S, d) {
   const gx = tx - S.pos[0], gy = ty - S.pos[1];
   const gd = sqrt(gx * gx + gy * gy);
   const lean = 0.12 * sm(5, 26, gd) * sin(Math.atan2(gy, gx) - S.hd);
-  const turn = lean + 0.26 * sin(0.31 * t + S.ph[3]) + 0.18 * sin(0.77 * t + S.ph[1]) + 0.12 * sin(0.113 * t + S.ph[0]);
+  const turn = lean + 0.09 * sin(0.31 * t + S.ph[3]) + 0.07 * sin(0.77 * t + S.ph[1]) + 0.05 * sin(0.113 * t + S.ph[0]);
   const kick = S.pend * min(1, d / 4);
   S.pend -= kick;
   // the edge pushes toward the middle of the panel
@@ -252,7 +256,7 @@ function walk(S, d) {
   S.hd += (turn + steer) * d + kick;
   if (t >= S.turnAt) {
     S.pend += (Math.random() < 0.5 ? -1 : 1) * (0.5 + 0.9 * Math.random());
-    S.turnAt = t + 7 + 15 * Math.random();
+    S.turnAt = t + 5 + 12 * Math.random();
   }
   const v = SPEED_T * (1 + 0.14 * sin(0.37 * t + S.ph[3]) + 0.08 * sin(0.91 * t));
   S.pos[0] += cos(S.hd) * v * d;
@@ -323,7 +327,8 @@ function step(S, h) {
 
 function advance(S, span) {
   while (span > 1e-9) {
-    const h = min(span, LAM / ALPHA);
+    // equal steps no longer than the explicit scheme allows
+    const h = span / ceil(span / (LAM / ALPHA) - 1e-9);
     walk(S, h);
     if (S.plan) {
       while (S.plan.length && S.t >= S.plan[0].at) S.brushes.push(S.plan.shift());
@@ -350,14 +355,14 @@ function advance(S, span) {
 }
 
 function setKnobs(S, k) {
-  S.n1 = 2.0 + 1.1 * cl(k[0], 0, 1);
+  S.n1 = 2.0 + 1.3 * cl(k[0], 0, 1);
   S.power = cl(k[1], 1, 3.4) / 2;
   const ks = cl(k[2], -1, 1);
   const d = ks < 0 ? 8 * (3 / 8) ** -ks : 8 + 4 * ks; // 3 LED at -1, 8 at 0, 12 at 1
   S.sigma = d / 2.355;
   // heat input falls a little with the spot's size, so a wide flame does not simply burn hotter
-  S.q = 1300 * S.power * (3.4 / S.sigma) ** 1.1;
-  S.interval = 42 * 3 ** -cl(k[3], -1, 1);
+  S.q = 1300 * S.power * (3.4 / S.sigma) ** 1.3;
+  S.interval = 60 * 3 ** -cl(k[3], -1, 1);
 }
 
 export function update(dt, input, params) {
@@ -368,10 +373,10 @@ export function update(dt, input, params) {
   setKnobs(S, k);
   if (!S.warm) {
     S.warm = true;
-    // Open on a plate that has been under the torch for a minute, with the brush half way across it: the last sweep is timed
-    // to be at 30% of its way at the first frame and the ones before it are laid back from there at the brush's own interval.
+    // Open on a plate that has been under the torch for a minute, with the brush a third of the way across it: the last sweep is timed
+    // to be at OPEN_AT of its way at the first frame and the ones before it are laid back from there at the brush's own interval.
     const last = makeBrush();
-    let at = max(0, PRE - (OPEN_AT * (last.hi - last.lo)) / last.v);
+    const at = max(0, PRE - (OPEN_AT * (last.hi - last.lo)) / last.v);
     last.at = at;
     S.plan = [last];
     for (let g = at - S.interval * (0.7 + 0.6 * Math.random()); g > 0; g -= S.interval * (0.7 + 0.6 * Math.random())) {
@@ -396,7 +401,7 @@ export function draw(display, params) {
   }
   const { T, h2, film, glow, shine } = S;
   const hs = (NH - 1) / HMAX, t = S.t;
-  const fs = 0.75 * S.sigma, fl2 = 1 / (2 * fs * fs), fl3 = 9 * fs * fs;
+  const fp = S.power ** 1.5, fs = 0.95 * S.sigma, fl2 = 1 / (2 * fs * fs), fl3 = 9 * fs * fs;
   for (let y = 0, p = 0; y < H; y++)
     for (let x = 0; x < W; x++, p++) {
       let th = T[p];
@@ -413,7 +418,7 @@ export function draw(display, params) {
       }
       // the flame itself burns hotter than the plate under it can show on a grid this coarse
       const fx = x + 0.5 - S.pos[0], fy = y + 0.5 - S.pos[1], fr2 = fx * fx + fy * fy;
-      if (fr2 < fl3) th += FLAME * S.power * exp(-fr2 * fl2);
+      if (fr2 < fl3) th += FLAME * fp * exp(-fr2 * fl2);
       if (th > GLOW_LO) {
         const a = sm(GLOW_LO, GLOW_LO + 330, th);
         const q = min(GLOW_N - 1, ((th - GLOW_LO) / GLOW_STEP) | 0) * 3;
@@ -421,8 +426,8 @@ export function draw(display, params) {
         g += (glow[q + 1] - g) * a;
         b += (glow[q + 2] - b) * a;
       }
-      // a soft lamp moving over the plate
-      const lamp = 0.93 + 0.07 * sin(0.09 * x + 0.05 * y + 0.11 * t) * sin(0.04 * x - 0.07 * y + 0.07 * t + 1);
+      // two soft lights drift over the polished steel, so a bare plate is never the same grey twice
+      const lamp = 0.9 + 0.06 * sin(0.075 * x + 0.04 * y + 0.083 * t) + 0.05 * sin(0.03 * x - 0.058 * y - 0.061 * t + 1.7) + 0.03 * sin(0.11 * x + 0.02 * y + 0.19 * t);
       r *= lamp;
       g *= lamp;
       b *= lamp;
