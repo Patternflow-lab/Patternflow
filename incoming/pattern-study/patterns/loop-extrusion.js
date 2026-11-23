@@ -79,7 +79,7 @@ const strength = (k, t) => cl(SITES[k][2] + 0.95 * (wander(k, t) - SW0[k]), 0, 1
 // and the trail a sliding leg leaves, the long one keeps the squares steady.
 const TF = 3, TS = 14;
 const WF = 0.55, WS = 0.45;
-const WD = 0.34, WM = 0.32;
+const WD = 0.34, WM = 0.32, WL = 0.15;
 const SIGD = 0.85;
 const INV2S = 1 / (2 * SIGD * SIGD);
 const PLAID = 0.5;
@@ -177,7 +177,7 @@ function moveLeg(P, e, dir, h) {
   if (nx < 0.6 || nx > NB - 0.6) unload(P, e);
 }
 
-function addLoop(X, a, b) {
+function addLoop(X, a, b, held) {
   const ia = floor(a), ib = floor(b);
   for (let i = ia; i <= ib; i++) {
     const ci = cl(i + 1 - a, 0, 1);
@@ -190,6 +190,21 @@ function addLoop(X, a, b) {
       if (j < 0 || j >= NB) continue;
       const dy = j + 0.5 - b;
       X[i * NB + j] += WD * gx * exp(-dy * dy * INV2S);
+    }
+  }
+  // One leg held and the other still sliding: the held anchor keeps touching every bin the
+  // other leg has swept, a stripe from the anchor along its row or column.
+  if (held === 1) {
+    for (let i = ia - 1; i <= ia + 1; i++) {
+      if (i < 0) continue;
+      const dx = i + 0.5 - a, gx = exp(-dx * dx * INV2S);
+      for (let j = ia + 2; j <= ib; j++) X[i * NB + j] += WL * gx * cl(b - j, 0, 1);
+    }
+  } else if (held === 2) {
+    for (let j = ib - 1; j <= ib + 1; j++) {
+      if (j >= NB) continue;
+      const dy = j + 0.5 - b, gy = exp(-dy * dy * INV2S);
+      for (let i = ia; i <= ib - 2; i++) X[i * NB + j] += WL * gy * cl(i + 1 - a, 0, 1);
     }
   }
 }
@@ -230,7 +245,8 @@ function step(P, h) {
   }
   // The instantaneous map of the rings that are alive, folded into the two averages.
   X.fill(0);
-  for (let e = 0; e < NS; e++) if (st[e] === 1) addLoop(X, P.L[e], P.R[e]);
+  for (let e = 0; e < NS; e++)
+    if (st[e] === 1) addLoop(X, P.L[e], P.R[e], P.ls[e] === 1 && P.rs[e] === 0 ? 1 : P.rs[e] === 1 && P.ls[e] === 0 ? 2 : 0);
   // Where the legs are, kept for a few seconds: what a ChIP track of cohesin would show.
   const { O, Z } = P;
   Z.fill(0);
@@ -295,7 +311,7 @@ function palettes(P, h0) {
   hsv(h0 + 0.58, 0.9, 1, P.cool, 0);
   hsv(h0 + 0.5, 0.45, 1, P.cool, 3);
   hsv(h0 + 0.12, 0.8, 1, P.tick, 0);
-  hsv(h0 + 0.64, 0.7, 1, P.track, 0);
+  hsv(h0 + 0.66, 0.6, 1, P.track, 0);
 }
 
 export function setup(params) {
@@ -438,7 +454,7 @@ function drawArcs(P, fr) {
     for (let r = 0; r < ceil(hgt); r++) {
       const y = H - 1 - r;
       const top = cl(hgt - r, 0, 1);
-      const lit = top * (hgt - r < 2.2 ? 0.75 : 0.12 + 0.3 * (1 - r / TRACK));
+      const lit = top * (hgt - r < 2.2 ? 0.85 : 0.17 + 0.3 * (1 - r / TRACK));
       const o = ((y - 64) * W + x) * 3;
       ab[o] += (track[0] / 255) * lit;
       ab[o + 1] += (track[1] / 255) * lit;
@@ -450,7 +466,7 @@ function drawArcs(P, fr) {
     const e = cl(P.q * ss[k], 0, 1);
     if (e < 0.04) continue;
     const x = SITES[k][0] + 0.5, f = SITES[k][1];
-    seg(ab, x, 70.6, x + f * (0.9 + 0.5 * e), 70.6 - (1.4 + 2.6 * e), 0.8, tick[0] / 255, tick[1] / 255, tick[2] / 255, 0.3 + 0.55 * e);
+    seg(ab, x, 70.6, x + f * (1.1 + 0.6 * e), 70.6 - (2.2 + 3 * e), 0.6, tick[0] / 255, tick[1] / 255, tick[2] / 255, 0.28 + 0.5 * e);
   }
   // The arcs.
   for (let e = 0; e < NS; e++) {
