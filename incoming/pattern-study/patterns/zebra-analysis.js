@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Zebra Analysis
 // Family:  zebra
-// Idea:    A smooth, tall lump of surface stands in the middle of the panel, slowly turning and writhing, and it reflects an endless field of two-tone stripes, so the stripes bend with every swell of the surface, slide, twist, and kink along the seams where its curvature jumps, the way a car body is checked for smoothness.
+// Idea:    A smooth, tall lump of mirror stands in the middle of the panel, swelling and turning slowly, and an endless field of two-tone stripes lies in its surface, so the stripes bend with each swell, slide and twist round the lump, split where a coarser field cuts across them and kink along the seams where the curvature of the surface jumps, the way a car body is checked for smoothness.
 // Author:  patternflow-lab
 // Date:    2026-11-23
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: zebra analysis of surface continuity in car-body and CAD work (stripes of a far-off lamp field reflected in a surface, from memory), sphere tracing of an implicit surface (John C. Hart, 1996, from memory), original, pattern round 226
+// Lineage: zebra analysis, the continuity check of car-body and CAD surfaces, in which the stripes of a far-off lamp field are reflected in the surface and a break in the surface shows as a break or a kink in the stripes (from memory), sphere tracing of an implicit surface (John C. Hart, 1996, from memory), original, pattern round 226
 // Round:   226
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Stripe=1.2..3.4, Warp=1.2..2.4, Spin=-1..1
+// @knobs Hue=0..1, Stripe=1.2..3, Warp=1.2..2.4, Spin=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Stripe.
-// Knob 3: Warp.
-// Knob 4: Spin.
+// Knob 1: Hue. Turns both tones once round the wheel: at 0 the stripes are deep blue (hue 216 degrees) and ice white, at 0.25 plum and pale pink, at 0.5 amber and pale peach, at 0.75 green and pale lime, and 1 is the same as 0; the ground behind the lump takes the deep tone's hue.
+// Knob 2: Stripe. How fine the stripes are: the middle stripe of the lump is about 4 LEDs wide at 1.2, 3 LEDs at the opening 2 and 3 LEDs at 3, but the finer the field the more of the sides crowd below 3 LEDs and melt into a dark rim tone, a third of the stripes at 2 and half of them at 3.
+// Knob 3: Warp. How far the surface is pushed out of its egg: the outline leaves its ellipse by 1.6 LEDs rms at 1.2 and by 2.1 at 2.4 (up to 4 LEDs), and the three curvature seams grow from a 0.5 to a 1.0 share of the radius, so that at 1.2 the stripes only bend and at 2.4 rings of stripes close round the seams.
+// Knob 4: Spin. Which way and how fast the stripe field turns about the line of sight and slides along itself: 0.108 radians a second and 0.13 stripes a second at the opening 0.06 (a turn in 58 s), 0.39 and 0.6 at 1 (a turn in 16 s), and the other way at -1 with 0.21 and 0.4, while at -0.3 the turn stops and the stripes all but stand still and only the lump moves.
 
 const W = 64, H = 128, NPIX = W * H;
 const { floor, sqrt, exp, sin, cos, abs, PI, min, max } = Math;
@@ -29,6 +29,7 @@ const MAXS = 46; // most sphere-tracing steps
 const STEP = 0.62; // share of the distance estimate taken at each step
 const NM = 7; // zonal modes
 const NSEAM = 3; // curvature seams
+const OFF = NM * 4 + 2; // two more modes, about the vertical axis, sit between the zonal modes and the seams
 
 // Order and size of each zonal mode, and the periods, in seconds, of the random sequences that steer its axis and its amplitude.
 const ORD = [2, 2, 3, 3, 4, 4, 5];
@@ -69,7 +70,7 @@ export function setup(P) {
   P.ox = 0;
   P.oy = 0;
   P.init = false;
-  P.M = new Float64Array(NM * 4 + NSEAM * 5);
+  P.M = new Float64Array(OFF + NSEAM * 5);
   P.dirs = new Float64Array(NS * 3);
   for (let i = 0; i < NS; i++) {
     const y = 1 - (2 * i + 1) / NS, r = sqrt(1 - y * y), a = i * 2.399963229728653;
@@ -85,7 +86,7 @@ export function setup(P) {
   P.st = new Uint8Array(NPIX); // 0 far, 1 near miss (has data), 2 hit
   P.cov = new Float32Array(NPIX);
   P.rgb = new Float32Array(NPIX * 3);
-  P.col = new Float32Array(12);
+  P.col = new Float32Array(9);
 }
 
 // Radius of the lump in direction u, in the unit-sphere space: a sum of zonal
@@ -101,7 +102,10 @@ function radius(M, ux, uy, uz) {
   c = M[16] * ux + M[17] * uy + M[18] * uz; c2 = c * c; L += M[19] * (4.375 * c2 * c2 - 3.75 * c2 + 0.375);
   c = M[20] * ux + M[21] * uy + M[22] * uz; c2 = c * c; L += M[23] * (4.375 * c2 * c2 - 3.75 * c2 + 0.375);
   c = M[24] * ux + M[25] * uy + M[26] * uz; c2 = c * c; L += M[27] * c * (7.875 * c2 * c2 - 8.75 * c2 + 1.875);
-  for (o = NM * 4; o < NM * 4 + NSEAM * 5; o += 5) {
+  // Two modes about the vertical axis: they turn the outline between a lemon and a capsule.
+  c2 = uy * uy;
+  L += M[NM * 4] * (1.5 * c2 - 0.5) + M[NM * 4 + 1] * (4.375 * c2 * c2 - 3.75 * c2 + 0.375);
+  for (o = OFF; o < OFF + NSEAM * 5; o += 5) {
     const s = M[o] * ux + M[o + 1] * uy + M[o + 2] * uz - M[o + 3];
     if (s > 0) L += M[o + 4] * s * s;
   }
@@ -129,8 +133,10 @@ export function update(dt, input, P) {
     M[k * 4 + 2] = s * sin(ps);
     M[k * 4 + 3] = warp * BASE[k] * w(10 * k + 3, TAM[k]);
   }
+  M[NM * 4] = 0.17 * warp * w(70, 21);
+  M[NM * 4 + 1] = 0.07 * warp * w(71, 27);
   for (let q = 0; q < NSEAM; q++) {
-    const o = NM * 4 + q * 5, ch = 100 + q * 10;
+    const o = OFF + q * 5, ch = 100 + q * 10;
     const th = PI / 2 + 1.2 * w(ch + 1, 33 + 5 * q), ps = turn * 0.8 + 2.4 * w(ch + 2, 41 + 6 * q), s = sin(th);
     M[o] = s * cos(ps);
     M[o + 1] = cos(th);
@@ -165,16 +171,17 @@ export function update(dt, input, P) {
   const msc = min(sx, min(sy, sz));
   const Rb = rmx * 1.07 + 0.05, Rb2 = Rb * Rb;
 
-  // The environment: two fields of stripes at infinity. The first turns about the
-  // line of sight and slides along itself; the second is a coarse one at a right
-  // angle that flips the tone where it crosses the first.
+  // The environment: three fields of stripes at infinity. The first turns about the
+  // line of sight and slides along itself, and is the one the eye follows. The other
+  // two are coarse, each in a direction of its own that wanders, and each flips the
+  // tone where it crosses the first, which splits the stripes along a few faults.
   P.rot += d * (0.09 + 0.3 * spin);
   P.ph += d * (0.1 + 0.5 * spin);
   // The lump is about 3.6 times flatter along its height than across it, so stripes
   // that run across the panel would come out as wide as the panel is tall. The
   // frequency is raised, up to 2.6 times, as the stripes turn from upright to level.
   const rr = (P.sy * P.sy) / (P.sx * P.sx);
-  const freq0 = 1.15 * cl(kv[1], 1.2, 3.4) * (1 + 0.06 * w(210, 31));
+  const freq0 = 1.15 * cl(kv[1], 1.2, 3.0) * (1 + 0.06 * w(210, 31));
   const th1 = 1.35 + 0.2 * w(211, 23), ps1 = P.rot + 0.5 * w(212, 41);
   const th2 = 1.2 + 0.3 * w(213, 29), ps2 = ps1 + 1.45 + 0.5 * w(214, 37);
   const aniso = sqrt(cos(ps1) * cos(ps1) + (sin(ps1) * sin(ps1)) / rr);
@@ -194,7 +201,6 @@ export function update(dt, input, P) {
   hsv(hb, 0.9 - 0.15 * warm, 0.5 + 0.14 * warm, col, 0); // deep
   hsv(hb - 0.07, 0.2, 1.0, col, 3); // pale
   hsv(hb - 0.01, 0.85, 0.13, col, 6); // ground
-  hsv(hb, 0.9, 0.3, col, 9); // rim
 
   // ---- trace ----
   const { phi1, phi2, phi3, nzA, dmin: dm, st, cov } = P;
@@ -312,8 +318,8 @@ export function update(dt, input, P) {
         const sa = s1 + s2 - 2 * s1 * s2;
         const s = sa + s3 - 2 * sa * s3;
         let tr = col[0] + (col[3] - col[0]) * s, tg = col[1] + (col[4] - col[1]) * s, tb = col[2] + (col[5] - col[2]) * s;
-        // Where the stripes crowd below about 2.5 LEDs they melt into the rim tone.
-        const fd = sm(0.4, 0.7, g1);
+        // Where the stripes crowd below about 3 LEDs they melt into the rim tone.
+        const fd = sm(0.33, 0.58, g1);
         tr += (col[0] * 0.7 - tr) * fd;
         tg += (col[1] * 0.7 - tg) * fd;
         tb += (col[2] * 0.7 - tb) * fd;
