@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Tempo=0.5..4, Repeat=-1..1, Span=-1..1
 //
-// Knob 1: Hue. Where the motif colours start on the wheel. Each motif has its own hue, a golden angle (137.5 degrees) after the one before it, so the whole palette turns once from 0 to 1.
-// Knob 2: Tempo. How many bars of the tune go by each second: 0.5 at the left end, 2 where it opens, 4 at the right end. The window scrolls up with it, and a new repeat swells out of the newest bar at the same pace.
-// Knob 3: Repeat. How often the tune goes back to earlier material instead of inventing new. At -1 about one section in six is a copy and the diagram is a few wide bands; at 0 about half; at +1 four in five, copies of copies, a thicket of nested rings. Only the bars still to come change, so the old picture drains out over a window.
-// Knob 4: Span. How many bars the panel shows, 32 at -1 (each bar 4 LEDs tall, the arcs few and fat), 57 where it opens, 96 at +1 (each bar 1.3 LEDs, many thin nested rings). The widest ring always spans the window and reaches the far edge.
+// Knob 1: Hue. Where the motif colours start on the wheel. Each motif is a golden angle (137.5 degrees) on from the one before it, and the whole palette turns once round between 0 and 1. The first motif's hue is 24 degrees at 0, a warm coral.
+// Knob 2: Tempo. How many bars of the tune go by each second: 0.5 at the left end, 2 where it opens, 4 at the right end. The panel scrolls up with it, 0.9 LEDs a second at 0.5 and 7 at 4, at the span it opens on.
+// Knob 3: Repeat. How often the tune goes back to earlier material instead of inventing new. The song steers itself toward a share of the panel lit by bands, about a third at -1 (a few wide arcs), a half at 0 (about 30 arcs), seven tenths at +1 (copies of copies, a thicket of nested rings). The bars below the panel are recomposed the moment the knob moves, so the arcs rising from the bottom change at once and the rest follows as the tune scrolls.
+// Knob 4: Span. How many bars the panel shows, 48 at -1 (each bar 2.7 LEDs tall, the arcs few and fat), 69 where it opens (1.85 LEDs), 96 at +1 (1.33 LEDs, more and thinner rings). The shortest repeat drawn is 2 bars while a bar is 2.4 LEDs or more (span under 54) and 3 bars beyond, so no band is thinner than 3 LEDs.
 
 const W = 64, H = 128;
 const { floor, ceil, sqrt, sin, cos, abs, min, max, PI } = Math;
@@ -197,6 +197,9 @@ function planNext(P) {
     return;
   }
   const lastS = secs[secs.length - 1];
+  // how much of the panel the bands cover is steered: when they crowd it, fewer copies; when it thins, more
+  const want = 0.32 + 0.38 * rep;
+  const steer = cl(1 - 1.2 * (P.cover - want) / want, 0.5, 1.5);
   // the chorus: made from the last two sections, then brought back after a gap and now and then replaced
   if (n >= P.nextChorus) {
     if (!P.chorus || P.chorusUses >= P.chorusMax) {
@@ -232,9 +235,6 @@ function planNext(P) {
       return;
     }
   }
-  // how much of the panel the bands cover is steered: when they crowd it, fewer copies; when it thins, more
-  const want = 0.32 + 0.38 * rep;
-  const steer = cl(1 - 1.2 * (P.cover - want) / want, 0.5, 1.5);
   const pCopy = (0.14 + 0.5 * rep + 0.3 * rep * rep) * steer * (P.last ? 0.66 : 1);
   if (Math.random() < pCopy) {
     // a source: one section or two, from the recent past; short ones may follow right behind, long ones leave a gap
@@ -378,8 +378,8 @@ export function update(dt, input, P) {
 
 // ---- arcs ------------------------------------------------------------------
 // The arc of a repeat that joins bars a0.. to bars b0.. = a0 + d, l bars long, is the half-ring around the
-// middle of a0 and the end of the repeat, as wide as the repeat is long. The end is the moving "now" while the
-// repeat is still being played.
+// middle of a0 and the end of the repeat, as wide as the repeat is long. While the end of a repeat is still being
+// composed, at the frontier below the panel, the ring is as long as the repeat is so far and grows with it.
 function layout(P) {
   const span = P.span;
   const bar = H / span; // LEDs a bar
