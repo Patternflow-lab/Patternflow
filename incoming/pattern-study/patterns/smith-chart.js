@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Smith Chart
 // Family:  smithchart
-// Idea:    A network analyser sweeping an antenna on a long cable: a Smith chart above where three resonances hang as petals off the rim and a glowing dot runs round them leaving a cooling trail, and a waterfall of the return loss below where each resonance is a ridge that drifts, deepens and now and then flares white as a tuner pulls its loop through the centre.
+// Idea:    A network analyser sweeping an antenna on a long cable: a Smith chart above where three resonances hang as loops off the rim and a white dot runs round them leaving a cooling trail, and a waterfall of the return loss below where each resonance is a ridge that drifts and deepens and now and then flares as a tuner pulls its loop through the centre.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the Smith chart (Phillip H. Smith, Bell Telephone Laboratories, 1939, from memory), the reflection coefficient of a load on a transmission line, gamma = (Z - Z0) / (Z + Z0), turning by two electrical lengths along the line (from memory), a series RLC resonance tracing a constant-resistance circle (from memory), a lossless matching network as a Moebius map of the unit disc (from memory), the vector network analyser and its return-loss display (Hewlett-Packard, 1970s and after, from memory); pattern round 234
+// Lineage: the Smith chart (Phillip H. Smith, Bell Telephone Laboratories, 1939, from memory; an earlier form by Tosaku Mizuhashi, 1937, from memory), the reflection coefficient of a load on a transmission line, gamma = (Z - Z0) / (Z + Z0), turning by two electrical lengths along the line (from memory), a series RLC resonance tracing a constant-resistance circle (from memory), a lossless matching network as a Moebius map of the unit disc onto itself (from memory), the vector network analyser and its return-loss display (Hewlett-Packard 8410, 1967, from memory); pattern round 234
 // Round:   234
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sweep=0.3..3, Line=-1..1, Match=-1..1
 //
-// Knob 1: Hue. Turns the whole heat scale of the trail and the waterfall round the colour wheel: at 0 the dot is white, its trail cools through amber, red and magenta, and the quiet floor of the waterfall is dark violet; at 0.33 the same scale runs gold, green and cyan over a dark teal floor, at 0.66 sky blue and indigo over a dark olive one, and at 1 it is the opening again. The grid stays blue-grey.
-// Knob 2: Sweep. How fast the analyser works: at 0.3 one sweep takes 21 s and the waterfall scrolls half a row a second, at the opening 2 a sweep takes 3.2 s and the waterfall 3.4 rows a second (one screen of history is 18 s), at 3 a sweep takes 2.1 s and it scrolls 5 rows a second. The trail is longer when the sweep is slower, 3.2 s at most.
-// Knob 3: Line. The length of the cable between the antenna and the analyser: the whole chart turns about its centre as a rigid picture, half a turn each way, so at -1 the petals have swung 180 degrees counter-clockwise from where they hang at 0 and at 1 180 degrees clockwise, and both ends are the same picture. The waterfall does not change, since a lossless cable cannot change how much comes back.
-// Knob 4: Match. How well the antenna is coupled to the line: at -1 each resonance is a loop only 6 to 8 LED across hugging the rim with at least 0.7 of the wave coming back, so the waterfall shows faint violet ridges, at the opening 0.06 the loops are 15 to 20 LED across and the deepest returns 0.2 to 0.4, at 1 the loops are 30 LED across and pass through the centre, and the ridges burn amber to white.
+// Knob 1: Hue. Turns the dot's trail and the ridges of the waterfall round the colour wheel: at 0 the dot is white and its trail cools through amber and red to violet while the ridges burn red to amber, at 0.25 the trail and the ridges are green, at 0.5 cyan, at 0.75 violet and magenta, and at 1 it is the opening again. The floor of the waterfall stays a dark violet-blue and the grid blue-grey.
+// Knob 2: Sweep. How fast the analyser works: at 0.3 one sweep takes 21 s, the trail lasts 3.2 s and the waterfall scrolls 0.5 rows a second, so its 61 rows hold two minutes; at the opening 2 a sweep takes 3.2 s, the trail 1.1 s and the waterfall 3.4 rows a second, 18 s of history; at 3 a sweep takes 2.1 s, the trail 0.7 s and the waterfall 5.1 rows a second, 12 s.
+// Knob 3: Line. The length of the cable between the antenna and the analyser: the whole chart turns about its centre as one rigid picture, a quarter turn clockwise at 0.5 and a quarter turn counter-clockwise at -0.5 from where the loops hang at 0, and at -1 and at 1 it has gone half a turn either way round to the same picture. The ridges of the waterfall stay where they are, since a lossless cable cannot change how much comes back, and only its faint floor tilts as the cable's own small mismatch comes round.
+// Knob 4: Match. How well the antenna is coupled to the line: at -1 the loops are 3 to 10 LED across and hug the rim, the best return is 0.55 to 0.75 of the wave and the waterfall holds only faint violet ridges; at the opening 0.06 the loops are 10 to 30 LED across, 18 typically, the best return runs 0.03 to 0.4 and a tuner pulls one loop through the centre about a third of the time; at 1 the loops are 21 to 44 LED across, pass within 0.1 of the centre two thirds of the time, and the ridges burn amber to white.
 
 const W = 64;
 const H = 128;
@@ -43,6 +43,8 @@ const SLATE = [30, 44, 60]; // the grid, one cool tone
 const F_MEAN = [0.19, 0.5, 0.8]; // where they sit on the axis, 0 to 1
 const Q_MEAN = [30, 24, 19];
 const R_FAC = [0.8, 1, 1.3];
+const MIS_R = 0.026; // the connector at the analyser's end sends back a little of its own, 0.035 at 37 degrees, which tilts the floor of the waterfall as the cable's turn changes
+const MIS_I = 0.021;
 // slow random walks: where each resonance sits (3), its Q (3), its coupling (3), the cable's electrical length (1) and a fixed turn of it (1), the sweep's pace (1)
 const OU_SIG = [0.07, 0.07, 0.07, 0.3, 0.3, 0.3, 0.55, 0.55, 0.55, 0.3, 0.6, 0.18];
 const OU_TAU = [17, 19, 15, 16, 18, 14, 13, 15, 12, 50, 70, 20];
@@ -104,6 +106,7 @@ function hsv(h, s, v, out, o) {
 
 function buildLut(P, shift) {
   const L = P.lut;
+  const floorHue = 266 - 14 * sin((shift * PI) / 180);
   let s = 0;
   for (let i = 0; i < NLUT; i++) {
     const v = (i / (NLUT - 1)) * VMAX;
@@ -111,7 +114,11 @@ function buildLut(P, shift) {
     const a = STOPS[s];
     const b = STOPS[s + 1];
     const t = cl((v - a[0]) / (b[0] - a[0]), 0, 1);
-    hsv(mix(a[1], b[1], t) + shift, mix(a[2], b[2], t), mix(a[3], b[3], t), L, i * 3);
+    // the ridges and the trail turn with the knob; the quiet floor and the first skirts stay a dark cool blue-violet, since a dark warm tone reads as brown
+    const hot = mix(a[1], b[1], t) + shift;
+    const w = sm(0.14, 0.5, v);
+    const diff = ((hot - floorHue + 540) % 360) - 180;
+    hsv(floorHue + diff * w, mix(a[2], b[2], t), mix(a[3], b[3], t), L, i * 3);
   }
   P.lutShift = shift;
 }
@@ -157,11 +164,11 @@ function buildBg() {
       const px = x + 0.5 - CX;
       const py = y + 0.5 - CY;
       const d = sqrt(px * px + py * py) / R;
-      const k = sm(0.2, 1.5, d);
+      const k = sm(0.3, 1.5, d);
       const o = (y * W + x) * 3;
-      B[o] = mix(5, 16, k);
-      B[o + 1] = mix(7, 22, k);
-      B[o + 2] = mix(11, 32, k);
+      B[o] = mix(9, 16, k);
+      B[o + 1] = mix(13, 22, k);
+      B[o + 2] = mix(21, 32, k);
     }
   return B;
 }
@@ -185,7 +192,7 @@ export function setup(P) {
     xm: Math.random(), // where the sweep is, 0 to 1
     prevXm: 0,
     k: [0, 2, 0, 0.06],
-    c: { f0: [0, 0, 0], q: [0, 0, 0], r: [0, 0, 0], bg: 0, th: 0, n: 1, xi: 0, xs: 0.5, ar: 0, ai: 0, loss: 0.94 },
+    c: { f0: [0, 0, 0], q: [0, 0, 0], r: [0, 0, 0], bg: 0, th: 0, n: 1, xi: 0, xs: 0.5, ar: 0, ai: 0, loss: 0.93 },
     tn: { st: 0, t: 0, dur: 1, k: 0, xs: 0.5, ar: 0, ai: 0, xi: 0, next: 20 + 20 * Math.random(), hold: 14 },
     tmp: [0, 0],
     tmp2: [0, 0],
@@ -213,10 +220,10 @@ function coefs(P, k) {
   c.xs = t.xs;
 }
 
-// the resistance each branch shows the line, in units of the line's: 9 at the Match knob's minimum, 1.7 at the opening, 0.85 at the top
+// the resistance each branch shows the line, in units of the line's: 9 at the Match knob's minimum, 2.1 at the opening, 0.85 at the top
 function couple(k4) {
   const u = (cl(k4, -1, 1) + 1) / 2;
-  return exp(u < 0.53 ? mix(2.197, 0.531, u / 0.53) : mix(0.531, -0.163, (u - 0.53) / 0.47));
+  return exp(u < 0.53 ? mix(2.197, 0.742, u / 0.53) : mix(0.742, -0.163, (u - 0.53) / 0.47));
 }
 
 // the reflection coefficient at x on the axis, as the analyser sees it through the cable
@@ -254,8 +261,8 @@ function gam(c, x, out) {
   const ph = c.th + TAU * c.n * x;
   const cs = cos(ph);
   const sn = sin(ph);
-  out[0] = (gr * cs + gi * sn) * c.loss;
-  out[1] = (gi * cs - gr * sn) * c.loss;
+  out[0] = (gr * cs + gi * sn) * c.loss + MIS_R;
+  out[1] = (gi * cs - gr * sn) * c.loss + MIS_I;
 }
 
 // return loss in dB laid on 0 to 1: 0.03 is the floor where everything comes back, 1 is a match 18 dB deep
@@ -368,7 +375,7 @@ function evolve(P, d, k, painting) {
       t.st = 1;
       t.t = 0;
       t.dur = 5 + 3 * Math.random();
-      t.hold = 5 + 9 * Math.random();
+      t.hold = 4 + 6 * Math.random();
     }
   } else if (t.st === 1) {
     const u = cl(t.t / t.dur, 0, 1);
@@ -390,7 +397,7 @@ function evolve(P, d, k, painting) {
     if (u >= 1) {
       t.st = 0;
       t.xi = 0;
-      t.next = 12 + 26 * Math.random();
+      t.next = 20 + 40 * Math.random();
     }
   }
   coefs(P, k);
@@ -437,8 +444,7 @@ export function update(dt, input, P) {
     for (let s = 0; s < n; s++) evolve(P, 0.1, k, false);
     const m = 60;
     for (let s = 0; s < m; s++) evolve(P, 1 / 30, k, true);
-    P.tn.st = 0;
-    P.tn.next = 1.5;
+    if (P.tn.st === 0) P.tn.next = 1.5; // a tuner still running from the run-up simply goes on
   }
   const d = cl(dt || 0, 0, 0.1);
   if (d <= 0) return;
