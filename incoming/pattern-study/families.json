@@ -254,5 +254,10 @@
   "quilting": { "label": "이미지 퀼팅", "color": "#b519f7" },
   "frozenbubble": { "label": "얼어붙는 비눗방울", "color": "#8fccbd" },
   "corememory": { "label": "자기 코어 기억", "color": "#dd5b2c" },
-  "skewt": { "label": "단열 도표", "color": "#527ccc" }
+  "skewt": { "label": "단열 도표", "color": "#527ccc" },
+  "focalsphere": { "label": "진원 메커니즘", "color": "#f76b1a" },
+  "blockspin": { "label": "블록 스핀", "color": "#1defb5" },
+  "tafoni": { "label": "벌집 풍화", "color": "#e1d222" },
+  "glory": { "label": "글로리", "color": "#5916db" },
+  "fastradio": { "label": "빠른 전파 폭발", "color": "#da71cb" }
 }
