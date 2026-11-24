@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the large-scale temperature of the microwave sky (Rainer Sachs and Arthur Wolfe, 1967), acoustic oscillations of the photon-baryon plasma before recombination (Phillip Peebles and Jer Yu, 1970; Rashid Sunyaev and Yakov Zeldovich, 1970) with their peaks measured by Boomerang (2000) and WMAP (2003), the damping of the small scales by photon diffusion (Joseph Silk, 1967), all from memory; a mode of the sky gets the phase cos(l s) of how far sound had gone, as in the textbook transfer function, and the sky is built from spherical harmonics of degree 2 to 24 on a pole-on view, original, pattern round 240
+// Lineage: the large-scale temperature of the microwave sky (Rainer Sachs and Arthur Wolfe, 1967), acoustic oscillations of the photon-baryon plasma before recombination (Phillip Peebles and Jer Yu, 1970; Rashid Sunyaev and Yakov Zeldovich, 1970) with their peaks measured by Boomerang (2000) and WMAP (2003), the damping of the small scales by photon diffusion (Joseph Silk, 1968), all from memory; a mode of the sky gets the phase cos(l s) of how far sound had gone, as in the textbook transfer function, and the sky is built from spherical harmonics of degree 2 to 24 on a pole-on view, original, pattern round 240
 // Round:   240
 // ===============================
 // @matrix 64x128
