@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.3..4, Bundle=-1..1, Spread=-1..1
 //
-// Knob 1: Hue. Turns all six cluster colours together once round the wheel: teal, blue-violet, magenta, rose, amber and green at 0, and the same set again at 1.
-// Knob 2: Flow. How fast the traffic runs: dashes cross a cable at 2 LED a second at 0.3, 15 at the opening 2 and 30 at 4, and the leaves sway and the edge weights wander at the same pace.
-// Knob 3: Bundle. Holten's strength beta, 0.05 at -1 so every connection is a straight line and the hairs make a sheaf, 0.5 at 0, 0.95 at 1 so they are pulled into tight cables through the waist.
-// Knob 4: Spread. How wide the leaves of a cluster stand and how far apart the clusters sit: 2 LED clumps 11 LED apart at -1, 10 LED fans 17 apart at 0, 18 LED fans 22 apart at 1.
+// Knob 1: Hue. Turns all six cluster colours together once round the wheel: teal, lavender and amber across the top and blue, rose and green across the bottom at 0, and the same six again at 1.
+// Knob 2: Flow. How fast the traffic runs: the dashes cross a cable at about 2 LED a second at 0.3, 15 at the opening 2 and 30 at 4, and the leaves sway and the edge weights wander at the same pace.
+// Knob 3: Bundle. Holten's strength beta: 0.04 at -1, where every connection is a straight line and the 130 strands lie across the panel as a sheaf, 0.77 at the opening 0, and 0.97 at 1, where they are pulled into tight cables and the waist narrows from 47 lit LED across at -1 and 27 at the opening to 18.
+// Knob 4: Spread. How wide the leaves of a cluster stand and how far apart the three clusters sit: 2 LED clumps 11 LED apart at -1, 17 LED fans 20 apart at the opening 0.06, and 22 LED fans 22 apart at 1.
 
 const W = 64;
 const H = 128;
@@ -38,7 +38,7 @@ const HUB_BOT_Y = 92;
 const ROOT_Y = 64;
 const STEP = 1.2; // LED between two stamps along a cable
 const SPW = 10; // curve samples per spline window
-const CMAX = 2 * 3 * 40; // the longest route in curve samples, with room to spare
+const CMAX = 80; // a five-point route is 61 curve samples
 
 // Six cluster colours as Oklch hue angles, 60 degrees apart. Top clusters first, then bottom.
 const HUES = [195, 315, 75, 255, 15, 135];
@@ -403,10 +403,10 @@ export function draw(display, P) {
   S.fill(0);
   P.Q.fill(0);
   const bt = P.bt;
-  // A loose sheaf lays all hundred and thirty strands across the whole panel, so each gets less light.
+  // A loose sheaf lays all hundred and thirty strands across the whole panel, so its strands are a fifth thinner
+  // and the cut is lower: it reads as woven silk, where a higher cut would leave only the dashes.
   const tight = sm(0.04, 0.6, bt);
-  const boost = 1.0;
-  const soft = 0.8 + 0.2 * tight; // the strands of a loose sheaf are wider, to read as silk and not as noise
+  const soft = 0.8 + 0.2 * tight;
   const cut = 0.03 + 0.04 * tight;
   // A leaf to leaf connection on one side flattens into a bar along the leaf row as beta goes to 0.
   const flat = sm(0.1, 0.55, bt);
@@ -424,7 +424,7 @@ export function draw(display, P) {
     const w = 0.65 + 0.35 * m;
     const width = 1.3 + 0.9 * ((w - 0.3) / 0.7);
     const sg = 0.42 * width * soft;
-    const norm = (STEP / (sg * 2.5066)) * fade * w * boost * (e.kind === 0 ? 1 : flat);
+    const norm = (STEP / (sg * 2.5066)) * fade * w * (e.kind === 0 ? 1 : flat);
     // hue run, in the cluster hue space
     const a = e.src === 0 ? e.la : e.lb;
     const b = e.src === 0 ? e.lb : e.la;
