@@ -89,8 +89,10 @@ function buildLut(st, hue) {
     for (let q = 0; q < 3; q++) st.neg[i * 3 + q] = c[q] * 255;
   }
   // The ground: indigo at hue 0, swaying with the wheel.
-  hsv(0.7 + 0.14 * sin(TAU * hue), 0.9, 0.24, c, 0);
+  hsv(0.68 + 0.14 * sin(TAU * hue), 0.9, 0.24, c, 0);
   for (let q = 0; q < 3; q++) st.base[q] = c[q] * 255;
+  hsv(0.78 + 0.14 * sin(TAU * hue), 0.85, 0.24, c, 0);
+  for (let q = 0; q < 3; q++) st.base[3 + q] = c[q] * 255;
 }
 
 // ---- hash noise -----------------------------------------------------------
@@ -114,8 +116,8 @@ function vh(u, salt) {
 // A species is 2 to 4 protons, each with a shift, a number of equivalent hydrogens, and J couplings
 // along a chain (and now and then a closing bond). Its concentration is exp of an Ornstein-Uhlenbeck
 // walk in log space, 12 to 60 s, wide enough that it fades fully in and out.
-const MU = -0.5, SIG = 1.05, SIGD = 0.2;
-const ampOf = (lc) => sstep(-0.8, -0.1, lc) * (0.5 + 0.5 * sstep(-0.2, 1.2, lc));
+const MU = -0.5, SIG = 1.05, SIGD = 0.28;
+const ampOf = (lc) => sstep(-0.9, -0.2, lc) * (0.3 + 0.7 * sstep(-0.4, 1.3, lc));
 
 function makeSpecies(fresh, others) {
   const r = Math.random, u = r();
@@ -139,7 +141,7 @@ function makeSpecies(fresh, others) {
   const pr = [];
   for (let k = 0; k < nP; k++) {
     const nH = eth ? (k === 0 ? 3 : 2) : [1, 1, 2, 2, 3][floor(r() * 5)];
-    pr.push({ d0: centre - span / 2 + d[k], nH, o: SIGD * gauss(), ot: 30 + 50 * r(), cp: [] });
+    pr.push({ d0: centre - span / 2 + d[k], nH, o: SIGD * gauss(), ot: 25 + 55 * r(), cp: [] });
   }
   const perm = pr.map((_, i) => i);
   for (let i = nP - 1; i > 0; i--) {
@@ -156,7 +158,7 @@ function makeSpecies(fresh, others) {
     return { a, b, J0: eth ? 6.5 + r() : r() < 0.15 ? 2 + 2.5 * r() : 4.5 + 7.5 * r(), per: 18 + 37 * r(), ph: TAU * r() };
   });
   return {
-    cx: centre, pr, cp, w: 0.8 + 0.35 * r(), gain: 0.75 + 0.35 * r(),
+    cx: centre, mu: MU, pr, cp, w: 0.8 + 0.35 * r(), gain: 0.75 + 0.35 * r(),
     lc: fresh ? MU + SIG * gauss() : -1.2 + 0.5 * r(), tauc: 12 + 48 * r(),
     alive: 1, fade: fresh ? 1 : 0, ft: 1, A: 0, J: new Float64Array(cp.length),
   };
@@ -199,8 +201,10 @@ function build(set, sp, i, j, scale) {
     for (const c of pr.cp) {
       const cc = sp.cp[c], k = cc.a === i ? cc.b : cc.a, act = k === j;
       if (act !== (pass === 0)) continue;
-      const h = 0.5 * scale * pow(sp.J[c] / 8, 0.7);
+      // The more equivalent hydrogens at the other end, the more lines, so each step is drawn smaller
+      // to keep a multiplet inside 8 LEDs.
       let reps = sp.pr[k].nH;
+      const h = (0.5 * scale * pow(sp.J[c] / 8, 0.7)) / sqrt(reps);
       if (act) {
         pair(set, h, -1);
         reps--;
@@ -223,6 +227,11 @@ function finish(set, mix) {
     M = max(M, abs(w));
     lo = min(lo, set.o[l]);
     hi = max(hi, set.o[l]);
+  }
+  if (hi - lo > 8) {
+    const f = 8 / (hi - lo);
+    for (let l = 0; l < n; l++) set.o[l] *= f;
+    (lo *= f), (hi *= f);
   }
   set.n = n;
   set.lo = n ? lo : 0;
@@ -277,7 +286,7 @@ function ridge(F, x, w, R, amp, salt, t, contrast) {
     RX[q - xlo] = d2 >= R * R ? 0 : (1 - d2 / (R * R)) ** 2 * w2 / (d2 + w2);
   }
   for (let y = 0; y < H; y++) {
-    const n = 0.55 * vh(y * 0.42 + t * 0.31 + salt * 0.37, salt) + 0.45 * vh(y * 0.77 - t * 0.47, salt + 101);
+    const n = 0.65 * vh(y * 0.3 + t * 0.31 + salt * 0.37, salt) + 0.35 * vh(y * 0.45 - t * 0.47, salt + 101);
     const a = amp * (1 - contrast + contrast * 2.2 * n * n);
     const row = y * W;
     for (let q = xlo; q <= xhi; q++) F[row + q] += a * RX[q - xlo];
@@ -290,9 +299,9 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], t: 0, init: false, hue: -9,
     sl: [],
     nextReact: 15 + 20 * Math.random(),
-    xs: 34, sph: Math.random() * TAU, sph2: Math.random() * TAU, ph: Array.from({ length: 8 }, () => Math.random() * TAU),
-    F: new Float32Array(NPX), pos: new Float32Array(LUTN * 3), neg: new Float32Array(LUTN * 3), base: new Float32Array(3),
-    X: Array.from({ length: 5 }, () => new Float32Array(W)), Y: Array.from({ length: 5 }, () => new Float32Array(H)),
+    xs: 34, sph: Math.random() * TAU, sph2: Math.random() * TAU, ph: Array.from({ length: 16 }, () => Math.random() * TAU),
+    F: new Float32Array(NPX), pos: new Float32Array(LUTN * 3), neg: new Float32Array(LUTN * 3), base: new Float32Array(6),
+    X: Array.from({ length: 8 }, () => new Float32Array(W)), Y: Array.from({ length: 8 }, () => new Float32Array(H)),
     rx: new Float32Array(NS * 4), ra: new Float32Array(NS * 4), rs: new Float32Array(NS * 4),
   };
   const cs = [];
@@ -320,32 +329,45 @@ export function update(dt, input, params) {
 
 function step(st, d) {
   st.t += d;
-  const t = st.t, nT = 6 + 4 * st.k[1];
-  let vis = 0, alive = 0, cand = null;
+  const t = st.t, nT = 6 + 4 * st.k[1], sl = st.sl;
+  // Lit species crowd each other out: a species with lit neighbours in shift has its concentration pulled
+  // down a little, one with an empty stretch of the diagonal around it is pulled up, so the lit ones spread out.
   for (let i = 0; i < NS; i++) {
-    let s = st.sl[i];
+    const s = sl[i];
+    let dens = 0;
+    for (let j = 0; j < NS; j++) {
+      if (j === i || sl[j].alive < 0.5 || sl[j].A * sl[j].fade < 0.22) continue;
+      const q = (s.cx - sl[j].cx) / 1.3;
+      dens += exp(-q * q);
+    }
+    s.mu = MU + 0.45 - 0.8 * min(dens, 1.6);
+  }
+  let vis = 0, alive = 0, cand = null, cs = -1e9;
+  for (let i = 0; i < NS; i++) {
+    let s = sl[i];
     s.alive += cl(cl(nT - i, 0, 1) - s.alive, -2 * d, 2 * d);
     s.fade += cl(s.ft - s.fade, -d / 2.5, d / 2.5);
     if (s.ft === 0 && s.fade <= 0) {
       // The species has reacted away. A fresh one, new shifts elsewhere on the map, takes its slot.
-      s = st.sl[i] = makeSpecies(false, st.sl.filter((o, q) => q !== i && o.alive > 0.5).map((o) => o.cx));
+      s = sl[i] = makeSpecies(false, sl.filter((o, q) => q !== i && o.alive > 0.5).map((o) => o.cx));
       s.alive = cl(nT - i, 0, 1);
     }
-    const k = d / s.tauc;
-    s.lc = cl(s.lc + (MU - s.lc) * k + SIG * sqrt(2 * k) * gauss(), -3, 3);
+    const k = d / (s.tauc * cl(nT / 14, 0.55, 1));
+    s.lc = cl(s.lc + (s.mu - s.lc) * k + SIG * sqrt(2 * k) * gauss(), -3, 3);
     for (const p of s.pr) p.o += (-p.o * d) / p.ot + SIGD * sqrt((2 * d) / p.ot) * gauss();
     s.A = ampOf(s.lc);
     if (s.alive > 0.5 && s.ft === 1) {
       alive++;
-      if (s.A * s.fade > 0.3) vis++;
-      else if (!cand || s.lc > cand.lc) cand = s;
+      if (s.A * s.fade > 0.22) vis++;
+      else if (s.lc + 0.6 * (s.mu - MU) > cs) (cs = s.lc + 0.6 * (s.mu - MU)), (cand = s);
     }
   }
-  // Coverage: when fewer species show than the knob's share of the mix, the one nearest to showing is lifted.
-  if (cand && vis < max(3, 0.3 * alive)) cand.lc += 0.9 * d;
+  // Coverage: when fewer species show than the knob's share of the mix, the one nearest to showing is lifted
+  // (nearness counts its empty surroundings too).
+  if (cand && vis < max(3, 0.4 * alive)) cand.lc += 0.9 * d;
   // Every 20 to 40 s one species reacts.
   if (t >= st.nextReact) {
-    st.nextReact = t + 20 + 20 * Math.random();
+    st.nextReact = t + (20 + 20 * Math.random()) * cl(alive / 14, 0.4, 1);
     const pool = st.sl.filter((s) => s.alive > 0.9 && s.fade > 0.95 && s.ft === 1);
     if (pool.length > 4) pool[floor(Math.random() * pool.length)].ft = 0;
   }
@@ -367,6 +389,8 @@ export function draw(display, params) {
   // Splitting: the lobes of a J = 8 Hz coupling are SC LEDs apart, from 0.3 to 6. The exaggeration is the
   // same on both axes, so a multiplet square stays square on the stretched map.
   const SC = 0.3 + 5.7 * u, mix = sstep(0.5, 2.6, SC);
+  // Lines that are not resolved make one broad line, taller and wider than any of them.
+  const wk = 1 + 0.6 * (1 - mix), ak = 1 + 0.8 * (1 - mix);
   F.fill(0);
 
   const [SA, SB, SC1, SC2] = SETS;
@@ -391,9 +415,9 @@ export function draw(display, params) {
       finish(SA, mix);
       build(SB, s, i, jb, SC * 0.45);
       finish(SB, mix);
-      const dA = A * (0.4 + 0.14 * (pi.nH / 3)), wd = 1.0 * s.w;
-      paint(F, xi, yi, SA, SA, wd, 4.5, dA * 0.8);
-      paint(F, xi, yi, SB, SB, wd, 4.5, dA * 0.9 * mix);
+      const dA = A * ak * (0.4 + 0.14 * (pi.nH / 3)), wd = wk * s.w;
+      paint(F, xi, yi, SA, SA, wd, 4.5 * wk, dA * 0.8);
+      paint(F, xi, yi, SB, SB, wd, 4.5 * wk, dA * 0.9 * mix);
       if (nr < st.rx.length && A * pi.nH > 0.3) (st.rx[nr] = xi), (st.ra[nr] = A * (0.03 + 0.025 * pi.nH)), (st.rs[nr++] = hash32(floor(xi * 31), floor(s.w * 1000)) & 1023);
     }
     // Cross peaks, one pair for each coupling: the same checkerboard on both sides of the diagonal, the second
@@ -405,10 +429,10 @@ export function draw(display, params) {
       finish(SC1, mix);
       build(SC2, s, cc.b, cc.a, SC);
       finish(SC2, mix);
-      const cA = A * (0.52 + 0.17 * sqrt(a.nH * b.nH));
+      const cA = A * ak * (0.6 + 0.17 * sqrt(a.nH * b.nH)), wc = wk * s.w;
       // First dimension (y) is a's shift and second (x) is b's: a seen across b along y, b seen across a along x.
-      paint(F, pxOf(db), pyOf(da), SC2, SC1, s.w, 5.2, cA);
-      paint(F, pxOf(da), pyOf(db), SC1, SC2, s.w, 5.2, cA);
+      paint(F, pxOf(db), pyOf(da), SC2, SC1, wc, 5.2 * wk, cA);
+      paint(F, pxOf(da), pyOf(db), SC1, SC2, wc, 5.2 * wk, cA);
     }
   }
 
@@ -424,28 +448,29 @@ export function draw(display, params) {
   // ---- the ground, a slow smooth field and a faster ripple --------------------------------------
   const { X, Y, pos, neg, base } = st;
   const ph = st.ph;
-  const F1 = [1.3, 2.1, 3.3], G1 = [1.1, 2.4, 1.7], SPD = [0.07, 0.11, 0.05], SPG = [0.06, 0.04, 0.09];
-  for (let k = 0; k < 3; k++) {
-    for (let x = 0; x < W; x++) X[k][x] = cos((TAU * F1[k] * x) / W + ph[k] + SPD[k] * t + 0.7 * sin(0.021 * t + ph[k + 3]));
-    for (let y = 0; y < H; y++) Y[k][y] = cos((TAU * G1[k] * y) / H + ph[k + 3] - SPG[k] * t);
+  // Five separable swells of different size, each drifting on its own clock, and a ripple that travels.
+  const FX = [1.3, 2.1, 3.2, 1.7, 0.9], FY = [1.1, 2.4, 1.7, 3.3, 1.9], SX = [0.09, 0.13, -0.07, 0.1, 0.06], SY = [0.07, -0.05, 0.11, 0.09, -0.08];
+  for (let k = 0; k < 5; k++) {
+    for (let x = 0; x < W; x++) X[k][x] = cos((TAU * FX[k] * x) / W + ph[k] + SX[k] * t + 0.7 * sin(0.021 * t + ph[k + 5]));
+    for (let y = 0; y < H; y++) Y[k][y] = cos((TAU * FY[k] * y) / H + ph[k + 8] + SY[k] * t);
   }
   const wv = 0.93 * t;
   for (let x = 0; x < W; x++) {
-    X[3][x] = sin((TAU * x) / 21 - wv);
-    X[4][x] = cos((TAU * x) / 21 - wv);
+    X[5][x] = sin((TAU * x) / 21 - wv);
+    X[6][x] = cos((TAU * x) / 21 - wv);
   }
   for (let y = 0; y < H; y++) {
-    Y[3][y] = cos((TAU * y) / 38);
-    Y[4][y] = sin((TAU * y) / 38);
+    Y[5][y] = cos((TAU * y) / 38);
+    Y[6][y] = sin((TAU * y) / 38);
   }
-  const X0 = X[0], X1 = X[1], X2 = X[2], X3 = X[3], X4 = X[4], Y0 = Y[0], Y1 = Y[1], Y2 = Y[2], Y3 = Y[3], Y4 = Y[4];
-  const b0 = base[0], b1 = base[1], b2 = base[2];
+  const X0 = X[0], X1 = X[1], X2 = X[2], X3 = X[3], X4 = X[4], X5 = X[5], X6 = X[6], Y0 = Y[0], Y1 = Y[1], Y2 = Y[2], Y3 = Y[3], Y4 = Y[4], Y5 = Y[5], Y6 = Y[6];
+  const b0 = base[0], b1 = base[1], b2 = base[2], c0 = base[3], c1 = base[4], c2 = base[5];
   const ISQ = 1 / sqrt(FMAX);
   for (let y = 0, o = 0; y < H; y++) {
     for (let x = 0; x < W; x++, o++) {
-      const b = 0.5 + 0.2 * X0[x] * Y0[y] + 0.16 * X1[x] * Y1[y] + 0.12 * X2[x] * Y2[y] + 0.06 * (X3[x] * Y3[y] + X4[x] * Y4[y]);
-      const g = 0.38 + 0.95 * b, v = F[o], a = v < 0 ? -v : v;
-      let r = b0 * g, gg = b1 * g, bb = b2 * g;
+      const b = 0.5 + 0.24 * X0[x] * Y0[y] + 0.18 * X1[x] * Y1[y] + 0.14 * X2[x] * Y2[y] + 0.12 * X3[x] * Y3[y] + 0.06 * (X5[x] * Y5[y] + X6[x] * Y6[y]);
+      const g = 0.3 + 1.4 * b, tn = 0.5 + 0.5 * X4[x] * Y4[y], v = F[o], a = v < 0 ? -v : v;
+      let r = (b0 + (c0 - b0) * tn) * g, gg = (b1 + (c1 - b1) * tn) * g, bb = (b2 + (c2 - b2) * tn) * g;
       if (a > 0.0004) {
         const lut = v < 0 ? neg : pos, i = min(LUTN - 1, floor(sqrt(a) * ISQ * (LUTN - 1) + 0.5)) * 3, k = min(1, a * 30);
         r += (lut[i] - r) * k;
