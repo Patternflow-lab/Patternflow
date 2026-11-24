@@ -11,13 +11,13 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Drops=0..4, Relief=-1..1, Wander=-1..1
 //
-// Knob 1: Hue. Turns the colours of the rings round the wheel, and sways the tint of the cloud a little (about 40 degrees either way, so it stays in the blues and violets). At 0 the rings run blue on the inside to red on the outside over lilac cloud.
-// Knob 2: Drops. 0 to 4, opening at 2. The mean droplet radius, 6 um at 0, 9.8 at 2, 16 at 4. At 0 the drops are small and the rings are few and broad: the first red ring is about 16 LEDs from the glory and the second near 30. At 2 the first red ring is 9 to 10 LEDs out and the second 17. At 4 the rings crowd to a spacing of about 6 LEDs and fade out after the third.
-// Knob 3: Relief. -1 to 1, opening at 0. The cloud top itself. At -1 it is smooth flat stratus with no gaps and a soft light. At 0 it is cumulus with shaded sides and a few gaps down to the dark ground. At 1 it is rough broken cumulus with deep blue shadows and the ground showing through about a third of the panel. The glory is weaker where the cloud is thin.
-// Knob 4: Wander. -1 to 1, opening near 0. How fast the weather moves. At -1 the cloud still drifts, slowly, but the rings stay where they are: the glory centre does not wander and the droplet size does not change. At 1 the cloud streams across the panel, the centre of the glory swings by about 8 LEDs, and the droplet size field churns so the rings bend and breathe.
+// Knob 1: Hue. Turns the colours of the rings round the wheel, and sways the tint of the cloud about 30 degrees either way, so the cloud stays in the blues and violets. At 0 the rings run from blue on the inside to red on the outside, over lilac cloud and dark blue ground.
+// Knob 2: Drops. 0 to 4, opening at 2. The mean droplet radius: 6 um at 0, 9.5 um at 2, 15 um at 4. Bigger drops pack the rings tighter. At 2 the red rings sit 9.9, 18.2 and 26.4 LEDs from the glory and the blue ones 7.0, 12.7 and 18.5. At 0 the red ones are 15.7 and 28.8 LEDs out and only two or three rings show. At 4 they are 6.3, 11.5, 16.7 and 21.9 LEDs out, and because big drops come in a narrower spread of sizes five or six rings stay clear.
+// Knob 3: Relief. -1 to 1, opening at 0. The cloud top itself. At -1 it is smooth flat stratus with no gaps and a soft light. At 0 it is cumulus with lit tops, shaded sides and a few gaps down to the ground. At 1 it is rough broken cumulus with deep blue shadows, and the dark ground shows through about a third of the panel. Around the glory the cloud always holds, and the glory is weaker where the cloud is thin or in shadow.
+// Knob 4: Wander. -1 to 1, opening near 0. How much moves. At -1 the cloud still drifts, at about 1 LED a second, but the rings stay where they are: the centre of the glory does not swing and the droplet size field hardly changes. At 1 the cloud streams at about 4 LEDs a second, the centre swings by up to 8 LEDs across and 9 down, the droplet size breathes by about 20 percent and its field churns, so the rings bend, pinch and swell.
 
 const W = 64, H = 128, NPX = W * H, GW = W + 2, GH = H + 2;
-const { floor, abs, max, sqrt, exp, pow, sin, cos, PI } = Math;
+const { floor, abs, min, max, sqrt, exp, pow, sin, cos, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (a, b, x) => {
@@ -54,7 +54,7 @@ function j0(x) {
 // B 0.45 um), so the blue rings lie inside the red ones. The table is averaged over 9 droplet radii
 // within 12 percent of the mean and over 3 wavelengths of each colour band, which is what fades the
 // rings with order: two to four are seen.
-const CHROMA = 1.7, GAIN = 5, TINT = 1.6, LIGHT = 0.55;
+const CHROMA = 1.7, GAIN = 8, TINT = 1.6, LIGHT = 0.55;
 const K0 = 0.465, LUT_N = 2600, LUT_STEP = 0.08;
 const LAM = [0.64, 0.53, 0.45], BAND = 0.03, NSZ = 9;
 const SPREAD_BROAD = 0.14, SPREAD_NARROW = 0.05;
@@ -106,6 +106,43 @@ const FREQ = [1 / 34, 1 / 17, 1 / 8.5, 1 / 4.4];
 const ANG = [0.31, -0.72, 1.12, -0.18];
 const SHEAR = [0, 0.16, -0.22, 0.4];
 const SPD = [1, 1.18, 1.42, 1.75];
+const BILL = [1, 1, 0.7, 0.25]; // how far each octave is folded into rounded tops; the finest stays soft
+
+// The cloud: four octaves of the gradient noise, each turned to its own angle and carried by the
+// wind at its own speed, the sum bent a little by a slow field. pers is how much each octave
+// keeps of the one before and bill how far the noise is folded into rounded tops with creases.
+function prepOct(o, p, pers, bill) {
+  o.bill = bill;
+  o.asum = 0;
+  for (let i = 0; i < OCT; i++) {
+    o.amp[i] = pow(pers, i);
+    o.asum += o.amp[i];
+    o.ca[i] = cos(ANG[i]) * FREQ[i];
+    o.sa[i] = sin(ANG[i]) * FREQ[i];
+    o.cu[i] = (p[2 * i] * cos(ANG[i]) + p[2 * i + 1] * sin(ANG[i])) * FREQ[i] + 17.3 * i;
+    o.cv[i] = (-p[2 * i] * sin(ANG[i]) + p[2 * i + 1] * cos(ANG[i])) * FREQ[i] + 5.9 * i;
+  }
+  o.wx = p[2 * OCT];
+  o.wy = p[2 * OCT + 1];
+  return o;
+}
+function cloudAt(lat, o, x, y) {
+  const qx = x + (vn(lat, (x + o.wx) * 0.03 + 3.1, (y + o.wy) * 0.03 + 8.3) - 0.5) * 8;
+  const qy = y + (vn(lat, (x + o.wx) * 0.03 + 91.7, (y + o.wy) * 0.03 + 40.2) - 0.5) * 8;
+  let h = 0;
+  for (let i = 0; i < OCT; i++) {
+    const n = vn(lat, qx * o.ca[i] + qy * o.sa[i] + o.cu[i], -qx * o.sa[i] + qy * o.ca[i] + o.cv[i]);
+    const b = abs(2 * n - 1);
+    h += o.amp[i] * (n + (b - n) * o.bill * BILL[i]);
+  }
+  return h / o.asum;
+}
+const newOct = () => ({ amp: new Float64Array(OCT), ca: new Float64Array(OCT), sa: new Float64Array(OCT), cu: new Float64Array(OCT), cv: new Float64Array(OCT), bill: 0, asum: 1, wx: 0, wy: 0 });
+
+// The droplet size field: two octaves of the noise, about 0 either way.
+const DROP_GAIN = 0.55;
+const dropAt = (lat, dp, x, y) =>
+  vn(lat, (x + dp[0]) * 0.018 + 11.2, (y + dp[1]) * 0.018 + 2.7) - 0.5 + 0.5 * (vn(lat, (x + dp[2]) * 0.034 + 61.7, (y + dp[3]) * 0.034 + 14.1) - 0.5);
 
 export function setup(params) {
   const lat = new Float32Array(131072);
@@ -114,22 +151,82 @@ export function setup(params) {
     lat[2 * i] = cos(a);
     lat[2 * i + 1] = sin(a);
   }
-  params.st = {
+  const st = {
     k: [0, 2, 0, 0.06],
     t: 0,
     lat,
     lutA: buildLut(SPREAD_BROAD),
     lutB: buildLut(SPREAD_NARROW),
-    ph: { wind: rph(), spd: rph(), cx: rph(), cy: rph(), cx2: rph(), cy2: rph(), br: rph(), br2: rph(), dr: rph() },
-    pos: new Float64Array(2 * OCT + 6), // the cloud octaves, the warp field and the droplet fields
-    drop: [Math.random() * 200, Math.random() * 200, 0, 0],
+    // The phases start at 0 so the glory opens at its middle place and its mean size.
+    ph: { wind: rph(), spd: rph(), cx: [0, 0], cy: [0, 0], br: [0, 0, 0] },
+    pos: new Float64Array(2 * OCT + 6), // the cloud octaves, the warp field and the droplet size fields
+    oc: newOct(),
     h: new Float32Array(GW * GH),
-    dflt: [0, 0, 0],
-    wander: 0,
     gx: 32, gy: 50, gs: 1,
   };
-  const p = params.st.pos;
-  for (let i = 0; i < p.length; i++) p[i] = Math.random() * 400;
+  params.st = st;
+  openingWeather(st);
+}
+
+// Try 28 skies and 28 droplet fields and keep the best for the first frame: round cloud with lit
+// tops and shaded sides about the glory, and a droplet size that stays near its mean there so the
+// rings open round.
+function openingWeather(st) {
+  const p = st.pos, lat = st.lat, o = newOct();
+  const cand = new Float64Array(2 * OCT + 2);
+  let best = -1e9;
+  for (let n = 0; n < 28; n++) {
+    for (let i = 0; i < cand.length; i++) cand[i] = Math.random() * 400;
+    prepOct(o, cand, 0.4, 0.55);
+    const zs = [], win = [];
+    let sum = 0, sum2 = 0;
+    for (let y = 6; y < 128; y += 8) {
+      for (let x = 3; x < 64; x += 6) {
+        const h = cloudAt(lat, o, x, y);
+        sum += h;
+        sum2 += h * h;
+        zs.push(h);
+        if ((x - 32) * (x - 32) + (y - 50) * (y - 50) < 576) win.push(h);
+      }
+    }
+    const mu = sum / zs.length, sd = sqrt(max(1e-9, sum2 / zs.length - mu * mu));
+    let lit = 0, cover = 0, wm = 0, w2 = 0;
+    for (const h of win) {
+      const z = (h - mu) / sd;
+      if (z > 0.3) lit++;
+      if (z > -1) cover++;
+      wm += z;
+      w2 += z * z;
+    }
+    const nw = win.length, wsd = sqrt(max(0, w2 / nw - (wm / nw) * (wm / nw)));
+    const score = -2 * abs(lit / nw - 0.4) - abs(wsd - 0.85) - (cover / nw < 0.95 ? 1 : 0) - abs(wm / nw);
+    if (score > best) {
+      best = score;
+      for (let i = 0; i < 2 * OCT + 2; i++) p[i] = cand[i];
+    }
+  }
+  best = 1e9;
+  const dp = [0, 0, 0, 0], bestDp = [0, 0, 0, 0];
+  for (let n = 0; n < 28; n++) {
+    for (let i = 0; i < 4; i++) dp[i] = Math.random() * 400;
+    let lo = 1e9, hi = -1e9, sum = 0, cnt = 0;
+    for (let ring = 0; ring < 2; ring++) {
+      for (let j = 0; j < 16; j++) {
+        const a = (TAU * j) / 16, rr = ring ? 18 : 9;
+        const v = dropAt(lat, dp, 32 + rr * cos(a), 50 + rr * sin(a));
+        lo = min(lo, v);
+        hi = max(hi, v);
+        sum += v;
+        cnt++;
+      }
+    }
+    const sc = hi - lo + 2 * abs(sum / cnt);
+    if (sc < best) {
+      best = sc;
+      for (let i = 0; i < 4; i++) bestDp[i] = dp[i];
+    }
+  }
+  for (let i = 0; i < 4; i++) p[2 * OCT + 2 + i] = bestDp[i];
 }
 
 export function update(dt, input, params) {
@@ -187,33 +284,8 @@ export function draw(display, params) {
   const aRel = (6 * pow(15 / 6, k[1] / 4)) / 9.5 * st.gs;
 
   // ---- the cloud height field, on a grid one LED wider on every side
-  const pers = 0.3 + 0.2 * rel, bill = 0.2 + 0.7 * rel;
-  const amp = new Float64Array(OCT), ca = new Float64Array(OCT), sa = new Float64Array(OCT), cu = new Float64Array(OCT), cv = new Float64Array(OCT);
-  let asum = 0;
-  for (let o = 0; o < OCT; o++) {
-    amp[o] = pow(pers, o);
-    asum += amp[o];
-    ca[o] = cos(ANG[o]) * FREQ[o];
-    sa[o] = sin(ANG[o]) * FREQ[o];
-    cu[o] = (p[2 * o] * cos(ANG[o]) + p[2 * o + 1] * sin(ANG[o])) * FREQ[o] + 17.3 * o;
-    cv[o] = (-p[2 * o] * sin(ANG[o]) + p[2 * o + 1] * cos(ANG[o])) * FREQ[o] + 5.9 * o;
-  }
-  const wx0 = p[2 * OCT], wy0 = p[2 * OCT + 1];
-  for (let gy = 0; gy < GH; gy++) {
-    const y = gy - 0.5;
-    for (let gx = 0; gx < GW; gx++) {
-      const x = gx - 0.5;
-      const qx = x + (vn(lat, (x + wx0) * 0.03 + 3.1, (y + wy0) * 0.03 + 8.3) - 0.5) * 8;
-      const qy = y + (vn(lat, (x + wx0) * 0.03 + 91.7, (y + wy0) * 0.03 + 40.2) - 0.5) * 8;
-      let h = 0;
-      for (let o = 0; o < OCT; o++) {
-        const n = vn(lat, qx * ca[o] + qy * sa[o] + cu[o], -qx * sa[o] + qy * ca[o] + cv[o]);
-        const b = abs(2 * n - 1);
-        h += amp[o] * (n + (b - n) * bill);
-      }
-      hgrid[gy * GW + gx] = h / asum;
-    }
-  }
+  const oc = prepOct(st.oc, p, 0.3 + 0.2 * rel, 0.2 + 0.7 * rel);
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) hgrid[gy * GW + gx] = cloudAt(lat, oc, gx - 0.5, gy - 0.5);
 
   // The field's own mean and spread, so the amount of cloud and the contrast stay put as the weather moves.
   let sum = 0, sum2 = 0;
@@ -233,7 +305,7 @@ export function draw(display, params) {
   const zc = -4 + 5.5 * rel - 2.05 * rel * rel;
   const rg = (0.7 + 2.6 * rel) * 0.13 * isg;
   const cx = st.gx, cy = st.gy;
-  const dp1 = p[2 * OCT + 2], dp2 = p[2 * OCT + 3], dp3 = p[2 * OCT + 4], dp4 = p[2 * OCT + 5];
+  const dp = p.subarray(2 * OCT + 2, 2 * OCT + 6);
   const N1 = LUT_N + 2;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -245,7 +317,7 @@ export function draw(display, params) {
       const s = hgrid[gi + GW + 1] - hgrid[gi - GW - 1];
       // the cloud is thicker round the glory, which needs it
       const thick = sstep(zc - 0.35, zc + 0.35, z + 1.6 * exp(-r2 / 1400));
-      const t = cl(0.6 + 0.2 * z + s * rg, 0, 1);
+      const t = cl(0.5 + 0.2 * z + s * rg, 0, 1);
       // cloud colour: blue-violet shadow, lilac grey in the middle, pale lit top
       let cr, cg, cb;
       if (t < 0.5) {
@@ -253,11 +325,10 @@ export function draw(display, params) {
         cr = 0.17 + 0.33 * u; cg = 0.17 + 0.33 * u; cb = 0.44 + 0.26 * u;
       } else {
         const u = (t - 0.5) * 2;
-        cr = 0.50 + 0.34 * u; cg = 0.50 + 0.32 * u; cb = 0.70 + 0.22 * u;
+        cr = 0.50 + 0.30 * u; cg = 0.50 + 0.28 * u; cb = 0.70 + 0.20 * u;
       }
       // the droplet radius here, and the ring intensities at u = r * radius
-      const dn = vn(lat, (px + dp1) * 0.018 + 11.2, (py + dp2) * 0.018 + 2.7) - 0.5 + 0.5 * (vn(lat, (px + dp3) * 0.034 + 61.7, (py + dp4) * 0.034 + 14.1) - 0.5);
-      let fu = (r * aRel * exp(0.55 * dn)) / LUT_STEP;
+      let fu = (r * aRel * exp(DROP_GAIN * dropAt(lat, dp, px, py))) / LUT_STEP;
       if (fu > LUT_N - 1) fu = LUT_N - 1;
       const i0 = fu | 0, fr = fu - i0;
       const ir = wa * (lutA[i0] + (lutA[i0 + 1] - lutA[i0]) * fr) + wb * (lutB[i0] + (lutB[i0 + 1] - lutB[i0]) * fr);
