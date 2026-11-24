@@ -42,7 +42,7 @@ const TRAIL_S = 6;                     // seconds a trail takes to fade
 const CAPT = 420;
 const TAU_AGE = 38;                    // seconds a sample keeps its weight, as exp(-age / TAU_AGE)
 const TAU_SEEN = 6;                    // seconds a place stays "recently measured", which sets how bright it is
-const W0 = 3, W0C = 3;                 // weight of the prior against the samples, slow and fast
+const W0 = 2, W0C = 1.5;                 // weight of the prior against the samples, slow and fast
 const NOISE = 0.05;
 const GAIN = 1.6, REF = 0.3;           // the ramp reaches its ends at a height of 0.62 when the map's spread is 0.3
 
