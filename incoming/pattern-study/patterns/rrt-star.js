@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0.3..3, Clutter=-1..1, Rewire=-1..1
 //
-// Knob 1: Hue. Turns the colour band of the branches round the wheel.
-// Knob 2: Growth. How many samples the tree tries a second.
-// Knob 3: Clutter. How many blobs drift about and how big they are.
-// Knob 4: Rewire. How far a new node looks for a better parent and for neighbours to pull toward itself.
+// Knob 1: Hue. Turns the colour band that paints the branches by their path length from the robot: at 0 it runs teal at the robot, blue, violet and magenta at 85 LED of path, at 0.25 violet through pink to orange, at 0.5 coral through gold to green, at 0.75 green through teal to blue, and 1 is 0 again.
+// Knob 2: Growth. How many samples the tree tries a second: 18 at 0.3 (5 new nodes a second, about 100 nodes standing), 60 at the opening 2 (10 new nodes a second, 125 standing) and 180 at 3 (25 new nodes a second, the 130 node cap, so every new leaf costs the most crowded one), and the existing nodes look for a cheaper parent at twice that rate.
+// Knob 3: Clutter. How many blobs drift about and how big they are: 2 blobs about 8 LED across at -1 (1.5 percent of the panel), 5.5 blobs about 13 LED across at the opening 0 (9 percent), 9 blobs about 18 LED across at 1 (32 percent).
+// Knob 4: Rewire. How far a new node looks for a better parent and for neighbours to pull through itself: 7.4 LED at -1, hardly more than one step, so it is plain RRT and the branches zigzag (6.4 LED edges, the path 1.20 times the straight line with 300 degrees of bends), 13.9 LED at the opening 0.06 (8.7 LED edges, 1.09 times, 130 degrees), 24.4 LED at 1 (11 LED edges, 1.05 times, 75 degrees, and a node may carry five children instead of three so the branches comb out straight).
 
 const W = 64;
 const H = 128;
@@ -29,11 +29,10 @@ const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 
 const NOBS = 9;
 const CAP = 130; // nodes the tree keeps
-const MAXK = 3; // children a node may carry
 const STEP0 = 6.2; // the step of a new node, LED
 const STEP1 = 8;
 const SPACE2 = 4.6 * 4.6; // no two nodes closer than this
-const CLR2 = 2.7 * 2.7; // no edge passes closer than this to a node it does not join
+const CLR2 = 1.7 * 1.7; // no edge passes closer than this to a node it does not join
 const GOALR = 18; // nodes this near the goal may join it
 const SPEED = 9; // the robot, LED a second
 const CS = 85; // the path length that reaches the far end of the colour band
@@ -165,8 +164,8 @@ function clear(P, ax, ay, bx, by, na, nb) {
   return true;
 }
 
-// a node's children fan out: a new one may not lie within 26 degrees of one it already has
-function fanOk(u, x, y, skip) {
+// a node's children fan out: a new one may not lie within 26 degrees of one it already has (16 at the widest Rewire)
+function fanOk(P, u, x, y, skip) {
   const vx = x - u.x;
   const vy = y - u.y;
   const vl = hypot(vx, vy) || 1;
@@ -174,7 +173,7 @@ function fanOk(u, x, y, skip) {
     if (k === skip) continue;
     const kx = k.x - u.x;
     const ky = k.y - u.y;
-    if ((vx * kx + vy * ky) / (vl * (hypot(kx, ky) || 1)) > 0.9) return false;
+    if ((vx * kx + vy * ky) / (vl * (hypot(kx, ky) || 1)) > P.fc) return false;
   }
   return true;
 }
@@ -261,7 +260,7 @@ function orphan(P, n) {
     let bu = null;
     let bc = 1e9;
     for (const u of P.nodes) {
-      if (u.st === mark || u.kids.length >= MAXK || !fanOk(u, n.x, n.y, n)) continue;
+      if (u.st === mark || u.kids.length >= P.mk || !fanOk(P, u, n.x, n.y, n)) continue;
       const d = hypot(u.x - n.x, u.y - n.y);
       if (d > 18 || u.cost + d >= bc) continue;
       if (!segHit(P, u.x, u.y, n.x, n.y, 1) && clear(P, u.x, u.y, n.x, n.y, u, n)) {
@@ -341,8 +340,8 @@ function grow(P, rad) {
   const d = sqrt(qd);
   if (d < 2) return;
   const st = min(d, STEP0 + (STEP1 - STEP0) * Math.random());
-  const nx = cl(q.x + ((sx - q.x) / d) * st, 1, W - 1);
-  const ny = cl(q.y + ((sy - q.y) / d) * st, 1, H - 1);
+  const nx = cl(q.x + ((sx - q.x) / d) * st, 2.5, W - 2.5);
+  const ny = cl(q.y + ((sy - q.y) / d) * st, 2.5, H - 2.5);
   if (segHit(P, q.x, q.y, nx, ny, 1.6)) return;
   const r2 = rad * rad;
   const nb = P.nb;
@@ -358,7 +357,7 @@ function grow(P, rad) {
   let bc = 1e9;
   for (const e of nb) {
     const c = e.n.cost + e.d;
-    if (c < bc && e.n.kids.length < MAXK && fanOk(e.n, nx, ny, null)) {
+    if (c < bc && e.n.kids.length < P.mk && fanOk(P, e.n, nx, ny, null)) {
       e.fr = segHit(P, e.n.x, e.n.y, nx, ny, 1.6) || !clear(P, e.n.x, e.n.y, nx, ny, e.n, null) ? 0 : 1;
       if (e.fr) {
         bc = c;
@@ -370,8 +369,8 @@ function grow(P, rad) {
   const nn = mkNode(nx, ny, par, bc);
   ns.push(nn);
   for (const e of nb) {
-    if (e.n === par || e.n === P.root || nn.kids.length >= MAXK) continue;
-    if (bc + e.d < e.n.cost - 0.05 && fanOk(nn, e.n.x, e.n.y, null)) {
+    if (e.n === par || e.n === P.root || nn.kids.length >= P.mk) continue;
+    if (bc + e.d < e.n.cost - 0.05 && fanOk(P, nn, e.n.x, e.n.y, null)) {
       if (e.fr < 0) e.fr = segHit(P, e.n.x, e.n.y, nx, ny, 1.6) || !clear(P, e.n.x, e.n.y, nx, ny, e.n, nn) ? 0 : 1;
       if (e.fr) reparent(P, e.n, nn);
     }
@@ -393,7 +392,7 @@ function relax(P, rad) {
     const d2 = dx * dx + dy * dy;
     if (d2 > r2) continue;
     const c = u.cost + sqrt(d2);
-    if (c < bc && u.kids.length < MAXK && fanOk(u, v.x, v.y, v) && !segHit(P, u.x, u.y, v.x, v.y, 1.2) && clear(P, u.x, u.y, v.x, v.y, u, v)) {
+    if (c < bc && u.kids.length < P.mk && fanOk(P, u, v.x, v.y, v) && !segHit(P, u.x, u.y, v.x, v.y, 1.2) && clear(P, u.x, u.y, v.x, v.y, u, v)) {
       bc = c;
       bp = u;
     }
@@ -574,6 +573,8 @@ function setup(P) {
     acc: 0,
     acr: 0,
     stamp: 0,
+    mk: 3,
+    fc: 0.9,
     k1: 0,
     snap: true,
     warm: false,
@@ -589,6 +590,10 @@ function knobs(P, input) {
   const g = k2 <= 2 ? 0.3 * pow(1 / 0.3, (k2 - 0.3) / 1.7) : pow(3, k2 - 2);
   const k4 = cl(k[3], -1, 1);
   P.k1 = k[0];
+  // the wider the Rewire, the more children a node may carry and the closer together they may leave it
+  const w = sm(0.2, 1, k4);
+  P.mk = 3 + 2 * w;
+  P.fc = 0.9 + 0.06 * w;
   return { g, k3: cl(k[2], -1, 1), rad: 7.4 * pow(3.3, (k4 + 1) / 2) };
 }
 
@@ -605,8 +610,8 @@ function advance(P, d, k) {
   moveRobot(P, d);
   recost(P);
   // the tree
-  P.acc += 40 * k.g * d;
-  P.acr += 14 * k.g * d;
+  P.acc += 60 * k.g * d;
+  P.acr += 120 * k.g * d;
   while (P.acc >= 1) {
     P.acc -= 1;
     grow(P, k.rad);
@@ -656,7 +661,7 @@ export function update(dt, input, P) {
     }
     newGoal(P);
     // open on a tree that has been growing for a while
-    const T = cl(700 / (40 * k.g), 12, 60);
+    const T = cl(700 / (60 * k.g), 10, 60);
     const n = ceil(T * 30);
     for (let i = 0; i < n; i++) advance(P, 1 / 30, k);
     for (let i = 0; i < 3000 && P.nodes.length < 0.85 * CAP; i++) advance(P, 1 / 30, k);
@@ -808,10 +813,12 @@ export function draw(display, P) {
     const g = n.g * n.g;
     disc(P, n.x, n.y, leaf ? 1.35 : 1.1, lut[i] + (255 - lut[i]) * w, lut[i + 1] + (255 - lut[i + 1]) * w, lut[i + 2] + (255 - lut[i + 2]) * w, 0.95 * g * n.a);
   }
-  // the best path
+  // a dark clearing round the robot, where the branches meet, and the best path across it
+  const rb0 = P.root;
+  disc(P, rb0.x, rb0.y, 4, 4, 6, 18, 0.55);
   const pp = P.pp;
-  for (let i = 0; i + 1 < pp.length; i++) glowLine(P, pp[i][0], pp[i][1], pp[i + 1][0], pp[i + 1][1], 2.4, 255, 226, 190, 0.16);
-  for (let i = 0; i + 1 < pp.length; i++) glowLine(P, pp[i][0], pp[i][1], pp[i + 1][0], pp[i + 1][1], 1.25, 255, 238, 212, 0.97);
+  for (let i = 0; i + 1 < pp.length; i++) glowLine(P, pp[i][0], pp[i][1], pp[i + 1][0], pp[i + 1][1], 2, 255, 226, 190, 0.11);
+  for (let i = 0; i + 1 < pp.length; i++) glowLine(P, pp[i][0], pp[i][1], pp[i + 1][0], pp[i + 1][1], 1.1, 255, 238, 212, 0.97);
   // the goal
   const gl = P.goal;
   const pulse = 0.5 + 0.5 * sin(P.t * 2.9);
@@ -828,7 +835,6 @@ export function draw(display, P) {
     glowLine(P, tr[i].x, tr[i].y, tr[i + 1].x, tr[i + 1].y, 0.5 + 0.8 * f, 255, 244, 225, 0.55 * f * f);
   }
   const rb = P.root;
-  disc(P, rb.x, rb.y, 4, 4, 6, 18, 0.55);
   glow(P, rb.x, rb.y, 2.6, 255, 244, 224, 0.4);
   disc(P, rb.x, rb.y, 2.3, 255, 252, 244, 1);
   for (let y = 0; y < H; y++)
