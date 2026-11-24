@@ -239,5 +239,10 @@
   "gaussianprocess": { "label": "가우스 과정", "color": "#8a86e8" },
   "edgebundling": { "label": "묶인 연결선", "color": "#4fcf9a" },
   "crossbedding": { "label": "사층리", "color": "#c4a06c" },
-  "blockcodec": { "label": "블록 부호화", "color": "#e8894a" }
+  "blockcodec": { "label": "블록 부호화", "color": "#e8894a" },
+  "motionplanning": { "label": "경로 계획", "color": "#26b5a0" },
+  "smithchart": { "label": "스미스 차트", "color": "#e0c34a" },
+  "langmuir": { "label": "랭뮤어 순환", "color": "#2e8fb0" },
+  "morsesmale": { "label": "모스-스메일", "color": "#b46ad8" },
+  "systolic": { "label": "수축기 배열", "color": "#d65a5a" }
 }
