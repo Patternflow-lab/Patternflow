@@ -170,7 +170,7 @@ export function update(dt, input, params) {
   st.budget = turnOver(st, st.budget, 240, t);
   st.budget = cl(st.budget, -3 * N, 2 * N);
 
-  // Flips whose turn has come show now, bright, and then fade.
+  // Flips whose turn has come show now at full glow and then fade.
   let w = 0;
   for (let q = 0; q < st.qn; q++) {
     if (st.qt[q] <= t) {
