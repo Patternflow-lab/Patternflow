@@ -11,8 +11,8 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Quality=0..6, Offset=0..7, Passes=1..4
 //
-// Knob 1: Hue. Turns the colour of the whole scene once round the wheel before it is coded and keeps its brightness: indigo to coral sky over a teal ground at 0, a green and violet dusk at 0.33, a blue and pink one at 0.67, and back where it began at 1.
-// Knob 2: Quality. The JPEG quality the swing moves around: 2.6 at 0, 8.6 at 2 where it opens (flat tiles with ramps), 28 at 4 (ringing round the bar, colour bleeding in 16 LED blocks) and 91 at 6 (nearly clean); the swing multiplies it by about a third to about seven, and no quality goes below 3.4.
+// Knob 1: Hue. Turns the colour of the whole scene once round the wheel before it is coded and keeps its brightness: indigo to coral sky over a teal ground at 0, a green sky over a plum ground at 0.33, a lilac and blue sky over a green ground at 0.67, and back where it began at 1.
+// Knob 2: Quality. The JPEG quality the swing moves around: 2.6 at 0, 8.5 at 2 where it opens (flat tiles with ramps), 28 at 4 (ringing round the bar, colour bleeding in 16 LED blocks) and 91 at 6 (nearly clean); the swing multiplies it by about a third to about seven, and no quality goes below 3.4.
 // Knob 3: Offset. Slides the block grid across the picture, 0 to 7 LED in x and 0 to 4 in y, rounded to whole LED: the seams move, and a tile changes colour as its edges pass over a disc.
 // Knob 4: Passes. How many times the picture is decoded and coded again, each time on a grid moved 3 LED across and 5 down and at 1.25 times the quality of the pass before: 1 is one pass, 4 is four, and between whole numbers the next pass fades in.
 
