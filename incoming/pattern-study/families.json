@@ -259,5 +259,10 @@
   "blockspin": { "label": "블록 스핀", "color": "#1defb5" },
   "tafoni": { "label": "벌집 풍화", "color": "#e1d222" },
   "glory": { "label": "글로리", "color": "#5916db" },
-  "fastradio": { "label": "빠른 전파 폭발", "color": "#da71cb" }
+  "fastradio": { "label": "빠른 전파 폭발", "color": "#da71cb" },
+  "preisach": { "label": "이력 평면", "color": "#e0a03a" },
+  "bubbleraft": { "label": "비누방울 뗏목", "color": "#2fb7d8" },
+  "magnetosphere": { "label": "자기권", "color": "#8b6cf0" },
+  "cuckoo": { "label": "쿠쿠 해싱", "color": "#ffc857" },
+  "karplus": { "label": "지연선 현", "color": "#e4572e" }
 }
