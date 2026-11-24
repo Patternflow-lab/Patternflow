@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Cross Peaks
 // Family:  nmr
-// Idea:    A two-dimensional COSY spectrum of a reacting mixture fills the panel, chemical shift on both axes with the diagonal running corner to corner, where each spin system lights gold diagonal peaks and, off the diagonal, symmetric cross peaks that are small checkerboards of gold and magenta lobes from the antiphase J splitting, while concentrations rise and fall, shifts drift, one species at a time reacts away and a new one grows in elsewhere, and a solvent ridge and t1-noise streaks run down the columns.
+// Idea:    A two-dimensional COSY spectrum of a reacting mixture fills the panel, chemical shift on both axes and the diagonal running corner to corner, with gold diagonal peaks for each spin system and, either side of the diagonal, symmetric cross peaks that are small checkerboards of gold and magenta lobes from the antiphase J splitting, while concentrations rise and fall and shifts drift, one species at a time reacts away for a fresh one to grow in elsewhere, and a solvent ridge and streaks of t1 noise run down the columns.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Species=0..4.5, Phase=-1..1, Splitting=-1..1
 //
-// Knob 1: Hue. Turns the palette round the wheel. At 0 the positive lobes run violet, pale peach, gold and cream, the negative lobes run violet, magenta and rose, and the ground is indigo. Turned away from 0 the peaks take the whole wheel while the ground only sways about indigo, violet and blue so that it never goes brown.
-// Knob 2: Species. 0 to 4.5, opening at 2. How many spin systems are in the mix, 6 plus 4 for each unit, so 6 at 0, 14 at the opening and 24 at 4.5. A species that the knob adds fades in over half a second at a place of its own, and each one still rises and falls with its own concentration, so not all of them show at once.
+// Knob 1: Hue. Turns the palette round the wheel. At 0 the positive lobes climb from violet through pale peach to gold and cream, the negative lobes climb from violet to magenta and rose, and the ground is indigo. Turned away from 0 the peaks take the whole wheel while the ground only sways about indigo and violet, so that it never goes brown.
+// Knob 2: Species. 0 to 4.5, opening at 2. How many spin systems are in the mix, 6 plus 4 for each unit, so 6 at 0, 14 at the opening and 24 at 4.5. A species that the knob adds fades in over half a second at a place of its own, and each one still rises and falls with its own concentration, so about a third of them show at a time and never fewer than 3. Nine faint singlets, the traces of other compounds, come and go whatever this is set to.
 // Knob 3: Phase. -1 to 1, opening at 0. The zero-order phase error of the spectrum, up to 1.3 radians either way. At 0 every line is a clean absorptive blob; at the ends the lines go dispersive and each blob opens into the four-lobed shape of a badly phased peak, with the sign of the tilt following the knob.
-// Knob 4: Splitting. -1 to 1, opening near the middle. How large the J splitting is drawn. The real splittings are a few hertz against a linewidth of one LED, so they are exaggerated: at the top a multiplet square is 6 LEDs across, at the opening about 3.5, and at -1 the lines have merged and every peak, diagonal or cross, is a single positive blob.
+// Knob 4: Splitting. -1 to 1, opening near the middle. How large the J splitting is drawn. The real splittings are a few hertz against a linewidth of one LED, so they are exaggerated. At -1 the lines have merged and every peak, diagonal or cross, is a single broad positive blob; at the opening the lobes of an 8 Hz coupling are about 3 LEDs apart, and at 1 they are 6 LEDs apart, with no multiplet wider than 8.
 
 const W = 64, H = 128, NPX = W * H, NS = 24;
 const { floor, ceil, min, max, abs, exp, log, log1p, pow, sqrt, sin, cos, PI } = Math;
@@ -164,6 +164,21 @@ function makeSpecies(fresh, others) {
   };
 }
 
+// Uncoupled singlets, the traces of other compounds in a real sample: a lone diagonal peak that appears
+// at a shift of its own, stays for 15 to 45 s and fades, and the next one grows in elsewhere.
+const NIMP = 9;
+function newImp(old, first) {
+  const r = Math.random, dur = 15 + 30 * r();
+  let d = 5, best = -1;
+  for (let q = 0; q < 4; q++) {
+    const c = 0.4 + 9.2 * r();
+    let dm = 9;
+    if (old) for (const o of old) dm = min(dm, abs(c - o.d));
+    if (dm > best) (best = dm), (d = c);
+  }
+  return { d, A: 0.3 + 0.35 * r(), w: 0.9 + 0.3 * r(), dur, age: first ? dur * r() : 0 };
+}
+
 // ---- multiplets -----------------------------------------------------------
 // A line set: offsets in LEDs from the shift and the signed weight of each line. A proton seen
 // across the coupling to a partner is antiphase in that coupling (a pair of lines, minus then
@@ -299,6 +314,7 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], t: 0, init: false, hue: -9,
     sl: [],
     nextReact: 15 + 20 * Math.random(),
+    imp: Array.from({ length: NIMP }, () => newImp(null, true)),
     xs: 34, sph: Math.random() * TAU, sph2: Math.random() * TAU, ph: Array.from({ length: 16 }, () => Math.random() * TAU),
     F: new Float32Array(NPX), pos: new Float32Array(LUTN * 3), neg: new Float32Array(LUTN * 3), base: new Float32Array(6),
     X: Array.from({ length: 8 }, () => new Float32Array(W)), Y: Array.from({ length: 8 }, () => new Float32Array(H)),
@@ -371,6 +387,11 @@ function step(st, d) {
     const pool = st.sl.filter((s) => s.alive > 0.9 && s.fade > 0.95 && s.ft === 1);
     if (pool.length > 4) pool[floor(Math.random() * pool.length)].ft = 0;
   }
+  for (let i = 0; i < NIMP; i++) {
+    const m = st.imp[i];
+    m.age += d;
+    if (m.age > m.dur) st.imp[i] = newImp(st.imp, false);
+  }
   // The solvent ridge wanders in x.
   st.xs += (34 - st.xs) * (d / 60) + 5.5 * sqrt((2 * d) / 60) * gauss();
   st.xs = cl(st.xs, 10, 54);
@@ -434,6 +455,11 @@ export function draw(display, params) {
       paint(F, pxOf(db), pyOf(da), SC2, SC1, wc, 5.2 * wk, cA);
       paint(F, pxOf(da), pyOf(db), SC1, SC2, wc, 5.2 * wk, cA);
     }
+  }
+
+  for (const m of st.imp) {
+    const e = sstep(0, 3, m.age) * (1 - sstep(m.dur - 3, m.dur, m.age));
+    if (e > 0.02) paint(F, pxOf(m.d), pyOf(m.d), ONE, ONE, m.w * wk, 4.5 * wk, m.A * e * ak);
   }
 
   // t1 noise: a faint streak down the column of every strong peak.
