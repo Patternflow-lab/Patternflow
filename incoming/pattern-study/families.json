@@ -229,5 +229,10 @@
   "riso": { "label": "리소 겹인쇄", "color": "#e0509a" },
   "wavecollapse": { "label": "파동함수 붕괴 타일", "color": "#5b8f3c" },
   "gradientindex": { "label": "굴절률 분포", "color": "#7a5ce0" },
-  "nacre": { "label": "진주층", "color": "#e6b8d8" }
+  "nacre": { "label": "진주층", "color": "#e6b8d8" },
+  "videoscope": { "label": "영상 계측기", "color": "#3fb8c4" },
+  "gaussianprocess": { "label": "가우스 과정", "color": "#8a86e8" },
+  "edgebundling": { "label": "묶인 연결선", "color": "#4fcf9a" },
+  "crossbedding": { "label": "사층리", "color": "#c4a06c" },
+  "blockcodec": { "label": "블록 부호화", "color": "#e8894a" }
 }
