@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: electrospinning, the bending instability of a charged jet in an electric field as Reneker, Yarin, Fong and Koombhongse modelled it with beads, springs and dashpots (2000, from memory), the cone that feeds the jet after G. I. Taylor (1964), pattern round 238
+// Lineage: electrospinning of polymer fibre in a strong electric field, the whipping (bending) instability of the charged jet as Reneker, Yarin, Fong and Koombhongse modelled it with a chain of charged beads joined by Maxwell viscoelastic segments (2000, from memory), the cone that feeds the jet after G. I. Taylor (1964, from memory), pattern round 238
 // Round:   238
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Field=0.6..3.6, Charge=-1..1, Feed=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Field.
-// Knob 3: Charge.
-// Knob 4: Feed.
+// Knob 1: Hue. Added to the hue of the fibre, which at 0 runs from pale lavender at the needle to magenta at the plate with cyan between, and each jet also drifts up to 0.1 round the wheel on its own slow clock. The aqua mat and the deep teal-navy ground only sway between teal and violet as the knob turns, so the picture never goes brown.
+// Knob 2: Field. 0.6 to 3.6, opening at 2. The electric field that pulls the beads to the plate. A bead settles at 12 LED a second at 0.6 and 72 at 3.6, and at 40 when the knob opens. At 0.6 the jet bends within 10 rows of the needle and loops slowly in a dense tangle. At 2 it runs straight for about 25 rows and then whips in cones 20 to 30 LED wide. At 3.6 it runs straight for nearly 50 rows and has only the lower half of the panel to whip in.
+// Knob 3: Charge. -1 to 1, opening at 0. How hard the beads push each other sideways: the force between two beads is 0.5 times its opening value at -1 and 2 times at 1. At -1 the whip starts about 40 rows down and its loops stay about 9 LED from the axis. At 1 it starts 12 rows down, the loops swell to 18 LED and the cones run into each other across the panel.
+// Knob 4: Feed. -1 to 1, opening near 0. How fast the polymer is pumped: each needle sends out 19 beads a second at -1 and 53 at 1 (32 at 0), and the fibre is drawn thicker and brighter and the mat grows heavier as it rises. The cone width stays about the same. Each jet's own feed also wanders between about half and 1.3 times that over 15 to 60 s, so the cones flare and fade one after another.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, min, max, abs, exp, pow, sqrt, sin, cos, PI } = Math;
@@ -45,11 +45,45 @@ const KH = [0.73, 0.71, 0.52, 0.62, 0.8, 0.88];
 const KS = [0.12, 0.38, 0.7, 0.5, 0.62, 0.72];
 
 // ---- the model ------------------------------------------------------------
+// Each of the four jets is a chain of beads of mass 1, positions in LEDs (x across, y toward the
+// viewer, z down the panel) and time in seconds. A bead feels the field pull toward the plate, the
+// sideways push of every other bead of its jet (softened, a third of it from the neighbouring jets),
+// air drag, and the Maxwell tension of its two segments: the stress of a segment grows with its
+// stretch rate over its length, d(sigma)/dt = (dl/dt)/l - sigma/lam, and the force is Kt times sigma
+// times l0/l along the segment, so a segment that has stretched ten times pulls ten times less.
+// Beads leave the needle at the feed rate and land when they reach the plate. Four things bend the
+// physics to make a picture that holds: the push along the jet is left out (it only jams beads at the
+// needle), a bead's charge rises over its first second as the fibre thins, a weak pull toward the axis
+// (field lines that close on the plate) keeps the cone inside the panel, and a gust moves the loops
+// about so no two jets keep step. The tension holds the jet straight near the needle, and the whip
+// begins where it has relaxed below the push of the charge.
 const NJ = 4;
-const CAPB = 190;
-const Z0 = 3.5, ZC = 115;
-const SUB = 1 / 120;
-const P = { EXF: 1.2, EXE: 0.6, TILT: 0.4, QLO: 0.05, TQ: 1.0, KW: 20, KWZ: 0.4, sg0: 1, E: 40, c: 1.0, Q: 4000, EPS2: 36, Kt: 100, lam: 0.6, v0: 15, rate: 32, XQ: 0.35, EPSX2: 64, vmax: 220 , GUST: 15, R0: 900};
+const CAPB = 190;          // most beads a jet may hold
+const Z0 = 3.5, ZC = 115;  // needle tip and plate, in rows
+const SUB = 1 / 120;       // physics step
+const P = {
+  E: 40,       // field pull at Field 2, LED/s^2
+  c: 1.0,      // air drag, 1/s
+  v0: 15,      // speed a bead leaves the needle at
+  rate: 32,    // beads a second at Feed 0 and a feed factor of 1
+  Q: 4000,     // sideways push of two beads at full charge
+  EPS2: 36,    // squared softening of that push, in LEDs
+  QLO: 0.05,   // a new bead holds this share of its charge
+  TQ: 1.0,     // and gains the rest over this many seconds
+  Kt: 100,     // stiffness of the segments
+  sg0: 1,      // stress a new segment starts with
+  lam: 0.6,    // relaxation time of the stress, s
+  XQ: 0.35,    // push between neighbouring jets, against a jet's own
+  EPSX2: 64,   // squared softening of that push
+  KW: 20,      // pull toward the axis at the needle end, 1/s^2
+  KWZ: 0.4,    // its share at the plate
+  R0: 900,     // distance squared at which it doubles
+  GUST: 15,    // strength of the gust, LED/s^2
+  EXF: 1.2,    // how the charge of a bead falls as the feed rises, so the cone keeps its width
+  EXE: 0.6,    // how the push rises with the field, so the whip survives a strong field
+  TILT: 0.4,   // the view from above: a loop's depth shifts it down the panel by this much
+  vmax: 220,   // no bead moves faster than this
+};
 
 const f64 = () => new Float64Array(CAPB);
 function newJet(i) {
