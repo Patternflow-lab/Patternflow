@@ -59,17 +59,19 @@ function hsv(h, s, v, out, o) {
 }
 const NR = 128;
 function buildRamp(ramp, shift) {
+  const shW = shift - Math.round(shift);
   for (let r = 0; r < NR; r++) {
     const t = r / (NR - 1);
     let k = 0;
     while (k < STOPS.length - 2 && t > STOPS[k + 1][0]) k++;
     const a = STOPS[k], b = STOPS[k + 1], u = sstep(0, 1, (t - a[0]) / (b[0] - a[0]));
-    const h = lerp(a[1], b[1], u) + shift;
+    // The sun end turns the whole way round with K1; the shade end only a third of the way, so it stays a cool dark.
+    const h = lerp(a[1], b[1], u) + shW * (0.35 + 0.65 * sstep(0.1, 0.55, t));
     let s = lerp(a[2], b[2], u), v = lerp(a[3], b[3], u);
     // Dim warm colours read as brown on the panel: pale them and lift them.
-    const c = h - floor(h), warm = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.12, 0.2, c);
-    s *= 1 - 0.3 * warm * (1 - t);
-    v = min(1, v * (1 + 0.5 * warm * (1 - t)));
+    const c = h - floor(h), warm = c > 0.88 ? sstep(0.88, 0.96, c) : 1 - sstep(0.2, 0.3, c);
+    s *= 1 - 0.35 * warm * (1 - t);
+    v = min(1, v * (1 + 0.6 * warm * (1 - t)));
     hsv(h, s, v, ramp, r * 3);
   }
 }
@@ -146,16 +148,16 @@ function knobsToK(P, kv) {
   k.u2 = u2;
   k.u3 = u3;
   // The most a lone pit grows to, as a radius in LEDs.
-  k.rc = lerp(12.5, 4.2, pow(u2, 0.85)) * lerp(1.25, 0.95, u3);
+  k.rc = lerp(12.5, 6, pow(u2, 0.75)) * lerp(1.25, 0.95, u3);
   k.kappa = lerp(0.05, 0.12, u2);
-  k.clear = lerp(3.8, 2.6, u2);
+  k.clear = lerp(2.4, 1.2, u2);
   k.seedsRow = lerp(0.06, 1.0, pow(u2, 1.2)) * lerp(1.5, 0.65, u3);
-  k.seedsSec = 1.4 * k.seedsRow * SLIDE;
+  k.seedsSec = 2.6 * k.seedsRow * SLIDE;
   k.topAge = 55;
   k.depth = lerp(0.6, 1, u3);
   k.bevel = lerp(3.2, 1.9, u3);
-  k.w0 = lerp(4.2, 6, u3);
-  k.w1 = lerp(2.3, 3.4, u3);
+  k.w0 = lerp(5, 7, u3);
+  k.w1 = lerp(3, 4.2, u3);
   k.wear = lerp(1.2, 0.5, u3);
   k.c3 = lerp(0.05, 0.4, u3);
   k.relief = lerp(4.5, 7, u3);
@@ -248,7 +250,6 @@ export function update(dt, input, params) {
     P.init = true;
     // Let the wall weather for a while before the first frame.
     for (let i = 0; i < 360; i++) evolve(P, k, 0.5);
-    P.off += 0;
   }
   P.t += dt;
   evolve(P, k, dt);
@@ -389,9 +390,9 @@ export function draw(display, params, time) {
       const hh = d[i];
       const cav = hh - hb[i];
       const ao = 1 - 0.75 * sstep(0, 0.25, cav);
-      const dp = sstep(0.25, 0.95, hh);
-      let v = 0.1 + 0.12 * ao + 0.46 * lit[i] * (0.45 + 0.55 * ao);
-      v *= 1 - 0.62 * dp;
+      const dp = sstep(0.15, 0.7, hh);
+      let v = 0.12 + 0.13 * ao + 0.47 * lit[i] * (0.45 + 0.55 * ao);
+      v *= 1 - 0.68 * dp;
       const fx = x / 16, x0 = floor(fx), xf = fx - x0, xu = xf * xf * (3 - 2 * xf);
       const sa = lerp(hash(x0 & 3, j0 + sd), hash(x0 & 3, j0 + 1 + sd), su);
       const sb = lerp(hash((x0 + 1) & 3, j0 + sd), hash((x0 + 1) & 3, j0 + 1 + sd), su);
@@ -399,7 +400,7 @@ export function draw(display, params, time) {
       v += 0.14 * (lerp(sa, sb, xu) - 0.5) + bandAmp * bed + 0.04 * ri;
       const jn = i1[i];
       if (jn >= 0) v += 0.05 * nt[jn] * (1 - ri);
-      const bounce = dp * lb[i] * 0.6;
+      const bounce = dp * lb[i] * 0.5;
       const idx = floor(cl(v, 0, 1) * (NR - 1) + 0.5) * 3;
       let r = ramp[idx], g = ramp[idx + 1], b = ramp[idx + 2];
       r *= 1 - 0.05 * ri;
