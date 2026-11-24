@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Clock=0.5..3.5, Batch=-1..1, Sparsity=-1..1
 //
-// Knob 1: Hue. Turns the weight palette and the token pair round the colour wheel together, so the amber activations and teal partial sums keep their 141 degrees apart: violet and magenta tiles with amber and teal tokens at 0, the same picture a full turn later at 1.
-// Knob 2: Clock. Beats a second: 1.5 at 0.5 (a tile every 0.67 s, a token crosses the 64 LED in 5.3 s), 3.7 at the opening 2 (a token crosses in 2.2 s), 9 at 3.5 (0.9 s, the flashes run together into a shimmer).
-// Knob 3: Batch. The mean number of input vectors in a batch: 1 at -1 (one thin diagonal line at a time, 3 to 6 empty beats between them), 9 at the opening 0 (bands of 2 to 24 vectors with 2 to 6 empty beats between them), 81 at 1 (the whole array is lit at once, only 1 to 3 empty beats between batches).
-// Knob 4: Sparsity. The share of weights that are zero: none at -1 (every tile flashes), 25 percent at 0, 29 percent at the opening 0.06, 85 percent at 1 (most tiles are dark holes that the tokens slide past without a flash and the teal sums stay thin).
+// Knob 1: Hue. Turns the weight palette and the token pair round the colour wheel together, so the amber activations and teal partial sums stay 135 degrees apart: violet and magenta tiles with amber and teal tokens at 0, crimson and orange tiles at 0.12 and 0.25 (ochre, with green and blue tokens at 0.25), green tiles with blue and red tokens at 0.5, and the opening picture again at 1.
+// Knob 2: Clock. Beats a second: 1.5 at 0.5 (a tile every 0.67 s, a token crosses the 64 LED in 5.3 s), 3.7 at the opening 2 (2.2 s), 9 at 3.5 (0.9 s, and the flashes run together into a shimmer).
+// Knob 3: Batch. The mean number of input vectors in a batch, and the empty beats between batches: 1 vector at -1 (one thin diagonal line at a time, 3 to 8 empty beats between lines), 8 at the opening 0 (bands of 3 to 16 vectors, 2 to 6 empty beats), 80 at 1 (the whole array lit at once, with 28 to 170 vectors in a batch and 1 to 3 empty beats).
+// Knob 4: Sparsity. The share of weights that are zero: none at -1 (every tile flashes), 25 percent at 0, 29 percent at the opening 0.06, 85 percent at 1 (most tiles are dim holes that the tokens pass without a flash, and the teal sums stay thin). A given tile goes dark or comes back about every 10 to 40 s.
 
 const W = 64;
 const H = 128;
@@ -53,11 +53,12 @@ function hsv(h, s, v, out, o) {
 
 const BG = [3, 5, 12]; // near-black blue
 const BUS = [17, 26, 52]; // the faint bus between the tiles
-const HOLE = [24, 31, 58]; // a tile whose weight is zero
+const HOLE = [17, 23, 46]; // a tile whose weight is zero
+const HG = 0.32; // and it keeps this much of the colour its weight would have had
 const FW = [236, 242, 255]; // the white of a multiply
 const AMB = 41; // hue of an activation, degrees
-const TEA = 176; // hue of a partial sum, 141 degrees round from it
-const WLO = 258; // hue of the lightest weight tile, and the heaviest is 80 degrees on
+const TEA = 176; // hue of a partial sum, 135 degrees round from it
+const WLO = 258; // hue of the lightest weight tile, and the heaviest is 66 degrees on
 
 function buildColors(P) {
   const rot = 360 * P.k1;
@@ -65,9 +66,9 @@ function buildColors(P) {
   for (let i = 0; i < 32; i++) {
     const u = i / 31;
     // warm hues go brown on the panel when they are dark, so they run brighter and paler
-    const h = WLO + 80 * u + rot;
-    const warm = max(0, Math.cos(((h - 50) * PI) / 180));
-    hsv(h, (0.58 + 0.14 * u) * (1 - 0.4 * warm), (0.17 + 0.38 * u) * (1 + 1.0 * warm), lut, i * 3);
+    const h = WLO + 66 * u + rot;
+    const warm = max(0, Math.cos(((h - 40) * PI * 0.75) / 180));
+    hsv(h, (0.58 + 0.14 * u) * (1 - 0.35 * warm), (0.22 + 0.34 * u) * (1 + 0.9 * warm), lut, i * 3);
   }
   const tok = P.tok;
   hsv(AMB + rot, 0.82, 1, tok, 0);
@@ -89,7 +90,7 @@ function ease(s) {
 
 function newVec(P, t0) {
   const a = new Float32Array(NR);
-  const lvl = 0.42 + 0.58 * Math.random();
+  const lvl = (P.L < 3 ? 0.68 : 0.42) + (P.L < 3 ? 0.32 : 0.58) * Math.random();
   const f1 = 0.3 + 0.5 * Math.random();
   const f2 = 0.9 + 0.8 * Math.random();
   const p1 = Math.random() * TAU;
@@ -141,8 +142,8 @@ function startLoad(P) {
   }
   let end = 0;
   for (let c = 0; c < NC; c++) {
-    P.ldDelay[c] = order[c] * 1.15 + 0.5 * Math.random();
-    P.ldSpeed[c] = 1.5 + 0.7 * Math.random();
+    P.ldDelay[c] = order[c] * 0.6 + 0.4 * Math.random();
+    P.ldSpeed[c] = 1.6 + 0.8 * Math.random();
     end = max(end, P.ldDelay[c] + 17.4 / P.ldSpeed[c]);
   }
   P.ldT0 = P.T;
@@ -154,18 +155,18 @@ function finishLoad(P) {
   P.w.set(P.wn);
   P.z.set(P.zn);
   for (let i = 0; i < N; i++) P.hole[i] = isHole(P, P.z, i, P.t);
-  P.since = 0;
-  P.thr = 70 + 120 * Math.random();
+  P.workT0 = P.T;
+  P.thr = 110 + 150 * Math.random() + 1.2 * P.L;
   P.state = 1;
   P.nextLaunch = ceil(P.T) + 1 + floor(Math.random() * 3);
 }
 
 function endBatch(P) {
   const last = P.nextLaunch;
-  P.since += last - P.batchT0 + 1;
-  if (P.since >= P.thr) {
+  if (last - P.workT0 >= P.thr) {
     P.state = 2;
-    P.drainEnd = last + 25;
+    // the new weights start down the columns while the last sums are still on their way out of the bottom; those sums keep the old weights
+    P.drainEnd = last + 14;
   } else {
     P.state = 1;
     P.nextLaunch = last + 1 + gap(P);
@@ -283,6 +284,8 @@ export function setup(P) {
     dw: new Float32Array(N),
     dp: new Float32Array(N),
     tc: new Float32Array(N * 3),
+    cur: new Float32Array(3),
+    nxt: new Float32Array(3),
     ldDelay: new Float32Array(NC),
     ldSpeed: new Float32Array(NC),
     lut: new Float32Array(32 * 3),
@@ -300,7 +303,7 @@ export function setup(P) {
     count: 0,
     mult: 1,
     batchT0: 0,
-    since: 0,
+    workT0: 0,
     thr: 130 + 80 * Math.random(),
     drainEnd: 0,
     loadEnd: 0,
@@ -327,7 +330,7 @@ export function update(dt, input, P) {
   P.k1 = k[0];
   P.rateT = 1.5 * pow(6, (cl(k[1], 0.5, 3.5) - 0.5) / 3);
   P.k3 = cl(k[2], -1, 1);
-  P.L = 6 * pow(13.5, P.k3);
+  P.L = 8 * pow(10, P.k3);
   const k4 = cl(k[3], -1, 1);
   P.sp = k4 < 0 ? 0.25 * (1 + k4) : 0.25 + 0.6 * k4;
   if (!P.warm) {
@@ -445,43 +448,48 @@ function drawTokens(P) {
     for (let c = 0; c < NC; c++) {
       const yf = (T - P.ldT0 - P.ldDelay[c]) * P.ldSpeed[c] - 0.5;
       if (yf < -0.6 || yf > NR + 1.2) continue;
-      blobY(P, P.IW, 8 * c + 4, 8 * yf + 4, 1.0, 1.4, 0.85, 9, 0.5);
+      blobY(P, P.IW, 8 * c + 4, 8 * yf + 4, 1.1, 1.5, 1.0, 11, 0.55);
     }
+}
+
+// a tile's colour from its weight, in out[0..2]: the weights are fixed for a batch but tuned a little all the time, so the colour drifts; a zero keeps a trace of it
+function tileRGB(P, w, i, hole, m, out) {
+  const wi = (cl((w + 0.25 * sin(P.t * P.dw[i] + P.dp[i]) - 0.1) / 0.9, 0, 1) * 31 + 0.5) | 0;
+  const lut = P.lut;
+  for (let k = 0; k < 3; k++) {
+    const live = lut[wi * 3 + k];
+    out[k] = (live + (HOLE[k] + (live - HOLE[k]) * HG - live) * hole) * m;
+  }
 }
 
 function tileColors(P) {
   const tc = P.tc;
-  const lut = P.lut;
   const t = P.t;
   const loading = P.state === 3;
   const dimOld = 1 - 0.3 * P.dim;
   const dimNew = 1 - 0.05 * P.dim;
   const wl = P.tok;
+  const cur = P.cur;
+  const nxt = P.nxt;
   for (let r = 0; r < NR; r++)
     for (let c = 0; c < NC; c++) {
       const i = r * NC + c;
-      const br = 1 + 0.17 * sin(t * P.bw[i] + P.bp[i]) + 0.1 * sin(0.9 * t - 0.31 * c - 0.23 * r);
-      // the weights are fixed for a batch, but they are tuned a little all the time, so a tile's colour drifts
-      const wi = (cl((P.w[i] + 0.25 * sin(t * P.dw[i] + P.dp[i]) - 0.1) / 0.9, 0, 1) * 31 + 0.5) | 0;
-      const h = P.hole[i];
-      const m = br * dimOld;
-      let rr = (lut[wi * 3] + (HOLE[0] - lut[wi * 3]) * h) * m;
-      let gg = (lut[wi * 3 + 1] + (HOLE[1] - lut[wi * 3 + 1]) * h) * m;
-      let bb = (lut[wi * 3 + 2] + (HOLE[2] - lut[wi * 3 + 2]) * h) * m;
+      const br = 1 + 0.22 * sin(t * P.bw[i] + P.bp[i]) + 0.1 * sin(0.9 * t - 0.31 * c - 0.23 * r);
+      tileRGB(P, P.w[i], i, P.hole[i], br * dimOld, cur);
+      let rr = cur[0];
+      let gg = cur[1];
+      let bb = cur[2];
       if (loading) {
+        // the column's front: the tile turns to its new weight as the light passes its middle
         const yf = (P.T - P.ldT0 - P.ldDelay[c]) * P.ldSpeed[c] - 0.5;
         const q = yf - r;
         const nb = sm(-0.5, 0.5, q);
         const hn = isHole(P, P.zn, i, t);
-        const ni = (cl((P.wn[i] + 0.25 * sin(t * P.dw[i] + P.dp[i]) - 0.1) / 0.9, 0, 1) * 31 + 0.5) | 0;
-        const mn = br * dimNew;
-        const nr = (lut[ni * 3] + (HOLE[0] - lut[ni * 3]) * hn) * mn;
-        const ng = (lut[ni * 3 + 1] + (HOLE[1] - lut[ni * 3 + 1]) * hn) * mn;
-        const nbl = (lut[ni * 3 + 2] + (HOLE[2] - lut[ni * 3 + 2]) * hn) * mn;
-        rr += (nr - rr) * nb;
-        gg += (ng - gg) * nb;
-        bb += (nbl - bb) * nb;
-        const lf = (exp(-((q - 0.1) * (q - 0.1)) / (2 * 0.5 * 0.5)) + (q > 0.1 ? 0.3 * exp(-(q - 0.1) / 2.5) : 0)) * (1 - 0.55 * hn) * 0.7;
+        tileRGB(P, P.wn[i], i, hn, br * dimNew, nxt);
+        rr += (nxt[0] - rr) * nb;
+        gg += (nxt[1] - gg) * nb;
+        bb += (nxt[2] - bb) * nb;
+        const lf = (exp(-((q - 0.1) * (q - 0.1)) / (2 * 0.55 * 0.55)) + (q > 0.1 ? 0.45 * exp(-(q - 0.1) / 3.5) : 0)) * (1 - 0.55 * hn) * 0.85;
         if (lf > 0.01) {
           rr += wl[9] * lf;
           gg += wl[10] * lf;
@@ -491,7 +499,7 @@ function tileColors(P) {
       // a multiply lights the tile in its own colour first and then whitens it
       const F = min(1, P.fa[i]);
       if (F > 0.004) {
-        const lift = 1 + 1.5 * F;
+        const lift = 1 + 2 * F;
         const f = F * 0.5;
         rr = rr * lift + (FW[0] - rr * lift) * f;
         gg = gg * lift + (FW[1] - gg * lift) * f;
