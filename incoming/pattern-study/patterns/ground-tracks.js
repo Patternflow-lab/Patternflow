@@ -40,19 +40,20 @@ const NSAT = 4;
 const SAT_T = [7.6, 7.25, 7.95, 7.4];  // seconds an orbit takes
 const TRAIL_S = 6;                     // seconds a trail takes to fade
 const CAPT = 420;
-const TAU_AGE = 48;                    // seconds a sample keeps its weight, as exp(-age / TAU_AGE)
+const TAU_AGE = 26;                    // seconds a sample keeps its weight, as exp(-age / TAU_AGE)
 const TAU_SEEN = 6;                    // seconds a place stays "recently measured", which sets how bright it is
 const W0 = 3, W0C = 3;                 // weight of the prior against the samples, slow and fast
 const NOISE = 0.05;
-const GAIN = 1.6;                      // the ramp reaches its ends at a height of 0.62 at the narrowest scale
+const GAIN = 1.6, REF = 0.3;           // the ramp reaches its ends at a height of 0.62 when the map's spread is 0.3
 
 // Where a satellite is on the panel at time t: x in columns (not wrapped), y in rows.
 function satXY(s, t, out) {
-  const u = s.u0 + s.n * t;
+  // The orbit's phase and its node wander a little (drag, and a bulging Earth), so the diamond mesh never lays itself down twice.
+  const u = s.u0 + s.n * t + s.a1 * sin(s.w1 * t + s.p1);
   const su = sin(u), cu = cos(u);
   let lon = atan2(COSI * su, cu);
   lon += TAU * round((u - lon) / TAU);
-  lon += s.l0 - OMEGA_E * t;
+  lon += s.l0 + s.b1 * sin(s.w2 * t + s.p2) - OMEGA_E * t;
   out[0] = (lon * DEG) / DLON;
   out[1] = (66 - asin(SINI * su) * DEG) / DLAT - 0.5;
 }
@@ -65,52 +66,42 @@ function hsv(h, s, v, out, o) {
   out[o + 1] = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
   out[o + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
-function toHsv(r, g, b, out) {
-  const mx = max(r, g, b), mn = min(r, g, b), d = mx - mn;
-  let h = 0;
-  if (d > 1e-6) {
-    if (mx === r) h = ((g - b) / d + 6) % 6;
-    else if (mx === g) h = (b - r) / d + 2;
-    else h = (r - g) / d + 4;
-    h /= 6;
-  }
-  out[0] = h;
-  out[1] = mx > 0 ? d / mx : 0;
-  out[2] = mx;
-}
-// A dim colour on the red-orange-yellow stretch of the wheel reads brown on the panel, so it is lifted and paled there.
+// A dim colour on the red-orange-yellow stretch of the wheel reads brown on the panel, so it is lifted and paled
+// there, over a wide enough stretch of hue that no step shows in the ramp.
 function lift(h, s, v, out, o) {
-  const c = h - floor(h), b = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.12, 0.2, c);
+  // A colour close to grey has no steady hue, so it is left alone.
+  const c = h - floor(h), b = (c > 0.5 ? sstep(0.8, 0.95, c) : 1 - sstep(0.13, 0.26, c)) * sstep(0.12, 0.35, s);
   const dv = 1 - v;
-  hsv(h, s * (1 - 0.5 * b * dv), min(1, v * (1 + 1.1 * b * dv)), out, o);
+  hsv(h, s * (1 - 0.45 * b * dv), min(1, v * (1 + 0.9 * b * dv)), out, o);
 }
 
-// The sea-surface ramp, height anomaly against colour (0 to 1 channels).
+// The sea-surface ramp, height anomaly against colour as hue, saturation and value. The hue is carried through the
+// ramp as a number of its own, so it runs from ultramarine down through teal and lime to coral without a jump.
 const KEYS = [
-  [-1.0, 0.27, 0.27, 0.96],
-  [-0.65, 0.2, 0.43, 0.96],
-  [-0.32, 0.14, 0.76, 0.75],
-  [-0.1, 0.58, 0.92, 0.76],
-  [0.0, 0.88, 0.97, 0.78],
-  [0.14, 1.0, 0.94, 0.75],
-  [0.36, 1.0, 0.75, 0.55],
-  [0.66, 1.0, 0.47, 0.41],
-  [1.0, 0.98, 0.33, 0.43],
+  [-1.0, 0.667, 0.72, 0.96],
+  [-0.65, 0.616, 0.79, 0.96],
+  [-0.32, 0.497, 0.82, 0.76],
+  [-0.1, 0.422, 0.37, 0.92],
+  [0.0, 0.246, 0.2, 0.97],
+  [0.14, 0.127, 0.25, 1.0],
+  [0.36, 0.074, 0.45, 1.0],
+  [0.66, 0.017, 0.59, 1.0],
+  [1.0, -0.026, 0.66, 0.98],
 ];
-const SMIN = -1.3, SMAX = 1.3, LUTN = 512, GROUND = LUTN * 6;
+const SMIN = -1.3, SMAX = 1.3, LUTN = 512, GROUND = LUTN * 9;
 const SPAN = SMAX - SMIN;
-// The same ramp as it looks where the last measurement is a while old: darker and cooler, so the pale middle
-// goes steel blue and the warm end goes violet and magenta, which keeps both clear of olive and brown.
+// The same ramp as it looks where the last measurement is a while old, as if seen through deeper water: darker, the
+// pale middle gone to mint and lavender, the warm end gone to rose.
 const DKEYS = [
-  [-1.0, 0.16, 0.16, 0.66],
-  [-0.65, 0.12, 0.26, 0.66],
-  [-0.32, 0.08, 0.42, 0.58],
-  [-0.1, 0.14, 0.5, 0.62],
-  [0.0, 0.24, 0.54, 0.64],
-  [0.14, 0.4, 0.5, 0.66],
-  [0.36, 0.58, 0.42, 0.66],
-  [0.66, 0.74, 0.32, 0.6],
-  [1.0, 0.74, 0.24, 0.52],
+  [-1.0, 0.632, 0.78, 0.8],
+  [-0.65, 0.596, 0.8, 0.8],
+  [-0.32, 0.518, 0.83, 0.69],
+  [-0.1, 0.478, 0.63, 0.73],
+  [0.0, 0.465, 0.49, 0.78],
+  [0.14, 0.49, 0.22, 0.74],
+  [0.36, 0.944, 0.26, 0.8],
+  [0.66, 0.932, 0.48, 0.77],
+  [1.0, 0.917, 0.53, 0.68],
 ];
 function rampRaw(keys, s, out) {
   let k = 0;
@@ -120,26 +111,24 @@ function rampRaw(keys, s, out) {
   out[1] = a[2] + (b[2] - a[2]) * f;
   out[2] = a[3] + (b[3] - a[3]) * f;
 }
-// lut: the ramp for a hue offset, the dim ramp, then the ground (the colour of a sea nobody has measured)
-// and the satellite colours.
+// lut: the ramp for a hue offset, the dimmed ramp, that once more at 0.7 of its brightness (a sea nobody has
+// measured lately), then the satellite colours.
+function put(lut, o, c) {
+  lut[o] = c[0] * 255;
+  lut[o + 1] = c[1] * 255;
+  lut[o + 2] = c[2] * 255;
+}
 function buildLut(lut, hue) {
   const c = [0, 0, 0], h = [0, 0, 0];
   for (let i = 0; i < LUTN; i++) {
-    for (let k = 0; k < 2; k++) {
-      rampRaw(k ? DKEYS : KEYS, SMIN + (i / (LUTN - 1)) * SPAN, c);
-      toHsv(c[0], c[1], c[2], h);
-      lift(h[0] + hue, h[1], h[2], c, 0);
-      const o = (k * LUTN + i) * 3;
-      lut[o] = c[0] * 255;
-      lut[o + 1] = c[1] * 255;
-      lut[o + 2] = c[2] * 255;
+    const lev = SMIN + (i / (LUTN - 1)) * SPAN;
+    for (let k = 0; k < 3; k++) {
+      rampRaw(k ? DKEYS : KEYS, lev, h);
+      lift(h[0] + hue, h[1], h[2] * (k === 2 ? 0.7 : 1), c, 0);
+      put(lut, (k * LUTN + i) * 3, c);
     }
   }
   const g = GROUND;
-  lift(0.52 + hue, 0.8, 0.42, c, 0);
-  lut[g] = c[0] * 255;
-  lut[g + 1] = c[1] * 255;
-  lut[g + 2] = c[2] * 255;
   // The trail, and the white-hot core of a head.
   hsv(0.86 + hue, 0.62, 1, c, 0);
   lut[g + 3] = c[0] * 255;
@@ -157,18 +146,19 @@ function buildLut(lut, hue) {
 const NED = 36;
 // The planetary wave: a few waves with whole numbers of crests round the window, going west,
 // each with an amplitude that rises and falls on its own slow period.
-const NWV = 12;
+const NWV = 28, NBROAD = 11;
+const PGW = 16, PGH = 32, PRIOR = 0.85;
 
 function respawn(st, i, t) {
   const E = st.ed;
   E.x0[i] = Math.random() * W;
   E.y0[i] = rnd(6, H - 6);
-  E.vx[i] = -(0.1 + 0.5 * Math.random() * Math.random() + 0.1 * Math.random());
-  E.vy[i] = gauss() * 0.05;
+  E.vx[i] = -2.4 * (0.1 + 0.5 * Math.random() * Math.random() + 0.1 * Math.random());
+  E.vy[i] = (Math.random() < 0.5 ? -1 : 1) * rnd(0.08, 0.6);
   E.R[i] = 5 + 9 * Math.pow(Math.random(), 1.2);
   E.A[i] = (Math.random() < 0.5 ? -1 : 1) * (0.35 + 0.65 * Math.pow(Math.random(), 0.8));
   E.tb[i] = t;
-  E.life[i] = rnd(40, 140);
+  E.life[i] = rnd(30, 100);
 }
 
 function initOcean(st, t) {
@@ -187,28 +177,31 @@ function initOcean(st, t) {
   }
   const wv = (st.wv = {
     kx: new Float32Array(NWV), ky: new Float32Array(NWV), om: new Float32Array(NWV), ph: new Float32Array(NWV),
-    a0: new Float32Array(NWV), mo: new Float32Array(NWV), mph: new Float32Array(NWV), mom: new Float32Array(NWV),
+    a0: new Float32Array(NWV), mo: new Float32Array(NWV), mph: new Float32Array(NWV), fw: new Float32Array(NWV), fp: new Float32Array(NWV),
     a: new Float32Array(NWV), p: new Float32Array(NWV),
   });
   for (let m = 0; m < NWV; m++) {
-    // Two of the waves are bands across the panel (no crests along it) that creep up or down.
-    const band = m < 2;
-    const nx = band ? 0 : 1 + floor(Math.random() * 3);
+    // Three of the waves are bands across the panel (no crests along it) that creep up or down, eight are
+    // broad ones with one or two crests round the window, the rest are shorter ripples.
+    const band = m < 3, broad = m < 11;
+    const nx = band ? 0 : broad ? 1 + floor(Math.random() * 2) : 2 + floor(Math.random() * 3);
+    const sgn = Math.random() < 0.5 ? -1 : 1;
     wv.kx[m] = (TAU * nx) / W;
-    wv.ky[m] = (TAU * (band ? rnd(1.6, 3.4) : rnd(0.5, 3) * (Math.random() < 0.5 ? -1 : 1))) / H;
-    wv.om[m] = band ? (Math.random() < 0.5 ? -1 : 1) * rnd(0.01, 0.04) : wv.kx[m] * rnd(0.4, 1.0);
+    wv.ky[m] = (TAU * (band ? rnd(1.4, 3.8) : broad ? sgn * rnd(0.4, 2.2) : sgn * rnd(1, 4.2))) / H;
+    wv.om[m] = band ? sgn * rnd(0.04, 0.12) : wv.kx[m] * rnd(1.2, 2.8);
     wv.ph[m] = Math.random() * TAU;
-    wv.a0[m] = band ? rnd(0.18, 0.3) : rnd(0.14, 0.3);
-    wv.mo[m] = rnd(0.03, 0.1);
+    wv.a0[m] = band ? rnd(0.04, 0.08) : broad ? rnd(0.15, 0.3) : rnd(0.06, 0.13);
+    wv.mo[m] = rnd(0.08, 0.25);
     wv.mph[m] = Math.random() * TAU;
-    wv.mom[m] = rnd(0.5, 1);
+    wv.fw[m] = rnd(0.03, 0.09);
+    wv.fp[m] = Math.random() * TAU;
   }
 }
 
 // The ocean at time t: eddy places, sizes and heights, and the wave's amplitudes.
 function stepOcean(st, t) {
   const E = st.ed, a = st.act;
-  const gain = 0.8 + 0.7 * a;
+  const gain = 0.9 + 1.2 * a;
   for (let i = 0; i < NED; i++) {
     if (t >= E.tb[i] + E.life[i]) respawn(st, i, t);
     const age = max(0, t - E.tb[i]), f = min(1, age / E.life[i]), sf = sin(PI * f);
@@ -216,15 +209,19 @@ function stepOcean(st, t) {
     let x = E.x0[i] + E.vx[i] * age;
     x -= W * floor(x / W);
     E.cx[i] = x;
-    E.cy[i] = E.y0[i] + E.vy[i] * age;
+    // North and south drift folds back at the edges of the window, so an eddy stays on the panel.
+    let y = (E.y0[i] + E.vy[i] * age - 3) % 244;
+    if (y < 0) y += 244;
+    E.cy[i] = 3 + (y > 122 ? 244 - y : y);
     E.cs[i] = 1 / (2 * sg * sg);
     E.ca[i] = E.A[i] * env * gain * sstep(E.th[i], E.th[i] + 0.12, a);
     E.cr[i] = 7.8 * sg * sg;
   }
-  const wv = st.wv, wg = 0.62 - 0.12 * a;
+  const wv = st.wv, wg = 1.0 - 0.62 * a;
   for (let m = 0; m < NWV; m++) {
     wv.a[m] = wg * wv.a0[m] * (0.62 + 0.38 * sin(wv.mo[m] * t + wv.mph[m]));
-    wv.p[m] = wv.ph[m] + wv.om[m] * t;
+    // The phase speed itself swings by a third either way on a slow beat, so a wave never comes round to where it was.
+    wv.p[m] = wv.ph[m] + wv.om[m] * (t + (0.33 / wv.fw[m]) * sin(wv.fw[m] * t + wv.fp[m]));
   }
 }
 
@@ -250,7 +247,7 @@ export function setup(params) {
   const base = Math.random() * TAU;
   const sats = [];
   for (let j = 0; j < NSAT; j++) {
-    const o = { n: TAU / SAT_T[j], u0: base + j * rnd(1.4, 2.2) + Math.random(), l0: Math.random() * TAU, w: 0, tx: new Float32Array(CAPT), ty: new Float32Array(CAPT), tt: new Float32Array(CAPT), th: 0, tn: 0, pos: [0, 0] };
+    const o = { n: TAU / SAT_T[j], u0: base + j * rnd(1.4, 2.2) + Math.random(), l0: Math.random() * TAU, a1: rnd(0.35, 0.6), w1: rnd(0.045, 0.09), p1: Math.random() * TAU, b1: rnd(0.25, 0.4), w2: rnd(0.03, 0.07), p2: Math.random() * TAU, w: 0, tx: new Float32Array(CAPT), ty: new Float32Array(CAPT), tt: new Float32Array(CAPT), th: 0, tn: 0, pos: [0, 0] };
     sats.push(o);
   }
   const st = (params.st = {
@@ -260,9 +257,22 @@ export function setup(params) {
     bs: new Float32Array(NPX), bw: new Float32Array(NPX), bc: new Float32Array(NPX), tmp: new Float32Array(NPX), cs: new Float32Array(W),
     lut: new Float32Array(GROUND + 9), hue: -9, cov: new Float32Array(NPX),
     R: new Float32Array(NPX), G: new Float32Array(NPX), B: new Float32Array(NPX),
+    E: new Float32Array(NPX), scaled: false, mean: 0, rms: 0.3,
+    pg: new Float32Array(PGW * PGH), ix0: new Int32Array(W), ix1: new Int32Array(W), fx: new Float32Array(W), iy0: new Int32Array(H), fy: new Float32Array(H),
   });
   initOcean(st, st.t);
   stepOcean(st, st.t);
+  for (let x = 0; x < W; x++) {
+    const g = (x + 0.5) / 4 - 0.5, i = floor(g);
+    st.ix0[x] = (i + PGW) % PGW;
+    st.ix1[x] = (i + 1 + PGW) % PGW;
+    st.fx[x] = g - i;
+  }
+  for (let y = 0; y < H; y++) {
+    const g = cl((y + 0.5) / 4 - 0.5, 0, PGH - 1.001), i = floor(g);
+    st.iy0[y] = i;
+    st.fy[y] = g - i;
+  }
 }
 
 function satCount(k4) {
@@ -416,14 +426,12 @@ export function draw(display, params) {
   if (abs(hue - st.hue) > 1e-4) (st.hue = hue), buildLut(st.lut, hue);
   const lut = st.lut;
 
-  // The correlation length L is the 1/e radius of the weights, so the Gaussian's sigma is L / sqrt 2.
-  const L = st.k[2], sg2 = (L * L) / 2;
+  // The correlation length L is about 2.2 sigma of the Gaussian weights.
+  const L = st.k[2], sg2 = 0.2025 * L * L;
   const rr = (-1 + sqrt(1 + 4 * sg2)) / 2, ri = floor(rr), fr = rr - ri;
   blur3(st.S, st.bs, st.tmp, ri, fr, st.cs);
   blur3(st.Wt, st.bw, st.tmp, ri, fr, st.cs);
   blur3(st.Wc, st.bc, st.tmp, ri, fr, st.cs);
-  // The colour scale stretches as the map smooths, as a plotted map's does when its range is set from the data.
-  const gain = GAIN * Math.pow(L / 3, 0.45);
   const nrm = 2 * PI * sg2, bs = st.bs, bw = st.bw, bc = st.bc, cov = st.cov, R = st.R, G = st.G, B = st.B;
 
   cov.fill(0);
@@ -441,18 +449,46 @@ export function draw(display, params) {
     head.push(j);
   }
 
-  const pr = lut[GROUND], pg = lut[GROUND + 1], pb = lut[GROUND + 2];
   const tr = lut[GROUND + 3], tg = lut[GROUND + 4], tb = lut[GROUND + 5];
+  // The prior: the broad waves, which a model could forecast, on a grid of 4 LED cells and spread to the pixels.
+  const pgd = st.pg, wv = st.wv, ix0 = st.ix0, ix1 = st.ix1, fx = st.fx, iy0 = st.iy0, fy = st.fy;
+  for (let gj = 0; gj < PGH; gj++) {
+    for (let gi = 0; gi < PGW; gi++) {
+      const x = (gi + 0.5) * 4, y = (gj + 0.5) * 4;
+      let v = 0;
+      for (let m = 0; m < NBROAD; m++) v += wv.a[m] * cos(wv.kx[m] * x + wv.ky[m] * y + wv.p[m]);
+      pgd[gj * PGW + gi] = v * PRIOR;
+    }
+  }
+  // The map: what the samples say, pulled to the prior where there are few of them.
+  const E = st.E;
+  let sum = 0, sum2 = 0;
   for (let o = 0; o < NPX; o++) {
-    // The map: what the samples say, pulled to zero where there are few of them.
+    const x = o & 63, y = o >> 6, ya = iy0[y] * PGW, fyy = fy[y];
+    const pa = pgd[ya + ix0[x]] + (pgd[ya + ix1[x]] - pgd[ya + ix0[x]]) * fx[x];
+    const pb2 = pgd[ya + PGW + ix0[x]] + (pgd[ya + PGW + ix1[x]] - pgd[ya + PGW + ix0[x]]) * fx[x];
+    const prior = pa + (pb2 - pa) * fyy;
+    const W1 = bw[o] * nrm, v = (bs[o] * nrm + W0 * prior) / (W1 + W0);
+    E[o] = v;
+    sum += v;
+    sum2 += v * v;
+  }
+  // Like a plotted map, the colours are laid about the map's own mean and stretched to its own spread, so a smooth
+  // map keeps its colour and a map with one broad band on it does not turn into one colour.
+  const mean = sum / NPX, rms = sqrt(max(1e-6, sum2 / NPX - mean * mean));
+  if (!st.scaled) (st.scaled = true), (st.mean = mean), (st.rms = rms);
+  st.mean += (mean - st.mean) * 0.06;
+  st.rms += (rms - st.rms) * 0.06;
+  const gain = cl(GAIN * Math.pow(REF / st.rms, 0.6), 0.8, 4.5), mu = st.mean;
+  for (let o = 0; o < NPX; o++) {
     const W1 = bw[o] * nrm, gs = W1 / (W1 + W0), C1 = bc[o] * nrm, gf = C1 / (C1 + W0C);
-    let e = ((bs[o] * nrm) / (W1 + W0)) * gain;
+    let e = (E[o] - mu) * gain;
     e = 1.15 * Math.tanh(e / 1.15);
     const i = cl(floor(((e - SMIN) / SPAN) * (LUTN - 1) + 0.5), 0, LUTN - 1) * 3;
-    const cr = lut[i], cg = lut[i + 1], cb = lut[i + 2], j = i + LUTN * 3;
+    const cr = lut[i], cg = lut[i + 1], cb = lut[i + 2], j = i + LUTN * 3, k2 = i + LUTN * 6;
     // Three levels: the dim ground where nothing has been measured, the map dimmed where it was
     // measured a while ago, the map in full where a satellite has just been.
-    const dr = pr + (lut[j] - pr) * gs, dg = pg + (lut[j + 1] - pg) * gs, db = pb + (lut[j + 2] - pb) * gs;
+    const dr = lut[k2] + (lut[j] - lut[k2]) * gs, dg = lut[k2 + 1] + (lut[j + 1] - lut[k2 + 1]) * gs, db = lut[k2 + 2] + (lut[j + 2] - lut[k2 + 2]) * gs;
     let r = dr + (cr - dr) * gf, g = dg + (cg - dg) * gf, b = db + (cb - db) * gf;
     const c = cov[o];
     if (c > 0.003) {
