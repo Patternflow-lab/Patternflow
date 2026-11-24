@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0.4..3, Climb=-1..1, Ripple=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Flow.
-// Knob 3: Climb.
-// Knob 4: Ripple.
+// Knob 1: Hue. Turns the whole sediment palette round the colour wheel: cream, sand and rust at 0, seafoam green with olive at 0.3, lavender with teal at 0.55, dusty pink at 0.8, and the sand again at 1. The water stays blue-green.
+// Knob 2: Flow. How fast the ripples march downstream: 1 LED a second at 0.4, 3.2 at 2 and 4.6 at 3. The bed climbs by the same ratio, so the strata sink at 0.7, 2.2 and 3.2 LED a second.
+// Knob 3: Climb. How much the bed grows while a ripple moves, the climb ratio: 0.3 at -1 (17 degrees, each ripple leaves one lee face and the next stoss cuts its top, so the sets dip like cross-bedding), 0.7 at 0 (35 degrees, continuous sinuous sheets), 2.4 at 1 (67 degrees, low waving sheets stacked almost straight up, sinking three times as fast).
+// Knob 4: Ripple. The size of the ripples: 16 LED apart and 3 LED high at -1, 28.7 apart and 6.2 high at the opening 0.06, 40 apart and 9 high at 1.
 
 const W = 64;
 const H = 128;
@@ -48,9 +48,9 @@ function oklch(L, C, hDeg, out) {
 // cream, sand, ochre, rust, slate, teal mud, heavy mineral: lightness, chroma, hue in degrees
 const PAL = [
   [0.87, 0.012, 95],
-  [0.78, 0.034, 82],
-  [0.69, 0.065, 80],
-  [0.55, 0.085, 34],
+  [0.78, 0.026, 84],
+  [0.69, 0.05, 82],
+  [0.55, 0.07, 32],
   [0.5, 0.018, 255],
   [0.5, 0.04, 205],
   [0.33, 0.025, 285],
@@ -68,11 +68,11 @@ function buildLut(P, k1) {
       P.lut[i + 1] = o[1];
       P.lut[i + 2] = o[2];
     }
-  oklch(0.2, 0.05, 238 + 0.0 * rot, o);
+  oklch(0.2, 0.05, 238, o);
   P.wat[0] = o[0];
   P.wat[1] = o[1];
   P.wat[2] = o[2];
-  oklch(0.3, 0.06, 232 + 0.0 * rot, o);
+  oklch(0.3, 0.06, 232, o);
   P.wat[3] = o[0];
   P.wat[4] = o[1];
   P.wat[5] = o[2];
@@ -123,13 +123,13 @@ export function setup(P) {
     lf: 0,
     cat: 1,
     wm: 0.5,
+    mu: 0.5,
     sl: 0.5,
     tone: 1,
     code: 5,
-    ph: [Math.random() * TAU, Math.random() * TAU, Math.random() * TAU, Math.random() * TAU],
     gr: [],
-    wph: Math.random() * 100,
     warm: false,
+    buf: new Float32Array(W * H * 3),
   });
   let x = -40 - Math.random() * 10;
   while (x < W + 60) {
@@ -153,18 +153,19 @@ function ou(v, mu, len, sd, dz) {
 
 function newCoarse(P) {
   const warmth = cl(P.wm, 0, 1);
-  const slateP = 0.03 + 0.17 * sm(0.4, 0.9, P.sl);
+  const fine = 0.4 + 0.6 * sm(0.3, 0.8, P.rho); // fewer accent laminae where the sets are cut small
+  const slateP = fine * (0.03 + 0.17 * sm(0.4, 0.9, P.sl));
   const v = cl(warmth + 0.15 * gauss(), 0, 1);
-  let cat = v < 0.27 ? 0 : v < 0.58 ? 1 : v < 0.88 ? 2 : 3;
+  let cat = v < 0.27 ? 0 : v < 0.58 ? 1 : v < 0.92 || Math.random() < 0.55 ? 2 : 3;
   let dur = 0.6 + 0.8 * Math.random();
   const r = Math.random();
-  if (r < 0.025) {
+  if (r < 0.025 * fine) {
     cat = 6;
     dur *= 0.6;
-  } else if (r < 0.06) {
+  } else if (r < 0.06 * fine) {
     cat = 5;
     dur *= 0.55;
-  } else if (r < 0.06 + slateP) {
+  } else if (r < 0.06 * fine + slateP) {
     cat = 4;
     dur *= 0.7;
   }
@@ -227,7 +228,6 @@ function advance(P, d) {
   P.L += (P.LT - P.L) * e;
   P.Ak += (P.AT - P.Ak) * e;
   P.rho += (P.rhoT - P.rho) * e;
-  P.wph += d * 1.6 * P.c;
   const rs = P.rp;
   const t = P.t;
   // spacings relax toward their targets about the crest nearest the middle, so a new size spreads from the centre
@@ -261,8 +261,9 @@ function advance(P, d) {
   // the bed
   const dz = P.rho * P.c * d;
   P.zb += dz;
-  P.wm = ou(P.wm, 0.5, 14, 0.27, dz);
-  P.sl = ou(P.sl, 0.5, 22, 0.3, dz);
+  P.mu = ou(P.mu, 0.5, 80, 0.16, dz);
+  P.wm = ou(P.wm, P.mu, 10, 0.3, dz);
+  P.sl = ou(P.sl, 0.5, 15, 0.3, dz);
   surface(P);
   const R = P.R;
   const hS = P.hS;
@@ -324,7 +325,7 @@ export function draw(display, P) {
   const R = P.R;
   const hS = P.hS;
   const zb = P.zb;
-  const buf = new Float32Array(W * H * 3);
+  const buf = P.buf;
   for (let x = 0; x < W; x++) {
     const S = hS[x + 1];
     const slope = (hS[min(x + 2, W + 1)] - hS[max(x, 0)]) * 0.5;
