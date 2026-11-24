@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Eddies=0..3, Scale=3..14, Satellites=-1..1
 //
-// Knob 1: Hue. Turns the sea's palette round the wheel. At 0 a low sea surface is deep ultramarine and teal, the level sea is pale lime-white, a high one is warm coral, the places nobody has measured lately are a dim teal and the satellites are magenta-pink. The dim ground and the warm end are lifted and paled where the wheel passes orange, so nothing goes brown.
-// Knob 2: Eddies. 0 to 3, opening at 2. How alive the hidden ocean is. At 0 there are no eddies and only the slow planetary wave moves the surface, in broad bands that rise and fall. Turned up, up to 36 eddies a few LED to 14 LED across appear, each a hill or a hollow that drifts west, lives 40 to 140 s and fades away, and their height grows with the knob.
-// Knob 3: Scale. 3 to 14, opening at 3. The correlation length of the mapping in LED, the radius at which a measurement stops counting. At 3 the map is a lattice of narrow bright stripes along the passes with the dim sea between them. At 14 each measurement spreads over a quarter of the panel, the corridors run together and the whole sea shows as one smooth map, with the small eddies blurred out.
-// Knob 4: Satellites. -1 to 1, opening near 0. How many satellites fly, from 1 at -1 through 2 at 0 to 4 at 1, with a satellite fading in as the knob passes its number. Each has its own orbit period, 7 to 8 s, so the diamond mesh they weave fills in faster and the trails cross more with each one added.
+// Knob 1: Hue. Turns the sea's palette round the wheel. At 0 a low sea surface is deep ultramarine and teal, a level one is pale lime-white and a high one is warm coral, a place measured a while ago is the same ramp darker and cooler, and the satellites are magenta-pink. The dim colours and the warm end are lifted and paled where the wheel passes orange, so nothing goes brown.
+// Knob 2: Eddies. 0 to 3, opening at 2. How alive the hidden ocean is. At 0 there are no eddies and only the planetary wave moves the surface, broad bands and ripples that travel west and swell and fade each on its own beat. Turned up, up to 36 eddies 5 to 14 LED in radius come in, each a hill or a hollow that drifts west and a little north or south, lives 30 to 100 s, swells and dies away, and the knob also raises their height and lowers the wave's.
+// Knob 3: Scale. 3 to 14, opening at 3. The correlation length of the mapping in LED, the distance at which a measurement has fallen to 4 percent of its weight. At 3 the map is a lattice of narrow bright stripes along the passes over a dimmer sea. At 14 each measurement reaches almost half the width of the panel, the corridors run together and the whole sea shows as one smooth map, the small eddies blurred out and its colours stretched to keep it vivid.
+// Knob 4: Satellites. -1 to 1, opening near 0. How many satellites fly, 1 at -1, 2 at 0 and 4 at 1, a satellite fading in as the knob passes its number. Their orbits take 7.25 to 7.95 s, so a pass runs across the panel in about 4 s, and each one added weaves the lattice shut faster and puts more trails on the panel.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, round, min, max, abs, exp, sqrt, sin, cos, atan2, asin, PI } = Math;
@@ -40,7 +40,7 @@ const NSAT = 4;
 const SAT_T = [7.6, 7.25, 7.95, 7.4];  // seconds an orbit takes
 const TRAIL_S = 6;                     // seconds a trail takes to fade
 const CAPT = 420;
-const TAU_AGE = 26;                    // seconds a sample keeps its weight, as exp(-age / TAU_AGE)
+const TAU_AGE = 38;                    // seconds a sample keeps its weight, as exp(-age / TAU_AGE)
 const TAU_SEEN = 6;                    // seconds a place stays "recently measured", which sets how bright it is
 const W0 = 3, W0C = 3;                 // weight of the prior against the samples, slow and fast
 const NOISE = 0.05;
@@ -153,7 +153,7 @@ function respawn(st, i, t) {
   const E = st.ed;
   E.x0[i] = Math.random() * W;
   E.y0[i] = rnd(6, H - 6);
-  E.vx[i] = -2.4 * (0.1 + 0.5 * Math.random() * Math.random() + 0.1 * Math.random());
+  E.vx[i] = -3.1 * (0.1 + 0.5 * Math.random() * Math.random() + 0.1 * Math.random());
   E.vy[i] = (Math.random() < 0.5 ? -1 : 1) * rnd(0.08, 0.6);
   E.R[i] = 5 + 9 * Math.pow(Math.random(), 1.2);
   E.A[i] = (Math.random() < 0.5 ? -1 : 1) * (0.35 + 0.65 * Math.pow(Math.random(), 0.8));
@@ -188,7 +188,7 @@ function initOcean(st, t) {
     const sgn = Math.random() < 0.5 ? -1 : 1;
     wv.kx[m] = (TAU * nx) / W;
     wv.ky[m] = (TAU * (band ? rnd(1.4, 3.8) : broad ? sgn * rnd(0.4, 2.2) : sgn * rnd(1, 4.2))) / H;
-    wv.om[m] = band ? sgn * rnd(0.04, 0.12) : wv.kx[m] * rnd(1.2, 2.8);
+    wv.om[m] = band ? sgn * rnd(0.04, 0.12) : wv.kx[m] * rnd(1.4, 3.2);
     wv.ph[m] = Math.random() * TAU;
     wv.a0[m] = band ? rnd(0.04, 0.08) : broad ? rnd(0.15, 0.3) : rnd(0.06, 0.13);
     wv.mo[m] = rnd(0.08, 0.25);
@@ -247,7 +247,7 @@ export function setup(params) {
   const base = Math.random() * TAU;
   const sats = [];
   for (let j = 0; j < NSAT; j++) {
-    const o = { n: TAU / SAT_T[j], u0: base + j * rnd(1.4, 2.2) + Math.random(), l0: Math.random() * TAU, a1: rnd(0.35, 0.6), w1: rnd(0.045, 0.09), p1: Math.random() * TAU, b1: rnd(0.25, 0.4), w2: rnd(0.03, 0.07), p2: Math.random() * TAU, w: 0, tx: new Float32Array(CAPT), ty: new Float32Array(CAPT), tt: new Float32Array(CAPT), th: 0, tn: 0, pos: [0, 0] };
+    const o = { n: TAU / SAT_T[j], u0: base + j * rnd(1.4, 2.2) + Math.random(), l0: Math.random() * TAU, a1: rnd(0.35, 0.6), w1: rnd(0.045, 0.09), p1: Math.random() * TAU, b1: rnd(0.25, 0.4), w2: rnd(0.03, 0.07), p2: Math.random() * TAU, w: 0, tx: new Float32Array(CAPT), ty: new Float32Array(CAPT), tt: new Float32Array(CAPT), th: 0, tn: 0 };
     sats.push(o);
   }
   const st = (params.st = {
@@ -426,8 +426,8 @@ export function draw(display, params) {
   if (abs(hue - st.hue) > 1e-4) (st.hue = hue), buildLut(st.lut, hue);
   const lut = st.lut;
 
-  // The correlation length L is about 2.2 sigma of the Gaussian weights.
-  const L = st.k[2], sg2 = 0.2025 * L * L;
+  // The correlation length L is 2.5 sigma of the Gaussian weights.
+  const L = st.k[2], sg2 = 0.16 * L * L;
   const rr = (-1 + sqrt(1 + 4 * sg2)) / 2, ri = floor(rr), fr = rr - ri;
   blur3(st.S, st.bs, st.tmp, ri, fr, st.cs);
   blur3(st.Wt, st.bw, st.tmp, ri, fr, st.cs);
