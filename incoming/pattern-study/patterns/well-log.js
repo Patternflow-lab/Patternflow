@@ -42,7 +42,7 @@ function pickW(w) {
 const TX = [0, 11, 29, 47], TWD = [10, 17, 17, 17], RULE = [10, 28, 46];
 const PADX = 1.3;
 const px = (t, p) => PADX + cl(p, 0, 1) * (TWD[t] - 2 * PADX);
-const CUT = 0.46;  // the gamma ray sand and shale cutoff, as a share of the track
+const CUT = 0.5;   // the gamma ray sand and shale cutoff, as a share of the track
 
 // ---- colour ---------------------------------------------------------------
 function hsv(h, s, v, out) {
@@ -65,7 +65,7 @@ function buildPalette(st, hue) {
     return [tmp[0] * 255, tmp[1] * 255, tmp[2] * 255];
   };
   // The lithology column: sandstone, shale, limestone, dolomite, coal, salt, ash.
-  st.LC = [m(0.135, 0.58, 0.92), m(0.4, 0.3, 0.52), m(0.585, 0.58, 0.8), m(0.75, 0.52, 0.82), m(0.66, 0.6, 0.15), m(0.5, 0.32, 0.97), m(0.93, 0.5, 0.95)];
+  st.LC = [m(0.135, 0.58, 0.92), m(0.4, 0.3, 0.54), m(0.585, 0.58, 0.8), m(0.75, 0.52, 0.82), m(0.66, 0.6, 0.15), m(0.5, 0.36, 0.88), m(0.93, 0.5, 0.95)];
   st.fSand = m(0.14, 0.68, 0.88);
   st.fShale = m(0.4, 0.34, 0.5);
   st.fRed = m(0.985, 0.78, 0.72);
@@ -122,10 +122,10 @@ const SS = 0, SH = 1, LS = 2, DO = 3, CO = 4, SA = 5, AS = 6;
 // a high porosity sits at the left like a low density). Coal is off the scale to the left in both
 // porosity curves and salt is off to the right in the neutron.
 const LP = [
-  [[0.16, 0.06], [0.1, 0.03], [0.2, 0.03], [0.36, 0.04], [0.37, 0.05], [0.38, 0.05]],     // sandstone, water filled
-  [[0.74, 0.08], [0.26, 0.03], [0.26, 0.02], [0.25, 0.02], [0.62, 0.04], [0.28, 0.04]],    // shale
-  [[0.12, 0.05], [0.82, 0.06], [0.8, 0.06], [0.77, 0.07], [0.78, 0.05], [0.76, 0.05]],     // limestone
-  [[0.22, 0.05], [0.66, 0.07], [0.64, 0.07], [0.62, 0.07], [0.9, 0.03], [0.82, 0.05]],     // dolomite
+  [[0.14, 0.06], [0.1, 0.03], [0.2, 0.03], [0.36, 0.04], [0.37, 0.05], [0.38, 0.05]],     // sandstone, water filled
+  [[0.8, 0.07], [0.26, 0.03], [0.26, 0.02], [0.25, 0.02], [0.62, 0.04], [0.28, 0.04]],    // shale
+  [[0.12, 0.05], [0.7, 0.09], [0.68, 0.08], [0.65, 0.12], [0.7, 0.07], [0.67, 0.07]],     // limestone
+  [[0.22, 0.05], [0.58, 0.08], [0.56, 0.08], [0.53, 0.11], [0.8, 0.05], [0.72, 0.06]],     // dolomite
   [[0.28, 0.05], [0.82, 0.05], [0.8, 0.05], [0.78, 0.05], [-0.15, 0.05], [-0.12, 0.05]],   // coal
   [[0.03, 0.015], [1.0, 0.02], [0.99, 0.02], [0.98, 0.02], [0.07, 0.02], [1.05, 0.02]],    // salt
   [[0.96, 0.04], [0.34, 0.04], [0.34, 0.04], [0.32, 0.04], [0.4, 0.04], [0.2, 0.04]],      // volcanic ash
@@ -140,14 +140,14 @@ const TRANS = [
   [],
   [[0.1, 0.55, 0, 0, 0.35, 0, 0], [0.35, 0.25, 0, 0, 0.38, 0, 0.02], [0.3, 0.7, 0, 0, 0, 0, 0], [0.3, 0.7, 0, 0, 0, 0, 0], [0.3, 0.7, 0, 0, 0, 0, 0], [0, 1, 0, 0, 0, 0, 0], [0.3, 0.7, 0, 0, 0, 0, 0]],
 ];
-const PKNEXT = [[0.3, 0.25, 0.15, 0.3], [0.4, 0.1, 0.4, 0.1], [0.4, 0.5, 0, 0.1], [0.55, 0.15, 0.05, 0.25]];
+const PKNEXT = [[0.4, 0.3, 0.04, 0.26], [0.5, 0.2, 0.15, 0.15], [0.4, 0.5, 0, 0.1], [0.55, 0.2, 0.03, 0.22]];
 const PKLEN = [[70, 90], [50, 70], [55, 70], [50, 60]];
 
 // The ring of samples, one per row of depth. RAW is what the generator wrote; OUT is RAW smoothed
 // over three rows, the way the tool's vertical resolution smooths a real log.
 const N = 512, MASK = N - 1, NP = 13;
 const K_GR = 0, K_RD = 1, K_RM = 2, K_RS = 3, K_XD = 4, K_XN = 5, K_DRD = 6, K_DRM = 7, K_DRS = 8, K_DXD = 9, K_DXN = 10, K_CF = 11, K_ROP = 12;
-const SMOOTH = 2;   // rows on either side of a sample that the tool averages over, 1 for three rows
+const SMOOTH = 1;   // rows on either side of a sample that the tool averages over
 
 export function setup(params) {
   params.st = {
@@ -178,7 +178,7 @@ function newBed(st, n) {
   if (n >= st.pk.end) startPackage(st, n);
   const pk = st.pk, prev = st.prev;
   // Rising Pay lays down more sand, so a rich setting has more to light up.
-  const sandMul = 0.75 + 0.9 * st.pe;
+  const sandMul = 0.7 + 1.6 * pow(st.pe, 1.5);
   let lith, fixed = 0;
   if (pk.type === 2) {
     // Evaporite: a thin dolomite or shale first (now and then), then the salt, then thin beds until the package ends.
@@ -205,7 +205,7 @@ function newBed(st, n) {
   const len = bed.L0;
   if (lith === SS) {
     const r = Math.random();
-    bed.shape = len < 6 ? 0 : r < 0.4 ? 0 : r < 0.7 ? 1 : 2;
+    bed.shape = len < 10 ? 0 : r < 0.4 ? 0 : r < 0.7 ? 1 : 2;
     bed.u = 0.02 + 0.98 * Math.random();
     // Gas sits on top of the water in a sand: below the contact the sand is wet again.
     bed.c = n + len * (Math.random() < 0.5 ? 1.01 : 0.45 + 0.45 * Math.random());
@@ -213,8 +213,8 @@ function newBed(st, n) {
     bed.dl[0] = 0.6 + 0.08 * g;
     bed.dl[1] = 0.46 + 0.08 * g;
     bed.dl[2] = 0.0 + 0.04 * g;
-    bed.dl[3] = -0.14 + 0.03 * g;
-    bed.dl[4] = 0.3 + 0.04 * g;
+    bed.dl[3] = -0.16 + 0.03 * g;
+    bed.dl[4] = 0.36 + 0.04 * g;
   }
   if (lith === SH) bed.trend = 0.12 * gauss();
   // Cemented streaks in sand and carbonate, washouts in shale and ash.
@@ -240,7 +240,7 @@ function genSample(st, n) {
   const lith = bed.lith, t = cl((n - bed.a + 0.5) / bed.L0, 0, 1), v = st.v, ar = st.ar;
   // How sandy a sand is: blocky, fining upward to a sharp base (a bell) or coarsening upward (a funnel).
   let s = 1;
-  if (lith === SS) s = bed.shape === 1 ? pow(t, 0.7) : bed.shape === 2 ? 1 - 0.95 * pow(t, 0.8) : 1;
+  if (lith === SS) s = bed.shape === 1 ? 0.25 + 0.75 * pow(t, 0.7) : bed.shape === 2 ? 1 - 0.75 * pow(t, 0.8) : 1;
   for (let k = 0; k < 6; k++) v[k] = lith === SS ? REF[k][0] + (bed.m[k] - REF[k][0]) * s : bed.m[k];
   if (lith === SH) v[0] += bed.trend * (t - 0.5);
   for (const e of bed.ev) {
@@ -258,10 +258,11 @@ function genSample(st, n) {
   for (let q = 0; q < 7; q++) ar[q] = rho * ar[q] + inn * gauss();
   // Slow swings over fifteen rows or so: porosity (both porosity curves left, all resistivities down), clay content and the gap between the porosity curves.
   for (let q = 7; q < 10; q++) ar[q] = 0.94 * ar[q] + 0.341 * gauss();
+  const pa = lith === LS || lith === DO ? 1.8 : 1;
   v[0] += 0.09 * ar[8];
-  v[1] -= 0.1 * ar[7]; v[2] -= 0.1 * ar[7]; v[3] -= 0.1 * ar[7];
-  v[4] -= 0.09 * ar[7]; v[5] -= 0.09 * ar[7];
-  v[5] += 0.08 * ar[9];
+  v[1] -= 0.1 * pa * ar[7]; v[2] -= 0.1 * pa * ar[7]; v[3] -= 0.1 * pa * ar[7];
+  v[4] -= 0.09 * pa * ar[7]; v[5] -= 0.09 * pa * ar[7];
+  v[5] += 0.11 * ar[9];
   v[0] += SIG[0] * ar[0];
   v[1] += SIG[1] * ar[1] + 0.012 * ar[2];
   v[2] += SIG[1] * ar[1] + 0.01 * ar[3];
@@ -449,15 +450,15 @@ export function draw(display, params) {
     // Track B: gamma ray, yellow between the curve and the cutoff where it is low, grey-green where it is high.
     const gr = st.sGR[y] * f0 + st.sGR[y + 1] * f1;
     st.xGR[y] = gr;
-    if (gr < cutB) span(st, y, 1, gr, cutB, st.fSand, 0.92);
-    else span(st, y, 1, cutB, gr, st.fShale, 0.92);
+    if (gr < cutB) span(st, y, 1, gr, cutB, st.fSand, 0.95);
+    else span(st, y, 1, cutB, gr, st.fShale, 0.95);
     // Track C: resistivity, red where the deep curve is above the shallow one, blue where it is below.
     const rd = st.sRD[y] * f0 + st.sRD[y + 1] * f1, rm = st.sRM[y] * f0 + st.sRM[y + 1] * f1, rs = st.sRS[y] * f0 + st.sRS[y + 1] * f1;
     st.xRD[y] = rd;
     st.xRM[y] = rm;
     st.xRS[y] = rs;
-    if (rd > rs) span(st, y, 2, rs, rd, st.fRed, 0.92);
-    else span(st, y, 2, rd, rs, st.fBlue, 0.92);
+    if (rd > rs) span(st, y, 2, rs, rd, st.fRed, 0.95);
+    else span(st, y, 2, rd, rs, st.fBlue, 0.95);
     // Track D: density and neutron, yellow where the neutron lies right of the density (gas), grey where it lies far left (shale).
     const xd = st.sXD[y] * f0 + st.sXD[y + 1] * f1, xn = st.sXN[y] * f0 + st.sXN[y + 1] * f1;
     st.xXD[y] = xd;
@@ -467,7 +468,7 @@ export function draw(display, params) {
       const gwr = st.sGW[y] * f0 + st.sGW[y + 1] * f1, a = sstep(0.4, 1.6, sep);
       const c0 = st.fSalt, c1 = st.fGas;
       const mix = [c0[0] + (c1[0] - c0[0]) * gwr, c0[1] + (c1[1] - c0[1]) * gwr, c0[2] + (c1[2] - c0[2]) * gwr];
-      span(st, y, 3, xd, xn, mix, 0.92 * a);
+      span(st, y, 3, xd, xn, mix, 0.95 * a);
     } else span(st, y, 3, xn, xd, st.fGrey, 0.9 * sstep(1.2, 3.2, -sep));
   }
 
