@@ -50,11 +50,11 @@ function dim(h, s, v, out, o) {
 // Species 0 is the big coral bead, 1 the small aqua one, 2 the medium lime one. Each has its
 // own crossover frequency fc: below it the bead is pulled to the field (positive DEP), above it
 // the bead is pushed away (negative DEP).
-const SP_R = [2.3, 1.45, 1.85];
+const SP_R = [2.4, 1.5, 1.95];
 const SP_FC = [2.7, 1.3, 2.0];
 const SP_HUE = [0.02, 0.47, 0.21];
-const SP_SHARE = [0.15, 0.45, 0.4];
-const NTARGET = 280;        // beads kept in the channel
+const SP_SHARE = [0.14, 0.46, 0.40];
+const NTARGET = 360;        // beads kept in the channel
 const MAXB = 520, PMAX = 9000;
 
 // ---- the physics, in LEDs and seconds -------------------------------------
@@ -111,7 +111,7 @@ function setBars(st, t) {
       const k = row * 3 + kk;
       const wx = 1.8 * sin((TAU * t) / (41 + 6 * k) + p[12 + k]), wy = 2 * sin((TAU * t) / (53 + 5 * k) + p[18 + k]);
       const cx = (row === 0 ? 1 + 21 * kk : 63 - 21 * kk) + sl + wx;
-      const cy = (row === 0 ? 33 : 93) + sy + wy;
+      const cy = (row === 0 ? 35 : 91) + sy + wy;
       const dx = row === 0 ? sin(al) : -sin(al), dy = cos(al), h = LEN[k] / 2;
       b.ax[k] = cx - dx * h;
       b.ay[k] = cy - dy * h;
