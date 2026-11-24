@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Radio Burst
 // Family:  fastradio
-// Idea:    The dynamic spectrum of a radio telescope scrolls across the panel, radio frequency up the 128 rows and time along the 64 columns, and fast radio bursts sweep through the receiver noise as bright swooping arcs because the cold plasma between the stars delays low frequencies most, with scatter smearing their lower ends into tails, scintillation breaking them into blotches, a pulsar putting in a train of fainter arcs, interference drawing teal stripes, and a thin trial arc hunting through dispersion measures until one burst matches it and flares.
+// Idea:    The dynamic spectrum of a radio telescope scrolls across the panel, radio frequency up the 128 rows and time along the 64 columns, and fast radio bursts sweep through the receiver noise as bright swooping arcs because the cold plasma between the stars delays low frequencies most, while a pulsar puts in a train of fainter arcs, interference draws teal stripes, and a thin trial arc hunts through dispersion measures until one burst matches it and flares.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Dispersion=0..2.5, Scatter=-1..1, Rate=-1..1
 //
-// Knob 1: Hue. Turns the palette round the wheel. At 0 the noise is indigo, the signal runs violet, magenta, orange and cream, interference is teal and the trial arc is pale green; every one of them keeps its place on the ramp as the wheel turns.
+// Knob 1: Hue. Turns the signal's palette round the wheel. At 0 the noise is indigo, the signal runs violet, magenta, orange and cream, interference is teal and the trial arc is pale green. Turned away from 0 the signal, the stripes and the trial arc take the whole wheel, while the noise ground only sways about indigo, violet and blue so that it never goes brown.
 // Knob 2: Dispersion. 0 to 2.5, opening at 2. The typical dispersion measure of the bursts: the time a burst takes to sweep from the top row to the bottom one is 0.3 s at 0, which is 2 columns, so the arcs are almost upright flashes, and 7.5 s at 2.5, which is 60 columns, so each arc is one long shallow swoop that runs off the panel. At 2 it is 3.9 s, about 31 columns. Every burst has its own value around that, and an arc already on the panel stretches as the knob turns.
 // Knob 3: Scatter. -1 to 1, opening at 0. At -1 the arcs are sharp, thin and smooth. Turned up, the lower rows of each burst smear to the later side in a tail that grows as the fourth power of the wavelength, up to 20 columns long at the bottom, and scintillation tears the arc into bright blotches with gaps between them, 6 to 14 blotches over the band.
-// Knob 4: Rate. -1 to 1, opening near 0. How often a burst arrives, from one every 8 s at -1 to about one a second at 1, when a dozen arcs cross each other. The pulsar's train of fainter arcs, one every 2 s, comes at every setting, so the panel never has fewer than three or four arcs.
+// Knob 4: Rate. -1 to 1, opening near 0. How often a burst arrives, from one every 5 s at -1 to nearly one a second at 1, when a dozen arcs cross each other. The pulsar's train of fainter arcs, one every 2.1 s, comes at every setting, so the panel never has fewer than three or four arcs.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, min, max, abs, exp, log, pow, sqrt, sin, PI } = Math;
@@ -328,7 +328,7 @@ function drawBackground(st, t) {
       0.2 * (1 - sstep(0, 0.07, v)) -
       0.2 * sstep(0.94, 1, v);
   }
-  // Slow value noise in time and in channel, a lattice 16 columns by 8 rows.
+  // Slow value noise in time and in channel, a lattice 12 columns by 7 rows.
   const ci0 = floor((scroll - W) / 12) - 1;
   for (let i = 0; i < 10; i++) for (let j = 0; j < 22; j++) cloud[i * 22 + j] = rnd01(ci0 + i + 77, j + 500);
   for (let x = 0; x < W; x++) {
