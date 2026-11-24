@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the glory, backscatter of sunlight by cloud droplets (Mie scattering, Gustav Mie 1908; the surface-wave theory of Herch Moyses Nussenzveig, 1979, from memory), with the Airy form I(theta) = J0(x sin theta)^2 and x = 2 pi a / lambda per colour, averaged over a narrow spread of droplet radii (Abramowitz and Stegun for J0, from memory), pattern round 237
+// Lineage: the glory, backscatter of sunlight by cloud droplets (Mie scattering, Gustav Mie 1908; the surface-wave theory of Herch Moyses Nussenzveig, 1979, from memory), with the small-angle form I(theta) proportional to J0(x sin theta)^2 and x = 2 pi a / lambda per colour, averaged over a narrow spread of droplet radii (Abramowitz and Stegun for J0, from memory), pattern round 237
 // Round:   237
 // ===============================
 // @matrix 64x128
@@ -47,13 +47,15 @@ function j0(x) {
 }
 
 // ---- the ring table -------------------------------------------------------
-// The glory's intensity at angle theta from the exact backward direction is J0(x theta)^2 with
-// x = 2 pi a / lambda. On the panel u = (distance from the glory centre in LEDs) times (the local
-// droplet radius over 9.8 um), and the argument is u * K0 * 0.53 / lambda, so the first red ring
-// of 9.8 um drops sits near 9.5 LEDs. Each colour channel has its own lambda (R 0.64, G 0.53,
-// B 0.45 um), so the blue rings lie inside the red ones. The table is averaged over 9 droplet radii
-// within 12 percent of the mean and over 3 wavelengths of each colour band, which is what fades the
-// rings with order: two to four are seen.
+// The glory's intensity at angle theta from the exact backward direction goes as J0(x theta)^2 with
+// x = 2 pi a / lambda. On the panel u is the distance from the glory centre in LEDs times the local
+// droplet radius over 9.5 um, and the argument is u * K0 * 0.53 / lambda, which puts the first red
+// ring of 9.5 um drops at 9.9 LEDs. Each colour channel has its own lambda (R 0.64, G 0.53, B 0.45 um),
+// so the blue rings lie inside the red ones. A table is averaged over 9 droplet radii within 14 percent
+// of the mean (small drops) or within 5 percent (big drops), and over 3 wavelengths of each colour
+// band. That is what fades the rings with order, so two to four show on small drops and more on big.
+// CHROMA pulls the three channels apart, GAIN is how strongly the cloud scatters, TINT and LIGHT are
+// how much of the glory tints the cloud and how much lights it.
 const CHROMA = 1.7, GAIN = 8, TINT = 1.6, LIGHT = 0.55;
 const K0 = 0.465, LUT_N = 2600, LUT_STEP = 0.08;
 const LAM = [0.64, 0.53, 0.45], BAND = 0.03, NSZ = 9;
@@ -162,7 +164,7 @@ export function setup(params) {
     pos: new Float64Array(2 * OCT + 6), // the cloud octaves, the warp field and the droplet size fields
     oc: newOct(),
     h: new Float32Array(GW * GH),
-    gx: 32, gy: 50, gs: 1,
+    gx: 32, gy: 50, gs: 1, shc: 1, shs: 0,
   };
   params.st = st;
   openingWeather(st);
@@ -177,15 +179,16 @@ function openingWeather(st) {
   let best = -1e9;
   for (let n = 0; n < 28; n++) {
     for (let i = 0; i < cand.length; i++) cand[i] = Math.random() * 400;
-    prepOct(o, cand, 0.4, 0.55);
+    prepOct(o, cand, 0.42, 0.55);
     const zs = [], win = [];
-    let sum = 0, sum2 = 0;
+    let sum = 0, sum2 = 0, grad = 0;
     for (let y = 6; y < 128; y += 8) {
       for (let x = 3; x < 64; x += 6) {
         const h = cloudAt(lat, o, x, y);
         sum += h;
         sum2 += h * h;
         zs.push(h);
+        grad += abs(cloudAt(lat, o, x + 1, y + 1) - cloudAt(lat, o, x - 1, y - 1));
         if ((x - 32) * (x - 32) + (y - 50) * (y - 50) < 576) win.push(h);
       }
     }
@@ -199,7 +202,8 @@ function openingWeather(st) {
       w2 += z * z;
     }
     const nw = win.length, wsd = sqrt(max(0, w2 / nw - (wm / nw) * (wm / nw)));
-    const score = -2 * abs(lit / nw - 0.4) - abs(wsd - 0.85) - (cover / nw < 0.95 ? 1 : 0) - abs(wm / nw);
+    const tex = grad / zs.length / sd;
+    const score = -2 * abs(lit / nw - 0.4) - abs(wsd - 0.85) - (cover / nw < 0.95 ? 1 : 0) - abs(wm / nw) - 4 * max(0, 0.38 - tex);
     if (score > best) {
       best = score;
       for (let i = 0; i < 2 * OCT + 2; i++) p[i] = cand[i];
@@ -259,6 +263,10 @@ export function update(dt, input, params) {
   // The glory centre swings about (32, 50) as the plane rocks; at Wander -1 it holds still.
   st.gx = 32 + w * (5.2 * sin((TAU * t) / 41 + ph.cx[0]) + 2.8 * sin((TAU * t) / 23 + ph.cx[1]));
   st.gy = 50 + w * (6 * sin((TAU * t) / 53 + ph.cy[0]) + 3 * sin((TAU * t) / 29 + ph.cy[1]));
+  // The viewer's shadow is a soft oval, turned a little as the plane banks.
+  const sh = 0.5 + 0.45 * sin((TAU * t) / 47);
+  st.shc = cos(sh);
+  st.shs = sin(sh);
   // The droplet radius breathes about its mean.
   st.gs = exp(w * (0.11 * sin((TAU * t) / 37 + ph.br[0]) + 0.07 * sin((TAU * t) / 61 + ph.br[1]) + 0.05 * sin((TAU * t) / 19 + ph.br[2])));
 }
@@ -284,7 +292,7 @@ export function draw(display, params) {
   const aRel = (6 * pow(15 / 6, k[1] / 4)) / 9.5 * st.gs;
 
   // ---- the cloud height field, on a grid one LED wider on every side
-  const oc = prepOct(st.oc, p, 0.3 + 0.2 * rel, 0.2 + 0.7 * rel);
+  const oc = prepOct(st.oc, p, 0.32 + 0.2 * rel, 0.2 + 0.7 * rel);
   for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) hgrid[gy * GW + gx] = cloudAt(lat, oc, gx - 0.5, gy - 0.5);
 
   // The field's own mean and spread, so the amount of cloud and the contrast stay put as the weather moves.
@@ -303,7 +311,7 @@ export function draw(display, params) {
   hueMatrix(TAU * 0.08 * sin(TAU * k[0]), tm);
   // Where the cloud gives out, in standard deviations below the mean: never at -1, about 7 percent of the panel at 0, a third at 1.
   const zc = -4 + 5.5 * rel - 2.05 * rel * rel;
-  const rg = (0.7 + 2.6 * rel) * 0.13 * isg;
+  const rg = (0.9 + 2.6 * rel) * 0.13 * isg;
   const cx = st.gx, cy = st.gy;
   const dp = p.subarray(2 * OCT + 2, 2 * OCT + 6);
   const N1 = LUT_N + 2;
@@ -317,7 +325,7 @@ export function draw(display, params) {
       const s = hgrid[gi + GW + 1] - hgrid[gi - GW - 1];
       // the cloud is thicker round the glory, which needs it
       const thick = sstep(zc - 0.35, zc + 0.35, z + 1.6 * exp(-r2 / 1400));
-      const t = cl(0.5 + 0.2 * z + s * rg, 0, 1);
+      const t = cl(0.5 + 0.28 * z + s * rg, 0, 1);
       // cloud colour: blue-violet shadow, lilac grey in the middle, pale lit top
       let cr, cg, cb;
       if (t < 0.5) {
@@ -337,7 +345,8 @@ export function draw(display, params) {
       // pull the three channels apart so the rings are coloured, not just bright
       const mean = (ir + ig + ib) / 3;
       const er = max(0, mean + CHROMA * (ir - mean)), eg = max(0, mean + CHROMA * (ig - mean)), eb = max(0, mean + CHROMA * (ib - mean));
-      const shade = exp(-r2 / 24);
+      const sx = dx * st.shc + dy * st.shs, sy = dy * st.shc - dx * st.shs;
+      const shade = exp(-(sx * sx * 0.7 + sy * sy * 1.4) / 24);
       const gk = thick * (0.55 + 0.45 * t) * (1 - 0.97 * shade) * GAIN;
       const gr = 1 - exp(-gk * er), gg = 1 - exp(-gk * eg), gb = 1 - exp(-gk * eb);
       const gm = (gr + gg + gb) / 3;
