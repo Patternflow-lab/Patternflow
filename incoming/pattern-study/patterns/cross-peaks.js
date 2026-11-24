@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Species=0..4.5, Phase=-1..1, Splitting=-1..1
 //
 // Knob 1: Hue. Turns the palette round the wheel. At 0 the positive lobes climb from violet through pale peach to gold and cream, the negative lobes climb from violet to magenta and rose, and the ground is indigo. Turned away from 0 the peaks take the whole wheel while the ground only sways about indigo and violet, so that it never goes brown.
-// Knob 2: Species. 0 to 4.5, opening at 2. How many spin systems are in the mix, 6 plus 4 for each unit, so 6 at 0, 14 at the opening and 24 at 4.5. A species that the knob adds fades in over half a second at a place of its own, and each one still rises and falls with its own concentration, so about a third of them show at a time and never fewer than 3. Nine faint singlets, the traces of other compounds, come and go whatever this is set to.
+// Knob 2: Species. 0 to 4.5, opening at 2. How many spin systems are in the mix, 6 plus 4 for each unit, so 6 at 0, 14 at the opening and 24 at 4.5. A species that the knob adds fades in over half a second at a place of its own, and each one still rises and falls with its own concentration, so about a third of them show at a time and never fewer than 3. Twelve faint singlets, the traces of other compounds, come and go whatever this is set to.
 // Knob 3: Phase. -1 to 1, opening at 0. The zero-order phase error of the spectrum, up to 1.3 radians either way. At 0 every line is a clean absorptive blob; at the ends the lines go dispersive and each blob opens into the four-lobed shape of a badly phased peak, with the sign of the tilt following the knob.
 // Knob 4: Splitting. -1 to 1, opening near the middle. How large the J splitting is drawn. The real splittings are a few hertz against a linewidth of one LED, so they are exaggerated. At -1 the lines have merged and every peak, diagonal or cross, is a single broad positive blob; at the opening the lobes of an 8 Hz coupling are about 3 LEDs apart, and at 1 they are 6 LEDs apart, with no multiplet wider than 8.
 
@@ -115,7 +115,7 @@ function vh(u, salt) {
 // ---- spin systems ---------------------------------------------------------
 // A species is 2 to 4 protons, each with a shift, a number of equivalent hydrogens, and J couplings
 // along a chain (and now and then a closing bond). Its concentration is exp of an Ornstein-Uhlenbeck
-// walk in log space, 12 to 60 s, wide enough that it fades fully in and out.
+// walk in log space, 10 to 45 s, wide enough that it fades fully in and out.
 const MU = -0.5, SIG = 1.05, SIGD = 0.28;
 const ampOf = (lc) => sstep(-0.9, -0.2, lc) * (0.3 + 0.7 * sstep(-0.4, 1.3, lc));
 
@@ -159,16 +159,16 @@ function makeSpecies(fresh, others) {
   });
   return {
     cx: centre, mu: MU, pr, cp, w: 0.8 + 0.35 * r(), gain: 0.75 + 0.35 * r(),
-    lc: fresh ? MU + SIG * gauss() : -1.2 + 0.5 * r(), tauc: 12 + 48 * r(),
+    lc: fresh ? MU + SIG * gauss() : -0.7 + 0.6 * r(), tauc: 10 + 35 * r(),
     alive: 1, fade: fresh ? 1 : 0, ft: 1, A: 0, J: new Float64Array(cp.length),
   };
 }
 
 // Uncoupled singlets, the traces of other compounds in a real sample: a lone diagonal peak that appears
-// at a shift of its own, stays for 15 to 45 s and fades, and the next one grows in elsewhere.
-const NIMP = 9;
+// at a shift of its own, stays for 10 to 32 s and fades, and the next one grows in elsewhere.
+const NIMP = 12;
 function newImp(old, first) {
-  const r = Math.random, dur = 15 + 30 * r();
+  const r = Math.random, dur = 10 + 22 * r();
   let d = 5, best = -1;
   for (let q = 0; q < 4; q++) {
     const c = 0.4 + 9.2 * r();
@@ -384,8 +384,9 @@ function step(st, d) {
   // Every 20 to 40 s one species reacts.
   if (t >= st.nextReact) {
     st.nextReact = t + (20 + 20 * Math.random()) * cl(alive / 14, 0.4, 1);
-    const pool = st.sl.filter((s) => s.alive > 0.9 && s.fade > 0.95 && s.ft === 1);
-    if (pool.length > 4) pool[floor(Math.random() * pool.length)].ft = 0;
+    // One that is showing, since a dark one going would change nothing on the panel.
+    const pool = st.sl.filter((s) => s.alive > 0.9 && s.fade > 0.95 && s.ft === 1 && s.A > 0.25);
+    if (pool.length > 2) pool[floor(Math.random() * pool.length)].ft = 0;
   }
   for (let i = 0; i < NIMP; i++) {
     const m = st.imp[i];
@@ -495,7 +496,7 @@ export function draw(display, params) {
   for (let y = 0, o = 0; y < H; y++) {
     for (let x = 0; x < W; x++, o++) {
       const b = 0.5 + 0.24 * X0[x] * Y0[y] + 0.18 * X1[x] * Y1[y] + 0.14 * X2[x] * Y2[y] + 0.12 * X3[x] * Y3[y] + 0.06 * (X5[x] * Y5[y] + X6[x] * Y6[y]);
-      const g = 0.3 + 1.4 * b, tn = 0.5 + 0.5 * X4[x] * Y4[y], v = F[o], a = v < 0 ? -v : v;
+      const g = 0.22 + 1.6 * b, tn = 0.5 + 0.5 * X4[x] * Y4[y], v = F[o], a = v < 0 ? -v : v;
       let r = (b0 + (c0 - b0) * tn) * g, gg = (b1 + (c1 - b1) * tn) * g, bb = (b2 + (c2 - b2) * tn) * g;
       if (a > 0.0004) {
         const lut = v < 0 ? neg : pos, i = min(LUTN - 1, floor(sqrt(a) * ISQ * (LUTN - 1) + 0.5)) * 3, k = min(1, a * 30);
