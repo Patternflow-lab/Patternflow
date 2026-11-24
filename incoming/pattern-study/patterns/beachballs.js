@@ -220,11 +220,11 @@ function backgroundPos(P, d, o) {
     x = p[0] + gauss() * 5;
     y = p[1] + gauss() * 5;
   } else {
-    x = -4 + (W + 8) * Math.random();
-    y = -4 + (H + 8) * Math.random();
+    x = -2 + (W + 4) * Math.random();
+    y = -2 + (H + 4) * Math.random();
   }
-  o[0] = cl(x, -6, W + 6);
-  o[1] = cl(y, -6, H + 6);
+  o[0] = cl(x, -3, W + 3);
+  o[1] = cl(y, -3, H + 3);
 }
 // Where an aftershock falls: a ring-ish cloud round its parent with a long power-law tail
 // (density ~ 1 / (r^2 + dist^2)^1.6), pushed out a little so it does not sit on the parent.
@@ -232,12 +232,12 @@ function aftershockPos(ev, o) {
   const rr = min(ev.pr * 0.4 + ev.pd * sqrt(pow(Math.random() + 1e-4, -1 / 0.6) - 1), 3.4 * ev.pr + 5), a = TAU * Math.random();
   let x = ev.px + rr * cos(a), y = ev.py + rr * sin(a);
   // A shock far off the map is reflected back into it, so the cloud cannot drift away.
-  if (x < -6) x = -12 - x;
-  if (x > W + 6) x = 2 * (W + 6) - x;
-  if (y < -6) y = -12 - y;
-  if (y > H + 6) y = 2 * (H + 6) - y;
-  o[0] = cl(x, -6, W + 6);
-  o[1] = cl(y, -6, H + 6);
+  if (x < -4) x = -8 - x;
+  if (x > W + 4) x = 2 * (W + 4) - x;
+  if (y < -4) y = -8 - y;
+  if (y > H + 4) y = 2 * (H + 4) - y;
+  o[0] = cl(x, -4, W + 4);
+  o[1] = cl(y, -4, H + 4);
 }
 
 const POS = [0, 0];
@@ -417,14 +417,15 @@ const C = new Float32Array(12), GH = new Float32Array(6);
 
 function drawBall(buf, b, hue) {
   const age = b.age;
-  // The pop: the ball overshoots its size and settles, the flash dies away over 0.6 s.
+  // The pop: the ball starts at half its size, overshoots and settles, and the flash dies away over
+  // 0.6 s. It never starts as a dot of one LED.
   let sc = 1, flash = 0;
   if (age < 0.5) {
     const f = age / 0.5, c1 = 1.70158, c3 = c1 + 1;
-    sc = 1 + c3 * (f - 1) ** 3 + c1 * (f - 1) ** 2;
+    sc = 0.5 + 0.5 * (1 + c3 * (f - 1) ** 3 + c1 * (f - 1) ** 2);
   }
   if (age < 0.6) flash = (1 - age / 0.6) ** 2;
-  const Re = max(0.8, b.R * sc);
+  const Re = b.R * sc;
   // How faded the ball is, 1 when new and 0 when gone.
   const ff = cl((age - b.fadeAt) / max(0.01, b.life - b.fadeAt), 0, 1);
   const bright = 1 - (ff * 0.55 + 0.45 * ff * ff * (3 - 2 * ff));
@@ -438,7 +439,7 @@ function drawBall(buf, b, hue) {
   warmLift(hc, 0.62, 1.0, C, 3);
   warmLift(hd, 0.94, 0.5, C, 6);
   warmLift(hd, 0.72, 0.95, C, 9);
-  hsv(hc - 0.14, 0.45, 0.44, GH, 0);
+  hsv(hc - 0.2, 0.45, 0.46, GH, 0);
   hsv(hd, 0.55, 0.36, GH, 3);
   for (let i = 0; i < 12; i++) {
     const gh = GH[i < 6 ? i % 3 : 3 + (i % 3)];
@@ -522,9 +523,9 @@ function drawBall(buf, b, hue) {
   // The P ring and a slower, fainter S ring, each 2 LEDs thick, fading as they grow.
   if (age < 4.5) {
     const rmax = b.R * 1.8 + 7, dur = 1.6 + 0.045 * b.R * 4;
-    ring(buf, cx, cy, rmax * (1 - (1 - cl(age / dur, 0, 1)) ** 2), (1 - cl(age / dur, 0, 1)) ** 1.5 * 0.38, CREAM[0], CREAM[1], CREAM[2]);
+    ring(buf, cx, cy, b.R * 0.8 + (rmax - b.R * 0.8) * (1 - (1 - cl(age / dur, 0, 1)) ** 2), (1 - cl(age / dur, 0, 1)) ** 1.5 * 0.38, CREAM[0], CREAM[1], CREAM[2]);
     const dur2 = dur * 1.9, f2 = cl(age / dur2, 0, 1);
-    ring(buf, cx, cy, rmax * 0.62 * (1 - (1 - f2) ** 2), (1 - f2) ** 1.5 * 0.26, C[9], C[10], C[11]);
+    ring(buf, cx, cy, b.R * 0.8 + (rmax * 0.62 - b.R * 0.8) * (1 - (1 - f2) ** 2), (1 - f2) ** 1.5 * 0.26, C[9], C[10], C[11]);
   }
 }
 
