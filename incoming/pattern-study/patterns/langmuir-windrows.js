@@ -23,7 +23,7 @@ const NM = 5; // meander modes
 const MAXC = 48; // most junction cores that can be alive at once
 const MGX = 25; // the meander is tabulated on a grid 4 LED apart, x from -16 and y from -8
 const MGY = 37;
-const { floor, abs, sqrt, exp, log, cos, sin, PI, min, max, pow } = Math;
+const { floor, sqrt, exp, log, cos, sin, PI, min, max, pow } = Math;
 const TAU = 2 * PI;
 const HALF_PI = PI / 2;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -114,7 +114,6 @@ export function setup(P) {
     B1: new Float32Array(W * H),
     G: new Float32Array(W * H),
     tmp: new Float32Array(W * H),
-    gx: new Float32Array(3),
     gph: new Float64Array(3),
     gkx: new Float64Array(3),
     gky: new Float64Array(3),
@@ -123,7 +122,6 @@ export function setup(P) {
     cxg: new Float32Array(W * 3),
     syg: new Float32Array(H * 3),
     cyg: new Float32Array(H * 3),
-    pal: new Float32Array(9),
     g0: Math.random() * TAU,
   });
   for (let m = 0; m < NM; m++) {
@@ -505,16 +503,16 @@ export function draw(display, P) {
       if (x1 < W) D[y1 * W + x1] += w * ax * ay;
     }
   }
+  // the foam as a density, a line of light 2 to 3 LED wide: a short blur across, a longer one along, and a wide glow for the paler water
   const B1 = P.B1;
   const tmp = P.tmp;
-  blurH(D, tmp);
-  blurV(tmp, B1);
+  blurH(D, B1);
   blurV(B1, tmp);
+  blurV(tmp, B1);
   if (P.lam < 7.5) {
-    blurV(tmp, B1);
-    tmp.set(B1);
+    blurV(B1, tmp);
+    B1.set(tmp);
   }
-  B1.set(tmp);
   const G = P.G;
   boxH(B1, tmp, 2);
   boxV(tmp, G, 3);
