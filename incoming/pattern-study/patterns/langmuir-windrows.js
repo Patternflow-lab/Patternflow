@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Langmuir Windrows
 // Family:  langmuir
-// Idea:    Wind blows down a stretch of deep water seen from above, and 2,400 specks of foam are swept by its paired counter-turning cells into long bright windrows that run with the wind, merge two into one in Y-shaped junctions that slide downwind, split now and then, and darken and brighten with the gusts.
+// Idea:    Three thousand specks of foam on deep water seen from above are swept by the wind's paired counter-turning cells into long bright windrows that run with the wind and merge two into one at Y-shaped junctions that slide downwind, with a line splitting now and then and the gusts making every line swell and fade.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: Langmuir circulation and its windrows (Irving Langmuir, 1938, from memory), the Craik-Leibovich vortex-force theory (Alan Craik and Sidney Leibovich, 1976, from memory), stripe patterns whose phase carries dislocations (Siggia and Zippelius, 1981; Pomeau, Zaleski and Manneville, 1983, from memory); pattern round 234
+// Lineage: Langmuir circulation and its windrows (Irving Langmuir, 1938, from memory), the Craik-Leibovich vortex-force theory of the cells (Alan Craik and Sidney Leibovich, 1976, from memory), dislocations of a stripe pattern, where a line ends and two lines become one (Eric Siggia and Annette Zippelius, 1981; Yves Pomeau, Stephane Zaleski and Paul Manneville, 1983, from memory); pattern round 234
 // Round:   234
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Wind=0.4..3, Cells=-1..1, Merging=-1..1
 //
-// Knob 1: Hue. The colour of the water, 180 degrees of the OKLCH wheel at 0 (teal) and 315 at 1 (magenta), through sky blue, ultramarine and violet; the foam stays white with a trace of it. It does not go round to the warm end, where dark water turns brown on the panel.
-// Knob 2: Wind. How hard it blows: the foam runs down the lines at 0.8 LED a second at 0.4, 4 at the opening 2 and 6 at 3, the cells pull it in at 2.1, 3.7 and 4.7 LED a second so the windrows are 3.2 LED wide at 0.4 and 2.2 at 3, and the junctions slide down at 0.3, 1.5 and 2.25 LED a second.
-// Knob 3: Cells. The width of one pair of cells, which is the gap between windrows: 6.1 LED at -1 (ten lines across the panel), 9.5 at the opening 0 (seven), 18 at 1 (three and a half).
-// Knob 4: Merging. How often the pattern tears: at -1 a new junction comes about once a minute, the lines wander 0.3 LED and run nearly straight; at the opening 0.06 one comes every 25 s and they wander 0.9; at 1 one comes every 10 s, the junctions are short and steep, and the lines wander 2.7 LED.
+// Knob 1: Hue. The colour of the water, turned from teal-blue at 0 (OKLCH hue 208) through ultramarine and indigo to violet at 1 (308); the foam stays white with a trace of it. It stops short of the warm end, where dark water goes brown on the panel.
+// Knob 2: Wind. How hard it blows: the foam runs down the lines at 0.8 LED a second at 0.4, 4 at the opening 2 and 6 at 3, and the junctions slide down at 0.4, 1.9 and 2.9. In a calm the cells pull weakly and the lines are broad, faint and dusted with stray foam (2.7 LED wide at half height at 0.4); in a blow they are tight and bright (2.5 at 2 and at 3).
+// Knob 3: Cells. The width of one pair of cells, which is the gap between windrows: 6.1 LED at -1 (ten lines across the panel, each 2.2 LED wide at half height), 9.5 at the opening 0 (seven, 2.5 wide), 18.1 at 1 (three and a half, 2.7 wide). The foam is shared among the lines there are, so the fewer they are the heavier each one is.
+// Knob 4: Merging. How often the lines tear and how much they wander. At -1 a new junction is born about once in 50 s, the lines wander 0.15 LED and the arms of a merge meet at 8 degrees; at the opening 0.06 once in 26 s, 1 LED and 10 degrees; at 1 once in 11 s, 2 LED and 15 degrees, and the panel is a braid of merges and forks.
 
 const W = 64;
 const H = 128;
@@ -33,13 +33,14 @@ const sm = (a, b, v) => {
 };
 const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
 
-// The model. The windrows are the lines of constant phase of a stripe pattern,
-//   theta(x, y, t) = q (x - 32) + meander(x, y, t) + sum over cores of s_d * atan2((y - y_d) / eta_d, x - x_d),
-// and a line is where theta is a multiple of 2 pi. Each core is a dislocation of the stripes: a line ends in it, so above it
-// there is one line fewer than below (s = -1) or one more (s = +1, a merge, as y grows downwind). The cores slide down at a
-// fraction of the wind, wander sideways, and are born above the panel in a regulated order that keeps the number of lines across
-// the panel within two of the one the Cells knob asks for. The surface flow converges on a line, u = -U sin(theta) (theta_x / q),
-// the gradient of cos(theta), and every speck rides it, runs down the wind, and gets its own random shove.
+// The model. The windrows are the lines of constant phase of a stripe pattern, y running down the panel with the wind:
+//   theta(x, y, t) = q (x - 32 - sway) + meander(x, y, t) + sum over cores of s_d * atan2((y - y_d) / eta_d, x - x_d),
+// and a line is where theta is a multiple of 2 pi. A core is a dislocation of the stripes, where the phase turns once round:
+// s = +1 is a merge, two lines above it and one below as y grows downwind, and s = -1 is a fork. Stretching y by eta makes the
+// arms meet at atan(1 / eta). The cores are born above the panel, slide down at about half the wind, each held on a ridge so that
+// its arms are symmetric, and their signs are chosen so that the number of lines across the panel stays within two of the one
+// the Cells knob asks for. The surface flow is the gradient of cos(theta), u = -U sin(theta) (theta_x / q), so it converges on
+// every line and spreads from between them; each speck of foam rides it, runs down the wind and gets its own random shove.
 
 // ---- colour: OKLCH to sRGB
 function oklch(L, C, hDeg, out) {
@@ -207,13 +208,14 @@ function fillMeander(P) {
 const CORE_Y0 = -80;
 function prepCores(P) {
   const cs = P.cores;
+  const etaM = 7.2 - 1.7 * (P.mg + 1);
   P.nc = cs.length;
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i];
     P.cxA[i] = c.x + P.sway;
     P.cyA[i] = c.y;
     P.cwA[i] = c.s * sm(CORE_Y0, -25, c.y) * (1 - sm(H + 25, H + 80, c.y));
-    P.cieA[i] = 1 / c.eta;
+    P.cieA[i] = 1 / (etaM * c.er);
     P.ccA[i] = c.y > H * 0.5 ? 1 : 0;
   }
 }
@@ -234,11 +236,12 @@ function phaseSkip(P, x, y, skip) {
   const o = iy * MGX + ix;
   let th = P.q * (x - 32 - P.sway) + (1 - fx) * (1 - fy) * P.mth[o] + fx * (1 - fy) * P.mth[o + 1] + (1 - fx) * fy * P.mth[o + MGX] + fx * fy * P.mth[o + MGX + 1];
   const cs = P.cores;
+  const etaM = 7.2 - 1.7 * (P.mg + 1);
   for (let k = 0; k < cs.length; k++) {
     if (k === skip) continue;
     const c = cs[k];
     const dx = x - c.x - P.sway;
-    const dy = (y - c.y) / c.eta;
+    const dy = (y - c.y) / (etaM * c.er);
     let al = Math.atan2(dy, dx);
     if (c.y > H * 0.5) {
       if (al > HALF_PI) al -= TAU;
@@ -282,12 +285,9 @@ function tryBirth(P) {
   const ok = (v) => lo + v >= -B && hi + v <= B;
   if (!ok(s)) s = -s;
   if (!ok(s)) return false;
-  const mgN = (P.mg + 1) / 2;
-  const etaM = 7.2 - 3.4 * mgN;
-  const eta = s > 0 ? etaM * (0.85 + 0.3 * Math.random()) : etaM * 0.55 * (0.85 + 0.3 * Math.random());
-  let x = 8 + 48 * Math.random();
-  if (cs.length && abs(cs[0].x - x) < 10 && cs[0].y < -40) x = 8 + ((x - 8 + 24) % 48);
-  cs.unshift({ x, y: CORE_Y0, s, eta, dl: 0.5 * gauss(), sp: 0.9 + 0.2 * Math.random() });
+  const er = (s > 0 ? 1 : 0.55) * (0.85 + 0.3 * Math.random());
+  const x = 8 + 48 * Math.random();
+  cs.unshift({ x, y: CORE_Y0, s, er, dl: 0.5 * gauss(), sp: 0.9 + 0.2 * Math.random() });
   for (let it = 0; it < 5; it++) seatCore(P, 0, 1);
   return true;
 }
@@ -340,7 +340,7 @@ function seedSpeck(P, i, top) {
 function advanceModes(P, d) {
   const cphi = 0.55 * 2 * P.wind;
   const mgN = (P.mg + 1) / 2;
-  const tot = 0.16 * pow(9.5, mgN);
+  const tot = 0.16 + 1.185 * mgN + 0.755 * mgN * mgN;
   for (let m = 0; m < NM; m++) {
     P.mp[m] += (P.mky[m] * cphi + P.mnu[m]) * d;
     P.ma[m] = (tot / sqrt(NM)) * P.mb[m] * (0.8 + 0.2 * sin(0.07 * P.t * (1 + 0.37 * m) + P.mq[m]));
@@ -365,7 +365,7 @@ function stepSpecks(P, d) {
     P.pny[i] = P.pny[i] * dec + sy * gauss();
     P.px[i] = x + (-U * sin(TH) * sc + P.pnx[i]) * d;
     P.py[i] = y + (V * P.pv[i] * P.gust + P.pny[i]) * d;
-    if (P.py[i] > H + 3 || P.px[i] < -14 || P.px[i] > 78) seedSpeck(P, i, true);
+    if (!(P.py[i] <= H + 3 && P.px[i] >= -14 && P.px[i] <= 78)) seedSpeck(P, i, true);
   }
 }
 
@@ -444,7 +444,7 @@ function blurH(src, dst) {
     for (let x = 0; x < W; x++) {
       const l = src[o + (x > 0 ? x - 1 : 0)];
       const r = src[o + (x < W - 1 ? x + 1 : W - 1)];
-      dst[o + x] = 0.14 * l + 0.72 * src[o + x] + 0.14 * r;
+      dst[o + x] = 0.1 * l + 0.8 * src[o + x] + 0.1 * r;
     }
   }
 }
@@ -549,7 +549,7 @@ export function draw(display, P) {
       const i = y * W + x;
       let gf = 1;
       for (let k = 0; k < 3; k++) gf += gamp * P.gb[k] * (P.sxg[k * W + x] * P.cyg[k * H + y] + P.cxg[k * W + x] * P.syg[k * H + y]);
-      const f = 1 - exp(-1.4 * gain * gf * B1[i]);
+      const f = 1 - exp(-1.25 * gain * gf * B1[i]);
       const a = 1 - exp(-2 * gain * gf * G[i]);
       let r = dr + (gr - dr) * a;
       let g = dg + (gg - dg) * a;
