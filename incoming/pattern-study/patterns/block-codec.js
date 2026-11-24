@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Quality=0..6, Offset=0..7, Passes=1..4
 //
-// Knob 1: Hue. Turns the colour of the whole scene once round the wheel before it is coded and keeps its brightness: indigo to amber sky and teal ground at 0, the same dusk gone green and violet at 0.33, and back where it began at 1.
-// Knob 2: Quality. The JPEG quality the swing moves around, 2 at 0 (a mosaic of flat tiles), 13 at 2 (tiles with ramps and ringing) and 90 at 4 (nearly clean); the swing then multiplies it by up to 8 either way.
-// Knob 3: Offset. Slides the block grid across the picture, 0 to 7 LED in x and 0 to 4 in y, rounded to whole LED: the seams move and every tile changes colour as its edges pass over a disc.
-// Knob 4: Passes. How many times the picture is decoded and coded again, each time on a grid moved 3 LED across and 5 down: 1 is one pass, 4 is four, and between whole numbers the next pass fades in.
+// Knob 1: Hue. Turns the colour of the whole scene once round the wheel before it is coded and keeps its brightness: indigo to coral sky over a teal ground at 0, a green and violet dusk at 0.33, a blue and pink one at 0.67, and back where it began at 1.
+// Knob 2: Quality. The JPEG quality the swing moves around: 2.6 at 0, 8.6 at 2 where it opens (flat tiles with ramps), 28 at 4 (ringing round the bar, colour bleeding in 16 LED blocks) and 91 at 6 (nearly clean); the swing multiplies it by about a third to about seven, and no quality goes below 3.4.
+// Knob 3: Offset. Slides the block grid across the picture, 0 to 7 LED in x and 0 to 4 in y, rounded to whole LED: the seams move, and a tile changes colour as its edges pass over a disc.
+// Knob 4: Passes. How many times the picture is decoded and coded again, each time on a grid moved 3 LED across and 5 down and at 1.25 times the quality of the pass before: 1 is one pass, 4 is four, and between whole numbers the next pass fades in.
 
 const W = 64;
 const H = 128;
@@ -51,7 +51,6 @@ const SW = [
   [1 / 23, 0.8, 2.1],
   [1 / 61, 0.85, 4.0],
 ];
-const T0 = 0; // where the scene's clock starts, set so the swing opens near zero
 
 function swing(t) {
   let s = 0;
@@ -79,8 +78,8 @@ const DISCS = [
   { r: 11, c: [255, 120, 178], x: [44, 14, 1 / 61, 4.1, 5, 1 / 23.3, 0.7], y: [24, 13, 1 / 83, 3.3, 6, 1 / 31.7, 2.5] },
   { r: 8.5, c: [176, 242, 76], x: [30, 16, 1 / 67, 5.2, 4, 1 / 14.9, 2.2], y: [104, 11, 1 / 97, 1.3, 4, 1 / 37.1, 4.4] },
 ];
-const CHROMA = 0.88; // the panel raises saturation by 1.62, so the source is held back a little
-const LATER = 1.7; // how much finer each further pass is than the one before
+const CHROMA = 0.78; // the panel raises saturation by 1.62, so the source is held back a little
+const LATER = 1.25; // how much finer each further pass is than the one before
 const BAR = { hl: 14, hw: 4.2, c: [255, 240, 226] };
 const STRIPE_A = [218, 200, 255];
 const STRIPE_B = [92, 58, 168];
@@ -98,9 +97,8 @@ function ramp(stops, u, out) {
 
 export function setup(P) {
   Object.assign(P, {
-    t: T0,
+    t: 0, // the swing is near zero here and level, so the picture opens at the knob's quality
     k: [0, 2, 0, 0.06],
-    key: '',
     // the planes of the picture being coded, full size
     Y: new Float32Array(N),
     Cb: new Float32Array(N),
@@ -149,7 +147,7 @@ function renderSource(P, t, hue) {
   const lean = 0.3 * sin(TAU * t / 97 + 1.0) + 0.14 * sin(TAU * t / 41.3 + 2.0);
   const lc = cos(lean);
   const ls = sin(lean);
-  const slide = 0.045 * sin(TAU * t / 71 + 0.4);
+  const slide = 0.06 * sin(TAU * t / 57.3 + 0.4);
   const lut = P.skyLut;
   for (let i = 0; i < 256; i++) {
     ramp(SKY, i / 255, tmp);
@@ -208,9 +206,11 @@ function renderSource(P, t, hue) {
           b = mix(b, GROUND[0][3], gr);
         }
       } else {
-        r = skyRow[y * 3];
-        g = skyRow[y * 3 + 1];
-        b = skyRow[y * 3 + 2];
+        // the ground heaves slowly: soft bands of lighter teal run down it
+        const sw = 1 + 0.3 * sin(TAU * (yy / 12 + 0.12 * sin(TAU * xx / 70 + t * 0.1)) - t * 0.42);
+        r = skyRow[y * 3] * sw;
+        g = skyRow[y * 3 + 1] * sw;
+        b = skyRow[y * 3 + 2] * sw;
       }
       // discs: a soft glow outside, a soft edge, a hot core
       for (let i = 0; i < 4; i++) {
@@ -353,8 +353,8 @@ function compute(P) {
   const [k1, k2, k3, k4] = P.k;
   const t = P.t;
   const hue = TAU * cl(k1, 0, 1);
-  const qBase = 1.5 * pow(60, cl(k2, 0, 6) / 6);
-  const q = cl(qBase * pow(2, 1.1 * swing(t)), 2.6, 98);
+  const qBase = 2.6 * pow(35, cl(k2, 0, 6) / 6);
+  const q = cl(qBase * pow(2, 1.1 * swing(t)), 3.4, 98);
   const ox = round(cl(k3, 0, 7));
   const oy = round(0.6 * cl(k3, 0, 7));
   const passes = cl(k4, 1, 4);
