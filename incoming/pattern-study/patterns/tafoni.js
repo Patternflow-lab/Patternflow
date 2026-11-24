@@ -17,7 +17,7 @@
 // Knob 4: Sun. -1 to 1, opening near 0. How high the sun stands. At -1 it grazes the wall at 14 degrees and every rim throws a long shadow; at 1 it is overhead at 78 degrees, shadows are gone and only the darkening of the hollows is left. Its direction swings back and forth by itself.
 
 const W = 64, H = 128, N = W * H, WM = W - 1;
-const { floor, ceil, round, min, max, abs, exp, sqrt, sin, cos, tan, pow, PI } = Math;
+const { floor, ceil, min, max, exp, sqrt, sin, cos, tan, pow, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
 const sstep = (a, b, x) => {
@@ -64,7 +64,8 @@ function buildRamp(ramp, shift) {
     let k = 0;
     while (k < STOPS.length - 2 && t > STOPS[k + 1][0]) k++;
     const a = STOPS[k], b = STOPS[k + 1], u = sstep(0, 1, (t - a[0]) / (b[0] - a[0]));
-    let h = lerp(a[1], b[1], u) + shift, s = lerp(a[2], b[2], u), v = lerp(a[3], b[3], u);
+    const h = lerp(a[1], b[1], u) + shift;
+    let s = lerp(a[2], b[2], u), v = lerp(a[3], b[3], u);
     // Dim warm colours read as brown on the panel: pale them and lift them.
     const c = h - floor(h), warm = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.12, 0.2, c);
     s *= 1 - 0.3 * warm * (1 - t);
@@ -94,146 +95,49 @@ function blur(src, dst, r) {
     ACC[x] = s;
   }
   for (let y = 0; y < H; y++) {
-    const yp = min(H - 1, y + n + 1) * W, ym = max(0, y - n) * W, yq = min(H - 1, y + n + 1) * W, yr = max(0, y - n - 1) * W;
+    const yp = min(H - 1, y + n + 1) * W, ym = max(0, y - n) * W, yr = max(0, y - n - 1) * W;
     const o = y * W;
     for (let x = 0; x < W; x++) {
-      dst[o + x] = (ACC[x] + f * (TMP[yq + x] + TMP[yr + x])) * inv;
+      dst[o + x] = (ACC[x] + f * (TMP[yp + x] + TMP[yr + x])) * inv;
       ACC[x] += TMP[yp + x] - TMP[ym + x];
     }
   }
 }
 
 // ---- the wall -------------------------------------------------------------
-const SIM = 20;   // weathering steps per second
-const SLIDE = 1.1; // rows per second the wall creeps down
+// Pits are nuclei that grow in the rock. Each has a place on the wall (x, and Y down the rock),
+// a radius that follows the logistic law dr/dt = kappa (r + r0)(1 - r / rcap) (a hollow holds more
+// moisture the bigger it is, so it widens faster, until the rock around it runs out), and an age.
+// Where the pits meet they leave a wall; the wall thins and sinks with the age of the pits beside it.
+const SLIDE = 1.1;  // rows per second the wall creeps down
+const CAPN = 260;   // most pits at once
 
 export function setup(params) {
+  const f = (n) => new Float32Array(n);
   params.t = 0;
-  params.acc = 0;
-  params.slide = 0;
-  params.rows = 0;
+  params.off = 0;       // how far the wall has crept: a pit at rock row Y stands at Y + off
+  params.rowAcc = 0;
+  params.cnt = 0;
   params.init = false;
   params.bedSeed = floor(Math.random() * 1e6);
-  params.d = new Float32Array(N);   // depth of rock removed, 0 at the rind, 1 at the deepest floor
-  params.R = new Float32Array(N).fill(1); // the rind: 1 is whole, 0 is breached
-  params.g = new Float32Array(N);   // grain of the rock
-  params.b1 = new Float32Array(N);
-  params.c = new Float32Array(N);
-  params.bm = new Float32Array(N);
-  params.hI = new Float32Array(N);
-  params.hb = new Float32Array(N);
-  params.rI = new Float32Array(N);
-  params.gI = new Float32Array(N);
-  params.lit = new Float32Array(N);
-  params.lb = new Float32Array(N);
-  params.hb2 = new Float32Array(N);
-  params.bedS = new Float32Array(H);
-  params.stain = new Float32Array(H * 5);
-  params.ramp = new Float32Array(NR * 3);
+  params.nx = f(CAPN); params.nY = f(CAPN); params.nr = f(CAPN); params.na = f(CAPN);
+  params.ns1 = f(CAPN); params.ns2 = f(CAPN); params.nax = f(CAPN); params.nD = f(CAPN); params.nt = f(CAPN);
+  params.m1 = f(N); params.m2 = f(N);
+  params.i1 = new Int16Array(N); params.i2 = new Int16Array(N);
+  params.d = f(N); params.R = f(N);
+  params.hb = f(N); params.lit = f(N); params.lb = f(N); params.hb2 = f(N);
+  params.stain = f(H);
+  params.ramp = f(NR * 3);
   params.rampShift = -9;
-  params.k = { u2: 0.5, u3: 0.5 };
+  params.sunK = 0.06;
+  params.k = {};
 }
 
-function bedding(P, rr, c3) {
+// Bedding: layers of harder and softer rock, a multiplier near 1 that swings by c3 either way.
+function bedding(P, Y, c3) {
   const s = P.bedSeed;
-  const b = 0.5 * vn(rr / 13, s + 1) + 0.3 * vn(rr / 5.1, s + 2) + 0.2 * vn(rr / 2.4, s + 3);
+  const b = 0.5 * vn(Y / 13, s + 1) + 0.3 * vn(Y / 5.1, s + 2) + 0.2 * vn(Y / 2.4, s + 3);
   return 1 + c3 * (2 * b - 1) * 1.6;
-}
-
-// A new pit: the rind is breached in an ellipse and the rock under it is dented.
-function sow(P, cx, cy, r, depth, ex) {
-  const { d, R } = P;
-  const rx = r * ex, x0 = floor(cx - rx - 1), x1 = ceil(cx + rx + 1), y0 = max(0, floor(cy - r - 1)), y1 = min(H - 1, ceil(cy + r + 1));
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / r;
-      const q = sqrt(dx * dx + dy * dy);
-      const f = 1 - sstep(0.55, 1.1, q);
-      if (f <= 0) continue;
-      const o = y * W + (x & WM);
-      if (depth * f > d[o]) d[o] = depth * f;
-      if (1 - f < R[o]) R[o] = 1 - f;
-    }
-  }
-}
-
-const seedRadius = (k) => (1.3 + 1.4 * (1 - k.u2)) * exp(0.45 * gauss()) * k.seedR;
-function newSeed(P, k, cy) {
-  sow(P, Math.random() * W, cy, cl(seedRadius(k), 1.1, 8), 0.45 + 0.4 * Math.random(), 1 + 0.7 * Math.random());
-}
-
-// Move the wall down by one row: everything shifts, and a fresh rind comes in at the top.
-function shiftDown(P, k) {
-  const { d, R, g } = P;
-  d.copyWithin(W, 0, N - W);
-  R.copyWithin(W, 0, N - W);
-  g.copyWithin(W, 0, N - W);
-  P.rows++;
-  const row = new Float32Array(W);
-  for (let x = 0; x < W; x++) row[x] = gauss();
-  for (let x = 0; x < W; x++) {
-    d[x] = 0;
-    R[x] = 1;
-    g[x] = 0.55 * g[W + x] + 0.45 * (row[x] + 0.5 * (row[(x + 1) & WM] + row[(x - 1) & WM])) * 0.6;
-  }
-  // The rock comes in already dented in places.
-  const n = k.seedsRow;
-  const cnt = floor(n) + (Math.random() < n - floor(n) ? 1 : 0);
-  for (let i = 0; i < cnt; i++) newSeed(P, k, Math.random() * 1.5);
-}
-
-function weather(P, k, f) {
-  const { d, R, b1, c, bm, bedS } = P;
-  blur(d, b1, k.rho);
-  for (let i = 0; i < N; i++) {
-    const v = d[i] - b1[i];
-    c[i] = v > 0 ? v : 0;
-  }
-  blur(c, bm, k.rhoM);
-  const q = k.wallQ, q2 = round(q * 0.72), da = k.deepA, db = k.deepB - k.deepA;
-  for (let y = 0; y < H; y++) {
-    const bs = bedS[y], o = y * W;
-    const yu = y >= q ? (y - q) * W : -1, yd = y + q < H ? (y + q) * W : -1;
-    const yu2 = y >= q2 ? (y - q2) * W : -1, yd2 = y + q2 < H ? (y + q2) * W : -1;
-    for (let x = 0; x < W; x++) {
-      const i = o + x;
-      // A thin wall has deep rock on both sides of it along one line and is left alone. A pillar,
-      // deep on both lines, is not: it wears away.
-      const th = min(d[o + ((x - q) & WM)], d[o + ((x + q) & WM)]);
-      let tv = 0, thin = th, pillar = 0;
-      if (yu >= 0 && yd >= 0) {
-        tv = min(d[yu + x], d[yd + x]);
-        if (tv > thin) thin = tv;
-        pillar = min(th, tv);
-      }
-      if (yu2 >= 0 && yd2 >= 0) {
-        const t1 = min(d[yu2 + ((x - q2) & WM)], d[yd2 + ((x + q2) & WM)]);
-        const t2 = min(d[yu2 + ((x + q2) & WM)], d[yd2 + ((x - q2) & WM)]);
-        if (t1 > thin) thin = t1;
-        if (t2 > thin) thin = t2;
-      }
-      const prot = sstep(da, da + db, thin) * (1 - sstep(da, da + db, pillar));
-      const cv = d[i] - b1[i];
-      // A hollow keeps its moisture: once a cell is well under the rind it stays wet.
-      const mo = max(min(1, bm[i] * k.gm), sstep(0.15, 0.45, d[i])) * (1 - prot);
-      const rv = R[i];
-      // Rock without moisture does not sink beyond a skin; with it, as deep as the cap of the place allows.
-      const capT = lerp(k.capWall, k.capPit, sstep(-0.06, 0.04, cv)) + (k.capPit - k.capWall) * (1 - rv) * (1 - rv);
-      const cap = k.capFlat + (capT - k.capFlat) * min(1, mo * 3);
-      const head = (cap > 1 ? 1 : cap) - d[i];
-      if (head > 0) d[i] += (k.ks * f * bs * (k.eps + mo) * head * (1 - prot)) / (1 + k.hardK * rv);
-      const nr = rv - f * (k.kr * mo + 0.0001);
-      R[i] = nr > 0 ? nr : 0;
-    }
-  }
-  // Seeds on the wall itself, mostly where the rind is still whole.
-  const ns = k.seedsSec * f / SIM;
-  const cnt = floor(ns) + (Math.random() < ns - floor(ns) ? 1 : 0);
-  for (let i = 0; i < cnt; i++) {
-    const cx = Math.random() * W, cy = Math.random() * H, o = floor(cy) * W + (floor(cx) & WM);
-    // A pit opens only on whole rind and not close to another pit, so the walls between them stay thick.
-    if (R[o] > 0.7 && b1[o] < 0.1) sow(P, cx, cy, cl(seedRadius(k), 1.1, 8), 0.45 + 0.4 * Math.random(), 1 + 0.7 * Math.random());
-  }
 }
 
 function knobsToK(P, kv) {
@@ -241,37 +145,97 @@ function knobsToK(P, kv) {
   const k = P.k;
   k.u2 = u2;
   k.u3 = u3;
-  k.rho = lerp(5.2, 2.0, u2) * lerp(1.3, 0.85, u3);
-  k.rhoM = 0.55 * k.rho + 0.8;
-  k.gm = 2.6;
-  k.ks = lerp(0.03, 0.07, u2);
-  k.kr = lerp(0.006, 0.014, u2);
-  k.eps = 0.02;
-  k.hardK = lerp(0.5, 7, u3);
-  k.capPit = lerp(0.5, 1.0, u3);
-  k.capWall = lerp(0.18, 0.28, u3);
-  k.capFlat = 0.05;
-  k.wallQ = lerp(3, 4, u3);
-  k.deepA = 0.3 * k.capPit;
-  k.deepB = 0.65 * k.capPit;
+  // The most a lone pit grows to, as a radius in LEDs.
+  k.rc = lerp(12.5, 4.2, pow(u2, 0.85)) * lerp(1.25, 0.95, u3);
+  k.kappa = lerp(0.05, 0.12, u2);
+  k.clear = lerp(3.8, 2.6, u2);
+  k.seedsRow = lerp(0.06, 1.0, pow(u2, 1.2)) * lerp(1.5, 0.65, u3);
+  k.seedsSec = 1.4 * k.seedsRow * SLIDE;
+  k.topAge = 55;
+  k.depth = lerp(0.6, 1, u3);
+  k.bevel = lerp(3.2, 1.9, u3);
+  k.w0 = lerp(4.2, 6, u3);
+  k.w1 = lerp(2.3, 3.4, u3);
+  k.wear = lerp(1.2, 0.5, u3);
   k.c3 = lerp(0.05, 0.4, u3);
-  k.seedsRow = lerp(0.08, 1.1, pow(u2, 1.3)) * lerp(1.7, 0.7, u3);
-  k.seedsSec = 0.5 * k.seedsRow * SLIDE;
-  k.seedR = lerp(1.3, 0.9, u3);
   k.relief = lerp(4.5, 7, u3);
   return k;
 }
 
-function advance(P, k, rows) {
-  P.slide += rows;
-  while (P.slide >= 1) {
-    P.slide -= 1;
-    shiftDown(P, k);
-  }
+// One step of a pit's growth: its radius after dt seconds.
+function grow(P, k, Y, s1, s2, r, dt) {
+  const bf = bedding(P, Y, k.c3);
+  const rcap = k.rc * s2 * pow(bf, 0.7);
+  const dr = r < rcap ? k.kappa * s1 * bf * (r + 1.2) * (1 - r / rcap) : -0.05 * (r - rcap);
+  return r + dr * dt;
 }
 
-function beds(P, k) {
-  for (let y = 0; y < H; y++) P.bedS[y] = bedding(P, P.rows - y, k.c3);
+// A new pit. Rock that comes in at the top has been weathering above the panel, so it can arrive with age.
+function addNucleus(P, k, x, Y, age, y) {
+  const s1 = exp(0.25 * gauss()), s2 = exp(0.25 * gauss());
+  let r = 1 + 0.8 * Math.random();
+  for (let a = 0; a < age; a += 0.5) r = grow(P, k, Y, s1, s2, r, 0.5);
+  if (age > 0 && !freeAt(P, k, x, y, r)) return;
+  const i = P.cnt;
+  if (i >= CAPN) return;
+  P.cnt++;
+  P.nx[i] = x;
+  P.nY[i] = Y;
+  P.nr[i] = r;
+  P.na[i] = age;
+  P.ns1[i] = s1;
+  P.ns2[i] = s2;
+  P.nax[i] = 1 + 0.6 * Math.random();
+  P.nD[i] = 0.78 + 0.22 * Math.random();
+  P.nt[i] = gauss() * 0.5;
+}
+
+// A place for a new pit is free when it clears every pit already there.
+function freeAt(P, k, cx, cy, rNew) {
+  const off = P.off;
+  for (let j = 0; j < P.cnt; j++) {
+    let dx = cx - P.nx[j];
+    dx -= W * Math.round(dx / W);
+    const dy = cy - (P.nY[j] + off), ax = P.nax[j];
+    const e = sqrt((dx / ax) * (dx / ax) + dy * dy) - P.nr[j];
+    if (e < k.clear + rNew) return false;
+  }
+  return true;
+}
+
+function evolve(P, k, dt) {
+  const off0 = P.off;
+  P.off += SLIDE * dt;
+  P.rowAcc += SLIDE * dt;
+  // Rock comes in at the top already dented in places.
+  while (P.rowAcc >= 1) {
+    P.rowAcc -= 1;
+    const n = k.seedsRow, cnt = floor(n) + (Math.random() < n - floor(n) ? 1 : 0);
+    for (let i = 0; i < cnt; i++) {
+      const cx = Math.random() * W, cy = -3 + Math.random() * 2, a0 = k.topAge * Math.random() * Math.random();
+      addNucleus(P, k, cx, cy - P.off, a0, cy);
+    }
+  }
+  // And salt finds new places on whole rind anywhere on the wall.
+  const ns = k.seedsSec * dt, cnt = floor(ns) + (Math.random() < ns - floor(ns) ? 1 : 0);
+  for (let i = 0; i < cnt; i++) {
+    const cx = Math.random() * W, cy = Math.random() * H;
+    if (freeAt(P, k, cx, cy, 1.8)) addNucleus(P, k, cx, cy - P.off, 0, cy);
+  }
+  for (let j = 0; j < P.cnt; j++) {
+    const Y = P.nY[j], bf = bedding(P, Y, k.c3);
+    P.nr[j] = grow(P, k, Y, P.ns1[j], P.ns2[j], P.nr[j], dt);
+    P.na[j] += dt;
+    P.nax[j] += (min(1.9, 1 + 0.55 * (bf - 0.6)) - P.nax[j]) * min(1, 0.2 * dt);
+  }
+  // Pits that have crept off the bottom are forgotten.
+  for (let j = P.cnt - 1; j >= 0; j--) {
+    if (P.nY[j] + P.off - P.nr[j] * P.nax[j] > H + 8) {
+      const last = --P.cnt;
+      for (const key of ["nx", "nY", "nr", "na", "ns1", "ns2", "nax", "nD", "nt"]) P[key][j] = P[key][last];
+    }
+  }
+  return off0;
 }
 
 export function update(dt, input, params) {
@@ -282,22 +246,12 @@ export function update(dt, input, params) {
   P.sunK = kv[3];
   if (!P.init) {
     P.init = true;
-    const f = 4;
-    for (let i = 0; i < 640; i++) {
-      beds(P, k);
-      advance(P, k, (SLIDE * f) / SIM);
-      weather(P, k, f);
-    }
+    // Let the wall weather for a while before the first frame.
+    for (let i = 0; i < 360; i++) evolve(P, k, 0.5);
+    P.off += 0;
   }
   P.t += dt;
-  P.acc += dt * SIM;
-  advance(P, k, SLIDE * dt);
-  const n = floor(P.acc);
-  P.acc -= n;
-  for (let i = 0; i < n; i++) {
-    beds(P, k);
-    weather(P, k, 1);
-  }
+  evolve(P, k, dt);
   const shift = kv[0] + 0.02;
   if (P.rampShift !== shift) {
     P.rampShift = shift;
@@ -305,21 +259,84 @@ export function update(dt, input, params) {
   }
 }
 
-export function draw(display, params, time) {
-  const P = params;
-  const { d, R, g, hI, hb, rI, lit, lb, hb2, ramp } = P;
-  const k = P.k;
-  const s = P.slide;
-  // The wall as it stands between two rows.
-  for (let y = 0; y < H; y++) {
-    const o = y * W, p = y > 0 ? o - W : o;
-    for (let x = 0; x < W; x++) {
-      const i = o + x, j = p + x;
-      hI[i] = d[i] * (1 - s) + d[j] * s + 0.035 * (g[i] * (1 - s) + g[j] * s);
-      rI[i] = R[i] * (1 - s) + R[j] * s;
+// The height field and the rind at every LED, from the pits as they stand.
+function carve(P, k) {
+  const { m1, m2, i1, i2, d, R, nx, nY, nr, na, nax, nD } = P;
+  const off = P.off, REACH = 7.5;
+  m1.fill(99);
+  m2.fill(99);
+  i1.fill(-1);
+  i2.fill(-1);
+  for (let j = 0; j < P.cnt; j++) {
+    const cx = nx[j], cy = nY[j] + off, r = nr[j], ax = nax[j];
+    const ry = r + REACH, rx = min(30, ry * ax);
+    if (cy + ry < 0 || cy - ry > H) continue;
+    const y0 = max(0, floor(cy - ry)), y1 = min(H - 1, ceil(cy + ry)), x0 = floor(cx - rx), x1 = ceil(cx + rx);
+    for (let y = y0; y <= y1; y++) {
+      const dy = y + 0.5 - cy, o = y * W;
+      for (let x = x0; x <= x1; x++) {
+        const dx = (x + 0.5 - cx) / ax;
+        const e = sqrt(dx * dx + dy * dy) - r;
+        if (e > REACH) continue;
+        const q = o + (x & WM);
+        if (e < m1[q]) {
+          m2[q] = m1[q];
+          i2[q] = i1[q];
+          m1[q] = e;
+          i1[q] = j;
+        } else if (e < m2[q]) {
+          m2[q] = e;
+          i2[q] = j;
+        }
+      }
     }
   }
-  blur(hI, hb, 6);
+  const bev = k.bevel, dep = k.depth, sd = P.bedSeed + 11;
+  for (let q = 0; q < N; q++) {
+    const j = i1[q], s1 = m1[q];
+    if (j < 0 || s1 > bev) {
+      d[q] = 0;
+      R[q] = 1;
+      continue;
+    }
+    const rr = nr[j];
+    const Dd = nD[j] * dep * sstep(1.2, 4.6, rr);
+    let pd = Dd * sstep(0, bev, -s1) * (0.86 + 0.14 * sstep(bev, bev + 6, -s1));
+    let rind = sstep(-1.2, 1.5, s1);
+    const jj = i2[q];
+    if (jj >= 0) {
+      const g = (m2[q] - s1) * 0.5;
+      const ageMin = min(na[j], na[jj]);
+      const wh = 0.5 * lerp(k.w1, k.w0, exp(-ageMin / 55));
+      if (g < wh + 1.5) {
+        const crest = (0.04 + 0.22 * (1 - exp(-ageMin / 90))) * k.wear;
+        const cap = crest + 1.4 * sstep(wh - 0.7, wh + 1.5, g);
+        if (pd > cap) pd = cap;
+        const rc = (1 - sstep(wh - 0.7, wh + 1.5, g)) * (0.95 - 0.5 * (1 - exp(-ageMin / 80)));
+        if (rc > rind) rind = rc;
+      }
+    }
+    d[q] = pd;
+    R[q] = rind;
+  }
+  // The grain of the sandstone: a soft mottling 3 LEDs across that sits in the rock and creeps with it.
+  for (let y = 0; y < H; y++) {
+    const gy = (y + 0.5 - off) / 3, iy = floor(gy), fy = gy - iy, uy = fy * fy * (3 - 2 * fy);
+    for (let x = 0; x < W; x++) {
+      const gx = (x + 0.5) / 3.048, ix = floor(gx), fx = gx - ix, ux = fx * fx * (3 - 2 * fx);
+      const a = hash(ix % 21, iy + sd), b = hash((ix + 1) % 21, iy + sd), c = hash(ix % 21, iy + 1 + sd), e = hash((ix + 1) % 21, iy + 1 + sd);
+      const q = y * W + x;
+      d[q] += 0.05 * (lerp(lerp(a, b, ux), lerp(c, e, ux), uy) - 0.5) * (1 - 0.6 * sstep(0.4, 0.9, d[q]));
+    }
+  }
+}
+
+export function draw(display, params, time) {
+  const P = params;
+  const { d, R, hb, lit, lb, hb2, i1, ramp, nt } = P;
+  const k = P.k;
+  carve(P, k);
+  blur(d, hb, 8);
 
   // The sun: a direction that swings by itself, and a height from K4.
   const sunK = cl(P.sunK, -1, 1);
@@ -329,7 +346,7 @@ export function draw(display, params, time) {
   const lz = sin(elev), lh = cos(elev), lx = lh * cos(az), ly = lh * sin(az);
   const hx = cos(az), hy = sin(az), tanE = tan(elev);
   const rel = k.relief;
-  // Shadow taps along the sun's direction: LEDs away.
+  // Shadow taps along the sun's direction, in LEDs away.
   const TAPS = [1.6, 2.8, 4.4, 6.6, 9.5, 13.5];
   const tdx = new Int32Array(6), tdy = new Int32Array(6);
   for (let a = 0; a < 6; a++) {
@@ -340,54 +357,57 @@ export function draw(display, params, time) {
     const o = y * W, yu = (y > 0 ? y - 1 : 0) * W, yd = (y < H - 1 ? y + 1 : y) * W;
     for (let x = 0; x < W; x++) {
       const i = o + x;
-      const gx = (hI[o + ((x + 1) & WM)] - hI[o + ((x - 1) & WM)]) * 0.5 * rel;
-      const gy = (hI[yd + x] - hI[yu + x]) * 0.5 * rel;
-      const inv = 1 / sqrt(gx * gx + gy * gy + 1);
-      let diff = ((gx * lx + gy * ly + lz) * inv) / lz;
+      const gx = (d[o + ((x + 1) & WM)] - d[o + ((x - 1) & WM)]) * 0.5 * rel;
+      const gy = (d[yd + x] - d[yu + x]) * 0.5 * rel;
+      let diff = ((gx * lx + gy * ly + lz) / sqrt(gx * gx + gy * gy + 1)) / lz;
       diff = diff < 0 ? 0 : diff > 1.7 ? 1.7 : diff;
       let sh = 1;
-      const hp = hI[i] * rel;
+      const hp = d[i] * rel;
       for (let a = 0; a < 6; a++) {
         const qy = y + tdy[a];
         if (qy < 0 || qy >= H) continue;
-        const m = hp - hI[qy * W + ((x + tdx[a]) & WM)] * rel - TAPS[a] * tanE;
+        const m = hp - d[qy * W + ((x + tdx[a]) & WM)] * rel - TAPS[a] * tanE;
         const v = 1 - cl(m / 0.7, 0, 1);
         if (v < sh) sh = v;
       }
       lit[i] = diff * sh;
     }
   }
-  for (let i = 0; i < N; i++) hb2[i] = lit[i] * (1 - sstep(0.3, 0.8, hI[i]));
+  for (let i = 0; i < N; i++) hb2[i] = lit[i] * (1 - sstep(0.3, 0.8, d[i]));
   blur(hb2, lb, 3.5);
 
-  const rampArr = ramp;
+  const rowY0 = -P.off;
   for (let y = 0; y < H; y++) {
-    const o = y * W, rr = P.rows - y + s;
+    const o = y * W, Y = y + rowY0 + 0.5;
+    const bed = 0.5 * vn(Y / 13, P.bedSeed + 1) + 0.3 * vn(Y / 5.1, P.bedSeed + 2) + 0.2 * vn(Y / 2.4, P.bedSeed + 3) - 0.5;
     // Stains: slow patches of lighter and darker rock, laid out in rock coordinates.
-    const sj = rr / 17, j0 = floor(sj), sf = sj - j0, su = sf * sf * (3 - 2 * sf);
+    const sj = Y / 17, j0 = floor(sj), sf = sj - j0, su = sf * sf * (3 - 2 * sf);
+    const sd = P.bedSeed + 7;
+    const bandAmp = 0.07 + 0.14 * k.u3;
     for (let x = 0; x < W; x++) {
       const i = o + x;
-      const hh = hI[i];
+      const hh = d[i];
       const cav = hh - hb[i];
       const ao = 1 - 0.75 * sstep(0, 0.25, cav);
-      const dep = sstep(0.25, 0.95, hh);
+      const dp = sstep(0.25, 0.95, hh);
       let v = 0.1 + 0.12 * ao + 0.46 * lit[i] * (0.45 + 0.55 * ao);
-      v *= 1 - 0.55 * dep;
+      v *= 1 - 0.62 * dp;
       const fx = x / 16, x0 = floor(fx), xf = fx - x0, xu = xf * xf * (3 - 2 * xf);
-      const sa = lerp(hash(x0 & 3, j0 + P.bedSeed), hash(x0 & 3, j0 + 1 + P.bedSeed), su);
-      const sb = lerp(hash((x0 + 1) & 3, j0 + P.bedSeed), hash((x0 + 1) & 3, j0 + 1 + P.bedSeed), su);
-      const stain = lerp(sa, sb, xu) - 0.5;
-      v += 0.09 * stain + 0.04 * rI[i];
-      const bounce = dep * lb[i] * 0.6;
-      let idx = floor(cl(v, 0, 1) * (NR - 1) + 0.5) * 3;
-      let r = rampArr[idx], gg = rampArr[idx + 1], b = rampArr[idx + 2];
-      const ri = rI[i];
+      const sa = lerp(hash(x0 & 3, j0 + sd), hash(x0 & 3, j0 + 1 + sd), su);
+      const sb = lerp(hash((x0 + 1) & 3, j0 + sd), hash((x0 + 1) & 3, j0 + 1 + sd), su);
+      const ri = R[i];
+      v += 0.14 * (lerp(sa, sb, xu) - 0.5) + bandAmp * bed + 0.04 * ri;
+      const jn = i1[i];
+      if (jn >= 0) v += 0.05 * nt[jn] * (1 - ri);
+      const bounce = dp * lb[i] * 0.6;
+      const idx = floor(cl(v, 0, 1) * (NR - 1) + 0.5) * 3;
+      let r = ramp[idx], g = ramp[idx + 1], b = ramp[idx + 2];
       r *= 1 - 0.05 * ri;
       b *= 1 + 0.07 * ri;
       r += bounce * 0.9;
-      gg += bounce * 0.38;
+      g += bounce * 0.38;
       b += bounce * 0.3;
-      display.setPixel(x, y, cl(r, 0, 1) * 255, cl(gg, 0, 1) * 255, cl(b, 0, 1) * 255);
+      display.setPixel(x, y, cl(r, 0, 1) * 255, cl(g, 0, 1) * 255, cl(b, 0, 1) * 255);
     }
   }
 }
