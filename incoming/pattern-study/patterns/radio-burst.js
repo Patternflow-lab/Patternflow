@@ -216,12 +216,12 @@ function step(st, d) {
   st.t += d;
   const t = st.t, k4 = st.k[3];
   // Bursts arrive at a mean rate the Rate knob sets.
-  const lam = 0.16 * pow(5.6, (k4 + 1) / 2);
+  const lam = 0.2 * pow(4.5, (k4 + 1) / 2);
   st.haz += lam * d;
   while (st.haz >= st.hnext) {
     st.haz -= st.hnext;
     st.hnext = gap();
-    if (st.ev.length < CAP) st.ev.push(newArc(0, t - st.haz / lam, exp(log(0.36) + Math.random() * log(1.15 / 0.36))));
+    if (st.ev.length < CAP) st.ev.push(newArc(0, t - st.haz / lam, exp(log(0.4) + Math.random() * log(1.2 / 0.4))));
   }
   // The pulsar: a pulse about every 2 s, now and then missing, its amplitude different each time.
   while (st.tp <= t) {
@@ -234,13 +234,13 @@ function step(st, d) {
       if (s.on) {
         s.segs.push({ t0: s.t0, t1: s.next, y0: s.y0, amp: s.amp });
         s.on = false;
-        s.next += 2 + 18 * pow(Math.random(), 1.4);
+        s.next += 3 + 22 * pow(Math.random(), 1.2);
       } else {
         s.on = true;
         s.t0 = s.next;
         s.y0 = 2 * floor(2 + Math.random() * 60);
         s.amp = 0.55 + 0.45 * Math.random();
-        s.next += 1.5 + 22 * pow(Math.random(), 1.6);
+        s.next += 1 + 14 * pow(Math.random(), 1.6);
       }
     }
     while (s.segs.length && s.segs[0].t1 < t - 10) s.segs.shift();
@@ -248,7 +248,7 @@ function step(st, d) {
   // Broadband spikes across every channel at once, now and then.
   if (t >= st.nextSp) {
     st.sp.push({ t: st.nextSp, a: 0.7 + 0.3 * Math.random(), salt: floor(Math.random() * 1e6) });
-    st.nextSp += 3 + 14 * Math.random();
+    st.nextSp += 9 + 22 * Math.random();
   }
   while (st.sp.length && st.sp[0].t < t - 10) st.sp.shift();
 
@@ -322,9 +322,9 @@ function drawBackground(st, t) {
     const v = (y + 0.5) / H;
     bp[y] =
       1 +
-      0.2 * sin(TAU * 1.6 * v + 0.9 * sin(t * 0.13) + t * 0.19) +
-      0.14 * sin(TAU * 3.3 * v + 2.1 - t * 0.27) +
-      0.1 * sin(TAU * 6.1 * v + 4.3 + t * 0.37) -
+      0.15 * sin(TAU * 1.6 * v + 0.9 * sin(t * 0.13) + t * 0.19) +
+      0.1 * sin(TAU * 3.3 * v + 2.1 - t * 0.27) +
+      0.07 * sin(TAU * 6.1 * v + 4.3 + t * 0.37) -
       0.2 * (1 - sstep(0, 0.07, v)) -
       0.2 * sstep(0.94, 1, v);
   }
@@ -348,7 +348,7 @@ function drawBackground(st, t) {
       const a = cloud[cI * 22 + cj] * (1 - cW) + cloud[(cI + 1) * 22 + cj] * cW;
       const b = cloud[cI * 22 + cj + 1] * (1 - cW) + cloud[(cI + 1) * 22 + cj + 1] * cW;
       const cd = a + (b - a) * cw;
-      L[y * W + x] = 0.27 * bp[y] * gain * (0.72 + 0.56 * cd) * exp(0.32 * gr - 0.05);
+      L[y * W + x] = 0.27 * bp[y] * gain * (0.72 + 0.56 * cd) * exp(0.3 * gr - 0.045);
     }
   }
 }
@@ -463,7 +463,7 @@ export function draw(display, params) {
       for (let y = 0; y < H; y++) {
         const v = vn1Hash(sp.salt, y / 9);
         const o = y * W + x;
-        blend(st, o, col, kx * sp.a * (0.15 + 0.6 * v) * (1 - 0.5 * min(1, L[o])));
+        blend(st, o, col, kx * sp.a * (0.1 + 0.5 * v) * (1 - 0.5 * min(1, L[o])));
       }
     }
   }
