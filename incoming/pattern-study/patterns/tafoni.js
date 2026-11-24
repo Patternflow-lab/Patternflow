@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Tafoni
 // Family:  tafoni
-// Idea:    A sandstone cliff face seen straight on while salt eats honeycomb hollows into it, the wall creeping down through the panel so pits are born at the top, deepen and merge in the middle and leave thin ridges at the bottom, lit by a low sun that swings across the sky.
+// Idea:    A sandstone cliff face seen straight on, eaten by honeycomb hollows that open in its hard rind, widen until they meet and leave thin ridges between them, while the wall creeps down the panel and a low sun swings across it.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: salt-weathering model of tafoni with a case-hardened rind (a hollow keeps moisture, the salt that dries there pries grains loose, a thin ridge drains and survives; after the honeycomb-weathering work of Huinink and others, 2004, from memory), a height field lit with Lambert shading, soft ambient occlusion and a short shadow march, pattern round 237
+// Lineage: salt weathering of sandstone into tafoni (a hollow holds moisture, the salt that dries there pries the grains loose, a case-hardened rind and the bedding decide where; after Huinink, Pel and Kopinga, 2004, from memory), nucleation and growth with walls where the grains meet as in the Johnson-Mehl tessellation (William Johnson and Robert Mehl, 1939, from memory), a logistic growth law for each pit, a height field lit with Lambert shading, ambient occlusion and a shadow march, pattern round 237
 // Round:   237
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Salt=0..4, Rind=-1..1, Sun=-1..1
 //
-// Knob 1: Hue. Turns the rock palette round the wheel. At 0 the lit faces are coral, peach and pale gold and the shade is indigo; every other turn keeps the dark end cool or lifts it so it never goes brown.
-// Knob 2: Salt. 0 to 4, opening at 2. How much salt the wall holds. At 0 only a few cavities open, slowly, and each grows 20 LEDs across; at 4 a new pit seeds on nearly every row, they grow fast and crowd into a fine honeycomb whose cells are about 6 LEDs wide with ridges 2 LEDs thick.
-// Knob 3: Rind. -1 to 1, opening at 0. The hardened skin of the rock. At -1 the rock is soft: pits open everywhere, broad and shallow, the bedding hardly shows. At 1 the rind is hard and pale: few pits break through, they sink deep, the walls between them stay thick and the soft and hard layers of the bedding show as horizontal bands.
-// Knob 4: Sun. -1 to 1, opening near 0. How high the sun stands. At -1 it grazes the wall at 14 degrees and every rim throws a long shadow; at 1 it is overhead at 78 degrees, shadows are gone and only the darkening of the hollows is left. Its direction swings back and forth by itself.
+// Knob 1: Hue. Turns the rock palette round the wheel. At 0 the lit faces are coral, peach and pale gold and the shade is indigo. The sunlit end turns all the way round, the shade end only a third of the way, so the shade stays a cool dark and never goes brown.
+// Knob 2: Salt. 0 to 4, opening at 2. How much salt the wall holds. At 0 only about ten hollows open, slowly, and the biggest are 30 LEDs across with wide bare rind between them. At 4 a new pit seeds on nearly every row, pits grow fast and crowd into a fine honeycomb of about 50 cells, most of them 8 to 17 LEDs wide. The opening holds about 32.
+// Knob 3: Rind. -1 to 1, opening at 0. The skin of the rock. At -1 the rock is soft: pits open everywhere, broad and shallow, with ridges 3 to 5 LEDs thick and the bedding hardly showing. At 1 the rind is hard: fewer pits break through, they sink deep and dark, the ridges stay 4 to 7 LEDs thick and the layers of the bedding show as horizontal bands.
+// Knob 4: Sun. -1 to 1, opening near 0, which is a sun 44 degrees high. At -1 the sun grazes the wall at 14 degrees and every rim throws a shadow up to 13 LEDs long. At 1 it stands at 78 degrees, the shadows are gone and the hollows show only by their dark floors. Its direction swings back and forth by itself, a turn about every 110 s.
 
 const W = 64, H = 128, N = W * H, WM = W - 1;
 const { floor, ceil, min, max, exp, sqrt, sin, cos, tan, pow, PI } = Math;
@@ -128,7 +128,6 @@ export function setup(params) {
   params.i1 = new Int16Array(N); params.i2 = new Int16Array(N);
   params.d = f(N); params.R = f(N);
   params.hb = f(N); params.lit = f(N); params.lb = f(N); params.hb2 = f(N);
-  params.stain = f(H);
   params.ramp = f(NR * 3);
   params.rampShift = -9;
   params.sunK = 0.06;
@@ -206,7 +205,6 @@ function freeAt(P, k, cx, cy, rNew) {
 }
 
 function evolve(P, k, dt) {
-  const off0 = P.off;
   P.off += SLIDE * dt;
   P.rowAcc += SLIDE * dt;
   // Rock comes in at the top already dented in places.
@@ -237,7 +235,6 @@ function evolve(P, k, dt) {
       for (const key of ["nx", "nY", "nr", "na", "ns1", "ns2", "nax", "nD", "nt"]) P[key][j] = P[key][last];
     }
   }
-  return off0;
 }
 
 export function update(dt, input, params) {
