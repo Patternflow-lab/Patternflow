@@ -122,11 +122,14 @@ export function setup(P) {
     lc: 0,
     lf: 0,
     cat: 1,
+    gx: 0,
+    lensHW: 0,
+    lensC: 32,
+    lcDur: 1,
     wm: 0.5,
     mu: 0.5,
     sl: 0.5,
     tone: 1,
-    code: 5,
     gr: [],
     warm: false,
     buf: new Float32Array(W * H * 3),
@@ -172,8 +175,13 @@ function newCoarse(P) {
   if (cat === 3) dur *= 0.7;
   if (cat === P.cat) cat = cat <= 2 ? (cat === 0 ? 1 : cat + (Math.random() < 0.5 ? 1 : -1)) : cat === 3 ? 2 : 1;
   P.cat = cat;
+  // A lamina may thin out sideways: it grows a little paler or darker along the panel, and a rust, slate or mud one is a lens that pinches out into sand.
+  P.gx = 1.6 * gauss() * 0.7;
+  P.lensHW = cat >= 3 && Math.random() < 0.55 ? 22 + 26 * Math.random() : 0;
+  P.lensC = -8 + 80 * Math.random();
   const thk = 3.2 + 1.8 * sm(0.3, 1, P.rho);
-  P.lc += (thk / (P.c * (0.71 + P.rho))) * dur;
+  P.lcDur = (thk / (P.c * (0.71 + P.rho))) * dur;
+  P.lc += P.lcDur;
 }
 
 function newFine(P) {
@@ -257,7 +265,6 @@ function advance(P, d) {
   P.lf -= d;
   while (P.lc <= 0) newCoarse(P);
   while (P.lf <= 0) newFine(P);
-  P.code = P.cat * 4 + P.tone;
   // the bed
   const dz = P.rho * P.c * d;
   P.zb += dz;
@@ -268,6 +275,8 @@ function advance(P, d) {
   const R = P.R;
   const hS = P.hS;
   const ho = P.hOld;
+  // a lens is widest in the middle of its lamina and narrows to either side of it, so its ends taper
+  const hw = P.lensHW * (0.15 + 0.85 * sin(PI * cl(1 - P.lc / P.lcDur, 0, 1)));
   for (let x = 0; x < W; x++) {
     const hn = P.zb + hS[x + 1];
     const h0 = ho[x + 1];
@@ -276,7 +285,9 @@ function advance(P, d) {
       const k1 = floor(hn * RES);
       let k = floor(h0 * RES);
       const o = x * NZ;
-      for (; k <= k1; k++) R[o + (k % NZ)] = P.code;
+      const cx = P.lensHW > 0 && abs(x - P.lensC) > hw ? 1 : P.cat;
+      const code = cx * 4 + cl(P.tone + Math.round((P.gx * (x - 31.5)) / 31.5), 0, 3);
+      for (; k <= k1; k++) R[o + (k % NZ)] = code;
     }
   }
 }
