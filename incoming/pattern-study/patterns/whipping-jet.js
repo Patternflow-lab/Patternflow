@@ -17,7 +17,7 @@
 // Knob 4: Feed.
 
 const W = 64, H = 128, NPX = W * H;
-const { floor, ceil, min, max, abs, exp, log, pow, sqrt, sin, cos, PI } = Math;
+const { floor, ceil, min, max, abs, exp, pow, sqrt, sin, cos, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (a, b, x) => {
@@ -37,7 +37,7 @@ function hsv(h, s, v, out, o) {
 // A colour on the red-orange-yellow stretch of the wheel reads brown when it is not bright, so it is paled there.
 function warm(h, s, v, out, o) {
   const c = h - floor(h), b = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.12, 0.2, c);
-  hsv(h, s * (1 - 0.5 * b), min(1, v * (1 + 0.9 * b * (1 - v))), out, o);
+  hsv(h, s * (1 - 0.3 * b), min(1, v * (1 + 0.9 * b * (1 - v))), out, o);
 }
 // Along the fibre by age: hue and saturation. Pale lavender at the needle, cyan, then magenta at the plate.
 const KA = [0, 0.15, 0.38, 0.6, 0.8, 1];
@@ -49,7 +49,7 @@ const NJ = 4;
 const CAPB = 190;
 const Z0 = 3.5, ZC = 115;
 const SUB = 1 / 120;
-const P = { TILT: 0.4, AX: 0, QLO: 0.05, TQ: 1.5, KW: 20, KWZ: 0.15, sg0: 1, E: 40, c: 1.0, Q: 3000, EPS2: 36, Kt: 100, lam: 0.8, v0: 15, rate: 32, XQ: 0.35, EPSX2: 64, vmax: 220 };
+const P = { EXF: 1.2, EXE: 0.6, TILT: 0.4, QLO: 0.05, TQ: 1.0, KW: 20, KWZ: 0.4, sg0: 1, E: 40, c: 1.0, Q: 4000, EPS2: 36, Kt: 100, lam: 0.6, v0: 15, rate: 32, XQ: 0.35, EPSX2: 64, vmax: 220 , GUST: 15, R0: 900};
 
 const f64 = () => new Float64Array(CAPB);
 function newJet(i) {
@@ -60,7 +60,9 @@ function newJet(i) {
     i, base: 9 + (46 * i) / (NJ - 1), x0: 9 + (46 * i) / (NJ - 1), n: 0, acc: 0, wob,
     x: f64(), y: f64(), z: f64(), vx: f64(), vy: f64(), vz: f64(), fx: f64(), fy: f64(), fz: f64(),
     sg: f64(), l0: f64(), age: f64(), qq: f64(),
-    fm: 1, qm: 1, ho: 0, gain: 1,
+    fm: 1, qm: 1, ho: 0, gain: 1, rel: 1, kwm: 1,
+    gw: [rr(1.5, 3.5), rr(0, TAU), rr(1.5, 3.5), rr(0, TAU)],
+    sk: [sw(0.14, 27, 67), sw(0.06, 11, 17)],
     sx: [sw(2.4, 37, 71), sw(1.4, 17, 29)],
     sf: [sw(0.26, 29, 61), sw(0.13, 11, 19)],
     sq: [sw(0.16, 23, 47), sw(0.06, 9, 15)],
@@ -98,7 +100,7 @@ function inject(J, t) {
 function stepJets(st, dt, t) {
   const jets = st.jets, E = P.E * st.kE, Q0 = P.Q * st.kQ;
   for (const J of jets) {
-    const n = J.n, { x, y, z, fx, fy, fz, qq, age } = J, Q = Q0 * J.qm;
+    const n = J.n, { x, y, z, fx, fy, fz, qq, age } = J, Q = Q0 * J.qm * pow((st.kF * J.fm) / 0.85, -P.EXF);
     for (let i = 0; i < n; i++) {
       fx[i] = 0;
       fy[i] = 0;
@@ -107,41 +109,36 @@ function stepJets(st, dt, t) {
     }
     for (let a = 0; a < n - 1; a++) {
       const xa = x[a], ya = y[a], za = z[a], qa = Q * qq[a];
-      let ax = 0, ay = 0, az = 0;
+      let ax = 0, ay = 0;
       for (let b = a + 1; b < n; b++) {
         const dx = xa - x[b], dy = ya - y[b], dz = za - z[b];
         const r2 = dx * dx + dy * dy + dz * dz + P.EPS2, inv = (qa * qq[b]) / (r2 * sqrt(r2));
-        const gx = dx * inv, gy = dy * inv, gz = dz * inv * P.AX;
+        const gx = dx * inv, gy = dy * inv;
         ax += gx;
         ay += gy;
-        az += gz;
         fx[b] -= gx;
         fy[b] -= gy;
-        fz[b] -= gz;
       }
       fx[a] += ax;
       fy[a] += ay;
-      fz[a] += az;
     }
   }
   // Neighbouring jets push on each other through every third bead.
   for (let j = 0; j < NJ - 1; j++) {
-    const A = jets[j], B = jets[j + 1], q = Q0 * P.XQ * 3 * sqrt(A.qm * B.qm);
+    const A = jets[j], B = jets[j + 1], q = Q0 * P.XQ * 3 * sqrt(A.qm * B.qm) * pow(st.kF, -P.EXF) * pow((A.fm * B.fm) / 0.7225, -0.5 * P.EXF);
     for (let s = 0; s < 2; s++) {
       const U = s ? B : A, V = s ? A : B;
       for (let a = 0; a < U.n; a++) {
-        let ax = 0, ay = 0, az = 0;
+        let ax = 0, ay = 0;
         const xa = U.x[a], ya = U.y[a], za = U.z[a], qa = q * U.qq[a];
         for (let b = a % 3; b < V.n; b += 3) {
           const dx = xa - V.x[b], dy = ya - V.y[b], dz = za - V.z[b];
           const r2 = dx * dx + dy * dy + dz * dz + P.EPSX2, inv = (qa * V.qq[b]) / (r2 * sqrt(r2));
           ax += dx * inv;
           ay += dy * inv;
-          az += dz * inv * P.AX;
         }
         U.fx[a] += ax;
         U.fy[a] += ay;
-        U.fz[a] += az;
       }
     }
   }
@@ -163,9 +160,11 @@ function stepJets(st, dt, t) {
       fz[i + 1] -= T * uz;
     }
     for (let i = 0; i < n; i++) {
-      const kw = P.KW * (P.KWZ + (1 - P.KWZ) * cl(z[i] / ZC, 0, 1));
-      fx[i] -= kw * (x[i] - J.x0);
-      fy[i] -= kw * y[i];
+      const ex = x[i] - J.x0, ey = y[i];
+      const kw = P.KW * J.kwm * (1 + (P.KWZ - 1) * cl(z[i] / ZC, 0, 1)) * (1 + (ex * ex + ey * ey) / P.R0);
+      const gs = P.GUST * sstep(5, 45, z[i]);
+      fx[i] -= kw * ex - gs * sin(0.11 * z[i] + J.gw[0] * t + J.gw[1]);
+      fy[i] -= kw * ey - gs * cos(0.09 * z[i] - J.gw[2] * t + J.gw[3]);
       let a = (vx[i] + fx[i] * dt) * dm, b = (vy[i] + fy[i] * dt) * dm, c = (vz[i] + fz[i] * dt) * dm;
       const sp = sqrt(a * a + b * b + c * c);
       if (sp > P.vmax) {
@@ -185,8 +184,10 @@ function stepJets(st, dt, t) {
     // Any bead that has reached the collector lands, wherever it sits in the chain.
     let m = 0;
     for (let i = 0; i < n; i++) {
-      if (z[i] >= ZC) {
-        land(st, J, x[i], y[i], age[i]);
+      // a bead that lands, or that has somehow left the working volume, comes out of the chain
+      const ok = abs(x[i] - J.x0) < 90 && abs(y[i]) < 90;
+      if (!(z[i] < ZC) || !ok) {
+        if (ok && z[i] >= ZC) land(st, J, x[i], y[i], age[i]);
         continue;
       }
       if (m !== i) {
@@ -207,6 +208,7 @@ function stepJets(st, dt, t) {
 // ---- the mat --------------------------------------------------------------
 const MAT0 = 100, MATN = 24;
 function splat(mat, x, r, w) {
+  const fr = mat.fresh;
   const xi = floor(x - 0.5), xf = x - 0.5 - xi, ri = floor(r - 0.5), rf = r - 0.5 - ri;
   for (let j = 0; j < 2; j++) {
     const rj = ri + j;
@@ -215,7 +217,9 @@ function splat(mat, x, r, w) {
     for (let i = 0; i < 2; i++) {
       const xj = xi + i;
       if (xj < 0 || xj >= W) continue;
-      mat[rj * W + xj] += w * wr * (i ? xf : 1 - xf);
+      const a = w * wr * (i ? xf : 1 - xf);
+      mat[rj * W + xj] += a;
+      fr[rj * W + xj] += a;
     }
   }
 }
@@ -227,13 +231,19 @@ function land(st, J, x, y, age) {
     const dx = x - J.lx, dr = r - J.ly, len = sqrt(dx * dx + dr * dr);
     if (len < 22) {
       const k = max(1, ceil(len / 0.7));
-      for (let s = 1; s <= k; s++) splat(st.mat, J.lx + (dx * s) / k, J.ly + (dr * s) / k, 0.03 * (len / k + 0.3) * J.gain);
+      for (let s = 1; s <= k; s++) splat(st.mat, J.lx + (dx * s) / k, J.ly + (dr * s) / k, 0.007 * (len / k + 0.3) * J.gain);
     }
   }
   J.lx = x;
   J.ly = r;
   J.lok = true;
 }
+
+const mkMat = () => {
+  const m = new Float32Array(MATN * W);
+  m.fresh = new Float32Array(MATN * W);
+  return m;
+};
 
 // ---- state ----------------------------------------------------------------
 export function setup(params) {
@@ -242,7 +252,7 @@ export function setup(params) {
     kE: 1, kQ: 1, kF: 1, ageEma: 3.8,
     jets: Array.from({ length: NJ }, (_, i) => newJet(i)),
     R: new Float32Array(NPX), G: new Float32Array(NPX), B: new Float32Array(NPX),
-    JI: new Float32Array(NPX), mat: new Float32Array(MATN * W),
+    JI: new Float32Array(NPX), FR: new Float32Array(NPX), FG: new Float32Array(NPX), FB: new Float32Array(NPX), TM: new Float32Array(NPX), mat: mkMat(),
     fl: Array.from({ length: 8 }, (_, i) => ({ x: 4 + i * 8, a: rr(0.5, 1), T: rr(31, 83), p: rr(0, TAU), T2: rr(13, 29), q: rr(0, TAU) })),
     sx1: new Float32Array(W), sx2: new Float32Array(W), sy1: new Float32Array(H), sy2: new Float32Array(H),
     hz: [rr(0, TAU), rr(0, TAU), rr(0, TAU), rr(0, TAU)],
@@ -252,7 +262,7 @@ export function setup(params) {
 function knobs(st, kv) {
   st.k = [kv[0], cl(kv[1], 0.6, 3.6), cl(kv[2], -1, 1), cl(kv[3], -1, 1)];
   st.kE = pow(st.k[1] / 2, 1.0);
-  st.kQ = exp(0.7 * st.k[2]);
+  st.kQ = exp(0.7 * st.k[2]) * pow(st.kE, P.EXE);
   st.kF = exp(0.5 * st.k[3]);
 }
 
@@ -267,8 +277,10 @@ function modulate(st, t) {
     J.x0 = J.base + wave(J.sx, t);
     J.fm = 0.85 + wave(J.sf, t);
     J.qm = 1 + wave(J.sq, t);
+    J.kwm = 1 + wave(J.sk, t);
     J.ho = wave(J.sh, t);
-    J.gain = cl(0.4 + 0.6 * J.fm, 0.5, 1.05);
+    J.rel = (st.kF * J.fm) / 0.85;
+    J.gain = cl(0.45 + 0.55 * J.rel, 0.5, 1.1);
   }
 }
 
@@ -279,8 +291,8 @@ export function update(dt, input, params) {
   if (!st.init) {
     st.init = true;
     for (let i = 0; i < 480; i++) advance(st, 1 / 60);
-    // the mat has had time to build: its fade is 25 s, and the run above was 8
-    for (let i = 0; i < st.mat.length; i++) st.mat[i] *= 2.4;
+    // the mat has not had time to build: it fades over 25 s and the run above was 8, so it is brought to what it would hold by now
+    for (let i = 0; i < st.mat.length; i++) st.mat[i] *= 5;
   }
   st.acc += cl(dt || 0, 0, 0.1);
   while (st.acc >= SUB) {
@@ -293,13 +305,16 @@ function advance(st, d) {
   st.t += d;
   modulate(st, st.t);
   stepJets(st, d, st.t);
-  const f = exp((-d * 0.6931) / 25), mat = st.mat;
-  for (let i = 0; i < mat.length; i++) mat[i] *= f;
+  const f = exp((-d * 0.6931) / 25), g = exp(-d / 1.2), mat = st.mat, fr = mat.fresh;
+  for (let i = 0; i < mat.length; i++) {
+    mat[i] *= f;
+    fr[i] *= g;
+  }
 }
 
 // ---- drawing --------------------------------------------------------------
 function seg(st, ax, ay, bx, by, hw, r, g, b) {
-  const { R, G, B, JI } = st;
+  const { FR: R, FG: G, FB: B, JI } = st;
   const lo = hw + 1.2;
   const px0 = max(0, floor(min(ax, bx) - lo)), px1 = min(W - 1, floor(max(ax, bx) + lo));
   const py0 = max(0, floor(min(ay, by) - lo)), py1 = min(H - 1, floor(max(ay, by) + lo));
@@ -370,8 +385,8 @@ function drawJet(st, J, hueK) {
       while (k < KA.length - 2 && a > KA[k + 1]) k++;
       const f = cl((a - KA[k]) / (KA[k + 1] - KA[k]), 0, 1);
       const sat = KS[k] + (KS[k + 1] - KS[k]) * f, hue = KH[k] + (KH[k + 1] - KH[k]) * f + hue0;
-      warm(hue, sat, (0.5 + 0.5 * dc) * J.gain, colv, 0);
-      seg(st, px, py, qx, qy, 0.8 + 0.3 * dc, colv[0], colv[1], colv[2]);
+      warm(hue, sat, (0.4 + 0.6 * dc) * J.gain, colv, 0);
+      seg(st, px, py, qx, qy, (0.68 + 0.37 * dc) * cl(0.85 + 0.3 * (J.rel - 1), 0.7, 1.15), colv[0], colv[1], colv[2]);
       px = qx;
       py = qy;
     }
@@ -389,7 +404,7 @@ function drawBackground(st, t, hueK) {
     sy2[y] = sin(y * 0.15 + hz[3] + t * 0.09);
   }
   const tb = [0, 0, 0];
-  hsv(0.55 + 0.4 * hueK, 0.85, 0.5, tb, 0);
+  hsv(0.58 + 0.1 * sin(TAU * hueK), 0.85, 0.5, tb, 0);
   const cr = tb[0], cg = tb[1], cb = tb[2];
   for (let y = 0; y < H; y++) {
     const v = y / (H - 1);
@@ -418,15 +433,15 @@ function drawBackground(st, t, hueK) {
 }
 
 function drawMat(st, hueK) {
-  const { R, G, B, mat } = st;
+  const { R, G, B, mat } = st, fr = mat.fresh;
   const col = [0, 0, 0];
-  hsv(0.5 + hueK, 0.6, 1, col, 0);
+  warm(0.5 + 0.18 * sin(TAU * hueK), 0.6, 1, col, 0);
   for (let r = 0; r < MATN; r++) {
     const y = MAT0 + r;
     for (let x = 0; x < W; x++) {
-      const m = mat[r * W + x];
+      const m = mat[r * W + x], fv = fr[r * W + x];
       if (m < 0.003) continue;
-      const b = 0.75 * (1 - exp(-1.2 * m));
+      const e = cl((m - 0.07) / 0.4, 0, 1), b = 0.8 * pow(e, 1.5) + 0.55 * (1 - exp(-2.5 * fv));
       const o = y * W + x;
       R[o] += col[0] * b;
       G[o] += col[1] * b;
@@ -470,6 +485,18 @@ function drawNeedles(st) {
   }
 }
 
+// A soft halo: the layer plus half of itself blurred by a 1-2-1 pass across and one down.
+function glow(F, T) {
+  for (let y = 0; y < H; y++) {
+    const o = y * W;
+    for (let x = 0; x < W; x++) T[o + x] = 0.25 * F[o + (x > 0 ? x - 1 : 0)] + 0.5 * F[o + x] + 0.25 * F[o + (x < W - 1 ? x + 1 : x)];
+  }
+  for (let y = 0; y < H; y++) {
+    const o = y * W, u = (y > 0 ? y - 1 : 0) * W, d = (y < H - 1 ? y + 1 : y) * W;
+    for (let x = 0; x < W; x++) F[o + x] += 0.5 * (0.25 * T[u + x] + 0.5 * T[o + x] + 0.25 * T[d + x]);
+  }
+}
+
 export function draw(display, params) {
   const st = params.st;
   if (!st) return;
@@ -479,10 +506,16 @@ export function draw(display, params) {
   drawMat(st, hueK);
   drawNeedles(st);
   // fibre is drawn into the same buffers; jets add to each other, a jet's own loops take the brighter
+  st.FR.fill(0);
+  st.FG.fill(0);
+  st.FB.fill(0);
   for (const J of st.jets) drawJet(st, J, hueK);
+  glow(st.FR, st.TM);
+  glow(st.FG, st.TM);
+  glow(st.FB, st.TM);
   for (let o = 0, y = 0; y < H; y++)
     for (let x = 0; x < W; x++, o++) {
-      const r = R[o], g = G[o], b = B[o];
+      const r = R[o] + st.FR[o], g = G[o] + st.FG[o], b = B[o] + st.FB[o];
       display.setPixel(x, y, floor(255 * (1 - exp(-1.6 * r))), floor(255 * (1 - exp(-1.6 * g))), floor(255 * (1 - exp(-1.6 * b))));
     }
 }
