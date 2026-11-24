@@ -232,7 +232,7 @@
   "nacre": { "label": "진주층", "color": "#e6b8d8" },
   "videoscope": { "label": "영상 계측기", "color": "#3fb8c4" },
   "gaussianprocess": { "label": "가우스 과정", "color": "#8a86e8" },
-  "lanes": { "label": "보행 줄 짓기", "color": "#e8894a" },
   "edgebundling": { "label": "묶인 연결선", "color": "#4fcf9a" },
-  "crossbedding": { "label": "사층리", "color": "#c4a06c" }
+  "crossbedding": { "label": "사층리", "color": "#c4a06c" },
+  "blockcodec": { "label": "블록 부호화", "color": "#e8894a" }
 }
