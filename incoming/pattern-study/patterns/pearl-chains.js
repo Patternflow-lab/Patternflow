@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Pearl Chains
 // Family:  dielectrophoresis
-// Idea:    Microbeads of three sizes and colours are carried down a flow channel past two rows of slanted electrode bars, and an AC frequency that wanders through their crossover frequencies pulls one kind onto the bar edges in pearl chains while it pushes another kind off, so chains build, burst away in showers and the kinds sort as they pass.
+// Idea:    Microbeads of three sizes and colours are carried down a flow channel past two rows of slanted electrode bars, and an AC frequency that wanders through their crossover frequencies pulls one kind onto the bar edges in pearl chains while it pushes another kind off, so the kinds sort as they pass and a chain bursts away in a shower whenever its sign flips.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: dielectrophoresis, named and measured by Herbert Pohl (1951; his book of 1978), where the sign of the force on a particle follows the Clausius-Mossotti factor and flips at a crossover frequency that differs from one particle type to the next, pearl chains of particles along the field lines of an AC field, and the slanted-electrode cell sorters of microfluidics (from memory, 1990s), pattern round 238
+// Lineage: dielectrophoresis, named and first measured by Herbert Pohl (1951; his book of 1978), where the sign of the force on a particle follows the Clausius-Mossotti factor and flips at a crossover frequency that differs from one particle type to the next and where particles also line up in pearl chains along the field lines of an AC field, and the slanted-electrode cell sorters of microfluidics (from memory, 1990s), pattern round 238
 // Round:   238
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Frequency=0..4, Voltage=0..1, Flow=-1..1
 //
 // Knob 1: Hue. Turns every colour round the wheel. At 0 the ground is slate teal, the bars are steel blue with pale edges, and the beads are coral, aqua and lime; turned away from 0 the bars and beads take the whole wheel while the ground only sways about teal and blue, so it never goes brown.
-// Knob 2: Frequency. 0 to 4, opening at 2. The mean AC frequency. The aqua beads cross over at 1.4, the lime at 2.0 and the coral at 2.6, and the frequency wanders by about a quarter of the range round the knob, so at 2 the coral hang on the bars in chains and the aqua are pushed off while the lime flips between the two. At 0 every bead clings to the bars, at 4 every bead is thrown off them.
-// Knob 3: Voltage. 0 to 1, opening at 0. The field strength. At 0 the field is already a bit under half of the full pull, enough to chain the coral and bend the aqua's path; at 1 the chains grow long, hold on for longer, the push on the repelled beads triples, and the glow round each bar, which is the field, brightens.
-// Knob 4: Flow. -1 to 1, opening at the middle. How fast the liquid carries the beads, from 1.3 LEDs a second at -1 to 16 at 1, fastest in the middle of the channel and slow at the walls. A fast flow drags the repelled beads over the bars; a slow one lets the field win.
+// Knob 2: Frequency. 0 to 4, opening at 2. The mean AC frequency. The aqua beads cross over at 1.3, the lime at 2.0 and the coral at 2.7, and the frequency wanders by about a fifth of the range round the knob with a memory of 30 s, so at 2 the coral hang on the bars in chains and the aqua are pushed off while the lime flips between the two. At 0 every bead clings to the bars, at 4 every bead is thrown off them.
+// Knob 3: Voltage. 0 to 1, opening at 0. The field strength. At 0 the field is already two fifths of the full pull, enough to chain the coral and bend the aqua's path; at 1 the chains grow long and hold on, the push on the repelled beads is two and a half times as hard, and the glow round each bar, which is the field, brightens. The field also breathes between about half and full strength on a 40 s memory, so bars clog and clear at every setting.
+// Knob 4: Flow. -1 to 1, opening at the middle. How fast the liquid carries the beads, from 1.3 LEDs a second at -1 to 16 at 1, fastest in the middle of the channel and slower at the walls. A fast flow drags the repelled beads over the bars; a slow one lets the field win and the beads linger.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, min, max, abs, exp, sqrt, sin, cos, tanh, pow, PI } = Math;
@@ -52,7 +52,7 @@ function dim(h, s, v, out, o) {
 // the bead is pushed away (negative DEP).
 const SP_R = [2.4, 1.5, 1.95];
 const SP_FC = [2.7, 1.3, 2.0];
-const SP_HUE = [0.02, 0.47, 0.21];
+const SP_HUE = [0.03, 0.47, 0.21];
 const SP_SHARE = [0.14, 0.46, 0.40];
 const NTARGET = 360;        // beads kept in the channel
 const MAXB = 520, PMAX = 9000;
@@ -76,7 +76,7 @@ const LEN = [40, 44, 38, 42, 46, 40];
 // ---- state ----------------------------------------------------------------
 export function setup(params) {
   const ph = [];
-  for (let i = 0; i < 40; i++) ph.push(Math.random() * TAU);
+  for (let i = 0; i < 48; i++) ph.push(Math.random() * TAU);
   const nb = () => new Float64Array(NBAR);
   params.st = {
     t: -30, init: false, acc: 0, k: [0, 2, 0, 0.06], n: 0, ph,
@@ -193,7 +193,7 @@ function simStep(st, d) {
   const D = 0.45 + 0.55 * sstep(-1.3, 1.3, st.z);
   const FD = Fv * D;
   st.FD = FD;
-  const lc = min(0.9, 0.25 + 0.3 * FD);
+  const lc = min(0.9, 0.4 + 0.3 * FD);
   const U = U0 * pow(3.5, k[3]) * (1 + 0.2 * sin((TAU * t) / 37 + p[30]) + 0.12 * sin((TAU * t) / 23.3 + p[31]));
   st.U = U;
   setBars(st, t);
@@ -377,7 +377,7 @@ function simStep(st, d) {
   cnt[0] = cnt[1] = cnt[2] = 0;
   let npd = 0;
   for (let i = n - 1; i >= 0; i--) {
-    if (Y[i] > H + R[i] + 1 || !(Y[i] === Y[i])) {
+    if (Y[i] > H + R[i] + 1 || !(Y[i] === Y[i]) || !(X[i] === X[i])) {
       removeBead(st, i);
       n--;
     } else {
@@ -412,7 +412,7 @@ export function update(dt, input, params) {
     st.init = true;
     seed(st);
     // Run the 30 s before the first frame, so chains are already on the bars.
-    while (st.t < 0) simStep(st, 1 / 30);
+    while (st.t < 0) simStep(st, 1 / 22.5);
   }
   st.acc += cl(dt || 0, 0, 0.1);
   while (st.acc >= SUB) {
@@ -444,7 +444,7 @@ function paintField(st, t) {
   const { R, G, B, col: c, wcx, wsx, wcy, wsy } = st;
   const { ax, ay, ux, uy, len } = st.bar;
   for (let j = 0; j < 3; j++) {
-    const kx = WK[j][0], ky = WK[j][1], ph = WK[j][2] * t + st.ph[32 + j];
+    const kx = WK[j][0], ky = WK[j][1], ph = WK[j][2] * t + st.ph[40 + j];
     for (let x = 0; x < W; x++) {
       wcx[j * W + x] = cos(kx * (x + 0.5) + ph);
       wsx[j * W + x] = sin(kx * (x + 0.5) + ph);
