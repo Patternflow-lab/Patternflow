@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the dot's trail and the ridges of the waterfall round the colour wheel: at 0 the dot is white and its trail cools through amber and red to violet while the ridges burn red to amber, at 0.25 the trail and the ridges are green, at 0.5 cyan, at 0.75 violet and magenta, and at 1 it is the opening again. The floor of the waterfall stays a dark violet-blue and the grid blue-grey.
 // Knob 2: Sweep. How fast the analyser works: at 0.3 one sweep takes 21 s, the trail lasts 3.2 s and the waterfall scrolls 0.5 rows a second, so its 61 rows hold two minutes; at the opening 2 a sweep takes 3.2 s, the trail 1.1 s and the waterfall 3.4 rows a second, 18 s of history; at 3 a sweep takes 2.1 s, the trail 0.7 s and the waterfall 5.1 rows a second, 12 s.
 // Knob 3: Line. The length of the cable between the antenna and the analyser: the whole chart turns about its centre as one rigid picture, a quarter turn clockwise at 0.5 and a quarter turn counter-clockwise at -0.5 from where the loops hang at 0, and at -1 and at 1 it has gone half a turn either way round to the same picture. The ridges of the waterfall stay where they are, since a lossless cable cannot change how much comes back, and only its faint floor tilts as the cable's own small mismatch comes round.
-// Knob 4: Match. How well the antenna is coupled to the line: at -1 the loops are 3 to 10 LED across and hug the rim, the best return is 0.55 to 0.75 of the wave and the waterfall holds only faint violet ridges; at the opening 0.06 the loops are 10 to 30 LED across, 18 typically, the best return runs 0.03 to 0.4 and a tuner pulls one loop through the centre about a third of the time; at 1 the loops are 21 to 44 LED across, pass within 0.1 of the centre two thirds of the time, and the ridges burn amber to white.
+// Knob 4: Match. How well the antenna is coupled to the line: at -1 the loops are 3 to 12 LED across and hug the rim, the best return is 0.4 to 0.75 of the wave and the waterfall holds only faint violet ridges; at the opening 0.06 the loops are 9 to 32 LED across, 19 typically, the best return runs 0.03 to 0.37 and a tuner pulls one loop through the centre about a third of the time; at 1 the loops are 21 to 42 LED across, pass within 0.1 of the centre two thirds of the time, and the ridges burn amber to white.
 
 const W = 64;
 const H = 128;
@@ -40,7 +40,7 @@ const NL = 320; // samples along the locus
 const SLATE = [30, 44, 60]; // the grid, one cool tone
 
 // ---- the load: three series resonances in parallel, on a cable
-const F_MEAN = [0.19, 0.5, 0.8]; // where they sit on the axis, 0 to 1
+const F_MEAN = [0.17, 0.5, 0.83]; // where they sit on the axis, 0 to 1
 const Q_MEAN = [30, 24, 19];
 const R_FAC = [0.8, 1, 1.3];
 const MIS_R = 0.026; // the connector at the analyser's end sends back a little of its own, 0.035 at 37 degrees, which tilts the floor of the waterfall as the cable's turn changes
@@ -52,7 +52,7 @@ const OU_TAU = [17, 19, 15, 16, 18, 14, 13, 15, 12, 50, 70, 20];
 // ---- the heat scale: floor, magenta, red, amber, white
 const STOPS = [
   [0, 268, 0.85, 0],
-  [0.04, 268, 0.85, 0.13],
+  [0.04, 268, 0.85, 0.17],
   [0.14, 292, 0.85, 0.36],
   [0.26, 322, 0.85, 0.62],
   [0.42, 352, 0.9, 0.88],
@@ -166,9 +166,9 @@ function buildBg() {
       const d = sqrt(px * px + py * py) / R;
       const k = sm(0.3, 1.5, d);
       const o = (y * W + x) * 3;
-      B[o] = mix(9, 16, k);
-      B[o + 1] = mix(13, 22, k);
-      B[o + 2] = mix(21, 32, k);
+      B[o] = mix(12, 18, k);
+      B[o + 1] = mix(18, 25, k);
+      B[o + 2] = mix(30, 39, k);
     }
   return B;
 }
@@ -178,6 +178,8 @@ export function setup(P) {
   const ou = OU_SIG.map((s) => s * gauss());
   Object.assign(P, {
     ou,
+    wb: new Float32Array(3), // a quicker flutter of each branch's coupling, as a hand near the antenna would give it
+    wbx: new Float32Array(3), // and the same after a low-pass, so a row of the waterfall does not jump from the one before
     ox: Float32Array.from(ou), // the walks after a second, slower low-pass, so a row 2 s on does not jump
     E: new Float32Array(W * H), // the trail's phosphor, in heat units
     LV: new Float32Array(W * H), // this moment's whole locus
@@ -209,7 +211,7 @@ function coefs(P, k) {
   for (let i = 0; i < 3; i++) {
     c.f0[i] = 0.55 + 0.9 * (F_MEAN[i] + o[i]);
     c.q[i] = Q_MEAN[i] * exp(o[3 + i]);
-    c.r[i] = rb * R_FAC[i] * exp(o[6 + i]);
+    c.r[i] = rb * R_FAC[i] * exp(o[6 + i] + 0.3 * P.wbx[i]);
   }
   c.n = cl(0.95 + o[9], 0.3, 1.7);
   c.th = PI * cl(k[2], -1, 1) + o[10];
@@ -331,6 +333,14 @@ function evolve(P, d, k, painting) {
   const o = P.ou;
   const ox = P.ox;
   const lp = 1 - exp(-d / 7);
+  // the flutter lasts about three rows of the waterfall, never less than 2.2 s, so a slow sweep does not read it as noise
+  const rho2 = exp(-d / max(2.2, 3 / (1.7 * cl(k[1], 0.3, 3))));
+  const ns2 = sqrt(1 - rho2 * rho2);
+  const lp2 = 1 - exp(-d / max(1, 1.5 / (1.7 * cl(k[1], 0.3, 3))));
+  for (let i = 0; i < 3; i++) {
+    P.wb[i] = rho2 * P.wb[i] + ns2 * gauss();
+    P.wbx[i] += (P.wb[i] - P.wbx[i]) * lp2;
+  }
   for (let i = 0; i < o.length; i++) {
     const rho = exp(-d / OU_TAU[i]);
     o[i] = rho * o[i] + sqrt(1 - rho * rho) * OU_SIG[i] * gauss();
@@ -558,7 +568,7 @@ export function draw(display, P) {
       rb = rowAt(n + 1);
       t = q - n;
     }
-    const bright = (1 - 0.3 * (yy / WROWS)) * (1 + 0.25 * exp(-yy / 2.2));
+    const bright = (1 - 0.2 * (yy / WROWS)) * (1 + 0.25 * exp(-yy / 2.2));
     const cur = 0.2 * (1 - 0.5 * (yy / WROWS)) + 0.45 * exp(-yy / 1.8);
     for (let x = 0; x < W; x++) {
       const v = mix(ra[x], rb[x], t);
