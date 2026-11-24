@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Beachballs
 // Family:  focalsphere
-// Idea:    A dark fault map on which earthquakes keep going off, each one drawn as its focal mechanism: a disc of the lower focal sphere in equal-area projection, split by the two nodal planes into warm compressional lobes and cool dilational ones, popping in with a flash and a ring, crowding aftershocks around the big ones, and turning slowly as the regional stress turns.
+// Idea:    A dark fault map on which earthquakes keep going off, each drawn as its focal mechanism, a beach ball of warm compressional and cool dilational lobes that pops in with a flash and a ring, draws aftershocks round it, and turns as the regional stress turns.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Rate=0.3..3, Regime=-1..1, Spread=-1..1
 //
 // Knob 1: Hue. Turns both lobe colours round the wheel together, so the compressional lobes and the dilational ones stay opposite each other. At 0 the compressional lobes are amber and the dilational ones teal. The ground, the fault traces and the nodal lines stay cool or cream and do not turn.
-// Knob 2: Rate. 0.3 to 3, opening at 2. How busy the fault is: the background rate, the share of shocks that are aftershocks, and the smallest magnitude that shows. At 0.3 a few big balls (up to 16 LEDs radius) stand on an almost empty map and a new one comes every three seconds or so. At 3 the map holds 40 balls, most of them small ones of 4 to 6 LEDs radius, crowded and overlapping.
-// Knob 3: Regime. -1 to 1, opening at 0. The stress regime of the whole map and of every ball already on it, which turn toward it over a few seconds. At -1 it is thrust faulting: each ball has a warm centre and bands across it. At 0 it is strike-slip faulting: a cross of four lobes, warm and cool in turn. At 1 it is normal faulting: a cool centre with warm bands either side. In between the lobes slide from one to the other.
-// Knob 4: Spread. -1 to 1, opening near 0. How long balls live and how far aftershocks fall from the shock that set them off, which are Omori decay and dispersion together. At -1 a ball fades in a few seconds and its aftershocks come within a few LEDs and finish early: tight, short-lived clusters. At 1 a ball lasts about twice as long as at 0 and its aftershocks fall across half the map and keep coming for minutes: slow, wide clusters.
+// Knob 2: Rate. 0.3 to 3, opening at 2. How busy the fault is: the background rate, the share of shocks that are aftershocks, and the smallest magnitude that shows. At 0.3 a few big balls (8 to 16 LEDs radius) stand on an almost empty map and a new one comes every two or three seconds. At 3 the map holds about 30 balls, most of them small ones of 4 to 6 LEDs radius, crowded and overlapping, and a ball is gone to make room when there are 40.
+// Knob 3: Regime. -1 to 1, opening at 0. The stress regime of the whole map, and of every ball already on it, which turns toward it over a few seconds. At -1 it is thrust faulting: a ball has a warm centre and cool bands either side. At 0 it is strike-slip faulting: a cross of four lobes, warm and cool in turn. At 1 it is normal faulting: a cool centre with warm bands either side. In between the lobes slide from one to the other.
+// Knob 4: Spread. -1 to 1, opening near 0. How long balls live and how far aftershocks fall from the shock that set them off, Omori decay and dispersion together. At -1 a ball lives about half as long as at 0 and its aftershocks fall within a few LEDs, so tight clusters flash up and go out and the map turns over fast, 2 or 3 new shocks a second at the opening Rate. At 1 a ball lives about twice as long and its aftershocks land two or three times farther out and keep coming for minutes, so the clusters are wide and slow, about one new shock a second.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, min, max, abs, round, exp, log, pow, sqrt, sin, cos, PI } = Math;
@@ -169,15 +169,12 @@ export function setup(params) {
   params.dens = new Float32Array(GX * GY);
   params.buf = new Float32Array(NPX * 3);
   params.trace = new Float32Array(NPX);   // trace coverage 0..1
-  params.traceOf = new Int8Array(NPX);    // which trace owns the pixel, for the glow
   params.pts = [];
-  params.tw = [];
   params.ph = [];
   for (let i = 0; i < 10; i++) params.ph.push(Math.random() * TAU);
   params.hue = 0;
   params.live = 10;
   params.mass = 0.2;
-  params.reg = 0;
   params.beta = Math.random() * TAU;
   params.regNow = 0;
   const o = [0, 0];
@@ -200,7 +197,6 @@ export function setup(params) {
           const v = cl(1.35 - d, 0, 1);
           if (v > params.trace[y * W + x]) {
             params.trace[y * W + x] = v;
-            params.traceOf[y * W + x] = k;
           }
         }
     }
