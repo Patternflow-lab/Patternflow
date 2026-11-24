@@ -264,5 +264,10 @@
   "welllog": { "label": "시추 검층", "color": "#f4fd57" },
   "electrospinning": { "label": "전기 방사", "color": "#1467ce" },
   "dielectrophoresis": { "label": "유전영동", "color": "#41e491" },
-  "altimetry": { "label": "위성 고도계", "color": "#ef0447" }
+  "altimetry": { "label": "위성 고도계", "color": "#ef0447" },
+  "cmbsky": { "label": "우주 배경 복사", "color": "#67f46c" },
+  "hyperuniform": { "label": "초균일 점 무늬", "color": "#66a8d4" },
+  "tractography": { "label": "신경 섬유 추적", "color": "#b193d8" },
+  "circadian": { "label": "일주기 리듬", "color": "#dc7895" },
+  "contourintegration": { "label": "윤곽 통합", "color": "#996faa" }
 }
