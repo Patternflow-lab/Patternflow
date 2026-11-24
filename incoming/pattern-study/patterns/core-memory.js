@@ -146,7 +146,7 @@ function setKnobs(st, kv) {
   }
 }
 
-// The order a pass takes over the plane: rows, rows boustrophedon, columns, or random access.
+// The order a pass takes over the plane. It sweeps the rows, or the rows back and forth, or the columns, or hops about at random.
 function newPass(st) {
   const r = Math.random();
   let mode = r < 0.34 ? 0 : r < 0.54 ? 1 : r < 0.74 ? 2 : 3;
