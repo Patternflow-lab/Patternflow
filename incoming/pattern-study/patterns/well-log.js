@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Well Log
 // Family:  welllog
-// Idea:    The wireline log of an invented borehole scrolls up the panel as the hole goes deeper, with a column of beds in flat colour, a gamma ray curve filled yellow for sand and grey-green for shale, three resistivity curves on a log grid with red or blue between the deep and the shallow one, and density against neutron shaded yellow where they cross over for gas, so that a gas sand lights up every track at once while the rate of drilling changes from bed to bed.
+// Idea:    The wireline log of an invented borehole scrolls up the panel as the hole goes deeper: a column of beds in flat colour sits beside a gamma ray curve filled yellow for sand and grey-green for shale, then three resistivity curves on a log grid with red or blue between the deep and the shallow one, then density against neutron shaded yellow where they cross over for gas, so a gas sand lights up every track at once while the drilling rate changes from bed to bed.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0..3.5, Bed=-1..1, Pay=0..0.18
 //
-// Knob 1: Hue. Turns every fill and curve round the wheel. At 0 sand is yellow, shale grey-green, limestone steel blue, dolomite violet, salt pale cyan, volcanic ash rose and coal near black, with red and blue between the resistivity curves. The near-black ground only sways about navy and violet.
-// Knob 2: Speed. 0 to 3.5, opening at 2. The drilling rate that moves the record up the panel: 4 rows a second at 0, 10 at 2 and 18 at 3.5, before the rock changes it. Limestone and dolomite slow it to about half, shale and coal quicken it by a third, and a slow drift on top keeps it from ever being steady.
-// Knob 3: Bed. -1 to 1, opening at 0. The typical thickness of a bed: 5 rows at -1, 12 at 0 and 30 at 1, drawn log-normal so thin and thick beds mix. The bed being drilled stretches or shrinks at once, so the change shows at the bottom edge within a second.
-// Knob 4: Pay. 0 to 0.18, opening at 0.06. The share of sands that carry gas: none at 0, a third at 0.06 and all of them at 0.18. Sands already on the panel switch over within a second, gas sits on top of water in each sand with a sharp contact, and more sands are laid down as the knob rises, so at the top the crossover shading takes over the density track.
+// Knob 1: Hue. Turns every fill and curve round the wheel. At 0 sand is yellow, shale grey-green, limestone steel blue, dolomite violet, salt pale cyan, volcanic ash rose and coal near black, with red and blue between the resistivity curves and a red flag beside gas. The near-black ground only sways about navy and violet.
+// Knob 2: Speed. 0 to 3.5, opening at 2. The drilling rate that moves the record up the panel: about 4 rows a second at 0, 10 at 2 and 17 at 3.5, before the rock changes it. Limestone and dolomite slow it to half, shale and coal quicken it by a third or more, and two slow wanders on top keep it from ever being steady.
+// Knob 3: Bed. -1 to 1, opening at 0. The typical thickness of a bed: 4 rows at -1, 9 at 0 and 23 at 1, drawn log-normal so thin and thick beds mix, with limestone thicker and coal and ash thinner than the rest. The bed being drilled stretches or shrinks at once, so a change shows at the bottom edge within a second.
+// Knob 4: Pay. 0 to 0.18, opening at 0.06. The share of sands that carry gas: none at 0, a third at 0.06 and all of them at 0.18. Sands already on the panel switch over within a second, and in half of the gas sands the gas lies on water with a sharp contact. More sands are laid down as the knob rises, so at the top gas lobes fill the resistivity and density tracks wherever sand turns up.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, min, max, abs, exp, log, pow, sqrt, sin, PI } = Math;
@@ -52,9 +52,9 @@ function hsv(h, s, v, out) {
   out[1] = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
   out[2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
-// A dim colour on the red-orange-yellow stretch of the wheel reads brown, so it is lifted and paled there.
+// A dim colour on the orange and yellow stretch of the wheel reads brown, so it is lifted and paled there; red and magenta keep their depth.
 function dim(h, s, v, out) {
-  const c = h - floor(h), b = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.15, 0.26, c);
+  const c = h - floor(h), b = c > 0.5 ? 0 : sstep(0.03, 0.07, c) * (1 - sstep(0.16, 0.26, c));
   hsv(h, s * (1 - 0.5 * b), min(1, v * (1 + 1.1 * b * (1 - v))), out);
 }
 
@@ -74,12 +74,12 @@ function buildPalette(st, hue) {
   st.fGrey = m(0.62, 0.14, 0.52);
   st.fSalt = m(0.5, 0.4, 0.5);
   st.lGR = m(0.3, 0.38, 1);
-  st.lRD = m(0.99, 0.62, 1);
+  st.lRD = m(0.99, 0.5, 1);
   st.lRM = m(0.13, 0.3, 1);
   st.lRS = m(0.56, 0.6, 1);
-  st.lDEN = m(0.01, 0.62, 1);
+  st.lDEN = m(0.02, 0.5, 1);
   st.lNEU = m(0.55, 0.62, 1);
-  st.pay = m(0.02, 0.9, 1);
+  st.pay = m(0.03, 0.85, 1);
   st.bound = m(0.12, 0.15, 1);
 }
 
