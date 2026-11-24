@@ -244,5 +244,10 @@
   "smithchart": { "label": "스미스 차트", "color": "#e0c34a" },
   "langmuir": { "label": "랭뮤어 순환", "color": "#2e8fb0" },
   "morsesmale": { "label": "모스-스메일", "color": "#b46ad8" },
-  "systolic": { "label": "수축기 배열", "color": "#d65a5a" }
+  "systolic": { "label": "수축기 배열", "color": "#d65a5a" },
+  "aberration": { "label": "렌즈 수차", "color": "#f4e58c" },
+  "spinice": { "label": "스핀 아이스", "color": "#46e0b4" },
+  "feedback": { "label": "영상 되먹임", "color": "#ff7ae0" },
+  "quantumhall": { "label": "양자 홀 가장자리", "color": "#6aa0ff" },
+  "recurrenceplot": { "label": "재귀 도표", "color": "#c9794a" }
 }
