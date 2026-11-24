@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. The colour of the water, turned from teal-blue at 0 (OKLCH hue 208) through ultramarine and indigo to violet at 1 (308); the foam stays white with a trace of it. It stops short of the warm end, where dark water goes brown on the panel.
 // Knob 2: Wind. How hard it blows: the foam runs down the lines at 0.8 LED a second at 0.4, 4 at the opening 2 and 6 at 3, and the junctions slide down at 0.4, 1.9 and 2.9. In a calm the cells pull weakly and the lines are broad, faint and dusted with stray foam (2.7 LED wide at half height at 0.4); in a blow they are tight and bright (2.5 at 2 and at 3).
-// Knob 3: Cells. The width of one pair of cells, which is the gap between windrows: 6.1 LED at -1 (ten lines across the panel, each 2.2 LED wide at half height), 9.5 at the opening 0 (seven, 2.5 wide), 18.1 at 1 (three and a half, 2.7 wide). The foam is shared among the lines there are, so the fewer they are the heavier each one is.
+// Knob 3: Cells. The width of one pair of cells, which is the gap between windrows: 6.1 LED at -1 (ten lines across the panel, each 2.2 LED wide at half height), 9.5 at the opening 0 (seven, 2.5 wide), 18.1 at 1 (three and a half, 2.7 wide). The exposure follows the number of lines, so a line peaks at about the same 226, 228 and 222 of 255 and is broader the fewer there are.
 // Knob 4: Merging. How often the lines tear and how much they wander. At -1 a new junction is born about once in 50 s, the lines wander 0.3 LED and the arms of a merge meet at 8 degrees; at the opening 0.06 once in 26 s, 0.7 LED and 10 degrees; at 1 once in 11 s, 1.8 LED and 15 degrees, and the panel is a braid of merges and forks.
 
 const W = 64;
