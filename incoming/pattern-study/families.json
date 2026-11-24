@@ -219,5 +219,10 @@
   "cavitation": { "label": "공동 기포", "color": "#38d9d0" },
   "oxidecolor": { "label": "산화막 색", "color": "#d49a3a" },
   "columnarjoint": { "label": "주상절리", "color": "#b8613f" },
-  "engraving": { "label": "선 새김", "color": "#c9d4ff" }
+  "engraving": { "label": "선 새김", "color": "#c9d4ff" },
+  "filmleak": { "label": "필름 빛 샘", "color": "#d195ba" },
+  "bumpchart": { "label": "순위 곡선", "color": "#6364a1" },
+  "epidemic": { "label": "유행병", "color": "#ace8a2" },
+  "colony": { "label": "군체 띠", "color": "#7cab6d" },
+  "pareto": { "label": "파레토 전선", "color": "#a4c485" }
 }
