@@ -50,24 +50,26 @@ function dim(h, s, v, out, o) {
 // Species 0 is the big coral bead, 1 the small aqua one, 2 the medium lime one. Each has its
 // own crossover frequency fc: below it the bead is pulled to the field (positive DEP), above it
 // the bead is pushed away (negative DEP).
-const SP_R = [2.45, 1.5, 1.95];
-const SP_FC = [2.6, 1.4, 2.0];
+const SP_R = [2.3, 1.45, 1.85];
+const SP_FC = [2.7, 1.3, 2.0];
 const SP_HUE = [0.02, 0.47, 0.21];
-const SP_SHARE = [0.2, 0.45, 0.35];
-const NTARGET = 270;        // beads kept in the channel
+const SP_SHARE = [0.15, 0.45, 0.4];
+const NTARGET = 280;        // beads kept in the channel
 const MAXB = 520, PMAX = 9000;
 
 // ---- the physics, in LEDs and seconds -------------------------------------
-const LAM = 5;              // the field E^2 = exp(-d / LAM) falls off this far from a bar edge
+const LAM = 3.6;            // the gradient of E^2, which is the force, falls off this far from a bar edge
+const LAMC = 9;             // the field that lines dipoles up into chains reaches farther
 const HW = 2;               // half the width of a bar
-const A_DEP = 5.2;          // speed the field gives a bead at an edge at full strength, LEDs a second
-const KAPPA = 1.7;          // how hard a pulled bead is held against the flow
+const A_DEP = 6;            // speed the field gives a bead at an edge at full strength, LEDs a second
+const KAPPA = 1.3;          // how hard a pulled bead is held against the flow
 const CCH = 2.2;            // strength of the dipole-dipole chain force
-const DB = 0.35;            // Brownian diffusion, LEDs squared a second
-const WID = 0.3;            // width of the crossover, in frequency units
+const DB = 0.6;             // Brownian diffusion, LEDs squared a second
+const WID = 0.28;           // width of the crossover, in frequency units
 const U0 = 4.6;             // flow speed at the middle of the channel at Flow = 0
 const SUB = 1 / 45;         // one physics step
 const CELL = 11, GX = 6, GY = 14, CUT = 2.2;
+const SRC = 2.4, SRK = 1.4;   // soft repulsion: reach in contact distances, and speed at contact
 const NBAR = 6;
 const LEN = [40, 44, 38, 42, 46, 40];
 
@@ -81,12 +83,13 @@ export function setup(params) {
     x: new Float32Array(MAXB), y: new Float32Array(MAXB), vx: new Float32Array(MAXB), vy: new Float32Array(MAXB),
     sp: new Uint8Array(MAXB), rad: new Float32Array(MAXB), fj: new Float32Array(MAXB), ts: new Float32Array(MAXB),
     tl: new Float32Array(MAXB), fr: new Float32Array(MAXB), tone: new Float32Array(MAXB),
+    ec: new Float32Array(MAXB), nc: new Uint8Array(MAXB), mf: new Float32Array(MAXB), mb: new Float32Array(MAXB), hb: new Float32Array(MAXB), fy: new Float32Array(MAXB),
     e2: new Float32Array(MAXB), nx: new Float32Array(MAXB), ny: new Float32Array(MAXB), sv: new Float32Array(MAXB),
     cs: new Int32Array(GX * GY + 2), cp: new Int32Array(GX * GY + 2), ci: new Int32Array(MAXB), cc: new Int32Array(MAXB),
     pi: new Int32Array(PMAX), pj: new Int32Array(PMAX), np: 0,
-    fo: 0.5 * gauss(), z: gauss(), mw: [0.3 * gauss(), 0.3 * gauss(), 0.3 * gauss()],
+    fo: 0.45 * gauss(), z: gauss(), mw: [0.3 * gauss(), 0.3 * gauss(), 0.3 * gauss()],
     I: [0, 0, 0], sa: [0, 0, 0], cnt: [0, 0, 0],
-    FD: 0.5, f: 2, U: U0,
+    FD: 0.5, f: 2, U: U0, pf: 0.3,
     bar: { ax: nb(), ay: nb(), ux: nb(), uy: nb(), len: nb() },
     hue: -9, col: new Float32Array(32),
     R: new Float32Array(NPX), G: new Float32Array(NPX), B: new Float32Array(NPX),
@@ -107,7 +110,7 @@ function setBars(st, t) {
     for (let kk = 0; kk < 3; kk++) {
       const k = row * 3 + kk;
       const wx = 1.8 * sin((TAU * t) / (41 + 6 * k) + p[12 + k]), wy = 2 * sin((TAU * t) / (53 + 5 * k) + p[18 + k]);
-      const cx = (row === 0 ? 3 + 20 * kk : 61 - 20 * kk) + sl + wx;
+      const cx = (row === 0 ? 1 + 21 * kk : 63 - 21 * kk) + sl + wx;
       const cy = (row === 0 ? 33 : 93) + sy + wy;
       const dx = row === 0 ? sin(al) : -sin(al), dy = cos(al), h = LEN[k] / 2;
       b.ax[k] = cx - dx * h;
@@ -128,16 +131,17 @@ function addBead(st, s, x, y) {
   st.rad[i] = SP_R[s] * (0.93 + 0.14 * Math.random());
   st.fj[i] = 0.08 * gauss();
   st.ts[i] = 0;
-  st.tl[i] = 12 + 45 * Math.random();
+  st.tl[i] = 8 + 30 * Math.random();
   st.fr[i] = 0;
   st.tone[i] = 0.92 + 0.16 * Math.random();
+  st.mf[i] = 1;
   st.vx[i] = 0;
   st.vy[i] = 0;
 }
 function removeBead(st, i) {
   const l = --st.n;
   if (i === l) return;
-  for (const a of [st.x, st.y, st.vx, st.vy, st.sp, st.rad, st.fj, st.ts, st.tl, st.fr, st.tone, st.e2, st.nx, st.ny, st.sv]) a[i] = a[l];
+  for (const a of [st.x, st.y, st.vx, st.vy, st.sp, st.rad, st.fj, st.ts, st.tl, st.fr, st.tone, st.e2, st.nx, st.ny, st.sv, st.mf, st.ec, st.nc]) a[i] = a[l];
 }
 function clearAt(st, x, y, r, ymax) {
   const n = st.n, X = st.x, Y = st.y, R = st.rad;
@@ -151,7 +155,7 @@ function clearAt(st, x, y, r, ymax) {
 // The flow profile across the channel: a parabola with a little slip at the walls.
 const profile = (x) => {
   const w = (x - 32) / 32;
-  return 0.1 + 0.9 * (1 - min(1, w * w));
+  return 0.25 + 0.75 * (1 - min(1, w * w));
 };
 function spawn(st, s) {
   if (st.n >= MAXB - 4) return false;
@@ -180,19 +184,23 @@ function seed(st) {
 // ---- one physics step -----------------------------------------------------
 function simStep(st, d) {
   const t = (st.t += d), k = st.k, p = st.ph;
-  st.fo = ouStep(st.fo, d, 30, 0.5);
+  st.fo = ouStep(st.fo, d, 30, 0.45);
   st.z = ouStep(st.z, d, 40, 1);
   for (let s = 0; s < 3; s++) st.mw[s] = ouStep(st.mw[s], d, 70, 0.3);
   const f = k[1] + st.fo;
   st.f = f;
-  const Fv = 0.7 + 1.5 * k[2];
-  const D = 0.3 + 0.7 * sstep(-1.3, 1.3, st.z);
+  const Fv = 1 + 1.5 * k[2];
+  const D = 0.45 + 0.55 * sstep(-1.3, 1.3, st.z);
   const FD = Fv * D;
   st.FD = FD;
+  const lc = min(0.9, 0.25 + 0.3 * FD);
   const U = U0 * pow(3.5, k[3]) * (1 + 0.2 * sin((TAU * t) / 37 + p[30]) + 0.12 * sin((TAU * t) / 23.3 + p[31]));
   st.U = U;
   setBars(st, t);
-  const { x: X, y: Y, vx: VX, vy: VY, sp, rad: R, fj, ts, tl, fr, e2: E2, nx: NX, ny: NY, sv: SV } = st;
+  const cf0 = 1.6 * (0.6 + 0.4 * sin((TAU * t) / 71 + p[33])), cp0 = -0.3 * t + p[34];
+  const cf1 = 1.1 * (0.6 + 0.4 * sin((TAU * t) / 53 + p[35])), cp1 = 0.23 * t + p[36];
+  const cf2 = 0.8 * (0.6 + 0.4 * sin((TAU * t) / 43 + p[37])), cp2 = -0.4 * t + p[38];
+  const { x: X, y: Y, vx: VX, vy: VY, sp, rad: R, fj, ts, tl, fr, e2: E2, nx: NX, ny: NY, sv: SV, mf: MF, mb: MB, hb: HB, fy: FY, ec: EC, nc: NC } = st;
   const { ax, ay, ux, uy, len } = st.bar;
   let n = st.n;
 
@@ -221,37 +229,39 @@ function simStep(st, d) {
       ny = ux[bk];
       dist = 1e-4;
     }
-    // A bead cannot sit inside a bar: it rests with its centre a third of a radius out from the edge.
-    const rmin = HW + 0.35 * R[i];
-    if (dist < rmin) {
-      px = ax[bk] + bt * ux[bk] + nx * rmin;
-      py = ay[bk] + bt * uy[bk] + ny * rmin;
-      X[i] = px;
-      Y[i] = py;
-      dist = rmin;
-    }
-    const e2 = exp(-(dist - HW) / LAM);
+    // The bars lie flat on the floor, so a bead can be carried over one. E^2 is flat across the bar and falls
+    // off outside its edge; a bead that has been carried inside is nudged out to the nearer edge if it is
+    // pulled and left alone if it is pushed.
+    const out = dist > HW;
+    const e2 = out ? exp(-(dist - HW) / LAM) : 1;
     E2[i] = e2;
+    EC[i] = out ? exp(-(dist - HW) / LAMC) : 1;
     NX[i] = nx;
     NY[i] = ny;
     const s = tanh((SP_FC[sp[i]] + fj[i] - f) / WID);
     SV[i] = s;
     // The force follows the sign of s along the gradient of E^2, which points at the bar.
-    const dep = -s * A_DEP * FD * e2;
+    const dep = out ? -s * A_DEP * FD * e2 : s > 0 ? 0.5 * s * A_DEP * FD : 0;
     let m = 1;
     if (fr[i] > 0) fr[i] -= d;
-    else if (s > 0) m = cl(1 - KAPPA * s * FD * e2, 0, 1);
+    else if (s > 0) m = cl(1 - KAPPA * s * FD * e2 * (NC[i] > 3 ? 0.3 : 1), 0, 1);
     // A bead that has been held for a long time is let go for a few seconds.
     if (m < 0.3) {
       ts[i] += d;
       if (ts[i] > tl[i]) {
         fr[i] = 3 + 6 * Math.random();
         ts[i] = 0;
-        tl[i] = 12 + 45 * Math.random();
+        tl[i] = 8 + 30 * Math.random();
       }
     } else if (ts[i] > 0) ts[i] = max(0, ts[i] - 2 * d);
-    VX[i] = dep * nx;
-    VY[i] = profile(px) * U * m + dep * ny;
+    // A slow cross-flow sways the stream from side to side so that no part of the channel stays empty.
+    const wf = min(1, px / 8, (W - px) / 8);
+    VX[i] = dep * nx + wf * (cf0 * sin(0.06 * py + cp0) + cf1 * sin(0.115 * py + cp1) + cf2 * sin(0.17 * py + cp2));
+    VY[i] = dep * ny;
+    FY[i] = profile(px) * U;
+    MB[i] = m;
+    HB[i] = 0;
+    NC[i] = 0;
   }
 
   // Neighbour grid.
@@ -270,7 +280,7 @@ function simStep(st, d) {
   let np = 0;
   for (let i = 0; i < n; i++) {
     const c0 = cc[i], cx = c0 % GX, cy = (c0 / GX) | 0;
-    const xi = X[i], yi = Y[i], ri = R[i], si = SV[i], ei = E2[i];
+    const xi = X[i], yi = Y[i], ri = R[i], si = SV[i], ei = EC[i];
     for (let gy = max(0, cy - 1); gy <= min(GY - 1, cy + 1); gy++) {
       for (let gx = max(0, cx - 1); gx <= min(GX - 1, cx + 1); gx++) {
         const c = gx + gy * GX, q1 = cs[c + 1];
@@ -283,10 +293,22 @@ function simStep(st, d) {
           if (dd < 1.3 * rs && np < PMAX) {
             PI_[np] = i;
             PJ_[np++] = j;
+            if (dd < 1.15 * rs) {
+              NC[i]++;
+              NC[j]++;
+            }
           }
           const ss = si * SV[j];
-          if (ss > -0.01 && ss < 0.01) continue;
           let qx = dx / rs, qy = dy / rs, rho = dd / rs;
+          // Soft repulsion at a distance: a crowd spreads out instead of heaping.
+          if (rho < SRC) {
+            const w = 1 - rho / SRC, e = 0.5 * (ei + EC[j]), sr = SRK * w * w * (1 - cl(ss * FD * e * 2, 0, 0.9)) / dd;
+            VX[i] += dx * sr;
+            VY[i] += dy * sr;
+            VX[j] -= dx * sr;
+            VY[j] -= dy * sr;
+          }
+          if (ss > -0.01 && ss < 0.01) continue;
           if (rho < 1) {
             qx /= rho;
             qy /= rho;
@@ -294,7 +316,7 @@ function simStep(st, d) {
           }
           // The field direction is the normal of whichever bar is nearer.
           let ex, ey;
-          if (ei >= E2[j]) {
+          if (ei >= EC[j]) {
             ex = NX[i];
             ey = NY[i];
           } else {
@@ -302,7 +324,13 @@ function simStep(st, d) {
             ey = NY[j];
           }
           const qe = qx * ex + qy * ey, r2 = rho * rho, i5 = 1 / (r2 * r2 * rho), i7 = i5 / r2;
-          const tp = 1 - r2 / (CUT * CUT), cw = CCH * FD * 0.5 * (ei + E2[j]) * ss * tp * tp;
+          // Beads that touch along the field direction form a chain, and a chain hangs on whatever holds its end bead.
+          if (ss > 0.02 && rho < 1.2 && qe * qe > 0.8 * r2 && NC[i] < 4 && NC[j] < 4) {
+            const hi = lc * (1 - MF[j]), hj = lc * (1 - MF[i]);
+            if (hi > HB[i]) HB[i] = hi;
+            if (hj > HB[j]) HB[j] = hj;
+          }
+          const tp = 1 - r2 / (CUT * CUT), cw = CCH * FD * 0.5 * (ei + EC[j]) * ss * tp * tp;
           const fx = cw * (6 * qe * ex * i5 - 15 * qe * qe * qx * i7 + 3 * qx * i5);
           const fy = cw * (6 * qe * ey * i5 - 15 * qe * qe * qy * i7 + 3 * qy * i5);
           VX[i] += fx;
@@ -318,7 +346,9 @@ function simStep(st, d) {
   // Move: drift plus Brownian shake, then the hard core and the walls.
   const sg = sqrt(2 * DB * d);
   for (let i = 0; i < n; i++) {
-    let vx = VX[i], vy = VY[i];
+    const mfin = MB[i] * (1 - HB[i]);
+    MF[i] = mfin;
+    let vx = VX[i], vy = VY[i] + FY[i] * mfin;
     const v2 = vx * vx + vy * vy;
     if (v2 > 900) {
       const g = 30 / sqrt(v2);
@@ -345,18 +375,25 @@ function simStep(st, d) {
   // Beads that have left at the bottom go; the inflow is a feedback on the count of each kind.
   const cnt = st.cnt;
   cnt[0] = cnt[1] = cnt[2] = 0;
+  let npd = 0;
   for (let i = n - 1; i >= 0; i--) {
     if (Y[i] > H + R[i] + 1 || !(Y[i] === Y[i])) {
       removeBead(st, i);
       n--;
-    } else cnt[sp[i]]++;
+    } else {
+      cnt[sp[i]]++;
+      if (SV[i] > 0.3) npd++;
+    }
   }
+  // Beads that are pulled onto the bars heap up there, so the channel is kept fuller when they are few.
+  st.pf += (npd / max(1, n) - st.pf) * (1 - exp(-d / 8));
+  const nt = NTARGET * (1 - 0.4 * st.pf);
   const ttr = H / (0.45 * U);
   let wsum = 0;
   const w0 = SP_SHARE[0] * exp(st.mw[0]), w1 = SP_SHARE[1] * exp(st.mw[1]), w2 = SP_SHARE[2] * exp(st.mw[2]);
   wsum = w0 + w1 + w2;
   for (let s = 0; s < 3; s++) {
-    const T = (NTARGET * (s === 0 ? w0 : s === 1 ? w1 : w2)) / wsum, err = T - cnt[s];
+    const T = (nt * (s === 0 ? w0 : s === 1 ? w1 : w2)) / wsum, err = T - cnt[s];
     st.I[s] = cl(st.I[s] + 0.001 * err * d, -3, 6);
     const r = cl(T / ttr + 0.1 * err + st.I[s], 0, 0.12 * NTARGET);
     st.sa[s] = min(3, st.sa[s] + r * d);
