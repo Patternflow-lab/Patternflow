@@ -254,5 +254,10 @@
   "blockspin": { "label": "블록 스핀", "color": "#1defb5" },
   "tafoni": { "label": "벌집 풍화", "color": "#e1d222" },
   "glory": { "label": "글로리", "color": "#5916db" },
-  "fastradio": { "label": "빠른 전파 폭발", "color": "#da71cb" }
+  "fastradio": { "label": "빠른 전파 폭발", "color": "#da71cb" },
+  "nmr": { "label": "핵자기 공명", "color": "#c4016e" },
+  "welllog": { "label": "시추 검층", "color": "#f4fd57" },
+  "electrospinning": { "label": "전기 방사", "color": "#1467ce" },
+  "dielectrophoresis": { "label": "유전영동", "color": "#41e491" },
+  "altimetry": { "label": "위성 고도계", "color": "#ef0447" }
 }
