@@ -40,7 +40,7 @@ function hsv(h, s, v, out, o) {
 // A dim colour on the red-orange-yellow stretch of the wheel reads brown, so it is lifted and paled there.
 function dim(h, s, v, out, o) {
   const c = frac(h), b = c > 0.9 ? sstep(0.9, 0.97, c) : 1 - sstep(0.12, 0.2, c);
-  hsv(h, s * (1 - 0.3 * b), min(1, v * (1 + 0.6 * b * (1 - v))), out, o);
+  hsv(h, s * (1 - 0.5 * b), min(1, v * (1 + 1.1 * b * (1 - v))), out, o);
 }
 
 // The ramp from receiver noise to the strongest signal: level, hue, saturation, value.
@@ -58,15 +58,20 @@ const KEYS = [
 ];
 const LUTN = 512, LMAX = 1.2;
 
+// The noise ground only sways about indigo as the wheel turns, so it never goes brown; from the
+// violet end of the signal up, the ramp takes the whole turn of the wheel.
 function rampAt(L, hue, c) {
   let k = 0;
   while (k < KEYS.length - 2 && L > KEYS[k + 1][0]) k++;
   const a = KEYS[k], b = KEYS[k + 1], f = cl((L - a[0]) / (b[0] - a[0]), 0, 1);
-  dim(a[1] + (b[1] - a[1]) * f + hue, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f, c, 0);
+  const gs = 0.14 * sin(TAU * hue);
+  let dl = hue - gs;
+  dl -= floor(dl + 0.5);
+  dim(a[1] + (b[1] - a[1]) * f + gs + dl * sstep(0.22, 0.58, L), a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f, c, 0);
 }
 const luma = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
 
-// The ground keeps the brightness it has in indigo whatever the hue, or a green ground would glare.
+// The low end of the ramp keeps the brightness it has in indigo whatever the hue.
 function buildLut(lut, hue) {
   const c = [0, 0, 0], c0 = [0, 0, 0];
   for (let i = 0; i < LUTN; i++) {
@@ -185,7 +190,7 @@ export function setup(params) {
     hue: -9, lut: new Float32Array(LUTN * 3),
     gi: new Int32Array(GN).fill(-1e9), gd: new Float32Array(GN * H),
     L: new Float32Array(NPX), R: new Float32Array(NPX), Gc: new Float32Array(NPX), B: new Float32Array(NPX), cov: new Float32Array(NPX),
-    bp: new Float32Array(H), cl: new Float32Array(10 * 22), xg: new Float64Array(H),
+    raw: new Float32Array(H + 2), bp: new Float32Array(H), cl: new Float32Array(10 * 22), xg: new Float64Array(H),
   };
 }
 
@@ -291,10 +296,13 @@ function grainCol(st, i) {
   const s = ((i % GN) + GN) % GN, o = s * H;
   if (st.gi[s] !== i) {
     st.gi[s] = i;
-    for (let y = 0; y < H; y++) {
+    const raw = st.raw;
+    for (let y = -1; y <= H; y++) {
       const h = hash32(i, y);
-      st.gd[o + y] = ((h & 1023) + ((h >>> 10) & 1023) + ((h >>> 20) & 1023)) / 511.5 - 3;
+      raw[y + 1] = ((h & 1023) + ((h >>> 10) & 1023) + ((h >>> 20) & 1023)) / 511.5 - 3;
     }
+    // Each channel leans on its neighbours, so the grain is soft, about 2 LEDs a grain, and a lit grain is not a lone dot.
+    for (let y = 0; y < H; y++) st.gd[o + y] = (raw[y] + 2 * raw[y + 1] + raw[y + 2]) * 0.40824829;
   }
   return o;
 }
@@ -340,7 +348,7 @@ function drawBackground(st, t) {
       const a = cloud[cI * 22 + cj] * (1 - cW) + cloud[(cI + 1) * 22 + cj] * cW;
       const b = cloud[cI * 22 + cj + 1] * (1 - cW) + cloud[(cI + 1) * 22 + cj + 1] * cW;
       const cd = a + (b - a) * cw;
-      L[y * W + x] = 0.24 * bp[y] * gain * (0.6 + 0.8 * cd) * exp(0.38 * gr - 0.07);
+      L[y * W + x] = 0.27 * bp[y] * gain * (0.72 + 0.56 * cd) * exp(0.32 * gr - 0.05);
     }
   }
 }
@@ -418,7 +426,9 @@ export function draw(display, params) {
   drawBackground(st, t);
   drawArcs(st, t);
   for (let o = 0; o < NPX; o++) {
-    const i = cl(floor((L[o] / LMAX) * (LUTN - 1) + 0.5), 0, LUTN - 1) * 3;
+    // Where arcs overlap the level rounds off towards 1.3 instead of flooding to white.
+    const v = L[o], lv = v > 0.8 ? 0.8 + 0.5 * (1 - exp(-(v - 0.8) / 0.5)) : v;
+    const i = cl(floor((lv / LMAX) * (LUTN - 1) + 0.5), 0, LUTN - 1) * 3;
     R[o] = lut[i];
     Gc[o] = lut[i + 1];
     B[o] = lut[i + 2];
@@ -464,7 +474,7 @@ export function draw(display, params) {
   for (let y = 0; y < H; y++) xg[y] = XG + ts * G[y];
   st.cov.fill(0);
   stroke(st.cov, xg);
-  hsv(0.37 + hue, 0.32 + 0.0 * st.tf, 0.96, col, 0);
+  hsv(0.37 + hue, 0.28, 0.95, col, 0);
   const wf = st.tf;
   for (let o = 0; o < NPX; o++) {
     const c = st.cov[o];
