@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Vectorscope
 // Family:  videoscope
-// Idea:    A colourist's two scopes watching a moving picture the panel never shows: a round vectorscope on top where every sampled pixel glows at its own chroma in its own hue, so the sky's violet-rose-peach ramp is an arc, each drifting light a spoke and a hard-edged bar one tight bright cluster, and an RGB parade below where the same pixels stand as red, green and blue traces whose heights split apart as the colour grade wanders, all drawn on phosphor that leaves comet trails.
+// Idea:    A colourist's two scopes watching a moving picture the panel never shows: a round vectorscope above where every sampled pixel lands at its own chroma in its own hue, so the sky is an arc, each drifting light a bar running from the sky's colour out toward the rim and a hard-edged flat bar one tight cluster, and an RGB parade below where the same pixels stand as red, green and blue traces that step, tilt and split apart as the colour grade wanders, both drawn on phosphor that leaves comet trails.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the vectorscope and the waveform monitor as colour-television test instruments (NTSC era, Tektronix, 1950s and 60s, from memory), chroma read as Cb and Cr with the ITU-R BT.709 luma weights 0.2126, 0.7152 and 0.0722 (1990, from memory), the RGB parade as a colourist's display in grading software (from memory), the 75 percent colour-bar targets of the graticule; pattern round 233
+// Lineage: the vectorscope and the waveform monitor as colour-television test instruments (NTSC era, Tektronix, 1950s and 60s, from memory), chroma read as Cb and Cr with the ITU-R BT.709 luma weights 0.2126, 0.7152 and 0.0722 (1990, from memory), the RGB parade as a colourist's display in grading software (from memory), graticule targets at the 75 percent colour bars; pattern round 233
 // Round:   233
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Drift=0.25..3, Grade=-1..1, Glow=-1..1
 //
-// Knob 1: Hue. Turns the chroma of every sampled pixel round the vectorscope, a full turn from 0 to 1 and the same picture again at 1: at 0 the sky arc runs violet to peach, at 0.5 it has swung to green and teal, and the parade traces change height with it.
-// Knob 2: Drift. How fast the lights, the bar and the colour grade wander: 0.25 is an eighth of the opening speed and the scope nearly stands still, 2 is the opening, 3 moves them half as fast again and the clusters sweep and smear.
-// Knob 3: Grade. How hard the colour grade is pushed: at -1 the picture is a third as saturated with no cast, so the cloud sits in the middle and the three parade traces lie together, at 0 it is the opening grade, at 1 the saturation is 1.85 times and the cast 2.3 times, so the cloud is shoved to the rim and the red, green and blue traces split by a third of the parade's height.
-// Knob 4: Glow. How long the phosphor holds a point: 0.08 s at -1 for crisp moving dots, 0.2 s at the opening, 1.5 s at 1 for long luminous streaks.
+// Knob 1: Hue. Turns the chroma of every sampled pixel round the vectorscope, a full turn counter-clockwise from 0 to 1 and the same picture again at 1: at 0 the sky arc runs violet, magenta, red, orange across the top of the scope, at 0.25 it has swung a quarter turn to the left, at 0.5 it hangs in the lower half in yellow, green and cyan, and the parade traces climb and fall with it.
+// Knob 2: Drift. How fast the lights, the bar, the sky's hue and the colour grade move: 0.25 runs them at an eighth of the opening speed so the scope nearly stands still, 2 is the opening where a light crosses the picture in about 10 s and the bar in 20 to 30 s, 3 runs them half as fast again and the clusters sweep and smear.
+// Knob 3: Grade. How hard the colour grade is pushed: at -1 the saturation is 0.3 times the picture's own and there is no cast, so the cloud sits in the middle and the red, green and blue traces lie together, at 0 it is the opening grade with 1.3 times the saturation and a cast of up to 0.12 of full level on each channel, at 1 the saturation is 2.2 times and the cast 2.3 times as large, so the cloud is shoved out to the rim and the three traces split apart by up to half the parade's height.
+// Knob 4: Glow. How long the phosphor holds a point: 0.05 s at -1 for crisp moving dots, 0.2 s at the opening, 1.5 s at 1 for long luminous streaks that also burn brighter.
 
 const W = 64;
 const H = 128;
@@ -62,8 +62,8 @@ const STOPS = [
   [0.03, 0.3, 0.34],
   [0.01, 0.1, 0.16],
 ];
-const STOP_W = [0.1171, 0.1393, 0.0957, 0.1609, 0.1283]; // rad/s of each stop's hue wander
-const STOP_W2 = [0.2367, 0.2149, 0.2811, 0.1937, 0.2591];
+const STOP_W = [0.5171, 0.6393, 0.4957, 0.7109, 0.5683]; // rad/s of each stop's hue wander
+const STOP_W2 = [0.2967, 0.3349, 0.3811, 0.2737, 0.3591];
 // the colour grade: lift and gain of red, green and blue
 const LIFT_W = [
   [0.1293, 0.3231, 0.4, 1.7],
@@ -98,6 +98,11 @@ const LUT = new Float32Array(360 * 3);
     LUT[i * 3 + 2] = cl(bb - top + 1, 0, 1);
   }
 })();
+
+// the random walks: each light's hue (6), each sky stop's hue (5), a nudge on the lift of red, green and blue (3), and where each light sits, x then y (12)
+const OU_SIGMA = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.3, 0.3, 0.3, 0.3, 0.3, 0.05, 0.05, 0.05, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09, 0.09];
+const OU_TAU = 28; // seconds of the video's clock
+const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) * 1.732;
 
 // ---- the graticule, built once
 function buildGraticule() {
@@ -153,40 +158,46 @@ export function setup(P) {
     Bt: new Float32Array(W * H * 3),
     Bb: new Float32Array(W * H * 3),
     grat: buildGraticule(),
-    tau: 0.2,
-    kS: 0.5,
-    kP: 0.09,
+    tau: 0.2, // phosphor persistence in seconds, set from the Glow knob
+    kS: 0.5, // how fast the vectorscope's tone map climbs with density
+    kP: 0.09, // and the parade's
     warm: false,
     bar: null,
-    hue: 0,
     stop: STOPS.map((s) => s.slice()),
     tmp: [0, 0, 0],
+    ou: OU_SIGMA.map((sg) => sg * gauss()), // slow random walks that keep the hues from ever settling into a cycle
+    lc: LIGHTS.map(() => [0, 0, 0]),
   });
   spawnBar(P, true);
+}
+
+// the bar's saturated flat colour at a place on the hue circle
+function barColour(hue, out) {
+  for (let i = 0; i < 3; i++) {
+    const k = ((5 - 2 * i + hue * 6) % 6 + 6) % 6;
+    out[i] = 0.95 - 0.95 * 0.92 * max(0, min(k, 4 - k, 1));
+  }
 }
 
 function spawnBar(P, anywhere) {
   const dir = Math.random() < 0.5 ? -1 : 1;
   const w = 0.14 + 0.16 * Math.random();
-  const h = 0.2 + 0.24 * Math.random();
-  const hue = Math.random();
-  // a saturated flat colour from the hue circle
-  const f = (n) => {
-    const k = (n + hue * 6) % 6;
-    return 0.95 - 0.95 * 0.92 * max(0, min(k, 4 - k, 1));
-  };
   const old = P.bar;
-  const bar = {
+  let hue = Math.random();
+  // not the hue of the bar that has just gone
+  if (old && abs(((hue - old.hue + 1.5) % 1) - 0.5) < 0.2) hue = (hue + 0.4) % 1;
+  P.bar = {
     w,
-    h,
+    h: 0.2 + 0.24 * Math.random(),
     y: 0.12 + 0.76 * Math.random(),
     dir,
     sp: 0.04 + 0.035 * Math.random(),
-    c: [f(5), f(3), f(1)],
+    hue,
+    turn: (Math.random() < 0.5 ? -1 : 1) * (0.03 + 0.03 * Math.random()), // turns of the hue circle a second
+    c: [0, 0, 0],
     x: anywhere ? 0.2 + 0.6 * Math.random() : dir > 0 ? -w * 0.5 - 0.02 : 1 + w * 0.5 + 0.02,
   };
-  if (old && abs(bar.c[0] - old.c[0]) + abs(bar.c[1] - old.c[1]) + abs(bar.c[2] - old.c[2]) < 0.8) bar.c = [bar.c[2], bar.c[0], bar.c[1]];
-  P.bar = bar;
+  barColour(hue, P.bar.c);
 }
 
 // rotate a colour's chroma by th, keeping its luma
@@ -232,8 +243,6 @@ function splat(E, x, y, r, g, b, w) {
   E[o2 + 5] += b * w11;
 }
 
-const wob = (a, T) => 0.55 * sin(a[0] * T + a[2]) + 0.45 * sin(a[1] * T + a[3]);
-
 // ---- one look at the hidden video: sample it, drop every sample on both scopes
 function look(P, d, k, w) {
   const E = P.E;
@@ -249,7 +258,7 @@ function look(P, d, k, w) {
   const gain = [0, 0, 0];
   for (let c = 0; c < 3; c++) {
     const a = LIFT_W[c];
-    lift[c] = 0.12 * cm * (0.55 * sin(a[0] * T + a[2]) + 0.45 * sin(a[1] * T + a[3]));
+    lift[c] = cm * (0.12 * (0.55 * sin(a[0] * T + a[2]) + 0.45 * sin(a[1] * T + a[3])) + P.ou[11 + c]);
     const b = GAIN_W[c];
     gain[c] = 1 + 0.15 * cm * (0.55 * sin(b[0] * T + b[2]) + 0.45 * sin(b[1] * T + b[3]));
   }
@@ -259,7 +268,7 @@ function look(P, d, k, w) {
   // the sky's colours turn slowly
   const stop = P.stop;
   for (let s = 0; s < 5; s++) {
-    const ang = 0.5 * sin(STOP_W[s] * T + s * 1.3) + 0.25 * sin(STOP_W2[s] * T + s * 2.1);
+    const ang = 0.42 * sin(STOP_W[s] * T + s * 1.3) + 0.22 * sin(STOP_W2[s] * T + s * 2.1) + P.ou[6 + s];
     rotRGB(STOPS[s], ang, P.tmp);
     stop[s][0] = P.tmp[0];
     stop[s][1] = P.tmp[1];
@@ -269,13 +278,16 @@ function look(P, d, k, w) {
   const tilt = 0.26 * sin(0.0967 * T + 1.1) + 0.1 * sin(0.2173 * T + 4.0);
   const bph = 0.331 * T;
   // each light at this moment
-  const L = LIGHTS.map((l) => ({
-    x: l.x[0] + l.x[1] * sin(l.x[2] * T + l.x[3]) + l.x[4] * sin(l.x[5] * T + l.x[6]),
-    y: l.y[0] + l.y[1] * sin(l.y[2] * T + l.y[3]) + l.y[4] * sin(l.y[5] * T + l.y[6]),
-    i2: 1 / (2 * l.s * l.s),
-    a: l.a[0] + l.a[1] * sin(l.a[2] * T + l.a[3]),
-    c: l.c,
-  }));
+  const L = LIGHTS.map((l, n) => {
+    rotRGB(l.c, P.ou[n], P.lc[n]);
+    return {
+      x: l.x[0] + l.x[1] * sin(l.x[2] * T + l.x[3]) + l.x[4] * sin(l.x[5] * T + l.x[6]) + P.ou[14 + n],
+      y: l.y[0] + l.y[1] * sin(l.y[2] * T + l.y[3]) + l.y[4] * sin(l.y[5] * T + l.y[6]) + P.ou[20 + n],
+      i2: 1 / (2 * l.s * l.s),
+      a: l.a[0] + l.a[1] * sin(l.a[2] * T + l.a[3]),
+      c: P.lc[n],
+    };
+  });
   const bar = P.bar;
   const ASP = 0.75;
 
@@ -313,9 +325,11 @@ function look(P, d, k, w) {
       }
       if (kk > 0) {
         const t = cl((v - yh) / (1 - yh), 0, 1);
-        const r2 = mix(stop[3][0], stop[4][0], t);
-        const g2 = mix(stop[3][1], stop[4][1], t);
-        const b2 = mix(stop[3][2], stop[4][2], t);
+        // the ground catches a slow ripple, so its band in the parade is not a flat block
+        const rip = 1 + 0.4 * sin(TAU * 1.6 * u + 0.5 * bph + 3.5 * t);
+        const r2 = mix(stop[3][0], stop[4][0], t) * rip;
+        const g2 = mix(stop[3][1], stop[4][1], t) * rip;
+        const b2 = mix(stop[3][2], stop[4][2], t) * rip;
         if (kk >= 1) {
           r = r2;
           gr = g2;
@@ -385,10 +399,10 @@ function look(P, d, k, w) {
   }
 }
 
-// persistence in seconds: 0.08 at -1, 0.2 at the opening 0.06, 1.5 at 1
+// persistence in seconds: 0.05 at -1, 0.2 at the opening 0.06, 1.5 at 1
 function tauOf(k4) {
   const k = cl(k4, -1, 1);
-  return 0.2 * exp((k < 0.06 ? 0.864 : 2.14) * (k - 0.06));
+  return 0.2 * exp((k < 0.06 ? 1.31 : 2.14) * (k - 0.06));
 }
 
 function step(P, d, k) {
@@ -398,11 +412,19 @@ function step(P, d, k) {
   const E = P.E;
   for (let i = 0; i < E.length; i++) E[i] *= a;
   // brighter points as the glow lengthens, but not in step with the glow
-  const w = d * 30 * pow(tau / 0.2, -0.6);
+  const w = d * 30 * pow(tau / 0.2, -0.75);
   look(P, d, k, w);
   // the bar crosses slowly and is replaced when it has gone
   const bar = P.bar;
-  bar.x += bar.dir * bar.sp * d * (cl(k[1], 0.25, 3) / 2);
+  const sp = cl(k[1], 0.25, 3) / 2;
+  bar.x += bar.dir * bar.sp * d * sp;
+  bar.hue += bar.turn * d * sp;
+  barColour(bar.hue, bar.c);
+  // the random walks, pulled back toward nothing with a time constant of OU_TAU
+  const dv = d * sp;
+  const rho = exp(-dv / OU_TAU);
+  const ns = sqrt(1 - rho * rho);
+  for (let i = 0; i < P.ou.length; i++) P.ou[i] = rho * P.ou[i] + ns * OU_SIGMA[i] * gauss();
   if ((bar.dir > 0 && bar.x - bar.w * 0.5 > 1.02) || (bar.dir < 0 && bar.x + bar.w * 0.5 < -0.02)) spawnBar(P, false);
 }
 
