@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Scale Ladder
 // Family:  blockspin
-// Idea:    One critical Ising magnet on a 64 by 32 torus is drawn four times down the panel, as single spins and then as majority blocks of 2 by 2, 4 by 4 and 8 by 8 spins, so the fractal clusters look alike at every scale and each cluster flip rolls through all four bands at once.
+// Idea:    A 256 by 128 Ising magnet just above its critical temperature is seen through a 64 by 32 window four times down the panel, as single spins and then as majority blocks of 2 by 2, 4 by 4 and 8 by 8 spins, so the fractal clusters look alike at every scale and each Wolff cluster flip rolls through all four bands at once.
 // Author:  patternflow-lab
 // Date:    2026-11-24
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,17 +11,15 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Heat=0..4, Pace=-1..1, Stretch=-1..1
 //
-// Knob 1: Hue. Turns the two spin colours round the wheel together. At 0 the up spins are teal and the down spins coral. Over a minute or two the two hues also drift a little towards and away from each other, so the pair never sits on one pair of colours for long.
-// Knob 2: Heat. 0 to 4, opening at 2. The temperature of the magnet as a share of its critical temperature: exactly critical at 0, 1.05 at 2, and 1.42 at 4. Near 0 the clusters are huge and fractal, whole domains turn over at once, and the 8 by 8 band shows the same shapes as the spin band. At 4 the spins are fine speckle that the 2 by 2 band already averages to grey and the coarse bands lose almost all their colour.
-// Knob 3: Pace. -1 to 1, opening at 0. How many spins turn over each second, counted in sweeps of the whole 2048-spin lattice: 0.04 sweeps a second at -1, where one big cluster turns over every few seconds, 0.3 at 0, and 2.4 at 1, where the lattice boils and the flip waves overlap. The slow sideways drift of the window speeds up a little with it.
-// Knob 4: Stretch. -1 to 1, opening at 0.06 where the coupling is the same both ways. At -1 the bonds along the columns are 3.2 times stronger than along the rows and the clusters stand up as vertical stripes; at 1 the bonds along the rows are 2.8 times stronger and the clusters lie down as horizontal stripes. The temperature knob stays relative to the critical point of the stretched lattice, so the picture stays critical as it stretches.
+// Knob 1: Hue. Turns the two spin colours round the wheel together. At 0 the up spins are teal and the down spins coral. Over a minute or two the two hues also drift apart and back: teal towards azure by up to 0.06 of the wheel, coral towards rose by up to 0.07, so the pair never sits on one pair of colours for long.
+// Knob 2: Heat. 0 to 4, opening at 2. The temperature of the magnet as a multiple of its critical temperature: 1.045 at 0, 1.086 at 2 and 1.42 at 4, bent so the first half of the knob stays close to critical. At 0 the clusters are fractal and average about 230 spins, whole domains turn over at once, and the 8 by 8 band shows the same shapes as the spin band. At 4 the spins are fine speckle of about 9 spins a cluster that the 2 by 2 band already averages to grey, and the blocks above it keep almost no colour.
+// Knob 3: Pace. -1 to 1, opening at 0. How fast clusters turn over, counted in sweeps of the whole 32768-spin magnet a second: 0.06 at -1, 0.17 at 0 and 0.48 at 1. At the opening Heat that is about one cluster a second in the window at -1, four at 0 and ten at 1, where the flip flashes overlap and the window boils. The drift of the window over the magnet speeds up with it, from 1.1 to 1.6 LEDs a second.
+// Knob 4: Stretch. -1 to 1, opening at 0.06, where the coupling is the same both ways. At -1 the bonds along the columns are 3.8 times stronger than the bonds along the rows and the clusters stand up as vertical streaks; at 1 the bonds along the rows are 3.2 times stronger and the clusters lie down as horizontal streaks. The temperature stays measured from the critical point of the stretched lattice, which moves with the stretch, so the picture stays just above critical all the way.
 
-const W = 64, H = 128;
 const LW = 256, LH = 128, SH = 8, N = LW * LH; // the magnet: 256 by 128 spins, the panel looks at a window of 64 by 32 of them
 const VW = 64, VH = 32;                        // the window: one band of the panel
-const QCAP = 32768;                  // flips waiting to show
-const { floor, abs, exp, log, sin, min, pow, PI } = Math;
-const TAU = 2 * PI;
+const QCAP = 32768;                            // flips waiting to show
+const { floor, abs, exp, log, cos, min, pow } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const frac = (v) => v - floor(v);
 const sstep = (a, b, x) => {
@@ -115,7 +113,7 @@ export function setup(params) {
     qi: new Int16Array(QCAP), qt: new Float32Array(QCAP), qn: 0,
     px: 0.5, py: 0.5, tau: -1, ratio: -1, kc: 0.44, budget: 0, boost: 0,
     sx: 0, sy: 0,
-    hueUp: 0.5, hueDn: 0.98, gain: 1,
+    hueUp: 0.47, hueDn: 1,
   };
   for (let i = 0; i < N; i++) st.spin[i] = st.shown[i] = Math.random() < 0.5 ? 1 : -1;
   params.sl = st;
@@ -125,7 +123,7 @@ export function setup(params) {
 function readKnobs(st, kv) {
   st.k = [frac(kv[0]), cl(kv[1], 0, 4), cl(kv[2], -1, 1), cl(kv[3], -1, 1)];
   const k = st.k;
-  // Heat 0..4 as T over Tc: a cubic, so the stretch near the critical point is wide.
+  // Heat 0..4 as T over Tc, bent by a power of 3.2 so the low half of the knob stays near critical.
   const tau = 1.045 + 0.375 * pow(k[1] / 4, 3.2);
   const ratio = exp(log(3.5) * (k[3] - 0.06)); // Jx over Jy
   let turned = 0;
@@ -140,7 +138,6 @@ function readKnobs(st, kv) {
   }
   return turned;
 }
-const pow3 = (v) => v * v * v;
 
 export function update(dt, input, params) {
   if (!params.sl) setup(params);
@@ -159,10 +156,12 @@ export function update(dt, input, params) {
   st.t += d;
   const t = st.t;
 
-  // A knob moved: let the lattice relax towards its new temperature quickly, over a few frames.
+  // A knob moved: the magnet gets extra clusters over the next frames so it reaches its new
+  // temperature in about a second instead of in many.
   if (turned > 0.004) st.boost = min(st.boost + N * (1 + 5 * min(1, turned)), 12 * N);
 
-  // How many spins turn over this frame.
+  // How many spins turn over this frame. A big cluster runs the budget below zero, so the frames
+  // after it are quiet, and the long run of flips stays at the pace the knob names.
   const rate = 0.06 * pow(8, 0.5 * (k[2] + 1)); // sweeps of the whole magnet a second: 0.06, 0.17 and 0.48
   st.budget += rate * N * d;
   const extra = min(st.boost, N * 0.5);
@@ -193,13 +192,15 @@ export function update(dt, input, params) {
   if (st.sx >= LW) st.sx -= LW;
   if (st.sy >= LH) st.sy -= LH;
 
-  // The two spin hues wander in opposite directions on periods that do not divide one another.
-  const wan = 0.045 * sin(t * 0.0377) + 0.03 * sin(t * 0.0913) + 0.01 * sin(t * 0.2113);
-  st.hueUp = 0.47 + k[0] + wan;
-  st.hueDn = 0.985 + k[0] - wan;
+  // The two spin hues wander in opposite directions on periods that do not divide one another:
+  // the up spins from teal towards azure by up to 0.06 of the wheel, the down spins from coral
+  // towards rose by up to 0.07. They only go that way, so they never pass through green or orange.
+  const apart = 0.3 * (1 - cos(t * 0.0377)) + 0.2 * (1 - cos(t * 0.0913));
+  st.hueUp = 0.47 + k[0] + 0.06 * apart;
+  st.hueDn = 1.0 + k[0] - 0.07 * apart;
 }
 
-const upCol = new Float32Array(3), dnCol = new Float32Array(3), tmp = new Float32Array(3);
+const col = new Float32Array(3), tmp = new Float32Array(3);
 
 // One cell: m is the mean spin of its block (-1..1), g the mean of the flip glow.
 function paint(st, m, g, out, o) {
@@ -222,8 +223,9 @@ export function draw(display, params) {
   for (let b = 0; b < 4; b++) {
     const B = 1 << b, nx = VW / B, ny = VH / B, y0 = b * VH;
     // Weights of the B + 1 spins a block reaches over with the window moved by a part of a spin.
-    // Single spins hold their place and change over quickly; the blocks glide.
-    const bx = b === 0 ? sstep(0.3, 0.7, fx) : fx, by = b === 0 ? sstep(0.3, 0.7, fy) : fy;
+    // Single spins step a whole spin at a time, because a half step would darken every domain wall;
+    // the blocks glide, since a block's mean changes smoothly as the window moves.
+    const bx = b === 0 ? (fx < 0.5 ? 0 : 1) : fx, by = b === 0 ? (fy < 0.5 ? 0 : 1) : fy;
     for (let j = 0; j <= B; j++) {
       wx[j] = (j === 0 ? 1 - bx : j === B ? bx : 1) / B;
       wy[j] = (j === 0 ? 1 - by : j === B ? by : 1) / B;
@@ -241,12 +243,12 @@ export function draw(display, params) {
             g += ww * glow[idx];
           }
         }
-        paint(st, m, g, upCol, 0);
+        paint(st, m, g, col, 0);
         for (let i = 0; i < B; i++) {
           const y = y0 + cy * B + i;
           for (let j = 0; j < B; j++) {
             const f = (i === B - 1 || j === B - 1) ? gap : 1;
-            display.setPixel(cx * B + j, y, upCol[0] * f * 255, upCol[1] * f * 255, upCol[2] * f * 255);
+            display.setPixel(cx * B + j, y, col[0] * f * 255, col[1] * f * 255, col[2] * f * 255);
           }
         }
       }
