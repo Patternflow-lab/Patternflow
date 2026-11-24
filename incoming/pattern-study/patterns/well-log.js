@@ -104,7 +104,7 @@ function buildStatic(st, hue) {
     }
   };
   const GRID = [52, 46, 48], GRIDL = [26, 23, 25], RULEC = [92, 84, 94];
-  for (const t of [1, 3]) for (const p of [0.25, 0.5, 0.75]) vline(TX[t] + px(t, p) + 0.0, GRID);
+  for (const t of [1, 3]) for (const p of [0.25, 0.5, 0.75]) vline(TX[t] + px(t, p), GRID);
   // The resistivity track is on log paper: a decade every quarter of the track, the 2 and the 5 between.
   for (let d = 0; d < 4; d++) {
     const p0 = d * 0.25;
@@ -119,8 +119,8 @@ function buildStatic(st, hue) {
 const SS = 0, SH = 1, LS = 2, DO = 3, CO = 4, SA = 5, AS = 6;
 // Bed means and spreads of the six curves, as a share of the track: gamma ray, deep, medium and
 // shallow resistivity on the log scale, density, neutron (the neutron scale runs the other way, so
-// a high porosity sits at the left like a low density). Coal is off the scale to the left in both
-// porosity curves and salt is off to the right in the neutron.
+// a high porosity sits at the left like a low density). Coal is off the scale to the left in density
+// and neutron both, and salt is off to the right in the neutron.
 const LP = [
   [[0.14, 0.06], [0.1, 0.03], [0.2, 0.03], [0.36, 0.04], [0.37, 0.05], [0.38, 0.05]],     // sandstone, water filled
   [[0.8, 0.07], [0.26, 0.03], [0.26, 0.02], [0.25, 0.02], [0.62, 0.04], [0.28, 0.04]],    // shale
@@ -233,7 +233,6 @@ function newBed(st, n) {
 }
 
 const REF = LP[SH];
-const SIG = [0.05, 0.045, 0.012, 0.01, 0.012, 0.04, 0.04];
 function genSample(st, n) {
   let bed = st.bed;
   if (n >= bed.b) bed = newBed(st, n);
@@ -263,12 +262,12 @@ function genSample(st, n) {
   v[1] -= 0.1 * pa * ar[7]; v[2] -= 0.1 * pa * ar[7]; v[3] -= 0.1 * pa * ar[7];
   v[4] -= 0.09 * pa * ar[7]; v[5] -= 0.09 * pa * ar[7];
   v[5] += 0.11 * ar[9];
-  v[0] += SIG[0] * ar[0];
-  v[1] += SIG[1] * ar[1] + 0.012 * ar[2];
-  v[2] += SIG[1] * ar[1] + 0.01 * ar[3];
-  v[3] += SIG[1] * ar[1] + 0.012 * ar[4];
-  v[4] += SIG[5] * ar[5];
-  v[5] += SIG[6] * (0.55 * ar[5] + 0.83 * ar[6]);
+  v[0] += 0.05 * ar[0];
+  v[1] += 0.045 * ar[1] + 0.012 * ar[2];
+  v[2] += 0.045 * ar[1] + 0.01 * ar[3];
+  v[3] += 0.045 * ar[1] + 0.012 * ar[4];
+  v[4] += 0.04 * ar[5];
+  v[5] += 0.04 * (0.55 * ar[5] + 0.83 * ar[6]);
   const idx = n & MASK, o = idx * NP, raw = st.RAW, sg = lith === SS ? pow(s, 1.5) : 0;
   for (let k = 0; k < 6; k++) raw[o + k] = v[k];
   for (let k = 0; k < 5; k++) raw[o + 6 + k] = bed.dl[k] * sg;
