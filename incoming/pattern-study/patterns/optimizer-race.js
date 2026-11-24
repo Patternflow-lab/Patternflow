@@ -1,0 +1,583 @@
+// ===== Patternflow pattern =====
+// Title:   Optimizer Race
+// Family:  optimizer
+// Idea:    Five optimizers run down one drifting landscape of tinted elevation bands, each leaving a glowing comet trail: gradient descent zig-zags across the narrow valley and crawls along it, momentum overshoots and rings round the valley floor, Nesterov rings less, RMSProp and Adam rescale each axis and cut straight along it, while the valley bends, the basins deepen and merge and every racer that settles or leaves the panel fades and starts again somewhere else.
+// Author:  patternflow-lab
+// Date:    2026-11-22
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Lineage: gradient descent (Augustin-Louis Cauchy, 1847), momentum (Boris Polyak, 1964), Nesterov accelerated gradient (1983), RMSProp (Geoffrey Hinton, 2012), Adam (Diederik Kingma and Jimmy Ba, 2014), on test surfaces in the manner of Rosenbrock (1960), pattern round 223
+// Round:   223
+// ===============================
+// @matrix 64x128
+// @knobs Hue=0..1, Rate=0..3, Relief=-1..1, Noise=-1..1
+//
+// Knob 1: Hue. Turns the bands and the five racers round the colour wheel together, so the racers keep their place against the ground. At 0 the lowlands are deep blue-teal, then sea green, olive and sand, amber and rust, with brown-rose on the high ground and a pale rose peak now and then; the racers are pink (gradient descent), violet (momentum), azure (Nesterov), lemon (RMSProp) and white (Adam). At 0.25 the valley is violet on a green plain, at 0.5 maroon on pale blue, at 0.75 dark green on pink, and at 1 it is back where it began.
+// Knob 2: Rate. The learning rate of all five at once, 0.25 times 4 to the power Rate / 2: a quarter at 0, a half at 1, one at 2 (where it opens), two at 3. Gradient descent steps by the rate times 1.9 over the stiffness of the valley across it, so at 2 it sits just inside the limit of stability, a zig-zag across the floor that takes about twenty steps to die, and above 2.1 it does not converge any more and swings from wall to wall, clipped at 4 LEDs a step. Momentum and Nesterov use 0.26 and 0.34 over the same stiffness (they pile steps up, 0.95 of the last step is kept), RMSProp and Adam step 1.2 and 2.2 LEDs times the rate. Along the valley, over a run's first 3 s, they make about 3 to 6 LEDs a second at 0 (gradient descent slowest), 11 (gradient descent) to 20 (Nesterov, Adam) at 2, and at 3 gradient descent and RMSProp 15 while momentum, Nesterov and Adam make 28 to 32. At 2 momentum rings across the floor in a wave 20 to 30 LEDs long that takes a few seconds to die. The ground drifts with the same clock, 0.85 as fast at 0 and 1.2 times as fast at 3.
+// Knob 3: Relief. How narrow and how rugged the ground is. The valley is a trench 2 sigma across its floor, 10 LEDs at -1, 5.5 at 0 (where it opens) and 3 at 1, with walls that climb 0.040, 0.046 and 0.052 a LED, so the stiffness across rises 4.3 times and gradient descent, which scales its rate to it, crawls about 4 times slower at 1 than at -1 while RMSProp and Adam do not care. The three wells are 1.1 times as deep at -1, 0.83 at 0 and 0.55 at 1, the two ridges 0.65, 1 and 1.35 times as high. At -1 the contours are wide and calm, at 1 they crowd round a narrow canyon with steeper ridges beside it.
+// Knob 4: Noise. How much the gradients the racers read are shaken, the stochastic part of stochastic gradient descent. The level is ((Noise + 1) / 2) squared: 0 at -1, 0.06 at -0.5, 0.25 at 0, 0.28 at 0.06 (the opening), 1 at 1. It does two things. It adds a white shake of 0.007 times the level to each axis of every gradient, and it raises five slow travelling ripples, 13 to 22 LEDs long, out of the ground, 0.03 times the level high each, so the contours wobble and the racers feel their slope: at level 1 the noise is about 0.02 a LED against a floor slope of 0.005 to 0.009 and a wall slope of 0.05. At -1 the paths are the clean curves; at the opening they shiver by a fraction of a LED; at 1 gradient descent and momentum wander along the valley and loop out of it, while RMSProp and Adam, which divide by the noise they hear, still go on in a jittery line.
+
+// What the picture is. A map of a height h(x, y), 64 by 128 LEDs, tinted as a hypsometric map is: twelve flat bands from deep blue-teal in
+// the lowest ground through sea green, olive, sand, amber and rust to rose on the heights, the tops eased so the pale rose is a peak and
+// not a plain. A band edge is a contour, anti-aliased over one LED, with no line drawn on it. The ground is a sum. The valley is a
+// pseudo-Huber trench wall = A (sqrt(s^2 + d^2) - s) round a centre line x = c(y) (a sine of 140 to 210 LEDs plus a 3 LED travelling
+// ripple), d the distance across: stiff across (curvature A / s), shallow along, the Rosenbrock shape, its walls levelling off to a plateau.
+// A parabolic tilt drains it toward a basin that slides up and down the panel. Beside it the plateau has three anisotropic Gaussian
+// wells, two ridges, three broad swells and four knolls and dips, all rotated and scaled on periods of 40 to 165 s of the ground's own clock (it runs about twice as fast as the panel's,
+// and the periods do not divide one another), so pools deepen, fade and wander through each other and the contours flow for as long as it runs; these terms fade out toward
+// the valley floor (gone within s + 1 LED of the axis, whole by s + 13) so the valley stays a valley. The sum is compressed
+// (u / (1 + u / 2.6)), stretched about the plateau by 1.3, and a slow sea level lifts and lowers it all while the whole ground leans a little east, then west. The smooth part is evaluated on a
+// lattice 2 LEDs apart (33 by 65, bilinear), the valley per LED.
+//
+// Five racers each run one update rule on the true gradient, read analytically, 15 iterations a second (the comet is interpolated
+// between iterations at 30 frames a second):
+//   gradient descent   x <- x - lr g                                                   (Cauchy)
+//   momentum           v <- 0.95 v - lr g ; x <- x + v                                 (Polyak's heavy ball)
+//   Nesterov           v <- 0.95 v - lr g(x + 0.95 v) ; x <- x + v                     (gradient read where the step is about to land)
+//   RMSProp            s <- 0.9 s + 0.1 g^2 ; x <- x - a g / (sqrt(s) + e)             (per axis)
+//   Adam               m <- 0.9 m + 0.1 g ; s <- 0.99 s + 0.01 g^2 ; x <- x - a m^ / (sqrt(s^) + e)   (bias-corrected, per axis)
+// A step is clipped to 4 LEDs so none of them blows up. Each racer is always the same optimizer in its own colour. A racer is a comet: a
+// head 4 LEDs across with a white-hot core and a dark halo, and behind it a path about 4 LEDs wide, drawn into a buffer of its own that
+// fades with a time constant of 4.2 s while its soft edges erode, so the tail thins as it dims, over a soft dark halo so it reads on any
+// band. A racer is done when it has stayed inside a few LEDs for 2.4 s, or the gradient it feels has been tiny, or it has run its 18 to 32 s,
+// or it has left the panel; it fades in a second, waits 0.4 to 2.3 s and starts again. Starts: upstream on the valley floor, 28 to 78 LEDs
+// from its lowest point and a little off the axis (78 in 100), or the highest of eight random spots on a slope. Racers that start within 6 s
+// of each other start within 3 LEDs of the same place, so there is often a real race. They begin staggered, and the first update runs 10 s
+// of the race with the knobs it is given, so the first frame has comets and trails on the ground.
+
+const W = 64, H = 128, NPX = W * H;
+const { floor, sqrt, abs, exp, sin, cos, PI, min, max, pow } = Math;
+const TAU = 2 * PI;
+const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
+const sm = (a, b, v) => {
+  const t = cl((v - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
+};
+
+// ---- colours: bands and racers, as HSV, turned together by Hue
+const NB = 12;
+const BANDS = [
+  [0.57, 0.80, 0.42], [0.535, 0.72, 0.50], [0.49, 0.62, 0.57], [0.42, 0.50, 0.64], [0.32, 0.40, 0.70], [0.20, 0.32, 0.78],
+  [0.13, 0.29, 0.88], [0.095, 0.42, 0.90], [0.065, 0.48, 0.80], [0.04, 0.50, 0.68], [0.025, 0.36, 0.62], [0.97, 0.10, 0.93],
+]; // hue, saturation, value, lowest ground first
+const RACERS = [
+  [0.915, 0.80, 1.0], // gradient descent
+  [0.76, 0.62, 1.0], // momentum
+  [0.60, 0.66, 1.0], // Nesterov
+  [0.165, 0.80, 1.0], // RMSProp
+  [0.0, 0.0, 1.0], // Adam
+];
+function hsv(h, s, v, out, o) {
+  h -= floor(h);
+  const i = floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - s * f), t = v * (1 - s * (1 - f));
+  let r, g, b;
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    default: r = v; g = p; b = q;
+  }
+  out[o] = r * 255; out[o + 1] = g * 255; out[o + 2] = b * 255;
+}
+
+// ---- the ground
+const NG = 13; // 0-2 wells, 3 the basin at the valley's end, 4-5 ridges, 6-8 broad swells, 9-12 knolls and dips
+const HS = 2.6;
+const DW = 1.3; // the walls of the valley level off toward a plateau of about this height
+const HLO = 0.0, HHI = 1.08;
+const BAND_SCALE = NB / (HHI - HLO);
+const CGAIN = 1.3, CMID = 0.5; // contrast about the plateau, so the bands are used from end to end (the slope the racers feel is not touched)
+const HOFF = 0.1;
+// each term: depth or height, sigma along, sigma across, angle (wells also the side of the valley); then how it wanders:
+// reach, swing, period (s) in x, reach and period in y, two phases
+const WELL = [[0.2, 4.5, 7, 0.6, 1], [0.18, 5.5, 6.5, -0.9, -1], [0.16, 6.5, 9, 1.4, 1]];
+const WELL_MOVE = [[22, 8, 83.1, 46, 117.3, 0.4, 2.2], [23, 8, 61.7, 40, 97.9, 3.3, 5.0], [25, 9, 143.7, 56, 71.3, 1.2, 4.1]];
+const RIDGE = [[0.42, 5, 15, 0.9], [0.38, 7.5, 12, -0.5]];
+const RIDGE_MOVE = [[22, 109.3, 40, 151.9, 0.9, 3.6], [18, 77.9, 48, 63.7, 4.4, 1.7]];
+const SWELL = [[0.4, 17], [-0.3, 21], [0.32, 14]];
+const SWELL_MOVE = [[26, 131.3, 52, 89.9, 2.4, 0.3], [22, 97.1, 48, 149.3, 5.5, 3.9], [28, 73.7, 56, 113.9, 1.1, 5.2]];
+const KNOLL = [[0.16, 8.5], [-0.14, 10], [0.18, 7.5], [-0.12, 9.5]];
+const KNOLL_MOVE = [[24, 47.3, 50, 61.7, 0.2, 1.9], [26, 39.1, 46, 53.3, 3.1, 4.4], [22, 59.9, 54, 43.7, 5.2, 0.7], [27, 51.7, 44, 67.1, 2.3, 3.5]];
+
+// the minibatch ripple: five travelling waves of 13 to 22 LEDs that the Noise knob raises out of the ground
+const RIP = [[14.1, 0.3, 2.3, 0.4], [17.3, 1.1, -1.9, 2.6], [21.7, 1.9, 2.9, 4.1], [12.9, 2.8, -2.6, 1.2], [15.9, 3.6, 2.1, 5.3]]; // wavelength, direction, rate (rad/s), phase
+const NRIP = RIP.length;
+
+function prepSurface(S, tm, k3, k4) {
+  S.rip = k4 * 0.03;
+  for (let k = 0; k < NRIP; k++) {
+    const r = RIP[k], kk = TAU / r[0];
+    S.rkx[k] = kk * cos(r[1]); S.rky[k] = kk * sin(r[1]);
+    S.rph[k] = r[3] + r[2] * S.t;
+  }
+  S.sig = 5 * pow(0.3, k3);
+  S.wallA = 0.04 + 0.012 * k3;
+  S.ac = 13 + 7 * sin((TAU * tm) / 101.3 + 0.7);
+  S.hoff = HOFF + 0.1 * sin((TAU * tm) / 173.3 + 1.1) + 0.06 * sin((TAU * tm) / 89.7 + 4.2); // the sea level, as it were, rises and falls under the bands
+  S.ew = 0.12 * sin((TAU * tm) / 77.3 + 0.9) + 0.06 * sin((TAU * tm) / 131.1 + 3.4); // and the whole ground leans a little east, then west
+  S.ly = 175 + 35 * sin((TAU * tm) / 163.1 + 2.0);
+  S.ys = 24 + 22 * sin((TAU * tm) / 137.9 + 4.1);
+  S.lb = 43 + 8 * sin((TAU * tm) / 89.7 + 1.2);
+  S.bph = (TAU * tm) / 57.7;
+  S.ym = 64 + 38 * sin((TAU * tm) / 113.1 + 1.3) + 14 * sin((TAU * tm) / 71.9 + 0.2);
+  S.fl = 0.36 + 0.07 * sin((TAU * tm) / 127.7 + 2.7);
+  const wm = 1.1 - 0.55 * k3, hm = 0.65 + 0.7 * k3;
+  for (let k = 0; k < NG; k++) {
+    let cx, cy, amp, sx, sy, ang;
+    if (k < 3) {
+      const m = WELL_MOVE[k], w = WELL[k];
+      cy = 64 + m[3] * sin((TAU * tm) / m[4] + m[6]);
+      cx = xcOf(S, cy) + w[4] * (m[0] + m[1] * sin((TAU * tm) / m[2] + m[5]));
+      amp = -w[0] * wm * (0.68 + 0.32 * sin((TAU * tm) / (47.3 + 9 * k) + 1.9 * k));
+      sx = w[1] * (1 + 0.22 * sin((TAU * tm) / (53.9 + 7 * k) + k));
+      sy = w[2] * (1 + 0.22 * sin((TAU * tm) / (69.3 + 11 * k) + 2 * k));
+      ang = w[3] + 0.5 * sin((TAU * tm) / (91.7 + 13 * k) + 3 * k);
+    } else if (k === 3) {
+      cy = S.ym;
+      cx = xcOf(S, cy);
+      amp = -0.1 * wm;
+      sx = 5; sy = 7; ang = 0;
+    } else if (k >= 9) {
+      const j = k - 9, m = KNOLL_MOVE[j], w = KNOLL[j];
+      cx = 32 + m[0] * sin((TAU * tm) / m[1] + m[4]);
+      cy = 64 + m[2] * sin((TAU * tm) / m[3] + m[5]);
+      amp = w[0] * (0.7 + 0.3 * sin((TAU * tm) / (41.3 + 11 * j) + 2.1 * j));
+      sx = w[1]; sy = w[1] * (1.2 + 0.2 * j); ang = 1.1 * j + 0.8 * sin((TAU * tm) / (77.9 + 9 * j));
+    } else if (k >= 6) {
+      const j = k - 6, m = SWELL_MOVE[j], w = SWELL[j];
+      cx = 32 + m[0] * sin((TAU * tm) / m[1] + m[4]);
+      cy = 64 + m[2] * sin((TAU * tm) / m[3] + m[5]);
+      amp = w[0] * (0.75 + 0.25 * sin((TAU * tm) / (87.1 + 23 * j) + 1.7 * j));
+      sx = w[1]; sy = w[1] * 1.35; ang = 0.7 * j + 0.6 * sin((TAU * tm) / (131.9 + 17 * j));
+    } else {
+      const j = k - 4, m = RIDGE_MOVE[j], w = RIDGE[j];
+      cx = 32 + m[0] * sin((TAU * tm) / m[1] + m[4]);
+      cy = 64 + m[2] * sin((TAU * tm) / m[3] + m[5]);
+      amp = w[0] * hm * (0.7 + 0.3 * sin((TAU * tm) / (58.3 + 17 * j) + 2.3 * j));
+      sx = w[1] * (1 + 0.2 * sin((TAU * tm) / (73.1 + 5 * j) + j));
+      sy = w[2] * (1 + 0.2 * sin((TAU * tm) / (81.7 + 9 * j) + 4 * j));
+      ang = w[3] + 0.6 * sin((TAU * tm) / (109.7 + 21 * j) + 5 * j);
+    }
+    S.gcx[k] = cx; S.gcy[k] = cy; S.ga[k] = amp;
+    S.gc[k] = cos(ang); S.gs[k] = sin(ang);
+    S.gix[k] = 1 / (sx * sx); S.giy[k] = 1 / (sy * sy);
+  }
+}
+
+function xcOf(S, y) {
+  return 32 + S.ac * sin((TAU * (y - S.ys)) / S.ly) + 3 * sin((TAU * y) / S.lb + S.bph);
+}
+
+// the height at (x, y) and, in S.gx, S.gy, its slope
+function fieldGrad(S, x, y) {
+  const a1 = (TAU * (y - S.ys)) / S.ly, a2 = (TAU * y) / S.lb + S.bph;
+  const xc = 32 + S.ac * sin(a1) + 3 * sin(a2);
+  const dxc = ((S.ac * TAU) / S.ly) * cos(a1) + ((3 * TAU) / S.lb) * cos(a2);
+  const d = x - xc, sg = S.sig, rr = sqrt(sg * sg + d * d);
+  const wl = S.wallA * (rr - sg), wd = DW / (DW + wl), wf = wd * wd;
+  let u = DW * wl / (DW + wl) + S.hoff;
+  let ux = ((S.wallA * d) / rr) * wf, uy = -ux * dxc;
+  const fy = (y - S.ym) * (1 / 64);
+  u += S.fl * fy * fy + S.ew * (x - 32) * (1 / 32);
+  ux += S.ew * (1 / 32);
+  uy += (2 * S.fl * fy) / 64;
+  let v = 0, vx = 0, vy = 0;
+  for (let k = 0; k < NG; k++) {
+    const dx = x - S.gcx[k], dy = y - S.gcy[k], c = S.gc[k], s = S.gs[k];
+    const uu = c * dx + s * dy, vv = -s * dx + c * dy;
+    const q = uu * uu * S.gix[k] + vv * vv * S.giy[k];
+    if (q > 24) continue;
+    const e = S.ga[k] * exp(-0.5 * q);
+    const gu = -e * uu * S.gix[k], gv = -e * vv * S.giy[k];
+    if (k === 3) {
+      u += e;
+      ux += c * gu - s * gv;
+      uy += s * gu + c * gv;
+    } else {
+      v += e;
+      vx += c * gu - s * gv;
+      vy += s * gu + c * gv;
+    }
+  }
+  {
+    // the faded sum: m(|d|) times the terms, and the slope of m itself
+    const ad = abs(d), t = cl((ad - sg - CLEAR0) / (CLEAR1 - CLEAR0), 0, 1), m = t * t * (3 - 2 * t);
+    const dm = t > 0 && t < 1 ? ((6 * t * (1 - t)) / (CLEAR1 - CLEAR0)) * (d < 0 ? -1 : 1) : 0;
+    u += v * m;
+    ux += vx * m + v * dm;
+    uy += vy * m - v * dm * dxc;
+  }
+  if (S.rip > 0) {
+    for (let k = 0; k < NRIP; k++) {
+      const th = S.rkx[k] * x + S.rky[k] * y + S.rph[k], sn = S.rip * sin(th);
+      u += S.rip * cos(th);
+      ux -= S.rkx[k] * sn;
+      uy -= S.rky[k] * sn;
+    }
+  }
+  if (u > 0) {
+    const den = 1 / (1 + u / HS);
+    S.gx = ux * den * den;
+    S.gy = uy * den * den;
+    return u * den;
+  }
+  S.gx = ux;
+  S.gy = uy;
+  return u;
+}
+
+// The smooth part of the ground (wells, ridges, swells, tilt, ripple) on a lattice 2 LEDs apart, 33 by 65 points;
+// the valley, the one thing narrower than that, is added per LED in raster().
+const GW = 33, GH = 65;
+const CLEAR0 = 1, CLEAR1 = 13; // the wells, ridges and swells fade out toward the valley floor, so the valley stays the valley
+function lattice(S) {
+  const gl = S.gl, rip = S.rip, sg = S.sig;
+  for (let j = 0; j < GH; j++) {
+    const yy = 2 * j, xc = xcOf(S, yy);
+    const fy = (yy - S.ym) * (1 / 64), base = S.fl * fy * fy;
+    for (let k = 0; k < NG; k++) {
+      const dy = yy - S.gcy[k], c = S.gc[k], s = S.gs[k];
+      S.ucs[k] = s * dy - c * S.gcx[k];
+      S.vcs[k] = c * dy + s * S.gcx[k];
+    }
+    for (let i = 0; i < GW; i++) {
+      const xx = 2 * i;
+      let u = base + S.ew * (xx - 32) * (1 / 32), v = 0;
+      for (let k = 0; k < NG; k++) {
+        const uu = S.gc[k] * xx + S.ucs[k], vv = S.vcs[k] - S.gs[k] * xx;
+        const q = uu * uu * S.gix[k] + vv * vv * S.giy[k];
+        if (q < 24) { if (k === 3) u += S.ga[k] * exp(-0.5 * q); else v += S.ga[k] * exp(-0.5 * q); }
+      }
+      u += v * sm(sg + CLEAR0, sg + CLEAR1, abs(xx - xc));
+      if (rip > 0) for (let k = 0; k < NRIP; k++) u += rip * cos(S.rkx[k] * xx + S.rky[k] * yy + S.rph[k]);
+      gl[j * GW + i] = u;
+    }
+  }
+}
+
+// the whole panel, into S.hgt
+function raster(S) {
+  lattice(S);
+  const hgt = S.hgt, gl = S.gl, sg = S.sig, A = S.wallA;
+  for (let y = 0; y < H; y++) {
+    const yc = y + 0.5, xc = xcOf(S, yc);
+    const gy = yc * 0.5, j0 = gy | 0, fj = gy - j0, o0 = j0 * GW, o1 = o0 + GW;
+    const row = y * W;
+    for (let x = 0; x < W; x++) {
+      const xx = x + 0.5, d = xx - xc;
+      const wl = A * (sqrt(sg * sg + d * d) - sg);
+      const gx = xx * 0.5, i0 = gx | 0, fi = gx - i0;
+      const top = gl[o0 + i0] + (gl[o0 + i0 + 1] - gl[o0 + i0]) * fi, bot = gl[o1 + i0] + (gl[o1 + i0 + 1] - gl[o1 + i0]) * fi;
+      const u = S.hoff + (DW * wl) / (DW + wl) + top + (bot - top) * fj;
+      hgt[row + x] = u > 0 ? u / (1 + u / HS) : u;
+    }
+  }
+}
+
+// ---- the racers
+const IT_HZ = 15; // iterations a second; the drawn comet is interpolated between iterations
+const IT_DT = 1 / IT_HZ;
+const BETA = 0.95;
+const MAXSTEP = 4;
+const NOISE0 = 0.007;
+// gradient descent, momentum, Nesterov: the learning rate times the stiffness of the valley across (A / sigma); RMSProp, Adam: LEDs a step; all at Rate 1
+const LR = [1.9, 0.26, 0.34, 1.2, 2.2];
+const EPS = 0.0015;
+const TAU_T = 4.2; // seconds a trail takes to fade to a third
+const ERODE = 0.0035; // taken off a trail every frame, so its soft edges go first and the tail thins as it fades
+const TR = 1.9; // radius of the trail's solid part, LEDs
+
+function gauss() {
+  return Math.random() + Math.random() + Math.random() - 1.5;
+}
+
+function makeRacer(id) {
+  return {
+    id, phase: 0, wait: 0.3 + id * 2.4 + Math.random() * 2.2, age: 0, life: 24, ha: 0,
+    x: 0, y: 0, px: 0, py: 0, dx: 0, dy: 0, vx: 0, vy: 0, mx: 0, my: 0, sx: 0, sy: 0, n: 0, ge: -1, ox: 0, oy: 0, oage: 0, still: 0,
+    cv: new Float32Array(NPX), hl: new Float32Array(NPX), bx0: 1, bx1: 0, by0: 1, by1: 0, lx: 0, ly: 0, has: false, idle: 0,
+  };
+}
+
+function makeState() {
+  return {
+    ready: false, t: 0, tm: 0, acc: 0, kn: [0, 2, 0, 0.06],
+    sig: 5, hoff: 0.1, ew: 0, wallA: 0.03, ac: 13, ly: 175, ys: 24, lb: 43, bph: 0, ym: 64, fl: 0.2, gx: 0, gy: 0,
+    gcx: new Float64Array(NG), gcy: new Float64Array(NG), ga: new Float64Array(NG),
+    gc: new Float64Array(NG), gs: new Float64Array(NG), gix: new Float64Array(NG), giy: new Float64Array(NG),
+    ucs: new Float64Array(NG), vcs: new Float64Array(NG), rip: 0, still2: 25,
+    rkx: new Float64Array(NRIP), rky: new Float64Array(NRIP), rph: new Float64Array(NRIP),
+    hgt: new Float32Array(NPX), gl: new Float32Array(GW * GH), px: new Float32Array(NPX * 3),
+    bcol: new Float32Array(NB * 3), rcol: new Float32Array(5 * 3), hueAt: -1,
+    racers: [0, 1, 2, 3, 4].map(makeRacer),
+    ax: 32, ay: 20, at: -99,
+  };
+}
+
+export function setup(params) {
+  params.s = makeState();
+}
+
+function launch(S, r) {
+  let x, y;
+  if (S.t - S.at < 6 && Math.random() < 0.85) {
+    x = S.ax + (Math.random() - 0.5) * 6;
+    y = S.ay + (Math.random() - 0.5) * 6;
+  } else {
+    if (Math.random() < 0.78) {
+      // upstream on the valley floor, a little off its axis, so the zig-zag and the rings have something to do
+      let side = Math.random() < 0.5 ? -1 : 1;
+      y = S.ym + side * (28 + Math.random() * 50);
+      if (y < 4 || y > 124) { side = -side; y = cl(S.ym + side * (28 + Math.random() * 50), 4, 124); }
+      x = xcOf(S, y) + (Math.random() < 0.5 ? -1 : 1) * (1.5 + Math.random() * 3.5);
+    } else {
+      // the highest of eight spots on a slope
+      let best = -9;
+      for (let i = 0; i < 8; i++) {
+        const cx = 6 + Math.random() * 52, cy = 6 + Math.random() * 116, hh = fieldGrad(S, cx, cy);
+        if (hh > best && S.gx * S.gx + S.gy * S.gy > 0.0003) { best = hh; x = cx; y = cy; }
+      }
+      if (best < -8) { y = 8; x = xcOf(S, y) + 4; }
+    }
+    S.ax = x; S.ay = y; S.at = S.t;
+  }
+  r.x = r.px = r.dx = cl(x, 3, 61); r.y = r.py = r.dy = cl(y, 3, 125);
+  r.vx = r.vy = r.mx = r.my = r.sx = r.sy = 0;
+  r.n = 0; r.ge = -1; r.age = 0; r.ha = 0; r.phase = 1;
+  r.life = 18 + Math.random() * 14;
+  r.ox = r.x; r.oy = r.y; r.oage = 0; r.still = 0;
+  r.has = false;
+}
+
+function stepRacer(S, r, rho, nz) {
+  const id = r.id, lam = S.wallA / S.sig, lrs = rho / lam;
+  let px = r.x, py = r.y;
+  if (id === 2) { px += BETA * r.vx; py += BETA * r.vy; }
+  fieldGrad(S, px, py);
+  const gn = sqrt(S.gx * S.gx + S.gy * S.gy);
+  r.ge = r.ge < 0 ? gn : r.ge + (gn - r.ge) * 0.03;
+  const gx = S.gx + nz * gauss(), gy = S.gy + nz * gauss();
+  let dx, dy;
+  if (id === 0) {
+    dx = -lrs * LR[0] * gx; dy = -lrs * LR[0] * gy;
+  } else if (id === 1 || id === 2) {
+    const lr = lrs * LR[id];
+    r.vx = BETA * r.vx - lr * gx; r.vy = BETA * r.vy - lr * gy;
+    const vn = sqrt(r.vx * r.vx + r.vy * r.vy);
+    if (vn > MAXSTEP) { r.vx *= MAXSTEP / vn; r.vy *= MAXSTEP / vn; }
+    dx = r.vx; dy = r.vy;
+  } else if (id === 3) {
+    r.sx = 0.9 * r.sx + 0.1 * gx * gx; r.sy = 0.9 * r.sy + 0.1 * gy * gy;
+    const a = rho * LR[3];
+    dx = (-a * gx) / (sqrt(r.sx) + EPS); dy = (-a * gy) / (sqrt(r.sy) + EPS);
+  } else {
+    r.n++;
+    r.mx = 0.9 * r.mx + 0.1 * gx; r.my = 0.9 * r.my + 0.1 * gy;
+    r.sx = 0.99 * r.sx + 0.01 * gx * gx; r.sy = 0.99 * r.sy + 0.01 * gy * gy;
+    const c1 = 1 / (1 - pow(0.9, r.n)), c2 = 1 / (1 - pow(0.99, r.n)), a = rho * LR[4];
+    dx = (-a * r.mx * c1) / (sqrt(r.sx * c2) + EPS); dy = (-a * r.my * c1) / (sqrt(r.sy * c2) + EPS);
+  }
+  const sn = sqrt(dx * dx + dy * dy);
+  if (sn > MAXSTEP) { dx *= MAXSTEP / sn; dy *= MAXSTEP / sn; }
+  r.x += dx; r.y += dy;
+}
+
+function frame(S, d, kn) {
+  S.t += d;
+  const k3 = cl(0.5 + 0.5 * kn[2], 0, 1), rho = 0.25 * pow(4, cl(kn[1], 0, 3) / 2), q4 = (cl(kn[3], -1, 1) + 1) / 2, k4 = q4 * q4, nz = k4 * NOISE0;
+  S.tm += d * (2.0 + 0.2 * k3) * (0.8 + 0.2 * rho);
+  prepSurface(S, S.tm, k3, k4);
+  const rad = 1.6 + 3.4 * min(1, rho);
+  S.still2 = rad * rad;
+  S.acc += d;
+  const R = S.racers;
+  while (S.acc >= IT_DT) {
+    S.acc -= IT_DT;
+    for (let i = 0; i < 5; i++) {
+      const r = R[i];
+      if (r.phase !== 1) continue;
+      r.px = r.x; r.py = r.y;
+      stepRacer(S, r, rho, nz);
+    }
+  }
+  const fr = S.acc / IT_DT;
+  for (let i = 0; i < 5; i++) {
+    const r = R[i];
+    r.dx = r.px + (r.x - r.px) * fr;
+    r.dy = r.py + (r.y - r.py) * fr;
+  }
+  let alive = 0;
+  for (let i = 0; i < 5; i++) if (R[i].phase === 1) alive++;
+  for (let i = 0; i < 5; i++) {
+    const r = R[i];
+    if (r.phase === 0) {
+      r.wait -= d;
+      if (r.wait <= 0) { launch(S, r); alive++; }
+    } else if (r.phase === 1) {
+      r.age += d;
+      r.ha = min(1, r.age / 0.4);
+      let dead = r.x < -4 || r.x > 68 || r.y < -4 || r.y > 132 || r.age > r.life;
+      if (!dead && r.age > 2.5 && r.ge < 0.0008) dead = true;
+      // it has stayed within 5 LEDs (less at a low Rate) of one spot for two windows of 1.2 s in a row: it has arrived, or it is ringing in place
+      r.oage += d;
+      const mv = (r.x - r.ox) * (r.x - r.ox) + (r.y - r.oy) * (r.y - r.oy);
+      if (mv > S.still2) { r.ox = r.x; r.oy = r.y; r.oage = 0; r.still = 0; }
+      else if (r.oage > 1.2) {
+        if (++r.still >= 2 && r.age > 3) dead = true;
+        r.ox = r.x; r.oy = r.y; r.oage = 0;
+      }
+      if (dead) { r.phase = 2; alive--; }
+      else {
+        if (r.has) capsule(r, r.lx, r.ly, r.dx, r.dy);
+        r.lx = r.dx; r.ly = r.dy; r.has = true;
+        r.idle = 0;
+      }
+    } else {
+      r.ha -= d / 1.0;
+      if (r.ha <= 0) { r.ha = 0; r.phase = 0; r.wait = (alive < 3 ? 0.15 : 0.4) + Math.random() * 1.9; }
+    }
+    fadeTrail(r, d);
+  }
+}
+
+export function update(dt, input, params) {
+  if (!params.s) setup(params);
+  const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06], d = cl(dt || 0, 0, 0.1);
+  S.kn = kn;
+  if (!S.ready) {
+    S.ready = true;
+    for (let f = 0; f < 300; f++) frame(S, 1 / 30, kn);
+  }
+  frame(S, d, kn);
+  raster(S);
+}
+
+// ---- drawing
+function setPalette(S, hue) {
+  if (S.hueAt === hue) return;
+  S.hueAt = hue;
+  for (let b = 0; b < NB; b++) hsv(BANDS[b][0] + hue, BANDS[b][1], BANDS[b][2], S.bcol, b * 3);
+  for (let i = 0; i < 5; i++) hsv(RACERS[i][0] + hue, RACERS[i][1], RACERS[i][2], S.rcol, i * 3);
+}
+
+function bands(S) {
+  const hgt = S.hgt, px = S.px, bc = S.bcol;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const hx = (hgt[x < W - 1 ? i + 1 : i] - hgt[x > 0 ? i - 1 : i]) * (x > 0 && x < W - 1 ? 0.5 : 1);
+      const hy = (hgt[y < H - 1 ? i + W : i] - hgt[y > 0 ? i - W : i]) * (y > 0 && y < H - 1 ? 0.5 : 1);
+            let s = ((hgt[i] - CMID) * CGAIN + CMID - HLO) * BAND_SCALE - 0.9, gk = 1;
+      if (s > 7.5) {
+        // the top of the range is eased so the pale highlands are peaks and not plains
+        gk = exp(-(s - 7.5) / 5.2);
+        s = 7.5 + 5.2 * (1 - gk);
+      }
+      const gm = sqrt(hx * hx + hy * hy) * BAND_SCALE * CGAIN * gk + 1e-5;
+      let b = floor(s);
+      let r, g, bl;
+      if (b < 0) b = 0;
+      else if (b >= NB) b = NB - 1;
+      const f = cl(s - b, 0, 1);
+      r = bc[b * 3]; g = bc[b * 3 + 1]; bl = bc[b * 3 + 2];
+      const dl = f / gm, du = (1 - f) / gm;
+      if (dl < 0.5 && b > 0) {
+        const w = 0.5 - dl, o = (b - 1) * 3;
+        r += (bc[o] - r) * w; g += (bc[o + 1] - g) * w; bl += (bc[o + 2] - bl) * w;
+      } else if (du < 0.5 && b < NB - 1) {
+        const w = 0.5 - du, o = (b + 1) * 3;
+        r += (bc[o] - r) * w; g += (bc[o + 1] - g) * w; bl += (bc[o + 2] - bl) * w;
+      }
+      px[i * 3] = r; px[i * 3 + 1] = g; px[i * 3 + 2] = bl;
+    }
+  }
+}
+
+// one capsule of a racer's trail, into its own coverage and halo buffers (maximum, so joints do not double up)
+function capsule(r, xa, ya, xb, yb) {
+  const pad = TR + 2.8;
+  const x0 = max(0, floor(min(xa, xb) - pad)), x1 = min(W - 1, floor(max(xa, xb) + pad));
+  const y0 = max(0, floor(min(ya, yb) - pad)), y1 = min(H - 1, floor(max(ya, yb) + pad));
+  if (r.bx1 < r.bx0) { r.bx0 = x0; r.bx1 = x1; r.by0 = y0; r.by1 = y1; }
+  else { if (x0 < r.bx0) r.bx0 = x0; if (x1 > r.bx1) r.bx1 = x1; if (y0 < r.by0) r.by0 = y0; if (y1 > r.by1) r.by1 = y1; }
+  const ex = xb - xa, ey = yb - ya, el2 = ex * ex + ey * ey, inv = el2 > 1e-6 ? 1 / el2 : 0;
+  const cov = r.cv, hal = r.hl;
+  for (let y = y0; y <= y1; y++) {
+    const py = y + 0.5 - ya;
+    for (let x = x0; x <= x1; x++) {
+      const pxx = x + 0.5 - xa;
+      const u = cl((pxx * ex + py * ey) * inv, 0, 1);
+      const dx = pxx - u * ex, dy = py - u * ey, dist = sqrt(dx * dx + dy * dy);
+      const e = cl((TR + 0.6 - dist) / 1.6, 0, 1);
+      const eh = cl((TR + 2.7 - dist) / 2.7, 0, 1);
+      const i = y * W + x;
+      const c = e * e * (3 - 2 * e), h = eh * eh * (3 - 2 * eh) * 0.62;
+      if (c > cov[i]) cov[i] = c;
+      if (h > hal[i]) hal[i] = h;
+    }
+  }
+}
+
+// the trail fades by itself: every frame it is multiplied down and its edge eroded a little
+function fadeTrail(r, d) {
+  if (r.bx1 < r.bx0) return;
+  r.idle += d;
+  if (r.idle > 12 && r.phase !== 1) { r.bx0 = 1; r.bx1 = 0; return; }
+  const dec = exp(-d / TAU_T), cov = r.cv, hal = r.hl, er = ERODE * (d * 30);
+  for (let y = r.by0; y <= r.by1; y++) {
+    for (let i = y * W + r.bx0, e = y * W + r.bx1; i <= e; i++) {
+      let c = cov[i];
+      if (c > 0) { c = c * dec - er; cov[i] = c > 0.02 ? c : 0; }
+      let h = hal[i];
+      if (h > 0) { h = h * dec - er * 0.6; hal[i] = h > 0.02 ? h : 0; }
+    }
+  }
+}
+
+function drawRacer(S, r, col) {
+  const px = S.px;
+  if (r.bx1 >= r.bx0) {
+    const cov = r.cv, hal = r.hl;
+    for (let y = r.by0; y <= r.by1; y++) {
+      for (let i = y * W + r.bx0, e = y * W + r.bx1; i <= e; i++) {
+        const cv = cov[i], hh = hal[i];
+        if (cv <= 0 && hh <= 0) continue;
+        const o = i * 3, hv = 1 - hh;
+        let rr = px[o] * hv, gg = px[o + 1] * hv, bb = px[o + 2] * hv;
+        rr += (col[0] - rr) * cv; gg += (col[1] - gg) * cv; bb += (col[2] - bb) * cv;
+        px[o] = rr; px[o + 1] = gg; px[o + 2] = bb;
+      }
+    }
+  }
+  // the head
+  if (r.ha > 0 && r.has) {
+    const hx = r.dx, hy = r.dy, ha = r.ha;
+    const x0 = max(0, floor(hx - 6)), x1 = min(W - 1, floor(hx + 6)), y0 = max(0, floor(hy - 6)), y1 = min(H - 1, floor(hy + 6));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - hx, dy = y + 0.5 - hy, dd = sqrt(dx * dx + dy * dy);
+        const eh = cl((5.4 - dd) / 3.6, 0, 1), halo = eh * eh * (3 - 2 * eh) * 0.62 * ha;
+        const ec = cl((2.7 - dd) / 1.5, 0, 1), cv = ec * ec * (3 - 2 * ec) * ha;
+        if (halo <= 0 && cv <= 0) continue;
+        const o = (y * W + x) * 3, hv = 1 - halo, w = cl((1.7 - dd) / 1.7, 0, 1) * 0.75;
+        const cr = col[0] + (255 - col[0]) * w, cg = col[1] + (255 - col[1]) * w, cb = col[2] + (255 - col[2]) * w;
+        let rr = px[o] * hv, gg = px[o + 1] * hv, bb = px[o + 2] * hv;
+        rr += (cr - rr) * cv; gg += (cg - gg) * cv; bb += (cb - bb) * cv;
+        px[o] = rr; px[o + 1] = gg; px[o + 2] = bb;
+      }
+    }
+  }
+}
+
+export function draw(display, params) {
+  const S = params.s;
+  if (!S || !S.ready) return;
+  setPalette(S, cl(S.kn[0], 0, 1));
+  bands(S);
+  for (let i = 0; i < 5; i++) drawRacer(S, S.racers[i], S.rcol.subarray(i * 3, i * 3 + 3));
+  const px = S.px;
+  for (let i = 0; i < NPX; i++) {
+    display.setPixel(i % W, (i / W) | 0, cl(px[i * 3], 0, 255) | 0, cl(px[i * 3 + 1], 0, 255) | 0, cl(px[i * 3 + 2], 0, 255) | 0);
+  }
+}
