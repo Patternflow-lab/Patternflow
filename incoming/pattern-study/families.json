@@ -224,5 +224,10 @@
   "bumpchart": { "label": "순위 곡선", "color": "#6364a1" },
   "epidemic": { "label": "유행병", "color": "#ace8a2" },
   "colony": { "label": "군체 띠", "color": "#7cab6d" },
-  "pareto": { "label": "파레토 전선", "color": "#a4c485" }
+  "pareto": { "label": "파레토 전선", "color": "#a4c485" },
+  "horizonchart": { "label": "접어 쌓은 시계열", "color": "#bf9b30" },
+  "riso": { "label": "리소 겹인쇄", "color": "#e0509a" },
+  "wavecollapse": { "label": "파동함수 붕괴 타일", "color": "#5b8f3c" },
+  "gradientindex": { "label": "굴절률 분포", "color": "#7a5ce0" },
+  "nacre": { "label": "진주층", "color": "#e6b8d8" }
 }
