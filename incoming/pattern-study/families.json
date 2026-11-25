@@ -349,5 +349,10 @@
   "birch": { "label": "자작나무 숲", "color": "#dfe8d8" },
   "multiflash": { "label": "연속 노출 사진", "color": "#b8c4ff" },
   "nastic": { "label": "잎의 접힘", "color": "#57c84d" },
-  "huddle": { "label": "펭귄 허들", "color": "#3fa9ff" }
+  "huddle": { "label": "펭귄 허들", "color": "#3fa9ff" },
+  "strobe": { "label": "스트로보", "color": "#ff19ff" },
+  "colorimetry": { "label": "색도", "color": "#19e8ff" },
+  "gravitywell": { "label": "중력 우물", "color": "#16d964" },
+  "distillation": { "label": "증류", "color": "#ff8c19" },
+  "adaptation": { "label": "순응", "color": "#e8ff19" }
 }
