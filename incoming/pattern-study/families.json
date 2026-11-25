@@ -284,5 +284,10 @@
   "chemotaxis": { "label": "세균 주화성", "color": "#58c978" },
   "zpinch": { "label": "Z 핀치", "color": "#d65bbf" },
   "vocaltract": { "label": "성도 파동관", "color": "#d9708f" },
-  "kinematics": { "label": "역운동학", "color": "#f0a05a" }
+  "kinematics": { "label": "역운동학", "color": "#f0a05a" },
+  "viterbi": { "label": "복호 격자", "color": "#7b61ff" },
+  "cytoskeleton": { "label": "세포 골격", "color": "#f2745c" },
+  "clusterdynamics": { "label": "성단 역학", "color": "#ffc46b" },
+  "whistler": { "label": "휘슬러파", "color": "#26d9c0" },
+  "hippocampus": { "label": "해마 시퀀스", "color": "#ff6bd6" }
 }
