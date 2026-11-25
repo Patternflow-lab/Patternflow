@@ -1,29 +1,29 @@
 // ===== Patternflow pattern =====
 // Title:   Spaghetti
 // Family:  ensemble
-// Idea:    A weather-centre spaghetti plot: up to forty-eight copies of each storm are started from the same analysed spot with tiny differences and carried through one drifting steering flow of highs, lows and a meandering jet, so every copy leaves a glowing line, the lines lie together at first, then the flow's sensitivity pulls them into a fan, sometimes into two families that recurve out or run on, and a warm white ensemble mean shows how much the forecast can be trusted.
+// Idea:    A weather-centre spaghetti plot: up to forty-eight copies of each storm start from the same analysed spot with tiny differences and ride one drifting steering flow of highs, lows and a meandering jet, so each copy leaves a glowing line, the lines lie together at first, then the flow's sensitivity fans them out and sometimes splits them into two families that recurve out or run on, and a warm white ensemble mean marks how far the forecast can be trusted.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: sensitive dependence on initial conditions (Edward Lorenz, 1963), ensemble forecasting from perturbed starts (Eric Epstein, 1969; the operational ensembles of ECMWF and NCEP from 1992, from memory) and the spaghetti plot of tropical cyclone tracks, with the beta drift of a vortex on a rotating planet (Greg Holland, 1983, from memory); the steering flow is a stream function of Gaussian highs and lows plus a meandering jet, so it cannot pile tracks up, and every member is carried by RK2; the steering weights, the storm schedule, the colour families, the ensemble mean and the cone are original, pattern round 257
+// Lineage: sensitive dependence on initial conditions (Edward Lorenz, 1963), ensemble forecasting from perturbed starts (Eric Epstein, 1969; the operational ensembles of ECMWF and NCEP from 1992, from memory) and the spaghetti plot of tropical cyclone tracks, with the beta drift of a vortex on a rotating planet (Greg Holland, 1983, from memory); the steering flow is a stream function of Gaussian highs and lows plus a meandering jet, so it cannot pile tracks up, and members are carried by RK2; the member weights, veer and phase error, the storm schedule with its look-ahead on where a fan would go, the colour families, the mean and the cone are original, pattern round 257
 // Round:   257
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Spread=0..3, Steer=-1..1, Members=-1..1
 //
-// Knob 1: Hue. Turns every storm family round the wheel together. It opens on teal, with violet and gold coming in as the next storms start, a quarter to a third of the wheel apart each; the members of one storm spread over 0.12 of the wheel by how strongly the flow carries them.
-// Knob 2: Spread. 0 to 3, opening at 2. How different the members are: the Gaussian size of the starting scatter, the range of steering weights (0.75 to 1.25 at the opening) and the error in where the highs and lows stand. At 0 they are almost one line, at 2 a fan opens over twenty to forty seconds, at 3 it is wild and splits early.
-// Knob 3: Steer. -1 to 1, opening at 0. How fast the storms travel and the highs, lows and jet wander, from 0.6 at -1 to 1.7 times the opening speed at 1. Slow, a storm takes the whole minute to climb the panel; fast, it is over in twenty seconds and the next one is already coming.
-// Knob 4: Members. -1 to 1, opening at about 0.06. How many lines each storm carries: 7 at -1, 19 at the opening, 48 at 1. Few lines are separate threads; many pile into a glow that is brightest where they agree.
+// Knob 1: Hue. Turns every storm family round the wheel together and opens on teal, with violet and gold coming in as the next storms start a quarter to a third of the wheel apart; the members of one storm spread over 0.12 of the wheel by which side of the fan they fly on, and the whole palette also wanders by up to 0.09 of a turn by itself.
+// Knob 2: Spread. 0 to 3, opening at 2. How different the members are: the size of the starting scatter (0.03 LED at 0, 3 at 2, 5.5 at 3), the steering weight (0.75 to 1.25 at 2), the veer of the steering wind (up to 10 degrees) and the error in when the highs and lows stand where they do (5 s). At 0 the members are one line, at 2 a fan 20 LED across opens in forty seconds, at 3 it is wild.
+// Knob 3: Steer. -1 to 1, opening at 0. How fast the storms travel and the highs, lows and jet wander, from 0.59 at -1 to 1.7 times the opening speed at 1. Slow, a storm takes ninety seconds to climb the panel and two or three are alive; fast, it is over in thirty and the next is already on its way.
+// Knob 4: Members. -1 to 1, opening at about 0.06. How many lines each storm carries: 6 at -1, 15 at the opening, 48 at 1. Few lines are separate threads that hardly touch; many pile into a glow that is brightest where they agree.
 
 const W = 64, H = 128, N = W * H;
 const MMAX = 48;                 // members integrated for every storm
 const TS = 0.6;                  // model seconds between stored track points
 const NPT = 104;                 // points a member can store (a storm lives at most 62 s)
-const NSTORM = 6;                // storm slots: three alive, up to three fading
+const NSTORM = 6;                // storm slots: three alive, some fading
 const HOFF = 0.5;                // the first storm opens on teal, not red
 const HSPREAD = 0.12;            // hue range over the members of one storm
-const FADE = 8;                  // seconds a finished storm takes to fade out
+const FADE = 10;                 // seconds a finished storm takes to fade out
 const VEER = 0.17;               // radians the steering layer's wind turns for the members at the ends
 const CW = 16, CH = 32;            // the cone's grid, a quarter of the panel
 const CONE = 0.11;               // peak strength of the cone's glow
@@ -99,19 +99,19 @@ export function setup(params) {
   for (let i = 0; i < NSTORM; i++) storms.push(makeStorm());
   const st = (params.st = {
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false,
-    t: 300 + rnd() * 600,          // the flow's own clock, in model seconds
+    t: 300 + rnd() * 600,          // the flow's clock, model seconds
     ph, storms,
     hueSeq: -0.3 + rnd() * 0.06, lastSpawn: 0, gap: 8, tgPh: rnd() * TP,
     o: [0, 0], se: 1, M: 19,
     acc: new Float32Array(N * 3), ov: new Float32Array(N * 4), cone: new Float32Array(CW * CH * 3),
-    heads: [], job: null,
-    pv: { x: new Float64Array(10), y: new Float64Array(10), w: new Float64Array(10), d: new Float64Array(10), v: new Float64Array(10) },
+    heads: [], job: null, rt: 0, hp1: rnd() * TP, hp2: rnd() * TP,
+    pv: { x: new Float64Array(10), y: new Float64Array(10), w: new Float64Array(10), d: new Float64Array(10), v: new Float64Array(10), u: new Float64Array(10) },
   });
   return st;
 }
 
-// one RK2 step of a member: the flow it feels is its steering layer's weight w times the flow read
-// d seconds early or late and turned by the angle th, plus the beta drift; the result is left in o2
+// one RK2 step of a member: its steering weight w times the flow read d seconds off and turned by
+// th, plus the beta drift; the new position is left in o2
 function rk2(ph, o, x, y, tm, h, w, d, th, o2) {
   const c = w * cos(th), sn = w * sin(th);
   flow(ph, x, y, tm + d, o);
@@ -152,8 +152,8 @@ function advance(st, S, dtm) {
   }
 }
 
-// A dry run of a storm that would start at (x0, y0) now: nine members through the flow with the
-// current spread, to see where the fan would go before the storm is born.
+// A dry run of a storm that would start at (x0, y0) now: nine members through the flow, to see
+// where the fan would go.
 const PV = 9;
 function preview(st, x0, y0, life, others) {
   const pv = st.pv, ph = st.ph, o = st.o, se = max(st.se, 0.6);
@@ -163,7 +163,8 @@ function preview(st, x0, y0, life, others) {
     pv.w[m] = 1 + z * 0.25 * se * rr(-1, 1); pv.d[m] = z * 5 * se * gauss(); pv.v[m] = z * VEER * se * rr(-1, 1);
   }
   const h = 0.8, steps = floor(min(life, 44) / h);
-  let near = 0, cnt = 0, ymin = y0, outs = 0, axs = 0;
+  let near = 0, cnt = 0, ymin = y0, outs = 0, axs = 0, split = 0, lat = 0;
+  const half = floor(steps * 0.6);
   for (let i = 0; i < steps; i++) {
     const tm = st.t + i * h;
     for (let m = 0; m < PV; m++) {
@@ -185,21 +186,24 @@ function preview(st, x0, y0, life, others) {
       }
       near += min(dm, 20); cnt++;
     }
+    if (i === half || i === steps - 1) {
+      // sideways spread of the nine and whether it is in two lumps
+      let mx = 0, my = 0;
+      for (let m = 0; m < PV; m++) { mx += pv.x[m]; my += pv.y[m]; }
+      mx /= PV; my /= PV;
+      const tx = mx - x0, ty = my - y0, tl = max(sqrt(tx * tx + ty * ty), 1e-3);
+      const nx = -ty / tl, ny = tx / tl;
+      for (let m = 0; m < PV; m++) pv.u[m] = (pv.x[m] - mx) * nx + (pv.y[m] - my) * ny;
+      const srt = Array.from(pv.u.subarray(0, PV)).sort((a, b) => a - b);
+      let gap = 0, gi = 0, v2 = 0;
+      for (let m = 1; m < PV; m++) if (srt[m] - srt[m - 1] > gap) { gap = srt[m] - srt[m - 1]; gi = m; }
+      for (let m = 0; m < PV; m++) v2 += srt[m] * srt[m];
+      const sp = min(gi, PV - gi) >= 2 ? gap / max(srt[PV - 1] - srt[0], 1e-3) : 0;
+      if (sp > split) split = sp;
+      lat = sqrt(v2 / PV);
+    }
   }
-  let mx = 0, my = 0;
-  for (let m = 0; m < PV; m++) { mx += pv.x[m]; my += pv.y[m]; }
-  mx /= PV; my /= PV;
-  let vxx = 0, vyy = 0;
-  for (let m = 0; m < PV; m++) { vxx += (pv.x[m] - mx) ** 2; vyy += (pv.y[m] - my) ** 2; }
-  const spread = sqrt((vxx + vyy) / PV);
-  // the widest gap in the final positions along the longer axis, as a share of their range
-  const axis = vxx > vyy ? pv.x : pv.y;
-  const srt = Array.from(axis.subarray(0, PV)).sort((a, b) => a - b);
-  let gap = 0, gi = 0;
-  for (let m = 1; m < PV; m++) if (srt[m] - srt[m - 1] > gap) { gap = srt[m] - srt[m - 1]; gi = m; }
-  const range = max(srt[PV - 1] - srt[0], 1e-3);
-  const small = min(gi, PV - gi);
-  return { spread, ymin, ax: axs / max(steps, 1), out: outs / steps, split: small >= 2 ? gap / range : 0, near: cnt ? near / cnt : 20 };
+  return { lat, ymin, ax: axs / max(steps, 1), out: outs / steps, split, near: cnt ? near / cnt : 20 };
 }
 
 function startPoint() {
@@ -212,8 +216,8 @@ function startPoint() {
 }
 
 // A new storm is chosen in two parts so that no frame pays for all of it: a job tries start points
-// a few at a time, keeping the one whose fan is the kind of forecast wanted now (tight, wide or
-// split) that heads north and keeps clear of the other storms, and then the storm is born there.
+// a few at a time and keeps the one whose fan is the forecast wanted now (tight, wide or split),
+// heads north and keeps clear of the other storms; then the storm is born there.
 const NCAND = 14;
 function beginSpawn(st) {
   refreshMeans(st);
@@ -232,10 +236,10 @@ function stepSpawn(st, J, n) {
     for (const q of J.others) close += max(0, 1 - abs(q.sx - p[0]) / 22);
     let sc = 10 * cl((70 - r.ymin) / 70, 0, 1) - 16 * r.out + r.near * 0.3 - 6 * close;
     if (J.others.length) sc += 3 * min(abs(r.ax - J.ox) / 20, 1.5);
-    if (J.mood < 0.25) sc -= r.spread * 0.3;                        // a tight forecast
-    else if (J.mood < 0.65) sc -= abs(r.spread - 22) * 0.3;         // a wide fan
-    else sc += r.split * 12 + r.spread * 0.1;                       // two families
-    if (sc > J.bs) { J.bs = sc; J.best = p; }
+    if (J.mood < 0.25) sc -= r.lat * 0.7;                           // a tight forecast
+    else if (J.mood < 0.6) sc -= abs(r.lat - 12) * 0.35;            // a wide fan
+    else sc += r.split * 16 + r.lat * 0.1;                          // two families
+    if (sc > J.bs || !J.best) { J.bs = sc; J.best = p; }
   }
   return J.c >= NCAND;
 }
@@ -319,8 +323,7 @@ export function update(dt, input, params) {
     for (let i = 0; i < 4; i++) st.ks[i] = st.k[i];
     st.se = cl(st.ks[1], 0, 3) * 0.5;
     st.M = members(st.ks[3]);
-    // the sky has been busy: one storm nearly done, one under way, one that has just ended and is
-    // fading; they have run for as long as the steering speed would have carried them
+    // the sky has been busy: one storm nearly done, one under way, one just ended and fading
     const sp = pow(1.7, cl(st.ks[2], -1, 1));
     spawn(st, 40 * sp, false);
     refreshMeans(st);
@@ -334,10 +337,11 @@ export function update(dt, input, params) {
     for (let i = 0; i < 4; i++) st.ks[i] += (st.k[i] - st.ks[i]) * a;
   }
   st.M += (members(st.ks[3]) - st.M) * (1 - exp(-dt / 0.2));
+  st.rt += dt;
   if (dt > 0) step(st, dt, st.ks);
 }
 
-// the mean track of every live storm over all its members, for the next storm to keep clear of
+// the mean track of every live storm, for the next storm to keep clear of
 function refreshMeans(st) {
   for (const S of st.storms) {
     if (!S.used) continue;
@@ -354,9 +358,8 @@ function refreshMeans(st) {
 }
 
 // ---- drawing --------------------------------------------------------------------------------
-// A line is a chain of segments, each drawn for the pixels whose foot on the segment falls
-// inside it, widened a little at both ends with weights that add to one across a joint, so a
-// bend leaves no bead and no gap. Pixel weight is a Gaussian of the distance to the line.
+// A line is a chain of segments, each drawn for the pixels whose foot falls inside it, widened at
+// both ends with weights that add to one across a joint, so a bend leaves no bead and no gap.
 const GS = 40, QMAX = 7;
 const GL = new Float32Array(GS * QMAX + 2);
 for (let i = 0; i < GL.length; i++) GL[i] = exp(-0.5 * (i / GS));
@@ -372,7 +375,7 @@ function hue3(h, out) {
   out[0] = r * gain; out[1] = g * gain; out[2] = b * gain;
 }
 
-// adds a * Gaussian(distance to the segment) times the colour into buf, nc channels a cell
+// adds a Gaussian of the distance to the segment, times the colour, into buf
 function seg(buf, nc, gw, gh, x0, y0, x1, y1, a0, a1, sg, cr, cg, cb, capS, capE) {
   const dx = x1 - x0, dy = y1 - y0;
   const l2 = dx * dx + dy * dy;
@@ -419,7 +422,7 @@ function drawStorm(st, S, k1) {
   const n = S.n;
   if (n < 1) return;
   let fa = 1;
-  if (S.age >= S.life) { const u = cl(S.fade / FADE, 0, 1); fa = (1 - u) * (1 - u); }
+  if (S.age >= S.life) { const u = cl(S.fade / FADE, 0, 1); fa = pow(1 - u, 1.6); }
   const hl = cl((S.life - S.age) / 2.5, 0, 1);       // the heads go out as the storm ends
   const lone = 0.46 * pow(12 / max(M, 6), 0.55) * fa;
   const acc = st.acc, ov = st.ov;
@@ -463,14 +466,14 @@ function drawStorm(st, S, k1) {
   for (let m = 0; m < Mi; m++) if (S.alive[m]) { hx += S.cx[m]; hy += S.cy[m]; hc++; }
   const hasHead = hc >= max(2, 0.3 * Mi) && nm === n;
   if (hasHead) { hx /= hc; hy /= hc; }
-  // the cone: a soft glow round the mean as wide as the members are spread, on a grid a quarter the size
+  // the cone: a soft glow round the mean, as wide as the members are spread, on a quarter-size grid
   hue3(hb, cc);
   for (let j = 1; j < nm; j++) {
     const sg = (0.75 * 0.5 * (S.spr[j - 1] + S.spr[j]) + 2.4) * 0.25;
     seg(st.cone, 3, CW, CH, S.mean[j * 2 - 2] * 0.25, S.mean[j * 2 - 1] * 0.25, S.mean[j * 2] * 0.25, S.mean[j * 2 + 1] * 0.25, CONE * fa, CONE * fa, sg, cc[0], cc[1], cc[2], j === 1, false);
   }
   // the mean, in warm white, twice as thick
-  const ma = 0.9 * fa;
+  const ma = 0.78 * fa;
   for (let j = 1; j < nm; j++) {
     seg(ov, 4, W, H, S.mean[j * 2 - 2], S.mean[j * 2 - 1], S.mean[j * 2], S.mean[j * 2 + 1], ma * 0.6, ma * (0.6 + 0.4 * j / nm), 1.5, 1.0, 0.86, 0.62, j === 1, false);
   }
@@ -513,7 +516,8 @@ export function draw(display, params) {
   const acc = st.acc, ov = st.ov;
   acc.fill(0); ov.fill(0); st.cone.fill(0);
   st.heads.length = 0;
-  const k1 = st.ks[0];
+  // the whole palette also wanders a little on two slow clocks of its own
+  const k1 = st.ks[0] + 0.05 * sin(0.047 * st.rt + st.hp1) + 0.04 * sin(0.0173 * st.rt + st.hp2);
   for (const S of st.storms) if (S.used) drawStorm(st, S, k1);
   // the mean lines added up coverage; fold it to at most one, then put the heads over it
   for (let o = 0; o < N * 4; o += 4) {
