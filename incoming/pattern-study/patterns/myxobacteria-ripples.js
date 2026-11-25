@@ -39,6 +39,8 @@ const GAM = 1.0;                  // clock rate gained per unit of contact, a se
 const FREE = 0.25;                // share of cells that hear the contact signal only a little
 const DEAF = 0.1;                // how much of it they hear
 const T0 = 8.5;                   // mean reversal period at Period 2
+const RPX = 4.5, RPY = 2.4;       // cells of one heading push each other apart in y inside this ellipse
+const KRY = 3.0;                  // LED a second at full overlap
 const SEG = 1.2, RAD = 1.3;       // capsule: half length of its core, radius of the full-bright part
 
 function hsv(h, s, v, out) {
@@ -55,7 +57,7 @@ export function setup(params) {
   const st = (params.st = {
     k: [0, 2, 0, 0.06], init: false, t: 0,
     x: f(NMAX), y: f(NMAX), th: f(NMAX), v: f(NMAX), phi: f(NMAX), rt: f(NMAX), tf: f(NMAX), s: f(NMAX), w: f(NMAX),
-    cnt: f(NMAX), tsum: f(NMAX), nn: f(NMAX), gm: f(NMAX),
+    cnt: f(NMAX), tsum: f(NMAX), nn: f(NMAX), gm: f(NMAX), pu: f(NMAX),
     head: new Int16Array(GX * GY), nxt: new Int16Array(NMAX),
     T: T0, nact: NOM, wd: 0.1,
     ph: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(() => rnd() * TAU),
@@ -102,7 +104,7 @@ function sim(st, dt) {
   const sg = sig * sqrt(2 * (TA * 0.55 + TB));
   const Tt = st.T * (1 + 0.07 * sin(TAU * t / 97 + ph[3]) + 0.05 * sin(TAU * t / 61 + ph[4]) + 0.03 * sin(TAU * t / 149 + ph[5]));
 
-  const { x, y, th, v, phi, rt, tf, s, w, cnt, tsum, nn, gm, head, nxt } = st;
+  const { x, y, th, v, phi, rt, tf, s, w, cnt, tsum, nn, gm, pu, head, nxt } = st;
   const n = NMAX, na = st.nact;
   head.fill(-1);
   for (let i = 0; i < n; i++) {
@@ -119,7 +121,7 @@ function sim(st, dt) {
     if (w[i] < 0.5) continue;
     const xi = x[i], yi = y[i], si = s[i];
     const gx = floor(xi / GW), gy = floor(yi / GH);
-    let c = 0, ts = 0, k = 0;
+    let c = 0, ts = 0, k = 0, pp = 0;
     for (let oy = -1; oy <= 1; oy++) {
       const yy = (gy + oy + GY) % GY;
       for (let ox = -1; ox <= 1; ox++) {
@@ -129,6 +131,10 @@ function sim(st, dt) {
           let dx = x[j] - xi, dy = y[j] - yi;
           if (dx > 32) dx -= W; else if (dx < -32) dx += W;
           if (dy > 64) dy -= H; else if (dy < -64) dy += H;
+          if (s[j] === si) {
+            const qr = (dx * dx) / (RPX * RPX) + (dy * dy) / (RPY * RPY);
+            if (qr < 1) pp -= (1 - qr) * (dy > 0.2 ? 1 : dy < -0.2 ? -1 : i < j ? 1 : -1);
+          }
           const q = (dx * dx) / (RX * RX) + (dy * dy) / (RY * RY);
           if (q >= 1) continue;
           ts += th[j];
@@ -140,6 +146,7 @@ function sim(st, dt) {
     cnt[i] = c;
     tsum[i] = ts;
     nn[i] = k;
+    pu[i] = pp;
   }
   const sq = sqrt(dt);
   for (let i = 0; i < n; i++) {
@@ -163,7 +170,7 @@ function sim(st, dt) {
     th[i] = cl(th[i], -1.1, 1.1);
     // glide
     const sp = v[i] * s[i] * dt;
-    let nx = x[i] + sp * cos(th[i]), ny = y[i] + sp * sin(th[i]);
+    let nx = x[i] + sp * cos(th[i]), ny = y[i] + sp * sin(th[i]) + KRY * pu[i] * dt;
     nx -= W * floor(nx / W);
     ny -= H * floor(ny / H);
     x[i] = nx;
@@ -219,7 +226,7 @@ export function draw(display, params) {
       }
     }
   }
-  const cr = st.cr, cb = st.cb, K = 1.15;
+  const cr = st.cr, cb = st.cb, K = 0.9;
   for (let py = 0; py < H; py++) {
     for (let px = 0; px < W; px++) {
       const i = py * W + px, r = DR[i], l = DL[i];
