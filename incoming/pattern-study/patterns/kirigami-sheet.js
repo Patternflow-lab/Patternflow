@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Kirigami Sheet
 // Family:  kirigami
-// Idea:    A sheet cut into 180 rigid squares hinged at their corners, neighbours turning in opposite senses, so that as a travelling field of opening angles runs over it the squares rotate and diamond holes open and close between them, the whole sheet widening in both directions at once, every square a tilting metal tile with a bright rim and a glint that sweeps across it, and every hole a lit window onto a slow rose-coloured aurora behind.
+// Idea:    A sheet cut into 180 rigid squares hinged at their corners, neighbours turning in opposite senses, so that as a travelling field of opening angles runs over it the squares rotate and diamond holes open and close between them, the whole sheet widening in both directions at once, every square a tilting metal tile with a bright rim and a glint that sweeps across it, a pale pin at each hinge, and every hole a lit window onto a slow rose-coloured aurora behind.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pull=0..4, Wave=-1..1, Skew=-1..1
 //
-// Knob 1: Hue. Turns the tile colours and the glow behind them round the wheel. At 0 the tiles run from teal (closed) through azure to violet (wide open) and the aurora behind is rose; at 0.5 the two have swapped places.
-// Knob 2: Pull. 0 to 4, opening at 2. The mean turning angle of the squares, 0 degrees at 0 (the squares touch, the sheet is a solid plane with a hairline seam and a few ripples) and 44 degrees at 4 (the squares stand on their points and each hole is as big as a square). At 2 the squares are turned about 20 degrees and the holes take a third of the sheet. The sheet is 25 percent wider at 2 than closed, and 41 percent at 4.
-// Knob 3: Wave. -1 to 1, opening at 0. How strong and how short the travelling waves of angle are. At -1 the whole sheet mostly breathes together, plus long gentle diagonal swells about 22 degrees high that cross it in 20 seconds. At 0 waves 66 LED long carry the angle 18 degrees up and down and the lattice warps visibly. At 1 the waves are 50 LED long, 30 degrees high, and neighbouring squares part at the corners where the angle changes fastest.
-// Knob 4: Skew. -1 to 1, opening at about 0. A gradient of the angle across the sheet that bends the lattice, its axis wandering slowly. At -1 the angle is 30 degrees larger on one edge of the panel than on the opposite one, so the squares fan open on one side and stay shut on the other, and the rows curve; at +1 the same the other way round. At 0 the sheet stays straight.
+// Knob 1: Hue. Turns the tile colours and the glow behind them round the wheel. At 0 the tiles run from teal (closed) through azure to blue (wide open) with a little green here and there, and the glow behind is rose and magenta; at 0.25 the tiles are violet on a lime and gold glow, and at 0.5 rose tiles on a teal one.
+// Knob 2: Pull. 0 to 4, opening at 2. The mean turning angle of the squares: 3 degrees at 0 (the squares touch, the sheet is a solid plane with a hairline seam and a few ripples) and 41 degrees at 4 (the squares stand almost on their points and each hole is as big as a square, half the sheet). At 2 the squares are turned 22 degrees on average, between 11 and 33 as the waves pass, and the holes take two fifths of the sheet. The sheet is 32 percent wider and taller at 2 than shut, and 41 percent at 4. The waves fade towards both ends of the knob.
+// Knob 3: Wave. -1 to 1, opening at 0. How strong and how short the travelling waves of angle are. At -1 the whole sheet mostly breathes together, swinging between 14 and 30 degrees about every 12 s, under long faint swells 90 to 180 LED from crest to crest. At 0 the angle runs between 11 and 33 degrees, the waves are 60 to 120 LED long and cross in 6 to 10 s, and the lattice warps visibly. At 1 it runs between 7 and 37 degrees, the waves are 47 to 88 LED long, and where the angle changes fastest two neighbouring squares can part at a corner by up to 2 LED.
+// Knob 4: Skew. -1 to 1, opening at about 0. A gradient of the angle across the sheet that bends the lattice, its axis swinging 17 degrees either way once in about 170 s. At -1 and at 1 the squares are almost shut in one corner of the panel and nearly 40 degrees open in the opposite one, so the holes grow from nothing to a full square across the panel and the rows fan out, the sign only choosing the corner. At 0 the sheet has no gradient except the slow turning one in the waves.
 
 const W = 64, H = 128;
 const { floor, ceil, round, min, max, abs, exp, sqrt, sin, cos, PI } = Math;
@@ -37,8 +37,8 @@ const LX = -0.55, LY = -0.83;        // the light, from upper left
 function rgb(h, s, v, out, o) {
   h = h - floor(h);
   const br = (h > 0.5 ? sstep(0.8, 0.95, h) : 1 - sstep(0.2, 0.34, h)) * sstep(0.1, 0.35, s) * sstep(0.06, 0.34, v), dv = 1 - v;
-  s *= 1 - 0.45 * br * dv;
-  v = min(1, v * (1 + 0.8 * br * dv));
+  s *= 1 - 0.55 * br * dv;
+  v = min(1, v * (1 + 1.0 * br * dv));
   const hh = h * 6, i = floor(hh) % 6, f = hh - floor(hh), p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
   out[o] = (i === 0 || i === 5 ? v : i === 1 ? q : i === 4 ? t : p) * 255;
   out[o + 1] = (i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p) * 255;
@@ -70,9 +70,9 @@ function field(st, px, py, w) {
   const t = st.t, ph = st.ph;
   const ks = 0.5 + 0.5 * w;
   // waves running over the sheet, each its own way, wavelength and speed
-  let f = 0.5 * sin(ks * 0.0713 * (0.82 * px + 0.57 * py) - 0.5 * t + ph[2]);
-  f += 0.36 * sin(ks * 0.1031 * (-0.58 * px + 0.81 * py) + 0.71 * t + ph[3]);
-  f += 0.24 * sin(ks * 0.1337 * (0.99 * px - 0.15 * py) - 0.93 * t + ph[4]);
+  let f = 0.5 * sin(ks * 0.0713 * (0.82 * px + 0.57 * py) - 0.62 * t + ph[2]);
+  f += 0.36 * sin(ks * 0.1031 * (-0.58 * px + 0.81 * py) + 0.88 * t + ph[3]);
+  f += 0.24 * sin(ks * 0.1337 * (0.99 * px - 0.15 * py) - 1.14 * t + ph[4]);
   // a slow rotating gradient
   const a = 0.061 * t + ph[5];
   f += 0.3 * (px * cos(a) + py * sin(a)) / 60;
@@ -85,8 +85,8 @@ const sc = (u) => 0.5 * (sqrt(u * u + 0.02) - sqrt((u - 1) * (u - 1) + 0.02)) + 
 function angles(st) {
   const th = st.th, u0 = st.u0, w = st.wv, sk = st.sk, t = st.t;
   const e = 0.28 + 0.72 * 4 * u0 * (1 - u0);
-  // the whole sheet breathes: two incommensurate periods, 15 s and 36 s
-  const breath = (0.2 - 0.06 * w) * e * (0.7 * sin(0.42 * t + st.ph[0]) + 0.3 * sin(0.175 * t + st.ph[1]));
+  // the whole sheet breathes: two incommensurate periods, 12.6 s and 30 s
+  const breath = (0.2 - 0.06 * w) * e * (0.7 * sin(0.5 * t + st.ph[0]) + 0.3 * sin(0.21 * t + st.ph[1]));
   const amp = (0.1 + 0.3 * w) * e;
   const sa = 0.9 + 0.3 * sin(0.037 * t + st.ph[6]), ca = cos(sa), sn = sin(sa);
   for (let j = 0; j < NY; j++) {
@@ -208,9 +208,9 @@ function backing(st) {
   for (let gy = 0; gy < 33; gy++) {
     for (let gx = 0; gx < 17; gx++) {
       const x = gx * 4, y = gy * 4;
-      const hb = h0 + 0.06 * sin(0.045 * x + 0.6 * sin(0.03 * y + 0.11 * t) + 0.07 * t) + 0.05 * sin(0.038 * y - 0.05 * t + 1.0);
+      const hb = h0 + 0.05 * sin(0.045 * x + 0.6 * sin(0.03 * y + 0.11 * t) + 0.07 * t) + 0.04 * sin(0.038 * y - 0.05 * t + 1.0);
       const c = 0.5 + 0.5 * sin(0.11 * x + 1.7 * sin(0.021 * y + 0.17 * t) + 0.23 * t);
-      const vb = 0.58 + 0.42 * c * (0.75 + 0.25 * sin(0.017 * y + 0.09 * t));
+      const vb = 0.64 + 0.36 * c * (0.75 + 0.25 * sin(0.017 * y + 0.09 * t));
       rgb(hb, 0.82 - 0.22 * c, vb, v, 0);
       const o = (gy * 17 + gx) * 3;
       bg[o] = v[0]; bg[o + 1] = v[1]; bg[o + 2] = v[2];
@@ -219,17 +219,47 @@ function backing(st) {
 }
 
 function tileColours(st) {
-  const col = st.col, th = st.th, t = st.t, h0 = 0.56 + st.k[0];
+  const col = st.col, th = st.th, t = st.t, h0 = 0.52 + st.k[0];
   const v = [0, 0, 0];
   for (let j = 0; j < NY; j++) {
     for (let i = 0; i < NX; i++) {
       const n = j * NX + i, s = (i + j) & 1 ? -1 : 1;
       const slow = 0.04 * sin(0.05 * t + 0.7 * i + 0.4 * j + st.ph[7]) + 0.03 * sin(0.031 * t - 0.5 * i + 0.9 * j + st.ph[8]);
-      const h = h0 + 0.22 * (th[n] / THMAX) + 0.03 * s + 0.03 * st.rnd[n] + slow, o = n * 12;
+      const h = h0 + 0.15 * (th[n] / THMAX) + 0.03 * s + 0.03 * st.rnd[n] + slow, o = n * 12;
       rgb(h - 0.05, 0.9, 0.3 + 0.04 * st.rnd[n], v, 0); col[o] = v[0]; col[o + 1] = v[1]; col[o + 2] = v[2];
       rgb(h, 0.78, 0.68, v, 0); col[o + 3] = v[0]; col[o + 4] = v[1]; col[o + 5] = v[2];
       rgb(h + 0.06, 0.42, 1.0, v, 0); col[o + 6] = v[0]; col[o + 7] = v[1]; col[o + 8] = v[2];
       rgb(h + 0.03, 0.2, 1.0, v, 0); col[o + 9] = v[0]; col[o + 10] = v[1]; col[o + 11] = v[2];
+    }
+  }
+}
+
+// A second, larger sheet far behind, seen only through the holes: a plain uniform lattice, so its centres are known without a
+// relaxation, turning on a breath of its own and drifting the other way from the near sheet.
+const GA = 15, GNX = 7, GNY = 12, GH2 = GA / 2 - 0.2;
+function ghost(st, buf) {
+  const t = st.t, th = 0.3 + 0.16 * st.u0 + 0.2 * sin(0.113 * t + st.ph[7]) + 0.08 * sin(0.047 * t + st.ph[8]);
+  const c = cos(th), q = sin(th), d = GA * (c + q);
+  const ox = W / 2 - 5 * sin(0.061 * t + st.ph[9] + 1.0) - 3 * sin(0.0267 * t + 2.0), oy = H / 2 - 8 * sin(0.047 * t + st.ph[11] + 1.0);
+  const rad = GA * 0.7071 + 1.4;
+  for (let j = 0; j < GNY; j++) {
+    for (let i = 0; i < GNX; i++) {
+      const s = (i + j) & 1 ? -1 : 1, cc = c, qq = s * q;
+      const cxn = (i - (GNX - 1) / 2) * d + ox, cyn = (j - (GNY - 1) / 2) * d + oy;
+      const x0 = max(0, floor(cxn - rad)), x1 = min(W - 1, ceil(cxn + rad)), y0 = max(0, floor(cyn - rad)), y1 = min(H - 1, ceil(cyn + rad));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const dx = x + 0.5 - cxn, dy = y + 0.5 - cyn;
+          const ux = cc * dx + qq * dy, uy = -qq * dx + cc * dy;
+          const dd = GH2 - max(abs(ux), abs(uy)), cov = cl(dd + 0.5, 0, 1);
+          if (cov <= 0) continue;
+          const p = (y * W + x) * 3, e = 1 - sstep(0.2, 1.3, dd), pale = 34 + 46 * e;
+          // frosted: a little paler than the glow in the middle of the tile, a little more at its edge
+          buf[p] += (buf[p] * 0.86 + pale - buf[p]) * cov;
+          buf[p + 1] += (buf[p + 1] * 0.86 + pale * 0.82 - buf[p + 1]) * cov;
+          buf[p + 2] += (buf[p + 2] * 0.86 + pale * 0.95 - buf[p + 2]) * cov;
+        }
+      }
     }
   }
 }
@@ -250,6 +280,7 @@ export function draw(display, params) {
       for (let k = 0; k < 3; k++) buf[o + k] = (bg[a + k] * (1 - fx) + bg[b + k] * fx) * (1 - fy) + (bg[c + k] * (1 - fx) + bg[d + k] * fx) * fy;
     }
   }
+  ghost(st, buf);
   // the pan of the whole sheet
   const t = st.t, ox = W / 2 + 4.2 * sin(0.061 * t + st.ph[9]) + 2.4 * sin(0.0267 * t + st.ph[10]);
   const oy = H / 2 + 6.5 * sin(0.047 * t + st.ph[11]) + 3 * sin(0.0213 * t + st.ph[10]);
@@ -293,6 +324,38 @@ export function draw(display, params) {
         const p = (y * W + x) * 3;
         r += (col[o + 9] * 0.7 + buf[p] * 0.3 - r) * rim; g += (col[o + 10] * 0.7 + buf[p + 1] * 0.3 - g) * rim; b += (col[o + 11] * 0.7 + buf[p + 2] * 0.3 - b) * rim;
         buf[p] += (r - buf[p]) * cov; buf[p + 1] += (g - buf[p + 1]) * cov; buf[p + 2] += (b - buf[p + 2]) * cov;
+      }
+    }
+  }
+  // the hinges: a pale pin where two corners meet, only as the sheet opens, so that the squares read as joined
+  for (let n = 0; n < NT; n++) {
+    const i = n % NX, j = (n / NX) | 0;
+    for (let k = 0; k < 2; k++) {
+      let m, hx, hy;
+      if (k === 0) {
+        if (i === NX - 1) continue;
+        m = n + 1;
+        hx = (st.cx[n] + st.orx[n] + st.cx[m] + st.olx[m]) * 0.5; hy = (st.cy[n] + st.ory[n] + st.cy[m] + st.oly[m]) * 0.5;
+      } else {
+        if (j === NY - 1) continue;
+        m = n + NX;
+        hx = (st.cx[n] + st.oux[n] + st.cx[m] + st.odx[m]) * 0.5; hy = (st.cy[n] + st.ouy[n] + st.cy[m] + st.ody[m]) * 0.5;
+      }
+      hx += ox; hy += oy;
+      const open = sstep(0.06, 0.3, (th[n] + th[m]) * 0.5);
+      if (open <= 0) continue;
+      const x0 = max(0, floor(hx - 2)), x1 = min(W - 1, ceil(hx + 2)), y0 = max(0, floor(hy - 2)), y1 = min(H - 1, ceil(hy + 2));
+      const o = n * 12 + 9, o2 = m * 12 + 9;
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const dd = sqrt((x + 0.5 - hx) * (x + 0.5 - hx) + (y + 0.5 - hy) * (y + 0.5 - hy));
+          const cov = cl(1.55 - dd, 0, 1) * 0.85 * open;
+          if (cov <= 0) continue;
+          const p = (y * W + x) * 3;
+          buf[p] += ((col[o] + col[o2]) * 0.5 - buf[p]) * cov;
+          buf[p + 1] += ((col[o + 1] + col[o2 + 1]) * 0.5 - buf[p + 1]) * cov;
+          buf[p + 2] += ((col[o + 2] + col[o2 + 2]) * 0.5 - buf[p + 2]) * cov;
+        }
       }
     }
   }
