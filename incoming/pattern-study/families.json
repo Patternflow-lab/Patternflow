@@ -289,5 +289,10 @@
   "combustion": { "label": "연소 전선", "color": "#d84141" },
   "particlefilter": { "label": "입자 필터", "color": "#4848f2" },
   "coulombblockade": { "label": "쿨롱 봉쇄", "color": "#ba41d8" },
-  "stromatolite": { "label": "스트로마톨라이트", "color": "#d88561" }
+  "stromatolite": { "label": "스트로마톨라이트", "color": "#d88561" },
+  "morphogen": { "label": "형태 형성 물질", "color": "#f2a0c8" },
+  "riverdelta": { "label": "삼각주", "color": "#c9a96e" },
+  "myxobacteria": { "label": "점액세균", "color": "#7bd88f" },
+  "grandtour": { "label": "그랜드 투어", "color": "#8aa0ff" },
+  "grover": { "label": "그로버 탐색", "color": "#ffcf4d" }
 }
