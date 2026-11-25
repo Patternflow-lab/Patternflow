@@ -12,7 +12,7 @@
 // @knobs Hue=0..1, Charging=1..5, Temperature=1..8, Asymmetry=-1..1
 //
 // Knob 1: Hue. Turns every colour round the wheel together. At 0 the diamonds are near-black indigo, the ridges run from deep blue through cyan to white, the negative-conductance lines are magenta and the conducting haze outside is violet; at 0.5 the ridges are orange and the haze is olive.
-// Knob 2: Charging. 1 to 5, opening at 2. The charging energy: the addition energy of a diamond is the charging energy plus whatever level spacing the next electron has to pay. At 1 a diamond is 11 to 30 LED wide and four or five are in view. At 5 a diamond is 34 to 52 wide and two fill the panel. Rhombi never repeat, the even ones (a level fills) stand wider than the odd ones.
+// Knob 2: Charging. 1 to 5, opening at 2. The charging energy: the addition energy of a diamond is the charging energy plus whatever level spacing the next electron has to pay. At 1 a diamond is 10 to 28 LED wide and four or five are in view. At 5 a diamond is 34 to 52 wide and two fill the panel. Rhombi never repeat, the even ones (a level fills) stand wider than the odd ones.
 // Knob 3: Temperature. 1 to 8, opening at 1. The thermal width of every ridge, 2 LED across at 1 and 9 at 8. Cold, the lines are sharp and bright and the Kondo ridge shows at zero bias in odd diamonds. Warm, the lines widen and dim, the excited-state lines and the magenta ones run together, the Kondo ridge is gone and the dark rhombi shrink and close up.
 // Knob 4: Asymmetry. -1 to 1, opening near 0. The ratio of source to drain capacitance: one pair of edges is steeper than the other and the rhombi lean. At -1 the left edges are the shallow ones and the top vertex sits near the left corner, at 1 it sits near the right corner. At 0 the lean is slight, as in a real device.
 
@@ -27,9 +27,9 @@ const sstep = (a, b, x) => {
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 
-const P0 = 1.5;                       // mean slope of the diamond edges, bias rows per gate column
+const P0 = 2.0;                       // mean slope of the diamond edges, bias rows per gate column
 const D0 = 8.5, CS = 8, ZS = 7;       // level spacing, orbital shift and Zeeman splitting at full field, in gate columns
-const EC0 = 11, EC1 = 34;             // charging energy at Charging 1 and 5, in gate columns
+const EC0 = 10, EC1 = 34;             // charging energy at Charging 1 and 5, in gate columns
 const TABN = 48, TABL = 176;          // table of sech^2, 48 steps a unit
 const TAB = new Float32Array(TABL + 2);
 for (let i = 0; i < TAB.length; i++) {
@@ -37,7 +37,7 @@ for (let i = 0; i < TAB.length; i++) {
   TAB[i] = 1 / (c * c);
 }
 const FAR = new Float32Array(H);
-for (let y = 0; y < H; y++) FAR[y] = 1 / (1 + pow((BMID - y) / 62, 2));
+for (let y = 0; y < H; y++) FAR[y] = exp(-pow((BMID - y) / 58, 2));
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
 // ---- colour -----------------------------------------------------------------
@@ -73,7 +73,7 @@ function rgbOf(L, C, h, out, o, k) {
 function buildLuts(st, hr) {
   const pos = st.lutP, neg = st.lutN, gr = st.lutG;
   for (let i = 0; i < 256; i++) {
-    const v = i / 255, fade = sstep(0, 0.1, v);
+    const v = i / 255, fade = sstep(0.02, 0.3, v);
     rgbOf(0.3 + 0.68 * v, 0.17 * (1 - 0.8 * sstep(0.62, 1, v)), 258 - 62 * sstep(0, 0.6, v) + hr, pos, i * 3, fade);
     rgbOf(0.28 + 0.56 * v, 0.21 * (1 - 0.6 * sstep(0.7, 1, v)), 342 - 14 * v + hr, neg, i * 3, fade);
   }
@@ -126,7 +126,7 @@ function targets(k) {
 // the field: three sines whose periods share no factor, squashed into 0..1 and bent so it sits low most of the time
 function fieldAt(st, t) {
   const s = 0.55 * sin((TAU * t) / 41 + st.ph[0]) + 0.45 * sin((TAU * t) / 67.3 + st.ph[1]) + 0.3 * sin((TAU * t) / 113.7 + st.ph[2]);
-  return pow(0.5 + 0.5 * tanh(1.3 * s), 1.35);
+  return pow(0.5 + 0.5 * tanh(1.3 * s), 1.8);
 }
 
 export function update(dt, input, params) {
@@ -203,7 +203,7 @@ function frame(st) {
   const p1 = P0 * exp(0.7 * st.as), p2 = P0 * exp(-0.7 * st.as);
   const mp = 1 / p1, mn = 1 / p2, kp = 1 / sqrt(1 + mp * mp), kn = 1 / sqrt(1 + mn * mn);
   const hf = (p1 * p2) / (p1 + p2), ef = 2 * hf;       // half-height per gate column, and bias per level energy
-  const tamp = pow(1.14 / a, 0.3);                       // the line dims as it widens
+  const tamp = pow(1.14 / a, 0.45);                       // the line dims as it widens
   // the levels in this window, in field B
   const NS = min(13, ceil(150 / (Ec + 4)));
   const nlo = max(5, nc - NS), nhi = nc + NS;
@@ -229,7 +229,7 @@ function frame(st) {
     e2[i] = ef * (sOf(n + 2) - sOf(n));
   }
   for (let i = 0; i <= cnt; i++) hh[i] = (gx[i + 1] - gx[i]) * hf;
-  const sep = 4 + 1.6 * a;
+  const sep = 6 + 2 * a;
   const hz = 0.5 + 0.2 * 0, kon = 0.5 * (1 - sstep(0.2, 0.55, B)) * (1 - sstep(3.5, 7, fw));
   const shr = 0.3 * fw, we = 0.9 + 1.0 * a;
 
@@ -237,26 +237,26 @@ function frame(st) {
     const xs = gx[i], hn = hh[i], hp = i ? hh[i - 1] : hn, n = nlo + i, xn = gx[i + 1];
     // ground lines through the degeneracy point: up-right and down-right arms, bright where they bound a diamond
     for (let y = 0; y < H; y++) {
-      const b = BMID - y, far = FAR[y];
+      const b = BMID - y, far = FAR[y] * 0.24;
       const x1 = xs + b * mp, x2 = xs - b * mn;
-      if (x1 > -8 && x1 < W + 8) ridge(P, y, x1, kp, tamp * far * (0.42 + 0.58 * bump(b, -hp, hn)), a);
-      if (x2 > -8 && x2 < W + 8) ridge(P, y, x2, kn, tamp * far * (0.42 + 0.58 * bump(b, -hn, hp)), a);
+      if (x1 > -8 && x1 < W + 8) { const sg = bump(b, -hp, hn); ridge(P, y, x1, kp, tamp * (sg + (1 - sg) * far), a); }
+      if (x2 > -8 && x2 < W + 8) { const sg = bump(b, -hn, hp); ridge(P, y, x2, kn, tamp * (sg + (1 - sg) * far), a); }
     }
     // excited-state lines, parallel to an arm and starting on the other arm
     for (let arm = 0; arm < 2; arm++) {
       const mm = arm ? mn : mp, kk = arm ? kn : kp, pa = arm ? p2 : p1, pb = arm ? p1 : p2;
       for (let k = 1; k <= 2; k++) {
         const e = k === 1 ? e1[i] : e2[i];
-        if (e > 75) continue;
+        if (e > 60) continue;
         const ndc = hsh(n, arm, k) < (k === 1 ? 0.32 : 0.24);
-        const amp = tamp * (k === 1 ? 0.62 : 0.42) * (arm ? 0.8 : 1);
+        const amp = tamp * (k === 1 ? 0.5 : 0.32) * (arm ? 0.8 : 1);
         for (let pass = 0; pass < (ndc ? 2 : 1); pass++) {
-          const ee = pass ? e + sep : e, ys = (ee * pb) / (pa + pb), buf = pass ? Q : P, am = pass ? amp * 0.9 : amp;
+          const ee = pass ? e + sep : e, ys = (ee * pb) / (pa + pb), buf = pass ? Q : P, am = pass ? amp * 1.25 : amp;
           // above zero bias (b > 0) the line is the arm raised by ee, below it lowered
           for (let y = 0; y < H; y++) {
             const b = BMID - y, ab = abs(b);
             if (ab < ys - 1) continue;
-            const f = sstep(ys - 1, ys + 5, ab) * FAR[y];
+            const f = sstep(ys - 1, ys + 5, ab) * exp(-(ab - ys) / 36);
             let xc;
             if (b > 0) xc = arm ? xs + (ee - b) * mm : xs + (b - ee) * mm;
             else xc = arm ? xs - (b + ee) * mm : xs + (b + ee) * mm;
@@ -315,13 +315,13 @@ export function draw(display, params) {
   const { P, Q, V, lutP, lutN, lutG } = st;
   const leak = 0.02 + 0.3 * sstep(3, 9, st.fw);
   for (let y = 0; y < H; y++) {
-    const b = abs(BMID - y) / BMID, hb = 0.55 + 0.35 * b;
+    const b = abs(BMID - y) / BMID, hb = 0.5 + 0.3 * b;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, d = BAYER[((y & 3) << 2) | (x & 3)];
       const c = 1 - min(1, V[i]) * (1 - leak);
       const gi = ((c * hb * 63 + 0.5) | 0) * 3;
       let r = lutG[gi], g = lutG[gi + 1], bl = lutG[gi + 2];
-      const pv = 1.25 * (1 - exp(-1.7 * P[i])), qv = 1.25 * (1 - exp(-1.7 * Q[i]));
+      const pv = 1 - exp(-1.1 * P[i]), qv = 1 - exp(-1.2 * Q[i]);
       if (pv > 0.004) {
         const pi = ((pv > 1 ? 1 : pv) * 255 + 0.5 | 0) * 3;
         r = 255 - ((255 - r) * (255 - lutP[pi])) / 255;
