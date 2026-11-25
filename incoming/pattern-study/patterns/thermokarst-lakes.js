@@ -9,12 +9,12 @@
 // Round:   247
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Speed=0.8..8, Wind=-90..90, Density=-1..1
+// @knobs Hue=0..1, Speed=1.6..8, Wind=-90..90, Density=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 it is the tundra seen from orbit: khaki and olive ground, dark teal lakes with a pale turquoise shallow rim, ochre basins that green in from the edge. At 0.5 the same landscape in the opposite colours, a rust sea in a blue-grey plain, and at 1 the first picture again.
-// Knob 2: Speed. 0.8 to 8, opening at 2: how many thousand years pass in a second. At 2 a new lake swells to full size in about a minute and a drain comes every five or six seconds. At 0.8 the shores creep and a drain is a rare event. At 8 the lakes run like time-lapse and a collapse takes a second.
-// Knob 3: Wind. -90 to 90 degrees, opening at 0 with the long axes tilted 65 degrees below the horizontal. Turns the direction every lake points. Each lake follows at its own pace, small ones first, so the whole landscape swings round over ten or fifteen seconds. At -90 and 90 the lakes lie the same way, 180 degrees from each other, at 25 degrees above the horizontal.
-// Knob 4: Density. -1 to 1, opening at about 0.06: how many lakes the tundra carries. 10 at -1, nearly 21 at the opening, 38 at 1. Sparse, a lake grows alone until it drains. Crowded, lakes meet all the time and the picture is chains of peanuts and merging pairs.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 it is tundra seen from orbit: khaki ground, dark teal lakes with a pale turquoise rim, cream basins that green in from the edge. At 0.25 the ground goes green and the lakes violet. At 0.5 a rust lake in a blue-grey plain, and at 1 the first picture again.
+// Knob 2: Speed. 1.6 to 8, opening at 2: how many thousand years pass in a second. At 2 a new lake swells from a 3 LED dot to 8 LED across in about four seconds, then creeps on, and a lake drains every three or four seconds, collapsing over three to six. At 1.6 a drain comes every five seconds and the shores creep. At 8 the landscape runs as time-lapse, a drain a second.
+// Knob 3: Wind. -90 to 90 degrees, opening at 0, with every long axis tilted 65 degrees below the horizontal and pointing down to the right. Turns the direction all lakes point. Each lake follows at its own pace, the small ones first, and a quarter turn is mostly done in five seconds. At -90 and 90 the lakes lie the same way, rising to the right at 25 degrees.
+// Knob 4: Density. -1 to 1, opening at about 0.06: how many lakes the tundra carries, 15 at -1, 27 at the opening, 45 at 1. Sparse, a lake grows alone and drains before anything touches it. Crowded, lakes meet all the time and the picture is chains of peanuts and merging pairs.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, exp, sqrt, sin, cos, pow, PI } = Math;
@@ -26,17 +26,18 @@ const sstep = (a, b, v) => {
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 
-const DM = 0.5;          // longest model step, in thousand years
-const PRE = 520;         // model time run before the first frame, long enough for the lakes to forget how they started
-const A0 = 1.5;          // radius of a new lake
-const TS = 1.3;            // model time that passes in a second at Speed 1, so that Speed 2 shows the shores moving
-const WIND0 = (65 * PI) / 180;
+// Model time is in thousand years. A second of panel time is Speed times TS of them.
+const TS = 1.4;          // below 1.4 the all-minimum picture comes back too near itself within 20 s
+const DM = 0.5;          // longest step the model takes at once
+const PRE = 520;         // run before the first frame, about three lake lifetimes, so no lake remembers how the run began
+const A0 = 1.5;          // radius of a new lake, 3 LED across
+const WIND0 = (65 * PI) / 180;  // the long axes at Wind 0, down to the right on a panel that stands tall
 const AMAXCAP = 20;      // 40 LED long, the longest a lake gets
-const BASIN_LIFE = 200;  // how long a basin keeps its ghost
+const BASIN_LIFE = 200;  // a basin keeps its ghost this long, then is forgotten
 const MAXB = 44;
 
-// Two creeks, the drains. A creek is a line down the panel whose bends slide slowly, each at its own rate.
-// Each runs over part of the height, so that one end is a headwater and the open tundra is not cut into strips.
+// Two creeks, the drains. Each is a line down the panel whose two bends slide at their own slow rates, so the creek meanders
+// for ever and never comes back. Each covers part of the height, so one end is a headwater and the tundra is not cut into strips.
 const CRK = [
   { x0: 13, sl: 0.16, y0: -12, y1: 96, a1: 5.5, k1: (2 * PI) / 57, p1: 0.6, w1: 0.0042, a2: 2.4, k2: (2 * PI) / 23, p2: 2.1, w2: -0.0067 },
   { x0: 52, sl: -0.12, y0: 34, y1: 142, a1: 4.5, k1: (2 * PI) / 66, p1: 3.3, w1: -0.0035, a2: 2.2, k2: (2 * PI) / 27, p2: 0.4, w2: 0.0061 },
@@ -45,7 +46,8 @@ const CA8 = [], SA8 = [];
 for (let k = 0; k < 8; k++) (CA8.push(cos((k * PI) / 4)), SA8.push(sin((k * PI) / 4)));
 
 // ---- colour -----------------------------------------------------------------
-// Everything is in 0..255 and the whole picture is turned round the wheel at the end, so these are the opening colours.
+// 0..255. The firmware raises saturation by 1.62 on the panel, so the ground is kept near grey to land on khaki. The hue knob
+// turns the finished picture about the grey axis at the end, so these are the colours at Hue 0.
 const C_MOSS = [104, 114, 92], C_OLIVE = [118, 117, 98], C_TAN = [136, 128, 106];
 const C_DAMP = [88, 104, 84];                 // wet sedge along a shore
 const C_MUD = [72, 90, 82], C_CREAM = [186, 174, 134], C_GREEN = [90, 118, 70], C_GHOST = [172, 170, 128];
@@ -78,7 +80,7 @@ export function setup(params) {
       // the shore noise: coarse swells and a small ripple, -1 to 1
       nz[p] = (vnoise(px / 11 + 40, py / 11) * 2 - 1) * 0.75 + (vnoise(px / 5.5 + 9, py / 5.5 + 71) * 2 - 1) * 0.25;
       nzb[p] = (vnoise(px / 11 + 140, py / 11 + 60) * 2 - 1) * 0.75 + (vnoise(px / 5.5 + 29, py / 5.5 + 17) * 2 - 1) * 0.25;
-      // the ground: broad patches of moss, olive and tan
+      // the ground: broad patches of moss, olive and tan, kept close in tone so the lakes carry the picture
       const gt = vnoise(px / 26 + 5, py / 26 + 11) * 0.62 + vnoise(px / 10 + 33, py / 10 + 2) * 0.38;
       const t = cl((gt - 0.25) / 0.5, 0, 1);
       const w = t < 0.5 ? t * 2 : (t - 0.5) * 2;
@@ -318,7 +320,7 @@ export function update(dt, input, params) {
   if (!params.st) setup(params);
   const st = params.st;
   const kv = input && Array.isArray(input.knobValues) ? input.knobValues : st.k;
-  st.k = [+kv[0] || 0, cl(+kv[1] || 2, 0.8, 8), +kv[2] || 0, +kv[3] || 0];
+  st.k = [+kv[0] || 0, cl(+kv[1] || 2, 1.6, 8), +kv[2] || 0, +kv[3] || 0];
   st.wind = WIND0 + (cl(st.k[2], -90, 90) * PI) / 180;
   const nstar = 26 * exp(0.55 * cl(st.k[3], -1, 1));
   if (!st.init) {
@@ -344,7 +346,7 @@ export function draw(display, params) {
   creekRows(st);
   const { nz, nzb, ground, crx, cri } = st;
   // the shores drift through two fixed fields, so that they erode and fill in as slowly as the lakes grow
-  const nc = cos(0.014 * st.m), ns = sin(0.014 * st.m);
+  const nc = cos(0.028 * st.m), ns = sin(0.028 * st.m);
   const lakes = st.lakes, basins = st.basins;
   // flatten what the pixel loop needs
   const NL = lakes.length, lk = st.lk;
