@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Range=0..4, Sorting=-1..1, Growth=-1..1
 //
-// Knob 1: Hue. Turns all five fate colours round the wheel together. At 0 the fates run indigo, blue-teal, green, gold and coral from the far end to the source end; each hue also drifts up to 14 degrees on its own slow clock of two to five minutes, so the relations between the colours never repeat.
+// Knob 1: Hue. Turns all five fate colours round the wheel together. At 0 the fates run deep indigo, steel blue, sage, sand and rose from the far end to the source end, muted and five steps of lightness apart, which the knob keeps at every turn; each hue also drifts up to 10 degrees on its own slow clock of two to five minutes, so the relations between the colours never repeat.
 // Knob 2: Range. 0 to 4, opening at 2. The decay length of the morphogen, 15 LED at 0, 33 at 2 and 72 at 4. Short, the bands are thin and crowded under the top edge with indigo below; at 2 five bands of about 25 LED share the panel; at 4 the bands are twice as thick and indigo is pushed down to the last 20 rows.
 // Knob 3: Sorting. -1 to 1, opening at 0. How fast a cell that is in the minority among its neighbours walks towards its own fate: not at all at -1, 0.7 LED a second at 0 and 5 at 1. At -1 the borders stay a ragged salt and pepper about 15 LED deep; at 1 they are crisp and now and then a cell runs off through the wrong band.
 // Knob 4: Growth. -1 to 1, opening at about 0.06. How fast the sheet flows down and divides at the top: 0.12 LED a second at -1, 0.8 at 0.06 and 2 at 1. At -1 the sheet is almost still and only breathes; at 1 it streams, new cells appear every half second and the bands are carried through it.
@@ -33,13 +33,14 @@ const SIGN = 0.3;                            // spread of a cell's own reading, 
 const HYS = 0.06;                            // a cell changes fate only this far past a threshold
 const CDIV = 1.72;                           // a cell divides when its crowding falls below this
 const TH = [-3.0, -2.05, -1.2, -0.35];     // the four thresholds, log concentration
-const FH = [246, 192, 138, 56, 357];            // fate hues at knob 0, degrees
-const FS = [0.66, 0.72, 0.62, 0.84, 0.58];
-const FV = [0.68, 0.82, 0.8, 1, 1];
+// the five fates are one muted scheme, deep indigo, steel blue, sage, sand and rose, five steps of lightness (luma 0.22, 0.37, 0.50, 0.63, 0.76)
+const FH = [252, 216, 160, 40, 12];             // fate hues at knob 0, degrees
+const FS = [0.48, 0.40, 0.32, 0.38, 0.31];
+const FL = [0.22, 0.37, 0.50, 0.63, 0.76];     // luma each fate is held to, whatever the hue knob does
 const FT = [137, 181, 233, 271, 313];        // seconds of each fate's hue drift
 const PX0 = [8, 24, 40, 56], PXT = [53, 79, 113, 149];   // where the sources sit and how long each wanders
 const PST = [67, 97, 131, 173];              // seconds each source takes to swell and sag
-const LIFT = new Float32Array(H).map((_, y) => 0.17 * exp(-y / 14));   // the source end is a touch lighter
+const LIFT = new Float32Array(H).map((_, y) => 0.10 * exp(-y / 14));   // the source end is a touch lighter
 
 function hsv(h, s, v, out, o) {
   h = h / 360;
@@ -448,7 +449,15 @@ export function update(dt, input, params) {
 // ---- the picture --------------------------------------------------------------
 function palette(st) {
   const t = st.t, h0 = 360 * st.sk[0], pal = st.pal;
-  for (let f = 0; f < 5; f++) hsv(h0 + FH[f] + 14 * sin(TAU * t / FT[f] + st.fp[f]), FS[f], FV[f], pal, f * 3);
+  for (let f = 0; f < 5; f++) {
+    const o = f * 3;
+    hsv(h0 + FH[f] + 10 * sin(TAU * t / FT[f] + st.fp[f]), FS[f], 1, pal, o);
+    // value that gives this fate its luma at this hue, so the five steps of lightness survive any turn of the knob
+    const v = min(1, FL[f] * 255 / (0.299 * pal[o] + 0.587 * pal[o + 1] + 0.114 * pal[o + 2]));
+    pal[o] *= v;
+    pal[o + 1] *= v;
+    pal[o + 2] *= v;
+  }
 }
 
 export function draw(display, params) {
@@ -461,7 +470,7 @@ export function draw(display, params) {
   W2.fill(1e9);
   for (let i = 0; i < n; i++) {
     const pp = cl(p[i], 0, 3.9999), f0 = floor(pp), fr = pp - f0, o = f0 * 3;
-    const br = bri[i] * (1 + 0.08 * sin(TAU * t / (6 + 5 * ((ph[i] * 1.618) % 1)) + ph[i]));
+    const br = bri[i] * (1 + 0.05 * sin(TAU * t / (6 + 5 * ((ph[i] * 1.618) % 1)) + ph[i]));
     cr[i] = (pal[o] * (1 - fr) + pal[o + 3] * fr) * br;
     cg[i] = (pal[o + 1] * (1 - fr) + pal[o + 4] * fr) * br;
     cb[i] = (pal[o + 2] * (1 - fr) + pal[o + 5] * fr) * br;
