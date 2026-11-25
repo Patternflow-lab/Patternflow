@@ -29,22 +29,23 @@ const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 
 const NL = 11;                    // layers
 const NR = 168;                   // samples kept, one per row of travel
+const NC = NL + 1;                // a sample: the layers and the smoothed total
 const NS = 3;                     // sub-rows per LED row, for the soft edges
-const WMIN = 40, WMAX = 62;       // the stream's width, LED
+const WMIN = 40, WMAX = 63;       // the stream's width, LED
 const F0 = 0.85;                  // the thinnest a layer gets, LED
-const R0 = 46, RS = 9;            // raw total thickness mapped to the stream width
+const R0 = 58, RS = 12;           // raw total thickness mapped to the stream width
 const A0 = 3.3;                   // size of a bump
 const H0 = 14;                    // half-length of a bump at Churn 0, rows
 const SPEED0 = 6, SPEED4 = 30;    // rows a second at Flow 0 and 4
 
 // pastel stops along the stack: hue degrees (unwrapped), saturation, value
 const STOPS = [
-  [156, 0.4, 0.92],  // mint
-  [206, 0.42, 0.95], // sky
-  [264, 0.38, 0.96], // lilac
-  [338, 0.42, 0.97], // rose
-  [382, 0.46, 1.0],  // apricot
-  [406, 0.38, 0.95], // sand
+  [156, 0.25, 0.93],  // mint
+  [208, 0.27, 0.96],  // sky
+  [266, 0.25, 0.97],  // lilac
+  [338, 0.27, 0.98],  // rose
+  [383, 0.32, 1.0],   // apricot
+  [410, 0.27, 0.96],  // sand
 ];
 
 function hsv(h, s, v, out, o) {
@@ -69,11 +70,11 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], init: false, t: 0,
     S: 0, G: 0,                              // distance run, newest sample made
     sp: 13, cs: 0, kb: 0.06,                 // smoothed knobs
-    ring: new Float32Array(NR * NL),
+    ring: new Float32Array(NR * NC), rs1: 50, rs2: 50,
     bumps: [], rm: [], sz: [], w1: [], p1: [], w2: [], p2: [],
     ph: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU],
     col: new Float32Array(NL * 3), gcol: new Float32Array(3),
-    r: new Float32Array(NL), tt: new Float32Array(NL), bb: new Float32Array(NL + 1),
+    r: new Float32Array(NC), tt: new Float32Array(NL), bb: new Float32Array(NL + 1),
     aR: new Float32Array(W), aG: new Float32Array(W), aB: new Float32Array(W), aC: new Float32Array(W),
   });
   for (let i = 0; i < NL; i++) {
@@ -85,6 +86,10 @@ export function setup(params) {
     st.w2.push(TAU / (37 + 24 * rnd()));
     st.p2.push(rnd() * TAU);
   }
+  // the layers share the same total weight however the draw fell
+  let mw = 0;
+  for (let i = 0; i < NL; i++) mw += st.rm[i] * st.sz[i];
+  for (let i = 0; i < NL; i++) st.sz[i] *= NL / mw;
   return st;
 }
 
@@ -93,13 +98,14 @@ export function setup(params) {
 // each bump arrives at random, has a size and a length, and rises and falls as a raised cosine. Bumps are made as the picture
 // enters at the top and never repeat.
 function gen(st, k) {
-  const c = st.cs, hs = H0 * exp(-0.9 * c), rho = 1.7 - 0.2 * c, lam = rho / (2 * hs * 1.06);
-  const base = md(k) * NL;
+  const c = st.cs, hs = H0 * exp(-0.5 * c), amp = min(1.4, hs / H0), rho = (1.7 - 0.2 * c) / amp, lam = rho / (2 * hs * 1.06);
+  const base = md(k) * NC;
+  let R = 0;
   for (let i = 0; i < NL; i++) {
     const bl = st.bumps[i];
     if (rnd() < lam * st.rm[i]) {
-      const h = cl(hs * exp(0.35 * gauss()), 3.5, 52);
-      bl.push({ c: k + h, h, a: st.sz[i] * A0 * min(3.6, 0.35 - log(1 - rnd())) });
+      const h = cl(hs * exp(0.35 * gauss()), 4.5, 52);
+      bl.push({ c: k + h, h, a: st.sz[i] * A0 * amp * min(3.6, 0.35 - log(1 - rnd())) });
     }
     let v = 0.9 + 0.5 * sin(k * st.w1[i] + st.p1[i]) + 0.3 * sin(k * st.w2[i] + st.p2[i]);
     for (let j = bl.length - 1; j >= 0; j--) {
@@ -110,7 +116,12 @@ function gen(st, k) {
       } else if (d > -b.h) v += b.a * 0.5 * (1 + cos((PI * d) / b.h));
     }
     st.ring[base + i] = v;
+    R += v;
   }
+  // the total, run through two slow filters, so the stream's width swells over a few tens of rows and never flickers
+  st.rs1 += (R - st.rs1) * 0.1;
+  st.rs2 += (st.rs1 - st.rs2) * 0.1;
+  st.ring[base + NL] = st.rs2;
 }
 
 const SPEED_OF = (k) => SPEED0 * pow(SPEED4 / SPEED0, cl(k, 0, 4) / 4);
@@ -142,16 +153,14 @@ export function update(dt, input, params) {
 function stack(st, s, ex) {
   const r = st.r, tt = st.tt, bb = st.bb, ring = st.ring;
   const k0 = floor(s), f = s - k0, f2 = f * f, f3 = f2 * f;
-  const m1 = md(k0 - 1) * NL, m0 = md(k0) * NL, n1 = md(k0 + 1) * NL, n2 = md(k0 + 2) * NL;
-  let R = 0;
-  for (let i = 0; i < NL; i++) {
+  const m1 = md(k0 - 1) * NC, m0 = md(k0) * NC, n1 = md(k0 + 1) * NC, n2 = md(k0 + 2) * NC;
+  for (let i = 0; i < NC; i++) {
     // Catmull-Rom through four samples
     const a = ring[m1 + i], b = ring[m0 + i], c = ring[n1 + i], d = ring[n2 + i];
     const v = 0.5 * (2 * b + (c - a) * f + (2 * a - 5 * b + 4 * c - d) * f2 + (3 * (b - c) + d - a) * f3);
     r[i] = v < 0.05 ? 0.05 : v;
-    R += r[i];
   }
-  const T = WMIN + (WMAX - WMIN) / (1 + exp(-(R - R0) / RS));
+  const T = WMIN + (WMAX - WMIN) / (1 + exp(-(r[NL] - R0 + 4.5 * st.cs) / (RS * pow(0.65, st.cs + 1))));
   let Q = 0;
   for (let i = 0; i < NL; i++) {
     tt[i] = pow(r[i], ex);
@@ -166,7 +175,7 @@ function stack(st, s, ex) {
   g0 /= NL;
   // the three baselines: stacked from the left edge, the wiggle (the layers' centres bend least, plus a slow sway of the whole
   // stream), and the silhouette about the middle; the knob blends them
-  const kb = st.kb, sway = 6.5 * sin(s * 0.021 + st.ph[0]) + 3 * sin(s * 0.047 + st.ph[1]);
+  const kb = st.kb, sway = (1 + 0.5 * max(0, -st.cs)) * (6.5 * sin(s * 0.046 + st.ph[0]) + 3 * sin(s * 0.093 + st.ph[1]));
   const Lw = W / 2 + g0 + sway, Ls = W / 2 - T / 2;
   let L = kb < 0 ? Lw * (kb + 1) : Lw + (Ls - Lw) * kb;
   // keep it on the panel, softly: it may just touch an edge at a swell
@@ -185,14 +194,14 @@ export function draw(display, params) {
   if (!st) st = setup(params);
   if (!st.init) update(0, { knobValues: st.k }, params);
   const hue = st.k[0] * 360, col = st.col, gc = st.gcol;
-  // the scale: eleven positions over six stops
+  // the scale: six hues in sequence, two layers each (one for sand), the second a little deeper and a few degrees on
   for (let i = 0; i < NL; i++) {
-    const u = (i / (NL - 1)) * (STOPS.length - 1), j = min(STOPS.length - 2, floor(u)), f = u - j, A = STOPS[j], B = STOPS[j + 1];
-    const alt = i & 1 ? -0.035 : 0.025;
-    hsv(hue + A[0] + (B[0] - A[0]) * f, cl(A[1] + (B[1] - A[1]) * f - alt * 0.6, 0, 1), cl(A[2] + (B[2] - A[2]) * f + alt, 0, 1), col, i * 3);
+    const j = floor((i * STOPS.length) / NL), A = STOPS[j], second = i > 0 && floor(((i - 1) * STOPS.length) / NL) === j ? 1 : 0;
+    hsv(hue + A[0] + 12 * second, A[1] + 0.1 * second, A[2] - 0.11 * second, col, i * 3);
   }
-  hsv(hue + 248, 0.7, 0.2, gc, 0);
-  const ex = 1 + 0.36 * st.cs, S = st.S, aR = st.aR, aG = st.aG, aB = st.aB, aC = st.aC, bb = st.bb;
+  // the ground stays indigo, leaning blue or violet as the hue turns; a dark warm or green ground would read brown or muddy on the panel
+  hsv(248 + 40 * sin(hue * (PI / 180)), 0.72, 0.27, gc, 0);
+  const ex = 1.2 + 0.36 * st.cs, S = st.S, aR = st.aR, aG = st.aG, aB = st.aB, aC = st.aC, bb = st.bb;
   const gR = gc[0], gG = gc[1], gB = gc[2];
   for (let y = 0; y < H; y++) {
     aR.fill(0); aG.fill(0); aB.fill(0); aC.fill(0);
@@ -209,14 +218,15 @@ export function draw(display, params) {
           const a = x > lo ? x : lo, z = x + 1 < hi ? x + 1 : hi, cov = z - a;
           if (cov <= 0) continue;
           const xm = (a + z) * 0.5, e = (2 * (xm - lo)) / w - 1, core = 1 - e * e;
-          // lighter along the core, darker at the edges
-          const mult = 1 - 0.3 * amp * (1 - core), gl = 12 * amp * core;
+          // lighter along the core, deeper at the edges (a colour times itself, so it darkens toward its own hue and not toward grey)
+          const sh = 0.55 * amp * (1 - core), gl = 12 * amp * core;
           // the brighter hairline against a neighbour
           let hl = 0;
           if (i > 0) hl += exp(-((xm - lo) * (xm - lo)) / 0.4);
           if (i < NL - 1) hl += exp(-((hi - xm) * (hi - xm)) / 0.4);
           hl *= 0.34;
-          const r = col[ci] * mult + gl, g = col[ci + 1] * mult + gl, b = col[ci + 2] * mult + gl;
+          const c0 = col[ci], c1 = col[ci + 1], c2 = col[ci + 2];
+          const r = c0 + (c0 * c0 * (1 / 255) - c0) * sh + gl, g = c1 + (c1 * c1 * (1 / 255) - c1) * sh + gl, b = c2 + (c2 * c2 * (1 / 255) - c2) * sh + gl;
           aR[x] += (r + (255 - r) * hl) * cov;
           aG[x] += (g + (255 - g) * hl) * cov;
           aB[x] += (b + (255 - b) * hl) * cov;
@@ -237,7 +247,7 @@ export function draw(display, params) {
         const n1 = hash(ia, is) * (1 - ua) * (1 - us) + hash(ia + 1, is) * ua * (1 - us) + hash(ia, is + 1) * (1 - ua) * us + hash(ia + 1, is + 1) * ua * us;
         const fb = xc * 0.33, fc = s * 0.06, ib = floor(fb), ic = floor(fc), ub = fb - ib, uc = fc - ic;
         const n2 = hash(ib + 99, ic) * (1 - ub) * (1 - uc) + hash(ib + 100, ic) * ub * (1 - uc) + hash(ib + 99, ic + 1) * (1 - ub) * uc + hash(ib + 100, ic + 1) * ub * uc;
-        const gr = 0.72 + 0.34 * n1 + 0.4 * n2;
+        const gr = 0.55 + 0.5 * n1 + 0.6 * n2;
         const tl = xc < eL ? 0.12 * exp(-(eL - xc) / 7) : 0, tr = xc > eR ? 0.12 * exp(-(xc - eR) / 7) : 0;
         r = gR * gr + tl * col[0] + tr * col[NL * 3 - 3];
         g = gG * gr + tl * col[1] + tr * col[NL * 3 - 2];
