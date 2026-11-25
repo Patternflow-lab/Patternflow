@@ -36,7 +36,8 @@ const PRE = 40;                  // seconds the sheet is taken to have run befor
 const PVZ = 3.2;                 // the wave trains turn about this point of the sheet, straight ahead
 const S1 = 1.5, S2 = 0.5, S3 = 0.17;   // cells of the knots, the wisps and the fine wisps, in sheet heights
 const SE = 1.6, SB = 0.6;        // cell of the band domains and of the billow patches
-const G0 = 1.305, G1 = 4.386;    // squared phase step per LED where a train starts to fade (5.5 LED a wave) and is gone (3 LED)
+const G0 = 0.934, G1 = 3.9;      // squared phase step per LED where a train starts to fade (6.5 LED a wave) and is gone (3.2 LED)
+const FA = 0.3, FS = 1.7;        // the veil is drawn out into fibres along a line this many radians off the X axis, by this factor
 
 // The two band trains. lam: wavelength in sheet heights. th: mean direction of travel, radians from the line of sight
 // (0 gives bands across the panel, a quarter turn gives crests that run to the horizon). ta, tp, tp2: how far and
@@ -56,7 +57,10 @@ const NB = BANDS.length, NW = NB + BILL.length;
 const EL = new Float32Array(H), AZ = new Float32Array(W);
 const PX = new Float32Array(N), PZ = new Float32Array(N);
 const JXX = new Float32Array(N), JXY = new Float32Array(N), JZX = new Float32Array(N), JZY = new Float32Array(N);
-const ROWB = new Float32Array(H), WARM = new Float32Array(H), FD2 = new Float32Array(H), FD3 = new Float32Array(H);
+// The noise fields are smooth across the panel, so they are worked out at every fourth column and joined by lines.
+const NN = W / 4 + 1, NPX = new Float32Array(H * NN), NPZ = new Float32Array(H * NN);
+const ROWB = new Float32Array(H), WARM = new Float32Array(H), FD1 = new Float32Array(H), FD2 = new Float32Array(H), FD3 = new Float32Array(H);
+const BASE = new Float32Array(H), TORN = new Float32Array(H);
 const elOf = (y) => EL0 + ((EL1 - EL0) * (HR - y)) / HR;
 const azOf = (x) => ((x - 31.5) / 31.5) * AZW;
 // Where the ray of elevation e and azimuth a (degrees) meets the shell: ground coordinates X (to the right) and Z (ahead),
@@ -89,14 +93,24 @@ function hit(e, a, o) {
       JXY[i] = o[0] - p[0];
       JZY[i] = o[1] - p[1];
     }
+    for (let k = 0; k < NN; k++) {
+      hit(e, azOf(k * 4), o);
+      NPX[y * NN + k] = o[0];
+      NPZ[y * NN + k] = o[1] - PVZ;
+    }
     // the sheet is seen more edge-on towards the horizon, and through more air
     hit(e, 0, o);
-    ROWB[y] = pow(1 / o[2], 0.5) * exp(-0.08 / sin((e + 1.5) * RAD));
+    ROWB[y] = pow(1 / o[2], 0.5) * exp(-0.1 / sin((e + 1.5) * RAD));
     WARM[y] = 1 - sstep(2, 9, e);
     // rows a cell of the wisps takes up; under about two the wisps are left out
     const i = y * W + 32, rpu = 1 / sqrt(JXY[i] * JXY[i] + JZY[i] * JZY[i]);
+    FD1[y] = 0.35 + 0.65 * sstep(4, 12, S1 * rpu);
     FD2[y] = sstep(1.1, 2.3, S2 * rpu);
-    FD3[y] = sstep(1.1, 2.3, S3 * rpu);
+    FD3[y] = sstep(2, 4, S3 * rpu);
+    // between the two trains the sheet is as dim as a trough, where a trough can be seen at all
+    BASE[y] = 1 - 0.45 * sstep(3.2, 6.5, BANDS[0].lam * rpu);
+    // and it is torn into patches only where a patch is some rows tall
+    TORN[y] = sstep(5, 16, rpu);
   }
 }
 
@@ -164,11 +178,11 @@ function buildSky(sky, q, hue) {
   const g = 1.3 + 13 * pow(1 - q, 1.3), q2 = q * q;
   const st = [
     [0, 0.065 - 0.055 * q2, 0.96, 1 - 0.5 * q2 * q2],
-    [0.45 * g, 0.11 - 0.09 * q2, 0.8 + 0.15 * q, 1 - 0.78 * q2],
-    [g, 0.15 - 0.1 * q2, 0.28 + 0.5 * q2, 0.9 - 0.8 * pow(q, 1.6)],
-    [1.9 * g, 0.47 + 0.08 * q, 0.72 + 0.2 * q, 0.66 - 0.59 * pow(q, 1.2)],
-    [3.5 * g, 0.6 + 0.05 * q, 0.88, 0.52 - 0.455 * q],
-    [3.5 * g + 26, 0.68 + 0.04 * q, 0.86, 0.46 - 0.4 * q],
+    [0.45 * g, 0.11 - 0.09 * q2, 0.8 + 0.15 * q, 1 - 0.75 * q2 * q],
+    [g, 0.14 - 0.09 * q2, 0.2 + 0.6 * q2 * q, 0.92 - 0.82 * pow(q, 2.2)],
+    [1.9 * g, 0.47 + 0.08 * q, 0.72 + 0.2 * q, 0.66 - 0.57 * pow(q, 1.2)],
+    [3.5 * g, 0.6 + 0.05 * q, 0.88, 0.52 - 0.42 * q],
+    [3.5 * g + 26, 0.68 + 0.04 * q, 0.86, 0.46 - 0.35 * q],
   ];
   const c = new Float32Array(st.length * 3);
   for (let k = 0; k < st.length; k++) hsv(st[k][1] + hue, st[k][2], st[k][3], c, k * 3);
@@ -194,16 +208,17 @@ export function setup(params) {
     ex: rnd() * 60, ez: rnd() * 60,           // and the domains of the two band trains
     kx: new Float32Array(NW), kz: new Float32Array(NW), phi: new Float32Array(NW), th: new Float32Array(NB),
     o3x: rnd() * 60, o3z: rnd() * 60,
-    seed: [1, 2, 3, 4, 5, 6].map(() => floor(rnd() * 1e6)),
+    seed: [1, 2, 3, 4, 5].map(() => floor(rnd() * 1e6)),
     lutC: new Float32Array(NL * 3), lutW: new Float32Array(NL * 3), sky: new Float32Array(NS * 3),
     CB: new Float32Array(W), CS: new Float32Array(W), EDG: new Float32Array(W), RF: new Float32Array(H),
+    NV: new Float32Array(NN), ND: new Float32Array(NN), NP: new Float32Array(NN),
   };
   const st = params.st;
   for (let j = 0; j < NW; j++) st.phi[j] = rnd() * TAU;
   return st;
 }
 
-const speedOf = (wind) => 0.25 + 0.375 * cl(wind, 0, 4);
+const speedOf = (wind) => 0.3 + 0.35 * cl(wind, 0, 4);
 
 // One step of the slow things: the wind's direction, the wave vectors, the phases and the slides of the layers.
 // dt is the time that passes for the sun and the turning; carry is the time the wind blows, which the first update
@@ -264,15 +279,17 @@ export function draw(display, params) {
   // the sun: its depth creeps a little, its azimuth wanders, and the edge of the Earth's shadow creeps on its own
   const q = cl((cl(st.k[3], -1, 1) + 1) / 2 + 0.05 * sin(t / 53 + ph[10]) + 0.03 * sin(t / 21.9 + ph[11]), 0, 1);
   const as = 8.5 * (0.62 * sin(t / 47 + ph[12]) + 0.38 * sin(t / 19.3 + ph[13]));
-  const E0 = 13 + 47 * (1 - pow(q, 0.85)) + 3.2 * sin(t / 37.1 + ph[14]) + 2.2 * sin(t / 15.3 + ph[15]);
-  const gain = 0.5 + 1.0 * pow(q, 1.2), dep = 6 + 10 * q, wq = 1 - 0.5 * q;
+  const E0 = 18 + 47 * (1 - pow(q, 1.25)) + 3.2 * sin(t / 37.1 + ph[14]) + 2.2 * sin(t / 15.3 + ph[15]);
+  const gain = q < 0.53 ? 0.5 + 0.94 * q : 1 + 2.1 * (q - 0.53), dep = 6 + 10 * q, wq = 1 - 0.85 * q;
   buildSky(st.sky, q, hue);
-  const CB = st.CB, CS = st.CS, EDG = st.EDG, RF = st.RF;
+  const CB = st.CB, CS = st.CS, EDG = st.EDG, RF = st.RF, NV = st.NV, ND = st.ND, NP = st.NP;
+  let emax = 0;
   for (let x = 0; x < W; x++) {
     const da = AZ[x] - as, db = AZ[x] - 1.25 * as;
     CB[x] = 0.42 + 0.58 * exp((-da * da) / 242);
     CS[x] = SKS / (0.72 + 0.28 * exp((-da * da) / 288));
-    EDG[x] = E0 - 0.02 * db * db;
+    EDG[x] = E0 + 2 - (0.04 * db * db) / (1 + (db * db) / 400);
+    emax = max(emax, EDG[x]);
   }
   for (let y = 0; y < H; y++) {
     const e = EL[y] + dep;
@@ -280,69 +297,79 @@ export function draw(display, params) {
   }
   const bp = max(0, bil), bn = max(0, -bil);
   const wBand = 1 + 0.1 * bn - 0.75 * bp, wBill = 0.8 * (1 - bn) + 0.35 * bp;
-  const tlo = -1 - bn + 0.75 * bp, thi = 0.4 - 0.6 * bn - 0.05 * bp, ti = 1 / (thi - tlo);
-  const w1 = 0.42 - 0.08 * bil, w3 = 0.25 + 0.06 * bil, w2 = 1 - w1 - w3;
-  const plo = -0.25 - 0.9 * bil, dz = 0.12 - 0.1 * bp;
+  const thi = 0.5 - 0.6 * bn - 0.05 * bp;
+  const w1 = 0.5, w3 = 0.15, w2 = 0.35;
+  const plo = -0.45 - 0.9 * bil;
   const kx = st.kx, kz = st.kz, phi = st.phi, ex = st.ex, ez = st.ez, seed = st.seed, o3x = st.o3x, o3z = st.o3z;
   const ox = st.ox, oz = st.oz, o2x = st.o2x, o2z = st.o2z, obx = st.obx, obz = st.obz;
   const sky = st.sky, lutC = st.lutC, lutW = st.lutW, LS = (NL - 1) / IMAX;
   const IS1 = 1 / S1, IS2 = 1 / S2, IS3 = 1 / S3, ISE = 1 / SE, ISB = 1 / SB, IG = 1 / (G1 - G0);
+  const CA = cos(FA), SA = sin(FA), IFS = 1 / FS;
 
   for (let y = 0; y < H; y++) {
     if (y > HR) {
       for (let x = 0; x < W; x++) display.setPixel(x, y, 0, 0, 0);
       continue;
     }
-    const el = EL[y], rf = RF[y], f2 = FD2[y] * w2, f3 = FD3[y] * w3, wm = WARM[y] * wq;
-    const nv = 1 / sqrt(w1 * w1 + f2 * f2 + f3 * f3);
+    const el = EL[y], rf = RF[y], f2 = FD2[y] * w2, f3 = FD3[y] * w3, wm = WARM[y] * wq, base = BASE[y];
+    const tlo = -1.25 - bn + 0.7 * bp * TORN[y], ti = 1 / (thi - tlo);
+    if (el < emax) {
+      const nv = FD1[y] / sqrt(w1 * w1 + f2 * f2 + f3 * f3);
+      for (let k = 0; k < NN; k++) {
+        const U = NPX[y * NN + k] + ox, V = NPZ[y * NN + k] + oz;
+        // the veil: knots, and wisps where a wisp is wide enough to draw
+        const A = (U * CA - V * SA) * IFS, B = U * SA + V * CA;
+        let v = gnoise(A * IS1, B * IS1, seed[0]) * w1;
+        if (f2 > 0) v += gnoise((A + o2x) * IS2, (B + o2z) * IS2, seed[1]) * f2;
+        if (f3 > 0) v += gnoise((A + o3x) * IS3, (B + o3z) * IS3, seed[2]) * f3;
+        NV[k] = v * nv;
+        // which band train owns this part of the sheet, and where the billows are
+        ND[k] = gnoise((U + ex) * ISE, (V + ez) * ISE, seed[3]);
+        NP[k] = wBill > 0 ? (gnoise((U + obx) * ISB, (V + obz) * ISB, seed[4]) - plo) * 1.1 : 0;
+      }
+    }
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       // the sky behind
       const se = min(NS - 1.001, el * CS[x]), sj = floor(se), sf = se - sj, s3 = sj * 3;
       let r = sky[s3] + (sky[s3 + 3] - sky[s3]) * sf, g = sky[s3 + 1] + (sky[s3 + 4] - sky[s3 + 1]) * sf, b = sky[s3 + 2] + (sky[s3 + 5] - sky[s3 + 2]) * sf;
       // sunlight on the sheet: under the shadow's arch, strongest low over the sun
-      let lt = cl((EDG[x] + 2.2 - el) / 8.2, 0, 1);
+      let lt = cl((EDG[x] - el) / 6.5, 0, 1);
       lt = lt * lt * (3 - 2 * lt) * rf * CB[x];
       if (lt > 0.004) {
-        const X = PX[i], Z = PZ[i], U = X + ox, V = Z + oz;
-        // the veil: knots, and wisps where a wisp is wider than two rows
-        let v = gnoise(U * IS1, V * IS1, seed[0]) * w1;
-        if (f2 > 0) v += gnoise((U + o2x) * IS2, (V + o2z) * IS2, seed[1]) * f2;
-        if (f3 > 0) v += gnoise((U + o3x) * IS3, (V + o3z) * IS3, seed[2]) * f3;
-        v *= nv;
+        const xi = x >> 2, xf = (x & 3) * 0.25, v = NV[xi] + (NV[xi + 1] - NV[xi]) * xf;
         let rho = cl((v - tlo) * ti, 0, 1);
         rho = rho * rho * (3 - 2 * rho) * cl(0.8 + 0.25 * v, 0.45, 1.3);
         if (rho > 0.003) {
-          const jxx = JXX[i], jxy = JXY[i], jzx = JZX[i], jzy = JZY[i];
-          // which band train owns this part of the sheet: one, the other, or neither
-          const ns = gnoise((U + ex) * ISE, (V + ez) * ISE, seed[3]);
-          let m = 1, nb = -9;
+          const X = PX[i], Z = PZ[i], jxx = JXX[i], jxy = JXY[i], jzx = JZX[i], jzy = JZY[i];
+          // one band train or the other, each fading out towards the strip between them where the sheet is smooth
+          const dn = ND[xi] + (ND[xi + 1] - ND[xi]) * xf;
+          let m = base;
+          const eb = cl(NP[xi] + (NP[xi + 1] - NP[xi]) * xf, 0, 1), eb2 = eb * eb * (3 - 2 * eb) * wBill;
           for (let j = 0; j < NB; j++) {
-            let d = cl(((j === 0 ? -ns : ns) - dz) * 2.9, 0, 1);
+            let d = cl(((j === 0 ? -dn : dn) - 0.08) * 1.7, 0, 1);
             if (d <= 0) continue;
             d = d * d * (3 - 2 * d);
             // the band: a train of ridges
-            let gx = kx[j] * jxx + kz[j] * jzx, gy = kx[j] * jxy + kz[j] * jzy, g2 = gx * gx + gy * gy;
+            let gx = kx[j] * jxx + kz[j] * jzx, gy = kx[j] * jxy + kz[j] * jzy, g2 = gx * gx + gy * gy, mj = 1;
             if (g2 < G1) {
               let f = g2 <= G0 ? 1 : (G1 - g2) * IG;
-              f = f * f * (3 - 2 * f) * d * wBand;
+              f = f * f * (3 - 2 * f) * wBand;
               const c = 0.5 + 0.5 * cos(kx[j] * X + kz[j] * Z + phi[j]);
-              m *= 1 + f * (c * c * c * 2.4 - 0.75);
+              mj += f * (c * c * c * 2.4 - 0.75);
             }
             // its billows: short ripples across it, in patches
-            if (wBill <= 0) continue;
             const n = NB + j;
             gx = kx[n] * jxx + kz[n] * jzx;
             gy = kx[n] * jxy + kz[n] * jzy;
             g2 = gx * gx + gy * gy;
-            if (g2 >= G1) continue;
-            if (nb < -8) nb = gnoise((U + obx) * ISB, (V + obz) * ISB, seed[4]);
-            let e = cl((nb - plo) * 2.2, 0, 1);
-            if (e <= 0) continue;
-            let f = g2 <= G0 ? 1 : (G1 - g2) * IG;
-            f = f * f * (3 - 2 * f) * e * e * (3 - 2 * e) * d * wBill;
-            const c = 0.5 + 0.5 * cos(kx[n] * X + kz[n] * Z + phi[n]);
-            m *= 1 + f * (c * c * 1.6 - 0.6);
+            if (eb2 > 0 && g2 < G1) {
+              let f = g2 <= G0 ? 1 : (G1 - g2) * IG;
+              f = f * f * (3 - 2 * f) * eb2;
+              const c = 0.5 + 0.5 * cos(kx[n] * X + kz[n] * Z + phi[n]);
+              mj *= 1 + f * (c * c * 1.6 - 0.6);
+            }
+            m += d * (mj - base);
           }
           if (m > 0) {
             const I = rho * m * lt * 0.95;
