@@ -22,12 +22,17 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const fr = (v) => v - floor(v);
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
+const TP = 2 * PI;
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
-const BX = [7, 57, 44, 16], BY = [56, 74, 12, 116];   // beacons, LED
+const BX = [12, 52, 44, 18], BY = [56, 74, 15, 113];  // where the beacons sway about, LED
+const SX = [[53, 29], [71, 37], [97, 41], [61, 31]];  // seconds of the two sways of each beacon, x
+const SY = [[67, 33], [47, 43], [79, 27], [89, 35]];  // and y
 const BH = [0.5, 0.833, 0.15, 0.667];                // hue of each at knob 0
 const BS = [0.9, 0.9, 0.5, 0.58];
 const GN = [0.95, 1.2, 1.4, 1.9];                   // light gain, so cyan, magenta, yellow and blue weigh about the same
+const BT = [47, 71, 103, 59];
+const HT = [113, 89, 167, 131];                         // seconds a beacon's transmit strength takes to swell and sag
 const PER = [0.78, 0.98, 0.86, 1.08];                 // mean seconds between pings
 const AX0 = 2, AX1 = W - 2, AY0 = 2, AY1 = H - 2;     // the arena the particles live in
 const RM = 7;                                         // the robot turns back this far from the edge
@@ -53,7 +58,7 @@ export function setup(params) {
     L: f(N), idx: new Int32Array(N),
     rx: 32, ry: 64, hd: rnd() * 2 * PI, om: 0, spm: 1, kt: 20 + 20 * rnd(),
     act: [1, 1, 1, 0], tm: [0.1, 0.5, 0.8, 0.3], fl: [0, 0, 0, 0],
-    rings: [], hz: 0,
+    rings: [], hz: 0, bx: BX.slice(), by: BY.slice(), bp: new Array(16).fill(0).map(() => rnd() * 2 * PI), ph: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(() => rnd() * 2 * PI),
     fb: f(W * H * 3), P: f(W * H), col: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], lil: [0, 0, 0],
   });
   for (let i = 0; i < N; i++) {
@@ -78,8 +83,8 @@ function uniformAt(st, i, sv) {
 }
 
 // One range measurement z from beacon b with spread sg: weight, resample, roughen.
-function pfUpdate(st, b, z, sg) {
-  const { px, py, L } = st, bx = BX[b], by = BY[b];
+function pfUpdate(st, bx, by, z, sg) {
+  const { px, py, L } = st;
   let s1 = 1.1 * sg + 0.4, sum = 0;
   for (let i = 0; i < N; i++) {
     const e = (hypot(px[i] - bx, py[i] - by) - z) / s1;
@@ -128,14 +133,15 @@ function pfUpdate(st, b, z, sg) {
   // two beacons: the rings cross twice and the posterior is symmetric about the line between them, so a few particles
   // are moved across it. Without that the drift of resampling would sooner or later empty one lobe.
   if (st.act[2] < 0.5) {
-    let dx = BX[1] - BX[0], dy = BY[1] - BY[0];
+    const { bx: tx, by: ty } = st;
+    let dx = tx[1] - tx[0], dy = ty[1] - ty[0];
     const dl = hypot(dx, dy);
     dx /= dl;
     dy /= dl;
     for (let k = 0; k < N; k++) {
       if (rnd() > 0.035) continue;
-      const ax = st.px[k] - BX[0], ay = st.py[k] - BY[0], along = ax * dx + ay * dy;
-      const mx = BX[0] + 2 * along * dx - ax, my = BY[0] + 2 * along * dy - ay;
+      const ax = st.px[k] - tx[0], ay = st.py[k] - ty[0], along = ax * dx + ay * dy;
+      const mx = tx[0] + 2 * along * dx - ax, my = ty[0] + 2 * along * dy - ay;
       if (mx < AX0 || mx > AX1 || my < AY0 || my > AY1) continue;
       st.px[k] = mx;
       st.py[k] = my;
@@ -168,6 +174,11 @@ function sim(st, dt) {
   st.nb = 3 + cl(k[2], -1, 1);
   st.t += dt;
   const sg = st.sg, scale = st.scale;
+  // the beacons sway a few LED about their places, slowly
+  for (let b = 0; b < 4; b++) {
+    st.bx[b] = BX[b] + 6 * sin(TP * st.t / SX[b][0] + st.bp[b]) + 3 * sin(TP * st.t / SX[b][1] + st.bp[4 + b]);
+    st.by[b] = BY[b] + 6 * sin(TP * st.t / SY[b][0] + st.bp[8 + b]) + 3 * sin(TP * st.t / SY[b][1] + st.bp[12 + b]);
+  }
   // beacons fade in and out
   const ka = 1 - exp(-dt / 0.45);
   for (let b = 0; b < 4; b++) st.act[b] += ((b < 2 ? 1 : cl(st.nb - b, 0, 1)) - st.act[b]) * ka;
@@ -216,8 +227,8 @@ function sim(st, dt) {
     st.tm[b] -= dt;
     if (st.tm[b] > 0) continue;
     st.tm[b] += PER[b] * (0.9 + 0.2 * rnd());
-    const d = hypot(st.rx - BX[b], st.ry - BY[b]);
-    st.rings.push({ b, z: max(1.5, d + sg * gauss()), age: 0, s: 0.62 + 0.19 * sg, str: min(1, st.act[b] * 1.5), sg, done: false });
+    const d = hypot(st.rx - st.bx[b], st.ry - st.by[b]);
+    st.rings.push({ b, cx: st.bx[b], cy: st.by[b], z: max(1.5, d + sg * gauss()), age: 0, s: 0.62 + 0.19 * sg, str: min(1, st.act[b] * 1.5), sg, done: false });
     st.fl[b] = 1;
   }
   const rings = st.rings;
@@ -226,7 +237,7 @@ function sim(st, dt) {
     r.age += dt;
     if (!r.done && r.age >= LAND) {
       r.done = true;
-      pfUpdate(st, r.b, r.z, r.sg);
+      pfUpdate(st, r.cx, r.cy, r.z, r.sg);
     }
     if (r.age > FADE) rings.splice(i, 1);
   }
@@ -248,15 +259,19 @@ export function update(dt, input, params) {
 }
 
 // ---- the picture --------------------------------------------------------------
+// Slow drifts, none of whose periods divide another, keep one minute from looking like the next: the whole palette wanders
+// 30 degrees either way, the cloud's tint wanders, and each beacon's transmit strength swells and sags.
 function colours(st) {
-  const h0 = st.k[0], tmp = [0, 0, 0];
+  const t = st.t, ph = st.ph, tmp = [0, 0, 0];
+  const h0 = st.k[0] + 0.06 * sin(TP * t / 83 + ph[0]) + 0.05 * sin(TP * t / 137 + ph[1]);
   for (let b = 0; b < 4; b++) {
-    hsv(h0 + BH[b], BS[b], 1, tmp);
-    st.col[b][0] = tmp[0] * GN[b];
-    st.col[b][1] = tmp[1] * GN[b];
-    st.col[b][2] = tmp[2] * GN[b];
+    hsv(h0 + BH[b] + 0.08 * sin(TP * t / HT[b] + ph[8 + b]), BS[b], 1, tmp);
+    const g = GN[b] * (0.75 + 0.25 * sin(TP * t / BT[b] + ph[2 + b]));
+    st.col[b][0] = tmp[0] * g;
+    st.col[b][1] = tmp[1] * g;
+    st.col[b][2] = tmp[2] * g;
   }
-  hsv(h0 + 0.77, 0.3, 1, st.lil);
+  hsv(h0 + 0.77 + 0.07 * sin(TP * t / 61 + ph[6]), 0.22 + 0.1 * (0.5 + 0.5 * sin(TP * t / 109 + ph[7])), 1, st.lil);
 }
 
 function drawRing(st, r) {
@@ -264,7 +279,7 @@ function drawRing(st, r) {
   if (u >= 1) return;
   const e = min(1, r.age / LAND), R = r.z * (1 - (1 - e) * (1 - e)), s = r.s, i2 = 1 / (2 * s * s);
   const str = r.str * pow(1 - u, 1.25), ext = 3.1 * s;
-  const bx = BX[r.b], by = BY[r.b], ro = R + ext, ri = R - ext;
+  const bx = r.cx, by = r.cy, ro = R + ext, ri = R - ext;
   const y0 = max(0, floor(by - ro)), y1 = min(H - 1, floor(by + ro));
   for (let y = y0; y <= y1; y++) {
     const dy = y + 0.5 - by, o2 = ro * ro - dy * dy;
@@ -348,8 +363,8 @@ export function draw(display, params) {
     const a = st.act[b];
     if (a < 0.02) continue;
     const f = st.fl[b];
-    blob(fb, BX[b], BY[b], 1.05, a * (0.85 + 0.9 * f), st.col[b], 5);
-    blob(fb, BX[b], BY[b], 2.6 + 1.5 * f, a * 0.16 * (1 + 1.5 * f), st.col[b], 9);
+    blob(fb, st.bx[b], st.by[b], 1.05, a * (0.85 + 0.9 * f), st.col[b], 5);
+    blob(fb, st.bx[b], st.by[b], 2.6 + 1.5 * f, a * 0.16 * (1 + 1.5 * f), st.col[b], 9);
   }
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
