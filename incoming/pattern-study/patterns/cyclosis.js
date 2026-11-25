@@ -273,20 +273,22 @@ function step(st, dt, ks, quiet) {
       S.age[i] = min(9, S.age[i] + dt);
       if ((dir < 0 && yy[i] < -10) || (dir > 0 && yy[i] > H + 10)) {
         let y0 = dir < 0 ? H + rr(3, 14) : -rr(3, 14);
-        let late = false;
-        // born behind a wave front it would stand frozen out of sight and the panel would run short of cargo:
-        // it fades in ahead of the front instead
+        let late = false, still = -1;
+        // born behind a wave front it would stand frozen out of sight and the panel would run short of cargo: it
+        // fades in ahead of the front, or, when the front has nearly crossed, in the stopped stretch, already stopped
         for (let k = 0; k < ev.length && !late; k++) {
           const e = ev[k], yf = frontY(e, t);
           if (e.dir * (yf - y0) >= 0) {
             const ahead = e.dir > 0 ? H - 6 - max(yf, 0) : min(yf, H) - 6;
+            const lo = e.dir > 0 ? 6 : max(yf, 0) + 6, hi = e.dir > 0 ? min(yf, H) - 6 : H - 6;
             if (ahead > 24) { y0 = yf + e.dir * (14 + rnd() * (ahead - 14)); late = true; }
-            else y0 = dir < 0 ? H + rr(3, 75) : -rr(3, 75);      // no room: it waits farther out, so the restart is not one burst
+            else if (hi - lo > 24) { y0 = lo + rnd() * (hi - lo); late = true; still = k; }
+            else y0 = dir < 0 ? H + rr(3, 75) : -rr(3, 75);
           }
         }
         spawn(S, i, lane, y0);
         if (late) S.age[i] = 0;
-        for (let k = 0; k < ev.length; k++) ev[k].ts[q][i] = -1;
+        for (let k = 0; k < ev.length; k++) ev[k].ts[q][i] = k === still ? ev[k].t0 + ev[k].cross * rnd() : -1;
       }
     }
   }
