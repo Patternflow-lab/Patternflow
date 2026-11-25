@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Sector Magnet
 // Family:  massspectrometry
-// Idea:    Ions leave a slit at the bottom left, a magnetic field bends each mass onto its own half circle, so a changing sample draws nested glowing arcs that swell at the apex, come back to a point and light a plate along the left edge, higher up the heavier they are.
+// Idea:    Ions leave a slit at the bottom left and a magnetic field bends each mass onto its own half circle, so a sample that keeps changing draws nested glowing arcs that swell at the apex, come back to a point and light a plate along the left edge, higher up the heavier they are, while bunches of ions run round each arc from the slit to the plate.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the 180 degree magnetic spectrometer, in which ions that leave a slit over a spread of angles come together again after half a turn (Dempster 1918, from memory); the mass spectrograph that records every mass at once as a line on a photographic plate (Aston 1919, from memory); the radius r = sqrt(2 m V / q) / B and the half-turn time pi m / (q B), textbook results; the isotope pairs of chlorine, about 3 to 1, and of bromine, about 1 to 1 (from memory); compounds reaching the source one after another from a gas chromatograph (Gohlke and McLafferty in the 1950s, from memory). Original here: the sample generator, the half turn slowed to seconds with its mass dependence softened, pairs drawn wider apart than an instrument this size would resolve them, the colours and the drawing, pattern round 246
+// Lineage: the 180 degree magnetic spectrometer, in which ions that leave a slit over a spread of angles come together again after half a turn (Dempster 1918, from memory); the mass spectrograph that records every mass at once as a line on a photographic plate (Aston 1919, from memory); the radius r = sqrt(2 m V / q) / B and the half-turn time pi m / (q B), textbook results; the isotope pairs of chlorine, about 3 to 1, and of bromine, about 1 to 1 (from memory); compounds reaching the source one after another from a gas chromatograph (Gohlke and McLafferty in the 1950s, from memory); a spectrum scaled to its strongest line. Original here: the sample generator and its rule that the light end and the heavy end are never empty, the half turn slowed to seconds with its mass dependence softened, pairs drawn wider apart than an instrument this size would resolve them, a beam whose direction and height follow the mix in the source, the colours and the drawing, pattern round 246
 // Round:   246
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Field=0..4, Divergence=-1..1, Energy=0..1
 //
-// Knob 1: Hue. Turns every mass colour round the wheel. It opens with the lightest masses amber and lime, the middle green and cyan, the heaviest blue and violet, on a ground of very dark blue.
-// Knob 2: Field. 0 to 4, opening at 2: the strength of the magnet. Every radius goes as one over the field. At 2 the heaviest mass reaches 55 LED and the fan fills the panel. At 0 the field is 2.8 times weaker, the heavy masses run off the right edge and never reach the plate. At 4 it is 2.8 times stronger and the whole fan sits in the lower left, 20 LED at the most.
-// Knob 3: Divergence. -1 to 1, opening at 0: the spread of angles at the slit. At -1 each mass is a pencil beam 2 LED wide. At 0 a 50 LED arc is about 5 LED wide at its apex. At 1 it is a crescent 20 LED wide that overlaps its neighbours and still comes back to a short line on the plate.
-// Knob 4: Energy. -1 to 1, opening at 0.06: the spread of energies in the source, which is a spread of radii that the half turn does not bring back together. At -1 the lines on the plate are sharp. At 1 each ribbon widens all the way round and the plate shows wide bands that run into each other.
+// Knob 1: Hue. Turns every mass colour round the wheel. It opens with the lightest masses amber and lime, the middle green and cyan, the heaviest blue and violet, on a ground of very dark blue; each compound sits a little to one side of that scale.
+// Knob 2: Field. 0 to 4, opening at 2: the strength of the magnet. Every radius goes as one over the field. At 2 the heaviest mass turns on 53 LED and the fan fills the panel. At 0 the field is 2.8 times weaker, the heavy masses run off the right edge and never reach the plate. At 4 it is 2.3 times stronger and the whole fan sits in the lower left, 23 LED at the most.
+// Knob 3: Divergence. -1 to 1, opening at 0: the spread of angles at the slit. At -1 each mass is a pencil beam under 3 LED wide. At 0 a 50 LED arc is about 6 LED wide at its apex. At 1 it is a crescent about 17 LED wide that overlaps its neighbours and still comes back to a short line on the plate.
+// Knob 4: Energy. 0 to 1, opening at 0.06: the spread of energies in the source, which is a spread of radii that the half turn does not bring back together. At 0 the lines on the plate are sharp. At 1 each ribbon widens all the way round, a 50 LED arc lands as a band about 19 LED wide and the bands run into each other.
 
 const W = 64, H = 128;
 const { floor, ceil, min, max, sqrt, exp, sin, cos, pow, PI } = Math;
