@@ -269,5 +269,10 @@
   "hyperuniform": { "label": "초균일 점 무늬", "color": "#66a8d4" },
   "tractography": { "label": "신경 섬유 추적", "color": "#b193d8" },
   "circadian": { "label": "일주기 리듬", "color": "#dc7895" },
-  "contourintegration": { "label": "윤곽 통합", "color": "#996faa" }
+  "contourintegration": { "label": "윤곽 통합", "color": "#996faa" },
+  "tipping": { "label": "임계 전이", "color": "#e0a23c" },
+  "kirigami": { "label": "키리가미", "color": "#3fb8c9" },
+  "singlecell": { "label": "단일 세포 배양", "color": "#8fcf5a" },
+  "evolutionarygame": { "label": "진화 게임", "color": "#c76fb2" },
+  "nonparametric": { "label": "비모수 군집", "color": "#7a8de0" }
 }
