@@ -5,13 +5,13 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the sliding filament account of striated muscle, in which the A band keeps its length while the I band and the H zone shorten (A. F. Huxley and Niedergerke 1954, H. E. Huxley and Hanson 1954, from memory); the length-tension relation of a single sarcomere (Gordon, Huxley and Julian 1966, from memory); calcium waves that travel along a muscle cell and a twitch that takes the whole fibre at once (from memory); two-colour fluorescence micrographs with myosin in one channel and the Z disc in the other. Original here: lengths in LED instead of micrometres, waves slowed until an eye can follow them, a floor under the shortest sarcomere, a slow tone that keeps parts of the fibre a little shortened, fibrils that slide against each other and bend, the stain unevenness that travels with the tissue, the colours and the drawing, pattern round 246
+// Lineage: the sliding filament account of striated muscle, in which the A band keeps its length while the I band and the H zone shorten (A. F. Huxley and Niedergerke 1954, H. E. Huxley and Hanson 1954, from memory); the length-tension relation of a single sarcomere (Gordon, Huxley and Julian 1966, from memory); calcium waves that travel along a muscle cell and a twitch that takes the whole fibre at once (from memory); fluorescence micrographs with myosin in one channel, the Z disc in another and the nuclei in blue. Original here: lengths in LED instead of micrometres, waves slowed until an eye can follow them, a floor under the shortest sarcomere, a slow tone that holds stretches of the fibre partly shortened and one band of it that wanders along the panel, fibrils that slide against each other, bend and drift through the plane of focus, the stain unevenness that travels with the tissue, the colours and the drawing, pattern round 246
 // Round:   248
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0.5..4, Stretch=-1..1, Slip=-1..1
 //
-// Knob 1: Hue. Turns both stains round the wheel together. It opens with green A bands and magenta Z discs on black.
+// Knob 1: Hue. Turns both stains round the wheel together. It opens with green A bands and magenta Z discs on black, and a blue nucleus now and then in a gap between two fibrils.
 // Knob 2: Pace. 0.5 to 4, opening at 2: how often a wave of contraction starts and how fast it travels along the fibre. At 0.5 a wave comes every 4 s or so and crawls. At 4 there is nearly always one on the panel. The tissue creeps along the fibre at its own speed whatever this says.
 // Knob 3: Stretch. -1 to 1, opening at 0: the rest length of a sarcomere, 8.6 to 18 LED. At -1 the blocks nearly touch and a wave has little left to close. At 1 the dark I bands are nearly 6 LED wide, each block is pale from end to end, and a wave lights its two ends.
 // Knob 4: Slip. -1 to 1, opening at 0.06: how far neighbouring fibrils fall out of register and out of step. At -1 the stripes run straight across the panel and a wave is a level band. At 0 neighbours sit up to a quarter of a sarcomere apart and a wave crosses as a chevron. At 1 they sit up to half apart, like bricks, the chevron is three times steeper and each fibril also fires short waves of its own.
@@ -33,6 +33,7 @@ const ZS = 2 * 0.8 * 0.8;     // twice the variance of a Z line, LED^2
 const GAP = 1.1;              // half the dark gap between two resting fibrils
 const NZ = 44, ZC = 22;       // Z discs kept for a fibril, and the index of the one at the anchor
 const POFF = [31.3, 43.7, 53.9, 61.1, 73.3, 83.9, 97.3]; // seconds: each fibril slides against the others on its own period
+const NUCS = 15, NUCH = 9.5;  // one place a nucleus may lie for every 15 sarcomeres of a gap, and half its length in LED
 const PDEP = [47.9, 29.3, 71.3, 37.9, 59.3, 33.1, 89.7]; // and rises and sinks through the plane of focus on another
 
 function hsh(i, s) {
@@ -67,8 +68,8 @@ export function setup(params) {
     u0: 0, waves: [], tw: [], nextW: 0, nextO: 0, nextT: 0,
     fo: f(NF), bx: f(NF + 1),
     z: f(NZ + 1), zs: f(NZ), za: f(NZ), zr: f(NZ),
-    G: f(NF * H), M: f(NF * H), U: f(NF * H), HG: f(NF * H), xb: f(NF + 1),
-    A: f(W * H), B: f(W * H),
+    G: f(NF * H), M: f(NF * H), U: f(NF * H), HG: f(NF * H), xb: f(NF + 1), nw: f(NF + 1),
+    A: f(W * H), B: f(W * H), C: f(W * H),
   };
   params.st = st;
   return st;
@@ -217,7 +218,7 @@ function fibril(st, j) {
     // a living specimen does not lie flat: each fibril drifts a little out of focus and back, and is dimmer there
     const dp = 0.81 + 0.19 * sin(TAU * (yc / (150 + 13 * j) - t / PDEP[j]) + p[16 + j]);
     M[o0 + y] = zl * sz * dp;
-    G[o0 + y] = sm(ABAND / 2 - c + 0.5) * (1 - 0.33 * sm(hz / 2 - c + 0.5) * cl(hz / 1.2, 0, 1)) * (1 + 0.16 * a) * sg * dp * (1 - 0.8 * zl);
+    G[o0 + y] = sm(ABAND / 2 - c + 0.5) * (1 - 0.42 * sm(hz / 2 - c + 0.5) * cl(hz / 1.2, 0, 1)) * (1 + 0.16 * a) * sg * dp * (1 - 0.8 * zl);
     U[o0 + y] = u;
     // a shortened sarcomere is fatter, and closes the gap beside it
     HG[o0 + y] = max(0.1, GAP - 3.6 * (sqrt(zr[i] / S) - 1));
@@ -233,16 +234,34 @@ export function draw(display, params) {
   const st = params.st;
   if (!st) return;
   if (!st.init) update(0, { knobValues: st.k }, params);
-  const { G, M, U, HG, xb, A, B } = st, t = st.t, p = st.ph, hs = st.hs;
+  const { G, M, U, HG, xb, nw, A, B, C } = st, t = st.t, p = st.ph, hs = st.hs, nh = NUCH / st.S0;
   for (let j = 0; j < NF; j++) fibril(st, j);
   A.fill(0);
   B.fill(0);
+  C.fill(0);
   for (let y = 0; y < H; y++) {
     // the whole bundle bends slowly
     const sw = 2.2 * sin(TAU * (y / 230 + t / 67.9) + p[6]) + 1.4 * sin(TAU * (y / 140 - t / 26.9) + p[7]);
-    for (let b = 0; b <= NF; b++) xb[b] = st.bx[b] + sw + 1.5 * vn(U[min(b, NF - 1) * H + y] / 6.1, hs + 100 + b);
+    for (let b = 0; b <= NF; b++) {
+      const u = U[min(b, NF - 1) * H + y];
+      xb[b] = st.bx[b] + sw + 1.5 * vn(u / 6.1, hs + 100 + b);
+      nw[b] = 0;
+      // a nucleus lies in every other gap, here and there along it: a long oval that travels with the tissue and
+      // presses into the fibrils on both sides
+      if (!(b & 1)) continue;
+      const m = floor(u / NUCS);
+      if (hsh(m, hs + 200 + b) > 0.55) continue;
+      const e = (u - (m + 0.25 + 0.5 * hsh(m, hs + 300 + b)) * NUCS) / nh, w = 2.8 * sqrt(max(0, 1 - e * e));
+      if (w < 0.3) continue;
+      nw[b] = w;
+      const x0 = max(0, floor(xb[b] - w - 0.5)), x1 = min(W - 1, ceil(xb[b] + w - 0.5));
+      for (let x = x0; x <= x1; x++) {
+        const r = abs(x + 0.5 - xb[b]), q = r < w ? r / w : 1;
+        C[y * W + x] = cl(w - r + 0.5, 0, 1) * (0.5 + 0.5 * sqrt(1 - q * q));
+      }
+    }
     for (let j = 0; j < NF; j++) {
-      const o = j * H + y, L = xb[j] + HG[o], R = xb[j + 1] - HG[o];
+      const o = j * H + y, L = xb[j] + HG[o] + nw[j], R = xb[j + 1] - HG[o] - nw[j + 1];
       const xc = 0.5 * (L + R), hw = 0.5 * (R - L), g = G[o], m = M[o];
       const x0 = max(0, floor(L - 0.5)), x1 = min(W - 1, ceil(R - 0.5));
       for (let x = x0; x <= x1; x++) {
@@ -255,12 +274,13 @@ export function draw(display, params) {
       }
     }
   }
-  const c = st.col || (st.col = new Float32Array(6));
+  const c = st.col || (st.col = new Float32Array(9));
   tint(0.36 + st.k[0], c, 0);
   tint(0.86 + st.k[0], c, 3);
+  tint(0.6 + st.k[0], c, 6);
   for (let o = 0; o < W * H; o++) {
-    const a = 0.8 * A[o], b = 0.92 * B[o];
-    const r = a * c[0] + b * c[3], g = a * c[1] + b * c[4], bl = a * c[2] + b * c[5];
+    const a = 0.8 * A[o], b = 0.92 * B[o], n = 0.85 * C[o];
+    const r = a * c[0] + b * c[3] + n * c[6], g = a * c[1] + b * c[4] + n * c[7], bl = a * c[2] + b * c[5] + n * c[8];
     display.setPixel(o % W, (o / W) | 0, r > 255 ? 255 : r | 0, g > 255 ? 255 : g | 0, bl > 255 ? 255 : bl | 0);
   }
 }
