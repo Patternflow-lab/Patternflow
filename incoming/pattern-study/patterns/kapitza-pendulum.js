@@ -11,13 +11,13 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Shake=0..4, Kick=-1..1, Spread=-1..1
 //
-// Knob 1: Hue. Turns the colour round the wheel and opens with the standing rods in pale sky blue and the fallen ones in amber and gold; a rod that is caught half way between shows violet and rose.
-// Knob 2: Shake. 0 to 4, opening at 2: the mean strength of the shaking over the row. Low, the boundary sits at the right end and almost every rod hangs; at the opening it stands a little left of the middle with about six rods up; at the top almost all of them stand, and the pivots buzz a third wider.
-// Knob 3: Kick. -1 to 1, opening at 0: the size of the random knocks, from 0.12 to 2 of the opening size (a quarter of it at the bottom, four times at the top). Low, the standing rods hardly sway and the fallen ones hang still, with a rare flick. At the top the standing rods lean and wander several LED and the ones near the boundary keep falling over and being thrown back up.
-// Knob 4: Spread. -1 to 1, opening at about 0: how much the shaking differs from one end of the row to the other, 0.2 of the mean at the bottom, 0.5 at the opening and 1.2 at the top. A small spread puts the boundary wherever Shake says and the whole row crosses it together as the strength drifts; a large one gives each column a strength of its own, the boundary stays sharp and short, and the far left pivots barely move.
+// Knob 1: Hue. Turns the colour round the wheel and opens with the standing rods in pale sky blue and the fallen ones in amber and gold; a rod caught half way between shows white.
+// Knob 2: Shake. 0 to 4, opening at 2: the mean strength of the shaking over the row, 1.0 at the bottom, 1.22 at the opening and 1.44 at the top times the one that just holds a rod up. Low, the boundary stands out at the right end and two or three rods are up; at the opening it is a little right of the middle with four up, and at the top six or seven stand, the pivots shaking wider the further right they are.
+// Knob 3: Kick. -1 to 1, opening at 0: the size and the rate of the random knocks, 0.4 of the opening size at the bottom and 2.5 times at the top. Low, the standing rods sway a few LED and the fallen ones swing gently, and a rod rarely falls or is flicked back up. At the top the standing rods lean and wander ten LED, flicks come three times as often, and the ones near the boundary keep falling over and being thrown upright again.
+// Knob 4: Spread. -1 to 1, opening near 0: how much the shaking differs from one end of the row to the other, 0.25 of the mean at the bottom, 0.5 at the opening and 1 at the top. A small spread makes the row nearly even, so that as the strength drifts a good part of it crosses the boundary together and falls or stands at once; a large one gives each column a strength of its own, the boundary stays in one place and short, and the far left pivots hardly move.
 
 const W = 64, H = 128;
-const { floor, min, max, abs, sin, cos, sqrt, pow, exp, log, PI } = Math;
+const { floor, min, max, abs, sin, cos, sqrt, pow, exp, PI } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const sstep = (a, b, x) => {
   const t = cl((x - a) / (b - a), 0, 1);
@@ -31,7 +31,7 @@ const N = 10;                 // rods in the row
 const Y0 = 68;                // pivot row, LED from the top
 const G = 150;                // gravity, LED a second squared: a rod 45 LED long swings in 3.4 s
 const OM = 70;                // the shaking, radians a second: 11 Hz, 38 times the hanging swing
-const GAM = 0.3;              // damping a second
+const GAM = 0.45, GAMD = 0.22; // damping a second, standing and hanging
 const HS = 0.0045;            // one small step of the integrator, seconds
 const PRE = 40;               // seconds run before the first frame
 
@@ -47,15 +47,15 @@ function hsv(h, s, v, out, o) {
   out[o + 1] = i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p;
   out[o + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 }
-// The colour of a rod by how upright it is, u = 1 standing and 0 hanging: pale sky, then violet and rose in the short stretch
-// between, then amber. NR steps; dim ends are lifted and paled so no amber goes brown on the panel.
+// The colour of a rod by how upright it is, u = 1 standing and 0 hanging: pale sky, then white for the short stretch between
+// (the hue goes by way of green there, but the saturation is out of it), then amber. NR steps; dim ends are lifted and paled so no amber goes brown on the panel.
 const NR = 48;
 function buildRamp(ramp, hue) {
   const c = [0, 0, 0];
   for (let i = 0; i < NR; i++) {
     const u = i / (NR - 1), t = sstep(0.12, 0.88, 1 - u);
-    const h = 0.545 + hue + 0.575 * t - 0.03 * sin(PI * t);
-    const s = mix(0.4, 0.84, sstep(0, 0.75, t)) * (1 - 0.25 * sstep(0.85, 1, t));
+    const h = 0.545 + hue - 0.45 * t;
+    const s = (t < 0.5 ? mix(0.4, 0.05, sstep(0.1, 0.5, t)) : mix(0.05, 0.84, sstep(0.5, 0.85, t))) * (1 - 0.25 * sstep(0.85, 1, t));
     hsv(h, s, 1, c, 0);
     ramp[i * 3] = c[0];
     ramp[i * 3 + 1] = c[1];
@@ -68,17 +68,21 @@ export function setup(params) {
   const st = (params.st = {
     k: [0, 2, 0, 0.06], init: false, t: 0, acc: 0, hue: -9, ramp: new Float32Array(NR * 3),
     th: new Float64Array(N), v: new Float64Array(N), u: new Float64Array(N), cx: new Float64Array(N), len: new Float64Array(N),
-    ph: new Float64Array(N), off: new Float64Array(N), f: new Float64Array(N), a: new Float64Array(N), lastKick: new Float64Array(N),
-    wph: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU], sub: 0,
-    px: new Float64Array(N), py: new Float64Array(N), bx: new Float64Array(N), by: new Float64Array(N),
-    tr: new Float32Array(W * H * 3),
+    ph: new Float64Array(N), off: new Float64Array(N), f: new Float64Array(N), a: new Float64Array(N),
+    wph: [0, 0, 0, 0], sub: 0,
+    tr: new Float32Array(W * H * 3), tr2: new Float32Array(W * H * 3), tb: new Float32Array(W * H * 3), tt: new Float32Array(W * H * 3),
     sr: new Float32Array(W * H), sg: new Float32Array(W * H), sb: new Float32Array(W * H), sa: new Float32Array(W * H),
     gr: new Float32Array(W * H), gg: new Float32Array(W * H), gb: new Float32Array(W * H),
-    flicks: 0, topples: 0, pend: [], okf: 0,
+    lw: new Float32Array(W),
   });
+  // the three beats of the wander start where the strength is near its mean when the first frame is drawn
+  for (let n = 0; n < 200; n++) {
+    st.wph = [rnd() * TAU, rnd() * TAU, rnd() * TAU, 0];
+    if (abs(wander(PRE + 4, st)) < 0.04) break;
+  }
   for (let i = 0; i < N; i++) {
     st.cx[i] = (W / N) * (i + 0.5);
-    st.len[i] = 45 + 5 * sin(i * 2.399 + 1.1) - 1.5 * cos(i * 4.1);
+    st.len[i] = 44 + 6.5 * sin(i * 2.399 + 1.1) - 1.5 * cos(i * 4.1);
     st.ph[i] = rnd() * TAU;
     st.off[i] = 0.035 * gauss();
     st.th[i] = (rnd() - 0.5) * 0.5;
@@ -90,10 +94,10 @@ export function setup(params) {
 // The strength of the shaking at column i, in units of the one that just holds a rod up (aw)^2 = 2 g l. The mean, the slope along
 // the row and the slow wander of it all come from here.
 function wander(t, st) {
-  return 0.1 * sin((TAU * t) / 67.3 + st.wph[0]) + 0.07 * sin((TAU * t) / 41.1 + st.wph[1]) + 0.05 * sin((TAU * t) / 23.7 + st.wph[2]);
+  return 0.14 * sin((TAU * t) / 67.3 + st.wph[0]) + 0.1 * sin((TAU * t) / 41.1 + st.wph[1]) + 0.07 * sin((TAU * t) / 23.7 + st.wph[2]);
 }
 function strengths(st) {
-  const M = 0.85 + 0.125 * cl(st.k[1], 0, 4), s = 0.5 * pow(2.4, cl(st.k[3], -1, 1)), w = wander(st.t, st);
+  const M = 1.0 + 0.11 * cl(st.k[1], 0, 4), s = 0.5 * pow(2, cl(st.k[3], -1, 1)), w = wander(st.t, st);
   for (let i = 0; i < N; i++) {
     const x = (i - (N - 1) / 2) / ((N - 1) / 2);
     const f = cl(M * (1 + s * x) + w + st.off[i], 0.15, 2.8);
@@ -106,7 +110,9 @@ function strengths(st) {
 // theta is the angle from straight up. The pivot rises y = a cos(psi), so the rod feels g - a w^2 cos(psi):
 // theta'' = (g - a w^2 cos psi) / l sin theta - gamma theta'.
 function accel(th, v, c, aw2, l) {
-  return ((G - aw2 * c) / l) * sin(th) - GAM * v;
+  // a hanging rod loses its swing more slowly than a standing one loses its sway
+  const ct = cos(th), gm = GAMD + (GAM - GAMD) * sstep(-0.3, 0.3, ct);
+  return ((G - aw2 * c) / l) * sin(th) - gm * v;
 }
 let RT = 0, RV = 0;
 function rk4(th, v, psi, h, aw2, l) {
@@ -142,18 +148,19 @@ function lands(st, i, th, v) {
 // a standing one with a knock that may or may not carry it past the saddle, a fallen one on the strong side with a flick that
 // would just swing it up past the top if the shaking is going to catch it there.
 function kicks(st, dt) {
-  const kk = 0.5 * pow(4, cl(st.k[2], -1, 1)), nz = 0.03 + 0.1 * kk, sk = sqrt(kk);
+  const kk = 0.5 * pow(2.5, cl(st.k[2], -1, 1)), nz = 0.12 + 0.16 * kk, sk = sqrt(kk);
   for (let i = 0; i < N; i++) {
     const O0 = sqrt(G / st.len[i]), f = st.f[i], up = cos(st.th[i]) > 0.3, sgn = rnd() < 0.5 ? -1 : 1;
     if (up) {
-      // a jolt, a fraction of what it takes to push the rod over the saddle at this strength, now and then a bit more
-      if (rnd() < dt * 0.035 * (0.3 + kk)) {
-        st.v[i] += sgn * O0 * (abs(f - 1 / f) + 0.12) * sk * (0.3 + 1.3 * rnd());
-        st.topples++;
+      // a jolt: a swing of a tenth of a radian or so, and near the boundary or with the knob up enough to push the rod over the saddle
+      if (rnd() < dt * 0.06 * (0.3 + kk)) {
+        // most are small; one in four is a knock the size of the saddle, which only the higher settings make a fall
+        const big = rnd() < 0.25;
+        st.v[i] += sgn * O0 * (big ? abs(f - 1 / f) * (0.9 + 0.7 * rnd()) * min(1, 1.5 * sk) : sk * (0.15 + 0.6 * rnd()));
       }
-    } else if (f > 1.12 && abs(st.v[i]) < 3 * O0) {
+    } else if (f > 1.05 && abs(st.v[i]) < 3 * O0) {
       // a flick that, with luck, carries the fallen rod past the top, where the shaking can catch it
-      if (rnd() < dt * 0.07 * (0.5 + 0.5 * sk)) {
+      if (rnd() < dt * 0.15 * (0.3 + kk)) {
         // try a handful of strengths of flick against the same shaking and keep one of those that lands
         const dir = rnd() < 0.5 ? -1 : 1, ok = [];
         for (let m = 0; m < 12; m++) {
@@ -162,18 +169,10 @@ function kicks(st, dt) {
         }
         if (ok.length) {
           st.v[i] += dir * O0 * (f + 1 / f) * ok[floor(rnd() * ok.length)];
-          st.flicks++;
-          st.pend.push([i, st.t + 9]);
         }
       }
-    } else if (rnd() < dt * 0.04 * (0.5 + kk)) st.v[i] += sgn * O0 * (0.3 + 0.6 * rnd()) * sk;
+    } else if (rnd() < dt * 0.04 * (0.5 + kk)) st.v[i] += sgn * O0 * (0.2 + 0.4 * rnd()) * sk;
     st.v[i] += sqrt(2 * dt) * nz * O0 * sqrt(GAM) * gauss();
-  }
-  for (let q = st.pend.length - 1; q >= 0; q--) {
-    if (st.t >= st.pend[q][1]) {
-      if (cos(st.th[st.pend[q][0]]) > 0.3) st.okf++;
-      st.pend.splice(q, 1);
-    }
   }
 }
 
@@ -191,20 +190,27 @@ function deposit(st, i, wgt) {
       tr[o] += r[ui] * w;
       tr[o + 1] += r[ui + 1] * w;
       tr[o + 2] += r[ui + 2] * w;
+      st.tr2[o] += r[ui] * w * 0.3;
+      st.tr2[o + 1] += r[ui + 1] * w * 0.3;
+      st.tr2[o + 2] += r[ui + 2] * w * 0.3;
     }
   }
 }
 
-const TRAIL_TAU = 3.2;
-const TRAIL_RATE = 3.6;          // intensity a second a splat deposits, so a tip that stays put reaches TRAIL_RATE * TRAIL_TAU / 2 spread
+const TRAIL_TAU = 3.4, TRAIL_TAU2 = 13;   // a bright short exposure and a faint long one
+const TRAIL_RATE = 5;          // intensity a second a splat deposits, so a tip that stays put reaches TRAIL_RATE * TRAIL_TAU / 2 spread
 
 function advance(st, dt) {
   strengths(st);
   kicks(st, dt);
   st.acc += dt;
   let n = 0;
-  const dec = exp(-dt / TRAIL_TAU), tr = st.tr;
-  if (dec < 1) for (let p = 0; p < tr.length; p++) tr[p] *= dec;
+  const dec = exp(-dt / TRAIL_TAU), dec2 = exp(-dt / TRAIL_TAU2), tr = st.tr, tr2 = st.tr2;
+  if (dec < 1)
+    for (let p = 0; p < tr.length; p++) {
+      tr[p] *= dec;
+      tr2[p] *= dec2;
+    }
   while (st.acc >= HS) {
     st.acc -= HS;
     for (let i = 0; i < N; i++) stepPend(st, i, HS);
@@ -225,8 +231,13 @@ export function update(dt, input, params) {
     // run some seconds before the first frame: the rods on the weak side fall and settle, the ones on the strong side stand
     for (let n = 0; n < PRE * 10; n++) advance(st, 0.1);
     st.tr.fill(0);
+    st.tr2.fill(0);
     for (let n = 0; n < 40; n++) advance(st, 0.1);
-    for (let i = 0; i < N; i++) st.u[i] = sstep(-0.6, 0.6, cos(st.th[i]));
+    // whatever the wander did in those seconds, a rod that the shaking holds firmly stands at the start
+    for (let i = 0; i < N; i++) {
+      if (st.f[i] > 1.3 && cos(st.th[i]) < 0.3) (st.th[i] = 0.12 * gauss()), (st.v[i] = 0);
+      st.u[i] = sstep(-0.6, 0.6, cos(st.th[i]));
+    }
   }
   advance(st, cl(dt || 0, 0, 0.1));
 }
@@ -257,7 +268,21 @@ export function draw(display, params) {
   if (!st) return;
   if (!st.init) update(0, { knobValues: st.k }, params);
   if (abs(st.k[0] - st.hue) > 1e-4) (st.hue = st.k[0]), buildRamp(st.ramp, st.hue);
-  const sr = st.sr, sg = st.sg, sb = st.sb, sa = st.sa, gr = st.gr, gg = st.gg, gb = st.gb, tr = st.tr, ramp = st.ramp;
+  const sr = st.sr, sg = st.sg, sb = st.sb, sa = st.sa, gr = st.gr, gg = st.gg, gb = st.gb, ramp = st.ramp;
+  // the trails, soft: both exposures added, then a 3 x 3 blur so a trail is a glow and never a row of single LEDs
+  const tr = st.tt, tb = st.tb, ta = st.tr, tc = st.tr2;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 3, xl = (y * W + (x > 0 ? x - 1 : x)) * 3, xr = (y * W + (x < W - 1 ? x + 1 : x)) * 3;
+      for (let c = 0; c < 3; c++) tb[o + c] = 0.25 * (ta[xl + c] + tc[xl + c]) + 0.5 * (ta[o + c] + tc[o + c]) + 0.25 * (ta[xr + c] + tc[xr + c]);
+    }
+  }
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const o = (y * W + x) * 3, yu = ((y > 0 ? y - 1 : y) * W + x) * 3, yd = ((y < H - 1 ? y + 1 : y) * W + x) * 3;
+      for (let c = 0; c < 3; c++) tr[o + c] = 0.25 * tb[yu + c] + 0.5 * tb[o + c] + 0.25 * tb[yd + c];
+    }
+  }
   sr.fill(0);
   sg.fill(0);
   sb.fill(0);
@@ -287,11 +312,11 @@ export function draw(display, params) {
     // the rod
     capsule(st, st.cx[i], pyy, bx, by, 1, 0.55, 0.85, 1);
     // the bob: a soft round 5 LED across with a glow round it and a pale core
-    const R = 2.6, x0 = max(0, floor(bx - 9)), x1 = min(W - 1, floor(bx + 9)), y0 = max(0, floor(by - 9)), y1 = min(H - 1, floor(by + 9));
+    const R = 2.5, x0 = max(0, floor(bx - 9)), x1 = min(W - 1, floor(bx + 9)), y0 = max(0, floor(by - 9)), y1 = min(H - 1, floor(by + 9));
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const ex = x + 0.5 - bx, ey = y + 0.5 - by, d2 = ex * ex + ey * ey, d = sqrt(d2), p = y * W + x;
-        const glow = 0.5 * exp(-d2 / 14);
+        const glow = 0.3 * exp(-d2 / 9);
         gr[p] += cr * glow;
         gg[p] += cg * glow;
         gb[p] += cb * glow;
@@ -316,19 +341,25 @@ export function draw(display, params) {
       }
     }
   }
+  // a light along the pivot row that is brighter where the shaking is stronger, so the strength is there to be read
+  const lw = st.lw;
+  for (let x = 0; x < W; x++) {
+    const q = cl((x + 0.5) / (W / N) - 0.5, 0, N - 1.001), i0 = floor(q), e = q - i0;
+    lw[x] = cl(mix(st.f[i0], st.f[i0 + 1], e) / 1.8, 0.05, 1.3);
+  }
   for (let y = 0; y < H; y++) {
-    const dy = (y + 0.5 - Y0) / 22, band = exp(-dy * dy);
+    const dy = (y + 0.5 - Y0) / 20, band = exp(-dy * dy);
     for (let x = 0; x < W; x++) {
-      const p = y * W + x, o = p * 3;
+      const p = y * W + x, o = p * 3, bw = band * (0.25 + 1.2 * lw[x]);
       // the ground: deep blue-black with a faint line of light where the pivots sit
-      let r = 4 + 5 * band, g = 6 + 9 * band, b = 18 + 22 * band;
+      let r = 3 + 3 * bw, g = 5 + 7 * bw, b = 16 + 16 * bw;
       // the long exposure, thresholded so a faint trail does not turn into brown
       const tm = max(tr[o], tr[o + 1], tr[o + 2]);
       if (tm > 1e-4) {
-        const lv = 0.85 * sstep(0.05, 0.6, tm) / tm;
-        r += tr[o] * lv * 255;
-        g += tr[o + 1] * lv * 255;
-        b += tr[o + 2] * lv * 255;
+        const lv = (0.5 * sstep(0.04, 1.4, tm)) / tm, pale = 0.3 * (1 - sstep(0.05, 0.5, tm));
+        r += (tr[o] + (tm - tr[o]) * pale) * lv * 255;
+        g += (tr[o + 1] + (tm - tr[o + 1]) * pale) * lv * 255;
+        b += (tr[o + 2] + (tm - tr[o + 2]) * pale) * lv * 255;
       }
       r += gr[p] * 255;
       g += gg[p] * 255;
