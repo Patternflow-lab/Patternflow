@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Spin=0..3, Relief=-1..1, Focus=-1..1
 //
-// Knob 1: Hue. 0 to 1, opening at 0. Turns the colours of all the grains round the wheel together. At 0 the six colours of the stage are gold, violet, cyan, rose, orange and azure, and every grain keeps its own; at 0.33 gold has gone to green and violet to rose, and at 1 it is back.
+// Knob 1: Hue. 0 to 1, opening at 0. Turns the colours of all the grains round the wheel together. At 0 the five colours of the stage are gold, violet, cyan, rose and azure, and every grain keeps one of them; at 0.33 gold has gone to green and violet to rose, and at 1 it is back.
 // Knob 2: Spin. 0 to 3, opening at 2. How fast the grains tumble and the stage pans, together. At 2 a front grain turns at 0.07 to 0.17 radians a second, so its sculpture crosses the disc at 1 to 2 LEDs a second, and the stage slides 2.4 LEDs a second up the panel, the far grains at 0.46 of that; at 3 it is half as fast again; at 0 the stage stands still and only the scan lines and the charging of the spines go on.
 // Knob 3: Relief. -1 to 1, opening at 0. How deep the sculpture is, from smooth almost-spherical grains at -1 (spines 0.05 of the radius long, ridges, rims and furrows nearly flat) to bristling at 1 (spines 0.45 of the radius, sharp ridges, deep pits and furrows).
 // Knob 4: Focus. -1 to 1, opening at 0.06. Which depth is sharp. At -1 the far grains are in focus and the near ones go soft and dim, at 0.06 the middle ones are sharp, at 1 the near ones are and the far ones fade into a blur; the knob racks the focus through the field.
@@ -28,13 +28,14 @@ const fin = (v, d) => (Number.isFinite(v) ? v : d);
 const F = (n) => new Float32Array(n);
 
 // ---- tunables
-const HUE0 = [0.115, 0.775, 0.525, 0.945, 0.07, 0.6]; // gold, violet, cyan, rose, orange, azure
+const HUE0 = [0.13, 0.775, 0.525, 0.935, 0.61]; // gold, violet, cyan, rose, azure
 const NL = 96; // entries of a colour ramp
 const MAXSZ = 76; // largest local buffer, LEDs a side
 const PADB = 4; // how far past the panel a grain is still worked, for the blur
 // the detector sits up, left and in front of the specimen
 const DX = -0.5, DY = -0.62, DZ = 0.6;
 const GLOW = 0.14; // the halo round a grain
+const EXPO = 0.118; // the mean level the automatic brightness aims at
 // depth layers: how fast each pans, how big its cells and grains are, how dim
 const LAYERS = [
   { rate: 0.46, cw: 42, ch: 46, occ: 0.9, r0: 6.2, r1: 8.8, z0: 0.0, z1: 0.3, dim: 0.86 },
@@ -104,7 +105,7 @@ function makeGrain(st, li, gi, gj) {
   const tr = r();
   // neighbouring cells tend to differ in kind: a lattice of the four, loosened by chance
   g.type = r() < 0.35 ? (tr < 0.28 ? 0 : tr < 0.54 ? 1 : tr < 0.78 ? 2 : 3) : ((((gi * 3 + gj + li * 2 + st.slot0) % 4) + 4) % 4);
-  const slot = (((gi * 5 + gj * 3 + li * 2 + st.slot0 + (r() < 0.5 ? 0 : 1)) % 6) + 6) % 6;
+  const slot = (((gi * 2 + gj * 3 + li * 2 + st.slot0 + (r() < 0.4 ? 1 : 0)) % 5) + 5) % 5;
   g.hue = HUE0[slot] + (r() - 0.5) * 0.04;
   g.gain = 0.9 + 0.12 * r();
   // orientation: a start, a precessing axis, a fixed second axis, each on its own clocks
@@ -125,7 +126,7 @@ function makeGrain(st, li, gi, gj) {
   g.ph0 = r() * TP; // where the first furrow runs
   // the sculpture
   if (g.type === 0) {
-    g.ns = cl(Math.round(R * R * 0.32), 30, 90);
+    g.ns = cl(Math.round(R * R * 0.36), 40, 90);
     g.dir = fib(g.ns, 0.28, r);
     g.sp = F(5 * g.ns);
     for (let k = 0; k < g.ns; k++) {
@@ -162,23 +163,22 @@ function orient(g, tau) {
 export function setup(params) {
   const st = (params.st = {
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0, tau: 0,
-    seed: floor(Math.random() * 1e9), slot0: floor(Math.random() * 6),
+    seed: floor(Math.random() * 1e9), slot0: floor(Math.random() * 20),
     panX: Math.random() * 500, panY: Math.random() * 500,
     cache: new Map(), vis: [], FR: F(W * H * 3),
     rel: 0.5, foc: 0.53, hue: 0, rowMod: F(H),
     cx1: F(W), cx2: F(W), ry1: F(H), ry2: F(H),
-    lut: F(3 * NL), lut2: F(3),
+    lut: F(3 * NL),
     BUF: F(4 * MAXSZ * MAXSZ), TMP: F(4 * MAXSZ * MAXSZ),
     FX: F(160), FY: F(160), FZ: F(160),
-    SX: F(100), SY: F(100), SZ: F(100),
     MK: F(9), UK: F(9),
-    nVis: 0,
+    nVis: 0, dt: 1 / 30, expo: -1,
   });
   return st;
 }
 
 function getGrain(st, li, gi, gj) {
-  const key = (li * 8192 + (gi + 4096)) * 8192 + (gj + 4096);
+  const key = (li * 131072 + gi + 65536) * 131072 + gj + 65536;
   let g = st.cache.get(key);
   if (!g) {
     g = makeGrain(st, li, gi, gj);
@@ -190,6 +190,7 @@ function getGrain(st, li, gi, gj) {
 
 function step(st, dt, ks) {
   st.t += dt;
+  st.dt = dt;
   const spin = cl(ks[1], 0, 3) * 0.5;
   const ds = dt * spin;
   const tau = (st.tau += ds);
@@ -326,6 +327,38 @@ function spines(st, g, back, sz, lx0, lx1, ly0, ly1, cxl, cyl, Ls, rel) {
   }
 }
 
+// a separable box blur of fractional radius b over the clipped rectangle of the local buffer
+function blur(st, sz, lx0, lx1, ly0, ly1, b) {
+  const BUF = st.BUF, TMP = st.TMP, GP = sz * sz;
+  const r = floor(b), fr = b - r, inv = 1 / (2 * r + 1 + 2 * fr);
+  for (let pl = 0; pl < 4; pl++) {
+    const o = pl * GP;
+    for (let y = ly0; y <= ly1; y++) {
+      const row = o + y * sz;
+      let sum = 0;
+      for (let x = lx0; x <= min(lx1, lx0 + r - 1); x++) sum += BUF[row + x];
+      for (let x = lx0; x <= lx1; x++) {
+        const xa = x + r, xb = x - r - 1;
+        if (xa <= lx1) sum += BUF[row + xa];
+        if (xb >= lx0) sum -= BUF[row + xb];
+        const ex = (x + r + 1 <= lx1 ? BUF[row + x + r + 1] : 0) + (x - r - 1 >= lx0 ? BUF[row + x - r - 1] : 0);
+        TMP[row + x] = (sum + fr * ex) * inv;
+      }
+    }
+    for (let x = lx0; x <= lx1; x++) {
+      let sum = 0;
+      for (let y = ly0; y <= min(ly1, ly0 + r - 1); y++) sum += TMP[o + y * sz + x];
+      for (let y = ly0; y <= ly1; y++) {
+        const ya = y + r, yb = y - r - 1;
+        if (ya <= ly1) sum += TMP[o + ya * sz + x];
+        if (yb >= ly0) sum -= TMP[o + yb * sz + x];
+        const ex = (y + r + 1 <= ly1 ? TMP[o + (y + r + 1) * sz + x] : 0) + (y - r - 1 >= ly0 ? TMP[o + (y - r - 1) * sz + x] : 0);
+        BUF[o + y * sz + x] = (sum + fr * ex) * inv;
+      }
+    }
+  }
+}
+
 function renderGrain(st, g) {
   const R = g.R, rel = st.rel, M = g.M, BUF = st.BUF, lut = st.lut;
   const Ls = R * (0.03 + 0.53 * rel);
@@ -340,7 +373,7 @@ function renderGrain(st, g) {
 
   // focus: how far the grain is from the sharp plane
   const b = cl(6 * (abs(g.z - st.foc) - 0.26), 0, 4.2);
-  const dim = LAYERS[g.li].dim * (1 - 0.7 * b / 4.2) * g.gain * (0.84 + 0.26 * rel);
+  const dim = LAYERS[g.li].dim * (1 - 0.7 * b / 4.2) * g.gain * (0.84 + 0.26 * rel) * (1 + 0.05 * sin(TP * g.sp1 * 1.7 * st.t + g.q1));
   buildLUT(lut, g.hue + st.hue, dim);
 
   const amp = 0.08 + 0.92 * rel; // how deep the sculpture reads
@@ -377,7 +410,7 @@ function renderGrain(st, g) {
   // ---- the body
   const reach = R + 8;
   const gr0 = lut[3 * 40], gg0 = lut[3 * 40 + 1], gb0 = lut[3 * 40 + 2];
-  const Hr = 0.008 + 0.03 * rel, Hf = 0.02 + 0.07 * rel, Hp = 0.02 + 0.06 * rel, Hd = 0.01 + 0.04 * rel;
+  const Hr = 0.008 + 0.03 * rel, Hf = 0.02 + 0.07 * rel, Hp = 0.02 + 0.06 * rel, Hd = 0.02 + 0.1 * rel;
   const wr = 0.42;
   for (let ly = ly0; ly <= ly1; ly++) {
     const dy = ly + 0.5 - cyl;
@@ -493,11 +526,12 @@ function renderGrain(st, g) {
           const w = (1 - gcol) * face;
           if (d1 < rd) {
             const hb = 1 - (d1 / rd) * (d1 / rd);
-            const kk = (2 / (rd * rd)) * Hd * (0.5 + amp) * w;
+            const kk = (2 / (rd * rd)) * Hd * (0.4 + amp) * w;
             tx += kk * (nx - FX[i1]); ty += kk * (ny - FY[i1]); tz += kk * (nz - FZ[i1]);
-            ao *= 1 - 0.38 * (1 - hb) * amp * w;
+            ao *= 1 - 0.5 * (1 - hb) * amp * w;
+            boost += 0.12 * hb * amp * w;
           } else {
-            ao *= 1 - 0.38 * amp * w;
+            ao *= 1 - 0.5 * amp * w;
           }
         }
         ao *= 1 - 0.8 * gcol * (0.35 + 0.65 * amp);
@@ -529,36 +563,12 @@ function renderGrain(st, g) {
 
   if (type === 0) spines(st, g, false, sz, lx0, lx1, ly0, ly1, cxl, cyl, Ls, rel);
 
-  // ---- out of focus: a box blur whose width follows the distance from the sharp plane
+  // ---- out of focus: box blurs whose width follows the distance from the sharp plane, two when it is wide
   if (b > 0.2) {
-    const TMP = st.TMP;
-    const r = floor(b), fr = b - r, inv = 1 / (2 * r + 1 + 2 * fr);
-    for (let pl = 0; pl < 4; pl++) {
-      const o = pl * GP;
-      for (let y = ly0; y <= ly1; y++) {
-        const row = o + y * sz;
-        let sum = 0;
-        for (let x = lx0; x <= min(lx1, lx0 + r - 1); x++) sum += BUF[row + x];
-        for (let x = lx0; x <= lx1; x++) {
-          const xa = x + r, xb = x - r - 1;
-          if (xa <= lx1) sum += BUF[row + xa];
-          if (xb >= lx0) sum -= BUF[row + xb];
-          const ex = (x + r + 1 <= lx1 ? BUF[row + x + r + 1] : 0) + (x - r - 1 >= lx0 ? BUF[row + x - r - 1] : 0);
-          TMP[row + x] = (sum + fr * ex) * inv;
-        }
-      }
-      for (let x = lx0; x <= lx1; x++) {
-        let sum = 0;
-        for (let y = ly0; y <= min(ly1, ly0 + r - 1); y++) sum += TMP[o + y * sz + x];
-        for (let y = ly0; y <= ly1; y++) {
-          const ya = y + r, yb = y - r - 1;
-          if (ya <= ly1) sum += TMP[o + ya * sz + x];
-          if (yb >= ly0) sum -= TMP[o + yb * sz + x];
-          const ex = (y + r + 1 <= ly1 ? TMP[o + (y + r + 1) * sz + x] : 0) + (y - r - 1 >= ly0 ? TMP[o + (y - r - 1) * sz + x] : 0);
-          BUF[o + y * sz + x] = (sum + fr * ex) * inv;
-        }
-      }
-    }
+    if (b > 1.6) {
+      blur(st, sz, lx0, lx1, ly0, ly1, b * 0.7);
+      blur(st, sz, lx0, lx1, ly0, ly1, b * 0.7);
+    } else blur(st, sz, lx0, lx1, ly0, ly1, b);
   }
 
   // ---- onto the stage
@@ -602,6 +612,13 @@ export function draw(display, params) {
   }
   for (let k = 0; k < st.vis.length; k++) renderGrain(st, st.vis[k]);
 
+  // the microscope's automatic brightness: a slow gain that follows how much of the stage is lit
+  let sum = 0;
+  for (let i = 0; i < W * H * 3; i++) sum += FR[i];
+  const mean = sum / (W * H * 3);
+  st.expo = st.expo < 0 ? mean : st.expo + (mean - st.expo) * (1 - exp(-st.dt / 9));
+  const gain = cl(Math.pow(EXPO / max(st.expo, 0.03), 0.6), 0.82, 1.28);
+
   // the scan: faint lines that drift, a broad band that rolls and rows that shimmer a little, a few percent
   const rm = st.rowMod;
   const tq = t * 5.3, tk = floor(tq), tf = tq - tk, tw = tf * tf * (3 - 2 * tf);
@@ -614,7 +631,7 @@ export function draw(display, params) {
     const m = rm[y];
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3;
-      const r = FR[o] * m, g = FR[o + 1] * m, b = FR[o + 2] * m;
+      const r = FR[o] * m * gain, g = FR[o + 1] * m * gain, b = FR[o + 2] * m * gain;
       display.setPixel(
         x, y,
         (r >= 1 ? 255 : r <= 0 ? 0 : (r * 255 + 0.5) | 0),
