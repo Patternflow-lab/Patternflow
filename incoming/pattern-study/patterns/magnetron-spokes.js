@@ -9,11 +9,11 @@
 // Round:   249
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Drive=0..4, Spokes=-1..3, Voltage=-1..1
+// @knobs Hue=0..1, Drive=0..4, Spokes=-1..2, Voltage=-1..1
 //
 // Knob 1: Hue. Turns the whole palette round the wheel; it opens on electric violet at the hub going to cyan at the spoke tips, with amber flashes on the anode.
 // Knob 2: Drive. 0 to 4, opening at 2. How hard the radio-frequency wave pushes the electrons: at 0 there is no wave and only the hub spins with a dim halo of stray electrons, at 2 a spoke is a clear curved streak, at 4 the spokes are fat and the anode flashes run together.
-// Knob 3: Spokes. -1 to 3, opening at 0. The number of spokes, 3 at -1, 4 at 0 and 7 at 3; between whole numbers the arms slide and split instead of jumping.
+// Knob 3: Spokes. -1 to 2, opening at 0. The number of spokes, 3 at -1, 4 at 0 and 6 at 2; between whole numbers the arms slide and split instead of jumping.
 // Knob 4: Voltage. -1 to 1, opening at 0.06. The anode voltage against the Hartree threshold: at -1 the spokes stall part way up and never reach the anode, near 0 they just touch it, and at 1 they fatten into the anode and the flashes become a bright band.
 
 const W = 64, H = 128;
@@ -96,7 +96,7 @@ function rk4(st, i, h) {
 function setParams(st) {
   const kn = st.k, t = st.t, ph = st.ph, P = st.P;
   const drive = cl(kn[1], 0, 4);
-  const spokes = 4 + cl(kn[2], -1, 3);
+  const spokes = 4 + cl(kn[2], -1, 2);
   const m = min(floor(spokes + 1e-6), 7);
   P.m = m;
   // a trace of the next mode comes and goes, so the spokes are never quite alike and the arms now and then split
@@ -109,7 +109,7 @@ function setParams(st) {
   // reaches less far into the cavity, so it needs 1.7 times the push for each extra spoke.
   const gate = 1.03 * pow(vr / 1.17, 1.4) * pow(1.7, P.n - 4);
   P.q = 1.45 * pow(drive / 2, 1.1) * pow(vr / 1.17, 1.2) * (1 + 0.18 * sin(0.083 * t + ph[0]) + 0.12 * sin(0.0293 * t + ph[1]) + 0.08 * sin(0.0113 * t + ph[8]));
-  P.q = min(P.q, 4.6);
+  P.q = min(P.q, 3.2);
   P.A = P.q * gate;
   P.wide = sstep(1.8, 6, P.q);
   st.gn = pow(P.n / 4, 1.25);
