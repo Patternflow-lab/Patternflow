@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the place cell, which fires only where the animal is on a track (O'Keefe and Dostrovsky 1971, from memory); phase precession, in which a cell fires at an earlier phase of the theta beat the further the animal runs through its field (O'Keefe and Recce 1993, from memory); the theta sequence that precession makes, the cells of the track ahead and behind firing in order inside one beat (Skaggs et al. 1996, from memory); the sharp-wave ripple and the compressed replay of a run at rest (Buzsaki 1986, from memory; Wilson and McNaughton 1994, from memory); remapping to a new room, in which the order of the fields is made anew (Muller and Kubie 1987, from memory); the beat is stretched from about 8 Hz to about 2 Hz so that it is 14 columns wide, the spike rates are raised to read as lines, and the bout model, the draw and the Poisson spiking are original, pattern round 244
+// Lineage: the place cell, which fires only where the animal is on a track (O'Keefe and Dostrovsky 1971, from memory); phase precession, in which a cell fires at an earlier phase of the theta beat the further the animal runs through its field (O'Keefe and Recce 1993, from memory); the theta sequence that precession makes, the cells of the track behind and ahead firing in order inside one beat (Skaggs et al. 1996, from memory); the sharp-wave ripple and the compressed replay of a run at rest (Buzsaki 1986, from memory; Wilson and McNaughton 1994, from memory); cells with more than one field on a long track (Fenton et al. 2008, from memory); remapping to a new room, in which the fields are laid out anew (Muller and Kubie 1987, from memory); the beat is stretched from about 8 Hz to about 2 Hz so that it is 14 columns wide, the spike rates are raised so that a streak reads as a line, and the bout model, the beat-to-beat variation, the small assemblies and the draw are original, pattern round 244
 // Round:   244
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Run=0..3, Precession=-1..1, Replay=-1..1
 //
 // Knob 1: Hue. Turns the colour ramp round the wheel. It opens with the bottom cell of the stack blue, the middle magenta and the top orange, so a sequence is a ramp of colour, the theta pulses in the ground indigo and the replays white-hot with a trace of their cell's colour.
-// Knob 2: Run. 0 to 3, opening at 2: how much the animal runs. At 0 it stands still on one spot of the track and only replays and a little tonic firing show; at 2 it runs 34 cm a second in bouts of two to five seconds with pauses of about as long; at 3 it runs 44 cm a second and hardly stops, so a new sequence comes up the stack every beat and the streaks step up the panel.
-// Knob 3: Precession. -1 to 1, opening at 0: how far the phase of a cell moves through the beat as the animal crosses its field. At -1 all the cells near the animal fire together and a beat is a vertical bar; at 0 a beat is a slanted streak about 20 cells tall; at 1 the phase moves past a whole beat and the streaks lengthen and lean further. The lean turns the other way when the animal turns round.
-// Knob 4: Replay. -1 to 1, opening near 0: how often the animal replays a run while it rests and how long the replay is. At -1 about one replay in four seconds, 20 cells long; at the opening one in 1.2 seconds, about 40 cells; at 1 two or three a second, 80 cells, in trains.
+// Knob 2: Run. 0 to 3, opening at 2: how much the animal runs. At 0 it stands still on one spot of the track and only replays, a little tonic firing and the small assemblies show; at 2 it runs 34 cm a second in bouts of 2 to 6 seconds with pauses of 1 to 4 seconds; at 3 it runs 44 cm a second and pauses for a second or less, so a new sequence comes up the stack every beat and the streaks step across the panel.
+// Knob 3: Precession. -1 to 1, opening at 0: how far the phase of a cell moves through the beat as the animal crosses its field. At -1 all the cells near the animal fire together and a beat is a vertical bar; at 0 a beat is a slanted streak about 30 cells tall and 8 columns wide; at 1 the phase moves past a whole beat and the streaks lean further and run longer. The lean turns the other way when the animal turns round.
+// Knob 4: Replay. -1 to 1, opening near 0: how often the animal replays a run while it rests and how long the replays are. At -1 about one replay in three seconds, mostly 15 cells long; at the opening about one a second, 30 cells; at 1 three or four a second, 60 cells, some of them across most of the track, often in trains of two.
 
 const W = 64, H = 128, NC = 128;
 const { floor, min, max, abs, sqrt, exp, log, pow, cos, PI } = Math;
@@ -37,7 +37,7 @@ const HN = 512;               // steps of history kept
 const WIN = 2.5;              // a spike is dropped from the picture after this many seconds
 const HUE0 = 0.64;            // the bottom of the ramp, blue; a knob turn is added to it
 const SPAN = 0.43;            // the ramp covers 155 degrees of hue
-const BASE_RATE = 0.6;        // replays a second at the opening of the Replay knob
+const BASE_RATE = 1.1;        // replays a second at the opening of the Replay knob
 
 // ---- the world --------------------------------------------------------------
 export function setup(params) {
@@ -45,11 +45,13 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], init: false, t: 0, acc: 0, n: 0,
     // the track and its cells: a cell is a field centre (cm), a width (cm), a peak rate (Hz), a phase window, a slow gain
     L: 200, sg: 1, hs: 0, flip: 0, nextRemap: 80,
+    // two more fields a cell has elsewhere on the track, weaker than the first: centre, width, share of the peak
+    cenX: new Float32Array(NC * 2), sigX: new Float32Array(NC * 2), ampX: new Float32Array(NC * 2),
     cen: new Float32Array(NC), sig: new Float32Array(NC), peak: new Float32Array(NC), kap: new Float32Array(NC), gain: new Float32Array(NC).fill(1),
     // the animal
     pos: 100, dir: 1, v: 0, vt: 0, left: 2, mode: 0, ouv: 0, fv: 0,
     // the theta beat
-    ph: rnd(), fth: 2.1, ouf: 0,
+    ph: rnd(), fth: 2.1, ouf: 0, bg: 1, bo: 0, bw: 1,
     // histories, one value a step: the animal's cell coordinate, the theta phase, the theta depth
     hPos: new Float32Array(HN), hPh: new Float32Array(HN), hG: new Float32Array(HN),
     // the spikes, a ring: time, cell, colour offset, brightness, kind (0 theta, 1 replay, 2 stray)
@@ -87,9 +89,14 @@ function remap(st, first) {
   st.sg = 0.8 + 0.4 * rnd();
   for (let i = 0; i < NC; i++) {
     st.cen[i] = ((i + 0.5 + (rnd() - 0.5) * 0.7) / NC) * st.L;
-    st.sig[i] = cl(7 * st.sg * exp(0.25 * gauss()), 4, 14);
-    st.peak[i] = 20 + 28 * pow(rnd(), 1.2);
-    st.kap[i] = 5 + 3 * rnd();
+    st.sig[i] = cl(9 * st.sg * exp(0.25 * gauss()), 5, 17);
+    st.peak[i] = 28 + 36 * pow(rnd(), 1.2);
+    st.kap[i] = 8 + 5 * rnd();
+    for (let j = 0; j < 2; j++) {
+      st.cenX[i * 2 + j] = 8 + (st.L - 16) * rnd();
+      st.sigX[i * 2 + j] = cl(8 * st.sg * exp(0.25 * gauss()), 5, 15);
+      st.ampX[i * 2 + j] = 0.18 + 0.32 * rnd();
+    }
   }
   if (!first) {
     st.hs = -0.12 + 0.17 * rnd();
@@ -124,7 +131,8 @@ function derive(st) {
 }
 
 function startReplay(st) {
-  const n = cl(floor(40 * st.rlen * (0.55 + rnd())), 14, 118);
+  // ripples come in every size: many short ones, now and then one that crosses most of the track
+  const n = cl(floor(30 * st.rlen * exp(0.65 * gauss())), 7, 118);
   const d = rnd() < 0.5 ? 1 : -1;
   const a = cl(st.pos / st.L * NC, 0, NC - 1);
   let from;
@@ -135,7 +143,7 @@ function startReplay(st) {
   } else from = d > 0 ? rnd() * (NC - n) : n + rnd() * (NC - n);
   from = cl(from, d > 0 ? 0 : n, d > 0 ? NC - n : NC - 1);
   // about twenty times the run: a run is some 18 cells a second
-  st.rep.push({ f: from, d, end: from + d * n, rate: (11 + 9 * rnd()) * 18, tint: 0.65 + 0.3 * rnd() });
+  st.rep.push({ f: from, d, end: from + d * n, rate: (11 + 9 * rnd()) * 18, kind: n >= 30 ? 1 : 3 });
 }
 
 function step(st, dt) {
@@ -178,36 +186,65 @@ function step(st, dt) {
   st.ouf += (-st.ouf * dt) / 1.5 + sqrt(dt) * gauss() * 0.5;
   st.fth = 1.85 + 0.5 * cl(st.v / 44, 0, 1.2) + 0.2 * cl(st.ouf, -2, 2);
   st.ph += st.fth * dt;
-  st.ph -= floor(st.ph);
+  if (st.ph >= 1) {
+    st.ph -= floor(st.ph);
+    // no two beats are alike: each is a little longer or shorter, ahead or behind, brighter or dimmer, and now and then one is nearly empty
+    st.bg = rnd() < 0.12 ? 0.1 : cl(exp(0.45 * gauss()), 0.45, 1.9);
+    st.bo = 7 * gauss();
+    st.bw = 0.7 + 0.7 * rnd();
+  }
   const hi = st.n % HN;
   st.hPos[hi] = (st.pos / st.L) * NC;
   st.hPh[hi] = st.ph;
   st.hG[hi] = g;
   st.n++;
   // ---- the cells ----
-  const dirv = st.dir, p = st.prec, pos = st.pos;
-  const tonic = 0.035 + 0.02 * (1 - g);
+  const dirv = st.dir, p = st.prec, pos = st.pos + st.dir * st.bo * g, bgain = 1 + (st.bg - 1) * g, bw = 1 + (st.bw - 1) * g;
+  const tonic = 0.05 + 0.03 * (1 - g);
   for (let i = 0; i < NC; i++) {
     st.gain[i] += (1 - st.gain[i]) * dt * 0.25 + sqrt(dt) * gauss() * 0.3;
     const gi = cl(st.gain[i], 0.35, 1.7);
     // a cell is silent but for a stray spike away from its field
-    let rate = 0.08 * gi, amp = 0.4, kind = 2;
-    const d = pos - st.cen[i], z = d / st.sig[i];
+    let rate = 0.4 * gi, amp = 0.3, kind = 2;
+    const sg = st.sig[i] * bw, d = pos - st.cen[i], z = d / sg;
     if (z * z < 10) {
       const f = exp(-0.5 * z * z);
       // the beat phase the cell prefers: late as the animal comes into the field, early as it leaves
-      const s = cl((dirv * d) / (2 * st.sig[i]), -1, 1);
+      const s = cl((dirv * d) / (2 * sg), -1, 1);
       let dp = st.ph - (0.5 - 0.5 * p * s);
       dp -= floor(dp + 0.5);
       const win = exp(st.kap[i] * (cos(TAU * dp) - 1));
-      const r = st.peak[i] * f * gi * (g * win + (1 - g) * tonic);
+      const r = st.peak[i] * f * gi * (g * win * bgain + (1 - g) * tonic);
       if (r > rate) {
         rate = r;
         kind = 0;
         amp = (0.62 + 0.55 * sqrt(f)) * (0.35 + 0.65 * g) * (0.85 + 0.3 * rnd());
       }
     }
+    // the other two fields
+    for (let j = 0; j < 2; j++) {
+      const dx = pos - st.cenX[i * 2 + j], sx = st.sigX[i * 2 + j] * bw, zx = dx / sx;
+      if (zx * zx >= 10) continue;
+      const fx = exp(-0.5 * zx * zx) * st.ampX[i * 2 + j];
+      const sxs = cl((dirv * dx) / (2 * sx), -1, 1);
+      let dpx = st.ph - (0.5 - 0.5 * p * sxs);
+      dpx -= floor(dpx + 0.5);
+      const rx = st.peak[i] * fx * gi * (g * exp(st.kap[i] * (cos(TAU * dpx) - 1)) * bgain + (1 - g) * tonic);
+      if (rx > rate) {
+        rate = rx;
+        kind = 0;
+        amp = (0.5 + 0.5 * sqrt(fx)) * (0.35 + 0.65 * g) * (0.85 + 0.3 * rnd());
+      }
+    }
     if (rnd() < rate * dt) emit(st, NC - 1 - i, cellHue(st, i), amp, kind, t - rnd() * dt);
+  }
+  // ---- small assemblies: a few neighbouring cells fire together anywhere on the track, at any time ----
+  if (rnd() < 36 * dt) {
+    const n = 2 + floor(rnd() * 5), c0 = floor(rnd() * (NC - n)), sgn = rnd() < 0.5 ? 1 : -1;
+    for (let j = 0; j < n; j++) {
+      const c = sgn > 0 ? c0 + j : c0 + n - 1 - j;
+      emit(st, NC - 1 - c, cellHue(st, c), 0.34 + 0.14 * rnd(), 2, t - rnd() * dt - 0.005 * j);
+    }
   }
   // ---- sharp-wave ripples and their replays, at rest ----
   if (st.mode === 0 && st.v < 6) {
@@ -226,8 +263,8 @@ function step(st, dt) {
       if (c < 0 || c >= NC || (r.d > 0 ? c > r.end : c < r.end)) continue;
       if (rnd() < 0.82) {
         const when = t - dt + (dt * (c - a)) / (b - a);
-        emit(st, NC - 1 - c, cellHue(st, c), 1.0 + 0.25 * rnd(), 1, when);
-        if (rnd() < 0.35) emit(st, NC - 1 - c, cellHue(st, c), 0.9, 1, when - 0.004);
+        emit(st, NC - 1 - c, cellHue(st, c), 1.0 + 0.25 * rnd(), r.kind, when);
+        if (rnd() < 0.35) emit(st, NC - 1 - c, cellHue(st, c), 0.9, r.kind, when - 0.004);
       }
     }
     r.f = b;
@@ -329,10 +366,18 @@ export function draw(display, params) {
     if (age > WIN || age < -0.02) continue;
     const xc = XNOW - age * SCROLL;
     if (xc < -4) continue;
-    const kind = st.sK[k], rep = kind === 1;
+    const kind = st.sK[k], rep = kind === 1 || kind === 3;
     const hh = (((HUE0 + hue + st.sC[k]) % 1) + 1) % 1, li = floor(hh * 512) % 512 * 3;
     let cr = lut[li], cg = lut[li + 1], cb = lut[li + 2];
     let amp = st.sA[k];
+    // a dim warm colour reads brown on the panel, so the orange end is paled and lifted
+    const warm = hh < 0.5 ? 1 - sstep(0.06, 0.16, hh) : sstep(0.9, 0.97, hh);
+    if (warm > 0 && !(kind === 1 || kind === 3)) {
+      const lm = 0.45 * warm;
+      cg += (0.62 - cg) * lm;
+      cb += (0.5 - cb) * lm;
+      amp *= 1 + 0.45 * warm;
+    }
     // older spikes dim, but not into the dark; the left edge fades out
     const fade = 0.5 + 0.5 * exp(-age / 0.9);
     let bright = amp * fade * sstep(-1, 6, xc);
@@ -340,11 +385,11 @@ export function draw(display, params) {
     let hw = 1.3, halo = 0.16;
     if (rep) {
       // a replay is white-hot with a trace of the cell's colour
-      const w = 0.6;
+      const w = kind === 1 ? 0.6 : 0.3;
       cr += (1.05 - cr) * w;
       cg += (1.05 - cg) * w;
       cb += (1.05 - cb) * w;
-      bright *= 1.05;
+      bright *= kind === 1 ? 1.05 : 0.9;
       hw = 1.0;
       halo = 0.12;
     } else if (kind === 2) halo = 0.05;
