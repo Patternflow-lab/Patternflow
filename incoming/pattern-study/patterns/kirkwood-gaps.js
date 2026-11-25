@@ -41,8 +41,8 @@ const EMEAN = 6;                        // radians over which the mean semi-majo
 
 // ---- the picture ------------------------------------------------------------
 const TOPH = 70;                        // rows of the view from above
-const CX = 31.5, CY = 34.5, SC = 5.7 * AUJ;   // the Sun, and LEDs to a Jupiter radius (5.7 an AU)
-const TILT = 0.42, CT = cos(TILT), ST = sin(TILT);   // Jupiter sits this far round from the top, clockwise, so the Lagrange clouds are not mirror images
+const CX = 31.5, CY = 36.5, SC = 6.1 * AUJ;   // the Sun, and LEDs to a Jupiter radius (6.1 an AU)
+const TILT = 0.2, CT = cos(TILT), ST = sin(TILT);   // Jupiter sits this far round from the top, clockwise, so the Lagrange clouds are not mirror images
 const HB = 128, HMAX = 49;              // the bars stand on the bottom edge and rise at most this many rows
 const HA0 = 2.0, HA1 = 4.2;             // the axis of the histogram, AU
 const REF = 30;                         // particles in a column that stand 0.6 of the way up
@@ -286,14 +286,14 @@ const E0C = 0.08, ECOLD = 0.38;           // eccentricity at the amber end of th
 const eu = (e) => cl((e - E0C) / ECOLD, 0, 1);
 
 function splat(buf, px, py, r, g, b) {
-  // a soft dot about 2 LED across: weight (1 - d2 / 2.6) squared out to a radius of 1.6
+  // a soft dot 2 LED across: weight (1 - d2 / 2) squared, out to a radius of 1.4
   const ix = floor(px - 0.5), iy = floor(py - 0.5);
   for (let yy = iy; yy <= iy + 2; yy++) {
     if (yy < 0 || yy >= TOPH) continue;
     const dy = yy + 0.5 - py;
     for (let xx = ix; xx <= ix + 2; xx++) {
       if (xx < 0 || xx >= W) continue;
-      const dx = xx + 0.5 - px, q = 1 - (dx * dx + dy * dy) / 2.6;
+      const dx = xx + 0.5 - px, q = 1 - (dx * dx + dy * dy) / 2;
       if (q <= 0) continue;
       const w = q * q, o = (yy * W + xx) * 3;
       buf[o] += w * r;
@@ -307,8 +307,10 @@ function drawTop(st) {
   const buf = st.buf, lut = st.lut, X = st.X, Y = st.Y, VX = st.VX, VY = st.VY, ec = st.ec;
   buf.fill(0);
   const ct = cos(st.t), sn = sin(st.t), acc = st.acc, dtS = st.dtS;
-  const ENERGY = 0.13;
+  const ENERGY = 0.22;
   for (let i = 0; i < N; i++) {
+    // every second belt particle is drawn, so the belt is a swarm with gaps in it and not a plate; the Hildas and Trojans are all drawn
+    if (i < NB && (i & 1)) continue;
     const x = X[i], y = Y[i], vx = VX[i], vy = VY[i];
     // the rotating frame, Jupiter on +X
     let px = x * ct + y * sn, py = -x * sn + y * ct;
@@ -356,8 +358,7 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3, dxs = x + 0.5 - CX, dys = y + 0.5 - CY;
       const gl = exp(-(dxs * dxs + dys * dys) / 700);
-      const hz = exp(-(dxs * dxs + dys * dys) / 60);
-      let r = GROUND[0] + 7 * gl + 14 * hz, g = GROUND[1] + 4 * gl + 7 * hz, b = GROUND[2] + 16 * gl + 26 * hz;
+      let r = GROUND[0] + 7 * gl, g = GROUND[1] + 4 * gl, b = GROUND[2] + 16 * gl;
       const m = max(buf[o], buf[o + 1], buf[o + 2]);
       if (m > 1e-4) {
         // the colour keeps its direction and the light is squeezed into 0..1; where it is dim it is paled and lifted, since a dim
@@ -367,12 +368,15 @@ export function draw(display, params) {
         g = g * (1 - vv) + mix(buf[o + 1] * k, 238, pl) * vv;
         b = b * (1 - vv) + mix(buf[o + 2] * k, 190, pl) * vv;
       }
-      // the Sun, a small pale gold dot
-      const ds = sqrt(dxs * dxs + dys * dys), sw = 1 - sstep(1.2, 2.3, ds);
+      // the Sun, a white-gold star: a soft glow some 4 LED across and a small core
+      const d2s = dxs * dxs + dys * dys, ds = sqrt(d2s), gs = exp(-d2s / 9), sw = 1 - sstep(0.9, 2.0, ds);
+      r = min(255, r + 190 * gs);
+      g = min(255, g + 160 * gs);
+      b = min(255, b + 95 * gs);
       if (sw > 0) {
         r = mix(r, 255, sw);
-        g = mix(g, 226, sw);
-        b = mix(b, 150, sw);
+        g = mix(g, 244, sw);
+        b = mix(b, 205, sw);
       }
       // Jupiter, a cream disc with a soft edge and a faint halo
       const dj = sqrt((x + 0.5 - jx) * (x + 0.5 - jx) + (y + 0.5 - jy) * (y + 0.5 - jy));
