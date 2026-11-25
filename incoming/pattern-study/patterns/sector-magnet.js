@@ -5,14 +5,14 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the 180 degree magnetic spectrometer, in which ions that leave a slit over a spread of angles come together again after half a turn (Dempster 1918, from memory); the mass spectrograph that records every mass at once as a line on a photographic plate (Aston 1919, from memory); the radius r = sqrt(2 m V / q) / B and the half-turn time pi m / (q B), textbook results; the isotope pairs of chlorine, about 3 to 1, and of bromine, about 1 to 1 (from memory); compounds reaching the source one after another from a gas chromatograph (Gohlke and McLafferty in the 1950s, from memory); a spectrum scaled to its strongest line. Original here: the sample generator and its rule that the light end and the heavy end are never empty, the half turn slowed to seconds with its mass dependence softened, pairs drawn wider apart than an instrument this size would resolve them, a beam whose direction and height follow the mix in the source, the colours and the drawing, pattern round 246
+// Lineage: the 180 degree magnetic spectrometer, in which ions that leave a slit over a spread of angles come together again after half a turn (Dempster 1918, from memory); the mass spectrograph that records every mass at once as a line on a photographic plate (Aston 1919, from memory); the radius r = sqrt(2 m V / q) / B and the half-turn time pi m / (q B), textbook results; the isotope pairs of chlorine, about 3 to 1, and of bromine, about 1 to 1 (from memory); compounds reaching the source one after another from a gas chromatograph (Gohlke and McLafferty in the 1950s, from memory); a spectrum scaled to its strongest line. Original here: the sample generator and its rule that the light end and the heavy end are never empty, the half turn slowed to seconds with its mass dependence softened, pairs drawn wider apart than an instrument this size would resolve them, far heavier masses kept nearly dark while they run into the wall, a beam whose direction and height follow the mix in the source, the colours and the drawing, pattern round 246
 // Round:   246
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Field=0..4, Divergence=-1..1, Energy=0..1
 //
 // Knob 1: Hue. Turns every mass colour round the wheel. It opens with the lightest masses amber and lime, the middle green and cyan, the heaviest blue and violet, on a ground of very dark blue; each compound sits a little to one side of that scale.
-// Knob 2: Field. 0 to 4, opening at 2: the strength of the magnet. Every radius goes as one over the field. At 2 the heaviest mass turns on 53 LED and the fan fills the panel. At 0 the field is 2.8 times weaker, the heavy masses run off the right edge and never reach the plate. At 4 it is 2.3 times stronger and the whole fan sits in the lower left, 23 LED at the most.
+// Knob 2: Field. 0 to 4, opening at 2: the strength of the magnet, which decides the part of the mass range that lands on the plate. Every radius goes as one over the field. At 2 the main masses turn on 8 to 53 LED and fill the panel. At 0 the field is 2.8 times weaker, the heavy masses run off the right edge and never reach the plate. At 4 it is 2.3 times stronger, the main masses sit in the lower left, 23 LED at the most, and the far heavier masses some compounds carry, which hit the wall at 2, come round as fainter arcs of 31 to 49 LED.
 // Knob 3: Divergence. -1 to 1, opening at 0: the spread of angles at the slit. At -1 each mass is a pencil beam under 3 LED wide. At 0 a 50 LED arc is about 6 LED wide at its apex. At 1 it is a crescent about 17 LED wide that overlaps its neighbours and still comes back to a short line on the plate.
 // Knob 4: Energy. 0 to 1, opening at 0.06: the spread of energies in the source, which is a spread of radii that the half turn does not bring back together. At 0 the lines on the plate are sharp. At 1 each ribbon widens all the way round, a 50 LED arc lands as a band about 19 LED wide and the bands run into each other.
 
@@ -28,12 +28,12 @@ const sstep = (a, b, x) => {
 const XP = 4.3;              // the face of the plate, and the plane of the slit
 const SX = XP + 0.5;         // the slit
 const SY = 118.5;            // its mean height
-const RMIN = 8, RMAX = 53;   // radii at the opening field, LED
+const RMIN = 8, RMAX = 53, XR0 = 72, XRS = 40;   // radii at the opening field, LED
 const S0 = 0.95, S02 = S0 * S0; // the least half width of a ribbon (sigma): 2.2 LED across at half height
 const NT = 32;               // steps of the table that holds a line's brightness along its half turn
 const TMAX = 8;            // seconds the heaviest mass takes for the half turn at the opening field
 const TAUP = 4.5;            // afterglow of the plate, seconds
-const MAXL = 96;             // lines alive at once, at the most
+const MAXL = 192;            // lines alive at once, at the most
 const LUM = 0.42, CHR = 0.62; // a colour is LUM + CHR cos(hue - channel): the three channels always add to the same
 const DEPTH = 0.75;          // how deep a compound's own flow swings
 const GAIN = 1.9;            // exposure of the tone curve
@@ -61,10 +61,18 @@ function rnd(st) {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
+// A second stream for the masses heavier than the panel holds at the opening field, so that they leave the rest of the sample as it was.
+function rnd2(st) {
+  const a = (st.seed2 = (st.seed2 + 0x6d2b79f5) | 0);
+  let t = Math.imul(a ^ (a >>> 15), a | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
 export function setup(params) {
   const f = (n) => new Float32Array(n);
   const st = {
-    k: [0, 2, 0, 0.06], init: false, t: 0, seed: 1, next: 0, ph: [],
+    k: [0, 2, 0, 0.06], init: false, t: 0, seed: 1, seed2: 2, next: 0, ph: [],
     comps: [], nL: 0,
     lr: f(MAXL), lcx: f(MAXL), lcy: f(MAXL), lct: f(MAXL), lst: f(MAXL), lrsa: f(MAXL), lrse: f(MAXL), lq: f(MAXL), ltr: f(MAXL), lreach: f(MAXL), lmax: f(MAXL),
     tab: f(MAXL * (NT + 1)),
@@ -123,9 +131,30 @@ function newCompound(st, tp) {
       break;
     }
   }
-  const hu = [];
-  for (let i = 0; i < r0.length; i++) hu.push(cl((r0[i] - RMIN) / (RMAX + 2 - RMIN), 0, 1));
-  return { t0: tp, wr, wf, br: 0.65 + 0.7 * R(), r0, ab, hu, lt, cs: R(), da: -0.1 + 0.32 * R(), dy: 14 * R() - 7, dh: 0.8 * R() - 0.4, f1: TAU / (1.3 + 0.9 * R()), f2: TAU / (4 + 3 * R()), p1: TAU * R(), p2: TAU * R() };
+  // Six compounds in ten also carry one to three masses far heavier than the rest, fainter lines with radii of 72 to 112 LED at
+  // the opening field. There they run into the right-hand wall; they only come round to the plate when the field is turned up.
+  const nm = r0.length, xr = [];
+  if (rnd2(st) < 0.6) {
+    const m = 1 + floor(2.999 * rnd2(st) * rnd2(st));
+    for (let i = 0; i < m; i++) {
+      for (let tries = 0; tries < 12; tries++) {
+        const r = XR0 + XRS * rnd2(st);
+        let ok = true;
+        for (const q of xr) if (r > q - 9 && r < q + 9) ok = false;
+        if (!ok) continue;
+        xr.push(r);
+        r0.push(r);
+        ab.push(0.18 + 0.4 * rnd2(st));
+        break;
+      }
+    }
+  }
+  const hu = [], ue = [];
+  for (let i = 0; i < r0.length; i++) {
+    hu.push(cl((r0[i] - RMIN) / (RMAX + 2 - RMIN), 0, 1));
+    ue.push(i < nm ? -1 : (r0[i] - XR0) / XRS);
+  }
+  return { t0: tp, wr, wf, br: 0.65 + 0.7 * R(), r0, ab, hu, ue, lt, cs: R(), da: -0.1 + 0.32 * R(), dy: 14 * R() - 7, dh: 0.8 * R() - 0.4, f1: TAU / (1.3 + 0.9 * R()), f2: TAU / (4 + 3 * R()), p1: TAU * R(), p2: TAU * R() };
 }
 // How much of a compound left the slit at the time tp: its peak, and its own unsteady flow.
 function env(c, tp) {
@@ -200,8 +229,16 @@ function step(st, dt, full) {
   for (const c of st.comps) {
     for (let i = 0; i < c.r0.length && n < MAXL; i++, n++) {
       const r = st.lr[n], cx = st.lcx[n], cy = st.lcy[n], rsa = st.lrsa[n], rse = st.lrse[n], q = st.lq[n], tr = st.ltr[n];
-      const T = min(13, (TMAX * pow(c.r0[i] / RMAX, 1.25)) / sqrt(B)), d = DEPTH * sstep(0.3, 1.4, T);
-      const a = g * c.br * c.ab[i], o = n * (NT + 1), loss = (gas * r * PI) / NT;
+      // the far heavier masses are held to 7 s for the half turn and to shallower bunches, so they read as whole arcs
+      const xh = c.ue[i] >= 0;
+      const T = min(xh ? 7 : 13, (TMAX * pow(c.r0[i] / RMAX, 1.25)) / sqrt(B)), d = (xh ? 0.4 : DEPTH) * sstep(0.3, 1.4, T);
+      // nothing of this compound is on its way round yet, or any more
+      if (t < c.t0 - 4.6 * c.wr || t - T > c.t0 + 4.6 * c.wf) {
+        st.lmax[n] = 0;
+        continue;
+      }
+      // and one that runs into the wall is drawn at a twentieth of its strength, so it does not crowd the opening picture
+      const a = g * c.br * c.ab[i] * (xh ? 0.05 + 0.95 * tr : 1), o = n * (NT + 1), loss = ((xh ? 0.5 : 1) * gas * r * PI) / NT;
       let mx = 0;
       for (let j = full ? 0 : NT; j <= NT; j++) {
         const tp = t - (T * j) / NT;
@@ -212,7 +249,7 @@ function step(st, dt, full) {
       st.lmax[n] = mx;
       if (mx < 0.012) continue;
       // the hue follows the mass, each compound a little to one side of it; the light end only turns towards green
-      const u = c.hu[i], dh = c.dh < 0 ? -c.dh * (1 - 2 * sstep(0.08, 0.4, u)) : c.dh;
+      const u = c.hu[i], dh = xh ? 0.5 * c.dh + 0.3 * c.ue[i] : c.dh < 0 ? -c.dh * (1 - 2 * sstep(0.08, 0.4, u)) : c.dh;
       const th = TH0 + THS * pow(u, 0.85) + dh + h1 * (1 - u) * (1 - u) + h2 * u * u + h3 * 4 * u * (1 - u);
       const ct = (st.lct[n] = cos(th)), sn = (st.lst[n] = sin(th));
       st.lreach[n] = 3.1 * sqrt(S02 + rsa * rsa + 4 * rse * rse) + q + 1;
@@ -240,6 +277,7 @@ export function update(dt, input, params) {
   if (!st.init) {
     st.init = true;
     st.seed = floor(Math.random() * 4294967296) | 0;
+    st.seed2 = (st.seed ^ 0x5bd1e995) | 0;
     for (let i = 0; i < 14; i++) st.ph.push(TAU * rnd(st));
     // run the sample for a while before the first frame, and the plate for the last part of it
     st.t = -46;
