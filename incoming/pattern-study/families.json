@@ -319,5 +319,10 @@
   "asteroseismology": { "label": "별 떨림", "color": "#b79bff" },
   "cloudstreet": { "label": "구름 거리", "color": "#58b8f0" },
   "battleship": { "label": "유물 빈도 곡선", "color": "#a8794a" },
-  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" }
+  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" },
+  "terrazzo": { "label": "테라초", "color": "#e6d3b3" },
+  "flareloops": { "label": "플레어 고리", "color": "#ffb23e" },
+  "sterngerlach": { "label": "슈테른-게를라흐", "color": "#b9b4ff" },
+  "normalmodes": { "label": "분자 진동", "color": "#5fe0a8" },
+  "socialchoice": { "label": "투표 지도", "color": "#f0608e" }
 }
