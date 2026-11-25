@@ -181,7 +181,7 @@ function advance(st, i, dtau, dt) {
     dx -= W * Math.round(dx / W);
     const dy = y1 - st.y0[i];
     const n = cl(ceil(max(abs(dx), abs(dy)) / 1.0), 1, 10);
-    const amp = (KDEP * st.gn * al2 * dt * (0.3 + 0.7 * sstep(0.5, 0.72, st.r[i])) * (1 + 0.3 * cos(st.th[i] + st.pm) + 0.22 * cos(2 * st.th[i] + st.pm2) + 0.15 * cos(3 * st.th[i] + st.pm3) + (0.65 + 0.5 * st.P.wide) * fld(st.F[0], st.th[i]))) / n;
+    const amp = (KDEP * st.gn * (1 + 6 * st.P.wide * sstep(0.55, 0.85, st.r[i])) * al2 * dt * (0.3 + 0.7 * sstep(0.5, 0.72, st.r[i])) * (1 + 0.3 * cos(st.th[i] + st.pm) + 0.22 * cos(2 * st.th[i] + st.pm2) + 0.15 * cos(3 * st.th[i] + st.pm3) + (0.65 + 0.5 * st.P.wide) * fld(st.F[0], st.th[i]))) / n;
     for (let q = 1; q <= n; q++) stamp(st, st.x0[i] + (dx * q) / n, st.y0[i] + (dy * q) / n, amp, st.D, SX * (1 + 0.9 * st.P.wide));
   }
   if (hit > 0) stamp(st, x1, 0.5, 0.16, st.E, SX * (1 + 1.2 * st.P.wide));
