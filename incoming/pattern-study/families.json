@@ -314,5 +314,10 @@
   "asteroseismology": { "label": "별 떨림", "color": "#b79bff" },
   "cloudstreet": { "label": "구름 거리", "color": "#58b8f0" },
   "battleship": { "label": "유물 빈도 곡선", "color": "#a8794a" },
-  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" }
+  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" },
+  "raymarch": { "label": "구체 추적", "color": "#ff5a8a" },
+  "crepuscular": { "label": "박명 광선", "color": "#ffc27a" },
+  "dendrogram": { "label": "군집 나무", "color": "#c8ff4d" },
+  "haar": { "label": "하르 웨이블릿", "color": "#6af0ff" },
+  "chord": { "label": "현 도표", "color": "#9d7bff" }
 }
