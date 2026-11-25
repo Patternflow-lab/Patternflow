@@ -23,19 +23,20 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const hyp = (x, y) => sqrt(x * x + y * y);
 
 const V = 11;                 // LED a second in a hold, in simulated seconds (the opening runs them at real time)
-const LEG = 20, HL = LEG / 2; // a straight leg of a hold
-const R0 = 4.6, DR = 3;       // radius of the innermost ring, and the step to the next ring out
+const LEG = 20;               // a straight leg of a hold, about: each hold's legs breathe
+const R0 = 4.2, DR = 3.3;      // radius of the innermost ring, and the step to the next ring out
 const NLEV = 4;               // rings to a hold
 const LF = 46;                // length of the final
 const VF0 = 0.45, VF1 = 0.25; // speed at the top of the final and at the threshold, as a share of V
 const STRETCH = 1.6;          // a cleared aircraft may take up to this many times the shortest transit
 const ARM = 0.37;             // control arms of the transit curve, as a share of its chord
-const MEAN = 3.3;             // seconds between arrivals at Traffic 0
-const TAIL = 1.2, WARM = 0.42; // time constants of the long glow and of the short gold one, real seconds
+const MEAN = 3.5;             // seconds between arrivals at Traffic 0 and the opening spacing
+const TAIL = 1.6, WARM = 0.42; // time constants of the long glow and of the short gold one, real seconds
+const FK = (VF0 - VF1) / (LF * VF0), FR = (V * (VF0 - VF1)) / LF; // the slowing down the final, for the time since the top
 const BX = [17, 47], BY = [34, 40], SG = [1, -1];
 // periods of the slow drift, seconds; none divides another
 const PX = [43.7, 37.1], PY = [67.9, 89.3], PA = [53.3, 71.9];
-const QX2 = [19.3, 21.7], QY2 = [23.9, 25.3], QA2 = [27.1, 31.1];
+const QX2 = [19.3, 21.7], QY2 = [23.9, 25.3], QA2 = [27.1, 31.1], PL = [57.7, 79.1];
 
 let QX = 0, QY = 0; // where the last call of hpos or bez landed
 
@@ -49,12 +50,12 @@ function rnd(st) {
 
 export function setup(params) {
   const f = (n) => new Float32Array(n);
-  const hold = () => ({ x: 0, y: 0, ax: 0, ay: 1, bx: 1, by: 0 });
+  const hold = () => ({ x: 0, y: 0, ax: 0, ay: 1, bx: 1, by: 0, leg: LEG, hl: LEG / 2 });
   const st = {
-    k: [0, 2, 0, 0.06], init: false, t: 0, ts: 0, seed: 1, ph: [],
+    k: [0, 2, 0, 0.06], init: false, t: 0, ts: 0, seed: 1, ph: [], hue: 0, wave: 1,
     ac: [], q: [[], []], hc: [hold(), hold()],
     ix: 32, iy: 74, tx: 32, ty: 120, dx: 0, dy: 1,
-    slot: -1e9, last: -1, next: 0, flash: 0,
+    slot: -1e9, acc: 0, due: 1, flash: 0, gd: 3, ref: 0, sh: 0,
     G: f(W * H * 3), Wm: f(W * H * 3), F: f(W * H * 3),
   };
   params.st = st;
@@ -66,20 +67,26 @@ function layout(st) {
   const t = st.t, p = st.ph;
   for (let h = 0; h < 2; h++) {
     const o = h * 6, hd = st.hc[h];
-    hd.x = BX[h] + 3.6 * sin((TAU * t) / PX[h] + p[o]) + 1.4 * sin((TAU * t) / QX2[h] + p[o + 1]);
-    hd.y = BY[h] + 6 * sin((TAU * t) / PY[h] + p[o + 2]) + 2 * sin((TAU * t) / QY2[h] + p[o + 3]);
+    hd.x = BX[h] + 5 * sin((TAU * t) / PX[h] + p[o]) + 1.5 * sin((TAU * t) / QX2[h] + p[o + 1]);
+    hd.y = BY[h] + 9 * sin((TAU * t) / PY[h] + p[o + 2]) + 2.5 * sin((TAU * t) / QY2[h] + p[o + 3]);
     // the long axis leans a little towards the final and swings about that
-    const th = SG[h] * 0.12 + 0.28 * sin((TAU * t) / PA[h] + p[o + 4]) + 0.08 * sin((TAU * t) / QA2[h] + p[o + 5]);
+    const th = SG[h] * 0.12 + 0.36 * sin((TAU * t) / PA[h] + p[o + 4]) + 0.1 * sin((TAU * t) / QA2[h] + p[o + 5]);
+    hd.leg = LEG * (1 + 0.26 * sin((TAU * t) / PL[h] + p[17 + h]) + 0.06 * sin((TAU * t) / 20.9 + p[19 + h]));
+    hd.hl = hd.leg / 2;
     hd.ax = sin(th);
     hd.ay = cos(th);
     hd.bx = SG[h] * cos(th);
     hd.by = -SG[h] * sin(th);
   }
-  const ps = 0.13 * sin((TAU * t) / 61.3 + p[12]) + 0.05 * sin((TAU * t) / 29.9 + p[13]);
-  st.tx = 32 + 4.5 * sin((TAU * t) / 83.9 + p[14]) + 1.5 * sin((TAU * t) / 33.7 + p[15]);
+  const ps = 0.15 * sin((TAU * t) / 61.3 + p[12]) + 0.06 * sin((TAU * t) / 29.9 + p[13]);
+  st.tx = 32 + 5.5 * sin((TAU * t) / 83.9 + p[14]) + 2 * sin((TAU * t) / 33.7 + p[15]);
   st.ty = 119.5 + 2 * sin((TAU * t) / 47.9 + p[16]);
   st.dx = sin(ps);
   st.dy = cos(ps);
+  // and the whole palette leans a little one way and the other
+  st.hue = 0.05 * sin((TAU * t) / 59.1 + p[21]) + 0.03 * sin((TAU * t) / 97.3 + p[22]);
+  // traffic comes in waves: busy spells and quiet ones, from half the mean rate to twice
+  st.wave = exp(0.45 * sin((TAU * t) / 71.3 + p[23]) + 0.25 * sin((TAU * t) / 113.9 + p[24])) / 1.07;
   st.ix = st.tx - st.dx * LF;
   st.iy = st.ty - st.dy * LF;
 }
@@ -87,10 +94,11 @@ function layout(st) {
 // A place on a hold's ring of radius r. ph runs 0 to 4: the leg down the panel, the bottom turn, the leg back up, the top turn.
 function hpos(hd, ph, r) {
   let u, v;
-  if (ph < 1) (u = -HL + ph * LEG), (v = r);
-  else if (ph < 2) (u = HL + r * sin((ph - 1) * PI)), (v = r * cos((ph - 1) * PI));
-  else if (ph < 3) (u = HL - (ph - 2) * LEG), (v = -r);
-  else (u = -HL - r * sin((ph - 3) * PI)), (v = -r * cos((ph - 3) * PI));
+  const hl = hd.hl;
+  if (ph < 1) (u = -hl + ph * hd.leg), (v = r);
+  else if (ph < 2) (u = hl + r * sin((ph - 1) * PI)), (v = r * cos((ph - 1) * PI));
+  else if (ph < 3) (u = hl - (ph - 2) * hd.leg), (v = -r);
+  else (u = -hl - r * sin((ph - 3) * PI)), (v = -r * cos((ph - 3) * PI));
   QX = hd.x + hd.ax * u + hd.bx * v;
   QY = hd.y + hd.ay * u + hd.by * v;
 }
@@ -103,7 +111,7 @@ function bez(x0, y0, x1, y1, x2, y2, x3, y3, u) {
 // ---- traffic -----------------------------------------------------------------
 // states: 0 inbound, 1 in the hold, 2 cleared and crossing to the final, 3 on final, 4 gone around, 5 turned away
 function craft(s, h) {
-  return { s, h, x: -9, y: -9, al: 1, u: 0, T: 1, m: 1, sx: 0, sy: 0, ex: 0, ey: 0, ph: 0, rad: R0, rj: R0, d: 0, ga: -1, w: 0, g: 0 };
+  return { s, h, x: -9, y: -9, al: 1, u: 0, T: 1, m: 1, sx: 0, sy: 0, ex: 0, ey: 0, ph: 0, rad: R0, rj: R0, d: 0, ga: -1, w: 0, g: 0, ok: false };
 }
 function ring(n) {
   return R0 + DR * min(NLEV - 1, n);
@@ -136,38 +144,27 @@ function arrive(st) {
   a.T = (1.06 * hyp(QX - a.sx, QY - a.sy)) / V;
   st.ac.push(a);
 }
-// Seconds until the lowest aircraft of a hold next passes its exit.
-function eta(a) {
-  const tn = (PI * a.rad) / V, lg = LEG / V, p = a.ph;
-  if (p < 1) return (1 - p) * lg;
-  if (p < 2) return (2 - p) * tn + lg + tn + lg;
-  if (p < 3) return (3 - p) * lg + tn + lg;
-  return (4 - p) * tn + lg;
-}
-// An aircraft at the bottom of its hold has reached the exit. It leaves if it can arrive one gap behind the last one cleared.
-function clear(st, a) {
+// The lowest aircraft of a hold is on the leg that points down the panel. It leaves from where it is if a transit flown from
+// here, at the shortest time or stretched, puts it exactly one gap behind the last one cleared. At the end of the leg, with
+// nobody ahead to follow, it leaves anyway; with the slot still too far off, it goes round again.
+function clear(st, a, end) {
   const hd = st.hc[a.h], gap = (15 * pow(1.7, st.k[3])) / (VF0 * V);
-  hpos(hd, 1, a.rad);
+  hpos(hd, min(1, a.ph), a.rad);
   const D = hyp(st.ix - QX, st.iy - QY), L = ARM * D;
   // the shortest transit leaves the hold at V and reaches the final at the final's own speed
-  const T0 = (3 * L * 2) / (V * (1 + VF0));
-  const arr = max(st.slot + gap, st.ts + T0);
-  if (arr > st.ts + STRETCH * T0) return false;
-  // the two holds take turns: if this hold had the last slot and the other one can make this one, it goes round again
-  if (st.last === a.h) {
-    const o = st.q[1 - a.h][0];
-    if (o && o.s === 1 && o.rad - R0 < 1) {
-      const e = st.ts + eta(o);
-      if (e + T0 <= arr && arr <= e + STRETCH * T0) return false;
-    }
-  }
+  const T0 = (6 * L) / (V * (1 + VF0)), need = st.slot + gap;
+  if (need > st.ts + STRETCH * T0 || (need < st.ts + T0 && !end)) return false;
+  const arr = max(need, st.ts + T0);
   a.s = 2;
   a.u = 0;
   a.T = arr - st.ts;
+  a.ph = min(1, a.ph);
   a.rj = a.rad;
   a.m = cl(2 - (VF0 * V * a.T) / (3 * L), 0.7, 1.6);
   st.slot = arr;
-  st.last = a.h;
+  // the marks on the final slide until one of them sits on this slot
+  const e = (arr - st.ref) / st.gd;
+  st.sh = (e - floor(e + 0.5)) * st.gd;
   st.q[a.h].shift();
   return true;
 }
@@ -193,7 +190,7 @@ function move(st, a, dts) {
       a.d = 0;
       a.ga = rnd(st) < 1 / 12 ? LF * (0.4 + 0.2 * rnd(st)) : -1;
     } else {
-      hpos(hd, 1, a.rj);
+      hpos(hd, a.ph, a.rj);
       const ex = QX, ey = QY, L = ARM * hyp(st.ix - ex, st.iy - ey), u = a.u * (a.m - (a.m - 1) * a.u);
       bez(ex, ey, ex + hd.ax * L, ey + hd.ay * L, st.ix - st.dx * L, st.iy - st.dy * L, st.ix, st.iy, u);
     }
@@ -203,6 +200,7 @@ function move(st, a, dts) {
       a.s = 1;
       a.ph = 2;
       a.rad = a.rj;
+      a.ok = true;
     } else {
       // a wide turn away from the final and up into the foot of the hold's far leg
       const sx = st.ix + st.dx * a.d, sy = st.iy + st.dy * a.d;
@@ -220,10 +218,13 @@ function move(st, a, dts) {
     const q = st.q[a.h], i = q.indexOf(a), p0 = a.ph;
     a.rad += (ring(i) - a.rad) * (1 - exp(-dts / 0.45));
     const onLeg = p0 < 1 || (p0 >= 2 && p0 < 3);
-    a.ph = p0 + (dts * V) / (onLeg ? LEG : PI * a.rad);
-    if (p0 < 1 && a.ph >= 1 && i === 0 && a.rad - R0 < 1 && clear(st, a)) {
-      hpos(hd, 1, a.rj);
+    a.ph = p0 + (dts * V) / (onLeg ? hd.leg : PI * a.rad);
+    const end = p0 < 1 && a.ph >= 1;
+    if (p0 < 1 && i === 0 && a.ok && a.rad - R0 < 1 && clear(st, a, end)) {
+      hpos(hd, a.ph, a.rj);
     } else {
+      // an arrival flies one whole circuit before it can be cleared
+      if (end) a.ok = true;
       if (a.ph >= 4) a.ph -= 4;
       hpos(hd, a.ph, a.rad);
     }
@@ -268,15 +269,15 @@ function tint(st, a) {
   // in the hold: blue-white on the lowest ring, dimmer and bluer further out
   const l = cl(((a.s === 1 ? a.rad : a.rj) - R0) / (DR * (NLEV - 1)), 0, 1), e = 1 - 0.3 * l;
   let r = (0.82 - 0.5 * l) * e, g = (0.93 - 0.4 * l) * e, b = e;
-  let tr = (0.16 - 0.08 * l) * e, tg = (0.44 - 0.14 * l) * e, tb = 0.8 * e;
+  let tr = (0.38 - 0.2 * l) * e, tg = (0.68 - 0.22 * l) * e, tb = e;
   // cleared: gold, whiter down the final; its tail is a teal wake
   const w = a.w, q = a.s === 3 ? min(1, a.d / LF) : 0, q2 = q * q;
   r += (1 - r) * w;
   g += (0.66 + 0.24 * q2 - g) * w;
   b += (0.1 + 0.5 * q2 - b) * w;
-  tr += (0.05 - tr) * w;
-  tg += (0.4 - tg) * w;
-  tb += (0.46 - tb) * w;
+  tr += (0.1 - tr) * w;
+  tg += (0.62 - tg) * w;
+  tb += (0.66 - tb) * w;
   // gone around: pink
   const k = a.g;
   r += (1 - r) * k;
@@ -316,13 +317,23 @@ function step(st, dtr, dts, glow) {
   layout(st);
   let n = 0;
   for (const a of st.ac) if (a.s !== 5) n++;
-  // the sky is never left empty
-  if (n < 3 && st.next > st.ts + 1.5) st.next = st.ts + 0.3 + 1.2 * rnd(st);
-  if (st.ts >= st.next) {
+  // arrivals come at random, at the rate the knobs set now; a tighter final draws a little more traffic and a wider one a
+  // little less, but less than it lands. The sky is never left empty: under three aircraft at the least Traffic, five at the
+  // opening, the next arrival is brought forward.
+  const k = st.k[2], mean = MEAN * pow(k > 0 ? 1.8 : 3, -k) * pow(1.7, 0.4 * (st.k[3] - 0.06));
+  st.acc += (dts * st.wave) / mean;
+  if (n < 5 + 2 * k && (st.due - st.acc) * mean > 1.5) st.due = st.acc + (0.3 + 1.2 * rnd(st)) / mean;
+  if (st.acc >= st.due) {
     arrive(st);
-    const k = st.k[2];
-    st.next = st.ts + (MEAN / pow(k > 0 ? 1.8 : 3, k)) * (0.25 - 0.75 * log(1 - 0.999 * rnd(st)));
+    st.acc = 0;
+    st.due = 0.25 - 0.75 * log(1 - 0.999 * rnd(st));
   }
+  // the marks on the final: one to a slot, a gap apart, flowing down with the traffic
+  st.gd += ((15 * pow(1.7, st.k[3])) / (VF0 * V) - st.gd) * (dtr > 0 ? 1 - exp(-dtr / 0.25) : 1);
+  const mv = st.sh * (1 - exp(-dts / 1.2));
+  st.ref += mv;
+  st.sh -= mv;
+  st.ref += st.gd * floor((st.ts - st.ref) / st.gd);
   let dead = false;
   for (const a of st.ac) {
     move(st, a, dts);
@@ -336,7 +347,7 @@ function step(st, dtr, dts, glow) {
   for (const a of st.ac) {
     tint(st, a);
     const al = a.al;
-    dot(G, a.x, a.y, T[0] * al, T[1] * al, T[2] * al, 1.15, 0);
+    dot(G, a.x, a.y, T[0] * al, T[1] * al, T[2] * al, 1.3, 0);
     if (a.w > 0.05) {
       const v = 0.8 * a.w * al;
       dot(Wm, a.x, a.y, C[0] * v, C[1] * v, C[2] * v, 1.05, 0);
@@ -352,7 +363,9 @@ export function update(dt, input, params) {
   if (!st.init) {
     st.init = true;
     st.seed = floor(Math.random() * 4294967296) | 0;
-    for (let i = 0; i < 17; i++) st.ph.push(TAU * rnd(st));
+    for (let i = 0; i < 25; i++) st.ph.push(TAU * rnd(st));
+    // the waves of traffic start a little above their mean, on the way up
+    st.ph[23] = st.ph[24] = 0.25;
     // fill the sky as the knobs say before the first frame: 90 s of traffic, then the last moments with the glow
     st.t = -2.4;
     for (let i = 0; i < 900; i++) step(st, 0, 0.1, false);
@@ -378,12 +391,12 @@ export function draw(display, params) {
   }
   // the lowest ring of each hold
   for (let h = 0; h < 2; h++) {
-    const hd = st.hc[h], ex = (hd.ax < 0 ? -hd.ax : hd.ax) * HL + R0 + 2, ey = hd.ay * HL + R0 + 2;
+    const hd = st.hc[h], hl = hd.hl, ex = (hd.ax < 0 ? -hd.ax : hd.ax) * hl + R0 + 2, ey = hd.ay * hl + R0 + 2;
     const x0 = max(0, floor(hd.x - ex)), x1 = min(W - 1, floor(hd.x + ex)), y0 = max(0, floor(hd.y - ey)), y1 = min(H - 1, floor(hd.y + ey));
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const px = x + 0.5 - hd.x, py = y + 0.5 - hd.y, u = px * hd.ax + py * hd.ay, v = px * hd.bx + py * hd.by;
-        const du = u - cl(u, -HL, HL), d = hyp(du, v) - R0, w = soft(d < 0 ? -d : d);
+        const du = u - cl(u, -hl, hl), d = hyp(du, v) - R0, w = soft(d < 0 ? -d : d);
         if (w <= 0) continue;
         const o = (y * W + x) * 3;
         (F[o] += 0.04 * w), (F[o + 1] += 0.105 * w), (F[o + 2] += 0.175 * w);
@@ -398,8 +411,14 @@ export function draw(display, params) {
       for (let x = x0; x <= x1; x++) {
         const px = x + 0.5 - ix, py = y + 0.5 - iy, s = px * dx + py * dy, c = px * dy - py * dx;
         const o = (y * W + x) * 3, ds = s - cl(s, 0, LF);
-        const w = soft(hyp(ds, c));
-        if (w > 0) (F[o] += 0.035 * w), (F[o + 1] += 0.13 * w), (F[o + 2] += 0.15 * w);
+        let w = soft(hyp(ds, c));
+        if (w > 0) {
+          // when whoever is here came onto the final, counted in gaps: a mark is lit about each whole number
+          const q = 1 - (s - ds) * FK, e = (st.ts + log(q) / FR - st.ref) / st.gd, p = e - floor(e + 0.5);
+          // where the marks would come closer than about 5 LED the line is left whole
+          w *= 1 - cl((st.gd * V * VF0 * q - 4.5) / 2.5, 0, 1) * (1 - cl((0.41 - (p < 0 ? -p : p)) / 0.1, 0, 1));
+          (F[o] += 0.045 * w), (F[o + 1] += 0.165 * w), (F[o + 2] += 0.2 * w);
+        }
         const bs = s - LF, b = cl(5.3 - (c < 0 ? -c : c), 0, 1) * cl((1.7 - (bs < 0 ? -bs : bs)) / 0.7, 0, 1) * fl;
         if (b > 0) (F[o] += 0.5 * b), (F[o + 1] += b), (F[o + 2] += 0.7 * b);
       }
@@ -408,10 +427,10 @@ export function draw(display, params) {
   // the aircraft
   for (const a of st.ac) {
     tint(st, a);
-    dot(F, a.x, a.y, C[0] * a.al, C[1] * a.al, C[2] * a.al, 1, 1);
+    dot(F, a.x, a.y, C[0] * a.al, C[1] * a.al, C[2] * a.al, 1.12, 1);
   }
   // the hue knob turns every colour about the grey axis
-  const th = TAU * st.k[0], c = cos(th), s = sin(th) / sqrt(3), m0 = c + (1 - c) / 3, m1 = (1 - c) / 3 - s, m2 = (1 - c) / 3 + s;
+  const th = TAU * (st.k[0] + st.hue), c = cos(th), s = sin(th) / sqrt(3), m0 = c + (1 - c) / 3, m1 = (1 - c) / 3 - s, m2 = (1 - c) / 3 + s;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3, r = F[o], g = F[o + 1], b = F[o + 2];
