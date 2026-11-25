@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the direct N-body integration of a self-gravitating cluster with Plummer softening and a kick-drift-kick leapfrog (Aarseth, from memory; Plummer 1911); mass segregation and the Spitzer instability, where a heavy minority cannot share energy with the light majority and sinks to its own core (Spitzer 1969, from memory); the gravothermal catastrophe, the collapse of the core of a cluster that has a negative heat capacity (Antonov 1962, Lynden-Bell and Wood 1968, from memory); the escape of stars past a tidal radius and the slow mass loss of stellar evolution that makes a core expand again (Henon 1961, from memory); the Lagrangian radii as the way a cluster's structure is followed in time; the unit choice, the rebirth of tidal and dead stars from the spectrum at the tidal radius, the mass-ratio knob that rescales every star live, and the strip drawn under the cluster are original, pattern round 244
+// Lineage: the direct N-body integration of a self-gravitating cluster with Plummer softening and a kick-drift-kick leapfrog (Aarseth, from memory; Plummer 1911); mass segregation and the Spitzer instability, where a heavy minority cannot share energy with the light majority and sinks to its own core (Spitzer 1969, from memory); the gravothermal catastrophe, the collapse of the core of a cluster that has a negative heat capacity (Antonov 1962, Lynden-Bell and Wood 1968, from memory); the escape of stars past a tidal radius and the slow mass loss of stellar evolution that makes a core expand again (Henon 1961, from memory); the Lagrangian radii as the way a cluster's structure is followed in time; the unit choice, the rebirth of stripped and dead stars at the tidal radius, the heavy groups that fall in together so the core sinks and swells, the mass-ratio knob that rescales every star live, and the strip drawn under the cluster are original, pattern round 244
 // Round:   244
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Time=0..4, Mass ratio=-1..1, Tide=-1..1
 //
 // Knob 1: Hue. Turns the star colours round the wheel and opens on blue-white heavy stars against amber light ones; the two ends stay half the wheel apart. The three radius lines in the strip are three tints of the heavy-star hue and turn with it.
-// Knob 2: Time. 0 to 4, opening at 2: how fast the cluster lives, 0.33 times at 0, 1 times at 2 and 3 times at 4. A crossing of the cluster takes about two seconds at 1 times; turned up, the core collapses and swells in a minute, turned down, the stars drift like slow snow and the strip hardly scrolls.
-// Knob 3: Mass ratio. -1 to 1, opening at 0: how much heavier the heaviest star is than the lightest, 2 times at -1, 8 times at 0 and 32 times at 1. Low, the stars are alike and the cluster stays wide and soft; high, a few big blue stars sink into a tight bright knot and the core pulls far in.
-// Knob 4: Tide. -1 to 1, opening at 0.06 near the middle: the radius past which a star is stripped, 20 LED at -1, 30 at 0 and 45 at 1. Low, the halo is cut off close and the cluster stays compact with the strip's lines low; high, a wide thin halo of light stars fills the panel and the outer line climbs.
+// Knob 2: Time. 0 to 4, opening at 2: how fast the cluster lives, 0.33 times at 0, 1 times at 2 and 3 times at 4. A star crosses the cluster in about two seconds at 1 times and the strip scrolls a column every 1.5 s; at 3 times the stars rush and leave tails and the lines run across the strip, at 0 the stars drift like slow snow.
+// Knob 3: Mass ratio. -1 to 1, opening at 0: how much heavier the heaviest star is than the lightest, 5 times at -1, 16 times at 0 and 48 times at 1. Star size and colour follow the mass, so low, nearly every star is a small amber one and only a few are pale; high, many are big and blue-white and the core is a bright blue knot, with a heavier star in it that drags the light ones about.
+// Knob 4: Tide. -1 to 1, opening at 0.06 near the middle: the radius past which a star is stripped, 28 LED at -1, 43 at 0 and 63 at 1. Low, the halo is cut off close and the cluster stays compact with the outer line low; high, a wide thin halo of light stars fills the panel and the outer line climbs.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sin, cos, sqrt, exp, log, pow, PI } = Math;
@@ -28,16 +28,18 @@ const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 
 // ---- the cluster ------------------------------------------------------------
-// LED for length and second for time. GM is chosen so a star crosses the half-mass radius (14 LED) in about two seconds.
+// Length and time are the model's own, drawn ZOOM LED to a unit. GM is chosen so a star crosses the half-mass radius, about 9 units,
+// in about two seconds; the cluster is run PRE seconds before the first frame.
 const N = 190;            // stars, always: a star that leaves is born again at the tidal radius
-const GM = 686;           // G times the cluster mass, LED^3 / s^2
-const SOFT2 = 0.5 * 0.5;  // Plummer softening, squared, in LED^2
+const GM = 686;           // G times the cluster mass, units^3 / s^2
+const SOFT2 = 0.5 * 0.5;  // Plummer softening, squared, in units^2
 const SUB = 1 / 120;      // one leapfrog step, seconds
 const SUB_PRE = 1 / 60;   // the coarser step of the run before the first frame
 const HK = 0.1;           // housekeeping every 0.1 s: ages, tide, the centre of mass, the radii
 const PRE = 104;          // seconds run before the first frame
-const A_SP = 3.4;         // steepness of the mass spectrum in the log-mass fraction e
+const A_SP = 4.0;         // steepness of the mass spectrum in the log-mass fraction e
 const LIFE0 = 2000;       // seconds a star of e = 0 would live
+const BURST_GAP = 110;    // seconds, on average, between falls of a heavy group
 const SAMP = 1.5;         // seconds between samples of the radii strip
 const NS = 68;            // samples kept
 const VH = 96;            // rows the cluster has; the strip takes the rest
@@ -71,16 +73,16 @@ function derive(st) {
   }
 }
 
-function spawn(st, i, atTide) {
-  const e = newMass();
+function spawn(st, i, atTide, cohort) {
+  const e = cohort ? 0.78 + 0.22 * rnd() : newMass();
   st.e[i] = e;
-  st.life[i] = LIFE0 * exp(-3.5 * e) * (0.6 + 0.8 * rnd());
+  st.life[i] = cohort ? cohort.life * (0.85 + 0.3 * rnd()) : LIFE0 * exp(-3.5 * e) * (0.6 + 0.8 * rnd());
   st.age[i] = atTide ? 0 : rnd() * st.life[i] * 0.8;
   st.sinceSpawn[i] = 0;
   st.m[i] = exp(st.lnR * e);
   st.gm[i] = st.gv * st.m[i];
   if (!atTide) return;
-  const r = st.rt * (0.7 + 0.12 * rnd()), a = rnd() * 2 * PI;
+  const r = st.rt * (0.7 + 0.12 * rnd()), a = cohort ? cohort.a + 0.5 * (rnd() - 0.5) : rnd() * 2 * PI;
   let gmt = 0;
   for (let j = 0; j < N; j++) gmt += st.gm[j];
   const vc = sqrt(gmt / r), vt = vc * (0.35 + 0.45 * rnd()) * (rnd() < 0.5 ? -1 : 1), vr = -vc * 0.25 * rnd();
@@ -139,20 +141,29 @@ function keep(st) {
     if (q >= 1) {
       if (e[i] > 0.4 && st.live) st.fl.push({ x: px[i], y: py[i], t: st.clock, a: 0.35 + 0.5 * e[i] });
       spawn(st, i, true);
-      st.nDeath++;
       again++;
       continue;
     }
     m[i] = exp(lnR * e[i]) * (1 - 0.55 * q * q);
     gm[i] = gv * m[i];
   }
+  // now and then a few heavy stars fall in together, all born at once, so the core sinks and, a hundred seconds on, swells
+  st.bt -= HK;
+  if (st.bt <= 0) {
+    st.bt = BURST_GAP * (0.6 + 0.8 * rnd());
+    const co = { a: rnd() * 2 * PI, life: 75 + 55 * rnd() };
+    for (let n = 0, k = 4 + floor(rnd() * 3); n < k; n++) {
+      let i = st.ix[N - 1 - floor(rnd() * 40)];
+      if (e[i] > 0.5) i = st.ix[N - 1 - floor(rnd() * 40)];
+      spawn(st, i, true, co);
+      again++;
+    }
+  }
   const rt2 = st.rt * st.rt;
   let cap = 3;
   for (let i = 0; i < N && cap > 0; i++) {
     if (px[i] * px[i] + py[i] * py[i] > rt2) {
-      if (st.sinceSpawn[i] < 8) st.nYoung++;
       spawn(st, i, true);
-      st.nTide++;
       again++;
       cap--;
     }
@@ -187,7 +198,7 @@ function keep(st) {
   ix.sort((a, b) => rr[a] - rr[b]);
   let c = 0, f = 0;
   const lv = st.lv, tg = [0.1, 0.5, 0.9];
-  let prevR = 0, prevC = 0;
+  let prevR = 0;
   for (let n = 0; n < N && f < 3; n++) {
     const j = ix[n], c1 = c + gm[j] / mt;
     while (f < 3 && c1 >= tg[f]) {
@@ -197,9 +208,7 @@ function keep(st) {
     }
     c = c1;
     prevR = rr[j];
-    prevC = c;
   }
-  void prevC;
   for (let q = 0; q < 3; q++) st.acc3[q] += log(max(0.3, lv[q]));
   st.n3++;
   st.sT += HK;
@@ -208,7 +217,7 @@ function keep(st) {
     for (let q = 0; q < 3; q++) {
       const v = st.acc3[q] / st.n3;
       const first = st.sm[q] < -90;
-      st.sm[q] = first ? v : mix(st.sm[q], v, 0.55);
+      st.sm[q] = first ? v : mix(st.sm[q], v, 0.2);
       const h = st.hist[q];
       if (first) h.fill(st.sm[q]);
       h.copyWithin(0, 1);
@@ -222,7 +231,7 @@ function keep(st) {
 export function setup(params) {
   const f64 = () => new Float64Array(N);
   params.st = {
-    nDeath: 0, nTide: 0, nYoung: 0, sinceSpawn: f64(), sub: SUB, keep: Math.round(HK / SUB), k: [0, 2, 0, 0.06], init: false, live: false, t: 0, acc: 0, clock: 0, subs: 0, lnRm: -9, hue: -9,
+    bt: 35, sinceSpawn: f64(), sub: SUB, keep: Math.round(HK / SUB), k: [0, 2, 0, 0.06], init: false, live: false, t: 0, acc: 0, clock: 0, subs: 0, lnRm: -9, hue: -9,
     px: f64(), py: f64(), vx: f64(), vy: f64(), ax: f64(), ay: f64(),
     e: f64(), age: f64(), life: f64(), m: f64(), gm: f64(), rr: f64(), ix: new Int32Array(N),
     lv: [1, 1, 1], acc3: [0, 0, 0], n3: 0, sT: 0, sm: [-99, -99, -99],
@@ -326,8 +335,14 @@ function buildColours(st, hue) {
 
 // ---- drawing ----------------------------------------------------------------
 const GW = 17, GH = 25;      // the haze grid, one node every 4 LED
-const LOG_LO = log(1.2), LOG_SPAN = log(55 / 1.2);
-const yOf = (lr) => 125.6 - 27.5 * cl((lr - LOG_LO) / LOG_SPAN, 0, 1.05);
+// Each radius line has its own band of the strip, a base row for a typical radius and rows per e-fold of change, so a
+// swing of a third in the core radius moves its line by four or five rows. A line never leaves the strip.
+const BASE = [119, 111, 103], REF = [log(2.3), log(8.5), log(20)], GAIN = [12, 18, 30];
+function yOf(q, lr) {
+  const d = lr - REF[q], up = BASE[q] - 98.5, dn = 126.3 - BASE[q];
+  const lim = d > 0 ? up : dn;
+  return BASE[q] - lim * Math.tanh((GAIN[q] * d) / lim);
+}
 
 // a soft round spot of light, a gaussian of width sg, added to the three planes
 function glow(R, G, B, px, py, sg, amp, cr, cg, cb, wx, wy) {
@@ -440,11 +455,10 @@ export function draw(display, params) {
   for (let q = 0; q < 3; q++) {
     const P = st.P[q], h = st.hist[q];
     for (let k = 0; k < NS; k++) P[k] = h[k];
-    const cur = st.n3 > 0 ? mix(st.sm[q], st.acc3[q] / st.n3, 0.5) : st.sm[q];
+    const cur = st.n3 > 0 ? mix(st.sm[q], st.acc3[q] / st.n3, 0.2) : st.sm[q];
     P[NS] = cur;
-    for (let x = 0; x < W; x++) ylv[q][x] = yOf(curve(P, x + 0.5 - x0));
+    for (let x = 0; x < W; x++) ylv[q][x] = yOf(q, curve(P, x + 0.5 - x0));
   }
-  const yt = yOf(log(rt));
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       let r, g, b;
@@ -473,10 +487,9 @@ export function draw(display, params) {
         g = (gnd[1] * 0.05 * vg + g) * 255;
         b = (gnd[2] * 0.12 * vg + b) * 255;
       } else {
-        const wash = sstep(yt + 3, yt - 3, y + 0.5) * 0.05;
-        r = gnd[0] * (0.03 + wash * 0.5);
-        g = gnd[1] * (0.03 + wash * 0.5);
-        b = gnd[2] * (0.1 + wash);
+        r = gnd[0] * 0.04;
+        g = gnd[1] * 0.04;
+        b = gnd[2] * 0.11;
         for (let q = 0; q < 3; q++) {
           const yc = ylv[q][x], sl = (ylv[q][min(W - 1, x + 1)] - ylv[q][max(0, x - 1)]) * 0.5;
           const d = (y + 0.5 - yc) / sqrt(1 + sl * sl);
