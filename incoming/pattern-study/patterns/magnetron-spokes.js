@@ -35,6 +35,8 @@ const TD = 0.25;                  // seconds a streak of light takes to fade
 const TF = 0.4;                   // seconds an anode flash takes to fade
 const KDEP = 3.2;                 // light a tracer drops in a second
 const GAIN = 0.75;
+const NSEC = 24;                  // sectors round the wave frame for the slow wandering fields
+const TFLD = 11;                  // seconds a sector keeps its mood
 
 // ---- state ---------------------------------------------------------------
 export function setup(params) {
@@ -45,8 +47,8 @@ export function setup(params) {
     r: new Float32Array(NT), th: new Float32Array(NT), age: new Float32Array(NT), life: new Float32Array(NT),
     x0: new Float32Array(NT), y0: new Float32Array(NT), live: new Uint8Array(NT),
     D: new Float32Array(W * H), E: new Float32Array(W * H),
-    gn: 1, P: { V: 1.3, A: 1.5, q: 1.4, wide: 0, m: 4, w: 0, n: 4, p1: 0, p2: 0 },
-    o: [0, 0], wx: new Float32Array(14), wy: new Float32Array(8),
+    F: [0, 1, 2, 3].map(() => new Float32Array(NSEC).map(() => 0.9 * (rnd() + rnd() + rnd() - 1.5))), gn: 1, pm: 0, pm2: 0, pm3: 0, lean: LEAN, P: { V: 1.3, A: 1.5, q: 1.4, wide: 0, m: 4, w: 0, n: 4, p1: 0, p2: 0 },
+    o: [0, 0], wx: new Float32Array(16), wy: new Float32Array(8),
   });
   for (let i = 0; i < NT; i++) spawn(st, i, true);
   return st;
@@ -97,7 +99,8 @@ function setParams(st) {
   const spokes = 4 + cl(kn[2], -1, 3);
   const m = min(floor(spokes + 1e-6), 7);
   P.m = m;
-  P.w = m >= 7 ? 0 : cl(spokes - m, 0, 1);
+  // a trace of the next mode comes and goes, so the spokes are never quite alike and the arms now and then split
+  P.w = m >= 7 ? 0 : cl(spokes - m + (0.11 + 0.1 * sin(0.047 * t + ph[6])) * (0.55 + 0.45 * sin(0.0171 * t + ph[2])), 0, 1);
   const vr = exp(0.62 * (cl(kn[3], -1, 1) + 0.2)) * (1 + 0.06 * sin(0.0173 * t + ph[2]) + 0.04 * sin(0.0053 * t + ph[3]));
   P.V = LN * vr;
   P.n = P.m + P.w;
@@ -105,10 +108,16 @@ function setParams(st) {
   // which is what carries the spokes past the anode above the threshold. A mode with more spokes
   // reaches less far into the cavity, so it needs 1.7 times the push for each extra spoke.
   const gate = 1.03 * pow(vr / 1.17, 1.4) * pow(1.7, P.n - 4);
-  P.q = 1.45 * pow(drive / 2, 1.1) * pow(vr / 1.17, 1.2) * (1 + 0.16 * sin(0.029 * t + ph[0]) + 0.1 * sin(0.0071 * t + ph[1]));
+  P.q = 1.45 * pow(drive / 2, 1.1) * pow(vr / 1.17, 1.2) * (1 + 0.18 * sin(0.083 * t + ph[0]) + 0.12 * sin(0.0293 * t + ph[1]) + 0.08 * sin(0.0113 * t + ph[8]));
+  P.q = min(P.q, 4.6);
   P.A = P.q * gate;
   P.wide = sstep(1.8, 6, P.q);
-  st.gn = pow(P.n / 4, 0.85);
+  st.gn = pow(P.n / 4, 1.25);
+  // spokes take turns at being the strong ones, on a clock of their own
+  st.pm = 2.4 * sin(0.083 * t + ph[9]) + 1.2 * sin(0.0371 * t + ph[0]);
+  st.pm2 = 2.2 * sin(0.127 * t + ph[3]) + 1.0 * sin(0.0523 * t + ph[6]);
+  st.pm3 = 2.0 * sin(0.171 * t + ph[2]) + 1.0 * sin(0.0613 * t + ph[4]);
+  st.lean = LEAN * (1 + 0.35 * sin(0.067 * t + ph[5]) + 0.2 * sin(0.0239 * t + ph[7]));
   P.p1 = 0.8 * sin(0.0191 * t + ph[4]) + 0.4 * sin(0.0067 * t + ph[5]);
   P.p2 = 0.9 * sin(0.0137 * t + ph[6]);
 }
@@ -116,21 +125,22 @@ function setParams(st) {
 // model time to the panel's seconds, wandering a third either way so nothing keeps time with anything else
 function rate(st) {
   const t = st.t;
-  return (1 / TS) * (1 + 0.3 * sin(0.037 * t + st.ph[7]) + 0.15 * sin(0.0113 * t + st.ph[8]));
+  return (1 / TS) * (1 + 0.3 * sin(0.113 * t + st.ph[7]) + 0.15 * sin(0.0371 * t + st.ph[8]) + 0.1 * sin(0.0113 * t + st.ph[1]));
 }
 
 // ---- drawing a tracer into the light buffer --------------------------------
 function stamp(st, x, y, amp, buf, sx) {
-  const cx = floor(x - 0.5) - 6, cy = floor(y - 0.5) - 3;
+  const hw = ceil(2.6 * sx), nc = 2 * hw;
+  const cx = floor(x - 0.5) - hw + 1, cy = floor(y - 0.5) - 3;
   const wx = st.wx, wy = st.wy;
   const nrm = sqrt(SX / sx);
-  for (let j = 0; j < 14; j++) { const d = cx + j + 0.5 - x; wx[j] = exp(-(d * d) / (2 * sx * sx)) * nrm; }
+  for (let j = 0; j < nc; j++) { const d = cx + j + 0.5 - x; wx[j] = exp(-(d * d) / (2 * sx * sx)) * nrm; }
   for (let j = 0; j < 8; j++) { const d = cy + j + 0.5 - y; wy[j] = exp(-(d * d) / (2 * SY * SY)); }
   for (let j = 0; j < 8; j++) {
     const yy = cy + j;
     if (yy < 0 || yy >= H) continue;
     const a = amp * wy[j], row = yy * W;
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < nc; i++) {
       const xx = (((cx + i) % W) + W) % W;
       buf[row + xx] += a * wx[i];
     }
@@ -138,10 +148,12 @@ function stamp(st, x, y, amp, buf, sx) {
 }
 
 // the spokes trail like a pinwheel: the higher up, the further the wave lags, by about 0.4 of a spoke's spacing at the anode
-const lean = (P, f) => LEAN * (W / P.n) * pow(f, 1.3);
+const lean = (st, f) => st.lean * (W / st.P.n) * pow(f, 1.3);
+// each spoke also wanders sideways on its own, up to a third of the spacing, so the spokes are never evenly spread
+const warp = (st, th) => (0.42 + 0.12 * st.P.wide) * (W / st.P.n) * fld(st.F[3], th);
 function toXY(st, r, th) {
   const f = cl((r - RA) / (RB - RA), 0, 1);
-  let x = ((th + st.off) / TP) * W - lean(st.P, f);
+  let x = ((th + st.off) / TP) * W - lean(st, f) + warp(st, th);
   x -= W * floor(x / W);
   return [x, (H - 1) * (1 - pow(f, YP))];
 }
@@ -168,8 +180,8 @@ function advance(st, i, dtau, dt) {
     let dx = x1 - st.x0[i];
     dx -= W * Math.round(dx / W);
     const dy = y1 - st.y0[i];
-    const n = max(1, ceil(max(abs(dx), abs(dy)) / 1.0));
-    const amp = (KDEP * st.gn * al2 * dt * (0.3 + 0.7 * sstep(0.5, 0.72, st.r[i]))) / n;
+    const n = cl(ceil(max(abs(dx), abs(dy)) / 1.0), 1, 10);
+    const amp = (KDEP * st.gn * al2 * dt * (0.3 + 0.7 * sstep(0.5, 0.72, st.r[i])) * (1 + 0.3 * cos(st.th[i] + st.pm) + 0.22 * cos(2 * st.th[i] + st.pm2) + 0.15 * cos(3 * st.th[i] + st.pm3) + (0.65 + 0.5 * st.P.wide) * fld(st.F[0], st.th[i]))) / n;
     for (let q = 1; q <= n; q++) stamp(st, st.x0[i] + (dx * q) / n, st.y0[i] + (dy * q) / n, amp, st.D, SX * (1 + 0.9 * st.P.wide));
   }
   if (hit > 0) stamp(st, x1, 0.5, 0.16, st.E, SX * (1 + 1.2 * st.P.wide));
@@ -178,7 +190,21 @@ function advance(st, i, dtau, dt) {
   if (dead) spawn(st, i, false);
 }
 
+// each sector of the wave frame wanders on its own, so frames far apart never quite match
+function wander(st, dt) {
+  const k = exp(-dt / TFLD), sg = 0.5 * sqrt(1 - k * k) * 2.3;
+  for (const F of st.F) for (let j = 0; j < NSEC; j++) F[j] = F[j] * k + sg * (rnd() + rnd() + rnd() - 1.5);
+}
+function fld(F, th) {
+  let u = (th / TP) * NSEC;
+  u -= NSEC * floor(u / NSEC);
+  const j = floor(u), f = u - j, g = f * f * (3 - 2 * f);
+  const a = F[j], b = F[j + 1 >= NSEC ? 0 : j + 1];
+  return Math.tanh(a + (b - a) * g);
+}
+
 function frameStep(st, dt) {
+  wander(st, dt);
   const dtau = dt * rate(st);
   st.t += dt;
   st.off += dtau;
@@ -226,31 +252,33 @@ export function draw(display, params) {
   const m00 = ca + q, m01 = q - sa, m02 = q + sa;
   const { D, E } = st;
   const t = st.t;
-  const mod = 1 + 0.04 * sin(0.9 * t);
+  const mod = 1 + 0.04 * sin(0.9 * t) + 0.1 * sin(0.21 * t + st.ph[5]) + 0.06 * sin(0.073 * t + st.ph[4]);
   const depth = cl(P.q / 1.2, 0, 1);
   for (let y = 0; y < H; y++) {
     const f = pow(1 - (y + 0.5) / H, 1 / YP);
     const up = f;
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
-      const th = ((x + 0.5 + lean(P, f)) / W) * TP - st.off;
+      const th0 = ((x + 0.5 + lean(st, f)) / W) * TP - st.off;
+      const th = th0 - (warp(st, th0) / W) * TP;
       // hub: a soft dense band over the cathode, modulated at the spoke count
-      const hubTop = 0.25;
+      const hubTop = 0.3 * (1 + 0.14 * fld(st.F[2], th));
       const wave = (1 - P.w) * cos(P.m * th + P.p1) + P.w * cos((P.m + 1) * th + P.p2);
-      const hub = (1 - sstep(0.12, hubTop + 0.08, f)) * (0.32 + 0.1 * depth * wave) * mod;
+      const hub = (1 - sstep(0.12, hubTop + 0.08, f)) * (0.75 + 0.18 * depth * wave) * mod * (1 + 0.4 * fld(st.F[1], th));
       const v = 1 - exp(-(D[i] * GAIN + hub));
       // violet to cyan up the panel, white where it is dense
       const hh = sstep(0.05, 0.75, up);
       let r = 110 + (30 - 110) * hh, g = 60 + (190 - 60) * hh, b = 255;
       const wh = sstep(0.55, 1, v) * 0.85;
       r += (255 - r) * wh; g += (255 - g) * wh; b += (255 - b) * wh;
-      r *= v; g *= v; b *= v;
+      const e = 1 - exp(-0.7 * E[i]);
+      r *= v * (1 - 0.8 * e); g *= v * (1 - 0.8 * e); b *= v * (1 - 0.8 * e);
       // the cathode's thin orange glow
-      const cg = exp(-((H - 1 - y) * (H - 1 - y)) / 5) * 0.55;
+      const cg = exp(-((H - 1 - y) * (H - 1 - y)) / 3) * 0.6;
+      r *= 1 - 0.8 * cg; g *= 1 - 0.8 * cg; b *= 1 - 0.8 * cg;
       r += 255 * cg; g += 110 * cg; b += 5 * cg;
       // the anode flash
-      const e = 1 - exp(-E[i]);
-      r += 255 * e; g += 180 * e * (1 - 0.4 * e) + 80 * e * e; b += 70 * e + 120 * e * e;
+      r += 255 * e; g += 175 * e + 60 * e * e * e; b += 60 * e + 120 * e * e * e;
       r += 3; g += 4; b += 12;
       const r2 = m00 * r + m01 * g + m02 * b, g2 = m02 * r + m00 * g + m01 * b, b2 = m01 * r + m02 * g + m00 * b;
       display.setPixel(x, y, cl(r2, 0, 255) | 0, cl(g2, 0, 255) | 0, cl(b2, 0, 255) | 0);
