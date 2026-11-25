@@ -200,7 +200,7 @@ export function setup(params) {
 }
 
 // ---- geometry --------------------------------------------------------------
-// The magnetopause is the dividing streamline of a Rankine half-body (a uniform wind plus a source), its
+// The magnetopause is the dividing flow line of a Rankine half-body (a uniform wind plus a source), its
 // lateral axis stretched down the tail so that it flares. The sheath flow is the half-body's and carries
 // the draped lines. The bow shock is a second half-body.
 const FL = (T) => 1 + 0.013 * (0.5 * (T + sqrt(T * T + 144)) - 6);
@@ -271,7 +271,7 @@ function bodyPts(d, xs, p, mirror, fb) {
 // Field lines. A label L is the dipole line r = L A sin^2 (colatitude), squeezed on the day side so that
 // L = Lc just reaches the magnetopause. On the night side it runs on down the tail, closing in a round tip
 // if closed, spreading to its place in the lobes if open. An open line leaves the magnetopause on the day
-// side and goes on as a streamline of the sheath flow, found with RK4.
+// side and goes on as a flow line of the sheath flow, found with RK4.
 function buildPaths(st, G) {
   const Lc = st.Lc, g0 = (G.r0 - A) / ((Lc - 1) * A), zt = (T) => (1 - 0.3 * exp(-max(T, 0) / 30)) * FL(T);
   for (let k = 0; k < NL; k++) {
