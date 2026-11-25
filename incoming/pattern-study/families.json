@@ -279,5 +279,10 @@
   "kirigami": { "label": "키리가미", "color": "#3fb8c9" },
   "singlecell": { "label": "단일 세포 배양", "color": "#8fcf5a" },
   "evolutionarygame": { "label": "진화 게임", "color": "#c76fb2" },
-  "nonparametric": { "label": "비모수 군집", "color": "#7a8de0" }
+  "nonparametric": { "label": "비모수 군집", "color": "#7a8de0" },
+  "kirkwood": { "label": "소행성대 공명", "color": "#c07ae6" },
+  "chemotaxis": { "label": "세균 주화성", "color": "#58c978" },
+  "zpinch": { "label": "Z 핀치", "color": "#d65bbf" },
+  "vocaltract": { "label": "성도 파동관", "color": "#d9708f" },
+  "kinematics": { "label": "역운동학", "color": "#f0a05a" }
 }
