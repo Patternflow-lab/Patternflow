@@ -299,5 +299,10 @@
   "riverdelta": { "label": "삼각주", "color": "#c9a96e" },
   "myxobacteria": { "label": "점액세균", "color": "#7bd88f" },
   "grandtour": { "label": "그랜드 투어", "color": "#8aa0ff" },
-  "grover": { "label": "그로버 탐색", "color": "#ffcf4d" }
+  "grover": { "label": "그로버 탐색", "color": "#ffcf4d" },
+  "lsmtree": { "label": "로그 구조 병합 트리", "color": "#b54cfa" },
+  "intercalation": { "label": "세포 끼어들기", "color": "#ff8181" },
+  "reconnection": { "label": "자기 재연결", "color": "#8cfff0" },
+  "thermokarst": { "label": "열카르스트 호수", "color": "#d6de75" },
+  "heliosphere": { "label": "태양풍 나선", "color": "#5a66e5" }
 }
