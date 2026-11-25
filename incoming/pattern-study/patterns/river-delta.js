@@ -1,19 +1,19 @@
 // ===== Patternflow pattern =====
 // Title:   River Delta
 // Family:  riverdelta
-// Idea:    A river delta seen from straight above in time-lapse: a river comes in at the top and drops its sand where it slows, mouth bars split the channel, channels fork and run out into a turquoise sea under a milky plume, now and then the whole flow jumps to a shorter route and leaves an old lobe to turn from pale sand through ochre and olive to green, and the view scrolls to follow the shoreline so the delta grows down the panel for ever.
+// Idea:    A river delta seen from above in time-lapse, building into a valley whose green walls wander and open to side bays: the river drops its sand where it slows, mouth bars split the channel, channels fork out into a turquoise sea under a milky plume, old lobes turn from pale sand to green, the tide breathes, and the view scrolls with the shoreline for ever.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: reduced-complexity delta models in which water parcels random-walk over a bed, weighted towards deeper cells and the direction they were going, and erode or deposit sediment by their speed (Liang, Voller and Paola 2015 and Liang, Passalacqua and Lamb 2015, DeltaRCM, from memory); the shorter-route weight, the crevasse, the scrolling view, the land ageing and the palette are original, pattern round 245
+// Lineage: reduced-complexity delta models in which water parcels random-walk over a bed, weighted towards deeper cells and the way they were going, and erode or deposit sediment by their speed (Liang, Voller and Paola 2015 and Liang, Passalacqua and Lamb 2015, DeltaRCM, from memory); the shorter-route weight, crevasse, scrolling view, valley, land ageing and palettes are original, pattern round 245
 // Round:   245
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sediment=0..4, Waves=-1..1, Flood=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the sea is teal and navy with a turquoise shallow, the land runs from pale sand through ochre and olive to green and the plume is a milky cream; at 0.5 the sea has turned amber and the land blue.
-// Knob 2: Sediment. 0 to 4, opening at 2. How much sand the river carries. At 0 there is a lean supply, one deep channel that barely advances and a clean sea. At 2 mouth bars form, channels fork and lobes grow. At 4 the plume is thick, bars choke the channels and the shore moves down the panel fast.
-// Knob 3: Waves. -1 to 1, opening at 0. Which of river and sea shapes the coast. At -1 the river rules: channels run straight and far out as narrow fingers like a bird's foot. At 1 the sea rules: it smooths the bars, the shoreline is a long even curve with spits, and the channels are pinned at their mouths.
+// Knob 1: Hue. Walks round four scenes and blends neighbours; deep water stays darkest and fresh sand lightest in each. At 0 the sea is teal and navy with a turquoise shallow and the land runs from pale sand through olive to green. At 0.25 it is twilight, an indigo sea and ice-blue to violet land. At 0.5 a dry season, a sea-green sea and gold to lime land. At 0.75 ice, a steel-blue sea and slate land. At 1 the first scene again.
+// Knob 2: Sediment. 0 to 4, opening at 2. How much sand the river carries. At 0 the supply is lean: one deep channel and a clean sea. At 2 mouth bars form, channels fork and lobes grow. At 4 the plume is thick, bars choke the channels and the shore moves down fast. The bed runs four times faster than the clock, so a lobe forms and is left behind within a minute.
+// Knob 3: Waves. -1 to 1, opening at 0. Which of river and sea shapes the coast. At -1 the river rules: channels run straight and far out as narrow fingers. At 1 the sea rules: it smooths the bars and the shoreline, and the channels stay pinned at their mouths.
 // Knob 4: Flood. -1 to 1, opening at about 0.06. How much water the river carries: wider channels, brighter flow and a flow that changes route more often at 1, thin channels and a quiet flow at -1.
 
 const W = 64, H = 128;
@@ -22,18 +22,19 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = () => Math.random();
 const sstep = (a, b, v) => { const t = cl((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-const NX = 41, NXP = NX + 2, NY = 86, S = 64 / NX;    // the bed is 41 wide, with a sink column either side, and 86 deep
+const NX = 41, NXP = NX + 2, NY = 86, S = 64 / NX;  // bed 41 wide with a sink column either side, 86 deep
 const NC = NXP * NY;
-const CX = 1 + 20;                                    // middle column of the river
-const R0 = 6;                                         // rows at the top that are always the straight river
-const HB = 1.0, HC = 0.5, ZL = 0.22;                  // sea floor depth, river depth, highest land
-const HCMAX = 0.7;                                    // deepest a channel scours
-const EPSF = 0.01;                                    // weight of low land that a flood may cross
-const TARGET = 80 / S;                                // row the shore is held at, 80 LED down
+const CX = 1 + 20;  // middle column of the river
+const R0 = 6;  // rows at the top that are always the straight river
+const HB = 1.0, HC = 0.5, ZL = 0.22;  // sea floor depth, river depth, highest land
+const HCMAX = 0.7;  // deepest a channel scours
+const EPSF = 0.01;  // weight of low land that a flood may cross
+const TARGET = 80 / S;  // row the shore is held at, 80 LED down
 const DX = [0, -1, 1, -1, 1], DY = [1, 1, 1, 0, 0];
 const UX = [0, -0.7071, 0.7071, -1, 1], UY = [1, 0.7071, 0.7071, 0, 0];
 const TP = 2 * PI;
-const RXA = new Float32Array(NC), RYA = new Float32Array(NC);   // unit vector from a point above the top of the bed to each cell: the way a fan opens
+const LIVE = 4;  // the bed runs this many times faster than the clock
+const RXA = new Float32Array(NC), RYA = new Float32Array(NC);  // the way a fan opens, from above the top
 for (let y = 0; y < NY; y++) {
   for (let x = 0; x < NXP; x++) {
     const dx = x - CX, dy = y + 8, d = Math.sqrt(dx * dx + dy * dy);
@@ -46,25 +47,25 @@ for (let y = 0; y < NY; y++) {
 export function setup(params) {
   const f = (n) => new Float32Array(n);
   const st = (params.st = {
-    k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0,
-    z: f(NC), F: f(NC), V: f(NC), Vl: f(NC), pl: f(NC), ag: f(NC), qa: f(NC), zt: f(NC), tex: f(NC), mf: f(NC),
-    D: new Float32Array(NC), WG: new Float64Array(NC), E: new Float64Array(NC),
-    PP: new Float64Array(25), Fs: f(NC), fo: 0, vs: 0, grow: 0, front: 20, land: 0.5, sig: 1, cre: 20, frame: 0,
-    ix: new Int32Array(W), tx: f(W), sup: 1, wv: 0, qd: 0.9,
-    c1: 0, c2: 0, cc: 1, ss: 0, hue: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+    k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0, tc: 0,
+    z: f(NC), F: f(NC), V: f(NC), Vl: f(NC), pl: f(NC), ag: f(NC), qa: f(NC), zt: f(NC), tex: f(NC),
+    D: new Float32Array(NC), WG: new Float64Array(NC),
+    PP: new Float64Array(25), Fs: f(NC), fo: 0, vs: 0, grow: 0, front: 20, land: 0.5, cre: 20, frame: 0,
+    ix: new Int32Array(W), tx: f(W), sup: 1, bo: 1, wv: 0, qd: 0.9,
   });
   const { z } = st;
   z.fill(-HB);
   // a first shore: the apex floodplain, with the river cut on to a mouth
   for (let y = 0; y < NY; y++) {
     for (let x = 1; x <= NX; x++) if (y < 13) z[y * NXP + x] = 0.12 + 0.08 * rnd();
-    for (let x = CX - 2; x <= CX + 2; x++) {
+    const cx = CX;
+    for (let x = cx - 2; x <= cx + 2; x++) {
       if (y < 15) z[y * NXP + x] = -HC;
       else if (y < 18) z[y * NXP + x] = -0.3 - 0.05 * (y - 15);
+      if (y < 18) st.F[y * NXP + x] = y < 15 ? 0.2 : 0.12;
     }
   }
   for (let y = 0; y < NY; y++) wallRow(st, y);
-  for (let y = 0; y < 18; y++) for (let x = CX - 2; x <= CX + 2; x++) st.F[y * NXP + x] = y < 15 ? 0.2 : 0.12;
   for (let x = 1; x <= NX; x++) st.ag[x] = 0;
   for (let i = 0; i < NC; i++) if (z[i] > 0) st.ag[i] = 20 + 60 * rnd();
   texture(st);
@@ -88,18 +89,19 @@ function vnoise(x, y) {
   const a = hash(ix, iy), b = hash(ix + 1, iy), c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
-// the valley the delta builds into: high land down both sides, its inner edge wandering with the row it stands on
-// (counted from the first row ever, so it moves with the bed)
+// the valley: high land down both sides, each edge wandering with the row it stands on (counted from the first row ever, so it
+// moves with the bed), and now and then a wall opens out to a side bay.
 const WZ = 0.5;
+const bay = (v) => (v > 0 ? 6 * v * v * v : 0);
 function wallRow(st, y) {
   const g = st.grow + y, z = st.z, ag = st.ag;
-  const lo = 4.2 + 1.6 * sin(g / 7.3 + 0.7) + 1.0 * sin(g / 3.7 + 2.1) + 1.0 * sin(g / 17.9 + 5.3);
-  const hi = NX - 3.2 + 1.6 * sin(g / 8.9 + 3.9) + 1.0 * sin(g / 3.3 + 0.4) + 1.0 * sin(g / 21.3 + 1.7);
+  const lo = 4.2 + 2.2 * sin(g / 9.1 + 1.3) + 1.2 * sin(g / 3.7 + 2.1) + 1.0 * sin(g / 17.9 + 5.3) - bay(sin(g / 17.1 + 0.3));
+  const hi = NX - 3.2 + 2.2 * sin(g / 10.7 + 3.9) + 1.2 * sin(g / 3.3 + 0.4) + 1.0 * sin(g / 21.3 + 1.7) + bay(sin(g / 19.7 + 3.9));
   for (let x = 1; x <= NX; x++) {
     const i = y * NXP + x;
     if (x - 0.5 < lo || x - 0.5 > hi) {
       z[i] = WZ;
-      if (ag[i] < 150) ag[i] = 150 + 100 * rnd();
+      ag[i] = 90 + 40 * rnd() + (NY - 1 - y) * 1.5;  // olive where the row is new, greener up the panel
     }
   }
 }
@@ -108,49 +110,32 @@ function texture(st) {
   const { tex, grow } = st;
   for (let y = 0; y < NY; y++) {
     for (let x = 0; x < NXP; x++) {
-      tex[y * NXP + x] = 0.55 * vnoise(x / 4.1 + 5, (y + grow) / 4.1 + 9) + 0.45 * vnoise(x / 2.1 + 31, (y + grow) / 2.1 + 17);
+      tex[y * NXP + x] = 0.55 * vnoise(x / 4.1 + 5, (y + grow) / 4.1 + 9) + 0.45 * vnoise(x / 2.1, (y + grow) / 2.1);
     }
   }
 }
 
 // ---- the flow ----------------------------------------------------------------
-// Distance to the open sea through the bed, a cell of water costing 1 and a cell of low land 3.5, so a parcel is drawn
-// along the shorter way out. This is the steeper slope that makes a long channel lose its flow to a short one.
+// Distance to the open sea through the bed (water 1 a cell, low land 3.5): a parcel is drawn along the shorter way out, so a
+// long channel loses its flow to a short one.
 function potential(st) {
   const { D, z } = st;
-  for (let i = 0; i < NC; i++) {
-    D[i] = z[i] < -HB + 0.06 ? 0 : 1e4;
-  }
-  for (let pass = 0; pass < 2; pass++) {
-    for (let y = 0; y < NY; y++) {
-      for (let x = 1; x <= NX; x++) {
-        const i = y * NXP + x, c = z[i] < -0.04 ? 1 : 3.5;
-        let b = D[i];
-        let v = D[i - 1] + c;
+  for (let i = 0; i < NC; i++) D[i] = z[i] < -HB + 0.06 ? 0 : 1e4;
+  for (let pass = 0; pass < 4; pass++) {
+    const d = pass & 1 ? 1 : -1;  // the rows and columns already visited lie this way
+    for (let yy = 0; yy < NY; yy++) {
+      const y = d < 0 ? yy : NY - 1 - yy, ok = y + d >= 0 && y + d < NY;
+      for (let xx = 1; xx <= NX; xx++) {
+        const i = y * NXP + (d < 0 ? xx : NX + 1 - xx), c = z[i] < -0.04 ? 1 : 3.5;
+        let b = D[i], v = D[i + d] + c;
         if (v < b) b = v;
-        if (y > 0) {
-          v = D[i - NXP] + c;
+        if (ok) {
+          const j = i + d * NXP;
+          v = D[j] + c;
           if (v < b) b = v;
-          v = D[i - NXP - 1] + c * 1.414;
+          v = D[j - 1] + c * 1.414;
           if (v < b) b = v;
-          v = D[i - NXP + 1] + c * 1.414;
-          if (v < b) b = v;
-        }
-        D[i] = b;
-      }
-    }
-    for (let y = NY - 1; y >= 0; y--) {
-      for (let x = NX; x >= 1; x--) {
-        const i = y * NXP + x, c = z[i] < -0.04 ? 1 : 3.5;
-        let b = D[i];
-        let v = D[i + 1] + c;
-        if (v < b) b = v;
-        if (y < NY - 1) {
-          v = D[i + NXP] + c;
-          if (v < b) b = v;
-          v = D[i + NXP - 1] + c * 1.414;
-          if (v < b) b = v;
-          v = D[i + NXP + 1] + c * 1.414;
+          v = D[j + 1] + c * 1.414;
           if (v < b) b = v;
         }
         D[i] = b;
@@ -172,13 +157,13 @@ function weights(st, theta, lam) {
 }
 
 function parcels(st, P, A) {
-  const { z, V, Vl, WG, PP, ag } = st, F = st.Fs;
+  const { z, V, Vl, WG, PP } = st, F = st.Fs;
   const QD = st.qd, UC = 0.38 * (1 - 0.15 * max(0, -st.wv)), KE = 4e-5 * A * (500 / P), KD = (0.2 + 0.1 * max(0, -st.wv)), SHB = 3, LAT = 0.22 - 0.12 * max(0, -st.wv) + 0.06 * max(0, st.wv), LAT2 = 0.10 - 0.08 * max(0, -st.wv) + 0.06 * max(0, st.wv);
-  const L0 = (1.2 * st.sup * A * min(1, st.frame / 90)) / P, FN0 = 0.5 * L0, PN = 1 / (L0 + FN0);
+  const L0 = (1.2 * st.sup * st.bo * A * min(1, st.frame / 90)) / P, FN0 = 0.5 * L0, PN = 1 / (L0 + FN0);
   const MAXS = NY * 2, OPEN = 1.8, FB = 2.0 + 0.5 * max(0, st.wv);
-  const DEEP = HB - 0.06;
+  const DEEP = HB - 0.06, cx0 = CX;
   for (let p = 0; p < P; p++) {
-    let x = CX - 2 + ((rnd() * 5) | 0), y = 0, pv = 0, load = L0, fine = FN0, tail = 0, steps = 0;
+    let x = cx0 - 2 + ((rnd() * 5) | 0), y = 0, pv = 0, load = L0, fine = FN0, tail = 0, steps = 0;
     while (y < NY - 1 && x > 0 && x < NXP - 1 && steps < MAXS) {
       steps++;
       const idx = y * NXP + x;
@@ -192,7 +177,7 @@ function parcels(st, P, A) {
           if (d > load) d = load;
           load -= d;
           if (h > 0.2 && x > 2 && x < NX - 1) {
-            // sand settles over a few cells either side: a mouth bar wider than the channel that made it
+            // sand settles a few cells either side: a bar wider than its channel
             const d1 = d * LAT, d2 = d * LAT2;
             d -= 2 * (d1 + d2);
             const a = z[idx - 1] + d1, b = z[idx + 1] + d1, c2 = z[idx - 2] + d2, e2 = z[idx + 2] + d2;
@@ -207,29 +192,27 @@ function parcels(st, P, A) {
           const e = KE * (r > 4 ? 3 : r - 1);
           z[idx] = zi - e;
           load += e;
-          if (zi > 0 && ag[idx] > 0) ag[idx] *= 0.995;
         }
         Vl[idx] += (load + fine) * PN;
         fine *= 0.975;
         if (h > DEEP) {
-          // out at the delta front: most of what is left settles here
+          // at the delta front most of what is left settles
           const sd = load * 0.85, d3 = sd * 0.25;
           load -= sd;
           z[idx] += sd - 2 * d3;
           if (z[idx - 1] < ZL) z[idx - 1] += d3;
           if (z[idx + 1] < ZL) z[idx + 1] += d3;
-          tail = 9;
+          tail = 6 + ((rnd() * 14) | 0);
         }
       } else {
+        // the plume goes on past the front, a different length for each parcel, fading
         Vl[idx] += (load + fine) * PN;
-        fine *= 0.975;
-        if (--tail === 0) break;
-        tail = tail > 0 ? tail : 0;
-        if (tail === 0) break;
+        fine *= 0.9;
+        if (--tail <= 0) break;
       }
       const j0 = idx + NXP, o = pv * 5;
       const g0 = WG[j0], g1 = WG[j0 - 1], g2 = WG[j0 + 1], g3 = WG[idx - 1], g4 = WG[idx + 1];
-      // out in open water, where the banks do not hold the flow, a jet spreads
+      // in open water a jet spreads
       const op = g0 > 0.05 * WG[idx] && g1 > 0.05 * WG[idx] && g2 > 0.05 * WG[idx] && g3 > 0 && g4 > 0 && z[idx] < -0.12 && z[j0 - 1] < -0.12 && z[j0 + 1] < -0.12 && z[idx - 1] < -0.12 && z[idx + 1] < -0.12 ? OPEN : 1;
       const rx = RXA[idx], ry = RYA[idx];
       let f0 = FB + ry, f1 = FB + 0.7071 * (ry - rx), f2 = FB + 0.7071 * (ry + rx), f3 = FB - rx, f4 = FB + rx;
@@ -260,13 +243,12 @@ function parcels(st, P, A) {
   }
 }
 
-function persistence(st, pers, base, side) {
+function persistence(st, pers, base) {
   const { PP } = st;
-  const gf = [1, 1, 1, 1, 1];
   for (let a = 0; a < 5; a++) {
     for (let b = 0; b < 5; b++) {
       const c = UX[a] * UX[b] + UY[a] * UY[b];
-      PP[a * 5 + b] = (base + (c > 0 ? pow(c, pers) : 0)) * gf[b];
+      PP[a * 5 + b] = base + (c > 0 ? pow(c, pers) : 0);
     }
   }
 }
@@ -275,9 +257,10 @@ function persistence(st, pers, base, side) {
 function forceRiver(st) {
   const { z } = st;
   for (let y = 0; y <= R0; y++) {
+    const cx = CX;
     for (let x = 1; x <= NX; x++) {
       const i = y * NXP + x;
-      if (abs(x - CX) <= 2) { z[i] = -HC; st.ag[i] = 0; }
+      if (abs(x - cx) <= 2) { z[i] = -HC; st.ag[i] = 0; }
       else if (z[i] < WZ - 0.01) { z[i] = ZL; if (st.ag[i] < 60) st.ag[i] = 60 + 60 * st.tex[i]; }
     }
   }
@@ -292,17 +275,18 @@ function sim(st, dt, A) {
   for (let i = 0; i < 4; i++) st.ks[i] += (st.k[i] - st.ks[i]) * kk;
   const k = st.ks;
   st.t += dt * A;
+  st.tc += dt;
   st.frame++;
   const wv = cl(k[2], -1, 1), rv = max(0, -wv), wp = max(0, wv);
   st.wv = wv;
   st.sup = 0.3 + 0.7 * cl(k[1], 0, 4) / 2;
   st.qd = 0.85 * pow(1.8, cl(k[3], -1, 1));
-  persistence(st, 1.6 + 2.2 * rv - 1.0 * wp, 0.2 + 0.35 * wp - 0.1 * rv, 0.5 + 0.5 * wp);
+  persistence(st, 1.6 + 2.2 * rv - 1.0 * wp, 0.2 + 0.35 * wp - 0.1 * rv);
   potential(st);
   weights(st, 1.5 + 0.6 * rv - 0.4 * wp, 0.14 + 0.06 * rv);
   const P = A > 1 ? 330 : 480;
   {
-    // the flow a cell feels is half its own count and half the count of its neighbours, so a one-cell scour widens
+    // a cell feels half its own flow and half its neighbours', so a one-cell scour widens
     const { F: Fa, Fs } = st;
     for (let y = 1; y < NY - 1; y++) {
       for (let x = 1; x <= NX; x++) {
@@ -313,13 +297,13 @@ function sim(st, dt, A) {
     }
   }
   parcels(st, P, A);
-  const { z, F, V, Vl, pl, ag, qa, zt, D } = st;
+  const { z, F, V, Vl, pl, ag, qa, zt } = st;
   const aF = 0.18, inv = 1 / P;
   for (let i = 0; i < NC; i++) {
     F[i] += aF * (V[i] * inv - F[i]);
     V[i] = 0;
   }
-  // the plume: a smoothed count of what the parcels still carry, softened once a frame
+  // the plume: a smoothed count of what the parcels still carry
   for (let i = 0; i < NC; i++) {
     pl[i] += 0.12 * (Vl[i] * inv - pl[i]);
     Vl[i] = 0;
@@ -331,39 +315,39 @@ function sim(st, dt, A) {
     }
   }
   for (let y = 1; y < NY - 1; y++) for (let x = 1; x <= NX; x++) pl[y * NXP + x] = zt[y * NXP + x];
-  // sea level rises: everything above the sea floor sinks, faster when land is more than half of the view
+  // everything above the sea floor sinks, faster when there is much land
   const sg = 0.0007 * A * dt * cl(pow(st.land / 0.5, 3), 0.25, 3) * (0.6 + 0.4 * st.sup);
   for (let i = 0; i < NC; i++) if (z[i] > -HB + 0.02 && z[i] < WZ - 0.01) z[i] -= sg * (z[i] > 0 ? 1 : 0.5);
-  // the shallows creep: sand slumps from bars into the shoals beside them (never from the high land, never out of the deep),
-  // and waves (the third knob) do it harder
+  // the shallows creep, and waves (the third knob) make them creep harder
   {
-    const kw = min(0.2, (0.006 + 0.06 * wp) * A), Fs = st.Fs, zlo = -0.4 - 0.2 * wp, zhi = 0.06 + 0.1 * wp;
+    const kw = min(0.2, (0.006 + 0.06 * wp) * A), Fs = st.Fs, zlo = -0.4 - 0.2 * wp, zhi = 0.06 + 0.1 * wp, zfl = -HB - 0.02;
     for (let y = R0 + 1; y < NY - 1; y++) {
       for (let x = 1; x <= NX; x++) {
         const i = y * NXP + x, zi = z[i];
-        if (Fs[i] > 0.012 || zi < zlo || zi > zhi) continue;
+        if (Fs[i] > 0.012 || zi < zfl || zi > zhi) continue;
         let j = i + 1, zj = z[j];
-        if (x < NX && Fs[j] <= 0.012 && zj > zlo && zj < zhi) {
-          const fl = kw * 0.5 * (zi - zj);
+        if (x < NX && Fs[j] <= 0.012 && zj > zfl && zj < zhi) {
+          // the front slope slumps a fifth as fast, so the step to the deep floor softens
+          const fl = (zi < zlo || zj < zlo ? 0.2 : 1) * kw * 0.5 * (zi - zj);
           z[i] -= fl;
           z[j] += fl;
         }
         j = i + NXP;
         zj = z[j];
-        if (Fs[j] <= 0.012 && zj > zlo && zj < zhi) {
-          const fl = kw * 0.5 * (z[i] - zj);
+        if (Fs[j] <= 0.012 && zj > zfl && zj < zhi) {
+          const fl = (zi < zlo || zj < zlo ? 0.2 : 1) * kw * 0.5 * (z[i] - zj);
           z[i] -= fl;
           z[j] += fl;
         }
       }
     }
   }
-  // land ages where the flow does not reach it; water that stands still far from the sea goes to marsh
+  // land ages where no flow reaches it; still water far from the sea goes to marsh
   const dts = dt * A;
   for (let i = 0; i < NC; i++) {
     const zi = z[i];
     if (zi > 0.0) {
-      let a = ag[i] + dts;
+      let a = ag[i] + dts * 0.7;
       const f = F[i];
       if (f > 0.0004) a *= exp(-f * 40 * dts);
       ag[i] = a;
@@ -374,8 +358,7 @@ function sim(st, dt, A) {
     }
   }
   forceRiver(st);
-  // a crevasse now and then: a bank beside a busy channel is cut through to the open water next to it, and the channel
-  // either takes over the route (the shorter way out) or silts up again
+  // a crevasse now and then: a bank beside a busy channel is cut through to open water; the channel takes over or silts up
   st.cre -= dts * st.qd * st.qd;
   if (st.cre <= 0) {
     st.cre = 2 + 4 * rnd();
@@ -402,27 +385,40 @@ function sim(st, dt, A) {
       break;
     }
   }
-  // follow the shore: the view slides down the bed so the front stays near row TARGET. The front is half the tip of the land
-  // (the ten columns that reach furthest) and half the length the land would have if it filled the width.
+  // follow the shore: the view slides down the bed, faster when the front is past row TARGET, never quite still. The front is
+  // half the tip of the land (the eight columns that reach furthest) and half the length the land would have if it filled the
+  // valley. The sand supply rises when land is scarce.
   if ((st.frame & 1) === 0) {
     const col = [];
-    let area = 0;
+    let eq = 0, nl = 0, nw = 0;
     const lim = min(NY - 6, floor(128 / S));
-    for (let x = 8; x <= NX - 7; x++) {
+    for (let x = 1; x <= NX; x++) {
       let r = R0;
-      for (let y = NY - 4; y > R0; y--) if (z[y * NXP + x] > 0.02) { r = y; break; }
+      for (let y = NY - 4; y > R0; y--) {
+        const zz = z[y * NXP + x];
+        if (zz > 0.02 && zz < 0.4) { r = y; break; }
+      }
       col.push(r);
-      for (let y = R0 + 1; y < lim; y++) if (z[y * NXP + x] > 0) area++;
+    }
+    for (let y = R0 + 1; y < lim; y++) {
+      let a = 0, b = 0;
+      for (let x = 1; x <= NX; x++) {
+        const zz = z[y * NXP + x];
+        if (zz < 0.4) { b++; if (zz > 0) a++; }
+      }
+      nl += a;
+      nw += b;
+      if (b > 0) eq += a / b;
     }
     col.sort((a, b) => b - a);
     let s = 0;
     const nt = 8;
     for (let i = 0; i < nt; i++) s += col[i];
-    const eq = R0 + (area / (NX - 14)) * 1.6;
-    st.front += (0.5 * s / nt + 0.5 * eq - st.front) * 0.3;
-    st.land = area / max(1, (lim - R0 - 1) * (NX - 14));
+    st.front += (0.5 * s / nt + 0.5 * (R0 + eq * 1.6) - st.front) * 0.3;
+    st.land = nl / max(1, nw);
   }
-  const want = cl((st.front + st.fo - TARGET) * 0.14, 0, 1.8);
+  st.bo += (cl(pow(0.3 / max(st.land, 0.06), 1.3), 0.6, 3) - st.bo) * 0.02 * A;
+  const want = cl(0.1 + (st.front + st.fo - TARGET) * 0.25, 0.1, 2.0);
   st.vs += (want - st.vs) * 0.04;
   st.fo += st.vs * dts;
   while (st.fo >= 1) {
@@ -452,28 +448,56 @@ export function update(dt, input, params) {
     st.ks = st.k.slice();
     forceRiver(st);
     for (let i = 0; i < 420; i++) sim(st, 1 / 30, 6);
+    // land is as old as its distance behind the front: pale sand at the shore, green well back
+    for (let y = R0 + 1; y < NY; y++) {
+      for (let x = 1; x <= NX; x++) {
+        const i = y * NXP + x;
+        if (st.z[i] > 0 && st.z[i] < WZ - 0.01) st.ag[i] = max(st.ag[i], 6 + max(0, st.front - y) * 3.6 + 18 * st.tex[i]);
+      }
+    }
     return;
   }
   dt = cl(dt || 0, 0, 0.1);
-  if (dt > 0) sim(st, dt, 1);
+  if (dt > 0) sim(st, dt, LIVE);
 }
 
 // ---- the picture --------------------------------------------------------------
-const WATER = [[0, 128, 222, 208], [0.2, 40, 176, 176], [0.5, 18, 128, 150], [0.8, 10, 70, 104], [1.0, 6, 30, 62]];
-const LAND = [[0, 238, 226, 178], [25, 226, 200, 128], [60, 192, 172, 84], [110, 128, 150, 62], [190, 58, 124, 54], [300, 32, 98, 56]];
+// Four palettes, each a scene; knob 1 walks round them and blends neighbours (the fourth blends back into the first). A palette
+// turns each part of the base picture by its own angle, brightness kept, so deep water stays darkest and fresh sand lightest.
+// Per palette: sea, land, flow and plume angles in degrees (positive from teal towards blue), then a saturation scale.
+const PAL = [
+  [0, 0, 0, 0, 1.0],  // teal sea, sand to green land
+  [62, 150, 85, 120, 0.62], // twilight
+  [-35, -14, -45, 0, 0.62], // dry season
+  [25, 95, 20, 120, 0.5], // ice
+];
+const WATER = [[0, 128, 222, 208], [0.18, 40, 176, 176], [0.4, 20, 134, 154], [0.65, 14, 98, 130], [0.85, 8, 54, 88], [1.0, 6, 30, 62]];
+const LAND = [[0, 238, 228, 186], [25, 222, 206, 150], [60, 188, 178, 100], [110, 128, 150, 62], [190, 58, 124, 54], [300, 32, 98, 56]];
+const FLOW = [120, 234, 222], PLUME = [186, 206, 168], MARSH = [84, 118, 78];
+function turn(c, deg, sat, out) {
+  const a = -deg * PI / 180, ca = cos(a), sa = sin(a), r = c[0], g = c[1], b = c[2];
+  const Y = 0.299 * r + 0.587 * g + 0.114 * b, I = 0.596 * r - 0.274 * g - 0.322 * b, Q = 0.211 * r - 0.523 * g + 0.312 * b;
+  const I2 = (I * ca - Q * sa) * sat, Q2 = (I * sa + Q * ca) * sat;
+  out[0] = cl(Y + 0.956 * I2 + 0.621 * Q2, 0, 255);
+  out[1] = cl(Y - 0.272 * I2 - 0.647 * Q2, 0, 255);
+  out[2] = cl(Y - 1.106 * I2 + 1.703 * Q2, 0, 255);
+}
+function palette(k, out) {
+  const u = (k - Math.floor(k)) * 4 + (k >= 1 ? 4 : 0), i = Math.floor(u) % 4, f = u - Math.floor(u);
+  const A = PAL[i], B = PAL[(i + 1) % 4], m = (j) => A[j] + (B[j] - A[j]) * f;
+  const sat = m(4), tmp = [0, 0, 0];
+  const put = (dst, src, deg) => { turn(src, deg, sat, tmp); dst[0] = tmp[0]; dst[1] = tmp[1]; dst[2] = tmp[2]; };
+  for (let j = 0; j < WATER.length; j++) { out.w[j][0] = WATER[j][0]; put(out.w[j].c, [WATER[j][1], WATER[j][2], WATER[j][3]], m(0)); }
+  for (let j = 0; j < LAND.length; j++) { out.l[j][0] = LAND[j][0]; put(out.l[j].c, [LAND[j][1], LAND[j][2], LAND[j][3]], m(1)); }
+  put(out.flow, FLOW, m(2));
+  put(out.plume, PLUME, m(3));
+  put(out.marsh, MARSH, m(1));
+}
 function ramp(tab, v, out) {
-  const n = tab.length;
-  if (v <= tab[0][0]) { out[0] = tab[0][1]; out[1] = tab[0][2]; out[2] = tab[0][3]; return; }
-  for (let i = 1; i < n; i++) {
-    if (v <= tab[i][0]) {
-      const a = tab[i - 1], b = tab[i], t = (v - a[0]) / (b[0] - a[0]);
-      out[0] = a[1] + (b[1] - a[1]) * t;
-      out[1] = a[2] + (b[2] - a[2]) * t;
-      out[2] = a[3] + (b[3] - a[3]) * t;
-      return;
-    }
-  }
-  out[0] = tab[n - 1][1]; out[1] = tab[n - 1][2]; out[2] = tab[n - 1][3];
+  let i = 1;
+  while (i < tab.length - 1 && v > tab[i][0]) i++;
+  const a = tab[i - 1], b = tab[i], t = cl((v - a[0]) / (b[0] - a[0]), 0, 1);
+  for (let c = 0; c < 3; c++) out[c] = a.c[c] + (b.c[c] - a.c[c]) * t;
 }
 
 export function draw(display, params) {
@@ -481,47 +505,56 @@ export function draw(display, params) {
   if (!st) st = setup(params);
   if (!st.init) update(0, { knobValues: st.k }, params);
   const { z, F, pl, ag, tex, qa, D, ix, tx } = st;
-  // hue: a turn about the grey axis
-  const th = TP * st.ks[0], c = cos(th), s = sin(th), a = (1 - c) / 3, b = 0.57735 * s;
-  const m0 = c + a, m1 = a - b, m2 = a + b;
-  const qd = st.qd, fo = st.fo;
+  if (!st.pal) {
+    const mk = (n) => { const r = []; for (let j = 0; j < n; j++) { const e = [0]; e.c = [0, 0, 0]; r.push(e); } return r; };
+    st.pal = { w: mk(WATER.length), l: mk(LAND.length), flow: [0, 0, 0], plume: [0, 0, 0], marsh: [0, 0, 0] };
+  }
+  const pal = st.pal;
+  palette(st.ks[0], pal);
+  const WT = pal.w, LT = pal.l, fc = pal.flow, pc = pal.plume, mc = pal.marsh;
+  const qd = st.qd, fo = st.fo, t = st.tc;
+  // slow parts with periods that share no factor: tide, haze over the sea, ripeness of the land, tint of the plume
+  const tide = 0.09 * sin(TP * t / 83 + 1.1) + 0.06 * sin(TP * t / 131 + 4.2);
+  const haze = 1 + 0.07 * sin(TP * t / 59 + 2.0) + 0.05 * sin(TP * t / 97 + 5.1);
+  const ripe = 1 + 0.3 * sin(TP * t / 71 + 0.6) + 0.15 * sin(TP * t / 149 + 2.7);
+  const plg = 206 + 16 * sin(TP * t / 113 + 3.0), plb = 168 - 14 * sin(TP * t / 113 + 3.0);
   const cw = [0, 0, 0], cL = [0, 0, 0];
+  let i0 = 0, i1 = 0, w00 = 0, w10 = 0, w01 = 0, w11 = 0;
+  const q = (a) => a[i0] * w00 + a[i0 + 1] * w10 + a[i1] * w01 + a[i1 + 1] * w11;
   for (let y = 0; y < H; y++) {
     const gy = (y + 0.5) / S - 0.5 + fo;
     const iy = cl(floor(gy), 0, NY - 2), ty = cl(gy - iy, 0, 1);
     const r0 = iy * NXP, r1 = r0 + NXP;
     for (let x = 0; x < W; x++) {
-      const i0 = r0 + ix[x], i1 = r1 + ix[x], u = tx[x];
-      const w00 = (1 - u) * (1 - ty), w10 = u * (1 - ty), w01 = (1 - u) * ty, w11 = u * ty;
-      const zq = z[i0] * w00 + z[i0 + 1] * w10 + z[i1] * w01 + z[i1 + 1] * w11;
-      const fq = F[i0] * w00 + F[i0 + 1] * w10 + F[i1] * w01 + F[i1 + 1] * w11;
-      const pq = pl[i0] * w00 + pl[i0 + 1] * w10 + pl[i1] * w01 + pl[i1 + 1] * w11;
-      const aq = ag[i0] * w00 + ag[i0 + 1] * w10 + ag[i1] * w01 + ag[i1 + 1] * w11;
-      const tq = tex[i0] * w00 + tex[i0 + 1] * w10 + tex[i1] * w01 + tex[i1 + 1] * w11;
-      const mq = qa[i0] * w00 + qa[i0 + 1] * w10 + qa[i1] * w01 + qa[i1 + 1] * w11;
-      const dq = D[i0] * w00 + D[i0 + 1] * w10 + D[i1] * w01 + D[i1 + 1] * w11;
+      i0 = r0 + ix[x];
+      i1 = r1 + ix[x];
+      const u = tx[x];
+      w00 = (1 - u) * (1 - ty);
+      w10 = u * (1 - ty);
+      w01 = (1 - u) * ty;
+      w11 = u * ty;
+      const zq = q(z) - tide, fq = q(F), pq = q(pl), aq = q(ag), tq = q(tex), mq = q(qa), dq = q(D);
       // water
       const h = zq < 0 ? -zq : 0;
-      ramp(WATER, h / HB, cw);
-      let r = cw[0], g = cw[1], bl = cw[2];
+      ramp(WT, h / HB, cw);
+      let r = cw[0] * haze, g = cw[1] * haze, bl = cw[2] * haze;
       const sflow = sstep(0.05, 0.3, fq * qd);
       const fm = sflow * 0.65 * sstep(0.03, 0.2, h);
-      r += (120 - r) * fm; g += (234 - g) * fm; bl += (222 - bl) * fm;
+      r += (fc[0] - r) * fm; g += (fc[1] - g) * fm; bl += (fc[2] - bl) * fm;
       const pm = (1 - exp(-pq * 12)) * 0.7;
-      r += (186 - r) * pm; g += (206 - g) * pm; bl += (168 - bl) * pm;
+      r += (pc[0] - r) * pm; g += (pc[1] + (plg - 206) - g) * pm; bl += (pc[2] + (plb - 168) - bl) * pm;
       const mf = sstep(30, 80, mq) * sstep(7, 16, dq) * sstep(0.3, 0.12, h) * 0.7;
-      r += (84 - r) * mf; g += (118 - g) * mf; bl += (78 - bl) * mf;
+      r += (mc[0] - r) * mf; g += (mc[1] - g) * mf; bl += (mc[2] - bl) * mf;
       // land
-      const ae = aq * (0.7 + 0.6 * tq);
-      ramp(LAND, ae, cL);
+      const ae = aq * (0.7 + 0.6 * tq) * ripe;
+      ramp(LT, ae, cL);
       const damp = 0.78 + 0.22 * sstep(0.0, 0.08, zq);
       const lt = (0.84 + 0.3 * tq) * damp;
       const land = sstep(-0.01, 0.04, zq);
       const foam = (1 - land) * sstep(-0.09, -0.01, zq) * 0.5;
       r += (cL[0] * lt - r) * land; g += (cL[1] * lt - g) * land; bl += (cL[2] * lt - bl) * land;
       r += (235 - r) * foam; g += (250 - g) * foam; bl += (240 - bl) * foam;
-      const R = m0 * r + m1 * g + m2 * bl, G = m2 * r + m0 * g + m1 * bl, B = m1 * r + m2 * g + m0 * bl;
-      display.setPixel(x, y, cl(floor(R), 0, 255), cl(floor(G), 0, 255), cl(floor(B), 0, 255));
+      display.setPixel(x, y, cl(floor(r), 0, 255), cl(floor(g), 0, 255), cl(floor(bl), 0, 255));
     }
   }
 }
