@@ -307,7 +307,7 @@ export function draw(display, params) {
   if (!st.init) update(0, { knobValues: st.k }, params);
   colours(st);
   const { fb, tr, sx, sy, rr, am, col, gnd } = st;
-  const A0 = 0.2;
+  const A0 = 0.25;
   fb.fill(0);
   for (let i = 0; i < N; i++) {
     const cx = sx[i], cy = sy[i], R = rr[i], R2 = R * R, a = A0 * am[i], c = floor(i / NP) * 3;
