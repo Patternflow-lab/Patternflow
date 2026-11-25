@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Convergence=0.3..4, Dip=-1..1, Seismicity=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel at once; it opens on the natural colours, blue plate, amber and red mantle, magenta melt, and quakes from yellow at the trench through orange, red and magenta to violet at 660 km.
+// Knob 1: Hue. Turns the whole palette round the wheel at once; it opens on the natural colours. The plate is blue, the mantle amber and red, the melt magenta, and the quakes run from yellow at the trench to violet at 660 km.
 // Knob 2: Convergence. 0.3 to 4, opening at 2. How fast the plate is consumed: the stripes in the plate scroll along the slab at 0.4 LED a second at the bottom and 5 at the top, the melt rises faster and more of it is made, so the arc erupts more often, and the quakes come a little faster.
 // Knob 3: Dip. -1 to 1, opening at 0. The slab dip from a flat 15 degrees at -1 through 42 at the start to a steep 70 at 1. The bend, the trench, the arc volcano and every quake band follow it while it runs, and a flat slab runs out of the right edge of the panel before it reaches the deep quakes.
 // Knob 4: Seismicity. -1 to 1, opening at 0.06. How busy the plate is: the quake rate runs from a quarter at -1 to nearly four times at 1, the dots grow and the rings open wider, the slab glows where the quakes have been lately, and a great megathrust earthquake comes about every three minutes at -1 and about every 45 seconds at 1.
