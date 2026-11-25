@@ -339,5 +339,10 @@
   "raypaths": { "label": "지진파 경로", "color": "#e8a93c" },
   "ommatidia": { "label": "겹눈", "color": "#6fe3a4" },
   "surfacecode": { "label": "표면 부호", "color": "#8f7bff" },
-  "partonshower": { "label": "파톤 샤워", "color": "#ff5a4f" }
+  "partonshower": { "label": "파톤 샤워", "color": "#ff5a4f" },
+  "isochrone": { "label": "등시선 지도", "color": "#ff8a3c" },
+  "birch": { "label": "자작나무 숲", "color": "#dfe8d8" },
+  "multiflash": { "label": "연속 노출 사진", "color": "#b8c4ff" },
+  "nastic": { "label": "잎의 접힘", "color": "#57c84d" },
+  "huddle": { "label": "펭귄 허들", "color": "#3fa9ff" }
 }
