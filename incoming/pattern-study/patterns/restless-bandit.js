@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the multi-armed bandit as a problem of sequential experiments (Robbins 1952, from memory); choosing an arm by drawing once from each posterior and playing the largest draw (Thompson 1933, from memory); the restless bandit, whose arms change whether they are played or not (Whittle 1988, from memory); a belief of one mean and one variance per arm, updated by the gain v / (v + noise) and widened by a fixed amount of variance per unit of time (Kalman 1960, from memory); a walk pulled back to its centre for the wandering payout (Uhlenbeck and Ornstein 1930, from memory). Original here: beliefs drawn as filled bells whose height is the compressed density, lanes that breathe, colour by how often an arm was pulled lately, the draws as ticks and the payout as a falling drop, a truth made of two slow sines under the walk so that it moves at every setting, pattern round 246
+// Lineage: the multi-armed bandit as a problem of sequential experiments (Robbins 1952, from memory); choosing an arm by drawing once from each posterior and playing the largest draw (Thompson 1933, from memory); the restless bandit, whose arms change whether they are played or not (Whittle 1988, from memory); a belief of one mean and one variance per arm, updated by the gain v / (v + noise) and widened by a fixed amount of variance per unit of time (Kalman 1960, from memory); a walk pulled back to its centre for the wandering payout (Uhlenbeck and Ornstein 1930, from memory). Original here: beliefs drawn as filled bells whose height is the compressed density, lanes that breathe under margins that swing wider when the arms are few, a payout scale that slides sideways, the favourite's lane lit, colour by how often an arm was pulled lately, the draws as ticks and the payout as a falling drop, a truth made of two slow sines under the walk so that it moves at every setting, a belief whose mean slides back to the middle while its arm is left alone, pattern round 246
 // Round:   248
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0.5..4, Arms=-1..1, Drift=-1..1
 //
-// Knob 1: Hue. Turns the whole colour scale and the markers round the wheel. It opens with the arm pulled most in mint near white, the others cooling through teal to deep blue, and the true payouts as coral beads under each baseline.
+// Knob 1: Hue. Turns the whole colour scale and the markers round the wheel. It opens with the arm pulled most in mint near white on a faintly lit lane, the others cooling through teal to deep blue, and the true payouts as coral beads under each baseline.
 // Knob 2: Pace. 0.5 to 4, opening at 2: rounds a second, 1.5 times the knob. At 0.5 a round falls every 1.3 s and each draw can be followed by eye. At 2 there are three a second. At 4 there are six and the ticks run together.
-// Knob 3: Arms. -1 to 1, opening at 0: the number of arms, 3 at -1, 5 at 0, 8 at 1. Lanes are added and dropped at the bottom and the others make room. A new arm starts with the widest bell.
-// Knob 4: Drift. -1 to 1, opening at 0.06: how restless the arms are. At -1 the true payouts creep, bells stay narrow for a minute and one favourite holds. At 1 the payouts run, a bell is wide again two seconds after its pull and the gambler changes arm all the time.
+// Knob 3: Arms. -1 to 1, opening at 0: the number of arms, 4 at -1, 5 at 0, 8 at 1. A new lane opens at the bottom as the knob turns and the others make room. Its arm joins the game once the lane is a third open, with the widest bell.
+// Knob 4: Drift. -1 to 1, opening at 0.06: how restless the arms are. At -1 the true payouts creep and a bell left alone takes 20 s to grow wide. At 1 the payouts run, a bell is wide again two seconds after its pull and the gambler changes arm all the time.
 
 const W = 64, H = 128, NA = 8;
 const { floor, ceil, min, max, sqrt, exp, sin, log, pow, abs, tanh, PI } = Math;
@@ -72,8 +72,9 @@ export function setup(params) {
   return st;
 }
 
-// 4 arms below -0.4, 5 up to 0.2, then 6, 7 and 8 from 0.8
-const armsOf = (k) => (k < -0.4 ? 4 : k < 0.2 ? 5 : min(8, 6 + floor((k - 0.2) / 0.3 + 1e-6)));
+// lanes open, as a number with a fraction: 4 at -1, 5 at 0, 8 at 1. An arm plays once its lane is 0.3 open.
+const lanesOf = (k) => ((k = cl(k, -1, 1)) < 0 ? 5 + k : 5 + 3 * k);
+const armsOf = (k) => min(NA, floor(lanesOf(k) - 0.3) + 1);
 
 function fresh(st, i) {
   st.on[i] = 1;
@@ -107,7 +108,7 @@ function round(st, n) {
 
 function step(st, dt) {
   const k = st.k, t = (st.t += dt);
-  const n = armsOf(k[2]);
+  const n = armsOf(k[2]), nl = lanesOf(k[2]);
   const d = exp(1.2 * cl(k[3], -1, 1));
   // the walk's spread stops growing at 0.2, and past that it runs faster instead
   const sig = min(0.13 * d, 0.2), rel = sig / (0.13 * d), tau = 45 * rel * rel;
@@ -119,9 +120,9 @@ function step(st, dt) {
     st.z[i] = st.z[i] * ez + nz * gauss(st);
     const x = 0.2 * sin((TAU * t) / st.p1[i] + st.f1[i]) + 0.14 * sin((TAU * t) / st.p2[i] + st.f2[i]) + st.sig * st.z[i];
     st.mu[i] = 0.5 + 0.42 * tanh(x / 0.42);
-    const tgt = i < n ? 1 : 0;
-    if (tgt && !st.on[i]) fresh(st, i);
-    if (!tgt) st.on[i] = 0;
+    const tgt = cl(nl - i, 0, 1);
+    if (i < n && !st.on[i]) fresh(st, i);
+    if (i >= n) st.on[i] = 0;
     st.w[i] += (tgt - st.w[i]) * eW;
     // what is not looked at is forgotten: the belief widens, and its mean slides back to the middle as the truth's would
     if (st.on[i]) (st.v[i] = min(st.v[i] + qr * dt, VMAX)), (st.m[i] += (0.5 - st.m[i]) * back);
@@ -158,7 +159,7 @@ export function update(dt, input, params) {
       st.f1[i] = TAU * R(); st.f2[i] = TAU * R(); st.g1[i] = TAU * R(); st.g2[i] = TAU * R();
       st.c1[i] = 47 + 36 * R(); st.c2[i] = TAU * R();
       st.z[i] = gauss(st);
-      st.w[i] = i < armsOf(st.k[2]) ? 1 : 0;
+      st.w[i] = cl(lanesOf(st.k[2]) - i, 0, 1);
     }
     st.hph = [TAU * R(), TAU * R(), TAU * R(), TAU * R(), TAU * R(), TAU * R()];
     // 150 rounds before the first frame, so the beliefs are already lived in
@@ -194,7 +195,7 @@ export function draw(display, params) {
     yy += (H * hx[i]) / sum;
     bot[i] = yy;
   }
-  const lineC = hsv(196 + hk, 0.85, 0.15), markC = hsv(354 + hk, 0.56, 1), dropC = hsv(4 + hk, 0.26, 1);
+  const lineC = hsv(196 + hk, 0.85, 0.15), markC = hsv(4 + hk, 0.56, 1), dropC = hsv(10 + hk, 0.26, 1);
   for (let i = 0; i < NA; i++) {
     const room = bot[i] - top[i] - FOOT;
     if (room < 2) continue;
