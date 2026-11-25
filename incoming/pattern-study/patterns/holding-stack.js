@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the holding pattern, a racetrack of two straight legs and two half turns flown over a fix, and the stack, in which aircraft wait one level apart and the lowest leaves first while the rest step down (air traffic control practice since the 1940s, from memory); the four stacks that feed London Heathrow (from memory); time-based separation on final, each arrival placed a fixed gap behind the one ahead (from memory); the missed approach, flown back to the hold; the long-persistence phosphor of a plan position radar screen, on which a moving echo drags a fading tail. Original here: one aircraft per ring with the rings drawn 3 LED apart, the slot rule that lets an aircraft leave only if it can stretch its transit to arrive exactly one gap behind the last, a final flown at under half the holding speed so two holds can keep the line full, the layout that never stops drifting, gold heads over teal wakes, pattern round 246
+// Lineage: the holding pattern, a racetrack of two straight legs and two half turns flown over a fix, and the stack, in which aircraft wait one level apart and the lowest leaves first while the rest step down (air traffic control practice since the 1940s, from memory); the four stacks that feed London Heathrow (from memory); time-based separation on final, each arrival placed a fixed gap behind the one ahead (from memory); the missed approach, flown back to the hold; the long-persistence phosphor of a plan position radar screen, on which a moving echo drags a fading tail. Original here: one aircraft to a ring with the rings drawn 3.3 LED apart, the slot rule that lets an aircraft leave its hold only when a transit flown from where it is, at the shortest time or stretched by up to 1.6, puts it exactly one gap behind the last one cleared, a final flown at under half the holding speed so that two holds can keep the line full, the marks on the final that show the slots, traffic that comes in waves, a layout that never stops drifting, gold points over teal wakes, pattern round 246
 // Round:   248
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.5..4, Traffic=-1..1, Spacing=-1..1
 //
 // Knob 1: Hue. Turns every colour round the wheel. It opens with blue-white points and blue tails in the holds, gold points on final with teal wakes behind them, a pink one now and then climbing away from a missed approach, and a green bar at the threshold.
-// Knob 2: Speed. 0.5 to 4, opening at 2: how fast everything flies. An aircraft in a hold covers about 11 LED a second at 2, under 3 at 0.5 and 22 at 4, and its tail is as long as it is fast. The slow swing of the holds and of the final does not follow this knob.
+// Knob 2: Speed. 0.5 to 4, opening at 2: how fast everything flies. An aircraft in a hold covers about 11 LED a second at 2, under 3 at 0.5 and 22 at 4. Its tail grows with the speed up to 2 and keeps that length above it. The slow swing of the holds and of the final does not follow this knob.
 // Knob 3: Traffic. -1 to 1, opening at 0: how many arrive. At -1 three or four aircraft are in the sky and most leave the hold the first time round. At 0 each hold carries one to three. At 1 both holds stand four rings deep and the arrivals they cannot take cross the top of the panel, dim, and leave.
-// Knob 4: Spacing. -1 to 1, opening at 0.06: the separation kept at the top of the final, about 9 LED at -1, 15 at 0 and 25 at 1. Tight, the line is a string of seven or eight points; wide, it is two or three, fewer land and the holds fill.
+// Knob 4: Spacing. -1 to 1, opening at 0.06: the separation kept at the top of the final, about 9 LED at -1, 15 at 0 and 25 at 1. The dim marks on the final's centre line are the slots, one separation apart, and they close up or spread the moment the knob turns; the aircraft follow as new ones are cleared. Tight, the line is a string of seven or eight points and the marks run together. Wide, it is two or three, fewer land and the holds fill.
 
 const W = 64, H = 128;
 const { floor, min, max, sqrt, exp, sin, cos, pow, log, PI } = Math;
@@ -138,8 +138,8 @@ function arrive(st) {
   if (rnd(st) < 0.62) (a.sx = (h ? 22 : 4) + 38 * rnd(st)), (a.sy = -3);
   else (a.sx = h ? W + 3 : -3), (a.sy = 2 + 24 * rnd(st));
   st.q[h].push(a);
-  // it joins one ring above its place in the stack, and steps in from there
-  a.rj = ring(st.q[h].length);
+  // it joins on a ring above its place in the stack, any of them, and steps in from there
+  a.rj = ring(max(st.q[h].length, 1 + floor(3 * rnd(st))));
   hpos(st.hc[h], 0, a.rj);
   a.T = (1.06 * hyp(QX - a.sx, QY - a.sy)) / V;
   st.ac.push(a);
@@ -216,7 +216,8 @@ function move(st, a, dts) {
   }
   if (a.s === 1) {
     const q = st.q[a.h], i = q.indexOf(a), p0 = a.ph;
-    a.rad += (ring(i) - a.rad) * (1 - exp(-dts / 0.45));
+    // stepping down: one ring in about a second and a half
+    a.rad += cl((ring(i) - a.rad) * (1 - exp(-dts / 0.4)), -2.6 * dts, 2.6 * dts);
     const onLeg = p0 < 1 || (p0 >= 2 && p0 < 3);
     a.ph = p0 + (dts * V) / (onLeg ? hd.leg : PI * a.rad);
     const end = p0 < 1 && a.ph >= 1;
@@ -239,7 +240,7 @@ function move(st, a, dts) {
         a.h = h;
         a.u = 0;
         st.q[h].push(a);
-        a.rj = ring(st.q[h].length);
+        a.rj = ring(max(st.q[h].length, 1 + floor(3 * rnd(st))));
         hpos(st.hc[h], 2, a.rj);
         a.T = (1.28 * hyp(QX - st.ix - st.dx * a.d, QY - st.iy - st.dy * a.d)) / (0.8 * V);
       }
@@ -269,7 +270,7 @@ function tint(st, a) {
   // in the hold: blue-white on the lowest ring, dimmer and bluer further out
   const l = cl(((a.s === 1 ? a.rad : a.rj) - R0) / (DR * (NLEV - 1)), 0, 1), e = 1 - 0.3 * l;
   let r = (0.82 - 0.5 * l) * e, g = (0.93 - 0.4 * l) * e, b = e;
-  let tr = (0.38 - 0.2 * l) * e, tg = (0.68 - 0.22 * l) * e, tb = e;
+  let tr = (0.38 - 0.2 * l) * e, tg = (0.68 - 0.22 * l) * e, tb = e - 0.15 * l;
   // cleared: gold, whiter down the final; its tail is a teal wake
   const w = a.w, q = a.s === 3 ? min(1, a.d / LF) : 0, q2 = q * q;
   r += (1 - r) * w;
@@ -342,7 +343,8 @@ function step(st, dtr, dts, glow) {
   if (dead) st.ac = st.ac.filter((a) => a.al > 0);
   st.flash *= exp(-dtr / 0.5);
   if (!glow) return;
-  const { G, Wm } = st, fg = exp(-dtr / TAIL), fw = exp(-dtr / WARM);
+  // above the opening speed the long glow fades sooner, so a tail keeps its length and never closes a whole ring
+  const { G, Wm } = st, fg = exp((-dtr * max(1, st.k[1] / 2)) / TAIL), fw = exp(-dtr / WARM);
   for (let o = 0; o < W * H * 3; o++) (G[o] *= fg), (Wm[o] *= fw);
   for (const a of st.ac) {
     tint(st, a);
@@ -411,13 +413,13 @@ export function draw(display, params) {
       for (let x = x0; x <= x1; x++) {
         const px = x + 0.5 - ix, py = y + 0.5 - iy, s = px * dx + py * dy, c = px * dy - py * dx;
         const o = (y * W + x) * 3, ds = s - cl(s, 0, LF);
-        let w = soft(hyp(ds, c));
+        let w = cl((1.85 - hyp(ds, c)) / 0.8, 0, 1);
         if (w > 0) {
           // when whoever is here came onto the final, counted in gaps: a mark is lit about each whole number
           const q = 1 - (s - ds) * FK, e = (st.ts + log(q) / FR - st.ref) / st.gd, p = e - floor(e + 0.5);
-          // where the marks would come closer than about 5 LED the line is left whole
-          w *= 1 - cl((st.gd * V * VF0 * q - 4.5) / 2.5, 0, 1) * (1 - cl((0.41 - (p < 0 ? -p : p)) / 0.1, 0, 1));
-          (F[o] += 0.045 * w), (F[o + 1] += 0.165 * w), (F[o + 2] += 0.2 * w);
+          // where the marks would come closer than about 7 LED the line is left whole
+          w *= 1 - cl((st.gd * V * VF0 * q - 6) / 3, 0, 1) * (1 - cl((0.41 - (p < 0 ? -p : p)) / 0.1, 0, 1));
+          (F[o] += 0.045 * w), (F[o + 1] += 0.175 * w), (F[o + 2] += 0.21 * w);
         }
         const bs = s - LF, b = cl(5.3 - (c < 0 ? -c : c), 0, 1) * cl((1.7 - (bs < 0 ? -bs : bs)) / 0.7, 0, 1) * fl;
         if (b > 0) (F[o] += 0.5 * b), (F[o + 1] += b), (F[o + 2] += 0.7 * b);
