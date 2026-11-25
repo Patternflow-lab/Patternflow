@@ -274,5 +274,10 @@
   "hyperuniform": { "label": "초균일 점 무늬", "color": "#66a8d4" },
   "tractography": { "label": "신경 섬유 추적", "color": "#b193d8" },
   "circadian": { "label": "일주기 리듬", "color": "#dc7895" },
-  "contourintegration": { "label": "윤곽 통합", "color": "#996faa" }
+  "contourintegration": { "label": "윤곽 통합", "color": "#996faa" },
+  "kirkwood": { "label": "소행성대 공명", "color": "#c07ae6" },
+  "chemotaxis": { "label": "세균 주화성", "color": "#58c978" },
+  "kapitza": { "label": "진동 안정화", "color": "#c8e04a" },
+  "zpinch": { "label": "Z 핀치", "color": "#d65bbf" },
+  "vocaltract": { "label": "성도 파동관", "color": "#d9708f" }
 }
