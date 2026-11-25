@@ -256,7 +256,7 @@ function stepChannel(S, ch, dt, dtb, dtp, g) {
     } else if (c.len >= S.Ld * c.lm && ch.sq > 0.8) {
       c.pinch = 0.001;
     } else if (!ch.wedge && i > 0 && i < cs.length - 1 && full && c.dl > 5 && rnd() < 0.00045 * dtb) {
-      // a persister: stops growing, goes dim, and wedges where it stands
+      // a persister: it stops growing and goes dim, then wedges where it stands
       c.pers = 28 + 40 * rnd();
       c.dimT = 0.28;
       c.pinch = 0;
