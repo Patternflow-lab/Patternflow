@@ -349,7 +349,7 @@ export function update(dt, input, params) {
     st.se = cl(st.ks[1], 0, 3) * 0.5;
     st.M = members(st.ks[3]);
     // the sky has been busy: one storm nearly done, one under way, one just ended and fading
-    const sp = pow(1.7, cl(st.ks[2], -1, 1));
+    const sp = pow(1.7, 0.6 * cl(st.ks[2], -1, 1));
     spawn(st, 40 * sp, false);
     refreshMeans(st);
     spawn(st, 18 * sp, false);
