@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Germband Extension
 // Family:  intercalation
-// Idea:    A mosaic of about a hundred and twenty rounded cells with dark walls is pulled out along the panel and squeezed across it by cells that swap neighbours, so every colour band thickens as it travels up or down from the waist while its cells wedge in between the cells of the band beside it, and a wall flashes just before it gives way to the new one that opens across it.
+// Idea:    A mosaic of about a hundred and ten rounded cells with dark walls is pulled out along the panel and squeezed across it by cells that swap neighbours, so every colour band thickens as it climbs away from the waist while its cells wedge in between the cells of the band beside it, and a wall flashes as it shrinks away and the new one opens across it.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0..4, Narrowing=-1..1, Cells=-1..1
 //
-// Knob 1: Hue. Turns the palette round the wheel. The bands run through a third of it, and at 0 they open on teal and shade to blue and violet, with the walls a dark tint of each cell.
-// Knob 2: Flow. 0 to 4, opening at 2. How fast the tissue is pulled out: the stretch rate is 0.012 per second at 0, 0.08 at 2 and 0.2 at 4. At 0 the bands crawl and the cells mostly wobble and trade places by themselves. At 4 the bands leave the waist in about 20 s and swaps come several a second.
-// Knob 3: Narrowing. -1 to 1, opening at 0. How hard the sides are drawn in as the tissue lengthens: 0 of the stretch rate at -1, 0.6 at 0 and 1.2 at 1. At -1 the tissue is only pulled and new cells open up between the old ones, with few swaps. At 0 neighbours swap steadily. At 1 the cells are crowded into the middle line and swaps are frequent.
-// Knob 4: Cells. -1 to 1, opening at 0.06. How many cells fill the panel, 60 at -1, about 120 at the opening and 220 at 1, so a cell goes from 13 LED across to 7. New cells grow out of gaps and surplus cells shrink away.
+// Knob 1: Hue. Turns the palette round the wheel. The bands run through a third of it, and at 0 they open on green and run through teal and blue to violet. Each wall is a dark tint of its own cell.
+// Knob 2: Flow. 0 to 4, opening at 2. How fast the tissue is pulled out, as a stretch rate of 0.012 a second at 0, 0.08 at 2 and 0.2 at 4. A band takes about 3 minutes to climb from the waist to the top edge at 0, 28 s at 2 and 12 s at 4. At 0 the bands crawl and the walls wobble, with a swap every second or so. At 4 the bands pour out and swaps flash many times a second.
+// Knob 3: Narrowing. -1 to 1, opening at 0. How hard the sides are drawn in as the tissue lengthens, as a share of the stretch rate: 0 at -1, 0.6 at 0 and 1.2 at 1. At -1 the tissue is only pulled, and new cells grow out of the gaps that open between the old ones, all over the panel. At 1 the cells are driven sideways toward the middle line and wedge past each other, and the new cells come in at the edges.
+// Knob 4: Cells. -1 to 1, opening at 0.06. How many cells fill the panel: 60 at -1, about 110 at the opening and 190 at 1, so a cell is about 13 LED across at -1 and 7 at 1. When it changes, new cells grow out of gaps and surplus cells shrink away.
 
 const W = 64, H = 128;
 const CX = 32, CY = 64;
@@ -37,9 +37,10 @@ const QY = 1.2;            // distances along the panel count 1.2 times, so cell
 const STEP = 1 / 30;
 const POOL = 440;
 const BETA = 0.62;         // width of a colour band in the log of its distance from the waist
-const KAPPA = 0.93;        // rest spacing against a perfect hexagonal packing; random sizes jam a little under it
-const JIG = 0.05;
-const FL_LEN = 3.4, FL_PEAK = 4.8;
+const KAPPA = 0.93;        // rest spacing against a perfect hexagonal packing; cells of random size jam a little below it
+const JIG = 0.05;          // wobble of a cell, as a share of the rest spacing per second
+const FL_LEN = 3.4;        // a wall flashes when it falls under this many LED...
+const FL_PEAK = 4.8;       // ...after it was longer than this
 
 const hsv = (h, s, v, out, o) => {
   h = (h - floor(h)) * 6;
@@ -49,12 +50,13 @@ const hsv = (h, s, v, out, o) => {
   out[o + 2] = i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p;
 };
 // a dim orange or yellow reads brown on the panel, so that stretch of the wheel is paled
-const blue = (h) => {
-  const d = (h - floor(h) - 0.66) * 5;
-  return exp(-d * d);
-};
 const warm = (h) => {
   const d = (h - floor(h) - 0.1) * 6;
+  return exp(-d * d);
+};
+// pure blue is the darkest hue on the panel, so it is paled a little too
+const blue = (h) => {
+  const d = (h - floor(h) - 0.66) * 5;
   return exp(-d * d);
 };
 
@@ -63,7 +65,7 @@ export function setup(params) {
   const f = () => new Float32Array(POOL);
   params.st = {
     k: [0, 2, 0, 0.06], init: false, acc: 0, dt: STEP, S: 5.5,
-    a: 0.08, n: 0.6, nv: 119, r0: 9,
+    a: 0.08, n: 0.6, nv: 111, r0: 9,
     X: f(), Y: f(), JX: f(), JY: f(), V: f(), RV: f(), RAD: f(), DL: f(), PH: f(),
     SIDE: new Int8Array(POOL), USE: new Uint8Array(POOL),
     head: new Int16Array(1024), nxt: new Int16Array(POOL), hd2: new Int16Array(1024),
@@ -79,8 +81,10 @@ export function setup(params) {
 }
 
 // ---- the colour bands -------------------------------------------------------
-// A band is a stretch of the log of a cell's birth distance from the waist, and the bands are drawn at random, one table per
-// side of the waist. Each has a hue on a walk through a third of the wheel, a saturation, a brightness and a ragged edge.
+// A cell is labelled at birth with v, the stretch so far minus the log of its distance from the waist plus D0. The flow keeps
+// v of a moving cell the same, so a band of v is a band across the panel that thickens as it climbs. Bands are drawn at
+// random, one table per side of the waist: a hue that sweeps back and forth through a third of the wheel, a saturation,
+// a brightness and a ragged edge.
 function bandAt(st, side, k) {
   const T = st.bt[side];
   while (T.length <= k) {
@@ -130,7 +134,7 @@ function buckets(st, bs, head) {
   return gx;
 }
 
-// How far, in the stretched metric and in units of the rest spacing, the nearest cell is from a point.
+// How far, in the stretched metric, the nearest cell is from a point.
 function gapAt(st, x, y, bs, gx) {
   const { X, Y, USE, head, nxt } = st;
   const inv = 1 / bs, bx = floor((x - X0) * inv), by = floor((y - Y0) * inv);
@@ -166,7 +170,7 @@ function birth(st, x, y, ph) {
   return i;
 }
 
-// A new cell goes where the sheet has the biggest gap among a dozen tries, so it fills a hole and does not jam into a crowd.
+// A new cell goes where the sheet has the biggest gap among a dozen tries, so it fills a hole and does not crowd a neighbour.
 function spawn(st, bs, gx, ph, tries) {
   let bx = 0, by = 0, bg = -1;
   for (let c = 0; c < tries; c++) {
@@ -182,7 +186,7 @@ function spawn(st, bs, gx, ph, tries) {
   }
 }
 
-// seeds that leave the sheet are gone; the side walls hold the rest
+// seeds that leave through the top or bottom are gone; the side walls hold the rest
 function bound(st) {
   const { X, Y, USE } = st;
   for (let i = 0; i < POOL; i++) {
@@ -226,7 +230,7 @@ function step(st, live) {
   const gx = buckets(st, bs, st.head);
   const inv = 1 / bs, gy = ceil((Y1 - Y0) * inv) + 1;
   let np = 0;
-  const reach = 1.3 * r0 * 1.18;
+  const reach = 1.5 * r0;
   const { pi, pj, head } = st;
   for (let i = 0; i < POOL; i++) {
     if (!USE[i]) continue;
@@ -431,7 +435,7 @@ export function draw(display, params) {
     const bd = bandOf(st, SIDE[i], V[i]);
     const hh = h0 + 0.33 * bd.w + (RV[i] - 0.5) * 0.03;
     const w = warm(hh), bl = blue(hh);
-    hsv(hh, bd.s * (1 - 0.4 * w - 0.22 * bl) * (0.92 + 0.16 * fr(RV[i] * 7.31)), min(1, bd.v * (0.9 + 0.2 * fr(RV[i] * 13.7)) + 0.1 * w), tmp, 0);
+    hsv(hh, min(1, bd.s * (1 - 0.4 * w - 0.22 * bl) * (0.92 + 0.16 * fr(RV[i] * 7.31))), min(1, bd.v * (0.9 + 0.2 * fr(RV[i] * 13.7)) + 0.1 * w), tmp, 0);
     body[i * 3] = tmp[0];
     body[i * 3 + 1] = tmp[1];
     body[i * 3 + 2] = tmp[2];
