@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Write=0.5..4, Fanout=1.5..4, Policy=0..1
 //
-// Knob 1: Hue. Turns the key-to-colour map round the wheel: the smallest key is at one end of the gradient on a bar and the largest at the other. It opens with the low keys in teal and the high keys running through violet and rose to amber.
-// Knob 2: Write. 0.5 to 4 flushes a second, opening at 2. How often a small run drops in at the top. At 0.5 a bar arrives every two seconds and each merge finishes before the next begins. At 4 several merges zip at once in every lane and the top lane waits for room.
-// Knob 3: Fanout. 1.5 to 4, opening at 1.5: the size ratio between one level and the next. At 1.5 there are 7 thin lanes and the little merges at the top come often. At 4 there are 3 fat lanes, each overflow rewrites a run three times its size, and the bottom bar is as thick as a fifth of the panel.
-// Knob 4: Policy. 0 to 1, opening at 0.06. 0 is leveled compaction: each lane keeps one bar and every overflow merges into the bar below. Turned up, the top lanes turn tiered, collecting 2 to 4 bars side by side that fuse all at once, one more lane for every seventh of the turn, until at 1 only the bottom lane is leveled.
+// Knob 1: Hue. Turns the key-to-colour map round the wheel: the smallest key is at one end of the gradient on a bar and the largest at the other. It opens with the low keys in teal and the high keys running through blue, violet and rose to amber. The map also creeps round the wheel by itself, once in about 3.6 minutes, so this knob sets where it is now.
+// Knob 2: Write. 0.5 to 4, opening at 2: how fast small runs drop in at the top, about 0.4 flushes a second at 0.5, 1.3 at 2 and 2.3 at 4. At 0.5 a bar arrives every two or three seconds and most merges finish before the next begins. At 4 merges zip in several lanes at once and the top lane often has to wait for room.
+// Knob 3: Fanout. 1.5 to 4, opening at 1.5: the size ratio between one level and the next. At 1.5 there are 7 lanes of 6 to 8 LED bars and the little merges at the top come often. At 4 there are 3 lanes, the bars are up to 17 LED thick and every overflow rewrites a run three times its size.
+// Knob 4: Policy. 0 to 1, opening at 0.06. At 0 every lane is leveled: it keeps its bars sorted and an overflow pushes part of them into the lane below. Turned up, the top lanes become tiered, collecting 2 to 4 bars side by side that fuse all at once, one more lane for each sixth of the turn on 7 lanes, as far down as their bars still fit across the panel. The bottom lane stays leveled.
 
 const W = 64, H = 128;
 const { floor, ceil, min, max, abs, sqrt, exp, pow, log, round, sin, PI } = Math;
@@ -102,7 +102,7 @@ export function setup(params) {
     n: 0, nt: 0, fa: 2, tt: 2, caps: [], capw: [], rate: 2, hue: 0.46,
     lanes: [], jobs: [], dest: [], ghosts: [], sparks: [],
     yc: new Float32Array(NMAX + 1), bt: new Float32Array(NMAX + 1), ds: new Float32Array(NMAX + 1).fill(1), sc: new Float32Array(NMAX).fill(1),
-    focus: rnd(), mood: [0.5, 0.5], ph: [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], nextFlush: 0.2, buf: new Float32Array(W * H * 3), tmp: [0, 0, 0], tmp2: [0, 0, 0],
+    t0: 0, focus: rnd(), mood: [0.5, 0.5], ph: [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], nextFlush: 0.2, buf: new Float32Array(W * H * 3), tmp: [0, 0, 0], tmp2: [0, 0, 0],
   };
   for (let l = 0; l <= NMAX; l++) {
     st.lanes.push([]);
@@ -155,9 +155,9 @@ function laneTargets(st, l, o) {
   }
   const w = 0.84 + 0.32 * (l / (n - 1)), h = (H * w) / tw;
   // each lane sways on its own slow beat
-  o[0] = (H * acc) / tw + h / 2 + 0.1 * h * sin(st.t * (0.071 + 0.0173 * l) + 1.7 * l + st.ph[0]);
-  o[1] = cl(h * (0.34 + 0.15 * (l / (n - 1))) * (1 + 0.1 * sin(st.t * (0.083 + 0.0097 * l) + 3.1 * l + st.ph[2])), 6.2, 17);
-  o[2] = (capDisp(l, n) / st.caps[l]) * (1 + 0.09 * sin(st.t * (0.053 + 0.0131 * l) + 2.3 * l + st.ph[1]));
+  o[0] = (H * acc) / tw + h / 2 + 0.14 * h * sin(st.t * (0.071 + 0.0173 * l) + 1.7 * l + st.ph[0]);
+  o[1] = cl(h * (0.34 + 0.15 * (l / (n - 1))) * (1 + 0.12 * sin(st.t * (0.083 + 0.0097 * l) + 3.1 * l + st.ph[2])), 6.2, 17);
+  o[2] = (capDisp(l, n) / st.caps[l]) * (1 + 0.12 * sin(st.t * (0.053 + 0.0131 * l) + 2.3 * l + st.ph[1]));
 }
 
 function resize(st, nn) {
@@ -489,6 +489,7 @@ function initModel(st) {
   }
   for (let i = 0; i < PRE * 30; i++) step(st, 1 / 30);
   st.init = true;
+  st.t0 = st.t;
   for (let l = 0; l < st.n; l++) for (const r of st.lanes[l]) (r.x = r.xt), (r.a = 1), (r.dy = 0);
   st.nextFlush = 0.3;
 }
@@ -497,7 +498,7 @@ export function update(dt, input, params) {
   if (!params.st) setup(params);
   const st = params.st, kv = (input && input.knobValues) || st.k;
   st.k = [kv[0], kv[1], kv[2], kv[3]];
-  st.hue = 0.46 + cl(kv[0], 0, 1) + st.t * HDRIFT;
+  st.hue = 0.46 + cl(kv[0], 0, 1) + (st.t - st.t0) * HDRIFT;
   if (!st.init) {
     initModel(st);
     return;
