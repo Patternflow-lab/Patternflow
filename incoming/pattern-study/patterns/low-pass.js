@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Low Pass
 // Family:  flyover
-// Idea:    A slow low flight at dusk over an endless invented country of plains, lakes and ranges, drawn the way the Comanche engine drew its ground: every column of the panel casts a ray over a height map and fills the strip of land it sees, front to back, so that each successive ridge stands paler than the one before it in the haze, slopes that face the low sun glow amber while the shaded ones go violet-blue, the lakes hold the sky and a few glints of the sun, and the camera banks and climbs over the land it never crosses twice.
+// Idea:    A slow low flight at dusk over an endless invented country of plains, lakes and ranges, drawn the way the Comanche engine drew its ground: every column of the panel casts a ray over a height map and fills the strip of land it sees, front to back, so each ridge stands paler than the one in front of it in the haze, slopes that face the low sun glow amber while the shaded ones go violet, the lakes hold the sky and a few glints of the sun, and the camera banks and climbs over land it never crosses twice.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the height-field ray caster of the Voxel Space engine (Kyle Freeman, NovaLogic, Comanche, 1992) and the floating-horizon hidden-line method it grew from (Thomas Wright, 1973), both from memory; value noise on an integer lattice hash summed as fractal Brownian motion with ridged octaves (Ken Perlin, 1985; F. Kenton Musgrave, 1989); aerial perspective as exponential extinction toward the horizon colour (Leonardo da Vinci's prospettiva aerea, c. 1500; Koschmieder's law, 1924); Lambert's cosine law and Fresnel's reflectance for the lakes; the roll of the view by shearing the horizon row across the columns; the dusk palettes, the large-scale terrain regimes, the lake level and the clocks that drift light, haze and relief are original, pattern round 257
+// Lineage: the height-field ray caster of the Voxel Space engine (Kyle Freeman, NovaLogic, Comanche, 1992) and the floating-horizon method before it (Thomas Wright, 1973), both from memory; value noise on an integer lattice hash summed as fractal Brownian motion with ridged octaves (Ken Perlin, 1985; F. Kenton Musgrave, 1989); aerial perspective as exponential extinction toward the colour of the horizon (Leonardo's prospettiva aerea, c. 1500; Koschmieder, 1924); Lambert's cosine law and Fresnel's reflectance for lakes; the roll of the view as a shear of the horizon row; the dusk palettes, the terrain regimes, the lake level and the clocks that drift light, haze and relief are original, pattern round 257
 // Round:   257
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0..4, Relief=-1..1, Haze=-1..1
 //
-// Knob 1: Hue. Turns the whole palette through four skies: amber over indigo at 0 and at 1, a teal twilight at 0.25, a magenta and violet dusk at 0.5, a pale peach and powder-blue dawn at 0.75. The light drifts a little round whatever you pick.
-// Knob 2: Speed. How fast the camera flies, from hovering at 0, where only the light, the lake glints and the slow turn go on, to 24 units a second at 4; it opens at 2, 12 units a second, a calm cruise.
-// Knob 3: Relief. The height of the land: -1 is rolling plains with wide lakes, 0 (the opening) is hills and a distant range, 1 is alpine, ridges that stand higher than the horizon a third of the way up the sky. The camera keeps its clearance either way.
-// Knob 4: Haze. How thick the air is: -1 is crystal clear, with ridges running out to the horizon almost unpaled, 0.06 (the opening) pales a ridge a quarter at 70 units and nine tenths at 340, 1 is a milky fog that swallows everything beyond 100 units.
+// Knob 1: Hue. Turns the whole palette through four skies: amber over indigo at 0 and 1, a teal twilight at 0.25, a magenta and violet dusk at 0.5, a pale peach and powder-blue dawn at 0.75. The light drifts a little round whatever you pick.
+// Knob 2: Speed. How fast the camera flies, from a creep of 1 unit a second at 0 (hovering: the light, the clouds and the lake glints go on and the view pans slowly) to 23 at 4; it opens at 2, 12 units a second, a calm cruise.
+// Knob 3: Relief. The height and the character of the land: -1 is rolling plains with wide lakes, 0 (the opening) is hills with a range behind them, 1 is alpine, peaks that stand well above the horizon. The camera keeps its clearance either way.
+// Knob 4: Haze. How thick the air is: -1 is crystal clear and the far ridges stay dark, 0.06 (the opening) pales a ridge by a quarter at 70 units and by two thirds at 300, 1 is a milky fog that has paled most of the land within 100 units.
 
 const W = 64;
 const H = 128;
@@ -73,8 +73,8 @@ function vn(x, z, salt) {
 
 // octaves: the cell of each, the weight each carries, the angle it is turned by
 const CELL = [520, 260, 130, 62, 30, 15, 7.5, 3.8];
-const AMP = [0.55, 0.8, 1.0, 0.7, 0.3, 0.1, 0.03, 0.012]; // rolling ground: the fine octaves are quiet
-const AMR = [0.75, 0.8, 0.9, 0.75, 0.5]; // ridged ground keeps its spurs
+const AMP = [0.55, 0.8, 1.0, 0.85, 0.45, 0.15, 0.04, 0.012]; // rolling ground: the fine octaves are quiet
+const AMR = [0.6, 0.8, 0.95, 0.9, 0.65]; // ridged ground keeps its spurs
 const ASUM = AMP.reduce((s, a) => s + a, 0);
 const RSUM = AMR.reduce((s, a) => s + a, 0);
 const ANG = [0.0, 0.9, 1.9, 2.8, 0.45, 1.5, 2.3, 0.7];
@@ -84,7 +84,6 @@ const ICELL = CELL.map((c) => 1 / c);
 
 let gR = 70; // relief of the land, in units
 let gB = 0; // how far the Relief knob leans the regime toward plains (-) or ranges (+)
-let gSea = -10; // the level the lakes stand at
 
 // Height of the ground at (x, z): rolling or ridged octaves, as much of each
 // as the large-scale regime noise says, lifted or sunk by a second regime noise.
@@ -252,6 +251,7 @@ export function setup(params) {
     palD: 0,
     seaD: 0,
     clrD: 1,
+    aOff: 0,
     R: 70,
     sea: -10,
     pal: new Float32Array(NC * 3),
@@ -313,8 +313,9 @@ function drive(S) {
   S.tw = cl(0.5 + 0.38 * sin((TAU * t) / 317 + p[4]) + 0.14 * sin((TAU * t) / 113 + p[5]), 0, 1);
   S.hazeMul = exp(0.38 * sin((TAU * t) / 187 + p[6]) + 0.22 * sin((TAU * t) / 71 + p[7]));
   S.reliefMul = exp(0.3 * sin((TAU * t) / 263 + p[8]) + 0.15 * sin((TAU * t) / 97 + p[9]));
-  S.palD = 0.06 * sin((TAU * t) / 389 + p[10]) + 0.035 * sin((TAU * t) / 241 + p[11]);
+  S.palD = 0.085 * sin((TAU * t) / 389) + 0.05 * sin((TAU * t) / 241);
   S.seaD = 0.1 * sin((TAU * t) / 233 + p[12]) + 0.05 * sin((TAU * t) / 127 + p[13]);
+  S.aOff = 0.1 * sin((TAU * t) / 283 + p[23]) + 0.06 * sin((TAU * t) / 131 + p[24]);
   S.clrD = exp(0.22 * sin((TAU * t) / 109 + p[14]) + 0.1 * sin((TAU * t) / 41 + p[15]));
 }
 
@@ -334,10 +335,10 @@ function step(S, dt) {
   S.sea = S.R * (-0.36 - 0.14 * S.k[2] + S.seaD);
   gR = S.R;
   gB = 0.2 * S.k[2];
-  gSea = S.sea;
-  const v = 6 * S.k[1];
-  const mv = 0.3 + 0.7 * min(1, v / 5);
-  const rate = hdgRate(t, S.ph) * mv;
+  // hovering is a creep of a unit a second and a slow pan, so the ground is new in a few minutes
+  const v = 1.2 + 5.5 * S.k[1];
+  const mv = 0.3 + 0.7 * min(1, v / 6);
+  const rate = hdgRate(t, S.ph) * mv + 0.012 * (1 - min(1, v / 6));
   S.psi += rate * dt;
   const fx = sin(S.psi);
   const fz = cos(S.psi);
@@ -384,7 +385,6 @@ export function update(dt, input, params) {
   dt = cl(dt || 0, 0, 0.1);
   if (S.first) {
     S.k = tg.slice();
-    S.first = true;
     step(S, 1 / 30);
     S.first = false;
     for (let i = 0; i < 450; i++) step(S, 1 / 30);
@@ -395,7 +395,6 @@ export function update(dt, input, params) {
   for (let i = 0; i < 4; i++) S.k[i] += (tg[i] - S.k[i]) * (1 - exp(-dt / tc[i]));
   step(S, dt);
 }
-
 
 // ---------------------------------------------------------------- the sky
 
@@ -423,6 +422,7 @@ let gCb = 0;
 let SR = 0;
 let SG_ = 0;
 let SB_ = 0;
+let SUNGLOW = 0;
 // The sky at sub-column index xi (half LEDs) and vf rows above the horizon plus VO, by linear
 // interpolation between rows, so that the tilt of the horizon never shows as a seam.
 function skyAt(xi, vf) {
@@ -444,7 +444,6 @@ function skyAt(xi, vf) {
   SB_ = b < 0 ? 0 : b > 1 ? 1 : b;
   SUNGLOW = gq + 0.6 * gr + 0.15 * gp;
 }
-let SUNGLOW = 0;
 
 // ---------------------------------------------------------------- the picture
 
@@ -454,7 +453,6 @@ export function draw(display, params) {
   const t = S.t;
   gR = S.R;
   gB = 0.2 * S.k[2];
-  gSea = S.sea;
   const sea = S.sea;
   buildPalette(S, S.k[0] + S.palD);
   const P = S.pal;
@@ -551,6 +549,7 @@ export function draw(display, params) {
   const sR = cel * sin(S.relAz);
   const sU = sin(S.el);
   const invR = 1 / (1.8 * S.R);
+  const aOff = S.aOff;
   const WGT = 0.5;
 
   for (let i = 0; i < NSTEP; i++) {
@@ -638,17 +637,17 @@ export function draw(display, params) {
         }
       }
       if (ww < 1) {
-        const a = cl((raw - sea) * invR, 0, 1);
+        const a = cl((raw - sea) * invR + aOff, 0, 1);
         const pat = EP[k] + (EP[k + 1] - EP[k]) * f;
         const gr = (c1 + f * (2 * c2 + 3 * c3 * f)) * izd;
         const gf = i > 0 ? (h - prevH[j]) * idz - UJ[j] * gr : 0;
         const inN = 1 / sqrt(1 + gf * gf + gr * gr);
         const L = (sU - gf * sF - gr * sR) * inN;
         const lit = L <= 0.04 ? 0 : L >= 0.6 ? 1 : sm(0.04, 0.6, L);
-        let ai = ((a + 0.17 * (pat - 0.5)) * 63 + 0.5) | 0;
+        let ai = ((a + 0.34 * (pat - 0.5)) * 63 + 0.5) | 0;
         ai = ai < 0 ? 0 : ai > 63 ? 63 : ai;
         const slope = sqrt(gf * gf + gr * gr);
-        const dim = (1 - 0.3 * sm(0.5, 1.3, slope)) * (0.84 + 0.16 * inN);
+        const dim = (1 - 0.35 * sm(0.3, 1.2, slope)) * (0.7 + 0.3 * inN);
         const a3 = ai * 3;
         lr = (ALS[a3] + (ALL[a3] - ALS[a3]) * lit) * dim;
         lg = (ALS[a3 + 1] + (ALL[a3 + 1] - ALS[a3 + 1]) * lit) * dim;
