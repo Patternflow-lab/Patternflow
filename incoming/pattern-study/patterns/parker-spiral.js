@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the Parker spiral, the curve every parcel of solar wind traces in the Sun's rotating frame, phi = phi0 - Omega r / v (Eugene Parker, 1958, from memory); corotating interaction regions, where fast wind from a coronal hole overtakes slow wind and compresses it (Smith and Wolfe, 1976, and Pizzo, 1978, from memory); magnetic sectors of alternating polarity divided by the heliospheric current sheet (from memory); the streamline model drawn here, the drift and death of the holes, the sector evolution and the drawing are original, pattern round 247
+// Lineage: the Parker spiral, the curve every parcel of solar wind traces in the Sun's rotating frame, phi = phi0 - Omega r / v (Eugene Parker, 1958, from memory); corotating interaction regions, where fast wind from a coronal hole overtakes slow wind and compresses it (Smith and Wolfe, 1976, and Pizzo, 1978, from memory); magnetic sectors of alternating polarity divided by the heliospheric current sheet (from memory); the parcel-path model drawn here, the drift and death of the holes, the sector evolution and the drawing are original, pattern round 247
 // Round:   247
 // ===============================
 // @matrix 64x128
@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the palette round the wheel. It opens on gold for one magnetic polarity and blue-violet for the other, and the two stay about 200 degrees apart as they turn. Compression ridges go pale at every setting.
 // Knob 2: Rotation. 0 to 4, opening at 2. How fast the whole picture turns, counter-clockwise, as the arms trail. At 0 the picture is seen from the Sun's own frame and the arms hold their place while the wind flows out along them. At 2 it turns about 6 degrees a second, and at 4 about 18, a lively sweep.
 // Knob 3: Streams. -1 to 1, opening at 0. How many fast streams there are and how hard they push. At -1 there is no stream and the wind is the plain Parker spiral, two or four sectors of one polarity each with a thin pale seam between them. At 0 two or three streams pile the slow wind into ridges. At 1 four strong streams cross each other and the ridges fold.
-// Knob 4: Winding. -1 to 1, opening at about 0.06. How tightly the spiral is wound, the Sun's spin over the wind speed. At -1 the arms run almost straight out and leave the corners at a slant of 20 degrees. At 0.06 they curl about a third of a turn by the corners. At 1 the slow wind makes 1.7 turns and the ridges lie round the Sun like rings.
+// Knob 4: Winding. -1 to 1, opening at about 0.06. How tightly the spiral is wound, the Sun's spin over the wind speed. At -1 the arms run almost straight out and curl 30 degrees by the corners. At 0.06 the slow wind curls three quarters of a turn by the corners. At 1 it makes 1.8 turns and the ridges lie round the Sun like rings. The wind also speeds up and slows down on its own over a few minutes, so the winding breathes about 20 percent either side of where the knob puts it.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, exp, sin, cos, atan2, pow, PI } = Math;
@@ -93,7 +93,7 @@ function spawn(st, s, c) {
   s.c = c;
   s.w = tw(0.3, 0.52);                 // 1.67 w is the full width at half height, 29 to 50 degrees
   s.h = tw(0.75, 1.1);                 // 260 to 390 km/s over the 350 km/s of the slow wind
-  s.dv = tw(-0.024, 0.024);            // rad/s, up to 1.4 degrees a second
+  s.dv = tw(-0.034, 0.034);            // rad/s, up to 2 degrees a second
   s.age = 0;
   s.life = tw(70, 220);
   s.gap = 0;
@@ -137,7 +137,7 @@ function sources(st, sGate, amp, noiseAmp) {
   const t = st.t;
   for (let j = 0; j < NS; j++) {
     const a = (j / NS) * TP;
-    let sp = 1 + noiseAmp * (0.55 * sin(2 * a + ph[0] + 0.019 * t) + 0.45 * sin(3 * a + ph[1] - 0.023 * t) + 0.3 * sin(5 * a + ph[2] + 0.031 * t) + 0.25 * sin(a + ph[3] + 0.013 * t));
+    let sp = 1 + noiseAmp * (0.55 * sin(2 * a + ph[0] + 0.041 * t) + 0.45 * sin(3 * a + ph[1] - 0.049 * t) + 0.3 * sin(5 * a + ph[2] + 0.063 * t) + 0.25 * sin(a + ph[3] + 0.027 * t));
     for (let i = 0; i < NSL; i++) {
       const s = slots[i];
       if (s.gap > 0) continue;
@@ -172,7 +172,7 @@ function sources(st, sGate, amp, noiseAmp) {
 
 // ---- the table -----------------------------------------------------------
 // One row per radius. Every source longitude puts its share of wind where its parcel is at that radius,
-// spread over the stretch between it and its neighbour, so a gap between two streamlines is a thin
+// spread over the stretch between it and its neighbour, so a gap between two parcel paths is a thin
 // stretch of wind and a crowd of them a thick one.
 function fill(st, K) {
   const { v, pw, wt, x, sj, cb, sb, Dt, Dw, dT, dW } = st;
@@ -238,7 +238,9 @@ export function update(dt, input, params) {
   st.init = true;
   stepWorld(st, dt);
   st.dtl = dt;
-  st.rot += dt * (st.k[1] <= 0 ? 0 : 2.2 * (PI / 180) * pow(cl(st.k[1], 0, 4), 1.5));
+  // the turn rate wanders a third either way, so the arms do not keep time with anything else
+  const wob = 1 + 0.3 * sin(0.037 * st.t + st.ph[0]) + 0.15 * sin(0.0113 * st.t + st.ph[1]);
+  st.rot += dt * wob * (st.k[1] <= 0 ? 0 : 2.2 * (PI / 180) * pow(cl(st.k[1], 0, 4), 1.5));
   st.stale = true;
 }
 
@@ -252,13 +254,13 @@ export function draw(display, params) {
     // fast streams: how many are let in and how hard they push
     const gate = [0, 0, 0, 0], thr = [-0.95, -0.7, -0.4, 0];
     for (let i = 0; i < NSL; i++) gate[i] = sstep(thr[i], thr[i] + 0.6, s3);
-    const amp = 0.5 + 0.5 * sstep(-0.9, 1, s3);
+    const amp = 0.5 + 0.8 * sstep(-0.9, 1, s3);
     const noiseAmp = 0.05 + 0.04 * sstep(-1, 0.2, s3);
     sources(st, gate, amp, noiseAmp);
     const ph7 = st.ph[7];
     st.K = exp(-2.8214 + 1.4979 * s4 + -0.5090 * s4 * s4);
     // the whole wind gets a little faster or slower now and then, which unwinds and winds the spiral
-    st.K *= 1 + 0.16 * sin(0.047 * st.t + ph7) + 0.09 * sin(0.0191 * st.t + 2 * ph7 + 1);
+    st.K *= 1 + 0.2 * sin(0.071 * st.t + ph7) + 0.11 * sin(0.029 * st.t + 2 * ph7 + 1);
     fill(st, st.K);
   }
   const { Dt, Dw, pr, pa } = st;
@@ -271,7 +273,8 @@ export function draw(display, params) {
   const mid = [1, 0.95, 0.9];
   const gr = [0, 0, 0];
   hsv(0.62 + hue, 0.7, 1, gr);
-  const zc = 2.1 + 0.3 * sstep(-1, 0, s3);
+  // tight winding spreads a ridge over more LED, so it gets a lower knee to keep its light
+  const zc = (2.1 + 0.3 * sstep(-1, 0, s3)) * (1 - 0.3 * sstep(0.05, 0.16, K));
   const rot = st.rot, kk = K / VREF, ka = NA / TP;
   const t = st.t;
   const breathe = 1 + 0.06 * sin(0.37 * t) + 0.04 * sin(0.91 * t + 1);
