@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns every style colour round the wheel together; at 0 the twelve are the earth tones of ochre, terracotta, slate, sage and plum on a dark warm ground.
 // Knob 2: Tempo. 0.5 to 8 generations a second, opening at 2: how fast the layers are laid down at the foot of the panel and the picture drifts up, from a row every two seconds to eight a second.
-// Knob 3: Invention. -1 to 1, opening at 0: how often a potter makes up a new style. At -1 a new thread opens only every half minute or so and a few broad spindles live long; at 1 new styles come several a second and the lanes fill with thin, quick ones.
-// Knob 4: Conformity. -1 to 1, opening near 0: how the potters copy. At -1 they favour the rare, shares stay even and many slim spindles live side by side; at 0 they copy at random; at 1 they follow the crowd and one fat spindle takes most of the panel before a newer one unseats it.
+// Knob 3: Invention. -1 to 1, opening at 0: how often a potter makes up a new style. At -1 a new thread opens about every half minute and a few broad spindles live a couple of minutes; at 1 one opens most seconds and the lanes fill with slimmer, shorter ones.
+// Knob 4: Conformity. -1 to 1, opening near 0: how the potters copy. At -1 they favour the rare, shares stay even and many slim spindles live side by side; at 0 they copy at random; at 1 they follow the crowd and one fat spindle holds nearly all of the panel for half a minute before a newer one unseats it.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, exp, log, pow, sin, PI } = Math;
@@ -35,9 +35,9 @@ const EPS = 0.03;          // a floor under every share so a new style is not st
 const P0 = 0.2;            // share at which the lens is full
 const COOL = 7;            // generations a lane rests dark before the next style may open in it
 const PRIME = 320;
-// nine-tap binomial blur over generations (sigma 2 rows), sums to 1
-const KER = [1, 8, 28, 56, 70, 56, 28, 8, 1].map((v) => v / 256);
-const KH = 4;
+// thirteen-tap binomial blur over generations (sigma 1.7 rows), sums to 1
+const KER = [1, 12, 66, 220, 495, 792, 924, 792, 495, 220, 66, 12, 1].map((v) => v / 4096);
+const KH = 6;
 const SLAG = KH + 1;       // the newest generation drawn is this far behind the newest simulated
 
 // earth tones in the order they are handed out: neighbours in the order are far apart in hue
@@ -102,6 +102,12 @@ export function setup(params) {
     pal: [], palKey: -1,
     pa: new Float32Array(C).map(() => tw(0, TP)),
     pb: new Float32Array(C).map(() => tw(0, TP)),
+    wl: new Float32Array(C).map(() => tw(0.04, 0.11)),
+    pool: [0, 1, 2, 3, 4, 5].map((k) => ({
+      f: [tw(0.04, 0.1), tw(0.011, 0.03), tw(0.03, 0.08), tw(0.009, 0.025), tw(0.02, 0.06)],
+      p: [tw(0, TP), tw(0, TP), tw(0, TP), tw(0, TP), tw(0, TP)],
+      sx: tw(10, 20), sy: tw(20, 36), a0: tw(0.6, 1), a: 0, cx: 0, cy: 0, gy: 0, gx: new Float32Array(W),
+    })),
     ofs: floor(tw(0, 12)),
   });
   for (let l = 0; l < C; l++) st.lastCi[l] = (l * 5 + st.ofs) % C;
@@ -118,10 +124,10 @@ const gi = (g, l) => (((g % RING) + RING) % RING) * C + l;
 // ---- the model: one generation of potters -------------------------------------
 function rates(st) {
   const k3 = cl(st.k[2], -1, 1), k4 = cl(st.k[3], -1, 1);
-  // inventions a generation, 0.015 to 0.45 on a log scale; 0.08 in the middle
-  const lam = exp(log(0.015) + (log(0.45) - log(0.015)) * (k3 + 1) * 0.5);
-  // exponent of the share: 0.55 at -1, 1 at 0, 1.6 at 1
-  const b = k4 < 0 ? pow(0.55, -k4) : pow(1.6, k4);
+  // inventions a generation, 0.015 to 0.35 on a log scale; 0.07 in the middle
+  const lam = exp(log(0.015) + (log(0.35) - log(0.015)) * (k3 + 1) * 0.5);
+  // exponent of the share: 0.55 at -1, 1 at 0, 1.4 at 1
+  const b = k4 < 0 ? pow(0.55, -k4) : pow(1.4, k4);
   return { lam, b };
 }
 
@@ -141,7 +147,9 @@ function stepGen(st, lam, b) {
   }
   // inventions this generation; when almost nothing is alive one is made sure of
   let want = 0;
-  const lamE = live <= 2 ? max(lam, 0.4) : lam;
+  // following the crowd starves a new style, so the potters try more often, and a new one comes with a few followers
+  const lamE = live <= 2 ? max(lam, 0.4) : lam * (b > 1 ? 1 + 5 * (b - 1) : 1);
+  const seed = b > 1 ? 1 + floor(3.3 * (b - 1)) : 1;
   for (let q = exp(-lamE), p = rnd(); p > q; p *= rnd()) want++;
   const nc = new Int16Array(C);
   let made = 0;
@@ -154,9 +162,9 @@ function stepGen(st, lam, b) {
       if (cnt[l] === 0 && nc[l] === 0 && n - freeAt[l] >= COOL) { lane = l; break; }
     }
     if (lane < 0) break;
-    nc[lane] = 1;
+    nc[lane] = seed;
     born.push(lane);
-    made++;
+    made += seed;
   }
   // everybody else copies
   for (let i = made; i < NP; i++) {
@@ -187,7 +195,7 @@ function stepGen(st, lam, b) {
     age[l] = 0;
     st.lastCi[l] = ci(st, sid[l]);
     st.peak[l] = 0;
-    // the two rows before the birth already wear the new colour, for the blur's fringe
+    // the rows before the birth already wear the new colour, for the blur's fringe
     for (let d = 1; d <= KH; d++) st.CI[gi(n - d, l)] = st.lastCi[l];
   }
   // a style that has stood four generations makes its lane the one the ladder steps from
@@ -245,10 +253,21 @@ export function draw(display, params) {
   }
   const pal = st.pal;
   const f = st.frac, t = st.t;
+  // soft pools of warm light wander over the panel on slow clocks of their own, lighting the lenses where they pass
+  const NPOOL = st.pool.length;
+  for (let k = 0; k < NPOOL; k++) {
+    const q = st.pool[k];
+    q.cx = 32 + 30 * sin(q.f[0] * t + q.p[0]) + 14 * sin(q.f[1] * t + q.p[1]);
+    q.cy = 64 + 60 * sin(q.f[2] * t + q.p[2]) + 24 * sin(q.f[3] * t + q.p[3]);
+    // each pool also swells and fades on its own clock
+    q.a = q.a0 * (0.55 + 0.45 * sin(q.f[4] * t + q.p[4]));
+    for (let x = 0; x < W; x++) q.gx[x] = exp(-((x - q.cx) * (x - q.cx)) / (2 * q.sx * q.sx));
+  }
   const hw = new Float32Array(C), it = new Float32Array(C), cid = new Int16Array(C);
   const gNew = st.n - SLAG;
   for (let y = 0; y < H; y++) {
     const g0 = gNew - (H - 1 - y);
+    for (let k = 0; k < NPOOL; k++) { const q = st.pool[k]; q.gy = exp(-((y - q.cy) * (y - q.cy)) / (2 * q.sy * q.sy)); }
     for (let l = 0; l < C; l++) {
       const i0 = gi(g0, l), i1 = gi(g0 + 1, l);
       const s0 = st.S[i0], s1 = st.S[i1];
@@ -257,14 +276,18 @@ export function draw(display, params) {
       // the lens is the share to a power; below 1.5 percent a soft thread takes over
       const dn = st.D[i0] + (st.D[i1] - st.D[i0]) * f;
       const lens = HWMAX * pow(cl(pn / P0, 0, 1), 0.8);
-      const thread = 0.5 + 0.5 * sstep(0.003, 0.02, pn);
-      const breath = 1 + 0.07 * sin(0.29 * t + 0.045 * y + st.pa[l]) + 0.04 * sin(0.093 * t - 0.031 * y + st.pb[l]);
+      const thread = 0.8 + 0.2 * sstep(0.003, 0.02, pn);
+      // each lane swells and eases on a clock of its own, a little along its length too, so a slow scroll still moves
+      const breath = 1 + 0.13 * sin(st.wl[l] * t + 0.045 * y + st.pa[l]) + 0.05 * sin(0.093 * t - 0.031 * y + st.pb[l]);
       hw[l] = max(lens * breath, thread);
       // a style on its way out lets go of the thread sooner than a new one builds it
-      it[l] = sstep(0.0012 + 0.012 * dn, 0.012 + 0.04 * dn, pn);
+      it[l] = sstep(0.008 + 0.01 * dn, 0.024 + 0.04 * dn, pn);
     }
     for (let x = 0; x < W; x++) {
-      let r = BG[0], g = BG[1], b = BG[2];
+      let lt = 0;
+      for (let k = 0; k < NPOOL; k++) lt += st.pool[k].a * st.pool[k].gx[x] * st.pool[k].gy;
+      if (lt > 1.3) lt = 1.3;
+      let r = BG[0] + 4 * lt, g = BG[1] + 2 * lt, b = BG[2] + lt;
       const lx = x - X0;
       if (lx >= 0 && lx < C * LW) {
         const l = floor(lx / LW);
@@ -275,7 +298,7 @@ export function draw(display, params) {
         if (cov > 0.002) {
           const u = min(1, d / max(w, 0.6));
           const core = 1 - u * u;
-          const v = 0.72 + 0.28 * core;
+          const v = (0.72 + 0.28 * core) * (0.55 + 0.6 * lt);
           const c = pal[cid[l]];
           const lift = 0.16 * core * core * core;
           const cr = c[0] * v + (255 - c[0]) * lift;
