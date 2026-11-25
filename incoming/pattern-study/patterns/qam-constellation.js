@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: quadrature amplitude modulation and its square lattices (C. R. Cahn 1960 and the modem work of the 1960s, from memory), the constellation display of a vector signal analyser with its intensity-graded persistence, the impairments as a receiver engineer reads them off that display (additive noise as round clouds, laser phase noise as arcs, carrier frequency offset as rings, IQ gain imbalance as a rectangle, quadrature error as a rhombus, amplifier compression and Kerr phase as a pulled-in and twisted lattice), polarization-multiplexed coherent optical receivers of the 2000s where each polarization leaks into the other, rate-adaptive transceivers that change the modulation order, all from memory; the two stacked squares, the three-colour scheme with warm errors, the slow wandering of every impairment and the event schedule are original, pattern round 246
+// Lineage: quadrature amplitude modulation and its square lattices (C. R. Cahn 1960 and the modem work of the 1960s, from memory), the constellation display of a vector signal analyser with its intensity-graded persistence, the impairments as a receiver engineer reads them off that display (additive noise as round clouds, laser phase noise as arcs, carrier frequency offset as rings, IQ gain imbalance as a rectangle, quadrature error as a rhombus, amplifier compression and Kerr phase as a pulled-in and twisted lattice, unevenly spaced modulator levels as rows and columns that bunch), polarization-multiplexed coherent optical receivers of the 2000s where each polarization leaks into the other, rate-adaptive transceivers that change the modulation order, all from memory; the two stacked squares, the colour scheme with warm errors, the slow wandering of every impairment, the drifting bit balance that lights one side of a square more than the other, and the event schedule are original, pattern round 246
 // Round:   246
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Noise=0..4, Phase=-1..1, Crosstalk=-1..1
 //
-// Knob 1: Hue. Turns the three colours round the wheel together. At 0 the upper square (X polarization) is cyan-teal, the lower (Y polarization) rose-violet, and symbols that land far from their ideal point are amber.
-// Knob 2: Noise. 0 to 4, opening at 2: additive noise. At 0 every point is a pin-sharp disc. At 2 the points are clear round clouds with dark between them. At 4 the clouds touch and the lattice is nearly a filled square with warm edges.
-// Knob 3: Phase. -1 to 1, opening at 0: laser phase noise and carrier offset. At -1 the loop is locked solid and the clouds are round. At 0 the outer points are short arcs and lock is lost about twice a minute. At 1 the arcs are long, the square shivers, and lock is lost every few seconds so the squares keep spinning into three rings.
-// Knob 4: Crosstalk. -1 to 1, opening at 0.06: how much of each polarization leaks into the other. At -1 none. In the middle a slight ghosting, with a transient now and then that the equalizer tracks back down. At 1 every point is a small tilted lattice of the other square, tinted with the other square's colour.
+// Knob 1: Hue. Turns the colours round the wheel together. At 0 the upper square (X polarization) is cyan-teal, the lower (Y polarization) rose-violet, and symbols thrown far from their ideal point by a lost lock or a burst are amber. Each square's own hue also drifts a little by itself.
+// Knob 2: Noise. 0 to 4, opening at 2: additive noise. At 0 every point is a sharp disc, 3 LED across on 16 points and larger on 4. At 2 the points are clear round clouds with dark between them. At 4 the clouds touch and each square is nearly a filled haze, drawn a little smaller so its soft edge stays on its half.
+// Knob 3: Phase. -1 to 1, opening at 0: laser phase noise and carrier offset. At -1 the loop is locked solid and the clouds are round. At 0 the outer points are short arcs and each square loses lock about every half minute. At 1 the arcs are long, the square shivers, and lock is lost every few seconds so the squares keep spinning into rings, amber while they turn fast.
+// Knob 4: Crosstalk. -1 to 1, opening at 0.06: how much of each polarization leaks into the other. At -1 none. In the middle a slight ghosting, with a transient now and then that the equalizer tracks back down. At 1 every point is a small tilted lattice of the other square, slowly turning, and both squares shade toward the hue between them.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, exp, sqrt, sin, cos, pow, PI } = Math;
@@ -50,7 +50,7 @@ const GA = 0, IB = 1, SK = 2, RT = 3, DX = 4, DY = 5, CP = 6, TW = 7, BR = 8, W1
 const OUT = [[9, 13], [11, 7.5], [8.5, 12.5], [6.5, 10], [7, 9.5], [12, 5.5], [14, 10.5], [9.5, 15], [11, 15],
   [8, 12], [13, 7], [10, 16], [15, 9], [7.5, 11], [12.5, 17],
   [6, 8.5], [7.5, 5], [14, 19], [8, 11.5], [9, 6.5], [10.5, 14], [0.18, 0.14],
-  [10, 7], [6.5, 12], [8.5, 14.5], [13.5, 9], [80, 110], [95, 65], [60, 90]];
+  [10, 7], [6.5, 12], [8.5, 14.5], [13.5, 9], [80, 110], [95, 65], [60, 90], [75, 100], [115, 70], [65, 85], [105, 125]];
 const NOU = OUT.length;
 
 function newPol(p) {
@@ -170,11 +170,17 @@ function emit(st, p, dt, kn) {
   const P = st.pol[p], Q = st.pol[1 - p], s = P.s, { A, E, C } = st;
   const c1 = P.c[0], c2 = P.c[1], c3 = P.c[2], o1 = Q.c[0], o2 = Q.c[1], o3 = Q.c[2];
   const R2 = 2 * (c1 * c1 + c2 * c2 + c3 * c3), iR2 = 1 / R2;
-  const kap = min(0.5, kn.kap * (exp(0.3 * s[KF]) + st.ktr));
+  const kap = min(0.36, kn.kap * (exp(0.3 * s[KF]) + st.ktr));
   const psi = p ? PI - st.psi : st.psi, kc = kap * cos(psi), kq = kap * sin(psi);
-  const ib = 0.1 * cl(s[IB], -2, 2), eps = 0.11 * cl(s[SK], -2, 2), skS = sin(eps), skC = cos(eps);
-  const ri = 0.07 * cl(s[RI], -2, 2), rs = 0.07 * cl(s[RS], -2, 2);
-  const cmp = 0.08 * cl(s[CP] + 0.5, -1, 2), tw = 0.13 * cl(s[TW], -2, 2);
+  const jit = P.jit * (1 - 0.65 * sstep(0.07, 0.2, kap));   // under crosstalk a big point gives way to the copy of the other lattice
+  const sn = kn.sig * P.nsc * exp(0.35 * cl(s[NZ], -2, 2)) * (1 + P.burst), sig = sqrt(sn * sn + jit * jit);
+  // how soft the square is drawn: by its noise, and by the other lattice's copies once noise has blurred them together
+  P.sig = sqrt(sig * sig + pow(0.5 * kap * (o1 + o2 + o3) * min(1, sn / 0.7), 2));
+  // a cloud that noise has filled in shows its shape more than its points: it is squeezed and leaned further
+  const hz = 1 + 0.6 * sstep(1.5, 3, sig);
+  const ib = hz * cl(0.08 * s[IB] + 0.07 * s[SL + 5], -0.2, 0.2), eps = hz * cl(0.09 * s[SK] + 0.07 * s[SL + 6], -0.22, 0.22), skS = sin(eps), skC = cos(eps);
+  const ri = 0.07 * hz * cl(s[RI], -2, 2), rs = 0.07 * hz * cl(s[RS], -2, 2);
+  const cmp = 0.08 * cl(s[CP] + 0.5, -1, 2), tw = 0.11 * cl(s[TW], -2, 2);
   // the modulator's levels are not evenly spaced: each axis has its inner and outer levels pushed apart or to one side
   const lk = (c2 / 7.25) * (1 - c3 / 5), aI = lk * cl(s[LV], -1.8, 1.8), bI = lk * cl(s[LV + 1], -1.8, 1.8), aQ = lk * cl(s[LV + 2], -1.8, 1.8), bQ = lk * cl(s[LV + 3], -1.8, 1.8);
   const c2i = c2 + aI, c2q = c2 + aQ;
@@ -182,15 +188,14 @@ function emit(st, p, dt, kn) {
   const jitA = 0.45 * kn.sp * P.psc * s[JT];
   const th = res + P.theta, dth = P.dth;
   const sp = kn.sp * P.psc * exp(0.3 * cl(s[PN], -2, 2));
-  const sig = sqrt(pow(kn.sig * P.nsc * exp(0.35 * cl(s[NZ], -2, 2)) * (1 + P.burst), 2) + P.jit * P.jit);
-  P.sig = sig;
   // the gain control holds the total power: under heavy noise and crosstalk the lattice itself is smaller
-  const ext = c1 + c2 + c3, gfit = min(1, 25.5 / (ext + 0.7 * kap * (o1 + o2 + o3) + 2 * (sig - P.jit)));
+  const ext = c1 + c2 + c3, gfit = min(1, 25.5 / (ext + 0.85 * kap * (o1 + o2 + o3) + 2 * (sig - jit)));
   // a small lattice has room to wander
   const room = cl((29 - gfit * ext) / 7.25, 1, 1.7);
-  const g = gfit * (1 + room * cl(0.1 * s[GA] + 0.07 * s[SL + 2], -0.21, 0.21)), cx = XC + 2.2 * room * cl(s[DX], -1.8, 1.8), cy = YC[p] + 2.2 * room * cl(s[DY], -1.8, 1.8);
+  const g0 = gfit * (1 + room * cl(0.1 * s[GA] + 0.07 * s[SL + 2], -0.21, 0.21)), dcm = max(1, 28.5 - g0 * ext);
+  const cx = XC + cl(room * (1.8 * s[DX] + 1.7 * s[SL + 3]), -dcm, dcm), cy = YC[p] + cl(room * (1.8 * s[DY] + 1.7 * s[SL + 4]), -dcm, dcm), g = g0;
   // the data's bit balance drifts: halves, quadrants, inner and outer rows of the lattice carry unequal light
-  const wt = P.wt, wa = 0.12 + 0.1 * sstep(1, 3, sig);
+  const wt = P.wt, wa = 0.12 + 0.16 * sstep(1, 3, sig) + 0.02 * c3;
   for (let i = 0; i < 16; i++) {
     const a = i & 1 ? 1 : -1, b = i & 4 ? 1 : -1, a2 = i & 2 ? a : -a, b2 = i & 8 ? b : -b;
     const f = (j, v) => 1 + wa * cl(s[W1 + j], -2, 2) * v;
@@ -199,7 +204,7 @@ function emit(st, p, dt, kn) {
   const spinning = P.spinT > 0, eOff = P.theta - P.lock;
   // errors show warm while something is wrong: lock lost or being pulled in, or a burst of noise
   // and less so where noise has buried the points already
-  const alarm = (0.2 + 0.8 * (spinning ? 1 : cl(max(abs(eOff) * 4, P.burst * 0.9), 0, 1))) * (1 - 0.75 * sstep(1.4, 3, sig / (1 + P.burst)));
+  const alarm = (0.2 + 0.8 * (spinning ? 1 : cl(max(abs(eOff) * 4, P.burst * 0.9), 0, 1))) * (1 - 0.85 * sstep(1.4, 3, sig / (1 + P.burst)));
   const daMin = cl(abs(dth) * 30 * 0.07, 0.15, 0.6);
   const n = round(NSYM * dt * 30), ihd = 1 / P.hd;
   // the instrument scales its intensity to the densest spot: a point's own peak, or the mean of a filled square,
