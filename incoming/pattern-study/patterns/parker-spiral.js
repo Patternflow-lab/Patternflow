@@ -95,7 +95,7 @@ function spawn(st, s, c) {
   s.h = tw(0.75, 1.1);                 // 260 to 390 km/s over the 350 km/s of the slow wind
   s.dv = tw(-0.034, 0.034);            // rad/s, up to 2 degrees a second
   s.age = 0;
-  s.life = tw(70, 220);
+  s.life = tw(45, 170);
   s.gap = 0;
   s.f1 = tw(0.05, 0.11); s.p1 = tw(0, TP);
   s.f2 = tw(0.021, 0.047); s.p2 = tw(0, TP);
@@ -114,7 +114,7 @@ function stepWorld(st, dt) {
     s.c += s.dv * dt + 0.004 * dt * sin(0.031 * st.t + s.p2);
     s.c -= TP * floor(s.c / TP);
     if (s.age > s.life) {
-      s.gap = 8 + 40 * rnd();
+      s.gap = 5 + 25 * rnd();
       s.age = s.life + 1;
     }
   }
@@ -274,7 +274,7 @@ export function draw(display, params) {
   const gr = [0, 0, 0];
   hsv(0.62 + hue, 0.7, 1, gr);
   // tight winding spreads a ridge over more LED, so it gets a lower knee to keep its light
-  const zc = (2.1 + 0.3 * sstep(-1, 0, s3)) * (1 - 0.3 * sstep(0.05, 0.16, K));
+  const zc = (2.1 + 0.3 * sstep(-1, 0, s3)) * (1 - 0.12 * sstep(0.05, 0.16, K));
   const rot = st.rot, kk = K / VREF, ka = NA / TP;
   const t = st.t;
   const breathe = 1 + 0.06 * sin(0.37 * t) + 0.04 * sin(0.91 * t + 1);
