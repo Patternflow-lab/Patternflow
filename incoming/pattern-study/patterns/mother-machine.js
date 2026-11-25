@@ -404,9 +404,9 @@ export function draw(display, params) {
       const a = smp(S.g1, 97, (x - u * t) * 0.1 + 3.1, (y - 114) * 0.3), b = smp(S.g2, 61, (x - u * 0.7 * t) * 0.065 + 17, (y - 114) * 0.22);
       const v = (0.55 * a + 0.45 * b - 0.3) * 1.35 * prof, vv = max(0, v);
       const o = (y * W + x) * 3;
-      B[o] = 0.03 + 0.06 * vv;
-      B[o + 1] = 0.05 + 0.11 * vv;
-      B[o + 2] = 0.09 + 0.18 * vv;
+      B[o] = 0.03 + 0.08 * vv;
+      B[o + 1] = 0.05 + 0.15 * vv;
+      B[o + 2] = 0.09 + 0.26 * vv;
     }
   }
   // the cells in the channels
