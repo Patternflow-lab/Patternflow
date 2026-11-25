@@ -32,8 +32,12 @@ const GOLD = 0.6180339887;
 const LMEAN = 36;                     // mean of a lifetime drawn from a Pareto of index 1.4 cut to 20..90 s
 const LA = 1.4, LLO = 20, LHI = 90;
 const LUTH = 256, LUTV = 128;
-const WASH = 0.09;
-const HALO = 0.2, HALOS = 4.5;          // the glow round a customer: its strength and its spread in LED                    // the faint ground every pixel keeps, in level
+const WASH = 0.09;                    // the faint ground every pixel keeps, in level
+const HALO = 0.26, HALOS = 4.5;          // the glow round a customer: its strength and its spread in LED
+const AGC = 225;                      // the mean of the cloud cells the light is held to, at a room of 133 people
+const PROF = new Float32Array(500), HALT = new Float32Array(620);
+for (let i = 0; i < 500; i++) PROF[i] = 0.8 * exp(-0.5 * (i / 8)) * (i / 8 < 30 ? 1 : 0) + 0.2 * exp(-(i / 8) / 18);
+for (let i = 0; i < 620; i++) HALT[i] = exp(-(i / 2) / (2 * HALOS * HALOS));
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
 // ---- colour -----------------------------------------------------------------
@@ -121,7 +125,7 @@ export function setup(params) {
 // The knobs as the process's own numbers.
 function targets(k) {
   return {
-    th: 0.6 * pow(20, cl(k[1], 0, 4) / 4),
+    th: 1.0 * pow(12, cl(k[1], 0, 4) / 4),
     d: 0.45 + 0.45 * cl(k[2], -1, 1),
     lam: 3.7 * pow(2.4, cl(k[3], -1, 1)),
   };
@@ -143,7 +147,7 @@ function newTable(st) {
   const u = st.off + GOLD * st.nid;
   const tb = {
     u: u - floor(u), x: bx, y: by, vx: gauss() * 0.4, vy: gauss() * 0.4,
-    th: rnd() * PI, om: 0, sig: 5 + 7 * rnd(), asp: 1 + 1.3 * pow(rnd(), 1.4),
+    th: rnd() * PI, om: 0, sig: 6 + 7 * rnd(), asp: 1 + 1.3 * pow(rnd(), 1.4),
     p1: rnd() * TAU, p2: rnd() * TAU, p3: rnd() * TAU,
     n: 0, refs: 0, e: 0, lvl: 0, gro: 0.8, ring: st.t, di: 0,
   };
@@ -175,7 +179,7 @@ function arrive(st) {
     u = gauss();
     v = gauss();
   } while (u * u + v * v > 5);
-  const c = { tb, u, v, life: lifetime(), age: 0, dead: false, fi: 0, fo: 0, tin: 2 + rnd(), tout: 3 + 1.5 * rnd(), a: 0 };
+  const c = { tb, u, v, wu: 0.07 * gauss(), wv: 0.07 * gauss(), life: lifetime(), age: 0, dead: false, fi: 0, fo: 0, tin: 2 + rnd(), tout: 3 + 1.5 * rnd(), a: 0 };
   tb.n++;
   tb.refs++;
   st.cust.push(c);
@@ -227,6 +231,16 @@ function tick(st, dt, speed) {
       cust[i] = cust[cust.length - 1];
       cust.pop();
       continue;
+    }
+    // a person moves about in the cloud, so the dots of one table are not the same dots a minute later
+    c.wu += (-0.2 * c.wu - 0.0049 * c.u) * dt + 0.0443 * sqrt(dt) * gauss();
+    c.wv += (-0.2 * c.wv - 0.0049 * c.v) * dt + 0.0443 * sqrt(dt) * gauss();
+    c.u += c.wu * dt;
+    c.v += c.wv * dt;
+    const rr = c.u * c.u + c.v * c.v;
+    if (rr > 6) {
+      c.u *= sqrt(6 / rr);
+      c.v *= sqrt(6 / rr);
     }
     const lf = min(1, c.age / c.life);
     c.a = sstep(0, c.tin, c.fi) * (c.dead ? 1 - sstep(0, c.tout, c.fo) : 1) * (1 - 0.45 * pow(lf, 1.3));
@@ -286,30 +300,31 @@ export function update(dt, input, params) {
 }
 
 // ---- drawing ----------------------------------------------------------------
-export function draw(display, params) {
-  let st = params.st;
-  if (!st) st = setup(params);
-  if (!st.init) update(0, { knobValues: st.k }, params);
-  const A = st.A, tabs = st.tabs, nT = tabs.length, hueOff = HUE0 + st.k[0] * 360;
-  // each table's numbers for this frame
-  for (let k = 0; k < nT; k++) {
+// each table's numbers for this frame; the light is turned by the gain the room has settled on
+function frameTables(st) {
+  const A = st.A, tabs = st.tabs, hueOff = HUE0 + st.k[0] * 360, g = exp(st.lg);
+  for (let k = 0; k < tabs.length; k++) {
     const t = tabs[k];
     t.di = k;
-    const sg = t.sig * t.gro * (1 + 0.16 * sin(0.12 * st.t + t.p2));
+    const sg = t.sig * t.gro * pow(g, 0.25) * (1 + 0.16 * sin(0.12 * st.t + t.p2));
     const as = t.asp * (1 + 0.25 * sin(0.17 * st.t + t.p3));
     const sx = sg * sqrt(as), sy = sg / sqrt(as);
-    const hd = hueOff + ARC * t.u + 28 * sin(0.045 * st.t + t.p1) + 18 * sin(0.021 * st.t + st.ph), hr = (hd * PI) / 180;
+    const hd = hueOff + ARC * t.u + 55 * sin(0.05 * st.t + t.p1) + 18 * sin(0.021 * st.t + st.ph), hr = (hd * PI) / 180;
     const S = 12 + 1.5 * sg, m = 0.3 + 0.7 * t.lvl;
     A.X[k] = t.x; A.Y[k] = t.y; A.C[k] = cos(t.th); A.S[k] = sin(t.th);
     A.SX[k] = sx; A.SY[k] = sy; A.IX2[k] = 1 / (sx * sx); A.IY2[k] = 1 / (sy * sy);
-    A.LV[k] = min(0.97, t.lvl * (1 + 0.18 * sin(0.09 * st.t + t.p3 * 1.7))); A.HC[k] = cos(hr); A.HS[k] = sin(hr);
+    A.LV[k] = min(0.97, g * t.lvl * (1 + 0.3 * sin(0.09 * st.t + t.p3 * 1.7))); A.HC[k] = cos(hr); A.HS[k] = sin(hr);
     A.M2[k] = m * m * 0.12; A.IS2[k] = 1 / (S * S);
     A.HI[k] = round(((hd / 360) - floor(hd / 360)) * LUTH) & (LUTH - 1);
   }
-  // the clouds on a grid of 2 x 2 LED cells: a level from the tables laid over one another as light is, a hue from the vector sum
-  // of the tables' hues, each weighed by the square of its glow there plus a faint broad ground, so overlapping tables go through
-  // the hues between them and never through grey
-  const lut = st.lut, cell = st.cell, X = A.X, Y = A.Y, C = A.C, S = A.S, IX2 = A.IX2, IY2 = A.IY2, LV = A.LV, HC = A.HC, HS = A.HS, M2 = A.M2, IS2 = A.IS2;
+}
+
+// The clouds on a grid of 2 x 2 LED cells: a level from the tables laid over one another as light is, a hue from the vector sum
+// of the tables' hues, each weighed by the square of its glow there plus a faint broad ground, so overlapping tables go through
+// the hues between them and never through grey. Then a faint wide glow round every customer, in its table's hue, so a cloud is
+// lumpy where its people actually sit. Returns the mean of the cells, which the gain follows.
+function cloudPass(st) {
+  const A = st.A, nT = st.tabs.length, lut = st.lut, cell = st.cell, X = A.X, Y = A.Y, C = A.C, S = A.S, IX2 = A.IX2, IY2 = A.IY2, LV = A.LV, HC = A.HC, HS = A.HS, M2 = A.M2, IS2 = A.IS2;
   let o = 0;
   for (let j = 0; j < GH; j++) {
     const py = 2 * j + 1;
@@ -322,8 +337,8 @@ export function draw(display, params) {
         let w = M2[k] * q * q * q;
         const qx = dx * C[k] + dy * S[k], qy = -dx * S[k] + dy * C[k];
         const r2 = qx * qx * IX2[k] + qy * qy * IY2[k];
-        if (r2 < 60) {
-          const a = LV[k] * ((r2 < 30 ? 0.8 * exp(-0.5 * r2) : 0) + 0.2 * exp(-r2 / 18));
+        if (r2 < 59) {
+          const u8 = r2 * 8, i8 = u8 | 0, a = LV[k] * (PROF[i8] + (PROF[i8 + 1] - PROF[i8]) * (u8 - i8));
           P *= 1 - a;
           w += a * a;
         }
@@ -339,26 +354,56 @@ export function draw(display, params) {
       o += 3;
     }
   }
-  // a faint wide glow round every customer, in its table's hue, so a cloud is lumpy where its people actually sit
-  const dl = st.dotLut, hl = st.haloLut, cust = st.cust;
+  const hl = st.haloLut, cust = st.cust, g = exp(st.lg);
   for (let i = 0; i < cust.length; i++) {
     const c = cust[i];
     if (c.a < 0.03) continue;
     const t = c.tb, k = t.di, px = t.x + c.u * A.SX[k] * A.C[k] - c.v * A.SY[k] * A.S[k], py = t.y + c.u * A.SX[k] * A.S[k] + c.v * A.SY[k] * A.C[k];
     c.px = px;
     c.py = py;
-    const hi = A.HI[k] * 3, hs = HALO / sqrt(1 + t.e / 14), ci = (px - 1) / 2, cj = (py - 1) / 2;
+    const hi = A.HI[k] * 3, hs = (g * HALO * c.a) / sqrt(1 + t.e / 14), ci = (px - 1) / 2, cj = (py - 1) / 2;
     const i0 = max(0, floor(ci - 6)), i1 = min(GW - 1, floor(ci + 6)), j0 = max(0, floor(cj - 6)), j1 = min(GH - 1, floor(cj + 6));
     for (let j = j0; j <= j1; j++) {
       for (let x = i0; x <= i1; x++) {
-        const dx = 2 * x + 1 - px, dy = 2 * j + 1 - py;
-        const a = hs * c.a * exp(-(dx * dx + dy * dy) / (2 * HALOS * HALOS)), p = (j * GW + x) * 3;
+        const dx = 2 * x + 1 - px, dy = 2 * j + 1 - py, u2 = (dx * dx + dy * dy) * 2, i2 = u2 | 0;
+        if (i2 >= 619) continue;
+        const a = hs * (HALT[i2] + (HALT[i2 + 1] - HALT[i2]) * (u2 - i2)), p = (j * GW + x) * 3;
         for (let q = 0; q < 3; q++) cell[p + q] = 255 - (255 - cell[p + q]) * (1 - (a * hl[hi + q]) / 255);
       }
     }
   }
+  let sum = 0;
+  for (let i = 0; i < cell.length; i++) sum += cell[i];
+  return sum / (GW * GH);
+}
+
+// The light the room is held to: a little more for a crowd, and the same however the tables happen to share the people out.
+const target = (st) => AGC * pow((st.sm.lam * LMEAN) / 133, 0.45);
+
+export function draw(display, params) {
+  let st = params.st;
+  if (!st) st = setup(params);
+  if (!st.init) update(0, { knobValues: st.k }, params);
+  const A = st.A, tabs = st.tabs, nT = tabs.length;
+  if (!st.agc) {
+    // the first frame is already at the light it will keep
+    st.agc = true;
+    st.lg = 0;
+    for (let i = 0; i < 6; i++) {
+      frameTables(st);
+      st.lg = cl(st.lg + 0.8 * log(target(st) / cloudPass(st)), -1.3, 1.3);
+    }
+    st.mf = target(st);
+    st.agT = st.t;
+  }
+  frameTables(st);
+  const m = cloudPass(st), dd = cl(st.t - st.agT, 0, 0.2), T = target(st);
+  st.agT = st.t;
+  st.mf += (m - st.mf) * (1 - exp(-dd / 2));
+  st.lg = cl(st.lg + (log(T / st.mf) * dd) / 9, -1.3, 1.3);
+  const dl = st.dotLut, cust = st.cust;
   // up to the LEDs
-  const fb = st.fb, ix = st.ix, fx = st.fx, iy = st.iy, fy = st.fy;
+  const cell = st.cell, fb = st.fb, ix = st.ix, fx = st.fx, iy = st.iy, fy = st.fy;
   for (let y = 0; y < H; y++) {
     const r0 = iy[y] * GW, wy = fy[y];
     for (let x = 0; x < W; x++) {
