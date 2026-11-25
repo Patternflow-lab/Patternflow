@@ -14,12 +14,12 @@
 // Knob 1: Hue. Turns the palette of the rock round the wheel. At 0 the minerals are the natural ones: cream and sand carbonate, umber and near-black organic film, iron pink, a few olive bands, a rust-red cut; at 1 the wheel has come round again.
 // Knob 2: Growth. 0 to 4, opening at 2. How fast the mat grows and so how fast the rock sinks past the camera: about 0.4 LED a second at 0, 1.6 at 2 and 6 at 4. The laminae keep their thickness, the whole section just runs faster.
 // Knob 3: Relief. -1 to 1, opening at 0. How hard the high points are favoured against the smoothing. At -1 a flat stratiform mat with long low swells; at 0 round domes about 18 LED across that split and merge; at 0.7 tall narrow columns with dim fill between them; at 1 steep cones with sharp tops.
-// Knob 4: Storms. -1 to 1, opening near 0. How often a storm comes and how big. At -1 none at all and the mat grows undisturbed. Raised, the crowns are now and then planed off under a rust-red film and the hollows filled with a thick coarse layer of sand and bright specks, from one in a hundred LED of rock to one every fourteen, each deeper.
+// Knob 4: Storms. -1 to 1, opening near 0. How often a storm comes and how big. At -1 none at all and the mat grows undisturbed. Raised, the crowns are now and then planed off under a rust-red film and the hollows filled with a thick coarse layer of sand and bright specks, from one in about two hundred LED of rock to one every fourteen, each deeper and thicker.
 
 const W = 64, H = 128;
 const NS = 128, DX = W / NS;          // samples across the surface, LED between two of them
 const RB = 256;                       // rows of rock kept, a ring
-const YS = 33;                        // the row the mean surface is held at
+const YS = 31;                        // the row the mean surface is held at
 const { floor, ceil, min, max, abs, exp, sqrt, sin, cos, tanh, log, pow, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -36,10 +36,10 @@ const hash = (i, r) => {
 };
 
 // ---- the minerals, 0..255 ---------------------------------------------------
-const CREAM = [240, 224, 188], SAND = [214, 172, 116], PINK = [226, 116, 104];
-const UMBER = [98, 58, 32], BLACK = [26, 16, 12];
-const SAGE = [150, 162, 104], OLIVE = [72, 76, 34];
-const RUST = [190, 62, 26], SEDI = [112, 90, 66], STORM = [232, 204, 150], SPECK = [255, 250, 230];
+const CREAM = [246, 232, 198], SAND = [206, 176, 132], PINK = [230, 150, 142];
+const UMBER = [84, 48, 28], BLACK = [20, 12, 10];
+const SAGE = [150, 164, 108], OLIVE = [66, 72, 34];
+const RUST = [196, 60, 24], SEDI = [112, 90, 66], STORM = [224, 208, 176], SPECK = [255, 250, 230];
 const MAT = [176, 168, 60];
 const mix3 = (a, b, t, o) => {
   o[0] = a[0] + (b[0] - a[0]) * t;
@@ -50,11 +50,11 @@ const mix3 = (a, b, t, o) => {
 // ---- knobs as the model's numbers --------------------------------------------
 // keyframes against relief r in 0..1: light catch b, its scale Lr, the reach of the light sg (LED), smoothing D, sediment fill ks
 const KR = [0, 0.25, 0.5, 0.75, 1];
-const KB = [0.12, 0.4, 0.8, 1.2, 1.9];
+const KB = [0.12, 0.4, 0.8, 1.2, 1.5];
 const KL = [4, 3.5, 3, 3, 3.5];
-const KS = [10, 8, 6.5, 4.6, 6.8];
+const KS = [10, 8, 6.5, 4.6, 7];
 const KD = [2.1, 1.1, 0.7, 0.42, 0.12];
-const KK = [0.35, 0.2, 0.12, 0.1, 0.05];
+const KK = [0.35, 0.18, 0.22, 0.25, 0.3];
 const tab = (T, r) => {
   const f = cl(r, 0, 1) * 4, i = min(3, floor(f));
   return T[i] + (T[i + 1] - T[i]) * (f - i);
@@ -76,7 +76,7 @@ export function setup(params) {
     nz: new Float32Array(NS), gs: new Float32Array(NS), mark: new Float32Array(NS), sb: new Float64Array(NS),
     buf: new Float32Array(NS * RB * 3),
     P: null, ker: null, kn: 0, kSig: -1,
-    storm: 0, stT: 0, stD: 0, stSize: 0, stLev: 0, stThick: 0, stSpk: 0, nextStorm: 0,
+    storm: 0, stT: 0, stD: 0, stSize: 0, stFr: 0.7, stLev: 0, stThick: 0, stSpk: 0, nextStorm: 0,
     cam: 0, mr: 1, mean: 0, cr: [0, 0, 0],
     ph: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU],
     rot: new Float32Array(9), rotK: -1,
@@ -86,17 +86,17 @@ export function setup(params) {
 
 // The colour of a lamina laid down at season tau, in column i.
 function lamina(st, tau, i, out) {
-  const p = st.ph;
-  const u = 0.55 * sin(TAU * tau / 4.9 + p[0]) + 0.30 * sin(TAU * tau / 8.3 + p[1]) + 0.25 * sin(TAU * tau / 13.7 + p[2]) + 0.2 * sin(0.11 * i + 0.05 * tau + p[3]);
-  const T = tanh(2.8 * u), light = 0.5 + 0.5 * T;
+  const p = st.ph, t = tau + 0.7 * sin(0.31 * tau + p[5]);
+  const u = 0.46 * sin(TAU * t / 4.7 + p[0]) + 0.34 * sin(TAU * t / 8.1 + p[1]) + 0.3 * sin(TAU * t / 13.3 + p[2]) + 0.2 * sin(TAU * t / 2.9 + p[3] * 1.7 + 1) + 0.2 * sin(0.11 * i + 0.05 * tau + p[3]);
+  const light = 0.5 + 0.5 * tanh(4.5 * (u + 0.08));
   const q1 = sin(TAU * tau / 41.3 + p[4]) + 0.7 * sin(TAU * tau / 27.1 + p[5]);
   const q2 = sin(TAU * tau / 67.9 + p[6]) + 0.75 * sin(TAU * tau / 33.7 + p[1] * 2 + p[4]);
   const pinkW = sstep(0.5, 1.3, q1), oliveW = sstep(1.2, 1.55, q2);
   const lc = [0, 0, 0], dc = [0, 0, 0];
-  mix3(SAND, CREAM, sstep(0.4, 0.95, u), lc);
+  mix3(SAND, CREAM, sstep(0, 0.6, u), lc);
   mix3(lc, PINK, pinkW, lc);
   mix3(lc, SAGE, oliveW, lc);
-  mix3(UMBER, BLACK, sstep(0.45, 0.95, -u), dc);
+  mix3(UMBER, BLACK, sstep(0.2, 0.7, -u), dc);
   mix3(dc, OLIVE, oliveW, dc);
   mix3(dc, lc, light, out);
 }
@@ -133,7 +133,7 @@ function deposit(st, i, h0, h1, kind, c0) {
       cr[0] = c0[0] * m; cr[1] = c0[1] * m; cr[2] = c0[2] * m;
     } else {
       // coarse storm sand
-      const hv = hash(i + 311, r), m = 0.84 + 0.3 * hv;
+      const hv = hash(i + 311, r), m = 0.88 + 0.24 * hv;
       cr[0] = STORM[0] * m; cr[1] = STORM[1] * m; cr[2] = STORM[2] * m;
     }
     const p = (i * RB + (((r % RB) + RB) % RB)) * 3, f = cl(h0 - r, 0, 1), s = f + o;
@@ -193,18 +193,18 @@ function step(st, dtau) {
       let v = 1 + b * tanh(rel / Lr) + nz[i];
       if (v < 0.05) v = 0.05;
       const q = max(0, (hm - hc) / DX, (hp - hc) / DX);
-      let sed = rel < 0 ? min(ks * -rel, 1.6) : 0;
+      let sed = rel < -1.2 ? min(ks * (-rel - 1.2), 1.6) : 0;
       let rate = v * sqrt(1 + q * q);
       if (inFill) {
         rate *= 0.25;
         sed = 0;
-        const gap = max(0, st.stLev - hc);
+        const sbi = st.sb[i], gap = max(0, sbi + st.stFr * max(0, st.stLev - sbi) - hc);
         rate += 3 * gap + st.stThick;
         kind = 2;
       } else {
         rate += sed;
         ws = cl(1.7 * sed / max(rate, 0.05), 0, 0.9);
-        kind = ws > 0.03 ? 1 : 0;
+        kind = ws > 0.1 ? 1 : 0;
       }
       dh = rate * dtau + dtD * (hp - 2 * hc + hm);
       if (dh < -0.05) dh = -0.05;
@@ -254,7 +254,7 @@ function step(st, dtau) {
     if (st.stT <= 0) {
       st.storm = 0;
       const u = P.u;
-      st.nextStorm = -log(1 - rnd()) * (14 + 190 * pow(1 - u, 2.5)) * 0.6 + 8;
+      st.nextStorm = (0.5 - 0.5 * log(1 - rnd())) * (14 + 230 * pow(1 - u, 2.2)) + 4;
     }
   }
   st.tau += dtau;
@@ -271,8 +271,9 @@ function startStorm(st, hm) {
   for (let i = 0; i < NS; i++) hx = max(hx, h[i]);
   const size = cl((0.2 + 0.75 * pow(u, 0.7)) * (0.7 + 0.6 * rnd()), 0.15, 1);
   st.stSize = size;
+  st.stFr = 0.55 + 0.3 * size;
   st.stD = 1.5 + 3 * size;
-  st.stThick = (0.5 + 1.6 * size) / st.stD;
+  st.stThick = (1.2 + 3 * size) / st.stD;
   st.spkRate = (5 + 12 * size) / st.stD;
   st.stSpk = 0;
   const relief = hx - hm;
@@ -285,7 +286,7 @@ function startStorm(st, hm) {
     st.storm = 2;
     st.stT = st.stD;
     for (let i = 0; i < NS; i++) st.sb[i] = h[i];
-    st.stLev = hm + relief * (0.1 + 0.55 * size) + 0.5;
+    st.stLev = hm + relief * (0.05 + 0.4 * size) + 0.5;
   }
 }
 
