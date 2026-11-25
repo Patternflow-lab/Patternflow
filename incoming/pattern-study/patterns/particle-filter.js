@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Particle Filter
 // Family:  particlefilter
-// Idea:    Four fixed beacons ping a hidden robot that wanders the panel, each ping a thin additive ring of its own colour whose radius is the noisy range to the robot and which fades in about a second, while nine hundred pale lilac particles, the filter's hypotheses of where the robot is, are weighted by the range likelihood and resampled at every ping, so with three beacons the cloud is one blob on the ring crossings, with two it splits into two lobes either side of the line between them, and each time the robot is kidnapped to a new place the cloud blows out to a haze and collapses on to the new rings within a few pings.
+// Idea:    Four beacons that sway a few LED about their places ping a hidden robot that wanders the panel, each ping a thin additive ring of its own colour whose radius is the noisy range to the robot and which fades in about a second, while nine hundred pale lilac particles, the filter's hypotheses of where the robot is, are weighted by the range likelihood and resampled at every ping, so with three beacons the cloud is one blob on the ring crossings, with two it splits into two lobes either side of the line between them, and each time the robot is kidnapped to a new place the cloud blows out to a haze and collapses on to the new rings within a few pings.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Noise=0..6, Beacons=-1..1, Speed=-1..1
 //
-// Knob 1: Hue. Turns the beacon colours and the cloud round the wheel together. At 0 the first three beacons are cyan, magenta and a warm yellow, the fourth a periwinkle blue, and the cloud is pale lilac. Where two rings cross the sum goes nearly white.
-// Knob 2: Noise. 0 to 6, opening at 2. The spread of the range sensor: 1 LED at 0, 3.7 at 2 and 9 at 6. Low, the rings are thin and sharp, the cloud a tight blob 3 LED across. High, the rings are 7 LED wide and soft, the crossings are patches, and the cloud is a big loose ball.
-// Knob 3: Beacons. -1 to 1, opening at 0. How many beacons ping: 2 at -1, 3 at 0 and 4 at 1, the third and fourth fading in or out as the knob passes them. With 2 the rings cross at two points and the cloud holds two lobes either side of the diagonal between the beacons; with 3 or 4 it is one blob.
-// Knob 4: Speed. -1 to 1, opening at about 0. How fast the robot goes, 0.3 times at -1, 1 at 0 and 3 times at 1, from 1.6 LED a second to 5.5 to 16, and how often it is kidnapped, every 20 to 40 s at 1 times and every 7 to 13 s at 3 times. Fast, the cloud smears out behind the robot and loses it now and then.
+// Knob 1: Hue. Turns the beacon colours and the cloud round the wheel together. At 0 the first three beacons are cyan, magenta and a warm yellow, the fourth a periwinkle blue, and the cloud is pale lilac; each colour also wanders up to 30 degrees about that and the cloud's tint drifts, so no minute looks like the last. Where two rings cross the sum goes nearly white.
+// Knob 2: Noise. 0 to 6, opening at 2. The spread of the range sensor: 1 LED at 0, 3.7 at 2 and 9 at 6. Low, the rings are thin and sharp (2 LED across) and the cloud a tight blob 3 LED across. High, the rings are 5 LED wide and soft, the crossings are patches, and the cloud is a big loose ball.
+// Knob 3: Beacons. -1 to 1, opening at 0. How many beacons ping: 2 at -1, 3 at 0 and 4 at 1, the third and fourth fading in or out as the knob passes them. With 2 the rings cross at two points and the cloud holds two lobes either side of the line between the first two beacons; with 3 or 4 it is one blob.
+// Knob 4: Speed. -1 to 1, opening at about 0. How fast the robot goes, 0.3 times at -1, 1 at 0 and 3 times at 1 (a mean of 1.6, 5.5 and 16 LED a second, the speed itself wandering between 0.55 and 1.45 of that), and how often it is kidnapped: every 20 to 40 s at 1 times, every 67 to 133 s at 0.3 and every 7 to 13 s at 3. Fast, the cloud smears out behind the robot and loses it now and then.
 
 const W = 64, H = 128, N = 900;
 const { floor, min, max, abs, exp, sqrt, sin, cos, atan2, hypot, pow, PI } = Math;
@@ -259,13 +259,13 @@ export function update(dt, input, params) {
 }
 
 // ---- the picture --------------------------------------------------------------
-// Slow drifts, none of whose periods divide another, keep one minute from looking like the next: the whole palette wanders
-// 30 degrees either way, the cloud's tint wanders, and each beacon's transmit strength swells and sags.
+// Slow drifts, none of whose periods divide another, keep one minute from looking like the next: the whole palette and each beacon's colour wander
+// up to 30 degrees, the cloud's tint wanders, and each beacon's transmit strength swells and sags.
 function colours(st) {
   const t = st.t, ph = st.ph, tmp = [0, 0, 0];
-  const h0 = st.k[0] + 0.06 * sin(TP * t / 83 + ph[0]) + 0.05 * sin(TP * t / 137 + ph[1]);
+  const h0 = st.k[0] + 0.03 * sin(TP * t / 83 + ph[0]) + 0.02 * sin(TP * t / 137 + ph[1]);
   for (let b = 0; b < 4; b++) {
-    hsv(h0 + BH[b] + 0.08 * sin(TP * t / HT[b] + ph[8 + b]), BS[b], 1, tmp);
+    hsv(h0 + BH[b] + 0.03 * sin(TP * t / HT[b] + ph[8 + b]), BS[b], 1, tmp);
     const g = GN[b] * (0.75 + 0.25 * sin(TP * t / BT[b] + ph[2 + b]));
     st.col[b][0] = tmp[0] * g;
     st.col[b][1] = tmp[1] * g;
