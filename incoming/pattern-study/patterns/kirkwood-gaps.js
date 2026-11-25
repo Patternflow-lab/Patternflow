@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Kirkwood Gaps
 // Family:  kirkwood
-// Idea:    Fifteen hundred test asteroids, a Hilda group and a Trojan cloud are stepped round a Sun and a heavy Jupiter on a circular orbit, seen from above in the frame that turns with Jupiter and counted by semi-major axis underneath, so the particles that sit in a mean-motion resonance have their eccentricity pumped up and are thrown out, and gaps open in the histogram at 3:1, 5:2, 7:3 and 2:1 while the 3:2 and 1:1 resonances hold their crowds.
+// Idea:    Fifteen hundred test asteroids, 260 Hildas and 240 Trojans are stepped round a Sun and a heavy Jupiter on a circular orbit, seen from above in the frame that turns with Jupiter and counted by semi-major axis underneath, so the particles that sit in a mean-motion resonance have their eccentricity pumped up and are thrown out, and gaps open in the histogram at 3:1, 5:2, 7:3 and 2:1 while the 3:2 and 1:1 resonances hold their crowds.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Jupiter=0..4, Spread=-1..1, Speed=-1..1
 //
 // Knob 1: Hue. Turns the particles and the bars round the wheel and opens in amber and gold, the hot particles going pale and then violet. Jupiter stays cream, the sky stays indigo.
-// Knob 2: Jupiter. 0 to 4, opening at 2: the mass of the planet, 0.003 of the Sun's at 0, 0.009 at 2 and 0.027 at the top (a real Jupiter is 0.001), and the size of its disc follows the cube root. The gaps in the histogram deepen and widen with it, the outer belt and the 2:1 side are swept out, and the Hildas and the Trojans keep their places. At 0 the gaps are only dents.
-// Knob 3: Spread. -1 to 1, opening at 0: how eccentric the particles are when they are sown, about 0.15 at -1, 0.22 at 0 and 0.33 at 1, which is how thick the belt stands in the top view and how many particles are in the resonant zones with enough eccentricity to be pumped. Turning it sows the belt again as the knob moves.
-// Knob 4: Speed. -1 to 1, opening near 0: the clock, a quarter of a Jupiter orbit a second at -1 and four a second at 1, 1 at the opening. Slow, the particles are beads that circle the Sun in the rotating frame; fast, the belt is a ring of light with the Hildas and Trojans standing still in it.
+// Knob 2: Jupiter. 0 to 4, opening at 2: the mass of the planet, 0.0085 of the Sun's at 0, 0.017 at 2 and 0.033 at the top (a real Jupiter is 0.001), and the size of its disc follows the cube root. The gaps in the histogram deepen and widen with it, the outer belt and the 2:1 side are swept out, and the Hildas and the Trojans keep their places. At 0 the gaps are only dents.
+// Knob 3: Spread. -1 to 1, opening at 0: how eccentric the particles are when they are sown, from 0.55 to 1 times 0.23 at -1, 0.30 at 0 and 0.40 at 1, which is how thick the belt stands in the top view and how many of the particles in the resonant zones are eccentric enough to be pumped. Turning it sows the belt again as the knob moves.
+// Knob 4: Speed. -1 to 1, opening near 0: the clock, a twelfth of a Jupiter orbit a second at -1 and five and a half at 1, 0.8 at the opening. Slow, the particles are beads that circle the Sun in the rotating frame; fast, the belt is a ring of light with the Hildas and Trojans standing still in it.
 
 const W = 64, H = 128;
 const { floor, ceil, min, max, abs, sqrt, sin, cos, exp, PI } = Math;
@@ -36,12 +36,13 @@ const NB = 1500, NH = 260, NT = 240, N = NB + NH + NT;   // belt, Hildas, Trojan
 const A_LO = 2.0, A_HI = 3.6;           // where a belt particle is sown, AU
 const HSTEP = 0.32;                     // radians of Jupiter's orbit a step
 const PRE_ORB = 105;                    // orbits run before the first frame
-const KAPPA = 1 / 170;                  // belt particles sown again a Jupiter orbit, as a fraction of the belt
+const KAPPA = 1 / 230;                  // belt particles sown again a Jupiter orbit, as a fraction of the belt
 const EMEAN = 6;                        // radians over which the mean semi-major axis is averaged
 
 // ---- the picture ------------------------------------------------------------
 const TOPH = 70;                        // rows of the view from above
 const CX = 31.5, CY = 34.5, SC = 5.7 * AUJ;   // the Sun, and LEDs to a Jupiter radius (5.7 an AU)
+const TILT = 0.42, CT = cos(TILT), ST = sin(TILT);   // Jupiter sits this far round from the top, clockwise, so the Lagrange clouds are not mirror images
 const HB = 128, HMAX = 49;              // the bars stand on the bottom edge and rise at most this many rows
 const HA0 = 2.0, HA1 = 4.2;             // the axis of the histogram, AU
 const REF = 30;                         // particles in a column that stand 0.6 of the way up
@@ -71,8 +72,8 @@ const STOPS = [
   [0.3, 255, 188, 66],
   [0.5, 255, 222, 124],
   [0.68, 255, 240, 214],
-  [0.84, 206, 182, 255],
-  [1.0, 140, 100, 255],
+  [0.84, 226, 220, 255],
+  [1.0, 150, 112, 255],
 ];
 function buildLut(lut, hue) {
   const hv = [0, 0, 0], c = [0, 0, 0];
@@ -109,8 +110,8 @@ function seedBelt(st, i) {
 // A Hilda sits in the 3:2 resonance whose angle sigma = 3 L(Jupiter) - 2 L - w librates about 0: the aphelion is then 60 degrees
 // ahead of Jupiter, 60 behind or opposite it, so in the rotating frame the orbit is a rounded triangle.
 function seedHilda(st, i) {
-  const a = (3.968 + (rnd() - 0.5) * 0.16) / AUJ, e = st.eHi * (0.5 + 0.5 * rnd());
-  const M = rnd() * TAU, sg = (rnd() - 0.5) * 2 * (0.3 + 0.8 * rnd());
+  const a = (3.968 + (rnd() - 0.5) * 0.14) / AUJ, e = min(0.34, st.eHi * (0.7 + 0.3 * rnd()));
+  const M = rnd() * TAU, sg = (rnd() - 0.5) * 2 * (0.2 + 0.4 * rnd());
   put(st, i, a, e, st.t - (2 * M + sg) / 3 + floor(rnd() * 3) * (TAU / 3), M);
 }
 // A Trojan is a particle near L4 or L5 on a circular orbit, with a spread in longitude that sets how wide its tadpole is.
@@ -166,8 +167,8 @@ function step(st, h) {
     let lost = r < 0.1 || ia < 0.8;
     if (!lost) {
       if (i < NB) lost = ia < 1.111 || ia > 3.03 || e2 > EL2 || d2 < 0.0049;
-      else if (i < NB + NH) lost = ia < 1.111 || ia > 1.667 || e2 > 0.16 || d2 < 0.0049;
-      else lost = ia < 0.833 || ia > 1.25 || e2 > 0.09 || d2 < 0.0016;
+      else if (i < NB + NH) lost = ia < 1.111 || ia > 1.667 || e2 > 0.2 || d2 < 0.0036;
+      else lost = ia < 0.7 || ia > 1.6 || e2 > 0.16 || d2 < 0.0016;
     }
     if (lost) {
       st.t = t1;
@@ -185,12 +186,12 @@ function step(st, h) {
 // ---- knobs ------------------------------------------------------------------
 function derive(st) {
   const k = st.k;
-  st.mu = 0.0065 * exp(0.38 * cl(k[1], 0, 4));
+  st.mu = 0.0085 * exp(0.34 * cl(k[1], 0, 4));
   const em = 0.3 * exp(0.28 * cl(k[2], -1, 1));
   st.eHi = em;
   st.eLo = 0.55 * em;
   st.eLoss = 0.4;
-  st.speed = Math.pow(8, cl(k[3], -1, 1));      // Jupiter orbits a second
+  st.speed = 0.7 * Math.pow(8, cl(k[3], -1, 1));      // Jupiter orbits a second
   st.jr = 11 * Math.pow(st.mu, 1 / 3);
 }
 
@@ -281,7 +282,7 @@ export function update(dt, input, params) {
 // ---- drawing ----------------------------------------------------------------
 const GROUND = [6, 5, 24];
 const CREAM = [255, 238, 200];
-const E0C = 0.08, ECOLD = 0.34;           // eccentricity at the amber end of the ramp, and the span of the ramp
+const E0C = 0.08, ECOLD = 0.38;           // eccentricity at the amber end of the ramp, and the span of the ramp
 const eu = (e) => cl((e - E0C) / ECOLD, 0, 1);
 
 function splat(buf, px, py, r, g, b) {
@@ -306,7 +307,7 @@ function drawTop(st) {
   const buf = st.buf, lut = st.lut, X = st.X, Y = st.Y, VX = st.VX, VY = st.VY, ec = st.ec;
   buf.fill(0);
   const ct = cos(st.t), sn = sin(st.t), acc = st.acc, dtS = st.dtS;
-  const ENERGY = 0.2;
+  const ENERGY = 0.13;
   for (let i = 0; i < N; i++) {
     const x = X[i], y = Y[i], vx = VX[i], vy = VY[i];
     // the rotating frame, Jupiter on +X
@@ -325,12 +326,13 @@ function drawTop(st) {
     const arc = lenPx * tau;
     const K = cl(ceil(arc / 1.4), 1, 12), dl = tau / K;
     const ca = cos(-om * dl), sa = sin(-om * dl), rr = 1 - (vr * dl) / r;
-    const li = floor(eu(ec[i]) * (NL - 1) + 0.5) * 3, en = ENERGY / K;
+    const li = floor(eu(ec[i]) * (NL - 1) + 0.5) * 3, en = ((i < NB ? ENERGY : ENERGY * 1.4) * (1 + 2.2 * sstep(0.28, 0.4, ec[i]))) / K;
     const cr = (lut[li] / 255) * en, cg = (lut[li + 1] / 255) * en, cb = (lut[li + 2] / 255) * en;
     let ux = qx, uy = qy;
     for (let k = 0; k < K; k++) {
       // the screen: Jupiter at the top, motion anticlockwise
-      splat(buf, CX - uy * SC, CY - ux * SC, cr, cg, cb);
+      const sx = -uy * SC, sy = -ux * SC;
+      splat(buf, CX + sx * CT - sy * ST, CY + sx * ST + sy * CT, cr, cg, cb);
       const nx = (ux * ca - uy * sa) * rr, ny = (ux * sa + uy * ca) * rr;
       ux = nx;
       uy = ny;
@@ -349,17 +351,18 @@ export function draw(display, params) {
   drawTop(st);
   const buf = st.buf, lut = st.lut;
   // ---- the view from above
-  const jx = CX, jy = CY - SC, jr = st.jr;
+  const jx = CX + SC * ST, jy = CY - SC * CT, jr = st.jr;
   for (let y = 0; y < TOPH; y++) {
     for (let x = 0; x < W; x++) {
       const o = (y * W + x) * 3, dxs = x + 0.5 - CX, dys = y + 0.5 - CY;
       const gl = exp(-(dxs * dxs + dys * dys) / 700);
-      let r = GROUND[0] + 7 * gl, g = GROUND[1] + 4 * gl, b = GROUND[2] + 16 * gl;
+      const hz = exp(-(dxs * dxs + dys * dys) / 60);
+      let r = GROUND[0] + 7 * gl + 14 * hz, g = GROUND[1] + 4 * gl + 7 * hz, b = GROUND[2] + 16 * gl + 26 * hz;
       const m = max(buf[o], buf[o + 1], buf[o + 2]);
       if (m > 1e-4) {
         // the colour keeps its direction and the light is squeezed into 0..1; where it is dim it is paled and lifted, since a dim
         // amber on the panel is brown
-        const v = 1 - exp(-1.7 * m), k = 255 / m, pl = 0.38 * (1 - v) * (1 - v), vv = min(1, v * (1 + 0.55 * (1 - v)));
+        const v = 1 - exp(-1.7 * m), k = 255 / m, pl = 0.38 * (1 - v) * (1 - v), vv = min(1, v * (1 + 0.55 * (1 - v))) * sstep(0.09, 0.2, m);
         r = r * (1 - vv) + mix(buf[o] * k, 255, pl) * vv;
         g = g * (1 - vv) + mix(buf[o + 1] * k, 238, pl) * vv;
         b = b * (1 - vv) + mix(buf[o + 2] * k, 190, pl) * vv;
