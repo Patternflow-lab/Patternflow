@@ -11,8 +11,8 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Rate=0..4, Targets=-1..1, Noise=0..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the positive amplitudes are gold and amber and the negative ones cyan and violet, with a pale white where an amplitude crosses zero; each circle's gold and cyan also wander a few degrees on their own slow periods.
-// Knob 2: Rate. 0 to 4, opening at 2. Search iterations a second, as a smooth exponential: 0.6 at 0, 2 at 2 and 6.5 at 4. The collapse and the re-inflation scale with it. At 0 a search of one marked spoke takes nearly half a minute and the needle is plainly still growing; at 4 the ring flickers through a search in under two seconds.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the positive amplitudes are gold and amber and the negative ones cyan and violet, with a pale white where an amplitude crosses zero; the deep teal glow behind each circle takes the cyan hue. Each circle's gold and cyan also wander up to 30 or 40 degrees on their own slow periods, and the glow slides about and swells and fades, so no minute looks like the last.
+// Knob 2: Rate. 0 to 4, opening at 2. Search iterations a second, as a smooth exponential: 0.6 at 0, 2 at 2 and 6.5 at 4. The collapse and the re-inflation scale with it. At 0 a search of one marked spoke takes about twenty seconds and the needle is plainly still growing; at 4 the ring flickers through the same search in under two.
 // Knob 3: Targets. -1 to 1, opening at 0. How many spokes are marked in each search, a whole number from 1 to 6. At -1 every search has one marked spoke and ends in one long needle. At 1 every search has six and ends in six shorter ones. In between a range of counts is drawn at random, 1 to 6 at the opening. Turning it while a search runs adds or removes marked spokes there and then.
 // Knob 4: Noise. 0 to 1, opening at 0.06. Imperfection in the oracle and the diffusion: small random errors on every amplitude and, now and then, a marked spoke that is flipped by the wrong phase. At 0 the search is exact and the ring is smooth. Higher, the ring turns ragged, the needles stay lower and the picture strays off the clean rotation.
 
@@ -323,8 +323,8 @@ function drawCircle(st, ci) {
   const cy = (ci ? 95.5 : 32.5) + 2.8 * sin((TP * t) / (ci ? 71 : 67) + ph[o + 1]) + 0.7 * sin((TP * t) / (ci ? 103 : 89) + ph[o + 5]);
   const sc = 0.97 + 0.1 * sin((TP * t) / (ci ? 79 : 73) + ph[o + 2]) - 0.02;
   const rot = ci ? -(TP * t) / 241 + ph[o + 2] : (TP * t) / 173 + ph[o + 2];
-  const hp = k0 + 0.105 + 0.027 * sin((TP * t) / (ci ? 97 : 89) + ph[o + 3]) + 0.013 * sin((TP * t) / (ci ? 151 : 131) + ph[o + 4]);
-  const hn = k0 + 0.5 + 0.05 * sin((TP * t) / (ci ? 113 : 107) + ph[o + 5]) + 0.03 * sin((TP * t) / (ci ? 173 : 157) + ph[o + 3]);
+  const hp = k0 + 0.105 + 0.032 * sin((TP * t) / (ci ? 97 : 89) + ph[o + 3]) + 0.016 * sin((TP * t) / (ci ? 151 : 131) + ph[o + 4]);
+  const hn = k0 + 0.5 + 0.07 * sin((TP * t) / (ci ? 113 : 107) + ph[o + 5]) + 0.04 * sin((TP * t) / (ci ? 173 : 157) + ph[o + 3]);
   const { tab, rad, bb, px, py, fb, gs } = st;
   buildTab(tab, hp, hn);
   const cr = cos(rot), sr = sin(rot);
@@ -343,12 +343,14 @@ function drawCircle(st, ci) {
   hsv(hn, 0.7, 1, ac, 0);
   {
     const AR = 36, ar2 = AR * AR;
-    for (let y = max(0, floor(cy - AR)); y <= min(H - 1, floor(cy + AR)); y++) {
-      const dy = y + 0.5 - cy;
-      for (let x = max(0, floor(cx - AR)); x <= min(W - 1, floor(cx + AR)); x++) {
-        const dx = x + 0.5 - cx, u = 1 - (dx * dx + dy * dy) / ar2;
+    const ax = cx + 5 * sin((TP * t) / (ci ? 127 : 131) + ph[o + 3]), ay = cy + 6 * sin((TP * t) / (ci ? 109 : 113) + ph[o]);
+    const am = 0.13 * (0.75 + 0.5 * (0.5 + 0.5 * sin((TP * t) / (ci ? 83 : 91) + ph[o + 5])));
+    for (let y = max(0, floor(ay - AR)); y <= min(H - 1, floor(ay + AR)); y++) {
+      const dy = y + 0.5 - ay;
+      for (let x = max(0, floor(ax - AR)); x <= min(W - 1, floor(ax + AR)); x++) {
+        const dx = x + 0.5 - ax, u = 1 - (dx * dx + dy * dy) / ar2;
         if (u <= 0) continue;
-        const a = 0.13 * u * u, p = (y * W + x) * 3;
+        const a = am * u * u, p = (y * W + x) * 3;
         fb[p] += ac[0] * a;
         fb[p + 1] += ac[1] * a;
         fb[p + 2] += ac[2] * a;
