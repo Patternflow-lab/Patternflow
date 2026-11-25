@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Noctilucent
 // Family:  noctilucent
-// Idea:    Night-shining clouds an hour after sunset, seen from the ground: every LED is a view ray that meets a thin sheet of ice 83 km up, so the sheet's long wave bands, its fine cross billows and its drifting knots and holes are broad at the top of the panel and squeezed flat towards the horizon, lit electric blue-white up to the soft arch of the Earth's shadow, over a twilight sky that runs from an orange glow at the foot through turquoise to indigo.
+// Idea:    Night-shining clouds an hour after sunset, seen from the ground: every LED is a view ray that meets a thin sheet of ice 83 km up, so the sheet's long wave bands, the fine billows that cross them and its drifting knots and holes come out broad at the top of the panel and squeezed flat towards the horizon, lit electric blue-white up to the soft arch of the Earth's shadow, over a twilight sky that runs from an orange glow at the foot through turquoise to indigo.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: noctilucent clouds, noticed widely in the summer of 1885 after Krakatoa (Backhouse, Leslie, Jesse; Jesse's triangulations of 1887 to 1896 put them near 82 km, from memory); their forms as veils, bands, billows and whirls (the WMO cloud atlas classes, Fogle and Haurwitz 1966, from memory); bands and billows as gravity waves and their breaking in the mesopause (Hines 1960 and the stereo photographs of Witt 1962, from memory); the forward scattering of sunlight by ice grains some tens of nanometres across; the Earth's shadow as the upper edge of the lit part; the ray to a spherical shell at height h, slant range s = -R sin e + sqrt(R^2 sin^2 e + 2 R h + h^2); hashed value noise (Perlin 1985 for the idea of lattice noise). What is original: the sheet drawn per LED in its own ground coordinates with each wave train faded out where its projected wavelength falls under about 3 LED, the multiplicative ripple of a noise veil by packets of ridge waves, the exaggerated arch and the knob layout, pattern round 246
+// Lineage: noctilucent clouds, noticed widely in the summer of 1885 after Krakatoa (Backhouse, Leslie and Jesse, from memory; Jesse's photographic triangulations of 1887 to 1896 put them near 82 km, from memory); their forms as veils, bands, billows and whirls (the WMO cloud atlas classes, reviewed by Fogle and Haurwitz 1966, from memory); the bands and billows as gravity waves at the mesopause (Hines 1960 and 1968, and the stereo photographs of Witt 1962, from memory); the forward scattering of sunlight by ice grains some tens of nanometres across; the Earth's shadow as the upper edge of the lit part; the ray to a spherical shell at height h, slant range s = -R sin e + sqrt(R^2 sin^2 e + 2 R h + h^2); hashed gradient noise (Perlin 1985). What is original: the sheet drawn per LED in its own ground coordinates, each wave train faded out where its projected wavelength falls under about 3 LED, a noise veil rippled by two trains of ridge waves that each own a part of the sheet and carry their own cross billows, the arch drawn rounder than the real shadow edge, and the knob layout, pattern round 246
 // Round:   246
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Wind=0..4, Billows=-1..1, Sun=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the colours are the natural ones: blue-white cloud, an orange glow on the horizon, turquoise above it and indigo at the top. At 0.5 the cloud is gold over a blue horizon.
-// Knob 2: Wind. 0 to 4, opening at 2: how fast the sheet is carried over the ground and how fast the waves crawl through it. At 0 it is a quarter of the opening speed and the sheet still changes; at 4 it streams up from the horizon and over your head.
-// Knob 3: Billows. -1 to 1, opening at 0. At -1 the sheet is smooth and whole and only the long broad bands ripple it. At 1 the bands are nearly gone, the sheet is torn into patches and most of it is covered by fine ripples that cross the bands. At 0 both.
-// Knob 4: Sun. -1 to 1, opening at 0.06: how far the sun is below the horizon. At -1 it has just set: the warm glow reaches half way up, the sky is bright and the whole sheet is lit but pale against it. At 1 it is deep twilight: the glow is a thin red line, the sky is nearly black and only a low arch of cloud is still in sunlight, very bright.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the colours are the natural ones: blue-white cloud, an orange glow on the horizon, turquoise above it and indigo at the top. At 0.5 the cloud is gold and the horizon is blue.
+// Knob 2: Wind. 0 to 4, opening at 2: how fast the wind carries the sheet from the horizon towards you, and with it how fast the crests crawl through the sheet. At 0 the wind is at 0.35 of its opening speed and the sheet still changes; at 4 it is at 1.65 and the sheet streams over your head.
+// Knob 3: Billows. -1 to 1, opening at 0. At -1 the sheet is whole and only the long broad bands ripple it. At 1 the bands are faint, the upper sheet is torn into patches and nearly all of it carries the fine ripples that cross the bands. At 0 both, the billows in patches.
+// Knob 4: Sun. -1 to 1, opening at 0.06: how far the sun is below the horizon. At -1 it has just set: the warm glow reaches a third of the way up, the sky is bright and the whole sheet is lit but pale against it. At 1 it is deep twilight: the glow is a thin red line, the sky is nearly black and only a low arch of cloud is still in sunlight, bright against the dark.
 
 const W = 64, H = 128, N = W * H;
 const { floor, min, max, sin, cos, sqrt, exp, pow, atan2, PI } = Math;
@@ -34,10 +34,10 @@ const HR = 125;                  // the last row of sky; rows 126 and 127 are th
 const V0 = 0.07;                 // sheet heights a second the wind carries the sheet at Wind 2
 const PRE = 40;                  // seconds the sheet is taken to have run before the first frame
 const PVZ = 3.2;                 // the wave trains turn about this point of the sheet, straight ahead
-const S1 = 1.2, S2 = 0.5, S3 = 0.17;   // cells of the knots, the wisps and the fine wisps, in sheet heights
+const S1 = 1.4, S2 = 0.5, S3 = 0.17;   // cells of the knots, the wisps and the fine wisps, in sheet heights
 const SE = 1.6, SB = 0.6;        // cell of the band domains and of the billow patches
 const G0 = 0.934, G1 = 3.9;      // squared phase step per LED where a train starts to fade (6.5 LED a wave) and is gone (3.2 LED)
-const FA = 0.3, FS = 1.6;        // the veil is drawn out into fibres along a line this many radians off the X axis, by this factor
+const FA = 0.3, FS = 1.7;        // the veil is drawn out into fibres along a line this many radians off the X axis, by this factor
 
 // The two band trains. lam: wavelength in sheet heights. th: mean direction of travel, radians from the line of sight
 // (0 gives bands across the panel, a quarter turn gives crests that run to the horizon). ta, tp, tp2: how far and
@@ -102,7 +102,7 @@ function hit(e, a, o) {
     hit(e, 0, o);
     ROWB[y] = pow(1 / o[2], 0.5) * exp(-0.1 / sin((e + 1.5) * RAD));
     WARM[y] = 1 - sstep(2, 9, e);
-    // rows a cell of the wisps takes up; under about two the wisps are left out
+    // rows a cell of each veil layer takes up here: the knots lose contrast towards the horizon, the wisps are left out under about two rows
     const i = y * W + 32, rpu = 1 / sqrt(JXY[i] * JXY[i] + JZY[i] * JZY[i]);
     FD1[y] = 0.35 + 0.65 * sstep(3, 8, S1 * rpu);
     FD2[y] = sstep(1.1, 2.3, S2 * rpu);
@@ -143,6 +143,11 @@ function hsv(h, s, v, out, o) {
   out[o + 1] = (i === 1 || i === 2 ? v : i === 0 ? t : i === 3 ? q : p) * 255;
   out[o + 2] = (i === 3 || i === 4 ? v : i === 2 ? t : i === 5 ? q : p) * 255;
 }
+// A dim colour on the red, orange and yellow stretch of the wheel reads brown on the panel, so it is paled and lifted.
+function tone(h, s, v, out, o) {
+  const hh = h - floor(h), br = (hh > 0.5 ? sstep(0.8, 0.95, hh) : 1 - sstep(0.16, 0.3, hh)) * (1 - v) * sstep(0.04, 0.3, v);
+  hsv(h, s * (1 - 0.5 * br), min(1, v * (1 + 0.6 * br)), out, o);
+}
 // The cloud by brightness: [brightness, hue, saturation, value]. High in the sky it is electric blue going to white,
 // close to the horizon it is seen through the glow and goes pale gold.
 const CLOUD = [
@@ -166,7 +171,7 @@ function buildLut(lut, keys, hue) {
     let k = 0;
     while (k < keys.length - 2 && u > keys[k + 1][0]) k++;
     const a = keys[k], b = keys[k + 1], f = cl((u - a[0]) / (b[0] - a[0]), 0, 1);
-    hsv(mix(a[1], b[1], f) + hue, mix(a[2], b[2], f), mix(a[3], b[3], f), c, 0);
+    tone(mix(a[1], b[1], f) + hue, mix(a[2], b[2], f), mix(a[3], b[3], f), c, 0);
     lut[i * 3] = c[0];
     lut[i * 3 + 1] = c[1];
     lut[i * 3 + 2] = c[2];
@@ -185,7 +190,7 @@ function buildSky(sky, q, hue) {
     [3.5 * g + 26, 0.68 + 0.04 * q, 0.86, 0.46 - 0.35 * q],
   ];
   const c = new Float32Array(st.length * 3);
-  for (let k = 0; k < st.length; k++) hsv(st[k][1] + hue, st[k][2], st[k][3], c, k * 3);
+  for (let k = 0; k < st.length; k++) tone(st[k][1] + hue, st[k][2], st[k][3], c, k * 3);
   let k = 0;
   for (let j = 0; j < NS; j++) {
     const e = j / SKS;
@@ -280,7 +285,7 @@ export function draw(display, params) {
   let q = (cl(st.k[3], -1, 1) + 1) / 2 + 0.05 * sin(t / 31 + ph[10]) + 0.03 * sin(t / 13.3 + ph[11]);
   q = q < 0 ? -q : q > 1 ? 2 - q : q;
   const as = 8.5 * (0.55 * sin(t / 29 + ph[12]) + 0.45 * sin(t / 12.7 + ph[13]));
-  const E0 = 21 + 47 * (1 - pow(q, 1.2)) + (1 - 0.4 * q) * (2 * sin(t / 23.1 + ph[14]) + 1.4 * sin(t / 9.7 + ph[15]));
+  const E0 = 19 + 49 * (1 - pow(q, 1.3)) + (1 - 0.4 * q) * (2 * sin(t / 23.1 + ph[14]) + 1.4 * sin(t / 9.7 + ph[15]));
   const gain = q < 0.53 ? 0.5 + 0.94 * q : 1 + 1.5 * (q - 0.53), dep = 6 + 10 * q, wq = 1 - 0.85 * q;
   buildSky(st.sky, q, hue);
   const CB = st.CB, CS = st.CS, EDG = st.EDG, RF = st.RF, NV = st.NV, ND = st.ND, NP = st.NP;
@@ -289,7 +294,7 @@ export function draw(display, params) {
     const da = AZ[x] - as, db = AZ[x] - 1.25 * as;
     CB[x] = 0.52 + 0.48 * exp((-da * da) / 242);
     CS[x] = SKS / (0.72 + 0.28 * exp((-da * da) / 288));
-    EDG[x] = E0 + 2 - (0.04 * db * db) / (1 + (db * db) / 400);
+    EDG[x] = E0 + 2 - (0.034 * db * db) / (1 + (db * db) / 400);
     emax = max(emax, EDG[x]);
   }
   for (let y = 0; y < H; y++) {
@@ -299,7 +304,7 @@ export function draw(display, params) {
   const bp = max(0, bil), bn = max(0, -bil);
   const wBand = 1 + 0.1 * bn - 0.75 * bp, wBill = 0.8 * (1 - bn) + 0.35 * bp;
   const thi = 0.5 - 0.6 * bn - 0.05 * bp;
-  const w1 = 0.45, w3 = 0.15, w2 = 0.4;
+  const w1 = 0.5, w3 = 0.15, w2 = 0.35;
   const plo = -0.45 - 0.9 * bil;
   const kx = st.kx, kz = st.kz, phi = st.phi, ex = st.ex, ez = st.ez, seed = st.seed, o3x = st.o3x, o3z = st.o3z;
   const ox = st.ox, oz = st.oz, o2x = st.o2x, o2z = st.o2z, obx = st.obx, obz = st.obz;
@@ -340,7 +345,7 @@ export function draw(display, params) {
       if (lt > 0.004) {
         const xi = x >> 2, xf = (x & 3) * 0.25, v = NV[xi] + (NV[xi + 1] - NV[xi]) * xf;
         let rho = cl((v - tlo) * ti, 0, 1);
-        rho = rho * rho * (3 - 2 * rho) * cl(0.8 + 0.3 * v, 0.4, 1.4);
+        rho = rho * rho * (3 - 2 * rho) * cl(0.8 + 0.25 * v, 0.45, 1.3);
         if (rho > 0.003) {
           const X = PX[i], Z = PZ[i], jxx = JXX[i], jxy = JXY[i], jzx = JZX[i], jzy = JZY[i];
           // one band train or the other, each fading out towards the strip between them where the sheet is smooth
