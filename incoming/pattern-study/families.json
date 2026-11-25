@@ -329,5 +329,10 @@
   "spherulite": { "label": "구정 결정", "color": "#f2c14e" },
   "chromatogram": { "label": "염기서열 봉우리", "color": "#4fd66b" },
   "tidaldisruption": { "label": "조석 파괴", "color": "#7fa8ff" },
-  "dichroic": { "label": "다이크로익 유리", "color": "#e86bd8" }
+  "dichroic": { "label": "다이크로익 유리", "color": "#e86bd8" },
+  "isochrone": { "label": "등시선 지도", "color": "#ff8a3c" },
+  "birch": { "label": "자작나무 숲", "color": "#dfe8d8" },
+  "multiflash": { "label": "연속 노출 사진", "color": "#b8c4ff" },
+  "nastic": { "label": "잎의 접힘", "color": "#57c84d" },
+  "huddle": { "label": "펭귄 허들", "color": "#3fa9ff" }
 }
