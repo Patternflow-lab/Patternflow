@@ -13,8 +13,8 @@
 //
 // Knob 1: Hue. Turns the whole palette round the wheel. At 0 the cold gas at the foot is blue to violet, the warm sheet runs from plum through rose to amber and gold on the filaments, the ionized holes are blue-black and their fronts pale cyan; at 0.5 the foot is amber and the sheet turns teal to blue.
 // Knob 2: Speed. 0 to 4, opening at 2: how fast the slice travels through the depth of the volume. At 0 a hole takes about twenty seconds to open and close, at 2 about seven, at 4 about two.
-// Knob 3: Sources. -1 to 1, opening at 0: who does the ionizing. At -1 a few rare bright galaxies, so a handful of very large bubbles; at 1 many faint ones, a froth of small bubbles that percolate. The ionized share of a row stays about the same, the knob changes the grain.
-// Knob 4: Timing. -1 to 1, opening at 0.06: when reionization happens. At -1 it is early, the dark has come down to the lower third and only islands glow above it; at 1 it is late and the glowing sheet reaches nearly to the top with small holes in it.
+// Knob 3: Sources. -1 to 1, opening at 0: who does the ionizing. At -1 a few rare bright galaxies 29 LED apart, so a handful of very large bubbles; at 0 they are 20 LED apart; at 1 many faint ones 12 LED apart, a froth of small bubbles that percolate. The ionized share of a row stays about the same (0.47 to 0.55 at the middle row), the knob changes the grain.
+// Knob 4: Timing. -1 to 1, opening at 0.06: when reionization happens, as the row where half the gas is ionized. At -1 it is early, that row is 34 LED above the foot, the dark has come down to the lower third and only islands glow above it; at the opening it is the middle row; at 1 it is late, that row is above the top and the glowing sheet reaches nearly there with small holes in it.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, abs, sin, cos, sqrt, exp, pow, tanh, PI } = Math;
@@ -27,7 +27,7 @@ const sstep = (a, b, x) => {
 const rnd = () => Math.random();
 
 const C0 = 20;                   // LED between sources at Sources 0
-const TM = 2.8;                  // the optical depth the bubbles saturate at, so about a tenth of the gas stays neutral
+const TM = 2.8;                  // the optical depth the bubbles saturate at; with the islands the voids keep, a sixth to a fifth of the top rows stays neutral
 const KF = 0.2;                  // bubble volume per unit of optical depth, in cells (set by measuring the ionized share)
 const TH = 0.25;                 // the level of the summed kernels that is the ionization front
 const WARP = 26;                 // LED the slow density field moves the timetable up or down
