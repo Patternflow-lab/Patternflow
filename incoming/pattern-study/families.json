@@ -314,5 +314,10 @@
   "sarcomere": { "label": "근육 마디", "color": "#e0559a" },
   "bandit": { "label": "여러 팔 밴딧", "color": "#7fd6c2" },
   "exchange": { "label": "교환 경제", "color": "#f4a259" },
-  "airtraffic": { "label": "항공 관제", "color": "#9ab8ff" }
+  "airtraffic": { "label": "항공 관제", "color": "#9ab8ff" },
+  "detonation": { "label": "폭굉 세포", "color": "#ff4d2e" },
+  "asteroseismology": { "label": "별 떨림", "color": "#b79bff" },
+  "cloudstreet": { "label": "구름 거리", "color": "#58b8f0" },
+  "battleship": { "label": "유물 빈도 곡선", "color": "#a8794a" },
+  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" }
 }
