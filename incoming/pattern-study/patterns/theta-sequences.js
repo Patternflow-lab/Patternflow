@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Theta Sequences
 // Family:  hippocampus
-// Idea:    A spike raster of 128 hippocampal place cells, stacked in the order of their fields along a track, scrolls across the panel; on every theta beat the burst sweeps up the stack a little ahead of the animal and each cell fires a little earlier in the beat than the one before it, drawing slanted streaks, and when the animal stops the same sequences replay at about twenty times the speed in sharp bright bursts.
+// Idea:    A spike raster of 128 hippocampal place cells, stacked in the order of their fields along a track, scrolls across the panel; on every theta beat the burst sweeps up the stack a little ahead of the animal and each cell fires a little earlier in the beat than the one before it, drawing slanted streaks, and when the animal stops the same sequences replay at ten to twenty times the speed in sharp bright bursts.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -137,7 +137,7 @@ function startReplay(st) {
   const a = cl(st.pos / st.L * NC, 0, NC - 1);
   let from;
   if (rnd() < 0.6) {
-    // a replay that begins at the animal, ends at it, or runs through it
+    // a replay anchored on the animal: it starts at the animal or finishes at it
     const q = rnd() < 0.5 ? (rnd() < 0.5 ? 0 : 1) : rnd();
     from = d > 0 ? a - q * n : a + q * n;
   } else from = d > 0 ? rnd() * (NC - n) : n + rnd() * (NC - n);
