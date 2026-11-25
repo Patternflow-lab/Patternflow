@@ -154,7 +154,7 @@ export function draw(display, params) {
   const kn = st.k, t = st.t, ph = st.ph;
   const f = 1 + 0.022 * (cl(kn[1], 0, 4) - 2);              // trial folding frequency, 1 is the true dnu
   const k3 = cl(kn[2], 0, 1), k4 = cl(kn[3], -1, 1);
-  const Dm = exp(1.1 * k4 * 1.2 * 0.8);                     // the drive, as it reaches the brightness
+  const Dm = exp(0.92 * k4);                                // the drive 1.1 k4 on the amplitude, softened where it reaches the brightness
   // the star itself: dnu, eps and nu_max drift on clocks that share no period
   const r = 1 + 0.0042 * sin(0.0311 * t + ph[0]) + 0.0027 * sin(0.0113 * t + ph[1]) + 0.0012 * sin(0.0731 * t + ph[2]);
   const u = r / f;
@@ -167,7 +167,7 @@ export function draw(display, params) {
 
   // evolution: the satellites come in pairs as the knob rises
   const gate = [sstep(0.02, 0.36, k3), sstep(0.26, 0.66, k3), sstep(0.52, 0.92, k3)];
-  const cent = 1 - 0.22 * k3;
+  const cent = 1 - 0.3 * k3;
 
   const ms = st.modes;
   for (let i = 0; i < ms.length; i++) {
@@ -186,7 +186,7 @@ export function draw(display, params) {
       else {
         const aj = m.j < 0 ? -m.j : m.j;
         const L = 1 / (1 + (aj / 1.5) * (aj / 1.5));
-        amp *= 0.7 * gate[aj - 1] * sqrt(L) * m.w;
+        amp *= 0.9 * gate[aj - 1] * sqrt(L) * m.w;
         cx += m.j * SPACING * (1 + 0.06 * sin(m.fw * t + m.pw)) + m.o;
         cx -= W * floor(cx / W);
       }
