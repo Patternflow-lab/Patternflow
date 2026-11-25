@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Noise=0..4, Phase=-1..1, Crosstalk=-1..1
 //
 // Knob 1: Hue. Turns the colours round the wheel together. At 0 the upper square (X polarization) is cyan-teal, the lower (Y polarization) rose-violet, and symbols thrown far from their ideal point by a lost lock or a burst are amber. Each square's own hue also drifts a little by itself.
-// Knob 2: Noise. 0 to 4, opening at 2: additive noise. At 0 every point is a sharp disc, 3 LED across on 16 points and larger on 4. At 2 the points are clear round clouds with dark between them. At 4 the clouds touch and each square is nearly a filled haze, drawn a little smaller so its soft edge stays on its half.
+// Knob 2: Noise. 0 to 4, opening at 2: additive noise, in units of the lattice pitch, the way a link only runs a fine lattice on a clean channel. At 0 every point is a sharp disc, 3 LED across on 16 points and larger on 4. At 2 the points are clear round clouds with dark between them in every order. At 4 the clouds touch and a square of 4 or 16 points is nearly a filled haze, drawn a little smaller so its soft edge stays on its half.
 // Knob 3: Phase. -1 to 1, opening at 0: laser phase noise and carrier offset. At -1 the loop is locked solid and the clouds are round. At 0 the outer points are short arcs and each square loses lock about every half minute. At 1 the arcs are long, the square shivers, and lock is lost every few seconds so the squares keep spinning into rings, amber while they turn fast.
-// Knob 4: Crosstalk. -1 to 1, opening at 0.06: how much of each polarization leaks into the other. At -1 none. In the middle a slight ghosting, with a transient now and then that the equalizer tracks back down. At 1 every point is a small tilted lattice of the other square, slowly turning, and both squares shade toward the hue between them.
+// Knob 4: Crosstalk. -1 to 1, opening at 0.06: how much of each polarization leaks into the other. Below 0.2 almost nothing: a faint ghosting, and a transient now and then that the equalizer tracks back down. Above it every point grows into a small tilted copy of the other square's lattice, slowly turning, resolved into its own dots at 1, and both squares shade toward the hue between them. A square on 64 points falls back to 16 once the copies show.
 
 const W = 64, H = 128, N = W * H;
 const { floor, round, min, max, abs, exp, sqrt, sin, cos, pow, PI } = Math;
@@ -34,14 +34,12 @@ const XC = 32, YC = [31.5, 96.5];     // centre of each square
 const ROW0 = [0, 65], ROW1 = [62, 127];
 // The lattice is three levels of plus-or-minus steps: QPSK uses the first, 16-QAM two, 64-QAM three.
 const C1 = [15, 14.5, 12.8], C2 = [0, 7.25, 6.4], C3 = [0, 0, 3.2];
-const NSC = [1.9, 1, 0.5];           // the noise in LED scales with the spacing: the rate follows the channel
-const PSC = [1.3, 1, 0.55];          // and so does the phase noise
-const JIT = [2.4, 0.8, 0];            // the size of a clean point
+const HP = [15, 7.25, 3.2];          // half the pitch of each lattice. Noise, point size and blur follow the finest pitch on the square,
+                                     // its own or that of the other lattice's copies: a link only runs a fine lattice on a clean channel
 const PK = [3.6, 3, 1.8];              // how bright a clean point's centre is, in units of the tone curve's knee
 const MM = [4, 16, 64];
 const HDS = [12, 7.25, 3.2];           // half the distance to the next point: beyond it a symbol is an error
 const A0 = 0.055, TP = 0.9;           // tone curve of the phosphor
-const KVS = [1.167, 1.167, 0.667];    // variance of a clean dot: the splat and two passes of blur, one pass where the points stand close
 const TLN = 2048, TLMAX = 9, TLUT = new Float32Array(TLN + 1);
 for (let i = 0; i <= TLN; i++) TLUT[i] = 1 - exp(-pow((TLMAX * i * i) / (TLN * TLN) / A0, TP));
 
@@ -59,7 +57,7 @@ function newPol(p) {
   const m = p ? (rnd() < 0.5 ? 0 : 2) : 1;
   return {
     o, s, m, mt: m, tm: (p ? 16 : 9) + 14 * rnd(),
-    c: [0, 0, 0], nsc: 1, psc: 1, jit: 0, pk: 3, mm: 16, kv: 1.167, hd: 7.5, cnt: floor(rnd() * 4096),
+    c: [0, 0, 0], hp: 7.25, pk: 3, mm: 16, kv: 1.167, hd: 7.5, cnt: floor(rnd() * 4096),
     theta: 0, lock: 0, dth: 0, spinT: 0, spinDur: 1, spinW: 0, spinPh: 0, haz: 0, hazNext: 0.25 + 0.5 * rnd(),
     burst: 0, tb: 5 + 14 * rnd(), wt: new Float32Array(16), sig: 0,
   };
@@ -97,7 +95,7 @@ function knobs(k) {
     sp: 0.2 * pow(u, 1.9),                             // radians of phase noise a symbol
     u,
     slipT: u < 0.04 ? 0 : 3.2 * pow(35 / 3.2, 2 * (1 - u)), // seconds between losses of lock
-    kap: 0.25 * v * v,
+    kap: 0.04 * v * v + 0.18 * pow(cl((k[3] - 0.1) / 0.9, 0, 1), 1.6),   // almost nothing below 0.2
   };
 }
 
@@ -117,17 +115,16 @@ function stepPol(st, P, Q, p, dt, kn) {
     if (P.mt === 0 && Q.mt === 0) P.mt = 3 - old;
     P.tm = P.mt ? 15 + 30 * rnd() : 15 + 9 * rnd();
   }
+  // a link does not run 64 points through crosstalk: it falls back to 16
+  if (kn.kap > 0.05 && P.mt === 2) P.mt = 1;
   P.m += cl(P.mt - P.m, -0.9 * dt, 0.9 * dt);
   const f = min(1, floor(P.m)), t = sstep(0, 1, P.m - f);
   P.c[0] = mix(C1[f], C1[f + 1], t);
   P.c[1] = mix(C2[f], C2[f + 1], t);
   P.c[2] = mix(C3[f], C3[f + 1], t);
-  P.nsc = mix(NSC[f], NSC[f + 1], t);
-  P.psc = mix(PSC[f], PSC[f + 1], t);
-  P.jit = mix(JIT[f], JIT[f + 1], t);
+  P.hp = mix(HP[f], HP[f + 1], t);
   P.pk = mix(PK[f], PK[f + 1], t);
   P.mm = mix(MM[f], MM[f + 1], t);
-  P.kv = mix(KVS[f], KVS[f + 1], t);
   P.hd = mix(HDS[f], HDS[f + 1], t);
   // carrier lock
   const th0 = P.theta;
@@ -170,29 +167,32 @@ function emit(st, p, dt, kn) {
   const P = st.pol[p], Q = st.pol[1 - p], s = P.s, { A, E, C } = st;
   const c1 = P.c[0], c2 = P.c[1], c3 = P.c[2], o1 = Q.c[0], o2 = Q.c[1], o3 = Q.c[2];
   const R2 = 2 * (c1 * c1 + c2 * c2 + c3 * c3), iR2 = 1 / R2;
-  const kap = min(0.36, kn.kap * (exp(0.3 * s[KF]) + st.ktr));
+  const kap = min(0.26, kn.kap * (exp(0.2 * cl(s[KF], -2, 2)) + st.ktr));
   const psi = p ? PI - st.psi : st.psi, kc = kap * cos(psi), kq = kap * sin(psi);
-  const jit = P.jit * (1 - 0.65 * sstep(0.07, 0.2, kap));   // under crosstalk a big point gives way to the copy of the other lattice
-  const sn = kn.sig * P.nsc * exp(0.35 * cl(s[NZ], -2, 2)) * (1 + P.burst), sig = sqrt(sn * sn + jit * jit);
+  // the finest half-pitch on this square: its own, or the copies' once crosstalk shows
+  const wx = sstep(0.06, 0.16, kap), hE = P.hd + (min(P.hd, kap * Q.hp) - P.hd) * wx, hr = hE / 7.25, psc = min(1.3, pow(hr, 1.25));
+  const jit = hE > 7.25 ? 0.8 + (hE - 7.25) * 0.337 : max(0, (hE - 3.2) * 0.2);   // the size of a clean point
+  const KV = (P.kv = 0.667 + 0.5 * sstep(3.6, 6, hE));   // variance of a clean dot: the splat and two passes of blur, one pass on a fine lattice
+  const sn = kn.sig * pow(hr, 1.25) * exp(0.25 * cl(s[NZ], -2, 2)) * (1 + P.burst), sig = sqrt(sn * sn + jit * jit);
   // how soft the square is drawn: by its noise, and by the other lattice's copies once noise has blurred them together
   P.sig = sqrt(sig * sig + pow(0.5 * kap * (o1 + o2 + o3) * min(1, sn / 0.7), 2));
   // a cloud that noise has filled in shows its shape more than its points: it is squeezed and leaned further
   const hz = 1 + 0.6 * sstep(1.5, 3, sig);
   const ib = hz * cl(0.08 * s[IB] + 0.07 * s[SL + 5], -0.2, 0.2), eps = hz * cl(0.09 * s[SK] + 0.07 * s[SL + 6], -0.22, 0.22), skS = sin(eps), skC = cos(eps);
   const ri = 0.07 * hz * cl(s[RI], -2, 2), rs = 0.07 * hz * cl(s[RS], -2, 2);
-  const cmp = 0.08 * cl(s[CP] + 0.5, -1, 2), tw = 0.11 * cl(s[TW], -2, 2);
+  const fine = min(1, P.hd / 7.25), cmp = 0.08 * fine * cl(s[CP] + 0.5, -1, 2), tw = 0.11 * fine * cl(s[TW], -2, 2);
   // the modulator's levels are not evenly spaced: each axis has its inner and outer levels pushed apart or to one side
   const lk = (c2 / 7.25) * (1 - c3 / 5), aI = lk * cl(s[LV], -1.8, 1.8), bI = lk * cl(s[LV + 1], -1.8, 1.8), aQ = lk * cl(s[LV + 2], -1.8, 1.8), bQ = lk * cl(s[LV + 3], -1.8, 1.8);
   const c2i = c2 + aI, c2q = c2 + aQ;
   const res = (0.07 + 0.06 * kn.u) * cl(s[RT], -2.2, 2.2);
-  const jitA = 0.45 * kn.sp * P.psc * s[JT];
+  const jitA = 0.45 * kn.sp * psc * s[JT];
   const th = res + P.theta, dth = P.dth;
-  const sp = kn.sp * P.psc * exp(0.3 * cl(s[PN], -2, 2));
+  const sp = kn.sp * psc * exp(0.3 * cl(s[PN], -2, 2));
   // the gain control holds the total power: under heavy noise and crosstalk the lattice itself is smaller
   const ext = c1 + c2 + c3, gfit = min(1, 25.5 / (ext + 0.85 * kap * (o1 + o2 + o3) + 2 * (sig - jit)));
   // a small lattice has room to wander
   const room = cl((29 - gfit * ext) / 7.25, 1, 1.7);
-  const g0 = gfit * (1 + room * cl(0.1 * s[GA] + 0.07 * s[SL + 2], -0.21, 0.21)), dcm = max(1, 28.5 - g0 * ext);
+  const g0 = gfit * (1 + room * cl(0.1 * s[GA] + 0.07 * s[SL + 2], -0.21, 0.21)), dcm = max(0.5, 26.5 - g0 * ext * (1 + abs(ib) + abs(ri) + abs(rs) + 0.5 * abs(eps)));
   const cx = XC + cl(room * (1.8 * s[DX] + 1.7 * s[SL + 3]), -dcm, dcm), cy = YC[p] + cl(room * (1.8 * s[DY] + 1.7 * s[SL + 4]), -dcm, dcm), g = g0;
   // the data's bit balance drifts: halves, quadrants, inner and outer rows of the lattice carry unequal light
   const wt = P.wt, wa = 0.12 + 0.16 * sstep(1, 3, sig) + 0.02 * c3;
@@ -209,9 +209,10 @@ function emit(st, p, dt, kn) {
   const n = round(NSYM * dt * 30), ihd = 1 / P.hd;
   // the instrument scales its intensity to the densest spot: a point's own peak, or the mean of a filled square,
   // and lets a spread cloud be dimmer than a clean point
-  const KV = P.kv, s1 = g * g * (sig * sig + kap * kap * (o1 * o1 + o2 * o2 + o3 * o3)) + KV, ar = sqrt(s1 * (s1 + g * g * sp * sp * R2));
-  const xt = g * ext + 1.2 * sqrt(s1), dpk = max(1 / (TAU * ar), P.mm / (4 * xt * xt));
-  const e0 = (P.pk * A0 * max(0.36, pow(KV / ar, 0.33)) * (1 - exp(-dt / PERSIST)) * P.mm) / (dpk * max(1, n));
+  const s0 = g * g * sig * sig + KV, s1 = s0 + g * g * kap * kap * (o1 * o1 + o2 * o2 + o3 * o3), tg = g * g * sp * sp * R2;
+  const ar = sqrt(s1 * (s1 + tg)), ar0 = sqrt(s0 * (s0 + tg));
+  const xt = g * ext + 1.2 * sqrt(s1), dpk = max(1 / (TAU * ar), 1 / (Q.mm * TAU * ar0), P.mm / (4 * xt * xt));
+  const e0 = (P.pk * (1 - 0.45 * wx) * A0 * max(0.36, pow(KV / ar0, 0.33)) * (1 - exp(-dt / PERSIST)) * P.mm) / (dpk * max(1, n));
   const r0 = ROW0[p], r1 = ROW1[p];
   const wc = min(1, kap * 3.3);
   let z = st.seed, cnt = P.cnt;
@@ -279,7 +280,7 @@ function step(st, dt) {
   st.ktr *= exp(-dt / st.ktau);
   st.tk -= dt;
   if (st.tk <= 0) {
-    st.ktr = 1.2 + 1.6 * rnd();
+    st.ktr = 0.8 + 1 * rnd();
     st.ktau = 1.2 + 1.8 * rnd();
     st.psi += TAU * rnd();
     st.tk = 14 + 26 * rnd();
