@@ -107,7 +107,7 @@ export function setup(params) {
     O: [], C: [], Zg: [], S: new Float32Array(96),
     ph: [rnd() * TAU, rnd() * TAU, rnd() * TAU],
     tl: [{ s: 0, next: 1 + 4 * rnd() }, { s: 0, next: 1 + 4 * rnd() }],
-    gx: new Float32Array(96), hh: new Float32Array(96), e1: new Float32Array(96), e2: new Float32Array(96),
+    hvx: new Float32Array(W), gx: new Float32Array(96), hh: new Float32Array(96), e1: new Float32Array(96), e2: new Float32Array(96),
     P: new Float32Array(W * H), Q: new Float32Array(W * H), V: new Float32Array(W * H),
     lutP: new Float32Array(256 * 3), lutN: new Float32Array(256 * 3), lutG: new Float32Array(64 * 3),
   });
@@ -125,7 +125,7 @@ function targets(k) {
 
 // the field: three sines whose periods share no factor, squashed into 0..1 and bent so it sits low most of the time
 function fieldAt(st, t) {
-  const s = 0.55 * sin((TAU * t) / 41 + st.ph[0]) + 0.45 * sin((TAU * t) / 67.3 + st.ph[1]) + 0.3 * sin((TAU * t) / 113.7 + st.ph[2]);
+  const s = 0.55 * sin((TAU * t) / 33 + st.ph[0]) + 0.45 * sin((TAU * t) / 53.3 + st.ph[1]) + 0.3 * sin((TAU * t) / 89.7 + st.ph[2]);
   return pow(0.5 + 0.5 * tanh(1.3 * s), 1.8);
 }
 
@@ -156,7 +156,7 @@ export function update(dt, input, params) {
   st.B = fieldAt(st, st.t);
   // the pan: 1 to 2 columns a second, with a slow mean-reverting wander, never backwards
   st.u += (-st.u / 20) * dt + 0.35 * sqrt(0.1) * sqrt(dt) * gauss();
-  st.X0 += 1.5 * (1 + cl(st.u, -0.5, 0.45)) * dt;
+  st.X0 += 1.7 * (1 + cl(st.u, -0.5, 0.45)) * dt;
   ensureJ(st, ((st.ncI + 40) >> 1) + 4);
   while (G0(st, st.ncI + 1) < st.X0) st.ncI++;
   while (st.ncI > 4 && G0(st, st.ncI) > st.X0) st.ncI--;
@@ -189,6 +189,7 @@ function ridge(buf, y, xc, k, amp, a) {
     buf[row + x] += amp * TAB[d | 0];
   }
 }
+const hz = (st, n) => 0.4 + 0.9 * hsh(n, 17, 4) * (0.75 + 0.25 * sin((TAU * st.t) / (31 + 11 * hsh(n, 2, 8)) + 6.28 * hsh(n, 6, 1)));
 const bump = (b, lo, hi) => sstep(lo - 3, lo + 3, b) * (1 - sstep(hi - 3, hi + 3, b));
 const hsh = (n, a, k) => {
   let h = Math.imul(n + 7919, 374761393) ^ Math.imul(a + 3, 668265263) ^ Math.imul(k + 11, 1274126177);
@@ -229,18 +230,27 @@ function frame(st) {
     e2[i] = ef * (sOf(n + 2) - sOf(n));
   }
   for (let i = 0; i <= cnt; i++) hh[i] = (gx[i + 1] - gx[i]) * hf;
+  // how strongly the dot conducts between two peaks: its own value for each interval, blended across the peak
+  for (let x = 0, i = 0; x < W; x++) {
+    const xp = x + 0.5;
+    while (i < cnt && gx[i + 1] < xp) i++;
+    const h0 = hz(st, nlo + i), h1 = hz(st, nlo + i + 1), t = sstep(0, 1, (xp - gx[i]) / max(1, gx[i + 1] - gx[i]));
+    st.hvx[x] = h0 + (h1 - h0) * t;
+  }
   const sep = 6 + 2 * a;
-  const hz = 0.5 + 0.2 * 0, kon = 0.5 * (1 - sstep(0.2, 0.55, B)) * (1 - sstep(3.5, 7, fw));
+  const kon = 0.5 * (1 - sstep(0.2, 0.55, B)) * (1 - sstep(3.5, 7, fw));
   const shr = 0.3 * fw, we = 0.9 + 1.0 * a;
 
   for (let i = 0; i <= cnt; i++) {
     const xs = gx[i], hn = hh[i], hp = i ? hh[i - 1] : hn, n = nlo + i, xn = gx[i + 1];
+    // each peak has its own height, and it breathes on its own slow clock
+    const an = (0.6 + 0.6 * hsh(n, 9, 9)) * (1 + 0.22 * sin((TAU * st.t) / (23 + 14 * hsh(n, 5, 5)) + TAU * hsh(n, 3, 3)));
     // ground lines through the degeneracy point: up-right and down-right arms, bright where they bound a diamond
     for (let y = 0; y < H; y++) {
       const b = BMID - y, far = FAR[y] * 0.24;
       const x1 = xs + b * mp, x2 = xs - b * mn;
-      if (x1 > -8 && x1 < W + 8) { const sg = bump(b, -hp, hn); ridge(P, y, x1, kp, tamp * (sg + (1 - sg) * far), a); }
-      if (x2 > -8 && x2 < W + 8) { const sg = bump(b, -hn, hp); ridge(P, y, x2, kn, tamp * (sg + (1 - sg) * far), a); }
+      if (x1 > -8 && x1 < W + 8) { const sg = bump(b, -hp, hn); ridge(P, y, x1, kp, tamp * an * (sg + (1 - sg) * far), a); }
+      if (x2 > -8 && x2 < W + 8) { const sg = bump(b, -hn, hp); ridge(P, y, x2, kn, tamp * an * (sg + (1 - sg) * far), a); }
     }
     // excited-state lines, parallel to an arm and starting on the other arm
     for (let arm = 0; arm < 2; arm++) {
@@ -249,7 +259,7 @@ function frame(st) {
         const e = k === 1 ? e1[i] : e2[i];
         if (e > 60) continue;
         const ndc = hsh(n, arm, k) < (k === 1 ? 0.32 : 0.24);
-        const amp = tamp * (k === 1 ? 0.5 : 0.32) * (arm ? 0.8 : 1);
+        const amp = tamp * an * (k === 1 ? 0.5 : 0.32) * (arm ? 0.8 : 1);
         for (let pass = 0; pass < (ndc ? 2 : 1); pass++) {
           const ee = pass ? e + sep : e, ys = (ee * pb) / (pa + pb), buf = pass ? Q : P, am = pass ? amp * 1.25 : amp;
           // above zero bias (b > 0) the line is the arm raised by ee, below it lowered
@@ -299,7 +309,6 @@ function frame(st) {
     }
   }
   // out: indigo where the dot is blockaded, violet haze where it conducts, ridges screened over it
-  return hz;
 }
 
 export function draw(display, params) {
@@ -312,14 +321,14 @@ export function draw(display, params) {
     buildLuts(st, 360 * tg.hue);
   }
   frame(st);
-  const { P, Q, V, lutP, lutN, lutG } = st;
+  const { P, Q, V, lutP, lutN, lutG, hvx } = st;
   const leak = 0.02 + 0.3 * sstep(3, 9, st.fw);
   for (let y = 0; y < H; y++) {
     const b = abs(BMID - y) / BMID, hb = 0.5 + 0.3 * b;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, d = BAYER[((y & 3) << 2) | (x & 3)];
       const c = 1 - min(1, V[i]) * (1 - leak);
-      const gi = ((c * hb * 63 + 0.5) | 0) * 3;
+      const gi = ((cl(c * hb * hvx[x], 0, 1) * 63 + 0.5) | 0) * 3;
       let r = lutG[gi], g = lutG[gi + 1], bl = lutG[gi + 2];
       const pv = 1 - exp(-1.1 * P[i]), qv = 1 - exp(-1.2 * Q[i]);
       if (pv > 0.004) {
