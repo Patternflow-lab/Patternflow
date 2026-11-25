@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Range=0..4, Sorting=-1..1, Growth=-1..1
 //
-// Knob 1: Hue. Turns all five fate colours round the wheel together. At 0 the fates run indigo, blue-teal, green, gold and coral from the far end to the source end; each hue also drifts up to 20 degrees on its own slow clock of two to five minutes, so the relations between the colours never repeat.
-// Knob 2: Range. 0 to 4, opening at 2. The decay length of the morphogen, 15 LED at 0, 33 at 2 and 72 at 4. Short, the bands are thin and crowded under the top edge with indigo below; at 2 five bands of about 25 LED share the panel; long, the bands are two or three times as thick and the first border has gone down to the middle.
-// Knob 3: Sorting. -1 to 1, opening at 0. How fast a cell that is in the minority among its neighbours walks towards its own fate: not at all at -1, 1.4 LED a second at 0 and 5.5 at 1. At -1 the borders stay a ragged salt and pepper about 15 LED deep; at 1 they are crisp and now and then a cell runs off through the wrong band.
-// Knob 4: Growth. -1 to 1, opening at about 0.06. How fast the sheet flows down and divides at the top: 0.16 LED a second at -1, 0.6 at 0.06 and 2 at 1. At -1 the sheet is almost still and only breathes; at 1 it streams, new cells appear every half second and the bands are carried through it.
+// Knob 1: Hue. Turns all five fate colours round the wheel together. At 0 the fates run indigo, blue-teal, green, gold and coral from the far end to the source end; each hue also drifts up to 14 degrees on its own slow clock of two to five minutes, so the relations between the colours never repeat.
+// Knob 2: Range. 0 to 4, opening at 2. The decay length of the morphogen, 15 LED at 0, 33 at 2 and 72 at 4. Short, the bands are thin and crowded under the top edge with indigo below; at 2 five bands of about 25 LED share the panel; at 4 the bands are twice as thick and indigo is pushed down to the last 20 rows.
+// Knob 3: Sorting. -1 to 1, opening at 0. How fast a cell that is in the minority among its neighbours walks towards its own fate: not at all at -1, 0.7 LED a second at 0 and 5 at 1. At -1 the borders stay a ragged salt and pepper about 15 LED deep; at 1 they are crisp and now and then a cell runs off through the wrong band.
+// Knob 4: Growth. -1 to 1, opening at about 0.06. How fast the sheet flows down and divides at the top: 0.12 LED a second at -1, 0.8 at 0.06 and 2 at 1. At -1 the sheet is almost still and only breathes; at 1 it streams, new cells appear every half second and the bands are carried through it.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, exp, sqrt, sin, cos, log, pow, atan2, PI } = Math;
@@ -29,12 +29,12 @@ const NBX = 6, BSX = W / NBX, NBY = 14, BSY = 11, BY0 = 8;   // buckets of the n
 const KD = 0.16;                             // decay rate of the morphogen, 1 / s
 const DX = 1.5;                              // lateral diffusion, LED squared a second; small, so the arcs reach the bottom
 const PSIG = 10;                              // width of a source patch, LED
-const SIGN = 0.28;                           // spread of a cell's own reading, natural log units
+const SIGN = 0.3;                            // spread of a cell's own reading, natural log units
 const HYS = 0.06;                            // a cell changes fate only this far past a threshold
 const CDIV = 1.72;                           // a cell divides when its crowding falls below this
 const TH = [-3.0, -2.05, -1.2, -0.35];     // the four thresholds, log concentration
-const FH = [246, 192, 138, 55, 356];            // fate hues at knob 0, degrees
-const FS = [0.66, 0.72, 0.62, 0.84, 0.62];
+const FH = [246, 192, 138, 56, 357];            // fate hues at knob 0, degrees
+const FS = [0.66, 0.72, 0.62, 0.84, 0.58];
 const FV = [0.68, 0.82, 0.8, 1, 1];
 const FT = [137, 181, 233, 271, 313];        // seconds of each fate's hue drift
 const PX0 = [8, 24, 40, 56], PXT = [53, 79, 113, 149];   // where the sources sit and how long each wanders
@@ -232,12 +232,12 @@ function divide(st, i) {
   }
 }
 
-// Where the conveyor has pulled the top apart so far that a cell would fit, the nearest cell buds a daughter into the hole.
+// Where the conveyor has pulled the top apart, or a runaway cell has left a gap, so far that a cell would fit, the nearest cell buds a daughter into the hole.
 function fillHoles(st) {
   const { x, y, r0, head, nxt } = st;
   let made = 0;
-  for (let q = 0; q < 8 && made < 2 && st.n < NM - 1; q++) {
-    const px = rnd() * W, py = 1.5 + rnd() * rnd() * 30;
+  for (let q = 0; q < 12 && made < 3 && st.n < NM - 1; q++) {
+    const px = rnd() * W, py = q < 6 ? 1.5 + rnd() * rnd() * 30 : 1.5 + rnd() * (H - 3);
     const bx = cl(floor(px / BSX), 0, NBX - 1), by = cl(floor((py + BY0) / BSY), 0, NBY - 1);
     let gap = 99, mi = -1;
     for (let gy = by - 1; gy <= by + 1; gy++) {
@@ -255,7 +255,7 @@ function fillHoles(st) {
         }
       }
     }
-    if (gap < 2.4 || mi < 0) continue;
+    if (gap < 1.25 || mi < 0) continue;
     const m = st.n++;
     copyCell(st, mi, m);
     st.x[m] = px;
@@ -318,8 +318,8 @@ function cells(st, dt) {
             const o = 0.5 * beta * (d0 - d);
             fx -= nx * o;
             fy -= ny * o;
-          } else if (d < 1.3 * d0) {
-            const o = 0.5 * beta * 0.12 * (d - d0);
+          } else if (d < 1.45 * d0) {
+            const o = 0.5 * beta * 0.3 * (d - d0);
             fx += nx * o;
             fy += ny * o;
           }
@@ -423,8 +423,8 @@ function sim(st, dt) {
   for (let i = 0; i < 4; i++) sk[i] += (k[i] - sk[i]) * ks;
   const K3 = cl(sk[2], -1, 1), K4 = cl(sk[3], -1, 1);
   st.lam = 15 * pow(4.8, cl(sk[1], 0, 4) / 4);
-  st.vflow = 0.16 * pow(12.5, (K4 + 1) / 2);
-  st.sortv = 5 * pow((K3 + 1) / 2, 2.3);
+  st.vflow = K4 < 0.06 ? 0.12 * pow(6.67, (K4 + 1) / 1.06) : 0.8 * pow(2.5, (K4 - 0.06) / 0.94);
+  st.sortv = 5 * pow((K3 + 1) / 2, 2.8);
   fieldStep(st, dt);
   cells(st, dt);
 }
@@ -448,7 +448,7 @@ export function update(dt, input, params) {
 // ---- the picture --------------------------------------------------------------
 function palette(st) {
   const t = st.t, h0 = 360 * st.sk[0], pal = st.pal;
-  for (let f = 0; f < 5; f++) hsv(h0 + FH[f] + 16 * sin(TAU * t / FT[f] + st.fp[f]), FS[f], FV[f], pal, f * 3);
+  for (let f = 0; f < 5; f++) hsv(h0 + FH[f] + 14 * sin(TAU * t / FT[f] + st.fp[f]), FS[f], FV[f], pal, f * 3);
 }
 
 export function draw(display, params) {
