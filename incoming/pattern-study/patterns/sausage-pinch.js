@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Shear=0..4, Current=-1..1, Kink=0..1
 //
-// Knob 1: Hue. Turns the plasma colour round the wheel and opens in magenta, with the core pale lavender and blue-white and the rim deep violet.
-// Knob 2: Shear. 0 to 4, opening at 2: the shear of the axial flow. At 0 the necks grow fast and the column breaks into beads over its upper half; at the top the column stands straight and only small ripples run up it.
-// Knob 3: Current. -1 to 1, opening at 0: the current in the column. It sets the radius and how fast the neck closes, and a wider column breaks into fewer, larger beads.
-// Knob 4: Kink. 0 to 1, opening at 0.06: how far the axis of the column bends. At the top it is a wandering line across the panel.
+// Knob 1: Hue. Turns the plasma colour round the wheel and opens in magenta, the core pale lavender and blue-white, the rim deep violet. The dim rim and the faint glow out to the edges turn with it.
+// Knob 2: Shear. 0 to 4, opening at 2: the shear of the axial flow, which stabilises the column. At 0 the column runs 4 LED a second and the necks grow fast, flash and break it into beads over its upper half. Turned up the flow runs faster, up to 10 LED a second, the necks grow slower and break less, and at the top the column stands straight with only small ripples running up it.
+// Knob 3: Current. -1 to 1, opening at 0: the current in the column. The resting radius is 4.9 LED at -1, 7 at 0 and 9.9 at 1, and the neck closes faster the higher it goes. A wider column breaks into fewer, larger beads: about six on the panel at -1, four at 0, three at 1.
+// Knob 4: Kink. 0 to 1, opening at 0.06: how far the axis of the column bends. At 0 it only wavers by a LED or two, at the opening it sways a few LED, and at the top the axis wanders up to 28 LED across the panel in long waves.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sin, cos, sqrt, exp, log, pow, tanh, PI } = Math;
@@ -96,8 +96,8 @@ function buildLut(lut, hue) {
     const a = KEYS[k], b = KEYS[k + 1], f = cl((u - a[0]) / (b[0] - a[0]), 0, 1);
     const h = mix(a[1], b[1], f) + hue, s = mix(a[2], b[2], f), v = mix(a[3], b[3], f);
     // a dim colour on the red, orange and yellow stretch of the wheel reads brown on the panel, so it is paled and lifted
-    const hh = h - floor(h), br = (hh > 0.5 ? sstep(0.8, 0.95, hh) : 1 - sstep(0.16, 0.3, hh)) * (1 - v) * sstep(0.1, 0.4, v);
-    hsv(h, s * (1 - 0.32 * br), min(1, v * (1 + 0.35 * br)), c, 0);
+    const hh = h - floor(h), br = (hh > 0.5 ? sstep(0.8, 0.95, hh) : 1 - sstep(0.16, 0.3, hh)) * (1 - v) * sstep(0.04, 0.3, v);
+    hsv(h, s * (1 - 0.5 * br), min(1, v * (1 + 0.6 * br)), c, 0);
     lut[i * 3] = c[0];
     lut[i * 3 + 1] = c[1];
     lut[i * 3 + 2] = c[2];
@@ -108,10 +108,10 @@ function buildLut(lut, hue) {
 export function setup(params) {
   params.st = {
     k: [0, 2, 0, 0.06], init: false, t: 0, acc: 0, off: 0, hue: -9,
-    s: new Float32Array(M), n: new Float32Array(M).fill(1), x: new Float32Array(M), f: new Float32Array(M),
+    s: new Float32Array(M), n: new Float32Array(M).fill(1), x: new Float32Array(M), f: new Float32Array(M), rp: new Float32Array(M), rb: new Float32Array(M), xw: new Float32Array(M),
     cs: new Float32Array(M), cx: new Float32Array(M), fl: new Float32Array(M), ft: new Float32Array(M),
     kern: new Float32Array(2 * L + 1), kern1: new Float32Array(2 * L + 1), kb: -1, kb1: -1,
-    zs: [0, 0], zx: [0, 0], ou: [0, 0, 0, 0],
+    zs: [0, 0], zx: [0, 0], zr: [0, 0], zb: [0, 0], zw: [0, 0], thx: 0.085, ou: [0, 0, 0, 0],
     lut: new Float32Array(NL * 3),
     ss: 0.5, ik: 1, R0: 7, kap: 0.06, stab: 0.3, gam: 0.22,
     row: new Float32Array(H * 5),
@@ -130,14 +130,19 @@ function derive(st) {
 }
 
 // How far the axis can bend in LED, and what that is at the knob's opening.
-const bendOf = (kap) => 8 + 16 * pow(kap, 0.6);
+const bendOf = (kap) => 2.5 + 26 * pow(kap, 0.7);
 
 // ---- one step of the column -------------------------------------------------
 function seedCell(st, i, ks) {
   const th = cl(ks * (1 + 0.25 * cl(st.ou[3], -1.5, 1.5)), 0.05, 0.9);
   st.s[i] = 0.14 * res(st.zs, th, 0.92);
   st.n[i] = 1;
-  st.x[i] = 0.35 * res(st.zx, 0.085, 0.97);
+  // the wave number of the bend wanders, so the axis is a mix of long waves and not one zigzag
+  st.thx = cl(st.thx + 0.005 * (0.085 - st.thx) + 0.004 * gauss(), 0.045, 0.14);
+  st.x[i] = (0.2 + 0.7 * sqrt(st.kap)) * exp(0.4 * cl(st.ou[3], -1.5, 1.5)) * res(st.zx, st.thx, 0.95);
+  st.rp[i] = res(st.zr, 0.5, 0.85);
+  st.rb[i] = res(st.zb, 0.3, 0.88);
+  st.xw[i] = res(st.zw, 0.16, 0.9);
   st.f[i] = 0;
 }
 
@@ -152,7 +157,7 @@ function step(st, dt) {
     buildKernel(st.kern, ks, 1);
     st.kb = ks;
   }
-  const gam1 = 0.02 + 0.14 * sqrt(st.kap);
+  const gam1 = 0.02 + 0.16 * sqrt(st.kap);
   if (st.kb1 < 0) {
     buildKernel(st.kern1, 0.085, 2);
     st.kb1 = 0.085;
@@ -174,7 +179,8 @@ function step(st, dt) {
     let v = si + dt * (gam * (g * cs[i] - st.stab * si - 16 * d * d * (1 - st.ss * st.ss)) + DIFF * lap);
     if (v > 0.7) v = 0.7 + 0.3 * tanh((v - 0.7) / 0.3);
     s[i] = max(v, -0.86);
-    x[i] = tanh(x[i] + dt * gam1 * cx[i]);
+    const lx = (i > 0 ? x[i - 1] : x[i]) - 2 * x[i] + (i < M - 1 ? x[i + 1] : x[i]);
+    x[i] = tanh(x[i] + dt * (gam1 * cx[i] + DIFF * lx));
   }
   // the mass runs from the necks toward the bulges, by the radius seen over a few cells
   for (let p = 0; p < 2; p++) {
@@ -240,6 +246,9 @@ function step(st, dt) {
     n.copyWithin(1, 0, M - 1);
     x.copyWithin(1, 0, M - 1);
     f.copyWithin(1, 0, M - 1);
+    st.rp.copyWithin(1, 0, M - 1);
+    st.rb.copyWithin(1, 0, M - 1);
+    st.xw.copyWithin(1, 0, M - 1);
     seedCell(st, 0, ks);
   }
 }
@@ -269,31 +278,32 @@ export function draw(display, params) {
   const st = params.st;
   if (!st) return;
   if (!st.init) update(0, { knobValues: st.k }, params);
-  const hue = 0.0 + st.k[0];
+  const hue = st.k[0];
   if (abs(hue - st.hue) > 1e-4) (st.hue = hue), buildLut(st.lut, hue);
   const lut = st.lut, row = st.row, { s, n, x, f } = st;
-  const bend = bendOf(st.kap), R0 = st.R0;
+  const bend = bendOf(st.kap), R0 = st.R0, rip = 0.05 + 0.04 * st.ss, wob = 1.0 + 3 * st.kap;
   // one row of the panel: where the axis is, how wide the column is and how bright
   for (let y = 0; y < H; y++) {
     const jf = H - 0.5 - y + MARG - st.off, j = floor(jf), u = jf - j;
-    const si = mix(s[j], s[j + 1], u), ni = mix(n[j], n[j + 1], u), xi = mix(x[j], x[j + 1], u), fi = mix(f[j], f[j + 1], u);
+    const si = mix(s[j], s[j + 1], u) + rip * mix(st.rp[j], st.rp[j + 1], u), ni = mix(n[j], n[j + 1], u), xi = mix(x[j], x[j + 1], u), fi = mix(f[j], f[j + 1], u);
     const R = cl(R0 * (1 + si), 2.6, 19);
     const B = min(4.5, ni) / pow(max(0.4, 1 + si), 1.6) + fi;
     const I = min(1.3, 1.35 * (1 - exp(-0.65 * B)));
     row[y * 5] = R;
     row[y * 5 + 4] = fi;
     row[y * 5 + 1] = I;
-    row[y * 5 + 2] = 32 + xi * bend;
+    row[y * 5 + 3] = exp(0.34 * mix(st.rb[j], st.rb[j + 1], u));
+    row[y * 5 + 2] = 32 + xi * bend + wob * mix(st.xw[j], st.xw[j + 1], u);
   }
   for (let y = 0; y < H; y++) {
-    const R = row[y * 5], fi = row[y * 5 + 4], I = row[y * 5 + 1], cx = row[y * 5 + 2];
+    const R = row[y * 5], fi = row[y * 5 + 4], I = row[y * 5 + 1], cx = row[y * 5 + 2], Ic = min(1.3, I * row[y * 5 + 3]);
     const sg = 0.4 * R + 2.2 * fi, sh = 1.05 * R + 3 * fi, sw = 20 + 0.8 * R;
     const i2 = -1 / (2 * sg * sg), h2 = -1 / (2 * sh * sh), w2 = -1 / (2 * sw * sw), r0 = 2.4 * R, rw = 1 / (0.6 * R);
     const wide = 0.045 * sqrt(I), fh = 0.5 * fi * fi;
     for (let xx = 0; xx < W; xx++) {
       const d = xx + 0.5 - cx, d2 = d * d;
       const e = (abs(d) - r0) * rw, hg = exp(d2 * h2);
-      const v = I * (exp(d2 * i2) + 0.32 * hg + 0.05 * exp(-0.5 * e * e)) + fh * hg + wide * exp(d2 * w2);
+      const v = Ic * exp(d2 * i2) + I * (0.32 * hg + 0.05 * exp(-0.5 * e * e)) + fh * hg + wide * exp(d2 * w2);
       const li = floor(cl(v, 0, IMAX) * ((NL - 1) / IMAX) + 0.5) * 3;
       display.setPixel(xx, y, lut[li] | 0, lut[li + 1] | 0, lut[li + 2] | 0);
     }
