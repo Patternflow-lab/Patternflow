@@ -24,9 +24,10 @@ const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
-const BX = [10, 54, 54, 12], BY = [16, 112, 40, 90]; // beacons, LED
-const BH = [0.5, 0.833, 0.167, 0.667];                // hue of each at knob 0
-const BS = [0.9, 0.9, 0.85, 0.72];
+const BX = [7, 57, 44, 16], BY = [56, 74, 12, 116];   // beacons, LED
+const BH = [0.5, 0.833, 0.15, 0.667];                // hue of each at knob 0
+const BS = [0.9, 0.9, 0.5, 0.58];
+const GN = [0.95, 1.2, 1.4, 1.9];                   // light gain, so cyan, magenta, yellow and blue weigh about the same
 const PER = [0.78, 0.98, 0.86, 1.08];                 // mean seconds between pings
 const AX0 = 2, AX1 = W - 2, AY0 = 2, AY1 = H - 2;     // the arena the particles live in
 const RM = 7;                                         // the robot turns back this far from the edge
@@ -216,7 +217,7 @@ function sim(st, dt) {
     if (st.tm[b] > 0) continue;
     st.tm[b] += PER[b] * (0.9 + 0.2 * rnd());
     const d = hypot(st.rx - BX[b], st.ry - BY[b]);
-    st.rings.push({ b, z: max(1.5, d + sg * gauss()), age: 0, s: 0.75 + 0.2 * sg, str: min(1, st.act[b] * 1.5), sg, done: false });
+    st.rings.push({ b, z: max(1.5, d + sg * gauss()), age: 0, s: 0.62 + 0.19 * sg, str: min(1, st.act[b] * 1.5), sg, done: false });
     st.fl[b] = 1;
   }
   const rings = st.rings;
@@ -251,10 +252,9 @@ function colours(st) {
   const h0 = st.k[0], tmp = [0, 0, 0];
   for (let b = 0; b < 4; b++) {
     hsv(h0 + BH[b], BS[b], 1, tmp);
-    const lum = 0.2126 * tmp[0] + 0.7152 * tmp[1] + 0.0722 * tmp[2], g = cl(sqrt(0.62 / lum), 0.8, 1.5);
-    st.col[b][0] = tmp[0] * g;
-    st.col[b][1] = tmp[1] * g;
-    st.col[b][2] = tmp[2] * g;
+    st.col[b][0] = tmp[0] * GN[b];
+    st.col[b][1] = tmp[1] * GN[b];
+    st.col[b][2] = tmp[2] * GN[b];
   }
   hsv(h0 + 0.77, 0.3, 1, st.lil);
 }
@@ -263,7 +263,7 @@ function drawRing(st, r) {
   const fb = st.fb, col = st.col[r.b], u = r.age / FADE;
   if (u >= 1) return;
   const e = min(1, r.age / LAND), R = r.z * (1 - (1 - e) * (1 - e)), s = r.s, i2 = 1 / (2 * s * s);
-  const str = r.str * pow(1 - u, 1.6), ext = 3.1 * s;
+  const str = r.str * pow(1 - u, 1.25), ext = 3.1 * s;
   const bx = BX[r.b], by = BY[r.b], ro = R + ext, ri = R - ext;
   const y0 = max(0, floor(by - ro)), y1 = min(H - 1, floor(by + ro));
   for (let y = y0; y <= y1; y++) {
@@ -321,7 +321,7 @@ export function draw(display, params) {
   P.fill(0);
   for (const r of st.rings) drawRing(st, r);
   // the hypotheses, soft discs that add up where they stack
-  const CP = 0.2;
+  const CP = 0.16;
   for (let i = 0; i < N; i++) {
     const cx = px[i] + ox[i], cy = py[i] + oy[i], a = CP * al[i];
     const x0 = max(0, floor(cx - PR)), x1 = min(W - 1, floor(cx + PR)), y0 = max(0, floor(cy - PR)), y1 = min(H - 1, floor(cy + PR));
@@ -338,7 +338,7 @@ export function draw(display, params) {
   for (let i = 0; i < W * H; i++) {
     const v = P[i];
     if (v < 0.004) continue;
-    const m = 1 - exp(-0.8 * v), p = i * 3;
+    const m = min(1, Math.log(1 + 6 * v) / 5), p = i * 3;
     fb[p] += lil[0] * m;
     fb[p + 1] += lil[1] * m;
     fb[p + 2] += lil[2] * m;
