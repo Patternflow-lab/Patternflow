@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: sensitive dependence on initial conditions (Edward Lorenz, 1963), ensemble forecasting from perturbed starts (Eric Epstein, 1969; the operational ensembles of ECMWF and NCEP from 1992, from memory) and the spaghetti plot of tropical cyclone tracks, with the beta drift of a vortex on a rotating planet (Greg Holland, 1983, from memory); the steering flow is a stream function of Gaussian highs and lows plus a meandering jet, so it cannot pile tracks up, and members are carried by RK2; the member weights, veer and phase error, the storm schedule with its look-ahead on where a fan would go, the colour families, the mean and the cone are original, pattern round 257
+// Lineage: sensitive dependence on initial conditions (Edward Lorenz, 1963), ensemble forecasting from perturbed starts (Eric Epstein, 1969; the operational ensembles of ECMWF and NCEP from 1992, from memory) and the spaghetti plot of tropical cyclone tracks, with the beta drift of a vortex on a rotating planet (Greg Holland, 1983, from memory); the steering flow is a stream function of Gaussian highs and lows plus a meandering jet, so it cannot pile tracks up, and members are carried by RK2; the member weights, veer and phase error, the storm gates that split a fan in two, the storm schedule with its look-ahead on where a fan would go, the colour families, the mean and the cone are original, pattern round 257
 // Round:   257
 // ===============================
 // @matrix 64x128
@@ -51,7 +51,7 @@ const CEN = [
 ];
 const NPH = 48;
 
-function flow(ph, x, y, t, o) {
+function flow(ph, x, y, t, o, gt) {
   let vx = 0, vy = 0;
   for (let i = 0; i < 4; i++) {
     const c = CEN[i], k = i * 7;
@@ -76,6 +76,15 @@ function flow(ph, x, y, t, o) {
   vx += aw * sech2; vy += aw * sech2 * yjx;
   // a weak northward drift on its own clock
   vy -= 0.7 + 0.45 * sin(0.0151 * t + ph[34]);
+  // the storm's own gate, a saddle of the stream function A u v exp(-r2 / 2 s2) / s2 that squeezes
+  // the fan along its way and throws the members out sideways, to one side or the other
+  if (gt !== null) {
+    const dx = x - gt[0], dy = y - gt[1], s2 = gt[3] * gt[3];
+    const u = gt[4] * dx + gt[5] * dy, v = gt[4] * dy - gt[5] * dx;
+    const e = gt[2] * exp(-(u * u + v * v) / (2 * s2)) / s2;
+    const pu = e * v * (1 - u * u / s2), pv = e * u * (1 - v * v / s2);
+    vx += pu * gt[5] + pv * gt[4]; vy -= pu * gt[4] - pv * gt[5];
+  }
   o[0] = vx; o[1] = vy;
 }
 
@@ -87,7 +96,7 @@ function makeStorm() {
     cx: new Float64Array(MMAX), cy: new Float64Array(MMAX),
     alive: new Uint8Array(MMAX), last: new Int16Array(MMAX),
     wz: new Float64Array(MMAX), zd: new Float64Array(MMAX), zv: new Float64Array(MMAX),
-    hu: new Float64Array(MMAX),
+    hu: new Float64Array(MMAX), gate: null,
     mean: new Float32Array(NPT * 2), spr: new Float32Array(NPT), sx: 0,
   };
 }
@@ -105,18 +114,18 @@ export function setup(params) {
     o: [0, 0], se: 1, M: 19,
     acc: new Float32Array(N * 3), ov: new Float32Array(N * 4), cone: new Float32Array(CW * CH * 3),
     heads: [], job: null, rt: 0, hp1: rnd() * TP, hp2: rnd() * TP,
-    pv: { x: new Float64Array(10), y: new Float64Array(10), w: new Float64Array(10), d: new Float64Array(10), v: new Float64Array(10), u: new Float64Array(10) },
+    pv: { x: new Float64Array(10), y: new Float64Array(10), w: new Float64Array(10), d: new Float64Array(10), v: new Float64Array(10), u: new Float64Array(10), px: new Float64Array(64), py: new Float64Array(64) },
   });
   return st;
 }
 
 // one RK2 step of a member: its steering weight w times the flow read d seconds off and turned by
 // th, plus the beta drift; the new position is left in o2
-function rk2(ph, o, x, y, tm, h, w, d, th, o2) {
+function rk2(ph, o, x, y, tm, h, w, d, th, gt, o2) {
   const c = w * cos(th), sn = w * sin(th);
-  flow(ph, x, y, tm + d, o);
+  flow(ph, x, y, tm + d, o, gt);
   const ux = c * o[0] - sn * o[1] + BX, uy = sn * o[0] + c * o[1] + BY;
-  flow(ph, x + 0.5 * h * ux, y + 0.5 * h * uy, tm + d + 0.5 * h, o);
+  flow(ph, x + 0.5 * h * ux, y + 0.5 * h * uy, tm + d + 0.5 * h, o, gt);
   o2[0] = x + h * (c * o[0] - sn * o[1] + BX); o2[1] = y + h * (sn * o[0] + c * o[1] + BY);
 }
 
@@ -132,7 +141,7 @@ function advance(st, S, dtm) {
     const tm = S.born + S.age;
     for (let m = 0; m < MMAX; m++) {
       if (!S.alive[m]) continue;
-      rk2(ph, o, S.cx[m], S.cy[m], tm, h, 1 + 0.25 * se * S.wz[m], 5 * se * S.zd[m], VEER * se * S.zv[m], o2);
+      rk2(ph, o, S.cx[m], S.cy[m], tm, h, 1 + 0.25 * se * S.wz[m], 5 * se * S.zd[m], VEER * se * S.zv[m], S.gate, o2);
       const x = o2[0], y = o2[1];
       S.cx[m] = x; S.cy[m] = y;
       if (x < -30 || x > 94 || y < -26 || y > 150) { S.alive[m] = 0; S.last[m] = S.n - 1; }
@@ -155,12 +164,12 @@ function advance(st, S, dtm) {
 // A dry run of a storm that would start at (x0, y0) now: nine members through the flow, to see
 // where the fan would go.
 const PV = 9;
-function preview(st, x0, y0, life, others) {
+function preview(st, x0, y0, life, others, gt) {
   const pv = st.pv, ph = st.ph, o = st.o, se = max(st.se, 0.6);
   for (let m = 0; m < PV; m++) {
     const z = m === 0 ? 0 : 1;
     pv.x[m] = x0 + z * (0.03 + 3.0 * pow(se, 1.5)) * gauss(); pv.y[m] = y0 + z * (0.03 + 3.0 * pow(se, 1.5)) * gauss();
-    pv.w[m] = 1 + z * 0.25 * se * rr(-1, 1); pv.d[m] = z * 5 * se * gauss(); pv.v[m] = z * VEER * se * rr(-1, 1);
+    pv.w[m] = 1 + z * 0.25 * se * rr(-1, 1); pv.d[m] = z * 5 * se * gauss(); pv.v[m] = z * VEER * se * (gt ? (m & 1 ? 1 : -1) * rr(0.45, 0.85) : rr(-1, 1));
   }
   const h = 0.8, steps = floor(min(life, 44) / h);
   let near = 0, cnt = 0, ymin = y0, outs = 0, axs = 0, split = 0, lat = 0;
@@ -168,10 +177,11 @@ function preview(st, x0, y0, life, others) {
   for (let i = 0; i < steps; i++) {
     const tm = st.t + i * h;
     for (let m = 0; m < PV; m++) {
-      rk2(ph, o, pv.x[m], pv.y[m], tm, h, pv.w[m], pv.d[m], pv.v[m], o2);
+      rk2(ph, o, pv.x[m], pv.y[m], tm, h, pv.w[m], pv.d[m], pv.v[m], gt, o2);
       pv.x[m] = o2[0]; pv.y[m] = o2[1];
     }
     if (pv.y[0] < ymin) ymin = pv.y[0];
+    pv.px[i] = pv.x[0]; pv.py[i] = pv.y[0];
     axs += pv.x[0];
     if (pv.x[0] < -2 || pv.x[0] > 66) outs++;
     // how far the control run stays from the other storms' means
@@ -203,7 +213,7 @@ function preview(st, x0, y0, life, others) {
       lat = sqrt(v2 / PV);
     }
   }
-  return { lat, ymin, ax: axs / max(steps, 1), out: outs / steps, split, near: cnt ? near / cnt : 20 };
+  return { lat, ymin, steps, ax: axs / max(steps, 1), out: outs / steps, split, near: cnt ? near / cnt : 20 };
 }
 
 function startPoint() {
@@ -218,28 +228,41 @@ function startPoint() {
 // A new storm is chosen in two parts so that no frame pays for all of it: a job tries start points
 // a few at a time and keeps the one whose fan is the forecast wanted now (tight, wide or split),
 // heads north and keeps clear of the other storms; then the storm is born there.
-const NCAND = 14;
+const NCAND = 14, SPLIT = 0.7;       // a share 1 - SPLIT of the storms get a gate and two families
 function beginSpawn(st) {
   refreshMeans(st);
   const others = st.storms.filter((q) => q.used && q.age < q.life);
   // where the other storms lie on the panel, left to right, so a new one can go where it is empty
   let ox = 32, on = 0;
   for (const S of others) for (let j = 0; j < S.n; j += 2) { on++; ox += S.mean[j * 2] - 32; }
-  return { life: rr(35, 55), mood: rnd(), c: 0, best: null, bs: -1e9, others, ox: ox / (on + 1) };
+  return { life: rr(35, 55), mood: rnd(), c: 0, best: null, gate: null, bs: -1e9, others, ox: ox / (on + 1) };
+}
+
+// a gate that stands on the control run a third of the way along, across its heading, a few
+// LED to one side so the fan straddles the line the storm will not cross
+function makeGate(pv, steps) {
+  const i = max(2, min(steps - 3, floor(steps * rr(0.3, 0.42))));
+  let hx = pv.px[i + 2] - pv.px[i - 2], hy = pv.py[i + 2] - pv.py[i - 2];
+  const hl = max(sqrt(hx * hx + hy * hy), 1e-3);
+  hx /= hl; hy /= hl;
+  const off = rr(-3, 3), s = rr(8, 12);
+  return [pv.px[i] - hy * off, pv.py[i] + hx * off, rr(0.3, 0.45) * s * s, s, hy, -hx];
 }
 
 function stepSpawn(st, J, n) {
   for (let i = 0; i < n && J.c < NCAND; i++, J.c++) {
     const p = startPoint();
-    const r = preview(st, p[0], p[1], J.life, J.others);
+    let r = preview(st, p[0], p[1], J.life, J.others, null);
+    let gt = null;
+    if (J.mood >= SPLIT) { gt = makeGate(st.pv, r.steps); r = preview(st, p[0], p[1], J.life, J.others, gt); }
     let close = 0;
     for (const q of J.others) close += max(0, 1 - abs(q.sx - p[0]) / 22);
     let sc = 10 * cl((70 - r.ymin) / 70, 0, 1) - 16 * r.out + r.near * 0.3 - 6 * close;
     if (J.others.length) sc += 3 * min(abs(r.ax - J.ox) / 20, 1.5);
-    if (J.mood < 0.25) sc -= r.lat * 0.7;                           // a tight forecast
-    else if (J.mood < 0.6) sc -= abs(r.lat - 12) * 0.35;            // a wide fan
+    if (J.mood < 0.22) sc -= r.lat * 0.7;                           // a tight forecast
+    else if (J.mood < SPLIT) sc -= abs(r.lat - 12) * 0.35;          // a wide fan
     else sc += r.split * 16 + r.lat * 0.1;                          // two families
-    if (sc > J.bs || !J.best) { J.bs = sc; J.best = p; }
+    if (sc > J.bs || !J.best) { J.bs = sc; J.best = p; J.gate = gt; }
   }
   return J.c >= NCAND;
 }
@@ -256,11 +279,13 @@ function finishSpawn(st, J, age, ended) {
   S.off = st.hueSeq;
   const x = J.best[0], y = J.best[1];
   S.sx = x;
+  S.gate = J.gate;
   const sig0 = 0.03 + 3.0 * pow(st.se, 1.5);
   for (let m = 0; m < MMAX; m++) {
     S.wz[m] = rr(-1, 1);
     S.zd[m] = gauss();
-    S.zv[m] = rr(-1, 1);
+    // a storm with a gate has two families, as when two forecast models steer at two depths
+    S.zv[m] = J.gate ? (rnd() < 0.5 ? -1 : 1) * rr(0.45, 0.85) : rr(-1, 1);
     S.hu[m] = (S.zv[m] + 1) * 0.5;
     S.cx[m] = x + sig0 * gauss(); S.cy[m] = y + sig0 * gauss();
     S.alive[m] = 1; S.last[m] = 0;
@@ -473,7 +498,7 @@ function drawStorm(st, S, k1) {
     seg(st.cone, 3, CW, CH, S.mean[j * 2 - 2] * 0.25, S.mean[j * 2 - 1] * 0.25, S.mean[j * 2] * 0.25, S.mean[j * 2 + 1] * 0.25, CONE * fa, CONE * fa, sg, cc[0], cc[1], cc[2], j === 1, false);
   }
   // the mean, in warm white, twice as thick
-  const ma = 0.78 * fa;
+  const ma = 0.68 * fa;
   for (let j = 1; j < nm; j++) {
     seg(ov, 4, W, H, S.mean[j * 2 - 2], S.mean[j * 2 - 1], S.mean[j * 2], S.mean[j * 2 + 1], ma * 0.6, ma * (0.6 + 0.4 * j / nm), 1.5, 1.0, 0.86, 0.62, j === 1, false);
   }
