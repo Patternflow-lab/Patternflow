@@ -14,7 +14,7 @@
 // Knob 1: Salt. Turns the flame colour round the wheel. At 0 the front is orange with a yellow-white core and the embers fall from orange to dark red; a quarter turn is a green flame, a half turn blue, and the core stays pale whatever the salt.
 // Knob 2: Air. 0 to 4, opening at 2. The oxygen the front can reach. Low, the fingers are thin (about 9 LED apart), ragged and slow (2 LED a second), the glow is dim and short. At 2 they are about 14 LED apart and the front climbs 4 LED a second. High, the front is a flat quick line with two or three soft bulges, 7 LED a second, thick and bright.
 // Knob 3: Damp. 0 to 0.6, opening at 0. Moisture in the paper. At 0 it burns clean. Raised, wet patches slow the front where they are, tongues of unburnt paper hang behind the fingers, and at 0.6 about one patch in five is left as an island of paper in the char, with a scorched rim.
-// Knob 4: Draft. -1 to 1, opening near 0. A sideways draft. At 0 the front is level and the fingers run straight down the sheet; at 1 the front slants 19 degrees (a rise of 22 LED across the panel) and the fingers lean 28 degrees to one side, at -1 to the other.
+// Knob 4: Draft. -1 to 1, opening near 0. A sideways draft. At 0 the front is level and the fingers run straight down the sheet; at 1 the front slants 24 degrees (a rise of 29 LED across the panel) and the fingers lean about 35 degrees to one side, at -1 to the other.
 
 const W = 64, H = 128;
 const NX = 96, XO = 16, KH = 48;     // simulation columns, left margin off screen, spectral modes
@@ -133,9 +133,9 @@ function targets(u) {
   return {
     V0: 2.4 * pow(3, u),         // LED a second, flat front, no noise
     A: 2.8 - 2.1 * u,            // the oxygen gain
-    NU: (2.8 - 2.1 * u) * (1.2 + 0.6 * u), // conduction, wide enough that a cusp is a few LED across
+    NU: (2.8 - 2.1 * u) * (0.9 + 0.5 * u), // conduction, wide enough that a cusp is a few LED across
     LAM: 1.4 + 0.8 * u * u,     // spreading along the normal
-    NZ: 0.75 * (1.3 - u),       // how much the paper's density moves the speed
+    NZ: 1.0 * (1.3 - u),       // how much the paper's density moves the speed
     KL: 0.2,                     // the air comes from a finite distance: waves longer than this get no gain
   };
 }
@@ -248,7 +248,7 @@ export function update(dt, input, params) {
   if (!st.init) {
     st.init = true;
     st.u = gu; st.w = gw; st.dr = gd;
-    st.tilt = 0.34 * gd; st.drift = 2.2 * gd;
+    st.tilt = 0.45 * gd; st.drift = 3 * gd;
     st.H0 = 400;
     st.cam = 400;
     st.rTop = floor((400 - 30) * RPL);
@@ -278,14 +278,14 @@ export function update(dt, input, params) {
   st.u += (gu - st.u) * b;
   st.w += (gw - st.w) * b;
   st.dr += (gd - st.dr) * b;
-  st.tilt = 0.34 * st.dr;
-  st.drift = 2.2 * st.dr;
+  st.tilt = 0.45 * st.dr;
+  st.drift = 3 * st.dr;
   const n = ceil(dt / 0.04);
   for (let i = 0; i < n; i++) stepSim(st, dt / n);
 }
 
 // ---- draw -------------------------------------------------------------------
-const PAPER = [118, 102, 78], SCORCH = [78, 40, 16], ASH = [84, 96, 112];
+const PAPER = [118, 102, 78], SCORCH = [78, 40, 16], ASH = [86, 98, 108];
 
 function distanceMap(st) {
   const dm = st.dm, h = st.h, cam = st.cam;
@@ -335,22 +335,22 @@ export function draw(display, params) {
       let age = 0;
       if (ta < 1e8) age = t - (tb < 1e8 ? ta + (tb - ta) * fr : ta);
       if (age < 0) age = 0;
-      const iso = sstep(thr, thr + 0.08, mo), rim = sstep(thr - 0.2, thr, mo) * (1 - iso);
+      const iso = sstep(thr, thr + 0.08, mo), rim = sstep(thr - 0.2, thr, mo) * (1 - iso) * sstep(0.2, 1.5, D);
       // paper, scorched ahead of the front and round a damp island
-      const pv = 0.78 + 0.4 * fib;
+      const pv = 0.7 + 0.56 * fib;
       const sc = max(D < 0 ? exp(D / 3.0) * (1 - sstep(4.2, RD, -D)) * 0.82 : 0, rim * 0.8);
       const sv = 0.6 + 0.8 * fib;
       const pr = (PAPER[0] * pv) * (1 - sc) + SCORCH[0] * sv * sc;
       const pg = (PAPER[1] * pv) * (1 - sc) + SCORCH[1] * sv * sc;
       const pb = (PAPER[2] * pv) * (1 - sc) + SCORCH[2] * sv * sc;
       // char, then ash that keeps the print of the fibres
-      const ch = 12 + 18 * fu, wa = sstep(2.1, 4.8, age + (fu - 0.5) * 1.6), av = 0.76 + 0.48 * fib;
+      const ch = 12 + 18 * fu, wa = sstep(2.4, 5.2, age + (fu - 0.5) * 1.6), av = 0.7 + 0.6 * fib;
       const br = (ch * (1 - wa) + ASH[0] * av * wa), bg = (ch * 0.9 * (1 - wa) + ASH[1] * av * wa), bb = (ch * 0.9 * (1 - wa) + ASH[2] * av * wa);
       const bw = sstep(-0.5, 0.8, D) * (1 - iso);
       let r = pr + (br - pr) * bw, g = pg + (bg - pg) * bw, bl = pb + (bb - pb) * bw;
       // the front's own light
-      let hd = D < -0.2 ? exp((D + 0.2) / 0.8) : D < 0.5 ? 1 : exp(-(D - 0.5) / tau);
-      hd = max(hd, 0.42 * exp(-age / 1.0) * sstep(-0.3, 0.6, D));
+      let hd = D < -0.2 ? exp((D + 0.2) / 0.8) : D < 0.5 ? 1 : exp(-(D - 0.5) / tau) * (1 - sstep(2.2, RD, D));
+      hd = max(hd, 0.3 * exp(-age / 0.7) * sstep(-0.3, 0.6, D));
       hd = (hd * (1 - 0.85 * iso) + rim * 0.5 * exp(-age / 1.4) * sstep(0, 1, D)) * gain;
       const li = round(cl(hd, 0, 1) * (LUTN - 1)) * 3;
       r += lut[li]; g += lut[li + 1]; bl += lut[li + 2];
