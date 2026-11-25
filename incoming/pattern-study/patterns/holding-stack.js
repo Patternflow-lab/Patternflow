@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns every colour round the wheel. It opens with blue-white points and blue tails in the holds, gold points on final with teal wakes behind them, a pink one now and then climbing away from a missed approach, and a green bar at the threshold.
 // Knob 2: Speed. 0.5 to 4, opening at 2: how fast everything flies. An aircraft in a hold covers about 11 LED a second at 2, under 3 at 0.5 and 22 at 4. Its tail grows with the speed up to 2 and keeps that length above it. The slow swing of the holds and of the final does not follow this knob.
-// Knob 3: Traffic. -1 to 1, opening at 0: how many arrive. At -1 three or four aircraft are in the sky and most leave the hold the first time round. At 0 each hold carries one to three. At 1 both holds stand four rings deep and the arrivals they cannot take cross the top of the panel, dim, and leave.
+// Knob 3: Traffic. -1 to 1, opening at 0: how many arrive. At -1 three or four aircraft are in the sky and most leave the hold the first time round. At 0 each hold carries one to three. At 1 both holds stand four rings deep and the arrivals they cannot take cross the top of the panel dimly and leave.
 // Knob 4: Spacing. -1 to 1, opening at 0.06: the separation kept at the top of the final, about 9 LED at -1, 15 at 0 and 25 at 1. The dim marks on the final's centre line are the slots, one separation apart, and they close up or spread the moment the knob turns; the aircraft follow as new ones are cleared. Tight, the line is a string of seven or eight points and the marks run together. Wide, it is two or three, fewer land and the holds fill.
 
 const W = 64, H = 128;
@@ -138,7 +138,7 @@ function arrive(st) {
   if (rnd(st) < 0.62) (a.sx = (h ? 22 : 4) + 38 * rnd(st)), (a.sy = -3);
   else (a.sx = h ? W + 3 : -3), (a.sy = 2 + 24 * rnd(st));
   st.q[h].push(a);
-  // it joins on a ring above its place in the stack, any of them, and steps in from there
+  // it joins on any ring above its place in the stack and steps in from there
   a.rj = ring(max(st.q[h].length, 1 + floor(3 * rnd(st))));
   hpos(st.hc[h], 0, a.rj);
   a.T = (1.06 * hyp(QX - a.sx, QY - a.sy)) / V;
