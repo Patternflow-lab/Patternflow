@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the plasma colour round the wheel and opens in magenta, the core pale lavender and blue-white, the rim deep violet. The dim rim and the faint glow out to the edges turn with it.
 // Knob 2: Shear. 0 to 4, opening at 2: the shear of the axial flow, which stabilises the column. At 0 the column runs 4 LED a second and the necks grow fast, flash and break it into beads over its upper half. Turned up the flow runs faster, up to 10 LED a second, the necks grow slower and break less, and at the top the column stands straight with only small ripples running up it.
 // Knob 3: Current. -1 to 1, opening at 0: the current in the column. The resting radius is 4.9 LED at -1, 7 at 0 and 9.9 at 1, and the neck closes faster the higher it goes. A wider column breaks into fewer, larger beads: about six on the panel at -1, four at 0, three at 1.
-// Knob 4: Kink. 0 to 1, opening at 0.06: how far the axis of the column bends. At 0 it only wavers by a LED or two, at the opening it sways a few LED, and at the top the axis wanders up to 28 LED across the panel in long waves.
+// Knob 4: Kink. 0 to 1, opening at 0.06: how far the axis of the column bends. At 0 it only wavers by a LED or two, at the opening it sways a few LED, and at the top the axis wanders ten LED or more to either side of the middle in long waves.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sin, cos, sqrt, exp, log, pow, tanh, PI } = Math;
