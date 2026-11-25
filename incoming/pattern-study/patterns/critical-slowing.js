@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   Critical Slowing
 // Family:  tipping
-// Idea:    A hundred and fifty noisy balls sit in the left well of a glowing landscape seen from the side while a slowly wandering control parameter tilts it, so the well flattens until its bottom is a plateau, the swarm swells and its wobble slows to a crawl, and at the fold the well vanishes and the whole swarm drops white-hot over the ledge into the far well, where it sits until the control parameter has wandered far enough back for that well to vanish in its turn.
+// Idea:    A hundred or so noisy balls sit in the left well of a glowing landscape seen from the side while a slowly wandering control parameter tilts it, so the well flattens until its bottom is a plateau, the swarm swells and its wobble slows to a crawl and warms from teal through violet to amber, and at the fold the well vanishes and the swarm pours white-hot over the ledge into the far well, where it sits, the ground under the landscape keeping a layered record of the climb, until the control parameter has wandered far enough back for that well to vanish in its turn.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: critical slowing down before a saddle-node bifurcation (Wissel 1984; Scheffer et al. 2009, "Early-warning signals for critical transitions", variance and lag-1 autocorrelation rising before a tipping point, from memory), hysteresis of a bistable system with the potential U = x^4/4 + c x^3/3 - x^2/2 - r x under overdamped Langevin noise (Euler-Maruyama), pattern round 241
+// Lineage: critical slowing down before a saddle-node bifurcation (Wissel 1984; Scheffer et al. 2009, "Early-warning signals for critical transitions": variance and lag-1 autocorrelation rise as the restoring force weakens, from memory), hysteresis of a bistable system in the potential U = x^4/4 + c x^3/3 - x^2/2 - r x under overdamped Langevin noise (Euler-Maruyama substeps of 1/120 s), pattern round 241
 // Round:   241
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Noise=0..4, Drift=-1..1, Swarm=-1..1
 //
-// Knob 1: Hue. Turns the whole colour ramp round the wheel. At 0 a calm swarm is teal, a flattened well pale gold then amber and a falling swarm white; the landscape takes the swarm's colour. At 0.25 the calm colour is violet-blue and the warm end magenta, at 0.5 rose and green, at 0.75 amber and blue.
-// Knob 2: Noise. 0 to 4, opening at 2. The strength of the Langevin noise on every ball, 0.05 at 0 and 0.2 at 2 and 0.35 at 4 (model units a root second). At 0 the swarm is a tight bright line a column or two wide, and it holds on till the well is gone. At 2 it is a cloud about 4 columns wide in the calm well that swells to 15 as the well flattens. At 4 it is a fat cloud that leaks balls over the hump before the fold and tips early.
-// Knob 3: Drift. -1 to 1, opening at 0. How fast the control parameter wanders, 0.4 times the story's clock at -1, 1 at 0 and 2.5 at 1 (the swarm itself speeds up only as the cube root of that). At 0 it reaches a fold every minute or two, irregularly, with some approaches that turn back. At 1 the whole story runs two and a half times as fast and the swarm lags behind the control parameter; at -1 the swarm has time to settle and the swelling and slowing stay in view for minutes.
-// Knob 4: Swarm. -1 to 1, opening near 0. The number of balls, 40 at -1, 150 at 0 and 260 at 1, added one every 25 ms by cloning a ball already there and taken away the same way. At -1 every ball is a separate dot you can follow over the ledge; at 1 they melt into a luminous ribbon.
+// Knob 1: Hue. Turns the whole colour ramp round the wheel. At 0 a calm swarm and landscape are teal, a well that is flattening goes blue, violet and rose, the plateau and the balls on it amber, and a swarm in free fall white. At 0.25 the calm colour is violet and the warm end green, at 0.5 rose and blue-green, at 0.75 amber and blue.
+// Knob 2: Noise. 0 to 4, opening at 2. The strength of the Langevin noise on every ball, 0.05 at 0, 0.2 at 2 and 0.35 at 4. At 0 the swarm is a tight bright knot a column or two wide that holds on until the well is gone. At 2 it is about 4 columns wide in a stiff well and swells to 10 or more on the plateau, and a few balls spill early. At 4 it is a fat cloud that spreads over the hump before the fold, so it tips early and often splits between the two wells.
+// Knob 3: Drift. -1 to 1, opening at 0. How fast the control parameter wanders and so the clock of the whole story, 0.4 at -1, 1 at 0 and 2.5 at 1 (the balls themselves only speed up as the cube root of that). At 0 a well vanishes every minute or two, irregularly, and some approaches turn back short of the fold. At 1 the story runs two and a half times as fast and the swarm lags behind its landscape; at -1 the swelling and slowing stay in view for minutes.
+// Knob 4: Swarm. -1 to 1, opening near 0. The number of balls, 30 at -1, 115 at 0 and 200 at 1, added one every 25 ms by cloning a ball already there and taken away the same way. At -1 the swarm is a handful of soft dots; at 1 a luminous heap that goes pale at its core.
 
 const W = 64, H = 128;
 const { floor, round, min, max, abs, exp, sqrt, sin, cos, tanh, acos, cbrt, PI } = Math;
@@ -32,9 +32,11 @@ const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 // the left well and sinks the right one until the left well's minimum and the hump meet at the fold (r = 0.48), where U'' = 0 and
 // the bottom is a plateau. Lowering r does the same to the right well at r = -0.31, so the swarm has to be taken a long way back
 // before the old well returns: hysteresis.
-const CA = 0.2;
-const XC = -0.1, SC = 19.5;          // x at the middle of the panel, columns a unit
-const HS = 56, YB = 66, UC = 0.05;   // rows a unit of height, the row of the mid height, the potential drawn at that row
+let CA = 0.2;                        // the cubic term, wandering between 0.05 and 0.35, so the two folds move about
+let XC = -0.1;                       // x at the middle of the panel, drifting a little
+const SC = 19.5;                     // columns a unit
+let HS = 56;                         // rows a unit of height, breathing by a tenth
+const YB = 66, UC = 0.05;            // the row of the mid height, the potential drawn at that row
 const SA = 0.55, SB = 0.5;           // heights past SA either side of the middle are squeezed, so the walls stay on the panel
 const dU = (x, r) => x * x * x + CA * x * x - x - r;
 const d2U = (x) => 3 * x * x + 2 * CA * x - 1;
@@ -106,6 +108,9 @@ function brownish(h) {
 
 // ---- state ----------------------------------------------------------------------
 const NMAX = 280;
+// The ground is a core sample: the layer d rows under the curve is the swarm as it was d / VS seconds ago, so a swelling that came
+// before a tip sinks away under the landscape as a band of its colour, and the tip itself as a pale line.
+const HN = 600, HD = 0.2, VS = 1.1, NF = 110, FSTEP = 1.5;
 const TS0 = 3.0;                     // model time a second
 const R_MEAN = 0.085;
 const T1 = 127, T2 = 51.7, A1 = 0.30, A2 = 0.20, TOU = 16, SOU = 0.13;
@@ -115,12 +120,13 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], init: false, t: 0, hue: -9,
     n: 115, x: new Float32Array(NMAX), lane: new Float32Array(NMAX), tw: new Float32Array(NMAX), twf: new Float32Array(NMAX),
     heat: new Float32Array(NMAX), lp: new Float32Array(NMAX), gl: new Float32Array(NMAX),
-    s: 0, ou: 0, r: 0, ph: [0, 0], sig: 0.2, m: 1, Nt: 150, nacc: 0,
+    s: 0, ou: 0, r: 0, ph: [0, 0], ph2: [rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU, rnd() * TAU], c: 0.2, xc: -0.1, hs: 54, sig: 0.2, m: 1, Nt: 150, nacc: 0,
     heatM: 0, hotM: 0, F: 0,
     lut: new Float32Array(LUTN * 3),
     bR: new Float32Array(W * H), bG: new Float32Array(W * H), bB: new Float32Array(W * H),
     colE: new Float32Array((W + 8) * 3), colT: new Float32Array((W + 8) * 3),
-    yc: new Float32Array(W + 2), nv: new Float32Array(W), fillL: new Float32Array(64 * 3),
+    yc: new Float32Array(W + 2), nv: new Float32Array(W), fillL: new Float32Array(NF * 3), skyL: new Float32Array(64 * 3),
+    hHeat: new Float32Array(HN), hF: new Float32Array(HN), hR: new Float32Array(HN), hp: 0, hacc: 0,
   });
   for (let j = 0; j < NMAX; j++) newBall(st, j, 0);
   return st;
@@ -133,6 +139,18 @@ function newBall(st, j, x) {
   st.heat[j] = 0;
   st.lp[j] = 0;
   st.gl[j] = 0;
+}
+// Three more slow wanderers shape the landscape itself (the cubic term, the stretch of its height, its sideways drift), each with two
+// periods that do not divide one another, so no two minutes of the story share a landscape.
+const T3 = [173.0, 89.3, 211.7, 97.1, 131.9, 61.7];
+function shape(st) {
+  const s = st.s, p = st.ph2;
+  st.c = 0.2 + 0.09 * sin((TAU * s) / T3[0] + p[0]) + 0.06 * sin((TAU * s) / T3[1] + p[1]);
+  st.hs = 54 * (1 + 0.09 * sin((TAU * s) / T3[2] + p[2]) + 0.05 * sin((TAU * s) / T3[3] + p[3]));
+  st.xc = -0.1 + 0.1 * sin((TAU * s) / T3[4] + p[4]) + 0.06 * sin((TAU * s) / T3[5] + p[5]);
+  CA = st.c;
+  XC = st.xc;
+  HS = st.hs;
 }
 const rOf = (st) => R_MEAN + A1 * sin((TAU * st.s) / T1 + st.ph[0]) + A2 * sin((TAU * st.s) / T2 + st.ph[1]) + st.ou;
 
@@ -163,9 +181,9 @@ export function update(dt, input, params) {
   knobsToState(st);
   if (!st.init) {
     st.init = true;
-    // The control parameter starts as if the story were already thirty clock-seconds old, so the knob has had time to matter, and
+    // The control parameter starts as if the story were already forty-five clock-seconds old, so the knob has had time to matter, and
     // it starts on its way up to the fold: the first minute is the approach.
-    st.s = 30 * st.m;
+    st.s = 45 * st.m;
     let best = 9;
     for (let tries = 0; tries < 200; tries++) {
       st.ph = [rnd() * TAU, rnd() * TAU];
@@ -182,6 +200,7 @@ export function update(dt, input, params) {
     st.ph = st.bph;
     st.ou = st.bou;
     st.r = rOf(st);
+    shape(st);
     st.n = st.Nt;
     const rt = roots(st.r), x0 = rt[0];
     for (let j = 0; j < st.n; j++) newBall(st, j, x0 + 0.05 * gauss());
@@ -195,6 +214,16 @@ export function update(dt, input, params) {
       st.lp[j] = dU(st.x[j], st.r);
     }
     st.heatM = st.heat[0];
+    // a history to sink under the ground: the control parameter as the two sines had it, and the heat of the left well under it
+    for (let i = 0; i < HN; i++) {
+      const sp = st.s - i * HD * st.m;
+      const rp = R_MEAN + A1 * sin((TAU * sp) / T1 + st.ph[0]) + A2 * sin((TAU * sp) / T2 + st.ph[1]) + st.ou * exp(-i * HD / 40);
+      const q = HN - 1 - i;
+      st.hR[q] = rp;
+      st.hHeat[q] = heatTarget(roots(rp)[0]) * 0.9;
+      st.hF[q] = 0;
+    }
+    st.hp = 0;
     return;
   }
   dt = cl(dt || 0, 0, 0.1);
@@ -202,6 +231,7 @@ export function update(dt, input, params) {
   // the control parameter: two slow sines that do not share a period, and an Ornstein-Uhlenbeck wander on top
   const ds = dt * st.m;
   st.s += ds;
+  shape(st);
   st.ou += -(st.ou / TOU) * ds + SOU * sqrt((2 * ds) / TOU) * gauss();
   st.r = rOf(st);
   swarm(st, dt);
@@ -242,6 +272,14 @@ export function update(dt, input, params) {
   st.heatM += (hs / n - st.heatM) * (1 - exp(-dt / 0.8));
   st.hotM = ho / n;
   st.F += (st.hotM - st.F) * (1 - exp(-dt / 0.3));
+  st.hacc += dt;
+  while (st.hacc >= HD) {
+    st.hacc -= HD;
+    st.hHeat[st.hp] = st.heatM;
+    st.hF[st.hp] = st.F;
+    st.hR[st.hp] = st.r;
+    st.hp = (st.hp + 1) % HN;
+  }
 }
 function heatTarget(x) {
   return Math.pow(cl(1 - d2U(x) / 1.7, 0, 1), 1.3);
@@ -256,6 +294,9 @@ export function draw(display, params) {
     st.hue = st.k[0];
     buildLut(st.lut, st.hue);
   }
+  CA = st.c;
+  XC = st.xc;
+  HS = st.hs;
   const r = st.r, lut = st.lut, n = st.n, F = st.F;
   const yc = st.yc, nv = st.nv;
   // the curve, a column at a time (yc[c + 1] is column c, so the slope can look a column either side)
@@ -270,22 +311,30 @@ export function draw(display, params) {
   // colours of the landscape: the swarm's heat, and white as it falls
   const hu = cl(st.heatM * 1.55, 0, 1), li = hu * (LUTN - 1), li0 = floor(li), li1 = min(LUTN - 1, li0 + 1), lf = li - li0;
   const tr = lut[li0 * 3] * (1 - lf) + lut[li1 * 3] * lf, tg = lut[li0 * 3 + 1] * (1 - lf) + lut[li1 * 3 + 1] * lf, tb = lut[li0 * 3 + 2] * (1 - lf) + lut[li1 * 3 + 2] * lf;
-  // the ground keeps to the cool half of the ramp, so the amber stays on the curve and the balls where it is bright
-  const gi = min(hu, 0.55) * (LUTN - 1), g0 = floor(gi), g1 = min(LUTN - 1, g0 + 1), gf = gi - g0;
-  const hsv = [0, 0, 0];
-  rgb2hsv(lut[g0 * 3] * (1 - gf) + lut[g1 * 3] * gf, lut[g0 * 3 + 1] * (1 - gf) + lut[g1 * 3 + 1] * gf, lut[g0 * 3 + 2] * (1 - gf) + lut[g1 * 3 + 2] * gf, hsv);
   const fw = 0.65 * F;
   const lr = (tr * (1 - fw) + fw) * 190, lg = (tg * (1 - fw) + fw) * 190, lb = (tb * (1 - fw) + fw) * 190;
-  // the ground under the curve: tint of the swarm, darker with depth, a dim warm tint lifted and paled so it does not go brown
-  const FL = st.fillL, br = brownish(hsv[0]), c3 = [0, 0, 0];
-  for (let i = 0; i < 64; i++) {
-    const dep = i * 2.2;
-    const v = (0.1 + 0.3 * exp(-dep / 12)) * (1 + 0.35 * F);
-    const vv = min(1, v * (1 + 1.1 * br * (1 - v))), ss = hsv[1] * (1 - 0.45 * br * (1 - v));
-    hsv2(hsv[0], ss, vv, c3, 0);
+  // The ground under the curve: layer by layer, the swarm's colour at the time it was laid down, darker with depth, a pale line where
+  // the swarm fell. It keeps to the cool half of the ramp, so the amber stays on the curve and the balls where it is bright, and a dim
+  // warm tint is lifted and paled so it does not go brown.
+  const FL = st.fillL, c3 = [0, 0, 0], hue0 = 0.53 + st.k[0];
+  for (let i = 0; i < NF; i++) {
+    const d = (i + 0.5) * FSTEP, back = min(HN - 1, floor(d / VS / HD)), q = (((st.hp - 1 - back) % HN) + HN) % HN;
+    const hh = st.hHeat[q], ff = st.hF[q], rr = cl(st.hR[q], -0.6, 0.6);
+    const ug = min(cl(hh * 1.55, 0, 1), 0.55), h = hue0 + 0.56 * sstep(0.2, 0.92, ug), sa = 0.85 - 0.25 * sin(PI * ug);
+    const v = (0.1 + 0.3 * exp(-d / 12)) * (0.85 + 0.5 * hh) * (1 + 0.5 * rr) * (1 + 1.2 * ff), br = brownish(h);
+    const vv = min(1, v * (1 + 1.1 * br * (1 - v))), ss = sa * (1 - 0.45 * br * (1 - v)) * (1 - 0.5 * ff);
+    hsv2(h, ss, vv, c3, 0);
     FL[i * 3] = c3[0] * 255;
     FL[i * 3 + 1] = c3[1] * 255;
     FL[i * 3 + 2] = c3[2] * 255;
+  }
+  // a faint haze over the curve, the colour of the ground's newest layer
+  const SK = st.skyL, ug0 = min(hu, 0.55), hs0 = hue0 + 0.56 * sstep(0.2, 0.92, ug0), ss0 = 0.85 - 0.25 * sin(PI * ug0);
+  for (let i = 0; i < 64; i++) {
+    hsv2(hs0, ss0, 0.045 + 0.075 * exp(-(i * 2.2) / 26), c3, 0);
+    SK[i * 3] = c3[0] * 255;
+    SK[i * 3 + 1] = c3[1] * 255;
+    SK[i * 3 + 2] = c3[2] * 255;
   }
   // the balls
   const bR = st.bR, bG = st.bG, bB = st.bB;
@@ -299,7 +348,7 @@ export function draw(display, params) {
     const x = st.x[j];
     const px = 32 + (x - XC) * SC, z = Upot(x, r) - UC;
     const y = YB - HS * soft(z), sl = (-HS * dsoft(z) * dU(x, r)) / SC, nn = 1 / sqrt(1 + sl * sl);
-    const off = 1.7 + 4.2 * st.lane[j] * st.lane[j];
+    const off = 1.6 + 5.4 * Math.pow(st.lane[j], 1.7);
     const bx = px + off * sl * nn, by = y - off * nn;
     // colour: the heat of the ground it stands on, going to white in a fall or a glint
     const hu2 = cl(st.heat[j], 0, 1) * (LUTN - 1), i0 = floor(hu2), i1 = min(LUTN - 1, i0 + 1), f = hu2 - i0;
@@ -349,11 +398,15 @@ export function draw(display, params) {
       const dy = row + 0.5 - yct, d = dy * inv, ad = abs(d);
       let R = 0, G = 0, B = 0;
       if (dy > 0) {
-        const fi = min(63, floor(dy / 2.2)), o = fi * 3;
-        const mod = 1 + 0.09 * cos((TAU * d) / 11);
-        R = FL[o] * mod;
-        G = FL[o + 1] * mod;
-        B = FL[o + 2] * mod;
+        const fi = min(NF - 1, floor(d / FSTEP)), o = fi * 3;
+        R = FL[o];
+        G = FL[o + 1];
+        B = FL[o + 2];
+      } else {
+        const si = min(63, floor(ad / 2.2)) * 3;
+        R = SK[si];
+        G = SK[si + 1];
+        B = SK[si + 2];
       }
       const line = sstep(1.6, 0.6, ad), glow = 0.2 * exp(-ad / 2.4);
       const lk = line + glow;
