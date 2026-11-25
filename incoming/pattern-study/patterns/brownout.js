@@ -5,27 +5,29 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: cascading failure on a network where every line has a capacity of (1 + margin) times its normal load (Adilson Motter and Ying-Cheng Lai, 2002), the linearised DC power flow that fixes who carries what (Kirchhoff's laws with the line reactance as its length, solved by conjugate gradients on the graph Laplacian), and the load shedding and islanding of a real blackout; the Gabriel-graph web over Poisson-disc nodes, the heat-then-trip timing, the restoration order, the demand drift and the slow rewiring that keeps the grid from ever repeating are original, pattern round 257
+// Lineage: cascading failure on a network where every line has a capacity of (1 + margin) times its normal load (Adilson Motter and Ying-Cheng Lai, 2002, from memory), the linearised DC power flow that fixes who carries what (Kirchhoff's laws with the line reactance as its length, solved by conjugate gradients on the graph Laplacian), and the load shedding and islanding of a real blackout; the Gabriel-graph web over Poisson-disc nodes, the heat-then-trip timing, the restoration order, the demand drift and the slow rewiring that keeps the grid from ever repeating are original, pattern round 257
 // Round:   257
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Demand=0..3, Margin=-1..1, Storm=-1..1
 //
-// Knob 1: Hue. Rotates the loading ramp round the wheel. At 0 an idle line is teal, a loaded one green, then yellow, amber at about four fifths of its limit and red-white at the limit; the generators and the dead ghost lines keep their own colours only in brightness, so a turn recolours the live web at once.
-// Knob 2: Demand. 0 to 3, opening at 2. The average load as a share of what the grid was built for, 0.5 at 0 and 1.1 at 3: lines slide from teal toward amber and the pulses on them speed up within a second, and past about 2.4 a fault stops being absorbed and runs.
-// Knob 3: Margin. -1 to 1, opening at 0. How far over its normal flow a line may go before it heats: 0.12 at -1 (brittle, a fault rolls through most of the grid), 0.30 at the start, 0.78 at 1 (robust, a fault is shrugged off and the neighbours only glow a little warmer). Lines change colour as it turns.
-// Knob 4: Storm. -1 to 1, opening at about 0.06. How often a tree falls on a random line: none at -1 (only demand drift can still trip a line, the operators still close what is open), about once in 11 s at the start, once in 2 s at 1.
+// Knob 1: Hue. Turns the loading ramp round the wheel. At 0 an idle line is teal, a half-loaded one green, a loaded one yellow, amber at four fifths of its rating and red at the limit; the generators take the amber end of it and the dead ghost lines stay grey-blue whatever the knob says.
+// Knob 2: Demand. 0 to 3, opening at 2. The average load as a share of what the grid was built for: 0.38 at 0, 0.76 at the start, 0.95 at 3. The median live line carries 0.28 of its rating at 0 and 0.47 at the start, so the web slides from teal toward amber within a second and the pulses speed up; at 1 a fault is nearly always shrugged off, at 2 a cascade of three or more lines comes about every 30 s, at 3 about every 18 s and the web is broken up most of the time.
+// Knob 3: Margin. -1 to 1, opening at 0. How far over its normal flow a line may go before it heats: 0.12 at -1 (brittle, a cascade every 22 s and often a big one), 0.30 at the start, 0.78 at 1 (robust, a cascade every 50 s). The colour of every line changes as it turns, since the loading ratio is the flow over that rating.
+// Knob 4: Storm. -1 to 1, opening at about 0.06. How often a tree falls on a random line, longer lines more often: never at -1 (only the drifting demand can still trip a line, and the operators still close what is open), about once in 12 s at the start, once in 3 s at 1.
+//
+// The model: a Poisson-disc scatter of about 70 nodes with the corners on it, joined by a Gabriel graph thinned to two to five lines a node. Five nodes are generators, the rest loads (3x3) and junctions (2x2). Every line has a reactance of its length. Each solve finds the islands of the closed lines, feeds an island from its own generators in proportion to their size (an island with none is dark, one with too little drops its loads furthest from a generator first), and solves the DC flow, the graph Laplacian times the angles equal to the injections, by conjugate gradients. A line is rated (1 + margin) times its flow on the whole grid at the base demand, times a spread of 0.78 to 1.4 of its own. Above its rating it heats for 0.4 to 1.5 s (faster the further over) and trips; the grid is solved again. Operators wait for a quiet moment, then close the open line nearest a generator whose closing leaves every line under its rating, and loads come back one by one only while their island has room.
 
 const W = 64, H = 128;
 const NMAX = 100, EMAX = 320, NGEN = 5;
 const MARG = 3.2;                       // nodes keep this far from the panel edge
-const HOFF = 0;                         // the ramp itself opens on teal; K1 only adds to it
 const { floor, ceil, min, max, abs, sqrt, exp, sin, cos, log, pow, hypot, PI } = Math;
 const TP = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const fin = (v, d) => (Number.isFinite(v) ? v : d);
 const rnd = () => Math.random();
 const rr = (a, b) => a + (b - a) * rnd();
+const F = (n) => new Float32Array(n), U = (n) => new Uint8Array(n), I = (n) => new Int16Array(n), D = (n) => new Float64Array(n);
 const gauss = () => (rnd() + rnd() + rnd() - 1.5) * 2;
 
 // ---- colour ----------------------------------------------------------------
@@ -48,7 +50,7 @@ function rampLut(lut, k1) {
     let j = 0;
     while (j < RK.length - 2 && r > RK[j + 1]) j++;
     const u = cl((r - RK[j]) / (RK[j + 1] - RK[j]), 0, 1);
-    const h = RH[j] + (RH[j + 1] - RH[j]) * u + k1 + HOFF;
+    const h = RH[j] + (RH[j + 1] - RH[j]) * u + k1;
     const s = r < 0.9 ? 0.9 : 0.9 - (r - 0.9) * 1.1;
     hsv(h, cl(s, 0.45, 0.92), 1, lut, i * 3);
   }
@@ -600,27 +602,27 @@ export function setup(params) {
   const st = (params.st = {
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0,
     nn: 0, ne: 0, R: 9,
-    nx: new Float32Array(NMAX), ny: new Float32Array(NMAX), nused: new Uint8Array(NMAX), nex: new Uint8Array(NMAX),
-    ndying: new Uint8Array(NMAX), ntype: new Uint8Array(NMAX), nvis: new Float32Array(NMAX), nlit: new Float32Array(NMAX),
-    nr: new Float32Array(NMAX), nshed: new Uint8Array(NMAX), nen: new Uint8Array(NMAX), dem: new Float32Array(NMAX),
-    dd: new Float32Array(NMAX), pick: new Float32Array(NMAX), pkW: new Float32Array(NMAX), pkT: new Float32Array(NMAX), cok: new Uint8Array(NMAX), gcap: new Float32Array(NMAX), pn: new Float32Array(NMAX), gw: new Float32Array(NMAX),
-    gutil: new Float32Array(NMAX), gph: new Float32Array(NMAX), gper: new Float32Array(NMAX), deg: new Int8Array(NMAX),
-    comp: new Int16Array(NMAX), par: new Int16Array(NMAX), gd: new Int16Array(NMAX),
-    dA1: new Float32Array(NMAX), dF1: new Float32Array(NMAX), dP1: new Float32Array(NMAX),
-    dA2: new Float32Array(NMAX), dF2: new Float32Array(NMAX), dP2: new Float32Array(NMAX),
-    ea: new Int16Array(EMAX), eb: new Int16Array(EMAX), eused: new Uint8Array(EMAX), eex: new Uint8Array(EMAX),
-    edying: new Uint8Array(EMAX), estate: new Uint8Array(EMAX), elive: new Uint8Array(EMAX),
-    elen: new Float32Array(EMAX), ebs: new Float32Array(EMAX), etau: new Float32Array(EMAX), evar: new Float32Array(EMAX),
-    ebase: new Float32Array(EMAX), ef0: new Float32Array(EMAX), ef: new Float32Array(EMAX), efd: new Float32Array(EMAX),
-    erat: new Float32Array(EMAX), eratD: new Float32Array(EMAX), eheat: new Float32Array(EMAX), eglow: new Float32Array(EMAX),
-    espk: new Float32Array(EMAX), espt: new Float32Array(EMAX), elit: new Float32Array(EMAX), ecyc: new Float32Array(EMAX),
-    esp: new Float32Array(EMAX), eprog: new Float32Array(EMAX), evis: new Float32Array(EMAX), eflk: new Float32Array(EMAX),
-    emat: new Int16Array(NMAX * NMAX).fill(-1), ecl: new Int16Array(EMAX), ncl: 0,
-    cP: new Float64Array(NMAX), cth: new Float64Array(NMAX), cr: new Float64Array(NMAX), cz: new Float64Array(NMAX),
-    cm: new Float64Array(NMAX), cp: new Float64Array(NMAX), cq: new Float64Array(NMAX), cd: new Float64Array(NMAX), cD: new Float64Array(NMAX), cG: new Float64Array(NMAX),
+    nx: F(NMAX), ny: F(NMAX), nused: U(NMAX), nex: U(NMAX),
+    ndying: U(NMAX), ntype: U(NMAX), nvis: F(NMAX), nlit: F(NMAX),
+    nr: F(NMAX), nshed: U(NMAX), nen: U(NMAX), dem: F(NMAX),
+    dd: F(NMAX), pick: F(NMAX), pkW: F(NMAX), pkT: F(NMAX), cok: U(NMAX), gcap: F(NMAX), pn: F(NMAX), gw: F(NMAX),
+    gutil: F(NMAX), gph: F(NMAX), gper: F(NMAX), deg: new Int8Array(NMAX),
+    comp: I(NMAX), par: I(NMAX), gd: I(NMAX),
+    dA1: F(NMAX), dF1: F(NMAX), dP1: F(NMAX),
+    dA2: F(NMAX), dF2: F(NMAX), dP2: F(NMAX),
+    ea: I(EMAX), eb: I(EMAX), eused: U(EMAX), eex: U(EMAX),
+    edying: U(EMAX), estate: U(EMAX), elive: U(EMAX),
+    elen: F(EMAX), ebs: F(EMAX), etau: F(EMAX), evar: F(EMAX),
+    ebase: F(EMAX), ef0: F(EMAX), ef: F(EMAX), efd: F(EMAX),
+    erat: F(EMAX), eratD: F(EMAX), eheat: F(EMAX), eglow: F(EMAX),
+    espk: F(EMAX), espt: F(EMAX), elit: F(EMAX), ecyc: F(EMAX),
+    esp: F(EMAX), eprog: F(EMAX), evis: F(EMAX), eflk: F(EMAX),
+    emat: new Int16Array(NMAX * NMAX).fill(-1), ecl: I(EMAX), ncl: 0,
+    cP: D(NMAX), cth: D(NMAX), cr: D(NMAX), cz: D(NMAX),
+    cm: D(NMAX), cp: D(NMAX), cq: D(NMAX), cd: D(NMAX), cD: D(NMAX), cG: D(NMAX),
     fnorm: 1, dirty: true, solveT: 0, lastTrip: -99, rHold: 0, rTimer: 1, lyT: 14, nTrip: 0, nFault: 0,
     fAcc: 0, fThr: -log(rnd()), gp0: rnd() * TP, gp1: rnd() * TP, gp2: rnd() * TP,
-    buf: new Float32Array(W * H * 3), lut: new Float32Array(150 * 3), tmp: [0, 0, 0],
+    buf: F(W * H * 3), lut: F(150 * 3), tmp: [0, 0, 0],
   });
   build(st);
   return st;
