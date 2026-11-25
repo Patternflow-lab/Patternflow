@@ -27,17 +27,17 @@ const sstep = (a, b, x) => {
 
 const XP = 4.3;              // the face of the plate, and the plane of the slit
 const SX = XP + 0.5;         // the slit
-const SY = 120.5;            // its mean height
+const SY = 118.5;            // its mean height
 const RMIN = 8, RMAX = 53;   // radii at the opening field, LED
 const S0 = 0.95, S02 = S0 * S0; // the least half width of a ribbon (sigma): 2.2 LED across at half height
 const NT = 32;               // steps of the table that holds a line's brightness along its half turn
-const TMAX = 6.5;            // seconds the heaviest mass takes for the half turn at the opening field
+const TMAX = 8;            // seconds the heaviest mass takes for the half turn at the opening field
 const TAUP = 4.5;            // afterglow of the plate, seconds
 const MAXL = 96;             // lines alive at once, at the most
 const LUM = 0.42, CHR = 0.62; // a colour is LUM + CHR cos(hue - channel): the three channels always add to the same
-const DEPTH = 0.6;          // how deep a compound's own flow swings
+const DEPTH = 0.75;          // how deep a compound's own flow swings
 const GAIN = 1.9;            // exposure of the tone curve
-const TH0 = (48 / 360) * TAU, THS = (245 / 360) * TAU; // hue of the lightest mass, and the span to the heaviest
+const TH0 = (48 / 360) * TAU, THS = (226 / 360) * TAU; // hue of the lightest mass, and the span to the heaviest
 const LS = 1023 / 6;
 const LUT = new Uint8Array(1024);
 for (let i = 0; i < 1024; i++) LUT[i] = floor(255 * (1 - exp((-GAIN * i) / LS)) + 0.5);
@@ -68,7 +68,7 @@ export function setup(params) {
     comps: [], nL: 0,
     lr: f(MAXL), lcx: f(MAXL), lcy: f(MAXL), lct: f(MAXL), lst: f(MAXL), lrsa: f(MAXL), lrse: f(MAXL), lq: f(MAXL), ltr: f(MAXL), lreach: f(MAXL), lmax: f(MAXL),
     tab: f(MAXL * (NT + 1)),
-    ca: 1, sa: 0, a0: 0,
+    ca: 1, sa: 0, a0: 0, ga: 0, gy: 0, gg: 0.5,
     pA: f(H), pX: f(H), pY: f(H),
     A: f(W * H), X: f(W * H), Y: f(W * H),
   };
@@ -86,8 +86,12 @@ function newCompound(st, tp) {
   // the whole molecule is the heaviest line, the fragments lie below it
   let rM = RMAX - 27 * R() * R();
   // the heavy end is never left empty: if nothing heavy will be strong when this one peaks, this one is heavy
-  let heavy = false;
-  for (const c of st.comps) if (c.r0[0] > 43 && c.t0 + c.wf > tp + 2.5) heavy = true;
+  let heavy = false, light = false;
+  for (const c of st.comps) {
+    if (c.t0 + c.wf < tp + 2.5) continue;
+    if (c.r0[0] > 43) heavy = true;
+    if (c.lt) light = true;
+  }
   if (!heavy) rM = RMAX - 9 * R();
   const pair = R() < 0.4 ? (R() < 0.5 ? 1 / 3 : 1) : 0;
   const n = 3 + floor(4.999 * pow(R(), 1.7));
@@ -107,21 +111,21 @@ function newCompound(st, tp) {
   if (pair) rM -= 3.7;
   const base = R() < 0.35 ? 0 : 1 + floor(R() * (n - 1));
   add(rM, base === 0 ? 1 : heavy ? 0.2 + 0.6 * R() : 0.55 + 0.4 * R(), pair > 0);
+  let lt = false;
   for (let i = 1; i < n && r0.length < 8; i++) {
     for (let tries = 0; tries < 20; tries++) {
-      const r = RMIN + (rM - 4.5 - RMIN) * R();
+      // and the light end the same way: the first fragment is a light and strong one if no other compound has one
+      const low = i === 1 && !light, r = low ? RMIN + 10 * R() : RMIN + (rM - 4.5 - RMIN) * R();
       if (!far(r) || (pair && !far(r + min(8, (3.7 * rM) / r)))) continue;
-      add(r, i === base ? 1 : 0.1 + 0.75 * R() * R(), pair > 0 && R() < 0.45);
+      const a = i === base ? 1 : low ? 0.55 + 0.4 * R() : 0.06 + 0.8 * R() * R() * R();
+      if (r < RMIN + 11 && a > 0.5) lt = true;
+      add(r, a, pair > 0 && R() < 0.45);
       break;
     }
   }
-  const ct = [], sn = [];
-  for (let i = 0; i < r0.length; i++) {
-    const th = TH0 + THS * pow(cl((r0[i] - RMIN) / (RMAX + 2 - RMIN), 0, 1), 0.85);
-    ct.push(cos(th));
-    sn.push(sin(th));
-  }
-  return { t0: tp, wr, wf, br: 0.65 + 0.7 * R(), r0, ab, ct, sn, f1: TAU / (1.3 + 0.9 * R()), f2: TAU / (4 + 3 * R()), p1: TAU * R(), p2: TAU * R() };
+  const hu = [];
+  for (let i = 0; i < r0.length; i++) hu.push(cl((r0[i] - RMIN) / (RMAX + 2 - RMIN), 0, 1));
+  return { t0: tp, wr, wf, br: 0.65 + 0.7 * R(), r0, ab, hu, lt, cs: R(), da: -0.1 + 0.32 * R(), dy: 14 * R() - 7, dh: 0.8 * R() - 0.4, f1: TAU / (1.3 + 0.9 * R()), f2: TAU / (4 + 3 * R()), p1: TAU * R(), p2: TAU * R() };
 }
 // How much of a compound left the slit at the time tp: its peak, and its own unsteady flow.
 function env(c, tp) {
@@ -145,51 +149,72 @@ function step(st, dt, full) {
   // peaks follow each other 1.3 to 3.1 s apart; a compound is made 7 s ahead of its peak, before its front arrives
   while (t >= st.next - 7) {
     st.comps.push(newCompound(st, st.next));
-    st.next += 1.3 + 1.8 * rnd(st);
+    st.next += 0.9 + 1.2 * rnd(st);
   }
   for (let i = st.comps.length - 1; i >= 0; i--) {
     const c = st.comps[i];
-    if (t - 9.2 - c.t0 > 3.3 * c.wf) st.comps.splice(i, 1);
+    if (t - 13.2 - c.t0 > 3.3 * c.wf) st.comps.splice(i, 1);
   }
-  // the magnet breathes, the beam sways, the slit creeps up and down
-  const B = exp(0.515 * (k[1] - 2)) * (1 + 0.032 * sin((TAU * t) / 41.3 + p[0]) + 0.026 * sin((TAU * t) / 97.1 + p[1]) + 0.014 * sin((TAU * t) / 17.9 + p[2]));
-  const a0 = 0.07 + 0.075 * sin((TAU * t) / 53.7 + p[3]) + 0.04 * sin((TAU * t) / 23.3 + p[4]);
-  const sy = SY + 2.6 * sin((TAU * t) / 71.9 + p[5]) + 1.3 * sin((TAU * t) / 29.3 + p[6]);
-  const sa = 0.05 * exp(1.3 * k[2]);
-  const se = 0.005 * exp(3 * k[3]);
+  // each compound in the source pushes the beam its own way: the direction it leaves in, the height it leaves at, the gas it
+  // adds to the vacuum. The beam follows the mix of what is there, a few seconds behind.
+  let wt = 0.15, ta = 0, ty = 0, tg = 0.075;
+  for (const c of st.comps) {
+    const w = c.br * env(c, t);
+    wt += w; ta += w * c.da; ty += w * c.dy; tg += w * c.cs;
+  }
+  const lag = 1 - exp(-dt / 2.5);
+  st.ga += (ta / wt - st.ga) * lag;
+  st.gy += (ty / wt - st.gy) * lag;
+  st.gg += (tg / wt - st.gg) * lag;
+  // and the magnet breathes
+  const B = exp((k[1] > 2 ? 0.416 : 0.515) * (k[1] - 2)) * (1 + 0.032 * sin((TAU * t) / 41.3 + p[0]) + 0.026 * sin((TAU * t) / 97.1 + p[1]) + 0.014 * sin((TAU * t) / 17.9 + p[2]));
+  const a0 = max(-0.05, 0.03 + st.ga + 0.03 * sin((TAU * t) / 53.7 + p[3]));
+  const sy = min(124.5, SY + st.gy + 1.5 * sin((TAU * t) / 71.9 + p[5]));
+  const gas = 0.0006 + 0.0054 * st.gg;
+  // slow turns of the palette: the light end, the heavy end and the middle
+  const h1 = 0.15 + 0.15 * sin((TAU * t) / 67.3 + p[11]), h2 = 0.15 * sin((TAU * t) / 83.9 + p[12]), h3 = 0.15 * sin((TAU * t) / 59.1 + p[13]);
+  const sa = 0.05 * exp((k[2] > 0 ? 1.03 : 1.4) * k[2]);
+  const se = 0.005 * exp(2.77 * k[3]);
   const ca = cos(a0), sA = sin(a0);
   st.ca = ca;
   st.a0 = a0;
   st.sa = sA;
-  // the exposure follows the strongest lines, the way a spectrum is scaled to its base peak
-  let S = 0;
+  // where each line lies, and how much of it passes the right-hand wall and comes back
+  let n = 0, S = 0;
   for (const c of st.comps) {
     const e = c.br * env(c, t);
-    for (let i = 0; i < c.ab.length; i++) S += e * c.ab[i] * e * c.ab[i] * e * c.ab[i];
+    for (let i = 0; i < c.r0.length && n < MAXL; i++, n++) {
+      const r = c.r0[i] / B, cx = SX - r * sA, rsa = r * sa, rse = r * se;
+      const tr = 1 / (1 + exp((-1.7 * (63.3 - cx - r)) / sqrt(S02 + rsa * rsa + rse * rse)));
+      st.lr[n] = r; st.lcx[n] = cx; st.lcy[n] = sy - r * ca; st.lrsa[n] = rsa; st.lrse[n] = rse; st.lq[n] = r * sa * sa; st.ltr[n] = tr;
+      // the exposure follows the strongest lines that stay on the panel, the way a spectrum is scaled to its base peak
+      const v = e * c.ab[i] * (0.1 + 0.9 * tr);
+      S += v * v * v;
+    }
   }
+  st.nL = n;
   const g = (1.25 / max(0.25, pow(S, 1 / 3))) * pow(sa / 0.05, 0.25);
   const fade = exp(-dt / TAUP), { pA, pX, pY } = st;
   for (let y = 0; y < H; y++) (pA[y] *= fade), (pX[y] *= fade), (pY[y] *= fade);
-  let n = 0;
+  n = 0;
   for (const c of st.comps) {
-    for (let i = 0; i < c.r0.length && n < MAXL; i++) {
-      const r = c.r0[i] / B;
-      const T = min(9, (TMAX * pow(c.r0[i] / RMAX, 1.25)) / sqrt(B)), d = DEPTH * sstep(0.3, 1.4, T);
-      const a = g * c.br * c.ab[i], o = n * (NT + 1);
+    for (let i = 0; i < c.r0.length && n < MAXL; i++, n++) {
+      const r = st.lr[n], cx = st.lcx[n], cy = st.lcy[n], rsa = st.lrsa[n], rse = st.lrse[n], q = st.lq[n], tr = st.ltr[n];
+      const T = min(13, (TMAX * pow(c.r0[i] / RMAX, 1.25)) / sqrt(B)), d = DEPTH * sstep(0.3, 1.4, T);
+      const a = g * c.br * c.ab[i], o = n * (NT + 1), loss = (gas * r * PI) / NT;
       let mx = 0;
       for (let j = full ? 0 : NT; j <= NT; j++) {
         const tp = t - (T * j) / NT;
-        const v = a * env(c, tp) * flow(c, tp, d) * src(st, tp);
+        const v = a * env(c, tp) * flow(c, tp, d) * src(st, tp) * exp(-loss * j);
         st.tab[o + j] = v;
         if (v > mx) mx = v;
       }
+      st.lmax[n] = mx;
       if (mx < 0.012) continue;
-      const cx = SX - r * sA, cy = sy - r * ca;
-      const rsa = r * sa, rse = r * se, q = r * sa * sa;
-      // what passes the right-hand wall and comes back
-      const tr = 1 / (1 + exp((-1.7 * (63.3 - cx - r)) / sqrt(S02 + rsa * rsa + rse * rse)));
-      st.lr[n] = r; st.lcx[n] = cx; st.lcy[n] = cy; st.lct[n] = c.ct[i]; st.lst[n] = c.sn[i];
-      st.lrsa[n] = rsa; st.lrse[n] = rse; st.lq[n] = q; st.ltr[n] = tr; st.lmax[n] = mx;
+      // the hue follows the mass, each compound a little to one side of it; the light end only turns towards green
+      const u = c.hu[i], dh = c.dh < 0 ? -c.dh * (1 - 2 * sstep(0.08, 0.4, u)) : c.dh;
+      const th = TH0 + THS * pow(u, 0.85) + dh + h1 * (1 - u) * (1 - u) + h2 * u * u + h3 * 4 * u * (1 - u);
+      const ct = (st.lct[n] = cos(th)), sn = (st.lst[n] = sin(th));
       st.lreach[n] = 3.1 * sqrt(S02 + rsa * rsa + 4 * rse * rse) + q + 1;
       // the plate: a line where the arc lands, a little short of two radii when the beam is wide
       const hx = XP - cx, yl = cy - sqrt(max(0, r * r - hx * hx)) + q;
@@ -200,14 +225,12 @@ function step(st, dt, full) {
         for (let y = y0; y <= y1; y++) {
           const e = y + 0.5 - yl, w = dep * exp((-e * e) / (2 * sl2));
           pA[y] += w;
-          pX[y] += w * c.ct[i];
-          pY[y] += w * c.sn[i];
+          pX[y] += w * ct;
+          pY[y] += w * sn;
         }
       }
-      n++;
     }
   }
-  st.nL = n;
 }
 
 export function update(dt, input, params) {
@@ -217,7 +240,7 @@ export function update(dt, input, params) {
   if (!st.init) {
     st.init = true;
     st.seed = floor(Math.random() * 4294967296) | 0;
-    for (let i = 0; i < 10; i++) st.ph.push(TAU * rnd(st));
+    for (let i = 0; i < 14; i++) st.ph.push(TAU * rnd(st));
     // run the sample for a while before the first frame, and the plate for the last part of it
     st.t = -46;
     st.next = -46;
@@ -238,6 +261,7 @@ export function draw(display, params) {
   for (let o = 0; o < W * H; o++) (A[o] = GA), (X[o] = GX), (Y[o] = GY);
   // the ribbons
   for (let n = 0; n < st.nL; n++) {
+    if (st.lmax[n] < 0.012) continue;
     const r = st.lr[n], cx = st.lcx[n], cy = st.lcy[n], rsa = st.lrsa[n], rse = st.lrse[n], q = st.lq[n], tr = st.ltr[n];
     const ct = st.lct[n], sn = st.lst[n], reach = st.lreach[n], ot = n * (NT + 1);
     const Ro = r + reach, Ri = max(0, r - reach), Ro2 = Ro * Ro, Ri2 = Ri * Ri;
