@@ -11,10 +11,10 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0..4, Pitch=-1..1, Shock=0..1
 //
-// Knob 1: Hue. Turns the whole fluorescence palette round the wheel together. It opens on red-orange chloroplasts, mint-cyan granules, a pale yellow indifferent zone and a teal membrane at the edge, and comes back to that at 1.
-// Knob 2: Flow. 0 to 4, opening at 2. How fast the stream runs along the files: about 22 LED a second at its fastest at 2, 44 at 4, and at 0 everything stands still as after a shock, the granules where they were and the red only shimmering.
-// Knob 3: Pitch. -1 to 1, opening at 0. The twist of the files and of the indifferent zones round the cell. At 0 they only wander in lazy S curves, at 1 they wind one way in a steep helix that crosses the near face every sixty LED or so, at -1 the other way; the granules follow the helix and bend with it.
-// Knob 4: Shock. 0 to 1, opening at 0.06. How often the cell fires an action potential: never at 0, about every thirty seconds at the start, about every ten at 1. A bright calcium wave takes three to six seconds to cross the cell, up or down, and where it has passed the stream stops within a second, holds still for several seconds and then speeds up again from rest.
+// Knob 1: Hue. Turns the whole fluorescence palette round the wheel together. It opens on red-orange chloroplasts, mint granules, a pale yellow indifferent zone and a teal membrane at the edge, and comes back to that at 1.
+// Knob 2: Flow. 0 to 4, opening at 2. How fast the stream runs along the files: an average granule moves 22 LED a second in the open lane at 2 (the fastest 29) and 44 at 4, the deeper sheet a quarter of that the other way. At 0 everything stands still as after a shock, the granules where they were, trembling a little, the red still shimmering.
+// Knob 3: Pitch. -1 to 1, opening at 0. The twist of the files and of the indifferent zones round the cell, 0.04 radian a LED at the ends. At 0 they only wander in lazy S curves (two slow waves 190 and 83 LED long that slide), at 1 they wind one way so that a zone crosses the near face about every 80 LED, at -1 the other way; the granules follow the helix and bend with it.
+// Knob 4: Shock. 0 to 1, opening at 0.06. How often the cell fires an action potential: never at 0, every 12 to 57 s (31 s on average) at the start, about every 13 s at 1 where the cell has hardly come back before the next one. A calcium wave takes three to six seconds to cross the cell, up or down, and where it has passed the stream stops within a second, holds still for 2.5 to 5 s and then speeds up again from rest over 4.5 to 8 s.
 
 // The cell is a cylinder with its axis up the panel, centre cx, radius R (27 LED, breathing). A point on its surface
 // has an angle theta round the axis, seen at x = cx + R sin(theta) and only on the near half (cos theta > 0). The
@@ -23,18 +23,22 @@
 // ruler straight), Ps puts the two indifferent zones at rho 0 and 0.5 and spaces them Dl(y) apart, 0.8 to 1.2 half
 // turns, so the lane that streams up is sometimes narrower than the one that streams down and now and then both
 // zones are on the near face. Files are lines of constant rho, so they follow the helix, and so does every particle.
-// Chloroplasts: 44 files round the cell, ellipses about 3 by 2 LED laid along them in a staggered brick, each with
-// its own size, offset, brightness and shimmer, drawn per LED from (rho, y) and faded to a plain glow toward the
-// limb where a file is narrower than the LED. The zone is a bare stripe with a pale yellow glow, 3 LED wide on the
-// face, kept 2.2 LED wide at the limb and faded as it goes round.
-// Stream: surface granules (2 LED soft dots), crystals (3 LED, heavier, slower) and strands (a tail of 22 to 46 LED)
-// ride the files, up on rho < 0.5 and down on rho > 0.5. The speed is zero in the zone, rises over about eight LED
-// to full and is a quarter lower in the middle of the lane. A deeper sheet at 0.7 of the radius runs the other way
-// at a quarter of the speed, dimmer and seen between the chloroplasts. A particle that leaves the end is born again
-// at the other end on a new file. Spawning is weighted by speed so the slow seam is not a pile of dots.
-// Shock: a calcium wave front travels the cell, and each row stops 0.7 s after it passes, holds, and returns from
-// rest over 5 to 9 s. A stopped row also loses a fifth of its glow. The knob sets the rate of a charge that fires
-// the wave when it reaches a random threshold, so turning it takes hold at once.
+// Chloroplasts: 44 files round the cell, soft ellipses 2 LED across and 3.9 long laid along them in a staggered
+// brick, each with its own size, offset, brightness and shimmer, drawn per LED from (rho, y) and faded to a plain
+// glow toward the limb where a file is narrower than the LED. The zone is a bare stripe with a pale yellow glow,
+// 3 LED wide on the face, kept 2.2 LED wide at the limb and faded as it goes round.
+// Stream: surface granules (2 LED soft dots, a little longer along the stream the faster they go), crystals (3 LED,
+// slower) and strands (a tail of 22 to 46 LED) ride the files, up on rho < 0.5 and down on rho > 0.5. The speed is
+// zero in the zone, rises over about eight LED to full and is a quarter lower in the middle of the lane. A deeper
+// sheet at 0.7 of the radius runs the other way at a quarter of the speed, dimmer and covered by the chloroplasts. A
+// particle that leaves the end is born again at the other end on a new file. Spawning is weighted by speed so the
+// slow seam is not a pile of dots. A particle is drawn only while it faces the viewer by a margin of its own, so the
+// limbs are not crowded the way a true projection would crowd them.
+// Shock: a calcium wave front travels the cell. The stream eases to a quarter over the 34 LED before it, and each
+// particle stops 0.7 s after the front passes it. The whole cell restarts from rest together over 4.5 to 8 s, so the
+// stopped stream does not pile up against a restart that crept along behind the front. A stopped row also loses a
+// fifth of its glow. The cell cannot fire again until it is well on its way back. The knob sets the rate of a charge
+// that fires the wave when it reaches a random threshold, so turning it takes hold at once.
 // Slow drifts on clocks that share no period: red level, granule level, zone level, focus (the texture sharpens,
 // the deep sheet shows), the axis and radius of the cell, the rotation, the zone spacing, the twist waves, and
 // pale sheets of brighter cytoplasm that pass up or down.
@@ -54,7 +58,7 @@ const gauss = () => sqrt(-2 * Math.log(1 - rnd())) * cos(TAU * rnd());
 
 const NF = 44;            // chloroplast files round the cell
 const LP = 4.4;           // along-file pitch of the chloroplasts, LED
-const NS = 430, NK = 30, NE = 9, ND = 200;
+const NS = 380, NK = 30, NE = 9, ND = 200;
 
 function hash(a, b) {
   let h = Math.imul(a | 0, 0x27d4eb2d) ^ Math.imul((b | 0) + 0x165667b1, 0x85ebca6b);
@@ -84,7 +88,7 @@ function makeSet(n, kind) {
     n, kind,
     rho: new Float32Array(n), y: new Float32Array(n), f: new Float32Array(n),
     b: new Float32Array(n), ph: new Float32Array(n), wf: new Float32Array(n),
-    len: new Float32Array(n), prof: new Float32Array(n), sp: new Float32Array(n), thr: new Float32Array(n),
+    len: new Float32Array(n), prof: new Float32Array(n), sp: new Float32Array(n), thr: new Float32Array(n), age: new Float32Array(n).fill(9),
   };
 }
 
@@ -114,6 +118,7 @@ function spawn(S, i, lane, y) {
   S.wf[i] = rr(0.6, 2.4);
   S.len[i] = rr(22, 46);
   S.thr[i] = 0.7 * rnd();
+  S.age[i] = 9;
 }
 
 function laneOf(rho) { return rho < 0.5 ? 0 : 1; }
@@ -165,7 +170,7 @@ function clocks(st) {
   st.a2 = -TAU * t / 139 + P[7];
   st.d1 = TAU * t / 151 + P[8];
   st.d2 = -TAU * t / 89 + P[9];
-  st.redL = 0.92 + 0.15 * sin(TAU * t / 57.3 + P[10]) + 0.08 * sin(TAU * t / 23.1 + P[11]);
+  st.redL = 1.0 + 0.12 * sin(TAU * t / 57.3 + P[10]) + 0.07 * sin(TAU * t / 23.1 + P[11]);
   st.grnL = 0.94 + 0.13 * sin(TAU * t / 41.7 + P[12]) + 0.07 * sin(TAU * t / 17.9 + P[13]);
   st.zonL = 1.0 + 0.2 * sin(TAU * t / 33.1 + P[14]) + 0.1 * sin(TAU * t / 71.3 + P[15]);
   st.focus = 0.5 + 0.5 * sin(TAU * t / 61.7 + P[3] + 1);
@@ -211,9 +216,9 @@ function step(st, dt, ks, quiet) {
   st.p = 0.035 * ks[2] + 0.004;
   clocks(st);
   // the shock: a charge that fills at the knob's rate and fires at a random threshold
-  const lam = k4 < 0.003 || quiet ? 0 : (1 / 42) * sqrt(k4 / 0.06);
+  const lam = k4 < 0.003 || quiet ? 0 : (1 / 30) * sqrt(k4 / 0.06);
   st.charge += lam * dt;
-  if (st.charge >= st.thresh && t > st.refr) {
+  if (!quiet && st.charge >= st.thresh && t > st.refr) {
     fire(st);
     const e = st.ev[st.ev.length - 1];
     st.refr = t + e.cross + 0.7 + e.hold + 1.2 + 0.6 * e.rec;   // the cell cannot fire again until it is well on its way back
@@ -265,8 +270,22 @@ function step(st, dt, ks, quiet) {
       for (let k = 0; k < ev.length; k++) v *= motilAt(t, ev[k].ts[q][i], ev[k], ev[k].dir * (yy[i] - frontY(ev[k], t)));
       yy[i] += dir * v * dt;
       S.sp[i] = v;
+      S.age[i] = min(9, S.age[i] + dt);
       if ((dir < 0 && yy[i] < -10) || (dir > 0 && yy[i] > H + 10)) {
-        spawn(S, i, lane, dir < 0 ? H + rr(3, 14) : -rr(3, 14));
+        let y0 = dir < 0 ? H + rr(3, 14) : -rr(3, 14);
+        let late = false;
+        // born behind a wave front it would stand frozen out of sight and the panel would run short of cargo:
+        // it fades in ahead of the front instead
+        for (let k = 0; k < ev.length && !late; k++) {
+          const e = ev[k], yf = frontY(e, t);
+          if (e.dir * (yf - y0) >= 0) {
+            const ahead = e.dir > 0 ? H - 6 - max(yf, 0) : min(yf, H) - 6;
+            if (ahead > 24) { y0 = yf + e.dir * (14 + rnd() * (ahead - 14)); late = true; }
+            else y0 = dir < 0 ? H + rr(3, 75) : -rr(3, 75);      // no room: it waits farther out, so the restart is not one burst
+          }
+        }
+        spawn(S, i, lane, y0);
+        if (late) S.age[i] = 0;
         for (let k = 0; k < ev.length; k++) ev[k].ts[q][i] = -1;
       }
     }
@@ -307,13 +326,32 @@ function splat(buf, px, py, sx, sy, a, c0, c1, c2, occ) {
     for (let x = xa; x <= xb; x++) {
       const dx = x + 0.5 - px;
       let al = a * exp(-(dx * dx * ix + dy * dy * iy));
-      if (al < 0.012) continue;
+      if (al < 0.03) continue;
+      al = al > 1 ? 1 : al * al * (3 - 2 * al) * 0.5 + al * 0.5;   // a little crisper than the Gaussian, so the rim is not a grey mix of mint and red
       const j = (y * W + x) * 3;
       if (occ > 0) al *= 1 - occ * min(1, buf[j] * 1.7);
       if (al > 0.96) al = 0.96;
       buf[j] = buf[j] * (1 - al) + c0 * al;
       buf[j + 1] = buf[j + 1] * (1 - al) + c1 * al;
       buf[j + 2] = buf[j + 2] * (1 - al) + c2 * al;
+    }
+  }
+}
+
+// the same dot added to the picture, for a faint halo that does not grey the red
+function glow(buf, px, py, sx, sy, a, c0, c1, c2) {
+  const rx = ceil(2.6 * sx), ry = ceil(2.6 * sy);
+  const xa = max(0, floor(px - rx)), xb = min(W - 1, floor(px + rx));
+  const ya = max(0, floor(py - ry)), yb = min(H - 1, floor(py + ry));
+  const ix = 1 / (2 * sx * sx), iy = 1 / (2 * sy * sy);
+  for (let y = ya; y <= yb; y++) {
+    const dy = y + 0.5 - py;
+    for (let x = xa; x <= xb; x++) {
+      const dx = x + 0.5 - px;
+      const w = a * exp(-(dx * dx * ix + dy * dy * iy));
+      if (w < 0.01) continue;
+      const j = (y * W + x) * 3;
+      buf[j] += c0 * w; buf[j + 1] += c1 * w; buf[j + 2] += c2 * w;
     }
   }
 }
@@ -335,7 +373,7 @@ export function draw(display, params) {
   hsv(0.5 + h0, 0.9, 0.78, cM);
   hsv(0.5 + h0, 0.38, 1, cW);
   hsv(0.45 + h0 + dh, 0.06, 1, cK);
-  hsv(0.53 + h0 + dh, 0.75, 0.9, cD);
+  hsv(0.55 + h0 + dh, 0.8, 0.85, cD);
   hsv(0.98 + h0, 1, 0.11, cH);
 
   // ---- rows
@@ -442,7 +480,7 @@ export function draw(display, params) {
 
   // ---- the particles, from the deep sheet up
   const grnL = st.grnL;
-  const deepK = 0.4 + 0.75 * fo;
+  const deepK = 0.3 + 0.5 * fo;
   const kd = 0.7;
   const [sS, sK, sE, sD] = st.sets;
   const place = (S, i, y, k) => {
@@ -459,7 +497,7 @@ export function draw(display, params) {
     const vw = sm(sD.thr[i], sD.thr[i] + 0.2, c);
     const px = cx + R * kd * sin(th);
     const lv = sD.b[i] * deepK * grnL * (0.86 + 0.14 * sin(t * sD.wf[i] + sD.ph[i])) * st.Rg[ri];
-    splat(buf, px + 0.2 * sin(t * sD.wf[i] * 2.1 + sD.ph[i]), y, 1.25 * max(0.6, c), 1.25, 0.8 * vw, cD[0] * lv, cD[1] * lv, cD[2] * lv, 0.75);
+    splat(buf, px + 0.2 * sin(t * sD.wf[i] * 2.1 + sD.ph[i]), y, 1.25 * max(0.6, c), 1.25, 0.8 * vw * sm(0, 0.5, sD.age[i]), cD[0] * lv, cD[1] * lv, cD[2] * lv, 0.75);
   }
   // strands
   for (let i = 0; i < sE.n; i++) {
@@ -473,7 +511,7 @@ export function draw(display, params) {
       if (c < 0.1) continue;
       const ri = cl(floor(y), 0, H - 1);
       const lv = sE.b[i] * grnL * (0.8 + 0.2 * sin(k * 0.8 + sE.ph[i])) * st.Rg[ri];
-      const a = 0.62 * sm(sE.thr[i], sE.thr[i] + 0.2, c) * sm(0.06, 0.2, c) * pow(1 - k / n, 0.9);
+      const a = 0.62 * sm(sE.thr[i], sE.thr[i] + 0.2, c) * sm(0.06, 0.2, c) * pow(1 - k / n, 0.9) * sm(0, 0.5, sE.age[i]);
       splat(buf, cx + R * sin(th), y, 0.95 * max(0.6, c), 0.95, a, cG[0] * lv, cG[1] * lv, cG[2] * lv, 0);
     }
   }
@@ -484,11 +522,11 @@ export function draw(display, params) {
     if (c < 0.06) continue;
     const ri = cl(floor(y), 0, H - 1);
     const lv = sS.b[i] * grnL * (0.88 + 0.12 * sin(t * sS.wf[i] + sS.ph[i])) * st.Rg[ri];
-    const a = sm(sS.thr[i], sS.thr[i] + 0.2, c) * sm(0.05, 0.2, c);
-    const px = cx + R * sin(th) + 0.22 * sin(t * sS.wf[i] * 2.7 + sS.ph[i]), sx = 0.85 * max(0.58, c), sy = 0.85 + 0.011 * sS.sp[i];
+    const a = sm(sS.thr[i], sS.thr[i] + 0.2, c) * sm(0.05, 0.2, c) * sm(0, 0.5, sS.age[i]);
+    const px = cx + R * sin(th) + 0.22 * sin(t * sS.wf[i] * 2.7 + sS.ph[i]), sx = 0.92 * max(0.6, c), sy = 0.92 + 0.011 * sS.sp[i];
     const py = y + 0.22 * cos(t * sS.wf[i] * 2.3 + sS.ph[i]);
-    splat(buf, px, py, 1.9 * max(0.6, c), 1.9, 0.14 * a, cG[0] * lv, cG[1] * lv, cG[2] * lv, 0);
-    splat(buf, px, py, sx, sy, 1.15 * a, cG[0] * lv, cG[1] * lv, cG[2] * lv, 0);
+    glow(buf, px, py, 1.9 * max(0.6, c), 1.9, 0.11 * a, cG[0] * lv, cG[1] * lv, cG[2] * lv);
+    splat(buf, px, py, sx, sy, 1.3 * a, cG[0] * lv, cG[1] * lv, cG[2] * lv, 0);
   }
   // crystals
   for (let i = 0; i < sK.n; i++) {
@@ -497,7 +535,7 @@ export function draw(display, params) {
     if (c < 0.12) continue;
     const ri = cl(floor(y), 0, H - 1);
     const lv = sK.b[i] * grnL * st.Rg[ri];
-    const a = sm(sK.thr[i], sK.thr[i] + 0.2, c) * sm(0.06, 0.2, c);
+    const a = sm(sK.thr[i], sK.thr[i] + 0.2, c) * sm(0.06, 0.2, c) * sm(0, 0.5, sK.age[i]);
     const px = cx + R * sin(th);
     splat(buf, px, y, 1.3 * max(0.65, c), 1.3, 1.2 * a, cX[0] * lv, cX[1] * lv, cX[2] * lv, 0);
     splat(buf, px - 0.3, y - 0.3, 0.6, 0.6, 0.8 * a, cK[0] * lv, cK[1] * lv, cK[2] * lv, 0);
