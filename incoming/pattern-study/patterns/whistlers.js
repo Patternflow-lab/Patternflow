@@ -12,9 +12,9 @@
 // @knobs Hue=0..1, Storm=0..4, Dispersion=-1..1, Chorus=-1..1
 //
 // Knob 1: Hue. Turns the whole palette round the wheel and opens on cyan: the whistlers run from deep blue through cyan and green to pale yellow, the sferic spikes go near white, the chorus has its own tint a third of the wheel away (magenta at the opening), and the hiss is a faint veil of the first colour.
-// Knob 2: Storm. 0 to 4, opening at 2: how many lightning strokes a second. At 0 a stroke comes every ten seconds or so and the panel is mostly hiss and one long whistler; at 2 about one every two seconds with a few echoing at a time; at 4 a thunderstorm of up to one and a half a second, whistler trains piled over each other.
-// Knob 3: Dispersion. -1 to 1, opening at 0: how much plasma the signal crosses, the D in t = D / sqrt(f). At -1 the whistlers are short and steep and hug their spike (D 0.37); at 0 they cross a third of the panel (D 0.85); at 1 they are long and drawn out, flat at the bottom, and the echoes slide off the right side (D 1.95).
-// Knob 4: Chorus. -1 to 1, opening at 0.06 in the middle: how much of the picture is rising tones in a second tint. At -1 almost none; in the middle a group of rising dashes follows some strokes; at 1 chorus episodes arrive on their own and often, and the panel fills with short rising strokes.
+// Knob 2: Storm. 0 to 4, opening at 2: how many lightning strokes a second. At 0 one comes every ten seconds or so and the panel is mostly hiss with a single long whistler; at 2 about one and a half a second, each feeding one to three whistlers with echoes; at 4 nearly three a second, a thunderstorm in which the traces pile over each other.
+// Knob 3: Dispersion. -1 to 1, opening at 0: how much plasma the signal crosses, the D in t = D / sqrt(f). At -1 the whistlers are short and steep and sharp (D 0.84); at 0 they cross a quarter of the panel (D 1.8); at 1 they are long, drawn out and softer, flat at the bottom, and the echoes slide off the right side (D 3.85).
+// Knob 4: Chorus. -1 to 1, opening at 0.06 in the middle: how often a group of rising tones in the second tint follows a stroke or arrives on its own. At -1 a group now and then; in the middle about half the time; at 1 nearly always one group climbing the panel.
 
 const W = 64, H = 128;
 const { floor, ceil, min, max, abs, sin, sqrt, exp, pow, PI } = Math;
@@ -27,9 +27,9 @@ const mix = (a, b, t) => a + (b - a) * t;
 const rnd = () => Math.random();
 const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) * 1.7320508;
 
-const VEL = 14;                  // LED a second the picture scrolls left; the 64 columns hold 4.6 s
+const VEL = 22;                  // LED a second the picture scrolls left; the 64 columns hold 2.9 s
 const XN = 64;                   // the column of "now", the right edge, where the pen writes
-const FMIN = 0.3, FMAX = 6.5;    // kHz at the bottom row and at the top row
+const FMIN = 0.7, FMAX = 6.5;    // kHz at the bottom row and at the top row
 const PRE = 40;                  // seconds run before the first frame
 const DT = 1 / 30;
 const ORD = [1, 3, 5, 7];        // the hop orders of the echoes
@@ -105,20 +105,20 @@ function buildLut(lut, keys, hue) {
 }
 
 // a trace fades with the time since the pen wrote that point
-const fadeAge = (a) => (a <= 0 ? 1 : 0.2 + 0.8 * exp(-a / 2.3));
+const fadeAge = (a) => (a <= 0 ? 1 : 0.2 + 0.8 * exp(-a / 1.8));
 
 // ---- state ------------------------------------------------------------------
 export function setup(params) {
   const hiss = new Float32Array(H);
-  for (let y = 0; y < H; y++) hiss[y] = sstep(0.0, 0.1, UH[y]) * (1 - sstep(0.3, 0.46, UH[y]));
+  for (let y = 0; y < H; y++) hiss[y] = sstep(0.0, 0.1, UH[y]) * (1 - sstep(0.4, 0.62, UH[y]));
   params.st = {
     k: [0, 2, 0, 0.06], init: false, t: -PRE, acc: 0, hue: -9,
-    ev: [], ch: [], cr: [],
-    zs: 0, zc: 0, zk: 0,          // slow drifts of the storm, the chorus and the carriers
+    ev: [], ch: [], cr: [], tk: [],
+    chEnd: -99, zs: 0, zc: 0, zk: 0,          // slow drifts of the storm, the chorus and the carriers
     lut: new Float32Array(NL * 3), lutB: new Float32Array(NL * 3),
     Fw: new Float32Array(W * H), Fc: new Float32Array(W * H),
     XS: new Float32Array(H), SL: new Float32Array(H), hissBand: hiss,
-    seed1: floor(rnd() * 1e6), seed2: floor(rnd() * 1e6), seed3: floor(rnd() * 1e6),
+    seed1: floor(rnd() * 1e6), seed3: floor(rnd() * 1e6), seed2: floor(rnd() * 1e6), 
     lam: 0.5, D: 0.85, cho: 0.5,
   };
   return params.st;
@@ -126,9 +126,9 @@ export function setup(params) {
 
 function derive(st) {
   const kv = st.k;
-  st.lam = 0.07 + 1.45 * pow(cl(kv[1] / 4, 0, 1), 1.5);
-  st.D = 0.85 * pow(2, 1.4 * cl(kv[2], -1, 1));
-  st.cho = cl((kv[3] + 1) / 2, 0, 1);
+  st.lam = 0.1 + 2.6 * pow(cl(kv[1] / 4, 0, 1), 1.0);
+  st.D = 1.8 * pow(2, 1.1 * cl(kv[2], -1, 1));
+  st.cho = 0.4 + 0.6 * cl((kv[3] + 1) / 2, 0, 1);
 }
 
 // ---- the events -------------------------------------------------------------
@@ -144,34 +144,47 @@ function smoothRows(lo, hi) {
 }
 
 function spawnStroke(st, t0, base) {
-  const yc = 48 + 36 * rnd(), sp = new Float32Array(H);
+  const yc = 20 + 90 * rnd(), sp = new Float32Array(H);
   for (let y = 0; y < H; y++) {
-    const d = (y - yc) / 30;
-    sp[y] = 0.1 + 0.9 * exp(-d * d);
+    const d = (y - yc) / 26;
+    sp[y] = 0.06 + 0.94 * exp(-d * d);
   }
   const r = rnd();
   const e = {
     t0,
     dr: base ? base.dr * exp(0.06 * gauss()) : exp(0.3 * gauss()),
-    amp: base ? base.amp * (0.8 + 0.4 * rnd()) : 0.5 + 0.75 * pow(rnd(), 1.5),
-    q: 0.3 + 0.35 * rnd(),
-    nh: r < 0.35 ? 0 : r < 0.65 ? 1 : r < 0.85 ? 2 : 3,
-    fn: base ? base.fn : rnd() < 0.3 ? 2 + 3.5 * rnd() : 0,   // nose frequency in kHz, 0 for none
+    amp: base ? base.amp * (0.8 + 0.4 * rnd()) : 0.4 + 0.65 * pow(rnd(), 1.3),
     sp, ck: smoothRows(0.08, 0.7), sig: 0.95 + 0.25 * rnd(),
-    ulo: 0.02 + 0.25 * rnd(), uhi: 0.6 + 0.4 * rnd(),
-    w1: 5 + 6 * rnd(), p1: rnd() * 6.3,
+    comp: [],
   };
+  // one lightning stroke can feed several ducts: each a whistler of its own D, band, echoes and nose
+  const nc = base ? base.comp.length : r < 0.4 ? 1 : r < 0.75 ? 2 : 3;
+  for (let i = 0; i < nc; i++) {
+    const h = rnd(), ulo = 0.3 * rnd();
+    e.comp.push({
+      dm: i === 0 ? 1 : 1 + 0.2 * i + 0.16 * gauss(),
+      ca: i === 0 ? 1 : 0.45 + 0.5 * rnd(),
+      q: 0.3 + 0.35 * rnd(),
+      nh: h < 0.35 ? 0 : h < 0.65 ? 1 : h < 0.85 ? 2 : 3,
+      fn: base ? base.comp[i].fn : rnd() < 0.3 ? 2 + 3.5 * rnd() : 0,   // nose frequency in kHz, 0 for none
+      off: 0.8 * rnd() * rnd(),     // a path offset: the whistler starts this many seconds late
+      ulo, uhi: min(1.02, ulo + 0.5 + 0.5 * rnd()),
+      w1: 5 + 6 * rnd(), p1: rnd() * 6.3,
+    });
+  }
   st.ev.push(e);
   return e;
 }
 
 // A group of rising tones, each a short line climbing at r kHz a second.
 function spawnEpisode(st, t, f0) {
+  if (t < st.chEnd + 0.4) return;   // one group at a time
   const m = 3 + floor(rnd() * 5), r = 2 + 3.5 * rnd(), gap = 0.55 + 0.45 * rnd();
   let f = f0, tt = t;
   for (let i = 0; i < m; i++) {
     const dur = 0.24 + 0.26 * rnd();
     st.ch.push({ t0: tt, f0: f, r: r * exp(0.12 * gauss()), dur, amp: 0.5 + 0.4 * rnd(), sig: 1.0 });
+    st.chEnd = tt + dur;
     tt += gap * (0.75 + 0.5 * rnd());
     f = cl(f + (rnd() - 0.4) * 0.6, 0.5, FMAX - 1.6);
   }
@@ -179,16 +192,21 @@ function spawnEpisode(st, t, f0) {
 
 function spawnCarrier(st, t) {
   const dur = 2 + 6 * rnd();
-  st.cr.push({ t0: t, t1: t + dur, y: 10 + 108 * rnd(), amp: 0.1 + 0.1 * rnd(), p: rnd() * 6.3 });
+  st.cr.push({ t0: t, t1: t + dur, y: 10 + 108 * rnd(), amp: 0.08 + 0.07 * rnd(), p: rnd() * 6.3 });
+}
+
+// The crackle of distant lightning: short faint vertical ticks with no whistler after them.
+function spawnTick(st, t) {
+  st.tk.push({ t0: t, yc: 128 * rnd(), half: 4 + 18 * rnd(), amp: 0.1 + 0.24 * rnd() });
 }
 
 function step(st, dt) {
   const T = (st.t += dt), c = st.cho;
   // the slow drifts: stationary, so the storm comes and goes for as long as it runs
-  st.zs += (-st.zs / 14) * dt + 0.265 * sqrt(dt) * gauss();
-  st.zc += (-st.zc / 20) * dt + 0.22 * sqrt(dt) * gauss();
+  st.zs += (-st.zs / 14) * dt + 0.1 * sqrt(dt) * gauss();
+  st.zc += (-st.zc / 20) * dt + 0.12 * sqrt(dt) * gauss();
   st.zk += (-st.zk / 10) * dt + 0.3 * sqrt(dt) * gauss();
-  if (rnd() < st.lam * exp(0.8 * st.zs) * dt) {
+  if (rnd() < st.lam * exp(0.6 * st.zs) * dt) {
     const e = spawnStroke(st, T, null);
     // a train: more strokes of nearly the same D a few tenths of a second apart
     if (rnd() < 0.28) {
@@ -199,21 +217,26 @@ function step(st, dt) {
       }
     }
     // chorus likes to come after a whistler
-    if (rnd() < 0.08 + 0.45 * c) spawnEpisode(st, T + 0.7 + 1.8 * rnd(), 0.9 + 2.4 * rnd());
+    if (rnd() < 0.06 + 0.24 * c) spawnEpisode(st, T + 0.7 + 1.8 * rnd(), 0.9 + 2.4 * rnd());
   }
-  if (rnd() < (0.015 + 0.24 * c * c) * exp(0.6 * st.zc) * dt) spawnEpisode(st, T + 0.2, 0.7 + 2.8 * rnd());
-  if (rnd() < 0.3 * exp(0.5 * st.zk) * dt && st.cr.length < 6) spawnCarrier(st, T);
+  if (rnd() < (0.02 + 0.18 * c * c) * exp(0.6 * st.zc) * dt) spawnEpisode(st, T + 0.2, 0.7 + 2.8 * rnd());
+  if (rnd() < 0.3 * exp(0.5 * st.zk) * dt && st.cr.length < 4) spawnCarrier(st, T);
+  if (rnd() < (3 + 1.2 * st.lam) * exp(0.6 * st.zs) * dt) spawnTick(st, T);
   // what has left the left edge goes
-  const ev = st.ev, ch = st.ch, cr = st.cr;
+  const ev = st.ev, ch = st.ch, cr = st.cr, tk = st.tk;
   let j = 0;
   for (let i = 0; i < ev.length; i++) if (T - ev[i].t0 < MAXDEL + 5.8) ev[j++] = ev[i];
-  ev.length = min(j, 60);
+  if (j > 70) ev.splice(0, j - 70);
+  else ev.length = j;
   j = 0;
   for (let i = 0; i < ch.length; i++) if (T - ch[i].t0 < ch[i].dur + 5.8) ch[j++] = ch[i];
   ch.length = min(j, 90);
   j = 0;
   for (let i = 0; i < cr.length; i++) if (T - cr[i].t1 < 5.8) cr[j++] = cr[i];
   cr.length = j;
+  j = 0;
+  for (let i = 0; i < tk.length; i++) if (T - tk[i].t0 < 3.6) tk[j++] = tk[i];
+  tk.length = min(j, 80);
 }
 
 export function update(dt, input, params) {
@@ -246,7 +269,7 @@ function stamp(F, y, x, s, sig, a) {
 }
 
 function drawStroke(st, e) {
-  const T = st.t, age0 = T - e.t0, F = st.Fw, XS = st.XS, D = st.D * e.dr;
+  const T = st.t, age0 = T - e.t0, F = st.Fw, XS = st.XS;
   if (age0 < 0) return;
   // the sferic: a hard core and a crackle that trails to the right
   const xs0 = XN - age0 * VEL;
@@ -258,21 +281,26 @@ function drawStroke(st, e) {
       for (let y = 0; y < H; y++) F[y * W + xx] += fa * (e.sp[y] * core + e.ck[y] * tail);
     }
   }
-  // the whistler and its echoes
-  const fm = e.fn > 0 ? 4 * e.fn : 0;
-  for (let k = 0; k <= e.nh; k++) {
-    const n = ORD[k], ak = e.amp * pow(e.q, k);
-    if (ak < 0.04 || age0 < n * D * ISQ[0] - 0.05) break;
-    const nD = n * D;
+  // the whistlers and their echoes
+  for (const c of e.comp) drawComp(st, e, c, age0);
+}
+
+function drawComp(st, e, c, age0) {
+  const F = st.Fw, XS = st.XS, D = st.D * e.dr * c.dm, fm = c.fn > 0 ? 4 * c.fn : 0;
+  for (let k = 0; k <= c.nh; k++) {
+    const n = ORD[k], ak = e.amp * c.ca * pow(c.q, k);
+    const nD = n * D, nO = n * c.off;
+    if (ak < 0.04 || age0 < nD * ISQ[0] + nO - 0.05) break;
     for (let y = 0; y < H; y++) {
       let dl = nD * ISQ[y];
       if (fm > 0) {
         const r = FT[y] / fm;
         dl = r > 0.95 ? 99 : dl * pow(1 - r, -1.5);
       }
+      dl += nO;
       XS[y] = dl > MAXDEL ? 999 : XN - (age0 - dl) * VEL;
     }
-    const sig = e.sig * (1 + 0.12 * k);
+    const sig = e.sig * (1 + 0.12 * k) * cl(pow(D / 1.8, 0.35), 0.7, 1.45);
     for (let y = 0; y < H; y++) {
       const x = XS[y];
       if (x > XN + 3 || x < -12) continue;
@@ -282,8 +310,8 @@ function drawStroke(st, e) {
       if (xb > 900) xb = x;
       const s = cl((xb - xa) / (yb - ya), -8, 8);
       const u = UH[y], dl = max(0, age0 - (XN - x) / VEL);
-      const edge = sstep(e.ulo - 0.1, e.ulo + 0.1, u) * (1 - sstep(e.uhi - 0.12, e.uhi + 0.12, u));
-      const a = 1.7 * ak * edge * (0.78 + 0.22 * sin(u * e.w1 + e.p1)) * exp(-dl / 4) * fadeAge((XN - x) / VEL);
+      const edge = sstep(c.ulo, c.ulo + 0.14, u) * (1 - sstep(c.uhi - 0.14, c.uhi, u));
+      const a = 1.3 * ak * edge * (0.78 + 0.22 * sin(u * c.w1 + c.p1)) * exp(-dl / 3.5) * fadeAge((XN - x) / VEL);
       if (a < 0.012) continue;
       stamp(F, y, x, s, sig, a);
     }
@@ -304,6 +332,21 @@ function drawChorus(st, c) {
     if (x < -12) continue;
     const env = pow(sin((PI * tau) / c.dur), 0.7);
     stamp(F, y, x, s, c.sig, c.amp * env * fadeAge(age0 - tau));
+  }
+}
+
+function drawTick(st, k) {
+  const age0 = st.t - k.t0, F = st.Fw;
+  if (age0 < 0) return;
+  const x = XN - age0 * VEL, c0 = max(0, floor(x - 3)), c1 = min(W - 1, floor(x + 3)), fa = fadeAge(age0) * k.amp;
+  if (c1 < c0) return;
+  for (let y = max(0, floor(k.yc - 2 * k.half)); y <= min(H - 1, ceil(k.yc + 2 * k.half)); y++) {
+    const dy = (y + 0.5 - k.yc) / k.half, g = fa * exp(-dy * dy);
+    if (g < 0.01) continue;
+    for (let xx = c0; xx <= c1; xx++) {
+      const d = xx + 0.5 - x;
+      F[y * W + xx] += g * exp(-(d * d) / 1.8);
+    }
   }
 }
 
@@ -339,18 +382,20 @@ export function draw(display, params) {
   for (const e of st.ev) drawStroke(st, e);
   for (const c of st.ch) drawChorus(st, c);
   for (const c of st.cr) drawCarrier(st, c);
+  for (const k of st.tk) drawTick(st, k);
   const scroll = T * VEL, ls = (NL - 1) / IMAX;
   for (let y = 0; y < H; y++) {
-    const b = band[y], sy = y / 6;
+    const b = band[y];
     for (let xx = 0; xx < W; xx++) {
       const sx = xx + scroll;
       let hs = 0;
       if (b > 0.001) {
-        const n1 = vnoise(sx / 11, sy, st.seed1), n2 = vnoise(sx / 150, y / 40, st.seed2);
-        hs = b * (0.1 + 0.9 * n1 * n1) * (0.15 + 0.85 * n2) * 0.2;
+        const n1 = 0.6 * vnoise(sx / 16, y / 9, st.seed1) + 0.4 * vnoise(sx / 7 + 3, y / 5, st.seed1 + 1), n2 = vnoise(sx / 150, y / 40, st.seed2);
+        hs = b * (0.1 + 0.9 * n1 * n1) * (0.1 + 0.9 * n2) * 0.38;
       }
       const i = y * W + xx;
-      const iw = IMAX * (1 - exp(-1.1 * (Fw[i] + hs + 0.012 + 0.02 * UH[y])));
+      const cloud = 0.1 * vnoise(sx / 14 + 40, y / 11, st.seed3) * (0.5 + 0.5 * UH[y]);
+      const iw = IMAX * (1 - exp(-1.1 * (Fw[i] + hs + cloud + 0.012 + 0.02 * UH[y])));
       const ic = IMAX * (1 - exp(-1.1 * Fc[i]));
       const a = floor(iw * ls + 0.5) * 3, bb = floor(ic * ls + 0.5) * 3;
       display.setPixel(xx, y, min(255, lut[a] + lutB[bb]) | 0, min(255, lut[a + 1] + lutB[bb + 1]) | 0, min(255, lut[a + 2] + lutB[bb + 2]) | 0);
