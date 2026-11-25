@@ -11,7 +11,7 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Pace=0.5..4, Arms=-1..1, Drift=-1..1
 //
-// Knob 1: Hue. Turns the whole colour scale and the markers round the wheel. It opens with the arm pulled most in mint near white on a faintly lit lane, the others cooling through teal to deep blue, and the true payouts as coral beads under each baseline.
+// Knob 1: Hue. Turns the colour scale of the bells and the markers round the wheel; the baselines and the lit ground stay teal. It opens with the arm pulled most in mint near white on a faintly lit lane, the others cooling through teal to deep blue, and the true payouts as coral beads under each baseline.
 // Knob 2: Pace. 0.5 to 4, opening at 2: rounds a second, 1.5 times the knob. At 0.5 a round falls every 1.3 s and each draw can be followed by eye. At 2 there are three a second. At 4 there are six and the ticks run together.
 // Knob 3: Arms. -1 to 1, opening at 0: the number of arms, 4 at -1, 5 at 0, 8 at 1. A new lane opens at the bottom as the knob turns and the others make room. Its arm joins the game once the lane is a third open, with the widest bell.
 // Knob 4: Drift. -1 to 1, opening at 0.06: how restless the arms are. At -1 the true payouts creep and a bell left alone takes 20 s to grow wide. At 1 the payouts run, a bell is wide again two seconds after its pull and the gambler changes arm all the time.
@@ -31,7 +31,7 @@ const RN = 0.07 * 0.07;        // variance of one payout round its arm's mean
 const SDMIN = 0.035;           // the bell that stands at full height
 const SDDRAW = 2.2 / XS;       // no bell is drawn narrower than 2.2 LED sigma
 const FOOT = 4;                // rows of a lane under the bell: the baseline and the marker
-const BREATH = 0.5;            // how far a lane's share of the panel swings
+const BREATH = 0.6;            // how far a lane's share of the panel swings
 const FLOOR = 0.48;            // the fill, as a share of the rim
 
 function rnd(st) {
@@ -195,7 +195,9 @@ export function draw(display, params) {
     yy += (H * hx[i]) / sum;
     bot[i] = yy;
   }
-  const lineC = hsv(196 + hk, 0.85, 0.15), markC = hsv(4 + hk, 0.56, 1), dropC = hsv(10 + hk, 0.26, 1);
+  // the baselines and the lit ground are the table, not the scale: they keep their teal whatever the hue knob says
+  const hd = hk - 360 * st.k[0];
+  const lineC = hsv(196 + hd, 0.85, 0.15), grC = hsv(168 + hd, 0.5, 1), markC = hsv(4 + hk, 0.56, 1), dropC = hsv(10 + hk, 0.26, 1);
   for (let i = 0; i < NA; i++) {
     const room = bot[i] - top[i] - FOOT;
     if (room < 2) continue;
@@ -220,13 +222,13 @@ export function draw(display, params) {
       const cb = min(1, dc + 0.5), gr = lift * (0.72 + 0.28 * (1 - dc / room)) * cb;
       for (let x = 0; x < W; x++) {
         const s = (hx[x] - dc) * kx[x];
-        let v = gr;
+        let v = 0;
         if (s > -0.5) v += cb * min(1, s + 0.5) * (FLOOR + (1 - FLOOR) * (1 - sstep(1.2, 1.2 + fadeLen, s)));
         else if (s > -3) v += cb * 0.22 * (1 + (s + 0.5) / 2.5) * (1 + (s + 0.5) / 2.5);
         const p = o + x * 3;
-        buf[p] = max(v * col[0], ln * lineC[0]);
-        buf[p + 1] = max(v * col[1], ln * lineC[1]);
-        buf[p + 2] = max(v * col[2], ln * lineC[2]);
+        buf[p] = max(v * col[0] + gr * grC[0], ln * lineC[0]);
+        buf[p + 1] = max(v * col[1] + gr * grC[1], ln * lineC[1]);
+        buf[p + 2] = max(v * col[2] + gr * grC[2], ln * lineC[2]);
       }
     }
     // the draw: a tick 2 LED wide standing on the baseline, white where it won
