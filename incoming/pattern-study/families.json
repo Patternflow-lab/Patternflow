@@ -294,5 +294,10 @@
   "cytoskeleton": { "label": "세포 골격", "color": "#f2745c" },
   "clusterdynamics": { "label": "성단 역학", "color": "#ffc46b" },
   "whistler": { "label": "휘슬러파", "color": "#26d9c0" },
-  "hippocampus": { "label": "해마 시퀀스", "color": "#ff6bd6" }
+  "hippocampus": { "label": "해마 시퀀스", "color": "#ff6bd6" },
+  "noctilucent": { "label": "야광운", "color": "#8fe3ff" },
+  "massspectrometry": { "label": "질량 분석", "color": "#e86bb0" },
+  "etalon": { "label": "에탈론", "color": "#ffd23f" },
+  "constellation": { "label": "성상도", "color": "#5fe08a" },
+  "reionization": { "label": "재이온화", "color": "#f0843c" }
 }
