@@ -5,16 +5,16 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: rippling in Myxococcus xanthus, where gliding rod cells reverse on a clock and a contact signal between cells that meet head on makes them reverse sooner, and a refractory period after a reversal lets the waves persist (Igoshin, Mogilner, Welch, Kaiser and Oster 2001, "Pattern formation and traveling waves in myxobacteria: theory and modeling", from memory); the cell model, the numbers, the hash grid, the lane noise and the colours are original, pattern round 245
+// Lineage: rippling in Myxococcus xanthus, where gliding rod cells reverse on a clock and a contact signal between cells that meet head on makes them reverse sooner, and a refractory period after a reversal lets the waves persist (Igoshin, Mogilner, Welch, Kaiser and Oster 2001, "Pattern formation and traveling waves in myxobacteria: theory and modeling", from memory); the cell model, the quarter of cells that hear the contact signal only a little, the push apart of cells of one heading, the lane noise, the numbers and the colours are original, pattern round 245
 // Round:   245
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Period=0..4, Density=-1..1, Wander=-1..1
 //
 // Knob 1: Hue. Turns the two heading colours round the wheel together. At 0 right-movers are rose and left-movers cyan, and where they overlap the sum goes white.
-// Knob 2: Period. 0 to 4, opening at 2. The mean time between a cell's reversals, 4 s at 0, 8.5 s at 2 and 17 s at 4. The ripples follow it: at 0 they are tight bands about 7 LED apart, at 2 about 13 and at 4 broad ones about 25.
+// Knob 2: Period. 0 to 4, opening at 2. The mean time between a cell's reversals, 4.25 s at 0, 8.5 s at 2 and 17 s at 4. The ripples follow it: at 0 they are tight bands about 7 LED apart, at 2 about 13 and at 4 broad ones about 25.
 // Knob 3: Density. -1 to 1, opening at 0. How many cells there are, 35 percent of the nominal 620 at -1 and 130 percent at 1. Low, cells meet too seldom to hold the waves and the bands melt into a uniform gliding shimmer. High, the bands are crisp and dense.
-// Knob 4: Wander. -1 to 1, opening at 0.06. How much the cells turn from the x axis. At -1 they are perfectly aligned and the crests are straight vertical lines. At 1 the cells wander in angle and the crests bend, break and curl. At 0.06 the crests waver a little.
+// Knob 4: Wander. -1 to 1, opening at 0.06. How much the cells turn from the x axis. At -1 they are perfectly aligned and the crests are straight vertical lines. At 1 the cells wander in angle and the crests bend, break and curl. At 0.06 the crests waver a little. The same knob narrows the spread of the reversal periods and of the cell speeds toward -1, so the bands hold together longer.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, exp, sqrt, sin, cos, pow, PI } = Math;
@@ -59,7 +59,7 @@ export function setup(params) {
     x: f(NMAX), y: f(NMAX), th: f(NMAX), v: f(NMAX), phi: f(NMAX), rt: f(NMAX), tf: f(NMAX), s: f(NMAX), w: f(NMAX),
     cnt: f(NMAX), tsum: f(NMAX), nn: f(NMAX), gm: f(NMAX), pu: f(NMAX),
     head: new Int16Array(GX * GY), nxt: new Int16Array(NMAX),
-    T: T0, nact: NOM, wd: 0.1,
+    T: T0, nact: NOM, wd: 0.1, tn: 0.2, vs: 1,
     ph: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(() => rnd() * TAU),
     DR: f(W * H), DL: f(W * H),
     cr: [1, 0.2, 0.5], cb: [0.1, 0.8, 1],
@@ -102,6 +102,8 @@ function sim(st, dt) {
   const lc = 0.01 + 0.3 * st.wd * st.wd * st.wd;                     // how hard the lane field leans on the clocks
   const TA = 1.2, TB = 0.2;                          // relaxation toward the local mean and toward the x axis, 1/s
   const sg = sig * sqrt(2 * (TA * 0.55 + TB));
+  st.tn = 0.08 + 0.34 * st.wd * st.wd;               // spread of the reversal period, share of the mean
+  st.vs = 0.25 + 1.5 * st.wd;                        // how much of each cell's own speed is kept
   const Tt = st.T * (1 + 0.07 * sin(TAU * t / 97 + ph[3]) + 0.05 * sin(TAU * t / 61 + ph[4]) + 0.03 * sin(TAU * t / 149 + ph[5]));
 
   const { x, y, th, v, phi, rt, tf, s, w, cnt, tsum, nn, gm, pu, head, nxt } = st;
@@ -161,7 +163,7 @@ function sim(st, dt) {
         s[i] = -s[i];
         phi[i] = 0;
         rt[i] = REF * Tt * tf[i];
-        tf[i] = 1 + 0.3 * (2 * rnd() - 1);
+        tf[i] = 1 + st.tn * (2 * rnd() - 1);
       }
     }
     // angle
@@ -169,7 +171,7 @@ function sim(st, dt) {
     th[i] += (-(th[i] - m) * TA - th[i] * TB) * dt + sg * sq * gauss();
     th[i] = cl(th[i], -1.1, 1.1);
     // glide
-    const sp = v[i] * s[i] * dt;
+    const sp = (V0 + (v[i] - V0) * st.vs) * s[i] * dt;
     let nx = x[i] + sp * cos(th[i]), ny = y[i] + sp * sin(th[i]) + KRY * pu[i] * dt;
     nx -= W * floor(nx / W);
     ny -= H * floor(ny / H);
