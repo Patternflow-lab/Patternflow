@@ -279,5 +279,10 @@
   "kirigami": { "label": "키리가미", "color": "#3fb8c9" },
   "singlecell": { "label": "단일 세포 배양", "color": "#8fcf5a" },
   "evolutionarygame": { "label": "진화 게임", "color": "#c76fb2" },
-  "nonparametric": { "label": "비모수 군집", "color": "#7a8de0" }
+  "nonparametric": { "label": "비모수 군집", "color": "#7a8de0" },
+  "streamgraph": { "label": "스트림그래프", "color": "#6df2e4" },
+  "combustion": { "label": "연소 전선", "color": "#d84141" },
+  "particlefilter": { "label": "입자 필터", "color": "#4848f2" },
+  "coulombblockade": { "label": "쿨롱 봉쇄", "color": "#ba41d8" },
+  "stromatolite": { "label": "스트로마톨라이트", "color": "#d88561" }
 }
