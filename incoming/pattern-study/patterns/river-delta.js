@@ -49,26 +49,22 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0,
     z: f(NC), F: f(NC), V: f(NC), Vl: f(NC), pl: f(NC), ag: f(NC), qa: f(NC), zt: f(NC), tex: f(NC), mf: f(NC),
     D: new Float32Array(NC), WG: new Float64Array(NC), E: new Float64Array(NC),
-    PP: new Float64Array(25), Fs: f(NC), fo: 0, vs: 0, grow: 0, front: 40, land: 0.5, sig: 1, cre: 20, frame: 0,
+    PP: new Float64Array(25), Fs: f(NC), fo: 0, vs: 0, grow: 0, front: 20, land: 0.5, sig: 1, cre: 20, frame: 0,
     ix: new Int32Array(W), tx: f(W), sup: 1, wv: 0, qd: 0.9,
     c1: 0, c2: 0, cc: 1, ss: 0, hue: [1, 0, 0, 0, 1, 0, 0, 0, 1],
   });
   const { z } = st;
   z.fill(-HB);
-  // a first shore: the apex floodplain and a short tongue of land, with the river cut through to a mouth
+  // a first shore: the apex floodplain, with the river cut on to a mouth
   for (let y = 0; y < NY; y++) {
-    for (let x = 1; x <= NX; x++) {
-      const w = y < 12 ? 1 : max(0, 1 - (y - 12) / 16);
-      const hw = 0.5 * NX * (0.2 + 0.8 * w) + 1;
-      if (y < 28 && abs(x - CX) < hw) z[y * NXP + x] = 0.12 + 0.08 * rnd();
-    }
+    for (let x = 1; x <= NX; x++) if (y < 13) z[y * NXP + x] = 0.12 + 0.08 * rnd();
     for (let x = CX - 2; x <= CX + 2; x++) {
-      if (y < 27) z[y * NXP + x] = -(HC - 0.15 * max(0, y - 14) / 12);
-      else if (y < 30) z[y * NXP + x] = -0.3 - 0.05 * (y - 27);
+      if (y < 15) z[y * NXP + x] = -HC;
+      else if (y < 18) z[y * NXP + x] = -0.3 - 0.05 * (y - 15);
     }
   }
   for (let y = 0; y < NY; y++) wallRow(st, y);
-  for (let y = 0; y < 30; y++) for (let x = CX - 2; x <= CX + 2; x++) st.F[y * NXP + x] = y < 27 ? 0.2 : 0.12;
+  for (let y = 0; y < 18; y++) for (let x = CX - 2; x <= CX + 2; x++) st.F[y * NXP + x] = y < 15 ? 0.2 : 0.12;
   for (let x = 1; x <= NX; x++) st.ag[x] = 0;
   for (let i = 0; i < NC; i++) if (z[i] > 0) st.ag[i] = 20 + 60 * rnd();
   texture(st);
@@ -97,8 +93,8 @@ function vnoise(x, y) {
 const WZ = 0.5;
 function wallRow(st, y) {
   const g = st.grow + y, z = st.z, ag = st.ag;
-  const lo = 7 + 2.2 * sin(g / 7.3 + 0.7) + 1.4 * sin(g / 3.7 + 2.1) + 1.2 * sin(g / 17.9 + 5.3);
-  const hi = NX - 6 + 2.2 * sin(g / 8.9 + 3.9) + 1.4 * sin(g / 3.3 + 0.4) + 1.2 * sin(g / 21.3 + 1.7);
+  const lo = 4.2 + 1.6 * sin(g / 7.3 + 0.7) + 1.0 * sin(g / 3.7 + 2.1) + 1.0 * sin(g / 17.9 + 5.3);
+  const hi = NX - 3.2 + 1.6 * sin(g / 8.9 + 3.9) + 1.0 * sin(g / 3.3 + 0.4) + 1.0 * sin(g / 21.3 + 1.7);
   for (let x = 1; x <= NX; x++) {
     const i = y * NXP + x;
     if (x - 0.5 < lo || x - 0.5 > hi) {
@@ -178,8 +174,8 @@ function weights(st, theta, lam) {
 function parcels(st, P, A) {
   const { z, V, Vl, WG, PP, ag } = st, F = st.Fs;
   const QD = st.qd, UC = 0.38 * (1 - 0.15 * max(0, -st.wv)), KE = 4e-5 * A * (500 / P), KD = (0.2 + 0.1 * max(0, -st.wv)), SHB = 3, LAT = 0.22 - 0.12 * max(0, -st.wv) + 0.06 * max(0, st.wv), LAT2 = 0.10 - 0.08 * max(0, -st.wv) + 0.06 * max(0, st.wv);
-  const L0 = (0.8 * st.sup * A * min(1, st.frame / 90)) / P, FN0 = 0.5 * L0, PN = 1 / (L0 + FN0);
-  const MAXS = NY * 2, OPEN = 1.8, FB = 0.9 + 0.5 * max(0, st.wv);
+  const L0 = (1.2 * st.sup * A * min(1, st.frame / 90)) / P, FN0 = 0.5 * L0, PN = 1 / (L0 + FN0);
+  const MAXS = NY * 2, OPEN = 1.8, FB = 2.0 + 0.5 * max(0, st.wv);
   const DEEP = HB - 0.06;
   for (let p = 0; p < P; p++) {
     let x = CX - 2 + ((rnd() * 5) | 0), y = 0, pv = 0, load = L0, fine = FN0, tail = 0, steps = 0;
@@ -412,7 +408,7 @@ function sim(st, dt, A) {
     const col = [];
     let area = 0;
     const lim = min(NY - 6, floor(128 / S));
-    for (let x = 10; x <= NX - 9; x++) {
+    for (let x = 8; x <= NX - 7; x++) {
       let r = R0;
       for (let y = NY - 4; y > R0; y--) if (z[y * NXP + x] > 0.02) { r = y; break; }
       col.push(r);
@@ -422,9 +418,9 @@ function sim(st, dt, A) {
     let s = 0;
     const nt = 8;
     for (let i = 0; i < nt; i++) s += col[i];
-    const eq = R0 + (area / (NX - 18)) * 1.6;
+    const eq = R0 + (area / (NX - 14)) * 1.6;
     st.front += (0.5 * s / nt + 0.5 * eq - st.front) * 0.3;
-    st.land = area / max(1, (lim - R0 - 1) * (NX - 18));
+    st.land = area / max(1, (lim - R0 - 1) * (NX - 14));
   }
   const want = cl((st.front + st.fo - TARGET) * 0.14, 0, 1.8);
   st.vs += (want - st.vs) * 0.04;
@@ -508,12 +504,12 @@ export function draw(display, params) {
       const h = zq < 0 ? -zq : 0;
       ramp(WATER, h / HB, cw);
       let r = cw[0], g = cw[1], bl = cw[2];
-      const sflow = 1 - exp(-fq * qd * 2.4);
-      const fm = sflow * 0.7 * sstep(0.03, 0.2, h);
+      const sflow = sstep(0.05, 0.3, fq * qd);
+      const fm = sflow * 0.65 * sstep(0.03, 0.2, h);
       r += (150 - r) * fm; g += (240 - g) * fm; bl += (225 - bl) * fm;
       const pm = (1 - exp(-pq * 12)) * 0.7;
       r += (186 - r) * pm; g += (206 - g) * pm; bl += (168 - bl) * pm;
-      const mf = sstep(30, 80, mq) * sstep(7, 16, dq) * sstep(0.9, 0.5, h) * 0.8;
+      const mf = sstep(30, 80, mq) * sstep(7, 16, dq) * sstep(0.3, 0.12, h) * 0.7;
       r += (84 - r) * mf; g += (118 - g) * mf; bl += (78 - bl) * mf;
       // land
       const ae = aq * (0.7 + 0.6 * tq);
