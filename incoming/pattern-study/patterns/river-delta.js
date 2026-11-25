@@ -1,20 +1,20 @@
 // ===== Patternflow pattern =====
 // Title:   River Delta
 // Family:  riverdelta
-// Idea:    A river delta seen from above in time-lapse, building into a valley whose green walls wander and open to side bays: the river drops its sand where it slows, mouth bars split the channel, channels fork out into a turquoise sea under a milky plume, old lobes turn from pale sand to green, the tide breathes, and the view scrolls with the shoreline for ever.
+// Idea:    A river delta seen from above in time-lapse, building into a valley whose green walls wander and open to side bays: mouth bars split the river, channels fork out into a turquoise sea under a milky plume, old lobes turn from pale sand to green, and the view scrolls with the shoreline for ever.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: reduced-complexity delta models in which water parcels random-walk over a bed, weighted towards deeper cells and the way they were going, and erode or deposit sediment by their speed (Liang, Voller and Paola 2015 and Liang, Passalacqua and Lamb 2015, DeltaRCM, from memory); the shorter-route weight, crevasse, scrolling view, valley, land ageing and palettes are original, pattern round 245
+// Lineage: reduced-complexity delta models in which water parcels random-walk over a bed, weighted towards deeper cells and their heading, and erode or deposit by their speed (Liang, Voller and Paola 2015; Liang, Passalacqua and Lamb 2015; DeltaRCM, from memory); the shorter-route weight, crevasse, valley, land ageing and palettes are original, pattern round 245
 // Round:   245
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Sediment=0..4, Waves=-1..1, Flood=-1..1
 //
-// Knob 1: Hue. Walks round four scenes and blends neighbours; deep water stays darkest and fresh sand lightest in each. At 0 the sea is teal and navy with a turquoise shallow and the land runs from pale sand through olive to green. At 0.25 it is twilight, an indigo sea and ice-blue to violet land. At 0.5 a dry season, a sea-green sea and gold to lime land. At 0.75 ice, a steel-blue sea and slate land. At 1 the first scene again.
-// Knob 2: Sediment. 0 to 4, opening at 2. How much sand the river carries. At 0 the supply is lean: one deep channel and a clean sea. At 2 mouth bars form, channels fork and lobes grow. At 4 the plume is thick, bars choke the channels and the shore moves down fast. The bed runs four times faster than the clock, so a lobe forms and is left behind within a minute.
+// Knob 1: Hue. Walks round four scenes and blends neighbours; deep water stays darkest and fresh sand lightest in each. At 0 the sea is teal and navy with a turquoise shallow and the land runs from pale sand to olive to green. At 0.25 twilight: indigo sea, ice-blue to violet land. At 0.5 dry season: sea-green sea, gold to lime land. At 0.75 ice: steel-blue sea, slate land. At 1 the first scene again.
+// Knob 2: Sediment. 0 to 4, opening at 2. How much sand the river carries. At 0 the supply is lean: one deep channel, a clean sea. At 2 mouth bars form, channels fork and lobes grow. At 4 the plume is thick, bars choke the channels and the shore moves down fast. The bed runs four times faster than the clock, so a lobe is built and left behind within a minute.
 // Knob 3: Waves. -1 to 1, opening at 0. Which of river and sea shapes the coast. At -1 the river rules: channels run straight and far out as narrow fingers. At 1 the sea rules: it smooths the bars and the shoreline, and the channels stay pinned at their mouths.
-// Knob 4: Flood. -1 to 1, opening at about 0.06. How much water the river carries: wider channels, brighter flow and a flow that changes route more often at 1, thin channels and a quiet flow at -1.
+// Knob 4: Flood. -1 to 1, opening at about 0.06. How much water the river carries: wider channels, brighter flow and more crevasses at 1, thin channels and a quiet flow at -1.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, exp, sqrt, sin, cos, pow, PI } = Math;
@@ -22,19 +22,19 @@ const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rnd = () => Math.random();
 const sstep = (a, b, v) => { const t = cl((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
-const NX = 41, NXP = NX + 2, NY = 86, S = 64 / NX;  // bed 41 wide with a sink column either side, 86 deep
+const NX = 41, NXP = NX + 2, NY = 86, S = 64 / NX;  // 41 wide plus a sink column each side, 86 deep
 const NC = NXP * NY;
-const CX = 1 + 20;  // middle column of the river
-const R0 = 6;  // rows at the top that are always the straight river
+const CX = 21;  // the river's column
+const R0 = 6;  // river rows at the top
 const HB = 1.0, HC = 0.5, ZL = 0.22;  // sea floor depth, river depth, highest land
-const HCMAX = 0.7;  // deepest a channel scours
-const EPSF = 0.01;  // weight of low land that a flood may cross
-const TARGET = 80 / S;  // row the shore is held at, 80 LED down
+const HCMAX = 0.7;  // deepest scour
+const TARGET = 80 / S;  // row of the shore
 const DX = [0, -1, 1, -1, 1], DY = [1, 1, 1, 0, 0];
 const UX = [0, -0.7071, 0.7071, -1, 1], UY = [1, 0.7071, 0.7071, 0, 0];
 const TP = 2 * PI;
-const LIVE = 4;  // the bed runs this many times faster than the clock
-const RXA = new Float32Array(NC), RYA = new Float32Array(NC);  // the way a fan opens, from above the top
+const WARP = 2.4;
+const LIVE = 4;  // bed speed over the clock
+const RXA = new Float32Array(NC), RYA = new Float32Array(NC);  // the way a fan opens
 for (let y = 0; y < NY; y++) {
   for (let x = 0; x < NXP; x++) {
     const dx = x - CX, dy = y + 8, d = Math.sqrt(dx * dx + dy * dy);
@@ -48,7 +48,7 @@ export function setup(params) {
   const f = (n) => new Float32Array(n);
   const st = (params.st = {
     k: [0, 2, 0, 0.06], ks: [0, 2, 0, 0.06], init: false, t: 0, tc: 0,
-    z: f(NC), F: f(NC), V: f(NC), Vl: f(NC), pl: f(NC), ag: f(NC), qa: f(NC), zt: f(NC), tex: f(NC),
+    z: f(NC), F: f(NC), V: f(NC), Vl: f(NC), pl: f(NC), ag: f(NC), qa: f(NC), zt: f(NC), tex: f(NC), wx: f(NC), wy: f(NC),
     D: new Float32Array(NC), WG: new Float64Array(NC),
     PP: new Float64Array(25), Fs: f(NC), fo: 0, vs: 0, grow: 0, front: 20, land: 0.5, cre: 20, frame: 0,
     ix: new Int32Array(W), tx: f(W), sup: 1, bo: 1, wv: 0, qd: 0.9,
@@ -105,12 +105,16 @@ function wallRow(st, y) {
     }
   }
 }
-// a fixed tonal texture in bed coordinates, so it moves with the land
 function texture(st) {
-  const { tex, grow } = st;
+  const { tex, wx, wy, grow } = st;
   for (let y = 0; y < NY; y++) {
+    const g = y + grow;
     for (let x = 0; x < NXP; x++) {
-      tex[y * NXP + x] = 0.55 * vnoise(x / 4.1 + 5, (y + grow) / 4.1 + 9) + 0.45 * vnoise(x / 2.1, (y + grow) / 2.1);
+      const i = y * NXP + x;
+      tex[i] = 0.55 * vnoise(x / 4.1 + 5, g / 4.1 + 9) + 0.45 * vnoise(x / 2.1, g / 2.1);
+      // a smooth warp fixed to the bed: it bends the grid's straight edges when drawn
+      wx[i] = WARP * (1.4 * vnoise(x / 7.3 + 21, g / 7.3 + 4) + 0.6 * vnoise(x / 3.4 + 13, g / 3.4 + 8) - 1);
+      wy[i] = WARP * (1.4 * vnoise(x / 7.9 + 8, g / 7.9 + 29) + 0.6 * vnoise(x / 3.1 + 40, g / 3.1 + 2) - 1);
     }
   }
 }
@@ -150,7 +154,7 @@ function weights(st, theta, lam) {
     const zi = z[i], h = -zi;
     let g;
     if (h > 0.04) g = pow(h > HB ? HB : h, theta);
-    else if (zi < ZL + 0.08) { const q = 1 - (zi > 0 ? zi : 0) / (ZL + 0.08); g = EPSF * q * q; }
+    else if (zi < ZL + 0.08) { const q = 1 - (zi > 0 ? zi : 0) / (ZL + 0.08); g = 0.01 * q * q; }
     else g = 0;
     WG[i] = g * exp(-lam * D[i]);
   }
@@ -160,9 +164,10 @@ function parcels(st, P, A) {
   const { z, V, Vl, WG, PP } = st, F = st.Fs;
   const QD = st.qd, UC = 0.38 * (1 - 0.15 * max(0, -st.wv)), KE = 4e-5 * A * (500 / P), KD = (0.2 + 0.1 * max(0, -st.wv)), SHB = 3, LAT = 0.22 - 0.12 * max(0, -st.wv) + 0.06 * max(0, st.wv), LAT2 = 0.10 - 0.08 * max(0, -st.wv) + 0.06 * max(0, st.wv);
   const L0 = (1.2 * st.sup * st.bo * A * min(1, st.frame / 90)) / P, FN0 = 0.5 * L0, PN = 1 / (L0 + FN0);
-  const MAXS = NY * 2, OPEN = 1.8, FB = 2.0 + 0.5 * max(0, st.wv);
+  const MAXS = NY * 2, OPEN = 1.8, FB = 1.5 + 0.5 * max(0, st.wv);
   const DEEP = HB - 0.06, cx0 = CX;
   for (let p = 0; p < P; p++) {
+    const pb = 0.2 * (rnd() * 2 - 1), fL = 1 - pb, fR = 1 + pb;
     let x = cx0 - 2 + ((rnd() * 5) | 0), y = 0, pv = 0, load = L0, fine = FN0, tail = 0, steps = 0;
     while (y < NY - 1 && x > 0 && x < NXP - 1 && steps < MAXS) {
       steps++;
@@ -221,7 +226,7 @@ function parcels(st, P, A) {
       if (f2 < 0.02) f2 = 0.02;
       if (f3 < 0.02) f3 = 0.02;
       if (f4 < 0.02) f4 = 0.02;
-      const w0 = g0 * PP[o] * f0, w1 = g1 * PP[o + 1] * op * f1, w2 = g2 * PP[o + 2] * op * f2, w3 = g3 * PP[o + 3] * op * op * f3, w4 = g4 * PP[o + 4] * op * op * f4;
+      const w0 = g0 * PP[o] * f0, w1 = g1 * PP[o + 1] * op * f1 * fL, w2 = g2 * PP[o + 2] * op * f2 * fR, w3 = g3 * PP[o + 3] * op * op * f3 * fL, w4 = g4 * PP[o + 4] * op * op * f4 * fR;
       const tot = w0 + w1 + w2 + w3 + w4;
       if (!(tot > 0)) {
         if (tail === 0) {
@@ -303,7 +308,6 @@ function sim(st, dt, A) {
     F[i] += aF * (V[i] * inv - F[i]);
     V[i] = 0;
   }
-  // the plume: a smoothed count of what the parcels still carry
   for (let i = 0; i < NC; i++) {
     pl[i] += 0.12 * (Vl[i] * inv - pl[i]);
     Vl[i] = 0;
@@ -315,7 +319,6 @@ function sim(st, dt, A) {
     }
   }
   for (let y = 1; y < NY - 1; y++) for (let x = 1; x <= NX; x++) pl[y * NXP + x] = zt[y * NXP + x];
-  // everything above the sea floor sinks, faster when there is much land
   const sg = 0.0007 * A * dt * cl(pow(st.land / 0.5, 3), 0.25, 3) * (0.6 + 0.4 * st.sup);
   for (let i = 0; i < NC; i++) if (z[i] > -HB + 0.02 && z[i] < WZ - 0.01) z[i] -= sg * (z[i] > 0 ? 1 : 0.5);
   // the shallows creep, and waves (the third knob) make them creep harder
@@ -342,7 +345,6 @@ function sim(st, dt, A) {
       }
     }
   }
-  // land ages where no flow reaches it; still water far from the sea goes to marsh
   const dts = dt * A;
   for (let i = 0; i < NC; i++) {
     const zi = z[i];
@@ -358,7 +360,7 @@ function sim(st, dt, A) {
     }
   }
   forceRiver(st);
-  // a crevasse now and then: a bank beside a busy channel is cut through to open water; the channel takes over or silts up
+  // a crevasse now and then: a bank beside a busy channel is cut through to open water
   st.cre -= dts * st.qd * st.qd;
   if (st.cre <= 0) {
     st.cre = 2 + 4 * rnd();
@@ -504,7 +506,7 @@ export function draw(display, params) {
   let st = params.st;
   if (!st) st = setup(params);
   if (!st.init) update(0, { knobValues: st.k }, params);
-  const { z, F, pl, ag, tex, qa, D, ix, tx } = st;
+  const { z, F, pl, ag, tex, qa, D, ix, tx, wx, wy } = st;
   if (!st.pal) {
     const mk = (n) => { const r = []; for (let j = 0; j < n; j++) { const e = [0]; e.c = [0, 0, 0]; r.push(e); } return r; };
     st.pal = { w: mk(WATER.length), l: mk(LAND.length), flow: [0, 0, 0], plume: [0, 0, 0], marsh: [0, 0, 0] };
@@ -513,11 +515,11 @@ export function draw(display, params) {
   palette(st.ks[0], pal);
   const WT = pal.w, LT = pal.l, fc = pal.flow, pc = pal.plume, mc = pal.marsh;
   const qd = st.qd, fo = st.fo, t = st.tc;
-  // slow parts with periods that share no factor: tide, haze over the sea, ripeness of the land, tint of the plume
+  // slow parts with unrelated periods: tide, sea haze, ripeness of the land, tint of the plume
   const tide = 0.09 * sin(TP * t / 83 + 1.1) + 0.06 * sin(TP * t / 131 + 4.2);
   const haze = 1 + 0.07 * sin(TP * t / 59 + 2.0) + 0.05 * sin(TP * t / 97 + 5.1);
   const ripe = 1 + 0.3 * sin(TP * t / 71 + 0.6) + 0.15 * sin(TP * t / 149 + 2.7);
-  const plg = 206 + 16 * sin(TP * t / 113 + 3.0), plb = 168 - 14 * sin(TP * t / 113 + 3.0);
+  const pd = 16 * sin(TP * t / 113 + 3.0);
   const cw = [0, 0, 0], cL = [0, 0, 0];
   let i0 = 0, i1 = 0, w00 = 0, w10 = 0, w01 = 0, w11 = 0;
   const q = (a) => a[i0] * w00 + a[i0 + 1] * w10 + a[i1] * w01 + a[i1 + 1] * w11;
@@ -528,13 +530,19 @@ export function draw(display, params) {
     for (let x = 0; x < W; x++) {
       i0 = r0 + ix[x];
       i1 = r1 + ix[x];
-      const u = tx[x];
-      w00 = (1 - u) * (1 - ty);
-      w10 = u * (1 - ty);
-      w01 = (1 - u) * ty;
-      w11 = u * ty;
+      w10 = tx[x] * (1 - ty);
+      w00 = (1 - tx[x]) * (1 - ty);
+      w01 = (1 - tx[x]) * ty;
+      w11 = tx[x] * ty;
+      const gx2 = cl(ix[x] + tx[x] + q(wx), 1, NX), gy2 = cl(gy + q(wy), 0, NY - 1.001);
+      const ax = floor(gx2), ay = floor(gy2), u = gx2 - ax, v = gy2 - ay;
+      i0 = ay * NXP + ax;
+      i1 = i0 + NXP;
+      w00 = (1 - u) * (1 - v);
+      w10 = u * (1 - v);
+      w01 = (1 - u) * v;
+      w11 = u * v;
       const zq = q(z) - tide, fq = q(F), pq = q(pl), aq = q(ag), tq = q(tex), mq = q(qa), dq = q(D);
-      // water
       const h = zq < 0 ? -zq : 0;
       ramp(WT, h / HB, cw);
       let r = cw[0] * haze, g = cw[1] * haze, bl = cw[2] * haze;
@@ -542,10 +550,9 @@ export function draw(display, params) {
       const fm = sflow * 0.65 * sstep(0.03, 0.2, h);
       r += (fc[0] - r) * fm; g += (fc[1] - g) * fm; bl += (fc[2] - bl) * fm;
       const pm = (1 - exp(-pq * 12)) * 0.7;
-      r += (pc[0] - r) * pm; g += (pc[1] + (plg - 206) - g) * pm; bl += (pc[2] + (plb - 168) - bl) * pm;
+      r += (pc[0] - r) * pm; g += (pc[1] + pd - g) * pm; bl += (pc[2] - pd * 0.875 - bl) * pm;
       const mf = sstep(30, 80, mq) * sstep(7, 16, dq) * sstep(0.3, 0.12, h) * 0.7;
       r += (mc[0] - r) * mf; g += (mc[1] - g) * mf; bl += (mc[2] - bl) * mf;
-      // land
       const ae = aq * (0.7 + 0.6 * tq) * ripe;
       ramp(LT, ae, cL);
       const damp = 0.78 + 0.22 * sstep(0.0, 0.08, zq);
