@@ -309,5 +309,10 @@
   "intercalation": { "label": "세포 끼어들기", "color": "#ff8181" },
   "reconnection": { "label": "자기 재연결", "color": "#8cfff0" },
   "thermokarst": { "label": "열카르스트 호수", "color": "#d6de75" },
-  "heliosphere": { "label": "태양풍 나선", "color": "#5a66e5" }
+  "heliosphere": { "label": "태양풍 나선", "color": "#5a66e5" },
+  "detonation": { "label": "폭굉 세포", "color": "#ff4d2e" },
+  "asteroseismology": { "label": "별 떨림", "color": "#b79bff" },
+  "cloudstreet": { "label": "구름 거리", "color": "#58b8f0" },
+  "battleship": { "label": "유물 빈도 곡선", "color": "#a8794a" },
+  "magnetron": { "label": "마그네트론 스포크", "color": "#1fd0e0" }
 }
