@@ -34,10 +34,10 @@ const HR = 125;                  // the last row of sky; rows 126 and 127 are th
 const V0 = 0.07;                 // sheet heights a second the wind carries the sheet at Wind 2
 const PRE = 40;                  // seconds the sheet is taken to have run before the first frame
 const PVZ = 3.2;                 // the wave trains turn about this point of the sheet, straight ahead
-const S1 = 1.5, S2 = 0.5, S3 = 0.17;   // cells of the knots, the wisps and the fine wisps, in sheet heights
+const S1 = 1.2, S2 = 0.5, S3 = 0.17;   // cells of the knots, the wisps and the fine wisps, in sheet heights
 const SE = 1.6, SB = 0.6;        // cell of the band domains and of the billow patches
 const G0 = 0.934, G1 = 3.9;      // squared phase step per LED where a train starts to fade (6.5 LED a wave) and is gone (3.2 LED)
-const FA = 0.3, FS = 1.7;        // the veil is drawn out into fibres along a line this many radians off the X axis, by this factor
+const FA = 0.3, FS = 1.6;        // the veil is drawn out into fibres along a line this many radians off the X axis, by this factor
 
 // The two band trains. lam: wavelength in sheet heights. th: mean direction of travel, radians from the line of sight
 // (0 gives bands across the panel, a quarter turn gives crests that run to the horizon). ta, tp, tp2: how far and
@@ -104,7 +104,7 @@ function hit(e, a, o) {
     WARM[y] = 1 - sstep(2, 9, e);
     // rows a cell of the wisps takes up; under about two the wisps are left out
     const i = y * W + 32, rpu = 1 / sqrt(JXY[i] * JXY[i] + JZY[i] * JZY[i]);
-    FD1[y] = 0.35 + 0.65 * sstep(4, 12, S1 * rpu);
+    FD1[y] = 0.35 + 0.65 * sstep(3, 8, S1 * rpu);
     FD2[y] = sstep(1.1, 2.3, S2 * rpu);
     FD3[y] = sstep(2, 4, S3 * rpu);
     // between the two trains the sheet is as dim as a trough, where a trough can be seen at all
@@ -218,7 +218,7 @@ export function setup(params) {
   return st;
 }
 
-const speedOf = (wind) => 0.3 + 0.35 * cl(wind, 0, 4);
+const speedOf = (wind) => 0.35 + 0.325 * cl(wind, 0, 4);
 
 // One step of the slow things: the wind's direction, the wave vectors, the phases and the slides of the layers.
 // dt is the time that passes for the sun and the turning; carry is the time the wind blows, which the first update
@@ -242,14 +242,14 @@ function step(st, dt, carry) {
     const b = BANDS[j], th = b.th + b.ta * (0.7 * sin(t / b.tp + ph[2 + j]) + 0.3 * sin(t / b.tp2 + ph[5 + j])), K = TAU / b.lam;
     st.kx[j] = K * sin(th);
     st.kz[j] = K * cos(th);
-    st.phi[j] -= (st.kx[j] * vx + st.kz[j] * vz + K * b.c * sp) * T;
+    st.phi[j] -= (st.kx[j] * vx + st.kz[j] * vz) * T + K * b.c * (0.6 + 0.4 * sp) * T;
     st.th[j] = th;
   }
   for (let j = 0; j < BILL.length; j++) {
     const b = BILL[j], th = st.th[b.ride] + b.of + 0.12 * sin(t / 19.7 + ph[8 + j]), K = TAU / b.lam, n = NB + j;
     st.kx[n] = K * sin(th);
     st.kz[n] = K * cos(th);
-    st.phi[n] -= (st.kx[n] * vx + st.kz[n] * vz + K * b.c * sp) * T;
+    st.phi[n] -= (st.kx[n] * vx + st.kz[n] * vz) * T + K * b.c * (0.6 + 0.4 * sp) * T;
   }
 }
 
@@ -277,16 +277,17 @@ export function draw(display, params) {
     buildLut(st.lutW, CLOUDW, hue);
   }
   // the sun: its depth creeps a little, its azimuth wanders, and the edge of the Earth's shadow creeps on its own
-  const q = cl((cl(st.k[3], -1, 1) + 1) / 2 + 0.05 * sin(t / 53 + ph[10]) + 0.03 * sin(t / 21.9 + ph[11]), 0, 1);
-  const as = 8.5 * (0.62 * sin(t / 47 + ph[12]) + 0.38 * sin(t / 19.3 + ph[13]));
-  const E0 = 18 + 47 * (1 - pow(q, 1.25)) + 3.2 * sin(t / 37.1 + ph[14]) + 2.2 * sin(t / 15.3 + ph[15]);
-  const gain = q < 0.53 ? 0.5 + 0.94 * q : 1 + 2.1 * (q - 0.53), dep = 6 + 10 * q, wq = 1 - 0.85 * q;
+  let q = (cl(st.k[3], -1, 1) + 1) / 2 + 0.05 * sin(t / 31 + ph[10]) + 0.03 * sin(t / 13.3 + ph[11]);
+  q = q < 0 ? -q : q > 1 ? 2 - q : q;
+  const as = 8.5 * (0.55 * sin(t / 29 + ph[12]) + 0.45 * sin(t / 12.7 + ph[13]));
+  const E0 = 21 + 47 * (1 - pow(q, 1.2)) + (1 - 0.4 * q) * (2 * sin(t / 23.1 + ph[14]) + 1.4 * sin(t / 9.7 + ph[15]));
+  const gain = q < 0.53 ? 0.5 + 0.94 * q : 1 + 1.5 * (q - 0.53), dep = 6 + 10 * q, wq = 1 - 0.85 * q;
   buildSky(st.sky, q, hue);
   const CB = st.CB, CS = st.CS, EDG = st.EDG, RF = st.RF, NV = st.NV, ND = st.ND, NP = st.NP;
   let emax = 0;
   for (let x = 0; x < W; x++) {
     const da = AZ[x] - as, db = AZ[x] - 1.25 * as;
-    CB[x] = 0.42 + 0.58 * exp((-da * da) / 242);
+    CB[x] = 0.52 + 0.48 * exp((-da * da) / 242);
     CS[x] = SKS / (0.72 + 0.28 * exp((-da * da) / 288));
     EDG[x] = E0 + 2 - (0.04 * db * db) / (1 + (db * db) / 400);
     emax = max(emax, EDG[x]);
@@ -298,7 +299,7 @@ export function draw(display, params) {
   const bp = max(0, bil), bn = max(0, -bil);
   const wBand = 1 + 0.1 * bn - 0.75 * bp, wBill = 0.8 * (1 - bn) + 0.35 * bp;
   const thi = 0.5 - 0.6 * bn - 0.05 * bp;
-  const w1 = 0.5, w3 = 0.15, w2 = 0.35;
+  const w1 = 0.45, w3 = 0.15, w2 = 0.4;
   const plo = -0.45 - 0.9 * bil;
   const kx = st.kx, kz = st.kz, phi = st.phi, ex = st.ex, ez = st.ez, seed = st.seed, o3x = st.o3x, o3z = st.o3z;
   const ox = st.ox, oz = st.oz, o2x = st.o2x, o2z = st.o2z, obx = st.obx, obz = st.obz;
@@ -312,7 +313,7 @@ export function draw(display, params) {
       continue;
     }
     const el = EL[y], rf = RF[y], f2 = FD2[y] * w2, f3 = FD3[y] * w3, wm = WARM[y] * wq, base = BASE[y];
-    const tlo = -1.25 - bn + 0.7 * bp * TORN[y], ti = 1 / (thi - tlo);
+    const tlo = -1.45 - bn + 0.9 * bp * TORN[y], ti = 1 / (thi - tlo);
     if (el < emax) {
       const nv = FD1[y] / sqrt(w1 * w1 + f2 * f2 + f3 * f3);
       for (let k = 0; k < NN; k++) {
@@ -339,7 +340,7 @@ export function draw(display, params) {
       if (lt > 0.004) {
         const xi = x >> 2, xf = (x & 3) * 0.25, v = NV[xi] + (NV[xi + 1] - NV[xi]) * xf;
         let rho = cl((v - tlo) * ti, 0, 1);
-        rho = rho * rho * (3 - 2 * rho) * cl(0.8 + 0.25 * v, 0.45, 1.3);
+        rho = rho * rho * (3 - 2 * rho) * cl(0.8 + 0.3 * v, 0.4, 1.4);
         if (rho > 0.003) {
           const X = PX[i], Z = PZ[i], jxx = JXX[i], jxy = JXY[i], jzx = JZX[i], jzy = JZY[i];
           // one band train or the other, each fading out towards the strip between them where the sheet is smooth
