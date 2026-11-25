@@ -68,14 +68,14 @@ function clocks(st) {
   const m0 = 8 + 4 * k3;
   const wa = 0.14 + 0.12 * k4, wb = 0.08 + 0.06 * k4;
   st.Mt = cl(m0 * (1 + wa * sin(0.0113 * t + ph[0]) + wb * sin(0.0371 * t + ph[1])), MMIN, MMAX);
-  st.gs = 1 + 0.1 * sin(0.0293 * t + ph[2]) + 0.06 * sin(0.0117 * t + ph[3]);
-  st.sigJ = 0.02 + 0.3 * pow(k4, 1.2);
+  st.gs = 1 + 0.13 * sin(0.0293 * t + ph[2]) + 0.08 * sin(0.0117 * t + ph[3]);
+  st.sigJ = 0.03 + 0.2 * pow(k4, 1.2);
   const k2 = cl(st.k[1], 0.6, 2.2);
   st.D = 5 * pow(4.4, (k2 - 0.6) / 1.6);
   const M = max(st.tp.length, 2);
   st.sp = W / M;
-  st.drift = 0.1 + 0.16 * k4;
-  st.bthr = 1.7; st.mthr = 0.45; st.hyst = 1.2;
+  st.drift = 0.2 + 0.12 * k4;
+  st.bthr = 1.7 + 1.0 * (1 - k4) * (1 - k4); st.mthr = 0.45 - 0.22 * (1 - k4) * (1 - k4); st.hyst = 1.2;
   st.cellLen = (1.67 * st.sp) / st.gs;
   st.Lc = 0.55 * st.cellLen;
 }
@@ -86,7 +86,7 @@ function clocks(st) {
 // coming back, so a wall bounce is just the ring passing W or 2W and the gaps between neighbours on the
 // ring are the widths of the cells, the spacing of one family of scratches.
 function newTP(u) {
-  return { u, x: u, px: u, d: 1, j: 0, f: 0.008 + 0.022 * rnd(), q: TP * rnd(), f2: 0.0031 + 0.0079 * rnd(), q2: TP * rnd(), am: 0.6 + 0.8 * rnd(), g: 0.012 + 0.02 * rnd(), r: TP * rnd() };
+  return { u, x: u, px: u, d: 1, j: 0, mode: 0, ref: null, goal: 0, dead: false, f: 0.008 + 0.022 * rnd(), q: TP * rnd(), f2: 0.011 + 0.026 * rnd(), q2: TP * rnd(), am: 0.6 + 0.8 * rnd(), g: 0.012 + 0.02 * rnd(), r: TP * rnd() };
 }
 
 function place(p) {
@@ -107,12 +107,18 @@ function initTP(st) {
   }
 }
 
-// a pair born in the middle of a Mach stem: one runs left, one runs right
-function addPair(st, x) {
-  const a = newTP(2 * W - x + 0.2), b = newTP(x + 0.2);
-  place(a); place(b);
-  a.px = a.x; b.px = b.x;
-  st.tp.push(a, b);
+// a cell that has grown too wide forks: a new triple point leaves one neighbour and drifts to the middle of the gap
+function fork(st, src, gap) {
+  const p = newTP((src.u + 0.3) % (2 * W));
+  place(p);
+  p.px = p.x;
+  p.mode = 1; p.ref = src; p.goal = 0.5 * gap;
+  st.tp.push(p);
+}
+
+// two scratches closer than they should be: one bends toward the other and joins it
+function merge(p, ref) {
+  p.mode = 2; p.ref = ref;
 }
 
 // events are the overdriven spots where two triple points crossed: strongest at once, dying along the cell
@@ -151,7 +157,22 @@ function stepRow(st) {
     p.j = cl(p.j, -0.6, 0.6);
     // a slow drift of its own, so no two scratches keep their spacing for ever
     const dr = st.drift * p.am * (sin(p.f2 * Frow + p.q2) + 0.6 * sin(1.7 * p.f2 * Frow + 2 * p.q2 + 1)) * 0.62;
-    const v = sl * max(0.3, 1 + p.j + dr + p.g * 1.6 * sin(p.f * Frow + p.q));
+    let off = 0;
+    if (p.mode) {
+      const r = p.ref;
+      if (!r || r.dead) p.mode = 0;
+      else {
+        let rho = p.u - r.u;
+        rho -= 2 * W * Math.round(rho / (2 * W));
+        if (p.mode === 1) {
+          const err = p.goal - rho;
+          if (abs(err) < 0.5) { p.mode = 0; p.ref = null; }
+          else off = (err > 0 ? 1 : -1) * min(0.3, 0.05 + 0.04 * abs(err));
+        } else if (abs(rho) < 1.0) { p.dead = true; }
+        else off = (rho > 0 ? -1 : 1) * min(0.3, 0.05 + 0.04 * abs(rho));
+      }
+    }
+    const v = sl * max(0.25, 1 + p.j + dr + off + p.g * 1.6 * sin(p.f * Frow + p.q));
     const du0 = p.u;
     p.u += v * dF;
     if (p.u >= 2 * W) { p.u -= 2 * W; addEvent(st, 0, Frow, 0.7); }
@@ -181,61 +202,45 @@ function stepRow(st) {
     }
   }
   st.n++;
+  for (let i = M - 1; i >= 0; i--) if (tp[i].dead) tp.splice(i, 1);
 }
 
 // births, mergers and the pull toward the cell count the Cells knob asks for
 function manage(st, dt) {
   st.mc -= dt;
   if (st.mc > 0) return;
-  const tp = st.tp, M = tp.length;
+  const tp = st.tp;
   const k4 = cl(st.k[3], 0, 1);
+  const ring = tp.filter((p) => p.mode !== 2).sort((p, q) => p.u - q.u);
+  const M = ring.length;
+  if (M < 2) return;
   const sring = (2 * W) / M;
-  const ord = tp.slice().sort((p, q) => p.x - q.x);
-  // the widest Mach stem: a left mover with a right mover to its right, or a wall with a right mover leaving it
-  let bg = 0, bx = 0;
-  for (let i = 0; i < M - 1; i++) {
-    const a = ord[i], b = ord[i + 1], g = b.x - a.x;
-    if (a.d < 0 && b.d > 0 && g > bg) { bg = g; bx = 0.5 * (a.x + b.x); }
-  }
-  if (ord[0].d > 0 && 2 * ord[0].x > bg) { bg = 2 * ord[0].x; bx = 0.5 * ord[0].x; }
-  const last = ord[M - 1];
-  if (last.d < 0 && 2 * (W - last.x) > bg) { bg = 2 * (W - last.x); bx = W - 0.5 * (W - last.x); }
-  if (bg > st.bthr * sring && M + 2 <= MMAX + 1) {
-    addPair(st, bx);
-    st.mc = 0.25;
-    return;
-  }
-  // neighbours on the ring closer than 0.45 of the spacing: one of them goes
-  const ring = tp.slice().sort((p, q) => p.u - q.u);
-  let kill = null, kg = st.mthr * sring;
+  const gapOf = (i) => (i === M - 1 ? ring[0].u + 2 * W - ring[i].u : ring[i + 1].u - ring[i].u);
+  let wi = -1, wg = 0, ni = -1, ng = 1e9;
   for (let i = 0; i < M; i++) {
-    const a = ring[i], b = ring[(i + 1) % M];
-    const g = i === M - 1 ? b.u + 2 * W - a.u : b.u - a.u;
-    if (g < kg) { kg = g; kill = b; }
+    const g = gapOf(i), a = ring[i], b = ring[(i + 1) % M];
+    if (g > wg && (a.mode === 0 || b.mode === 0)) { wg = g; wi = i; }
+    if (g < ng && a.mode === 0 && b.mode === 0) { ng = g; ni = i; }
   }
-  if (kill && M > MMIN) {
-    tp.splice(tp.indexOf(kill), 1);
+  const doFork = () => {
+    const a = ring[wi], b = ring[(wi + 1) % M];
+    if (a.mode === 0 && (b.mode !== 0 || rnd() < 0.5)) fork(st, a, wg);
+    else fork(st, b, -wg);
     st.mc = 0.25;
-    return;
-  }
+  };
+  const doMerge = () => {
+    const a = ring[ni], b = ring[(ni + 1) % M];
+    if (rnd() < 0.5) merge(a, b); else merge(b, a);
+    st.mc = 0.25;
+  };
+  // a cell wider than 1.7 times the spacing forks, two scratches nearer than 0.45 of it merge
+  if (wi >= 0 && wg > st.bthr * sring && M < MMAX) return doFork();
+  if (ni >= 0 && ng < st.mthr * sring && M > MMIN) return doMerge();
   // the Cells knob: toward the target number of triple points
-  if (M < st.Mt - st.hyst && M + 2 <= MMAX + 1) {
-    addPair(st, bx);
-    st.mc = 0.25;
-  } else if (M > st.Mt + st.hyst && M > MMIN) {
-    let best = null, bd = 1e9;
-    for (let i = 0; i < M; i++) {
-      const a = ring[i], b = ring[(i + 1) % M];
-      const g = i === M - 1 ? b.u + 2 * W - a.u : b.u - a.u;
-      if (g < bd) { bd = g; best = b; }
-    }
-    tp.splice(tp.indexOf(best), 1);
-    st.mc = 0.25;
-  } else if (k4 > 0.02 && rnd() < dt * 0.3 * k4 * k4 && bg > 1.25 * sring && M + 2 <= MMAX + 1) {
-    // now and then a wide cell splits before it has to
-    addPair(st, bx);
-    st.mc = 0.25;
-  }
+  if (M < st.Mt - st.hyst && M < MMAX && wi >= 0 && wg > 0.9 * sring) return doFork();
+  if (M > st.Mt + st.hyst && M > MMIN && ni >= 0) return doMerge();
+  // now and then a wide cell splits before it has to
+  if (k4 > 0.02 && rnd() < dt * 0.3 * k4 * k4 && wi >= 0 && wg > 1.2 * sring && M < MMAX) doFork();
 }
 
 function advance(st, dF, dt) {
@@ -290,7 +295,7 @@ export function draw(display, params) {
   }
   for (let x = 0; x < W; x++) {
     const rip = (0.12 + 0.75 * k4) * (sin(0.55 * x + 0.83 * t + st.ph[4]) + 0.6 * sin(0.31 * x - 0.53 * t + st.ph[5]));
-    yf[x] = YF + 1.5 - 4 * ec[x] + rip * 0.6;
+    yf[x] = YF + 1.6 - 5 * ec[x] + rip * 0.6;
   }
   for (let pass = 0; pass < 3; pass++) {
     for (let x = 0; x < W; x++) tmp[x] = 0.25 * yf[max(0, x - 1)] + 0.5 * yf[x] + 0.25 * yf[min(W - 1, x + 1)];
@@ -307,7 +312,8 @@ export function draw(display, params) {
   hsv(0.64 + k1, 0.55, 1, Ch);
   hsv(0.085 + k1, 0.5, 0.85, Ct);
   const bR = 24, bG = 20, bB = 18;
-  const cR = 0.84 * 215 + 0.16 * Ct[0] * 255, cG = 0.84 * 200 + 0.16 * Ct[1] * 255, cB = 0.84 * 170 + 0.16 * Ct[2] * 255;
+  const cR = 0.92 * 228 + 0.08 * Ct[0] * 255, cG = 0.92 * 208 + 0.08 * Ct[1] * 255, cB = 0.92 * 165 + 0.08 * Ct[2] * 255;
+  const eR = 0.95 * 92 + 0.05 * Ct[0] * 255, eG = 0.95 * 64 + 0.05 * Ct[1] * 255, eB = 0.95 * 44 + 0.05 * Ct[2] * 255;
   const sR = 9 + 3 * Ct[0], sG = 8 + 3 * Ct[1], sB = 10 + 3 * Ct[2];
 
   for (let y = 0; y < H; y++) {
@@ -317,7 +323,9 @@ export function draw(display, params) {
     const ok0 = i0 <= nw - 1, ok1 = i0 + 1 <= nw - 1;
     const o0 = ((i0 % NF) + NF) % NF * W, o1 = (((i0 + 1) % NF) + NF) % NF * W;
     const age = max(0, a);
-    const fade = 0.42 + 0.58 * exp(-age / 45);
+    const fade = exp(-age / 52);
+    // newer scratches are pale cream, older ones go to ember
+    const scR = eR + (cR - eR) * fade, scG = eG + (cG - eG) * fade, scB = eB + (cB - eB) * fade;
     for (let x = 0; x < W; x++) {
       const d = y + 0.5 - yf[x];
       const e = ecs[x];
@@ -330,8 +338,7 @@ export function draw(display, params) {
         if (ok0) v = foil[o0 + x] * (1 - fr) + (ok1 ? foil[o1 + x] : foil[o0 + x]) * fr;
         const m = sstep(-0.8, 0.8, d);
         v *= m;
-        const k = v * fade;
-        r = bR + (cR - bR) * k; g = bG + (cG - bG) * k; b = bB + (cB - bB) * k;
+        r = bR + (scR - bR) * v; g = bG + (scG - bG) * v; b = bB + (scB - bB) * v;
         if (d < 0) {
           // cold gas ahead of the front, with a faint cool precursor haze
           const hz = exp(d / 3) * (0.12 + 0.12 * e);
