@@ -334,5 +334,10 @@
   "flareloops": { "label": "플레어 고리", "color": "#ffb23e" },
   "sterngerlach": { "label": "슈테른-게를라흐", "color": "#b9b4ff" },
   "normalmodes": { "label": "분자 진동", "color": "#5fe0a8" },
-  "socialchoice": { "label": "투표 지도", "color": "#f0608e" }
+  "socialchoice": { "label": "투표 지도", "color": "#f0608e" },
+  "attention": { "label": "어텐션 헤드", "color": "#ff6fd8" },
+  "raypaths": { "label": "지진파 경로", "color": "#e8a93c" },
+  "ommatidia": { "label": "겹눈", "color": "#6fe3a4" },
+  "surfacecode": { "label": "표면 부호", "color": "#8f7bff" },
+  "partonshower": { "label": "파톤 샤워", "color": "#ff5a4f" }
 }
