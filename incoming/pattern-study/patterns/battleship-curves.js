@@ -9,12 +9,12 @@
 // Round:   249
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Tempo=0.5..8, Invention=-1..1, Conformity=-1..1
+// @knobs Hue=0..1, Tempo=1.5..8, Invention=-1..1, Conformity=-1..1
 //
-// Knob 1: Hue. Turns every style colour round the wheel together; at 0 the twelve are the earth tones of ochre, terracotta, slate, sage and plum on a dark warm ground.
-// Knob 2: Tempo. 0.5 to 8 generations a second, opening at 2: how fast the layers are laid down at the foot of the panel and the picture drifts up, from a row every two seconds to eight a second.
-// Knob 3: Invention. -1 to 1, opening at 0: how often a potter makes up a new style. At -1 a new thread opens about every half minute and a few broad spindles live a couple of minutes; at 1 one opens most seconds and the lanes fill with slimmer, shorter ones.
-// Knob 4: Conformity. -1 to 1, opening near 0: how the potters copy. At -1 they favour the rare, shares stay even and many slim spindles live side by side; at 0 they copy at random; at 1 they follow the crowd and one fat spindle holds nearly all of the panel for half a minute before a newer one unseats it.
+// Knob 1: Hue. Turns every style colour round the wheel together; at 0 the twelve are the earth tones of ochre, terracotta, slate, sage and plum on a dark warm ground, and each tone also wanders a little in hue and brightness along its own spindle.
+// Knob 2: Tempo. 1.5 to 8 generations a second, opening at 2: how fast the layers are laid down at the foot of the panel and the picture drifts up, from a row every two thirds of a second to eight a second.
+// Knob 3: Invention. -1 to 1, opening at 0: how often a potter makes up a new style. At -1 a new thread opens every ten to twenty seconds at the opening tempo and a handful of broad spindles live a minute or more; at 1 one opens most seconds and the lanes fill with slimmer, shorter ones.
+// Knob 4: Conformity. -1 to 1, opening near 0: how the potters copy. At -1 they favour the rare, shares stay even and many slim spindles live side by side; at 0 they copy at random; at 1 they follow the crowd and one fat spindle holds most of the panel for half a minute before a newer one unseats it.
 
 const W = 64, H = 128;
 const { floor, min, max, abs, sqrt, exp, log, pow, sin, PI } = Math;
@@ -51,7 +51,7 @@ const PAL = [
   [62, 138, 122],   // teal green
   [184, 106, 120],  // dusty rose
   [138, 138, 58],   // olive
-  [216, 207, 180],  // bone
+  [206, 194, 164],  // bone, a little under the spec so the lit core does not clip to white
   [168, 64, 42],    // rust
   [172, 112, 68],   // umber, lifted a little: 140,90,60 goes to mud on the panel
 ];
@@ -98,8 +98,13 @@ export function setup(params) {
     DR: new Float32Array(RING * C),
     peak: new Float32Array(C),
     CI: new Int16Array(RING * C),     // palette index drawn for the lane at that generation
+    HV: new Float32Array(RING * C),   // hue and brightness the glaze of the lane has wandered to, per generation
+    BV: new Float32Array(RING * C),
+    hv: new Float32Array(C),
+    bv: new Float32Array(C),
     wgt: new Float32Array(C),
-    pal: [], palKey: -1,
+    pal: [],
+    wob: PAL.map(() => [tw(0.16, 0.34), tw(0.06, 0.14), tw(0.03, 0.09), tw(0, TP), tw(0, TP), tw(0, TP)]),
     pa: new Float32Array(C).map(() => tw(0, TP)),
     pb: new Float32Array(C).map(() => tw(0, TP)),
     wl: new Float32Array(C).map(() => tw(0.04, 0.11)),
@@ -124,8 +129,8 @@ const gi = (g, l) => (((g % RING) + RING) % RING) * C + l;
 // ---- the model: one generation of potters -------------------------------------
 function rates(st) {
   const k3 = cl(st.k[2], -1, 1), k4 = cl(st.k[3], -1, 1);
-  // inventions a generation, 0.015 to 0.35 on a log scale; 0.07 in the middle
-  const lam = exp(log(0.015) + (log(0.35) - log(0.015)) * (k3 + 1) * 0.5);
+  // inventions a generation, 0.04 to 0.35 on a log scale bent a little low; 0.1 in the middle
+  const lam = exp(log(0.04) + (log(0.35) - log(0.04)) * pow((k3 + 1) * 0.5, 1.25));
   // exponent of the share: 0.55 at -1, 1 at 0, 1.4 at 1
   const b = k4 < 0 ? pow(0.55, -k4) : pow(1.4, k4);
   return { lam, b };
@@ -135,7 +140,8 @@ function stepGen(st, lam, b) {
   const { cnt, age, sid, freeAt, wgt } = st;
   const n = st.n + 1;
   // weights: share to the power b, spoiled by age
-  const tf = (b > 1 ? b * b : 1) / TFASH;
+  // anti-conformists let styles fade a little faster, or the even shares would never end
+  const tf = (b > 1 ? b * b : 1 + 2 * (1 - b)) / TFASH;
   let tot = 0, live = 0;
   for (let l = 0; l < C; l++) {
     if (cnt[l] > 0) {
@@ -148,18 +154,26 @@ function stepGen(st, lam, b) {
   // inventions this generation; when almost nothing is alive one is made sure of
   let want = 0;
   // following the crowd starves a new style, so the potters try more often, and a new one comes with a few followers
-  const lamE = live <= 2 ? max(lam, 0.4) : lam * (b > 1 ? 1 + 5 * (b - 1) : 1);
+  // fewer than five styles of any size and the potters get restless, so the panel is never left to two or three fat bars
+  let big = 0;
+  for (let l = 0; l < C; l++) if (cnt[l] >= 5) big++;
+  const lamE = live <= 2 ? max(lam, 0.4) : lam * (b > 1 ? 1 + 5 * (b - 1) : 1) * (1 + 0.7 * max(0, 5 - big));
   const seed = b > 1 ? 1 + floor(3.3 * (b - 1)) : 1;
   for (let q = exp(-lamE), p = rnd(); p > q; p *= rnd()) want++;
   const nc = new Int16Array(C);
   let made = 0;
   const born = [];
   for (let i = 0; i < want; i++) {
-    // the lane after the last proven style, else the next one resting long enough
+    // the lane after the last proven style, else the next one resting long enough; now and then it steps over one or two, so the ladder never keeps time
     let lane = -1;
+    let skip = rnd() < 0.3 ? (rnd() < 0.15 ? 2 : 1) : 0;
     for (let s = 1; s <= C; s++) {
       const l = (st.ptr + s) % C;
-      if (cnt[l] === 0 && nc[l] === 0 && n - freeAt[l] >= COOL) { lane = l; break; }
+      if (cnt[l] === 0 && nc[l] === 0 && n - freeAt[l] >= COOL) {
+        if (skip > 0) { skip--; continue; }
+        lane = l;
+        break;
+      }
     }
     if (lane < 0) break;
     nc[lane] = seed;
@@ -196,7 +210,8 @@ function stepGen(st, lam, b) {
     st.lastCi[l] = ci(st, sid[l]);
     st.peak[l] = 0;
     // the rows before the birth already wear the new colour, for the blur's fringe
-    for (let d = 1; d <= KH; d++) st.CI[gi(n - d, l)] = st.lastCi[l];
+    st.hv[l] = 0.05 * (rnd() - 0.5); st.bv[l] = 0.3 * (rnd() - 0.5);
+    for (let d = 1; d <= KH; d++) { st.CI[gi(n - d, l)] = st.lastCi[l]; st.HV[gi(n - d, l)] = st.hv[l]; st.BV[gi(n - d, l)] = st.bv[l]; }
   }
   // a style that has stood four generations makes its lane the one the ladder steps from
   for (let l = 0; l < C; l++) if (cnt[l] > 0 && age[l] === 4) st.ptr = l;
@@ -207,6 +222,11 @@ function stepGen(st, lam, b) {
     st.P[gi(n, l)] = pp;
     st.DR[gi(n, l)] = cnt[l] > 0 && pp < 0.55 * st.peak[l] ? 1 : 0;
     st.CI[gi(n, l)] = st.lastCi[l];
+    // the tone of a style wanders as it goes, about 35 generations to forget
+    st.hv[l] = st.hv[l] * 0.97 + 0.0065 * (rnd() + rnd() + rnd() - 1.5) * 2;
+    st.bv[l] = st.bv[l] * 0.97 + 0.036 * (rnd() + rnd() + rnd() - 1.5) * 2;
+    st.HV[gi(n, l)] = st.hv[l];
+    st.BV[gi(n, l)] = st.bv[l];
   }
   st.n = n;
   // the generation n - KH now has all its neighbours: blur it
@@ -230,7 +250,7 @@ export function update(dt, input, params) {
     for (let i = 0; i < PRIME; i++) stepGen(st, lam, b);
   }
   st.t += dt;
-  st.frac += dt * cl(st.k[1], 0.5, 8);
+  st.frac += dt * cl(st.k[1], 1.5, 8);
   while (st.frac >= 1) {
     st.frac -= 1;
     stepGen(st, lam, b);
@@ -242,13 +262,14 @@ export function draw(display, params) {
   const st = params.st || setup(params);
   if (!st.primed) update(0, null, params);
   const hue = cl(st.k[0], 0, 1);
-  if (st.palKey !== hue) {
-    st.palKey = hue;
-    const h = [0, 0, 0], o = [0, 0, 0];
-    st.pal = PAL.map((c) => {
+  // every colour of the palette also drifts a little in hue and swells and eases in brightness on clocks of its own
+  {
+    const h = [0, 0, 0], o = [0, 0, 0], t0 = st.t;
+    st.pal = PAL.map((c, k) => {
+      const w = st.wob[k];
       rgb2hsv(c[0], c[1], c[2], h);
-      hsv2rgb(h[0] + hue, h[1], h[2], o);
-      return [o[0], o[1], o[2]];
+      const vv = h[2] * (1 + 0.32 * sin(w[0] * t0 + w[3]) + 0.14 * sin(w[1] * t0 + w[4]));
+      return [h[0] + hue + 0.03 * sin(w[2] * t0 + w[5]), h[1], vv];
     });
   }
   const pal = st.pal;
@@ -263,7 +284,8 @@ export function draw(display, params) {
     q.a = q.a0 * (0.55 + 0.45 * sin(q.f[4] * t + q.p[4]));
     for (let x = 0; x < W; x++) q.gx[x] = exp(-((x - q.cx) * (x - q.cx)) / (2 * q.sx * q.sx));
   }
-  const hw = new Float32Array(C), it = new Float32Array(C), cid = new Int16Array(C);
+  const hw = new Float32Array(C), it = new Float32Array(C), cr = new Float32Array(C), cg = new Float32Array(C), cb = new Float32Array(C);
+  const tone = [0, 0, 0];
   const gNew = st.n - SLAG;
   for (let y = 0; y < H; y++) {
     const g0 = gNew - (H - 1 - y);
@@ -272,7 +294,6 @@ export function draw(display, params) {
       const i0 = gi(g0, l), i1 = gi(g0 + 1, l);
       const s0 = st.S[i0], s1 = st.S[i1];
       const pn = s0 + (s1 - s0) * f;
-      cid[l] = s1 > s0 ? st.CI[i1] : st.CI[i0];
       // the lens is the share to a power; below 1.5 percent a soft thread takes over
       const dn = st.D[i0] + (st.D[i1] - st.D[i0]) * f;
       const lens = HWMAX * pow(cl(pn / P0, 0, 1), 0.8);
@@ -281,7 +302,14 @@ export function draw(display, params) {
       const breath = 1 + 0.13 * sin(st.wl[l] * t + 0.045 * y + st.pa[l]) + 0.05 * sin(0.093 * t - 0.031 * y + st.pb[l]);
       hw[l] = max(lens * breath, thread);
       // a style on its way out lets go of the thread sooner than a new one builds it
-      it[l] = sstep(0.008 + 0.01 * dn, 0.024 + 0.04 * dn, pn);
+      it[l] = sstep(0.009 + 0.01 * dn, 0.026 + 0.04 * dn, pn);
+      if (it[l] > 0.002) {
+        const ik = s1 > s0 ? i1 : i0;
+        const pc = pal[st.CI[ik]];
+        const hh = st.HV[i0] + (st.HV[i1] - st.HV[i0]) * f, bb = st.BV[i0] + (st.BV[i1] - st.BV[i0]) * f;
+        hsv2rgb(pc[0] + hh, pc[1], cl(pc[2] * (1 + bb), 0, 1), tone);
+        cr[l] = tone[0]; cg[l] = tone[1]; cb[l] = tone[2];
+      }
     }
     for (let x = 0; x < W; x++) {
       let lt = 0;
@@ -298,13 +326,12 @@ export function draw(display, params) {
         if (cov > 0.002) {
           const u = min(1, d / max(w, 0.6));
           const core = 1 - u * u;
-          const v = (0.72 + 0.28 * core) * (0.55 + 0.6 * lt);
-          const c = pal[cid[l]];
+          const v = (0.72 + 0.28 * core) * min(1.1, 0.55 + 0.6 * lt);
           const lift = 0.16 * core * core * core;
-          const cr = c[0] * v + (255 - c[0]) * lift;
-          const cg = c[1] * v + (255 - c[1]) * lift;
-          const cb = c[2] * v + (255 - c[2]) * lift;
-          r += (cr - r) * cov; g += (cg - g) * cov; b += (cb - b) * cov;
+          const lr = cr[l] * v + (255 - cr[l]) * lift;
+          const lg = cg[l] * v + (255 - cg[l]) * lift;
+          const lb = cb[l] * v + (255 - cb[l]) * lift;
+          r += (lr - r) * cov; g += (lg - g) * cov; b += (lb - b) * cov;
         }
       }
       display.setPixel(x, y, cl(r, 0, 255) | 0, cl(g, 0, 255) | 0, cl(b, 0, 255) | 0);
