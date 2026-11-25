@@ -101,7 +101,7 @@ function rim(st, c, s, t) {
     }
   }
   const e = (d2 - d1) * D;
-  return exp(-(e * e) / 30);
+  return exp(-(e * e) / 24);
 }
 // how far into the cell regime a height along the wind is
 function cellMix(st, s) {
@@ -146,7 +146,7 @@ function spawn(st) {
     const ramp = sstep(SC, SC + 7, s);
     const bb = cellMix(st, s);
     // spawn is thickest at the condensation line; the cells spawn where they are
-    const gs = ramp * (0.16 + 0.84 * exp(-(s - SC) / 28));
+    const gs = ramp * (0.2 + 0.8 * exp(-(s - SC) / 32));
     const gc = ramp * 0.6;
     // aim the spawns at what the panel can see, a little less at the rest of the disc
     const x = CX + c * st.ca + s * st.sa, y = CY + c * st.sa - s * st.ca;
@@ -155,9 +155,9 @@ function spawn(st) {
     const Phi = TP * c / lam + phiOf(st, s, t);
     let ws = 0;
     const cs = cos(Phi);
-    if (cs > 0) ws = pow(cs, cl(4 + (15 - lam) * 0.55, 3.2, 8)) * (0.62 + 0.38 * cos(0.5 * Phi + psiOf(st, s, t)));
+    if (cs > 0) ws = pow(cs, cl(4 + (15 - lam) * 0.3, 3.2, 6)) * (0.62 + 0.38 * cos(0.5 * Phi + psiOf(st, s, t)));
     const w1 = (1 - bb) * ws * gs;
-    const w2 = bb > 0.002 ? bb * 0.8 * rim(st, c, s, t) * gc : 0;
+    const w2 = bb > 0.002 ? bb * 0.55 * rim(st, c, s, t) * gc : 0;
     const wt = w1 + w2;
     if (rnd() >= wt * see) continue;
     const i = st.n++;
@@ -218,16 +218,19 @@ export function update(dt, input, params) {
 }
 
 // ---- drawing ---------------------------------------------------------------
-function splat(g, x, y, r, a) {
-  const r2 = r * r;
-  const x0 = max(0, floor(x - r - 0.5)), x1 = min(W - 1, floor(x + r - 0.5) + 1);
-  const y0 = max(0, floor(y - r - 0.5)), y1 = min(H - 1, floor(y + r - 0.5) + 1);
+// a soft bump, stretched rs along the wind and rc across it
+function splat(g, x, y, rc, rs, a, ca, sa) {
+  const R = max(rc, rs);
+  const x0 = max(0, floor(x - R - 0.5)), x1 = min(W - 1, floor(x + R - 0.5) + 1);
+  const y0 = max(0, floor(y - R - 0.5)), y1 = min(H - 1, floor(y + R - 0.5) + 1);
+  const ic = 1 / (rc * rc), is = 1 / (rs * rs);
   for (let j = y0; j <= y1; j++) {
-    const dy = j + 0.5 - y, dy2 = dy * dy;
+    const dy = j + 0.5 - y;
     const o = j * W;
     for (let i = x0; i <= x1; i++) {
       const dx = i + 0.5 - x;
-      const q = (dx * dx + dy2) / r2;
+      const cc = dx * ca + dy * sa, ss = dx * sa - dy * ca;
+      const q = cc * cc * ic + ss * ss * is;
       if (q < 1) { const m = 1 - q; g[o + i] += a * m * m; }
     }
   }
@@ -259,14 +262,22 @@ export function draw(display, params) {
     const am = pow(sin(PI * pow(a, 0.8)), 0.75) * st.amp[i] * (st.kind[i] === 0 ? 1 - cellMix(st, s) : 1);
     if (am < 0.02) continue;
     const r = rad * (0.55 + 0.45 * sstep(0, 0.22, a)) * (1 - 0.18 * sstep(0.6, 1, a));
-    splat(g, x, y, r, am);
-    splat(g, x + st.lx[i] * r, y + st.ly[i] * r, r * 0.72, am * 0.8);
-    splat(g, x + st.lx2[i] * r, y + st.ly2[i] * r, r * 0.66, am * 0.7);
+    // street puffs are drawn longer along the wind than across it, cell rims are round
+    const fc = st.kind[i] === 0 ? 0.82 : 1, fs = st.kind[i] === 0 ? 1.45 : 1;
+    const rc = max(2.2, r * fc), rs = r * fs;
+    splat(g, x, y, rc, rs, am, ca, sa);
+    let ox = (st.lx[i] * rc) * ca + (st.ly[i] * rs) * sa, oy = (st.lx[i] * rc) * sa - (st.ly[i] * rs) * ca;
+    splat(g, x + ox, y + oy, max(2.2, rc * 0.72), rs * 0.72, am * 0.8, ca, sa);
+    ox = (st.lx2[i] * rc) * ca + (st.ly2[i] * rs) * sa; oy = (st.lx2[i] * rc) * sa - (st.ly2[i] * rs) * ca;
+    splat(g, x + ox, y + oy, max(2.2, rc * 0.66), rs * 0.66, am * 0.7, ca, sa);
   }
   // palette: the sea and the cloud's shade side follow the hue knob, the cloud tops stay near white
   const hue = st.ks[0] + 0.575;
-  hsv(hue, 0.9, 0.31, seaD);
-  hsv(hue - 0.03, 0.82, 0.46, seaL);
+  // orange and yellow read as brown when dark on the panel, so the sea lifts as the hue nears them
+  const wm = 0.5 + 0.5 * cos(TP * (hue - 0.08));
+  const lift = 1 + 0.55 * wm * wm;
+  hsv(hue, 0.9, 0.31 * lift, seaD);
+  hsv(hue - 0.03, 0.82, 0.46 * lift, seaL);
   hsv(hue + 0.01, 0.3, 0.66, shd);
   hsv(hue + 0.02, 0.2, 1, glc);
   // wind frame of the sea patches: they drift with the wind at a third of its speed
@@ -288,7 +299,7 @@ export function draw(display, params) {
       const dx = px - CX, dy = py - CY;
       const cc = dx * ca + dy * sa, ss = dx * sa - dy * ca;
       const pat = 0.5 + 0.3 * sin(0.121 * cc + 0.067 * (ss - vs) + p[14]) + 0.22 * sin(-0.083 * cc + 0.109 * (ss - vs) * 0.7 + 0.0049 * t + p[15]);
-      const pw = 0.7 * sstep(0.55, 1.0, pat);
+      const pw = 0.5 * sstep(0.6, 1.0, pat);
       let sr = seaD[0] + (seaL[0] - seaD[0]) * pw, sg = seaD[1] + (seaL[1] - seaD[1]) * pw, sb = seaD[2] + (seaL[2] - seaD[2]) * pw;
       // sun glints
       let gv = 0;
@@ -306,7 +317,7 @@ export function draw(display, params) {
         if (alpha > 0.003) {
           // light from the upper left: a flank facing it is bright, the lee side is dim
           const Dul = samp(g, px - 1.5, py - 1.5), Dlr = samp(g, px + 1.5, py + 1.5);
-          const tt = cl(0.58 + 0.95 * (Dlr - Dul) + 0.14 * min(D0, 1.2), 0, 1);
+          const tt = cl(0.5 + 1.25 * (Dlr - Dul) + 0.14 * min(D0, 1.2), 0, 1);
           let cr, cg, cb;
           if (tt < 0.62) {
             const u = tt / 0.62;
@@ -315,7 +326,7 @@ export function draw(display, params) {
             cb = shd[2] * 255 + (250 - shd[2] * 255) * u;
           } else {
             const u = (tt - 0.62) / 0.38;
-            cr = 236 + 19 * u; cg = 240 + 7 * u; cb = 250 - 20 * u;
+            cr = 236 + 14 * u; cg = 240 + 4 * u; cb = 250 - 24 * u;
           }
           r = r * (1 - alpha) + cr * alpha;
           gg = gg * (1 - alpha) + cg * alpha;
