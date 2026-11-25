@@ -13,7 +13,7 @@
 //
 // Knob 1: Hue. Turns both stains round the wheel together. It opens with green A bands and magenta Z discs on black.
 // Knob 2: Pace. 0.5 to 4, opening at 2: how often a wave of contraction starts and how fast it travels along the fibre. At 0.5 a wave comes every 4 s or so and crawls. At 4 there is nearly always one on the panel. The tissue creeps along the fibre at its own speed whatever this says.
-// Knob 3: Stretch. -1 to 1, opening at 0: the rest length of a sarcomere, 8 to 16.7 LED. At -1 the blocks nearly touch and a wave has little left to close. At 1 the dark I bands are 5 LED wide, each block is pale from end to end, and a wave lights its two ends.
+// Knob 3: Stretch. -1 to 1, opening at 0: the rest length of a sarcomere, 8.6 to 18 LED. At -1 the blocks nearly touch and a wave has little left to close. At 1 the dark I bands are nearly 6 LED wide, each block is pale from end to end, and a wave lights its two ends.
 // Knob 4: Slip. -1 to 1, opening at 0.06: how far neighbouring fibrils fall out of register and out of step. At -1 the stripes run straight across the panel and a wave is a level band. At 0 neighbours sit up to a quarter of a sarcomere apart and a wave crosses as a chevron. At 1 they sit up to half apart, like bricks, the chevron is three times steeper and each fibril also fires short waves of its own.
 
 const W = 64, H = 128;
@@ -26,13 +26,14 @@ const sm = (t) => {
 };
 
 const NF = 7;                 // fibrils laid across; the outer two hang off the panel so that a bend never bares an edge
-const SREST = 11.5, SPAN = 1.45; // rest length at Stretch 0, and the factor one end of the knob changes it by
-const ABAND = 6.5, THIN = 4.2;   // the thick filaments, and the thin ones from each Z disc, LED
+const SREST = 12.5, SPAN = 1.45; // rest length at Stretch 0, and the factor one end of the knob changes it by
+const ABAND = 6.5, THIN = 4.6;   // the thick filaments, and the thin ones from each Z disc, LED
 const SHORT = 0.36;           // the share of its length a fully active sarcomere gives up
-const ZS = 2 * 0.9 * 0.9;     // twice the variance of a Z line, LED^2
+const ZS = 2 * 0.8 * 0.8;     // twice the variance of a Z line, LED^2
 const GAP = 1.1;              // half the dark gap between two resting fibrils
 const NZ = 44, ZC = 22;       // Z discs kept for a fibril, and the index of the one at the anchor
 const POFF = [31.3, 43.7, 53.9, 61.1, 73.3, 83.9, 97.3]; // seconds: each fibril slides against the others on its own period
+const PDEP = [47.9, 29.3, 71.3, 37.9, 59.3, 33.1, 89.7]; // and rises and sinks through the plane of focus on another
 
 function hsh(i, s) {
   let h = Math.imul(i | 0, 0x9e3779b1) ^ Math.imul(s | 0, 0x85ebca6b);
@@ -44,6 +45,12 @@ function hsh(i, s) {
 function vn(x, s) {
   const i = floor(x), f = x - i, a = hsh(i, s);
   return 2 * (a + (hsh(i + 1, s) - a) * f * f * (3 - 2 * f)) - 1;
+}
+// the same in two directions, 0 to 1: along the fibre and through time
+function vn2(x, y, s) {
+  const ix = floor(x), iy = floor(y), fx = x - ix, fy = y - iy, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const n = ix + iy * 7919, a = hsh(n, s), b = hsh(n + 1, s), c = hsh(n + 7919, s), d = hsh(n + 7920, s);
+  return a + (b - a) * ux + (c - a + (a - b + d - c) * ux) * uy;
 }
 // three random streams, started from Math.random once: the waves, each fibril's own waves, the twitches
 function rnd(st, n) {
@@ -147,14 +154,17 @@ export function update(dt, input, params) {
 function fibril(st, j) {
   const t = st.t, p = st.ph, sa = st.sa, side = st.side, td = st.td, S0 = st.S0, hs = st.hs;
   const { z, zs, za, zr } = st;
-  // how far this fibril sits from register: a fixed part and a part that slides, half a sarcomere at the most
-  const uj = st.u0 + 0.5 * sa * (0.55 * st.fo[j] + 0.45 * sin((TAU * t) / POFF[j] + p[8 + j]));
+  // how far this fibril sits from register, half a sarcomere at the most: it leans to its own side, and slides about that
+  const uj = st.u0 + 0.5 * sa * cl(0.3 * st.fo[j] + 0.45 * sin((TAU * t) / POFF[j] + p[8 + j]) + 0.75 * vn(t / 12.7 + 31 * j, hs + 9), -1, 1);
   const kc = floor(uj), fr = uj - kc;
   const twd = side * 2 * hsh(j, hs + 5);
+  const psi = (TAU * t) / 47.3 + 2.4 * sin((TAU * t) / 31.9 + p[4]) + 0.7 * sin((TAU * t) / 17.9 + p[5]);
   const one = (i) => {
     const k = kc + i - ZC;
-    // a slow tone, never the same along the fibre for long, keeps parts of it a little shortened
-    let a = 0.1 * (1 + sin(TAU * (k / 11.3 - t / 31.7) + p[4] + 1.7 * j * sa)) + 0.06 * (1 + sin(TAU * (k / 5.9 + t / 19.3) + p[5] - 2.3 * j * sa));
+    // a slow tone holds stretches of the fibre partly shortened for some seconds, here and then somewhere else
+    let a = 0.5 * sm((vn2(k / 6.3 + 0.9 * j * sa + 0.021 * t, t / 9.7 + 0.37 * j * sa, hs + 7) - 0.45) / 0.32);
+    // and one band of it is always somewhere on the panel, wandering along the fibre at a walking pace
+    a += 0.8 * sm((cos((TAU * (k - st.u0)) / 8.5 - psi + 0.5 * sa * (j - 3)) - 0.2) / 0.6);
     for (const w of st.waves) {
       const dj = abs(j - w.j0), dk = abs(k + 0.5 - w.k0);
       if (dk > w.rng || (w.own && dj > 0)) continue;
@@ -170,7 +180,7 @@ function fibril(st, j) {
     }
     a = a > 1 ? 1 : a;
     // the rest length itself is uneven along the fibre
-    const rest = S0 * (1 + 0.05 * vn(k / 27.1, hs + 1) + 0.035 * sa * vn(k / 8.3, hs + 20 + j));
+    const rest = S0 * (1 + 0.05 * vn(k / 27.1, hs + 1) + 0.05 * vn(k / 9.7, hs + 2) + 0.035 * sa * vn(k / 8.3, hs + 20 + j));
     const raw = rest * (1 - SHORT * a);
     // thick filaments cannot be pushed through a Z disc: below 7.5 LED a sarcomere gives way less and less
     zs[i] = raw < 7.5 ? 6 + 1.5 * exp((raw - 7.5) / 1.5) : raw;
@@ -204,8 +214,10 @@ function fibril(st, j) {
     const sg = 1 + 0.24 * vn(u / 3.7, hs + 40 + j) + 0.17 * vn(u / 11.9, hs + 60 + j);
     const sz = 1 + 0.2 * vn(u / 5.3, hs + 80 + j);
     const zl = exp((-d * d) / ZS);
-    M[o0 + y] = zl * sz;
-    G[o0 + y] = sm(ABAND / 2 - c + 0.5) * (1 - 0.42 * sm(hz / 2 - c + 0.5) * cl(hz / 1.2, 0, 1)) * (1 + 0.22 * a) * sg * (1 - 0.8 * zl);
+    // a living specimen does not lie flat: each fibril drifts a little out of focus and back, and is dimmer there
+    const dp = 0.81 + 0.19 * sin(TAU * (yc / (150 + 13 * j) - t / PDEP[j]) + p[16 + j]);
+    M[o0 + y] = zl * sz * dp;
+    G[o0 + y] = sm(ABAND / 2 - c + 0.5) * (1 - 0.33 * sm(hz / 2 - c + 0.5) * cl(hz / 1.2, 0, 1)) * (1 + 0.16 * a) * sg * dp * (1 - 0.8 * zl);
     U[o0 + y] = u;
     // a shortened sarcomere is fatter, and closes the gap beside it
     HG[o0 + y] = max(0.1, GAP - 3.6 * (sqrt(zr[i] / S) - 1));
@@ -227,7 +239,7 @@ export function draw(display, params) {
   B.fill(0);
   for (let y = 0; y < H; y++) {
     // the whole bundle bends slowly
-    const sw = 2.2 * sin(TAU * (y / 230 + t / 67.9) + p[6]) + 1.4 * sin(TAU * (y / 140 - t / 37.3) + p[7]);
+    const sw = 2.2 * sin(TAU * (y / 230 + t / 67.9) + p[6]) + 1.4 * sin(TAU * (y / 140 - t / 26.9) + p[7]);
     for (let b = 0; b <= NF; b++) xb[b] = st.bx[b] + sw + 1.5 * vn(U[min(b, NF - 1) * H + y] / 6.1, hs + 100 + b);
     for (let j = 0; j < NF; j++) {
       const o = j * H + y, L = xb[j] + HG[o], R = xb[j + 1] - HG[o];
