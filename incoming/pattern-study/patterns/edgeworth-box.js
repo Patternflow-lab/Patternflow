@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the exchange of two goods between two traders and its contract curve (Edgeworth 1881, from memory), drawn as a box with one origin in each corner (Pareto 1906, from memory); indifference curves and the lens of trades that leave both better off, textbook results; the CES utility (Arrow, Chenery, Minhas and Solow 1961, from memory) with Cobb-Douglas as its limit; trading in small steps at prices between the two marginal rates of substitution, without an auctioneer (Uzawa 1962 and Hahn 1962, from memory). Original here: utility measured as the place a curve crosses the diagonal, terraces counted from the curve through the point held, a price that favours one trader and then the other, the taste difference tempered as the goods turn into substitutes so the contract curve stays inside the box, the endowments chosen where the two are about equally well off, the shocks and the wanders, each family of curves lit like a relief by a slowly turning light and a lamp that wanders over it, the swell that climbs the terraces, the colours and the drawing, pattern round 246
+// Lineage: the exchange of two goods between two traders and its contract curve (Edgeworth 1881, from memory), drawn as a box with one origin in each corner (Pareto 1906, from memory); indifference curves and the lens of trades that leave both better off, textbook results; the CES utility (Arrow, Chenery, Minhas and Solow 1961, from memory) with Cobb-Douglas as its limit; trading in small steps at prices between the two marginal rates of substitution, without an auctioneer (Uzawa 1962 and Hahn 1962, from memory). Original here: utility measured as the place a curve crosses the diagonal, terraces counted from the curve through the point held, a price that favours one trader and then the other, the taste difference tempered as the goods turn into substitutes so the contract curve stays inside the box, each endowment chosen far from the last ten so the border between the colours keeps finding a new place, the shocks and the wanders, every terrace swelling and sinking on a period of its own, a lamp that wanders over each family of curves and a faint turning light that shades it like a relief, the colours and the drawing, pattern round 246
 // Round:   248
 // ===============================
 // @matrix 64x128
@@ -21,15 +21,17 @@ const { floor, min, max, sqrt, exp, log, sin, cos, pow, abs, tanh, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-const NS = 7;                  // terraces from one corner of the box to the other
+const NS = 10;                 // terraces from one corner of the box to the other
 const MX = 4 / W, MY = 4 / H;  // the point stays 4 LED inside the box
 const TRADE = 0.85;            // seconds between trades at pace 1; the rate goes as pace to the power 0.8
 const LIFE = 4;                // how long a trade's segment stays lit, on the clock the endowments run on
 const WB = 0.47, WS = 0.065;    // a wash at the curve through the point, and what each terrace above it adds
 const D0 = 0.2, DS = 0.04;     // the ground below the curve, and what each terrace below it takes away
-const LIGHT = 0.38;            // how deep the turning light shades a wash
-const SPOT = 0.46;             // and how much a wash gains under the lamp that wanders over it
-const SWELL = 0.18;            // the swell that climbs the terraces
+const LIGHT = 0.12;            // how deep the turning light shades a wash
+const SPOT = 0.3;              // and how much a wash gains under the lamp that wanders over it
+const SWELL = 0.25;            // how far each terrace's light swells and sinks
+// Each terrace breathes on a period of its own, seconds: no two divide each other, so the bands never fall back in step.
+const PA = [19.3, 13.7, 23.9, 16.1, 29.7, 11.9, 26.3, 21.1, 17.3, 31.9, 14.9, 24.1, 18.7, 28.3], PB = [27.1, 15.7, 20.3, 33.1, 12.7, 24.7, 18.1, 29.3, 14.3, 22.1, 30.7, 16.9, 25.9, 13.1];
 const COLA = [1, 0.55, 0.45], COLB = [0.22, 0.48, 1];
 const DEEP = [1, 0.36, 0.48];    // where A's wash is dark it turns toward this rose, since a dark coral reads brown
 const DIMA = [0.7, 0.28, 0.9], DIMB = [0.15, 0.55, 0.95];
@@ -56,10 +58,10 @@ export function setup(params) {
     k: [0, 2, 0, 0.06], init: false, t: 0, c: 0, seed: 1, ph: [],
     a: 0.5, b: 0.5, ra: 1e-4, rb: 1e-4, dp: 0, dq: 0, g: 1,
     px: 0.5, py: 0.5, sx: 0.5, sy: 0.5, tx: 0.5, ty: 0.5, gT: 0, gD: 0,
-    tradeIn: 0, shockIn: 10, side: false, big: false, pulse: 0, pdx: 1, pdy: 0,
+    tradeIn: 0, shockIn: 10, hist: [], side: false, big: false, pulse: 0, pdx: 1, pdy: 0,
     trail: [],
     CA: f(W), GA: f(W), CB: f(W), GB: f(W), RA: f(H), HA: f(H), RB: f(H), HB: f(H),
-    WL: new Float32Array(W * H), pal: f(27), TA: f(10), TB: f(10), XA: f(W), XB: f(W), YA: f(H), YB: f(H),
+    WL: new Float32Array(W * H), pal: f(27), TA: f(14), TB: f(14), XA: f(W), XB: f(W), YA: f(H), YB: f(H),
   };
   params.st = st;
   return st;
@@ -126,10 +128,10 @@ function lev(st, p, q, a, r) {
   return u;
 }
 
-// A new endowment: a point whose lens is at least 15 LED across half way along, so it opens wide, and where the two are
-// about as well off as each other, so neither colour is crowded into a corner.
+// A new endowment: a point whose lens is at least 15 LED across half way along, so it opens wide, where neither of the two
+// is crowded into a corner, and far from the last ten endowments, so the border between the colours keeps finding a new place.
 function endow(st) {
-  const { a, b, ra, rb } = st;
+  const { a, b, ra, rb, hist } = st;
   let best = -1e9;
   for (let i = 0; i < 30; i++) {
     const p = 0.1 + 0.8 * rnd(st), q = 0.1 + 0.8 * rnd(st), n = reach(st, p, q, 0.5);
@@ -138,10 +140,13 @@ function endow(st) {
     let wd = (lev(st, x, y, a, ra) - ua) / st.g;
     const ub = lev(st, 1 - p, 1 - q, b, rb);
     wd += (lev(st, 1 - x, 1 - y, b, rb) - ub) / st.g;
-    const off = max(0, abs(ua - ub) - 0.18), sc = min(wd, 15) - 30 * off;
+    let far = 1;
+    for (let h = 0; h < hist.length; h += 2) far = min(far, sqrt((p - hist[h]) * (p - hist[h]) + (q - hist[h + 1]) * (q - hist[h + 1])) / 0.3);
+    const off = max(0, abs(ua - ub) - 0.4), sc = min(wd, 15) - 30 * off + 12 * far;
     if (sc > best) (best = sc), (st.tx = p), (st.ty = q);
-    if (sc >= 15) break;
   }
+  hist.push(st.tx, st.ty);
+  if (hist.length > 20) hist.splice(0, 2);
 }
 
 // One trade: a straight move along a price line, a part of the way the line stays inside the lens and 7 LED at the most.
@@ -298,8 +303,9 @@ export function draw(display, params) {
     }
   }
 
-  // the colours: the knob turns both, and each wanders a little on its own, on a clock no knob touches
-  const c = st.c;
+  // the colours: the knob turns both, and each wanders a little on its own, on a clock no knob touches. Everything the
+  // light does below runs on that clock at under half speed: quicker, and the washes flickered more than they breathed.
+  const c = 0.45 * st.c;
   const hA = -0.02 + 0.035 * sin((TAU * c) / 27.3 + p[9]) + 0.02 * sin((TAU * c) / 61.7 + p[10]);
   const hB = 0.05 * sin((TAU * c) / 33.9 + p[11]) + 0.025 * sin((TAU * c) / 71.3 + p[12]);
   const thA = TAU * (st.k[0] + hA), thB = TAU * (st.k[0] + hB);
@@ -320,32 +326,32 @@ export function draw(display, params) {
   const b0 = pal[6], b1 = pal[7], b2 = pal[8], e0 = pal[9], e1 = pal[10], e2 = pal[11];
   const c0 = pal[12] - a0, c1 = pal[13] - a1, c2 = pal[14] - a2;
   // how bright each wash is at the curve, how much each terrace adds, how bright the ground is: all slow, each on its own.
-  // And a slow swell that climbs the terraces toward each one's own corner, a terrace at a time.
-  const wA = 1.08 * WB * (1 + 0.16 * sin((TAU * c) / 23.9 + p[13]) + 0.06 * sin((TAU * c) / 37.3 + p[32]));
-  const wB = WB * (1 + 0.16 * sin((TAU * c) / 29.3 + p[14]) + 0.06 * sin((TAU * c) / 43.1 + p[33]));
+  // And each terrace swells and sinks on its own period, so the bands of one family never brighten together twice the same way.
+  const wA = 1.08 * WB * (1 + 0.05 * sin((TAU * c) / 23.9 + p[13]) + 0.03 * sin((TAU * c) / 37.3 + p[32]));
+  const wB = WB * (1 + 0.05 * sin((TAU * c) / 29.3 + p[14]) + 0.03 * sin((TAU * c) / 43.1 + p[33]));
   const sA = WS * (1 + 0.65 * sin((TAU * c) / 52.3 + p[18])), sB = WS * (1 + 0.65 * sin((TAU * c) / 68.9 + p[19]));
   const dg = D0 * (1 + 0.2 * sin((TAU * c) / 43.1 + p[20]));
   const { TA, TB } = st;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 14; i++) {
     const j = min(i, 3);
-    TA[i] = cl(wA + sA * j + SWELL * sin(1.9 * i - (TAU * c) / 19.3 + p[23]), 0.26, 0.9);
-    TB[i] = cl(wB + sB * j + SWELL * sin(1.9 * i - (TAU * c) / 27.1 + p[28]), 0.26, 0.9);
+    TA[i] = cl(wA + sA * j + SWELL * sin(1.9 * i - (TAU * c) / PA[i] + p[23]), 0.26, 0.9);
+    TB[i] = cl(wB + sB * j + SWELL * sin(1.9 * i - (TAU * c) / PB[i] + p[28]), 0.26, 0.9);
   }
   // Each family of curves is lit like a relief by a light of its own that turns slowly: now the steep end of every curve
   // is the bright one, now the flat end, now the bend between them.
   const mA = (TAU * c) / 23.7 + p[24] + 0.9 * sin((TAU * c) / 41.9 + p[25]), mB = p[26] - (TAU * c) / 29.3 + 0.9 * sin((TAU * c) / 53.1 + p[27]);
   const cLA = LIGHT * cos(mA), sLA = LIGHT * sin(mA), cLB = LIGHT * cos(mB), sLB = LIGHT * sin(mB);
-  // And over each wash a broad lamp wanders across the panel, whatever the point and the tastes do.
+  // And over each wash a lamp about 35 LED across wanders the panel, whatever the point and the tastes do.
   const { XA, XB, YA, YB } = st;
   const xa = 32 + 22 * sin((TAU * c) / 13.7 + p[34]) + 12 * sin((TAU * c) / 31.3 + p[38]), ya = 64 + 44 * sin((TAU * c) / 17.9 + p[35]) + 24 * sin((TAU * c) / 37.1 + p[39]);
   const xb = 32 + 22 * sin((TAU * c) / 15.3 + p[36]) + 12 * sin((TAU * c) / 34.7 + p[40]), yb = 64 + 44 * sin((TAU * c) / 21.1 + p[37]) + 24 * sin((TAU * c) / 45.7 + p[41]);
   for (let x = 0; x < W; x++) {
-    XA[x] = SPOT * exp(-((x + 0.5 - xa) * (x + 0.5 - xa)) / 2300);
-    XB[x] = SPOT * exp(-((x + 0.5 - xb) * (x + 0.5 - xb)) / 2300);
+    XA[x] = SPOT * exp(-((x + 0.5 - xa) * (x + 0.5 - xa)) / 650);
+    XB[x] = SPOT * exp(-((x + 0.5 - xb) * (x + 0.5 - xb)) / 650);
   }
   for (let y = 0; y < H; y++) {
-    YA[y] = exp(-((y + 0.5 - ya) * (y + 0.5 - ya)) / 2300);
-    YB[y] = exp(-((y + 0.5 - yb) * (y + 0.5 - yb)) / 2300);
+    YA[y] = exp(-((y + 0.5 - ya) * (y + 0.5 - ya)) / 650);
+    YB[y] = exp(-((y + 0.5 - yb) * (y + 0.5 - yb)) / 650);
   }
   // the lens is lifted to a pale tone whatever the two colours add up to
   const l0 = 0.95 * max(0.1, 0.92 - TA[0] * a0 - TB[0] * b0), l1 = 0.95 * max(0.1, 0.92 - TA[0] * a1 - TB[0] * b1), l2 = 0.95 * max(0.1, 0.92 - TA[0] * a2 - TB[0] * b2);
@@ -370,7 +376,7 @@ export function draw(display, params) {
       const rimA = d < 0.7 ? 1 : d > 1.6 ? 0 : (1.6 - d) / 0.9;
       let inA = 1, wa = 0, da = 0;
       if (k >= 0) {
-        if (k > 8) k = 8;
+        if (k > 12) k = 12;
         wa = TA[k] + (TA[k + 1] - TA[k]) * s;
       } else {
         inA = k < -1 ? 0 : s;
@@ -398,7 +404,7 @@ export function draw(display, params) {
       const rimB = d < 0.7 ? 1 : d > 1.6 ? 0 : (1.6 - d) / 0.9;
       let inB = 1, wb = 0, db = 0;
       if (k >= 0) {
-        if (k > 8) k = 8;
+        if (k > 12) k = 12;
         wb = TB[k] + (TB[k + 1] - TB[k]) * s;
       } else {
         inB = k < -1 ? 0 : s;
