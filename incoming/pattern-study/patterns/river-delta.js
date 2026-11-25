@@ -460,7 +460,7 @@ export function update(dt, input, params) {
 
 // ---- the picture --------------------------------------------------------------
 const WATER = [[0, 128, 222, 208], [0.2, 40, 176, 176], [0.5, 18, 128, 150], [0.8, 10, 70, 104], [1.0, 6, 30, 62]];
-const LAND = [[0, 236, 220, 170], [25, 222, 190, 112], [60, 186, 164, 72], [110, 126, 148, 58], [190, 58, 122, 54], [300, 32, 96, 56]];
+const LAND = [[0, 238, 226, 178], [25, 226, 200, 128], [60, 192, 172, 84], [110, 128, 150, 62], [190, 58, 124, 54], [300, 32, 98, 56]];
 function ramp(tab, v, out) {
   const n = tab.length;
   if (v <= tab[0][0]) { out[0] = tab[0][1]; out[1] = tab[0][2]; out[2] = tab[0][3]; return; }
@@ -506,7 +506,7 @@ export function draw(display, params) {
       let r = cw[0], g = cw[1], bl = cw[2];
       const sflow = sstep(0.05, 0.3, fq * qd);
       const fm = sflow * 0.65 * sstep(0.03, 0.2, h);
-      r += (150 - r) * fm; g += (240 - g) * fm; bl += (225 - bl) * fm;
+      r += (120 - r) * fm; g += (234 - g) * fm; bl += (222 - bl) * fm;
       const pm = (1 - exp(-pq * 12)) * 0.7;
       r += (186 - r) * pm; g += (206 - g) * pm; bl += (168 - bl) * pm;
       const mf = sstep(30, 80, mq) * sstep(7, 16, dq) * sstep(0.3, 0.12, h) * 0.7;
