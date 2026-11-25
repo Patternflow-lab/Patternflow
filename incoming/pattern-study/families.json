@@ -299,5 +299,10 @@
   "riverdelta": { "label": "삼각주", "color": "#c9a96e" },
   "myxobacteria": { "label": "점액세균", "color": "#7bd88f" },
   "grandtour": { "label": "그랜드 투어", "color": "#8aa0ff" },
-  "grover": { "label": "그로버 탐색", "color": "#ffcf4d" }
+  "grover": { "label": "그로버 탐색", "color": "#ffcf4d" },
+  "noctilucent": { "label": "야광운", "color": "#8fe3ff" },
+  "massspectrometry": { "label": "질량 분석", "color": "#e86bb0" },
+  "etalon": { "label": "에탈론", "color": "#ffd23f" },
+  "constellation": { "label": "성상도", "color": "#5fe08a" },
+  "reionization": { "label": "재이온화", "color": "#f0843c" }
 }
