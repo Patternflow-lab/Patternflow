@@ -27,10 +27,12 @@ const sstep = (a, b, x) => {
 const rnd = () => Math.random();
 
 const C0 = 20;                   // LED between sources at Sources 0
-const TM = 3.1;                  // the optical depth the bubbles saturate at: 4.5 percent of the gas stays neutral
+const TM = 2.8;                  // the optical depth the bubbles saturate at, so about a tenth of the gas stays neutral
 const KF = 0.2;                  // bubble volume per unit of optical depth, in cells (set by measuring the ionized share)
 const TH = 0.25;                 // the level of the summed kernels that is the ionization front
 const WARP = 26;                 // LED the slow density field moves the timetable up or down
+const VOID = 0.45;                // and how much it swells or shrinks the bubbles: the voids stay neutral longest
+const ISLE = 0.9;                 // the same for the filament-scale field, once the bubbles have run together
 const GT0 = -40, GTN = 480;      // table of bubble scale against height: from -40 LED in half LED steps
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
@@ -46,7 +48,15 @@ const hashf = (i, j, k, s) => hashi(i, j, k, s) / 4294967296;
 
 // Gradient noise in three dimensions read on one plane of the third: the two layers of gradients are joined at each
 // lattice node first, which leaves three numbers a node and four nodes a pixel.
-const GRX = [1, -1, 1, -1, 1, -1, 1, -1, 0, 0, 0, 0], GRY = [1, 1, -1, -1, 0, 0, 0, 0, 1, -1, 1, -1], GRZ = [0, 0, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1];
+// The gradients are 32 directions spread over the sphere, none along an axis: with the usual twelve a ridge of the noise
+// can run straight along a lattice row.
+const GRX = new Float32Array(32), GRY = new Float32Array(32), GRZ = new Float32Array(32);
+for (let i = 0; i < 32; i++) {
+  const z = 1 - (2 * i + 1) / 32, r = 1.4 * sqrt(1 - z * z), a = i * 2.39996 + 0.4;
+  GRX[i] = r * cos(a);
+  GRY[i] = r * sin(a);
+  GRZ[i] = 1.4 * z;
+}
 const NA = new Float32Array(600), NX = new Float32Array(600), NY = new Float32Array(600);
 const CI = new Int32Array(W), CF = new Float32Array(W), CS = new Float32Array(W);
 function fillNoise(out, scale, ox, oy, ow, seed) {
@@ -56,7 +66,7 @@ function fillNoise(out, scale, ox, oy, ow, seed) {
   const iw = floor(ow), fw = ow - iw, sw = fw * fw * fw * (fw * (fw * 6 - 15) + 10);
   for (let j = 0; j < ny; j++)
     for (let i = 0; i < nx; i++) {
-      const g0 = hashi(ix0 + i, iy0 + j, iw, seed) % 12, g1 = hashi(ix0 + i, iy0 + j, iw + 1, seed) % 12, n = j * nx + i;
+      const g0 = hashi(ix0 + i, iy0 + j, iw, seed) & 31, g1 = hashi(ix0 + i, iy0 + j, iw + 1, seed) & 31, n = j * nx + i;
       NA[n] = (1 - sw) * GRZ[g0] * fw + sw * GRZ[g1] * (fw - 1);
       NX[n] = (1 - sw) * GRX[g0] + sw * GRX[g1];
       NY[n] = (1 - sw) * GRY[g0] + sw * GRY[g1];
@@ -115,17 +125,17 @@ function rgbOf(L, C, h, out, o) {
 // on the panel, so the ramp is past rose before it is bright enough to turn to amber.
 const TB0 = -1.3, TB1 = 1.5, NL = 256;
 const KEYS = [
-  [-1.3, 0.66, 0.19, 250],
-  [-0.9, 0.53, 0.24, 266],
-  [-0.5, 0.42, 0.22, 284],
-  [-0.15, 0.31, 0.16, 305],
-  [0.0, 0.27, 0.13, 322],
-  [0.22, 0.37, 0.15, 340],
-  [0.45, 0.52, 0.16, 368],
-  [0.65, 0.67, 0.15, 408],
-  [0.85, 0.78, 0.17, 430],
-  [1.1, 0.87, 0.17, 445],
-  [1.5, 0.95, 0.1, 455],
+  [-1.3, 0.7, 0.13, 240],
+  [-0.9, 0.55, 0.17, 262],
+  [-0.5, 0.43, 0.17, 282],
+  [-0.15, 0.32, 0.13, 305],
+  [0.0, 0.3, 0.1, 318],
+  [0.3, 0.4, 0.11, 328],
+  [0.5, 0.54, 0.095, 350],
+  [0.68, 0.68, 0.085, 405],
+  [0.85, 0.79, 0.12, 438],
+  [1.1, 0.87, 0.125, 448],
+  [1.5, 0.95, 0.08, 458],
 ];
 function buildLuts(st, hr) {
   const lut = st.lut;
@@ -136,8 +146,8 @@ function buildLuts(st, hr) {
     const a = KEYS[k], b = KEYS[k + 1], f = cl((u - a[0]) / (b[0] - a[0]), 0, 1);
     rgbOf(a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, a[3] + (b[3] - a[3]) * f + hr, lut, i * 3);
   }
-  rgbOf(0.13, 0.05, 262 + hr, st.cIon, 0);     // the ionized gas: blue-black, under level 20
-  rgbOf(0.95, 0.06, 205 + hr, st.cRim, 0);     // the front: pale cyan
+  rgbOf(0.1, 0.035, 262 + hr, st.cIon, 0);     // the ionized gas: blue-black, under level 20
+  rgbOf(0.94, 0.06, 205 + hr, st.cRim, 0);     // the front: pale cyan
   rgbOf(0.98, 0.04, 100 + hr, st.cDot, 0);     // a galaxy: warm white
 }
 
@@ -150,7 +160,7 @@ export function setup(params) {
     ks: 0, kt: 0.06,
     wl: 200 + 600 * rnd(), wd: 3000 * rnd(), xc: 50 + 100 * rnd(), xd: 1000 * rnd(), yc: 50 + 100 * rnd(),
     ph, seed: floor(rnd() * 1e6),
-    F: new Float32Array(N), GX: new Float32Array(N), GY: new Float32Array(N), D: new Float32Array(N),
+    F: new Float32Array(N), FR: new Float32Array(N), GX: new Float32Array(N), GY: new Float32Array(N), D: new Float32Array(N),
     G: new Float32Array(N), IG2: new Float32Array(N), QL: new Float32Array(N), GROW: new Float32Array(H),
     LM: new Float32Array(N), N1: new Float32Array(N), N2: new Float32Array(N), WB: new Float32Array(N),
     GT: new Float32Array(GTN + 2),
@@ -159,7 +169,7 @@ export function setup(params) {
   return st;
 }
 
-const cellOf = (ks) => C0 * pow(1.7, -ks);
+const cellOf = (ks) => C0 * pow(ks < 0 ? 1.45 : 1.7, -ks);
 
 export function update(dt, input, params) {
   if (!params.st) setup(params);
@@ -181,41 +191,43 @@ export function update(dt, input, params) {
   const C = cellOf(st.ks), rate = 0.05 * pow(10, cl(st.k[1], 0, 4) / 4), t = st.t, ph = st.ph;
   st.wl += rate * dt;
   st.wd += rate * C * dt;
-  // and wanders sideways by a few LED on two periods of its own
-  const vx = 0.9 * sin((TAU * t) / 61 + ph[3]) + 0.6 * sin((TAU * t) / 37.3 + ph[4]);
+  // and pans sideways, half an LED a second, faster and slower on two periods of its own
+  const vx = 0.55 + 0.35 * sin((TAU * t) / 61 + ph[3]) + 0.25 * sin((TAU * t) / 37.3 + ph[4]);
   st.xc += (vx * dt) / C;
   st.xd += vx * dt;
 }
 
 // ---- one frame ----------------------------------------------------------------
 function frame(st) {
-  const { F, GX, GY, D, G, IG2, QL, GROW, LM, N1, N2, WB, GT, ph } = st;
+  const { F, FR, GX, GY, D, G, IG2, QL, GROW, LM, N1, N2, WB, GT, ph } = st;
   const t = st.t, ks = st.ks, kt = st.kt, C = cellOf(ks), sd = st.seed;
-  F.fill(0); GX.fill(0); GY.fill(0); D.fill(0);
+  F.fill(0); FR.fill(0); GX.fill(0); GY.fill(0); D.fill(0);
 
   // the timetable: the height (LED above the foot) of the first bubbles and of the half-ionized row
   const wm = 9 * sin((TAU * t) / 43 + ph[0]) + 6 * sin((TAU * t) / 71.3 + ph[1]);
-  const h0 = 26 + 12 * kt + (kt > 0 ? 22 * kt * kt : 0) + 0.5 * wm + 4 * sin((TAU * t) / 57.7 + ph[2]);
-  const hm = 62 + 28 * kt + (kt > 0 ? 68 * kt * kt : 0) + wm;
+  const h0 = 26 + 12 * kt + (kt > 0 ? 10 * kt * kt : 0) + 0.5 * wm + 4 * sin((TAU * t) / 57.7 + ph[2]);
+  const hm = 62 + 28 * kt + (kt > 0 ? 60 * kt * kt : 0) + wm;
   const span = max(12, hm - h0);
   for (let j = 0; j <= GTN + 1; j++) {
     const s = (GT0 + 0.5 * j - h0) / span;
     GT[j] = s > 0 ? C * pow(TM * (1 - exp((-LN2 * pow(s, 1.6)) / TM)) * KF, 1 / 3) : 0;
   }
-  const gmax = C * pow(TM * KF, 1 / 3);
+  const gsat = C * pow(TM * KF, 1 / 3), gmax = gsat * (1 + VOID * 0.7 + ISLE * 0.5);
 
   // the density: a slow field that warps the timetable, and two octaves ridged into filaments
   fillNoise(LM, 46, st.xd, 0.11 * t, st.wd / 46 + t / 90, sd + 11);
   fillNoise(N1, 23, st.xd, 0, st.wd / 23, sd + 23);
-  fillNoise(N2, 11.5, st.xd, 0, st.wd / 11.5 + 0.37, sd + 37);
+  fillNoise(N2, 11.5, st.xd + 4.1, 6.3, st.wd / 11.5 + 0.37, sd + 37);
   for (let y = 0; y < H; y++) {
     const h = 127 - y, row = y * W;
     let gm = 0;
     for (let x = 0; x < W; x++) {
       const i = row + x, lam = LM[i];
-      const r1 = 1 - min(1, abs(N1[i]) * 3.2), r2 = 1 - min(1, abs(N2[i]) * 3.2);
-      WB[i] = cl(0.62 * r1 * r1 + 0.22 * r2 + 0.5 * lam + 0.12, 0, 1.2);
-      const p = cl((h + WARP * lam - GT0) * 2, 0, GTN), j = p | 0, g = GT[j] + (GT[j + 1] - GT[j]) * (p - j);
+      // a filament is where the two octaves together cross zero
+      const r1 = 1 - min(1, abs(N1[i] + 0.45 * N2[i]) * 2.6);
+      WB[i] = cl(0.9 * r1 * r1 + 0.55 * lam + 0.1, -0.3, 1.3);
+      const p = cl((h + WARP * lam - GT0) * 2, 0, GTN), j = p | 0, gt = GT[j] + (GT[j + 1] - GT[j]) * (p - j), sat = gt / gsat;
+      const g = gt * max(0.2, 1 + VOID * cl(lam, -0.7, 0.7) + ISLE * sat * sat * cl(N1[i], -0.5, 0.5));
       G[i] = g;
       IG2[i] = g > 0.05 ? 1 / (g * g) : 1e9;
       if (g > gm) gm = g;
@@ -233,7 +245,7 @@ function frame(st) {
   // the sources: one a cell, jittered, with a steep spread of luminosity. Sources turns the spread as well as the spacing:
   // towards -1 nearly all the light is in a few, towards 1 they are alike.
   const up = max(0, ks), dn = max(0, -ks);
-  const ra = 0.5 + 0.35 * up - 0.32 * dn, rb = 1.2 - 0.9 * up + 0.3 * dn, re = 4 - 2 * up + dn;
+  const ra = 0.5 + 0.35 * up - 0.1 * dn, rb = 1.2 - 0.9 * up, re = 4 - 2 * up + dn;
   const rn = pow(ra * ra * ra + (3 * ra * ra * rb) / (re + 1) + (3 * ra * rb * rb) / (2 * re + 1) + (rb * rb * rb) / (3 * re + 1), -1 / 3);
   const rmax = (ra + rb) * rn, reach = (SQ2 * rmax * gmax) / C, iC = 1 / C;
   const xl = (0.5 - 32) * iC + st.xc, xr = (W - 0.5 - 32) * iC + st.xc, yt = (0.5 - 64) * iC + st.yc, yb = (H - 0.5 - 64) * iC + st.yc;
@@ -258,18 +270,20 @@ function frame(st) {
             if (q >= 2) continue;
             const u = 1 - 0.5 * q, g = 2 * u * s;
             F[i] += u * u;
+            FR[i] += u * u * r;
             GX[i] -= g * dx;
             GY[i] -= g * (dy - d2 * QL[i]);
           }
         }
         // the galaxy itself, while the slice is close to it
-        if (r > 1.05 && abs(dw) < dotW && cx > -3 && cx < W + 3 && cy > -3 && cy < H + 3) {
-          const z = dw / dotW, amp = (1 - z * z) * (1 - z * z) * sstep(1.05, 1.45, r);
-          for (let y = max(0, floor(cy - 3)); y <= min(H - 1, floor(cy + 3)); y++)
-            for (let x = max(0, floor(cx - 3)); x <= min(W - 1, floor(cx + 3)); x++) {
-              const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-              D[y * W + x] += amp * exp(-(dx * dx + dy * dy) / 2.4);
-            }
+        if (r > 1.05 && abs(dw) < dotW && cx > 0 && cx < W && cy > 0 && cy < H) {
+          const z = dw / dotW, amp = (1 - z * z) * (1 - z * z) * sstep(1.05, 1.45, r) * sstep(6, 10, r * G[floor(cy) * W + floor(cx)]);
+          if (amp > 0.01)
+            for (let y = max(0, floor(cy - 3)); y <= min(H - 1, floor(cy + 3)); y++)
+              for (let x = max(0, floor(cx - 3)); x <= min(W - 1, floor(cx + 3)); x++) {
+                const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+                D[y * W + x] += amp * exp(-(dx * dx + dy * dy) / 2.4);
+              }
         }
       }
 }
@@ -284,20 +298,20 @@ export function draw(display, params) {
     buildLuts(st, 360 * hue);
   }
   frame(st);
-  const { F, GX, GY, D, LM, WB, lut, cIon, cRim, cDot, ph } = st;
+  const { F, FR, GX, GY, D, G, LM, N1, WB, lut, cIon, cRim, cDot, ph } = st;
   const t = st.t, kt = st.kt;
   // the glow and the absorption breathe on their own clocks, and the row where one turns into the other wanders
   const gE = 1 + 0.1 * sin((TAU * t) / 23.7 + ph[5]) + 0.06 * sin((TAU * t) / 38.9 + ph[6]);
   const gA = 1 + 0.12 * sin((TAU * t) / 27.3 + ph[7]);
-  const hA = 17 + 5 * kt + 3 * sin((TAU * t) / 31.1 + ph[8]);
+  const hA = 20 + 5 * kt + 3 * sin((TAU * t) / 31.1 + ph[8]);
   const ls = (NL - 1) / (TB1 - TB0);
   for (let y = 0; y < H; y++) {
-    const h = 127 - y, row = y * W, up = 0.92 + 0.26 * (h / 127);
+    const h = 127 - y, row = y * W, up = 0.9 + 0.5 * (h / 127);
     for (let x = 0; x < W; x++) {
       const i = row + x, wb = WB[i];
       // the neutral gas: warm where the first light has reached it, sooner where it is dense
-      const sA = tanh((h + 16 * (wb - 0.45) + 9 * LM[i] - hA) / 5);
-      const tb = sA > 0 ? sA * gE * up * (0.3 + 1.0 * wb) : sA * gA * (0.55 + 0.75 * wb);
+      const sA = tanh((h + 24 * LM[i] + 10 * N1[i] - hA) / 7);
+      const tb = sA > 0 ? sA * gE * up * (0.5 + wb) : sA * gA * (0.6 + 0.8 * max(0, wb));
       const li = floor((cl(tb, TB0, TB1) - TB0) * ls + 0.5) * 3;
       let r = lut[li], g = lut[li + 1], b = lut[li + 2];
       const f = F[i];
@@ -308,7 +322,8 @@ export function draw(display, params) {
         r += (cIon[0] - r) * xi;
         g += (cIon[1] - g) * xi;
         b += (cIon[2] - b) * xi;
-        const rim = s > -3 && s < 3 ? 0.9 * exp(-0.75 * s * s) : 0;
+        // the front is a pale line, fainter round a bubble only a few LED across
+        const rim = s > -3 && s < 3 ? 0.9 * exp(-0.75 * s * s) * (0.3 + 0.7 * sstep(2.5, 7, (FR[i] / f) * G[i])) : 0;
         if (rim > 0.004) {
           r += (cRim[0] - r) * rim;
           g += (cRim[1] - g) * rim;
