@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Replicator Simplex
 // Family:  evolutionarygame
-// Idea:    Two triangles, one above the other, each the space of all mixtures of three strategies in a rock-paper-scissors game, with a couple of hundred small populations flowing through each as glowing comets that spiral into coexistence in one triangle while they spiral out towards the edges and corners of the other, and every minute or so the two swap, passing through a moment where both hold closed loops.
+// Idea:    Two triangles, one above the other, each the space of all mixtures of three strategies in a rock-paper-scissors game, with about sixty small populations flowing through each as glowing comets that spiral into coexistence in one triangle while they spiral out towards the edges and corners of the other, and every minute or so the two swap, passing through a moment where both hold closed loops.
 // Author:  patternflow-lab
 // Date:    2026-11-25
 // SPDX-License-Identifier: CC-BY-SA-4.0
