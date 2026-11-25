@@ -277,7 +277,7 @@
   "contourintegration": { "label": "윤곽 통합", "color": "#996faa" },
   "kirkwood": { "label": "소행성대 공명", "color": "#c07ae6" },
   "chemotaxis": { "label": "세균 주화성", "color": "#58c978" },
-  "kapitza": { "label": "진동 안정화", "color": "#c8e04a" },
   "zpinch": { "label": "Z 핀치", "color": "#d65bbf" },
-  "vocaltract": { "label": "성도 파동관", "color": "#d9708f" }
+  "vocaltract": { "label": "성도 파동관", "color": "#d9708f" },
+  "kinematics": { "label": "역운동학", "color": "#f0a05a" }
 }
