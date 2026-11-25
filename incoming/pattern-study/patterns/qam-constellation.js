@@ -33,31 +33,33 @@ const NSYM = 700;                     // symbols a frame for each polarization
 const XC = 32, YC = [31.5, 96.5];     // centre of each square
 const ROW0 = [0, 65], ROW1 = [62, 127];
 // The lattice is three levels of plus-or-minus steps: QPSK uses the first, 16-QAM two, 64-QAM three.
-const C1 = [12.5, 13.5, 12.6], C2 = [0, 6.75, 6.3], C3 = [0, 0, 3.15];
-const NSC = [1.5, 1, 0.5];           // the noise in LED scales with the spacing: the rate follows the channel
+const C1 = [15, 14.5, 12.8], C2 = [0, 7.25, 6.4], C3 = [0, 0, 3.2];
+const NSC = [1.9, 1, 0.5];           // the noise in LED scales with the spacing: the rate follows the channel
 const PSC = [1.3, 1, 0.55];          // and so does the phase noise
-const JIT = [0.9, 0.3, 0];            // the size of a clean point
-const ESC = [0.4, 1, 3];            // light a symbol carries
-const HDS = [12, 6.75, 3.15];           // half the distance to the next point: beyond it a symbol is an error
+const JIT = [2.4, 0.8, 0];            // the size of a clean point
+const PK = [3.6, 3, 1.8];              // how bright a clean point's centre is, in units of the tone curve's knee
+const MM = [4, 16, 64];
+const HDS = [12, 7.25, 3.2];           // half the distance to the next point: beyond it a symbol is an error
 const A0 = 0.055, TP = 0.9;           // tone curve of the phosphor
-const KV = 0.667, BETA = 0.65;         // variance of a clean dot, and how far the intensity scale follows the spread
+const KVS = [1.167, 1.167, 0.667];    // variance of a clean dot: the splat and two passes of blur, one pass where the points stand close
 const TLN = 2048, TLMAX = 9, TLUT = new Float32Array(TLN + 1);
 for (let i = 0; i <= TLN; i++) TLUT[i] = 1 - exp(-pow((TLMAX * i * i) / (TLN * TLN) / A0, TP));
 
 // slow wanderers, one set for each polarization: [seconds for X, seconds for Y]
-const GA = 0, IB = 1, SK = 2, RT = 3, DX = 4, DY = 5, CP = 6, TW = 7, BR = 8, W1 = 9, NZ = 15, PN = 16, HU = 17, KF = 18, RI = 19, RS = 20, JT = 21;
+const GA = 0, IB = 1, SK = 2, RT = 3, DX = 4, DY = 5, CP = 6, TW = 7, BR = 8, W1 = 9, NZ = 15, PN = 16, HU = 17, KF = 18, RI = 19, RS = 20, JT = 21, LV = 22, SL = 26;
 const OUT = [[9, 13], [11, 7.5], [8.5, 12.5], [6.5, 10], [7, 9.5], [12, 5.5], [14, 10.5], [9.5, 15], [11, 15],
   [8, 12], [13, 7], [10, 16], [15, 9], [7.5, 11], [12.5, 17],
-  [6, 8.5], [7.5, 5], [14, 19], [8, 11.5], [9, 6.5], [10.5, 14], [0.18, 0.14]];
+  [6, 8.5], [7.5, 5], [14, 19], [8, 11.5], [9, 6.5], [10.5, 14], [0.18, 0.14],
+  [10, 7], [6.5, 12], [8.5, 14.5], [13.5, 9], [80, 110], [95, 65], [60, 90]];
 const NOU = OUT.length;
 
 function newPol(p) {
   const o = new Float32Array(NOU), s = new Float32Array(NOU);
-  for (let j = 0; j < NOU; j++) o[j] = s[j] = (j < CP ? 0.6 : 1) * gauss();
+  for (let j = 0; j < NOU; j++) o[j] = s[j] = (j < CP || j >= SL ? 0.6 : 1) * gauss();
   const m = p ? (rnd() < 0.5 ? 0 : 2) : 1;
   return {
     o, s, m, mt: m, tm: (p ? 16 : 9) + 14 * rnd(),
-    c: [0, 0, 0], nsc: 1, psc: 1, jit: 0, esc: 1, hd: 7.5, cnt: floor(rnd() * 4096),
+    c: [0, 0, 0], nsc: 1, psc: 1, jit: 0, pk: 3, mm: 16, kv: 1.167, hd: 7.5, cnt: floor(rnd() * 4096),
     theta: 0, lock: 0, dth: 0, spinT: 0, spinDur: 1, spinW: 0, spinPh: 0, haz: 0, hazNext: 0.25 + 0.5 * rnd(),
     burst: 0, tb: 5 + 14 * rnd(), wt: new Float32Array(16), sig: 0,
   };
@@ -95,11 +97,11 @@ function knobs(k) {
     sp: 0.2 * pow(u, 1.9),                             // radians of phase noise a symbol
     u,
     slipT: u < 0.04 ? 0 : 3.2 * pow(35 / 3.2, 2 * (1 - u)), // seconds between losses of lock
-    kap: 0.27 * v * v,
+    kap: 0.25 * v * v,
   };
 }
 
-function stepPol(st, P, p, dt, kn) {
+function stepPol(st, P, Q, p, dt, kn) {
   const { o, s } = P, ks = 1 - exp(-dt / 0.7);
   for (let j = 0; j < NOU; j++) {
     const tau = OUT[j][p];
@@ -109,8 +111,11 @@ function stepPol(st, P, p, dt, kn) {
   // modulation order
   P.tm -= dt;
   if (P.tm <= 0) {
-    P.mt = (P.mt + 1 + floor(rnd() * 2)) % 3;
-    P.tm = 15 + 30 * rnd();
+    // never both polarizations on four points: the link keeps one of them carrying more
+    const old = P.mt;
+    P.mt = (old + 1 + floor(rnd() * 2)) % 3;
+    if (P.mt === 0 && Q.mt === 0) P.mt = 3 - old;
+    P.tm = P.mt ? 15 + 30 * rnd() : 15 + 9 * rnd();
   }
   P.m += cl(P.mt - P.m, -0.9 * dt, 0.9 * dt);
   const f = min(1, floor(P.m)), t = sstep(0, 1, P.m - f);
@@ -120,7 +125,9 @@ function stepPol(st, P, p, dt, kn) {
   P.nsc = mix(NSC[f], NSC[f + 1], t);
   P.psc = mix(PSC[f], PSC[f + 1], t);
   P.jit = mix(JIT[f], JIT[f + 1], t);
-  P.esc = mix(ESC[f], ESC[f + 1], t);
+  P.pk = mix(PK[f], PK[f + 1], t);
+  P.mm = mix(MM[f], MM[f + 1], t);
+  P.kv = mix(KVS[f], KVS[f + 1], t);
   P.hd = mix(HDS[f], HDS[f + 1], t);
   // carrier lock
   const th0 = P.theta;
@@ -144,7 +151,7 @@ function stepPol(st, P, p, dt, kn) {
         P.haz = 0;
         P.hazNext = 0.5 + rnd();
         P.spinDur = P.spinT = 1.3 + 1.3 * rnd();
-        P.spinW = (rnd() < 0.5 ? -1 : 1) * (9 + 9 * rnd());
+        P.spinW = (rnd() < 0.5 ? -1 : 1) * (4 + 11 * rnd());
         P.spinPh = TAU * rnd();
       }
     }
@@ -165,31 +172,41 @@ function emit(st, p, dt, kn) {
   const R2 = 2 * (c1 * c1 + c2 * c2 + c3 * c3), iR2 = 1 / R2;
   const kap = min(0.5, kn.kap * (exp(0.3 * s[KF]) + st.ktr));
   const psi = p ? PI - st.psi : st.psi, kc = kap * cos(psi), kq = kap * sin(psi);
-  const ib = 0.08 * cl(s[IB], -2, 2), eps = 0.09 * cl(s[SK], -2, 2), skS = sin(eps), skC = cos(eps);
-  const ri = 0.06 * cl(s[RI], -2, 2), rs = 0.06 * cl(s[RS], -2, 2);
-  const cmp = 0.09 * cl(s[CP] - 0.3, 0, 2), tw = 0.1 * cl(s[TW], -2, 2);
-  const res = (0.05 + 0.07 * kn.u) * cl(s[RT], -2.2, 2.2);
+  const ib = 0.1 * cl(s[IB], -2, 2), eps = 0.11 * cl(s[SK], -2, 2), skS = sin(eps), skC = cos(eps);
+  const ri = 0.07 * cl(s[RI], -2, 2), rs = 0.07 * cl(s[RS], -2, 2);
+  const cmp = 0.08 * cl(s[CP] + 0.5, -1, 2), tw = 0.13 * cl(s[TW], -2, 2);
+  // the modulator's levels are not evenly spaced: each axis has its inner and outer levels pushed apart or to one side
+  const lk = (c2 / 7.25) * (1 - c3 / 5), aI = lk * cl(s[LV], -1.8, 1.8), bI = lk * cl(s[LV + 1], -1.8, 1.8), aQ = lk * cl(s[LV + 2], -1.8, 1.8), bQ = lk * cl(s[LV + 3], -1.8, 1.8);
+  const c2i = c2 + aI, c2q = c2 + aQ;
+  const res = (0.07 + 0.06 * kn.u) * cl(s[RT], -2.2, 2.2);
   const jitA = 0.45 * kn.sp * P.psc * s[JT];
   const th = res + P.theta, dth = P.dth;
   const sp = kn.sp * P.psc * exp(0.3 * cl(s[PN], -2, 2));
   const sig = sqrt(pow(kn.sig * P.nsc * exp(0.35 * cl(s[NZ], -2, 2)) * (1 + P.burst), 2) + P.jit * P.jit);
   P.sig = sig;
-  const g = 1 + 0.12 * cl(s[GA], -1.8, 1.8), cx = XC + 2.2 * cl(s[DX], -1.8, 1.8), cy = YC[p] + 2.2 * cl(s[DY], -1.8, 1.8);
+  // the gain control holds the total power: under heavy noise and crosstalk the lattice itself is smaller
+  const ext = c1 + c2 + c3, gfit = min(1, 25.5 / (ext + 0.7 * kap * (o1 + o2 + o3) + 2 * (sig - P.jit)));
+  // a small lattice has room to wander
+  const room = cl((29 - gfit * ext) / 7.25, 1, 1.7);
+  const g = gfit * (1 + room * cl(0.1 * s[GA] + 0.07 * s[SL + 2], -0.21, 0.21)), cx = XC + 2.2 * room * cl(s[DX], -1.8, 1.8), cy = YC[p] + 2.2 * room * cl(s[DY], -1.8, 1.8);
   // the data's bit balance drifts: halves, quadrants, inner and outer rows of the lattice carry unequal light
-  const wt = P.wt;
+  const wt = P.wt, wa = 0.12 + 0.1 * sstep(1, 3, sig);
   for (let i = 0; i < 16; i++) {
     const a = i & 1 ? 1 : -1, b = i & 4 ? 1 : -1, a2 = i & 2 ? a : -a, b2 = i & 8 ? b : -b;
-    const f = (j, v) => 1 + 0.09 * cl(s[W1 + j], -2, 2) * v;
+    const f = (j, v) => 1 + wa * cl(s[W1 + j], -2, 2) * v;
     wt[i] = f(0, a) * f(1, b) * f(2, a * b) * f(3, a2) * f(4, b2) * f(5, a2 * b2);
   }
   const spinning = P.spinT > 0, eOff = P.theta - P.lock;
   // errors show warm while something is wrong: lock lost or being pulled in, or a burst of noise
-  const alarm = 0.2 + 0.8 * (spinning ? 1 : cl(max(abs(eOff) * 4, P.burst * 0.9), 0, 1));
+  // and less so where noise has buried the points already
+  const alarm = (0.2 + 0.8 * (spinning ? 1 : cl(max(abs(eOff) * 4, P.burst * 0.9), 0, 1))) * (1 - 0.75 * sstep(1.4, 3, sig / (1 + P.burst)));
+  const daMin = cl(abs(dth) * 30 * 0.07, 0.15, 0.6);
   const n = round(NSYM * dt * 30), ihd = 1 / P.hd;
-  // the instrument scales its intensity to the densest spot, part of the way
-  const s1 = sig * sig + KV + 0.5 * kap * kap * 2 * (o1 * o1 + o2 * o2 + o3 * o3), s2 = s1 + sp * sp * R2;
-  const ex = pow(sqrt(s1 * s2) / KV, BETA);
-  const e0 = (ex * P.esc * exp(0.3 * s[BR]) * (1 - exp(-dt / PERSIST)) * 16) / max(1, n);
+  // the instrument scales its intensity to the densest spot: a point's own peak, or the mean of a filled square,
+  // and lets a spread cloud be dimmer than a clean point
+  const KV = P.kv, s1 = g * g * (sig * sig + kap * kap * (o1 * o1 + o2 * o2 + o3 * o3)) + KV, ar = sqrt(s1 * (s1 + g * g * sp * sp * R2));
+  const xt = g * ext + 1.2 * sqrt(s1), dpk = max(1 / (TAU * ar), P.mm / (4 * xt * xt));
+  const e0 = (P.pk * A0 * max(0.36, pow(KV / ar, 0.33)) * (1 - exp(-dt / PERSIST)) * P.mm) / (dpk * max(1, n));
   const r0 = ROW0[p], r1 = ROW1[p];
   const wc = min(1, kap * 3.3);
   let z = st.seed, cnt = P.cnt;
@@ -197,8 +214,8 @@ function emit(st, p, dt, kn) {
     // which point, and which point of the other square: a sequence that visits all 4096 pairs evenly, so no point flickers
     cnt = (cnt + 1) | 0;
     const b = Math.imul(cnt, -1640531535) >>> 20;
-    const sI = (b & 1 ? c1 : -c1) + (b & 2 ? c2 : -c2) + (b & 4 ? c3 : -c3);
-    const sQ = (b & 8 ? c1 : -c1) + (b & 16 ? c2 : -c2) + (b & 32 ? c3 : -c3);
+    const sI = (b & 1 ? c1 : -c1) + (b & 2 ? c2i : -c2i) + (b & 4 ? c3 : -c3) + ((b & 3) === 1 || (b & 3) === 2 ? -bI : bI);
+    const sQ = (b & 8 ? c1 : -c1) + (b & 16 ? c2q : -c2q) + (b & 32 ? c3 : -c3) + ((b & 24) === 8 || (b & 24) === 16 ? -bQ : bQ);
     const oI = (b & 64 ? o1 : -o1) + (b & 128 ? o2 : -o2) + (b & 256 ? o3 : -o3);
     const oQ = (b & 512 ? o1 : -o1) + (b & 1024 ? o2 : -o2) + (b & 2048 ? o3 : -o3);
     const wi = (b & 3) | ((b >> 1) & 12);
@@ -224,7 +241,7 @@ function emit(st, p, dt, kn) {
     const rI = uI * (1 + ri) + uQ * rs, rQ = uQ * (1 - ri) + uI * rs;
     // how far from its ideal point, in half-spacings
     let da = dp + eOff;
-    if (spinning && abs(da) < 0.6) da = 0.6;
+    if (spinning && abs(da) < daMin) da = daMin;
     const d = sqrt(nI * nI + nQ * nQ + (sI * sI + sQ * sQ) * min(da * da, 2)) * ihd;
     const we = alarm * (d < 0.5 ? 0 : d > 1.15 ? 1 : (d - 0.5) / 0.65);
     const en = e0 * wt[wi] * (1 + 0.5 * we);
@@ -249,7 +266,7 @@ function emit(st, p, dt, kn) {
 function step(st, dt) {
   const kn = knobs(st.k);
   st.t += dt;
-  for (let p = 0; p < 2; p++) stepPol(st, st.pol[p], p, dt, kn);
+  for (let p = 0; p < 2; p++) stepPol(st, st.pol[p], st.pol[1 - p], p, dt, kn);
   // the crosstalk's angle turns slowly; a polarization transient jumps it and the equalizer tracks it back
   st.pso += (-st.pso / 6) * dt + sqrt((2 * dt) / 6) * gauss();
   st.psi += (0.28 + 0.2 * st.pso) * dt;
@@ -301,24 +318,28 @@ export function draw(display, params) {
   const st = params.st;
   if (!st.init) update(0, { knobValues: st.k }, params);
   const kn = knobs(st.k), col = st.col, { A2, E2, C2 } = st;
-  hue3(0.49 + kn.hue + 0.03 * cl(st.pol[0].s[HU], -2, 2), 0.92, col, 0);
-  hue3(0.87 + kn.hue + 0.03 * cl(st.pol[1].s[HU], -2, 2), 0.9, col, 3);
+  const hd = (P) => cl(0.04 * P.s[HU] + 0.05 * P.s[SL], -0.1, 0.1);
+  hue3(0.49 + kn.hue + hd(st.pol[0]), 0.92, col, 0);
+  hue3(0.87 + kn.hue + hd(st.pol[1]), 0.9, col, 3);
   hue3(0.105 + kn.hue, 0.85, col, 6);
   hue3(0.68 + kn.hue, 0.9, col, 9);
   // a noisy square is drawn softer, so its cloud is a haze and not a scatter of single LEDs
-  const w0 = sstep(1.7, 3.2, st.pol[0].sig), w1 = sstep(1.7, 3.2, st.pol[1].sig);
+  const w0 = sstep(1.7, 3.2, st.pol[0].sig), w1 = sstep(1.7, 3.2, st.pol[1].sig), B3 = st.B3;
+  const u0 = max(w0, (st.pol[0].kv - 0.667) * 2), u1 = max(w1, (st.pol[1].kv - 0.667) * 2), HN = 64 * W;
   for (const [src, dst] of [[st.A, A2], [st.E, E2], [st.C, C2]]) {
     blur(src, st.T, dst);
+    blur(dst, st.T, B3);
+    for (let i = 0; i < N; i++) dst[i] += (B3[i] - dst[i]) * (i < HN ? u0 : u1);
     if (w0 < 0.01 && w1 < 0.01) continue;
-    blur(dst, st.T, st.B3);
-    blur(st.B3, st.T, st.B3);
-    for (let i = 0; i < N; i++) dst[i] += (st.B3[i] - dst[i]) * (i < 64 * W ? w0 : w1);
+    blur(dst, st.T, B3);
+    blur(B3, st.T, B3);
+    for (let i = 0; i < N; i++) dst[i] += (B3[i] - dst[i]) * (i < HN ? w0 : w1);
   }
   const wr = col[6], wg = col[7], wb = col[8];
   for (let y = 0; y < H; y++) {
-    const m = y < 64 ? 0 : 3;
+    const m = y < 64 ? 0 : 3, ps = st.pol[m ? 1 : 0].s, bv = 255 * cl(0.82 + 0.06 * ps[BR] + 0.07 * ps[SL + 1], 0.62, 1);
     const mr = col[m], mg = col[m + 1], mb = col[m + 2];
-    const dr = (col[9] - mr) * 0.85, dg = (col[10] - mg) * 0.85, db = (col[11] - mb) * 0.85;
+    const dr = (col[9] - mr) * 0.6, dg = (col[10] - mg) * 0.6, db = (col[11] - mb) * 0.6;
     for (let x = 0; x < W; x++) {
       const i = y * W + x, a = A2[i];
       if (a < 2e-5) { display.setPixel(x, y, 0, 0, 0); continue; }
@@ -327,7 +348,7 @@ export function draw(display, params) {
       const e = min(1, ea / a) * sstep(0.2, 0.6, te), c = min(1, C2[i] / a);
       let r = mr + dr * c, g = mg + dg * c, b = mb + db * c;
       r += (wr - r) * e; g += (wg - g) * e; b += (wb - b) * e;
-      const hot = 0.8 * sstep(0.6, 1, t), v = 255 * t;
+      const hot = 0.8 * sstep(0.7, 1, t), v = bv * t;
       display.setPixel(x, y, round(v * (r + (1 - r) * hot)), round(v * (g + (1 - g) * hot)), round(v * (b + (1 - b) * hot)));
     }
   }
