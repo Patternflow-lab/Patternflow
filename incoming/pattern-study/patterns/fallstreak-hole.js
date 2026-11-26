@@ -5,37 +5,40 @@
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: fallstreak holes, also called hole-punch clouds, in decks of altocumulus whose droplets are supercooled water (Alfred Wegener, 1911; Tor Bergeron, 1935; Walter Findeisen, 1938, all from memory): ice crystals grow at the cost of the droplets round them because the vapour pressure over ice is lower than over water, fall out as fibrous streaks and seed the cloud next to them, so a hole spreads. Aircraft that climb or descend through such a deck make the ice that starts it, and a straight flight track leaves a canal (Andrew Heymsfield and co-workers, 2010 and 2011, from memory). Original code, pattern round 261: a drifting Worley deck, each hole an analytic front with a per-cell delay and a front that slows toward its limit, and the fall streaks drawn as sheared, curved strokes.
+// Lineage: fallstreak holes, also called hole-punch clouds, in decks of altocumulus whose droplets are supercooled water (Alfred Wegener, 1911; Tor Bergeron, 1935; Walter Findeisen, 1938, all from memory): ice crystals grow at the cost of the droplets round them because the vapour pressure over ice is lower than over water, fall out as fibrous streaks and seed the cloud next to them, so a hole spreads. Aircraft that climb or descend through such a deck make the ice that starts it, and a straight flight track leaves a canal (Andrew Heymsfield and co-workers, 2010 and 2011, from memory). Original code, pattern round 261: a drifting deck of soft bumps on a staggered lattice, each hole an analytic front with a per-cell delay and a front that slows toward its limit, and the fall streaks drawn as sheared, curved strokes.
 // Round:   261
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Spread=0..4, Holes=-1..1, Shear=-1..1
 //
-// Knob 1: Hue. Turns the palette round the wheel without changing how bright anything is. At 0 it is the dusk: cloud from ivory (255, 240, 212) through peach and coral to a mauve underside, sky from deep blue (14, 26, 104) through violet to a pale lilac and pink on the lower side, fall streaks white-pink. The first part of the knob is the working range, a quarter turn takes the cloud to rose and the sky to teal, and the rest of the wheel is for looking at.
-// Knob 2: Spread. How fast the ice spreads and how big the holes get, 0 to 4, opening at 2. The front runs at 0.5 LED a second at 0, 0.95 at 2 and 1.4 at 4 across the wind, and the along-wind speed is that times the stretch. A hole stops at 6.3 LEDs from its seed across the wind at 0, 9.9 at 2 and 13.5 at 4, and everything else in the hole, the heal, the streaks, runs at the same clock, so at 4 a hole is born, spreads and mends in about half the time it takes at 0.
-// Knob 3: Holes. How many holes are open at once, from one lone hole at -1 through three at the opening 0 to five or six at 1, where the deck is pocked all over and canals cross each other's range. The count follows within a few seconds: a new hole opens in the farthest gap as soon as there are too few, and when the knob is turned down the old ones are left to heal.
-// Knob 4: Shear. How strongly the wind shears the layer, -1 to 1, opening at 0.06. Holes are stretched along the wind by 1.0 times at -1 (round), 2.2 at the opening and 3.2 at 1, a hole stops at the same area whichever, and more of the new ones are canals (one in five at -1, half at 1) along a straight track. The fall streaks lean 0.1 LED sideways for each LED they fall at -1 and 0.5 at 1, and bend more as they go down, so at the top of the panel they hang straight and at the bottom they run 35 degrees off at 1.
+// Knob 1: Hue. Four looks, each held for a quarter of the knob's travel and blended over the middle of it, and the last runs back into the first. At 0 and 1 it is the dusk: cloud from ivory (255, 240, 222) through peach (244, 164, 140) and coral (204, 118, 126) to a mauve underside, over a sky of deep blue (32, 44, 116) through violet to a pale lavender (174, 158, 218) at the lower left, with white-pink fall streaks. At 0.25 the cloud is rose and pink over a teal sky, at 0.5 gold and cream over indigo and magenta, at 0.75 mint over violet and pink. Every look keeps the cloud lighter than the sky, so a hole always reads as a hole.
+// Knob 2: Spread. How fast the ice spreads and how far, 0 to 4, opening at 2. The front starts across the wind at 0.4 LED a second at 0, 0.8 at 2 and 1.3 at 4 (the front slows as it nears its limit, so a hole's whole growth takes 20 to 40 s at the opening), and the clear radius a hole reaches across the wind is about 3 LEDs at 0, 9 at 2 and 17 at 4, along the wind that times the stretch. The heal and the streaks run on the same clock, 0.8 times at 0 and 1.2 at 4, and the streaks brighten from 1.6 to 3.6 times. At 0 the holes are a few small pits in the deck, at 4 one or two take a third of the panel.
+// Knob 3: Holes. How many holes are open at once, from one lone hole at -1 through three at the opening 0 to seven at 1, where the deck is pocked all over. While the clear area is over 32 percent of the panel no new hole opens, so at 1 with Spread at 4 there are still only two or three. A new one opens in the farthest gap as soon as there are too few, counting the ones that have started to heal as gone; when the knob is turned down, the oldest hole is told to heal now.
+// Knob 4: Shear. How strongly the wind shears the layer, -1 to 1, opening at 0.06. Holes are stretched along the wind 1.0 times at -1 (round), 2.1 at the opening and 3.2 at 1, a hole's area changes only by the 0.35 power of that, and more of the new ones are canals along a straight track (one in five at -1, one in two at 1). The cloudlets stretch with it, 0.95 times as wide as tall at -1 and 1.65 times at 1, and lean. The fall streaks lean 0.05 LED sideways for each LED they fall at -1 and 0.37 at 1, and bend as they fall, so at the top of the panel they hang straight and at the bottom of it they run 39 degrees off the vertical at 1.
 
-// What the picture is. The panel is the sky seen from the ground at dusk, a deck of altocumulus lit from below by a sun that has set below the lower edge, so the underside of the cloud is ivory
-// and peach near the bottom of the panel, coral and rose higher up, and cool mauve in the lanes between the cloudlets. The deck is a Worley (cellular) texture of cells about 7 LEDs across. Each cell
-// sits on a lattice point that is moved by two slow sines of its own (periods of 60 to 150 s and 37 to 107 s), so the deck never comes back to a picture it has shown, a weight swells and shrinks
-// the cell, and the pixel is moved by a warp field of 3 LEDs on a 4-LED grid first, so the rims are not straight. The whole deck drifts at 0.2 LED a second along the wind, which itself swings a little.
-// The nearest and second nearest point give a distance to the lane between cells; a cell is thick in its middle and thin in the lane, and it is shaded like a dome that a light from below
-// and left falls on. Where the cloud is thin the sky shows through, so the lanes go cool and dark without a colour of their own.
+// What the picture is. The panel is the sky seen from the ground at dusk, a deck of altocumulus lit from below by a sun that has set under the lower edge, so the underside of the cloud is ivory
+// and peach near the bottom of the panel, coral and rose higher up, and cool mauve in the lanes between the cloudlets. The deck is a field of soft bumps, one on each point of a lattice that is staggered
+// every other row, 7.8 LEDs apart and stretched 1.3 times wider than tall at the opening. Each point is moved by two slow sines of its own (periods of 60 to 150 s and 37 to 107 s), so the deck never
+// comes back to a picture it has shown, and a weight swells and shrinks the bump; the pixel is moved by a warp field first, 5.6 LEDs at a 19 LED scale and 2.6 at an 8 LED scale, so the rims are not straight.
+// The sum of the bumps is the thickness of the cloud and its slope, read against a light from below and a little to the left, shades each cloudlet like a dome with a bright lower side. Where the cloud
+// is thin the sky shows through, so the lanes go cool and dark without a colour of their own. The tone of a cloudlet is mixed from the lattice points round it, so it has no hard step. The whole deck drifts
+// at 0.2 LED a second along the wind, which swings a little over minutes.
 // A hole is a list entry, not a field: where it is centred (a point, or a straight track, the canal), when it began, which way the wind blows through it, how far it will spread, and when it
 // heals. Everything is worked out per pixel from that, and nothing is stepped. The distance from the seed is taken in a metric that is stretched along the wind by the shear, so a front that is a circle
-// becomes an ellipse, and the distance to a track is the distance to the segment in the same metric, which makes a canal a stadium with round ends. The front is at r(age) = r0 + (R - r0)(1 - exp(-v age / (R - r0))),
-// quick at first and slowing as the ice has used up the droplets within reach. A pixel is glaciated when the front has got to its distance, plus a delay: most of the distance is that of the middle of its own
-// cell, with a random 0 to 4.5 LEDs of delay for each cell and a slow low-frequency wobble of 2.6 LEDs, so a cell goes as a whole, its lane first, then its body shrinking to a bright core before it
-// is gone, and the rim of the hole is a scalloped edge and not a circle. The edge is 4 LEDs wide. A cell's cloud is its thickness less the glaciation, so thin cloud goes first.
+// becomes an ellipse, and the distance to a track is the distance to the segment in the same metric, which makes a canal a stadium with round ends. The front is at r(age) = R (1 - exp(-v age / R)),
+// quick at first and slowing as the ice has used up the droplets within reach, and R is the clear radius plus the 10 LEDs of delay and rim that the cloud keeps. A pixel is glaciated when the front has got to its
+// distance, plus a delay: 60 percent of the distance is that of the middle of its own cloudlet (weighted over the lattice points round it), 40 percent its own, with a delay of 0 to 8 LEDs that each
+// cloudlet draws, a slow wobble of 5 LEDs at 14 LED across and a finer one of 2.5 LEDs at 6 LED across, so a cloudlet goes as a whole and the rim of the hole is a scalloped edge and not a circle,
+// with islands left in the hole for a while. The edge is 7 LEDs wide. The cloud that is left is its thickness less the glaciation, so thin cloud goes first and a thick cloudlet shrinks to a bright core.
 // A hole heals after 60 to 105 s of its own clock: from its rim inward at 0.75 to 1.1 LEDs a second, and from its middle outward at 0.45 of that after 4 to 10 s, so the cloud comes back as thin
-// cores that grow out to the cell's lane. The clear sky is a fixed gradient on the panel, deep blue at the top to violet in the middle and a paler band on the lower left. The edge of the cloud against
-// it glows peach where the cloud is thin, as a cloud edge does with the light behind it.
+// cores that grow out to the cloudlet's lane. The clear sky is a fixed gradient on the panel, from deep blue at the top to violet in the middle and a paler band on the lower left. The edge of the cloud
+// against it glows where the cloud is thin, as a cloud edge does with the light behind it.
 // The fall streaks are drawn in a coordinate that is sheared and bent with the wind: u = x - lean (y - 64) - bend (y - 64)^2 / 128, so a streak is a curve that hangs straight near the top and
-// leans more as it falls. The columns of u, 3.6 LEDs apart, each carry a streak with its own period of 24 to 50 LEDs, phase, brightness and width of 1.1 to 1.7 LEDs, that falls at 1 to 2.3 LEDs a
-// second: it starts as a tuft, brightens over its first eighth and fades along its length like a cirrus uncinus, a comma with a long tail. A coarse map of the ice, two LEDs a cell, adds up the holes
-// where they are glaciated and fresh, and is smeared down the streaks' own curves for 18 LEDs, so the streaks fill the hole and trail below its rim before they go out. Over cloud they are weaker.
-// The first update does not step anything: it opens the sky with holes of different ages already in it, chosen by the knobs, the youngest a few seconds old and the oldest about to heal.
+// leans more as it falls. The columns of u, 4.4 LEDs apart, three in ten of them empty, each carry a streak with its own period of 24 to 50 LEDs, phase, brightness and width of 0.75 to 1.2 LEDs, that falls
+// at 1 to 2.3 LEDs a second: it starts as a tuft, brightens over its first eighth and fades along its length like a cirrus uncinus, a comma with a long tail, and a soft halo three times as wide
+// sits round it. A coarse map of the ice, two LEDs a cell, adds up the holes where they are glaciated and fresh, and is smeared down the streaks' own curves for 18 LEDs, so the streaks fill the hole
+// and trail below its rim before they go out; a slow noise gathers them into tufts. Over cloud they are weaker.
+// The first update does not step anything: it opens the sky with holes of different ages already in it, the youngest 12 s old, one at 44 s and one about to heal at 76 s, and the knobs decide how big they are.
 
 const W = 64, H = 128, NPX = W * H;
 const EXPN = 1024, EXPK = EXPN / 7; // exp(-q) for q in 0..7, as a table
@@ -75,22 +78,68 @@ const LX = -0.34, LY = 0.94; // the light on the cloud comes from below and a li
 const RIM = 7.0, RIMH = 6.0; // LEDs over which the front and the heal front are soft
 const GGW = W / 2, GGH = H / 2; // ice map, two LEDs a cell
 
-// cloud colours by how lit the cell is, 0 dark underside to 1 ivory
+// Four looks, and the knob blends from one to the next and back to the first. Each has the colours of the cloud by how lit
+// a cell is (0 the dark underside, 1 the brightest), the colours of the clear sky from the top and upper right (0) to the lower left (1),
+// the pale band that crosses the sky, the colour of the fall streaks and of the glow on a cloud's thin edge.
 const RAMP_T = [0, 0.18, 0.4, 0.62, 0.82, 1];
-const RAMP_C = [
-  [54, 46, 108], [120, 80, 136], [204, 118, 126], [244, 164, 140], [255, 208, 176], [255, 240, 222],
-];
-// sky colours by position, 0 at the top and the upper right to 1 at the lower left
 const SKY_T = [0, 0.35, 0.62, 0.82, 1];
-const SKY_C = [[32, 44, 116], [50, 60, 146], [90, 76, 166], [134, 120, 196], [174, 158, 218]];
-const FIB = [255, 226, 238];
-const GLOW = [255, 208, 170];
+const LOOKS = [
+  { // dusk: ivory and peach cloud over deep blue and violet
+    cloud: [[54, 46, 108], [120, 80, 136], [204, 118, 126], [244, 164, 140], [255, 208, 176], [255, 240, 222]],
+    sky: [[32, 44, 116], [50, 60, 146], [90, 76, 166], [134, 120, 196], [174, 158, 218]],
+    band: [28, 34, 22], fib: [255, 226, 238], glow: [255, 208, 170],
+  },
+  { // rose cloud over a teal sky
+    cloud: [[70, 40, 96], [150, 70, 120], [226, 112, 146], [250, 162, 176], [255, 208, 208], [255, 238, 236]],
+    sky: [[14, 52, 96], [18, 82, 124], [36, 118, 148], [86, 156, 176], [146, 194, 202]],
+    band: [30, 30, 24], fib: [240, 250, 255], glow: [255, 200, 196],
+  },
+  { // gold cloud over an indigo and magenta sky
+    cloud: [[62, 46, 88], [150, 86, 84], [226, 140, 76], [248, 184, 92], [255, 222, 140], [255, 246, 208]],
+    sky: [[30, 28, 108], [54, 38, 138], [92, 48, 152], [136, 70, 160], [180, 104, 172]],
+    band: [34, 20, 26], fib: [255, 238, 232], glow: [255, 220, 150],
+  },
+  { // mint cloud over a violet and pink sky
+    cloud: [[38, 54, 100], [60, 112, 138], [116, 172, 164], [172, 214, 186], [214, 240, 206], [244, 252, 232]],
+    sky: [[56, 30, 112], [92, 40, 140], [138, 56, 152], [188, 92, 162], [226, 138, 178]],
+    band: [32, 24, 24], fib: [250, 255, 244], glow: [214, 255, 196],
+  },
+];
 
 function ramp(T, C, v, out) {
   let k = 0;
   while (k < T.length - 2 && v > T[k + 1]) k++;
   const t = cl((v - T[k]) / (T[k + 1] - T[k]), 0, 1), s = t * t * (3 - 2 * t);
   for (let c = 0; c < 3; c++) out[c] = mix(C[k][c], C[k + 1][c], s);
+}
+
+// mix two looks by f and build the two tables the picture reads: cloud colour by lightness, sky colour by place
+function buildPalette(S, u1) {
+  const p = u1 * LOOKS.length, i0 = floor(p) % LOOKS.length, i1 = (i0 + 1) % LOOKS.length;
+  const f0 = p - floor(p), f = f0 * f0 * (3 - 2 * f0);
+  const A = LOOKS[i0], B = LOOKS[i1];
+  const mc = (a, b) => [mix(a[0], b[0], f), mix(a[1], b[1], f), mix(a[2], b[2], f)];
+  const cloud = A.cloud.map((c, i) => mc(c, B.cloud[i]));
+  const sky = A.sky.map((c, i) => mc(c, B.sky[i]));
+  const band = mc(A.band, B.band);
+  S.fib = mc(A.fib, B.fib);
+  S.glow = mc(A.glow, B.glow);
+  const tmp = [0, 0, 0];
+  for (let i = 0; i < 256; i++) {
+    ramp(RAMP_T, cloud, i / 255, tmp);
+    S.ramp[i * 3] = tmp[0]; S.ramp[i * 3 + 1] = tmp[1]; S.ramp[i * 3 + 2] = tmp[2];
+  }
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const q = cl(0.78 * (y / 127) + 0.22 * (1 - x / 63), 0, 1);
+      ramp(SKY_T, sky, q, tmp);
+      const bd = exp(-(((q - 0.78) / 0.16) * ((q - 0.78) / 0.16)));
+      const k = (y * W + x) * 3;
+      S.sky[k] = tmp[0] + band[0] * bd;
+      S.sky[k + 1] = tmp[1] + band[1] * bd;
+      S.sky[k + 2] = tmp[2] + band[2] * bd;
+    }
+  }
 }
 
 function makeState() {
@@ -103,26 +152,9 @@ function makeState() {
     ramp: new Float32Array(3 * 256), sky: new Float32Array(NPX * 3),
     NC: 220, CP: new Float32Array(220), CW: new Float32Array(220), CPH: new Float32Array(220),
     CPR: new Float32Array(220), CB: new Float32Array(220), CV: new Float32Array(220),
-    holes: [], i0: 0, j0: 0, k: [0, 2, 0, 0.06],
-    u2: 0.5, u3: 0.5, u4: 0.53, sf: 1, sz: 1, E: 2.2, lean: 0.3, bend: 0.3, hue: 0,
-    mat: new Float32Array(9),
+    holes: [], i0: 0, j0: 0, k: [0, 2, 0, 0.06], pal: -1, fib: [255, 226, 238], glow: [255, 208, 170],
+    u2: 0.5, u3: 0.5, u4: 0.53, sf: 1, sz: 1, E: 2.2, lean: 0.3, bend: 0.3,
   };
-  const tmp = [0, 0, 0];
-  for (let i = 0; i < 256; i++) {
-    ramp(RAMP_T, RAMP_C, i / 255, tmp);
-    S.ramp[i * 3] = tmp[0]; S.ramp[i * 3 + 1] = tmp[1]; S.ramp[i * 3 + 2] = tmp[2];
-  }
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const q = cl(0.78 * (y / 127) + 0.22 * (1 - x / 63), 0, 1);
-      ramp(SKY_T, SKY_C, q, tmp);
-      const band = exp(-(((q - 0.78) / 0.16) * ((q - 0.78) / 0.16)));
-      const p = (y * W + x) * 3;
-      S.sky[p] = tmp[0] + 28 * band;
-      S.sky[p + 1] = tmp[1] + 34 * band;
-      S.sky[p + 2] = tmp[2] + 22 * band;
-    }
-  }
   for (let i = 0; i < S.NC; i++) {
     S.CP[i] = (hash(i, 0, 31) - 0.5) * 0.9;
     S.CW[i] = 0.75 + 0.45 * hash(i, 0, 32);
@@ -235,7 +267,7 @@ function hreach(h, S) {
 function hfront(h, S) {
   if (h.tau <= 0) return 0;
   const R = hreach(h, S);
-  return R * (1 - exp((-h.v * h.tau) / R));
+  return R * (1 - exp((-h.v * S.vk * h.tau) / R));
 }
 function hglac(h, S, r, dd) {
   const g = sm(0, RIM, r - dd);
@@ -256,13 +288,14 @@ function readKnobs(S, kn) {
   S.u2 = cl(kn[1], 0, 4) / 4;
   S.u3 = (cl(kn[2], -1, 1) + 1) / 2;
   S.u4 = (cl(kn[3], -1, 1) + 1) / 2;
-  S.sf = 0.55 + 0.9 * S.u2;
-  S.sz = 0.35 + 1.45 * Math.pow(S.u2, 1.3);
+  S.sf = 0.8 + 0.4 * S.u2;
+  S.vk = 0.5 + 0.7 * S.u2;
+  S.sz = 0.3 + 1.5 * Math.pow(S.u2, 1.2);
   const u4 = S.u4;
   S.E = 1 + 2.2 * Math.pow(u4, 1.1);
   S.lean = 0.05 + 0.32 * u4;
   S.bend = 0.06 + 0.4 * u4;
-  S.hue = TAU * u1 * 0.75;
+  if (abs(u1 - S.pal) > 0.0005) { S.pal = u1; buildPalette(S, u1); }
   S.ani = 0.95 + 0.7 * u4;
   S.lc = 0.3 * (u4 - 0.3);
 }
@@ -360,21 +393,13 @@ function buildGate(S) {
   }
 }
 
-function hueMatrix(S) {
-  const a = S.hue, c = cos(a), s = sin(a), m = S.mat;
-  m[0] = 0.213 + c * 0.787 - s * 0.213; m[1] = 0.715 - c * 0.715 - s * 0.715; m[2] = 0.072 - c * 0.072 + s * 0.928;
-  m[3] = 0.213 - c * 0.213 + s * 0.143; m[4] = 0.715 + c * 0.285 + s * 0.14; m[5] = 0.072 - c * 0.072 - s * 0.283;
-  m[6] = 0.213 - c * 0.213 - s * 0.787; m[7] = 0.715 - c * 0.715 + s * 0.715; m[8] = 0.072 + c * 0.928 + s * 0.072;
-}
-
 export function draw(display, params) {
   if (!params.s) setup(params);
   const S = params.s;
   if (!S.ready) { update(0, { knobValues: [0, 2, 0, 0.06] }, params); }
   buildLattice(S);
   buildGate(S);
-  hueMatrix(S);
-  const M = S.mat, t = S.t, E0 = S.E, ANI = S.ani;
+  const t = S.t, E0 = S.E, ANI = S.ani;
   const nh = S.holes.length;
   // per-hole constants
   const hr = new Array(nh), hE = new Array(nh);
@@ -440,7 +465,7 @@ export function draw(display, params) {
       let b = S.sky[p + 2] * (1 - A) + S.ramp[ri + 2] * A;
       if (glo > 0.01) {
         const eg = 4 * A * (1 - A) * 0.32 * sm(0.01, 0.2, glo);
-        r += (GLOW[0] - r) * eg; g += (GLOW[1] - g) * eg; b += (GLOW[2] - b) * eg;
+        r += (S.glow[0] - r) * eg; g += (S.glow[1] - g) * eg; b += (S.glow[2] - b) * eg;
       }
       // fall streaks
       const gx2 = (x - 1) * 0.5, gy2 = (y - 1) * 0.5;
@@ -467,12 +492,10 @@ export function draw(display, params) {
           if (v > acc) acc = v;
         }
         const clu = sm(0.3, 0.72, vnoise(u * 0.11 + 5, y * 0.03 + t * 0.012, 41));
-        const f = cl(acc * 2.6 * gate * (0.2 + 0.8 * clu) * (1 - 0.5 * A), 0, 0.82);
-        r += (FIB[0] - r) * f; g += (FIB[1] - g) * f; b += (FIB[2] - b) * f;
+        const f = cl(acc * (1.6 + 2 * S.u2) * gate * (0.2 + 0.8 * clu) * (1 - 0.5 * A), 0, 0.82);
+        r += (S.fib[0] - r) * f; g += (S.fib[1] - g) * f; b += (S.fib[2] - b) * f;
       }
-      // palette turn
-      const R = M[0] * r + M[1] * g + M[2] * b, Gc = M[3] * r + M[4] * g + M[5] * b, B = M[6] * r + M[7] * g + M[8] * b;
-      display.setPixel(x, y, cl(R, 0, 255) | 0, cl(Gc, 0, 255) | 0, cl(B, 0, 255) | 0);
+      display.setPixel(x, y, cl(r, 0, 255) | 0, cl(g, 0, 255) | 0, cl(b, 0, 255) | 0);
     }
   }
 }
