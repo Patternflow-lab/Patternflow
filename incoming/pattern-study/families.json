@@ -364,5 +364,10 @@
   "retinalwaves": { "label": "망막파", "color": "#7dff5a" },
   "tyndall": { "label": "틴들 도형", "color": "#8fd8e8" },
   "coorbital": { "label": "공궤도", "color": "#9a7bff" },
-  "sintering": { "label": "소결", "color": "#ff6a2b" }
+  "sintering": { "label": "소결", "color": "#ff6a2b" },
+  "photoelasticity": { "label": "광탄성", "color": "#e86fd0" },
+  "sunspots": { "label": "흑점", "color": "#ff8a1f" },
+  "tidalbore": { "label": "조석 단파", "color": "#5aa7c9" },
+  "ammonoids": { "label": "암모나이트", "color": "#c9a227" },
+  "polarhexagon": { "label": "극 육각 제트", "color": "#8be0ff" }
 }
