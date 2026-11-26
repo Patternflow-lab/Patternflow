@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Horseshoe Orbits
 // Family:  coorbital
-// Idea:    The panel is the phase plane of two bodies on almost the same orbit, a small one in the middle of the panel as a soft bright disc and a large one that is not drawn, with longitude relative to the small body running the height of the panel and wrapping top to bottom, and the offset of a particle's orbit size running across: ninety test particles are stepped through the real restricted three-body problem and leave glowing trails, so that gold horseshoes run up one side and down the other in nested streams that turn in a hairpin at the disc and pinch round the far side of the orbit, cyan and rose tadpoles circle small eyes about the two triangular points a sixth of the panel above and below the disc, and passing orbits stream by in dim blue, while the mass of the small body breathes and particles that reach the edge of a class change colour and are replaced.
+// Idea:    The panel is the phase plane of two bodies on almost the same orbit, with the longitude of a test particle relative to the small body running the height of the panel and wrapping top to bottom and the size of its orbit across it, the small body a soft bright disc in the middle and the large one not drawn: sixty-four test particles are stepped through the real restricted three-body problem and leave glowing trails, so that gold horseshoes run up one side and down the other in nested streams that turn in a hairpin at the disc and pinch round the far side of the orbit, cyan and rose tadpoles circle in small eyes about the triangular points a sixth of the panel above and below the disc, and passing orbits stream by at the edges in dim blue, while the mass of the small body breathes so that particles near a class limit change colour, and scattered particles are replaced at random.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -9,12 +9,12 @@
 // Round:   258
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Rate=0.5..4, Mass=-1..1, Trail=-1..1
+// @knobs Hue=0..1, Rate=1..5, Mass=-1..1, Trail=-1..1
 //
-// Knob 1: Hue. Turns every colour round the wheel together. At 0 the horseshoes are gold, the tadpoles about L4 cyan and the tadpoles about L5 rose, the passing orbits a dim cold blue; at 0.33 gold has become green, at 0.5 it is blue, and at 1 it is back where it began.
-// Knob 2: Rate. How fast the system runs, 3 time units of the problem a second for each unit of the knob, one time unit being a sixth of an orbit of the small body. At 2, where it opens, a tadpole circles its eye in about 13 s and a horseshoe takes about 17 s round its lens; at 0.5 the streams creep, a lap of a horseshoe taking over a minute, and at 4 they swirl, three times as fast, a passing orbit crossing the panel in under four seconds.
-// Knob 3: Mass. The mass of the small body relative to the large one, 8e-4 times 3 to the power of the knob, so 2.7e-4 at -1 and 2.4e-3 at 1, and a few tens of percent more or less as it breathes. The islands and the racetrack widen as its square root: at -1 the horseshoe is a thin leaf 12 LEDs across, at 0 it is 40, and at 1 the fat loops run off the sides of the panel and the outer horseshoes are scattered after a lap or two.
-// Knob 4: Trail. How long a particle's trail takes to fade, 4 time units times 4 to the power of the knob, so 1 at -1, 4 at 0 and 16 at 1. At -1 the particles are short comets a few LEDs long; at 0 a trail is 20 to 40 LEDs; at 1 it is a ribbon that draws the whole stream and the lens fills with light.
+// Knob 1: Hue. Turns every colour round the wheel together. At 0 the horseshoes are gold, the tadpoles about L4 cyan and those about L5 rose, and the passing orbits a dim cold blue; at 0.25 the horseshoes are green and the L4 tadpoles violet, at 0.5 the horseshoes are pale blue and the L4 tadpoles orange, and at 1 it is back where it began.
+// Knob 2: Rate. How fast the system runs, 3 time units of the problem a second for each unit of the knob, one time unit being 1/(2 pi) of an orbit of the small body. At 2, where it opens, a tadpole goes once round its eye in about 15 s and a horseshoe once round its lens in about 23 s. At 1 they take 31 s and 45 s and the streams creep; at 5 they take 6 s and 9 s and swirl, and a passing orbit at the edge of the panel crosses its height in under three seconds.
+// Knob 3: Mass. The mass of the small body relative to the large one, 8e-4 times 3 to the power of the knob, so 2.7e-4 at -1 and 2.4e-3 at 1, and up to a quarter more or less as it breathes. Both islands and racetrack widen as its square root. At -1 the horseshoe is a slender leaf 18 to 28 LEDs across at its widest and the passing orbits fill the rest; at 0 it is 31 to 51 LEDs; at 1 it is wider than the panel, the outer horseshoes run off the sides and are scattered after a lap or two, and the passing orbits are gone.
+// Knob 4: Trail. How long a trail takes to fade, 8 time units times 4 to the power of the knob for a horseshoe at Mass 0, so 2, 8 and 32, and a tadpole's lasts half as long again. At -1 the particles are short comets about 8 LEDs long, at 0 a trail is 20 to 40 LEDs, and at 1 it is a ribbon of 100 LEDs or more that draws the whole stream, with the nested rings of the tadpoles showing in it. The longer the trail the dimmer each LED of it is laid, so that the panel does not whiten.
 
 // What the picture is. The vertical axis is the longitude of a particle relative to the small body, one full turn over the 128 rows, with the
 // small body at row 64 and the far side of the orbit, L3, at the seam where the top meets the bottom; L4 and L5 are 60 degrees away, 21 rows
@@ -22,44 +22,52 @@
 // A particle outside the small body's orbit is slower and drifts down the panel, one inside is faster and drifts up, so the left half runs up
 // and the right half runs down.
 // The particles are massless and are stepped in the inertial frame by a kick-drift-kick leapfrog, 0.0125 of a time unit a step, round a primary
-// of mass 1 - mu at -mu(cos t, sin t) and a secondary of mass mu at (1 - mu)(cos t, sin t), softened by 0.02, and a third body a tenth of mu
-// on a circular orbit of radius 1.9 that keeps some orbits drifting. mu breathes by a few tens of percent on three periods that have no
-// common multiple. Close to the secondary a particle's orbit is not an ellipse and the osculating da jumps, which is the hairpin turn.
+// of mass 1 - mu at -mu(cos t, sin t) and a secondary of mass mu at (1 - mu)(cos t, sin t), both softened by 0.02, and a third body of half
+// of mu on a circular orbit of radius 1.9, which moves the energy of each orbit a little and sends a few particles across a class limit.
+// mu breathes by up to a quarter on three periods that have no common multiple. Close to the secondary a particle's orbit is not an ellipse
+// and the osculating da jumps, which is the hairpin turn.
 // The class of a particle is read from where it is. In the co-orbital approximation E = 3/8 da^2 + mu F(phi), F = 1 / (2 sin(phi/2)) - cos(phi),
-// is conserved, F is 0.5 at the points L4 and L5 and 1.5 at L3, so E under 1.5 mu is a tadpole, E from 1.5 mu to about 3.2 mu a horseshoe
-// and anything above it passes. E is read where phi is 35 to 165 degrees from the small body, where the formula holds; closer in, a particle
+// is conserved. F is 0.5 at the points L4 and L5 and 1.5 at L3, so E under 1.5 mu is a tadpole, E from 1.5 mu to 3.9 mu a horseshoe, and
+// anything above it passes. E is read where phi is 35 to 165 degrees from the small body, where the formula holds; closer in, a particle
 // keeps the class it had, and a particle that crosses the longitude of the small body is passing. A tadpole is cyan about L4 and rose about
-// L5. A particle that is scattered out of the window, runs into the small body or has lived its 18 to 55 seconds is replaced by a new one at
-// a random phase of an orbit of a class the crowd lacks, so ninety particles stay on the panel and the picture never settles.
-// Drawing. A trail is the path of the particle in the panel, stamped as soft discs 2.3 LEDs across into a buffer that fades by a fixed
-// fraction of a time unit, so it is long where a particle is fast and short where it dawdles, and a wrap through the seam carries on at
-// the other edge instead of drawing a line across the panel.
+// L5. A particle that is scattered out of the window, falls into the small body or has lived its 110 to 330 time units (18 to 55 s at the
+// opening) is replaced by a new one at a random phase of an orbit of a class the crowd lacks, so sixty-four particles stay on the panel and
+// the picture never settles. At the opening that is about 4 particles a second, most of them passing orbits kicked out of the window by the
+// small body, and the horseshoes beyond 2.5 times the square root of mu are thrown out within about a hundred time units.
+// Drawing. A trail is the path of the particle on the panel, stamped as soft discs 2.3 LEDs across into three buffers (tadpoles, horseshoes,
+// passing) that each fade by a fixed fraction of a time unit, so a trail is long where a particle is fast and short where it dawdles, and a
+// stretch the particle covers fast is laid thinner, as in a photograph. The fade time scales with 1 / sqrt(mu), so the trails keep their
+// length in LEDs as the mass changes. A wrap through the seam carries on at the other edge instead of drawing a line across the panel, and
+// a jump of a scattering is left as a gap.
 
 const W = 64, H = 128;
-const { floor, sqrt, abs, exp, sin, cos, atan2, PI, min, max } = Math;
+const { floor, sqrt, abs, exp, sin, cos, atan2, pow, PI, min, max } = Math;
 const TP = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- the problem
-const NP = 90; // test particles
+const NP = 64; // test particles
 const MU0 = 8e-4; // mass ratio at Mass 0
 const SOFT = 0.02; // softening length of the small bodies
 const HSTEP = 0.0125; // longest step, in time units
-const M3 = 0.1, A3 = 1.9, PH3 = 1.3; // the third body: its mass in units of mu, orbit radius, starting angle
-const DA_WINDOW = 0.12; // half the panel is this much semi-major axis
+const M3 = 0.5, A3 = 1.9, PH3 = 1.3; // the third body: its mass in units of mu, orbit radius, starting angle
+const DA_WINDOW = 0.105; // half the panel is this much semi-major axis
 const SEC_ROW = 64, SEC_COL = 32; // where the small body sits on the panel
 const PER = [1073, 691, 389]; // breathing periods of mu, time units
-const AMP = [0.17, 0.12, 0.07]; // and their size, as a fraction of mu
+const AMP = [0.13, 0.09, 0.05]; // and their size, as a fraction of mu
 const LIFE_LO = 110, LIFE_HI = 330; // a particle's life, time units
-const E_TAD = 1.5, E_HS = 3.2; // class limits in units of mu
+const E_TAD = 1.5, E_HS = 3.9; // class limits in units of mu
 
 // ---- the crowd
-const TARGET = [11, 11, 42, 26]; // L4 tadpoles, L5 tadpoles, horseshoes, passing
+const TARGET = [8, 8, 28, 18]; // L4 tadpoles, L5 tadpoles, horseshoes, passing
 const CLS_RGB = [[40, 224, 238], [255, 82, 140], [255, 190, 44], [48, 90, 232]];
-const CLS_GAIN = [0.9, 0.9, 1.0, 0.42];
+const CLS_GAIN = [0.8, 0.8, 0.85, 0.4];
+const CLS_FADE = [1.5, 0.9, 0.7]; // a tadpole is slow, so its trail fades more slowly: tadpoles, horseshoes, passing
 
 // ---- the drawing
+const TAU0 = 8; // fade time of a horseshoe's trail at Trail 0 and Mass 0, time units
 const SIG = 0.98; // stamp width, LEDs
+const JUMP_V = 36, FAST_V = 9; // LEDs a time unit: a scattering above the first leaves a gap, and at the second a stretch is laid half as bright
 const STEP_LED = 0.7; // spacing of stamps along a path
 const DEPOSIT = 1 / (2.5 * SIG); // weight a LED of path adds, so a line peaks at about 1
 const TONE_N = 1024, TONE_MAX = 4;
@@ -79,12 +87,11 @@ function makeState() {
     px: new Float64Array(NP), py: new Float64Array(NP), vx: new Float64Array(NP), vy: new Float64Array(NP),
     ax: new Float64Array(NP), ay: new Float64Array(NP),
     phi: new Float64Array(NP), phiU: new Float64Array(NP), da: new Float64Array(NP),
-    cls: new Int8Array(NP), age: new Float64Array(NP), life: new Float64Array(NP), alpha: new Float32Array(NP),
+    cls: new Int8Array(NP), age: new Float64Array(NP), life: new Float64Array(NP),
     cr: new Float32Array(NP), cg: new Float32Array(NP), cb: new Float32Array(NP),
     sx: new Float32Array(NP), sy: new Float32Array(NP), // last stamped position of each particle
-    buf: new Float32Array(W * H * 3),
+    bufs: [new Float32Array(W * H * 3), new Float32Array(W * H * 3), new Float32Array(W * H * 3)],
     hueMat: new Float32Array(9), hueAt: -1,
-    out: new Uint8Array(W * H * 3),
   };
   return S;
 }
@@ -108,9 +115,9 @@ function sample(S, c) {
     } else if (c === 2) {
       phi = (rnd() * 2 - 1) * PI;
       if (abs(phi) < 0.4) continue;
-      da = (rnd() * 2 - 1) * 2.9 * sm;
+      da = (rnd() * 2 - 1) * 3.2 * sm;
       const e = (0.375 * da * da) / mu + F(phi);
-      if (e < 1.7 || e > 3.0) continue;
+      if (e < 1.6 || e > 3.6) continue;
     } else {
       phi = (rnd() * 2 - 1) * PI;
       const lo = min(3.3 * sm, lim * 0.7);
@@ -136,7 +143,6 @@ function place(S, i, c) {
   S.cls[i] = c;
   S.age[i] = 0;
   S.life[i] = LIFE_LO + rnd() * (LIFE_HI - LIFE_LO);
-  S.alpha[i] = 0;
   S.cr[i] = CLS_RGB[c][0];
   S.cg[i] = CLS_RGB[c][1];
   S.cb[i] = CLS_RGB[c][2];
@@ -146,7 +152,7 @@ function place(S, i, c) {
 
 function pickClass(S) {
   const cnt = [0, 0, 0, 0];
-  for (let i = 0; i < NP; i++) if (S.alpha[i] >= 0 && S.cls[i] >= 0) cnt[S.cls[i]]++;
+  for (let i = 0; i < NP; i++) cnt[S.cls[i]]++;
   let best = 2, bd = -9;
   for (let c = 0; c < 4; c++) {
     const d = (TARGET[c] - cnt[c]) / TARGET[c] + rnd() * 0.15;
@@ -178,8 +184,8 @@ function force(S, i, B, out) {
 
 const BB = new Float64Array(6), AA = new Float64Array(2);
 
-function integrate(S, dtSys) {
-  const n = max(1, Math.ceil(dtSys / HSTEP)), h = dtSys / n;
+function integrate(S, dtSys, hmax) {
+  const n = max(1, Math.ceil(dtSys / hmax)), h = dtSys / n;
   const px = S.px, py = S.py, vx = S.vx, vy = S.vy, ax = S.ax, ay = S.ay;
   bodies(S, S.t, BB);
   for (let i = 0; i < NP; i++) if (ax[i] !== ax[i]) { force(S, i, BB, AA); ax[i] = AA[0]; ay[i] = AA[1]; }
@@ -200,7 +206,7 @@ function integrate(S, dtSys) {
 // read the orbit of every particle after a frame, and keep the class
 function observe(S, dtSys) {
   const mu = S.mu, t = S.t, c = cos(t), s = sin(t), qx = -mu * c, qy = -mu * s;
-  const vqx = mu * s, vqy = -mu * c, lim = 1.08 * DA_WINDOW, sm = sqrt(mu);
+  const vqx = mu * s, vqy = -mu * c, lim = 1.25 * DA_WINDOW, sm = sqrt(mu);
   for (let i = 0; i < NP; i++) {
     const rx = S.px[i] - qx, ry = S.py[i] - qy, r = sqrt(rx * rx + ry * ry);
     const wx = S.vx[i] - vqx, wy = S.vy[i] - vqy;
@@ -214,15 +220,12 @@ function observe(S, dtSys) {
     S.phi[i] = phi; S.da[i] = da;
     S.age[i] += dtSys;
     let c0 = S.cls[i];
-    if (prev * phi < 0 && abs(phi) < 2) c0 = 3; // crossed the small body's longitude
     const ap = abs(phi);
-    if (c0 !== 3 || (ap > 0.6 && ap < 2.9)) {
-      if (ap > 0.6 && ap < 2.9) {
-        const e = (0.375 * da * da) / mu + F(phi);
-        if (e < E_TAD) c0 = phi > 0 ? 0 : 1;
-        else if (e < E_HS) c0 = 2;
-        else c0 = 3;
-      }
+    if (prev * phi < 0 && ap < 2) c0 = 3; // it crossed the small body's longitude, so it passes
+    if (ap > 0.6 && ap < 2.9) {
+      // where the averaged energy holds it says the class; nearer the small body or L3 the class stays what it was
+      const e = (0.375 * da * da) / mu + F(phi);
+      c0 = e < E_TAD ? (phi > 0 ? 0 : 1) : e < E_HS ? 2 : 3;
     }
     S.cls[i] = c0;
     const dx = S.px[i] - (1 - mu) * c, dy = S.py[i] - (1 - mu) * s;
@@ -248,25 +251,31 @@ function stamp(buf, xc, yc, r, g, b, w) {
   }
 }
 
-function paint(S, tau, dtSys, fade) {
-  const buf = S.buf;
+function paint(S, trail, dtSys, fade) {
+  // a trail is measured in the problem's own time, which runs as the square root of the mass, so that it stays as long in LEDs when the mass changes
+  const tau = TAU0 * trail * sqrt(MU0 / S.mu), ink = cl(Math.pow(trail, -0.75), 0.3, 1.8);
   if (fade) {
-    const f = exp(-dtSys / tau);
-    for (let i = 0; i < buf.length; i++) buf[i] *= f;
+    for (let q = 0; q < 3; q++) {
+      const f = exp(-dtSys / (tau * CLS_FADE[q])), buf = S.bufs[q];
+      for (let i = 0; i < buf.length; i++) buf[i] *= f;
+    }
   }
-  const ROWS = H / TP;
+  const ROWS = H / TP, kc = 1 - exp(-dtSys / 6);
   for (let i = 0; i < NP; i++) {
-    const c = S.cls[i];
-    const rr = CLS_RGB[c], k = 1 - exp(-dtSys / 6);
-    S.cr[i] += (rr[0] - S.cr[i]) * k; S.cg[i] += (rr[1] - S.cg[i]) * k; S.cb[i] += (rr[2] - S.cb[i]) * k;
+    const c = S.cls[i], rr = CLS_RGB[c], buf = S.bufs[c < 2 ? 0 : c - 1];
+    S.cr[i] += (rr[0] - S.cr[i]) * kc; S.cg[i] += (rr[1] - S.cg[i]) * kc; S.cb[i] += (rr[2] - S.cb[i]) * kc;
     const x = SEC_COL + (S.da[i] / DA_WINDOW) * 32, y = SEC_ROW - S.phiU[i] * ROWS;
     // fade a particle in over a few time units and out in the last few
-    S.alpha[i] = min(S.age[i] / 5, (S.life[i] - S.age[i]) / 5, 1);
+    const al = cl(min(S.age[i] / 5, (S.life[i] - S.age[i]) / 5), 0, 1);
     if (S.sx[i] !== S.sx[i]) { S.sx[i] = x; S.sy[i] = y; }
     let dx = x - S.sx[i], dy = y - S.sy[i];
     const len = sqrt(dx * dx + dy * dy);
-    if (len > 24) { S.sx[i] = x; S.sy[i] = y; dx = 0; dy = 0; }
-    const n = max(1, Math.ceil(len / STEP_LED)), w = DEPOSIT * (len / n || 0.05) * CLS_GAIN[c] * max(S.alpha[i], 0) / 255;
+    // a scattering throws a particle across the panel in a frame: no line is drawn through the jump
+    const v = len / max(dtSys, 1e-6), jump = v > JUMP_V;
+    if (jump) { S.sx[i] = x; S.sy[i] = y; dx = 0; dy = 0; }
+    const run = jump ? 0 : len, n = max(1, Math.ceil(run / STEP_LED));
+    // a fast stretch is exposed less per LED, as in a photograph
+    const w = (DEPOSIT * ink * (run / (1 + pow(v / FAST_V, 3)) / n || 0.04) * CLS_GAIN[c] * al) / 255;
     for (let s = 1; s <= n; s++) {
       const u = s / n;
       stamp(buf, S.sx[i] + dx * u, S.sy[i] + dy * u, S.cr[i], S.cg[i], S.cb[i], w);
@@ -275,10 +284,10 @@ function paint(S, tau, dtSys, fade) {
   }
 }
 
-function advance(S, dtSys, tau, fade) {
-  integrate(S, dtSys);
+function advance(S, dtSys, trail, fade, hmax) {
+  integrate(S, dtSys, hmax);
   observe(S, dtSys);
-  paint(S, tau, dtSys, fade);
+  paint(S, trail, dtSys, fade);
 }
 
 function breathe(S) {
@@ -288,14 +297,14 @@ function breathe(S) {
   S.ac = Math.pow(1 - S.mu, 1 / 3);
 }
 
-const PREROLL = 240, PRE_STEP = 0.2;
+const PREROLL = 220, PRE_STEP = 0.2, PRE_H = 0.02; // the pre-run takes coarser steps, 0.02 of a time unit
 export function update(dt, input, params) {
   if (!params.s) setup(params);
   const S = params.s, kn = input.knobValues || [0, 2, 0, 0.06];
   S.kn = kn;
-  const rate = 3 * cl(kn[1], 0.5, 4);
+  const rate = 3 * cl(kn[1], 1, 5);
   const target = MU0 * Math.pow(3, cl(kn[2], -1, 1));
-  const tau = 4 * Math.pow(4, cl(kn[3], -1, 1));
+  const trail = Math.pow(4, cl(kn[3], -1, 1));
   if (!S.ready) {
     S.ready = true;
     S.muK = target;
@@ -304,13 +313,13 @@ export function update(dt, input, params) {
     for (let i = 0; i < NP; i++) S.age[i] = rnd() * S.life[i];
     for (let t = 0; t < PREROLL; t += PRE_STEP) {
       breathe(S);
-      advance(S, PRE_STEP, tau, t > PREROLL - 6 * tau - 10);
+      advance(S, PRE_STEP, trail, t > PREROLL - 150 * trail - 20, PRE_H);
     }
   }
   const d = cl(dt || 0, 0, 0.1);
   S.muK += (target - S.muK) * (1 - exp(-d / 1.2));
   breathe(S);
-  advance(S, d * rate, tau, true);
+  advance(S, d * rate, trail, true, HSTEP);
 }
 
 // ---- colour
@@ -330,7 +339,7 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   hueMatrix(S, cl(S.kn[0], 0, 1));
-  const m = S.hueMat, buf = S.buf;
+  const m = S.hueMat, b0 = S.bufs[0], b1 = S.bufs[1], b2 = S.bufs[2];
   const rd = 3 * Math.pow(S.mu / MU0, 1 / 3);
   const kt = TONE_N / TONE_MAX;
   for (let y = 0; y < H; y++) {
@@ -338,10 +347,10 @@ export function draw(display, params) {
       const o = (y * W + x) * 3;
       const dx = x + 0.5 - SEC_COL, dy = y + 0.5 - SEC_ROW, rr = sqrt(dx * dx + dy * dy);
       const core = rr < rd + 1.5 ? 1 - cl((rr - (rd - 1.2)) / 2.4, 0, 1) : 0;
-      const halo = 0.1 * exp(-(rr * rr) / (2 * rd * rd * 2.2));
-      const r = GROUND[0] + 255 * TONE[min(TONE_N, (buf[o] * kt) | 0)] + core * DISC[0] + halo * HALO[0];
-      const g = GROUND[1] + 255 * TONE[min(TONE_N, (buf[o + 1] * kt) | 0)] + core * DISC[1] + halo * HALO[1];
-      const b = GROUND[2] + 255 * TONE[min(TONE_N, (buf[o + 2] * kt) | 0)] + core * DISC[2] + halo * HALO[2];
+      const halo = 0.3 * exp(-(rr * rr) / (2 * rd * rd * 4));
+      const r = GROUND[0] + 255 * TONE[min(TONE_N, ((b0[o] + b1[o] + b2[o]) * kt) | 0)] + core * DISC[0] + halo * HALO[0];
+      const g = GROUND[1] + 255 * TONE[min(TONE_N, ((b0[o + 1] + b1[o + 1] + b2[o + 1]) * kt) | 0)] + core * DISC[1] + halo * HALO[1];
+      const b = GROUND[2] + 255 * TONE[min(TONE_N, ((b0[o + 2] + b1[o + 2] + b2[o + 2]) * kt) | 0)] + core * DISC[2] + halo * HALO[2];
       const R = r * m[0] + g * m[1] + b * m[2], G = r * m[3] + g * m[4] + b * m[5], B = r * m[6] + g * m[7] + b * m[8];
       display.setPixel(x, y, cl(R, 0, 255) | 0, cl(G, 0, 255) | 0, cl(B, 0, 255) | 0);
     }
