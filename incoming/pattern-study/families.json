@@ -394,5 +394,10 @@
   "compulsory": { "label": "규정 도형", "color": "#81b8e1" },
   "ribbongym": { "label": "리본 체조", "color": "#ff4f9a" },
   "spinifex": { "label": "스피니펙스 조직", "color": "#e8b04a" },
-  "tumbler": { "label": "회전 드럼", "color": "#4ad1c0" }
+  "tumbler": { "label": "회전 드럼", "color": "#4ad1c0" },
+  "electrowetting": { "label": "전기습윤 방울", "color": "#60f9c7" },
+  "strandbeest": { "label": "얀센 다리", "color": "#dbaa83" },
+  "magnetotactic": { "label": "자성 박테리아", "color": "#92f977" },
+  "dinisurface": { "label": "디니 곡면", "color": "#e48efa" },
+  "fallingplate": { "label": "떨어지는 판", "color": "#ed85bd" }
 }
