@@ -36,7 +36,7 @@
 // sun's glint on the faces that look at the sun, the height above the local mean lifts the crests, and the water's own level tints it paler and a little silty. Where the depth falls under 0.8 the sand begins to show
 // through. Foam is a map that crests feed where the slope is steep (a threshold that falls as K2 rises) or the crest is high for the depth, and that fades over 0.45 s. The current drags two tiles of
 // ripple slope over the water, up the river after the bore and down it in the ebb. The bank is sand and mud and grass from noise tied to the waterline; it darkens where a crest has run up it and dries in
-// 14 s. Clouds are five plane waves of shadow that take a third of the light off, drifting at 1 to 3 LEDs a second; the channel's meander wave, the hue wander and the clouds have no common period.
+// 14 s. Clouds are five plane waves of shadow that take a quarter of the light off, drifting at 1 to 3 LEDs a second; the channel's meander wave, the hue wander and the clouds have no common period.
 
 const W = 64, H = 128;
 const PT = 18, YS = 28, PS = 14; // rows above the panel (a sponge), rows between the panel and the source line, sponge rows below the source
@@ -462,8 +462,8 @@ export function update(dt, input, params) {
 // ---- the picture
 
 const SUN = [-0.42, -0.908]; // the way the sun lies from a point of water, on the panel: up and a little left
-const TEX1 = 0.15, TEX2 = 0.1; // slope of the ripples the current drags over the water
-const CLOUD = 0.34; // how much a cloud's shadow takes off the light
+const TEX1 = 0.17, TEX2 = 0.12; // slope of the ripples the current drags over the water
+const CLOUD = 0.28; // how much a cloud's shadow takes off the light
 const SG = 34; // slope gain: the surface slopes are drawn 34 times steeper than the solver has them
 const WATER = [
   [0.0, 11, 28, 38],
@@ -617,7 +617,7 @@ export function draw(display, params) {
         const sx = SG * gx + TEX1 * t1x + TEX2 * t2x, sy = SG * gy + TEX1 * t1 + TEX2 * t2;
         const q = -(sx * SUN[0] + sy * SUN[1]), cr = -(sx * SUN[1]) + sy * SUN[0];
         const lv = cl(es[i] / 0.28, 0, 1.2);
-        let sh = 0.46 + 0.62 * q + 6 * (e[i] - es[i]) + 0.17 * lv;
+        let sh = 0.52 + 0.62 * q + 6 * (e[i] - es[i]) + 0.17 * lv;
         if (sh < 0.26) sh = 0.26 - 0.4 * (0.26 - sh); // the troughs stay water and do not go to black
         sh = cl(sh, 0, 1);
         const n = (sh * 255) | 0;
