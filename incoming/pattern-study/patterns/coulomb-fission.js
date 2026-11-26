@@ -5,31 +5,32 @@
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the electrospray plume, whose cone Geoffrey Ingram Taylor worked out as a balance of surface tension and electric pull (1964, from memory), the limit of charge a drop can hold before it bursts (Lord Rayleigh, 1882, from memory), the bursts themselves seen as a fine jet of progeny carrying a few percent of the mass and about 15 percent of the charge (Gomez and Tang, 1994, from memory), and the cascade that ends in free ions, the ion source of electrospray mass spectrometry (Malcolm Dole, 1968, and John Fenn, Nobel Prize 2002, both from memory); original code, pattern round 261
+// Lineage: the electrospray plume, whose cone Geoffrey Ingram Taylor worked out as a balance of surface tension and electric pull (1964, from memory), the limit of charge a drop can hold before it bursts (Lord Rayleigh, 1882, from memory), the bursts themselves seen as a fine jet of progeny carrying a few percent of the mass and about 15 percent of the charge (Gomez and Tang, 1994, from memory), and the cascade that ends in free ions, the ion source of electrospray mass spectrometry (Malcolm Dole, 1968, and John Fenn, Nobel Prize 2002, both from memory), the ion evaporation that takes over from bursts in the smallest drops (Iribarne and Thomson, 1976, from memory); original code, pattern round 261
 // Round:   261
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Voltage=1..3.4, Flow=-1..1, Drying=-1..1
 //
-// Knob 1: Hue. Added to the hue of every droplet, spark and haze, once round the wheel over the knob's travel. At 0 the big young droplets are pale ice-cyan, the middle ones electric blue-cyan, the small progeny violet, the flashes near white with a touch of magenta; at 0.25 that scale sits in green and teal, at 0.5 in orange and rose.
-// Knob 2: Voltage. 1 to 3.4 kV, opening at 2. It sets how hard the field pulls: at 1 the cone is a slow pulsing swell that sends droplets out in bursts and the plume is a narrow bell; at 2 it is a steady cone-jet with a 36 degree fan; at 3.4 each drop leaves with 0.9 of the charge it can hold, the fan is wider than the panel and a second jet leaves the cone at about 2.5 and a third at 3, each fanning from its own breakup point.
-// Knob 3: Flow. How much liquid the cone is fed, signed, 2 to the 1.1 power of the knob times the opening value: 0.47 at -1, 2.1 at +1. Droplets leave 1.2 times a second per unit as often at the opening and the drop radius grows with the cube root of the flow, so at +1 about twice as many, 1.28 times wider, and the fan is dense with large pale beads; at -1 a thin string of small ones.
-// Knob 4: Drying. How fast droplets shrink, signed, 2 to the 1.3 power of the knob times the opening rate of 0.19 LED a second. At -1 a droplet needs 3 seconds to dry to its first burst and the plume is mostly whole pale drops; at 0 about 1.2 seconds, a burst every droplet every second or so; at +1 it bursts every half second, the pale drops are gone by mid panel, and the lower half is violet spray and falling sparks.
+// Knob 1: Hue. Added to the hue of every droplet, ring, spark and the cone, once round the wheel over the knob's travel; the haze behind only swings between teal-blue and magenta (0.14 of the wheel either way) so that it never goes brown. At 0 the young drops are pale ice-cyan, the middle ones electric blue, the small progeny violet, the flashes near white with a touch of magenta and the sparks pale cyan; at 0.25 the drops are pink and violet on magenta, at 0.5 gold and peach on indigo, at 0.75 green and teal.
+// Knob 2: Voltage. 1 to 3.4 kV, opening at 2. It sets the pull along the axis (a drop at 0.7 of its charge limit drifts at 9 LEDs a second well below the cone at 2, at 0.73 of that at 1 and 1.27 times that at 3.4), the push the drops give each other (0.16 times its value at 2 when the knob is at 1, 2.2 times at 3.4) and the charge a drop leaves the jet with, 0.55 of its limit at 1, 0.7 at 2, 0.91 at 3.4. The plume's 90th-percentile half angle is 18 degrees at 1, 26 at 2 (the fan reaches both side edges by row 70) and 33 at 3.4. Under 1.9 the cone pulses at 3.1 and 4.7 Hz, its height swings 1.8 LEDs and the drops leave in bunches with gaps between; from 2.45 a second jet leaves the cone 26 to 29 degrees out and from 2.85 a third, each with its own breakup point. At any setting the cone now and then (every 7 to 21 s) throws a second jet for a second or so.
+// Knob 3: Flow. How much liquid the cone is fed, signed: 2 to the 1.1 power of the knob, 0.47 at -1, 1 at 0 where it opens, 2.14 at +1. Drops leave 12 times a second at the opening, 7.7 at -1 and 20 at +1, and their radius goes with the flow to the 0.3: 1.5 LEDs at -1 (a drawn radius of 2 LEDs), 1.85 at 0 (2.2) and 2.3 at +1 (2.5). So there are about 180 drops on the panel at -1, 320 at 0 and 450 at +1, and at +1 the jet is a column of fat pale beads.
+// Knob 4: Drying. How fast a drop shrinks, signed: 0.055 LED a second times 2 to the 1.3 power of the knob, 0.022 at -1, 0.055 at 0 and 0.14 at +1. A drop at its charge limit loses a tenth of its radius between one burst and the next, so the bursts come about every 7 s at -1, 3 s at 0 and 1.2 s at +1: roughly 11, 60 and 160 bursts a second counting the small ones, and 5, 37 and 120 ion sparks on the panel. At -1 the plume is whole pale drops with an odd ring; at +1 the pale drops are gone by mid panel, rings crowd the middle and the lower half is violet dust and falling sparks.
 
-// What the picture is. A side view of a plume with the axis down the middle of the panel. Every droplet carries a charge q and a radius R; the charge limit of a drop of radius R is
-// q_R = R^1.5 in the units used here (Rayleigh: q^2 = 64 pi^2 eps0 gamma R^3 is the real law), so f = q^2 / R^3 says how close to bursting a drop is.
-//   emission   the jet breaks at jittering intervals (0.4 to 1.5 of the mean) and leaves a drop at 70 percent of the limit or so (more at high voltage), a satellite one time in three
-//   drift      the field is small and the air thick, so a drop moves at the speed its force allows: v = mu (q / R) E, then relaxes to it with a time that grows with R squared (Stokes)
-//   force      E is the applied field plus every other droplet's Coulomb push, softened over 1.5 LEDs. Near droplets are summed exactly and far ones as one charge per 8 LED cell, in 3D:
-//              the third coordinate is never drawn except as a slight dimming with depth, but it is why the fan is a cone and not a flat spread
-//   drying     R falls at a steady rate, charge stays; f rises as R^-3 until it reaches 1
-//   burst      at f >= 1 a ring flashes and 2 to 6 progeny leave with 2 percent of the mass and 15 percent of the charge, flung sideways at 28 to 46 LEDs a second;
-//              they are small and slow in the field but carry high charge for their mass, so they repel hard and then dry fast, and a progeny that gets to f = 1 bursts again;
-//              progeny too small to draw (R under 0.28) are ions, and an ion is a short cool streak that falls at 55 to 95 LEDs a second to the bottom edge and lands in a glow
-//   loss       what leaves the panel at the bottom or the sides is gone, and the jet refills at a steady rate, so about 350 droplets at the opening, 200 at the least flow and 650 at the most
-// The cone and the jet are drawn as light only: a wide triangle fading toward the top edge, a bright apex and a thin line to the breakup point that pulses at the breakup rhythm. The plume's mist is the
-// fine aerosol that is too small to see, a coarse 16 x 32 field fed by every burst and every falling droplet, spread outward and down; with a faint corona round the apex it keeps the upper corners from going black.
-// The pulsation of the cone has three slow beats (3.1, 4.7 and 0.37 Hz) and the droplet size and charge are drawn at random, so the plume does not come back.
+// What the picture is. A side view of an electrospray plume with its axis down the middle of the panel and the counter electrode off the bottom edge. Every droplet carries a charge q and a radius R; the charge a drop of radius R
+// can hold is q_R = R^1.5 in the units used here (Rayleigh: q^2 = 64 pi^2 eps0 gamma R^3 is the real law), so f = q^2 / R^3 says how close to bursting a drop is, and f = 1 is the burst.
+//   emission   the jet breaks at jittering intervals (0.4 to 1.5 of the mean) 9 LEDs under the cone at 2 and the drop leaves at 0.5 to 0.85 of its limit, with a satellite drop one time in three
+//   drift      the air is thick, so a drop moves at the speed its force allows, v = (q / R) E (Stokes drag, mobility q / R), and relaxes to it with a time that grows with R squared, 0.15 s for the progeny and 0.7 s for a big drop
+//   force      E is the applied field, strongest at the apex, plus every other droplet's Coulomb push, softened over 1.5 LEDs. Near droplets are summed exactly, far ones as one charge per 8 LED cell, in 3D:
+//              the third coordinate is never drawn except as a dimming and a few percent of size with depth, but it is why the fan is a cone and not a flat spread
+//   drying     R falls at a steady rate and the charge stays, so f rises as R^-3 until it reaches 1
+//   burst      at f >= 1 a flash and a ring leave the drop and 2 to 6 progeny leave with 2 percent of its mass and 15 percent of its charge, flung out at 36 to 60 LEDs a second in random directions round the axis;
+//              they are small and slow in the field and dry fast, and one that gets to f = 1 bursts again, except that a drop under R = 0.7 sheds 58 percent of its charge in that burst, as ion evaporation takes over (Iribarne and Thomson, 1976,
+//              from memory), so it bursts once. Below R = 0.2 a drop is an ion, a short cool streak that falls at 55 to 95 LEDs a second along the ray from the apex and lands on the bottom edge in a small glow
+//   loss       what leaves the panel at the bottom or the sides is gone, and the jet refills at a steady rate, so the plume holds the same few hundred drops for as long as it runs
+// The cone and the jet are light only: a trumpet fading toward the top edge, a bright apex and a thin line to the breakup point that pulses at the breakup rhythm. The mist is the fine aerosol too small to see, a coarse 16 x 32 field fed by
+// every droplet and every burst and carried outward and down, and the corona is a faint set of streamers that run out from the apex, with a glow along the bottom edge where the ions land; together they keep the corners from going black.
+// The pulsation of the cone has beats of 3.1, 4.7 and 0.37 Hz, the jet length, the wobble of its axis, the haze and the surges have their own periods, and the drops are drawn with random size and charge, so the plume does not come back.
+// The first update runs 8 s of the physics so the plume is there on the first frame.
 
 const W = 64, H = 128, NP = W * H;
 const { sin, cos, sqrt, exp, abs, floor, max, min, PI, pow, random, atan2 } = Math;
@@ -46,7 +47,7 @@ const X0 = 32;                  // the axis
 const R_ION = 0.2, R_MAX = 3.2; // drawn radius runs from 0.8 LED at R_ION to 3 LEDs at R_MAX
 const GCS = 8, GNX = 10, GNY = 18, GNC = GNX * GNY; // force grid: 8 LED cells from x = -8, y = 0
 const RING_T = 0.34;
-const MX = 16, MY = 32;          // mist grid, 4 LED cells
+const MX = 16, MY = 32, HX = 32, HY = 64;          // mist grid, 4 LED cells
 
 // ---- colour -----------------------------------------------------------------
 function hsv(h, s, v, out) {
@@ -74,7 +75,7 @@ function sizeColor(s, out) {
 }
 
 // ---- profile LUT: a hot core inside a soft skirt, in u = d^2 / sigma^2 --------
-const PS = 32, UMAX = 9, PLEN = UMAX * PS;
+const PS = 32, UMAX = 7.5, PLEN = UMAX * PS;
 const PROF = new Float32Array(PLEN + 2);
 for (let i = 0; i <= PLEN + 1; i++) {
   const u = i / PS, w = u < UMAX ? (1 - u / UMAX) : 0;
@@ -103,7 +104,7 @@ function makeState() {
     nr: 0, rx: new Float32Array(NRING), ry: new Float32Array(NRING), r0: new Float32Array(NRING), rage: new Float32Array(NRING),
     nl: 0, lx: new Float32Array(NLAND), lage: new Float32Array(NLAND), lbr: new Float32Array(NLAND),
     jt: [0.1, 0.2, 0.3], jth: [1, 1, 1], sgT: rr(3, 10), sgA: -1, sgLen: 1, sgSide: 1, jdraw: [1, 0, 0], jphase: [rr(0, TAU), rr(0, TAU), rr(0, TAU)], jy: [14, 12, 12], jx: [X0, X0, X0],
-    mist: new Float32Array(MX * MY), mist2: new Float32Array(MX * MY),
+    mist: new Float32Array(MX * MY), mist2: new Float32Array(MX * MY), hz: new Float32Array(HX * HY),
     nz: new Float32Array(9 * 18 * 2), nzt: 0,
     buf: new Float32Array(NP * 3), tmp: [0, 0, 0],
     V: 2, phi: 1, ev: 1, ang: 0.35,
@@ -366,13 +367,13 @@ export function update(dt, input, params) {
   const mm = S.mist;
   for (let i = 0; i < S.n; i++) {
     const gx = cl(floor(S.x[i] / 4), 0, MX - 1), gy = cl(floor(S.y[i] / 4), 0, MY - 1);
-    mm[gy * MX + gx] += S.q[i] * 0.01 * d * 30;
+    mm[gy * MX + gx] += S.q[i] * 0.006 * d * 30;
   }
 }
 
 // ---- drawing -----------------------------------------------------------------
 function addBlob(buf, px, py, sig, r, g, b, kind) {
-  const ext = 3 * sig;
+  const ext = 2.75 * sig;
   const x0 = max(0, floor(px - ext)), x1 = min(W - 1, floor(px + ext)), y0 = max(0, floor(py - ext)), y1 = min(H - 1, floor(py + ext));
   const is2 = 1 / (sig * sig) * PS;
   for (let y = y0; y <= y1; y++) {
@@ -408,26 +409,33 @@ export function draw(display, params) {
   const hue = (h) => h + H0;
   const t = S.t, V = S.ks[1];
 
-  // mist and corona
+  // mist, corona, halo and the glow along the bottom edge: one scalar field on a 32 x 64 grid, 2 LEDs a cell, spread over the panel by bilinear lookup
   {
     const flick = 0.5 + 0.5 * sin(TAU * 0.23 * t + 2 * sin(TAU * 0.071 * t)) * sin(TAU * 0.37 * t + 1);
     hazeColor(H0, tmp);
     const mr = tmp[0], mg = tmp[1], mb = tmp[2];
-    const m = S.mist;
-    for (let y = 0; y < H; y++) {
-      const gy = cl((y + 0.5) / 4 - 0.5, 0, MY - 1.001), j0 = floor(gy), fy = gy - j0;
-      for (let x = 0; x < W; x++) {
-        const gx = cl((x + 0.5) / 4 - 0.5, 0, MX - 1.001), i0 = floor(gx), fx = gx - i0;
+    const m = S.mist, hz = S.hz;
+    for (let j = 0; j < HY; j++) {
+      const y = 2 * j + 1, gy = cl((y + 0.5) / 4 - 0.5, 0, MY - 1.001), j0 = floor(gy), fy = gy - j0;
+      const dyy = y - 3.5, halo = 0.07 * sst(6, 36, y), bot = 0.2 * exp(-(H - 0.5 - y) / 15);
+      for (let i = 0; i < HX; i++) {
+        const x = 2 * i + 1, gx = cl((x + 0.5) / 4 - 0.5, 0, MX - 1.001), i0 = floor(gx), fx = gx - i0;
         const o = j0 * MX + i0;
         const mv = m[o] * (1 - fx) * (1 - fy) + m[o + 1] * fx * (1 - fy) + m[o + MX] * (1 - fx) * fy + m[o + MX + 1] * fx * fy;
-        const dxx = x + 0.5 - X0, dyy = y + 0.5 - 4;
-        const dist = sqrt(dxx * dxx + dyy * dyy);
-        const nzv = nzAt(S, atan2(dxx, dyy + 3) * 2.3 + 4.5, dist * 0.085, t * 1.1);
-        const cor = 0.58 / (1 + (dist / 20) * (dist / 20)) * (0.45 + 0.95 * nzv) * (0.88 + 0.12 * flick);
-        const bot = 0.2 * exp(-(H - 0.5 - y) / 15) * (0.55 + 0.9 * nzAt(S, x / 6 + 2, y / 9, t * 0.5));
-        const v = mv + cor + bot;
+        const dxx = x + 0.5 - X0, dist = sqrt(dxx * dxx + dyy * dyy);
+        const cor = 0.58 / (1 + (dist / 20) * (dist / 20)) * (0.45 + 0.95 * nzAt(S, atan2(dxx, dyy + 3) * 2.3 + 4.5, dist * 0.085, t * 1.1)) * (0.88 + 0.12 * flick);
+        const n2 = nzAt(S, x / 9 + 1, y / 11, t * 0.35);
+        hz[j * HX + i] = mv + cor + (halo + bot * 0.8) * (0.45 + 1.0 * n2);
+      }
+    }
+    for (let y = 0; y < H; y++) {
+      const gy = cl((y + 0.5) / 2 - 0.5, 0, HY - 1.001), j0 = floor(gy), fy = gy - j0;
+      for (let x = 0; x < W; x++) {
+        const gx = cl((x + 0.5) / 2 - 0.5, 0, HX - 1.001), i0 = floor(gx), fx = gx - i0;
+        const o = j0 * HX + i0;
+        const v = hz[o] * (1 - fx) * (1 - fy) + hz[o + 1] * fx * (1 - fy) + hz[o + HX] * (1 - fx) * fy + hz[o + HX + 1] * fx * fy;
         const o3 = (y * W + x) * 3;
-        buf[o3] += mr * v; buf[o3 + 1] += mg * v; buf[o3 + 2] += mb * v;
+        buf[o3] = mr * v; buf[o3 + 1] = mg * v; buf[o3 + 2] = mb * v;
       }
     }
   }
@@ -451,9 +459,9 @@ export function draw(display, params) {
     const r = tmp[0], g = tmp[1], bb = tmp[2];
     addBlob(buf, S.x[i], S.y[i], sigma, r, g, bb);
     const spd = sqrt(S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i]);
-    const nt = min(6, (spd / 7) | 0);
+    const nt = min(4, (spd / 9) | 0);
     for (let k = 1; k <= nt; k++) {
-      const a = 0.5 * pow(0.72, k - 1) * sst(0, 2, nt - k + 1), tk = 0.032 * k;
+      const a = 0.5 * pow(0.7, k - 1) * sst(0, 2, nt - k + 1), tk = 0.04 * k;
       addBlob(buf, S.x[i] - S.vx[i] * tk, S.y[i] - S.vy[i] * tk, sigma * (1 - 0.04 * k), r * a, g * a, bb * a);
     }
   }
