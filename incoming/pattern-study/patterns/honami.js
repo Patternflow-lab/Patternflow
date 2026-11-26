@@ -48,7 +48,7 @@ const ss = (a, b, v) => {
 
 // ---- wind and gusts
 const A0 = 0.85; // mean heading of the wind, rad from straight toward the eye, turning to the right
-const DIR_SD = 0.32, DIR_TAU = 30; // the heading's wander, rad, and how long it remembers, s
+const DIR_SD = 0.32, DIR_TAU = 30; // the heading wanders DIR_SD rad and remembers DIR_TAU s
 const SPD_SD = 0.2, SPD_TAU = 20; // the speed's wander, in log units
 const GUST_SD = 0.25, GUST_TAU = 30; // the gustiness's wander
 const COVER = 0.5; // the share of each band of depth the gust groups cover at the opening wind

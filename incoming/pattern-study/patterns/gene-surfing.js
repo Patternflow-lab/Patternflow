@@ -25,7 +25,7 @@
 // A census counts sectors every ring. Below its target, 8 at K3 = -1 and 32 at 1, a neutral wedge 2.5 to 4 cells wide is seeded in a domain
 // picked by width squared, often in the rarest strain, with a start-up advantage of 0.28 fading over 36 rings, so it opens to about 23 cells;
 // drift leaves it alone for 20 rings, so a wedge that dies is a sliver and not a dot. K4 seeds fitter mutants, s from 0.3 to 0.8, and every
-// advantage fades 0.8 percent a ring. The rim height h(theta) grows as KPZ with noise of 10 rings of memory, so bumps creep, and fitness bulges it.
+// advantage fades 0.8 percent a ring. The rim height h(theta) grows as KPZ with noise that remembers 10 rings, so its bumps creep. A fitter lineage bulges it out.
 // Each ring is rasterised into strain coverage with partial cells at the boundaries, times a grain (4 cells by 4 rings) and streaks (3 by 10)
 // that sit in the colony, and mipmapped five times in angle and ring, so shrinking rings are averaged and nothing shimmers near the centre.
 // Drawing. Each LED samples two mip levels and squares the strain weights so two colours meet without a muddy band. Its intensity is 0.9
