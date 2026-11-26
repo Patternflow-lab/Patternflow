@@ -33,7 +33,7 @@
 // L5. A particle that is scattered out of the window, falls into the small body or has lived its 110 to 330 time units (18 to 55 s at the
 // opening) is replaced by a new one at a random phase of an orbit of a class the crowd lacks, so sixty-four particles stay on the panel and
 // the picture never settles. At the opening that is about 4 particles a second, most of them passing orbits kicked out of the window by the
-// small body, and the horseshoes beyond 2.5 times the square root of mu are thrown out within about a hundred time units.
+// small body. Horseshoes wider than 2.5 times the square root of mu do not last: at mu = 1e-3, 26 of 27 test orbits started there were scattered out of the window within 600 time units.
 // Drawing. A trail is the path of the particle on the panel, stamped as soft discs 2.3 LEDs across into three buffers (tadpoles, horseshoes,
 // passing) that each fade by a fixed fraction of a time unit, so a trail is long where a particle is fast and short where it dawdles, and a
 // stretch the particle covers fast is laid thinner, as in a photograph. The fade time scales with 1 / sqrt(mu), so the trails keep their
