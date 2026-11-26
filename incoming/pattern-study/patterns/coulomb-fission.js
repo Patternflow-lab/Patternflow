@@ -286,7 +286,6 @@ function step(S, dt) {
       S.mist[cl(floor(ny / 4), 0, MY - 1) * MX + cl(floor(nx / 4), 0, MX - 1)] += 0.5;
       S.flare[i] = 1;
       S.fis++;
-      if (S.dbg) { const b = nR > 2 ? 0 : nR > 1.4 ? 1 : nR > 0.9 ? 2 : nR > 0.6 ? 3 : 4; S.dbg[b]++; S.dbgG[S.gen[i]]++; }
     }
     X[w] = nx; Y[w] = ny; Z[w] = nz; S.vx[w] = S.vx[i]; S.vy[w] = S.vy[i]; S.vz[w] = S.vz[i];
     R[w] = nR; Q[w] = S.q[i]; S.gen[w] = S.gen[i]; S.flare[w] = S.flare[i]; S.ph[w] = S.ph[i];
