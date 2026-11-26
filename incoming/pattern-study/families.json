@@ -376,8 +376,8 @@
   "genesurfing": { "label": "유전자 서핑", "color": "#58e07a" },
   "barkbeetle": { "label": "나무좀 갱도", "color": "#a8744a" },
   "binaural": { "label": "양이 시간차", "color": "#9ef811" },
-  "paleomagnetism": { "label": "고지자기 줄무늬", "color": "#bf685e" },
   "stratosphere": { "label": "성층권 바람", "color": "#6a66d8" },
   "zoning": { "label": "결정 성장대", "color": "#e30791" },
-  "electrospray": { "label": "전기 분무", "color": "#d81030" }
+  "electrospray": { "label": "전기 분무", "color": "#d81030" },
+  "fallstreak": { "label": "구름 구멍", "color": "#d87c7b" }
 }
