@@ -1,7 +1,7 @@
 // ===== Patternflow pattern =====
 // Title:   Gene Surfing
 // Family:  genesurfing
-// Idea:    A colony of four fluorescent strains spreads over a black agar plate seen from above, and the panel keeps zooming out as it grows so the bright rough rim stays near the edge while older rings shrink to the middle: drift at the rim sorts the strains into green, red, cyan and yellow sectors with rough wandering boundaries that meet the rim in notches, sectors pinch out and close, and now and then a mutant appears at the rim as a small wedge, the lucky ones open into new sectors and a fitter one bulges out of the rim and widens along curved spiral boundaries.
+// Idea:    A colony of four fluorescent strains spreads over a black agar plate seen from above while the view keeps zooming out, so its rough rim, glowing near white, stays at the edge and older rings shrink to the middle: drift at the rim sorts the strains into green, red, cyan and pink sectors that deepen toward the centre, with rough wandering boundaries that shine faintly and notch the rim, sectors pinch out and close, now and then a mutant wedge opens at the rim, and a fitter one bulges out and widens along curved spiral boundaries.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
@@ -11,34 +11,27 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0.5..4, Drift=-1..1, Mutation=-1..1
 //
-// Knob 1: Hue. Turns the four strain colours round the wheel together, one turn over the knob. At 0 they are GFP green, mCherry red, CFP cyan and YFP yellow; at 0.25 azure, lime, violet and green; at 0.5 magenta, aqua, red and blue; at 0.75 orange, violet, chartreuse and pink. The spacing never changes, so the sectors stay apart.
+// Knob 1: Hue. Turns the four strain colours round the wheel together, one turn over the knob. At 0 they are GFP green, mCherry red, CFP cyan and a rose pink; at 0.25 azure, chartreuse, violet and amber; at 0.5 the four trade places, magenta, cyan, red and green; at 0.75 orange, violet, lime and blue. The spacing never changes, so the sectors stay apart, and a strain that lands on orange, yellow or chartreuse deepens half as much, since those turn brown or olive when dim.
 // Knob 2: Growth. 0.5 to 4, opening at 2. How fast the colony grows and the view zooms out: 2.6 new rings a second plus 0.9 for each unit, 4.4 at the opening, 3.05 at 0.5 and 6.2 at 4. A ring born at the rim reaches half the radius in 9.6 s at the opening, 13.9 s at 0.5 and 6.8 s at 4, and every sector, wedge and bulge keeps that pace.
 // Knob 3: Drift. -1 to 1, opening at 0. How strong genetic drift is at the rim. At -1 about 11 broad sectors share the whole rim and their boundaries swing slowly and smoothly; at 0 about 21, whose boundaries wander and fray; at 1 about 28 thin sectors with jagged boundaries that pinch out within seconds while new wedges keep opening, and the rim is twice as rough, 1.7 LED rms against 0.8 at -1.
 // Knob 4: Mutation. -1 to 1, opening at 0.06. Mutants with an advantage. At -1 every new wedge is neutral and lives or closes by drift alone. At 0.06 a fitter mutant turns up about every 10 s, opens its sector along curved boundaries at 0.5 LED a ring each side and pushes a soft bulge out of the rim; its edge fades over about 125 rings, so it stops at a third of the plate or so. At 1 one comes every 4 s and opens at 0.75 LED a ring, and fitter ones inside fitter ones sweep the plate in turn.
 
-// What the picture is. The colony is a history buffer of rings. Ring n is the rim at the moment it grew past log radius n dl, with dl = 2 pi / 384,
-// so a ring is as deep as one of its 384 angular cells is wide and a cell stays square as it shrinks. The rim is drawn 57 LED from the centre
-// of the panel and every older ring sits dl further in on the log scale: the view zooms out by a factor e every 61 rings, and the 192 rings kept
-// reach from the rim to a disc 5 LED across in the middle, where the mixed inoculum glows pale.
-// The rim is a ring of domains, each a lineage with a strain (one of four colours), a fitness, a brightness of its own and a left boundary at a
-// real angle. Every ring each boundary moves by gamma (f_left - f_right), so a fitter lineage eats its neighbours at a steady rate and opens a
-// logarithmic spiral; by a slow wander (an Ornstein-Uhlenbeck velocity with 40 rings of memory) that bends it; by a quick one (3 rings) and a
-// white jitter that fray it; and by a pull into the valleys of the rim, where two growing lobes meet. Two boundaries that cross annihilate and the
-// sector between them is gone, which is how sectors coarsen; neighbours of one strain, fitness and brightness merge. Drift sets the quick wander,
-// the jitter and the census, and the slow wander shrinks as it grows, so low drift bends and high drift frays.
-// A census counts the sectors on the rim every ring. Below its target, 8 at K3 = -1 and 32 at 1, a neutral wedge 2.5 to 4 cells wide is seeded
-// in a domain picked by its width squared (oftener while one domain is wider than 1.8 times the mean), in the strain rarest on the rim about half the time, with a start-up advantage of 0.28 that fades with
-// 36 rings, so it opens to about 23 cells before drift decides whether it lives or closes. For its first 20 rings drift leaves it alone, so a wedge
-// that dies is a long sliver and not a dot. K4 seeds fitter mutants on top, fitness parent + s, s from 0.3 to 0.8. Fitness is kept relative, the
-// least fit is 0, and every advantage fades by 0.8 percent a ring.
-// The rim's height h(theta), in LED on 192 cells, grows as KPZ: smoothing, a (slope)^2 term that sharpens valleys, noise with 10 rings of
-// memory so the bumps creep instead of flicker, a push from fitness that bulges a fitter sector, and a weak pull back to the mean.
-// Each ring is rasterised into 384 cells of strain coverage, with partial cells at the boundaries, times a granular texture that sits in the
-// colony (value noise in grains 3 cells by 3 rings, and streaks 2 cells by 8 rings), and mipmapped five times in angle and ring together, so the
-// shrinking rings are averaged rather than sampled and nothing shimmers near the centre.
-// Drawing. Every LED knows its log radius, angle and mip level. It samples two levels trilinearly, squares the strain weights so that two
-// colours meet without a muddy band, darkens a little where they meet and notches the rim there by 2.4 LED, and adds a whitish growing rim
-// 2 LED deep and a glow beyond it onto the black agar. The grain lifts toward white more than it darkens, since a dim yellow reads as olive.
+// What the picture is. A history buffer of rings: ring n is the rim when it grew past log radius n dl, dl = 2 pi / 384, so its 384 cells stay
+// square as they shrink. The rim is drawn 57 LED from the centre and each older ring sits dl further in, so the view zooms out by e every
+// 61 rings, and the 192 rings kept reach a disc 5 LED across where the mixed inoculum glows pale.
+// The rim is a ring of lineages, each with a strain, a fitness, a brightness and a left boundary at a real angle. Each ring a boundary moves by
+// gamma (f_left - f_right), so a fitter lineage opens a logarithmic spiral; by a slow wander (40 rings of memory) that bends it; by a quick one
+// (3 rings) and a jitter that fray it; and into the valleys of the rim. Boundaries that cross annihilate, which is how sectors coarsen.
+// A census counts sectors every ring. Below its target, 8 at K3 = -1 and 32 at 1, a neutral wedge 2.5 to 4 cells wide is seeded in a domain
+// picked by width squared, often in the rarest strain, with a start-up advantage of 0.28 fading over 36 rings, so it opens to about 23 cells;
+// drift leaves it alone for 20 rings, so a wedge that dies is a sliver and not a dot. K4 seeds fitter mutants, s from 0.3 to 0.8, and every
+// advantage fades 0.8 percent a ring. The rim height h(theta) grows as KPZ with noise of 10 rings of memory, so bumps creep, and fitness bulges it.
+// Each ring is rasterised into strain coverage with partial cells at the boundaries, times a grain (4 cells by 4 rings) and streaks (3 by 10)
+// that sit in the colony, and mipmapped five times in angle and ring, so shrinking rings are averaged and nothing shimmers near the centre.
+// Drawing. Each LED samples two mip levels and squares the strain weights so two colours meet without a muddy band. Its intensity is 0.9
+// inside the rim falling to 0.4 over 20 LED, times grain, streaks and lineage, plus 0.4 at the rim; each strain's ramp runs from a deep
+// saturated tone to a white-tinged glow above 0.8. Where two strains meet, read on the coarser level so the band is 2 to 4 LED wide, the
+// intensity rises 0.2 and the rim is notched 2.2 LED. A short glow falls beyond the rim onto the black agar.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, abs, exp, log, atan2, min, max, PI, pow } = Math;
@@ -87,7 +80,8 @@ function makeState() {
     pa: new Float32Array(NPX), pl: new Float32Array(NPX), pr: new Float32Array(NPX), plod: new Float32Array(NPX),
     // each LED's angular cells and weights at its two mip levels, which never change
     ca: new Int16Array(NPX * 4), cf: new Float32Array(NPX * 2),
-    pal: new Float32Array(NS * 3), cen: new Float32Array(3), acc5: new Float64Array(5),
+    pal: new Float32Array(NS * 3), lut: new Float32Array(NS * 128 * 3), cen: new Float32Array(3),
+    acc5: new Float64Array(5), accB: new Float64Array(5),
   };
   for (let p = 0; p < NPX; p++) {
     const x = p % W, y = (p / W) | 0;
@@ -143,7 +137,7 @@ function normalize(D) {
 }
 
 // each lineage glows a little brighter or dimmer than its neighbours of the same strain
-const lumNew = () => 0.94 + 0.16 * rnd();
+const lumNew = () => 0.88 + 0.24 * rnd();
 
 const rightOf = (D, i) => (i + 1 < D.length ? D[i + 1].b : D[0].b + NA);
 
@@ -172,7 +166,7 @@ function spawn(S, s) {
   const par = D[i], lo = par.b, hi = rightOf(D, i), w0 = 2.5 + 1.5 * rnd();
   if (hi - lo < w0 + 4) return;
   const p = lo + 2 + w0 * 0.5 + rnd() * (hi - lo - 4 - w0);
-  // the strain rarest on the rim, most of the time; never the parent's
+  // the strain rarest on the rim about half the time; never the parent's
   let col = -1;
   if (rnd() < 0.45) {
     let best = 2;
@@ -188,7 +182,7 @@ function spawn(S, s) {
 
 function stepRim(S) {
   const D = S.dom, u3 = S.u3, u4 = S.u4;
-  // wander: a quick one (3 rings of memory) for the wiggles, a slow one (25 rings) for the meanders, and a white jitter for the grain
+  // wander: a quick one (3 rings of memory) for the wiggles, a slow one (40 rings) for the meanders, and a white jitter for the grain
   const vq = 0.06 + 0.56 * u3, vs = 0.55 - 0.5 * u3 + 0.2 * u3 * u3, sj = 0.02 + 0.42 * pow(u3, 1.2), kv = 0.2 + 0.35 * u3;
   const sAdv = 0.3 + 0.5 * u4;
   // relative fitness
@@ -267,22 +261,22 @@ function layRing(S) {
       lc[cc] += cov * lu;
     }
   }
-  // granular texture that sits in the colony: grains 3 cells by 3 rings, and streaks 2 cells by 8 rings
+  // granular texture that sits in the colony: grains 4 cells by 4 rings, and streaks 3 cells by 10 rings
   const salt = S.salt;
-  const ja = floor(n / 3), fa0 = n / 3 - ja, fa = fa0 * fa0 * (3 - 2 * fa0);
-  const jb = floor(n / 8), fb0 = n / 8 - jb, fb = fb0 * fb0 * (3 - 2 * fb0);
+  const ja = floor(n / 4), fa0 = n / 4 - ja, fa = fa0 * fa0 * (3 - 2 * fa0);
+  const jb = floor(n / 10), fb0 = n / 10 - jb, fb = fb0 * fb0 * (3 - 2 * fb0);
   for (let c = 0; c < NA; c++) {
-    let ia = floor(c / 3), ga = c / 3 - ia;
+    let ia = floor(c / 4), ga = c / 4 - ia;
     ga = ga * ga * (3 - 2 * ga);
-    const ia1 = ia + 1 === NA / 3 ? 0 : ia + 1;
+    const ia1 = ia + 1 === NA / 4 ? 0 : ia + 1;
     const a0 = hsh(ia, ja, salt) + (hsh(ia1, ja, salt) - hsh(ia, ja, salt)) * ga;
     const a1 = hsh(ia, ja + 1, salt) + (hsh(ia1, ja + 1, salt) - hsh(ia, ja + 1, salt)) * ga;
-    let ib = floor(c / 2), gb = c / 2 - ib;
+    let ib = floor(c / 3), gb = c / 3 - ib;
     gb = gb * gb * (3 - 2 * gb);
-    const ib1 = ib + 1 === NA / 2 ? 0 : ib + 1;
+    const ib1 = ib + 1 === NA / 3 ? 0 : ib + 1;
     const b0 = hsh(ib, jb, salt + 7) + (hsh(ib1, jb, salt + 7) - hsh(ib, jb, salt + 7)) * gb;
     const b1 = hsh(ib, jb + 1, salt + 7) + (hsh(ib1, jb + 1, salt + 7) - hsh(ib, jb + 1, salt + 7)) * gb;
-    t[row + c] = lc[c] * (1 + 0.4 * (a0 + (a1 - a0) * fa - 0.5) + 0.32 * (b0 + (b1 - b0) * fb - 0.5));
+    t[row + c] = lc[c] * (1 + 0.42 * (a0 + (a1 - a0) * fa - 0.5) + 0.5 * (b0 + (b1 - b0) * fb - 0.5));
   }
   // the rim height
   const u3 = S.u3, u4 = S.u4, h = S.h, hn = S.hn, hz = S.hz;
@@ -334,8 +328,9 @@ export function update(dt, input, params) {
   if (!S.ready) {
     S.ready = true;
     ease(S, kn, 1);
-    // grow from the inoculum until the buffer holds a full, sorted colony and the census has settled
-    for (let i = 0; i < NR + 320; i++) grow(S);
+    // grow from the inoculum until the buffer holds a full, sorted colony, then for another minute at the pace of K2
+    const pre = NR + 120 + floor(60 * (RATE0 + RATE * S.grow));
+    for (let i = 0; i < pre; i++) grow(S);
     S.acc = rnd();
   }
   ease(S, kn, 1 - exp(-d / 0.3));
@@ -349,8 +344,10 @@ export function update(dt, input, params) {
   if (S.acc >= 1) S.acc = 0.999;
 }
 
-// ---- colour: four fluorescent strains, a quarter turn and a bit apart, turned together by K1
-const BASE = [0.355, 0.975, 0.515, 0.16]; // GFP green, mCherry red, CFP cyan, YFP yellow
+// ---- colour: four strains turned together by K1, each a ramp from a deep saturated tone to a white-tinged glow. A hue near yellow or orange
+// keeps half its light as it deepens, since a dim yellow reads as olive on the panel and a dim orange as brown.
+const BASE = [0.355, 0.022, 0.535, 0.868]; // GFP green, mCherry red, CFP cyan, a rose pink
+const NL = 128, LTOP = 1.5;               // levels of a ramp, and the intensity of its top level
 function hueRGB(hh, out, o) {
   const h6 = (((hh % 1) + 1) % 1) * 6, i = floor(h6), f = h6 - i;
   let r, g, b;
@@ -369,7 +366,26 @@ function hueRGB(hh, out, o) {
   out[o + 2] = 255 * (b + (1 - b) * wl);
 }
 
-function sampleAt(S, L, A, c0, c1, fc, wgt, acc) {
+function buildRamps(S) {
+  const c = S.pal, lut = S.lut;
+  for (let k = 0; k < NS; k++) {
+    const h = (((BASE[k] + S.hue) % 1) + 1) % 1;
+    hueRGB(h, c, k * 3);
+    let dh = abs(h * 360 - 55);
+    if (dh > 180) dh = 360 - dh;
+    const yb = sm(50, 22, dh); // 1 within 22 degrees of 55, so orange, yellow and chartreuse, and 0 past 50
+    for (let i = 0; i < NL; i++) {
+      const I = (i / (NL - 1)) * LTOP, ie = I < 1 ? 1 - (1 - I) * (1 - 0.5 * yb) : I;
+      const v = min(ie, 1), w = cl((ie - 0.8) / 0.7, 0, 1) * 0.8;
+      for (let ch = 0; ch < 3; ch++) {
+        const x = c[k * 3 + ch] * v;
+        lut[(k * NL + i) * 3 + ch] = x + (255 - x) * w;
+      }
+    }
+  }
+}
+
+function sampleAt(S, L, A, c0, c1, fc, acc) {
   const lv = S.lv[L], na = lv.na, nr = lv.nr, sc = 1 << L;
   const gmax = ((S.n + 1) >> L) - 1, gmin = gmax - nr + 1;
   let g = (A - (sc - 1) * 0.5) / sc;
@@ -377,32 +393,39 @@ function sampleAt(S, L, A, c0, c1, fc, wgt, acc) {
   if (g < gmin) g = gmin;
   const g0 = floor(g), fg = g - g0, g1 = g0 + 1 > gmax ? gmax : g0 + 1;
   const r0 = (g0 % nr) * na, r1 = (g1 % nr) * na;
-  const w00 = (1 - fg) * (1 - fc) * wgt, w01 = (1 - fg) * fc * wgt, w10 = fg * (1 - fc) * wgt, w11 = fg * fc * wgt;
+  const w00 = (1 - fg) * (1 - fc), w01 = (1 - fg) * fc, w10 = fg * (1 - fc), w11 = fg * fc;
   const W4 = lv.w, T = lv.t;
   const i00 = r0 + c0, i01 = r0 + c1, i10 = r1 + c0, i11 = r1 + c1;
   const j00 = i00 * NS, j01 = i01 * NS, j10 = i10 * NS, j11 = i11 * NS;
-  acc[0] += w00 * W4[j00] + w01 * W4[j01] + w10 * W4[j10] + w11 * W4[j11];
-  acc[1] += w00 * W4[j00 + 1] + w01 * W4[j01 + 1] + w10 * W4[j10 + 1] + w11 * W4[j11 + 1];
-  acc[2] += w00 * W4[j00 + 2] + w01 * W4[j01 + 2] + w10 * W4[j10 + 2] + w11 * W4[j11 + 2];
-  acc[3] += w00 * W4[j00 + 3] + w01 * W4[j01 + 3] + w10 * W4[j10 + 3] + w11 * W4[j11 + 3];
-  acc[4] += w00 * T[i00] + w01 * T[i01] + w10 * T[i10] + w11 * T[i11];
+  acc[0] = w00 * W4[j00] + w01 * W4[j01] + w10 * W4[j10] + w11 * W4[j11];
+  acc[1] = w00 * W4[j00 + 1] + w01 * W4[j01 + 1] + w10 * W4[j10 + 1] + w11 * W4[j11 + 1];
+  acc[2] = w00 * W4[j00 + 2] + w01 * W4[j01 + 2] + w10 * W4[j10 + 2] + w11 * W4[j11 + 2];
+  acc[3] = w00 * W4[j00 + 3] + w01 * W4[j01 + 3] + w10 * W4[j10 + 3] + w11 * W4[j11 + 3];
+  acc[4] = w00 * T[i00] + w01 * T[i01] + w10 * T[i10] + w11 * T[i11];
 }
+
+const LG = floor((0.85 / LTOP) * (NL - 1)); // the level the glow on the agar takes its colour from
 
 export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
-  const pal = S.pal;
-  for (let k = 0; k < NS; k++) hueRGB(BASE[k] + S.hue, pal, k * 3);
-  // the middle: the average of the oldest ring at the coarsest level
+  buildRamps(S);
+  const lut = S.lut;
+  // the middle: the inoculum is thick and mixed, a soft pale glow of the strains there are
   {
     const lv = S.lv[LMAX], gmax = ((S.n + 1) >> LMAX) - 1, gmin = gmax - lv.nr + 1, row = (gmin % lv.nr) * lv.na;
     const cw = [0, 0, 0, 0];
     for (let j = 0; j < lv.na; j++) for (let k = 0; k < NS; k++) cw[k] += lv.w[(row + j) * NS + k] / lv.na;
-    // the inoculum is thick and mixed: a pale glow of all the strains there are
-    for (let ch = 0; ch < 3; ch++) S.cen[ch] = 0.55 * (cw[0] * pal[ch] + cw[1] * pal[3 + ch] + cw[2] * pal[6 + ch] + cw[3] * pal[9 + ch]) + 0.45 * 235;
+    const li = floor((0.8 / LTOP) * (NL - 1));
+    for (let ch = 0; ch < 3; ch++) {
+      let v = 0;
+      for (let k = 0; k < NS; k++) v += cw[k] * lut[(k * NL + li) * 3 + ch];
+      S.cen[ch] = 0.7 * v + 0.3 * 200;
+    }
   }
-  const acc = S.acc5, phi = S.acc, n = S.n, h = S.h;
+  const a1 = S.acc5, a2 = S.accB, phi = S.acc, n = S.n, h = S.h;
   const pa = S.pa, pl = S.pl, pr = S.pr, plod = S.plod, ca = S.ca, cf = S.cf;
+  const L0g = 0, L1g = NL * 3, L2g = 2 * NL * 3, L3g = 3 * NL * 3;
   for (let p = 0; p < NPX; p++) {
     const a = pa[p], r = pr[p];
     // the rim at this angle
@@ -414,39 +437,50 @@ export function draw(display, params) {
     }
     const k = -pl[p] - phi;
     const A = n - (k > 0 ? k : 0);
-    const lod = plod[p], L0 = lod | 0, lf = lod - L0;
-    acc[0] = acc[1] = acc[2] = acc[3] = acc[4] = 0;
-    sampleAt(S, L0, A, ca[p * 4], ca[p * 4 + 1], cf[p * 2], 1 - lf, acc);
-    if (lf > 0.02) sampleAt(S, L0 + 1, A, ca[p * 4 + 2], ca[p * 4 + 3], cf[p * 2 + 1], lf, acc);
-    let w0 = acc[0], w1 = acc[1], w2 = acc[2], w3 = acc[3];
-    const tot = w0 + w1 + w2 + w3 + 1e-6;
-    const pur = max(max(w0, w1), max(w2, w3)) / tot;
+    const lod = plod[p], L = lod | 0, lf = lod - L;
+    sampleAt(S, L, A, ca[p * 4], ca[p * 4 + 1], cf[p * 2], a1);
+    sampleAt(S, L + 1, A, ca[p * 4 + 2], ca[p * 4 + 3], cf[p * 2 + 1], a2);
+    let w0 = a1[0] + (a2[0] - a1[0]) * lf, w1 = a1[1] + (a2[1] - a1[1]) * lf;
+    let w2 = a1[2] + (a2[2] - a1[2]) * lf, w3 = a1[3] + (a2[3] - a1[3]) * lf;
+    const tot = w0 + w1 + w2 + w3 + 1e-6, tv = (a1[4] + (a2[4] - a1[4]) * lf) / tot - 1;
+    // where two strains meet, read on the coarser level so the band is 2 to 4 LED wide: it glows, and it notches the rim
+    const tb = a2[0] + a2[1] + a2[2] + a2[3] + 1e-6;
+    const edge = sm(0.97, 0.6, max(max(a2[0], a2[1]), max(a2[2], a2[3])) / tb) * sm(3, 10, r);
+    const d = d0 - 2.2 * edge;
     // sharpen the mix so two strains meet without a muddy band
     w0 *= w0; w1 *= w1; w2 *= w2; w3 *= w3;
     const q = 1 / (w0 + w1 + w2 + w3 + 1e-9);
-    let R = (w0 * pal[0] + w1 * pal[3] + w2 * pal[6] + w3 * pal[9]) * q;
-    let G = (w0 * pal[1] + w1 * pal[4] + w2 * pal[7] + w3 * pal[10]) * q;
-    let B = (w0 * pal[2] + w1 * pal[5] + w2 * pal[8] + w3 * pal[11]) * q;
-    const cm = sm(5, 1.2, r);
-    if (cm > 0) {
-      R += (S.cen[0] - R) * cm;
-      G += (S.cen[1] - G) * cm;
-      B += (S.cen[2] - B) * cm;
+    w0 *= q; w1 *= q; w2 *= q; w3 *= q;
+    const e = cl(d + 0.5, 0, 1);
+    let R = 0, G = 0, B = 0;
+    if (e > 0) {
+      // deep toward the middle, white-tinged at the living rim, streaked and grained, lit where two strains meet
+      const di = d > 0 ? d : 0;
+      const I = (0.4 + 0.5 * exp(-di / 20)) * (1 + 0.85 * tv) + 0.4 * exp(-di / 2.2) + 0.2 * edge;
+      let li = (I * ((NL - 1) / LTOP)) | 0;
+      if (li > NL - 1) li = NL - 1;
+      if (li < 0) li = 0;
+      const o = li * 3;
+      R = w0 * lut[L0g + o] + w1 * lut[L1g + o] + w2 * lut[L2g + o] + w3 * lut[L3g + o];
+      G = w0 * lut[L0g + o + 1] + w1 * lut[L1g + o + 1] + w2 * lut[L2g + o + 1] + w3 * lut[L3g + o + 1];
+      B = w0 * lut[L0g + o + 2] + w1 * lut[L1g + o + 2] + w2 * lut[L2g + o + 2] + w3 * lut[L3g + o + 2];
+      const cm = sm(4, 1, r);
+      if (cm > 0) {
+        R += (S.cen[0] - R) * cm;
+        G += (S.cen[1] - G) * cm;
+        B += (S.cen[2] - B) * cm;
+      }
+      R *= e;
+      G *= e;
+      B *= e;
     }
-    // the grain darkens only a little, since a dim yellow reads as olive on the panel, and lifts toward white where it is bright
-    const tv = acc[4] / tot - 1, tex = tv < 0 ? 1 + 0.4 * tv : 1 + 0.2 * tv, tw = tv > 0 ? 0.3 * tv : 0;
-    const mix = sm(0.95, 0.5, pur), seam = 1 - 0.55 * mix * sm(3, 10, r);
-    // where two strains meet the rim it is notched: the two lobes grow past the boundary between them
-    const d = d0 - 2.4 * mix;
-    // inside: brightest just behind the rim, a bright whitish band at the rim itself; beyond it the glow on the agar
-    const e = cl(d + 0.5, 0, 1), di = d > 0 ? d : 0, rim = exp(-di / 1.6);
-    const body = 0.93 + 0.08 * exp(-di / 16) + 0.06 * sm(16, 3, r);
-    const glow = 0.45 * exp((d < 0 ? d : 0) / 1.3);
-    const lum = ((body + 0.5 * rim) * tex * e + glow * (1 - e)) * seam;
-    const wht = (0.5 * rim + tw * seam) * e;
-    R = R * lum + 255 * wht;
-    G = G * lum + 255 * wht;
-    B = B * lum + 255 * wht;
+    if (e < 1) {
+      // the glow beyond the rim on the black agar
+      const gl = 0.45 * exp((d < 0 ? d : 0) / 1.3) * (1 - e), o = LG * 3;
+      R += gl * (w0 * lut[L0g + o] + w1 * lut[L1g + o] + w2 * lut[L2g + o] + w3 * lut[L3g + o]);
+      G += gl * (w0 * lut[L0g + o + 1] + w1 * lut[L1g + o + 1] + w2 * lut[L2g + o + 1] + w3 * lut[L3g + o + 1]);
+      B += gl * (w0 * lut[L0g + o + 2] + w1 * lut[L1g + o + 2] + w2 * lut[L2g + o + 2] + w3 * lut[L3g + o + 2]);
+    }
     display.setPixel(p % W, (p / W) | 0, R > 255 ? 255 : R | 0, G > 255 ? 255 : G | 0, B > 255 ? 255 : B | 0);
   }
 }
