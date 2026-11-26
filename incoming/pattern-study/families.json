@@ -379,5 +379,10 @@
   "stratosphere": { "label": "성층권 바람", "color": "#6a66d8" },
   "zoning": { "label": "결정 성장대", "color": "#e30791" },
   "electrospray": { "label": "전기 분무", "color": "#d81030" },
-  "fallstreak": { "label": "구름 구멍", "color": "#d87c7b" }
+  "fallstreak": { "label": "구름 구멍", "color": "#d87c7b" },
+  "araneiform": { "label": "거미 지형 간헐천", "color": "#d4906a" },
+  "cycloidlineae": { "label": "사이클로이드 균열", "color": "#9fc3d9" },
+  "wildfire": { "label": "들불 전선", "color": "#e5732f" },
+  "windfarm": { "label": "풍력 후류", "color": "#b9a3d6" },
+  "ioplume": { "label": "이오 우산 기둥", "color": "#d8d13c" }
 }
