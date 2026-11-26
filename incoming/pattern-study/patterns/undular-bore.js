@@ -20,7 +20,7 @@ const W = 64, H = 128;
 const PT = 18, YS = 28, PS = 14; // rows above the panel (a sponge), rows between the panel and the source line, sponge rows below the source
 const NY = PT + H + YS + 1 + PS, JS = PT + H + YS; // the grid is 64 wide and NY rows; the source line is row JS
 const N = W * NY, OFF = W, NA = N + 2 * W; // one padded row in front and behind, so i - 1 and i - W stay inside the arrays
-const DT = 1 / 50;
+const DT = 1 / 40;
 const { floor, sqrt, abs, exp, sin, cos, pow, min, max, tanh, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -35,6 +35,7 @@ const B0 = 2.0; // dispersion length squared (h^2 / 3 in the textbooks), LED^2, 
 const GN = 3; // amplitude dependence of the speed: c^2 goes as 1 + 6 eta
 const HMIN = 0.0002; // depth of the bank: next to none, so the water does not run up it
 const SIG0 = 0.04; // the water's own damping, 1/s
+const NUSH = 10; // the shallows near the bank take up to 11 times that: waves break there
 const NU0 = 0.08; // viscosity on the water's speed, LED^2/s
 const SIG_LAND = 1.4;
 const SIG_TOP = 7, SIG_BOT = 8;
@@ -44,7 +45,7 @@ function makeState() {
   const S = {
     ready: false, kn: [0, 2, 0, 0.06], acc: 0, clk: 0, geoT: 9, frameDt: 1 / 30,
     eta: new Float32Array(NA), etp: new Float32Array(NA), rhs: new Float32Array(NA), tmp: new Float32Array(NA),
-    cx: new Float32Array(NA), cy: new Float32Array(NA), beta: new Float32Array(NA), bfx: new Float32Array(NA), bfy: new Float32Array(NA),
+    cx: new Float32Array(NA), cy: new Float32Array(NA), beta: new Float32Array(NA), bfx: new Float32Array(NA), bfy: new Float32Array(NA), vfx: new Float32Array(NA), vfy: new Float32Array(NA), wm: new Float32Array(NA),
     cpx: new Float32Array(NA), dnx: new Float32Array(NA), cpy: new Float32Array(NA), dny: new Float32Array(NA),
     sg1: new Float32Array(NA), sg2: new Float32Array(NA), pd: new Float32Array(NA), dwA: new Float32Array(NA), sdA: new Int8Array(NA),
     sw: new Float32Array(W),
@@ -168,6 +169,17 @@ function buildGeometry(S) {
       if (j < NY - 1) { const b = c2[i + W]; cy[i] = (2 * a * b) / (a + b); } else cy[i] = 0;
     }
   }
+  // the viscosity passes through a face only as far as water does, and the bank holds no water at all
+  const vfx = S.vfx, vfy = S.vfy, wm = S.wm;
+  for (let j = 0; j < NY; j++) {
+    for (let x = 0; x < W; x++) {
+      const i = OFF + j * W + x;
+      const pr = x < W - 1 ? pd[i + 1] : 0, pb = j < NY - 1 ? pd[i + W] : 0;
+      vfx[i] = sm(0.002, 0.06, cx[i]) * (1 + NUSH * (1 - sm(0.05, 0.5, 0.5 * (pd[i] + pr))));
+      vfy[i] = sm(0.002, 0.06, cy[i]) * (1 + NUSH * (1 - sm(0.05, 0.5, 0.5 * (pd[i] + pb))));
+      wm[i] = pd[i] > 0.004 ? 1 : 0;
+    }
+  }
   // beta at the faces between cells, harmonic, so the operator (1 - d beta d) keeps the volume of the water
   const bfx = S.bfx, bfy = S.bfy;
   for (let j = 0; j < NY; j++) {
@@ -287,11 +299,11 @@ const nl = (v) => { const f = 1 + GN * v; return f < 0.4 ? 0.4 : f > 2.4 ? 2.4 :
 
 function step(S) {
   const e = S.eta, ep = S.etp, a = S.rhs, tm = S.tmp, cx = S.cx, cy = S.cy, g2 = S.g2;
-  const iN = OFF + N, nuD = S.nu / DT;
+  const iN = OFF + N, nuD = S.nu / DT, vfx = S.vfx, vfy = S.vfy;
   for (let i = OFF; i < iN; i++) {
     const e0 = e[i], eR = e[i + 1], eL = e[i - 1], eD = e[i + W], eU = e[i - W];
     a[i] = g2 * (cx[i] * (eR - e0) * nl(e0 + eR) - cx[i - 1] * (e0 - eL) * nl(e0 + eL) + cy[i] * (eD - e0) * nl(e0 + eD) - cy[i - W] * (e0 - eU) * nl(e0 + eU))
-      + nuD * (e[i + 1] - ep[i + 1] + e[i - 1] - ep[i - 1] + e[i + W] - ep[i + W] + e[i - W] - ep[i - W] - 4 * (e0 - ep[i]));
+      + nuD * (vfx[i] * (e[i + 1] - ep[i + 1] - e0 + ep[i]) - vfx[i - 1] * (e0 - ep[i] - e[i - 1] + ep[i - 1]) + vfy[i] * (e[i + W] - ep[i + W] - e0 + ep[i]) - vfy[i - W] * (e0 - ep[i] - e[i - W] + ep[i - W]));
   }
   const b = OFF + JS * W;
   let ms = 0, sw2 = 0;
@@ -325,10 +337,12 @@ function step(S) {
     const b0 = OFF + j * W;
     for (let i = b0; i < b0 + W; i++) a[i] = tm[i] - cpy[i] * a[i + W];
   }
-  const sg1 = S.sg1, sg2 = S.sg2, dt2 = DT * DT;
+  const sg1 = S.sg1, sg2 = S.sg2, wm = S.wm, dt2 = DT * DT;
   for (let i = OFF; i < iN; i++) {
-    const v = (2 * e[i] - sg2[i] * ep[i] + dt2 * a[i]) * sg1[i];
-    ep[i] = v < -3 ? -3 : v > 3 ? 3 : v;
+    let v = (2 * e[i] - sg2[i] * ep[i] + dt2 * a[i]) * sg1[i] * wm[i];
+    // a crest that stands higher than 0.8 of the depth breaks: what is above that is bled off, so no corner can run away
+    if (v > 0.8 || v < -0.8) { const m = v < 0 ? -v : v, k = 0.8 + 0.4 * tanh((m - 0.8) / 0.4) - 0.1 * (m - 0.8); v = v < 0 ? -k : k; }
+    ep[i] = v;
   }
   S.eta = ep;
   S.etp = e;
@@ -407,7 +421,7 @@ export function update(dt, input, params) {
   control(S, kn);
   S.bend += (S.bendT - S.bend) * (1 - exp(-d / 1.2));
   S.geoT += d;
-  if (S.geoT > 0.2) buildGeometry(S);
+  if (S.geoT > 0.3) buildGeometry(S);
   S.acc += d;
   while (S.acc >= DT) {
     S.acc -= DT;
