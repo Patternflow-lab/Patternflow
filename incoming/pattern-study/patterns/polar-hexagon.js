@@ -1,20 +1,43 @@
 // ===== Patternflow pattern =====
 // Title:   Polar Hexagon
 // Family:  polarhexagon
-// Idea:    Looking straight down on the pole of a giant gas planet, a six-sided jet stream of ochre and gold cloud races round a slowly turning hexagon whose straight edges and sharp corners stay put, with a deep teal spiral cyclone and a dark eye inside, banded counter-moving dusk cloud outside, and small eddies that are born at the corners and wander off along the bands.
+// Idea:    Looking straight down on the pole of a giant gas planet, a narrow jet of ochre and gold cloud races round a six-sided hexagon whose straight edges and sharp corners stay put while it turns slowly, a deep teal cyclone spirals inside it round a dark eye, banded dusk cloud runs both ways outside it, and small eddies are born at the corners and carried off along the bands while now and then a bright oval storm drifts round.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: placeholder
+// Lineage: the hexagon round Saturn's north pole, found in Voyager pictures (David Godfrey, 1988, from memory) and followed by Cassini from 2004 (from memory), read as a Rossby wave of wavenumber 6 on a narrow fast jet (Godfrey 1988, from memory), the polygons a rotating tank of fluid makes round a ring of faster flow (Ana Barbosa Aguiar and colleagues, 2010, from memory), and the cyclone with its eye and eyewall inside it; the cloud is moved by cycled flow-map textures, three phase-shifted layers renewed in turn and blended so that no streak is ever stretched past a bound (Fabrice Neyret, 2003, from memory); pattern round 259
 // Round:   259
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Jet=0.4..4, Sides=-3..2, Spin=-1..1
 //
-// Knob 1: placeholder
-// Knob 2: placeholder
-// Knob 3: placeholder
-// Knob 4: placeholder
+// Knob 1: Hue. Five planets round the wheel, each held for about 0.13 of the knob's travel and blended over the 0.07 between. At 0 and 1 it is Saturn: a gold jet from ochre to cream, a teal cyclone, slate and tan bands, a cream storm. At 0.2 an ice giant with a pale cyan jet and a cobalt cyclone, at 0.4 rust with a red-orange jet and a maroon cyclone, at 0.6 sulphur with a lemon jet and an olive cyclone, and at 0.8 rose with a pink jet and an indigo cyclone. The eye is always near black, tinted to the cyclone.
+// Knob 2: Jet. How fast the jet runs, 5.5 LEDs a second for each unit: 2.2 at 0.4, 11 at 2 where it opens, 22 at 4. The speed holds near its peak across the middle 5 LEDs and falls to 1/e at 3.6 LEDs from the axis, so the shear sits in a thin line at each edge and the gold streaks inside keep their shape. The rest of the flow follows at 0.64 times the opening pace at 0.4 and 1.45 times it at 4: the turn of the cyclone, the counter-moving bands outside (up to 5 LEDs a second at the opening) and the swirl of the eddies. The cloud layers are renewed every 24 / U seconds, 6.5 s at the slow end, 2.2 s at the opening and 1.7 s at the fast end, so a faster jet is not a more stretched one.
+// Knob 3: Sides. The number of sides of the jet, 6 plus the knob: a triangle at -3, a square at -2, a pentagon at -1, the hexagon at 0 where it opens, a heptagon at 1 and an octagon at 2. Each polygon has its vertex up, and its apothem is 20.5, 26.9, 28.7, 29.0, 29.5 and 29.8 LEDs, so the hexagon's circumradius is 33.5 LEDs and its flat sides stand 3 LEDs inside the panel's sides. Within 0.3 of a whole number the polygon is exact; between them the jet follows a blend of the two neighbouring polygons' distances, and the knob is smoothed over 0.35 s, so the corners of one grow out of the sides of the other without a jump. The triangle is the roughest: its jet is twice as wide at a corner as on a side.
+// Knob 4: Spin. The rate and direction the polygon turns, 0.1 radian a second for each unit, so one turn in 63 s at +1 with the corners at 3.4 LEDs a second, the same the other way at -1, and 0.006 radian a second at the opening 0.06, one turn in 17 minutes. The same knob sets how hard the cyclone turns, from 0.16 radian a second at -1 through 0.65 at the opening to 1.09 at +1 at its centre (it is slower outward), so at +1 the spiral arms wind tight and fast round the eye and at -1 they open and idle.
+
+// What the picture is. A pole seen from above. The panel is cut into rings round the pole, and the rings are not circles: a ring is a contour of the signed
+// distance to a regular polygon, 3 to 8 sides, that turns with K4. Near the jet the contours are the polygon's own, with straight sides and sharp corners; toward
+// the eye they round into circles, and far outside they round into circles too, so the outer bands come to the top and bottom of the panel as arcs.
+//   E     the level of a point, the distance of the contour through it from the pole, in LEDs (the polygon's support function, blended between two
+//         neighbouring polygons for a fractional K3)
+//   jet   a flow along the contour E = apothem, its speed U exp(-(|E - apothem| / 3.6)^4)
+//   cyclone  a flow round the pole inside it, an angular rate falling from the centre outward, which winds anything it carries into a spiral, with a darker
+//         line against the jet's inner edge
+//   outside  a retrograde drift near the jet and alternating bands further out, a 26 LED wavelength at up to 5 LEDs a second
+// None of this is integrated. Each pixel asks where the cloud that is on it came from: it is rotated back round the pole by (angular rate at its level) x (age of
+// the layer), and the cloud texture is looked up there. The texture is a ring of 256 x 120 texels, round the pole by level, built by six octaves of value noise
+// (cells long round the ring and 3 to 5 LEDs across it, finer octaves fading out where their cells would be under 2 LEDs round) and then warped by two slow noise fields,
+// which gives it filaments and folds. Three such layers are held at ages a third of a cycle apart. A layer's weight is sqrt(2/3) |sin(pi age / cycle)|, so the three
+// weights squared sum to 1, the blend keeps the variance of the cloud, and a layer is rebuilt with new noise at the moment its weight is zero. So no cloud is
+// stretched for longer than one cycle, nothing ever comes round again, and no streak is ever thinner than the texture's cells.
+// Eddies are not in the flow table. Each is a Gaussian swirl, an angular rate gamma exp(-r^2 / 2 sigma^2) that rotates the place a pixel is looked up from, by gamma
+// times the layer's age, before the jet's rotation is undone. They are born at a corner of the polygon, ride the flow at the level they sit on, drift in or out, and
+// fade as sin^2 over 22 to 50 s; about nine at most, one born every 5 s. A cyclonic one is also a dark spot and an anticyclonic one a pale spot. One storm at a time
+// is the same swirl, wider and stronger, drawn as a cream oval with a dark collar, sitting 10 to 16 LEDs outside the jet in the bands.
+// The pole drifts by 1.7 LEDs sideways and 1.9 down the panel, the eye precesses round the pole in a circle of 1.9 LEDs (27 s) and 0.9 LEDs (72 s), and the polygon
+// breathes by 3 percent. Every slow rate is different from the others so that the picture does not come back; the polygon turns by its own rate and the cloud by
+// its own, and the layers draw new noise. The first frame needs no pre-run: the layers start a third of a cycle apart, five eddies are alive at random ages and a storm is there with 60 percent chance.
 
 const W = 64, H = 128, NP = W * H;
 const { sin, cos, sqrt, exp, atan2, abs, floor, max, min, PI, log } = Math;
@@ -34,7 +57,8 @@ const OCTS = [
   { m: 14, l: 5.2, a: 0.7 },
   { m: 30, l: 3.2, a: 0.8 },
   { m: 18, l: 2.8, a: 0.8 },
-  { m: 64, l: 3.2, a: 0.6 },
+  { m: 48, l: 3.6, a: 0.7 },
+  { m: 96, l: 3.4, a: 0.6 },
 ];
 function prepOct(O) {
   const M = O.m, NR = Math.ceil(UMAX / O.l) + 3;
@@ -52,7 +76,7 @@ function prepOct(O) {
   }
   return O;
 }
-const ARC_FADE_LO = 2.2, ARC_FADE_HI = 4.2; // an octave fades out where one of its cells is less than this many LEDs round the ring
+const ARC_FADE_LO = 2.0, ARC_FADE_HI = 3.6; // an octave fades out where one of its cells is less than this many LEDs round the ring
 for (const O of OCTS) prepOct(O);
 const WARP_ALONG = 10, WARP_ACROSS = 4.5, TEX_GAIN = 1.9, TEX_KNEE = 0.5; // the warp in LEDs round the ring and out from the pole, and the tone curve of a cloud
 const WARP = [prepOct({ m: 9, l: 13, a: 1 }), prepOct({ m: 11, l: 12, a: 1 })];
@@ -61,9 +85,10 @@ const WARP = [prepOct({ m: 9, l: 13, a: 1 }), prepOct({ m: 11, l: 12, a: 1 })];
 const APO = [0, 0, 0, 20.5, 26.9, 28.7, 29.0, 29.5, 29.8];
 
 // ---- the flow tables, indexed by level E at DE LEDs a step
-const NT = 480, DE = 0.25;
-const RND0 = 3, RND1 = 30; // the polygon's contours round into circles between this many LEDs and this many outside the jet
-const JET_W = 4.0; // where the jet's speed has fallen to 1/e, LEDs: a flat top with steep sides, so the shear sits in a thin line at each edge
+const NT = 480, DE = 0.25, ZS = 10; // ZS floats of colour table to a level
+const RND0 = 2, RND1 = 24; // the polygon's contours round into circles between this many LEDs and this many outside the jet
+const EDDY_DARK = 0.45, EDDY_PALE = 0.4; // how far an eddy's core darkens or whitens what it sits on
+const JET_W = 3.6; // where the jet's speed has fallen to 1/e, LEDs: a flat top with steep sides, so the shear sits in a thin line at each edge
 
 function makeState() {
   const S = {
@@ -75,7 +100,7 @@ function makeState() {
     Eb: new Float32Array(NP), Thb: new Float32Array(NP), Ts: new Float32Array(NP), Es: new Float32Array(NP),
     Xw: new Float32Array(NP), Yw: new Float32Array(NP), stamp: new Int32Array(NP), list: new Int32Array(NP), stampId: 0,
     OM: new Float32Array(NT + 2), WND: new Float32Array(NT + 2), VIN: new Float32Array(NT + 2),
-    ZT: new Float32Array((NT + 2) * 8), // per level: jet weight, in/out split, band value, band warmth, rim, wall, spare, spare
+    ZT: new Float32Array((NT + 2) * ZS), // per level: jet weight, in/out split, band value, band warmth, jet rim, moat, spiral winding, texture on the band, dark line inside the jet
     eddies: [], storm: null, stormWait: 30,
     rgb: new Uint8ClampedArray(NP * 3), hueAt: -1,
     ramps: [new Float32Array(256 * 3), new Float32Array(256 * 3), new Float32Array(256 * 3), new Float32Array(256 * 3)],
@@ -147,7 +172,7 @@ const KEYS = [
     jet: [[0, 140, 78, 20], [0.3, 192, 118, 30], [0.55, 232, 168, 56], [0.8, 250, 210, 120], [1, 255, 244, 206]],
     inn: [[0, 6, 28, 44], [0.25, 12, 54, 80], [0.5, 28, 94, 116], [0.75, 76, 144, 156], [1, 170, 208, 204]],
     warm: [[0, 50, 46, 60], [0.35, 86, 80, 90], [0.6, 130, 112, 96], [0.85, 176, 148, 106], [1, 218, 190, 146]],
-    cool: [[0, 30, 44, 64], [0.5, 62, 84, 108], [1, 128, 150, 164]],
+    cool: [[0, 36, 52, 76], [0.5, 74, 98, 124], [1, 148, 170, 184]],
     eye: [3, 10, 20], storm: [255, 238, 205],
   },
   { // ice giant: pale cyan jet, cobalt cyclone, blue-grey bands with white wisps
@@ -160,7 +185,7 @@ const KEYS = [
   { // rust: red jet, maroon cyclone, cream and mauve bands
     jet: [[0, 110, 30, 16], [0.3, 180, 60, 30], [0.55, 224, 110, 60], [0.8, 245, 180, 120], [1, 255, 235, 200]],
     inn: [[0, 34, 10, 14], [0.3, 70, 26, 28], [0.55, 118, 52, 44], [0.8, 170, 100, 74], [1, 225, 170, 132]],
-    warm: [[0, 70, 46, 40], [0.4, 130, 92, 70], [0.7, 190, 150, 110], [1, 236, 210, 170]],
+    warm: [[0, 60, 44, 52], [0.4, 108, 80, 84], [0.7, 156, 120, 108], [1, 214, 184, 160]],
     cool: [[0, 52, 40, 52], [0.5, 96, 80, 94], [1, 160, 140, 152]],
     eye: [14, 4, 6], storm: [255, 226, 190],
   },
@@ -198,7 +223,7 @@ function setHue(S, hue) {
   if (S.hueAt === hue) return;
   S.hueAt = hue;
   const x = cl(hue, 0, 1) * KEYS.length, k0 = floor(x) % KEYS.length, k1 = (k0 + 1) % KEYS.length;
-  const u = sst(0.22, 0.78, x - floor(x)), A = BAKED[k0], B = BAKED[k1];
+  const u = sst(0.32, 0.68, x - floor(x)), A = BAKED[k0], B = BAKED[k1]; // each planet holds for 0.128 of the knob's travel and the blend takes the other 0.072
   const names = ['jet', 'inn', 'warm', 'cool'];
   for (let q = 0; q < 4; q++) {
     const a = A[names[q]], b = B[names[q]], o = S.ramps[q];
@@ -212,7 +237,7 @@ function setHue(S, hue) {
 
 // ---- the polygon of this frame
 function setPolygon(S) {
-  const Ns = cl(6 + S.kn[2], 3, 8);
+  const Ns = cl(6 + S.sk[2], 3, 8);
   let n0 = floor(Ns);
   const fr = Ns - n0;
   const n1 = min(8, n0 + 1);
@@ -273,21 +298,22 @@ function buildTables(S) {
     const g = exp(-Math.pow(abs(dE) / JET_W, 4));
     const wc = W0 * Math.pow(1 + (E / 9) * (E / 9), -0.6);
     const vj = U * g;
-    const vo = (-2.6 * exp(-dE / 14) + 3.6 * tsf * sst(2, 12, dE) * sin((TWO_PI * (dE - 8)) / 26 + bp[0])) * sOut;
+    const vo = (-3.2 * exp(-dE / 14) + 5.0 * tsf * sst(2, 12, dE) * sin((TWO_PI * (dE - 8)) / 26 + bp[0])) * sOut;
     OM[k] = wc * sIn + (vj + vo) / max(E, 8);
     WND[k] = -1.0 * log(max(E, 2) / 18) * sIn;
     VIN[k] = 0.35 * sIn;
     // colour tables
-    const o = k * 8, bp1 = S.bandPh;
-    ZT[o] = exp(-Math.pow(abs(dE) / 3.4, 3));
+    const o = k * ZS, bp1 = S.bandPh;
+    ZT[o] = exp(-Math.pow(abs(dE) / 3.0, 3));
     ZT[o + 1] = sst(3, -3, dE);
     const q = sst(0, 5, dE);
-    ZT[o + 2] = 0.5 + q * (0.2 * sin((TWO_PI * dE) / 23 + bp1[3]) + 0.17 * sin((TWO_PI * dE) / 14.3 + bp1[4]) + 0.12 * sin((TWO_PI * dE) / 9.1 + bp1[5]) + 0.07 * sin((TWO_PI * dE) / 5.9 + bp1[6]));
+    ZT[o + 2] = 0.5 + q * (0.27 * sin((TWO_PI * dE) / 23 + bp1[3]) + 0.22 * sin((TWO_PI * dE) / 14.3 + bp1[4]) + 0.15 * sin((TWO_PI * dE) / 9.1 + bp1[5]) + 0.09 * sin((TWO_PI * dE) / 5.9 + bp1[6]));
     ZT[o + 3] = 0.6 + 0.4 * sin((TWO_PI * dE) / 31 + bp1[7]) * 0.8 + 0.2 * sin((TWO_PI * dE) / 12.7 + bp1[2]);
-    ZT[o + 4] = exp(-((dE + 3.7) * (dE + 3.7)) / (2 * 0.85 * 0.85)); // brighter inner edge of the jet
-    ZT[o + 5] = exp(-((dE - 6.2) * (dE - 6.2)) / (2 * 2.0 * 2.0)); // moat just outside
+    ZT[o + 4] = exp(-((dE + 2.4) * (dE + 2.4)) / (2 * 1.2 * 1.2)); // brighter inner edge of the jet
+    ZT[o + 5] = exp(-((dE - 6.4) * (dE - 6.4)) / (2 * 2.4 * 2.4)); // moat just outside
     ZT[o + 6] = WND[k];
-    ZT[o + 7] = 0.22 + 0.4 * sst(2, 14, dE) * (0.5 + 0.5 * sin((TWO_PI * dE) / 19 + bp1[1])); // how much cloud texture rides on the outer band
+    ZT[o + 8] = exp(-((dE + 5.0) * (dE + 5.0)) / (2 * 1.3 * 1.3)); // a darker line just inside the jet, so orange does not blend to grey against teal
+    ZT[o + 7] = 0.4 + 0.5 * sst(2, 14, dE) * (0.5 + 0.5 * sin((TWO_PI * dE) / 19 + bp1[1])); // how much cloud texture rides on the outer band
   }
 }
 
@@ -303,8 +329,8 @@ function newEddy(S, aged) {
   const e = {
     th: -PI / 2 - S.rot + (TWO_PI * k) / n + (Math.random() - 0.5) * 0.1,
     d: (Math.random() - 0.5) * 5, age: aged ? Math.random() * life : 0, life,
-    sig: 2.4 + 1.6 * Math.random(), gam: sg * (0.6 + 0.6 * Math.random()), vd: (Math.random() - 0.3) * 0.45,
-    kind: 0, X: 0, Y: 0, s: 0,
+    sig: 2.6 + 1.6 * Math.random(), gam: sg * (0.9 + 0.8 * Math.random()), vd: (Math.random() - 0.3) * 0.45,
+    X: 0, Y: 0, s: 0,
   };
   if (aged) e.th = Math.random() * TWO_PI;
   S.eddies.push(e);
@@ -314,7 +340,7 @@ function newStorm(S, aged) {
   const life = 55 + 40 * Math.random();
   S.storm = {
     th: Math.random() * TWO_PI, d: 10 + 6 * Math.random(), age: aged ? Math.random() * life : 0, life,
-    sig: 4.2 + 1.5 * Math.random(), gam: -(0.7 + 0.3 * Math.random()), vd: (Math.random() - 0.5) * 0.12, kind: 1, X: 0, Y: 0, s: 0,
+    sig: 4.4 + 1.4 * Math.random(), gam: -(1.3 + 0.5 * Math.random()), vd: (Math.random() - 0.5) * 0.12, X: 0, Y: 0, s: 0,
   };
 }
 
@@ -359,7 +385,7 @@ function stepEddies(S, dt) {
 
 // ---- the lookups
 function basePass(S) {
-  const cx = S.cx, cy = S.cy, Eb = S.Eb, Thb = S.Thb, amix = S.amix;
+  const cx = S.cx, cy = S.cy, Eb = S.Eb, Thb = S.Thb;
   for (let y = 0; y < H; y++) {
     const Y = y + 0.5 - CY0 - cy;
     for (let x = 0; x < W; x++) {
@@ -373,7 +399,7 @@ function basePass(S) {
 const TWI = TW / TWO_PI;
 
 function layerPass(S, tex, tau, wgt) {
-  const Ts = S.Ts, Es = S.Es, Eb = S.Eb, Thb = S.Thb, OM = S.OM, WND = S.WND, VIN = S.VIN;
+  const Eb = S.Eb, Thb = S.Thb;
   const w2 = wgt * wgt, id = ++S.stampId, stamp = S.stamp, list = S.list, Xw = S.Xw, Yw = S.Yw;
   const cx = S.cx, cy = S.cy;
   let nT = 0;
@@ -430,7 +456,7 @@ function sampleInto(S, tex, E, th, tau, w2, wgt, i, inv, tinv) {
 
 // ---- colour
 function shade(S) {
-  const Ts = S.Ts, Es = S.Es, ZT = S.ZT, rgb = S.rgb, amix = S.amix;
+  const Ts = S.Ts, Es = S.Es, ZT = S.ZT, rgb = S.rgb;
   const [rj, ri, rw, rc] = S.ramps, hot = S.hot;
   const exr = S.ex, eyr = S.ey, inv = 1 / DE;
   for (let y = 0; y < H; y++) {
@@ -438,7 +464,7 @@ function shade(S) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x, X = x + 0.5 - CX0 - S.cx;
       const T = Ts[i], E = Es[i];
-      const kf = cl(E * inv, 0, NT - 1.01), k0 = kf | 0, fk = kf - k0, o0 = k0 * 8, o1 = o0 + 8;
+      const kf = cl(E * inv, 0, NT - 1.01), k0 = kf | 0, fk = kf - k0, o0 = k0 * ZS, o1 = o0 + ZS;
       const wj = ZT[o0] + (ZT[o1] - ZT[o0]) * fk;
       const sIn = ZT[o0 + 1] + (ZT[o1 + 1] - ZT[o0 + 1]) * fk;
       const band = ZT[o0 + 2] + (ZT[o1 + 2] - ZT[o0 + 2]) * fk;
@@ -447,20 +473,21 @@ function shade(S) {
       const moat = ZT[o0 + 5] + (ZT[o1 + 5] - ZT[o0 + 5]) * fk;
       const wnd = ZT[o0 + 6] + (ZT[o1 + 6] - ZT[o0 + 6]) * fk;
       const gT = ZT[o0 + 7] + (ZT[o1 + 7] - ZT[o0 + 7]) * fk;
+      const rimIn = ZT[o0 + 8] + (ZT[o1 + 8] - ZT[o0 + 8]) * fk;
       // eye
       const dxe = X - exr, dye = Y - eyr, re = sqrt(dxe * dxe + dye * dye);
       const wall = exp(-((re - 6.6) * (re - 6.6)) / (2 * 1.5 * 1.5));
       // jet colour
-      let v = cl(0.62 + 0.46 * T + 0.2 * rim, 0, 0.999);
+      let v = cl(0.62 + 0.46 * T + 0.16 * rim, 0, 0.999);
       let n = ((v * 255) | 0) * 3;
       let jr = rj[n], jg = rj[n + 1], jb = rj[n + 2];
       // inside
       const arm = cos(3 * (S.Thb[i] + wnd + S.armPh));
-      v = cl(0.47 + 0.55 * T + 0.14 * arm * sIn + 0.36 * wall, 0, 0.999);
+      v = cl(0.47 + 0.55 * T + 0.14 * arm * sIn + 0.36 * wall - 0.3 * rimIn, 0, 0.999);
       n = ((v * 255) | 0) * 3;
       const ir = ri[n], ig = ri[n + 1], ib = ri[n + 2];
       // outside
-      v = cl(band + gT * T - 0.4 * moat, 0, 0.999);
+      v = cl(0.12 + 0.74 * (band + gT * T) - 0.5 * moat, 0, 0.999);
       n = ((v * 255) | 0) * 3;
       const orr = rw[n] + (rc[n] - rw[n]) * warm, og = rw[n + 1] + (rc[n + 1] - rw[n + 1]) * warm, ob = rw[n + 2] + (rc[n + 2] - rw[n + 2]) * warm;
       const si = sIn, so = 1 - sIn;
@@ -475,22 +502,50 @@ function shade(S) {
       rgb[o] = r; rgb[o + 1] = g; rgb[o + 2] = b;
     }
   }
+  // an eddy is a dark spot when it turns the way the cyclone does, and a pale one when it turns against it
+  for (const e of S.eddies) {
+    if (e.s < 0.05) continue;
+    const sg = 0.75 * e.sig, R = 2.6 * sg, inv = 1 / (2 * sg * sg), dark = e.gam > 0;
+    const x0 = max(0, floor(e.X + CX0 + S.cx - R)), x1 = min(W - 1, floor(e.X + CX0 + S.cx + R));
+    const y0 = max(0, floor(e.Y + CY0 + S.cy - R)), y1 = min(H - 1, floor(e.Y + CY0 + S.cy + R));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const dx = x + 0.5 - CX0 - S.cx - e.X, dy = y + 0.5 - CY0 - S.cy - e.Y, g = e.s * exp(-(dx * dx + dy * dy) * inv);
+        if (g < 0.01) continue;
+        const o = (y * W + x) * 3;
+        if (dark) {
+          const k = 1 - EDDY_DARK * g;
+          rgb[o] *= k; rgb[o + 1] *= k; rgb[o + 2] *= k;
+        } else {
+          const k = EDDY_PALE * g;
+          rgb[o] += (hot[3] - rgb[o]) * k; rgb[o + 1] += (hot[4] - rgb[o + 1]) * k; rgb[o + 2] += (hot[5] - rgb[o + 2]) * k;
+        }
+      }
+    }
+  }
   const st = S.storm;
   if (st && st.s > 0.01) {
-    const sa = 5.2, sb = 3.0;
+    const sa = 5.2, sb = 3.2;
     // elongated along the flow, which at the storm is tangent to the circle round the pole
     const ang = atan2(st.Y, st.X) + PI / 2, ca = cos(ang), sn = sin(ang);
-    const R = 14;
+    const R = 24;
     const x0 = max(0, floor(st.X + CX0 + S.cx - R)), x1 = min(W - 1, floor(st.X + CX0 + S.cx + R));
     const y0 = max(0, floor(st.Y + CY0 + S.cy - R)), y1 = min(H - 1, floor(st.Y + CY0 + S.cy + R));
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - CX0 - S.cx - st.X, dy = y + 0.5 - CY0 - S.cy - st.Y;
         const p = dx * ca + dy * sn, q = -dx * sn + dy * ca;
-        const bmp = st.s * 0.55 * exp(-(p * p) / (2 * sa * sa) - (q * q) / (2 * sb * sb));
-        if (bmp < 0.004) continue;
+        const g1 = exp(-(p * p) / (2 * sa * sa) - (q * q) / (2 * sb * sb));
+        const g2 = exp(-(p * p) / (2 * 1.6 * 1.6 * sa * sa) - (q * q) / (2 * 1.8 * 1.8 * sb * sb));
+        const bmp = st.s * (1.35 * g1 - 0.3 * g2);
         const o = (y * W + x) * 3;
-        rgb[o] += (hot[3] - rgb[o]) * bmp; rgb[o + 1] += (hot[4] - rgb[o + 1]) * bmp; rgb[o + 2] += (hot[5] - rgb[o + 2]) * bmp;
+        if (bmp > 0.004) {
+          const k = bmp > 1 ? 1 : bmp;
+          rgb[o] += (hot[3] - rgb[o]) * k; rgb[o + 1] += (hot[4] - rgb[o + 1]) * k; rgb[o + 2] += (hot[5] - rgb[o + 2]) * k;
+        } else if (bmp < -0.004) {
+          const k = 1 + bmp;
+          rgb[o] *= k; rgb[o + 1] *= k; rgb[o + 2] *= k;
+        }
       }
     }
   }
