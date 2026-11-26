@@ -14,7 +14,7 @@
 // Knob 1: Tint. Four looks of the same night image at 0, 0.25, 0.5 and 0.75, blended over the middle 40 percent of each quarter of the knob's travel, and 1 is 0 again. At 0 it is orbit fire: yellow and orange flame, red embers and black char over olive grass (66, 90, 26) and teal forest (14, 72, 58). At 0.25 a thermal camera, flame from white through orange and magenta to purple over indigo. At 0.5 night vision, lime flame over violet. At 0.75 a cold flame, white-cyan to blue over plum. In every look the ground is lighter than the char and the flame lighter than both, so a front reads.
 // Knob 2: Wind. 0 to 4, opening at 2. How hard the wind blows. It stretches the burnt ellipse, length over width 1 at 0 (a round fire), 2.0 at 2 and 3.3 at 4, and speeds the head fire over middling fuel, 1.4 LEDs a second at 0, 2.3 at 2 and 3.3 at 4. A flank or a backing fire never goes under 0.35 LED a second. It throws embers farther as well, a mean of 5.6 LEDs at 0, 12 at 2 and 19 at 4.
 // Knob 3: Veer. -1 to 1, opening at 0. The heading of the wind, and the head fire runs the way it blows: straight up the panel at 0, 54 degrees to the left at -1 and to the right at 1. A wind of its own swings on top of that, up to 27 degrees either way over a few minutes (periods of 190, 67 and 29.3 s), so no heading holds and a flank can turn into the head. The heading is held at 72 degrees.
-// Knob 4: Embers. -1 to 1, opening at 0.06. How often the front throws a firebrand ahead, 0.03 a second at -1, 0.17 at the opening and 0.85 at 1 (four times that while the camera, which follows the head fire, is going slower than 0.8 LED a second), and how far, 0.8 times the Wind throw at -1 and 1.3 times at 1. Over 400 s and three runs an ember or a strike lights a new fire 1.4 times a minute at -1, 6.6 at the opening and 35 at 1, and the head fire carries the camera at 2.8, 3.3 and 4.3 LEDs a second. At -1 the front crosses a stream now and then; at 1 a spray of small fires runs ahead of the line all the time. Lightning strikes come with it, one in 40 to 110 s at 0 and twice as often at 1.
+// Knob 4: Embers. -1 to 1, opening at 0.06. How often the front throws a firebrand ahead, 0.03 a second at -1, 0.17 at the opening and 0.85 at 1 (four times that while the camera, which follows the head fire, is going slower than 0.8 LED a second), how far, 0.8 times the Wind throw at -1 and 1.3 times at 1, and how the coals glow behind the front: 0.55 times as bright and 0.6 times as long at -1, 1.45 and 1.4 times at 1, with the patches that last a minute 0.4 and 1.6 times as strong. Two embers that land within 20 LEDs of each other in 15 s count as one, which caps the spray. Over 400 s and three runs an ember or a strike lights a new fire 1.2 times a minute at -1, 5.5 at the opening and 15.5 at 1, and the head fire carries the camera at 2.6, 3.0 and 4.1 LEDs a second. At -1 the front crosses a stream now and then; at 1 small fires come up ahead of the line all the time. Lightning strikes come with it, one in 40 to 110 s at 0 and twice as often at 1.
 
 // What the picture is. The panel is the ground seen from straight above on a night pass, 64 LEDs across and 128 down, one LED to a cell. Unburnt land is a patchwork in world coordinates: grass, a lighter and quicker olive, and forest,
 // a darker teal that burns at a third of the pace (a speed factor of 1.75 against 0.55), set by two layers of smooth noise (58 and 23 LEDs across) with soft edges, and here and there rock, a slate grey that slows the fire and at its heart will not burn at all.
@@ -31,9 +31,10 @@
 // A firebrand is lifted from one of the cells that lit in the last 60 s and were not creeping (the furthest downwind of six picked at random), thrown downwind a distance Ds times (0.5 plus an exponential random) with a sideways spread of about 25 degrees, and, if it lands on fuel that the front
 // will not reach for another 1.8 s, it lights a cell there after its flight: a small ellipse that opens with a 2 to 3 LED flash. That is how the fire crosses a stream. Now and then a lightning strike lights a place 30 to 80 LEDs ahead of the head fire,
 // and one does at once if no cell has lit for 6 s, or if the camera has gone slower than 1 LED a second for 9 s, so a fire that has stalled at a stream does not leave the panel still.
-// The camera rides a weighted mean of the cells that lit in the last few seconds, weighted by how far downwind they are (a factor of e every 7 LEDs), which is the head fire, and holds it near the middle of the panel, the 60th row, so the front curves across the screen
-// and the burn is behind it. It holds still while that weight is thin and moves at most 9 LEDs a second. The first update runs 100 s of the fire from a spark below the panel with the knobs as they are, and then on, up to 80 s more, until the camera is
-// moving with a head fire, so the front is across the panel and the knobs have had their say.
+// The camera rides a weighted mean of the cells that lit in the last few seconds, weighted by how far downwind they are (a factor of e every 7 LEDs), which is the head fire, and holds it low in the panel, the 78th row, so the front curves across the screen
+// and the burn is behind it. It holds still while that weight is thin and moves at most 9 LEDs a second. The first update runs 100 s of fire from a line 120 LEDs long across the wind, below the panel, with the knobs as they are, and then on, up to 80 s more, until the camera is
+// moving with the head fire. The opening runs over streams and rock, and embers fly in its first 35 s only and not again until 8 s after it, so the first picture is a long front across the panel and the knobs have had their say. An opening from a single spark, with embers flying
+// to the end of it, grew round lobes from embers that landed ahead of its head, and the burn read as a bear's head with ears.
 
 const W = 64, H = 128, NPX = W * H;
 const NXB = 7, NYB = 8, NX = 1 << NXB, NY = 1 << NYB, NXM = NX - 1, NYM = NY - 1, NCELL = NX * NY;
@@ -130,10 +131,10 @@ function makeState() {
     TM: new Float64Array(NCELL).fill(INF), DN: new Uint8Array(NCELL),
     hk: new Float64Array(HCAP), hv: new Int32Array(HCAP), hn: 0,
     EVX: new Float32Array(EVN), EVY: new Float32Array(EVN), EVV: new Float32Array(EVN), EVT: new Float32Array(EVN).fill(-1e9), evn: 0,
-    hw: 0, hx: 0, hy: 0, lastEv: 0, csp: 0, quiet: 0, ready0: false,
+    hw: 0, hx: 0, hy: 0, lastEv: 0, csp: 0, quiet: 0, pre: false, tOpen: 0, ready0: false,
     kv: [0, 2, 0, 0.06], pal: -1,
     u: 0.5, LB: 2.8, ecc: 0.93, Vh: 2.3, beta: 0, wx: 0, wy: -1,
-    spotAcc: 0, lt: 60, flash: [],
+    spotAcc: 0, lt: 60, flash: [], land: [],
     lut: new Float32Array(256 * 3), grass: [0, 0, 0], forest: [0, 0, 0], rockc: [0, 0, 0], riverc: [0, 0, 0], charc: [0, 0, 0],
     PA: new Float32Array((W + 1) * (H + 1)), PB: new Uint8Array((W + 1) * (H + 1)), PL: new Float32Array((W + 1) * (H + 1)),
     PR: new Float32Array((W + 1) * (H + 1)), PD: new Float32Array((W + 1) * (H + 1)),
@@ -230,8 +231,11 @@ function relax(S, ix, iy, Ts) {
     let inv = 0, ok = true;
     const a = SST[q], b = SST[q + 1];
     for (let s = a; s < b; s++) {
-      const f = F[cid(ix + SSX[s], iy + SSY[s])];
-      if (f < 0.05) { ok = false; break; }
+      let f = F[cid(ix + SSX[s], iy + SSY[s])];
+      if (f < 0.05) {
+        if (!S.pre) { ok = false; break; }
+        f = 0.5; // the opening runs over streams and rock, so that no stream stops it
+      }
       inv += 1 / f;
     }
     if (!ok) continue;
@@ -282,7 +286,13 @@ function spot(S) {
   const t1 = S.t + 0.3 + D / 9;
   const id = cid(lx, ly);
   if (S.DN[id] || S.TM[id] < t1 + 1.8) return;
-  ignite(S, lx, ly, t1, true);
+  // two embers that land within 20 LEDs of each other in 15 s would grow side by side into a pair of lobes
+  const L = S.land;
+  for (let i = L.length - 1; i >= 0; i--) {
+    if (t1 - L[i].t > 15) L.splice(i, 1);
+    else if ((L[i].x - lx) * (L[i].x - lx) + (L[i].y - ly) * (L[i].y - ly) < 400) return;
+  }
+  if (ignite(S, lx, ly, t1, true)) L.push({ x: lx, y: ly, t: t1 });
 }
 function strike(S) {
   const hx = S.hw > 1e-6 ? S.hx / S.hw : S.cx + 32, hy = S.hw > 1e-6 ? S.hy / S.hw : S.cy + 56;
@@ -309,7 +319,7 @@ function step(S, d) {
     S.DN[id] = 1;
     const ix = S.x0 + (((id & NXM) - S.x0) & NXM), iy = S.y0 + (((id >> NXB) - S.y0) & NYM);
     const v = S.VIN[id];
-    const rel = (ix + 0.5 - S.cx - 32) * S.wx + (iy + 0.5 - S.cy - 60) * S.wy;
+    const rel = (ix + 0.5 - S.cx - 32) * S.wx + (iy + 0.5 - S.cy - 78) * S.wy;
     const w = exp(cl(rel, -60, 20) / 7);
     S.hw += w; S.hx += w * (ix + 0.5); S.hy += w * (iy + 0.5);
     const e = S.evn++ & EVM;
@@ -320,11 +330,15 @@ function step(S, d) {
   }
   for (let i = S.flash.length - 1; i >= 0; i--) if (T - S.flash[i].t0 > 0.9) S.flash.splice(i, 1);
   // firebrands
-  S.spotAcc += (S.csp < 0.8 ? 4 : 1) * 0.15 * pow(2, 2.5 * S.kv[3]) * d;
-  while (S.spotAcc >= 1) { S.spotAcc -= 1; spot(S); }
-  S.lt -= d * pow(2, S.kv[3]);
-  S.quiet = S.csp < 1 && T > 20 ? S.quiet + d : 0;
-  if (S.lt <= 0 || T - S.lastEv > 6 || S.quiet > 9) {
+  // while the opening runs embers fly for its first 35 s only, and for 8 s after it they do not, so that the first picture is the front and not lobes that embers have just added
+  const live = S.pre ? T < 35 : T > S.tOpen + 8;
+  if (live) {
+    S.spotAcc += (S.csp < 0.8 ? 4 : 1) * 0.15 * pow(2, 2.5 * S.kv[3]) * d;
+    while (S.spotAcc >= 1) { S.spotAcc -= 1; spot(S); }
+    S.lt -= d * pow(2, S.kv[3]);
+    S.quiet = S.csp < 1 ? S.quiet + d : 0;
+  }
+  if ((live && (S.lt <= 0 || S.quiet > 9)) || T - S.lastEv > 6) {
     S.quiet = 0;
     strike(S);
     if (S.lt <= 0) S.lt = 40 + 70 * rnd();
@@ -332,7 +346,7 @@ function step(S, d) {
   }
   // the camera rides the head fire
   if (S.hw > 8) {
-    const tx = S.hx / S.hw - 32, ty = S.hy / S.hw - 60;
+    const tx = S.hx / S.hw - 32, ty = S.hy / S.hw - 78;
     const k = 1 - exp(-d / 1.5);
     let dx = (tx - S.cx) * k, dy = (ty - S.cy) * k;
     const m = sqrt(dx * dx + dy * dy), cap = 9 * d;
@@ -350,15 +364,18 @@ export function update(dt, input, params) {
   if (!S.ready) {
     S.ready = true;
     readKnobs(S, kn, 0, true);
-    // a spark below the panel, 80 s of fire from it
-    S.cx = -32; S.cy = 150 - 60;
+    // a line of fire 120 LEDs long across the wind, below the panel, and 100 s of fire from it
+    S.cx = -32; S.cy = 150 - 78;
     moveWindow(S, floor(S.cx) - MARGX, floor(S.cy) - MARGY);
     setWind(S);
     S.hw = 20; S.hx = 10; S.hy = 3010;
-    ignite(S, 0, 150, 0.05, false);
+    S.pre = true;
+    for (let k = -60; k <= 60; k++) ignite(S, round(-k * S.wy), round(150 + k * S.wx), 0.05, false);
     for (let i = 0; i < 1000; i++) step(S, 0.1);
-    // go on, up to 80 s more, until a head fire is running and not waiting at a stream
+    // go on, up to 80 s more, until the camera is moving with the head fire
     for (let i = 0; i < 800 && S.csp < 1.2; i++) step(S, 0.1);
+    S.pre = false;
+    S.tOpen = S.t;
   }
   readKnobs(S, kn, d, false);
   step(S, d);
@@ -397,6 +414,8 @@ export function draw(display, params) {
       }
     }
   }
+  // Embers also sets how the coals glow: brightness, how long they last and how strong the patches that last a minute are
+  const u4 = (cl(S.kv[3], -1, 1) + 1) / 2, ge = 0.55 + 0.9 * u4, gt = 0.6 + 0.8 * u4, gh = 0.4 + 1.2 * u4;
   const gr = S.grass, fo = S.forest, rc = S.rockc, rv = S.riverc, ch = S.charc;
   for (let y = 0; y < H; y++) {
     const wy = by + y + fy;
@@ -438,9 +457,9 @@ export function draw(display, params) {
         const lead = sm(-0.9, 0.5, s);
         const ap = max(a, 0), sp = max(s, 0) / ds;
         const flame = lead * max(exp(-0.7 * sp * sp), exp(-ap / (0.9 + 1.0 * L)));
-        const em = 0.21 * exp(-ap / (5 + 9 * L)) * (0.7 + 0.6 * vnoise(wx * 0.45, wy * 0.45, S.sd + 13)) * lead;
+        const em = 0.21 * ge * exp(-ap / ((5 + 9 * L) * gt)) * (0.7 + 0.6 * vnoise(wx * 0.45, wy * 0.45, S.sd + 13)) * lead;
         const hot = sm(0.68, 0.9, vnoise(wx / 4.6, wy / 4.6, S.sd + 14)) * (0.6 + 0.8 * L);
-        const em2 = hot > 0 ? 0.14 * hot * exp(-ap / 40) * (0.75 + 0.25 * sin(T * 0.9 + wx * 0.7 + wy * 0.3)) * lead : 0;
+        const em2 = hot > 0 ? 0.14 * gh * hot * exp(-ap / 40) * (0.75 + 0.25 * sin(T * 0.9 + wx * 0.7 + wy * 0.3)) * lead : 0;
         th = 1 - (1 - I * flame) * (1 - em) * (1 - em2);
         if (s < 0) {
           const pre = 0.16 * sm(-3, -0.2, s) * sm(4, 1.5, gg);
