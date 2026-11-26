@@ -5,20 +5,19 @@
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: digital microfluidics by electrowetting on dielectric, droplets carried, merged, mixed and split over an array of electrodes (Pollack, Fair and Shenderov 2000; Cho, Moon and Kim 2003, from memory); dispensing a unit droplet from a reservoir with a three-electrode finger that is cut at the middle one (Cho, Moon and Kim 2003, from memory); fluidic constraints that keep two droplets a pad apart so they do not merge by accident (from memory); original code, pattern round 265
+// Lineage: digital microfluidics by electrowetting on dielectric, droplets carried, merged, mixed and split over an array of electrodes (Pollack, Fair and Shenderov 2000; Cho, Moon and Kim 2003, from memory); dispensing a unit droplet with a three-electrode finger cut at the middle one (Cho, Moon and Kim 2003, from memory); fluidic constraints that keep droplets a pad apart (from memory); original code, pattern round 265
 // Round:   265
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Clock=0.5..3, Droplets=-1..1, Voltage=-1..1
 //
-// Knob 1: Hue. Turns the five reagent colours round the wheel together. At 0 the tanks hold teal, magenta, amber, lime and indigo, and a droplet of two of them is the colour between, found the short way round the wheel so that opposite pairs stay clear. The copper pads and the dark teal chip do not turn, and no setting is red-biased.
-// Knob 2: Clock. 0.5 to 3, opening at 2. The controller's clock. A droplet takes about 0.85 s to move one pad at 2 (0.2 s spreading over the next pad, 0.3 s gathering onto it, then a pause), 2.9 s at 0.5 and 0.6 s at 3. Every droplet has its own tempo, 0.8 to 1.3 times the clock, and some hesitate, so none step together.
-// Knob 3: Droplets. -1 to 1, opening at 0. How many droplets the controller keeps on the chip: 2 at -1, 5 at the opening, 8 at 1. It starts an assay whenever there are fewer and never takes one away, so a lowered knob empties the chip as the droplets drain, over about half a minute.
-// Knob 4: Voltage. -1 to 1, opening at 0.06. The drive on the electrodes. At -1 a lit pad is a third as bright as at 1, droplets on it shrink by an eighth, steps take 1.9 times as long and stall more often; at 1 the lit pads blaze, droplets swell by a fifth over them and move fast.
+// Knob 1: Hue. Turns the five reagent colours round the wheel together. At 0 the tanks hold teal, magenta, amber, lime and indigo, and a droplet of two of them is the colour between, found the short way round the wheel so that opposite pairs stay clear. The dyes also drift by up to 0.13 of the wheel round the knob, on periods of 97 s and 61 s. The copper pads and the dark teal chip do not turn, and no setting is red-biased.
+// Knob 2: Clock. 0.5 to 3, opening at 2. The controller's clock. A droplet takes about 0.85 s to move one pad at 2 (0.2 s spreading over the next pad, 0.3 s gathering onto it, then a pause), 1.9 s at 0.5 and 0.65 s at 3. Every droplet has its own tempo, 0.8 to 1.3 times the clock, and some hesitate, so none step together.
+// Knob 3: Droplets. -1 to 1, opening at 0. How many droplets the controller keeps on the chip: 4 at -1, 5 at the opening, 8 at 1. It starts an assay whenever there are fewer and never takes one away, so a lowered knob empties the chip as the droplets drain, over about half a minute.
+// Knob 4: Voltage. -1 to 1, opening at 0.06. The drive on the electrodes. At -1 a lit pad is a third as bright as at 1, droplets on it shrink by an eighth, steps take 1.7 times as long and stall more often; at 1 the lit pads blaze, droplets swell by a fifth over them and move fast.
 //
-// The chip is 7 by 14 pads, 8 LED square with 1 LED gaps, in dim copper: three wide reagent tanks on the top edge and one on each side, three waste pads along the bottom, three steel-grey detector pads above them, four dead pads that stand in the way. A pad that is lit is gold, and it is lit ahead of the droplet that is coming.
-// A droplet is a few lobes of liquid, one for each pad it touches, sized by mass and joined by a smooth union and a bridge across each gap. A step lights the next pad, lets mass flow across for 0.2 s so that the droplet stretches over both, and then switches the old pad off. A merged droplet is a rod over three pads, a splitting one is a dumbbell whose neck thins away.
-// The controller keeps the number of droplets the knob asks for. A usual assay pinches two reagent droplets off two tanks (a finger over three pads cut at the middle one), routes them with a shortest-path search round dead pads, with one empty pad kept between droplets, to the ends of a free line of three pads, lights the middle pad to merge them, shuttles the drop over the line three to five times while the two colours stripe and mix, and then carries it whole, or splits it over the line and carries both halves, to a detector. There it flashes a fluorescent colour that depends on the mixing ratio, and goes to a waste pad and drains. Some droplets are one reagent alone and go straight to a detector. The first update runs 60 s of this, so the chip opens in the middle of its work.
+// The chip is 7 by 14 pads, 8 LED square with 1 LED gaps, in dim copper: three wide reagent tanks on the top edge and one on each side, three waste pads along the bottom, three steel-grey detector pads above them, four dead pads that stand in the way. A lit pad is gold, lit ahead of the droplet that is coming, and a pad that has been lit often stays warmer for a minute. A waste pad keeps a level of what it has drunk, in the colour of it, and gives it up over about 100 s.
+// A droplet is a few lobes of liquid, one for each pad it touches, sized by mass and joined by a smooth union and a bridge across each gap. A step lights the next pad and lets mass flow across, so the droplet stretches over both pads and gathers onto the new one. A merged droplet is a rod over three pads, a splitting one a dumbbell whose neck thins away. The controller pinches droplets off the tanks, routes them round dead pads keeping one empty pad between droplets, merges and mixes pairs over a line of three pads, splits some, and sends each to a detector and then to a waste pad. The first update runs 60 s of this, so the chip opens in the middle of its work.
 
 const W = 64, H = 128;
 const COLS = 7, ROWS = 14, PITCH = 9, X0 = 1, Y0 = 1, NP = COLS * ROWS, TAU = 6.2831853;
@@ -73,7 +72,7 @@ for (let r = 0; r < ROWS; r++)
     if (ch === "T") TANKS.push({ p, dr: r === 0 ? 1 : 0, dc: c === 0 ? 1 : c === COLS - 1 ? -1 : 0, k: TANKS.length });
   }
 for (const T of TANKS) {
-  // a wide tank on the top edge keeps the pads beside its lane clear too; a short one on a side only the pad in front
+  // a wide top tank keeps the pads beside its lane clear too; a side one only the pad in front
   const r = (T.p / COLS) | 0, c = T.p % COLS;
   for (let i = max(0, r - 1); i <= min(ROWS - 1, r + 1); i++)
     for (let j = max(0, c - 1); j <= min(COLS - 1, c + 1); j++) if (T.dr === 1 || (i === r + T.dr && j === c + T.dc)) RING[i * COLS + j] = 1;
@@ -91,9 +90,9 @@ const PADD = [0.17, 0.145, 0.075], PADL = [0.95, 0.8, 0.45], DETD = [0.17, 0.23,
 // ---- state
 function makeState() {
   const S = {
-    t: 0, init: false, k: [0, 2, 0, 0.06], hue: 0, v: 0.5, sc: 1, tA: 0.2, tB: 0.3, tau: 0.08, want: 6, id: 1, cool: 0,
+    t: 0, init: false, k: [0, 2, 0, 0.06], hue: 0, hk: 0, ph: [6.28 * rnd(), 6.28 * rnd()], v: 0.5, sc: 1, tA: 0.2, tB: 0.3, tau: 0.08, want: 6, id: 1, cool: 0,
     drops: [], tanks: [], meets: [],
-    act: new Float32Array(NP), tgt: new Uint8Array(NP), stain: new Float32Array(NP), stc: new Float32Array(NP * 3),
+    act: new Float32Array(NP), heat: new Float32Array(NP), pool: new Float32Array(NP), poolc: new Float32Array(NP * 3), tgt: new Uint8Array(NP),
     det: new Int16Array(NP).fill(-1), fb: new Uint8Array(NP),
     dist: new Float32Array(NP), prev: new Int16Array(NP), dn: new Uint8Array(NP), rg: -1,
     R: new Float32Array(W * H), G: new Float32Array(W * H), B: new Float32Array(W * H),
@@ -114,7 +113,7 @@ function mkDrop(S, p, k) {
   const tempo = 0.8 + 0.5 * rnd();
   return {
     id: S.id++, seed: floor(rnd() * 997), V: 1, lobes: [{ p, m: 0.4, tg: 1 }], pads: [p], on: [p], np: [p],
-    ka: k, kb: k, con: 0, conT: 0, lam: 34, lamT: 34, th: 0, thT: 0, phi: 0, phiT: 0, ax: 1, ay: 0, mixN: 0,
+    ka: k, kb: k, con: 0, conT: 0, lam: 34, lamT: 34, th: 0, thT: 0, ax: 1, ay: 0, mixN: 0,
     plan: [], mode: "rest", timer: 0, sl: 1 / tempo, rr: 0.58 + 0.34 * rnd(), asp: 0.08 * (rnd() - 0.5) * 2, wob: { t: 9, a: 0 },
     fl: 0, flT: -1, prod: 0, rat: 0.5, stuck: 0, split: false, meet: null,
   };
@@ -122,14 +121,8 @@ function mkDrop(S, p, k) {
 
 // ---- masses
 function setTg(D, pads, wt) {
-  let s = 0;
-  for (const w of wt) s += w;
-  for (const l of D.lobes) l.tg = 0;
-  for (let i = 0; i < pads.length; i++) {
-    let l = D.lobes.find((q) => q.p === pads[i]);
-    if (!l) D.lobes.push((l = { p: pads[i], m: 0, tg: 0 }));
-    l.tg = (D.V * wt[i]) / s;
-  }
+  const s = wt.reduce((a, b) => a + b, 0);
+  setAbs(D, pads.map((p, i) => [p, (D.V * wt[i]) / s]));
 }
 function setAbs(D, list) {
   for (const l of D.lobes) l.tg = 0;
@@ -167,7 +160,7 @@ function mark3(f, p) {
   if (c > 0) f[p - 1] = 1;
   if (c < COLS - 1) f[p + 1] = 1;
 }
-// the pads droplet X may not go to: the same pad or the next one of any other droplet, of a lit lane, of a line held for a merge (a corner away is far enough)
+// pads droplet X may not use: those of another droplet, a lit lane or a held merge line, and the pads next to them
 function forbid(S, X, ring, ex) {
   const f = S.fb;
   if (ring) f.set(RING);
@@ -278,7 +271,7 @@ function updTank(S, T, dt) {
   J.t -= dt;
   if (J.t > 0) return;
   if (J.ph === 0) {
-    // the finger is cut at the middle pad: the droplet takes the lobe at the far one
+    // the finger is cut at the middle pad; the droplet takes the far lobe
     const i = T.lobes.findIndex((l) => l.p === J.P2), l2 = T.lobes[i];
     T.lobes.splice(i, 1);
     const D = mkDrop(S, J.P2, T.k);
@@ -297,7 +290,7 @@ function updTank(S, T, dt) {
   }
 }
 
-// can a droplet still get from the tank rows to a detector and the waste row when these pads are held?
+// can a droplet still get from the tank rows to detectors and the waste row with these pads held?
 function open(blocked) {
   const seen = new Uint8Array(NP), q = [];
   for (let c = 0; c < COLS; c++) if (!blocked[2 * COLS + c] && KIND[2 * COLS + c] === 1) (seen[2 * COLS + c] = 1), q.push(2 * COLS + c);
@@ -366,7 +359,7 @@ function abortMeet(S, m) {
     D.meet = null;
   }
 }
-// the colour between two reagents goes the short way round the wheel, so a pair that sit opposite still mix to a clear colour, never to grey
+// two reagents mix the short way round the wheel, so opposite ones stay clear and never go grey
 function arc(S, D, t, o) {
   const ha = RH[D.ka] + S.hue;
   let d = RH[D.kb] - RH[D.ka];
@@ -401,7 +394,6 @@ function mixStep(D) {
   D.mixN++;
   D.lamT = 34 / (1 + 1.7 * D.mixN);
   D.conT = exp(-0.6 * D.mixN);
-  D.phiT += 1.3;
   D.thT += D.mixN % 2 ? 0.5 : -0.35;
 }
 function performSplit(S, D) {
@@ -411,7 +403,7 @@ function performSplit(S, D) {
     K.lobes[0].m = l ? l.m : 0.8;
     K.ka = D.ka;
     K.kb = D.kb;
-    for (const key of ["con", "conT", "lam", "lamT", "th", "thT", "phi", "phiT", "ax", "ay", "mixN", "rat"]) K[key] = D[key];
+    for (const key of ["con", "conT", "lam", "lamT", "th", "thT", "ax", "ay", "mixN", "rat"]) K[key] = D[key];
     K.plan = plans[flip ? 1 - i : i];
     K.timer = 0.35 * S.sc * K.sl;
     return K;
@@ -433,7 +425,7 @@ function stepTo(S, D, goal) {
 function release(S, D) {
   for (let p = 0; p < NP; p++) if (S.det[p] === D.id) S.det[p] = -1;
 }
-// a droplet that has waited a while takes a step to any free pad that is not a dead end, to loosen a jam
+// a droplet that has waited a while steps to any free pad, to loosen a jam
 function nudge(S, D) {
   const f = forbid(S, D, true), p = D.pads[0], r = (p / COLS) | 0, c = p % COLS, opts = [];
   for (const d of DIRS) {
@@ -549,13 +541,13 @@ function think(S, D) {
     D.mode = "absorb";
     setAbs(D, []);
     D.on = [p];
-    const o = S.stc, rgb = [0, 0, 0], hs = [0, 0];
+    const rgb = [0, 0, 0], hs = [0, 0];
     arc(S, D, 0.5, hs);
     hsv(hs[0], hs[1], 0.9, rgb);
-    S.stain[p] = 1;
-    o[p * 3] = rgb[0];
-    o[p * 3 + 1] = rgb[1];
-    o[p * 3 + 2] = rgb[2];
+    // the waste pad keeps a level of what it drank
+    const L = S.pool[p], q = (0.3 * D.V) / (L + 0.3 * D.V);
+    for (let i = 0; i < 3; i++) S.poolc[p * 3 + i] = mix(S.poolc[p * 3 + i], rgb[i], q);
+    S.pool[p] = min(1, L + 0.3 * D.V);
   }
 }
 function updDrop(S, D, dt) {
@@ -565,7 +557,6 @@ function updDrop(S, D, dt) {
   D.lam += (D.lamT - D.lam) * k1;
   D.con += (D.conT - D.con) * k1;
   D.th += (D.thT - D.th) * k1;
-  D.phi += (D.phiT - D.phi) * k1;
   if (D.flT >= 0) {
     D.flT += dt;
     const t = D.flT;
@@ -602,6 +593,8 @@ function updDrop(S, D, dt) {
 
 function sim(S, dt) {
   S.t += dt;
+  // the dyes drift a little round the knob's hue, on two periods that do not divide
+  S.hue = S.hk + 0.08 * sin((TAU * S.t) / 97 + S.ph[0]) + 0.05 * sin((TAU * S.t) / 61 + S.ph[1]);
   S.cool -= dt;
   for (const T of S.tanks) updTank(S, T, dt);
   for (const D of S.drops.slice()) if (S.drops.includes(D)) updDrop(S, D, dt);
@@ -615,20 +608,21 @@ function sim(S, dt) {
   for (const T of S.tanks) for (const p of T.on) S.tgt[p] = 1;
   for (let p = 0; p < NP; p++) {
     S.act[p] += (S.tgt[p] - S.act[p]) * (1 - exp(-dt / (S.tgt[p] ? 0.07 : 0.3)));
-    S.stain[p] *= exp(-dt / 3.5);
+    S.pool[p] = max(0, S.pool[p] - dt / 100);
+    S.heat[p] += (S.act[p] * (1 - S.heat[p]) * 0.2 - S.heat[p] / 40) * dt;
   }
 }
 
 function knobs(S, kv) {
   S.k = [cl(kv[0], 0, 1), cl(kv[1], 0.5, 3), cl(kv[2], -1, 1), cl(kv[3], -1, 1)];
-  S.hue = S.k[0];
+  S.hk = S.k[0];
   S.v = (S.k[3] + 1) / 2;
-  const sc = Math.pow(2 / S.k[1], 0.9), vf = 1.3 - 0.6 * S.v;
+  const sc = Math.pow(2 / S.k[1], 0.6), vf = 1.25 - 0.5 * S.v;
   S.sc = sc;
   S.tA = 0.2 * sc * vf;
   S.tB = 0.28 * sc * vf;
   S.tau = 0.075 * vf * Math.pow(sc, 0.6);
-  S.want = Math.round(5 + 3 * S.k[2]);
+  S.want = Math.round(S.k[2] < 0 ? 5 + S.k[2] : 5 + 3 * S.k[2]);
 }
 
 export function setup(params) {
@@ -654,7 +648,7 @@ export function update(dt, input, params) {
 
 // ---- drawing
 function paintBase(S) {
-  const { R, G, B, act, stain, stc } = S;
+  const { R, G, B, act, heat, pool, poolc } = S;
   const vk = 0.35 + 0.65 * S.v;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
@@ -673,17 +667,18 @@ function paintBase(S) {
           else if (K === 2) (lo = DEAD), (hi = DEAD);
           else if (K === 3) (lo = TANKP), (hi = TANKP);
           else (lo = WASTEP), (hi = WASTEP);
-          const e = K === 2 ? 0 : edge ? 0.14 * a : 0;
-          r = (mix(lo[0], hi[0], a) + e) * cor * (K === 2 ? 1 : bev);
-          g = (mix(lo[1], hi[1], a) + e) * cor * (K === 2 ? 1 : bev);
-          b = (mix(lo[2], hi[2], a) + e) * cor * (K === 2 ? 1 : bev);
-          if (K === 4 && stain[p] > 0.01) {
-            r += stc[p * 3] * stain[p] * 0.5;
-            g += stc[p * 3 + 1] * stain[p] * 0.5;
-            b += stc[p * 3 + 2] * stain[p] * 0.5;
+          const e = K === 2 ? 0 : edge ? 0.14 * a : 0, w = cl(a + 0.3 * heat[p], 0, 1);
+          r = (mix(lo[0], hi[0], w) + e) * cor * (K === 2 ? 1 : bev);
+          g = (mix(lo[1], hi[1], w) + e) * cor * (K === 2 ? 1 : bev);
+          b = (mix(lo[2], hi[2], w) + e) * cor * (K === 2 ? 1 : bev);
+          if (K === 4 && pool[p] > 0.02 && 7 - oy < 7.5 * pool[p]) {
+                    const top = 7 - oy > 7.5 * pool[p] - 1 ? 0.55 : 0.34;
+            r = r * 0.4 + poolc[p * 3] * top;
+            g = g * 0.4 + poolc[p * 3 + 1] * top;
+            b = b * 0.4 + poolc[p * 3 + 2] * top;
           }
         } else if (ox === 8 || oy === 8) {
-          // the gap takes some light from the lit pads beside it
+          // the gap takes light from lit pads beside it
           let a = 0;
           for (let dr = 0; dr <= (oy === 8 ? 1 : 0); dr++)
             for (let dc = 0; dc <= (ox === 8 ? 1 : 0); dc++) {
@@ -710,11 +705,11 @@ export function draw(display, params) {
   if (!S.init) update(0, { knobValues: S.k }, params);
   paintBase(S);
   const { R, G, B, sd, dm, lb, act } = S;
-  const fc = [0, 0, 0], hs = [0, 0], tc = [0, 0, 0];
+  const hs = [0, 0], tc = [0, 0, 0];
   sd.fill(99);
   dm.fill(99);
   const shapes = [], byPad = new Map(), all = S.drops.concat(S.tanks), volt = S.v - 0.35;
-  // lobes of every droplet, then the bridges across the gaps between lobes that touch
+  // lobes of every droplet, then bridges across the gaps between lobes that touch
   for (const D of all) {
     let cx = 0, cy = 0, ms = 0;
     for (const l of D.lobes) {
@@ -725,6 +720,9 @@ export function draw(display, params) {
     D.cx = ms > 0 ? cx / ms : 0;
     D.cy = ms > 0 ? cy / ms : 0;
     const w = D.wob.a * cos(16 * D.wob.t) * exp(-D.wob.t / 0.4);
+    hsv(S.hue + 0.3 + 0.6 * D.rat, 0.72, 1, (D.fcol = D.fcol || [0, 0, 0]));
+    D.ux = cos(D.th) * D.ax - sin(D.th) * D.ay;
+    D.uy = sin(D.th) * D.ax + cos(D.th) * D.ay;
     D.bx0 = D.by0 = 999;
     D.bx1 = D.by1 = -999;
     for (const l of D.lobes) {
@@ -754,11 +752,10 @@ export function draw(display, params) {
       shapes.push({ x: (s.x + t.x) / 2, y: (s.y + t.y) / 2, hx: hz ? PITCH / 2 + 0.5 : th, hy: hz ? th : PITCH / 2 + 0.5, rc: min(th, 1.5), d: s.m >= t.m ? s.d : t.d, m: 0, lobe: false });
     }
   }
-  // the bloom of a droplet that is flashing, under the droplets
+  // the bloom of a flashing droplet, under the droplets
   for (const D of S.drops) {
     if (D.flT < 0 || D.fl < 0.02) continue;
-    hsv(S.hue + 0.3 + 0.6 * D.rat, 0.7, 1, fc);
-    const x0 = max(0, floor(D.cx - 14)), x1 = min(W - 1, ceil(D.cx + 14)), y0 = max(0, floor(D.cy - 14)), y1 = min(H - 1, ceil(D.cy + 14));
+    const fc = D.fcol, x0 = max(0, floor(D.cx - 14)), x1 = min(W - 1, ceil(D.cx + 14)), y0 = max(0, floor(D.cy - 14)), y1 = min(H - 1, ceil(D.cy + 14));
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++) {
         const dx = x + 0.5 - D.cx, dy = y + 0.5 - D.cy, g = 0.8 * D.fl * exp(-(dx * dx + dy * dy) / 55), i = y * W + x;
@@ -781,11 +778,6 @@ export function draw(display, params) {
         }
       }
   });
-  for (const D of all) {
-    hsv(S.hue + 0.3 + 0.6 * D.rat, 0.72, 1, (D.fcol = D.fcol || [0, 0, 0]));
-    D.ux = cos(D.th) * D.ax - sin(D.th) * D.ay;
-    D.uy = sin(D.th) * D.ax + cos(D.th) * D.ay;
-  }
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const i = y * W + x, s = sd[i];
@@ -812,7 +804,7 @@ export function draw(display, params) {
           cg = mix(cg, D.fcol[1], D.prod);
           cb = mix(cb, D.fcol[2], D.prod);
         }
-        const lens = sm(0, 3.5, e), rim = exp(-(e * e) / 1.2), f = 1 + 1.2 * D.fl;
+        const lens = sm(0, 3.5, e), rim = exp(-(e * e) / 1.2), f = (1 + 1.2 * D.fl);
         // a spot near the top left of the whole droplet, and a streak along its long edge
         const bw = D.bx1 - D.bx0, bh = D.by1 - D.by0, sx = D.bx0 + 0.34 * min(bw, 8.5), sy = D.by0 + 0.32 * min(bh, 8.5);
         let hl = 0.55 * exp(-((px - sx) * (px - sx) + (py - sy) * (py - sy)) / 1.7);
