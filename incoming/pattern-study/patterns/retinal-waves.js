@@ -1,64 +1,77 @@
 // ===== Patternflow pattern =====
 // Title:   Retinal Waves
 // Family:  retinalwaves
-// Idea:    A sheet of the retina of a newborn mammal imaged for calcium, black-green tissue lit by GCaMP green, where waves of spontaneous firing start at a random spot as a small bright disc, run out across the sheet as a soft lime-white band a few LEDs wide and stop dead where the tissue is still refractory from an earlier wave, so that the panel fills with a mosaic of domains, each tinted by how long ago it fired, from lime through green and teal to the deep teal of tissue that has waited longest.
+// Idea:    A sheet of the retina of a newborn mammal imaged for calcium, a black-green tissue lit in GCaMP green, where a wave of spontaneous firing starts every couple of seconds as a small lime disc at a random place, runs out across the sheet as a soft lime-white band a few LEDs wide at about 3.5 LEDs a second, and stops dead against tissue that fired too recently, so that the panel fills with a mosaic of domains, each tinted by how long ago it fired, from lime through green and teal to the deep teal-green of tissue that has waited longest.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: spontaneous waves of firing that sweep the developing retina before the eye opens (Markus Meister, Rachel Wong, Denis Baylor and Carla Shatz, 1991; Marla Feller, David Wellis, David Stellwagen, Frank Werblin and Carla Shatz, 1996; Rachel Wong, 1999, from memory); the refractory tissue that stops each wave and so cuts its domain (Matthias Butts, Marla Feller, Carla Shatz and Daniel Rokhsar, 1999, from memory; Godfrey and Swindale, 2007, from memory); the waves' bias in direction (Stafford, Sher, Litke and Feldheim, 2009; Ackman, Burbridge and Crair, 2012, both from memory); pattern round 256
+// Lineage: the waves of spontaneous firing that cross the retina of a young mammal before the eye opens (Markus Meister, Rachel Wong, Denis Baylor and Carla Shatz, 1991; Marla Feller, David Wellis, David Stellwagen, Frank Werblin and Carla Shatz, 1996; Rachel Wong, 1999), their stop at tissue still refractory from an earlier wave, which cuts out the domain each one fills (Matthias Butts, Marla Feller, Carla Shatz and Daniel Rokhsar, 1999; Godfrey and Swindale, 2007, both from memory), the bias of their direction (Stafford, Sher, Litke and Feldheim, 2009; Ackman, Burbridge and Crair, 2012, both from memory), the bistable cubic of an excitable medium (Jinichi Nagumo, 1962, from memory); pattern round 258
 // Round:   258
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Rate=0..4, Refractory=-1..1, Bias=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the front is white-lime and the tissue behind it goes through lime, green and deep green to teal and a dim blue-green; at 0.17 it is cyan, at 0.5 magenta, at 0.75 amber, and at 1 it is back to green.
-// Knob 2: Rate. How fast the sheet runs. At 2, where it opens, a wave starts about every 3 s and a front runs about 3.5 LEDs a second; at 0 a wave starts every 10 s and the front crawls at 1.5; at 4 there is a start a second and the fronts run 8 LEDs a second. The tissue forgets at the same pace at every setting, so a fast sheet is a crowded one.
-// Knob 3: Refractory. How long a fired patch stays deaf, 30 s at 0, 14 s at -1 and 66 s at 1. A short refractory lets a wave run a long way, so a few huge domains share the panel; a long one stops every wave against its elders, and the panel breaks into small crowded domains.
-// Knob 4: Bias. The way waves like to run, down and to the right at 1 and up and to the left at -1. At 0 every wave spreads as a ring. Away from 0 the waves start along the upstream edge and the front that runs against the drift slows and stops, so the domains lean into wedges and the fronts travel mostly one way.
+// Knob 1: Hue. Turns the whole palette round the wheel, one turn for the knob's whole travel. At 0 a front is white-lime, the tissue behind it goes through lime, green and deep green to teal, and the oldest tissue is a deep teal-green (7, 70, 60); at 0.17 it is cyan, at 0.5 magenta, at 0.75 amber, and at 1 it is back to green.
+// Knob 2: Rate. How fast the sheet runs: the fronts and the starts together, 0.44 times the opening's pace at 0 and 2.3 times it at 4. At 2, where it opens, a front runs 3.6 LEDs a second in rested tissue and a wave starts every 2.4 s on average, with about four alive on the panel at a time. At 0 the front crawls at 1.3 and a wave starts every 10 s; at 4 the fronts run at 6.9 and there are two starts a second. Tissue recovers at the same pace at every setting, so a fast sheet is a crowded one.
+// Knob 3: Refractory. How long a fired patch stays deaf. At 0 it is deaf for 31 s on average, and any one wave draws a time between 19 and 52 s (the 10th and 90th percentile); at -1 it is 17 s and at 1 it is 56 s. A short refractory lets a wave run a long way: at -1 the domains are about 30 LEDs across, and one wave can take a third of the panel. At 1 the elders block every wave, the domains are 19 across and the sheet is a crowd of small ones.
+// Knob 4: Bias. The way waves prefer to run, down and to the right at 1 and up and to the left at -1, along the diagonal of the panel. At 0 every wave is a ring and starts anywhere. Away from 0 an upwind drift of up to 1.9 LEDs a second carries every front, so the front that runs with it goes at 5.5 and the front that runs against it at 1.7, and a start is 12 times as likely at the upstream end of the sheet as in the middle, so the domains lean into wedges along the diagonal.
 
-// What the picture is. A sheet of 64 x 128 cells, one for each LED, in two fast fields and one slow:
-//   u  the activator, 0 at rest and 1 firing,   du/dt = D lap(u) + u (1 - u) (u - theta) / tau_u   (Nagumo's bistable cubic)
-//   w  a timer that follows u,                  dw/dt = (u - w) / tau_w
-//   s  the slow adaptation, the long afterhyperpolarization: a cell whose w passes 1/2 fires for good, s jumps to 1, and from then s falls
-//      by 1/T each second in a straight line, so s is how much of its refractory period a cell has left.
-// The threshold theta = theta0 + 1.9 s climbs with s: at rest it is 0.1 and a front runs at c = sqrt(D / 2 tau_u) (1 - 2 theta), about 3.5 LEDs a second, and as the
-// cell recovers the threshold drops through 0.5 and fronts crawl, then stop, in tissue that has not quite recovered. That is the domain border: a front dies where s is
-// still high and the tissue behind it is untouched. Coupling is the nine-point Laplacian, so a front is a ring and not a diamond. There is no spiral because
-// the refractory time is far longer than a wave takes to cross its domain: a wave ends before the tissue it left has recovered.
-// A wave starts as a disc 2.2 to 3 LEDs across at the oldest of ten random places, more likely where s is lowest. K4 adds an upwind drift to u, which a front running
-// against it cannot beat, and pulls the places toward the upstream edge.
-// The picture is the freshness f = s lifted toward 1 by u, through a ramp from white-lime to deep teal: the front is white-lime and the tissue ages behind it, so each domain
-// is a shade that says when it fired. The medium is run for 80 s before the first frame, so the picture opens full.
+// What the picture is. A sheet of 64 x 128 cells, one for each LED, with two fast fields and one slow:
+//   u  the activator, 0 at rest and 1 firing:  du/dt = D lap(u) + u (1 - u) (u - theta) / tau_u   (Nagumo's bistable cubic, D = 5.5 LED^2/s, tau_u = 0.1 s)
+//   w  a timer that follows u:                 dw/dt = (u - w) / tau_w
+//   s  the slow adaptation, the long afterhyperpolarization of the starburst cells: a cell whose w passes 0.3 has fired for good, s jumps to 1,
+//      and from then s falls in a straight line to 0 over T = 40 s times 1.8 to the K3, so s is how much of its refractory period a cell has left.
+// The threshold theta is 0.1 for tissue with s under 0.16 and climbs in a smooth step to 2.5 at s over 0.7. A front runs at c = sqrt(D / 2 tau_u) (1 - 2 theta), and
+// a front goes on through tissue with s under about 0.22 and dies in tissue over that, measured with a straight front, so tissue is rested after 78% of T and a front
+// that meets tissue short of that leaves it untouched. That is the border of a domain, sharp because s is a straight line in time and the stop is a step in s.
+// Coupling is the nine-point Laplacian, so a front is a ring and not a diamond. No spiral winds: a turn takes longer than the refractory time, so every wave
+// ends before the tissue behind it is rested.
+// A patch recovers at its own rate, drawn when it fires from a smooth field that drifts through the sheet, so the cells a wave fires in 10 s recover 19 to 52 s later,
+// and the next wave finds the borders of the last one in new places. Without that the sheet falls into step and one wave sweeps all of it every T.
+// A wave starts at a cell picked in proportion to how rested it is, so the more of the sheet has recovered the oftener one starts, as a disc of u at 0.7 with
+// a radius of 2.6 to 3.4 LEDs. A quiet sheet, with no front on it, starts waves 6 times as fast.
+// K4 adds an upwind drift to u, and weights the cells for a start by exp(2.5 |K4| x) for x from -1 at the downstream end to 1 at the upstream end.
+// The picture is s through a ramp from white-lime (s = 1) to deep teal-green (s = 0), blurred over 3 x 3 cells, with u laid over it as lime light that turns white
+// where u is nearly 1: the front is a white-lime band, and the tissue ages behind it, so each domain is a shade that tells when it fired.
+// The sheet starts with smooth blotches of every age and runs for 40 s before the first frame, so the picture opens full and a few waves are on it.
 
-const W = 64, H = 128, PW = W + 2, PH = H + 2, NC = PW * PH;
+const W = 64, H = 128, PW = W + 2, PH = H + 2, NC = PW * PH; // the sheet has a one-cell margin, copied from the edge, so that nothing flows out
+
 const { floor, sqrt, abs, exp, sin, cos, log, pow, PI, min, max } = Math;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
 
 // ---- the medium
 const DIFF = 5.5; // coupling, LED^2 a second of fast time
 const TAU_U = 0.1; // reaction time of the activator, s
-const TH0 = 0.1; // threshold of rested tissue, plus a little unevenness from cell to cell
-const TH_MAX = 2.5; // threshold of freshly fired tissue, high enough to switch a cell off in half a second yet low enough for the reaction to stay stable
-const S_READY = 0.16, S_DEAF = 0.7; // tissue with s under S_READY is as excitable as it will get, and over S_DEAF as deaf; between, the threshold climbs in a smooth step
-const TAU_W = 2.4, W_STAR = 0.3; // a cell has fired for good after -TAU_W ln(1 - W_STAR) = 0.9 s of fast time above 1/2
-const RK_SPREAD = 0.5; // a patch recovers in 0.7 to 1.42 times the mean time, drawn from a field that drifts through the sheet while the wave crosses it
-const HET = 0.03; // unevenness of the threshold, one sigma-ish, in wavelengths of 10 to 30 LEDs
-const REFRACT = 40, REFRACT_BASE = 1.8; // seconds for s to fall from 1 to 0 at K3 = 0, and the factor per unit of K3. The tissue is deaf for the first three quarters of it
-const DRIFT = 1.9; // LEDs a second of upwind drift at |K4| = 1
+const TH0 = 0.1; // threshold of rested tissue
+const HET = 0.03; // unevenness of the threshold from place to place, in blotches 10 to 30 LEDs across
+const TH_MAX = 2.5; // threshold of freshly fired tissue: high enough to switch a cell off in half a second, low enough for the reaction to stay stable
+const S_READY = 0.16, S_DEAF = 0.7; // the threshold is TH0 for s under S_READY, TH_MAX over S_DEAF, and climbs in a smooth step between
+const TAU_W = 2.4, W_STAR = 0.3; // a cell has fired for good after -TAU_W ln(1 - W_STAR) = 0.86 s of fast time with u near 1
+const REFRACT = 40, REFRACT_BASE = 1.8; // seconds for s to fall from 1 to 0 at K3 = 0, and the factor for each unit of K3
+const RK_SPREAD = 0.5; // a patch recovers at exp(+-0.5) times the mean rate at most, and mostly between 0.6 and 1.65
+const NU_PER_KNOB = 0.6; // the fast fields run 2^(0.6 (K2 - 2)) times as fast as at the opening
+const SUBSTEP = 0.03; // the longest step of fast time the coupling stays smooth at, s
+
+// ---- the starts
+const RHO = 1.1e-4; // starts a second for each LED^2 of rested tissue, at K2 = 2
+const Q_FULL = 0.1, Q_NONE = 0.2; // a cell counts fully as a place to start for s under 0.1 and not at all over 0.2
+const IDLE_BOOST = 5, IDLE_ACT = 60; // a quiet sheet starts waves 1 + 5 times as fast, and the boost falls off as the sum of u over the sheet passes 60
+const SEED_R = 2.6, SEED_PEAK = 0.7; // a start is a disc of u at 0.7, lime and not white until the front it grows into is whole
+const BIAS_SHARP = 2.5, DRIFT = 1.9; // K4: the weighting of starts, and LEDs a second of upwind drift, at |K4| = 1
 const DIR = [0.5, 0.866]; // the way K4 > 0 runs: right and mostly down
-const RHO = 1.2e-4; // starts a second for each LED^2 of rested tissue at K2 = 2
-const Q_S = 0.2, SEED_R = 2.6, BIAS_SHARP = 2.5;
-const PREROLL = 40;
+const REACH = 72; // half the length of the panel along DIR, 32 x 0.5 + 64 x 0.866, so that x runs from -1 to 1
+const PREROLL = 40, PRE_NU = 1.3; // seconds of the sheet run before the first frame, and the fastest it runs the fronts in doing so
 
 function makeState() {
   const S = {
     ready: false, kn: [0, 2, 0, 0.06], acc: 0, thr: 1, mass: 0, clk: 0, tw: [],
     wt: new Float32Array(NC), g: new Float32Array(NC), bs: new Float32Array(NC), bu: new Float32Array(NC), hot: new Float32Array(6),
     u: new Float32Array(NC), un: new Float32Array(NC), w: new Float32Array(NC), s: new Float32Array(NC),
-    th0: new Float32Array(NC), thl: new Float32Array(256), het: new Float32Array(NC), rk: new Float32Array(NC),
+    th0: new Float32Array(NC), thl: new Float32Array(256), rk: new Float32Array(NC),
     lut: new Float32Array(512 * 3), hueMat: new Float32Array(9), hueAt: -1,
   };
-  // three smooth fields, each a sum of seven plane waves: the unevenness of the threshold, how fast each patch recovers, and the ages the sheet starts with
+  // two smooth fields, each a sum of seven plane waves: the unevenness of the threshold, and the ages the sheet starts with
   const field = (lo, hi) => {
     const ws = [];
     for (let k = 0; k < 7; k++) {
@@ -83,10 +96,9 @@ function makeState() {
   for (let y = 0; y < PH; y++) {
     for (let x = 0; x < PW; x++) {
       const i = y * PW + x, h = fh(x, y);
-      S.het[i] = h;
       S.th0[i] = TH0 + HET * h;
       S.rk[i] = 1;
-      S.s[i] = cl(0.5 + 0.8 * fa(x, y), 0, 1);
+      S.s[i] = cl(0.5 + 0.8 * fa(x, y), 0, 1); // ages of every stage to start from, in blotches 20 to 45 LEDs across
     }
   }
   return S;
@@ -146,33 +158,36 @@ function stepField(S, sdt, nu, ts, b) {
   S.un = u;
 }
 
-// Where a wave may start: a rested cell counts 1, and the weight falls to 0 as s climbs to Q_S. Waves start in proportion to the weight,
-// so the more of the sheet has recovered the more often one starts, and with K4 off zero the upstream end counts more.
+// Where a wave may start: a rested cell weighs 1, falling to 0 as s climbs from Q_FULL to Q_NONE. Waves start in proportion to the weight, so the more of the
+// sheet has recovered the oftener one starts, and with K4 off zero the upstream end weighs more. mass is the weight with no bias, which sets the rate.
 function weigh(S, bias) {
   const s = S.s, wt = S.wt, k = BIAS_SHARP * abs(bias), sg = bias > 0 ? -1 : 1;
   const norm = k < 1e-3 ? 1 : k / Math.sinh(k);
-  let tot = 0, mass = 0;
+  let tot = 0, mass = 0, act = 0;
+  const u = S.u;
   for (let y = 1; y <= H; y++) {
-    const rowUp = sg * ((y - H / 2) * DIR[1]) / 72;
+    const rowUp = (sg * (y - H / 2) * DIR[1]) / REACH;
     for (let x = 1; x <= W; x++) {
-      const i = y * PW + x, q = cl(1 - (s[i] - 0.1) * (1 / (Q_S - 0.1)), 0, 1);
+      const i = y * PW + x, q = cl(1 - (s[i] - Q_FULL) * (1 / (Q_NONE - Q_FULL)), 0, 1);
       let v = 0;
       mass += q;
-      if (q > 0) v = q * (k < 1e-3 ? 1 : exp(k * (rowUp + (sg * (x - W / 2) * DIR[0]) / 72)) * norm);
+      act += u[i];
+      if (q > 0) v = q * (k < 1e-3 ? 1 : exp(k * (rowUp + (sg * (x - W / 2) * DIR[0]) / REACH)) * norm);
       wt[i] = v;
       tot += v;
     }
   }
-  S.mass = mass;
+  S.mass = mass * (1 + IDLE_BOOST * exp(-act / IDLE_ACT)); // a sheet with no wave on it starts one sooner
   return tot;
 }
 
 function ignite(S, tot) {
+  if (tot <= 0) return false;
   let r = Math.random() * tot, bi = -1;
   const wt = S.wt;
   for (let i = PW + 1; i < NC - PW - 1; i++) {
     r -= wt[i];
-    if (r <= 0) { bi = i; break; }
+    if (r <= 0 && wt[i] > 0) { bi = i; break; }
   }
   if (bi < 0) return false;
   const cx = bi % PW, cy = floor(bi / PW), r0 = SEED_R + 0.8 * Math.random(), R = floor(r0 + 2), u = S.u;
@@ -180,7 +195,7 @@ function ignite(S, tot) {
     for (let dx = -R; dx <= R; dx++) {
       const x = cx + dx, y = cy + dy;
       if (x < 1 || x > W || y < 1 || y > H) continue;
-      const v = cl((r0 + 1 - sqrt(dx * dx + dy * dy)) / 2, 0, 1), i = y * PW + x;
+      const v = SEED_PEAK * cl((r0 + 1 - sqrt(dx * dx + dy * dy)) / 2, 0, 1), i = y * PW + x;
       if (v > u[i]) u[i] = v;
     }
   }
@@ -188,12 +203,13 @@ function ignite(S, tot) {
 }
 
 function rates(kn) {
-  const nu = pow(2, (cl(kn[1], 0, 4) - 2) * 0.6);
+  const nu = pow(2, (cl(kn[1], 0, 4) - 2) * NU_PER_KNOB);
   return { nu, rho: RHO * pow(nu, 1.4), ts: REFRACT * pow(REFRACT_BASE, cl(kn[2], -1, 1)), b: cl(kn[3], -1, 1) };
 }
 
-function advance(S, dt, kn, subs) {
+function advance(S, dt, kn, subs, nuCap) {
   const r = rates(kn);
+  if (nuCap && r.nu > nuCap) r.nu = nuCap; // the pre-run takes bigger steps, so it runs the fast fields no faster than this
   S.clk += dt;
   const tot = weigh(S, r.b);
   S.acc += r.rho * S.mass * dt;
@@ -211,19 +227,19 @@ export function update(dt, input, params) {
   S.kn = kn;
   if (!S.ready) {
     S.ready = true;
-    const r = rates(kn), pdt = min(0.05, 0.035 / r.nu);
-    for (let t = 0; t < PREROLL; t += pdt) advance(S, pdt, kn, 1);
+    const pdt = min(0.05, 0.035 / min(rates(kn).nu, PRE_NU));
+    for (let t = 0; t < PREROLL; t += pdt) advance(S, pdt, kn, 1, PRE_NU);
   }
-  advance(S, d, kn, rates(kn).nu > 1.6 ? 3 : 2);
+  advance(S, d, kn, min(8, max(2, Math.ceil((d * rates(kn).nu) / SUBSTEP)))); // two sub-steps at a normal frame, more when the fronts run fast or a frame runs long
 }
 
 // ---- colour: freshness 1 is white-lime, 0 is the deep teal of tissue that has waited longest
 const RAMP = [
-  [0.0, 6, 58, 56],
-  [0.3, 5, 76, 78],
-  [0.6, 7, 108, 82],
-  [0.85, 10, 140, 54],
-  [0.95, 25, 200, 62],
+  [0.0, 7, 70, 60],
+  [0.3, 7, 92, 78],
+  [0.6, 9, 128, 76],
+  [0.85, 14, 160, 50],
+  [0.95, 40, 215, 60],
   [0.985, 140, 250, 60],
   [1.0, 225, 255, 150],
 ];
