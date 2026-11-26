@@ -1,5 +1,5 @@
 // ===== Patternflow pattern =====
-// Title:   Rabi Chevrons
+// Title:   Rabi Record
 // Family:  rabi
 // Idea:    Sixty-four copies of one two-level atom, each driven at its own detuning from resonance, are drawn as a scrolling space-time record with brightness for the chance of finding the atom excited and hue for the azimuth of its Bloch vector, so a drive switched on draws Rabi's chevron of nested fringes, pulse-wait-pulse fans out Ramsey's fringes, a spin echo winds a rainbow fan open and shut again, a frequency sweep draws a Landau-Zener front and a sweep to and fro Stueckelberg's feathers, one random experiment after another with a dark reset between.
 // Author:  patternflow-lab
