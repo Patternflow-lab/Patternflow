@@ -374,5 +374,10 @@
   "shiptrack": { "label": "항적 구름", "color": "#c9d3de" },
   "honami": { "label": "이삭 물결", "color": "#d9b04a" },
   "genesurfing": { "label": "유전자 서핑", "color": "#58e07a" },
-  "barkbeetle": { "label": "나무좀 갱도", "color": "#a8744a" }
+  "barkbeetle": { "label": "나무좀 갱도", "color": "#a8744a" },
+  "binaural": { "label": "양이 시간차", "color": "#9ef811" },
+  "stratosphere": { "label": "성층권 바람", "color": "#6a66d8" },
+  "zoning": { "label": "결정 성장대", "color": "#e30791" },
+  "electrospray": { "label": "전기 분무", "color": "#d81030" },
+  "fallstreak": { "label": "구름 구멍", "color": "#d87c7b" }
 }
