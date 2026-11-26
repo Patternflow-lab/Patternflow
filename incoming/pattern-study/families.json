@@ -369,5 +369,10 @@
   "sunspots": { "label": "흑점", "color": "#ff8a1f" },
   "tidalbore": { "label": "조석 단파", "color": "#5aa7c9" },
   "ammonoids": { "label": "암모나이트", "color": "#c9a227" },
-  "polarhexagon": { "label": "극 육각 제트", "color": "#8be0ff" }
+  "polarhexagon": { "label": "극 육각 제트", "color": "#8be0ff" },
+  "binaural": { "label": "양이 시간차", "color": "#9ef811" },
+  "paleomagnetism": { "label": "고지자기 줄무늬", "color": "#bf685e" },
+  "stratosphere": { "label": "성층권 바람", "color": "#6a66d8" },
+  "zoning": { "label": "결정 성장대", "color": "#e30791" },
+  "electrospray": { "label": "전기 분무", "color": "#d81030" }
 }
