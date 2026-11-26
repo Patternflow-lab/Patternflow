@@ -13914,7 +13914,7 @@ LED 마다 세 채널의 적응 상태가 있어요. 보여 준 색을 천천히
 
 앞 바퀴들의 댓글을 읽었어요. #500 부터 #548 까지 마흔아홉 PR 의 대화 댓글과 줄 댓글과 리뷰를 훑었어요. OWNER 나 MEMBER 나 COLLABORATOR 가 쓴 글 가운데 Claude Code 꼬리말이 없는 것은 셋이었고, 모두 hub 가 세션을 이어받는다고 알리는 한 줄(#509, #536, #540)이었어요. 패턴을 시키는 글은 없었어요.
 
-갈래 다섯을 또 새로 열었어요. 광탄성(`photoelasticity`), 흑점(`sunspots`), 조석 단파(`tidalbore`), 암모나이트(`ammonoids`), 극 육각 제트(`polarhexagon`)예요. 후보는 낱말을 여든 개쯤 `patterns/` 1428개 파일의 `Title` 과 `Idea` 와 `Lineage` 줄에 grep 해서 골랐어요. `photoelastic` 은 Force Chains 한 곳에, `sunspot` 은 Butterfly Diagram 한 곳에 있었고 둘 다 제 이야기의 소재는 아니었어요. `undular`, `ammonoid`, `polar vortex`, `hexagonal jet` 는 0건이었어요. 접은 후보도 있어요. 밧줄처럼 감기는 점성 실은 Lotion Ribbon 이, 패러데이 물결은 Chladni 와 Oscillon Gas 와 Iron Filings 가, 연기 고리는 Milk Ring 과 Essence Drop 이 이미 그렸어요. 자기 진자의 흡인 분지는 뉴턴 프랙탈과 같은 식이라 「흔한 것」으로 쳐서 접었어요. 슈텔링 분리는 격자 규칙 한 줄이라 셀룰러 오토마타로 읽혀서 접었어요.
+갈래 다섯을 또 새로 열었어요. 광탄성(`photoelasticity`), 흑점(`sunspots`), 조석 단파(`tidalbore`), 암모나이트(`ammonoids`), 극 육각 제트(`polarhexagon`)예요. 후보는 낱말을 여든 개쯤 `patterns/` 1428개 파일의 `Title` 과 `Idea` 와 `Lineage` 줄에 grep 해서 골랐어요. `photoelastic` 은 Force Chains 한 곳에 있었어요. 알갱이 175개가 하중 사슬을 따라 켜지는 그림이라 연속체의 응력장은 아직 없었어요. `sunspot` 은 Butterfly Diagram 한 곳에 있었고 그 그림은 흑점의 위도가 시간에 따라 내려가는 도표예요. `undular`, `ammonoid`, `polar vortex`, `hexagonal jet` 는 0건이었어요. 접은 후보도 있어요. 밧줄처럼 감기는 점성 실은 Lotion Ribbon 이, 패러데이 물결은 Chladni 와 Oscillon Gas 와 Iron Filings 가, 연기 고리는 Milk Ring 과 Essence Drop 이 이미 그렸어요. 자기 진자의 흡인 분지는 뉴턴 프랙탈과 같은 식이라 「흔한 것」으로 쳐서 접었어요. 슈텔링 분리는 격자 규칙 한 줄이라 셀룰러 오토마타로 읽혀서 접었어요.
 
 앞 바퀴가 「다음 바퀴」에 적은 조석 단파와 암모나이트 방은 이 바퀴가 골랐어요. 258판 바퀴는 조석 단파를 흐르는 장을 푸는 닫은 계열에 가깝다고 접었어요. 이쪽은 흐르는 장이 계속 이어지는 그림이 아니라 앞머리 하나와 그 뒤 물결 줄이 사건으로 지나가는 그림이라 골랐지만, 풀이가 유체 방정식이라 그 경계에 서 있는 것은 맞아요. 슈텔링 분리는 따르지 않았어요.
 
