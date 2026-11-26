@@ -155,7 +155,7 @@ function bars(x, y, ph) {
 function buildGeometry(S) {
   const t = S.clk, ph = S.ph;
   const a1 = S.bend * 11;
-  const p1 = ph[0] - 0.016 * t + 0.5 * sin(TAU * t / 173 + ph[3]), p2 = ph[1] - 0.045 * t + 0.8 * sin(TAU * t / 131 + ph[4]), p3 = ph[2] - 0.075 * t + 1.1 * sin(TAU * t / 97 + ph[5]);
+  const p1 = ph[0] - 0.022 * t + 0.5 * sin(TAU * t / 173 + ph[3]), p2 = ph[1] - 0.06 * t + 0.8 * sin(TAU * t / 131 + ph[4]), p3 = ph[2] - 0.1 * t + 1.1 * sin(TAU * t / 97 + ph[5]);
   const barPh = [ph[0] + 0.04 * t, ph[1] - 0.035 * t, ph[2] + 0.05 * t];
   const bm = S.beta0;
   const pd = S.pd, dwA = S.dwA, sdA = S.sdA, cx = S.cx, cy = S.cy, beta = S.beta, c2 = S.tmp2;
