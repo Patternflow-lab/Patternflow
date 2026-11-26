@@ -55,7 +55,7 @@ const V_PER_KNOB = 1.2;             // LEDs a second for each unit of Speed
 const A_NECK = 0.04;               // d(L^4)/dt at R = 1 for a 4.1 LED grain
 const R_REF = 4.1, R_POW = 2.4;     // neck rate goes as (R_REF / r)^R_POW
 const L_START = 0.10, U_MAX = 0.80; // initial neck ratio; L^4 is held under U_MAX (L 0.915)
-const SHR = 0.36;                   // shrink of a pair's distance, as a fraction of r1 + r2, per unit L^2
+const SHR = 0.40;                   // shrink of a pair's distance, as a fraction of r1 + r2, per unit L^2
 const MU = 0.8, NU = 0.3;           // slowdown along the belt and pull toward the centre, per unit of m
 const BOND_L = 0.22;                // a neck wider than this holds the pair together
 const MERGE_L = 0.45, MERGE_TN = 0.5, MERGE_RATE = 1.6, MERGE_CAP = 8; // crystals join above this neck ratio and temperature, up to this many mean grains of area
@@ -200,7 +200,7 @@ function pour(S) {
   const r = cl(S.rmean * (0.7 + 0.6 * Math.random()), RMIN, RMAX);
   let x = cl(S.valley * 4 + 2 + (Math.random() - 0.5) * 6, XL + r, XR - r);
   let y = S.hiY - 2 * r - 8;
-  const stick = (10 + 48 * Math.random()) * (PI / 180);
+  const stick = (8 + 38 * Math.random()) * (PI / 180);
   for (let it = 0; it < 12; it++) {
     let ys = S.floorOn ? FLOORY - r : 1e9, kk = -1;
     for (let k = 0; k < hi; k++) {
@@ -289,7 +289,7 @@ function buildPairs(S) {
 function step(S, dt) {
   S.t += dt;
   S.v0 += (S.kn[1] * V_PER_KNOB - S.v0) * (1 - exp(-dt / 0.3));
-  S.tpeak += (1.14 + 0.30 * cl(S.kn[2], -1, 1) - S.tpeak) * (1 - exp(-dt / 0.4));
+  S.tpeak += (1.14 + 0.26 * cl(S.kn[2], -1, 1) - S.tpeak) * (1 - exp(-dt / 0.4));
   S.rmean = 3.5 + 4.5 * Math.pow(cl(S.kn[3], 0, 1), 0.7);
   heatRows(S);
   const { gx, gy, gr, gm, alive } = S, hi = S.hi;
@@ -424,7 +424,7 @@ function render(S, display) {
     const t = (d * d + ri * ri - rj * rj) / (2 * d), cxp = xi + (dx / d) * t, cyp = yi + (dy / d) * t;
     if (cyp < -12 || cyp > H + 12) continue;
     const L = S.cl[c], re = (2 * ri * rj) / (ri + rj);
-    const k = min(1.7 * L * L * re, 0.7 * re);
+    const k = min(1.9 * L * L * re, 0.85 * re);
     const wl = sqrt(max(0, min(ri * ri - t * t, rj * rj - (d - t) * (d - t))));
     const hs = max(wl, sqrt(k * re * 0.5)) + k + 2.5;
     geo.push(i, j, cxp, cyp, hs, k, L);
@@ -505,7 +505,7 @@ export function update(dt, input, params) {
     S.ready = true;
     S.t = 200 + Math.random() * 400;
     S.v0 = S.kn[1] * V_PER_KNOB;
-    S.tpeak = 1.14 + 0.30 * cl(S.kn[2], -1, 1);
+    S.tpeak = 1.14 + 0.26 * cl(S.kn[2], -1, 1);
     S.hs = S.kn[0];
     S.rmean = 3.5 + 4.5 * Math.pow(cl(S.kn[3], 0, 1), 0.7);
     topOf(S);
