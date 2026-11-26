@@ -5,24 +5,24 @@
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the Evershed flow of gas along the penumbral filaments, out of the spot at 1 to 2 km a second (John Evershed, 1909, from memory), penumbral grains moving in along the inner filaments and out along the outer ones, the moving magnetic features that leave the rim and cross the moat (Harvey and Harvey, 1973, from memory), the outflow moat itself, the granulation of cells and lanes with its exploding granules, and the slight spiral of the filaments whose sense follows the hemisphere; pattern round 259
+// Lineage: the Evershed flow of gas along the penumbral filaments, out of the spot at 1 to 2 km a second (John Evershed, 1909, from memory), penumbral grains moving in along the inner filaments and out along the outer ones, the moving magnetic features that leave the rim and cross the moat (Harvey and Harvey, 1973, from memory), the outflow moat itself, the granulation of cells and lanes with its exploding granules, and the slight spiral of the filaments, whose sense follows the hemisphere (from memory); pattern round 259
 // Round:   259
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Flow=0..4, Size=-1..1, Twist=-1..1
 //
-// Knob 1: Hue. The tint of the filter the spot is seen through, one turn of the wheel over the knob's travel. Where the knob opens it is white light: pale gold cells, amber lanes, a red-brown umbra. A quarter of the way round it is the green of a chromospheric filter, at one half a blue-white calcium view, at 0.75 magenta, and at 0.92 the deep red of hydrogen alpha. The hottest points stay near white whatever the tint.
-// Knob 2: Flow. How fast the Sun runs. At 0 the grains creep along the filaments at 0.5 to 1.5 LEDs a second and a granule takes about a minute to be born and fade; where the knob opens it is 1.5 to 4.5 LEDs a second with granules that last 15 s; at 4 the grains run at 4 to 13 LEDs a second and the granulation seethes with cells that live 5 s.
-// Knob 3: Size. The size of the spot. At the bottom a pore: a 9 LED penumbra round a 5 LED umbra, hardly a spot at all, with the smaller spot and the pore shrinking with it. Where the knob opens the penumbra is 50 LEDs across and the umbra 19. At the top the penumbra is 62 LEDs across, as wide as the panel, round an umbra of 23.
-// Knob 4: Twist. The spiral of the filaments. Where the knob opens they lean about 15 degrees by the time they reach the rim, the slight spiral of a real spot. At the bottom they curl one way through 70 degrees and at the top the other way through 90, so the grains run along spirals and the whole spot looks like a small galaxy.
+// Knob 1: Hue. The tint of the filter the spot is seen through, one turn of the wheel over the knob's travel. Where the knob opens it is white light: pale gold cells, amber lanes, a red-brown umbra. At 0.18 it is green, at 0.42 cyan, at 0.6 blue, at 0.66 violet, at 0.8 pink and at 0.93 red, the red of a hydrogen alpha filter. The hottest points stay near white whatever the tint.
+// Knob 2: Flow. How fast the Sun runs. Where the knob opens the grains slide along the filaments at 1 to 4.5 LEDs a second, the moving points cross the moat at 2.4, a granule lives 8 to 26 s and the filaments regrow every 10 to 26 s. At 0 it all runs a third as fast, so the grains crawl at 0.3 to 1.5 LEDs a second and a granule lasts 25 to 80 s. At 4 it runs three times as fast: grains at 3 to 14 LEDs a second, granules of 3 to 9 s, filaments that regrow every 3 to 9 s.
+// Knob 3: Size. The size of the spot. At the bottom the big spot is a pore with a thin collar: a penumbra 18 LEDs across round an umbra of 10, the second spot has shrunk to 9 LEDs across and the pore beside it to 6. Where the knob opens the penumbra is 50 LEDs across and the umbra 19, the second spot 26 across, the pore 7.5. At the top the penumbra is 62 LEDs across, as wide as the panel, round an umbra of 23.
+// Knob 4: Twist. The spiral of the filaments, with a sign. Where the knob opens the rim is turned 16 degrees from the inner edge, clockwise as it goes out: the slight spiral of a real spot. At the top the filaments wind 92 degrees clockwise, and at the bottom 69 degrees the other way, which is more than a real spot does and makes a small galaxy of it. The grains run along the spirals.
 
 // What the picture is. Intensity, a number from 0 (black) to 1.3 (hot white), at each of the 64 x 128 LEDs, run through a colour ramp. Nothing is simulated on the grid.
-// The spots. Three, each with a centre that wanders slowly (sums of sines at periods of 2 to 6 minutes that do not divide each other), an umbra radius, a penumbra radius,
-// and edges that are ragged: both radii are multiplied by slow one-dimensional noise round the circle, so the umbra is a lumpy blob and the rim a ragged one.
+// The spots. Three: the big one at the top of the panel, a second half its size low down, and a pore, each with a centre that wanders slowly (sums of sines at periods of 2 to 6 minutes
+// that do not divide each other), an umbra radius, a penumbra radius, and edges that are ragged: both radii are multiplied by slow one-dimensional noise round the circle, so the umbra is a lumpy blob and the rim a ragged one.
 // The penumbra. A pixel at radius r and angle theta about the centre has a position in the filament frame, phi = theta - twist(r) + a small slow warp. The filaments are
 // value noise round the circle, with seven lattices of 14, 20, 28, 40, 56, 80 and 112 cells to the turn: the pixel blends the two lattices whose cell count makes a cell about 1.9 LEDs
 // wide at its radius, so near the umbra the filaments are few and wide apart, and as r grows they fork into more of them without a seam. Each lattice is crossfaded in time
-// between random rows every 10 to 26 s of flow, so the filaments keep growing and dying and never return. Across the penumbra the base brightness rises from 0.24 to 0.62, the
+// between random rows every 10 to 26 s of flow, so the filaments keep growing and dying and never return. Across the penumbra the base brightness rises from 0.30 to 0.62, the
 // filament contrast rises with it, and a bright filament pokes out past the rim and into the umbra by a couple of LEDs.
 // The flow. Along each filament a second noise, long in the radial direction, is advected along r with the speed of the flow: outward in the outer half, inward
 // in the inner half, the two cross-faded over the middle so the place where they meet has no seam. Over that, grains: 2.5 LEDs wide and 6 LEDs long, bright, born near the middle of
@@ -104,8 +104,8 @@ for (let k = 0; k < LPN; k++) {
   LPR[k] = 1 / sqrt((1 - s) * (1 - s) + s * s);
 }
 
-// How long, in seconds per LED of penumbra width, a streak has been travelling by the time it is at rel: the integral of 1 / speed. Outward the speed is 3 (1 + 2 rel) / 2 widths
-// a second, inward 2.28 (1.3 - 1.2 rel) / 1.2 ... so these two tables, at 1/64 steps of rel.
+// The age of a streak at rel, in seconds a LED of penumbra width: the integral of one over its speed, in two tables at 1/64 steps of rel. Outward the streak runs
+// 1.5 (1 + 2 rel) LEDs a second, from 1.5 at the edge of the umbra to 4.5 at the rim; inward 1.9 (1.3 - 1.2 rel), from 2.5 at the umbra to 1.3 in the middle.
 const SIN = new Float32Array(66), SOUT = new Float32Array(66);
 for (let i = 0; i < 66; i++) {
   const x = min(i / 64, 1);
@@ -147,7 +147,8 @@ function ringAt(R, i, u, tt) {
 function makeSpot(i) {
   const s = {
     salt: 1000 * (i + 1) + floor(Math.random() * 500),
-    cx: 32, cy: 64, ru: 5, rp: 9, tw: 0, wid: 4, // geometry of this frame
+    cx: 32, cy: 64, ru: 5, rp: i === 1 ? 6 : 9, tw: 0, wid: 4, // geometry of this frame
+    fs: i === 1 ? 7 : 10, // 10 over the LEDs a lattice step is looked up at: the smaller spot has coarser filaments
     on: 1, // how much of the pool of grains and dots it keeps
     ruT: new Float32Array(EDGEN + 1), rpT: new Float32Array(EDGEN + 1), // the umbra and the penumbra radius round the circle
     fl: NL.map((n) => new Float32Array(n + 1)), // the filament lattices, in time, for this frame
@@ -208,9 +209,9 @@ function geometry(S) {
   a.tw = 1.4 * k4 + 0.2;
   a = sp[1];
   a.cx = 42 + 3.6 * sin(0.0151 * t + 3.1) + 1.8 * sin(0.0337 * t + 0.9);
-  a.cy = 102 + 3 * sin(0.0117 * t + 0.2) + 1.4 * sin(0.0429 * t + 2.6);
-  a.rp = 0.42 * rp0 * (1 + 0.04 * sin(0.0293 * t + 1.9));
-  a.ru = 1.6 + 0.3 * a.rp;
+  a.cy = 103 + 3 * sin(0.0117 * t + 0.2) + 1.4 * sin(0.0429 * t + 2.6);
+  a.rp = 0.52 * rp0 * (1 + 0.04 * sin(0.0293 * t + 1.9));
+  a.ru = 1.8 + 0.28 * a.rp;
   a.tw = 0.8 * (1.4 * k4 + 0.2);
   a = sp[2];
   a.cx = 12 + 2.4 * sin(0.0197 * t + 1.4) + 1.2 * sin(0.0461 * t + 3.3);
@@ -266,7 +267,7 @@ function filament(s, u, k) {
   const m = (a * (1 - w1) + b * w1) * LPR[k];
   const c = u * EDGEN, ci = c | 0, cf = c - ci;
   const ca = s.crs[ci] + (s.crs[ci + 1] - s.crs[ci]) * cf, cb = s.crb[ci] + (s.crb[ci + 1] - s.crb[ci]) * cf;
-  return cl((m * (0.9 + 0.2 * ca) + 0.1 * cb) * 2.1, -1, 1);
+  return cl((m * (0.92 + 0.15 * ca) + 0.04 * cb) * 2.1, -1, 1);
 }
 // A streak along the filaments, advected: tau is the age of the pattern in rows, and the sign of its slope decides which way it runs
 function streak(R, u, k, tau) {
@@ -395,7 +396,7 @@ function spawnGrain(S, i, fresh) {
   S.gr[i] = s.ru + rel0 * s.wid;
   // a bright filament, of five tried, at the radius it is born
   let best = -9, ph = 0;
-  const k = cl(floor(S.gr[i] * 10), 0, LPN - 1);
+  const k = cl(floor(S.gr[i] * s.fs), 0, LPN - 1);
   for (let q = 0; q < 5; q++) {
     const p = Math.random(), f = filament(s, p, k);
     if (f > best) { best = f; ph = p; }
@@ -465,13 +466,15 @@ function stepDots(S, dtf) {
 // ---- faculae
 function spawnFac(S, i, fresh) {
   const sp = S.spots;
-  let x = 0, y = 0, ang = 0;
+  let x = 0, y = 0, ang = 0, near = 1;
   for (let tries = 0; tries < 8; tries++) {
+    near = 1;
     if (Math.random() < 0.65) {
       const s = sp[Math.random() < 0.7 ? 0 : 1], a = Math.random() * TAU, rd = s.rp * rr(1.12, 2);
       x = s.cx + rd * cos(a);
       y = s.cy + rd * sin(a);
       ang = a + PI / 2;
+      near = 0.35 + 0.65 * sst(8, 22, s.rp); // a small spot has small faculae
     } else {
       x = rr(2, 62);
       y = rr(2, 126);
@@ -489,7 +492,7 @@ function spawnFac(S, i, fresh) {
   S.fang[i] = ang;
   S.flife[i] = rr(22, 60);
   S.fage[i] = fresh ? 0 : Math.random() * S.flife[i];
-  S.famp[i] = rr(0.2, 0.34);
+  S.famp[i] = rr(0.2, 0.34) * near;
   S.fsa[i] = rr(2.2, 4.2);
   S.fsb[i] = rr(1.1, 1.5);
 }
@@ -733,7 +736,7 @@ export function draw(display, params) {
             Iv = Iv + (Ip - Iv) * wpp;
             continue;
           }
-          const rk = cl((r * 10) | 0, 0, LPN - 1);
+          const rk = cl((r * s.fs) | 0, 0, LPN - 1);
           let phi = th - twistAt(s, r);
           phi += warp(phi, r, tf);
           let uu = phi / TAU;
@@ -748,7 +751,7 @@ export function draw(display, params) {
             if (wo > 0.002) b = streak(s.rOut, uu, rk, (wid * lutAt(SOUT, rel) - tf) / LT + 5.1);
             mv = ((a * wi + b * wo) / sqrt(wi * wi + wo * wo + 1e-6)) * flow;
           }
-          const pen = 0.23 + 0.31 * rel * (1 + 0.17 * (1 - rel)) + (0.07 + 0.17 * rel) * F + 0.12 * mv * sst(0, 0.2, rel) * (1 - 0.5 * rel);
+          const pen = 0.3 + 0.32 * rel * (1 + 0.17 * (1 - rel)) + (0.06 + 0.17 * rel) * F + 0.12 * mv * sst(0, 0.2, rel) * (1 - 0.5 * rel);
           // umbra
           let umb = 0.07 + 0.045 * sst(0, 1, r / ruT) + 0.018 * fsin(dx * 0.45 + 0.6 + tf * 0.03) * fsin(dy * 0.4 + 1.3 - tf * 0.025);
           if (k === 0 && brAmt > 0.01) {
