@@ -38,6 +38,9 @@
 // The first update does not step anything: it opens the sky with holes of different ages already in it, chosen by the knobs, the youngest a few seconds old and the oldest about to heal.
 
 const W = 64, H = 128, NPX = W * H;
+const EXPN = 1024, EXPK = EXPN / 7; // exp(-q) for q in 0..7, as a table
+const EXPT = new Float32Array(EXPN + 1);
+for (let i = 0; i <= EXPN; i++) EXPT[i] = Math.exp(-i / EXPK);
 const { floor, sqrt, exp, sin, cos, min, max, abs, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -64,22 +67,22 @@ function vnoise(x, y, s) {
 }
 
 // ---- the deck
-const G = 7.4; // LEDs between lattice points of the cloudlets
-const NI = 17, NJ = 27; // lattice points kept per frame
+const G = 7.8; // LEDs between lattice points of the cloudlets, in the deck's own stretched units
+const NI = 22, NJ = 27; // lattice points kept per frame
 const WG = 2, NWX = W / WG + 1, NWY = H / WG + 1; // warp grid
-const SIG = 0.47 * G, ISIG2 = 1 / (SIG * SIG); // width of a cloudlet's bump, LEDs
+const SIG = 0.5 * G, ISIG2 = 1 / (SIG * SIG); // width of a cloudlet's bump, LEDs
 const LX = -0.34, LY = 0.94; // the light on the cloud comes from below and a little left
-const RIM = 4.0, RIMH = 5.0; // LEDs over which the front and the heal front are soft
+const RIM = 7.0, RIMH = 6.0; // LEDs over which the front and the heal front are soft
 const GGW = W / 2, GGH = H / 2; // ice map, two LEDs a cell
 
 // cloud colours by how lit the cell is, 0 dark underside to 1 ivory
 const RAMP_T = [0, 0.18, 0.4, 0.62, 0.82, 1];
 const RAMP_C = [
-  [50, 44, 104], [118, 74, 128], [214, 112, 118], [255, 160, 128], [255, 206, 166], [255, 238, 208],
+  [54, 46, 108], [120, 80, 136], [204, 118, 126], [244, 164, 140], [255, 208, 176], [255, 240, 222],
 ];
 // sky colours by position, 0 at the top and the upper right to 1 at the lower left
 const SKY_T = [0, 0.35, 0.62, 0.82, 1];
-const SKY_C = [[20, 38, 130], [40, 52, 164], [96, 66, 174], [160, 116, 196], [222, 150, 188]];
+const SKY_C = [[32, 44, 116], [50, 60, 146], [90, 76, 166], [134, 120, 196], [174, 158, 218]];
 const FIB = [255, 226, 238];
 const GLOW = [255, 208, 170];
 
@@ -115,14 +118,14 @@ function makeState() {
       ramp(SKY_T, SKY_C, q, tmp);
       const band = exp(-(((q - 0.78) / 0.16) * ((q - 0.78) / 0.16)));
       const p = (y * W + x) * 3;
-      S.sky[p] = tmp[0] + 44 * band;
-      S.sky[p + 1] = tmp[1] + 38 * band;
-      S.sky[p + 2] = tmp[2] + 40 * band;
+      S.sky[p] = tmp[0] + 28 * band;
+      S.sky[p + 1] = tmp[1] + 34 * band;
+      S.sky[p + 2] = tmp[2] + 22 * band;
     }
   }
   for (let i = 0; i < S.NC; i++) {
     S.CP[i] = (hash(i, 0, 31) - 0.5) * 0.9;
-    S.CW[i] = 0.85 + 0.45 * hash(i, 0, 32);
+    S.CW[i] = 0.75 + 0.45 * hash(i, 0, 32);
     S.CPH[i] = hash(i, 0, 33) * 60;
     S.CPR[i] = 24 + 26 * hash(i, 0, 34);
     S.CB[i] = hash(i, 0, 35) < 0.3 ? 0 : 0.5 + 0.5 * hash(i, 0, 37);
@@ -149,7 +152,7 @@ function newHole(S, age) {
   const ang = S.wind + (rnd() - 0.5) * 0.5;
   const h = {
     cx: bx - S.ox, cy: by - S.oy, wx: cos(ang), wy: sin(ang),
-    kE: 0.8 + 0.45 * rnd(), R: 10.5 * (0.75 + 0.55 * rnd()), v: 0.9 * (0.8 + 0.4 * rnd()),
+    kE: 0.8 + 0.45 * rnd(), R: 9.5 * (0.75 + 0.55 * rnd()), v: 0.9 * (0.8 + 0.4 * rnd()),
     tau: age, th: 60 + 45 * rnd(), vh: 0.75 + 0.35 * rnd(), tc: 4 + 6 * rnd(),
     s0x: 0, s0y: 0, s1x: 0, s1y: 0, n0: rnd() * 50, n1: rnd() * 50, canal,
   };
@@ -161,31 +164,46 @@ function newHole(S, age) {
     h.R *= 0.7;
     h.th += 10;
   }
-  h.tend = h.th + (h.R + 10 + 0.45 * h.vh * h.tc) / (1.45 * h.vh) + h.tc + 8;
   S.holes.push(h);
   return h;
 }
 
 function seedHoles(S) {
-  const n = max(2, Math.round(1 + 4.6 * Math.pow(S.u3, 1.2)));
+  const n = Math.round(1 + 6 * Math.pow(S.u3, 1.4));
   const idx = [];
   for (let i = 0; i < n; i++) idx.push(i);
   for (let i = n - 1; i > 0; i--) { const j = floor(rnd() * (i + 1)); const t = idx[i]; idx[i] = idx[j]; idx[j] = t; }
-  const fr = [0.06, 0.5, 0.86, 0.3, 0.68, 0.18];
+  const fr = [0.14, 0.5, 0.86, 0.3, 0.68, 0.22, 0.4];
   for (let i = 0; i < n; i++) {
     const age = fr[i % fr.length] * (88 + 4 * rnd());
     newHole(S, age);
+    if (holeArea(S) > 0.32 * NPX && i > 0) break;
   }
+}
+
+// the area the holes that are still growing clear, LED squared
+function holeArea(S) {
+  let area = 0;
+  for (const h of S.holes) {
+    if (h.tau > h.th) continue;
+    const r = hfront(h, S), e = S.E * h.kE;
+    area += PI * r * r * e + (h.canal ? 4 * r * sqrt(h.s1x * h.s1x + h.s1y * h.s1y) : 0);
+  }
+  return area;
 }
 
 function stepHoles(S, d) {
   for (const h of S.holes) h.tau += d * S.sf;
-  for (let i = S.holes.length - 1; i >= 0; i--) if (S.holes[i].tau > S.holes[i].tend) S.holes.splice(i, 1);
+  for (let i = S.holes.length - 1; i >= 0; i--) {
+    const h = S.holes[i];
+    if (h.tau > h.th + (hreach(h, S) + 8 + 0.45 * h.vh * h.tc) / (1.45 * h.vh) + h.tc + 8) S.holes.splice(i, 1);
+  }
   S.cool -= d;
   let alive = 0;
-  for (const h of S.holes) alive += h.tau > h.th ? 0.5 : 1;
-  const n = 1 + 4.6 * Math.pow(S.u3, 1.2);
-  if (S.cool <= 0 && alive < n - 0.1) {
+  for (const h of S.holes) alive += h.tau > h.th ? 0 : 1;
+  const n = 1 + 6 * Math.pow(S.u3, 1.4);
+  const area = holeArea(S);
+  if (S.cool <= 0 && alive < n - 0.1 && area < 0.32 * NPX) {
     newHole(S, 0);
     S.cool = (3 + 8 * rnd()) / S.sf;
   }
@@ -193,7 +211,7 @@ function stepHoles(S, d) {
   if (alive > n + 1.2) {
     let o = null;
     for (const h of S.holes) if (h.tau < h.th && (!o || h.tau > o.tau)) o = h;
-    if (o && o.tau > 20) { o.th = o.tau; o.tend = o.th + (o.R + 10 + 0.45 * o.vh * o.tc) / (1.45 * o.vh) + o.tc + 8; }
+    if (o && o.tau > 20) o.th = o.tau;
   }
 }
 
@@ -209,11 +227,15 @@ function hdist(h, X, Y, E) {
   const qx = px - sx * t, qy = py - sy * t;
   return sqrt(qx * qx + qy * qy);
 }
+// how far a hole's front will get across the wind: the clear radius plus the 10 LEDs of delay and rim that the cloud keeps
+function hreach(h, S) {
+  return h.R * S.sz * Math.pow(2.2 / (S.E * h.kE), 0.35) + 10;
+}
 // front radius of a hole across the wind
 function hfront(h, S) {
-  const R = h.R * S.sz, r0 = 1.4;
   if (h.tau <= 0) return 0;
-  return r0 + (R - r0) * (1 - exp((-h.v * h.tau) / (R - r0)));
+  const R = hreach(h, S);
+  return R * (1 - exp((-h.v * h.tau) / R));
 }
 function hglac(h, S, r, dd) {
   const g = sm(0, RIM, r - dd);
@@ -235,12 +257,14 @@ function readKnobs(S, kn) {
   S.u3 = (cl(kn[2], -1, 1) + 1) / 2;
   S.u4 = (cl(kn[3], -1, 1) + 1) / 2;
   S.sf = 0.55 + 0.9 * S.u2;
-  S.sz = 0.7 + 0.8 * S.u2;
+  S.sz = 0.35 + 1.45 * Math.pow(S.u2, 1.3);
   const u4 = S.u4;
   S.E = 1 + 2.2 * Math.pow(u4, 1.1);
   S.lean = 0.05 + 0.32 * u4;
   S.bend = 0.06 + 0.4 * u4;
   S.hue = TAU * u1 * 0.75;
+  S.ani = 0.95 + 0.7 * u4;
+  S.lc = 0.3 * (u4 - 0.3);
 }
 
 export function update(dt, input, params) {
@@ -262,18 +286,19 @@ export function update(dt, input, params) {
 
 function buildLattice(S) {
   const t = S.t;
-  S.i0 = floor((-S.ox - 6) / G) - 1;
+  const xa = (-S.ox - S.lc * (0 - 64)) / S.ani, xb = (-S.ox - S.lc * (127 - 64)) / S.ani;
+  S.i0 = floor((min(xa, xb) - 8) / G) - 1;
   S.j0 = floor((-S.oy - 6) / G) - 1;
   for (let jj = 0; jj < NJ; jj++) {
     for (let ii = 0; ii < NI; ii++) {
       const i = S.i0 + ii, j = S.j0 + jj, k = jj * NI + ii;
       const r1 = hash(i, j, 1), r2 = hash(i, j, 2), r3 = hash(i, j, 3), r4 = hash(i, j, 4), r5 = hash(i, j, 5), r6 = hash(i, j, 6);
       const om1 = TAU / (60 + 90 * r4), om2 = TAU / (37 + 70 * r5);
-      S.PX[k] = (i + 0.5 + (r1 - 0.5) * 0.62 + 0.09 * sin(t * om1 + r3 * TAU)) * G;
-      S.PY[k] = (j + 0.5 + (r2 - 0.5) * 0.62 + 0.09 * cos(t * om2 + r3 * 10.7)) * G;
-      S.PW[k] = 0.78 + 0.3 * sin(t * om2 * 0.8 + r6 * TAU) + 0.3 * (r5 - 0.5);
+      S.PX[k] = (i + 0.5 + 0.5 * (j & 1) + (r1 - 0.5) * 0.52 + 0.09 * sin(t * om1 + r3 * TAU)) * G;
+      S.PY[k] = (j + 0.5 + (r2 - 0.5) * 0.52 + 0.09 * cos(t * om2 + r3 * 10.7)) * G;
+      S.PW[k] = 0.95 + 0.2 * sin(t * om2 * 0.8 + r6 * TAU) + 0.24 * (r5 - 0.5);
       S.PD[k] = hash(i, j, 7);
-      S.PB[k] = (0.78 + 0.4 * hash(i, j, 8)) * (1 + 0.09 * sin(t * om1 * 1.3 + r2 * TAU));
+      S.PB[k] = (0.66 + 0.6 * hash(i, j, 8)) * (1 + 0.1 * sin(t * om1 * 1.3 + r2 * TAU));
     }
   }
   // warp and tone fields, in deck coordinates, on a 2-LED grid
@@ -349,7 +374,7 @@ export function draw(display, params) {
   buildLattice(S);
   buildGate(S);
   hueMatrix(S);
-  const M = S.mat, t = S.t, E0 = S.E;
+  const M = S.mat, t = S.t, E0 = S.E, ANI = S.ani;
   const nh = S.holes.length;
   // per-hole constants
   const hr = new Array(nh), hE = new Array(nh);
@@ -369,23 +394,25 @@ export function draw(display, params) {
       const btv = S.BT[wi] * w00 + S.BT[wi + 1] * w10 + S.BT[wi + NWX] * w01 + S.BT[wi + NWX + 1] * w11;
       const X = x - S.ox + wxv, Y = y - S.oy + wyv;
       // the cloudlets: a sum of soft bumps, one per lattice point
-      const ci = floor(X / G) - S.i0, cj = floor(Y / G) - S.j0;
-      let D = 0, hx = 0, hy = 0, bw = -1, bk = 0;
+      const Xs = (X - S.lc * (Y - 64)) / ANI;
+      const ci = floor(Xs / G) - S.i0, cj = floor(Y / G) - S.j0;
+      let D = 0, hx = 0, hy = 0, sw = 1e-9, scx = 0, scy = 0, spd = 0, spb = 0;
       for (let dj = -1; dj <= 1; dj++) {
         for (let di = -1; di <= 1; di++) {
           const k = (cj + dj) * NI + (ci + di);
-          const dx = X - S.PX[k], dy = Y - S.PY[k];
+          const dx = Xs - S.PX[k], dy = Y - S.PY[k];
           const q = (dx * dx + dy * dy) * ISIG2;
           if (q > 7) continue;
-          const g = S.PW[k] * exp(-q);
+          const g = S.PW[k] * EXPT[(q * EXPK) | 0];
           D += g; hx += g * dx; hy += g * dy;
-          if (g > bw) { bw = g; bk = k; }
+          const g3 = g * g * g;
+          sw += g3; scx += g3 * S.PX[k]; scy += g3 * S.PY[k]; spd += g3 * S.PD[k]; spb += g3 * S.PB[k];
         }
       }
       D *= 1 + 0.5 * btv;
       hx *= -SIG * ISIG2; hy *= -SIG * ISIG2; // slope of the bump field, per SIG
-      const cx = S.PX[bk], cy = S.PY[bk];
-      const thick = sm(0.3, 0.95, D);
+      const cy = scy / sw, cx = (scx / sw) * ANI + S.lc * (cy - 64), pdel = spd / sw, pbri = spb / sw;
+      const thick = sm(0.36, 0.8, D);
       // glaciation
       let glo = 0;
       for (let i = 0; i < nh; i++) {
@@ -394,16 +421,17 @@ export function draw(display, params) {
         if (dp > r + 9) continue;
         const dc = hdist(h, cx, cy, hE[i]);
         const wob = vnoise((X - h.cx) * 0.07 + h.n0, (Y - h.cy) * 0.07 + h.n1, 21) - 0.5;
-        const dd = 0.78 * dc + 0.22 * dp + 4.5 * S.PD[bk] + 5.2 * wob * (0.5 + r * 0.05);
+        const wob2 = vnoise((X - h.cx) * 0.16 + h.n1, (Y - h.cy) * 0.16 + h.n0, 22) - 0.5;
+        const dd = 0.6 * dc + 0.4 * dp + 8 * pdel + 5.2 * wob * (0.5 + r * 0.05) + 5 * wob2;
         const g = hglac(h, S, r, dd);
         if (g > glo) glo = g;
       }
       // the cloud
       const m = 0.24 + 0.76 * thick;
       const A = sm(0, 0.32, m - 1.08 * glo);
-      const shade = cl(0.5 + 0.62 * -(hx * LX + hy * LY), 0, 1.15);
+      const shade = cl(0.48 + 0.95 * -(hx * LX + hy * LY), 0, 1.2);
       const under = 0.62 + 0.38 * (y / 127);
-      let tv = under * (0.34 + 0.72 * shade) * S.PB[bk] * (0.5 + 0.5 * thick) * (1 + 0.22 * btv);
+      let tv = under * (0.3 + 0.7 * shade) * pbri * (0.54 + 0.46 * thick) * (1 + 0.3 * btv) * 1.1;
       tv = cl(tv, 0, 1);
       const ri = floor(tv * 255) * 3;
       const p = (y * W + x) * 3;
@@ -438,7 +466,8 @@ export function draw(display, params) {
           const v = (gau + 0.3 * exp((-dxu * dxu) / (10 * wv * wv))) * env * S.CB[ci2];
           if (v > acc) acc = v;
         }
-        const f = cl(acc * 3.4 * gate * (1 - 0.5 * A), 0, 0.9);
+        const clu = sm(0.3, 0.72, vnoise(u * 0.11 + 5, y * 0.03 + t * 0.012, 41));
+        const f = cl(acc * 2.6 * gate * (0.2 + 0.8 * clu) * (1 - 0.5 * A), 0, 0.82);
         r += (FIB[0] - r) * f; g += (FIB[1] - g) * f; b += (FIB[2] - b) * f;
       }
       // palette turn
