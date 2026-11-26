@@ -1,20 +1,42 @@
 // ===== Patternflow pattern =====
 // Title:   Undular Bore
 // Family:  tidalbore
-// Idea:    placeholder
+// Idea:    A tidal bore seen from straight above, climbing a silty river that bends in an S: a crested front with foam on its steepest face runs up from the bottom of the panel, a train of rounded whelps follows it, the first crest the highest and brightest, the banks throw oblique cross-waves back into the train, the water behind stands higher and paler for a while and then draws down in the ebb, and a new bore of another height and speed comes up the river a half minute later, all under a low sun that glints on the slopes.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: placeholder
+// Lineage: the undular tidal bore of the Severn, whose trailing waves are called whelps, and of the Qiantang; the weakly dispersive long-wave equations that give a step of water a train of waves behind it (Joseph Boussinesq, 1872); the undular jump seen in canals (Henri Favre, 1935; Thomas Brooke Benjamin and James Lighthill, 1954; Howell Peregrine, 1966, the last three from memory); pattern round 259
 // Round:   259
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Tide=0..4, Whelps=-1..1.5, Bend=-1..1
+// @knobs Hue=0..1, Tide=0..4, Whelps=-0.5..1.5, Bend=-1..1
 //
-// Knob 1: placeholder
-// Knob 2: placeholder
-// Knob 3: placeholder
-// Knob 4: placeholder
+// Knob 1: Hue. Turns the tint of the water round the wheel, once for the knob's whole travel; the banks keep their sand and grass and the sun's glints stay cream. At 0 the water is steel teal, deep navy where it is quiet and pale aqua behind the bore; at 0.25 it is olive green, at 0.5 clay orange, at 0.75 violet. The tint also wanders by up to 0.05 of a turn over a minute or two.
+// Knob 2: Tide. The size of the bore that comes up the river next, and how fast the whole river runs. The front is 0.2 of the channel's depth high at 0 and 0.62 at 4 (0.41 at the opening, 2), each bore drawn 0.8 to 1.2 times that, and it takes 1.9 s to rise at 0, 0.56 s at 2 and 0.28 s at 4. At 0 that is a soft swell 9 LEDs long climbing 4 to 5 LEDs a second, with no foam; at 2 a front 5 LEDs long climbing 8 to 9 LEDs a second, with white on its first crest; at 4 a front 3 LEDs long at 11 to 13 LEDs a second that breaks into a long wall of foam with the whelps lit inside it. The sea's own chop swells with the tide too. The speed and the foam answer the knob at once; the height comes with the next bore.
+// Knob 3: Whelps. How dispersive the water is, which sets how far the whelps lie apart and how many fit on the panel. The dispersion length squared is 1.4 LED^2 at -0.5, 2.0 at 0 and 5.7 at 1.5. At -0.5 the crests are about 7 LEDs apart and 8 or 9 stand on the panel, tight and bright; at 0 they are 8 to 10 apart with 5 to 7; at 1.5 they are 13 to 17 apart, 3 or 4 long rollers, and the front is softer. Whatever the knob, a bore spreads its whelps further apart as it climbs.
+// Knob 4: Bend. How far the river swings in its S, signed. The centre line swings 11 LEDs to one side at 1 and to the other at -1, and the banks lean up to 30 degrees from the vertical at the bends, so the front meets them at a slant and the cross-waves they throw back lie more oblique. At 0 the river still has a gentle meander of 3 to 5 LEDs, and runs 31 to 39 LEDs wide between its banks; the front bows ahead in the deep middle. The turn takes 1.2 s to follow the knob and the whole channel drifts on its own, a meander wave moving down the panel at about half a LED a second.
+
+// What the picture is. A water surface eta(x, y, t) on a grid of 64 x 189 cells, one LED a cell: the panel's 128 rows, 18 rows of sponge above it, and below it a stretch of 28 rows where
+// the bore forms, a source line, and 14 rows of sponge. The solver is the weakly dispersive long-wave equation, in the form of a scalar wave equation with three extras:
+//   eta_tt = div( c^2 (1 + 6 eta) grad eta ) + nu lap(eta_t) - sigma eta_t,   then   (1 - d beta d_x)(1 - d beta d_y) a = that,   eta stepped from a
+// c^2 follows the depth p(x, y): 1 in the middle of the river, 0.66 where the bank starts to rise, next to nothing on the bank itself, falling to 0.6 from the source to the top of the panel
+// (a river shallows upstream), so the front is quickest in the thalweg and bows. The (1 + 6 eta) makes a high crest run faster than a low one, which steepens the front. The two tridiagonal
+// solves put in the dispersion, with beta = B0 2^K3 p^2 on the faces between cells so that the operator keeps the volume of the water: with beta outside the derivative the water gained and lost volume wherever the depth changed.
+// A front steepened by the first term and spread by the second turns into an undular bore: a train of whelps whose first crest stands above the step and whose spacing grows
+// with the distance travelled to the one third. Where the bank turns the front it is reflected, and the cross-waves it throws back lie across the whelps in a lattice.
+// The bank takes no water (depth 0.0002) and is zeroed every step; the shallows next to it take up to 11 times the viscosity, which is where the waves break, and no crest may stand
+// higher than 0.8 of the depth without being bled. Without those two the corners where the bank turns ran away when a knob moved.
+// The tide is a set of pulses of the water level at the source line, each a raised cosine, and a line source of strength 2 c d(level)/dt at one row sends the step up the river as a wave (the
+// other half goes down into the sponge). The level there is held to the level the tide asks for by a feedback of 1.5 a second. A bore is a rise of 0.2 to 0.62 (K2) over 0.28 to 1.9 s; 9 to 15 s
+// after it the water is drawn down again over 6 to 10 s by a pulse of the same size the other way, and the next bore starts 22 to 36 s after the last, or one time in five 11 to 15 s.
+// A small chop of three swells (3.7, 5.3 and 7.9 s, each 0.02 to 0.034 high at most, their strength wandering over 1 to 2 minutes) rides on that level so the water is never still between bores.
+// The first update runs the solver for about 30 s before the first frame: a bore goes up clean water to learn how fast this panel runs it, and a second is launched 21 s behind so that it stands
+// at row 74 when the picture opens, with the first one's whelps and ebb above it.
+// The picture is a top view of that surface lit from the upper left. The slopes of the surface (blurred over a pixel, drawn 34 times steeper) give the shade, a Gaussian lobe in slope space gives the
+// sun's glint on the faces that look at the sun, the height above the local mean lifts the crests, and the water's own level tints it paler and a little silty. Where the depth falls under 0.8 the sand begins to show
+// through. Foam is a map that crests feed where the slope is steep (a threshold that falls as K2 rises) or the crest is high for the depth, and that fades over 0.45 s. The current drags two tiles of
+// ripple slope over the water, up the river after the bore and down it in the ebb. The bank is sand and mud and grass from noise tied to the waterline; it darkens where a crest has run up it and dries in
+// 14 s. Clouds are five plane waves of shadow that take a third of the light off, drifting at 1 to 3 LEDs a second; the channel's meander wave, the hue wander and the clouds have no common period.
 
 const W = 64, H = 128;
 const PT = 18, YS = 28, PS = 14; // rows above the panel (a sponge), rows between the panel and the source line, sponge rows below the source
@@ -368,7 +390,7 @@ function frontRow(S) {
 }
 
 function control(S, kn) {
-  const u2 = cl(kn[1] / 4, 0, 1), k3 = cl(kn[2], -1, 1.5);
+  const u2 = cl(kn[1] / 4, 0, 1), k3 = cl(kn[2], -0.5, 1.5);
   S.spd = 0.75 + 0.8 * u2;
   S.chopAmp = 0.6 + 0.4 * u2;
   S.cm = 1 + 0.1 * sin(TAU * S.clk / 197 + S.ph[3]) + 0.06 * sin(TAU * S.clk / 113 + S.ph[4]);
@@ -452,8 +474,8 @@ const WATER = [
   [0.92, 172, 200, 188],
   [1.0, 226, 232, 210],
 ];
-const SAND_UNDER = [154, 130, 88], SILT = [118, 120, 74], SUNC = [255, 232, 178], FOAMC = [238, 242, 232];
-const MUD = [54, 42, 30], SAND = [168, 152, 120], SANDM = [150, 126, 86], GRASS = [60, 100, 44], GRASSD = [36, 72, 36], BUSH = [26, 54, 30];
+const SAND_UNDER = [154, 130, 88], SILT = [118, 120, 74], SUNC = [255, 238, 198], FOAMC = [238, 242, 232];
+const MUD = [68, 54, 40], SAND = [168, 152, 120], SANDM = [150, 126, 86], GRASS = [60, 100, 44], GRASSD = [36, 72, 36], BUSH = [26, 54, 30];
 
 function hueLut(S, hue) {
   if (S.hueAt === hue) return;
@@ -524,7 +546,7 @@ function blurEta(S) {
 // White water: a map that crests feed where the surface is steep or high for the depth, and that fades over half a second with no motion of its own.
 function foamStep(S, dt) {
   const e = S.eta, f = S.foam, pd = S.pd, dec = exp(-dt / 0.45);
-  const u2 = cl(S.kn[1] / 4, 0, 1), s0 = 1.55 - 0.7 * u2, s1 = s0 + 0.7;
+  const u2 = cl(S.kn[1] / 4, 0, 1), s0 = 2.5 - 1.2 * u2, s1 = s0 + 0.9;
   for (let y = 0; y < H; y++) {
     const b = OFF + (y + PT) * W;
     for (let i = b; i < b + W; i++) {
@@ -560,8 +582,8 @@ export function draw(display, params) {
     const cyi = floor(y / 4), cyf = (y - cyi * 4) / 4;
     const j = y + PT, b = OFF + j * W;
     // rows of the two ripple tiles at this y: the ripples drift with the current
-    let y1 = (y - o1) % H; if (y1 < 0) y1 += H;
-    let y2 = (y - o2) % H; if (y2 < 0) y2 += H;
+    let y1 = (y + o1) % H; if (y1 < 0) y1 += H;
+    let y2 = (y + o2) % H; if (y2 < 0) y2 += H;
     const r10 = floor(y1), f1 = y1 - r10, r11 = (r10 + 1) % H, r20 = floor(y2), f2 = y2 - r20, r21 = (r20 + 1) % H;
     for (let x = 0; x < W; x++) {
       const i = b + x, dw = dwA[i];
@@ -571,7 +593,7 @@ export function draw(display, params) {
       if (dw < 2.5) {
         const ob = -dw, c0 = cl(floor(ob), 0, 62), fb = cl(ob - c0, 0, 1);
         const n1 = bt[y * 64 + c0] * (1 - fb) + bt[y * 64 + c0 + 1] * fb, n2 = bt[((y + 57) % H) * 64 + ((c0 + 23) & 63)];
-        const wm = sm(0.4, 2.4, ob), ws = sm(2.5 + 6 * n1, 5 + 6 * n1, ob);
+        const wm = sm(0.2, 3.2, ob), ws = sm(2.5 + 6 * n1, 5 + 6 * n1, ob);
         let r = MUD[0] + (SAND[0] - MUD[0]) * wm, g = MUD[1] + (SAND[1] - MUD[1]) * wm, bl = MUD[2] + (SAND[2] - MUD[2]) * wm;
         const gm = n2 > 0.62 ? sm(0.62, 0.8, n2) : 0;
         const gr = GRASS[0] + (GRASSD[0] - GRASS[0]) * n1 + (BUSH[0] - GRASSD[0]) * gm, gg = GRASS[1] + (GRASSD[1] - GRASS[1]) * n1 + (BUSH[1] - GRASSD[1]) * gm, gb = GRASS[2] + (GRASSD[2] - GRASS[2]) * n1 + (BUSH[2] - GRASSD[2]) * gm;
