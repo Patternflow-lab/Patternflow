@@ -46,7 +46,7 @@ const GLOW = 2.4; // the halo's gain
 const NG = 18; // grooves of constant u round the horn
 const FW = 0.3, FH = 0.34, NX = 10, NZ = 18; // the film: patches 0.3 across and 0.34 high, ten across the horn and 18 up it, round to the foot again
 const FX0 = -1.5, FZ0 = -1.7; // the corner of the field, in the surface's own units
-const FTAU = 12, FSIG = 0.2; // how long a patch of film lasts, in seconds, and how hard it is pushed
+const FTAU = 12, FSIG = 0.2; // FTAU is how long a patch of film lasts, in seconds; FSIG is how hard it is pushed
 const DG = 0.34; // arc length between grooves of constant t
 
 function hsv(h, s, v, out) {
@@ -212,7 +212,7 @@ export function draw(display, params) {
         rho = 2 / (ep + em);
         Tn = (ep - em) / (ep + em);
       }
-      // The normal, in the camera's frame: right, up, and away.
+      // The normal, in the camera's frame (x right, y up, z away).
       const nx = (Tn * c + b * sn) * nk, ny = (Tn * sn - b * c) * nk, nz = rho * nk;
       let nr = Rx * nx + Ry * ny + Rz * nz, nu = Ux * nx + Uy * ny + Uz * nz, nd = ny * cE - nz * sE;
       let back = 0;
