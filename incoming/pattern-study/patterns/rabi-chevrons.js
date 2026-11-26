@@ -12,12 +12,12 @@
 // @knobs Hue=0..1, Rabi=0.8..3.5, Detune=-1..1, Dephase=0..1
 //
 // Knob 1: Hue. Turns the whole colouring round the colour wheel by 360 degrees for the knob's travel, so 0 and 1 are the same. At 0 the ground state is near-black indigo (6, 3, 24), the excited state a pale gold (255, 244, 196), and the azimuth of the coherence goes through orange, magenta, violet and teal. At 0.25 the excited state is pale green over a dark maroon ground, at 0.5 pale cyan over a dark olive one and at 0.75 a pink-violet over a dark teal one; the picture is recoloured at once, rows already on the panel included.
-// Knob 2: Rabi. How strong the drive is, 0.8 to 3.5, opening at 2: the Rabi frequency is 0.11 radian a row for each unit, and a row is a tenth of a second. At the opening 0.22 radian a row is one flop of the resonant columns every 28.6 rows (2.9 s), 71 rows at 0.8 and 16 rows at 3.5. Each experiment draws its own strength 0.8 to 1.3 times the knob's, and its pulses are as long as the strength needs for a pi/2 (7 rows at the opening) or a pi (14 rows). A strong drive packs more fringes into an experiment and widens the chevron, since the line is Omega wide; a weak one leaves a single flop and a chevron that is nearly a straight stripe.
+// Knob 2: Rabi. How strong the drive is, 0.8 to 3.5, opening at 2: the Rabi frequency is 0.11 radian a row for each unit, and a row is a tenth of a second. At the opening 0.22 radian a row is one flop of the resonant columns every 28.6 rows (2.9 s), 71 rows at 0.8 and 16 rows at 3.5. Each experiment draws its own strength 0.75 to 1.4 times the knob's, and its pulses are as long as the strength needs for a pi/2 (7 rows at the opening) or a pi (14 rows). A strong drive packs more fringes into an experiment and widens the chevron, since the line is Omega wide; a weak one leaves a single flop and a chevron that is nearly a straight stripe.
 // Knob 3: Detune. How far the outer columns are off resonance, -1 to 1, opening at 0: the edge columns are 0.36 e^(0.8 K) radian a row off, 0.16 at -1, 0.36 at the opening and 0.80 at 1. At the opening they are 1.6 Rabi frequencies off, flop 1.9 times as fast as the middle and rise 0.28 of the way up. At 1 they are 3.6 off, flop 3.7 times as fast and rise 0.07 of the way (before each experiment's own strength factor): a narrow chevron, many fringes, and a frequency sweep that crosses the panel at a steep angle. At -1 the whole panel is almost resonant and the fringes are close to horizontal stripes. The same number sets the sweeps' range and how long a free wait can be (a free wait is at most 8.6 over the edge detuning, 24 rows at the opening, so the rainbow fan keeps at least 23 columns for a turn of colour).
-// Knob 4: Dephase. How fast the coherence is lost, 0 to 1, opening at 0.06: the transverse part of the Bloch vector decays at 0.003 + 0.1 K squared a row (each experiment draws 0.64 to 1.6 times that), on top of the relaxation toward the ground state with a 70 row time constant. The coherence then lasts 98 rows at the opening, 52 at 0.3, 22 at 0.6 and 9 at 1, relaxation included. At the opening the fringes run to the end of an experiment and a spin echo comes back with 0.57 of its colour; at 0.3 with a third; at 0.6 it is a faint blush; at 1 every column settles to a soft glow within a third of a flop, and the panel is the power-broadened line of a strongly dephased atom, a warm band over the middle columns on a dusky rose ground.
+// Knob 4: Dephase. How fast the coherence is lost, 0 to 1, opening at 0.06: the transverse part of the Bloch vector decays at 0.003 + 0.06 K squared a row (each experiment draws 0.41 to 2 times that), on top of the relaxation toward the ground state with a 70 row time constant. The coherence then lasts 97 rows at the opening, 65 at 0.3, 32 at 0.6 and 14 at 1, relaxation included. At the opening the fringes run to the end of an experiment and a spin echo comes back with 0.57 of its colour; at 0.3 with 0.43; at 0.6 it is a faint blush of 0.18; at 1 each flop is gone within half a turn, every column settles to a soft glow, and the panel is the power-broadened line of a strongly dephased atom, a warm band over the middle columns on a dusky rose ground.
 
 // What the picture is. Each of the 64 columns is the same qubit with its own detuning from the drive, from -0.98 to +0.98 of the edge detuning across the panel, with the resonant column a little off the middle
-// in each experiment (up to 0.45 of the half width). Each pixel row is one moment. The newest row comes in at the top and the record falls down the panel at 10 rows a second, so 128 rows hold 12.8 s,
+// in each experiment (up to 0.5 of the half width). Each pixel row is one moment. The newest row comes in at the top and the record falls down the panel at 10 rows a second, so 128 rows hold 12.8 s,
 // and between two whole rows the colours are blended so the fall is smooth. The state in each column is a Bloch vector with a ground pole at the bottom of the sphere. Brightness and colour come from three numbers: the excited-state
 // population P = (1 + z) / 2, the length of the transverse part rho = sqrt(x^2 + y^2) and its azimuth. P runs from indigo-black through violet and rose to orange and gold, and the azimuth tints it
 // with a wheel of orange, magenta, violet and teal by rho, so a pure superposition on the equator is a vivid wheel colour, a state at the poles is plain black or gold whatever its phase, and a state that has dephased loses its wheel colour and keeps only the warm ramp.
@@ -130,8 +130,8 @@ function seg(ex, dur, o) {
 function planNext(S) {
   const de = S.de;
   // each experiment has its own drive strength, its own off-centre resonance and its own coherence
-  const omf = rr(0.8, 1.3), Om = S.Om * omf;
-  const ex = { segs: [], len: 0, kind: 0, nsub: 6, omf, off: rr(-0.45, 0.45) * (rnd() < 0.3 ? 0.25 : 1), gf: exp(rr(-0.45, 0.45)) };
+  const omf = rr(0.75, 1.4), Om = S.Om * omf;
+  const ex = { segs: [], len: 0, kind: 0, nsub: 6, omf, off: rr(-0.5, 0.5) * (rnd() < 0.3 ? 0.25 : 1), gf: exp(rr(-0.9, 0.7)) };
   const w = [0.2, 0.2, 0.22, 0.2, 0.18];
   let kind = 0;
   for (let tries = 0; tries < 3; tries++) {
@@ -294,7 +294,7 @@ function knobs(S, k) {
   S.Om = 0.11 * cl(k[1] == null ? 2 : k[1], 0.8, 3.5);
   S.de = 0.36 * exp(0.8 * cl(k[2] || 0, -1, 1));
   const d = cl(k[3] == null ? 0.06 : k[3], 0, 1);
-  S.gp = 0.003 + 0.1 * d * d;
+  S.gp = 0.003 + 0.06 * d * d;
 }
 
 export function update(dt, input, params) {
