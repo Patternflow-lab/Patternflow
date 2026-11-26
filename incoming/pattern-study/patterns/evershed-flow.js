@@ -22,7 +22,8 @@
 // The penumbra. A pixel at radius r and angle theta about the centre has a position in the filament frame, phi = theta - twist(r) + a small slow warp. The filaments are
 // value noise round the circle, with seven lattices of 14, 20, 28, 40, 56, 80 and 112 cells to the turn: the pixel blends the two lattices whose cell count makes a cell about 1.9 LEDs
 // wide at its radius, so near the umbra the filaments are few and wide apart, and as r grows they fork into more of them without a seam. Each lattice is crossfaded in time
-// between random rows every 10 to 26 s of flow, so the filaments keep growing and dying and never return. Across the penumbra the base brightness rises from 0.30 to 0.62, the
+// between random rows every 10 to 26 s of flow, so the filaments keep growing and dying and never return. Each row is high-passed (a cell loses 0.4 of each neighbour), which keeps a wedge of one tone
+// from growing wider than about 8 LEDs and leaves the dark and bright filaments 2.5 LEDs wide on average. Across the penumbra the base brightness rises from 0.30 to 0.62, the
 // filament contrast rises with it, and a bright filament pokes out past the rim and into the umbra by a couple of LEDs.
 // The flow. Along each filament a second noise, long in the radial direction, is advected along r with the speed of the flow: outward in the outer half, inward
 // in the inner half, the two cross-faded over the middle so the place where they meet has no seam. Over that, grains: 2.5 LEDs wide and 6 LEDs long, bright, born near the middle of
@@ -31,7 +32,8 @@
 // The photosphere. A power diagram: 240 seed points, each with a weight, the cell of each is where its distance squared minus its weight is least. A pixel's brightness
 // goes from the lane level to the cell level over the distance to the nearest cell edge, so the lanes are the same width everywhere (about 2.4 LEDs). A seed is born with a very
 // negative weight, grows into a cell, lives 8 to 26 s of flow and shrinks until its neighbours eat it; some of the old ones grow a darker middle that splits them. The seeds
-// jiggle and, near a spot, flow away from it, the moat; where one is born is the best of seven tries at the point furthest from all the others, so the cells stay even.
+// jiggle and, near a spot, flow away from it, the moat; where one is born is the best of seven tries at the point furthest from all the others, so the cells stay even. A pixel is looked up
+// at a point moved by a slow warp of up to 1.5 LEDs so the lanes meander, the corners of a cell are dimmed so it is rounder than a polygon, and a pixel whose second seed is far searches all of them.
 // Round the spots a few faculae, soft bright streaks that lie along the rim at a radius of 1.2 to 2, light the lanes.
 
 const W = 64, H = 128, NPX = W * H;
