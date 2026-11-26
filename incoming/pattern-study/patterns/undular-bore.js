@@ -9,7 +9,7 @@
 // Round:   259
 // ===============================
 // @matrix 64x128
-// @knobs Hue=0..1, Tide=0..4, Whelps=-2..2, Bend=-1..1
+// @knobs Hue=0..1, Tide=0..4, Whelps=-1..1.5, Bend=-1..1
 //
 // Knob 1: placeholder
 // Knob 2: placeholder
@@ -31,7 +31,7 @@ const sm = (a, b, v) => {
 
 // ---- the medium
 const C0 = 7; // LEDs a second over water of depth 1
-const B0 = 1.0; // dispersion length squared (h^2 / 3 in the textbooks), LED^2, for depth 1 at K3 = 0
+const B0 = 2.0; // dispersion length squared (h^2 / 3 in the textbooks), LED^2, for depth 1 at K3 = 0
 const GN = 3; // amplitude dependence of the speed: c^2 goes as 1 + 6 eta
 const HMIN = 0.0002; // depth of the bank: next to none, so the water does not run up it
 const SIG0 = 0.04; // the water's own damping, 1/s
@@ -50,7 +50,7 @@ function makeState() {
     sw: new Float32Array(W),
     foam: new Float32Array(NA), wet: new Float32Array(NA), etaS: new Float32Array(NA), etaB: new Float32Array(NA), tmp2: new Float32Array(NA),
     pulses: [], plan: 0, base: 0, lastAmp: 0.2, lvl: 0, lvlSm: 0, ebbAt: -1, ebbT: 10, nextAt: 0, bend: 0.06, bendT: 0.06,
-    ph: [], o1: 0, o2: 0, g2: C0 * C0, spd: 1, cm: 1, beta0: B0, nu: NU0, sigDt: 0,
+    ph: [], o1: 0, o2: 0, g2: C0 * C0, spd: 1, cm: 1, beta0: B0, nu: NU0, chopAmp: 1, sigDt: 0,
     lut: new Float32Array(256 * 3), hueAt: -1, hueMat: new Float32Array(9),
     tg1x: new Float32Array(W * H), tg1y: new Float32Array(W * H), tg2x: new Float32Array(W * H), tg2y: new Float32Array(W * H),
     bt: new Float32Array(64 * H), nt: new Float32Array(W * H),
@@ -238,6 +238,20 @@ function srcValue(S, t) {
   return v;
 }
 
+// The sea's own chop: three slow swells of 3.7 to 7.9 s, each with a strength that wanders over a minute or two, added to the level at the source line
+const CHOP_T = [5.3, 7.9, 3.7], CHOP_A = [0.034, 0.028, 0.02], CHOP_M = [83, 107, 61];
+function chopLevel(S, t) {
+  let v = 0;
+  for (let k = 0; k < 3; k++) v += S.chopAmp * CHOP_A[k] * (0.55 + 0.45 * sin(TAU * t / CHOP_M[k] + S.ph[k + 3])) * sin(TAU * t / CHOP_T[k] + S.ph[k]);
+  return v;
+}
+
+function chopRate(S, t) {
+  let v = 0;
+  for (let k = 0; k < 3; k++) v += S.chopAmp * CHOP_A[k] * (0.55 + 0.45 * sin(TAU * t / CHOP_M[k] + S.ph[k + 3])) * (TAU / CHOP_T[k]) * cos(TAU * t / CHOP_T[k] + S.ph[k]);
+  return v;
+}
+
 function levelNow(S, t) {
   let L = 0;
   const ps = S.pulses;
@@ -245,12 +259,12 @@ function levelNow(S, t) {
     const p = ps[k], u = cl((t - p[0]) / p[1], 0, 1);
     L += p[2] * 0.5 * (1 - cos(PI * u));
   }
-  return L + S.base;
+  return L + S.base + chopLevel(S, t);
 }
 
 function launch(S, kn, t) {
   const u2 = cl(kn[1] / 4, 0, 1);
-  const amp = (0.12 + 0.5 * u2) * (0.8 + 0.4 * Math.random());
+  const amp = (0.2 + 0.42 * u2) * (0.8 + 0.4 * Math.random());
   const T = (0.28 + 1.6 * pow(1 - u2, 2.5)) * (0.85 + 0.3 * Math.random());
   addPulse(S, t, T, amp);
   S.ebbAt = t + 9 + 6 * Math.random();
@@ -282,7 +296,7 @@ function step(S) {
   const b = OFF + JS * W;
   let ms = 0, sw2 = 0;
   for (let x = 0; x < W; x++) { const w = S.sw[x]; ms += w * w * e[b + x]; sw2 += w * w; }
-  const sv = srcValue(S, S.clk) + KAPPA * (levelNow(S, S.clk) - ms / sw2);
+  const sv = srcValue(S, S.clk) + chopRate(S, S.clk) + KAPPA * (levelNow(S, S.clk) - ms / sw2);
   if (sv !== 0) {
     const k = 2 * sqrt(g2) * sv;
     for (let x = 0; x < W; x++) a[b + x] += k * S.sw[x];
@@ -340,8 +354,9 @@ function frontRow(S) {
 }
 
 function control(S, kn) {
-  const u2 = cl(kn[1] / 4, 0, 1), k3 = cl(kn[2], -2, 2);
-  S.spd = 0.8 + 0.55 * u2;
+  const u2 = cl(kn[1] / 4, 0, 1), k3 = cl(kn[2], -1, 1.5);
+  S.spd = 0.75 + 0.8 * u2;
+  S.chopAmp = 0.6 + 0.4 * u2;
   S.cm = 1 + 0.1 * sin(TAU * S.clk / 197 + S.ph[3]) + 0.06 * sin(TAU * S.clk / 113 + S.ph[4]);
   const c = C0 * S.spd * S.cm;
   S.g2 = c * c;
@@ -392,13 +407,14 @@ export function update(dt, input, params) {
   control(S, kn);
   S.bend += (S.bendT - S.bend) * (1 - exp(-d / 1.2));
   S.geoT += d;
-  if (S.geoT > 0.12) buildGeometry(S);
+  if (S.geoT > 0.2) buildGeometry(S);
   S.acc += d;
   while (S.acc >= DT) {
     S.acc -= DT;
     schedule(S, kn);
     step(S);
   }
+  if (!(abs(S.eta[OFF + (PT + 64) * W + 32]) < 5)) { S.eta.fill(0); S.etp.fill(0); S.foam.fill(0); } // a blown-up field starts again from still water
   const lv = cl(levelNow(S, S.clk) / 0.3, 0, 1);
   S.lvlSm += (lv - S.lvlSm) * (1 - exp(-d / 3));
   const u = 1.6 * S.lvlSm - 1.1 * (1 - S.lvlSm);
@@ -410,9 +426,9 @@ export function update(dt, input, params) {
 // ---- the picture
 
 const SUN = [-0.42, -0.908]; // the way the sun lies from a point of water, on the panel: up and a little left
-const TEX1 = 0.13, TEX2 = 0.09; // slope of the ripples the current drags over the water
+const TEX1 = 0.15, TEX2 = 0.1; // slope of the ripples the current drags over the water
 const CLOUD = 0.34; // how much a cloud's shadow takes off the light
-const SG = 30; // slope gain: the surface slopes are drawn 30 times steeper than the solver has them
+const SG = 34; // slope gain: the surface slopes are drawn 34 times steeper than the solver has them
 const WATER = [
   [0.0, 11, 28, 38],
   [0.22, 16, 44, 60],
@@ -423,7 +439,7 @@ const WATER = [
   [1.0, 226, 232, 210],
 ];
 const SAND_UNDER = [154, 130, 88], SILT = [118, 120, 74], SUNC = [255, 232, 178], FOAMC = [238, 242, 232];
-const MUD = [54, 42, 30], SAND = [176, 156, 118], SANDM = [150, 126, 86], GRASS = [60, 100, 44], GRASSD = [36, 72, 36], BUSH = [26, 54, 30];
+const MUD = [54, 42, 30], SAND = [168, 152, 120], SANDM = [150, 126, 86], GRASS = [60, 100, 44], GRASSD = [36, 72, 36], BUSH = [26, 54, 30];
 
 function hueLut(S, hue) {
   if (S.hueAt === hue) return;
@@ -491,16 +507,19 @@ function blurEta(S) {
   }
 }
 
+// White water: a map that crests feed where the surface is steep or high for the depth, and that fades over half a second with no motion of its own.
 function foamStep(S, dt) {
-  const e = S.eta, f = S.foam, pd = S.pd, dec = exp(-dt / 0.55);
+  const e = S.eta, f = S.foam, pd = S.pd, dec = exp(-dt / 0.45);
+  const u2 = cl(S.kn[1] / 4, 0, 1), s0 = 1.55 - 0.7 * u2, s1 = s0 + 0.7;
   for (let y = 0; y < H; y++) {
     const b = OFF + (y + PT) * W;
     for (let i = b; i < b + W; i++) {
       const p = pd[i];
       if (p < 0.08) { f[i] = 0; continue; }
       const gx = 0.5 * (e[i + 1] - e[i - 1]), gy = 0.5 * (e[i + W] - e[i - W]);
-      const sl = SG * sqrt(gx * gx + gy * gy), r = e[i] / (0.15 + p);
-      const v = max(sm(0.6, 1.0, sl), 0.9 * sm(0.5, 0.9, r));
+      const sl = SG * sqrt(gx * gx + gy * gy), r = e[i] / (0.12 + p);
+      const crest = e[i] - 0.25 * (e[i - 1] + e[i + 1] + e[i - W] + e[i + W]) > 0 ? 1 : 0.35;
+      const v = max(crest * sm(s0, s1, sl), 0.8 * sm(0.55, 1.0, r));
       const o = f[i] * dec;
       f[i] = v > o ? v : o;
     }
@@ -515,7 +534,7 @@ export function draw(display, params) {
   smoothLevel(S);
   blurEta(S);
   const e = S.etaB, e0 = S.eta, es = S.etaS, pd = S.pd, dwA = S.dwA, foam = S.foam, lut = S.lut, bt = S.bt;
-  const o1 = S.o1, o2 = S.o2, cloud = S.cloud, tk = S.clk;
+  const o1 = S.o1, o2 = S.o2, cloud = S.cloud, tk = S.clk, wdec = exp(-S.frameDt / 14);
   for (let gy = 0; gy < 33; gy++) {
     for (let gx = 0; gx < 17; gx++) {
       let v = 0;
@@ -543,7 +562,14 @@ export function draw(display, params) {
         const gm = n2 > 0.62 ? sm(0.62, 0.8, n2) : 0;
         const gr = GRASS[0] + (GRASSD[0] - GRASS[0]) * n1 + (BUSH[0] - GRASSD[0]) * gm, gg = GRASS[1] + (GRASSD[1] - GRASS[1]) * n1 + (BUSH[1] - GRASSD[1]) * gm, gb = GRASS[2] + (GRASSD[2] - GRASS[2]) * n1 + (BUSH[2] - GRASSD[2]) * gm;
         r += (gr - r) * ws; g += (gg - g) * ws; bl += (gb - bl) * ws;
-        const k = 0.8 + 0.4 * n1;
+        // the wet bank: the sand darkens where a crest has run up it lately, and dries over about 14 s
+        const nw = ob < 7 ? min(W - 1, max(0, x + S.sdA[i] * (floor(ob) + 2))) : x;
+        let wt = 0;
+        if (ob < 7) wt = sm(0.12, 0.42, e0[b + nw]) * (1 - sm(3, 7, ob));
+        const wv = S.wet[i] * wdec;
+        const wnow = wv > wt ? wv : wt;
+        S.wet[i] = wnow;
+        const k = (0.8 + 0.4 * n1) * (1 - 0.34 * wnow);
         R = r * k; G = g * k; B = bl * k;
         wl = dw > -1 ? sm(1.0, -1.0, dw) : 1;
       } else wl = 0;
@@ -555,19 +581,19 @@ export function draw(display, params) {
         const sx = SG * gx + TEX1 * t1x + TEX2 * t2x, sy = SG * gy + TEX1 * t1 + TEX2 * t2;
         const q = -(sx * SUN[0] + sy * SUN[1]), cr = -(sx * SUN[1]) + sy * SUN[0];
         const lv = cl(es[i] / 0.28, 0, 1.2);
-        let sh = 0.44 + 0.62 * q + 6 * (e[i] - es[i]) + 0.10 * lv;
+        let sh = 0.46 + 0.62 * q + 6 * (e[i] - es[i]) + 0.17 * lv;
         sh = cl(sh, 0, 1);
         const n = (sh * 255) | 0;
         let r = lut[n * 3], g = lut[n * 3 + 1], bl = lut[n * 3 + 2];
         const ws = (1 - sm(0.1, 0.8, pd[i])) * 0.85;
         if (ws > 0) { const k = 0.3 + 0.7 * sh; r += (SAND_UNDER[0] * k - r) * ws; g += (SAND_UNDER[1] * k - g) * ws; bl += (SAND_UNDER[2] * k - bl) * ws; }
-        const wsl = 0.32 * lv;
+        const wsl = 0.42 * lv;
         if (wsl > 0) { const k = 0.3 + 0.8 * sh; r += (SILT[0] * k - r) * wsl; g += (SILT[1] * k - g) * wsl; bl += (SILT[2] * k - bl) * wsl; }
         const d0 = q - 0.42, sp = exp(-(d0 * d0) / 0.018 - (cr * cr) / 0.12) * 0.62;
         r += SUNC[0] * sp; g += SUNC[1] * sp; bl += SUNC[2] * sp;
         let fm = 0.5 * foam[i] + 0.125 * (foam[i - 1] + foam[i + 1] + foam[i - W] + foam[i + W]);
         fm *= 0.7 + 0.5 * S.nt[y * W + x];
-        if (fm > 0.02) { const fk = cl(fm, 0, 1) * 0.92, k = 0.8 + 0.2 * sh; r += (FOAMC[0] * k - r) * fk; g += (FOAMC[1] * k - g) * fk; bl += (FOAMC[2] * k - bl) * fk; }
+        if (fm > 0.02) { const fk = cl(fm, 0, 1) * 0.85, k = 0.8 + 0.2 * sh; r += (FOAMC[0] * k - r) * fk; g += (FOAMC[1] * k - g) * fk; bl += (FOAMC[2] * k - bl) * fk; }
         if (wl > 0) { R = R + (r - R) * (1 - wl); G = G + (g - G) * (1 - wl); B = B + (bl - B) * (1 - wl); } else { R = r; G = g; B = bl; }
       }
       const cxi = x >> 2, cxf = (x & 3) / 4, c0 = cyi * 17 + cxi;
