@@ -73,6 +73,14 @@ function blendRow(out, salt, n, tt) {
   for (let i = 0; i < n; i++) out[i] = (hsh(salt, i, it) * w0 + hsh(salt, i, it + 1) * st) * nr;
   out[n] = out[0];
 }
+// Take the long runs out of a row: each cell loses 0.4 of each neighbour (the row is a circle), so a bright cell is followed by a dull one and a wedge of ten LEDs of one tone does not happen.
+const HPK = 0.4, HPN = 1 / sqrt(1 + 2 * HPK * HPK);
+const hpTmp = new Float32Array(128);
+function highPass(row, n) {
+  for (let i = 0; i < n; i++) hpTmp[i] = row[i];
+  for (let i = 0; i < n; i++) row[i] = (hpTmp[i] - HPK * (hpTmp[i === 0 ? n - 1 : i - 1] + hpTmp[i + 1 === n ? 0 : i + 1])) * HPN;
+  row[n] = row[0];
+}
 // Smooth value from a row at u in [0, 1).
 function rowAt(row, n, u) {
   const a = u * n, ia = a | 0, fa = a - ia;
@@ -236,7 +244,10 @@ function geometry(S) {
     }
     if (k === 2) continue;
     // the filament lattices for this frame, and the coarse sectors
-    for (let i = 0; i < NL.length; i++) blendRow(s.fl[i], s.salt + i * 17, NL[i], tf / TL[i] + i * 3.7);
+    for (let i = 0; i < NL.length; i++) {
+      blendRow(s.fl[i], s.salt + i * 17, NL[i], tf / TL[i] + i * 3.7);
+      highPass(s.fl[i], NL[i]);
+    }
     blendRow(s.rA, s.salt + 91, 9, tf / 61);
     blendRow(s.rB, s.salt + 92, 5, tf / 83);
     for (let b = 0; b <= EDGEN; b++) {
@@ -656,7 +667,7 @@ export function draw(display, params) {
   layParticles(S);
   const A = S.A, B = S.B, sp = S.spots, lut = S.lut;
   const tf = S.tf, t = S.t;
-  const sb = S.sb, sln = S.sln, sfr = S.sfr, cand = S.cand, candN = S.candN, ccx = S.cx, ccy = S.cy, ccw = S.cw;
+  const sb = S.sb, sln = S.sln, sfr = S.sfr, cand = S.cand, candN = S.candN, ccx = S.cx, ccy = S.cy, ccw = S.cw, sx = S.sx, sy = S.sy, sw = S.sw;
   const flow = pow(S.mult, 0.5);
   // the warp that makes the lanes meander: four sine terms, each split into a row part and a column part
   const wr = S.wr, wc = S.wc;
@@ -703,10 +714,21 @@ export function draw(display, params) {
           if (pp < p1) { p2 = p1; o2 = o1; p1 = pp; o1 = q; }
           else if (pp < p2) { p2 = pp; o2 = q; }
         }
-        const i1 = cand[o1], i2 = cand[o2];
-        const ddx = ccx[o1] - ccx[o2], ddy = ccy[o1] - ccy[o2], sep = sqrt(ddx * ddx + ddy * ddy) + 0.3;
+        let i1 = cand[o1], i2 = cand[o2];
+        // The two seeds are surely the nearest only if nothing outside the nine bins can beat the second: a seed there is at least the margin away, and a weight is at most 16.
+        const mg = min(min(qx - BX0 - (bx - 1) * BIN, BX0 + (bx + 2) * BIN - qx), min(qy - BY0 - (by - 1) * BIN, BY0 + (by + 2) * BIN - qy));
+        if (p2 > mg * mg - 16.5) {
+          p1 = 1e9;
+          p2 = 1e9;
+          for (let q = 0; q < NSEED; q++) {
+            const dx = qx - sx[q], dy = qy - sy[q], pp = dx * dx + dy * dy - sw[q];
+            if (pp < p1) { p2 = p1; i2 = i1; p1 = pp; i1 = q; }
+            else if (pp < p2) { p2 = pp; i2 = q; }
+          }
+        }
+        const ddx = sx[i1] - sx[i2], ddy = sy[i1] - sy[i2], sep = sqrt(ddx * ddx + ddy * ddy) + 0.3;
         const lane = sst(0.35, 2.1, (p2 - p1) / (2 * sep));
-        const d1sq = p1 + ccw[o1], d1 = sqrt(d1sq > 0 ? d1sq : 0);
+        const d1sq = p1 + sw[i1], d1 = sqrt(d1sq > 0 ? d1sq : 0);
         let cell = sb[i1] * (1 - 0.1 * min(1, d1sq / 40) - 0.3 * sst(2.3, 5.2, d1));
         if (sfr[i1] > 0) {
           const u = S.sage[i1] / S.slife[i1];
