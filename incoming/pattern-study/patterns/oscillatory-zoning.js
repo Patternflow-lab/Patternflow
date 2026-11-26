@@ -35,7 +35,8 @@
 //              time at one level, lays down thin laminae and a burst lays down thick bands, the way diffusion-limited zoning does. The first rhythm is a sawtooth, sharp on the front, slow to
 //              fade. Each has its own amplitude that wanders between 0.55 and 1.75 (a zone is rich or quiet), a phase that wanders by a radian or so, and none repeats: the four periods
 //              have no common measure and the random walks do not return. The sector terms add -0.4, 0.1 and 0.42 (prism, near pyramid, steep pyramid) times K4, and give the first two rhythms
-//              a lag per sector type. The thin events are a bright line, a dim band, and about one in eight a rust band, one every 1.5 levels or so, scattered in l.
+//              a lag per sector type. Each kind of sector also carries a difference between its two faces (left and right, or above and below) that wanders along the level by 0.6 times a
+//              half-unit walk, so the two arms of an hourglass are never equally bright. The thin events are a bright line, a dim band, and about one in eight a rust band, one every 1.5 levels or so, scattered in l.
 //   Resorption after 2.4 to 4.8 levels of growth the rim is eaten back for 3.6 to 6.2 s: its level falls by 0.07 to 0.17 (7 to 17 percent of the size, the picture zooms in), and the corner
 //              between two faces is rounded by a smooth maximum of the top two faces' values, k = 0.5 to 0.95 of the value. Then growth resumes: the shells begin on the rounded outline
 //              and the rounding relaxes with an e-fold of 0.09 to 0.17 in level, so the next shells grow back toward the sharp polygon. The truncation surface is real: a pixel is first tested
