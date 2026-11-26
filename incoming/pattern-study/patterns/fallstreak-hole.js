@@ -22,13 +22,13 @@
 // comes back to a picture it has shown, and a weight swells and shrinks the bump; the pixel is moved by a warp field first, 5.6 LEDs at a 19 LED scale and 2.6 at an 8 LED scale, so the rims are not straight.
 // The sum of the bumps is the thickness of the cloud and its slope, read against a light from below and a little to the left, shades each cloudlet like a dome with a bright lower side. Where the cloud
 // is thin the sky shows through, so the lanes go cool and dark without a colour of their own. The tone of a cloudlet is mixed from the lattice points round it, so it has no hard step. The whole deck drifts
-// at 0.2 LED a second along the wind, which swings a little over minutes.
+// at 0.28 LED a second along the wind, which swings a little over minutes.
 // A hole is a list entry, not a field: where it is centred (a point, or a straight track, the canal), when it began, which way the wind blows through it, how far it will spread, and when it
 // heals. Everything is worked out per pixel from that, and nothing is stepped. The distance from the seed is taken in a metric that is stretched along the wind by the shear, so a front that is a circle
 // becomes an ellipse, and the distance to a track is the distance to the segment in the same metric, which makes a canal a stadium with round ends. The front is at r(age) = R (1 - exp(-v age / R)),
 // quick at first and slowing as the ice has used up the droplets within reach, and R is the clear radius plus the 10 LEDs of delay and rim that the cloud keeps. A pixel is glaciated when the front has got to its
 // distance, plus a delay: 60 percent of the distance is that of the middle of its own cloudlet (weighted over the lattice points round it), 40 percent its own, with a delay of 0 to 8 LEDs that each
-// cloudlet draws, a slow wobble of 5 LEDs at 14 LED across and a finer one of 2.5 LEDs at 6 LED across, so a cloudlet goes as a whole and the rim of the hole is a scalloped edge and not a circle,
+// cloudlet draws, a slow wobble of 5 LEDs at 14 LED across that itself shifts over a minute or so and a finer one of 2.5 LEDs at 6 LED across, so a cloudlet goes as a whole and the rim of the hole is a scalloped edge and not a circle,
 // with islands left in the hole for a while. The edge is 7 LEDs wide. The cloud that is left is its thickness less the glaciation, so thin cloud goes first and a thick cloudlet shrinks to a bright core.
 // A hole heals after 60 to 105 s of its own clock: from its rim inward at 0.75 to 1.1 LEDs a second, and from its middle outward at 0.45 of that after 4 to 10 s, so the cloud comes back as thin
 // cores that grow out to the cloudlet's lane. The clear sky is a fixed gradient on the panel, from deep blue at the top to violet in the middle and a paler band on the lower left. The edge of the cloud
@@ -312,8 +312,8 @@ export function update(dt, input, params) {
   }
   S.t += d;
   S.wind = -0.32 + 0.22 * sin(S.t * 0.021 + 1) + 0.12 * sin(S.t * 0.0077 + 2);
-  S.ox += d * 0.2 * cos(S.wind);
-  S.oy += d * 0.2 * sin(S.wind);
+  S.ox += d * 0.28 * cos(S.wind);
+  S.oy += d * 0.28 * sin(S.wind);
   stepHoles(S, d);
 }
 
@@ -445,7 +445,7 @@ export function draw(display, params) {
         const dp = hdist(h, X, Y, hE[i]);
         if (dp > r + 9) continue;
         const dc = hdist(h, cx, cy, hE[i]);
-        const wob = vnoise((X - h.cx) * 0.07 + h.n0, (Y - h.cy) * 0.07 + h.n1, 21) - 0.5;
+        const wob = vnoise((X - h.cx) * 0.07 + h.n0 + t * 0.016, (Y - h.cy) * 0.07 + h.n1 - t * 0.011, 21) - 0.5;
         const wob2 = vnoise((X - h.cx) * 0.16 + h.n1, (Y - h.cy) * 0.16 + h.n0, 22) - 0.5;
         const dd = 0.6 * dc + 0.4 * dp + 8 * pdel + 5.2 * wob * (0.5 + r * 0.05) + 5 * wob2;
         const g = hglac(h, S, r, dd);
