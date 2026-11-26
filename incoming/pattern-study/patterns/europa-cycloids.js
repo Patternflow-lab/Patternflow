@@ -5,7 +5,7 @@
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the cycloidal ridges and lineae of Europa, which Hoppa, Greenberg and co-workers (1999, from memory) read as cracks that grow only while the daily tide in the ice shell is above the ice's tensile strength and run perpendicular to the strongest pull, which turns as the moon goes round its 3.55 day orbit, so that the crack curves, stops, and starts again at a cusp; Hurford and co-workers (2007, from memory) added the shell's slow spin to the model and Lee, Pappalardo and Makris (2005, from memory) the mechanics of such tide-driven fractures. Original code, pattern round 263: each tip is integrated from a tension that rises and falls once a cycle, and the double ridge is drawn from the distance to the crack's path.
+// Lineage: the cycloidal ridges and lineae of Europa, which Hoppa, Greenberg and co-workers (1999, from memory) read as cracks that grow only while the daily tide in the ice shell is above the ice's tensile strength and run perpendicular to the strongest pull, which turns as the moon goes round its 3.55 day orbit, so that the crack curves, then stops and starts again at a cusp; Hurford and co-workers (2007, from memory) added the shell's slow spin to the model and Lee, Pappalardo and Makris (2005, from memory) the mechanics of such tide-driven fractures. Original code, pattern round 263: each tip is integrated from a tension that rises and falls once a cycle, and the double ridge is drawn from the distance to the crack's path.
 // Round:   263
 // ===============================
 // @matrix 64x128
