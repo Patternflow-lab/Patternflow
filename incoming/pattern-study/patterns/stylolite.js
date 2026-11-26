@@ -12,23 +12,26 @@
 // @knobs Hue=0..1, Load=0.5..4, Grit=-1..1, Tilt=-1..1
 //
 // Knob 1: Hue. Turns the rock tone round a loop of four stones: ochre and cream limestone at 0, slate blue-grey at 0.25, rose marble at 0.5, olive at 0.75, and back at 1. The rust halo and the clay change with the stone, from rust orange on ochre to a muted brown on slate, brick on rose and amber on olive.
-// Knob 2: Load. 0.5 to 4, opening at 2. How hard the slab is squeezed. It sets the speed of the conveyor, 1.5 LED a second for each unit, 3 at the opening and 0.75 at 0.5, and how fast teeth grow, as the load to the power 1.7. At 0.5 the seams cross the panel as nearly straight lines with low teeth; at 4 a seam grows deep pillars and a heavy cap before it is a third of the way down.
-// Knob 3: Grit. -1 to 1, opening at 0. The size of the grains in the rock, a factor of 2 to the power 1.1 times the knob: 0.47 at -1, where the teeth are 2 to 3 LED wide, many and thin with a light cap, and 2.1 at 1, where a few pillars 10 LED wide and 20 or more tall stand in a heavy clay seam. The mottle and the shell flecks coarsen with it.
-// Knob 4: Tilt. -1 to 1, opening at 0.06. The direction of the greatest stress, 30 degrees for each unit either way. The seams lean and the teeth lean with them, since a stylolite's teeth run along the stress and its seam lies across it; each seam keeps a few degrees of its own, so neighbours close up on one side and part on the other.
+// Knob 2: Load. 0.5 to 4, opening at 2. How hard the slab is squeezed. It sets the speed of the conveyor, 1.5 LED a second for each unit, so 3 at the opening, 0.75 at 0.5 and 6 at 4, and how fast the interface grows, as the load over 2 to the power 1.4. At 0.5 a seam takes 216 s to cross and arrives with low teeth under a thin cap; at 4 it crosses in 27 s and has grown deep pillars and a heavy cap by the middle of the panel.
+// Knob 3: Grit. -1 to 1, opening at 0. The size of the grains in the rock: one grain is 1.15 LED across at the opening and 2 to the power 0.9 times the knob bigger, 0.62 LED at -1 and 2.15 LED at 1. At -1 the teeth are 3 to 6 LED wide, many, under a cap 10 percent thinner; at 1 a few pillars 12 to 20 LED wide stand in a cap 15 percent thicker. The mottle and the shell flecks coarsen with it, and so does the gap between seams.
+// Knob 4: Tilt. -1 to 1, opening at 0.06. The direction of the greatest stress, 30 degrees for each unit either way. The seams lean and the teeth lean with them, since a stylolite's teeth run along the stress and its seam lies across it. Each seam keeps up to 5 degrees of its own, so neighbours close up on one side and part on the other.
 
-// What the picture is. Every seam is a one-dimensional interface u(x) of 192 cells, one grain wide, closed into a ring, advanced by
-//   du/dt = V f(x, u) + K u'' - E1 (u - mean over 17 cells) - E2 (u - mean over 65 cells)
-// with f the strength field, a quenched random map of grains that is read at (x, u): a strong grain slows the interface to 5 percent of V,
-// a weak one speeds it to 1.55 V, and the grains are long in u, three cells wide and five tall, so a held place stays held until the
-// neighbours have run past it. That is the pillar. K is the surface energy that smooths short scales and E1, E2 stand for the elastic
-// term that smooths long ones. The field is built once and each seam reads it at its own offset. All lengths are in grains, and Grit
-// is the size of a grain in LED, so the same interface shows as fine teeth or as coarse pillars.
-// The slab slides down at a speed of 1.5 Load. Seams are born above the top edge as straight lines at random gaps and each runs its own
-// model at a rate of (Load/2)^1.7, so the panel shows all ages at once. The pre-run conveys the slab from empty to a full panel.
-// Drawing. A seam is a chain of round soft stamps along the interface, so a steep flank stays one continuous line; the radius is 1 to 2
-// LED, larger where the interface has dissolved more, and the stamps go into a clay layer. A second layer, the same stamps scaled by the
-// age of the seam, is blurred three times to make the halo. The rock under them is value noise sampled in the rock's own frame, so it
-// travels with the slab, with faint beds across and flecks that sit still in it. Light comes from the left, as a gentle ramp.
+// What the picture is. Every seam is a one-dimensional interface u(x) of 192 cells closed into a ring, advanced by
+//   du/dt = V (1 + c (f(x, u) - 1)) + K u'' - E1 (u - mean over 17 cells) - E2 (u - mean over 65 cells)
+// with f the strength field, a quenched random map of grains that the interface reads at (x, u). A strong grain slows it to 5 percent of V and
+// a weak one speeds it to 1.55 V. The field is two octaves of value noise, grains 4 cells wide and 9 tall with a second octave 1.7 wide and 4 tall,
+// so a held place stays held until its neighbours have run well past it. That is the pillar. K is the surface energy that smooths short scales
+// and E1, E2 stand for the elastic term that smooths long ones. c is 0.12 for a new seam and 1 after 26 model seconds, so a young seam is
+// nearly straight. The field is built once and each seam reads it at its own offset. Lengths are in grains and Grit is the size of a grain in
+// LED, so the same interface shows as fine teeth or as coarse pillars; heights grow a little slower than widths when the grain is big.
+// The slab slides down at 1.5 LED a second for each unit of Load. Seams are born above the top edge as straight lines, 14 to 36 LED apart with
+// now and then a close pair, and each runs its own model, so the panel shows every age at once. The pre-run conveys 226 LED of slab, from
+// empty to a full panel with the first seam gone.
+// Drawing. A seam is a chain of round soft stamps along its interface, one stamp every 0.8 LED, so a steep flank is still one continuous line.
+// The stamp radius is 1 to 2 LED, larger where the interface has dissolved more, and the stamps go into a clay layer. A second layer, the same
+// stamps scaled by the age of the seam, is blurred three times (about 2.4 LED) to make the halo. The rock under them is value noise
+// sampled in the rock's own frame, so it travels with the slab, with faint beds across and flecks that sit still in it. Light comes from
+// the upper left: a gentle ramp across the panel and a slight lift of the rock on the side of a seam that faces it.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, ceil, sqrt, abs, exp, sin, cos, min, max, PI } = Math;
@@ -43,10 +46,10 @@ const rnd = () => Math.random();
 const N = 192, NU = 128;             // cells across a seam, rows of the strength field
 const DTM = 0.05;                    // model step, in model seconds
 const V0 = 0.34;                     // grains a model second that a medium grain lets the interface advance
-const KAP = 0.012;                    // surface energy, grains^2 a model second
-const E1 = 0.008, R1 = 8;             // short elastic term and the half width of its mean
+const KAP = 0.012;                   // surface energy, grains^2 a model second
+const E1 = 0.008, R1 = 8;            // short elastic term and the half width of its mean
 const E2 = 0.006, R2 = 32;           // long elastic term
-const RATE_P = 1.7;                  // the growth rate goes as (Load / 2) to this power
+const RATE_P = 1.4;                  // the growth rate goes as (Load / 2) to this power
 const SPEED = 1.5;                   // LED a second for each unit of Load
 const YB = -38;                      // where a seam is born, the row of its anchor, clear of the top even when it leans
 const G0 = 1.15, GRIT_OCT = 0.9;     // LED across one grain at the opening, and octaves of grain size for each unit of Grit
@@ -79,12 +82,12 @@ function latAt(L, x, y) {
 
 // The strength field as a speed factor f for each cell and row: grains are three cells wide and five tall.
 function buildField() {
-  const A = lattice(48, 14), B = lattice(128, 32);
+  const A = lattice(48, 14), B = lattice(112, 32);
   const raw = new Float32Array(N * NU);
   let sum = 0, sum2 = 0;
   for (let i = 0; i < N; i++)
     for (let r = 0; r < NU; r++) {
-      const v = 0.62 * latAt(A, i / (N / 48), r / (NU / 14)) + 0.38 * latAt(B, i / (N / 128), r / (NU / 32));
+      const v = 0.64 * latAt(A, i / (N / 48), r / (NU / 14)) + 0.36 * latAt(B, i / (N / 112), r / (NU / 32));
       raw[i * NU + r] = v;
       sum += v;
       sum2 += v * v;
@@ -102,11 +105,12 @@ function newSeam(S, odo) {
   const u = new Float32Array(N);
   for (let i = 0; i < N; i++) u[i] = (rnd() - 0.5) * 0.1;
   const fib = [];
-  for (let j = 0; j < N; j++) if (rnd() < 0.05) fib.push({ j, len: 3.2 + rnd() * 2.6, w: 0.55 + rnd() * 0.25 });
+  for (let j = 0; j < N; j++) if (rnd() < 0.04) fib.push({ j, len: 3.2 + rnd() * 2.6, w: 0.9 + rnd() * 0.2 });
   return {
     u, ox: floor(rnd() * N), oy: floor(rnd() * NU),
     ax: 24 + 16 * rnd(), vr: 1 + 0.16 * (rnd() - 0.5), bias: (rnd() - 0.5) * 0.17,
     j0: floor(rnd() * N), born: odo, fib, top: YB, tau: 0, rms: 0,
+    dark: 0.88 + 0.24 * rnd(), halo: 0.75 + 0.5 * rnd(), thick: 0.85 + 0.3 * rnd(),
   };
 }
 
@@ -121,8 +125,8 @@ function boxMean(u, out, r) {
   }
 }
 
-function stepSeam(S, s) {
-  const u = s.u, FV = S.fv, ox = s.ox, oy = s.oy;
+function stepSeam(FV, s) {
+  const u = s.u, ox = s.ox, oy = s.oy;
   boxMean(u, M1, R1);
   boxMean(u, M2, R2);
   s.tau += DTM;
@@ -150,6 +154,7 @@ function makeState() {
     sx: new Float32Array(N + 1), sy: new Float32Array(N + 1), sr: new Float32Array(N + 1),
     pal: new Float32Array(18), palAt: -1,
     lat1: new Float32Array(80 * 40), lat2: new Float32Array(160 * 80),
+    c1i: new Int16Array(W), c1f: new Float32Array(W), c2i: new Int16Array(W), c2f: new Float32Array(W),
   };
 }
 
@@ -176,15 +181,15 @@ function advance(S, dt, kn, snap) {
   S.acc += dt * g;
   let n = 0;
   while (S.acc >= DTM && n < 12) {
-    for (const s of S.seams) stepSeam(S, s);
+    for (const s of S.seams) stepSeam(S.fv, s);
     S.acc -= DTM;
     n++;
   }
   if (S.acc > DTM) S.acc = 0;
   while (S.odo >= S.nextBirth) {
     S.seams.push(newSeam(S, S.nextBirth));
-    // gaps between seams: 19 to 33 LED, wider in coarse rock, and now and then a close pair that will merge
-    S.nextBirth += (rnd() < 0.14 ? 10 + 5 * rnd() : 19 + 14 * rnd()) * (0.8 + 0.2 * S.G / G0);
+    // gaps between seams: 14 to 36 LED, wider in coarse rock, and now and then a close pair that will merge
+    S.nextBirth += (rnd() < 0.16 ? 8 + 6 * rnd() : 14 + 22 * rnd()) * (0.8 + 0.2 * S.G / G0);
   }
   S.seams = S.seams.filter((s) => !(s.top > H + 3 && S.odo - s.born > 20));
 }
@@ -210,13 +215,13 @@ export function update(dt, input, params) {
 // ---- colour. Four stones: light tone, dark tone, halo, clay, fleck, calcite
 const KEYS = [
   // ochre and cream limestone
-  [[234, 222, 198], [178, 150, 112], [200, 92, 30], [26, 18, 14], [250, 244, 226], [255, 252, 244]],
+  [[228, 212, 180], [168, 138, 100], [200, 92, 30], [26, 18, 14], [250, 244, 226], [255, 252, 244]],
   // slate blue-grey
-  [[176, 188, 204], [112, 126, 148], [176, 104, 58], [14, 16, 24], [228, 234, 242], [246, 248, 252]],
+  [[152, 164, 182], [94, 108, 130], [176, 104, 58], [14, 16, 24], [228, 234, 242], [246, 248, 252]],
   // rose marble
-  [[236, 204, 198], [188, 138, 140], [172, 66, 48], [30, 16, 20], [252, 238, 234], [255, 250, 246]],
+  [[210, 188, 188], [152, 122, 126], [172, 66, 48], [30, 16, 20], [252, 240, 236], [255, 250, 246]],
   // olive
-  [[200, 200, 146], [128, 134, 82], [210, 120, 30], [20, 20, 12], [242, 242, 214], [252, 252, 238]],
+  [[176, 176, 142], [108, 112, 78], [210, 120, 30], [20, 20, 12], [242, 242, 218], [252, 252, 240]],
 ];
 function paletteAt(S, hue) {
   if (S.palAt === hue) return;
@@ -308,7 +313,7 @@ function drawSeam(S, s) {
   const mat = sm(0.4, 3.4, rms);
   const sx = S.sx, sy = S.sy, sr = S.sr;
   const tf = (0.78 + 0.22 * G / G0) * (0.9 + 0.1 * S.load / 2);
-  const alpha = 0.34 + 0.66 * mat, hw = 0.22 + 0.78 * mat;
+  const alpha = min(1, (0.34 + 0.66 * mat) * s.dark), hw = (0.22 + 0.78 * mat) * s.halo;
   let top = 1e9;
   for (let k = -K, q = 0; k <= K; k++, q++) {
     const uu = u[(j0 + k + N) % N];
@@ -317,7 +322,7 @@ function drawSeam(S, s) {
     const depth = cl(0.5 + (uu - mean) / (4 * sd + 1.5), 0, 1);
     sx[q] = X;
     sy[q] = Y;
-    sr[q] = 0.5 * (1.9 + 1.7 * mat * (0.3 + 0.7 * depth) * tf);
+    sr[q] = 0.5 * (1.9 + 1.7 * mat * (0.3 + 0.7 * depth) * min(1.15, tf) * s.thick);
     if (Y < top) top = Y;
   }
   s.top = top;
@@ -338,11 +343,11 @@ function drawSeam(S, s) {
       const k = ((f.j - j0 + N + N / 2) % N) - N / 2;
       if (k < -K + 1 || k > K - 1) continue;
       const q = k + K, slope = abs(u[(f.j + 1) % N] - u[(f.j - 1 + N) % N]) * 0.5;
-      const a = fo * sm(0.5, 1.4, slope);
+      const a = sm(0.3, 0.8, fo * sm(0.5, 1.4, slope));
       if (a < 0.02) continue;
       const X = sx[q], Y = sy[q], half = f.len * 0.5 * (0.6 + 0.4 * min(1, G / G0));
       const nxv = -sn, nyv = c;
-      for (let t = -half; t <= half; t += 0.6) stampFib(S, X + nxv * t, Y + nyv * t, f.w, min(1, 1.4 * a) * (1 - 0.3 * abs(t) / half));
+      for (let t = -half; t <= half; t += 0.6) stampFib(S, X + nxv * t, Y + nyv * t, f.w, a * (1 - 0.3 * abs(t) / half));
     }
   }
 }
@@ -361,7 +366,7 @@ const bedAt = (S, ry) => {
   let h = c - k;
   h = h * h * (3 - 2 * h);
   const v3 = hsh(k, 13, S.salt) * (1 - h) + hsh(k + 1, 13, S.salt) * h;
-  return (v1 - 0.5) * 0.46 + (v2 - 0.5) * 0.18 + (v3 - 0.5) * 0.22;
+  return (v1 - 0.5) * 0.52 + (v2 - 0.5) * 0.18 + (v3 - 0.5) * 0.34;
 };
 
 const FXC = 13, FYC = 9;
@@ -378,7 +383,7 @@ function stampFlecks(S) {
       const ang = (hsh(kx, ky, S.salt + 4) - 0.5) * 1.1, ca = cos(ang), sa = sin(ang);
       const big = 0.8 + 0.6 * hsh(kx, ky, S.salt + 5);
       const A = max(1.9, 2.1 * gs * big), B = max(1.05, 1.1 * gs * big);
-      const strength = 0.18 + 0.2 * hsh(kx, ky, S.salt + 6);
+      const strength = 0.26 + 0.24 * hsh(kx, ky, S.salt + 6);
       const x0 = max(0, floor(X - A - 1)), x1 = min(W - 1, ceil(X + A + 1)), y0 = max(0, floor(Y - A - 1)), y1 = min(H - 1, ceil(Y + A + 1));
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
@@ -416,7 +421,7 @@ export function draw(display, params) {
   const L1 = S.lat1, L2 = S.lat2;
   for (let j = 0; j < ny1; j++) for (let i = 0; i < nx1; i++) L1[j * nx1 + i] = hsh(kx1 + i, ky1 + j, salt + 21) - 0.5;
   for (let j = 0; j < ny2; j++) for (let i = 0; i < nx2; i++) L2[j * nx2 + i] = hsh(kx2 + i, ky2 + j, salt + 22) - 0.5;
-  const c1i = new Int16Array(W), c1f = new Float32Array(W), c2i = new Int16Array(W), c2f = new Float32Array(W);
+  const c1i = S.c1i, c1f = S.c1f, c2i = S.c2i, c2f = S.c2f;
   for (let x = 0; x < W; x++) {
     const tx = 32 + (x + 0.5 - 32) / gs;
     let a = tx / LX1, i = floor(a), f = a - i;
@@ -443,7 +448,10 @@ export function draw(display, params) {
       const i2 = r2 + c2i[x], fx2 = c2f[x];
       const m2 = (L2[i2] + (L2[i2 + 1] - L2[i2]) * fx2) * (1 - w2) + (L2[i2 + nx2] + (L2[i2 + nx2 + 1] - L2[i2 + nx2]) * fx2) * w2;
       const t = cl(0.62 + bed + 0.34 * m1 + 0.14 * m2, 0, 1);
-      const lit = 1.06 - 0.15 * (x / (W - 1));
+      // light from the upper left: the rock beside a seam is lit on the side that faces it
+      const xa = x < 2 ? 0 : x - 2, xb = x > W - 3 ? W - 1 : x + 2, ya = y < 2 ? 0 : y - 2, yb = y > H - 3 ? H - 1 : y + 2;
+      const slope = 0.7 * (hal[y * W + xb] - hal[y * W + xa]) + 0.5 * (hal[yb * W + x] - hal[ya * W + x]);
+      const lit = (1.06 - 0.15 * (x / (W - 1))) * (1 + 0.8 * slope);
       let r = (B0 + (A0 - B0) * t) * lit, g = (B1 + (A1 - B1) * t) * lit, b = (B2 + (A2 - B2) * t) * lit;
       const fv = fl[p];
       if (fv > 0) {
