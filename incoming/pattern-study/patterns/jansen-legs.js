@@ -11,9 +11,9 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Crank=0.2..3, Stride=0..1, Gait=-1..1
 //
-// Knob 1: Hue. Turns the three legs round the wheel together. At 0 they open azure, amber and violet from the top down (hues 0.52, 0.08 and 0.78), and each also drifts by up to 0.07 of the wheel on a slow period (81 s); the ground's slabs sit within 0.11 of the wheel of 0.5, aqua to azure at 0.
+// Knob 1: Hue. Turns the three legs round the wheel together. At 0 they open azure, amber and violet from the top down (hues 0.52, 0.08 and 0.78), and the ground's slabs sit within 0.11 of the wheel of 0.5, aqua to azure. Over this the whole palette turns once round the wheel in 330 s, each leg's hue also drifts by up to 0.1 on a period of 81 s, and its colour pales and deepens by 0.2 of saturation on a period of 35 to 65 s.
 // Knob 2: Crank. How fast the cranks turn: at 2 a turn takes 6.3 s on average and the planted feet, with the ground under them, run about 14 LED a second; at 0.2 a turn takes a minute, at 3 it takes 4.2 s. The crank's speed also swells and slackens, between 0.76 and 1.24 of itself, on periods of 56 s and 102 s.
-// Knob 3: Stride. How far the linkage is drawn from its flat track toward a round one. At 0 the crank is 0.94 of Jansen's 15, the long lower bar h 0.90 of his 65.7 and the bar e 1.03 of his 55.8, and the foot's track is a flat D 101 units wide and 15 tall; at 1 they are 1.08, 1.00 and 0.94, the track is 129 wide and 23 tall, and its right tip curls back into a small loop. The slow drift of the lengths is laid over this.
+// Knob 3: Stride. How far the linkage is drawn from its flat track toward a round one. At 0 the crank is 0.94 of Jansen's 15, the long lower bar h 0.90 of his 65.7 and the bar e 1.03 of his 55.8, and the foot's track is a flat D 101 units wide and 15 tall; at 1 they are 1.06, 1.00 and 0.94, the track is 127 wide and 21 tall, and its right tip curls back into a small loop. The slow drift of the lengths is laid over this.
 // Knob 4: Gait. How far apart the cranks of neighbouring legs are in phase. At 0.06, where it opens, it is 0.34 of a turn (124 degrees), so one foot or two are always planted; at -1 it is 0.16 of a turn and the legs rise and fall almost together; at 1 it is 0.5, so the top and bottom legs move as one while the middle leg moves against them. The spacing itself wanders by 0.15 of a turn either way.
 //
 // What the picture is. The panel is turned a quarter: the body is the vertical line near the left edge, the three legs reach from it to the right, and the ground is the strip at the right edge that runs from top to bottom. The body walks up the panel, so the ground runs down it.
@@ -22,8 +22,8 @@
 // Each bar is two LED thick on a dark rim, so a leg that crosses another stays apart from it, and each leg has a colour of its own, the bars at the hip a shade darker than the lower leg's. The foot's tail is kept by crank angle, not by time: it holds the last 1.1 turns of the crank however fast it turns, so a closed track shows whenever the crank is turning, and its older part is the shape the leg had a turn ago.
 // A ring of light sits on a foot while it is within about three units of the lowest height it reaches.
 // What moves the ground. Each foot's speed along the track is found by solving its leg a hair either side of the crank's angle. The ground goes at the mean of the speeds of the feet that are planted and going forward, weighted by how planted they are, so a planted foot does not slide on it. The foot is not at a constant speed through its run, and the legs' lengths differ, so the ground speeds up and slows a little as the feet hand over.
-// Why it does not come back. Nine bar lengths of each leg (the crank, e, h, i, j, b, c, f and g) swing by 3 to 10 percent each on a period of its own, from 34 to 92 s, at a different point for each leg, so the three feet draw three different tracks that keep changing. The gap between the legs' phases wanders on periods of 23 to 50 s, each leg's light swells and fades on 42 to 76 s, and its hue drifts on 81 s.
-// When the lengths a drift asks for cannot be assembled all the way round, the leg keeps the last set that could, or goes part of the way. The ground's slabs are laid out by a hash of their number, which counts up for good, so no two stretches of it are alike. The first update runs ten seconds of the walk, so the tails are already drawn at the first frame.
+// Why it does not come back. Nine bar lengths of each leg (the crank, e, h, i, j, b, c, f and g) swing by 3 to 10 percent each on a period of its own, from 34 to 92 s, at a different point for each leg, so the three feet draw three different tracks that keep changing. The gap between the legs' phases wanders on periods of 23 to 50 s, each leg's light swells and fades on 42 to 76 s, and the palette turns once round the wheel in 330 s, which no two frames 20 s apart can match.
+// The drift is taken from the lengths Stride alone gives, which always go together, as far as they still go together all the way round the crank; past that the leg stops short of what the drift asks. The ground's slabs are laid out by a hash of their number, which counts up for good, so no two stretches of it are alike. The first update runs ten seconds of the walk, so the tails are already drawn at the first frame.
 
 const W = 64, H = 128, N = W * H;
 const { floor, ceil, min, max, sqrt, abs, sin, cos, hypot, round, PI, exp, pow } = Math;
@@ -57,6 +57,7 @@ const LEGY = [26, 64, 102]; // the hip pivots' rows
 const NT = 100, DT = 0.07; // the tail: points, and the crank angle between them
 const HUES = [0.52, 0.08, 0.78]; // aqua, amber, violet
 const LUM = [0.1103, 0.151, 0.0823]; // how fast each leg's light swells and fades, rad a second
+const SAT = [0.1423, 0.0971, 0.1789]; // and how fast its colour pales and deepens
 
 function hsv(h, s, v, out, o) {
   h = (h - floor(h)) * 6;
@@ -94,7 +95,7 @@ function solve(L, th, X, Y, margin) {
 
 // Whether the linkage can be put together at every angle of the crank.
 function feasible(L, X, Y) {
-  for (let n = 0; n < 36; n++) if (!solve(L, (n * TAU) / 36, X, Y, 1.2)) return false;
+  for (let n = 0; n < 36; n++) if (!solve(L, (n * TAU) / 36, X, Y, 0.6)) return false;
   return true;
 }
 
@@ -116,17 +117,39 @@ const FR = [0.1237, 0.0887, 0.1831, 0.0686, 0.1492, 0.1039, 0.1316, 0.0808, 0.16
 const PH = [0.6, 2.1, 4.0, 1.2, 5.0, 3.3, 0.2, 5.7, 2.6];
 const AM = [0.03, 0.05, 0.06, 0.07, 0.06, 0.05, 0.1, 0.1, 0.1];
 function wanted(S, out, leg) {
-  const t = S.t, u = S.stride;
+  const t = S.t;
   for (let n = 0; n < 9; n++) out[n] = 1 + AM[n] * sin(FR[n] * t + PH[n] + leg * (1.3 + 0.37 * n));
-  out[0] += -0.06 + 0.14 * u;
-  out[1] += -0.1 + 0.1 * u;
-  out[2] += 0.03 - 0.09 * u;
+  out[0] += -0.06 + 0.12 * S.stride;
+  out[1] += -0.1 + 0.1 * S.stride;
+  out[2] += 0.03 - 0.09 * S.stride;
+}
+
+// The same without the drift: where Stride alone puts the nine lengths, which can always be assembled.
+function anchor(S, out) {
+  out.fill(1);
+  out[0] += -0.06 + 0.12 * S.stride;
+  out[1] += -0.1 + 0.1 * S.stride;
+  out[2] += 0.03 - 0.09 * S.stride;
+}
+
+// How far toward the wanted lengths a leg may go from the anchor and still go together: the lengths themselves.
+function reach(S, g, out, tl) {
+  const a = S.anch;
+  anchor(S, a);
+  let f = 1;
+  for (let it = 0; it < 5; it++) {
+    for (let n = 0; n < 9; n++) out[n] = a[n] + (g[n] - a[n]) * f;
+    lengths(tl, out);
+    if (feasible(tl, S.X, S.Y)) return;
+    f *= 0.5;
+  }
+  for (let n = 0; n < 9; n++) out[n] = a[n];
 }
 
 export function setup(params) {
   const S = {
     t: 0, ready: false, ph: 0, hue: 0, speed: 2, stride: 0, gait: 0.06, gaitNow: 0.34,
-    pv: [], goal: [1, 1, 1, 1, 1, 1, 1, 1, 1], want: [1, 1, 1, 1, 1, 1, 1, 1, 1], Ls: [], tryL: { ...BASE }, vsts: [38, 38, 38], ymins: [-124.8, -124.8, -124.8],
+    pv: [], goal: [1, 1, 1, 1, 1, 1, 1, 1, 1], want: [1, 1, 1, 1, 1, 1, 1, 1, 1], anch: [1, 1, 1, 1, 1, 1, 1, 1, 1], Ls: [], tryL: { ...BASE }, vsts: [38, 38, 38], ymins: [-124.8, -124.8, -124.8],
     X: new Float64Array(8), Y: new Float64Array(8),
     px: [], py: [], tx: [], ty: [], tn: [], tw: [], tphi: [], fy: [0, 0, 0], fv: [38, 38, 38], fw: [0, 0, 0], gv: 38,
     sfx: new Float64Array(72), sfy: new Float64Array(72), vst: 38, ymin: -124.8, xg: 54, gnd: 0, frame: 0,
@@ -196,18 +219,14 @@ function step(S, d) {
   const g = S.want, k = min(1, d / 0.5), tl = S.tryL;
   for (let leg = 0; leg < 3; leg++) {
     wanted(S, g, leg);
+    reach(S, g, S.goal, tl);
     const pv = S.pv[leg];
-    let f = 1;
-    for (let it = 0; it < 5; it++) {
-      for (let n = 0; n < 9; n++) S.goal[n] = pv[n] + (g[n] - pv[n]) * k * f;
-      lengths(tl, S.goal);
-      if (feasible(tl, S.X, S.Y)) {
-        for (let n = 0; n < 9; n++) pv[n] = S.goal[n];
-        break;
-      }
-      f *= 0.5;
-    }
+    for (let n = 0; n < 9; n++) pv[n] += (S.goal[n] - pv[n]) * k;
     lengths(S.Ls[leg], pv);
+    if (!feasible(S.Ls[leg], S.X, S.Y)) {
+      for (let n = 0; n < 9; n++) pv[n] = S.goal[n];
+      lengths(S.Ls[leg], pv);
+    }
   }
   if (S.frame++ % 6 === 0) stanceStats(S);
   S.xg += (X0 - SC * S.ymin - S.xg) * min(1, d * 3);
@@ -270,7 +289,8 @@ export function update(dt, input, params) {
     S.ready = true;
     S.t = 0;
     for (let leg = 0; leg < 3; leg++) {
-      wanted(S, S.pv[leg], leg);
+      wanted(S, S.want, leg);
+      reach(S, S.want, S.pv[leg], S.tryL);
       lengths(S.Ls[leg], S.pv[leg]);
     }
     S.gaitNow = S.gait;
@@ -364,13 +384,15 @@ export function draw(display, params) {
   if (!S || !S.ready) return;
   const { rgb, col } = S;
   rgb.fill(0);
-  // colours: per leg, the hip's bars, the lower leg's bars, and the tail
+  // colours: per leg, the hip's bars, the lower leg's bars, and the tail; the whole palette turns once round the wheel in 330 s
+  const hue0 = S.hue + S.t / 330;
   for (let k = 0; k < 3; k++) {
-    const h = S.hue + HUES[k] + 0.07 * sin(0.0776 * S.t + 2.1 * k + 0.5), b = 0.86 + 0.14 * sin(LUM[k] * S.t + 1.7 * k);
-    hsv(h, 0.55, 0.62 * b, col, k * 12);
-    hsv(h, 0.78, b, col, k * 12 + 3);
-    hsv(h, 0.7, b, col, k * 12 + 6);
-    hsv(h, 0.62, b, col, k * 12 + 9);
+    const h = hue0 + HUES[k] + 0.1 * sin(0.0776 * S.t + 2.1 * k + 0.5), b = 0.86 + 0.14 * sin(LUM[k] * S.t + 1.7 * k);
+    const st = 0.2 * sin(SAT[k] * S.t + 1.1 * k);
+    hsv(h, cl(0.55 + st, 0, 1), 0.62 * b, col, k * 12);
+    hsv(h, cl(0.78 + st, 0, 1), b, col, k * 12 + 3);
+    hsv(h, cl(0.7 + st, 0, 1), b, col, k * 12 + 6);
+    hsv(h, cl(0.62 + st, 0, 1), b, col, k * 12 + 9);
   }
 
   // the ground: slabs of every length, width and shade flush with the line the feet stand on, moving down the strip as the body walks up
@@ -381,7 +403,7 @@ export function draw(display, params) {
     const along = cl(u - u0 + 0.5, 0, 1) * cl(u0 + len - u + 0.5, 0, 1);
     if (along <= 0) continue;
     const wd = 4.8 + 3.6 * hash(n, 4), hv = hash(n, 3), vv = (hv < 0.45 ? 0.16 + 0.25 * hv : 0.55 + 0.3 * hv) * along;
-    hsv(S.hue + 0.5 + 0.22 * (hash(n, 5) - 0.5), 0.58, 1, gcol, 0);
+    hsv(hue0 + 0.5 + 0.22 * (hash(n, 5) - 0.5), 0.58, 1, gcol, 0);
     for (let x = max(0, floor(xg + 0.5)); x < W; x++) {
       const c = cl(x + 1.0 - (xg + 0.9), 0, 1) * cl(xg + 0.9 + wd - x, 0, 1) * vv;
       if (c > 0) paint(rgb, y * W + x, c, gcol[0], gcol[1], gcol[2]);
