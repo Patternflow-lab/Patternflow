@@ -1,36 +1,36 @@
 // ===== Patternflow pattern =====
 // Title:   Sintering Belt
 // Family:  sintering
-// Idea:    A conveyor furnace seen in section, a slice of metal powder that rides down the panel through a wandering hot zone: loose cold grains of 3 to 8 LED radius come in at the top as dull red discs that only touch, necks grow between touching grains as the incandescent glow climbs from dull red through orange and amber to pale gold, the grain centres draw together so the compact narrows and slows and the pores between them round up and pinch shut, and grain boundaries show as soft dark seams that fade and move as small crystals are eaten by big ones, until a dense polycrystal with a few round pores leaves the bottom glowing dull orange as it cools.
+// Idea:    A conveyor furnace seen in section: a slice of metal powder rides down the panel through a wandering hot zone, loose dull red grains of 3 to 8 LED radius come in at the top and only touch, necks grow between them as the glow climbs from dull red through orange and amber to pale gold, the grain centres draw together so the compact narrows and its pores round up and pinch shut, and soft dark grain boundaries fade and move as big crystals eat small ones, until a dense polycrystal with a few round pores leaves the bottom glowing dull orange as it cools.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: neck growth between two touching grains by viscous flow (Jacov Frenkel, 1945) and by diffusion (George Kuczynski, 1949), the closing of the last round pores (Robert Coble, 1961), grain growth by boundary migration (Burke and Turnbull, 1952), the Arrhenius rate that makes a small change of furnace temperature a large change of density (from memory), and the conveyor furnace of powder metallurgy
+// Lineage: neck growth between touching grains by viscous flow (Jacov Frenkel, 1945) and by diffusion (George Kuczynski, 1949), the closing of the last round pores (Robert Coble, 1961), grain growth by boundary migration (Burke and Turnbull, 1952), the Arrhenius rate that makes a small change of furnace temperature a large change of density, and the conveyor furnace of powder metallurgy (from memory)
 // Round:   258
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Speed=0.5..4, Heat=-1..1, Grain=0..1
 //
-// Knob 1: Hue. Turns the heat ramp round the wheel. At 0 it is the incandescent one, black to dull red, orange, amber and pale gold; at 0.58 it is a blue-white-hot ramp and at 0.33 a green one, each still running from dark to light.
+// Knob 1: Hue. Turns the heat ramp round the wheel. At 0 it is the incandescent one, black to dull red, orange, amber and pale gold; at 0.58 it is blue-white-hot and at 0.33 green, each still running from dark to light.
 // Knob 2: Speed. How fast the belt carries the powder down, 1.2 LEDs a second per unit, so 2.4 at the opening. Slow (0.5) keeps a grain in the hot zone for minutes and the compact is solid and tight by half way down; fast (4) pushes the powder through in half a minute and it leaves with its necks barely grown.
-// Knob 3: Heat. The furnace's peak temperature, 0.68 to 1.08 of the white-hot scale. The neck rate is Arrhenius, so the lowest setting sinters about a tenth as fast as the opening and the highest about five times as fast; at the low end the glow is orange and the compact stays porous, at the high end it is gold to white and densifies early.
-// Knob 4: Grain. The powder's size, a mean grain radius of 3.5 LEDs at 0 (some 130 fine grains on the panel, which merge quickly) up to 8 at 1 (about 25 coarse ones that neck slowly, the rate going as radius to the minus 2.4).
+// Knob 3: Heat. The furnace's peak temperature, 0.88 to 1.40 of the white-hot scale, 1.14 at the opening. The neck rate is Arrhenius, so the lowest setting sinters about a sixth as fast as the opening and the highest about four times as fast: at the low end the glow stays orange and the compact stays porous, at the high end a gold-to-white band forms early and the compact is solid soon after.
+// Knob 4: Grain. The powder's size, a mean grain radius of 3.5 LEDs at 0 (some 170 fine grains on the panel, 4.1 and 125 at the opening) up to 8 at 1 (about 30 coarse ones that neck slowly, the rate going as radius to the minus 2.4). New powder of the new size enters at the top, so the picture follows within a minute.
 
 // What the picture is. A slice of powder is a heap of discs. Each is born above the panel by ballistic deposition with a friction angle,
-// falls onto the top of the heap and rolls to rest against its neighbours, so the packing is random, loose and just touching. The belt
+// falls onto the top of the heap and rolls until a friction angle of 8 to 46 degrees holds it, so the packing is random, loose and just touching. The belt
 // carries every grain down at one speed. Each touching pair has a neck ratio L = x/r that grows as L^4 = L0^4 + the integral of
 // A f(r) R(T) dt, where R is Arrhenius (activation 25000 K over a temperature that runs from 1000 K cold to 1600 K white-hot), f is
 // (4.1/r)^2.4 and T is read at the contact from a furnace profile: a Gaussian bump with a wandering centre (three slow sines),
-// a slow pulse of its peak, and a cooling floor that keeps the bottom edge a dull red. A grain's densification m is 0.3 times the mean
+// a slow pulse of its peak, and a floor that keeps the bottom edge a dull red. A grain's densification m is 0.4 times the mean
 // L^2 of its contacts and never falls: m slows the grain (v = v0 (1 - 0.8 m)) and draws it toward the centre line, and a pair is held at the
-// distance (r1 + r2)(1 - 0.3 L^2), so the grains overlap as the necks widen. Pairs whose neck is wide and hot, and whose merged area stays
-// under a cap, are joined with a union-find, so the crystals at the bottom are groups of four to seven discs; a grain's shade (its
+// distance (r1 + r2)(1 - 0.4 L^2), so the grains overlap as the necks widen. Pairs whose neck is wide and hot, and whose merged area stays
+// under a cap, are joined with a union-find, so the crystals at the bottom are groups of up to eight discs; a grain's shade (its
 // crystal orientation) chases its crystal's, which is how a boundary dissolves.
 // Drawing. Every frame builds a signed distance to the union of the discs, each necked pair blended with a polynomial smooth minimum whose
 // width grows with L^2, so the necks and the pores come out smooth. A pixel is lit by the heat at its own row, by a dome of depth below the
 // surface, and by a bevel: surfaces that face the hot zone are brighter. Seams between different crystals are a Gaussian in the difference
-// of the two discs' distances, 2 LEDs wide and a third dark. The pore side of an edge fades over 1.5 LEDs, so a pore under 2 LEDs
-// across fades out instead of flickering, and a faint warm rim lies on it.
+// of the two discs' distances, 2 LEDs wide and 0.58 dark. The pore side of an edge fades over 1.4 LEDs, so a pore under 2 LEDs across
+// fades out instead of flickering, and a faint warm rim lies on it.
 
 const W = 64, H = 128, NPIX = W * H;
 const { floor, ceil, sqrt, abs, exp, sin, cos, asin, PI, min, max } = Math;
@@ -511,7 +511,7 @@ export function update(dt, input, params) {
     topOf(S);
     for (let k = 0; k < 600 && S.topY > FEEDY; k++) { pour(S); topOf(S); }
     S.floorOn = false;
-    // the first layer of powder has to reach the bottom and leave before the first frame
+    // the first layer must reach the bottom and leave before the first frame
     const T = (1.1 * (H + 54)) / max(S.v0 * 0.8, 0.3), dtp = cl(T / 700, 0.2, 0.5), n = ceil(T / dtp);
     for (let k = 0; k < n; k++) step(S, dtp);
   }
