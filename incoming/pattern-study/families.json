@@ -389,5 +389,10 @@
   "meltpond": { "label": "융빙 연못", "color": "#5fa8d3" },
   "rabi": { "label": "라비 진동", "color": "#b48cff" },
   "mitonet": { "label": "미토콘드리아 망", "color": "#9cff3c" },
-  "remnant": { "label": "초신성 잔해", "color": "#e0457b" }
+  "remnant": { "label": "초신성 잔해", "color": "#e0457b" },
+  "fluxavalanche": { "label": "자속 사태", "color": "#d4f03c" },
+  "compulsory": { "label": "규정 도형", "color": "#81b8e1" },
+  "ribbongym": { "label": "리본 체조", "color": "#ff4f9a" },
+  "spinifex": { "label": "스피니펙스 조직", "color": "#e8b04a" },
+  "tumbler": { "label": "회전 드럼", "color": "#4ad1c0" }
 }
