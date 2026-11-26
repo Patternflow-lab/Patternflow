@@ -20,7 +20,7 @@
 //   sigma_r = -(2P / pi) cos(theta) / r,   sigma_theta = tau = 0
 // with theta from the inward normal, so the difference of the principal stresses is (2P / pi) y / r^2, y the depth from the edge and r the distance from the pin. The lines of equal difference are the circles y / r^2 = const, tangent to the edge at the pin. The retardation of the light is proportional to that difference (the stress-optic law), and the picture keeps it as a complex number per LED, Z = (sx - sy) + 2i txy, a sum over the pins of
 //   Z = - Q y (x + i y)^2 / ((r^2 + a^2) (r^2 + 1) (1 + r^2 / 30^2)),   x along the edge, y inward
-// whose size |Z| is the difference D in nm of retardation and whose angle is twice the direction phi of the larger principal stress. a, the contact radius, keeps D finite under the pin; r^2 + 1 takes the last LED round the pin out of the singular direction; and the last factor is a screening length of 30 LEDs, which Flamant's solution does not have: it cuts the 1/r tail off so that each pin has its own set of rings and the ground stays calm between them. The plate carries stress of its own as well, three slow plane waves of 55 nm each added to Z, with wavelengths of 40 to 95 LEDs and a phase that turns on periods of 35 to 95 s, so that the ground between the pins is never flat.
+// whose size |Z| is the difference D in nm of retardation and whose angle is twice the direction phi of the larger principal stress. a, the contact radius, keeps D finite under the pin; r^2 + 1 takes the last LED round the pin out of the singular direction; and the last factor is a screening length of 30 LEDs, which Flamant's solution does not have: it cuts the 1/r tail off so that each pin has its own set of rings and the ground stays calm between them. The plate carries stress of its own as well, three slow plane waves of 80 nm each added to Z, with wavelengths of 40 to 95 LEDs and a phase that turns on periods of 35 to 95 s, so that the ground between the pins is never flat.
 // The tint plate sits at 45 degrees to the polariser, which makes the sign of the stress matter: the retardation seen is
 //   gamma = gamma0 + D (1 - kappa + kappa soft(sin 2 (phi - alpha))),   kappa = 0.3, soft(s) = 1.2 s / (|s| + 0.2)
 // so seven tenths of the stress always adds to the ground and the other three tenths flip: on one side of a pin the stress adds its full amount and on the other it adds 0.4 of it. alpha is the polariser angle (Knob 4 says how it moves). Between crossed plane polarisers the light is also stopped where the principal direction lines up with the polariser: the picture fades to the ground colour and dims by up to 90 percent as m cos^2(2 (phi - alpha)) D / (D + 90) goes to 1, m being Knob 4's weight. Where D is small there is nothing to stop, so the ground is not dimmed.
@@ -93,7 +93,7 @@ const cumAt = (c) => {
 
 // ---- the pins
 const IRW2 = 1 / (30 * 30), GLOW = 0.55, DK = 0.9, KAPPA = 0.3, G_START = 495, G_END = 1150;
-const NBG = 3, BG_AMP = 80; // the frozen-in stress of the plate: three slow plane waves, up to 165 nm in all
+const NBG = 3, BG_AMP = 80; // the frozen-in stress of the plate: three slow plane waves, up to 240 nm in all
 const LOAD_LOW = 0.55; // the load at K2 = 0 as a share of the opening's
 const NP = 7;
 const EDGE_LEN = [H, H, W, W]; // left, right, top, bottom
