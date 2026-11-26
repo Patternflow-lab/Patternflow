@@ -11,23 +11,23 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Sun=0..4, Depth=-1..1, Frill=-1..1
 //
-// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the ice is blue-teal and the rims are cyan-white; at 0.2 the ice is violet, at 0.55 it is lit amber and at 0.8 green, and at 1 it is back to blue.
-// Knob 2: Sun. How hard the ice is heated. It sets the growth speed, 2 to the power 0.9 a unit of the knob around the opening, so the discs grow 3.5 times faster at 4 than at 2 and 3.5 times slower at 0, and the number of discs growing at once, 7 at 0, 13 at 2 and 20 at 4, with the ghosts of the ended ones on top.
-// Knob 3: Depth. How deep the ice is. At -1 it is one thin layer: every disc lies at the same depth, crisp and bright and of nearly the same size (11 to 18 LED across the radius range). At 1 the discs are spread through a deep stack: the far ones are small, pale and blurred 3 LED wide, the near ones still crisp, and the sizes run from 5 to 24 LED in radius.
-// Knob 4: Frill. The sharpness of the melting front's instability and its six-fold anisotropy. At -1 the front is stable and every disc stays a smooth round pancake. Around 0 it is a clean six-petalled daisy, and towards 1 the band of unstable modes reaches 1.5 waves per radius, so each petal breaks into a fine lace.
+// Knob 1: Hue. Turns the whole palette round the wheel. At 0 the ice is blue and the rims are cyan-white; at 0.25 the ice is violet, at 0.5 it is lit amber and at 0.75 green, and at 1 it is back to blue.
+// Knob 2: Sun. How hard the ice is heated. It sets the growth speed, 2 to the power 0.65 for each unit of the knob around the opening, so the discs grow 2.5 times faster at 4 than at 2 and 2.5 times slower at 0, and the number of discs growing at once, about 7 at 0, 14 at 2 and 20 at 4, with the ghosts of the ended ones on top. At 2 a disc grows for 30 to 90 s.
+// Knob 3: Depth. How deep the ice is. At -1 it is one thin layer: every disc lies at the same depth, crisp and bright, and its final radius is 12 to 18 LED. At 1 the discs are spread through a deep stack: the far ones are pale and blurred 3 LED wide and 30 percent smaller, the near ones still crisp, and the final radii run from 5 to 24 LED.
+// Knob 4: Frill. The reach of the melting front's instability and its six-fold anisotropy. At -1 the front is stable and every disc stays a smooth round pancake. Around 0 it is a clean six-petalled daisy, and towards 1 the band of unstable modes reaches 1.5 waves a radius, so the rim breaks into a lace of 12 to 24 scallops.
 
 // What the picture is. Every disc has an outline r(psi) = R hex(psi) exp(sum a_m cos(m psi + phase_m)) for psi the angle from straight up the panel, so
-// all the discs are the same way round, like the crystal axes seen along the c-axis. R grows as 0.12 to 1 times the disc's final radius by the 0.72 power of its age
+// all the discs are the same way round, like the crystal axes seen along the c-axis. R grows from 0.12 of the disc's final radius to all of it as the 0.72 power of its age
 // over its growth time, and the modes m = 2 to 30 are integrated for each disc, a complex amplitude each, by the growth rate of a Mullins-Sekerka front,
 //   sigma(m) = 2.6 u (1 - u^2),   u = m / (kc R),
-// which is positive for the modes under kc R and largest at kc R / 1.7, so the discs grow more unstable modes as R rises. Every sixth mode (6, 12, 18, ...) has its band edge
-// pushed out and its growth boosted by the anisotropy, and keeps its phase, so the six petals come first. Each mode saturates at a cap that falls with m, and a small noise keeps the
-// stable ones trembling. Below 6 LED of radius the petals have no room, so a young disc is drawn as a hexagon blended into the circle (the weight falls as R passes 8).
-// A disc is a signed distance to the outline, divided by the slope of the polar curve to be a true distance, shaded in four steps: the ground darkens inside, a rim 2.4 LED wide
-// glows cyan-white at the edge, a blue fringe lies just inside and an amber one just outside, and a halo falls away outward. Depth blurs the rim and takes the light and size away.
-// The bubble is a bright disc of 2 to 3 LED with a dark ring, wandering a little inside the outline. The discs are drawn from the far one to the near one with their light added, so they show through each other.
-// The population holds itself: a new disc nucleates, at the best of eight random places, at a rate set by how far the number growing is under the target. A disc that has grown for
-// its time flares for 4.5 s, goes out in 5 s and leaves 3 to 6 bubbles that each dissolve in 6 to 26 s. The first frame is the population already running: flowers of every age.
+// which is positive for the modes under kc R and largest at kc R / 1.7, so a disc grows more unstable modes as R rises. Every sixth mode (6, 12, 18, ...) has its band edge
+// pushed out and its growth boosted by the anisotropy, while its neighbours are held back, and it keeps its phase, so the six petals come first. Each mode saturates at a cap that falls with m,
+// and a small noise keeps the stable ones trembling. A young disc has no room for petals, so it is drawn as a hexagon blended into the circle (the weight falls by half as R passes 8 to 24).
+// A disc is a signed distance to the outline, divided by the slope of the polar curve to be a true distance, and shaded in four steps: the ground darkens inside, a rim about 2 LED wide
+// glows cyan-white at the edge, a blue fringe lies just inside and an amber one just outside, and a halo falls away outward. Depth blurs the rim and takes the light, the amber and the size away.
+// The bubble is a bright disc of 2 to 3 LED with a dark ring, wandering a little inside the outline. The discs are drawn from the far one to the near one with their light added on a screen, so they show through each other.
+// The population holds itself: a new disc nucleates, at the best of twelve random places, at a rate set by how far the number growing is under the target. A disc that has grown for
+// its time flares for 4.5 s, goes out in 5 s and leaves 3 to 6 bubbles that each dissolve in 6 to 26 s. The first frame is the population already running: discs of every age, dealt and then run on for 24 s.
 
 const W = 64, H = 128, NPX = W * H;
 const { floor, sqrt, exp, sin, cos, atan2, PI, min, max, pow } = Math;
@@ -92,7 +92,7 @@ function palette(S, hue) {
   hsv(h0 - 0.02, 0.78, 0.5, P.lt); // ground, lit end
   hsv(h0 - 0.035, 0.3, 1.0, P.rim); // cyan-white rim
   hsv(h0 + 0.075, 0.95, 1.0, P.fin); // fringe inside, blue
-  hsv(h0 - 0.41, 0.9, 1.0, P.fout); // fringe outside, amber
+  hsv(h0 - 0.44, 0.92, 1.0, P.fout); // fringe outside, amber
   hsv(h0 - 0.045, 0.1, 1.0, P.bub); // bubble
 }
 
@@ -151,9 +151,9 @@ export function setup(params) {
 // ---- the knobs
 function derive(S, kn) {
   const k2 = cl(kn[1], 0, 4), g = (cl(kn[3], -1, 1) + 1) / 2, K = S.K;
-  K.v = pow(2, 0.9 * (k2 - 2));
+  K.v = pow(2, 0.65 * (k2 - 2));
   K.vs = sqrt(K.v);
-  K.tgt = (8 + 4 * k2) * (1 + 0.1 * sin(0.0173 * S.t + 1) + 0.07 * sin(0.0411 * S.t));
+  K.tgt = (6.5 + 3.5 * k2) * (1 + 0.1 * sin(0.0173 * S.t + 1) + 0.07 * sin(0.0411 * S.t));
   K.kc = 0.05 + 1.45 * pow(g, 1.4);
   K.A = 0.25 + 0.75 * sin(PI * g);
   K.hex = 0.7 * cl(2 * g, 0, 1);
@@ -208,11 +208,11 @@ function stepModes(f, dt, K) {
   }
 }
 
-function spawn(S, ageFrac) {
+function spawn(S, ageFrac, lengthBiased) {
   let f = null;
   for (let i = 0; i < MAXF; i++) if (S.fl[i].ph < 0) { f = S.fl[i]; break; }
   if (!f) return null;
-  f.ph = 0; f.u = rnd(); f.s = rnd(); f.Tg = 30 + 60 * f.s; f.age = 0; f.t2 = 0; f.gn = 0;
+  f.ph = 0; f.u = rnd(); f.s = lengthBiased ? (sqrt(1 + 8 * rnd()) - 1) / 2 : rnd(); f.Tg = 30 + 60 * f.s; f.age = 0; f.t2 = 0; f.gn = 0;
   place(S, f);
   // the best of twelve places: the one farthest, edge to edge at their final sizes, from the discs still growing, so the panel fills evenly
   let bx = 30, by = 60, best = -1e9;
@@ -299,7 +299,8 @@ export function update(dt, input, params) {
     derive(S, kn);
     S.ready = true;
     const n = floor(S.K.tgt);
-    for (let i = 0; i < n; i++) spawn(S, rnd());
+    // the dealt population is weighted by growth time, as a snapshot of discs is: the long-lived ones are over-represented
+    for (let i = 0; i < n; i++) spawn(S, rnd(), true);
     for (let i = 0; i < n * 0.55; i++) {
       const f = spawn(S, 0);
       if (!f) break;
@@ -328,12 +329,12 @@ function ground(S) {
   const P = S.pal, t = S.t, BR = S.BR, BG = S.BG, BB = S.BB, Q0 = S.Q0, lat = S.lat;
   const dr = P.lt[0] - P.dk[0], dg = P.lt[1] - P.dk[1], db = P.lt[2] - P.dk[2];
   for (let y = 0; y < H; y++) {
-    const swell = 0.045 * sin(y * 0.035 - t * 0.11 + 1.3);
+    const swell = 0.04 * sin(y * 0.035 - t * 0.11 + 1.3) + 0.03 * sin(y * 0.021 + t * 0.173 + 4.1);
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       // refraction streaks: two layers of stretched value noise that drift slowly and at different rates
-      const n1 = noise(lat, x * 0.13 + y * 0.035 + 0.02 * t, y * 0.022 - 0.015 * t);
-      const n2 = noise(lat, x * 0.29 - y * 0.05 + 9 - 0.03 * t, y * 0.047 + 0.011 * t + 3);
+      const n1 = noise(lat, x * 0.13 + y * 0.035 + 0.032 * t, y * 0.022 - 0.024 * t);
+      const n2 = noise(lat, x * 0.29 - y * 0.05 + 9 - 0.05 * t, y * 0.047 + 0.018 * t + 3);
       const q = Q0[i] + swell * sin(x * 0.05 + t * 0.07) + 0.2 * ((n1 - 0.5) + 0.55 * (n2 - 0.5));
       BR[i] = P.dk[0] + dr * q;
       BG[i] = P.dk[1] + dg * q;
@@ -385,18 +386,34 @@ function outline(S, f) {
   }
 }
 
+// A bubble: a bright disc 2 to 3 LED wide with a dark ring round it.
+function bubble(S, bx, by, br, wb, ab) {
+  const BR = S.BR, BG = S.BG, BB = S.BB, bub = S.pal.bub, wq = max(0.55, 0.8 * wb), R2 = br + 4;
+  const y0 = max(0, floor(by - R2)), y1 = min(H - 1, floor(by + R2)), x0 = max(0, floor(bx - R2)), x1 = min(W - 1, floor(bx + R2));
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++) {
+      const dx = x + 0.5 - bx, dy = y + 0.5 - by, pr = sqrt(dx * dx + dy * dy);
+      const tc = cl(0.5 - (pr - br) / (2 * wq), 0, 1), core = tc * tc * (3 - 2 * tc);
+      const e = (pr - br - 1.0) / (0.75 + 0.3 * wb), ring = g2(e * e);
+      const i = y * W + x, k = 1 - 0.6 * ring * ab;
+      BR[i] = BR[i] * k + bub[0] * core * ab;
+      BG[i] = BG[i] * k + bub[1] * core * ab;
+      BB[i] = BB[i] * k + bub[2] * core * ab;
+    }
+}
+
 function drawFlower(S, f) {
   const P = S.pal, K = S.K, BR = S.BR, BG = S.BG, BB = S.BB, rt = f.rt, dr = f.dr, sp = f.sp;
-  const z = f.z, wb = 0.5 + 2.8 * pow(z, 1.25), Z = 1 - 0.58 * z, wr = max(1.1, 0.9 * wb + 0.4);
+  const z = f.z, wb = 0.5 + 2.3 * pow(z, 1.25), Z = 1 - 0.65 * z, wr = max(1.1, 0.9 * wb + 0.4);
   // how much of the disc, the rim and the bubble is there: it opens in the first seconds, flares at the end and goes out
   const ge = f.ph >= 2 ? sm(0, FADE_T, f.t2 - GLOW_T) : 0;
   const aD = (f.ph === 0 ? min(1, f.age / 2.5) : 1) * (1 - ge), aR = aD;
   const gain = f.ph === 1 ? 1 + 0.8 * sin((PI * min(1, f.t2 / GLOW_T)) * 0.9) : f.ph === 2 ? 1 + 0.4 * (1 - ge) : 1;
-  const cx = f.x, cy = f.y, rb = f.rmax + 3 * wr + 5;
+  const cx = f.x, cy = f.y, rb = f.rmax + 3 * wr + 5, fz = (1 - z) * (1 - z); // the amber fringe dies with depth
   const rimC = P.rim, finC = P.fin, foutC = P.fout;
   if (aD > 0.003) {
     const y0 = max(0, floor(cy - rb)), y1 = min(H - 1, floor(cy + rb)), x0 = max(0, floor(cx - rb)), x1 = min(W - 1, floor(cx + rb));
-    const rb2 = rb * rb, wFin = 0.9 + 0.5 * wb, wOut = 1.0 + 0.5 * wb, dark = 0.3 * Z * aD;
+    const rb2 = rb * rb, wFin = 0.9 + 0.5 * wb, wOut = 0.75 + 0.5 * wb, dark = 0.3 * Z * aD;
     for (let y = y0; y <= y1; y++) {
       const dy = y + 0.5 - cy;
       for (let x = x0; x <= x1; x++) {
@@ -411,48 +428,29 @@ function drawFlower(S, f) {
         const sh = sp[j0] + (sp[j1] - sp[j0]) * fr;
         const tt = cl(0.5 - d / (2 * wb), 0, 1), cov = tt * tt * (3 - 2 * tt);
         const wRim = 1.15 * Z * aR * gain * sh * g2(((d + 0.3) / wr) * ((d + 0.3) / wr));
-        const e1 = (d + 1.6 + 0.5 * wb) / wFin, e2 = (d - 1.4) / wOut;
+        const e1 = (d + 1.6 + 0.5 * wb) / wFin, e2 = (d - 2.0) / wOut;
         const wIn = 0.34 * Z * aR * g2(e1 * e1);
-        const wOu = 0.2 * Z * aR * g2(e2 * e2);
-        const halo = d > 0 ? 0.15 * Z * aR * gain * g2((d / 2.8) * (d / 2.8)) : 0.16 * Z * aD * g2(((d + 2.6) / 2.2) * ((d + 2.6) / 2.2));
-        const i = y * W + x, k = 1 - dark * cov, wl = wRim + halo;
+        const gOu = Z * aR * fz * g2(e2 * e2), wOu = 0.34 * gOu;
+        const halo = d > 0 ? 0.1 * Z * aR * gain * g2((d / 3) * (d / 3)) : 0.16 * Z * aD * g2(((d + 2.6) / 2.2) * ((d + 2.6) / 2.2));
+        const i = y * W + x, k = (1 - dark * cov) * (1 - 0.4 * gOu), wl = wRim + halo; // the amber band dims the ground under it, so it stays amber on blue
         // the light is added on a screen, so overlapping rims climb towards white without clipping
         BR[i] = BR[i] * k + (rimC[0] * wl + finC[0] * wIn + foutC[0] * wOu) * (1 - BR[i] * 0.00392);
         BG[i] = BG[i] * k + (rimC[1] * wl + finC[1] * wIn + foutC[1] * wOu) * (1 - BG[i] * 0.00392);
         BB[i] = BB[i] * k + (rimC[2] * wl + finC[2] * wIn + foutC[2] * wOu) * (1 - BB[i] * 0.00392);
       }
     }
-    // the bubble, at the middle: a bright disc with a dark ring round it
-    const bx = cx + f.bx, by = cy + f.by, br = (0.95 + 0.026 * f.R) * (1 - 0.2 * z) * (1 + 0.05 * sin(1.7 * S.t + f.w[5])), wq = max(0.55, 0.8 * wb);
-    const R2 = br + 4, bub = P.bub, ab = Z * aD * (f.ph === 0 ? min(1, f.age / 4) : 1);
-    const yb0 = max(0, floor(by - R2)), yb1 = min(H - 1, floor(by + R2)), xb0 = max(0, floor(bx - R2)), xb1 = min(W - 1, floor(bx + R2));
-    for (let y = yb0; y <= yb1; y++)
-      for (let x = xb0; x <= xb1; x++) {
-        const dx = x + 0.5 - bx, dy = y + 0.5 - by, pr = sqrt(dx * dx + dy * dy);
-        const tc = cl(0.5 - (pr - br) / (2 * wq), 0, 1), core = tc * tc * (3 - 2 * tc);
-        const e = (pr - br - 1.0) / (0.75 + 0.3 * wb), ring = g2(e * e);
-        const i = y * W + x, k = 1 - 0.6 * ring * ab;
-        BR[i] = BR[i] * k + bub[0] * core * ab;
-        BG[i] = BG[i] * k + bub[1] * core * ab;
-        BB[i] = BB[i] * k + bub[2] * core * ab;
-      }
+    // the bubble, at the middle
+    const br = (0.95 + 0.026 * f.R) * (1 - 0.2 * z) * (1 + 0.05 * sin(1.7 * S.t + f.w[5]));
+    bubble(S, cx + f.bx, cy + f.by, br, wb, Z * aD * (f.ph === 0 ? min(1, f.age / 4) : 1));
   }
-  // the ghost bubbles of an ended disc
+  // the ghost bubbles of an ended disc: the bubble has split, and each piece shrinks and goes out in its own time
   if (f.ph >= 2) {
-    const bub = P.bub, e = f.ph === 2 ? ge : 1;
+    const e = f.ph === 2 ? ge : 1;
     for (let k = 0; k < f.gn; k++) {
       const life = f.ph === 2 ? 99 : f.gl[k];
       if (life <= 0) continue;
-      const fade = min(1, life / 3), a = 0.5 * Z * e * fade, r = f.gr[k] * (0.6 + 0.4 * fade) * (1 - 0.2 * z);
-      const gx = cx + f.bx * (1 - e) + f.gx[k] * e, gy = cy + f.by * (1 - e) + f.gy[k] * e, ww = max(r, 0.5 * wb + 0.5);
-      const y0 = max(0, floor(gy - 4)), y1 = min(H - 1, floor(gy + 4)), x0 = max(0, floor(gx - 4)), x1 = min(W - 1, floor(gx + 4));
-      for (let y = y0; y <= y1; y++)
-        for (let x = x0; x <= x1; x++) {
-          const dx = x + 0.5 - gx, dy = y + 0.5 - gy, w = a * g2((dx * dx + dy * dy) / (ww * ww)), i = y * W + x;
-          BR[i] += bub[0] * w;
-          BG[i] += bub[1] * w;
-          BB[i] += bub[2] * w;
-        }
+      const fade = min(1, life / 3), r = f.gr[k] * (0.6 + 0.4 * fade) * (1 - 0.2 * z);
+      bubble(S, cx + f.bx * (1 - e) + f.gx[k] * e, cy + f.by * (1 - e) + f.gy[k] * e, r, wb, Z * e * fade);
     }
   }
 }
