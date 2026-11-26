@@ -369,5 +369,10 @@
   "sunspots": { "label": "흑점", "color": "#ff8a1f" },
   "tidalbore": { "label": "조석 단파", "color": "#5aa7c9" },
   "ammonoids": { "label": "암모나이트", "color": "#c9a227" },
-  "polarhexagon": { "label": "극 육각 제트", "color": "#8be0ff" }
+  "polarhexagon": { "label": "극 육각 제트", "color": "#8be0ff" },
+  "echosounder": { "label": "어군 탐지 기록", "color": "#3fa7b5" },
+  "shiptrack": { "label": "항적 구름", "color": "#c9d3de" },
+  "honami": { "label": "이삭 물결", "color": "#d9b04a" },
+  "genesurfing": { "label": "유전자 서핑", "color": "#58e07a" },
+  "barkbeetle": { "label": "나무좀 갱도", "color": "#a8744a" }
 }
