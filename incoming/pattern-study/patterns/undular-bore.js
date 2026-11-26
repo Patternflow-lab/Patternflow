@@ -30,9 +30,9 @@ const sm = (a, b, v) => {
 };
 
 // ---- the medium
-const C0 = 10; // LEDs a second over water of depth 1
+const C0 = 7; // LEDs a second over water of depth 1
 const B0 = 1.0; // dispersion length squared (h^2 / 3 in the textbooks), LED^2, for depth 1 at K3 = 0
-const GN = 1.5; // amplitude dependence of the speed: c^2 goes as 1 + 3 eta
+const GN = 3; // amplitude dependence of the speed: c^2 goes as 1 + 6 eta
 const HMIN = 0.0002; // depth of the bank: next to none, so the water does not run up it
 const SIG0 = 0.04; // the water's own damping, 1/s
 const NU0 = 0.08; // viscosity on the water's speed, LED^2/s
@@ -54,9 +54,13 @@ function makeState() {
     lut: new Float32Array(256 * 3), hueAt: -1, hueMat: new Float32Array(9),
     tg1x: new Float32Array(W * H), tg1y: new Float32Array(W * H), tg2x: new Float32Array(W * H), tg2y: new Float32Array(W * H),
     bt: new Float32Array(64 * H), nt: new Float32Array(W * H),
-    tr0: new Int32Array(H * 2), tr1: new Int32Array(H * 2), trf: new Float32Array(H * 2),
+    baseRow: new Float32Array(H + YS), cloud: new Float32Array(17 * 33), cw: [],
   };
   for (let k = 0; k < 6; k++) S.ph.push(Math.random() * TAU);
+  for (let k = 0; k < 5; k++) { // plane waves of the cloud cover: wave vector, drift rate, phase
+    const a = Math.random() * TAU, lam = 38 + 55 * Math.random(), kk = TAU / lam, v = 1.2 + 2.2 * Math.random(), d = Math.random() * TAU;
+    S.cw.push([kk * cos(a), kk * sin(a), kk * v * (0.9 + 0.2 * Math.random()), Math.random() * TAU, d]);
+  }
   makeTiles(S);
   return S;
 }
@@ -128,7 +132,7 @@ function bars(x, y, ph) {
 function buildGeometry(S) {
   const t = S.clk, ph = S.ph;
   const a1 = S.bend * 11;
-  const p1 = ph[0] + 0.55 * sin(TAU * t / 173 + ph[3]), p2 = ph[1] + 0.8 * sin(TAU * t / 131 + ph[4]), p3 = ph[2] + 1.1 * sin(TAU * t / 97 + ph[5]);
+  const p1 = ph[0] - 0.016 * t + 0.5 * sin(TAU * t / 173 + ph[3]), p2 = ph[1] - 0.045 * t + 0.8 * sin(TAU * t / 131 + ph[4]), p3 = ph[2] - 0.075 * t + 1.1 * sin(TAU * t / 97 + ph[5]);
   const barPh = [ph[0] + 0.04 * t, ph[1] - 0.035 * t, ph[2] + 0.05 * t];
   const bm = S.beta0;
   const pd = S.pd, dwA = S.dwA, sdA = S.sdA, cx = S.cx, cy = S.cy, beta = S.beta, c2 = S.tmp2;
@@ -249,9 +253,9 @@ function launch(S, kn, t) {
   const amp = (0.12 + 0.5 * u2) * (0.8 + 0.4 * Math.random());
   const T = (0.28 + 1.6 * pow(1 - u2, 2.5)) * (0.85 + 0.3 * Math.random());
   addPulse(S, t, T, amp);
-  S.ebbAt = t + 11 + 8 * Math.random();
-  S.ebbT = 8 + 4 * Math.random();
-  S.nextAt = t + 30 + 22 * Math.random();
+  S.ebbAt = t + 9 + 6 * Math.random();
+  S.ebbT = 6 + 4 * Math.random();
+  S.nextAt = t + (Math.random() < 0.22 ? 11 + 4 * Math.random() : 22 + 14 * Math.random()); // now and then a second bore follows the first
   S.lastAmp = amp;
 }
 
@@ -317,18 +321,22 @@ function step(S) {
   S.clk += DT;
 }
 
+// Where the front of the last bore is: the row where the level across the middle of the channel rises most steeply going down the panel, if
+// that rise is steeper than a gentle swell's. An ebb draws the level down the other way, and a whelp is not as steep as the front.
 function frontRow(S) {
-  // the highest row where the mean level across the middle of the channel passes 0.4 of the last bore's height
-  const e = S.eta, thr = 0.4 * S.lastAmp;
-  for (let y = 0; y < H + YS - 4; y++) {
-    const j = y + PT, row = OFF + j * W;
-    let m = 0, n = 0;
-    for (let x = 22; x < 42; x++) {
-      if (S.pd[row + x] > 0.5) { m += e[row + x]; n++; }
-    }
-    if (n > 5 && m / n > thr) return y;
+  const e = S.eta, m = S.baseRow;
+  for (let y = 0; y < H + YS; y++) {
+    const row = OFF + (y + PT) * W;
+    let a = 0, n = 0;
+    for (let x = 20; x < 44; x++) if (S.pd[row + x] > 0.5) { a += e[row + x + 2 * W] - e[row + x - 2 * W]; n++; }
+    m[y] = n > 6 ? a / n : 0;
   }
-  return 999;
+  let best = 0, at = 999;
+  for (let y = 12; y < H + YS - 8; y++) {
+    const g = (m[y - 1] + m[y] + m[y + 1]) / 3;
+    if (g > best) { best = g; at = y; }
+  }
+  return best > 0.08 * S.lastAmp ? at : 999;
 }
 
 function control(S, kn) {
@@ -350,14 +358,20 @@ function preroll(S, kn) {
   buildDamping(S, DT);
   S.clk = 0;
   launch(S, kn, 0.3);
-  S.nextAt = 0.3 + 31;
-  let tB = -1;
-  for (let n = 0; n < 5000; n++) {
-    S.clk0 = S.clk;
+  const tB = 0.3 + 21;
+  S.nextAt = tB;
+  // The first bore climbs clean water: time it past row 100 to learn the speed this panel runs at, and aim the second at row 74
+  let c = 0, tEnd = 0;
+  for (let n = 0; n < 6000; n++) {
     schedule(S, kn);
-    if (tB < 0 && S.clk >= 0.3 + 31) tB = S.clk;
-    if (tB > 0 && (frontRow(S) <= 74 || S.clk > tB + 26)) break;
     step(S);
+    if (c === 0 && (n & 15) === 0 && S.clk > 3) {
+      const y = frontRow(S);
+      if (y < 110 && y > 20) c = (H + YS - y) / (S.clk - 0.3);
+      else if (S.clk > 16) c = 6;
+      if (c > 0) tEnd = tB + (H + YS - 74) / c;
+    }
+    if (c > 0 && S.clk >= tEnd) break;
     if ((n & 15) === 0) {
       S.geoT += 16 * DT;
       if (S.geoT > 1.5) { control(S, kn); S.bend = S.bendT; buildGeometry(S); }
@@ -396,6 +410,8 @@ export function update(dt, input, params) {
 // ---- the picture
 
 const SUN = [-0.42, -0.908]; // the way the sun lies from a point of water, on the panel: up and a little left
+const TEX1 = 0.13, TEX2 = 0.09; // slope of the ripples the current drags over the water
+const CLOUD = 0.34; // how much a cloud's shadow takes off the light
 const SG = 30; // slope gain: the surface slopes are drawn 30 times steeper than the solver has them
 const WATER = [
   [0.0, 11, 28, 38],
@@ -495,12 +511,20 @@ export function draw(display, params) {
   const S = params.s;
   if (!S || !S.ready) return;
   const kn = S.kn;
-  hueLut(S, cl(kn[0], 0, 1));
+  hueLut(S, cl(kn[0], 0, 1) + 0.03 * sin(TAU * S.clk / 151 + S.ph[0]) + 0.02 * sin(TAU * S.clk / 89 + S.ph[1]));
   smoothLevel(S);
   blurEta(S);
   const e = S.etaB, e0 = S.eta, es = S.etaS, pd = S.pd, dwA = S.dwA, foam = S.foam, lut = S.lut, bt = S.bt;
-  const o1 = S.o1, o2 = S.o2;
+  const o1 = S.o1, o2 = S.o2, cloud = S.cloud, tk = S.clk;
+  for (let gy = 0; gy < 33; gy++) {
+    for (let gx = 0; gx < 17; gx++) {
+      let v = 0;
+      for (let k = 0; k < 5; k++) { const w = S.cw[k]; v += sin(w[0] * gx * 4 + w[1] * gy * 4 - w[2] * tk + w[3]); }
+      cloud[gy * 17 + gx] = sm(0.25, 1.6, v * 0.5 + 0.8);
+    }
+  }
   for (let y = 0; y < H; y++) {
+    const cyi = floor(y / 4), cyf = (y - cyi * 4) / 4;
     const j = y + PT, b = OFF + j * W;
     // rows of the two ripple tiles at this y: the ripples drift with the current
     let y1 = (y - o1) % H; if (y1 < 0) y1 += H;
@@ -528,7 +552,7 @@ export function draw(display, params) {
                 const gx = 0.5 * (e[i + 1] - e[i - 1]), gy = 0.5 * (e[i + W] - e[i - W]);
         const t1 = (S.tg1y[r10 * W + x] * (1 - f1) + S.tg1y[r11 * W + x] * f1), t1x = (S.tg1x[r10 * W + x] * (1 - f1) + S.tg1x[r11 * W + x] * f1);
         const t2 = (S.tg2y[r20 * W + x] * (1 - f2) + S.tg2y[r21 * W + x] * f2), t2x = (S.tg2x[r20 * W + x] * (1 - f2) + S.tg2x[r21 * W + x] * f2);
-        const sx = SG * gx + 0.05 * t1x + 0.04 * t2x, sy = SG * gy + 0.05 * t1 + 0.04 * t2;
+        const sx = SG * gx + TEX1 * t1x + TEX2 * t2x, sy = SG * gy + TEX1 * t1 + TEX2 * t2;
         const q = -(sx * SUN[0] + sy * SUN[1]), cr = -(sx * SUN[1]) + sy * SUN[0];
         const lv = cl(es[i] / 0.28, 0, 1.2);
         let sh = 0.44 + 0.62 * q + 6 * (e[i] - es[i]) + 0.10 * lv;
@@ -546,7 +570,10 @@ export function draw(display, params) {
         if (fm > 0.02) { const fk = cl(fm, 0, 1) * 0.92, k = 0.8 + 0.2 * sh; r += (FOAMC[0] * k - r) * fk; g += (FOAMC[1] * k - g) * fk; bl += (FOAMC[2] * k - bl) * fk; }
         if (wl > 0) { R = R + (r - R) * (1 - wl); G = G + (g - G) * (1 - wl); B = B + (bl - B) * (1 - wl); } else { R = r; G = g; B = bl; }
       }
-      display.setPixel(x, y, cl(R, 0, 255) | 0, cl(G, 0, 255) | 0, cl(B, 0, 255) | 0);
+      const cxi = x >> 2, cxf = (x & 3) / 4, c0 = cyi * 17 + cxi;
+      const cv = (cloud[c0] * (1 - cxf) + cloud[c0 + 1] * cxf) * (1 - cyf) + (cloud[c0 + 17] * (1 - cxf) + cloud[c0 + 18] * cxf) * cyf;
+      const cs = 1 - CLOUD * cv;
+      display.setPixel(x, y, cl(R * cs, 0, 255) | 0, cl(G * cs, 0, 255) | 0, cl(B * cs, 0, 255) | 0);
     }
   }
 }
