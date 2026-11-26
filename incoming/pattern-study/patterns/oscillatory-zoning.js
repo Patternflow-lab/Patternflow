@@ -44,14 +44,14 @@ const SHS = 11; // face tables: 10 inverse face distances, 1 inverse elongation
 const NF = 10;
 
 // ---- the faces: two prism faces, four pyramid faces next to them, four steeper ones at the tips
-const A1 = (28 * PI) / 180, A2 = (58 * PI) / 180;
+const A1 = (26 * PI) / 180, A2 = (67 * PI) / 180;
 const C1 = cos(A1), S1 = sin(A1), C2 = cos(A2), S2 = sin(A2);
 const ANG0 = [0, PI, A1, PI - A1, -A1, PI + A1, A2, PI - A2, -A2, PI + A2];
 const FTY = [0, 0, 1, 1, 1, 1, 2, 2, 2, 2];
-const GB = [1, 1, 1.1, 1.1, 1.1, 1.1, 1.17, 1.17, 1.17, 1.17];
-const TIPY = 1.17 / S2; // the tip of the crystal in units of the prism face, before the stretch
-const EL0 = 1.45;
-const SEC_OFF = [-0.55, 0.1, 0.55];
+const GB = [1, 1, 1.217, 1.217, 1.217, 1.217, 1.269, 1.269, 1.269, 1.269];
+const TIPY = 1.269 / S2; // the tip of the crystal in units of the prism face, before the stretch
+const EL0 = 1.7;
+const SEC_OFF = [-0.4, 0.08, 0.42];
 const OSA = [0, 12, 13], OSB = [1, 14, 15]; // channels of the first two oscillations by face type
 const PS1 = [0, 0.2, 0.42], PS2 = [0, 0.3, 0.6]; // the bands of the pyramid sectors lag those of the prism sectors
 const MT = [
@@ -61,9 +61,9 @@ const MT = [
 ];
 
 // ---- the rhythms of the chemistry: cycles per unit of level, period in seconds of the melt's own rhythm, amplitude
-const AK = [2.6, 3.2, 0.9, 5.5];
+const AK = [2.6, 3.2, 1.5, 5.5];
 const IT = [1 / 30, 1 / 20, 1 / 50, 1 / 14];
-const AMP = [1.4, 0.85, 0.8, 0.3];
+const AMP = [1.4, 0.85, 0.7, 0.3];
 
 // ---- the colour ramp, from black resin to sulphur: value, r, g, b
 const STOPS = [
@@ -131,7 +131,7 @@ function makeState() {
     JS: new Float64Array(NF), NX: new Float64Array(NF), NY: new Float64Array(NF), OFFF: new Float64Array(NF),
     GM: new Float64Array(NF),
     evs: [], nextEv: -7,
-    kn: [0, 2, 0, 0.06],
+    kn: [0, 2, 0, 0.06], cm: 0, cs: 1.2, statsFresh: true,
   };
   for (let f = 0; f < NF; f++) {
     S.JS[f] = 1 + (Math.random() - 0.5) * 0.07;
@@ -153,7 +153,7 @@ function fillEntry(S, i, l, t) {
   const ch = S.ch, sh = S.sh;
   const o = (i & MASK) * CHS, p = (i & MASK) * SHS;
   const g = (L, s) => s * sqrt((2 * DL) / L) * randn();
-  S.rwA = S.rwA * (1 - DL / 1.3) + g(1.3, 0.34);
+  S.rwA = S.rwA * (1 - DL / 0.7) + g(0.7, 0.26);
   S.rwB = S.rwB * (1 - DL / 0.22) + g(0.22, 0.2);
   S.scv = S.scv * (1 - DL / 0.9) + g(0.9, 0.6);
   for (let k = 0; k < 4; k++) {
@@ -215,7 +215,7 @@ function step(S, h, kn) {
   const eT = EL0 * exp(0.5 * K3);
   S.ecur += (eT - S.ecur) * (1 - exp(-h / 1.3));
   // the rate: a log-normal wander, slow drift of the base, stalls and bursts at random
-  const base = 0.015 + 0.013 * K2;
+  const base = 0.022 + 0.011 * K2;
   const sx = 0.26 + 0.09 * K2;
   S.xr += (-S.xr * h) / 5 + sx * sqrt((2 * h) / 5) * randn();
   S.wr += (-S.wr * h) / 150 + 0.3 * sqrt((2 * h) / 150) * randn();
@@ -268,14 +268,18 @@ function step(S, h, kn) {
     }
     S.iprev = iNew;
     if (S.sinceT >= S.gapT && S.lrim > S.lbot + 1) {
-      const dur = 3.2 + 2.4 * Math.random();
-      S.diss = { t0: S.t, dur, depth: 0.05 + 0.09 * Math.random(), lpeak: S.lrim, c0: 0.3 + 0.3 * Math.random(), lam: 0.07 + 0.05 * Math.random() };
+      const dur = 3.6 + 2.6 * Math.random();
+      S.diss = { t0: S.t, dur, depth: 0.07 + 0.1 * Math.random(), lpeak: S.lrim, c0: 0.5 + 0.45 * Math.random(), lam: 0.09 + 0.08 * Math.random() };
     }
   }
   // the camera keeps the rim in frame, a little late
   S.lcam += (S.lrim - S.lcam) * (1 - exp(-h / 0.7));
-  const sT = max(30.5, 64.5 / (TIPY * S.ecur));
-  S.scam += (sT - S.scam) * (1 - exp(-h / 0.9));
+  S.scam += (camTarget(S.ecur) - S.scam) * (1 - exp(-h / 0.9));
+}
+
+// the camera: the prism faces sit at the panel's sides; a squat crystal is zoomed in so that its tips stay near the top and bottom
+function camTarget(e) {
+  return max(31.2, (68 + 4 * sst(1.0, 1.5, e)) / (TIPY * e));
 }
 
 function advance(S, dt, kn) {
@@ -287,7 +291,7 @@ function advance(S, dt, kn) {
 function render(S, kn) {
   const ch = S.ch, sh = S.sh, rgb = S.rgb, ramp = S.ramp;
   if (abs(kn[0] - S.hueAt) > 0.002) buildRamp(S, kn[0]);
-  const s4 = max(0, 1 + 1.15 * (kn[3] - 0.06));
+  const s4 = max(0, 1.1 + 1.3 * (kn[3] - 0.06));
   const Sc = S.scam, iSc = 1 / Sc, lcam = S.lcam, lrim = S.lrim;
   const NX = S.NX, NY = S.NY, OFFF = S.OFFF, GM = S.GM;
   const eps = S.eps, nEp = eps.length, pend = S.pend;
@@ -301,6 +305,9 @@ function render(S, kn) {
   const Rrim = exp(lrim - lcam);
   const rA = ramp, ru0 = S.rust[0], ru1 = S.rust[1], ru2 = S.rust[2];
   const lbot = S.lbot + 0.01;
+  const cm = S.cm, ics = 1 / S.cs;
+  let sumC = 0, sumC2 = 0, nC = 0;
+  const rimBoost = pend ? 0.9 : 0;
   for (let y = 0; y < H; y++) {
     const uy = (y + 0.5 - 64) * iSc;
     for (let x = 0; x < W; x++) {
@@ -356,6 +363,7 @@ function render(S, kn) {
       // distance from the outline in LEDs, positive outside
       const dL = ((Rf - Rrim) * Sc) / GM[fa];
       if (dL > 5) { rgb[o3] = 0; rgb[o3 + 1] = 0; rgb[o3 + 2] = 0; continue; }
+      const cov1 = dL < -0.5;
       if (lv > lrim) lv = lrim;
       if (lv < lbot) lv = lbot;
       const io = (floor(lv * IDL) & MASK) * CHS;
@@ -381,7 +389,9 @@ function render(S, kn) {
         const wt = 0.5 + 0.5 * (dd / wb);
         C = C2b + (C - C2b) * wt;
       }
-      const vv = sst(-1.4, 3.3, C + 0.8 * exp((lv - lrim) * 14));
+      const Ce = C + (0.8 + rimBoost) * exp((lv - lrim) * 14);
+      if (cov1) { sumC += Ce; sumC2 += Ce * Ce; nC++; }
+      const vv = sst(-1.6, 2.6, (Ce - cm) * ics);
       const ri = ((vv * 255) | 0) * 3;
       let cr = rA[ri], cg = rA[ri + 1], cb = rA[ri + 2];
       const rs = ch[io + 7];
@@ -402,6 +412,13 @@ function render(S, kn) {
       }
     }
   }
+  if (nC > 200) {
+    const m = sumC / nC, sd = sqrt(max(sumC2 / nC - m * m, 0.05));
+    const k = S.statsFresh ? 1 : 0.04;
+    S.cm += (m - S.cm) * k;
+    S.cs += (sd - S.cs) * k;
+    S.statsFresh = false;
+  }
 }
 
 export function update(dt, input, params) {
@@ -412,14 +429,15 @@ export function update(dt, input, params) {
   if (!S.ready) {
     S.ready = true;
     S.ecur = EL0 * exp(0.5 * kn[2]);
-    S.scam = max(30.5, 64.5 / (TIPY * S.ecur));
+    S.scam = camTarget(S.ecur);
     S.iprev = floor(S.lrim * IDL) - 1;
     // the history: grow the crystal from a speck, 7 levels, so that the picture opens full of shells
     let guard = 0;
     while (S.lrim < -0.02 && guard++ < 20000) advance(S, 0.05, kn);
     S.lcam = S.lrim;
-    S.scam = max(30.5, 64.5 / (TIPY * S.ecur));
+    S.scam = camTarget(S.ecur);
   }
+  if (S.statsFresh) { S.lcam = S.lrim; render(S, kn); S.statsFresh = true; }
   advance(S, d, kn);
   render(S, kn);
 }
