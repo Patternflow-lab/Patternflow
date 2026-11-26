@@ -43,9 +43,9 @@
 // but a phase that changes from patch to patch. sqrt(1 - gamma^2) of that is drawn in three ways. A smooth complex random field Z(tau, f, t), nodes 15 columns by 6 rows turning over
 // every 2.9 s, gives a mask that takes up to 0.7 of the talkers' fringes away where Im Z is high, so at a high R they break into pieces; it gives a grain, Re(Z e^(i 2 pi f tau)) sharpened
 // like a fringe, in a teal tint, that grows with R and fills the lower channels with short braided fringes; and the haze below is its own pair of fields.
-// The haze is two strata of smooth noise, 26 columns by 5 rows and 17 columns by 8 rows, turning over every 6 s, tinted indigo at the top and sea green at the bottom, brighter at
-// the top. It is not in the cross-correlation. It is the floor the correlogram sits on in a real recording, the energy that none of the channels' coincidence detectors can place,
-// and it keeps the four corners from going dark.
+// The haze is two fields of smooth noise, 24 columns by 10 rows and 14 columns by 7 rows, turning over every 6 s and cubed so that it gathers in patches with dark between them,
+// tinted indigo at the top and sea green at the bottom, and a third brighter at the top than at the bottom. It is not in the cross-correlation. It stands for the floor the
+// correlogram sits on in a real recording, the energy that none of the channels' coincidence detectors can place, and it keeps the corners from going dark.
 // The talkers. Four slots. Slot 0 stays; the others come and go, fading in and out over 7 to 12 s, staying 30 to 90 s and away 6 to 26 s, and each time one comes back it takes a
 // delay far from the others, a new pitch, new bands, and a colour that no one is wearing. A talker's delay is a velocity of Ornstein-Uhlenbeck noise (0.055 ms a second, memory 7 s)
 // held near +-0.7 ms by a soft wall and pushed away from a neighbour closer than 0.2 ms; a tremor of 0.4 LED, a loudness that wanders 0.55 to 1 with a 16 s memory, and a tint
@@ -65,7 +65,7 @@ const sm = (v) => ((v = cl(v, 0, 1)), v * v * (3 - 2 * v));
 const TPX = 2 / W; // ms of internal delay a column holds: the panel is -1 ms (left) to +1 ms (right)
 const F0 = 180, F1 = 4200; // centre frequencies of the first and last channel row, Hz, on a log scale
 const NS = 4; // talkers (slots)
-const ZI = 6, ZJ = 23, HNI = 4, HNJ = 15, HMI = 6, HMJ = 20; // nodes of the room's field and of the two haze strata, columns by rows
+const ZI = 6, ZJ = 23, HNI = 4, HNJ = 15, HMI = 6, HMJ = 20; // nodes of the room's field and of the two haze fields, columns by rows
 const MASK = 0.7, HZ = 0.7, FLOOR = 0.34; // how much of a fringe the room can take away, and how bright its haze is
 
 const FROW = new Float64Array(H), ERBROW = new Float64Array(H), KAPROW = new Float64Array(H);
@@ -87,7 +87,7 @@ const SRC = [
 ];
 const GAIN = [1.0, 0.92, 0.85, 0.78];
 const START_CI = [0, 3, 1, 2];
-const DIFF = [0.2, 0.62, 0.62], HAZE = [0.14, 0.22, 0.62], HAZE2 = [0.04, 0.55, 0.5]; // the diffuse field's tints: teal for its fringes, indigo for the haze
+const DIFF = [0.2, 0.62, 0.62], HAZE = [0.14, 0.26, 0.5], HAZE2 = [0.05, 0.5, 0.44]; // the diffuse field's tints: teal for its fringes, indigo for the haze
 
 function randn() {
   return sqrt(-2 * log(1 - Math.random())) * cos(TAU * Math.random());
@@ -257,7 +257,7 @@ export function draw(display, params) {
       S.zr[j * ZI + i] = a0 + (a1 - a0) * fz;
       S.zi[j * ZI + i] = b0 + (b1 - b0) * fz;
     }
-  // the haze: strata, 26 columns wide and 5 rows tall, which turn over every 6 s
+  // the haze: two fields of smooth noise, which turn over every 6 s
   const th = S.nt * 0.17, kh = floor(th) + S.seed, fh = sm(th - floor(th));
   for (let j = 0; j < HNJ; j++)
     for (let i = 0; i < HNI; i++) {
@@ -329,7 +329,7 @@ export function draw(display, params) {
       const dr = col[NS * 9], dg = col[NS * 9 + 1], db = col[NS * 9 + 2];
       const hr = col[NS * 9 + 3], hg = col[NS * 9 + 4], hb = col[NS * 9 + 5];
       let c = cos(TAU * fk * t0), s = sin(TAU * fk * t0);
-      const gw = wd * HZ * hzR, fl = FLOOR * (1.5 - 0.75 * y / (H - 1));
+      const gw = wd * HZ * hzR, fl = FLOOR * (1.3 - 0.55 * y / (H - 1));
       const ty = y / (H - 1), hq = col[NS * 9 + 6], hw = col[NS * 9 + 7], hv = col[NS * 9 + 8];
       const hr2 = hr + (hq - hr) * ty, hg2 = hg + (hw - hg) * ty, hb2 = hb + (hv - hb) * ty;
       const hyj = y / 10, hj0 = floor(hyj), hfy = sm(hyj - hj0), hn = S.hn, myj = y / 7, mj0 = floor(myj), mfy = sm(myj - mj0), hm = S.hm;
