@@ -12,12 +12,12 @@
 // @knobs Hue=0..1, Rabi=0.8..3.5, Detune=-1..1, Dephase=0..1
 //
 // Knob 1: Hue. Turns the whole colouring round the colour wheel by 360 degrees for the knob's travel, so 0 and 1 are the same. At 0 the ground state is near-black indigo (6, 3, 24), the excited state a pale gold (255, 244, 196), and the azimuth of the coherence goes through orange, magenta, violet and teal. At 0.25 the excited state is pale green over a dark maroon ground, at 0.5 pale cyan over a dark olive one and at 0.75 a pink-violet over a dark teal one; the picture is recoloured at once, rows already on the panel included.
-// Knob 2: Rabi. How strong the drive is, 0.8 to 3.5, opening at 2: the Rabi frequency is 0.11 radian a row for each unit, and a row is a tenth of a second. At the opening 0.22 radian a row is one flop of the resonant columns every 28.6 rows (2.9 s), 71 rows at 0.8 and 16 rows at 3.5. Each experiment draws its own strength 0.75 to 1.4 times the knob's, and its pulses are as long as the strength needs for a pi/2 (7 rows at the opening) or a pi (14 rows). A strong drive packs more fringes into an experiment and widens the chevron, since the line is Omega wide; a weak one leaves a single flop and a chevron that is nearly a straight stripe.
+// Knob 2: Rabi. How strong the drive is, 0.8 to 3.5, opening at 2: the Rabi frequency is 0.11 radian a row for each unit, and a row is a fifth of a second. At the opening 0.22 radian a row is one flop of the resonant columns every 28.6 rows (5.7 s), 71 rows at 0.8 (14 s) and 16 rows at 3.5 (3.3 s). Each experiment draws its own strength 0.75 to 1.4 times the knob's, and its pulses are as long as the strength needs for a pi/2 (7 rows at the opening) or a pi (14 rows). A strong drive packs more fringes into an experiment and widens the chevron, since the line is Omega wide; a weak one leaves a single flop and a chevron that is nearly a straight stripe.
 // Knob 3: Detune. How far the outer columns are off resonance, -1 to 1, opening at 0: the edge columns are 0.36 e^(0.8 K) radian a row off, 0.16 at -1, 0.36 at the opening and 0.80 at 1. At the opening they are 1.6 Rabi frequencies off, flop 1.9 times as fast as the middle and rise 0.28 of the way up. At 1 they are 3.6 off, flop 3.7 times as fast and rise 0.07 of the way (before each experiment's own strength factor): a narrow chevron, many fringes, and a frequency sweep that crosses the panel at a steep angle. At -1 the whole panel is almost resonant and the fringes are close to horizontal stripes. The same number sets the sweeps' range and how long a free wait can be (a free wait is at most 8.6 over the edge detuning, 24 rows at the opening, so the rainbow fan keeps at least 23 columns for a turn of colour).
 // Knob 4: Dephase. How fast the coherence is lost, 0 to 1, opening at 0.06: the transverse part of the Bloch vector decays at 0.003 + 0.06 K squared a row (each experiment draws 0.41 to 2 times that), on top of the relaxation toward the ground state with a 70 row time constant. The coherence then lasts 97 rows at the opening, 65 at 0.3, 32 at 0.6 and 14 at 1, relaxation included. At the opening the fringes run to the end of an experiment and a spin echo comes back with 0.57 of its colour; at 0.3 with 0.43; at 0.6 it is a faint blush of 0.18; at 1 each flop is gone within half a turn, every column settles to a soft glow, and the panel is the power-broadened line of a strongly dephased atom, a warm band over the middle columns on a dusky rose ground.
 
 // What the picture is. Each of the 64 columns is the same qubit with its own detuning from the drive, from -0.98 to +0.98 of the edge detuning across the panel, with the resonant column a little off the middle
-// in each experiment (up to 0.5 of the half width). Each pixel row is one moment. The newest row comes in at the top and the record falls down the panel at 10 rows a second, so 128 rows hold 12.8 s,
+// in each experiment (up to 0.5 of the half width). Each pixel row is one moment. The newest row comes in at the top and the record falls down the panel at 5 rows a second, so 128 rows hold 25.6 s,
 // and between two whole rows the colours are blended so the fall is smooth. The state in each column is a Bloch vector with a ground pole at the bottom of the sphere. Brightness and colour come from three numbers: the excited-state
 // population P = (1 + z) / 2, the length of the transverse part rho = sqrt(x^2 + y^2) and its azimuth. P runs from indigo-black through violet and rose to orange and gold, and the azimuth tints it
 // with a wheel of orange, magenta, violet and teal by rho, so a pure superposition on the equator is a vivid wheel colour, a state at the poles is plain black or gold whatever its phase, and a state that has dephased loses its wheel colour and keeps only the warm ramp.
@@ -25,22 +25,61 @@
 // The detuned columns turn about a tilted axis, so they rise less, flop faster and carry the azimuth round the whole wheel: the nested V's of Rabi's chevron are drawn in brightness and the rainbow in the flanks.
 // Time runs up the panel, so the slowest fringe is the middle one and the chevron points up.
 // An experiment is a list of segments, each a stretch of drive (amplitude, phase), a detuning of the drive that is constant, a ramp or a sine, or the fast relaxation of a reset, drawn at random when the one before has ended and never the same kind twice running:
-//   constant drive, 20 percent: the drive on for 1.7 to 3.6 flops, at a random phase, then free;
-//   pulse, wait, pulse, 20 percent: pi/2, a wait of 0.4 to 1 of the longest, pi/2 at a phase 0, pi or plus or minus pi/2 from the first. During the wait every column turns about the vertical axis by its own detuning, so the rainbow is a fan with hyperbolic bands; the second pulse
+//   constant drive, 15 percent: the drive on for 1.1 to 2.2 flops, at a random phase, then free;
+//   pulse, wait, pulse, 14 percent: pi/2, a wait of 0.4 to 1 of the longest, pi/2 at a phase 0, pi or plus or minus pi/2 from the first. During the wait every column turns about the vertical axis by its own detuning, so the rainbow is a fan with hyperbolic bands; the second pulse
 //   turns that phase into population, Ramsey's fringes, which then hang as vertical stripes while the state decays;
-//   spin echo, 22 percent: pi/2, a wait, a pi pulse at 90 degrees from the first, the same wait, and in three runs in five a pi/2 read-out. The pi pulse mirrors every azimuth, so the fan runs back to one colour across the whole panel (an hourglass of bands) and the read-out turns that into a gold stripe across every column at once;
-//   sweep, 20 percent: the drive frequency runs linearly through all the columns' resonances in 14 to 84 rows (aimed at a Landau-Zener parameter kappa = pi Omega^2 / (2 rate) of 0.35 to 4, which the 14 and 84 row limits can pull in: the front is bright and complete at 4, with 1 - e^-kappa of the atoms turned, and a faint partial one at 0.35), at 0.65 to 1.3 of the edge detuning, sometimes with a dwell and a sweep back. The front is a diagonal across the panel with ripples behind it,
+//   spin echo, 15 percent: pi/2, a wait, a pi pulse at 90 degrees from the first, the same wait, and in three runs in five a pi/2 read-out. The pi pulse mirrors every azimuth, so the fan runs back to one colour across the whole panel (an hourglass of bands) and the read-out turns that into a gold stripe across every column at once;
+//   sweep, 13 percent: the drive frequency runs linearly through all the columns' resonances in 14 to 84 rows (aimed at a Landau-Zener parameter kappa = pi Omega^2 / (2 rate) of 0.35 to 4, which the 14 and 84 row limits can pull in: the front is bright and complete at 4, with 1 - e^-kappa of the atoms turned, and a faint partial one at 0.35), at 0.65 to 1.3 of the edge detuning, sometimes with a dwell and a sweep back. The front is a diagonal across the panel with ripples behind it,
 //   and on the way back the two passages interfere;
-//   oscillating detuning, 18 percent: a sine of 18 to 26 radians over the edge detuning in period (24 to 52 rows), amplitude 0.45 to 1.25 of it, two or three cycles under a swelling and fading envelope. Each cycle crosses each column's resonance twice and the crossings interfere: feathers and ferns.
-// After the last pulse the state is held for 8 to 34 rows. Then comes a reset of 20 to 34 rows with the relaxation time cut from 70 rows to 9, so the panel goes back near black between experiments.
+//   oscillating detuning, 12 percent: a sine of 18 to 26 radians over the edge detuning in period (24 to 36 rows), amplitude 0.45 to 1.25 of it, two or three cycles under a swelling and fading envelope. Each cycle crosses each column's resonance twice and the crossings interfere: feathers and ferns.
+//   pulse train, 15 percent: two to four pulses of 0.4 to 2.2 pi, each at one of four phases, with short waits between;
+//   rotary echo, 10 percent: a strong drive whose phase flips by pi two or three times, so the flops run back;
+//   spin lock, 10 percent: pi/2, then a weaker drive along the coherence that holds the colour of the columns near resonance, sometimes a pi/2 read-out.
+// An experiment's kind is drawn at random and is never one of the last three. After the last pulse the state is held for 5 to 34 rows, depending on the kind. Then comes a reset of 6 to 14 rows with the relaxation time cut from 70 rows to 9, so the panel goes dark between experiments.
+// A faint haze lies in the dark ground, two octaves of value noise of 22 by 34 and 11 by 17 rows that belong to the record and fall with it, up to 0.16 of the way from ground to excited, so the ground is a deep indigo that is a little different in every part of the panel and at every time.
+// Why the experiments are short and the haze is there: the study's repeat score compares frames of 8 by 8 LED blocks, and two experiments of one kind look alike at that size. Experiments of about 60 to 80 rows, a panel with two or three of them on it, eight kinds, a scroll of 5 rows a second and a haze that is never the same twice keep the nearest pair of frames from being close.
 // The Bloch vector of a column is stepped with an exact rotation about the field vector (Omega cos phi, Omega sin phi, detuning minus the drive's detuning) for each substep, six a row, ten in the sweeps, with the drive averaged over the substep so a pulse's area is right wherever it starts and ends inside one; the relaxation after each. Sixty-four columns at ten rows a second is
-// about four thousand rotations a second, and the opening runs the model for at least 300 rows (30 s) in one go so the panel starts with experiments already on it, stopping when the one in progress is between 55 and 90 percent done.
+// about four thousand rotations a second, and the opening runs the model for at least 300 rows (60 s) in one go so the panel starts with experiments already on it, stopping when the one in progress is between 55 and 90 percent done.
 // Never a loop: each experiment draws its kind, its pulse phase, strength, off-centre resonance, coherence, waits and gaps at random, so the record does not come back to a picture it has shown.
-// The 70 row relaxation time, the 9 row reset and the 10 rows a second are chosen to look right, not taken from a device.
+// The 70 row relaxation time, the 9 row reset and the 5 rows a second are chosen to look right, not taken from a device.
 
 const W = 64, H = 128;
 const NR = 140; // rows of history kept in a ring
-const RATE = 10; // rows a second the record scrolls
+const RATE = 5; // rows a second the record scrolls
+const GAIN_LO = 1; // each experiment is read out with a gain of GAIN_LO to 1
+const HS_LO = 0; // each experiment's colouring is turned round the wheel by HS_LO to HS_HI of a turn
+const HS_HI = 0;
+const NQ = 12; // hue steps the drift is cut into
+const AVOID = 3; // an experiment's kind may not be one of the last AVOID kinds
+const GAP_LO = 6; // rows of reset between experiments, GAP_LO to GAP_HI
+const GAP_HI = 14;
+const SP_LO = 1; // each experiment's own span of detuning, times the knob's, SP_LO to SP_HI
+const SP_HI = 1;
+const OM_LO = 0.75; // each experiment's own drive strength, times the knob's, OM_LO to OM_HI
+const OM_HI = 1.4;
+const WP = 0.6; // each experiment bends the map from column to detuning by a power of 1 - WP to 1 + WP
+const WMAX = 1.05; // the fastest turning, in radian a row, of any column outside a sweep: a fringe is then at least 6 rows from crest to crest
+const GF_LO = 0.9; // each experiment's own coherence: the dephasing is e^-GF_LO to e^GF_HI times the knob's
+const GF_HI = 0.7;
+const T1_SP = 0; // and its own relaxation time, e^-T1_SP to e^T1_SP times 70 rows
+const HZ = 0.16; // the strongest faint haze in the dark ground, as a share of the way from ground to excited
+const WN = 0; // the share of experiments lit across only part of the panel
+const NC = 1; // experiments drawn for each one used (1: the first is used), the likeness to the last NH of them would decide
+const NH = 10;
+const KW0 = 0.15; // the share of constant drives, and of pulse trains below, in the draw of the next experiment
+const KW5 = 0.15;
+const KW6 = 0.1;
+const KW7 = 0.1;
+const FL_LO = 1.1; // flops of a constant drive, FL_LO to FL_HI
+const FL_HI = 2.2;
+const HOLD_LO = 8; // free hold after the last pulse, HOLD_LO to HOLD_LO + HOLD_SP
+const HOLD_SP = 14;
+const H2_LO = 5; // free hold after a drive, a sweep or an oscillating detuning, H2_LO to H2_HI
+const H2_HI = 14;
+const SP_MAX = 36; // longest period of an oscillating detuning, rows
+const NS_LO = 1.8; // cycles of an oscillating detuning, NS_LO to NS_HI
+const NS_HI = 3;
+const WT_LO = 0.3; // shortest wait, as a share of the longest
 const { floor, sqrt, exp, log, sin, cos, atan2, pow, min, max, abs, PI } = Math;
 const TAU = 2 * PI;
 const cl = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -85,7 +124,13 @@ function rampAt(T, v, o, cyc) {
 }
 
 function buildLuts(S) {
-  const a = TAU * S.hue, c = cos(a), s = sin(a);
+  for (let q = 0; q < NQ; q++) buildLut(S, q, S.hue + HS_LO + ((HS_HI - HS_LO) * q) / (NQ - 1));
+  S.lutHue = S.hue;
+}
+
+function buildLut(S, qi, hue) {
+  const a = TAU * hue, c = cos(a), s = sin(a);
+  const wheel = S.wheel[qi], base = S.base[qi];
   const m = [
     0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928,
     0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.14, 0.072 - c * 0.072 - s * 0.283,
@@ -97,23 +142,43 @@ function buildLuts(S) {
   };
   for (let i = 0; i < 256; i++) {
     rampAt(WHEEL, i / 256, t, true);
-    put(S.wheel, i);
+    put(wheel, i);
     rampAt(BASE, i / 255, t, false);
-    put(S.base, i);
+    put(base, i);
   }
-  S.lutHue = S.hue;
 }
 
-function paint(S, P, rho, az, o) {
+function paint(S, P, rho, az, q, gain, o) {
   const L = cl(P, 0, 1);
+  const wheel = S.wheel[q], base = S.base[q];
   const bi = ((pow(L, 0.85) * 255 + 0.5) | 0) * 3;
   const wi = (((az * 256) | 0) & 255) * 3;
   const b = 0.08 + 0.92 * ss(0, 0.62, L);
   const tint = 0.9 * pow(cl(rho, 0, 1), 1.15);
   const k = tint * b, j = 1 - tint;
-  o[0] = S.base[bi] * j + S.wheel[wi] * k;
-  o[1] = S.base[bi + 1] * j + S.wheel[wi + 1] * k;
-  o[2] = S.base[bi + 2] * j + S.wheel[wi + 2] * k;
+  o[0] = (base[bi] * j + wheel[wi] * k) * gain;
+  o[1] = (base[bi + 1] * j + wheel[wi + 1] * k) * gain;
+  o[2] = (base[bi + 2] * j + wheel[wi + 2] * k) * gain;
+}
+
+// ---- a faint haze in the dark ground, soft blobs that live in the record and scroll with it
+function hash2(i, j, sd) {
+  let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(sd, 2246822519)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+function vnoise(x, y, sd) {
+  const ix = floor(x), iy = floor(y);
+  let fx = x - ix, fy = y - iy;
+  fx = fx * fx * (3 - 2 * fx);
+  fy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy, sd), b = hash2(ix + 1, iy, sd), c = hash2(ix, iy + 1, sd), d = hash2(ix + 1, iy + 1, sd);
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+}
+function haze(x, n, sd) {
+  const v = 0.65 * vnoise(x / 22, n / 34, sd) + 0.35 * vnoise(x / 11 + 7.3, n / 17 + 3.1, sd + 1);
+  return HZ * ss(0.25, 0.8, v);
 }
 
 // ---- the experiment schedule. A segment is a stretch of time with a drive (amplitude d,
@@ -127,48 +192,59 @@ function seg(ex, dur, o) {
   return g;
 }
 
-function planNext(S) {
-  const de = S.de;
+function planOne(S) {
   // each experiment has its own drive strength, its own off-centre resonance and its own coherence
-  const omf = rr(0.75, 1.4), Om = S.Om * omf;
-  const ex = { segs: [], len: 0, kind: 0, nsub: 6, omf, off: rr(-0.5, 0.5) * (rnd() < 0.3 ? 0.25 : 1), gf: exp(rr(-0.9, 0.7)) };
-  const w = [0.2, 0.2, 0.22, 0.2, 0.18];
+  const omf = rr(OM_LO, OM_HI), Om = S.Om * omf;
+  const sp = rr(SP_LO, SP_HI), de = min(S.de * sp, 0.9);
+  const ex = { segs: [], len: 0, kind: 0, nsub: 6, omf, sp, off: rr(-0.5, 0.5) * (rnd() < 0.3 ? 0.25 : 1), gf: exp(rr(-GF_LO, GF_HI)), t1: T1RUN * exp(rr(-T1_SP, T1_SP)), gain: rr(GAIN_LO, 1) };
+  const w = [KW0, 0.14, 0.15, 0.13, 0.12, KW5, KW6, KW7];
   let kind = 0;
-  for (let tries = 0; tries < 3; tries++) {
-    let r = rnd() * 1;
+  for (let tries = 0; tries < 12; tries++) {
+    let r = rnd() * (w[0] + w[1] + w[2] + w[3] + w[4] + w[5] + w[6] + w[7]);
     kind = 0;
     for (let i = 0; i < w.length; i++) {
       if (r < w[i]) { kind = i; break; }
       r -= w[i];
       kind = i;
     }
-    if (kind !== S.lastKind) break;
+    if (S.recent.indexOf(kind) < 0) break;
   }
-  S.lastKind = kind;
+  ex.hq = floor(rnd() * NQ);
+  ex.win = new Float32Array(W).fill(1);
+  if (rnd() < WN) {
+    const wd = rr(24, 54), c = rr(wd * 0.5 + 2, W - wd * 0.5 - 2), edge = rr(5, 10);
+    for (let x = 0; x < W; x++) ex.win[x] = ss(c - wd / 2 - edge, c - wd / 2 + edge, x) * (1 - ss(c + wd / 2 - edge, c + wd / 2 + edge, x));
+  }
+  const wp = exp(rr(-WP, WP));
+  ex.dx = new Float64Array(W);
+  for (let x = 0; x < W; x++) { const u = DX[x] - ex.off, a = abs(u) / 1.5; ex.dx[x] = (u < 0 ? -1 : 1) * pow(a, wp) * 1.5; }
+  let dmax = 0;
+  for (let x = 0; x < W; x++) dmax = max(dmax, abs(ex.dx[x]));
+  ex.dsc = min(1, sqrt(max(WMAX * WMAX - 1.6 * Om * Om, 0.04)) / (min(S.de * sp, 0.9) * dmax));
   ex.kind = kind;
   const ph0 = rnd() * TAU;
   const piHalf = (PI / 2) / Om, piDur = PI / Om;
   const waitMax = min(8.6 / de, 56);
   if (kind === 0) { // constant drive: the chevron
     const per = TAU / Om;
-    const L = cl(rr(1.7, 3.6) * per, 40, 112);
+    const L = cl(rr(FL_LO, FL_HI) * per, 30, 112);
     seg(ex, L, { d: rr(0.85, 1.2), ph: ph0 });
-    seg(ex, rr(8, 22), {});
+    seg(ex, rr(H2_LO, H2_HI), {});
   } else if (kind === 1) { // pulse, wait, pulse
-    const T = rr(0.4, 1) * waitMax;
+    const T = rr(WT_LO, 1) * waitMax;
     seg(ex, piHalf, { d: 1, ph: ph0 });
-    seg(ex, max(T, 12), {});
+    seg(ex, max(T, 8), {});
     const q = rnd();
     seg(ex, piHalf, { d: 1, ph: ph0 + (q < 0.45 ? 0 : q < 0.6 ? PI : q < 0.8 ? PI / 2 : -PI / 2) });
-    seg(ex, rr(14, 34), {});
+    seg(ex, rr(HOLD_LO, HOLD_LO + HOLD_SP), {});
   } else if (kind === 2) { // spin echo
-    const T = max(rr(0.45, 1) * waitMax, 14);
+    const T = max(rr(WT_LO, 1) * waitMax, 10);
     seg(ex, piHalf, { d: 1, ph: ph0 });
     seg(ex, T, {});
     seg(ex, piDur, { d: 1, ph: ph0 + PI / 2 });
     seg(ex, T, {});
     if (rnd() < 0.62) seg(ex, piHalf, { d: 1, ph: ph0 });
-    seg(ex, rr(10, 26), {});
+    seg(ex, rr(HOLD_LO - 4, HOLD_LO + HOLD_SP - 8), {});
   } else if (kind === 3) { // chirped sweep through resonance, once or there and back
     ex.nsub = 10;
     const dir = rnd() < 0.5 ? 1 : -1;
@@ -184,16 +260,56 @@ function planNext(S) {
       if (dwell > 1) seg(ex, dwell, { d: amp, ph: ph0, m: 1, f0: f0, f1: f0 });
       seg(ex, Ts * rr(0.8, 1.2), { d: amp, ph: ph0, m: 1, f0: f0, f1: -f0 });
     }
-    seg(ex, rr(8, 22), {});
+    seg(ex, rr(H2_LO, H2_HI), {});
+  } else if (kind === 5) { // a short train of pulses of any area and phase
+    const np = floor(rr(2.2, 4.4));
+    const cap = 48 * Om;
+    for (let i = 0; i < np; i++) {
+      const th = min(rr(0.4, 2.2) * PI, cap);
+      seg(ex, max(th / Om, 4), { d: 1, ph: ph0 + floor(rnd() * 4) * (PI / 2) });
+      if (i < np - 1) seg(ex, max(rr(0.1, 0.6) * waitMax, 4), {});
+    }
+    seg(ex, rr(H2_LO, H2_HI), {});
+  } else if (kind === 6) { // rotary echo: the phase of a strong drive flips, and the flops run back
+    const nb = floor(rr(2, 4.2)), per = TAU / Om;
+    for (let i = 0; i < nb; i++) seg(ex, cl(rr(0.45, 1.1) * per, 10, 56), { d: rr(0.9, 1.25), ph: ph0 + (i % 2) * PI });
+    seg(ex, rr(H2_LO, H2_HI), {});
+  } else if (kind === 7) { // spin lock: pi/2, then a drive along the coherence that holds its colour
+    seg(ex, piHalf, { d: 1, ph: ph0 });
+    seg(ex, rr(24, 70), { d: rr(0.35, 0.9), ph: ph0 + PI / 2 });
+    if (rnd() < 0.5) seg(ex, piHalf, { d: 1, ph: ph0 });
+    seg(ex, rr(H2_LO, H2_HI), {});
   } else { // strong oscillating detuning: Stueckelberg
     ex.nsub = 10;
-    const per = cl(rr(18, 26) / de, 24, 52);
-    const n = per > 40 ? 2 : floor(rr(2.4, 3.6));
+    const per = cl(rr(18, 26) / de, 24, SP_MAX);
+    const n = per > 0.78 * SP_MAX ? 2 : floor(rr(NS_LO, NS_HI));
     seg(ex, n * per, { d: rr(0.9, 1.25), ph: ph0, m: 2, A: rr(0.45, 1.25), per, p2: rnd() * TAU, q: rr(0.5, 1.6) });
-    seg(ex, rr(8, 22), {});
+    seg(ex, rr(H2_LO, H2_HI), {});
   }
-  seg(ex, rr(20, 34), { rs: 1 });
-  S.ex = ex;
+  seg(ex, rr(GAP_LO, GAP_HI), { rs: 1 });
+  ex.desc = [ex.len / 90, ex.off * 2, log(wp) * 1.5, (omf - 1) * 2, log(ex.gf) * 0.6];
+  return ex;
+}
+
+// Draw NC experiments and keep the one whose make-up is farthest from the last NH, so two like ones do not come close together.
+function planNext(S) {
+  let best = null, bs = -1;
+  for (let c = 0; c < NC; c++) {
+    const ex = planOne(S);
+    let sc = 9;
+    for (let h = 0; h < S.hist.length; h++) {
+      const d = S.hist[h];
+      let q = d.kind === ex.kind ? 0 : 0.64;
+      for (let i = 0; i < 5; i++) q += (ex.desc[i] - d.v[i]) * (ex.desc[i] - d.v[i]);
+      sc = min(sc, q);
+    }
+    if (sc > bs) { bs = sc; best = ex; }
+  }
+  S.ex = best;
+  S.hist.push({ kind: best.kind, v: best.desc });
+  if (S.hist.length > NH) S.hist.shift();
+  S.recent.push(best.kind);
+  if (S.recent.length > AVOID) S.recent.shift();
 }
 
 function ctl(ex, ta, tb, o) {
@@ -215,7 +331,8 @@ function ctl(ex, ta, tb, o) {
   o.ox = ox; o.oy = oy; o.c = c; o.rs = rs;
 }
 
-const T1RUN = 70, T1RESET = 9;
+const T1RUN = 70;
+const T1RESET = 9;
 
 function stepRow(S) {
   if (!S.ex || S.tau >= S.ex.len) {
@@ -224,16 +341,16 @@ function stepRow(S) {
     S.tau = carry;
   }
   const ex = S.ex, N = ex.nsub, h = 1 / N, o = S.o;
-  const Om = S.Om, de = S.de, gp = S.gp;
+  const Om = S.Om, dE = min(S.de * ex.sp, 0.9), gp = S.gp;
   const U = S.u, V = S.v, Z = S.z;
   for (let s = 0; s < N; s++) {
     const ta = S.tau + s * h, tb = ta + h;
     ctl(ex, ta, tb, o);
-    const wx = o.ox * Om * ex.omf, wy = o.oy * Om * ex.omf, cc = o.c * de;
-    const r1 = (1 - o.rs) / T1RUN + o.rs / T1RESET;
+    const wx = o.ox * Om * ex.omf, wy = o.oy * Om * ex.omf, cc = o.c * dE;
+    const r1 = (1 - o.rs) / ex.t1 + o.rs / T1RESET;
     const ez = exp(-r1 * h), ep = exp(-(gp * ex.gf + 0.5 * r1) * h);
     for (let x = 0; x < W; x++) {
-      const wz = de * (DX[x] - ex.off) - cc;
+      const wz = dE * ex.dsc * ex.dx[x] - cc;
       const w2 = wx * wx + wy * wy + wz * wz;
       let bx = U[x], by = V[x], bz = Z[x];
       if (w2 > 1e-14) {
@@ -249,13 +366,16 @@ function stepRow(S) {
   }
   S.tau += 1;
   // one finished row of the record
-  const row = (S.rowN % NR) * W, tmp = S.tmp;
+  const ri = S.rowN % NR, row = ri * W, tmp = S.tmp;
+  const gain = ex.gain;
+  S.hq[ri] = ex.hq;
   for (let x = 0; x < W; x++) {
     const P = 0.5 * (1 + Z[x]), rho = sqrt(U[x] * U[x] + V[x] * V[x]);
     let az = atan2(V[x], U[x]) / TAU;
     az -= floor(az);
-    S.hp[row + x] = P; S.hr[row + x] = rho; S.ha[row + x] = az;
-    paint(S, P, rho, az, tmp);
+    const Ph = P + (1 - P) * haze(x, S.rowN, S.seed);
+    S.hp[row + x] = Ph; S.hr[row + x] = rho; S.ha[row + x] = az; S.hg[row + x] = gain * ex.win[x];
+    paint(S, Ph, rho, az, ex.hq, gain * ex.win[x], tmp);
     const i = (row + x) * 3;
     S.rgb[i] = tmp[0]; S.rgb[i + 1] = tmp[1]; S.rgb[i + 2] = tmp[2];
   }
@@ -267,9 +387,9 @@ function repaint(S) {
   const tmp = S.tmp;
   const n0 = max(0, S.rowN - NR);
   for (let n = n0; n < S.rowN; n++) {
-    const row = (n % NR) * W;
+    const ri = n % NR, row = ri * W;
     for (let x = 0; x < W; x++) {
-      paint(S, S.hp[row + x], S.hr[row + x], S.ha[row + x], tmp);
+      paint(S, S.hp[row + x], S.hr[row + x], S.ha[row + x], S.hq[ri], S.hg[row + x], tmp);
       const i = (row + x) * 3;
       S.rgb[i] = tmp[0]; S.rgb[i + 1] = tmp[1]; S.rgb[i + 2] = tmp[2];
     }
@@ -278,14 +398,15 @@ function repaint(S) {
 
 export function setup(params) {
   const S = {
-    ready: false, rowN: 0, th: 0, tau: 0, ex: null, lastKind: -1,
+    ready: false, rowN: 0, th: 0, tau: 0, ex: null,
     u: new Float64Array(W), v: new Float64Array(W), z: new Float64Array(W).fill(-1),
     hp: new Float32Array(NR * W), hr: new Float32Array(NR * W), ha: new Float32Array(NR * W),
     rgb: new Float32Array(NR * W * 3),
-    wheel: new Float32Array(256 * 3), base: new Float32Array(256 * 3), lutHue: -1,
-    tmp: [0, 0, 0], o: { ox: 0, oy: 0, c: 0, rs: 0 },
-    hue: 0, Om: 0.22, de: 0.36, gp: 0.0041,
+    wheel: [], base: [], hq: new Uint8Array(NR), hg: new Float32Array(NR * W), recent: [], lutHue: -1,
+    hist: [], tmp: [0, 0, 0], o: { ox: 0, oy: 0, c: 0, rs: 0 },
+    seed: floor(rnd() * 1e6), hue: 0, Om: 0.22, de: 0.36, gp: 0.0041,
   };
+  for (let q = 0; q < NQ; q++) { S.wheel.push(new Float32Array(256 * 3)); S.base.push(new Float32Array(256 * 3)); }
   params.s = S;
 }
 
