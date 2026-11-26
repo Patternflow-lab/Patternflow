@@ -384,5 +384,10 @@
   "cycloidlineae": { "label": "사이클로이드 균열", "color": "#9fc3d9" },
   "wildfire": { "label": "들불 전선", "color": "#e5732f" },
   "windfarm": { "label": "풍력 후류", "color": "#b9a3d6" },
-  "ioplume": { "label": "이오 우산 기둥", "color": "#d8d13c" }
+  "ioplume": { "label": "이오 우산 기둥", "color": "#d8d13c" },
+  "hotspot": { "label": "열점 섬 사슬", "color": "#2fb7a3" },
+  "meltpond": { "label": "융빙 연못", "color": "#5fa8d3" },
+  "rabi": { "label": "라비 진동", "color": "#b48cff" },
+  "mitonet": { "label": "미토콘드리아 망", "color": "#9cff3c" },
+  "remnant": { "label": "초신성 잔해", "color": "#e0457b" }
 }
