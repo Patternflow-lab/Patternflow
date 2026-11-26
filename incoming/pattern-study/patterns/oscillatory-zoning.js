@@ -70,7 +70,7 @@ function smax(a, b, k) {
 
 // ---- the ring of growth levels. A level is l = ln of the size of the crystal; entry i holds what was grown at l = i DL.
 const N = 2048, MASK = N - 1, DL = 0.004, IDL = 1 / DL;
-const CHS = 16; // channels: 4 oscillations, slow walk, sector gain, event, rust, seconds per level, growth speed, a spare, fast walk, and the first two oscillations again for the pyramid sectors
+const CHS = 18; // channels: 4 oscillations, slow walk, sector gain, event, rust, seconds per level, growth speed, the prism sectors' left-right difference, fast walk, the first two oscillations again for the pyramid sectors, the two pyramid differences
 const SHS = 11; // face tables: 10 inverse face distances, 1 inverse elongation
 const NF = 10;
 
@@ -83,6 +83,7 @@ const GB = [1, 1, 1.217, 1.217, 1.217, 1.217, 1.269, 1.269, 1.269, 1.269];
 const TIPY = 1.269 / S2; // the tip of the crystal in units of the prism face, before the stretch
 const EL0 = 1.7;
 const SEC_OFF = [-0.4, 0.08, 0.42];
+const ASC = [10, 10, 16, 16, 16, 16, 17, 17, 17, 17]; // which difference channel each face reads
 const OSA = [0, 12, 13], OSB = [1, 14, 15]; // channels of the first two oscillations by face type
 const PS1 = [0, 0.2, 0.42], PS2 = [0, 0.3, 0.6]; // the bands of the pyramid sectors lag those of the prism sectors
 const MT = [
@@ -94,7 +95,7 @@ const MT = [
 // ---- the rhythms of the chemistry: cycles per unit of level, period in seconds of the melt's own rhythm, amplitude
 const AK = [2.2, 2.8, 1.5, 5.0];
 const IT = [1 / 14, 1 / 10, 1 / 40, 1 / 9];
-const AMP = [1.4, 0.85, 0.7, 0.3];
+const AMP = [1.4, 0.85, 0.9, 0.3];
 
 // ---- the colour ramp, from black resin to sulphur: value, r, g, b
 const STOPS = [
@@ -157,7 +158,7 @@ function makeState() {
     // dissolution, and the epochs it leaves
     diss: null, pend: null, eps: [{ ls: -1e9, c0: 0.04, il: 0 }], sinceT: 0, gapT: 1.6 + Math.random() * 1.2,
     // the random processes along the level
-    rwA: 0, rwB: 0, scv: 0, amv: [0, 0, 0, 0], phn: [0, 0, 0, 0], wf: new Float64Array(NF),
+    rwA: 0, rwB: 0, scv: 0, asy: [0, 0, 0], amv: [0, 0, 0, 0], phn: [0, 0, 0, 0], wf: new Float64Array(NF),
     PH0: [0, 1, 2, 3].map(() => Math.random() * TWO_PI),
     JS: new Float64Array(NF), NX: new Float64Array(NF), NY: new Float64Array(NF), OFFF: new Float64Array(NF),
     GM: new Float64Array(NF),
@@ -170,6 +171,8 @@ function makeState() {
     S.NX[f] = cos(a); S.NY[f] = sin(a);
     S.OFFF[f] = SEC_OFF[FTY[f]] + (Math.random() - 0.5) * 0.24;
   }
+  S.ASG = new Float64Array(NF);
+  for (let f = 0; f < NF; f++) S.ASG[f] = FTY[f] === 0 ? (S.NX[f] > 0 ? 1 : -1) : FTY[f] === 1 ? (S.NY[f] > 0 ? 1 : -1) : S.NX[f] > 0 ? 1 : -1;
   S.nextEv = S.lrim + 0.3;
   buildRamp(S, 0);
   return S;
@@ -184,9 +187,10 @@ function fillEntry(S, i, l, t) {
   const ch = S.ch, sh = S.sh;
   const o = (i & MASK) * CHS, p = (i & MASK) * SHS;
   const g = (L, s) => s * sqrt((2 * DL) / L) * randn();
-  S.rwA = S.rwA * (1 - DL / 0.7) + g(0.7, 0.26);
+  S.rwA = S.rwA * (1 - DL / 0.7) + g(0.7, 0.32);
   S.rwB = S.rwB * (1 - DL / 0.22) + g(0.22, 0.2);
-  S.scv = S.scv * (1 - DL / 0.9) + g(0.9, 0.6);
+  S.scv = S.scv * (1 - DL / 0.5) + g(0.5, 0.7);
+  for (let k = 0; k < 3; k++) S.asy[k] = S.asy[k] * (1 - DL / 0.5) + g(0.5, 0.5);
   for (let k = 0; k < 4; k++) {
     S.amv[k] = S.amv[k] * (1 - DL / 0.9) + g(0.9, 1);
     S.phn[k] = S.phn[k] * (1 - DL / 0.5) + g(0.5, 1.3);
@@ -230,7 +234,10 @@ function fillEntry(S, i, l, t) {
   ch[o + 3] = AMP[3] * am(3) * sin(TWO_PI * (AK[3] * l + t * IT[3]) + S.PH0[3] + S.phn[3]);
   ch[o + 4] = S.rwA;
   ch[o + 11] = S.rwB;
-  ch[o + 5] = cl(1.1 + 0.5 * S.scv, 0.45, 1.9);
+  ch[o + 10] = S.asy[0];
+  ch[o + 16] = S.asy[1];
+  ch[o + 17] = S.asy[2];
+  ch[o + 5] = cl(1.1 + 0.55 * S.scv, 0.3, 2.0);
   ch[o + 6] = ev;
   ch[o + 7] = cl(ru, 0, 1);
   ch[o + 8] = S.kap;
@@ -324,7 +331,7 @@ function render(S, kn) {
   if (abs(kn[0] - S.hueAt) > 0.002) buildRamp(S, kn[0]);
   const s4 = max(0, 1.1 + 1.3 * (kn[3] - 0.06));
   const Sc = S.scam, iSc = 1 / Sc, lcam = S.lcam, lrim = S.lrim;
-  const NX = S.NX, NY = S.NY, OFFF = S.OFFF, GM = S.GM;
+  const NX = S.NX, NY = S.NY, OFFF = S.OFFF, GM = S.GM, ASG = S.ASG;
   const eps = S.eps, nEp = eps.length, pend = S.pend;
   // the faces at the rim
   const so0 = (S.iprev & MASK) * SHS;
@@ -410,13 +417,13 @@ function render(S, kn) {
       const sg = s4 * ch[io + 5];
       const ta = FTY[fa];
       let m = MT[ta];
-      let C = common + m[0] * ch[io + OSA[ta]] * q0 + m[1] * ch[io + OSB[ta]] * q1 + m[2] * o2 + m[3] * oo3 + sg * OFFF[fa];
+      let C = common + m[0] * ch[io + OSA[ta]] * q0 + m[1] * ch[io + OSB[ta]] * q1 + m[2] * o2 + m[3] * oo3 + sg * (OFFF[fa] + 0.6 * ASG[fa] * ch[io + ASC[fa]]);
       const wb = 0.03 * a;
       const dd = a - b;
       if (dd < wb && b > -1e8) {
         const tb = FTY[fb];
         m = MT[tb];
-        const C2b = common + m[0] * ch[io + OSA[tb]] * q0 + m[1] * ch[io + OSB[tb]] * q1 + m[2] * o2 + m[3] * oo3 + sg * OFFF[fb];
+        const C2b = common + m[0] * ch[io + OSA[tb]] * q0 + m[1] * ch[io + OSB[tb]] * q1 + m[2] * o2 + m[3] * oo3 + sg * (OFFF[fb] + 0.6 * ASG[fb] * ch[io + ASC[fb]]);
         const wt = 0.5 + 0.5 * (dd / wb);
         C = C2b + (C - C2b) * wt;
       }
