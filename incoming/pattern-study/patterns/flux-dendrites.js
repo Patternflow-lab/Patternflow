@@ -27,7 +27,7 @@
 // For antiflux L = 0.11 (0.15 + 0.85 exp(b / 0.15)). A rim peaks at the edge (b times 1 + 1.3 exp(-s / 4), the way flux piles up at
 // a thin film's edge), and a granularity of the film (a sixth either way, static) and a slow mottle (30 percent over 10 LED and 4 LED,
 // a new draw every 12 s, faded from one to the next) work on the glow. Outside the film b = 0.18 Ba (1 + 2.2 exp(s / 2.2)) from the edge.
-// The critical state. The field the garnet sees at the edge is Ba, applied, and inside the film flux is held at a slope no steeper than
+// The critical state. The field the garnet sees at the edge is Ba, the applied one. Inside the film flux is held at a slope no steeper than
 // g per LED from the distance s to the edge: Ba - g s <= b <= Ba + g s. Each step b is clamped between those two and keeps what the
 // clamp leaves alone. Field up pushes flux in and the front moves in at 1 / g LED a unit of field; field down takes flux out near the
 // edge only and what lies deeper stays trapped; field through zero lets antiflux in under a ramp that crosses zero where the trapped flux
