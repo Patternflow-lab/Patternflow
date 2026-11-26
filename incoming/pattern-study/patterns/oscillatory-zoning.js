@@ -1,20 +1,51 @@
 // ===== Patternflow pattern =====
 // Title:   Oscillatory Zoning
 // Family:  zoning
-// Idea:    A polished crystal seen by cathodoluminescence in an electron microscope, a long prism with pointed ends standing on black resin, its nested growth shells glowing indigo, cobalt, violet and teal with a pale sulphur edge, cut into bright and dim wedges along lines from the centre to the corners, while growth comes in bursts and stalls, the older shells shrink to fine texture inward, and now and then the rim is eaten back, its corners rounded, and regrowth follows the new outline.
+// Idea:    A crystal of zircon seen by cathodoluminescence, its long prism faces at the panel's sides and its pyramid ends running off the top and bottom, nested growth shells glowing indigo, violet, cobalt and teal with thin pale sulphur lines, cut into bright and dim wedges along lines from the centre to the corners, while growth comes in bursts and stalls, older shells shrink inward to fine texture, and now and then the rim is eaten back, its corners rounded, and regrowth follows the new outline.
 // Author:  patternflow-lab
 // Date:    2026-11-26
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: growth zoning of zircon, quartz and plagioclase as cathodoluminescence images it (the technique of the electron microscope with a CL detector, 1960s to 1980s, from memory); oscillatory zoning as a self-organised feedback between crystal growth and diffusion in the melt's boundary layer (Ortoleva and co-workers, L'Heureux, around 1990 to 1993, from memory); sector zoning, where each kind of crystal face takes up trace elements by its own rule, the hourglass of pyroxene and the prism and pyramid sectors of zircon (Hollister and Dowty, 1960s to 1970s, from memory); resorption surfaces, where the melt dissolves the rim, rounds the corners and growth resumes on the new outline (Pearce and Kolisnik, 1990, from memory); original code, pattern round 261
+// Lineage: growth zoning of zircon, quartz and plagioclase as an electron microscope with a cathodoluminescence detector shows it (zircon zonation patterns in CL and backscattered images, Hanchar and Miller, 1993, from memory); oscillatory zoning as a feedback between crystal growth and diffusion in the melt's boundary layer (Allegre, Provost and Jaupart, 1981, from memory; Ortoleva and co-workers, L'Heureux, around 1990 to 1993, from memory); sector zoning, where each kind of crystal face takes up trace elements by its own rule, the hourglass of augite and the prism and pyramid sectors of zircon (Hollister, around 1970, from memory); resorption surfaces, where the melt dissolves the rim, rounds the corners and growth resumes on the new outline (Pearce and Kolisnik, 1990, from memory); the polygon shells come from inverting each face's own advance, a pixel's birth time being the latest of the times its faces reach it; original code, pattern round 261
 // Round:   261
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0..4, Habit=-1..2, Sectors=-1..1
 //
-// Knob 1: Hue. (written below)
-// Knob 2: Growth. (written below)
-// Knob 3: Habit. (written below)
-// Knob 4: Sectors. (written below)
+// Knob 1: Hue. Turns every colour round the wheel once over the knob's travel. At 0 the ramp runs black resin, deep indigo, violet, cobalt, teal and pale sulphur, with a rare rust-brown band; at 0.25 it is rose and lilac with a pale cream, at 0.5 olive and amber, at 0.75 green and moss.
+// Knob 2: Growth. How fast the crystal grows and how bursty it is. The size grows by 2.2 percent a second at 0, 4.4 at 2 where it opens, 6.6 at 4, so the shells move inward at about 0.7, 1.4 and 2.1 LEDs a second at the rim. Stalls (3 to 9 s) and bursts (2 to 5 s) come about every 110 and 80 s at 0, every 55 and 40 s at 2, every 37 and 27 s at 4, so the high end is also the busiest. A burst is up to 3.5 times the base rate, a stall as low as 0.12 times.
+// Knob 3: Habit. How long the crystal is along its axis, 1.7 times the stretch factor exp(K3 / 2): 1.03 at -1, 1.7 at 0 where it opens, 4.6 at 2. At 0 the prism faces stand at the panel's sides, the pyramid ends run off the top and bottom, and the steep faces cross the panel's corners. At -1 the crystal is squat and zoomed in, six-sided shells with a blunt roof, and at 2 it is a needle whose pyramids are far off the panel, so the shells are straight vertical bands that bend only at the very ends. A turn changes the shells grown from then on; the older ones keep their shape.
+// Knob 4: Sectors. How strongly each kind of face marks the chemistry it grows, from none at -1 to 1.1 times at the opening 0.06 and 2.3 times at 1. At the top the prism sectors left and right go dark and the pyramid sectors above and below stay bright, an hourglass from the centre to the corners; the bands of the three kinds of sector also lag one another by 0 to 0.4 of a cycle, so a band kinks where it crosses a sector line.
+
+// What the picture is. A polished section along the axis of a crystal as a cathodoluminescence image shows it. A growing crystal records the changing chemistry of its melt in
+// nested shells, so the picture is the history of one growth: the outside is the newest layer, the centre the speck it began from. Nothing is simulated cell by cell; each pixel asks
+// when the crystal reached it, and what the melt was like then.
+//   Shape      ten faces: two prism faces (normals +-x), four pyramid faces next to them (normals 26 degrees from x, in a frame stretched along the axis by e) and four steeper ones
+//              (67 degrees). The crystal at growth time t is the set of points inside every face's advancing line; face f stands at distance e^l G_f(l) from the centre, l being ln of
+//              the crystal's size and G_f a slow random walk along l (5 percent) times a fixed 3.5 percent scatter, so no two faces grow alike and the two halves are never mirrors.
+//   Birth      a pixel's level l is the size at which the crystal first covered it: the largest over faces of (distance along the face normal) / (the face's G at that level), found
+//              in two passes (a rough level from the mirror-symmetric shape at the rim, then the ten faces' G at that level). The face that gives the largest value is the pixel's sector.
+//              Where two faces nearly tie, the two sectors blend over 3 percent of the level so the sector lines are not stair-stepped.
+//   History    the ring: 2048 entries, 0.004 of a level each, 8.2 levels. When growth passes a level an entry is written once with everything the melt was doing then, so a pixel only
+//              reads it. The first update grows the crystal from a speck, 7.3 levels, about 170 s of growth, so the picture opens full of shells.
+//   Camera     the camera keeps the rim in frame, 0.7 s late; shells therefore move inward and compress as e^-(l_rim - l), and the pattern is scale-free in the way the real zoning is
+//              (bands near the rim 3 to 8 LEDs, old bands shrinking toward a fine core). A band whose period falls under 5.5 LEDs fades to its mean, fully gone under 3, so the core is smooth
+//              instead of sampled noise. The prism faces sit at x = +-31 LEDs; a squat crystal is zoomed in so its tips stay at the panel's edge.
+//   Chemistry  C(l, sector) is written into the ring as a sum of four rhythms plus a slow walk, thin events and sector terms. The rhythms run in l and in time: at the passing level the
+//              phase advances by (cycles per level) l + (cycles per second) t, with 2.6 / 3.2 / 1.5 / 5.5 cycles per level and one cycle per 30 / 20 / 50 / 14 s. So a stalled growth, with much
+//              time at one level, lays down thin laminae and a burst lays down thick bands, the way diffusion-limited zoning does. The first rhythm is a sawtooth, sharp on the front, slow to
+//              fade. Each has its own amplitude that wanders between 0.55 and 1.75 (a zone is rich or quiet), a phase that wanders by a radian or so, and none repeats: the four periods
+//              have no common measure and the random walks do not return. The sector terms add -0.4, 0.1 and 0.42 (prism, near pyramid, steep pyramid) times K4, and give the first two rhythms
+//              a lag per sector type. The thin events are a bright line, a dim band, and about one in eight a rust band, one every 1.5 levels or so, scattered in l.
+//   Resorption after 2.4 to 4.8 levels of growth the rim is eaten back for 3.6 to 6.2 s: its level falls by 0.07 to 0.17 (7 to 17 percent of the size, the picture zooms in), and the corner
+//              between two faces is rounded by a smooth maximum of the top two faces' values, k = 0.5 to 0.95 of the value. Then growth resumes: the shells begin on the rounded outline
+//              and the rounding relaxes with an e-fold of 0.09 to 0.17 in level, so the next shells grow back toward the sharp polygon. The truncation surface is real: a pixel is first tested
+//              against the newest outline, and if it lies inside the rounded one it keeps its old shell, so the old bands are cut off at the corners and the new ones begin there. A bright
+//              line and a dim band mark the surface, and the rim glows brighter while it is eaten. Up to six outlines are kept.
+//   Growth     the rate of the log-size is the base times a log-normal wander (time constant 5 s), a slow drift (150 s), stalls and bursts; the base is 0.022 + 0.011 K2 a second.
+//   Colour     C is brought to zero mean and unit spread by a running mean and spread taken over the lit pixels with a 25 frame memory, so the picture keeps the same range however the
+//              chemistry wanders; then a smoothstep from -1.6 to 2.6 spreads it over the ramp. The rim carries a bright edge. The ramp's colours are pulled in 28 percent toward grey,
+//              because the panel raises saturation 1.62 times. Pixels at the outline are covered by their distance from it, with a faint halo of 0.12 outside.
+// The pattern's cost is two passes over the lit pixels, ten multiply-adds per face, about 2 ms a frame.
 
 const W = 64, H = 128, NP = W * H;
 const { sin, cos, sqrt, exp, log, abs, floor, max, min, PI } = Math;
@@ -61,8 +92,8 @@ const MT = [
 ];
 
 // ---- the rhythms of the chemistry: cycles per unit of level, period in seconds of the melt's own rhythm, amplitude
-const AK = [2.6, 3.2, 1.5, 5.5];
-const IT = [1 / 30, 1 / 20, 1 / 50, 1 / 14];
+const AK = [2.2, 2.8, 1.5, 5.0];
+const IT = [1 / 14, 1 / 10, 1 / 40, 1 / 9];
 const AMP = [1.4, 0.85, 0.7, 0.3];
 
 // ---- the colour ramp, from black resin to sulphur: value, r, g, b
@@ -181,12 +212,12 @@ function fillEntry(S, i, l, t) {
       if (e.kind === 2) { ru += e.a * gg; ev -= 0.9 * gg; } else ev += e.a * gg;
     }
   }
-  const am = (k) => 0.55 + 1.2 * sst(-1.0, 1.2, S.amv[k]);
+  const am = (k) => 0.85 + 0.9 * sst(-1.0, 1.2, S.amv[k]);
   const psi0 = TWO_PI * (AK[0] * l + t * IT[0]) + S.PH0[0] + S.phn[0];
   const saw = (ps) => {
     const q = psi0 / TWO_PI + ps;
     const fr = q - floor(q);
-    return AMP[0] * 0.9 * am(0) * (3 * sst(0, 0.1, fr) * Math.pow(1 - fr, 1.5) - 1.2);
+    return AMP[0] * 0.9 * am(0) * (3.4 * sst(0, 0.25, fr) * Math.pow(1 - fr, 1.5) - 0.97);
   };
   const psi1 = TWO_PI * (AK[1] * l + t * IT[1]) + S.PH0[1] + S.phn[1];
   ch[o] = saw(0);
@@ -218,7 +249,7 @@ function step(S, h, kn) {
   const base = 0.022 + 0.011 * K2;
   const sx = 0.26 + 0.09 * K2;
   S.xr += (-S.xr * h) / 5 + sx * sqrt((2 * h) / 5) * randn();
-  S.wr += (-S.wr * h) / 150 + 0.3 * sqrt((2 * h) / 150) * randn();
+  S.wr += (-S.wr * h) / 150 + 0.2 * sqrt((2 * h) / 150) * randn();
   let fac = exp(S.xr + S.wr);
   const pe = 0.5 + 0.25 * K2;
   if (!S.stall && Math.random() < (h * pe) / 55) S.stall = { t0: S.t, dur: 3 + 6 * Math.random(), d: 0.6 + 0.2 * Math.random() };
@@ -244,7 +275,7 @@ function step(S, h, kn) {
       S.pend = null;
       S.diss = null;
       S.eps.push({ ls: S.lrim, c0: D.c0, il: 1 / D.lam });
-      if (S.eps.length > 6) { S.eps.shift(); S.eps[0].ls = -1e9; }
+      if (S.eps.length > 6) { S.eps.shift(); S.eps[0].ls = -1e9; S.eps[0].c0 = 0.04; }
       S.evs = S.evs.filter((q) => q.l < S.lrim - 0.05);
       S.evs.push({ l: S.lrim + 0.04, w: 0.04, a: 1.7, kind: 0 }, { l: S.lrim + 0.12, w: 0.055, a: -1.2, kind: 1 });
       S.nextEv = S.lrim + 0.55 + 0.8 * Math.random();
@@ -370,10 +401,10 @@ function render(S, kn) {
       // chemistry
       const r = Sc * Rf;
       const kap = ch[io + 8];
-      const q0 = sst(2.0, 4.0, r / (AK[0] + kap * IT[0]));
-      const q1 = sst(2.0, 4.0, r / (AK[1] + kap * IT[1]));
-      const q2 = sst(2.0, 4.0, r / (AK[2] + kap * IT[2]));
-      const q3 = sst(2.0, 4.0, r / (AK[3] + kap * IT[3]));
+      const q0 = sst(3.0, 5.5, r / (AK[0] + kap * IT[0]));
+      const q1 = sst(3.0, 5.5, r / (AK[1] + kap * IT[1]));
+      const q2 = sst(3.0, 5.5, r / (AK[2] + kap * IT[2]));
+      const q3 = sst(3.0, 5.5, r / (AK[3] + kap * IT[3]));
       const o2 = ch[io + 2] * q2, oo3 = ch[io + 3] * q3;
       const common = ch[io + 4] + ch[io + 11] * sst(2.4, 5, r * 0.5) + ch[io + 6] * sst(6, 16, r) + 0.12 * ch[io + 9];
       const sg = s4 * ch[io + 5];
@@ -391,7 +422,7 @@ function render(S, kn) {
       }
       const Ce = C + (0.8 + rimBoost) * exp((lv - lrim) * 14);
       if (cov1) { sumC += Ce; sumC2 += Ce * Ce; nC++; }
-      const vv = sst(-1.6, 2.6, (Ce - cm) * ics);
+      const vv = sst(-1.35, 2.3, (Ce - cm) * ics);
       const ri = ((vv * 255) | 0) * 3;
       let cr = rA[ri], cg = rA[ri + 1], cb = rA[ri + 2];
       const rs = ch[io + 7];
