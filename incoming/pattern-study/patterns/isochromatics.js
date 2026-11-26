@@ -80,29 +80,48 @@ const cumAt = (c) => {
 };
 
 // ---- the pins
-const IRW2 = 1 / (30 * 30), DK = 0.9, KAPPA = 0.3, G_START = 525, G_END = 1150;
+const IRW2 = 1 / (30 * 30), GLOW = 0.55, DK = 0.9, KAPPA = 0.3, G_START = 525, G_END = 1150;
 const NBG = 3, BG_AMP = 55; // the frozen-in stress of the plate: three slow plane waves, up to 165 nm in all
-const NP = 6;
+const LOAD_LOW = 0.55; // the load at K2 = 0 as a share of the opening's
+const NP = 7;
 const EDGE_LEN = [H, H, W, W]; // left, right, top, bottom
 const MARGIN = 9; // a pin keeps this far from a corner
 
+// where pin k stands at time t, written to PX and PY (the roam, rho, is the knob's)
+let PX = 0, PY = 0, PNX = 0, PNY = 0;
+function pinAt(p, t, rho) {
+  const L = EDGE_LEN[p.edge], Lr = L - 2 * MARGIN;
+  const raw0 = (Lr * acos(1 - 2 * p.uf)) / PI;
+  const raw = raw0 + rho * p.amp * (0.62 * sin(p.v1 * t + p.q1) + 0.38 * sin(p.v2 * t + p.q2));
+  const u = MARGIN + Lr * (0.5 - 0.5 * cos((PI * raw) / Lr));
+  PNX = 0; PNY = 0;
+  if (p.edge === 0) { PX = 0; PY = u; PNX = 1; }
+  else if (p.edge === 1) { PX = W; PY = u; PNX = -1; }
+  else if (p.edge === 2) { PX = u; PY = 0; PNY = 1; }
+  else { PX = u; PY = H; PNY = -1; }
+}
+const slotsOn = (k3) => 4.8 + 1.8 * cl(k3, -1, 1);
+
+// A pin lands where it is farthest from the others: of 14 tries on the four edges, the one whose nearest neighbour is most distant.
 function landPin(S, k) {
-  const p = S.pins[k];
-  const cnt = [0, 0, 0, 0];
-  for (let j = 0; j < NP; j++) if (j !== k && S.pins[j].E > 0.05) cnt[S.pins[j].edge] += EDGE_LEN[S.pins[j].edge] > 100 ? 1 : 1.4;
-  let best = 1e9, e = 0;
-  for (let i = 0; i < 4; i++) {
-    const v = cnt[i] + 0.8 * Math.random() + (i === p.edge ? 0.9 : 0);
-    if (v < best) { best = v; e = i; }
+  const p = S.pins[k], con = S.pins[k], rho = 1 + 0.8 * cl(S.kn[2], -1, 1), nOn = Math.ceil(slotsOn(S.kn[2]));
+  let best = -1, be = 0, bu = 0.5;
+  for (let c = 0; c < 14; c++) {
+    const r = Math.random(), e = r < 0.33 ? 0 : r < 0.66 ? 1 : r < 0.83 ? 2 : 3, uf = 0.1 + 0.8 * Math.random();
+    con.edge = e; con.uf = uf; con.amp = 0;
+    pinAt(con, S.t, rho);
+    const cx = PX, cy = PY;
+    let d = 70;
+    for (let j = 0; j < NP; j++) {
+      const o = S.pins[j];
+      if (j === k || o.E < 0.05 || j >= nOn) continue;
+      pinAt(o, S.t, rho);
+      d = min(d, sqrt((cx - PX) * (cx - PX) + (cy - PY) * (cy - PY)));
+    }
+    const score = d + 8 * Math.random();
+    if (score > best) { best = score; be = e; bu = uf; }
   }
-  let uf = 0.15 + 0.7 * Math.random();
-  for (let tries = 0; tries < 8; tries++) {
-    let ok = true;
-    for (let j = 0; j < NP; j++) if (j !== k && S.pins[j].E > 0.05 && S.pins[j].edge === e && abs(S.pins[j].uf - uf) * EDGE_LEN[e] < 20) ok = false;
-    if (ok) break;
-    uf = 0.15 + 0.7 * Math.random();
-  }
-  p.edge = e; p.uf = uf;
+  p.edge = be; p.uf = bu;
   p.life = 24 + 44 * Math.random();
   p.age = 0; p.fall = false; p.fa = 0;
   p.base = 0.75 + 0.5 * Math.random();
@@ -112,6 +131,7 @@ function landPin(S, k) {
   p.v2 = TAU / (83 + 96 * Math.random()); p.q2 = TAU * Math.random();
   p.amp = 10 + 7 * Math.random();
   p.wait = 0;
+  p.E = 0;
 }
 
 function makeState() {
@@ -119,7 +139,7 @@ function makeState() {
     ready: false, t: 0, kn: [0, 2, 0, 0.06],
     pins: [], px: new Float64Array(NP), py: new Float64Array(NP), nx: new Float64Array(NP), ny: new Float64Array(NP),
     q: new Float64Array(NP), a2: new Float64Array(NP), np: 0,
-    G: new Float32Array(NC), M: new Float32Array(NC),
+    G: new Float32Array(NC), X: new Float32Array(NC),
     bg: [], bgc: new Float64Array(NBG * 2 * PW), bgr: new Float64Array(NBG * 2 * PH),
   };
   for (let j = 0; j < NBG; j++) {
@@ -127,16 +147,12 @@ function makeState() {
     S.bg.push({ kx: (TAU * cos(a)) / lam, ky: (TAU * sin(a)) / lam, w: TAU / per, p: TAU * Math.random() });
   }
   for (let k = 0; k < NP; k++) {
-    S.pins.push({ edge: k % 4, uf: 0.5, E: 1, life: 30, age: 0, base: 1, w1: 1, p1: 0, w2: 1, p2: 0, v1: 1, q1: 0, v2: 1, q2: 0, amp: 12, wait: 0, fall: false, fa: 0 });
+    S.pins.push({ edge: k % 4, uf: 0.5, E: 0, life: 30, age: 0, base: 1, w1: 1, p1: 0, w2: 1, p2: 0, v1: 1, q1: 0, v2: 1, q2: 0, amp: 12, wait: 0, fall: false, fa: 0 });
   }
-  const order = [0, 1, 2, 3, 0, 1];
   for (let k = 0; k < NP; k++) {
-    const p = S.pins[k];
     landPin(S, k);
-    p.E = 0.9; // counted as down for the others while they choose, so set an edge by hand after
-    p.edge = order[k];
-    p.uf = [0.3, 0.62, 0.45, 0.62, 0.78, 0.84][k] + 0.06 * (Math.random() - 0.5);
-    p.age = Math.random() * 25;
+    S.pins[k].E = 1;
+    S.pins[k].age = 25 * Math.random(); // the pins are at different points of their lives
   }
   return S;
 }
@@ -175,27 +191,19 @@ function stepPins(S, dt) {
 
 // the pins as the field wants them: place, inward normal, strength and contact radius
 function layPins(S, kn) {
-  const lfac = exp((cl(kn[1], 0, 4) - 2) * 0.42);
+  const k2 = cl(kn[1], 0, 4), lfac = k2 < 2 ? pow(LOAD_LOW, (2 - k2) / 2) : exp((k2 - 2) * 0.42);
   const k3 = cl(kn[2], -1, 1);
-  const npins = 4.5 + 1.5 * k3, rho = 1 + 0.8 * k3;
+  const npins = slotsOn(k3), rho = 1 + 0.8 * k3;
   const t = S.t;
   let n = 0;
   for (let k = 0; k < NP; k++) {
     const p = S.pins[k];
     const wk = cl(npins - k, 0, 1) * p.E;
     if (wk < 0.01) continue;
-    const L = EDGE_LEN[p.edge], Lr = L - 2 * MARGIN;
-    const raw0 = (Lr * acos(1 - 2 * p.uf)) / PI;
-    const raw = raw0 + rho * p.amp * (0.62 * sin(p.v1 * t + p.q1) + 0.38 * sin(p.v2 * t + p.q2));
-    const u = MARGIN + Lr * (0.5 - 0.5 * cos((PI * raw) / Lr));
+    pinAt(p, t, rho);
     const pulse = 0.72 + 0.28 * (0.6 * sin(p.w1 * t + p.p1) + 0.4 * sin(p.w2 * t + p.p2));
     const P = wk * p.base * pulse * lfac;
-    let x = 0, y = 0, nx = 0, ny = 0;
-    if (p.edge === 0) { x = 0; y = u; nx = 1; }
-    else if (p.edge === 1) { x = W; y = u; nx = -1; }
-    else if (p.edge === 2) { x = u; y = 0; ny = 1; }
-    else { x = u; y = H; ny = -1; }
-    S.px[n] = x; S.py[n] = y; S.nx[n] = nx; S.ny[n] = ny;
+    S.px[n] = PX; S.py[n] = PY; S.nx[n] = PNX; S.ny[n] = PNY;
     S.q[n] = 26000 * P;
     const a = cl(3.0 * pow(P, 0.4), 2.4, 6.5);
     S.a2[n] = a * a;
@@ -227,7 +235,7 @@ export function draw(display, params) {
   const G0 = k1 < 0 ? G_START * (1 + 0.9 * k1) : G_START + (G_END - G_START) * k1;
   const m = pow(0.5 * (cl(kn[3], -1, 1) + 1), 0.6);
   const al = wobAngle(t), ca = cos(2 * al), sa = sin(2 * al);
-  const { G, M, np, px, py, nx, ny, q, a2, bg, bgc, bgr } = S;
+  const { G, X, np, px, py, nx, ny, q, a2, bg, bgc, bgr } = S;
   for (let j = 0; j < NBG; j++) {
     const b = bg[j];
     for (let x = 0; x < PW; x++) { const a = b.kx * (x - 0.5); bgc[(j * PW + x) * 2] = cos(a); bgc[(j * PW + x) * 2 + 1] = sin(a); }
@@ -239,9 +247,9 @@ export function draw(display, params) {
       const xx = x - 0.5;
       let zr = 0, zi = 0;
       for (let j = 0; j < NBG; j++) {
-        const cr = bgc[(j * PW + x) * 2], ci_ = bgc[(j * PW + x) * 2 + 1], rr = bgr[(j * PH + y) * 2], ri = bgr[(j * PH + y) * 2 + 1];
-        zr += cr * rr - ci_ * ri;
-        zi += cr * ri + ci_ * rr;
+        const cr = bgc[(j * PW + x) * 2], cim = bgc[(j * PW + x) * 2 + 1], rr = bgr[(j * PH + y) * 2], ri = bgr[(j * PH + y) * 2 + 1];
+        zr += cr * rr - cim * ri;
+        zi += cr * ri + cim * rr;
       }
       for (let k = 0; k < np; k++) {
         const wx = xx - px[k], wy = yy - py[k];
@@ -259,11 +267,10 @@ export function draw(display, params) {
       const s = 1 - KAPPA + (KAPPA * st * 1.2) / (abs(st) + 0.2);
       const i = y * PW + x;
       G[i] = G0 + D * s;
-      M[i] = m * iso * iso * (D / (D + 90));
+      X[i] = m * iso * iso * (D / (D + 90));
     }
   }
-  // ground colour
-  cumSet(G0); // not used for the ground: the raw table is read below
+  // the colour of the plate with no stress in it, read from the table itself
   const gi = min(NG - 2, (G0 / GSTEP) | 0), gf = G0 / GSTEP - gi;
   const c0r = CR[gi * 3] * (1 - gf) + CR[gi * 3 + 3] * gf, c0g = CR[gi * 3 + 1] * (1 - gf) + CR[gi * 3 + 4] * gf, c0b = CR[gi * 3 + 2] * (1 - gf) + CR[gi * 3 + 5] * gf;
   for (let y = 0; y < H; y++) {
@@ -275,8 +282,11 @@ export function draw(display, params) {
       const g = G[i];
       cumSet(g + h); const a0 = cumAt(0), a1 = cumAt(1), a2_ = cumAt(2);
       cumSet(g - h); const b0 = cumAt(0), b1 = cumAt(1), b2 = cumAt(2);
-      const inv = 1 / (2 * h), xm = M[i], mg = 1 - xm, dk = 1 - DK * xm;
-      const r = dk * (c0r + mg * ((a0 - b0) * inv - c0r)), gr = dk * (c0g + mg * ((a1 - b1) * inv - c0g)), bl = dk * (c0b + mg * ((a2_ - b2) * inv - c0b));
+      const inv = 1 / (2 * h), xm = X[i], mg = 1 - xm, dk = 1 - DK * xm;
+      // where the fringes are finer than the LEDs the average of the colours is what the eye gets, and it is lifted toward white: the contact glows
+      const wh = GLOW * sstep((h - 120) / 500);
+      let r = (c0r + mg * ((a0 - b0) * inv - c0r)) * dk, gr = (c0g + mg * ((a1 - b1) * inv - c0g)) * dk, bl = (c0b + mg * ((a2_ - b2) * inv - c0b)) * dk;
+      r += (1 - r) * wh; gr += (1 - gr) * wh; bl += (1 - bl) * wh;
       display.setPixel(x, y, ENC[(cl(r, 0, 1) * 4096) | 0], ENC[(cl(gr, 0, 1) * 4096) | 0], ENC[(cl(bl, 0, 1) * 4096) | 0]);
     }
   }
