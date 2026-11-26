@@ -61,10 +61,9 @@ function hsv(h, s, v, out) {
 const SZ_S = [0, 0.3, 0.6, 0.85, 1];
 const SZ_H = [0.77, 0.7, 0.615, 0.56, 0.525];
 const SZ_SAT = [0.8, 0.82, 0.8, 0.7, 0.5];
-// the haze is dim, and dim red-orange-yellow reads brown: pale it there, and give it a little more light
-function hazeColor(h, out) {
-  const c = h - floor(h), warm = c > 0.88 ? sst(0.88, 0.96, c) : 1 - sst(0.14, 0.24, c);
-  hsv(h, 0.7 - 0.28 * warm, 1 + 0.35 * warm, out);
+// the haze is dim, and dim red-orange-yellow reads brown, so it swings only between teal-blue and magenta as K1 turns, while the drops go all the way round
+function hazeColor(k1, out) {
+  hsv(0.72 + 0.14 * sin(TAU * k1), 0.72, 1, out);
 }
 function sizeColor(s, out) {
   let k = 0;
@@ -85,7 +84,7 @@ const TONE = new Float32Array(1025);
 for (let i = 0; i <= 1024; i++) TONE[i] = 255 * (1 - exp(-i / 256 * 1.25));
 
 function radiusOf(R) {
-  return 0.8 + 2.2 * pow(cl((R - R_ION) / (R_MAX - R_ION), 0, 1), 0.75);
+  return 0.9 + 2.1 * pow(cl((R - R_ION) / (R_MAX - R_ION), 0, 1), 0.75);
 }
 
 function makeState() {
@@ -103,7 +102,7 @@ function makeState() {
     iage: new Float32Array(NION), ilife: new Float32Array(NION), ibr: new Float32Array(NION),
     nr: 0, rx: new Float32Array(NRING), ry: new Float32Array(NRING), r0: new Float32Array(NRING), rage: new Float32Array(NRING),
     nl: 0, lx: new Float32Array(NLAND), lage: new Float32Array(NLAND), lbr: new Float32Array(NLAND),
-    jt: [0.1, 0.2, 0.3], jth: [1, 1, 1], jphase: [rr(0, TAU), rr(0, TAU), rr(0, TAU)], jy: [14, 12, 12], jx: [X0, X0, X0],
+    jt: [0.1, 0.2, 0.3], jth: [1, 1, 1], sgT: rr(3, 10), sgA: -1, sgLen: 1, sgSide: 1, jdraw: [1, 0, 0], jphase: [rr(0, TAU), rr(0, TAU), rr(0, TAU)], jy: [14, 12, 12], jx: [X0, X0, X0],
     mist: new Float32Array(MX * MY), mist2: new Float32Array(MX * MY),
     nz: new Float32Array(9 * 18 * 2), nzt: 0,
     buf: new Float32Array(NP * 3), tmp: [0, 0, 0],
@@ -150,7 +149,7 @@ function emit(S, k) {
   const f0 = cl(0.4 + 0.15 * V + rr(-0.2, 0.15), 0.3, 0.95);
   const q = sqrt(f0) * pow(R0, 1.5);
   const ang = (k === 0 ? 0 : (k === 1 ? -1 : 1) * (0.3 + 0.06 * V)) + S.ang * 0.2 * rr(-1, 1);
-  const sp = rr(32, 46) * (0.75 + 0.25 * V / 2);
+  const sp = rr(44, 62) * (0.75 + 0.25 * V / 2);
   const bx = S.jx[k], by = S.jy[k];
   const a3 = rr(0, TAU);
   const tr = (0.05 + 0.04 * V) * sp;
@@ -175,7 +174,18 @@ function step(S, dt) {
   const jlen = (10.5 - 1.6 * (V - 1)) * (1 + 0.14 * sin(TAU * 1.9 * t + 0.4) + 0.08 * S.pulse);
   const wob = 0.035 * sin(TAU * 0.71 * t) + 0.02 * sin(TAU * 1.13 * t + 1);
   const w2 = sst(2.45, 3.0, V), w3 = sst(2.85, 3.35, V);
-  const jw = [1 - 0.33 * w2 - 0.12 * w3, w2 * 0.62, w3 * 0.58];
+  // now and then the cone throws a second jet for a second or so and the flow surges
+  S.sgT -= dt;
+  let env = 0;
+  if (S.sgA < 0 && S.sgT <= 0) { S.sgA = 0; S.sgLen = rr(0.8, 1.7); S.sgSide = random() < 0.5 ? 1 : 2; S.sgT = rr(7, 21); }
+  if (S.sgA >= 0) {
+    S.sgA += dt;
+    if (S.sgA > S.sgLen) S.sgA = -1; else { const e = sin(PI * S.sgA / S.sgLen); env = e * e; }
+  }
+  const dw = [1, w2, w3];
+  dw[S.sgSide] = max(dw[S.sgSide], env * 0.9);
+  S.jdraw = dw;
+  const jw = [1 - 0.33 * w2 - 0.12 * w3 - 0.2 * env, max(w2 * 0.62, S.sgSide === 1 ? env * 0.5 : 0), max(w3 * 0.58, S.sgSide === 2 ? env * 0.5 : 0)];
   const jang = [wob, -(0.3 + 0.06 * V) + wob * 0.6, 0.3 + 0.06 * V + wob * 0.6];
   const ap = S.coneH;
   for (let k = 0; k < 3; k++) {
@@ -184,7 +194,7 @@ function step(S, dt) {
     if (jw[k] < 0.02) continue;
     // droplets leave at the breakup rhythm
     const burst = 1 + (1.15 * lowV) * S.pulse * 1.6;
-    const rate = 10.5 * pow(phi, 0.7) * jw[k] * max(0.04, burst) * (0.5 + 0.5 * (V / 2));
+    const rate = 12 * pow(phi, 0.7) * jw[k] * max(0.04, burst) * (0.5 + 0.5 * (V / 2));
     S.jt[k] += rate * dt;
     let guard = 0;
     while (S.jt[k] >= S.jth[k] && guard++ < 4) {
@@ -272,6 +282,7 @@ function step(S, dt) {
       nR *= pow(1 - mf, 1 / 3);
       S.q[i] = qi * (nR < 0.7 ? 0.42 : 1 - cf);
       if (nR > 1.2) addRing(S, nx, ny, radiusOf(nR));
+      S.mist[cl(floor(ny / 4), 0, MY - 1) * MX + cl(floor(nx / 4), 0, MX - 1)] += 0.5;
       S.flare[i] = 1;
       S.fis++;
       if (S.dbg) { const b = nR > 2 ? 0 : nR > 1.4 ? 1 : nR > 0.9 ? 2 : nR > 0.6 ? 3 : 4; S.dbg[b]++; S.dbgG[S.gen[i]]++; }
@@ -355,7 +366,7 @@ export function update(dt, input, params) {
   const mm = S.mist;
   for (let i = 0; i < S.n; i++) {
     const gx = cl(floor(S.x[i] / 4), 0, MX - 1), gy = cl(floor(S.y[i] / 4), 0, MY - 1);
-    mm[gy * MX + gx] += S.q[i] * 0.016 * d * 30;
+    mm[gy * MX + gx] += S.q[i] * 0.01 * d * 30;
   }
 }
 
@@ -399,7 +410,8 @@ export function draw(display, params) {
 
   // mist and corona
   {
-    hazeColor(hue(0.72), tmp);
+    const flick = 0.5 + 0.5 * sin(TAU * 0.23 * t + 2 * sin(TAU * 0.071 * t)) * sin(TAU * 0.37 * t + 1);
+    hazeColor(H0, tmp);
     const mr = tmp[0], mg = tmp[1], mb = tmp[2];
     const m = S.mist;
     for (let y = 0; y < H; y++) {
@@ -410,8 +422,10 @@ export function draw(display, params) {
         const mv = m[o] * (1 - fx) * (1 - fy) + m[o + 1] * fx * (1 - fy) + m[o + MX] * (1 - fx) * fy + m[o + MX + 1] * fx * fy;
         const dxx = x + 0.5 - X0, dyy = y + 0.5 - 4;
         const dist = sqrt(dxx * dxx + dyy * dyy);
-        const cor = 0.5 / (1 + (dist / 20) * (dist / 20)) * (0.5 + 0.9 * nzAt(S, atan2(dxx, dyy + 3) * 2.3 + 4.5, dist * 0.085 - t * 0.0, t * 0.55));
-        const v = mv + cor;
+        const nzv = nzAt(S, atan2(dxx, dyy + 3) * 2.3 + 4.5, dist * 0.085, t * 1.1);
+        const cor = 0.58 / (1 + (dist / 20) * (dist / 20)) * (0.45 + 0.95 * nzv) * (0.88 + 0.12 * flick);
+        const bot = 0.2 * exp(-(H - 0.5 - y) / 15) * (0.55 + 0.9 * nzAt(S, x / 6 + 2, y / 9, t * 0.5));
+        const v = mv + cor + bot;
         const o3 = (y * W + x) * 3;
         buf[o3] += mr * v; buf[o3 + 1] += mg * v; buf[o3 + 2] += mb * v;
       }
@@ -432,14 +446,14 @@ export function draw(display, params) {
     sat *= 1 - 0.75 * fl;
     if (fl > 0.02) h += (0.86 - c0[0]) * fl * 0.5;
     const zf = cl(0.5 - S.z[i] / 60, 0.1, 1), depth = 0.55 + 0.5 * zf;
-    const b = (0.4 + 0.85 * s + 0.5 * hot + 1.0 * fl) * depth * (0.72 + 0.56 * S.ph[i]);
+    const b = (0.52 + 0.8 * s + 0.5 * hot + 1.0 * fl) * depth * (0.72 + 0.56 * S.ph[i]);
     hsv(h, sat, b, tmp);
     const r = tmp[0], g = tmp[1], bb = tmp[2];
     addBlob(buf, S.x[i], S.y[i], sigma, r, g, bb);
     const spd = sqrt(S.vx[i] * S.vx[i] + S.vy[i] * S.vy[i]);
-    const nt = min(7, (spd / 5) | 0);
+    const nt = min(6, (spd / 7) | 0);
     for (let k = 1; k <= nt; k++) {
-      const a = 0.5 * pow(0.72, k - 1) * sst(0, 2, nt - k + 1), tk = 0.045 * k;
+      const a = 0.5 * pow(0.72, k - 1) * sst(0, 2, nt - k + 1), tk = 0.032 * k;
       addBlob(buf, S.x[i] - S.vx[i] * tk, S.y[i] - S.vy[i] * tk, sigma * (1 - 0.04 * k), r * a, g * a, bb * a);
     }
   }
@@ -499,7 +513,7 @@ export function draw(display, params) {
     hsv(hue(0.5), 0.3, 1, tmp);
     const cr = tmp[0], cg = tmp[1], cb = tmp[2];
     for (let y = 0; y < ap + 3; y++) {
-      const hw = max(0.55, 1.16 * (ap - y - 0.5));
+      const dd = max(0, ap - y - 0.5), hw = 0.55 + 1.16 * dd * (0.5 + 0.5 * dd / ap);
       const g = (0.16 + 0.84 * pow(cl((y + 0.5) / ap, 0, 1), 2.2)) * flick;
       for (let x = max(0, floor(X0 - hw - 3)); x < min(W, X0 + hw + 3); x++) {
         const dx = abs(x + 0.5 - X0);
@@ -511,8 +525,7 @@ export function draw(display, params) {
     }
     addBlob(buf, X0, ap + 0.2, 1.7, cr * 1.0 * flick, cg * 1.0 * flick, cb * 1.0 * flick);
     // jets
-    const w2 = sst(2.45, 3.0, V), w3 = sst(2.85, 3.35, V);
-    const wj = [1, w2, w3];
+    const wj = S.jdraw;
     for (let k = 0; k < 3; k++) {
       if (wj[k] < 0.03) continue;
       const bx = S.jx[k], by = S.jy[k];
