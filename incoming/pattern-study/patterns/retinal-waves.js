@@ -14,7 +14,7 @@
 // Knob 1: Hue. Turns the whole palette round the wheel, one turn for the knob's whole travel. At 0 a front is white-lime, the tissue behind it goes through lime, green and deep green to teal, and the oldest tissue is a deep teal-green (7, 70, 60); at 0.17 it is cyan, at 0.5 magenta, at 0.75 amber, and at 1 it is back to green.
 // Knob 2: Rate. How fast the sheet runs: the fronts and the starts together, 0.44 times the opening's pace at 0 and 2.3 times it at 4. At 2, where it opens, a front runs 3.6 LEDs a second in rested tissue and a wave starts every 2.4 s on average, with about four alive on the panel at a time. At 0 the front crawls at 1.3 and a wave starts every 10 s; at 4 the fronts run at 6.9 and there are two starts a second. Tissue recovers at the same pace at every setting, so a fast sheet is a crowded one.
 // Knob 3: Refractory. How long a fired patch stays deaf. At 0 it is deaf for 31 s on average, and any one wave draws a time between 19 and 52 s (the 10th and 90th percentile); at -1 it is 17 s and at 1 it is 56 s. A short refractory lets a wave run a long way: at -1 the domains are about 30 LEDs across, and one wave can take a third of the panel. At 1 the elders block every wave, the domains are 19 across and the sheet is a crowd of small ones.
-// Knob 4: Bias. The way waves prefer to run, down and to the right at 1 and up and to the left at -1, along the diagonal of the panel. At 0 every wave is a ring and starts anywhere. Away from 0 an upwind drift of up to 1.9 LEDs a second carries every front, so the front that runs with it goes at 5.5 and the front that runs against it at 1.7, and a start is 12 times as likely at the upstream end of the sheet as in the middle, so the domains lean into wedges along the diagonal.
+// Knob 4: Bias. The way waves prefer to run, down and to the right at 1 and up and to the left at -1, along the diagonal of the panel. At 0 every wave is a ring and starts anywhere. Away from 0 an upwind drift of up to 2.3 LEDs a second carries every front, so the front that runs with it goes at 5.9 and the front that runs against it at 1.3, and a start is 12 times as likely at the upstream end of the sheet as in the middle, so the domains lean into wedges along the diagonal.
 
 // What the picture is. A sheet of 64 x 128 cells, one for each LED, with two fast fields and one slow:
 //   u  the activator, 0 at rest and 1 firing:  du/dt = D lap(u) + u (1 - u) (u - theta) / tau_u   (Nagumo's bistable cubic, D = 5.5 LED^2/s, tau_u = 0.1 s)
@@ -58,7 +58,7 @@ const RHO = 1.1e-4; // starts a second for each LED^2 of rested tissue, at K2 = 
 const Q_FULL = 0.1, Q_NONE = 0.2; // a cell counts fully as a place to start for s under 0.1 and not at all over 0.2
 const IDLE_BOOST = 5, IDLE_ACT = 60; // a quiet sheet starts waves 1 + 5 times as fast, and the boost falls off as the sum of u over the sheet passes 60
 const SEED_R = 2.6, SEED_PEAK = 0.7; // a start is a disc of u at 0.7, lime and not white until the front it grows into is whole
-const BIAS_SHARP = 2.5, DRIFT = 1.9; // K4: the weighting of starts, and LEDs a second of upwind drift, at |K4| = 1
+const BIAS_SHARP = 2.5, DRIFT = 2.3; // K4: the weighting of starts, and LEDs a second of upwind drift, at |K4| = 1
 const DIR = [0.5, 0.866]; // the way K4 > 0 runs: right and mostly down
 const REACH = 72; // half the length of the panel along DIR, 32 x 0.5 + 64 x 0.866, so that x runs from -1 to 1
 const PREROLL = 40, PRE_NU = 1.3; // seconds of the sheet run before the first frame, and the fastest it runs the fronts in doing so
@@ -236,9 +236,9 @@ export function update(dt, input, params) {
 // ---- colour: freshness 1 is white-lime, 0 is the deep teal of tissue that has waited longest
 const RAMP = [
   [0.0, 7, 70, 60],
-  [0.3, 7, 92, 78],
-  [0.6, 9, 128, 76],
-  [0.85, 14, 160, 50],
+  [0.3, 7, 86, 72],
+  [0.6, 8, 108, 70],
+  [0.85, 12, 150, 48],
   [0.95, 40, 215, 60],
   [0.985, 140, 250, 60],
   [1.0, 225, 255, 150],
