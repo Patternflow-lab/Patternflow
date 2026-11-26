@@ -359,5 +359,10 @@
   "palynology": { "label": "꽃가루", "color": "#d6b0ff" },
   "ensemble": { "label": "앙상블 예보", "color": "#7fd6cf" },
   "powergrid": { "label": "전력망 연쇄 고장", "color": "#ffc23a" },
-  "cyclosis": { "label": "원형질 흐름", "color": "#5bd66a" }
+  "cyclosis": { "label": "원형질 흐름", "color": "#5bd66a" },
+  "stylolite": { "label": "스타일로라이트", "color": "#c4a574" },
+  "retinalwaves": { "label": "망막파", "color": "#7dff5a" },
+  "tyndall": { "label": "틴들 도형", "color": "#8fd8e8" },
+  "coorbital": { "label": "공궤도", "color": "#9a7bff" },
+  "sintering": { "label": "소결", "color": "#ff6a2b" }
 }
