@@ -11,10 +11,23 @@
 // @matrix 64x128
 // @knobs Hue=0..1, Growth=0..4, Frill=-1..1, Coil=-1..1
 //
-// Knob 1: Hue.
-// Knob 2: Growth.
-// Knob 3: Frill.
-// Knob 4: Coil.
+// Knob 1: Hue. The mineral that filled the chambers, one lap of five tints over the knob's travel: amber at 0 (dark amber at the wall, honey in the middle, pale gold at the heart of a chamber), honey yellow at 0.2, rose quartz at 0.4, olive pyrite at 0.6, blue-grey agate at 0.8 and amber again at 1. The septa, the rock and the thin-film tint of the pearl walls follow the knob, and every chamber sits up to 0.08 of the knob away from it, so no two neighbours are quite the same stone. The siphuncle stays a brass gold in every tint.
+// Knob 2: Growth. How often the animal seals a new chamber behind itself, and so how fast the whole shell slides along its spiral and shrinks. A chamber is sealed every 22 s at 0, every 6.2 s at the opening value 2 and every 1.7 s at 4. At the 88 LED radius of the open end that is the outer whorl moving 1.7 LEDs a second at 0, 6 at 2 and 21 at 4, and every whorl further in is slower. Spar grows into a new chamber from its walls at 2.1 LEDs per chamber of age, so at 4 the freshly sealed chambers stay dark and hollow for longer on the panel and at 0 they fill while you watch.
+// Knob 3: Frill. How folded the suture line is, the line where each septum meets the shell wall. At -1 the septa are plain bowed walls with a ripple of 1.5 LEDs, as in a nautilus. Near -0.5 the folds are the broad, regular zigzag of a goniatite. At 0, the opening value, the lobes are wide and rounded with teeth of 2 LEDs along their floors, a ceratite. At 1 a second wave of lobes has come in and the saddles carry frills of 3 LEDs with a finest frill of 1.7, an ammonite with leaf-edged sutures. The knob sets the mean: the folding drifts up and down by about 0.28 of the grade from whorl to whorl, so one shell shows two grades side by side, and for the first minutes the oldest whorls are the simplest, as they are in a real shell.
+// Knob 4: Coil. How fast the whorl widens, the ratio between one whorl and the one outside it, from 1.25 at -1 to 2.3 at 1 and 1.73 at the opening value. At -1 the shell is a tight coil: the outer whorl is only 17.6 LEDs high at the open end, about twenty lines of wall cross the middle of the panel from top to bottom and the inner ones melt into tone. At 1 it is an open, fast-growing shell: the outer whorl is 50 LEDs high, three whorls are readable, and rock takes 18 per cent of the panel, most of it along the foot. The outline of the shell never changes while it grows, so turning Coil bends the whole spiral and the septa slide along the new curve.
+
+// What the picture is. A shell that grows in a logarithmic spiral, r = r0 exp(b theta), with b = ln W / 2 pi for a whorl ratio W set by Coil. The camera is the shell: the open end stays where it is, at the foot of the panel, and the shell slides round its own spiral
+// and shrinks by W a turn, so the outline and everything fixed to the rock stay still while every septum, wall and chamber moves on the shell's own frame. That makes a state-free picture:
+// every pixel is mapped once to the shell's angle theta and to f, its place across the whorl from the outer wall (0) to the inner one (1), and the only thing that changes is how far the shell has grown, alpha, which
+// advances at the rate Growth sets. There is nothing to pre-roll: the shell is already seven turns old at the first frame, with the youngest chambers at the open end.
+// Chambers. A smooth chamber coordinate C(theta) puts septum k at C = k, with 12.8 to 17.2 chambers a turn drifting with age, so the spacing is never the same twice. Each septum is a copy of one fold,
+// moved by delta(f) chambers along the spiral: a nautiloid bow, one slow wave of lobes and saddles (a tanh of two cosines), teeth on the lobe floors, frills on the saddle tops and a finest ripple, each
+// with an amplitude from the folding grade c (Frill, plus a drift with the age of the shell, and a simpler start for the first turns). The distance to the nearest septum is the fraction of a chamber to its curve times the local chamber
+// length, scaled by the slope of the fold so that the dark septum is 2 LEDs wide whatever its angle. The septum is sealed only once the animal has moved BODY = 1.6 chambers past it; until then the body chamber is the rock itself, with a warm light on it.
+// Fill. A chamber's colour depends on its depth from the nearest wall or septum: dark amber at the wall, honey, then pale gold, with a fringe of pale crystals right at the wall and agate bands of 5 to 8 LEDs that wobble with noise tied to the shell. A new chamber is hollow and dark (the cavity colour),
+// and spar grows in from every wall at 2.1 LEDs a chamber of age until it meets in the middle; about one chamber in five keeps a vug, a 3 LED hollow that stays dark. Each chamber draws its own tint, brightness, band width and phase from a hash of its number.
+// Walls and siphuncle. The wall is pearl 2 to 3.6 LEDs wide with a sheen that slides round the shell and a thin-film tint that shifts with angle and time; the siphuncle is a brass tube with a dark outline, 1.8 to 3.2 LEDs of gold, that swells into a collar at each septum. Both thin out with the whorl, and below a whorl height of 6 LEDs or a chamber 3.6 LEDs long the picture goes to a flat warm tone, so the oldest whorls melt into the middle rather than breaking into dust.
+// Rock. A static grain 2.6 LEDs across and a mottle 11 across, a few pale shell fragments and a warm glow at the open end. A slow glint, 16 per cent brighter, drifts across the polished face along a diagonal.
 
 const W = 64, H = 128, NPX = W * H;
 const TAU = 6.283185307179586;
@@ -28,7 +41,7 @@ const sm = (a, b, v) => {
 // ---- the camera: the open end stays where it is, and the shell slides along its own spiral
 // centre of the coil, radius of the outer wall at the open end (LEDs), screen angle of the open end (y down), 1 if the shell grows clockwise
 const SHELLS = [
-  { cx: 40, cy: 60, rap: 90, ap: 2.09, sg: 1, seed: 0, speed: 1 },
+  { cx: 32, cy: 63, rap: 88, ap: 1.5708, sg: 1, seed: 0, speed: 1 },
 ];
 const BODY = 1.6; // the body chamber is this many chambers long
 
@@ -37,11 +50,11 @@ const N0 = 15 / TAU; // chambers a radian, on average
 const FILL_RATE = 2.1; // LEDs of spar a chamber lays down a chamber of age
 
 const WAYS = [
-  { ramp: [[0, 150, 70, 10], [0.2, 206, 108, 22], [0.45, 236, 152, 38], [0.7, 250, 192, 84], [0.9, 255, 222, 140], [1, 255, 236, 172]], cav: [88, 36, 8], pearl: [222, 206, 184], mat: [46, 36, 29], sep: [40, 16, 6], gold: [206, 150, 44] },
-  { ramp: [[0, 168, 92, 14], [0.2, 224, 140, 30], [0.45, 248, 184, 52], [0.7, 255, 214, 100], [0.9, 255, 234, 150], [1, 255, 244, 184]], cav: [96, 52, 10], pearl: [226, 212, 188], mat: [46, 38, 28], sep: [44, 24, 8], gold: [214, 164, 56] },
-  { ramp: [[0, 120, 36, 56], [0.2, 176, 70, 92], [0.45, 216, 110, 124], [0.7, 240, 158, 160], [0.9, 252, 202, 196], [1, 255, 226, 214]], cav: [70, 22, 38], pearl: [228, 208, 206], mat: [44, 32, 34], sep: [36, 12, 22], gold: [236, 182, 80] },
-  { ramp: [[0, 84, 74, 12], [0.2, 134, 118, 22], [0.45, 180, 164, 44], [0.7, 218, 204, 96], [0.9, 236, 228, 150], [1, 246, 240, 186]], cav: [50, 46, 10], pearl: [214, 210, 188], mat: [38, 38, 28], sep: [24, 22, 6], gold: [222, 200, 70] },
-  { ramp: [[0, 44, 60, 92], [0.2, 76, 104, 144], [0.45, 118, 148, 186], [0.7, 168, 194, 224], [0.9, 214, 228, 244], [1, 238, 245, 253]], cav: [22, 30, 52], pearl: [206, 214, 228], mat: [34, 38, 46], sep: [14, 18, 30], gold: [214, 186, 100] },
+  { ramp: [[0, 150, 70, 10], [0.2, 212, 112, 20], [0.45, 244, 164, 40], [0.7, 252, 202, 92], [0.9, 255, 228, 150], [1, 255, 240, 184]], cav: [88, 36, 8], pearl: [236, 222, 202], mat: [52, 40, 32], sep: [40, 16, 6], gold: [206, 150, 44] },
+  { ramp: [[0, 168, 92, 14], [0.2, 224, 140, 30], [0.45, 248, 184, 52], [0.7, 255, 214, 100], [0.9, 255, 234, 150], [1, 255, 244, 184]], cav: [96, 52, 10], pearl: [238, 226, 204], mat: [52, 42, 32], sep: [44, 24, 8], gold: [214, 164, 56] },
+  { ramp: [[0, 120, 36, 56], [0.2, 176, 70, 92], [0.45, 216, 110, 124], [0.7, 240, 158, 160], [0.9, 252, 202, 196], [1, 255, 226, 214]], cav: [70, 22, 38], pearl: [238, 220, 216], mat: [50, 38, 38], sep: [36, 12, 22], gold: [236, 182, 80] },
+  { ramp: [[0, 84, 74, 12], [0.2, 134, 118, 22], [0.45, 180, 164, 44], [0.7, 218, 204, 96], [0.9, 236, 228, 150], [1, 246, 240, 186]], cav: [50, 46, 10], pearl: [226, 224, 200], mat: [44, 44, 32], sep: [24, 22, 6], gold: [222, 200, 70] },
+  { ramp: [[0, 44, 60, 92], [0.2, 76, 104, 144], [0.45, 118, 148, 186], [0.7, 168, 194, 224], [0.9, 214, 228, 244], [1, 238, 245, 253]], cav: [22, 30, 52], pearl: [218, 226, 240], mat: [38, 44, 54], sep: [14, 18, 30], gold: [214, 186, 100] },
 ];
 const desat = (c, k) => {
   const y = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
@@ -50,7 +63,7 @@ const desat = (c, k) => {
 const NZX = 128, NZY = 64; // a tile of value noise for the crystal texture, wrapped in both ways
 const NH = 100, NT = 64;
 for (const w of WAYS) {
-  w.ramp = w.ramp.map((r) => [r[0], ...desat([r[1], r[2], r[3]], 0.84)]);
+  w.ramp = w.ramp.map((r) => [r[0], ...desat([r[1], r[2], r[3]], 0.88)]);
   w.cav = desat(w.cav, 0.9);
   w.gold = desat(w.gold, 0.8);
 } // hue positions round the five ways, and steps of depth in the colour table
@@ -138,8 +151,8 @@ function makeState() {
     for (let x = 0; x < W; x++) {
       // the rock: a mottle 10 LEDs across, a grain 2.5 across, and a few paler clasts
       const m1 = vnoise(x / 11, y / 11, 3), m2 = vnoise(x / 2.6, y / 2.6, 5), m3 = vnoise(x / 5, y / 5, 9);
-      let t = 0.78 + 0.34 * (m1 - 0.5) + 0.3 * (m2 - 0.5);
-      if (m3 > 0.82) t += (m3 - 0.82) * 2.4;
+      let t = 1.05 + 0.5 * (m1 - 0.5) + 0.34 * (m2 - 0.5);
+      if (m3 > 0.8) t += (m3 - 0.8) * 2.6;
       S.mt[y * W + x] = t;
     }
   }
@@ -152,14 +165,15 @@ function makeState() {
         an -= TAU * floor(an / TAU);
         if (an > a1 - a0) continue;
         const e = cl(wd * 0.5 + 0.5 - abs(d - rad), 0, 1);
-        if (e > 0) S.mt[y * W + x] += k * e;
+        if (e > 0) S.mt[y * W + x] += k * e * 1.3;
       }
     }
   };
-  clast(14, 110, 12, 3.3, 1.5, 2.4, 0.9);
-  clast(46, 118, 9, 0.2, 2.0, 2.2, 0.8);
-  clast(52, 104, 6, 4.0, 2.6, 2.2, 0.7);
-  clast(24, 122, 5, 0.0, 6.3, 2.2, 0.5);
+  clast(10, 126, 13, 4.9, 6.1, 2.3, 0.8);
+  clast(52, 124, 11, 3.5, 4.7, 2.2, 0.7);
+  clast(58, 112, 7, 0.4, 1.5, 2.2, 0.6);
+  clast(36, 134, 9, 4.4, 5.4, 2.2, 0.6);
+  clast(4, 114, 6, 5.7, 7.2, 2.2, 0.55);
   // the colour table: for each position round the five ways and each depth into a chamber
   for (let h = 0; h < NH; h++) {
     const p = (h / NH) * WAYS.length, i0 = floor(p) % WAYS.length, i1 = (i0 + 1) % WAYS.length, u = p - floor(p);
@@ -212,7 +226,7 @@ function rebuild(A, b) {
     A.dIn[i] = r * (1 - rb);
     A.rWall[i] = rw;
     A.hh[i] = rw * (1 - exp(-e2));
-    A.hw[i] = cl(0.016 * rw + 0.55, 1, 1.5);
+    A.hw[i] = cl(0.1 * A.hh[i], 1, 1.8);
     A.s0[i] = -sin(PI * f);
     A.s0d[i] = -PI * cos(PI * f);
     const a1 = TAU * N1 * f + P1, b1 = TAU * M1 * f + Q1, ca = cos(a1), cb2 = cos(b1);
@@ -243,8 +257,8 @@ function params4(kn) {
   const g = cl(kn[1], 0, 4);
   const fr = cl(kn[2], -1, 1);
   const co = cl(kn[3], -1, 1);
-  const lnW = log(1.25) + (log(2.8) - log(1.25)) * pow((co + 1) / 2, 1.4);
-  return { hue: k1, kappa: 0.07 * pow(10, g / 4), c0: (fr + 1) / 2, b: lnW / TAU };
+  const lnW = log(1.25) + (log(2.3) - log(1.25)) * ((co + 1) / 2);
+  return { hue: k1, kappa: 0.045 * pow(10, g / 3.6), c0: 0.12 + 0.44 * (fr + 1), b: lnW / TAU };
 }
 
 export function update(dt, input, params) {
@@ -275,7 +289,7 @@ function shade(S, A, j, P, pal, cform) {
   const Cth = N0 * Th + 0.9 * sin(p1) + 0.6 * sin(p2);
   const Cp = N0 + 0.279 * cos(p1) + 0.0762 * cos(p2);
   const lloc = r / Cp, hh = A.hh[j];
-  const res = min(sm(4, 7.5, lloc), sm(3, 6.5, hh));
+  const res = min(sm(3.6, 6.8, lloc), sm(2.8, 5.8, hh));
   if (res <= 0) {
     const dk = 0.55 + 0.45 * sm(0, 16, r), wk = max(cl(A.hw[j] + 0.5 - A.dOut[j], 0, 1), cl(A.hw[j] + 0.5 - A.dIn[j], 0, 1)) * 0.3 * sm(2.5, 5.5, hh);
     col[0] = pal.tone[0] * dk + (pal.pearl[0] * 0.8 - pal.tone[0] * dk) * wk;
@@ -284,7 +298,7 @@ function shade(S, A, j, P, pal, cform) {
     return 1;
   }
   const e2 = TAU * P.b, amp = S.amp, cb = A.cb, ck = A.ckey, lut = S.lut;
-  const cd = 0.17 * sin(0.37 * Th + 1.3) + 0.11 * sin(0.21 * Th + 4) - 0.3 * exp(-Th / 17);
+  const cd = 0.17 * sin(0.37 * Th + 1.3) + 0.11 * sin(0.21 * Th + 4) - 0.45 * exp(-Th / 30);
   const ai = ((cl(P.c0 + cd, 0, 1) * 63) | 0) * 6, wb = amp[ai + 5];
   const dC = amp[ai] * A.s0[j] + amp[ai + 1] * (A.s1[j] + (A.s5[j] - A.s1[j]) * wb) + amp[ai + 2] * A.s2[j] + amp[ai + 3] * A.s3[j] + amp[ai + 4] * A.s4[j];
   const dD = amp[ai] * A.s0d[j] + amp[ai + 1] * (A.s1d[j] + (A.s5d[j] - A.s1d[j]) * wb) + amp[ai + 2] * A.s2d[j] + amp[ai + 3] * A.s3d[j] + amp[ai + 4] * A.s4d[j];
@@ -292,12 +306,13 @@ function shade(S, A, j, P, pal, cform) {
   const gR = dD / e2, gT = Cp - dD / TAU;
   const ratio = cl(Cp / sqrt(gR * gR + gT * gT), 0.3, 1);
   const bSep = min(q, 1 - q) * lloc, dPerp = bSep * ratio;
-  const hw = A.hw[j], dOut = A.dOut[j], dIn = A.dIn[j];
+  const hw = A.hw[j] * (0.5 + 0.5 * sm(-0.35, -0.02, thS)), dOut = A.dOut[j], dIn = A.dIn[j];
   const ci2 = kk & 127, o = ci2 * 6, sd = A.def.seed * 17;
   if (ck[ci2] !== kk) {
     ck[ci2] = kk;
-    cb[o] = (ih(kk, 1 + sd) - 0.5) * 0.16; // hue shift
-    cb[o + 1] = 0.82 + 0.3 * ih(kk, 2 + sd); // brightness
+    const tk = kk / N0; // about the shell angle of this chamber: a slow swell in tint and brightness that no two whorls share
+    cb[o] = (ih(kk, 1 + sd) - 0.5) * 0.14 + 0.04 * sin(0.7 * tk + 1.1); // hue shift
+    cb[o + 1] = (0.8 + 0.32 * ih(kk, 2 + sd)) * (1 + 0.07 * sin(0.46 * tk + 2.3)); // brightness
     cb[o + 2] = 5 + 3 * ih(kk, 3 + sd); // band width
     cb[o + 3] = ih(kk, 4 + sd); // band phase
     cb[o + 4] = ih(kk, 5 + sd) < 0.18 ? 3 : 60; // fill to depth: a few chambers keep a vug
@@ -317,7 +332,7 @@ function shade(S, A, j, P, pal, cform) {
   let hp = (P.hue + cb[o]) % 1;
   if (hp < 0) hp += 1;
   const hi = ((hp * NH) | 0) % NH, la = (hi * NT + t0i) * 3, lb = (hi * NT + t1i) * 3;
-  const bri = cb[o + 1] * (1 + (nzv - 0.5) * 0.18);
+  const bri = cb[o + 1] * (1 + (nzv - 0.5) * 0.18) * (0.92 + 0.16 * q) * (0.72 + 0.28 * sm(-32, -2, thS));
   let fr = (lut[la] + (lut[lb] - lut[la]) * tf) * bri, fg = (lut[la + 1] + (lut[lb + 1] - lut[la + 1]) * tf) * bri, fb = (lut[la + 2] + (lut[lb + 2] - lut[la + 2]) * tf) * bri;
   const fillD = min(cb[o + 4], max(0, age - 0.2) * FILL_RATE);
   const cav = sm(fillD - 0.7, fillD + 0.7, dd);
@@ -333,15 +348,15 @@ function shade(S, A, j, P, pal, cform) {
   const sc = cl(1.5 - dPerp, 0, 1) * sf;
   R += (pal.sep[0] - R) * sc; G += (pal.sep[1] - G) * sc; B += (pal.sep[2] - B) * sc;
   // the siphuncle: a gold tube with a dark outline, swelling into a collar at every septum
-  const th2 = cl(0.05 * A.rWall[j], 1, 1.6), sipC = hw + 1.6 + th2;
+  const th2 = cl(0.06 * hh, 0.9, 1.6), ow = 1 + 0.4 * sm(14, 22, hh), sipC = hw + ow + 0.2 + th2, sipK = sm(8.5, 13, hh);
   const neck = 1 + 0.4 * exp(-(dPerp * dPerp) / 4.8);
   const dsip = abs(dOut - sipC), tw = th2 * neck;
-  const sipOut = cl(tw + 1.4 - dsip, 0, 1) * sealed;
+  const sipOut = cl(tw + ow - dsip, 0, 1) * sealed * sipK;
   if (sipOut > 0) {
     R += (pal.sep[0] * 1.4 - R) * sipOut; G += (pal.sep[1] * 1.4 - G) * sipOut; B += (pal.sep[2] * 1.4 - B) * sipOut;
-    const sipIn = cl(tw + 0.4 - dsip, 0, 1) * sealed;
+    const sipIn = cl(tw + 0.4 - dsip, 0, 1) * sealed * sipK;
     if (sipIn > 0) {
-      const tt2 = dsip / tw, sdn = (dOut - sipC) / tw, shade2 = 0.66 + 0.3 * (1 - tt2 * tt2) + 0.2 * exp(-((sdn + 0.4) * (sdn + 0.4)) / 0.1);
+      const tt2 = dsip / tw, sdn = (dOut - sipC) / tw, shade2 = 0.7 + 0.32 * (1 - tt2 * tt2) + 0.2 * exp(-((sdn + 0.4) * (sdn + 0.4)) / 0.1);
       R += (pal.gold[0] * shade2 - R) * sipIn; G += (pal.gold[1] * shade2 - G) * sipIn; B += (pal.gold[2] * shade2 - B) * sipIn;
     }
   }
@@ -349,8 +364,8 @@ function shade(S, A, j, P, pal, cform) {
   const wc = max(cl(hw + 0.5 - dOut, 0, 1), cl(hw + 0.5 - dIn, 0, 1));
   if (wc > 0) {
     const ps = A.psi0[j], sheen = 0.5 + 0.5 * cos(2 * (ps - P.light)), ia = 2.2 * ps - 0.2 * S.clk;
-    const k = (0.7 + 0.3 * sheen) * (1 + 0.35 * exp(thS / 0.6));
-    const pr = pal.pearl[0] * k + 16 * sheen * cos(ia), pg = pal.pearl[1] * k + 16 * sheen * cos(ia + 2.1), pb = pal.pearl[2] * k + 16 * sheen * cos(ia + 4.2);
+    const k = (0.82 + 0.22 * sheen) * (1 + 0.3 * exp(thS / 0.6));
+    const pr = pal.pearl[0] * k + 22 * sheen * cos(ia), pg = pal.pearl[1] * k + 22 * sheen * cos(ia + 2.1), pb = pal.pearl[2] * k + 22 * sheen * cos(ia + 4.2);
     R += (pr - R) * wc; G += (pg - G) * wc; B += (pb - B) * wc;
   }
   if (res < 1) {
@@ -370,8 +385,9 @@ export function draw(display, params) {
   wayColor(P.hue, "pearl", pal.pearl);
   wayColor(P.hue, "sep", pal.sep);
   wayColor(P.hue, "gold", pal.gold);
+  const th0 = ((P.hue * NH) | 0) % NH, tl = (th0 * NT + 14) * 3;
   for (let c = 0; c < 3; c++) {
-    pal.tone[c] = pal.cav[c] * 1.35;
+    pal.tone[c] = S.lut[tl + c] * 0.78;
     pal.glow[c] = pal.cav[c] * 0.9;
   }
   const { cr, cg, cbl, own, mt, col } = S;
@@ -402,7 +418,7 @@ export function draw(display, params) {
   }
   const gp = 40 + 50 * sin(0.043 * S.clk + 0.8) + 20 * sin(0.011 * S.clk);
   for (let i = 0; i < NPX; i++) {
-    const x = i % W, y = (i / W) | 0, u = (x * 0.55 + y * 0.83 - gp) / 16, g = 1 + (own[i] ? 0.1 : 0.03) * exp(-u * u);
+    const x = i % W, y = (i / W) | 0, u = (x * 0.55 + y * 0.83 - gp) / 20, vx = (x - 31.5) / 32, vy = (y - 63.5) / 64, g = (1 + (own[i] ? 0.16 : 0.04) * exp(-u * u)) * (1 - 0.14 * (vx * vx + vy * vy) * 0.7);
     display.setPixel(x, y, cl(cr[i] * g, 0, 255) | 0, cl(cg[i] * g, 0, 255) | 0, cl(cbl[i] * g, 0, 255) | 0);
   }
 }
