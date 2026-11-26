@@ -354,5 +354,10 @@
   "colorimetry": { "label": "색도", "color": "#19e8ff" },
   "gravitywell": { "label": "중력 우물", "color": "#16d964" },
   "distillation": { "label": "증류", "color": "#ff8c19" },
-  "adaptation": { "label": "순응", "color": "#e8ff19" }
+  "adaptation": { "label": "순응", "color": "#e8ff19" },
+  "stylolite": { "label": "스타일로라이트", "color": "#c4a574" },
+  "retinalwaves": { "label": "망막파", "color": "#7dff5a" },
+  "tyndall": { "label": "틴들 도형", "color": "#8fd8e8" },
+  "coorbital": { "label": "공궤도", "color": "#9a7bff" },
+  "sintering": { "label": "소결", "color": "#ff6a2b" }
 }
