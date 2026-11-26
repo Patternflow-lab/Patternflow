@@ -618,6 +618,7 @@ export function draw(display, params) {
         const q = -(sx * SUN[0] + sy * SUN[1]), cr = -(sx * SUN[1]) + sy * SUN[0];
         const lv = cl(es[i] / 0.28, 0, 1.2);
         let sh = 0.46 + 0.62 * q + 6 * (e[i] - es[i]) + 0.17 * lv;
+        if (sh < 0.26) sh = 0.26 - 0.4 * (0.26 - sh); // the troughs stay water and do not go to black
         sh = cl(sh, 0, 1);
         const n = (sh * 255) | 0;
         let r = lut[n * 3], g = lut[n * 3 + 1], bl = lut[n * 3 + 2];
