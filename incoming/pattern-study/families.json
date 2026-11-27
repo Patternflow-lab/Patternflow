@@ -409,5 +409,10 @@
   "scanprobe": { "label": "주사 탐침 영상", "color": "#b8a64f" },
   "ionosphere": { "label": "극광 타원", "color": "#379e78" },
   "intertidal": { "label": "갯바위 군집", "color": "#4d8a9e" },
-  "woundhealing": { "label": "상처 닫힘", "color": "#a32999" }
+  "woundhealing": { "label": "상처 닫힘", "color": "#a32999" },
+  "erosion": { "label": "침식 단면", "color": "#fdac0d" },
+  "gc": { "label": "쓰레기 수거", "color": "#158ae0" },
+  "nilas": { "label": "해빙 손가락", "color": "#0cadde" },
+  "attachment": { "label": "선호 연결", "color": "#cb2870" },
+  "ferroxyl": { "label": "방울 부식", "color": "#e725e1" }
 }
