@@ -376,7 +376,7 @@ function step(S, dt, every) {
       if (j > 0) { ph[k - NX] += dp; Nn[k - NX] += dN; }
     }
 
-  // the hand that pours has slow moods: lulls and bursts, a random walk with a memory of 40 s
+  // the hand's slow moods: lulls and bursts
   S.t += dt;
   S.mood += (-S.mood * dt) / 40 + 0.15 * sqrt(dt) * (rnd() + rnd() + rnd() + rnd() - 2) * 1.73;
   S.mood = cl(S.mood, -2, 2);
@@ -496,6 +496,7 @@ export function update(dt, input, params) {
     S.ready = true;
     for (let k = 0; k < NC; k++) S.c[k] = S.Q;
     // twelve pours of different ages and places, so plumes stand at several heights; then the hand takes over
+    rnd(); rnd(); rnd();
     const T = PRE_N * PRE_DT, ages = [0.8, 2, 3.5, 5, 7, 9, 11.5, 14, 17, 20, 23, 27], at = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     for (let q = at.length - 1; q > 0; q--) { const z = floor(rnd() * (q + 1)), tmp = at[q]; at[q] = at[z]; at[z] = tmp; }
     ages.forEach((age, q) => {
