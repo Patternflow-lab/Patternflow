@@ -5,16 +5,34 @@
 // Author:  patternflow-lab
 // Date:    2026-11-27
 // SPDX-License-Identifier: CC-BY-SA-4.0
-// Lineage: the ouzo effect, spontaneous emulsification of a spirit's oil when water is added (Vitale and Katz, 2003, from memory); droplet nucleation, growth and Ostwald ripening in it (Sitnikova, Whyte, Lohse, Zhang and others, 2005, from memory); the louche of absinthe and pastis; Rayleigh scattering for the blue of small droplets. Original here: a 32 by 64 stream-function flow with a buoyancy term, constants tuned by eye, pattern round 266
+// Lineage: the ouzo effect, the milky cloud that spontaneously emulsified anise oil makes when water is added to a spirit (Vitale and Katz, 2003, from memory); droplet nucleation, growth and Ostwald ripening in it (Sitnikova, Sprik, Wegdam and Eiser, 2005; Lohse and Zhang on droplets out of equilibrium, from memory); the louche of absinthe and pastis; Rayleigh scattering for the blue of small droplets. Original here: a 40 by 80 stream-function flow with a buoyancy term, all constants in dimensionless units tuned by eye, pattern round 266
 // Round:   266
 // ===============================
 // @matrix 64x128
 // @knobs Hue=0..1, Pour=1..3, Anise=-1..1, Warmth=0..1
 //
-// Knob 1: Hue.
-// Knob 2: Pour.
-// Knob 3: Anise.
-// Knob 4: Warmth.
+// Knob 1: Hue. The colour of the spirit, with the poured water taking the colour 0.44 round the wheel from it. At 0, where it opens, the spirit is amber (255, 165, 10) and the water pale sky blue; at 0.25 the spirit is lime green and the water pale violet, at 0.5 cyan and pale pink, at 0.75 blue-violet and pale yellow, at 1 hot pink and pale green. The milk keeps its own blue and white and only carries a trace of the spirit where it is thin.
+// Knob 2: Pour. How much water the pipette brings and how hard gravity pulls it. A new pour starts every 2.1 s at 1, every 1.4 s at 2 where it opens and every 1.0 s at 3 (half to one and a half times that, and slow moods of the hand stretch or squeeze the gaps), each 0.6 to 1.9 s long and 3 to 6 LEDs wide. The spirit slides down the panel at 4 LEDs a second at 1 and 7 at 3, and the fastest flow in the glass averages 11 LEDs a second at 1, 14 at 2 and 17.5 at 3.
+// Knob 3: Anise. How much oil the spirit holds: 34 percent of what pure spirit could dissolve at -1, 57 at 0 where it opens and 86 at 1. Droplets are born where the water fraction passes 0.33, 0.25 and 0.19, so at -1 the water barely clouds anything and a thin pale haze stands only round the cores of the plumes, and at 1 the clouds bloom wide. Counted as the share of the panel that holds droplet oil, the clouds cover 17 percent of it at -1, 25 at 0 and 44 at 1.
+// Knob 4: Warmth. Ripening against nucleation. The mean volume of a droplet grows by 0.004 a second at 0, 0.005 at 0.06 where it opens and 0.22 at 1, which takes blue haze to white in about a minute at 0 and in a second or so at 1, and warm droplets are born at 0.45 of the cold rate in a solution that holds 15 percent more oil. Cream rises with the square of the droplet's size, at 0.8 LEDs a second for the size-1 droplet at 0 and 3.5 at 1, so at 1 a droplet bigger than about 1.3 climbs against the slide of the spirit, and at the opening the cream sinks with it.
+
+// What the picture is. The panel is a slice through a tall glass of spirit and nothing else: no rim, no bottle, no table. Water comes in at the top from a pipette at random places, a thread of pale blue that falls, rolls
+// up at its head into a ring and leaves hooks and curls behind it. Where the water has mixed into the spirit far enough the oil is past what it can hold, and a bright front runs out through the amber with milk
+// behind it: young haze is sky blue, older haze is white, the oldest is cream. Fresh spirit slides in from the top and the milk is let out over the bottom 40 LEDs, so there is always a front somewhere and the
+// glass does not end as one flat colour.
+// The model. Fields on a 40 by 80 grid, each cell 1.6 LED, drawn up to 64 by 128 with cubic filters. Water fraction w and dissolved oil c are carried by a flow that cannot compress: a stream function from the
+// vorticity, solved with a sine transform across the panel and a tridiagonal solve down it, free slip at the walls. Water is heavier than the spirit, and the sideways slope of the mixture's density w^1.5 makes
+// the vorticity, which is how a thread of water falls and rolls up. Oil is soluble up to exp(-6w) of what the spirit holds; the supersaturation S is the oil there is over that. Droplets are born where S is past
+// 1.3 plus the anise number, faster the further past it is, and they take oil from the solution at a rate that goes with their number and their size until S is 1. Where S falls under 1 they dissolve. They ripen
+// by Ostwald's rule: the mean droplet volume grows at one rate and the number falls to keep the oil. They cream upward with the square of their size. Light: the opacity of the oil in droplets goes with its
+// volume and with a size factor; the scattered colour for each channel is 1 - exp(-(x/lambda)^4) over x, which is Rayleigh blue for small droplets and white for large ones; the amber is transmitted through
+// the spirit by Beer-Lambert on its share of the cell, and the water has its own pale tint.
+// What is not exact. The units are dimensionless and every rate is tuned by eye, and the model's seconds run 1.35 to the panel's. The flow-through is invented: the top 5 LEDs are spirit, the spirit moves down at
+// the speed Pour sets, and over the bottom 40 LEDs the mix relaxes to fresh spirit with the square of the depth. A pour is a patch of pure water kept at its place for a second or two and pushed down, with a strength,
+// a width, a drift and a wobble of its own, and the hand's mood is a random walk that stretches and squeezes the gaps. The optics is one slab of fixed depth. The scattered light rises as 1 - e^(-2 tau) while the
+// transmitted amber falls as e^(-tau), which makes the bright edge at the front, and a faint glow where oil is condensing adds to it. The light from the upper left that gives the clouds some body is taken from the slope of the
+// droplet oil and is not physical. The flow is two dimensional and real mixing is not. Droplets do not move with their own diffusion, only with the grid's, which smears them a little.
+// Opening. The first update runs 40 s of model time before the first frame is drawn, so the glass opens with plumes of every age. The flow is stepped every other frame with the time of both.
 
 const W = 64, H = 128;
 const NX = 40, NY = 80, NC = NX * NY;
@@ -34,14 +52,16 @@ const SCRIT0 = 1.3; // the supersaturation at which droplets are born is this pl
 const JN = 90; // nuclei born per second at twice the critical supersaturation
 const VNUC = 0.0012; // volume of a new nucleus, x^3
 const GG = 5; // growth rate
-const DRAIN = Math.round(20 / R); // rows at the bottom where the milk is let out
+const DRAIN = Math.round(15 / R); // rows at the bottom where the milk is let out
 const VMAX = 8; // mean droplet volume at most
 const TEMPO = 1.35; // the model's seconds to the panel's
+const PRE_N = 200, PRE_DT = 0.2; // the opening: this many steps of this many model seconds before the first frame
 const JET = 6; // how hard a pipette's stream is pushed down
 // size parameter at which a droplet scatters a channel's wavelength like a wavelength-sized sphere
 const LAM = [0.66, 0.52, 0.42];
 const XLUT = 256, XLO = 0.1, XHI = 2.3;
-const KO = 8; // optical depth per unit of droplet oil
+const KO = 6; // optical depth per unit of droplet oil
+const SHADE = 3; // how much the slope of the cloud shades it
 
 function cr(t, o) {
   const t2 = t * t, t3 = t2 * t;
@@ -70,7 +90,7 @@ function build() {
   const S = {
     ready: false, t: 0, hue: 0, pour: 2, Q: 0.5, warm: 0.06, acc: 0, par: 0,
     w: f(), c: f(), Nn: f(), ph: f(), om: f(), nf: f(),
-    w2: f(), c2: f(), N2: f(), p2: f(), o2: f(), n2: f(),
+    w2: f(), c2: f(), N2: f(), p2: f(), o2: f(),
     rho: f(), psi: f(), uu: f(), vv: f(), px: f(),
     ix: new Int32Array(NC * 16), wt: new Float32Array(NC * 16),
     t1: new Float64Array(NC),
@@ -79,7 +99,7 @@ function build() {
     up: [0, 1, 2, 3].map(() => new Float32Array(W * H)), hz: [0, 1, 2, 3].map(() => new Float32Array(NY * W)),
     lutO: new Float32Array(XLUT + 1), lutC: [0, 1, 2].map(() => new Float32Array(XLUT + 1)),
     lutT: new Float32Array(129 * 3),
-    colx: [], rowx: [],
+    colI: new Int32Array(W * 4), colW: new Float32Array(W * 4), rowI: new Int32Array(H * 4), rowW: new Float32Array(H * 4),
   };
   // sine transform across the panel, and the tridiagonal solve down it for each mode
   const sc = sqrt(2 / (NX + 1));
@@ -112,16 +132,17 @@ function build() {
       S.lutC[ch][i] = cc * (1 - cream) + warmW * cream;
     }
   }
-  // the sampling positions of the 2x upsample
+  // where each LED samples the grid, and with what cubic weights
+  const o = [0, 0, 0, 0];
   for (let X = 0; X < W; X++) {
-    const g = (X + 0.5) / CELL - 0.5, i0 = floor(g), o = [0, 0, 0, 0];
+    const g = (X + 0.5) / CELL - 0.5, i0 = floor(g);
     cr(g - i0, o);
-    S.colx.push({ i0, o });
+    for (let a = 0; a < 4; a++) { S.colI[X * 4 + a] = cl(i0 - 1 + a, 0, NX - 1); S.colW[X * 4 + a] = o[a]; }
   }
   for (let Y = 0; Y < H; Y++) {
-    const g = (Y + 0.5) / CELL - 0.5, j0 = floor(g), o = [0, 0, 0, 0];
+    const g = (Y + 0.5) / CELL - 0.5, j0 = floor(g);
     cr(g - j0, o);
-    S.rowx.push({ j0, o });
+    for (let a = 0; a < 4; a++) { S.rowI[Y * 4 + a] = cl(j0 - 1 + a, 0, NY - 1) * W; S.rowW[Y * 4 + a] = o[a]; }
   }
   return S;
 }
@@ -238,7 +259,7 @@ function diffuse(src, dst, D) {
 function flow(S, dt) {
   const pour = S.pour;
   const g = (3 + 1.4 * pour) / R;
-  const vb = (0.9 + 0.6 * pour) / R;
+  const vb = (0.8 + 0.5 * pour) / R;
   velocity(S);
   stencil(S, dt, vb);
   advect(S, S.om, S.o2);
@@ -246,14 +267,12 @@ function flow(S, dt) {
   advect(S, S.c, S.c2);
   advect(S, S.Nn, S.N2);
   advect(S, S.ph, S.p2);
-  advect(S, S.nf, S.n2);
   let t;
   t = S.om; S.om = S.o2; S.o2 = t;
   t = S.w; S.w = S.w2; S.w2 = t;
   t = S.c; S.c = S.c2; S.c2 = t;
   t = S.Nn; S.Nn = S.N2; S.N2 = t;
   t = S.ph; S.ph = S.p2; S.p2 = t;
-  t = S.nf; S.nf = S.n2; S.n2 = t;
   const { om, w, rho } = S;
   const damp = exp(-0.25 * dt);
   for (let k = 0; k < NC; k++) {
@@ -420,21 +439,19 @@ function upsample(S) {
     px[k] = p > 1e-6 ? p * cbrt(p / max(S.Nn[k], p / VMAX)) : 0;
   }
   const src = [S.w, S.ph, px, S.nf];
+  const ci = S.colI, cw = S.colW, ri = S.rowI, rw = S.rowW;
   for (let f = 0; f < 4; f++) {
     const s = src[f], h = S.hz[f], u = S.up[f];
     for (let j = 0; j < NY; j++) {
       const jo = j * NX;
       for (let X = 0; X < W; X++) {
-        const { i0, o } = S.colx[X];
-        h[j * W + X] =
-          o[0] * s[jo + cl(i0 - 1, 0, NX - 1)] + o[1] * s[jo + cl(i0, 0, NX - 1)] +
-          o[2] * s[jo + cl(i0 + 1, 0, NX - 1)] + o[3] * s[jo + cl(i0 + 2, 0, NX - 1)];
+        const q = X * 4;
+        h[j * W + X] = cw[q] * s[jo + ci[q]] + cw[q + 1] * s[jo + ci[q + 1]] + cw[q + 2] * s[jo + ci[q + 2]] + cw[q + 3] * s[jo + ci[q + 3]];
       }
     }
     for (let Y = 0; Y < H; Y++) {
-      const { j0, o } = S.rowx[Y];
-      const r0 = cl(j0 - 1, 0, NY - 1) * W, r1 = cl(j0, 0, NY - 1) * W, r2 = cl(j0 + 1, 0, NY - 1) * W, r3 = cl(j0 + 2, 0, NY - 1) * W;
-      for (let X = 0; X < W; X++) u[Y * W + X] = o[0] * h[r0 + X] + o[1] * h[r1 + X] + o[2] * h[r2 + X] + o[3] * h[r3 + X];
+      const q = Y * 4, r0 = ri[q], r1 = ri[q + 1], r2 = ri[q + 2], r3 = ri[q + 3], w0 = rw[q], w1 = rw[q + 1], w2 = rw[q + 2], w3 = rw[q + 3];
+      for (let X = 0; X < W; X++) u[Y * W + X] = w0 * h[r0 + X] + w1 * h[r1 + X] + w2 * h[r2 + X] + w3 * h[r3 + X];
     }
   }
 }
@@ -445,14 +462,20 @@ export function setup(params) {
 
 export function update(dt, input, params) {
   if (!params.s) params.s = build();
-  const S = params.s;
+  let S = params.s;
+  // a state that has gone bad (a number that is not one) is thrown away and the glass starts again
+  if ((S.n = (S.n | 0) + 1) % 256 === 0) {
+    let sum = 0;
+    for (let k = 0; k < NC; k++) sum += S.om[k] + S.c[k] + S.ph[k];
+    if (!(Math.abs(sum) < 1e7)) S = params.s = build();
+  }
   dt = cl(dt, 0.001, 0.1) * TEMPO;
   knobs(S, input.knobValues);
   if (!S.ready) {
     S.ready = true;
     for (let k = 0; k < NC; k++) S.c[k] = S.Q;
     S.next = 0.1;
-    for (let n = 0; n < 260; n++) step(S, 0.2, true);
+    for (let n = 0; n < PRE_N; n++) step(S, PRE_DT, true);
   }
   step(S, dt, false);
 }
@@ -472,19 +495,30 @@ export function draw(display, params) {
       const w = uw[k] < 0 ? 0 : uw[k] > 1 ? 1 : uw[k];
       const ph = uph[k] > 0 ? uph[k] : 0;
       const tq = w * 128, t0 = tq | 0, tf = tq - t0, t3 = (t0 + (t0 < 128 ? 1 : 0)) * 3;
+      if (ph < 0.0015 && unf[k] < 0.01) {
+        const T0 = lutT[t0 * 3] * (1 - tf) + lutT[t3] * tf;
+        const T1 = lutT[t0 * 3 + 1] * (1 - tf) + lutT[t3 + 1] * tf;
+        const T2 = lutT[t0 * 3 + 2] * (1 - tf) + lutT[t3 + 2] * tf;
+        display.setPixel(X, Y, (T0 * 255) | 0, (T1 * 255) | 0, (T2 * 255) | 0);
+        continue;
+      }
       let x = upx[k] / (ph + 1e-4);
       x = x < XLO ? XLO : x > XHI ? XHI : x;
       const xq = (x - XLO) * xs, x0 = xq | 0, xf = xq - x0, x1 = x0 < XLUT ? x0 + 1 : x0;
       const e = exp(-KO * ph * (lutO[x0] * (1 - xf) + lutO[x1] * xf));
-      const a = 1 - e;
+      const a = 1 - e * e; // scattered light comes up faster than the transmitted amber goes out, so the front is a bright edge
       const fl = unf[k] > 1.5 ? 1.5 : unf[k] < 0 ? 0 : unf[k];
       const c0 = lc0[x0] * (1 - xf) + lc0[x1] * xf, c1 = lc1[x0] * (1 - xf) + lc1[x1] * xf, c2 = lc2[x0] * (1 - xf) + lc2[x1] * xf;
       const T0 = lutT[t0 * 3] * (1 - tf) + lutT[t3] * tf;
       const T1 = lutT[t0 * 3 + 1] * (1 - tf) + lutT[t3 + 1] * tf;
       const T2 = lutT[t0 * 3 + 2] * (1 - tf) + lutT[t3 + 2] * tf;
-      const r = T0 * e + c0 * (0.9 + 0.1 * T0) * a + fl * 0.5;
-      const g = T1 * e + c1 * (0.9 + 0.1 * T1) * a + fl * 0.8;
-      const b = T2 * e + c2 * (0.9 + 0.1 * T2) * a + fl;
+      // a little light from the upper left, taken from the slope of the droplet oil, gives the cloud some body
+      const ka = X > 1 && Y > 1 ? k - W - 1 : k, kb = X < W - 2 && Y < H - 2 ? k + W + 1 : k;
+      let sh = 1 + SHADE * (uph[ka] - uph[kb]);
+      sh = sh < 0.9 ? 0.9 : sh > 1.2 ? 1.2 : sh;
+      const r = T0 * e + c0 * (0.9 + 0.1 * T0) * a * sh + fl * 0.5;
+      const g = T1 * e + c1 * (0.9 + 0.1 * T1) * a * sh + fl * 0.8;
+      const b = T2 * e + c2 * (0.9 + 0.1 * T2) * a * sh + fl;
       display.setPixel(X, Y, r >= 1 ? 255 : (r * 255) | 0, g >= 1 ? 255 : (g * 255) | 0, b >= 1 ? 255 : (b * 255) | 0);
     }
 }
